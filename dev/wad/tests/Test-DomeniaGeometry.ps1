@@ -144,6 +144,20 @@ function Get-ClientRect {param($Window,[string]$Name)
 function Get-Geometry {param($Window,[string[]]$Names)
     return ,@($Names|ForEach-Object{Get-ClientRect $Window $_})
 }
+function Assert-OuNavigationLayout {param($Window)
+    $footer=Get-ClientRect $Window 'UxSearchOuRefresh'
+    foreach($name in @('BtnSearchRefreshBase','BtnSearchRefreshPostes','BtnSearchRefreshBoth','BtnSearchRefreshStop','LblSearchOuRefreshScope','LblSearchOuRefreshStatus')){
+        $r=Get-ClientRect $Window $name
+        Assert-True ($r.Visible -and $r.W -ge 20 -and $r.H -ge 10 -and $r.X -ge 0 -and $r.Y -ge 0 -and $r.X+$r.W -le $script:GeometrySurface.ActualWidth+0.5 -and $r.Y+$r.H -le $script:GeometrySurface.ActualHeight+0.5) ($name+' hors de la surface de recherche')
+        Assert-True ($r.X -ge $footer.X-0.5 -and $r.Y -ge $footer.Y-0.5 -and $r.X+$r.W -le $footer.X+$footer.W+0.5 -and $r.Y+$r.H -le $footer.Y+$footer.H+0.5) ($name+' deborde du panneau de mise a jour OU')
+    }
+    $tree=Get-ClientRect $Window 'TvDirectory'
+    Assert-True ($tree.Visible -and $tree.H -ge 80) ('Arbre OU trop petit : '+$tree.H+' ; panneau de mise a jour : '+$footer.H)
+    if($script:UxCompactLayoutActive){
+        Assert-True ($Window.FindName('UxSearchOuRefreshActions').ActualHeight -le 60.5) ('Commandes OU sur plus de deux rangees : '+$Window.FindName('UxSearchOuRefreshActions').ActualHeight)
+        Assert-True ($Window.FindName('BtnSearchRefreshPostes').Content -ceq 'Ping') 'Action postes compacte non explicite.'
+    }
+}
 function Assert-SameGeometry {param($Before,$After,[string]$Step)
     for($i=0;$i -lt $Before.Count;$i++){
         $a=$Before[$i];$b=$After[$i]
@@ -178,7 +192,7 @@ if($infrastructure){
                 $script:PresentationErrors.Clear()
                 $window=New-GeometryWindow -Theme $theme -Width $workW -Height $workH
                 $visibleW=[double]$script:GeometrySurface.ActualWidth;$visibleH=[double]$script:GeometrySurface.ActualHeight
-                $script:Observations.Add([pscustomobject]@{Configuration=$prefix;WorkArea=($workW.ToString()+'x'+$workH);Window=([string][Math]::Round($window.ActualWidth)+'x'+[Math]::Round($window.ActualHeight));ClientWidth=$visibleW;ClientHeight=$visibleH;ChromeWidth=$script:GeometryChromeWidth;ChromeHeight=$script:GeometryChromeHeight;ResultGridHeight=$window.FindName('DgObjects').ActualHeight;Detail='XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement.'})
+                $script:Observations.Add([pscustomobject]@{Configuration=$prefix;WorkArea=($workW.ToString()+'x'+$workH);Window=([string][Math]::Round($window.ActualWidth)+'x'+[Math]::Round($window.ActualHeight));ClientWidth=$visibleW;ClientHeight=$visibleH;ChromeWidth=$script:GeometryChromeWidth;ChromeHeight=$script:GeometryChromeHeight;ResultGridHeight=$window.FindName('DgObjects').ActualHeight;OuPanelHeight=$window.FindName('SearchOuPanel').ActualHeight;OuTreeHeight=$window.FindName('TvDirectory').ActualHeight;OuRefreshHeight=$window.FindName('UxSearchOuRefresh').ActualHeight;OuRefreshActionsHeight=$window.FindName('UxSearchOuRefreshActions').ActualHeight;Compact=$script:UxCompactLayoutActive;Detail='XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement.'})
                 Test-Case ($prefix+' : champs essentiels visibles et atteignables') {
                     Set-FakeActivity 1;Invoke-GeometryPump $window
                     foreach($name in @($essentials+'BtnCancelTask')){
@@ -192,12 +206,21 @@ if($infrastructure){
                     Assert-True ($script:PresentationErrors.Count -eq 0) ('Erreur de presentation : '+($script:PresentationErrors -join ' | '))
                 }
                 Test-Case ($prefix+' : commandes de donnees OU distinctes des filtres de resultats') {
-                    foreach($name in @('BtnSearchRefreshBase','BtnSearchRefreshPostes','BtnSearchRefreshBoth','BtnSearchRefreshStop','LblSearchOuRefreshScope')){
-                        $r=Get-ClientRect $window $name
-                        Assert-True ($r.Visible -and $r.W -ge 20 -and $r.H -ge 10 -and $r.X -ge 0 -and $r.Y -ge 0 -and $r.X+$r.W -le $script:GeometrySurface.ActualWidth+0.5 -and $r.Y+$r.H -le $script:GeometrySurface.ActualHeight+0.5) ($name+' hors de la surface de recherche')
-                    }
-                    Assert-True ($window.FindName('TvDirectory').ActualHeight -ge 80) 'Les commandes de mise a jour ont ecrase l arbre OU.'
+                    Assert-OuNavigationLayout $window
                     Assert-True ($window.FindName('BtnFleetDashboardRefresh').Content -ceq 'Recalculer la vue') 'Le recalcul local n est pas explicitement nomme.'
+                }
+                Test-Case ($prefix+' : une portee OU et un statut longs preservent arbre et commandes') {
+                    $scope=$window.FindName('LblSearchOuRefreshScope');$status=$window.FindName('LblSearchOuRefreshStatus')
+                    $oldScope=$scope.Text;$oldStatus=$status.Text
+                    try{
+                        $scope.Text='Actualisation : Service informatique / Direction territoriale / Postes de travail / Agence de demonstration. Les filtres de recherche restent inchanges.'
+                        $status.Text='Collecte des postes en cours : 1250 sur 5000 postes, 42 indisponibles. Les donnees deja enregistrees sont conservees ; la base locale reste disponible.'
+                        Invoke-GeometryPump $window
+                        $script:Observations.Add([pscustomobject]@{Configuration=($prefix+' textes OU longs');ClientWidth=$script:GeometrySurface.ActualWidth;ClientHeight=$script:GeometrySurface.ActualHeight;OuTreeHeight=$window.FindName('TvDirectory').ActualHeight;OuRefreshHeight=$window.FindName('UxSearchOuRefresh').ActualHeight;OuRefreshActionsHeight=$window.FindName('UxSearchOuRefreshActions').ActualHeight;Compact=$script:UxCompactLayoutActive})
+                        Assert-OuNavigationLayout $window
+                        Assert-True ($scope.Text.Length -gt 100 -and $status.Text.Length -gt 100) 'Le texte complet a ete perdu pendant la mise en page.'
+                        Assert-True ($script:PresentationErrors.Count -eq 0) ('Erreur de presentation : '+($script:PresentationErrors -join ' | '))
+                    }finally{$scope.Text=$oldScope;$status.Text=$oldStatus;Invoke-GeometryPump $window}
                 }
                 Test-Case ($prefix+' : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons') {
                     Set-FakeActivity 0;Invoke-GeometryPump $window
@@ -246,14 +269,20 @@ if($infrastructure){
                     $script:GeometryRequestedHeight=$height
                     $window.Height=$height;Invoke-GeometryPump $window;Update-DomeniaUxLayout;Invoke-GeometryPump $window
                     Set-FakeActivity 1;Invoke-GeometryPump $window
+                    $script:Observations.Add([pscustomobject]@{Configuration=($theme+' redimensionnement '+$height);ClientWidth=$script:GeometrySurface.ActualWidth;ClientHeight=$script:GeometrySurface.ActualHeight;OuTreeHeight=$window.FindName('TvDirectory').ActualHeight;OuRefreshHeight=$window.FindName('UxSearchOuRefresh').ActualHeight;OuRefreshActionsHeight=$window.FindName('UxSearchOuRefreshActions').ActualHeight;Compact=$script:UxCompactLayoutActive})
                     Assert-True (($script:GeometrySurface.ActualHeight+$script:GeometryChromeHeight) -le $height+0.5) 'Surface plus haute que la surface demandee.'
                     Assert-True ($window.FindName('DgObjects').ActualHeight -ge 120) ('Resultats trop petits : '+$window.FindName('DgObjects').ActualHeight)
-                    Assert-True ($window.FindName('TvDirectory').ActualHeight -ge 80) ('Arbre OU trop petit : '+$window.FindName('TvDirectory').ActualHeight)
+                    Assert-OuNavigationLayout $window
                     foreach($name in @('CmbGlobalType','CmbPresenceFilter','TxtGlobalLimit','CmbWorkView','BtnWorkView','ChkLiveUsers','BtnLiveRecheck','TxtSuiteResultFilter','BtnSuiteResultClear','BtnGlobalClear','BtnExportResults','BtnCancelTask','LblUxDomain','TvDirectory','LblSearchScope','LblSearchHint','LblSelectionReadState','LblLiveState')){
                         $r=Get-ClientRect $window $name
                         Assert-True ($r.Visible -and $r.W -ge 8 -and $r.H -ge 8 -and $r.X -ge 0 -and $r.Y -ge 0 -and $r.X+$r.W -le $script:GeometrySurface.ActualWidth+0.5 -and $r.Y+$r.H -le $script:GeometrySurface.ActualHeight+0.5) ($name+' inaccessible apres redimensionnement a '+$height)
                     }
-                    if($height -eq 800){Assert-True ($column.Width.Value -eq 290) 'Largeur OU choisie perdue en quittant le mode compact.'}
+                    if($height -eq 800){
+                        Assert-True ($column.Width.Value -eq 290) 'Largeur OU choisie perdue en quittant le mode compact.'
+                        Assert-True ($window.FindName('BtnSearchRefreshPostes').Content -ceq 'Ping') 'Libelle postes normal non restaure.'
+                        Assert-True ($window.FindName('UxSearchOuRefreshTitle').Visibility -eq [Windows.Visibility]::Visible -and $window.FindName('LblSearchOuRefreshScope').TextWrapping -eq [Windows.TextWrapping]::Wrap -and $window.FindName('LblSearchOuRefreshStatus').TextWrapping -eq [Windows.TextWrapping]::Wrap) 'Presentation OU normale non restauree.'
+                        Assert-True ($window.FindName('LblSearchOuRefreshScope').MaxHeight -eq 48 -and $window.FindName('LblSearchOuRefreshStatus').MaxHeight -eq 58 -and $window.FindName('BtnSearchRefreshPostes').MinHeight -eq 30) 'Hauteurs OU normales non restaurees.'
+                    }
                     else{Assert-True ($column.Width.Value -eq 230) 'Colonne OU non compacte.'}
                     Assert-True ($script:UxNavCollapsed -eq $saved.Navigation -and $script:UxHelpVisible -eq $saved.Help -and $script:UxLogCollapsed -eq $saved.Journal) 'Preference enregistree modifiee par le redimensionnement.'
                 }

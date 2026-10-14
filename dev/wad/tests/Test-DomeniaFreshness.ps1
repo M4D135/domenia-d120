@@ -4,7 +4,7 @@
 param([string]$ReportPath='',[switch]$SkipStorage)
 $ErrorActionPreference='Stop'
 $wad=Split-Path -Parent $PSScriptRoot;$modules=Join-Path $wad 'modules'
-foreach($name in @('Common.Model','Boards.Model','BoardFleet.Model','Dashboard.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+foreach($name in @('Common.Model','HealthRules.Model','Boards.Model','BoardFleet.Model','Dashboard.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 $script:Checks=[Collections.Generic.List[object]]::new();$script:Assertions=0
 function Expect([bool]$Condition,[string]$Message){$script:Assertions++;if(-not $Condition){throw $Message}}
 function Case([string]$Name,[scriptblock]$Body){try{& $Body;$script:Checks.Add([pscustomobject]@{Name=$Name;Passed=$true;Error=''})}catch{$script:Checks.Add([pscustomobject]@{Name=$Name;Passed=$false;Error=$_.Exception.ToString()})}}
@@ -12,7 +12,7 @@ $script:Now=([datetime]'2026-10-13T12:00:00Z').ToUniversalTime();$script:Domain=
 function Sync([string]$Key,[string]$Base,[string]$At,[string]$Details='complete;depth=Subtree'){[pscustomobject]@{scope=$Key;base_dn=$Base;last_sync=$At;details=$Details}}
 function Coverage($States,[string]$Scope=$script:Ou,[bool]$Subtree=$true){Get-DomeniaFleetFreshness -ScopeDn $Scope -DomainDn $script:Domain -SyncStates $States -Subtree $Subtree -NowUtc $script:Now}
 function Observation([string]$Key,[string]$Ping='2026-10-13T11:50:00Z',[string]$Inventory='2026-10-13T11:00:00Z',[bool]$InScope=$true){
- [pscustomobject]@{object_key=$Key;checked_utc='2026-10-13T11:59:00Z';in_scope=$InScope;observation=[pscustomobject]@{CheckedUtc=$Ping;Presence='En ligne';Inventory=[pscustomobject]@{CheckedUtc=$Inventory}}}
+ [pscustomobject]@{object_key=$Key;checked_utc='2026-10-13T11:59:00Z';in_scope=$InScope;observation=[pscustomobject]@{CheckedUtc=$Ping;PresenceCheckedUtc=$Ping;Presence='En ligne';Inventory=[pscustomobject]@{CheckedUtc=$Inventory}}}
 }
 Case 'Successful OU date survives a later calculation and no global date fallback is invented' {
  $states=@{directory=(Sync directory $Domain '2026-10-13T09:00:00Z');ou=(Sync ('ou:'+$Ou) $Ou '2026-10-13T11:48:00Z')}
@@ -75,7 +75,7 @@ Case 'Ping and WMI report independent dates, ranges and coverage' {
  Expect ($text.ObservationsText -like '*ping 2/3*du*au*inventaire WMI 1/3*') 'Range or exact coverage missing'
 }
 Case 'Ping family date overrides a newer cache write timestamp; duplicate objects count once' {
- $row=Observation a;$row.observation|Add-Member -NotePropertyName PresenceCheckedUtc -NotePropertyValue '2026-10-13T10:00:00Z'
+ $row=Observation a;$row.observation.PresenceCheckedUtc='2026-10-13T10:00:00Z'
  $f=Get-DomeniaOuObservationFreshness @($row,$row) 1 $Now
  Expect ($f.Ping.Count -eq 1 -and $f.Ping.NewestUtc.Hour -eq 10) 'Cache date masquerades as ping time or duplicates inflate coverage'
 }
@@ -100,7 +100,7 @@ function Save-DomeniaFleetSnapshot($Scope,$Board){return $true}
 function Update-DomeniaFirstSteps {}
 Case 'Real completion renders the snapshot date even if in-memory metadata is older' {
  $script:Controls=@{PnlFleetDashboard=[pscustomobject]@{};LblFleetScope=[pscustomobject]@{ToolTip=''}};$script:Labels=@{}
- $script:Conn=[pscustomobject]@{BaseDn=$Domain};$script:SessionEpoch=7L;$script:FleetPendingKey='chosen';$script:FleetStale=$false;$script:SelectedObject=$null;$script:LastComputerDashboardResult=$null;$script:FleetObservations=@{}
+ $script:DatabaseScopedPath='/fixture/db';$script:Conn=[pscustomobject]@{BaseDn=$Domain};$script:SessionEpoch=7L;$script:FleetPendingKey='chosen';$script:FleetStale=$false;$script:SelectedObject=$null;$script:LastComputerDashboardResult=$null;$script:FleetObservations=@{}
  $script:IndexSyncStates=@{directory=(Sync directory $Domain '2026-10-13T09:00:00Z')}
  $snapshotAt=[datetime]::UtcNow;$adAt=$snapshotAt.AddMinutes(-12)
  $states=@{ou=(Sync ('ou:'+$Ou) $Ou $adAt.ToString('o'))}
@@ -108,7 +108,7 @@ Case 'Real completion renders the snapshot date even if in-memory metadata is ol
  $board=Get-DomeniaFleetBoardData $source -Scope $Ou -Now $adAt.AddMinutes(-3)
  Expect ($board.Freshness.Index.At -eq $adAt) 'Snapshot timestamp falsely rejected using older queued plan time'
  $source|Add-Member -NotePropertyName Board -NotePropertyValue $board
- $state=[pscustomobject]@{Epoch=7L;Key='chosen';Scope=$Ou;Subtree=$true;Name='Postes';ScopePath=$Ou}
+ $state=[pscustomobject]@{Epoch=7L;Key='chosen';Path='/fixture/db';Scope=$Ou;Subtree=$true;Name='Postes';ScopePath=$Ou}
  Complete-DomeniaFleetDashboard $source $state
  Expect ([object]::ReferenceEquals($script:Rendered.Freshness,$board.Freshness) -and $script:FleetLast.Freshness.Index.At -eq $adAt) 'Snapshot provenance was replaced'
  Expect ($script:Labels.LblFleetScope -like ('*Base locale (AD)*'+$board.Freshness.Index.At.ToLocalTime().ToString('HH:mm')+'*')) 'UI used mutable old directory date'
@@ -119,7 +119,7 @@ Case 'Commit during an in-flight snapshot never repaints older dates or counts' 
  $script:FleetLastResult='keep latest';$before=$script:Rendered;$beforeLabel=$script:Labels.LblFleetScope;$script:RefreshCalls=0
  function Request-DomeniaFleetRefresh {$script:RefreshCalls++}
  $stale=[pscustomobject]@{Types=@();Machines=@();Board=[pscustomobject]@{}}
- Complete-DomeniaFleetDashboard $stale ([pscustomobject]@{Epoch=7L;Key='chosen'})
+ Complete-DomeniaFleetDashboard $stale ([pscustomobject]@{Epoch=7L;Key='chosen';Path='/fixture/db'})
  Expect ($script:RefreshCalls -eq 1 -and $script:FleetPendingKey -eq '' -and $script:FleetJobId -eq '') 'Stale completion did not request a fresh local snapshot'
  Expect ([object]::ReferenceEquals($before,$script:Rendered) -and $script:Labels.LblFleetScope -eq $beforeLabel -and $script:FleetLastResult -eq 'keep latest') 'Stale callback repainted data before restarting'
  Expect ($script:FleetStale) 'Dirty generation was silently cleared'
@@ -171,9 +171,34 @@ if(-not $SkipStorage){
     $results+=& ([scriptblock]::Create($read))
    }
    Expect ($results.Count -eq 2 -and $results[0].Board.Freshness.Index.At -eq $results[1].Board.Freshness.Index.At -and $results[1].Board.Freshness.Index.At.Minute -eq 45) 'Repeated local read changed AD coverage date'
-   Expect ($null -ne $results[1].SnapshotAtUtc -and $results[1].SyncStates.Count -eq $states.Count -and $results[1].Board.Freshness.Version -eq 1) 'Transactional provenance missing'
+   # sync_state also owns technical repair markers. They must remain in SQLite,
+   # but only the four coverage/attempt checkpoints created above belong to FleetStats.
+   # Comparing against the whole table falsely rejects a valid filtered snapshot.
+   Expect ($states.ContainsKey('repair:search_key_extra')) 'Fixture does not exercise the schema repair marker'
+   $scopeKey='ou:'+$Ou.ToLowerInvariant();$directKey='ou:onelevel:'+$Ou.ToLowerInvariant()
+   $expectedKeys=@($scopeKey,$directKey,('attempt:'+$scopeKey),('attempt:'+$directKey))
+   foreach($snapshot in $results){
+    $snapshotAt=ConvertFrom-DomeniaUtcText ([string]$snapshot.SnapshotAtUtc)
+    Expect ($null -ne $snapshotAt) 'FleetStats snapshot timestamp missing or malformed'
+    Expect ($snapshot.Board.Freshness.Version -eq 1 -and $snapshot.Board.Freshness.SnapshotAtUtc -eq $snapshotAt) 'Board provenance version or snapshot timestamp differs from worker'
+    Expect ($snapshot.SyncStates -is [Collections.IDictionary] -and $snapshot.SyncStates.Count -eq $expectedKeys.Count) ('Freshness checkpoint count differs: expected '+$expectedKeys.Count+', got '+$snapshot.SyncStates.Count)
+    Expect (-not $snapshot.SyncStates.ContainsKey('repair:search_key_extra')) 'Technical repair marker leaked into dashboard freshness metadata'
+    foreach($key in $expectedKeys){
+     Expect ($snapshot.SyncStates.ContainsKey($key)) ('Freshness checkpoint missing: '+$key)
+     foreach($field in @('base_dn','last_sync','details')){
+      Expect ([string]$snapshot.SyncStates[$key].$field -ceq [string]$states[$key].$field) ('Freshness checkpoint changed: '+$key+'/'+$field)
+     }
+    }
+   }
    Expect (@($results[1].Board.Attention|Where-Object{$_.Point -eq 'index.partial'}).Count -eq 0) 'Stale UI partial text overrides committed snapshot'
-   $after=Read-States;Expect ($after['ou:'+$Ou.ToLowerInvariant()].last_sync -eq $states['ou:'+$Ou.ToLowerInvariant()].last_sync) 'Read-only worker changed checkpoint'
+   $after=Read-States
+   Expect ($after.Count -eq $states.Count) 'Read-only worker added or removed a sync_state marker'
+   foreach($key in @($states.Keys)){
+    Expect ($after.ContainsKey($key)) ('Read-only worker removed marker: '+$key)
+    foreach($field in @('base_dn','last_sync','details')){
+     Expect ([string]$after[$key].$field -ceq [string]$states[$key].$field) ('Read-only worker changed marker: '+$key+'/'+$field)
+    }
+   }
   }finally{if([IO.Directory]::Exists($folder)){Remove-Item -LiteralPath $folder -Recurse -Force}}
  }
 }

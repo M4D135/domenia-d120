@@ -574,10 +574,7 @@ function New-DomeniaDonutChart {
     # Eight parts at most: the smallest ones are gathered as "Autres".
     # Parts with a meaning colour keep their order (used / free); the others go from largest to smallest.
     if (-not @($valid | Where-Object { $null -ne $_.PSObject.Properties['Color'] }).Count) { $valid = @($valid | Sort-Object { [double]$_.Value } -Descending) }
-    if ($valid.Count -gt 8 -and -not @($valid|Where-Object{$null -ne $_.PSObject.Properties['Select']}).Count) {
-        $rest = 0.0; foreach ($it in @($valid | Select-Object -Skip 7)) { $rest += [double]$it.Value }
-        $valid = @(@($valid | Select-Object -First 7) + [pscustomobject]@{ Label = 'Autres'; Value = $rest; Color = '#94A3B8' })
-    }
+    if ($valid.Count -gt 8 -and $null -eq $OnSelect) { $valid=Get-DomeniaChartCategoryGroups -Items $valid -Maximum 8 }
     $total = 0.0
     foreach ($it in $valid) { $total += [double]$it.Value }
     if ($total -le 0) { return New-DomeniaChartEmpty -Width $Width -Height $Height -Title $Title }
@@ -783,7 +780,8 @@ function New-DomeniaBarChart {
         [int]$Top = 10,
         [string]$Unit = '',
         [string]$Subtitle = '',
-        [scriptblock]$OnSelect = $null
+        [scriptblock]$OnSelect = $null,
+        [switch]$GroupOverflow
     )
     $valid = @($Items | Where-Object { $_ -and $_.Value -ne $null -and [double]$_.Value -gt 0 })
     if ($valid.Count -eq 0) { return New-DomeniaChartEmpty -Width $Width -Height $Height -Title $Title }
@@ -792,7 +790,8 @@ function New-DomeniaBarChart {
     if (-not $PSBoundParameters.ContainsKey('Height')) { $Height = 0 }
     $headerHeight = 28 + $(if ($Subtitle) { 16 } else { 0 })
     if ($Height -gt 0) { $Top = [Math]::Max(1, [Math]::Min($Top, [int][Math]::Floor(($Height - $headerHeight - 30) / 26))) }
-    if ($Top -gt 0 -and $sorted.Count -gt $Top) { $sorted = @($sorted | Select-Object -First $Top) }
+    $overflow=($Top -gt 0 -and $sorted.Count -gt $Top)
+    if($overflow -and $GroupOverflow){$sorted=Get-DomeniaChartCategoryGroups -Items $sorted -Maximum $Top}
 
     $palette = Get-DomeniaChartPalette
     $max = 0.0
@@ -856,7 +855,7 @@ function New-DomeniaBarChart {
     [System.Windows.Controls.DockPanel]::SetDock($header, [System.Windows.Controls.Dock]::Top)
     [void]$body.Children.Add($header)
     if ($Height -gt 0) { $list.VerticalAlignment = [System.Windows.VerticalAlignment]::Center }
-    [void]$body.Children.Add($list)
+    if($overflow -and -not $GroupOverflow){$scroll=[Windows.Controls.ScrollViewer]::new();$scroll.VerticalScrollBarVisibility='Auto';$scroll.HorizontalScrollBarVisibility='Disabled';$scroll.MaxHeight=[Math]::Max(26,$Top*26);$scroll.Content=$list;[void]$body.Children.Add($scroll)}else{[void]$body.Children.Add($list)}
     return New-DomeniaChartCard -Width $Width -Height $Height -Content $body
 }
 function New-DomeniaChartGrid {

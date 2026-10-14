@@ -1,0 +1,16 @@
+{
+  "Path": "dev/wad/modules/Domenia.Native.dll",
+  "Hash": "E95ABD97D258D56460DD300B29A0D378BCC301359B2D0BACD7D510F369007A64",
+  "Sources": [
+    {
+      "Path": "dev/native/ObservationReader.cs",
+      "SHA256": "8d09ea73394d27540746a246e651031934a8f07bb2f9ea0f3eb9d9acae7cfcc6"
+    },
+    {
+      "Path": "dev/native/ProbeAggregation.cs",
+      "SHA256": "81ee62b401d523a22769ca4abbeb63040586761f43a2ece36f540c891f309c75"
+    }
+  ],
+  "TargetFramework": "net472",
+  "ReferencePackage": "Microsoft.NETFramework.ReferenceAssemblies.net472/1.0.3"
+}

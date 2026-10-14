@@ -1,0 +1,94 @@
+{
+  "schema": 1,
+  "status": "in_progress",
+  "updated_at": "2026-10-13T16:53:30.125033+00:00",
+  "published": false,
+  "priorities": [
+    "Account protection",
+    "Correct committed data",
+    "Same scope and counts in search/dashboard",
+    "Measured performance",
+    "Simple consistent GUI"
+  ],
+  "requirements": [
+    {
+      "id": "store",
+      "request": "Collectors -> SQLite commit -> canonical SELECT -> GUI; persist AD, ping, WMI and details",
+      "status": "implementation_in_progress"
+    },
+    {
+      "id": "refresh",
+      "request": "Independent AD/Ping/WMI refresh; recalculation is local only",
+      "status": "implementation_in_progress"
+    },
+    {
+      "id": "auth",
+      "request": "Shared account rejection guard, no automatic credential retries or fallback; retain local access",
+      "status": "implemented_pending_integration",
+      "evidence": "Test-DomeniaCredentialGuard.ps1: 11 synthetic cases passed PS7.4.20, no real AD authentication"
+    },
+    {
+      "id": "accounts",
+      "request": "Login account default for every resource; secondary accounts optional; persist usernames and scope in DB, never passwords; prefill next session",
+      "status": "implemented_pending_windows_and_vault_ui",
+      "evidence": "AccountPreferences: 15 synthetic callback/validator cases passed PS7.4.20. No AD calls."
+    },
+    {
+      "id": "alerts",
+      "request": "Enable/disable built-in health rules, configure thresholds, delete custom alerts; disabled alerts excluded from score",
+      "status": "planned"
+    },
+    {
+      "id": "widgets",
+      "request": "Separate AD enabled/disabled, last-logon activity/inactivity, last-ping presence; drill-down lists with exact scope/count",
+      "status": "planned"
+    },
+    {
+      "id": "catalogue",
+      "request": "Large verified catalogue shared by search, fleet and computer dashboards; meaningful categories and prerequisites; no unrequested mass collection",
+      "status": "planned"
+    },
+    {
+      "id": "workshop",
+      "request": "Simple creation workflow: information -> criteria -> preview -> save/use in search or widget; technical WMI advanced panel",
+      "status": "planned"
+    },
+    {
+      "id": "ou_picker",
+      "request": "Consistent searchable tree picker, favourites, selected path, scrolling, clear confirmation, keyboard/zoom",
+      "status": "planned"
+    },
+    {
+      "id": "design",
+      "request": "Sober spacious consistent GUI, clear hierarchy, advanced details revealed progressively",
+      "status": "planned"
+    },
+    {
+      "id": "product",
+      "request": "AD/WMI capability matrix, diagnostics, backups/restores/migrations, redistribution licence review, load tests >=5000 PCs",
+      "status": "research_in_progress"
+    },
+    {
+      "id": "release",
+      "request": "Full Windows validation where available, updated v1.0 DOCX/PDF, classic DEV/PROD, commit/push master after completion",
+      "status": "pending"
+    },
+    {
+      "id": "credential_vault",
+      "request": "Optional per-account Windows Credential Manager remember-on-this-PC, disabled by default, no password in SQLite, forget action and no automatic retry after rejection",
+      "status": "implementation_in_progress"
+    }
+  ],
+  "limitations": [
+    "Human GUI control previously returned noWindowsAvailable despite visible RDP desktop; no manual GUI test claimed",
+    "No production AD mutation or deliberate bad-password authentication test",
+    "Current changes and packs not published"
+  ],
+  "decisions": [
+    {
+      "request": "Remote database, SQL Server and provisioning wizard",
+      "status": "cancelled_by_user",
+      "applied": "No remote backend implemented. Late answer to obsolete vendor question does not revoke cancellation."
+    }
+  ]
+}

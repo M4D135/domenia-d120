@@ -1,0 +1,37 @@
+{
+    "Name":  "Test-DomeniaOuRefresh",
+    "Edition":  "dev",
+    "RelativeScript":  "wad\\tests\\Test-DomeniaOuRefresh.ps1",
+    "ScriptSha256":  "497775fdb850e3a7ca8e6317d5e6a26a626d678050dc220b2def5070dc65784d",
+    "Arguments":  [
+                      "-NoLogo",
+                      "-NoProfile",
+                      "-NonInteractive",
+                      "-STA",
+                      "-File",
+                      "C:\\DomeniaLab\\search-progress-20261013-r2\\source\\dev\\wad\\tests\\Test-DomeniaOuRefresh.ps1",
+                      "-ReportPath",
+                      "C:\\DomeniaLab\\search-progress-20261013-r2\\proof\\Test-DomeniaOuRefresh.json"
+                  ],
+    "StartedUTC":  "2026-10-13T16:00:44.2474752Z",
+    "EndedUTC":  "2026-10-13T16:00:47.0702473Z",
+    "Milliseconds":  4026,
+    "TimeoutSeconds":  180,
+    "RunnerPID":  1092,
+    "ChildPID":  2032,
+    "ExitCode":  0,
+    "TimedOut":  false,
+    "KillAttempted":  false,
+    "ChildTerminated":  true,
+    "Error":  "",
+    "Stdout":  "Test-DomeniaOuRefresh.stdout.txt",
+    "Stderr":  "Test-DomeniaOuRefresh.stderr.txt",
+    "JsonReport":  "Test-DomeniaOuRefresh.json",
+    "ReportVerdict":  {
+                          "Valid":  true,
+                          "Reason":  "JSON verdict passed",
+                          "Cases":  43,
+                          "Sha256":  "9f3c216d81d678ecce3cb97c08b22a938604b86ce6328ef21be64b893e46d79b"
+                      },
+    "Passed":  true
+}

@@ -1,0 +1,37 @@
+{
+    "Name":  "Test-DomeniaDirectoryStatus",
+    "Edition":  "dev",
+    "RelativeScript":  "wad\\tests\\Test-DomeniaDirectoryStatus.ps1",
+    "ScriptSha256":  "9b37a4caa6c75fd485ea69dd02e382b18d5eab1da2c3495acccfccc6aa600810",
+    "Arguments":  [
+                      "-NoLogo",
+                      "-NoProfile",
+                      "-NonInteractive",
+                      "-STA",
+                      "-File",
+                      "C:\\DomeniaLab\\search-progress-20261013-r2\\source\\dev\\wad\\tests\\Test-DomeniaDirectoryStatus.ps1",
+                      "-ReportPath",
+                      "C:\\DomeniaLab\\search-progress-20261013-r2\\proof\\Test-DomeniaDirectoryStatus.json"
+                  ],
+    "StartedUTC":  "2026-10-13T16:00:47.9079910Z",
+    "EndedUTC":  "2026-10-13T16:00:48.5531101Z",
+    "Milliseconds":  1023,
+    "TimeoutSeconds":  120,
+    "RunnerPID":  1092,
+    "ChildPID":  5076,
+    "ExitCode":  0,
+    "TimedOut":  false,
+    "KillAttempted":  false,
+    "ChildTerminated":  true,
+    "Error":  "",
+    "Stdout":  "Test-DomeniaDirectoryStatus.stdout.txt",
+    "Stderr":  "Test-DomeniaDirectoryStatus.stderr.txt",
+    "JsonReport":  "Test-DomeniaDirectoryStatus.json",
+    "ReportVerdict":  {
+                          "Valid":  true,
+                          "Reason":  "JSON verdict passed",
+                          "Cases":  14,
+                          "Sha256":  "28163ea0d424386650e10cceb943a709c5e6d913fca6ec49941a213c33882169"
+                      },
+    "Passed":  true
+}

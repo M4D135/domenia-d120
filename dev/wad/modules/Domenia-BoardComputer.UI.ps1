@@ -9,13 +9,14 @@ function Add-DomeniaComputerBoardAdEntries {
     $entry = $Object.Entry
     $invariant = [Globalization.CultureInfo]::InvariantCulture
     $now = [datetime]::UtcNow
+    $limits=$Data.HealthPolicy.Thresholds
 
     $passwordSet = Get-DomeniaEntryFileTimeUtc $entry 'pwdLastSet'
     if ($null -ne $passwordSet) {
         $days = [int]($now - $passwordSet).TotalDays
-        $late = ($days -gt 45)
+        $late = ($days -gt $limits.PasswordDays)
         # CO-09: the operator cannot check the trust relationship himself; he warns the administrator.
-        if ($late) { Add-DomeniaBoardAttention -Data $Data -Level Warn -Text ('Mot de passe machine ancien (' + $days + ' jours) : prévenir lʼadministrateur.') }
+        if ($late) { Add-DomeniaBoardAttention -Data $Data -Level Warn -Text ('Mot de passe machine ancien (' + $days + ' jours) : prévenir lʼadministrateur.') -Point 'pwdold' }
         $detail = if ($late) { 'Mot de passe machine ancien : prévenir lʼadministrateur' } else { 'Renouvelé le ' + $passwordSet.ToLocalTime().ToString('dd/MM/yyyy', $invariant) }
         Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.ad.password' -Kind Value -Value ('il y a ' + $days + ' j') -Detail $detail -State $(if ($late) { 'Warn' } else { 'Ok' }))
     }
@@ -23,18 +24,18 @@ function Add-DomeniaComputerBoardAdEntries {
     $logon = Get-DomeniaEntryFileTimeUtc $entry 'lastLogonTimestamp'
     if ($null -ne $logon) {
         $days = [int]($now - $logon).TotalDays
-        $late = ($days -gt 90)
-        if ($late) { Add-DomeniaBoardAttention -Data $Data -Level Warn -Text ('Aucune connexion au domaine depuis ' + $days + ' jours.') }
-        $detail = if ($late) { 'Plus de 90 jours : poste peut-être inactif' } else { $logon.ToLocalTime().ToString('dd/MM/yyyy', $invariant) + ' · date approximative, à 14 jours près' }
+        $late = ($days -ge $limits.StaleDays)
+        if ($late) { Add-DomeniaBoardAttention -Data $Data -Level Warn -Text ('Aucune connexion au domaine depuis ' + $days + ' jours (lastLogonTimestamp approximatif).') -Point 'stale' }
+        $detail = if ($late) { ('Plus de '+$limits.StaleDays+' jours, date AD approximative') } else { $logon.ToLocalTime().ToString('dd/MM/yyyy', $invariant) + ' · date approximative, à 14 jours près' }
         Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.ad.lastlogon' -Kind Value -Value ('il y a ' + $days + ' j') -Detail $detail -State $(if ($late) { 'Warn' } else { 'Ok' }))
     }
 
-    $uac = 0; [void][int]::TryParse((Get-DomeniaEntryFirstString $entry 'userAccountControl'),[ref]$uac)
+    $uac = 0; $uacKnown=[int]::TryParse((Get-DomeniaEntryFirstString $entry 'userAccountControl'),[ref]$uac) -and $uac -ge 0
     $disabled = [bool]($uac -band 2)
-    if ($disabled) { Add-DomeniaBoardAttention -Data $Data -Level Alert -Text 'Compte ordinateur desactive dans AD.' }
+    if ($disabled) { Add-DomeniaBoardAttention -Data $Data -Level Alert -Text 'Compte ordinateur desactive dans AD.' -Point 'ad.disabled' }
     $created = 'date inconnue'
     try { $created = ([datetime](Get-DomeniaEntryFirstString $entry 'whenCreated')).ToLocalTime().ToString('dd/MM/yyyy', $invariant) } catch { $created = 'date inconnue' }
-    Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.ad.account' -Kind Value -Value $(if ($disabled) { 'Desactive' } else { 'Actif' }) -Detail ('Cree le ' + $created) -State $(if ($disabled) { 'Alert' } else { 'Ok' }))
+    Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.ad.account' -Kind Value -Value $(if(-not $uacKnown){'État inconnu'}elseif ($disabled) { 'Désactivé' } else { 'Activé' }) -Detail ('Compte AD ; créé le ' + $created) -State $(if(-not $uacKnown){'Off'}elseif ($disabled) { 'Alert' } else { 'Ok' }))
 
     # Two nearest OUs of the distinguished name, escaped commas restored.
     $dn = [string]$Object.DN
@@ -45,7 +46,7 @@ function Add-DomeniaComputerBoardAdEntries {
     if ($null -eq $laps) { $laps = Get-DomeniaEntryFileTimeUtc $entry 'ms-Mcs-AdmPwdExpirationTime' }
     if ($null -ne $laps) {
         $expired = ($laps -lt $now)
-        if ($expired) { Add-DomeniaBoardAttention -Data $Data -Level Warn -Text 'Mot de passe LAPS expire (rotation en attente).' -Point 'secrets' -Route 'ComputerSecrets' -RouteText 'Onglet Secrets du poste' }
+        if ($expired) { Add-DomeniaBoardAttention -Data $Data -Level Warn -Text 'Mot de passe LAPS expire (rotation en attente).' -Point 'laps.expired' -Route 'ComputerSecrets' -RouteText 'Onglet Secrets du poste' }
         Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.ad.laps' -Kind Value -Value $(if ($expired) { 'Expire' } else { 'Valide' }) -Detail ('Expiration le ' + $laps.ToLocalTime().ToString('dd/MM/yyyy HH:mm', $invariant)) -State $(if ($expired) { 'Warn' } else { 'Ok' }))
     }
 
@@ -62,9 +63,9 @@ function Add-DomeniaComputerBoardAdEntries {
         $against = if ($byController) { 'par rapport au contrôleur de domaine' } else { 'par rapport à ce poste dʼadministration' }
         # A local reference does not establish the offset from the domain controller.
         if ($gap -gt 300 -and $byController) {
-            Add-DomeniaBoardAttention -Data $Data -Level Alert -Text ('Horloge décalée de ' + $skew + ' s ' + $against + ' : risque dʼéchec de lʼauthentification Kerberos.')
+            Add-DomeniaBoardAttention -Data $Data -Level Alert -Text ('Horloge décalée de ' + $skew + ' s ' + $against + ' : risque dʼéchec de lʼauthentification Kerberos.') -Point 'clock'
         } elseif ($gap -gt 60) {
-            Add-DomeniaBoardAttention -Data $Data -Level Warn -Text ('Horloge décalée de ' + $skew + ' s ' + $against + '.' + $(if (-not $byController) { ' Vérifiez la synchronisation des deux postes ; le contrôleur nʼa pas été lu.' } else { '' }))
+            Add-DomeniaBoardAttention -Data $Data -Level Warn -Text ('Horloge décalée de ' + $skew + ' s ' + $against + '.' + $(if (-not $byController) { ' Vérifiez la synchronisation des deux postes ; le contrôleur nʼa pas été lu.' } else { '' })) -Point 'clock'
         }
         $clockDetail = if (-not $byController) { 'Écart avec ce poste dʼadministration (contrôleur non lu)' } elseif ($gap -gt 300) { 'Plus de 5 min avec le contrôleur : risque dʼéchec Kerberos' } else { 'Écart avec le contrôleur de domaine' }
         Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.ad.clock' -Kind Value -Value $(if ($gap -lt 2) { 'À lʼheure' } else { ('{0:+0;-0} s' -f $skew) }) -Detail $clockDetail -State $(if ($gap -gt 300 -and $byController) { 'Alert' } elseif ($gap -gt 60) { 'Warn' } else { 'Ok' }))
@@ -76,10 +77,13 @@ function Get-DomeniaComputerBoardData {
     # ($Result.Rows, $Result.Metrics). $Object is the selected directory object ({Entry; DN}): without it the
     # computer account entries are left out. $At: time of the inventory shown in the summary (now when absent).
     # $Lifecycle: end-of-service table read once by the interface ($null: end date unknown, never critical).
-    param($Result = $null,$Object = $null,$At = $null,$Lifecycle = $null)
+    param($Result = $null,$Object = $null,$At = $null,$Lifecycle = $null,$HealthPolicy=$null)
     $Data = New-DomeniaBoardData -Board Computer
+    $Data.HealthPolicy=ConvertTo-DomeniaHealthPolicy $HealthPolicy
+    $Data.HealthPolicy.EvaluatedAtUtc=[datetime]::UtcNow.ToString('o')
+    $limits=$Data.HealthPolicy.Thresholds
     $hasInventory = ($null -ne $Result)
-    $rows = @(); $metrics = $null
+    $rows = @(); $metrics = $null; $uptime='';$uptimeDays=0
     if ($hasInventory) {
         $rows = @(@($Result.Rows) | Where-Object { $null -ne $_ })
         $metrics = $Result.Metrics
@@ -94,7 +98,7 @@ function Get-DomeniaComputerBoardData {
     # First non-empty value of the category whose item ends with the suffix (per processor, per adapter).
     $firstLike = { param([string]$Category,[string]$Suffix) foreach ($row in $rows) { if (([string]$row.Category -eq $Category) -and ([string]$row.Item).EndsWith($Suffix)) { $text = [string]$row.Value; if (-not (& $isEmpty $text)) { return $text } } }; return '' }
     # Free space thresholds shared by the system disk, the other volumes and the fleet (CO-14, Get-DomeniaBoardThresholds).
-    $freeLevel = { param([double]$Percent) return (Get-DomeniaThresholdState -Measure DiskFree -Percent $Percent) }
+    $freeLevel = { param([double]$Percent) return (Get-DomeniaThresholdState -Measure DiskFree -Percent $Percent -Policy $Data.HealthPolicy) }
 
     if ($hasInventory) {
         # -------------------------------------------------------------------
@@ -106,8 +110,8 @@ function Get-DomeniaComputerBoardData {
         # End of service from the delivered table (FO-08): LTSC, LTSB and IoT keep their own dates (CO-13).
         $release = Get-DomeniaWindowsRelease -Build $build -Caption $osName -Lifecycle $Lifecycle
         $releaseName = if ([string]$release.Label) { [string]$release.Label } else { [string]$release.Name }
-        if ([string]$release.Status -eq 'Ended') { & $note 'Alert' ($releaseName + ' : fin de service le ' + [string]$release.End + ', poste à migrer.') 'eos' }
-        elseif ([string]$release.Status -eq 'Soon') { & $note 'Warn' ($releaseName + ' : fin de service le ' + [string]$release.End + '.') 'eos' }
+        if ([string]$release.Status -eq 'Ended') { & $note 'Alert' ($releaseName + ' : fin de service le ' + [string]$release.End + ', poste à migrer.') 'eos.ended' }
+        elseif ([string]$release.Status -eq 'Soon') { & $note 'Warn' ($releaseName + ' : fin de service le ' + [string]$release.End + '.') 'eos.soon' }
         $osValue = if ($release.Name) { [string]$release.Name } elseif ($osName) { $osName } else { 'Non lu' }
         $osDetail = if ($release.Note) { [string]$release.Note } elseif ($build) { 'Build ' + $build } else { '' }
         $osState = if ([string]$release.Status -eq 'Ended') { 'Alert' } elseif ([string]$release.Status -eq 'Soon') { 'Warn' } elseif ($osValue -eq 'Non lu') { 'Off' } else { '' }
@@ -141,10 +145,10 @@ function Get-DomeniaComputerBoardData {
             $minutes = 0; if ($Matches[3]) { $minutes = [int]$Matches[3] }
             $uptimeText = if ($uptimeDays -gt 0) { [string]$uptimeDays + ' j ' + $hours + ' h' } elseif ($hours -gt 0) { [string]$hours + ' h ' + $minutes.ToString('00') + ' min' } else { [string]$minutes + ' min' }
         }
-        $longUptime = ($uptimeDays -gt 30)
-        if ($longUptime) { & $note 'Warn' ('Pas de redemarrage depuis ' + $uptimeDays + ' jours.') 'restart' 'ComputerActions' 'Redémarrer : onglet Actions' }
+        $longUptime = ($uptimeDays -gt $limits.UptimeDays)
+        if ($longUptime) { & $note 'Warn' ('Pas de redemarrage depuis ' + $uptimeDays + ' jours.') 'uptime' 'ComputerActions' 'Redémarrer : onglet Actions' }
         $lastBoot = & $value 'Systeme d exploitation' 'Dernier demarrage'
-        $uptimeDetail = if ($longUptime) { 'Plus de 30 jours : redemarrage conseille' } elseif ($lastBoot) { 'Demarre le ' + $lastBoot } else { '' }
+        $uptimeDetail = if ($longUptime) { ('Plus de '+$limits.UptimeDays+' jours : redemarrage conseille') } elseif ($lastBoot) { 'Demarre le ' + $lastBoot } else { '' }
         Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.uptime' -Kind Value -Value $(if ($uptime) { $uptimeText } else { 'Non lu' }) -Detail $uptimeDetail -State $(if ($longUptime) { 'Warn' } elseif (-not $uptime) { 'Off' } else { '' }))
 
         $user = & $value 'Systeme' 'Utilisateur connecte'
@@ -189,9 +193,9 @@ function Get-DomeniaComputerBoardData {
             $used = [Math]::Max(0.0, $memoryTotal - [double]$metrics.MemoryFree)
             $ratio = $used / $memoryTotal
             # CO-14: the gauge is coloured by this state, the same one that raises the point.
-            $memoryState = Get-DomeniaThresholdState -Measure MemoryUsed -Percent (100.0 * $ratio)
-            $memoryLimit = [string][int](Get-DomeniaBoardThresholds).MemoryUsedWarn
-            if ($memoryState -ne 'Ok') { & $note 'Warn' ('Mémoire utilisée à plus de ' + $memoryLimit + ' %.') }
+            $memoryState = Get-DomeniaThresholdState -Measure MemoryUsed -Percent (100.0 * $ratio) -Policy $Data.HealthPolicy
+            $memoryLimit = [string][int](Get-DomeniaBoardThresholds -Policy $Data.HealthPolicy).MemoryUsedWarn
+            if ($memoryState -ne 'Ok') { & $note 'Warn' ('Mémoire utilisée à plus de ' + $memoryLimit + ' %.') 'memory' }
             $usedGb = [Math]::Round($used / 1GB, 1); $totalGb = [Math]::Round($memoryTotal / 1GB, 1)
             Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.memory.usage' -Kind Number -Title ('Mémoire utilisée sur ' + (Format-DomeniaDashboardSize $memoryTotal)) -Value (([Math]::Round(100.0 * $ratio)).ToString('0', $fr) + ' %') -Detail ($usedGb.ToString('0.#', $fr) + ' / ' + $totalGb.ToString('0.#', $fr) + ' Go') -State $(if ($memoryState -ne 'Ok') { 'Warn' } else { '' }) -Number ([double]$usedGb) -Maximum ([double]$totalGb) -Unit 'Go')
         }
@@ -201,9 +205,9 @@ function Get-DomeniaComputerBoardData {
         }
         if ([double]$metrics.Battery -ge 0) {
             $battery = [double]$metrics.Battery
-            $lowBattery = ((Get-DomeniaThresholdState -Measure Battery -Percent $battery) -ne 'Ok')
-            $batteryLimit = [string][int](Get-DomeniaBoardThresholds).BatteryWarn
-            if ($lowBattery) { & $note 'Warn' ('Batterie à ' + $battery.ToString('0', $fr) + ' %.') }
+            $lowBattery = ((Get-DomeniaThresholdState -Measure Battery -Percent $battery -Policy $Data.HealthPolicy) -ne 'Ok')
+            $batteryLimit = [string][int](Get-DomeniaBoardThresholds -Policy $Data.HealthPolicy).BatteryWarn
+            if ($lowBattery) { & $note 'Warn' ('Batterie à ' + $battery.ToString('0', $fr) + ' %.') 'battery' }
             Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.battery' -Kind Number -Value ($battery.ToString('0', $fr) + ' %') -Detail $(if ($lowBattery) { 'Moins de ' + $batteryLimit + ' % : poste à brancher' } else { 'Charge restante' }) -State $(if ($lowBattery) { 'Warn' } else { '' }) -Number $battery -Maximum 100.0 -Unit '%' -LowIsBad)
         }
 
@@ -219,7 +223,7 @@ function Get-DomeniaComputerBoardData {
             $percent = [Math]::Round(100.0 * $free / $size)
             $diskState = & $freeLevel $percent
             # CO-09: one colon only ('Peu dʼespace sur C: (13 % libre)', never 'Disque C: : 13 % libre').
-            if ($diskState -eq 'Alert') { & $note 'Alert' ($diskName + ' presque plein (' + $percent + ' % libre).') 'disk.c' 'ComputerActions' 'Ouvrir C$ : onglet Actions' } elseif ($diskState -eq 'Warn') { & $note 'Warn' ('Peu dʼespace sur ' + $diskName + ' (' + $percent + ' % libre).') 'disk.c' 'ComputerActions' 'Ouvrir C$ : onglet Actions' }
+            if ($diskState -eq 'Alert') { & $note 'Alert' ($diskName + ' presque plein (' + $percent + ' % libre).') 'lowdisk' 'ComputerActions' 'Ouvrir C$ : onglet Actions' } elseif ($diskState -eq 'Warn') { & $note 'Warn' ('Peu dʼespace sur ' + $diskName + ' (' + $percent + ' % libre).') 'disk.tight' 'ComputerActions' 'Ouvrir C$ : onglet Actions' }
             $ring = @(
                 [pscustomobject]@{ Label = ('Utilisé ' + (Format-DomeniaDashboardSize $used)); Value = $used; Color = (Get-DomeniaBoardColor 'Used') },
                 [pscustomobject]@{ Label = ('Libre ' + (Format-DomeniaDashboardSize $free)); Value = $free; Color = (Get-DomeniaBoardColor $diskState) }
@@ -233,7 +237,7 @@ function Get-DomeniaComputerBoardData {
                 foreach ($other in $others) {
                     $otherPercent = [Math]::Round(100.0 * [double]$other.Free / [double]$other.Size)
                     $otherState = & $freeLevel $otherPercent
-                    if ($otherState -eq 'Alert') { & $note 'Alert' ('Volume ' + [string]$other.Name + ' presque plein (' + $otherPercent + ' % libre).') }
+                    if ($otherState -eq 'Alert') { & $note 'Alert' ('Volume ' + [string]$other.Name + ' presque plein (' + $otherPercent + ' % libre).') 'lowdisk' }
                     [void]$volumeItems.Add([pscustomobject]@{ Label = [string]$other.Name; Value = [double]$otherPercent; Color = (Get-DomeniaBoardColor $otherState) })
                     if ($otherPercent -lt $worstPercent) { $worst = $other; $worstPercent = $otherPercent; $worstState = $otherState }
                 }
@@ -301,7 +305,7 @@ function Get-DomeniaComputerBoardData {
             [void]$kept.Add([pscustomobject]@{ Source = $source; Level = $level })
         }
         $generic = $kept.Count - $critical
-        if ($critical) { & $note 'Warn' ([string]$critical + ' erreur(s) critique(s) dans le journal Système sur 3 jours (disque, NTFS ou arrêt inattendu).') }
+        if ($critical) { & $note 'Warn' ([string]$critical + ' erreur(s) critique(s) dans le journal Système sur 3 jours (disque, NTFS ou arrêt inattendu).') 'events' }
         if ($generic) { & $note 'Info' ([string]$generic + ' autre(s) erreur(s) dans le journal Système sur 3 jours.') }
         $ignoredText = if ($ignored) { ' · ' + $ignored + ' connue(s) sans gravité ignorée(s)' } else { '' }
         if ($kept.Count) {
@@ -350,7 +354,7 @@ function Get-DomeniaComputerBoardData {
         $profileCount = $firewallProfiles.Count
         $origin = if ($policies -eq $profileCount) { ' (stratégie)' } elseif ($policies -eq 0) { ' (local)' } else { '' }
         $firewallValue = [string]$on + ' profil' + $(if ($on -gt 1) { 's' } else { '' }) + ' sur ' + $profileCount + ' actif' + $(if ($on -gt 1) { 's' } else { '' }) + $origin
-        if ($offNames.Count) { & $note 'Warn' ('Pare-feu désactivé : ' + (@($offNames) -join ', ') + '.') }
+        if ($offNames.Count) { & $note 'Warn' ('Pare-feu désactivé : ' + (@($offNames) -join ', ') + '.') 'firewall' }
         Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.firewall' -Kind Value -Value $firewallValue -Detail (@($parts) -join ' · ') -State $(if ($offNames.Count) { 'Warn' } else { 'Ok' }))
     }
 
@@ -362,7 +366,7 @@ function Get-DomeniaComputerBoardData {
         $bitlockerText = [string]$bitlocker[0].Value
         # Worker values: 'Protection Active', 'Protection Desactive', 'Protection Inconnu' (the word 'Protection' alone proves nothing).
         $protected = (($bitlockerText -match '(?i)\bactive\b|\bprotege\b') -and ($bitlockerText -notmatch '(?i)desactiv|non protege|inconnu|\boff\b'))
-        if (-not $protected) { & $note 'Warn' ('BitLocker : ' + $bitlockerText + '.') 'secrets' 'ComputerSecrets' 'Onglet Secrets du poste' }
+        if (-not $protected) { & $note 'Warn' ('BitLocker : ' + $bitlockerText + '.') 'bitlocker.none' 'ComputerSecrets' 'Onglet Secrets du poste' }
         Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.bitlocker' -Kind Value -Value $bitlockerText -Detail ([string]$bitlocker[0].Item) -State $(if ($protected) { 'Ok' } else { 'Warn' }))
     }
 
@@ -382,7 +386,7 @@ function Get-DomeniaComputerBoardData {
         # The worker writes one 'Etat' row: 'Aucun redemarrage en attente' or 'Redemarrage requis : <reasons>'.
         $rebootState = [string]$rebootItems.State
         $pending = (($rebootItems.Count -gt 0) -or ($rebootState -like 'Redemarrage requis*'))
-        if ($pending) { & $note 'Warn' 'Redemarrage en attente.' 'restart' 'ComputerActions' 'Redémarrer : onglet Actions' }
+        if ($pending) { & $note 'Warn' 'Redemarrage en attente.' 'reboot' 'ComputerActions' 'Redémarrer : onglet Actions' }
         Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.reboot' -Kind Value -Value $(if ($pending) { 'Oui' } else { 'Non' }) -Detail $(if ($rebootItems.Count) { [string]$rebootItems.Items[0].Item } else { $rebootState }) -State $(if ($pending) { 'Warn' } else { 'Ok' }))
     }
 
@@ -391,7 +395,7 @@ function Get-DomeniaComputerBoardData {
         $firstStopped = if ($stoppedUnexpected.Count) { [string]$stoppedUnexpected[0].Item } else { '' }
         $expectedText = if ($stoppedExpected.Count) { [string]$stoppedExpected.Count + ' sur déclencheur ou différé(s), sans défaut' } else { '' }
         $stoppedDetail = if ($stoppedUnexpected.Count -gt 1) { $firstStopped + ' et ' + ($stoppedUnexpected.Count - 1) + ' autre(s)' } elseif ($stoppedUnexpected.Count) { $firstStopped } elseif ($expectedText) { $expectedText } elseif ($stoppedSummary.State) { [string]$stoppedSummary.State } else { 'Aucun' }
-        if ($stoppedUnexpected.Count) { & $note 'Warn' ([string]$stoppedUnexpected.Count + ' service(s) automatique(s) arrêté(s).') }
+        if ($stoppedUnexpected.Count) { & $note 'Warn' ([string]$stoppedUnexpected.Count + ' service(s) automatique(s) arrêté(s).') 'services' }
         Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.services.stopped' -Kind Value -Value ([string]$stoppedUnexpected.Count) -Detail $stoppedDetail -State $(if ($stoppedUnexpected.Count) { 'Warn' } else { 'Ok' }))
     }
 
@@ -413,7 +417,7 @@ function Get-DomeniaComputerBoardData {
         $checkDetail = if ($summary.Count -gt 1) { $first + ' et ' + ($summary.Count - 1) + ' autre(s)' } elseif ($summary.Count) { $first } elseif ($summary.State) { [string]$summary.State } else { [string]$check.Hint }
         $checkState = ''
         if ($check.Watch) {
-            if ($summary.Count) { $checkState = 'Warn'; & $note 'Warn' ([string]$summary.Count + ' ' + ([string]$check.Title).ToLowerInvariant() + '.') } else { $checkState = 'Ok' }
+            if ($summary.Count) { $checkState = 'Warn'; & $note 'Warn' ([string]$summary.Count + ' ' + ([string]$check.Title).ToLowerInvariant() + '.') ([string]$check.Key).Substring(9) } else { $checkState = 'Ok' }
         }
         Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key ([string]$check.Key) -Kind Value -Value $(if ($summary.Count) { [string]$summary.Count } else { '0' }) -Detail $checkDetail -State $checkState)
     }
@@ -434,7 +438,7 @@ function Get-DomeniaComputerBoardData {
         if ($null -ne $latest) {
             $age = [int]([datetime]::Today - $latest).TotalDays
             $oldHotfix = ($age -gt 60)
-            if ($oldHotfix) { & $note 'Warn' ('Dernier correctif installe il y a ' + $age + ' jours.') }
+            if ($oldHotfix) { & $note 'Warn' ('Dernier correctif installe il y a ' + $age + ' jours.') 'hotfix' }
             Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.hotfix' -Kind Value -Value ('il y a ' + $age + ' j') -Detail ($latest.ToString('dd/MM/yyyy', $invariant) + ' · ' + $hotfixes.Count + ' correctifs') -State $(if ($oldHotfix) { 'Warn' } else { '' }))
         }
     }
@@ -468,8 +472,8 @@ function Get-DomeniaComputerBoardData {
     }
 
     # UX-23: without the firewall, BitLocker nor the antivirus, the score misses the security checks and says so.
-    $securityRead = ($firewallProfiles.Count -gt 0) -or ($bitlocker.Count -gt 0) -or ($av.Count -gt 0)
-    if (-not $securityRead) { $Data.Partial = [pscustomobject]@{ Text = 'Partiel : sécurité non vérifiée'; Action = $full } }
+    $securityRead = ($firewallProfiles.Count -gt 0) -and ($bitlocker.Count -gt 0) -and ($av.Count -gt 0)
+    if (-not $securityRead) { $Data.Partial = [pscustomobject]@{ Text = 'Partiel : antivirus, pare-feu ou BitLocker non lu'; Action = $full } }
 
     if ($hasInventory) {
         $when = Get-Date; if ($At -is [datetime]) { $when = $At }
@@ -477,6 +481,14 @@ function Get-DomeniaComputerBoardData {
     } else {
         $Data.Summary = 'Lancez un inventaire (rapide ou complet) : le tableau de bord se remplit avec ses résultats.'
     }
+    $customDisk=$null;$customMemory=$null;$customUptime=$null
+    if($null -ne $metrics){
+        $system=@($metrics.Disks|Where-Object{$_.Name -ieq 'C:' -and [double]$_.Size -gt 0}|Select-Object -First 1)
+        if($system.Count -and $null -ne $system[0].Free -and [double]$system[0].Free -ge 0 -and [double]$system[0].Free -le [double]$system[0].Size){$customDisk=100.0*[double]$system[0].Free/[double]$system[0].Size}
+        if([double]$metrics.MemoryTotal -gt 0 -and $null -ne $metrics.MemoryFree -and [double]$metrics.MemoryFree -ge 0 -and [double]$metrics.MemoryFree -le [double]$metrics.MemoryTotal){$customMemory=100.0*(1-[double]$metrics.MemoryFree/[double]$metrics.MemoryTotal)}
+    }
+    if($uptime){$customUptime=$uptimeDays}
+    Add-DomeniaCustomHealthAttention -Data $Data -Measures @([pscustomobject]@{DiskFree=$customDisk;MemoryUsed=$customMemory;UptimeDays=$customUptime})
     Complete-DomeniaBoardData -Data $Data | Out-Null
     return $Data
 }

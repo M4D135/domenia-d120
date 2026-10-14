@@ -1,0 +1,57 @@
+{
+  "Suite": "SessionsStore",
+  "Passed": 12,
+  "Failed": 0,
+  "NetworkCalls": 0,
+  "NativeWtsValidated": false,
+  "Cases": [
+    {
+      "Name": "Successful WTS collection enters store before any GUI publication",
+      "Passed": true
+    },
+    {
+      "Name": "Only committed SQLite result can populate sessions grid",
+      "Passed": true
+    },
+    {
+      "Name": "Remote extra properties are not copied to persistent session data",
+      "Passed": true
+    },
+    {
+      "Name": "Complete empty session list is a valid result, absent list is not",
+      "Passed": true
+    },
+    {
+      "Name": "Wrong target and missing timestamp never reach the base as a fresh result",
+      "Passed": true
+    },
+    {
+      "Name": "Failure records attempt without marking empty sessions or displaying network result",
+      "Passed": true
+    },
+    {
+      "Name": "Committed session data ignored after Epoch changes",
+      "Passed": true
+    },
+    {
+      "Name": "Committed session data ignored after Generation changes",
+      "Passed": true
+    },
+    {
+      "Name": "Committed session data ignored after DN changes",
+      "Passed": true
+    },
+    {
+      "Name": "Committed session data ignored after Context changes",
+      "Passed": true
+    },
+    {
+      "Name": "Owned secure string disposed when Throw fails before BeginInvoke",
+      "Passed": true
+    },
+    {
+      "Name": "Owned secure string disposed when DisposedRunspace fails before BeginInvoke",
+      "Passed": true
+    }
+  ]
+}

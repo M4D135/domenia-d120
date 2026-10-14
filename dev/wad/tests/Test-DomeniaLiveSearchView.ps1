@@ -10,7 +10,7 @@ if(-not $ApplicationScope){$global:LASTEXITCODE=0;& $PSCommandPath -Wad $Wad -Re
 if([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT){throw 'Windows WPF is required.'}
 if([Threading.Thread]::CurrentThread.ApartmentState -ne 'STA'){throw 'Run powershell.exe -STA -File, not a global dot-source.'}
 Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
-$script:Results=[Collections.Generic.List[object]]::new();$script:Assertions=0;$script:Logs=[Collections.Generic.List[object]]::new();$script:Snapshots=[Collections.Generic.List[object]]::new()
+$script:Results=[Collections.Generic.List[object]]::new();$script:Assertions=0;$script:Logs=[Collections.Generic.List[object]]::new();$script:Snapshots=[Collections.Generic.List[object]]::new();$script:Waits=[Collections.Generic.List[object]]::new()
 function Expect {param([bool]$Condition,[string]$Message)$script:Assertions++;if(-not $Condition){throw $Message}}
 function Case {param([string]$Name,[scriptblock]$Body)
  $watch=[Diagnostics.Stopwatch]::StartNew();$failure='';try{& $Body}catch{$failure=$_.Exception.ToString()};$watch.Stop()
@@ -40,6 +40,13 @@ function Get-DomeniaSetting {param($Key,$Default)return $Default}
 function Initialize-DomeniaWinSqliteNative {return $true}
 function Set-RowAssociationMetadata {param($Rows)}
 function Start-DomeniaLiveBackgroundWork {}
+# Storage is an inert I/O boundary here. This suite supplies committed-event fixtures
+# directly; Test-DomeniaDirectoryStore covers the real producer/COMMIT ordering separately.
+function New-DomeniaDirectoryReadPipe {
+ param($Context,$ReadyQueue,$Search)
+ return [pscustomobject]@{Context=$Context;Ready=$ReadyQueue;Search=$Search;Input=[Collections.Concurrent.ConcurrentQueue[object]]::new();Collector=[hashtable]::Synchronized(@{Started=$false;Done=$false;Final=$null;Error=''});Stop=$Search.Stop;Closed=$false;Completed=$false}
+}
+function Complete-DomeniaDirectoryReadPipe {param($Pipe,$Final,[string]$Error='')if($null -ne $Pipe){$Pipe.Completed=$true}}
 function Update-DomeniaSearchMoreButton {param($Search)}
 function Get-DomeniaPersistenceState {return [pscustomobject]@{Label='Synthetic fixture: disk persistence disabled'}}
 function Write-AppLog {param($Text,$Level)$script:Logs.Add([pscustomobject]@{Level=[string]$Level;Text=[string]$Text})}
@@ -60,16 +67,33 @@ foreach($name in @('CmbQueryJunction','CmbQueryGroupField','CmbFleetMachineState
 $script:Window.Show()
 $script:Ids=@('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','33333333-3333-4333-8333-333333333333','44444444-4444-4444-8444-444444444444')
 function New-FixtureEvent {param([string]$Name,[string]$Guid,[string]$Type='Machine')
- [pscustomobject]@{Kind='Row';ObservedUtc=[datetime]::UtcNow.ToString('o');Row=[pscustomobject]@{Type=$Type;Name=$Name;Guid=$Guid;DN=('CN='+$Name+',OU=Lab,DC=example,DC=invalid');Login=$Name;UPN='';Description='Synthetic regression fixture';State='Actif';OS='Windows 11'}}
+ [pscustomobject]@{Kind='Row';DataSource='SQLite';ObservedUtc=[datetime]::UtcNow.ToString('o');Row=[pscustomobject]@{Type=$Type;Name=$Name;Guid=$Guid;DN=('CN='+$Name+',OU=Lab,DC=example,DC=invalid');Login=$Name;UPN='';Description='Synthetic regression fixture';State='Actif';OS='Windows 11'}}
 }
 function Pump-Fixture {param([int]$Milliseconds=550)
  $frame=[Windows.Threading.DispatcherFrame]::new();$watch=[Windows.Threading.DispatcherTimer]::new();$watch.Interval=[timespan]::FromMilliseconds($Milliseconds);$watch.Tag=$frame
  $watch.Add_Tick({param($sender,$e)$sender.Stop();$sender.Tag.Continue=$false});$watch.Start()
  try{[Windows.Threading.Dispatcher]::PushFrame($frame)}finally{$watch.Stop()}
 }
+function Wait-FixtureState {
+ param([string]$Stage,[scriptblock]$Condition,[int]$TimeoutMs=5000,[int]$MinimumTicks=1)
+ # Wait for observable state through the REAL Dispatcher. A loaded VM may deliver fewer ticks than
+ # a fixed sleep suggests; this never invokes a runtime tick/filter directly or changes its clock.
+ $watch=[Diagnostics.Stopwatch]::StartNew();$startRuns=[long]$script:Live.Timer.Runs;$complete=$false
+ while($true){
+  $ticks=[long]$script:Live.Timer.Runs-$startRuns
+  if((& $Condition) -and $ticks -ge $MinimumTicks){$complete=$true;break}
+  if($watch.ElapsedMilliseconds -ge $TimeoutMs -or $script:Live.Timer.Errors -gt 0 -or -not $script:Live.Timer.IsEnabled){break}
+  Pump-Fixture 50
+ }
+ $watch.Stop()
+ $script:Waits.Add([pscustomobject]@{Stage=$Stage;Completed=$complete;Milliseconds=$watch.ElapsedMilliseconds;GuardMilliseconds=$TimeoutMs;MinimumTicks=$MinimumTicks;TimerTicks=([long]$script:Live.Timer.Runs-$startRuns)})
+ Snapshot-Fixture ('wait-'+$Stage)
+ $s=$script:Live.Search
+ Expect $complete ("Dispatcher state not reached: $Stage; rows=$($s.Rows.Count), visible=$($script:Ctrl.DgObjects.Items.Count), queued=$($s.Progress.Count), filterPending=$($s.FilterPending), ticks=$([long]$script:Live.Timer.Runs-$startRuns), elapsed=$($watch.ElapsedMilliseconds)ms, timerError=$($script:Live.Timer.LastError)")
+}
 function Snapshot-Fixture {param([string]$Stage)
  $t=$script:Live.Timer;$s=$script:Live.Search
- $script:Snapshots.Add([pscustomobject]@{Stage=$Stage;Rows=$s.Rows.Count;Visible=$script:Ctrl.DgObjects.Items.Count;Queued=$s.Progress.Count;TimerRuns=$t.Runs;TimerErrors=$t.Errors;TimerFailures=$t.Failures;TimerEnabled=$t.IsEnabled;FaultStopped=$t.FaultStopped;LastError=$t.LastError;HeartbeatWakeups=$script:DomeniaPulse.Wakeups;Counter=$script:Ctrl.LblSuiteResultCount.Text})
+ $script:Snapshots.Add([pscustomobject]@{Stage=$Stage;Rows=$s.Rows.Count;Visible=$script:Ctrl.DgObjects.Items.Count;Queued=$s.Progress.Count;TimerRuns=$t.Runs;TimerErrors=$t.Errors;TimerFailures=$t.Failures;TimerEnabled=$t.IsEnabled;FaultStopped=$t.FaultStopped;LastError=$t.LastError;HeartbeatWakeups=$script:DomeniaPulse.Wakeups;Counter=$script:Ctrl.LblSuiteResultCount.Text;FilterPending=[bool]$s.FilterPending;RefreshNeeded=[bool]$s.RefreshNeeded;LastFilterUtc=$script:Live.LastFilter.ToString('o');VisibleNames=@($script:Ctrl.DgObjects.Items|Select-Object -First 8|ForEach-Object{[string]$_.Name})})
 }
 function Expect-HealthyTimer {
  Expect ($script:Live.Timer.Errors -eq 0) ('Timer:Live errors: '+$script:Live.Timer.LastError)
@@ -89,12 +113,13 @@ try {
   $payload=[pscustomobject]@{};$search=Begin-DomeniaLiveSearch -State $state -Payload $payload
   Expect ($null -ne $script:Live.Timer -and $script:Live.Timer.Owner -eq 'Timer:Live') 'Real Live timer missing'
   foreach($event in @((New-FixtureEvent 'PC-ALPHA' $script:Ids[0]),(New-FixtureEvent 'PC-BETA' $script:Ids[1]),(New-FixtureEvent 'USER-GAMMA' $script:Ids[2] 'Utilisateur'))){$search.Progress.Enqueue($event)}
-  Invoke-DomeniaTimerSoon -Owner 'Timer:Live';Pump-Fixture 650
+  Invoke-DomeniaTimerSoon -Owner 'Timer:Live'
+  Wait-FixtureState -Stage 'initial-three-arrivals' -MinimumTicks 3 -Condition {$search.Progress.IsEmpty -and $search.Rows.Count -eq 3 -and $grid.Items.Count -eq 3}
   Snapshot-Fixture 'no-query-three-arrivals'
   Expect-HealthyTimer
   Expect ($search.Rows.Count -eq 3 -and $grid.Items.Count -eq 3) 'Progressive search lost or hid rows without a query'
   Expect ($grid.ItemsSource -is [Collections.ObjectModel.ObservableCollection[object]]) 'ObservableCollection was replaced'
-  Expect ($script:Ctrl.LblSuiteResultCount.Text -like '3 / 3*') 'Visible counter differs from real grid'
+  Expect ($script:Ctrl.LblSuiteResultCount.Text -match '^Chargement… · 3 / 3 lignes visibles(?: ·|$)') ('Loading state or visible counter differs from real grid: '+$script:Ctrl.LblSuiteResultCount.Text)
  }
  if($script:Live.Timer.Errors -eq 0){
   Case 'Real ApplySearch intersects native matching GUIDs and object types' {
@@ -113,7 +138,8 @@ try {
    $q=$script:DomeniaQueryState;$q.SearchRecords[$script:Ids[3]]=$true
    $s=$script:Live.Search;$s.Progress.Enqueue((New-FixtureEvent 'PC-DELTA' (' {'+$script:Ids[3].ToUpperInvariant()+'} ')))
    $s.Progress.Enqueue((New-FixtureEvent 'GROUP-DELTA' $script:Ids[3] 'Groupe'))
-   Invoke-DomeniaTimerSoon -Owner 'Timer:Live';Pump-Fixture
+   Invoke-DomeniaTimerSoon -Owner 'Timer:Live'
+   Wait-FixtureState -Stage 'filtered-incremental-arrivals' -Condition {$s.Progress.IsEmpty -and $s.Rows.Count -eq 5 -and $grid.Items.Count -eq 2}
    Expect-HealthyTimer
    Expect ($s.Rows.Count -eq 5 -and $grid.Items.Count -eq 2) 'Incremental matching GUID, excluded type, or normalization failed'
    Expect (@($grid.Items|Where-Object{$_.Type -ne 'Machine'}).Count -eq 0) 'Non-machine object admitted by query filter'
@@ -124,7 +150,8 @@ try {
    Set-DomeniaQueryDraft (New-DomeniaQueryRecipe -Name 'Only alpha' -Clauses @([pscustomobject]@{Field='name';Operator='Equal';Value='PC-ALPHA'}))
    Invoke-DomeniaQueryAction 'ApplySearch';Update-DomeniaLiveFilter
    Expect ($q.SearchRecords.Count -eq 1 -and $grid.Items.Count -eq 1 -and $grid.Items[0].Name -eq 'PC-ALPHA') 'Reapply retained stale query selection'
-   $s=$script:Live.Search;$event=New-FixtureEvent 'PC-BETA-REFRESHED' $script:Ids[1];$event.Row.DN='CN=PC-BETA,OU=Lab,DC=example,DC=invalid';$s.Progress.Enqueue($event);Invoke-DomeniaTimerSoon -Owner 'Timer:Live';Pump-Fixture
+   $s=$script:Live.Search;$event=New-FixtureEvent 'PC-BETA-REFRESHED' $script:Ids[1];$event.Row.DN='CN=PC-BETA,OU=Lab,DC=example,DC=invalid';$s.Progress.Enqueue($event);Invoke-DomeniaTimerSoon -Owner 'Timer:Live'
+   Wait-FixtureState -Stage 'excluded-row-refresh' -Condition {$s.Progress.IsEmpty -and $s.Rows.Count -eq 5 -and @($s.Rows|Where-Object{$_.Name -eq 'PC-BETA-REFRESHED'}).Count -eq 1 -and $grid.Items.Count -eq 1}
    Expect-HealthyTimer;Expect ($s.Rows.Count -eq 5 -and $grid.Items.Count -eq 1) 'Refreshing an excluded row changed visible population'
   }
   Case 'Active selection with empty or missing map fails closed' {
@@ -138,10 +165,14 @@ try {
    Set-DomeniaQueryDraft (New-DomeniaQueryRecipe -Name 'Delayed beta' -Clauses @([pscustomobject]@{Field='name';Operator='Equal';Value='PC-BETA'}))
    Invoke-DomeniaQueryAction 'ApplySearch'
    Expect ($null -ne $q.SearchRecipe -and $q.SearchRecords.Count -eq 1) 'Disabled grid discarded the requested query'
-   $grid.IsEnabled=$true;Invoke-DomeniaTimerSoon -Owner 'Timer:Live';Pump-Fixture 700
+   Expect ($script:Live.Search.FilterPending -and $grid.Items.Count -eq 5) 'ApplySearch was not deferred while the grid was disabled'
+   $grid.IsEnabled=$true;Invoke-DomeniaTimerSoon -Owner 'Timer:Live'
+   Wait-FixtureState -Stage 'enabled-grid-pending-apply' -Condition {-not $script:Live.Search.FilterPending -and $grid.Items.Count -eq 1 -and $grid.Items[0].Name -eq 'PC-BETA-REFRESHED'}
    Expect-HealthyTimer;Expect ($grid.Items.Count -eq 1 -and $grid.Items[0].Name -eq 'PC-BETA-REFRESHED') 'Pending ApplySearch was not rebuilt after enabling grid'
    $grid.IsEnabled=$false;Invoke-DomeniaQueryAction 'ClearSearch'
-   $grid.IsEnabled=$true;Invoke-DomeniaTimerSoon -Owner 'Timer:Live';Pump-Fixture 700
+   Expect ($null -eq $q.SearchRecipe -and $script:Live.Search.FilterPending -and $grid.Items.Count -eq 1) 'ClearSearch was not deferred while the grid was disabled'
+   $grid.IsEnabled=$true;Invoke-DomeniaTimerSoon -Owner 'Timer:Live'
+   Wait-FixtureState -Stage 'enabled-grid-pending-clear' -Condition {-not $script:Live.Search.FilterPending -and $grid.Items.Count -eq 5}
    Expect-HealthyTimer;Expect ($grid.Items.Count -eq 5) 'Pending ClearSearch was not rebuilt after enabling grid'
    Snapshot-Fixture 'disabled-grid-apply-and-clear'
   }
@@ -178,7 +209,8 @@ try {
    $scope=Get-DomeniaSearchScope;$state=[pscustomobject]@{Generation=$script:GlobalSearchGeneration;SearchMode='Global';BaseDn=$scope.BaseDn;Scope=$scope.Scope;TypeFilter=(Get-GlobalSelectedTypeFilter);Search='';Limit=10000;PreserveSelectionDn='';ViewId=''}
    $script:Live.Timer.Stop();$s=Begin-DomeniaLiveSearch $state ([pscustomobject]@{})
    $s.Progress.Enqueue((New-FixtureEvent 'GLOBAL-ALPHA' $script:Ids[0]));$s.Progress.Enqueue((New-FixtureEvent 'GLOBAL-USER' $script:Ids[2] 'Utilisateur'))
-   Invoke-DomeniaTimerSoon -Owner 'Timer:Live';Pump-Fixture
+   Invoke-DomeniaTimerSoon -Owner 'Timer:Live'
+   Wait-FixtureState -Stage 'fresh-global-search' -Condition {$s.Progress.IsEmpty -and $s.Rows.Count -eq 2 -and $grid.Items.Count -eq 2}
    Expect-HealthyTimer;Expect ($s.Rows.Count -eq 2 -and $grid.Items.Count -eq 2) 'New global search inherited local filters or failed to restart'
    Snapshot-Fixture 'fresh-global-search'
   }
@@ -205,7 +237,7 @@ try {
  $script:Window.Close()
 }
 $failed=@($script:Results|Where-Object{-not $_.Passed}).Count
-$report=[pscustomobject]@{Suite='DomeniaLiveSearchView';Passed=($failed -eq 0);Failed=$failed;Cases=$script:Results.Count;Assertions=$script:Assertions;PowerShell=$PSVersionTable.PSVersion.ToString();SessionId=[Diagnostics.Process]::GetCurrentProcess().SessionId;Sta=([Threading.Thread]::CurrentThread.ApartmentState.ToString());SyntheticOnly=$true;RealDispatcher=$true;LoaderScope='-File launcher then & application script (same as Domenia-Start)';LoadedFunctions=$script:LoadedFunctions;Hashes=@(foreach($relative in @('Domenia-Modules.ps1','Domenia-Core.ps1','modules/Domenia-Live.UI.ps1','modules/Domenia-Query.UI.ps1','modules/Domenia-Widgets.UI.ps1')){[pscustomobject]@{Path=$relative;Sha256=(Get-FileHash (Join-Path $Wad $relative) -Algorithm SHA256).Hash}});Results=$script:Results.ToArray();Snapshots=$script:Snapshots.ToArray();Logs=$script:Logs.ToArray()}
+$report=[pscustomobject]@{Suite='DomeniaLiveSearchView';Passed=($failed -eq 0);Failed=$failed;Cases=$script:Results.Count;Assertions=$script:Assertions;PowerShell=$PSVersionTable.PSVersion.ToString();SessionId=[Diagnostics.Process]::GetCurrentProcess().SessionId;Sta=([Threading.Thread]::CurrentThread.ApartmentState.ToString());SyntheticOnly=$true;RealDispatcher=$true;LoaderScope='-File launcher then & application script (same as Domenia-Start)';LoadedFunctions=$script:LoadedFunctions;Hashes=@(foreach($relative in @('Domenia-Modules.ps1','Domenia-Core.ps1','modules/Domenia-Live.UI.ps1','modules/Domenia-Query.UI.ps1','modules/Domenia-Widgets.UI.ps1')){[pscustomobject]@{Path=$relative;Sha256=(Get-FileHash (Join-Path $Wad $relative) -Algorithm SHA256).Hash}});Results=$script:Results.ToArray();Snapshots=$script:Snapshots.ToArray();Waits=$script:Waits.ToArray();Logs=$script:Logs.ToArray()}
 if($ReportPath){$parent=Split-Path $ReportPath -Parent;if($parent -and -not (Test-Path $parent)){[void](New-Item -ItemType Directory -Path $parent -Force)};[IO.File]::WriteAllText($ReportPath,($report|ConvertTo-Json -Depth 12),[Text.UTF8Encoding]::new($false))}
 Write-Host ('LiveSearchView: '+$script:Results.Count+' cases / '+$script:Assertions+' assertions / '+$failed+' failed')
 if($failed){exit 1};exit 0

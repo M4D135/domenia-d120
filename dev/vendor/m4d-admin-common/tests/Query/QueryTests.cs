@@ -105,6 +105,32 @@ public static class QueryTests
             var sensitive = new[] { new FieldDefinition("name", FieldKind.Text) { CaseSensitive = true } };
             var exact = new QueryDefinition(); exact.Clauses.Add(new QueryClause("name", QueryOperator.Equal, "PC"));
             Assert(QueryEngine.Compile(sensitive, exact).Evaluate(Values("name", "pc")) == MatchState.NoMatch, "case sensitive field");
+            var fleet = new List<QueryRecord>();
+            for (int i = 0; i < 20000; i++) fleet.Add(new QueryRecord(i.ToString(CultureInfo.InvariantCulture), Values("name", "PC-" + i.ToString("D5"), "n", i)));
+            groups = all.CountBy(fleet, "name", 100000);
+            Assert(groups.Count == 20000 && groups[19999].Count == 1, "20000 exact distinct categories");
+            limited = false;
+            try { all.CountBy(fleet, "name", 19999); } catch (InvalidOperationException) { limited = true; }
+            Assert(limited, "distinct budget remains explicit");
+            Throws(delegate { all.CountBy(fleet, "name", 100001); }, "maximum category budget");
+            var snapshot = all.PrepareSnapshot(fleet, new QueryOptions { SortField = "name", Descending = true }, 20000);
+            Assert(snapshot.Total == 20000 && snapshot.Matched == 20000 && snapshot.SelectedCount == 20000, "prepared complete 20000 population");
+            Assert(snapshot.ReadPage(0, 200)[0].Id == "19999" && snapshot.ReadPage(19800, 200)[199].Id == "0", "prepared stable first and last pages");
+            Assert(snapshot.ReadPage(10000, 200).Count == 200 && snapshot.ReadPage(20000, 200).Count == 0, "prepared crossing 10000 boundary");
+            fleet.Clear();
+            Assert(snapshot.SelectedCount == 20000 && snapshot.ReadPage(0, 1)[0].Id == "19999", "prepared membership independent of mutable source list");
+            limited = false;
+            try { all.PrepareSnapshot(records, new QueryOptions { SortField = "name" }, 3); } catch (InvalidOperationException) { limited = true; }
+            Assert(limited, "prepared sorted overflow refuses partial result");
+            limited = false;
+            try { all.PrepareSnapshot(records, null, 3); } catch (InvalidOperationException) { limited = true; }
+            Assert(limited, "prepared unsorted overflow refuses partial result");
+            var unknownSnapshot = Compile("n", QueryOperator.Less, 15).PrepareSnapshot(records, new QueryOptions { Selection = MatchState.Unknown }, 20);
+            Assert(unknownSnapshot.Unknown == 1 && unknownSnapshot.ReadPage(0, 10)[0].Id == "C", "prepared unknown selection");
+            Throws(delegate { snapshot.ReadPage(0, 10001); }, "prepared page bounded");
+            cancelled = false;
+            try { all.PrepareSnapshot(records, null, 20, cancel.Token); } catch (OperationCanceledException) { cancelled = true; }
+            Assert(cancelled, "prepared cancellation cannot publish partial result");
             return count;
         }
         finally { Thread.CurrentThread.CurrentCulture = before; }

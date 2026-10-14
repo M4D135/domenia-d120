@@ -311,12 +311,15 @@ function New-DomeniaBoardToolbar {
     $fill = New-Object System.Windows.Controls.ColumnDefinition; $fill.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
     $auto = New-Object System.Windows.Controls.ColumnDefinition; $auto.Width = [System.Windows.GridLength]::Auto
     [void]$bar.ColumnDefinitions.Add($fill); [void]$bar.ColumnDefinitions.Add($auto)
-    $buttons = New-Object System.Windows.Controls.StackPanel
+    $buttons = New-Object System.Windows.Controls.WrapPanel
     $buttons.Orientation = [System.Windows.Controls.Orientation]::Horizontal
-    [System.Windows.Controls.Grid]::SetColumn($buttons, 1)
+    foreach($row in 0..1){$definition=[Windows.Controls.RowDefinition]::new();$definition.Height=[Windows.GridLength]::Auto;[void]$bar.RowDefinitions.Add($definition)}
+    [System.Windows.Controls.Grid]::SetColumn($buttons, 0);[System.Windows.Controls.Grid]::SetColumnSpan($buttons, 2);[System.Windows.Controls.Grid]::SetRow($buttons, 1);$buttons.HorizontalAlignment='Right'
     $probes = @($Layout | Where-Object { [string]$_.Source -in @('Probe','Query') }).Count
     # Fleet queries run from Rechercher (Analyser la liste): the overview only displays (decision David 2026-10-08).
     if ($probes -and $Board -eq 'Computer') { [void]$buttons.Children.Add((New-DomeniaBoardButton ([string][char]0xE72C) 'Actualiser les requetes' 'Execute les requetes WMI des widgets (lecture seule) sur le perimetre, avec confirmation.' @{ Board = $Board; Action = 'Probe' })) }
+    if($Board -eq 'Fleet'){[void]$buttons.Children.Add((New-DomeniaBoardButton ([string][char]0xE9D9) 'Analyser la vue' 'Comparer les relevés et ouvrir les tableaux croisés avec leurs postes.' @{Board=$Board;Action='FleetAnalysis'}))}
+    if($Board -in @('Fleet','Computer')){[void]$buttons.Children.Add((New-DomeniaBoardButton ([string][char]0xE713) 'Règles de santé' 'Activer les contrôles, régler les seuils ou gérer vos alertes.' @{Board=$Board;Action='HealthRules'}))}
     if($Board -in @('Fleet','Computer')){[void]$buttons.Children.Add((New-DomeniaBoardButton ([string][char]0xE8A1) 'Atelier' 'Créer une requête réutilisable et choisir où lʼafficher.' @{ Board=$Board;Action='Workshop' }))}
     [void]$buttons.Children.Add((New-DomeniaBoardButton ([string][char]0xE710) 'Ajouter un widget' 'Choisir une information du tableau de bord ou une requete prete a l emploi.' @{ Board = $Board; Action = 'Add'; Value = '' }))
     if ($State.Editing) {
@@ -329,6 +332,7 @@ function New-DomeniaBoardToolbar {
     $left = New-Object System.Windows.Controls.StackPanel
     $left.Orientation = [System.Windows.Controls.Orientation]::Horizontal
     $left.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+    [Windows.Controls.Grid]::SetColumnSpan($left,2);[Windows.Controls.Grid]::SetRow($left,0)
     $say = { param([string]$Text) $line = New-DomeniaChartText -Text $Text -Size 12.5 -Key 'MutedColor' -OneLine; [void]$left.Children.Add($line) }
     if ($State.UndoText -and $null -ne $State.UndoLayout) {
         & $say ([string]$State.UndoText + '.')
@@ -505,7 +509,7 @@ function New-DomeniaWidgetVisual {
             return New-DomeniaGauge -Title $Title -Value ([double]$Entry.Number) -Maximum $maximum -Unit $unit -LowIsBad:([bool]$Entry.LowIsBad) -Width $w -Height $h -Caption $detail -State ([string]$Entry.State)
         }
         'Pie' { return New-DomeniaDonutChart -Title $Title -Items $items -Width $w -Height $h -CenterText ([string]$Entry.CenterText) -OnSelect $OnSelect }
-        'Bar' { return New-DomeniaBarChart -Title $Title -Items $items -Width $w -Height $h -Top 12 -Unit $(if ($unit) { ' ' + $unit } else { '' }) -Subtitle $subtitle -OnSelect $OnSelect }
+        'Bar' { return New-DomeniaBarChart -Title $Title -Items $items -Width $w -Height $h -Top 12 -GroupOverflow:($Board -eq 'Fleet' -and [string]$Entry.Kind -in @('Distribution','Series') -and -not $unit) -Unit $(if ($unit) { ' ' + $unit } else { '' }) -Subtitle $subtitle -OnSelect $OnSelect }
         'Column' { return New-DomeniaColumnChart -Title $Title -Items $items -Width $w -Height $h -Subtitle $subtitle -OnSelect $OnSelect }
         'Line' { return New-DomeniaLineChart -Title $Title -Points $items -Width $w -Height $h -Subtitle $subtitle }
         'Text' {
@@ -515,7 +519,7 @@ function New-DomeniaWidgetVisual {
             return New-DomeniaListCard -Title $Title -Subtitle $detail -Items $listed -Width $w -Height $h -MinHeight $min -Unit $unit -Fallback $value
         }
         'List' { return New-DomeniaAttentionCard -Title $Title -Items $items -Width $w -MinHeight $min -Board $Board }
-        'Health' { return New-DomeniaHealthCard -Title $Title -Score ([double]$Entry.Number) -Verdict $value -Detail $detail -State $(if ([string]$Entry.State) { [string]$Entry.State } else { 'Ok' }) -Width $w -Height $h -Badge $badge -Action $action -Board $Board }
+        'Health' { if($null -eq $Entry.Number){return New-DomeniaKpiTile -Title $Title -Value $value -Detail ((@($detail,$badge)|Where-Object{$_}) -join ' · ') -Width $w -Height $h -State Off};return New-DomeniaHealthCard -Title $Title -Score ([double]$Entry.Number) -Verdict $value -Detail $detail -State $(if ([string]$Entry.State) { [string]$Entry.State } else { 'Ok' }) -Width $w -Height $h -Badge $badge -Action $action -Board $Board }
         default { return New-DomeniaKpiTile -Title $Title -Value $(if ($value) { $value } else { 'Non lu' }) -Detail $detail -Width $w -Height $h -State ([string]$Entry.State) }
     }
 }
@@ -631,7 +635,7 @@ function New-DomeniaBoardWidget {
     [void]$holder.Children.Add($card)
     $actionProperty = if ($null -ne $entry) { $entry.PSObject.Properties['Action'] } else { $null }
     # The score card draws its own button inside the card (UX-23).
-    if (($null -ne $actionProperty) -and ($null -ne $actionProperty.Value) -and (-not $State.Editing) -and ($visual -ne 'Health')) {
+    if (($null -ne $actionProperty) -and ($null -ne $actionProperty.Value) -and (-not $State.Editing) -and ($visual -ne 'Health' -or $null -eq $entry.Number)) {
         $action = $actionProperty.Value
         [void]$holder.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
         $actionRow = New-Object System.Windows.Controls.RowDefinition; $actionRow.Height = [System.Windows.GridLength]::Auto
@@ -669,7 +673,11 @@ function New-DomeniaBoardWidget {
     if($Board -eq 'Fleet' -or ($Board -eq 'Computer' -and $Item.Source -eq 'Query')){
         [void]$chrome.Children.Add((New-DomeniaBoardChromeButton ([string][char]0xE8A1) ('Ouvrir dans lʼatelier : ' + $resolved.Title) @{ Board = $Board; Id = [string]$Item.Id; Action = 'Details' }))
     }
+    elseif($Board -eq 'Computer' -and $Item.Source -eq 'Probe'){
+        [void]$chrome.Children.Add((New-DomeniaBoardChromeButton ([string][char]0xE8A5) ('Détails enregistrés : ' + $resolved.Title) @{Board=$Board;Id=[string]$Item.Id;Action='Details'}))
+    }
     [void]$chrome.Children.Add((New-DomeniaBoardChromeButton ([string][char]0xE70F) ('Modifier : ' + $resolved.Title) @{ Board = $Board; Id = [string]$Item.Id; Action = 'Edit' }))
+    if($kind -eq 'Health' -and $Board -in @('Fleet','Computer')){[void]$chrome.Children.Add((New-DomeniaBoardChromeButton ([string][char]0xE946) 'Comprendre le score' @{Board=$Board;Action='HealthExplanation'}))}
     [void]$chrome.Children.Add((New-DomeniaBoardChromeButton ([string][char]0xE711) ('Retirer : ' + $resolved.Title) @{ Board = $Board; Id = [string]$Item.Id; Action = 'Remove' } -Danger))
     $chrome.Opacity = if ($State.Editing) { 1 } else { 0 }
     [void]$holder.Children.Add($chrome)
@@ -680,6 +688,12 @@ function New-DomeniaBoardWidget {
     $holder.Add_MouseLeave({ param($s,$e) if (-not $s.Tag.Editing -and -not $s.IsKeyboardFocusWithin) { Set-DomeniaHoverValue $s.Tag.Chrome ([System.Windows.UIElement]::OpacityProperty) 0 } })
     $holder.Add_IsKeyboardFocusWithinChanged({ param($s,$e) $s.Tag.Chrome.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $null); if ($s.IsKeyboardFocusWithin) { $s.Tag.Chrome.Opacity = 1 } elseif (-not $s.Tag.Editing -and -not $s.IsMouseOver) { $s.Tag.Chrome.Opacity = 0 } })
     # Drag and drop: a widget dropped on another one takes its place (and its section).
+    $holder.Add_PreviewKeyDown({
+        param($s,$e)
+        if(-not $s.Tag.Editing -or [Windows.Input.Keyboard]::Modifiers -ne [Windows.Input.ModifierKeys]::Alt){return}
+        $step=switch($e.Key){Left{'Back'}Right{'Forward'}Home{'First'}End{'Last'}default{''}}
+        if($step){Invoke-DomeniaBoardAction -Tag @{Board=$s.Tag.Board;Id=$s.Tag.Id;Action='Move';Value=$step};$e.Handled=$true}
+    })
     $holder.Add_PreviewMouseLeftButtonDown({
         param($s,$e)
         if(-not $s.Tag.Editing){return}
@@ -757,8 +771,18 @@ function Invoke-DomeniaBoardAction {
     $focused = [System.Windows.Input.Keyboard]::FocusedElement
     $keyboard = ($null -ne $panel -and $focused -is [System.Windows.DependencyObject] -and $panel.IsAncestorOf($focused))
     switch ($action) {
+        'FleetAnalysis' { Show-DomeniaFleetAnalysis;return }
+        'HealthExplanation' { [void](Show-DomeniaHealthExplanation -Board $board);return }
+        'HealthRules' { [void](Show-DomeniaHealthRulesEditor -Board ([string]$Tag['Board']));return }
         'Details' {
-            if($board -eq 'Computer'){$item=@(Get-DomeniaBoardLayout -Board $board|Where-Object{$_.Id -eq $id}|Select-Object -First 1);if($item.Count -and $item[0].Source -eq 'Query'){Show-DomeniaComputerQueryWorkshop -RecipeId $item[0].Key};return}
+            if($board -eq 'Computer'){
+                $item=@(Get-DomeniaBoardLayout -Board $board|Where-Object{$_.Id -eq $id}|Select-Object -First 1)
+                if($item.Count){
+                    if($item[0].Source -eq 'Query'){Show-DomeniaComputerQueryWorkshop -RecipeId $item[0].Key}
+                    elseif($item[0].Source -eq 'Probe'){Show-DomeniaProbeDetails -ProbeId ([string]$item[0].Key)}
+                }
+                return
+            }
             if($board -ne 'Fleet'){return}
             $item=@(Get-DomeniaBoardLayout -Board $board|Where-Object{[string]$_.Id -eq $id}|Select-Object -First 1)
             if($item.Count){Show-DomeniaFleetWidgetDetails -Item $item[0]}
@@ -820,7 +844,11 @@ function Get-DomeniaBoardSources {
             $kind = Get-DomeniaProbeKind -Probe $probe -Board $Board
             # FI-17: a slow query is flagged before it is added.
             $slow = (($null -ne $probe.PSObject.Properties['Slow']) -and [bool]$probe.Slow)
-            [void]$rows.Add([pscustomobject]@{ Section = 'Requetes WMI · ' + [string]$probe.Category; Name = [string]$probe.Name; Description = ([string]$probe.Class + ' (' + [string]$probe.Namespace + ')' + $(if ($slow) { ' · requête lente' } else { '' })); Badge = $(if ($shown) { 'affiche' } else { '' }); Source = 'Probe'; Key = [string]$probe.Id; Kind = $kind; Visual = (Resolve-DomeniaBoardVisual -Visual ([string]$probe.Visual) -Kind $kind); Size = ''; Group = [string]$probe.Category; Slow = $slow; Search = (ConvertTo-DomeniaSearchText ([string]$probe.Name + ' ' + [string]$probe.Category + ' ' + [string]$probe.Class)) })
+            $probeDescription=[string](Get-DomeniaHealthValue $probe 'Description' '')
+            $probeDescription+=' '+[string](Get-DomeniaHealthValue $probe 'Limitations' '')
+            $probeDescription+=' '+[string](Get-DomeniaHealthValue $probe 'Compatibility' '')
+            if($slow){$probeDescription+=' · Requête lente : collecte explicite recommandée.'}
+            [void]$rows.Add([pscustomobject]@{ Section = 'Requetes WMI · ' + [string]$probe.Category; Name = [string]$probe.Name; Description = $probeDescription; Badge = $(if ($shown) { 'affiche' } else { '' }); Source = 'Probe'; Key = [string]$probe.Id; Kind = $kind; Visual = (Resolve-DomeniaBoardVisual -Visual ([string]$probe.Visual) -Kind $kind); Size = ''; Group = [string]$probe.Category; Slow = $slow; Search = (ConvertTo-DomeniaSearchText ([string]$probe.Name + ' ' + [string]$probe.Category + ' ' + [string]$probe.Class + ' ' + $probeDescription)) })
         }
     }
     if($Board -in @('Fleet','Computer') -and $null -ne $script:DomeniaQueryState){foreach($recipe in @($script:DomeniaQueryState.Saved)){$rows.Add([pscustomobject]@{Section='Mes requêtes';Name=$recipe.Name;Description=$(if($Board -eq 'Computer'){'Requête enregistrée évaluée sur le poste sélectionné'}else{'Filtre enregistré sur les données locales du périmètre'});Badge=$(if($present.ContainsKey('Query|'+$recipe.Id)){'affiche'}else{''});Source='Query';Key=$recipe.Id;Kind='Distribution';Visual=$(if([string](Get-DomeniaMember $recipe 'GroupBy')){'Bar'}else{'Kpi'});Size='M';Group='Mes sondes';Slow=$false;Search=(ConvertTo-DomeniaSearchText $recipe.Name)})|Out-Null}}

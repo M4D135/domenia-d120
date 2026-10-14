@@ -533,24 +533,28 @@ Test-Case 'D024 : presence cache utilise Get-DomeniaFreshness et pas 120s en dur
     Assert-Equal 'En ligne' (Get-DomeniaCachedPresenceState -Dn 'CN=PC1,DC=example,DC=invalid')
 }
 
-Test-Case 'D024 : Set-DomeniaResultRowPresence stocke UpdatedUtc et file UTC' {
+Test-Case 'D024 : Set-DomeniaResultRowPresence affiche une mesure committée sans réécrire sa date' {
     function Queue-DomeniaMetadata { param($Kind,$Row,$Key='') $script:QueueSpyRow=$Row; return $true }
     function ConvertTo-DomeniaGridPresenceState { param($State) return 'En ligne' }
     function Apply-DomeniaPresenceFilter { }
     function Get-DomeniaControl { return $null }
     function Set-DomeniaLiveRowValue { param($Row,$Name,$Value) }
 
-    $script:BranchObjects=@([pscustomobject]@{DN='CN=PC1,DC=example,DC=invalid';Presence='Inconnu'})
+    $script:BranchObjects=@([pscustomobject]@{DN='CN=PC1,DC=example,DC=invalid';Guid='00000000-0000-0000-0000-000000000001';Presence='Inconnu'})
+    $script:QueueSpyRow=$null
+    $at=[datetime]::UtcNow.AddMinutes(-10)
+    $observation=[pscustomobject]@{Key='CN=PC1,DC=example,DC=invalid';Guid='00000000-0000-0000-0000-000000000001';Presence='En ligne';PresenceCheckedUtc=$at.ToString('o')}
     $script:CurrentPresenceFilter='Tous'
     $script:PresenceCache=@{}
-    Set-DomeniaResultRowPresence -Dn 'CN=PC1,DC=example,DC=invalid' -State 'En ligne' -Target 'PC1'
+    Set-DomeniaResultRowPresence -Dn 'CN=PC1,DC=example,DC=invalid' -State 'En ligne' -Target 'PC1' -Observation $observation
     $entry=$script:PresenceCache['cn=pc1,dc=example,dc=invalid']
     Assert-True ($null -ne $entry.PSObject.Properties['UpdatedUtc'])
     Assert-True ($entry.UpdatedUtc.Kind -eq [DateTimeKind]::Utc)
-    Assert-True ($script:QueueSpyRow.At -match 'Z$')
+    Assert-Equal $at $entry.UpdatedUtc
+    Assert-True ($null -eq $script:QueueSpyRow)
 }
 
-Test-Case 'D024 : Show-AdObjectResult depuis cache utilise Created comme LoadedAt' {
+Test-Case 'D024 : Show-AdObjectResult conserve ObservedUtc SQLite independamment de Created' {
     function Keep-DomeniaDraftOnResult { param($Result,$DN,$Type) return $false }
     function Clear-ObjectDetails { }
     function Remove-DomeniaSensitiveProperties { param($Properties) return $Properties }
@@ -584,7 +588,8 @@ Test-Case 'D024 : Show-AdObjectResult depuis cache utilise Created comme LoadedA
     function Set-DomeniaObservationTime { param($Object,$Nature,$ObservedUtc,[switch]$Succeeded) $script:ObservedTimeCalls++ }
     function Get-DomeniaRecordFreshness { param($Object,$Nature) $script:FreshnessCalls++; return [pscustomobject]@{Nature=$Nature;State='Fresh';AgeSeconds=0;Label=''} }
 
-    $createdUtc=[datetime]::UtcNow.AddMinutes(-10)
+    $createdUtc=[datetime]::UtcNow.AddMinutes(-2)
+    $observedUtc=[datetime]::UtcNow.AddMinutes(-20)
     $script:ShowingCachedObject=$true
     $script:ShowingCachedObjectCreated=$createdUtc.ToLocalTime()
     $script:SelectedObject=$null
@@ -593,12 +598,12 @@ Test-Case 'D024 : Show-AdObjectResult depuis cache utilise Created comme LoadedA
     $script:AsyncJobs=@{}
     $script:ObservedTimeCalls=0
     $script:FreshnessCalls=0
-    $result=[pscustomobject]@{Properties=@{name='PC1'};Live=$false}
+    $result=[pscustomobject]@{Properties=@{name='PC1'};Live=$false;DataSource='SQLite';ObservedUtc=$observedUtc.ToString('o')}
     Show-AdObjectResult -Result $result -Dn 'CN=PC1,DC=x' -Type 'Machine' -NoNavigate
     Assert-True ($null -ne $script:SelectedObject)
     Assert-True ($script:ObservedTimeCalls -gt 0)
     Assert-True ($script:FreshnessCalls -gt 0)
-    $delta=[Math]::Abs((([datetime]$script:SelectedObject.LoadedAt) - $createdUtc.ToLocalTime()).TotalMinutes)
+    $delta=[Math]::Abs((([datetime]$script:SelectedObject.LoadedAt) - $observedUtc.ToLocalTime()).TotalSeconds)
     Assert-True ($delta -lt 1) ('LoadedAt=' + [string]$script:SelectedObject.LoadedAt)
 }
 

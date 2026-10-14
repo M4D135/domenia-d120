@@ -1,0 +1,89 @@
+{
+  "Suite": "FavouriteReveal",
+  "Passed": 20,
+  "Failed": 0,
+  "NativeWpfValidated": false,
+  "NetworkCalls": 0,
+  "Cases": [
+    {
+      "Name": "Deep loaded favourite expands each ancestor and searches only once",
+      "Passed": true
+    },
+    {
+      "Name": "Unloaded ancestors wait for existing one-level readers without duplicate content searches",
+      "Passed": true
+    },
+    {
+      "Name": "Escaped comma RDN is preserved as a single ancestor",
+      "Passed": true
+    },
+    {
+      "Name": "No arbitrary 600-node ceiling: target after 20000 siblings is revealed incrementally",
+      "Passed": true
+    },
+    {
+      "Name": "System folder grouping is transparent and expanded around the target",
+      "Passed": true
+    },
+    {
+      "Name": "Second favourite supersedes pending reveal and keeps its own results",
+      "Passed": true
+    },
+    {
+      "Name": "Stale reveal canceled on Epoch",
+      "Passed": true
+    },
+    {
+      "Name": "Stale reveal canceled on Generation",
+      "Passed": true
+    },
+    {
+      "Name": "Stale reveal canceled on Context",
+      "Passed": true
+    },
+    {
+      "Name": "Stale reveal canceled on Selection",
+      "Passed": true
+    },
+    {
+      "Name": "Stale reveal canceled on Closing",
+      "Passed": true
+    },
+    {
+      "Name": "Stale reveal canceled on RootReplaced",
+      "Passed": true
+    },
+    {
+      "Name": "Failed child read never automatically retries authentication or query",
+      "Passed": true
+    },
+    {
+      "Name": "Missing child never substitutes the domain or destroys results",
+      "Passed": true
+    },
+    {
+      "Name": "Root favourite selects root without enumerating children",
+      "Passed": true
+    },
+    {
+      "Name": "Empty root waits for tree initialization and handles singleton collection",
+      "Passed": true
+    },
+    {
+      "Name": "Timeout is an unconfirmed tree location, never an AD unavailable claim",
+      "Passed": true
+    },
+    {
+      "Name": "Busy write defers traversal without starting a new read",
+      "Passed": true
+    },
+    {
+      "Name": "Out-of-domain and escaped suffix impostors are rejected",
+      "Passed": true
+    },
+    {
+      "Name": "Programmatic suppression is restored after selection throws",
+      "Passed": true
+    }
+  ]
+}

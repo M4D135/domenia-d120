@@ -510,6 +510,36 @@ function Set-DomeniaUxShortLayout {
         elseif(-not $compact -and [bool]$script:UxCompactLayoutActive -and $null -ne $script:UxCompactOuWidth){$ouColumn.Width=$script:UxCompactOuWidth}
     }
     $ouPanel=Get-DomeniaControl 'SearchOuPanel';if($ouPanel){$ouPanel.Padding=if($compact){[Windows.Thickness]::new(10)}else{[Windows.Thickness]::new(16)}}
+    # The OU refresh footer must leave room for navigation on a short viewport.
+    # Keep the four commands visible in two rows; only duplicate explanatory text
+    # becomes single-line (the selected scope also remains above the results).
+    $ouRefresh=Get-DomeniaControl 'UxSearchOuRefresh'
+    if($ouRefresh){
+        $ouRefresh.Padding=[Windows.Thickness]::new($(if($compact){4.0}else{8.0}))
+        $ouRefresh.Margin=[Windows.Thickness]::new(0,$(if($compact){4.0}else{8.0}),0,0)
+    }
+    $ouRefreshTitle=Get-DomeniaControl 'UxSearchOuRefreshTitle'
+    if($ouRefreshTitle){$ouRefreshTitle.Visibility=if($compact){[Windows.Visibility]::Collapsed}else{[Windows.Visibility]::Visible}}
+    foreach($name in @('LblSearchOuRefreshScope','LblSearchOuRefreshStatus')){
+        $control=Get-DomeniaControl $name
+        if($control){
+            $control.TextWrapping=if($compact){[Windows.TextWrapping]::NoWrap}else{[Windows.TextWrapping]::Wrap}
+            $control.MaxHeight=if($compact){18.0}elseif($name -eq 'LblSearchOuRefreshScope'){48.0}else{58.0}
+        }
+    }
+    $ouRefreshActions=Get-DomeniaControl 'UxSearchOuRefreshActions'
+    if($ouRefreshActions){$ouRefreshActions.Margin=[Windows.Thickness]::new(0,$(if($compact){2.0}else{6.0}),0,0)}
+    foreach($name in @('BtnSearchRefreshBase','BtnSearchRefreshPostes','BtnSearchRefreshBoth','BtnSearchRefreshStop')){
+        $button=Get-DomeniaControl $name
+        if($button){
+            $button.MinHeight=if($compact){28.0}else{30.0}
+            $button.Padding=if($compact){[Windows.Thickness]::new(6,2,6,2)}else{[Windows.Thickness]::new(8,3,8,3)}
+            $button.Margin=[Windows.Thickness]::new(0,0,$(if($name -eq 'BtnSearchRefreshStop'){0.0}else{4.0}),$(if($compact){2.0}else{4.0}))
+            if($compact){$button.FontSize=11.5}else{$button.ClearValue([Windows.Controls.Control]::FontSizeProperty)}
+        }
+    }
+    $ouRefreshPostes=Get-DomeniaControl 'BtnSearchRefreshPostes'
+    if($ouRefreshPostes){$ouRefreshPostes.Content='Ping'}
     $scope=Get-DomeniaControl 'UxOuScopeCard'
     if($scope){$scope.Padding=if($compact){[Windows.Thickness]::new(6)}else{[Windows.Thickness]::new(12)};$scope.Margin=if($compact){[Windows.Thickness]::new(0,0,0,6)}else{[Windows.Thickness]::new(0,0,0,12)}}
     # The 'Dans :' chip of the work views keeps a 24 px target, reduced to the scope line height on a short screen.
@@ -828,6 +858,7 @@ function Update-DomeniaUxOuScope {
     param($Scope)
     if($null -eq $Scope){return}
     $display=Get-DomeniaUxOuDisplay -DistinguishedName ([string]$Scope.BaseDn) -IsDomain ([bool]$Scope.IsDomain)
+    Update-DomeniaOuBreadcrumb -Dn ([string]$Scope.BaseDn)
     $name=Get-DomeniaControl 'LblOuScopeName';$path=Get-DomeniaControl 'LblOuScopePath';$summary=Get-DomeniaControl 'LblSearchScope'
     if($null -ne $name){$name.Text=$display.Name;$name.ToolTip=$display.FullPath}
     if($null -ne $path){$path.Text=$display.Breadcrumb;$path.ToolTip=$display.FullPath}

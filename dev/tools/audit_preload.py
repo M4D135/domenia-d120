@@ -49,8 +49,13 @@ def audit():
     for g in ['CurrentObjectRequestId','Epoch','Identity','SelectionToken','Test-DomeniaSelectionLoadCurrent','Test-DomeniaGridSelectionMatches']:
         ck('Callback guard: '+g,g in callback)
     success=fn('Complete-DomeniaOpenObjectTaskUi')
-    ck('Identity validated before display',success.index('Assert-DomeniaObjectResultIdentity')<success.index('Complete-DomeniaOpenObjectUi'))
-    ck('Completion cannot steal navigation','-NoNavigate:([bool]$State.NoNavigate)' in success)
+    # Display happens after the SQLite readback, in Complete-DomeniaDirectoryObjectCommit.
+    ck('Task identity precedes store read',success.index('Assert-DomeniaObjectResultIdentity')<success.index('Submit-DomeniaDirectoryObjectRead'))
+    commit=functions((ROOT/'wad/modules/Domenia-DirectoryStore.UI.ps1').read_text('utf-8-sig'))['Complete-DomeniaDirectoryObjectCommit']
+    if len(commit)!=1: raise ValueError('Missing/ambiguous function: Complete-DomeniaDirectoryObjectCommit')
+    commit_src=(ROOT/'wad/modules/Domenia-DirectoryStore.UI.ps1').read_text('utf-8-sig')[commit[0][0]:commit[0][1]]
+    ck('Identity validated before display',commit_src.index('Assert-DomeniaObjectResultIdentity')<commit_src.index('Complete-DomeniaOpenObjectUi'))
+    ck('Completion cannot steal navigation','-NoNavigate:([bool]$State.NoNavigate)' in commit_src)
     ck('Failure is inline for a selection','-not $State.SelectionBound' in fn('Fail-DomeniaOpenObjectTaskUi'))
     ck('User cancellation exits loading phase','Lecture interrompue' in fn('Request-UiTaskStop'))
     ck('Fresh-read safety required for writes',"Phase -ne 'Ready'" in fn('Get-DomeniaSafetyDescriptor'))
@@ -59,7 +64,10 @@ def audit():
     ck('Preload cannot ping associated user machine','RenderingObjectWithoutProbes' in fn('Fill-UserObject'))
     ck('Preload does not duplicate machine probes','RenderingObjectWithoutProbes' in fn('Fill-ComputerObject'))
     ck('Rendering restores the suppression flag in finally','finally { $script:RenderingObjectWithoutProbes=$oldProbeGuard }' in show)
-    ck('One index synchronization per fresh render',show.count('Sync-DomeniaIndexEntry')==1 and 'Sync-DomeniaIndexEntry' not in fn('Fill-ComputerObject'))
+    # The directory store commits before display. Renderers must not write again.
+    for renderer in (show, fn('Fill-ComputerObject'), fn('Fill-UserObject')):
+        for command in ('Sync-DomeniaIndexEntry','Submit-DomeniaStoreBatch','Add-DomeniaIndexPersistence'):
+            ck('Fresh render does not write the index: '+command, command not in renderer)
     ck('Direct open releases view wrappers','if (-not $NoNavigate)' in show and "ReadContent" in show)
     m=(ROOT/'wad/modules/Domenia-Selection.UI.ps1').read_text('utf-8-sig')
     for g in ['Get-DomeniaCacheKey','GlobalSearchGeneration','GetHashCode','ExpectedGuid','ToString(\'D\')','DN -ieq','Phase -eq \'Ready\'','SameSelectionContext']:

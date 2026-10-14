@@ -1,0 +1,307 @@
+[
+    {
+        "File":  "executed-source-plan.json",
+        "Bytes":  3411,
+        "Sha256":  "41cfe60e32ac14db289a7e9d6c215e154a3176fdd2acc6be874ad00051b9d9ef"
+    },
+    {
+        "File":  "plan.json",
+        "Bytes":  5697,
+        "Sha256":  "5325d6ccd92863c8469a6618109f5f648e35672d4ce8cdfea31018f1bf64c72c"
+    },
+    {
+        "File":  "PROD-CheckOnly.stderr.txt",
+        "Bytes":  0,
+        "Sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+        "File":  "PROD-CheckOnly.stdout.txt",
+        "Bytes":  156,
+        "Sha256":  "8d69bd519f0e27ca47aa31bf9b39e2f99f52ccd0da3492db617db214a25ba64a"
+    },
+    {
+        "File":  "PROD-CheckOnly-process.json",
+        "Bytes":  1241,
+        "Sha256":  "02ee3d2cba6df0dbd6e9fd23f99da0f680c448d04f3bd55ef9aca119a70e0f3e"
+    },
+    {
+        "File":  "PROD-CheckOnly-started.json",
+        "Bytes":  704,
+        "Sha256":  "c33dfb5cd581375f6fea33888bca7ab998c79fcdec28de2096e5f53bc9a75195"
+    },
+    {
+        "File":  "runner-complete.json",
+        "Bytes":  26467,
+        "Sha256":  "24aa1703fa1d01d2f5879470bc4c52ceb2357a56ae9a6b777587471ca24a73d0"
+    },
+    {
+        "File":  "runner-start.json",
+        "Bytes":  1551,
+        "Sha256":  "11cef665f24d6215b64fe739a601662b6e0d327324d432d95d7d64625fc787e7"
+    },
+    {
+        "File":  "runner-status.json",
+        "Bytes":  140,
+        "Sha256":  "49071ac1c9d283488e9e1949fa220483ab1f75b8d0577c6b0dc27cc332028fe0"
+    },
+    {
+        "File":  "source-after.json",
+        "Bytes":  104828,
+        "Sha256":  "98e5f8607a336a02a525c76a96e065087762af779a089c6600a1248e5cec9feb"
+    },
+    {
+        "File":  "source-before.json",
+        "Bytes":  104828,
+        "Sha256":  "98e5f8607a336a02a525c76a96e065087762af779a089c6600a1248e5cec9feb"
+    },
+    {
+        "File":  "Test-DomeniaDirectoryStatus.json",
+        "Bytes":  3492,
+        "Sha256":  "28163ea0d424386650e10cceb943a709c5e6d913fca6ec49941a213c33882169"
+    },
+    {
+        "File":  "Test-DomeniaDirectoryStatus.stderr.txt",
+        "Bytes":  0,
+        "Sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+        "File":  "Test-DomeniaDirectoryStatus.stdout.txt",
+        "Bytes":  79,
+        "Sha256":  "5853a0996d7136de787df597b1f4c4a928cd0a7ce46be5bdcdb89f7c8501aa58"
+    },
+    {
+        "File":  "Test-DomeniaDirectoryStatus-process.json",
+        "Bytes":  1557,
+        "Sha256":  "d0faed8b8e31a02c359c70898f161cab7ee1a471d36f1838f3e4b2d9ab4b24db"
+    },
+    {
+        "File":  "Test-DomeniaDirectoryStatus-started.json",
+        "Bytes":  844,
+        "Sha256":  "99167d9b0515576a312c49ac2555d21b3ea011f71469af5d939f0bcfd761539b"
+    },
+    {
+        "File":  "Test-DomeniaFreshness.json",
+        "Bytes":  4310,
+        "Sha256":  "0e762380e8450b519ada458570bc0f4f1199f10db832c7e3f3acdec36f2a3a90"
+    },
+    {
+        "File":  "Test-DomeniaFreshness.stderr.txt",
+        "Bytes":  0,
+        "Sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+        "File":  "Test-DomeniaFreshness.stdout.txt",
+        "Bytes":  4307,
+        "Sha256":  "5f4c70933f044914a4c421a17d85d207c1a9d0623178c9fd7314c107c6ed2870"
+    },
+    {
+        "File":  "Test-DomeniaFreshness-process.json",
+        "Bytes":  1407,
+        "Sha256":  "c9302196fd640fbfe7eabc2893dcd70f63bec4ffa468ed07485b66ec3ef0ff1a"
+    },
+    {
+        "File":  "Test-DomeniaFreshness-started.json",
+        "Bytes":  826,
+        "Sha256":  "1c24b8fe339f7b716e11dddfe7f3ea4b9092292a1baf00a42e21acc2b0b612db"
+    },
+    {
+        "File":  "Test-DomeniaGeometry.json",
+        "Bytes":  31830,
+        "Sha256":  "3e31dafac58de32130a7902eb63da27a95adc40fff9fda923e2addaff93692d0"
+    },
+    {
+        "File":  "Test-DomeniaGeometry.stderr.txt",
+        "Bytes":  0,
+        "Sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+        "File":  "Test-DomeniaGeometry.stdout.txt",
+        "Bytes":  10076,
+        "Sha256":  "5d27c053fcca839f563b2ce5fefe6495b5f60cfc42e2013e359412990c59259c"
+    },
+    {
+        "File":  "Test-DomeniaGeometry-process.json",
+        "Bytes":  1405,
+        "Sha256":  "06f33ba9af4fcc91c138b1b5d30c3fd6db81ca13a3dcbae1336311ba8bae295f"
+    },
+    {
+        "File":  "Test-DomeniaGeometry-started.json",
+        "Bytes":  823,
+        "Sha256":  "9eb4f95d1a80cad512ab20acb78e2553287b3c9099b6abcc0fa8a69f1954451b"
+    },
+    {
+        "File":  "Test-DomeniaLiveSearchView.json",
+        "Bytes":  12324,
+        "Sha256":  "56369f673997a69257d78e171b5dc82e092585df68fd1707a6f8581ed47ebc5f"
+    },
+    {
+        "File":  "Test-DomeniaLiveSearchView.stderr.txt",
+        "Bytes":  0,
+        "Sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+        "File":  "Test-DomeniaLiveSearchView.stdout.txt",
+        "Bytes":  871,
+        "Sha256":  "d8bdefecb00e40936b195a9abfaa0086696e02382af85d177e262e2fafff57c0"
+    },
+    {
+        "File":  "Test-DomeniaLiveSearchView-process.json",
+        "Bytes":  1443,
+        "Sha256":  "9cd2b05455e75d6138c8f707bd0c5f42d25bec0b9aa1ba31d244420c1f3f4431"
+    },
+    {
+        "File":  "Test-DomeniaLiveSearchView-started.json",
+        "Bytes":  841,
+        "Sha256":  "56d0e66fb95788f38f87623b012448f7fd5ea12393dfa56f4daf366fb7d8e2b1"
+    },
+    {
+        "File":  "Test-DomeniaOuRefresh.json",
+        "Bytes":  9405,
+        "Sha256":  "9f3c216d81d678ecce3cb97c08b22a938604b86ce6328ef21be64b893e46d79b"
+    },
+    {
+        "File":  "Test-DomeniaOuRefresh.stderr.txt",
+        "Bytes":  0,
+        "Sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+        "File":  "Test-DomeniaOuRefresh.stdout.txt",
+        "Bytes":  9407,
+        "Sha256":  "0ef95089d2a7e6d7d0c7541140196e371567fae2bbb3ecd2ce07eb17c9f50f03"
+    },
+    {
+        "File":  "Test-DomeniaOuRefresh-process.json",
+        "Bytes":  1515,
+        "Sha256":  "d0e67f9096956ff7074289342dbb9ea4c12a0d58d370701d7297399e2889d502"
+    },
+    {
+        "File":  "Test-DomeniaOuRefresh-started.json",
+        "Bytes":  826,
+        "Sha256":  "1783a5580fb790ef494a612124e443347595b8c2d0841e79dcc1a3e29dc55b88"
+    },
+    {
+        "File":  "Test-DomeniaSearchCounter.json",
+        "Bytes":  3117,
+        "Sha256":  "1d1d6e85deb49b8277c637a9ff664ac125f00d4e561cc7390860c46b5337bda8"
+    },
+    {
+        "File":  "Test-DomeniaSearchCounter.stderr.txt",
+        "Bytes":  0,
+        "Sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+        "File":  "Test-DomeniaSearchCounter.stdout.txt",
+        "Bytes":  3114,
+        "Sha256":  "07d34340e75bcddff3ffbef6f815ce36113f60a9d3ee105ebd4d86d4784963de"
+    },
+    {
+        "File":  "Test-DomeniaSearchCounter-process.json",
+        "Bytes":  1543,
+        "Sha256":  "9c18bcaa1e84d36a22865102e937a6edbdd52fad551083d117840cf2ce8b62af"
+    },
+    {
+        "File":  "Test-DomeniaSearchCounter-started.json",
+        "Bytes":  838,
+        "Sha256":  "11e1e7877cf53ddb27bdce23af48c4f5f3aa02aea29addc2b8e36a48f28fac01"
+    },
+    {
+        "File":  "Test-DomeniaSearchProgressWiring.json",
+        "Bytes":  6095,
+        "Sha256":  "55a3bdaef3716ba07123622a26400098a40623861b985f8f0c240f56e28c5dc3"
+    },
+    {
+        "File":  "Test-DomeniaSearchProgressWiring.stderr.txt",
+        "Bytes":  0,
+        "Sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+        "File":  "Test-DomeniaSearchProgressWiring.stdout.txt",
+        "Bytes":  6097,
+        "Sha256":  "6e90d33fbf46f2d99b0055c98a279d3ccfa22c9b568e0cc6fa549c79b4b88b63"
+    },
+    {
+        "File":  "Test-DomeniaSearchProgressWiring-process.json",
+        "Bytes":  1593,
+        "Sha256":  "ec0555226ef50eba4331795a8f337a15200becfc0ac7fde091ac2c5b4da9aea6"
+    },
+    {
+        "File":  "Test-DomeniaSearchProgressWiring-started.json",
+        "Bytes":  859,
+        "Sha256":  "c1bfb975f9e9479cba4f5a80a61444cf03136cb575ad9461b583b561de92e13e"
+    },
+    {
+        "File":  "Test-DomeniaSearchScope.json",
+        "Bytes":  8744,
+        "Sha256":  "2edef597c7105613658a659922ef519722b499b308747f81d8257292f8a2604e"
+    },
+    {
+        "File":  "Test-DomeniaSearchScope.stderr.txt",
+        "Bytes":  0,
+        "Sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+        "File":  "Test-DomeniaSearchScope.stdout.txt",
+        "Bytes":  114,
+        "Sha256":  "bb82ecf8d6b8a620eb8442382d697423414e7cc7bf1acec39d15bbd9626bf0c1"
+    },
+    {
+        "File":  "Test-DomeniaSearchScope-process.json",
+        "Bytes":  1530,
+        "Sha256":  "503b34284bd00eade291cb7ded4eeb93ac4d5a9688a76b01491127304f8e4d73"
+    },
+    {
+        "File":  "Test-DomeniaSearchScope-started.json",
+        "Bytes":  832,
+        "Sha256":  "a8017fb15c40cdfb198e4daf688653d686f969824f2370ebf79671eb4f1b5f1f"
+    },
+    {
+        "File":  "Test-DomeniaSearchTimeout.json",
+        "Bytes":  6208,
+        "Sha256":  "caf954d7e4c929a424541529238c70401e9e7a487016362ec0a8455039abde40"
+    },
+    {
+        "File":  "Test-DomeniaSearchTimeout.stderr.txt",
+        "Bytes":  0,
+        "Sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+        "File":  "Test-DomeniaSearchTimeout.stdout.txt",
+        "Bytes":  6205,
+        "Sha256":  "206dab970671e603c138a34e43f2c18a0f223902aa11d263c5bc4afa1bac9306"
+    },
+    {
+        "File":  "Test-DomeniaSearchTimeout-process.json",
+        "Bytes":  1543,
+        "Sha256":  "7b06806b9d388587af879faa1960473fbd25ec8da42c01c1e36f93fe5c96bfd2"
+    },
+    {
+        "File":  "Test-DomeniaSearchTimeout-started.json",
+        "Bytes":  838,
+        "Sha256":  "75344b57c565533a2d5dc225d167d24733baee291f1be0c5c32dd3407a1a22f0"
+    },
+    {
+        "File":  "Test-DomeniaWiringRecherche.json",
+        "Bytes":  11038,
+        "Sha256":  "c320ddd4bf9dda32c1fc2215c491dac74ada54febf7b3a8d1027ffa3626f2540"
+    },
+    {
+        "File":  "Test-DomeniaWiringRecherche.stderr.txt",
+        "Bytes":  0,
+        "Sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+        "File":  "Test-DomeniaWiringRecherche.stdout.txt",
+        "Bytes":  117,
+        "Sha256":  "28ca36a699c03931f06069fb26a2a1cbefbab175df85dc096d04aaf714b50ad2"
+    },
+    {
+        "File":  "Test-DomeniaWiringRecherche-process.json",
+        "Bytes":  1558,
+        "Sha256":  "15be9a40721ff13f7628e362bb9b62856300862d9849f588450949744ad90e06"
+    },
+    {
+        "File":  "Test-DomeniaWiringRecherche-started.json",
+        "Bytes":  844,
+        "Sha256":  "ee30a3cc99abaa6b1e73c8c0eb296e5ffc984113dc89ba6fdd941bbac329641c"
+    }
+]

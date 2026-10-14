@@ -9,6 +9,8 @@ $script:NavHistoryRows = $null
 $script:NavHistoryState = $null
 $script:NavListShape = $null
 $script:OuTreeFilterStatus = ''
+$script:OuTreeFilterWork = $null
+$script:OuTreeFilterTimer = $null
 $script:TreeSelectionSource = 'Mouse'
 $script:PendingFilterChange = $null
 $script:FilterChangeTimer = $null
@@ -38,7 +40,13 @@ function Update-DomeniaWorkViewList {
     $combo = Get-DomeniaControl 'CmbWorkView'
     if ($null -eq $combo) { return }
     $saved=@();$script:SearchQueryLibraryError=''
-    try{$saved=@(ConvertFrom-DomeniaQueryLibrary ([string](Get-DomeniaSetting 'Query.Library' '')))}catch{$script:SearchQueryLibraryError='Bibliothèque personnelle illisible : '+$_.Exception.Message}
+    try{
+        $saved=@(Get-DomeniaSavedQueryRecipes)
+        $library=$script:DomeniaQueryLibraryStoreState
+        if($null -eq $library){$script:SearchQueryLibraryError='Connectez une base locale pour lire vos requêtes personnelles.'}
+        elseif($library.Error){$script:SearchQueryLibraryError='Bibliothèque personnelle non confirmée : '+[string]$library.Error}
+        elseif(-not $library.Loaded){$script:SearchQueryLibraryError='Lecture des requêtes personnelles dans la base locale en cours.'}
+    }catch{$script:SearchQueryLibraryError='Bibliothèque personnelle illisible : '+$_.Exception.Message}
     $script:SearchQueryCatalog=@(Get-DomeniaSearchQueryCatalog -Saved $saved -Favorites @(Get-DomeniaSearchQueryFavorites))
     Update-DomeniaSearchQueryList
 }
@@ -667,30 +675,19 @@ function Set-DomeniaOuTreeNodeFilter {
 }
 
 function Update-DomeniaOuTreeFilter {
-    # DS-07: 'Filtrer les OU' filters the branches already read, by name. No directory read: a branch never unfolded
-    # is not searched, and the domain root always stays visible.
+    # Work in small Dispatcher slices even when thousands of nodes have already been read.
     param([switch]$OnlyWhenActive)
-    $box = Get-DomeniaControl 'TxtOuFilter'
-    $filter = ''
-    if ($null -ne $box) { $filter = ([string]$box.Text).Trim() }
-    if ($OnlyWhenActive -and -not $filter) { return }
-    $tree = Get-DomeniaControl 'TvDirectory'
-    if ($null -eq $tree) { return }
-    $matched = $false
-    foreach ($root in @($tree.Items)) {
-        if ($root -isnot [Windows.Controls.TreeViewItem]) { continue }
-        if (Set-DomeniaOuTreeNodeFilter -Node $root -Filter $filter -IsRoot) { $matched = $true }
-    }
-    if ($filter) {
-        $text = if ($matched) { 'Filtre des OU : ' + $filter + ' · branches déjà lues seulement' } else { 'Aucune branche lue ne contient ' + $filter + ' : dépliez une OU pour la parcourir.' }
-        [void](Set-DomeniaControlText -Name 'LblTreeStatus' -Text $text)
-        $script:OuTreeFilterStatus = $text
-    }
-    elseif ($script:OuTreeFilterStatus) {
-        # The status no longer describes a filter that is gone; a newer tree status is left as it is.
-        $status = Get-DomeniaControl 'LblTreeStatus'
-        if ($null -ne $status -and [string]$status.Text -ceq [string]$script:OuTreeFilterStatus) { $status.Text = 'Filtre des OU effacé : toutes les branches lues sont affichées.' }
-        $script:OuTreeFilterStatus = ''
+    $box=Get-DomeniaControl 'TxtOuFilter';$filter=([string]$box.Text).Trim()
+    if($OnlyWhenActive -and -not $filter){return}
+    $tree=Get-DomeniaControl 'TvDirectory';if($null -eq $tree){return}
+    Stop-DomeniaOuTreeFilter
+    $stack=[Collections.Generic.List[object]]::new()
+    $stack.Add([pscustomobject]@{Node=$null;Items=$tree.Items;Next=0;ChildMatch=$false;IsRoot=$false})
+    $script:OuTreeFilterWork=[pscustomobject]@{Tree=$tree;Stack=$stack;Filter=$filter;Epoch=[long]$script:SessionEpoch;Matched=$false}
+    Invoke-DomeniaOuTreeFilterSlice
+    if($null -ne $script:OuTreeFilterWork){
+        if($null -eq $script:OuTreeFilterTimer){$script:OuTreeFilterTimer=New-DomeniaTimer -Owner 'Timer:OuTreeFilter' -IntervalMs 25 -Tick {Invoke-DomeniaOuTreeFilterSlice}}
+        $script:OuTreeFilterTimer.Start()
     }
 }
 
@@ -796,4 +793,91 @@ function Initialize-DomeniaSearchUi {
     }
     Update-DomeniaNavButtons
     Update-DomeniaSearchHint
+}
+
+function Update-DomeniaOuBreadcrumb {
+    param([string]$Dn)
+    $panel=Get-DomeniaControl 'PnlOuBreadcrumb'
+    if($null -eq $panel){return}
+    $key=[string]$script:SessionEpoch+'|'+[string]$script:Conn.BaseDn+'|'+$Dn
+    if([string]$panel.Tag -ceq $key){return}
+    $panel.Tag=$key;$panel.Children.Clear()
+    $path=Get-DomeniaTreeRevealPath -Dn $Dn -BaseDn ([string]$script:Conn.BaseDn)
+    for($index=0;$index -lt $path.Count;$index++){
+        $current=[string]$path[$index]
+        $display=Get-DomeniaUxOuDisplay -DistinguishedName $current -IsDomain ($index -eq 0)
+        if($index){$separator=[Windows.Controls.TextBlock]::new();$separator.Text='›';$separator.Margin=[Windows.Thickness]::new(3,2,3,2);$separator.VerticalAlignment='Center';[void]$panel.Children.Add($separator)}
+        $label=[Windows.Controls.TextBlock]::new();$label.Text=$(if($index -eq 0){$display.FullPath}else{$display.Name});$label.TextTrimming='CharacterEllipsis';$label.MaxWidth=220;$label.ToolTip=$display.FullPath
+        if($index -eq 0 -or $index -eq $path.Count-1){
+            # The domain is context text, never a whole-domain collection shortcut.
+            $label.Margin=[Windows.Thickness]::new(3,4,3,4)
+            if($index -eq $path.Count-1){$label.FontWeight='SemiBold'}
+            [void]$panel.Children.Add($label)
+        }else{
+            $button=[Windows.Controls.Button]::new();$button.Content=$label;$button.Padding=[Windows.Thickness]::new(5,2,5,2);$button.Margin=[Windows.Thickness]::new(0,0,0,0);$button.MinWidth=0;$button.MinHeight=26
+            $button.Tag=[pscustomobject]@{DN=$current;BaseDn=[string]$script:Conn.BaseDn;Epoch=[long]$script:SessionEpoch}
+            [Windows.Automation.AutomationProperties]::SetName($button,'Ouvrir la branche '+$display.FullPath)
+            $button.Add_Click({param($sender,$eventArgs) try{Open-DomeniaOuBreadcrumb -Target $sender.Tag}catch{Set-Status ('Navigation : '+$_.Exception.Message) 'WARN'}})
+            [void]$panel.Children.Add($button)
+        }
+    }
+    if($path.Count){
+        $copy=[Windows.Controls.Button]::new();$copy.Content='Copier le chemin';$copy.Padding=[Windows.Thickness]::new(6,2,6,2);$copy.Margin=[Windows.Thickness]::new(10,0,0,0);$copy.MinHeight=26;$copy.MinWidth=0
+        $copy.Add_Click({Copy-DomeniaUxOuPath});[void]$panel.Children.Add($copy)
+    }
+}
+function Open-DomeniaOuBreadcrumb {
+    param($Target)
+    if($null -eq $Target -or [long]$Target.Epoch -ne [long]$script:SessionEpoch -or [string]$Target.BaseDn -ine [string]$script:Conn.BaseDn){return}
+    $path=Get-DomeniaTreeRevealPath -Dn ([string]$Target.DN) -BaseDn ([string]$script:Conn.BaseDn)
+    if($path.Count -lt 2 -or [string]$Target.DN -ieq [string]$script:SelectedBranchDn){return}
+    if(Test-DomeniaAccessBusyWrite){Set-Status 'Navigation en attente : une opération sur lʼannuaire est active.' 'WARN';return}
+    if(-not (Test-DomeniaDraftNavigation '')){return}
+    Enter-DomeniaNavSearch
+    try{
+        Stop-DomeniaPendingFilterChange
+        $script:SelectedBranchDn=[string]$Target.DN
+        [void](Set-DomeniaControlText 'TxtBranchSearch' '')
+        Set-DomeniaSearchMode -Mode OU
+        Update-DomeniaSearchScopeUi
+        Invoke-GlobalSearch -SearchMode OU
+        Start-DomeniaFavouriteTreeReveal -Dn ([string]$Target.DN)
+    }finally{Exit-DomeniaNavSearch}
+}
+function Stop-DomeniaOuTreeFilter {
+    if($null -ne $script:OuTreeFilterTimer){$script:OuTreeFilterTimer.Stop()}
+    $script:OuTreeFilterWork=$null
+}
+function Invoke-DomeniaOuTreeFilterSlice {
+    $state=$script:OuTreeFilterWork
+    if($null -eq $state){return}
+    $tree=Get-DomeniaControl 'TvDirectory'
+    $box=Get-DomeniaControl 'TxtOuFilter'
+    if($script:AsyncEngineClosing -or [long]$state.Epoch -ne [long]$script:SessionEpoch -or -not [object]::ReferenceEquals($tree,$state.Tree) -or [string]$state.Filter -cne ([string]$box.Text).Trim()){Stop-DomeniaOuTreeFilter;return}
+    $clock=[Diagnostics.Stopwatch]::StartNew();$steps=0
+    while($state.Stack.Count -and $steps -lt 512 -and $clock.ElapsedMilliseconds -lt 8){
+        $steps++;$frame=$state.Stack[$state.Stack.Count-1]
+        if($frame.Next -lt $frame.Items.Count){
+            $child=$frame.Items[$frame.Next];$frame.Next++
+            if($child -isnot [Windows.Controls.TreeViewItem]){continue}
+            $state.Stack.Add([pscustomobject]@{Node=$child;Items=$child.Items;Next=0;ChildMatch=$false;IsRoot=($null -eq $frame.Node)})
+            continue
+        }
+        $state.Stack.RemoveAt($state.Stack.Count-1)
+        if($null -eq $frame.Node){$state.Matched=[bool]$frame.ChildMatch;continue}
+        $self=Test-DomeniaOuTreeMatch -Name (Get-DomeniaOuTreeNodeName $frame.Node) -Filter $state.Filter
+        $match=($self -or $frame.ChildMatch)
+        $wanted=if($frame.IsRoot -or -not $state.Filter -or $match){[Windows.Visibility]::Visible}else{[Windows.Visibility]::Collapsed}
+        if($frame.Node.Visibility -ne $wanted){$frame.Node.Visibility=$wanted}
+        if($state.Filter -and $frame.ChildMatch -and [bool]$frame.Node.Tag.Loaded -and -not $frame.Node.IsExpanded){$frame.Node.IsExpanded=$true}
+        if($match -and $state.Stack.Count){$state.Stack[$state.Stack.Count-1].ChildMatch=$true}
+    }
+    if($state.Stack.Count){return}
+    if($state.Filter){
+        $message=if($state.Matched){'Filtre des OU : '+$state.Filter+' · branches déjà lues seulement'}else{'Aucune branche lue ne contient '+$state.Filter+' : dépliez une OU pour la parcourir.'}
+        [void](Set-DomeniaControlText 'LblTreeStatus' $message);$script:OuTreeFilterStatus=$message
+    }elseif($script:OuTreeFilterStatus){
+        [void](Set-DomeniaControlText 'LblTreeStatus' 'Filtre effacé : toutes les branches lues sont affichées.');$script:OuTreeFilterStatus=''
+    }
+    Stop-DomeniaOuTreeFilter
 }

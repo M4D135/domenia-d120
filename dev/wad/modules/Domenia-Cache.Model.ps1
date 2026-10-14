@@ -369,7 +369,7 @@ function Get-DomeniaRetentionPolicy {
     # Manual cleanup policy, not the automatic writer's quotas. Reconstructible data is
     # emptied on request; only History uses an operator-selected age. No invented quotas.
     return @(
-        [pscustomobject]@{Category='Observations';Label='Observations de presence et de console';Mode='All';Purgeable=$true}
+        [pscustomobject]@{Category='Observations';Label='Mesures de presence, console, inventaire et details WMI';Mode='All';Purgeable=$true}
         [pscustomobject]@{Category='Snapshots';Label='Captures et instantanes';Mode='All';Purgeable=$true}
         [pscustomobject]@{Category='History';Label='Historique ancien hors associations declarees';Mode='Bounded';Purgeable=$true}
         [pscustomobject]@{Category='Index';Label='Index des objets';Mode='All';Purgeable=$true}
@@ -400,6 +400,8 @@ function Get-DomeniaPurgeTargets {
             [pscustomobject]@{Table='presence_cache';TimeColumn='checked_at';Filter='All';Action='Delete'}
             [pscustomobject]@{Table='park_state';TimeColumn='last_probe';Filter='All';Action='Delete'}
             [pscustomobject]@{Table='park_session_cache';TimeColumn='checked_utc';Filter='All';Action='Delete'}
+            [pscustomobject]@{Table='domenia_observations';TimeColumn='attempt_at';Filter='All';Action='Delete'}
+            [pscustomobject]@{Table='domenia_details';TimeColumn='attempt_at';Filter='All';Action='Delete'}
         }
         'Snapshots' {[pscustomobject]@{Table='adcc_live_queries';TimeColumn='observed_utc';Filter='All';Action='Delete'}}
         'History' {
@@ -414,6 +416,7 @@ function Get-DomeniaPurgeTargets {
             [pscustomobject]@{Table='domenia_provenance';TimeColumn='';Filter='All';Action='Delete'}
             # Computer facts read with the index; secret_state (BitLocker and LAPS metadata) is never an index target.
             [pscustomobject]@{Table='ad_computer_facts';TimeColumn='';Filter='All';Action='Delete'}
+            [pscustomobject]@{Table='domenia_directory_data';TimeColumn='';Filter='All';Action='Delete'}
             # Preserve other scopes, including the idempotence marker of an old-data import.
             [pscustomobject]@{Table='sync_state';TimeColumn='';Filter='DirectoryScope';Action='Reset'}
         }

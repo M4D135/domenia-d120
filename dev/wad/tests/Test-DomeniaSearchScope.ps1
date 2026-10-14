@@ -35,11 +35,14 @@ Invoke-Expression $structured[0].Extent.Text
 . (Join-Path (Split-Path -Parent $PSScriptRoot) 'modules\Domenia-Search.Model.ps1')
 # D021: the global search asks the list projection of the cache rules.
 . (Join-Path (Split-Path -Parent $PSScriptRoot) 'modules\Domenia-Cache.Model.ps1')
+. (Join-Path (Split-Path -Parent $PSScriptRoot) 'modules\Domenia-DirectoryStore.Model.ps1')
+Invoke-Expression (Get-DomeniaDirectoryStoreWorkerPrelude)
 function Test-DomeniaAccessBusyWrite {return $false}
 function Test-DomeniaDraftNavigation {param($DN);return $true}
 function Get-CfgValue {param($Section,$Name,$Default) return $Default}
 # R1.12: this suite isolates scope semantics. The real progressive renderer has its own native suite.
 function Stop-DomeniaLiveSearch { }
+function Stop-DomeniaFavouriteTreeReveal { }
 function Begin-DomeniaLiveSearch {
     param($State,$Payload)
     $script:StreamStarts++
@@ -156,7 +159,21 @@ Test-Case 'Worker refuse une base vide' { Invoke-GlobalSearch -SearchMode OU;$sc
 Test-Case 'Worker refuse une portee inconnue' { Invoke-GlobalSearch -SearchMode OU;$script:LastTask.Payload.Scope='Unknown';$failed=$false;try{Invoke-TestWorker}catch{$failed=$true};Assert-Test ($failed -and $script:WorkerCalls.Count -eq 0) }
 Test-Case 'Echec serveur reste une erreur, pas un resultat vide valide' { $script:FailEveryCall=$true;Invoke-GlobalSearch -SearchMode OU;$failed=$false;try{Invoke-TestWorker}catch{$failed=($_.Exception.Message -match 'a echoue sur tous les contextes')};Assert-Test $failed 'Echec attendu : tous les contextes essayes, pas une fonction absente' }
 Test-Case 'Worker conserve les groupes et les conteneurs' { Invoke-GlobalSearch -SearchMode OU;$script:FakeRows=@([pscustomobject]@{Type='Groupe';Name='G';DN='CN=G,OU=Site,DC=example,DC=invalid'},[pscustomobject]@{Type='OU';Name='Sous';DN='OU=Sous,OU=Site,DC=example,DC=invalid'});$out=Invoke-TestWorker;Assert-Test ($out.Rows.Count -eq 2) }
-Test-Case 'Limite atteinte signalee dans le resultat worker' { $script:Ctrl.TxtGlobalLimit.Text='1';Invoke-GlobalSearch -SearchMode OU;$script:FakeRows=@([pscustomobject]@{Type='Machine';Name='PC';DN='CN=PC,OU=Site,DC=example,DC=invalid'});$out=Invoke-TestWorker;Assert-Test ([bool]$out.LimitReached -and $out.Rows.Count -eq 1) }
+Test-Case 'Exactement la limite ne prouve pas une troncature' { $script:Ctrl.TxtGlobalLimit.Text='1';Invoke-GlobalSearch -SearchMode OU;$script:FakeRows=@([pscustomobject]@{Type='Machine';Name='PC';DN='CN=PC,OU=Site,DC=example,DC=invalid'});$out=Invoke-TestWorker;Assert-Test (-not [bool]$out.LimitReached -and $out.Rows.Count -eq 1) }
+foreach($boundary in @(9999,10000,10001,19999,20000,20001)){
+    Test-Case ('Complétude à '+$boundary+' objets') {
+        $limit=if($boundary -le 10001){10000}else{20000}
+        $script:Ctrl.TxtGlobalLimit.Text=[string]$limit
+        Invoke-GlobalSearch -SearchMode OU
+        $script:LastTask.Payload.Progress=$null
+        $script:FakeRows=@(for($i=0;$i -lt $boundary;$i++){[pscustomobject]@{Type='Machine';Name=('PC'+$i);DN=('CN=PC'+$i+',OU=Site,DC=example,DC=invalid')}})
+        $out=Invoke-TestWorker
+        Assert-Test ($out.Rows.Count -eq [Math]::Min($boundary,$limit))
+        Assert-Test ([bool]$out.LimitReached -eq ($boundary -gt $limit))
+        Assert-Test (-not $out.Partial)
+        Assert-Test ($script:WorkerCalls[0].Limit -eq $limit+1)
+    }
+}
 Test-Case 'Racine inattendue dans le resultat refusee' { Invoke-GlobalSearch -SearchMode OU;$out=[pscustomobject]@{Rows=@();BaseDn=$script:Conn.BaseDn;Scope='Subtree'};$failed=$false;try{Complete-DomeniaGlobalSearchUi $out $script:LastTask.State}catch{$failed=$true};Assert-Test $failed }
 Test-Case 'Rafraichissement conserve uniquement une vraie selection' { $script:Ctrl.DgObjects.SelectedItem=[pscustomobject]@{DN='CN=PC,OU=Site,DC=example,DC=invalid'};Load-BranchObjects;Assert-Test ($script:LastTask.State.PreserveSelectionDn -eq 'CN=PC,OU=Site,DC=example,DC=invalid') }
 Test-Case 'Nouvelle recherche ne reselecte pas la fiche precedente' { $script:Ctrl.DgObjects.SelectedItem=[pscustomobject]@{DN='CN=PC,OU=Site,DC=example,DC=invalid'};Invoke-GlobalSearch -SearchMode OU;Assert-Test ($script:LastTask.State.PreserveSelectionDn -eq '') }

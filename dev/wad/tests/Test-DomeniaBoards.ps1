@@ -44,6 +44,11 @@ function Start-DomeniaOnlinePark {param([switch]$DisplayedResults,[switch]$PingO
 $script:StartCalls=[Collections.Generic.List[object]]::new();$script:AsyncJobs=@{}
 function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$SuccessHandler,$ErrorHandler,$TimeoutSeconds,$TaskClass);$script:StartCalls.Add([pscustomobject]@{OperationId=$OperationId;Code=$Code;Payload=$Payload;State=$CallbackState;ReplaceKey=$ReplaceKey;TaskClass=$TaskClass});return ('job-'+$script:StartCalls.Count)}
 function Initialize-DomeniaWinSqliteNative {return $true}
+$script:StoreReadCalls=[Collections.Generic.List[object]]::new();$script:StoreSnapshotRevision=0L;$script:SelectedObjectGeneration=1L
+function Test-DomeniaGuidText([string]$Text){$guid=[guid]::Empty;return [guid]::TryParse($Text,[ref]$guid)}
+function New-DomeniaStoreContext($RequestId,$Generation){return [pscustomobject]@{StoreId='boards-fixture';Path=$script:DatabaseScopedPath;Generation=$Generation}}
+function Request-DomeniaStoreRead($Context,$Query,$CallbackState,$SuccessHandler,$ErrorHandler){$script:StoreReadCalls.Add([pscustomobject]@{Context=$Context;Query=$Query;State=$CallbackState;SuccessHandler=$SuccessHandler});return 'store-read-fixture'}
+
 # Le journal d'interface vient de Domenia-Core.ps1, que ce banc ne charge pas. Cette fixture enregistre
 # ce qui est journalise: le cas « fonction absente » verifie que la cause est nommee dans le journal.
 $script:UiLogLines=[Collections.Generic.List[string]]::new()
@@ -152,7 +157,7 @@ try{
     $parkAst=Parse-Text ([IO.File]::ReadAllText((Join-Path $wad 'modules\Domenia-Park.UI.ps1')));Import-Function $parkAst 'Start-DomeniaParkAnalysis'
     $script:FleetScopeDn=''
     # FI-05 / PF-06: Engine.UI holds the protected timer factory (banners, counters, park run).
-    foreach($m in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Embedded.UI.ps1','Domenia-Workstation.Model.ps1','Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-BoardSoftware.Model.ps1','Domenia-BoardComputer.UI.ps1','Domenia-Widgets.UI.ps1','Domenia-Dashboard.UI.ps1','Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-Query.UI.ps1','Domenia-QueryTargets.UI.ps1')){. (Join-Path $wad ('modules\'+$m))}
+    foreach($m in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Embedded.UI.ps1','Domenia-Workstation.Model.ps1','Domenia-HealthRules.Model.ps1','Domenia-HealthRules.UI.ps1','Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-BoardSoftware.Model.ps1','Domenia-BoardComputer.UI.ps1','Domenia-Widgets.UI.ps1','Domenia-Dashboard.UI.ps1','Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-Query.UI.ps1','Domenia-QueryTargets.UI.ps1')){. (Join-Path $wad ('modules\'+$m))}
     $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml));try{$w=[Windows.Markup.XamlReader]::Load($reader)}finally{$reader.Close()}
     $w.Width=1400;$w.Height=900;$w.ShowInTaskbar=$false
     $palette=(Get-Content -LiteralPath (Join-Path $wad 'modules\SupportSuite.UI.json') -Raw|ConvertFrom-Json).Palettes.Light
@@ -428,24 +433,27 @@ try{
         Expect ($script:StartCalls.Count -eq $before -and $script:ParkCalls.Count -eq $parks) 'Un lien a lance une tache'
         $inner.SelectedItem=Get-DomeniaControl 'TabComputerDashboard';(Get-DomeniaControl 'WorkspaceTabs').SelectedItem=Get-DomeniaControl 'WsSearch'
     }
-    Case 'Poste hors de l OU de l accueil : ses releves lus une fois dans la base locale et gardes' {
-        $script:DatabaseScopedPath='C:\fictif\domenia.db';$script:FleetObservations=@{};$script:FleetSelectedReads=@{};$script:FleetScopeDn=''
-        $script:SelectedObject=[pscustomobject]@{DN='CN=PC-9,OU=Lyon,DC=example,DC=invalid';Type='Machine';Name='PC-9';Safety=[pscustomobject]@{Guid='00000000-0000-4000-8000-000000000009'}}
-        $before=$script:StartCalls.Count;$parks=$script:ParkCalls.Count
+    Case 'Poste hors de l OU : lecture canonique coalescée, invalidée après nouvelle vue' {
+        $script:DatabaseScopedPath='C:\fictif\domenia.db';$script:FleetObservations=@{};$script:FleetSelectedReads=@{};$script:FleetScopeDn='';$script:StoreSnapshotRevision=10L
+        $script:SelectedObject=[pscustomobject]@{DN='CN=PC-9,OU=Lyon,DC=example,DC=invalid';Type='Machine';Name='PC-9';Guid='00000000-0000-4000-8000-000000000009';Safety=[pscustomobject]@{Guid='00000000-0000-4000-8000-000000000009'}}
+        $before=$script:StoreReadCalls.Count;$parks=$script:ParkCalls.Count
         Show-DomeniaBoard -Board Computer -Quiet
-        Expect ($script:StartCalls.Count -eq $before+1) 'Releves du poste selectionne non demandes'
-        $call=$script:StartCalls[$script:StartCalls.Count-1]
-        Expect ([string]$call.OperationId -eq 'LocalIndexRead' -and [string]$call.Payload.Action -eq 'FleetStats' -and [bool]$call.Payload.ObservationsOnly -and (@($call.Payload.Keys) -contains 'cn=pc-9,ou=lyon,dc=example,dc=invalid') -and [string]$call.TaskClass -eq 'Background' -and [string]$call.ReplaceKey -eq 'fleet:selected') 'Lecture du poste mal parametree'
+        Expect ($script:StoreReadCalls.Count -eq $before+1) 'Relevés du poste non demandés dans la base canonique'
+        $call=$script:StoreReadCalls[$before]
+        Expect ($call.Query.Kind -eq 'Observation' -and $call.Query.Limit -eq 1 -and @($call.Query.Guids)[0] -eq $script:SelectedObject.Guid -and $call.State.Path -ceq $script:DatabaseScopedPath) 'Lecture canonique mal paramétrée'
         Show-DomeniaBoard -Board Computer -Quiet
-        Expect ($script:StartCalls.Count -eq $before+1) 'Lecture repetee pour le meme poste'
+        Expect ($script:StoreReadCalls.Count -eq $before+1) 'Lecture répétée sans changement de sélection ni de révision'
         $recent=[datetime]::UtcNow.AddHours(-3).ToString('o')
-        $obs=[pscustomobject]@{Guid='00000000-0000-4000-8000-000000000009';CheckedUtc=$recent;Probes=[pscustomobject]@{'os.release'=[pscustomobject]@{Rows=@(,@('26100','1'));Count=1;Error='';CheckedUtc=$recent}}}
-        Complete-DomeniaSelectedObservation -Result ([pscustomobject]@{Rows=@();Busy=$false;Missing=$false;MachineCount=0;Presence=@([pscustomobject]@{object_key='cn=pc-9,ou=lyon,dc=example,dc=invalid';checked_utc=$recent;observation=$obs;in_scope=$false})}) -State $call.State
-        Expect (@(Get-DomeniaWidgetResults -Board Computer -ProbeId 'os.release').Count -eq 1) 'Releve du poste hors OU absent de son tableau'
+        $obs=[pscustomobject]@{Guid=$script:SelectedObject.Guid;Revision=10L;CheckedUtc=$recent;Probes=[pscustomobject]@{'os.release'=[pscustomobject]@{Rows=@(,@('26100','1'));Count=1;Error='';CheckedUtc=$recent}}}
+        $canonical=[pscustomobject]@{ObservationRows=@($obs);SnapshotRevision=10L;Busy=$false;Missing=$false;DataSource='SQLite';StoreId='boards-fixture';Path=$script:DatabaseScopedPath}
+        Complete-DomeniaSelectedObservation -Result $canonical -State $call.State
+        Expect (@(Get-DomeniaWidgetResults -Board Computer -ProbeId 'os.release').Count -eq 1) 'Relevé canonique absent du tableau du poste'
         Complete-DomeniaFleetDashboard -Result (New-FleetResult) -State $null
-        Expect (@(Get-DomeniaWidgetResults -Board Computer -ProbeId 'os.release').Count -eq 1) 'Releve perdu apres un recalcul de l accueil'
-        Expect ($script:StartCalls.Count -eq $before+1 -and $script:ParkCalls.Count -eq $parks) 'Lecture ou analyse relancee'
-        $script:SelectedObject=$null;$script:DatabaseScopedPath='';$script:FleetObservations=$null
+        Expect ($script:StoreReadCalls.Count -eq $before+2) 'Nouvelle vue nʼa pas invalidé le marqueur de lecture sélectionnée'
+        Complete-DomeniaSelectedObservation -Result $canonical -State $script:StoreReadCalls[$before+1].State
+        Expect (@(Get-DomeniaWidgetResults -Board Computer -ProbeId 'os.release').Count -eq 1) 'Relecture canonique non publiée'
+        Expect ($script:ParkCalls.Count -eq $parks) 'La consultation a relancé une collecte réseau'
+        $script:SelectedObject=$null;$script:DatabaseScopedPath='';$script:FleetObservations=$null;$script:StoreSnapshotRevision=0L
     }
     Case 'En-tete de l accueil : fil local et périmètre indépendant de Rechercher' {
         $script:FleetScopeDn='OU=Lyon,OU=Postes,DC=example,DC=invalid'

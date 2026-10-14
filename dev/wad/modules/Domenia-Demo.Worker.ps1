@@ -12,6 +12,8 @@ $req = $Payload.Request
 $baseDn = [string]$directory.BaseDn
 $baseKey = $baseDn.ToLowerInvariant()
 $bindUser = ([string]$Context.BindUser).Trim()
+if($null -ne $req.DirectoryReadState){$req.DirectoryReadState.Started=$true}
+try {
 
 function Get-DemoParentDn {
     param([string]$Dn)
@@ -255,13 +257,19 @@ if ($op -eq 'TreeChildren') {
     if (-not (Test-DemoInBase $key)) { throw ('Branche ' + $dn + ' hors de l annuaire de demonstration.') }
     Wait-DemoLatency $null
     $rows = New-Object Collections.ArrayList
+    $records = New-Object Collections.ArrayList
     foreach ($item in $ordered) {
         if ($item.Parent -ne $key) { continue }
         $classes = @($item.Attrs['objectclass'] | ForEach-Object { ([string]$_).ToLowerInvariant() })
         if (-not (($classes -contains 'organizationalunit') -or ($classes -contains 'container') -or ($classes -contains 'builtindomain'))) { continue }
         [void]$rows.Add([pscustomobject]@{ Name=[string](Get-WPropFirst $item.Attrs 'name' ''); DN=$item.DN; Kind=(Get-WObjectType $item.Attrs) })
+        $record=[pscustomobject]@{Properties=(New-WDirectoryStoreProperties $item.Attrs @('name','distinguishedName','objectClass','objectGUID','whenChanged','uSNChanged','description','managedBy'));Type=(Get-WObjectType $item.Attrs);ObservedUtc=[datetime]::UtcNow.ToString('o');Source='Demonstration'}
+        [void]$records.Add($record)
+        if($null -ne $req.Progress){$req.Progress.Enqueue($record)}
     }
-    [pscustomobject]@{ Rows=@($rows | Sort-Object Name) }
+    $final=[pscustomobject]@{Rows=@($rows | Sort-Object Name);Records=@($records);Demo=$true}
+    if($null -ne $req.DirectoryReadState){$req.DirectoryReadState.Final=$final}
+    $final
     return
 }
 
@@ -305,14 +313,20 @@ if ($op -eq 'GlobalSearch') {
             $seen[$rowKey] = $true
             [void]$rows.Add($row)
             $added++
-            if ($null -ne $req.Progress) { $req.Progress.Enqueue([pscustomobject]@{ Kind='Row'; Row=$row; ObservedUtc=[datetime]::UtcNow.ToString('o') }) }
+            if ($null -ne $req.Progress) {
+                $props=New-WDirectoryStoreProperties $item.Attrs @($req.Properties)
+                while($req.Progress.Count -ge 1000){if($null -ne $req.StopToken -and $req.StopToken.IsCancellationRequested){throw 'Lecture de demonstration arretee.'};[Threading.Thread]::Sleep(10)}
+                $req.Progress.Enqueue([pscustomobject]@{Kind='DirectoryRead';Properties=$props;Type=[string]$row.Type;ObservedUtc=[datetime]::UtcNow.ToString('o');Source='Demonstration'})
+            }
             if ($rows.Count -ge $limit) { $limitReached = $true; break }
         }
         [void]$diagnostics.Add('demonstration : ' + $filterText + ' => ajoutes=' + $added)
         if ($rows.Count -gt 0 -or $limitReached) { break }
     }
     $watch.Stop()
-    [pscustomobject]@{ Rows=@($rows); Partial=$false; Failure=''; RawCount=[int]$raw; DurationMs=[long]$watch.ElapsedMilliseconds; Server='(demonstration)'; BaseDn=[string]$req.BaseDn; Scope=$scope; LimitReached=[bool]$limitReached; Filters=@($diagnostics); FilterUsed=$filterUsed }
+    $final=[pscustomobject]@{Rows=@($rows);Partial=$false;Failure='';RawCount=[int]$raw;DurationMs=[long]$watch.ElapsedMilliseconds;Server='(demonstration)';BaseDn=[string]$req.BaseDn;Scope=$scope;LimitReached=[bool]$limitReached;Filters=@($diagnostics);FilterUsed=$filterUsed;Demo=$true}
+    if($null -ne $req.DirectoryReadState){$req.DirectoryReadState.Final=$final}
+    $final
     return
 }
 
@@ -338,7 +352,10 @@ if ($op -eq 'OpenAdObject') {
         $h['__' + $attribute + 'Complete'] = @($true)
         $h['__' + $attribute + 'Note'] = @('')
     }
-    [pscustomobject]@{ Properties=$h; DN=$item.DN; Type=[string]$req.Type; Live=$true }
+    $final=[pscustomobject]@{Properties=$h;DN=$item.DN;Type=[string]$req.Type;Live=$true;Demo=$true;ObservedUtc=[datetime]::UtcNow.ToString('o');Source='Demonstration'}
+    if($null -ne $req.Progress){$req.Progress.Enqueue([pscustomobject]@{Properties=$h;Type=[string]$req.Type;ObservedUtc=$final.ObservedUtc;Source='Demonstration'})}
+    if($null -ne $req.DirectoryReadState){$req.DirectoryReadState.Final=$final}
+    $final
     return
 }
 
@@ -431,5 +448,6 @@ if ($op -eq 'StartupWarmCache') {
 }
 
 throw ('DOMENIA_DEMO_UNAVAILABLE : ' + $op + ' non disponible en demonstration - aucune connexion AD.')
+}catch{if($null -ne $req.DirectoryReadState){$req.DirectoryReadState.Error=$_.Exception.Message};throw}finally{if($null -ne $req.DirectoryReadState){$req.DirectoryReadState.Done=$true}}
 '@
 }

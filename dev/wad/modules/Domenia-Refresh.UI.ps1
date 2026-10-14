@@ -63,7 +63,7 @@ function Complete-DomeniaOuRefreshCommit {
     if($r.Phase -notin @('Directory','Saving') -or [long]$Item.Epoch -ne $r.Epoch -or [string]$Item.Path -cne $r.Path -or [string]$Item.Row.BaseDn -ine $r.Dn -or [string]$Item.Row.SyncScope -ine ('ou:'+$r.Dn.ToLowerInvariant())){return}
     if($null -eq $Item.Row.PSObject.Properties['Complete'] -or -not [bool]$Item.Row.Complete){Fail-DomeniaOuRefresh -OperationId $id -Message 'Lecture AD partielle : le dernier repère complet est conservé.';return}
     $r.BaseCommitted=$true
-    if($r.Mode -eq 'Base'){$r.Completed=$true;$r.Phase='Complete';$r.Status='Base locale actualisée : '+$r.Label+'. Aucun ping ni relevé WMI.';if($null -ne $r.Timer){$r.Timer.Stop()}}
+    if($r.Mode -in @('AD','Base')){$r.Completed=$true;$r.Phase='Complete';$r.Status='Objets AD relus et enregistrés : '+$r.Label+'. Aucun ping ni relevé WMI.';if($null -ne $r.Timer){$r.Timer.Stop()}}
     else{$r.Phase='WaitingCollection';$r.Status='Base locale enregistrée. Préparation du relevé des postes de '+$r.Label+'.'}
     Update-DomeniaOuRefreshUi
 }
@@ -88,7 +88,8 @@ function Get-DomeniaOuRefreshProbePlan {
     if($ids.Count){ConvertTo-DomeniaProbePayload -Ids $ids}
 }
 function Invoke-DomeniaOuRefresh {
-    param([ValidateSet('Fleet','Search','Index')][string]$Source,[ValidateSet('Base','Postes','Both')][string]$Mode)
+    # Legacy modes are retained for compatibility; the UI exposes only AD, Ping and Wmi.
+    param([ValidateSet('Fleet','Search','Index')][string]$Source,[ValidateSet('AD','Ping','Wmi','Base','Postes','Both')][string]$Mode)
     $created=$false
     try{
         $context=Get-DomeniaOuRefreshContext $Source
@@ -101,12 +102,12 @@ function Invoke-DomeniaOuRefresh {
         if($save.Pending -gt 0 -or $save.Suspended -or $save.Conflicts -gt 0){throw 'Attendez ou rétablissez la confirmation des écritures locales.'}
         # Snapshot the selected dashboard probe plan now, before AD work or a later confirmation can change it.
         $probes=@()
-        if($Mode -ne 'Base'){$probes=@(Get-DomeniaOuRefreshProbePlan)}
+        if($Mode -in @('Wmi','Postes','Both')){$probes=@(Get-DomeniaOuRefreshProbePlan)}
         $r=[pscustomobject]@{Id=[guid]::NewGuid().ToString('N');Source=$Source;Mode=$Mode;Dn=$context.Dn;Subtree=$true;DomainDn=$context.DomainDn;Label=$context.Label;Epoch=$context.Epoch;Path=$context.Path;Phase='Directory';Status='Lecture AD : '+$context.Label;DirectoryJob='';TargetJob='';ParkRunId='';BaseCommitted=$false;Cancelled=$false;Completed=$false;Timer=$null;Started=[datetime]::UtcNow}
         $r|Add-Member -NotePropertyName Probes -NotePropertyValue $probes
         $script:DomeniaOuRefresh=$r;$created=$true
         $r.Timer=New-DomeniaTimer -Owner 'Timer:OuRefresh' -IntervalMs 250 -RunWhenHidden -Tick {Invoke-DomeniaOuRefreshTick}
-        if($Mode -eq 'Postes'){$r.Phase='WaitingCollection';$r.Status='Préparation des postes actifs de '+$r.Label+'. Ping et WMI seront relus après confirmation.'}
+        if($Mode -in @('Ping','Wmi','Postes')){$r.Phase='WaitingCollection';$r.Status='Préparation des postes activés dans AD de '+$r.Label+'. '+$(if($Mode -eq 'Ping'){'Le ping seul sera relu.'}elseif($Mode -eq 'Wmi'){'Les informations WMI seront relues.'}else{'Ping et WMI seront relus après confirmation.'})}
         else{
             $r.DirectoryJob=[string](Start-DomeniaIndexScopeBuild -Dn $r.Dn -RefreshOperationId $r.Id)
             if(-not $r.DirectoryJob){throw 'Lecture AD non admise.'}
@@ -154,8 +155,11 @@ function Complete-DomeniaOuRefreshTargets {
         if($null -eq $packet -or $packet.Busy -or $packet.Missing -or [string]$packet.Scope -ine $r.Dn -or -not [bool]$packet.Subtree){throw 'Périmètre local absent, occupé ou incohérent ; aucun poste interrogé.'}
         $targets=@($packet.Targets|Where-Object{$null -ne $_})
         if(-not $targets.Count){$r.Completed=$true;$r.Phase='Complete';$r.Status='Aucun poste actif recensé dans '+$r.Label+'. Aucun ping ni WMI lancé.';$r.Timer.Stop();Update-DomeniaOuRefreshUi;return}
-        $r.Phase='Confirming';$r.Status=[string]$targets.Count+' poste(s) actif(s) dans '+$r.Label+'. Confirmation du ping et WMI en attente.'
-        $r.ParkRunId=[string](Start-DomeniaOnlinePark -ScopeTargets $targets -ScopeLabel $r.Label -Inventory -Probes @($r.Probes) -ForceRefresh -RefreshOperationId $r.Id -PassThru)
+        $r.Phase='Confirming';$r.Status=[string]$targets.Count+' poste(s) activé(s) dans AD, '+$r.Label+'. Confirmation de la collecte en attente.'
+        $args=@{ScopeTargets=$targets;ScopeLabel=$r.Label;ForceRefresh=$true;RefreshOperationId=$r.Id;PassThru=$true}
+        if($r.Mode -eq 'Ping'){$args.PingOnly=$true}
+        else{$args.Inventory=$true;$args.Probes=@($r.Probes);if($r.Mode -eq 'Wmi'){$args.WmiOnly=$true}}
+        $r.ParkRunId=[string](Start-DomeniaOnlinePark @args)
         if(-not $r.ParkRunId){throw 'Préparation du relevé non admise.'}
         Update-DomeniaOuRefreshUi
     }catch{Fail-DomeniaOuRefresh -OperationId $r.Id -Message $_.Exception.Message}
@@ -176,7 +180,7 @@ function Update-DomeniaOuRefreshFromPark {
         elseif($Run.FailureMessage){$r.Phase='Error';$r.Status='Relevé non terminé : '+[string]$Run.FailureMessage}
         elseif(-not $Run.Approved -or $Run.Stopping){$r.Phase='Cancelled';$r.Cancelled=$true;$r.Status='Relevé arrêté : '+[string]$Run.Done+' poste(s) traité(s). Les données déjà confirmées sont conservées.'}
         elseif($Run.Failed -gt 0){$r.Phase='Partial';$r.Status='Relevé terminé avec '+[string]$Run.Failed+' lecture(s) non confirmée(s) sur '+[string]$Run.Done+'. Consultez les détails des postes.'}
-        else{$r.Phase='Complete';$r.Status='Actualisation terminée : '+[string]$Run.Done+' poste(s) de '+$r.Label+'. Ping et WMI relus, données enregistrées.'}
+        else{$r.Phase='Complete';$r.Status='Actualisation terminée : '+[string]$Run.Done+' poste(s) de '+$r.Label+'. '+$(if($r.Mode -eq 'Ping'){'Ping relu, données enregistrées. Les dates AD et WMI sont conservées.'}elseif($r.Mode -eq 'Wmi'){'WMI relu, données enregistrées. Les dates AD et ping sont conservées.'}else{'Ping et WMI relus, données enregistrées.'})}
     }elseif($Run.Approved){$r.Phase='Collecting';$r.Status=[string]$Run.StatusText}
     Update-DomeniaOuRefreshUi
 }

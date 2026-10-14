@@ -1,0 +1,1306 @@
+{
+  "schema": 1,
+  "authorized_at": "2026-10-13",
+  "updated_at": "2026-10-14",
+  "status": "committed_windows_qualification_open",
+  "suivi_note": "Arbre local commite le 2026-10-14. Gel des contrats, DLL Native et Query recompilees avec csc 4.8.9221.0 sur DESKTOP-285EKHU, baux Enter/Exit sur la moisson et les lectures CIM, vues de recherche branchees. Les 160 points ne sont pas termines. Qualification 10000/20000 non executee. CNAMTS-W11-01 a ete rallumee ; la campagne complete n a pas abouti.",
+  "minimum_computers": 10000,
+  "qualification_computers": 20000,
+  "publication": "roadmap_only_published_software_in_progress",
+  "requirements": [
+    {
+      "id": 1,
+      "title": "Achever le circuit collecte vers base vers interface",
+      "status": "in_progress",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 2,
+      "title": "Unifier les populations comparées",
+      "status": "in_progress",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 3,
+      "title": "Séparer les états inconnus",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 4,
+      "title": "Garder trois horloges de collecte",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 5,
+      "title": "Conserver la dernière réussite",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 6,
+      "title": "Expliquer chaque chiffre",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 7,
+      "title": "Rendre les détails des sondes complets",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 8,
+      "title": "Exporter tous les résultats",
+      "status": "implemented_portable_validated",
+      "owner": "root",
+      "evidence": [
+        "validation/2026-10-13/central-store/query-scale-binary.json"
+      ],
+      "remaining": [
+        "Qualification Windows5.1 du binaire et export depuis atelier graphique."
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Préserver l’identité lors des changements",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 10,
+      "title": "Qualifier la fraîcheur des sources",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 11,
+      "title": "Configurer les durées de fraîcheur par profil",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 12,
+      "title": "Mutualiser les demandes simultanées",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 13,
+      "title": "Étendre le regroupement WMI déjà présent",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 14,
+      "title": "Adapter la concurrence à la latence",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 15,
+      "title": "Limiter la charge par site et fournisseur",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 16,
+      "title": "Qualifier la priorité du travail visible",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 17,
+      "title": "Adapter les délais à la progression",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 18,
+      "title": "Classer les erreurs avant toute reprise",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 19,
+      "title": "Mémoriser les capacités des postes",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 20,
+      "title": "Enregistrer les campagnes pour reprise",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 21,
+      "title": "Fiabiliser le suivi différentiel existant",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 22,
+      "title": "Conserver un recensement complet de l’OU",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 23,
+      "title": "Traiter les déplacements entre OU",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 24,
+      "title": "Distinguer disparition et suppression",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 25,
+      "title": "Lire les grands groupes sans troncature",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 26,
+      "title": "Afficher le contrôleur effectivement interrogé",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 27,
+      "title": "Expliquer les données de connexion AD",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 28,
+      "title": "Parcourir le schéma en lecture seule",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 29,
+      "title": "Optimiser les filtres LDAP",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 30,
+      "title": "Comparer deux relevés d’annuaire",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 31,
+      "title": "Choisir l’emplacement local de la base",
+      "status": "in_progress",
+      "owner": "engine_audit",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 32,
+      "title": "Déplacer la base avec un assistant",
+      "status": "in_progress",
+      "owner": "engine_audit",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 33,
+      "title": "Automatiser les sauvegardes cohérentes",
+      "status": "in_progress",
+      "owner": "engine_audit",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 34,
+      "title": "Restaurer depuis l’interface",
+      "status": "in_progress",
+      "owner": "engine_audit",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 35,
+      "title": "Détecter l’espace disque insuffisant",
+      "status": "in_progress",
+      "owner": "engine_audit",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 36,
+      "title": "Contrôler l’intégrité et les migrations",
+      "status": "in_progress",
+      "owner": "engine_audit",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 37,
+      "title": "Régler la rétention par famille",
+      "status": "in_progress",
+      "owner": "engine_audit",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 38,
+      "title": "Compacter les reçus sans casser la reprise",
+      "status": "in_progress",
+      "owner": "engine_audit",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 39,
+      "title": "Accélérer les lectures SQL mesurées",
+      "status": "in_progress",
+      "owner": "engine_audit",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 40,
+      "title": "Rendre les limites de stockage visibles",
+      "status": "in_progress",
+      "owner": "engine_audit",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 41,
+      "title": "Qualifier la protection contre les refus d’authentification",
+      "status": "in_progress",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 42,
+      "title": "Simplifier les comptes secondaires",
+      "status": "in_progress",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 43,
+      "title": "Qualifier le coffre Windows optionnel",
+      "status": "in_progress",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 44,
+      "title": "Corriger un compte sans reconnecter toute l’application",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 45,
+      "title": "Rapprocher les alias depuis une identité validée",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 46,
+      "title": "Expliquer les droits nécessaires",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 47,
+      "title": "Diagnostiquer les verrouillages avec des preuves",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 48,
+      "title": "Prévisualiser les opérations collectives",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 49,
+      "title": "Confirmer le résultat des écritures",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 50,
+      "title": "Protéger les informations sensibles",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 51,
+      "title": "Ouvrir l’arbre depuis un favori",
+      "status": "implemented_portable_validated",
+      "owner": "root",
+      "evidence": [
+        "validation/2026-10-13/central-store/favourite-reveal.json"
+      ],
+      "remaining": [
+        "Qualification graphique native WPF du favori et du dépliage asynchrone."
+      ]
+    },
+    {
+      "id": 52,
+      "title": "Afficher un fil d’Ariane navigable",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 53,
+      "title": "Filtrer l’arbre en conservant le chemin",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 54,
+      "title": "Unifier les sélecteurs d’OU",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 55,
+      "title": "Revenir exactement à la vue précédente",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 56,
+      "title": "Composer des filtres visibles",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 57,
+      "title": "Enregistrer des vues personnelles",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 58,
+      "title": "Comparer plusieurs postes",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 59,
+      "title": "Ouvrir un aperçu latéral",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 60,
+      "title": "Rendre les sélections collectives explicites",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 61,
+      "title": "Charger la bibliothèque progressivement",
+      "status": "in_progress",
+      "owner": "search_engine_deadlines",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 62,
+      "title": "Expliquer chaque correspondance",
+      "status": "in_progress",
+      "owner": "search_engine_deadlines",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 63,
+      "title": "Afficher la couverture avant exécution",
+      "status": "in_progress",
+      "owner": "search_engine_deadlines",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 64,
+      "title": "Collecter seulement les informations manquantes",
+      "status": "in_progress",
+      "owner": "search_engine_deadlines",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 65,
+      "title": "Ajouter des modèles paramétrés",
+      "status": "in_progress",
+      "owner": "search_engine_deadlines",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 66,
+      "title": "Composer des conditions imbriquées",
+      "status": "in_progress",
+      "owner": "search_engine_deadlines",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 67,
+      "title": "Accepter les unités usuelles",
+      "status": "in_progress",
+      "owner": "search_engine_deadlines",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 68,
+      "title": "Faire évoluer les requêtes personnelles",
+      "status": "in_progress",
+      "owner": "search_engine_deadlines",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 69,
+      "title": "Partager des packs de recettes versionnés",
+      "status": "in_progress",
+      "owner": "search_engine_deadlines",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 70,
+      "title": "Transformer une requête en collection ou widget",
+      "status": "in_progress",
+      "owner": "search_engine_deadlines",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 71,
+      "title": "Séparer activation AD et activité réelle",
+      "status": "in_progress",
+      "owner": "progress_timeout_policy",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 72,
+      "title": "Séparer présence ping et réponse WMI",
+      "status": "in_progress",
+      "owner": "progress_timeout_policy",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 73,
+      "title": "Conserver la liste exacte derrière chaque widget",
+      "status": "in_progress",
+      "owner": "progress_timeout_policy",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 74,
+      "title": "Afficher la couverture à côté de la santé",
+      "status": "in_progress",
+      "owner": "progress_timeout_policy",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 75,
+      "title": "Expliquer le score de santé",
+      "status": "in_progress",
+      "owner": "progress_timeout_policy",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 76,
+      "title": "Définir des politiques par OU",
+      "status": "in_progress",
+      "owner": "progress_timeout_policy",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 77,
+      "title": "Suspendre temporairement une alerte",
+      "status": "in_progress",
+      "owner": "progress_timeout_policy",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 78,
+      "title": "Comparer la santé entre deux dates",
+      "status": "in_progress",
+      "owner": "progress_timeout_policy",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 79,
+      "title": "Créer des tableaux croisés",
+      "status": "in_progress",
+      "owner": "progress_timeout_policy",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 80,
+      "title": "Qualifier l’organisation des widgets",
+      "status": "in_progress",
+      "owner": "progress_timeout_policy",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 81,
+      "title": "Capacité et occupation mémoire",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 82,
+      "title": "Disques et prévision de saturation",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 83,
+      "title": "Santé du stockage",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 84,
+      "title": "Batteries des portables",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 85,
+      "title": "BIOS et micrologiciels",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 86,
+      "title": "Processeurs et virtualisation",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 87,
+      "title": "Écrans et stations d’accueil",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 88,
+      "title": "Interfaces réseau",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 89,
+      "title": "Imprimantes et périphériques en erreur",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 90,
+      "title": "Diagnostic réseau par couche",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 91,
+      "title": "Logiciels installés sans effets de bord MSI",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 92,
+      "title": "État des mises à jour",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 93,
+      "title": "Redémarrage en attente",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 94,
+      "title": "Services et dépendances",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 95,
+      "title": "Processus et charge ponctuelle",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 96,
+      "title": "Tâches planifiées et démarrage automatique",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 97,
+      "title": "Defender ou antivirus présent",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 98,
+      "title": "Pare-feu effectif",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 99,
+      "title": "BitLocker et démarrage sécurisé",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 100,
+      "title": "Certificats et expiration",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 101,
+      "title": "Comptes utilisateurs à vérifier",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 102,
+      "title": "Hygiène des mots de passe",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 103,
+      "title": "Groupes imbriqués et cycles",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 104,
+      "title": "Délégations et droits sur les objets",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 105,
+      "title": "Liens GPO et résultat appliqué",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 106,
+      "title": "État de Windows LAPS",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 107,
+      "title": "Relation poste et utilisateur",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 108,
+      "title": "Santé AD et réplication",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 109,
+      "title": "Cohérence des noms et identités",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 110,
+      "title": "Recettes d’assistance",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 111,
+      "title": "Alléger les écrans principaux",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 112,
+      "title": "Uniformiser les composants",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 113,
+      "title": "Adapter le contenu à la fenêtre",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 114,
+      "title": "Qualifier le zoom et les changements de DPI",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 115,
+      "title": "Rendre le clavier suffisant",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 116,
+      "title": "Qualifier lecteur d’écran et contrastes",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 117,
+      "title": "Améliorer la palette de commandes",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 118,
+      "title": "Regrouper opérations et notifications",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 119,
+      "title": "Rendre les écrans vides utiles",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 120,
+      "title": "Étendre l’annulation des présentations",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 121,
+      "title": "Attribuer les lenteurs à une opération",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 122,
+      "title": "Mesurer les percentiles de réponse",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 123,
+      "title": "Relier les événements d’une opération",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 124,
+      "title": "Produire un diagnostic expurgé",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 125,
+      "title": "Tester charge et stabilité longues",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 126,
+      "title": "Injecter les pannes de stockage",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 127,
+      "title": "Injecter les pannes réseau",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 128,
+      "title": "Vérifier les invariants automatiquement",
+      "status": "in_progress",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 129,
+      "title": "Qualifier les parcours graphiques natifs",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 130,
+      "title": "Distinguer laboratoire et domaine réel",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 131,
+      "title": "Extraire progressivement le cœur monolithique",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 132,
+      "title": "Compiler seulement les points chauds mesurés",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 133,
+      "title": "Versionner les contrats entre modules",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 134,
+      "title": "Partager les briques avec Pesto et FilPro",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 135,
+      "title": "Définir un contrat de sonde extensible",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 136,
+      "title": "Isoler les sondes avancées",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 137,
+      "title": "Importer des inventaires existants",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 138,
+      "title": "Prévisualiser et annuler un import local",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 139,
+      "title": "Produire un dossier de diagnostic hors ligne",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 140,
+      "title": "Proposer une interface automatisable locale",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 141,
+      "title": "Signer les exécutables et distributions",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 142,
+      "title": "Construire les deux packs de façon reproductible",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 143,
+      "title": "Sécuriser la mise à jour de l’application",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 144,
+      "title": "Tester installation et désinstallation",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 145,
+      "title": "Tenir une matrice de compatibilité",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 146,
+      "title": "Inventorier licences et dépendances",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 147,
+      "title": "Définir une politique de données locale",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 148,
+      "title": "Guider le premier démarrage",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 149,
+      "title": "Synchroniser aide et documentation v1.0",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 150,
+      "title": "Formaliser une recette de livraison",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 151,
+      "title": "Contrôler la cohérence temporelle des conditions",
+      "status": "in_progress",
+      "owner": "search_engine_deadlines",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 152,
+      "title": "Interroger correctement les collections",
+      "status": "in_progress",
+      "owner": "search_engine_deadlines",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 153,
+      "title": "Prévisualiser l’impact d’une recette modifiée",
+      "status": "in_progress",
+      "owner": "search_engine_deadlines",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 154,
+      "title": "Explorer les champs WMI disponibles",
+      "status": "in_progress",
+      "owner": "search_engine_deadlines",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 155,
+      "title": "Proposer un éditeur WQL avancé",
+      "status": "in_progress",
+      "owner": "search_engine_deadlines",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 156,
+      "title": "Parcourir les associations WMI",
+      "status": "in_progress",
+      "owner": "search_engine_deadlines",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 157,
+      "title": "Exporter une recette en script lisible",
+      "status": "in_progress",
+      "owner": "search_engine_deadlines",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 158,
+      "title": "Agréger plus de 10 000 valeurs distinctes",
+      "status": "in_progress",
+      "owner": "search_engine_deadlines",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 159,
+      "title": "Définir des fenêtres de collecte par profil",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "id": 160,
+      "title": "Suspendre une source en échec répété",
+      "status": "queued",
+      "owner": "root",
+      "evidence": [],
+      "remaining": []
+    }
+  ],
+  "roadmap_publication": {
+    "commit": "42e87e6e7753a69c2cfe4eef9aafeb3aa6861abe",
+    "branch": "master",
+    "verified": true
+  },
+  "pause_reason": "David : on a plus de tokens, go calmer. Développement et agents interrompus ; tests et publication différés."
+}

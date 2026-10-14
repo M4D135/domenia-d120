@@ -2,8 +2,8 @@
   "Schema": "DomeniaReleaseContract/1",
   "Product": "Domenia",
   "Version": "1.0",
-  "Release": "RC1.17.6",
-  "Build": "2026.10.13-DOMENIA-1.0-RC1.17.6-D120",
+  "Release": "RC1.17.7",
+  "Build": "2026.10.13-DOMENIA-1.0-RC1.17.7-D120",
   "DisplayName": "Domenia 1.0",
   "Date": "2026-10-13",
   "Channel": "Candidate",
@@ -47,17 +47,17 @@
     {
       "Path": "wad/modules/M4D.Admin.Common.Query.dll",
       "Name": "Moteur de requêtes commun",
-      "Version": "0.1.1",
-      "Sha256": "269b7d1cbdd6ab42062a75e0ca4a45876b3ff0eae4cbf730acf91a12828bd7ca",
-      "Origin": "M4D.Admin.Common ; sources et contrat conservés dans vendor.",
+      "Version": "0.1.1-domenia.1",
+      "Sha256": "da97976108351a9e24552f18de2e02b4e5b454b438c461cb2317c427c610b391",
+      "Origin": "M4D.Admin.Common 0.1.1 avec modifications Domenia. Recompile le 2026-10-14 sur DESKTOP-285EKHU avec csc 4.8.9221.0, C# 5, references net472 du Framework. build_query.ps1 exige PowerShell 7, absent de ce PC.",
       "Pinned": true
     },
     {
       "Path": "wad/modules/Domenia.Native.dll",
       "Name": "Lecteur et agrégateur natifs Domenia",
       "Version": "1.0.0.0",
-      "Sha256": "aa610389684a1415e0cefef0fc33fe0ce961b57b921c1a6319cae06f2eca1aad",
-      "Origin": "Sources dev/native ; compilation reproductible C#5 net472.",
+      "Sha256": "6e3b293fc08cae9b1660a48ebd7e2533ea2304711a169f61d329b92510530a2a",
+      "Origin": "Sources dev/native. Recompile le 2026-10-14 sur DESKTOP-285EKHU avec csc 4.8.9221.0, C# 5, references net472 du Framework. build_native.ps1 exige PowerShell 7, absent de ce PC.",
       "Pinned": true
     }
   ],

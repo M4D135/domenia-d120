@@ -76,8 +76,82 @@ function New-DomeniaCollectionPlan {
         # CPU, battery, memory, services, network and events vary quickly. Static inventory can live longer.
         if([string]$probe.Id -match '^(evt\.|svc\.|net\.)|load|battery|free|users|stopped|process'){$seconds=[Math]::Min(60,$seconds)}
         $previousProbe=if($valid){Get-DomeniaMemberValue (Get-DomeniaMemberValue $Previous 'Probes') ([string]$probe.Id)}else{$null}
-        if(& $fresh $previousProbe $seconds){$reuse++;continue}
+        if([string](Get-DomeniaMemberValue $probe 'DefinitionHash') -and [string](Get-DomeniaMemberValue $previousProbe 'DefinitionHash') -ceq [string](Get-DomeniaMemberValue $probe 'DefinitionHash') -and (& $fresh $previousProbe $seconds)){$reuse++;continue}
         $planned.Add($probe)
     }
     return [pscustomobject]@{Inventory=$readInventory;Probes=$planned.ToArray();Reused=$reuse;Requested=($seen.Count+$(if($Inventory){1}else{0}));CacheMinutes=$minutes}
+}
+
+function ConvertTo-DomeniaRemoteObservationChanges {
+    # Only source-stamped fields actually collected are admitted. No callback timestamp becomes freshness.
+    param($Result,[string]$Guid,[string]$DN)
+    $identity=[guid]::Empty
+    if(-not [guid]::TryParse($Guid,[ref]$identity) -or $identity -eq [guid]::Empty -or -not $DN){throw 'Identite distante incomplete.'}
+    if([string](Get-DomeniaMemberValue $Result 'Guid') -ine $Guid -or [string](Get-DomeniaMemberValue $Result 'Key') -ine $DN){throw 'Resultat distant hors de sa cible.'}
+    $changes=[Collections.Generic.List[object]]::new()
+    $make={param([string]$Family,[string]$At,[bool]$Success,[string]$ErrorText,$Data,[string]$DefinitionHash='')
+        $parsed=[datetimeoffset]::MinValue
+        if(-not [datetimeoffset]::TryParse($At,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind,[ref]$parsed)){throw ('Date de collecte absente pour '+$Family)}
+        $utc=$parsed.ToUniversalTime().ToString('o')
+        [pscustomobject]@{Kind='Observation';Guid=$identity.ToString('D');DN=$DN;Family=$Family;AttemptedAtUtc=$utc;ObservedAtUtc=$(if($Success){$utc}else{''});Status=$(if($Success){'Success'}else{'Error'});Error=$ErrorText;Data=$Data;DefinitionHash=$DefinitionHash}
+    }
+    $computer=[string](Get-DomeniaMemberValue $Result 'Computer')
+    $pingAt=[string](Get-DomeniaMemberValue $Result 'PresenceCheckedUtc')
+    if($pingAt){
+        $presence=[string](Get-DomeniaMemberValue $Result 'Presence');$detail=[string](Get-DomeniaMemberValue $Result 'PresenceDetail')
+        $success=$presence -in @('En ligne','Sans réponse au ping')
+        $changes.Add((& $make 'Presence' $pingAt $success $(if($success){''}else{$detail}) ([pscustomobject]@{Computer=$computer;Presence=$presence;PresenceDetail=$detail;PresenceCheckedUtc=$pingAt})))
+    }
+    $consoleAt=[string](Get-DomeniaMemberValue $Result 'ConsoleCheckedUtc')
+    if($consoleAt -and [bool](Get-DomeniaMemberValue $Result 'ConsoleAttempted')){
+        $outcome=[string](Get-DomeniaMemberValue $Result 'Outcome');$success=$outcome -in @('Observed','NoConsole')
+        $data=[ordered]@{Computer=$computer;Outcome=$outcome;CheckedUtc=$consoleAt;UserCheckedUtc=$consoleAt;ObservedUtc=$(if($outcome -eq 'Observed'){$consoleAt}else{''});CurrentUser='';LastUser='';RawAccount=''}
+        foreach($name in @('User','LinkUser','UserGuid','UserDn','UserUsn','IdentityCheckedUtc','Detail','Source')){$data[$name]=[string](Get-DomeniaMemberValue $Result $name)}
+        if($outcome -eq 'Observed'){$data.CurrentUser=$data.User;$data.LastUser=$data.User;$data.RawAccount=$data.User}
+        $data.DirectoryAuthRejected=[bool](Get-DomeniaMemberValue $Result 'DirectoryAuthRejected')
+        $changes.Add((& $make 'Console' $consoleAt $success $(if($success){''}else{$data.Detail}) ([pscustomobject]$data)))
+    }
+    if([bool](Get-DomeniaMemberValue $Result 'InventoryAttempted')){
+        $inventory=Get-DomeniaMemberValue $Result 'Inventory';$errorText=[string](Get-DomeniaMemberValue $Result 'InventoryError')
+        $at=[string](Get-DomeniaMemberValue $Result 'InventoryCheckedUtc');if(-not $at){$at=[string](Get-DomeniaMemberValue $inventory 'CheckedUtc')}
+        $success=($null -ne $inventory -and -not $errorText)
+        $changes.Add((& $make 'Inventory' $at $success $errorText ([pscustomobject]@{Computer=$computer;Inventory=$inventory;InventoryError=$errorText;InventoryAttemptUtc=$at})))
+    }
+    $probes=Get-DomeniaMemberValue $Result 'Probes'
+    $probeNames=if($probes -is [Collections.IDictionary]){@($probes.Keys)}elseif($null -ne $probes){@($probes.PSObject.Properties.Name)}else{@()}
+    foreach($probeId in $probeNames){
+        if([string]$probeId -notmatch '^[A-Za-z0-9_.-]{1,128}$'){throw 'Identifiant de sonde invalide.'}
+        $entry=Get-DomeniaMemberValue $probes ([string]$probeId);$errorText=[string](Get-DomeniaMemberValue $entry 'Error')
+        if([bool](Get-DomeniaMemberValue $entry 'Truncated') -and -not $errorText -and -not ([string](Get-DomeniaMemberValue $entry 'Mode') -ceq 'Count' -and [bool](Get-DomeniaMemberValue $entry 'CountComplete'))){$errorText='Lecture partielle : details incomplets ('+[string](Get-DomeniaMemberValue $entry 'LimitReason')+').'}
+        if([string](Get-DomeniaMemberValue $entry 'Skipped') -and -not $errorText){$errorText='Sonde non applicable au systeme.'}
+        $map=[ordered]@{};$map[[string]$probeId]=$entry
+        $changes.Add((& $make ('Probe:'+[string]$probeId) ([string](Get-DomeniaMemberValue $entry 'CheckedUtc')) (-not $errorText) $errorText ([pscustomobject]@{Computer=$computer;Probes=[pscustomobject]$map}) ([string](Get-DomeniaMemberValue $entry 'DefinitionHash'))))
+    }
+    if(-not $changes.Count){throw 'Aucune mesure datee a enregistrer.'}
+    return $changes.ToArray()
+}
+
+function Test-DomeniaRemoteStoreContext {
+    param($State,$Result)
+    if([bool](Get-DomeniaMemberValue $State 'SuppressPublish')){return $false}
+    $context=Get-DomeniaMemberValue $State 'StoreContext'
+    if($null -eq $context -or [long]$context.SessionEpoch -ne [long]$script:SessionEpoch -or [string]$context.Path -cne [string]$script:DatabaseScopedPath){return $false}
+    if([string]$context.DomainDn -ine ([string]$script:Conn.BaseDn).Trim()){return $false}
+    if([long](Get-DomeniaMemberValue $State 'AccountGeneration') -ne [long]$script:DomeniaAccountGeneration){return $false}
+    if($null -ne $Result){
+        if(-not [bool]$Result.Saved -or [string]$Result.DataSource -cne 'SQLite' -or [string]$Result.StoreId -cne [string]$context.StoreId -or [string]$Result.RequestId -cne [string]$context.RequestId){return $false}
+    }
+    return $true
+}
+
+function Add-DomeniaRemoteProbeDefinitionHash {
+    param([object[]]$Probes)
+    foreach($probe in @($Probes)){
+        if($null -eq $probe){continue}
+        $definition=[ordered]@{}
+        foreach($name in @('Id','Namespace','Class','Properties','Filter','Mode','Skip')){$definition[$name]=Get-DomeniaMemberValue $probe $name}
+        $copy=($probe|ConvertTo-Json -Depth 8 -Compress)|ConvertFrom-Json -ErrorAction Stop
+        $copy|Add-Member -NotePropertyName DefinitionHash -NotePropertyValue (Get-DomeniaStoreHash ($definition|ConvertTo-Json -Depth 8 -Compress)) -Force
+        $copy
+    }
 }

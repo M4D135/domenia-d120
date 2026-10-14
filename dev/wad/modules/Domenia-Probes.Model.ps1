@@ -4,8 +4,12 @@
 # Transform: Text, GB, MB, DaysSince, Year, PercentFree, Release, Map:a=b;c=d, Number.
 # Flags (FI-17, decision David 2026-10-08): Slow = flagged in the editor; NoDC = never run on a domain controller
 # (ProductType 2), where the class would walk the whole directory. This catalog is the list of allowed classes.
+if($null -eq (Get-Command Get-DomeniaExtendedProbeCatalog -CommandType Function -ErrorAction SilentlyContinue)){
+    . (Join-Path $PSScriptRoot 'Domenia-ProbeCatalog.Model.ps1')
+}
 function Get-DomeniaProbeCatalog {
-    if ($null -ne $script:DomeniaProbeCatalog) { return $script:DomeniaProbeCatalog }
+    $cached=Get-Variable -Name DomeniaProbeCatalog -Scope Script -ErrorAction SilentlyContinue
+    if ($null -ne $cached -and $null -ne $cached.Value) { return $cached.Value }
     $table = @'
 hw.maker|Materiel|Fabricant|root\cimv2|Win32_ComputerSystem|Manufacturer||First|Text|Pie
 hw.model|Materiel|Modele|root\cimv2|Win32_ComputerSystem|Model||First|Text|Bar
@@ -44,11 +48,10 @@ disk.count|Disques|Nombre de volumes locaux|root\cimv2|Win32_LogicalDisk|DeviceI
 disk.media|Disques|Type de disque physique|root\Microsoft\Windows\Storage|MSFT_PhysicalDisk|MediaType||First|Map:3=Disque dur;4=SSD;5=SCM;0=Non precise|Pie
 disk.health|Disques|Sante du disque physique|root\Microsoft\Windows\Storage|MSFT_PhysicalDisk|HealthStatus||First|Map:0=Sain;1=Avertissement;2=Defaillant;5=Inconnu|Pie
 disk.removable|Disques|Supports amovibles connectes|root\cimv2|Win32_LogicalDisk|DeviceID|DriveType=2|Count|Number|Column
-sec.bitlocker|Securite|Chiffrement BitLocker de C:|root\cimv2\Security\MicrosoftVolumeEncryption|Win32_EncryptableVolume|ProtectionStatus|DriveLetter='C:'|First|Map:0=Non protege;1=Protege;2=Inconnu|Pie
+sec.bitlocker|Securite|Protection BitLocker de C:|root\cimv2\Security\MicrosoftVolumeEncryption|Win32_EncryptableVolume|ProtectionStatus|DriveLetter='C:'|First|Map:0=Non protege;1=Protege;2=Inconnu|Pie
 sec.av|Securite|Antivirus declare|root\SecurityCenter2|AntiVirusProduct|displayName||All|Text|Bar
 sec.localusers|Securite|Comptes locaux actives|root\cimv2|Win32_UserAccount|Name|LocalAccount=TRUE AND Disabled=FALSE|Count|Number|Column|NoDC
-sec.shares|Securite|Partages hors administratifs|root\cimv2|Win32_Share|Name|Type=0|Count|Number|Column
-sec.uac|Securite|Contrôle de compte (EnableLUA)|root\cimv2|Win32_OperatingSystem|Caption||Count|Number|Text
+sec.shares|Securite|Partages de fichiers déclarés|root\cimv2|Win32_Share|Name|Type=0|Count|Number|Column
 sec.defender|Securite|Antivirus Defender actif|root\Microsoft\Windows\Defender|MSFT_MpComputerStatus|AntivirusEnabled||First|Map:True=Oui;False=Non|Pie
 sec.realtime|Securite|Protection temps reel Defender|root\Microsoft\Windows\Defender|MSFT_MpComputerStatus|RealTimeProtectionEnabled||First|Map:True=Oui;False=Non|Pie
 sec.behavior|Securite|Surveillance comportementale Defender|root\Microsoft\Windows\Defender|MSFT_MpComputerStatus|BehaviorMonitorEnabled||First|Map:True=Oui;False=Non|Pie
@@ -79,7 +82,7 @@ soft.rdp|Logiciels et services|Service Bureau a distance|root\cimv2|Win32_Servic
 soft.firewall|Logiciels et services|Service Pare-feu Windows|root\cimv2|Win32_Service|State|Name='MpsSvc'|First|Text|Pie
 soft.defender|Logiciels et services|Service Antivirus Defender|root\cimv2|Win32_Service|State|Name='WinDefend'|First|Text|Pie
 soft.dnsclient|Logiciels et services|Service Client DNS|root\cimv2|Win32_Service|State|Name='Dnscache'|First|Text|Pie
-soft.hotfixcount|Logiciels et services|Nombre de correctifs installes|root\cimv2|Win32_QuickFixEngineering|HotFixID||Count|Number|Column
+soft.hotfixcount|Logiciels et services|Nombre de correctifs CBS visibles|root\cimv2|Win32_QuickFixEngineering|HotFixID||Count|Number|Column
 soft.processes|Logiciels et services|Processus en cours|root\cimv2|Win32_Process|Name||Count|Number|Column
 user.console|Utilisateurs|Utilisateur de la console|root\cimv2|Win32_ComputerSystem|UserName||First|Text|Text
 user.profiles|Utilisateurs|Profils utilisateurs sur le poste|root\cimv2|Win32_UserProfile|LocalPath|Special=FALSE|Count|Number|Column
@@ -95,7 +98,13 @@ evt.unexpected|Evenements|Arrets inattendus (7 j)|root\cimv2|Win32_NTLogEvent|Ev
         $flags = @(if ($p.Count -ge 11) { $p[10].Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ } })
         [void]$catalog.Add([pscustomobject]@{ Id=$p[0]; Category=$p[1]; Name=$p[2]; Namespace=$p[3]; Class=$p[4]; Properties=@($p[5].Split(',') | Where-Object { $_ }); Filter=$p[6]; Mode=$p[7]; Transform=$p[8]; Visual=$p[9]; Slow=('Slow' -in $flags); SkipOnDc=('NoDC' -in $flags) })
     }
-    $script:DomeniaProbeCatalog = @($catalog | Where-Object { $_.Id -ne 'sec.uac' })
+    $ids=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach($probe in $catalog){[void]$ids.Add([string]$probe.Id)}
+    foreach($probe in @(Get-DomeniaExtendedProbeCatalog)){
+        if(-not $ids.Add([string]$probe.Id)){throw 'Identifiant de sonde répété entre les catalogues.'}
+        [void]$catalog.Add($probe)
+    }
+    $script:DomeniaProbeCatalog = @($catalog | ForEach-Object { Add-DomeniaProbeMetadata $_ })
     return $script:DomeniaProbeCatalog
 }
 function Get-DomeniaProbeVisuals {

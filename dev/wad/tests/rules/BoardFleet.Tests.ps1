@@ -1,5 +1,6 @@
 ﻿# Tableau de bord du parc en widgets (decision David 2026-10-07) : fournisseur de donnees Fleet sur les agregats du
 # worker FleetStats (decision David 2026-10-08, lot L01). Donnees fictives uniquement (domaine example.test).
+. (Join-Path $modules 'Domenia-HealthRules.Model.ps1')
 . (Join-Path $modules 'Domenia-Boards.Model.ps1')
 . (Join-Path $modules 'Domenia-BoardFleet.Model.ps1')
 $script:BfInvariant = [Globalization.CultureInfo]::InvariantCulture
@@ -44,6 +45,7 @@ function New-BfInventory {
 function New-BfPresence {
     # Observation already parsed and attached by GUID by the worker (in_scope false: selected workstation elsewhere).
     param($Machine,[double]$HoursAgo,$Observation,[bool]$InScope = $true)
+    $Observation|Add-Member NoteProperty PresenceCheckedUtc ($script:BfNow.ToUniversalTime().AddHours(0 - $HoursAgo).ToString('o')) -Force
     $Observation|Add-Member NoteProperty ObservedUtc ($script:BfNow.ToUniversalTime().AddHours(0 - $HoursAgo).ToString('o')) -Force
     return [pscustomobject]@{ object_key = ([string]$Machine.distinguished_name).ToLowerInvariant(); checked_utc = $script:BfNow.ToUniversalTime().AddHours(0 - $HoursAgo).ToString('o'); observation = $Observation; gid = ''; name = $Machine.name; distinguished_name = $Machine.distinguished_name; object_guid = $Machine.object_guid; in_scope = $InScope }
 }
@@ -73,8 +75,8 @@ function Get-BfPresenceRows {
     )
 }
 function Get-BfBoard {
-    param([string]$Scope = $script:BfScope,$Lifecycle = $script:BfLifecycle,[object[]]$Machines = @(Get-BfMachines),[object[]]$Presence = @(Get-BfPresenceRows),[object[]]$History = @())
-    return Get-DomeniaFleetBoardData -Result (New-BfResult -Machines $Machines -Presence $Presence -History $History) -Scope $Scope -Now $script:BfNow -Lifecycle $Lifecycle
+    param([string]$Scope = $script:BfScope,$Lifecycle = $script:BfLifecycle,[object[]]$Machines = @(Get-BfMachines),[object[]]$Presence = @(Get-BfPresenceRows),[object[]]$History = @(),$HealthPolicy=$null)
+    return Get-DomeniaFleetBoardData -Result (New-BfResult -Machines $Machines -Presence $Presence -History $History) -Scope $Scope -Now $script:BfNow -Lifecycle $Lifecycle -HealthPolicy $HealthPolicy
 }
 function Get-BfPart {
     param($Entry,[string]$Label)
@@ -105,11 +107,11 @@ Test-Case -Id 'BF-002' -Name 'Parc : cibles = postes actifs du perimetre, compte
     Assert-Equal 'guid-PC-L03' ([string]@($board.Last.Targets)[2].object_guid)
     Assert-Equal 8 @($board.Last.Machines).Count 'Lignes du worker conservees pour les points'
     Assert-Equal '8' ([string]$board.Entries['fleet.machines'].Value)
-    Assert-Equal ('dont 7 actifs et 1 désactivé · ' + 'dans l OU et ses sous-OU') ([string]$board.Entries['fleet.machines'].Detail)
+    Assert-Equal '7 activés · 1 désactivés · 0 état inconnu · OU et sous-OU' ([string]$board.Entries['fleet.machines'].Detail)
     Assert-Equal '1' ([string]$board.Entries['fleet.disabled'].Value) 'Comptes desactives comptes a part'
     Assert-True ((Get-BfTexts $board) -contains 'Info:1 compte(s) ordinateur désactivé(s) encore dans lʼOU : à déplacer ou supprimer.') 'Point des comptes desactives'
-    Assert-Equal 5 $board.Observations.Count 'Observation de plus de 30 jours ecartee, poste selectionne hors OU garde'
-    Assert-True ($board.Observations.ContainsKey('cn=pc-p01,ou=postes,ou=paris,dc=example,dc=test')) 'Observation du poste selectionne conservee'
+    Assert-Equal 4 $board.Observations.Count 'Observations expirées ou hors du périmètre exclues de la projection du parc'
+    Assert-False ($board.Observations.ContainsKey('cn=pc-p01,ou=postes,ou=paris,dc=example,dc=test')) 'La fiche hors OU est relue séparément par GUID depuis SQLite'
     Assert-False ($board.Observations.ContainsKey('cn=pc-l05,ou=postes,ou=lyon,dc=example,dc=test')) 'Observation de plus de 30 jours ecartee'
     foreach ($key in @($board.Observations.Keys)) { Assert-Equal ([string]$key).ToLowerInvariant() ([string]$key) }
 }
@@ -124,7 +126,7 @@ Test-Case -Id 'BF-003' -Name 'Parc : derniere connexion en tranches, tranches vi
     Assert-Equal '2' ([string]$board.Entries['fleet.stale'].Value)
     Assert-Equal 'Warn' ([string]$board.Entries['fleet.stale'].State)
     $texts = Get-BfTexts $board
-    Assert-True ($texts -contains 'Warn:2 poste(s) sans connexion au domaine depuis 90 jours ou plus (à 14 jours près) : à vérifier ou nettoyer.') 'Inactifs signales'
+    Assert-True ($texts -contains 'Warn:2 poste(s) sans connexion au domaine depuis 90 jours ou plus (date AD approximative) : à vérifier.') 'Inactifs signales'
     Assert-True ($texts -contains 'Warn:1 compte(s) ordinateur sans date de connexion AD renseignée.') 'Jamais connectes signales'
     Assert-True ($texts -contains 'Warn:2 poste(s) avec un mot de passe machine de plus de 60 jours.') 'Mot de passe machine ancien'
     Assert-True ($texts -contains 'Info:1 poste(s) créé(s) ces 30 derniers jours.') 'Postes recents'
@@ -166,7 +168,7 @@ Test-Case -Id 'BF-005' -Name 'Parc : postes par sous-OU depuis les DN parents, p
     Assert-Equal 1 (Get-BfPart $ou 'Etage2')
     Assert-Equal 2 (Get-BfPart $ou 'Postes')
     Assert-Equal 1 (Get-BfPart $ou 'Hors OU')
-    Assert-Equal ('dont 9 actifs et 1 désactivé · ' + '40 utilisateurs actifs au total') ([string]$all.Entries['fleet.machines'].Detail)
+    Assert-Equal '9 activés · 1 désactivés · 0 état inconnu · domaine indexé' ([string]$all.Entries['fleet.machines'].Detail)
     $many = @(foreach ($i in 1..12) { New-BfMachine ('PC-S' + $i) ('OU=Site' + ('{0:00}' -f $i) + ',' + $script:BfScope) 'Windows 11 Pro' '10.0 (26200)' 0 })
     $items = @((Get-BfBoard -Machines $many -Presence @()).Entries['fleet.ou'].Items)
     Assert-Equal 11 $items.Count
@@ -177,7 +179,7 @@ Test-Case -Id 'BF-005' -Name 'Parc : postes par sous-OU depuis les DN parents, p
 Test-Case -Id 'BF-006' -Name 'Parc : presence des postes analyses (moins de 30 j), couverture N sur M, jamais plus que les postes' -Body {
     $board = Get-BfBoard
     $entry = $board.Entries['fleet.presence']
-    Assert-Equal 'En ligne|Sans reponse|Non verifie' (Get-BfJoined $entry 'Label')
+    Assert-Equal 'En ligne|Sans réponse|Non vérifié' (Get-BfJoined $entry 'Label')
     Assert-Equal '3|1|3' (Get-BfJoined $entry 'Value')
     Assert-Equal '7 postes' ([string]$entry.CenterText)
     $expected = '4 postes analysés sur 7, le ' + $script:BfNow.AddHours(-2).ToString('dd/MM',$script:BfInvariant)
@@ -193,7 +195,7 @@ Test-Case -Id 'BF-007' -Name 'Parc : utilisateurs distincts sans la casse, meme 
     Assert-Equal 'sur 3 poste(s) avec une session · 12 associations au total' ([string]$board.Entries['fleet.users'].Detail)
     $expected = $script:BfNow.AddHours(-2).ToString('dd/MM HH:mm',$script:BfInvariant)
     Assert-Equal $expected ([string]$board.Entries['fleet.lastcheck'].Value)
-    Assert-Equal '7 postes dans le périmètre.' ([string]$board.Summary)
+    Assert-Equal '8 comptes ordinateur dans le périmètre : 7 activés · 1 désactivés · 0 état inconnu · OU et sous-OU.' ([string]$board.Summary)
 }
 Test-Case -Id 'BF-008' -Name 'Parc : releves WMI des postes analyses (modeles, memoire, disque plein, redemarrage)' -Body {
     $board = Get-BfBoard
@@ -224,32 +226,32 @@ Test-Case -Id 'BF-009' -Name 'Parc : sans releve WMI, section remplacee par une 
     Assert-Equal 'Aucune' ([string]$none.Entries['fleet.lastcheck'].Value)
     Assert-Equal '0 poste analysé sur 7' ([string]$none.Entries['fleet.lastcheck'].Detail)
 }
-Test-Case -Id 'BF-010' -Name 'Parc : perimetre vide, repartition remplacee par une indication et etat sain' -Body {
+Test-Case -Id 'BF-010' -Name 'Parc : perimetre vide, indication explicite sans score invente' -Body {
     $board = Get-BfBoard -Machines @() -Presence @()
     Assert-Equal '0' ([string]$board.Entries['fleet.machines'].Value)
     Assert-Equal 0 @($board.Last.Targets).Count
     foreach ($key in @('fleet.os','fleet.lastlogon','fleet.ou','fleet.presence','fleet.versions')) { Assert-False ($board.Entries.ContainsKey($key)) ('Widget sans donnees emis : ' + $key) }
     Assert-True ([string]$board.Hints['Répartition']) 'Indication de repartition'
-    Assert-Equal 'Bon état' ([string]$board.Entries['fleet.health'].Value)
-    Assert-Equal 100 $board.Entries['fleet.health'].Number
-    Assert-Equal 'Rien a signaler' ([string]$board.Entries['fleet.attention'].Value)
+    Assert-Equal 'Aucun poste évalué' ([string]$board.Entries['fleet.health'].Value)
+    Assert-Equal $null $board.Entries['fleet.health'].Number
+    Assert-Equal 'Aucun problème établi' ([string]$board.Entries['fleet.attention'].Value)
 }
 Test-Case -Id 'BF-011' -Name 'Parc : score proportionnel aux postes, points du plus grave au moins grave' -Body {
     $board = Get-BfBoard
     $health = $board.Entries['fleet.health']
     Assert-Equal 'Critique' ([string]$health.Value)
-    Assert-Equal 14 $health.Number '1 poste sur 7 sans probleme'
-    Assert-Equal '1 poste sur 7 sans problème' ([string]$health.Detail)
+    Assert-Equal 0 $health.Number '6 postes avec probleme etablis, 1 poste encore incomplet'
+    Assert-Equal '0 poste sur 6 évalués sans point détecté · 1 non évalué(s)' ([string]$health.Detail)
     $list = $board.Entries['fleet.attention']
     $levels = @(@($list.Items) | ForEach-Object { [string]$_.Level })
     Assert-Equal 'Alert' $levels[0]
     Assert-Equal 'Info' $levels[$levels.Count - 1]
     # 26 workstations, 4 with a point to watch: 22 out of 26, 84 %.
-    $machines = @(foreach ($i in 1..22) { New-BfMachine ('PC-OK' + $i) $script:BfScope 'Windows 11 Entreprise' '10.0 (26100)' 0 }) + @(foreach ($i in 1..4) { New-BfMachine ('PC-OLD' + $i) $script:BfScope 'Windows 11 Entreprise' '10.0 (26100)' 3 })
-    $fleet = Get-BfBoard -Machines $machines -Presence @()
+    $machines = @(foreach ($i in 1..22) { New-BfMachine ('PC-OK' + $i) $script:BfScope 'Windows 11 Entreprise' '10.0 (26100)' 0 -Logon '2026-10-06' }) + @(foreach ($i in 1..4) { New-BfMachine ('PC-OLD' + $i) $script:BfScope 'Windows 11 Entreprise' '10.0 (26100)' 3 -Logon '2026-06-01' })
+    $fleet = Get-BfBoard -Machines $machines -Presence @() -HealthPolicy (ConvertTo-DomeniaHealthPolicy @{DisabledRules=@('bitlocker.none','lowdisk','disk.tight','uptime')})
     Assert-Equal 'À surveiller' ([string]$fleet.Entries['fleet.health'].Value)
     Assert-Equal 84 $fleet.Entries['fleet.health'].Number
-    Assert-Equal '22 postes sur 26 sans problème' ([string]$fleet.Entries['fleet.health'].Detail)
+    Assert-Equal '22 postes sur 26 évalués sans point détecté · 0 non évalué(s)' ([string]$fleet.Entries['fleet.health'].Detail)
 }
 Test-Case -Id 'BF-012' -Name 'Parc : resultat du worker en tableau, base occupee et reponse incomplete' -Body {
     $result = New-BfResult -Machines @(Get-BfMachines) -Presence @(Get-BfPresenceRows)
@@ -273,7 +275,7 @@ Test-Case -Id 'BF-014' -Name 'Parc : OU sans les sous-OU, profondeur gardee pour
     $direct = @(@(Get-BfMachines) | Where-Object { $_.name -eq 'PC-L05' })
     $board = Get-DomeniaFleetBoardData -Result (New-BfResult -Machines $direct) -Scope $script:BfScope -Subtree $false -Now $script:BfNow -Lifecycle $script:BfLifecycle
     Assert-Equal '1' ([string]$board.Entries['fleet.machines'].Value)
-    Assert-Equal 'directement dans l OU' ([string]$board.Entries['fleet.machines'].Detail)
+    Assert-Equal '1 activés · 0 désactivés · 0 état inconnu · OU directe' ([string]$board.Entries['fleet.machines'].Detail)
     Assert-False ([bool]$board.Last.Subtree) 'Profondeur conservee pour les widgets de requete'
 }
 Test-Case -Id 'BF-015' -Name 'Parc : un point deplie ses postes depuis la memoire, 200 au plus, par ordre de nom' -Body {
@@ -330,7 +332,7 @@ Test-Case -Id 'BF-017' -Name 'LAPS et BitLocker : rien de visible sur M postes =
     Assert-Equal 'Non déterminé' ([string]$board.Entries['fleet.bitlocker'].Value)
     Assert-True ([string]$board.Entries['fleet.bitlocker'].Detail -like 'Aucune clé visible avec ce compte (droits ou clés non sauvegardées dans AD)*') ([string]$board.Entries['fleet.bitlocker'].Detail)
     Assert-Equal 0 @(@($board.Attention) | Where-Object { [string]$_.Point -in @('laps.none','bitlocker.none') }).Count 'Aucun point sans valeur visible'
-    Assert-Equal 'Bon état' ([string]$board.Entries['fleet.health'].Value) 'Non determine ne degrade pas le score'
+    Assert-Equal 'Données insuffisantes' ([string]$board.Entries['fleet.health'].Value) 'Non determine ne fabrique pas un bon etat'
     $absent = @(foreach ($i in 1..3) { New-BfMachine ('PC-X' + $i) $script:BfScope 'Windows 11 Entreprise' '10.0 (26100)' 0 'O' 'R' 'X' 'X' })
     $missing = Get-BfBoard -Machines $absent -Presence @()
     Assert-Equal 'Non disponible' ([string]$missing.Entries['fleet.laps'].Value)
@@ -456,7 +458,7 @@ Test-Case -Id 'BF-022' -Name 'TE-07 : seuil disque du parc aligne sur le poste, 
 Test-Case -Id 'BF-023' -Name 'Parc : detail sante exact sans doublon, tous les actifs repartis' -Body {
     $board=Get-BfBoard
     Assert-Equal ([int]$board.Population.Healthy) @($board.Last.HealthyTargets).Count 'Detail des postes sans point'
-    Assert-Equal ([int]$board.Population.Total-[int]$board.Population.Healthy) @($board.Last.ProblemTargets).Count 'Detail des postes avec points'
-    $ids=@(@($board.Last.HealthyTargets)+@($board.Last.ProblemTargets)|ForEach-Object{$_.object_guid})
+    Assert-Equal ([int]$board.Population.Total-[int]$board.Population.Healthy-[int]$board.Population.Unassessed) @($board.Last.ProblemTargets).Count 'Detail des postes avec points'
+    $ids=@(@($board.Last.HealthyTargets)+@($board.Last.ProblemTargets)+@($board.Last.UnknownTargets)|ForEach-Object{$_.object_guid})
     Assert-Equal @($board.Last.Targets).Count @($ids|Select-Object -Unique).Count 'Chaque actif une fois'
 }

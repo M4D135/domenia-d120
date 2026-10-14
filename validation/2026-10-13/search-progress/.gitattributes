@@ -1,0 +1,3 @@
+# Conserver les octets Windows originaux des preuves liees par SHA-256.
+windows-r*/proof/** -text
+windows-r*/launch-policy-error.txt -text

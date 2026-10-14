@@ -245,6 +245,8 @@ function Show-DomeniaAlternateCredential {
  <TextBox x:Name="User" MaxLength="256" ToolTip="DOMAINE\compte ou compte@domaine. Compte AD, ou MACHINE\compte local pour le poste choisi."/>
  <TextBlock Text="Mot de passe" Margin="0,12,0,5"/>
  <PasswordBox x:Name="Password" ToolTip="Ni journalise ni enregistre sur disque. Le compte actuel reste conserve en cas d annulation."/>
+ <CheckBox x:Name="Remember" Content="Memoriser sur ce PC" IsChecked="False" Margin="0,12,0,6" ToolTip="Enregistrer dans le coffre Windows après validation. Aucun mot de passe dans la base Domenia."/>
+ <WrapPanel><Button x:Name="Vault" Content="Utiliser le coffre" Margin="0,0,8,0"/><Button x:Name="ForgetVault" Content="Oublier le mot de passe"/></WrapPanel>
  <TextBlock x:Name="Status" Margin="0,12,0,12" TextWrapping="Wrap"/>
  <ProgressBar x:Name="Progress" Height="4" IsIndeterminate="True" Visibility="Hidden" Margin="0,0,0,12"/>
  <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
@@ -256,10 +258,11 @@ function Show-DomeniaAlternateCredential {
     $x=Convert-DomeniaXamlToBootTheme -Xaml $x -Theme $script:CurrentTheme
     $w=ConvertFrom-DomeniaXaml -XamlText $x -Context 'Autre compte'
     $w.Owner=$script:Window;$w.MaxHeight=[Math]::Max(320,[System.Windows.SystemParameters]::WorkArea.Height-48)
-    $ui=@{};foreach($n in @('User','Password','Purpose','Status','Progress','Cancel','Connect')){$ui[$n]=$w.FindName($n)}
-    $ui.Purpose.Text="$Operation`r`nPortee : $Scope. Usage en memoire pour cette session uniquement."
+    $ui=@{};foreach($n in @('User','Password','Remember','Vault','ForgetVault','Purpose','Status','Progress','Cancel','Connect')){$ui[$n]=$w.FindName($n)}
+    $ui.Purpose.Text="$Operation`r`nUsage : $Scope. L'identifiant sera memorise pour cet usage. L'enregistrement du mot de passe dans le coffre Windows est facultatif."
+    $ui.User.Text=Get-DomeniaRememberedAccount -Scope $Scope -Target $Target
     $ui.Status.Text='La validation de l identite ne garantit pas ses droits sur la ressource.'
-    $state=[pscustomobject]@{Session=$null;Started=[datetime]::MinValue;Credential=$null;Epoch=[long]$script:SessionEpoch;BaseDn=[string]$script:Conn.BaseDn;Done=$false}
+    $state=[pscustomobject]@{Session=$null;Started=[datetime]::MinValue;Credential=$null;Epoch=[long]$script:SessionEpoch;BaseDn=[string]$script:Conn.BaseDn;Done=$false;Secret=$null;VaultCredential=$null;VaultAttempt='';VaultBlocked=@{};Remember=$false}
     # FI-05: protected heartbeat timer of this panel; its tick is attached below, once its closure exists.
     $timer=New-DomeniaTimer -Owner 'Timer:AccessValidation' -IntervalMs 120 -RunWhenHidden
     $access=$script:AccessState
@@ -278,22 +281,33 @@ function Show-DomeniaAlternateCredential {
     $fnStopAuth=${function:Stop-DomeniaLoginAuthRunspace}
     $fnSessionCurrent=${function:Test-DomeniaAccessSessionCurrent}
     $fnSurfaceResult=${function:Set-DomeniaSurfaceResult}
+    $fnVaultScope=${function:Get-DomeniaAccountPreferenceScope}
+    $fnVaultTarget=${function:Get-DomeniaCredentialVaultTarget}
+    $fnVaultRead=${function:Get-DomeniaCredentialVaultCredential}
+    $fnVaultDelete=${function:Remove-DomeniaCredentialVaultCredential}
     $connect={
         if($null -ne $state.Session){return}
         try{
-            if(-not $ui.User.Text.Trim() -or $ui.Password.SecurePassword.Length -eq 0){$ui.Status.Text='Renseignez le compte et son mot de passe.';return}
+            if(-not $ui.User.Text.Trim() -or ($ui.Password.SecurePassword.Length -eq 0 -and $null -eq $state.VaultCredential)){$ui.Status.Text='Renseignez le compte et son mot de passe, ou utilisez le coffre.';return}
             if($credentialScope){
                 $contextCheck=& $credentialCheck -Scope $credentialScope -UserName $ui.User.Text.Trim() -Target $Target -KnownDomains $knownDomains
                 if(-not [bool]$contextCheck.Valid){$ui.Status.Text=[string]$contextCheck.Reason+' Aucun essai envoye.';return}
             }
-            if($remoteValidation){$state.Session=& $fnStartRemote -User $ui.User.Text.Trim() -Password $ui.Password.SecurePassword -Computer $Target}
+            if($null -ne $state.Secret){$state.Secret.Dispose();$state.Secret=$null}
+            if($null -ne $state.VaultCredential){
+                if([string]$state.VaultCredential.UserName -ine $ui.User.Text.Trim()){throw 'Le compte du coffre ne correspond plus au champ saisi.'}
+                $state.Secret=$state.VaultCredential.Password.Copy()
+            }else{$state.Secret=$ui.Password.SecurePassword.Copy();$state.VaultAttempt=''}
+            $state.Secret.MakeReadOnly();$state.Remember=[bool]$ui.Remember.IsChecked
+            if($remoteValidation){$state.Session=& $fnStartRemote -User $ui.User.Text.Trim() -Password $state.Secret -Computer $Target}
             else {
-            $request=& $fnNewRequest -UserName $ui.User.Text.Trim() -Password $ui.Password.SecurePassword -TimeoutSeconds 12
+            $request=& $fnNewRequest -UserName $ui.User.Text.Trim() -Password $state.Secret -TimeoutSeconds 12
             $state.Session=& $fnStartAuth -Request $request
             }
             $state.Started=[datetime]::UtcNow
             $access.AuthSession=$state.Session
             $ui.Connect.IsEnabled=$false;$ui.User.IsEnabled=$false;$ui.Password.IsEnabled=$false;$ui.Progress.Visibility='Visible'
+            $ui.Remember.IsEnabled=$false;$ui.Vault.IsEnabled=$false;$ui.ForgetVault.IsEnabled=$false
             $ui.Status.Text='Validation en cours...';$timer.Start()
         }catch{$ui.Status.Text=$_.Exception.Message}
     }.GetNewClosure()
@@ -309,20 +323,51 @@ function Show-DomeniaAlternateCredential {
             if(-not (& $fnSessionCurrent -Epoch $state.Epoch -BaseDn $state.BaseDn)){throw 'La session a change. Aucun compte remplace.'}
             if($null -eq $r -or -not $r.Success){throw ('Validation refusee : '+[string]$r.Error)}
             if(($r.AuthMode -ne $(if($remoteValidation){'Remote'}else{'Explicit'})) -or -not [string]$r.BindUser -or [string]$r.BaseDn -ine $state.BaseDn){throw 'Contexte AD non confirme. Aucun compte remplace.'}
-            $secure=$ui.Password.SecurePassword.Copy();$secure.MakeReadOnly()
+            $secure=$state.Secret.Copy();$secure.MakeReadOnly()
             $state.Credential=[Management.Automation.PSCredential]::new([string]$r.BindUser,$secure)
             $state.Done=$true;& $fnSurfaceResult $w $true
-        }catch{$ui.Status.Text=$_.Exception.Message;$ui.Connect.IsEnabled=$true;$ui.User.IsEnabled=$true;$ui.Password.IsEnabled=$true}
+        }catch{
+            if($state.VaultAttempt){$state.VaultBlocked[$state.VaultAttempt]=$true}
+            $ui.Status.Text=$_.Exception.Message;$ui.Connect.IsEnabled=$true;$ui.User.IsEnabled=$true;$ui.Password.IsEnabled=$true
+            $ui.Remember.IsEnabled=$true;$ui.Vault.IsEnabled=$true;$ui.ForgetVault.IsEnabled=$true
+        }
         finally{
             if($null -ne $state.Session -and $state.Session.AsyncResult.IsCompleted){& $fnStopAuth -Session $state.Session -Terminate;$access.AuthSession=$null;$state.Session=$null}
             if($null -eq $state.Session -or $state.Session.AsyncResult.IsCompleted){$ui.Progress.Visibility='Hidden'}
         }
     }.GetNewClosure()
     $ui.Connect.Add_Click($connect);$timer.Tick=$tick
+    $ui.Vault.Add_Click({
+        if($null -ne $state.Session){return}
+        try{
+            $usage=& $fnVaultScope -Scope $Scope -Target $Target -UserName $ui.User.Text.Trim()
+            $key=& $fnVaultTarget -DomainDn $state.BaseDn -Scope $usage -UserName $ui.User.Text.Trim()
+            if($state.VaultBlocked.ContainsKey($key)){throw 'Ce compte du coffre n a pas ete valide. Saisissez son mot de passe actuel.'}
+            $state.VaultCredential=& $fnVaultRead -DomainDn $state.BaseDn -Scope $usage -UserName $ui.User.Text.Trim() -Enabled
+            if($null -eq $state.VaultCredential){throw 'Aucun mot de passe memorise pour ce compte, cet usage et ce poste.'}
+            $state.VaultAttempt=$key;& $connect
+        }catch{$ui.Status.Text=$_.Exception.Message}
+        finally{if($null -ne $state.VaultCredential){$state.VaultCredential.Password.Dispose();$state.VaultCredential=$null}}
+    }.GetNewClosure())
+    $ui.ForgetVault.Add_Click({
+        if($null -ne $state.Session){return}
+        try{
+            $usage=& $fnVaultScope -Scope $Scope -Target $Target -UserName $ui.User.Text.Trim()
+            [void](& $fnVaultDelete -DomainDn $state.BaseDn -Scope $usage -UserName $ui.User.Text.Trim() -Enabled)
+            $ui.Remember.IsChecked=$false;$ui.Status.Text='Mot de passe supprime du coffre pour cet usage.'
+        }catch{$ui.Status.Text='Suppression du coffre non confirmee : '+$_.Exception.Message}
+    }.GetNewClosure())
     Register-DomeniaSurfaceReady $w ({$ui.User.Focus()}.GetNewClosure())
-    try{[void](Show-DomeniaEmbeddedWindow -Window $w);return $state.Credential}
+    try{
+        [void](Show-DomeniaEmbeddedWindow -Window $w)
+        if($state.Done -and $null -ne $state.Credential -and $state.Remember -and (Test-DomeniaAccessSessionCurrent -Epoch $state.Epoch -BaseDn $state.BaseDn)){
+            [void](Save-DomeniaSecondaryVault -Scope $Scope -Credential $state.Credential -Target $Target -Remember)
+        }
+        return $state.Credential
+    }
     finally{
         $timer.Stop();$ui.Password.Clear()
+        if($null -ne $state.Secret){$state.Secret.Dispose();$state.Secret=$null}
         if($null -ne $state.Session){Stop-DomeniaLoginAuthRunspace -Session $state.Session -Terminate}
     }
 }
@@ -368,6 +413,7 @@ function Invoke-DomeniaAccessRecovery {
         $credentialKey=$Record.Scope
         if($Record.Scope -eq 'Remote' -and $target -and (Test-DomeniaLocalAccountName -UserName ([string]$credential.UserName) -Target $target)){$credentialKey='RemoteLocal|'+(ConvertTo-DomeniaMachineKey $target).ToUpperInvariant()}
         $script:AccessState.Credentials[$credentialKey]=$credential
+        [void](Save-DomeniaAccountPreference -Scope ([string]$Record.Scope) -UserName ([string]$credential.UserName) -Target $target)
         $script:DomeniaAccountGeneration=[long]$script:DomeniaAccountGeneration+1
         # D054: sliding inactivity lease, measured from the last worker departure, and bound to this session.
         $leases=Get-DomeniaMember $script:AccessState 'Leases' $null
@@ -552,6 +598,7 @@ function Initialize-DomeniaAccess {
             $script:AccessState.Epoch=[long]$script:SessionEpoch;$script:AccessState.BaseDn=[string]$script:Conn.BaseDn;Update-DomeniaAccessButton
         }
         [void](Invoke-DomeniaAccessLeaseSweep)
+        Sync-DomeniaAccountPreferences
         try{$policy=Get-DomeniaControl 'DgTransportPolicy';if($null -ne $policy -and $policy.IsVisible){[void](Update-DomeniaTransportPolicyView)}}catch{}
         if($null -ne $script:DomeniaSurfaceState -and -not $script:DomeniaSurfaceState.Done){return}
         if(-not (Test-DomeniaAccessBusyWrite) -and $script:Window.IsActive){

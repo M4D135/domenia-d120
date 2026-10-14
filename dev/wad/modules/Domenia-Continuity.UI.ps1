@@ -1,4 +1,91 @@
 ﻿$script:Continuity=$null
+$script:FavouriteTreeReveal=$null
+$script:FavouriteTreeRevealTimer=$null
+function Stop-DomeniaFavouriteTreeReveal {
+    param([string]$Message='')
+    $script:FavouriteTreeReveal=$null
+    if($null -ne $script:FavouriteTreeRevealTimer){$script:FavouriteTreeRevealTimer.Stop()}
+    if($Message){[void](Set-DomeniaControlText 'LblTreeStatus' $Message);Set-Status $Message 'WARN'}
+}
+function Start-DomeniaFavouriteTreeReveal {
+    # The favourite already started its one content search. This operation only locates its tree item.
+    param([string]$Dn)
+    Stop-DomeniaFavouriteTreeReveal
+    $path=Get-DomeniaTreeRevealPath -Dn $Dn -BaseDn ([string]$script:Conn.BaseDn)
+    if(-not $path.Count){return}
+    if($null -ne $script:Continuity){
+        $script:Continuity.Restoring=$false;$script:Continuity.RestoreSearch=$null
+        $script:Continuity.RestoreToken=([string]$script:SessionEpoch+'|'+(Get-DomeniaTreeContextKey))
+    }
+    $timeout=[Math]::Max(60,2*[int](Get-CfgValue 'Async' 'TreeTimeoutSeconds' 30))
+    $now=[datetime]::UtcNow
+    $script:FavouriteTreeReveal=[pscustomobject]@{
+        DN=$Dn;Path=$path;Level=0;Parent=$null;Root=$null;Frames=$null
+        Epoch=[long]$script:SessionEpoch;Context=(Get-DomeniaTreeContextKey);Generation=[int]$script:GlobalSearchGeneration
+        IdleSeconds=$timeout;IdleDeadline=$now.AddSeconds($timeout);Deadline=$now.AddMinutes(10)
+    }
+    if($null -eq $script:FavouriteTreeRevealTimer){
+        $script:FavouriteTreeRevealTimer=New-DomeniaTimer -Owner 'Timer:FavouriteTreeReveal' -IntervalMs 35 -Tick {Invoke-DomeniaFavouriteTreeReveal}
+    }
+    $script:FavouriteTreeRevealTimer.Start()
+    Invoke-DomeniaFavouriteTreeReveal
+}
+function Invoke-DomeniaFavouriteTreeReveal {
+    $s=$script:FavouriteTreeReveal
+    if($null -eq $s){return}
+    if($script:AsyncEngineClosing -or $s.Epoch -ne [long]$script:SessionEpoch -or $s.Context -cne (Get-DomeniaTreeContextKey) -or $s.Generation -ne [int]$script:GlobalSearchGeneration -or $s.DN -ine [string]$script:SelectedBranchDn){Stop-DomeniaFavouriteTreeReveal;return}
+    $now=[datetime]::UtcNow
+    if($now -gt $s.Deadline -or $now -gt $s.IdleDeadline){Stop-DomeniaFavouriteTreeReveal 'Localisation du favori non confirmée dans le délai. Les résultats restent disponibles ; redépliez la branche pour réessayer.';return}
+    if(Test-DomeniaAccessBusyWrite){return}
+    $tree=Get-DomeniaControl 'TvDirectory';if($null -eq $tree){return}
+    if($null -ne $s.Root -and -not $tree.Items.Contains($s.Root)){Stop-DomeniaFavouriteTreeReveal;return}
+    $watch=[Diagnostics.Stopwatch]::StartNew();$examined=0
+    while($examined -lt 512 -and $watch.ElapsedMilliseconds -lt 8){
+        if($null -eq $s.Frames){
+            if($null -ne $s.Parent){
+                if([bool]$s.Parent.Tag.Loading -or [string]$s.Parent.Tag.RenderId){return}
+                if(-not [bool]$s.Parent.Tag.Loaded){
+                    Stop-DomeniaFavouriteTreeReveal 'La branche du favori nʼa pas pu être lue. Les résultats sont conservés ; redépliez cette branche pour réessayer.';return
+                }
+            }
+            # Keep the live collection, including an empty/single-item ItemCollection.
+            # A pipeline-producing if expression would unwrap/enumerate it in PowerShell.
+            $items=$tree.Items
+            if($null -ne $s.Parent){$items=$s.Parent.Items}
+            if($null -eq $s.Parent -and $items.Count -eq 0){return}
+            $s.Frames=[Collections.Generic.Queue[object]]::new()
+            $s.Frames.Enqueue([pscustomobject]@{Items=$items;Index=0;Group=$null})
+        }
+        if($s.Frames.Count -eq 0){
+            Stop-DomeniaFavouriteTreeReveal 'Le chemin du favori ne figure pas dans les branches chargées. Vérifiez son emplacement ou vos droits ; aucune autre OU nʼest sélectionnée.';return
+        }
+        $frame=$s.Frames.Peek()
+        if($frame.Index -ge $frame.Items.Count){[void]$s.Frames.Dequeue();continue}
+        $node=$frame.Items[$frame.Index];$frame.Index++;$examined++
+        $tag=Get-DomeniaMember $node 'Tag'
+        if($null -eq $tag){continue}
+        if([string](Get-DomeniaMember $tag 'Kind') -eq 'SystemGroup'){
+            $s.Frames.Enqueue([pscustomobject]@{Items=$node.Items;Index=0;Group=$node});continue
+        }
+        if([string](Get-DomeniaMember $tag 'DN') -ine [string]$s.Path[$s.Level]){continue}
+        if($null -ne $frame.Group){$frame.Group.IsExpanded=$true}
+        if($s.Level -eq 0){$s.Root=$node}
+        $s.IdleDeadline=[datetime]::UtcNow.AddSeconds($s.IdleSeconds)
+        if($s.Level -eq $s.Path.Count-1){
+            $old=$script:SuppressBranchAutoLoad;$script:SuppressBranchAutoLoad=$true
+            try{$node.IsSelected=$true;$node.BringIntoView();Update-DomeniaSearchScopeUi}
+            finally{$script:SuppressBranchAutoLoad=$old}
+            if($null -ne $script:Continuity){$script:Continuity.Dirty=$true}
+            [void](Set-DomeniaControlText 'LblTreeStatus' 'OU du favori sélectionnée dans lʼarbre.')
+            Stop-DomeniaFavouriteTreeReveal;return
+        }
+        $s.Parent=$node;$s.Level++;$s.Frames=$null
+        # Expanded starts the existing one-level, commit-before-display reader. Never retry an auth/network failure here.
+        if(-not $node.IsExpanded){$node.IsExpanded=$true}
+        elseif(-not [bool]$tag.Loaded -and -not [bool]$tag.Loading -and -not [string]$tag.RenderId){Load-TreeChildren -Node $node}
+        if(-not [bool]$tag.Loaded){return}
+    }
+}
 function Get-DomeniaGridColumnKey {
     param($Column,[int]$Index)
     $key=[string]$Column.SortMemberPath
@@ -161,17 +248,16 @@ function Invoke-DomeniaRestoredOuSearch {
 }
 function Complete-DomeniaObjectChanges {
     param($Result,$State)
-    if($null -eq $script:Continuity){return}
-    $script:Continuity.ChangeJob=''
-    if(-not (Test-DomeniaLiveSearchActive) -or -not [object]::ReferenceEquals($script:Live.Search,$State.Search) -or $State.Epoch -ne [long]$script:SessionEpoch -or $State.Identity -cne $script:Live.Identity -or $State.Mutation -ne $script:Continuity.Mutation){return}
-    $effective=Get-DomeniaEffectiveWorkerResult $Result @('Rows','Server');if($null -eq $effective){return}
-    foreach($r in @($effective.Rows)){$script:Continuity.ChangeEvents.Enqueue([pscustomobject]@{Row=$r;State=$State;At=[datetime]::UtcNow.ToString('o')})}
-    # SE-13: the page states when the listed objects were last checked in the directory.
-    $script:Continuity|Add-Member -NotePropertyName CheckedAt -NotePropertyValue ([datetime]::Now) -Force
-    try{Update-DomeniaListRevalidationUi}catch{}
+    $effective=Get-DomeniaEffectiveWorkerResult $Result @('Rows','Records','Server')
+    if($null -eq $effective){Fail-DomeniaObjectChanges -Message 'Reverification AD sans resultat exploitable.' -State $State;return}
+    Complete-DomeniaDirectoryReadPipe -Pipe $State.DirectoryPipe -Final $effective
 }
 function Fail-DomeniaObjectChanges {
     param($Message,$State)
+    if($null -ne $State -and $null -ne $State.PSObject.Properties['DirectoryPipe'] -and -not $State.DirectoryPipe.Completed){
+        try{$State.DirectoryPipe.Stop.Cancel()}catch{}
+        Complete-DomeniaDirectoryReadPipe -Pipe $State.DirectoryPipe -Error ([string]$Message)
+    }
     if($null -eq $script:Continuity){return}
     if($null -ne $State -and ($State.Epoch -ne [long]$script:SessionEpoch -or $State.Identity -cne [string]$script:Live.Identity)){return}
     $script:Continuity.ChangeJob='';$script:Continuity.ChangeNext=[datetime]::UtcNow.AddSeconds(120)
@@ -259,10 +345,8 @@ function Invoke-DomeniaObjectChanges {
         $row.DirectoryChecked=$event.At;$c.Stamps[[string]$r.Guid]=[string]$r.Stamp
     }
     if($c.CacheDirty -and $c.ChangeEvents.Count -eq 0){
-        $rows=[Collections.Generic.List[object]]::new();foreach($r in $s.Rows){$k=Get-DomeniaLiveObjectKey $r;if($s.Fresh.ContainsKey($k)){$rows.Add((ConvertTo-DomeniaLiveSnapshot $r))}}
-        $previousQuery=$script:Live.MemoryQueries[$s.QueryKey]
-        $query=[pscustomobject]@{QueryKey=$s.QueryKey;ObservedUtc=[string]$previousQuery.ObservedUtc;Rows=$rows.ToArray()}
-        $script:Live.MemoryQueries[$s.QueryKey]=$query;$script:Live.QueryToSave=$query;$c.CacheDirty=$false
+        # Rows came from SQL readback; rendering a changed row never writes another cache.
+        $c.CacheDirty=$false
     }
     if(-not $grid.IsVisible -or $c.ChangeJob -or [datetime]::UtcNow -lt $c.ChangeNext){return}
     # C2: no directory read in demonstration. C1: the rest policy decides; without it, only an active window revalidates.
@@ -283,9 +367,12 @@ function Invoke-DomeniaObjectChanges {
     if([string]$s.State.SearchMode -eq 'Global'){$q=[pscustomobject]@{BaseDn=[string]$s.State.BaseDn;Scope=[string]$s.State.Scope;Filter=[string]$s.State.TypeFilter}}
     elseif($viewId){$q=[pscustomobject]@{BaseDn=[string]$s.State.BaseDn;Scope=[string]$s.State.Scope;Filter=(Get-TypeLdapFilter -Type 'Tous')}}
     else{$q=Get-BranchQueryData}
-    $state=[pscustomobject]@{Search=$s;Identity=$script:Live.Identity;Epoch=[long]$script:SessionEpoch;Mutation=$c.Mutation}
+    $state=[pscustomobject]@{Search=$s;Identity=$script:Live.Identity;Epoch=[long]$script:SessionEpoch;Mutation=$c.Mutation;StoreContext=(New-DomeniaStoreContext -RequestId ([guid]::NewGuid().ToString('D')) -Generation ([long]$s.State.Generation) -ScopeDn ([string]$q.BaseDn) -Subtree ([string]$q.Scope -eq 'Subtree'))}
+    $state|Add-Member NoteProperty ChangeResults ([Collections.Concurrent.ConcurrentDictionary[string,object]]::new())
+    $pipe=New-DomeniaDirectoryReadPipe -Context $state.StoreContext -CommitHandler 'Complete-DomeniaDirectoryChangesCommit' -CompleteHandler 'Complete-DomeniaDirectoryChangesRead' -ErrorHandler 'Fail-DomeniaObjectChanges' -CallbackState $state
+    $state|Add-Member NoteProperty DirectoryPipe $pipe
     try{
-        $c.ChangeJob=Start-UiTask -Name 'Reverification objets listes' -OperationId 'LiveDirectoryCheck' -Code (Get-DomeniaChangeWorkerCode) -Payload ([pscustomobject]@{Items=$items.ToArray();BaseDn=$q.BaseDn;Scope=$q.Scope;Filter=$q.Filter}) -CallbackState $state -ReplaceKey 'listed-changes' -TimeoutSeconds 20 -SuccessHandler 'Complete-DomeniaObjectChanges' -ErrorHandler 'Fail-DomeniaObjectChanges' -TaskClass 'Background'
+        $c.ChangeJob=Start-UiTask -Name 'Reverification objets listes' -OperationId 'LiveDirectoryCheck' -Code (Get-DomeniaChangeWorkerCode) -Payload ([pscustomobject]@{Items=$items.ToArray();BaseDn=$q.BaseDn;Scope=$q.Scope;Filter=$q.Filter;Progress=$pipe.Input;DirectoryReadState=$pipe.Collector;StopToken=$pipe.Stop.Token;ChangeResults=$state.ChangeResults}) -CallbackState $state -ReplaceKey 'listed-changes' -TimeoutSeconds 20 -SuccessHandler 'Complete-DomeniaObjectChanges' -ErrorHandler 'Fail-DomeniaObjectChanges' -TaskClass 'Background'
         $interval=if($c.ChangeQueue.Count){2}else{[Math]::Max(30,[Math]::Min(600,[int](Get-CfgValue 'Streaming' 'RevalidateIntervalSeconds' 60)))}
         $c.ChangeNext=[datetime]::UtcNow.AddSeconds($interval)
     }catch{$c.ChangeJob='';$c.ChangeNext=[datetime]::UtcNow.AddSeconds(60);Write-AppLog ('Reverification differee : '+$_.Exception.Message) 'WARN'}
@@ -353,8 +440,8 @@ function Initialize-DomeniaContinuity {
     $tree=Get-DomeniaControl 'TvDirectory'
     if($null -ne $tree){
         $tree.Add_SelectedItemChanged({if($null -ne $script:Continuity -and -not $script:Continuity.Restoring){$script:Continuity.Dirty=$true}})
-        $tree.Add_PreviewMouseDown({if($null -ne $script:Continuity){$script:Continuity.Restoring=$false;$script:Continuity.RestoreSearch=$null;$script:Continuity.Dirty=$true}})
-        $tree.Add_PreviewKeyDown({if($null -ne $script:Continuity){$script:Continuity.Restoring=$false;$script:Continuity.RestoreSearch=$null;$script:Continuity.Dirty=$true}})
+        $tree.Add_PreviewMouseDown({Stop-DomeniaFavouriteTreeReveal;if($null -ne $script:Continuity){$script:Continuity.Restoring=$false;$script:Continuity.RestoreSearch=$null;$script:Continuity.Dirty=$true}})
+        $tree.Add_PreviewKeyDown({Stop-DomeniaFavouriteTreeReveal;if($null -ne $script:Continuity){$script:Continuity.Restoring=$false;$script:Continuity.RestoreSearch=$null;$script:Continuity.Dirty=$true}})
         $tree.AddHandler([Windows.Controls.TreeViewItem]::ExpandedEvent,[Windows.RoutedEventHandler]{if($null -ne $script:Continuity -and -not $script:Continuity.Restoring){$script:Continuity.Dirty=$true}})
         $tree.AddHandler([Windows.Controls.TreeViewItem]::CollapsedEvent,[Windows.RoutedEventHandler]{if($null -ne $script:Continuity -and -not $script:Continuity.Restoring){$script:Continuity.Dirty=$true}})
     }
@@ -375,6 +462,7 @@ function Initialize-DomeniaContinuity {
     };$script:Continuity.Timer.Start()
     $script:Window.Add_ContentRendered({Start-DomeniaTreeBookmarkRestore})
     $script:Window.Add_Closed({
+        Stop-DomeniaFavouriteTreeReveal
         if($null -ne $script:Continuity){$script:Continuity.Timer.Stop();foreach($g in $script:Continuity.Grids.Values){Save-DomeniaGridLayout $g.Grid};Save-DomeniaTreeBookmark;Save-DomeniaSettings -Immediate}
     })
 }

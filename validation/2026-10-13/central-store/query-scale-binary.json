@@ -1,0 +1,10 @@
+{
+  "Status": "PASS",
+  "Assertions": 20,
+  "Records": 20000,
+  "SourceMode": false,
+  "ElapsedSeconds": 10.819,
+  "PowerShell": "7.4.20",
+  "Platform": "Unix 26.4.0",
+  "WindowsGUI": false
+}

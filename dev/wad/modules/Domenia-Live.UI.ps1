@@ -85,6 +85,7 @@ function Stop-DomeniaLiveSearch {
     if($null -eq $script:Live -or $null -eq $script:Live.Search){return}
     $s=$script:Live.Search;$s.Stopped=$true
     try{$s.Stop.Cancel()}catch{}
+    if($null -ne $s.PSObject.Properties['DirectoryPipe']){Complete-DomeniaDirectoryReadPipe -Pipe $s.DirectoryPipe -Error 'Lecture interrompue : les objets deja recoltes sont conserves.'}
     $script:Live.Search=$null
     Clear-DomeniaLiveProbeIntent
     $script:Live.Done=@{}
@@ -191,7 +192,7 @@ function Begin-DomeniaLiveSearch {
     $s=[pscustomobject]@{
         Identity=$script:Live.Identity;Epoch=[long]$script:SessionEpoch;State=$State;QueryKey=$key
         Rows=$rows;Map=@{};Fresh=@{};FreshOrder=[Collections.Generic.List[object]]::new();CacheKeys=[Collections.Generic.Queue[string]]::new();Progress=$queue;CacheProgress=$cacheQueue;Stop=$stop
-        Stopped=$false;SelectionRestored=$false;Ended=$false;Final=$null;Error='';Finalized=$false;Prune=$null;CacheRequested=$false
+        Stopped=$false;SelectionRestored=$false;Ended=$false;Final=$null;Error='';Finalized=$false;Prune=$null;CacheRequested=$true
         Started=[Diagnostics.Stopwatch]::StartNew();FirstMs=-1L;CacheUtc='';RefreshNeeded=$false;FilterPending=$false
         Ranking=[bool]$ranking;SearchRules=[bool]$rules
     }
@@ -213,38 +214,46 @@ function Begin-DomeniaLiveSearch {
     }
     Update-DomeniaLiveFilter
     Add-Member -InputObject $State -NotePropertyName LiveState -NotePropertyValue $s -Force
-    Add-Member -InputObject $Payload -NotePropertyName Progress -NotePropertyValue $queue -Force
+    $directoryPipe=New-DomeniaDirectoryReadPipe -Context $State.StoreContext -ReadyQueue $queue -Search $s
+    Add-Member -InputObject $s -NotePropertyName DirectoryPipe -NotePropertyValue $directoryPipe -Force
+    Add-Member -InputObject $Payload -NotePropertyName Progress -NotePropertyValue $directoryPipe.Input -Force
+    Add-Member -InputObject $Payload -NotePropertyName DirectoryReadState -NotePropertyValue $directoryPipe.Collector -Force
     Add-Member -InputObject $Payload -NotePropertyName StopToken -NotePropertyValue $stop.Token -Force
     Add-Member -InputObject $Payload -NotePropertyName StreamPageSize -NotePropertyValue ([Math]::Max(100,[Math]::Min(1000,[int](Get-DomeniaMember $Payload 'StreamPageSize' 250)))) -Force
-    if($script:Live.MemoryQueries.ContainsKey($key)){
-        $cached=$script:Live.MemoryQueries[$key]
-        foreach($r in @($cached.Rows)){$cacheQueue.Enqueue([pscustomobject]@{Kind='CachedRow';Row=$r;ObservedUtc=[string]$cached.ObservedUtc})}
-    }
+    # Only canonical SQL readbacks enter Progress. Legacy query snapshots are no longer a data source.
     return $s
 }
 function Complete-DomeniaLiveSearch {
     param($Result,$State)
-    if(-not (Test-DomeniaLiveSearchActive) -or -not [object]::ReferenceEquals($script:Live.Search,$State.LiveState)){return}
-    $s=$script:Live.Search
+    $s=$State.LiveState
+    if($null -eq $s){return}
     $effective=Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @('Rows','BaseDn','Scope')
     if($null -eq $effective -or [string]$effective.BaseDn -ine [string]$State.BaseDn -or [string]$effective.Scope -ne [string]$State.Scope){throw 'Résultat de recherche sans périmètre valide.'}
-    $s.Final=$effective;$s.Ended=$true
+    $errorText=''
     # Once AD completed, old cache rows can no longer contribute to the list. Detach the queue
     # even if a cache reader still owns it, so idle ticks cannot retain/revisit thousands of stale rows.
     if(-not $effective.Partial){$s.CacheProgress=[Collections.Concurrent.ConcurrentQueue[object]]::new()}
-    if($effective.Partial){$s.Error=[string]$effective.Failure;if(-not $s.Error){$s.Error='Résultat LDAP partiel.'}}
-    # The worker has already published the rows. Finalization waits for the UI queue.
+    if($effective.Partial){$errorText=[string]$effective.Failure;if(-not $errorText){$errorText='Résultat LDAP partiel.'}}
+    Complete-DomeniaDirectoryReadPipe -Pipe $s.DirectoryPipe -Final $effective -Error $errorText
+    # Finalization waits for the last COMMIT/readback, including partial and cancelled reads.
 }
 function Fail-DomeniaLiveSearch {
     param([string]$Message,$State)
-    if(-not (Test-DomeniaLiveSearchActive) -or -not [object]::ReferenceEquals($script:Live.Search,$State.LiveState)){return}
-    $s=$script:Live.Search;$s.Error=$Message;$s.Ended=$true
+    $s=$State.LiveState
+    if($null -eq $s){return}
     try{$s.Stop.Cancel()}catch{}
+    Complete-DomeniaDirectoryReadPipe -Pipe $s.DirectoryPipe -Error $Message
     Write-AppLog ('Recherche incomplète : '+$Message) 'WARN'
 }
 function Stop-DomeniaLiveJob {
     param($Job)
-    if($null -eq $Job -or $null -eq $script:Live){return}
+    if($null -eq $Job){return}
+    if($Job.OperationId -in @('OpenAdObject','TreeChildren','LiveDirectoryCheck') -and $null -ne $Job.CallbackState -and $null -ne $Job.CallbackState.PSObject.Properties['DirectoryPipe']){
+        $pipe=$Job.CallbackState.DirectoryPipe
+        try{$pipe.Stop.Cancel()}catch{}
+        Complete-DomeniaDirectoryReadPipe -Pipe $pipe -Error 'Lecture arretee : les informations deja recoltees sont conservees.'
+    }
+    if($null -eq $script:Live){return}
     if($Job.OperationId -in @('LiveConsole','LiveSelectedPing') -and $null -ne $Job.CallbackState){
         $key=[string]$Job.CallbackState.Key
         if($Job.CallbackState.Generation -eq $script:GlobalSearchGeneration -and -not $Job.Superseded){
@@ -255,7 +264,7 @@ function Stop-DomeniaLiveJob {
     if($Job.OperationId -eq 'GlobalSearch' -and $null -ne $Job.CallbackState.LiveState){
         $s=$Job.CallbackState.LiveState
         try{$s.Stop.Cancel()}catch{}
-        if(-not $Job.Superseded -and [object]::ReferenceEquals($s,$script:Live.Search)){$s.Ended=$true;$s.Error='Lecture interrompue : liste partielle, non enregistrée comme complète.'}
+        Complete-DomeniaDirectoryReadPipe -Pipe $s.DirectoryPipe -Error 'Lecture interrompue : objets recoltes conserves, couverture incomplete.'
     }
 }
 function Update-DomeniaLiveFilter {
@@ -483,7 +492,6 @@ function Request-DomeniaLiveProbe {
         ReadyAfter=$intent.ReadyAfter;Row=$Row;RequestId=$intent.RequestId
     }
     $script:Live.PendingKeys[$key]=$item;$script:Live.Pending.Enqueue($item)
-    $Row.Presence='Vérification en cours'
     if(($script:Live.AutoDetect -or $intent.Manual) -and -not $script:Live.RemoteFaulted -and -not $script:DirectoryCredentialFaulted){$Row.SessionState='En attente de vérification'}
 }
 function Request-DomeniaLiveSelectedProbe {
@@ -513,70 +521,35 @@ function Merge-DomeniaLiveLinkMemory {
     $observed=[pscustomobject]@{UserLogin=$user;Computer=$computer;Source='Console CIM/DCOM';Confidence=0;VerifiedInAD=$true;When=$observedUtc.ToString('o');Details='Compte console observé ; sessions RDP non recensées.';UserGuid=[string]$Observation.UserGuid;ComputerGuid=[string]$Observation.Guid;UserDn=[string]$Observation.UserDn;ComputerDn=[string]$Observation.Key;Kind='Console'}
     [void](Add-DomeniaRelation -Relation $observed -NoSave -Quiet)
     # D028: persistence is requested once; LiveCache must not write user_machine_links.
-    Request-DomeniaLinkPersistence
+    # The association is a view of the committed Console family; no independent observation writer.
 }
 function Complete-DomeniaLivePresence {
     param($Result,$State)
-    if($null -eq $script:Live -or -not (Test-DomeniaLiveIdentity $State ([long]$script:SessionEpoch) $script:Live.Identity)){return}
-    if([string]$Result.Key -cne [string]$State.Key -or [string]$Result.Guid -ine [string]$State.Guid){return}
-    $previous=$null;[void]$script:Live.Observations.TryGetValue([string]$State.Key,[ref]$previous)
-    if($null -ne $previous -and $previous.Guid -and $State.Guid -and [string]$previous.Guid -ine [string]$State.Guid){return}
-    $observation=ConvertTo-DomeniaLiveObservation $Result $previous
-    [void](Copy-DomeniaObservationTimes $previous $observation)
-    $presenceAt=ConvertTo-DomeniaUtcDate (Get-DomeniaLiveField $Result 'PresenceCheckedUtc')
-    if($null -ne $presenceAt){
-        [void](Set-DomeniaObservationTime $observation 'Presence' $presenceAt -Succeeded:([string]$Result.Presence -in @('En ligne','Sans réponse au ping')))
-    }
-    $script:Live.Observations[[string]$State.Key]=$observation
-    $script:Live.SaveQueue[[string]$State.Key]=$observation
-    if(Test-DomeniaLiveSearchActive){
-        $s=$script:Live.Search;$row=$s.Map[[string]$State.Key]
-        if($null -ne $row -and [string]$row.Guid -ieq [string]$State.Guid){
-            $script:Live.PresenceSeen[[string]$State.Key]=$true
-            $view=Get-DomeniaLivePresenceView $observation
-            $row.Presence=$view.Display;Set-DomeniaLiveRowValue $row 'PresenceDetail' ($view.Detail+"`r`n"+(Get-DomeniaRecordFreshness $observation 'Presence').Label);$s.RefreshNeeded=$true
-            if($null -ne $script:SelectedObject -and [string]$script:SelectedObject.DN -ieq [string]$row.DN){
-                Set-DomeniaPresenceText 'TxtCompPresence' $view.Display
-                Update-DomeniaObjectPresence -State $view.Display -Target ([string]$State.Computer)
-            }
-        }
-    }
+    # The provider's early ping result follows the same transaction barrier as every other value.
+    Complete-DomeniaLiveProbe -Result $Result -State $State
 }
+
 function Complete-DomeniaLiveProbe {
     param($Result,$State)
-    if($null -eq $script:Live){return}
-    Reset-DomeniaLiveIdentity
-    if(-not (Test-DomeniaLiveIdentity $State ([long]$script:SessionEpoch) $script:Live.Identity)){return}
-    if($script:ActiveWriteTaskId -or $script:WriteState -in @('Unknown','UnknownPending')){
-        $script:Live.Deferred.Enqueue([pscustomobject]@{Result=$Result;State=$State});return
-    }
-    $result=Get-DomeniaEffectiveWorkerResult $Result @('Outcome','Key','Computer')
-    if($null -eq $result -or [string]$result.Key -cne [string]$State.Key){throw 'Résultat de session sans cible valide.'}
-    if([string]$result.Guid -ine [string]$State.Guid){throw 'Identité machine incohérente dans le résultat.'}
-    if(Test-DomeniaLiveSearchActive){
-        $current=$script:Live.Search.Map[[string]$State.Key]
-        if($null -ne $current -and $current.Guid -and $State.Guid -and $current.Guid -ine $State.Guid){return}
-    }
-    $previous=$null;[void]$script:Live.Observations.TryGetValue([string]$State.Key,[ref]$previous)
-    $presenceAt=ConvertTo-DomeniaUtcDate (Get-DomeniaLiveField $result 'PresenceCheckedUtc')
-    $presenceChecked=($null -ne $presenceAt)
-    $observation=ConvertTo-DomeniaLiveObservation $result $previous
-    [void](Copy-DomeniaObservationTimes $previous $observation)
-    if($null -ne $observation){
-        if($presenceChecked){
-            $presenceSucceeded=([string]$result.Presence -in @('En ligne','Sans réponse au ping'))
-            [void](Set-DomeniaObservationTime $observation 'Presence' $presenceAt -Succeeded:$presenceSucceeded)
-        }
-        # The projection preserves the previous console Outcome for a ping-only result.
-        # Only the worker result says whether a console read really happened.
-        if([string]$result.Outcome -ne 'PresenceOnly'){
-            $consoleSucceeded=([string]$result.Outcome -in @('Observed','NoConsole'))
-            [void](Set-DomeniaObservationTime $observation 'Console' ([datetime]::UtcNow) -Succeeded:$consoleSucceeded)
-        }
-    }
-    $script:Live.Observations[[string]$State.Key]=$observation;if($State.Generation -eq $script:GlobalSearchGeneration -or ((Test-DomeniaLiveSearchActive) -and $script:Live.Search.Fresh.ContainsKey([string]$State.Key))){$script:Live.Done[[string]$State.Key]=$true}
-    $script:Live.SaveQueue[[string]$State.Key]=$observation
-    if($presenceChecked){$script:Live.PresenceSeen[[string]$State.Key]=$true}
+    $packet=Get-DomeniaEffectiveWorkerResult $Result @('Outcome','Key','Computer')
+    try{
+        if($null -eq $packet){throw 'Resultat de collecte vide.'}
+        # Authentication stops are operational controls and must not await a disk callback.
+        if($null -ne $script:Live -and (Test-DomeniaLiveIdentity $State ([long]$script:SessionEpoch) $script:Live.Identity) -and [string]$packet.Outcome -eq 'AuthRejected'){$script:Live.RemoteFaulted=$true;$script:Live.Pending.Clear();$script:Live.PendingKeys=@{}}
+        [void](Submit-DomeniaRemoteObservations -Result $packet -State $State -SuccessHandler 'Complete-DomeniaLiveStored' -ErrorHandler 'Fail-DomeniaLiveStored')
+    }catch{Fail-DomeniaLiveStored -Message $_.Exception.Message -State $State}
+}
+
+function Complete-DomeniaLiveStored {
+    param($Result,$State)
+    if($null -eq $script:Live -or -not (Test-DomeniaLiveIdentity $State ([long]$script:SessionEpoch) $script:Live.Identity)){return}
+    if($State.Generation -ne [long]$script:GlobalSearchGeneration){return}
+    $observation=Get-DomeniaCommittedObservation $Result $State
+    if($null -eq $observation){return}
+    $result=$observation
+    $script:Live.Observations[[string]$State.Key]=$observation
+    $script:Live.Done[[string]$State.Key]=$true
+    if([string]$observation.PresenceCheckedUtc){$script:Live.PresenceSeen[[string]$State.Key]=$true}
     if($null -ne $script:Live.NegativeCache){
         $target=[string]$State.Computer
         if([string]::IsNullOrWhiteSpace($target)){$target=[string]$result.Computer}
@@ -595,7 +568,7 @@ function Complete-DomeniaLiveProbe {
         Write-AppLog 'Compte distant rejeté : vérifications sur sélection suspendues. Corriger le compte dans Comptes avant de réessayer.' 'ERROR'
     }
     if($observation.DirectoryAuthRejected){$script:DirectoryCredentialFaulted=$true;$script:DirectoryCredentialFaultMessage='Identifiants AD refusés lors de la validation du compte console.'}
-    if([string]$result.Outcome -ne 'PresenceOnly'){Merge-DomeniaLiveLinkMemory $observation}
+    if([string]$observation.Outcome -eq 'Observed'){Merge-DomeniaLiveLinkMemory $observation}
     if(Test-DomeniaLiveSearchActive){
         $s=$script:Live.Search
         if($s.Map.ContainsKey([string]$State.Key)){
@@ -623,19 +596,23 @@ function Complete-DomeniaLiveProbe {
         }
     }
 }
+
+function Fail-DomeniaLiveStored {
+    param([string]$Message,$State)
+    if($null -eq $script:Live -or -not (Test-DomeniaLiveIdentity $State ([long]$script:SessionEpoch) $script:Live.Identity)){return}
+    $script:Live.SaveFault=$Message
+    Write-AppLog ('Mesure non publiee : enregistrement SQLite non confirme. '+$Message) 'WARN'
+}
+
 function Fail-DomeniaLiveProbe {
     param([string]$Message,$State)
-    Reset-DomeniaLiveIdentity
-    if($null -eq $script:Live -or -not (Test-DomeniaLiveIdentity $State ([long]$script:SessionEpoch) $script:Live.Identity)){return}
-    if($null -ne $State.PSObject.Properties['ProbeUser'] -and -not [bool]$State.ProbeUser){
-        $result=[pscustomobject]@{Key=$State.Key;Computer=$State.Computer;Guid=$State.Guid;Outcome='PresenceOnly';Presence='Erreur de ping';PresenceCheckedUtc=[datetime]::UtcNow.ToString('o');PresenceDetail='Le contrôle réseau n''a pas abouti : délai ou erreur du worker. Aucun verdict hors ligne.'}
-        Complete-DomeniaLiveProbe $result $State
-        return
-    }
+    $at=[string](Get-DomeniaMemberValue $State 'RemoteStartedUtc')
+    $probeUser=[bool](Get-DomeniaMemberValue $State 'ProbeUser')
     $outcome=if($Message -match '(?i)timeout|délai|delai'){'Timeout'}else{'Unavailable'}
-    $result=[pscustomobject]@{Key=$State.Key;Computer=$State.Computer;Guid=$State.Guid;Outcome=$outcome;User='';Source='CIM/DCOM';Detail=$Message;Presence='Inconnu'}
+    $result=[pscustomobject]@{Key=$State.Key;Computer=$State.Computer;Guid=$State.Guid;Outcome=$(if($probeUser){$outcome}else{'PresenceOnly'});User='';Source='CIM/DCOM';Detail=$Message;Presence='Erreur de ping';PresenceDetail=$Message;PresenceCheckedUtc=$at;ConsoleAttempted=$probeUser;ConsoleCheckedUtc=$(if($probeUser){$at}else{''})}
     Complete-DomeniaLiveProbe $result $State
 }
+
 function Complete-DomeniaLiveCache {
     param($Result,$State)
     Reset-DomeniaLiveIdentity
@@ -685,10 +662,6 @@ function Get-DomeniaLiveDatabasePath {
 }
 function Start-DomeniaLiveBackgroundWork {
     if((Get-DomeniaLiveWorkerCount 'StoragePurge') -gt 0){return}
-    if($script:Live.SaveJob -and (Get-DomeniaLiveWorkerCount 'LiveCache') -eq 0){
-        $lost=Get-DomeniaMemberValue $script:Live 'SaveBatch'
-        if($null -ne $lost){Fail-DomeniaLiveCache 'Résultat de cache non reçu ; lot conservé pour une nouvelle tentative.' $lost}
-    }
     if([datetime]::UtcNow -lt $script:Live.NextStart){return}
     # C2: no probe, cache read or cache write in demonstration. C1: the rest policy decides before any background work.
     if([bool]$script:DemoMode){return}
@@ -698,29 +671,17 @@ function Start-DomeniaLiveBackgroundWork {
     $physical=Get-DomeniaLiveWorkerCount
     if($physical -ge [Math]::Max(1,$max-2)){return} # reserve slots for interactive reads/writes
     $s=$script:Live.Search;$grid=Get-DomeniaControl 'DgObjects'
-    # Cache work has its own concurrency gate. Writes are batched, never per UI row.
-    if($script:Live.CacheReady -and (Get-DomeniaLiveWorkerCount 'LiveCache') -eq 0 -and (Get-DomeniaLiveWorkerCount 'LocalStore') -eq 0 -and (Get-DomeniaLiveWorkerCount 'LegacyMigration') -eq 0){
-        if(($script:Live.SaveQueue.Count -gt 0 -or $null -ne $script:Live.QueryToSave) -and [datetime]::UtcNow -ge $script:Live.SaveAfter){
-            $observations=@($script:Live.SaveQueue.Values);$query=$script:Live.QueryToSave
-            $state=[pscustomobject]@{Mode='Write';Identity=$script:Live.Identity;Epoch=[long]$script:SessionEpoch;Observations=$observations;Query=$query}
-            $payload=[pscustomobject]@{Mode='Write';Path=Get-DomeniaLiveDatabasePath;Scope=$script:Live.Scope;Observations=$observations;Query=$query}
-            $id=Start-UiTask -Name 'Mémorisation des observations' -OperationId 'LiveCache' -Code (Get-DomeniaLiveCacheCode) -Payload $payload -CallbackState $state -TimeoutSeconds 15 -SuccessHandler 'Complete-DomeniaLiveCache' -ErrorHandler 'Fail-DomeniaLiveCache' -NonCancellable -TaskClass 'Background'
-            if([string]::IsNullOrWhiteSpace([string]$id)){throw 'Enregistrement non admis : observations conservées en attente.'}
-            $script:Live.SaveQueue=@{};$script:Live.QueryToSave=$null;$script:Live.SaveJob=$id
-            $script:Live|Add-Member -NotePropertyName SaveBatch -NotePropertyValue $state -Force
-            # D028: the observations left SaveQueue but are not on disk yet; the save state keeps counting them.
-            $script:Live.SaveInFlight=@($observations).Count+$(if($null -ne $query){1}else{0})
-            return
-        }
-        if((Test-DomeniaLiveSearchActive) -and -not $s.CacheRequested){
-            $state=[pscustomobject]@{Mode='Read';Identity=$s.Identity;Epoch=$s.Epoch}
-            $payload=[pscustomobject]@{Mode='Read';Path=Get-DomeniaLiveDatabasePath;Scope=$script:Live.Scope;QueryKey=$s.QueryKey;Limit=$s.State.Limit;Progress=$s.CacheProgress;ObservationStore=$script:Live.Observations;LoadObservations=(-not $script:Live.ObservationsLoaded)}
-            $cacheJob=Start-UiTask -Name 'Lecture du cache de recherche' -OperationId 'LiveCache' -Code (Get-DomeniaLiveCacheCode) -Payload $payload -CallbackState $state -TimeoutSeconds 12 -SuccessHandler 'Complete-DomeniaLiveCache' -ErrorHandler 'Fail-DomeniaLiveCache' -TaskClass 'Background'
-            if([string]::IsNullOrWhiteSpace([string]$cacheJob)){throw 'Lecture du cache non admise : nouvelle tentative différée.'}
-            $s.CacheRequested=$true
-            return
+    # Read observations only from the central store; search rows have their own committed AD pipeline.
+    if(Test-DomeniaLiveSearchActive){
+        $readKey=[string]$script:GlobalSearchGeneration+'|'+[string]$s.State.BaseDn+'|'+[string]$s.State.Scope
+        if([string](Get-DomeniaMemberValue $script:Live 'ObservationReadKey') -cne $readKey){
+            $state=[pscustomobject]@{Identity=$script:Live.Identity;Epoch=[long]$script:SessionEpoch;Generation=[long]$script:GlobalSearchGeneration;ReadKey=$readKey;Offset=0;ScopeDn=[string]$s.State.BaseDn;Subtree=([string]$s.State.Scope -ne 'OneLevel')}
+            [void](Initialize-DomeniaRemoteStoreState -State $state -Guid '' -DN $state.ScopeDn -Generation $state.Generation -ReadOnly)
+            $job=Request-DomeniaStoreRead -Context $state.StoreContext -Query ([pscustomobject]@{Kind='Observation';ScopeDn=$state.ScopeDn;Subtree=$state.Subtree;Offset=0;Limit=250}) -SuccessHandler 'Complete-DomeniaLiveObservationRead' -ErrorHandler 'Fail-DomeniaLiveObservationRead' -CallbackState $state
+            if($job){$script:Live|Add-Member -NotePropertyName ObservationReadKey -NotePropertyValue $readKey -Force;return}
         }
     }
+    if($null -ne $script:DomeniaRemoteStoreQueue -and $script:DomeniaRemoteStoreQueue.Count -gt 0){return}
     if(-not (Test-DomeniaLiveSearchActive)){return}
     if($null -eq $grid -or -not $grid.IsEnabled){return}
     $intent=$script:Live.ProbeSelection
@@ -759,16 +720,17 @@ function Start-DomeniaLiveBackgroundWork {
     if(-not [bool](Get-CfgValue 'Remote' 'UseCim' $true)){$probeUser=$false}
     $operation=if($probeUser){'LiveConsole'}else{'LiveSelectedPing'}
     Add-Member -InputObject $item -NotePropertyName 'ProbeUser' -NotePropertyValue ([bool]$probeUser) -Force
-    $state=[pscustomobject]@{Key=$item.Key;Computer=$item.Computer;Guid=$item.Guid;Identity=$item.Identity;Epoch=$item.Epoch;Generation=$item.Generation;RequestId=$item.RequestId}
-    $payload=[pscustomobject]@{Key=$item.Key;Computer=$item.Computer;Guid=$item.Guid;MethodSeconds=4;ProbeUser=$probeUser;PresenceProgress=$script:Live.PresenceEvents;PresenceState=$state}
+    [void](Initialize-DomeniaRemoteStoreState -State $item -Guid $item.Guid -DN $item.Key -Generation $item.Generation -RequestId $item.RequestId)
+    $item|Add-Member -NotePropertyName RemoteStartedUtc -NotePropertyValue ([datetime]::UtcNow.ToString('o')) -Force
+    $payload=[pscustomobject]@{Key=$item.Key;Computer=$item.Computer;Guid=$item.Guid;MethodSeconds=4;ProbeUser=$probeUser;ValidateConsoleIdentity=$false}
     try{
         $id=Start-UiTask -Name ('Présence'+$(if($probeUser){' et utilisateur'}else{''})+' '+$item.Computer) -OperationId $operation -Code (Get-DomeniaLiveProbeCode) -Payload $payload -CallbackState $item -TimeoutSeconds 14 -SuccessHandler 'Complete-DomeniaLiveProbe' -ErrorHandler 'Fail-DomeniaLiveProbe'
         if([string]::IsNullOrWhiteSpace([string]$id)){throw 'Vérification du poste non admise.'}
-        $script:Live.Busy[[string]$item.Key]=$id;$item.Row.Presence='Vérification en cours'
+        $script:Live.Busy[[string]$item.Key]=$id
         if($probeUser){$item.Row.SessionState='Vérification en cours'}
     }catch{
         if($probeUser){$item.Row.SessionState='Vérification non démarrée · réessayer'}
-        $item.Row.Presence='Non vérifié';Set-DomeniaLiveRowValue $item.Row 'PresenceDetail' 'Contrôle non démarré ; sélectionner à nouveau ou utiliser Revérifier ce poste.'
+        Write-AppLog 'Controle non demarre ; les dernieres mesures enregistrees restent affichees.' 'WARN'
         throw
     }
 }
@@ -834,9 +796,8 @@ function Invoke-DomeniaLiveTick {
                         $old=$script:SuppressGridSelectionEvents;$script:SuppressGridSelectionEvents=$true
                         try{while($s.Prune.Count -gt 0 -and $count -lt 12){$key=$s.Prune.Dequeue();[void]$s.Rows.Remove($s.Map[$key]);[void]$s.Map.Remove($key);$count++}}finally{$script:SuppressGridSelectionEvents=$old}
                         if($s.Prune.Count -eq 0){
-                            $query=[pscustomobject]@{QueryKey=$s.QueryKey;ObservedUtc=[datetime]::UtcNow.ToString('o');Rows=$s.FreshOrder.ToArray()}
-                            Add-DomeniaLiveMemoryQuery -Queries $script:Live.MemoryQueries -Query $query
-                            $script:Live.QueryToSave=$query;$s.Finalized=$true
+                            # Each displayed row already came from SQLite. Rendering creates no duplicate snapshot.
+                            $s.Finalized=$true
                         }
                     }else{$s.Finalized=$true}
                     if($s.Finalized){
@@ -926,4 +887,29 @@ function Invoke-DomeniaSearchMore {
     # D037 / UX-33: the same perimeter as the list (view chip choice, base, depth), not the one the chip or the tree show now.
     $viewScope='';if($viewId -and $null -ne $s.State.PSObject.Properties['ViewChoice'] -and [string]$s.State.ViewChoice -in @('OU','Domain')){$viewScope=[string]$s.State.ViewChoice}
     Invoke-GlobalSearch -SearchMode $mode -PreserveSelection -SilentError -ViewId $viewId -LimitOverride ([int]$decision.NextLimit) -ViewScope $viewScope -ExpectBaseDn ([string]$s.State.BaseDn) -ExpectScope ([string]$s.State.Scope)
+}
+
+function Complete-DomeniaLiveObservationRead {
+    param($Result,$State)
+    if($null -eq $script:Live -or -not (Test-DomeniaRemoteStoreContext $State $null) -or -not (Test-DomeniaLiveIdentity $State ([long]$script:SessionEpoch) $script:Live.Identity) -or $State.Generation -ne [long]$script:GlobalSearchGeneration){return}
+    if($Result.Busy -or $Result.Missing -or [string]$Result.DataSource -ne 'SQLite' -or [string]$Result.StoreId -cne [string]$State.StoreContext.StoreId){Fail-DomeniaLiveObservationRead -Message 'Base indisponible : observations conservees sans mise a jour.' -State $State;return}
+    foreach($observation in @($Result.ObservationRows)){
+        if($null -eq $observation -or -not $observation.Key -or -not $observation.Guid){continue}
+        $previous=$null;[void]$script:Live.Observations.TryGetValue([string]$observation.Key,[ref]$previous)
+        if($null -ne $previous -and [long](Get-DomeniaMemberValue $previous 'Revision') -gt [long](Get-DomeniaMemberValue $observation 'Revision')){continue}
+        $script:Live.Observations[[string]$observation.Key]=$observation
+        if(Test-DomeniaLiveSearchActive){$row=$script:Live.Search.Map[[string]$observation.Key];if($null -ne $row -and [string]$row.Guid -ieq [string]$observation.Guid){$script:Live.Refresh.Enqueue($row)}}
+    }
+    if(([int]$State.Offset+250) -lt [int]$Result.Total){
+        $State.Offset+=250
+        $job=Request-DomeniaStoreRead -Context $State.StoreContext -Query ([pscustomobject]@{Kind='Observation';ScopeDn=$State.ScopeDn;Subtree=$State.Subtree;Offset=$State.Offset;Limit=250}) -SuccessHandler 'Complete-DomeniaLiveObservationRead' -ErrorHandler 'Fail-DomeniaLiveObservationRead' -CallbackState $State
+        if(-not $job){Fail-DomeniaLiveObservationRead -Message 'Suite de lecture locale non admise.' -State $State};return
+    }
+    $script:Live.ObservationsLoaded=$true
+}
+function Fail-DomeniaLiveObservationRead {
+    param([string]$Message,$State)
+    if($null -eq $script:Live -or $State.Generation -ne [long]$script:GlobalSearchGeneration){return}
+    $script:Live.SaveFault=$Message
+    Write-AppLog ('Lecture des mesures enregistrees incomplete : '+$Message) 'WARN'
 }

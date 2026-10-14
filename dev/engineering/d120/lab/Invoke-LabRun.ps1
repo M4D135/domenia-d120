@@ -19,15 +19,21 @@ $suites=@(Get-ChildItem -LiteralPath (Join-Path $dev 'wad\tests') -Filter 'Test-
 if($Filter){$suites=@($suites|Where-Object{$_.Name -like ('*'+$Filter+'*')})}
 foreach($suite in $suites){
     $report=Join-Path $out ($suite.Name+'.json');$stdout=Join-Path $out ($suite.Name+'.stdout.txt');$stderr=Join-Path $out ($suite.Name+'.stderr.txt')
-    $arguments=@('-NoLogo','-NoProfile','-STA','-ExecutionPolicy','Bypass','-File',('"'+$suite.FullName+'"'),'-ReportPath',('"'+$report+'"'))
-    if($extra.ContainsKey($suite.Name)){$arguments+=$extra[$suite.Name]}else{$arguments+='-Quiet'}
+    $header=[IO.File]::ReadAllText($suite.FullName)
+    if($header.Length -gt 4000){$header=$header.Substring(0,4000)}
+    $bindsReport=$header -match '\$ReportPath'
+    $arguments=@('-NoLogo','-NoProfile','-STA','-ExecutionPolicy','Bypass','-File',('"'+$suite.FullName+'"'))
+    if($bindsReport){$arguments+=@('-ReportPath',('"'+$report+'"'))}
+    if($extra.ContainsKey($suite.Name)){$arguments+=$extra[$suite.Name]}
+    elseif($header -match '\[switch\]\s*\$Quiet'){$arguments+='-Quiet'}
     $watch=[Diagnostics.Stopwatch]::StartNew();$timedOut=$false;$code=$null
     $process=Start-Process -FilePath $shell -ArgumentList $arguments -PassThru -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr
     # Windows PowerShell 5.1 only exposes ExitCode when the process handle was read before the exit.
     $null=$process.Handle
     if(-not $process.WaitForExit($TimeoutSeconds*1000)){$timedOut=$true;try{$process.Kill()}catch{}}else{$process.WaitForExit();$code=$process.ExitCode}
     $watch.Stop()
-    $rows.Add([pscustomobject]@{Suite=$suite.Name;ExitCode=$code;TimedOut=$timedOut;DurationMs=$watch.ElapsedMilliseconds;ReportWritten=[IO.File]::Exists($report)})
+    $wrote=(-not $bindsReport) -or [IO.File]::Exists($report)
+    $rows.Add([pscustomobject]@{Suite=$suite.Name;ExitCode=$code;TimedOut=$timedOut;DurationMs=$watch.ElapsedMilliseconds;ReportWritten=$wrote})
     [IO.File]::WriteAllText(($report+'.exit'),[string]$code)
 }
 $summary=[ordered]@{

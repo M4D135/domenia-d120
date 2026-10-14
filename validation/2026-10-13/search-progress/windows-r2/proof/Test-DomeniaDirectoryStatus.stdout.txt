@@ -1,0 +1,1 @@
+Directory status: 14 passed, 0 failed; 58 assertions. WPF and real AD not run.

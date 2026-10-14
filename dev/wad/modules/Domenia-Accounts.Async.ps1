@@ -1,7 +1,7 @@
 ﻿# One account validation at a time; no Dispatcher wait and no silent identity variants.
 $script:AccountValidation=$null
 function Start-DomeniaAccountValidation {
-    param([string]$UserName,[Security.SecureString]$Password,[string]$Operation='Test compte',[string]$ActivateScope='',[int]$TimeoutSeconds=12)
+    param([string]$UserName,[Security.SecureString]$Password,[string]$Operation='Test compte',[string]$ActivateScope='',[int]$TimeoutSeconds=12,[switch]$RememberSecret)
     if(Test-DomeniaAccessBusyWrite){throw 'Verification d ecriture en cours. Aucun compte ne peut etre change.'}
     if($null -ne $script:AccountValidation){throw 'Une validation est deja active ou en nettoyage.'}
     if(-not $UserName.Trim() -or $null -eq $Password -or $Password.Length -eq 0){throw 'Compte et mot de passe requis.'}
@@ -10,6 +10,8 @@ function Start-DomeniaAccountValidation {
         $request=New-DomeniaAccountAuthRequest -UserName $UserName -Password $copy -TimeoutSeconds $TimeoutSeconds
         $session=Start-DomeniaLoginAuthRunspace -Request $request
         $script:AccountValidation=[pscustomobject]@{Session=$session;Started=[datetime]::UtcNow;Epoch=[long]$script:SessionEpoch;Base=[string]$script:Conn.BaseDn;Scope=$ActivateScope;Operation=$Operation;Password=$copy;Timeout=$TimeoutSeconds;Abandoned=$false;Timer=$null;Busy=@('BtnAccountAdTest','BtnAccountRemoteTest','BtnAccountRemoteSave','BtnAccountRemoteClear','BtnAccountSecretsTest','BtnAccountSecretsSave','BtnAccountSecretsClear','TxtAccountRemoteUser','PwdAccountRemote','TxtAccountSecretsUser','PwdAccountSecrets')}
+        $script:AccountValidation|Add-Member -NotePropertyName RememberSecret -NotePropertyValue ([bool]$RememberSecret)
+        $script:AccountValidation.Busy+=@('ChkAccountRemoteRemember','ChkAccountSecretsRemember','BtnAccountRemoteVault','BtnAccountSecretsVault','BtnAccountRemoteForgetVault','BtnAccountSecretsForgetVault')
         Set-ControlsBusy -Names $script:AccountValidation.Busy -Busy $true
         # FI-05: protected heartbeat timer, owned and registered by the factory; it also runs minimized.
         $script:AccountValidation.Timer=New-DomeniaTimer -Owner 'Timer:AccountValidation' -IntervalMs 100 -RunWhenHidden -Start -Tick {Complete-DomeniaAccountValidation}
@@ -39,8 +41,9 @@ function Complete-DomeniaAccountValidation {
         if(Test-DomeniaAccessBusyWrite){throw 'Une ecriture a commence. Compte conserve ; relancez volontairement le test.'}
         if($v.Scope -in @('Remote','Secrets')){
             $owned=$v.Password.Copy();$owned.MakeReadOnly();$cred=[Management.Automation.PSCredential]::new([string]$r.BindUser,$owned)
-            if($v.Scope -eq 'Remote'){$script:RemoteAdminCredential=$cred;Set-DomeniaSetting 'RemoteCredentialUser' $cred.UserName}
-            else{$script:SecretsCredential=$cred;Set-DomeniaSetting 'SecretsCredentialUser' $cred.UserName}
+            if($v.Scope -eq 'Remote'){$script:RemoteAdminCredential=$cred}
+            else{$script:SecretsCredential=$cred}
+            $script:DomeniaAccountGeneration=[long]$script:DomeniaAccountGeneration+1
             if($null -ne $script:AccessState){
                 # D051: activating the Secrets account replaces only the LAPS and BitLocker temporary accounts
                 # (Get-DomeniaAccessScope of their resources); the directory and workstation accounts are kept.
@@ -51,6 +54,11 @@ function Complete-DomeniaAccountValidation {
             }
             $field=Get-DomeniaControl $(if($v.Scope -eq 'Remote'){'PwdAccountRemote'}else{'PwdAccountSecrets'});if($null -ne $field){$field.Clear()}
             Set-Status ('Compte '+$v.Scope+' active : '+$cred.UserName+'. Droits sur la ressource non certifies par ce test AD.')
+            [void](Save-DomeniaAccountPreference -Scope $v.Scope -UserName $cred.UserName)
+            $userField=Get-DomeniaControl ('TxtAccount'+$v.Scope+'User')
+            if($null -ne $userField){$userField.Text=$cred.UserName}
+            if($null -ne $script:AccountPreferences){$script:AccountPreferences.FieldSeeds['TxtAccount'+$v.Scope+'User']=$cred.UserName}
+            if([bool]$v.RememberSecret){[void](Save-DomeniaSecondaryVault -Scope $v.Scope -Credential $cred -Remember)}
         }else{Set-Status ('Identite AD validee : '+$r.BindUser+'. Droits poste et secrets non testes.')}
         Update-DomeniaAccountUi;Update-DomeniaSecretActionUi
     }catch{[void](Show-DomeniaOperationError -Operation $v.Operation -ErrorRecordOrException $_)}

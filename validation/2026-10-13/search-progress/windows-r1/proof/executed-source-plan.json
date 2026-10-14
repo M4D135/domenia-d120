@@ -1,0 +1,90 @@
+[
+    {
+        "Name":  "Test-DomeniaFreshness",
+        "Edition":  "dev",
+        "Path":  "wad\\tests\\Test-DomeniaFreshness.ps1",
+        "Sha256":  "01362a1f9471fb50a59641c9c25c7b0c2036751d08eaebc252ba1bb301610ae5",
+        "ParsedBy":  "5.1.26100.6584",
+        "TimeoutSeconds":  240
+    },
+    {
+        "Name":  "Test-DomeniaSearchTimeout",
+        "Edition":  "dev",
+        "Path":  "wad\\tests\\Test-DomeniaSearchTimeout.ps1",
+        "Sha256":  "5ee3cf100abc3c9f8da99cef6a34cc1ff0bb9fd1d1988da4fd725ca0b3a9e06e",
+        "ParsedBy":  "5.1.26100.6584",
+        "TimeoutSeconds":  120
+    },
+    {
+        "Name":  "Test-DomeniaSearchProgressWiring",
+        "Edition":  "dev",
+        "Path":  "wad\\tests\\Test-DomeniaSearchProgressWiring.ps1",
+        "Sha256":  "28514bce44ec1069e1eb8f1c0b8a644844dce648d7d3ac43eaabc39018b53221",
+        "ParsedBy":  "5.1.26100.6584",
+        "TimeoutSeconds":  240
+    },
+    {
+        "Name":  "Test-DomeniaSearchScope",
+        "Edition":  "dev",
+        "Path":  "wad\\tests\\Test-DomeniaSearchScope.ps1",
+        "Sha256":  "1250f5649828d473120d50eb77776b5c33aa2dea23f9685ac1223b7f67c76a55",
+        "ParsedBy":  "5.1.26100.6584",
+        "TimeoutSeconds":  180
+    },
+    {
+        "Name":  "Test-DomeniaOuRefresh",
+        "Edition":  "dev",
+        "Path":  "wad\\tests\\Test-DomeniaOuRefresh.ps1",
+        "Sha256":  "497775fdb850e3a7ca8e6317d5e6a26a626d678050dc220b2def5070dc65784d",
+        "ParsedBy":  "5.1.26100.6584",
+        "TimeoutSeconds":  180
+    },
+    {
+        "Name":  "Test-DomeniaSearchCounter",
+        "Edition":  "dev",
+        "Path":  "wad\\tests\\Test-DomeniaSearchCounter.ps1",
+        "Sha256":  "893795e5527c0ead0e2e46a1da499277a556d40cf621855dfe18e6f447fcb065",
+        "ParsedBy":  "5.1.26100.6584",
+        "TimeoutSeconds":  120
+    },
+    {
+        "Name":  "Test-DomeniaDirectoryStatus",
+        "Edition":  "dev",
+        "Path":  "wad\\tests\\Test-DomeniaDirectoryStatus.ps1",
+        "Sha256":  "9b37a4caa6c75fd485ea69dd02e382b18d5eab1da2c3495acccfccc6aa600810",
+        "ParsedBy":  "5.1.26100.6584",
+        "TimeoutSeconds":  120
+    },
+    {
+        "Name":  "Test-DomeniaWiringRecherche",
+        "Edition":  "dev",
+        "Path":  "wad\\tests\\Test-DomeniaWiringRecherche.ps1",
+        "Sha256":  "a776b0a60923daa766cd938986b51f8775e9f54006ae6f0285dda79a34853bb8",
+        "ParsedBy":  "5.1.26100.6584",
+        "TimeoutSeconds":  300
+    },
+    {
+        "Name":  "Test-DomeniaLiveSearchView",
+        "Edition":  "dev",
+        "Path":  "wad\\tests\\Test-DomeniaLiveSearchView.ps1",
+        "Sha256":  "75ea2ccd02788a8d4e877200aa2b31f6aeb6bc80c6fc434a3d3012cfc7e711b5",
+        "ParsedBy":  "5.1.26100.6584",
+        "TimeoutSeconds":  300
+    },
+    {
+        "Name":  "Test-DomeniaGeometry",
+        "Edition":  "dev",
+        "Path":  "wad\\tests\\Test-DomeniaGeometry.ps1",
+        "Sha256":  "839ae77d810237af750a1e1998a69cbfdb16e1a12c960333d2a562e7392df0f3",
+        "ParsedBy":  "5.1.26100.6584",
+        "TimeoutSeconds":  600
+    },
+    {
+        "Name":  "PROD-CheckOnly",
+        "Edition":  "prod",
+        "Path":  "wad\\Domenia-Start.ps1",
+        "Sha256":  "d8aaae59b5baa81b079c6145e06dbef822ce7a43c99f08e8af20b16358d43e97",
+        "ParsedBy":  "5.1.26100.6584",
+        "TimeoutSeconds":  240
+    }
+]

@@ -1,0 +1,135 @@
+{
+    "Build":  "2026.10.13-DOMENIA-1.0-RC1.17.6-D120",
+    "Archives":  [
+                     {
+                         "Edition":  "dev",
+                         "Path":  "C:\\DomeniaLab\\search-progress-20261013-r1\\dev.zip",
+                         "Sha256":  "fcb09dfc3fca21c7dd626db826050d625a8ca08c77fa83b539b4943d33369481",
+                         "Bytes":  4403845,
+                         "Files":  397,
+                         "Destination":  "C:\\DomeniaLab\\search-progress-20261013-r1\\source"
+                     },
+                     {
+                         "Edition":  "prod",
+                         "Path":  "C:\\DomeniaLab\\search-progress-20261013-r1\\prod.zip",
+                         "Sha256":  "9cc5dfc58614456cfcb328e139ee4d5e01d0b214bb31dad31f89629e20bc4517",
+                         "Bytes":  2100479,
+                         "Files":  95,
+                         "Destination":  "C:\\DomeniaLab\\search-progress-20261013-r1\\prod-source"
+                     }
+                 ],
+    "Steps":  [
+                  {
+                      "Name":  "Test-DomeniaFreshness",
+                      "Edition":  "dev",
+                      "RelativePath":  "wad\\tests\\Test-DomeniaFreshness.ps1",
+                      "Report":  true,
+                      "Arguments":  [
+
+                                    ],
+                      "TimeoutSeconds":  240
+                  },
+                  {
+                      "Name":  "Test-DomeniaSearchTimeout",
+                      "Edition":  "dev",
+                      "RelativePath":  "wad\\tests\\Test-DomeniaSearchTimeout.ps1",
+                      "Report":  true,
+                      "Arguments":  [
+
+                                    ],
+                      "TimeoutSeconds":  120
+                  },
+                  {
+                      "Name":  "Test-DomeniaSearchProgressWiring",
+                      "Edition":  "dev",
+                      "RelativePath":  "wad\\tests\\Test-DomeniaSearchProgressWiring.ps1",
+                      "Report":  true,
+                      "Arguments":  [
+
+                                    ],
+                      "TimeoutSeconds":  240
+                  },
+                  {
+                      "Name":  "Test-DomeniaSearchScope",
+                      "Edition":  "dev",
+                      "RelativePath":  "wad\\tests\\Test-DomeniaSearchScope.ps1",
+                      "Report":  true,
+                      "Arguments":  [
+
+                                    ],
+                      "TimeoutSeconds":  180
+                  },
+                  {
+                      "Name":  "Test-DomeniaOuRefresh",
+                      "Edition":  "dev",
+                      "RelativePath":  "wad\\tests\\Test-DomeniaOuRefresh.ps1",
+                      "Report":  true,
+                      "Arguments":  [
+
+                                    ],
+                      "TimeoutSeconds":  180
+                  },
+                  {
+                      "Name":  "Test-DomeniaSearchCounter",
+                      "Edition":  "dev",
+                      "RelativePath":  "wad\\tests\\Test-DomeniaSearchCounter.ps1",
+                      "Report":  true,
+                      "Arguments":  [
+
+                                    ],
+                      "TimeoutSeconds":  120
+                  },
+                  {
+                      "Name":  "Test-DomeniaDirectoryStatus",
+                      "Edition":  "dev",
+                      "RelativePath":  "wad\\tests\\Test-DomeniaDirectoryStatus.ps1",
+                      "Report":  true,
+                      "Arguments":  [
+
+                                    ],
+                      "TimeoutSeconds":  120
+                  },
+                  {
+                      "Name":  "Test-DomeniaWiringRecherche",
+                      "Edition":  "dev",
+                      "RelativePath":  "wad\\tests\\Test-DomeniaWiringRecherche.ps1",
+                      "Report":  true,
+                      "Arguments":  [
+
+                                    ],
+                      "TimeoutSeconds":  300
+                  },
+                  {
+                      "Name":  "Test-DomeniaLiveSearchView",
+                      "Edition":  "dev",
+                      "RelativePath":  "wad\\tests\\Test-DomeniaLiveSearchView.ps1",
+                      "Report":  true,
+                      "Arguments":  [
+
+                                    ],
+                      "TimeoutSeconds":  300
+                  },
+                  {
+                      "Name":  "Test-DomeniaGeometry",
+                      "Edition":  "dev",
+                      "RelativePath":  "wad\\tests\\Test-DomeniaGeometry.ps1",
+                      "Report":  true,
+                      "Arguments":  [
+
+                                    ],
+                      "TimeoutSeconds":  600
+                  },
+                  {
+                      "Name":  "PROD-CheckOnly",
+                      "Edition":  "prod",
+                      "RelativePath":  "wad\\Domenia-Start.ps1",
+                      "Report":  false,
+                      "Arguments":  [
+                                        "-CheckOnly"
+                                    ],
+                      "TimeoutSeconds":  240
+                  }
+              ],
+    "StepCount":  11,
+    "FixtureBoundary":  "Synthetic directory/UI ports; genuine local WPF and disposable native SQLite only. PROD startup is CheckOnly. No AD writes, endpoint probes or live application launch."
+}

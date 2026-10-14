@@ -106,6 +106,8 @@ function Get-DomeniaErrorDecision {
     if ($kind -eq 'Uncertain') { $category = 'Uncertain' }
     elseif ($decryptStep -and ($kind -eq 'AccessDenied' -or $native -in @(5,8224) -or $code -in @(0x80070005L,0x80090005L,0x8009000BL,0x80090016L,0x80090020L))) { $category = 'DecryptionDenied' }
     elseif ($code -in @(0x8009000BL,0x80090016L,0x80090020L,0x80090005L)) { $category = 'DecryptionDenied' }
+    elseif ($kind -eq 'CredentialPaused') { $category = 'CredentialsRejected' }
+    elseif ($kind -in @('AccountLocked','AccountUnavailable')) { $category = 'AccountState' }
     elseif ($kind -eq 'LogonFailure' -or $native -in @(1326,49) -or $code -in @(0x8007052EL,0x8009030CL,0x8009030EL)) { $category = 'CredentialsRejected' }
     elseif ($kind -in @('AccountLocked','AccountUnavailable') -or $native -in @(1909,1330,1331,1327,1328) -or $code -in @(0x80070775L,0x80070532L,0x80070533L)) { $category = 'AccountState' }
     elseif ($native -in @(1460,258,121) -or $code -in @(0x800705B4L,0x80070079L)) { $category = 'Timeout' }

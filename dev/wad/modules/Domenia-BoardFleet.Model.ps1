@@ -8,14 +8,15 @@ function Get-DomeniaFleetQueryPlan {
     # Boundaries given to the FleetStats worker, which only groups by them (no rule is copied into the pinned body).
     # LogonBounds: lastLogonTimestamp day strictly after the bound n = bucket n (0-6, 7-29, 30-89, 90-179 days), older
     # = 4, never = 5. Dates of the computer facts are UTC ISO texts compared as text.
-    param([datetime]$Now = [datetime]::Now,[int]$ObservationMaxAgeDays = 30)
+    param([datetime]$Now = [datetime]::Now,[int]$ObservationMaxAgeDays = 30,$HealthPolicy=$null)
+    $policy=ConvertTo-DomeniaHealthPolicy $HealthPolicy
     $invariant = [Globalization.CultureInfo]::InvariantCulture
     $utc = $Now.ToUniversalTime()
     $maxAge = [Math]::Max(1,[Math]::Min(3650,$ObservationMaxAgeDays))
     return [pscustomobject]@{
         LogonBounds = @(foreach ($days in @(7,30,90,180)) { $Now.Date.AddDays(0 - $days).ToString('yyyy-MM-dd',$invariant) })
         CreatedSince = $utc.AddDays(-30).ToString('yyyy-MM-ddTHH:mm:ssZ',$invariant)
-        PasswordBefore = $utc.AddDays(-60).ToString('yyyy-MM-ddTHH:mm:ssZ',$invariant)
+        PasswordBefore = $utc.AddDays(-[int]$policy.Thresholds.PasswordDays).ToString('yyyy-MM-ddTHH:mm:ssZ',$invariant)
         NowUtc = $utc.ToString('yyyy-MM-ddTHH:mm:ssZ',$invariant)
         ObservationsSince = $utc.AddDays(0 - $maxAge).ToString('o',$invariant)
         Today = $Now.ToString('yyyy-MM-dd',$invariant)
@@ -54,7 +55,7 @@ function Get-DomeniaFleetBoardData {
     # interface ($null: end dates unknown, never critical). Also returns Observations (lower-cased DN -> observation of
     # the workstations returned by the worker), Last ({Scope; Subtree; Targets; Machines}) and Snapshot (figures of the
     # daily local snapshot; Taken tells whether today's one already exists).
-    param($Result,[string]$Scope = '',[bool]$Subtree = $true,[datetime]$Now = [datetime]::Now,$Lifecycle = $null,[int]$ObservationMaxAgeDays = 30,[string]$IndexPartial = '')
+    param($Result,[string]$Scope = '',[bool]$Subtree = $true,[datetime]$Now = [datetime]::Now,$Lifecycle = $null,[int]$ObservationMaxAgeDays = 30,[string]$IndexPartial = '',$HealthPolicy=$null,$HealthPolicyBook=$null)
     $invariant = [Globalization.CultureInfo]::InvariantCulture
     $nowUtc = $Now.ToUniversalTime()
 
@@ -82,6 +83,9 @@ function Get-DomeniaFleetBoardData {
 
     $scope = ([string]$Scope).Trim()
     $data = New-DomeniaBoardData -Board Fleet
+    $data.HealthPolicy=ConvertTo-DomeniaHealthPolicy $HealthPolicy
+    $data.HealthPolicy.EvaluatedAtUtc=$nowUtc.ToString('o')
+    $limits=$data.HealthPolicy.Thresholds
     $domainDn=[string](& $member $source 'DomainDn' '')
     if(-not $domainDn){
         $domainDn=$scope
@@ -99,6 +103,8 @@ function Get-DomeniaFleetBoardData {
         $entriesProperty = $Lifecycle.PSObject.Properties['Entries']
         $lifecycleKnown = (@($(if ($null -ne $entriesProperty) { @($entriesProperty.Value) } else { @($Lifecycle) }) | Where-Object { $null -ne $_ }).Count -gt 0)
     }
+    $data|Add-Member -NotePropertyName LifecycleKnown -NotePropertyValue $lifecycleKnown
+    if($IndexPartial){$data.Partial=[pscustomobject]@{Text='Base AD incomplète : couverture partielle';Action=$null}}
     # Parts of a count table, largest first; ties by label so the order never depends on the hash.
     $rank = {
         param($Table)
@@ -118,7 +124,14 @@ function Get-DomeniaFleetBoardData {
     # Directory aggregates: one group per combination of system, version, activity, facts, LAPS and BitLocker
     # ----------------------------------------------------------------------------------------------------------------
     $groups = @(@($source.Groups) | Where-Object { $null -ne $_ })
-    $active = @($groups | Where-Object { [string]$_.st -ne 'D' })
+    $active = @($groups | Where-Object { [string]$_.st -eq 'A' })
+    $unknownGroups = @($groups | Where-Object { [string]$_.st -notin @('A','D') })
+    $accountUnknown=0;foreach($group in $unknownGroups){$accountUnknown += [int]$group.n}
+    $machines=[object[]]@(& $member $source 'Machines' @())
+    $enabledByDn=@{};foreach($machine in $machines){if($machine.st -eq 'A'){$enabledByDn[([string]$machine.distinguished_name).ToLowerInvariant()]=$machine}}
+    $groupTargets=@{};$widgetMembers=@{}
+    foreach($machine in $machines){if($machine.st -eq 'A'){$gid=[string]$machine.gid;if(-not $groupTargets.ContainsKey($gid)){$groupTargets[$gid]=[Collections.Generic.List[object]]::new()};$groupTargets[$gid].Add($machine)}}
+    $addWidgetTargets={param([string]$Key,[object[]]$Rows)if(-not $widgetMembers.ContainsKey($Key)){$widgetMembers[$Key]=[Collections.Generic.List[object]]::new()};$widgetMembers[$Key].AddRange($Rows)}
     $disabledGroups = @($groups | Where-Object { [string]$_.st -eq 'D' })
     $total = 0; foreach ($group in $active) { $total += [int]$group.n }
     $disabled = 0; foreach ($group in $disabledGroups) { $disabled += [int]$group.n }
@@ -168,7 +181,7 @@ function Get-DomeniaFleetBoardData {
         $lb = 5; try { $lb = [int]$group.lb } catch { $lb = 5 }
         if (($lb -lt 0) -or ($lb -gt 5)) { $lb = 5 }
         $buckets[$bucketNames[$lb]] = $n + [int]$buckets[$bucketNames[$lb]]
-        if (($lb -eq 3) -or ($lb -eq 4)) { $stale += $n; [void]$staleGroups.Add($gid); $problem[$gid] = $true }
+
         if ($lb -eq 5) { $never += $n; [void]$neverGroups.Add($gid); $problem[$gid] = $true }
         $cr = [string]$group.cr; $pw = [string]$group.pw
         if ($cr -or $pw) { $factsKnown += $n }
@@ -178,7 +191,23 @@ function Get-DomeniaFleetBoardData {
         $laps[$lk] = $n + [int]$laps[$lk]
         $bk = [string]$group.bk; if (-not $bitlocker.ContainsKey($bk)) { $bk = 'U' }
         $bitlocker[$bk] = $n + [int]$bitlocker[$bk]
+        $rows=@($groupTargets[$gid]);$keys=@('fleet.versions',('fleet.versions|'+$label),'fleet.os',('fleet.os|'+$os),'fleet.servers',('fleet.servers|'+$kind),'fleet.lastlogon',('fleet.lastlogon|'+$bucketNames[$lb]))
+        if($cr -eq 'R'){$keys+='fleet.created'};if($pw -eq 'O'){$keys+='fleet.pwdold'};if($lk -eq 'N'){$keys+='fleet.laps'};if($bk -eq 'N'){$keys+='fleet.bitlocker'}
+        if([string]$release.Status -eq 'Ended'){$keys+='fleet.eos'}
+        if($win10Groups -contains $gid){$keys+='fleet.win10'}
+        foreach($key in $keys){& $addWidgetTargets $key $rows}
     }
+    # Activity is independent of network reachability. Use the actual replicated AD date for custom thresholds.
+    $staleMachines=[Collections.Generic.List[object]]::new();$activityUnknown=[Collections.Generic.List[object]]::new()
+    $cutoff=$Now.Date.AddDays(-[int]$limits.StaleDays)
+    foreach($machine in $machines){
+        if($machine.st -ne 'A'){continue}
+        $stamp=[datetime]::MinValue
+        if([datetime]::TryParseExact([string]$machine.logon,'yyyy-MM-dd',$invariant,[Globalization.DateTimeStyles]::None,[ref]$stamp) -and $stamp -le $Now.Date){
+            if($stamp -le $cutoff){$staleMachines.Add($machine)}
+        }else{$activityUnknown.Add($machine)}
+    }
+    $stale=$staleMachines.Count
     # LAPS and BitLocker: a missing value only counts when at least one value is visible with this account
     # (decision David 2026-10-08): otherwise nothing tells "no LAPS" from "not readable".
     $lapsVisible = [int]$laps['O'] + [int]$laps['E']
@@ -208,32 +237,50 @@ function Get-DomeniaFleetBoardData {
     # to the active workstations of the perimeter by the worker; past $ObservationMaxAgeDays they are left out, past
     # seven days they are shown greyed (decision David 2026-10-08, FI-04).
     # ----------------------------------------------------------------------------------------------------------------
-    $presence = @{ 'En ligne' = 0; 'Sans reponse' = 0; 'Non verifie' = 0 }
+    $presence = @{ 'En ligne' = 0; 'Sans réponse' = 0; 'Non vérifié' = 0 }
+    $presenceTargets=@{'En ligne'=[Collections.Generic.List[object]]::new();'Sans réponse'=[Collections.Generic.List[object]]::new();'Non vérifié'=[Collections.Generic.List[object]]::new()};$presenceSeen=@{}
     $users = @{}; $sessions = 0; $inventories = New-Object System.Collections.ArrayList; $lastCheck = $null; $oldest = $null
-    $observations = @{}; $observed = 0
+    $observations = @{}; $observed = 0;$canonicalPresence=[Collections.Generic.List[object]]::new()
     $unreachable = New-Object System.Collections.ArrayList; $lowDiskMachines = New-Object System.Collections.ArrayList; $uptimeMachines = New-Object System.Collections.ArrayList
     $tightDiskMachines = New-Object System.Collections.ArrayList
     $observedProblem = @{}
     # Figure of the daily snapshot: only when a disk size was read (otherwise unknown, never 0).
     $lowDiskFigure = $null
-    $inventoryNewest=$null;$inventoryOldest=$null
+    $inventoryNewest=$null;$inventoryOldest=$null;$inventoryReleaseCache=@{};$healthInventoryKnown=@{};$customMeasures=[Collections.Generic.List[object]]::new()
     foreach ($item in @(& $member $source 'Presence' @())) {
         if ($null -eq $item) { continue }
         $observation = & $member $item 'observation' $null
         if ($null -eq $observation) { continue }
-        $age = Test-DomeniaObservationAge -CheckedUtc ([string](& $member $item 'checked_utc' '')) -NowUtc $nowUtc -MaxDays $ObservationMaxAgeDays
-        if ($age -eq 'Expired') { continue }
         $key = ([string]$item.object_key).ToLowerInvariant()
-        $observations[$key] = $observation
-        if (-not [bool](& $member $item 'in_scope' $true)) { continue }
-        $observed++
-        $checked = ConvertFrom-DomeniaUtcText ([string]$item.checked_utc)
-        if ($null -ne $checked) { if (($null -eq $lastCheck) -or ($checked -gt $lastCheck)) { $lastCheck = $checked }; if (($null -eq $oldest) -or ($checked -lt $oldest)) { $oldest = $checked } }
-        $target = [pscustomobject]@{ name = [string](& $member $item 'name' ''); distinguished_name = [string](& $member $item 'distinguished_name' $key); object_guid = [string](& $member $item 'object_guid' ''); gid = [string](& $member $item 'gid' ''); st = 'A'; logon = ''; checked = $(if ($null -ne $checked) { $checked.ToLocalTime().ToString('dd/MM/yyyy HH:mm',$invariant) } else { '' }) }
-        $state = [string](& $member $observation 'Presence' '')
-        $presenceKey = if ($state -eq 'En ligne') { 'En ligne' } elseif ($state -match 'Sans|Erreur|Hors') { 'Sans reponse' } else { 'Non verifie' }
-        $presence[$presenceKey] = 1 + [int]$presence[$presenceKey]
-        if ($presenceKey -eq 'Sans reponse') { [void]$unreachable.Add($target) }
+        if (-not [bool](& $member $item 'in_scope' $true) -or -not $enabledByDn.ContainsKey($key) -or $presenceSeen.ContainsKey($key)) { continue }
+        $target=$enabledByDn[$key]
+        if([string]$target.object_guid -ine [string]$item.object_guid){continue}
+        $presenceSeen[$key]=$true
+        $canonicalPresence.Add($item)
+        # Retain only canonical observations of this perimeter. Each probe has its own source date.
+        $familyDates=@((Get-DomeniaHealthValue $observation 'PresenceCheckedUtc'),(Get-DomeniaHealthValue $observation 'ObservedUtc'),(Get-DomeniaHealthValue (Get-DomeniaHealthValue $observation 'Inventory') 'CheckedUtc'))
+        $probes=Get-DomeniaHealthValue $observation 'Probes'
+        $probeIds=if($null -eq $probes){@()}elseif($probes -is [Collections.IDictionary]){$probes.Keys}else{$probes.PSObject.Properties.Name}
+        foreach($probeId in $probeIds){$familyDates+=Get-DomeniaHealthValue (Get-DomeniaHealthValue $probes ([string]$probeId)) 'CheckedUtc'}
+        $hasFreshFamily=@($familyDates|Where-Object{(Test-DomeniaObservationAge -CheckedUtc $_ -NowUtc $nowUtc -MaxDays $ObservationMaxAgeDays) -ne 'Expired'}).Count -gt 0
+        if($hasFreshFamily){$observations[$key] = $observation}
+        # Only the ping source timestamp dates presence. A recent WMI read never refreshes an old ping.
+        $checked=ConvertFrom-DomeniaUtcText ([string](& $member $observation 'PresenceCheckedUtc' ''))
+        $pingAge=Test-DomeniaObservationAge -CheckedUtc $checked -NowUtc $nowUtc -MaxDays $ObservationMaxAgeDays
+        $state=[string](& $member $observation 'Presence' '')
+        $presenceKey='Non vérifié'
+        if($pingAge -ne 'Expired'){
+            if($state -eq 'En ligne'){$presenceKey='En ligne'}
+            elseif($state -match '^(Sans r[eé]ponse(?: au ping)?|Hors ligne)$'){$presenceKey='Sans réponse'}
+        }
+        $presence[$presenceKey]++
+        $presenceTargets[$presenceKey].Add($target)
+        if($presenceKey -ne 'Non vérifié'){
+            $observed++
+            if(($null -eq $lastCheck) -or ($checked -gt $lastCheck)){$lastCheck=$checked}
+            if(($null -eq $oldest) -or ($checked -lt $oldest)){$oldest=$checked}
+        }
+        if($presenceKey -eq 'Sans réponse'){[void]$unreachable.Add($target)}
         # CO-11: distinct users, without case.
         $user = ([string](& $member $observation 'LinkUser' '')).Trim()
         $userAge=Test-DomeniaObservationAge -CheckedUtc ([string](& $member $observation 'ObservedUtc' '')) -NowUtc $nowUtc -MaxDays $ObservationMaxAgeDays
@@ -247,7 +294,7 @@ function Get-DomeniaFleetBoardData {
             if($null -eq $inventoryOldest -or $inventoryAt -lt $inventoryOldest){$inventoryOldest=$inventoryAt}
         }
     }
-    $presence['Non verifie'] = [int]$presence['Non verifie'] + [Math]::Max(0,$total - $observed)
+    foreach($target in $enabledByDn.Values){if(-not $presenceSeen.ContainsKey(([string]$target.distinguished_name).ToLowerInvariant())){$presence['Non vérifié']++;$presenceTargets['Non vérifié'].Add($target)}}
     $observedOld = (($null -ne $oldest) -and (($nowUtc - $oldest).TotalDays -gt 7))
     $observedText = Get-DomeniaCoverageText -Analysed $observed -Total $total -LastUtc $lastCheck
 
@@ -263,11 +310,11 @@ function Get-DomeniaFleetBoardData {
         $part = $soon[$name]
         Add-DomeniaBoardAttention -Data $data -Level Warn -Text ([string]$part.Total + ' poste(s) sous ' + $name + ', fin de service le ' + [string]$part.End + '.') -Point 'eos.soon' -Groups @($part.Groups)
     }
-    if ($stale) { Add-DomeniaBoardAttention -Data $data -Level Warn -Text ([string]$stale + ' poste(s) sans connexion au domaine depuis 90 jours ou plus (à 14 jours près) : à vérifier ou nettoyer.') -Point 'stale' -Groups @($staleGroups) }
+    if ($stale) { Add-DomeniaBoardAttention -Data $data -Level Warn -Text ([string]$stale + ' poste(s) sans connexion au domaine depuis '+$limits.StaleDays+' jours ou plus (date AD approximative) : à vérifier.') -Point 'stale' -Machines $staleMachines.ToArray() }
     if ($never) { Add-DomeniaBoardAttention -Data $data -Level Warn -Text ([string]$never + ' compte(s) ordinateur sans date de connexion AD renseignée.') -Point 'never' -Groups @($neverGroups) }
     # The local base is incomplete (last update stopped at its limit): every figure of this board may be underestimated.
     if ($IndexPartial) { Add-DomeniaBoardAttention -Data $data -Level Warn -Text ('Base locale incomplète : ' + $IndexPartial + ' Les chiffres peuvent être sous-estimés : utilisez Mettre à jour cette OU.') -Point 'index.partial' }
-    if ($pwdOld) { Add-DomeniaBoardAttention -Data $data -Level Warn -Text ([string]$pwdOld + ' poste(s) avec un mot de passe machine de plus de 60 jours.') -Point 'pwdold' -Groups @($pwdGroups) }
+    if ($pwdOld) { Add-DomeniaBoardAttention -Data $data -Level Warn -Text ([string]$pwdOld + ' poste(s) avec un mot de passe machine de plus de '+$limits.PasswordDays+' jours.') -Point 'pwdold' -Groups @($pwdGroups) }
     if (($lapsVisible -gt 0) -and [int]$laps['N']) { Add-DomeniaBoardAttention -Data $data -Level Warn -Text ([string]$laps['N'] + ' poste(s) sans expiration LAPS visible.') -Point 'laps.none' -Groups @($lapsGroups) }
     if ([int]$laps['E']) { Add-DomeniaBoardAttention -Data $data -Level Warn -Text ([string]$laps['E'] + ' poste(s) dont le mot de passe LAPS a expiré.') -Point 'laps.expired' -Groups @($lapsExpiredGroups) }
     if (($bitlockerVisible -gt 0) -and [int]$bitlocker['N']) { Add-DomeniaBoardAttention -Data $data -Level Warn -Text ([string]$bitlocker['N'] + ' poste(s) sans clé BitLocker visible.') -Point 'bitlocker.none' -Groups @($bitlockerGroups) }
@@ -285,10 +332,14 @@ function Get-DomeniaFleetBoardData {
     # La tuile compte la base entiere du perimetre, desactives compris : c'est le seul chiffre comparable a la
     # recherche, qui interroge l'annuaire en direct et ne filtre aucun etat. La ventilation est detaillee ici, la
     # tuile fleet.disabled garde son role d'alerte, et les ratios (versions, LAPS, BitLocker) restent sur les actifs.
-    $machineCount = $total + $disabled
-    $machineDetail = $(if ($disabled) { 'dont ' + [string]$total + ' ' + (& $plural $total 'actif' 'actifs') + ' et ' + [string]$disabled + ' ' + (& $plural $disabled 'désactivé' 'désactivés') + ' · ' } else { '' }) + $(if ($scope) { $(if ($Subtree) { 'dans l OU et ses sous-OU' } else { 'directement dans l OU' }) } else { [string]$activeUsers + ' utilisateurs actifs au total' })
+    $machineCount = $total + $disabled + $accountUnknown
+    $machineDetail=[string]$total+' activés · '+[string]$disabled+' désactivés · '+[string]$accountUnknown+' état inconnu · '+$(if(-not $scope){'domaine indexé'}elseif($Subtree){'OU et sous-OU'}else{'OU directe'})
     Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.machines' -Kind Value -Value ([string]$machineCount) -Detail $machineDetail)
-    Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.stale' -Kind Value -Value ([string]$stale) -State $(if ($stale) { 'Warn' } else { 'Ok' }) -Detail 'Dernière connexion au domaine, à 14 jours près')
+    Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.enabled' -Kind Value -Value ([string]$total) -Detail 'Comptes AD activés ; ce nombre ne décrit pas la présence réseau')
+    Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.accountunknown' -Kind Value -Value ([string]$accountUnknown) -State $(if($accountUnknown){'Off'}else{''}) -Detail 'État du compte AD non lu ; ne vaut ni activé ni désactivé')
+    $accountItems=@([pscustomobject]@{Label='Activés';Value=$total},[pscustomobject]@{Label='Désactivés';Value=$disabled},[pscustomobject]@{Label='État inconnu';Value=$accountUnknown})
+    Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.accountstatus' -Kind Distribution -Value ([string]$machineCount) -Detail $machineDetail -Items $accountItems -CenterText ([string]$machineCount+' comptes'))
+    Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.stale' -Kind Value -Value ([string]$stale) -State $(if ($stale) { 'Warn' } else { 'Ok' }) -Title ('Sans connexion AD depuis '+$limits.StaleDays+' j') -Detail ('lastLogonTimestamp approximatif ; '+$activityUnknown.Count+' date(s) inconnue(s), sans rapport avec le ping'))
     $kindItems = @(foreach ($name in @($kinds.Keys)) { if ([int]$kinds[$name] -gt 0) { [pscustomobject]@{ Label = [string]$name; Value = [double]$kinds[$name] } } })
     if ($kindItems.Count) {
         $servers = [int]$kinds['Serveurs']
@@ -299,7 +350,7 @@ function Get-DomeniaFleetBoardData {
         foreach ($key in @('fleet.created','fleet.pwdold')) { Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key $key -Kind Value -Value $(if ($factsStale -gt 0) { 'À relire' } else { 'Non lu' }) -Detail $factsText -State Off) }
     } else {
         Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.created' -Kind Value -Value ([string]$created) -Detail ('Lu avec la base pour ' + [string]$factsKnown + ' poste(s) sur ' + [string]$total))
-        Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.pwdold' -Kind Value -Value ([string]$pwdOld) -State $(if ($pwdOld) { 'Warn' } else { 'Ok' }) -Detail ('Lu avec la base pour ' + [string]$factsKnown + ' poste(s) sur ' + [string]$total))
+        Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.pwdold' -Title ('Mot de passe machine de plus de '+$limits.PasswordDays+' j') -Kind Value -Value ([string]$pwdOld) -State $(if ($pwdOld) { 'Warn' } else { 'Ok' }) -Detail ('Lu avec la base pour ' + [string]$factsKnown + ' poste(s) sur ' + [string]$total))
     }
 
     # Securite : LAPS (expiration read with the base) and BitLocker (presence read on request for the OU).
@@ -375,10 +426,7 @@ function Get-DomeniaFleetBoardData {
         $sites[$siteName] = [int]$parent.n + [int]$sites[$siteName]
     }
     $ouRanked = @(& $rank $sites)
-    $ouItems = @($ouRanked | Select-Object -First 10)
-    $ouOthers = 0.0
-    foreach ($part in @($ouRanked | Select-Object -Skip 10)) { $ouOthers += [double]$part.Value }
-    if ($ouOthers -gt 0) { $ouItems += [pscustomobject]@{ Label = 'Autres'; Value = $ouOthers } }
+    $ouItems = @($ouRanked)
     if ($ouItems.Count) {
         $lead = & $share $ouRanked $total
         Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.ou' -Kind Distribution -Title $(if ($scope) { 'Postes par sous-OU' } else { '' }) -Value $lead.Value -Detail $lead.Detail -Items $ouItems -CenterText ([string]$total + ' postes'))
@@ -392,10 +440,10 @@ function Get-DomeniaFleetBoardData {
 
     # Releves des postes (observations): presence, users, last analysis, light WMI inventory, with their coverage.
     $observationState = if ($observedOld) { 'Off' } else { '' }
-    $presenceColors = @{ 'En ligne' = 'Ok'; 'Sans reponse' = 'Warn'; 'Non verifie' = 'Off' }
-    $presenceItems = @(foreach ($name in @('En ligne','Sans reponse','Non verifie')) { if ([int]$presence[$name] -gt 0) { [pscustomobject]@{ Label = $name; Value = [double]$presence[$name]; Color = (Get-DomeniaBoardColor -Name $presenceColors[$name]) } } })
+    $presenceColors = @{ 'En ligne' = 'Ok'; 'Sans réponse' = 'Warn'; 'Non vérifié' = 'Off' }
+    $presenceItems = @(foreach ($name in @('En ligne','Sans réponse','Non vérifié')) { if ([int]$presence[$name] -gt 0) { [pscustomobject]@{ Label = $name; Value = [double]$presence[$name]; Color = (Get-DomeniaBoardColor -Name $presenceColors[$name]) } } })
     if ($presenceItems.Count) {
-        $presenceTotal = [int]$presence['En ligne'] + [int]$presence['Sans reponse'] + [int]$presence['Non verifie']
+        $presenceTotal = [int]$presence['En ligne'] + [int]$presence['Sans réponse'] + [int]$presence['Non vérifié']
         $lead = & $share $presenceItems $presenceTotal
         Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.presence' -Kind Distribution -Value $lead.Value -Detail $observedText -State $observationState -Items $presenceItems -CenterText ([string]$presenceTotal + ' postes'))
     }
@@ -416,45 +464,49 @@ function Get-DomeniaFleetBoardData {
         $ram = [ordered]@{ ([string][char]0x2264 + ' 4 Go') = 0; '5 à 8 Go' = 0; '9 à 16 Go' = 0; '17 à 32 Go' = 0; '> 32 Go' = 0 }
         $ramNames = @($ram.Keys)
         # CO-14: the fleet uses the thresholds of the workstation (critical under 10 %, to watch under 20 %).
-        $limits = Get-DomeniaBoardThresholds
+        $limits = Get-DomeniaBoardThresholds -Policy $data.HealthPolicy
         $alertLimit = [string][int]$limits.DiskFreeAlert; $warnLimit = [string][int]$limits.DiskFreeWarn
-        $diskNames = @(('moins de ' + $alertLimit + ' %'), ($alertLimit + ' à ' + $warnLimit + ' %'), ($warnLimit + ' à 50 %'), '50 % et plus')
+        $diskNames = if([int]$warnLimit -lt 50){@(('moins de ' + $alertLimit + ' %'), ($alertLimit + ' à ' + $warnLimit + ' %'), ($warnLimit + ' à 50 %'), '50 % et plus')}else{@(('moins de '+$alertLimit+' %'),($alertLimit+' à '+$warnLimit+' %'),($warnLimit+' % et plus'))}
         $disk = [ordered]@{}; foreach ($name in $diskNames) { $disk[$name] = 0 }
         foreach ($pair in $inventories) {
+            $inventoryKeys=[Collections.Generic.List[string]]::new();$diskPercent=$null;$uptimeDays=$null;$knownInventory=[pscustomobject]@{Disk=$false;Boot=$false;DiskPercent=$null;UptimeDays=$null}
             $inventory = $pair.Inventory
             $model = ([string](& $member $inventory 'Model' '')).Trim(); if (-not $model) { $model = 'Modele inconnu' }
-            $models[$model] = 1 + [int]$models[$model]
+            $models[$model] = 1 + [int]$models[$model];$inventoryKeys.Add('fleet.models');$inventoryKeys.Add('fleet.models|'+$model)
             $gb = 0.0; try { $gb = [double](& $member $inventory 'RamBytes' 0) / 1GB } catch { $gb = 0.0 }
             $k = if ($gb -le 4.5) { $ramNames[0] } elseif ($gb -le 8.5) { $ramNames[1] } elseif ($gb -le 16.5) { $ramNames[2] } elseif ($gb -le 32.5) { $ramNames[3] } else { $ramNames[4] }
-            if ($gb -gt 0) { $ram[$k] = 1 + [int]$ram[$k] }
+            if ($gb -gt 0) { $ram[$k] = 1 + [int]$ram[$k];$inventoryKeys.Add('fleet.ram');$inventoryKeys.Add('fleet.ram|'+$k) }
             $size = 0.0; try { $size = [double](& $member $inventory 'DiskSize' 0) } catch { $size = 0.0 }
             $freeValue=& $member $inventory 'DiskFree' $null
             $freeBytes=-1.0;try{if($null -ne $freeValue){$freeBytes=[double]$freeValue}}catch{}
             if ($size -gt 0 -and $freeBytes -ge 0 -and $freeBytes -le $size) {
-                $free = 100.0 * $freeBytes / $size
-                $diskState = Get-DomeniaThresholdState -Measure DiskFree -Percent $free
-                $dk = if ($diskState -eq 'Alert') { $diskNames[0] } elseif ($diskState -eq 'Warn') { $diskNames[1] } elseif ($free -lt 50) { $diskNames[2] } else { $diskNames[3] }
-                $disk[$dk] = 1 + [int]$disk[$dk]
+                $free = 100.0 * $freeBytes / $size;$diskPercent=$free;$knownInventory.Disk=$true;$knownInventory.DiskPercent=$free
+                $diskState = Get-DomeniaThresholdState -Measure DiskFree -Percent $free -Policy $data.HealthPolicy
+                $dk = if ($diskState -eq 'Alert') { $diskNames[0] } elseif ($diskState -eq 'Warn') { $diskNames[1] } elseif ($diskNames.Count -eq 3 -or $free -lt 50) { $diskNames[2] } else { $diskNames[3] }
+                $disk[$dk] = 1 + [int]$disk[$dk];$inventoryKeys.Add('fleet.diskfree');$inventoryKeys.Add('fleet.diskfree|'+$dk)
                 if ($diskState -eq 'Alert') { $lowDisk++; [void]$lowDiskMachines.Add($pair.Target); $observedProblem[[string]$pair.Target.distinguished_name] = $pair.Target }
                 elseif ($diskState -eq 'Warn') { $tightDisk++; [void]$tightDiskMachines.Add($pair.Target); $observedProblem[[string]$pair.Target.distinguished_name] = $pair.Target }
             }
             $build = ([string](& $member $inventory 'Build' '')).Trim()
-            $release = (Get-DomeniaWindowsRelease -Build $build -Caption ([string](& $member $inventory 'OsCaption' '')) -Lifecycle $Lifecycle -Now $Now).Name
+            $caption=[string](& $member $inventory 'OsCaption' '');$releaseKey=$caption+'|'+$build
+            if(-not $inventoryReleaseCache.ContainsKey($releaseKey)){$inventoryReleaseCache[$releaseKey]=(Get-DomeniaWindowsRelease -Build $build -Caption $caption -Lifecycle $Lifecycle -Now $Now).Name}
+            $release=[string]$inventoryReleaseCache[$releaseKey]
             if (-not $release) { $release = if ($build) { 'Build ' + $build } else { 'Version inconnue' } }
-            $releases[$release] = 1 + [int]$releases[$release]
+            $releases[$release] = 1 + [int]$releases[$release];$inventoryKeys.Add('fleet.releases');$inventoryKeys.Add('fleet.releases|'+$release)
+            foreach($key in $inventoryKeys){& $addWidgetTargets $key @($pair.Target)}
             $boot = & $member $inventory 'LastBootUtc' $null
             try {
                 $bootUtc = if ($boot -is [datetime]) { $boot.ToUniversalTime() } else { [datetime]::Parse([string]$boot,$invariant).ToUniversalTime() }
-                if($bootUtc -gt $nowUtc){continue}
-                $bootSeen++
-                if (($nowUtc - $bootUtc).TotalDays -gt 30) { $longUptime++; [void]$uptimeMachines.Add($pair.Target); $observedProblem[[string]$pair.Target.distinguished_name] = $pair.Target }
+                if($bootUtc -le $nowUtc){
+                $bootSeen++;$uptimeDays=($nowUtc-$bootUtc).TotalDays;$knownInventory.Boot=$true;$knownInventory.UptimeDays=$uptimeDays
+                if ($uptimeDays -gt $limits.UptimeDays) { $longUptime++; [void]$uptimeMachines.Add($pair.Target); $observedProblem[[string]$pair.Target.distinguished_name] = $pair.Target }
+                }
             } catch { }
+            $healthInventoryKnown[[string]$pair.Target.object_guid]=$knownInventory
+            $customMeasures.Add([pscustomobject]@{Target=$pair.Target;DiskFree=$diskPercent;UptimeDays=$uptimeDays})
         }
         $modelRanked = @(& $rank $models)
-        $modelItems = @($modelRanked | Select-Object -First 8)
-        $modelOthers = 0.0
-        foreach ($part in @($modelRanked | Select-Object -Skip 8)) { $modelOthers += [double]$part.Value }
-        if ($modelOthers -gt 0) { $modelItems += [pscustomobject]@{ Label = 'Autres'; Value = $modelOthers } }
+        $modelItems = @($modelRanked)
         $lead = & $share $modelRanked $inventories.Count
         Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.models' -Kind Distribution -Value $lead.Value -Detail $inventoryText -State $inventoryState -Items $modelItems -CenterText ([string]$inventories.Count + ' postes'))
         $releaseItems = @(& $rank $releases)
@@ -478,11 +530,13 @@ function Get-DomeniaFleetBoardData {
             Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.lowdisk' -Kind Value -Value ([string]$lowDisk) -State $(if ($inventoryOld) { 'Off' } elseif ($lowDisk) { 'Alert' } else { 'Ok' }) -Detail ('Moins de ' + $alertLimit + ' % libre · ' + $inventoryText))
         }
         # Only when a boot date was read (a failed probe stores LastBootUtc '').
-        if ($bootSeen -gt 0) { Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.uptime' -Kind Value -Value ([string]$longUptime) -State $(if ($inventoryOld) { 'Off' } elseif ($longUptime) { 'Warn' } else { 'Ok' }) -Detail ('Redémarrage conseillé · ' + $inventoryText)) }
+        if ($bootSeen -gt 0) { Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.uptime' -Title ('Sans redémarrage depuis '+$limits.UptimeDays+' j') -Kind Value -Value ([string]$longUptime) -State $(if ($inventoryOld) { 'Off' } elseif ($longUptime) { 'Warn' } else { 'Ok' }) -Detail ('Redémarrage conseillé · ' + $inventoryText)) }
         if ($lowDisk) { Add-DomeniaBoardAttention -Data $data -Level Alert -Text ([string]$lowDisk + ' poste(s) avec moins de ' + $alertLimit + ' % libre sur C:.') -Point 'lowdisk' -Machines @($lowDiskMachines) }
-        if ($tightDisk) { Add-DomeniaBoardAttention -Data $data -Level Warn -Text ([string]$tightDisk + ' poste(s) avec peu dʼespace sur C: (moins de ' + $warnLimit + ' % libre).') -Point 'lowdisk.warn' -Machines @($tightDiskMachines) }
-        if ($longUptime) { Add-DomeniaBoardAttention -Data $data -Level Warn -Text ([string]$longUptime + ' poste(s) non redémarré(s) depuis plus de 30 jours.') -Point 'uptime' -Machines @($uptimeMachines) }
+        if ($tightDisk) { Add-DomeniaBoardAttention -Data $data -Level Warn -Text ([string]$tightDisk + ' poste(s) avec peu dʼespace sur C: (moins de ' + $warnLimit + ' % libre).') -Point 'disk.tight' -Machines @($tightDiskMachines) }
+        if ($longUptime) { Add-DomeniaBoardAttention -Data $data -Level Warn -Text ([string]$longUptime + ' poste(s) non redémarré(s) depuis plus de '+$limits.UptimeDays+' jours.') -Point 'uptime' -Machines @($uptimeMachines) }
     }
+    $data|Add-Member -NotePropertyName HealthInventoryKnown -NotePropertyValue $healthInventoryKnown
+    Add-DomeniaCustomHealthAttention -Data $data -Measures $customMeasures.ToArray()
     # A workstation with an observed problem and no directory problem is one more workstation to treat.
     foreach ($target in @($observedProblem.Values)) { if (-not $problem.ContainsKey([string]$target.gid)) { $unhealthy++ } }
     $healthy = [Math]::Max(0,$total - $unhealthy)
@@ -526,19 +580,19 @@ function Get-DomeniaFleetBoardData {
 
     $rejected=[int](& $member $source 'ObservationRejected' 0)
     if($rejected -gt 0){Add-DomeniaBoardAttention -Data $data -Level Warn -Text ([string]$rejected+' relevé(s) ignoré(s) : contenu illisible ou identité AD différente. Les postes restent dans la base et peuvent être relevés à nouveau.') -Point 'cache.invalid'}
-    $data.Summary = [string]$total + ' ' + (& $plural $total 'poste' 'postes') + ' dans le périmètre.'
+    $data.Summary = [string]$machineCount+' comptes ordinateur dans le périmètre : '+$machineDetail+'.'
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'Population' -Value ([pscustomobject]@{ Total = $total; Healthy = $healthy })
-    $measurementFreshness=Get-DomeniaOuObservationFreshness -Presence @(& $member $source 'Presence' @()) -Total $total -NowUtc $referenceAt -MaxDays $ObservationMaxAgeDays
+    $measurementFreshness=Get-DomeniaOuObservationFreshness -Presence $canonicalPresence.ToArray() -Total $total -NowUtc $referenceAt -MaxDays $ObservationMaxAgeDays
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'Freshness' -Value ([pscustomobject]@{Version=1;ScopeDn=$scope;Subtree=$Subtree;Index=$indexFreshness;Observations=$measurementFreshness;SnapshotAtUtc=$snapshotAt;ComputedAtUtc=$nowUtc})
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'Observations' -Value $observations
     # The worker rows are kept as they are, without copy nor pipeline: thousands of workstations stay cheap on the
     # interface thread (PF-21). Targets: the active workstations (name, distinguished_name, object_guid).
     $machines = [object[]]@(& $member $source 'Machines' @())
     $targetsProperty = $source.PSObject.Properties['Targets']
-    if (($null -ne $targetsProperty) -and ($null -ne $targetsProperty.Value)) { $targets = [object[]]@($targetsProperty.Value) }
+    if (($null -ne $targetsProperty) -and ($null -ne $targetsProperty.Value)) { $targets = [object[]]@($targetsProperty.Value | Where-Object { $_.st -eq 'A' }) }
     else {
         $targetList = New-Object 'System.Collections.Generic.List[object]'
-        foreach ($machine in $machines) { if (($null -ne $machine) -and ($machine.st -ne 'D')) { $targetList.Add($machine) } }
+        foreach ($machine in $machines) { if (($null -ne $machine) -and ($machine.st -eq 'A')) { $targetList.Add($machine) } }
         $targets = $targetList.ToArray()
     }
     $healthyTargets=[Collections.Generic.List[object]]::new();$problemTargets=[Collections.Generic.List[object]]::new()
@@ -546,10 +600,37 @@ function Get-DomeniaFleetBoardData {
         if($problem.ContainsKey([string]$machine.gid) -or $observedProblem.ContainsKey([string]$machine.distinguished_name)){$problemTargets.Add($machine)}
         else{$healthyTargets.Add($machine)}
     }
-    Add-Member -InputObject $data -MemberType NoteProperty -Name 'Last' -Value ([pscustomobject]@{ Scope = $scope; Subtree = [bool]$Subtree; Targets = $targets; Machines = $machines; Groups = $groups; HealthyTargets=$healthyTargets.ToArray(); ProblemTargets=$problemTargets.ToArray(); Freshness=$data.Freshness })
+    $widgetTargets=@{
+        'fleet.machines'=@($machines);'fleet.enabled'=@($targets);'fleet.stale'=$staleMachines.ToArray()
+        'fleet.disabled'=@($machines|Where-Object{$_.st -eq 'D'})
+        'fleet.accountunknown'=@($machines|Where-Object{$_.st -notin @('A','D')})
+    }
+    $widgetTargets['fleet.accountstatus|Activés']=$widgetTargets['fleet.enabled']
+    $widgetTargets['fleet.accountstatus|Désactivés']=$widgetTargets['fleet.disabled']
+    $widgetTargets['fleet.accountstatus|État inconnu']=$widgetTargets['fleet.accountunknown']
+    $widgetTargets['fleet.accountstatus']=@($machines)
+    foreach($key in $widgetMembers.Keys){$widgetTargets[$key]=$widgetMembers[$key].ToArray()}
+    foreach($key in @('fleet.created','fleet.pwdold','fleet.laps','fleet.bitlocker','fleet.eos','fleet.win10')){if(-not $widgetTargets.ContainsKey($key)){$widgetTargets[$key]=@()}}
+    $widgetTargets['fleet.lowdisk']=@($lowDiskMachines);$widgetTargets['fleet.uptime']=@($uptimeMachines)
+    $ouMembers=@{};$siteCache=@{}
+    foreach($target in $targets){
+        $parent=Get-DomeniaRawDnParent ([string]$target.distinguished_name)
+        if(-not $siteCache.ContainsKey($parent)){$siteCache[$parent]=Get-DomeniaDnSite -ParentDn $parent -Scope $scope}
+        $site=[string]$siteCache[$parent];if(-not $ouMembers.ContainsKey($site)){$ouMembers[$site]=[Collections.Generic.List[object]]::new()};$ouMembers[$site].Add($target)
+    }
+    $widgetTargets['fleet.ou']=@($targets);foreach($site in $ouMembers.Keys){$widgetTargets['fleet.ou|'+$site]=$ouMembers[$site].ToArray()}
+    $widgetTargets['fleet.presence']=@($targets)
+    foreach($label in $presenceTargets.Keys){$widgetTargets['fleet.presence|'+$label]=$presenceTargets[$label].ToArray()}
+    foreach($entry in $data.Entries.Values){if($entry.Kind -in @('Distribution','Series')){foreach($part in @($entry.Items)){$key=[string]$entry.Key+'|'+[string]$part.Label;if(-not $widgetTargets.ContainsKey($key)){$widgetTargets[$key]=@()}}}}
+    Add-Member -InputObject $data -MemberType NoteProperty -Name 'Last' -Value ([pscustomobject]@{ Scope = $scope; Subtree = [bool]$Subtree; Targets = $targets; Machines = $machines; Groups = $groups; WidgetTargets=$widgetTargets; HealthyTargets=$healthyTargets.ToArray(); ProblemTargets=$problemTargets.ToArray(); Freshness=$data.Freshness })
     $figures = [pscustomobject]@{ Machines = $total; Healthy = $healthy; Problems = ($total - $healthy); Stale = $stale; EndOfService = $endedCount; Disabled = $disabled; Windows10 = $windows10; LowDisk = $lowDiskFigure }
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'Snapshot' -Value ([pscustomobject]@{ Day = $today; Taken = $taken; Figures = $figures })
+    if($null -ne $HealthPolicyBook -and @($HealthPolicyBook.Scopes).Count){Update-DomeniaFleetScopedHealth -Data $data -Book $HealthPolicyBook -NowUtc $nowUtc -Lifecycle $Lifecycle}
     [void](Complete-DomeniaBoardData -Data $data)
+    $data.Last.WidgetTargets['fleet.health']=@($targets);$data.Last.WidgetTargets['fleet.attention']=@($data.Last.ProblemTargets)
+    $data.Last.WidgetTargets['fleet.health|Sans problème']=@($data.Last.HealthyTargets);$data.Last.WidgetTargets['fleet.health|Problèmes']=@($data.Last.ProblemTargets);$data.Last.WidgetTargets['fleet.health|Incomplets']=@($data.Last.UnknownTargets)
+    Set-DomeniaHealthSnapshotMetadata -Data $data -History $history -NowUtc $nowUtc
+    $data|Add-Member -NotePropertyName Pivots -NotePropertyValue (Get-DomeniaFleetPivots $data)
     return $data
 }
 
@@ -605,7 +686,7 @@ function Get-DomeniaOuObservationFreshness {
         if($null -eq $item -or -not [bool](Get-DomeniaMember $item 'in_scope' $true)){continue}
         $observation=Get-DomeniaMemberValue $item 'observation';$key=([string](Get-DomeniaMember $item 'object_key')).Trim()
         if($null -eq $observation -or -not $key){continue}
-        $pingText=[string](Get-DomeniaMember $observation 'PresenceCheckedUtc' (Get-DomeniaMember $observation 'CheckedUtc'))
+        $pingText=[string](Get-DomeniaMember $observation 'PresenceCheckedUtc' '')
         $ping=ConvertFrom-DomeniaUtcText $pingText
         $state=[string](Get-DomeniaMember $observation 'Presence')
         $inventory=Get-DomeniaMemberValue $observation 'Inventory'
@@ -613,7 +694,7 @@ function Get-DomeniaOuObservationFreshness {
         foreach($name in @('Ping','Inventory')){
             $date=if($name -eq 'Ping'){$ping}else{$inventoryAt}
             if($null -eq $date -or $date -gt $NowUtc -or (Test-DomeniaObservationAge -CheckedUtc $date -NowUtc $NowUtc -MaxDays $MaxDays) -eq 'Expired'){continue}
-            if($name -eq 'Ping' -and ($state -notmatch '^(En ligne|Sans|Hors|Erreur)')){continue}
+            if($name -eq 'Ping' -and ($state -notmatch '^(En ligne|Sans r[eé]ponse(?: au ping)?|Hors ligne)$')){continue}
             $known=$families[$name]
             if(-not $known.ContainsKey($key) -or $date -gt $known[$key]){$known[$key]=$date}
         }

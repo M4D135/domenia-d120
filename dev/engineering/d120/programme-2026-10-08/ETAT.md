@@ -17,3 +17,13 @@ Hors plan, livré en RC1.16.0 : base autonome (limites 200 000 objets / 20 min, 
 Passe de langue : `langue-corrections-sures.json` (769, accents et apostrophes) déjà appliquée aux infobulles, textes
 XAML et aide ; `langue-corrections-a-relire.json` (115, changements de personne du verbe) à trancher dans L23.
 Tests : contrôle minimal seulement depuis RC1.14.0 (David teste à la main).
+
+## Mise à jour du 14 octobre 2026
+
+L'arbre de travail a été commité. Ce n'est pas une clôture des 270 pistes ni des 9 vagues.
+
+- Les symboles de fonctions cités par L01 à L11 sont présents dans `dev/wad`. L06, L07, L09 et L10 le sont en totalité sur ce critère.
+- Le ping de liste existe via `Start-DomeniaOnlinePark -PingOnly` et `ParkSweep`. Pas de second worker `Get-DomeniaParkPingWorkerCode`.
+- L24 n'est pas fait : `Get-MainXaml` reste dans `Domenia-Core.ps1` parce que l'audit de préchargement l'exige. Pas de `Domenia-Main.xaml`, pas de `Write-DomeniaSwallowed`.
+- Gel local : contrats workers, migration, baseline de préchargement (207/0), manifests. DLL recompilées avec `csc` 4.8.9221.0, pas avec `build_native.ps1` (PowerShell 7 absent sur l'hôte).
+- `CNAMTS-W11-01` a été rallumée le 14 octobre. La campagne des 91 suites n'a pas été menée au bout. Pas de qualification 10 000 postes.
