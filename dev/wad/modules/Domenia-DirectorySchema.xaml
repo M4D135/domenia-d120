@@ -1,0 +1,52 @@
+﻿<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Name="DomeniaAdSchemaView">
+  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="14">
+      <TextBlock Text="Schéma Active Directory en lecture seule : classes, attributs, types, nombre de valeurs et index, lus sur le contrôleur de la session. Domenia ne modifie jamais le schéma." TextWrapping="Wrap" Margin="0,0,0,10" />
+      <WrapPanel Margin="0,0,0,8">
+        <Button x:Name="BtnAdSchemaRead" Content="Lire le schéma" Style="{DynamicResource RunButton}" MinHeight="32" Margin="0,0,10,0" ToolTip="Lit une fois les définitions de classes et dʼattributs du schéma (8 000 attributs et 90 secondes au plus). Aucune valeur dʼobjet nʼest lue." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lire le schéma Active Directory" AutomationProperties.HelpText="Lit une fois les définitions de classes et dʼattributs du schéma (8 000 attributs et 90 secondes au plus). Aucune valeur dʼobjet nʼest lue." />
+        <ComboBox x:Name="CmbAdSchemaKind" Width="150" MinHeight="32" Margin="0,0,6,0" SelectedIndex="0" ToolTip="Afficher les classes dʼobjets ou les attributs." AutomationProperties.Name="Classes ou attributs" AutomationProperties.HelpText="Afficher les classes dʼobjets ou les attributs.">
+          <ComboBoxItem Content="Classes" Tag="Classes" />
+          <ComboBoxItem Content="Attributs" Tag="Attributes" />
+        </ComboBox>
+        <TextBox x:Name="TxtAdSchemaFilter" Width="260" MinHeight="32" MaxLength="128" ToolTip="Filtre local sur le nom ou la description. Aucune lecture réseau." AutomationProperties.Name="Filtrer le schéma" AutomationProperties.HelpText="Filtre local sur le nom ou la description. Aucune lecture réseau." />
+      </WrapPanel>
+      <TextBlock x:Name="LblAdSchemaStatus" Text="Schéma non lu dans cette session." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,0,0,8" AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="État de la lecture du schéma" />
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="2*" />
+          <ColumnDefinition Width="12" />
+          <ColumnDefinition Width="3*" />
+        </Grid.ColumnDefinitions>
+        <DataGrid x:Name="DgAdSchemaEntries" Grid.Column="0" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" SelectionMode="Single" Height="300" EnableRowVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling" ToolTip="Classes ou attributs du schéma lu. Choisissez une ligne pour voir son détail." AutomationProperties.Name="Entrées du schéma" AutomationProperties.HelpText="Classes ou attributs du schéma lu. Choisissez une ligne pour voir son détail.">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Nom" Binding="{Binding Nom}" Width="190" />
+            <DataGridTextColumn Header="Nature" Binding="{Binding Nature}" Width="150" />
+            <DataGridTextColumn Header="Détail" Binding="{Binding Detail}" Width="*" />
+          </DataGrid.Columns>
+        </DataGrid>
+        <DataGrid x:Name="DgAdSchemaClassAttributes" Grid.Column="2" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" SelectionMode="Single" Height="300" EnableRowVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling" ToolTip="Attributs possibles de la classe choisie, avec ceux hérités de ses classes parentes et auxiliaires." AutomationProperties.Name="Attributs de la classe choisie" AutomationProperties.HelpText="Attributs possibles de la classe choisie, avec ceux hérités de ses classes parentes et auxiliaires.">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Attribut" Binding="{Binding Attribut}" Width="170" />
+            <DataGridTextColumn Header="Obligatoire" Binding="{Binding Obligatoire}" Width="85" />
+            <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="150" />
+            <DataGridTextColumn Header="Valeurs" Binding="{Binding Valeurs}" Width="75" />
+            <DataGridTextColumn Header="Index" Binding="{Binding Index}" Width="120" />
+            <DataGridTextColumn Header="Hérité de" Binding="{Binding Origine}" Width="*" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </Grid>
+      <TextBlock x:Name="LblAdSchemaDetail" Text="Choisissez une classe ou un attribut." TextWrapping="Wrap" Margin="0,8,0,10" AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="Détail de lʼentrée choisie" />
+      <Expander Header="Analyser un filtre LDAP avant de lʼutiliser" IsExpanded="True" Margin="0,4,0,0">
+        <StackPanel Margin="0,6,0,0">
+          <TextBlock Text="Lʼanalyse se fait sur ce poste, sans interroger lʼannuaire : attributs indexés ou non, joker en tête, négation, attribut calculé. Sans schéma lu, les index restent inconnus." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,0,0,6" />
+          <TextBox x:Name="TxtAdSchemaLdapFilter" AcceptsReturn="False" TextWrapping="Wrap" MaxLength="32768" MinHeight="32" ToolTip="Filtre LDAP à analyser, par exemple (&amp;(objectCategory=computer)(name=PC-*))." AutomationProperties.Name="Filtre LDAP à analyser" AutomationProperties.HelpText="Filtre LDAP à analyser, par exemple (&amp;(objectCategory=computer)(name=PC-*))." />
+          <WrapPanel Margin="0,6,0,6">
+            <Button x:Name="BtnAdSchemaAnalyze" Content="Analyser le filtre" MinHeight="32" Margin="0,0,6,0" ToolTip="Analyse locale du filtre saisi. Rien nʼest envoyé au contrôleur." AutomationProperties.Name="Analyser le filtre LDAP" AutomationProperties.HelpText="Analyse locale du filtre saisi. Rien nʼest envoyé au contrôleur." />
+            <Button x:Name="BtnAdSchemaInsert" Content="Ajouter lʼattribut choisi" MinHeight="32" IsEnabled="False" ToolTip="Ajoute au filtre un exemple de critère sur lʼattribut choisi, à compléter." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ajouter lʼattribut choisi au filtre" AutomationProperties.HelpText="Ajoute au filtre un exemple de critère sur lʼattribut choisi, à compléter." />
+          </WrapPanel>
+          <TextBlock x:Name="LblAdSchemaAnalysis" Text="Aucun filtre analysé." TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="Résultat de lʼanalyse du filtre" />
+        </StackPanel>
+      </Expander>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

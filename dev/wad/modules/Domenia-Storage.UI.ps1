@@ -362,6 +362,8 @@ function Complete-DomeniaStorageWork {
     foreach($v in @($script:Persistence.Pending.Values)){if($v.Kind -eq 'Link' -or $v.Kind -eq 'LegacyImport'){$hasLinkWork=$true;break}}
     $script:Persistence.LinkBusy=$hasLinkWork
     if(-not $isImport){Add-DomeniaUiLog -Area 'Cache' -Text ('Lot enregistre : '+[int]$r.Count+' element(s), conflits : '+@($r.Conflicts).Count)}
+    # Points 24 and 30: verification results, snapshots and index updates refresh the Contrôles tab from the base.
+    if(${function:Complete-DomeniaDirectorySyncStorage}){try{Complete-DomeniaDirectorySyncStorage -Items $items -Saved $true}catch{Add-DomeniaUiLog -Area 'Index' -Level 'WARN' -Text ('Contrôles de la base non actualisés : '+$_.Exception.Message)}}
 }
 function Fail-DomeniaStorageWork {
     param($Message,$State)
@@ -371,6 +373,7 @@ function Fail-DomeniaStorageWork {
     foreach($storeItem in @($items|Where-Object{$_.Kind -eq 'StoreBatch'})){
         try { & ([string]$storeItem.ErrorHandler) -Message ([string]$Message) -State $storeItem.CallbackState } catch { Write-AppLog ('Notification stockage : '+$_.Exception.Message) 'WARN' }
     }
+    if(${function:Complete-DomeniaDirectorySyncStorage}){try{Complete-DomeniaDirectorySyncStorage -Items $items -Saved $false -Message ([string]$Message)}catch{Add-DomeniaUiLog -Area 'Index' -Level 'WARN' -Text ('Contrôles de la base non actualisés : '+$_.Exception.Message)}}
     # An automatic save retry may preserve the base, but must never launch a remote follow-up after a failed receipt.
     foreach($item in $items){if($item.Kind -eq 'IndexBulk' -and $null -ne $item.Row -and $null -ne $item.Row.PSObject.Properties['RefreshOperationId'] -and [string]$item.Row.RefreshOperationId){Fail-DomeniaOuRefresh -OperationId ([string]$item.Row.RefreshOperationId) -Message ('Écriture locale non confirmée : '+[string]$Message)}}
     $isImport=@($items|Where-Object{$_.Kind -eq 'LegacyImport'}).Count -gt 0
@@ -407,7 +410,7 @@ function Fail-DomeniaStorageWork {
     Set-Status 'Cache non enregistre sur disque. Les observations sont encore en memoire ; une nouvelle tentative bornee sera faite.' 'WARN'
 }
 function Queue-DomeniaMetadata {
-    param([ValidateSet('Presence','UserScan','Park','ParkSession','SecretMeta','Sample','IndexBulk','LegacyImport','FleetSnapshot')][string]$Kind,$Row,[string]$Key='')
+    param([ValidateSet('Presence','UserScan','Park','ParkSession','SecretMeta','Sample','IndexBulk','LegacyImport','FleetSnapshot','DirectoryAbsence','DirectorySnapshot')][string]$Kind,$Row,[string]$Key='')
     if($null -eq $script:Persistence){Initialize-DomeniaPersistence}
     if(-not $script:DatabaseScopedPath){return $false}
     if($Kind -eq 'LegacyImport'){

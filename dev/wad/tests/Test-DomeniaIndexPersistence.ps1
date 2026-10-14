@@ -346,6 +346,73 @@ try{
         Expect ((Read-TestDb ("SELECT distinguished_name FROM ad_objects WHERE object_guid='"+$scaleRows[0].Guid+"';"))[0].distinguished_name -eq 'CN=Moved,OU=Other,DC=test') '5000-object census repairs moved DN'
         Write-Output ('BENCH GUID census 5000 cached / 4999 identities: '+$timer.ElapsedMilliseconds+' ms; local SQLite only')
         [IO.File]::Delete($spoolFile);[IO.Directory]::Delete($spool)
+        # Points 22, 23, 24 and 30: absences, census gap, verification results and snapshots with the real workers.
+        $reconcilePath=$path;$path=Join-Path $folder 'directory-sync.sqlite'
+        $db=Open-DomeniaDatabase $path;try{[void](Invoke-DomeniaDbExec $schema[0].Value $db)}finally{Close-DomeniaDatabase $db}
+        try{
+            $kept=New-ReconcileRow 31 'CN=PC-31,OU=A,DC=test';$lost=New-ReconcileRow 32 'CN=PC-32,OU=A,DC=test';$away=New-ReconcileRow 33 'CN=PC-33,OU=A,DC=test'
+            Write-Batch @($kept,$lost,$away) '2026-10-01T00:00:00Z' -Replace $true
+            [void](Invoke-ReconcileBulk (New-ReconcileBulk -Rows @() -Scope 'OU=A,DC=test' -Mode Rows -Complete $false))
+            Expect ((Read-TestDb 'SELECT count(*) AS n FROM ad_absences;')[0].n -eq 0 -and (Read-TestDb 'SELECT count(*) AS n FROM ad_objects;')[0].n -eq 3) 'P24 partial read records no absence and removes nothing'
+            [void](Invoke-ReconcileBulk (New-ReconcileBulk -Rows @($kept) -Scope 'OU=A,DC=test' -Mode Rows))
+            $absent=@(Read-TestDb 'SELECT * FROM ad_absences ORDER BY object_guid;')
+            Expect ($absent.Count -eq 2 -and @($absent|Where-Object{$_.status -ne 'NonVu'}).Count -eq 0) 'P24 complete OU read records absent objects as not seen, never as deleted'
+            Expect ($absent[0].last_dn -eq $lost.DN -and $absent[0].scope_dn -eq 'OU=A,DC=test' -and $absent[0].noticed_at -eq '2026-10-06T00:00:00Z' -and $absent[0].object_type -eq 'Machine') 'P24 absence keeps last DN, scope, type and date'
+            Expect ((Read-TestDb 'SELECT count(*) AS n FROM ad_objects;')[0].n -eq 1) 'P24 absent objects leave the local copy'
+            Expect ((Read-TestDb "SELECT details FROM sync_state WHERE scope='ou:ou=a,dc=test';")[0].details -match ';absent=2(;|$)') 'P24 checkpoint counts the absences of this read'
+            $record=[pscustomobject]@{Type='Machine';Guid=$away.Guid;Name='PC-33';Login='PC-33';Upn='';Display='';Description='';Extra='';State='Actif';DN='CN=PC-33,OU=B,DC=test';WhenChanged='';Usn=7;LastLogon=''}
+            $results=@(
+                [pscustomobject]@{Guid=$away.Guid;Status='Deplace';FoundDn='CN=PC-33,OU=B,DC=test';Detail='Present ailleurs.';CheckedAt='2026-10-07T00:00:00.0000000Z';Server='dc.test';Record=$record}
+                [pscustomobject]@{Guid=$lost.Guid;Status='Supprime';FoundDn='';Detail='Suppression constatee.';CheckedAt='2026-10-07T00:00:00.0000000Z';Server='dc.test';Record=$null}
+            )
+            $Payload=[pscustomobject]@{Path=$path;Items=@([pscustomobject]@{Kind='DirectoryAbsence';Row=[pscustomobject]@{Results=$results;Server='dc.test';At='2026-10-07T00:00:00Z'}})}
+            Expect ([bool](& ([scriptblock]::Create($worker))).Saved) 'P24 verification results committed'
+            $moved=@(Read-TestDb ("SELECT * FROM ad_objects WHERE object_guid='"+$away.Guid+"';"))
+            Expect ($moved.Count -eq 1 -and $moved[0].distinguished_name -eq 'CN=PC-33,OU=B,DC=test' -and $moved[0].object_key -eq $away.Guid) 'P23 moved object takes its new DN under the same GUID key'
+            Expect ((Read-TestDb ("SELECT status FROM ad_absences WHERE object_guid='"+$away.Guid+"';"))[0].status -eq 'Deplace') 'P23 move recorded with its new location'
+            Expect ((Read-TestDb ("SELECT status FROM ad_absences WHERE object_guid='"+$lost.Guid+"';"))[0].status -eq 'Supprime') 'P24 proven deletion recorded'
+            Expect ((Read-TestDb ("SELECT count(*) AS n FROM ad_objects WHERE object_guid='"+$lost.Guid+"';"))[0].n -eq 0) 'P24 deleted object not re-inserted'
+            $Payload.Items[0].Row.Results=@([pscustomobject]@{Guid=$away.Guid;Status='Deplace';FoundDn='CN=PC-33,OU=C,DC=test';Detail='x';CheckedAt='2026-10-07T00:00:00Z';Record=$record})
+            $refused=$false;try{& ([scriptblock]::Create($worker))|Out-Null}catch{$refused=$true}
+            Expect $refused 'P23 a re-read record whose DN differs from the found DN is refused'
+            $Payload.Items[0].Row.Results=@([pscustomobject]@{Guid=$away.Guid;Status='Efface';FoundDn='';Detail='x';CheckedAt='2026-10-07T00:00:00Z';Record=$null})
+            $refused=$false;try{& ([scriptblock]::Create($worker))|Out-Null}catch{$refused=$true}
+            Expect ($refused -and (Read-TestDb ("SELECT status FROM ad_absences WHERE object_guid='"+$away.Guid+"';"))[0].status -eq 'Deplace') 'P24 unknown status refused, transaction rolled back'
+            [void](Invoke-ReconcileBulk (New-ReconcileBulk -Rows @($kept,(New-ReconcileRow 33 'CN=PC-33,OU=A,DC=test')) -Scope 'OU=A,DC=test' -Mode Rows))
+            Expect ((Read-TestDb ("SELECT count(*) AS n FROM ad_absences WHERE object_guid='"+$away.Guid+"';"))[0].n -eq 0) 'P24 an object read again is no longer absent'
+            $unknown=New-ReconcileRow 34 'CN=PC-34,OU=A,DC=test'
+            [void](Invoke-ReconcileBulk (New-ReconcileBulk -Identities @((New-Identity $kept),(New-Identity $unknown),(New-Identity (New-ReconcileRow 33 'CN=PC-33,OU=B,DC=test')))))
+            Expect ((Read-TestDb "SELECT details FROM sync_state WHERE scope='directory';")[0].details -match ';gap=1(;|$)') 'P22 census identity unknown to the local copy recorded in the checkpoint'
+            [void](Invoke-ReconcileBulk (New-ReconcileBulk -Identities @((New-Identity $kept),(New-Identity (New-ReconcileRow 33 'CN=PC-33,OU=B,DC=test')))))
+            Expect ((Read-TestDb "SELECT details FROM sync_state WHERE scope='directory';")[0].details -notmatch 'gap=') 'P22 census without unknown identity clears the gap'
+            function New-SnapshotItem {param([string]$Id,[string]$Label,[string]$At);return [pscustomobject]@{Kind='DirectorySnapshot';Row=[pscustomobject]@{Action='Capture';SnapshotId=$Id;Label=$Label;DomainDn='DC=test';ScopeDn='OU=A,DC=test';Subtree=$true;CapturedUtc=$At;CoverageState='Complete';CoverageAtUtc='2026-10-06T00:00:00.0000000Z';CoverageSource='OU=A,DC=test';CoverageText='Couverture : lecture complete.'}}}
+            $Payload=[pscustomobject]@{Path=$path;Items=@((New-SnapshotItem ('a'*32) 'Avant' '2026-10-08T00:00:00.0000000Z'))}
+            Expect ([bool](& ([scriptblock]::Create($worker))).Saved) 'P30 snapshot committed'
+            $manifest=@(Read-TestDb ("SELECT * FROM ad_snapshots WHERE snapshot_id='"+('a'*32)+"';"))
+            Expect ($manifest.Count -eq 1 -and $manifest[0].object_count -eq 1 -and $manifest[0].rows_sha256 -match '^[0-9A-F]{64}$' -and $manifest[0].coverage_state -eq 'Complete') 'P30 manifest with exact count, fingerprint and coverage'
+            $Payload=[pscustomobject]@{Path=$path;Items=@((New-SnapshotItem ('a'*32) 'Doublon' '2026-10-08T00:00:00.0000000Z'))}
+            Expect ([bool](& ([scriptblock]::Create($worker))).Saved -and (Read-TestDb 'SELECT count(*) AS n FROM ad_snapshots;')[0].n -eq 1) 'P30 a retried capture does not copy twice and never blocks the queue'
+            Write-Batch @((New-ReconcileRow 31 'CN=PC-31,OU=Sub,OU=A,DC=test' 'Desactive'),(New-ReconcileRow 35 'CN=PC-35,OU=A,DC=test')) '2026-10-09T00:00:00Z' -Scope 'ou:ou=a,dc=test'
+            $Payload=[pscustomobject]@{Path=$path;Items=@((New-SnapshotItem ('b'*32) 'Apres' '2026-10-10T00:00:00.0000000Z'))}
+            [void](& ([scriptblock]::Create($worker)))
+            $Payload=[pscustomobject]@{Action='SnapshotCompare';Path=$path;BusyTimeoutMs=250;DomainDn='DC=test';Before=('a'*32);After=('b'*32);Limit=10}
+            $cmp=& ([scriptblock]::Create((Get-DomeniaLocalIndexReadWorkerCode)))
+            Expect ([bool]$cmp.Found -and $cmp.Counts.Added -eq 1 -and $cmp.Counts.Disappeared -eq 0 -and $cmp.Counts.Common -eq 1 -and $cmp.Counts.Differing -eq 1) 'P30 exact totals computed by SQLite'
+            $pair=@($cmp.Pairs)[0]
+            Expect ($pair.Before.distinguished_name -eq 'CN=PC-31,OU=A,DC=test' -and $pair.After.distinguished_name -eq 'CN=PC-31,OU=Sub,OU=A,DC=test' -and $pair.After.state -eq 'Desactive') 'P30 move and changed value paired by GUID'
+            Expect (@($cmp.Added)[0].name -eq 'PC-35') 'P30 added object listed'
+            $Payload=[pscustomobject]@{Action='SnapshotCompare';Path=$path;BusyTimeoutMs=250;DomainDn='DC=test';Before=('a'*32);After=('c'*32);Limit=10}
+            Expect (-not [bool](& ([scriptblock]::Create((Get-DomeniaLocalIndexReadWorkerCode)))).Found) 'P30 a missing snapshot is reported, not compared'
+            $Payload=[pscustomobject]@{Action='DirectorySync';Path=$path;BusyTimeoutMs=250;DomainDn='DC=test'}
+            $list=& ([scriptblock]::Create((Get-DomeniaLocalIndexReadWorkerCode)))
+            Expect (@($list.Snapshots).Count -eq 2 -and [long]$list.AbsenceTotal -eq 1 -and @($list.Absences)[0].status -eq 'Supprime') 'P24 and P30 local read lists absences and snapshots'
+            $Payload=[pscustomobject]@{Path=$path;Items=@([pscustomobject]@{Kind='DirectorySnapshot';Row=[pscustomobject]@{Action='Delete';SnapshotId=('a'*32)}})}
+            [void](& ([scriptblock]::Create($worker)))
+            Expect ((Read-TestDb ("SELECT count(*) AS n FROM ad_snapshot_rows WHERE snapshot_id='"+('a'*32)+"';"))[0].n -eq 0 -and (Read-TestDb 'SELECT count(*) AS n FROM ad_snapshots;')[0].n -eq 1) 'P30 snapshot deleted with its rows only'
+        }finally{
+            $path=$reconcilePath
+            foreach($suffix in @('','-wal','-shm')){$candidate=Join-Path $folder ('directory-sync.sqlite'+$suffix);if([IO.File]::Exists($candidate)){[IO.File]::Delete($candidate)}}
+        }
     }finally{
         $path=$originalPath
         foreach($suffix in @('','-wal','-shm')){$candidate=Join-Path $folder ('reconcile.sqlite'+$suffix);if([IO.File]::Exists($candidate)){[IO.File]::Delete($candidate)}}

@@ -682,6 +682,8 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnUserManagerClear" = "Default"
     "TxtUserState" = "Default"
     "TxtUserLastLogon" = "Default"
+    "BtnUserLogonByDc" = "Default"
+    "TxtUserLogonByDc" = "Default"
     "TxtUserPwdLastSet" = "Default"
     "TxtUserExpires" = "Default"
     "TxtUserUac" = "Default"
@@ -748,6 +750,8 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnCompManagedByClear" = "Default"
     "TxtCompState" = "Default"
     "TxtCompLastLogon" = "Default"
+    "BtnCompLogonByDc" = "Default"
+    "TxtCompLogonByDc" = "Default"
     "TxtCompUac" = "Default"
     "TxtCompLinkedUser" = "Default"
     "TxtCompLinkSource" = "Default"
@@ -5674,6 +5678,7 @@ function Get-MainXaml {
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                           </Grid.RowDefinitions>
                           <TextBlock Grid.Row="0" Grid.ColumnSpan="4" Text="Fiche utilisateur" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
                           <Label Grid.Row="1" Grid.Column="0" Content="Prenom"/>
@@ -5733,6 +5738,13 @@ function Get-MainXaml {
                             <Button Grid.Row="13" Grid.Column="2" x:Name="BtnUserEdit" Content="Modifier" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,0,0,8" ToolTip="Déverrouille les champs de la fiche pour les modifier. Le crayon nʼécrit rien : il ouvre seulement la saisie, et « Enregistrer » reste seul à décider de ce qui part dans lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Modifier la fiche" AutomationProperties.HelpText="Déverrouille les champs de la fiche pour les modifier. Le crayon nʼécrit rien : il ouvre seulement la saisie, et « Enregistrer » reste seul à décider de ce qui part dans lʼannuaire."/>
                             <Button Grid.Row="13" Grid.Column="3" x:Name="BtnUserCancelEdit" Content="Annuler" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,0,0,8" Visibility="Collapsed" ToolTip="Rejette les modifications non enregistrées : chaque champ reprend la valeur lue dans lʼannuaire et la fiche se verrouille de nouveau." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Annuler les modifications" AutomationProperties.HelpText="Rejette les modifications non enregistrées : chaque champ reprend la valeur lue dans lʼannuaire et la fiche se verrouille de nouveau."/>
                             <TextBlock Grid.Row="14" Grid.ColumnSpan="4" x:Name="LblUserEditState" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,0,0,8" Visibility="Collapsed" AutomationProperties.Name="État des modifications de la fiche" AutomationProperties.HelpText="Dit ce que la fiche a en modification, et le signale quand une valeur non enregistrée a été abandonnée en changeant dʼobjet. Rien nʼest parti sans que la page le dise."/>
+                          <Border Grid.Row="15" Grid.ColumnSpan="4" Margin="0,6,0,8" Padding="10" CornerRadius="8" Background="{DynamicResource BgReadonly}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
+                            <StackPanel>
+                              <TextBlock Text="Activité de connexion" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                              <TextBlock x:Name="TxtUserLogonByDc" TextWrapping="Wrap" Margin="0,0,0,6" ToolTip="Activité de connexion de lʼobjet : date approximative répliquée (lastLogonTimestamp) et, après lecture, la date exacte connue de chaque contrôleur avec sa couverture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Activité de connexion du compte" AutomationProperties.HelpText="Activité de connexion de lʼobjet : date approximative répliquée (lastLogonTimestamp) et, après lecture, la date exacte connue de chaque contrôleur avec sa couverture." AutomationProperties.LiveSetting="Polite"/>
+                              <Button x:Name="BtnUserLogonByDc" Content="Lire la connexion sur chaque contrôleur" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="10,4" HorizontalAlignment="Left" IsEnabled="False" ToolTip="Lit, pour cet objet seulement, la date exacte de dernière connexion (lastLogon) sur chaque contrôleur du domaine, avec la liste des contrôleurs lus et non lus. Lecture seule, 75 secondes au plus." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lire la dernière connexion sur chaque contrôleur" AutomationProperties.HelpText="Lit, pour cet objet seulement, la date exacte de dernière connexion (lastLogon) sur chaque contrôleur du domaine, avec la liste des contrôleurs lus et non lus. Lecture seule, 75 secondes au plus."/>
+                            </StackPanel>
+                          </Border>
                         </Grid>
                         </StackPanel>
                       </ScrollViewer>
@@ -6453,6 +6465,7 @@ function Get-MainXaml {
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                           </Grid.RowDefinitions>
                           <TextBlock Grid.Row="0" Grid.ColumnSpan="4" Text="Fiche du poste" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
                           <Label Grid.Row="1" Grid.Column="0" Content="Nom"/>
@@ -6513,6 +6526,13 @@ function Get-MainXaml {
                             </Grid>
                           </Border>
                           <TextBlock Grid.Row="11" Grid.ColumnSpan="4" x:Name="LblCompEditState" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="Collapsed" AutomationProperties.Name="État des modifications de la fiche" AutomationProperties.HelpText="Dit ce que la fiche a en modification, et le signale quand une valeur non enregistrée a été abandonnée en changeant dʼobjet. Rien nʼest parti sans que la page le dise."/>
+                          <Border Grid.Row="12" Grid.ColumnSpan="4" Margin="0,10,0,8" Padding="10" CornerRadius="8" Background="{DynamicResource BgReadonly}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
+                            <StackPanel>
+                              <TextBlock Text="Activité de connexion" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                              <TextBlock x:Name="TxtCompLogonByDc" TextWrapping="Wrap" Margin="0,0,0,6" ToolTip="Activité de connexion du compte ordinateur : date approximative répliquée (lastLogonTimestamp) et, après lecture, la date exacte connue de chaque contrôleur avec sa couverture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Activité de connexion du poste" AutomationProperties.HelpText="Activité de connexion du compte ordinateur : date approximative répliquée (lastLogonTimestamp) et, après lecture, la date exacte connue de chaque contrôleur avec sa couverture." AutomationProperties.LiveSetting="Polite"/>
+                              <Button x:Name="BtnCompLogonByDc" Content="Lire la connexion sur chaque contrôleur" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="10,4" HorizontalAlignment="Left" IsEnabled="False" ToolTip="Lit, pour ce poste seulement, la date exacte de dernière connexion de son compte ordinateur (lastLogon) sur chaque contrôleur du domaine, avec la liste des contrôleurs lus et non lus. Lecture seule, 75 secondes au plus." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lire la dernière connexion du poste sur chaque contrôleur" AutomationProperties.HelpText="Lit, pour ce poste seulement, la date exacte de dernière connexion de son compte ordinateur (lastLogon) sur chaque contrôleur du domaine, avec la liste des contrôleurs lus et non lus. Lecture seule, 75 secondes au plus."/>
+                            </StackPanel>
+                          </Border>
                         </Grid>
                       </ScrollViewer>
                     </Border>
@@ -8396,9 +8416,10 @@ function Clear-ObjectDetails {
         "TxtUserStreet","TxtUserCity","TxtUserState2","TxtUserPostalCode","TxtUserCountry",
         "TxtUserHomePhone","TxtUserMobile","TxtUserFax","TxtUserIpPhone","TxtUserWebPage",
         "TxtUserEmployeeId","TxtUserProfilePath","TxtUserScriptPath","TxtUserHomeDirectory",
-        "TxtUserHomeDrive","TxtUserWorkstations","TxtCompName","TxtCompDns","TxtCompOs","TxtCompOsVersion","TxtCompDescription","TxtCompLocation","TxtCompManagedBy","TxtCompState","TxtCompLastLogon","TxtCompUac","TxtCompLinkedUser","TxtCompLinkSource","TxtGroupName","TxtGroupDescription")) {
+        "TxtUserHomeDrive","TxtUserWorkstations","TxtCompName","TxtCompDns","TxtCompOs","TxtCompOsVersion","TxtCompDescription","TxtCompLocation","TxtCompManagedBy","TxtCompState","TxtCompLastLogon","TxtCompUac","TxtCompLinkedUser","TxtCompLinkSource","TxtGroupName","TxtGroupDescription","TxtUserLogonByDc","TxtCompLogonByDc")) {
         try { $script:Ctrl[$name].Text = "" } catch { }
     }
+    foreach ($name in @("BtnUserLogonByDc","BtnCompLogonByDc")) { try { $script:Ctrl[$name].IsEnabled = $false } catch { } }
     Update-DomeniaUserSupportBand -Entry $null
     Set-DomeniaManagerField -Target 'Utilisateur' -Dn ''
     Set-DomeniaManagerField -Target 'Machine' -Dn ''
@@ -8684,6 +8705,8 @@ function Fill-UserObject {
     Set-DomeniaManagerField -Target 'Utilisateur' -Dn ([string](Get-DeProp $Entry "manager" ""))
     $script:Ctrl["TxtUserState"].Text = Get-UacStatusLabel $uac $lockout (Get-DeProp $entry "msDS-User-Account-Control-Computed" $null)
     $script:Ctrl["TxtUserLastLogon"].Text = Convert-FileTimeLabel (Get-DeProp $Entry "lastLogonTimestamp" 0)
+    # Point 27: what this approximate date means, and an explicit per-controller read of lastLogon.
+    if (${function:Update-DomeniaLogonActivityPanel}) { Update-DomeniaLogonActivityPanel -Kind User -Entry $Entry }
     $script:Ctrl["TxtUserPwdLastSet"].Text = Convert-FileTimeLabel (Get-DeProp $Entry "pwdLastSet" 0)
     $script:Ctrl["TxtUserExpires"].Text = Convert-FileTimeLabel (Get-DeProp $Entry "accountExpires" 0)
     $script:Ctrl["TxtUserUac"].Text = Get-UacFlagsLabel $uac
@@ -8792,6 +8815,7 @@ function Fill-ComputerObject {
     Set-DomeniaManagerField -Target 'Machine' -Dn ([string](Get-DeProp $Entry "managedBy" ""))
     $script:Ctrl["TxtCompState"].Text = Get-UacStatusLabel $uac 0
     $script:Ctrl["TxtCompLastLogon"].Text = Convert-FileTimeLabel (Get-DeProp $Entry "lastLogonTimestamp" 0)
+    if (${function:Update-DomeniaLogonActivityPanel}) { Update-DomeniaLogonActivityPanel -Kind Computer -Entry $Entry }
     $script:Ctrl["TxtCompUac"].Text = Get-UacFlagsLabel $uac
     $script:Ctrl["TxtCompNewName"].Text = [string](Get-DeProp $Entry "name" "")
     try {
@@ -16081,6 +16105,9 @@ function Load-DomeniaIndexMetadata {
             $inv = ''
             $details = [string]$s[0].details
             if ($details -match '(?i)inv=([0-9a-fA-F-]{36})') { $inv = $matches[1] }
+            # Point 22: identities of the last domain census that the local copy does not know.
+            $gap = 0L
+            if ($details -match '(?i)(?:^|;)gap=(\d{1,9})(?:;|$)') { $gap = [long]$matches[1] }
             $script:IndexInfo = [pscustomobject]@{
                 Server=[string]$s[0].server
                 BaseDn=[string]$s[0].base_dn
@@ -16088,6 +16115,7 @@ function Load-DomeniaIndexMetadata {
                 Count=[int]$s[0].item_count
                 Usn=[long]$s[0].highest_usn
                 InvocationId=$inv
+                CensusGap=$gap
             }
         } else { $script:IndexInfo = $null }
 
@@ -16464,6 +16492,11 @@ function Start-DomeniaIndexRefresh {
         try { $lastServer = [string]$script:IndexInfo.Server } catch { }
         try { $since = [string]$script:IndexInfo.Date } catch { }
         try { $lastInvocationId = [string]$script:IndexInfo.InvocationId } catch { $lastInvocationId = "" }
+        # Point 22: the last census saw identities the local copy does not have. A differential read would never
+        # return them (they were not modified): this update reads the whole domain instead of the changes.
+        $censusGap = 0L
+        try { $censusGap = [long]$script:IndexInfo.CensusGap } catch { $censusGap = 0L }
+        if ($censusGap -gt 0) { $lastUsn = [long]0; $since = ""; $lastInvocationId = "" }
         $dbCount = Get-DomeniaDatabaseObjectCount
         if ($dbCount -eq 0) {
             if (-not $Silent) { Set-Status "Aucune base autonome : utilise  Mettre a jour tout  d abord." "WARN" }
@@ -16472,13 +16505,15 @@ function Start-DomeniaIndexRefresh {
         if (-not $Silent) {
             if (-not $Confirmed) {
                 # UX-07: the estimate is confirmed in the page; the refresh starts again from the answer, once.
-                $impact=Get-DomeniaOperationImpactEstimate -Operation "IndexBuild" -ItemCount ([Math]::Max(1000,[int]($dbCount*0.05)))
-                [void](Request-DomeniaOperationImpact -Estimate $impact -Title "Mettre à jour les changements" -Target 'impact:IndexRefresh' -OnConfirm { Start-DomeniaIndexRefresh -Confirmed })
+                # A complete read after a census gap is estimated on the whole base, not on the usual share of changes.
+                $estimated=if ($censusGap -gt 0) { [Math]::Max(1000,[int]($dbCount+$censusGap)) } else { [Math]::Max(1000,[int]($dbCount*0.05)) }
+                $impact=Get-DomeniaOperationImpactEstimate -Operation "IndexBuild" -ItemCount $estimated
+                [void](Request-DomeniaOperationImpact -Estimate $impact -Title $(if ($censusGap -gt 0) { "Relire tout le domaine" } else { "Mettre à jour les changements" }) -Target 'impact:IndexRefresh' -OnConfirm { Start-DomeniaIndexRefresh -Confirmed })
                 return
             }
-            [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text "Recherche des objets modifies...")
+            [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text $(if ($censusGap -gt 0) { "Relecture complète du domaine : " + $censusGap + " objet(s) recensé(s) manquent dans la base locale." } else { "Recherche des objets modifies..." }))
         }
-        Set-DomeniaIndexProgress -Mode Busy -Message 'Synchronisation incrémentale avec Active Directory… progression exacte indisponible pendant la requête.'
+        Set-DomeniaIndexProgress -Mode Busy -Message $(if ($censusGap -gt 0) { 'Relecture complète du domaine : le dernier recensement a trouvé des objets absents de la base locale… progression exacte indisponible pendant la requête.' } else { 'Synchronisation incrémentale avec Active Directory… progression exacte indisponible pendant la requête.' })
         Start-UiTask `
             -Name "Mise a jour des changements" `
             -OperationId "IndexBuild" `
@@ -17629,6 +17664,15 @@ function Update-DomeniaIndexStats {
         if($coverage.Partial){$freshness.Add(('Dernière tentative incomplète le {0}. Les données reçues sont conservées ; la date de lecture complète reste inchangée.' -f $coverage.AttemptAt.ToLocalTime().ToString('dd/MM/yyyy HH:mm')))}
         $partial = if($target.IsDomain){[string](Get-DomeniaIndexPartialText)}else{''}
         if ($partial) { $freshness.Add('À vérifier : ' + $partial) }
+        # Point 22: a complete census of this scope is advised when due; it is never started automatically.
+        if (${function:Get-DomeniaCensusAdvice}) {
+            $gap = 0L; try { $gap = [long]$script:IndexInfo.CensusGap } catch { $gap = 0L }
+            # Index.FullRebuildDays (7 by default) is the age after which a complete read of the scope is advised.
+            $days = 7; try { $days = [int](Get-CfgValue 'Index' 'FullRebuildDays' 7) } catch { $days = 7 }
+            $census = Get-DomeniaCensusAdvice -Coverage $coverage -GapCount ([int]$gap) -MaxAgeDays $days -NowUtc ([datetime]::UtcNow) -IsDomain ([bool]$target.IsDomain)
+            if ([bool]$census.Due) { $freshness.Add([string]$census.Text) }
+        }
+        if (${function:Update-DomeniaCensusAdviceUi}) { Update-DomeniaCensusAdviceUi }
         [void](Set-DomeniaControlText -Name 'LblIndexFreshness' -Text ($freshness -join "`n"))
         $details = ('Fichier : {0}. Contrôleur : {1}. Repère : {2}. Associations utilisateur-poste : {3:N0}.' -f (Get-DomeniaDatabasePath),$server,$usn,@($script:UserMachineLinks).Count)
         [void](Set-DomeniaControlText -Name 'LblIndexStats' -Text $details)
@@ -19243,7 +19287,11 @@ function Queue-LiveGlobalSearch {
                 $script:LiveSearchTimer.Stop()
                 $text=($script:Ctrl["TxtGlobalSearch"].Text+"").Trim()
                 $min=[int](Get-CfgValue "Browser" "GlobalSearchMinChars" 2)
-                if ($text.Length -ge $min -or $text -eq "*") { Invoke-GlobalSearch -SilentError }
+                # Point 29: typing never starts a broad LDAP read ('*', a leading wildcard or a short text);
+                # the explicit Rechercher still can, with its own limits.
+                $typed=Test-DomeniaTypedSearchAllowed -Text $text -MinimumLength $min
+                if ([bool]$typed.Allowed) { Invoke-GlobalSearch -SilentError }
+                elseif ($text) { [void](Set-DomeniaControlText -Name 'LblSearchHint' -Text ([string]$typed.Reason)) }
             })
             $script:LiveSearchTimer=$timer
         }
@@ -22110,6 +22158,8 @@ function Wire-Events {
     $script:Ctrl["BtnUserGenPassword"].Add_Click({ Show-DomeniaGeneratedPassword })
     $script:Ctrl["BtnUserSupportUnlock"].Add_Click({ Unlock-UserAccount })
     $script:Ctrl["BtnUserSupportLockouts"].Add_Click({ Start-DomeniaLockoutEventRead })
+    $script:Ctrl["BtnUserLogonByDc"].Add_Click({ Start-DomeniaLogonByDcRead -Kind User })
+    $script:Ctrl["BtnCompLogonByDc"].Add_Click({ Start-DomeniaLogonByDcRead -Kind Computer })
     $script:Ctrl["BtnUserResetPwd"].Add_Click({ Reset-UserPassword })
     $script:Ctrl["BtnApplyAccountOptions"].Add_Click({ Apply-UserAccountOptions })
     $script:Ctrl["BtnSetExpiration"].Add_Click({ Set-UserExpiration $false })
@@ -25633,6 +25683,8 @@ function Initialize-DomeniaPresentation {
     Initialize-DomeniaGuard
     Initialize-DomeniaLive
     Initialize-DomeniaReconcile
+    # Points 22, 24 and 30: census, disappeared objects and snapshots, as a tab of the autonomous base page.
+    try { Initialize-DomeniaDirectorySyncUi } catch { Write-AppLog ('Onglet Contrôles de la base indisponible : ' + $_.Exception.Message) 'ERROR' }
     Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 pret."
 }
 

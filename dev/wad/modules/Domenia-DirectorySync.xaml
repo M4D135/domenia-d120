@@ -1,0 +1,73 @@
+﻿<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Name="DomeniaDirectorySyncView">
+  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="10">
+      <Border Padding="12" CornerRadius="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" Margin="0,0,0,10">
+        <StackPanel>
+          <TextBlock Text="Recensement du périmètre choisi" FontWeight="SemiBold" />
+          <TextBlock Text="Une mise à jour différentielle ne voit ni les objets supprimés, ni ceux devenus visibles ou invisibles sans modification. Seule une lecture complète du périmètre les repère ; Domenia la conseille, elle ne la lance jamais seule." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,4,0,6" />
+          <TextBlock x:Name="LblSyncCensus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="État du recensement du périmètre" />
+        </StackPanel>
+      </Border>
+      <Border Padding="12" CornerRadius="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" Margin="0,0,0,10">
+        <StackPanel>
+          <TextBlock Text="Objets disparus du périmètre" FontWeight="SemiBold" />
+          <TextBlock Text="Objets quʼune lecture complète nʼa pas revus. Ils sont retirés de la copie locale mais ne sont pas déclarés supprimés : la vérification les relit par leur GUID dans le domaine, puis parmi les objets supprimés. Un objet retrouvé ailleurs garde son identité et prend son nouvel emplacement." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,4,0,8" />
+          <WrapPanel Margin="0,0,0,6">
+            <Button x:Name="BtnSyncAbsencesRefresh" Content="Actualiser la liste" Style="{DynamicResource SecondaryButton}" MinHeight="32" Margin="0,0,8,0" ToolTip="Relit la liste dans la base locale. Aucune lecture de lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser la liste des disparitions" AutomationProperties.HelpText="Relit la liste dans la base locale. Aucune lecture de lʼannuaire." />
+            <Button x:Name="BtnSyncAbsencesCheck" Content="Vérifier les disparitions…" Style="{DynamicResource RunButton}" MinHeight="32" IsEnabled="False" ToolTip="Relit par leur GUID, après confirmation, jusquʼà 200 objets non revus : dans le domaine, puis parmi les objets supprimés. Rien nʼest modifié dans lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vérifier les disparitions" AutomationProperties.HelpText="Relit par leur GUID, après confirmation, jusquʼà 200 objets non revus : dans le domaine, puis parmi les objets supprimés. Rien nʼest modifié dans lʼannuaire." />
+          </WrapPanel>
+          <TextBlock x:Name="LblSyncAbsences" Text="Liste non lue." TextWrapping="Wrap" Margin="0,0,0,6" AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="État des disparitions" />
+          <DataGrid x:Name="DgSyncAbsences" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" SelectionMode="Single" Height="220" EnableRowVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling" ToolTip="Objets non revus par une lecture complète, avec le résultat de leur dernière vérification." AutomationProperties.Name="Objets disparus du périmètre" AutomationProperties.HelpText="Objets non revus par une lecture complète, avec le résultat de leur dernière vérification.">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="État" Binding="{Binding Etat}" Width="150" />
+              <DataGridTextColumn Header="Nom" Binding="{Binding Nom}" Width="160" />
+              <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="90" />
+              <DataGridTextColumn Header="Dernier emplacement connu" Binding="{Binding Emplacement}" Width="220" />
+              <DataGridTextColumn Header="Non revu le" Binding="{Binding Constate}" Width="120" />
+              <DataGridTextColumn Header="Vérifié le" Binding="{Binding Verifie}" Width="120" />
+              <DataGridTextColumn Header="Détail" Binding="{Binding Detail}" Width="*" />
+            </DataGrid.Columns>
+          </DataGrid>
+        </StackPanel>
+      </Border>
+      <Border Padding="12" CornerRadius="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
+        <StackPanel>
+          <TextBlock Text="Relevés de lʼannuaire" FontWeight="SemiBold" />
+          <TextBlock x:Name="LblSnapshotNotice" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,4,0,8" AutomationProperties.Name="Portée dʼun relevé" />
+          <WrapPanel Margin="0,0,0,6">
+            <TextBox x:Name="TxtSnapshotLabel" Width="260" MinHeight="32" MaxLength="120" Margin="0,0,8,0" ToolTip="Nom du relevé, par exemple « Avant migration ». Facultatif." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Nom du relevé" AutomationProperties.HelpText="Nom du relevé, par exemple « Avant migration ». Facultatif." />
+            <Button x:Name="BtnSnapshotCapture" Content="Enregistrer un relevé du périmètre" Style="{DynamicResource RunButton}" MinHeight="32" Margin="0,0,8,0" ToolTip="Copie datée de la base locale pour le périmètre choisi, avec la preuve de sa couverture. Aucune lecture de lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Enregistrer un relevé du périmètre" AutomationProperties.HelpText="Copie datée de la base locale pour le périmètre choisi, avec la preuve de sa couverture. Aucune lecture de lʼannuaire." />
+            <Button x:Name="BtnSnapshotDelete" Content="Supprimer le relevé choisi…" Style="{DynamicResource SecondaryButton}" MinHeight="32" IsEnabled="False" ToolTip="Supprime de la base locale le relevé sélectionné, après confirmation. Lʼannuaire nʼest pas concerné." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Supprimer le relevé choisi" AutomationProperties.HelpText="Supprime de la base locale le relevé sélectionné, après confirmation. Lʼannuaire nʼest pas concerné." />
+          </WrapPanel>
+          <TextBlock x:Name="LblSnapshots" Text="Aucun relevé lu." TextWrapping="Wrap" Margin="0,0,0,6" AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="État des relevés" />
+          <DataGrid x:Name="DgSnapshots" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" SelectionMode="Single" Height="160" EnableRowVirtualization="True" ToolTip="Relevés enregistrés pour ce domaine, du plus récent au plus ancien." AutomationProperties.Name="Relevés enregistrés" AutomationProperties.HelpText="Relevés enregistrés pour ce domaine, du plus récent au plus ancien.">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Nom" Binding="{Binding Label}" Width="200" />
+              <DataGridTextColumn Header="Date" Binding="{Binding DateText}" Width="120" />
+              <DataGridTextColumn Header="Objets" Binding="{Binding ObjectCount}" Width="80" />
+              <DataGridTextColumn Header="Périmètre" Binding="{Binding ScopeText}" Width="240" />
+              <DataGridTextColumn Header="Couverture" Binding="{Binding CoverageText}" Width="*" />
+            </DataGrid.Columns>
+          </DataGrid>
+          <WrapPanel Margin="0,8,0,6">
+            <TextBlock Text="Avant" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <ComboBox x:Name="CmbSnapshotBefore" Width="250" MinHeight="32" DisplayMemberPath="Display" Margin="0,0,10,0" ToolTip="Relevé le plus ancien de la comparaison." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Relevé avant" AutomationProperties.HelpText="Relevé le plus ancien de la comparaison." />
+            <TextBlock Text="Après" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <ComboBox x:Name="CmbSnapshotAfter" Width="250" MinHeight="32" DisplayMemberPath="Display" Margin="0,0,10,0" ToolTip="Relevé le plus récent de la comparaison." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Relevé après" AutomationProperties.HelpText="Relevé le plus récent de la comparaison." />
+            <Button x:Name="BtnSnapshotCompare" Content="Comparer" Style="{DynamicResource RunButton}" MinHeight="32" ToolTip="Compare les deux relevés dans la base locale : ajouts, disparitions, déplacements et valeurs modifiées. Aucune lecture de lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Comparer les deux relevés" AutomationProperties.HelpText="Compare les deux relevés dans la base locale : ajouts, disparitions, déplacements et valeurs modifiées. Aucune lecture de lʼannuaire." />
+          </WrapPanel>
+          <TextBlock x:Name="LblSnapshotCompare" Text="Choisissez deux relevés du même périmètre." TextWrapping="Wrap" Margin="0,0,0,6" AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="Résultat de la comparaison" />
+          <DataGrid x:Name="DgSnapshotDiff" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" Height="260" EnableRowVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling" ToolTip="Différences entre les deux relevés : nature, objet, détail, valeur avant et après." AutomationProperties.Name="Différences entre les relevés" AutomationProperties.HelpText="Différences entre les deux relevés : nature, objet, détail, valeur avant et après.">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Nature" Binding="{Binding Nature}" Width="120" />
+              <DataGridTextColumn Header="Objet" Binding="{Binding Nom}" Width="160" />
+              <DataGridTextColumn Header="Détail" Binding="{Binding Detail}" Width="240" />
+              <DataGridTextColumn Header="Avant" Binding="{Binding Avant}" Width="*" />
+              <DataGridTextColumn Header="Après" Binding="{Binding Apres}" Width="*" />
+            </DataGrid.Columns>
+          </DataGrid>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>
