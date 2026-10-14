@@ -1,0 +1,172 @@
+﻿#requires -Version 5.1
+# Wiring of the collection lot (roadmap points 11, 12, 15, 16, 20, 21, 159 and 160) in the real modules: engine
+# admission and outcomes, background gate of the collection window, settings of the usage profile in the workshop
+# view, durable campaign offer, and the core call sites read from the real Domenia-Core.ps1. No domain, no network,
+# no disk: settings and preference files live in memory. Windows PowerShell 5.1 x64 STA only.
+[CmdletBinding()]param([string]$ReportPath='',[switch]$Quiet)
+$ErrorActionPreference='Stop'
+if($PSVersionTable.PSEdition -ne 'Desktop' -or $PSVersionTable.PSVersion.Minor -ne 1 -or -not [Environment]::Is64BitProcess -or [Threading.Thread]::CurrentThread.ApartmentState -ne 'STA'){throw 'Windows PowerShell 5.1 x64 STA requis.'}
+Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
+$wad=Split-Path -Parent $PSScriptRoot
+. (Join-Path $wad 'Domenia-Modules.ps1')
+$t=$null;$e=$null;$ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'),[ref]$t,[ref]$e)
+if(@($e).Count){throw ('Syntaxe du coeur : '+$e[0].Message)}
+function Get-CoreFunctionText {param([string]$Name)$node=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $Name},$true))[0];if($null -eq $node){throw ('Fonction du coeur absente : '+$Name)};return $node.Extent.Text}
+foreach($name in @('Get-DomeniaControl','Set-DomeniaControlText')){. ([scriptblock]::Create((Get-CoreFunctionText $name)))}
+function Assert {param($Value,[string]$Why='Assertion fausse')if(-not $Value){throw $Why}}
+$checks=[Collections.Generic.List[object]]::new()
+function Case {param($Name,[scriptblock]$Body)try{Reset-Fixture;& $Body|Out-Null;$status='Passed';$detail=''}catch{$status='Failed';$detail=$_.Exception.Message+' '+$_.ScriptStackTrace};$checks.Add([pscustomobject]@{Name=$Name;Status=$status;Detail=$detail});if($status -eq 'Failed' -and -not $Quiet){Write-Host ($Name+': '+$detail)}}
+
+# ---------------------------------------------------------------- doubles of the core (settings, preferences, log)
+function Get-DomeniaSetting {param($Name,$Default)if($script:SettingValues.ContainsKey([string]$Name)){return $script:SettingValues[[string]$Name]};return $Default}
+function Set-DomeniaSetting {param($Name,$Value)$script:SettingValues[[string]$Name]=$Value}
+function Write-DomeniaPreference {param([string]$FileName,[string]$Value)$script:Prefs[$FileName]=$Value;return $true}
+function Read-DomeniaPreference {param([string]$FileName)if($script:Prefs.ContainsKey($FileName)){return [string]$script:Prefs[$FileName]};return ''}
+function Get-CfgValue {param($Section,$Key,$Default)return $Default}
+function Set-Status {param($Text,$Level)$script:Status=[string]$Text}
+function Write-AppLog {param($Text,$Level)}
+function Write-DomeniaAppLogFile {param($Text,$Level,$Source)}
+function Protect-DomeniaLogText {param($Text)return [string]$Text}
+function Set-ControlsBusy {param($Names,$Busy)}
+function Reset-Fixture {
+ $script:SettingValues=@{};$script:Prefs=@{};$script:Status='';$script:Ctrl=@{}
+ $script:DomeniaFreshnessCache=$null;$script:DomeniaCollectionWindowCache=$null;$script:DomeniaCollectionSettingsWired=$false
+ $script:DomeniaIdlePolicy=$null;$script:DomeniaSchedulerEnabled=$true;$script:AsyncEngineClosing=$false;$script:SessionEpoch=5L;$script:DemoMode=$false
+ $script:DomeniaProviderState=@{};$script:DomeniaAgedPromotions=0;$script:AsyncJobs=[ordered]@{};$script:DetachedReadJobs=@();$script:LatestTaskId=''
+ $script:DatabaseScopedPath='C:\fixture\domain.db';$script:Conn=[pscustomobject]@{Domain='example.test';BaseDn='DC=example,DC=test';Server='dc01.example.test'}
+ $script:ParkRun=$null;$script:DomeniaCampaignResumeOfferKey='';$script:DomeniaTargetAddresses=$null
+}
+
+Case 'Point 159 : le fond réseau attend la fenêtre du profil ; la sélection et le tableau de bord non' {
+ $script:SettingValues['Collection.WindowsJson']='{"Standard":"jamais"}'
+ Assert (-not (Test-DomeniaBackgroundWorkAllowed -Source 'Reconcile')) 'Réconciliation hors fenêtre'
+ Assert (-not (Test-DomeniaBackgroundWorkAllowed -Source 'ObjectChanges')) 'Revérification hors fenêtre'
+ Assert (Test-DomeniaBackgroundWorkAllowed -Source 'Live') 'Sélection bloquée'
+ Assert (Test-DomeniaBackgroundWorkAllowed -Source 'Dashboard') 'Tableau de bord bloqué'
+ $script:SettingValues.Remove('Collection.WindowsJson');$script:DomeniaCollectionWindowCache=$null
+ Assert (Test-DomeniaBackgroundWorkAllowed -Source 'Reconcile') 'Profil Standard : à tout moment'
+ $script:SettingValues['Collection.Profile']='SlowNetwork'
+ $expected=[bool](Test-DomeniaCollectionWindowOpen (ConvertFrom-DomeniaCollectionWindowText ([string](Get-DomeniaCollectionProfile 'SlowNetwork').Windows)) (Get-Date)).Open
+ Assert ((Test-DomeniaBackgroundWorkAllowed -Source 'Reconcile') -eq $expected) 'Fenêtre par défaut du profil non appliquée'
+}
+Case 'Point 11 et 159 : durées et fenêtre enregistrées par profil, valeurs invalides refusées' {
+ $script:SettingValues['Collection.Profile']='SlowNetwork'
+ Set-DomeniaFreshnessOverride -Family 'Inventory' -Seconds 600
+ Assert ((Get-DomeniaActiveFreshnessTable).Seconds['Inventory'] -eq 600)
+ Assert ([string]$script:SettingValues['Collection.FreshnessJson'] -match '"SlowNetwork"')
+ $script:SettingValues['Collection.Profile']='Standard'
+ Assert ((Get-DomeniaActiveFreshnessTable).Seconds['Inventory'] -eq 300) 'Durée dʼun autre profil appliquée'
+ $failed=$false;try{Set-DomeniaFreshnessOverride -Family 'Identity' -Seconds 5}catch{$failed=$true};Assert $failed 'Durée hors bornes acceptée'
+ Assert ((Get-DomeniaCollectionWindowText) -eq '')
+ $failed=$false;try{Set-DomeniaCollectionWindowText 'lun 25:00-26:00'}catch{$failed=$true};Assert $failed 'Fenêtre invalide acceptée'
+ $script:SettingValues['Collection.Profile']='SlowNetwork'
+ Assert ((Get-DomeniaCollectionWindowText) -match 'sam-dim') 'Fenêtre par défaut du profil absente'
+ Set-DomeniaCollectionWindowText ''
+ Assert ((Get-DomeniaCollectionWindowText) -eq '') 'Champ vidé : à tout moment'
+ Assert ([string]$script:SettingValues['Collection.WindowsJson'] -match 'toujours')
+ Assert ((Get-DomeniaActiveFreshnessTable).Seconds['Inventory'] -eq 600) 'Durée personnalisée du profil perdue'
+}
+Case 'Point 11 : la vue des réglages de collecte affiche, modifie et rétablit les durées du profil' {
+ foreach($name in @('CmbCollectionProfile','CmbCollectionFreshnessValue')){$script:Ctrl[$name]=[Windows.Controls.ComboBox]::new()}
+ $script:Ctrl['DgCollectionFreshness']=[Windows.Controls.DataGrid]::new()
+ foreach($name in @('BtnCollectionFreshnessReset','BtnCollectionWindowApply','BtnCollectionResume','BtnCollectionResumeDiscard')){$script:Ctrl[$name]=[Windows.Controls.Button]::new()}
+ $script:Ctrl['TxtCollectionWindow']=[Windows.Controls.TextBox]::new()
+ foreach($name in @('LblCollectionWindow','LblCollectionProfile','LblCollectionResume')){$script:Ctrl[$name]=[Windows.Controls.TextBlock]::new()}
+ Initialize-DomeniaCollectionSettingsUi
+ Assert (@($script:Ctrl.DgCollectionFreshness.ItemsSource).Count -eq 7) 'Familles absentes'
+ $script:Ctrl.CmbCollectionProfile.SelectedIndex=1
+ Assert ($script:SettingValues['Collection.Profile'] -eq 'SlowNetwork' -and $script:Ctrl.TxtCollectionWindow.Text -match 'sam-dim') 'Profil non appliqué'
+ $script:Ctrl.DgCollectionFreshness.SelectedItem=@($script:Ctrl.DgCollectionFreshness.ItemsSource|Where-Object{$_.Family -eq 'Inventory'})[0]
+ Assert ($script:Ctrl.CmbCollectionFreshnessValue.IsEnabled -and @($script:Ctrl.CmbCollectionFreshnessValue.ItemsSource).Count -ge 5) 'Éditeur de durée non rempli'
+ $script:Ctrl.CmbCollectionFreshnessValue.SelectedItem=@($script:Ctrl.CmbCollectionFreshnessValue.ItemsSource|Where-Object{$_.Seconds -eq 60})[0]
+ Assert ((Get-DomeniaActiveFreshnessTable).Seconds['Inventory'] -eq 60) 'Durée choisie non enregistrée'
+ $script:Ctrl.BtnCollectionFreshnessReset.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
+ Assert ((Get-DomeniaActiveFreshnessTable).Seconds['Inventory'] -eq 3600) 'Durées du profil non rétablies'
+ $script:Ctrl.TxtCollectionWindow.Text='lun 25:00-26:00'
+ $script:Ctrl.BtnCollectionWindowApply.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
+ Assert ($script:Ctrl.LblCollectionWindow.Text -match 'non enregistrée' -and -not $script:SettingValues.ContainsKey('Collection.WindowsJson')) 'Fenêtre invalide enregistrée'
+ Assert (-not $script:Ctrl.BtnCollectionResume.IsEnabled) 'Reprise proposée sans plan'
+}
+Case 'Points 15 et 16 : charge par source et travaux de fond comptés par le moteur' {
+ $script:AsyncJobs['a']=[pscustomobject]@{State='Running';CancelRequested=$false;Class='Background';Provider='Cim';ProviderTarget='PC1';ProviderGroup='10.1.2.0/24'}
+ $script:AsyncJobs['b']=[pscustomobject]@{State='Running';CancelRequested=$false;Class='Explicit';Provider='Cim';ProviderTarget='PC2';ProviderGroup='10.1.2.0/24'}
+ $script:AsyncJobs['c']=[pscustomobject]@{State='Queued';CancelRequested=$false;Class='Background';Provider='Cim';ProviderTarget='PC3';ProviderGroup='10.1.2.0/24'}
+ $load=Get-DomeniaEngineLoad
+ Assert ($load.BackgroundRunning -eq 1 -and $load.QueuedCount -eq 1) 'Classes mal comptées'
+ Assert ([int]$load.SourceLoad[(Get-DomeniaProviderStateKey 'Cim' 'group:10.1.2.0/24')] -eq 2 -and [int]$load.SourceLoad[(Get-DomeniaProviderStateKey 'Cim' 'PC1')] -eq 1) 'Charge par source fausse'
+}
+Case 'Point 16 : un travail de fond en longue attente sort de la file sur une place réservée, et cʼest compté' {
+ foreach($i in 1..5){$script:AsyncJobs['e'+$i]=[pscustomobject]@{Id=('e'+$i);State='Running';CancelRequested=$false;Class='Explicit';Provider='Directory';ProviderTarget='';ProviderGroup='';SessionEpoch=5L}}
+ $script:AsyncJobs['bg']=[pscustomobject]@{Id='bg';Name='Fond';State='Queued';CancelRequested=$false;Class='Background';Provider='Local';ProviderTarget='';ProviderGroup='';Sequence=1;QueuedAt=(Get-Date).AddSeconds(-60);SessionEpoch=5L;Foreground=$false;BusyApplied=$false;DisableControls=@()}
+ $script:Dispatched=[Collections.Generic.List[string]]::new()
+ function Invoke-DomeniaUiTaskDispatch {param($Job)$script:Dispatched.Add([string]$Job.Id);$Job.State='Running';return $Job}
+ [void](Invoke-DomeniaQueuedTaskPromotion -BudgetMs 200)
+ Assert ($script:Dispatched -contains 'bg') 'Travail de fond bloqué malgré son attente'
+ Assert ([int]$script:DomeniaAgedPromotions -eq 1) 'Démarrage après attente non compté'
+ Assert (@(Get-DomeniaCollectionHealthLines) -match 'longue attente').Count 'Panneau sans la mesure'
+}
+Case 'Points 15 et 160 : des délais répétés sur un site suspendent son fond, nommé dans le panneau' {
+ foreach($i in 1..3){[void](Register-DomeniaTaskOutcome -Job ([pscustomobject]@{Provider='Cim';ProviderTarget=('pc'+$i);ProviderGroup='10.1.2.0/24';SchedulerManaged=$true;Demo=$false;CredentialIdentity='';OperationId='ComputerQuickDiag';Name='Diagnostic';SessionEpoch=5L}) -TimedOut)}
+ $site=$script:DomeniaProviderState[(Get-DomeniaProviderStateKey 'Cim' 'group:10.1.2.0/24')]
+ Assert ($null -ne $site -and [datetime]$site.BackoffUntilUtc -gt [datetime]::UtcNow) 'Site non suspendu'
+ Assert (@(Get-DomeniaCollectionHealthLines|Where-Object{$_ -match 'site 10\.1\.2\.0/24'}).Count -eq 1) 'Site absent du panneau'
+ Assert (-not ((@(Get-DomeniaCollectionHealthLines) -join ' ') -match '(?i)annuaire.{0,20}inaccessible')) 'Annuaire déclaré inaccessible'
+}
+Case 'Point 12 : une lecture identique rejointe est comptée, sans second appel' {
+ $script:AsyncJobs['j']=[pscustomobject]@{Id='j';IsWrite=$false;CancelRequested=$false;DedupKey='k1';ReplaceKey='';SessionEpoch=5L;Subscribers=$null;DisableControls=@();Name='Lecture';OperationId='OpenAdObject'}
+ $before=[int]$script:DomeniaSharedReadCount
+ Assert ((Add-DomeniaTaskSubscriber -DedupKey 'k1' -ReplaceKey '') -eq 'j') 'Lecture non rejointe'
+ Assert ((Add-DomeniaTaskSubscriber -DedupKey 'k2' -ReplaceKey '') -eq '') 'Lecture différente rejointe'
+ Assert ([int]$script:DomeniaSharedReadCount -eq ($before+1)) 'Partage non compté'
+}
+Case 'Points 12 et 15 : Start-UiTask partage selon compte, contexte et exigences, et transmet la source du budget' {
+ $text=Get-CoreFunctionText 'Start-UiTask'
+ foreach($needle in @('Get-DomeniaTaskReaderIdentity','Get-DomeniaTaskRequirements','-Requirements $requirements','Get-DomeniaKnownTargetGroup','ProviderGroup=$providerGroup','AccountGeneration ([long]$script:DomeniaAccountGeneration)')){Assert ($text.Contains($needle)) ('Start-UiTask sans '+$needle)}
+ Assert ((Get-DomeniaKnownTargetGroup -Provider 'Directory') -eq 'dc01.example.test') 'Contrôleur de la session absent'
+ [void](Register-DomeniaTargetAddress -Computer 'PC-7' -Text 'Réponse ICMP · 3 ms · 10.4.5.6')
+ Assert ((Get-DomeniaKnownTargetGroup -Provider 'Cim' -Target 'pc-7') -eq '10.4.5.0/24') 'Sous-réseau présumé absent'
+ Assert ((Get-DomeniaKnownTargetGroup -Provider 'Cim' -Target 'PC-INCONNU') -eq '') 'Adresse inventée'
+}
+Case 'Point 21 : repère vérifié avant la synchronisation incrémentale, USN jamais au-delà de lʼinstance' {
+ $refresh=Get-CoreFunctionText 'Start-DomeniaIndexRefresh'
+ Assert ($refresh.Contains('Test-DomeniaSyncCheckpoint') -and $refresh.Contains('$lastUsn = [long]0; $lastInvocationId = ''''; $since = ''''')) 'Repère non vérifié avant envoi'
+ . ([scriptblock]::Create((Get-CoreFunctionText 'Get-DomeniaIndexWorkerCode')))
+ $code=Get-DomeniaIndexWorkerCode
+ Assert ($code.Contains('($lastUsn -gt $highestUsn)') -and $code.Contains("`$checkpointRejected = 'UsnAhead'") -and $code.Contains('CheckpointRejected = $checkpointRejected')) 'Garde USN absente du worker'
+ $complete=Get-CoreFunctionText 'Complete-DomeniaIndexRefreshUi'
+ Assert ($complete.Contains("'CheckpointRejected'")) 'Motif du worker non journalisé'
+}
+Case 'Point 20 : la reprise est proposée une fois par session et base, jamais par-dessus une autre demande' {
+ $targets=@(for($i=1;$i -le 3;$i++){[pscustomobject]@{Computer=('PC-'+$i);Key=('CN=PC-'+$i+',DC=example,DC=test');Guid=('00000000-0000-0000-0000-'+$i.ToString('d12'))}})
+ $plan=New-DomeniaCampaignPlan -Kind 'Ping' -Targets $targets -DomainDn $script:Conn.BaseDn -DatabasePath $script:DatabaseScopedPath
+ $progress=New-DomeniaCampaignProgress $plan;[void](Set-DomeniaCampaignTargetDone $progress 0);$progress.State='Closed'
+ $script:Prefs['Domenia.campaign-plan.json']=ConvertTo-DomeniaCampaignPlanText $plan
+ $script:Prefs['Domenia.campaign-progress.json']=ConvertTo-DomeniaCampaignProgressText $progress
+ $script:Offers=[Collections.Generic.List[string]]::new();$script:PendingRequest=[pscustomobject]@{Id='autre'}
+ function Get-DomeniaInlinePendingRequest {return $script:PendingRequest}
+ function Request-DomeniaInlineConfirmation {param($Title,$Target,$Message,$ConfirmText,$CancelText,$OnConfirm,$OnCancel)$script:Offers.Add([string]$Message);$script:OfferConfirm=$OnConfirm}
+ Request-DomeniaCampaignResumeOffer;Assert ($script:Offers.Count -eq 0) 'Proposée par-dessus une autre demande'
+ $script:PendingRequest=$null;Request-DomeniaCampaignResumeOffer
+ Assert ($script:Offers.Count -eq 1 -and $script:Offers[0] -match '2 poste' -and $script:Offers[0] -match 'fermeture') ('Offre : '+($script:Offers -join ' | '))
+ Request-DomeniaCampaignResumeOffer;Assert ($script:Offers.Count -eq 1) 'Proposée deux fois'
+ $script:Resumed=$null
+ # The answer runs through the closure of the inline request: the double replaces the module function itself.
+ function script:Start-DomeniaOnlinePark {param([object[]]$ScopeTargets,[string]$ScopeLabel,[switch]$PingOnly,[switch]$WmiOnly,[switch]$Inventory,$Probes)$script:Resumed=[pscustomobject]@{Count=@($ScopeTargets).Count;PingOnly=[bool]$PingOnly}}
+ & $script:OfferConfirm
+ Assert ($null -ne $script:Resumed -and $script:Resumed.Count -eq 2 -and $script:Resumed.PingOnly) 'Reprise sans les seuls postes restants ou sans son mode'
+}
+Case 'Opérations : la santé du moteur inclut les mesures de la collecte' {
+ $script:DomeniaSharedReadCount=3;$script:DomeniaCimQueriesAvoided=5;$script:DomeniaCimQueriesExecuted=4
+ $lines=@(Get-DomeniaCollectionHealthLines)
+ Assert (@($lines|Where-Object{$_ -match 'Lectures identiques partagées : 3'}).Count -eq 1)
+ Assert (@($lines|Where-Object{$_ -match 'Requêtes WMI évitées par regroupement : 5 sur 9'}).Count -eq 1)
+ Assert (@($lines|Where-Object{$_ -match '^Profil de collecte : Standard'}).Count -eq 1)
+ $health=[IO.File]::ReadAllText((Join-Path $wad 'modules\Domenia-Experience.UI.ps1'))
+ Assert ($health.Contains('Get-DomeniaCollectionHealthLines')) 'Panneau non raccordé'
+}
+$failed=@($checks|Where-Object Status -eq 'Failed').Count
+$report=[ordered]@{Kind='CollectionWiring';Expected=12;Complete=($checks.Count -eq 12 -and $failed -eq 0);NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
+if(-not $ReportPath){$ReportPath=Join-Path $env:TEMP 'domenia-collection-wiring-tests.json'}
+[IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
+Write-Host ($report.Passed.ToString()+' reussis, '+$failed+' echecs. '+$ReportPath)
+if($failed -or -not $report.Complete){exit 1};exit 0
