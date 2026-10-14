@@ -591,3 +591,40 @@ Test-Case 'P49' 'Decision par la relecture seule : conforme, contraire, refusee 
     Assert-True (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='Existence'}) ([pscustomobject]@{ReadStatus='OK';Exists=$true})).Verified
     Assert-False (Resolve-DomeniaReceiptCheck $null $ok).Verified 'Operation sans regle verifiee'
 }
+# Point 48 : apercu d une operation collective. Liste exacte, exclusions motivees, impact, confirmation proportionnee.
+Test-Case 'P48' 'Liste exacte : type attendu, identite complete, doublon et limite exclus avec leur motif' {
+    $c={param($n,$type='Machine',$guid='')
+        if(-not $guid){$guid=('00000000-0000-0000-0000-'+([int]$n).ToString('d12'))}
+        [pscustomobject]@{Name=('PC-'+$n);DN=('CN=PC-'+$n+',DC=example,DC=test');Guid=$guid;Type=$type}}
+    $candidates=@((& $c 1),(& $c 2),(& $c 3 'Utilisateur'),([pscustomobject]@{Name='PC-4';DN='';Guid='x';Type='Machine'}),(& $c 1),(& $c 5),(& $c 6))
+    $p=New-DomeniaCollectivePreview -OperationId 'ParkSweep' -Candidates $candidates -ExpectedType 'Machine' -Change 'ping ICMP' -Limit 3 -Excluded @([pscustomobject]@{Name='PC-9';DN='CN=PC-9,DC=example,DC=test';Reason='Écarté en amont'})
+    Assert-Equal 'PC-1,PC-2,PC-5' ((@($p.Targets)|ForEach-Object{$_.Name}) -join ',')
+    Assert-Equal 5 ([int]$p.ExcludedCount)
+    $reasons=(@($p.Excluded)|ForEach-Object{$_.Name+'='+$_.Reason}) -join '|'
+    Assert-True ($reasons -match 'PC-3=Type Utilisateur') $reasons;Assert-True ($reasons -match 'PC-4=Identité incomplète') $reasons
+    Assert-True ($reasons -match 'PC-1=Doublon') $reasons;Assert-True ($reasons -match 'PC-6=Au-delà de la limite de 3') $reasons;Assert-True ($reasons -match 'PC-9=Écarté en amont') $reasons
+    Assert-True ((@($p.Lines) -join ' ') -match 'PC-2 : ping ICMP')
+    Assert-True ($p.Details.Contains('CN=PC-5,DC=example,DC=test') -and $p.Details.Contains('PC-6 — Au-delà')) $p.Details
+}
+Test-Case 'P48' 'Avant et apres par cible, liste bornee a l ecran mais complete dans le detail' {
+    $many=@(for($i=1;$i -le 30;$i++){[pscustomobject]@{Name=('U'+$i);DN=('CN=U'+$i+',DC=example,DC=test');Guid=([guid]::NewGuid().ToString());Type='Utilisateur';Before='Actif';After='Désactivé'}})
+    $p=New-DomeniaCollectivePreview -OperationId 'WriteAccountDisabled' -Candidates $many -ExpectedType 'Utilisateur' -ShownLines 5
+    Assert-True ((@($p.Lines) -join ' ') -match 'U1 : Actif → Désactivé')
+    Assert-True ((@($p.Lines) -join ' ') -match '… et 25 autre') 'Reste non annonce'
+    Assert-Equal 30 (@($p.Details -split "`n" | Where-Object{$_ -match 'Actif → Désactivé'})).Count
+}
+Test-Case 'P48' 'Confirmation proportionnee : ecriture collective saisie, lecture saisie au-dela du seuil, cible unique simple' {
+    $two=@(for($i=1;$i -le 2;$i++){[pscustomobject]@{Name=('U'+$i);DN=('CN=U'+$i+',DC=example,DC=test');Guid=([guid]::NewGuid().ToString());Type='Utilisateur'}})
+    $w=New-DomeniaCollectivePreview -OperationId 'WriteAccountDisabled' -Candidates $two
+    Assert-Equal 'Typed' $w.Level;Assert-Equal '2' $w.TypedText;Assert-Equal 'Danger' $w.Risk
+    $one=New-DomeniaCollectivePreview -OperationId 'WriteAccountDisabled' -Candidates @($two[0])
+    Assert-Equal 'Simple' $one.Level;Assert-Equal 'Danger' $one.Risk
+    $read=New-DomeniaCollectivePreview -OperationId 'ParkSweep' -Candidates $two -TypedThreshold 1
+    Assert-Equal 'Typed' $read.Level;Assert-Equal 'Normal' $read.Risk
+    Assert-Equal 'Simple' (New-DomeniaCollectivePreview -OperationId 'ParkSweep' -Candidates $two).Level
+    Assert-Equal 'Typed' (New-DomeniaCollectivePreview -OperationId 'OperationInconnue' -Candidates $two).Level
+    $none=New-DomeniaCollectivePreview -OperationId 'ParkSweep' -Candidates @()
+    Assert-Equal 'None' $none.Level;Assert-Equal 0 ([int]$none.Count)
+    $impact=New-DomeniaCollectivePreview -OperationId 'ParkSweep' -Candidates $two -Impact 'Environ 2 min · 2 poste(s) contacté(s)'
+    Assert-True ((@($impact.Lines) -join ' ') -match 'Impact : Environ 2 min') 'Impact absent'
+}

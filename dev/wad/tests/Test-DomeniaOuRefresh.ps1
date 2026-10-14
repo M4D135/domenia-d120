@@ -3,7 +3,8 @@
 param([string]$ReportPath='')
 $ErrorActionPreference='Stop'
 $wad=Split-Path -Parent $PSScriptRoot;$modules=Join-Path $wad 'modules'
-foreach($name in @('Common.Model','Storage.UI','Park.UI','Refresh.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+# Point 48: Safety.Model provides the exact preview of the collective read (New-DomeniaCollectivePreview).
+foreach($name in @('Common.Model','Safety.Model','Storage.UI','Park.UI','Refresh.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 $tokens=$null;$parseErrors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'),[ref]$tokens,[ref]$parseErrors)
 if($parseErrors.Count){throw 'Core parse failure'}
 foreach($name in @('Test-DomeniaIndexWriteReady','Start-DomeniaIndexScopeBuild','Update-DomeniaIndexDatabaseRows','Complete-DomeniaIndexScopeUi','Fail-DomeniaIndexBuildUi')){
@@ -57,7 +58,7 @@ function ConvertTo-DomeniaProbePayload {param($Ids);foreach($id in $Ids){[pscust
 function Initialize-DomeniaWinSqliteNative {return $true}
 function New-DomeniaObservationReader {return [pscustomobject]@{Fixture=$true}}
 function Clear-DomeniaParkTargetBuffers {param($Targets)}
-function Request-DomeniaInlineConfirmation {param($Title,$Target,$Message,$ConfirmText,$CancelText,$OnConfirm,$OnCancel);$script:Confirmation=[pscustomobject]@{Message=$Message;Confirm=$OnConfirm;Cancel=$OnCancel}}
+function Request-DomeniaInlineConfirmation {param($Title,$Target,$Message,$ConfirmText,$CancelText,$OnConfirm,$OnCancel,$Risk,[string[]]$Changes,$Details,$DetailsTitle,[switch]$DetailsExpertOnly,$TypedConfirmation,$TypedPrompt);$script:Confirmation=[pscustomobject]@{Message=$Message;Confirm=$OnConfirm;Cancel=$OnCancel;Changes=@($Changes);Details=[string]$Details}}
 function Reset-Fixture {
     $script:Conn=[pscustomobject]@{BaseDn='DC=example,DC=test';Domain='example.test'};$script:DatabaseScopedPath='/fixture/local.sqlite';$script:SessionEpoch=4;$script:GlobalSearchGeneration=6
     $script:SelectedBranchDn='OU=Recherche,DC=example,DC=test';$script:FleetScopeDn='OU=Dashboard,DC=example,DC=test';$script:IndexScopeDn='OU=Base,DC=example,DC=test';$script:SearchMode='Global'

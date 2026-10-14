@@ -50,7 +50,7 @@ function Start-DomeniaOnlinePark {
         if((Get-DomeniaPersistenceState).Pending -gt 0 -or ($null -ne $script:Persistence -and $script:Persistence.LinkBusy)){throw 'Attendez la confirmation des enregistrements locaux avant un nouveau releve.'}
         if(-not $script:DatabaseScopedPath){throw 'Aucune base autonome active.'}
         [void](Initialize-DomeniaWinSqliteNative)
-        $targets=@()
+        $targets=@();$excluded=@()
         if($null -ne $ScopeTargets){
             $targets=@($ScopeTargets|Where-Object{$null -ne $_ -and $_.distinguished_name -and $_.object_guid})
             if(-not $targets.Count){throw 'Poste selectionne sans DN ni GUID connu : relisez sa fiche.'}
@@ -58,12 +58,19 @@ function Start-DomeniaOnlinePark {
         }
         elseif($DisplayedResults){
             $grid=Get-DomeniaControl 'DgObjects'
-            $targets=@(foreach($row in @($grid.Items)){if($null -ne $row -and $row.Type -eq 'Machine' -and $row.DN -and $row.Guid){[pscustomobject]@{name=[string]$row.Name;distinguished_name=[string]$row.DN;object_guid=[string]$row.Guid}}})
+            # Point 48: every displayed row is a candidate; the preview keeps the exact targets and says why the others stay out.
+            $candidates=@(foreach($row in @($grid.Items)){if($null -ne $row){[pscustomobject]@{Name=[string]$row.Name;DN=[string]$row.DN;Guid=[string]$row.Guid;Type=[string]$row.Type}}})
+            $preview=New-DomeniaCollectivePreview -OperationId 'ParkSweep' -Candidates $candidates -ExpectedType 'Machine'
+            $excluded=@($preview.Excluded)
+            $targets=@(foreach($target in @($preview.Targets)){[pscustomobject]@{name=[string]$target.Name;distinguished_name=[string]$target.DN;object_guid=[string]$target.Guid}})
             if(-not $targets.Count){throw 'Aucun poste dans les resultats affiches.'}
         }
         $script:ParkRun=[pscustomobject]@{Id=[guid]::NewGuid().ToString('N');Epoch=[long]$script:SessionEpoch;Path=[string]$script:DatabaseScopedPath;Targets=@();Next=0;Pending=@{};Concurrency=([Math]::Max(1,[Math]::Min(8,[int](Get-DomeniaSetting 'Collection.Concurrency' '4'))));CacheMinutes=([Math]::Max(0,[Math]::Min(1440,[int](Get-DomeniaSetting 'Collection.CacheMinutes' '15'))));CachedMeasurements=0;Done=0;Online=0;Reused=0;Changed=0;Failed=0;Stopping=$false;Completed=$false;Loading=$true;Approved=$false;ObservationReader=(New-DomeniaObservationReader);Timer=$null;StatusText='';Generation=[long]$script:GlobalSearchGeneration;PingOnly=[bool]$PingOnly;WmiOnly=[bool]$WmiOnly;AccountGeneration=[long]$script:DomeniaAccountGeneration;StorePending=@{};Inventory=[bool]$Inventory;Probes=@(Add-DomeniaRemoteProbeDefinitionHash $Probes);FleetRefresh=$true;ScopeLabel=[string]$ScopeLabel;Scope=$(if($DisplayedResults){'Results'}else{'Park'})}
         $started=$true
         $script:ParkRun|Add-Member -NotePropertyName RefreshOperationId -NotePropertyValue $RefreshOperationId
+        # Point 48: what was asked and what was left out before the local read, for the exact preview.
+        $script:ParkRun|Add-Member -NotePropertyName Requested -NotePropertyValue @($targets)
+        $script:ParkRun|Add-Member -NotePropertyName PreviewExcluded -NotePropertyValue @($excluded)
         $script:ParkRun|Add-Member -NotePropertyName FailureMessage -NotePropertyValue ''
         if($ForceRefresh){$script:ParkRun.CacheMinutes=0}
         $r=$script:ParkRun;$state=[pscustomobject]@{RunId=$r.Id;Epoch=$r.Epoch;Path=$r.Path}
@@ -104,7 +111,17 @@ function Complete-DomeniaParkTargets {
         if($r.PingOnly -and -not $r.ScopeLabel){$message=$r.Targets.Count.ToString()+' postes dans les resultats affiches. Ping ICMP seulement, '+$r.Concurrency+' postes au maximum a la fois ; aucune lecture de session ni association.'}
         if($r.WmiOnly){$message=$r.Targets.Count.ToString()+' postes'+$(if($r.ScopeLabel){' de '+$r.ScopeLabel}else{' du perimetre choisi'})+'. Lecture WMI seulement : console'+$(if($r.Inventory){', inventaire leger'}else{''})+$(if(@($r.Probes).Count){' et sondes des widgets'}else{''})+'. Aucun ping ni validation AD supplementaire. '+$r.Concurrency+' lectures au maximum en parallele.'}
         if(-not $r.PingOnly){$message+=' '+$(if($r.CacheMinutes -gt 0){'Réutilisation des mesures encore fraîches, au plus '+$r.CacheMinutes+' min (1 min pour les sondes volatiles, 5 min pour l inventaire). Le ping et la console sont relus.'}else{'Relecture forcée de toutes les mesures demandées.'})}
-        Request-DomeniaInlineConfirmation -Title $(if($r.Inventory){'Analyser les postes affiches'}elseif(@($r.Probes).Count){'Sonder pour les widgets'}elseif($r.PingOnly){'Pinger les postes affiches'}elseif($r.Scope -eq 'Results'){'Detecter sur les resultats affiches'}else{'Detecter sur tout le parc'}) -Target ([string]$script:Conn.Domain) -Message $message -ConfirmText $(if($r.PingOnly){'Pinger'}elseif($r.Inventory){'Analyser'}else{'Verifier les sessions'}) -CancelText 'Annuler' -OnConfirm ({& $start $runId}.GetNewClosure()) -OnCancel ({& $stop -RunId $runId}.GetNewClosure())
+        # Point 48: the exact list, what each target gets, the exclusions and why, the impact, a proportionate confirmation.
+        $requested=@{};foreach($asked in @(Get-DomeniaMember $r 'Requested' @())){$requested[([string]$asked.distinguished_name).ToLowerInvariant()]=$asked}
+        $returned=@{};foreach($target in @($r.Targets)){$returned[[string]$target.Key]=$true}
+        $excluded=@(Get-DomeniaMember $r 'PreviewExcluded' @())
+        foreach($key in @($requested.Keys)){if(-not $returned.ContainsKey([string]$key)){$asked=$requested[$key];$excluded+=@([pscustomobject]@{Name=[string]$asked.name;DN=[string]$asked.distinguished_name;Reason='Écarté par la base locale : nom de poste non valide, doublon ou poste inconnu'})}}
+        $candidates=@(foreach($target in @($r.Targets)){$dn=[string]$target.Key;if($requested.ContainsKey($dn)){$dn=[string]$requested[$dn].distinguished_name};[pscustomobject]@{Name=[string]$target.Computer;DN=$dn;Guid=[string]$target.Guid;Type='Machine'}})
+        $change=if($r.PingOnly){'ping ICMP'}elseif($r.WmiOnly){'lecture WMI'}elseif($r.Inventory){'ping, utilisateur console et relevé WMI léger'}elseif(@($r.Probes).Count){'requêtes WMI des widgets, ping et utilisateur console'}else{'ping puis utilisateur console'}
+        $impactText=''
+        try{$impactText=[string](Format-DomeniaOperationImpact -Estimate (Get-DomeniaOperationImpactEstimate -Operation 'ParkSweep' -ItemCount @($r.Targets).Count)).Sentence}catch{$impactText=''}
+        $preview=New-DomeniaCollectivePreview -OperationId 'ParkSweep' -Candidates $candidates -Excluded $excluded -ExpectedType 'Machine' -Change $change -Impact $impactText
+        Request-DomeniaInlineConfirmation -Title $(if($r.Inventory){'Analyser les postes affiches'}elseif(@($r.Probes).Count){'Sonder pour les widgets'}elseif($r.PingOnly){'Pinger les postes affiches'}elseif($r.Scope -eq 'Results'){'Detecter sur les resultats affiches'}else{'Detecter sur tout le parc'}) -Target ([string]$script:Conn.Domain) -Message $message -ConfirmText $(if($r.PingOnly){'Pinger'}elseif($r.Inventory){'Analyser'}else{'Verifier les sessions'}) -CancelText 'Annuler' -OnConfirm ({& $start $runId}.GetNewClosure()) -OnCancel ({& $stop -RunId $runId}.GetNewClosure()) -Changes @($preview.Lines) -Details ([string]$preview.Details) -DetailsTitle 'Liste exacte des cibles et des exclusions' -TypedConfirmation ([string]$preview.TypedText)
     }catch{Fail-DomeniaParkTargets $_.Exception.Message $State}
 }
 function Fail-DomeniaParkTargets {

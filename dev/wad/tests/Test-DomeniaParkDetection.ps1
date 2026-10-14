@@ -18,7 +18,7 @@ function Add-DomeniaUiLog {param($Area,$Text,$Level)}
 function Initialize-DomeniaWinSqliteNative {}
 function Get-DomeniaSetting {param($Name,$Default)return $Default}
 function New-DomeniaObservationReader {return [pscustomobject]@{Fixture=$true}}
-function Request-DomeniaInlineConfirmation {param($Title,$Target,$Message,$ConfirmText,$CancelText,$OnConfirm,$OnCancel)$script:Confirm=$OnConfirm;$script:Cancel=$OnCancel;$script:Message=$Message}
+function Request-DomeniaInlineConfirmation {param($Title,$Target,$Message,$ConfirmText,$CancelText,$OnConfirm,$OnCancel,$Risk,[string[]]$Changes,$Details,$DetailsTitle,[switch]$DetailsExpertOnly,$TypedConfirmation,$TypedPrompt)$script:Confirm=$OnConfirm;$script:Cancel=$OnCancel;$script:Message=$Message;$script:Preview=[pscustomobject]@{Changes=@($Changes);Details=[string]$Details;Typed=[string]$TypedConfirmation;DetailsExpertOnly=[bool]$DetailsExpertOnly}}
 function Start-UiTask {
  param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,[switch]$NonCancellable,$TimeoutSeconds,$TaskClass)
  $id='job-'+$script:Calls.Count
@@ -73,6 +73,31 @@ Case 'Resultats : seuls les postes affiches apres filtre sont figes' {
  Start-DomeniaOnlinePark -DisplayedResults
  $p=$script:Calls[0].Payload;Assert ($p.Scope -eq 'Results' -and $p.Targets.Count -eq 1 -and $p.Targets[0].name -eq 'PC-1')
  $script:Ctrl.DgObjects.Items.Filter=$null;Assert ($p.Targets.Count -eq 1)
+}
+Case 'Point 48 : apercu exact des cibles, exclusions motivees, confirmation proportionnee' {
+ Reset-Fixture
+ $rows=[Collections.ObjectModel.ObservableCollection[object]]::new()
+ foreach($n in 1..4){$row=New-DomeniaLiveResultRow;$row.Type=$(if($n -eq 4){'Utilisateur'}else{'Machine'});$row.Name='PC-'+$n;$row.DN='CN=PC-'+$n+',DC=example,DC=invalid';$row.Guid=$(if($n -eq 3){''}else{(New-Target $n).Guid});$rows.Add($row)}
+ $script:Ctrl.DgObjects.ItemsSource=$rows
+ Start-DomeniaOnlinePark -DisplayedResults -PingOnly
+ $call=$script:Calls[0];Assert ($call.Payload.Targets.Count -eq 2) ('Cibles demandees : '+$call.Payload.Targets.Count)
+ # The local base returns PC-1 only: PC-2 is left out by it, with its reason.
+ Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@([pscustomobject]@{Computer='PC-1';Key='cn=pc-1,dc=example,dc=invalid';Guid=(New-Target 1).Guid;Previous=$null});Busy=$false}) $call.State
+ $p=$script:Preview
+ Assert ($null -ne $p) 'Aucun apercu transmis a la confirmation'
+ Assert ((@($p.Changes) -join ' ') -match '1 cible exacte') ('Nombre absent : '+(@($p.Changes) -join ' | '))
+ Assert ((@($p.Changes) -join ' ') -match 'PC-1 : ping ICMP') 'Changement par cible absent'
+ Assert ((@($p.Changes) -join ' ') -match '3 exclue') 'Exclusions non comptees'
+ Assert ($p.Details.Contains('CN=PC-1,DC=example,DC=invalid') -and $p.Details.Contains('PC-2') -and $p.Details.Contains('PC-3') -and $p.Details.Contains('PC-4')) 'Liste exacte incomplete'
+ Assert ($p.Details -match 'Type Utilisateur' -and $p.Details -match 'Identité incomplète' -and $p.Details -match 'base locale') 'Motifs d exclusion absents'
+ Assert (-not $p.DetailsExpertOnly) 'Liste des cibles reservee au profil Expert'
+ Assert ($p.Typed -eq '') 'Saisie exigee pour une lecture de 1 poste'
+ & $script:Cancel
+}
+Case 'Point 48 : au-dela de 200 postes, la lecture demande de saisir le nombre de cibles' {
+ Reset-Fixture;Ready-Run 201
+ Assert ($script:Preview.Typed -eq '201') ('Saisie : '+$script:Preview.Typed)
+ Assert ((@($script:Preview.Changes) -join ' ') -match 'Confirmation renforcée')
 }
 Case 'Resultats : vide ne retombe jamais sur tout le parc' {Reset-Fixture;Start-DomeniaOnlinePark -DisplayedResults;Assert ($script:Calls.Count -eq 0)}
 Case 'Parc : lecture locale avant confirmation et aucun poste sans confirmation' {Reset-Fixture;Ready-Run;Assert ($script:Calls.Count -eq 1 -and $null -ne $script:Confirm -and $null -eq $script:ParkRun.Timer);& $script:Cancel;Assert $script:ParkRun.Completed;Assert ($script:Calls.Count -eq 1)}

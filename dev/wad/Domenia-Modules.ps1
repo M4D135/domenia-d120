@@ -400,6 +400,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Test-DomeniaPlanStillValid',
             'Get-DomeniaPostconditionRule',
             'Resolve-DomeniaPostcondition',
+            'New-DomeniaCollectivePreview',
             'Get-DomeniaReceiptExpectation',
             'Resolve-DomeniaReceiptCheck',
             'Get-DomeniaReceiptRequirement',

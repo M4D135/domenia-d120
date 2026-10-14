@@ -495,6 +495,95 @@ function Resolve-DomeniaPostcondition {
     return [pscustomobject]@{Status=$status;Label=$statusLabel;Proof=$proof;Limit=$limit;Kind=$kind;Server=$server;Checked=$checked;Satisfied=$satisfied;Details=$details.ToArray();ProcessResultIsProof=$false}
 }
 
+# ---------------------------------------------------------------- Point 48 preview of a collective operation
+function New-DomeniaCollectivePreview {
+    # Point 48: before a collective operation, the exact list of targets, what each one gets, what is left out and
+    # why, the impact and a confirmation in proportion to the risk. Pure: the candidates come from the list the
+    # operator chose; nothing is read or sent here. $Candidates: {Name, DN, Guid, Type, Before, After};
+    # $Excluded: exclusions decided upstream, {Name, DN, Reason}. A write, a remote action or an unknown operation on
+    # two targets or more asks for the number of targets to be typed; a read does so above $TypedThreshold targets.
+    param(
+        [Parameter(Mandatory=$true)][string]$OperationId,
+        [object[]]$Candidates=@(),
+        [object[]]$Excluded=@(),
+        [AllowEmptyString()][string]$ExpectedType='',
+        [AllowEmptyString()][string]$Change='',
+        [AllowEmptyString()][string]$Impact='',
+        [ValidateRange(1,100000)][int]$Limit=20000,
+        [ValidateRange(1,100000)][int]$TypedThreshold=200,
+        [ValidateRange(1,200)][int]$ShownLines=12
+    )
+    $targets = New-Object 'System.Collections.Generic.List[object]'
+    $left = New-Object 'System.Collections.Generic.List[object]'
+    $seen = @{}
+    foreach ($item in @($Excluded)) {
+        if ($null -eq $item) { continue }
+        $left.Add([pscustomobject]@{Name=[string](Get-DomeniaMember $item 'Name' '');DN=[string](Get-DomeniaMember $item 'DN' '');Reason=[string](Get-DomeniaMember $item 'Reason' 'Exclu')})
+    }
+    foreach ($candidate in @($Candidates)) {
+        if ($null -eq $candidate) { continue }
+        $name = ([string](Get-DomeniaMember $candidate 'Name' '')).Trim()
+        $dn = ([string](Get-DomeniaMember $candidate 'DN' '')).Trim()
+        $guid = ([string](Get-DomeniaMember $candidate 'Guid' '')).Trim().Trim('{','}')
+        $type = ([string](Get-DomeniaMember $candidate 'Type' '')).Trim()
+        $label = $name
+        if (-not $label) { $label = $dn }
+        if (-not $label) { $label = '(sans nom)' }
+        $reason = ''
+        if ($ExpectedType -and $type -and ($type -ne $ExpectedType)) { $reason = 'Type ' + $type + ' hors du périmètre de lʼopération' }
+        elseif ((-not $dn) -or (-not $guid)) { $reason = 'Identité incomplète (DN ou GUID absent) : relisez la fiche' }
+        elseif ($seen.ContainsKey($guid.ToLowerInvariant())) { $reason = 'Doublon dʼun objet déjà listé' }
+        elseif ($targets.Count -ge $Limit) { $reason = 'Au-delà de la limite de ' + $Limit + ' cibles' }
+        if ($reason) { $left.Add([pscustomobject]@{Name=$label;DN=$dn;Reason=$reason}); continue }
+        $seen[$guid.ToLowerInvariant()] = $true
+        $before = [string](Get-DomeniaMember $candidate 'Before' '')
+        $after = [string](Get-DomeniaMember $candidate 'After' '')
+        $text = $Change
+        if ($before -or $after) { $text = $before + ' → ' + $after }
+        $targets.Add([pscustomobject]@{Name=$label;DN=$dn;Guid=$guid;Type=$type;Change=$text})
+    }
+    $effect = Get-DomeniaOperationEffect $OperationId
+    $risk = 'Normal'; $level = 'Simple'; $typed = ''
+    if ($effect -in @('DirectoryWrite','RemoteMutation','Unknown')) {
+        $risk = 'Danger'
+        if ($targets.Count -ge 2) { $level = 'Typed'; $typed = [string]$targets.Count }
+    } elseif ($targets.Count -gt $TypedThreshold) { $level = 'Typed'; $typed = [string]$targets.Count }
+    if ($targets.Count -eq 0) { $level = 'None'; $typed = '' }
+    $lines = New-Object 'System.Collections.Generic.List[string]'
+    $count = $targets.Count
+    if ($count -eq 1) { $lines.Add('1 cible exacte, et seulement elle.') } else { $lines.Add([string]$count + ' cibles exactes, et seulement elles : liste complète dans le détail.') }
+    $shown = [Math]::Min($ShownLines,$count)
+    for ($i = 0; $i -lt $shown; $i++) {
+        $line = [string]$targets[$i].Name
+        if ([string]$targets[$i].Change) { $line += ' : ' + [string]$targets[$i].Change }
+        $lines.Add($line)
+    }
+    if ($count -gt $shown) { $lines.Add('… et ' + ($count - $shown) + ' autre(s).') }
+    if ($left.Count -gt 0) {
+        $groups = @($left | Group-Object -Property Reason | Sort-Object -Property @{Expression='Count';Descending=$true},Name)
+        $lines.Add([string]$left.Count + ' exclue(s) : ' + ((@($groups | ForEach-Object { [string]$_.Name + ' (' + $_.Count + ')' })) -join ' ; ') + '.')
+    }
+    if ($Impact) { $lines.Add('Impact : ' + $Impact) }
+    if ($level -eq 'Typed') { $lines.Add('Confirmation renforcée : saisissez le nombre de cibles (' + $typed + ').') }
+    $details = New-Object 'System.Collections.Generic.List[string]'
+    $details.Add('Cibles (' + $count + ') :')
+    foreach ($target in $targets) {
+        $entry = [string]$target.Name
+        if ([string]$target.DN) { $entry += ' — ' + [string]$target.DN }
+        if ([string]$target.Change) { $entry += ' — ' + [string]$target.Change }
+        $details.Add($entry)
+    }
+    if ($left.Count -gt 0) {
+        $details.Add('')
+        $details.Add('Exclues (' + $left.Count + ') :')
+        foreach ($item in $left) { $details.Add([string]$item.Name + ' — ' + [string]$item.Reason) }
+    }
+    return [pscustomobject]@{
+        OperationId=$OperationId;Effect=$effect;Targets=$targets.ToArray();Excluded=$left.ToArray();Count=$count;ExcludedCount=$left.Count
+        Lines=$lines.ToArray();Details=($details.ToArray() -join "`n");Risk=$risk;Level=$level;TypedText=$typed
+    }
+}
+
 # ---------------------------------------------------------------- Point 49 re-read of an uncertain write, later
 # These two rules are copied as text into the write and receipt workers (Get-DomeniaWorkerRulesCommon): they only use
 # Get-DomeniaMember and .NET types.
