@@ -332,6 +332,17 @@ Test-Case 'P44' 'Une operation partie avant la correction ne renvoie plus l anci
     Assert-True (Register-WCredentialFailure $new ([ComponentModel.Win32Exception]::new(1326)) Directory)
     Assert-True $g.Faults.ContainsKey('jdupont@corp.example') 'Refus du compte valide ignore'
 }
+Test-Case 'P45' 'Une validation posterieure au refus d un alias l emporte ; un refus posterieur reprend la pause' {
+    $g=& $script:P45Guard
+    [void](Register-WCredentialFailure (& $script:P45Context $g 'jdupont@corp.example' '' 3) 'data 52e' Directory)
+    [void](Clear-DomeniaCredentialGuardFault $g @('jean.dupont@corp.example.com') 5)
+    $r=Register-DomeniaCredentialAliases $g 'S-1-5-21-1-2-3-1104' @('jdupont@corp.example','jean.dupont@corp.example.com')
+    Assert-Equal 0 ([int]$r.Propagated) 'Refus anterieur a la validation propage'
+    Assert-WCredentialAllowed (& $script:P45Context $g '' 'jean.dupont@corp.example.com' 5) Remote
+    Assert-Throws {Assert-WCredentialAllowed (& $script:P45Context $g 'jdupont@corp.example' '' 4) Directory} 'Une operation partie avant la validation reste autorisee'
+    [void](Register-WCredentialFailure (& $script:P45Context $g 'jdupont@corp.example' '' 6) 'data 52e' Directory)
+    Assert-Throws {Assert-WCredentialAllowed (& $script:P45Context $g '' 'jean.dupont@corp.example.com' 6) Remote} 'Un refus posterieur a la validation ne suspend pas l alias'
+}
 Test-Case 'P44' 'Plan de correction : lectures anciennes arretees, ecritures et autres comptes intacts' {
     $job={param($Id,[bool]$Write,[string]$State,[string]$Key,[long]$Generation,[bool]$Protected=$false)[pscustomobject]@{Id=$Id;IsWrite=$Write;NonCancellable=$Protected;State=$State;Keys=@($Key);Generation=$Generation}}
     $jobs=@((& $job 'read-old' $false 'Running' 'jdupont@corp.example' 3),(& $job 'read-alias' $false 'Running' 'jean.dupont@corp.example.com' 3),(& $job 'write' $true 'Running' 'jdupont@corp.example' 3),

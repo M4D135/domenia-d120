@@ -109,20 +109,23 @@ function Assert-WCredentialAllowed {
     try{
         $operation=[string]$Context.OperationId;if(-not $operation){$operation='UnknownOperation'}
         if($guard.ContainsKey('AmbiguousOperations') -and $guard.AmbiguousOperations.ContainsKey($operation)){throw '[DOMENIA:CredentialPaused;0;0x00000000] Origine du refus d authentification indeterminee : cette operation est suspendue. Reconnectez-vous pour reprendre.'}
-        # Point 45: names of one account confirmed by a validated identity (same SID) share one pause.
-        $checked=[Collections.Generic.List[string]]::new()
         foreach($key in $keys){
-            $checked.Add([string]$key)
-            if(($guard.ContainsKey('Aliases')) -and ($guard.Aliases.ContainsKey($key))){foreach($alias in @($guard.Groups[[string]$guard.Aliases[$key]])){$checked.Add([string]$alias)}}
-        }
-        foreach($key in $checked){
-            if($guard.Faults.ContainsKey($key)){
+            # Point 45: names of one account confirmed by a validated identity (same SID) share one pause.
+            $names=@([string]$key)
+            if(($guard.ContainsKey('Aliases')) -and ($guard.Aliases.ContainsKey($key))){$names=@($guard.Groups[[string]$guard.Aliases[$key]])}
+            # Point 44: the latest explicit validation of this account, under any of its names.
+            $released=0L
+            if($guard.ContainsKey('Released')){foreach($name in $names){if(($guard.Released.ContainsKey($name)) -and ([long]$guard.Released[$name] -gt $released)){$released=[long]$guard.Released[$name]}}}
+            # A job that left before that validation still holds the previous password.
+            if($released -gt $generation){throw '[DOMENIA:CredentialPaused;0;0x00000000] Compte corrige apres le depart de cette operation : aucun nouvel essai avec l ancien mot de passe. Relancez-la pour utiliser le compte valide.'}
+            foreach($name in $names){
+                if(-not $guard.Faults.ContainsKey($name)){continue}
+                # A refusal older than the latest validation of the account no longer pauses it.
+                $fault=$guard.Faults[$name];$faultGeneration=0L
+                if($null -ne $fault.PSObject.Properties['Generation']){$faultGeneration=[long]$fault.Generation}
+                if($faultGeneration -lt $released){continue}
                 # Stable marker survives legacy string-only wrappers; no new authentication is attempted.
                 throw '[DOMENIA:CredentialPaused;0;0x00000000] Protection du compte : collectes suspendues apres un refus d authentification. Corrigez ce compte dans Comptes ou reconnectez-vous pour reprendre. Les donnees locales restent consultables.'
-            }
-            # Point 44: a job that left before the operator corrected this account still holds the previous password.
-            if(($guard.ContainsKey('Released')) -and ($guard.Released.ContainsKey($key)) -and ([long]$guard.Released[$key] -gt $generation)){
-                throw '[DOMENIA:CredentialPaused;0;0x00000000] Compte corrige apres le depart de cette operation : aucun nouvel essai avec l ancien mot de passe. Relancez-la pour utiliser le compte valide.'
             }
         }
     }finally{[Threading.Monitor]::Exit($guard.SyncRoot)}
@@ -220,15 +223,21 @@ function Register-WCredentialFailure {
             if($Context -is [Collections.IDictionary]){[void][long]::TryParse([string]$Context['CredentialGeneration'],[ref]$generation)}
             elseif($null -ne $Context.PSObject.Properties['CredentialGeneration']){[void][long]::TryParse([string]$Context.CredentialGeneration,[ref]$generation)}
             foreach($key in $keys){
-                # Point 44: the refusal of a password the operator has since corrected pauses nothing.
-                if(($guard.ContainsKey('Released')) -and ($guard.Released.ContainsKey($key)) -and ([long]$guard.Released[$key] -gt $generation)){continue}
                 # Point 45: the pause covers every confirmed alias of the refused account.
                 $covered=@([string]$key)
                 if(($guard.ContainsKey('Aliases')) -and ($guard.Aliases.ContainsKey($key))){$covered=@($guard.Groups[[string]$guard.Aliases[$key]])}
+                # Point 44: the refusal of a password the operator has since corrected (under any name) pauses nothing.
+                $released=0L
+                if($guard.ContainsKey('Released')){foreach($name in $covered){if(($guard.Released.ContainsKey($name)) -and ([long]$guard.Released[$name] -gt $released)){$released=[long]$guard.Released[$name]}}}
+                if($released -gt $generation){continue}
                 foreach($name in $covered){
-                    if(-not $guard.Faults.ContainsKey($name)){
+                    $current=$null;if($guard.Faults.ContainsKey($name)){$current=$guard.Faults[$name]}
+                    $currentGeneration=-1L
+                    if(($null -ne $current) -and ($null -ne $current.PSObject.Properties['Generation'])){$currentGeneration=[long]$current.Generation}elseif($null -ne $current){$currentGeneration=0L}
+                    # A pause already recorded for this generation stays; one older than a validation is replaced.
+                    if(($null -eq $current) -or ($currentGeneration -lt $released)){
                         # Whitelisted diagnostics only. Never keep the exception, request or credentials.
-                        $guard.Faults[$name]=[pscustomobject]@{Kind=[string]$diagnostic.Kind;Code=[string]$diagnostic.Code;AtUtc=[datetime]::UtcNow}
+                        $guard.Faults[$name]=[pscustomobject]@{Kind=[string]$diagnostic.Kind;Code=[string]$diagnostic.Code;AtUtc=[datetime]::UtcNow;Generation=$generation}
                         $guard.Revision=[long]$guard.Revision+1
                     }
                 }
@@ -343,13 +352,21 @@ function Register-DomeniaCredentialAliases {
         if($members.Count -gt 16){$answer.Reason='Trop de noms pour un seul compte.';return $answer}
         $Guard.Groups[$group]=$members.ToArray()
         foreach($key in $members){$Guard.Aliases[$key]=$group}
-        # A pause already recorded under one name now covers the others: a queued read of an alias is withdrawn.
-        $fault=$null
-        foreach($key in $members){if($Guard.Faults.ContainsKey($key)){$fault=$Guard.Faults[$key];break}}
+        # A pause already recorded under one name now covers the others: a queued read of an alias is withdrawn. A
+        # pause older than the latest explicit validation of the account, under any of its names, no longer counts.
+        $released=0L
+        if($Guard.ContainsKey('Released')){foreach($key in $members){if(($Guard.Released.ContainsKey($key)) -and ([long]$Guard.Released[$key] -gt $released)){$released=[long]$Guard.Released[$key]}}}
+        $fault=$null;$faultGeneration=0L
+        foreach($key in $members){
+            if(-not $Guard.Faults.ContainsKey($key)){continue}
+            $candidate=$Guard.Faults[$key];$candidateGeneration=0L
+            if($null -ne $candidate.PSObject.Properties['Generation']){$candidateGeneration=[long]$candidate.Generation}
+            if($candidateGeneration -ge $released){$fault=$candidate;$faultGeneration=$candidateGeneration;break}
+        }
         $propagated=0
         if($null -ne $fault){
             foreach($key in $members){
-                if(-not $Guard.Faults.ContainsKey($key)){$Guard.Faults[$key]=[pscustomobject]@{Kind=[string]$fault.Kind;Code=[string]$fault.Code;AtUtc=$fault.AtUtc};$propagated++}
+                if(-not $Guard.Faults.ContainsKey($key)){$Guard.Faults[$key]=[pscustomobject]@{Kind=[string]$fault.Kind;Code=[string]$fault.Code;AtUtc=$fault.AtUtc;Generation=$faultGeneration};$propagated++}
             }
             if($propagated -gt 0){$Guard.Revision=[long]$Guard.Revision+1}
         }

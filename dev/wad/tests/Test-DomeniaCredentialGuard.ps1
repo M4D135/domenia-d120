@@ -61,7 +61,8 @@ Case 'Ping and database context contain no authentication keys' {
 Case 'Guard state carries only account keys and whitelisted error metadata' {
     $c=New-Fixture;[void](Register-WCredentialFailure $c 'data 52e')
     $fields=@($c.CredentialGuard.Faults['admin@example.invalid'].PSObject.Properties.Name)
-    Assert (($fields -join ',') -eq 'Kind,Code,AtUtc')
+    # Point 44: the account generation of the refused job is whitelisted metadata too (a number, never a secret).
+    Assert (($fields -join ',') -eq 'Kind,Code,AtUtc,Generation')
 }
 Case 'Logon harvest records a credential refusal before returning its status' {
     $core = Get-Content -LiteralPath (Join-Path $wad 'Domenia-Core.ps1') -Raw
