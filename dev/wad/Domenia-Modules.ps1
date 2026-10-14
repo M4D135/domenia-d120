@@ -220,6 +220,9 @@ function Get-DomeniaRuntimeModulePlan {
             'Test-DomeniaCredentialLease',
             'Use-DomeniaCredentialLease',
             'Clear-DomeniaCredentialLease',
+            'Get-DomeniaAccountCorrectionPlan',
+            'Get-DomeniaAccountUsageRows',
+            'Format-DomeniaAccountUsageText',
             'Get-DomeniaOperationAuthNeed',
             'Get-DomeniaCapabilityExplanation',
             'Get-DomeniaOperationRequirement',
@@ -924,6 +927,11 @@ function Get-DomeniaRuntimeModulePlan {
             'Enter-WCredentialAttempt',
             'Exit-WCredentialAttempt',
             'Register-WCredentialFailure',
+            'Clear-DomeniaCredentialGuardFault',
+            'Get-DomeniaCredentialGroupKeys',
+            'ConvertTo-DomeniaAccountLookup',
+            'Get-DomeniaCredentialAliasKeys',
+            'Register-DomeniaCredentialAliases',
             'Get-DomeniaLinkFingerprint',
             'ConvertTo-DomeniaLinkRecord',
             'Get-DomeniaDraftFieldMap',
@@ -954,7 +962,16 @@ function Get-DomeniaRuntimeModulePlan {
         [pscustomobject]@{ File='Domenia-Accounts.Async.ps1'; DotSource=$true; Functions=@(
             'Start-DomeniaAccountValidation',
             'Complete-DomeniaAccountValidation',
-            'Stop-DomeniaAccountValidation'
+            'Stop-DomeniaAccountValidation',
+            'Start-DomeniaDirectoryCorrection',
+            'Show-DomeniaDirectoryCorrection',
+            'Get-DomeniaAccountCorrectionJobs',
+            'Complete-DomeniaAccountCorrection',
+            'Request-DomeniaAccountAliasRead',
+            'Invoke-DomeniaAccountAliasQueue',
+            'Complete-DomeniaAccountAliasRead',
+            'Fail-DomeniaAccountAliasRead',
+            'Get-DomeniaAccountAliasSummary'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Store.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaStoreValue',
@@ -1091,6 +1108,9 @@ function Get-DomeniaRuntimeModulePlan {
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Lockout.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaLockoutEventWorkerCode'
         ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Accounts.Worker.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaAccountAliasWorkerCode'
+        ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Receipts.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaReceiptsCommon',
             'Get-DomeniaReceiptWorkerCode'
@@ -1187,6 +1207,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaCredentialGuardFailures',
             'Add-DomeniaCredentialFailureHistory',
             'Get-DomeniaCredentialFailureHistory',
+            'Initialize-DomeniaCredentialGuard',
             'Set-DomeniaCredentialGuardContext',
             'Sync-DomeniaCredentialGuardUi',
             'Save-DomeniaSupersededCollection',

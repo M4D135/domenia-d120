@@ -727,6 +727,8 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnApplyAccountOptions" = "Default"
     "ExpAccountSecurityOptions" = "Default"
     "LblAccountSecurityWarning" = "Default"
+    "PwdAccountAdCorrection" = "Default"
+    "BtnAccountAdCorrect" = "Default"
     "DpAccountExpires" = "Default"
     "BtnSetExpiration" = "Default"
     "BtnNeverExpires" = "Default"
@@ -6052,6 +6054,13 @@ function Get-MainXaml {
                             </StackPanel>
                             <Button x:Name="BtnAccountAdTest" Content="Tester la connexion" Margin="0,24,8,10" ToolTip="Vérifie l’identité selon le même moteur ADSI que la connexion. Pour changer d’identifiant, utilisez Se connecter." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tester le compte annuaire" AutomationProperties.HelpText="Vérifie l’identité selon le même moteur ADSI que la connexion. Pour changer d’identifiant, utilisez Se connecter."/>
                             <Button x:Name="BtnAccountAdUse" Content="Se connecter" Style="{StaticResource RunButton}" Margin="0,24,8,10" ToolTip="Relance la connexion avec cet identifiant. Le mot de passe est demande dans la fenetre de connexion." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Se connecter" AutomationProperties.HelpText="Relance la connexion avec cet identifiant. Le mot de passe est demande dans la fenetre de connexion."/>
+                          </WrapPanel>
+                          <WrapPanel>
+                            <StackPanel Width="250" Margin="0,0,10,10">
+                              <TextBlock Text="Mot de passe actuel" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold"/>
+                              <PasswordBox x:Name="PwdAccountAdCorrection" Margin="0" ToolTip="Mot de passe actuel du compte de connexion, après son changement dans lʼannuaire. Validé une seule fois à votre demande, jamais enregistré dans Domenia." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mot de passe actuel du compte de connexion" AutomationProperties.HelpText="Mot de passe actuel du compte de connexion, après son changement dans lʼannuaire. Validé une seule fois à votre demande, jamais enregistré dans Domenia."/>
+                            </StackPanel>
+                            <Button x:Name="BtnAccountAdCorrect" Content="Corriger le mot de passe" Margin="0,24,8,10" ToolTip="Valide ce mot de passe pour le même compte, une seule fois, puis lʼapplique sans reconnecter Domenia. Les lectures parties avec lʼancien mot de passe sont arrêtées ; aucune écriture nʼest rejouée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Corriger le mot de passe" AutomationProperties.HelpText="Valide ce mot de passe pour le même compte, une seule fois, puis lʼapplique sans reconnecter Domenia. Les lectures parties avec lʼancien mot de passe sont arrêtées ; aucune écriture nʼest rejouée."/>
                           </WrapPanel>
                           <TextBlock x:Name="LblAccountAdStatus" Text="Le compte courant est gere par la connexion Domenia." Foreground="{DynamicResource MutedColor}" Margin="0,4,0,0" TextWrapping="Wrap"/>
                         </StackPanel>
@@ -21779,6 +21788,27 @@ function Update-DomeniaAccountUi {
             if ($null -ne $remoteClear) { $remoteClear.IsEnabled = ($null -ne $remoteCred) }
             if ($null -ne $secretClear) { $secretClear.IsEnabled = ($null -ne $secretCred) }
         } catch { }
+        # Point 42: which account each use takes now, where it comes from and what the protection recorded (nothing is
+        # tested here); point 45: the names the directory confirmed for one account; point 44: the in-place correction
+        # of the connection account exists for an explicit sign-in only.
+        try {
+            $rule = Get-DomeniaControl -Name "LblAccountRule"
+            if ($null -ne $rule) {
+                $temporary = @()
+                if ($null -ne $script:AccessState) { $temporary = @($script:AccessState.Credentials.Keys | Sort-Object | ForEach-Object { [pscustomobject]@{ Scope = [string]$_; UserName = [string]$script:AccessState.Credentials[$_].UserName } }) }
+                $mode = if (-not [bool]$script:Conn.Connected) { 'None' } elseif ([bool]$script:Conn.UseCredential) { 'Explicit' } else { 'Windows' }
+                $usage = Get-DomeniaAccountUsageRows -ConnectionUser $currentAd -ConnectionMode $mode -RemoteUser $remoteName -SecretsUser $secretName -Temporary $temporary -Faults @(Get-DomeniaCredentialGuardFailures $script:DomeniaCredentialGuard) -Domain ([string]$script:Conn.Domain) -Netbios ([string]$script:Conn.Netbios)
+                $text = Format-DomeniaAccountUsageText -Rows $usage
+                $aliases = @(Get-DomeniaAccountAliasSummary)
+                if ($aliases.Count -gt 0) { $text += [Environment]::NewLine + 'Noms confirmés par lʼannuaire : ' + ($aliases -join ' ; ') + '.' }
+                if ([string]$rule.Text -cne $text) { $rule.Text = $text }
+            }
+            $correctable = (([bool]$script:Conn.UseCredential) -and ($null -ne $script:Conn.Credential) -and (-not [bool]$script:DemoMode))
+            foreach ($name in @('PwdAccountAdCorrection','BtnAccountAdCorrect')) {
+                $control = Get-DomeniaControl -Name $name
+                if (($null -ne $control) -and (-not (Test-DomeniaControlIsBusy -Name $name))) { $control.IsEnabled = $correctable }
+            }
+        } catch { Write-AppLog "Usage des comptes non affiché : $($_.Exception.Message)" "WARN" }
     }
     catch { Write-AppLog "Mise a jour du panneau Comptes impossible : $($_.Exception.Message)" "WARN" }
 }
@@ -21946,6 +21976,13 @@ function Wire-Events {
                 $u = ([string]$script:Ctrl["TxtAccountAdUser"].Text).Trim()
                 [void](Test-DomeniaActiveDirectoryCredential -UserName $u)
             } catch { [void](Show-DomeniaOperationError -Operation "Test compte AD" -ErrorRecordOrException $_) }
+        })
+    }
+    if ($script:Ctrl.ContainsKey("BtnAccountAdCorrect")) {
+        # Point 44: correct the connection account in place, without reconnecting Domenia.
+        $script:Ctrl["BtnAccountAdCorrect"].Add_Click({
+            try { Start-DomeniaDirectoryCorrection }
+            catch { [void](Show-DomeniaOperationError -Operation "Correction du compte de connexion" -ErrorRecordOrException $_) }
         })
     }
     if ($script:Ctrl.ContainsKey("BtnAccountAdUse")) {

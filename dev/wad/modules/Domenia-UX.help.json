@@ -1441,6 +1441,20 @@
     "Source": "existing-help"
   },
   {
+    "Name": "PwdAccountAdCorrection",
+    "Title": "Mot de passe actuel du compte de connexion",
+    "Text": "Mot de passe actuel du compte de connexion, après son changement dans lʼannuaire. Validé une seule fois à votre demande, jamais enregistré dans Domenia.",
+    "Kind": "PasswordBox",
+    "Source": "specific"
+  },
+  {
+    "Name": "BtnAccountAdCorrect",
+    "Title": "Corriger le mot de passe",
+    "Text": "Valide ce mot de passe pour le même compte, une seule fois, puis lʼapplique sans reconnecter Domenia. Les lectures parties avec lʼancien mot de passe sont arrêtées ; aucune écriture nʼest rejouée.",
+    "Kind": "Button",
+    "Source": "specific"
+  },
+  {
     "Name": "BtnAccountRemoteClear",
     "Title": "Effacer",
     "Text": "Supprime le compte distant de la mémoire. DOMENIA réutilisera alors le compte AD courant.",

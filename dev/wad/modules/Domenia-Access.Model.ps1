@@ -220,6 +220,90 @@ function Clear-DomeniaCredentialLease {
     return $Lease
 }
 
+# ---------------------------------------------------------------- Point 44 correct an account without reconnecting
+function Get-DomeniaAccountCorrectionPlan {
+    # Point 44: what the correction of one account does to the work in progress. Reads that left with that account
+    # before the correction are stopped (a call already sent cannot be recalled); queued reads take the validated
+    # account when they leave, since their context is built at dispatch; a write is never stopped nor replayed; the
+    # work of the other accounts is untouched. $Jobs: projections {Id, IsWrite, NonCancellable, State, Keys, Generation}.
+    param([object[]]$Jobs=@(),[string[]]$Keys=@(),[long]$Generation=0)
+    $wanted=@{}
+    foreach($key in @($Keys)){if(-not [string]::IsNullOrWhiteSpace([string]$key)){$wanted[([string]$key).Trim().ToLowerInvariant()]=$true}}
+    $stop=New-Object 'System.Collections.Generic.List[string]';$writes=0;$current=0
+    foreach($job in @($Jobs)){
+        if($null -eq $job){continue}
+        $match=$false
+        foreach($key in @(Get-DomeniaMember $job 'Keys' @())){if($wanted.ContainsKey(([string]$key).Trim().ToLowerInvariant())){$match=$true;break}}
+        if(-not $match){continue}
+        if([bool](Get-DomeniaMember $job 'IsWrite' $false)){$writes++;continue}
+        if([string](Get-DomeniaMember $job 'State' '') -eq 'Queued'){continue}
+        if([long](Get-DomeniaMember $job 'Generation' 0) -ge $Generation){$current++;continue}
+        if([bool](Get-DomeniaMember $job 'NonCancellable' $false)){continue}
+        $stop.Add([string](Get-DomeniaMember $job 'Id' ''))
+    }
+    $lines=New-Object 'System.Collections.Generic.List[string]'
+    if($stop.Count -eq 1){$lines.Add('1 lecture partie avec lʼancien mot de passe est arrêtée : relancez-la.')}
+    elseif($stop.Count -gt 1){$lines.Add([string]$stop.Count+' lectures parties avec lʼancien mot de passe sont arrêtées : relancez-les.')}
+    if($writes -gt 0){$lines.Add('Une écriture en cours garde son compte : elle nʼest ni interrompue ni rejouée.')}
+    $lines.Add('Les opérations en attente partiront avec le compte validé.')
+    return [pscustomobject]@{Stop=$stop.ToArray();Writes=$writes;AlreadyCurrent=$current;Text=($lines.ToArray() -join ' ')}
+}
+
+# ---------------------------------------------------------------- Point 42 visible use of each account
+function Get-DomeniaAccountUsageRows {
+    # Point 42: which account each use takes now, where it comes from, and what the protection recorded. The
+    # connection account serves every use by default; a specific account is optional. Nothing here is tested: an
+    # account without a recorded refusal is not declared valid, only "no refusal recorded".
+    # $Temporary: {Scope, UserName} accepted after a refusal; $Faults: {Key} of the shared protection.
+    param(
+        [AllowEmptyString()][string]$ConnectionUser='',[ValidateSet('Explicit','Windows','None')][string]$ConnectionMode='None',
+        [AllowEmptyString()][string]$RemoteUser='',[AllowEmptyString()][string]$SecretsUser='',
+        [object[]]$Temporary=@(),[object[]]$Faults=@(),[AllowEmptyString()][string]$Domain='',[AllowEmptyString()][string]$Netbios=''
+    )
+    $paused=@{}
+    foreach($fault in @($Faults)){$key=[string](Get-DomeniaMember $fault 'Key' '');if($key){$paused[$key.ToLowerInvariant()]=$true}}
+    $state={
+        param([string]$User)
+        if(-not $User){return 'Aucun compte'}
+        $key=Get-DomeniaCredentialAccountKey $User $Domain $Netbios
+        if($key -and $paused.ContainsKey($key)){return 'En pause après un refus : corrigez-le ici ou reconnectez-vous.'}
+        return 'Aucun refus enregistré.'
+    }
+    $connectionSource=switch($ConnectionMode){'Explicit'{'compte de connexion'}'Windows'{'session Windows'}default{'aucune connexion'}}
+    $rows=New-Object 'System.Collections.Generic.List[object]'
+    $rows.Add([pscustomobject]@{Usage='Annuaire';Account=$ConnectionUser;Source=$connectionSource;State=(& $state $ConnectionUser)})
+    foreach($use in @(@('Postes',$RemoteUser,'compte poste'),@('LAPS',$SecretsUser,'compte secrets'),@('BitLocker',$SecretsUser,'compte secrets'))){
+        $user=[string]$use[1];$source=[string]$use[2]
+        if(-not $user){$user=$ConnectionUser;$source=$connectionSource+' (aucun compte spécifique)'}
+        $rows.Add([pscustomobject]@{Usage=[string]$use[0];Account=$user;Source=$source;State=(& $state $user)})
+    }
+    $labels=@{Remote='Postes';ReadLaps='LAPS';ReadBitLocker='BitLocker';Directory='Annuaire'}
+    foreach($item in @($Temporary|Select-Object -First 16)){
+        if($null -eq $item){continue}
+        $scope=[string](Get-DomeniaMember $item 'Scope' '');$user=[string](Get-DomeniaMember $item 'UserName' '')
+        if((-not $scope) -or (-not $user)){continue}
+        $usage=$scope
+        if($labels.ContainsKey($scope)){$usage=[string]$labels[$scope]}
+        elseif($scope.StartsWith('RemoteLocal|')){$usage='Poste '+$scope.Substring(12)}
+        elseif($scope.StartsWith('AD:')){$usage='Annuaire ('+$scope.Substring(3)+')'}
+        $rows.Add([pscustomobject]@{Usage=$usage;Account=$user;Source='compte temporaire, oublié après inactivité';State=(& $state $user)})
+    }
+    return ,$rows.ToArray()
+}
+
+function Format-DomeniaAccountUsageText {
+    # Point 42: one line per use, for the rule panel of the Comptes tab.
+    param([object[]]$Rows=@())
+    $lines=New-Object 'System.Collections.Generic.List[string]'
+    foreach($row in @($Rows)){
+        if($null -eq $row){continue}
+        $account=[string]$row.Account;if(-not $account){$account='aucun compte'}
+        $lines.Add([string]$row.Usage+' : '+$account+' ('+[string]$row.Source+'). '+[string]$row.State)
+    }
+    $lines.Add('Chaque usage est indépendant : changer le compte dʼun usage ne change pas les autres.')
+    return ($lines.ToArray() -join [Environment]::NewLine)
+}
+
 # ---------------------------------------------------------------- D055 Windows sign-in without elevation
 function Get-DomeniaOperationAuthNeed {
     # Reads use the current Windows token when it is accepted. Another account is requested only after a
