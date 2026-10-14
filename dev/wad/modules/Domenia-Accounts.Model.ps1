@@ -83,3 +83,25 @@ function Get-DomeniaLoginChoice {
     }
     return [pscustomobject]@{Offered=$offered;Available=$available;WindowsFirst=($available -and (-not $PreferForm));WindowsLabel=$label;WindowsToolTip=$tip;OtherAccountLabel='Utiliser un autre compte'}
 }
+
+# ---------------------------------------------------------------- CO-31 read-only identity of the directory
+function Get-DomeniaDirectoryAccountText {
+    # CO-31: the read-only card of the directory account: the identity that really bound (BindUser), how it signed in,
+    # the controller and the domain. There is no field to edit: a new account goes through « Changer de compte ».
+    param([AllowNull()][AllowEmptyString()][string]$Account='',[AllowNull()][AllowEmptyString()][string]$AuthMode='',[AllowNull()][AllowEmptyString()][string]$Server='',[AllowNull()][AllowEmptyString()][string]$Domain='')
+    $identity=([string]$Account).Trim()
+    if(-not $identity){
+        return [pscustomobject]@{Connected=$false;Identity='Aucune identité active.';Mode='';Detail='Aucune connexion à lʼannuaire : utilisez « Changer de compte ».'}
+    }
+    $mode=switch(([string]$AuthMode).Trim()){
+        'Windows'  {'Session Windows'}
+        'Explicit' {'Compte saisi à la connexion'}
+        'Demo'     {'Démonstration, annuaire fictif'}
+        default    {'Compte de connexion'}
+    }
+    $parts=New-Object 'System.Collections.Generic.List[string]'
+    $parts.Add([string]$mode)
+    $controller=([string]$Server).Trim();if($controller){$parts.Add('contrôleur '+$controller)}
+    $dns=([string]$Domain).Trim();if($dns){$parts.Add('domaine '+$dns)}
+    return [pscustomobject]@{Connected=$true;Identity=$identity;Mode=[string]$mode;Detail=($parts.ToArray() -join ' · ')}
+}

@@ -104,3 +104,19 @@ Test-Case 'X03-UX28' 'Hors session de domaine, session interdite ou demonstratio
     $demo=Get-DomeniaLoginChoice -WindowsIdentity 'EXAMPLE\jdupont' -Demo $true
     Assert-True ((-not $demo.Offered) -and (-not $demo.WindowsFirst)) 'Session Windows proposee en demonstration'
 }
+
+# ---------------------------------------------------------------- CO-31 carte Annuaire en lecture seule
+Test-Case 'X03-CO31' 'Carte Annuaire : identite liee, mode, controleur et domaine, sans champ a modifier' {
+    $c=Get-DomeniaDirectoryAccountText -Account ' EXAMPLE\jdupont ' -AuthMode 'Windows' -Server 'dc1.example.invalid' -Domain 'example.invalid'
+    Assert-True $c.Connected 'Session non reconnue'
+    Assert-Equal 'EXAMPLE\jdupont' $c.Identity
+    Assert-Equal 'Session Windows · contrôleur dc1.example.invalid · domaine example.invalid' $c.Detail
+    Assert-Equal 'Compte saisi à la connexion' (Get-DomeniaDirectoryAccountText -Account 'EXAMPLE\adm' -AuthMode 'Explicit').Detail
+    Assert-True ((Get-DomeniaDirectoryAccountText -Account 'DEMO\demo' -AuthMode 'Demo').Mode.StartsWith('Démonstration'))
+}
+Test-Case 'X03-CO31' 'Sans connexion : le seul chemin propose est Changer de compte' {
+    $c=Get-DomeniaDirectoryAccountText -Account '' -AuthMode 'Explicit' -Server 'dc1.example.invalid'
+    Assert-False $c.Connected 'Connexion inventee'
+    Assert-Equal 'Aucune identité active.' $c.Identity
+    Assert-True ($c.Detail.Contains('« Changer de compte »')) $c.Detail
+}

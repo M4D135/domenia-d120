@@ -4940,7 +4940,7 @@ function Get-MainXaml {
                 <TextBlock x:Name="LblTaskElapsed" Grid.Column="0" Text="" Visibility="Hidden" Height="24" MaxHeight="24" MinWidth="0" Foreground="{DynamicResource MutedColor}" FontSize="12" VerticalAlignment="Center" HorizontalAlignment="Stretch" TextAlignment="Left" Margin="0,0,12,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                 <ProgressBar x:Name="PbTop" Grid.Column="2" Width="130" MinWidth="130" MaxWidth="130" Height="8" MinHeight="8" MaxHeight="8" Visibility="Hidden" IsIndeterminate="False" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="0,0,14,0" ToolTip="Indicateur d’activité. Une animation sans pourcentage ne mesure pas la progression exacte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Indicateur d’activité" AutomationProperties.HelpText="Indicateur d’activité. Une animation sans pourcentage ne mesure pas la progression exacte."/>
                 <Button x:Name="BtnCancelTask" Grid.Column="3" Width="96" MinWidth="96" MaxWidth="96" Height="32" MinHeight="32" MaxHeight="32" Padding="10,4" ToolTip="Demande l’arrêt d’une lecture annulable. Une écriture ou un appel natif ne sont pas interrompus de force." Content="Annuler" Visibility="Hidden" Margin="0" VerticalAlignment="Center" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Annuler la lecture" AutomationProperties.HelpText="Demande l’arrêt d’une lecture annulable. Une écriture ou un appel natif ne sont pas interrompus de force."/>
-                <Button x:Name="BtnAccountsHeader" Content="Identites" Width="92" Height="42" MinWidth="82" Margin="0,0,6,0" ToolTip="Choisit les identites utilisees par l application pour l annuaire, les postes et les secrets." VerticalAlignment="Center" Visibility="Collapsed" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Identites" AutomationProperties.HelpText="Choisit les identites utilisees par l application pour l annuaire, les postes et les secrets."/>
+                <Button x:Name="BtnAccountsHeader" Content="Identités" Width="92" Height="42" MinWidth="82" Margin="0,0,6,0" ToolTip="Ouvre les identités de connexion utilisées par Domenia pour lʼannuaire, les postes et les secrets." VerticalAlignment="Center" Visibility="Collapsed" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Identités de connexion" AutomationProperties.HelpText="Ouvre les identités de connexion utilisées par Domenia pour lʼannuaire, les postes et les secrets."/>
               </Grid>
               <!-- DS-02: a lock switch, « Lecture seule » (neutral) or « Écriture active · N min » (solid red); fixed width so that
                    the activity strip never moves when it changes. The profile choice moved to the foot of the menu (UI-30). -->
@@ -5033,7 +5033,7 @@ function Get-MainXaml {
                           </StackPanel>
                         </Grid>
                       </Button>
-                      <Button Margin="0,0,10,10" Padding="18" MinHeight="92" Uid="TabAccounts" ToolTip="Annuaire, accès aux postes et secrets" x:Name="BtnUxHomeAccounts" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Gérer les comptes" AutomationProperties.HelpText="Annuaire, accès aux postes et secrets">
+                      <Button Margin="0,0,10,10" Padding="18" MinHeight="92" Uid="TabAccounts" ToolTip="Comptes utilisés par Domenia : annuaire, postes, secrets" x:Name="BtnUxHomeAccounts" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Identités de connexion" AutomationProperties.HelpText="Comptes utilisés par Domenia : annuaire, postes, secrets">
                         <Grid>
                           <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="38"/>
@@ -5041,8 +5041,8 @@ function Get-MainXaml {
                           </Grid.ColumnDefinitions>
                           <Path Data="M12,2 L22,6 21,16 Q18,22 12,25 Q6,22 3,16 L2,6 Z M7,13 L11,17 18,9" Width="26" Height="26" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False" Grid.Column="0"/>
                           <StackPanel Grid.Column="1">
-                            <TextBlock Text="Gérer les comptes" FontSize="16" FontWeight="SemiBold"/>
-                            <TextBlock Text="Annuaire, accès aux postes et secrets" FontSize="12" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/>
+                            <TextBlock Text="Identités de connexion" FontSize="16" FontWeight="SemiBold"/>
+                            <TextBlock Text="Comptes utilisés par Domenia : annuaire, postes, secrets" FontSize="12" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/>
                           </StackPanel>
                         </Grid>
                       </Button>
@@ -5968,33 +5968,27 @@ function Get-MainXaml {
                   </TabItem>
                 </TabControl>
               </Grid><Border Style="{StaticResource Card}" Margin="4" Padding="24" VerticalAlignment="Top" Grid.Row="1" x:Name="ObjectReadPlaceholder"><StackPanel><TextBlock Text="La fiche se prepare en arriere-plan." FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{DynamicResource TextColor}"/><TextBlock Text="Vous pouvez continuer à utiliser la recherche. Les données du précédent objet ne sont pas affichées ici." Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}"/></StackPanel></Border></Grid></TabItem>
-              <TabItem x:Name="TabAccounts" Header="Comptes" ToolTip="Gestion des identités utilisées par Domenia. Les mots de passe ne sont jamais écrits dans Domenia.db ni dans les préférences." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Comptes" AutomationProperties.HelpText="Gestion des identites utilisees par Domenia. Les mots de passe ne sont jamais ecrits dans Domenia.db ni dans les preferences.">
+              <TabItem x:Name="TabAccounts" Header="Comptes" ToolTip="Identités de connexion utilisées par Domenia : annuaire, postes et secrets. Les mots de passe ne sont jamais écrits dans Domenia.db ni dans les préférences." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Comptes" AutomationProperties.HelpText="Identités de connexion utilisées par Domenia : annuaire, postes et secrets. Les mots de passe ne sont jamais écrits dans Domenia.db ni dans les préférences.">
                 <Border Style="{StaticResource Card}" Margin="4" Padding="10">
                   <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel>
-                      <TextBlock Text="Gestion des comptes" FontSize="20" FontWeight="SemiBold"/>
-                      <TextBlock Text="Votre compte de connexion sert à tout. Ajoutez un compte secondaire uniquement si une ressource exige d’autres droits." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,12" TextWrapping="Wrap"/>
+                      <!-- SP-12: same name as the home card, Identités de connexion; the menu keeps Comptes. -->
+                      <TextBlock Text="Comptes : identités de connexion" FontSize="20" FontWeight="SemiBold"/>
+                      <TextBlock Text="Comptes utilisés par Domenia : annuaire, postes, secrets. Votre compte de connexion sert à tout ; ajoutez un compte secondaire seulement si une ressource exige dʼautres droits." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,12" TextWrapping="Wrap"/>
                       <Border Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="14" Padding="18" Margin="0,0,0,14">
                         <StackPanel>
                           <DockPanel LastChildFill="True">
                             <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" Margin="12,0,0,0">
-                              <Button x:Name="BtnAccountAdRelogin" Content="Changer de compte" Style="{StaticResource RunButton}" ToolTip="Ouvre la fenetre de connexion DOMENIA sans fermer le logiciel." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Changer de compte" AutomationProperties.HelpText="Ouvre la fenetre de connexion DOMENIA sans fermer le logiciel."/>
+                              <Button x:Name="BtnAccountAdRelogin" Content="Changer de compte" Style="{StaticResource RunButton}" ToolTip="Ouvre la connexion sans fermer Domenia, préremplie avec le compte actuel : formulaire dʼabord, session Windows proposée dessous. Annuler conserve la session en cours." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Changer de compte" AutomationProperties.HelpText="Ouvre la connexion sans fermer Domenia, préremplie avec le compte actuel : formulaire dʼabord, session Windows proposée dessous. Annuler conserve la session en cours."/>
                             </StackPanel>
                             <StackPanel Margin="0">
                               <TextBlock Text="ANNUAIRE AD" FontWeight="SemiBold"/>
                               <TextBlock Text="Utilisateurs, groupes, OU, attributs, recherche et écritures AD." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,2,0,0"/>
                             </StackPanel>
                           </DockPanel>
-                          <TextBlock x:Name="LblAccountAdIdentity" Text="Aucune identite active." VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,12,0,10" FontWeight="SemiBold"/>
-                          <WrapPanel>
-                            <StackPanel Width="250" Margin="0,0,10,10">
-                              <TextBlock Text="Identifiant" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold"/>
-                              <TextBox x:Name="TxtAccountAdUser" ToolTip="Identifiant utilisé pour l’annuaire. Se connecter demande le mot de passe dans la fenêtre de connexion ; modifier ce champ seul ne change pas la session." Margin="0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Compte annuaire" AutomationProperties.HelpText="Identifiant utilisé pour l’annuaire. Se connecter demande le mot de passe dans la fenêtre de connexion ; modifier ce champ seul ne change pas la session."/>
-                            </StackPanel>
-                            <Button x:Name="BtnAccountAdTest" Content="Tester la connexion" Margin="0,24,8,10" ToolTip="Vérifie l’identité selon le même moteur ADSI que la connexion. Pour changer d’identifiant, utilisez Se connecter." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tester le compte annuaire" AutomationProperties.HelpText="Vérifie l’identité selon le même moteur ADSI que la connexion. Pour changer d’identifiant, utilisez Se connecter."/>
-                            <Button x:Name="BtnAccountAdUse" Content="Se connecter" Style="{StaticResource RunButton}" Margin="0,24,8,10" ToolTip="Relance la connexion avec cet identifiant. Le mot de passe est demande dans la fenetre de connexion." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Se connecter" AutomationProperties.HelpText="Relance la connexion avec cet identifiant. Le mot de passe est demande dans la fenetre de connexion."/>
-                          </WrapPanel>
-                          <TextBlock x:Name="LblAccountAdStatus" Text="Le compte courant est gere par la connexion Domenia." Foreground="{DynamicResource MutedColor}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                          <!-- CO-31: read-only identity card. The account changes only through Changer de compte. -->
+                          <TextBlock x:Name="LblAccountAdIdentity" Text="Aucune identité active." VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,12,0,4" FontWeight="SemiBold" AutomationProperties.Name="Compte de lʼannuaire"/>
+                          <TextBlock x:Name="LblAccountAdStatus" Text="Aucune connexion à lʼannuaire." Foreground="{DynamicResource MutedColor}" Margin="0,0,0,0" TextWrapping="Wrap" AutomationProperties.Name="Connexion à lʼannuaire"/>
                         </StackPanel>
                       </Border>
                       <Expander Header="Comptes secondaires (facultatif)" IsExpanded="False" Margin="0,0,0,14"><StackPanel Margin="0,12,0,0">
@@ -21625,25 +21619,6 @@ function Test-DomeniaCredentialBind {
     return Start-DomeniaAccountValidation -UserName $UserName -Password $Password -Operation $Operation -TimeoutSeconds $TimeoutSeconds
 }
 
-function Test-DomeniaActiveDirectoryCredential {
-    [CmdletBinding()]
-    param([string]$UserName)
-    $credential = $script:Conn.Credential
-    if ($null -eq $credential) { throw 'Aucun compte AD explicite actif. Utilise Relogger...' }
-    $activeUser = ([string]$credential.UserName).Trim()
-    $requestedUser = ([string]$UserName).Trim()
-    if ([string]::IsNullOrWhiteSpace($requestedUser)) { throw 'Identifiant AD vide.' }
-    $sameIdentity = ($requestedUser -ieq $activeUser)
-    if (-not $sameIdentity -and -not $requestedUser.Contains('\') -and -not $requestedUser.Contains('@')) {
-        $netbios = ([string]$script:Conn.Netbios).Trim()
-        $sameIdentity = (-not [string]::IsNullOrWhiteSpace($netbios) -and ("$netbios\$requestedUser" -ieq $activeUser))
-    }
-    if (-not $sameIdentity) {
-        throw 'Le champ identifiant AD a ete modifie. Utilise Utiliser / relogger pour ce nouveau compte. Le mot de passe de la session active ne sera jamais teste sous un autre nom.'
-    }
-    return Test-DomeniaCredentialBind -UserName $activeUser -Password $credential.Password -Operation 'Test compte AD'
-}
-
 function Update-DomeniaAccountUi {
     # IMPORTANT : cette fonction ne touche JAMAIS aux champs editables.
     # Les evenements GotFocus/Click remontent depuis les enfants du TabItem ;
@@ -21658,20 +21633,22 @@ function Update-DomeniaAccountUi {
         $secretsStatus = Get-DomeniaControl -Name "LblAccountSecretsStatus"
 
         Update-DomeniaExperienceIdentity
+        # CO-31: read-only card, the account that really bound the directory and how; no field to edit.
         $currentAd = [string]$script:Conn.BindUser
         if ([string]::IsNullOrWhiteSpace($currentAd)) { $currentAd = [string]$script:Conn.User }
-        if ($null -ne $ad) { $ad.Text = if ($currentAd) { "$currentAd  |  $([string]$script:Conn.Server)" } else { "Aucune identite active." } }
-        if ($null -ne $adStatus) { $adStatus.Text = if ($currentAd) { "Compte actuellement utilise pour les operations AD." } else { "Aucune connexion AD active." } }
+        $card = Get-DomeniaDirectoryAccountText -Account $currentAd -AuthMode ([string]$script:Conn.AuthMode) -Server ([string]$script:Conn.Server) -Domain ([string]$script:Conn.Domain)
+        if ($null -ne $ad) { $ad.Text = [string]$card.Identity }
+        if ($null -ne $adStatus) { $adStatus.Text = [string]$card.Detail }
 
         $remoteCred = $script:RemoteAdminCredential
         $remoteName = Get-DomeniaCredentialUserName $remoteCred
-        if ($null -ne $remote) { $remote.Text = if ($remoteName) { "$remoteName  |  compte distant actif" } else { "Repli sur le compte AD courant." } }
-        if ($null -ne $remoteStatus) { $remoteStatus.Text = if ($remoteName) { "Les opérations poste utilisent ce compte pour cette session. Le coffre Windows reste facultatif." } else { "Aucun compte poste dedie. DOMENIA reutilise le compte AD courant." } }
+        if ($null -ne $remote) { $remote.Text = if ($remoteName) { "$remoteName  ·  compte Postes actif" } else { 'Aucun compte Postes : le compte de connexion sert aux postes.' } }
+        if ($null -ne $remoteStatus) { $remoteStatus.Text = if ($remoteName) { 'Les opérations sur les postes utilisent ce compte pendant cette session. Le coffre Windows reste facultatif.' } else { 'Saisissez un compte et son mot de passe puis « Activer » si les postes exigent dʼautres droits.' } }
 
         $secretCred = $script:SecretsCredential
         $secretName = Get-DomeniaCredentialUserName $secretCred
-        if ($null -ne $secrets) { $secrets.Text = if ($secretName) { "$secretName  |  compte secrets actif" } else { "Repli sur le compte AD courant." } }
-        if ($null -ne $secretsStatus) { $secretsStatus.Text = if ($secretName) { "LAPS et BitLocker utilisent ce compte pour cette session. Le coffre Windows reste facultatif." } else { "Aucun compte secrets dedie. DOMENIA reutilise le compte AD courant." } }
+        if ($null -ne $secrets) { $secrets.Text = if ($secretName) { "$secretName  ·  compte Secrets actif" } else { 'Aucun compte Secrets : le compte de connexion lit LAPS et BitLocker.' } }
+        if ($null -ne $secretsStatus) { $secretsStatus.Text = if ($secretName) { 'LAPS et BitLocker utilisent ce compte pendant cette session. Le coffre Windows reste facultatif.' } else { 'Saisissez un compte et son mot de passe puis « Activer » si les secrets exigent dʼautres droits.' } }
 
         try {
             $remoteClear = Get-DomeniaControl -Name "BtnAccountRemoteClear"
@@ -21680,7 +21657,7 @@ function Update-DomeniaAccountUi {
             if ($null -ne $secretClear) { $secretClear.IsEnabled = ($null -ne $secretCred) }
         } catch { }
     }
-    catch { Write-AppLog "Mise a jour du panneau Comptes impossible : $($_.Exception.Message)" "WARN" }
+    catch { Write-AppLog "Mise à jour de la page Comptes impossible : $($_.Exception.Message)" "WARN" }
 }
 
 function Save-DomeniaSecondaryCredential {
@@ -21698,14 +21675,14 @@ function Clear-DomeniaSecondaryCredential {
         [void](Save-DomeniaAccountPreference -Scope Remote -UserName '')
         $userField=Get-DomeniaControl -Name 'TxtAccountRemoteUser';if($null -ne $userField){$userField.Text=''}
         $pwd = Get-DomeniaControl -Name "PwdAccountRemote"; if ($null -ne $pwd) { $pwd.Password = "" }
-        Add-DomeniaUiLog -Area "Comptes" -Text "Compte Remote efface de la memoire."
+        Add-DomeniaUiLog -Area "Comptes" -Text "Compte Postes effacé de la mémoire."
     } else {
         $script:SecretsCredential = $null
         Set-DomeniaSetting -Name "SecretsCredentialUser" -Value ""
         [void](Save-DomeniaAccountPreference -Scope Secrets -UserName '')
         $userField=Get-DomeniaControl -Name 'TxtAccountSecretsUser';if($null -ne $userField){$userField.Text=''}
         $pwd = Get-DomeniaControl -Name "PwdAccountSecrets"; if ($null -ne $pwd) { $pwd.Password = "" }
-        Add-DomeniaUiLog -Area "Comptes" -Text "Compte Secrets efface de la memoire."
+        Add-DomeniaUiLog -Area "Comptes" -Text "Compte Secrets effacé de la mémoire."
     }
     if($null -ne $script:AccessState){
         $scopes=if($Scope -eq 'Secrets'){@('ReadLaps','ReadBitLocker')}else{@('Remote')}
@@ -21714,31 +21691,36 @@ function Clear-DomeniaSecondaryCredential {
         if($Scope -eq 'Secrets'){$script:AccessState.Denied=@{}}
     }
     Update-DomeniaAccountUi
-    Set-Status "Compte $Scope efface. Repli sur le compte AD courant."
+    Set-Status ('Compte ' + $(if ($Scope -eq 'Remote') { 'Postes' } else { 'Secrets' }) + ' effacé : le compte de connexion reprend ce rôle.')
 }
 
 function Start-DomeniaAccountRelogin {
     try {
         Complete-DomeniaDetachedReadJobs
         if (@($script:AsyncJobs.Keys).Count -gt 0 -or @($script:DetachedReadJobs).Count -gt 0) {
-            Show-InfoBox 'Changement de compte refuse pendant une operation. Termine ou annule les lectures, puis attends leur nettoyage. Une ecriture envoyee au DC ne doit pas etre interrompue.'
+            Show-InfoBox 'Changement de compte refusé pendant une opération. Terminez ou annulez les lectures, puis attendez leur nettoyage. Une écriture envoyée au contrôleur nʼest jamais interrompue.'
             return
         }
         if ([string]$script:WriteState -in @('Running','Unknown','UnknownPending')) {
-            Show-InfoBox 'Une ecriture reste a verifier. Recontrole son resultat avant de changer de session.'
+            Show-InfoBox 'Une écriture reste à vérifier. Contrôlez son résultat avant de changer de compte.'
             return
         }
         # Persist dirty data using the previous connection scope, before opening the login.
         if ([bool]$script:IndexDirty -and -not (Flush-DomeniaIndex)) {
-            throw 'Le cache modifie ne peut pas etre enregistre. Changement de session interrompu pour conserver les donnees en memoire.'
+            throw 'Le cache modifié ne peut pas être enregistré. Changement de compte interrompu pour garder les données en mémoire.'
         }
         $previousBase = [string]$script:Conn.BaseDn
-        $user = ([string](Get-DomeniaControl -Name 'TxtAccountAdUser').Text).Trim()
-        if (-not [string]::IsNullOrWhiteSpace($user)) { Set-DomeniaSetting -Name 'LastLogin' -Value $user }
+        # CO-31: the sign-in is pre-filled with the account typed for this session; nothing is written in the settings
+        # (the sign-in reads only Auth.LastLogin, saved by its own Se souvenir de mon identifiant box).
+        $prefill = ''
+        if ([string]$script:Conn.AuthMode -eq 'Explicit') {
+            $prefill = ([string]$script:Conn.User).Trim()
+            if ([string]::IsNullOrWhiteSpace($prefill)) { $prefill = ([string]$script:Conn.BindUser).Trim() }
+        }
         try { if ($null -ne $script:LiveSearchTimer) { $script:LiveSearchTimer.Stop() } } catch { }
         Stop-DomeniaSelectionOpenTimer
         # UX-28: a change of account opens the form first; the Windows session stays proposed under it.
-        if (-not (Show-LoginWindow -PreferForm)) { Set-Status 'Changement de compte annulé : la session courante est conservée.' 'WARN'; return }
+        if (-not (Show-LoginWindow -PreferForm -PrefillLogin $prefill)) { Set-Status 'Changement de compte annulé : la session courante est conservée.' 'WARN'; return }
 
         $script:SessionEpoch = [long]$script:SessionEpoch + 1
         # Fleet observations and analysis targets belong to the previous session.
@@ -21795,9 +21777,9 @@ function Start-DomeniaAccountRelogin {
         Apply-CurrentPermissionUi
         Request-DomeniaDashboardRefresh
         try { Request-DomeniaFleetRefresh -Force } catch { }
-        Set-Status ('Nouvelle session AD : ' + [string]$script:Conn.BindUser + '. Vues rechargees, lecture seule active.')
+        Set-Status ('Nouvelle session : ' + [string]$script:Conn.BindUser + '. Vues rechargées, lecture seule active.')
     }
-    catch { [void](Show-DomeniaOperationError -Operation 'Relogin AD' -ErrorRecordOrException $_) }
+    catch { [void](Show-DomeniaOperationError -Operation 'Changement de compte' -ErrorRecordOrException $_) }
 }
 
 function Initialize-DomeniaAccountPanel {
@@ -21807,15 +21789,13 @@ function Initialize-DomeniaAccountPanel {
         $savedSecrets = Get-DomeniaRememberedAccount -Scope Laps
         $currentAd = [string]$script:Conn.BindUser
         if ([string]::IsNullOrWhiteSpace($currentAd)) { $currentAd = [string]$script:Conn.User }
-        $adUser = Get-DomeniaControl -Name "TxtAccountAdUser"
         $remoteUser = Get-DomeniaControl -Name "TxtAccountRemoteUser"
         $secretUser = Get-DomeniaControl -Name "TxtAccountSecretsUser"
-        if ($null -ne $adUser) { $adUser.Text = $currentAd }
         if ($null -ne $remoteUser) { $remoteUser.Text = $savedRemote;$script:AccountPreferences.FieldSeeds['TxtAccountRemoteUser']=$savedRemote }
         if ($null -ne $secretUser) { $secretUser.Text = $savedSecrets;$script:AccountPreferences.FieldSeeds['TxtAccountSecretsUser']=$savedSecrets }
         Sync-DomeniaAccountPreferences
         Update-DomeniaAccountUi
-        Add-DomeniaUiLog -Area "Comptes" -Text "Panneau comptes initialise. Les champs editables ne sont plus recharges lors des changements de focus ; coffre Windows facultatif, uniquement sur choix explicite."
+        Add-DomeniaUiLog -Area "Comptes" -Text "Page Comptes prête : champs modifiables conservés aux changements de focus, coffre Windows seulement sur choix explicite."
     }
     catch { Add-DomeniaUiLog -Area "Comptes" -Level "WARN" -Text "Initialisation panneau comptes : $($_.Exception.Message)" }
 }
@@ -21840,21 +21820,6 @@ function Wire-Events {
     }
     if ($script:Ctrl.ContainsKey("BtnAccountAdRelogin")) {
         $script:Ctrl["BtnAccountAdRelogin"].Add_Click({ Start-DomeniaAccountRelogin })
-    }
-    if ($script:Ctrl.ContainsKey("BtnAccountAdTest")) {
-        $script:Ctrl["BtnAccountAdTest"].Add_Click({
-            try {
-                $u = ([string]$script:Ctrl["TxtAccountAdUser"].Text).Trim()
-                [void](Test-DomeniaActiveDirectoryCredential -UserName $u)
-            } catch { [void](Show-DomeniaOperationError -Operation "Test compte AD" -ErrorRecordOrException $_) }
-        })
-    }
-    if ($script:Ctrl.ContainsKey("BtnAccountAdUse")) {
-        $script:Ctrl["BtnAccountAdUse"].Add_Click({
-            $u = ([string]$script:Ctrl["TxtAccountAdUser"].Text).Trim()
-            if (-not [string]::IsNullOrWhiteSpace($u)) { Set-DomeniaSetting -Name "LastLogin" -Value $u }
-            Start-DomeniaAccountRelogin
-        })
     }
     if ($script:Ctrl.ContainsKey("BtnAccountRemoteTest")) {
         $script:Ctrl["BtnAccountRemoteTest"].Add_Click({
@@ -28806,7 +28771,8 @@ function Get-DomeniaStandardLoginXaml {
 
 function Show-LoginWindow {
     # -PreferForm: change of account asked by the operator; the form opens first, the Windows session stays below it.
-    param([switch]$PreferForm)
+    # -PrefillLogin: the account of the session being changed (CO-31), proposed instead of the remembered identifier.
+    param([switch]$PreferForm,[string]$PrefillLogin='')
     $mode = Get-DomeniaLoginWindowMode
     $script:FastLoginMode = $mode
     # CD-10: one sign-in template for both modes; the Debug mode only adds the live diagnostic panel below.
@@ -28872,7 +28838,8 @@ function Show-LoginWindow {
         Write-DomeniaFastLoginLog -Stage "DEMO_MODE" -Status "WARN" -Detail "Fournisseur de demonstration : aucune connexion AD, ecritures desactivees."
     }
     else {
-    $lastLogin = [string](Get-CfgValue "Auth" "LastLogin" "")
+    $lastLogin = [string]$PrefillLogin
+    if ([string]::IsNullOrWhiteSpace($lastLogin)) { $lastLogin = [string](Get-CfgValue "Auth" "LastLogin" "") }
     if ([string]::IsNullOrWhiteSpace($lastLogin)) { $lastLogin = [string](Get-CfgValue "Auth" "VaultUserName" "") }
     if ([string]::IsNullOrWhiteSpace($lastLogin)) { $lastLogin = [string](Get-CfgValue "Conf" "ADM" "") }
     $lastLogin = $lastLogin.Trim()

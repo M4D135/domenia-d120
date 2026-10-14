@@ -1018,11 +1018,11 @@ Les boutons « Ouvrir le journal » et « Copier le diagnostic » de la fen�
 
 ## Les trois identités
 
-La page « Comptes » applique la règle affichée sous « Regle d execution » : « Annuaire : compte AD courant. Postes : compte distant s il existe, sinon compte AD. Secrets : compte secrets s il existe, sinon compte AD. Les trois scopes sont independants. ».
+La page « Comptes : identités de connexion » s'ouvre par le menu « Comptes » ou par la carte « Identités de connexion » de l'accueil. Elle applique la règle affichée sous « Regle d execution » : « Annuaire : compte AD courant. Postes : compte distant s il existe, sinon compte AD. Secrets : compte secrets s il existe, sinon compte AD. Les trois scopes sont independants. ».
 
 | Zone | Usage | Boutons |
 |---|---|---|
-| « ANNUAIRE AD » | Utilisateurs, groupes, OU, attributs, recherche et écritures AD. | « Changer de compte », « Tester la connexion », « Se connecter ». |
+| « ANNUAIRE AD » | Utilisateurs, groupes, OU, attributs, recherche et écritures AD. Carte en lecture seule : compte réellement lié, mode de connexion (session Windows ou compte saisi), contrôleur et domaine. | « Changer de compte » : connexion préremplie avec le compte saisi pour la session, formulaire d'abord ; « Annuler » garde la session en cours. Rien n'est écrit dans les préférences. |
 | « POSTES / WMI / DISTANT » | WMI, WinRM, SMB, inventaire, diagnostics et actions distantes. | « Tester », « Activer », « Effacer ». |
 | « SECRETS AD » | Lecture LAPS et BitLocker. | « Tester », « Activer », « Effacer ». |
 

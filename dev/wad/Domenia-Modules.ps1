@@ -956,7 +956,8 @@ function Get-DomeniaRuntimeModulePlan {
         # X03: pure sign-in and accounts presentation rules (no WPF, no network, no credential object).
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Accounts.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaLoginFailureText',
-            'Get-DomeniaLoginChoice'
+            'Get-DomeniaLoginChoice',
+            'Get-DomeniaDirectoryAccountText'
         ) }
         # X03: sign-in and accounts views (secret reveal, diagnostic panel); WPF only, no network.
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Accounts.Model.ps1'); File='Domenia-Accounts.UI.ps1'; DotSource=$true; Functions=@(

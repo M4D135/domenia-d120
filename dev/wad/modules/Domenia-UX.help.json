@@ -199,8 +199,8 @@
   },
   {
     "Name": "BtnAccountsHeader",
-    "Title": "Identites",
-    "Text": "Choisit les identites utilisees par l application pour l annuaire, les postes et les secrets.",
+    "Title": "Identités de connexion",
+    "Text": "Ouvre les identités de connexion utilisées par Domenia pour lʼannuaire, les postes et les secrets.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -241,8 +241,8 @@
   },
   {
     "Name": "BtnUxHomeAccounts",
-    "Title": "Gérer les comptes",
-    "Text": "Annuaire, accès aux postes et secrets",
+    "Title": "Identités de connexion",
+    "Text": "Comptes utilisés par Domenia : annuaire, postes, secrets",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -1415,35 +1415,14 @@
   {
     "Name": "TabAccounts",
     "Title": "Comptes",
-    "Text": "Gestion des identités utilisées par Domenia. Les mots de passe ne sont jamais écrits dans Domenia.db ni dans les préférences.",
+    "Text": "Identités de connexion utilisées par Domenia : annuaire, postes et secrets. Les mots de passe ne sont jamais écrits dans Domenia.db ni dans les préférences.",
     "Kind": "TabItem",
     "Source": "existing-help"
   },
   {
     "Name": "BtnAccountAdRelogin",
     "Title": "Changer de compte",
-    "Text": "Ouvre la fenetre de connexion DOMENIA sans fermer le logiciel.",
-    "Kind": "Button",
-    "Source": "existing-help"
-  },
-  {
-    "Name": "TxtAccountAdUser",
-    "Title": "Compte annuaire",
-    "Text": "Identifiant utilisé pour l’annuaire. Se connecter demande le mot de passe dans la fenêtre de connexion ; modifier ce champ seul ne change pas la session.",
-    "Kind": "TextBox",
-    "Source": "specific"
-  },
-  {
-    "Name": "BtnAccountAdTest",
-    "Title": "Tester le compte annuaire",
-    "Text": "Vérifie l’identité selon le même moteur ADSI que la connexion. Pour changer d’identifiant, utilisez Se connecter.",
-    "Kind": "Button",
-    "Source": "specific"
-  },
-  {
-    "Name": "BtnAccountAdUse",
-    "Title": "Se connecter",
-    "Text": "Relance la connexion avec cet identifiant. Le mot de passe est demande dans la fenetre de connexion.",
+    "Text": "Ouvre la connexion sans fermer Domenia, préremplie avec le compte actuel : formulaire dʼabord, session Windows proposée dessous. Annuler conserve la session en cours.",
     "Kind": "Button",
     "Source": "existing-help"
   },
