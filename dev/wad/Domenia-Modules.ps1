@@ -1236,7 +1236,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Complete-DomeniaLiveObservationRead',
             'Fail-DomeniaLiveObservationRead'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Access.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Shell.Model.ps1'); File='Domenia-Access.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Access.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Safety.Model.ps1'); File='Domenia-Access.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaAccessFailureKind',
             'Get-DomeniaAccessScope',
             'Get-DomeniaAccessNow',

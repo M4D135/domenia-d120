@@ -29520,7 +29520,7 @@ function Initialize-Window {
             if($writeJobsUnreadable -and [string]::IsNullOrWhiteSpace($script:ActiveWriteTaskId)){
                 $leave=$false
                 try{$leave=Confirm-WarningAction "Domenia nʼa pas pu vérifier sʼil reste une écriture AD en cours de confirmation.`r`n`r`nSi vous fermez maintenant, vérifiez les reçus au prochain démarrage avant toute autre modification.`r`n`r`nFermer Domenia maintenant ?"}catch{Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_}
-                if($leave){Write-AppLog "Fermeture confirmee sans pouvoir lire les taches en cours ; recus a verifier au prochain demarrage." "WARN";return}
+                if($leave){Write-AppLog "Fermeture confirmée sans pouvoir lire les tâches en cours ; reçus à vérifier au prochain démarrage." "WARN";return}
                 $e.Cancel=$true;return
             }
             if(-not [string]::IsNullOrWhiteSpace($script:ActiveWriteTaskId) -or $writeJobStillAlive){

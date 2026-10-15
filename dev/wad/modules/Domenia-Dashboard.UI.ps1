@@ -212,10 +212,13 @@ function Start-DomeniaFleetDashboard {
         [void](Initialize-DomeniaWinSqliteNative)
         $job = Start-UiTask -Name 'Vue d ensemble du parc' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload ([pscustomobject]@{ Action='FleetStats'; ObservationFamilies=$families; RunKeys=$runKeys; DomainDn=[string]$script:Conn.BaseDn; Path=$path; Scope=[string]$scope.Dn; Subtree=[bool]$scope.Subtree; Plan=$plan; Keys=$keys; ScopeKey=[string]$scope.Key; ComputeBoard=$true; ModuleRoot=$script:DashboardModuleRoot; Lifecycle=(Get-DomeniaWindowsLifecycleTable); ObservationMaxAgeDays=(Get-DomeniaObservationMaxAgeDays); IndexPartial=$partialText; HealthPolicy=$policy;HealthPolicyBook=$policyBook }) -CallbackState $state -ReplaceKey 'fleet:stats' -SuccessHandler 'Complete-DomeniaFleetDashboard' -ErrorHandler 'Fail-DomeniaFleetDashboard' -TimeoutSeconds 120 -TaskClass $(if ($Quiet) { 'Background' } else { 'Explicit' })
     } catch {
+        $fault = $_
         $script:FleetPendingKey = ''; $script:FleetJobId = ''
-        [void](Set-DomeniaControlText 'LblFleetDashboard' ('Vue dʼensemble non calculée : ' + $_.Exception.Message))
+        [void](Set-DomeniaControlText 'LblFleetDashboard' ('Vue dʼensemble non calculée : ' + $fault.Exception.Message))
         Set-DomeniaFleetDashboardToolTip
         if (-not $Quiet) { throw }
+        # An automatic request does not rethrow (its caller would only trace it): the technical trace is kept here.
+        Write-DomeniaSwallowed 'Dashboard' 'Start-DomeniaFleetDashboard' $fault
         return
     }
     if (-not $job) {

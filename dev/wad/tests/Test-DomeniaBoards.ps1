@@ -644,10 +644,16 @@ try{
         $tabs.SelectedItem=Get-DomeniaControl 'TabDashboard'
         # Preparation of the request in failure (local doubles of this case only).
         function Get-DomeniaFleetQueryPlan { throw 'plan de lecture impossible (simulation)' }
+        # The automatic request does not rethrow: its failure must still reach the technical trace.
+        $traces=New-Object 'System.Collections.Generic.List[object]'
+        function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) $traces.Add([pscustomobject]@{Category=[string]$Category;Operation=[string]$Operation;Error=$ErrorRecord}) }
         Request-DomeniaFleetRefresh
         $label=[string](Get-DomeniaControl 'LblFleetDashboard').Text
         Expect ($script:StartCalls.Count -eq 0) 'Calcul lance malgre une preparation en echec'
         Expect ($label -like 'Vue dʼensemble non calculée : plan de lecture impossible*') ('Libelle : '+$label)
+        $startTraces=@($traces|Where-Object{($_.Category -eq 'Dashboard') -and ($_.Operation -eq 'Start-DomeniaFleetDashboard')})
+        Expect ($startTraces.Count -eq 1) ('Echec automatique non trace : '+$traces.Count+' trace(s)')
+        Expect ([string]$startTraces[0].Error.Exception.Message -match 'plan de lecture impossible') 'La trace ne porte pas l erreur de preparation'
         # Failure before the calculation is chosen: the caller still receives the error, the view says it is not current.
         function Get-DomeniaFleetScope { throw 'perimetre illisible (simulation)' }
         $raised='';try{Request-DomeniaFleetRefresh -Force}catch{$raised=$_.Exception.Message}
