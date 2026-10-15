@@ -89,6 +89,8 @@ Test-Case 'P159' 'Fenêtre : ouverte ou fermée selon le jour et lʼheure locale
     Assert-True (Test-DomeniaCollectionWindowOpen $w ([datetime]'2026-10-17T15:00:00')).Open 'Samedi entier'
     Assert-True (Test-DomeniaCollectionWindowOpen (ConvertFrom-DomeniaCollectionWindowText '') $script:Monday10).Open
     Assert-False (Test-DomeniaCollectionWindowOpen (ConvertFrom-DomeniaCollectionWindowText 'jamais') $script:Monday10).Open
+    $quick = Test-DomeniaCollectionWindowOpen $w ([datetime]'2026-10-13T03:00:00') -StateOnly
+    Assert-True $quick.Open 'État seul identique'; Assert-True ($null -eq $quick.NextChange) 'État seul : prochain changement non calculé'
 }
 Test-Case 'P159' 'Fenêtre : prochain changement et texte sans promesse' {
     $w = ConvertFrom-DomeniaCollectionWindowText 'lun-ven 12:00-14:00'

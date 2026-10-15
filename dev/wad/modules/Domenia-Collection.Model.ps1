@@ -205,7 +205,8 @@ function Test-DomeniaCollectionWindowRule {
 
 function Test-DomeniaCollectionWindowOpen {
     # State of a parsed window at the local instant $Now, with the next change (opening or closing) within eight days.
-    param($Window,[datetime]$Now=(Get-Date))
+    # -StateOnly skips the next change: the background gate of the engine asks from its ticks and needs the state only.
+    param($Window,[datetime]$Now=(Get-Date),[switch]$StateOnly)
     $mode = [string](Get-DomeniaMember $Window 'Mode' 'Always')
     if ($mode -eq 'Always') { return [pscustomobject]@{Open=$true;Mode=$mode;NextChange=$null} }
     if ($mode -ne 'Rules') { return [pscustomobject]@{Open=$false;Mode=$mode;NextChange=$null} }
@@ -213,6 +214,7 @@ function Test-DomeniaCollectionWindowOpen {
     $at = $Now.Date.AddHours($Now.Hour).AddMinutes($Now.Minute)
     $isOpen = $false
     foreach ($rule in $rules) { if (Test-DomeniaCollectionWindowRule $rule $at) { $isOpen = $true; break } }
+    if ($StateOnly) { return [pscustomobject]@{Open=$isOpen;Mode=$mode;NextChange=$null} }
     # Boundaries are rule starts and ends: the state can only change there.
     $boundaries = New-Object 'System.Collections.Generic.List[datetime]'
     for ($offset = -1; $offset -le 8; $offset++) {
@@ -266,7 +268,7 @@ function Test-DomeniaCollectionWindowAllows {
     if (@(Get-DomeniaCollectionWindowSources) -notcontains [string]$Source) { return $true }
     if ($null -eq $Window) { return $true }
     if (-not [bool](Get-DomeniaMember $Window 'Valid' $true)) { return $false }
-    return [bool](Test-DomeniaCollectionWindowOpen -Window $Window -Now $Now).Open
+    return [bool](Test-DomeniaCollectionWindowOpen -Window $Window -Now $Now -StateOnly).Open
 }
 
 # ---------------------------------------------------------------- points 14, 15, 160: health of a collection source
