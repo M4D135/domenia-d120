@@ -672,19 +672,95 @@ function Get-DomeniaQueryMatchIds {
 }
 function Measure-DomeniaQueryWidget {
     param($Records,$Recipe)
+    $groupBy=[string](Get-DomeniaMember $Recipe 'GroupBy')
+    if(-not $groupBy){
+        $population=Select-DomeniaQueryPopulation $Records $Recipe
+        $query=ConvertTo-DomeniaCompiledQuery $Recipe
+        $counts=$query.Execute($population,[M4D.Admin.Common.Query.QueryOptions]@{Limit=0})
+        return [pscustomobject]@{Total=$counts.Total;Matched=$counts.Matched;Unknown=$counts.Unknown;NotMatched=$counts.NotMatched;GroupBy='';Items=@();Error='';CategoryCount=0L}
+    }
+    # The widget and the complete distribution share one exact summary: same order, same top ten, same totals.
+    $summary=Get-DomeniaQueryGroupSummary -Records $Records -Recipe $Recipe
+    $items=@(ConvertTo-DomeniaQueryGroupItems -Summary $summary -Top 10)
+    return [pscustomobject]@{Total=$summary.Total;Matched=$summary.Matched;Unknown=$summary.Unknown;NotMatched=$summary.NotMatched;GroupBy=$groupBy;Items=$items;Error='';CategoryCount=[long]$summary.CategoryCount}
+}
+function ConvertTo-DomeniaQueryGroupLabel {
+    # Display text of one typed category. The typed value itself is kept separately for exact drill-down.
+    param($Value)
+    if($null -eq $Value){return 'Valeur inconnue'}
+    if($Value -is [bool]){if($Value){return 'Oui'};return 'Non'}
+    if($Value -is [DateTimeOffset]){return $Value.ToLocalTime().ToString('dd/MM/yyyy HH:mm',[Globalization.CultureInfo]::GetCultureInfo('fr-FR'))}
+    if($Value -is [decimal] -or $Value -is [double] -or $Value -is [int] -or $Value -is [long]){return ([decimal]$Value).ToString('G',[Globalization.CultureInfo]::GetCultureInfo('fr-FR'))}
+    return [string]$Value
+}
+function Get-DomeniaQueryGroupSummary {
+    # Exact distribution of the matching population. CountBy bounds memory explicitly (100 000 distinct values at
+    # most) and refuses beyond it: no category is sampled, merged or silently dropped.
+    param($Records,$Recipe,[int]$MaxCategories=100000)
+    if($MaxCategories -lt 1 -or $MaxCategories -gt 100000){throw 'Budget de catégories invalide (1 à 100 000).'}
+    $groupBy=[string](Get-DomeniaMember $Recipe 'GroupBy')
+    if(-not $groupBy){throw 'Choisissez une information de répartition.'}
     $population=Select-DomeniaQueryPopulation $Records $Recipe
     $query=ConvertTo-DomeniaCompiledQuery $Recipe
     $counts=$query.Execute($population,[M4D.Admin.Common.Query.QueryOptions]@{Limit=0})
-    $groupBy=[string](Get-DomeniaMember $Recipe 'GroupBy');$items=@()
-    if($groupBy){
-        # Bounded distinct categories. Exceeding the bound is explicit, never a silently sampled chart.
-        $buckets=@($query.CountBy($population,$groupBy,100000));$known=@($buckets|Where-Object{-not $_.Missing}|Sort-Object Count -Descending)
-        $top=@($known|Select-Object -First 10);$items=@(foreach($bucket in $top){[pscustomobject]@{Label=[string]$bucket.Value;Value=[double]$bucket.Count;Select=[pscustomobject]@{Label=[string]$bucket.Value;Field=$groupBy;Missing=$false;Value=$bucket.Value;Excluded=@()}}})
-        $others=0L;foreach($bucket in @($known|Select-Object -Skip 10)){$others+=$bucket.Count}
-        if($others){$items+=@([pscustomobject]@{Label='Autres valeurs';Value=[double]$others;Select=[pscustomobject]@{Label='Autres valeurs';Field=$groupBy;Missing=$false;Value=$null;Excluded=@($top|ForEach-Object{$_.Value})}})}
-        foreach($bucket in @($buckets|Where-Object{$_.Missing})){$items+=@([pscustomobject]@{Label='Valeur inconnue';Value=[double]$bucket.Count;Select=[pscustomobject]@{Label='Valeur inconnue';Field=$groupBy;Missing=$true;Value=$null;Excluded=@()}})}
+    try{$buckets=@($query.CountBy($population,$groupBy,$MaxCategories))}
+    catch{
+        $inner=$_.Exception;while($null -ne $inner.InnerException){$inner=$inner.InnerException}
+        if($inner -is [InvalidOperationException]){throw ('Plus de '+$MaxCategories.ToString('N0',[Globalization.CultureInfo]::GetCultureInfo('fr-FR'))+' valeurs distinctes pour cette répartition : choisissez une information moins détaillée ou réduisez le périmètre. Aucune répartition partielle nʼest publiée.')}
+        throw
     }
-    return [pscustomobject]@{Total=$counts.Total;Matched=$counts.Matched;Unknown=$counts.Unknown;NotMatched=$counts.NotMatched;GroupBy=$groupBy;Items=$items;Error=''}
+    $known=[Collections.Generic.List[object]]::new();$missing=0L;$knownTotal=0L
+    foreach($bucket in $buckets){if([bool]$bucket.Missing){$missing+=[long]$bucket.Count}else{$known.Add($bucket);$knownTotal+=[long]$bucket.Count}}
+    if(($knownTotal+$missing) -ne [long]$counts.Matched){throw 'Répartition incohérente avec le nombre de postes correspondants : aucun graphique publié.'}
+    # Count descending, then the typed value order of CountBy: deterministic ties without a script comparer.
+    $items=$known.ToArray();$keys=New-Object 'long[]' ($items.Length)
+    for($i=0;$i -lt $items.Length;$i++){$keys[$i]=(-[long]$items[$i].Count)*1000000L+$i}
+    [Array]::Sort($keys,$items)
+    $categories=[Collections.Generic.List[object]]::new($items.Length)
+    for($i=0;$i -lt $items.Length;$i++){$categories.Add([pscustomobject]@{Rank=($i+1);Label=(ConvertTo-DomeniaQueryGroupLabel $items[$i].Value);Value=$items[$i].Value;Count=[long]$items[$i].Count;Missing=$false})}
+    return [pscustomobject]@{Field=$groupBy;Total=[long]$counts.Total;Matched=[long]$counts.Matched;Unknown=[long]$counts.Unknown;NotMatched=[long]$counts.NotMatched;Categories=$categories.ToArray();CategoryCount=[long]$categories.Count;Missing=$missing;MaxCategories=$MaxCategories;Error=''}
+}
+function ConvertTo-DomeniaQueryGroupItems {
+    # Chart items: the largest categories, then one exact remainder and the unknown bucket. Totals are preserved.
+    param($Summary,[int]$Top=10)
+    if($Top -lt 1 -or $Top -gt 64){throw 'Nombre de catégories affichées invalide (1 à 64).'}
+    $field=[string]$Summary.Field;$categories=@($Summary.Categories)
+    $shown=@($categories|Select-Object -First $Top)
+    $items=[Collections.Generic.List[object]]::new()
+    foreach($category in $shown){$items.Add([pscustomobject]@{Label=[string]$category.Label;Value=[double]$category.Count;Select=[pscustomobject]@{Label=[string]$category.Label;Field=$field;Missing=$false;Value=$category.Value;Excluded=@()}})}
+    $others=0L;for($i=$shown.Count;$i -lt $categories.Count;$i++){$others+=[long]$categories[$i].Count}
+    if($others){$items.Add([pscustomobject]@{Label='Autres valeurs';Value=[double]$others;Select=[pscustomobject]@{Label='Autres valeurs';Field=$field;Missing=$false;Value=$null;Excluded=@($shown|ForEach-Object{$_.Value})}})}
+    if([long]$Summary.Missing){$items.Add([pscustomobject]@{Label='Valeur inconnue';Value=[double]$Summary.Missing;Select=[pscustomobject]@{Label='Valeur inconnue';Field=$field;Missing=$true;Value=$null;Excluded=@()}})}
+    return $items.ToArray()
+}
+function Get-DomeniaQueryGroupPage {
+    # One page of the complete distribution, optionally filtered by label. Pure: the summary is already exact.
+    param($Summary,[int]$Offset=0,[int]$Limit=100,[string]$Text='')
+    if($null -eq $Summary -or $null -eq (Get-DomeniaMemberValue $Summary 'Categories')){throw 'Répartition non calculée : relancez lʼaperçu.'}
+    if($Offset -lt 0 -or $Limit -lt 1 -or $Limit -gt 500){throw 'Page de répartition invalide (1 à 500 valeurs).'}
+    if($Text.Length -gt 256){throw 'Filtre de répartition limité à 256 caractères.'}
+    $field=[string]$Summary.Field;$matched=[long]$Summary.Matched
+    $all=[Collections.Generic.List[object]]::new()
+    foreach($category in @($Summary.Categories)){$all.Add($category)}
+    if([long]$Summary.Missing -gt 0){$all.Add([pscustomobject]@{Rank=0;Label='Valeur inconnue';Value=$null;Count=[long]$Summary.Missing;Missing=$true})}
+    $terms=@($Text.Trim() -split '\s+'|Where-Object{$_})
+    $compare=[Globalization.CultureInfo]::GetCultureInfo('fr-FR').CompareInfo
+    $options=[Globalization.CompareOptions]::IgnoreCase -bor [Globalization.CompareOptions]::IgnoreNonSpace
+    $filtered=[Collections.Generic.List[object]]::new()
+    foreach($category in $all){
+        $keep=$true;foreach($term in $terms){if($compare.IndexOf([string]$category.Label,$term,$options) -lt 0){$keep=$false;break}}
+        if($keep){$filtered.Add($category)}
+    }
+    if($filtered.Count -gt 0 -and $Offset -ge $filtered.Count){$Offset=[int]([Math]::Floor(($filtered.Count-1)/$Limit)*$Limit)}
+    if(-not $filtered.Count){$Offset=0}
+    $culture=[Globalization.CultureInfo]::GetCultureInfo('fr-FR')
+    $rows=[Collections.Generic.List[object]]::new()
+    for($i=$Offset;$i -lt [Math]::Min($filtered.Count,$Offset+$Limit);$i++){
+        $category=$filtered[$i];$share=if($matched -gt 0){[Math]::Round(100.0*[double]$category.Count/[double]$matched,1).ToString('0.0',$culture)+' %'}else{'0,0 %'}
+        $select=if([bool]$category.Missing){[pscustomobject]@{Label='Valeur inconnue';Field=$field;Missing=$true;Value=$null;Excluded=@()}}else{[pscustomobject]@{Label=[string]$category.Label;Field=$field;Missing=$false;Value=$category.Value;Excluded=@()}}
+        $rows.Add([pscustomobject]@{Rank=$(if([bool]$category.Missing){'—'}else{[string]$category.Rank});Label=[string]$category.Label;Count=[long]$category.Count;Share=$share;Select=$select})
+    }
+    return [pscustomobject]@{Rows=$rows.ToArray();Offset=$Offset;Limit=$Limit;Filtered=[long]$filtered.Count;CategoryCount=[long]$Summary.CategoryCount;Missing=[long]$Summary.Missing;Matched=$matched;HasPrevious=($Offset -gt 0);HasNext=(($Offset+$Limit) -lt $filtered.Count);Text=$Text.Trim()}
 }
 function New-DomeniaQuerySegmentRecipe {
     param($Recipe,$Selection)
@@ -754,20 +830,85 @@ function Get-DomeniaQueryExplanation {
     }
 
 }
+function Test-DomeniaQueryVolatileKey {
+    # Instantaneous measures: a value read an hour ago no longer describes the same moment as a fresh one.
+    param([string]$Key)
+    return ($Key -in @('_at:presence','_at:console') -or $Key -match '^_at:probe:(evt\.|svc\.|net\.)|load|battery|free|users|stopped|process')
+}
+function Get-DomeniaQueryTimestampSource {
+    # Clock that dates one timestamp key. AD attributes come from the directory read; every probe keeps its own clock.
+    param([string]$Key)
+    if($Key -like '_at:field:*'){return [pscustomobject]@{Id='ad';Label='Annuaire AD';Volatile=$false}}
+    if($Key -eq '_at:presence'){return [pscustomobject]@{Id='presence';Label='Présence (ping)';Volatile=$true}}
+    if($Key -eq '_at:console'){return [pscustomobject]@{Id='console';Label='Utilisateur console';Volatile=$true}}
+    if($Key -eq '_at:inventory'){return [pscustomobject]@{Id='inventory';Label='Inventaire du poste';Volatile=$false}}
+    if($Key -like '_at:probe:*'){
+        $id=$Key.Substring(10);$probe=Get-DomeniaProbe $id
+        return [pscustomobject]@{Id=('probe:'+$id);Label=('Sonde · '+$(if($null -ne $probe){[string]$probe.Name}else{$id}));Volatile=(Test-DomeniaQueryVolatileKey $Key)}
+    }
+    if($Key -like '_at:detail:*'){return [pscustomobject]@{Id=('detail:'+$Key.Substring(11));Label='SELECT WMI mémorisé';Volatile=$false}}
+    return [pscustomobject]@{Id=$Key;Label=$Key;Volatile=$false}
+}
+function Format-DomeniaQueryHours {
+    param([double]$Hours)
+    $culture=[Globalization.CultureInfo]::GetCultureInfo('fr-FR')
+    $text=$Hours.ToString('0.##',$culture)+' h'
+    if($Hours -ge 48 -and ($Hours % 24) -eq 0){$text+=' ('+($Hours/24).ToString('0',$culture)+' jours)'}
+    return $text
+}
+function Get-DomeniaQueryCoherenceProposal {
+    # Smallest usual window that keeps at least $Threshold of the fully dated workstations coherent. Instantaneous
+    # measures never get more than 24 h: beyond that, they no longer describe the same period as the other sources.
+    param([double[]]$Spreads=@(),[int]$SourceCount=0,[bool]$Volatile=$false,[long]$Undated=0,[double]$Threshold=0.9)
+    if($Threshold -le 0 -or $Threshold -gt 1){throw 'Seuil de proposition invalide.'}
+    $culture=[Globalization.CultureInfo]::GetCultureInfo('fr-FR')
+    $dated=[long]$Spreads.Count
+    $undatedText=if($Undated -gt 0){' '+$Undated.ToString('N0',$culture)+' poste(s) sans toutes les dates resteront inconnus tant que ces informations ne sont pas relevées.'}else{''}
+    if($SourceCount -lt 2){return [pscustomobject]@{Needed=$false;Hours=$null;Covered=$dated;Dated=$dated;Undated=$Undated;Text='Une seule source datée : les conditions décrivent déjà la même période ; aucune fenêtre commune nʼest nécessaire.'}}
+    if($dated -eq 0){return [pscustomobject]@{Needed=$true;Hours=$null;Covered=0L;Dated=0L;Undated=$Undated;Text=('Les informations viennent de '+$SourceCount+' sources datées séparément, mais aucun poste ne possède toutes les dates demandées. Relevez les informations manquantes avant de choisir une fenêtre commune.')}}
+    $sorted=[double[]]$Spreads.Clone();[Array]::Sort($sorted)
+    $candidates=if($Volatile){@(1,6,12,24)}else{@(1,6,12,24,48,72,168,336,720,2160,8760)}
+    $covered=@{};$index=0
+    foreach($hours in $candidates){while($index -lt $sorted.Length -and $sorted[$index] -le $hours){$index++};$covered[$hours]=[long]$index}
+    $chosen=$null;foreach($hours in $candidates){if(($covered[$hours]/[double]$dated) -ge $Threshold){$chosen=$hours;break}}
+    $volatileText=if($Volatile){' La requête combine une mesure instantanée : la fenêtre proposée ne dépasse pas 24 h.'}else{''}
+    if($null -eq $chosen){
+        if(-not $Volatile){return [pscustomobject]@{Needed=$true;Hours=$null;Covered=$covered[8760];Dated=$dated;Undated=$Undated;Text=('Les dates sources sont dispersées sur plus dʼun an pour plus de '+[Math]::Round((1-$Threshold)*100)+' % des postes : relevez à nouveau ces informations plutôt que dʼélargir la fenêtre.'+$undatedText)}}
+        $chosen=24;$text='Fenêtre proposée : 24 h. Seuls '+$covered[24].ToString('N0',$culture)+' poste(s) sur '+$dated.ToString('N0',$culture)+' entièrement datés ont leurs dates à moins de 24 h dʼécart : relancez une collecte groupée des informations instantanées pour réduire les inconnus.'
+    }else{
+        $text='Fenêtre proposée : '+(Format-DomeniaQueryHours $chosen)+'. '+$covered[$chosen].ToString('N0',$culture)+' poste(s) sur '+$dated.ToString('N0',$culture)+' entièrement datés ont toutes leurs dates dans cet écart ; les '+($dated-$covered[$chosen]).ToString('N0',$culture)+' autres deviendront inconnus.'
+    }
+    return [pscustomobject]@{Needed=$true;Hours=[double]$chosen;Covered=$covered[$chosen];Dated=$dated;Undated=$Undated;Text=($text+$volatileText+$undatedText)}
+}
 function Measure-DomeniaQueryCoverage {
-    param($Records,$Recipe,[double]$CoherenceHours=24)
+    # Availability and dates of every requested information. The spread is compared with the recipe window, or with
+    # a 24 h reference when the recipe has none (WindowSource tells which); nothing is collected or rejuvenated.
+    param($Records,$Recipe,$CoherenceHours=$null)
+    $windowSource='Recette'
+    if($null -eq $CoherenceHours){$CoherenceHours=Get-DomeniaMemberValue $Recipe 'CoherenceHours'}
+    if($null -eq $CoherenceHours){$CoherenceHours=24.0;$windowSource='Référence'}
+    $CoherenceHours=[double]$CoherenceHours
     if($CoherenceHours -le 0 -or $CoherenceHours -gt 8760){throw 'Fenêtre de cohérence invalide (plus de 0 et au plus 8 760 heures).'}
     $byId=@{};foreach($entry in @(@(Get-DomeniaQueryCatalog)+@(Get-DomeniaQueryInstanceFields)+@(Get-DomeniaQueryReadDefinitionFields $Recipe))){$byId[$entry.Id]=$entry}
     $fields=@(foreach($id in @(Get-DomeniaQueryRequestedFields $Recipe)){
         if(-not $byId.ContainsKey($id)){throw ('Champ de couverture inconnu : '+$id)}
         [pscustomobject]@{Id=$id;Name=$byId[$id].Name;Available=0L;Expired=0L;Error=0L;Partial=0L;Unread=0L;Source=[string](Get-DomeniaMember $byId[$id] 'Source')}
     })
+    # Distinct clocks of the requested information, grouped by source.
+    $keys=[Collections.Generic.List[string]]::new();$sources=[ordered]@{};$keySource=@{}
+    foreach($field in $fields){
+        $key=Get-DomeniaQueryTimestampKey ([string]$field.Id);$clock=Get-DomeniaQueryTimestampSource $key
+        if(-not $sources.Contains($clock.Id)){$sources[$clock.Id]=[pscustomobject]@{Id=$clock.Id;Source=$clock.Label;Volatile=[bool]$clock.Volatile;Names=[Collections.Generic.List[string]]::new();Dated=0L;Missing=0L;Oldest=$null;Newest=$null}}
+        $entry=$sources[$clock.Id];if(-not $entry.Names.Contains([string]$field.Name)){$entry.Names.Add([string]$field.Name)}
+        if(-not $keys.Contains($key)){$keys.Add($key);$keySource[$key]=$entry}
+    }
+    $spreads=[Collections.Generic.List[double]]::new()
     $identities=Get-DomeniaQueryIdentitySelection $Recipe;$total=0L;$complete=0L;$mixed=0L;$undated=0L
     foreach($record in $Records){
         if($null -ne $identities -and -not $identities.Contains($record.Id.Trim().Trim('{','}'))){continue}
-        $total++;$all=$true;$earliest=$null;$latest=$null;$missingDate=$false
+        $total++;$all=$true;$earliest=$null;$latest=$null;$missingDate=$false;$v=$record.Values
         foreach($field in $fields){
-            $id=[string]$field.Id;$v=$record.Values;$known=$v.ContainsKey($id);$partial=$false;$qualityKey=$id
+            $id=[string]$field.Id;$known=$v.ContainsKey($id);$partial=$false;$qualityKey=$id
             if($id -like 'instance:*'){
                 $probeId=($id.Split(':'))[1];$qualityKey='probe:'+$probeId;$key='_instances:probe:'+$probeId
                 if($v.ContainsKey($key)){
@@ -779,14 +920,27 @@ function Measure-DomeniaQueryCoverage {
                 $all=$false;$quality=if($v.ContainsKey('_quality:'+$qualityKey)){[string]$v['_quality:'+$qualityKey]}else{''}
                 if($partial){$field.Partial++}else{switch($quality){'Expiré'{$field.Expired++};'Erreur de lecture'{$field.Error++};'Lecture incomplète'{$field.Partial++};default{$field.Unread++}}}
             }
-            $dateKey=Get-DomeniaQueryTimestampKey $id
-            $date=if($v.ContainsKey($dateKey)){ConvertFrom-DomeniaUtcText ([string]$v[$dateKey])}else{$null}
-            if($null -ne $date){if($null -eq $earliest -or $date -lt $earliest){$earliest=$date};if($null -eq $latest -or $date -gt $latest){$latest=$date}}else{$missingDate=$true}
         }
+        # Each clock is parsed once per workstation, even when several conditions share it.
+        $missingSources=@{}
+        foreach($key in $keys){
+            $entry=$keySource[$key]
+            $date=if($v.ContainsKey($key)){ConvertFrom-DomeniaUtcText ([string]$v[$key])}else{$null}
+            if($null -eq $date){$missingDate=$true;$missingSources[$entry.Id]=$true;continue}
+            if($null -eq $earliest -or $date -lt $earliest){$earliest=$date};if($null -eq $latest -or $date -gt $latest){$latest=$date}
+            if($null -eq $entry.Oldest -or $date -lt $entry.Oldest){$entry.Oldest=$date};if($null -eq $entry.Newest -or $date -gt $entry.Newest){$entry.Newest=$date}
+        }
+        foreach($entry in $sources.Values){if($missingSources.ContainsKey($entry.Id)){$entry.Missing++}else{$entry.Dated++}}
         if($all){$complete++};if($missingDate){$undated++}
         if($null -ne $earliest -and $null -ne $latest -and ($latest-$earliest).TotalHours -gt $CoherenceHours){$mixed++}
+        if(-not $missingDate -and $null -ne $earliest){$spreads.Add(($latest-$earliest).TotalHours)}
     }
-    [pscustomobject]@{Rows=$fields;Total=$total;Complete=$complete;Incomplete=($total-$complete);MixedPeriod=$mixed;Undated=$undated;CoherenceHours=$CoherenceHours;FieldCount=$fields.Count}
+    $volatile=$false;foreach($entry in $sources.Values){if($entry.Volatile){$volatile=$true}}
+    $sourceRows=@(foreach($entry in $sources.Values){
+        [pscustomobject]@{Source=$entry.Source;Informations=($entry.Names.ToArray() -join ', ');Dated=$entry.Dated;Missing=$entry.Missing;Oldest=$(if($null -ne $entry.Oldest){$entry.Oldest.ToLocalTime().ToString('dd/MM/yyyy HH:mm')}else{'Aucune date'});Newest=$(if($null -ne $entry.Newest){$entry.Newest.ToLocalTime().ToString('dd/MM/yyyy HH:mm')}else{'Aucune date'});Volatile=$entry.Volatile}
+    })
+    $proposal=Get-DomeniaQueryCoherenceProposal -Spreads $spreads.ToArray() -SourceCount $sources.Count -Volatile $volatile -Undated $undated
+    [pscustomobject]@{Rows=$fields;Total=$total;Complete=$complete;Incomplete=($total-$complete);MixedPeriod=$mixed;Undated=$undated;CoherenceHours=$CoherenceHours;WindowSource=$windowSource;FieldCount=$fields.Count;Sources=$sourceRows;SourceCount=$sources.Count;Proposal=$proposal}
 }
 
 function Copy-DomeniaQueryRecipe {
@@ -991,7 +1145,7 @@ function New-DomeniaQueryMissingCollectionPlan {
             $key=Get-DomeniaQueryTimestampKey $field;if($key -like '_at:field:*'){continue}
             $seconds=[Math]::Max(0,[Math]::Min(1440,$CacheMinutes))*60
             if($key -eq '_at:inventory'){$seconds=[Math]::Min(300,$seconds)}
-            if($key -in @('_at:presence','_at:console') -or $key -match '^_at:probe:(evt\.|svc\.|net\.)|load|battery|free|users|stopped|process'){$seconds=[Math]::Min(60,$seconds)}
+            if(Test-DomeniaQueryVolatileKey $key){$seconds=[Math]::Min(60,$seconds)}
             $qualityId=if($field -like 'instance:*'){'probe:'+($field.Split(':'))[1]}else{$field}
             $known=$v.ContainsKey($field)
             if($field -like 'instance:*'){$collectionKey='_instances:probe:'+($field.Split(':'))[1];$known=$v.ContainsKey($collectionKey) -and [bool]$v[$collectionKey].Complete}

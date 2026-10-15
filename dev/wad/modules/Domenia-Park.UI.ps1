@@ -599,6 +599,9 @@ function Start-DomeniaParkRunTimer {
     if([string]$r.RefreshOperationId -and -not (Test-DomeniaOuRefreshCurrent ([string]$r.RefreshOperationId))){Stop-DomeniaOnlinePark -RunId $RunId;return}
     if(-not $Planning){
         if(([bool]$r.Approved) -and ($null -ne $r.Timer)){return}
+        # Start of the confirmed collection, kept from its first approval: the attempt time of its scope clocks
+        # (Refresh.UI), never a measure date.
+        if(-not [bool]$r.Approved){$r|Add-Member -NotePropertyName ApprovedUtc -NotePropertyValue ([datetime]::UtcNow.ToString('o')) -Force}
         $r.Approved=$true;$r.InlineRequestId=''
         # Points 17 and 20: the measured progress starts with the approval, and the plan of a durable survey is saved
         # at once (Save-DomeniaCampaignPlan reports its own failure in the status of the survey).
@@ -1436,7 +1439,9 @@ function Start-DomeniaCommittedPresence {
         if(-not [guid]::TryParse($Guid,[ref]$identity) -or $identity -eq [guid]::Empty -or -not $DN){throw 'Identite AD du poste non enregistree. Relisez sa fiche avant de mesurer sa presence.'}
         $state=[pscustomobject]@{Computer=$Computer;DisplayDN=$DisplayDN;DisplayKind=$DisplayKind;Suffix=$Suffix;Explicit=[bool]$Explicit;RemoteStartedUtc=[datetime]::UtcNow.ToString('o')}
         [void](Initialize-DomeniaRemoteStoreState -State $state -Guid $Guid -DN $DN -Generation ([long]$script:GlobalSearchGeneration))
-        $job=Start-UiTask -Name ('Presence de '+$Computer) -OperationId 'SelectedPresence' -Code (Get-DomeniaLiveProbeCode) -Payload ([pscustomobject]@{Computer=$Computer;Key=$DN;Guid=$Guid;CollectPing=$true;ProbeUser=$false;Inventory=$false;Probes=@();ValidateConsoleIdentity=$false}) -CallbackState $state -ReplaceKey 'presence-selected' -TimeoutSeconds 8 -SuccessHandler 'Complete-DomeniaCommittedPresence' -ErrorHandler 'Fail-DomeniaCommittedPresence'
+        # Point 1: this ping-only read runs the pinned live probe body, registered as LiveSelectedPing (credential free).
+        # SelectedPresence pins another body (Get-DomeniaSelectedPresenceWorkerCode): the engine refused this pairing.
+        $job=Start-UiTask -Name ('Presence de '+$Computer) -OperationId 'LiveSelectedPing' -Code (Get-DomeniaLiveProbeCode) -Payload ([pscustomobject]@{Computer=$Computer;Key=$DN;Guid=$Guid;CollectPing=$true;ProbeUser=$false;Inventory=$false;Probes=@();ValidateConsoleIdentity=$false}) -CallbackState $state -ReplaceKey 'presence-selected' -TimeoutSeconds 8 -SuccessHandler 'Complete-DomeniaCommittedPresence' -ErrorHandler 'Fail-DomeniaCommittedPresence'
         if(-not $job){throw 'Controle de presence non admis.'}
         Set-Status ('Ping de '+$Computer+' en cours ; les valeurs affichees gardent leur date jusquʼa enregistrement.')
     }catch{Set-Status $_.Exception.Message 'WARN'}

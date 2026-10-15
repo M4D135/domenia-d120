@@ -408,9 +408,9 @@ function Get-DomeniaOperationProvider {
     # Remote actions on a workstation (GPUpdate, restart, Rimotte, user probe, credential check) are budgeted
     # per target with the CIM provider: an outage there must never slow the directory.
     # UX-38 (X04): ComputerServiceControl starts or restarts one service of the selected workstation through CIM.
-    $cim = @('ComputerDiagnostics','ComputerInventory','SoftwareInventory','WmiNamespaces','WmiClasses','WmiQuery','LiveConsole','ComputerLastUser','ComputerQuickDiag','JoinStateRead','UpdateStateRead','GpoAppliedRead','ComputerEventsRead','MachineIdentityRead','ParkSweep','BatchNetworkDiag','ComputerGpUpdate','ComputerRestart','RimotteRun','ComputerServiceControl','UserComputerProbe','RemoteCredentialCheck')
+    $cim = @('ComputerDiagnostics','ComputerInventory','SoftwareInventory','WmiNamespaces','WmiClasses','WmiQuery','LiveConsole','ComputerLastUser','ComputerQuickDiag','JoinStateRead','UpdateStateRead','GpoAppliedRead','ComputerEventsRead','MachineIdentityRead','ParkSweep','BatchNetworkDiag','ComputerGpUpdate','ComputerRestart','RimotteRun','ComputerServiceControl','UserComputerProbe','RemoteCredentialCheck','QuerySchema')
     $wts = @('SessionsList')
-    $storage = @('LegacyMigration','LocalStore','LiveCache','ReceiptStore','DocumentStore','StorageUsage','StoragePurge','StorageBackup','StorageMaintenance','StorageRetention','LinkHistoryStore','LocalIndexRead','LocalQuery','QueryExport','QueryLibrary')
+    $storage = @('LegacyMigration','LocalStore','LiveCache','ReceiptStore','DocumentStore','StorageUsage','StoragePurge','StorageBackup','StorageMaintenance','StorageRetention','LinkHistoryStore','LocalIndexRead','LocalQuery','QueryExport','QueryLibrary','QueryTransfer')
     $local = @('CmdletHelp','CmdletInventory','EngineSelfTest','EmbeddedPathBrowse','LocalAssistant','DemoDirectory','IsolatedRead')
     # ParkSharedSync reads and writes a shared file, possibly on a UNC path: network I/O, not the local base.
     # ParkPing (MO-08) sends the ICMP echoes of a list in parallel batches: network only, no credential.
@@ -428,10 +428,10 @@ function Get-DomeniaOperationCredentialNeeds {
     # which account the worker receives, and whether a rejected logon may suspend the directory channel.
     # A provider is not a credential rule: ComputerLastUser and LiveConsole are CIM reads that also query LDAP.
     param([string]$OperationId)
-    $remote = @('SessionsList','ComputerDiagnostics','ComputerLastUser','LiveConsole','ComputerPing','ComputerAdminShare','ComputerGpUpdate','ComputerRestart','ComputerInventory','SoftwareInventory','ParkSweep','BatchNetworkDiag','WmiNamespaces','WmiClasses','WmiQuery','RimotteRun','ComputerServiceControl')
-    $machine = @('SessionsList','ComputerAdminShare','ComputerDiagnostics','ComputerInventory','SoftwareInventory','ParkSweep','WmiNamespaces','WmiClasses','WmiQuery','ComputerLastUser','LiveConsole','ComputerGpUpdate','ComputerRestart','UserComputerProbe','RimotteRun','ComputerServiceControl')
+    $remote = @('SessionsList','ComputerDiagnostics','ComputerLastUser','LiveConsole','ComputerPing','ComputerAdminShare','ComputerGpUpdate','ComputerRestart','ComputerInventory','SoftwareInventory','ParkSweep','BatchNetworkDiag','WmiNamespaces','WmiClasses','WmiQuery','RimotteRun','ComputerServiceControl','QuerySchema')
+    $machine = @('SessionsList','ComputerAdminShare','ComputerDiagnostics','ComputerInventory','SoftwareInventory','ParkSweep','WmiNamespaces','WmiClasses','WmiQuery','ComputerLastUser','LiveConsole','ComputerGpUpdate','ComputerRestart','UserComputerProbe','RimotteRun','ComputerServiceControl','QuerySchema')
     # Local or storage operations that never bind to the directory. New D120 operations are classified here.
-    $local = @('StorageUsage','StoragePurge','StorageBackup','StorageMaintenance','StorageRetention','LegacyMigration','CmdletHelp','CmdletInventory','EngineSelfTest','LiveCache','LiveSelectedPing','ParkPing','LocalStore','ReceiptStore','SessionsList','DocumentStore','EmbeddedPathBrowse','DemoDirectory','LocalIndexRead','LocalQuery','QueryExport','QueryLibrary','ParkSharedSync','IsolatedRead')
+    $local = @('StorageUsage','StoragePurge','StorageBackup','StorageMaintenance','StorageRetention','LegacyMigration','CmdletHelp','CmdletInventory','EngineSelfTest','LiveCache','LiveSelectedPing','ParkPing','LocalStore','ReceiptStore','SessionsList','DocumentStore','EmbeddedPathBrowse','DemoDirectory','LocalIndexRead','LocalQuery','QueryExport','QueryLibrary','ParkSharedSync','IsolatedRead','QueryTransfer')
     $id = [string]$OperationId
     $isRemote = ($remote -contains $id)
     $nonDirectory = (($local -contains $id) -or $isRemote)
@@ -959,4 +959,114 @@ function Get-DomeniaReadTimeoutState {
         }
     }
     return $result
+}
+
+# ---------------------------------------------------------------- Point 122: response-time percentiles
+function Get-DomeniaRuntimeMetricOperationKey {
+    # Series key of one finished worker (Add-DomeniaTaskRuntimeMetric). The local index reader and the query worker
+    # serve several screens: a closed list of actions keeps a local search apart from a dashboard or collection read,
+    # so its median is not blended with a 20 000-row board computation. Any other value keeps the plain identifier.
+    param([string]$OperationId,$Payload=$null)
+    $id = [string]$OperationId
+    if ($id -ceq 'LocalIndexRead') {
+        $action = [string](Get-DomeniaMember $Payload 'Action' '')
+        if ($action -cin @('Search','FleetStats','ParkTargets','ParkState','StoreRead','ResolveNames','IndexMetadata','UserMachineLinks','SecretIndexEntry','OperationStats')) { return ($id + ':' + $action) }
+        return $id
+    }
+    if ($id -ceq 'LocalQuery') {
+        $search = $false
+        try { $search = [bool](Get-DomeniaMember $Payload 'SearchOutput' $false) } catch { $search = $false }
+        if ($search) { return ($id + ':Search') }
+    }
+    return $id
+}
+
+function Get-DomeniaResponseTimeCategories {
+    # Closed list of the response times shown in the operations panel. Each category names the series of
+    # Add-DomeniaRuntimeMetric it gathers ('Provenance|prefix', ordinal); Exclude removes the series counted by another
+    # category, so that one measure is never reported twice. Dispatcher|Callback: is the processing and display of a
+    # result on the interface thread (rendering included); worker durations never enter it. Add-DomeniaTaskRuntimeMetric
+    # prefixes a write or remote action with 'Write:' (password reset, unlock, restart, policy refresh...): it has its own
+    # category and never enters the reads of its provider. A local base write stays in the local base category.
+    $search = @('Sqlite|LocalIndexRead:Search','Sqlite|LocalQuery:Search')
+    $writes = @('Ldap|Write:','Cim|Write:')
+    return @(
+        [pscustomobject]@{ Id='LocalSearch'; Label='Recherche locale'; Include=$search; Exclude=@() }
+        [pscustomobject]@{ Id='Render'; Label='Traitement des résultats dans lʼinterface'; Include=@('Dispatcher|Callback:'); Exclude=@() }
+        [pscustomobject]@{ Id='Sqlite'; Label='Autres lectures et écritures de la base locale'; Include=@('Sqlite|'); Exclude=$search }
+        [pscustomobject]@{ Id='Directory'; Label='Lectures de lʼannuaire'; Include=@('Ldap|'); Exclude=@('Ldap|Write:') }
+        [pscustomobject]@{ Id='Computers'; Label='Collecte sur les postes (réseau et WMI)'; Include=@('Cim|'); Exclude=@('Cim|Write:') }
+        [pscustomobject]@{ Id='Writes'; Label='Écritures dans lʼannuaire et actions sur les postes'; Include=$writes; Exclude=@() }
+    )
+}
+
+function Select-DomeniaResponseTimeSamples {
+    # Durations (ms) of every series whose key starts with one Include prefix and with no Exclude prefix.
+    # Series: dictionary 'Provenance|OperationId' -> enumerable of numbers. Negative, NaN and infinite values are not
+    # measures and are dropped. Returns double[] (possibly empty), never $null.
+    param($Series,$Category)
+    $values = New-Object 'System.Collections.Generic.List[double]'
+    if (($null -eq $Series) -or ($null -eq $Category) -or ($Series -isnot [Collections.IDictionary])) { return ,($values.ToArray()) }
+    $include = @(Get-DomeniaMember $Category 'Include' @())
+    $exclude = @(Get-DomeniaMember $Category 'Exclude' @())
+    foreach ($key in @($Series.Keys)) {
+        $text = [string]$key
+        $kept = $false
+        foreach ($prefix in $include) { if ($text.StartsWith([string]$prefix,[StringComparison]::Ordinal)) { $kept = $true; break } }
+        if (-not $kept) { continue }
+        foreach ($prefix in $exclude) { if ($text.StartsWith([string]$prefix,[StringComparison]::Ordinal)) { $kept = $false; break } }
+        if (-not $kept) { continue }
+        $serie = $Series[$key]
+        if ($null -eq $serie) { continue }
+        if (($serie -is [Collections.Generic.Queue[double]]) -or ($serie -is [double[]])) {
+            # Runtime series (Add-DomeniaRuntimeMetric): already doubles, one comparison pair per value. NaN fails both.
+            foreach ($number in $serie) { if (($number -ge 0) -and ($number -lt [double]::PositiveInfinity)) { $values.Add($number) } }
+            continue
+        }
+        foreach ($value in $serie) {
+            # The runtime series hold doubles; any other value is read as an invariant number or skipped.
+            $number = [double]::NaN
+            if ($value -is [double]) { $number = $value }
+            elseif (-not [double]::TryParse([string]$value,[Globalization.NumberStyles]::Float,[Globalization.CultureInfo]::InvariantCulture,[ref]$number)) { continue }
+            if ([double]::IsNaN($number) -or [double]::IsInfinity($number) -or ($number -lt 0)) { continue }
+            $values.Add($number)
+        }
+    }
+    return ,($values.ToArray())
+}
+
+function Get-DomeniaLatencySummary {
+    # Median, 95th percentile and maximum of measured durations, nearest-rank like Get-DomeniaRuntimeMetricSummary.
+    # Below MinimumForP95 samples the 95th percentile is not stated (P95Stated=$false, P95=$null): with ten samples it
+    # would only repeat the maximum. No sample gives Count=0 and null values, never 0 ms.
+    param([double[]]$Samples=@(),[ValidateRange(1,10000)][int]$MinimumForP95=20)
+    $kept = New-Object 'System.Collections.Generic.List[double]'
+    foreach ($value in $Samples) {
+        $number = [double]$value
+        if ([double]::IsNaN($number) -or [double]::IsInfinity($number) -or ($number -lt 0)) { continue }
+        $kept.Add($number)
+    }
+    if ($kept.Count -eq 0) { return [pscustomobject]@{ Count=0; P50=$null; P95=$null; Max=$null; P95Stated=$false; MinimumForP95=$MinimumForP95 } }
+    $sorted = $kept.ToArray(); [Array]::Sort($sorted)
+    $n = $sorted.Length
+    $p50 = $sorted[[int][Math]::Min($n - 1,[Math]::Max(0,[Math]::Ceiling(0.50 * $n) - 1))]
+    $stated = ($n -ge $MinimumForP95)
+    $p95 = $null
+    if ($stated) { $p95 = [Math]::Round($sorted[[int][Math]::Min($n - 1,[Math]::Max(0,[Math]::Ceiling(0.95 * $n) - 1))],2) }
+    return [pscustomobject]@{ Count=$n; P50=[Math]::Round($p50,2); P95=$p95; Max=[Math]::Round($sorted[$n - 1],2); P95Stated=$stated; MinimumForP95=$MinimumForP95 }
+}
+
+function Format-DomeniaLatencySummaryText {
+    # One sentence of the operations panel. An unmeasured category stays unmeasured: no invented 0 ms.
+    param([string]$Label,$Summary)
+    $count = 0
+    try { $count = [int](Get-DomeniaMember $Summary 'Count' 0) } catch { $count = 0 }
+    if ($count -le 0) { return ($Label + ' : aucune mesure dans cette session.') }
+    $p50 = [Math]::Round([double]$Summary.P50)
+    $max = [Math]::Round([double]$Summary.Max)
+    $plural = if ($count -gt 1) { 'mesures' } else { 'mesure' }
+    if (-not [bool](Get-DomeniaMember $Summary 'P95Stated' $false)) {
+        return ($Label + ' : médiane ' + $p50 + ' ms ; maximum ' + $max + ' ms (' + $count + ' ' + $plural + ', trop peu pour un 95e centile).')
+    }
+    return ($Label + ' : médiane ' + $p50 + ' ms ; 95 % sous ' + [Math]::Round([double]$Summary.P95) + ' ms ; maximum ' + $max + ' ms (' + $count + ' ' + $plural + ').')
 }

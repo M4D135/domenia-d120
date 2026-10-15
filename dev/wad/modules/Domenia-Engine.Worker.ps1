@@ -118,8 +118,9 @@ function Convert-StoreWDirectory {
     return [pscustomobject]@{Guid=[string]$Row.object_guid;DN=[string]$Row.distinguished_name;Type=[string]$Row.object_type;Name=[string]$Row.name;Login=[string]$Row.login;Upn=[string]$Row.upn;Display=[string]$Row.display_name;Description=[string]$Row.description;Extra=[string]$Row.extra;State=[string]$Row.state;WhenChanged=[string]$Row.when_changed;Usn=[long]$Row.usn_changed;LastLogon=[string]$Row.last_logon;Source=[string]$Row.source_dc;ObservedAtUtc=[string]$Row.synced_at;Details=$details;FieldTimes=(Get-StoreWJson ([string]$Row.field_times));FieldSources=$(if($null -ne $saved){$saved.FieldSources}else{$null});Revision=[long]$Row.store_revision}
 }
 function Convert-StoreWObservation {
+    # RecordedAtUtc: commit time of the batch that last wrote this row (point 10), '' when it was not read.
     param($Row,[string]$Kind='Observation')
-    return [pscustomobject]@{Kind=$Kind;SummaryMissing=([bool]$Row.summary_missing);Guid=[string]$Row.object_guid;DN=[string]$Row.dn;Family=[string]$Row.family;ResultKind=[string]$Row.result_kind;RequestKey=[string]$Row.request_key;LastAttemptAtUtc=[string]$Row.attempt_at;Status=[string]$Row.status;Error=[string]$Row.error;LastSuccessAtUtc=[string]$Row.success_at;Data=(Get-StoreWJson ([string]$Row.payload));AttemptData=(Get-StoreWJson ([string]$Row.attempt_payload));DefinitionHash=[string]$Row.definition_hash;Revision=[long]$Row.revision}
+    return [pscustomobject]@{Kind=$Kind;SummaryMissing=([bool]$Row.summary_missing);Guid=[string]$Row.object_guid;DN=[string]$Row.dn;Family=[string]$Row.family;ResultKind=[string]$Row.result_kind;RequestKey=[string]$Row.request_key;LastAttemptAtUtc=[string]$Row.attempt_at;Status=[string]$Row.status;Error=[string]$Row.error;LastSuccessAtUtc=[string]$Row.success_at;Data=(Get-StoreWJson ([string]$Row.payload));AttemptData=(Get-StoreWJson ([string]$Row.attempt_payload));DefinitionHash=[string]$Row.definition_hash;Revision=[long]$Row.revision;RecordedAtUtc=[string]$Row.recorded_at}
 }
 function Get-StoreWProjection {
     param([object[]]$Observations,[string]$Name='')
@@ -164,8 +165,11 @@ function Get-StoreWProjection {
     return [pscustomobject]$p
 }
 function Read-StoreWCommitted {
-    param([IntPtr]$Db,[string[]]$Guids,[bool]$IncludeDirectoryDetails=$true,[bool]$IncludeObservations=$true,[bool]$IncludeDetails=$true,[string]$DetailWhere='1=1',[string[]]$ObservationFamilies=$null,[ValidateSet('Full','QuerySummary')][string]$DetailProjection='Full',[ValidateSet('Full','Summary')][string]$ObservationProjection='Full')
+    param([IntPtr]$Db,[string[]]$Guids,[bool]$IncludeDirectoryDetails=$true,[bool]$IncludeObservations=$true,[bool]$IncludeDetails=$true,[string]$DetailWhere='1=1',[string[]]$ObservationFamilies=$null,[ValidateSet('Full','QuerySummary')][string]$DetailProjection='Full',[ValidateSet('Full','Summary')][string]$ObservationProjection='Full',[bool]$IncludeRecordedTime=$false)
     $keys=@($Guids|Select-Object -Unique|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ','
+    # Point 10: the recorded time of a measure is the commit of the batch that wrote its row (same snapshot).
+    $observationRecorded=if($IncludeRecordedTime){',(SELECT b.committed_at FROM domenia_store_batches b WHERE b.revision=domenia_observations.revision) AS recorded_at'}else{''}
+    $detailRecorded=if($IncludeRecordedTime){',(SELECT b.committed_at FROM domenia_store_batches b WHERE b.revision=domenia_details.revision) AS recorded_at'}else{''}
     $rows=[Collections.Generic.List[object]]::new();$observations=[Collections.Generic.List[object]]::new();$details=[Collections.Generic.List[object]]::new();$projections=[Collections.Generic.List[object]]::new()
     if($keys){
         $names=@{};$payloadColumn=if($IncludeDirectoryDetails){'d.payload'}else{'NULL'}
@@ -186,7 +190,7 @@ function Read-StoreWCommitted {
             $missing="CASE WHEN payload IS NOT NULL AND payload<>'null' AND ($successRead) IS NULL THEN 1 ELSE 0 END"
             $observationColumns="object_guid,family,dn,definition_hash,attempt_at,status,error,success_at,revision,$successRead AS payload,$attemptRead AS attempt_payload,$missing AS summary_missing"
         }
-        foreach($r in @(Invoke-DomeniaDbQuery ("SELECT $observationColumns FROM domenia_observations WHERE object_guid IN ($keys)$familyWhere ORDER BY object_guid,family;") $Db)){
+        foreach($r in @(Invoke-DomeniaDbQuery ("SELECT $observationColumns$observationRecorded FROM domenia_observations WHERE object_guid IN ($keys)$familyWhere ORDER BY object_guid,family;") $Db)){
             $o=Convert-StoreWObservation $r;$observations.Add($o)
             if(-not $groups.ContainsKey($o.Guid)){$groups[$o.Guid]=[Collections.Generic.List[object]]::new()};$groups[$o.Guid].Add($o)
         }
@@ -199,7 +203,7 @@ function Read-StoreWCommitted {
                 # No JSON extension and no full payload scan: old rows without a summary stay unknown.
                 $detailColumns="object_guid,result_kind,request_key,dn,attempt_at,status,error,success_at,revision,$successColumn AS payload,$attemptColumn AS attempt_payload"
             }
-            foreach($r in @(Invoke-DomeniaDbQuery ("SELECT $detailColumns FROM domenia_details WHERE object_guid IN ($keys) AND ($DetailWhere) ORDER BY object_guid,result_kind,request_key;") $Db)){$details.Add((Convert-StoreWObservation $r 'DetailResult'))}
+            foreach($r in @(Invoke-DomeniaDbQuery ("SELECT $detailColumns$detailRecorded FROM domenia_details WHERE object_guid IN ($keys) AND ($DetailWhere) ORDER BY object_guid,result_kind,request_key;") $Db)){$details.Add((Convert-StoreWObservation $r 'DetailResult'))}
         }
     }
     $state=@(Invoke-DomeniaDbQuery 'SELECT * FROM domenia_store_state WHERE id=1;' $Db)
@@ -347,6 +351,7 @@ try {
             $accountPreferences=@(Invoke-IdxWQuery $db ("SELECT scope AS Scope,user_name AS UserName,domain_dn AS DomainDn,updated_at AS UpdatedAtUtc,revision AS Revision FROM domenia_account_preferences WHERE $where ORDER BY scope;"))
             $read=[pscustomobject]@{Rows=@();Observations=@();ObservationRows=@();Details=@();SnapshotRevision=$revision};$total=$accountPreferences.Count
         }else{
+            $families=@()
             if($kind -eq 'Directory'){
                 $table='ad_objects';$column='object_guid';if($guidSql){$conditions.Add("object_guid IN ($guidSql)")}
                 if([string]$query.ScopeDn){$conditions.Add((Get-IdxWDnScopeSql 'distinguished_name' ([string]$query.ScopeDn) ([bool]$query.Subtree)))}
@@ -356,6 +361,12 @@ try {
                 $order='name COLLATE NOCASE,object_guid'
             }else{
                 $table=if($kind -eq 'Observation'){'domenia_observations'}else{'domenia_details'};$column='object_guid';$order='object_guid'
+                # Points 81-99: a reading needs a few named families of one object; at most 16, never every family.
+                $families=@();if(($kind -eq 'Observation') -and ($null -ne $query.PSObject.Properties['Families'])){$families=@(@($query.Families)|Where-Object{$_}|ForEach-Object{[string]$_}|Select-Object -Unique)}
+                if($families.Count -gt 16){throw 'Trop de familles pour une lecture.'}
+                foreach($familyName in $families){if($familyName -notmatch '^(Presence|Console|Inventory|Probe:[A-Za-z0-9_.-]{1,128})$'){throw 'Famille de lecture invalide.'}}
+                if(($families.Count -gt 0) -and ([string]$query.Family)){throw 'Famille unique et liste de familles exclusives.'}
+                if($families.Count){$conditions.Add('family IN ('+(@($families|ForEach-Object{Get-IdxWLiteral $_}) -join ',')+')')}
                 if($guidSql){$conditions.Add("object_guid IN ($guidSql)")}
                 if([string]$query.ScopeDn){$conditions.Add((Get-IdxWDnScopeSql 'dn' ([string]$query.ScopeDn) ([bool]$query.Subtree)))}
                 if($kind -eq 'Observation' -and [string]$query.Family){$conditions.Add('family='+(Get-IdxWLiteral ([string]$query.Family)))}
@@ -366,10 +377,13 @@ try {
             $page=@(Invoke-IdxWQuery $db "SELECT DISTINCT $column FROM $table WHERE $where ORDER BY $order LIMIT $limit OFFSET $offset;")
             $detailWhere='1=1';if($kind -eq 'Detail'){if([string]$query.ResultKind){$detailWhere+=' AND result_kind='+(Get-IdxWLiteral ([string]$query.ResultKind))};if([string]$query.RequestKey){$detailWhere+=' AND request_key='+(Get-IdxWLiteral ([string]$query.RequestKey))}}
             $readArgs=@{Db=$db;Guids=@($page|ForEach-Object{[string]$_.object_guid});IncludeDirectoryDetails=([string]$query.Projection -ne 'List');IncludeObservations=($kind -eq 'Observation' -or [bool]$query.IncludeObservations);IncludeDetails=($kind -eq 'Detail');DetailWhere=$detailWhere}
+            $readArgs.IncludeRecordedTime=(@(Invoke-IdxWQuery $db "SELECT name FROM sqlite_master WHERE type='table' AND name='domenia_store_batches';").Count -gt 0)
             if($kind -eq 'Observation' -and [string]$query.Family){$readArgs.ObservationFamilies=@([string]$query.Family)}
+            if(($kind -eq 'Observation') -and ($families.Count -gt 0)){$readArgs.ObservationFamilies=$families}
             if($kind -eq 'Detail' -and $null -ne $query.PSObject.Properties['DetailProjection'] -and [string]$query.DetailProjection){$readArgs.DetailProjection=[string]$query.DetailProjection}
             $read=Read-StoreWCommitted @readArgs
             if($kind -eq 'Observation' -and [string]$query.Family){$read.Observations=@($read.Observations|Where-Object{[string]$_.Family -ceq [string]$query.Family})}
+            if(($kind -eq 'Observation') -and ($families.Count -gt 0)){$read.Observations=@($read.Observations|Where-Object{$families -ccontains [string]$_.Family})}
             if($kind -eq 'Detail'){$read.Details=@($read.Details|Where-Object{(-not [string]$query.ResultKind -or [string]$_.ResultKind -ceq [string]$query.ResultKind) -and (-not [string]$query.RequestKey -or [string]$_.RequestKey -ceq [string]$query.RequestKey)})}
         }
         [void](Invoke-IdxWQuery $db 'COMMIT;')
@@ -535,8 +549,10 @@ try {
                 " CASE WHEN fx<>'F' OR COALESCE(fc,'')='' THEN '' WHEN fc >= $created THEN 'R' ELSE 'O' END AS cr," +
                 " CASE WHEN fx<>'F' OR COALESCE(fp,'')='' THEN '' WHEN fp < $pwdBefore THEN 'O' ELSE 'R' END AS pw," +
                 " CASE WHEN fx<>'F' THEN '' WHEN fk='NoSchema' THEN 'X' WHEN fk IN ('Legacy','Windows') AND COALESCE(fe,'')<>'' THEN (CASE WHEN fe < $nowLit THEN 'E' ELSE 'O' END) WHEN fk='None' THEN 'N' ELSE '' END AS lk," +
-                " CASE WHEN sk IS NULL THEN 'U' WHEN COALESCE(sb,-1) < 0 THEN 'U' WHEN sv='non disponible dans ce domaine' THEN 'X' WHEN COALESCE(sb,0) > 0 THEN 'K' ELSE 'N' END AS bk FROM m)," +
+                " CASE WHEN sk IS NULL THEN 'U' WHEN julianday(sc) IS NOT NULL AND julianday(fc) IS NOT NULL AND julianday(sc) < julianday(fc) THEN 'U' WHEN COALESCE(sb,-1) < 0 THEN 'U' WHEN sv='non disponible dans ce domaine' THEN 'X' WHEN COALESCE(sb,0) > 0 THEN 'K' ELSE 'N' END AS bk FROM m)," +
                 " h AS (SELECT *, st||'|'||os||'|'||ver||'|'||lb||'|'||cr||'|'||pw||'|'||lk||'|'||bk AS k FROM g) "
+            # Point 9: BitLocker metadata is keyed by name; a row written before the current computer of that name was
+            # created (fc) belongs to a previous holder of the name and stays unknown (U), never K or N.
             # GROUP BY k is case sensitive (BINARY): the group ids are looked up the same way, never without the case.
             $gids = [System.Collections.Generic.Dictionary[string,string]]::new([StringComparer]::Ordinal)
             foreach ($group in @(Invoke-IdxWQuery $db ($cte + 'SELECT k, st, os, ver, lb, cr, pw, lk, bk, count(*) AS n FROM h GROUP BY k;'))) {
@@ -604,13 +620,31 @@ try {
         if($tables.ContainsKey('domenia_store_state')){$storeRows=@(Invoke-IdxWQuery $db 'SELECT store_id,revision FROM domenia_store_state WHERE id=1;');if($storeRows.Count){$storeRevision=[long]$storeRows[0].revision;$storeIdentity=[string]$storeRows[0].store_id}}
         $syncStates=@{}
         if($tables.ContainsKey('sync_state')){foreach($sync in @(Invoke-IdxWQuery $db "SELECT scope,base_dn,last_sync,details FROM sync_state WHERE scope='directory' OR scope LIKE 'ou:%' OR scope LIKE 'attempt:%';")){$syncStates[[string]$sync.scope]=$sync}}
+        # Scope clocks of the explicit OU collections (points 4, 5 and 10), read in the same snapshot. The caller
+        # names the exact scope and its enclosing subtrees; nothing else is read and nothing is written.
+        # $null: not requested, so unknown; an empty list: requested and none recorded.
+        $collectionRuns=$null;$runKeysProperty=$Payload.PSObject.Properties['RunKeys']
+        if(($null -ne $runKeysProperty) -and ($null -ne $runKeysProperty.Value)){
+            $collectionRuns=@()
+            $runKeys=@(@($runKeysProperty.Value)|ForEach-Object{[string]$_}|Where-Object{$_}|Select-Object -Unique)
+            if($runKeys.Count -gt 128){throw 'Trop de perimetres de collecte demandes.'}
+            foreach($runKey in $runKeys){if(($runKey.Length -gt 4200) -or ($runKey -cnotmatch '^(subtree|onelevel):') -or ($runKey -match '[\x00-\x1f]')){throw 'Perimetre de collecte invalide.'}}
+            if(($runKeys.Count) -and ($tables.ContainsKey('domenia_domain_metadata'))){
+                $runDomain=Get-IdxWLiteral (([string]$Payload.DomainDn).Trim().ToLowerInvariant())
+                $runSql='SELECT domain_dn,family,request_key,attempt_at,status,error,success_at,payload,attempt_payload,revision FROM domenia_domain_metadata WHERE domain_dn='+$runDomain+" AND family IN ('Directory','Presence','Inventory') AND request_key IN ("+(@($runKeys|ForEach-Object{Get-IdxWLiteral $_}) -join ',')+') ORDER BY family,request_key;'
+                $collectionRuns=@(foreach($runRow in @(Invoke-IdxWQuery $db $runSql)){
+                    $runSuccess=[string]$runRow.payload;$runAttempt=[string]$runRow.attempt_payload
+                    [pscustomobject]@{Kind='CollectionRun';DomainDn=[string]$runRow.domain_dn;Family=[string]$runRow.family;RequestKey=[string]$runRow.request_key;LastAttemptAtUtc=[string]$runRow.attempt_at;Status=[string]$runRow.status;Error=[string]$runRow.error;LastSuccessAtUtc=[string]$runRow.success_at;Data=$(if(($runSuccess) -and ($runSuccess -cne 'null')){Get-StoreWJson $runSuccess}else{$null});AttemptData=$(if(($runAttempt) -and ($runAttempt -cne 'null')){Get-StoreWJson $runAttempt}else{$null});Revision=[long]$runRow.revision}
+                })
+            }
+        }
         $snapshotAtUtc=[datetime]::UtcNow.ToString('o')
         [void](Invoke-IdxWQuery $db 'COMMIT;')
         $domainDn=if($null -ne $Payload.PSObject.Properties['DomainDn']){[string]$Payload.DomainDn}else{''}
-        $result=[pscustomobject]@{ Rows=@(); Busy=$false; Missing=$false; MachineCount=$active; ObservationRejected=$observationRejected; Scope=$scope; Subtree=$subtree; Types=$types; Groups=$groups.ToArray(); Machines=$machines.ToArray(); Targets=$targets.ToArray(); Parents=$parents; Coverage=$coverage; Links=$links; LinkSources=$sources; Presence=$presence.ToArray(); History=$history; SyncStates=$syncStates; SnapshotAtUtc=$snapshotAtUtc; DomainDn=$domainDn; DataSource='SQLite'; StoreId=$storeIdentity; Revision=$storeRevision; SnapshotRevision=$storeRevision }
+        $result=[pscustomobject]@{ Rows=@(); Busy=$false; Missing=$false; MachineCount=$active; ObservationRejected=$observationRejected; Scope=$scope; Subtree=$subtree; Types=$types; Groups=$groups.ToArray(); Machines=$machines.ToArray(); Targets=$targets.ToArray(); Parents=$parents; Coverage=$coverage; Links=$links; LinkSources=$sources; Presence=$presence.ToArray(); History=$history; SyncStates=$syncStates; CollectionRuns=$collectionRuns; SnapshotAtUtc=$snapshotAtUtc; DomainDn=$domainDn; DataSource='SQLite'; StoreId=$storeIdentity; Revision=$storeRevision; SnapshotRevision=$storeRevision }
         if(-not $observationsOnly -and $null -ne $Payload.PSObject.Properties['ComputeBoard'] -and [bool]$Payload.ComputeBoard){
             # Aggregation over thousands of observations stays in the worker, never in the WPF callback.
-            foreach($module in @('Domenia-Common.Model.ps1','Domenia-HealthRules.Model.ps1','Domenia-Boards.Model.ps1','Domenia-BoardFleet.Model.ps1')){. (Join-Path ([string]$Payload.ModuleRoot) $module)}
+            foreach($module in @('Domenia-Common.Model.ps1','Domenia-Collection.Model.ps1','Domenia-HealthRules.Model.ps1','Domenia-Boards.Model.ps1','Domenia-BoardFleet.Model.ps1')){. (Join-Path ([string]$Payload.ModuleRoot) $module)}
             $board=Get-DomeniaFleetBoardData -Result $result -Scope $scope -Subtree $subtree -Now ([datetime]::Parse([string]$plan.NowUtc,[Globalization.CultureInfo]::InvariantCulture)) -Lifecycle $Payload.Lifecycle -ObservationMaxAgeDays ([int]$Payload.ObservationMaxAgeDays) -IndexPartial ([string]$Payload.IndexPartial) -HealthPolicy $(if($null -ne $Payload.PSObject.Properties['HealthPolicy']){$Payload.HealthPolicy}else{$null}) -HealthPolicyBook $(if($null -ne $Payload.PSObject.Properties['HealthPolicyBook']){$Payload.HealthPolicyBook}else{$null})
             $board.Freshness.ComputedAtUtc=[datetime]::UtcNow
             $result|Add-Member -NotePropertyName Board -NotePropertyValue $board
@@ -652,7 +686,17 @@ try {
             $key=([string]$Payload.Computer).Trim().ToUpperInvariant()
             if((-not $key) -or ($key.Length -gt 256)){throw 'Poste de lecture invalide.'}
             if($tables.ContainsKey('secret_state')){$answer.Rows=@(Invoke-IdxWQuery $db ('SELECT computer,checked_at,bitlocker_keys,bitlocker_last,laps_scheme,laps_expiry,verdict FROM secret_state WHERE computer_key='+(Get-IdxWLiteral $key)+' LIMIT 1;'))}
+            # Point 9: creation date of the displayed workstation, read by its GUID (primary key, one row), never by name:
+            # the caller leaves out metadata written before that object existed. '' when unknown or not asked.
+            $created=''
+            $guidProperty=$Payload.PSObject.Properties['Guid']
+            $guid=if($null -ne $guidProperty){([string]$guidProperty.Value).Trim().ToLowerInvariant()}else{''}
+            if($guid){
+                if($guid -notmatch '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'){throw 'GUID de lecture invalide.'}
+                if($tables.ContainsKey('ad_computer_facts')){$facts=@(Invoke-IdxWQuery $db ('SELECT when_created FROM ad_computer_facts WHERE object_guid='+(Get-IdxWLiteral $guid)+' LIMIT 1;'));if($facts.Count){$created=[string]$facts[0].when_created}}
+            }
             $answer|Add-Member -NotePropertyName Computer -NotePropertyValue $key
+            $answer|Add-Member -NotePropertyName CreatedUtc -NotePropertyValue $created
         }
         else {
             # Measured samples per operation: the statistics grid and the history model of the impact estimates

@@ -4,6 +4,7 @@ param([string]$ReportPath='',[switch]$Quiet)
 $ErrorActionPreference='Stop'
 $wad=Split-Path -Parent $PSScriptRoot
 . (Join-Path $wad 'modules\Domenia-Experience.Model.ps1')
+. (Join-Path $wad 'modules\Domenia-Common.Model.ps1')
 $script:Checks=New-Object 'System.Collections.Generic.List[object]'
 function Check-Suite {param([string]$Name,[scriptblock]$Code)
     try{if(-not (& $Code)){throw 'Condition non verifiee.'};$script:Checks.Add([pscustomobject]@{Name=$Name;Passed=$true;Detail=''})}
@@ -11,7 +12,9 @@ function Check-Suite {param([string]$Name,[scriptblock]$Code)
 }
 # Dot-sourcing definitions in script scope avoids executing application startup.
 foreach($source in @(
-    @{File=(Join-Path $wad 'Domenia-Core.ps1');Names=@('Get-DomeniaDefaultSettings','Load-DomeniaSettings','Save-DomeniaSettings','Get-DomeniaBootThemePalette')},
+    @{File=(Join-Path $wad 'Domenia-Core.ps1');Names=@('Get-DomeniaDefaultSettings','Load-DomeniaSettings','Save-DomeniaSettings','Get-DomeniaBootThemePalette','Get-DomeniaSetting','Set-DomeniaSetting')},
+    @{File=(Join-Path $wad 'modules\Domenia-ProbeDetails.UI.ps1');Names=@('Get-DomeniaBiosReferenceSettingKey','Get-DomeniaStoredBiosReferences')},
+    @{File=(Join-Path $wad 'modules\Domenia-Readings.Model.ps1');Names=@('ConvertTo-DomeniaBiosReferenceBook','Get-DomeniaBiosReference','Set-DomeniaBiosReference')},
     @{File=(Join-Path $wad 'modules\Domenia-Experience.UI.ps1');Names=@('Get-DomeniaExperienceExportRows','Stop-DomeniaExperienceSelectedRead','ConvertTo-DomeniaExperienceLogEntry','ConvertTo-DomeniaMaskedLogText',
         'Add-DomeniaExperienceLogEntry','Update-DomeniaExperienceLogBadge')}
 )){
@@ -26,7 +29,7 @@ foreach($source in @(
 function Write-AppLog {param($Text,$Level)}
 function Read-DomeniaPreference {param($FileName) if($FileName -eq 'Domenia.settings.json'){return $script:FixtureJson};if($FileName -eq 'Domenia.ui-profile.cfg'){return $script:FixtureLegacy};return ''}
 function Get-DomeniaStoredTheme {return 'Light'}
-function Write-DomeniaPreference {param($FileName,$Value) return $script:Writable}
+function Write-DomeniaPreference {param($FileName,$Value) if($script:Writable){$script:LastWrittenJson=[string]$Value};return $script:Writable}
 $script:SettingsTimer=$null
 Check-Suite 'Parseur natif : tous les scripts du pack' {
     foreach($file in Get-ChildItem -LiteralPath (Split-Path -Parent $wad) -Filter '*.ps1' -Recurse -File){
@@ -63,6 +66,29 @@ Check-Suite 'Preferences nouvelles rechargees' {
 Check-Suite 'Configuration arbitraire et secret non importes' {
     $v=ConvertTo-DomeniaExperienceSettings @{Password='SENTINEL';Anything='bad'} (Get-DomeniaDefaultSettings)
     -not $v.Contains('Password') -and -not $v.Contains('Anything')
+}
+Check-Suite 'Configuration de domaine : nom ferme, texte borne' {
+    $hash='0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+    $upper='FEDCBA9876543210FEDCBA9876543210FEDCBA9876543210FEDCBA9876543210'
+    $v=ConvertTo-DomeniaExperienceSettings @{('Inventory.BiosReferences.'+$hash)='{"Version":1}';('Dashboard.HealthPolicies.'+$hash)=@('pas','du','texte');('Inventory.BiosReferences.'+$upper)='x';'Inventory.BiosReferences.court'='x'} (Get-DomeniaDefaultSettings)
+    ($v[('Inventory.BiosReferences.'+$hash)] -ceq '{"Version":1}') -and (-not $v.Contains(('Dashboard.HealthPolicies.'+$hash))) -and (-not $v.Contains(('Inventory.BiosReferences.'+$upper))) -and (-not $v.Contains('Inventory.BiosReferences.court'))
+}
+# Point 85 (review): an approved BIOS reference, stored under its domain-scoped key, survives a save and a reload.
+Check-Suite 'Reference BIOS approuvee conservee apres enregistrement et rechargement' {
+    $script:FixtureJson='{}';$script:FixtureLegacy='';$script:Writable=$true;$script:LastWrittenJson=''
+    $script:Conn=[pscustomobject]@{BaseDn='DC=contoso,DC=test'}
+    [void](Load-DomeniaSettings)
+    $key=Get-DomeniaBiosReferenceSettingKey ([string]$script:Conn.BaseDn)
+    $book=Set-DomeniaBiosReference -Book (Get-DomeniaStoredBiosReferences) -Manufacturer 'Dell Inc.' -Model 'Latitude 7440' -Version '1.15.0' -NowUtc ([datetime]::UtcNow)
+    $script:Settings[$key]=($book|ConvertTo-Json -Depth 5 -Compress)
+    Save-DomeniaSettings -Immediate -ThrowOnFailure
+    $script:Settings=$null;$script:FixtureJson=$script:LastWrittenJson
+    [void](Load-DomeniaSettings)
+    $reference=Get-DomeniaBiosReference (Get-DomeniaStoredBiosReferences) 'Dell Inc.' 'Latitude 7440'
+    $kept=($null -ne $reference) -and ([string]$reference.Version -ceq '1.15.0')
+    # The next unrelated save writes the approval again instead of dropping it.
+    Save-DomeniaSettings -Immediate -ThrowOnFailure
+    $kept -and ([string]$script:LastWrittenJson).Contains($key)
 }
 Check-Suite 'Enregistrement refuse remonte explicitement' {
     $script:Writable=$false
