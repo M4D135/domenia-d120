@@ -194,6 +194,88 @@ Expect (@($outline.Conditions|Where-Object{$_ -like '*Au moins une instance de �
 Expect (@($outline.Notes|Where-Object{$_ -like 'Fenêtre commune : 48 h*'}).Count -eq 1 -and @($outline.Notes|Where-Object{$_ -like 'Répartition du widget*'}).Count -eq 1) 'window and distribution limits are stated'
 Expect ((ConvertTo-DomeniaScriptCommentText ("a`nb"+[char]0x2028+'c')) -ceq 'a b c' -and (ConvertTo-DomeniaAsciiJson ('"'+[char]0x2019+'"')) -ceq '"\u2019"') 'comment and literal encoders neutralise line breaks and typographic quotes'
 
+# ---------------------------------------------------------------------------------------------------------------
+# Point 153: impact of a modified or archived recipe, migration or explicit preservation of the old version.
+. (Join-Path $modules 'Domenia-QueryLibrary.Store.UI.ps1')
+$fleetLayout=@(
+    [pscustomobject]@{Id='w-linked';Source='Query';Key='personal.a';Visual='Kpi';Title='Postes à surveiller'},
+    [pscustomobject]@{Id='w-legacy';Source='Query';Key='personal.a';Visual='Bar';Title=''},
+    [pscustomobject]@{Id='w-other';Source='Query';Key='personal.b';Visual='Kpi';Title='Autre requête'},
+    [pscustomobject]@{Id='b-fleet.machines';Source='Builtin';Key='fleet.machines';Visual='Kpi';Title=''})
+$computerLayout=@([pscustomobject]@{Id='w-computer';Source='Query';Key='personal.a';Visual='Text';Title='Sur ce poste'})
+$links=@(
+    [pscustomobject]@{RecipeId='personal.a';ConsumerKind='Fleet';ConsumerId='w-linked';BoundRevision=3},
+    [pscustomobject]@{RecipeId='personal.a';ConsumerKind='Computer';ConsumerId='w-computer';BoundRevision=2},
+    [pscustomobject]@{RecipeId='personal.a';ConsumerKind='Fleet';ConsumerId='w-removed';BoundRevision=3},
+    [pscustomobject]@{RecipeId='personal.b';ConsumerKind='Fleet';ConsumerId='w-other';BoundRevision=1})
+$impact=Get-DomeniaQueryRecipeImpact -RecipeId 'personal.a' -Dependencies $links -Layouts @{Fleet=$fleetLayout;Computer=$computerLayout} -SearchFavorites @('local:personal.a','ad:locked') -CurrentRevision 3
+Expect ($impact.Count -eq 5 -and $impact.Widgets -eq 3 -and $impact.Orphans -eq 1 -and $impact.Views -eq 1 -and $impact.HasConsumers) 'widgets, links without widget and Search views are all listed'
+$byConsumer=@{};foreach($row in $impact.Rows){$byConsumer[[string]$row.ConsumerId]=$row}
+Expect ($byConsumer['w-linked'].Link -ceq 'Lié à la révision 3' -and $byConsumer['w-legacy'].Link -like 'Widget sans lien*' -and $byConsumer['w-legacy'].Name -ceq 'Widget sans titre' -and $byConsumer['w-computer'].Link -ceq 'Lié à une ancienne révision (2)' -and $byConsumer['w-computer'].Element -ceq 'Tableau de bord du poste') 'each consumer states its board and bound revision'
+Expect ($byConsumer['w-removed'].Kind -ceq 'Orphan' -and $byConsumer['local:personal.a'].Element -ceq 'Vue de Recherche' -and -not $byConsumer.ContainsKey('w-other')) 'another recipe is never listed as a consumer'
+Expect (-not (Get-DomeniaQueryRecipeImpact -RecipeId 'personal.c' -Dependencies $links -Layouts @{Fleet=$fleetLayout}).HasConsumers) 'a recipe without consumers needs no review'
+Reject {Get-DomeniaQueryRecipeImpact -RecipeId ''} 'the analysed recipe is mandatory'
+$saved=New-DomeniaQueryRecipe -Id 'personal.a' -Name 'Postes à surveiller' -Clauses @([pscustomobject]@{Field='active';Operator='Equal';Value=$true})
+$version=New-DomeniaQueryRecipeVersion $saved
+Expect ($version.Id -cne 'personal.a' -and $version.Name -ceq 'Postes à surveiller (nouvelle version)' -and @($version.Clauses).Count -eq 1 -and $saved.Id -ceq 'personal.a') 'keeping the old version creates an independent copy'
+Expect ((New-DomeniaQueryRecipeVersion (New-DomeniaQueryRecipe -Name ('N'*120))).Name.Length -eq 120) 'the copy name stays within 120 characters'
+# Actual save path: ImpactConfirmed bypasses the modal confirmation, bindings move to the new revision atomically.
+$script:FixtureContext=[pscustomobject]@{Version=1;StoreId='fixture-store';DomainDn='DC=example,DC=test';Path=(Join-Path ([IO.Path]::GetTempPath()) 'fixture-impact.sqlite');SessionEpoch=7;Generation=1}
+$savedRow=New-DomeniaQueryLibraryRecord -Context $script:FixtureContext -Recipe $saved -ExpectedRevision 2
+$savedRow|Add-Member NoteProperty Revision 3 -Force
+function New-DomeniaStoreContext{param($RequestId,$Generation,$ScopeDn,$Subtree)return $script:FixtureContext}
+function Show-DomeniaDialog{throw 'Aucune fenêtre modale attendue après la revue dans la page.'}
+function Submit-DomeniaStoreBatch{param($Context,$BatchId,$Sequence,$Changes,$SuccessHandler,$ErrorHandler,$CallbackState)$script:Submitted=@($Changes);return [pscustomobject]@{Accepted=$true}}
+$script:DomeniaQueryLibraryStoreState=[pscustomobject]@{Context=$script:FixtureContext;Generation=1;Loading=$false;Loaded=$true;Saving=$false;Error='';Rows=@{'personal.a'=$savedRow};Recipes=@($saved);Dependencies=$links}
+$modified=Copy-DomeniaQueryRecipe $saved;$modified.Clauses=@($modified.Clauses)+@([pscustomobject]@{Field='os';Operator='Contains';Value='Windows 10'})
+[void](Save-DomeniaQueryRecipe -Recipe $modified -ImpactConfirmed)
+$rebound=@($script:Submitted|Where-Object{$_.Kind -eq 'QueryDependency'})
+Expect ($rebound.Count -eq 3 -and @($rebound|Where-Object{$_.BoundRevision -ne 4 -or $_.Remove}).Count -eq 0 -and @($script:Submitted|Where-Object{$_.Kind -eq 'QueryRecipe'}).Count -eq 1) 'confirmed migration rebinds the three existing links to the new revision in one batch'
+$script:DomeniaQueryLibraryStoreState.Saving=$false
+# In-page review with inert controls and captured saves.
+$script:Fake=@{}
+foreach($name in @('PnlQueryImpact','DgQueryImpact','BtnQueryImpactMigrate','BtnQueryImpactKeep','BtnQueryImpactArchive')){$script:Fake[$name]=[pscustomobject]@{ItemsSource=@();Visibility='Collapsed';IsEnabled=$true}}
+function Get-DomeniaControl([string]$Name){return $script:Fake[$Name]}
+function Set-DomeniaControlText([string]$Name,[string]$Text){$script:Labels[$Name]=$Text;return $true}
+function Get-DomeniaBoardLayout([string]$Board){if($Board -eq 'Fleet'){return $fleetLayout};return $computerLayout}
+function Get-DomeniaSearchQueryFavorites{return @('local:personal.a')}
+function Get-DomeniaQueryDraft{return (Copy-DomeniaQueryRecipe $script:CurrentDraft)}
+function Save-DomeniaQueryRecipe{param($Recipe,[string]$SuccessHandler='Complete-DomeniaQueryRecipeSaveUi',$CallbackState=$null,[switch]$Archive,[object[]]$AdditionalDependencies=@(),[string]$ErrorHandler='',[switch]$ImpactConfirmed)$script:Saves.Add([pscustomobject]@{Recipe=$Recipe;SuccessHandler=$SuccessHandler;CallbackState=$CallbackState;Archive=[bool]$Archive;ImpactConfirmed=[bool]$ImpactConfirmed});return [pscustomobject]@{Accepted=$true}}
+$script:Labels=@{};$script:Saves=[Collections.Generic.List[object]]::new()
+$script:DomeniaQueryState=[pscustomobject]@{Generation=5;Recipe=$saved;ImpactPending=$null}
+$script:CurrentDraft=$saved
+Request-DomeniaQueryRecipeSave
+Expect ($script:Saves.Count -eq 1 -and $script:Saves[0].ImpactConfirmed -and $script:Fake.PnlQueryImpact.Visibility -ceq 'Collapsed') 'an unchanged definition is saved without review'
+$script:Saves.Clear();$script:CurrentDraft=$modified
+Request-DomeniaQueryRecipeSave
+Expect ($script:Saves.Count -eq 0 -and $script:Fake.PnlQueryImpact.Visibility -ceq 'Visible' -and @($script:Fake.DgQueryImpact.ItemsSource).Count -eq 5 -and $script:Fake.BtnQueryImpactMigrate.Visibility -ceq 'Visible' -and $script:Fake.BtnQueryImpactArchive.Visibility -ceq 'Collapsed') 'a modified definition with consumers is reviewed in the page before any write'
+Expect ($script:Labels.LblQueryImpact -like '5 élément(s) utilisent la révision 3*3 widget(s), 1 vue(s) de Recherche, 1 lien(s) sans widget*Aucune alerte*' -and $script:Labels.LblQueryStatus -like '*rien nʼest encore enregistré*') 'the review states every consumer kind and that nothing was written'
+Invoke-DomeniaQueryImpactAction 'Migrate'
+Expect ($script:Saves.Count -eq 1 -and $script:Saves[0].ImpactConfirmed -and $script:Saves[0].Recipe.Id -ceq 'personal.a' -and @($script:Saves[0].Recipe.Clauses).Count -eq 2 -and $script:Fake.PnlQueryImpact.Visibility -ceq 'Collapsed') 'migration saves the new definition after the explicit choice'
+$script:Saves.Clear();Request-DomeniaQueryRecipeSave;Invoke-DomeniaQueryImpactAction 'Keep'
+Expect ($script:Saves.Count -eq 1 -and $script:Saves[0].Recipe.Id -cne 'personal.a' -and $script:Saves[0].SuccessHandler -ceq 'Complete-DomeniaQueryRecipeVersionUi' -and $script:Saves[0].CallbackState.KeptRevision -eq 3) 'keeping the old version saves a copy and leaves the saved recipe untouched'
+$script:Saves.Clear();Request-DomeniaQueryRecipeSave
+$script:CurrentDraft=Copy-DomeniaQueryRecipe $modified;$script:CurrentDraft.Name='Renommée après la revue'
+Invoke-DomeniaQueryImpactAction 'Migrate'
+Expect ($script:Saves.Count -eq 0 -and $script:Labels.LblQueryStatus -like '*Le brouillon a changé*' -and $script:Fake.PnlQueryImpact.Visibility -ceq 'Collapsed') 'a draft changed after the review is never saved with an outdated review'
+$script:CurrentDraft=$modified;Request-DomeniaQueryRecipeSave;$savedRow.Revision=4
+Invoke-DomeniaQueryImpactAction 'Migrate'
+Expect ($script:Saves.Count -eq 0 -and $script:Labels.LblQueryStatus -like '*modifiée entre-temps*') 'a recipe changed elsewhere requires a new review'
+$savedRow.Revision=3;Request-DomeniaQueryRecipeSave;$script:DomeniaQueryState.Generation=6
+Invoke-DomeniaQueryImpactAction 'Migrate'
+Expect ($script:Saves.Count -eq 0) 'a review from an older draft generation is refused'
+$script:DomeniaQueryState.Generation=5;$script:CurrentDraft=$saved
+Request-DomeniaQueryRecipeSave -Archive
+Expect ($script:Saves.Count -eq 0 -and $script:Fake.BtnQueryImpactArchive.Visibility -ceq 'Visible' -and $script:Fake.BtnQueryImpactMigrate.Visibility -ceq 'Collapsed' -and $script:Labels.LblQueryImpact -like '*retire ces widgets*') 'archiving with consumers is reviewed first'
+Invoke-DomeniaQueryImpactAction 'Migrate'
+Expect ($script:Saves.Count -eq 0 -and $script:Labels.LblQueryStatus -like '*ne correspond pas*') 'a save choice cannot answer an archive review'
+Request-DomeniaQueryRecipeSave -Archive;Invoke-DomeniaQueryImpactAction 'Archive'
+Expect ($script:Saves.Count -eq 1 -and $script:Saves[0].Archive -and $script:Saves[0].ImpactConfirmed -and $script:Saves[0].SuccessHandler -ceq 'Complete-DomeniaQueryRecipeArchiveUi') 'archive is written only after the explicit choice'
+$script:Saves.Clear();Request-DomeniaQueryRecipeSave -Archive;Invoke-DomeniaQueryImpactAction 'Cancel'
+Expect ($script:Saves.Count -eq 0 -and $null -eq $script:DomeniaQueryState.ImpactPending -and $script:Labels.LblQueryStatus -like 'Modification non enregistrée*') 'cancel writes nothing'
+Complete-DomeniaQueryRecipeVersionUi -Recipe $version -Record ([pscustomobject]@{Revision=1}) -State ([pscustomobject]@{DraftGeneration=5;KeptName='Postes à surveiller';KeptRevision=3;Count=5})
+Expect ($script:Labels.LblQueryStatus -like 'Nouvelle requête*(nouvelle version)*révision 1*Postes à surveiller*5 élément(s) liés restent à la révision 3*' -and $script:DraftSet.Id -ceq $version.Id) 'the confirmation names the copy and the preserved revision'
+
 # @@NEXT-SECTION@@
 
 $report=[pscustomobject]@{Status='PASS';Assertions=$script:checks;SourceMode=[bool]$QuerySource;ElapsedSeconds=[Math]::Round($clock.Elapsed.TotalSeconds,3);PowerShell=$PSVersionTable.PSVersion.ToString();Scope='Actual models, worker factories and click handlers with inert controls; remote WMI cmdlets replaced by fixtures; no network, AD, WMI or WPF'}

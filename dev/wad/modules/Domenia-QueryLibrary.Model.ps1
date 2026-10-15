@@ -109,6 +109,44 @@ function Assert-WQueryLibraryDefinition {
     return [string]::Join("`r`n",$definitions.ToArray())
 }
 
+function Get-DomeniaQueryRecipeImpact {
+    # Consumers of one saved recipe before it changes: dashboard widgets with their transactional links, links whose
+    # widget has disappeared and Search favourites. Pure: the caller supplies layouts, links and favourites.
+    # No alert references a recipe in this version; the review panel says so instead of listing an empty kind.
+    param([string]$RecipeId,[object[]]$Dependencies=@(),$Layouts=$null,[string[]]$SearchFavorites=@(),[long]$CurrentRevision=0)
+    if(-not $RecipeId){throw 'Recette à analyser absente.'}
+    $boards=@{Fleet='Tableau de bord général';Computer='Tableau de bord du poste'}
+    $links=@{}
+    foreach($dependency in $Dependencies){if($null -ne $dependency -and [string]$dependency.RecipeId -ceq $RecipeId){$links[[string]$dependency.ConsumerKind+'|'+[string]$dependency.ConsumerId]=$dependency}}
+    $rows=[Collections.Generic.List[object]]::new();$seen=@{};$widgets=0;$orphans=0;$views=0
+    foreach($board in @('Fleet','Computer')){
+        foreach($item in @(Get-DomeniaMember $Layouts $board @())){
+            if($null -eq $item -or [string](Get-DomeniaMember $item 'Source') -cne 'Query' -or [string](Get-DomeniaMember $item 'Key') -cne $RecipeId){continue}
+            $key=$board+'|'+[string]$item.Id;$seen[$key]=$true;$widgets++
+            $link=$links[$key]
+            $state=if($null -eq $link){'Widget sans lien enregistré : il affiche la définition courante'}elseif([long]$link.BoundRevision -lt $CurrentRevision){'Lié à une ancienne révision ('+[long]$link.BoundRevision+')'}else{'Lié à la révision '+[long]$link.BoundRevision}
+            $title=[string](Get-DomeniaMember $item 'Title');if(-not $title){$title='Widget sans titre'}
+            $rows.Add([pscustomobject]@{Kind='Widget';Element=$boards[$board];Name=$title;Link=$state;ConsumerKind=$board;ConsumerId=[string]$item.Id})
+        }
+    }
+    foreach($key in @($links.Keys|Sort-Object)){
+        if($seen.ContainsKey($key)){continue}
+        $link=$links[$key];$orphans++
+        $element=if($boards.ContainsKey([string]$link.ConsumerKind)){$boards[[string]$link.ConsumerKind]}else{[string]$link.ConsumerKind}
+        $rows.Add([pscustomobject]@{Kind='Orphan';Element=$element;Name=('Widget absent de la disposition ('+[string]$link.ConsumerId+')');Link=('Lien enregistré à la révision '+[long]$link.BoundRevision+', sans widget affiché');ConsumerKind=[string]$link.ConsumerKind;ConsumerId=[string]$link.ConsumerId})
+    }
+    if(@($SearchFavorites) -ccontains ('local:'+$RecipeId)){$views++;$rows.Add([pscustomobject]@{Kind='View';Element='Vue de Recherche';Name='Favori de la liste des requêtes';Link='Affiche la définition courante';ConsumerKind='Search';ConsumerId=('local:'+$RecipeId)})}
+    return [pscustomobject]@{RecipeId=$RecipeId;Rows=$rows.ToArray();Widgets=$widgets;Orphans=$orphans;Views=$views;Count=$rows.Count;HasConsumers=($rows.Count -gt 0);CurrentRevision=$CurrentRevision}
+}
+function New-DomeniaQueryRecipeVersion {
+    # Keeps the saved recipe and its consumers untouched: the modified definition becomes a new, independent recipe.
+    param($Recipe,[string]$Suffix=' (nouvelle version)')
+    $copy=Copy-DomeniaQueryRecipe $Recipe -Id ([guid]::NewGuid().ToString('N'))
+    $name=[string]$Recipe.Name;$max=120-$Suffix.Length;if($name.Length -gt $max){$name=$name.Substring(0,$max)}
+    $copy.Name=$name+$Suffix
+    [void](ConvertTo-DomeniaCompiledQuery $copy)
+    return $copy
+}
 function ConvertTo-DomeniaScriptCommentText {
     # One comment line of a generated script: no line terminator or control character can end the comment.
     param([string]$Text,[int]$MaxLength=400)

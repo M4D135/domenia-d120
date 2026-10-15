@@ -282,6 +282,25 @@
                   <Button x:Name="BtnQueryWidget" Content="Créer une sonde dashboard" MinHeight="32" ToolTip="Enregistre la requête et ajoute sa visualisation au tableau de bord choisi. La petite icône près du crayon ouvre les postes correspondants dans lʼatelier." />
                   <Button x:Name="BtnQueryDelete" Content="Archiver la requête" MinHeight="32" ToolTip="Archive cette requête dans la base après vérification de ses widgets liés. Les données collectées sont conservées." Margin="6,0,0,0" />
                 </WrapPanel>
+                <Border x:Name="PnlQueryImpact" Visibility="Collapsed" BorderThickness="1" BorderBrush="{DynamicResource MutedColor}" Padding="10" Margin="0,4,0,10">
+                  <StackPanel>
+                    <TextBlock Text="Éléments qui utilisent cette requête" FontWeight="SemiBold" Margin="0,0,0,4" />
+                    <TextBlock x:Name="LblQueryImpact" TextWrapping="Wrap" Margin="0,0,0,6" AutomationProperties.LiveSetting="Polite" />
+                    <DataGrid x:Name="DgQueryImpact" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MaxHeight="200" EnableRowVirtualization="True" AutomationProperties.Name="Widgets, liens et vues qui dépendent de la requête">
+                      <DataGrid.Columns>
+                        <DataGridTextColumn Header="Élément" Binding="{Binding Element}" Width="190" />
+                        <DataGridTextColumn Header="Nom" Binding="{Binding Name}" Width="*" />
+                        <DataGridTextColumn Header="Lien" Binding="{Binding Link}" Width="2*" />
+                      </DataGrid.Columns>
+                    </DataGrid>
+                    <WrapPanel Margin="0,8,0,0">
+                      <Button x:Name="BtnQueryImpactMigrate" Content="Mettre à jour les éléments liés" MinHeight="32" Margin="0,0,6,0" ToolTip="Enregistre la nouvelle définition ; les éléments listés lʼutilisent ensuite. Les anciennes révisions restent dans la base." />
+                      <Button x:Name="BtnQueryImpactKeep" Content="Garder lʼancienne version, enregistrer une copie" MinHeight="32" Margin="0,0,6,0" ToolTip="La requête enregistrée et ses éléments liés restent inchangés ; la modification devient une nouvelle requête." />
+                      <Button x:Name="BtnQueryImpactArchive" Content="Archiver et retirer les widgets" MinHeight="32" Margin="0,0,6,0" ToolTip="Archive la requête, détache ses liens et retire ses widgets. Les révisions et les données collectées sont conservées." />
+                      <Button x:Name="BtnQueryImpactCancel" Content="Annuler" MinHeight="32" ToolTip="Ne rien enregistrer : la requête et ses éléments liés restent inchangés." />
+                    </WrapPanel>
+                  </StackPanel>
+                </Border>
                 <WrapPanel Margin="0,0,0,6">
                   <TextBlock Text="Visualisation" VerticalAlignment="Center" Margin="0,0,8,0" />
                   <ComboBox x:Name="CmbQueryGroupField" Width="330" MinHeight="32" AutomationProperties.Name="Champ de répartition du widget" ToolTip="Compteur, ou répartition des postes correspondants par une information. Le graphique se personnalise ensuite dans le dashboard." />
