@@ -362,6 +362,7 @@ Test-Case 'D029' 'Mesure et purge locales ne recoivent aucun compte annuaire' {
 Test-Case 'P122' 'Percentiles : la recherche locale garde sa propre serie' {
     Assert-Equal 'LocalIndexRead:Search' (Get-DomeniaRuntimeMetricOperationKey 'LocalIndexRead' ([pscustomobject]@{Action='Search'}))
     Assert-Equal 'LocalIndexRead:FleetStats' (Get-DomeniaRuntimeMetricOperationKey 'LocalIndexRead' @{Action='FleetStats'})
+    Assert-Equal 'LocalIndexRead:OperationStats' (Get-DomeniaRuntimeMetricOperationKey 'LocalIndexRead' ([pscustomobject]@{Action='OperationStats'}))
     Assert-Equal 'LocalIndexRead' (Get-DomeniaRuntimeMetricOperationKey 'LocalIndexRead' ([pscustomobject]@{Action='Inconnue'})) 'Action hors liste fermee'
     Assert-Equal 'LocalIndexRead' (Get-DomeniaRuntimeMetricOperationKey 'LocalIndexRead' $null) 'Charge absente'
     Assert-Equal 'LocalQuery:Search' (Get-DomeniaRuntimeMetricOperationKey 'LocalQuery' ([pscustomobject]@{SearchOutput=$true}))

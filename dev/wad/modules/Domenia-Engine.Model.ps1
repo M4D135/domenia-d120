@@ -735,7 +735,7 @@ function Get-DomeniaRuntimeMetricOperationKey {
     $id = [string]$OperationId
     if ($id -ceq 'LocalIndexRead') {
         $action = [string](Get-DomeniaMember $Payload 'Action' '')
-        if ($action -cin @('Search','FleetStats','ParkTargets','StoreRead')) { return ($id + ':' + $action) }
+        if ($action -cin @('Search','FleetStats','ParkTargets','ParkState','StoreRead','ResolveNames','IndexMetadata','UserMachineLinks','SecretIndexEntry','OperationStats')) { return ($id + ':' + $action) }
         return $id
     }
     if ($id -ceq 'LocalQuery') {
