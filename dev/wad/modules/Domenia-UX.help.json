@@ -657,6 +657,13 @@
     "Source": "existing-help"
   },
   {
+    "Name": "BtnObjectReread",
+    "Title": "Relire lʼobjet depuis lʼannuaire",
+    "Text": "Relit cet objet sur le contrôleur en écartant les lectures gardées en mémoire pour lui seul. Les autres fiches et la liste restent inchangées ; rien nʼest modifié dans lʼannuaire.",
+    "Kind": "Button",
+    "Source": "W17"
+  },
+  {
     "Name": "BtnObjectMore",
     "Title": "Plus dʼactions sur lʼobjet",
     "Text": "Ouvre les actions lourdes de lʼobjet : la suppression y est rangée, séparée des boutons de lecture.",
@@ -1971,6 +1978,13 @@
     "Text": "Renomme le compte dʼordinateur dans lʼannuaire. Cette action ne renomme pas Windows sur le poste.",
     "Kind": "Button",
     "Source": "X04"
+  },
+  {
+    "Name": "BtnCompMove",
+    "Title": "Déplacer le poste dans une autre OU",
+    "Text": "Ouvre le sélecteur dʼunités dʼorganisation pour ce poste : la destination se cherche, se choisit, puis se confirme. Le contrôleur revérifie le GUID du poste avant le déplacement ; aucun déplacement nʼest lancé par ce clic.",
+    "Kind": "Button",
+    "Source": "W17"
   },
   {
     "Name": "TxtCompGroupTarget",

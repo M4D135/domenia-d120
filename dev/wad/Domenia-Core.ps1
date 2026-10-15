@@ -697,6 +697,7 @@ $script:GuiElementPolicy = [ordered]@{
     "TxtObjPresenceTarget" = "Default"
     "BtnCopyObjectSummary" = "Default"
     "BtnOpenParentBranch" = "Default"
+    "BtnObjectReread" = "Default"
     "BtnObjectMore" = "Default"
     "TabUser" = "Default"
     "TxtUserGivenName" = "Default"
@@ -812,6 +813,7 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnCompRestart" = "Default"
     "TxtCompNewName" = "Default"
     "BtnCompRename" = "Default"
+    "BtnCompMove" = "Default"
     "TxtCompGroupTarget" = "Default"
     "BtnCompAddGroup" = "Default"
     "BtnCompRemoveGroup" = "Default"
@@ -3077,13 +3079,6 @@ function Update-DomeniaObjectPresence {
     $script:CurrentPresenceTarget = [string]$Target
     Set-DomeniaPresenceText -Name "TxtObjPresence" -State $State -PresenceState $PresenceState
     [void](Set-DomeniaControlText -Name "TxtObjPresenceTarget" -Text ([string]$Target))
-}
-
-function ConvertTo-DomeniaGridPresenceState {
-    # La fiche peut afficher un libelle detaille (poste teste, confiance, etc.).
-    # La grille conserve un etat court et filtrable, issu de la cle d etat (FI-16).
-    param([AllowEmptyString()][string]$State)
-    return (Get-DomeniaPresenceStateLabel (ConvertTo-DomeniaPresenceStateKey $State))
 }
 
 function Get-DomeniaCachedPresenceState {
@@ -5919,6 +5914,7 @@ function Get-MainXaml {
                         <StackPanel Grid.Row="6" Grid.ColumnSpan="4" Orientation="Horizontal" Margin="0,8,0,0">
                           <Button x:Name="BtnCopyObjectSummary" Content="Copier le resume" ToolTip="Copie les informations principales de lʼobjet." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier le resume" AutomationProperties.HelpText="Copie les informations principales de l objet."/>
                           <Button x:Name="BtnOpenParentBranch" Content="Ouvrir le parent" ToolTip="Affiche le contenu du conteneur qui heberge cet objet." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir le parent" AutomationProperties.HelpText="Affiche le contenu du conteneur qui heberge cet objet."/>
+                          <Button x:Name="BtnObjectReread" Content="Relire depuis lʼannuaire" ToolTip="Relit cet objet sur le contrôleur en écartant les lectures gardées en mémoire pour lui seul. Les autres fiches et la liste restent inchangées ; rien nʼest modifié dans lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Relire lʼobjet depuis lʼannuaire" AutomationProperties.HelpText="Relit cet objet sur le contrôleur en écartant les lectures gardées en mémoire pour lui seul. Les autres fiches et la liste restent inchangées ; rien nʼest modifié dans lʼannuaire."/>
                           <Button x:Name="BtnObjectMore" Content="Plus…" ToolTip="Ouvre les actions lourdes de lʼobjet : la suppression y est rangée, séparée des boutons de lecture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Plus dʼactions sur lʼobjet" AutomationProperties.HelpText="Ouvre les actions lourdes de lʼobjet : la suppression y est rangée, séparée des boutons de lecture."/>
                           <TextBlock Text="Clic droit sur le chemin pour copier le DN ou agir sur lʼobjet." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="12,0,0,0"/>
                         </StackPanel>
@@ -7037,6 +7033,8 @@ function Get-MainXaml {
                             <TextBlock Text="Renommer" FontWeight="SemiBold" Margin="0,6,0,6"/>
                             <TextBox x:Name="TxtCompNewName" MinHeight="32" Margin="0,0,0,6" ToolTip="Nouveau nom du compte dʼordinateur dans lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Nouveau nom du compte dʼordinateur dans lʼannuaire." AutomationProperties.Name="Nouveau nom"/>
                             <Button x:Name="BtnCompRename" Content="Renommer dans AD" HorizontalAlignment="Stretch" MinHeight="34" Margin="0" ToolTip="Renomme le compte dʼordinateur dans lʼannuaire. Cette action ne renomme pas Windows sur le poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Renomme le compte dʼordinateur dans lʼannuaire. Cette action ne renomme pas Windows sur le poste." AutomationProperties.Name="Renommer dans Active Directory"/>
+                            <TextBlock Text="Déplacer" FontWeight="SemiBold" Margin="0,12,0,6"/>
+                            <Button x:Name="BtnCompMove" Content="Choisir lʼOU de destination…" HorizontalAlignment="Stretch" MinHeight="34" Margin="0" ToolTip="Ouvre le sélecteur dʼunités dʼorganisation pour ce poste : la destination se cherche, se choisit, puis se confirme. Le contrôleur revérifie le GUID du poste avant le déplacement ; aucun déplacement nʼest lancé par ce clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Ouvre le sélecteur dʼunités dʼorganisation pour ce poste : la destination se cherche, se choisit, puis se confirme. Le contrôleur revérifie le GUID du poste avant le déplacement ; aucun déplacement nʼest lancé par ce clic." AutomationProperties.Name="Déplacer le poste dans une autre OU"/>
                           </StackPanel>
                         </Border>
                       </WrapPanel>
@@ -9859,15 +9857,16 @@ function Show-DomeniaOuPicker {
 }
 
 function Move-DomeniaSelectedComputerWithOuPicker {
-    # FI-20 (L20): the move is planned from the selected result row, DN and GUID captured before the OU picker. No
-    # wait for its fiche and no nested message pump: the plan is refused if the selection changed while the OU was
-    # chosen, and the worker reads the object again on the controller and refuses another GUID before moving it.
+    # FI-20 (L20): the move is planned from the identity of the visible selection, DN and GUID captured before the OU
+    # picker: the selected result row on Rechercher, the workstation actually loaded on its fiche (button of the
+    # « Compte AD » card, A-REVOIR X01). No wait for a fiche and no nested message pump: the plan is refused if the
+    # selection changed while the OU was chosen, and the worker reads the object again on the controller and refuses
+    # another GUID before moving it.
     try {
         Assert-WriteAllowed
-        $context = Get-DomeniaSelectionContext
-        if (($null -eq $context) -or ([string]$context.Type -ne "Machine")) { throw "Sélectionnez un ordinateur dans la liste." }
-        $rowIdentity = $context.SelectionIdentity
-        if ($null -eq $rowIdentity) { throw "Ligne sans identité exacte (domaine et GUID) : relancez la recherche, puis sélectionnez de nouveau le poste." }
+        $rowIdentity = Get-DomeniaCurrentSelectionIdentity
+        if ($null -eq $rowIdentity) { throw "Poste sans identité exacte (domaine et GUID) : relancez la recherche ou rouvrez sa fiche, puis réessayez." }
+        if ([string]$rowIdentity.Type -ne "Machine") { throw "Sélectionnez un ordinateur." }
         $dn = [string]$rowIdentity.DN
         if ([string]::IsNullOrWhiteSpace($dn)) { throw "DN du poste introuvable." }
         $currentParent = Get-DomeniaParentDn -Dn $dn
@@ -23127,6 +23126,8 @@ function Wire-Events {
         $script:Ctrl["TxtObjDn"].ContextMenu = $dnMenu
     }
     $script:Ctrl["BtnOpenParentBranch"].Add_Click({ Open-SelectedParentBranch })
+    # FI-21: rereads the open object only (its cached reads by GUID or DN are dropped), never the list.
+    $script:Ctrl["BtnObjectReread"].Add_Click({ Refresh-SelectedObject })
     # UX-27 : la suppression ne se clique plus a cote des boutons de lecture. Elle se choisit dans « Plus… »,
     # et garde ses deux confirmations : le nom de l'objet a saisir, puis SUPPRIMER.
     $more = $script:Ctrl["BtnObjectMore"]
@@ -23185,6 +23186,7 @@ function Wire-Events {
     $script:Ctrl["BtnCompPSRemote"].Add_Click({ Invoke-ComputerTool "PSRemote" })
     if ($script:Ctrl.ContainsKey("BtnCompRimotte")) { $script:Ctrl["BtnCompRimotte"].Add_Click({ Show-DomeniaRunProgramPanel }) }
     $script:Ctrl["BtnCompRename"].Add_Click({ Rename-ComputerObject })
+    $script:Ctrl["BtnCompMove"].Add_Click({ Move-DomeniaSelectedComputerWithOuPicker })
     $script:Ctrl["BtnCompAddGroup"].Add_Click({ AddOrRemoveObjectGroup $script:Ctrl["TxtCompGroupTarget"].Text $true })
     $script:Ctrl["BtnCompRemoveGroup"].Add_Click({ AddOrRemoveObjectGroup $script:Ctrl["TxtCompGroupTarget"].Text $false })
     $script:Ctrl["BtnGroupSave"].Add_Click({ Save-GroupProfile })
@@ -26486,7 +26488,7 @@ function Get-WriteControlMap {
         Account = @("BtnUserUnlock","BtnUserSupportUnlock","BtnUserEnable","BtnUserDisable","BtnCompEnable","BtnCompDisable","BtnApplyAccountOptions","BtnSetExpiration","BtnNeverExpires","BtnExpirePwdNow")
         Password = @("BtnUserResetPwd","BtnUserGenPassword")
         Group = @("BtnUserAddGroup","BtnUserRemoveGroup","BtnCompAddGroup","BtnCompRemoveGroup","BtnGroupAddMember","BtnGroupRemoveMember")
-        Move = @("BtnUserMove","BtnCompRename")
+        Move = @("BtnUserMove","BtnCompRename","BtnCompMove")
         Delete = @("BtnObjectMore")
         Create = @("BtnCreateOu")
     }
@@ -28461,7 +28463,7 @@ $ReadUtc=[DateTime]::UtcNow.ToString('o')
         $state=[pscustomobject]@{Code=$code;Payload=$payload;Plan=$plan;Changes=$changes}
         $send={
             param($s)
-            try { Start-DomeniaWriteTask -Name "Deplacement objet AD" -OperationId "WriteMoveObject" -Code $s.Code -Payload $s.Payload -Plan $s.Plan -PlanChanges $s.Changes -Capability "Move" -DisableControls @("BtnUserMove") -AfterSuccessAction "UpdateDnRefreshObjectBranch" }
+            try { Start-DomeniaWriteTask -Name "Deplacement objet AD" -OperationId "WriteMoveObject" -Code $s.Code -Payload $s.Payload -Plan $s.Plan -PlanChanges $s.Changes -Capability "Move" -DisableControls @("BtnUserMove","BtnCompMove") -AfterSuccessAction "UpdateDnRefreshObjectBranch" }
             catch { Show-ErrorBox "Erreur deplacement : $($_.Exception.Message)" }
         }
         [void](Request-DomeniaWriteConfirmation -Plan $plan -Title 'Déplacer lʼobjet' -Message ('« '+[string]$plan.Target.Name+' » sera déplacé vers « '+(Get-DomeniaOuDisplayPath $target)+' ».') -ConfirmText 'Déplacer' -Send $send -State $state)

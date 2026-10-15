@@ -923,10 +923,18 @@ if ($infrastructure) {
             Use-Fi20MoveFixture
             $script:UseDoubleStartUiTask=$true
             $script:Fi20RowIdentity = $null
+            $script:FakeIdentity = $null
             Set-D093Function 'Get-DomeniaSelectionContext' { return [pscustomobject]@{DN='CN=PC-SANS-GUID,OU=Postes,DC=example,DC=invalid';Type='Machine';Name='PC-SANS-GUID';Guid='';SelectionIdentity=$null} }
             Move-DomeniaSelectedComputerWithOuPicker
             Assert-True ($script:Fi20PickerCalls -eq 0) 'Le selecteur s ouvre sans identite exacte.'
-            Assert-True (@($script:Dialogs | Where-Object { $_.Contains('Ligne sans identité exacte') }).Count -eq 1) ('Refus absent : '+(@($script:Dialogs) -join ' | '))
+            Assert-True (@($script:Dialogs | Where-Object { $_.Contains('Poste sans identité exacte') }).Count -eq 1) ('Refus absent : '+(@($script:Dialogs) -join ' | '))
+            Reset-WiringFixture
+            Use-Fi20MoveFixture
+            $script:UseDoubleStartUiTask=$true
+            $script:FakeIdentity = New-TestIdentity -Type 'Utilisateur' -Name 'jdupont' -Dn 'CN=Jean Dupont,OU=Comptes,DC=example,DC=invalid'
+            Move-DomeniaSelectedComputerWithOuPicker
+            Assert-True ($script:Fi20PickerCalls -eq 0) 'Le selecteur s ouvre pour un utilisateur.'
+            Assert-True (@($script:Dialogs | Where-Object { $_.Contains('Sélectionnez un ordinateur') }).Count -eq 1) ('Refus absent : '+(@($script:Dialogs) -join ' | '))
             Reset-WiringFixture
             Use-Fi20MoveFixture
             $script:UseDoubleStartUiTask=$true
@@ -935,6 +943,39 @@ if ($infrastructure) {
             Assert-True ($script:StartUiTaskCalls -eq 0) ('Appels Start-UiTask : '+$script:StartUiTaskCalls)
             Assert-True (@($script:StatusLog | Where-Object { $_.Contains('déjà dans cette OU') }).Count -ge 1) 'Meme OU non signalee.'
         } finally { End-D093FunctionOverrides }
+    }
+    # A-REVOIR X01: the move is rewired on the workstation fiche (BtnCompMove, « Compte AD » card). From the fiche the
+    # target is the workstation actually loaded, never another row still selected in the result list.
+    Test-Case 'A-REVOIR X01 deplacement depuis la fiche du poste : vise le poste ouvert, pas la ligne de la liste' {
+        Reset-WiringFixture
+        try {
+            Use-Fi20MoveFixture
+            $script:UseDoubleStartUiTask=$true
+            $fiche = New-TestIdentity -Type 'Machine' -Name 'PC-FICHE-02' -Dn 'CN=PC-FICHE-02,OU=Postes,DC=example,DC=invalid'
+            $script:FakeIdentity = $fiche
+            Move-DomeniaSelectedComputerWithOuPicker
+            Assert-True ($script:StartUiTaskCalls -eq 1) ('Appels Start-UiTask : '+$script:StartUiTaskCalls)
+            Assert-True ($script:LastStartWritePlan.Target.Guid -ceq $fiche.Guid) 'Le plan ne vise pas le poste de la fiche.'
+            Assert-True ([string]$script:StartUiTaskPayloads[0].Safety.ExpectedGuid -ceq $fiche.Guid) 'Le worker ne revérifie pas le GUID du poste de la fiche.'
+            Assert-True ([string]$script:StartUiTaskPayloads[0].DN -ceq $fiche.DN) ('DN payload : '+[string]$script:StartUiTaskPayloads[0].DN)
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'A-REVOIR X01 boutons de fiche : Relire depuis l annuaire et Deplacer le poste raccordes, deplacement soumis a la capacite Move' {
+        $wire=(Get-FunctionAst $script:CoreAst 'Wire-Events').Extent.Text
+        Assert-True ($wire.Contains('$script:Ctrl["BtnObjectReread"].Add_Click({ Refresh-SelectedObject })')) 'Relire depuis l annuaire non raccorde.'
+        Assert-True ($wire.Contains('$script:Ctrl["BtnCompMove"].Add_Click({ Move-DomeniaSelectedComputerWithOuPicker })')) 'Deplacer le poste non raccorde.'
+        $map=(Get-FunctionAst $script:CoreAst 'Get-WriteControlMap').Extent.Text
+        Assert-True ($map.Contains('Move = @("BtnUserMove","BtnCompRename","BtnCompMove")')) 'Le deplacement du poste echappe au mode lecture seule.'
+        [void](Import-AstFunction $script:CoreAst 'Get-MainXaml')
+        [xml]$xaml=[string](Get-MainXaml)
+        $x='http://schemas.microsoft.com/winfx/2006/xaml'
+        foreach($name in @('BtnObjectReread','BtnCompMove')){
+            $node=@($xaml.SelectNodes('//*')|Where-Object{$_.GetAttribute('Name',$x) -eq $name})
+            Assert-True ($node.Count -eq 1) ($name+' : '+$node.Count+' occurrence(s)')
+            Assert-True ([string]$node[0].GetAttribute('ToolTip') -ceq [string]$node[0].GetAttribute('AutomationProperties.HelpText')) ($name+' : info-bulle et texte d aide differents')
+        }
+        Assert-True ((Get-FunctionAst $script:CoreAst 'Refresh-SelectedObject').Extent.Text.Contains('Clear-DomeniaVisitCacheForObject')) 'La relecture ne vide plus le cache de cet objet.'
+        Assert-True (@($script:CoreAst.FindAll({param($n)(($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq 'ConvertTo-DomeniaGridPresenceState'))},$true)).Count -eq 0) 'Fonction morte ConvertTo-DomeniaGridPresenceState encore presente.'
     }
     Test-Case 'FI-20 worker : objectGUID different sur le controleur refuse avant tout envoi' {
         Reset-WiringFixture

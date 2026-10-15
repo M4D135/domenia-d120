@@ -19,9 +19,11 @@ def audit():
         if len(span)!=1: raise ValueError('Missing/ambiguous function: '+name)
         return source[span[0][0]:span[0][1]]
     baseline=json.loads((ROOT/'tools/preload-baseline.json').read_text())
-    ck('Every original core function retained',set(spans)==set(baseline['CoreFunctions']))
+    removed=sorted(set(baseline['CoreFunctions'])-set(spans))
+    # A removed function is reported by this check (and recorded by --rebaseline), never a crash of the audit.
+    ck('Every original core function retained',set(spans)==set(baseline['CoreFunctions']),', '.join(removed))
     ck('No duplicate core functions',all(len(v)==1 for v in spans.values()))
-    changed=[k for k,v in baseline['CoreFunctions'].items() if SHA(fn(k))!=v]
+    changed=[k for k,v in baseline['CoreFunctions'].items() if (k in spans) and SHA(fn(k))!=v]
     critical=['Invoke-DomeniaInProcessAuthProbe','Start-DomeniaFastLoginAttempt','Update-DomeniaFastLoginAttempt','Complete-DomeniaFastLoginSuccess','Start-DomeniaLoginAuthRunspace','Get-DomeniaStandardLoginXaml','Get-DomeniaBootThemePalette','Test-DomeniaMainHostAvailable','Invoke-DomeniaHostWindow','Initialize-AsyncEngine','Assert-DomeniaWorkerRegistry','Get-DomeniaSearchScope','Test-DomeniaSearchStateCurrent','Invoke-GlobalSearch','Get-BranchQueryData','Start-DomeniaWriteTask','Get-DomeniaWorkerOperationHashes']
     for name in critical:
         ck('Unchanged critical function: '+name,SHA(fn(name))==baseline['CoreFunctions'].get(name))

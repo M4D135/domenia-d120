@@ -56,6 +56,7 @@ function Get-DomeniaCommandCatalogue {
         @('undo','Annuler la dernière présentation de la liste','colonnes tri filtre retour','Présentation','Local','','',$false,'Undo'),
         @('summary','Copier le résumé de lʼobjet','presse-papiers fiche','Objet ouvert','Local','Selection','',$false,'Summary'),
         @('parent','Ouvrir le conteneur parent','ou dossier parent','Objet ouvert','Navigate','Selection','',$true,''),
+        @('reread','Relire lʼobjet depuis lʼannuaire','actualiser rafraichir fiche controleur','Objet ouvert','Read','Selection','BtnObjectReread',$true,''),
         @('diagnostic','Préparer le diagnostic expurgé','support export versions mesures','Application','Local','','',$false,''),
         @('selfcheck','Vérifier lʼapplication','auto-verification prerequis','Application','Read','','',$false,''),
         @('tree','Actualiser lʼarborescence','ou arbre recharger','Lecture','Read','','',$true,'Tree'),
@@ -82,6 +83,7 @@ function Get-DomeniaCommandCatalogue {
         @('computeredit','Modifier la fiche du poste','description emplacement','Écriture préparée','PrepareWrite','Machine','BtnCompEdit',$true,''),
         @('computerenable','Activer le poste','activer ordinateur','Écriture préparée','PrepareWrite','Machine','BtnCompEnable',$true,''),
         @('computerdisable','Désactiver le poste','desactiver ordinateur','Écriture préparée','PrepareWrite','Machine','BtnCompDisable',$true,''),
+        @('computermove','Déplacer le poste dans une autre OU','ou deplacer ordinateur','Écriture préparée','PrepareWrite','Machine','BtnCompMove',$true,''),
         @('gpupdate','Actualiser les stratégies du poste','gpupdate gpo','Écriture préparée','PrepareWrite','Machine','BtnCompGpUpdate',$true,''),
         @('restart','Redémarrer le poste','redemarrage reboot','Écriture préparée','PrepareWrite','Machine','BtnCompRestart',$true,'')
     )
