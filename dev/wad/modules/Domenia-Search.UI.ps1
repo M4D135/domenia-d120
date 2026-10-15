@@ -253,7 +253,15 @@ function Complete-DomeniaSearchLocalRead {
         if($data.Missing){throw 'Base locale absente. Actualisez lʼOU dans Base de données.'}
         if($null -eq $data.PSObject.Properties['Machines'] -or $null -eq $data.PSObject.Properties['Groups'] -or [string]$data.Scope -ine [string]$State.BaseDn -or [bool]$data.Subtree -ne ($State.Scope -eq 'Subtree')){throw 'Le résultat ne correspond pas au périmètre demandé.'}
         $payload=[pscustomobject]@{ModuleRoot=$script:SearchQueryModuleRoot;Lifecycle=(Get-DomeniaWindowsLifecycleTable);Fleet=$data;Observations=@{};Records=$null;Recipe=$State.Recipe;Saved=@();SortField='name';Descending=$false;Offset=0;Selection=$State.Selection;MaxAgeDays=(Get-DomeniaObservationMaxAgeDays);TextFilter='';StateFilter='';SearchOutput=$true;Limit=$State.Limit}
-        $State.Job=Start-UiTask -Name 'Requête : évaluation locale' -OperationId 'LocalQuery' -Code (Get-DomeniaQueryWorkerCode) -Payload $payload -CallbackState $State -ReplaceKey 'branch' -SuccessHandler 'Complete-DomeniaSearchLocalQuery' -ErrorHandler 'Fail-DomeniaSearchLocalQuery' -TimeoutSeconds 120 -TaskClass Explicit
+        # Collection verdicts and saved WMI SELECT summaries of this OU are read first, as in the workshop.
+        Start-DomeniaQueryDetailRead -Payload $payload -State $State -Owner Search
+    }catch{Fail-DomeniaSearchLocalQuery $_.Exception.Message $State}
+}
+function Start-DomeniaSearchLocalCompute {
+    param($Payload,$State)
+    if(-not (Test-DomeniaSearchLocalQueryCurrent $State)){return}
+    try{
+        $State.Job=Start-UiTask -Name 'Requête : évaluation locale' -OperationId 'LocalQuery' -Code (Get-DomeniaQueryWorkerCode) -Payload $Payload -CallbackState $State -ReplaceKey 'branch' -SuccessHandler 'Complete-DomeniaSearchLocalQuery' -ErrorHandler 'Fail-DomeniaSearchLocalQuery' -TimeoutSeconds 120 -TaskClass Explicit
         if(-not $State.Job){throw 'Calcul non admis, réexécutez la requête.'}
     }catch{Fail-DomeniaSearchLocalQuery $_.Exception.Message $State}
 }

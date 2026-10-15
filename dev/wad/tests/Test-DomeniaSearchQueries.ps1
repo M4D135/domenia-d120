@@ -6,7 +6,7 @@ $ErrorActionPreference='Stop'
 $wad=Split-Path -Parent $PSScriptRoot;$modules=Join-Path $wad 'modules'
 Add-Type -Path (Join-Path $modules 'M4D.Admin.Common.Query.dll')
 Add-Type -Path (Join-Path $modules 'Domenia.Native.dll')
-foreach($name in @('Common.Model','HealthRules.Model','Boards.Model','BoardFleet.Model','Probes.Model','QuerySchema.Model','Workstation.Model','Query.Model','Query.Worker','Search.Model','Search.UI','Query.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+foreach($name in @('Common.Model','HealthRules.Model','Boards.Model','BoardFleet.Model','Probes.Model','QuerySchema.Model','Workstation.Model','Query.Model','Query.Worker','Search.Model','Search.UI','Query.UI','QueryDetails.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 $script:Checks=[Collections.Generic.List[object]]::new()
 function Case([string]$Name,[scriptblock]$Body){try{& $Body;$script:Checks.Add([pscustomobject]@{Name=$Name;Pass=$true;Error=''})}catch{$script:Checks.Add([pscustomobject]@{Name=$Name;Pass=$false;Error=$_.Exception.Message})}}
 function Expect([bool]$Ok,[string]$Message='Assertion failed'){if(-not $Ok){throw $Message}}
@@ -93,6 +93,27 @@ Case 'Dispatch: clears hidden text, presence, type and frozen GUID filters' {Res
 Case 'Dispatch: no selected OU refuses without job' {Reset-Fixture;$script:SelectedBranchDn='';$failed=$false;try{Start-DomeniaSearchLocalQuery $script:Entry}catch{$failed=$true};Expect ($failed -and $script:Jobs.Count -eq 0)}
 Case 'Dispatch: missing database refuses without job' {Reset-Fixture;$script:DatabaseScopedPath='';$failed=$false;try{Start-DomeniaSearchLocalQuery $script:Entry}catch{$failed=$true};Expect ($failed -and $script:Jobs.Count -eq 0)}
 Case 'Dispatch: read callback starts independent actual-query phase' {Reset-Fixture;Start-DomeniaSearchLocalQuery $script:Entry;$state=$script:SearchQueryRun;Complete-DomeniaSearchLocalRead $fleet $state;Expect ($script:Jobs.Count -eq 2 -and $script:Jobs[1].Operation -eq 'LocalQuery');Expect ($script:Jobs[1].Payload.SearchOutput -and $script:Jobs[1].Payload.Fleet.Scope -eq $dn -and $script:Jobs[1].Payload.Selection -eq 'Unknown');Expect ($script:FleetLast.Scope -like 'OU=Dashboard*')}
+# Point 66: a collection condition keeps the same meaning in Search as in the workshop and the dashboards. Its
+# verdicts are read for the Search OU before the local computation, instead of silently becoming unknown.
+function New-DomeniaStoreContext {param($RequestId,$Generation,$ScopeDn,$Subtree);return [pscustomobject]@{StoreId='fixture-store';Path=$script:DatabaseScopedPath;ScopeDn=$ScopeDn;Subtree=$Subtree;Generation=$Generation}}
+function Request-DomeniaStoreRead {param($Context,$Query,$SuccessHandler,$ErrorHandler,$CallbackState);$script:StoreReads.Add([pscustomobject]@{Context=$Context;Query=$Query;State=$CallbackState;Success=$SuccessHandler});return 'fixture-read'}
+$script:StoreReads=[Collections.Generic.List[object]]::new()
+Case 'Dispatch: collection verdicts are read in the Search OU before the local computation' {
+    Reset-Fixture;$script:StoreReads.Clear()
+    $tree=[pscustomobject]@{Kind='Collection';CollectionField='probe:soft.servicedetails';Quantifier='Any';Children=@([pscustomobject]@{Kind='All';Children=@([pscustomobject]@{Kind='Clause';Clause=[pscustomobject]@{Field='instance:soft.servicedetails:Name';Operator='Equal';Value='Spooler'}})})}
+    $entry=[pscustomobject]@{Id='local:fixture.collection';Name='Service Spooler';Recipe=(New-DomeniaQueryRecipe -Id 'fixture.collection' -Name 'Service Spooler' -Expression $tree)}
+    $script:SearchQueryCatalog=@($entry)
+    Start-DomeniaSearchLocalQuery $entry;$state=$script:SearchQueryRun
+    Complete-DomeniaSearchLocalRead $fleet $state
+    Expect ($script:Jobs.Count -eq 1 -and $script:StoreReads.Count -eq 1) 'No computation before the collection verdicts are read'
+    $read=$script:StoreReads[0]
+    Expect ($read.Query.Kind -eq 'Observation' -and $read.Query.Family -eq 'Probe:soft.servicedetails' -and $read.Context.ScopeDn -eq $dn -and -not $read.Context.Subtree) 'Collection read stays in the Search OU and depth'
+    Complete-DomeniaQueryDetailPage ([pscustomobject]@{DataSource='SQLite';StoreId='fixture-store';Busy=$false;Missing=$false;SnapshotRevision=3;Total=0;Rows=@();Observations=@()}) $read.State
+    Expect ($script:Jobs.Count -eq 2 -and $script:Jobs[1].Payload.ProjectCollections -and @($script:Jobs[1].Payload.CollectionNodes).Count -eq 1) 'Collection page is interpreted by the pinned LocalQuery worker'
+    Complete-DomeniaQueryCollectionPage ([pscustomobject]@{Projections=@()}) $script:Jobs[1].State
+    Expect ($script:Jobs.Count -eq 3 -and $script:Jobs[2].Operation -eq 'LocalQuery' -and $script:Jobs[2].Payload.SearchOutput -and $null -ne $script:Jobs[2].Payload.PSObject.Properties['CollectionProjections']) 'Search computation receives the collection verdicts'
+    Expect ($null -eq $state.DetailRead) 'The finished read is released'
+}
 foreach($change in @('Epoch','Generation','Path','OU','Depth','View','Text','Replacement','Mode')){
     Case ('Callback: rejects stale '+$change) {
         Reset-Fixture;Start-DomeniaSearchLocalQuery $script:Entry;$state=$script:SearchQueryRun

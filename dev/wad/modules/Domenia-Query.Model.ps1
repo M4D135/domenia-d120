@@ -727,24 +727,35 @@ function ConvertTo-DomeniaQueryNumber {
 function Get-DomeniaQueryExplanation {
     param($Record,$Recipe)
     $Recipe=Resolve-DomeniaQueryParameters $Recipe
-    $fields=@{};foreach($field in @(@(Get-DomeniaQueryFields)+@(Get-DomeniaQueryInstanceFields)+@(Get-DomeniaQueryReadDefinitionFields $Recipe))){$fields[$field.Id]=$field}
+    $fields=Get-DomeniaQueryFieldMap $Recipe
     foreach($section in @('Clauses','Refinements')){
         $index=0
         foreach($clause in @(Get-DomeniaMember $Recipe $section @())){
             $index++;$single=New-DomeniaQueryRecipe -Clauses @($clause) -ReadDefinition (Get-DomeniaMemberValue $Recipe 'ReadDefinition');$compiled=ConvertTo-DomeniaCompiledQuery $single
-            $verdict=[string]$compiled.Evaluate($Record.Values);$value=Get-DomeniaQueryValuePresentation $Record ([string]$clause.Field)
-            $operator=@(Get-DomeniaQueryOperators $fields[[string]$clause.Field].Kind|Where-Object{$_.Id -ceq [string]$clause.Operator})[0]
-            [pscustomobject]@{Condition=($(if($section -eq 'Refinements'){'Segment ET · '}else{''})+$index+'. '+$fields[[string]$clause.Field].Name+' '+$operator.Name+' '+[string]$clause.Value);Value=$value.Value;Verdict=$(switch($verdict){Match{'Vrai'};NoMatch{'Faux'};default{'Inconnu'}});State=$value.State;ObservedAt=$value.ObservedAt}
+            $verdict=[string]$compiled.Evaluate($Record.Values);$id=[string]$clause.Field;$value=Get-DomeniaQueryValuePresentation $Record $id
+            $shown=if($value.Known){Format-DomeniaQueryValueLabel -Value $Record.Values[$id] -Field $fields[$id] -Bare}else{$value.Value}
+            [pscustomobject]@{Condition=($(if($section -eq 'Refinements'){'Segment ET · '}else{''})+$index+'. '+(Get-DomeniaQueryClauseLabel -Clause $clause -Fields $fields));Value=$shown;Verdict=$(switch($verdict){Match{'Vrai'};NoMatch{'Faux'};default{'Inconnu'}});State=$value.State;ObservedAt=$value.ObservedAt}
         }
     }
     $tree=Get-DomeniaMemberValue $Recipe 'Expression'
-    foreach($node in @(Get-DomeniaQueryExpressionOutline $tree)){
+    foreach($node in @(Get-DomeniaQueryExpressionOutline -Node $tree -Fields $fields)){
         if($node.CollectionProbe){continue}
         $single=New-DomeniaQueryRecipe -Expression $node.Node -ReadDefinition (Get-DomeniaMemberValue $Recipe 'ReadDefinition')
         $verdict=[string](ConvertTo-DomeniaCompiledQuery $single).Evaluate($Record.Values)
-        $value=if($node.Kind -eq 'Clause'){Get-DomeniaQueryValuePresentation $Record ([string]$node.Node.Clause.Field)}elseif($node.Kind -eq 'Collection'){
+        $value=if($node.Kind -eq 'Clause'){
+            $id=[string]$node.Node.Clause.Field;$presentation=Get-DomeniaQueryValuePresentation $Record $id
+            if($presentation.Known){$presentation.Value=Format-DomeniaQueryValueLabel -Value $Record.Values[$id] -Field $fields[$id] -Bare}
+            $presentation
+        }elseif($node.Kind -eq 'Collection'){
+            # The workshop keeps only the per-node verdict and its provenance; raw instances exist only in direct reads.
+            $infoKey='_exprinfo:'+(Get-DomeniaQueryExpressionKey $node.Node);$info=if($Record.Values.ContainsKey($infoKey)){$Record.Values[$infoKey]}else{$null}
             $key='_instances:'+([string]$node.Node.CollectionField);$collection=if($Record.Values.ContainsKey($key)){$Record.Values[$key]}else{$null}
-            [pscustomobject]@{Value=$(if($null -ne $collection){[string]$collection.Instances.Count+' instance(s) mémorisée(s)'}else{'Non lu'});State=$(if($null -eq $collection){'Non lu'}elseif($collection.Complete){'Collecte complète'}else{'Collecte partielle'});ObservedAt=(Get-DomeniaQueryValuePresentation $Record ([string]$node.Node.CollectionField)).ObservedAt}
+            if($null -ne $info){
+                $checked=ConvertFrom-DomeniaUtcText ([string]$info.CheckedUtc)
+                [pscustomobject]@{Value=([string]$info.InstanceCount+' instance(s) examinée(s)');State=[string]$info.Coverage;ObservedAt=$(if($null -ne $checked){$checked.ToLocalTime().ToString('dd/MM/yyyy HH:mm:ss')}else{'Date non disponible'})}
+            }else{
+                [pscustomobject]@{Value=$(if($null -ne $collection){[string]$collection.Instances.Count+' instance(s) mémorisée(s)'}else{'Non lu'});State=$(if($null -eq $collection){'Non lu'}elseif($collection.Complete){'Collecte complète'}else{'Collecte partielle'});ObservedAt=(Get-DomeniaQueryValuePresentation $Record ([string]$node.Node.CollectionField)).ObservedAt}
+            }
         }else{[pscustomobject]@{Value='Verdicts des sous-conditions';State='Calcul local';ObservedAt=''}}
         [pscustomobject]@{Condition=$node.Label;Value=$value.Value;Verdict=$(switch($verdict){Match{'Vrai'};NoMatch{'Faux'};default{'Inconnu'}});State=$value.State;ObservedAt=$value.ObservedAt}
     }
@@ -939,13 +950,68 @@ function Get-DomeniaQueryRequestedFields {
     while($walk.Count){if(++$budget -gt 256){throw 'Arbre de requête limité à 256 éléments.'};$node=$walk.Pop();if([string]$node.Kind -eq 'Collection'){[void]$ids.Add([string]$node.CollectionField)};foreach($child in @(Get-DomeniaMember $node 'Children' @())){if($null -ne $child){$walk.Push($child)}}}
     return @($ids|Sort-Object)
 }
+function Get-DomeniaQueryFieldMap {
+    # French metadata (name, kind, unit, coded choices) of every field a recipe may reference, keyed by field id.
+    param($Recipe=$null)
+    $map=@{}
+    foreach($field in @(@(Get-DomeniaQueryCatalog)+@(Get-DomeniaQueryInstanceFields)+@(Get-DomeniaQueryReadDefinitionFields $Recipe))){$map[[string]$field.Id]=$field}
+    return $map
+}
+function Format-DomeniaQueryValueLabel {
+    # Readable typed value: Oui/Non, French decimal with its unit, coded choice name, parameter reference or text.
+    # -Bare omits the quotes around a literal text (observed values in a grid).
+    param($Value,$Field=$null,[switch]$Bare)
+    if($null -eq $Value){return ''}
+    if($Value -is [bool]){if($Value){return 'Oui'};return 'Non'}
+    if($Value -isnot [string] -and $Value -isnot [ValueType]){
+        $reference=Get-DomeniaMemberValue $Value 'Parameter'
+        if($null -ne $reference){return 'paramètre '+[string]$reference}
+    }
+    foreach($choice in @(Get-DomeniaMember $Field 'Choices' @())){if($null -ne $choice -and [string]$choice.Value -ceq [string]$Value){return [string]$choice.Name}}
+    if(($Value -is [decimal]) -or ($Value -is [double]) -or ($Value -is [single]) -or ($Value -is [int]) -or ($Value -is [long])){
+        $culture=[Globalization.CultureInfo]::GetCultureInfo('fr-FR')
+        try{$text=([decimal]$Value).ToString('0.############',$culture)}catch{$text=[Convert]::ToString($Value,[Globalization.CultureInfo]::InvariantCulture)}
+        $units=@{'Go'='Go';'Mo'='Mo';'Jours'='j';'%'='%';'Mbit/s'='Mbit/s';'MHz'='MHz'}
+        $unit=[string](Get-DomeniaMember $Field 'Unit' '')
+        if($units.ContainsKey($unit)){return $text+' '+$units[$unit]}
+        return $text
+    }
+    if($Bare){return [string]$Value}
+    return '« '+[string]$Value+' »'
+}
+function Get-DomeniaQueryClauseLabel {
+    # One French sentence per condition, shared by the editor, the explanation and the pack comparison.
+    param($Clause,[hashtable]$Fields=$null)
+    if($null -eq $Fields){$Fields=Get-DomeniaQueryFieldMap}
+    $id=[string](Get-DomeniaMember $Clause 'Field');$operatorId=[string](Get-DomeniaMember $Clause 'Operator')
+    $field=$Fields[$id]
+    $name=if($null -ne $field){[string]$field.Name}else{$id}
+    $kind=if($null -ne $field){[string]$field.Kind}else{'Text'}
+    $operator=@(Get-DomeniaQueryOperators $kind|Where-Object{$_.Id -ceq $operatorId}|Select-Object -First 1)
+    $verb=if($operator.Count){[string]$operator[0].Name}else{$operatorId}
+    if($operatorId -in @('IsMissing','IsPresent')){return $name+' '+$verb}
+    return $name+' '+$verb+' '+(Format-DomeniaQueryValueLabel -Value (Get-DomeniaMemberValue $Clause 'Value') -Field $field)
+}
 function Get-DomeniaQueryExpressionOutline {
-    param($Node,[string]$Path='',[int]$Depth=0,[string]$CollectionProbe='')
+    param($Node,[string]$Path='',[int]$Depth=0,[string]$CollectionProbe='',[hashtable]$Fields=$null)
     if($null -eq $Node){return};if($Depth -gt 8){throw 'Arbre de conditions limité à 8 niveaux.'}
-    $kind=[string]$Node.Kind;$label=switch($kind){All{'Toutes (ET)'};Any{'Au moins une (OU)'};Not{'Ne correspond pas (NON)'};Collection{[string]$Node.Quantifier+' · '+[string]$Node.CollectionField};Clause{[string]$Node.Clause.Field+' '+[string]$Node.Clause.Operator+' '+[string]$Node.Clause.Value}}
+    if($null -eq $Fields){$Fields=Get-DomeniaQueryFieldMap}
+    $kind=[string]$Node.Kind
+    $label=switch($kind){
+        All{'Toutes les conditions (ET)'}
+        Any{'Au moins une condition (OU)'}
+        Not{'Le groupe suivant ne correspond pas (NON)'}
+        Collection{
+            $source=[string]$Node.CollectionField;$entry=$Fields[$source];$probeName=if($null -ne $entry){[string]$entry.Name}else{$source}
+            $quantifier=switch([string]$Node.Quantifier){All{'Toutes les instances'};None{'Aucune instance'};default{'Au moins une instance'}}
+            $quantifier+' de « '+$probeName+' »'
+        }
+        Clause{Get-DomeniaQueryClauseLabel -Clause $Node.Clause -Fields $Fields}
+        default{$kind}
+    }
     [pscustomobject]@{Path=$Path;Depth=$Depth;Kind=$kind;Node=$Node;CollectionProbe=$CollectionProbe;Label=(('  '*$Depth)+$label)}
     if($kind -eq 'Collection'){$CollectionProbe=([string]$Node.CollectionField).Substring(6)}
-    $i=0;foreach($child in @(Get-DomeniaMember $Node 'Children' @())){Get-DomeniaQueryExpressionOutline -Node $child -Path ($Path+'/'+$i) -Depth ($Depth+1) -CollectionProbe $CollectionProbe;$i++}
+    $i=0;foreach($child in @(Get-DomeniaMember $Node 'Children' @())){Get-DomeniaQueryExpressionOutline -Node $child -Path ($Path+'/'+$i) -Depth ($Depth+1) -CollectionProbe $CollectionProbe -Fields $Fields;$i++}
 }
 
 function Edit-DomeniaQueryExpression {

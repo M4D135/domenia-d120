@@ -5,7 +5,7 @@ $ErrorActionPreference='Stop'
 $wad=Split-Path -Parent $PSScriptRoot;$modules=Join-Path $wad 'modules'
 if($QuerySource){Add-Type -Path (Join-Path (Split-Path -Parent $wad) 'vendor/m4d-admin-common/src/Query/QueryEngine.cs')}else{Add-Type -Path (Join-Path $modules 'M4D.Admin.Common.Query.dll')}
 Add-Type -Path (Join-Path $modules 'Domenia.Native.dll')
-foreach($name in @('Common.Model','HealthRules.Model','Boards.Model','Probes.Model','Query.Model','QueryLibrary.Model','Query.Worker','Query.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+foreach($name in @('Common.Model','HealthRules.Model','Boards.Model','Probes.Model','QuerySchema.Model','Workstation.Model','Query.Model','QueryLibrary.Model','Query.Worker','Query.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 $script:checks=0;$clock=[Diagnostics.Stopwatch]::StartNew()
 function Expect([bool]$Good,[string]$Name){$script:checks++;if(-not $Good){throw $Name}}
 function Reject([scriptblock]$Action,[string]$Name){$failed=$false;try{& $Action|Out-Null}catch{$failed=$true};Expect $failed $Name}

@@ -1281,6 +1281,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Test-DomeniaSearchLocalQueryCurrent',
             'Start-DomeniaSearchLocalQuery',
             'Complete-DomeniaSearchLocalRead',
+            'Start-DomeniaSearchLocalCompute',
             'Complete-DomeniaSearchLocalQuery',
             'Fail-DomeniaSearchLocalQuery',
             'Get-DomeniaGridScrollViewer',
@@ -1677,6 +1678,9 @@ function Get-DomeniaRuntimeModulePlan {
             'ConvertTo-DomeniaQueryInstances',
             'Get-DomeniaQueryExpressionClauses',
             'Get-DomeniaQueryRequestedFields',
+            'Get-DomeniaQueryFieldMap',
+            'Format-DomeniaQueryValueLabel',
+            'Get-DomeniaQueryClauseLabel',
             'Get-DomeniaQueryExpressionOutline',
             'Edit-DomeniaQueryExpression',
             'Get-DomeniaCollectionFieldFamily',
@@ -1811,6 +1815,8 @@ function Get-DomeniaRuntimeModulePlan {
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Query.UI.ps1','Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-Storage.UI.ps1'); File='Domenia-QueryDetails.UI.ps1'; DotSource=$true; Functions=@(
             'Start-DomeniaQueryDetailRead',
+            'Start-DomeniaQueryDetailCompute',
+            'Clear-DomeniaQueryDetailRead',
             'Test-DomeniaQueryDetailReadCurrent',
             'Request-DomeniaQueryDetailPage',
             'Complete-DomeniaQueryDetailPage',

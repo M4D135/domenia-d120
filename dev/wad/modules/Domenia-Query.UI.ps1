@@ -303,13 +303,9 @@ function Set-DomeniaQueryDraft {
     $title=Get-DomeniaControl 'TxtFleetQueryName';if($null -ne $title){$title.Text=[string]$Recipe.Name}
     $junction=Get-DomeniaControl 'CmbQueryJunction';if($null -ne $junction){$junction.SelectedIndex=$(if($Recipe.Junction -eq 'Any'){1}else{0})}
     $group=Get-DomeniaControl 'CmbQueryGroupField';if($null -ne $group){$group.SelectedIndex=0;foreach($entry in $group.ItemsSource){if($entry.Id -ceq [string](Get-DomeniaMember $Recipe 'GroupBy')){$group.SelectedItem=$entry}}}
-    $fields=@{};foreach($field in @(@(Get-DomeniaQueryFields)+@(Get-DomeniaQueryReadDefinitionFields $Recipe))){$fields[$field.Id]=$field}
+    $fields=Get-DomeniaQueryFieldMap $Recipe
     $refinements=@(Get-DomeniaMember $Recipe 'Refinements' @())
-    $segmentLabels=@(foreach($clause in $refinements){
-        $field=$fields[[string]$clause.Field]
-        $operator=@(Get-DomeniaQueryOperators $field.Kind|Where-Object{$_.Id -eq $clause.Operator})[0]
-        [string]$field.Name+' '+[string]$operator.Name+' '+[string]$clause.Value
-    })
+    $segmentLabels=@(foreach($clause in $refinements){Get-DomeniaQueryClauseLabel -Clause $clause -Fields $fields})
     [void](Set-DomeniaControlText 'LblQuerySegment' ('Conditions du segment (ET) : '+($segmentLabels -join ' ; ')))
     $probeSegment=Get-DomeniaMemberValue $Recipe 'ProbeSelection'
     if($null -ne $probeSegment){[void](Set-DomeniaControlText 'LblQuerySegment' ('Segment de sonde : '+(Get-DomeniaProbe $probeSegment.Key).Name+' · '+$Recipe.Name+' · au moins une valeur correspondante par poste'))}
@@ -321,7 +317,7 @@ function Set-DomeniaQueryDraft {
         if($null -ne $control){$control.Visibility=$(if($hasSegment){'Visible'}else{'Collapsed'})}
     }
     $grid=Get-DomeniaControl 'DgQueryConditions'
-    if($null -ne $grid){$grid.ItemsSource=@(foreach($c in @($Recipe.Clauses)){[pscustomobject]@{Field=$c.Field;Operator=$c.Operator;Value=$c.Value;FieldLabel=$fields[[string]$c.Field].Name;OperatorLabel=[string](@(Get-DomeniaQueryOperators $fields[[string]$c.Field].Kind | Where-Object{$_.Id -eq $c.Operator})[0].Name)}})}
+    if($null -ne $grid){$grid.ItemsSource=@(foreach($c in @($Recipe.Clauses)){$entry=$fields[[string]$c.Field];[pscustomobject]@{Field=$c.Field;Operator=$c.Operator;Value=(Format-DomeniaQueryValueLabel -Value (Get-DomeniaMemberValue $c 'Value') -Field $entry);FieldLabel=$(if($null -ne $entry){[string]$entry.Name}else{[string]$c.Field});OperatorLabel=[string](@(Get-DomeniaQueryOperators $(if($null -ne $entry){[string]$entry.Kind}else{'Text'}) | Where-Object{$_.Id -eq $c.Operator})[0].Name)}})}
     Update-DomeniaQueryAdvancedDraft $Recipe
     [void](Set-DomeniaControlText 'LblQueryStatus' 'Prêt. Exécuter applique ces conditions aux données locales du périmètre courant.')
 }
@@ -760,7 +756,7 @@ function Update-DomeniaQueryInstanceFields {
 }
 function Update-DomeniaQueryAdvancedDraft {
     param($Recipe)
-    $tree=Get-DomeniaControl 'LstQueryExpression';if($null -ne $tree){$tree.ItemsSource=@(Get-DomeniaQueryExpressionOutline (Get-DomeniaMemberValue $Recipe 'Expression'));if($tree.ItemsSource.Count){$tree.SelectedIndex=0}}
+    $tree=Get-DomeniaControl 'LstQueryExpression';if($null -ne $tree){$tree.ItemsSource=@(Get-DomeniaQueryExpressionOutline -Node (Get-DomeniaMemberValue $Recipe 'Expression') -Fields (Get-DomeniaQueryFieldMap $Recipe));if($tree.ItemsSource.Count){$tree.SelectedIndex=0}}
     $parameters=Get-DomeniaControl 'DgQueryParameters'
     if($null -ne $parameters){$fields=@{};foreach($field in @(@(Get-DomeniaQueryFields)+@(Get-DomeniaQueryInstanceFields))){$fields[$field.Id]=$field};$parameters.ItemsSource=@(foreach($parameter in @(Get-DomeniaMember $Recipe 'Parameters' @())){[pscustomobject]@{Name=$parameter.Name;Field=$parameter.Field;FieldName=[string]$fields[[string]$parameter.Field].Name;Value=(Get-DomeniaMemberValue (Get-DomeniaMemberValue $Recipe 'ParameterValues') ([string]$parameter.Name) (Get-DomeniaMemberValue $parameter 'Default'))}})}
     $coherence=Get-DomeniaControl 'TxtQueryCoherenceHours';if($null -ne $coherence){$coherence.Text=[Convert]::ToString((Get-DomeniaMemberValue $Recipe 'CoherenceHours'),[Globalization.CultureInfo]::InvariantCulture)}
