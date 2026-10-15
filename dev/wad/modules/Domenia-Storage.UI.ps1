@@ -790,7 +790,7 @@ function Update-DomeniaIndexLocation {
     # tooltip and behind « Copier le chemin » ; a soft alert when no backup is younger than 7 days. Local file metadata
     # only (the active base is always on a local disk).
     $path='';try{$path=[string](Get-DomeniaDatabasePath)}catch{$path=''}
-    $exists=($path -and [IO.File]::Exists($path))
+    $exists=(([bool]$path) -and ([IO.File]::Exists($path)))
     $bytes=-1L;$last=$null
     if($exists){
         $bytes=0L;foreach($suffix in @('','-wal')){$file=[IO.FileInfo]::new($path+$suffix);if($file.Exists){$bytes+=[long]$file.Length}}
@@ -798,7 +798,7 @@ function Update-DomeniaIndexLocation {
         try{
             $key=Get-DomeniaStoreId $path ([string]$script:Conn.BaseDn);$text=[string](Get-DomeniaSetting ('Storage.Backup.Last.'+$key) '')
             $parsed=[datetime]::MinValue
-            if($text -and [datetime]::TryParse($text,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind,[ref]$parsed)){$last=$parsed.ToUniversalTime()}
+            if(([bool]$text) -and ([datetime]::TryParse($text,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind,[ref]$parsed))){$last=$parsed.ToUniversalTime()}
         }catch{$last=$null}
         try{
             $newest=Get-ChildItem -LiteralPath (Join-Path ([IO.Path]::GetDirectoryName($path)) 'Backups') -Filter 'Domenia-*.db' -File -ErrorAction SilentlyContinue|Sort-Object LastWriteTimeUtc -Descending|Select-Object -First 1
@@ -814,7 +814,8 @@ function Update-DomeniaIndexLocation {
         $tip=if($path){'Fichier de la base : '+$path}else{'Aucune base active.'}
         $label.ToolTip=$tip;[Windows.Automation.AutomationProperties]::SetHelpText($label,$tip)
     }
-    $copy=Get-DomeniaControl 'BtnIndexCopyPath';if($null -ne $copy){$copy.IsEnabled=[bool]$path}
+    # « Copier le chemin » copies the path of the active context (Copy-DomeniaIndexLocationPath): enabled with it only.
+    $copy=Get-DomeniaControl 'BtnIndexCopyPath';if($null -ne $copy){$copy.IsEnabled=(-not [string]::IsNullOrWhiteSpace([string]$script:DatabaseScopedPath))}
     $alert=Get-DomeniaControl 'LblIndexBackupStatus'
     if($null -ne $alert){$alert.Text=[string]$summary.AlertText;$alert.Visibility=if([bool]$summary.Alert){[Windows.Visibility]::Visible}else{[Windows.Visibility]::Collapsed}}
 }
