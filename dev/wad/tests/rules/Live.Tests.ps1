@@ -23,9 +23,14 @@ Test-Case -Id 'LIV-002' -Name 'Presence : sans reponse au ping sans preuve d arr
     $off = Get-DomeniaLivePresenceView -Observation (New-LivObservation -Presence 'Hors ligne' -PresenceCheckedUtc '2026-10-08T09:00:00Z' -PresenceDetail 'ICMP : TimedOut.')
     Assert-Equal ('Sans r' + [char]0x00E9 + 'ponse au ping') ([string]$off.State)
     Assert-True ([string]$off.Detail -like '*sans preuve*teint*') ([string]$off.Detail)
-    $cached = Get-DomeniaLivePresenceView -Observation (New-LivObservation -Presence 'En ligne' -PresenceCheckedUtc '2026-10-08T09:00:00Z') -Cached
-    Assert-Equal 'En ligne (cache)' ([string]$cached.Display)
+    # DS-15: an earlier measure keeps its short label and gives its age instead of the former '(cache)' suffix.
+    $cached = Get-DomeniaLivePresenceView -Observation (New-LivObservation -Presence 'En ligne' -PresenceCheckedUtc '2026-10-08T09:00:00Z') -Cached -NowUtc ([datetime]::new(2026,10,8,11,0,0,[DateTimeKind]::Utc))
+    Assert-Equal 'En ligne' ([string]$cached.Display)
     Assert-Equal 'En ligne' ([string]$cached.State)
+    Assert-Equal 'Online' ([string]$cached.PresenceState)
+    Assert-True ([bool]$cached.IsCached) 'releve ancien marque comme historique'
+    Assert-Equal 'il y a 2 h' ([string]$cached.Age)
+    Assert-True (-not ([string]$cached.Display).Contains('(cache)')) 'plus de suffixe (cache) dans le libelle'
     Assert-True ([string]$cached.Detail -like '*Observation historique*') 'releve ancien jamais presente comme un etat actuel'
     $fresh = Get-DomeniaLivePresenceView -Observation (New-LivObservation -Presence 'En ligne' -PresenceCheckedUtc '2026-10-08T09:00:00Z')
     Assert-Equal 'En ligne' ([string]$fresh.Display)
@@ -82,4 +87,58 @@ Test-Case -Id 'LIV-005' -Name 'Filtre de presence, perimetre de la recherche et 
     Assert-Equal 4096 ([string]$snapshot.Description).Length
     Assert-Equal ('cn=pc-1,' + $base.ToLowerInvariant()) (Get-DomeniaLiveObjectKey -Row $row)
     Assert-Equal 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad' (Get-DomeniaLiveHash 'abc')
+}
+Test-Case -Id 'LIV-006' -Name 'FI-16 : etat porte par une cle, filtre et compteurs independants du libelle affiche' -Body {
+    # Every worker, store and legacy value maps to one key; a key is returned unchanged.
+    $cases = [ordered]@{ 'En ligne' = 'Online'; ('Sans r' + [char]0x00E9 + 'ponse au ping') = 'NoReply'; 'Hors ligne' = 'NoReply'; 'Sans reponse' = 'NoReply'; 'Erreur de ping' = 'Error'; ('Non v' + [char]0x00E9 + 'rifi' + [char]0x00E9) = 'Unknown'; 'Inconnu' = 'Unknown'; '' = 'Unknown'; 'Test en cours...' = 'Pending'; ('V' + [char]0x00E9 + 'rification en cours') = 'Pending'; 'Sans objet' = 'None'; 'En ligne (cache)' = 'Online'; 'En ligne  PC-1 (confiance)' = 'Online' }
+    foreach ($label in @($cases.Keys)) { Assert-Equal ([string]$cases[$label]) (ConvertTo-DomeniaPresenceStateKey $label) ('libelle ' + $label) }
+    foreach ($key in @(Get-DomeniaPresenceStateKeys)) { Assert-Equal $key (ConvertTo-DomeniaPresenceStateKey $key) ('cle ' + $key) }
+    # A reworded label does not change the filter: the row is matched by its key.
+    $row = [pscustomobject]@{ Type = 'Machine'; Presence = 'Pas de r' + [char]0x00E9 + 'ponse (nouveau libell' + [char]0x00E9 + ')'; PresenceState = 'NoReply' }
+    Assert-Equal 'NoReply' (Get-DomeniaRowPresenceState $row)
+    Assert-True (Test-DomeniaPresenceMatch -State (Get-DomeniaRowPresenceState $row) -Filter ('Sans r' + [char]0x00E9 + 'ponse au ping')) 'filtre par cle'
+    Assert-False (Test-DomeniaPresenceMatch -State (Get-DomeniaRowPresenceState $row) -Filter 'Erreur de ping') 'erreur distincte de sans reponse'
+    # A row built before the key existed is still read through its text.
+    Assert-Equal 'Online' (Get-DomeniaRowPresenceState ([pscustomobject]@{ Presence = 'En ligne (cache)' }))
+    Assert-False (Test-DomeniaPresenceMatch -State 'Sans objet' -Filter ('Non v' + [char]0x00E9 + 'rifi' + [char]0x00E9)) 'un compte utilisateur nest pas un poste non verifie'
+    Assert-Equal ('Sans r' + [char]0x00E9 + 'ponse au ping') (Get-DomeniaPresenceStateLabel 'NoReply')
+    Assert-Equal 'Erreur de ping' (Get-DomeniaPresenceStateLabel 'Error')
+}
+Test-Case -Id 'LIV-007' -Name 'DS-15 : age discret de la mesure, sans date lisible aucun age' -Body {
+    $now = [datetime]::new(2026,10,8,12,0,0,[DateTimeKind]::Utc)
+    Assert-Equal ([string][char]0x00E0 + ' l' + [char]0x02BC + 'instant') (Get-DomeniaLiveAgeText -CheckedUtc '2026-10-08T11:59:40Z' -NowUtc $now)
+    Assert-Equal 'il y a 5 min' (Get-DomeniaLiveAgeText -CheckedUtc '2026-10-08T11:55:00.0000000Z' -NowUtc $now)
+    Assert-Equal 'il y a 3 h' (Get-DomeniaLiveAgeText -CheckedUtc '2026-10-08T09:00:00Z' -NowUtc $now)
+    Assert-Equal 'il y a 2 j' (Get-DomeniaLiveAgeText -CheckedUtc '2026-10-06T09:00:00Z' -NowUtc $now)
+    Assert-Equal '' (Get-DomeniaLiveAgeText -CheckedUtc 'pas une date' -NowUtc $now)
+    $view = Get-DomeniaLivePresenceView -Observation (New-LivObservation -Presence 'Erreur de ping' -PresenceCheckedUtc '2026-10-08T11:00:00Z') -NowUtc $now
+    Assert-Equal 'Error' ([string]$view.PresenceState)
+    Assert-Equal 'il y a 1 h' ([string]$view.Age)
+    Assert-False ([bool]$view.IsCached) 'mesure de cette session'
+    $unknown = Get-DomeniaLivePresenceView -Observation $null -NowUtc $now
+    Assert-Equal 'Unknown' ([string]$unknown.PresenceState)
+    Assert-Equal '' ([string]$unknown.Age) 'aucun age sans mesure'
+}
+Test-Case -Id 'LIV-008' -Name 'Point 5 : une tentative plus recente en echec garde la derniere reussite datee et montre son erreur' -Body {
+    # Committed projection: last success (PresenceCheckedUtc) and newer failed attempt (PresenceAttemptUtc, PresenceError).
+    $failed = New-LivObservation -Presence 'Erreur de ping' -PresenceCheckedUtc '2026-10-08T09:00:00.0000000Z' -PresenceDetail 'DNS'
+    $failed | Add-Member -NotePropertyName PresenceAttemptUtc -NotePropertyValue '2026-10-08T10:00:00.0000000Z'
+    $failed | Add-Member -NotePropertyName PresenceError -NotePropertyValue 'Nom introuvable'
+    $view = Get-DomeniaLivePresenceView -Observation $failed
+    Assert-True ([string]$view.Detail -like '*Derni*re tentative UTC : 2026-10-08T10:00:00*non confirm*e : Nom introuvable*') ([string]$view.Detail)
+    Assert-True ([string]$view.Detail -like '*Derni*re v*rification r*ussie UTC : 2026-10-08T09:00:00*conserv*e*') ([string]$view.Detail)
+    Assert-Equal '2026-10-08T09:00:00.0000000Z' ([string]$view.Checked) 'date de la derniere reussite remplacee'
+    $older = New-LivObservation -Presence 'En ligne' -PresenceCheckedUtc '2026-10-08T11:00:00.0000000Z'
+    $older | Add-Member -NotePropertyName PresenceAttemptUtc -NotePropertyValue '2026-10-08T10:00:00.0000000Z'
+    $older | Add-Member -NotePropertyName PresenceError -NotePropertyValue 'ancien echec'
+    Assert-False ([string](Get-DomeniaLivePresenceView -Observation $older).Detail -like '*ancien echec*') 'echec plus ancien affiche'
+    $console = New-LivObservation -Outcome 'Unavailable' -LastUser 'EX\ann'
+    $console.UserCheckedUtc = '2026-10-08T08:00:00.0000000Z'
+    $console | Add-Member -NotePropertyName ConsoleAttemptUtc -NotePropertyValue '2026-10-08T10:30:00.0000000Z'
+    $console | Add-Member -NotePropertyName ConsoleError -NotePropertyValue 'RPC indisponible'
+    $detail = [string](Get-DomeniaLiveObservationView -Observation $console).Detail
+    Assert-True ($detail -like '*Derni*re tentative UTC : 2026-10-08T10:30:00*non confirm*e : RPC indisponible*Derni*re lecture r*ussie UTC : 2026-10-08T08:00:00*') $detail
+    Assert-False (Test-DomeniaLiveAttemptAfter -Attempt 'pas une date' -Success '' -ErrorText 'x') 'date illisible jugee recente'
+    Assert-True (Test-DomeniaLiveAttemptAfter -Attempt '2026-10-08T10:00:00Z' -Success '' -ErrorText 'x') 'echec sans reussite masque'
+    Assert-False (Test-DomeniaLiveAttemptAfter -Attempt '2026-10-08T10:00:00Z' -Success '2026-10-08T09:00:00Z' -ErrorText '') 'tentative reussie prise pour un echec'
 }

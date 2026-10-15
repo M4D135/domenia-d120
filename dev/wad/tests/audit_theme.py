@@ -82,7 +82,7 @@ def main():
             observations[theme+'MinimumSemanticContrast']=round(minimum[0],3)
             return f'minimum {minimum[0]:.2f}:1 ({minimum[1]}/{minimum[2]})'
         check(theme+' : contraste des 20 couples de texte de la palette',semantic_contrast)
-        for factory in ('Get-LoginXamlLegacy','Get-DomeniaStandardLoginXaml','Get-DomeniaDebugLoginXaml','Get-DomeniaStartupXaml'):
+        for factory in ('Get-DomeniaStandardLoginXaml','Get-DomeniaStartupXaml'):
             raw=literal(factory)
             brushes='\n'.join(f'<SolidColorBrush x:Key="DomeniaBoot{k}" Color="{v}"/>' for k,v in p.items())
             xml=raw.replace('<Window.Resources>','<Window.Resources>\n'+brushes+'\n'+styles)

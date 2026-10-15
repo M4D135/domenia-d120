@@ -47,6 +47,12 @@ if($searchOutput){
 }
 $fields=@(Get-DomeniaQueryRequestedFields $Payload.Recipe)
 $rows=@(ConvertTo-DomeniaQueryGridRows -Rows $result.Rows -Fields $fields)
+# Complete distribution of the draft, computed like its widget on the whole scope (display filters excluded).
+$groups=$null
+if([string](Get-DomeniaMember $Payload.Recipe 'GroupBy')){
+    try{$groups=Get-DomeniaQueryGroupSummary -Records $records -Recipe $Payload.Recipe}
+    catch{$groups=[pscustomobject]@{Field=[string]$Payload.Recipe.GroupBy;Error=$_.Exception.Message}}
+}
 $widgets=$null;if($null -ne $Payload.PSObject.Properties['CachedWidgets']){$widgets=$Payload.CachedWidgets}
 if($null -eq $widgets){
 $widgets=@{}
@@ -57,7 +63,7 @@ foreach($recipe in @($Payload.Saved)){
 }
 $probeWidgets=$null;if($null -ne $Payload.PSObject.Properties['CachedProbeWidgets']){$probeWidgets=$Payload.CachedProbeWidgets}
 if($null -eq $probeWidgets){$requests=@();if($null -ne $Payload.PSObject.Properties['ProbeRequests']){$requests=@($Payload.ProbeRequests)};$probeWidgets=Measure-DomeniaFleetProbeEntries -Fleet $Payload.Fleet -Observations $Payload.Observations -Requests $requests -MaxAgeDays ([int]$Payload.MaxAgeDays)}
-[pscustomobject]@{Rows=$rows;Records=$records;Widgets=$widgets;ProbeWidgets=$probeWidgets;Total=$result.Total;Matched=$result.Matched;Unknown=$result.Unknown;NotMatched=$result.NotMatched;ScopeTotal=$records.Count;Offset=$options.Offset;Selection=[string]$options.Selection}
+[pscustomobject]@{Rows=$rows;Records=$records;Widgets=$widgets;ProbeWidgets=$probeWidgets;Groups=$groups;Total=$result.Total;Matched=$result.Matched;Unknown=$result.Unknown;NotMatched=$result.NotMatched;ScopeTotal=$records.Count;Offset=$options.Offset;Selection=[string]$options.Selection}
 '@
 }
 function Get-DomeniaQueryExportWorkerCode {
@@ -118,6 +124,10 @@ try{
     $hash=[Security.Cryptography.SHA256]::Create();$csvInput=[IO.File]::OpenRead($temporary)
     try{$sha=[BitConverter]::ToString($hash.ComputeHash($csvInput)).Replace('-','').ToLowerInvariant()}finally{$csvInput.Dispose();$hash.Dispose()}
     $metadata=[pscustomobject]@{Format='Domenia.QueryExport/1';RowCount=$count;Pages=$pages;PageSize=200;CsvSHA256=$sha;CreatedUtc=[datetime]::UtcNow.ToString('o');SnapshotKey=[string]$request.SnapshotKey;EvaluatedAtUtc=[string]$request.EvaluatedAtUtc;ScopeDn=[string]$request.ScopeDn;Subtree=[bool]$request.Subtree;Selection=[string]$request.Selection;TextFilter=$text;StateFilter=$state;SortField=$options.SortField;Descending=$options.Descending;Recipe=$recipe;Total=$snapshot.Total;Matched=$snapshot.Matched;Unknown=$snapshot.Unknown;NotMatched=$snapshot.NotMatched}
+    # Point 2: exact population of the preview (domain, OU, depth, types, criteria, snapshot) and the clocks of its
+    # data, captured with the request; absent fields stay absent, never guessed by the worker.
+    $metadata|Add-Member -NotePropertyName Population -NotePropertyValue $request.Population
+    $metadata|Add-Member -NotePropertyName DataClocks -NotePropertyValue $request.DataClocks
     [IO.File]::WriteAllText($metadataTemporary,($metadata|ConvertTo-Json -Depth 16),[Text.UTF8Encoding]::new($true))
     [IO.File]::Move($metadataTemporary,$path+'.metadata.json');$publishedMetadata=$true
     [IO.File]::Move($temporary,$path);$publishedCsv=$true

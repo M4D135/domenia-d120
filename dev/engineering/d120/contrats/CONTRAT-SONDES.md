@@ -28,6 +28,30 @@ Les limites du contrat sont comparées au texte du collecteur (`PCT-003`) : un c
 2. Lancer `wad\tests\Test-DomeniaRules.ps1` : `PCT-001` refuse un contrat invalide, `PCT-002` exécute les tests attendus.
 3. Qualifier le fournisseur sous Windows : `ProviderQualification` reste « À qualifier sous Windows » tant que ce n’est pas fait.
 
+## Sondes ajoutées le 15 octobre 2026 (lots W10 et W11)
+
+Les neuf entrées ajoutées au catalogue détaillé (32 projections au lieu de 23) : huit par le lot W11 pour
+l’inventaire du poste, `soft.installed` par le lot W10 pour le point 152. Elles satisfont
+`Domenia.ProbeContract/1` sans déclaration manuelle : origine « Catalogue détaillé », contrat dérivé de leur
+documentation (champs typés, droits, limites, références Microsoft). `PCT-007` fige ce contrat et exécute leurs tests attendus.
+
+| Sonde | Classe (espace de noms) | Privilège | Coût | Tests en plus du socle |
+|---|---|---|---|---|
+| `soft.installed` | `Win32_InstalledWin32Program` (`root\cimv2`) | `LectureDistanteWmi` | Modéré | `Controleur` (exclue des contrôleurs) |
+| `hw.memoryusage` | `Win32_OperatingSystem` (`root\cimv2`) | `LectureDistanteWmi` | Léger | — |
+| `hw.computersystem` | `Win32_ComputerSystem` (`root\cimv2`) | `LectureDistanteWmi` | Léger | — |
+| `hw.batterystatic` | `BatteryStaticData` (`root\wmi`) | `LectureDistanteWmi` | Modéré | — |
+| `hw.batteryfullcharge` | `BatteryFullChargedCapacity` (`root\wmi`) | `LectureDistanteWmi` | Modéré | — |
+| `hw.batterycycles` | `BatteryCycleCount` (`root\wmi`) | `LectureDistanteWmi` | Modéré | — |
+| `hw.monitorconnections` | `WmiMonitorConnectionParams` (`root\wmi`) | `LectureDistanteWmi` | Modéré | `Correspondance` (table des sorties vidéo) |
+| `net.connectionprofiles` | `MSFT_NetConnectionProfile` (`root\StandardCimv2`) | `LectureDistanteWmi` | Modéré | `Correspondance` (catégorie réseau) |
+| `sec.avproducts` | `AntiVirusProduct` (`root\SecurityCenter2`) | `AdministrateurLocal` | Modéré | — |
+
+Le socle commun est `Projection`, `Inconnu`, `Refus` et `Troncature`. Aucune de ces sondes n’est marquée `Slow` ;
+le coût « Modéré » vient de l’énumération de toutes les instances de la classe. « Comprendre ce chiffre »
+(`Get-DomeniaProbeWidgetSource`) reprend leurs limites documentées, et le sélecteur de widgets n’en propose une
+que si son contrat est valide.
+
 ## Sonde personnalisée (point 136)
 
 Une entrée marquée `"Origin": "Personnalisée"` ne reçoit aucune valeur dérivée. Elle doit déclarer :

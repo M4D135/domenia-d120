@@ -188,3 +188,42 @@ Test-Case 'PCT-006' 'Point 136 : isolement decrit sans promettre de bac a sable'
         Assert-True (@($lines | Where-Object { $_.Section -ceq $section }).Count -eq 1) ('section absente : ' + $section)
     }
 }
+Test-Case 'PCT-007' 'Point 135 : contrat des neuf sondes ajoutees le 15 octobre (inventaire du poste et applications installees)' {
+    # Detailed catalogue entries: the contract is derived from their documentation, nothing is declared by hand.
+    # Privilege and cost follow the class and the namespace; the expected tests follow the mode, the flags and the map.
+    $script:DomeniaProbeContracts = $null
+    $added = @(
+        @{Id='soft.installed';Privilege='LectureDistanteWmi';Cost='Modéré';Extra=@('Controleur')},
+        @{Id='hw.memoryusage';Privilege='LectureDistanteWmi';Cost='Léger';Extra=@()},
+        @{Id='hw.computersystem';Privilege='LectureDistanteWmi';Cost='Léger';Extra=@()},
+        @{Id='hw.batterystatic';Privilege='LectureDistanteWmi';Cost='Modéré';Extra=@()},
+        @{Id='hw.batteryfullcharge';Privilege='LectureDistanteWmi';Cost='Modéré';Extra=@()},
+        @{Id='hw.batterycycles';Privilege='LectureDistanteWmi';Cost='Modéré';Extra=@()},
+        @{Id='hw.monitorconnections';Privilege='LectureDistanteWmi';Cost='Modéré';Extra=@('Correspondance')},
+        @{Id='net.connectionprofiles';Privilege='LectureDistanteWmi';Cost='Modéré';Extra=@('Correspondance')},
+        @{Id='sec.avproducts';Privilege='AdministrateurLocal';Cost='Modéré';Extra=@()}
+    )
+    foreach ($case in $added) {
+        $entry = Get-DomeniaProbeContract $case.Id
+        Assert-True ($null -ne $entry) ('sonde absente : ' + $case.Id)
+        Assert-True $entry.Check.Valid ('contrat refuse : ' + $case.Id + ' (' + (@($entry.Check.Errors) -join ' ') + ')')
+        Assert-Equal 0 @($entry.Check.Warnings).Count ('avertissements : ' + $case.Id + ' (' + (@($entry.Check.Warnings) -join ' ') + ')')
+        Assert-Equal 'Catalogue détaillé' ([string]$entry.Contract.Origin) $case.Id
+        Assert-Equal $case.Privilege ([string]$entry.Contract.Privilege.Level) ('privilege : ' + $case.Id)
+        Assert-Equal $case.Cost ([string]$entry.Contract.Cost.Level) ('cout : ' + $case.Id)
+        Assert-False ([bool]$entry.Contract.Cost.Slow) ('collecte explicite inattendue : ' + $case.Id)
+        Assert-True (@($entry.Contract.Sources).Count -ge 1) ('source primaire : ' + $case.Id)
+        Assert-Equal @($entry.Contract.Inputs.Properties).Count @($entry.Contract.Types).Count ('types : ' + $case.Id)
+        $ids = @($entry.Contract.ExpectedTests | ForEach-Object { [string]$_.Id })
+        foreach ($required in @(@('Projection','Inconnu','Refus','Troncature') + @($case.Extra))) { Assert-True ($ids -ccontains $required) ('test attendu ' + $required + ' absent : ' + $case.Id) }
+        foreach ($test in $ids) {
+            $why = Invoke-PctExpectedTest -Probe (Get-DomeniaProbe $case.Id) -TestId $test
+            Assert-Equal '' $why ($case.Id + '/' + $test)
+        }
+    }
+    # The driver classes of root\wmi keep the instance name that joins them: the contract types it as text.
+    foreach ($id in @('hw.batterystatic','hw.batteryfullcharge','hw.batterycycles','hw.monitorconnections')) {
+        $field = @((Get-DomeniaProbeContract $id).Contract.Types | Where-Object { [string]$_.Name -ceq 'InstanceName' })
+        Assert-True (($field.Count -eq 1) -and ([string]$field[0].Kind -ceq 'Text')) ('cle de jointure non typee : ' + $id)
+    }
+}

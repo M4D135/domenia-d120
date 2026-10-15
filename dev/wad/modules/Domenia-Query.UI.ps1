@@ -70,6 +70,10 @@ function Initialize-DomeniaQueryWorkshop {
     $script:DomeniaQueryState=[pscustomobject]@{Recipe=(New-DomeniaQueryRecipe);Saved=$saved;LibraryError=$errorText;Records=$null;SnapshotKey='';At=[datetime]::MinValue;WidgetLibrary='';SortField='name';SortDescending=$false;Generation=0;Widgets=@{};Result=$null;Offset=0;Job='';Busy=$false;Timer=$null;Bound=$false;SearchRecipe=$null;SearchRefinement=$null;SearchRecords=@{};SearchUnknown=0;SearchAt=[datetime]::MinValue;SearchSnapshotKey=''}
     $script:DomeniaQueryState|Add-Member -NotePropertyName ProbeWidgets -NotePropertyValue @{}
     $script:DomeniaQueryState|Add-Member -NotePropertyName ProbeLibrary -NotePropertyValue ''
+    $script:DomeniaQueryState|Add-Member -NotePropertyName GroupSummary -NotePropertyValue $null
+    $script:DomeniaQueryState|Add-Member -NotePropertyName GroupOffset -NotePropertyValue 0
+    $script:DomeniaQueryState|Add-Member -NotePropertyName CoherenceProposal -NotePropertyValue $null
+    $script:DomeniaQueryState|Add-Member -NotePropertyName ImpactPending -NotePropertyValue $null
     $fields=Get-DomeniaControl 'CmbQueryField'
     if($null -eq $fields){return}
     $fields.ItemsSource=@(Get-DomeniaQueryFields);$fields.DisplayMemberPath='Name';$fields.SelectedIndex=0
@@ -120,6 +124,12 @@ function Initialize-DomeniaQueryWorkshop {
     (Get-DomeniaControl 'DgQueryLibrary').Add_SelectionChanged({Show-DomeniaQueryLibraryDetails})
     (Get-DomeniaControl 'BtnQueryLibraryUse').Add_Click({Use-DomeniaQueryLibrarySelection})
     (Get-DomeniaControl 'BtnQueryPreviewComputer').Add_Click({Show-DomeniaWorkshopComputerPreview})
+    $groupFilter=Get-DomeniaControl 'TxtQueryGroupFilter';if($null -ne $groupFilter){$groupFilter.Add_TextChanged({$script:DomeniaQueryState.GroupOffset=0;Update-DomeniaQueryGroups})}
+    foreach($entry in @(@('BtnQueryGroupsPrevious',-1),@('BtnQueryGroupsNext',1))){$control=Get-DomeniaControl $entry[0];if($null -ne $control){$control.Tag=$entry[1];$control.Add_Click({param($s,$e)Move-DomeniaQueryGroupPage ([int]$s.Tag)})}}
+    $groupShow=Get-DomeniaControl 'BtnQueryGroupsShow';if($null -ne $groupShow){$groupShow.Add_Click({Show-DomeniaQueryGroupMachines})}
+    $applyCoherence=Get-DomeniaControl 'BtnQueryApplyCoherence';if($null -ne $applyCoherence){$applyCoherence.Add_Click({Use-DomeniaQueryCoherenceProposal})}
+    foreach($entry in @(@('BtnQueryImpactMigrate','Migrate'),@('BtnQueryImpactKeep','Keep'),@('BtnQueryImpactArchive','Archive'),@('BtnQueryImpactCancel','Cancel'))){$control=Get-DomeniaControl $entry[0];if($null -ne $control){$control.Tag=$entry[1];$control.Add_Click({param($s,$e)Invoke-DomeniaQueryImpactAction ([string]$s.Tag)})}}
+    $groupGrid=Get-DomeniaControl 'DgQueryGroups';if($null -ne $groupGrid){$groupGrid.Add_SelectionChanged({$button=Get-DomeniaControl 'BtnQueryGroupsShow';if($null -ne $button){$button.IsEnabled=($null -ne (Get-DomeniaControl 'DgQueryGroups').SelectedItem)}});$groupGrid.Add_MouseDoubleClick({Show-DomeniaQueryGroupMachines})}
     (Get-DomeniaControl 'QueryWorkspaceTabs').Add_SelectionChanged({param($sender,$args)if([object]::ReferenceEquals($sender,$args.OriginalSource) -and [string]$sender.SelectedItem.Name -eq 'TabQueryLibrary'){Start-DomeniaQueryLibraryLoad}})
     (Get-DomeniaControl 'BtnQueryLibraryPrevious').Add_Click({$q=$script:DomeniaQueryState;$q.LibraryOffset=[Math]::Max(0,$q.LibraryOffset-100);Update-DomeniaQueryLibrary -KeepPage})
     (Get-DomeniaControl 'BtnQueryLibraryNext').Add_Click({$q=$script:DomeniaQueryState;$q.LibraryOffset+=100;Update-DomeniaQueryLibrary -KeepPage})
@@ -290,6 +300,188 @@ function Reset-DomeniaQueryResults {
     foreach($detailName in @('DgQueryObjectFields','DgQueryExplanation')){$details=Get-DomeniaControl $detailName;if($null -ne $details){$details.ItemsSource=@()}}
     [void](Set-DomeniaControlText 'LblQueryObject' 'Sélectionnez un poste pour consulter ses données.')
     [void](Set-DomeniaControlText 'LblQueryPublishSummary' 'Aperçu à recalculer après modification des critères. La sauvegarde conserve la définition de la requête.')
+    # A distribution belongs to one computed preview; it disappears with the counts it was computed with.
+    $q=$script:DomeniaQueryState;if($null -ne $q -and $null -ne $q.PSObject.Properties['GroupSummary']){$q.GroupSummary=$null;$q.GroupOffset=0}
+    Update-DomeniaQueryGroups
+}
+function Set-DomeniaQueryControlProperty {
+    # Sets one member of a workshop control only when the control exposes it (view not loaded, inert double).
+    param($Control,[string]$Name,$Value)
+    if($null -eq $Control -or $null -eq $Control.PSObject.Properties[$Name]){return}
+    $Control.$Name=$Value
+}
+function Reset-DomeniaQueryCoherence {
+    $q=$script:DomeniaQueryState;if($null -ne $q -and $null -ne $q.PSObject.Properties['CoherenceProposal']){$q.CoherenceProposal=$null}
+    Set-DomeniaQueryControlProperty (Get-DomeniaControl 'DgQueryCoherenceSources') 'ItemsSource' @()
+    [void](Set-DomeniaControlText 'LblQueryCoherenceProposal' '')
+    Set-DomeniaQueryControlProperty (Get-DomeniaControl 'BtnQueryApplyCoherence') 'IsEnabled' $false
+}
+function Show-DomeniaQueryCoherence {
+    # Dates of each source and the proposed common window. Nothing is applied until the explicit button.
+    param($Coverage)
+    $q=$script:DomeniaQueryState;if($null -eq $q){return}
+    $proposal=Get-DomeniaMemberValue $Coverage 'Proposal'
+    $grid=Get-DomeniaControl 'DgQueryCoherenceSources';if($null -ne $grid){$grid.ItemsSource=@(Get-DomeniaMember $Coverage 'Sources' @())}
+    $current=Get-DomeniaMemberValue $q.Recipe 'CoherenceHours'
+    $text=[string](Get-DomeniaMember $proposal 'Text')
+    $applicable=($null -ne $proposal -and [bool]$proposal.Needed -and $null -ne $proposal.Hours)
+    if($applicable -and $null -ne $current -and [double]$current -eq [double]$proposal.Hours){$text+=' Cette fenêtre est déjà celle du brouillon.';$applicable=$false}
+    elseif($null -ne $current){$text+=' Fenêtre actuelle du brouillon : '+(Format-DomeniaQueryHours ([double]$current))+'.'}
+    $q|Add-Member -NotePropertyName CoherenceProposal -NotePropertyValue $(if($applicable){$proposal}else{$null}) -Force
+    [void](Set-DomeniaControlText 'LblQueryCoherenceProposal' $text)
+    $button=Get-DomeniaControl 'BtnQueryApplyCoherence';if($null -ne $button){$button.IsEnabled=$applicable}
+}
+function Use-DomeniaQueryCoherenceProposal {
+    try{
+        $q=$script:DomeniaQueryState;$proposal=Get-DomeniaMemberValue $q 'CoherenceProposal'
+        if($null -eq $proposal -or $null -eq $proposal.Hours){throw 'Aucune fenêtre proposée : vérifiez dʼabord les informations disponibles.'}
+        $recipe=Get-DomeniaQueryDraft;$recipe.CoherenceHours=[double]$proposal.Hours;$recipe.Format='Domenia.Query/2'
+        [void](ConvertTo-DomeniaCompiledQuery $recipe)
+        Set-DomeniaQueryDraft $recipe
+        [void](Set-DomeniaControlText 'LblQueryStatus' ('Fenêtre commune de '+(Format-DomeniaQueryHours ([double]$proposal.Hours))+' appliquée au brouillon : une date absente ou un écart plus grand donne Inconnu. Relancez lʼaperçu ; rien nʼest enregistré ni collecté.'))
+    }catch{[void](Set-DomeniaControlText 'LblQueryStatus' ('Fenêtre non appliquée : '+$_.Exception.Message))}
+}
+function Get-DomeniaQueryDraftImpact {
+    # Consumers to review before a saved definition changes or is archived; $null when nothing depends on it,
+    # for a new recipe, or when the saved definition is unchanged.
+    param($Recipe,[switch]$Archive)
+    $store=$script:DomeniaQueryLibraryStoreState
+    if($null -eq $store -or -not $store.Loaded){throw 'Attendez la lecture confirmée de la bibliothèque locale.'}
+    $previous=$store.Rows[[string]$Recipe.Id]
+    if($null -eq $previous -or [bool]$previous.Archived){return $null}
+    if(-not $Archive){
+        $record=New-DomeniaQueryLibraryRecord -Context $store.Context -Recipe $Recipe -ExpectedRevision ([long]$previous.Revision)
+        if([string]$record.DefinitionSHA256 -ceq [string]$previous.DefinitionSHA256){return $null}
+    }
+    $favorites=@();if($null -ne (Get-Command Get-DomeniaSearchQueryFavorites -CommandType Function -ErrorAction SilentlyContinue)){$favorites=@(Get-DomeniaSearchQueryFavorites)}
+    $layouts=@{Fleet=@(Get-DomeniaBoardLayout Fleet);Computer=@(Get-DomeniaBoardLayout Computer)}
+    $impact=Get-DomeniaQueryRecipeImpact -RecipeId ([string]$Recipe.Id) -Dependencies @($store.Dependencies) -Layouts $layouts -SearchFavorites $favorites -CurrentRevision ([long]$previous.Revision)
+    if(-not $impact.HasConsumers){return $null}
+    return $impact
+}
+function Request-DomeniaQueryRecipeSave {
+    # Explicit save or archive. When widgets, links or views depend on the saved definition, nothing is written
+    # before the operator chooses in the in-page review: update them, keep the old version, archive or cancel.
+    param([switch]$Archive)
+    $q=$script:DomeniaQueryState;$recipe=Get-DomeniaQueryDraft
+    $impact=Get-DomeniaQueryDraftImpact -Recipe $recipe -Archive:$Archive
+    if($null -ne $impact){Show-DomeniaQueryImpact -Impact $impact -Recipe $recipe -Mode $(if($Archive){'Archive'}else{'Save'});return}
+    if($Archive){[void](Save-DomeniaQueryRecipe -Recipe $recipe -Archive -ImpactConfirmed -SuccessHandler 'Complete-DomeniaQueryRecipeArchiveUi');[void](Set-DomeniaControlText 'LblQueryStatus' 'Archivage de la requête dans la base…');return}
+    [void](Save-DomeniaQueryRecipe -Recipe $recipe -ImpactConfirmed -CallbackState ([pscustomobject]@{DraftGeneration=$q.Generation}))
+    [void](Set-DomeniaControlText 'LblQueryStatus' 'Enregistrement de la requête dans la base…')
+}
+function Show-DomeniaQueryImpact {
+    # Widget mode: the dashboard widget requested from the workshop is added only after the choice (Widget holds it).
+    param($Impact,$Recipe,[ValidateSet('Save','Archive','Widget')][string]$Mode,$Widget=$null)
+    $q=$script:DomeniaQueryState
+    if(($Mode -eq 'Widget') -ne ($null -ne $Widget)){throw 'Widget en attente incohérent avec la revue demandée.'}
+    $q|Add-Member -NotePropertyName ImpactPending -NotePropertyValue ([pscustomobject]@{Mode=$Mode;Recipe=$Recipe;Generation=[long]$q.Generation;RecipeId=[string]$Recipe.Id;Revision=[long]$Impact.CurrentRevision;Count=[int]$Impact.Count;Widget=$Widget}) -Force
+    (Get-DomeniaControl 'DgQueryImpact').ItemsSource=@($Impact.Rows)
+    $parts=@($Impact.Widgets.ToString()+' widget(s)',$Impact.Views.ToString()+' vue(s) de Recherche');if($Impact.Orphans){$parts+=@($Impact.Orphans.ToString()+' lien(s) sans widget affiché')}
+    $text=$Impact.Count.ToString()+' élément(s) utilisent la révision '+$Impact.CurrentRevision+' de « '+[string]$Recipe.Name+' » : '+($parts -join ', ')+'. Aucune alerte ne dépend des requêtes dans cette version.'
+    if($Mode -eq 'Archive'){$text+=' Archiver retire ces widgets des tableaux de bord et la vue favorite ne proposera plus cette requête. Les révisions et les données collectées sont conservées.'}
+    else{$text+=' Choisissez : mettre à jour ces éléments avec la nouvelle définition, ou garder lʼancienne version intacte et enregistrer la modification comme une nouvelle requête.'}
+    if($Mode -eq 'Widget'){$text+=' Le widget demandé est ajouté au tableau de bord '+$(if([string]$Widget.Destination -eq 'Computer'){'Poste'}else{'général'})+' seulement après ce choix, avec la requête retenue.'}
+    [void](Set-DomeniaControlText 'LblQueryImpact' $text)
+    $family=if($Mode -eq 'Archive'){'Archive'}else{'Save'}
+    foreach($entry in @(@('BtnQueryImpactMigrate','Save'),@('BtnQueryImpactKeep','Save'),@('BtnQueryImpactArchive','Archive'))){$button=Get-DomeniaControl $entry[0];if($null -ne $button){$button.Visibility=$(if($entry[1] -eq $family){'Visible'}else{'Collapsed'})}}
+    (Get-DomeniaControl 'PnlQueryImpact').Visibility='Visible'
+    [void](Set-DomeniaControlText 'LblQueryStatus' 'Modification en attente de votre choix : rien nʼest encore enregistré.')
+}
+function Clear-DomeniaQueryImpact {
+    $q=$script:DomeniaQueryState;if($null -ne $q -and $null -ne $q.PSObject.Properties['ImpactPending']){$q.ImpactPending=$null}
+    Set-DomeniaQueryControlProperty (Get-DomeniaControl 'PnlQueryImpact') 'Visibility' 'Collapsed'
+    Set-DomeniaQueryControlProperty (Get-DomeniaControl 'DgQueryImpact') 'ItemsSource' @()
+}
+function Invoke-DomeniaQueryImpactAction {
+    param([ValidateSet('Migrate','Keep','Archive','Cancel')][string]$Action)
+    try{
+        $q=$script:DomeniaQueryState;$pending=Get-DomeniaMemberValue $q 'ImpactPending'
+        if($Action -eq 'Cancel'){Clear-DomeniaQueryImpact;[void](Set-DomeniaControlText 'LblQueryStatus' 'Modification non enregistrée : la requête et ses éléments liés restent inchangés.');return}
+        $changed='Le brouillon a changé depuis la revue : cliquez à nouveau sur Enregistrer ou Archiver pour revoir les éléments liés.'
+        if($null -eq $pending -or [long]$pending.Generation -ne [long]$q.Generation){Clear-DomeniaQueryImpact;throw $changed}
+        if((ConvertTo-Json -InputObject (Get-DomeniaQueryDraft) -Depth 32 -Compress) -cne (ConvertTo-Json -InputObject $pending.Recipe -Depth 32 -Compress)){Clear-DomeniaQueryImpact;throw $changed}
+        $store=$script:DomeniaQueryLibraryStoreState;$row=if($null -ne $store){$store.Rows[[string]$pending.RecipeId]}else{$null}
+        if($null -eq $row -or [long]$row.Revision -ne [long]$pending.Revision){Clear-DomeniaQueryImpact;throw 'La requête a été modifiée entre-temps : revoyez les éléments liés avant de choisir.'}
+        if(($Action -eq 'Archive') -ne ($pending.Mode -eq 'Archive')){throw 'Ce choix ne correspond pas à lʼaction demandée.'}
+        switch($Action){
+            'Migrate'{
+                if($pending.Mode -eq 'Widget'){
+                    # The requested widget joins the linked elements in the same atomic batch as the new definition.
+                    $widget=$pending.Widget
+                    [void](Save-DomeniaQueryRecipe -Recipe $pending.Recipe -ImpactConfirmed -SuccessHandler 'Complete-DomeniaWorkshopWidgetSave' -CallbackState $widget -AdditionalDependencies @([pscustomobject]@{ConsumerKind=[string]$widget.Destination;ConsumerId=[string]$widget.Item.Id}))
+                    $status='Enregistrement de la nouvelle définition ; '+$pending.Count+' élément(s) liés lʼutiliseront, puis le widget sera ajouté…'
+                }else{
+                    [void](Save-DomeniaQueryRecipe -Recipe $pending.Recipe -ImpactConfirmed -CallbackState ([pscustomobject]@{DraftGeneration=$q.Generation}))
+                    $status='Enregistrement de la nouvelle définition ; '+$pending.Count+' élément(s) liés lʼutiliseront…'
+                }
+            }
+            'Keep'{
+                $copy=New-DomeniaQueryRecipeVersion $pending.Recipe
+                if($pending.Mode -eq 'Widget'){
+                    # The widget is created for the copy; the saved recipe and its linked elements stay untouched.
+                    $widget=$pending.Widget
+                    $item=New-DomeniaBoardItem -Source Query -Key $copy.Id -Visual ([string]$widget.Visual) -Size M -Group 'Mes sondes' -Title $copy.Name
+                    $state=[pscustomobject]@{DraftGeneration=$q.Generation;Destination=[string]$widget.Destination;Visual=[string]$widget.Visual;Item=$item;KeptName=[string]$row.Name;KeptRevision=[long]$pending.Revision;Count=[int]$pending.Count}
+                    [void](Save-DomeniaQueryRecipe -Recipe $copy -ImpactConfirmed -SuccessHandler 'Complete-DomeniaWorkshopWidgetSave' -CallbackState $state -AdditionalDependencies @([pscustomobject]@{ConsumerKind=$state.Destination;ConsumerId=[string]$item.Id}))
+                    $status='Enregistrement de la copie et de son widget ; la requête enregistrée et ses éléments liés restent inchangés…'
+                }else{
+                    [void](Save-DomeniaQueryRecipe -Recipe $copy -ImpactConfirmed -SuccessHandler 'Complete-DomeniaQueryRecipeVersionUi' -CallbackState ([pscustomobject]@{DraftGeneration=$q.Generation;KeptName=[string]$row.Name;KeptRevision=[long]$pending.Revision;Count=[int]$pending.Count}))
+                    $status='Enregistrement de la copie ; la requête enregistrée et ses éléments liés restent inchangés…'
+                }
+            }
+            'Archive'{
+                [void](Save-DomeniaQueryRecipe -Recipe $pending.Recipe -Archive -ImpactConfirmed -SuccessHandler 'Complete-DomeniaQueryRecipeArchiveUi')
+                $status='Archivage de la requête et retrait de ses widgets…'
+            }
+        }
+        Clear-DomeniaQueryImpact
+        [void](Set-DomeniaControlText 'LblQueryStatus' $status)
+    }catch{[void](Set-DomeniaControlText 'LblQueryStatus' ('Choix non appliqué : '+$_.Exception.Message))}
+}
+function Complete-DomeniaQueryRecipeVersionUi {
+    param($Recipe,$Record,$State)
+    $q=$script:DomeniaQueryState
+    if($null -ne $q -and ($null -eq $State -or [long]$State.DraftGeneration -eq [long]$q.Generation)){Set-DomeniaQueryDraft $Recipe}
+    [void](Set-DomeniaControlText 'LblQueryStatus' ('Nouvelle requête « '+[string]$Recipe.Name+' » enregistrée (révision '+$Record.Revision+'). « '+[string]$State.KeptName+' » et ses '+$State.Count+' élément(s) liés restent à la révision '+$State.KeptRevision+'.'))
+}
+function Update-DomeniaQueryGroups {
+    $q=$script:DomeniaQueryState;$expander=Get-DomeniaControl 'ExpQueryGroups';$grid=Get-DomeniaControl 'DgQueryGroups'
+    if($null -eq $q -or $null -eq $expander -or $null -eq $grid){return}
+    $summary=Get-DomeniaMemberValue $q 'GroupSummary'
+    foreach($name in @('BtnQueryGroupsPrevious','BtnQueryGroupsNext','BtnQueryGroupsShow')){Set-DomeniaQueryControlProperty (Get-DomeniaControl $name) 'IsEnabled' $false}
+    if($null -eq $summary){Set-DomeniaQueryControlProperty $expander 'Visibility' 'Collapsed';Set-DomeniaQueryControlProperty $grid 'ItemsSource' @();[void](Set-DomeniaControlText 'LblQueryGroups' '');return}
+    Set-DomeniaQueryControlProperty $expander 'Visibility' 'Visible'
+    if([string](Get-DomeniaMember $summary 'Error')){Set-DomeniaQueryControlProperty $grid 'ItemsSource' @();[void](Set-DomeniaControlText 'LblQueryGroups' ('Répartition non calculée : '+[string]$summary.Error));return}
+    $filter=Get-DomeniaControl 'TxtQueryGroupFilter';$text=if($null -ne $filter){[string]$filter.Text}else{''}
+    $page=Get-DomeniaQueryGroupPage -Summary $summary -Offset ([int]$q.GroupOffset) -Limit 100 -Text $text
+    $q|Add-Member -NotePropertyName GroupOffset -NotePropertyValue ([int]$page.Offset) -Force;Set-DomeniaQueryControlProperty $grid 'ItemsSource' @($page.Rows)
+    $culture=[Globalization.CultureInfo]::GetCultureInfo('fr-FR')
+    $label=$page.CategoryCount.ToString('N0',$culture)+' valeur(s) distincte(s) pour '+$page.Matched.ToString('N0',$culture)+' poste(s) correspondant(s), total exact'
+    if($page.Missing){$label+=', dont '+$page.Missing.ToString('N0',$culture)+' sans valeur lisible'}
+    $label+='. '+$(if($page.Filtered){'Valeurs '+($page.Offset+1).ToString('N0',$culture)+' à '+($page.Offset+@($page.Rows).Count).ToString('N0',$culture)+' sur '+$page.Filtered.ToString('N0',$culture)}else{'Aucune valeur ne correspond au filtre'})
+    $label+='. Même calcul que le widget, sur tout le périmètre ; les filtres dʼaffichage de la liste ne sʼappliquent pas.'
+    [void](Set-DomeniaControlText 'LblQueryGroups' $label)
+    Set-DomeniaQueryControlProperty (Get-DomeniaControl 'BtnQueryGroupsPrevious') 'IsEnabled' ([bool]$page.HasPrevious)
+    Set-DomeniaQueryControlProperty (Get-DomeniaControl 'BtnQueryGroupsNext') 'IsEnabled' ([bool]$page.HasNext)
+}
+function Move-DomeniaQueryGroupPage {
+    param([int]$Direction)
+    $q=$script:DomeniaQueryState;if($null -eq $q -or $null -eq (Get-DomeniaMemberValue $q 'GroupSummary')){return}
+    $q.GroupOffset=[Math]::Max(0,[int]$q.GroupOffset+(100*[Math]::Sign($Direction)))
+    Update-DomeniaQueryGroups
+}
+function Show-DomeniaQueryGroupMachines {
+    try{
+        $q=$script:DomeniaQueryState;$row=(Get-DomeniaControl 'DgQueryGroups').SelectedItem
+        if($null -eq $q -or $null -eq $row){throw 'Sélectionnez une valeur de la répartition.'}
+        $summary=Get-DomeniaMemberValue $q 'GroupSummary'
+        if($null -eq $summary -or $q.Busy -or [string]$summary.Field -cne [string](Get-DomeniaMember $q.Recipe 'GroupBy')){throw 'La répartition ne correspond plus à la requête affichée : relancez lʼaperçu.'}
+        $recipe=New-DomeniaQuerySegmentRecipe $q.Recipe $row.Select
+        Set-DomeniaQueryDraft $recipe
+        (Get-DomeniaControl 'CmbQueryResult').SelectedIndex=0
+        Start-DomeniaQueryEvaluation
+    }catch{[void](Set-DomeniaControlText 'LblQueryStatus' $_.Exception.Message)}
 }
 function Set-DomeniaQueryDraft {
     param($Recipe)
@@ -297,6 +489,8 @@ function Set-DomeniaQueryDraft {
     $q.Recipe=$Recipe;$q.Offset=0;$q.Generation++;$q.Result=$null;$q.Busy=$false
     $coverage=Get-DomeniaControl 'DgQueryCoverage';if($null -ne $coverage){$coverage.ItemsSource=@()}
     [void](Set-DomeniaControlText 'LblQueryCoverage' 'Vérifiez la couverture des informations avant lʼaperçu.')
+    Reset-DomeniaQueryCoherence
+    Clear-DomeniaQueryImpact
     Reset-DomeniaQueryResults
     $title=Get-DomeniaControl 'TxtFleetQueryName';if($null -ne $title){$title.Text=[string]$Recipe.Name}
     $junction=Get-DomeniaControl 'CmbQueryJunction';if($null -ne $junction){$junction.SelectedIndex=$(if($Recipe.Junction -eq 'Any'){1}else{0})}
@@ -385,8 +579,8 @@ function Invoke-DomeniaQueryAction {
                 [void](ConvertTo-DomeniaCompiledQuery $draft);Set-DomeniaQueryDraft $draft;return
             }
             'Remove'{$grid=Get-DomeniaControl 'DgQueryConditions';$index=$grid.SelectedIndex;if($index -ge 0){$draft=Get-DomeniaQueryDraft;$draft.Clauses=@(for($i=0;$i -lt $draft.Clauses.Count;$i++){if($i -ne $index){$draft.Clauses[$i]}});Set-DomeniaQueryDraft $draft};return}
-            'Save'{[void](Save-DomeniaQueryRecipe -Recipe (Get-DomeniaQueryDraft) -CallbackState ([pscustomobject]@{DraftGeneration=$q.Generation}));[void](Set-DomeniaControlText 'LblQueryStatus' 'Enregistrement de la requête dans la base…');return}
-            'Delete'{[void](Save-DomeniaQueryRecipe -Recipe (Get-DomeniaQueryDraft) -Archive -SuccessHandler 'Complete-DomeniaQueryRecipeArchiveUi');[void](Set-DomeniaControlText 'LblQueryStatus' 'Archivage de la requête dans la base…');return}
+            'Save'{Request-DomeniaQueryRecipeSave;return}
+            'Delete'{Request-DomeniaQueryRecipeSave -Archive;return}
             'Widget'{Add-DomeniaWorkshopWidget;return}
             'OpenObject'{$row=Get-DomeniaQuerySelectedRow;Open-AdObject -Dn ([string]$row.distinguished_name) -Type Machine -ObjectGuid ([string]$row.Id) -SuppressRemoteProbes;return}
             'CopyObject'{$row=Get-DomeniaQuerySelectedRow;[Windows.Clipboard]::SetText([string]$row.distinguished_name);return}
@@ -421,9 +615,10 @@ function Request-DomeniaQueryEvaluation {
     $q.Timer.Stop();$q.Timer.Start()
 }
 function Get-DomeniaQueryWidgetRecipes {
-    # Saved library size must not multiply a 20k fleet scan. Evaluate only visible board dependencies.
+    # Saved library size must not multiply a 20k fleet scan. Evaluate only visible board dependencies; a paused
+    # widget is not evaluated (decision David 2026-10-14).
     $q=$script:DomeniaQueryState;if($null -eq $q){return @()}
-    $ids=@{};foreach($item in @(Get-DomeniaBoardLayout Fleet)){if([string]$item.Source -eq 'Query'){$ids[[string]$item.Key]=$true}}
+    $ids=@{};foreach($item in @(Select-DomeniaActiveBoardItems -Layout @(Get-DomeniaBoardLayout Fleet))){if([string]$item.Source -eq 'Query'){$ids[[string]$item.Key]=$true}}
     return @($q.Saved|Where-Object{$ids.ContainsKey([string]$_.Id)})
 }
 function Start-DomeniaQueryEvaluation {
@@ -456,7 +651,7 @@ function Start-DomeniaQueryEvaluation {
         $widgetRecipes=@(Get-DomeniaQueryWidgetRecipes)
         $library=ConvertTo-DomeniaQueryLibraryJson $widgetRecipes
         $widgetCache=if($null -ne $records -and $library -ceq $q.WidgetLibrary){$q.Widgets}else{$null}
-        $probeRequests=@(Get-DomeniaBoardLayout Fleet|Where-Object{$_.Source -eq 'Probe'}|Select-Object Key,Visual -Unique)
+        $probeRequests=@(Select-DomeniaActiveBoardItems -Layout @(Get-DomeniaBoardLayout Fleet)|Where-Object{$_.Source -eq 'Probe'}|Select-Object Key,Visual -Unique)
         $probeLibrary=ConvertTo-Json -InputObject $probeRequests -Compress
         $probeCache=if($null -ne $records -and $probeLibrary -ceq $q.ProbeLibrary){$q.ProbeWidgets}else{$null}
         $payload=[pscustomobject]@{ModuleRoot=$script:DomeniaQueryModuleRoot;Lifecycle=(Get-DomeniaWindowsLifecycleTable);Fleet=$script:FleetLast;Observations=$script:FleetObservations;Records=$records;Recipe=$recipe;Saved=$widgetRecipes;CachedWidgets=$widgetCache;SortField=$q.SortField;Descending=$q.SortDescending;Offset=$q.Offset;Selection=$selection;MaxAgeDays=(Get-DomeniaObservationMaxAgeDays);TextFilter=[string](Get-DomeniaControl 'TxtFleetMachineFilter').Text;StateFilter=[string](Get-DomeniaControl 'CmbFleetMachineState').SelectedItem.Content}
@@ -468,7 +663,15 @@ function Start-DomeniaQueryEvaluation {
         $state|Add-Member -NotePropertyName CoverageOnly -NotePropertyValue ([bool]$CoverageOnly)
         $payload|Add-Member -NotePropertyName ProbeRequests -NotePropertyValue $probeRequests
         $payload|Add-Member -NotePropertyName CachedProbeWidgets -NotePropertyValue $probeCache
-        $state|Add-Member -NotePropertyName ExportRequest -NotePropertyValue ([pscustomobject]@{SnapshotKey=$state.SnapshotKey;RecipeJson=(ConvertTo-Json -InputObject $recipe -Depth 32 -Compress);TextFilter=$payload.TextFilter;StateFilter=$payload.StateFilter;Selection=$selection;SortField=$payload.SortField;Descending=$payload.Descending;ExpectedRows=0L;EvaluatedAtUtc=$state.RecordsAt.ToUniversalTime().ToString('o');ScopeDn=[string]$scope.Dn;Subtree=[bool]$scope.Subtree})
+        $recipeJson=ConvertTo-Json -InputObject $recipe -Depth 32 -Compress
+        $exportRequest=[pscustomobject]@{SnapshotKey=$state.SnapshotKey;RecipeJson=$recipeJson;TextFilter=$payload.TextFilter;StateFilter=$payload.StateFilter;Selection=$selection;SortField=$payload.SortField;Descending=$payload.Descending;ExpectedRows=0L;EvaluatedAtUtc=$state.RecordsAt.ToUniversalTime().ToString('o');ScopeDn=[string]$scope.Dn;Subtree=[bool]$scope.Subtree}
+        # Point 2: the export names the exact population of this preview (domain, OU, depth, types, criteria and
+        # snapshot) and the clocks of its data; recalculating the view later does not change them.
+        $population=Get-DomeniaQueryExportPopulation -Base (Get-DomeniaMemberValue $script:FleetLast 'Population') -Recipe $recipe -RecipeJson $recipeJson -Selection $selection -TextFilter ([string]$payload.TextFilter) -StateFilter ([string]$payload.StateFilter)
+        $exportRequest|Add-Member -NotePropertyName Population -NotePropertyValue $population
+        $exportRequest|Add-Member -NotePropertyName BasePopulation -NotePropertyValue (Get-DomeniaMemberValue $script:FleetLast 'Population')
+        $exportRequest|Add-Member -NotePropertyName DataClocks -NotePropertyValue (Get-DomeniaQueryExportClocks (Get-DomeniaMemberValue $script:FleetLast 'Freshness'))
+        $state|Add-Member -NotePropertyName ExportRequest -NotePropertyValue $exportRequest
         $state|Add-Member -NotePropertyName ProbeLibrary -NotePropertyValue $probeLibrary
         $state|Add-Member -NotePropertyName RefreshWidgets -NotePropertyValue ($null -eq $widgetCache -or $null -eq $probeCache)
         Start-DomeniaQueryDetailRead -Payload $payload -State $state
@@ -498,9 +701,12 @@ function Complete-DomeniaQueryEvaluation {
         $coverage=$read.Coverage;(Get-DomeniaControl 'DgQueryCoverage').ItemsSource=@($coverage.Rows)
         (Get-DomeniaControl 'ExpQueryCoverage').IsExpanded=$true
         $text=$coverage.Complete.ToString()+' / '+$coverage.Total+' postes possèdent tous les champs demandés ; '+$coverage.Incomplete+' incomplets.'
-        if($coverage.MixedPeriod){$text+=' '+$coverage.MixedPeriod+' postes ont des valeurs espacées de plus de '+$coverage.CoherenceHours+' h.'}
+        $window=Format-DomeniaQueryHours ([double]$coverage.CoherenceHours)
+        $windowText=if([string](Get-DomeniaMember $coverage 'WindowSource') -eq 'Recette'){'fenêtre de la requête'}else{'référence : la requête nʼa pas de fenêtre commune'}
+        if($coverage.MixedPeriod){$text+=' '+$coverage.MixedPeriod+' postes ont des valeurs espacées de plus de '+$window+' ('+$windowText+').'}
         if($coverage.Undated){$text+=' '+$coverage.Undated+' postes ont une date de source manquante.'}
         [void](Set-DomeniaControlText 'LblQueryCoverage' ($text+' État du '+$q.At.ToLocalTime().ToString('dd/MM HH:mm:ss')+'.'))
+        Show-DomeniaQueryCoherence -Coverage $coverage
         [void](Set-DomeniaControlText 'LblQueryStatus' 'Couverture vérifiée localement. Aperçu local applique ensuite les conditions ; aucune collecte nʼa été lancée.')
         return
     }
@@ -515,7 +721,10 @@ function Complete-DomeniaQueryEvaluation {
     $text='{0} correspondants · {1} inconnus · {2} non correspondants / {3} postes filtrés, {4} recensés dans le périmètre. Page {5}.' -f $r.Matched,$r.Unknown,$r.NotMatched,$r.Total,$r.ScopeTotal,([int]($r.Offset/200)+1)
     [void](Set-DomeniaControlText 'LblFleetMachineCount' ('{0} ligne(s) sur cette page · données locales' -f @($r.Rows).Count))
     [void](Set-DomeniaControlText 'LblQueryStatus' ($text+' Les données expirées ou non lues restent inconnues.'))
-    [void](Set-DomeniaControlText 'LblQueryPublishSummary' ($text+' Aperçu local calculé le '+$q.At.ToLocalTime().ToString('dd/MM HH:mm:ss')+'.'))
+    # Point 2: the preview names the population it counted (domain, OU, depth, types, criteria, local revision).
+    $population=Get-DomeniaMemberValue (Get-DomeniaMemberValue $State 'ExportRequest') 'Population'
+    $populationText=if($null -ne $population){' Population de lʼaperçu : '+[string](Get-DomeniaMember $population 'Text' '')+'.'}else{' Population du tableau de bord non décrite : elle nʼest comparée à aucun autre chiffre.'}
+    [void](Set-DomeniaControlText 'LblQueryPublishSummary' ($text+' Aperçu local calculé le '+$q.At.ToLocalTime().ToString('dd/MM HH:mm:ss')+'.'+$populationText))
     Add-DomeniaUiLog -Area 'Requêtes' -Text ($q.Recipe.Name+' · '+$text+' · calcul local du '+$q.At.ToLocalTime().ToString('dd/MM/yyyy HH:mm:ss'))
     (Get-DomeniaControl 'BtnQueryPrevious').IsEnabled=($q.Offset -gt 0)
     $count=switch([string]$r.Selection){'Match'{[long]$r.Matched};'Unknown'{[long]$r.Unknown};default{[long]$r.NotMatched}}
@@ -523,6 +732,7 @@ function Complete-DomeniaQueryEvaluation {
     $exportRequest=Get-DomeniaMemberValue $State 'ExportRequest'
     if($null -ne $exportRequest){$exportRequest.ExpectedRows=$count;$q|Add-Member -NotePropertyName ExportRequest -NotePropertyValue $exportRequest -Force}
     $exportButton=Get-DomeniaControl 'BtnQueryExport';if($null -ne $exportButton){$exportButton.IsEnabled=($null -ne $exportRequest -and -not [bool](Get-DomeniaMember $q 'ExportBusy' $false))}
+    $q|Add-Member -NotePropertyName GroupSummary -NotePropertyValue (Get-DomeniaMemberValue $r 'Groups') -Force;$q|Add-Member -NotePropertyName GroupOffset -NotePropertyValue 0 -Force;Update-DomeniaQueryGroups
 
     if([bool](Get-DomeniaMember $State 'RefreshWidgets' $true)){Show-DomeniaBoard -Board Fleet -Quiet -DeferIfHidden}
 }
@@ -547,6 +757,9 @@ function Start-DomeniaQueryExport {
     # The worker owns the immutable records reference and copied request. Editing the UI cannot change it.
     $frozen=ConvertFrom-Json -InputObject (ConvertTo-Json -InputObject $request -Depth 32 -Compress) -ErrorAction Stop
     $state=[pscustomobject]@{Epoch=[long]$script:SessionEpoch;ExportId=[guid]::NewGuid().ToString('N');Name=[string]$recipe.Name;Selection=$frozen.Selection}
+    # Point 2: the export always replays the frozen preview snapshot; say so when the view was recalculated since.
+    $since=Compare-DomeniaPopulation -Reference (Get-DomeniaMemberValue $request 'BasePopulation') -Candidate (Get-DomeniaMemberValue $script:FleetLast 'Population')
+    $state|Add-Member -NotePropertyName PopulationNote -NotePropertyValue $(if([bool]$since.Same){''}else{' Lʼexport reprend la population de lʼaperçu ('+[string](Get-DomeniaMember (Get-DomeniaMemberValue $request 'Population') 'Text' 'population non décrite')+') ; la vue a changé depuis : '+(@($since.Differences) -join ', ')+'.'})
     $q|Add-Member -NotePropertyName ExportBusy -NotePropertyValue $true -Force
     $q|Add-Member -NotePropertyName ExportId -NotePropertyValue $state.ExportId -Force
     (Get-DomeniaControl 'BtnQueryExport').IsEnabled=$false
@@ -556,6 +769,25 @@ function Start-DomeniaQueryExport {
         [void](Set-DomeniaControlText 'LblQueryStatus' ('Export de '+$frozen.ExpectedRows+' postes en cours ; vous pouvez continuer à consulter lʼatelier.'))
     }catch{Fail-DomeniaQueryExport $_.Exception.Message $state}
 }
+function Get-DomeniaQueryExportPopulation {
+    # Point 2: population of a query preview = the board population (domain, OU, depth, types, snapshot) narrowed by
+    # the recipe, the selected verdict and the list filters. $null when the board population is not described.
+    param($Base,$Recipe,[string]$RecipeJson,[string]$Selection,[string]$TextFilter,[string]$StateFilter)
+    if($null -eq $Base){return $null}
+    $verdict=switch($Selection){'Match'{'correspondants'};'Unknown'{'indéterminés'};default{'non correspondants'}}
+    $criteria='requête « '+[string](Get-DomeniaMember $Recipe 'Name' 'sans nom')+' » (définition '+(Get-DomeniaTextHash $RecipeJson).Substring(0,12).ToLowerInvariant()+') · postes '+$verdict
+    if($TextFilter.Trim()){$criteria+=' · filtre texte « '+$TextFilter.Trim()+' »'}
+    if(($StateFilter) -and ($StateFilter -ne 'Tous')){$criteria+=' · comptes '+$StateFilter.ToLowerInvariant()}
+    return New-DomeniaPopulationDescriptor -DomainDn ([string]$Base.DomainDn) -ScopeDn ([string]$Base.ScopeDn) -Subtree ([bool]$Base.Subtree) -Types @($Base.Types) -Criteria ([string]$Base.Criteria+' · '+$criteria) -StoreId ([string]$Base.StoreId) -SnapshotRevision ([long]$Base.SnapshotRevision)
+}
+function Get-DomeniaQueryExportClocks {
+    # The three clocks of the exported data, as committed in the board snapshot: never the export time.
+    param($Freshness)
+    if($null -eq $Freshness){return $null}
+    $summary=Format-DomeniaOuFreshnessSummary -IndexFreshness (Get-DomeniaMemberValue $Freshness 'Index') -Observations (Get-DomeniaMemberValue $Freshness 'Observations') -ComputedAtUtc (Get-DomeniaMemberValue $Freshness 'ComputedAtUtc') -Runs (Get-DomeniaMemberValue $Freshness 'Runs')
+    $snapshot=Get-DomeniaMemberValue $Freshness 'SnapshotAtUtc'
+    return [pscustomobject]@{Directory=$summary.BaseText;Measures=$summary.ObservationsText;Runs=$summary.RunsText;Calculation=$summary.ComputedText;SnapshotAtUtc=$(if($snapshot -is [datetime]){$snapshot.ToUniversalTime().ToString('o')}else{''})}
+}
 function Complete-DomeniaQueryExport {
     param($Result,$State)
     $q=$script:DomeniaQueryState
@@ -563,7 +795,7 @@ function Complete-DomeniaQueryExport {
     $result=Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @('Path','RowCount','Complete','MetadataPath')
     if($null -eq $result -or -not $result.Complete){Fail-DomeniaQueryExport 'Lʼexport complet nʼa pas été confirmé.' $State;return}
     $q.ExportBusy=$false;(Get-DomeniaControl 'BtnQueryExport').IsEnabled=($null -ne $q.Result -and -not $q.Busy)
-    Show-DomeniaExportResult $result -Scope ('résultat complet : '+$State.Name+' · '+$State.Selection) -Also 'Critères, périmètre et empreinte SHA-256 dans le fichier metadata.json associé.'
+    Show-DomeniaExportResult $result -Scope ('résultat complet : '+$State.Name+' · '+$State.Selection) -Also ('Population, critères, dates des données et empreinte SHA-256 dans le fichier metadata.json associé.'+[string](Get-DomeniaMember $State 'PopulationNote' ''))
     [void](Set-DomeniaControlText 'LblQueryStatus' ($result.RowCount.ToString()+' postes exportés en '+$result.Pages+' page(s), sans modifier le périmètre de lʼaperçu.'))
 }
 function Fail-DomeniaQueryExport {
@@ -598,25 +830,29 @@ function Show-DomeniaFleetWidgetDetails {
         $targets=Get-DomeniaMemberValue $script:FleetLast 'WidgetTargets'
         $targetKey=if($null -ne $Selection -and $label){$key+'|'+$label}else{$key}
         $labels=@(Get-DomeniaMember $Selection 'Labels' @())
+        # Point 73: the exact GUID list kept with the calculation, named with the count it showed and its date.
+        $computedAt=Get-DomeniaMemberValue (Get-DomeniaMemberValue $script:FleetLast 'Freshness') 'ComputedAtUtc'
+        $widgetTitle=[string](Get-DomeniaMember $Item 'Title' '');if(-not $widgetTitle){$catalogItem=Get-DomeniaBoardCatalogItem -Board Fleet -Key $key;$widgetTitle=$(if($null -ne $catalogItem){[string]$catalogItem.Title}else{$key})}
         if($Item.Source -ne 'Query' -and $labels.Count -and $targets -is [Collections.IDictionary]){
             $complete=$true;$union=@{}
             foreach($part in $labels){$partKey=$key+'|'+[string]$part;if(-not $targets.Contains($partKey)){$complete=$false;break};foreach($target in @($targets[$partKey])){$id=[string]$target.object_guid;if($id){$union[$id]=$target}}}
-            if($complete){Show-DomeniaAttentionInWorkshop -Targets @($union.Values) -Label ([string](Get-DomeniaMember $Item 'Title' $key)+' · '+$label);return}
+            if($complete){Show-DomeniaAttentionInWorkshop -Targets @($union.Values) -Label (Format-DomeniaWidgetDetailLabel -Title ($widgetTitle+' · '+$label) -Count $union.Count -ComputedAtUtc $computedAt);return}
             throw 'Ce regroupement ne possède pas tous ses détails ; recalculez le tableau de bord.'
         }
         if($Item.Source -ne 'Query' -and $null -ne $targets -and $targets -is [Collections.IDictionary] -and $targets.Contains($targetKey)){
-            $title=[string](Get-DomeniaMember $Item 'Title' $key);if($label){$title+=' · '+$label}
-            Show-DomeniaAttentionInWorkshop -Targets @($targets[$targetKey]) -Label $title
+            $title=$widgetTitle;if($label){$title+=' · '+$label}
+            Show-DomeniaAttentionInWorkshop -Targets @($targets[$targetKey]) -Label (Format-DomeniaWidgetDetailLabel -Title $title -Count @($targets[$targetKey]).Count -ComputedAtUtc $computedAt)
             return
         }
         if($key -eq 'fleet.health'){
-            Show-DomeniaAttentionInWorkshop -Targets @(Get-DomeniaMember $script:FleetLast 'HealthyTargets' @()) -Label 'Sans point détecté dans les données disponibles'
+            $healthy=@(Get-DomeniaMember $script:FleetLast 'HealthyTargets' @())
+            Show-DomeniaAttentionInWorkshop -Targets $healthy -Label (Format-DomeniaWidgetDetailLabel -Title 'Sans point détecté dans les données disponibles' -Count $healthy.Count -ComputedAtUtc $computedAt)
             return
         }
         if($key -eq 'fleet.attention'){
             $targets=@{}
             foreach($point in (Get-DomeniaBoardState Fleet).Data.Attention){foreach($target in @(Get-DomeniaAttentionTargets $point)){$targets[[string]$target.object_guid]=$target}}
-            Show-DomeniaAttentionInWorkshop -Targets @($targets.Values) -Label 'Postes concernés par les points dʼattention'
+            Show-DomeniaAttentionInWorkshop -Targets @($targets.Values) -Label (Format-DomeniaWidgetDetailLabel -Title 'Postes concernés par les points dʼattention' -Count $targets.Count -ComputedAtUtc $computedAt)
             return
         }
         if($key -like 'fleet.trend*'){

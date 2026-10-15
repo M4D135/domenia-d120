@@ -51,7 +51,11 @@ function Add-DomeniaProbeMetadata {
     param($Probe)
     if($null -eq $Probe){return}
     $classPeers=@(Get-DomeniaExtendedProbeCatalog|Where-Object{$_.Class -ieq $Probe.Class -and $_.Namespace -ieq $Probe.Namespace})
-    $peer=if($classPeers.Count){$classPeers[0]}else{$null}
+    # Rights, compatibility and sources describe the class; limitations describe one projection. A historical probe
+    # only inherits the limitations of a detailed probe that reads every one of its properties.
+    $classPeer=if($classPeers.Count){$classPeers[0]}else{$null}
+    $covering=@($classPeers|Where-Object{$peerProperties=@($_.Properties);@(@($Probe.Properties)|Where-Object{$peerProperties -notcontains $_}).Count -eq 0})
+    $peer=if($covering.Count){$covering[0]}else{$null}
     $fieldsByName=@{};foreach($item in $classPeers){foreach($field in @($item.Fields)){$fieldsByName[[string]$field.Name]=$field}}
     $fields=@(foreach($name in @($Probe.Properties)){
         if($fieldsByName.ContainsKey([string]$name)){$fieldsByName[[string]$name]}
@@ -63,11 +67,11 @@ function Add-DomeniaProbeMetadata {
     if([bool]$Probe.SkipOnDc){$limits+=' Lecture exclue sur les contrôleurs de domaine.'}
     $meta=@{
         Description=$description
-        Rights=$(if($null -ne $peer){$peer.Rights}else{'Lecture distante du namespace WMI/CIM ; compte et accès au poste autorisés.'})
-        Compatibility=$(if($null -ne $peer){$peer.Compatibility}else{'Fournisseur Windows requis ; présence et version à qualifier sur la cible.'})
+        Rights=$(if($null -ne $classPeer){$classPeer.Rights}else{'Lecture distante du namespace WMI/CIM ; compte et accès au poste autorisés.'})
+        Compatibility=$(if($null -ne $classPeer){$classPeer.Compatibility}else{'Fournisseur Windows requis ; présence et version à qualifier sur la cible.'})
         UnknownMeaning='Absence, refus, erreur, donnée périmée ou incomplète restent inconnus ; un résultat vide n''est zéro qu''après une énumération complète.'
         Limitations=$limits
-        SourceUrls=$(if($null -ne $peer){@($peer.SourceUrls)}else{@()})
+        SourceUrls=$(if($null -ne $classPeer){@($classPeer.SourceUrls)}else{@()})
         Fields=$fields
         ProviderQualification='À qualifier sous Windows'
     }

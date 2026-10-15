@@ -125,6 +125,30 @@ Case 'Parseur natif de tous les scripts du paquet' {
 Case 'Parseur natif des deux opérations nouvelles' {
     foreach($body in @((Get-DomeniaLiveProbeCode),(Get-DomeniaLiveCacheCode))){$t=$null;$e=$null;[void][Management.Automation.Language.Parser]::ParseInput($body,[ref]$t,[ref]$e);Assert-Live (@($e).Count -eq 0) (@($e)|Out-String)}
 }
+# PF-02: unwired if a treated site goes back to @(...) around a paged collection, or forgets its bound or its release.
+Case 'PF-02 : collections LDAP parcourues au fil des pages, bornées et libérées' {
+    $treated=@('Search-DomeniaPickerObjects','Search-DomeniaOuPickerObjects','Get-DomeniaIndexOuListWorkerCode','Get-DomeniaIndexWorkerCode','Start-PruneOrphanLinks','Start-LoadComputerSecrets','Invoke-GlobalSearch','Create-OuUnderSelected')
+    foreach($name in $treated){
+        $node=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true))
+        Assert-Live ($node.Count -eq 1) ('Fonction absente : '+$name)
+        $text=$node[0].Extent.Text
+        Assert-Live (-not ($text -match 'in\s+@\(\s*\$(collection|all|results)\s*\)')) ('Collection matérialisée avant le premier tour : '+$name)
+        Assert-Live (-not ($text -match '@\(\s*\$\w+\.FindAll\(\)\s*\)')) ('FindAll matérialisé : '+$name)
+        $assigned=[regex]::Matches($text,'\$(\w+)\s*=\s*\$\w+\.FindAll\(\)')
+        Assert-Live ($assigned.Count -eq ([regex]::Matches($text,'\.FindAll\(\)')).Count) ('FindAll sans variable libérable : '+$name)
+        foreach($match in $assigned){$variable=$match.Groups[1].Value;Assert-Live ($text.Contains('$'+$variable+'.Dispose()')) ('Collection non libérée : '+$name+' / $'+$variable)}
+    }
+    $index=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Get-DomeniaIndexWorkerCode'},$true))[0].Extent.Text
+    Assert-Live ($index.Contains('$sizeLimit = [Math]::Max(1,$maxObjects - $rowCount) + 1') -and $index.Contains('New-WSearcher $Context $searchBase $filter @($entry.Props) $searchScope $sizeLimit')) 'Index : SizeLimit non posé au volume restant + 1.'
+    Assert-Live ($index.Contains('$censusLimit=$maxObjects+1') -and $index.Contains('$searchScope $censusLimit')) 'Recensement : SizeLimit non posé à MaxObjects + 1.'
+    $global=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Invoke-GlobalSearch'},$true))[0].Extent.Text
+    Assert-Live ($global.Contains('$ldapLimit=$resultLimit+1') -and $global.Contains('foreach ($result in $collection)')) 'Recherche : borne ou parcours direct perdu.'
+    $common=(@([regex]::Matches([IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1')),"(?ms)^\`$script:WorkerCommon (?:=|\+=) @'\r?\n(.*?)\r?\n'@")|ForEach-Object{$_.Groups[1].Value}) -join "`n")
+    foreach($resolver in @('Resolve-WGroupDn','Resolve-WObjectDn')){
+        $body=[regex]::Match($common,'(?ms)^function '+$resolver+' \{.*?^\}').Value
+        Assert-Live ($body.Contains('$collection.Dispose()') -and -not $body.Contains('@($s.FindAll())')) ('Résolution non libérée : '+$resolver)
+    }
+}
 Case 'Registre fermé conforme au contrat DEV' {
     # Count derived from tools/operation-contracts.json (two-step parse for 5.1), never a constant (48 at R1.12).
     $c=[IO.File]::ReadAllText((Join-Path $root 'tools\operation-contracts.json'))|ConvertFrom-Json
@@ -170,6 +194,9 @@ Case 'Vérification dédupliquée dans la file' {
     # Since RC1.10.7 a probe needs the selection intent of the single selected machine (no collective ping):
     # select the row through the real Select-DomeniaLiveResult, then ask twice more for the same row.
     Reset-LiveFixture;Feed-Live (New-FixtureRow);Invoke-DomeniaLiveTick;$row=$script:Live.Search.Rows[0]
+    # SP-15: the click verifies the workstation only when « Vérifier au clic » is checked (unchecked by default).
+    Assert-Live (-not [bool]$script:Live.VerifyOnClick) 'Vérifier au clic coché par défaut.'
+    $script:Live.VerifyOnClick=$true
     $script:Ctrl.DgObjects.SelectedItem=$row
     Assert-Live (@($script:Ctrl.DgObjects.SelectedItems).Count -eq 1) 'Selection de la ligne de fixture non prise en compte par la grille.'
     Select-DomeniaLiveResult
@@ -180,6 +207,7 @@ Case 'Vérification dédupliquée dans la file' {
 Case 'Sans intention de sélection, aucune vérification n est mise en file' {Reset-LiveFixture;Feed-Live (New-FixtureRow);Invoke-DomeniaLiveTick;$row=$script:Live.Search.Rows[0];Request-DomeniaLiveProbe $row;Assert-Live ($script:Live.PendingKeys.Count -eq 0 -and $script:Live.Pending.Count -eq 0)}
 Case 'Désactiver la détection n empêche pas le chargement AD' {Reset-LiveFixture;$script:Live.AutoDetect=$false;Feed-Live (New-FixtureRow);Invoke-DomeniaLiveTick;Assert-Live ($script:Live.Search.Rows.Count -eq 1 -and $script:Live.PendingKeys.Count -eq 0)}
 Case 'Appel annulé compte toujours dans les ressources occupées' {Reset-LiveFixture;$script:AsyncJobs['a']=[pscustomobject]@{OperationId='LiveConsole';CancelRequested=$true};$script:DetachedReadJobs=@([pscustomobject]@{OperationId='LiveConsole'});Assert-Live ((Get-DomeniaLiveWorkerCount 'LiveConsole') -eq 2)}
+Case 'Le ping explicite du poste sélectionné n occupe ni le budget ni le suivi des sondes de recherche' {Reset-LiveFixture;$script:AsyncJobs['fiche']=[pscustomobject]@{OperationId='LiveSelectedPing';ReplaceKey='presence-selected'};$script:AsyncJobs['ligne']=[pscustomobject]@{OperationId='LiveSelectedPing';ReplaceKey=''};Assert-Live (((Get-DomeniaLiveWorkerCount 'LiveSelectedPing') -eq 2) -and ((Get-DomeniaLiveWorkerCount 'LiveSelectedPing' -ExcludeReplaceKey 'presence-selected') -eq 1)) 'Ping de la fiche compte dans le budget des sondes';$script:Live.Done=@{};Stop-DomeniaLiveJob ([pscustomobject]@{OperationId='LiveSelectedPing';ReplaceKey='presence-selected';Superseded=$false;CallbackState=[pscustomobject]@{Computer='PC-1';Generation=$script:GlobalSearchGeneration}});Assert-Live ($script:Live.Done.Count -eq 0) 'Arret du ping de la fiche inscrit dans le suivi des lignes'}
 Case 'Ecriture en cours suspend le rendu des lignes reçues' {Reset-LiveFixture;Feed-Live (New-FixtureRow);$script:ActiveWriteTaskId='write';Invoke-DomeniaLiveTick;Assert-Live ($script:Live.Search.Rows.Count -eq 0);$script:ActiveWriteTaskId='';Invoke-DomeniaLiveTick;Assert-Live ($script:Live.Search.Rows.Count -eq 1)}
 Case 'Etat inconnu d ecriture suspend également le rendu' {Reset-LiveFixture;Feed-Live (New-FixtureRow);$script:WriteState='Unknown';Invoke-DomeniaLiveTick;Assert-Live ($script:Live.Search.Rows.Count -eq 0)}
 Case 'Réponse d un ancien compte ne réenregistre aucune observation' {Reset-LiveFixture;$state=[pscustomobject]@{Identity=$script:Live.Identity;Epoch=1;Key=$observed.Key;Guid=$observed.Guid;Computer=$observed.Computer;Generation=1};$script:ProcessIdentity='EXAMPLE\autre';Complete-DomeniaLiveProbe $observed $state;Assert-Live ($script:Live.Observations.Count -eq 0 -and $script:Live.SaveQueue.Count -eq 0)}

@@ -19,11 +19,19 @@ function ConvertTo-SuiteNumber {
     return [Math]::Max($Minimum,[Math]::Min($Maximum,$number))
 }
 
+function Test-DomeniaScopedSettingName {
+    # Domain-scoped preferences are stored under a closed name pattern (prefix + SHA-256 of the domain DN), outside the
+    # declared defaults: database choice, health policies and approved BIOS references. Only these survive a reload.
+    param([AllowEmptyString()][string]$Name)
+    return ([string]$Name -cmatch '^(Storage\.Database|Dashboard\.HealthPolicies|Inventory\.BiosReferences)\.[0-9a-f]{64}$')
+}
+
 function ConvertTo-DomeniaExperienceSettings {
     param([System.Collections.IDictionary]$Values,[System.Collections.IDictionary]$Defaults)
     $out=[ordered]@{}
     $choices=@{
-        UxDensity=@('Confort','Compact');Theme=@('Light','Dark');UiProfile=@('Tech','Admin');PresenceFilter=@('Tous','En ligne','Hors ligne','Inconnu')
+        # UX-03: PresenceFilter is no longer a preference (session filter only).
+        UxDensity=@('Confort','Compact');Theme=@('Light','Dark');UiProfile=@('Tech','Admin')
         IndexAutoBuild=@('Ask','Always','Never');SearchType=@('Tous','Utilisateurs','Machines','Groupes','OU et conteneurs')
     }
     $numbers=@{
@@ -43,6 +51,16 @@ function ConvertTo-DomeniaExperienceSettings {
             $value=ConvertTo-SuiteNumber $value -Default ([double]$Defaults[$key]) -Minimum $range[0] -Maximum $range[1]
         }
         $out[$key]=$value
+    }
+    # Domain-scoped preferences pass through unchanged: string values only, at most 1 MiB each and 256 keys.
+    if($null -ne $Values){
+        $scoped=0
+        foreach($key in @($Values.Keys)){
+            if(($Defaults.Contains($key)) -or (-not (Test-DomeniaScopedSettingName ([string]$key)))){continue}
+            $value=$Values[$key]
+            if((-not ($value -is [string])) -or ($value.Length -gt 1048576) -or ($scoped -ge 256)){continue}
+            $out[[string]$key]=$value;$scoped++
+        }
     }
     return $out
 }
@@ -92,6 +110,26 @@ function Test-DomeniaExperienceRow {
         if($haystack.IndexOf($term,[StringComparison]::OrdinalIgnoreCase) -lt 0){return $false}
     }
     return $true
+}
+
+function Get-DomeniaFilteredEmptyState {
+    # UX-03 / UI-15: every loaded row is hidden by a filter of the list (its text or the presence). The empty list then
+    # says how many rows the filter hides and offers to clear it, instead of looking like an empty directory.
+    # Display rule only: clearing the filter shows the rows already loaded again, without any request.
+    param([int]$Loaded=0,[int]$Visible=0,[AllowEmptyString()][AllowNull()][string]$LocalText='',[AllowEmptyString()][AllowNull()][string]$Presence='Tous')
+    $text = ([string]$LocalText).Trim()
+    $presenceKey = ([string]$Presence).Trim()
+    $presenceActive = ([bool]$presenceKey) -and ($presenceKey -notin @('Tous','Toute présence'))
+    if (($Loaded -le 0) -or ($Visible -gt 0) -or ((-not $text) -and (-not $presenceActive))) {
+        return [pscustomobject]@{Show=$false;Text='';Detail=''}
+    }
+    $culture = [Globalization.CultureInfo]::GetCultureInfo('fr-FR')
+    $title = 'Le filtre masque ' + $Loaded.ToString('N0',$culture) + $(if ($Loaded -gt 1) { ' lignes' } else { ' ligne' })
+    $parts = New-Object 'System.Collections.Generic.List[string]'
+    if ($text) { $parts.Add('texte « ' + $text + ' »') }
+    if ($presenceActive) { $parts.Add('présence : ' + $presenceKey) }
+    $detail = 'Filtre de la liste : ' + ($parts.ToArray() -join ' · ') + '. Effacer le filtre réaffiche les lignes déjà chargées, sans requête AD.'
+    return [pscustomobject]@{Show=$true;Text=$title;Detail=$detail}
 }
 
 function Test-DomeniaExperienceCanCancel {
