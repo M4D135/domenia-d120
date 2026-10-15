@@ -994,7 +994,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Complete-DomeniaDirectoryChangesCommit',
             'Complete-DomeniaDirectoryChangesRead'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-ProbeDetails.Model.ps1','Domenia-Storage.UI.ps1'); File='Domenia-ProbeDetails.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-ProbeDetails.Model.ps1','Domenia-Storage.UI.ps1','Domenia-ProbeContract.Model.ps1'); File='Domenia-ProbeDetails.UI.ps1'; DotSource=$true; Functions=@(
             'Show-DomeniaProbeDetails',
             'Test-DomeniaProbeDetailsState',
             'Complete-DomeniaProbeDetailsRead',
@@ -1477,6 +1477,7 @@ function Get-DomeniaRuntimeModulePlan {
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-ProbeCatalog.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaExtendedProbeCatalog',
+            'Assert-DomeniaCustomProbeDeclaration',
             'Add-DomeniaProbeMetadata'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-ProbeCatalog.Model.ps1'); File='Domenia-Probes.Model.ps1'; DotSource=$true; Functions=@(
@@ -1489,6 +1490,23 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaProbeValues',
             'Measure-DomeniaWidgetData',
             'Measure-DomeniaFleetProbeEntries'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-ProbeContract.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaProbeContractValue',
+            'Get-DomeniaProbeExecutionLimits',
+            'Get-DomeniaProbeDeniedClasses',
+            'Get-DomeniaProbeDeniedNamespaces',
+            'Get-DomeniaProbePrivilege',
+            'Get-DomeniaProbeCost',
+            'Get-DomeniaProbeExpectedTests',
+            'Get-DomeniaProbeBehavior',
+            'ConvertTo-DomeniaProbeContract',
+            'Test-DomeniaProbeContract',
+            'Get-DomeniaProbeIsolationPlan',
+            'Get-DomeniaProbeContractSummary',
+            'Get-DomeniaProbeContractLines',
+            'Get-DomeniaProbeContract',
+            'Test-DomeniaProbeCatalogContracts'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1'); File='Domenia-BoardFleet.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaFleetQueryPlan',
@@ -1518,7 +1536,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Show-DomeniaHealthExplanation',
             'Show-DomeniaFleetAnalysis'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-HealthRules.UI.ps1'); File='Domenia-Widgets.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-HealthRules.UI.ps1','Domenia-ProbeContract.Model.ps1'); File='Domenia-Widgets.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaWidgetList',
             'Get-DomeniaBoardPanelName',
             'Get-DomeniaBoardState',

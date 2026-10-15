@@ -11,6 +11,17 @@ function Show-DomeniaProbeDetails {
     $top=[Windows.Controls.StackPanel]::new();[Windows.Controls.DockPanel]::SetDock($top,'Top')
     $title=[Windows.Controls.TextBlock]::new();$title.Text=[string]$selected.Name+' · '+$definition.Name;$title.FontSize=20;$title.FontWeight='SemiBold';$title.TextWrapping='Wrap';[void]$top.Children.Add($title)
     $status=[Windows.Controls.TextBlock]::new();$status.Text='Lecture des mesures enregistrées dans la base locale…';$status.TextWrapping='Wrap';$status.Margin='0,8,0,8';[void]$top.Children.Add($status)
+    # Points 135-136: the probe contract (inputs, types, rights, cost, limits, sources, expected tests) and what isolates it.
+    $contractEntry=Get-DomeniaProbeContract $ProbeId
+    $contractBox=[Windows.Controls.Expander]::new();$contractBox.Header='Contrat de la sonde';$contractBox.Margin='0,0,0,8';$contractBox.IsExpanded=$false
+    [Windows.Automation.AutomationProperties]::SetName($contractBox,'Contrat de la sonde '+[string]$definition.Name)
+    $contractText=[Windows.Controls.TextBox]::new();$contractText.IsReadOnly=$true;$contractText.TextWrapping='Wrap';$contractText.MaxHeight=220;$contractText.VerticalScrollBarVisibility='Auto'
+    if($null -eq $contractEntry){$contractText.Text='Contrat de sonde indisponible.'}
+    else{
+        $isolation=Get-DomeniaProbeIsolationPlan -Contract $contractEntry.Contract -IsolatedReadsEnabled ([bool](Get-DomeniaFeatureFlag 'IsolatedReads' $false))
+        $contractText.Text=(@(Get-DomeniaProbeContractLines -Contract $contractEntry.Contract -Check $contractEntry.Check -Isolation $isolation|ForEach-Object{[string]$_.Section+' : '+[string]$_.Valeur}) -join [Environment]::NewLine)
+    }
+    $contractBox.Content=$contractText;[void]$top.Children.Add($contractBox)
     $choice=[Windows.Controls.ComboBox]::new();$choice.Items.Add('Dernière réussite')|Out-Null;$choice.Items.Add('Dernière tentative')|Out-Null;$choice.SelectedIndex=0;$choice.IsEnabled=$false;$choice.Margin='0,0,0,10';[void]$top.Children.Add($choice)
     [void]$root.Children.Add($top)
     $footer=[Windows.Controls.WrapPanel]::new();$footer.Margin='0,10,0,0';[Windows.Controls.DockPanel]::SetDock($footer,'Bottom')

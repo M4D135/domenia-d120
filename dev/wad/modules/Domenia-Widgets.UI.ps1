@@ -840,6 +840,13 @@ function Get-DomeniaBoardSources {
     }
     if ($Board -ne 'Software') {
         foreach ($probe in @(Get-DomeniaProbeCatalog)) {
+            # Points 135-136: a probe that does not satisfy Domenia.ProbeContract/1 is never offered, and the refusal is logged.
+            $contractEntry = Get-DomeniaProbeContract ([string]$probe.Id)
+            if (($null -eq $contractEntry) -or (-not [bool]$contractEntry.Check.Valid)) {
+                $why = if ($null -ne $contractEntry) { @($contractEntry.Check.Errors) -join ' ' } else { 'contrat introuvable' }
+                Write-AppLog ('Sonde ' + [string]$probe.Id + ' non proposée : contrat refusé (' + $why + ').') 'WARN'
+                continue
+            }
             $shown = $present.ContainsKey('Probe|' + [string]$probe.Id)
             $kind = Get-DomeniaProbeKind -Probe $probe -Board $Board
             # FI-17: a slow query is flagged before it is added.
@@ -848,6 +855,7 @@ function Get-DomeniaBoardSources {
             $probeDescription+=' '+[string](Get-DomeniaHealthValue $probe 'Limitations' '')
             $probeDescription+=' '+[string](Get-DomeniaHealthValue $probe 'Compatibility' '')
             if($slow){$probeDescription+=' · Requête lente : collecte explicite recommandée.'}
+            $probeDescription+=' '+(Get-DomeniaProbeContractSummary $contractEntry.Contract)
             [void]$rows.Add([pscustomobject]@{ Section = 'Requetes WMI · ' + [string]$probe.Category; Name = [string]$probe.Name; Description = $probeDescription; Badge = $(if ($shown) { 'affiche' } else { '' }); Source = 'Probe'; Key = [string]$probe.Id; Kind = $kind; Visual = (Resolve-DomeniaBoardVisual -Visual ([string]$probe.Visual) -Kind $kind); Size = ''; Group = [string]$probe.Category; Slow = $slow; Search = (ConvertTo-DomeniaSearchText ([string]$probe.Name + ' ' + [string]$probe.Category + ' ' + [string]$probe.Class + ' ' + $probeDescription)) })
         }
     }
