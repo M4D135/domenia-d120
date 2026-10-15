@@ -453,6 +453,82 @@ Expect ($script:Tasks.Count -eq $tasks+1 -and $last.Payload.Mode -ceq 'Reference
 $script:Fake.DgQueryWmiRows.SelectedItem=$null;$tasks=$script:Tasks.Count;Invoke-DomeniaQuerySchemaAction 'Relation'
 Expect ($script:Tasks.Count -eq $tasks -and $script:Labels.LblQueryWmiStatus -like '*Sélectionnez une instance*') 'no relation without a selected stored instance'
 
+# ---------------------------------------------------------------------------------------------------------------
+# Point 152: collections with at least one, all and none; several criteria on the SAME disk or software.
+function New-FixtureCollection([string]$ProbeId,[object[]]$Rows,[bool]$Complete=$true,[string[]]$Unknown=@()){
+    $instances=[Collections.Generic.List[M4D.Admin.Common.Query.QueryRecord]]::new();$i=0
+    foreach($row in $Rows){
+        $values=[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal)
+        foreach($key in $row.Keys){$values['instance:'+$ProbeId+':'+$key]=$row[$key]}
+        foreach($key in $Unknown){$values['_unknown:instance:'+$ProbeId+':'+$key]=$true}
+        $instances.Add([M4D.Admin.Common.Query.QueryRecord]::new(($ProbeId+':'+$i),$values));$i++
+    }
+    return [M4D.Admin.Common.Query.QueryCollection]::new($instances,$Complete)
+}
+function New-CollectionRecord([string]$Id,$Collections=@{}){
+    $values=@{name=$Id};foreach($key in $Collections.Keys){$values['_instances:probe:'+$key]=$Collections[$key]}
+    return (New-FixtureRecord $Id $values)
+}
+function New-Clause([string]$Field,[string]$Operator,$Value){return [pscustomobject]@{Kind='Clause';Clause=[pscustomobject]@{Field=$Field;Operator=$Operator;Value=$Value}}}
+function New-CollectionNode([string]$ProbeId,[string]$Quantifier,[object[]]$Clauses){return [pscustomobject]@{Kind='Collection';CollectionField=('probe:'+$ProbeId);Quantifier=$Quantifier;Children=@([pscustomobject]@{Kind='All';Children=@($Clauses)})}}
+function Get-Verdicts($Recipe,$Records){$compiled=ConvertTo-DomeniaCompiledQuery $Recipe;$out=@{};foreach($record in $Records){$out[$record.Id]=[string]$compiled.Evaluate($record.Values)};return $out}
+$disks=@(
+    (New-CollectionRecord 'pc-a' @{'disk.volumes'=(New-FixtureCollection 'disk.volumes' @(@{DeviceID='C:';FreeSpace=500000000},@{DeviceID='D:';FreeSpace=50000000000}))}),
+    (New-CollectionRecord 'pc-b' @{'disk.volumes'=(New-FixtureCollection 'disk.volumes' @(@{DeviceID='C:';FreeSpace=50000000000},@{DeviceID='D:';FreeSpace=500000000}))}),
+    (New-CollectionRecord 'pc-c' @{'disk.volumes'=(New-FixtureCollection 'disk.volumes' @())}),
+    (New-CollectionRecord 'pc-d' @{'disk.volumes'=(New-FixtureCollection 'disk.volumes' @(@{DeviceID='C:';FreeSpace=50000000000}) -Complete $false)}),
+    (New-CollectionRecord 'pc-e'),
+    (New-CollectionRecord 'pc-f' @{'disk.volumes'=(New-FixtureCollection 'disk.volumes' @(@{DeviceID='C:'}) -Unknown @('FreeSpace'))}))
+$lowFree=New-Clause 'instance:disk.volumes:FreeSpace' 'Less' 1000000000;$systemDrive=New-Clause 'instance:disk.volumes:DeviceID' 'Equal' 'C:'
+$same=Get-Verdicts (New-DomeniaQueryRecipe -Expression (New-CollectionNode 'disk.volumes' 'Any' @($systemDrive,$lowFree))) $disks
+Expect ($same['pc-a'] -ceq 'Match' -and $same['pc-b'] -ceq 'NoMatch' -and $same['pc-c'] -ceq 'NoMatch' -and $same['pc-d'] -ceq 'Unknown' -and $same['pc-e'] -ceq 'Unknown' -and $same['pc-f'] -ceq 'Unknown') 'two criteria on the same volume: only the workstation whose C: is full matches'
+$separate=Get-Verdicts (New-DomeniaQueryRecipe -Expression ([pscustomobject]@{Kind='All';Children=@((New-CollectionNode 'disk.volumes' 'Any' @($systemDrive)),(New-CollectionNode 'disk.volumes' 'Any' @($lowFree)))})) $disks
+Expect ($separate['pc-a'] -ceq 'Match' -and $separate['pc-b'] -ceq 'Match') 'two separate collections may be satisfied by two different volumes: the difference is explicit'
+$all=Get-Verdicts (New-DomeniaQueryRecipe -Expression (New-CollectionNode 'disk.volumes' 'All' @((New-Clause 'instance:disk.volumes:FreeSpace' 'Greater' 1000000000)))) $disks
+Expect ($all['pc-a'] -ceq 'NoMatch' -and $all['pc-c'] -ceq 'Match' -and $all['pc-d'] -ceq 'Unknown' -and $all['pc-e'] -ceq 'Unknown') 'all instances: a partial read never proves that every volume qualifies'
+$none=Get-Verdicts (New-DomeniaQueryRecipe -Expression (New-CollectionNode 'disk.volumes' 'None' @($lowFree))) $disks
+Expect ($none['pc-a'] -ceq 'NoMatch' -and $none['pc-b'] -ceq 'NoMatch' -and $none['pc-c'] -ceq 'Match' -and $none['pc-d'] -ceq 'Unknown' -and $none['pc-f'] -ceq 'Unknown') 'no instance: a partial read or an unreadable value stays unknown'
+$software=@(
+    (New-CollectionRecord 'pc-x' @{'soft.installed'=(New-FixtureCollection 'soft.installed' @(@{ProgramId='p1';Name='7-Zip';Version='19.00'},@{ProgramId='p2';Name='Firefox';Version='118.0'}))}),
+    (New-CollectionRecord 'pc-y' @{'soft.installed'=(New-FixtureCollection 'soft.installed' @(@{ProgramId='p3';Name='7-Zip';Version='23.01'}))}),
+    (New-CollectionRecord 'pc-z' @{'soft.installed'=(New-FixtureCollection 'soft.installed' @(@{ProgramId='p4';Name='7-Zip';Version='23.01'},@{ProgramId='p5';Name='Outil interne';Version='19.1'}))}))
+$sevenZip=New-Clause 'instance:soft.installed:Name' 'Equal' '7-Zip';$oldVersion=New-Clause 'instance:soft.installed:Version' 'StartsWith' '19.'
+$sameSoftware=Get-Verdicts (New-DomeniaQueryRecipe -Expression (New-CollectionNode 'soft.installed' 'Any' @($sevenZip,$oldVersion))) $software
+$anySoftware=Get-Verdicts (New-DomeniaQueryRecipe -Expression ([pscustomobject]@{Kind='All';Children=@((New-CollectionNode 'soft.installed' 'Any' @($sevenZip)),(New-CollectionNode 'soft.installed' 'Any' @($oldVersion)))})) $software
+Expect ($sameSoftware['pc-x'] -ceq 'Match' -and $sameSoftware['pc-y'] -ceq 'NoMatch' -and $sameSoftware['pc-z'] -ceq 'NoMatch' -and $anySoftware['pc-z'] -ceq 'Match') 'name and version are checked on the same installed application'
+$noSoftware=Get-Verdicts (New-DomeniaQueryRecipe -Expression (New-CollectionNode 'soft.installed' 'None' @($sevenZip))) $software
+Expect ($noSoftware['pc-x'] -ceq 'NoMatch' -and $noSoftware['pc-y'] -ceq 'NoMatch') 'no installed copy is expressed with None'
+Reject {ConvertTo-DomeniaCompiledQuery (New-DomeniaQueryRecipe -Expression (New-CollectionNode 'soft.installed' 'Any' @($lowFree)))} 'a collection only accepts properties of its own instances'
+Reject {ConvertTo-DomeniaCompiledQuery (New-DomeniaQueryRecipe -Expression ([pscustomobject]@{Kind='All';Children=@($sevenZip)}))} 'an instance property outside its collection is refused'
+Reject {ConvertTo-DomeniaCompiledQuery (New-DomeniaQueryRecipe -Expression (New-CollectionNode 'soft.installed' 'Some' @($sevenZip)))} 'only Any, All and None quantifiers exist'
+$installed=Get-DomeniaProbe 'soft.installed'
+Expect ($null -ne $installed -and $installed.Class -ceq 'Win32_InstalledWin32Program' -and $installed.Mode -ceq 'All' -and @($installed.Properties) -contains 'Version' -and -not (Test-DomeniaMsiProviderClass $installed.Class)) 'installed applications come from the inventory provider, never from Windows Installer'
+Expect (@(Get-DomeniaQueryInstanceFields|Where-Object{$_.ProbeId -eq 'soft.installed'}).Count -eq 4) 'every installed application property can be used in a collection'
+# End-to-end from a stored observation: the typed instances become a complete collection.
+$now=[datetime]::UtcNow
+$fleet=[pscustomobject]@{Groups=@();Machines=@([pscustomobject]@{name='PC-X';object_guid='cccccccc-0000-4000-8000-000000000003';distinguished_name='CN=PC-X,DC=example,DC=test';gid='';st='A';logon=''})}
+$probeResult=[pscustomobject]@{Count=2;CheckedUtc=$now.AddMinutes(-5).ToString('o');Error='';Truncated=$false;Instances=@([pscustomobject]@{Id='Win32_InstalledWin32Program.ProgramId="p1"';Values=[pscustomobject]@{ProgramId='p1';Name='7-Zip';Vendor='Igor Pavlov';Version='19.00'}},[pscustomobject]@{Id='Win32_InstalledWin32Program.ProgramId="p2"';Values=[pscustomobject]@{ProgramId='p2';Name='Firefox';Vendor='Mozilla';Version='118.0'}})}
+$observations=@{'cn=pc-x,dc=example,dc=test'=[pscustomobject]@{Guid='cccccccc-0000-4000-8000-000000000003';Probes=[pscustomobject]@{'soft.installed'=$probeResult}}}
+$stored=ConvertTo-DomeniaQueryRecords -Fleet $fleet -Observations $observations -NowUtc $now
+$collection=$stored[0].Values['_instances:probe:soft.installed']
+$softwareRecipe=New-DomeniaQueryRecipe -Name 'Ancien 7-Zip' -Expression (New-CollectionNode 'soft.installed' 'Any' @($sevenZip,$oldVersion))
+Expect ($collection.Complete -and $collection.Instances.Count -eq 2 -and (ConvertTo-DomeniaCompiledQuery $softwareRecipe).Evaluate($stored[0].Values) -eq [M4D.Admin.Common.Query.MatchState]::Match) 'stored application instances keep their properties together'
+$probeResult.Truncated=$true;$stored=ConvertTo-DomeniaQueryRecords -Fleet $fleet -Observations $observations -NowUtc $now
+Expect ((ConvertTo-DomeniaCompiledQuery (New-DomeniaQueryRecipe -Expression (New-CollectionNode 'soft.installed' 'None' @($sevenZip)))).Evaluate($stored[0].Values) -eq [M4D.Admin.Common.Query.MatchState]::NoMatch -and (ConvertTo-DomeniaCompiledQuery (New-DomeniaQueryRecipe -Expression (New-CollectionNode 'soft.installed' 'None' @((New-Clause 'instance:soft.installed:Name' 'Equal' 'Absent'))))).Evaluate($stored[0].Values) -eq [M4D.Admin.Common.Query.MatchState]::Unknown) 'a truncated list can prove a presence but never an absence'
+$probeResult.Truncated=$false
+# Paged SQL path: collection verdicts are projected per workstation, then reused by the engine.
+$nodes=@(Get-DomeniaQueryCollectionNodes $softwareRecipe)
+$projections=@(ConvertTo-DomeniaQueryCollectionProjections -Observations @([pscustomobject]@{Guid='cccccccc-0000-4000-8000-000000000003';Family='Probe:soft.installed';Status='Success';Data=[pscustomobject]@{Probes=[pscustomobject]@{'soft.installed'=$probeResult}}}) -Nodes $nodes -NowUtc $now)
+$projected=Add-DomeniaQueryCollectionProjectionRecords -Records (ConvertTo-DomeniaQueryRecords -Fleet $fleet -Observations @{} -NowUtc $now) -Projections $projections
+Expect ($nodes.Count -eq 1 -and $projections.Count -eq 1 -and $projections[0].Coverage -ceq 'Disponible' -and $projections[0].InstanceCount -eq 2 -and (ConvertTo-DomeniaCompiledQuery $softwareRecipe).Evaluate($projected[0].Values) -eq [M4D.Admin.Common.Query.MatchState]::Match) 'the projected verdict of the same-instance collection is reused without reloading instances'
+# Builder: a collection groups the instance criteria under one node.
+$tree=Edit-DomeniaQueryExpression -Recipe (New-DomeniaQueryRecipe) -Path '' -Operation Add -Node ([pscustomobject]@{Kind='Collection';CollectionField='probe:soft.installed';Quantifier='Any';Children=@([pscustomobject]@{Kind='All';Children=@()})})
+$tree=Edit-DomeniaQueryExpression -Recipe $tree -Path '/0' -Operation Add -Node $sevenZip
+$tree=Edit-DomeniaQueryExpression -Recipe $tree -Path '/0' -Operation Add -Node $oldVersion
+$outline=@(Get-DomeniaQueryExpressionOutline $tree.Expression)
+Expect (@($outline|Where-Object{$_.Kind -eq 'Clause' -and $_.CollectionProbe -ceq 'soft.installed'}).Count -eq 2 -and (ConvertTo-DomeniaCompiledQuery $tree).Evaluate($software[2].Values) -eq [M4D.Admin.Common.Query.MatchState]::NoMatch) 'the builder adds both criteria inside the same collection'
+Reject {Edit-DomeniaQueryExpression -Recipe $tree -Path '/0' -Operation Add -Node (New-Clause 'name' 'Equal' 'PC')} 'the builder refuses a workstation criterion inside an instance collection'
+
 # @@NEXT-SECTION@@
 
 $report=[pscustomobject]@{Status='PASS';Assertions=$script:checks;SourceMode=[bool]$QuerySource;ElapsedSeconds=[Math]::Round($clock.Elapsed.TotalSeconds,3);PowerShell=$PSVersionTable.PSVersion.ToString();Scope='Actual models, worker factories and click handlers with inert controls; remote WMI cmdlets replaced by fixtures; no network, AD, WMI or WPF'}
