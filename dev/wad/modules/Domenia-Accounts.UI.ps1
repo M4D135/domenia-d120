@@ -364,7 +364,10 @@ function Initialize-DomeniaMachineAccountPanel {
         if($null -eq $control){throw ('Contrôle du panneau du compte poste introuvable : '+$name)}
         $names.Add($name)
     }
-    foreach($name in $names){$script:Ctrl[$name]=$(if($name -eq [string]$view.Name){$view}else{$view.FindName($name)})}
+    $panelMap=@{}
+    foreach($name in $names){$control=$(if($name -eq [string]$view.Name){$view}else{$view.FindName($name)});$script:Ctrl[$name]=$control;$panelMap[$name]=$control}
+    # The GUI policy of the configuration applies to these fields as it did when they lived in the main window.
+    try{Apply-DomeniaGuiElementPolicy -Window $null -ControlMap $panelMap}catch{Write-AppLog ('Politique dʼaffichage du panneau du compte poste : '+$_.Exception.Message) 'WARN'}
     (Get-DomeniaControl 'BtnMachineAccountClose').Add_Click({Hide-DomeniaMachineAccountPanel})
     # SE-16: read-only reveal for 5 s, closed as soon as the password changes.
     (Get-DomeniaControl 'BtnRevealMachineAdmin').Add_Click({[void](Show-DomeniaSecretPeek -PasswordBox $script:Ctrl['PwdMachineAdmin'] -Overlay $script:Ctrl['MachineAdminPeek'] -Display $script:Ctrl['LblMachineAdminPeek'] -Button $script:Ctrl['BtnRevealMachineAdmin'] -Owner 'Timer:MachineAdminPeek' -ShownContent '🙈')})

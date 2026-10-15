@@ -63,7 +63,7 @@ $coreNames=@('Protect-DomeniaLogText','ConvertTo-DomeniaErrorInfo','Show-Domenia
     'ConvertTo-DomeniaLogFileLines','Get-DomeniaAppLogFallbackPaths','Write-DomeniaAppLogFile','Start-DomeniaAppLogFlushTimer','Stop-DomeniaAppLogQueue',
     'Invoke-DomeniaAppLogRotation','Flush-DomeniaAppLog','Invoke-DomeniaAppLogFlush','Set-DomeniaAppLogAvailability','Test-DomeniaInternalFault','Test-DomeniaOperatorMessage',
     # X03 (UX-15): workstation account typed in the side panel of Assistance poste.
-    'Set-MachineCredentialFromUi','Clear-MachineCredential','Get-DomeniaMachineOperationAccountText')
+    'Set-MachineCredentialFromUi','Clear-MachineCredential','Get-DomeniaMachineOperationAccountText','Apply-DomeniaGuiElementPolicy')
 foreach($name in $coreNames){. ([scriptblock]::Create((Get-CoreFunctionText $name)))}
 $script:RealAssertWorker=${function:Assert-DomeniaWorkerOperationCode}
 $script:RealShowAlternate=${function:Show-DomeniaAlternateCredential}
