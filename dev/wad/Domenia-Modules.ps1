@@ -74,7 +74,12 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaIdlePolicy',
             'Get-DomeniaIdleActivityForSource',
             'Test-DomeniaIdleAllows',
-            'Get-DomeniaReadTimeoutState'
+            'Get-DomeniaReadTimeoutState',
+            'Get-DomeniaRuntimeMetricOperationKey',
+            'Get-DomeniaResponseTimeCategories',
+            'Select-DomeniaResponseTimeSamples',
+            'Get-DomeniaLatencySummary',
+            'Format-DomeniaLatencySummaryText'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1'); File='Domenia-Cache.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaProjection',
@@ -1335,6 +1340,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Resume-DomeniaAsyncPoll',
             'Add-DomeniaRuntimeMetric',
             'Get-DomeniaRuntimeMetricSummary',
+            'Get-DomeniaResponseTimeSummaries',
             'Write-DomeniaTrace',
             'Add-DomeniaTaskSubscriber',
             'Invoke-DomeniaTaskSubscribers',

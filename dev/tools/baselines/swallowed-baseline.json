@@ -1,12 +1,12 @@
 {
  "Schema": "DomeniaSwallowedBaseline/1",
  "Source": "reference initiale",
- "Total": 1248,
+ "Total": 1249,
  "Kinds": {
-  "empty": 1248
+  "empty": 1249
  },
  "Places": {
-  "code": 1027,
+  "code": 1028,
   "here-string": 221
  },
  "Findings": {
@@ -190,6 +190,7 @@
   "Get-DomeniaReadTimeoutState": 2,
   "Get-DomeniaRelationsRestorableEntry": 1,
   "Get-DomeniaRemotePostconditionText": 1,
+  "Get-DomeniaResponseTimeSummaries": 1,
   "Get-DomeniaRimotteWorkerCode [here-string]": 2,
   "Get-DomeniaSearchExportSubject": 1,
   "Get-DomeniaSecretButtonExplanation": 1,

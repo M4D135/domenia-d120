@@ -567,8 +567,8 @@
     "Save-UserMachineLinks": "BE795AF61C61794DFBB29B10146A8B867A5DCB4C22143448126BD067DC9256DE",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "F29D77B0AF6E70AA41446AB1CD10F1B1C9D113037ED3B075EDEBA777520472AF",
-    "Assert-DomeniaWorkerRegistry": "74B9DE9DF97BF3B72E441776A18DBFC3F884378B4746083146A0AEBA3D93F8EB",
+    "Get-DomeniaWorkerOperationHashes": "248362956063D8828934EB05BD1D32C5ADA63EF43EC2D6374A62D2A0EB2BBA3F",
+    "Assert-DomeniaWorkerRegistry": "9C7DE28228AD13C13180C6A5A606A54426319F99A9D9BCCAB3A70CB4067AA6A7",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "C39E92B423D3B448B91B25EE502B6AD3D8C382E6AB63F231965C20B2AC3D5775",
@@ -3864,6 +3864,18 @@
       "Previous": ".",
       "Source": ".",
       "Decision": "Lot W10 (points 151 a 158) : coherence temporelle des conditions, collections, apercu d impact, explorateur WMI, editeur WQL, associations WMI, export en script, agregation au-dela de 10 000 valeurs. Conflits resolus : listes d operations de Engine.Model unies (QuerySchema ajoute), message d enregistrement de requete combine avec la collecte a l ajout (W01). Workers re-epingles apres relecture.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": ".",
+      "Source": ".",
+      "Decision": "Lot W14 (points 122, 125 a 130) : percentiles de reponse, banc de charge et de stabilite (10 000 et 20 000 postes generes), injection de pannes de stockage et de reseau, invariants automatiques, parcours graphiques natifs, distinction laboratoire et domaine reel. Outillage de qualification, a executer en VM.",
       "ChangedCoreFunctions": [
         "Assert-DomeniaWorkerRegistry",
         "Get-DomeniaWorkerOperationHashes"

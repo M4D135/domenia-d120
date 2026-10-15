@@ -4262,7 +4262,7 @@
   {
     "Name": "LblOperationsHealth",
     "Title": "Santé du moteur",
-    "Text": "Mesures locales de cette session : mémoire, réactivité de lʼinterface, dernière sauvegarde locale. Aucune sonde réseau.",
+    "Text": "Mesures locales de cette session : mémoire, réactivité de lʼinterface, temps de réponse par catégorie (recherche locale, interface, base locale, annuaire, postes, écritures et actions : médiane, 95e centile à partir de 20 mesures, maximum), dernière sauvegarde locale. Aucune sonde réseau.",
     "Kind": "TextBlock",
     "Source": "d120-L09"
   },

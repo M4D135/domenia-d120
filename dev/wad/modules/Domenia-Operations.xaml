@@ -51,7 +51,7 @@
       <StackPanel>
         <TextBlock Text="Santé" FontWeight="SemiBold" Foreground="{DynamicResource TextColor}"/>
         <TextBlock x:Name="LblOperationsHealth" Text="" TextWrapping="Wrap" Margin="0,4,0,0" Foreground="{DynamicResource MutedColor}"
-                   ToolTip="Mesures locales de cette session : mémoire, réactivité de lʼinterface, dernière sauvegarde locale. Aucune sonde réseau."/>
+                   ToolTip="Mesures locales de cette session : mémoire, réactivité de lʼinterface, temps de réponse par catégorie (recherche locale, interface, base locale, annuaire, postes, écritures et actions : médiane, 95e centile à partir de 20 mesures, maximum), dernière sauvegarde locale. Aucune sonde réseau."/>
       </StackPanel>
     </Border>
   </Grid>
