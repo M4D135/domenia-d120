@@ -2573,7 +2573,8 @@ $env:LOCALAPPDATA=$script:G23LocalAppData
 $script:OfflineCoreDefinitions=@(foreach($name in @('Apply-CurrentPermissionUi','Get-WriteControlMap','Get-DomeniaSafetyDescriptor','Get-DomeniaEntryFirstString','Get-DeProp','Assert-DomeniaCapability','Assert-DomeniaRemoteWriteAllowed')){Get-FunctionTextFromFile $core $name}) -join "`n"
 $script:OfflineExplanationDefinition=Get-FunctionTextFromFile (Join-Path $modules 'Domenia-Access.UI.ps1') 'Get-DomeniaControlCapabilityExplanation'
 $script:OfflineFixture=@'
-foreach($file in @('Domenia-Common.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Access.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Selection.UI.ps1','Domenia-Engine.UI.ps1')){. (Join-Path $modules $file)}
+# P-CD-09: the write guards of the core read the selection and the read-only switch through Safety.Model (fail closed).
+foreach($file in @('Domenia-Common.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Access.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Safety.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Selection.UI.ps1','Domenia-Engine.UI.ps1')){. (Join-Path $modules $file)}
 . ([scriptblock]::Create($script:OfflineCoreDefinitions))
 . ([scriptblock]::Create($script:OfflineExplanationDefinition))
 function Get-DomeniaControl {param($Name) return $script:Ctrl[$Name]}
@@ -2711,6 +2712,26 @@ Test-Case 'D030 : transition sans lecture disque ni worker et erreurs du raccord
     Assert-False ($text -match 'Get-Command|Start-UiTask|Invoke-DomeniaDbQuery')
 }
 
+Test-Case 'P-CD-09 : interrupteur de lecture seule illisible, ecritures et actions distantes fermees' {
+    . ([scriptblock]::Create($script:OfflineFixture))
+    Assert-True $script:Ctrl.BtnUserSave.IsEnabled 'Point de depart : fiche validee, ecriture permise'
+    $switch=[pscustomobject]@{Name='ChkReadOnlyMode'}
+    $switch | Add-Member -MemberType ScriptProperty -Name IsChecked -Value { throw 'interrupteur illisible (simulation)' }
+    $script:Ctrl['ChkReadOnlyMode']=$switch
+    Apply-CurrentPermissionUi -StartupFastPath
+    Assert-True ([bool]$script:ReadOnlyMode) 'Le mode lecture seule n est pas retenu apres une lecture impossible'
+    foreach($name in @(@($map.Values | ForEach-Object {$_})+@('BtnCompGpUpdate','BtnCompRestart'))){
+        Assert-False $script:Ctrl[$name].IsEnabled $name
+        Assert-True ([string]$script:Ctrl[$name].ToolTip -match 'lecture seule n.a pas pu .tre lu') ($name+' : '+[string]$script:Ctrl[$name].ToolTip)
+    }
+    $refus='';try{Assert-DomeniaRemoteWriteAllowed 'GPUpdate'}catch{$refus=$_.Exception.Message}
+    Assert-True ($refus -match 'lecture seule n.a pas pu .tre lu') ('Action distante : '+$refus)
+    # Back to a readable switch, unchecked: the writes reopen (the failure is not sticky).
+    $script:Ctrl['ChkReadOnlyMode']=[Windows.Controls.CheckBox]::new();$script:Ctrl['ChkReadOnlyMode'].IsChecked=$false
+    Apply-CurrentPermissionUi -StartupFastPath
+    Assert-False ([bool]$script:ReadOnlyMode)
+    Assert-True $script:Ctrl.BtnUserSave.IsEnabled 'Interrupteur relu : ecriture de nouveau permise'
+}
 
 # K2: only disposable folders in the VM. Deny ACEs never touch the profile or installation.
 $script:StorageCoreDefinitions=@(foreach($name in @('Get-DomeniaPreferencePath','Read-DomeniaPreference','Write-DomeniaPreference','Write-DomeniaAtomicText','Protect-DomeniaLogText','Initialize-DomeniaDataStore','Get-DomeniaFastLoginLogPath','Add-DomeniaUiLog')){Get-FunctionTextFromFile $core $name}) -join "`n"

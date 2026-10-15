@@ -1185,6 +1185,36 @@ try {
         }
     }
 
+    Test-Case 'P-CD-09 : comparaison de fiche impossible, champs modifies inconnus et jamais annonces a zero' {
+        $definitions=@('Get-DomeniaFicheEditControls','Get-DomeniaFicheDirtyControls')|ForEach-Object{$wantedName=$_;[string](@($nodes|Where-Object{$_.Name -eq $wantedName})[0].Extent.Text)}
+        . ([scriptblock]::Create(($definitions -join "`r`n")))
+        $savedMap=$script:FicheEditChamps;$savedEdit=$script:FicheEdit
+        try {
+            $script:FicheEditChamps=[ordered]@{Utilisateur=@('TxtUserGivenName');Coordonnees=@('TxtUserCity');Machine=@('TxtCompDescription')}
+            $fields=@{TxtUserGivenName=[pscustomobject]@{Text='Jean'};TxtUserCity=[pscustomobject]@{Text='Lyon'}}
+            function Get-DomeniaControl {param($Name) return $fields[$Name]}
+            $script:FicheEdit=[ordered]@{Dn='CN=Jean,DC=example,DC=invalid';Type='Utilisateur';Edition=$true;Originaux=@{TxtUserGivenName='Jean';TxtUserCity='Lyon'};Abandon='';DirtyUnknown=$false}
+            Assert-True (@(Get-DomeniaFicheDirtyControls -Type 'Utilisateur').Count -eq 0) 'Champs identiques comptes comme modifies'
+            Assert-True (-not [bool]$script:FicheEdit['DirtyUnknown']) 'Comparaison reussie marquee inconnue'
+            $fields.TxtUserCity.Text='Lille'
+            $changed=@(Get-DomeniaFicheDirtyControls -Type 'Utilisateur')
+            Assert-True (($changed.Count -eq 1) -and ($changed[0] -eq 'TxtUserCity')) ('Champs modifies : '+($changed -join ','))
+            # Reference lost (failed snapshot): the comparison fails and says so, instead of "0 champ(s) changes".
+            $script:FicheEdit['Originaux']=$null
+            $unknown=@(Get-DomeniaFicheDirtyControls -Type 'Utilisateur')
+            Assert-True ([bool]$script:FicheEdit['DirtyUnknown']) 'Une comparaison impossible passe pour une fiche sans modification'
+            Assert-True ($unknown.Count -eq 0) 'Liste inventee apres une comparaison impossible'
+            $script:FicheEdit['Originaux']=@{TxtUserGivenName='Jean';TxtUserCity='Lille'}
+            [void](Get-DomeniaFicheDirtyControls -Type 'Utilisateur')
+            Assert-True (-not [bool]$script:FicheEdit['DirtyUnknown']) 'L etat inconnu reste colle apres une comparaison reussie'
+            # The fiche and the abandon notice read the flag.
+            $editUi=[string](@($nodes|Where-Object{$_.Name -eq 'Update-DomeniaFicheEditUi'})[0].Extent.Text)
+            $clear=[string](@($nodes|Where-Object{$_.Name -eq 'Clear-ObjectDetails'})[0].Extent.Text)
+            Assert-True ($editUi.Contains('DirtyUnknown') -and $clear.Contains('DirtyUnknown')) 'La fiche ou l avis d abandon ignore l etat inconnu'
+        }
+        finally { $script:FicheEditChamps=$savedMap;$script:FicheEdit=$savedEdit }
+    }
+
     # ------------------------------------------------------------ Integrite : deblocage et fins de ligne
     Test-Case 'Integrite : le deblocage tolere les fins de ligne et refuse un contenu modifie' {
         # Le garde lit des octets, pas des scripts. Un clone Windows (core.autocrlf) rend le meme

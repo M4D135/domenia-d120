@@ -1472,6 +1472,9 @@ function Merge-ConfigObject {
 
 function Load-AppConfig {
     $default = New-DefaultConfig
+    # P-CD-09: a configuration that cannot be read is said at startup (Main): the session runs with the defaults, which
+    # may differ from the settings the administrator chose (security, remote access, limits).
+    $script:ConfigLoadIssues = New-Object 'System.Collections.Generic.List[object]'
     try {
         if (($null -ne $script:CfgPath) -and (Test-Path -LiteralPath $script:CfgPath)) {
             $raw = Get-Content -LiteralPath $script:CfgPath -Raw -Encoding UTF8
@@ -1493,7 +1496,11 @@ function Load-AppConfig {
             }
         }
     }
-    catch { Write-DomeniaSwallowed 'Core' 'Load-AppConfig' $_ }
+    catch {
+        $default = New-DefaultConfig
+        $script:ConfigLoadIssues.Add([pscustomobject]@{Source='Fichier';Warning=$true;Text=('La configuration ' + [string]$script:CfgPath + ' est illisible : les valeurs par défaut sʼappliquent pour cette session, y compris les réglages de sécurité et dʼaccès distant. Corrigez le fichier puis redémarrez Domenia.')})
+        Write-DomeniaSwallowed 'Core' 'Load-AppConfig' $_
+    }
 
     try {
         if (Test-Path -LiteralPath $script:RegPath) {
@@ -1503,7 +1510,10 @@ function Load-AppConfig {
             foreach($name in @('VaultDomainDn','VaultUserName')){if($null -ne $reg.PSObject.Properties[$name]){$default.Auth[$name]=[string]$reg.$name}}
         }
     }
-    catch { Write-DomeniaSwallowed 'Core' 'Load-AppConfig' $_ }
+    catch {
+        $script:ConfigLoadIssues.Add([pscustomobject]@{Source='Registre';Warning=$false;Text='Préférences de connexion du registre illisibles : le dernier compte et le choix « se souvenir » ne sont pas repris.'})
+        Write-DomeniaSwallowed 'Core' 'Load-AppConfig' $_
+    }
 
     if ($Server) { $default.Conf.Server = $Server }
     if ($SearchBase) { $default.Conf.SearchBase = $SearchBase }
@@ -3457,6 +3467,7 @@ function Update-DomeniaSelectedUserPresence {
 
     $target = ""
     $confidence = 0
+    $linksUnreadable = $false
     try {
         $links = @(Get-LinksForUser -UserLogin $Login -Guid $Guid -CreatedUtc $CreatedUtc)
         # D042/D043: a declared assignment first, then the most recent relation (relation model); RC1.10.7 order otherwise.
@@ -3473,7 +3484,16 @@ function Update-DomeniaSelectedUserPresence {
             try { $confidence = [int]$best.Confidence } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaSelectedUserPresence' $_ }
         }
     }
-    catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaSelectedUserPresence' $_ }
+    catch { $linksUnreadable = $true; Write-DomeniaSwallowed 'Core' 'Update-DomeniaSelectedUserPresence' $_ }
+
+    # P-CD-09: associations that could not be read are not "no associated workstation": the presence stays unknown.
+    if ($linksUnreadable) {
+        $unknown = "Non vérifié : postes associés illisibles"
+        Set-DomeniaPresenceText -Name "TxtUserPresence" -State $unknown -PresenceState 'Unknown'
+        Update-DomeniaObjectPresence -State $unknown -Target "" -PresenceState 'Unknown'
+        Add-DomeniaUiLog -Area "Presence" -Level "WARN" -Text "$Login : postes associés illisibles, présence non vérifiée."
+        return
+    }
 
     if ([string]::IsNullOrWhiteSpace($target)) {
         Set-DomeniaPresenceText -Name "TxtUserPresence" -State "Aucun poste associe"
@@ -9302,11 +9322,12 @@ function Clear-ObjectDetails {
         # page le dira sur la fiche suivante, une fois, sans fenetre et sans bloquer la selection.
         if ([bool]$script:FicheEdit["Edition"]) {
             $modifies = @(Get-DomeniaFicheDirtyControls -Type ([string]$script:FicheEdit["Type"]))
+            $inconnu = [bool]$script:FicheEdit["DirtyUnknown"]
             $abandon = ""
-            if ($modifies.Count -gt 0) {
+            if (($modifies.Count -gt 0) -or $inconnu) {
                 $nomObjet = ""
                 try { $nomObjet = [string]$script:SelectedObject.Name } catch { Write-DomeniaSwallowed 'Core' 'Clear-ObjectDetails' $_ }
-                $abandon = "Modifications non enregistrées abandonnées"
+                $abandon = if ($inconnu) { "Modifications éventuelles non vérifiées, abandonnées" } else { "Modifications non enregistrées abandonnées" }
                 if (-not [string]::IsNullOrWhiteSpace($nomObjet)) { $abandon = $abandon + " sur " + $nomObjet }
                 $abandon = $abandon + " en changeant dʼobjet."
             }
@@ -10522,6 +10543,7 @@ $script:FicheEdit = [ordered]@{
     Edition = $false # le crayon a ete presse
     Originaux = @{}  # valeur lue dans l annuaire, par nom de controle
     Abandon = ''     # message a montrer a la fiche suivante, vide quand il n y a rien a dire
+    DirtyUnknown = $false # P-CD-09 : la comparaison avec la fiche lue a echoue, les champs modifies sont inconnus
 }
 $script:LiveSearchTimer = $null
 $script:SelectionOpenTimer = $null
@@ -13624,7 +13646,8 @@ function Complete-DomeniaSecretLoadUi {
         $script:Ctrl["LblSecretsStatus"].Text = "Aucun objet de récupération visible avec ce compte. Lʼabsence de résultat ne prouve pas lʼabsence de clé."
         Set-Status "BitLocker : aucun objet de récupération visible avec ce compte." "WARN"
         [void](Request-DomeniaAccessRecovery -Operation 'Lecture BitLocker' -ErrorValue 'Aucune cle visible.' -OperationId 'ReadBitLocker' -DN ([string]$State.DN) -Possible -Interactive:([int]$State.RetryAttempt -eq 0))
-        try { [void](Save-DomeniaSecretIndexEntry -Computer (Get-CurrentSelectedComputerName) -BitLockerKeys 0 -Verdict "aucune cle visible avec ce compte") } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaSecretLoadUi' $_ }
+        try { [void](Save-DomeniaSecretIndexEntry -Computer (Get-CurrentSelectedComputerName) -BitLockerKeys 0 -Verdict "aucune cle visible avec ce compte") }
+        catch { Write-AppLog ("Index local des secrets non mis à jour (BitLocker) : " + $_.Exception.Message) "WARN" }
         return
     }
     $lapsSuffix = if ($lapsFacts) { " " + $lapsFacts + "." } else { "" }
@@ -13634,7 +13657,10 @@ function Complete-DomeniaSecretLoadUi {
         if ($count -eq 0) { $verdict = "present mais non lisible par ton compte" }
         [void](Update-DomeniaSecretIndexFromRows -Computer (Get-CurrentSelectedComputerName) -Mode ([string]$effective.Mode) -Rows $script:SecretRows -Verdict $verdict)
     }
-    catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaSecretLoadUi' $_ }
+    catch {
+        # P-CD-09: the values are loaded, but the local index of secret metadata keeps its previous state: say so.
+        Write-AppLog ("Index local des secrets non mis à jour ($([string]$effective.Mode)) : " + $_.Exception.Message) "WARN"
+    }
 
     try {
         $secretGrid = Get-DomeniaControl -Name "DgSecrets"
@@ -18642,7 +18668,12 @@ function Set-DomeniaIndexPartial {
     # raise instead of only saying "limite". A marker written before these two fields still reads, with no limit named.
     param([string]$BaseDn = '',[int]$Count = 0,[string]$Reason = '',[int]$Limit = 0,[switch]$Clear)
     $value = if ($Clear) { '' } else { $BaseDn + '|' + [datetime]::Now.ToString('dd/MM/yyyy HH:mm',[Globalization.CultureInfo]::InvariantCulture) + '|' + [string]$Count + '|' + [string]$Reason + '|' + [string]$Limit }
-    try { Set-DomeniaSetting 'Index.Partial' $value; Save-DomeniaSettings -Immediate } catch { Write-DomeniaSwallowed 'Core' 'Set-DomeniaIndexPartial' $_ }
+    # P-CD-09: without this marker Accueil would present a partial base as complete; a failure is said in the journal.
+    try { Set-DomeniaSetting 'Index.Partial' $value; Save-DomeniaSettings -Immediate }
+    catch {
+        $what = if ($Clear) { 'La fin de la mise à jour partielle' } else { 'La mise à jour partielle de la base locale' }
+        Add-DomeniaUiLog -Area 'Index' -Level 'WARN' -Text ($what + ' nʼa pas pu être enregistrée dans les préférences : lʼavertissement dʼAccueil peut être faux après un redémarrage. ' + $_.Exception.Message)
+    }
 }
 
 function Get-DomeniaIndexPartialText {
@@ -19090,7 +19121,7 @@ function Open-DomeniaIndexSelection {
         if (-not [string]$row.DN) { return }
         Open-AdObject -Dn ([string]$row.DN) -Type ([string]$row.Type) -ObjectGuid ([string]$row.Guid) -SuppressRemoteProbes
     }
-    catch { Write-DomeniaSwallowed 'Core' 'Open-DomeniaIndexSelection' $_ }
+    catch { [void](Show-DomeniaOperationError -Operation "Ouverture de lʼobjet de la base locale" -ErrorRecordOrException $_ -NoPopup) }
 }
 
 function Get-DomeniaIndexSuggestionText {
@@ -20699,9 +20730,13 @@ function Assert-WriteAllowed {
     # C2: first guard, before receipts or the read-only box: nothing is ever written in demonstration.
     if ([bool]$script:DemoMode) { throw 'Ecritures desactivees en demonstration - aucune connexion AD. Aucune ecriture tentee.' }
     if(-not $script:ReceiptReady -or $script:ReceiptPending -gt 0){throw 'Ouvrez Operations : verification des recus non terminee ou action precedente a verifier.'}
-    $readOnly=$script:ReadOnlyMode
-    try { if ($script:Ctrl.ContainsKey("ChkReadOnlyMode")) { $readOnly=[bool]$script:Ctrl["ChkReadOnlyMode"].IsChecked } } catch { Write-DomeniaSwallowed 'Core' 'Assert-WriteAllowed' $_ }
-    if ($readOnly) { throw "Mode lecture seule actif. Aucune ecriture AD n a ete tentee." }
+    # P-CD-09: a read-only switch that cannot be read blocks the write (Get-DomeniaReadOnlyState, Safety.Model).
+    $readOnly=Get-DomeniaReadOnlyState -Controls $script:Ctrl -Fallback ([bool]$script:ReadOnlyMode)
+    if ([bool]$readOnly.Unreadable) {
+        Write-DomeniaSwallowed 'Core' 'Assert-WriteAllowed' $readOnly.Error
+        throw "Lʼétat du mode lecture seule nʼa pas pu être lu. Aucune écriture AD nʼa été tentée."
+    }
+    if ([bool]$readOnly.ReadOnly) { throw "Mode lecture seule actif. Aucune ecriture AD n a ete tentee." }
 }
 
 # =====================================================================
@@ -20809,9 +20844,13 @@ function Fail-DomeniaComputerToolUi {
 function Assert-DomeniaRemoteWriteAllowed {
     param([string]$Operation)
     if ([bool]$script:DemoMode) { throw "$Operation non disponible en demonstration - aucune connexion au poste. Aucune action tentee." }
-    $readOnly = [bool]$script:ReadOnlyMode
-    try { if ($script:Ctrl.ContainsKey("ChkReadOnlyMode")) { $readOnly = [bool]$script:Ctrl["ChkReadOnlyMode"].IsChecked } } catch { Write-DomeniaSwallowed 'Core' 'Assert-DomeniaRemoteWriteAllowed' $_ }
-    if ($readOnly) { throw "$Operation est une modification distante et reste bloquee tant que le mode lecture seule est actif." }
+    # P-CD-09: a read-only switch that cannot be read blocks the remote change (Get-DomeniaReadOnlyState, Safety.Model).
+    $readOnly = Get-DomeniaReadOnlyState -Controls $script:Ctrl -Fallback ([bool]$script:ReadOnlyMode)
+    if ([bool]$readOnly.Unreadable) {
+        Write-DomeniaSwallowed 'Core' 'Assert-DomeniaRemoteWriteAllowed' $readOnly.Error
+        throw "$Operation : lʼétat du mode lecture seule nʼa pas pu être lu. Aucune action nʼa été tentée sur le poste."
+    }
+    if ([bool]$readOnly.ReadOnly) { throw "$Operation est une modification distante et reste bloquee tant que le mode lecture seule est actif." }
     if((Get-DomeniaSelectionCachePolicy).Offline){throw 'Hors ligne : relisez Active Directory avant toute modification.'}
 }
 
@@ -22370,6 +22409,8 @@ function Get-SelectedAssociationSummary {
             $computer = ""
             try { $computer = [string]$script:Ctrl["TxtCompName"].Text } catch { Write-DomeniaSwallowed 'Core' 'Get-SelectedAssociationSummary' $_ }
             if ([string]::IsNullOrWhiteSpace($computer)) { $computer = [string]$script:SelectedObject.Name }
+            # P-CD-09: without a name to look up, "no link" would be a guess.
+            if ([string]::IsNullOrWhiteSpace($computer)) { return "Association indisponible" }
             $links = @(Get-LinksForComputer -Computer $computer -Guid ([string](Get-DomeniaMember $script:SelectedObject 'Guid' '')))
             if ($links.Count -eq 0) { return "Aucun utilisateur lie" }
             $l = $links[0]
@@ -22383,6 +22424,7 @@ function Get-SelectedAssociationSummary {
         if ($script:SelectedObject.Type -eq "Utilisateur") {
             $user = ""
             try { $user = [string]$script:Ctrl["TxtUserSam"].Text } catch { Write-DomeniaSwallowed 'Core' 'Get-SelectedAssociationSummary' $_ }
+            if ([string]::IsNullOrWhiteSpace($user)) { return "Association indisponible" }
             $links = @(Get-LinksForUser -UserLogin $user -Guid ([string](Get-DomeniaMember $script:SelectedObject 'Guid' '')))
             if ($links.Count -eq 0) { return "Aucun poste lie" }
             return (($links | ForEach-Object { "$($_.Computer) [$($_.Source)]" }) -join ", ")
@@ -22815,6 +22857,7 @@ function Refresh-LinkGrid {
 
 function Refresh-AssociationContext {
     param([switch]$SkipResultRefresh)
+    $linksShown = $false
     try {
         if ($script:Ctrl.ContainsKey("TxtCompLinkedUser")) { $script:Ctrl["TxtCompLinkedUser"].Text = "" }
         if ($script:Ctrl.ContainsKey("TxtCompLinkSource")) { $script:Ctrl["TxtCompLinkSource"].Text = "" }
@@ -22860,6 +22903,7 @@ function Refresh-AssociationContext {
                 $script:Ctrl["LblUserLinkSummary"].Text = if ($computers.Count -gt 0) { "$($computers.Count) poste(s) associe(s) : $($computers -join ', ')" } else { "Aucun poste associé." }
             }
         }
+        $linksShown = $true
         Refresh-LinkGrid
         if (-not $SkipResultRefresh -and @($script:BranchObjects).Count -gt 0) {
             # Set-RowAssociationMetadata enrichit les objets existants en place.
@@ -22882,7 +22926,18 @@ function Refresh-AssociationContext {
         }
         Request-DomeniaDashboardRefresh
     }
-    catch { Write-AppLog "Contexte association impossible : $($_.Exception.ToString())" "WARN" }
+    catch {
+        Write-AppLog "Contexte association impossible : $($_.Exception.ToString())" "WARN"
+        # P-CD-09: the fields cleared above do not stay on "no association" when the links of this object were not read.
+        if (-not $linksShown) {
+            try {
+                if ($script:Ctrl.ContainsKey("TxtCompLinkedUser")) { $script:Ctrl["TxtCompLinkedUser"].Text = "Inconnu : associations illisibles" }
+                if ($script:Ctrl.ContainsKey("TxtCompLinkSource")) { $script:Ctrl["TxtCompLinkSource"].Text = "Liens locaux non relus" }
+                if ($script:Ctrl.ContainsKey("LblUserLinkSummary")) { $script:Ctrl["LblUserLinkSummary"].Text = "Associations illisibles : postes associés non vérifiés." }
+            }
+            catch { Write-DomeniaSwallowed 'Core' 'Refresh-AssociationContext' $_ }
+        }
+    }
 }
 
 function Start-OpenLinkedObject {
@@ -27008,17 +27063,20 @@ function Apply-CurrentPermissionUi {
     param([switch]$StartupFastPath)
     $map = Get-WriteControlMap
     $cachePolicy=Get-DomeniaSelectionCachePolicy
-    $readOnly = $script:ReadOnlyMode
-    try { if ($script:Ctrl.ContainsKey("ChkReadOnlyMode")) { $readOnly = [bool]$script:Ctrl["ChkReadOnlyMode"].IsChecked } } catch { Write-DomeniaSwallowed 'Core' 'Apply-CurrentPermissionUi' $_ }
+    # P-CD-09: the guards fail closed (Safety.Model): an unreadable read-only switch counts as read-only, unreadable
+    # protection markers as a protected object, an unreadable DN blocks the writes on it.
+    $readOnlyState = Get-DomeniaReadOnlyState -Controls $script:Ctrl -Fallback ([bool]$script:ReadOnlyMode)
+    if ([bool]$readOnlyState.Unreadable) { Write-DomeniaSwallowed 'Core' 'Apply-CurrentPermissionUi' $readOnlyState.Error }
+    $readOnly = [bool]$readOnlyState.ReadOnly
     $script:ReadOnlyMode = $readOnly
-    $protected = $false
-    try { $protected = ([string]$script:SelectedObject.Safety.AdminCount -eq "1") -or [bool]$script:SelectedObject.Safety.Critical } catch { Write-DomeniaSwallowed 'Core' 'Apply-CurrentPermissionUi' $_ }
+    $subject = Get-DomeniaWriteGuardSubject -Selected $script:SelectedObject
+    foreach ($fault in @($subject.Errors)) { Write-DomeniaSwallowed 'Core' 'Apply-CurrentPermissionUi' $fault }
+    $protected = [bool]$subject.Protected
     $blockProtected = $protected -and [bool](Get-CfgValue "Security" "BlockProtectedObjects" $true) -and -not [bool](Get-CfgValue "Security" "AllowProtectedObjectWrites" $false)
     $blockEstimatedDenied = [bool](Get-CfgValue "Security" "BlockOnAclEstimate" $false)
     $disableIndeterminate = [bool](Get-CfgValue "Security" "DisableIndeterminateControls" $false)
     $writeActive = (-not [string]::IsNullOrWhiteSpace($script:ActiveWriteTaskId)) -or ($script:WriteState -in @("Unknown","UnknownPending"))
-    $currentDn = ""
-    try { $currentDn = [string]$script:SelectedObject.DN } catch { Write-DomeniaSwallowed 'Core' 'Apply-CurrentPermissionUi' $_ }
+    $currentDn = [string]$subject.Dn
     foreach ($cap in $map.Keys) {
         $lookup = if($cap -eq "Raw"){"Edit"}else{$cap}
         $state = "Indetermine"
@@ -27028,17 +27086,20 @@ function Apply-CurrentPermissionUi {
             $busy = $false
             if ($script:ControlBusyRef.ContainsKey($name)) { $busy = ([int]$script:ControlBusyRef[$name] -gt 0) }
             $actualDenied = Test-DomeniaActualCapabilityDenied -Dn $currentDn -Capability $lookup
-            $denied = $actualDenied -or ($blockEstimatedDenied -and $state -eq "Refuse") -or ($disableIndeterminate -and $state -eq "Indetermine")
+            $denied = [bool]$subject.DnUnreadable -or $actualDenied -or ($blockEstimatedDenied -and $state -eq "Refuse") -or ($disableIndeterminate -and $state -eq "Indetermine")
             $rawBlocked = ($cap -eq "Raw" -and -not [bool](Get-CfgValue "Security" "AllowRawAttributeWrite" $false))
             $dangerProtected = $blockProtected -and ($cap -in @("Edit","Raw","Account","Password","Group","Move","Delete"))
             $enabled = -not ($readOnly -or $denied -or $busy -or $writeActive -or $rawBlocked -or $dangerProtected -or -not $cachePolicy.CanEdit)
             $script:Ctrl[$name].IsEnabled = $enabled
             Restore-DomeniaUxBaseToolTip -Name $name
-            if ($readOnly) { $script:Ctrl[$name].ToolTip = "Desactive : mode lecture seule actif." }
+            if ([bool]$readOnlyState.Unreadable) { $script:Ctrl[$name].ToolTip = "Désactivé : lʼétat du mode lecture seule nʼa pas pu être lu ; aucune écriture tant quʼil nʼest pas relu." }
+            elseif ($readOnly) { $script:Ctrl[$name].ToolTip = "Desactive : mode lecture seule actif." }
             elseif ($writeActive) { $script:Ctrl[$name].ToolTip = "Desactive : une ecriture AD est deja en cours de verification." }
             elseif (-not $cachePolicy.CanEdit) { $script:Ctrl[$name].ToolTip=(Get-DomeniaDisabledHelp -Action 'Modifier cet objet' -Reason $(if($cachePolicy.Offline){'Offline'}else{'Stale'})).ToolTip }
+            elseif ($dangerProtected -and [bool]$subject.ProtectionUnreadable) { $script:Ctrl[$name].ToolTip = "Désactivé : la protection de lʼobjet (adminCount, isCriticalSystemObject) nʼa pas pu être lue. Rechargez lʼobjet." }
             elseif ($dangerProtected) { $script:Ctrl[$name].ToolTip = "Desactive : objet protege adminCount/isCriticalSystemObject." }
             elseif ($rawBlocked) { $script:Ctrl[$name].ToolTip = "Ecriture brute desactivee dans la configuration de securite." }
+            elseif ([bool]$subject.DnUnreadable) { $script:Ctrl[$name].ToolTip = "Désactivé : lʼobjet sélectionné nʼa pas pu être relu (nom distinctif illisible). Rechargez-le avant toute modification." }
             elseif ($actualDenied) { $script:Ctrl[$name].ToolTip = "Desactive apres un refus d'acces reel du controleur de domaine pour l'identite connectee. Recharge l'objet apres correction des droits." }
             elseif ($denied) { $script:Ctrl[$name].ToolTip = "Desactive par la politique locale a partir de l'estimation ACL." }
             elseif ($state -eq "Refuse") { $script:Ctrl[$name].ToolTip = "Estimation ACL defavorable, non bloquante par defaut. Le preflight et le controleur de domaine restent l'autorite finale." }
@@ -27050,7 +27111,8 @@ function Apply-CurrentPermissionUi {
         $busy = ($script:ControlBusyRef.ContainsKey($name) -and [int]$script:ControlBusyRef[$name] -gt 0)
         $script:Ctrl[$name].IsEnabled = (-not $readOnly -and -not $busy -and -not $writeActive -and -not $cachePolicy.Offline)
         Restore-DomeniaUxBaseToolTip -Name $name
-        if ($readOnly) { $script:Ctrl[$name].ToolTip = "Desactive : cette action modifie le poste distant et le mode lecture seule est actif." }
+        if ([bool]$readOnlyState.Unreadable) { $script:Ctrl[$name].ToolTip = "Désactivé : lʼétat du mode lecture seule nʼa pas pu être lu ; aucune action distante tant quʼil nʼest pas relu." }
+        elseif ($readOnly) { $script:Ctrl[$name].ToolTip = "Desactive : cette action modifie le poste distant et le mode lecture seule est actif." }
         elseif ($cachePolicy.Offline) { $script:Ctrl[$name].ToolTip=(Get-DomeniaDisabledHelp -Action 'Modifier le poste distant' -Reason Offline).ToolTip }
         elseif ($busy) { $script:Ctrl[$name].ToolTip = "Action distante en cours." }
         elseif ($writeActive) { $script:Ctrl[$name].ToolTip = "Desactive pendant la verification d'une ecriture AD." }
@@ -27086,7 +27148,7 @@ function Initialize-DomeniaPresentation {
     if ($script:PresentationInitialized) { return }
     $script:PresentationInitialized = $true
 
-    try { [void](Load-DomeniaSettings) } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaPresentation' $_ }
+    try { [void](Load-DomeniaSettings) } catch { Write-AppLog ("Préférences non chargées, valeurs par défaut pour cette session : " + $_.Exception.Message) "WARN" }
     # Non-blocking startup (FI-19): the page shows that the figures are being read; the LocalIndexRead worker reads
     # them once the window is painted (ContentRendered). The park and the detailed AD rows are loaded on demand.
     try { Update-DomeniaIndexStats } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaPresentation' $_ }
@@ -27148,8 +27210,13 @@ function Assert-DomeniaCapability {
     if (-not [string]::IsNullOrWhiteSpace($script:ActiveWriteTaskId)) { throw "Une ecriture est deja en cours. Les ecritures sont traitees une par une." }
     if ($script:WriteState -in @("Unknown","UnknownPending")) { throw "Une ecriture precedente est dans un etat inconnu. Ouvrez Operations et verifiez le recu concerne avant toute nouvelle ecriture." }
     if((Get-DomeniaSelectionCachePolicy).Offline){throw 'Hors ligne : relisez Active Directory avant toute modification.'}
-    $currentDn = ""
-    try { $currentDn = [string]$script:SelectedObject.DN } catch { Write-DomeniaSwallowed 'Core' 'Assert-DomeniaCapability' $_ }
+    # P-CD-09: an object whose DN cannot be read leaves no recorded refusal to check: the write is blocked.
+    $subject = Get-DomeniaWriteGuardSubject -Selected $script:SelectedObject
+    if ([bool]$subject.DnUnreadable) {
+        foreach ($fault in @($subject.Errors)) { Write-DomeniaSwallowed 'Core' 'Assert-DomeniaCapability' $fault }
+        throw "Action bloquée : lʼobjet sélectionné nʼa pas pu être relu (nom distinctif illisible). Rechargez-le avant toute modification."
+    }
+    $currentDn = [string]$subject.Dn
     if (Test-DomeniaActualCapabilityDenied -Dn $currentDn -Capability $Capability) {
         throw "Action bloquee apres un refus d'acces reel d'Active Directory pour la capacite $Capability sur cette cible. Recharge l'objet apres correction des droits."
     }
@@ -27309,7 +27376,8 @@ function Complete-DomeniaWriteTaskUi {
         $backend = ""
         try { $backend = [string]$effective.Backend } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaWriteTaskUi' $_ }
         $partial = $false
-        try { if ($null -ne $effective.PSObject.Properties["Partial"]) { $partial = [bool]$effective.Partial } } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaWriteTaskUi' $_ }
+        # P-CD-09: an unreadable Partial flag never reads as a complete success: the operator checks the steps.
+        try { if ($null -ne $effective.PSObject.Properties["Partial"]) { $partial = [bool]$effective.Partial } } catch { $partial = $true; Write-DomeniaSwallowed 'Core' 'Complete-DomeniaWriteTaskUi' $_ }
         $post = Get-DomeniaWritePostcondition -OperationId ([string]$State.OperationId) -Result $effective
         $script:LastWritePostcondition = $post
         $postStatus = ""
@@ -28165,8 +28233,11 @@ function Get-DomeniaFicheEditControls {
 function Get-DomeniaFicheDirtyControls {
     # Un champ est modifie quand son texte differe de ce que l annuaire a repondu, a la casse pres
     # sur les noms : « jeaan » et « Jean » ne sont pas la meme saisie pour un operateur.
+    # P-CD-09: a comparison that fails is not "nothing changed": FicheEdit.DirtyUnknown tells the fiche and the
+    # abandon notice that the modified fields are not known.
     param([string]$Type)
     $sortie = New-Object System.Collections.Generic.List[string]
+    $inconnu = $false
     try {
         foreach ($nom in (Get-DomeniaFicheEditControls -Type $Type)) {
             $c = Get-DomeniaControl -Name $nom
@@ -28176,7 +28247,8 @@ function Get-DomeniaFicheDirtyControls {
                 [void]$sortie.Add($nom)
             }
         }
-    } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaFicheDirtyControls' $_ }
+    } catch { $inconnu = $true; Write-DomeniaSwallowed 'Core' 'Get-DomeniaFicheDirtyControls' $_ }
+    try { $script:FicheEdit['DirtyUnknown'] = $inconnu } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaFicheDirtyControls' $_ }
     return $sortie.ToArray()
 }
 
@@ -28236,6 +28308,7 @@ function Update-DomeniaFicheEditUi {
         $texte = ""
         if ($edition) {
             $texte = "Mode modification : " + [string]$modifies.Count + " champ(s) changes. Rien ne partira dans lʼannuaire avant Enregistrer."
+            if ([bool]$script:FicheEdit["DirtyUnknown"]) { $texte = "Mode modification : comparaison avec la fiche lue impossible, les champs changés ne sont pas connus. Rien ne partira dans lʼannuaire avant Enregistrer." }
         }
         elseif (-not [string]::IsNullOrWhiteSpace([string]$script:FicheEdit["Abandon"])) {
             $texte = [string]$script:FicheEdit["Abandon"]
@@ -29440,7 +29513,16 @@ function Initialize-Window {
         try { [void](Set-DomeniaWindowActivationPolicy -Window $script:Window -UserSwitchedAway:(Test-DomeniaUserSwitchedAway)) } catch { Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_ }
         $script:Window.Add_Closing({param($s,$e)
             $writeJobStillAlive = $false
-            try { $writeJobStillAlive = (@($script:AsyncJobs.Values | Where-Object { $null -ne $_ -and [bool]$_.IsWrite }).Count -gt 0) } catch { Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_ }
+            $writeJobsUnreadable = $false
+            try { $writeJobStillAlive = (@($script:AsyncJobs.Values | Where-Object { $null -ne $_ -and [bool]$_.IsWrite }).Count -gt 0) } catch { $writeJobsUnreadable = $true; Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_ }
+            # P-CD-09: when the running tasks cannot be read, closing could interrupt a write still being confirmed:
+            # the operator decides, as when the engine stopped.
+            if($writeJobsUnreadable -and [string]::IsNullOrWhiteSpace($script:ActiveWriteTaskId)){
+                $leave=$false
+                try{$leave=Confirm-WarningAction "Domenia nʼa pas pu vérifier sʼil reste une écriture AD en cours de confirmation.`r`n`r`nSi vous fermez maintenant, vérifiez les reçus au prochain démarrage avant toute autre modification.`r`n`r`nFermer Domenia maintenant ?"}catch{Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_}
+                if($leave){Write-AppLog "Fermeture confirmee sans pouvoir lire les taches en cours ; recus a verifier au prochain demarrage." "WARN";return}
+                $e.Cancel=$true;return
+            }
             if(-not [string]::IsNullOrWhiteSpace($script:ActiveWriteTaskId) -or $writeJobStillAlive){
                 # FI-02: a stopped engine will never confirm this write; its durable receipt keeps it to be verified.
                 if([bool]$script:AsyncEngineFaultStopped){
@@ -30906,6 +30988,12 @@ try {
     if($script:StoragePreferenceWarning){
         Write-StartupTrace -Stage 'Stockage/Preferences' -Status 'WARN' -Detail $script:StoragePreferenceWarning
         Show-WarningBox -Message $script:StoragePreferenceWarning
+    }
+    # P-CD-09: what Load-AppConfig could not read is traced, and an unreadable configuration file is shown.
+    foreach($issue in @($script:ConfigLoadIssues)){
+        if($null -eq $issue){continue}
+        Write-StartupTrace -Stage ('Configuration/'+[string]$issue.Source) -Status 'WARN' -Detail ([string]$issue.Text)
+        if([bool]$issue.Warning){Show-WarningBox -Message ([string]$issue.Text)}
     }
     Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.13-DOMENIA-1.0-RC1.17.7-D120)"
     # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).

@@ -1128,7 +1128,7 @@ function Complete-DomeniaGestureBackup {
     if(-not (Test-DomeniaBackupReceiptVerified $packet)){Show-DomeniaGestureBackupFailure -State $State -Message 'résultat de sauvegarde non confirmé';return}
     try{Register-DomeniaVerifiedBackup -Packet $packet -Path ([string]$State.Path) -Origin 'Gesture'}catch{Write-AppLog ('Date de sauvegarde non mémorisée : '+$_.Exception.Message) 'WARN'}
     Add-DomeniaUiLog -Area 'Stockage' -Text ('Sauvegarde vérifiée avant '+[string]$State.Label+' : '+[string]$packet.Backup)
-    try{Update-DomeniaIndexLocation}catch{Write-DomeniaSwallowed 'Storage' 'Complete-DomeniaGestureBackup' $_}
+    try{Update-DomeniaIndexLocation}catch{Write-AppLog ('Emplacement et date de sauvegarde de la base non actualisés : '+$_.Exception.Message) 'WARN'}
     try{Update-DomeniaStorageBackupScheduleUi}catch{Write-AppLog ('État des sauvegardes non actualisé : '+$_.Exception.Message) 'WARN'}
     try{[void](& $State.Then)}
     catch{$text='Sauvegarde vérifiée, mais '+[string]$State.Label+' nʼa pas pu démarrer : '+$_.Exception.Message;Set-Status $text 'WARN';Write-AppLog $text 'WARN'}

@@ -655,6 +655,25 @@ Test-Case 'D002 : commutateur strict et fixe une fois apres la configuration' {
     Assert-True ($null -ne $script:DemoDirectory -and [string]$script:DemoDirectory.Format -eq 'DomeniaDemoDirectory/1') 'Annuaire de demonstration absent'
     Remove-Item -LiteralPath $script:CfgPath -Force -ErrorAction SilentlyContinue
 }
+Test-Case 'P-CD-09 : configuration illisible dite au demarrage, valeurs par defaut appliquees' {
+    $script:RegPath = 'HKCU:\Software\DOMENIA-Wiring-' + [guid]::NewGuid().ToString('N')
+    $script:CfgPath = Join-Path ([IO.Path]::GetTempPath()) ('domenia-cfg-' + [guid]::NewGuid().ToString('N') + '.json')
+    try {
+        [IO.File]::WriteAllText($script:CfgPath,'{"Auth":{"DemoProvider":false}}')
+        [void](Load-AppConfig)
+        Assert-True (@($script:ConfigLoadIssues).Count -eq 0) 'Configuration lisible signalee comme illisible'
+        [IO.File]::WriteAllText($script:CfgPath,'{"Auth":{"DemoProvider":false},')
+        $config = Load-AppConfig
+        $issues = @($script:ConfigLoadIssues)
+        Assert-True (($issues.Count -eq 1) -and ([string]$issues[0].Source -eq 'Fichier') -and [bool]$issues[0].Warning) ('Configuration illisible non signalee : ' + $issues.Count)
+        Assert-True (([string]$issues[0].Text).Contains($script:CfgPath)) 'Le fichier en cause n est pas nomme'
+        Assert-True ([string]$issues[0].Text -match 'valeurs par d.faut') 'Les valeurs appliquees ne sont pas dites'
+        $defaults = New-DefaultConfig
+        Assert-True (($null -ne $config) -and ([object]::ReferenceEquals($config,$script:Config))) 'Configuration de session absente'
+        Assert-True (@($config.Keys).Count -eq @($defaults.Keys).Count) 'La session ne repart pas des valeurs par defaut'
+    }
+    finally { Remove-Item -LiteralPath $script:CfgPath -Force -ErrorAction SilentlyContinue }
+}
 Test-Case 'D002 : arbre reel (Load-TreeChildren) servi par DemoDirectory' {
     Enable-WiringDemo
     $tree = New-Object System.Windows.Controls.TreeView

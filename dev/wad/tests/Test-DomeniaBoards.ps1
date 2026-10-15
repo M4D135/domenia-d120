@@ -636,6 +636,28 @@ try{
         $tabs.SelectedItem=Get-DomeniaControl 'WsSearch'
         $script:DatabaseScopedPath='';$script:FleetPendingKey='';$script:FleetJobId=''
     }
+    Case 'P-CD-09 : Accueil non recalculable, la vue le dit et ne se presente pas comme a jour' {
+        $script:DatabaseScopedPath='C:\fictif\domenia.db';$script:StartCalls.Clear();$script:AsyncJobs=@{}
+        $script:FleetComputedKey='';$script:FleetPendingKey='';$script:FleetJobId='';$script:FleetStale=$true
+        $script:FleetScopeDn='OU=Postes,DC=example,DC=invalid'
+        $tabs=Get-DomeniaControl 'WorkspaceTabs'
+        $tabs.SelectedItem=Get-DomeniaControl 'TabDashboard'
+        # Preparation of the request in failure (local doubles of this case only).
+        function Get-DomeniaFleetQueryPlan { throw 'plan de lecture impossible (simulation)' }
+        Request-DomeniaFleetRefresh
+        $label=[string](Get-DomeniaControl 'LblFleetDashboard').Text
+        Expect ($script:StartCalls.Count -eq 0) 'Calcul lance malgre une preparation en echec'
+        Expect ($label -like 'Vue dʼensemble non calculée : plan de lecture impossible*') ('Libelle : '+$label)
+        # Failure before the calculation is chosen: the caller still receives the error, the view says it is not current.
+        function Get-DomeniaFleetScope { throw 'perimetre illisible (simulation)' }
+        $raised='';try{Request-DomeniaFleetRefresh -Force}catch{$raised=$_.Exception.Message}
+        $label=[string](Get-DomeniaControl 'LblFleetDashboard').Text
+        Expect ($raised -match 'perimetre illisible') 'L erreur n est plus rendue a l appelant'
+        Expect ($label -like 'Vue dʼensemble non actualisée : perimetre illisible*') ('Libelle : '+$label)
+        Expect ([bool]$script:FleetStale) 'La vue n est pas marquee a recalculer'
+        $tabs.SelectedItem=Get-DomeniaControl 'WsSearch'
+        $script:DatabaseScopedPath='';$script:FleetPendingKey='';$script:FleetJobId=''
+    }
     Case 'Widget de requete en attente : etat explicite, puis rempli par un resultat' {
         $script:FleetScopeDn='OU=Postes,DC=example,DC=invalid';$script:FleetStale=$false;$script:FleetJobId=''
         Complete-DomeniaFleetDashboard -Result (New-FleetResult -Scope $script:FleetScopeDn) -State $null

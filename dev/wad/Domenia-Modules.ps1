@@ -636,6 +636,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Test-DomeniaOperationAllowed',
             'Get-DomeniaCompensation',
             'Test-DomeniaRawAttributeAllowed',
+            'Get-DomeniaReadOnlyState',
+            'Get-DomeniaWriteGuardSubject',
             'ConvertTo-DomeniaDnDisplayName',
             'Test-DomeniaWriteTargetDn',
             'Get-DomeniaPlanChangeText'
