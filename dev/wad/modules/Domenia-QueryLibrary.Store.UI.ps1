@@ -152,6 +152,15 @@ function Fail-DomeniaQueryLibraryStoreRead {
     $store=$script:DomeniaQueryLibraryStoreState;$store.Loading=$false;$store.Loaded=$false;$store.Error=[string]$Message
     if($null -ne $script:DomeniaQueryState){$script:DomeniaQueryState.LibraryError=$store.Error;[void](Set-DomeniaControlText 'LblQueryStatus' ('Bibliothèque non disponible : '+$store.Error))}
 }
+function Format-DomeniaQueryDependencyLabel {
+    # French name of a consumer bound to a recipe revision, with the widget title when the board still holds it.
+    param($Dependency)
+    $kind=[string]$Dependency.ConsumerKind
+    $board=switch($kind){'Fleet'{'Tableau de bord général'};'Computer'{'Tableau de bord du poste'};default{$kind}}
+    $title=''
+    if($kind -in @('Fleet','Computer')){try{$item=@(Get-DomeniaBoardLayout $kind|Where-Object{[string]$_.Id -ceq [string]$Dependency.ConsumerId}|Select-Object -First 1);if($item.Count){$title=[string]$item[0].Title}}catch{$title=''}}
+    return ($board+' · '+$(if($title){'widget « '+$title+' »'}else{'widget '+[string]$Dependency.ConsumerId})+' · révision '+[string]$Dependency.BoundRevision)
+}
 function Save-DomeniaQueryRecipe {
     # -Category '' keeps the stored category of an existing recipe (or Mes requêtes for a new one).
     param($Recipe,[string]$SuccessHandler='Complete-DomeniaQueryRecipeSaveUi',$CallbackState=$null,[switch]$Archive,[object[]]$AdditionalDependencies=@(),[string]$ErrorHandler='',[string]$Category='')
@@ -173,7 +182,7 @@ function Save-DomeniaQueryRecipe {
     $dependencies=@($store.Dependencies|Where-Object{[string]$_.RecipeId -ceq [string]$Recipe.Id})
     if($dependencies.Count){
         $action=if($Archive){'Archiver cette requête et retirer ses widgets'}else{'Mettre à jour les widgets qui utilisent cette requête'}
-        $details=($dependencies|ForEach-Object{[string]$_.ConsumerKind+' · '+[string]$_.ConsumerId+' · révision '+[string]$_.BoundRevision}) -join "`r`n"
+        $details=($dependencies|ForEach-Object{Format-DomeniaQueryDependencyLabel $_}) -join "`r`n"
         $answer=Show-DomeniaDialog -Title 'Éléments qui utilisent cette requête' -Message ($action+' ? '+$dependencies.Count+' lien(s) concerné(s). Les anciennes révisions restent conservées dans la base.') -Details $details -Kind Question -Buttons YesNo
         if([string]$answer -ne 'Yes'){throw 'Modification de la requête annulée.'}
     }

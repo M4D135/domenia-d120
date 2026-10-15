@@ -45,6 +45,10 @@ try{
     Expect ($result.RowCount -eq 10000 -and $result.Pages -eq 50 -and $csv[0].Nom -ceq 'PC-10000' -and $csv[9999].Nom -ceq 'PC-19999') 'unknown selection exports10000 without inventing zero'
     $request.Selection='NoMatch';$request.ExpectedRows=0;$Payload.Path=Join-Path $folder 'empty.csv';$result=& $code
     Expect ($result.RowCount -eq 0 -and $result.Pages -eq 0 -and @([IO.File]::ReadAllLines($result.Path)).Count -eq 1) 'empty selection publishes a valid header-only CSV'
+    # Point 70: the report names the versioned definition it exported (stored revision, modified draft, model).
+    $request|Add-Member -NotePropertyName Definition -NotePropertyValue ([pscustomobject]@{RecipeId='personal.scale';Revision=7;DefinitionSHA256=('a'*64);State='Saved';Label='révision 7 enregistrée'}) -Force
+    $Payload.Path=Join-Path $folder 'bound.csv';$result=& $code;$metadata=Get-Content -Raw -LiteralPath $result.MetadataPath|ConvertFrom-Json
+    Expect ($metadata.Definition.Revision -eq 7 -and $metadata.Definition.State -ceq 'Saved' -and $metadata.Definition.RecipeId -ceq 'personal.scale') 'the report metadata names the exported definition revision'
     $unsafe=[Collections.Generic.Dictionary[string,object]]::new();$unsafe.Add('name','  =HYPERLINK("bad")');$unsafe.Add('dn',"CN=line1`nline2");$unsafe.Add('active',$false)
     $Payload.Records=@([M4D.Admin.Common.Query.QueryRecord]::new('literal',$unsafe));$request.RecipeJson=(New-DomeniaQueryRecipe|ConvertTo-Json -Depth 16 -Compress);$request.Selection='Match';$request.ExpectedRows=1;$Payload.Path=Join-Path $folder 'literal.csv'
     $result=& $code;$csv=@(Import-Csv -LiteralPath $result.Path -Delimiter ';')

@@ -4,7 +4,7 @@ $script:DomeniaQueryState=$null
 # Delivered models prepared once per process by the QueryLibrary worker, shared by Search and the library.
 $script:DomeniaQueryTemplateRows=$null
 $script:DomeniaQueryTemplatePreparation=$null
-$script:DomeniaQueryTemplateStatus=''
+$script:DomeniaQueryTemplateStatus='Les modèles livrés sʼajoutent à lʼouverture de la liste, après une préparation locale.'
 function Initialize-DomeniaQueryView {
     $hostControl=Get-DomeniaControl 'QueryWorkshopHost'
     if($null -eq $hostControl -or $null -ne $hostControl.Content){return}
@@ -506,6 +506,13 @@ function Request-DomeniaQueryEvaluation {
     if($null -eq $q.Timer){$q.Timer=New-DomeniaTimer -Owner 'Timer:QueryWorkshop' -IntervalMs 350 -SessionBound -Tick {$script:DomeniaQueryState.Timer.Stop();Start-DomeniaQueryEvaluation}}
     $q.Timer.Stop();$q.Timer.Start()
 }
+function Get-DomeniaQueryRecipeBinding {
+    # Binding of a recipe to its stored revision in the local library; never fails an evaluation.
+    param($Recipe)
+    $row=$null;$store=$script:DomeniaQueryLibraryStoreState
+    if($null -ne $store -and $null -ne $store.PSObject.Properties['Rows'] -and $store.Rows -is [hashtable]){$row=$store.Rows[[string]$Recipe.Id]}
+    try{return (Get-DomeniaQueryDefinitionBinding -Recipe $Recipe -Row $row)}catch{return [pscustomobject]@{RecipeId=[string]$Recipe.Id;Revision=0L;DefinitionSHA256='';State='Unknown';Label='révision non déterminée'}}
+}
 function Get-DomeniaQueryWidgetRecipes {
     # Saved library size must not multiply a 20k fleet scan. Evaluate only visible board dependencies.
     $q=$script:DomeniaQueryState;if($null -eq $q){return @()}
@@ -554,7 +561,9 @@ function Start-DomeniaQueryEvaluation {
         $state|Add-Member -NotePropertyName CoverageOnly -NotePropertyValue ([bool]$CoverageOnly)
         $payload|Add-Member -NotePropertyName ProbeRequests -NotePropertyValue $probeRequests
         $payload|Add-Member -NotePropertyName CachedProbeWidgets -NotePropertyValue $probeCache
-        $state|Add-Member -NotePropertyName ExportRequest -NotePropertyValue ([pscustomobject]@{SnapshotKey=$state.SnapshotKey;RecipeJson=(ConvertTo-Json -InputObject $recipe -Depth 32 -Compress);TextFilter=$payload.TextFilter;StateFilter=$payload.StateFilter;Selection=$selection;SortField=$payload.SortField;Descending=$payload.Descending;ExpectedRows=0L;EvaluatedAtUtc=$state.RecordsAt.ToUniversalTime().ToString('o');ScopeDn=[string]$scope.Dn;Subtree=[bool]$scope.Subtree})
+        # The report and the preview name the versioned definition they evaluate (point 70).
+        $binding=Get-DomeniaQueryRecipeBinding $recipe
+        $state|Add-Member -NotePropertyName ExportRequest -NotePropertyValue ([pscustomobject]@{SnapshotKey=$state.SnapshotKey;RecipeJson=(ConvertTo-Json -InputObject $recipe -Depth 32 -Compress);TextFilter=$payload.TextFilter;StateFilter=$payload.StateFilter;Selection=$selection;SortField=$payload.SortField;Descending=$payload.Descending;ExpectedRows=0L;EvaluatedAtUtc=$state.RecordsAt.ToUniversalTime().ToString('o');ScopeDn=[string]$scope.Dn;Subtree=[bool]$scope.Subtree;Definition=$binding})
         $state|Add-Member -NotePropertyName ProbeLibrary -NotePropertyValue $probeLibrary
         $state|Add-Member -NotePropertyName RefreshWidgets -NotePropertyValue ($null -eq $widgetCache -or $null -eq $probeCache)
         Start-DomeniaQueryDetailRead -Payload $payload -State $state
@@ -603,7 +612,8 @@ function Complete-DomeniaQueryEvaluation {
     $text='{0} correspondants · {1} inconnus · {2} non correspondants / {3} postes filtrés, {4} recensés dans le périmètre. Page {5}.' -f $r.Matched,$r.Unknown,$r.NotMatched,$r.Total,$r.ScopeTotal,([int]($r.Offset/200)+1)
     [void](Set-DomeniaControlText 'LblFleetMachineCount' ('{0} ligne(s) sur cette page · données locales' -f @($r.Rows).Count))
     [void](Set-DomeniaControlText 'LblQueryStatus' ($text+' Les données expirées ou non lues restent inconnues.'))
-    [void](Set-DomeniaControlText 'LblQueryPublishSummary' ($text+' Aperçu local calculé le '+$q.At.ToLocalTime().ToString('dd/MM HH:mm:ss')+'.'))
+    $definition=Get-DomeniaMemberValue (Get-DomeniaMemberValue $State 'ExportRequest') 'Definition'
+    [void](Set-DomeniaControlText 'LblQueryPublishSummary' ($text+' Aperçu local calculé le '+$q.At.ToLocalTime().ToString('dd/MM HH:mm:ss')+$(if($null -ne $definition){' · définition : '+[string]$definition.Label}else{''})+'.'))
     Add-DomeniaUiLog -Area 'Requêtes' -Text ($q.Recipe.Name+' · '+$text+' · calcul local du '+$q.At.ToLocalTime().ToString('dd/MM/yyyy HH:mm:ss'))
     (Get-DomeniaControl 'BtnQueryPrevious').IsEnabled=($q.Offset -gt 0)
     $count=switch([string]$r.Selection){'Match'{[long]$r.Matched};'Unknown'{[long]$r.Unknown};default{[long]$r.NotMatched}}

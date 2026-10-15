@@ -154,6 +154,21 @@ $script:DomeniaQueryState.LibraryOffset=600;Update-DomeniaQueryLibrary -KeepPage
 Expect ($script:Fake.DgQueryLibrary.ItemsSource.Count -eq ($actual.Rows.Count-600) -and -not $script:Fake.BtnQueryLibraryNext.IsEnabled) 'library last page preserves the remaining recipes'
 $script:Fake.TxtQueryLibrarySearch.Text='Personal 124';Update-DomeniaQueryLibrary
 Expect ($script:Fake.DgQueryLibrary.ItemsSource.Count -eq 1 -and $script:DomeniaQueryState.LibraryOffset -eq 0) 'search applies to full library and resets pagination'
+# Point 70: list, indicator and report name the versioned definition they evaluate; a draft is never presented
+# as the stored revision, and equal values typed differently do not fake a modification.
+$bindingRecipe=New-DomeniaQueryRecipe -Id 'personal.binding' -Name 'Liée' -Clauses @([pscustomobject]@{Field='ramGB';Operator='Less';Value=[decimal]8})
+$bindingRow=New-DomeniaQueryLibraryRecord -Context $context -Recipe $bindingRecipe -ExpectedRevision 2
+$saved=Get-DomeniaQueryDefinitionBinding -Recipe (ConvertFrom-Json -InputObject $bindingRow.DefinitionJson) -Row $bindingRow
+Expect ($saved.State -ceq 'Saved' -and $saved.Revision -eq 3 -and $saved.DefinitionSHA256 -ceq $bindingRow.DefinitionSHA256 -and $saved.Label -ceq 'révision 3 enregistrée') 'the stored revision is named with its fingerprint'
+$draft=Copy-DomeniaQueryRecipe $bindingRecipe;$draft.Clauses[0].Value=16
+$modified=Get-DomeniaQueryDefinitionBinding -Recipe $draft -Row $bindingRow
+Expect ($modified.State -ceq 'Modified' -and $modified.Label -ceq 'brouillon modifié depuis la révision 3 (2 différence(s))') 'a modified draft is never presented as the stored revision'
+$archivedBinding=New-DomeniaQueryLibraryRecord -Context $context -Recipe $bindingRecipe -ExpectedRevision 2;$archivedBinding.Archived=$true
+Expect ((Get-DomeniaQueryDefinitionBinding -Recipe $bindingRecipe -Row $archivedBinding).State -ceq 'Archived' -and (Get-DomeniaQueryDefinitionBinding -Recipe $bindingRecipe).State -ceq 'Unsaved' -and (Get-DomeniaQueryDefinitionBinding -Recipe @(Get-DomeniaQueryTemplates)[0]).State -ceq 'Template') 'archived, unsaved and delivered definitions are distinguished'
+$paramStored=Copy-DomeniaQueryRecipe (@(Get-DomeniaQueryTemplates|Where-Object{$_.Id -ceq 'template.param.diskfree'})[0]) -Id 'personal.param';$paramStored.ParameterValues=[pscustomobject]@{Seuil=15}
+$paramRow=New-DomeniaQueryLibraryRecord -Context $context -Recipe $paramStored -ExpectedRevision 0
+$paramDraft=Copy-DomeniaQueryRecipe $paramStored;$paramDraft.ParameterValues=@{Seuil=[decimal]15}
+Expect ((Get-DomeniaQueryDefinitionBinding -Recipe $paramDraft -Row $paramRow).State -ceq 'Saved') 'equal parameter values held in another container do not fake a modification'
 # Point 68: personal recipes keep their stored category; archives are parsed off the UI thread and listed apart.
 $archivedRecipe=New-DomeniaQueryRecipe -Id 'personal.archived' -Name 'Ancienne revue'
 $Payload=[pscustomobject]@{ModuleRoot=$modules;Saved=@(New-DomeniaQueryRecipe -Id 'personal.sorted' -Name 'Revue rangée');Categories=@{'personal.sorted'='Audit 2026';'personal.archived'='Audit 2025'};Archived=@(

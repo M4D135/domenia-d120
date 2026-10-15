@@ -61,6 +61,20 @@ function New-DomeniaQueryLibraryRead {
     # Text is a literal parameter. The eventual SQL adapter must escape %, _ and the escape character for LIKE.
     [pscustomobject]@{Kind='QueryLibrary';StoreId=[string]$Context.StoreId;DomainDn=[string]$Context.DomainDn;Term=(ConvertTo-DomeniaQuerySearchKey $Text);Category=$Category;Offset=$Offset;Limit=$Limit;Archived=[bool]$Archived;IncludeArchived=[bool]$IncludeArchived;MinimumRevision=$MinimumRevision;OrderBy='name_fold,id'}
 }
+function Get-DomeniaQueryDefinitionBinding {
+    # Which versioned definition a consumer evaluates (list, indicator, report): the exact stored revision, a draft
+    # modified since that revision, an unsaved draft, an archived revision or a delivered model. The comparison is
+    # semantic (Compare-DomeniaQueryRecipeDefinitions), so key order or number scale never fakes a modification.
+    param($Recipe,$Row=$null)
+    $id=[string](Get-DomeniaMember $Recipe 'Id' '')
+    if($id -like 'template.*'){return [pscustomobject]@{RecipeId=$id;Revision=0L;DefinitionSHA256='';State='Template';Label='modèle livré avec Domenia'}}
+    if($null -eq $Row){return [pscustomobject]@{RecipeId=$id;Revision=0L;DefinitionSHA256='';State='Unsaved';Label='brouillon non enregistré'}}
+    $stored=ConvertFrom-Json -InputObject ([string]$Row.DefinitionJson) -ErrorAction Stop
+    $changes=@(Compare-DomeniaQueryRecipeDefinitions -Before $stored -After $Recipe)
+    $state=if([bool]$Row.Archived){'Archived'}elseif($changes.Count){'Modified'}else{'Saved'}
+    $label=switch($state){Archived{'révision '+[string]$Row.Revision+' archivée'};Modified{'brouillon modifié depuis la révision '+[string]$Row.Revision+' ('+[string]$changes.Count+' différence(s))'};default{'révision '+[string]$Row.Revision+' enregistrée'}}
+    return [pscustomobject]@{RecipeId=$id;Revision=[long]$Row.Revision;DefinitionSHA256=[string]$Row.DefinitionSHA256;State=$state;Label=$label}
+}
 function Get-DomeniaQuerySha256 {
     param([string]$Text)
     $hash=[Security.Cryptography.SHA256]::Create()
