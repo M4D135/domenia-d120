@@ -3252,12 +3252,14 @@ function Update-DomeniaSelectedUserPresence {
     # Un compte AD n a pas d adresse reseau. On teste donc le poste associe
     # le plus fiable, ce qui repond a la vraie question : cet utilisateur
     # a-t-il une machine joignable en ce moment.
-    param([string]$Login)
+    # Point 9: $Guid and $CreatedUtc of the displayed account keep the workstations of a former holder of the login
+    # out of the choice (no ping is sent to them).
+    param([string]$Login,[string]$Guid='',$CreatedUtc=$null)
 
     $target = ""
     $confidence = 0
     try {
-        $links = @(Get-LinksForUser -UserLogin $Login)
+        $links = @(Get-LinksForUser -UserLogin $Login -Guid $Guid -CreatedUtc $CreatedUtc)
         # D042/D043: a declared assignment first, then the most recent relation (relation model); RC1.10.7 order otherwise.
         if ($null -ne (Get-Command -Name Select-DomeniaBestLink -CommandType Function -ErrorAction SilentlyContinue)) { $best = Select-DomeniaBestLink $links }
         else {
@@ -8689,7 +8691,7 @@ function Fill-UserObject {
     $script:Ctrl["TxtUserUac"].Text = Get-UacFlagsLabel $uac
     Update-DomeniaUserSupportBand -Entry $Entry
     try {
-        if (-not $script:RenderingObjectWithoutProbes) { Update-DomeniaSelectedUserPresence -Login ([string](Get-DeProp $Entry "sAMAccountName" "")) }
+        if (-not $script:RenderingObjectWithoutProbes) { Update-DomeniaSelectedUserPresence -Login ([string](Get-DeProp $Entry "sAMAccountName" "")) -Guid (ConvertTo-DomeniaGuidText (Get-DomeniaEntryFirstString $Entry "objectGUID")) -CreatedUtc (Get-DeProp $Entry "whenCreated" $null) }
         else { Set-DomeniaPresenceText -Name 'TxtUserPresence' -State 'Non verifie (fiche AD uniquement)'; Update-DomeniaObjectPresence -State 'Non verifie' -Target '' }
     }
     catch {
@@ -8697,7 +8699,8 @@ function Fill-UserObject {
         Update-DomeniaObjectPresence -State "Inconnu" -Target ""
     }
     try {
-        $linked = @(Get-LinksForUser -UserLogin ([string](Get-DeProp $Entry "sAMAccountName" "")))
+        # Point 9: an account recreated under a former login does not list the workstations of the previous account.
+        $linked = @(Get-LinksForUser -UserLogin ([string](Get-DeProp $Entry "sAMAccountName" "")) -Guid (ConvertTo-DomeniaGuidText (Get-DomeniaEntryFirstString $Entry "objectGUID")) -CreatedUtc (Get-DeProp $Entry "whenCreated" $null))
         $linkedComputers = @($linked | ForEach-Object { [string]$_.Computer } | Where-Object { $_ } | Sort-Object -Unique)
         [void](Set-DomeniaItemsSource -Name "TxtUserLinkedComputers" -Rows $linkedComputers)
         if ($linkedComputers.Count -gt 0) { $script:Ctrl["TxtUserLinkedComputers"].SelectedIndex = 0 }
@@ -8814,7 +8817,9 @@ function Fill-ComputerObject {
     $script:Ctrl["LblMemberOf"].Text = "$($script:Ctrl["LstMemberOf"].Items.Count) groupe(s)"
     try {
         $computerForLink = Normalize-LinkComputer ([string](Get-DeProp $Entry "name" ""))
-        $link = Get-ExistingLinkForComputer -Computer $computerForLink
+        # Point 9: the association of a former holder of this name (other GUID, or recorded before this computer was
+        # created) is not shown on the fiche of the current object.
+        $link = Get-ExistingLinkForComputer -Computer $computerForLink -Guid (ConvertTo-DomeniaGuidText (Get-DomeniaEntryFirstString $Entry "objectGUID")) -CreatedUtc (Get-DeProp $Entry "whenCreated" $null)
         if ($null -ne $link) {
             $script:Ctrl["TxtCompLinkedUser"].Text = [string]$link.UserLogin
             # D043: badge of the link (relation model), never a percentage.
@@ -8955,15 +8960,24 @@ function Normalize-LinkUser {
 }
 
 function Get-ExistingLinkForComputer {
-    param([string]$Computer)
+    # Point 9: with the GUID of the displayed computer (and its whenCreated when read), a link proven to belong to
+    # another object of the same name is skipped (Test-DomeniaLinkIdentity); without GUID the first link of the name.
+    # A name is unique among the computers of one domain base: a lookup of the selected workstation's name without GUID
+    # (local-first probe, Rimotte, receipts) uses the selected object's GUID, so a former holder never answers for it.
+    param([string]$Computer,[string]$Guid='',$CreatedUtc=$null)
     $cn = Normalize-LinkComputer $Computer
     if ([string]::IsNullOrWhiteSpace($cn)) { return $null }
+    if ((-not $Guid) -and ($null -ne $script:SelectedObject) -and ([string](Get-DomeniaMember $script:SelectedObject 'Type' '') -eq 'Machine') -and ((Normalize-LinkComputer ([string](Get-DomeniaMember $script:SelectedObject 'Name' ''))) -eq $cn)) {
+        $Guid = ConvertTo-DomeniaGuidText (Get-DomeniaMember $script:SelectedObject 'Guid' '')
+    }
     foreach ($l in @($script:UserMachineLinks)) {
         # Called once per workstation of a list analysis: a cheap substring test skips the other computers first
         # (the normalised name is always a case-insensitive substring of the stored one).
         $stored = [string]$l.Computer
         if ($stored.IndexOf($cn,[StringComparison]::OrdinalIgnoreCase) -lt 0) { continue }
-        if ((Normalize-LinkComputer $stored) -eq $cn) { return $l }
+        if ((Normalize-LinkComputer $stored) -ne $cn) { continue }
+        if ($Guid -and ((Test-DomeniaLinkIdentity -Link $l -Kind Computer -Guid $Guid -CreatedUtc $CreatedUtc).Match -eq 'Different')) { continue }
+        return $l
     }
     return $null
 }
@@ -21015,20 +21029,22 @@ function Ensure-UserMachineLinkIndex {
 function Get-LinksForComputer {
     # Point 9: with the GUID of the displayed object, a recycled or reassigned name never shows the associations
     # recorded for another object (Select-DomeniaLinksForIdentity). Without GUID the index answers by name.
-    param([string]$Computer,[string]$Guid='')
+    # $CreatedUtc (whenCreated of the displayed object, when the caller read it) also leaves out a legacy link without
+    # GUID recorded before the object existed.
+    param([string]$Computer,[string]$Guid='',$CreatedUtc=$null)
     $normalized = Normalize-LinkComputer $Computer
     if ([string]::IsNullOrWhiteSpace($normalized)) { return }
     Ensure-UserMachineLinkIndex
     if ($null -eq $script:LinkByComputer -or -not $script:LinkByComputer.ContainsKey($normalized)) { return }
     $list = $script:LinkByComputer[$normalized]
     if ($null -eq $list) { return }
-    if ($Guid) { foreach ($item in @(Select-DomeniaLinksForIdentity -Links @($list) -Kind Computer -Guid $Guid)) { Write-Output $item }; return }
+    if ($Guid) { foreach ($item in @(Select-DomeniaLinksForIdentity -Links @($list) -Kind Computer -Guid $Guid -CreatedUtc $CreatedUtc)) { Write-Output $item }; return }
     foreach ($item in $list) { Write-Output $item }
 }
 
 function Get-LinksForUser {
     # Point 9: same identity rule as Get-LinksForComputer for an account recreated under a former login.
-    param([string]$UserLogin,[string]$Guid='')
+    param([string]$UserLogin,[string]$Guid='',$CreatedUtc=$null)
     $normalized = Normalize-LinkUser $UserLogin
     if ([string]::IsNullOrWhiteSpace($normalized)) { return }
     Ensure-UserMachineLinkIndex
@@ -21036,7 +21052,7 @@ function Get-LinksForUser {
     if ($null -eq $script:LinksByUser -or -not $script:LinksByUser.ContainsKey($key)) { return }
     $list = $script:LinksByUser[$key]
     if ($null -eq $list) { return }
-    if ($Guid) { foreach ($item in @(Select-DomeniaLinksForIdentity -Links @($list) -Kind User -Guid $Guid)) { Write-Output $item }; return }
+    if ($Guid) { foreach ($item in @(Select-DomeniaLinksForIdentity -Links @($list) -Kind User -Guid $Guid -CreatedUtc $CreatedUtc)) { Write-Output $item }; return }
     foreach ($item in $list) { Write-Output $item }
 }
 
@@ -21367,10 +21383,15 @@ function Refresh-AssociationContext {
         if ($script:Ctrl.ContainsKey("TxtCompLinkWhen")) { $script:Ctrl["TxtCompLinkWhen"].Text = "" }
         if ($script:Ctrl.ContainsKey("TxtUserLinkedComputers")) { $script:Ctrl["TxtUserLinkedComputers"].ItemsSource = $null }
         if ($script:Ctrl.ContainsKey("LblUserLinkSummary")) { $script:Ctrl["LblUserLinkSummary"].Text = "Aucun poste associe." }
+        # Point 9: identity of the displayed object (GUID, and whenCreated once its AD fiche was read); the associations of
+        # a former holder of the same name stay out of this context.
+        $selectedGuid = ConvertTo-DomeniaGuidText (Get-DomeniaMember $script:SelectedObject 'Guid' '')
+        $selectedEntry = Get-DomeniaMemberValue $script:SelectedObject 'Entry'
+        $selectedCreated = if ($null -ne $selectedEntry) { Get-DeProp $selectedEntry "whenCreated" $null } else { $null }
 
         if ($null -ne $script:SelectedObject -and [string]$script:SelectedObject.Type -eq "Machine") {
             $computer = Get-CurrentSelectedComputerName
-            $links = @(Get-LinksForComputer $computer)
+            $links = @(Get-LinksForComputer -Computer $computer -Guid $selectedGuid -CreatedUtc $selectedCreated)
             if ($links.Count -gt 0) {
                 $link = $links[0]
                 $script:Ctrl["TxtCompLinkedUser"].Text = [string]$link.UserLogin
@@ -21390,7 +21411,7 @@ function Refresh-AssociationContext {
         }
         elseif ($null -ne $script:SelectedObject -and [string]$script:SelectedObject.Type -eq "Utilisateur") {
             $user = [string]$script:Ctrl["TxtUserSam"].Text
-            $links = @(Get-LinksForUser $user)
+            $links = @(Get-LinksForUser -UserLogin $user -Guid $selectedGuid -CreatedUtc $selectedCreated)
             $computers = @($links | ForEach-Object { [string]$_.Computer } | Where-Object { $_ } | Sort-Object -Unique)
             if ($script:Ctrl.ContainsKey("TxtUserLinkedComputers")) {
                 [void](Set-DomeniaItemsSource -Name "TxtUserLinkedComputers" -Rows $computers)

@@ -251,6 +251,22 @@ try {
         [void](Sync-DomeniaLinksAgainstIndex -Full)
         $l=$script:UserMachineLinks[0]
         Expect (([string]$l.ComputerGuid -eq $old) -and (-not [bool]$l.VerifiedInAD)) ('GUID adopte ou lien encore verifie : '+[string]$l.ComputerGuid)
+        # Fiche and local-first lookups: an explicit GUID, or the selected workstation of that name, skip the former holder.
+        Expect ($null -eq (Get-ExistingLinkForComputer -Computer 'PC-R' -Guid $new)) 'Fiche : association de l ancien titulaire affichee'
+        Expect ([string](Get-ExistingLinkForComputer -Computer 'PC-R' -Guid $old).UserLogin -eq 'alice') 'Fiche : association du meme objet perdue'
+        $script:SelectedObject=[pscustomobject]@{Type='Machine';Name='PC-R';Guid=$new}
+        Expect ($null -eq (Get-ExistingLinkForComputer 'PC-R')) 'Poste selectionne : ancien titulaire repris sans GUID explicite'
+        Expect ([string](Get-ExistingLinkForComputer 'PC-X').UserLogin -eq '') 'Autre poste : resultat invente'
+        $script:SelectedObject=$null
+        Expect ([string](Get-ExistingLinkForComputer 'PC-R').UserLogin -eq 'alice') 'Lecture par nom sans selection modifiee'
+        # A legacy link without GUID recorded before the current object was created belongs to a former holder.
+        $script:UserMachineLinks=@([pscustomobject]@{UserLogin='bob';Computer='PC-L';Source='Import CSV';Confidence=0;VerifiedInAD=$false;When='2025-01-01T08:00:00.0000000Z';Details='';UserGuid='';ComputerGuid='';UserDn='';ComputerDn=''})
+        Rebuild-UserMachineLinkIndex
+        Expect (@(Get-LinksForComputer 'PC-L' -Guid $new -CreatedUtc '2026-01-01T00:00:00Z').Count -eq 0) 'Lien historique anterieur a la creation repris'
+        Expect (@(Get-LinksForComputer 'PC-L' -Guid $new -CreatedUtc '2024-01-01T00:00:00Z').Count -eq 1) 'Lien historique posterieur a la creation perdu'
+        Expect (@(Get-LinksForComputer 'PC-L' -Guid $new).Count -eq 1) 'Lien historique sans date de creation juge'
+        Expect (@(Get-LinksForUser 'bob' -Guid $user -CreatedUtc '2026-01-01T00:00:00Z').Count -eq 0) 'Compte recree : lien historique anterieur repris'
+        Expect ($null -eq (Get-ExistingLinkForComputer -Computer 'PC-L' -Guid $new -CreatedUtc ([datetime]::SpecifyKind([datetime]'2026-01-01T00:00:00',[DateTimeKind]::Utc)))) 'Fiche : lien historique anterieur a la creation affiche'
     }
     Case 'D042 Console d un autre compte : l affectation declaree reste, les deux relations restent visibles' {
         Reset-Fixture;$state=Begin-FakeQuery
