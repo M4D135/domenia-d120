@@ -44,6 +44,37 @@ Test-Case -Id 'P155' -Name 'Analyse WQL : une recette exige un test de la même 
     Assert-False (Get-DomeniaWqlPlanReport -Namespace 'root\cimv2' -Query $query -Tested $schema -Computer 'PC-01').Ready 'un schéma lu nʼest pas un test'
     Assert-Equal 'State' ((ConvertFrom-DomeniaWqlSelect $query).WhereProperties -join ',') 'propriétés de la condition distinguées'
 }
+Test-Case -Id 'P155' -Name 'Analyse WQL : jamais tous les comptes ou groupes du domaine depuis un poste' -Body {
+    $domainWide = @(
+        'SELECT Name FROM Win32_UserAccount',
+        "SELECT Name FROM Win32_Group WHERE Name = 'Administrateurs'",
+        'SELECT Name FROM Win32_Account WHERE LocalAccount = FALSE',
+        'SELECT Name FROM Win32_UserAccount WHERE NOT LocalAccount = TRUE',
+        "SELECT Name FROM Win32_UserAccount WHERE LocalAccount = TRUE OR Name = 'Invité'",
+        "SELECT Name FROM win32_useraccount WHERE Domain = 'PC-01'",
+        "SELECT Name FROM Win32_UserAccount WHERE LocalAccount = 'TRUE'")
+    foreach ($query in $domainWide) {
+        $report = Get-DomeniaWqlPlanReport -Namespace 'root\cimv2' -Query $query -Computer 'PC-01'
+        Assert-False $report.Valid ('lecture du domaine refusée : ' + $query)
+        Assert-True ($report.Message -like '*refusée sans LocalAccount = TRUE*comptes locaux du poste*') ('remède indiqué : ' + $query)
+        Assert-Throws { New-DomeniaQueryReadDefinition -Namespace 'root\cimv2' -Query $query } ('aucune recette possible : ' + $query)
+    }
+    $localOnly = @(
+        'SELECT Name FROM Win32_UserAccount WHERE LocalAccount = TRUE',
+        'SELECT Name, Disabled FROM Win32_UserAccount WHERE localaccount = true AND Disabled = FALSE',
+        "SELECT Name FROM Win32_Group WHERE Name = 'Administrateurs' AND LocalAccount = TRUE",
+        "SELECT Name FROM Win32_Account WHERE (LocalAccount = TRUE AND Disabled = FALSE) OR (Name = 'Invité' AND LocalAccount = TRUE)")
+    foreach ($query in $localOnly) {
+        Assert-True (Get-DomeniaWqlPlanReport -Namespace 'root\cimv2' -Query $query -Computer 'PC-01').Valid ('comptes locaux acceptés : ' + $query)
+        Assert-Equal 'Domenia.WmiRead/1' (New-DomeniaQueryReadDefinition -Namespace 'root\cimv2' -Query $query).Format ('recette possible : ' + $query)
+    }
+    foreach ($class in @('Win32_GroupUser', 'Win32_GroupInDomain', 'Win32_UserInDomain', 'Win32_AccountSID', 'cim_logicalelement', 'CIM_ManagedSystemElement')) {
+        $report = Get-DomeniaWqlPlanReport -Namespace 'root\cimv2' -Query ('SELECT Name FROM ' + $class + ' WHERE LocalAccount = TRUE')
+        Assert-False $report.Valid ('classe refusée même avec une condition : ' + $class)
+        Assert-True ($report.Message -like ('Classe ' + $class + ' refusée*domaine*')) ('refus expliqué : ' + $class)
+    }
+    Assert-True (Get-DomeniaWqlPlanReport -Namespace 'root\cimv2' -Query 'SELECT Name FROM Win32_SystemAccount').Valid 'comptes système, toujours locaux'
+}
 Test-Case -Id 'P154' -Name 'Exploration WMI : espace de noms et filtre de classes contrôlés' -Body {
     Assert-Throws { Assert-DomeniaQuerySchemaNamespace 'root\cimv2;x' } 'espace de noms invalide'
     Assert-Throws { Assert-DomeniaQuerySchemaNamespace 'cimv2' } 'racine obligatoire'
@@ -125,7 +156,7 @@ Test-Case -Id 'P153' -Name 'Impact dʼune recette : widgets liés ou non, lien o
 Test-Case -Id 'P157' -Name 'Export PowerShell : commentaires sur une ligne et littéral JSON ASCII' -Body {
     Assert-Equal 'a b c' (ConvertTo-DomeniaScriptCommentText ("a`r`nb" + [char]0x2029 + 'c'))
     Assert-Equal ('x' * 10 + '…') (ConvertTo-DomeniaScriptCommentText ('x' * 20) -MaxLength 10)
-    Assert-Equal '"’é"' (ConvertTo-DomeniaAsciiJson ('"' + [char]0x2019 + [char]0xE9 + '"'))
+    Assert-Equal '"\u2019\u00e9"' (ConvertTo-DomeniaAsciiJson ('"' + [char]0x2019 + [char]0xE9 + '"'))
     Assert-Equal 'paramètre Seuil' (ConvertTo-DomeniaQueryValueText ([pscustomobject]@{ Parameter = 'Seuil' }))
     Assert-Equal 'Non' (ConvertTo-DomeniaQueryValueText $false)
     Assert-Equal '7.5' (ConvertTo-DomeniaQueryValueText ([decimal]7.5))

@@ -1812,6 +1812,7 @@ function Get-DomeniaRuntimeModulePlan {
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Boards.Model.ps1','Domenia-Workstation.Model.ps1'); File='Domenia-QuerySchema.Model.ps1'; DotSource=$true; Functions=@(
             'ConvertFrom-DomeniaWqlSelect',
+            'Assert-DomeniaWqlAccountScope',
             'Assert-DomeniaQuerySchemaNamespace',
             'Assert-DomeniaQuerySchemaClassFilter',
             'Assert-DomeniaQuerySchemaTarget',

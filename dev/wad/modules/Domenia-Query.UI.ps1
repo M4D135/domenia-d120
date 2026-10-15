@@ -371,16 +371,20 @@ function Request-DomeniaQueryRecipeSave {
     [void](Set-DomeniaControlText 'LblQueryStatus' 'Enregistrement de la requête dans la base…')
 }
 function Show-DomeniaQueryImpact {
-    param($Impact,$Recipe,[ValidateSet('Save','Archive')][string]$Mode)
+    # Widget mode: the dashboard widget requested from the workshop is added only after the choice (Widget holds it).
+    param($Impact,$Recipe,[ValidateSet('Save','Archive','Widget')][string]$Mode,$Widget=$null)
     $q=$script:DomeniaQueryState
-    $q|Add-Member -NotePropertyName ImpactPending -NotePropertyValue ([pscustomobject]@{Mode=$Mode;Recipe=$Recipe;Generation=[long]$q.Generation;RecipeId=[string]$Recipe.Id;Revision=[long]$Impact.CurrentRevision;Count=[int]$Impact.Count}) -Force
+    if(($Mode -eq 'Widget') -ne ($null -ne $Widget)){throw 'Widget en attente incohérent avec la revue demandée.'}
+    $q|Add-Member -NotePropertyName ImpactPending -NotePropertyValue ([pscustomobject]@{Mode=$Mode;Recipe=$Recipe;Generation=[long]$q.Generation;RecipeId=[string]$Recipe.Id;Revision=[long]$Impact.CurrentRevision;Count=[int]$Impact.Count;Widget=$Widget}) -Force
     (Get-DomeniaControl 'DgQueryImpact').ItemsSource=@($Impact.Rows)
     $parts=@($Impact.Widgets.ToString()+' widget(s)',$Impact.Views.ToString()+' vue(s) de Recherche');if($Impact.Orphans){$parts+=@($Impact.Orphans.ToString()+' lien(s) sans widget affiché')}
     $text=$Impact.Count.ToString()+' élément(s) utilisent la révision '+$Impact.CurrentRevision+' de « '+[string]$Recipe.Name+' » : '+($parts -join ', ')+'. Aucune alerte ne dépend des requêtes dans cette version.'
     if($Mode -eq 'Archive'){$text+=' Archiver retire ces widgets des tableaux de bord et la vue favorite ne proposera plus cette requête. Les révisions et les données collectées sont conservées.'}
     else{$text+=' Choisissez : mettre à jour ces éléments avec la nouvelle définition, ou garder lʼancienne version intacte et enregistrer la modification comme une nouvelle requête.'}
+    if($Mode -eq 'Widget'){$text+=' Le widget demandé est ajouté au tableau de bord '+$(if([string]$Widget.Destination -eq 'Computer'){'Poste'}else{'général'})+' seulement après ce choix, avec la requête retenue.'}
     [void](Set-DomeniaControlText 'LblQueryImpact' $text)
-    foreach($entry in @(@('BtnQueryImpactMigrate','Save'),@('BtnQueryImpactKeep','Save'),@('BtnQueryImpactArchive','Archive'))){$button=Get-DomeniaControl $entry[0];if($null -ne $button){$button.Visibility=$(if($entry[1] -eq $Mode){'Visible'}else{'Collapsed'})}}
+    $family=if($Mode -eq 'Archive'){'Archive'}else{'Save'}
+    foreach($entry in @(@('BtnQueryImpactMigrate','Save'),@('BtnQueryImpactKeep','Save'),@('BtnQueryImpactArchive','Archive'))){$button=Get-DomeniaControl $entry[0];if($null -ne $button){$button.Visibility=$(if($entry[1] -eq $family){'Visible'}else{'Collapsed'})}}
     (Get-DomeniaControl 'PnlQueryImpact').Visibility='Visible'
     [void](Set-DomeniaControlText 'LblQueryStatus' 'Modification en attente de votre choix : rien nʼest encore enregistré.')
 }
@@ -402,13 +406,29 @@ function Invoke-DomeniaQueryImpactAction {
         if(($Action -eq 'Archive') -ne ($pending.Mode -eq 'Archive')){throw 'Ce choix ne correspond pas à lʼaction demandée.'}
         switch($Action){
             'Migrate'{
-                [void](Save-DomeniaQueryRecipe -Recipe $pending.Recipe -ImpactConfirmed -CallbackState ([pscustomobject]@{DraftGeneration=$q.Generation}))
-                $status='Enregistrement de la nouvelle définition ; '+$pending.Count+' élément(s) liés lʼutiliseront…'
+                if($pending.Mode -eq 'Widget'){
+                    # The requested widget joins the linked elements in the same atomic batch as the new definition.
+                    $widget=$pending.Widget
+                    [void](Save-DomeniaQueryRecipe -Recipe $pending.Recipe -ImpactConfirmed -SuccessHandler 'Complete-DomeniaWorkshopWidgetSave' -CallbackState $widget -AdditionalDependencies @([pscustomobject]@{ConsumerKind=[string]$widget.Destination;ConsumerId=[string]$widget.Item.Id}))
+                    $status='Enregistrement de la nouvelle définition ; '+$pending.Count+' élément(s) liés lʼutiliseront, puis le widget sera ajouté…'
+                }else{
+                    [void](Save-DomeniaQueryRecipe -Recipe $pending.Recipe -ImpactConfirmed -CallbackState ([pscustomobject]@{DraftGeneration=$q.Generation}))
+                    $status='Enregistrement de la nouvelle définition ; '+$pending.Count+' élément(s) liés lʼutiliseront…'
+                }
             }
             'Keep'{
                 $copy=New-DomeniaQueryRecipeVersion $pending.Recipe
-                [void](Save-DomeniaQueryRecipe -Recipe $copy -ImpactConfirmed -SuccessHandler 'Complete-DomeniaQueryRecipeVersionUi' -CallbackState ([pscustomobject]@{DraftGeneration=$q.Generation;KeptName=[string]$row.Name;KeptRevision=[long]$pending.Revision;Count=[int]$pending.Count}))
-                $status='Enregistrement de la copie ; la requête enregistrée et ses éléments liés restent inchangés…'
+                if($pending.Mode -eq 'Widget'){
+                    # The widget is created for the copy; the saved recipe and its linked elements stay untouched.
+                    $widget=$pending.Widget
+                    $item=New-DomeniaBoardItem -Source Query -Key $copy.Id -Visual ([string]$widget.Visual) -Size M -Group 'Mes sondes' -Title $copy.Name
+                    $state=[pscustomobject]@{DraftGeneration=$q.Generation;Destination=[string]$widget.Destination;Visual=[string]$widget.Visual;Item=$item;KeptName=[string]$row.Name;KeptRevision=[long]$pending.Revision;Count=[int]$pending.Count}
+                    [void](Save-DomeniaQueryRecipe -Recipe $copy -ImpactConfirmed -SuccessHandler 'Complete-DomeniaWorkshopWidgetSave' -CallbackState $state -AdditionalDependencies @([pscustomobject]@{ConsumerKind=$state.Destination;ConsumerId=[string]$item.Id}))
+                    $status='Enregistrement de la copie et de son widget ; la requête enregistrée et ses éléments liés restent inchangés…'
+                }else{
+                    [void](Save-DomeniaQueryRecipe -Recipe $copy -ImpactConfirmed -SuccessHandler 'Complete-DomeniaQueryRecipeVersionUi' -CallbackState ([pscustomobject]@{DraftGeneration=$q.Generation;KeptName=[string]$row.Name;KeptRevision=[long]$pending.Revision;Count=[int]$pending.Count}))
+                    $status='Enregistrement de la copie ; la requête enregistrée et ses éléments liés restent inchangés…'
+                }
             }
             'Archive'{
                 [void](Save-DomeniaQueryRecipe -Recipe $pending.Recipe -Archive -ImpactConfirmed -SuccessHandler 'Complete-DomeniaQueryRecipeArchiveUi')

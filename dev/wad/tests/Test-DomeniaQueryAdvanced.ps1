@@ -35,7 +35,7 @@ Expect (@($page.Rows).Count -eq 51 -and -not $page.HasNext -and $page.Rows[50].R
 $page=Get-DomeniaQueryGroupPage -Summary $summary -Offset 900000 -Limit 100
 Expect ($page.Offset -eq 20000 -and @($page.Rows).Count -eq 1) 'an offset beyond the list is clamped to the last page'
 $page=Get-DomeniaQueryGroupPage -Summary $summary -Text 'model 1999' -Limit 100
-Expect ($page.Filtered -eq 11 -and @($page.Rows|Where-Object{$_.Label -notlike '*1999*'}).Count -eq 0) 'filter searches the complete distribution, not only the visible page'
+Expect ($page.Filtered -eq 12 -and @($page.Rows|Where-Object{$_.Label -notlike '*1999*'}).Count -eq 0) 'filter searches the complete distribution, not only the visible page (01999, 11999, 19990 to 19999)'
 Expect ((Get-DomeniaQueryGroupPage -Summary $summary -Text 'MODÈLE INEXISTANT').Filtered -eq 0) 'filter without result is explicit'
 Expect ($page.Rows[0].Share -ceq '0,0 %') 'share is formatted in French'
 Reject {Get-DomeniaQueryGroupPage -Summary $summary -Limit 501} 'page budget is explicit'
@@ -192,6 +192,12 @@ $advanced=New-DomeniaQueryRecipe -Name 'Disque presque plein' -Expression ([pscu
 $outline=Get-DomeniaQueryRecipeOutline $advanced
 Expect (@($outline.Conditions|Where-Object{$_ -like '*Au moins une instance de « Volumes locaux*même instance*'}).Count -eq 1 -and @($outline.Conditions|Where-Object{$_ -like '*FreeSpace*est inférieur à 1000000000*'}).Count -eq 1) 'collection criteria are described on the same instance'
 Expect (@($outline.Notes|Where-Object{$_ -like 'Fenêtre commune : 48 h*'}).Count -eq 1 -and @($outline.Notes|Where-Object{$_ -like 'Répartition du widget*'}).Count -eq 1) 'window and distribution limits are stated'
+$nestedLines=@((ConvertTo-DomeniaQueryPowerShell -Recipe $advanced) -split "`r`n")
+$indentOf={param([string]$Line)[regex]::Match($Line,'^# *').Length}
+$collectionLine=@($nestedLines|Where-Object{$_ -like '#*Au moins une instance de « Volumes locaux*'})
+$groupLine=@($nestedLines|Where-Object{$_ -like '#*Toutes les conditions suivantes (ET) :'})
+$clauseLine=@($nestedLines|Where-Object{$_ -like '#*- *FreeSpace*est inférieur à 1000000000*'})
+Expect ($collectionLine.Count -eq 1 -and $groupLine.Count -eq 1 -and $clauseLine.Count -eq 1 -and (& $indentOf $collectionLine[0]) -lt (& $indentOf $groupLine[0]) -and (& $indentOf $groupLine[0]) -lt (& $indentOf $clauseLine[0])) 'the exported comments keep the nesting of the collection, its group and its conditions'
 Expect ((ConvertTo-DomeniaScriptCommentText ("a`nb"+[char]0x2028+'c')) -ceq 'a b c' -and (ConvertTo-DomeniaAsciiJson ('"'+[char]0x2019+'"')) -ceq '"\u2019"') 'comment and literal encoders neutralise line breaks and typographic quotes'
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -240,7 +246,7 @@ function Set-DomeniaControlText([string]$Name,[string]$Text){$script:Labels[$Nam
 function Get-DomeniaBoardLayout([string]$Board){if($Board -eq 'Fleet'){return $fleetLayout};return $computerLayout}
 function Get-DomeniaSearchQueryFavorites{return @('local:personal.a')}
 function Get-DomeniaQueryDraft{return (Copy-DomeniaQueryRecipe $script:CurrentDraft)}
-function Save-DomeniaQueryRecipe{param($Recipe,[string]$SuccessHandler='Complete-DomeniaQueryRecipeSaveUi',$CallbackState=$null,[switch]$Archive,[object[]]$AdditionalDependencies=@(),[string]$ErrorHandler='',[switch]$ImpactConfirmed)$script:Saves.Add([pscustomobject]@{Recipe=$Recipe;SuccessHandler=$SuccessHandler;CallbackState=$CallbackState;Archive=[bool]$Archive;ImpactConfirmed=[bool]$ImpactConfirmed});return [pscustomobject]@{Accepted=$true}}
+function Save-DomeniaQueryRecipe{param($Recipe,[string]$SuccessHandler='Complete-DomeniaQueryRecipeSaveUi',$CallbackState=$null,[switch]$Archive,[object[]]$AdditionalDependencies=@(),[string]$ErrorHandler='',[switch]$ImpactConfirmed)$script:Saves.Add([pscustomobject]@{Recipe=$Recipe;SuccessHandler=$SuccessHandler;CallbackState=$CallbackState;Archive=[bool]$Archive;ImpactConfirmed=[bool]$ImpactConfirmed;AdditionalDependencies=@($AdditionalDependencies)});return [pscustomobject]@{Accepted=$true}}
 $script:Labels=@{};$script:Saves=[Collections.Generic.List[object]]::new()
 $script:DomeniaQueryState=[pscustomobject]@{Generation=5;Recipe=$saved;ImpactPending=$null}
 $script:CurrentDraft=$saved
@@ -275,6 +281,26 @@ $script:Saves.Clear();Request-DomeniaQueryRecipeSave -Archive;Invoke-DomeniaQuer
 Expect ($script:Saves.Count -eq 0 -and $null -eq $script:DomeniaQueryState.ImpactPending -and $script:Labels.LblQueryStatus -like 'Modification non enregistrée*') 'cancel writes nothing'
 Complete-DomeniaQueryRecipeVersionUi -Recipe $version -Record ([pscustomobject]@{Revision=1}) -State ([pscustomobject]@{DraftGeneration=5;KeptName='Postes à surveiller';KeptRevision=3;Count=5})
 Expect ($script:Labels.LblQueryStatus -like 'Nouvelle requête*(nouvelle version)*révision 1*Postes à surveiller*5 élément(s) liés restent à la révision 3*' -and $script:DraftSet.Id -ceq $version.Id) 'the confirmation names the copy and the preserved revision'
+# Workshop button « Créer une sonde dashboard »: the same in-page review precedes any write and any widget.
+. (Join-Path $modules 'Domenia-QueryTargets.UI.ps1')
+$script:Fake['CmbQueryWidgetDestination']=[pscustomobject]@{SelectedItem=[pscustomobject]@{Tag='Fleet'}}
+$script:Fake['CmbQueryWidgetVisual']=[pscustomobject]@{SelectedItem=[pscustomobject]@{Tag='Bar'}}
+function Set-DomeniaBoardLayout{param($Board,$Layout,$Undo,$Highlight)$script:BoardWrite=[pscustomobject]@{Board=$Board;Layout=@($Layout);Highlight=$Highlight}}
+$script:BoardWrite=$null;$script:Saves.Clear();$script:CurrentDraft=$modified
+Add-DomeniaWorkshopWidget
+Expect ($script:Saves.Count -eq 0 -and $null -eq $script:BoardWrite -and $script:DomeniaQueryState.ImpactPending.Mode -ceq 'Widget' -and $script:Fake.PnlQueryImpact.Visibility -ceq 'Visible' -and $script:Fake.BtnQueryImpactMigrate.Visibility -ceq 'Visible' -and $script:Fake.BtnQueryImpactKeep.Visibility -ceq 'Visible' -and $script:Fake.BtnQueryImpactArchive.Visibility -ceq 'Collapsed') 'the dashboard widget button reviews a modified definition in the page: no dialog, no write, no widget before the choice'
+Expect ($script:Labels.LblQueryImpact -like '5 élément(s) utilisent la révision 3*widget demandé est ajouté au tableau de bord général seulement après ce choix*' -and $script:Labels.LblQueryStatus -like '*rien nʼest encore enregistré*') 'the review announces that the widget waits for the choice'
+Invoke-DomeniaQueryImpactAction 'Migrate'
+$migrated=$script:Saves[0]
+Expect ($script:Saves.Count -eq 1 -and $migrated.ImpactConfirmed -and $migrated.Recipe.Id -ceq 'personal.a' -and @($migrated.Recipe.Clauses).Count -eq 2 -and $migrated.SuccessHandler -ceq 'Complete-DomeniaWorkshopWidgetSave' -and $migrated.CallbackState.Destination -ceq 'Fleet' -and $migrated.CallbackState.Visual -ceq 'Bar' -and @($migrated.AdditionalDependencies).Count -eq 1 -and $migrated.AdditionalDependencies[0].ConsumerKind -ceq 'Fleet' -and $migrated.AdditionalDependencies[0].ConsumerId -ceq 'w-linked' -and $script:Fake.PnlQueryImpact.Visibility -ceq 'Collapsed') 'updating the linked elements saves the new definition and the widget link in one confirmed batch'
+$script:Saves.Clear();Add-DomeniaWorkshopWidget;Invoke-DomeniaQueryImpactAction 'Keep'
+$kept=$script:Saves[0]
+Expect ($script:Saves.Count -eq 1 -and $kept.ImpactConfirmed -and $kept.Recipe.Id -cne 'personal.a' -and $kept.Recipe.Name -ceq 'Postes à surveiller (nouvelle version)' -and $kept.SuccessHandler -ceq 'Complete-DomeniaWorkshopWidgetSave' -and $kept.CallbackState.Item.Key -ceq $kept.Recipe.Id -and $kept.CallbackState.Item.Id -cne 'w-linked' -and $kept.CallbackState.KeptRevision -eq 3 -and @($kept.AdditionalDependencies).Count -eq 1 -and $kept.AdditionalDependencies[0].ConsumerId -ceq $kept.CallbackState.Item.Id) 'keeping the old version saves a copy and links the new widget to the copy only'
+Complete-DomeniaWorkshopWidgetSave -Recipe $kept.Recipe -Record ([pscustomobject]@{Revision=1}) -State $kept.CallbackState
+Expect ($script:BoardWrite.Board -ceq 'Fleet' -and @($script:BoardWrite.Layout|Where-Object{$_.Key -ceq $kept.Recipe.Id}).Count -eq 1 -and @($script:BoardWrite.Layout|Where-Object{$_.Key -ceq 'personal.a'}).Count -eq 2 -and $script:DraftSet.Id -ceq $kept.Recipe.Id) 'the copy gets its own widget; the widgets of the saved recipe stay in place'
+Expect ($script:Labels.LblQueryStatus -like 'Nouvelle requête « Postes à surveiller (nouvelle version) » enregistrée (révision 1) et ajoutée au tableau de bord général*« Postes à surveiller » et ses 5 élément(s) liés restent à la révision 3*') 'the confirmation names the copy, its board and the preserved revision'
+$script:Saves.Clear();$script:CurrentDraft=$saved;Add-DomeniaWorkshopWidget
+Expect ($script:Saves.Count -eq 1 -and $script:Saves[0].ImpactConfirmed -and $script:Saves[0].SuccessHandler -ceq 'Complete-DomeniaWorkshopWidgetSave' -and $null -eq $script:DomeniaQueryState.ImpactPending -and $script:Fake.PnlQueryImpact.Visibility -ceq 'Collapsed') 'an unchanged definition adds its widget without review and without a dialog'
 
 # ---------------------------------------------------------------------------------------------------------------
 # Points 154, 155, 156: WMI metadata explorer with cache, WQL review, relations by identity. Remote cmdlets are
@@ -528,8 +554,6 @@ $tree=Edit-DomeniaQueryExpression -Recipe $tree -Path '/0' -Operation Add -Node 
 $outline=@(Get-DomeniaQueryExpressionOutline $tree.Expression)
 Expect (@($outline|Where-Object{$_.Kind -eq 'Clause' -and $_.CollectionProbe -ceq 'soft.installed'}).Count -eq 2 -and (ConvertTo-DomeniaCompiledQuery $tree).Evaluate($software[2].Values) -eq [M4D.Admin.Common.Query.MatchState]::NoMatch) 'the builder adds both criteria inside the same collection'
 Reject {Edit-DomeniaQueryExpression -Recipe $tree -Path '/0' -Operation Add -Node (New-Clause 'name' 'Equal' 'PC')} 'the builder refuses a workstation criterion inside an instance collection'
-
-# @@NEXT-SECTION@@
 
 $report=[pscustomobject]@{Status='PASS';Assertions=$script:checks;SourceMode=[bool]$QuerySource;ElapsedSeconds=[Math]::Round($clock.Elapsed.TotalSeconds,3);PowerShell=$PSVersionTable.PSVersion.ToString();Scope='Actual models, worker factories and click handlers with inert controls; remote WMI cmdlets replaced by fixtures; no network, AD, WMI or WPF'}
 if($ReportPath){[IO.File]::WriteAllText($ReportPath,($report|ConvertTo-Json),[Text.UTF8Encoding]::new($false))}

@@ -23,25 +23,37 @@ function ConvertFrom-DomeniaWqlSelect {
         if($null -ne $State.Known -and $Name -notin $State.Known){throw ('Propriété absente du schéma lu : '+$Name)}
         [void]$State.Used.Add($Name)
     }
+    # Each reader returns $true when its condition guarantees LocalAccount = TRUE: a predicate of that exact form, an
+    # AND with at least one such operand, an OR whose every branch has one. NOT never guarantees it. Every operand is
+    # always parsed: no short-circuit operator is used between two reads.
     function Read-DomeniaWqlPredicate($State,[int]$Depth){
         if($Depth -gt 8){throw 'Conditions WQL limitées à 8 niveaux.'}
         if($State.Index -ge $State.Tokens.Count){throw 'Condition WQL incomplète.'}
         $token=$State.Tokens[$State.Index]
-        if($token.Text -ieq 'NOT'){[void](Read-DomeniaWqlToken $State 'NOT');Read-DomeniaWqlPredicate $State ($Depth+1);return}
-        if($token.Text -eq '('){[void](Read-DomeniaWqlToken $State '(');Read-DomeniaWqlOr $State ($Depth+1);[void](Read-DomeniaWqlToken $State ')');return}
+        if($token.Text -ieq 'NOT'){[void](Read-DomeniaWqlToken $State 'NOT');[void](Read-DomeniaWqlPredicate $State ($Depth+1));return $false}
+        if($token.Text -eq '('){[void](Read-DomeniaWqlToken $State '(');$local=Read-DomeniaWqlOr $State ($Depth+1);[void](Read-DomeniaWqlToken $State ')');return [bool]$local}
         $field=(Read-DomeniaWqlToken $State -Kind Identifier).Text;Assert-DomeniaWqlProperty $State $field;[void]$State.WhereUsed.Add($field)
         $operator=Read-DomeniaWqlToken $State
         if($operator.Text -ieq 'IS'){
             if($State.Index -lt $State.Tokens.Count -and $State.Tokens[$State.Index].Text -ieq 'NOT'){[void](Read-DomeniaWqlToken $State 'NOT')}
-            [void](Read-DomeniaWqlToken $State 'NULL');return
+            [void](Read-DomeniaWqlToken $State 'NULL');return $false
         }
         if($operator.Kind -ne 'Operator' -and $operator.Text -ine 'LIKE'){throw 'Comparateur WQL non pris en charge.'}
         $literal=Read-DomeniaWqlToken $State
         if($literal.Kind -notin @('String','Number') -and $literal.Text -notin @('TRUE','FALSE','NULL')){throw 'Une valeur WQL doit être un texte entre apostrophes, un nombre, TRUE, FALSE ou NULL.'}
         if($operator.Text -ieq 'LIKE' -and $literal.Kind -ne 'String'){throw 'LIKE attend un texte entre apostrophes.'}
+        return (($field -ieq 'LocalAccount') -and ($operator.Text -ceq '=') -and ($literal.Kind -ceq 'Identifier') -and ($literal.Text -ieq 'TRUE'))
     }
-    function Read-DomeniaWqlAnd($State,[int]$Depth){Read-DomeniaWqlPredicate $State $Depth;while($State.Index -lt $State.Tokens.Count -and $State.Tokens[$State.Index].Text -ieq 'AND'){[void](Read-DomeniaWqlToken $State 'AND');Read-DomeniaWqlPredicate $State $Depth}}
-    function Read-DomeniaWqlOr($State,[int]$Depth){Read-DomeniaWqlAnd $State $Depth;while($State.Index -lt $State.Tokens.Count -and $State.Tokens[$State.Index].Text -ieq 'OR'){[void](Read-DomeniaWqlToken $State 'OR');Read-DomeniaWqlAnd $State $Depth}}
+    function Read-DomeniaWqlAnd($State,[int]$Depth){
+        $local=Read-DomeniaWqlPredicate $State $Depth
+        while($State.Index -lt $State.Tokens.Count -and $State.Tokens[$State.Index].Text -ieq 'AND'){[void](Read-DomeniaWqlToken $State 'AND');$next=Read-DomeniaWqlPredicate $State $Depth;if($next){$local=$true}}
+        return [bool]$local
+    }
+    function Read-DomeniaWqlOr($State,[int]$Depth){
+        $local=Read-DomeniaWqlAnd $State $Depth
+        while($State.Index -lt $State.Tokens.Count -and $State.Tokens[$State.Index].Text -ieq 'OR'){[void](Read-DomeniaWqlToken $State 'OR');$next=Read-DomeniaWqlAnd $State $Depth;if(-not $next){$local=$false}}
+        return [bool]$local
+    }
     [void](Read-DomeniaWqlToken $state 'SELECT');$properties=[Collections.Generic.List[string]]::new()
     do{
         $property=(Read-DomeniaWqlToken $state -Kind Identifier).Text;Assert-DomeniaWqlProperty $state $property
@@ -51,10 +63,32 @@ function ConvertFrom-DomeniaWqlSelect {
     }while($true)
     [void](Read-DomeniaWqlToken $state 'FROM');$class=(Read-DomeniaWqlToken $state -Kind Identifier).Text
     if($class.Length -gt 128){throw 'Nom de classe trop long.'}
-    if($state.Index -lt $tokens.Count){[void](Read-DomeniaWqlToken $state 'WHERE');Read-DomeniaWqlOr $state 0}
+    $localOnly=$false
+    if($state.Index -lt $tokens.Count){[void](Read-DomeniaWqlToken $state 'WHERE');$localOnly=Read-DomeniaWqlOr $state 0}
     if($state.Index -ne $tokens.Count){throw 'Une seule instruction SELECT est autorisée.'}
+    Assert-DomeniaWqlAccountScope -ClassName $class -LocalAccountOnly ([bool]$localOnly)
     $canonical=($tokens|ForEach-Object{$_.Text}) -join ' '
     [pscustomobject]@{ClassName=$class;Properties=$properties.ToArray();ReferencedProperties=@($state.Used);WhereProperties=@($state.WhereUsed);CanonicalQuery=$canonical}
+}
+function Assert-DomeniaWqlAccountScope {
+    # Never a whole-domain scan. On a domain member, the account classes enumerate every account or group of the domain
+    # from the workstation: they require LocalAccount = TRUE in every branch of the WHERE clause. A fixed Domain = name
+    # is not accepted: a recipe runs on every workstation of its OU, where that name is not the local one. Associations
+    # and generic parent classes that also return domain accounts cannot be restricted this way and are refused.
+    param([string]$ClassName,[bool]$LocalAccountOnly)
+    $remedy=' Lisez les comptes et groupes locaux avec Win32_UserAccount ou Win32_Group WHERE LocalAccount = TRUE.'
+    $refused=[ordered]@{
+        Win32_GroupUser='elle énumère les appartenances de tous les groupes du domaine depuis le poste'
+        Win32_GroupInDomain='elle énumère tous les groupes du domaine depuis le poste'
+        Win32_UserInDomain='elle énumère tous les comptes du domaine depuis le poste'
+        Win32_AccountSID='elle énumère tous les comptes du domaine depuis le poste'
+        CIM_LogicalElement='cette classe générique inclut les comptes du domaine et chaque fichier du disque'
+        CIM_ManagedSystemElement='cette classe générique inclut les comptes du domaine et chaque fichier du disque'
+    }
+    foreach($name in $refused.Keys){if($ClassName -ieq $name){throw ('Classe '+$name+' refusée : '+$refused[$name]+'.'+$remedy)}}
+    if(($ClassName -in @('Win32_Account','Win32_UserAccount','Win32_Group')) -and (-not $LocalAccountOnly)){
+        throw ('Classe '+$ClassName+' refusée sans LocalAccount = TRUE : depuis un poste du domaine, elle énumère tous les comptes ou groupes du domaine. Ajoutez LocalAccount = TRUE à la condition WHERE, dans chaque branche OU, pour ne lire que les comptes locaux du poste.')
+    }
 }
 function Assert-DomeniaQuerySchemaNamespace {
     param([string]$Namespace)
@@ -114,9 +148,7 @@ function Get-DomeniaWqlProviderWarnings {
     $costly=[ordered]@{
         CIM_DataFile='parcourt les fichiers du disque';CIM_Directory='parcourt les dossiers du disque';Win32_Directory='parcourt les dossiers du disque'
         Win32_ShortcutFile='parcourt les raccourcis du disque';Win32_NTLogEvent='lit les journaux dʼévénements, parfois très volumineux'
-        Win32_ReliabilityRecords='lit lʼhistorique de fiabilité, lent sur un poste ancien';Win32_UserAccount='peut énumérer tous les comptes du domaine depuis le poste'
-        Win32_Group='peut énumérer tous les groupes du domaine depuis le poste';Win32_GroupUser='peut énumérer toutes les appartenances du domaine'
-        Win32_Account='peut énumérer tous les comptes du domaine depuis le poste';Win32_PnPSignedDriver='interroge chaque pilote, lentement'
+        Win32_ReliabilityRecords='lit lʼhistorique de fiabilité, lent sur un poste ancien';Win32_PnPSignedDriver='interroge chaque pilote, lentement'
     }
     $warnings=[Collections.Generic.List[string]]::new()
     foreach($name in $costly.Keys){if($ClassName -ieq $name){$warnings.Add('Classe '+$name+' : '+$costly[$name]+'.'+$(if(-not $HasWhere){' Sans clause WHERE, la lecture porte sur tout ce périmètre.'}else{''}))}}

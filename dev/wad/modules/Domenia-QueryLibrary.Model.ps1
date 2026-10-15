@@ -247,7 +247,8 @@ function ConvertTo-DomeniaQueryPowerShell {
     $json=ConvertTo-Json -InputObject $Recipe -Depth 32 -Compress
     $literal="'"+(ConvertTo-DomeniaAsciiJson $json).Replace("'","''")+"'"
     $lines=[Collections.Generic.List[string]]::new()
-    $comment={param([string]$Text)$lines.Add(('# '+(ConvertTo-DomeniaScriptCommentText $Text)).TrimEnd())}
+    # Leading spaces carry the nesting of groups and collections; only the text after them is sanitised.
+    $comment={param([string]$Text)$indent=[regex]::Match($Text,'^ *').Value;$lines.Add(('# '+$indent+(ConvertTo-DomeniaScriptCommentText $Text)).TrimEnd())}
     $lines.Add('#requires -Version 5.1')
     & $comment '===== Requête Domenia exportée ====='
     & $comment ('Nom : '+[string]$Recipe.Name)
