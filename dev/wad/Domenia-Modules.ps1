@@ -322,11 +322,13 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaWorkstationDurationText',
             'Get-DomeniaDiagStatusLabel',
             'Get-DomeniaDiagSeverity',
+            'Get-DomeniaNetworkLayerDiagnosis',
             'ConvertTo-DomeniaDiagVerdict',
             'ConvertTo-DomeniaSoftwareFromInventory',
             'Get-DomeniaSoftwareColumnVisibility',
             'Get-DomeniaSoftwareAccessSummary',
             'Get-DomeniaInventoryMapText',
+            'ConvertFrom-DomeniaTaskResultCode',
             'Get-DomeniaInventoryValueText',
             'Get-DomeniaQuickDiagPlan',
             'Test-DomeniaQuickDiagAllowed',
@@ -761,6 +763,7 @@ function Get-DomeniaRuntimeModulePlan {
         [pscustomobject]@{ File='Domenia-Experience.Model.ps1'; DotSource=$false; Functions=@(
             'ConvertTo-SuiteFlag',
             'ConvertTo-SuiteNumber',
+            'Test-DomeniaScopedSettingName',
             'ConvertTo-DomeniaExperienceSettings',
             'Get-SuiteDesign',
             'Get-SuitePalette',
@@ -1108,10 +1111,15 @@ function Get-DomeniaRuntimeModulePlan {
             'Complete-DomeniaDirectoryChangesCommit',
             'Complete-DomeniaDirectoryChangesRead'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-ProbeDetails.Model.ps1','Domenia-Storage.UI.ps1','Domenia-Collection.Model.ps1'); File='Domenia-ProbeDetails.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-ProbeDetails.Model.ps1','Domenia-Storage.UI.ps1','Domenia-Collection.Model.ps1','Domenia-Readings.Model.ps1'); File='Domenia-ProbeDetails.UI.ps1'; DotSource=$true; Functions=@(
             'Show-DomeniaProbeDetails',
+            'New-DomeniaProbeReadingGrid',
+            'Get-DomeniaBiosReferenceSettingKey',
+            'Get-DomeniaStoredBiosReferences',
+            'Invoke-DomeniaBiosReferenceAction',
             'Test-DomeniaProbeDetailsState',
             'Complete-DomeniaProbeDetailsRead',
+            'Update-DomeniaProbeReading',
             'Update-DomeniaProbeDetailsPage',
             'Fail-DomeniaProbeDetailsRead'
         ) }
@@ -1742,6 +1750,7 @@ function Get-DomeniaRuntimeModulePlan {
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Boards.Model.ps1','Domenia-Park.Model.ps1'); File='Domenia-WidgetCollect.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaWidgetSourceTable',
             'Get-DomeniaWidgetSource',
+            'Get-DomeniaProbeWidgetSource',
             'Get-DomeniaWidgetFieldNeeds',
             'Get-DomeniaWidgetCollectionNeed',
             'Get-DomeniaWidgetNeedText',
@@ -1808,7 +1817,71 @@ function Get-DomeniaRuntimeModulePlan {
             'ConvertTo-DomeniaProbeNumber',
             'Get-DomeniaProbeValues',
             'Measure-DomeniaWidgetData',
-            'Measure-DomeniaFleetProbeEntries'
+            'Measure-DomeniaFleetProbeEntries',
+            'ConvertFrom-DomeniaEdidText',
+            'Get-DomeniaMonitorIdentity',
+            'Get-DomeniaProbeHistoryPolicy',
+            'ConvertTo-DomeniaProbeHistoryItem',
+            'Get-DomeniaProbeHistorySample',
+            'Copy-DomeniaProbeHistoryMap',
+            'Add-DomeniaProbeHistory'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Probes.Model.ps1'); File='Domenia-Readings.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaReadingCatalog',
+            'Get-DomeniaReadingForProbe',
+            'ConvertTo-DomeniaReadingErrorState',
+            'ConvertTo-DomeniaReadingSource',
+            'Get-DomeniaReadingNumber',
+            'Get-DomeniaReadingText',
+            'Get-DomeniaReadingBool',
+            'Format-DomeniaReadingSize',
+            'Format-DomeniaReadingNumber',
+            'Format-DomeniaReadingDate',
+            'Get-DomeniaReadingCode',
+            'Get-DomeniaReadingBoolText',
+            'ConvertTo-DomeniaReadingCodes',
+            'Add-DomeniaReadingFact',
+            'Add-DomeniaReadingSourceFact',
+            'Get-DomeniaReadingPartialText',
+            'Join-DomeniaReadingText',
+            'Get-DomeniaMemoryReading',
+            'Get-DomeniaVolumeSaturationForecast',
+            'Get-DomeniaVolumeReading',
+            'Get-DomeniaStorageHealthReading',
+            'Get-DomeniaBatteryReading',
+            'Compare-DomeniaBiosVersion',
+            'ConvertTo-DomeniaBiosReferenceBook',
+            'Get-DomeniaBiosReference',
+            'Set-DomeniaBiosReference',
+            'Remove-DomeniaBiosReference',
+            'Get-DomeniaBiosReading',
+            'Get-DomeniaVirtualPlatform',
+            'Get-DomeniaProcessorReading',
+            'Get-DomeniaVideoOutputText',
+            'Get-DomeniaDisplayReading',
+            'Test-DomeniaVirtualAdapterName',
+            'Get-DomeniaNetworkReading',
+            'Get-DomeniaDeviceErrorText',
+            'Get-DomeniaDeviceReading',
+            'Get-DomeniaServiceProfile',
+            'Get-DomeniaServiceReading',
+            'Get-DomeniaTaskReading',
+            'ConvertFrom-DomeniaAvProductState',
+            'Get-DomeniaAntivirusReading',
+            'Get-DomeniaFirewallReading',
+            'Get-DomeniaProtectionReading',
+            'Get-DomeniaProcessSnapshotReading',
+            'Invoke-DomeniaReading',
+            'Get-DomeniaReadingStateLabel',
+            'ConvertTo-DomeniaReadingRows',
+            'Get-DomeniaInventoryCategoryRows',
+            'Get-DomeniaPendingRebootReading',
+            'Get-DomeniaAppliedFirewallProfiles',
+            'Get-DomeniaBitLockerInventoryState',
+            'Get-DomeniaSecureBootInventoryState',
+            'Get-DomeniaCertificateReading',
+            'Measure-DomeniaProcessLoad',
+            'Get-DomeniaUpdateReading'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-Collection.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaCollectionLimits',
@@ -1856,7 +1929,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaSoftwareFamily',
             'Get-DomeniaSoftwareBoardData'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1'); File='Domenia-BoardComputer.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Readings.Model.ps1'); File='Domenia-BoardComputer.UI.ps1'; DotSource=$true; Functions=@(
             'Add-DomeniaComputerBoardAdEntries',
             'Get-DomeniaComputerBoardData'
         ) }

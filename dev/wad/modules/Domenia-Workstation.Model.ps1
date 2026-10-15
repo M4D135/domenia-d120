@@ -147,6 +147,58 @@ function Get-DomeniaDiagSeverity {
     return 'Echec'
 }
 
+function Get-DomeniaNetworkLayerDiagnosis {
+    # Point 90: the diagnosis rows read layer by layer - name resolution, ICMP, TCP transport, useful protocol - and
+    # the first layer that blocks the connection. ICMP alone never blocks: a filtered ping with an open management
+    # port is a reachable workstation. A layer that was not tried stays "Non tente" and proves nothing.
+    [CmdletBinding()]
+    param([AllowNull()]$Rows = $null)
+    $list = @(@($Rows) | Where-Object { $null -ne $_ })
+    $stateOf = {
+        param($Found)
+        if (-not @($Found).Count) { return 'Non tente' }
+        $code = ([string]@($Found)[0].Status).Trim().ToUpperInvariant()
+        if ($code -eq 'OK') { return 'Reussi' }
+        if ($code -in @('IGNORE','INDISPONIBLE','')) { return 'Non tente' }
+        return 'Echec'
+    }
+    $dns = @($list | Where-Object { [string]$_.Check -eq 'Resolution DNS' } | Select-Object -First 1)
+    $ping = @($list | Where-Object { [string]$_.Check -eq 'Ping' } | Select-Object -First 1)
+    $tcp = @($list | Where-Object { ([string]$_.Check).StartsWith('TCP ',[StringComparison]::OrdinalIgnoreCase) })
+    $open = @($tcp | Where-Object { ([string]$_.Status).Trim().ToUpperInvariant() -eq 'OK' } | ForEach-Object { (([string]$_.Check) -split ' ')[1] })
+    $cim = @($list | Where-Object { [string]$_.Check -eq 'Session CIM' } | Select-Object -First 1)
+    $share = @($list | Where-Object { [string]$_.Check -eq 'Partage C$' } | Select-Object -First 1)
+    $dnsState = & $stateOf $dns
+    $pingState = & $stateOf $ping
+    $tcpState = if (-not $tcp.Count) { 'Non tente' } elseif ($open.Count) { 'Reussi' } else { 'Echec' }
+    $cimState = & $stateOf $cim
+    $shareState = & $stateOf $share
+    $protocolState = if ($cimState -eq 'Reussi') { 'Reussi' } elseif ($cimState -eq 'Echec') { 'Echec' } elseif ($shareState -eq 'Reussi') { 'Partiel' } elseif ($shareState -eq 'Echec') { 'Echec' } else { 'Non tente' }
+    $detailOf = { param($Found) if (@($Found).Count) { return (ConvertTo-DomeniaFlatText ([string]@($Found)[0].Detail) 120) }; return '' }
+    $layers = @(
+        [pscustomobject]@{ Step = 1; Label = 'Résolution du nom'; State = $dnsState; Detail = (& $detailOf $dns) }
+        [pscustomobject]@{ Step = 2; Label = 'Réponse ICMP (ping)'; State = $pingState; Detail = (& $detailOf $ping) }
+        [pscustomobject]@{ Step = 3; Label = 'Transport TCP'; State = $tcpState; Detail = $(if ($open.Count) { 'ports ouverts : ' + ($open -join ', ') } elseif ($tcp.Count) { 'aucun port de gestion ne répond' } else { '' }) }
+        [pscustomobject]@{ Step = 4; Label = 'Protocole utile (CIM, C$)'; State = $protocolState; Detail = $(if ($cim.Count) { & $detailOf $cim } else { & $detailOf $share }) }
+    )
+    $reachable = ($tcpState -eq 'Reussi') -or ($protocolState -in @('Reussi','Partiel'))
+    $blocking = 0; $sentence = ''
+    if ($dnsState -eq 'Echec') { $blocking = 1; $sentence = 'La connexion échoue à la résolution du nom : aucune adresse nʼest connue pour ce poste.' }
+    elseif ($tcpState -eq 'Echec') {
+        $blocking = 3
+        $sentence = 'La connexion échoue au transport : aucun port de gestion ne répond' + $(if ($pingState -eq 'Reussi') { ' alors que le poste répond au ping (pare-feu probable).' } elseif ($pingState -eq 'Echec') { ' ni au ping (poste éteint, hors réseau ou filtré).' } else { '.' })
+    }
+    elseif ($protocolState -eq 'Echec') {
+        $blocking = 4
+        $cimCode = if ($cim.Count) { ([string]$cim[0].Status).Trim().ToUpperInvariant() } else { '' }
+        $sentence = if ($cimCode -eq 'REFUSE') { 'La connexion échoue au protocole : la session CIM est refusée au compte utilisé.' } elseif (($cimCode -eq 'INJOIGNABLE') -and ($open -contains '135')) { 'La connexion échoue au protocole : le port 135 répond mais la session CIM nʼaboutit pas (ports RPC dynamiques filtrés ?).' } elseif ($cim.Count) { 'La connexion échoue au protocole : la session CIM nʼaboutit pas.' } else { 'La connexion échoue au protocole : le partage C$ nʼest pas accessible.' }
+    }
+    elseif (($pingState -eq 'Echec') -and $reachable) { $sentence = 'Pas de réponse au ping, mais le poste est joignable par TCP : ICMP est probablement filtré.' }
+    elseif (($dnsState -eq 'Reussi') -and ($tcpState -eq 'Reussi') -and ($protocolState -eq 'Reussi')) { $sentence = 'Toutes les étapes utiles réussissent : nom résolu, ' + $(if ($open.Count) { 'ports ' + ($open -join ', ') + ' ouverts, ' } else { '' }) + 'session CIM ouverte.' }
+    elseif (-not $reachable) { $sentence = 'Étape bloquante inconnue : aucun port ni protocole nʼa été testé.' }
+    return [pscustomobject]@{ Layers = $layers; BlockingStep = $blocking; Reachable = $reachable; Sentence = $sentence }
+}
+
 function ConvertTo-DomeniaDiagVerdict {
     [CmdletBinding()]
     param([AllowNull()]$Rows = $null, [AllowNull()][AllowEmptyString()][string]$Computer = '')
@@ -175,16 +227,19 @@ function ConvertTo-DomeniaDiagVerdict {
     }
     $rowsOut = @($out.ToArray())
     if ($rowsOut.Count -eq 0) {
-        return [pscustomobject]@{ Rows=@(); Verdict=''; Ok=0; Failed=0; Info=0; Skipped=0
+        return [pscustomobject]@{ Rows=@(); Layers=@(); BlockingStep=0; Verdict=''; Ok=0; Failed=0; Info=0; Skipped=0
             EmptyText='Aucun contrôle exécuté : lancez « Lancer le diagnostic » pour lire le poste.' }
     }
     $subject = ([string]$Computer).Trim()
     if ([string]::IsNullOrWhiteSpace($subject)) { $subject = 'Le poste' }
     $echecs = @($rowsOut | Where-Object { $_.Severity -eq 'Echec' })
     $points = @()
+    # Point 90 : lecture par couche (nom, ICMP, TCP, protocole) et premiere etape qui bloque.
+    $couches = Get-DomeniaNetworkLayerDiagnosis -Rows $rowsOut
     # Un poste injoignable ne se resume pas a un nombre : la premiere phrase doit le dire, sinon
-    # l operateur lit « 8 controles reussis » sur une machine eteinte.
-    $down = @($echecs | Where-Object { $_.Check -eq 'Resolution DNS' -or $_.Check -eq 'Ping' })
+    # l operateur lit « 8 controles reussis » sur une machine eteinte. Un ping filtre sur un poste
+    # qui repond en TCP n'est pas un poste injoignable.
+    $down = @($echecs | Where-Object { ($_.Check -eq 'Resolution DNS') -or (($_.Check -eq 'Ping') -and (-not $couches.Reachable)) })
     if ($down.Count -gt 0) {
         if (@($echecs | Where-Object { $_.Check -eq 'Resolution DNS' }).Count -gt 0) {
             $points += ($subject + ' ne répond pas : son nom ne se résout pas.')
@@ -205,9 +260,11 @@ function ConvertTo-DomeniaDiagVerdict {
             $positifs += 'Bureau à distance ouvert'
         }
         $head = $subject + ' répond'
+        if (@($echecs | Where-Object { $_.Check -eq 'Ping' }).Count -gt 0) { $head += ' sans ping (ICMP filtré)' }
         if ($positifs.Count -gt 0) { $head += ' : ' + ($positifs -join ', ') }
         $points += ($head + '.')
     }
+    if ($couches.Sentence) { $points += [string]$couches.Sentence }
     if ($echecs.Count -gt 0) {
         $noms = @($echecs | ForEach-Object { [string]$_.Check } | Select-Object -First 3)
         $phrase = [string]$echecs.Count + ' contrôle(s) en échec : ' + ($noms -join ', ')
@@ -229,6 +286,8 @@ function ConvertTo-DomeniaDiagVerdict {
     }
     return [pscustomobject]@{
         Rows = $rowsOut
+        Layers = $couches.Layers
+        BlockingStep = $couches.BlockingStep
         Verdict = ($points -join ' ')
         Ok = $reussi
         Failed = $echec
@@ -448,6 +507,29 @@ function Get-DomeniaInventoryMapText {
     return $Fallback
 }
 
+function ConvertFrom-DomeniaTaskResultCode {
+    # Point 96: last result of a scheduled task. The SCHED_S_* codes are states of the task scheduler, not failures;
+    # any other value is the exit code of the action or an error, shown as it is and to be checked.
+    param([AllowEmptyString()][AllowNull()][string]$Code)
+    $text = ([string]$Code).Trim()
+    $value = [uint32]0
+    if (($text -notmatch '^(?i)0x[0-9a-f]{1,8}$') -or (-not [uint32]::TryParse($text.Substring(2),[Globalization.NumberStyles]::HexNumber,[Globalization.CultureInfo]::InvariantCulture,[ref]$value))) {
+        return [pscustomobject]@{ Code = $text; Text = 'non lu'; Failure = $null }
+    }
+    $label = switch ([long]$value) {
+        0 { 'succès' }
+        267008 { 'tâche prête' }
+        267009 { 'en cours dʼexécution' }
+        267010 { 'tâche désactivée' }
+        267011 { 'jamais exécutée' }
+        267012 { 'plus aucune exécution planifiée' }
+        267014 { 'arrêtée par un utilisateur' }
+        default { '' }
+    }
+    if ($label) { return [pscustomobject]@{ Code = $text; Text = [string]$label; Failure = $false } }
+    return [pscustomobject]@{ Code = $text; Text = 'code de sortie ou erreur à vérifier'; Failure = $true }
+}
+
 function Get-DomeniaInventoryValueText {
     <#
         UX-37 : le libelle que l operateur doit lire dans la colonne Valeur de l inventaire du poste, a
@@ -478,6 +560,12 @@ function Get-DomeniaInventoryValueText {
     }
     if ($cat -eq 'disques physiques' -and $nom.EndsWith('etat smart')) {
         return Get-DomeniaInventoryMapText -Table $script:DomeniaInventorySmartText -Key $brut.ToUpperInvariant() -Fallback $brut
+    }
+    if (($cat -eq 'taches planifiees') -and ($brut -match 'resultat (0x[0-9A-Fa-f]{1,8})')) {
+        # Point 96: the raw code stays, followed by what the task scheduler means by it.
+        $code = [string]$matches[1]
+        $resultat = ConvertFrom-DomeniaTaskResultCode $code
+        return ($brut -replace ('resultat ' + [regex]::Escape($code)), ('résultat ' + $code + ' (' + [string]$resultat.Text + ')'))
     }
     if ($cat -eq 'cartes reseau') {
         # Le collecteur colle le statut et la vitesse dans la meme valeur : « 2, 1000 Mb/s ».
