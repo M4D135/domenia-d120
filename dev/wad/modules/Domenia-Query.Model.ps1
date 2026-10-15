@@ -218,9 +218,9 @@ function Get-DomeniaQueryTemplates {
     # Metadata belongs only to delivered templates; saving a copy keeps the existing user recipe schema.
     if($null -ne $script:DomeniaQueryTemplateCatalog){return $script:DomeniaQueryTemplateCatalog}
     $delivered=[Collections.Generic.List[object]]::new();$signatures=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal);$titles=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-    $make={param([string]$Id,[string]$Name,[string]$Category,[string]$Description,[object[]]$Clauses=@(),[string]$GroupBy='',[string]$Junction='All')
-        $recipe=New-DomeniaQueryRecipe -Id ('template.'+$Id) -Name $Name -Clauses $Clauses -GroupBy $GroupBy -Junction $Junction
-        $signature=$recipe|Select-Object Junction,Clauses,GroupBy|ConvertTo-Json -Depth 6 -Compress
+    $make={param([string]$Id,[string]$Name,[string]$Category,[string]$Description,[object[]]$Clauses=@(),[string]$GroupBy='',[string]$Junction='All',[object[]]$Parameters=@(),$Expression=$null)
+        $recipe=New-DomeniaQueryRecipe -Id ('template.'+$Id) -Name $Name -Clauses $Clauses -GroupBy $GroupBy -Junction $Junction -Parameters $Parameters -Expression $Expression
+        $signature=$recipe|Select-Object Junction,Clauses,GroupBy,Parameters,Expression|ConvertTo-Json -Depth 12 -Compress
         if($signatures.Contains($signature) -or $titles.Contains($Name)){return}
         [void]$signatures.Add($signature);[void]$titles.Add($Name)
         $recipe|Add-Member -NotePropertyName Category -NotePropertyValue $Category
@@ -446,6 +446,23 @@ probe:net.speed|100,1000
             }
         }
     }
+    # Parameterised models (point 65): threshold, software, version, OU and period come from the typed form. Each
+    # default is an editable example; the bounds keep the entry within a meaningful range.
+    $parameter={param([string]$Name,[string]$Field,$Default,[string]$Label,$Minimum=$null,$Maximum=$null)
+        $definition=[pscustomobject]@{Name=$Name;Field=$Field;Default=$Default;Label=$Label}
+        if($null -ne $Minimum){$definition|Add-Member -NotePropertyName Minimum -NotePropertyValue $Minimum}
+        if($null -ne $Maximum){$definition|Add-Member -NotePropertyName Maximum -NotePropertyValue $Maximum}
+        $definition
+    }
+    $use={param([string]$Name)[pscustomobject]@{Parameter=$Name}}
+    & $make 'param.diskfree' 'C: : espace libre sous un seuil à choisir' 'Modèles paramétrés' 'Seuil dʼespace libre sur C: saisi dans le formulaire des paramètres, 10 % par défaut ; une mesure absente ou expirée nʼest jamais assimilée à zéro.' @((& $clause 'diskFreePercent' 'Less' (& $use 'Seuil'))) '' 'All' @((& $parameter 'Seuil' 'diskFreePercent' ([decimal]10) 'Espace libre minimal sur C:' ([decimal]0) ([decimal]100)))
+    & $make 'param.ram' 'Mémoire installée sous un seuil à choisir' 'Modèles paramétrés' 'Seuil de mémoire installée saisi dans le formulaire (8 Go par défaut, Mo et To acceptés) ; le dernier inventaire léger utilisable fournit la valeur.' @((& $clause 'ramGB' 'Less' (& $use 'Memoire'))) '' 'All' @((& $parameter 'Memoire' 'ramGB' ([decimal]8) 'Mémoire installée minimale' ([decimal]0) ([decimal]4096)))
+    & $make 'param.logon' 'Comptes actifs sans connexion AD depuis une période à choisir' 'Modèles paramétrés' 'Période saisie en jours (90 par défaut) appliquée à la date AD répliquée lastLogonTimestamp, approximative ; une date absente reste inconnue et ne prouve aucune inactivité.' @((& $clause 'active' 'Equal' $true),(& $clause 'logonDays' 'GreaterOrEqual' (& $use 'Periode'))) '' 'All' @((& $parameter 'Periode' 'logonDays' ([decimal]90) 'Période sans connexion AD' ([decimal]1) ([decimal]3650)))
+    & $make 'param.inventory' 'Inventaire plus ancien quʼune période à choisir' 'Modèles paramétrés' 'Âge maximal de lʼinventaire léger saisi en jours ou en heures (7 jours par défaut) ; un inventaire expiré ou jamais lu reste inconnu.' @((& $clause 'inventoryDays' 'Greater' (& $use 'Periode'))) '' 'All' @((& $parameter 'Periode' 'inventoryDays' ([decimal]7) 'Âge maximal de lʼinventaire' ([decimal]0) ([decimal]3650)))
+    & $make 'param.ou' 'Postes dont le chemin AD contient une OU à choisir' 'Modèles paramétrés' 'Partie du chemin AD saisie dans le formulaire ou reprise de lʼOU du tableau de bord ; OU=Postes est un exemple à remplacer, la comparaison reste littérale.' @((& $clause 'dn' 'Contains' (& $use 'OU'))) '' 'All' @((& $parameter 'OU' 'dn' 'OU=Postes' 'Partie du chemin AD (OU)'))
+    & $make 'param.release' 'Version Windows relevée à choisir' 'Modèles paramétrés' 'Version commerciale cherchée dans lʼinventaire du poste (24H2 par défaut), distincte du système déclaré dans AD ; un poste non inventorié reste inconnu.' @((& $clause 'observedRelease' 'Contains' (& $use 'Version'))) '' 'All' @((& $parameter 'Version' 'observedRelease' '24H2' 'Version Windows relevée'))
+    $serviceTree=[pscustomobject]@{Kind='All';Children=@([pscustomobject]@{Kind='Collection';CollectionField='probe:soft.servicedetails';Quantifier='Any';Children=@([pscustomobject]@{Kind='All';Children=@([pscustomobject]@{Kind='Clause';Clause=(& $clause 'instance:soft.servicedetails:Name' 'Equal' (& $use 'Service'))})})})}
+    & $make 'param.service' 'Service Windows présent, nom à choisir' 'Modèles paramétrés' 'Cherche le nom court saisi (Spooler par défaut) dans la liste détaillée des services du poste, relevée par une collecte explicite ; une liste incomplète ou non lue reste inconnue.' @() '' 'All' @((& $parameter 'Service' 'instance:soft.servicedetails:Name' 'Spooler' 'Nom court du service Windows')) $serviceTree
     $script:DomeniaQueryTemplateCatalog=$delivered.ToArray()
     return $script:DomeniaQueryTemplateCatalog
 }
@@ -818,23 +835,84 @@ function Copy-DomeniaQueryRecipe {
     # Deep copy prevents an editor mutation from altering a saved recipe or an export in flight.
     return ConvertFrom-Json -InputObject (ConvertTo-Json -InputObject $copy -Depth 32 -Compress) -ErrorAction Stop
 }
+function Assert-DomeniaQueryParameterDefinition {
+    # Closed parameter DTO: technical name, field, default value, optional French label and numeric bounds.
+    param($Definition,$Field)
+    if($null -eq $Definition -or $null -eq $Field){throw 'Définition de paramètre invalide ou dupliquée.'}
+    foreach($property in $Definition.PSObject.Properties){if($property.Name -cnotin @('Name','Field','Default','Label','Minimum','Maximum')){throw ('Propriété de paramètre inconnue : '+$property.Name)}}
+    $label=Get-DomeniaMemberValue $Definition 'Label'
+    if($null -ne $label -and (($label -isnot [string]) -or ($label.Length -gt 80) -or ($label -match '[\p{Cc}]'))){throw 'Libellé de paramètre invalide (80 caractères, sans caractère de contrôle).'}
+    $bounds=@{}
+    foreach($bound in @('Minimum','Maximum')){
+        $raw=Get-DomeniaMemberValue $Definition $bound
+        if($null -eq $raw){continue}
+        if([string]$Field.Kind -ne 'Number'){throw 'Seule une information numérique accepte des bornes.'}
+        $number=[decimal]0
+        if(($raw -is [bool]) -or -not [decimal]::TryParse([Convert]::ToString($raw,[Globalization.CultureInfo]::InvariantCulture),[Globalization.NumberStyles]::Float,[Globalization.CultureInfo]::InvariantCulture,[ref]$number)){throw 'Borne de paramètre invalide.'}
+        $bounds[$bound]=$number
+    }
+    if($bounds.ContainsKey('Minimum') -and $bounds.ContainsKey('Maximum') -and ($bounds['Minimum'] -gt $bounds['Maximum'])){throw 'La borne minimale du paramètre dépasse sa borne maximale.'}
+}
+function ConvertTo-DomeniaQueryParameterValue {
+    # Typed value of one parameter, shared by the recipe compiler and the parameter form: number with units and
+    # optional bounds, Oui/Non, or a non-empty literal text. Nothing is ever evaluated as code.
+    param($Definition,$Field,$Value)
+    $label=[string](Get-DomeniaMember $Definition 'Label' '');if(-not $label){$label=[string](Get-DomeniaMember $Definition 'Name')}
+    if(($null -eq $Value) -or (($Value -is [string]) -and -not $Value.Trim())){throw ('Renseignez le paramètre '+$label+'.')}
+    switch([string]$Field.Kind){
+        'Number'{
+            $number=ConvertTo-DomeniaQueryNumber -Field ([string]$Field.Id) -Text $(if($Value -is [string]){$Value}else{[Convert]::ToString($Value,[Globalization.CultureInfo]::InvariantCulture)})
+            foreach($bound in @('Minimum','Maximum')){
+                $raw=Get-DomeniaMemberValue $Definition $bound;if($null -eq $raw){continue}
+                $limit=[decimal]::Parse([Convert]::ToString($raw,[Globalization.CultureInfo]::InvariantCulture),[Globalization.NumberStyles]::Float,[Globalization.CultureInfo]::InvariantCulture)
+                if((($bound -eq 'Minimum') -and ($number -lt $limit)) -or (($bound -eq 'Maximum') -and ($number -gt $limit))){throw ($label+' : valeur attendue '+$(if($bound -eq 'Minimum'){'supérieure ou égale à '}else{'inférieure ou égale à '})+(Format-DomeniaQueryValueLabel -Value $limit -Field $Field)+'.')}
+            }
+            return $number
+        }
+        'Boolean'{
+            if($Value -is [bool]){return $Value}
+            if([string]$Value -match '^(?i:true|vrai|oui|1)$'){return $true}
+            if([string]$Value -match '^(?i:false|faux|non|0)$'){return $false}
+            throw ('Le paramètre '+$label+' attend Oui ou Non.')
+        }
+        default{
+            if(($Value -isnot [string]) -or ($Value.Length -gt 4096)){throw ('Le paramètre '+$label+' attend un texte de 4 096 caractères maximum.')}
+            return $Value
+        }
+    }
+}
+function Get-DomeniaQueryParameterRows {
+    # Typed form rows: French label, information, current value, accepted input and coded choices.
+    param($Recipe)
+    $fields=Get-DomeniaQueryFieldMap $Recipe;$values=Get-DomeniaMemberValue $Recipe 'ParameterValues'
+    foreach($definition in @(Get-DomeniaMember $Recipe 'Parameters' @())){
+        $name=[string](Get-DomeniaMember $definition 'Name');$id=[string](Get-DomeniaMember $definition 'Field');$field=$fields[$id]
+        $label=[string](Get-DomeniaMember $definition 'Label' '');if(-not $label){$label=$name}
+        $value=Get-DomeniaMemberValue $values $name (Get-DomeniaMemberValue $definition 'Default')
+        $kind=if($null -ne $field){[string]$field.Kind}else{'Text'}
+        $unit=if($null -ne $field){[string](Get-DomeniaMember $field 'Unit' '')}else{''}
+        $choices=@(if($null -ne $field){Get-DomeniaMember $field 'Choices' @()})
+        $min=Get-DomeniaMemberValue $definition 'Minimum';$max=Get-DomeniaMemberValue $definition 'Maximum'
+        $hint=switch($kind){
+            'Number'{'Nombre'+$(if($unit -and $unit -notin @('Nombre','Nombre / tranche','Valeur brute du fournisseur')){' en '+$unit+' (unités usuelles acceptées)'}else{''})+$(if($null -ne $min -and $null -ne $max){', de '+(Format-DomeniaQueryValueLabel -Value $min -Field $field)+' à '+(Format-DomeniaQueryValueLabel -Value $max -Field $field)}elseif($null -ne $min){', au moins '+(Format-DomeniaQueryValueLabel -Value $min -Field $field)}elseif($null -ne $max){', au plus '+(Format-DomeniaQueryValueLabel -Value $max -Field $field)}else{''})}
+            'Boolean'{'Oui ou Non'}
+            default{if($choices.Count){'Choix parmi '+$choices.Count+' valeurs connues'}else{'Texte littéral, 4 096 caractères au plus'}}
+        }
+        [pscustomobject]@{Name=$name;Label=$label;Field=$id;FieldName=$(if($null -ne $field){[string]$field.Name}else{$id});Kind=$kind;Unit=$unit;Value=$value;ValueLabel=(Format-DomeniaQueryValueLabel -Value $value -Field $field -Bare);Hint=$hint;Choices=$choices;Definition=$definition}
+    }
+}
 function Resolve-DomeniaQueryParameters {
     param($Recipe)
     $definitions=@(Get-DomeniaMember $Recipe 'Parameters' @())
     if($definitions.Count -gt 32){throw 'Une recette accepte au maximum 32 paramètres.'}
     if(-not $definitions.Count){return $Recipe}
-    $fields=@{};foreach($field in @(@(Get-DomeniaQueryFields)+@(Get-DomeniaQueryInstanceFields)+@(Get-DomeniaQueryReadDefinitionFields $Recipe))){$fields[$field.Id]=$field}
+    $fields=Get-DomeniaQueryFieldMap $Recipe
     $values=Get-DomeniaMemberValue $Recipe 'ParameterValues';$resolved=@{}
     foreach($definition in $definitions){
         $name=[string](Get-DomeniaMember $definition 'Name');$id=[string](Get-DomeniaMember $definition 'Field')
-        if($name -cnotmatch '^[A-Za-z][A-Za-z0-9_]{0,63}$' -or $resolved.ContainsKey($name) -or -not $fields.ContainsKey($id)){throw 'Définition de paramètre invalide ou dupliquée.'}
-        $value=Get-DomeniaMemberValue $values $name (Get-DomeniaMemberValue $definition 'Default')
-        if($null -eq $value){throw ('Renseignez le paramètre '+$name+'.')}
-        switch($fields[$id].Kind){
-            'Number'{$value=ConvertTo-DomeniaQueryNumber -Field $id -Text ([Convert]::ToString($value,[Globalization.CultureInfo]::InvariantCulture))}
-            'Boolean'{if($value -isnot [bool]){if([string]$value -match '^(?i:true|vrai|oui|1)$'){$value=$true}elseif([string]$value -match '^(?i:false|faux|non|0)$'){$value=$false}else{throw ('Le paramètre '+$name+' attend Oui ou Non.')}}}
-            default{if($value -isnot [string] -or $value.Length -gt 4096){throw ('Le paramètre '+$name+' attend un texte de 4 096 caractères maximum.')}}
-        }
+        if(($name -cnotmatch '^[A-Za-z][A-Za-z0-9_]{0,63}$') -or $resolved.ContainsKey($name) -or -not $fields.ContainsKey($id)){throw 'Définition de paramètre invalide ou dupliquée.'}
+        Assert-DomeniaQueryParameterDefinition -Definition $definition -Field $fields[$id]
+        $value=ConvertTo-DomeniaQueryParameterValue -Definition $definition -Field $fields[$id] -Value (Get-DomeniaMemberValue $values $name (Get-DomeniaMemberValue $definition 'Default'))
         $resolved[$name]=[pscustomobject]@{Field=$id;Value=$value}
     }
     $copy=Copy-DomeniaQueryRecipe $Recipe

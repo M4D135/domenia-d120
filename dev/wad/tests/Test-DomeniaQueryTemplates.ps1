@@ -42,7 +42,7 @@ foreach($template in $templates){
     $result=$compiled.Execute($one,$null)
     Expect ($result.Total -eq 1 -and ($result.Matched+$result.Unknown+$result.NotMatched) -eq 1) ('Single computer partitions exactly once '+$template.Id)
     # A user saving a delivered model obtains the existing recipe schema and can load it again.
-    $copy=New-DomeniaQueryRecipe -Id ('copy.'+$template.Id) -Name $template.Name -Junction $template.Junction -Clauses @($template.Clauses) -GroupBy $template.GroupBy
+    $copy=Copy-DomeniaQueryRecipe $template -Id ('copy.'+$template.Id)
     $loaded=@(ConvertFrom-DomeniaQueryLibrary (ConvertTo-DomeniaQueryLibraryJson @($copy)))
     Expect ($loaded.Count -eq 1 -and $loaded[0].Id -ceq $copy.Id -and $null -eq $loaded[0].PSObject.Properties['Category']) ('User copy round trip keeps original recipe schema '+$template.Id)
 }
@@ -92,7 +92,41 @@ foreach($pair in @(@('template.hw.batterypresent','hw.battery'),@('template.net.
     $values=[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal)
     Expect ($compiled.Evaluate($values) -eq [M4D.Admin.Common.Query.MatchState]::Unknown) ('Missing mapped count remains unknown '+$pair[1])
 }
-$signatures=@{};foreach($template in $templates){$key=($template|Select-Object Junction,Clauses,GroupBy|ConvertTo-Json -Depth 6 -Compress);Expect (-not $signatures.ContainsKey($key)) ('No duplicated recipe with another title '+$template.Id);$signatures[$key]=$true}
+$signatures=@{};foreach($template in $templates){$key=($template|Select-Object Junction,Clauses,GroupBy,Parameters,Expression|ConvertTo-Json -Depth 12 -Compress);Expect (-not $signatures.ContainsKey($key)) ('No duplicated recipe with another title '+$template.Id);$signatures[$key]=$true}
+# Point 65: parameterised models receive threshold, software, version, OU and period through typed values.
+$parameterised=@($templates|Where-Object{$_.Category -ceq 'Modèles paramétrés'})
+Expect ($parameterised.Count -eq 7 -and @($parameterised|Where-Object{$_.Format -ceq 'Domenia.Query/2' -and @($_.Parameters).Count -eq 1}).Count -eq 7) 'Seven delivered models carry one typed parameter each'
+foreach($field in @('diskFreePercent','ramGB','logonDays','inventoryDays','dn','observedRelease','instance:soft.servicedetails:Name')){Expect (@($parameterised|Where-Object{$_.Parameters[0].Field -ceq $field}).Count -eq 1) ('Parameterised model for '+$field)}
+foreach($template in $parameterised){foreach($definition in @($template.Parameters)){Expect ([string]$definition.Label -and $null -ne $definition.Default) ('Parameter has a French label and an editable example '+$template.Id)}}
+$disk=$byId['template.param.diskfree']
+$records=[Collections.Generic.List[M4D.Admin.Common.Query.QueryRecord]]::new()
+foreach($free in @(5,15,30)){$values=[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal);$values['diskFreePercent']=$free;$records.Add([M4D.Admin.Common.Query.QueryRecord]::new(('disk-'+$free),$values))}
+$records.Add([M4D.Admin.Common.Query.QueryRecord]::new('disk-unknown',[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal)))
+$default=Measure-DomeniaQueryWidget -Records $records -Recipe $disk
+Expect ($default.Matched -eq 1 -and $default.Unknown -eq 1 -and $default.NotMatched -eq 2) 'Default threshold 10 % selects one disk and keeps the unknown one apart'
+$custom=Copy-DomeniaQueryRecipe $disk;$custom.ParameterValues=@{Seuil='20 %'}
+$measured=Measure-DomeniaQueryWidget -Records $records -Recipe $custom
+Expect ($measured.Matched -eq 2 -and $measured.Unknown -eq 1) 'A typed value with its unit changes the threshold without editing the conditions'
+$resolved=Resolve-DomeniaQueryParameters $custom
+Expect ($resolved.Clauses[0].Value -is [decimal] -and $resolved.Clauses[0].Value -eq 20 -and @($resolved.Parameters).Count -eq 0) 'Resolution freezes a typed decimal and removes the parameter list'
+$custom.ParameterValues=@{Seuil='150 %'};$failed='';try{[void](ConvertTo-DomeniaCompiledQuery $custom)}catch{$failed=$_.Exception.Message}
+Expect ($failed -like 'Espace libre minimal sur C: : valeur attendue inférieure ou égale à 100 %*') 'Bounds are explained with the French label and unit'
+$custom.ParameterValues=@{Seuil='8 Go'};$failed=$false;try{[void](ConvertTo-DomeniaCompiledQuery $custom)}catch{$failed=$true}
+Expect $failed 'An incompatible unit is refused'
+$custom.ParameterValues=@{Seuil=''};$failed='';try{[void](ConvertTo-DomeniaCompiledQuery $custom)}catch{$failed=$_.Exception.Message}
+Expect ($failed -like 'Renseignez le paramètre Espace libre minimal sur C:*') 'An empty value names the missing parameter'
+$service=Copy-DomeniaQueryRecipe $byId['template.param.service'];$service.ParameterValues=@{Service='WinRM'}
+Expect ((Resolve-DomeniaQueryParameters $service).Expression.Children[0].Children[0].Children[0].Clause.Value -ceq 'WinRM') 'A software parameter reaches the nested collection condition'
+$bad=Copy-DomeniaQueryRecipe $disk;$bad.Parameters[0]|Add-Member -NotePropertyName Script -NotePropertyValue 'Get-Process'
+$failed=$false;try{[void](ConvertTo-DomeniaCompiledQuery $bad)}catch{$failed=$true};Expect $failed 'Unknown parameter properties are refused'
+$bad=Copy-DomeniaQueryRecipe $byId['template.param.ou'];$bad.Parameters[0]|Add-Member -NotePropertyName Minimum -NotePropertyValue 1
+$failed=$false;try{[void](ConvertTo-DomeniaCompiledQuery $bad)}catch{$failed=$true};Expect $failed 'Bounds on a text parameter are refused'
+$tooMany=Copy-DomeniaQueryRecipe $disk;$tooMany.Parameters=@(for($i=0;$i -lt 33;$i++){[pscustomobject]@{Name=('P'+$i);Field='diskFreePercent';Default=10}})
+$failed=$false;try{[void](ConvertTo-DomeniaCompiledQuery $tooMany)}catch{$failed=$true};Expect $failed 'More than 32 parameters are refused'
+$rows=@(Get-DomeniaQueryParameterRows $custom)
+Expect ($rows.Count -eq 1 -and $rows[0].Label -ceq 'Espace libre minimal sur C:' -and $rows[0].Hint -like 'Nombre en % (unités usuelles acceptées), de 0 % à 100 %') 'Typed form row explains the accepted entry'
+$rows=@(Get-DomeniaQueryParameterRows $byId['template.param.ou'])
+Expect ($rows[0].Kind -ceq 'Text' -and $rows[0].ValueLabel -ceq 'OU=Postes') 'Text parameter shows its editable example'
 # A 5,000-workstation park can have 5,000 distinct console identities. Aggregate the complete set before top ten.
 $large=[Collections.Generic.List[M4D.Admin.Common.Query.QueryRecord]]::new()
 for($i=0;$i -lt 5000;$i++){

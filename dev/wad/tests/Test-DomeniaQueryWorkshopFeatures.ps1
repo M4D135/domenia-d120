@@ -71,7 +71,8 @@ $text=Format-DomeniaQueryCollectionPlanText -Plan $plan -Workload $workload -Con
 Expect ($text -like '*2 poste(s) à relire sur 5 examiné(s)*' -and $text -like '*Coût : Faible*' -and $text -like '*Durée non estimée*' -and $text -notlike '*ping ICMP*' -and $text -like '*Mémoire relevée en Go (2)*') 'plan text states targets, cost and missing information and never invents a duration'
 $Payload=[pscustomobject]@{ModuleRoot=$modules;Saved=@(for($i=0;$i -lt 125;$i++){New-DomeniaQueryRecipe -Name ('Personal '+$i)})}
 $actual=& ([scriptblock]::Create((Get-DomeniaQueryLibraryWorkerCode)))
-Expect ($actual.Rows.Count -eq 640 -and @($actual.Rows|Where-Object SourceId -eq 'Saved').Count -eq 125) 'actual lazy worker prepares full515models plus125personal definitions'
+$templateCount=@(Get-DomeniaQueryTemplates).Count
+Expect ($templateCount -ge 515 -and $actual.Rows.Count -eq ($templateCount+125) -and @($actual.Rows|Where-Object SourceId -eq 'Saved').Count -eq 125) 'actual lazy worker prepares every delivered model plus 125 personal definitions'
 $context=[pscustomobject]@{Version=1;StoreId='fixture';DomainDn='DC=example,DC=test';Path=(Join-Path ([IO.Path]::GetTempPath()) 'fixture-query.sqlite')}
 $personal=New-DomeniaQueryRecipe -Id 'personal.fixture' -Name 'Équipements  mémoire'
 $entry=New-DomeniaQueryLibraryRecord -Context $context -Recipe $personal -ExpectedRevision 7
@@ -104,9 +105,20 @@ $script:DomeniaQueryState=[pscustomobject]@{LibraryReady=$true;LibraryOffset=0;L
 Update-DomeniaQueryLibrary
 Expect ($script:Fake.DgQueryLibrary.ItemsSource.Count -eq 100 -and $script:Fake.BtnQueryLibraryNext.IsEnabled -and -not $script:Fake.BtnQueryLibraryPrevious.IsEnabled) 'library first page is100 with explicit navigation'
 $script:DomeniaQueryState.LibraryOffset=600;Update-DomeniaQueryLibrary -KeepPage
-Expect ($script:Fake.DgQueryLibrary.ItemsSource.Count -eq 40 -and -not $script:Fake.BtnQueryLibraryNext.IsEnabled) 'library last page preserves remaining40recipes'
+Expect ($script:Fake.DgQueryLibrary.ItemsSource.Count -eq ($actual.Rows.Count-600) -and -not $script:Fake.BtnQueryLibraryNext.IsEnabled) 'library last page preserves the remaining recipes'
 $script:Fake.TxtQueryLibrarySearch.Text='Personal 124';Update-DomeniaQueryLibrary
 Expect ($script:Fake.DgQueryLibrary.ItemsSource.Count -eq 1 -and $script:DomeniaQueryState.LibraryOffset -eq 0) 'search applies to full library and resets pagination'
+# Point 65: the typed parameter editor checks the entry with the compiler rule before Apply (inert controls).
+$paramRecipe=Copy-DomeniaQueryRecipe (@(Get-DomeniaQueryTemplates|Where-Object{$_.Id -ceq 'template.param.diskfree'})[0])
+$paramRow=@(Get-DomeniaQueryParameterRows $paramRecipe)[0]
+foreach($name in @('DgQueryParameters','TxtQueryParameterValue','CmbQueryParameterChoice','BtnQueryParameterApply','BtnQueryParameterScope')){$script:Fake[$name]=[pscustomobject]@{ItemsSource=@($paramRow);SelectedItem=$paramRow;SelectedIndex=0;Text='';IsEnabled=$false;Visibility='Visible'}}
+$script:DomeniaQueryState=[pscustomobject]@{Recipe=$paramRecipe;LibraryReady=$true;LibraryOffset=0;LibraryRows=@()}
+Show-DomeniaQueryParameterEditor
+Expect ($script:Fake.TxtQueryParameterValue.Text -ceq '10' -and [string]$script:Fake.CmbQueryParameterChoice.Visibility -ceq 'Collapsed' -and $script:Fake.BtnQueryParameterApply.IsEnabled -and [string]$script:Fake.BtnQueryParameterScope.Visibility -ceq 'Collapsed') 'a numeric parameter opens a text entry with its current value'
+$script:Fake.TxtQueryParameterValue.Text='150';Update-DomeniaQueryParameterCheck
+Expect (-not $script:Fake.BtnQueryParameterApply.IsEnabled -and $script:LastLabel -like '*inférieure ou égale à 100 %*') 'an out-of-range entry disables Apply and states the bound'
+$script:Fake.TxtQueryParameterValue.Text='15 %';Update-DomeniaQueryParameterCheck
+Expect ($script:Fake.BtnQueryParameterApply.IsEnabled -and $script:LastLabel -ceq 'Valeur retenue : 15 %') 'a valid entry shows the retained typed value'
 $report=[pscustomobject]@{Status='PASS';Assertions=$checks;CoveragePopulation=20000;SourceMode=[bool]$QuerySource;ElapsedSeconds=[Math]::Round($clock.Elapsed.TotalSeconds,3);PowerShell=$PSVersionTable.PSVersion.ToString();Scope='Actual models, worker factories, XML-independent UI pagination with inert controls; no network, AD, WMI or WPF'}
 if($ReportPath){[IO.File]::WriteAllText($ReportPath,($report|ConvertTo-Json),[Text.UTF8Encoding]::new($false))}
 $report|ConvertTo-Json -Compress

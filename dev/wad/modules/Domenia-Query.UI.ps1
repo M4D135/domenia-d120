@@ -753,9 +753,12 @@ function Show-DomeniaAttentionInWorkshop {
 }
 
 function Initialize-DomeniaQueryAdvanced {
-    foreach($entry in @(@('BtnQueryGroupAll','All'),@('BtnQueryGroupAny','Any'),@('BtnQueryGroupNot','Not'),@('BtnQueryTreeCondition','Clause'),@('BtnQueryTreeRemove','Remove'),@('BtnQueryTreeUp','Up'),@('BtnQueryTreeDown','Down'),@('BtnQueryTreeClear','Clear'),@('BtnQueryCollectionAdd','Collection'),@('BtnQueryInstanceAdd','Instance'),@('BtnQueryParameterAdd','Parameter'),@('BtnQueryParameterFreeze','Freeze'))){
+    foreach($entry in @(@('BtnQueryGroupAll','All'),@('BtnQueryGroupAny','Any'),@('BtnQueryGroupNot','Not'),@('BtnQueryTreeCondition','Clause'),@('BtnQueryTreeRemove','Remove'),@('BtnQueryTreeUp','Up'),@('BtnQueryTreeDown','Down'),@('BtnQueryTreeClear','Clear'),@('BtnQueryCollectionAdd','Collection'),@('BtnQueryInstanceAdd','Instance'),@('BtnQueryParameterAdd','Parameter'),@('BtnQueryParameterFreeze','Freeze'),@('BtnQueryParameterApply','ParameterApply'),@('BtnQueryParameterScope','ParameterScope'))){
         $control=Get-DomeniaControl $entry[0];if($null -ne $control){$control.Tag=$entry[1];$control.Add_Click({param($sender,$eventArgs)Invoke-DomeniaQueryAdvancedAction ([string]$sender.Tag)})}
     }
+    $parameterGrid=Get-DomeniaControl 'DgQueryParameters';if($null -ne $parameterGrid){$parameterGrid.Add_SelectionChanged({Show-DomeniaQueryParameterEditor})}
+    $parameterText=Get-DomeniaControl 'TxtQueryParameterValue';if($null -ne $parameterText){$parameterText.Add_TextChanged({Update-DomeniaQueryParameterCheck})}
+    $parameterChoice=Get-DomeniaControl 'CmbQueryParameterChoice';if($null -ne $parameterChoice){$parameterChoice.Add_SelectionChanged({Update-DomeniaQueryParameterCheck})}
     $probe=Get-DomeniaControl 'CmbQueryCollectionProbe'
     if($null -ne $probe){$probe.ItemsSource=@(Get-DomeniaProbeCatalog|Where-Object{@($_.Properties).Count}|Sort-Object Name);$probe.Add_SelectionChanged({Update-DomeniaQueryInstanceFields});$probe.SelectedIndex=0}
     $field=Get-DomeniaControl 'CmbQueryInstanceField';if($null -ne $field){$field.Add_SelectionChanged({$f=(Get-DomeniaControl 'CmbQueryInstanceField').SelectedItem;$operator=Get-DomeniaControl 'CmbQueryInstanceOperator';$operator.ItemsSource=@(if($null -ne $f){Get-DomeniaQueryOperators $f.Kind});$operator.SelectedIndex=0})}
@@ -769,8 +772,56 @@ function Update-DomeniaQueryAdvancedDraft {
     param($Recipe)
     $tree=Get-DomeniaControl 'LstQueryExpression';if($null -ne $tree){$tree.ItemsSource=@(Get-DomeniaQueryExpressionOutline -Node (Get-DomeniaMemberValue $Recipe 'Expression') -Fields (Get-DomeniaQueryFieldMap $Recipe));if($tree.ItemsSource.Count){$tree.SelectedIndex=0}}
     $parameters=Get-DomeniaControl 'DgQueryParameters'
-    if($null -ne $parameters){$fields=@{};foreach($field in @(@(Get-DomeniaQueryFields)+@(Get-DomeniaQueryInstanceFields))){$fields[$field.Id]=$field};$parameters.ItemsSource=@(foreach($parameter in @(Get-DomeniaMember $Recipe 'Parameters' @())){[pscustomobject]@{Name=$parameter.Name;Field=$parameter.Field;FieldName=[string]$fields[[string]$parameter.Field].Name;Value=(Get-DomeniaMemberValue (Get-DomeniaMemberValue $Recipe 'ParameterValues') ([string]$parameter.Name) (Get-DomeniaMemberValue $parameter 'Default'))}})}
+    if($null -ne $parameters){$parameters.ItemsSource=@(Get-DomeniaQueryParameterRows $Recipe);if(@($parameters.ItemsSource).Count){$parameters.SelectedIndex=0}}
+    Show-DomeniaQueryParameterEditor
     $coherence=Get-DomeniaControl 'TxtQueryCoherenceHours';if($null -ne $coherence){$coherence.Text=[Convert]::ToString((Get-DomeniaMemberValue $Recipe 'CoherenceHours'),[Globalization.CultureInfo]::InvariantCulture)}
+}
+function Show-DomeniaQueryParameterEditor {
+    # Typed editor of the selected parameter: a choice list for Oui/Non and coded states, otherwise a text entry
+    # checked live by the same rule as the compiler. The draft changes only with Appliquer la valeur.
+    $grid=Get-DomeniaControl 'DgQueryParameters';$text=Get-DomeniaControl 'TxtQueryParameterValue';$choice=Get-DomeniaControl 'CmbQueryParameterChoice';$scope=Get-DomeniaControl 'BtnQueryParameterScope'
+    if($null -eq $grid -or $null -eq $text -or $null -eq $choice){return}
+    $row=$grid.SelectedItem
+    $script:DomeniaQueryParameterEditing=$true
+    try{
+        if($null -eq $row){
+            [void](Set-DomeniaControlText 'LblQueryParameterEdit' 'Sélectionnez un paramètre pour saisir sa valeur.')
+            $text.Text='';$text.IsEnabled=$false;$text.Visibility='Visible';$choice.ItemsSource=@();$choice.Visibility='Collapsed'
+            if($null -ne $scope){$scope.Visibility='Collapsed'}
+        }else{
+            [void](Set-DomeniaControlText 'LblQueryParameterEdit' ('Valeur de « '+[string]$row.Label+' » · '+[string]$row.Hint))
+            $choices=@($row.Choices)
+            if(([string]$row.Kind -eq 'Boolean') -and -not $choices.Count){$choices=@([pscustomobject]@{Name='Oui';Value=$true},[pscustomobject]@{Name='Non';Value=$false})}
+            if($choices.Count){
+                $choice.ItemsSource=$choices;$choice.Visibility='Visible';$text.Visibility='Collapsed';$choice.SelectedIndex=-1
+                foreach($item in $choices){if([string]$item.Value -ceq [string]$row.Value){$choice.SelectedItem=$item;break}}
+            }else{
+                $choice.ItemsSource=@();$choice.Visibility='Collapsed';$text.Visibility='Visible';$text.IsEnabled=$true
+                $text.Text=if($null -eq $row.Value){''}elseif($row.Value -is [string]){[string]$row.Value}else{[Convert]::ToString($row.Value,[Globalization.CultureInfo]::GetCultureInfo('fr-FR'))}
+            }
+            if($null -ne $scope){$scope.Visibility=$(if([string]$row.Field -in @('dn','site')){'Visible'}else{'Collapsed'})}
+        }
+    }finally{$script:DomeniaQueryParameterEditing=$false}
+    Update-DomeniaQueryParameterCheck
+}
+function Get-DomeniaQueryParameterEntry {
+    # Entry of the parameter editor (selected choice or typed text), converted by the shared model rule.
+    $row=(Get-DomeniaControl 'DgQueryParameters').SelectedItem;if($null -eq $row){throw 'Sélectionnez un paramètre.'}
+    $choice=Get-DomeniaControl 'CmbQueryParameterChoice'
+    $raw=if([string]$choice.Visibility -eq 'Visible'){if($null -eq $choice.SelectedItem){$null}else{$choice.SelectedItem.Value}}else{[string](Get-DomeniaControl 'TxtQueryParameterValue').Text}
+    $field=(Get-DomeniaQueryFieldMap $script:DomeniaQueryState.Recipe)[[string]$row.Field]
+    if($null -eq $field){throw 'Information du paramètre inconnue.'}
+    return [pscustomobject]@{Row=$row;Field=$field;Value=(ConvertTo-DomeniaQueryParameterValue -Definition $row.Definition -Field $field -Value $raw)}
+}
+function Update-DomeniaQueryParameterCheck {
+    if($script:DomeniaQueryParameterEditing){return}
+    $apply=Get-DomeniaControl 'BtnQueryParameterApply';$row=$null;$grid=Get-DomeniaControl 'DgQueryParameters';if($null -ne $grid){$row=$grid.SelectedItem}
+    if($null -eq $row){[void](Set-DomeniaControlText 'LblQueryParameterCheck' '');if($null -ne $apply){$apply.IsEnabled=$false};return}
+    try{
+        $entry=Get-DomeniaQueryParameterEntry
+        [void](Set-DomeniaControlText 'LblQueryParameterCheck' ('Valeur retenue : '+(Format-DomeniaQueryValueLabel -Value $entry.Value -Field $entry.Field)))
+        if($null -ne $apply){$apply.IsEnabled=$true}
+    }catch{[void](Set-DomeniaControlText 'LblQueryParameterCheck' ([string]$_.Exception.Message));if($null -ne $apply){$apply.IsEnabled=$false}}
 }
 function New-DomeniaQueryUiClause {
     param([switch]$Instance)
@@ -798,6 +849,23 @@ function Invoke-DomeniaQueryAdvancedAction {
                 [void](ConvertTo-DomeniaCompiledQuery $recipe);Set-DomeniaQueryDraft $recipe;return
             }
             'Freeze'{$recipe=Resolve-DomeniaQueryParameters $recipe;Set-DomeniaQueryDraft $recipe;return}
+            'ParameterApply'{
+                $entry=Get-DomeniaQueryParameterEntry
+                $values=@{};$current=Get-DomeniaMemberValue $recipe 'ParameterValues'
+                if($current -is [Collections.IDictionary]){foreach($key in @($current.Keys)){$values[[string]$key]=$current[$key]}}
+                $values[[string]$entry.Row.Name]=$entry.Value;$recipe.ParameterValues=$values
+                [void](ConvertTo-DomeniaCompiledQuery $recipe);Set-DomeniaQueryDraft $recipe
+                $grid=Get-DomeniaControl 'DgQueryParameters';foreach($row in @($grid.ItemsSource)){if([string]$row.Name -ceq [string]$entry.Row.Name){$grid.SelectedItem=$row;break}}
+                [void](Set-DomeniaControlText 'LblQueryStatus' ('Paramètre « '+[string]$entry.Row.Label+' » : '+(Format-DomeniaQueryValueLabel -Value $entry.Value -Field $entry.Field)+'. Relancez lʼaperçu local pour recalculer ; aucune collecte lancée.'))
+                return
+            }
+            'ParameterScope'{
+                $row=(Get-DomeniaControl 'DgQueryParameters').SelectedItem;$scope=Get-DomeniaFleetScope
+                if($null -eq $row -or [string]$row.Field -notin @('dn','site')){throw 'Ce paramètre ne porte pas sur une OU.'}
+                if($null -eq $scope -or -not [string]$scope.Dn){throw 'Choisissez dʼabord une OU suivie par le tableau de bord ; le domaine entier ne sert pas de paramètre.'}
+                (Get-DomeniaControl 'TxtQueryParameterValue').Text=$(if([string]$row.Field -eq 'site'){[string]$scope.Name}else{[string]$scope.Dn})
+                return
+            }
             'All'{$node=[pscustomobject]@{Kind='All';Children=@()}}
             'Any'{$node=[pscustomobject]@{Kind='Any';Children=@()}}
             'Not'{$node=[pscustomobject]@{Kind='Not';Children=@([pscustomobject]@{Kind='All';Children=@()})}}

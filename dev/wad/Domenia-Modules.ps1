@@ -1671,6 +1671,9 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaQueryExplanation',
             'Measure-DomeniaQueryCoverage',
             'Copy-DomeniaQueryRecipe',
+            'Assert-DomeniaQueryParameterDefinition',
+            'ConvertTo-DomeniaQueryParameterValue',
+            'Get-DomeniaQueryParameterRows',
             'Resolve-DomeniaQueryParameters',
             'Resolve-DomeniaQueryExpressionParameters',
             'Get-DomeniaQueryInstanceFields',
@@ -1777,6 +1780,9 @@ function Get-DomeniaRuntimeModulePlan {
             'Initialize-DomeniaQueryAdvanced',
             'Update-DomeniaQueryInstanceFields',
             'Update-DomeniaQueryAdvancedDraft',
+            'Show-DomeniaQueryParameterEditor',
+            'Get-DomeniaQueryParameterEntry',
+            'Update-DomeniaQueryParameterCheck',
             'New-DomeniaQueryUiClause',
             'Invoke-DomeniaQueryAdvancedAction'
         ) }

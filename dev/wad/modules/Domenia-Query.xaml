@@ -167,19 +167,28 @@
                       <Button x:Name="BtnQueryInstanceAdd" Content="+ Critère d’instance" MinHeight="32" />
                     </WrapPanel>
                     <TextBlock Text="Paramètres réutilisables" FontWeight="SemiBold" Margin="0,8,0,4" />
-                    <TextBlock Text="Sélectionnez un critère simple puis donnez un nom à son paramètre. La valeur peut ensuite être changée sans recréer la requête." TextWrapping="Wrap" Margin="0,0,0,6" />
+                    <TextBlock Text="Sélectionnez un critère simple puis donnez un nom à son paramètre. La valeur se change ensuite dans le formulaire ci-dessous, contrôlée selon le type de lʼinformation, sans recréer la requête." TextWrapping="Wrap" Margin="0,0,0,6" />
                     <WrapPanel Margin="0,0,0,6">
                       <TextBox x:Name="TxtQueryParameterName" Width="220" MaxLength="64" MinHeight="32" ToolTip="Nom technique : lettre puis lettres, chiffres ou tiret bas." AutomationProperties.Name="Nom du paramètre" Margin="0,0,6,0" />
                       <Button x:Name="BtnQueryParameterAdd" Content="Paramétrer le critère sélectionné" Margin="0,0,6,0" />
                       <Button x:Name="BtnQueryParameterFreeze" Content="Fixer les valeurs actuelles" />
                     </WrapPanel>
-                    <DataGrid x:Name="DgQueryParameters" AutoGenerateColumns="False" CanUserAddRows="False" MaxHeight="180" AutomationProperties.Name="Valeurs des paramètres">
+                    <DataGrid x:Name="DgQueryParameters" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" SelectionMode="Single" MaxHeight="180" AutomationProperties.Name="Paramètres de la requête">
                       <DataGrid.Columns>
-                        <DataGridTextColumn Header="Paramètre" Binding="{Binding Name}" IsReadOnly="True" Width="*" />
-                        <DataGridTextColumn Header="Information" Binding="{Binding FieldName}" IsReadOnly="True" Width="2*" />
-                        <DataGridTextColumn Header="Valeur" Binding="{Binding Value, UpdateSourceTrigger=PropertyChanged}" Width="*" />
+                        <DataGridTextColumn Header="Paramètre" Binding="{Binding Label}" Width="*" />
+                        <DataGridTextColumn Header="Information" Binding="{Binding FieldName}" Width="2*" />
+                        <DataGridTextColumn Header="Valeur" Binding="{Binding ValueLabel}" Width="*" />
+                        <DataGridTextColumn Header="Saisie attendue" Binding="{Binding Hint}" Width="2*" />
                       </DataGrid.Columns>
                     </DataGrid>
+                    <WrapPanel Margin="0,6,0,0">
+                      <TextBlock x:Name="LblQueryParameterEdit" Text="Sélectionnez un paramètre pour saisir sa valeur." TextWrapping="Wrap" MaxWidth="320" VerticalAlignment="Center" Margin="0,0,8,0" />
+                      <TextBox x:Name="TxtQueryParameterValue" Width="200" MaxLength="4096" MinHeight="32" Margin="0,0,6,0" IsEnabled="False" AutomationProperties.Name="Valeur du paramètre sélectionné" />
+                      <ComboBox x:Name="CmbQueryParameterChoice" Width="200" MinHeight="32" Margin="0,0,6,0" Visibility="Collapsed" DisplayMemberPath="Name" AutomationProperties.Name="Choisir la valeur du paramètre sélectionné" />
+                      <Button x:Name="BtnQueryParameterScope" Content="OU du tableau de bord" MinHeight="32" Margin="0,0,6,0" Visibility="Collapsed" ToolTip="Reprend lʼOU suivie par le tableau de bord, sans lecture AD." />
+                      <Button x:Name="BtnQueryParameterApply" Content="Appliquer la valeur" MinHeight="32" IsEnabled="False" />
+                    </WrapPanel>
+                    <TextBlock x:Name="LblQueryParameterCheck" TextWrapping="Wrap" Margin="0,4,0,0" AutomationProperties.Name="Contrôle de la valeur du paramètre" AutomationProperties.LiveSetting="Polite" />
                     <WrapPanel Margin="0,10,0,0">
                       <TextBlock Text="Écart maximal entre les dates sources (heures)" VerticalAlignment="Center" Margin="0,0,8,0" />
                       <TextBox x:Name="TxtQueryCoherenceHours" Width="100" MaxLength="12" MinHeight="32" AutomationProperties.Name="Fenêtre de cohérence temporelle en heures" />
