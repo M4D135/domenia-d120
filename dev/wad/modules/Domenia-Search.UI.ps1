@@ -1070,25 +1070,6 @@ function Get-DomeniaOuTreeNodeName {
     return $text
 }
 
-function Set-DomeniaOuTreeNodeFilter {
-    # Returns true when the branch or one of its read sub-branches matches. A read branch holding a match unfolds:
-    # unfolding a read branch reads nothing again.
-    param($Node,[string]$Filter,[switch]$IsRoot)
-    $childMatch = $false
-    foreach ($child in @($Node.Items)) {
-        if ($child -isnot [Windows.Controls.TreeViewItem]) { continue }
-        if (Set-DomeniaOuTreeNodeFilter -Node $child -Filter $Filter) { $childMatch = $true }
-    }
-    $self = Test-DomeniaOuTreeMatch -Name (Get-DomeniaOuTreeNodeName $Node) -Filter $Filter
-    $visible = ($IsRoot -or -not $Filter -or $self -or $childMatch)
-    $wanted = if ($visible) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed }
-    if ($Node.Visibility -ne $wanted) { $Node.Visibility = $wanted }
-    $loaded = $false
-    try { $loaded = [bool]$Node.Tag.Loaded } catch { Write-DomeniaSwallowed 'Search' 'Set-DomeniaOuTreeNodeFilter' $_ }
-    if ($Filter -and $childMatch -and $loaded -and -not $Node.IsExpanded) { $Node.IsExpanded = $true }
-    return ($self -or $childMatch)
-}
-
 function Update-DomeniaOuTreeFilter {
     # Work in small Dispatcher slices even when thousands of nodes have already been read.
     param([switch]$OnlyWhenActive)

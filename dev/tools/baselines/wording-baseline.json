@@ -1,9 +1,9 @@
 {
  "Schema": "DomeniaWordingBaseline/1",
  "Source": "RC1.13.0 (2a98dd6) puis L05 : TE-01 etendu aux affectations de libelles et aux boites de message",
- "Total": 27,
+ "Total": 26,
  "Rules": {
-  "accent": 26,
+  "accent": 25,
   "elision": 1
  },
  "Findings": {
@@ -15,7 +15,7 @@
   "accent|Duree ms": 4,
   "accent|Ecriture brute desactivee dans la configuration de securite.": 1,
   "accent|Etat": 10,
-  "accent|Non detecte": 2,
+  "accent|Non detecte": 1,
   "elision|Fonction desactivee dans la configuration de l application.": 1
  }
 }

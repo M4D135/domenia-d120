@@ -37,9 +37,6 @@ function Restore-DomeniaResultPresentation {
 function Get-DomeniaSearchWorkspaceStore {
     return (ConvertFrom-DomeniaSearchWorkspaceStore -Text ([string](Get-DomeniaSetting 'Search.WorkspacesJson' '[]')) -DomainDn ([string]$script:Conn.BaseDn))
 }
-function Get-DomeniaSearchWorkspaces {
-    return @((Get-DomeniaSearchWorkspaceStore).Views)
-}
 function Update-DomeniaSearchWorkspaceButtons {
     $combo=Get-DomeniaControl 'CmbSearchWorkspace';$selected=$null;if($null -ne $combo){$selected=$combo.SelectedItem}
     $canSave=(([bool][string]$script:Conn.BaseDn) -and ([bool][string]$script:SelectedBranchDn))

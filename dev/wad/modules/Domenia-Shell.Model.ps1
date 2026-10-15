@@ -1123,18 +1123,6 @@ function Get-DomeniaSuiteContrastPairs {
     foreach ($pair in $pairs) { [pscustomobject]@{Name=$pair[0];Foreground=$pair[1];Background=$pair[2];Kind=$pair[3]} }
 }
 
-function Get-DomeniaBootContrastPairs {
-    # Pairs painted by the login, startup and fatal-error windows with the boot palette (Get-DomeniaBootThemePalette).
-    # The check box pairs are those of the fixed login template: text, box border and tick on the accent.
-    $pairs = @(
-        @('Texte de connexion','Text','Surface','Text'),@('Texte sur fond','Text','Window','Text'),@('Saisie','Text','Input','Text'),@('Texte secondaire','Muted','Surface','Text')
-        @('Bouton','ButtonText','Button','Text'),@('Bouton principal','OnAccent','Accent','Text'),@('Accent','AccentText','Surface','Text')
-        @('Erreur','Error','Surface','Text'),@('Attention','Warning','Surface','Text'),@('Succes','Success','Surface','Text')
-        @('Case a cocher : texte','Text','Input','Text'),@('Case a cocher : bordure','Muted','Input','Graphic'),@('Case a cocher : coche','OnAccent','Accent','Graphic')
-    )
-    foreach ($pair in $pairs) { [pscustomobject]@{Name=$pair[0];Foreground=$pair[1];Background=$pair[2];Kind=$pair[3]} }
-}
-
 function Get-DomeniaBoundedWindowRect {
     # Restores a saved window rectangle inside the work area of a monitor that still exists.
     # $Monitors: work areas in device-independent units {Left, Top, Width, Height, Primary}, as WPF reports them.
