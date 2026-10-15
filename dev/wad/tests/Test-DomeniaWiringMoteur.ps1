@@ -1350,6 +1350,21 @@ Test-Case 'PF-05 : lectures frequentes servies par un pool, RunspaceOpen mesure'
     Assert-True ([int]$summary.Count -eq 3) ('Mesures RunspaceOpen : ' + $summary.Count)
     $script:CaseDetail = 'RunspaceOpen OpenAdObject : p50 ' + $summary.P50 + ' ms, p95 ' + $summary.P95 + ' ms, max ' + $summary.Max + ' ms (premiere ouverture du pool comprise ; mesure).'
 }
+# P-CD-07: the pool of the engine is the flag Pool of the operation table (Get-DomeniaOperationTable), never a list of
+# its own: a flagged read is served by a pool, an unflagged read gets a runspace of its own.
+Test-Case 'P-CD-07 : pool du moteur pris dans la table des operations' {
+    Stop-WiringJobs
+    $script:LiveWorkerPools = @{}
+    Assert-True ([bool](Get-DomeniaOperationRow 'TreeChildren').Pooled) 'TreeChildren hors du pool dans la table'
+    Assert-True (-not [bool](Get-DomeniaOperationRow 'DomainOverview').Pooled) 'DomainOverview dans le pool de la table'
+    foreach ($operation in @('TreeChildren','DomainOverview')) {
+        [void](Start-WiringTask -OperationId $operation -Name ('Table ' + $operation))
+        Assert-True (Wait-WiringCondition -Complete { $script:AsyncJobs.Count -eq 0 }) ('Lecture non terminee : ' + $operation)
+    }
+    Assert-True ($script:LiveWorkerPools.ContainsKey('TreeChildren')) 'Lecture marquee Pool sans pool'
+    Assert-True (-not $script:LiveWorkerPools.ContainsKey('DomainOverview')) 'Lecture sans la marque Pool servie par un pool'
+    Assert-True (-not $script:CoreText.Contains('$pooledOperations')) 'Liste de pool propre au coeur encore presente'
+}
 Test-Case 'MO-03 : minuterie de sauvegarde armee a la mise en file, arretee file vide, ordre conserve' {
     try {
         Reset-WiringStore

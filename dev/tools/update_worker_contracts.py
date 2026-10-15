@@ -5,6 +5,8 @@ The running application NEVER calls this tool. It is not a bypass for a bad down
 CD-14: --add OP FUNCTION [--file wad/...] [--literal-index N] declares a new pinned operation and --remove OP withdraws
 one. Both update the three places together (tools/operation-contracts.json, Get-DomeniaWorkerOperationHashes and the
 registry fingerprint of Assert-DomeniaWorkerRegistry), print the diff, and write nothing without --apply.
+P-CD-07: every pinned operation is also classified on one line of Get-DomeniaOperationTable (Domenia-Engine.Model.ps1,
+Worker column Pinned), and only those: the report lists any difference under OperationTable and the exit code is 1.
 """
 from pathlib import Path
 import argparse, difflib, functools, hashlib, json, re, sys
@@ -93,6 +95,19 @@ def remove_operation(items,getter,name):
     if count!=1:raise ValueError('Operation absente du registre ou dupliquee : '+name)
     items[:]=kept
     return updated
+def operation_table_problems(items):
+    """P-CD-07: the Pinned lines of the operation table and the contract name the same operations, once each."""
+    model=(ROOT/'wad/modules/Domenia-Engine.Model.ps1').read_text('utf-8-sig')
+    table=literal_bodies(function(model,'Get-DomeniaOperationTable'))[0]
+    rows=[[c.strip() for c in line.split('#',1)[0].split('|')] for line in table.split('\n') if line.split('#',1)[0].strip()]
+    problems=['Ligne illisible : '+'|'.join(r) for r in rows if len(r)!=8]
+    pinned=[r[0] for r in rows if len(r)==8 and r[1]=='Pinned']
+    unpinned=[r[0] for r in rows if len(r)==8 and r[1]!='Pinned']
+    contract=[i['Operation'] for i in items]
+    problems+=['Declaree deux fois : '+n for n in sorted({n for n in pinned+unpinned if (pinned+unpinned).count(n)>1})]
+    problems+=['Operation epinglee sans ligne Pinned : '+n for n in sorted(set(contract)-set(pinned))]
+    problems+=['Ligne Pinned sans operation epinglee : '+n for n in sorted(set(pinned)-set(contract))]
+    return problems
 def unified(before,after,label):
     return ''.join(difflib.unified_diff(before.splitlines(True),after.splitlines(True),'a/'+label,'b/'+label,n=1))
 def main(argv=None):
@@ -132,7 +147,11 @@ def main(argv=None):
     if a.apply:
         core_path.write_text(new_core,encoding='utf-8-sig')
         meta_path.write_text(new_meta)
-    print(json.dumps({'ReviewedChangesRequired':changes,'Applied':a.apply,'Count':len(items)},indent=2))
+    table=operation_table_problems(items)
+    report={'ReviewedChangesRequired':changes,'Applied':a.apply,'Count':len(items)}
+    if table:report['OperationTable']=table
+    print(json.dumps(report,indent=2))
+    if table:return 1
     return 0 if a.apply or not changes else 1
 if __name__=='__main__':
     try:sys.exit(main())

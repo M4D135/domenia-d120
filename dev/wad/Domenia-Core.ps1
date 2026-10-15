@@ -25343,10 +25343,10 @@ function New-DomeniaWorkerRunspace {
     $openWatch = [System.Diagnostics.Stopwatch]::StartNew()
     $verifiedHash = Assert-DomeniaWorkerOperationCode -OperationId $OperationId -Code $Code
     # PF-05: the reads opened most often reuse a pool of prepared runspaces (pinned body and worker helpers loaded once)
-    # instead of opening a runspace on the Dispatcher at each task. A write never uses a pool.
-    # DemoDirectory answers every read in demonstration (in-memory directory, no network): pooled the same way.
-    $pooledOperations = @('GlobalSearch','LiveConsole','LiveSelectedPing','LiveCache','LiveDirectoryCheck','OpenAdObject','TreeChildren','ComputerPing','SelectedPresence','LocalIndexRead','LocalQuery','LocalStore','DemoDirectory')
-    $pooled = ($OperationId -in $pooledOperations) -and -not $IsWrite
+    # instead of opening a runspace on the Dispatcher at each task: flag Pool of the operation table
+    # (Get-DomeniaOperationTable, Domenia-Engine.Model.ps1). A write never uses a pool.
+    $operationRow = Get-DomeniaOperationRow $OperationId
+    $pooled = (($null -ne $operationRow) -and ([bool]$operationRow.Pooled) -and (-not $IsWrite))
     if ($pooled) {
         if ($null -eq $script:LiveWorkerPools) { $script:LiveWorkerPools=@{} }
         if ($script:LiveWorkerPools.ContainsKey($OperationId)) {

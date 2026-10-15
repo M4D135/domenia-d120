@@ -15,23 +15,11 @@ function Get-DomeniaOperationEffect {
     if (-not $id) { return 'Unknown' }
     # Same pattern as Start-DomeniaWriteTask: every directory write is named Write<Name>.
     if ($id -cmatch '^Write[A-Za-z0-9]{2,59}$') { return 'DirectoryWrite' }
-    if ($id -in @('ComputerGpUpdate','ComputerRestart','RimotteRun','ComputerServiceControl','WakeOnLanSend')) { return 'RemoteMutation' }
-    # OfflineDossier (point 139) reads the local base read-only and writes a new folder in Exports: a local write.
-    if ($id -in @('LocalStore','ReceiptStore','DocumentStore','StoragePurge','StorageBackup','StorageMaintenance','StorageRetention','LinkHistoryStore','LiveCache','IndexBuild','IndexRefresh','OfflineDossier')) { return 'LocalWrite' }
-    # Points 101-109 (Audit AD) add DelegationRead, AdHealthRead, DcServicesRead and RelationHistoryRead: reads only.
-    $reads = @(
-        'SelectedPresence','PresenceScan','CmdletHelp','CmdletInventory','TreeChildren','GlobalSearch','PermissionAnalysis','SelfCheck',
-        'ReadBitLocker','ReadBitLockerKey','ReadLaps','ComputerInventory','DomainOverview','BatchNetworkDiag','SoftwareInventory',
-        'WmiNamespaces','WmiClasses','WmiQuery','QuerySchema','UserComputerProbe','LogonHarvest','ParkSweep','ComputerDiagnostics','ComputerLastUser',
-        'ComputerPing','ComputerAdminShare','PruneLinks','OpenLinkedObject','EngineSelfTest','OpenAdObject','StartupWarmCache','StartupWarmup','LiveConsole',
-        'LiveDirectoryCheck','SessionsList','RemoteCredentialCheck','ScopeReconcile','ReconcileScope','LiveSelectedPing','ParkPing',
-        'EmbeddedDirectoryLookup','EmbeddedPathBrowse','ObjectChanges','StorageUsage','StorageIntegrity','ComputerQuickDiag','PasswordPolicyRead',
-        'LockoutDiagnosis','GroupPathRead','JoinStateRead','UpdateStateRead','GpoLinksRead','GpoAppliedRead','DcCompareRead',
-        'ComputerEventsRead','MachineIdentityRead','AdConsistencyScan','ConnectorRead','DemoDirectory','AdSchemaRead','DirectoryAbsenceCheck','LogonByDcRead',
-        'DelegationRead','AdHealthRead','DcServicesRead','RelationHistoryRead','AccountAliasRead'
-    )
-    if ($reads -contains $id) { return 'Read' }
-    return 'Unknown'
+    # P-CD-07: every other effect (remote mutation, local write, read) is the one of the operation table
+    # (Get-DomeniaOperationTable, Domenia-Engine.Model.ps1); a directory write is granted by its name only.
+    $row = Get-DomeniaOperationRow $id
+    if (($null -eq $row) -or ([string]$row.Effect -ceq 'DirectoryWrite')) { return 'Unknown' }
+    return [string]$row.Effect
 }
 
 function Test-DomeniaSecretAttribute {

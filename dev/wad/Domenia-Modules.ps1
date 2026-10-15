@@ -67,6 +67,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaTaskState',
             'Get-DomeniaTaskStateSummary',
             'Get-DomeniaCancelStatusText',
+            'Get-DomeniaOperationTable',
+            'Get-DomeniaOperationRow',
             'Get-DomeniaOperationProvider',
             'Get-DomeniaOperationCredentialNeeds',
             'ConvertTo-DomeniaProviderOutcome',
