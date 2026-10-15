@@ -15,7 +15,7 @@ function Get-DomeniaOperationEffect {
     if (-not $id) { return 'Unknown' }
     # Same pattern as Start-DomeniaWriteTask: every directory write is named Write<Name>.
     if ($id -cmatch '^Write[A-Za-z0-9]{2,59}$') { return 'DirectoryWrite' }
-    if ($id -in @('ComputerGpUpdate','ComputerRestart','RimotteRun','WakeOnLanSend')) { return 'RemoteMutation' }
+    if ($id -in @('ComputerGpUpdate','ComputerRestart','RimotteRun','ComputerServiceControl','WakeOnLanSend')) { return 'RemoteMutation' }
     if ($id -in @('LocalStore','ReceiptStore','DocumentStore','StoragePurge','StorageBackup','LinkHistoryStore','LiveCache','IndexBuild','IndexRefresh')) { return 'LocalWrite' }
     $reads = @(
         'SelectedPresence','PresenceScan','CmdletHelp','CmdletInventory','TreeChildren','GlobalSearch','PermissionAnalysis','SelfCheck',
@@ -293,6 +293,7 @@ function Get-DomeniaPostconditionRule {
         'ComputerRestart'=@('Restart','Relire le dernier démarrage du poste : postérieur à lʼenvoi.')
         'ComputerGpUpdate'=@('PolicyRefresh','Relire la dernière application des stratégies : postérieure à lʼenvoi.')
         'RimotteRun'=@('RemoteRun','Aucune relecture générique : le résultat dʼun script distant se vérifie sur le poste.')
+        'ComputerServiceControl'=@('State','Relire lʼétat du service sur le poste : « Running » attendu après la commande.')
         'WakeOnLanSend'=@('Presence','Relire la présence du poste : réponse postérieure à la demande. Une réponse ne prouve pas que le réveil vient de cette demande.')
     }
     $kind = 'Aucune'; $check = 'Aucune règle de vérification connue pour cette opération : à vérifier manuellement.'
@@ -505,7 +506,7 @@ function Get-DomeniaReceiptRequirement {
     switch ($effect) {
         'DirectoryWrite' { $reason = 'Écriture AD : reçu durable écrit avant lʼenvoi au contrôleur.' }
         'RemoteMutation' {
-            $what = @{ComputerGpUpdate='Actualisation des stratégies à distance';ComputerRestart='Redémarrage à distance';RimotteRun='Exécution distante';WakeOnLanSend='Réveil réseau'}[$OperationId]
+            $what = @{ComputerGpUpdate='Actualisation des stratégies à distance';ComputerRestart='Redémarrage à distance';RimotteRun='Exécution distante';ComputerServiceControl='Commande de service à distance';WakeOnLanSend='Réveil réseau'}[$OperationId]
             if (-not $what) { $what = 'Action à distance' }
             $reason = $what + ' : reçu durable écrit avant lʼenvoi au poste.'
         }

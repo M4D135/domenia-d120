@@ -801,6 +801,61 @@ $script:GuiElementPolicy = [ordered]@{
     "TxtCompGroupTarget" = "Default"
     "BtnCompAddGroup" = "Default"
     "BtnCompRemoveGroup" = "Default"
+    # X04 (programme 08/10): Assistance poste in five views, fixed header, action cards and in-page panels.
+    "UxComputerHeader" = "Default"
+    "LblCompHeaderName" = "Default"
+    "UxCompPresencePill" = "Default"
+    "LblCompHeaderPresence" = "Default"
+    "LblCompHeaderSystem" = "Default"
+    "BtnCompHeaderUser" = "Default"
+    "LblCompHeaderUser" = "Default"
+    "LblCompHeaderNoUser" = "Default"
+    "LblCompHeaderInventory" = "Default"
+    "BtnCompHeaderRdp" = "Default"
+    "BtnCompHeaderC" = "Default"
+    "BtnCompHeaderPing" = "Default"
+    "UxCompLinkBadge" = "Default"
+    "LblCompLinkBadge" = "Default"
+    "LblCompLinkSummary" = "Default"
+    "UxComputerDashboardSection" = "Default"
+    "LblCompOperationAccount" = "Default"
+    "BtnCompOpenDiag" = "Default"
+    "LblCompAccountState" = "Default"
+    "UxCompRestartPanel" = "Default"
+    "LblCompRestartTitle" = "Default"
+    "LblCompRestartSessions" = "Default"
+    "LblCompRestartSessionLines" = "Default"
+    "RbCompRestartDelayed" = "Default"
+    "TxtCompRestartMessage" = "Default"
+    "RbCompRestartNow" = "Default"
+    "BtnCompRestartSend" = "Default"
+    "BtnCompRestartCancel" = "Default"
+    "UxCompRunPanel" = "Default"
+    "LblCompRunTitle" = "Default"
+    "LblCompRunConsent" = "Default"
+    "RbCompRunSystem" = "Default"
+    "RbCompRunUser" = "Default"
+    "TxtCompRunUser" = "Default"
+    "TxtCompRunCommand" = "Default"
+    "TxtCompRunArguments" = "Default"
+    "ChkCompRunElevated" = "Default"
+    "BtnCompRunStart" = "Default"
+    "BtnCompRunCancel" = "Default"
+    "LblCompRunState" = "Default"
+    "UxCompSessionsSection" = "Default"
+    "UxCompServicesSection" = "Default"
+    "LblCompServicesState" = "Default"
+    "BtnCompServicesRead" = "Default"
+    "ChkCompServicesAutoStopped" = "Default"
+    "TxtCompServicesFilter" = "Default"
+    "DgCompServices" = "Default"
+    "BtnCompServiceStart" = "Default"
+    "BtnCompServiceRestart" = "Default"
+    "TabComputerDetails" = "Default"
+    "ComputerDetailTabs" = "Default"
+    "ComputerDiagTabs" = "Default"
+    "TabComputerChecks" = "Default"
+    "BtnPendingOperations" = "Default"
     "TabGroup" = "Default"
     "TxtGroupName" = "Default"
     "TxtGroupDescription" = "Default"
@@ -5009,6 +5064,8 @@ function Get-MainXaml {
                       </Button>
                     </StackPanel>
                   </Border>
+                  <!-- UX-19 (X04): « Opérations à vérifier » is a header pill, shown only while a durable receipt waits. -->
+                  <Button x:Name="BtnPendingOperations" Visibility="Collapsed" Content="1 opération à vérifier" Margin="8,0,0,0" MinHeight="24" Height="24" Padding="10,0" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" Background="{DynamicResource InfoBg}" BorderBrush="{DynamicResource StatusWarning}" Foreground="{DynamicResource InfoFg}" ToolTip="Une écriture envoyée attend une vérification ou une revue : les nouvelles écritures restent bloquées. Ouvre la liste des reçus ; rien nʼest rejoué." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Opérations à vérifier" AutomationProperties.HelpText="Une écriture envoyée attend une vérification ou une revue : les nouvelles écritures restent bloquées. Ouvre la liste des reçus ; rien nʼest rejoué."/>
                 </StackPanel>
               </StackPanel>
               <!-- The activity strip always exists. Busy/idle only changes visibility inside its fixed slots (Hidden, never Collapsed). -->
@@ -6619,31 +6676,66 @@ function Get-MainXaml {
                       </StackPanel>
                     </Border>
                   </ScrollViewer>
-                </Border><Grid Margin="4,0,4,6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions><TextBlock Text="Sélectionnez un objet dans Rechercher." VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Foreground="{DynamicResource MutedColor}" FontSize="12" x:Name="LblComputerReadStatus"/><!-- UX-15: account used for the workstations, always visible in the header of Assistance poste. --><Button Grid.Column="1" x:Name="BtnCompAccountPill" Content="Compte poste : session Windows ▾" Style="{StaticResource SecondaryButton}" Height="30" MinHeight="30" Padding="12,2" Margin="8,0,0,0" MaxWidth="360" ToolTip="Compte utilisé pour les opérations sur ce poste : C$, consoles, inventaire, diagnostic et sessions. Ouvre un panneau pour saisir un autre compte ou revenir au compte de connexion." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Compte poste" AutomationProperties.HelpText="Compte utilisé pour les opérations sur ce poste : C$, consoles, inventaire, diagnostic et sessions. Ouvre un panneau pour saisir un autre compte ou revenir au compte de connexion."/><Button Content="Reessayer la lecture" Visibility="Hidden" Height="30" MinHeight="30" Padding="10,3" Margin="8,0,0,0" ToolTip="Relit uniquement cette fiche AD. Aucun ping, aucune sonde de poste et aucune écriture." Grid.Column="2" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Reessayer la lecture AD" x:Name="BtnComputerReadRetry"/></Grid><Grid Visibility="Collapsed" IsEnabled="False" Grid.Row="1" x:Name="ComputerReadContent"><TabControl x:Name="ComputerTabs" Margin="0,4,0,0" ToolTip="Choisissez les informations AD, les actions, le diagnostic, l’inventaire, les logiciels ou les secrets du poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vues d’assistance poste" AutomationProperties.HelpText="Choisissez les informations AD, les actions, le diagnostic, l’inventaire, les logiciels ou les secrets du poste.">
-                  <TabItem x:Name="TabComputer" ToolTip="Nom, système, état du compte et utilisateur associé." Header="Machine" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Machine" AutomationProperties.HelpText="Nom, systeme, etat du compte et utilisateur associe.">
-                    <Border Style="{StaticResource Card}" Margin="4">
-                      <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <Grid>
-                          <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="150"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="150"/>
-                            <ColumnDefinition Width="*"/>
-                          </Grid.ColumnDefinitions>
-                          <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                          </Grid.RowDefinitions>
+                </Border><Grid Margin="4,0,4,6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions><TextBlock Text="Sélectionnez un objet dans Rechercher." VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Foreground="{DynamicResource MutedColor}" FontSize="12" x:Name="LblComputerReadStatus"/><Button Content="Reessayer la lecture" Visibility="Hidden" Height="30" MinHeight="30" Padding="10,3" Margin="8,0,0,0" ToolTip="Relit uniquement cette fiche AD. Aucun ping, aucune sonde de poste et aucune écriture." Grid.Column="1" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Reessayer la lecture AD" x:Name="BtnComputerReadRetry"/></Grid><Grid Visibility="Collapsed" IsEnabled="False" Grid.Row="1" x:Name="ComputerReadContent"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <!-- DS-08 (X04): fixed header of the workstation, the same above the five views: name, system, presence pill,
+                     associated user (a link to its fiche), age of the last inventory and three quick actions, each on a click. -->
+                <Border x:Name="UxComputerHeader" Grid.Row="0" Margin="4,0,4,2" Padding="14,10" CornerRadius="12" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" AutomationProperties.Name="En-tête du poste">
+                  <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="200"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Margin="0,0,12,0" VerticalAlignment="Center">
+                      <WrapPanel>
+                        <TextBlock x:Name="LblCompHeaderName" Text="" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0" TextTrimming="CharacterEllipsis" AutomationProperties.Name="Nom du poste"/>
+                        <Border x:Name="UxCompPresencePill" CornerRadius="11" Padding="9,2" BorderThickness="1" VerticalAlignment="Center" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" AutomationProperties.Name="Présence du poste">
+                          <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center" Fill="{DynamicResource MutedColor}"/>
+                            <TextBlock x:Name="LblCompHeaderPresence" Text="Présence non vérifiée" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" AutomationProperties.Name="Présence du poste" AutomationProperties.LiveSetting="Polite"/>
+                          </StackPanel>
+                        </Border>
+                      </WrapPanel>
+                      <WrapPanel Margin="0,4,0,0">
+                        <TextBlock x:Name="LblCompHeaderSystem" Text="" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="0,0,14,0" AutomationProperties.Name="Système du poste"/>
+                        <TextBlock Text="Utilisateur :" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="0,0,2,0"/>
+                        <Button x:Name="BtnCompHeaderUser" Style="{StaticResource UxGhostButton}" Visibility="Collapsed" MinHeight="24" Height="24" Padding="4,0" Margin="0,0,12,0" VerticalAlignment="Center" ToolTip="Ouvre la fiche de lʼutilisateur associé à ce poste. Aucune écriture, aucune sonde du poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Ouvre la fiche de lʼutilisateur associé à ce poste. Aucune écriture, aucune sonde du poste." AutomationProperties.Name="Ouvrir la fiche de lʼutilisateur associé"><TextBlock x:Name="LblCompHeaderUser" Text="" TextDecorations="Underline" Foreground="{DynamicResource AccentText}" AutomationProperties.Name="Utilisateur associé"/></Button>
+                        <TextBlock x:Name="LblCompHeaderNoUser" Text="aucun associé" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="2,0,14,0" AutomationProperties.Name="Aucun utilisateur associé"/>
+                        <TextBlock x:Name="LblCompHeaderInventory" Text="Aucun inventaire dans cette session" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" AutomationProperties.Name="Âge du dernier inventaire"/>
+                      </WrapPanel>
+                    </StackPanel>
+                    <!-- UX-15 (X03) in the header of DS-08: the account the operations on this workstation take, the same pill
+                         in the five views, above the quick actions that use it; a click opens its side panel in the page. -->
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                      <Button x:Name="BtnCompAccountPill" Content="Compte poste : session Windows ▾" Style="{StaticResource SecondaryButton}" Height="30" MinHeight="30" Padding="12,2" Margin="0,0,0,6" MaxWidth="360" HorizontalAlignment="Right" ToolTip="Compte utilisé pour les opérations sur ce poste : C$, consoles, inventaire, diagnostic et sessions. Ouvre un panneau pour saisir un autre compte ou revenir au compte de connexion." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Compte poste" AutomationProperties.HelpText="Compte utilisé pour les opérations sur ce poste : C$, consoles, inventaire, diagnostic et sessions. Ouvre un panneau pour saisir un autre compte ou revenir au compte de connexion."/>
+                      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button x:Name="BtnCompHeaderRdp" Content="Bureau à distance" Style="{StaticResource SecondaryButton}" MinHeight="34" Padding="12,5" Margin="0,0,6,0" ToolTip="Ouvre une connexion Bureau à distance vers ce poste avec le client Windows (mstsc)." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Ouvre une connexion Bureau à distance vers ce poste avec le client Windows (mstsc)." AutomationProperties.Name="Bureau à distance"/>
+                        <Button x:Name="BtnCompHeaderC" Content="Ouvrir le disque C" Style="{StaticResource SecondaryButton}" MinHeight="34" Padding="12,5" Margin="0,0,6,0" ToolTip="Ouvre le partage administratif C$ du poste dans lʼExplorateur, avec le compte des opérations poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Ouvre le partage administratif C$ du poste dans lʼExplorateur, avec le compte des opérations poste." AutomationProperties.Name="Ouvrir le disque C (C$)"/>
+                        <Button x:Name="BtnCompHeaderPing" Content="Tester la réponse" Style="{StaticResource SecondaryButton}" MinHeight="34" Padding="12,5" Margin="0" ToolTip="Envoie un ping à ce poste et met à jour la pastille de présence. Aucune autre sonde." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Envoie un ping à ce poste et met à jour la pastille de présence. Aucune autre sonde." AutomationProperties.Name="Tester la réponse"/>
+                      </StackPanel>
+                    </StackPanel>
+                  </Grid>
+                </Border>
+                <TabControl x:Name="ComputerTabs" Grid.Row="1" Margin="0,4,0,0" ToolTip="Cinq vues du poste : vue dʼensemble, intervenir, détails, diagnostic et secrets. Lʼen-tête reste visible dans chacune." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vues dʼassistance poste" AutomationProperties.HelpText="Cinq vues du poste : vue dʼensemble, intervenir, détails, diagnostic et secrets. Lʼen-tête reste visible dans chacune.">
+                  <TabItem x:Name="TabComputer" Header="Vue dʼensemble" ToolTip="Fiche AD du poste et tableau de bord de son dernier inventaire. Aucune requête à lʼouverture." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Fiche AD du poste et tableau de bord de son dernier inventaire. Aucune requête à lʼouverture." AutomationProperties.Name="Vue dʼensemble">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                      <StackPanel>
+                        <Border Style="{StaticResource Card}" Margin="4">
+                          <Grid>
+                            <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="150"/>
+                              <ColumnDefinition Width="*"/>
+                              <ColumnDefinition Width="150"/>
+                              <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                              <RowDefinition Height="Auto"/>
+                              <RowDefinition Height="Auto"/>
+                              <RowDefinition Height="Auto"/>
+                              <RowDefinition Height="Auto"/>
+                              <RowDefinition Height="Auto"/>
+                              <RowDefinition Height="Auto"/>
+                              <RowDefinition Height="Auto"/>
+                              <RowDefinition Height="Auto"/>
+                              <RowDefinition Height="Auto"/>
+                              <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
                           <TextBlock Grid.Row="0" Grid.ColumnSpan="4" Text="Fiche du poste" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
                           <Label Grid.Row="1" Grid.Column="0" Content="Nom"/>
                           <TextBox Grid.Row="1" Grid.Column="1" x:Name="TxtCompName" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Nom du poste tel qu’il figure dans l’annuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Nom du compte ordinateur" AutomationProperties.HelpText="Nom du poste tel qu’il figure dans l’annuaire."/>
@@ -6678,182 +6770,202 @@ function Get-MainXaml {
                           <TextBox Grid.Row="5" Grid.Column="3" x:Name="TxtCompLastLogon" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" ToolTip="Date retournée par l’annuaire pour le compte ordinateur, pas une mesure de présence instantanée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Dernière connexion connue" AutomationProperties.HelpText="Date retournée par l’annuaire pour le compte ordinateur, pas une mesure de présence instantanée."/>
                           <Label Grid.Row="6" Grid.Column="0" Content="Options du compte"/>
                           <TextBox Grid.Row="6" Grid.Column="1" x:Name="TxtCompUac" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Options techniques du compte AD. Lecture seule dans cette zone." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Options du compte ordinateur" AutomationProperties.HelpText="Options techniques du compte AD. Lecture seule dans cette zone."/>
-                          <Label Grid.Row="7" Grid.Column="0" Content="Utilisateur associe"/>
-                          <TextBox Grid.Row="7" Grid.Column="1" x:Name="TxtCompLinkedUser" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Dernier utilisateur associé à ce poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Utilisateur associe" AutomationProperties.HelpText="Dernier utilisateur associe a ce poste."/>
-                          <Label Grid.Row="7" Grid.Column="2" Content="Source"/>
-                          <TextBox Grid.Row="7" Grid.Column="3" x:Name="TxtCompLinkSource" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" ToolTip="Source ayant fourni le lien utilisateur-poste : détection, import ou saisie, selon les données disponibles." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Origine de l’association" AutomationProperties.HelpText="Source ayant fourni le lien utilisateur-poste : détection, import ou saisie, selon les données disponibles."/>
-                          <Label Grid.Row="8" Grid.Column="0" Content="Qualification"/>
-                          <TextBox Grid.Row="8" Grid.Column="1" x:Name="TxtCompLinkConfidence" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Badge de lʼassociation (Declare, Observe, Importe, Indice) et règle qui le produit ; jamais un pourcentage ni une probabilité de session active." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Qualification de lʼassociation" AutomationProperties.HelpText="Badge de lʼassociation (Declare, Observe, Importe, Indice) et règle qui le produit ; jamais un pourcentage ni une probabilité de session active."/>
-                          <Label Grid.Row="8" Grid.Column="2" Content="Detecte le"/>
-                          <TextBox Grid.Row="8" Grid.Column="3" x:Name="TxtCompLinkWhen" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" ToolTip="Horodatage connu pour la détection ou l’enregistrement de cette association." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Date de l’association" AutomationProperties.HelpText="Horodatage connu pour la détection ou l’enregistrement de cette association."/>
-                          <Border Grid.Row="9" Grid.RowSpan="2" Grid.ColumnSpan="4" Margin="0,10,0,0" Padding="12" CornerRadius="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
-                            <Grid>
-                              <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                              </Grid.RowDefinitions>
-                              <TextBlock Grid.Row="0" Text="Actions" FontWeight="SemiBold" Foreground="{DynamicResource MutedColor}" Margin="0,0,0,8"/>
-                              <UniformGrid Grid.Row="1" Columns="5" Rows="1">
-                                <Button x:Name="BtnRefreshMachineLink" Content="Detecter l utilisateur" Style="{StaticResource RunButton}" Height="38" Margin="0,0,6,0" ToolTip="Recherche le dernier utilisateur connu du poste. Un lien déjà enregistré nʼest pas remplacé." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Detecter l utilisateur" AutomationProperties.HelpText="Recherche le dernier utilisateur connu du poste. Un lien deja enregistre n est pas remplace."/>
-                                <Button x:Name="BtnOpenLinkedUser" Content="Ouvrir l utilisateur" Height="38" Margin="3,0" ToolTip="Ouvre la fiche de lʼutilisateur associé." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir l utilisateur" AutomationProperties.HelpText="Ouvre la fiche de l utilisateur associe."/>
-                                <Button x:Name="BtnCompSave" ToolTip="Enregistre les modifications de la fiche dans Active Directory." Content="Enregistrer" Style="{StaticResource RunButton}" Height="38" Margin="6,0,0,0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Enregistrer" AutomationProperties.HelpText="Enregistre les modifications de la fiche dans Active Directory."/>
-                                  <Button x:Name="BtnCompEdit" Content="Modifier" Style="{StaticResource SecondaryButton}" Height="38" Margin="6,0,0,0" ToolTip="Déverrouille la description et la localisation du poste. Le crayon nʼécrit rien : il ouvre seulement la saisie, et « Enregistrer » reste seul à décider de ce qui part dans lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Modifier la fiche" AutomationProperties.HelpText="Déverrouille la description et la localisation du poste. Le crayon nʼécrit rien : il ouvre seulement la saisie, et « Enregistrer » reste seul à décider de ce qui part dans lʼannuaire."/>
-                                  <Button x:Name="BtnCompCancelEdit" Content="Annuler" Style="{StaticResource SecondaryButton}" Height="38" Margin="6,0,0,0" Visibility="Collapsed" ToolTip="Rejette les modifications non enregistrées : chaque champ reprend la valeur lue dans lʼannuaire et la fiche se verrouille de nouveau." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Annuler les modifications" AutomationProperties.HelpText="Rejette les modifications non enregistrées : chaque champ reprend la valeur lue dans lʼannuaire et la fiche se verrouille de nouveau."/>
-                              </UniformGrid>
-                            </Grid>
+                          <!-- UI-17 (X04): the association on one line, badge first; the four former fields stay as hidden data
+                               holders read and written by the association paths (Live.UI, Relations), never shown. -->
+                          <Label Grid.Row="7" Grid.Column="0" Content="Utilisateur associé" VerticalAlignment="Center"/>
+                          <Grid Grid.Row="7" Grid.Column="1" Grid.ColumnSpan="3" Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <Border x:Name="UxCompLinkBadge" Grid.Column="0" CornerRadius="9" Padding="8,1" Margin="0,0,8,0" VerticalAlignment="Center" Visibility="Collapsed" Background="{DynamicResource TileBg}" AutomationProperties.Name="Qualification de lʼassociation">
+                              <TextBlock x:Name="LblCompLinkBadge" Text="" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextColor}" AutomationProperties.Name="Badge de lʼassociation"/>
+                            </Border>
+                            <TextBlock x:Name="LblCompLinkSummary" Grid.Column="1" Text="Aucun utilisateur associé" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0" AutomationProperties.Name="Utilisateur associé" AutomationProperties.LiveSetting="Polite"/>
+                            <Button x:Name="BtnOpenLinkedUser" Grid.Column="2" Content="Ouvrir la fiche" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="12,4" Margin="0,0,6,0" IsEnabled="False" ToolTip="Ouvre la fiche de lʼutilisateur associé à ce poste. Aucune écriture, aucune sonde du poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Ouvre la fiche de lʼutilisateur associé à ce poste. Aucune écriture, aucune sonde du poste." AutomationProperties.Name="Ouvrir la fiche de lʼutilisateur associé"/>
+                            <Button x:Name="BtnRefreshMachineLink" Grid.Column="3" Content="Détecter à nouveau" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="12,4" Margin="0" ToolTip="Interroge ce poste pour connaître lʼutilisateur connecté. Une association déjà enregistrée nʼest pas remplacée." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Interroge ce poste pour connaître lʼutilisateur connecté. Une association déjà enregistrée nʼest pas remplacée." AutomationProperties.Name="Détecter à nouveau lʼutilisateur"/>
+                          </Grid>
+                          <TextBox Grid.Row="7" Grid.Column="0" Visibility="Collapsed" IsTabStop="False" Focusable="False" x:Name="TxtCompLinkedUser" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Dernier utilisateur associé à ce poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Utilisateur associé" AutomationProperties.HelpText="Dernier utilisateur associé à ce poste."/>
+                          <TextBox Grid.Row="7" Grid.Column="0" Visibility="Collapsed" IsTabStop="False" Focusable="False" x:Name="TxtCompLinkSource" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" ToolTip="Source ayant fourni le lien utilisateur-poste : détection, import ou saisie, selon les données disponibles." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Origine de l’association" AutomationProperties.HelpText="Source ayant fourni le lien utilisateur-poste : détection, import ou saisie, selon les données disponibles."/>
+                          <TextBox Grid.Row="7" Grid.Column="0" Visibility="Collapsed" IsTabStop="False" Focusable="False" x:Name="TxtCompLinkConfidence" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Badge de lʼassociation (Declare, Observe, Importe, Indice) et règle qui le produit ; jamais un pourcentage ni une probabilité de session active." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Qualification de lʼassociation" AutomationProperties.HelpText="Badge de lʼassociation (Declare, Observe, Importe, Indice) et règle qui le produit ; jamais un pourcentage ni une probabilité de session active."/>
+                          <TextBox Grid.Row="7" Grid.Column="0" Visibility="Collapsed" IsTabStop="False" Focusable="False" x:Name="TxtCompLinkWhen" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" ToolTip="Horodatage connu pour la détection ou l’enregistrement de cette association." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Date de l’association" AutomationProperties.HelpText="Horodatage connu pour la détection ou l’enregistrement de cette association."/>
+                          <Border Grid.Row="8" Grid.ColumnSpan="4" Margin="0,10,0,0" Padding="12" CornerRadius="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
+                            <WrapPanel>
+                              <Button x:Name="BtnCompSave" ToolTip="Enregistre les modifications de la fiche dans Active Directory." Content="Enregistrer" Style="{StaticResource RunButton}" MinHeight="36" Margin="0,0,8,0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Enregistrer" AutomationProperties.HelpText="Enregistre les modifications de la fiche dans Active Directory."/>
+                              <Button x:Name="BtnCompEdit" Content="Modifier" Style="{StaticResource SecondaryButton}" MinHeight="36" Margin="0,0,8,0" ToolTip="Déverrouille la description et la localisation du poste. Le crayon nʼécrit rien : il ouvre seulement la saisie, et « Enregistrer » reste seul à décider de ce qui part dans lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Modifier la fiche" AutomationProperties.HelpText="Déverrouille la description et la localisation du poste. Le crayon nʼécrit rien : il ouvre seulement la saisie, et « Enregistrer » reste seul à décider de ce qui part dans lʼannuaire."/>
+                              <Button x:Name="BtnCompCancelEdit" Content="Annuler" Style="{StaticResource SecondaryButton}" MinHeight="36" Margin="0,0,8,0" Visibility="Collapsed" ToolTip="Rejette les modifications non enregistrées : chaque champ reprend la valeur lue dans lʼannuaire et la fiche se verrouille de nouveau." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Annuler les modifications" AutomationProperties.HelpText="Rejette les modifications non enregistrées : chaque champ reprend la valeur lue dans lʼannuaire et la fiche se verrouille de nouveau."/>
+                            </WrapPanel>
                           </Border>
-                          <TextBlock Grid.Row="11" Grid.ColumnSpan="4" x:Name="LblCompEditState" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="Collapsed" AutomationProperties.Name="État des modifications de la fiche" AutomationProperties.HelpText="Dit ce que la fiche a en modification, et le signale quand une valeur non enregistrée a été abandonnée en changeant dʼobjet. Rien nʼest parti sans que la page le dise."/>
-                        </Grid>
-                      </ScrollViewer>
-                    </Border>
-                  </TabItem>
-                  <TabItem x:Name="TabComputerDashboard" Header="Tableau de bord" ToolTip="Synthèse graphique du dernier inventaire du poste : disques, mémoire, correctifs et état. Aucune requête supplémentaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tableau de bord du poste">
-                    <Border Background="{DynamicResource WindowBg}" CornerRadius="12" Padding="18,16,10,4" Margin="4">
-                      <DockPanel>
-                        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                          <TextBlock Grid.Row="9" Grid.ColumnSpan="4" x:Name="LblCompEditState" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="Collapsed" AutomationProperties.Name="État des modifications de la fiche" AutomationProperties.HelpText="Dit ce que la fiche a en modification, et le signale quand une valeur non enregistrée a été abandonnée en changeant dʼobjet. Rien nʼest parti sans que la page le dise."/>
+                          </Grid>
+                        </Border>
+                        <!-- UX-21 (X04): the dashboard of the last inventory, under the fiche in the same view. -->
+                        <Border x:Name="UxComputerDashboardSection" Background="{DynamicResource WindowBg}" CornerRadius="12" Padding="18,16,10,4" Margin="4" AutomationProperties.Name="Tableau de bord du poste">
+                          <StackPanel>
+                            <StackPanel Margin="0,0,0,10">
                           <TextBlock Text="Tableau de bord du poste" FontSize="22" FontWeight="SemiBold" FontFamily="Segoe UI Variable Display, Segoe UI"/>
                           <TextBlock x:Name="LblComputerDashboard" Text="Lancez un inventaire (rapide ou complet) : le tableau de bord se remplit avec ses résultats." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,4,0,8"/>
                           <WrapPanel>
-                            <Button x:Name="BtnDashboardInventory" Content="Inventaire rapide" Style="{StaticResource RunButton}" ToolTip="Lit lʼinventaire du poste (CIM) en environ 1 minute puis remplit ce tableau de bord." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Inventaire rapide pour le tableau de bord"/>
-                            <Button x:Name="BtnDashboardInventoryDeep" Content="Inventaire complet" ToolTip="Inventaire complet, plus long (environ 3 minutes) : ajoute les processus, les erreurs système, les tâches planifiées, les certificats et les connexions réseau." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Inventaire complet pour le tableau de bord"/>
+                            <Button x:Name="BtnDashboardInventory" Content="Inventaire rapide" Style="{StaticResource RunButton}" ToolTip="Lit lʼinventaire du poste (CIM) en environ 1 minute puis remplit ce tableau de bord." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Inventaire rapide pour le tableau de bord" AutomationProperties.HelpText="Lit lʼinventaire du poste (CIM) en environ 1 minute puis remplit ce tableau de bord."/>
+                            <Button x:Name="BtnDashboardInventoryDeep" Content="Inventaire complet" ToolTip="Inventaire complet, plus long (environ 3 minutes) : ajoute les processus, les erreurs système, les tâches planifiées, les certificats et les connexions réseau." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Inventaire complet pour le tableau de bord" AutomationProperties.HelpText="Inventaire complet, plus long (environ 3 minutes) : ajoute les processus, les erreurs système, les tâches planifiées, les certificats et les connexions réseau."/>
                             <!-- FI-18: the survey of this workstation (queries of its board) shows its state and its Arrêter here. -->
                             <StackPanel x:Name="UxComputerParkRun" Orientation="Horizontal" Visibility="Collapsed" VerticalAlignment="Center" Margin="8,0,0,0" ToolTip="Relevé en cours des requêtes des widgets de ce poste, indépendant du relevé de la liste de Rechercher." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Relevé en cours des requêtes des widgets de ce poste, indépendant du relevé de la liste de Rechercher." AutomationProperties.Name="Relevé de ce poste">
                               <TextBlock x:Name="LblComputerParkStatus" Text="" FontSize="11.5" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" Margin="0,0,8,0" ToolTip="Avancement du relevé de ce poste. Le détail complet est écrit dans le journal." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Avancement du relevé de ce poste. Le détail complet est écrit dans le journal." AutomationProperties.Name="Avancement du relevé de ce poste" AutomationProperties.LiveSetting="Polite"/>
                               <Button x:Name="BtnComputerParkStop" Content="Arrêter" Style="{StaticResource SecondaryButton}" IsEnabled="False" ToolTip="Arrête le relevé de ce poste. Les mesures déjà reçues sont conservées ; rien nʼest relancé." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Arrête le relevé de ce poste. Les mesures déjà reçues sont conservées ; rien nʼest relancé." AutomationProperties.Name="Arrêter le relevé de ce poste"/>
                             </StackPanel>
                           </WrapPanel>
-                        </StackPanel>
-                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="-7,0,0,0">
-                          <StackPanel x:Name="PnlComputerDashboard" Margin="0,0,0,12"/>
-                        </ScrollViewer>
-                      </DockPanel>
-                    </Border>
-                  </TabItem>
-                  <TabItem x:Name="TabComputerAdmin" ToolTip="Activation, renommage, déplacement, groupes et actions à distance." Header="Actions" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actions" AutomationProperties.HelpText="Activation, renommage, deplacement, groupes et actions a distance.">
-                    <Border Style="{StaticResource Card}" Margin="4">
-                      <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <StackPanel>
-                          <TextBlock Text="Actions sur le poste" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
-                          <!-- UX-16: explicit authorisation of an intervention on this workstation only (5 min), with its countdown, and the
-                               separate one-read consent (SE-07). Both were only reachable from the hidden Fiabilité tab. -->
-                          <Border Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="10" Padding="12,10" Margin="0,0,0,12">
-                            <StackPanel>
-                              <WrapPanel>
-                                <Button x:Name="BtnCompInterventionGrant" Content="Autoriser une intervention (5 min)" Margin="0,0,8,4" ToolTip="Autorise pendant 5 minutes, pour ce poste seulement, les transports qui déposent un script, un service ou une tâche : « Exécuter un programme », replis PsExec ou tâche planifiée. Ne lance rien ; les droits restent obligatoires." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Autoriser une intervention sur ce poste pendant 5 minutes" AutomationProperties.HelpText="Autorise pendant 5 minutes, pour ce poste seulement, les transports qui déposent un script, un service ou une tâche : « Exécuter un programme », replis PsExec ou tâche planifiée. Ne lance rien ; les droits restent obligatoires."/>
-                                <Border x:Name="UxCompInterventionPill" Visibility="Collapsed" CornerRadius="14" Padding="12,2,4,2" Margin="0,0,8,4" Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentColor}" BorderThickness="1" ToolTip="Autorisation dʼintervention en cours sur ce poste, avec le temps restant. Elle ne vaut que pour ce poste et pour vos actions volontaires." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Intervention autorisée sur ce poste" AutomationProperties.HelpText="Autorisation dʼintervention en cours sur ce poste, avec le temps restant. Elle ne vaut que pour ce poste et pour vos actions volontaires.">
-                                  <StackPanel Orientation="Horizontal">
-                                    <TextBlock x:Name="LblCompIntervention" Text="" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}" Margin="0,0,8,0" ToolTip="Temps restant de lʼautorisation dʼintervention sur ce poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Temps restant de lʼintervention" AutomationProperties.HelpText="Temps restant de lʼautorisation dʼintervention sur ce poste."/>
-                                    <Button x:Name="BtnCompInterventionRevoke" Content="Retirer" Height="26" MinHeight="26" Padding="10,0" ToolTip="Retire lʼautorisation maintenant. Les sondes déjà envoyées peuvent finir ; aucune nouvelle intervention avec dépôt ne sera autorisée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Retirer lʼautorisation dʼintervention" AutomationProperties.HelpText="Retire lʼautorisation maintenant. Les sondes déjà envoyées peuvent finir ; aucune nouvelle intervention avec dépôt ne sera autorisée."/>
-                                  </StackPanel>
-                                </Border>
-                                <Button x:Name="BtnCompReadFallback" Content="Lire ce poste par tâche planifiée" Margin="0,0,8,4" ToolTip="À demander quand CIM ne répond pas : autorise une seule lecture de ce poste par PsExec ou tâche planifiée. Autorisation distincte de lʼintervention, retirée après cette lecture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lire ce poste par tâche planifiée" AutomationProperties.HelpText="À demander quand CIM ne répond pas : autorise une seule lecture de ce poste par PsExec ou tâche planifiée. Autorisation distincte de lʼintervention, retirée après cette lecture."/>
-                              </WrapPanel>
-                              <TextBlock x:Name="LblCompInterventionState" Text="Aucune intervention autorisée sur ce poste. « Exécuter un programme » et les replis PsExec ou tâche planifiée la demandent." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,4,0,0" ToolTip="État des autorisations de ce poste : intervention de 5 minutes et lecture par tâche planifiée. Rien nʼest autorisé sans votre clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="État des autorisations du poste" AutomationProperties.LiveSetting="Polite" AutomationProperties.HelpText="État des autorisations de ce poste : intervention de 5 minutes et lecture par tâche planifiée. Rien nʼest autorisé sans votre clic."/>
                             </StackPanel>
-                          </Border>
-                          <WrapPanel Margin="0,0,0,12">
-                            <Button x:Name="BtnCompEnable" ToolTip="Reactive le compte du poste dans le domaine." Content="Activer" Style="{StaticResource RunButton}" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Activer" AutomationProperties.HelpText="Reactive le compte du poste dans le domaine."/>
-                            <Button x:Name="BtnCompDisable" ToolTip="Désactive le compte du poste. Il ne pourra plus sʼauthentifier." Content="Desactiver" Style="{StaticResource DangerButton}" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Desactiver" AutomationProperties.HelpText="Desactive le compte du poste. Il ne pourra plus s authentifier."/>
-                            <Button x:Name="BtnCompPing" ToolTip="Teste si le poste répond sur le réseau." Content="Ping" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ping" AutomationProperties.HelpText="Teste si le poste repond sur le reseau."/>
-                            <Button x:Name="BtnCompRdp" ToolTip="Ouvre une connexion Bureau à distance vers ce poste." Content="Bureau à distance" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Bureau à distance" AutomationProperties.HelpText="Ouvre une connexion Bureau a distance vers ce poste."/>
-                            <Button x:Name="BtnCompC" ToolTip="Ouvre le partage administratif C du poste dans lʼexplorateur." Content="Ouvrir C$" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir C$" AutomationProperties.HelpText="Ouvre le partage administratif C du poste dans l explorateur."/>
-                            <Button x:Name="BtnCompManage" Content="Gestion de l ordinateur" ToolTip="Ouvre la console Gestion de lʼordinateur sur ce poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Gestion de l ordinateur" AutomationProperties.HelpText="Ouvre la console Gestion de l ordinateur sur ce poste."/>
-                            <Button x:Name="BtnCompEvents" Content="Journaux" ToolTip="Ouvre lʼObservateur dʼévénements sur ce poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Journaux" AutomationProperties.HelpText="Ouvre l Observateur d evenements sur ce poste."/>
-                            <Button x:Name="BtnCompServices" Content="Services" ToolTip="Ouvre la console Services. Utilise Action puis Se connecter pour cibler ce poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Services" AutomationProperties.HelpText="Ouvre la console Services. Utilise Action puis Se connecter pour cibler ce poste."/>
-                            <Button x:Name="BtnCompPSRemote" Content="Commande PowerShell" ToolTip="Copie une commande de connexion PowerShell distante dans le presse-papiers." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Commande PowerShell" AutomationProperties.HelpText="Copie une commande de connexion PowerShell distante dans le presse-papiers."/>
-                            <Button x:Name="BtnCompRimotte" Content="Exécuter un programme" ToolTip="Lance un programme sur ce poste via une tache planifiee RunOnce unique et auto-supprimee." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Exécuter un programme" AutomationProperties.HelpText="Lance un programme sur ce poste via une tache planifiee RunOnce unique et auto-supprimee."/>
-                            <Button x:Name="BtnCompGpUpdate" Content="Actualiser les stratégies" ToolTip="Force la mise à jour des stratégies de groupe sur le poste. Demande confirmation." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser les stratégies" AutomationProperties.HelpText="Force la mise a jour des strategies de groupe sur le poste. Demande confirmation."/>
-                            <Button x:Name="BtnCompRestart" Content="Redemarrer" Style="{StaticResource DangerButton}" ToolTip="Redémarre le poste. Demande confirmation." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Redemarrer" AutomationProperties.HelpText="Redemarre le poste. Demande confirmation."/>
-                          </WrapPanel>
-                          <Grid Margin="0,0,0,12">
-                            <Grid.ColumnDefinitions>
-                              <ColumnDefinition Width="160"/>
-                              <ColumnDefinition Width="*"/>
-                              <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <Label Grid.Column="0" Content="Nouveau nom"/>
-                            <TextBox Grid.Column="1" x:Name="TxtCompNewName" ToolTip="Nouveau nom du compte dʼordinateur dans lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Nouveau nom" AutomationProperties.HelpText="Nouveau nom du compte d ordinateur dans l annuaire."/>
-                            <Button Grid.Column="2" x:Name="BtnCompRename" ToolTip="Renomme le compte d’ordinateur dans l’annuaire. Cette action ne renomme pas Windows sur le poste." Content="Renommer dans AD" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Renommer dans Active Directory" AutomationProperties.HelpText="Renomme le compte d’ordinateur dans l’annuaire. Cette action ne renomme pas Windows sur le poste."/>
-                          </Grid>
-                          <Grid>
-                            <Grid.ColumnDefinitions>
-                              <ColumnDefinition Width="160"/>
-                              <ColumnDefinition Width="*"/>
-                              <ColumnDefinition Width="Auto"/>
-                              <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <Label Grid.Column="0" Content="Groupe"/>
-                            <TextBox Grid.Column="1" x:Name="TxtCompGroupTarget" ToolTip="Nom ou chemin complet du groupe." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Groupe" AutomationProperties.HelpText="Nom ou chemin complet du groupe."/>
-                            <Button Grid.Column="2" x:Name="BtnCompAddGroup" ToolTip="Ajoute ce poste au groupe indique." Content="Ajouter" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ajouter" AutomationProperties.HelpText="Ajoute ce poste au groupe indique."/>
-                            <Button Grid.Column="3" x:Name="BtnCompRemoveGroup" ToolTip="Retire ce poste du groupe indique." Content="Retirer" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Retirer" AutomationProperties.HelpText="Retire ce poste du groupe indique."/>
-                          </Grid>
-                        </StackPanel>
-                      </ScrollViewer>
-                    </Border>
+                            <StackPanel x:Name="PnlComputerDashboard" Margin="-7,0,0,12"/>
+                          </StackPanel>
+                        </Border>
+                      </StackPanel>
+                    </ScrollViewer>
                   </TabItem>
-                  <TabItem x:Name="TabSessions" Header="Sessions Windows" ToolTip="Lecture à la demande des sessions console et RDP. Aucune fermeture de session." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Sessions Windows" AutomationProperties.HelpText="Lecture à la demande des sessions console et RDP. Aucune fermeture de session."><Border Style="{StaticResource Card}" Margin="4"><DockPanel>
-<StackPanel DockPanel.Dock="Top" Margin="0,0,0,12"><TextBlock Text="Sessions Windows" FontSize="18" FontWeight="SemiBold"/><TextBlock x:Name="LblSessionsState" Text="Lecture à la demande, distincte du dernier utilisateur connu. Un accès refusé ne signifie pas absence de session." TextWrapping="Wrap" Margin="0,8,0,12" Foreground="{DynamicResource MutedColor}"/><Button x:Name="BtnSessionsRead" Content="Lire les sessions" HorizontalAlignment="Left" Style="{StaticResource RunButton}" ToolTip="Interroge WTS sur la machine sélectionnée. Utilise le compte poste indiqué ; aucune déconnexion ni écriture distante." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lire les sessions Windows" AutomationProperties.HelpText="Interrogation WTS à la demande, sans déconnexion."/></StackPanel>
-<DataGrid x:Name="DgSessions" IsReadOnly="True" AutoGenerateColumns="False" ToolTip="Sessions avec un compte. Les lignes sans compte (services, écran de connexion, écouteur RDP) sont masquées et comptées dans lʼétat. Double-clic sur une ligne : ouvrir la fiche du compte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Sessions Windows" AutomationProperties.HelpText="Observation WTS à la demande, consultation seule, sans déconnexion."><DataGrid.Columns><DataGridTextColumn Header="Session" Binding="{Binding Session}" Width="110"/><DataGridTextColumn Header="Compte" Binding="{Binding Utilisateur}" Width="170"/><DataGridTextColumn Header="État" Binding="{Binding Etat}" Width="105"/><DataGridTextColumn Header="Protocole" Binding="{Binding Protocole}" Width="85"/><DataGridTextColumn Header="Ouverte à" Binding="{Binding Ouverte}" Width="90"/><DataGridTextColumn Header="Inactive depuis" Binding="{Binding Inactive}" Width="105"/><DataGridTextColumn Header="Information" Binding="{Binding Detail}" Width="*"/></DataGrid.Columns></DataGrid>
-</DockPanel></Border></TabItem><TabItem x:Name="TabComputerHealth" ToolTip="Vérifie que le poste répond et que les services dʼadministration sont joignables." Header="Diagnostic" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Diagnostic" AutomationProperties.HelpText="Verifie que le poste repond et que les services d administration sont joignables.">
-                    <Border Style="{StaticResource Card}" Margin="4">
-                      <DockPanel>
-                        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                          <TextBlock Text="Diagnostic du poste" FontSize="18" FontWeight="SemiBold"/>
-                          <TextBlock Text="Le diagnostic utilise le compte poste affiché dans la pastille « Compte poste », en haut de la page." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
+                  <TabItem x:Name="TabComputerAdmin" Header="Intervenir" ToolTip="Se connecter au poste, le vérifier, intervenir, gérer son compte AD, lire ses sessions et ses services. Chaque action part sur un clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Se connecter au poste, le vérifier, intervenir, gérer son compte AD, lire ses sessions et ses services. Chaque action part sur un clic." AutomationProperties.Name="Intervenir">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                      <StackPanel Margin="4">
+                      <!-- UX-16 (X03): the one authorisation control of this workstation, at the top of Intervenir: an intervention on
+                           this workstation only (5 min) with its countdown, and the separate one-read consent (SE-07). The run panel only shows its state. -->
+                      <Border Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="10" Padding="12,10" Margin="0,0,12,12">
+                        <StackPanel>
                           <WrapPanel>
-                            <Button x:Name="BtnRunComputerDiag" Content="Lancer le diagnostic" Style="{StaticResource RunButton}" ToolTip="Verifie la resolution DNS, la joignabilite, les ports, SMB, WinRM, WMI, le systeme, l espace disque et la session ouverte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lancer le diagnostic" AutomationProperties.HelpText="Verifie la resolution DNS, la joignabilite, les ports, SMB, WinRM, WMI, le systeme, l espace disque et la session ouverte."/>
-                            <Button x:Name="BtnCopyComputerDiag" ToolTip="Copie le rapport de diagnostic." Content="Copier le rapport" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier le rapport" AutomationProperties.HelpText="Copie le rapport de diagnostic."/>
+                            <Button x:Name="BtnCompInterventionGrant" Content="Autoriser une intervention (5 min)" Margin="0,0,8,4" ToolTip="Autorise pendant 5 minutes, pour ce poste seulement, les transports qui déposent un script, un service ou une tâche : « Exécuter un programme », replis PsExec ou tâche planifiée. Ne lance rien ; les droits restent obligatoires." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Autoriser une intervention sur ce poste pendant 5 minutes" AutomationProperties.HelpText="Autorise pendant 5 minutes, pour ce poste seulement, les transports qui déposent un script, un service ou une tâche : « Exécuter un programme », replis PsExec ou tâche planifiée. Ne lance rien ; les droits restent obligatoires."/>
+                            <Border x:Name="UxCompInterventionPill" Visibility="Collapsed" CornerRadius="14" Padding="12,2,4,2" Margin="0,0,8,4" Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentColor}" BorderThickness="1" ToolTip="Autorisation dʼintervention en cours sur ce poste, avec le temps restant. Elle ne vaut que pour ce poste et pour vos actions volontaires." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Intervention autorisée sur ce poste" AutomationProperties.HelpText="Autorisation dʼintervention en cours sur ce poste, avec le temps restant. Elle ne vaut que pour ce poste et pour vos actions volontaires.">
+                              <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="LblCompIntervention" Text="" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}" Margin="0,0,8,0" ToolTip="Temps restant de lʼautorisation dʼintervention sur ce poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Temps restant de lʼintervention" AutomationProperties.HelpText="Temps restant de lʼautorisation dʼintervention sur ce poste."/>
+                                <Button x:Name="BtnCompInterventionRevoke" Content="Retirer" Height="26" MinHeight="26" Padding="10,0" ToolTip="Retire lʼautorisation maintenant. Les sondes déjà envoyées peuvent finir ; aucune nouvelle intervention avec dépôt ne sera autorisée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Retirer lʼautorisation dʼintervention" AutomationProperties.HelpText="Retire lʼautorisation maintenant. Les sondes déjà envoyées peuvent finir ; aucune nouvelle intervention avec dépôt ne sera autorisée."/>
+                              </StackPanel>
+                            </Border>
+                            <Button x:Name="BtnCompReadFallback" Content="Lire ce poste par tâche planifiée" Margin="0,0,8,4" ToolTip="À demander quand CIM ne répond pas : autorise une seule lecture de ce poste par PsExec ou tâche planifiée. Autorisation distincte de lʼintervention, retirée après cette lecture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lire ce poste par tâche planifiée" AutomationProperties.HelpText="À demander quand CIM ne répond pas : autorise une seule lecture de ce poste par PsExec ou tâche planifiée. Autorisation distincte de lʼintervention, retirée après cette lecture."/>
                           </WrapPanel>
-                          <TextBlock x:Name="LblComputerDiag" Text="Pret." Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                          <TextBlock x:Name="LblCompInterventionState" Text="Aucune intervention autorisée sur ce poste. « Exécuter un programme » et les replis PsExec ou tâche planifiée la demandent." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,4,0,0" ToolTip="État des autorisations de ce poste : intervention de 5 minutes et lecture par tâche planifiée. Rien nʼest autorisé sans votre clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="État des autorisations du poste" AutomationProperties.LiveSetting="Polite" AutomationProperties.HelpText="État des autorisations de ce poste : intervention de 5 minutes et lecture par tâche planifiée. Rien nʼest autorisé sans votre clic."/>
                         </StackPanel>
-                        <DataGrid x:Name="DgComputerDiag" ToolTip="Résultat de chaque contrôle. Clic droit pour copier." AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="31" ScrollViewer.HorizontalScrollBarVisibility="Disabled" CanUserResizeRows="False" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Resultat de chaque controle" AutomationProperties.HelpText="Resultat de chaque controle. Clic droit pour copier.">
-                          <DataGrid.Columns>
-                            <DataGridTextColumn Header="Controle" Binding="{Binding Check}" Width="210"/>
-                            <!-- UX-17 : l etat se lit en mots francais, la couleur porte le degre, pas la decorative.
-                                 L infobulle garde le code brut du worker (OK, REFUSE, INJOIGNABLE...), comme la colonne
-                                 Valeur de l inventaire garde le code CIM (UX-37). -->
-                            <DataGridTemplateColumn Header="Etat" Width="112">
-                              <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                  <Border CornerRadius="9" Padding="8,1" Margin="0,2" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTip="{Binding Status}">
-                                    <Border.Style>
-                                      <Style TargetType="Border">
-                                        <Setter Property="Background" Value="#E5E7EB"/>
-                                        <Style.Triggers>
-                                          <DataTrigger Binding="{Binding Severity}" Value="Reussi"><Setter Property="Background" Value="#DCFCE7"/></DataTrigger>
-                                          <DataTrigger Binding="{Binding Severity}" Value="Echec"><Setter Property="Background" Value="#FEE2E2"/></DataTrigger>
-                                          <DataTrigger Binding="{Binding Severity}" Value="Information"><Setter Property="Background" Value="#DBEAFE"/></DataTrigger>
-                                        </Style.Triggers>
-                                      </Style>
-                                    </Border.Style>
-                                    <TextBlock Text="{Binding EtatLibelle}" FontSize="12" FontWeight="SemiBold">
-                                      <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                          <Setter Property="Foreground" Value="#374151"/>
-                                          <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Severity}" Value="Echec"><Setter Property="Foreground" Value="#991B1B"/></DataTrigger>
-                                          </Style.Triggers>
-                                        </Style>
-                                      </TextBlock.Style>
-                                    </TextBlock>
-                                  </Border>
-                                </DataTemplate>
-                              </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                            <DataGridTextColumn Header="Methode" Binding="{Binding Method}" Width="120"/>
-                            <DataGridTextColumn Header="Duree ms" Binding="{Binding DurationMs}" Width="90"/>
-                            <DataGridTemplateColumn Header="Detail" Width="*">
-                              <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                  <TextBlock Text="{Binding Detail}" Style="{StaticResource WrappedCellText}" ToolTip="{Binding Detail}"/>
-                                </DataTemplate>
-                              </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                          </DataGrid.Columns>
-                        </DataGrid>
-                      </DockPanel>
-                    </Border>
+                      </Border>
+                      <!-- UI-07 (X04): four cards instead of twelve buttons in a row; Redémarrer stands apart, one account button. -->
+                      <WrapPanel Orientation="Horizontal">
+                        <Border Style="{StaticResource Card}" Width="292" Margin="0,0,12,12" Padding="16" VerticalAlignment="Stretch">
+                          <StackPanel>
+                            <TextBlock Text="Se connecter" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBlock Text="Outils Windows ouverts sur ce poste." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                            <Button x:Name="BtnCompRdp" Content="Bureau à distance" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="36" Margin="0,0,0,8" ToolTip="Ouvre une connexion Bureau à distance vers ce poste avec le client Windows (mstsc)." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Ouvre une connexion Bureau à distance vers ce poste avec le client Windows (mstsc)." AutomationProperties.Name="Bureau à distance"/>
+                            <Button x:Name="BtnCompC" Content="Ouvrir le disque C" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="36" Margin="0,0,0,8" ToolTip="Ouvre le partage administratif C$ du poste dans lʼExplorateur, avec le compte des opérations poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Ouvre le partage administratif C$ du poste dans lʼExplorateur, avec le compte des opérations poste." AutomationProperties.Name="Ouvrir le disque C (C$)"/>
+                            <Button x:Name="BtnCompManage" Content="Gestion de lʼordinateur" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="36" Margin="0,0,0,8" ToolTip="Ouvre la console Gestion de lʼordinateur sur ce poste : services, journaux, disques et utilisateurs locaux." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Ouvre la console Gestion de lʼordinateur sur ce poste : services, journaux, disques et utilisateurs locaux." AutomationProperties.Name="Gestion de lʼordinateur"/>
+                            <Button x:Name="BtnCompEvents" Content="Observateur dʼévénements" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="36" Margin="0,0,0,8" ToolTip="Ouvre lʼObservateur dʼévénements sur ce poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Ouvre lʼObservateur dʼévénements sur ce poste." AutomationProperties.Name="Observateur dʼévénements"/>
+                            <Button x:Name="BtnCompPSRemote" Content="Copier la commande PowerShell" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="36" Margin="0,0,0,8" ToolTip="Copie une commande Enter-PSSession pour ce poste. Avec un compte poste, elle le nomme : Windows demandera son mot de passe, jamais copié." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Copie une commande Enter-PSSession pour ce poste. Avec un compte poste, elle le nomme : Windows demandera son mot de passe, jamais copié." AutomationProperties.Name="Copier la commande PowerShell"/>
+                            <TextBlock x:Name="LblCompOperationAccount" Text="" FontSize="12" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,2,0,0" AutomationProperties.Name="Compte des opérations poste"/>
+                          </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource Card}" Width="292" Margin="0,0,12,12" Padding="16" VerticalAlignment="Stretch">
+                          <StackPanel>
+                            <TextBlock Text="Vérifier" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBlock Text="Lectures seules, sans aucune modification du poste." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                            <Button x:Name="BtnCompPing" Content="Tester la réponse" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="36" Margin="0,0,0,8" ToolTip="Envoie un ping à ce poste et met à jour sa présence. Aucune autre sonde." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Envoie un ping à ce poste et met à jour sa présence. Aucune autre sonde." AutomationProperties.Name="Tester la réponse"/>
+                            <Button x:Name="BtnCompOpenDiag" Content="Lancer le diagnostic" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="36" Margin="0,0,0,8" ToolTip="Ouvre la vue Diagnostic et lance ses contrôles en lecture seule : DNS, ports, partage, WinRM, WMI, espace disque et session." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Ouvre la vue Diagnostic et lance ses contrôles en lecture seule : DNS, ports, partage, WinRM, WMI, espace disque et session." AutomationProperties.Name="Lancer le diagnostic"/>
+                          </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource Card}" Width="292" Margin="0,0,12,12" Padding="16" VerticalAlignment="Stretch">
+                          <StackPanel>
+                            <TextBlock Text="Intervenir" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBlock Text="Chaque action se confirme dans la page avant de partir, une seule fois." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                            <Button x:Name="BtnCompGpUpdate" Content="Actualiser les stratégies" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="36" Margin="0,0,0,8" ToolTip="Demande au poste dʼappliquer de nouveau les stratégies de groupe (gpupdate /force), après une confirmation dans la page." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Demande au poste dʼappliquer de nouveau les stratégies de groupe (gpupdate /force), après une confirmation dans la page." AutomationProperties.Name="Actualiser les stratégies"/>
+                            <Button x:Name="BtnCompRimotte" Content="Exécuter un programme…" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="36" Margin="0,0,0,8" ToolTip="Prépare dans la page le lancement dʼun programme sur ce poste : en arrière-plan sous le compte système, ou dans la session dʼun utilisateur. Rien ne part avant « Lancer » et sa confirmation." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Prépare dans la page le lancement dʼun programme sur ce poste : en arrière-plan sous le compte système, ou dans la session dʼun utilisateur. Rien ne part avant « Lancer » et sa confirmation." AutomationProperties.Name="Exécuter un programme"/>
+                            <Border Height="1" Background="{DynamicResource BorderColor}" Margin="0,6,0,14"/>
+                            <Button x:Name="BtnCompRestart" Content="Redémarrer…" Style="{StaticResource DangerButton}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="36" Margin="0,0,0,8" ToolTip="Lit dʼabord les sessions ouvertes du poste, puis propose un redémarrage différé avec message à lʼutilisateur ou immédiat. Rien ne part avant votre confirmation." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Lit dʼabord les sessions ouvertes du poste, puis propose un redémarrage différé avec message à lʼutilisateur ou immédiat. Rien ne part avant votre confirmation." AutomationProperties.Name="Redémarrer le poste"/>
+                          </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource Card}" Width="292" Margin="0,0,12,12" Padding="16" VerticalAlignment="Stretch">
+                          <StackPanel>
+                            <TextBlock Text="Compte AD" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBlock x:Name="LblCompAccountState" Text="État du compte non lu." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,0,0,12" AutomationProperties.Name="État du compte du poste"/>
+                            <Button x:Name="BtnCompEnable" Content="Activer le compte" Style="{StaticResource RunButton}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="36" Margin="0,0,0,8" Visibility="Collapsed" ToolTip="Réactive le compte du poste dans le domaine. Le changement se confirme dans la page avant lʼenvoi." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Réactive le compte du poste dans le domaine. Le changement se confirme dans la page avant lʼenvoi." AutomationProperties.Name="Activer le compte du poste"/>
+                            <Button x:Name="BtnCompDisable" Content="Désactiver le compte" Style="{StaticResource DangerButton}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="36" Margin="0,0,0,8" Visibility="Collapsed" ToolTip="Désactive le compte du poste dans le domaine : il ne pourra plus sʼauthentifier. Le changement se confirme dans la page avant lʼenvoi." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Désactive le compte du poste dans le domaine : il ne pourra plus sʼauthentifier. Le changement se confirme dans la page avant lʼenvoi." AutomationProperties.Name="Désactiver le compte du poste"/>
+                            <TextBlock Text="Groupes" FontWeight="SemiBold" Margin="0,6,0,6"/>
+                            <TextBox x:Name="TxtCompGroupTarget" MinHeight="32" Margin="0,0,0,6" ToolTip="Nom ou chemin complet du groupe." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Nom ou chemin complet du groupe." AutomationProperties.Name="Groupe"/>
+                            <UniformGrid Columns="2" Margin="0,0,0,8">
+                              <Button x:Name="BtnCompAddGroup" Content="Ajouter" MinHeight="34" Margin="0,0,4,0" ToolTip="Ajoute ce poste au groupe indiqué." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Ajoute ce poste au groupe indiqué." AutomationProperties.Name="Ajouter au groupe"/>
+                              <Button x:Name="BtnCompRemoveGroup" Content="Retirer" MinHeight="34" Margin="4,0,0,0" ToolTip="Retire ce poste du groupe indiqué." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Retire ce poste du groupe indiqué." AutomationProperties.Name="Retirer du groupe"/>
+                            </UniformGrid>
+                            <TextBlock Text="Renommer" FontWeight="SemiBold" Margin="0,6,0,6"/>
+                            <TextBox x:Name="TxtCompNewName" MinHeight="32" Margin="0,0,0,6" ToolTip="Nouveau nom du compte dʼordinateur dans lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Nouveau nom du compte dʼordinateur dans lʼannuaire." AutomationProperties.Name="Nouveau nom"/>
+                            <Button x:Name="BtnCompRename" Content="Renommer dans AD" HorizontalAlignment="Stretch" MinHeight="34" Margin="0" ToolTip="Renomme le compte dʼordinateur dans lʼannuaire. Cette action ne renomme pas Windows sur le poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Renomme le compte dʼordinateur dans lʼannuaire. Cette action ne renomme pas Windows sur le poste." AutomationProperties.Name="Renommer dans Active Directory"/>
+                          </StackPanel>
+                        </Border>
+                      </WrapPanel>
+                      <!-- SE-08 (X04): the restart is prepared in the page: the open sessions are read first, then the delayed
+                           restart with a message (default) or the immediate one is chosen; the in-page confirmation sends it once. -->
+                      <Border x:Name="UxCompRestartPanel" Visibility="Collapsed" Margin="0,0,12,12" Padding="16" CornerRadius="12" BorderThickness="1" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource DangerColor}" AutomationProperties.Name="Préparer le redémarrage du poste">
+                        <StackPanel>
+                          <TextBlock x:Name="LblCompRestartTitle" Text="Redémarrer le poste" FontSize="16" FontWeight="SemiBold" AutomationProperties.Name="Poste à redémarrer"/>
+                          <TextBlock x:Name="LblCompRestartSessions" Text="Lecture des sessions ouvertes…" TextWrapping="Wrap" Margin="0,6,0,4" AutomationProperties.Name="Sessions ouvertes avant le redémarrage" AutomationProperties.LiveSetting="Polite"/>
+                          <TextBlock x:Name="LblCompRestartSessionLines" Text="" TextWrapping="Wrap" Margin="14,0,0,10" Foreground="{DynamicResource MutedColor}" Visibility="Collapsed" AutomationProperties.Name="Liste des sessions ouvertes"/>
+                          <RadioButton x:Name="RbCompRestartDelayed" GroupName="CompRestart" IsChecked="True" Content="Dans 5 min avec message à lʼutilisateur" Margin="0,4,0,0" ToolTip="Redémarrage différé : lʼutilisateur voit le message et peut enregistrer son travail avant lʼéchéance. Choix par défaut." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Redémarrage différé : lʼutilisateur voit le message et peut enregistrer son travail avant lʼéchéance. Choix par défaut." AutomationProperties.Name="Redémarrer après un délai, avec message"/>
+                          <TextBox x:Name="TxtCompRestartMessage" Margin="24,6,0,10" MinHeight="52" TextWrapping="Wrap" AcceptsReturn="False" MaxLength="400" ToolTip="Message affiché à lʼutilisateur du poste, sur une ligne de 400 caractères au plus. Vide : message par défaut." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Message affiché à lʼutilisateur du poste, sur une ligne de 400 caractères au plus. Vide : message par défaut." AutomationProperties.Name="Message à lʼutilisateur"/>
+                          <RadioButton x:Name="RbCompRestartNow" GroupName="CompRestart" Content="Maintenant, sans délai ni message" Margin="0,0,0,0" ToolTip="Redémarrage immédiat et forcé : le travail non enregistré sur le poste est perdu." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Redémarrage immédiat et forcé : le travail non enregistré sur le poste est perdu." AutomationProperties.Name="Redémarrer maintenant"/>
+                          <WrapPanel Margin="0,14,0,0">
+                            <Button x:Name="BtnCompRestartSend" Content="Redémarrer dans 5 min…" Style="{StaticResource DangerButton}" IsEnabled="False" ToolTip="Demande la confirmation dans la page, puis envoie le redémarrage au poste une seule fois. Jamais rejoué." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Demande la confirmation dans la page, puis envoie le redémarrage au poste une seule fois. Jamais rejoué." AutomationProperties.Name="Confirmer le redémarrage"/>
+                            <Button x:Name="BtnCompRestartCancel" Content="Fermer" Style="{StaticResource SecondaryButton}" ToolTip="Ferme ce panneau sans rien envoyer au poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Ferme ce panneau sans rien envoyer au poste." AutomationProperties.Name="Fermer le panneau de redémarrage"/>
+                          </WrapPanel>
+                        </StackPanel>
+                      </Border>
+                      <!-- UI-26 (X04): run a program in the page, theme colours, two ways only; replaces the former window. -->
+                      <Border x:Name="UxCompRunPanel" Visibility="Collapsed" Margin="0,0,12,12" Padding="16" CornerRadius="12" BorderThickness="1" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource AccentColor}" AutomationProperties.Name="Exécuter un programme sur le poste">
+                        <StackPanel>
+                          <TextBlock x:Name="LblCompRunTitle" Text="Exécuter un programme sur le poste" FontSize="16" FontWeight="SemiBold" AutomationProperties.Name="Poste où exécuter le programme"/>
+                          <TextBlock Text="Une tâche planifiée unique lance le programme puis est supprimée. Le programme doit exister sur le poste ; son exécution nʼest pas vérifiée." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,4,0,10"/>
+                          <!-- X03 x X04: the state of the one authorisation control (top of Intervenir), never a second grant button. -->
+                          <Border Padding="10,8" CornerRadius="8" BorderThickness="1" Background="{DynamicResource InfoBg}" BorderBrush="{DynamicResource InfoBorder}" Margin="0,0,0,12">
+                            <TextBlock x:Name="LblCompRunConsent" Text="" Foreground="{DynamicResource InfoFg}" TextWrapping="Wrap" VerticalAlignment="Center" AutomationProperties.Name="Autorisation dʼintervention" AutomationProperties.LiveSetting="Polite"/>
+                          </Border>
+                          <RadioButton x:Name="RbCompRunSystem" GroupName="CompRun" IsChecked="True" Content="En arrière-plan (compte système)" ToolTip="Le programme tourne sous le compte système du poste, sans fenêtre visible. Pour un outil technique non interactif." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Le programme tourne sous le compte système du poste, sans fenêtre visible. Pour un outil technique non interactif." AutomationProperties.Name="En arrière-plan (compte système)"/>
+                          <RadioButton x:Name="RbCompRunUser" GroupName="CompRun" Content="Dans la session de lʼutilisateur" Margin="0,6,0,0" ToolTip="Le programme sʼouvre dans la session déjà ouverte du compte indiqué ; il ne démarre pas si ce compte nʼa pas de session." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Le programme sʼouvre dans la session déjà ouverte du compte indiqué ; il ne démarre pas si ce compte nʼa pas de session." AutomationProperties.Name="Dans la session de lʼutilisateur"/>
+                          <TextBox x:Name="TxtCompRunUser" Margin="24,6,0,0" MinHeight="32" IsEnabled="False" ToolTip="Compte de la session ouverte sur le poste : DOMAINE\identifiant. Prérempli avec lʼutilisateur associé." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Compte de la session ouverte sur le poste : DOMAINE\identifiant. Prérempli avec lʼutilisateur associé." AutomationProperties.Name="Compte de la session"/>
+                          <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="110"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <Label Grid.Row="0" Grid.Column="0" Content="Programme" VerticalAlignment="Center"/>
+                            <TextBox x:Name="TxtCompRunCommand" Grid.Row="0" Grid.Column="1" MinHeight="32" Margin="0,0,0,6" ToolTip="Chemin du programme tel quʼil existe sur le poste, par exemple %SystemRoot%\System32\notepad.exe." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Chemin du programme tel quʼil existe sur le poste, par exemple %SystemRoot%\System32\notepad.exe." AutomationProperties.Name="Programme à lancer"/>
+                            <Label Grid.Row="1" Grid.Column="0" Content="Arguments" VerticalAlignment="Center"/>
+                            <TextBox x:Name="TxtCompRunArguments" Grid.Row="1" Grid.Column="1" MinHeight="32" ToolTip="Arguments passés au programme, sur une ligne. Nʼy saisissez aucun mot de passe : ils restent lisibles dans la tâche." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Arguments passés au programme, sur une ligne. Nʼy saisissez aucun mot de passe : ils restent lisibles dans la tâche." AutomationProperties.Name="Arguments du programme"/>
+                          </Grid>
+                          <CheckBox x:Name="ChkCompRunElevated" Content="Niveau dʼexécution le plus élevé" IsChecked="True" Margin="0,10,0,0" ToolTip="Lance le programme avec les droits les plus élevés du compte choisi." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Lance le programme avec les droits les plus élevés du compte choisi." AutomationProperties.Name="Niveau dʼexécution le plus élevé"/>
+                          <WrapPanel Margin="0,14,0,0">
+                            <Button x:Name="BtnCompRunStart" Content="Lancer…" Style="{StaticResource RunButton}" ToolTip="Vérifie les champs puis demande la confirmation dans la page ; la tâche unique part une seule fois." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Vérifie les champs puis demande la confirmation dans la page ; la tâche unique part une seule fois." AutomationProperties.Name="Lancer le programme"/>
+                            <Button x:Name="BtnCompRunCancel" Content="Fermer" Style="{StaticResource SecondaryButton}" ToolTip="Ferme ce panneau sans rien lancer." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Ferme ce panneau sans rien lancer." AutomationProperties.Name="Fermer le panneau dʼexécution"/>
+                          </WrapPanel>
+                          <TextBlock x:Name="LblCompRunState" Text="" TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{DynamicResource MutedColor}" Visibility="Collapsed" AutomationProperties.Name="État du lancement" AutomationProperties.LiveSetting="Polite"/>
+                        </StackPanel>
+                      </Border>
+                      <Border x:Name="UxCompSessionsSection" Style="{StaticResource Card}" Margin="0,0,12,12" AutomationProperties.Name="Sessions Windows du poste">
+                        <StackPanel>
+                          <TextBlock Text="Sessions Windows" FontSize="16" FontWeight="SemiBold"/>
+                          <TextBlock x:Name="LblSessionsState" Text="Lecture à la demande, distincte du dernier utilisateur connu. Un accès refusé ne signifie pas absence de session." TextWrapping="Wrap" Margin="0,6,0,10" Foreground="{DynamicResource MutedColor}"/>
+                          <Button x:Name="BtnSessionsRead" Content="Lire les sessions" HorizontalAlignment="Left" Style="{StaticResource RunButton}" ToolTip="Interroge WTS sur la machine sélectionnée. Utilise le compte poste indiqué ; aucune déconnexion ni écriture distante." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lire les sessions Windows" AutomationProperties.HelpText="Interroge WTS sur la machine sélectionnée. Utilise le compte poste indiqué ; aucune déconnexion ni écriture distante."/>
+                          <DataGrid x:Name="DgSessions" Margin="0,10,0,0" MaxHeight="260" IsReadOnly="True" AutoGenerateColumns="False" ToolTip="Sessions avec un compte. Les lignes sans compte (services, écran de connexion, écouteur RDP) sont masquées et comptées dans lʼétat. Double-clic sur une ligne : ouvrir la fiche du compte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Sessions Windows" AutomationProperties.HelpText="Sessions avec un compte. Les lignes sans compte (services, écran de connexion, écouteur RDP) sont masquées et comptées dans lʼétat. Double-clic sur une ligne : ouvrir la fiche du compte."><DataGrid.Columns><DataGridTextColumn Header="Session" Binding="{Binding Session}" Width="110"/><DataGridTextColumn Header="Compte" Binding="{Binding Utilisateur}" Width="170"/><DataGridTextColumn Header="État" Binding="{Binding Etat}" Width="105"/><DataGridTextColumn Header="Protocole" Binding="{Binding Protocole}" Width="85"/><DataGridTextColumn Header="Ouverte à" Binding="{Binding Ouverte}" Width="90"/><DataGridTextColumn Header="Inactive depuis" Binding="{Binding Inactive}" Width="105"/><DataGridTextColumn Header="Information" Binding="{Binding Detail}" Width="*"/></DataGrid.Columns></DataGrid>
+                        </StackPanel>
+                      </Border>
+                      <!-- UX-38 (X04): the services of the workstation, read on a click (WmiQuery, Win32_Service), filtered locally;
+                           start and restart are remote writes confirmed in the page, refused in read-only mode. -->
+                      <Border x:Name="UxCompServicesSection" Style="{StaticResource Card}" Margin="0,0,12,12" AutomationProperties.Name="Services du poste">
+                        <StackPanel>
+                          <TextBlock Text="Services du poste" FontSize="16" FontWeight="SemiBold"/>
+                          <TextBlock x:Name="LblCompServicesState" Text="Services non lus. « Lire les services » interroge ce poste en lecture seule." TextWrapping="Wrap" Margin="0,6,0,10" Foreground="{DynamicResource MutedColor}" AutomationProperties.Name="État de la liste des services" AutomationProperties.LiveSetting="Polite"/>
+                          <WrapPanel Margin="0,0,0,8">
+                            <Button x:Name="BtnCompServicesRead" Content="Lire les services" Style="{StaticResource RunButton}" Margin="0,0,12,6" ToolTip="Lit la liste des services de ce poste (Win32_Service) en lecture seule, sur ce clic uniquement." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Lit la liste des services de ce poste (Win32_Service) en lecture seule, sur ce clic uniquement." AutomationProperties.Name="Lire les services du poste"/>
+                            <CheckBox x:Name="ChkCompServicesAutoStopped" Content="Automatiques arrêtés seulement" VerticalAlignment="Center" Margin="0,0,16,6" ToolTip="Nʼaffiche que les services en démarrage automatique qui sont arrêtés. Filtre local, sans nouvelle lecture." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Nʼaffiche que les services en démarrage automatique qui sont arrêtés. Filtre local, sans nouvelle lecture." AutomationProperties.Name="Automatiques arrêtés seulement"/>
+                            <TextBox x:Name="TxtCompServicesFilter" Width="220" MinHeight="32" VerticalContentAlignment="Center" Margin="0,0,12,6" ToolTip="Filtre local sur le nom ou le libellé du service, sans nouvelle lecture." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Filtre local sur le nom ou le libellé du service, sans nouvelle lecture." AutomationProperties.Name="Filtrer les services"/>
+                            <Button x:Name="BtnCompServices" Content="Ouvrir dans la console" Style="{StaticResource SecondaryButton}" Margin="0,0,0,6" ToolTip="Ouvre Gestion de lʼordinateur sur ce poste : ses services y sont listés pour une action avancée." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Ouvre Gestion de lʼordinateur sur ce poste : ses services y sont listés pour une action avancée." AutomationProperties.Name="Ouvrir les services dans la console"/>
+                          </WrapPanel>
+                          <DataGrid x:Name="DgCompServices" MaxHeight="340" IsReadOnly="True" AutoGenerateColumns="False" SelectionMode="Single" MinRowHeight="31" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTip="Services lus sur le poste, automatiques arrêtés en tête. Sélectionnez une ligne pour la démarrer ou la redémarrer." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Services lus sur le poste, automatiques arrêtés en tête. Sélectionnez une ligne pour la démarrer ou la redémarrer." AutomationProperties.Name="Services du poste">
+                            <DataGrid.Columns><DataGridTextColumn Header="Service" Binding="{Binding DisplayName}" Width="*" MinWidth="200"/><DataGridTextColumn Header="Nom" Binding="{Binding Name}" Width="170"/><DataGridTextColumn Header="État" Binding="{Binding StateLabel}" Width="130"/><DataGridTextColumn Header="Démarrage" Binding="{Binding StartLabel}" Width="160"/></DataGrid.Columns>
+                          </DataGrid>
+                          <WrapPanel Margin="0,10,0,0">
+                            <Button x:Name="BtnCompServiceStart" Content="Démarrer…" IsEnabled="False" ToolTip="Démarre le service sélectionné après une confirmation dans la page. Un service désactivé est refusé." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Démarre le service sélectionné après une confirmation dans la page. Un service désactivé est refusé." AutomationProperties.Name="Démarrer le service sélectionné"/>
+                            <Button x:Name="BtnCompServiceRestart" Content="Redémarrer le service…" Style="{StaticResource DangerButton}" IsEnabled="False" ToolTip="Arrête puis redémarre le service sélectionné après une confirmation dans la page. Ce quʼil sert est interrompu un instant." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Arrête puis redémarre le service sélectionné après une confirmation dans la page. Ce quʼil sert est interrompu un instant." AutomationProperties.Name="Redémarrer le service sélectionné"/>
+                          </WrapPanel>
+                        </StackPanel>
+                      </Border>
+                      </StackPanel>
+                    </ScrollViewer>
                   </TabItem>
+                  <TabItem x:Name="TabComputerDetails" Header="Détails" ToolTip="Inventaire matériel et système, et logiciels installés du poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Inventaire matériel et système, et logiciels installés du poste." AutomationProperties.Name="Détails">
+                    <TabControl x:Name="ComputerDetailTabs" Margin="0,2,0,0" ToolTip="Inventaire du poste ou logiciels installés." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Inventaire du poste ou logiciels installés." AutomationProperties.Name="Vues de détail du poste">
                   <TabItem x:Name="TabInventory" ToolTip="Matériel, système, disques, réseau et configuration du poste." Header="Inventaire" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Inventaire" AutomationProperties.HelpText="Materiel, systeme, disques, reseau et configuration du poste.">
                     <Border Style="{StaticResource Card}" Margin="4">
                       <DockPanel>
@@ -7026,6 +7138,70 @@ function Get-MainXaml {
                       </DockPanel>
                     </Border>
                   </TabItem>
+                    </TabControl>
+                  </TabItem>
+                  <TabItem x:Name="TabComputerHealth" Header="Diagnostic" ToolTip="Contrôles de joignabilité et dʼadministration du poste ; explorateur WMI en profil Expert." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Contrôles de joignabilité et dʼadministration du poste ; explorateur WMI en profil Expert." AutomationProperties.Name="Diagnostic">
+                    <TabControl x:Name="ComputerDiagTabs" Margin="0,2,0,0" ToolTip="Contrôles du poste ou, en profil Expert, explorateur WMI." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Contrôles du poste ou, en profil Expert, explorateur WMI." AutomationProperties.Name="Vues de diagnostic du poste">
+                  <TabItem x:Name="TabComputerChecks" Header="Contrôles" ToolTip="Vérifie que le poste répond et que les services dʼadministration sont joignables." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Vérifie que le poste répond et que les services dʼadministration sont joignables." AutomationProperties.Name="Contrôles">
+                    <Border Style="{StaticResource Card}" Margin="4">
+                      <DockPanel>
+                        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                          <TextBlock Text="Diagnostic du poste" FontSize="18" FontWeight="SemiBold"/>
+                          <TextBlock Text="Le diagnostic utilise le compte poste affiché dans la pastille « Compte poste », en haut de la page." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
+                          <WrapPanel>
+                            <Button x:Name="BtnRunComputerDiag" Content="Lancer le diagnostic" Style="{StaticResource RunButton}" ToolTip="Verifie la resolution DNS, la joignabilite, les ports, SMB, WinRM, WMI, le systeme, l espace disque et la session ouverte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lancer le diagnostic" AutomationProperties.HelpText="Verifie la resolution DNS, la joignabilite, les ports, SMB, WinRM, WMI, le systeme, l espace disque et la session ouverte."/>
+                            <Button x:Name="BtnCopyComputerDiag" ToolTip="Copie le rapport de diagnostic." Content="Copier le rapport" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier le rapport" AutomationProperties.HelpText="Copie le rapport de diagnostic."/>
+                          </WrapPanel>
+                          <TextBlock x:Name="LblComputerDiag" Text="Pret." Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+                        <DataGrid x:Name="DgComputerDiag" ToolTip="Résultat de chaque contrôle. Clic droit pour copier." AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="31" ScrollViewer.HorizontalScrollBarVisibility="Disabled" CanUserResizeRows="False" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Resultat de chaque controle" AutomationProperties.HelpText="Resultat de chaque controle. Clic droit pour copier.">
+                          <DataGrid.Columns>
+                            <DataGridTextColumn Header="Controle" Binding="{Binding Check}" Width="210"/>
+                            <!-- UX-17 : l etat se lit en mots francais, la couleur porte le degre, pas la decorative.
+                                 L infobulle garde le code brut du worker (OK, REFUSE, INJOIGNABLE...), comme la colonne
+                                 Valeur de l inventaire garde le code CIM (UX-37). -->
+                            <DataGridTemplateColumn Header="Etat" Width="112">
+                              <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                  <Border CornerRadius="9" Padding="8,1" Margin="0,2" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTip="{Binding Status}">
+                                    <Border.Style>
+                                      <Style TargetType="Border">
+                                        <Setter Property="Background" Value="#E5E7EB"/>
+                                        <Style.Triggers>
+                                          <DataTrigger Binding="{Binding Severity}" Value="Reussi"><Setter Property="Background" Value="#DCFCE7"/></DataTrigger>
+                                          <DataTrigger Binding="{Binding Severity}" Value="Echec"><Setter Property="Background" Value="#FEE2E2"/></DataTrigger>
+                                          <DataTrigger Binding="{Binding Severity}" Value="Information"><Setter Property="Background" Value="#DBEAFE"/></DataTrigger>
+                                        </Style.Triggers>
+                                      </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="{Binding EtatLibelle}" FontSize="12" FontWeight="SemiBold">
+                                      <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                          <Setter Property="Foreground" Value="#374151"/>
+                                          <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Severity}" Value="Echec"><Setter Property="Foreground" Value="#991B1B"/></DataTrigger>
+                                          </Style.Triggers>
+                                        </Style>
+                                      </TextBlock.Style>
+                                    </TextBlock>
+                                  </Border>
+                                </DataTemplate>
+                              </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Methode" Binding="{Binding Method}" Width="120"/>
+                            <DataGridTextColumn Header="Duree ms" Binding="{Binding DurationMs}" Width="90"/>
+                            <DataGridTemplateColumn Header="Detail" Width="*">
+                              <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                  <TextBlock Text="{Binding Detail}" Style="{StaticResource WrappedCellText}" ToolTip="{Binding Detail}"/>
+                                </DataTemplate>
+                              </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                          </DataGrid.Columns>
+                        </DataGrid>
+                      </DockPanel>
+                    </Border>
+                  </TabItem>
                   <TabItem x:Name="TabWmi" ToolTip="Explore les donnees WMI du poste." Header="WMI" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="WMI" AutomationProperties.HelpText="Explore les donnees WMI du poste.">
                     <Border Style="{StaticResource Card}" Margin="4">
                       <DockPanel>
@@ -7119,6 +7295,8 @@ function Get-MainXaml {
                         </Grid>
                       </DockPanel>
                     </Border>
+                  </TabItem>
+                    </TabControl>
                   </TabItem>
                   <TabItem x:Name="TabSecurity" ToolTip="Clés de récupération BitLocker et mot de passe administrateur local." Header="Secrets" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Secrets" AutomationProperties.HelpText="Cles de recuperation BitLocker et mot de passe administrateur local.">
                     <Border Style="{StaticResource Card}" Margin="4">
@@ -7236,7 +7414,7 @@ function Get-MainXaml {
 <WrapPanel><Button AutomationProperties.Name="Autoriser une intervention sur cette machine" AutomationProperties.HelpText="Autorisation de cinq minutes, pour la machine sélectionnée uniquement. Ne lance rien ; les droits restent obligatoires." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardRemote" Content="Autoriser une intervention sur cette machine" ToolTip="Autorisation de cinq minutes, pour la machine sélectionnée uniquement. Ne lance rien ; les droits restent obligatoires."/><Button AutomationProperties.Name="Lire ce poste par tache planifiee" AutomationProperties.HelpText="Une seule lecture, pour la machine selectionnee. Le repli PsExec ou tache ne se declenche jamais sans cette demande." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardReadFallback" Content="Lire ce poste par tâche planifiée" ToolTip="A demander quand CIM ne répond pas : autorise une seule lecture par PsExec ou tâche planifiée, pour la machine sélectionnée."/><Button AutomationProperties.Name="Retirer l'autorisation" AutomationProperties.HelpText="Les sondes déjà envoyées peuvent encore finir. Aucune nouvelle intervention avec dépôt ne sera autorisée." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardRemoteOff" Content="Retirer l'autorisation" ToolTip="Les sondes déjà envoyées peuvent encore finir. Aucune nouvelle intervention avec dépôt ne sera autorisée."/></WrapPanel>
 </StackPanel></Border>
 <Border Style="{StaticResource Card}" Margin="0,0,0,12"><StackPanel><TextBlock Text="Suite support et mesures" FontSize="18" FontWeight="SemiBold"/>
-<WrapPanel Margin="0,6,0,10"><Button x:Name="BtnGuardStoreResume" Content="Reprendre les sauvegardes" ToolTip="Relance les lots de cache interrompus apres correction du stockage." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Reprendre les sauvegardes" AutomationProperties.HelpText="Relance les lots de cache interrompus apres correction du stockage."/><Button x:Name="BtnGuardLegacyImport" Content="Reprendre les anciennes données" ToolTip="Simule la reprise des fichiers historiques dans Domenia, puis demande confirmation." AutomationProperties.Name="Reprendre les anciennes données" AutomationProperties.HelpText="Vérifie le domaine et les données, affiche la simulation puis demande confirmation avant sauvegarde et import."/><Button x:Name="BtnGuardExport" Content="Dossier technique" ToolTip="Affiche puis exporte les seuls compteurs techniques, sans logs bruts ni identifiants." AutomationProperties.Name="Dossier technique" AutomationProperties.HelpText="Affiche puis exporte les seuls compteurs techniques, sans logs bruts ni identifiants."/><Button x:Name="BtnGuardWhy" Content="Pourquoi une action est indisponible ?" ToolTip="Explique les protections et preconditions actuelles sans modifier de droit." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Pourquoi une action est indisponible ?" AutomationProperties.HelpText="Explique les protections et preconditions actuelles sans modifier de droit."/></WrapPanel><ScrollViewer Height="96" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8"><TextBlock x:Name="LblGuardMigration" Text="La simulation des anciennes données sera affichée ici avant confirmation." TextWrapping="Wrap" AutomationProperties.Name="Simulation de reprise des données"/></ScrollViewer><CheckBox x:Name="ChkGuardReconcile" Content="Reverifier le perimetre consulte en arriere-plan" IsChecked="True" Margin="0,0,0,8" ToolTip="Relit la dernière requête explicite, au plus toutes les trois minutes et dans sa limite de résultats. Aucun scan au démarrage." AutomationProperties.Name="Reverifier le perimetre consulte en arriere-plan" AutomationProperties.HelpText="Relit la derniere requete explicite, au plus toutes les trois minutes et dans sa limite de resultats. Aucun scan au demarrage."/><TextBlock x:Name="LblGuardMetrics" Text="Les mesures locales apparaîtront ici." TextWrapping="Wrap" Margin="0,8,0,12" Foreground="{DynamicResource MutedColor}"/>
+<WrapPanel Margin="0,6,0,10"><Button x:Name="BtnGuardExport" Content="Dossier technique" ToolTip="Affiche puis exporte les seuls compteurs techniques, sans logs bruts ni identifiants." AutomationProperties.Name="Dossier technique" AutomationProperties.HelpText="Affiche puis exporte les seuls compteurs techniques, sans logs bruts ni identifiants."/><Button x:Name="BtnGuardWhy" Content="Pourquoi une action est indisponible ?" ToolTip="Explique les protections et preconditions actuelles sans modifier de droit." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Pourquoi une action est indisponible ?" AutomationProperties.HelpText="Explique les protections et preconditions actuelles sans modifier de droit."/></WrapPanel><CheckBox x:Name="ChkGuardReconcile" Content="Reverifier le perimetre consulte en arriere-plan" IsChecked="True" Margin="0,0,0,8" ToolTip="Relit la dernière requête explicite, au plus toutes les trois minutes et dans sa limite de résultats. Aucun scan au démarrage." AutomationProperties.Name="Reverifier le perimetre consulte en arriere-plan" AutomationProperties.HelpText="Relit la derniere requete explicite, au plus toutes les trois minutes et dans sa limite de resultats. Aucun scan au demarrage."/><TextBlock x:Name="LblGuardMetrics" Text="Les mesures locales apparaîtront ici." TextWrapping="Wrap" Margin="0,8,0,12" Foreground="{DynamicResource MutedColor}"/>
 <WrapPanel><Button AutomationProperties.Name="Ouvrir Pesto" AutomationProperties.HelpText="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardPesto" Content="Ouvrir Pesto" ToolTip="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis."/><Button AutomationProperties.Name="Ouvrir FilPro" AutomationProperties.HelpText="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardFilPro" Content="Ouvrir FilPro" ToolTip="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis."/></WrapPanel>
 </StackPanel></Border>
 </StackPanel></ScrollViewer></TabItem>
@@ -7417,6 +7595,19 @@ function Get-MainXaml {
                   <Button x:Name="BtnStorageRollback" Content="Revenir à la base précédente" Margin="0,0,8,6"/>
                 </WrapPanel>
                 <TextBlock x:Name="LblStorageMaintenance" Text="La base active reste sur un disque local. Chaque déplacement ou restauration conserve le fichier original." TextWrapping="Wrap" Margin="0,0,0,8" Foreground="{DynamicResource MutedColor}"/>
+              </StackPanel>
+            </Expander>
+            <!-- UX-19 (X04): the resumptions of the local storage, formerly in the hidden Fiabilité tab, beside the storage. -->
+            <Expander Header="Reprises" IsExpanded="True" Margin="0,8,0,0" Padding="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" AutomationProperties.Name="Reprises du stockage local">
+              <StackPanel>
+                <TextBlock Text="Après un échec dʼenregistrement, relancez les lots restés en mémoire. La reprise des anciennes données affiche dʼabord ce quʼelle importerait." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,0,0,8"/>
+                <WrapPanel>
+                  <Button x:Name="BtnGuardStoreResume" Content="Reprendre les sauvegardes" Margin="0,0,8,6" ToolTip="Relance lʼenregistrement des lots restés en mémoire après un échec du stockage local. Aucune écriture dans lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Relance lʼenregistrement des lots restés en mémoire après un échec du stockage local. Aucune écriture dans lʼannuaire." AutomationProperties.Name="Reprendre les sauvegardes"/>
+                  <Button x:Name="BtnGuardLegacyImport" Content="Reprendre les anciennes données" Margin="0,0,8,6" ToolTip="Vérifie le domaine et les anciens fichiers, affiche la simulation dans la page, puis demande confirmation avant sauvegarde et import." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Vérifie le domaine et les anciens fichiers, affiche la simulation dans la page, puis demande confirmation avant sauvegarde et import." AutomationProperties.Name="Reprendre les anciennes données"/>
+                </WrapPanel>
+                <ScrollViewer MaxHeight="120" VerticalScrollBarVisibility="Auto" Margin="0,4,0,0">
+                  <TextBlock x:Name="LblGuardMigration" Text="La simulation des anciennes données sera affichée ici avant confirmation." TextWrapping="Wrap" AutomationProperties.Name="Simulation de reprise des données"/>
+                </ScrollViewer>
               </StackPanel>
             </Expander>
             <Expander Header="Sauvegardes automatiques et conservation" IsExpanded="False" Margin="0,8,0,12" Padding="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
@@ -8716,7 +8907,7 @@ function Reset-DomeniaSelectionBoundViews {
                 if (($null -eq $job) -or ($job.IsWrite)) { continue }
                 $replaceKey = [string]$job.ReplaceKey
                 if (
-                    (([string]$replaceKey) -in @("secrets","computerdiag","permissions","inventory","software","wmi")) -or
+                    (([string]$replaceKey) -in @("secrets","computerdiag","permissions","inventory","software","wmi","services")) -or
                     (([string]$replaceKey) -like "lastuser:*")
                 ) {
                     Request-UiTaskStop -Id ([string]$taskId) -Silent -Force -Superseded -Reason 'Changement de selection'
@@ -8728,6 +8919,7 @@ function Reset-DomeniaSelectionBoundViews {
         Clear-ObjectDetails
         Clear-Secrets
         try { Clear-DomeniaDashboards } catch { }
+        try { Reset-DomeniaComputerAssistViews } catch { }
 
         $script:ComputerDiagRows = @()
         $script:PermissionRows = @()
@@ -9102,6 +9294,8 @@ function Fill-ComputerObject {
         }
     }
     catch { Write-AppLog "Probe automatique user-machine non lance : $($_.Exception.Message)" "WARN" }
+    # DS-08 / UI-07 / UI-17 (X04): fixed header, account card and association line from what was just filled.
+    try { Update-DomeniaComputerAssistView -Uac $uac } catch { Write-AppLog "En-tete du poste non mis a jour : $($_.Exception.Message)" "WARN" }
 }
 
 function Get-DomeniaMembershipLabel {
@@ -10455,7 +10649,7 @@ function Assert-WRemoteArtifactPermission {
     param($Context,[string]$Computer)
     $allowed=@([string]$Context.ArtifactTarget)+@($Context.ArtifactAliases)
     if(-not [bool]$Context.AllowRemoteArtifacts -or -not $Computer -or $allowed -notcontains $Computer){
-        throw 'Transport avec dépôt de script, service ou tâche non autorisé pour ce poste (désactivé par défaut). Autorisez une intervention dans Assistance poste > Actions, « Autoriser une intervention (5 min) », puis relancez votre action.'
+        throw 'Transport avec dépôt de script, service ou tâche non autorisé pour ce poste (désactivé par défaut). Autorisez une intervention dans Assistance poste > Intervenir, « Autoriser une intervention (5 min) », puis relancez votre action.'
     }
 }
 function Assert-DomeniaReadFallbackPermission {
@@ -10464,7 +10658,7 @@ function Assert-DomeniaReadFallbackPermission {
     # sienne, demandee pour elle-meme et consommee par une seule lecture.
     param($Context,[string]$Computer)
     if(-not [bool]$Context.AllowReadFallback){
-        throw 'Repli vers PsExec ou une tâche planifiée refusé pour cette lecture : une lecture ne bascule jamais sans demande. Autorisez « Lire ce poste par tâche planifiée » dans Assistance poste > Actions, puis relancez la lecture.'
+        throw 'Repli vers PsExec ou une tâche planifiée refusé pour cette lecture : une lecture ne bascule jamais sans demande. Autorisez « Lire ce poste par tâche planifiée » dans Assistance poste > Intervenir, puis relancez la lecture.'
     }
     $allowed=@([string]$Context.ReadFallbackTarget)+@($Context.ReadFallbackAliases)
     if(-not $Computer -or $allowed -notcontains $Computer){
@@ -10571,7 +10765,7 @@ function Invoke-WSchtasksRemote {
     }
     if($verb -ne '/query'){
         Assert-WRemoteArtifactPermission $Context $Computer
-        if($name -notmatch '^\\?DOMENIA_(Remote|Rimotte)_[a-f0-9]{12}$'){throw 'Seules les taches propres a cette operation sont autorisees.'}
+        if($name -notmatch '^\\?DOMENIA_(Remote|Execution)_[a-f0-9]{12}$'){throw 'Seules les taches propres a cette operation sont autorisees.'}
     }
     $service=$null;$folder=$null;$task=$null;$running=$null;$tasks=$null;$secret=''
     try{
@@ -10812,7 +11006,7 @@ function Invoke-WRemoteTaskScript {
     # Ordre impose DOMENIA :
     # 1) methodes classiques dans le worker appelant
     # 2) fallback PsExec portable place a cote de Domenia-Core.ps1
-    # 3) fallback tache planifiee RunOnce / Rimotte
+    # 3) fallback tache planifiee RunOnce / execution unique
     #
     # TimeoutSeconds est le budget TOTAL des deux fallbacks. PsExec ne peut
     # donc jamais manger tout le temps et empecher le fallback 2 de demarrer.
@@ -11288,7 +11482,10 @@ function Select-DomeniaWorkspace {
             $tabControl = Get-DomeniaControl -Name $Tab
             # Decision David 2026-10-07: Fiabilite and Operations et confort are hidden and shown only when routed to.
             if ($null -ne $tabControl -and $Tab -in @('TabGuard') -and $tabControl.Visibility -ne [System.Windows.Visibility]::Visible) { $tabControl.Visibility = [System.Windows.Visibility]::Visible }
-            if ($null -ne $innerControl -and $null -ne $tabControl) { $innerControl.SelectedItem = $tabControl }
+            # UX-21 (X04): Assistance poste has five views; a former tab name resolves to its view and inner tab.
+            $computerView = (($Inner -eq 'ComputerTabs') -and ($null -ne (Get-Command -Name 'Select-DomeniaComputerView' -CommandType Function -ErrorAction SilentlyContinue)))
+            if ($computerView) { [void](Select-DomeniaComputerView -Tab $Tab) }
+            elseif (($null -ne $innerControl) -and ($null -ne $tabControl)) { $innerControl.SelectedItem = $tabControl }
         }
     }
     catch { }
@@ -11300,11 +11497,12 @@ function Get-DomeniaLandingView {
     # des objets que l'application ne sait pas nommer ; un utilisateur, un poste, un groupe et une branche
     # ont une page utile, et y tomber evite de deplier deux onglets pour lire la premiere information.
     # Le poste n'habite pas la fiche : sa vue d'ensemble est un onglet de l'espace Poste, d'ou la destination
-    # complete (espace, onglets internes, onglet) plutot qu'un simple nom d'onglet.
+    # complete (espace, onglets internes, onglet) plutot qu'un simple nom d'onglet. UX-21 : la vue d'ensemble
+    # (TabComputer) reunit la fiche du poste et le tableau de bord de son dernier inventaire.
     param([AllowEmptyString()][AllowNull()][string]$Type='')
     switch ($Type) {
         'Utilisateur' { return [pscustomobject]@{Workspace='WsObject';Inner='DetailTabs';Tab='TabUser'} }
-        'Machine' { return [pscustomobject]@{Workspace='WsComputer';Inner='ComputerTabs';Tab='TabComputerDashboard'} }
+        'Machine' { return [pscustomobject]@{Workspace='WsComputer';Inner='ComputerTabs';Tab='TabComputer'} }
         'Groupe' { return [pscustomobject]@{Workspace='WsObject';Inner='DetailTabs';Tab='TabGroup'} }
         'OU' { return [pscustomobject]@{Workspace='WsObject';Inner='DetailTabs';Tab='TabContainer'} }
         'Conteneur' { return [pscustomobject]@{Workspace='WsObject';Inner='DetailTabs';Tab='TabContainer'} }
@@ -11319,7 +11517,7 @@ function Set-VisibleTabsForType {
 
     foreach ($t in @(
         "TabUser","TabUserContact","TabUserAdmin","TabGroup","TabContainer",
-        "TabComputer","TabComputerDashboard","TabComputerAdmin","TabSecurity","TabComputerHealth","TabInventory","TabSoftware","TabWmi",
+        "TabComputer","TabComputerAdmin","TabComputerDetails","TabSecurity","TabComputerHealth","TabComputerChecks","TabInventory","TabSoftware","TabWmi",
         "TabPermissions"
     )) { Set-TabVisibility $t $false }
 
@@ -11340,7 +11538,8 @@ function Set-VisibleTabsForType {
             foreach ($t in @("TabUser","TabUserContact","TabUserAdmin")) { Set-TabVisibility $t $true }
         }
         "Machine" {
-            foreach ($t in @("TabComputer","TabComputerDashboard","TabComputerAdmin","TabComputerHealth","TabInventory","TabSoftware","TabWmi","TabSecurity")) { Set-TabVisibility $t $true }
+            # UX-21 (X04): Vue d'ensemble, Intervenir, Détails (Inventaire, Logiciels), Diagnostic (Contrôles, WMI), Secrets.
+            foreach ($t in @("TabComputer","TabComputerAdmin","TabComputerDetails","TabComputerHealth","TabComputerChecks","TabInventory","TabSoftware","TabWmi","TabSecurity")) { Set-TabVisibility $t $true }
         }
         "Groupe" { Set-TabVisibility "TabGroup" $true }
         "OU" { Set-TabVisibility "TabContainer" $true }
@@ -14247,9 +14446,12 @@ function Update-DomeniaInventoryAgeLine {
     if ($null -ne $script:InventoryCompletedAt) { $label = Get-DomeniaInventoryAgeLabel -CompletedAt $script:InventoryCompletedAt }
     if ([string]::IsNullOrWhiteSpace($label) -or [string]::IsNullOrWhiteSpace([string]$script:InventoryComputer)) {
         $line.Visibility = [Windows.Visibility]::Collapsed
+        try { Update-DomeniaComputerHeader } catch { }
         return
     }
     [void](Set-DomeniaControlText -Name "LblInventoryAge" -Text $label)
+    # DS-08 (X04): the header of the workstation says the same age.
+    try { Update-DomeniaComputerHeader } catch { }
     $line.ToolTip = ("Dernière lecture de {0} : {1}. La liste vient de cette session, sans nouvelle requête." -f `
         [string]$script:InventoryComputer, $script:InventoryCompletedAt.ToString('dd/MM/yyyy HH:mm:ss',[Globalization.CultureInfo]::InvariantCulture))
     $line.Visibility = [Windows.Visibility]::Visible
@@ -14985,7 +15187,7 @@ function Open-DomeniaResultRowParentOu {
 }
 
 function Open-DomeniaResultRowSupport {
-    # UX-26: « Assistance poste » opens the workstation on its Actions tab, where the remote tools and the writes
+    # UX-26: « Assistance poste » opens the workstation on its Intervenir view, where the remote tools and the writes
     # stay behind their own confirmation. The menu itself starts nothing on the workstation.
     $row = Get-DomeniaSelectedGridRow
     if ($null -eq $row -or [string]$row.Type -ne 'Machine') { Set-Status 'Sélectionnez un seul poste.' 'WARN'; return }
@@ -15022,7 +15224,7 @@ function Build-DomeniaObjectsContextMenu {
     [void]$Menu.Items.Add((New-DomeniaMenuItem -Header ("Ouvrir la fiche de " + $name) -Enabled $single -ToolTip $(if ($single) { "" } else { $singleTip }) -Action { Open-SelectedObject -Force }))
     if ($isMachine) {
         [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Assistance poste" -Enabled $single `
-            -ToolTip "Ouvre lʼonglet Actions du poste : Bureau à distance, partage C$, consoles et stratégies. Chaque action garde sa confirmation ; ce menu ne lance rien." `
+            -ToolTip "Ouvre la vue Intervenir du poste : Bureau à distance, disque C, consoles et stratégies. Chaque action garde sa confirmation ; ce menu ne lance rien." `
             -Action { Open-DomeniaResultRowSupport }))
         # CO-35: one ping (and the console when allowed) of this workstation, without leaving the list.
         [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Revérifier ce poste" -Enabled ($single -and $gridReady) `
@@ -19641,22 +19843,26 @@ function Complete-DomeniaComputerToolUi {
     param($Result,$State)
     $tool = [string]$State.Tool
     $computer = [string]$State.Computer
+    $effective = $Result
+    if (($Result -is [System.Array]) -and ($Result.Count -gt 0)) { $effective = $Result[-1] }
     $message = ""
-    try { $message = [string]$Result.Message } catch { }
-    if ([string]::IsNullOrWhiteSpace($message)) { $message = "$tool termine sur $computer." }
+    try { $message = [string]$effective.Message } catch { }
+    if ([string]::IsNullOrWhiteSpace($message)) { $message = "Demande envoyée à $computer." }
     $remoteOperation = ""
     if ($tool -eq "GPUpdate") { $remoteOperation = "ComputerGpUpdate" } elseif ($tool -eq "Redemarrage") { $remoteOperation = "ComputerRestart" }
-    if ($remoteOperation) { $message += (Get-DomeniaRemotePostconditionText -OperationId $remoteOperation -Result $Result) }
+    if ($remoteOperation) { $message += (Get-DomeniaRemotePostconditionText -OperationId $remoteOperation -Result $effective) }
+    # SE-08: the restart panel closes once the request is accepted; its result stays in the status and the journal.
+    if ($tool -eq "Redemarrage") { try { Close-DomeniaComputerRestartPanel -Computer $computer } catch { } }
     if ($tool -eq "Ping") { Set-Status "Ping $computer : $message" }
-    else { Set-Status $message }
+    else { Set-Status $message; try { Add-DomeniaUiLog -Area 'Poste' -Text $message } catch { } }
 }
 
 function Fail-DomeniaComputerToolUi {
     param([string]$Message,$State)
     $tool = [string]$State.Tool
     $computer = [string]$State.Computer
-    if ([string]::IsNullOrWhiteSpace($tool)) { $tool = "Outil machine" }
-    $operation = if ([string]::IsNullOrWhiteSpace($computer)) { $tool } else { "$tool $computer" }
+    $label = switch ($tool) { 'GPUpdate' { 'Actualisation des stratégies' } 'Redemarrage' { 'Redémarrage' } '' { 'Outil du poste' } default { $tool } }
+    $operation = if ([string]::IsNullOrWhiteSpace($computer)) { $label } else { "$label de $computer" }
     [void](Show-DomeniaOperationError -Operation $operation -ErrorRecordOrException ([string]$Message))
 }
 
@@ -19680,10 +19886,11 @@ $arguments=[string]$Payload.Arguments
 $mode=[string]$Payload.Mode
 $runUser=([string]$Payload.RunUser).Trim()
 $elevated=[bool]$Payload.Elevated
-if([string]::IsNullOrWhiteSpace($computer)){throw "Cible Rimotte vide."}
-if([string]::IsNullOrWhiteSpace($command)){throw "Programme a lancer vide."}
+if([string]::IsNullOrWhiteSpace($computer)){throw "Poste cible vide : aucune tâche créée."}
+if([string]::IsNullOrWhiteSpace($command)){throw "Programme à lancer vide : aucune tâche créée."}
+if($mode -notin @('System','Interactive')){throw "Mode dʼexécution inconnu : aucune tâche créée."}
 $id=[guid]::NewGuid().ToString('N')
-$task='\DOMENIA_Rimotte_'+$id.Substring(0,12)
+$task='\DOMENIA_Execution_'+$id.Substring(0,12)
 $start=(Get-Date).AddSeconds(-30).ToString('yyyy-MM-ddTHH:mm:ss')
 $end=(Get-Date).AddMinutes(15).ToString('yyyy-MM-ddTHH:mm:ss')
 Assert-WRemoteArtifactPermission $Context $computer
@@ -19692,13 +19899,8 @@ $argX=[Security.SecurityElement]::Escape($arguments)
 $argBlock=$(if([string]::IsNullOrWhiteSpace($arguments)){''}else{"      <Arguments>$argX</Arguments>`r`n"})
 $runLevel=$(if($elevated){'HighestAvailable'}else{'LeastPrivilege'})
 $logonType='ServiceAccount';$taskUser='S-1-5-18';$createExtra=@();$interactive=$false
-if($mode -eq 'MachineCredential'){
-    $cred=Get-WMachineCredential $Context
-    if($null-eq$cred){throw "Mode Compte poste : choisissez dʼabord un compte poste dans la pastille « Compte poste » dʼAssistance poste."}
-    $taskUser=[string]$cred.UserName;$logonType='Password'
-    throw 'Mode tache avec mot de passe en argument retire. Choisissez SYSTEM ou une session interactive deja ouverte, apres autorisation.'
-}elseif($mode -eq 'Interactive'){
-    if([string]::IsNullOrWhiteSpace($runUser)){throw "Mode interactif : compte utilisateur vide."}
+if($mode -eq 'Interactive'){
+    if([string]::IsNullOrWhiteSpace($runUser)){throw "Session de lʼutilisateur : compte vide, aucune tâche créée."}
     $taskUser=$runUser;$logonType='InteractiveToken';$interactive=$true
 }
 $userX=[Security.SecurityElement]::Escape($taskUser)
@@ -19706,7 +19908,7 @@ $logonBlock=$(if($logonType-eq'ServiceAccount'){''}else{"      <LogonType>$logon
 $xml=@"
 <?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
-  <RegistrationInfo><Description>DOMENIA Rimotte - RunOnce auto-supprimee</Description><Author>DOMENIA</Author></RegistrationInfo>
+  <RegistrationInfo><Description>DOMENIA - exécution unique, supprimée après lancement</Description><Author>DOMENIA</Author></RegistrationInfo>
   <Triggers/>
   <Principals><Principal id="Author"><UserId>$userX</UserId>
 $logonBlock      <RunLevel>$runLevel</RunLevel></Principal></Principals>
@@ -19726,7 +19928,7 @@ $logonBlock      <RunLevel>$runLevel</RunLevel></Principal></Principals>
 $argBlock    </Exec></Actions>
 </Task>
 "@
-$xmlPath=Join-Path $env:TEMP ('domenia_rimotte_'+$id+'.xml')
+$xmlPath=Join-Path $env:TEMP ('domenia_execution_'+$id+'.xml')
 $created=$false;$watch=[Diagnostics.Stopwatch]::StartNew()
 try{
     [IO.File]::WriteAllText($xmlPath,$xml,[Text.Encoding]::Unicode)
@@ -19741,9 +19943,9 @@ try{
     $q=Invoke-WSchtasksRemote $Context $computer @('/query','/tn',$task,'/v','/fo','LIST') 20
     $watch.Stop()
     $detail='Tache declenchee.';if ((($q.ExitCode -eq 0)) -and ((-not [string]::IsNullOrWhiteSpace([string]$q.Output)))) {$detail=(([string]$q.Output)-replace '[\r\n]+',' ');if($detail.Length-gt500){$detail=$detail.Substring(0,500)}}
-    [pscustomobject]@{Computer=$computer;Command=$command;Arguments=$arguments;Mode=$mode;RunUser=$taskUser;TaskName=$task;Message=("Rimotte : demande de lancement acceptee sur "+$computer+" via tache unique. Execution du programme non verifiee.");Detail=$detail;DurationMs=[long]$watch.ElapsedMilliseconds;Transport='ScheduledTask';Success=$true;Delivered=$true}
+    [pscustomobject]@{Computer=$computer;Command=$command;Arguments=$arguments;Mode=$mode;RunUser=$taskUser;TaskName=$task;Message=("Exécution demandée sur "+$computer+" par une tâche unique, supprimée après lancement. Le lancement du programme nʼest pas vérifié.");Detail=$detail;DurationMs=[long]$watch.ElapsedMilliseconds;Transport='ScheduledTask';Success=$true;Delivered=$true}
 }
-catch{throw ("Acces distant impossible sur "+$computer+" via Rimotte : "+$_.Exception.Message)}
+catch{throw ("Exécution impossible sur "+$computer+" : "+$_.Exception.Message)}
 finally{
     if($created){try{[void](Invoke-WSchtasksRemote $Context $computer @('/delete','/tn',$task,'/f') 15)}catch{}}
     try{Remove-Item -LiteralPath $xmlPath -Force -ErrorAction SilentlyContinue}catch{}
@@ -19755,17 +19957,19 @@ function Complete-DomeniaRimotteUi {
     param($Result,$State)
     $effective=$Result;if($Result-is[System.Array]-and$Result.Count-gt0){$effective=$Result[-1]}
     $msg=[string]$effective.Message
-    if([string]::IsNullOrWhiteSpace($msg)){$msg="Rimotte termine."}
+    if([string]::IsNullOrWhiteSpace($msg)){$msg="Exécution demandée."}
     $msg+=(Get-DomeniaRemotePostconditionText -OperationId "RimotteRun" -Result $effective)
     Set-Status $msg
-    Add-DomeniaUiLog -Area "Rimotte" -Text ($msg+" "+[string]$effective.Detail)
+    Add-DomeniaUiLog -Area "Poste" -Text ($msg+" "+[string]$effective.Detail)
+    # UI-26: the panel closes once the task is accepted; the run of the program itself is not verified.
+    try{Close-DomeniaRunProgramPanel -Computer ([string]$State.Computer)}catch{}
     try{Register-DomeniaOperationSample -Operation "RimotteRun" -Mode "ScheduledTask" -ItemCount 1 -DurationMs ([long]$effective.DurationMs) -BytesEstimated 6000 -RemoteAttempts 1 -FallbackTasks 1 -SuccessCount 1}catch{}
 }
 
 function Fail-DomeniaRimotteUi {
     param([string]$Message,$State)
     try{Register-DomeniaOperationSample -Operation "RimotteRun" -Mode "ScheduledTask" -ItemCount 1 -DurationMs 0 -BytesEstimated 3000 -RemoteAttempts 1 -FallbackTasks 1 -FailureCount 1}catch{}
-    [void](Show-DomeniaOperationError -Operation ("Rimotte "+[string]$State.Computer) -ErrorRecordOrException ([string]$Message))
+    [void](Show-DomeniaOperationError -Operation ("Exécution sur "+[string]$State.Computer) -ErrorRecordOrException ([string]$Message))
 }
 
 function Start-DomeniaRimotteRun {
@@ -19774,50 +19978,7 @@ function Start-DomeniaRimotteRun {
     $computer=Assert-DomeniaComputerTarget -Computer ([string]$Settings.Computer)
     $correlation=[guid]::NewGuid().ToString('N')
     $payload=[pscustomobject]@{Computer=$computer;Command=[string]$Settings.Command;Arguments=[string]$Settings.Arguments;Mode=[string]$Settings.Mode;RunUser=[string]$Settings.RunUser;Elevated=[bool]$Settings.Elevated;Target=$computer;DN=$computer;CorrelationId=$correlation;SingleRequest=$true}
-    Start-UiTask -Name ("Rimotte "+$computer) -OperationId "RimotteRun" -Code (Get-DomeniaRimotteWorkerCode) -Payload $payload -CallbackState ([pscustomobject]@{Computer=$computer}) -ReplaceKey ("rimotte:"+$computer) -DisableControls @("BtnCompRimotte") -TimeoutSeconds 95 -NonCancellable -StatusText ("Rimotte : lancement sur "+$computer+"...") -SuccessHandler "Complete-DomeniaRimotteUi" -ErrorHandler "Fail-DomeniaRimotteUi" -IsWrite -CorrelationId $correlation | Out-Null
-}
-
-function Show-DomeniaRimotteDialog {
-    try {
-        Assert-DomeniaRemoteWriteAllowed -Operation "Rimotte / execution distante"
-        $computer=Assert-DomeniaComputerTarget -Computer (Get-CurrentSelectedComputerName)
-        $linked="";try{$linked=Normalize-LinkUser ([string](Get-ExistingLinkForComputer $computer).UserLogin)}catch{}
-        $xaml=@"
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Rimotte integre - $computer" Width="720" Height="510" MinWidth="650" MinHeight="470" WindowStartupLocation="CenterOwner" Background="#F3F6FB" FontFamily="Segoe UI" FontSize="13">
-  <Grid Margin="18"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-    <StackPanel Grid.Row="0" Margin="0,0,0,12"><TextBlock Text="Rimotte integre" FontSize="23" FontWeight="Bold"/><TextBlock Text="Exécution distante par une tâche planifiée RunOnce unique. La tâche est supprimée après déclenchement, par son nettoyage explicite. En cas de panne, des résidus peuvent rester à vérifier." Foreground="#64748B" TextWrapping="Wrap" Margin="0,3,0,0"/></StackPanel>
-    <Border Grid.Row="1" Padding="16" CornerRadius="14" Background="White" BorderBrush="#D7DFEA" BorderThickness="1"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="165"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-      <Label Grid.Row="0" Grid.Column="0" Content="Cible"/><TextBox Grid.Row="0" Grid.Column="1" x:Name="TxtRTarget" Text="$computer" IsReadOnly="True" Background="#F8FAFC" Margin="0,0,0,8"/>
-      <Label Grid.Row="1" Grid.Column="0" Content="Mode"/><ComboBox Grid.Row="1" Grid.Column="1" x:Name="CmbRMode" SelectedIndex="0" Margin="0,0,0,8"><ComboBoxItem Content="SYSTEM (session 0)"/><ComboBoxItem Content="Compte avec mot de passe (non propose)" IsEnabled="False" ToolTip="Les tâches enregistrant un mot de passe ne sont plus proposées."/><ComboBoxItem Content="Utilisateur interactif"/></ComboBox>
-      <Label Grid.Row="2" Grid.Column="0" Content="Utilisateur interactif"/><TextBox Grid.Row="2" Grid.Column="1" x:Name="TxtRUser" Text="$linked" Margin="0,0,0,8" ToolTip="Utilise uniquement en mode interactif. Le compte doit avoir une session ouverte sur la cible."/>
-      <Label Grid.Row="3" Grid.Column="0" Content="Programme cote cible"/><TextBox Grid.Row="3" Grid.Column="1" x:Name="TxtRExe" Margin="0,0,0,8" ToolTip="Chemin executable tel qu il existe sur le poste cible, par exemple %SystemRoot%\System32\notepad.exe."/>
-      <Label Grid.Row="4" Grid.Column="0" Content="Arguments"/><TextBox Grid.Row="4" Grid.Column="1" x:Name="TxtRArgs" Margin="0,0,0,8"/>
-      <Label Grid.Row="5" Grid.Column="0" Content="Elevation"/><CheckBox Grid.Row="5" Grid.Column="1" x:Name="ChkRElevated" Content="Niveau le plus eleve" IsChecked="True" VerticalAlignment="Center" Margin="0,3,0,8"/>
-      <TextBlock Grid.Row="6" Grid.ColumnSpan="2" Text="SYSTEM est le mode recommandé pour un outil technique non interactif. Le mode Compte poste pour exécuter une tâche avec mot de passe est retiré. Lʼadministration du Planificateur utilise le compte poste via API ; la tâche tourne sous SYSTEM ou une session interactive existante." Foreground="#64748B" TextWrapping="Wrap" Margin="0,8,0,0"/>
-    </Grid></Border>
-    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0"><Button x:Name="BtnRCancel" Content="Annuler" MinWidth="100" Margin="0,0,8,0"/><Button x:Name="BtnRRun" Content="Lancer" MinWidth="120" Padding="14,7"/></StackPanel>
-  </Grid>
-</Window>
-"@
-        $dlg=ConvertFrom-DomeniaXaml -XamlText $xaml -Context "Rimotte"
-        Set-AppWindowIcon $dlg
-        try{$dlg.Owner=$script:MainWindow}catch{}
-        $run=$dlg.FindName("BtnRRun");$cancel=$dlg.FindName("BtnRCancel")
-        $run.Add_Click({
-            try{
-                $exe=([string]$dlg.FindName("TxtRExe").Text).Trim();if([string]::IsNullOrWhiteSpace($exe)){throw "Programme vide."}
-                $modeIndex=[int]$dlg.FindName("CmbRMode").SelectedIndex
-                $mode=$(if($modeIndex-eq1){"MachineCredential"}elseif($modeIndex-eq2){"Interactive"}else{"System"})
-                $user=([string]$dlg.FindName("TxtRUser").Text).Trim();if($mode-eq"Interactive"-and[string]::IsNullOrWhiteSpace($user)){throw "Renseigne le compte de la session interactive."}
-                if(($mode -eq "MachineCredential") -and ($null -eq $script:MachineCredential)){throw "Choisissez dʼabord un compte poste : pastille « Compte poste » en haut dʼAssistance poste."}
-                $dlg.Tag=[pscustomobject]@{Computer=$computer;Command=$exe;Arguments=[string]$dlg.FindName("TxtRArgs").Text;Mode=$mode;RunUser=$user;Elevated=[bool]$dlg.FindName("ChkRElevated").IsChecked}
-                Set-DomeniaSurfaceResult $dlg $true
-            }catch{Show-DomeniaDialog -Message $_.Exception.Message -Title 'Exécution distante' -Kind Warning|Out-Null}
-        })
-        $cancel.Add_Click({Set-DomeniaSurfaceResult $dlg $false})
-        $ok=Invoke-DomeniaHostWindow -Window $dlg
-        if($ok -and $null-ne$dlg.Tag){Start-DomeniaRimotteRun -Settings $dlg.Tag}
-    } catch { [void](Show-DomeniaOperationError -Operation "Rimotte" -ErrorRecordOrException $_) }
+    Start-UiTask -Name ("Exécution sur "+$computer) -OperationId "RimotteRun" -Code (Get-DomeniaRimotteWorkerCode) -Payload $payload -CallbackState ([pscustomobject]@{Computer=$computer}) -ReplaceKey ("execution:"+$computer) -DisableControls @("BtnCompRimotte","BtnCompRunStart") -TimeoutSeconds 95 -NonCancellable -StatusText ("Exécution sur "+$computer+" : création de la tâche unique...") -SuccessHandler "Complete-DomeniaRimotteUi" -ErrorHandler "Fail-DomeniaRimotteUi" -IsWrite -CorrelationId $correlation | Out-Null
 }
 
 function Get-DomeniaMachineOperationCredential {
@@ -19870,12 +20031,15 @@ function Complete-DomeniaAdminShareOpen {
     param($Result,$State)
     $computer=[string]$State.Computer;$account='';try{$account=[string]$Result.Account}catch{}
     Start-DomeniaComputerToolProcess -Tool ([string]$State.Tool) -Computer $computer
-    if ($account) { Set-Status ([string]$State.Share + " de $computer ouvert avec $account.") }
+    if ($account) {
+        $what = if ([string]$State.Share -eq 'C$') { "Disque C (C$)" } else { "Partage " + [string]$State.Share }
+        Set-Status ($what + " de $computer ouvert avec $account.")
+    }
 }
 function Fail-DomeniaAdminShareOpen {
     param([string]$Message,$State)
     $computer=[string]$State.Computer;$tool=[string]$State.Tool
-    if ($tool -eq 'C') { [void](Show-DomeniaOperationError -Operation ("Ouvrir C$ de $computer") -ErrorRecordOrException ([string]$Message)); return }
+    if ($tool -eq 'C') { [void](Show-DomeniaOperationError -Operation ("Ouvrir le disque C de $computer") -ErrorRecordOrException ([string]$Message)); return }
     # Consoles still open, under the Windows session, as before.
     Set-Status ("Console ouverte avec la session Windows : " + $Message) "WARN"
     Start-DomeniaComputerToolProcess -Tool $tool -Computer $computer
@@ -19886,11 +20050,15 @@ function Start-DomeniaComputerToolProcess {
         "C" { Start-Process -FilePath "explorer.exe" -ArgumentList @("\\$Computer\C$") }
         "Manage" { Start-Process -FilePath "compmgmt.msc" -ArgumentList @("/computer=$Computer") }
         "Events" { Start-Process -FilePath "eventvwr.exe" -ArgumentList @("/computer:$Computer") }
-        "Services" { Start-Process -FilePath "services.msc" -ArgumentList @("/computer=$Computer") }
+        # UX-38 (X04): services.msc ignores /computer; Gestion de l'ordinateur opens on the workstation, Services included.
+        "Services" { Start-Process -FilePath "compmgmt.msc" -ArgumentList @("/computer=$Computer") }
     }
 }
 function Invoke-ComputerTool {
-    param([string]$Tool)
+    # Tools of the selected workstation. Reads and Windows tools leave on the click; GPUpdate and the restart are remote
+    # writes: the click prepares them in the page (in-page confirmation, sessions read first for the restart) and only
+    # the confirmed request reaches its pinned worker, once (-Confirmed, -Restart). CD-11: no scheduled-task fallback.
+    param([string]$Tool,$Restart=$null,[switch]$Confirmed)
     try {
         $name=Assert-DomeniaComputerTarget -Computer (Get-CurrentSelectedComputerName)
         # D002: the demonstration directory has no real workstation; external tools are never started.
@@ -19904,34 +20072,104 @@ function Invoke-ComputerTool {
             "C" { Start-DomeniaAdminShareOpen -Computer $name -Share 'C$' -Tool 'C' }
             { $_ -in @("Manage","Events","Services") } { Start-DomeniaAdminShareOpen -Computer $name -Share 'IPC$' -Tool $Tool }
             "PSRemote" {
-                $remoteCommand = "Enter-PSSession -ComputerName '$name'"
-                Set-ClipboardSafe $remoteCommand
-                Show-InfoBox "Commande PowerShell distante copiee dans le presse-papiers :`r`n`r`n$remoteCommand`r`n`r`nAucun second interpreteur PowerShell n est lance, afin de limiter les faux positifs antivirus."
+                # UX-42: the account of the workstation operations is named (-Credential), never its password; the
+                # message stays in the page.
+                $account=''
+                $credential=Get-DomeniaMachineOperationCredential
+                if($null -ne $credential){$account=[string]$credential.UserName}
+                $command=Get-DomeniaPsRemoteCommand -Computer $name -UserName $account
+                Set-ClipboardSafe ([string]$command.Text)
+                $shown=$false
+                try{$shown=[bool](Show-DomeniaBanner -Kind Info -Message ([string]$command.Status) -Key 'psremote-copied')}catch{$shown=$false}
+                Set-Status ([string]$command.Status)
+                if(-not $shown){Add-DomeniaUiLog -Area 'Poste' -Text ([string]$command.Status)}
             }
             "GpUpdate" {
-                Assert-DomeniaRemoteWriteAllowed -Operation "GPUpdate distant"
+                Assert-DomeniaRemoteWriteAllowed -Operation "Actualisation des stratégies"
                 Assert-WriteAllowed
-                if(-not (Confirm-Action "Forcer immediatement la mise a jour des strategies sur $name ?")){return}
+                # The request travels by WinRM only: a configuration that forbids WinRM refuses it before any confirmation.
+                if(-not [bool](Get-CfgValue 'Remote' 'UseWinRM' $true)){throw 'Actualisation des stratégies indisponible : WinRM est désactivé par la configuration (Remote.UseWinRM). Rien nʼest envoyé au poste.'}
+                if(-not $Confirmed){Request-DomeniaComputerToolConfirmation -Tool 'GpUpdate' -Computer $name;return}
                 $code=@'
-$computer=[string]$Payload.Computer;$cred=Get-WMachineCredential $Context;$err='';try{$p=@{ComputerName=$computer;ScriptBlock={gpupdate.exe /force /wait:0 | Out-String};ErrorAction="Stop"};if($cred){$p.Credential=$cred};$DomeniaWriteDispatched=$true;$o=Invoke-Command @p;[pscustomobject]@{Message="GPUpdate lance sur $computer via WinRM : $($o -join ' ')";Transport="WinRM";Delivered=$true};return}catch{$err=$_.Exception.Message};if(-not $DomeniaWriteDispatched){$local='& "$env:SystemRoot\System32\gpupdate.exe" /force /wait:0 | Out-String | ForEach-Object { [pscustomobject]@{Message=("GPUpdate lance localement : "+$_);Transport="TaskFallback"} }';$DomeniaWriteDispatched=$true;$r=Invoke-WRemoteTaskScript $Context $computer $local ([pscustomobject]@{}) ([int]$Context.TaskFallbackTimeoutSeconds) $err -Purpose 'Write';[pscustomobject]@{Message="GPUpdate via tache planifiée.";Transport="TaskFallback";Delivered=$true}}else{throw}
+$computer=[string]$Payload.Computer
+# The configuration may forbid WinRM (Remote.UseWinRM): no connection is attempted and the receipt says NotSent.
+if(-not [bool]$Context.UseWinRM){throw 'Non envoyé : WinRM est désactivé par la configuration (Remote.UseWinRM).'}
+$cred=Get-WMachineCredential $Context;$session=$null
+# CD-11: one transport and no fallback. A refused connection sends nothing (receipt NotSent); once the session is open
+# the request is dispatched and never replayed.
+$lease=Enter-WCredentialAttempt -Context $Context -Channel Remote
+try{
+    $p=@{ComputerName=$computer;ErrorAction='Stop'};if($cred){$p.Credential=$cred}
+    try{$session=New-PSSession @p}catch{if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw};throw ("Non envoyé : le poste nʼaccepte pas la commande à distance (WinRM). "+$_.Exception.Message)}
+}finally{Exit-WCredentialAttempt -Lease $lease}
+try{
+    $DomeniaWriteDispatched=$true
+    $o=Invoke-Command -Session $session -ScriptBlock {& "$env:SystemRoot\System32\gpupdate.exe" /force /wait:0 2>&1 | Out-String} -ErrorAction Stop
+    $text=((@($o) -join ' ') -replace '\s+',' ').Trim()
+    [pscustomobject]@{Message=("Actualisation des stratégies lancée sur "+$computer+". "+$text).Trim();Transport='WinRM';Delivered=$true}
+}finally{if($null -ne $session){Remove-PSSession -Session $session -ErrorAction SilentlyContinue}}
 '@
                 $correlation = [guid]::NewGuid().ToString("N")
                 $payload = [pscustomobject]@{Computer=$name;Target=$name;DN=$name;CorrelationId=$correlation;SingleRequest=$true}
-                Start-UiTask -Name "GPUpdate $name" -OperationId "ComputerGpUpdate" -Code $code -Payload $payload -CallbackState ([pscustomobject]@{ Tool="GPUpdate"; Computer=$name }) -ReplaceKey "gpupdate:$name" -DisableControls @("BtnCompGpUpdate") -TimeoutSeconds 35 -StatusText "GPUpdate distant sur $name..." -SuccessHandler "Complete-DomeniaComputerToolUi" -ErrorHandler "Fail-DomeniaComputerToolUi" -IsWrite -CorrelationId $correlation | Out-Null
+                Start-UiTask -Name "Actualisation des stratégies de $name" -OperationId "ComputerGpUpdate" -Code $code -Payload $payload -CallbackState ([pscustomobject]@{ Tool="GPUpdate"; Computer=$name }) -ReplaceKey "gpupdate:$name" -DisableControls @("BtnCompGpUpdate") -TimeoutSeconds 35 -StatusText "Actualisation des stratégies sur $name..." -SuccessHandler "Complete-DomeniaComputerToolUi" -ErrorHandler "Fail-DomeniaComputerToolUi" -IsWrite -CorrelationId $correlation | Out-Null
             }
             "Restart" {
-                Assert-DomeniaRemoteWriteAllowed -Operation "Redemarrage distant"
+                Assert-DomeniaRemoteWriteAllowed -Operation "Redémarrage du poste"
                 Assert-WriteAllowed
-                if(-not (Confirm-Action "Redemarrer immediatement $name ?")){return}
+                # SE-08: the click opens the restart panel of the page, which reads the open sessions first; only the
+                # plan confirmed there comes back here (-Restart).
+                if($null -eq $Restart){Request-DomeniaComputerRestart -Computer $name;return}
+                if(([string]$Restart.Computer) -ine $name){throw 'Le poste sélectionné a changé : redémarrage non envoyé.'}
                 $code=@'
-$computer=[string]$Payload.Computer;$cred=Get-WMachineCredential $Context;$err='';try{$p=@{ComputerName=$computer;Force=$true;ErrorAction="Stop"};if($cred){$p.Credential=$cred};$DomeniaWriteDispatched=$true;Restart-Computer @p;[pscustomobject]@{Message="Demande de redemarrage envoyee a $computer.";Transport="Classic";Delivered=$true};return}catch{$err=$_.Exception.Message};if(-not $DomeniaWriteDispatched){$local='Start-Process -FilePath (Join-Path $env:SystemRoot "System32\shutdown.exe") -ArgumentList @("/r","/t","10","/f","/c","DOMENIA") -WindowStyle Hidden; [pscustomobject]@{Message="Redemarrage programme localement dans 10 secondes.";Transport="TaskFallback";Delivered=$true}';$DomeniaWriteDispatched=$true;$r=Invoke-WRemoteTaskScript $Context $computer $local ([pscustomobject]@{}) ([int]$Context.TaskFallbackTimeoutSeconds) $err -Purpose 'Write';[pscustomobject]@{Message="Redemarrage via tache planifiée.";Transport="TaskFallback";Delivered=$true}}else{throw}
+$computer=[string]$Payload.Computer;$mode=[string]$Payload.Mode;$delay=[int]$Payload.DelaySeconds;$message=[string]$Payload.Message
+if($mode -notin @('Delayed','Now')){throw 'Mode de redémarrage inconnu : aucune demande envoyée.'}
+if(($mode -eq 'Delayed') -and (($delay -lt 60) -or ($delay -gt 3600) -or ($message.Length -gt 400) -or ($message.IndexOf([char]34) -ge 0))){throw 'Délai ou message de redémarrage refusé : aucune demande envoyée.'}
+# The delayed restart travels by WinRM only: a configuration that forbids WinRM (Remote.UseWinRM) sends nothing.
+if(($mode -eq 'Delayed') -and (-not [bool]$Context.UseWinRM)){throw 'Non envoyé : le redémarrage différé passe par WinRM, désactivé par la configuration (Remote.UseWinRM).'}
+$cred=Get-WMachineCredential $Context;$session=$null;$cim=$null
+$notSent="Non envoyé : le poste nʼaccepte pas la commande à distance. "
+# CD-11: one transport per choice and no fallback. Delayed: shutdown.exe through WinRM, so that the user sees the
+# message. Now: Restart-Computer -Force after a CIM session proved the workstation answers. A refused connection
+# sends nothing (receipt NotSent); a known refusal of shutdown.exe restarts nothing; nothing is ever replayed.
+$lease=Enter-WCredentialAttempt -Context $Context -Channel Remote
+try{
+    if($mode -eq 'Delayed'){
+        $p=@{ComputerName=$computer;ErrorAction='Stop'};if($cred){$p.Credential=$cred}
+        try{$session=New-PSSession @p}catch{if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw};throw ($notSent+"(WinRM) "+$_.Exception.Message)}
+    }else{
+        try{$cim=New-WDomeniaCimSession $Context $computer $cred 12}catch{if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw};throw ($notSent+$_.Exception.Message)}
+    }
+}finally{Exit-WCredentialAttempt -Lease $lease;Remove-WDomeniaCimSession $cim}
+try{
+    if($mode -eq 'Delayed'){
+        $DomeniaWriteDispatched=$true
+        $r=Invoke-Command -Session $session -ScriptBlock {param($seconds,$text) $out=& "$env:SystemRoot\System32\shutdown.exe" /r /t $seconds /d p:4:1 /c $text 2>&1 | Out-String;[pscustomobject]@{ExitCode=[int]$LASTEXITCODE;Output=[string]$out}} -ArgumentList $delay,$message -ErrorAction Stop
+        $exit=[int]$r.ExitCode
+        if($exit -ne 0){
+            # shutdown.exe refused the request: nothing is scheduled by Domenia (1190: a shutdown is already pending).
+            $DomeniaWriteDispatched=$false
+            $why=if($exit -eq 1190){'un arrêt ou un redémarrage est déjà programmé sur ce poste'}elseif($exit -eq 5){'accès refusé'}else{(([string]$r.Output) -replace '\s+',' ').Trim()}
+            throw ("Redémarrage refusé par le poste (code "+$exit+") : "+$why+". Rien nʼest programmé par Domenia.")
+        }
+        [pscustomobject]@{Message=("Redémarrage programmé sur "+$computer+" dans "+[int][Math]::Ceiling($delay/60.0)+" min, avec message à lʼutilisateur.");Mode='Delayed';DelaySeconds=$delay;Transport='WinRM';Delivered=$true}
+    }else{
+        $p=@{ComputerName=$computer;Force=$true;ErrorAction='Stop'};if($cred){$p.Credential=$cred}
+        $DomeniaWriteDispatched=$true
+        Restart-Computer @p
+        [pscustomobject]@{Message=("Redémarrage immédiat demandé à "+$computer+".");Mode='Now';DelaySeconds=0;Transport='Classic';Delivered=$true}
+    }
+}finally{if($null -ne $session){Remove-PSSession -Session $session -ErrorAction SilentlyContinue}}
 '@
                 $correlation = [guid]::NewGuid().ToString("N")
-                $payload = [pscustomobject]@{Computer=$name;Target=$name;DN=$name;CorrelationId=$correlation;SingleRequest=$true}
-                Start-UiTask -Name "Redemarrage $name" -OperationId "ComputerRestart" -Code $code -Payload $payload -CallbackState ([pscustomobject]@{ Tool="Redemarrage"; Computer=$name }) -ReplaceKey "restart:$name" -DisableControls @("BtnCompRestart") -TimeoutSeconds 35 -StatusText "Redemarrage distant de $name..." -SuccessHandler "Complete-DomeniaComputerToolUi" -ErrorHandler "Fail-DomeniaComputerToolUi" -IsWrite -CorrelationId $correlation | Out-Null
+                $payload = [pscustomobject]@{Computer=$name;Target=$name;DN=$name;Mode=[string]$Restart.Mode;DelaySeconds=[int]$Restart.DelaySeconds;Message=[string]$Restart.Message;CorrelationId=$correlation;SingleRequest=$true}
+                Start-UiTask -Name "Redémarrage de $name" -OperationId "ComputerRestart" -Code $code -Payload $payload -CallbackState ([pscustomobject]@{ Tool="Redemarrage"; Computer=$name; Mode=[string]$Restart.Mode }) -ReplaceKey "restart:$name" -DisableControls @("BtnCompRestart","BtnCompRestartSend") -TimeoutSeconds 45 -StatusText "Redémarrage de $name : envoi de la demande..." -SuccessHandler "Complete-DomeniaComputerToolUi" -ErrorHandler "Fail-DomeniaComputerToolUi" -IsWrite -CorrelationId $correlation | Out-Null
             }
         }
-    } catch { [void](Show-DomeniaOperationError -Operation "Outil machine $Tool" -ErrorRecordOrException $_) }
+    } catch {
+        $failure = $_
+        $label = switch ($Tool) { 'Ping' { 'Test de réponse' } 'RDP' { 'Bureau à distance' } 'C' { 'Ouvrir le disque C' } 'Manage' { 'Gestion de lʼordinateur' } 'Events' { 'Observateur dʼévénements' } 'Services' { 'Console des services' } 'PSRemote' { 'Commande PowerShell' } 'GpUpdate' { 'Actualisation des stratégies' } 'Restart' { 'Redémarrage du poste' } default { 'Outil du poste' } }
+        [void](Show-DomeniaOperationError -Operation $label -ErrorRecordOrException $failure)
+    }
 }
 
 # =====================================================================
@@ -21750,9 +21988,15 @@ if($null -eq $r){throw "Objet associe introuvable dans AD."}
 }
 
 function Open-LinkedUserFromMachine {
-    $user = ""
-    try { $user = [string]$script:Ctrl["TxtCompLinkedUser"].Text } catch { }
-    Start-OpenLinkedObject -Type "Utilisateur" -Identity $user
+    # UI-17 / DS-08 (X04): the association kept in the local memory is the source; its DN opens the fiche directly,
+    # the login is looked up otherwise. No placeholder text of the fiche is ever searched.
+    $link = $null
+    try { $link = Get-ExistingLinkForComputer -Computer (Get-CurrentSelectedComputerName) } catch { $link = $null }
+    if (($null -eq $link) -or ([string]::IsNullOrWhiteSpace([string]$link.UserLogin))) { Set-Status "Aucun utilisateur associé à ce poste." "INFO"; return }
+    $dn = ""
+    try { $dn = [string]$link.UserDn } catch { $dn = "" }
+    if ($dn) { Open-AdObject -Dn $dn -Type "Utilisateur"; return }
+    Start-OpenLinkedObject -Type "Utilisateur" -Identity ([string]$link.UserLogin)
 }
 
 function Open-LinkedComputerFromUser {
@@ -22434,7 +22678,7 @@ function Wire-Events {
     $script:Ctrl["BtnCompEvents"].Add_Click({ Invoke-ComputerTool "Events" })
     $script:Ctrl["BtnCompServices"].Add_Click({ Invoke-ComputerTool "Services" })
     $script:Ctrl["BtnCompPSRemote"].Add_Click({ Invoke-ComputerTool "PSRemote" })
-    if ($script:Ctrl.ContainsKey("BtnCompRimotte")) { $script:Ctrl["BtnCompRimotte"].Add_Click({ Show-DomeniaRimotteDialog }) }
+    if ($script:Ctrl.ContainsKey("BtnCompRimotte")) { $script:Ctrl["BtnCompRimotte"].Add_Click({ Show-DomeniaRunProgramPanel }) }
     $script:Ctrl["BtnCompRename"].Add_Click({ Rename-ComputerObject })
     $script:Ctrl["BtnCompAddGroup"].Add_Click({ AddOrRemoveObjectGroup $script:Ctrl["TxtCompGroupTarget"].Text $true })
     $script:Ctrl["BtnCompRemoveGroup"].Add_Click({ AddOrRemoveObjectGroup $script:Ctrl["TxtCompGroupTarget"].Text $false })
@@ -22639,7 +22883,10 @@ function Wire-Events {
             if ($sender -ne $e.OriginalSource) { return }
             try {
                 $onglet = $sender.SelectedItem
+                # UX-21 (X04): Logiciels is an inner tab of Détails; the account line of Intervenir is said again.
+                if (($null -ne $onglet) -and (([string]$onglet.Name) -eq 'TabComputerDetails')) { $onglet = (Get-DomeniaControl 'ComputerDetailTabs').SelectedItem }
                 if ($null -ne $onglet -and ([string]$onglet.Name) -eq 'TabSoftware') { Show-DomeniaSoftwareFromInventory }
+                if (($null -ne $onglet) -and (([string]$onglet.Name) -eq 'TabComputerAdmin')) { Update-DomeniaComputerOperationAccount }
             }
             catch { }
         })
@@ -22989,6 +23236,10 @@ function New-DefaultConfig {
             TaskFallbackTimeoutSeconds = 75
             TaskFallbackKeepFailedArtifacts = $false
             TaskFallbackPreferSystem = $true
+        }
+        # SE-08 (X04): delay of the restart with a message to the user, from 60 to 3600 seconds (300 by default).
+        Restart = [ordered]@{
+            DefaultDelaySeconds = 300
         }
         WAPT = [ordered]@{
             Enabled = $false
@@ -23835,6 +24086,7 @@ function Get-DomeniaOperationImpactEstimate {
         "ComputerGpUpdate" { if($ItemCount-le0){$ItemCount=1};$remote=$ItemCount;$initialBpi=8000.0;$initialMpi=10000.0;$impact="Aucun appel AD direct" }
         "ComputerRestart" { if($ItemCount-le0){$ItemCount=1};$remote=$ItemCount;$initialBpi=5000.0;$initialMpi=6000.0;$impact="Aucun appel AD direct" }
         "RimotteRun" { if($ItemCount-le0){$ItemCount=1};$remote=$ItemCount;$initialBpi=6000.0;$initialMpi=3500.0;$impact="Aucun appel AD direct" }
+        "ComputerServiceControl" { if($ItemCount-le0){$ItemCount=1};$remote=$ItemCount;$initialBpi=4000.0;$initialMpi=8000.0;$impact="Aucun appel AD direct" }
         default { if($ItemCount-le0){$ItemCount=1};$remote=$ItemCount }
     }
     $bpi=$initialBpi;if($samples-gt0-and[double]$model.bytes_per_item-gt0){$bpi=[double]$model.bytes_per_item}
@@ -24087,9 +24339,9 @@ function Get-DomeniaWorkerOperationHashes {
         ComputerLastUser      = "E64F0F0F2B94F49E679E6FEC529C1BF7F9290C1021391C262DA386B05A3BD60A"
         CmdletInventory       = "FA1105E9540BBC2AB373FC45037CC54FA11EB8BD9B058194CE44C422E812DF75"
         ComputerPing          = "4ECADF4F231390182A3BF091EF8636B3536D7B3F8A28EF3984DE1E2D524D5BFA"
-        ComputerGpUpdate      = "AC0E30C53A5257A12378801A8B6831FFAAB183CBB0548CE9A768637B255AB1C0"
-        ComputerRestart       = "7895BE660A73963FF297989D640D7F47BCFB6D81D6B8E1F2D7E357A7C1E24B3F"
-        RimotteRun            = "337B18F3AB70EC32D626BB79E0E894138235B7F1676498ADC741FECFC4A57167"
+        ComputerGpUpdate      = "0E329FCC58E25342E1F8F2ADCC92109F9559A3126CC2E87764FFECEDFF51ECBC"
+        ComputerRestart       = "CFAF51E15B278B3B8B258F5817495B787042A7FF236546944F483FE329E7C742"
+        RimotteRun            = "A2C525F28F399B636022237DE66C50F484E4E57943EEC6ACCB7C6C246511BF1F"
         PruneLinks            = "BF226EDD5E94A974B918FAC3229A9316F5B50B9C804383DFDC3FD3544261196B"
         OpenLinkedObject      = "24863184FC8441FCE8F270A75B30736954AC066DBBC5A2DE99CDF1C5D7CAA6C2"
         OpenAdObject          = "8169588B8E775546A06A351515BC0F5C8BC7B0432F4B9B732068A27BE862324E"
@@ -24129,6 +24381,7 @@ function Get-DomeniaWorkerOperationHashes {
         LockoutDiagnosis      = "16A28EB41BE4F6A88BC7FD09E979D15731ABE1508171682B86C21B516C456D3C"
         ParkPing              = "AEC50398D907F22BBAB7FEAAD775ED44AAF30CC0DF64EAFA7BEE3283397C6058"
         GroupPathRead         = "348D0FB7DE1A5C85A3D96707D015B67B8FB081AB09B1C8433420FA33688CF3B0"
+        ComputerServiceControl = "AEF0B956D70FF477939AEF6048D32BC7C377E5E4F685E046D64BF87F7C66DADB"
     }
 }
 
@@ -24137,7 +24390,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "129B0BB90DA6187D2E41B35A367AEB60D911E84A105096A40533FC1DD8E69C81"
+    $expectedFingerprint = "8B7FA70817CAC84F23AA043AEC7A4332D1449D2C1C17B9EF2DBAA7B3563622AB"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -25822,7 +26075,7 @@ function Apply-CurrentPermissionUi {
             elseif ($state -eq "Indetermine") { $script:Ctrl[$name].ToolTip = "Droit indetermine localement : le DC verifiera a l execution et le preflight reste obligatoire." }
         }
     }
-    foreach ($name in @("BtnCompGpUpdate","BtnCompRestart")) {
+    foreach ($name in @("BtnCompGpUpdate","BtnCompRestart","BtnCompRimotte")) {
         if (-not $script:Ctrl.ContainsKey($name)) { continue }
         $busy = ($script:ControlBusyRef.ContainsKey($name) -and [int]$script:ControlBusyRef[$name] -gt 0)
         $script:Ctrl[$name].IsEnabled = (-not $readOnly -and -not $busy -and -not $writeActive -and -not $cachePolicy.Offline)
@@ -25832,6 +26085,8 @@ function Apply-CurrentPermissionUi {
         elseif ($busy) { $script:Ctrl[$name].ToolTip = "Action distante en cours." }
         elseif ($writeActive) { $script:Ctrl[$name].ToolTip = "Desactive pendant la verification d'une ecriture AD." }
     }
+    # X04: the restart, run and service panels of Assistance poste follow the same switch.
+    try { Update-DomeniaComputerAssistPermissions } catch { }
     try {
         $label = if ($readOnly) { "Mode lecture seule" } elseif ($blockProtected) { "Objet protege : ecritures bloquees" } elseif ($writeActive) { "Ecriture AD en cours" } elseif ($script:CurrentCapabilities.Count -eq 0) { "Estimation ACL : analyse en attente" } else {
             $ok = @($script:CurrentCapabilities.Values | Where-Object { $_ -eq "Autorise" }).Count
@@ -25907,6 +26162,7 @@ function Initialize-DomeniaPresentation {
     # UX-39 : la grille des sessions se parcourt au double-clic et au clic droit, comme celle des associations.
     $sessionGrid=Get-DomeniaControl 'DgSessions';if($null -ne $sessionGrid){$sessionGrid.ContextMenu=New-DomeniaSessionsContextMenu;$sessionGrid.Add_MouseDoubleClick({param($sender,$e) Open-DomeniaSessionFiche -Source $e.OriginalSource});$sessionGrid.Add_PreviewMouseRightButtonDown({param($sender,$e) $hit=Get-DomeniaGridHit $e.OriginalSource;if($null -ne $hit -and $null -ne $hit.Row){$sender.SelectedItem=$hit.Row.Item}})}
     Initialize-DomeniaGuard
+    Initialize-DomeniaAssist
     # X03 (UX-15, UI-27): « Compte poste » pill, its side panel and the « En ce moment » section of Comptes.
     try { Initialize-DomeniaAccountsUi } catch { Write-AppLog ('Initialisation des comptes : '+$_.Exception.Message) 'WARN' }
     Initialize-DomeniaLive

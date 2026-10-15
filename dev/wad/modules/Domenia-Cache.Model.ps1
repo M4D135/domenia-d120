@@ -357,7 +357,7 @@ function Get-DomeniaPersistenceLabel {
     # Request-DomeniaUserMachineLinks, or a restart): no dedicated reload button exists.
     param([int]$Pending=0,[int]$Failed=0,[bool]$Suspended=$false,[bool]$Unavailable=$false,[int]$Conflicts=0)
     if ($Unavailable) { return 'En memoire uniquement : stockage local indisponible, rien n est enregistre.' }
-    if ($Suspended) { return 'En memoire uniquement : enregistrement suspendu apres des echecs. Reprise dans Fiabilite.' }
+    if ($Suspended) { return 'En mémoire uniquement : enregistrement suspendu après des échecs. Reprise : « Reprendre les sauvegardes », Base autonome, onglet Stockage.' }
     if ($Conflicts -gt 0) { return ('En memoire : ' + $Conflicts + ' association(s) modifiee(s) ailleurs, non enregistree(s). Rechargez les associations : Comptes > Changer de compte, ou redemarrage.') }
     if ($Failed -gt 0) { return ('En memoire : ' + $Failed + ' enregistrement(s) en echec, nouvel essai prevu.') }
     if ($Pending -gt 0) { return ('En memoire : ' + $Pending + ' modification(s) a enregistrer.') }

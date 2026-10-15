@@ -231,7 +231,7 @@ function Get-DomeniaAccountsInUseRows {
     return [pscustomobject]@{Now=$now.ToArray();Memory=$memory.ToArray()}
 }
 
-# ---------------------------------------------------------------- UX-16 authorisation of an intervention, visible in Actions
+# ---------------------------------------------------------------- UX-16 authorisation of an intervention, visible in Intervenir
 function Test-DomeniaConsentCovers {
     # UX-16: a consent (intervention or one read) covers the open workstation only: its target or one of its aliases,
     # in the current session and before its expiry. Same comparison as the worker guards (name lists).
@@ -244,7 +244,7 @@ function Test-DomeniaConsentCovers {
 }
 
 function Get-DomeniaInterventionPillState {
-    # UX-16: what the Actions tab of Assistance poste shows about the authorisation of an intervention (5 min, one
+    # UX-16: what the top of the Intervenir view of Assistance poste shows about the authorisation of an intervention (5 min, one
     # workstation, explicit click) and about the separate one-read consent (SE-07). Pure: the caller passes the two
     # consents, the open workstation and the clock. Remaining time as m:ss, rounded up to the second.
     param($ArtifactConsent=$null,$ReadConsent=$null,[AllowNull()][AllowEmptyString()][string]$Target='',[AllowNull()][AllowEmptyString()][string]$Short='',[long]$Epoch=0,[datetime]$NowUtc=[datetime]::UtcNow)
@@ -267,9 +267,9 @@ function Get-DomeniaInterventionPillState {
 }
 
 function Get-DomeniaMessageRoute {
-    # UX-16: a message that sends the operator to « Assistance poste > Actions » (intervention or one-read consent)
-    # gets a route button in its banner. Text only: the route opens the tab, it authorises or starts nothing.
+    # UX-16: a message that sends the operator to « Assistance poste > Intervenir » (intervention or one-read consent)
+    # gets a route button in its banner. Text only: the route opens the view, it authorises or starts nothing.
     param([AllowNull()][AllowEmptyString()][string]$Text='')
-    if(([string]$Text).Contains('Assistance poste > Actions')){return 'TabComputerAdmin'}
+    if(([string]$Text).Contains('Assistance poste > Intervenir')){return 'TabComputerAdmin'}
     return ''
 }

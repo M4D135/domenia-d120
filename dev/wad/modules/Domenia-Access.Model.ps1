@@ -14,7 +14,7 @@ function Get-DomeniaOperationResource {
     if ($provider -in @('Cim','Wts')) { return 'Remote' }
     if ($provider -eq 'Storage' -or $provider -eq 'Local') { return 'Local' }
     if ($provider -eq 'Network') { return 'Network' }
-    if ($OperationId -in @('ComputerGpUpdate','ComputerRestart','RimotteRun','UserComputerProbe','WakeOnLanSend')) { return 'Remote' }
+    if ($OperationId -in @('ComputerGpUpdate','ComputerRestart','RimotteRun','ComputerServiceControl','UserComputerProbe','WakeOnLanSend')) { return 'Remote' }
     return 'Directory'
 }
 

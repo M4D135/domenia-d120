@@ -165,7 +165,7 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Get-DomeniaRimotteWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "337B18F3AB70EC32D626BB79E0E894138235B7F1676498ADC741FECFC4A57167"
+    "Sha256": "A2C525F28F399B636022237DE66C50F484E4E57943EEC6ACCB7C6C246511BF1F"
   },
   {
     "Operation": "ComputerPing",
@@ -179,14 +179,14 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Invoke-ComputerTool",
     "LiteralIndex": 0,
-    "Sha256": "AC0E30C53A5257A12378801A8B6831FFAAB183CBB0548CE9A768637B255AB1C0"
+    "Sha256": "0E329FCC58E25342E1F8F2ADCC92109F9559A3126CC2E87764FFECEDFF51ECBC"
   },
   {
     "Operation": "ComputerRestart",
     "File": "wad/Domenia-Core.ps1",
     "Function": "Invoke-ComputerTool",
     "LiteralIndex": 1,
-    "Sha256": "7895BE660A73963FF297989D640D7F47BCFB6D81D6B8E1F2D7E357A7C1E24B3F"
+    "Sha256": "CFAF51E15B278B3B8B258F5817495B787042A7FF236546944F483FE329E7C742"
   },
   {
     "Operation": "PruneLinks",
@@ -537,5 +537,12 @@
     "Function": "Get-DomeniaGroupPathWorkerCode",
     "LiteralIndex": 0,
     "Sha256": "348D0FB7DE1A5C85A3D96707D015B67B8FB081AB09B1C8433420FA33688CF3B0"
+  },
+  {
+    "Operation": "ComputerServiceControl",
+    "File": "wad/modules/Domenia-Assist.Worker.ps1",
+    "Function": "Get-DomeniaServiceControlWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "AEF0B956D70FF477939AEF6048D32BC7C377E5E4F685E046D64BF87F7C66DADB"
   }
 ]

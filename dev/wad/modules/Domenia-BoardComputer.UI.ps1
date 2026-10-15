@@ -46,7 +46,7 @@ function Add-DomeniaComputerBoardAdEntries {
     if ($null -eq $laps) { $laps = Get-DomeniaEntryFileTimeUtc $entry 'ms-Mcs-AdmPwdExpirationTime' }
     if ($null -ne $laps) {
         $expired = ($laps -lt $now)
-        if ($expired) { Add-DomeniaBoardAttention -Data $Data -Level Warn -Text 'Mot de passe LAPS expire (rotation en attente).' -Point 'laps.expired' -Route 'ComputerSecrets' -RouteText 'Onglet Secrets du poste' }
+        if ($expired) { Add-DomeniaBoardAttention -Data $Data -Level Warn -Text 'Mot de passe LAPS expire (rotation en attente).' -Point 'laps.expired' -Route 'ComputerSecrets' -RouteText 'Vue Secrets du poste' }
         Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.ad.laps' -Kind Value -Value $(if ($expired) { 'Expire' } else { 'Valide' }) -Detail ('Expiration le ' + $laps.ToLocalTime().ToString('dd/MM/yyyy HH:mm', $invariant)) -State $(if ($expired) { 'Warn' } else { 'Ok' }))
     }
 
@@ -146,7 +146,7 @@ function Get-DomeniaComputerBoardData {
             $uptimeText = if ($uptimeDays -gt 0) { [string]$uptimeDays + ' j ' + $hours + ' h' } elseif ($hours -gt 0) { [string]$hours + ' h ' + $minutes.ToString('00') + ' min' } else { [string]$minutes + ' min' }
         }
         $longUptime = ($uptimeDays -gt $limits.UptimeDays)
-        if ($longUptime) { & $note 'Warn' ('Pas de redemarrage depuis ' + $uptimeDays + ' jours.') 'uptime' 'ComputerActions' 'Redémarrer : onglet Actions' }
+        if ($longUptime) { & $note 'Warn' ('Pas de redemarrage depuis ' + $uptimeDays + ' jours.') 'uptime' 'ComputerActions' 'Redémarrer : vue Intervenir' }
         $lastBoot = & $value 'Systeme d exploitation' 'Dernier demarrage'
         $uptimeDetail = if ($longUptime) { ('Plus de '+$limits.UptimeDays+' jours : redemarrage conseille') } elseif ($lastBoot) { 'Demarre le ' + $lastBoot } else { '' }
         Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.uptime' -Kind Value -Value $(if ($uptime) { $uptimeText } else { 'Non lu' }) -Detail $uptimeDetail -State $(if ($longUptime) { 'Warn' } elseif (-not $uptime) { 'Off' } else { '' }))
@@ -223,7 +223,7 @@ function Get-DomeniaComputerBoardData {
             $percent = [Math]::Round(100.0 * $free / $size)
             $diskState = & $freeLevel $percent
             # CO-09: one colon only ('Peu dʼespace sur C: (13 % libre)', never 'Disque C: : 13 % libre').
-            if ($diskState -eq 'Alert') { & $note 'Alert' ($diskName + ' presque plein (' + $percent + ' % libre).') 'lowdisk' 'ComputerActions' 'Ouvrir C$ : onglet Actions' } elseif ($diskState -eq 'Warn') { & $note 'Warn' ('Peu dʼespace sur ' + $diskName + ' (' + $percent + ' % libre).') 'disk.tight' 'ComputerActions' 'Ouvrir C$ : onglet Actions' }
+            if ($diskState -eq 'Alert') { & $note 'Alert' ($diskName + ' presque plein (' + $percent + ' % libre).') 'lowdisk' 'ComputerActions' 'Ouvrir le disque C : vue Intervenir' } elseif ($diskState -eq 'Warn') { & $note 'Warn' ('Peu dʼespace sur ' + $diskName + ' (' + $percent + ' % libre).') 'disk.tight' 'ComputerActions' 'Ouvrir le disque C : vue Intervenir' }
             $ring = @(
                 [pscustomobject]@{ Label = ('Utilisé ' + (Format-DomeniaDashboardSize $used)); Value = $used; Color = (Get-DomeniaBoardColor 'Used') },
                 [pscustomobject]@{ Label = ('Libre ' + (Format-DomeniaDashboardSize $free)); Value = $free; Color = (Get-DomeniaBoardColor $diskState) }
@@ -366,7 +366,7 @@ function Get-DomeniaComputerBoardData {
         $bitlockerText = [string]$bitlocker[0].Value
         # Worker values: 'Protection Active', 'Protection Desactive', 'Protection Inconnu' (the word 'Protection' alone proves nothing).
         $protected = (($bitlockerText -match '(?i)\bactive\b|\bprotege\b') -and ($bitlockerText -notmatch '(?i)desactiv|non protege|inconnu|\boff\b'))
-        if (-not $protected) { & $note 'Warn' ('BitLocker : ' + $bitlockerText + '.') 'bitlocker.none' 'ComputerSecrets' 'Onglet Secrets du poste' }
+        if (-not $protected) { & $note 'Warn' ('BitLocker : ' + $bitlockerText + '.') 'bitlocker.none' 'ComputerSecrets' 'Vue Secrets du poste' }
         Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.bitlocker' -Kind Value -Value $bitlockerText -Detail ([string]$bitlocker[0].Item) -State $(if ($protected) { 'Ok' } else { 'Warn' }))
     }
 
@@ -386,7 +386,7 @@ function Get-DomeniaComputerBoardData {
         # The worker writes one 'Etat' row: 'Aucun redemarrage en attente' or 'Redemarrage requis : <reasons>'.
         $rebootState = [string]$rebootItems.State
         $pending = (($rebootItems.Count -gt 0) -or ($rebootState -like 'Redemarrage requis*'))
-        if ($pending) { & $note 'Warn' 'Redemarrage en attente.' 'reboot' 'ComputerActions' 'Redémarrer : onglet Actions' }
+        if ($pending) { & $note 'Warn' 'Redemarrage en attente.' 'reboot' 'ComputerActions' 'Redémarrer : vue Intervenir' }
         Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.reboot' -Kind Value -Value $(if ($pending) { 'Oui' } else { 'Non' }) -Detail $(if ($rebootItems.Count) { [string]$rebootItems.Items[0].Item } else { $rebootState }) -State $(if ($pending) { 'Warn' } else { 'Ok' }))
     }
 

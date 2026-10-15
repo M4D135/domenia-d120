@@ -935,7 +935,8 @@ Test-Case 'UX-15 Pastille Compte poste : en-tete d Assistance poste, meme compte
     Assert-True ($null -ne $pill) 'Pastille absente du XAML principal'
     $names=@();$node=$pill
     while($null -ne $node){$node=[Windows.LogicalTreeHelper]::GetParent($node);if(($node -is [Windows.FrameworkElement]) -and $node.Name){$names+=[string]$node.Name}}
-    Assert-True (($names -contains 'ComputerReadRoot') -and ($names -notcontains 'ComputerTabs')) ('Pastille hors de l en-tete commun aux onglets : '+($names -join ' > '))
+    # X03 x X04: one header for the five views (UxComputerHeader, DS-08) carries the pill, outside every view.
+    Assert-True (($names -contains 'UxComputerHeader') -and ($names -contains 'ComputerReadRoot') -and ($names -notcontains 'ComputerTabs')) ('Pastille hors de l en-tete commun aux vues : '+($names -join ' > '))
     $arrow=[string][char]0x25BE
     Update-DomeniaMachineAccountUi -Force
     Assert-True ([string]$pill.Content -ceq ('Compte poste : session Windows '+$arrow)) ('Session Windows : '+$pill.Content)
@@ -1064,7 +1065,9 @@ Test-Case 'UI-27 Oublier : meme regle que la fenetre Acces, refus pendant une ec
 function Test-InsideNamed {param($Control,[string]$Name) $node=$Control;while($null -ne $node){$node=[Windows.LogicalTreeHelper]::GetParent($node);if(($node -is [Windows.FrameworkElement]) -and ([string]$node.Name -eq $Name)){return $true}};return $false}
 Test-Case 'UX-16 Pastille d intervention dans Actions : sans Fiabilite, compte a rebours, poste cible seulement' {
     Assert-True ($script:Ctrl.TabGuard.Visibility -eq [Windows.Visibility]::Collapsed) 'Fiabilite rendue visible pour autoriser'
-    foreach($n in @('BtnCompInterventionGrant','UxCompInterventionPill','BtnCompInterventionRevoke','BtnCompReadFallback','LblCompInterventionState')){Assert-True (Test-InsideNamed $script:Ctrl[$n] 'TabComputerAdmin') ($n+' hors de l onglet Actions')}
+    foreach($n in @('BtnCompInterventionGrant','UxCompInterventionPill','BtnCompInterventionRevoke','BtnCompReadFallback','LblCompInterventionState')){Assert-True (Test-InsideNamed $script:Ctrl[$n] 'TabComputerAdmin') ($n+' hors de la vue Intervenir')}
+    # X03 x X04: one authorisation control; the run panel states it and never grants it.
+    Assert-True (-not $script:CoreText.Contains('x:Name="BtnCompRunConsent"')) 'Second bouton d autorisation dans le panneau Executer un programme'
     $guard=${function:Initialize-DomeniaGuard}.ToString()
     foreach($wire in @('BtnCompInterventionGrant={Set-DomeniaArtifactConsent}','BtnCompInterventionRevoke={Clear-DomeniaArtifactConsent}','BtnCompReadFallback={Set-DomeniaReadFallbackConsent}','BtnGuardRemoteOff={Clear-DomeniaArtifactConsent}','try{Update-DomeniaInterventionPill}')){Assert-True ($guard.Contains($wire)) ('Raccordement absent : '+$wire)}
     Update-DomeniaInterventionPill -Force
@@ -1098,7 +1101,7 @@ Test-Case 'UX-16 Pastille d intervention dans Actions : sans Fiabilite, compte a
     Assert-True ((-not $script:Ctrl.BtnCompInterventionGrant.IsEnabled) -and (-not $script:Ctrl.BtnCompReadFallback.IsEnabled)) 'Autorisation possible sans poste ouvert'
     $script:ReadFallbackConsent=$null
 }
-Test-Case 'UX-16 Refus du worker : renvoi vers Assistance poste > Actions, route du bandeau, plus de Fiabilite' {
+Test-Case 'UX-16 Refus du worker : renvoi vers Assistance poste > Intervenir, route du bandeau, plus de Fiabilite' {
     $tokens=$null;$errors=$null
     $commonAst=[Management.Automation.Language.Parser]::ParseInput($script:RealWorkerCommon,[ref]$tokens,[ref]$errors)
     foreach($name in @('Assert-WRemoteArtifactPermission','Assert-DomeniaReadFallbackPermission')){
@@ -1109,17 +1112,18 @@ Test-Case 'UX-16 Refus du worker : renvoi vers Assistance poste > Actions, route
     $context=[pscustomobject]@{AllowRemoteArtifacts=$false;ArtifactTarget='';ArtifactAliases=@();AllowReadFallback=$false;ReadFallbackTarget='';ReadFallbackAliases=@()}
     foreach($call in @({Assert-WRemoteArtifactPermission -Context $context -Computer 'pc-01.example.invalid'},{Assert-DomeniaReadFallbackPermission -Context $context -Computer 'pc-01.example.invalid'})){
         $message='';try{& $call}catch{$message=[string]$_.Exception.Message}
-        Assert-True ($message.Contains('Assistance poste > Actions') -and ($message -notmatch 'Fiabilit')) ('Refus sans renvoi utile : '+$message)
+        Assert-True ($message.Contains('Assistance poste > Intervenir') -and ($message -notmatch 'Fiabilit')) ('Refus sans renvoi utile : '+$message)
         Assert-True ((Get-DomeniaMessageRoute ('Rimotte PC-01 : '+$message)) -ceq 'TabComputerAdmin') 'Message sans route'
     }
     $route=Resolve-DomeniaCapabilityRoute -Route 'TabComputerAdmin'
-    Assert-True (($route.Workspace -eq 'WsComputer') -and ($route.Inner -eq 'ComputerTabs') -and ($route.Tab -eq 'TabComputerAdmin') -and ($route.Label -ceq 'Assistance poste > Actions')) 'Route inexacte'
+    Assert-True (($route.Workspace -eq 'WsComputer') -and ($route.Inner -eq 'ComputerTabs') -and ($route.Tab -eq 'TabComputerAdmin') -and ($route.Label -ceq 'Assistance poste > Intervenir')) 'Route inexacte'
     Assert-True (Invoke-DomeniaCapabilityRoute -Route 'TabComputerAdmin') 'Route non suivie'
     Assert-True ($script:Routes -contains 'WsComputer|ComputerTabs|TabComputerAdmin') ('Navigation : '+($script:Routes -join ','))
     $banner=${function:Show-DomeniaBanner}.ToString();$command=${function:Invoke-DomeniaBannerCommand}.ToString()
-    Assert-True ($banner.Contains('Get-DomeniaMessageRoute') -and $command.Contains("'Route'{[void](Invoke-DomeniaCapabilityRoute")) 'Bandeau sans action de route'
+    # UX-19 (X04): the route command also closes the banner once its place is open.
+    Assert-True ($banner.Contains('Get-DomeniaMessageRoute') -and $command.Contains('Invoke-DomeniaCapabilityRoute -Route ([string]$record.Route)')) 'Bandeau sans action de route'
     [void](Update-DomeniaTransportPolicyView -Force)
-    Assert-True ([string]$script:Ctrl.LblTransportPolicy.Text -match 'Assistance poste > Actions') ('Politique : '+$script:Ctrl.LblTransportPolicy.Text)
+    Assert-True ([string]$script:Ctrl.LblTransportPolicy.Text -match 'Assistance poste > Intervenir') ('Politique : '+$script:Ctrl.LblTransportPolicy.Text)
     Assert-True ($script:CoreText -notmatch 'dans Outils > Fiabilite') 'Un refus renvoie encore vers Outils > Fiabilite'
 }
 

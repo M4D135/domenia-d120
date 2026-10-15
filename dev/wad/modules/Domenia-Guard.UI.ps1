@@ -52,6 +52,8 @@ function Complete-DomeniaReceiptRefresh {
         $script:WriteState='Idle';$script:UnknownWriteTargetDn=''
         Write-AppLog 'Incertitude levee uniquement apres verification ou revue explicite des recus durables.' 'WARN'
     }
+    # UX-19 (X04): the header pill « opérations à vérifier » follows the receipts just read.
+    try{Update-DomeniaPendingOperationsPill}catch{}
     [void](Update-DomeniaReceiptActionUi)
     Apply-CurrentPermissionUi
 }
@@ -179,8 +181,10 @@ function Keep-DomeniaDraftOnResult {
     param($Result,[string]$DN,[string]$Type)
     if($null -eq $script:DraftState -or $script:DraftState.DN -ine $DN -or -not @(Get-DomeniaDirtyFields).Count){return $false}
     $script:DraftState.Pending=$Result;$script:DraftState.PendingType=$Type
-    [void](Set-DomeniaControlText 'LblGuardDraft' 'Une relecture est arrivee. Vos saisies sont conservees. Comparez dans Outils > Fiabilite avant de recharger.')
-    Set-Status 'Fiche plus recente disponible : saisies conservees, aucune valeur remplacee. Outils > Fiabilite > Comparer les saisies.' 'WARN'
+    [void](Set-DomeniaControlText 'LblGuardDraft' 'Une relecture est arrivée. Vos saisies sont conservées ; comparez-les avant de recharger.')
+    # UX-19 (X04): the comparison is offered by a button of the message, not by a path to a hidden tab.
+    $text='Fiche plus récente disponible : vos saisies sont conservées, aucune valeur remplacée.'
+    [void](Show-DomeniaRouteNotice -Kind Warning -Text $text -RouteText 'Comparer les saisies' -Route 'DraftCompare' -Key 'draft-newer-read')
     return $true
 }
 function Show-DomeniaDraftComparison {
@@ -206,7 +210,7 @@ function Set-DomeniaArtifactConsent {
     Update-DomeniaInterventionPill -Force
 }
 function Clear-DomeniaArtifactConsent {
-    # UX-16: « Retirer » of the Actions tab and of Fiabilité. Sondes already sent may finish; no new intervention
+    # UX-16: « Retirer » of the Intervenir view (pill) and of Fiabilité. Sondes already sent may finish; no new intervention
     # with a deposit is authorised. The one-read consent (SE-07) is a separate request and is left as it is.
     $had=($null -ne $script:ArtifactConsent)
     $script:ArtifactConsent=$null
@@ -222,9 +226,10 @@ function Get-DomeniaOpenMachineConsentTarget {
     return [pscustomobject]@{Target=$target;Short=$short}
 }
 function Update-DomeniaInterventionPill {
-    # UX-16: the authorisation of an intervention shown where it is needed, in Actions of Assistance poste: pill
-    # « Intervention autorisée m:ss · Retirer » for the open workstation only, grant button otherwise, and the state
-    # of the separate one-read consent. Called each second by Timer:Guard; a control changes only with its value.
+    # UX-16: the one authorisation control of an intervention, at the top of the Intervenir view of Assistance poste
+    # (X04): pill « Intervention autorisée m:ss · Retirer » for the open workstation only, grant button otherwise, and
+    # the state of the separate one-read consent; the run panel repeats its state. Called each second by Timer:Guard;
+    # a control changes only with its value.
     param([switch]$Force)
     $pill=Get-DomeniaControl 'UxCompInterventionPill'
     if($null -eq $pill){return}
@@ -245,6 +250,8 @@ function Update-DomeniaInterventionPill {
     if(($null -ne $read) -and (([bool]$Force) -or ([bool]$read.IsEnabled -ne $canRead))){$read.IsEnabled=$canRead}
     $line=Get-DomeniaControl 'LblCompInterventionState'
     if(($null -ne $line) -and (([bool]$Force) -or ([string]$line.Text -cne [string]$state.StateText))){$line.Text=[string]$state.StateText}
+    # X04: the panel « Exécuter un programme », when open, states the same authorisation (it never grants it).
+    if(($null -ne $script:DomeniaAssist) -and ($null -ne $script:DomeniaAssist.Run)){Update-DomeniaRunProgramConsent}
 }
 function Set-DomeniaReadFallbackConsent {
     # SE-07 : demande propre a une lecture. L'autorisation d'intervention ne dit rien d'une
@@ -411,7 +418,7 @@ function Initialize-DomeniaGuard {
     $actions=@{
         BtnGuardOpen={Show-DomeniaGuard};BtnGuardReceiptRefresh={Start-DomeniaReceiptRefresh};BtnGuardReceiptVerify={Invoke-DomeniaReceiptChoice Verify};BtnGuardReceiptReview={Invoke-DomeniaReceiptChoice Review}
         BtnGuardDraft={Show-DomeniaDraftComparison};BtnGuardRemote={Set-DomeniaArtifactConsent};BtnGuardRemoteOff={Clear-DomeniaArtifactConsent};BtnGuardReadFallback={Set-DomeniaReadFallbackConsent}
-        # UX-16: the same consents from the Actions tab of Assistance poste, always on an explicit click.
+        # UX-16: the same consents from the top of the Intervenir view of Assistance poste, always on an explicit click.
         BtnCompInterventionGrant={Set-DomeniaArtifactConsent};BtnCompInterventionRevoke={Clear-DomeniaArtifactConsent};BtnCompReadFallback={Set-DomeniaReadFallbackConsent}
         BtnGuardStoreResume={Resume-DomeniaStorage};BtnGuardLegacyImport={Request-DomeniaLegacyImport};BtnGuardWhy={Show-DomeniaUnavailableReasons};BtnGuardExport={Export-DomeniaTechnicalDossier}
         BtnGuardPesto={Open-DomeniaSuiteTool Pesto};BtnGuardFilPro={Open-DomeniaSuiteTool FilPro}

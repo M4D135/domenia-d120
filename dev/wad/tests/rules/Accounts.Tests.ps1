@@ -247,8 +247,8 @@ Test-Case 'X03-UX16' 'Lecture par tache : consentement separe, annonce seulement
     Assert-False $none.CanGrant 'Accord propose sans poste ouvert'
     Assert-Equal 'Ouvrez un poste pour autoriser une intervention sur lui seul.' $none.StateText
 }
-Test-Case 'X03-UX16' 'Messages de refus : route vers Assistance poste > Actions, rien d autre' {
-    Assert-Equal 'TabComputerAdmin' (Get-DomeniaMessageRoute 'Rimotte PC-01 : Transport non autorisé. Autorisez une intervention dans Assistance poste > Actions, puis relancez.')
+Test-Case 'X03-UX16' 'Messages de refus : route vers Assistance poste > Intervenir, rien d autre' {
+    Assert-Equal 'TabComputerAdmin' (Get-DomeniaMessageRoute 'Rimotte PC-01 : Transport non autorisé. Autorisez une intervention dans Assistance poste > Intervenir, puis relancez.')
     Assert-Equal '' (Get-DomeniaMessageRoute 'Lecture refusée par le contrôleur.')
     Assert-Equal '' (Get-DomeniaMessageRoute $null)
 }

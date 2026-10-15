@@ -330,8 +330,9 @@ function Invoke-DomeniaAccountInMemoryForget {
 }
 
 function Update-DomeniaMachineAccountUi {
-    # UX-15: the pill and the lines of its side panel name the account the next operation on the open workstation
-    # takes (Get-DomeniaMachineAccountInUse, same order as the worker context). A control changes only with its text.
+    # UX-15: the pill of the header of Assistance poste (DS-08) and the lines of its side panel name the account the next
+    # operation on the open workstation takes (Get-DomeniaMachineAccountInUse, same order as the worker context). A
+    # control changes only with its text.
     param([switch]$Force)
     $target=Get-DomeniaOpenWorkstationTarget
     $computer='';if($null -ne $target){$computer=[string]$target.Computer}
@@ -345,10 +346,11 @@ function Update-DomeniaMachineAccountUi {
         }
         if(([bool]$Force) -or ([string]$pill.ToolTip -cne $help)){$pill.ToolTip=$help;[Windows.Automation.AutomationProperties]::SetHelpText($pill,$help)}
     }
-    $line=Get-DomeniaControl 'LblMachineCredential'
-    if($null -ne $line){
-        $text='Opérations poste : '+[string]$label.Long+'.'
-        if(([bool]$Force) -or ([string]$line.Text -cne $text)){$line.Text=$text}
+    # The line of the side panel and, in the same words, the line of the « Se connecter » card of Intervenir (SP-16, X04).
+    $text='Opérations poste : '+[string]$label.Long+'.'
+    foreach($name in @('LblMachineCredential','LblCompOperationAccount')){
+        $line=Get-DomeniaControl $name
+        if(($null -ne $line) -and (([bool]$Force) -or ([string]$line.Text -cne $text))){$line.Text=$text}
     }
 }
 

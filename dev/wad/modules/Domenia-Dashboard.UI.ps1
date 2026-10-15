@@ -611,8 +611,8 @@ function Get-DomeniaBoardRouteTarget {
     }
 }
 function Invoke-DomeniaBoardRoute {
-    # Link of a point of attention: opens the tab of the useful action (Redémarrer and Ouvrir C$ in Actions, the keys
-    # and LAPS in Secrets) and runs nothing (decision David 2026-10-08, UX-10).
+    # Link of a point of attention: opens the view of the useful action (Redémarrer and Ouvrir le disque C in
+    # Intervenir, the keys and LAPS in Secrets) and runs nothing (decision David 2026-10-08, UX-10).
     param([Parameter(Mandatory=$true)][string]$Route)
     $target = Get-DomeniaBoardRouteTarget -Route $Route
     if ($null -eq $target) { Invoke-DomeniaUxRoute -Route $Route; return }
@@ -620,7 +620,7 @@ function Invoke-DomeniaBoardRoute {
     $inner = Get-DomeniaControl $target.Inner
     $opened = $false
     try { $opened = (($null -ne $inner) -and ($null -ne $inner.SelectedItem) -and ([string]$inner.SelectedItem.Name -eq [string]$target.Tab)) } catch { $opened = $false }
-    if (-not $opened) { Set-Status 'Sélectionnez dʼabord le poste dans Rechercher : lʼonglet sʼouvrira sur sa fiche.' 'WARN' }
+    if (-not $opened) { Set-Status 'Sélectionnez dʼabord le poste dans Rechercher : la vue sʼouvrira sur sa fiche.' 'WARN' }
 }
 function Update-DomeniaComputerDashboard {
     param($Result)

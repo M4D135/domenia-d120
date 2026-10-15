@@ -212,34 +212,56 @@ Les règles communes à toutes les écritures (objet relu récemment, objets pro
 
 # 5 Outils du poste et compte des opérations poste
 
-La page « Poste » montre le poste sélectionné ; sans poste, elle affiche « Aucun poste ouvert ». Ses outils ouvrent les consoles Windows sur ce poste avec le compte des opérations poste ; ceux qui modifient le poste sont bloqués en lecture seule. Domenia ne change aucun réglage Windows du poste ni du poste d'administration.
+La page « Poste » montre le poste sélectionné ; sans poste, elle affiche « Aucun poste ouvert ». Ses outils ouvrent les consoles Windows sur ce poste avec le compte des opérations poste ; ceux qui modifient le poste sont bloqués en lecture seule et se confirment dans la page. Domenia ne change aucun réglage Windows du poste ni du poste d'administration.
 
-Onglets, dans l'ordre : « Machine », « Tableau de bord », « Actions », « Sessions Windows », « Diagnostic », « Inventaire », « Logiciels », « WMI » (profil Expert) et « Secrets ».
+Un en-tête fixe reste au-dessus des vues : nom, système, pastille de présence (dernier test de la session, ou valeur reprise de la mémoire locale marquée « mémoire »), utilisateur associé (lien vers sa fiche), âge du dernier inventaire de la session, et trois boutons « Bureau à distance », « Ouvrir le disque C » et « Tester la réponse ». L'en-tête ne lit rien par lui-même : il reprend ce que la fiche, la présence et l'inventaire ont déjà lu.
 
-![Onglet Machine de la page Poste : carte Fiche du poste avec le DNS, la présence, le système, l'utilisateur associé et sa source](fig:fiche-poste)
+Vues, dans l'ordre : « Vue d'ensemble » (fiche du poste et tableau de bord), « Intervenir » (actions en quatre cartes, sessions Windows, services), « Détails » (onglets « Inventaire » et « Logiciels »), « Diagnostic » (onglet « Contrôles », et « WMI » en profil Expert) et « Secrets ». Les anciens noms d'onglet utilisés par les menus, les liens des points d'attention et les raccourcis mènent à la vue qui les remplace.
 
-L'onglet « Machine » lit le compte ordinateur dans AD. « Detecter l utilisateur » recherche le dernier utilisateur connu ; un lien déjà enregistré n'est pas remplacé.
+![Vue « Vue d'ensemble » de la page Poste : en-tête du poste, puis carte Fiche du poste avec le DNS, la présence, le système, l'utilisateur associé et sa source](fig:fiche-poste)
 
-## Onglet Actions
+« Vue d'ensemble » lit le compte ordinateur dans AD. La ligne « Utilisateur associé » résume l'association en mémoire locale avec son badge (Déclaré, Observé, Importé, Indice ou À vérifier) : nom lu dans le DN, origine et date locale, par exemple « Camille Martin · console observée le 08/10 à 08:15 ». « Détecter à nouveau » interroge le poste ; une association déjà enregistrée n'est pas remplacée.
 
-![Actions du poste : état du compte, Ping, Bureau à distance, Ouvrir C$, consoles, journaux et services ; données fictives](fig:actions-poste)
+## Vue Intervenir
 
-![Autres actions : commande PowerShell, programme, stratégies et redémarrage ; données fictives](fig:actions-poste-avancees)
+![Vue « Intervenir » : cartes « Se connecter » (Bureau à distance, Ouvrir le disque C, consoles), « Vérifier » (Tester la réponse, diagnostic), « Intervenir » et « Compte AD » ; données fictives](fig:actions-poste)
 
-| Bouton | Ce que fait Domenia | En lecture seule |
+![Vue « Intervenir » : « Copier la commande PowerShell », « Actualiser les stratégies », « Exécuter un programme… » et « Redémarrer… » ; données fictives](fig:actions-poste-avancees)
+
+| Carte et bouton | Ce que fait Domenia | En lecture seule |
 |---|---|---|
-| « Ping » | Ping ICMP du poste ; résultat dans la barre d'état. | Disponible. |
-| « Bureau à distance » | Lance mstsc.exe vers le poste, avec la session Windows. | Disponible. |
-| « Ouvrir C$ » | Ouvre le partage administratif C$ avec le compte des opérations poste, puis l'Explorateur. | Disponible. |
-| « Gestion de l ordinateur », « Journaux », « Services » | Ouvre d'abord IPC$ avec le compte des opérations poste, puis compmgmt.msc, eventvwr.exe ou services.msc sur le poste. | Disponibles. |
-| « Commande PowerShell » | Copie Enter-PSSession pour ce poste dans le presse-papiers ; aucun second interpréteur n'est lancé, pour limiter les faux positifs antivirus. | Disponible. |
-| « Exécuter un programme » | Lance un programme par une tâche planifiée unique, auto-supprimée. | Bloqué au clic. |
-| « Actualiser les stratégies », « Redemarrer » | GPUpdate ou redémarrage distant, après confirmation « Oui » ou « Non ». | Grisés. |
-| « Activer », « Desactiver » | Active ou désactive le compte ordinateur dans AD. | Grisés. |
-| « Renommer dans AD » | Renomme le compte ordinateur dans l'annuaire, pas Windows sur le poste. | Grisé. |
-| « Ajouter », « Retirer » (Groupe) | Ajoute ou retire le poste d'un groupe. | Grisés. |
+| Se connecter : « Bureau à distance » | Lance mstsc.exe vers le poste, avec la session Windows. | Disponible. |
+| Se connecter : « Ouvrir le disque C » | Ouvre le partage administratif C$ avec le compte des opérations poste, puis l'Explorateur. | Disponible. |
+| Se connecter : « Gestion de lʼordinateur », « Observateur dʼévénements » | Ouvre d'abord IPC$ avec le compte des opérations poste, puis compmgmt.msc ou eventvwr.exe sur le poste. | Disponibles. |
+| Se connecter : « Copier la commande PowerShell » | Copie Enter-PSSession pour ce poste et l'annonce dans la page. Avec un compte poste, la commande ajoute -Credential suivi du nom du compte ; le mot de passe n'est jamais copié. | Disponible. |
+| Vérifier : « Tester la réponse » | Ping ICMP du poste ; met à jour la présence de la fiche et la pastille de l'en-tête. | Disponible. |
+| Vérifier : « Lancer le diagnostic » | Ouvre la vue « Diagnostic » et lance ses contrôles en lecture seule. | Disponible. |
+| Intervenir : « Actualiser les stratégies » | gpupdate /force par WinRM, après confirmation dans la page. | Grisé. |
+| Intervenir : « Exécuter un programme… » | Ouvre un panneau dans la page : programme, arguments, « En arrière-plan (compte système) » ou « Dans la session de lʼutilisateur », puis confirmation. Une tâche planifiée unique lance le programme puis est supprimée. | Grisé. |
+| Intervenir : « Redémarrer… » | Ouvre le panneau du redémarrage, qui lit d'abord les sessions ouvertes (section suivante). | Grisé. |
+| Compte AD : « Activer le compte » ou « Désactiver le compte » | Un seul bouton, selon userAccountControl lu avec la fiche ; aucun quand cet attribut n'est pas lu. | Grisé. |
+| Compte AD : « Ajouter », « Retirer », « Renommer dans AD » | Groupes du poste et nom du compte ordinateur dans l'annuaire (pas Windows sur le poste). | Grisés. |
 
-> [!NOTE] « Exécuter un programme » exige aussi, pour ce poste, l'autorisation de 5 minutes donnée en tête de l'onglet « Actions » : « Autoriser une intervention (5 min) ». Pendant l'autorisation, la pastille « Intervention autorisée 4:59 · Retirer » compte le temps restant ; elle ne vaut que pour le poste ouvert, et « Retirer » la reprend aussitôt. Sans elle, Domenia refuse : « Transport avec dépôt de script, service ou tâche non autorisé pour ce poste (désactivé par défaut). Autorisez une intervention dans Assistance poste > Actions, « Autoriser une intervention (5 min) », puis relancez votre action. » ; le bandeau d'erreur propose « Aller à Assistance poste > Actions ».
+Dans l'en-tête d'Assistance poste, la pastille « Compte poste : … ▾ » dit avant le clic quel compte servira au disque C et aux consoles ; la ligne « Opérations poste : … » sous la carte « Se connecter » reprend le même texte.
+
+> [!NOTE] « Exécuter un programme » exige aussi, pour ce poste, l'autorisation de 5 minutes donnée en tête de la vue « Intervenir » : « Autoriser une intervention (5 min) ». C'est la seule commande d'autorisation : le panneau « Exécuter un programme » dit seulement si elle est active et jusqu'à quelle heure. Pendant l'autorisation, la pastille « Intervention autorisée 4:59 · Retirer » compte le temps restant ; elle ne vaut que pour le poste ouvert, et « Retirer » la reprend aussitôt. Sans elle, aucune tâche n'est créée et Domenia refuse : « Transport avec dépôt de script, service ou tâche non autorisé pour ce poste (désactivé par défaut). Autorisez une intervention dans Assistance poste > Intervenir, « Autoriser une intervention (5 min) », puis relancez votre action. » ; le bandeau d'erreur propose « Aller à Assistance poste > Intervenir ».
+
+## Redémarrage avec les sessions lues d'abord
+
+« Redémarrer… » ne redémarre rien au clic. Le panneau lit les sessions du poste (opération SessionsList, la même que « Lire les sessions »), les affiche, puis propose :
+
+- « Dans 5 min avec message à lʼutilisateur », choisi par défaut : shutdown.exe /r avec le délai (Restart.DefaultDelaySeconds, 300 s, borné de 60 à 3 600 s) et un message d'une ligne de 400 caractères au plus, par WinRM ;
+- « Maintenant, sans délai ni message » : Restart-Computer -Force, après l'ouverture d'une session CIM qui prouve que le poste répond.
+
+L'envoi attend la fin de la lecture des sessions et passe par une confirmation dans la page. Une lecture refusée ne conclut à rien : le panneau le dit et recommande le redémarrage différé. Si un arrêt est déjà programmé sur le poste (code 1190), Domenia ne programme rien.
+
+Pour « Actualiser les stratégies » comme pour le redémarrage, il n'y a plus de repli par tâche planifiée. Une connexion refusée n'envoie rien et laisse un reçu « non envoyé » : « Non envoyé : le poste nʼaccepte pas la commande à distance ». Une demande envoyée n'est jamais rejouée.
+
+## Services du poste
+
+« Lire les services » lit Win32_Service sur le poste par l'opération WmiQuery, en lecture seule et seulement sur ce clic. La liste met en tête les services automatiques arrêtés ; « Automatiques arrêtés seulement » et le champ de filtre agissent localement, sans nouvelle lecture.
+
+« Démarrer… » (service arrêté) et « Redémarrer le service… » (service en cours) passent par l'opération ComputerServiceControl : confirmation dans la page, reçu durable écrit avant l'envoi, session CIM ouverte avant toute commande, puis relecture de l'état (« Running » attendu). Domenia ne change jamais le type de démarrage : un service désactivé est refusé avant l'envoi. Un arrêt refusé par Windows, par exemple parce que d'autres services en dépendent, ne relance rien. « Ouvrir dans la console » ouvre Gestion de l'ordinateur sur le poste pour une action avancée.
 
 ## Ouvrir le partage administratif et les consoles
 
@@ -248,15 +270,15 @@ Le contrôle du port 445 et l'ouverture SMB se font dans le worker ComputerAdmin
 1. **Compte.** Domenia prend le compte des opérations poste (section suivante).
 2. **Port.** Il vérifie que le port 445 du poste répond. Sinon : « le partage du poste ne repond pas (port 445). ».
 3. **Connexion.** Il ouvre le partage avec ce compte. Un refus affiche le motif Windows après « refuse pour ».
-4. **Outil.** Il lance l'Explorateur sur le partage, ou la console demandée. Succès : « C$ de » suivi du poste, de « ouvert avec » et du compte.
+4. **Outil.** Il lance l'Explorateur sur le partage, ou la console demandée. Succès : « Disque C (C$) de » suivi du poste, de « ouvert avec » et du compte.
 
 Pour les consoles, si l'ouverture préalable échoue, la console s'ouvre quand même avec la session Windows : « Console ouverte avec la session Windows : » suivi du motif. Si le technicien s'est connecté avec « Utiliser mon compte Windows », sans mot de passe, il n'y a pas d'ouverture préalable.
 
-> [!NOTE] Le compte en service est toujours affiché dans la pastille « Compte poste » en haut d'Assistance poste (section suivante). Le bureau à distance passe par Windows.
+> [!NOTE] Le compte en service est toujours affiché dans la pastille « Compte poste » de l'en-tête d'Assistance poste (section suivante). Le bureau à distance passe par Windows.
 
 ## Compte des opérations poste
 
-C'est le compte qui interroge les postes : WMI et CIM, C$, consoles, inventaire, détection et requêtes des widgets. Il peut différer du compte de connexion et n'est jamais enregistré sur le disque. La pastille « Compte poste : … ▾ », en haut d'Assistance poste et visible dans tous ses onglets, nomme le compte en service. Un clic ouvre un panneau latéral dans la page : « Identifiant », « Mot de passe », « Utiliser ce compte » et « Revenir au compte de connexion » (oublie le compte saisi). Fermer le panneau, par « Fermer », Échap ou un clic à côté, ne change pas le compte et efface un mot de passe tapé sans « Utiliser ce compte ».
+C'est le compte qui interroge les postes : WMI et CIM, C$, consoles, inventaire, détection et requêtes des widgets. Il peut différer du compte de connexion et n'est jamais enregistré sur le disque. La pastille « Compte poste : … ▾ », dans l'en-tête d'Assistance poste au-dessus de « Bureau à distance » et visible dans les cinq vues, nomme le compte en service. Un clic ouvre un panneau latéral dans la page : « Identifiant », « Mot de passe », « Utiliser ce compte » et « Revenir au compte de connexion » (oublie le compte saisi). Fermer le panneau, par « Fermer », Échap ou un clic à côté, ne change pas le compte et efface un mot de passe tapé sans « Utiliser ce compte ».
 
 Ordre de choix pour une opération sur un poste :
 
@@ -267,12 +289,12 @@ Ordre de choix pour une opération sur un poste :
 5. **Compte de connexion.** Le compte saisi dans la fenêtre de connexion de Domenia.
 6. **Session Windows.** La session qui exécute Domenia.
 
-Le panneau dit le compte en service et son origine, par exemple « Opérations poste : DOMAINE\adm-poste (compte poste saisi, en mémoire seulement). » ou « Opérations poste : session Windows (DOMAINE\technicien). ».
+Le panneau dit le compte en service et son origine, par exemple « Opérations poste : DOMAINE\adm-poste (compte poste saisi, en mémoire seulement). » ou « Opérations poste : session Windows (DOMAINE\technicien). ». La ligne « Opérations poste : … » de la carte « Se connecter » (vue « Intervenir ») reprend le même texte.
 
-## Diagnostic sessions et secrets
+## Diagnostic, sessions et secrets
 
-- « Diagnostic » : « Lancer le diagnostic » contrôle le DNS, la joignabilité, les ports, SMB, WinRM, WMI, le système, le disque et la session. « Copier le rapport » copie le résultat pour un ticket.
-- « Sessions Windows » : « Lire les sessions » consulte les sessions par WTS, sans déconnexion. Un accès refusé ne signifie pas l'absence de session.
+- « Diagnostic », onglet « Contrôles » : « Lancer le diagnostic » contrôle le DNS, la joignabilité, les ports, SMB, WinRM, WMI, le système, le disque et la session. « Copier le rapport » copie le résultat pour un ticket.
+- « Intervenir », « Sessions Windows » : « Lire les sessions » consulte les sessions par WTS, sans déconnexion. Un accès refusé ne signifie pas l'absence de session.
 - « Secrets » : lecture de BitLocker et de LAPS avec le compte des secrets, même en lecture seule. « Une valeur a la fois, affichee brievement, jamais journalisee ni mise en cache. ». Le presse-papiers est vidé après Security.AutoClearSecretClipboardSeconds (30 s).
 
 ## Transports utilisés
@@ -289,11 +311,11 @@ La page « Comptes » affiche ce tableau sous « TRANSPORTS UTILISES ». Dom
 | Planificateur (COM) | Exécution ponctuelle d'une intervention | RPC | Autorisation explicite ; désactivable par Remote.UseTaskFallback. |
 | PsExec | Exécution ponctuelle d'une intervention | 445/TCP | Autorisation explicite ; désactivable par Remote.UsePsExecFallback. |
 
-> [!ATTENTION] Les transports intrusifs (ADMIN$, Planificateur, PsExec) restent inactifs sans autorisation explicite pour le poste. « Autoriser une intervention (5 min) » (onglet « Actions » d'Assistance poste) vaut 5 minutes pour le poste ouvert et ne couvre que les interventions : une lecture n'y bascule jamais seule. Quand CIM échoue, l'inventaire, la lecture des logiciels, l'explorateur WMI, le diagnostic et « Detecter l utilisateur » rendent un « non lu » et nomment la demande à faire, pour cette lecture seule : « Lire ce poste par tâche planifiée » (même onglet, autorisation distincte retirée après cette lecture). Ce n'est qu'après cette demande que PsExec puis la tâche planifiée interviennent (Remote.UsePsExecFallback, Remote.UseTaskFallback). PsExec.exe est un composant tiers : faites revoir sa licence avant diffusion.
+> [!ATTENTION] Les transports intrusifs (ADMIN$, Planificateur, PsExec) restent inactifs sans autorisation explicite pour le poste. « Autoriser une intervention (5 min) » (en tête de la vue « Intervenir » d'Assistance poste) vaut 5 minutes pour le poste ouvert et ne couvre que les interventions : une lecture n'y bascule jamais seule. Quand CIM échoue, l'inventaire, la lecture des logiciels, l'explorateur WMI, le diagnostic et « Détecter à nouveau » rendent un « non lu » et nomment la demande à faire, pour cette lecture seule : « Lire ce poste par tâche planifiée » (même endroit, autorisation distincte retirée après cette lecture). Ce n'est qu'après cette demande que PsExec puis la tâche planifiée interviennent (Remote.UsePsExecFallback, Remote.UseTaskFallback). PsExec.exe est un composant tiers : faites revoir sa licence avant diffusion.
 
 # 6 Inventaire du poste
 
-L'onglet « Inventaire » lit le poste par CIM, avec le compte des opérations poste, et ne modifie rien. Le même inventaire remplit l'onglet « Tableau de bord ». Le résultat dit source par source ce qui a été lu, refusé ou indisponible.
+L'onglet « Inventaire » de la vue « Détails » lit le poste par CIM, avec le compte des opérations poste, et ne modifie rien. Le même inventaire remplit le tableau de bord de « Vue d'ensemble » et l'âge affiché dans l'en-tête du poste. Le résultat dit source par source ce qui a été lu, refusé ou indisponible.
 
 ## Rapide ou complet
 
@@ -1077,7 +1099,7 @@ Domenia démarre toujours en lecture seule, y compris après un changement de co
 L'interrupteur « Lecture seule » de l'en-tête de page est actif au démarrage et à chaque changement de compte. Il n'est jamais mémorisé dans les préférences. Actif, il bloque :
 
 - toutes les écritures AD des fiches : enregistrements, attributs, déverrouillage, activation, désactivation, options de compte, expiration, mots de passe, groupes, déplacement, renommage, suppression, création d'OU ;
-- les actions distantes qui modifient un poste : « Actualiser les stratégies » et « Redemarrer » sont grisés, « Exécuter un programme » s'arrête au clic.
+- les actions distantes qui modifient un poste : « Actualiser les stratégies », « Exécuter un programme… », « Redémarrer… » et les commandes de service sont grisés ; une action préparée juste avant le passage en lecture seule est refusée à sa confirmation.
 
 Restent disponibles : lectures, recherches, inventaires, détection, requêtes des widgets, lecture des secrets et associations locales.
 
@@ -1106,7 +1128,7 @@ Restent disponibles : lectures, recherches, inventaires, détection, requêtes d
 
 ## Reçus et non rejeu
 
-Chaque écriture laisse un reçu dans %LOCALAPPDATA%\Domenia\Receipts. Une écriture n'est jamais rejouée automatiquement. Après un résultat incertain, Domenia affiche : « Une operation precedente reste a verifier. Consultez les recus, pas une relance automatique. ». Relisez l'objet dans AD avant toute nouvelle action. Les reçus se consultent dans l'onglet « Fiabilité » (chapitre 18).
+Chaque écriture laisse un reçu dans %LOCALAPPDATA%\Domenia\Receipts. Une écriture n'est jamais rejouée automatiquement. Après un résultat incertain, Domenia affiche : « Une operation precedente reste a verifier. Consultez les recus, pas une relance automatique. ». Relisez l'objet dans AD avant toute nouvelle action. Tant qu'un reçu attend une vérification, la pastille « 1 opération à vérifier » (ou « n opérations à vérifier ») s'affiche dans l'en-tête de page ; elle ouvre la liste des reçus. Rien n'est rejoué depuis cette liste.
 
 ## Démonstration pour la formation
 
@@ -1609,7 +1631,7 @@ Dans Outils → Base autonome → Stockage, « Mesurer » compte les lignes et l
 
 La purge conserve toujours les associations et leurs traces protégées, les secrets, la configuration, les préférences, les journaux et les reçus. Elle ne compacte pas le fichier SQLite. Purger l’index impose une nouvelle mise à jour explicite des OU utiles pour retrouver leurs objets locaux.
 
-Les reçus d’écriture restent dans « Fiabilité », lorsque Domenia y conduit ; les autorisations d’intervention se donnent dans l’onglet « Actions » d’Assistance poste. Les opérations de stockage se consultent dans la Base autonome.
+Après un échec du stockage local, « Reprendre les sauvegardes » relance l'enregistrement des lots restés en mémoire, et « Reprendre les anciennes données » affiche la simulation de la reprise des anciens fichiers avant toute confirmation : les deux sont dans Stockage, section « Reprises ». Les messages de Domenia qui en parlent portent un bouton qui ouvre cet endroit. Les reçus d’écriture s'ouvrent par la pastille « opérations à vérifier » de l'en-tête de page ; les autorisations d’intervention se donnent en tête de la vue « Intervenir » d’Assistance poste.
 
 ![Stockage : sauvegardes et préparation d’une purge locale ; données fictives](fig:base-stockage)
 

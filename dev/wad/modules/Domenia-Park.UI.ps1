@@ -104,7 +104,7 @@ function Update-DomeniaParkRunStatus {
     if(-not $r.Completed){$text+=' '+$(if($r.PingOnly){'Échos envoyés par lots de 32.'}else{[string]$r.Pending.Count+'/'+[string]$r.Concurrency+' lectures en parallèle.'})}
     $save=Get-DomeniaPersistenceState
     if($save.Pending -gt 0){$text+=' Enregistrement local en attente.'}
-    if($save.Suspended -or $save.Conflicts -gt 0){$text+=' Stockage à vérifier dans Fiabilité.'}
+    if(([bool]$save.Suspended) -or ($save.Conflicts -gt 0)){$text+=' Stockage local à vérifier : Base autonome, onglet Stockage.'}
     if([string]$r.FailureMessage){$text+=' '+[string]$r.FailureMessage}
     $r.StatusText=$text;$r.ShortText=$short
     if($r.Completed){Sync-DomeniaParkGrid -Run $r}
@@ -963,6 +963,9 @@ function Publish-DomeniaCommittedPresence {
     if($State.DisplayKind -eq 'Utilisateur'){$label+='  '+[string]$State.Computer+[string]$State.Suffix}
     Set-DomeniaPresenceText -Name $(if($State.DisplayKind -eq 'Utilisateur'){'TxtUserPresence'}else{'TxtCompPresence'}) -State $label -PresenceState ([string]$view.PresenceState)
     Update-DomeniaObjectPresence -State $label -Target $State.Computer -PresenceState ([string]$view.PresenceState)
+    # DS-08 (X04): the header pill of the workstation takes the time of this observation, even when the answer is the
+    # same as the previous test (same text, no TextChanged).
+    if($State.DisplayKind -ne 'Utilisateur'){try{Set-DomeniaComputerHeaderPresenceTime -Observation $observation}catch{}}
     if($State.Explicit){Set-Status ($State.Computer+' : '+$view.Display+' · '+$view.Detail)}
 }
 function Fail-DomeniaCommittedPresenceStore {

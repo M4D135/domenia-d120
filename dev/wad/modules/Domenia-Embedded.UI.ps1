@@ -239,7 +239,9 @@ function New-DomeniaBannerButton {
 }
 function Show-DomeniaBanner {
     # Returns $false when the page cannot host a banner (no main window yet): the caller keeps its modal box.
-    param([ValidateSet('Info','Success','Warning','Error')][string]$Kind='Info',[AllowEmptyString()][string]$Message='',[AllowEmptyString()][string]$Details='',[string]$Key='',[string]$ActionText='',[string]$ActionPath='')
+    # UX-19 (X04): -RouteText/-Route add a button that opens the place of the action (Invoke-DomeniaCapabilityRoute)
+    # instead of a written path; the route only navigates, nothing is read or written by it.
+    param([ValidateSet('Info','Success','Warning','Error')][string]$Kind='Info',[AllowEmptyString()][string]$Message='',[AllowEmptyString()][string]$Details='',[string]$Key='',[string]$ActionText='',[string]$ActionPath='',[string]$RouteText='',[string]$Route='')
     if(-not (Test-DomeniaEmbeddedHost)){return $false}
     $hostPanel=$script:Window.FindName('DomeniaBannerHost')
     if(($null -eq $hostPanel) -or (-not $hostPanel.Dispatcher.CheckAccess())){return $false}
@@ -253,7 +255,7 @@ function Show-DomeniaBanner {
             return $true
         }
     }
-    $record=[pscustomobject]@{Key=$Key;Kind=$Kind;Message=([string]$Message).Trim();Details=[string]$Details;Code=$plan.Code;Occurrences=1;At=(Get-Date);ActionPath=$ActionPath;Route='';Closed=$false;Pinned=$false;Border=$null;Counter=$null;DetailBox=$null;DetailButton=$null;Actions=$null;Stack=$null;Timer=$null;Panel=$hostPanel}
+    $record=[pscustomobject]@{Key=$Key;Kind=$Kind;Message=([string]$Message).Trim();Details=[string]$Details;Code=$plan.Code;Occurrences=1;At=(Get-Date);ActionPath=$ActionPath;Route=$Route;Closed=$false;Pinned=$false;Border=$null;Counter=$null;DetailBox=$null;DetailButton=$null;Actions=$null;Stack=$null;Timer=$null;Panel=$hostPanel}
     $border=[Windows.Controls.Border]::new();$border.CornerRadius='12';$border.BorderThickness=[Windows.Thickness]::new(4,1,1,1);$border.Padding='12,10,8,10';$border.Margin='0,0,0,8';$border.MinWidth=380.0
     $accent=switch($Kind){'Error'{'DangerColor'}'Warning'{'StatusWarning'}'Success'{'StatusSuccess'}default{'AccentColor'}}
     $border.SetResourceReference([Windows.Controls.Border]::BackgroundProperty,'BgCard')
@@ -294,10 +296,15 @@ function Show-DomeniaBanner {
         [void]$actions.Children.Add($record.DetailButton)
     }
     if($ActionText -and $ActionPath){[void]$actions.Children.Add((New-DomeniaBannerButton -Text $ActionText -Command 'Folder' -Record $record -Help ('Ouvre lʼExplorateur sur '+$ActionPath)))}
-    # UX-16: a refusal that names the place of an authorisation opens it in one click (navigation only).
-    $routeTarget=$null
-    try{$record.Route=[string](Get-DomeniaMessageRoute -Text ([string]$Message));if($record.Route){$routeTarget=Resolve-DomeniaCapabilityRoute -Route $record.Route}}catch{$routeTarget=$null}
-    if($null -ne $routeTarget){[void]$actions.Children.Add((New-DomeniaBannerButton -Text ('Aller à '+[string]$routeTarget.Label) -Command 'Route' -Record $record -Help ('Ouvre '+[string]$routeTarget.Label+'. Rien nʼest autorisé ni lancé sans votre clic.')))}
+    # UX-19 (X04): the caller names the place of the action (-RouteText/-Route). UX-16 (X03): otherwise a refusal that
+    # names the place of an authorisation gets its route from its text. Navigation only, always the first button.
+    if(($RouteText) -and ($Route)){[void]$actions.Children.Insert(0,(New-DomeniaBannerButton -Text $RouteText -Command 'Route' -Record $record -Help ('Ouvre lʼendroit de lʼaction : '+$RouteText+'. Rien nʼest lancé par ce clic.')))}
+    else{
+        $routeTarget=$null
+        try{$record.Route=[string](Get-DomeniaMessageRoute -Text ([string]$Message));if($record.Route){$routeTarget=Resolve-DomeniaCapabilityRoute -Route $record.Route}}catch{$routeTarget=$null}
+        if($null -ne $routeTarget){[void]$actions.Children.Insert(0,(New-DomeniaBannerButton -Text ('Aller à '+[string]$routeTarget.Label) -Command 'Route' -Record $record -Help ('Ouvre '+[string]$routeTarget.Label+'. Rien nʼest autorisé ni lancé sans votre clic.')))}
+        else{$record.Route=''}
+    }
     $record.Actions=$actions;$record.Stack=$stack
     if($actions.Children.Count){[void]$stack.Children.Add($actions)}
     [void]$grid.Children.Add($stack)
@@ -318,6 +325,16 @@ function Show-DomeniaBanner {
         $timer.Start()
     }
     return $true
+}
+function Show-DomeniaRouteNotice {
+    # UX-19 (X04): a status message whose place is a button (route of Invoke-DomeniaCapabilityRoute), never a
+    # written path to a page. Without the main window, the status line alone carries the message and the action name.
+    param([ValidateSet('Info','Warning','Error')][string]$Kind='Warning',[Parameter(Mandatory=$true)][string]$Text,[Parameter(Mandatory=$true)][string]$RouteText,[Parameter(Mandatory=$true)][string]$Route,[string]$Key='')
+    $level=switch($Kind){'Error'{'ERROR'}'Warning'{'WARN'}default{'INFO'}}
+    $shown=$false
+    try{$shown=[bool](Show-DomeniaBanner -Kind $Kind -Message $Text -Key $Key -RouteText $RouteText -Route $Route)}catch{$shown=$false}
+    if($shown){Set-Status $Text $level}else{Set-Status ($Text+' Action : « '+$RouteText+' ».') $level}
+    return $shown
 }
 function Update-DomeniaBannerOccurrence {
     # FI-02: a repeated message keeps one banner. Errors and warnings count their occurrences; an information
@@ -390,7 +407,11 @@ function Invoke-DomeniaBannerCommand {
             Set-Status ('Incident '+$(if($record.Code){[string]$record.Code}else{'sans code'})+' copié pour le support.')
         }
         'Journal'{Open-DomeniaExperienceJournal}
-        'Route'{[void](Invoke-DomeniaCapabilityRoute -Route ([string]$record.Route))}
+        'Route'{
+            # UX-19 (X04): navigation only; the banner closes once its place is open.
+            if([bool](Invoke-DomeniaCapabilityRoute -Route ([string]$record.Route))){Close-DomeniaBanner -Record $record}
+            else{Set-Status ('Destination indisponible : '+[string]$record.Route) 'WARN'}
+        }
         'Folder'{
             $path=[string]$record.ActionPath
             if([IO.File]::Exists($path)){Start-Process -FilePath 'explorer.exe' -ArgumentList @('/select,"'+$path+'"')}
