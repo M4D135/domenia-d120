@@ -2333,6 +2333,7 @@ function Show-DomeniaDialog {
     $window.Foreground=$brush.ConvertFromInvariantString([string]$palette.Text)
     $owner = Get-DomeniaDialogOwner
     if ($null -ne $owner) { try { $window.Owner = $owner } catch { } }
+    if ($null -ne (Get-Command Set-DomeniaWindowFrameTheme -ErrorAction SilentlyContinue)) { [void](Set-DomeniaWindowFrameTheme -Window $window) }
 
     $root = New-Object System.Windows.Controls.Grid
     $root.Margin = '22'
@@ -2457,6 +2458,7 @@ function Show-DomeniaFormDialog {
     $window.Foreground=$brush.ConvertFromInvariantString([string]$palette.Text)
     $owner=Get-DomeniaDialogOwner
     if($null-ne $owner){try{$window.Owner=$owner}catch{}}
+    if($null -ne (Get-Command Set-DomeniaWindowFrameTheme -ErrorAction SilentlyContinue)){[void](Set-DomeniaWindowFrameTheme -Window $window)}
 
     $scroll=New-Object System.Windows.Controls.ScrollViewer
     $scroll.VerticalScrollBarVisibility='Auto'
@@ -4112,8 +4114,9 @@ function Apply-DomeniaTheme {
         }
 
         # CD-05: one palette. SupportSuite.UI.json paints every token, the window, the journal and the native popup
-        # brushes (Set-DomeniaUxPalette); no colour table is kept here.
+        # brushes (Set-DomeniaUxPalette); no colour table is kept here. DS-18: the title bar follows the theme.
         Set-DomeniaUxPalette -Window $window -Theme $Theme
+        [void](Set-DomeniaWindowFrameTheme -Window $window -Theme $Theme)
 
         # DS-10 (L08): Path icons, the icon of the theme the button switches to (sun while dark, moon while light).
         $button = Get-DomeniaControl -Name "BtnThemeToggle"
@@ -4744,6 +4747,94 @@ function Get-MainXaml {
           </DataTemplate>
         </Setter.Value>
       </Setter>
+    </Style>
+    <!-- DS-18: thin scroll bars (8 units) without arrows, a rounded thumb on the theme tokens; the click on the track
+         still moves by a page and the wheel and keyboard scroll as before. -->
+    <Style x:Key="UxScrollThumb" TargetType="Thumb">
+      <Setter Property="OverridesDefaultStyle" Value="True"/>
+      <Setter Property="IsTabStop" Value="False"/>
+      <Setter Property="Focusable" Value="False"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Thumb">
+            <Border x:Name="UxScrollThumbBody" CornerRadius="3" Background="{DynamicResource ScrollThumb}" SnapsToDevicePixels="True"/>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="UxScrollThumbBody" Property="Background" Value="{DynamicResource ScrollThumbHover}"/>
+              </Trigger>
+              <Trigger Property="IsDragging" Value="True">
+                <Setter TargetName="UxScrollThumbBody" Property="Background" Value="{DynamicResource ScrollThumbHover}"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="UxScrollPage" TargetType="RepeatButton">
+      <Setter Property="OverridesDefaultStyle" Value="True"/>
+      <Setter Property="IsTabStop" Value="False"/>
+      <Setter Property="Focusable" Value="False"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RepeatButton">
+            <Border Background="Transparent"/>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style TargetType="ScrollBar">
+      <Setter Property="OverridesDefaultStyle" Value="True"/>
+      <Setter Property="SnapsToDevicePixels" Value="True"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Width" Value="8"/>
+      <Setter Property="MinWidth" Value="8"/>
+      <Setter Property="Height" Value="Auto"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ScrollBar">
+            <Grid Background="{TemplateBinding Background}">
+              <Track x:Name="PART_Track" IsDirectionReversed="True" Margin="1,2">
+                <Track.DecreaseRepeatButton>
+                  <RepeatButton Style="{StaticResource UxScrollPage}" Command="ScrollBar.PageUpCommand"/>
+                </Track.DecreaseRepeatButton>
+                <Track.Thumb>
+                  <Thumb Style="{StaticResource UxScrollThumb}"/>
+                </Track.Thumb>
+                <Track.IncreaseRepeatButton>
+                  <RepeatButton Style="{StaticResource UxScrollPage}" Command="ScrollBar.PageDownCommand"/>
+                </Track.IncreaseRepeatButton>
+              </Track>
+            </Grid>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+      <Style.Triggers>
+        <Trigger Property="Orientation" Value="Horizontal">
+          <Setter Property="Width" Value="Auto"/>
+          <Setter Property="MinWidth" Value="0"/>
+          <Setter Property="Height" Value="8"/>
+          <Setter Property="MinHeight" Value="8"/>
+          <Setter Property="Template">
+            <Setter.Value>
+              <ControlTemplate TargetType="ScrollBar">
+                <Grid Background="{TemplateBinding Background}">
+                  <Track x:Name="PART_Track" IsDirectionReversed="False" Margin="2,1">
+                    <Track.DecreaseRepeatButton>
+                      <RepeatButton Style="{StaticResource UxScrollPage}" Command="ScrollBar.PageLeftCommand"/>
+                    </Track.DecreaseRepeatButton>
+                    <Track.Thumb>
+                      <Thumb Style="{StaticResource UxScrollThumb}"/>
+                    </Track.Thumb>
+                    <Track.IncreaseRepeatButton>
+                      <RepeatButton Style="{StaticResource UxScrollPage}" Command="ScrollBar.PageRightCommand"/>
+                    </Track.IncreaseRepeatButton>
+                  </Track>
+                </Grid>
+              </ControlTemplate>
+            </Setter.Value>
+          </Setter>
+        </Trigger>
+      </Style.Triggers>
     </Style>
     <Style x:Key="UxWorkspaceHost" TargetType="TabControl">
       <Setter Property="Background" Value="Transparent"/>
@@ -8314,6 +8405,10 @@ function ConvertFrom-DomeniaXaml {
         if ($null -eq $window) { throw "$Context : XamlReader.Load a retourne une fenetre vide." }
         if ($null -ne (Get-Command Initialize-DomeniaUxWindowHelp -ErrorAction SilentlyContinue)) {
             Initialize-DomeniaUxWindowHelp -Window $window -XamlText $XamlText
+        }
+        # DS-18: login, startup monitor and other windows take the dark title bar of the session theme.
+        if (($window -is [System.Windows.Window]) -and ($null -ne (Get-Command Set-DomeniaWindowFrameTheme -ErrorAction SilentlyContinue))) {
+            [void](Set-DomeniaWindowFrameTheme -Window $window)
         }
         return $window
     }

@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -157,6 +158,28 @@ namespace Domenia
                 foreach (byte b in hash) hex.Append(b.ToString("X2"));
                 return hex.ToString();
             }
+        }
+    }
+
+    // DS-18: the Windows title bar follows the theme of Domenia (DWMWA_USE_IMMERSIVE_DARK_MODE). Attribute 20 is the
+    // documented value since Windows 10 20H1 and on Windows 11; Windows 10 1809 to 1909 used 19. A Windows without
+    // that attribute refuses both: the bar keeps the system colours and nothing else changes. No window state is read.
+    public static class WindowFrame
+    {
+        [DllImport("dwmapi.dll", PreserveSig = true)]
+        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+
+        public static bool SetDarkTitleBar(IntPtr hwnd, bool dark)
+        {
+            if (hwnd == IntPtr.Zero) return false;
+            int value = dark ? 1 : 0;
+            try
+            {
+                if (DwmSetWindowAttribute(hwnd, 20, ref value, sizeof(int)) == 0) return true;
+                return DwmSetWindowAttribute(hwnd, 19, ref value, sizeof(int)) == 0;
+            }
+            catch (DllNotFoundException) { return false; }
+            catch (EntryPointNotFoundException) { return false; }
         }
     }
 }

@@ -267,6 +267,25 @@ def main():
         return 'carte/fond sombre %.2f:1' % contrast(dark['BgCard'], dark['WindowBg'])
     check('DS-11 : boutons desactives lisibles, cartes sombres visibles, un seul anneau de focus', disabled_and_cards)
 
+    # ------------------------------------------------------------------ DS-18
+    def frame_and_scrollbars():
+        native = (root / 'wad/modules/Domenia-Identity.Types.cs').read_text(encoding='utf-8-sig')
+        require('class WindowFrame' in native and 'DwmSetWindowAttribute(hwnd, 20,' in native and 'DwmSetWindowAttribute(hwnd, 19,' in native, 'Appel DWM absent')
+        require(not re.search(r'\$"|\?\.|nameof\(|=>', native), 'Syntaxe posterieure a C# 5')
+        plan = (root / 'wad/Domenia-Modules.ps1').read_text(encoding='utf-8-sig')
+        require(re.search(r"File='Domenia-Identity\.Types\.cs'; Types=@\([^)]*'Domenia\.WindowFrame'", plan), 'Type non declare au chargeur')
+        require('Set-DomeniaWindowFrameTheme -Window $window -Theme $Theme' in fn('Apply-DomeniaTheme'), 'Theme applique sans la barre de titre')
+        require('Set-DomeniaWindowFrameTheme' in fn('ConvertFrom-DomeniaXaml'), 'Fenetres d amorcage sans barre de titre du theme')
+        style = re.search(r'<Style TargetType="ScrollBar">.*?\n    </Style>', main_xaml, re.S)
+        require(style, 'Style ScrollBar absent')
+        body = style[0]
+        require('Property="Width" Value="8"' in body and 'Property="Height" Value="8"' in body, 'Barres plus larges que 8')
+        require('LineUpCommand' not in body and 'LineDownCommand' not in body and 'LineLeftCommand' not in body, 'Fleches presentes')
+        thumb = re.search(r'<Style x:Key="UxScrollThumb".*?</Style>', main_xaml, re.S)[0]
+        require('{DynamicResource ScrollThumb}' in thumb and '{DynamicResource ScrollThumbHover}' in thumb and 'CornerRadius' in thumb, 'Pouce hors jetons')
+        return ''
+    check('DS-18 : barre de titre du theme et barres de defilement fines sans fleches', frame_and_scrollbars)
+
     # ------------------------------------------------------------------ boot windows
     roles = dict(re.findall(r"(\w+)='(\w+)'", re.search(r'\$roles = \[ordered\]@\{(.*?)\}', fn('Get-DomeniaBootThemePalette'), re.S)[1]))
     styles = re.search(r"\$styles = @'\n(.*?)\n'@", fn('Get-DomeniaBootThemeResources'), re.S)[1]

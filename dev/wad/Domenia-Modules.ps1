@@ -929,6 +929,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Switch-DomeniaUxLog',
             'Initialize-DomeniaUxShell',
             'Set-DomeniaUxPalette',
+            'Set-DomeniaWindowFrameTheme',
             'ConvertTo-DomeniaUxFlag',
             'Get-DomeniaUxLayoutPlan',
             'Save-DomeniaUxLayoutSettings',
@@ -3172,7 +3173,7 @@ function Get-DomeniaRuntimeTypePlan {
         [pscustomobject]@{ File='Domenia-Live.Types.cs'; Types=@('Domenia.Live.ResultRow','Domenia.Live.OperationRow') }
         [pscustomobject]@{ File='M4D.Admin.Common.Query.dll'; Types=@('M4D.Admin.Common.Query.QueryEngine'); SHA256='da97976108351a9e24552f18de2e02b4e5b454b438c461cb2317c427c610b391' }
         [pscustomobject]@{ File='Domenia.Native.dll'; Types=@('Domenia.Native.ObservationReader','Domenia.Native.ObservationIdentityReader','Domenia.Native.ProbeBatch'); SHA256='6e3b293fc08cae9b1660a48ebd7e2533ea2304711a169f61d329b92510530a2a' }
-        [pscustomobject]@{ File='Domenia-Identity.Types.cs'; Types=@('Domenia.SelectionIdentity','Domenia.PlanChange','Domenia.InterventionPlan') }
+        [pscustomobject]@{ File='Domenia-Identity.Types.cs'; Types=@('Domenia.SelectionIdentity','Domenia.PlanChange','Domenia.InterventionPlan','Domenia.WindowFrame') }
     )
 }
 

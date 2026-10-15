@@ -43,9 +43,13 @@ $definitions=foreach($name in $wanted) {
 $uxTokens=$null;$uxErrors=$null
 $uxAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $packageRoot 'wad\modules\Domenia-UX.UI.ps1'),[ref]$uxTokens,[ref]$uxErrors)
 if(@($uxErrors).Count){throw $uxErrors[0].Message}
-$uxPalette=@($uxAst.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Set-DomeniaUxPalette'},$true))
-if($uxPalette.Count -ne 1){throw 'Definition de palette UI absente.'}
-. ([scriptblock]::Create($uxPalette[0].Extent.Text))
+foreach($uxName in @('Set-DomeniaUxPalette','Set-DomeniaWindowFrameTheme')) {
+    $uxPalette=@($uxAst.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $uxName},$true))
+    if($uxPalette.Count -ne 1){throw ('Definition UI absente : '+$uxName)}
+    . ([scriptblock]::Create($uxPalette[0].Extent.Text))
+}
+# DS-18: the title bar interop is compiled with the identity types, as Domenia-Modules.ps1 does at start-up.
+if($null -eq ('Domenia.SelectionIdentity' -as [type])){Add-Type -Path (Join-Path $packageRoot 'wad\modules\Domenia-Identity.Types.cs')}
 $script:Results=New-Object 'System.Collections.Generic.List[object]'
 $script:ThemeLogs=New-Object 'System.Collections.Generic.List[string]'
 $script:CaseNumber=0
@@ -251,6 +255,44 @@ try {
                         $stop.IsEnabled=$false
                     }
                 }
+            }
+            finally { if ($null -ne $script:Window) { $script:Window.Close();$script:Window=$null } }
+        }
+        Test-ThemeCase 'DS-18 : barre de titre sombre (DWM) et barres de defilement fines sans fleches' {
+            Assert-Theme (-not [Domenia.WindowFrame]::SetDarkTitleBar([IntPtr]::Zero,$true)) 'Fenetre absente acceptee'
+            $script:Window=$null
+            try {
+                $script:Window=ConvertFrom-DomeniaXaml -XamlText (Get-MainXaml) -Context 'DS-18'
+                $script:Window.ShowInTaskbar=$false
+                Apply-DomeniaTheme -Theme Dark
+                Assert-Theme ([string]$script:Window.Resources['Domenia.FrameTheme'] -eq 'Dark') 'Theme de la barre non retenu avant la creation de la fenetre'
+                Assert-Theme ([bool]$script:Window.Resources['Domenia.FrameHooked']) 'Application differee non branchee'
+                $handle=[Windows.Interop.WindowInteropHelper]::new($script:Window).EnsureHandle()
+                Assert-Theme ($handle -ne [IntPtr]::Zero) 'Fenetre sans handle'
+                $build=[Environment]::OSVersion.Version.Build
+                if($build -ge 17763){
+                    Assert-Theme (Set-DomeniaWindowFrameTheme -Window $script:Window -Theme Dark) ('DWM refuse la barre sombre (build '+$build+')')
+                    Assert-Theme (Set-DomeniaWindowFrameTheme -Window $script:Window -Theme Light) 'DWM refuse le retour a la barre claire'
+                }
+                $style=$script:Window.Resources[[Windows.Controls.Primitives.ScrollBar]]
+                Assert-Theme ($null -ne $style) 'Style ScrollBar absent'
+                $width=@($style.Setters|Where-Object{$_.Property.Name -eq 'Width'})[0].Value
+                Assert-Theme ([double]$width -le 8) ('Barre verticale trop large : '+$width)
+                $scroll=[Windows.Controls.ScrollViewer]::new();$scroll.Width=200;$scroll.Height=100;$scroll.VerticalScrollBarVisibility='Visible';$scroll.HorizontalScrollBarVisibility='Visible'
+                $scroll.Content=[Windows.Controls.Border]::new();$scroll.Content.Width=600;$scroll.Content.Height=600
+                $panel=$script:Window.FindName('UxHeaderTools');[void]$panel.Children.Add($scroll)
+                $script:Window.Measure([Windows.Size]::new(1600,960));$script:Window.Arrange([Windows.Rect]::new(0,0,1600,960));$script:Window.UpdateLayout()
+                [void]$scroll.ApplyTemplate()
+                $bars=@($scroll.Template.FindName('PART_VerticalScrollBar',$scroll),$scroll.Template.FindName('PART_HorizontalScrollBar',$scroll))
+                foreach($bar in $bars){
+                    Assert-Theme ($null -ne $bar) 'Barre de defilement absente'
+                    [void]$bar.ApplyTemplate()
+                    $repeat=@($bar.Template.FindName('PART_Track',$bar).DecreaseRepeatButton)[0]
+                    Assert-Theme (($repeat.Command -ne [Windows.Controls.Primitives.ScrollBar]::LineUpCommand) -and ($repeat.Command -ne [Windows.Controls.Primitives.ScrollBar]::LineLeftCommand)) 'Fleches de defilement presentes'
+                }
+                Assert-Theme ($bars[0].ActualWidth -le 8.5) ('Largeur reelle : '+$bars[0].ActualWidth)
+                Assert-Theme ($bars[1].ActualHeight -le 8.5) ('Hauteur reelle : '+$bars[1].ActualHeight)
+                [void]$panel.Children.Remove($scroll)
             }
             finally { if ($null -ne $script:Window) { $script:Window.Close();$script:Window=$null } }
         }

@@ -757,6 +757,29 @@ function Set-DomeniaUxPalette {
     }
 }
 
+function Set-DomeniaWindowFrameTheme {
+    # DS-18: the Windows title bar of a Domenia window follows its theme (DWM, Domenia-Identity.Types.cs). Before the
+    # window owns a handle, the theme is kept and applied once the handle exists (SourceInitialized, once per window).
+    # Returns $true when Windows accepted the colour now; never throws (an older Windows keeps its title bar).
+    param($Window,[AllowEmptyString()][string]$Theme='')
+    if (($null -eq $Window) -or ($Window -isnot [Windows.Window])) { return $false }
+    if ($Theme -notin @('Light','Dark')) { $Theme = [string](Get-Variable -Name BootTheme -Scope Script -ValueOnly -ErrorAction SilentlyContinue) }
+    if ($Theme -ne 'Dark') { $Theme = 'Light' }
+    if ($null -eq ('Domenia.WindowFrame' -as [type])) { return $false }
+    try {
+        $Window.Resources['Domenia.FrameTheme'] = $Theme
+        $handle = [Windows.Interop.WindowInteropHelper]::new($Window).Handle
+        if ($handle -eq [IntPtr]::Zero) {
+            if (-not $Window.Resources.Contains('Domenia.FrameHooked')) {
+                $Window.Resources['Domenia.FrameHooked'] = $true
+                $Window.Add_SourceInitialized({ param($sender,$eventArgs) [void](Set-DomeniaWindowFrameTheme -Window $sender -Theme ([string]$sender.Resources['Domenia.FrameTheme'])) })
+            }
+            return $false
+        }
+        return [bool][Domenia.WindowFrame]::SetDarkTitleBar($handle,($Theme -eq 'Dark'))
+    } catch { return $false }
+}
+
 function ConvertTo-DomeniaUxFlag {
     param($Value,[bool]$Default=$false)
     if ($Value -is [bool]) { return $Value }
