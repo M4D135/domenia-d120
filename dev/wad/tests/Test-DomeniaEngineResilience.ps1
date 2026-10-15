@@ -2,6 +2,10 @@
 # Synthetic callback/queue tests. No WPF window, LDAP, workstation, VM or network.
 [CmdletBinding()]param([string]$ReportPath='')
 $ErrorActionPreference='Stop'
+# P-CD-09: the catch blocks of the core and of the UI modules trace an ignored error with Write-DomeniaSwallowed, defined
+# in the script scope of Domenia-Core.ps1. Functions loaded one by one stay silent here, as before the sweep (no-op double;
+# the trace itself is tested in rules/Common.Tests.ps1 and Test-DomeniaFaults.ps1).
+function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) }
 $wad=Split-Path -Parent $PSScriptRoot
 $modules=Join-Path $wad 'modules'
 foreach($name in @('Common.Model','Store.Model','Probes.Model','Live.Model','Live.UI','Storage.UI','Engine.UI','Park.Model','Park.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}

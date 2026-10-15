@@ -53,7 +53,7 @@ function Complete-DomeniaReceiptRefresh {
         Write-AppLog 'Incertitude levee uniquement apres verification ou revue explicite des recus durables.' 'WARN'
     }
     # UX-19 (X04): the header pill « opérations à vérifier » follows the receipts just read.
-    try{Update-DomeniaPendingOperationsPill}catch{}
+    try{Update-DomeniaPendingOperationsPill}catch{Write-DomeniaSwallowed 'Guard' 'Complete-DomeniaReceiptRefresh' $_}
     [void](Update-DomeniaReceiptActionUi)
     Apply-CurrentPermissionUi
 }
@@ -201,7 +201,7 @@ function Show-DomeniaDraftComparison {
 }
 function Set-DomeniaArtifactConsent {
     if(Test-DomeniaAccessBusyWrite){Show-InfoBox 'Terminez la vérification de lʼécriture avant de modifier une autorisation.';return}
-    $target='';try{if($script:SelectedObject.Type -eq 'Machine'){$target=[string](Get-DomeniaEntryFirstString $script:SelectedObject.Entry 'dNSHostName');if(-not $target){$target=[string](Get-DomeniaEntryFirstString $script:SelectedObject.Entry 'name')}}}catch{}
+    $target='';try{if($script:SelectedObject.Type -eq 'Machine'){$target=[string](Get-DomeniaEntryFirstString $script:SelectedObject.Entry 'dNSHostName');if(-not $target){$target=[string](Get-DomeniaEntryFirstString $script:SelectedObject.Entry 'name')}}}catch{Write-DomeniaSwallowed 'Guard' 'Set-DomeniaArtifactConsent' $_}
     if(-not $target){Show-InfoBox 'Ouvrez dʼabord un poste dans Assistance poste.';return}
     if(-not (Confirm-Action -Message ('Autoriser pendant 5 minutes, sur '+$target+' seulement, les transports qui déposent un script, un service ou une tâche ? Ils ne serviront que lors de vos prochaines actions volontaires sur ce poste. Le Planificateur utilise une API ; PsExec exige une session Windows intégrée autorisée. Aucun secret nʼest transmis dans les arguments.') -Title 'Intervention distante avec traces')){return}
     $aliases=@($target);$short=[string](Get-DomeniaEntryFirstString $script:SelectedObject.Entry 'name');if($short -and $short -notmatch '[\\/]'){$aliases+=@($short)}
@@ -257,7 +257,7 @@ function Set-DomeniaReadFallbackConsent {
     # SE-07 : demande propre a une lecture. L'autorisation d'intervention ne dit rien d'une
     # lecture ; sans cette demande, le worker rend un « non lu » au lieu de basculer.
     if(Test-DomeniaAccessBusyWrite){Show-InfoBox 'Terminez la vérification de lʼécriture avant de modifier une autorisation.';return}
-    $target='';try{if($script:SelectedObject.Type -eq 'Machine'){$target=[string](Get-DomeniaEntryFirstString $script:SelectedObject.Entry 'dNSHostName');if(-not $target){$target=[string](Get-DomeniaEntryFirstString $script:SelectedObject.Entry 'name')}}}catch{}
+    $target='';try{if($script:SelectedObject.Type -eq 'Machine'){$target=[string](Get-DomeniaEntryFirstString $script:SelectedObject.Entry 'dNSHostName');if(-not $target){$target=[string](Get-DomeniaEntryFirstString $script:SelectedObject.Entry 'name')}}}catch{Write-DomeniaSwallowed 'Guard' 'Set-DomeniaReadFallbackConsent' $_}
     if(-not $target){Show-InfoBox 'Sélectionnez une machine dans la recherche.';return}
     if(-not (Confirm-Action -Message ('CIM ne répond pas sur '+$target+'. Lire ce poste par tâche planifiée ? Cette autorisation ne vaudra que pour la prochaine lecture de ce poste et sera retirée après elle. Le Planificateur utilise une API ; PsExec exige une session Windows intégrée autorisée. Aucun secret ne sera transmis dans les arguments.') -Title 'Lecture par tâche planifiée')){return}
     $aliases=@($target);$short=[string](Get-DomeniaEntryFirstString $script:SelectedObject.Entry 'name');if($short -and $short -notmatch '[\/]'){$aliases+=@($short)}
@@ -311,7 +311,7 @@ function Save-DomeniaFavouriteSearch {
     if(-not $Dn -or -not $domain){Set-Status 'Choisissez dʼabord une OU dans lʼarbre.' 'WARN';return $false}
     $pinned=(-not $Remove)
     if($Toggle){$pinned=(-not (Test-DomeniaOuFavourite -Dn $Dn))}
-    $name='';try{$name=[string](Get-DomeniaUxOuDisplay -DistinguishedName $Dn -IsDomain ($Dn -ieq $domain)).Name}catch{}
+    $name='';try{$name=[string](Get-DomeniaUxOuDisplay -DistinguishedName $Dn -IsDomain ($Dn -ieq $domain)).Name}catch{Write-DomeniaSwallowed 'Guard' 'Save-DomeniaFavouriteSearch' $_}
     $candidate=[pscustomobject]@{DN=$Dn;Name=$name;Subtree=$true;Type='Tous';Term=''}
     $r=Set-DomeniaOuFavouriteState -Favourites @(Read-DomeniaOuFavouriteStore) -Favourite $candidate -Pinned $pinned -DomainDn $domain
     if(-not [bool]$r.Changed){Set-Status ([string]$r.Reason) 'WARN';return $false}
@@ -384,7 +384,7 @@ function Update-DomeniaOuFavouritesUi {
     $distinct=@{}
     try{foreach($entry in @(Get-DomeniaOuDistinctLabels -Dn @($favourites|ForEach-Object{[string]$_.DN}))){if([bool]$entry.Ambiguous){$distinct[([string]$entry.DN).ToLowerInvariant()]=[string]$entry.Label}}}catch{$distinct=@{}}
     foreach($f in $favourites){
-        $path=[string]$f.DN;try{$path=[string](Get-DomeniaUxOuDisplay -DistinguishedName ([string]$f.DN)).FullPath}catch{}
+        $path=[string]$f.DN;try{$path=[string](Get-DomeniaUxOuDisplay -DistinguishedName ([string]$f.DN)).FullPath}catch{Write-DomeniaSwallowed 'Guard' 'Update-DomeniaOuFavouritesUi' $_}
         $shown=[string]$f.Name;$key=([string]$f.DN).ToLowerInvariant();if($distinct.ContainsKey($key)){$shown=$distinct[$key]}
         $row=[Windows.Controls.DockPanel]::new();$row.Margin=[Windows.Thickness]::new(0,0,0,2)
         $remove=[Windows.Controls.Button]::new();$remove.Content=[string][char]0x00D7;$remove.Tag=[string]$f.DN;$remove.MinWidth=0;$remove.MinHeight=0;$remove.Padding=[Windows.Thickness]::new(6,0,6,0);$remove.Margin=[Windows.Thickness]::new(4,0,0,0)
@@ -443,7 +443,7 @@ function Initialize-DomeniaGuard {
         if($script:AsyncEngineClosing -or $null -eq $script:Guard){return}
         $now=[datetime]::UtcNow;$delay=[Math]::Round([double]$sender.LateMs,1);$script:Guard.Last=$now
         $script:Guard.Samples.Add($delay);if($script:Guard.Samples.Count -gt 240){$script:Guard.Samples.RemoveAt(0)}
-        try{Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId 'Pulse' -DurationMs $delay}catch{}
+        try{Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId 'Pulse' -DurationMs $delay}catch{Write-DomeniaSwallowed 'Guard' 'Initialize-DomeniaGuard' $_}
         # W13 (point 121): a late heartbeat is explained by the interface work that overlapped it, or said unattributed.
         try{[void](Register-DomeniaDispatcherLateness -LateMs $delay)}catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
         if($script:Guard.Epoch -ne [long]$script:SessionEpoch){$script:Guard.Epoch=[long]$script:SessionEpoch;$script:ReceiptReady=$false;$script:ReceiptRefreshNeeded=$true;$script:ArtifactConsent=$null;$script:DraftState=$null}
@@ -481,7 +481,7 @@ function Resume-DomeniaStorage {
     if($script:Persistence.Job){Show-InfoBox 'Un enregistrement est encore actif.';return}
     $script:Persistence.Failures=0;$script:Persistence.Fault='';$script:Persistence.Next=[datetime]::UtcNow
     # MO-03: the save timer stopped while the writer was suspended; it is armed again here.
-    try{Request-DomeniaStorageWork}catch{}
+    try{Request-DomeniaStorageWork}catch{Write-DomeniaSwallowed 'Guard' 'Resume-DomeniaStorage' $_}
     Set-Status 'Reprise demandée pour les lots de cache en mémoire. Aucune écriture AD.'
 }
 function Show-DomeniaUnavailableReasons {

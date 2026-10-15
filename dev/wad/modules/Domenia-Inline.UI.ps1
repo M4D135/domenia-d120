@@ -113,7 +113,7 @@ function Request-DomeniaInlineConfirmation {
     $script:DomeniaInline.View.Visibility=[Windows.Visibility]::Visible
     # The safe answer has the focus: Enter on an unread request never confirms it. A typed confirmation starts in
     # its own field, where Enter confirms nothing either.
-    try{if($typed -and ($null -ne $typedBox)){[void]$typedBox.Focus()}else{[void]$cancel.Focus()}}catch{}
+    try{if($typed -and ($null -ne $typedBox)){[void]$typedBox.Focus()}else{[void]$cancel.Focus()}}catch{Write-DomeniaSwallowed 'Inline' 'Request-DomeniaInlineConfirmation' $_}
     return [pscustomobject]@{Id=[string]$request.Id;Title=$Title;Target=$Target;Answered=$false;Confirmed=$false;Presentation='Inline'}
 }
 

@@ -28,7 +28,7 @@ function Set-DomeniaProfileSetting {
         if ($id -ieq $Profile) { continue }
         $current = Get-DomeniaProfileSetting -Text $Text -Profile $id
         if (-not $current) { continue }
-        if ($current.StartsWith('{')) { try { $entries[$id] = ConvertFrom-Json -InputObject $current -ErrorAction Stop } catch { } }
+        if ($current.StartsWith('{')) { try { $entries[$id] = ConvertFrom-Json -InputObject $current -ErrorAction Stop } catch { Write-DomeniaSwallowed 'Collection' 'Set-DomeniaProfileSetting' $_ } }
         else { $entries[$id] = $current }
     }
     $profileId = [string](Get-DomeniaCollectionProfile $Profile).Id
@@ -231,10 +231,10 @@ function Save-DomeniaCampaignPlan {
     } catch {
         $Run | Add-Member -NotePropertyName CampaignProgress -NotePropertyValue $null -Force
         $Run | Add-Member -NotePropertyName CampaignNote -NotePropertyValue ('Plan de reprise non enregistré : ' + $_.Exception.Message + '.') -Force
-        try { Write-AppLog ('Plan de reprise du relevé non enregistré : ' + $_.Exception.Message) 'WARN' } catch { }
+        try { Write-AppLog ('Plan de reprise du relevé non enregistré : ' + $_.Exception.Message) 'WARN' } catch { Write-DomeniaSwallowed 'Collection' 'Save-DomeniaCampaignPlan' $_ }
         return $false
     } finally {
-        try { Update-DomeniaCampaignResumeUi } catch { }
+        try { Update-DomeniaCampaignResumeUi } catch { Write-DomeniaSwallowed 'Collection' 'Save-DomeniaCampaignPlan' $_ }
     }
 }
 
@@ -262,14 +262,14 @@ function Save-DomeniaCampaignProgress {
             [void](Write-DomeniaPreference -FileName 'Domenia.campaign-progress.json' -Value '{}')
             [void](Write-DomeniaPreference -FileName 'Domenia.campaign-plan.json' -Value '{}')
             $Run.CampaignProgress = $null
-            try { Update-DomeniaCampaignResumeUi } catch { }
+            try { Update-DomeniaCampaignResumeUi } catch { Write-DomeniaSwallowed 'Collection' 'Save-DomeniaCampaignProgress' $_ }
         }
         elseif (-not (Write-DomeniaPreference -FileName 'Domenia.campaign-progress.json' -Value (ConvertTo-DomeniaCampaignProgressText $progress))) { throw 'écriture refusée' }
         $Run.CampaignSavedUtc = [datetime]::UtcNow
         $Run.CampaignDirty = $false
         return $true
     } catch {
-        try { Write-AppLog ('Avancement du relevé non enregistré : ' + $_.Exception.Message) 'WARN' } catch { }
+        try { Write-AppLog ('Avancement du relevé non enregistré : ' + $_.Exception.Message) 'WARN' } catch { Write-DomeniaSwallowed 'Collection' 'Save-DomeniaCampaignProgress' $_ }
         return $false
     }
 }
@@ -302,7 +302,7 @@ function Complete-DomeniaCampaignPlan {
         }
         [void](Save-DomeniaCampaignProgress -Run $Run -State $state -Reason $reason -Force)
     } finally {
-        if (-not $script:AsyncEngineClosing) { try { Update-DomeniaCampaignResumeUi } catch { } }
+        if (-not $script:AsyncEngineClosing) { try { Update-DomeniaCampaignResumeUi } catch { Write-DomeniaSwallowed 'Collection' 'Complete-DomeniaCampaignPlan' $_ } }
     }
 }
 
@@ -314,7 +314,7 @@ function Register-DomeniaCampaignCloseHook {
         try {
             $run = Get-DomeniaParkRun -Slot 'List'
             if (($null -ne $run) -and ($null -ne (Get-DomeniaMemberValue $run 'CampaignProgress' $null))) { [void](Save-DomeniaCampaignProgress -Run $run -State 'Closed' -Force) }
-        } catch { try { Write-AppLog ('Avancement du relevé non enregistré à la fermeture : ' + $_.Exception.Message) 'WARN' } catch { } }
+        } catch { try { Write-AppLog ('Avancement du relevé non enregistré à la fermeture : ' + $_.Exception.Message) 'WARN' } catch { Write-DomeniaSwallowed 'Collection' 'Register-DomeniaCampaignCloseHook' $_ } }
     })
     $script:DomeniaCampaignCloseHooked = $true
 }
@@ -337,7 +337,7 @@ function Get-DomeniaCampaignReplacementNote {
     try {
         $status = Get-DomeniaCampaignResumeStatus
         if ([bool]$status.Resumable) { return (' Un relevé interrompu attend sa reprise (' + [string]$status.Remaining + ' poste(s) restant(s)) : son plan sera remplacé par celui-ci à la confirmation.') }
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'Collection' 'Get-DomeniaCampaignReplacementNote' $_ }
     return ''
 }
 
@@ -368,7 +368,7 @@ function Start-DomeniaCampaignResume {
     } catch {
         Set-Status ('Reprise du relevé impossible : ' + $_.Exception.Message) 'WARN'
     }
-    try { Update-DomeniaCampaignResumeUi } catch { }
+    try { Update-DomeniaCampaignResumeUi } catch { Write-DomeniaSwallowed 'Collection' 'Start-DomeniaCampaignResume' $_ }
 }
 
 function Clear-DomeniaCampaignPlan {
@@ -378,7 +378,7 @@ function Clear-DomeniaCampaignPlan {
         [void](Write-DomeniaPreference -FileName 'Domenia.campaign-plan.json' -Value '{}')
         Set-Status 'Plan de reprise abandonné. Les mesures déjà validées restent dans la base locale.'
     } catch { Set-Status ('Plan de reprise non supprimé : ' + $_.Exception.Message) 'WARN' }
-    try { Update-DomeniaCampaignResumeUi } catch { }
+    try { Update-DomeniaCampaignResumeUi } catch { Write-DomeniaSwallowed 'Collection' 'Clear-DomeniaCampaignPlan' $_ }
 }
 
 function Request-DomeniaCampaignResumeOffer {
@@ -415,7 +415,7 @@ function Initialize-DomeniaCollectionSettingsUi {
         } catch { Set-Status ('Profil de collecte non enregistré : ' + $_.Exception.Message) 'WARN' }
     })
     $grid = Get-DomeniaControl 'DgCollectionFreshness'
-    if ($null -ne $grid) { $grid.Add_SelectionChanged({ try { Update-DomeniaCollectionFreshnessEditor } catch { } }) }
+    if ($null -ne $grid) { $grid.Add_SelectionChanged({ try { Update-DomeniaCollectionFreshnessEditor } catch { Write-DomeniaSwallowed 'Collection' 'Initialize-DomeniaCollectionSettingsUi' $_ } }) }
     $value = Get-DomeniaControl 'CmbCollectionFreshnessValue'
     if ($null -ne $value) {
         $value.DisplayMemberPath = 'Label'
@@ -460,7 +460,7 @@ function Initialize-DomeniaCollectionSettingsUi {
     # each time the « Réglages de collecte » section is unfolded.
     $node = $profileBox
     while (($null -ne $node) -and (-not ($node -is [Windows.Controls.Expander]))) { $node = [Windows.LogicalTreeHelper]::GetParent($node) }
-    if ($null -ne $node) { $node.Add_Expanded({ try { Update-DomeniaCollectionSettingsUi } catch { } }) }
+    if ($null -ne $node) { $node.Add_Expanded({ try { Update-DomeniaCollectionSettingsUi } catch { Write-DomeniaSwallowed 'Collection' 'Initialize-DomeniaCollectionSettingsUi' $_ } }) }
     $script:DomeniaCollectionSettingsWired = $true
     Update-DomeniaCollectionSettingsUi
 }
@@ -538,7 +538,7 @@ function Get-DomeniaCollectionHealthLines {
     if ([int]$script:DomeniaAgedPromotions -gt 0) { $lines.Add('Travaux de fond relancés après une longue attente : ' + [string][int]$script:DomeniaAgedPromotions + '.') }
     if ([int]$script:DomeniaSharedReadCount -gt 0) { $lines.Add('Lectures identiques partagées : ' + [string][int]$script:DomeniaSharedReadCount + ' (aucun second appel envoyé).') }
     if ([long]$script:DomeniaCimQueriesAvoided -gt 0) { $lines.Add('Requêtes WMI évitées par regroupement : ' + [string][long]$script:DomeniaCimQueriesAvoided + ' sur ' + [string]([long]$script:DomeniaCimQueriesAvoided + [long]$script:DomeniaCimQueriesExecuted) + ' besoins.') }
-    try { foreach ($line in @(Get-DomeniaProviderStateSummary -State $script:DomeniaProviderState)) { $lines.Add([string]$line) } } catch { }
-    try { $lines.Add('Profil de collecte : ' + [string](Get-DomeniaCollectionProfile (Get-DomeniaCollectionProfileId)).Label + '. ' + (Get-DomeniaCollectionWindowStatusText)) } catch { }
+    try { foreach ($line in @(Get-DomeniaProviderStateSummary -State $script:DomeniaProviderState)) { $lines.Add([string]$line) } } catch { Write-DomeniaSwallowed 'Collection' 'Get-DomeniaCollectionHealthLines' $_ }
+    try { $lines.Add('Profil de collecte : ' + [string](Get-DomeniaCollectionProfile (Get-DomeniaCollectionProfileId)).Label + '. ' + (Get-DomeniaCollectionWindowStatusText)) } catch { Write-DomeniaSwallowed 'Collection' 'Get-DomeniaCollectionHealthLines' $_ }
     return $lines.ToArray()
 }

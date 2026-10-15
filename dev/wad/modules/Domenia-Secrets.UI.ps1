@@ -38,7 +38,7 @@ function Get-DomeniaSecretButtonExplanation {
     $isMachine=($null -ne $script:SelectedObject -and [string]$script:SelectedObject.Type -eq 'Machine' -and -not [string]::IsNullOrWhiteSpace([string]$script:SelectedObject.DN))
     $writeActive=((-not [string]::IsNullOrWhiteSpace([string]$script:ActiveWriteTaskId)) -or ($script:WriteState -in @('Unknown','UnknownPending')))
     $estimated=''
-    try{if($script:CurrentCapabilities.ContainsKey('Secrets')){$estimated=[string]$script:CurrentCapabilities['Secrets']}}catch{}
+    try{if($script:CurrentCapabilities.ContainsKey('Secrets')){$estimated=[string]$script:CurrentCapabilities['Secrets']}}catch{Write-DomeniaSwallowed 'Secrets' 'Get-DomeniaSecretButtonExplanation' $_}
     if(-not $isMachine){$x=Get-DomeniaCapabilityExplanation -Action $action -State NoSelection -Detail 'Choisissez un poste dans Rechercher. Cette action lit AD sans rien modifier.';return [pscustomobject]@{Enabled=$false;ToolTip=$x.Text;Route=$x.Route;State='NoSelection'}}
     if($Busy){return [pscustomobject]@{Enabled=$false;ToolTip=($action+' : lecture en cours en arrière-plan.');Route='';State='Reading'}}
     if($writeActive){$x=Get-DomeniaCapabilityExplanation -Action $action -State Busy -Detail 'La lecture reprend après la vérification de lʼécriture.';return [pscustomobject]@{Enabled=$false;ToolTip=$x.Text;Route=$x.Route;State='Busy'}}
@@ -65,7 +65,7 @@ function Select-DomeniaSecretRow {
     param([int]$Index)
     $grid=Get-DomeniaControl 'DgSecrets'
     if($null -eq $grid -or $Index -lt 0){return}
-    foreach($item in @($grid.Items)){if($null -ne $item -and $null -ne $item.PSObject.Properties['SecretIndex'] -and [int]$item.SecretIndex -eq $Index){$grid.SelectedItem=$item;try{$grid.ScrollIntoView($item)}catch{};return}}
+    foreach($item in @($grid.Items)){if($null -ne $item -and $null -ne $item.PSObject.Properties['SecretIndex'] -and [int]$item.SecretIndex -eq $Index){$grid.SelectedItem=$item;try{$grid.ScrollIntoView($item)}catch{Write-DomeniaSwallowed 'Secrets' 'Select-DomeniaSecretRow' $_};return}}
 }
 function Start-DomeniaSecretReveal {
     # D059: reveal ONE value, after an explicit gesture, for the exposure policy duration only.
@@ -73,7 +73,7 @@ function Start-DomeniaSecretReveal {
     if($Index -lt 0 -or $Index -ge @($script:SecretRows).Count){return $false}
     if([string]::IsNullOrWhiteSpace([string]$script:SecretRows[$Index].Value)){return $false}
     $policy=Get-DomeniaSecretExposurePolicy
-    try{if($null -ne $script:SecretRevealTimer){$script:SecretRevealTimer.Stop()}}catch{}
+    try{if($null -ne $script:SecretRevealTimer){$script:SecretRevealTimer.Stop()}}catch{Write-DomeniaSwallowed 'Secrets' 'Start-DomeniaSecretReveal' $_}
     $seconds=[int]$policy.RevealSeconds
     $script:SecretsVisible=$true;$script:RevealedSecretIndex=$Index
     # UX-18: deadline and single extension of this reveal; a new reveal starts a new count.
@@ -90,7 +90,7 @@ function Start-DomeniaSecretRevealExpiry {
     param([int]$Milliseconds)
     $script:SecretRevealTimer=New-DomeniaTimer -Owner 'Timer:SecretReveal' -IntervalMs ([Math]::Max(1,$Milliseconds)) -RunWhenHidden -Start -Tick {
         param($sender,$eventArgs)
-        try{$sender.Stop()}catch{}
+        try{$sender.Stop()}catch{Write-DomeniaSwallowed 'Secrets' 'Start-DomeniaSecretRevealExpiry' $_}
         Hide-DomeniaRevealedSecret
     }
 }
@@ -98,8 +98,8 @@ function Hide-DomeniaRevealedSecret {
     # D059 / UX-18: ends the reveal, whoever asks for it (expiry, Masquer maintenant, the countdown finding the
     # deadline past). The grid and the card are redrawn masked; the value itself stays in memory only until the
     # secret lifetime ends, as before.
-    try{if($null -ne $script:SecretRevealTimer){$script:SecretRevealTimer.Stop()}}catch{}
-    try{if($null -ne $script:SecretCountdownTimer){$script:SecretCountdownTimer.Stop()}}catch{}
+    try{if($null -ne $script:SecretRevealTimer){$script:SecretRevealTimer.Stop()}}catch{Write-DomeniaSwallowed 'Secrets' 'Hide-DomeniaRevealedSecret' $_}
+    try{if($null -ne $script:SecretCountdownTimer){$script:SecretCountdownTimer.Stop()}}catch{Write-DomeniaSwallowed 'Secrets' 'Hide-DomeniaRevealedSecret' $_}
     $index=-1;if($null -ne $script:RevealedSecretIndex){$index=[int]$script:RevealedSecretIndex}
     $script:SecretsVisible=$false;$script:RevealedSecretIndex=-1;$script:SecretReveal=$null
     Update-SecretsGrid
@@ -125,7 +125,7 @@ function Update-DomeniaSecretRevealCountdown {
     # the value, and this tick hides it too if it ever finds the deadline past. $true while the key stays shown.
     # Without a key in the card (LAPS, whole-grid reveal, nothing shown) it only stops itself.
     $key=Get-DomeniaRevealedBitLockerKey
-    if($null -eq $key){try{if($null -ne $script:SecretCountdownTimer){$script:SecretCountdownTimer.Stop()}}catch{};return $false}
+    if($null -eq $key){try{if($null -ne $script:SecretCountdownTimer){$script:SecretCountdownTimer.Stop()}}catch{Write-DomeniaSwallowed 'Secrets' 'Update-DomeniaSecretRevealCountdown' $_};return $false}
     $reveal=$script:SecretReveal
     if(($null -eq $reveal) -or ([int]$reveal.Index -ne [int]$key.Index)){Hide-DomeniaRevealedSecret;return $false}
     $c=Get-DomeniaSecretRevealCountdown -DeadlineUtc $reveal.DeadlineUtc -NowUtc ([datetime]::UtcNow) -TotalSeconds ([int]$reveal.TotalSeconds) -Extended ([bool]$reveal.Extended)
@@ -160,7 +160,7 @@ function Update-DomeniaSecretsView {
         $blocksHost=Get-DomeniaControl 'BitLockerKeyBlocks'
         if($null -eq $key){
             $card.Visibility=[Windows.Visibility]::Collapsed
-            try{if($null -ne $script:SecretCountdownTimer){$script:SecretCountdownTimer.Stop()}}catch{}
+            try{if($null -ne $script:SecretCountdownTimer){$script:SecretCountdownTimer.Stop()}}catch{Write-DomeniaSwallowed 'Secrets' 'Update-DomeniaSecretsView' $_}
             if($null -ne $blocksHost){$blocksHost.ItemsSource=$null}
             [void](Set-DomeniaControlText 'LblBitLockerKeyCardId' '')
             [void](Set-DomeniaControlText 'LblBitLockerKeyCountdown' '')
@@ -233,7 +233,7 @@ function Complete-DomeniaBitLockerListUi {
     }
     Set-DomeniaSecretDenied -Mode 'BitLocker' -DN $dn -Denied $false
     $keys=@(ConvertTo-DomeniaBitLockerKeyList -Entries @($effective.Entries))
-    foreach($oldSecret in @($script:SecretRows)){try{$oldSecret.Value=''}catch{}}
+    foreach($oldSecret in @($script:SecretRows)){try{$oldSecret.Value=''}catch{Write-DomeniaSwallowed 'Secrets' 'Complete-DomeniaBitLockerListUi' $_}}
     $rows=New-Object 'System.Collections.Generic.List[object]'
     foreach($key in $keys){
         # UX-18: the DN stays in KeyDn for the read of the chosen key; the operator reads the full recovery identifier.
@@ -249,12 +249,12 @@ function Complete-DomeniaBitLockerListUi {
         [void](Set-DomeniaControlText 'LblSecretsStatus' 'Aucun objet de récupération visible avec ce compte. Lʼabsence de résultat ne prouve pas lʼabsence de clé.')
         Set-Status 'BitLocker : aucun objet de récupération visible avec ce compte.' 'WARN'
         [void](Request-DomeniaAccessRecovery -Operation 'Lecture BitLocker' -ErrorValue 'Aucune cle visible.' -OperationId 'ReadBitLockerList' -DN $dn -Possible -Interactive:([int]$State.RetryAttempt -eq 0))
-        try{[void](Save-DomeniaSecretIndexEntry -Computer (Get-CurrentSelectedComputerName) -BitLockerKeys 0 -Verdict 'aucune cle visible avec ce compte')}catch{}
+        try{[void](Save-DomeniaSecretIndexEntry -Computer (Get-CurrentSelectedComputerName) -BitLockerKeys 0 -Verdict 'aucune cle visible avec ce compte')}catch{Write-DomeniaSwallowed 'Secrets' 'Complete-DomeniaBitLockerListUi' $_}
         Update-DomeniaSecretActionUi
         return
     }
     [void](Set-DomeniaControlText 'LblSecretsStatus' ([string]$keys.Count+' clé(s) BitLocker listée(s) : métadonnées seulement, aucune clé lue. Saisissez lʼidentifiant de récupération affiché par le poste ou choisissez une ligne, puis « Lire et afficher cette clé » ou « Copier la clé BitLocker ».'))
-    try{[void](Update-DomeniaSecretIndexFromRows -Computer (Get-CurrentSelectedComputerName) -Mode 'BitLocker' -Rows $script:SecretRows -Verdict 'objets de recuperation visibles, cles non lues')}catch{}
+    try{[void](Update-DomeniaSecretIndexFromRows -Computer (Get-CurrentSelectedComputerName) -Mode 'BitLocker' -Rows $script:SecretRows -Verdict 'objets de recuperation visibles, cles non lues')}catch{Write-DomeniaSwallowed 'Secrets' 'Complete-DomeniaBitLockerListUi' $_}
     $box=Get-DomeniaControl 'TxtBitLockerRecoveryId'
     if($null -ne $box){$box.IsEnabled=$true;if(-not [string]::IsNullOrWhiteSpace([string]$box.Text)){Invoke-DomeniaBitLockerRecoveryIdFilter}}
     Update-DomeniaSecretActionUi

@@ -167,7 +167,7 @@ function Show-DomeniaBoard {
     }
     $state.RenderPending = $false
     # FI-04: only the visible workstation board needs this local observation read.
-    if ($Board -eq 'Computer') { $script:DomeniaComputerQueryRecords=$null; try { [void](Request-DomeniaSelectedObservation) } catch { } }
+    if ($Board -eq 'Computer') { $script:DomeniaComputerQueryRecords=$null; try { [void](Request-DomeniaSelectedObservation) } catch { Write-DomeniaSwallowed 'Widgets' 'Show-DomeniaBoard' $_ } }
     # Ctrl+Z on the board undoes the last layout change (text boxes keep their own undo).
     if (-not ($panel.Tag -is [hashtable] -and $panel.Tag.ContainsKey('UndoKey'))) {
         $panel.Tag = @{ UndoKey = $true; Board = $Board }
@@ -686,7 +686,7 @@ function New-DomeniaWidgetVisual {
     # Numeric buckets of a query: empty buckets before the first and after the last value are not drawn.
     if ([string]$Entry.Kind -eq 'Measure' -and $items.Count) {
         $first = -1; $last = -1
-        for ($i = 0; $i -lt $items.Count; $i++) { $n = 0.0; try { $n = [double]$items[$i].Value } catch { }; if ($n -gt 0) { if ($first -lt 0) { $first = $i }; $last = $i } }
+        for ($i = 0; $i -lt $items.Count; $i++) { $n = 0.0; try { $n = [double]$items[$i].Value } catch { Write-DomeniaSwallowed 'Widgets' 'New-DomeniaWidgetVisual' $_ }; if ($n -gt 0) { if ($first -lt 0) { $first = $i }; $last = $i } }
         if ($first -ge 0) { $items = @($items[$first..$last]) }
     }
     $unit = [string]$Entry.Unit
@@ -697,7 +697,7 @@ function New-DomeniaWidgetVisual {
     $action = $null; $actionProperty = $Entry.PSObject.Properties['Action']; if ($null -ne $actionProperty) { $action = $actionProperty.Value }
     if (-not $value -and $items.Count -and [string]$Entry.Kind -ne 'List') {
         $top = @($items | Where-Object { $null -ne $_.PSObject.Properties['Value'] } | Sort-Object { [double]$_.Value } -Descending | Select-Object -First 1)
-        if ($top.Count) { $value = [string]$top[0].Label; $total = 0.0; foreach ($i in $items) { try { $total += [double]$i.Value } catch { } }; if ($total -gt 0 -and -not $detail) { $detail = [string][Math]::Round(100.0 * [double]$top[0].Value / $total) + ' % du total' } }
+        if ($top.Count) { $value = [string]$top[0].Label; $total = 0.0; foreach ($i in $items) { try { $total += [double]$i.Value } catch { Write-DomeniaSwallowed 'Widgets' 'New-DomeniaWidgetVisual' $_ } }; if ($total -gt 0 -and -not $detail) { $detail = [string][Math]::Round(100.0 * [double]$top[0].Value / $total) + ' % du total' } }
     }
     switch ($Visual) {
         'Gauge' {

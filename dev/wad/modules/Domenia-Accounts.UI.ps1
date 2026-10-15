@@ -51,10 +51,10 @@ function Hide-DomeniaSecretPeek {
     param([Parameter(Mandatory=$true)][string]$Owner)
     if(($null -eq $script:DomeniaSecretPeeks) -or (-not $script:DomeniaSecretPeeks.ContainsKey($Owner))){return}
     $state=$script:DomeniaSecretPeeks[$Owner]
-    try{if($null -ne $state.Timer){$state.Timer.Stop()}}catch{}
-    try{if($null -ne $state.Display){$state.Display.Text=''}}catch{}
-    try{if($null -ne $state.Overlay){$state.Overlay.Visibility=[Windows.Visibility]::Collapsed}}catch{}
-    try{if(($null -ne $state.Button) -and ([bool]$state.Shown) -and ($null -ne $state.ButtonContent)){$state.Button.Content=$state.ButtonContent}}catch{}
+    try{if($null -ne $state.Timer){$state.Timer.Stop()}}catch{Write-DomeniaSwallowed 'Accounts' 'Hide-DomeniaSecretPeek' $_}
+    try{if($null -ne $state.Display){$state.Display.Text=''}}catch{Write-DomeniaSwallowed 'Accounts' 'Hide-DomeniaSecretPeek' $_}
+    try{if($null -ne $state.Overlay){$state.Overlay.Visibility=[Windows.Visibility]::Collapsed}}catch{Write-DomeniaSwallowed 'Accounts' 'Hide-DomeniaSecretPeek' $_}
+    try{if(($null -ne $state.Button) -and ([bool]$state.Shown) -and ($null -ne $state.ButtonContent)){$state.Button.Content=$state.ButtonContent}}catch{Write-DomeniaSwallowed 'Accounts' 'Hide-DomeniaSecretPeek' $_}
     $state.Shown=$false
 }
 
@@ -68,7 +68,7 @@ function Show-DomeniaLoginDiagnosticPanel {
     $panel.IsHitTestVisible=$true
     $trace=$Window.FindName('TxtLoginTechnical')
     if($null -ne $trace){$trace.Focusable=$true}
-    try{$Window.Title=[string]$Window.Title+' · diagnostic'}catch{}
+    try{$Window.Title=[string]$Window.Title+' · diagnostic'}catch{Write-DomeniaSwallowed 'Accounts' 'Show-DomeniaLoginDiagnosticPanel' $_}
     return $true
 }
 
@@ -140,11 +140,11 @@ function Get-DomeniaOpenWorkstationTarget {
     $object=$script:SelectedObject
     if(($null -eq $object) -or ([string]$object.Type -ne 'Machine')){return $null}
     $computer=''
-    try{$computer=[string](Get-DomeniaEntryFirstString $object.Entry 'dNSHostName')}catch{}
-    if(-not $computer){try{$computer=[string](Get-DomeniaEntryFirstString $object.Entry 'name')}catch{}}
+    try{$computer=[string](Get-DomeniaEntryFirstString $object.Entry 'dNSHostName')}catch{Write-DomeniaSwallowed 'Accounts' 'Get-DomeniaOpenWorkstationTarget' $_}
+    if(-not $computer){try{$computer=[string](Get-DomeniaEntryFirstString $object.Entry 'name')}catch{Write-DomeniaSwallowed 'Accounts' 'Get-DomeniaOpenWorkstationTarget' $_}}
     if(-not $computer){$computer=[string]$object.Name}
     if(-not $computer){return $null}
-    $guid='';try{$guid=[string]$object.Safety.Guid}catch{}
+    $guid='';try{$guid=[string]$object.Safety.Guid}catch{Write-DomeniaSwallowed 'Accounts' 'Get-DomeniaOpenWorkstationTarget' $_}
     return [pscustomobject]@{Computer=$computer;Dn=[string]$object.DN;Guid=$guid}
 }
 
@@ -419,7 +419,7 @@ function Show-DomeniaMachineAccountPanel {
     $panel.Open=$true
     Update-DomeniaMachineAccountUi -Force
     $user=Get-DomeniaControl 'TxtMachineAdminUser'
-    if($null -ne $user){try{[void]$user.Focus()}catch{}}
+    if($null -ne $user){try{[void]$user.Focus()}catch{Write-DomeniaSwallowed 'Accounts' 'Show-DomeniaMachineAccountPanel' $_}}
     return $true
 }
 
@@ -430,12 +430,12 @@ function Hide-DomeniaMachineAccountPanel {
     $panel.Open=$false
     Hide-DomeniaSecretPeek -Owner 'Timer:MachineAdminPeek'
     $password=Get-DomeniaControl 'PwdMachineAdmin'
-    if($null -ne $password){try{$password.Clear()}catch{}}
+    if($null -ne $password){try{$password.Clear()}catch{Write-DomeniaSwallowed 'Accounts' 'Hide-DomeniaMachineAccountPanel' $_}}
     $layer=$panel.Layer
     if($layer.Children.Contains($panel.View)){[void]$layer.Children.Remove($panel.View)}
     if($layer.Children.Count -eq 0){$layer.Visibility=[Windows.Visibility]::Collapsed;$layer.ClearValue([Windows.Controls.Panel]::BackgroundProperty)}
     $pill=Get-DomeniaControl 'BtnCompAccountPill'
-    if(($null -ne $pill) -and ([bool]$pill.IsVisible)){try{[void]$pill.Focus()}catch{}}
+    if(($null -ne $pill) -and ([bool]$pill.IsVisible)){try{[void]$pill.Focus()}catch{Write-DomeniaSwallowed 'Accounts' 'Hide-DomeniaMachineAccountPanel' $_}}
 }
 
 function Switch-DomeniaMachineAccountPanel {

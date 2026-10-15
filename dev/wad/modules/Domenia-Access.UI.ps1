@@ -180,7 +180,7 @@ function Request-DomeniaAccessRecovery {
         if($candidateTarget.Length -le 253 -and $candidateTarget -match '^[A-Za-z0-9][A-Za-z0-9._-]*$'){$resourceTarget=$candidateTarget}
     }
     if(-not $DN -and $null -ne $job){
-        try{$DN=[string]$job.CallbackState.DN;if(-not $DN){$DN=[string]$job.CallbackState.TargetDn}}catch{}
+        try{$DN=[string]$job.CallbackState.DN;if(-not $DN){$DN=[string]$job.CallbackState.TargetDn}}catch{Write-DomeniaSwallowed 'Access' 'Request-DomeniaAccessRecovery' $_}
     }
     if(-not $DN -and $OperationId -ne 'LiveConsole' -and $null -ne $script:SelectedObject){$DN=[string]$script:SelectedObject.DN}
     if($OperationId -in @('LiveConsole','LiveCache','LiveDirectoryCheck','ScopeReconcile','TreeChildren','PresenceScan','SelectedPresence','ParkSweep','ParkPing','IndexBuild','AccountAliasRead')){$Interactive=$false}
@@ -482,7 +482,7 @@ function Invoke-DomeniaCapabilityRoute {
         $control=Get-DomeniaControl $target.Focus
         # A control of a tab just selected is laid out later (StorageResume, LegacyImport): when it cannot take the
         # focus yet, it is given once the page is loaded.
-        if($null -ne $control){try{if(-not [bool]$control.Focus()){[void]$control.Dispatcher.BeginInvoke([Action]({[void]$control.Focus()}.GetNewClosure()),[Windows.Threading.DispatcherPriority]::Loaded)}}catch{}}
+        if($null -ne $control){try{if(-not [bool]$control.Focus()){[void]$control.Dispatcher.BeginInvoke([Action]({[void]$control.Focus()}.GetNewClosure()),[Windows.Threading.DispatcherPriority]::Loaded)}}catch{Write-DomeniaSwallowed 'Access' 'Invoke-DomeniaCapabilityRoute' $_}}
     }
     return $true
 }
@@ -492,17 +492,17 @@ function Get-DomeniaControlCapabilityExplanation {
     param([Parameter(Mandatory=$true)][string]$Name)
     $control=Get-DomeniaControl $Name
     $label=$Name
-    try{$entry=Get-DomeniaUxHelpEntry -Control $control -Name $Name;if($null -ne $entry -and [string]$entry.Title){$label=[string]$entry.Title}}catch{}
+    try{$entry=Get-DomeniaUxHelpEntry -Control $control -Name $Name;if($null -ne $entry -and [string]$entry.Title){$label=[string]$entry.Title}}catch{Write-DomeniaSwallowed 'Access' 'Get-DomeniaControlCapabilityExplanation' $_}
     $readOnly=[bool]$script:ReadOnlyMode
     $writeActive=((-not [string]::IsNullOrWhiteSpace([string]$script:ActiveWriteTaskId)) -or ($script:WriteState -in @('Unknown','UnknownPending')))
-    $busy=$false;try{$busy=($script:ControlBusyRef.ContainsKey($Name) -and [int]$script:ControlBusyRef[$Name] -gt 0)}catch{}
+    $busy=$false;try{$busy=($script:ControlBusyRef.ContainsKey($Name) -and [int]$script:ControlBusyRef[$Name] -gt 0)}catch{Write-DomeniaSwallowed 'Access' 'Get-DomeniaControlCapabilityExplanation' $_}
     $capability='';$state='Indetermine'
-    try{$map=Get-WriteControlMap;foreach($cap in @($map.Keys)){if(@($map[$cap]) -contains $Name){$capability=[string]$cap}}}catch{}
+    try{$map=Get-WriteControlMap;foreach($cap in @($map.Keys)){if(@($map[$cap]) -contains $Name){$capability=[string]$cap}}}catch{Write-DomeniaSwallowed 'Access' 'Get-DomeniaControlCapabilityExplanation' $_}
     $lookup=if($capability -eq 'Raw'){'Edit'}else{$capability}
-    try{if($lookup -and $script:CurrentCapabilities.ContainsKey($lookup)){$state=[string]$script:CurrentCapabilities[$lookup]}}catch{}
-    $currentDn='';try{$currentDn=[string]$script:SelectedObject.DN}catch{}
-    $actualDenied=$false;try{if($lookup){$actualDenied=[bool](Test-DomeniaActualCapabilityDenied -Dn $currentDn -Capability $lookup)}}catch{}
-    $protected=$false;try{$protected=([string]$script:SelectedObject.Safety.AdminCount -eq '1') -or [bool]$script:SelectedObject.Safety.Critical}catch{}
+    try{if($lookup -and $script:CurrentCapabilities.ContainsKey($lookup)){$state=[string]$script:CurrentCapabilities[$lookup]}}catch{Write-DomeniaSwallowed 'Access' 'Get-DomeniaControlCapabilityExplanation' $_}
+    $currentDn='';try{$currentDn=[string]$script:SelectedObject.DN}catch{Write-DomeniaSwallowed 'Access' 'Get-DomeniaControlCapabilityExplanation' $_}
+    $actualDenied=$false;try{if($lookup){$actualDenied=[bool](Test-DomeniaActualCapabilityDenied -Dn $currentDn -Capability $lookup)}}catch{Write-DomeniaSwallowed 'Access' 'Get-DomeniaControlCapabilityExplanation' $_}
+    $protected=$false;try{$protected=([string]$script:SelectedObject.Safety.AdminCount -eq '1') -or [bool]$script:SelectedObject.Safety.Critical}catch{Write-DomeniaSwallowed 'Access' 'Get-DomeniaControlCapabilityExplanation' $_}
     if($null -eq $script:SelectedObject -and $capability){return (Get-DomeniaCapabilityExplanation -Action $label -State NoSelection)}
     if($readOnly){return (Get-DomeniaCapabilityExplanation -Action $label -State ReadOnly)}
     if($writeActive){return (Get-DomeniaCapabilityExplanation -Action $label -State Busy)}
@@ -628,7 +628,7 @@ function Initialize-DomeniaAccess {
             $sessionIdentity=[string]$script:Conn.BindUser
             if($sessionIdentity){[void](Request-DomeniaAccountAliasRead -UserName $sessionIdentity)}
         }
-        try{$policy=Get-DomeniaControl 'DgTransportPolicy';if($null -ne $policy -and $policy.IsVisible){[void](Update-DomeniaTransportPolicyView)}}catch{}
+        try{$policy=Get-DomeniaControl 'DgTransportPolicy';if($null -ne $policy -and $policy.IsVisible){[void](Update-DomeniaTransportPolicyView)}}catch{Write-DomeniaSwallowed 'Access' 'Initialize-DomeniaAccess' $_}
         if($null -ne $script:DomeniaSurfaceState -and -not $script:DomeniaSurfaceState.Done){return}
         if(-not (Test-DomeniaAccessBusyWrite) -and $script:Window.IsActive){
             $next=@($script:AccessState.Pending.Values|Where-Object{$_.Interactive}|Sort-Object At|Select-Object -First 1)

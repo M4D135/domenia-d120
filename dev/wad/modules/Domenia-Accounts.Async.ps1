@@ -81,7 +81,7 @@ function Complete-DomeniaAccountValidation {
             Set-Status ('Identite AD validee : '+$r.BindUser+'. Droits poste et secrets non testes.')
             # Point 45: a validated identity lets the directory confirm its other names (same SID). This read is an
             # addition: its failure never undoes the validation.
-            try{[void](Request-DomeniaAccountAliasRead -UserName ([string]$r.BindUser))}catch{}
+            try{[void](Request-DomeniaAccountAliasRead -UserName ([string]$r.BindUser))}catch{Write-DomeniaSwallowed 'Accounts' 'Complete-DomeniaAccountValidation' $_}
         }
         Update-DomeniaAccountUi;Update-DomeniaSecretActionUi
     }catch{[void](Show-DomeniaOperationError -Operation $v.Operation -ErrorRecordOrException $_)}
@@ -109,9 +109,9 @@ function Start-DomeniaDirectoryCorrection {
 }
 function Show-DomeniaDirectoryCorrection {
     # Point 44: route of a refused connection account: the correction field of Comptes, never a new window.
-    try{Select-DomeniaWorkspace -Workspace 'TabAccounts'}catch{}
+    try{Select-DomeniaWorkspace -Workspace 'TabAccounts'}catch{Write-DomeniaSwallowed 'Accounts' 'Show-DomeniaDirectoryCorrection' $_}
     $box=Get-DomeniaControl 'PwdAccountAdCorrection'
-    if($null -ne $box){try{[void]$box.Focus()}catch{}}
+    if($null -ne $box){try{[void]$box.Focus()}catch{Write-DomeniaSwallowed 'Accounts' 'Show-DomeniaDirectoryCorrection' $_}}
     Set-Status 'Compte de connexion refusé : saisissez son mot de passe actuel dans Comptes, carte Annuaire, puis « Corriger le mot de passe ». Pour un autre compte, utilisez « Changer de compte ».' 'WARN'
 }
 function Get-DomeniaAccountCorrectionJobs {
@@ -213,7 +213,7 @@ function Complete-DomeniaAccountCorrection {
             [void]$script:AccessState.Faults.Remove([string]$scope)
             foreach($pendingKey in @($script:AccessState.Pending.Keys)){if([string]$script:AccessState.Pending[$pendingKey].Scope -eq [string]$scope){[void]$script:AccessState.Pending.Remove($pendingKey)}}
         }
-        try{Update-DomeniaAccessButton}catch{}
+        try{Update-DomeniaAccessButton}catch{Write-DomeniaSwallowed 'Accounts' 'Complete-DomeniaAccountCorrection' $_}
     }
     if(-not [bool]$decision.Release){
         # Nothing is released and nothing is stopped: the pause already refuses every new attempt of this account.
@@ -223,14 +223,14 @@ function Complete-DomeniaAccountCorrection {
     $plan=Get-DomeniaAccountCorrectionPlan -Jobs @(Get-DomeniaAccountCorrectionJobs) -Keys $keys -Generation $generation
     $released=@(Clear-DomeniaCredentialGuardFault -Guard $guard -Keys $keys -Generation $generation)
     if($released.Count){Add-DomeniaCredentialFailureHistory $released}
-    foreach($id in @($plan.Stop)){try{Request-UiTaskStop -Id ([string]$id) -Silent -Reason 'Compte corrigé : lecture partie avec lʼancien mot de passe'}catch{}}
+    foreach($id in @($plan.Stop)){try{Request-UiTaskStop -Id ([string]$id) -Silent -Reason 'Compte corrigé : lecture partie avec lʼancien mot de passe'}catch{Write-DomeniaSwallowed 'Accounts' 'Complete-DomeniaAccountCorrection' $_}}
     $text=[string]$plan.Text
     if($released.Count){$text='Protection levée pour ce compte seulement. '+$text}
     if($ambiguous -eq 1){$text+=' Une opération suspendue sans compte identifié reste arrêtée jusquʼà la reconnexion.'}
     elseif($ambiguous -gt 1){$text+=' '+[string]$ambiguous+' opérations suspendues sans compte identifié restent arrêtées jusquʼà la reconnexion.'}
     Write-AppLog ('Compte corrigé sans reconnexion : '+$UserName+'. '+$text) 'INFO'
     # Point 45: the validated identity lets the directory confirm its other names; never a reason to undo the correction.
-    try{[void](Request-DomeniaAccountAliasRead -UserName $UserName)}catch{}
+    try{[void](Request-DomeniaAccountAliasRead -UserName $UserName)}catch{Write-DomeniaSwallowed 'Accounts' 'Complete-DomeniaAccountCorrection' $_}
     return [pscustomobject]@{Released=$true;Text=$text}
 }
 $script:DomeniaAccountAlias=$null
@@ -265,7 +265,7 @@ function Invoke-DomeniaAccountAliasQueue {
     $callback=[pscustomobject]@{Epoch=[long]$state.Epoch;BaseDn=[string]$state.BaseDn;UserName=[string]$next.UserName;Key=[string]$next.Key}
     try{
         $state.Job=[string](Start-UiTask -Name ('Alias du compte '+[string]$next.UserName) -OperationId 'AccountAliasRead' -Code (Get-DomeniaAccountAliasWorkerCode) -Payload ([pscustomobject]@{Sam=[string]$next.Sam;Upn=[string]$next.Upn}) -CallbackState $callback -SuccessHandler 'Complete-DomeniaAccountAliasRead' -ErrorHandler 'Fail-DomeniaAccountAliasRead' -TimeoutSeconds 30 -TaskClass 'Background')
-    }catch{$state.Job='';try{Write-AppLog ('Rapprochement des noms du compte non lancé : '+$_.Exception.Message) 'WARN'}catch{}}
+    }catch{$state.Job='';try{Write-AppLog ('Rapprochement des noms du compte non lancé : '+$_.Exception.Message) 'WARN'}catch{Write-DomeniaSwallowed 'Accounts' 'Invoke-DomeniaAccountAliasQueue' $_}}
 }
 function Complete-DomeniaAccountAliasRead {
     param($Result,$State)
@@ -291,7 +291,7 @@ function Complete-DomeniaAccountAliasRead {
         Write-AppLog $text 'INFO'
         # A pause already recorded under one of these names now covers the others: withdraw their queued reads.
         if([int]$answer.Propagated -gt 0){Sync-DomeniaCredentialGuardUi}
-        try{Update-DomeniaAccountUi}catch{}
+        try{Update-DomeniaAccountUi}catch{Write-DomeniaSwallowed 'Accounts' 'Complete-DomeniaAccountAliasRead' $_}
     }finally{Invoke-DomeniaAccountAliasQueue}
 }
 function Fail-DomeniaAccountAliasRead {

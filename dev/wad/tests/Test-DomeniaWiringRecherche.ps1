@@ -6,6 +6,10 @@ param([string]$ReportPath='', [switch]$Quiet)
 # Directory, workstation, network and disk are replaced by explicit doubles: no LDAP, CIM, ping or file write.
 # Each case fails when the corresponding wiring is removed (see the comment above each case).
 $ErrorActionPreference='Stop'
+# P-CD-09: the catch blocks of the core and of the UI modules trace an ignored error with Write-DomeniaSwallowed, defined
+# in the script scope of Domenia-Core.ps1. Functions loaded one by one stay silent here, as before the sweep (no-op double;
+# the trace itself is tested in rules/Common.Tests.ps1 and Test-DomeniaFaults.ps1).
+function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) }
 $edition=if($PSVersionTable.ContainsKey('PSEdition')){[string]$PSVersionTable.PSEdition}else{'Desktop'}
 $native=($env:OS -eq 'Windows_NT' -and $edition -eq 'Desktop' -and $PSVersionTable.PSVersion.Major -eq 5 -and $PSVersionTable.PSVersion.Minor -eq 1)
 if(-not $native){throw 'Windows PowerShell 5.1 requis : une autre execution ne vaut pas preuve.'}

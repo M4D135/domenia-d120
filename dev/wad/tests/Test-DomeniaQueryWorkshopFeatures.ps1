@@ -2,6 +2,10 @@
 [CmdletBinding()]
 param([switch]$QuerySource,[string]$ReportPath='')
 $ErrorActionPreference='Stop'
+# P-CD-09: the catch blocks of the core and of the UI modules trace an ignored error with Write-DomeniaSwallowed, defined
+# in the script scope of Domenia-Core.ps1. Functions loaded one by one stay silent here, as before the sweep (no-op double;
+# the trace itself is tested in rules/Common.Tests.ps1 and Test-DomeniaFaults.ps1).
+function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) }
 $wad=Split-Path -Parent $PSScriptRoot;$modules=Join-Path $wad 'modules'
 if($QuerySource){Add-Type -Path (Join-Path (Split-Path -Parent $wad) 'vendor/m4d-admin-common/src/Query/QueryEngine.cs')}else{Add-Type -Path (Join-Path $modules 'M4D.Admin.Common.Query.dll')}
 Add-Type -Path (Join-Path $modules 'Domenia.Native.dll')

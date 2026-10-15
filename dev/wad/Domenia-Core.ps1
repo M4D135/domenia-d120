@@ -187,7 +187,7 @@ function Protect-DomeniaLogText {
     if (-not [bool]$script:DomeniaSecretTextRuleReady) {
         $script:DomeniaSecretTextRuleReady = ($null -ne (Get-Command -Name 'Protect-DomeniaSecretText' -CommandType Function -ErrorAction SilentlyContinue))
     }
-    if ([bool]$script:DomeniaSecretTextRuleReady) { try { $value = [string](Protect-DomeniaSecretText $value) } catch { } }
+    if ([bool]$script:DomeniaSecretTextRuleReady) { try { $value = [string](Protect-DomeniaSecretText $value) } catch { Write-DomeniaSwallowed 'Core' 'Protect-DomeniaLogText' $_ } }
     # Defence in depth, not a promise to recognise every possible secret.
     $value = [regex]::Replace($value,'(?i)\b(Bearer|Basic)\s+[A-Za-z0-9_.~+/=-]+','$1 [MASQUE]')
     $value = [regex]::Replace($value,'(?i)\b(password|passwd|pwd|pass|motdepasse|mot\s+de\s+passe|secret|token|authorization|api[_-]?key|apikey|client[_-]?secret)\s*[:=]\s*(?:"[^"]*"|''[^'']*''|[^\s;,]+)','$1=[MASQUE]')
@@ -201,7 +201,7 @@ function Protect-DomeniaLogText {
         }
         $clipboard = [string]$script:SecretClipboardValue
         if ($clipboard.Length -ge 4) { $value = $value.Replace($clipboard,'[SECRET MASQUE]') }
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'Core' 'Protect-DomeniaLogText' $_ }
     return $value
 }
 
@@ -228,7 +228,7 @@ function Write-DomeniaSwallowed {
         $writing = $false
         try { $writing = [bool]$script:DomeniaSwallowedWriting } catch { $writing = $false }
         if ($writing) {
-            $null = Add-DomeniaSwallowedEntry -Category $Category -Operation $Operation -ErrorRecord $ErrorRecord -Now $Now -Reentry
+            [void](Add-DomeniaSwallowedEntry -Category $Category -Operation $Operation -ErrorRecord $ErrorRecord -Now $Now -Reentry)
             return
         }
         $mask = $null
@@ -237,7 +237,7 @@ function Write-DomeniaSwallowed {
         try {
             $due = Add-DomeniaSwallowedEntry -Category $Category -Operation $Operation -ErrorRecord $ErrorRecord -Now $Now -Mask $mask
             if ($null -ne $due) {
-                try { $null = Write-AppLog -Text ([string]$due.Line) -Level 'DEBUG' -Area 'Technique'; $due.Entry.Journal = 'Logged' }
+                try { [void](Write-AppLog -Text ([string]$due.Line) -Level 'DEBUG' -Area 'Technique'); $due.Entry.Journal = 'Logged' }
                 catch { $due.Entry.Journal = 'Unavailable' }
             }
         }
@@ -245,7 +245,7 @@ function Write-DomeniaSwallowed {
     }
     catch {
         # Exempt from tools/audit_swallowed.py: the trace of a swallowed error cannot trace its own failure.
-        $null = $_
+        [void]$_
     }
 }
 
@@ -287,13 +287,13 @@ function Get-DomeniaGridExportColumns {
     foreach ($column in $ordered) {
         if ($column.Visibility -ne [System.Windows.Visibility]::Visible) { continue }
         $property = ''
-        try { if ($column -is [System.Windows.Controls.DataGridBoundColumn] -and $null -ne $column.Binding -and $null -ne $column.Binding.Path) { $property = [string]$column.Binding.Path.Path } } catch { }
+        try { if ($column -is [System.Windows.Controls.DataGridBoundColumn] -and $null -ne $column.Binding -and $null -ne $column.Binding.Path) { $property = [string]$column.Binding.Path.Path } } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaGridExportColumns' $_ }
         # CO-03 : une colonne modele n'a pas de Binding, mais ClipboardContentBinding designe deja la
         # valeur qu'elle represente — c'est ce que WPF copie dans le presse-papiers. Sans elle,
         # SortMemberPath gagnerait et le CSV sortirait la cle de tri, un DateTime : « Jamais » y
         # deviendrait 01/01/0001 00:00:00. Tag n'est pas une issue : DataGridColumn n'en porte pas.
         if ((-not $property) -and ($column -is [System.Windows.Controls.DataGridTemplateColumn])) {
-            try { if ($null -ne $column.ClipboardContentBinding -and $null -ne $column.ClipboardContentBinding.Path) { $property = [string]$column.ClipboardContentBinding.Path.Path } } catch { }
+            try { if ($null -ne $column.ClipboardContentBinding -and $null -ne $column.ClipboardContentBinding.Path) { $property = [string]$column.ClipboardContentBinding.Path.Path } } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaGridExportColumns' $_ }
         }
         if (-not $property) { $property = [string]$column.SortMemberPath }
         if ((-not $property) -and ($column -is [System.Windows.Controls.DataGridTemplateColumn]) -and ($null -ne $column.CellTemplate)) {
@@ -310,7 +310,7 @@ function Get-DomeniaGridExportColumns {
                         foreach ($child in [System.Windows.LogicalTreeHelper]::GetChildren($node)) { if ($child -is [System.Windows.DependencyObject]) { $queue.Enqueue($child) } }
                     }
                 }
-            } catch { }
+            } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaGridExportColumns' $_ }
         }
         if (-not $property) { continue }
         $header = $column.Header
@@ -333,7 +333,7 @@ function ConvertTo-DomeniaExportRows {
             $header = [string]$column.Header; $suffix = 2
             while ($out.Contains($header)) { $header = [string]$column.Header + ' (' + $suffix + ')'; $suffix++ }
             $value = $null
-            try { $p = $row.PSObject.Properties[[string]$column.Property]; if ($null -ne $p) { $value = $p.Value } } catch { }
+            try { $p = $row.PSObject.Properties[[string]$column.Property]; if ($null -ne $p) { $value = $p.Value } } catch { Write-DomeniaSwallowed 'Core' 'ConvertTo-DomeniaExportRows' $_ }
             if (($value -is [System.Collections.IEnumerable]) -and ($value -isnot [string])) { $value = (@($value) | ForEach-Object { [string]$_ }) -join ', ' }
             $out[$header] = $value
         }
@@ -407,7 +407,7 @@ function Get-DomeniaExportComputerName {
     # workstation the rows were read from, when the caller kept it.
     param([string]$Computer='')
     $name = ([string]$Computer).Trim()
-    if (-not $name) { try { $name = [string]$script:SelectedObject.Name } catch { } }
+    if (-not $name) { try { $name = [string]$script:SelectedObject.Name } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaExportComputerName' $_ } }
     if (-not $name) { $name = 'poste' }
     return $name
 }
@@ -423,7 +423,7 @@ function Get-DomeniaSearchExportSubject {
         $dn = [string](Get-DomeniaSearchScope -Mode OU).BaseDn
         $match = [regex]::Match($dn,'^(?i:OU|CN|DC)=((?:\\.|[^,])+)')
         if ($match.Success) { return ($match.Groups[1].Value -replace '\\(.)','$1') }
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaSearchExportSubject' $_ }
     return 'recherche'
 }
 
@@ -431,7 +431,7 @@ function Get-DomeniaCsvDelimiter {
     # Import of a CSV written by Domenia (semicolon since CO-04) or by an older version or another tool (comma).
     param([string]$Path)
     $first = ''
-    try { $reader = [IO.StreamReader]::new($Path,$true); try { $first = [string]$reader.ReadLine() } finally { $reader.Dispose() } } catch { }
+    try { $reader = [IO.StreamReader]::new($Path,$true); try { $first = [string]$reader.ReadLine() } finally { $reader.Dispose() } } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaCsvDelimiter' $_ }
     if (($first.IndexOf(';') -ge 0) -and ($first.IndexOf(',') -lt 0)) { return ';' }
     if ($first.Split(';').Count -gt $first.Split(',').Count) { return ';' }
     return ','
@@ -465,13 +465,13 @@ function Complete-DomeniaDetachedReadJobs {
         $job = $script:DetachedReadJobs[$i]
         if ($null -eq $job) { $script:DetachedReadJobs.RemoveAt($i); continue }
         $invokeDone = $false; $stopDone = $true
-        try { $invokeDone = [bool]$job.Handle.IsCompleted } catch { }
+        try { $invokeDone = [bool]$job.Handle.IsCompleted } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaDetachedReadJobs' $_ }
         try { if ($null -ne $job.StopHandle) { $stopDone = [bool]$job.StopHandle.IsCompleted } } catch { $stopDone = $false }
         if (-not $invokeDone -or -not $stopDone) { continue }
-        try { if ($null -ne $job.StopHandle) { $job.PowerShell.EndStop($job.StopHandle) } } catch { }
-        try { $discarded = $job.PowerShell.EndInvoke($job.Handle); $discarded = $null } catch { }
-        try { $job.PowerShell.Dispose() } catch { }
-        try { $job.Runspace.Dispose() } catch { }
+        try { if ($null -ne $job.StopHandle) { $job.PowerShell.EndStop($job.StopHandle) } } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaDetachedReadJobs' $_ }
+        try { $discarded = $job.PowerShell.EndInvoke($job.Handle); $discarded = $null } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaDetachedReadJobs' $_ }
+        try { $job.PowerShell.Dispose() } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaDetachedReadJobs' $_ }
+        try { $job.Runspace.Dispose() } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaDetachedReadJobs' $_ }
         $job.OnSuccess = $null; $job.OnError = $null; $job.CallbackState = $null
         $script:DetachedReadJobs.RemoveAt($i)
     }
@@ -531,12 +531,12 @@ function Register-DomeniaReliabilityUi {
 }
 
 function Restart-DomeniaSecretLifetime {
-    try { if ($null -ne $script:SecretLifetimeTimer) { $script:SecretLifetimeTimer.Stop() } } catch { }
+    try { if ($null -ne $script:SecretLifetimeTimer) { $script:SecretLifetimeTimer.Stop() } } catch { Write-DomeniaSwallowed 'Core' 'Restart-DomeniaSecretLifetime' $_ }
     $seconds = [Math]::Max(30,[Math]::Min(1800,[int](Get-CfgValue 'Security' 'SecretMemorySeconds' 300)))
     # FI-05: protected heartbeat timer; one expiry clears the secrets, the next reveal restarts it.
     $script:SecretLifetimeTimer = New-DomeniaTimer -Owner 'Timer:SecretLifetime' -IntervalMs ($seconds * 1000) -Start -Tick {
         param($sender,$eventArgs)
-        try { $sender.Stop() } catch { }
+        try { $sender.Stop() } catch { Write-DomeniaSwallowed 'Core' 'Restart-DomeniaSecretLifetime' $_ }
         try { Clear-Secrets; Set-Status 'Secrets retirés de la vue et références effacées après expiration.' }
         catch { Write-AppLog 'Expiration des secrets : echec du nettoyage.' 'WARN' }
     }
@@ -581,7 +581,7 @@ function Write-DomeniaBootstrapTrace {
         $line = "{0}`tPID={1}`tHOST={2}`t{3}`t{4}`t{5}{6}" -f (Get-Date).ToString("yyyy-MM-dd HH:mm:ss.fff"),$PID,[System.Diagnostics.Process]::GetCurrentProcess().ProcessName,$Stage,$Status,$clean,[Environment]::NewLine
         [System.IO.File]::AppendAllText($path,$line,(New-Object System.Text.UTF8Encoding($false)))
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Write-DomeniaBootstrapTrace' $_ }
 }
 
 # DOMENIA reste dans le processus courant. Aucun relancement automatique cache
@@ -589,8 +589,8 @@ function Write-DomeniaBootstrapTrace {
 #  processus parent qui lance PowerShell en arriere-plan , souvent signale
 # par les protections heuristiques. Le mode ISE reste reserve au diagnostic.
 $isIseHost = $false
-try { $isIseHost = ($null -ne $psISE) } catch { }
-try { if ([System.Diagnostics.Process]::GetCurrentProcess().ProcessName -ieq "powershell_ise") { $isIseHost = $true } } catch { }
+try { $isIseHost = ($null -ne $psISE) } catch { Write-DomeniaSwallowed 'Core' 'Domenia-Core.ps1' $_ }
+try { if ([System.Diagnostics.Process]::GetCurrentProcess().ProcessName -ieq "powershell_ise") { $isIseHost = $true } } catch { Write-DomeniaSwallowed 'Core' 'Domenia-Core.ps1' $_ }
 if ($isIseHost) {
     Write-DomeniaBootstrapTrace -Stage "ISE" -Status "WARN" -Detail "Execution directe dans PowerShell ISE ; aucun processus enfant n'est lance. Pour un test fidele, utiliser Windows PowerShell 5.1 en mode STA ou l'EXE compile."
     Write-Warning "DOMENIA s'execute directement dans PowerShell ISE. Pour un test fidele a l'EXE, utilise Windows PowerShell 5.1 avec -STA."
@@ -1305,7 +1305,7 @@ function Get-RootDir {
                 if (-not $candidates.Contains($full)) { [void]$candidates.Add($full) }
             }
         }
-        catch { }
+        catch { Write-DomeniaSwallowed 'Core' 'Get-RootDir' $_ }
     }
 
     # Surcharge volontaire, pratique pour les wrappers d entreprise.
@@ -1321,7 +1321,7 @@ function Get-RootDir {
         $processName = ([string]$process.ProcessName).ToLowerInvariant()
         $processPath = [string]$process.MainModule.FileName
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Get-RootDir' $_ }
 
     $compiled = (-not [string]::IsNullOrWhiteSpace($processPath)) -and ($knownHosts -notcontains $processName)
     $script:IsCompiledExecutable = $compiled
@@ -1334,7 +1334,7 @@ function Get-RootDir {
             Add-RootCandidate $arg0
         }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Get-RootDir' $_ }
 
     # Mode PS1 classique.
     Add-RootCandidate $script:BootstrapPSCommandPath
@@ -1343,12 +1343,12 @@ function Get-RootDir {
 
     # BaseDirectory est fiable pour un EXE, mais souvent faux sous l hote PowerShell.
     if ($compiled) {
-        try { Add-RootCandidate ([System.AppContext]::BaseDirectory) } catch { }
-        try { Add-RootCandidate ([System.AppDomain]::CurrentDomain.BaseDirectory) } catch { }
+        try { Add-RootCandidate ([System.AppContext]::BaseDirectory) } catch { Write-DomeniaSwallowed 'Core' 'Get-RootDir' $_ }
+        try { Add-RootCandidate ([System.AppDomain]::CurrentDomain.BaseDirectory) } catch { Write-DomeniaSwallowed 'Core' 'Get-RootDir' $_ }
     }
 
-    try { Add-RootCandidate ([Environment]::CurrentDirectory) } catch { }
-    try { Add-RootCandidate ((Get-Location).ProviderPath) } catch { }
+    try { Add-RootCandidate ([Environment]::CurrentDirectory) } catch { Write-DomeniaSwallowed 'Core' 'Get-RootDir' $_ }
+    try { Add-RootCandidate ((Get-Location).ProviderPath) } catch { Write-DomeniaSwallowed 'Core' 'Get-RootDir' $_ }
 
     foreach ($candidate in $candidates) {
         if (Test-Path -LiteralPath $candidate -PathType Container) { return $candidate }
@@ -1400,7 +1400,7 @@ function Set-AppWindowIcon {
         # de fichier temporaire ni conserver de bloc Base64 dans le script.
         if ($script:IsCompiledExecutable) {
             $exePath = ""
-            try { $exePath = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName } catch { }
+            try { $exePath = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName } catch { Write-DomeniaSwallowed 'Core' 'Set-AppWindowIcon' $_ }
             if (-not [string]::IsNullOrWhiteSpace($exePath) -and (Test-Path -LiteralPath $exePath -PathType Leaf)) {
                 Add-Type -AssemblyName System.Drawing -ErrorAction SilentlyContinue
                 $nativeIcon = [System.Drawing.Icon]::ExtractAssociatedIcon($exePath)
@@ -1417,7 +1417,7 @@ function Set-AppWindowIcon {
             }
         }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Set-AppWindowIcon' $_ }
 }
 
 $script:Config = $null
@@ -1493,7 +1493,7 @@ function Load-AppConfig {
             }
         }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Load-AppConfig' $_ }
 
     try {
         if (Test-Path -LiteralPath $script:RegPath) {
@@ -1503,7 +1503,7 @@ function Load-AppConfig {
             foreach($name in @('VaultDomainDn','VaultUserName')){if($null -ne $reg.PSObject.Properties[$name]){$default.Auth[$name]=[string]$reg.$name}}
         }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Load-AppConfig' $_ }
 
     if ($Server) { $default.Conf.Server = $Server }
     if ($SearchBase) { $default.Conf.SearchBase = $SearchBase }
@@ -1516,7 +1516,7 @@ function Load-AppConfig {
             $default.Browser.LoadFirstLevelOnStartup = $false
         }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Load-AppConfig' $_ }
     $script:Config = $default
     return $default
 }
@@ -1540,7 +1540,7 @@ function Get-CfgValue {
             if ($null -ne $v -and "" -ne [string]$v) { return $v }
         }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Get-CfgValue' $_ }
     return $Default
 }
 
@@ -1583,13 +1583,13 @@ function Get-DomeniaDirectoryBindUser {
             return ([string]$script:Conn.BindUser).Trim()
         }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaDirectoryBindUser' $_ }
     try {
         if ($null -ne $script:Conn.Credential -and -not [string]::IsNullOrWhiteSpace([string]$script:Conn.Credential.UserName)) {
             return ([string]$script:Conn.Credential.UserName).Trim()
         }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaDirectoryBindUser' $_ }
     return ""
 }
 
@@ -1706,7 +1706,7 @@ function Add-DomeniaAdBinaryDirectoryCandidate {
         }
         [void]$List.Add($full)
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Add-DomeniaAdBinaryDirectoryCandidate' $_ }
 }
 
 function Get-DomeniaAdModuleSources {
@@ -1718,18 +1718,18 @@ function Get-DomeniaAdModuleSources {
 
     $directories = New-Object System.Collections.Generic.List[string]
     $processPath = ""
-    try { $processPath = [string][System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName } catch { }
+    try { $processPath = [string][System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaAdModuleSources' $_ }
     if ($script:IsCompiledExecutable -and -not [string]::IsNullOrWhiteSpace($processPath)) {
         Add-DomeniaAdBinaryDirectoryCandidate -List $directories -Value (Split-Path -Parent $processPath)
     }
     foreach ($sourcePath in @($script:BootstrapPSCommandPath,$script:BootstrapInvocationPath)) {
         if (-not [string]::IsNullOrWhiteSpace([string]$sourcePath)) {
-            try { Add-DomeniaAdBinaryDirectoryCandidate -List $directories -Value (Split-Path -Parent $sourcePath) } catch { }
+            try { Add-DomeniaAdBinaryDirectoryCandidate -List $directories -Value (Split-Path -Parent $sourcePath) } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaAdModuleSources' $_ }
         }
     }
     Add-DomeniaAdBinaryDirectoryCandidate -List $directories -Value $script:BootstrapScriptRoot
-    try { Add-DomeniaAdBinaryDirectoryCandidate -List $directories -Value ([Environment]::CurrentDirectory) } catch { }
-    try { Add-DomeniaAdBinaryDirectoryCandidate -List $directories -Value ((Get-Location).ProviderPath) } catch { }
+    try { Add-DomeniaAdBinaryDirectoryCandidate -List $directories -Value ([Environment]::CurrentDirectory) } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaAdModuleSources' $_ }
+    try { Add-DomeniaAdBinaryDirectoryCandidate -List $directories -Value ((Get-Location).ProviderPath) } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaAdModuleSources' $_ }
 
     foreach ($directory in $directories) {
         $management = Join-Path $directory "Microsoft.ActiveDirectory.Management.dll"
@@ -1915,7 +1915,7 @@ function Get-PropFirst {
     try {
         if ($Props -and $Props.Contains($Name) -and $Props[$Name].Count -gt 0) { return $Props[$Name][0] }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Get-PropFirst' $_ }
     return $Default
 }
 
@@ -1970,7 +1970,7 @@ function Convert-GuidLabel {
 function Get-ObjectTypeFromProps {
     param($Props)
     $classes = @()
-    try { foreach ($c in $Props["objectclass"]) { $classes += ([string]$c).ToLowerInvariant() } } catch { }
+    try { foreach ($c in $Props["objectclass"]) { $classes += ([string]$c).ToLowerInvariant() } } catch { Write-DomeniaSwallowed 'Core' 'Get-ObjectTypeFromProps' $_ }
     if ($classes -contains "computer") { return "Machine" }
     if ($classes -contains "user") { return "Utilisateur" }
     if ($classes -contains "group") { return "Groupe" }
@@ -2049,7 +2049,7 @@ function Get-DomeniaControl {
             if ($script:Ctrl.Contains($Name)) { return $script:Ctrl[$Name] }
         }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaControl' $_ }
     return $null
 }
 
@@ -2210,7 +2210,7 @@ function Set-DomeniaItemsSource {
         return $true
     }
     catch {
-        try { Write-AppLog "ItemsSource $Name impossible : $($_.Exception.ToString())" "ERROR" } catch { }
+        try { Write-AppLog "ItemsSource $Name impossible : $($_.Exception.ToString())" "ERROR" } catch { Write-DomeniaSwallowed 'Core' 'Set-DomeniaItemsSource' $_ }
         return $false
     }
 }
@@ -2234,7 +2234,7 @@ function Set-DomeniaGridRows {
         $current = $grid.SelectedItem
         if ($null -ne $current) { $previousKey = [string]$current.$KeyProperty }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Set-DomeniaGridRows' $_ }
 
     $materialized = @($Rows)
     $restored = $false
@@ -2244,14 +2244,14 @@ function Set-DomeniaGridRows {
         if (-not [string]::IsNullOrWhiteSpace($previousKey)) {
             foreach ($row in $materialized) {
                 $key = ""
-                try { $key = [string]$row.$KeyProperty } catch { }
+                try { $key = [string]$row.$KeyProperty } catch { Write-DomeniaSwallowed 'Core' 'Set-DomeniaGridRows' $_ }
                 if ($key -ieq $previousKey) {
                     try {
                         $grid.SelectedItem = $row
                         $grid.ScrollIntoView($row)
                         $restored = $true
                     }
-                    catch { }
+                    catch { Write-DomeniaSwallowed 'Core' 'Set-DomeniaGridRows' $_ }
                     break
                 }
             }
@@ -2262,7 +2262,7 @@ function Set-DomeniaGridRows {
     # La ligne selectionnee a disparu du nouveau jeu : il faut alors bien
     # notifier l interface, mais une seule fois.
     if (-not [string]::IsNullOrWhiteSpace($previousKey) -and -not $restored) {
-        try { Queue-DomeniaSelectedObjectOpen } catch { }
+        try { Queue-DomeniaSelectedObjectOpen } catch { Write-DomeniaSwallowed 'Core' 'Set-DomeniaGridRows' $_ }
     }
     return $true
 }
@@ -2302,7 +2302,7 @@ function Set-Status {
         $script:UiLogProtectedText = $Text
         Add-DomeniaUiLog -Text $Text -Level $Level -Area "Statut"
         # FI-08: warnings and errors also reach Domenia.log through the queued writer (not lost at closing).
-        if (($Level -in @('WARN','ERROR')) -and (-not $NoFileLog)) { try { Write-DomeniaAppLogFile -Text $Text -Level $Level -Source 'Status' } catch { } }
+        if (($Level -in @('WARN','ERROR')) -and (-not $NoFileLog)) { try { Write-DomeniaAppLogFile -Text $Text -Level $Level -Source 'Status' } catch { Write-DomeniaSwallowed 'Core' 'Set-Status' $_ } }
         if($Level -in @('WARN','ERROR') -and $null -ne (Get-Command Request-DomeniaAccessRecovery -ErrorAction SilentlyContinue)){
             [void](Request-DomeniaAccessRecovery -Operation 'Operation a verifier' -ErrorValue $Text)
         }
@@ -2313,7 +2313,7 @@ function Set-Status {
             $label.Visibility = [System.Windows.Visibility]::Collapsed
         }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Set-Status' $_ }
 }
 
 
@@ -2326,14 +2326,14 @@ function Set-DomeniaControlForeground {
         $brush = [System.Windows.Media.Brush]([System.Windows.Media.BrushConverter]::new().ConvertFromInvariantString($Color))
         if ($null -ne $brush) { $Control.Foreground = $brush }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Set-DomeniaControlForeground' $_ }
 }
 
 function Get-DomeniaDialogOwner {
     try {
         if ($null -ne $script:Window -and $script:Window.IsVisible) { return $script:Window }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaDialogOwner' $_ }
     return $null
 }
 
@@ -2378,7 +2378,7 @@ function Show-DomeniaDialog {
 
     if ($null -ne $script:DomeniaSurfaceState -and -not $script:DomeniaSurfaceState.Done) {
         $script:DomeniaSurfaceState.Status.Text=$Title+': '+$Message
-        try { Write-AppLog ($Title+': '+$Message) 'WARN' } catch { }
+        try { Write-AppLog ($Title+': '+$Message) 'WARN' } catch { Write-DomeniaSwallowed 'Core' 'Show-DomeniaDialog' $_ }
         if ($Buttons -eq 'YesNo') { return [Windows.MessageBoxResult]::No }
         return [Windows.MessageBoxResult]::OK
     }
@@ -2392,13 +2392,13 @@ function Show-DomeniaDialog {
     $window.WindowStartupLocation = [System.Windows.WindowStartupLocation]::CenterOwner
     $window.ResizeMode = [System.Windows.ResizeMode]::CanResize
     $window.ShowInTaskbar = $false
-    try { Set-AppWindowIcon $window } catch { }
+    try { Set-AppWindowIcon $window } catch { Write-DomeniaSwallowed 'Core' 'Show-DomeniaDialog' $_ }
     $palette=Get-DomeniaBootThemePalette -Theme (Get-DomeniaStoredTheme)
     $brush=[Windows.Media.BrushConverter]::new()
     $window.Background=$brush.ConvertFromInvariantString([string]$palette.Window)
     $window.Foreground=$brush.ConvertFromInvariantString([string]$palette.Text)
     $owner = Get-DomeniaDialogOwner
-    if ($null -ne $owner) { try { $window.Owner = $owner } catch { } }
+    if ($null -ne $owner) { try { $window.Owner = $owner } catch { Write-DomeniaSwallowed 'Core' 'Show-DomeniaDialog' $_ } }
     if ($null -ne (Get-Command Set-DomeniaWindowFrameTheme -ErrorAction SilentlyContinue)) { [void](Set-DomeniaWindowFrameTheme -Window $window) }
 
     $root = New-Object System.Windows.Controls.Grid
@@ -2517,13 +2517,13 @@ function Show-DomeniaFormDialog {
     $window.SizeToContent='Height'; $window.MaxHeight=760
     $window.WindowStartupLocation='CenterOwner'; $window.ResizeMode='CanResize'
     $window.ShowInTaskbar=$false
-    try { Set-AppWindowIcon $window } catch { }
+    try { Set-AppWindowIcon $window } catch { Write-DomeniaSwallowed 'Core' 'Show-DomeniaFormDialog' $_ }
     $palette=Get-DomeniaBootThemePalette -Theme (Get-DomeniaStoredTheme)
     $brush=[Windows.Media.BrushConverter]::new()
     $window.Background=$brush.ConvertFromInvariantString([string]$palette.Window)
     $window.Foreground=$brush.ConvertFromInvariantString([string]$palette.Text)
     $owner=Get-DomeniaDialogOwner
-    if($null-ne $owner){try{$window.Owner=$owner}catch{}}
+    if($null-ne $owner){try{$window.Owner=$owner}catch{Write-DomeniaSwallowed 'Core' 'Show-DomeniaFormDialog' $_}}
     if($null -ne (Get-Command Set-DomeniaWindowFrameTheme -ErrorAction SilentlyContinue)){[void](Set-DomeniaWindowFrameTheme -Window $window)}
 
     $scroll=New-Object System.Windows.Controls.ScrollViewer
@@ -2602,7 +2602,7 @@ function Add-DomeniaErrorIncidentCode {
     $code = [string]$occurrence.Code
     if ([bool]$occurrence.Write) {
         $repeat = if ([int]$occurrence.Count -gt 1) { ' (même erreur ×' + [int]$occurrence.Count + ')' } else { '' }
-        try { Write-AppLog ("[$code] $text$repeat") 'ERROR' } catch { }
+        try { Write-AppLog ("[$code] $text$repeat") 'ERROR' } catch { Write-DomeniaSwallowed 'Core' 'Add-DomeniaErrorIncidentCode' $_ }
     }
     return ($text + "`r`n`r`nCode incident : $code.")
 }
@@ -2611,7 +2611,7 @@ function Show-ErrorBox {
     if($null -ne (Get-Command Request-DomeniaAccessRecovery -ErrorAction SilentlyContinue)) {
         if(Request-DomeniaAccessRecovery -Operation 'Action demandee' -ErrorValue $Message -Interactive){return}
     }
-    try { $Message = Add-DomeniaErrorIncidentCode -Message $Message } catch { }
+    try { $Message = Add-DomeniaErrorIncidentCode -Message $Message } catch { Write-DomeniaSwallowed 'Core' 'Show-ErrorBox' $_ }
     # UX-06: once the main window is shown an error is a non-blocking banner (copy for support, open the journal).
     if (Show-DomeniaPageBanner -Kind Error -Message $Message -Details $Details) { return }
     [void](Show-DomeniaDialog -Message $Message -Title "$script:AppName - Erreur" -Kind Error -Buttons OK -Details $Details)
@@ -2639,7 +2639,7 @@ function ConvertTo-DomeniaErrorInfo {
     $message = if ($null -ne $exception) { [string]$exception.Message } else { [string]$ErrorRecordOrException }
     $technical = if ($null -ne $exception) { [string]$exception.ToString() } else { $message }
     $hresult = 0
-    try { if ($null -ne $exception) { $hresult = [int]$exception.HResult } } catch { }
+    try { if ($null -ne $exception) { $hresult = [int]$exception.HResult } } catch { Write-DomeniaSwallowed 'Core' 'ConvertTo-DomeniaErrorInfo' $_ }
     $kind = "Unexpected"
     $internal = $false
     $friendly = "$Operation a echoue."
@@ -2720,7 +2720,7 @@ function Test-DomeniaOperatorMessage {
     while ((($exception -is [System.Management.Automation.MethodInvocationException]) -or ($exception -is [System.Reflection.TargetInvocationException])) -and ($null -ne $exception.InnerException)) { $exception = $exception.InnerException; $record = $null }
     if ($exception -isnot [System.Exception]) { return $false }
     if ($exception.GetType() -ne [System.Management.Automation.RuntimeException]) { return $false }
-    try { if ([bool]$exception.WasThrownFromThrowStatement) { return $true } } catch { }
+    try { if ([bool]$exception.WasThrownFromThrowStatement) { return $true } } catch { Write-DomeniaSwallowed 'Core' 'Test-DomeniaOperatorMessage' $_ }
     # throw 'texte' also names its error record after the text itself.
     try {
         if ($null -eq $record) { $record = $exception.ErrorRecord }
@@ -2766,9 +2766,9 @@ function Get-DomeniaErrorSignature {
             if ($null -ne $record -and $null -ne $record.InvocationInfo -and $record.InvocationInfo.ScriptLineNumber -gt 0) {
                 $where = [string]$record.InvocationInfo.ScriptName + ':' + [string]$record.InvocationInfo.ScriptLineNumber
             }
-        } catch { }
+        } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaErrorSignature' $_ }
     }
-    if (-not $where -and $null -ne $exception) { try { $where = [string]$exception.TargetSite } catch { } }
+    if (-not $where -and $null -ne $exception) { try { $where = [string]$exception.TargetSite } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaErrorSignature' $_ } }
     return ($type + '|' + $message + '|' + $where)
 }
 
@@ -2805,7 +2805,7 @@ function Show-DomeniaOperationError {
         $guidance = Get-DomeniaOperationFailureGuidance -OperationId $OperationId -Category ([string]$info.Category)
         if ([string]$guidance.Text) { $info.Friendly = ([string]$info.Friendly).TrimEnd() + ' ' + [string]$guidance.Text }
         $info | Add-Member -NotePropertyName FailureFamily -NotePropertyValue ([string]$guidance.Family) -Force
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'Core' 'Show-DomeniaOperationError' $_ }
     # FI-07: one code per error signature, identical on screen, in Domenia.log and in the Support incident.
     # FI-02: the technical line of a repeated error is written at most once a minute, with its counter.
     $occurrence = Register-DomeniaErrorOccurrence -Signature (Get-DomeniaErrorSignature -ErrorRecordOrException $ErrorRecordOrException -Source $Operation)
@@ -2814,17 +2814,17 @@ function Show-DomeniaOperationError {
     if ([bool]$occurrence.Write) {
         $repeat = if ([int]$occurrence.Count -gt 1) { " (même erreur ×$([int]$occurrence.Count))" } else { "" }
         # Area Technique: Domenia.log, raw Expert view and Support incident; the readable journal shows the sentence.
-        try { Write-AppLog "[$code] $prefix$Operation [$($info.Kind)]$repeat : $($info.Technical)" "ERROR" -Area 'Technique' } catch { }
+        try { Write-AppLog "[$code] $prefix$Operation [$($info.Kind)]$repeat : $($info.Technical)" "ERROR" -Area 'Technique' } catch { Write-DomeniaSwallowed 'Core' 'Show-DomeniaOperationError' $_ }
     }
     $friendly = [string]$info.Friendly
     # One Domenia.log line per error: the sentence goes to the session journal only.
-    try { Set-Status "$friendly ($code)" "ERROR" -NoFileLog } catch { }
+    try { Set-Status "$friendly ($code)" "ERROR" -NoFileLog } catch { Write-DomeniaSwallowed 'Core' 'Show-DomeniaOperationError' $_ }
     if (-not $NoPopup) {
         $message = "$friendly`r`n`r`nCode incident : $code. Le détail technique est enregistré dans le journal Domenia."
         try {
             if ([string]$script:CurrentUiProfile -eq 'Admin') { Show-ErrorBox -Message $message -Details (Protect-DomeniaLogText ([string]$info.Technical)) }
             else { Show-ErrorBox $message }
-        } catch { }
+        } catch { Write-DomeniaSwallowed 'Core' 'Show-DomeniaOperationError' $_ }
     }
     $info | Add-Member -NotePropertyName IncidentCode -NotePropertyValue $code -Force
     return $info
@@ -2848,10 +2848,10 @@ function Invoke-DomeniaDispatcherFault {
     try {
         $info = ConvertTo-DomeniaErrorInfo -ErrorRecordOrException $Exception -Operation $operation
         $kind = [string]$info.Kind; $technical = [string]$info.Technical
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaDispatcherFault' $_ }
     if ([bool]$occurrence.Write) {
         $repeat = if ([int]$occurrence.Count -gt 1) { ' (même erreur ×' + [int]$occurrence.Count + ')' } else { '' }
-        try { Write-AppLog ("[$code] $operation [$kind]$repeat : $technical") 'ERROR' -Area 'Technique' } catch { }
+        try { Write-AppLog ("[$code] $operation [$kind]$repeat : $technical") 'ERROR' -Area 'Technique' } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaDispatcherFault' $_ }
     }
     if ([bool]$script:HandlingDispatcherException) {
         $script:DispatcherErrorsDuringDisplay = [int]$script:DispatcherErrorsDuringDisplay + 1
@@ -2862,7 +2862,7 @@ function Invoke-DomeniaDispatcherFault {
     $shown = $false; $others = 0
     try {
         $friendly = 'Un affichage nʼa pas pu se mettre à jour. Votre travail est conservé.'
-        if ([bool]$occurrence.Write) { try { Set-Status "$friendly ($code)" 'ERROR' -NoFileLog } catch { } }
+        if ([bool]$occurrence.Write) { try { Set-Status "$friendly ($code)" 'ERROR' -NoFileLog } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaDispatcherFault' $_ } }
         # Without the page banner, a repeated error never opens a new modal box: it is counted in the journal.
         if ([bool]$occurrence.New -or (Test-DomeniaMainHostAvailable)) {
             $message = "$friendly`r`n`r`nCode incident : $code. Le détail technique est enregistré dans le journal Domenia."
@@ -2871,14 +2871,14 @@ function Invoke-DomeniaDispatcherFault {
             $shown = $true
         }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaDispatcherFault' $_ }
     finally {
         $script:HandlingDispatcherException = $false
         $others = [int]$script:DispatcherErrorsDuringDisplay
         $script:DispatcherErrorsDuringDisplay = 0
         if ($others -gt 0) {
             $label = if ($others -eq 1) { '1 autre erreur' } else { "$others autres erreurs" }
-            try { Set-Status ("$label pendant lʼaffichage de lʼincident $code. Détail dans le journal Domenia.") 'ERROR' -NoFileLog } catch { }
+            try { Set-Status ("$label pendant lʼaffichage de lʼincident $code. Détail dans le journal Domenia.") 'ERROR' -NoFileLog } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaDispatcherFault' $_ }
         }
     }
     return [pscustomobject]@{ Code=$code; Count=[int]$occurrence.Count; Logged=[bool]$occurrence.Write; Shown=$shown; Queued=$false; Others=$others }
@@ -2889,8 +2889,8 @@ function Register-DomeniaDispatcherExceptionHandler {
     $script:Window.Dispatcher.Add_UnhandledException({
         param($sender,$eventArgs)
         try { [void](Invoke-DomeniaDispatcherFault -Exception $eventArgs.Exception) }
-        catch { }
-        finally { try { $eventArgs.Handled = $true } catch { } }
+        catch { Write-DomeniaSwallowed 'Core' 'Register-DomeniaDispatcherExceptionHandler' $_ }
+        finally { try { $eventArgs.Handled = $true } catch { Write-DomeniaSwallowed 'Core' 'Register-DomeniaDispatcherExceptionHandler' $_ } }
     })
     $script:DispatcherExceptionHandlerRegistered = $true
 }
@@ -2907,7 +2907,7 @@ function Add-DomeniaUiLog {
     if ($null -eq $script:UiLogProtectedText -or -not ([string]$Text -ceq [string]$script:UiLogProtectedText)) { $Text = Protect-DomeniaLogText $Text }
     $script:UiLogProtectedText = $null
     # R1.5: bounded local explanations; a support failure must not break logging.
-    try { Add-DomeniaSupportIncidentFromLog -Text $Text -Level $Level -Area $Area } catch { }
+    try { Add-DomeniaSupportIncidentFromLog -Text $Text -Level $Level -Area $Area } catch { Write-DomeniaSwallowed 'Core' 'Add-DomeniaUiLog' $_ }
     try {
         if ($null -eq $script:UiLogLines) {
             $script:UiLogLines = New-Object System.Collections.Generic.List[string]
@@ -2925,7 +2925,7 @@ function Add-DomeniaUiLog {
 
         [void]$script:UiLogLines.Add($line)
         # UI-22 / UX-01: readable entry (HH:mm, icon, phrase) for the Essentiel view and the folded journal bar.
-        try { Add-DomeniaExperienceLogEntry -Time $now -Level $Level -Area $Area -Text $Text } catch { }
+        try { Add-DomeniaExperienceLogEntry -Time $now -Level $Level -Area $Area -Text $Text } catch { Write-DomeniaSwallowed 'Core' 'Add-DomeniaUiLog' $_ }
 
         # Une purge retire des lignes en tete : la zone de texte doit alors
         # etre reconstruite. Sinon on se contente d une concatenation.
@@ -2938,7 +2938,7 @@ function Add-DomeniaUiLog {
 
         $box = Get-DomeniaControl -Name "TxtUiLog"
         if ($null -eq $box -and $null -ne $script:Window) {
-            try { $box = $script:Window.FindName("TxtUiLog") } catch { }
+            try { $box = $script:Window.FindName("TxtUiLog") } catch { Write-DomeniaSwallowed 'Core' 'Add-DomeniaUiLog' $_ }
         }
         if ($null -eq $box) { return }
 
@@ -3006,7 +3006,7 @@ function Add-DomeniaUiLog {
                 ) `
                 -Encoding UTF8
         }
-        catch { }
+        catch { Write-DomeniaSwallowed 'Core' 'Add-DomeniaUiLog' $_ }
     }
 }
 
@@ -3017,12 +3017,12 @@ function Clear-DomeniaUiLog {
         $script:UiLogRenderedCount = 0
         $box = Get-DomeniaControl -Name "TxtUiLog"
         if ($null -eq $box -and $null -ne $script:Window) {
-            try { $box = $script:Window.FindName("TxtUiLog") } catch { }
+            try { $box = $script:Window.FindName("TxtUiLog") } catch { Write-DomeniaSwallowed 'Core' 'Clear-DomeniaUiLog' $_ }
         }
         if ($null -ne $box) { $box.Clear() }
-        try { Clear-DomeniaExperienceLogEntries } catch { }
+        try { Clear-DomeniaExperienceLogEntries } catch { Write-DomeniaSwallowed 'Core' 'Clear-DomeniaUiLog' $_ }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Clear-DomeniaUiLog' $_ }
 }
 
 function Get-DomeniaProfilePath {
@@ -3050,7 +3050,7 @@ function Apply-DomeniaUiProfile {
     Save-DomeniaUiProfile -Profile $Profile
     Update-DomeniaUxProfileVisibility
     # UI-22: readable journal in Essentiel, raw format and engine state in Expert.
-    try { Update-DomeniaExperienceLogView } catch { }
+    try { Update-DomeniaExperienceLogView } catch { Write-DomeniaSwallowed 'Core' 'Apply-DomeniaUiProfile' $_ }
     $segment = Get-DomeniaControl -Name 'LstUiProfile'
     if ($null -ne $segment) {
         foreach ($item in @($segment.Items)) {
@@ -3085,7 +3085,7 @@ function Get-DomeniaPingState {
         return "Hors ligne"
     }
     finally {
-        try { if ($null -ne $ping) { $ping.Dispose() } } catch { }
+        try { if ($null -ne $ping) { $ping.Dispose() } } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaPingState' $_ }
     }
 }
 
@@ -3192,7 +3192,7 @@ function Set-DomeniaResultRowPresence {
                     $changed = $true
                 }
             }
-            catch { }
+            catch { Write-DomeniaSwallowed 'Core' 'Set-DomeniaResultRowPresence' $_ }
         }
         if (-not $changed) { return }
 
@@ -3200,7 +3200,7 @@ function Set-DomeniaResultRowPresence {
             $grid = Get-DomeniaControl -Name "DgObjects"
             if ($null -ne $grid) {
                 try { $grid.Items.Refresh() } catch {
-                    try { [System.Windows.Data.CollectionViewSource]::GetDefaultView($grid.ItemsSource).Refresh() } catch { }
+                    try { [System.Windows.Data.CollectionViewSource]::GetDefaultView($grid.ItemsSource).Refresh() } catch { Write-DomeniaSwallowed 'Core' 'Set-DomeniaResultRowPresence' $_ }
                 }
             }
         }
@@ -3224,7 +3224,7 @@ function Sync-DomeniaResultRowFromEntry {
         if ([string]::IsNullOrWhiteSpace($dn)) { return }
         $row = $null
         foreach ($candidate in @($script:BranchObjects)) {
-            try { if ([string]$candidate.DN -ieq $dn) { $row = $candidate; break } } catch { }
+            try { if ([string]$candidate.DN -ieq $dn) { $row = $candidate; break } } catch { Write-DomeniaSwallowed 'Core' 'Sync-DomeniaResultRowFromEntry' $_ }
         }
         if ($null -eq $row) { return }
 
@@ -3251,7 +3251,7 @@ function Sync-DomeniaResultRowFromEntry {
         # Recalcule aussi Association / Source / Confiance a partir des liens locaux.
         [void](Set-RowAssociationMetadata -Rows @($row))
         $grid = Get-DomeniaControl -Name "DgObjects"
-        if ($null -ne $grid -and -not (Test-DomeniaLiveSearchActive)) { try { $grid.Items.Refresh() } catch { } }
+        if ($null -ne $grid -and -not (Test-DomeniaLiveSearchActive)) { try { $grid.Items.Refresh() } catch { Write-DomeniaSwallowed 'Core' 'Sync-DomeniaResultRowFromEntry' $_ } }
     }
     catch {
         Write-AppLog "Synchronisation fiche vers grille impossible : $($_.Exception.Message)" "WARN"
@@ -3326,9 +3326,9 @@ function Start-DomeniaResultPresenceScan {
             # La ligne expose UPN (DNS pour une machine), jamais UpnDns :
             # l ancienne lecture renvoyait toujours vide et repliait sur le
             # nom NetBIOS.
-            try { $target = [string]$row.UPN } catch { }
+            try { $target = [string]$row.UPN } catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaResultPresenceScan' $_ }
             if ([string]::IsNullOrWhiteSpace($target)) {
-                try { $target = [string]$row.Name } catch { }
+                try { $target = [string]$row.Name } catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaResultPresenceScan' $_ }
             }
             [pscustomobject]@{
                 DN = [string]$row.DN
@@ -3412,7 +3412,7 @@ return [object[]]$rows.ToArray()
                         $script:PresenceCache[$cacheKey] = [pscustomobject]@{ State=$itemPresence; Target=""; Updated=Get-Date }
                     }
                 }
-                catch { }
+                catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaResultPresenceScan' $_ }
             }
 
             foreach ($row in @($script:BranchObjects)) {
@@ -3470,10 +3470,10 @@ function Update-DomeniaSelectedUserPresence {
         }
         if ($null -ne $best) {
             $target = [string]$best.Computer
-            try { $confidence = [int]$best.Confidence } catch { }
+            try { $confidence = [int]$best.Confidence } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaSelectedUserPresence' $_ }
         }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaSelectedUserPresence' $_ }
 
     if ([string]::IsNullOrWhiteSpace($target)) {
         Set-DomeniaPresenceText -Name "TxtUserPresence" -State "Aucun poste associe"
@@ -3539,11 +3539,11 @@ function Read-DomeniaPreference {
                     try {
                         Write-StartupTrace -Stage 'Preferences/LectureHistorique' -Detail $candidate
                         $script:PreferenceLegacyReads[$candidate]=$true
-                    } catch { }
+                    } catch { Write-DomeniaSwallowed 'Core' 'Read-DomeniaPreference' $_ }
                 }
             }
             return $text
-        } catch { }
+        } catch { Write-DomeniaSwallowed 'Core' 'Read-DomeniaPreference' $_ }
     }
     return ''
 }
@@ -3570,7 +3570,7 @@ function Write-DomeniaPreference {
         Write-DomeniaAtomicText -LiteralPath $target -Value $Value -KeepBackup
         return $true
     } catch {
-        try {Write-AppLog ("Preference '"+$FileName+"' non persistee dans '"+$target+"' : "+$_.Exception.Message) 'WARN'} catch { }
+        try {Write-AppLog ("Preference '"+$FileName+"' non persistee dans '"+$target+"' : "+$_.Exception.Message) 'WARN'} catch { Write-DomeniaSwallowed 'Core' 'Write-DomeniaPreference' $_ }
         return $false
     }
 }
@@ -3672,7 +3672,7 @@ function Load-DomeniaSettings {
             $validJsonProfile=([string]$stored.UiProfile -in @("Tech","Admin"))
             foreach ($key in @($settings.Keys)) {
                 $property = $null
-                try { $property = $stored.PSObject.Properties[$key] } catch { }
+                try { $property = $stored.PSObject.Properties[$key] } catch { Write-DomeniaSwallowed 'Core' 'Load-DomeniaSettings' $_ }
                 if ($null -eq $property) { continue }
                 if ($null -eq $property.Value) { continue }
                 $settings[$key] = $property.Value
@@ -3685,7 +3685,7 @@ function Load-DomeniaSettings {
             }
         }
     }
-    catch { try { Write-AppLog "Reglages illisibles, valeurs par defaut appliquees : $($_.Exception.Message)" "WARN" } catch { } }
+    catch { try { Write-AppLog "Reglages illisibles, valeurs par defaut appliquees : $($_.Exception.Message)" "WARN" } catch { Write-DomeniaSwallowed 'Core' 'Load-DomeniaSettings' $_ } }
 
     # Meme resolution que le login : le JSON valide prime sur Domenia.theme.cfg.
     # Ne jamais remplacer le choix de l utilisateur par le Light livre dans le ZIP. FO-22 : le choix (Auto compris).
@@ -3695,7 +3695,7 @@ function Load-DomeniaSettings {
         $legacyProfile = Read-DomeniaPreference -FileName "Domenia.ui-profile.cfg"
         if (-not $validJsonProfile -and $legacyProfile -in @("Tech","Admin")) { $settings["UiProfile"] = $legacyProfile }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Load-DomeniaSettings' $_ }
 
     $settings = ConvertTo-DomeniaExperienceSettings -Values $settings -Defaults (Get-DomeniaDefaultSettings)
     $script:Settings = $settings
@@ -3719,7 +3719,7 @@ function Save-DomeniaSettings {
                 # FI-05: protected timer of the engine heartbeat; it keeps running while the window is minimized.
                 $script:SettingsTimer = New-DomeniaTimer -Owner 'Timer:Settings' -IntervalMs 1500 -RunWhenHidden -Tick {
                     param($sender,$eventArgs)
-                    try { $sender.Stop() } catch { }
+                    try { $sender.Stop() } catch { Write-DomeniaSwallowed 'Core' 'Save-DomeniaSettings' $_ }
                     Save-DomeniaSettings -Immediate
                 }
             }
@@ -3727,17 +3727,17 @@ function Save-DomeniaSettings {
             $script:SettingsTimer.Start()
             return
         }
-        catch { }
+        catch { Write-DomeniaSwallowed 'Core' 'Save-DomeniaSettings' $_ }
     }
-    try { $script:SettingsTimer.Stop() } catch { }
+    try { $script:SettingsTimer.Stop() } catch { Write-DomeniaSwallowed 'Core' 'Save-DomeniaSettings' $_ }
     try {
         $json = ([pscustomobject]$script:Settings) | ConvertTo-Json -Depth 4
         $written=Write-DomeniaPreference -FileName "Domenia.settings.json" -Value $json
         if(-not $written){throw 'Préférences non enregistrées. Vérifiez les droits du stockage et les journaux.'}
     }
     catch {
-        try { Write-AppLog "Reglages non enregistres : $($_.Exception.Message)" "WARN" } catch { }
-        try { Set-Status ('Réglages non enregistrés : '+$_.Exception.Message) 'WARN' } catch { }
+        try { Write-AppLog "Reglages non enregistres : $($_.Exception.Message)" "WARN" } catch { Write-DomeniaSwallowed 'Core' 'Save-DomeniaSettings' $_ }
+        try { Set-Status ('Réglages non enregistrés : '+$_.Exception.Message) 'WARN' } catch { Write-DomeniaSwallowed 'Core' 'Save-DomeniaSettings' $_ }
         if($ThrowOnFailure){throw}
     }
 }
@@ -3780,9 +3780,9 @@ function Set-DomeniaWindowActivationPolicy {
     param($Window,[switch]$UserSwitchedAway)
     if ($null -eq $Window) { return $true }
     $maximized = $false
-    try { $maximized = ($Window.WindowState -eq [System.Windows.WindowState]::Maximized) } catch { }
+    try { $maximized = ($Window.WindowState -eq [System.Windows.WindowState]::Maximized) } catch { Write-DomeniaSwallowed 'Core' 'Set-DomeniaWindowActivationPolicy' $_ }
     $activate = ((-not $UserSwitchedAway) -or $maximized)
-    try { $Window.ShowActivated = $activate } catch { }
+    try { $Window.ShowActivated = $activate } catch { Write-DomeniaSwallowed 'Core' 'Set-DomeniaWindowActivationPolicy' $_ }
     return $activate
 }
 
@@ -3816,7 +3816,7 @@ function Restore-DomeniaWindowGeometry {
             $window.Top = $top
         }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Restore-DomeniaWindowGeometry' $_ }
 }
 
 function Save-DomeniaWindowGeometry {
@@ -3832,7 +3832,7 @@ function Save-DomeniaWindowGeometry {
             Set-DomeniaSetting -Name "WindowTop" -Value ([int]$window.Top)
         }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Save-DomeniaWindowGeometry' $_ }
 }
 
 function Restore-DomeniaUiSettings {
@@ -3865,7 +3865,7 @@ function Restore-DomeniaUiSettings {
         $script:CurrentPresenceFilter = "Tous"
         $script:SoftwareScope = [string](Get-DomeniaSetting "SoftwareScope" "Toutes")
     }
-    catch { try { Write-AppLog "Restauration des reglages partielle : $($_.Exception.Message)" "WARN" } catch { } }
+    catch { try { Write-AppLog "Restauration des reglages partielle : $($_.Exception.Message)" "WARN" } catch { Write-DomeniaSwallowed 'Core' 'Restore-DomeniaUiSettings' $_ } }
     finally { $script:RestoringSettings = $false }
 }
 
@@ -3901,7 +3901,7 @@ function Register-DomeniaSettingsWatchers {
                 $name = [string]$tabs.SelectedItem.Name
                 if (-not [string]::IsNullOrWhiteSpace($name)) { Set-DomeniaSetting -Name "Workspace" -Value $name }
             }
-            catch { }
+            catch { Write-DomeniaSwallowed 'Core' 'Register-DomeniaSettingsWatchers' $_ }
         })
     }
 }
@@ -4256,7 +4256,7 @@ function Apply-DomeniaTheme {
             # FI-16: the key stored when the state was written, not a new reading of the label.
             $storedKey = ''
             if ($null -ne $script:PresenceTextStates -and $script:PresenceTextStates.ContainsKey($presenceControl)) { $storedKey = [string]$script:PresenceTextStates[$presenceControl] }
-            try { Set-DomeniaControlForeground $current (Get-DomeniaPresenceColor -State ([string]$current.Text) -PresenceState $storedKey) } catch { }
+            try { Set-DomeniaControlForeground $current (Get-DomeniaPresenceColor -State ([string]$current.Text) -PresenceState $storedKey) } catch { Write-DomeniaSwallowed 'Core' 'Apply-DomeniaTheme' $_ }
         }
 
         # Restaurer l apparence au demarrage ne reecrit pas les preferences.
@@ -8449,7 +8449,7 @@ function Assert-DomeniaXamlPreflight {
     $buttonContentConflicts = New-Object System.Collections.Generic.List[string]
     foreach ($button in @($document.SelectNodes("//*[local-name()='Button']"))) {
         $buttonName = ""
-        try { $buttonName = [string]$button.GetAttribute("Name","http://schemas.microsoft.com/winfx/2006/xaml") } catch { }
+        try { $buttonName = [string]$button.GetAttribute("Name","http://schemas.microsoft.com/winfx/2006/xaml") } catch { Write-DomeniaSwallowed 'Core' 'Assert-DomeniaXamlPreflight' $_ }
         if ([string]::IsNullOrWhiteSpace($buttonName)) { $buttonName = "<Button sans x:Name>" }
 
         $contentSources = 0
@@ -8503,7 +8503,7 @@ function Assert-DomeniaXamlPreflight {
         $invalidNames = @(
             foreach ($combo in $invalidComboBoxReadOnly) {
                 $name = ""
-                try { $name = [string]$combo.GetAttribute("Name","http://schemas.microsoft.com/winfx/2006/xaml") } catch { }
+                try { $name = [string]$combo.GetAttribute("Name","http://schemas.microsoft.com/winfx/2006/xaml") } catch { Write-DomeniaSwallowed 'Core' 'Assert-DomeniaXamlPreflight' $_ }
                 if ([string]::IsNullOrWhiteSpace($name)) { $name = "<sans x:Name>" }
                 $name
             }
@@ -8519,7 +8519,7 @@ function Assert-DomeniaXamlPreflight {
         $rowHeightValue = [string]$grid.GetAttribute("RowHeight")
         if ([string]::Equals($rowHeightValue,"Auto",[System.StringComparison]::OrdinalIgnoreCase)) {
             $gridName = ""
-            try { $gridName = [string]$grid.GetAttribute("Name","http://schemas.microsoft.com/winfx/2006/xaml") } catch { }
+            try { $gridName = [string]$grid.GetAttribute("Name","http://schemas.microsoft.com/winfx/2006/xaml") } catch { Write-DomeniaSwallowed 'Core' 'Assert-DomeniaXamlPreflight' $_ }
             if ([string]::IsNullOrWhiteSpace($gridName)) { $gridName = "<DataGrid sans x:Name>" }
             [void]$invalidAutoRowHeights.Add($gridName)
         }
@@ -8542,7 +8542,7 @@ function Assert-DomeniaXamlPreflight {
     $duplicateNames = New-Object System.Collections.Generic.List[string]
     foreach ($node in @($document.SelectNodes("//*"))) {
         $controlName = ""
-        try { $controlName = [string]$node.GetAttribute("Name",$xamlNamespace) } catch { }
+        try { $controlName = [string]$node.GetAttribute("Name",$xamlNamespace) } catch { Write-DomeniaSwallowed 'Core' 'Assert-DomeniaXamlPreflight' $_ }
         if ([string]::IsNullOrWhiteSpace($controlName)) { continue }
         $scopeId = 'window'
         $ancestor = $node.ParentNode
@@ -8616,7 +8616,7 @@ function ConvertFrom-DomeniaXaml {
         throw (New-Object System.InvalidOperationException -ArgumentList @($message,$sourceError))
     }
     finally {
-        if ($null -ne $reader) { try { $reader.Close() } catch { } }
+        if ($null -ne $reader) { try { $reader.Close() } catch { Write-DomeniaSwallowed 'Core' 'ConvertFrom-DomeniaXaml' $_ } }
     }
 }
 
@@ -8637,8 +8637,8 @@ function Test-DomeniaXamlRuntimeCompatibility {
     }
     finally {
         if ($null -ne $probeWindow) {
-            try { $probeWindow.Close() } catch { }
-            try { $probeWindow = $null } catch { }
+            try { $probeWindow.Close() } catch { Write-DomeniaSwallowed 'Core' 'Test-DomeniaXamlRuntimeCompatibility' $_ }
+            try { $probeWindow = $null } catch { Write-DomeniaSwallowed 'Core' 'Test-DomeniaXamlRuntimeCompatibility' $_ }
         }
     }
 }
@@ -8656,7 +8656,7 @@ function Get-DomeniaXamlControlNames {
             [void]$names.Add($candidate)
         }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaXamlControlNames' $_ }
     return $names.ToArray()
 }
 
@@ -8674,7 +8674,7 @@ function Load-XamlWindow {
     $declaredNames = @(Get-DomeniaXamlControlNames -XamlText $xamlText)
     foreach ($name in $declaredNames) {
         $c = $null
-        try { $c = $script:Window.FindName($name) } catch { }
+        try { $c = $script:Window.FindName($name) } catch { Write-DomeniaSwallowed 'Core' 'Load-XamlWindow' $_ }
         if ($null -ne $c) { $script:Ctrl[$name] = $c }
     }
     try {
@@ -8682,7 +8682,7 @@ function Load-XamlWindow {
             "Controles WPF resolus : {0}/{1}." -f $script:Ctrl.Count,$declaredNames.Count
         )
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Load-XamlWindow' $_ }
 
     $missingCriticalControls = @(
         Get-DomeniaCriticalControlNames | Where-Object { -not $script:Ctrl.ContainsKey([string]$_) }
@@ -8692,7 +8692,7 @@ function Load-XamlWindow {
     }
     # Appliquer le choix du login avant le premier affichage de la principale.
     Apply-DomeniaTheme -Theme (Get-DomeniaStoredTheme)
-    try { Update-DomeniaWriteModeVisual } catch { }
+    try { Update-DomeniaWriteModeVisual } catch { Write-DomeniaSwallowed 'Core' 'Load-XamlWindow' $_ }
     Apply-DomeniaGuiElementPolicy
 }
 
@@ -8708,25 +8708,25 @@ function Apply-DomeniaGuiElementPolicy {
         $mode = [string]$script:GuiElementPolicy[$name]
         if ([string]::IsNullOrWhiteSpace($mode) -or $mode -ieq 'Default') { continue }
         $control = $null
-        try { if ($null -ne $ControlMap -and $ControlMap.ContainsKey($name)) { $control = $ControlMap[$name] } } catch { }
-        if ($null -eq $control -and $null -ne $Window) { try { $control = $Window.FindName($name) } catch { } }
+        try { if ($null -ne $ControlMap -and $ControlMap.ContainsKey($name)) { $control = $ControlMap[$name] } } catch { Write-DomeniaSwallowed 'Core' 'Apply-DomeniaGuiElementPolicy' $_ }
+        if ($null -eq $control -and $null -ne $Window) { try { $control = $Window.FindName($name) } catch { Write-DomeniaSwallowed 'Core' 'Apply-DomeniaGuiElementPolicy' $_ } }
         if ($null -eq $control) { continue }
         switch -Regex ($mode.Trim()) {
             '^(Hidden|Hide|Collapsed|Masque|Masque)$' {
-                try { $control.Visibility = [System.Windows.Visibility]::Collapsed } catch { }
-                try { $control.IsEnabled = $false } catch { }
+                try { $control.Visibility = [System.Windows.Visibility]::Collapsed } catch { Write-DomeniaSwallowed 'Core' 'Apply-DomeniaGuiElementPolicy' $_ }
+                try { $control.IsEnabled = $false } catch { Write-DomeniaSwallowed 'Core' 'Apply-DomeniaGuiElementPolicy' $_ }
             }
             '^(Disabled|Disable|Grayed|Greyed|Grise|Grise)$' {
-                try { $control.Visibility = [System.Windows.Visibility]::Visible } catch { }
-                try { $control.IsEnabled = $false } catch { }
-                try { $control.ToolTip = "Fonction desactivee dans la configuration de l application." } catch { }
+                try { $control.Visibility = [System.Windows.Visibility]::Visible } catch { Write-DomeniaSwallowed 'Core' 'Apply-DomeniaGuiElementPolicy' $_ }
+                try { $control.IsEnabled = $false } catch { Write-DomeniaSwallowed 'Core' 'Apply-DomeniaGuiElementPolicy' $_ }
+                try { $control.ToolTip = "Fonction desactivee dans la configuration de l application." } catch { Write-DomeniaSwallowed 'Core' 'Apply-DomeniaGuiElementPolicy' $_ }
             }
             '^(Visible|Enabled|Show)$' {
-                try { $control.Visibility = [System.Windows.Visibility]::Visible } catch { }
+                try { $control.Visibility = [System.Windows.Visibility]::Visible } catch { Write-DomeniaSwallowed 'Core' 'Apply-DomeniaGuiElementPolicy' $_ }
                 # Ne force pas IsEnabled=True : les droits AD et le mode lecture seule restent prioritaires.
             }
             default {
-                try { Write-AppLog "Valeur GuiElementPolicy inconnue pour '$name' : '$mode'." 'WARN' } catch { }
+                try { Write-AppLog "Valeur GuiElementPolicy inconnue pour '$name' : '$mode'." 'WARN' } catch { Write-DomeniaSwallowed 'Core' 'Apply-DomeniaGuiElementPolicy' $_ }
             }
         }
     }
@@ -8771,7 +8771,7 @@ function New-TreeItem {
     $item = New-Object System.Windows.Controls.TreeViewItem
     $item.Header = $Name
     $item.Tag = [pscustomobject]@{ Name = $Name; DN = $Dn; Kind = $Kind; Loaded = $false; RenderId = ""; Loading = $false }
-    try { $item.HeaderTemplate = Get-DomeniaTreeHeaderTemplate } catch { }
+    try { $item.HeaderTemplate = Get-DomeniaTreeHeaderTemplate } catch { Write-DomeniaSwallowed 'Core' 'New-TreeItem' $_ }
     if (-not [string]::IsNullOrWhiteSpace($Dn) -and $null -ne $script:OuFavouriteKeys -and $script:OuFavouriteKeys.ContainsKey($Dn.ToLowerInvariant())) {
         [Windows.Automation.AutomationProperties]::SetItemStatus($item,'Favori')
     }
@@ -8815,7 +8815,7 @@ function Get-DomeniaTreeRenderRows {
     param($Node,$Rows)
     $rowArray = @($Rows | Where-Object { $null -ne $_ })
     $parentDn = ''
-    try { $parentDn = [string]$Node.Tag.DN } catch { }
+    try { $parentDn = [string]$Node.Tag.DN } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaTreeRenderRows' $_ }
     if ([string]::IsNullOrWhiteSpace($parentDn) -or [string]::IsNullOrWhiteSpace([string]$script:Conn.BaseDn) -or $parentDn -ine [string]$script:Conn.BaseDn) { return $rowArray }
     $split = Split-DomeniaTreeRows -Rows $rowArray -ParentDn $parentDn -DomainDn ([string]$script:Conn.BaseDn)
     $out = New-Object System.Collections.Generic.List[object]
@@ -8840,7 +8840,7 @@ function New-DomeniaTreeLoadingItem {
         $spin = New-Object System.Windows.Media.Animation.DoubleAnimation(0.0,360.0,(New-Object System.Windows.Duration([TimeSpan]::FromSeconds(1.2))))
         $spin.RepeatBehavior = [System.Windows.Media.Animation.RepeatBehavior]::Forever
         $rotate.BeginAnimation([System.Windows.Media.RotateTransform]::AngleProperty,$spin)
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'Core' 'New-DomeniaTreeLoadingItem' $_ }
     $text = New-Object System.Windows.Controls.TextBlock
     $text.Text = 'Chargement des sous-branches' + [string][char]0x2026
     [void]$panel.Children.Add($wheel)
@@ -8901,7 +8901,7 @@ function Initialize-DomeniaTreeRenderTimer {
                     [void](Set-DomeniaControlText -Name "LblTreeStatus" -Text "$($job.Added) sous-branche(s) affichee(s).")
                     Set-Status "Sous-branches pretes : $($job.Added)."
                     # DS-07: a branch read while the OU filter is set follows that filter (local only). PF-10: no command lookup in a tick.
-                    try { Update-DomeniaOuTreeFilter -OnlyWhenActive } catch { }
+                    try { Update-DomeniaOuTreeFilter -OnlyWhenActive } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaTreeRenderTimer' $_ }
                 }
                 else {
                     [void](Set-DomeniaControlText -Name "LblTreeStatus" -Text "Affichage progressif : $($job.Added) / $($job.Rows.Count) sous-branche(s)...")
@@ -8914,13 +8914,13 @@ function Initialize-DomeniaTreeRenderTimer {
                     $job.Node.Tag.Loaded = $false
                     $job.Node.Tag.RenderId = ""
                     $job.Node.IsEnabled = $true
-                } catch { }
+                } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaTreeRenderTimer' $_ }
                 Write-AppLog "Affichage progressif de l'arborescence : $($_.Exception.ToString())" "ERROR"
                 [void]$finished.Add([string]$renderId)
             }
         }
         foreach ($renderId in $finished.ToArray()) { [void]$script:TreeRenderJobs.Remove([string]$renderId) }
-        if (@($script:TreeRenderJobs.Keys).Count -eq 0) { try { $script:TreeRenderTimer.Stop() } catch { } }
+        if (@($script:TreeRenderJobs.Keys).Count -eq 0) { try { $script:TreeRenderTimer.Stop() } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaTreeRenderTimer' $_ } }
     }
 }
 
@@ -8931,17 +8931,17 @@ function Stop-DomeniaTreeRenderForNode {
         $job = $script:TreeRenderJobs[$renderId]
         if ($null -ne $job -and [object]::ReferenceEquals($job.Node,$Node)) { [void]$script:TreeRenderJobs.Remove([string]$renderId) }
     }
-    try { $Node.Tag.RenderId = "" } catch { }
-    if (@($script:TreeRenderJobs.Keys).Count -eq 0 -and $null -ne $script:TreeRenderTimer) { try { $script:TreeRenderTimer.Stop() } catch { } }
+    try { $Node.Tag.RenderId = "" } catch { Write-DomeniaSwallowed 'Core' 'Stop-DomeniaTreeRenderForNode' $_ }
+    if (@($script:TreeRenderJobs.Keys).Count -eq 0 -and $null -ne $script:TreeRenderTimer) { try { $script:TreeRenderTimer.Stop() } catch { Write-DomeniaSwallowed 'Core' 'Stop-DomeniaTreeRenderForNode' $_ } }
 }
 
 function Clear-DomeniaTreeRenderJobs {
     foreach ($renderId in @($script:TreeRenderJobs.Keys)) {
         $job = $script:TreeRenderJobs[$renderId]
-        try { if ($null -ne $job.Node) { $job.Node.Tag.RenderId=""; $job.Node.IsEnabled=$true } } catch { }
+        try { if ($null -ne $job.Node) { $job.Node.Tag.RenderId=""; $job.Node.IsEnabled=$true } } catch { Write-DomeniaSwallowed 'Core' 'Clear-DomeniaTreeRenderJobs' $_ }
     }
     $script:TreeRenderJobs.Clear()
-    try { if ($null -ne $script:TreeRenderTimer) { $script:TreeRenderTimer.Stop() } } catch { }
+    try { if ($null -ne $script:TreeRenderTimer) { $script:TreeRenderTimer.Stop() } } catch { Write-DomeniaSwallowed 'Core' 'Clear-DomeniaTreeRenderJobs' $_ }
 }
 
 function Queue-DomeniaTreeRowsToNode {
@@ -8949,7 +8949,7 @@ function Queue-DomeniaTreeRowsToNode {
     if ($null -eq $Node) { throw "Nud d'arborescence absent." }
     Stop-DomeniaTreeRenderForNode -Node $Node
     $Node.Items.Clear()
-    try { $Node.Tag | Add-Member -NotePropertyName Loading -NotePropertyValue $false -Force } catch { }
+    try { $Node.Tag | Add-Member -NotePropertyName Loading -NotePropertyValue $false -Force } catch { Write-DomeniaSwallowed 'Core' 'Queue-DomeniaTreeRowsToNode' $_ }
     $rowArray = @(Get-DomeniaTreeRenderRows -Node $Node -Rows $Rows)
     if ($rowArray.Count -eq 0) {
         # UI-16: read and without sub-branch: no item, hence no chevron.
@@ -8991,7 +8991,7 @@ function Load-TreeRoot {
                     return
                 }
             }
-            catch { }
+            catch { Write-DomeniaSwallowed 'Core' 'Load-TreeRoot' $_ }
         }
         $tree.Items.Clear()
         $rootName = if ($script:Conn.Domain) { $script:Conn.Domain } else { $script:Conn.BaseDn }
@@ -9102,16 +9102,16 @@ function Update-DomeniaSearchScopeUi {
     }
     # UX-33 / FO-04: the work view chip ('Dans : Postes') and the pin button follow the chosen OU.
     if ($null -ne (Get-Command Update-DomeniaOuScopeChoices -CommandType Function -ErrorAction SilentlyContinue)) {
-        try { Update-DomeniaOuScopeChoices -Scope $ouScope } catch { }
+        try { Update-DomeniaOuScopeChoices -Scope $ouScope } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaSearchScopeUi' $_ }
     }
     # FO-05: the chip « Dans « Postes » » of the upper bar and its waiting text follow the OU chosen in the tree.
     if ($null -ne (Get-Command Update-DomeniaSearchBarUi -CommandType Function -ErrorAction SilentlyContinue)) {
-        try { Update-DomeniaSearchBarUi } catch { }
+        try { Update-DomeniaSearchBarUi } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaSearchScopeUi' $_ }
     }
     Set-DomeniaSearchMode -Mode $mode
-    try { Update-DomeniaOuRefreshUi } catch { }
+    try { Update-DomeniaOuRefreshUi } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaSearchScopeUi' $_ }
     # The home overview follows this OU: recomputed now if Accueil is on screen, otherwise when it is shown.
-    try { Request-DomeniaFleetRefresh } catch { }
+    try { Request-DomeniaFleetRefresh } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaSearchScopeUi' $_ }
     $summary = Get-DomeniaControl -Name 'LblSearchScope'
     if ($null -eq $summary) { return }
     if ($mode -eq 'Global') {
@@ -9132,7 +9132,7 @@ function Invalidate-DomeniaSearchResults {
     Stop-DomeniaLiveSearch
     # Toute modification de perimetre invalide aussi les retours deja en vol.
     $script:GlobalSearchGeneration = [int]$script:GlobalSearchGeneration + 1
-    try { if ($null -ne $script:LiveSearchTimer) { $script:LiveSearchTimer.Stop() } } catch { }
+    try { if ($null -ne $script:LiveSearchTimer) { $script:LiveSearchTimer.Stop() } } catch { Write-DomeniaSwallowed 'Core' 'Invalidate-DomeniaSearchResults' $_ }
     if ($null -ne $script:AsyncJobs) {
         foreach ($id in @($script:AsyncJobs.Keys)) {
             $job = $script:AsyncJobs[$id]
@@ -9200,7 +9200,7 @@ function Get-SelectedObjectFilter {
         $item = $script:Ctrl["CmbObjectFilter"].SelectedItem
         if ($item -and $item.Content) { return [string]$item.Content }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Get-SelectedObjectFilter' $_ }
     return "Tous"
 }
 
@@ -9280,7 +9280,7 @@ function Get-ObjectsStatsText {
             }
         }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Get-ObjectsStatsText' $_ }
     return "Total : $total`r`nUtilisateurs : $users`r`nMachines : $computers`r`nGroupes : $groups`r`nOU : $ous`r`nConteneurs : $containers`r`nAutres : $others"
 }
 
@@ -9305,31 +9305,31 @@ function Clear-ObjectDetails {
             $abandon = ""
             if ($modifies.Count -gt 0) {
                 $nomObjet = ""
-                try { $nomObjet = [string]$script:SelectedObject.Name } catch { }
+                try { $nomObjet = [string]$script:SelectedObject.Name } catch { Write-DomeniaSwallowed 'Core' 'Clear-ObjectDetails' $_ }
                 $abandon = "Modifications non enregistrées abandonnées"
                 if (-not [string]::IsNullOrWhiteSpace($nomObjet)) { $abandon = $abandon + " sur " + $nomObjet }
                 $abandon = $abandon + " en changeant dʼobjet."
             }
             Stop-DomeniaFicheEdit -Type ([string]$script:FicheEdit["Type"]) -Abandon $abandon
         }
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'Core' 'Clear-ObjectDetails' $_ }
     [void](Set-DomeniaItemsSource 'DgSessions' @());[void](Set-DomeniaControlText 'LblSessionsState' 'Sessions non lues pour cette fiche.')
     foreach ($name in @("TxtObjType","TxtObjName","TxtObjClass","TxtObjGuid","TxtObjCreated","TxtObjChanged","TxtObjDn","TxtObjPresence","TxtObjPresenceTarget","TxtUserGivenName","TxtUserSurname","TxtUserDisplayName","TxtUserSam","TxtUserUpn","TxtUserMail","TxtUserPhone","TxtUserOffice","TxtUserDescription","TxtUserTitle","TxtUserDepartment","TxtUserCompany","TxtUserManager","TxtUserState","TxtUserLastLogon","TxtUserPwdLastSet","TxtUserExpires","TxtUserUac",
         "TxtUserStreet","TxtUserCity","TxtUserState2","TxtUserPostalCode","TxtUserCountry",
         "TxtUserHomePhone","TxtUserMobile","TxtUserFax","TxtUserIpPhone","TxtUserWebPage",
         "TxtUserEmployeeId","TxtUserProfilePath","TxtUserScriptPath","TxtUserHomeDirectory",
         "TxtUserHomeDrive","TxtUserWorkstations","TxtCompName","TxtCompDns","TxtCompOs","TxtCompOsVersion","TxtCompDescription","TxtCompLocation","TxtCompManagedBy","TxtCompState","TxtCompLastLogon","TxtCompUac","TxtCompLinkedUser","TxtCompLinkSource","TxtGroupName","TxtGroupDescription","TxtUserLogonByDc","TxtCompLogonByDc")) {
-        try { $script:Ctrl[$name].Text = "" } catch { }
+        try { $script:Ctrl[$name].Text = "" } catch { Write-DomeniaSwallowed 'Core' 'Clear-ObjectDetails' $_ }
     }
     # Point 27: the per-controller read waits for the next object (Z02: a missing control is skipped, never swallowed).
     foreach ($name in @("BtnUserLogonByDc","BtnCompLogonByDc")) { $button = $script:Ctrl[$name]; if ($null -ne $button) { $button.IsEnabled = $false } }
     Update-DomeniaUserSupportBand -Entry $null
     Set-DomeniaManagerField -Target 'Utilisateur' -Dn ''
     Set-DomeniaManagerField -Target 'Machine' -Dn ''
-    try { [void](Set-DomeniaItemsSource -Name "TxtUserLinkedComputers" -Rows @()) } catch { }
+    try { [void](Set-DomeniaItemsSource -Name "TxtUserLinkedComputers" -Rows @()) } catch { Write-DomeniaSwallowed 'Core' 'Clear-ObjectDetails' $_ }
     # UI-06: the membership grids of the previous object are emptied (Membership.UI).
-    try { Clear-DomeniaMembershipLists } catch { }
-    try { $script:Ctrl["DgRawAttrs"].ItemsSource = $null } catch { }
+    try { Clear-DomeniaMembershipLists } catch { Write-DomeniaSwallowed 'Core' 'Clear-ObjectDetails' $_ }
+    try { $script:Ctrl["DgRawAttrs"].ItemsSource = $null } catch { Write-DomeniaSwallowed 'Core' 'Clear-ObjectDetails' $_ }
 }
 
 
@@ -9364,7 +9364,7 @@ function Reset-DomeniaSelectionBoundViews {
         $script:ActiveLinkProbeId = "invalidated-" + [guid]::NewGuid().ToString("N")
         $script:ActiveLinkProbeComputer = ""
 
-        try { Stop-DomeniaSecretReadTasks } catch { }
+        try { Stop-DomeniaSecretReadTasks } catch { Write-DomeniaSwallowed 'Core' 'Reset-DomeniaSelectionBoundViews' $_ }
 
         # Stoppe toutes les taches dont le resultat est lie a l'objet precedent.
         foreach ($taskId in @($script:AsyncJobs.Keys)) {
@@ -9379,13 +9379,13 @@ function Reset-DomeniaSelectionBoundViews {
                     Request-UiTaskStop -Id ([string]$taskId) -Silent -Force -Superseded -Reason 'Changement de selection'
                 }
             }
-            catch { }
+            catch { Write-DomeniaSwallowed 'Core' 'Reset-DomeniaSelectionBoundViews' $_ }
         }
 
         Clear-ObjectDetails
         Clear-Secrets
-        try { Clear-DomeniaDashboards } catch { }
-        try { Reset-DomeniaComputerAssistViews } catch { }
+        try { Clear-DomeniaDashboards } catch { Write-DomeniaSwallowed 'Core' 'Reset-DomeniaSelectionBoundViews' $_ }
+        try { Reset-DomeniaComputerAssistViews } catch { Write-DomeniaSwallowed 'Core' 'Reset-DomeniaSelectionBoundViews' $_ }
 
         $script:ComputerDiagRows = @()
         $script:PermissionRows = @()
@@ -9416,14 +9416,14 @@ function Reset-DomeniaSelectionBoundViews {
             "DgWmiInstances"
         )) {
             try { [void](Set-DomeniaItemsSource -Name $gridName -Rows @()) } catch {
-                try { $script:Ctrl[$gridName].ItemsSource = $null } catch { }
+                try { $script:Ctrl[$gridName].ItemsSource = $null } catch { Write-DomeniaSwallowed 'Core' 'Reset-DomeniaSelectionBoundViews' $_ }
             }
         }
 
-        try { Clear-DomeniaMembershipLists } catch { }
+        try { Clear-DomeniaMembershipLists } catch { Write-DomeniaSwallowed 'Core' 'Reset-DomeniaSelectionBoundViews' $_ }
         foreach ($listName in @($script:Ctrl.Keys)) {
             if ($listName -like "LstWmi*") {
-                try { $script:Ctrl[$listName].Items.Clear() } catch { }
+                try { $script:Ctrl[$listName].Items.Clear() } catch { Write-DomeniaSwallowed 'Core' 'Reset-DomeniaSelectionBoundViews' $_ }
             }
         }
 
@@ -9432,7 +9432,7 @@ function Reset-DomeniaSelectionBoundViews {
             "ChkSmartcardRequired","ChkAccountNotDelegated","ChkNoPreAuth",
             "ChkUseDesOnly","ChkTrustedForDelegation","ChkTrustedToAuthDelegation"
         )) {
-            try { $script:Ctrl[$checkName].IsChecked = $false } catch { }
+            try { $script:Ctrl[$checkName].IsChecked = $false } catch { Write-DomeniaSwallowed 'Core' 'Reset-DomeniaSelectionBoundViews' $_ }
         }
 
         $objectLabel = if (-not [string]::IsNullOrWhiteSpace($Name)) {
@@ -9447,23 +9447,23 @@ function Reset-DomeniaSelectionBoundViews {
 
         [void](Set-DomeniaControlText -Name "LblLinkContext" -Text "$objectLabel : chargement des associations...")
         [void](Set-DomeniaControlText -Name "LblLinkProbeStatus" -Text "En attente du chargement complet de l'objet.")
-        try { Update-DomeniaLinkActionUi -RowCount 0 } catch { }
-        try { $script:LastLoadedEntry = $null; Reset-DomeniaDeferredViews } catch { }
+        try { Update-DomeniaLinkActionUi -RowCount 0 } catch { Write-DomeniaSwallowed 'Core' 'Reset-DomeniaSelectionBoundViews' $_ }
+        try { $script:LastLoadedEntry = $null; Reset-DomeniaDeferredViews } catch { Write-DomeniaSwallowed 'Core' 'Reset-DomeniaSelectionBoundViews' $_ }
         [void](Set-DomeniaControlText -Name "LblSecretsStatus" -Text "Aucun secret charge pour cette selection.")
         # FI-19: the summary of the last BitLocker/LAPS reading of a workstation (metadata, never a value) is read off
         # the Dispatcher and completes this hint; another selection, or another type of object, cancels the request.
         # Point 9: the GUID of the displayed workstation lets the reading leave out metadata recorded by name before
         # this computer was created (a former holder of the name).
-        try { if ($Type -eq "Machine") { Request-DomeniaSecretIndexSummary -Computer ([string]$Name) -Guid ([string]$Guid) } else { Request-DomeniaSecretIndexSummary -Computer '' } } catch { }
+        try { if ($Type -eq "Machine") { Request-DomeniaSecretIndexSummary -Computer ([string]$Name) -Guid ([string]$Guid) } else { Request-DomeniaSecretIndexSummary -Computer '' } } catch { Write-DomeniaSwallowed 'Core' 'Reset-DomeniaSelectionBoundViews' $_ }
         [void](Set-DomeniaControlText -Name "LblComputerDiag" -Text "Aucun diagnostic lance pour cette selection.")
         [void](Set-DomeniaControlText -Name "LblPermissionSummary" -Text "Droits non evalues pour cette selection.")
         [void](Set-DomeniaControlText -Name "LblInventoryStatus" -Text "Aucun inventaire charge pour cette selection.")
         [void](Set-DomeniaControlText -Name "LblSoftwareStatus" -Text "Aucun logiciel charge pour cette selection.")
         [void](Set-DomeniaControlText -Name "LblWmiStatus" -Text "Aucune lecture WMI chargee pour cette selection.")
 
-        try { Update-DomeniaSecretActionUi } catch { }
-        try { Apply-CurrentPermissionUi } catch { }
-        try { Request-DomeniaDashboardRefresh } catch { }
+        try { Update-DomeniaSecretActionUi } catch { Write-DomeniaSwallowed 'Core' 'Reset-DomeniaSelectionBoundViews' $_ }
+        try { Apply-CurrentPermissionUi } catch { Write-DomeniaSwallowed 'Core' 'Reset-DomeniaSelectionBoundViews' $_ }
+        try { Request-DomeniaDashboardRefresh } catch { Write-DomeniaSwallowed 'Core' 'Reset-DomeniaSelectionBoundViews' $_ }
 
         if (-not [string]::IsNullOrWhiteSpace($Dn)) {
             Set-Status "Ancienne fiche videe. Chargement de $objectLabel..."
@@ -9582,7 +9582,7 @@ function Update-DomeniaUserSupportBand {
     }
     catch {
         # Un bandeau qui n a pas pu se construire ne doit pas vider la fiche : il reste masque.
-        try { $bande.Visibility = [System.Windows.Visibility]::Collapsed } catch { }
+        try { $bande.Visibility = [System.Windows.Visibility]::Collapsed } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaUserSupportBand' $_ }
     }
 }
 
@@ -9630,7 +9630,7 @@ function Fill-UserObject {
         [void](Set-DomeniaItemsSource -Name "TxtUserLinkedComputers" -Rows @())
         Write-AppLog "Affichage des postes associes impossible : $($_.Exception.Message)" "WARN"
     }
-    $u = 0; try { $u = [int]$uac } catch { }
+    $u = 0; try { $u = [int]$uac } catch { Write-DomeniaSwallowed 'Core' 'Fill-UserObject' $_ }
     $script:Ctrl["ChkPwdNeverExpires"].IsChecked = (($u -band 65536) -ne 0)
     $script:Ctrl["ChkPwdNotRequired"].IsChecked = (($u -band 32) -ne 0)
     $script:Ctrl["ChkReversiblePwd"].IsChecked = (($u -band 128) -ne 0)
@@ -9976,8 +9976,8 @@ function Complete-LinkProbeJobs {
             if ($null -eq $job) { $doneKeys += $key; continue }
             if ($job.State -in @("Completed", "Failed", "Stopped")) {
                 $result = $null
-                try { $result = Receive-Job -Job $job -ErrorAction SilentlyContinue | Select-Object -Last 1 } catch { }
-                try { Remove-Job -Job $job -Force -ErrorAction SilentlyContinue } catch { }
+                try { $result = Receive-Job -Job $job -ErrorAction SilentlyContinue | Select-Object -Last 1 } catch { Write-DomeniaSwallowed 'Core' 'Complete-LinkProbeJobs' $_ }
+                try { Remove-Job -Job $job -Force -ErrorAction SilentlyContinue } catch { Write-DomeniaSwallowed 'Core' 'Complete-LinkProbeJobs' $_ }
                 $doneKeys += $key
                 if ($null -ne $result -and $result.Success -and -not [string]::IsNullOrWhiteSpace([string]$result.UserLogin)) {
                     [void](Add-UserMachineLinkIfMissing -UserLogin ([string]$result.UserLogin) -Computer ([string]$result.Computer) -Source ([string]$result.Source) -Details ([string]$result.Details))
@@ -9986,7 +9986,7 @@ function Complete-LinkProbeJobs {
                     $details = "Aucun dernier utilisateur fiable trouve pour $key"
                     if ($null -ne $result) { $details = [string]$result.Details }
                     Set-Status "Détection terminée : aucun utilisateur suffisamment fiable pour $key." "INFO"
-                    try { $script:Ctrl["LblLinkProbeStatus"].Text = "Aucun lien ajoute pour $key. $details" } catch { }
+                    try { $script:Ctrl["LblLinkProbeStatus"].Text = "Aucun lien ajoute pour $key. $details" } catch { Write-DomeniaSwallowed 'Core' 'Complete-LinkProbeJobs' $_ }
                     Write-AppLog "Detection user-machine sans resultat fiable pour $key : $details" "INFO"
                 }
             }
@@ -10044,8 +10044,8 @@ function Search-DomeniaPickerObjects {
         $searcher = New-LdapSearcher -BaseDn ([string]$script:Conn.BaseDn) -Filter "(&$category(|$clauses))" -Properties $props -Scope "Subtree" -Limit $Limit
         # Le selecteur s ouvre en fenetre modale : la recherche est bornee
         # pour ne jamais tenir l interface plus de quelques secondes.
-        try { $searcher.ServerTimeLimit = [TimeSpan]::FromSeconds(8) } catch { }
-        try { $searcher.ClientTimeout = [TimeSpan]::FromSeconds(10) } catch { }
+        try { $searcher.ServerTimeLimit = [TimeSpan]::FromSeconds(8) } catch { Write-DomeniaSwallowed 'Core' 'Search-DomeniaPickerObjects' $_ }
+        try { $searcher.ClientTimeout = [TimeSpan]::FromSeconds(10) } catch { Write-DomeniaSwallowed 'Core' 'Search-DomeniaPickerObjects' $_ }
         $collection = $searcher.FindAll()
         # PF-02: the paged collection is enumerated as it arrives; @() would read every page before the first row.
         foreach ($r in $collection) {
@@ -10053,25 +10053,25 @@ function Search-DomeniaPickerObjects {
             $name = ""
             $second = ""
             $description = ""
-            try { $name = [string]@($p["name"])[0] } catch { }
-            try { $description = [string]@($p["description"])[0] } catch { }
+            try { $name = [string]@($p["name"])[0] } catch { Write-DomeniaSwallowed 'Core' 'Search-DomeniaPickerObjects' $_ }
+            try { $description = [string]@($p["description"])[0] } catch { Write-DomeniaSwallowed 'Core' 'Search-DomeniaPickerObjects' $_ }
             if ($Kind -eq "Machine") {
-                try { $second = [string]@($p["dnshostname"])[0] } catch { }
-                if ([string]::IsNullOrWhiteSpace($second)) { try { $second = [string]@($p["operatingsystem"])[0] } catch { } }
+                try { $second = [string]@($p["dnshostname"])[0] } catch { Write-DomeniaSwallowed 'Core' 'Search-DomeniaPickerObjects' $_ }
+                if ([string]::IsNullOrWhiteSpace($second)) { try { $second = [string]@($p["operatingsystem"])[0] } catch { Write-DomeniaSwallowed 'Core' 'Search-DomeniaPickerObjects' $_ } }
             }
             else {
-                try { $second = [string]@($p["samaccountname"])[0] } catch { }
-                if ([string]::IsNullOrWhiteSpace($description)) { try { $description = [string]@($p["displayname"])[0] } catch { } }
+                try { $second = [string]@($p["samaccountname"])[0] } catch { Write-DomeniaSwallowed 'Core' 'Search-DomeniaPickerObjects' $_ }
+                if ([string]::IsNullOrWhiteSpace($description)) { try { $description = [string]@($p["displayname"])[0] } catch { Write-DomeniaSwallowed 'Core' 'Search-DomeniaPickerObjects' $_ } }
             }
             $dn = ""
-            try { $dn = [string]@($p["distinguishedname"])[0] } catch { }
+            try { $dn = [string]@($p["distinguishedname"])[0] } catch { Write-DomeniaSwallowed 'Core' 'Search-DomeniaPickerObjects' $_ }
             if ([string]::IsNullOrWhiteSpace($name)) { continue }
             $rows.Add([pscustomobject]@{ Name=$name; Second=$second; Description=$description; DN=$dn })
         }
     }
     finally {
-        if ($null -ne $collection) { try { $collection.Dispose() } catch { } }
-        if ($null -ne $searcher) { try { $searcher.Dispose() } catch { } }
+        if ($null -ne $collection) { try { $collection.Dispose() } catch { Write-DomeniaSwallowed 'Core' 'Search-DomeniaPickerObjects' $_ } }
+        if ($null -ne $searcher) { try { $searcher.Dispose() } catch { Write-DomeniaSwallowed 'Core' 'Search-DomeniaPickerObjects' $_ } }
     }
     return $rows
 }
@@ -10118,8 +10118,8 @@ function Search-DomeniaOuPickerObjects {
     $collection = $null
     try {
         $searcher = New-LdapSearcher -BaseDn ([string]$script:Conn.BaseDn) -Filter $filter -Properties @("name","distinguishedName") -Scope "Subtree" -Limit $Limit
-        try { $searcher.ServerTimeLimit = [TimeSpan]::FromSeconds(10) } catch { }
-        try { $searcher.ClientTimeout = [TimeSpan]::FromSeconds(12) } catch { }
+        try { $searcher.ServerTimeLimit = [TimeSpan]::FromSeconds(10) } catch { Write-DomeniaSwallowed 'Core' 'Search-DomeniaOuPickerObjects' $_ }
+        try { $searcher.ClientTimeout = [TimeSpan]::FromSeconds(12) } catch { Write-DomeniaSwallowed 'Core' 'Search-DomeniaOuPickerObjects' $_ }
         $collection = $searcher.FindAll()
         # PF-02: direct enumeration of the paged collection, bounded by SizeLimit ($Limit).
         foreach ($r in $collection) {
@@ -10130,8 +10130,8 @@ function Search-DomeniaOuPickerObjects {
         }
     }
     finally {
-        if ($null -ne $collection) { try { $collection.Dispose() } catch { } }
-        if ($null -ne $searcher) { try { $searcher.Dispose() } catch { } }
+        if ($null -ne $collection) { try { $collection.Dispose() } catch { Write-DomeniaSwallowed 'Core' 'Search-DomeniaOuPickerObjects' $_ } }
+        if ($null -ne $searcher) { try { $searcher.Dispose() } catch { Write-DomeniaSwallowed 'Core' 'Search-DomeniaOuPickerObjects' $_ } }
     }
     return @($rows | Sort-Object Name,DN)
 }
@@ -10213,10 +10213,10 @@ function Set-DomeniaManagerField {
     $nom = ''
     if ($dn) { $nom = [string](Get-DomeniaCnFromDn $dn); if (-not $nom) { $nom = $dn } }
     $c = Get-DomeniaManagerControls -Target $Target
-    try { $script:Ctrl[$c.Txt].Text = $nom } catch { }
+    try { $script:Ctrl[$c.Txt].Text = $nom } catch { Write-DomeniaSwallowed 'Core' 'Set-DomeniaManagerField' $_ }
     $visible = if ($dn) { 'Visible' } else { 'Collapsed' }
-    try { $script:Ctrl[$c.Open].Visibility = $visible } catch { }
-    try { $script:Ctrl[$c.Clear].Visibility = $visible } catch { }
+    try { $script:Ctrl[$c.Open].Visibility = $visible } catch { Write-DomeniaSwallowed 'Core' 'Set-DomeniaManagerField' $_ }
+    try { $script:Ctrl[$c.Clear].Visibility = $visible } catch { Write-DomeniaSwallowed 'Core' 'Set-DomeniaManagerField' $_ }
 }
 
 function Show-DomeniaManagerPicker {
@@ -10341,7 +10341,7 @@ function Clear-AdCmdletFilter {
         $script:Ctrl["TxtCmdletFilter"].Text = ""
         $script:Ctrl["CmbCmdletModule"].SelectedIndex = 0
         Filter-AdCmdletReference
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'Core' 'Clear-AdCmdletFilter' $_ }
 }
 function Start-SelectedCmdletHelp {
     try {
@@ -10480,7 +10480,7 @@ try {
         $script:ProcessIdentityDisplay = "compte systeme / ordinateur"
     }
 }
-catch { }
+catch { Write-DomeniaSwallowed 'Core' 'Domenia-Core.ps1' $_ }
 $script:AsyncEngineReady = $false
 $script:AsyncJobs = [ordered]@{}
 $script:SessionEpoch = [long]0
@@ -11736,9 +11736,9 @@ function Set-ControlsBusy {
         if (-not $script:ControlBusyRef.ContainsKey([string]$name)) { $script:ControlBusyRef[[string]$name] = 0 }
         if ($Busy) { $script:ControlBusyRef[[string]$name] = [int]$script:ControlBusyRef[[string]$name] + 1 }
         else { $script:ControlBusyRef[[string]$name] = [Math]::Max(0,[int]$script:ControlBusyRef[[string]$name] - 1) }
-        try { $control.IsEnabled = ([int]$script:ControlBusyRef[[string]$name] -eq 0) } catch { }
+        try { $control.IsEnabled = ([int]$script:ControlBusyRef[[string]$name] -eq 0) } catch { Write-DomeniaSwallowed 'Core' 'Set-ControlsBusy' $_ }
     }
-    if (-not $Busy) { try { Apply-CurrentPermissionUi } catch { } }
+    if (-not $Busy) { try { Apply-CurrentPermissionUi } catch { Write-DomeniaSwallowed 'Core' 'Set-ControlsBusy' $_ } }
 }
 
 function Update-TaskUi {
@@ -11796,10 +11796,10 @@ function Update-TaskUi {
             else { $elapsedLabel.Text = "" }
         }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Update-TaskUi' $_ }
 
     # UX-32 / D020: the rows of the operations panel are updated only while it is open; the badge always is.
-    try { Update-DomeniaExperienceActivity -Force:([bool]$Force) } catch { }
+    try { Update-DomeniaExperienceActivity -Force:([bool]$Force) } catch { Write-DomeniaSwallowed 'Core' 'Update-TaskUi' $_ }
     # PF-11 (decision David 2026-10-08): the session details of Accueil are rebuilt by a task only while they are open.
     $sessionDetailsOpen = $true
     try { if (($null -ne $script:Ctrl) -and $script:Ctrl.ContainsKey('UxSessionDetails') -and ($null -ne $script:Ctrl['UxSessionDetails'])) { $sessionDetailsOpen = [bool]$script:Ctrl['UxSessionDetails'].IsExpanded } } catch { $sessionDetailsOpen = $true }
@@ -11873,7 +11873,7 @@ function Get-DeProp {
             return $Default
         }
         if ($props[$Name].Count -gt 0) { return $props[$Name][0] }
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'Core' 'Get-DeProp' $_ }
     return $Default
 }
 
@@ -11949,7 +11949,7 @@ function Entry-ToRawAttributes {
                 [void]$rows.Add([pscustomobject]@{ Attribute=[string]$name; Value=($vals -join " ; ") })
             }
         }
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'Core' 'Entry-ToRawAttributes' $_ }
     return @($rows)
 }
 
@@ -12011,8 +12011,8 @@ function Select-DomeniaWorkspace {
             elseif (($null -ne $innerControl) -and ($null -ne $tabControl)) { $innerControl.SelectedItem = $tabControl }
         }
     }
-    catch { }
-    try { Sync-DomeniaUxNavigation } catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Select-DomeniaWorkspace' $_ }
+    try { Sync-DomeniaUxNavigation } catch { Write-DomeniaSwallowed 'Core' 'Select-DomeniaWorkspace' $_ }
 }
 
 function Get-DomeniaLandingView {
@@ -12095,7 +12095,7 @@ function Assert-DomeniaWorkspaceSelection {
             if ($item.Visibility -eq [System.Windows.Visibility]::Visible) { $tabs.SelectedItem = $item; return }
         }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Assert-DomeniaWorkspaceSelection' $_ }
 }
 
 
@@ -12105,7 +12105,7 @@ function Assert-DomeniaWorkspaceSelection {
 function Complete-DomeniaTreeChildrenUi {
     param($Result,$State)
     $treeNode = $null
-    try { $treeNode = $State.Node } catch { }
+    try { $treeNode = $State.Node } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaTreeChildrenUi' $_ }
     if ($null -eq $treeNode) { throw "Nud d'arborescence absent du callback." }
 
     try {
@@ -12121,7 +12121,7 @@ function Complete-DomeniaTreeChildrenUi {
             $treeNode.Tag | Add-Member -NotePropertyName Loading -NotePropertyValue $false -Force
             $treeNode.IsEnabled = $true
         }
-        catch { }
+        catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaTreeChildrenUi' $_ }
         throw
     }
 }
@@ -12129,7 +12129,7 @@ function Complete-DomeniaTreeChildrenUi {
 function Fail-DomeniaTreeChildrenUi {
     param($Message,$State)
     if($null -ne $State -and $null -ne $State.PSObject.Properties['DirectoryPipe'] -and -not $State.DirectoryPipe.Completed){
-        try{$State.DirectoryPipe.Stop.Cancel()}catch{}
+        try{$State.DirectoryPipe.Stop.Cancel()}catch{Write-DomeniaSwallowed 'Core' 'Fail-DomeniaTreeChildrenUi' $_}
         Complete-DomeniaDirectoryReadPipe -Pipe $State.DirectoryPipe -Error ([string]$Message)
         return
     }
@@ -12137,13 +12137,13 @@ function Fail-DomeniaTreeChildrenUi {
     $detail = ([string]$Message).Trim()
     if ([string]::IsNullOrWhiteSpace($detail)) { $detail = "Erreur inconnue." }
     $treeNode = $null
-    try { $treeNode = $State.Node } catch { }
+    try { $treeNode = $State.Node } catch { Write-DomeniaSwallowed 'Core' 'Fail-DomeniaTreeChildrenUi' $_ }
     try {
         if ($null -ne $treeNode) {
             Stop-DomeniaTreeRenderForNode -Node $treeNode
-            try { $treeNode.Tag | Add-Member -NotePropertyName Loading -NotePropertyValue $false -Force } catch { }
+            try { $treeNode.Tag | Add-Member -NotePropertyName Loading -NotePropertyValue $false -Force } catch { Write-DomeniaSwallowed 'Core' 'Fail-DomeniaTreeChildrenUi' $_ }
             $preserve = $false
-            try { $preserve = [bool]$State.PreserveExisting } catch { }
+            try { $preserve = [bool]$State.PreserveExisting } catch { Write-DomeniaSwallowed 'Core' 'Fail-DomeniaTreeChildrenUi' $_ }
             if ($preserve -and $null -ne $State.PreviousItems) {
                 $treeNode.Items.Clear()
                 foreach ($oldItem in @($State.PreviousItems)) { [void]$treeNode.Items.Add($oldItem) }
@@ -12158,7 +12158,7 @@ function Fail-DomeniaTreeChildrenUi {
             }
         }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Fail-DomeniaTreeChildrenUi' $_ }
     [void](Set-DomeniaControlText -Name "LblTreeStatus" -Text "Erreur : $detail")
     Set-Status "Erreur arborescence : $detail" "ERROR"
 }
@@ -12170,7 +12170,7 @@ function Load-TreeChildren {
         # UI-16: the node is no longer greyed while it is read; a second unfold during that read starts nothing.
         # A read that never answered (withdrawn from the queue) stops blocking after its timeout.
         $loadingAt = $null
-        try { $loadingAt = $Node.Tag.LoadingAt } catch { }
+        try { $loadingAt = $Node.Tag.LoadingAt } catch { Write-DomeniaSwallowed 'Core' 'Load-TreeChildren' $_ }
         $reading = ([bool]$Node.Tag.Loading -and $loadingAt -is [datetime] -and ([datetime]::UtcNow - $loadingAt).TotalSeconds -lt ([int](Get-CfgValue "Async" "TreeTimeoutSeconds" 30) + 15))
         if (-not $Force -and ($reading -or -not [string]::IsNullOrWhiteSpace([string]$Node.Tag.RenderId))) { return }
         $dn = [string]$Node.Tag.DN
@@ -12227,7 +12227,7 @@ $final
             $Node.Tag.Loaded = $false
             $Node.Tag | Add-Member -NotePropertyName Loading -NotePropertyValue $false -Force
             $Node.IsEnabled = $true
-        } catch { }
+        } catch { Write-DomeniaSwallowed 'Core' 'Load-TreeChildren' $_ }
         [void](Set-DomeniaControlText -Name "LblTreeStatus" -Text "Erreur : $message")
         Set-Status "Erreur arborescence : $message" "ERROR"
     }
@@ -12240,7 +12240,7 @@ function Get-BranchQueryData {
     $searchFilter = Get-SearchLdapFilter (Get-DomeniaSearchText -Mode OU)
     $filter = if ([string]::IsNullOrWhiteSpace($searchFilter)) { $typeFilter } else { "(&$typeFilter$searchFilter)" }
     $limit = 100
-    try { $limit = [int](Get-DomeniaControl -Name 'TxtGlobalLimit').Text } catch { }
+    try { $limit = [int](Get-DomeniaControl -Name 'TxtGlobalLimit').Text } catch { Write-DomeniaSwallowed 'Core' 'Get-BranchQueryData' $_ }
     if ($limit -le 0) { $limit = 100 }; $limit = [Math]::Min(20000,$limit)
     [pscustomobject]@{BaseDn=$scope.BaseDn;Scope=$scope.Scope;Filter=$filter;Limit=$limit}
 }
@@ -12284,7 +12284,7 @@ function Complete-DomeniaGlobalSearchUi {
     # Une ancienne recherche peut finir apres avoir ete remplacee. Elle ne doit
     # jamais repeupler la grille ni modifier le statut d'une recherche plus recente.
     $generation = 0
-    try { $generation = [int]$State.Generation } catch { }
+    try { $generation = [int]$State.Generation } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaGlobalSearchUi' $_ }
     if ($generation -ne [int]$script:GlobalSearchGeneration) {
         Add-DomeniaUiLog -Area "Recherche" -Level "DEBUG" -Text "Resultat obsolete ignore."
         return
@@ -12293,7 +12293,7 @@ function Complete-DomeniaGlobalSearchUi {
     if (-not (Test-DomeniaSearchStateCurrent -State $State)) { return }
 
     $query = ""
-    try { $query = [string]$State.Search } catch { }
+    try { $query = [string]$State.Search } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaGlobalSearchUi' $_ }
     try {
         $box = Get-DomeniaControl -Name "TxtGlobalSearch"
         if ($null -ne $box -and ([string]$box.Text).Trim() -ne $query) {
@@ -12301,7 +12301,7 @@ function Complete-DomeniaGlobalSearchUi {
             return
         }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaGlobalSearchUi' $_ }
 
     $effective = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @("Rows")
     if ($null -eq $effective) { throw "Resultat de recherche vide ou invalide." }
@@ -12318,18 +12318,18 @@ function Complete-DomeniaGlobalSearchUi {
     $serverUsed = ""
     $baseUsed = ""
     $filtersUsed = @()
-    try { $rawCount = [int]$effective.RawCount } catch { }
-    try { $durationMs = [long]$effective.DurationMs } catch { }
-    try { $serverUsed = [string]$effective.Server } catch { }
-    try { $baseUsed = [string]$effective.BaseDn } catch { }
-    try { $filtersUsed = @($effective.Filters) } catch { }
+    try { $rawCount = [int]$effective.RawCount } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaGlobalSearchUi' $_ }
+    try { $durationMs = [long]$effective.DurationMs } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaGlobalSearchUi' $_ }
+    try { $serverUsed = [string]$effective.Server } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaGlobalSearchUi' $_ }
+    try { $baseUsed = [string]$effective.BaseDn } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaGlobalSearchUi' $_ }
+    try { $filtersUsed = @($effective.Filters) } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaGlobalSearchUi' $_ }
 
     $cacheKey = [string]$State.CacheKey
     if ($rows.Count -gt 0) {
         Set-VisitCacheValue -Key $cacheKey -Value $rows
     }
     else {
-        try { if ($script:VisitCache.ContainsKey($cacheKey)) { [void]$script:VisitCache.Remove($cacheKey) } } catch { }
+        try { if ($script:VisitCache.ContainsKey($cacheKey)) { [void]$script:VisitCache.Remove($cacheKey) } } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaGlobalSearchUi' $_ }
     }
 
     # La recherche n ouvre aucune fiche automatiquement. En revanche, chaque
@@ -12373,7 +12373,7 @@ function Complete-DomeniaGlobalSearchUi {
                 $typeLabel = [string]$typeItem.Content
             }
         }
-        catch { }
+        catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaGlobalSearchUi' $_ }
         $filterNote = if ($typeLabel -eq "Tous") { "" } else { " Filtre actif : $typeLabel." }
         Set-Status "Aucun résultat dans $($State.BaseDn) pour « $query ».$filterNote" "WARN"
     }
@@ -12390,7 +12390,7 @@ function Fail-DomeniaGlobalSearchUi {
     if ($null -ne $State -and $null -ne $State.PSObject.Properties["LiveState"]) { Fail-DomeniaLiveSearch -Message $Message -State $State; return }
 
     $generation = 0
-    try { $generation = [int]$State.Generation } catch { }
+    try { $generation = [int]$State.Generation } catch { Write-DomeniaSwallowed 'Core' 'Fail-DomeniaGlobalSearchUi' $_ }
     if ($generation -ne [int]$script:GlobalSearchGeneration) {
         Add-DomeniaUiLog -Area "Recherche" -Level "DEBUG" -Text "Erreur d'une recherche obsolete ignoree."
         return
@@ -12401,10 +12401,10 @@ function Fail-DomeniaGlobalSearchUi {
     $detail = ([string]$Message).Trim()
     if ([string]::IsNullOrWhiteSpace($detail)) { $detail = "Erreur inconnue." }
     $query = ""
-    try { $query = [string]$State.Search } catch { }
+    try { $query = [string]$State.Search } catch { Write-DomeniaSwallowed 'Core' 'Fail-DomeniaGlobalSearchUi' $_ }
     [void](Set-DomeniaControlText -Name "LblBranchCount" -Text "Recherche en erreur")
     $noPopup = $false
-    try { $noPopup = [bool]$State.NoPopup } catch { }
+    try { $noPopup = [bool]$State.NoPopup } catch { Write-DomeniaSwallowed 'Core' 'Fail-DomeniaGlobalSearchUi' $_ }
     [void](Show-DomeniaOperationError -Operation "Recherche Active Directory '$query'" -ErrorRecordOrException $detail -NoPopup:$noPopup)
 }
 
@@ -12414,7 +12414,7 @@ function Clear-DomeniaGlobalSearch {
         $localFilter=Get-DomeniaControl 'TxtSuiteResultFilter'
         if($null -ne $localFilter){$localFilter.Clear()}
         $script:GlobalSearchGeneration++
-        try { if ($null -ne $script:LiveSearchTimer) { $script:LiveSearchTimer.Stop() } } catch { }
+        try { if ($null -ne $script:LiveSearchTimer) { $script:LiveSearchTimer.Stop() } } catch { Write-DomeniaSwallowed 'Core' 'Clear-DomeniaGlobalSearch' $_ }
 
         foreach ($id in @($script:AsyncJobs.Keys)) {
             $job = $script:AsyncJobs[$id]
@@ -12484,7 +12484,7 @@ function Invoke-GlobalSearch {
             elseif ($null -ne (Get-Command Get-DomeniaWorkViewScopeChoice -CommandType Function -ErrorAction SilentlyContinue)) { $viewChoice = Get-DomeniaWorkViewScopeChoice }
             $viewOu = Get-DomeniaSearchScope -Mode OU
             $viewOuName = ''
-            if ($null -ne (Get-Command Get-DomeniaUxOuDisplay -CommandType Function -ErrorAction SilentlyContinue)) { try { $viewOuName = [string](Get-DomeniaUxOuDisplay -DistinguishedName ([string]$viewOu.BaseDn) -IsDomain ([bool]$viewOu.IsDomain)).Name } catch { } }
+            if ($null -ne (Get-Command Get-DomeniaUxOuDisplay -CommandType Function -ErrorAction SilentlyContinue)) { try { $viewOuName = [string](Get-DomeniaUxOuDisplay -DistinguishedName ([string]$viewOu.BaseDn) -IsDomain ([bool]$viewOu.IsDomain)).Name } catch { Write-DomeniaSwallowed 'Core' 'Invoke-GlobalSearch' $_ } }
             $viewPlan = Get-DomeniaWorkViewPlan -View $view -Choice $viewChoice -OuDn ([string]$viewOu.BaseDn) -DomainDn ([string]$script:Conn.BaseDn) -Subtree ([string]$viewOu.Scope -eq 'Subtree') -OuName $viewOuName
             $SearchMode = [string]$viewPlan.SearchMode
             if ($SearchMode -eq 'OU' -and [string]::IsNullOrWhiteSpace([string]$script:SelectedBranchDn)) { Set-Status 'Choisissez dʼabord une OU dans lʼarbre pour cette vue.' 'WARN'; return }
@@ -12573,7 +12573,7 @@ function Invoke-GlobalSearch {
         if (-not $PreserveSelection) { Select-DomeniaWorkspace -Workspace 'WsSearch' }
 
         $limit = [int](Get-CfgValue "Browser" "GlobalSearchLimit" 100)
-        try { $limit = [int]((Get-DomeniaControl -Name "TxtGlobalLimit").Text) } catch { }
+        try { $limit = [int]((Get-DomeniaControl -Name "TxtGlobalLimit").Text) } catch { Write-DomeniaSwallowed 'Core' 'Invoke-GlobalSearch' $_ }
         # D037: an explicit 'Charger la suite' raises the bound for this query only; the field keeps the operator value.
         if ($LimitOverride -gt 0) { $limit = $LimitOverride }
         # MO-07: the list is brought to the target size of the continuation; only Target - Loaded rows are read.
@@ -12592,9 +12592,9 @@ function Invoke-GlobalSearch {
         $script:SuppressGridSelectionEvents = $true
         try {
             if ($null -ne $searchGrid) {
-                try { $searchGrid.UnselectAll() } catch { }
-                try { $searchGrid.SelectedItem = $null } catch { }
-                try { $searchGrid.SelectedIndex = -1 } catch { }
+                try { $searchGrid.UnselectAll() } catch { Write-DomeniaSwallowed 'Core' 'Invoke-GlobalSearch' $_ }
+                try { $searchGrid.SelectedItem = $null } catch { Write-DomeniaSwallowed 'Core' 'Invoke-GlobalSearch' $_ }
+                try { $searchGrid.SelectedIndex = -1 } catch { Write-DomeniaSwallowed 'Core' 'Invoke-GlobalSearch' $_ }
             }
         }
         finally { $script:SuppressGridSelectionEvents = $false }
@@ -12614,7 +12614,7 @@ function Invoke-GlobalSearch {
         if ($barTypeKey -notin @('Tous','Utilisateurs','Machines','Groupes')) { $barTypeKey = 'Tous' }
         # UX-25: the object type shown when this list is produced comes back with it from the history.
         $typeLabel = 'Tous'
-        try { $typeItem = (Get-DomeniaControl -Name 'CmbGlobalType').SelectedItem; if ($null -ne $typeItem -and [string]$typeItem.Content) { $typeLabel = [string]$typeItem.Content } } catch { }
+        try { $typeItem = (Get-DomeniaControl -Name 'CmbGlobalType').SelectedItem; if ($null -ne $typeItem -and [string]$typeItem.Content) { $typeLabel = [string]$typeItem.Content } } catch { Write-DomeniaSwallowed 'Core' 'Invoke-GlobalSearch' $_ }
         $prefixFilter = ""
         $fastFilter = ""
         $exactFilter = ""
@@ -13031,7 +13031,7 @@ function Get-DomeniaSelectedGridRow {
 }
 
 function Stop-DomeniaSelectionOpenTimer {
-    try { if ($null -ne $script:SelectionOpenTimer) { $script:SelectionOpenTimer.Stop() } } catch { }
+    try { if ($null -ne $script:SelectionOpenTimer) { $script:SelectionOpenTimer.Stop() } } catch { Write-DomeniaSwallowed 'Core' 'Stop-DomeniaSelectionOpenTimer' $_ }
 }
 
 function Test-DomeniaGridSelectionMatches {
@@ -13276,7 +13276,7 @@ $owner = try { [string]$security.GetOwner([System.Security.Principal.SecurityIde
                 foreach ($p in $result.Capabilities.PSObject.Properties) { $script:CurrentCapabilities[$p.Name] = [string]$p.Value }
             }
             $available = $true
-            try { if ($null -ne $result.PSObject.Properties["Available"]) { $available = [bool]$result.Available } } catch { }
+            try { if ($null -ne $result.PSObject.Properties["Available"]) { $available = [bool]$result.Available } } catch { Write-DomeniaSwallowed 'Core' 'Start-PermissionAnalysis' $_ }
             if ($available) {
                 $summary = "$($result.MatchingAces) ACE correspondante(s), $($result.TokenSidCount) SID de jeton, proprietaire $($result.Owner)."
                 $script:Ctrl["LblPermissionSummary"].Text = $summary
@@ -13285,7 +13285,7 @@ $owner = try { [string]$security.GetOwner([System.Security.Principal.SecurityIde
             }
             else {
                 $reason = "ACL non disponible"
-                try { if (-not [string]::IsNullOrWhiteSpace([string]$result.Reason)) { $reason = [string]$result.Reason } } catch { }
+                try { if (-not [string]::IsNullOrWhiteSpace([string]$result.Reason)) { $reason = [string]$result.Reason } } catch { Write-DomeniaSwallowed 'Core' 'Start-PermissionAnalysis' $_ }
                 $script:Ctrl["LblPermissionSummary"].Text = "Analyse ACL indisponible : $reason. Les actions restent soumises au contrôle du DC et au preflight Domenia."
                 Apply-CurrentPermissionUi
                 Write-AppLog "Analyse ACL non disponible pour $dn : $reason" "WARN"
@@ -13481,7 +13481,7 @@ function Export-CurrentResults {
 
 function Clear-DomeniaSecretClipboard {
     param([switch]$Silent)
-    try { if ($null -ne $script:SecretClipboardTimer) { $script:SecretClipboardTimer.Stop() } } catch { }
+    try { if ($null -ne $script:SecretClipboardTimer) { $script:SecretClipboardTimer.Stop() } } catch { Write-DomeniaSwallowed 'Core' 'Clear-DomeniaSecretClipboard' $_ }
     $script:SecretClipboardTimer = $null
     $expected = [string]$script:SecretClipboardValue
     try {
@@ -13490,26 +13490,26 @@ function Clear-DomeniaSecretClipboard {
             if (-not $Silent) { Set-Status "Presse-papiers secret efface." }
         }
     }
-    catch { try { Write-AppLog "Effacement du presse-papiers secret impossible : $($_.Exception.Message)" "WARN" } catch { } }
+    catch { try { Write-AppLog "Effacement du presse-papiers secret impossible : $($_.Exception.Message)" "WARN" } catch { Write-DomeniaSwallowed 'Core' 'Clear-DomeniaSecretClipboard' $_ } }
     finally { $script:SecretClipboardValue = "" }
 }
 
 function Clear-Secrets {
     Clear-DomeniaSecretClipboard -Silent
     $script:ActiveSecretRequestId = ''
-    try { if ($null -ne $script:SecretLifetimeTimer) { $script:SecretLifetimeTimer.Stop() } } catch { }
-    try { if ($null -ne $script:SecretRevealTimer) { $script:SecretRevealTimer.Stop() } } catch { }
-    foreach ($row in @($script:SecretRows)) { try { $row.Value = '' } catch { } }
+    try { if ($null -ne $script:SecretLifetimeTimer) { $script:SecretLifetimeTimer.Stop() } } catch { Write-DomeniaSwallowed 'Core' 'Clear-Secrets' $_ }
+    try { if ($null -ne $script:SecretRevealTimer) { $script:SecretRevealTimer.Stop() } } catch { Write-DomeniaSwallowed 'Core' 'Clear-Secrets' $_ }
+    foreach ($row in @($script:SecretRows)) { try { $row.Value = '' } catch { Write-DomeniaSwallowed 'Core' 'Clear-Secrets' $_ } }
     $script:SecretRows = @()
     $script:SecretsVisible = $false
     $script:RevealedSecretIndex = -1
     $script:SecretReveal = $null
     $script:BitLockerKeyList = @()
     $script:BitLockerKeyContext = $null
-    try { $script:Ctrl["DgSecrets"].ItemsSource = $null; $script:Ctrl["LblSecretsStatus"].Text = "Aucun secret conservé en mémoire." } catch { }
+    try { $script:Ctrl["DgSecrets"].ItemsSource = $null; $script:Ctrl["LblSecretsStatus"].Text = "Aucun secret conservé en mémoire." } catch { Write-DomeniaSwallowed 'Core' 'Clear-Secrets' $_ }
     # UX-18: the BitLocker key card is emptied and hidden with the grid.
-    try { Update-DomeniaSecretsView } catch { }
-    try { Update-DomeniaSecretActionUi } catch { }
+    try { Update-DomeniaSecretsView } catch { Write-DomeniaSwallowed 'Core' 'Clear-Secrets' $_ }
+    try { Update-DomeniaSecretActionUi } catch { Write-DomeniaSwallowed 'Core' 'Clear-Secrets' $_ }
 }
 
 function Update-SecretsGrid {
@@ -13533,9 +13533,9 @@ function Update-SecretsGrid {
         $index++
     }
     [void](Set-DomeniaItemsSource -Name 'DgSecrets' -Rows $rows.ToArray())
-    try { Update-DomeniaSecretsView } catch { try { Write-AppLog ('Carte de la clé BitLocker : ' + $_.Exception.Message) 'WARN' } catch { } }
+    try { Update-DomeniaSecretsView } catch { try { Write-AppLog ('Carte de la clé BitLocker : ' + $_.Exception.Message) 'WARN' } catch { Write-DomeniaSwallowed 'Core' 'Update-SecretsGrid' $_ } }
     # UI-31: the reveal button gets its label from Update-DomeniaSecretActionUi only.
-    try { Update-DomeniaSecretActionUi } catch { }
+    try { Update-DomeniaSecretActionUi } catch { Write-DomeniaSwallowed 'Core' 'Update-SecretsGrid' $_ }
 }
 
 function Test-DomeniaSecretCallbackCurrent {
@@ -13545,21 +13545,21 @@ function Test-DomeniaSecretCallbackCurrent {
     if ([int64]$script:SelectedObjectGeneration -ne [int64]$State.Generation) { return $false }
     if ([string]$script:SelectedObject.DN -ine [string]$State.DN) { return $false }
     $currentGuid = ""
-    try { $currentGuid = [string]$script:SelectedObject.Safety.Guid } catch { }
+    try { $currentGuid = [string]$script:SelectedObject.Safety.Guid } catch { Write-DomeniaSwallowed 'Core' 'Test-DomeniaSecretCallbackCurrent' $_ }
     if (-not [string]::IsNullOrWhiteSpace([string]$State.ObjectGuid) -and $currentGuid -ine [string]$State.ObjectGuid) { return $false }
     return $true
 }
 
 function Clear-DomeniaSecretResultValues {
     param($Result)
-    try { foreach ($row in @($Result.Rows)) { if ($null -ne $row.PSObject.Properties["Value"]) { $row.Value = "" } } } catch { }
+    try { foreach ($row in @($Result.Rows)) { if ($null -ne $row.PSObject.Properties["Value"]) { $row.Value = "" } } } catch { Write-DomeniaSwallowed 'Core' 'Clear-DomeniaSecretResultValues' $_ }
 }
 
 function Stop-DomeniaSecretReadTasks {
     foreach ($taskId in @($script:AsyncJobs.Keys)) {
         $job = $script:AsyncJobs[$taskId]
         if ($null -ne $job -and [string]$job.ReplaceKey -eq "secrets" -and -not [bool]$job.IsWrite) {
-            try { Request-UiTaskStop -Id ([string]$taskId) -Silent -Force -Superseded } catch { }
+            try { Request-UiTaskStop -Id ([string]$taskId) -Silent -Force -Superseded } catch { Write-DomeniaSwallowed 'Core' 'Stop-DomeniaSecretReadTasks' $_ }
         }
     }
     $script:ActiveSecretRequestId = ""
@@ -13587,7 +13587,7 @@ function Complete-DomeniaSecretLoadUi {
         Clear-DomeniaSecretResultValues -Result $effective
         $detail = if (-not [string]::IsNullOrWhiteSpace([string]$effective.ErrorMessage)) { [string]$effective.ErrorMessage } else { "Aucune valeur secrete lisible n'a ete retournee." }
         $errorKind = ""
-        try { $errorKind = [string]$effective.ErrorKind } catch { }
+        try { $errorKind = [string]$effective.ErrorKind } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaSecretLoadUi' $_ }
         if($errorKind -eq 'LogonFailure' -and $null -ne $script:AccessState){$scope=if($State.Mode -eq 'LAPS'){'ReadLaps'}else{'ReadBitLocker'};$script:AccessState.Faults[$scope]=$true}
         # A decryption refusal is not a read refusal: the resource is not marked denied, no fault is recorded and
         # BitLocker is untouched. Only a refused READ marks this resource for this computer.
@@ -13612,7 +13612,7 @@ function Complete-DomeniaSecretLoadUi {
         return
     }
     Set-DomeniaSecretDenied -Mode ([string]$State.Mode) -DN ([string]$State.DN) -Denied $false
-    foreach($oldSecret in @($script:SecretRows)){try{$oldSecret.Value=''}catch{}}
+    foreach($oldSecret in @($script:SecretRows)){try{$oldSecret.Value=''}catch{Write-DomeniaSwallowed 'Core' 'Complete-DomeniaSecretLoadUi' $_}}
     $script:SecretRows = @($effective.Rows | Where-Object { $null -ne $_ })
     $script:SecretsVisible = $false
     Restart-DomeniaSecretLifetime
@@ -13624,7 +13624,7 @@ function Complete-DomeniaSecretLoadUi {
         $script:Ctrl["LblSecretsStatus"].Text = "Aucun objet de récupération visible avec ce compte. Lʼabsence de résultat ne prouve pas lʼabsence de clé."
         Set-Status "BitLocker : aucun objet de récupération visible avec ce compte." "WARN"
         [void](Request-DomeniaAccessRecovery -Operation 'Lecture BitLocker' -ErrorValue 'Aucune cle visible.' -OperationId 'ReadBitLocker' -DN ([string]$State.DN) -Possible -Interactive:([int]$State.RetryAttempt -eq 0))
-        try { [void](Save-DomeniaSecretIndexEntry -Computer (Get-CurrentSelectedComputerName) -BitLockerKeys 0 -Verdict "aucune cle visible avec ce compte") } catch { }
+        try { [void](Save-DomeniaSecretIndexEntry -Computer (Get-CurrentSelectedComputerName) -BitLockerKeys 0 -Verdict "aucune cle visible avec ce compte") } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaSecretLoadUi' $_ }
         return
     }
     $lapsSuffix = if ($lapsFacts) { " " + $lapsFacts + "." } else { "" }
@@ -13634,7 +13634,7 @@ function Complete-DomeniaSecretLoadUi {
         if ($count -eq 0) { $verdict = "present mais non lisible par ton compte" }
         [void](Update-DomeniaSecretIndexFromRows -Computer (Get-CurrentSelectedComputerName) -Mode ([string]$effective.Mode) -Rows $script:SecretRows -Verdict $verdict)
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaSecretLoadUi' $_ }
 
     try {
         $secretGrid = Get-DomeniaControl -Name "DgSecrets"
@@ -13644,12 +13644,12 @@ function Complete-DomeniaSecretLoadUi {
             } | Select-Object -First 1
             if ($null -ne $firstReadable) {
                 $secretGrid.SelectedItem = $firstReadable
-                try { $secretGrid.ScrollIntoView($firstReadable) } catch { }
+                try { $secretGrid.ScrollIntoView($firstReadable) } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaSecretLoadUi' $_ }
             }
         }
         Update-DomeniaSecretActionUi
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaSecretLoadUi' $_ }
 
     Set-Status "$($effective.Mode) : $count valeur(s) lisible(s).$extra"
 }
@@ -13662,7 +13662,7 @@ function Fail-DomeniaSecretLoadUi {
     $kind=Get-DomeniaAccessFailureKind $Message
     # D057: an explicit decryption refusal does not mark the LAPS read as denied for this computer.
     $decryptOnly=$false
-    try{$decryptOnly=([string](Get-DomeniaErrorDecision -Structured (Get-DomeniaStructuredError $Message) -Text ([string]$Message)).Category -eq 'DecryptionDenied')}catch{}
+    try{$decryptOnly=([string](Get-DomeniaErrorDecision -Structured (Get-DomeniaStructuredError $Message) -Text ([string]$Message)).Category -eq 'DecryptionDenied')}catch{Write-DomeniaSwallowed 'Core' 'Fail-DomeniaSecretLoadUi' $_}
     if($kind -eq 'AccessDenied' -and -not $decryptOnly -and $null -ne $State){Set-DomeniaSecretDenied -Mode $mode -DN ([string]$State.DN)}
     Update-SecretsGrid
     [void](Set-DomeniaControlText 'LblSecretsStatus' ("Lecture $mode non confirmee : "+$Message))
@@ -13803,7 +13803,7 @@ $meta=[pscustomobject]@{Source=$lapsSource;Published=$lapsPublished;ExpirationUt
         $requestId = [guid]::NewGuid().ToString("N")
         $script:ActiveSecretRequestId = $requestId
         $objectGuid = ""
-        try { $objectGuid = [string]$script:SelectedObject.Safety.Guid } catch { }
+        try { $objectGuid = [string]$script:SelectedObject.Safety.Guid } catch { Write-DomeniaSwallowed 'Core' 'Start-LoadComputerSecrets' $_ }
         $callbackState = [pscustomobject]@{
             RequestId=$requestId; DN=$dn; ObjectGuid=$objectGuid
             Generation=[int64]$script:SelectedObjectGeneration; Mode=$Mode; RetryAttempt=$RetryAttempt
@@ -13821,7 +13821,7 @@ function Toggle-SecretsVisibility {
     if (Test-DomeniaSecretSingleExposure) {
         # D058/D059 (Features.SecretSingleCopy): only the selected value is revealed, after this explicit gesture,
         # for the exposure policy duration. A BitLocker line holding metadata only triggers the read of that ONE key.
-        try { if ($null -ne $script:SecretRevealTimer) { $script:SecretRevealTimer.Stop() } } catch { }
+        try { if ($null -ne $script:SecretRevealTimer) { $script:SecretRevealTimer.Stop() } } catch { Write-DomeniaSwallowed 'Core' 'Toggle-SecretsVisibility' $_ }
         if ($script:SecretsVisible) { $script:SecretsVisible = $false; $script:RevealedSecretIndex = -1; Update-SecretsGrid; return }
         $grid = Get-DomeniaControl -Name 'DgSecrets'
         $selectedCount = 0
@@ -13838,7 +13838,7 @@ function Toggle-SecretsVisibility {
     }
     $script:RevealedSecretIndex = -1
     $script:SecretsVisible = -not $script:SecretsVisible
-    try { if ($null -ne $script:SecretRevealTimer) { $script:SecretRevealTimer.Stop() } } catch { }
+    try { if ($null -ne $script:SecretRevealTimer) { $script:SecretRevealTimer.Stop() } } catch { Write-DomeniaSwallowed 'Core' 'Toggle-SecretsVisibility' $_ }
     if ($script:SecretsVisible) {
         # FI-05: protected timer of the engine heartbeat.
         $script:SecretRevealTimer = New-DomeniaTimer -Owner 'Timer:SecretReveal' -IntervalMs 60000 -Start -Tick {
@@ -13861,14 +13861,14 @@ function Start-SecretClipboardAutoClear {
         # FI-05: protected timer of the engine heartbeat; it also runs while the window is minimized.
         $script:SecretClipboardTimer = New-DomeniaTimer -Owner 'Timer:SecretClipboard' -IntervalMs ($seconds * 1000) -RunWhenHidden -Start -Tick {
             param($sender,$eventArgs)
-            try { $sender.Stop() } catch { }
+            try { $sender.Stop() } catch { Write-DomeniaSwallowed 'Core' 'Start-SecretClipboardAutoClear' $_ }
             try {
                 Clear-DomeniaSecretClipboard
                 Set-Status "Presse-papiers secret efface automatiquement."
             }
-            catch { try { Write-AppLog "Timer presse-papiers secret : $($_.Exception.ToString())" "WARN" } catch { } }
+            catch { try { Write-AppLog "Timer presse-papiers secret : $($_.Exception.ToString())" "WARN" } catch { Write-DomeniaSwallowed 'Core' 'Start-SecretClipboardAutoClear' $_ } }
         }
-    } catch { try { Write-AppLog "Programmation de l'effacement du presse-papiers impossible : $($_.Exception.ToString())" "WARN" } catch { } }
+    } catch { try { Write-AppLog "Programmation de l'effacement du presse-papiers impossible : $($_.Exception.ToString())" "WARN" } catch { Write-DomeniaSwallowed 'Core' 'Start-SecretClipboardAutoClear' $_ } }
 }
 
 function Copy-SelectedSecret {
@@ -13930,8 +13930,8 @@ function Clear-MachineCredential {
     if ($null -ne $script:MachineCredential) { $script:DomeniaAccountGeneration = [long]$script:DomeniaAccountGeneration + 1 }
     $script:MachineCredential = $null
     Hide-DomeniaSecretPeek -Owner 'Timer:MachineAdminPeek'
-    try { if ($script:Ctrl.ContainsKey("PwdMachineAdmin")) { $script:Ctrl["PwdMachineAdmin"].Password = "" } } catch { }
-    try { Update-DomeniaMachineAccountUi -Force } catch { }
+    try { if ($script:Ctrl.ContainsKey("PwdMachineAdmin")) { $script:Ctrl["PwdMachineAdmin"].Password = "" } } catch { Write-DomeniaSwallowed 'Core' 'Clear-MachineCredential' $_ }
+    try { Update-DomeniaMachineAccountUi -Force } catch { Write-DomeniaSwallowed 'Core' 'Clear-MachineCredential' $_ }
     Set-Status ("Compte poste oublié. " + (Get-DomeniaMachineOperationAccountText))
 }
 
@@ -15244,7 +15244,7 @@ function Complete-DomeniaInventoryUi {
         elseif($d -match '(?i)DCOM|CIM|WMI'){ if(-not $inventoryMethods.Contains("CIM/DCOM")){$inventoryMethods.Add("CIM/DCOM")} }
     }
     if($inventoryMethods.Count -gt 0){ Add-DomeniaUiLog -Area "Inventaire" -Text ("{0} : methodes d'acquisition = {1}." -f [string]$State.Computer,($inventoryMethods -join ", ")) }
-    try { Register-DomeniaOperationSample -Operation "ComputerInventory" -Mode $(if([int]$effective.FallbackTasks -gt 0){"Classic+TaskFallback"}else{"Classic"}) -ItemCount 1 -DurationMs ([long]$effective.DurationMs) -BytesEstimated $(if([long]$effective.TaskBytes -gt 0){[long]$effective.TaskBytes}else{250000}) -RemoteAttempts 1 -FallbackTasks ([int]$effective.FallbackTasks) -SuccessCount $(if([bool]$effective.Success){1}else{0}) -FailureCount $(if([bool]$effective.Success){0}else{1}) } catch { }
+    try { Register-DomeniaOperationSample -Operation "ComputerInventory" -Mode $(if([int]$effective.FallbackTasks -gt 0){"Classic+TaskFallback"}else{"Classic"}) -ItemCount 1 -DurationMs ([long]$effective.DurationMs) -BytesEstimated $(if([long]$effective.TaskBytes -gt 0){[long]$effective.TaskBytes}else{250000}) -RemoteAttempts 1 -FallbackTasks ([int]$effective.FallbackTasks) -SuccessCount $(if([bool]$effective.Success){1}else{0}) -FailureCount $(if([bool]$effective.Success){0}else{1}) } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaInventoryUi' $_ }
 }
 
 function Fail-DomeniaInventoryUi {
@@ -15266,12 +15266,12 @@ function Update-DomeniaInventoryAgeLine {
     if ($null -ne $script:InventoryCompletedAt) { $label = Get-DomeniaInventoryAgeLabel -CompletedAt $script:InventoryCompletedAt }
     if ([string]::IsNullOrWhiteSpace($label) -or [string]::IsNullOrWhiteSpace([string]$script:InventoryComputer)) {
         $line.Visibility = [Windows.Visibility]::Collapsed
-        try { Update-DomeniaComputerHeader } catch { }
+        try { Update-DomeniaComputerHeader } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaInventoryAgeLine' $_ }
         return
     }
     [void](Set-DomeniaControlText -Name "LblInventoryAge" -Text $label)
     # DS-08 (X04): the header of the workstation says the same age.
-    try { Update-DomeniaComputerHeader } catch { }
+    try { Update-DomeniaComputerHeader } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaInventoryAgeLine' $_ }
     $line.ToolTip = ("Dernière lecture de {0} : {1}. La liste vient de cette session, sans nouvelle requête." -f `
         [string]$script:InventoryComputer, $script:InventoryCompletedAt.ToString('dd/MM/yyyy HH:mm:ss',[Globalization.CultureInfo]::InvariantCulture))
     $line.Visibility = [Windows.Visibility]::Visible
@@ -15820,7 +15820,7 @@ function Copy-DomeniaRowProperty {
     param([Parameter(Mandatory=$true)]$Row,[Parameter(Mandatory=$true)][string]$Property)
     if ($null -eq $Row) { return }
     $value = ""
-    try { $value = [string]$Row.$Property } catch { }
+    try { $value = [string]$Row.$Property } catch { Write-DomeniaSwallowed 'Core' 'Copy-DomeniaRowProperty' $_ }
     if ([string]::IsNullOrWhiteSpace($value)) { Set-Status "Valeur vide, rien a copier." "WARN"; return }
     Set-ClipboardSafe $value
     Set-Status ("Copie : " + $value)
@@ -15854,10 +15854,10 @@ function Start-DomeniaSearchAssociated {
     param($Row)
     if ($null -eq $Row) { Set-Status "Aucune ligne sélectionnée." "WARN"; return }
     $association = ""
-    try { $association = [string]$Row.Association } catch { }
+    try { $association = [string]$Row.Association } catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaSearchAssociated' $_ }
     if ([string]::IsNullOrWhiteSpace($association) -or $association -match "(?i)^(aucun|non detect|inconnu)") {
         $type = ""
-        try { $type = [string]$Row.Type } catch { }
+        try { $type = [string]$Row.Type } catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaSearchAssociated' $_ }
         $label = "associe"
         if ($type -eq "Machine") { $label = "Aucun utilisateur associe a ce poste. Lance la detection dans l onglet Liens user-machine." }
         elseif ($type -eq "Utilisateur") { $label = "Aucun poste associe a ce compte." }
@@ -15875,7 +15875,7 @@ function Get-DomeniaContextRow {
         if ($null -ne $item -and $null -ne $item.PlacementTarget) { $item = $item.PlacementTarget }
         if ($null -ne $item -and $null -ne $item.SelectedItem) { return $item.SelectedItem }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaContextRow' $_ }
     return $null
 }
 
@@ -15884,7 +15884,7 @@ function New-DomeniaObjectsContextMenu {
     $menu.Add_Opened({
         param($sender,$e)
         try { Build-DomeniaObjectsContextMenu -Menu $sender }
-        catch { }
+        catch { Write-DomeniaSwallowed 'Core' 'New-DomeniaObjectsContextMenu' $_ }
     })
     return $menu
 }
@@ -16067,9 +16067,9 @@ function Build-DomeniaObjectsContextMenu {
     $type = ""
     $name = ""
     $association = ""
-    try { $type = [string]$row.Type } catch { }
-    try { $name = [string]$row.Name } catch { }
-    try { $association = [string]$row.Association } catch { }
+    try { $type = [string]$row.Type } catch { Write-DomeniaSwallowed 'Core' 'Build-DomeniaObjectsContextMenu' $_ }
+    try { $name = [string]$row.Name } catch { Write-DomeniaSwallowed 'Core' 'Build-DomeniaObjectsContextMenu' $_ }
+    try { $association = [string]$row.Association } catch { Write-DomeniaSwallowed 'Core' 'Build-DomeniaObjectsContextMenu' $_ }
     $single = ($rows.Count -eq 1)
     $isMachine = ($type -eq "Machine")
     $isUser = ($type -eq "Utilisateur")
@@ -16115,7 +16115,7 @@ function Build-DomeniaObjectsContextMenu {
     )) {
         $prop = [string]$entry.P
         $value = ""
-        try { $value = [string]$row.$prop } catch { }
+        try { $value = [string]$row.$prop } catch { Write-DomeniaSwallowed 'Core' 'Build-DomeniaObjectsContextMenu' $_ }
         [void]$copy.Items.Add((New-DomeniaMenuItem -Header ([string]$entry.H) -Enabled ($single -and (-not [string]::IsNullOrWhiteSpace($value))) `
             -Action ([scriptblock]::Create('Copy-DomeniaRowProperty -Row (Get-DomeniaSelectedGridRow) -Property "' + $prop + '"'))))
     }
@@ -16134,7 +16134,7 @@ function New-DomeniaTreeContextMenu {
     $menu.Add_Opened({
         param($sender,$e)
         try { Build-DomeniaTreeContextMenu -Menu $sender }
-        catch { }
+        catch { Write-DomeniaSwallowed 'Core' 'New-DomeniaTreeContextMenu' $_ }
     })
     return $menu
 }
@@ -16194,12 +16194,12 @@ function Register-DomeniaContextMenus {
         $grid = Get-DomeniaControl -Name "DgObjects"
         if ($null -ne $grid) { $grid.ContextMenu = New-DomeniaObjectsContextMenu; $applied++ }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Register-DomeniaContextMenus' $_ }
     try {
         $tree = Get-DomeniaControl -Name "TvDirectory"
         if ($null -ne $tree) { $tree.ContextMenu = New-DomeniaTreeContextMenu; $applied++ }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Register-DomeniaContextMenus' $_ }
 
     $simple = @(
         @{ N="DgLinks"; P=@("UserLogin","Computer","Source","Details") },
@@ -16227,12 +16227,12 @@ function Register-DomeniaContextMenus {
             $control.ContextMenu = New-DomeniaCopyContextMenu -GridName ([string]$entry.N) -Properties @($entry.P)
             $applied++
         }
-        catch { }
+        catch { Write-DomeniaSwallowed 'Core' 'Register-DomeniaContextMenus' $_ }
     }
 
     # UI-06: the membership grids offer the search of the clicked object, the copy of its DN and, for the groups of the
     # fiche, « Pourquoi membre ? » and the nested groups (Membership.UI).
-    try { $applied += [int](Register-DomeniaMembershipUi) } catch { }
+    try { $applied += [int](Register-DomeniaMembershipUi) } catch { Write-DomeniaSwallowed 'Core' 'Register-DomeniaContextMenus' $_ }
 
     Add-DomeniaUiLog -Area "Interface" -Text ("Menus contextuels actifs sur {0} controle(s)." -f $applied)
     return $applied
@@ -16712,7 +16712,7 @@ function Apply-DomeniaSoftwareFilter {
         $select = $script:SoftwareChartSelect
         if ($null -ne $select) { $rows = @($rows | Where-Object { Test-DomeniaSoftwareRowMatchesSelect -Row $_ -Select $select }) }
         $filter = ""
-        try { $filter = ([string](Get-DomeniaControl -Name "TxtSoftwareFilter").Text).Trim() } catch { }
+        try { $filter = ([string](Get-DomeniaControl -Name "TxtSoftwareFilter").Text).Trim() } catch { Write-DomeniaSwallowed 'Core' 'Apply-DomeniaSoftwareFilter' $_ }
         if (-not [string]::IsNullOrWhiteSpace($filter)) {
             $rows = @($rows | Where-Object {
                 ([string]$_.Name -like ("*" + $filter + "*")) -or
@@ -16788,8 +16788,8 @@ function Complete-DomeniaSoftwareUi {
     try {
         if ([string]$effective.FallbackTransport -eq "PsExec") { $sampleMode = "Classic+PsExec" }
         elseif ([string]$effective.FallbackTransport -eq "TaskScheduler") { $sampleMode = "Classic+TaskScheduler" }
-    } catch { }
-    try { Register-DomeniaOperationSample -Operation "SoftwareInventory" -Mode $sampleMode -ItemCount 1 -DurationMs ([long]$effective.DurationMs) -BytesEstimated $(if([long]$effective.TaskBytes -gt 0){[long]$effective.TaskBytes}else{500000}) -RemoteAttempts 1 -FallbackTasks ([int]$effective.FallbackTasks) -SuccessCount $(if(@($script:SoftwareRows).Count -gt 0){1}else{0}) -FailureCount $(if(@($script:SoftwareRows).Count -gt 0){0}else{1}) } catch { }
+    } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaSoftwareUi' $_ }
+    try { Register-DomeniaOperationSample -Operation "SoftwareInventory" -Mode $sampleMode -ItemCount 1 -DurationMs ([long]$effective.DurationMs) -BytesEstimated $(if([long]$effective.TaskBytes -gt 0){[long]$effective.TaskBytes}else{500000}) -RemoteAttempts 1 -FallbackTasks ([int]$effective.FallbackTasks) -SuccessCount $(if(@($script:SoftwareRows).Count -gt 0){1}else{0}) -FailureCount $(if(@($script:SoftwareRows).Count -gt 0){0}else{1}) } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaSoftwareUi' $_ }
 }
 
 function Fail-DomeniaSoftwareUi {
@@ -16814,7 +16814,7 @@ function Update-DomeniaSoftwareColumnVisibility {
     try {
         $bouton = Get-DomeniaControl -Name 'BtnSoftwareColumns'
         if ($null -ne $bouton) { $technique = [bool]$bouton.IsChecked }
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaSoftwareColumnVisibility' $_ }
     $entetes = @()
     foreach ($column in @($grid.Columns)) { $entetes += [string]$column.Header }
     $visibilites = Get-DomeniaSoftwareColumnVisibility -Headers $entetes -FromInventory ([bool](([string]$script:SoftwareSource) -eq 'Inventaire')) -ShowTechnical $technique
@@ -16835,7 +16835,7 @@ function Update-DomeniaSoftwareSyntheseVisibility {
     try {
         $selecteur = Get-DomeniaControl -Name 'CmbSoftwareView'
         if ($null -ne $selecteur) { $synthese = ([int]$selecteur.SelectedIndex -eq 1) }
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaSoftwareSyntheseVisibility' $_ }
     if ($synthese) { $panneau.Visibility = [System.Windows.Visibility]::Visible }
     else { $panneau.Visibility = [System.Windows.Visibility]::Collapsed }
 }
@@ -16922,9 +16922,9 @@ function Start-DomeniaSoftwareInventory {
         $perUser = $false
         $store = $false
         $updates = $false
-        try { $perUser = [bool](Get-DomeniaControl -Name "ChkSoftwarePerUser").IsChecked } catch { }
-        try { $store = [bool](Get-DomeniaControl -Name "ChkSoftwareStore").IsChecked } catch { }
-        try { $updates = [bool](Get-DomeniaControl -Name "ChkSoftwareUpdates").IsChecked } catch { }
+        try { $perUser = [bool](Get-DomeniaControl -Name "ChkSoftwarePerUser").IsChecked } catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaSoftwareInventory' $_ }
+        try { $store = [bool](Get-DomeniaControl -Name "ChkSoftwareStore").IsChecked } catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaSoftwareInventory' $_ }
+        try { $updates = [bool](Get-DomeniaControl -Name "ChkSoftwareUpdates").IsChecked } catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaSoftwareInventory' $_ }
 
         $timeout = 130
         if ($store) { $timeout = 200 }
@@ -17059,12 +17059,12 @@ function Complete-DomeniaWmiNamespacesUi {
     $suffix = ""
     if ([bool]$effective.Truncated) { $suffix = " Limite atteinte, la liste est tronquee." }
     $failures = @($effective.Errors).Count
-    $transport="";try{$transport=[string]$effective.Transport}catch{}; if([string]::IsNullOrWhiteSpace($transport)){try{$transport=[string]$effective.DomeniaTransport}catch{}}; $summary = "{0} espace(s) de noms lus en {1} ms via {2}, {3} branche(s) refusee(s).{4}" -f `
+    $transport="";try{$transport=[string]$effective.Transport}catch{Write-DomeniaSwallowed 'Core' 'Complete-DomeniaWmiNamespacesUi' $_}; if([string]::IsNullOrWhiteSpace($transport)){try{$transport=[string]$effective.DomeniaTransport}catch{Write-DomeniaSwallowed 'Core' 'Complete-DomeniaWmiNamespacesUi' $_}}; $summary = "{0} espace(s) de noms lus en {1} ms via {2}, {3} branche(s) refusee(s).{4}" -f `
         @($script:WmiNamespaces).Count,([long]$effective.DurationMs),$(if($transport){$transport}else{"CIM"}),$failures,$suffix
     [void](Set-DomeniaControlText -Name "LblWmiStatus" -Text $summary)
     Set-Status $summary
     Add-DomeniaUiLog -Area "WMI" -Text $summary
-    try { $fb=if([string]$effective.DomeniaTransport -eq "TaskFallback"){1}else{0};$bytes=24000;try{$bytes=[long]$effective.DomeniaBytesSent+[long]$effective.DomeniaBytesReceived}catch{};Register-DomeniaOperationSample -Operation "WmiNamespaces" -Mode $(if($fb){"Classic+TaskFallback"}else{"Classic"}) -ItemCount 1 -DurationMs ([long]$effective.DurationMs) -BytesEstimated $bytes -RemoteAttempts 1 -FallbackTasks $fb -SuccessCount 1 } catch { }
+    try { $fb=if([string]$effective.DomeniaTransport -eq "TaskFallback"){1}else{0};$bytes=24000;try{$bytes=[long]$effective.DomeniaBytesSent+[long]$effective.DomeniaBytesReceived}catch{Write-DomeniaSwallowed 'Core' 'Complete-DomeniaWmiNamespacesUi' $_};Register-DomeniaOperationSample -Operation "WmiNamespaces" -Mode $(if($fb){"Classic+TaskFallback"}else{"Classic"}) -ItemCount 1 -DurationMs ([long]$effective.DurationMs) -BytesEstimated $bytes -RemoteAttempts 1 -FallbackTasks $fb -SuccessCount 1 } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaWmiNamespacesUi' $_ }
 }
 
 function Complete-DomeniaWmiClassesUi {
@@ -17075,11 +17075,11 @@ function Complete-DomeniaWmiClassesUi {
     $script:WmiClasses = @($effective.Classes)
     $script:WmiNamespace = [string]$effective.Namespace
     Apply-DomeniaWmiClassFilter
-    $transport="";try{$transport=[string]$effective.Transport}catch{};if([string]::IsNullOrWhiteSpace($transport)){try{$transport=[string]$effective.DomeniaTransport}catch{}};$summary = "{0} : {1} classe(s) en {2} ms via {3}." -f [string]$effective.Namespace,@($script:WmiClasses).Count,([long]$effective.DurationMs),$(if($transport){$transport}else{"CIM"})
+    $transport="";try{$transport=[string]$effective.Transport}catch{Write-DomeniaSwallowed 'Core' 'Complete-DomeniaWmiClassesUi' $_};if([string]::IsNullOrWhiteSpace($transport)){try{$transport=[string]$effective.DomeniaTransport}catch{Write-DomeniaSwallowed 'Core' 'Complete-DomeniaWmiClassesUi' $_}};$summary = "{0} : {1} classe(s) en {2} ms via {3}." -f [string]$effective.Namespace,@($script:WmiClasses).Count,([long]$effective.DurationMs),$(if($transport){$transport}else{"CIM"})
     [void](Set-DomeniaControlText -Name "LblWmiStatus" -Text $summary)
     Set-Status $summary
     Add-DomeniaUiLog -Area "WMI" -Text $summary
-    try { $fb=if([string]$effective.DomeniaTransport -eq "TaskFallback"){1}else{0};$bytes=80000;try{$bytes=[long]$effective.DomeniaBytesSent+[long]$effective.DomeniaBytesReceived}catch{};Register-DomeniaOperationSample -Operation "WmiClasses" -Mode $(if($fb){"Classic+TaskFallback"}else{"Classic"}) -ItemCount 1 -DurationMs ([long]$effective.DurationMs) -BytesEstimated $bytes -RemoteAttempts 1 -FallbackTasks $fb -SuccessCount 1 } catch { }
+    try { $fb=if([string]$effective.DomeniaTransport -eq "TaskFallback"){1}else{0};$bytes=80000;try{$bytes=[long]$effective.DomeniaBytesSent+[long]$effective.DomeniaBytesReceived}catch{Write-DomeniaSwallowed 'Core' 'Complete-DomeniaWmiClassesUi' $_};Register-DomeniaOperationSample -Operation "WmiClasses" -Mode $(if($fb){"Classic+TaskFallback"}else{"Classic"}) -ItemCount 1 -DurationMs ([long]$effective.DurationMs) -BytesEstimated $bytes -RemoteAttempts 1 -FallbackTasks $fb -SuccessCount 1 } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaWmiClassesUi' $_ }
 }
 
 function Complete-DomeniaWmiQueryUi {
@@ -17100,7 +17100,7 @@ function Complete-DomeniaWmiQueryUi {
     [void](Set-DomeniaControlText -Name "LblWmiStatus" -Text $summary)
     Set-Status $summary
     Add-DomeniaUiLog -Area "WMI" -Text $summary
-    try { $fb=if([string]$effective.DomeniaTransport -eq "TaskFallback"){1}else{0};$bytes=160000;try{$bytes=[long]$effective.DomeniaBytesSent+[long]$effective.DomeniaBytesReceived}catch{};Register-DomeniaOperationSample -Operation "WmiQuery" -Mode $(if($fb){"Classic+TaskFallback"}else{"Classic"}) -ItemCount 1 -DurationMs ([long]$effective.DurationMs) -BytesEstimated $bytes -RemoteAttempts 1 -FallbackTasks $fb -SuccessCount 1 } catch { }
+    try { $fb=if([string]$effective.DomeniaTransport -eq "TaskFallback"){1}else{0};$bytes=160000;try{$bytes=[long]$effective.DomeniaBytesSent+[long]$effective.DomeniaBytesReceived}catch{Write-DomeniaSwallowed 'Core' 'Complete-DomeniaWmiQueryUi' $_};Register-DomeniaOperationSample -Operation "WmiQuery" -Mode $(if($fb){"Classic+TaskFallback"}else{"Classic"}) -ItemCount 1 -DurationMs ([long]$effective.DurationMs) -BytesEstimated $bytes -RemoteAttempts 1 -FallbackTasks $fb -SuccessCount 1 } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaWmiQueryUi' $_ }
 }
 
 function Fail-DomeniaWmiUi {
@@ -17116,7 +17116,7 @@ function Fail-DomeniaWmiUi {
 function Apply-DomeniaWmiClassFilter {
     try {
         $filter = ""
-        try { $filter = ([string](Get-DomeniaControl -Name "TxtWmiClassFilter").Text).Trim() } catch { }
+        try { $filter = ([string](Get-DomeniaControl -Name "TxtWmiClassFilter").Text).Trim() } catch { Write-DomeniaSwallowed 'Core' 'Apply-DomeniaWmiClassFilter' $_ }
         $rows = @($script:WmiClasses)
         if (-not [string]::IsNullOrWhiteSpace($filter)) {
             $rows = @($rows | Where-Object { [string]$_.Class -like ("*" + $filter + "*") })
@@ -17209,7 +17209,7 @@ function Start-DomeniaWmiQuery {
         $namespace = Get-DomeniaWmiSelectedNamespace
         $where = ""
         $limit = 25
-        try { $where = ([string](Get-DomeniaControl -Name "TxtWmiWhere").Text).Trim() } catch { }
+        try { $where = ([string](Get-DomeniaControl -Name "TxtWmiWhere").Text).Trim() } catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaWmiQuery' $_ }
         try { $limit = [int]([string](Get-DomeniaControl -Name "TxtWmiLimit").Text) } catch { $limit = 25 }
         if ($limit -le 0) { $limit = 25 }
         $limit = [Math]::Min(500,$limit)
@@ -17357,8 +17357,8 @@ function Rebuild-DomeniaIndexLookup {
         if ($null -ne $r) {
             $guid = ""
             $dn = ""
-            try { $guid = ([string]$r.Guid).Trim().ToLowerInvariant() } catch { }
-            try { $dn = ([string]$r.DN).Trim().ToLowerInvariant() } catch { }
+            try { $guid = ([string]$r.Guid).Trim().ToLowerInvariant() } catch { Write-DomeniaSwallowed 'Core' 'Rebuild-DomeniaIndexLookup' $_ }
+            try { $dn = ([string]$r.DN).Trim().ToLowerInvariant() } catch { Write-DomeniaSwallowed 'Core' 'Rebuild-DomeniaIndexLookup' $_ }
             if (-not [string]::IsNullOrWhiteSpace($dn)) { $positionByDn[$dn] = $index }
             if (-not [string]::IsNullOrWhiteSpace($guid)) { $positionByGuid[$guid] = $index }
             if ([string]$r.Type -eq "Utilisateur") {
@@ -17396,8 +17396,8 @@ function Update-DomeniaIndexLookupEntry {
         if ($null -ne $PreviousRow) {
             $oldGuid = ""
             $oldDn = ""
-            try { $oldGuid = ([string]$PreviousRow.Guid).Trim().ToLowerInvariant() } catch { }
-            try { $oldDn = ([string]$PreviousRow.DN).Trim().ToLowerInvariant() } catch { }
+            try { $oldGuid = ([string]$PreviousRow.Guid).Trim().ToLowerInvariant() } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaIndexLookupEntry' $_ }
+            try { $oldDn = ([string]$PreviousRow.DN).Trim().ToLowerInvariant() } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaIndexLookupEntry' $_ }
             if (-not [string]::IsNullOrWhiteSpace($oldDn)) { [void]$script:IndexPositionByDn.Remove($oldDn) }
             if (-not [string]::IsNullOrWhiteSpace($oldGuid)) { [void]$script:IndexPositionByGuid.Remove($oldGuid) }
             if ([string]$PreviousRow.Type -eq "Utilisateur") {
@@ -17417,8 +17417,8 @@ function Update-DomeniaIndexLookupEntry {
         if ($null -eq $Row) { return }
         $guid = ""
         $dn = ""
-        try { $guid = ([string]$Row.Guid).Trim().ToLowerInvariant() } catch { }
-        try { $dn = ([string]$Row.DN).Trim().ToLowerInvariant() } catch { }
+        try { $guid = ([string]$Row.Guid).Trim().ToLowerInvariant() } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaIndexLookupEntry' $_ }
+        try { $dn = ([string]$Row.DN).Trim().ToLowerInvariant() } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaIndexLookupEntry' $_ }
         if ($Position -ge 0) {
             if (-not [string]::IsNullOrWhiteSpace($dn)) { $script:IndexPositionByDn[$dn] = $Position }
             if (-not [string]::IsNullOrWhiteSpace($guid)) { $script:IndexPositionByGuid[$guid] = $Position }
@@ -17703,7 +17703,7 @@ function Merge-DomeniaIndexRows {
     foreach ($r in @($Existing)) {
         $dn = [string]$r.DN
         $guid = ""
-        try { $guid = ([string]$r.Guid).Trim().ToLowerInvariant() } catch { }
+        try { $guid = ([string]$r.Guid).Trim().ToLowerInvariant() } catch { Write-DomeniaSwallowed 'Core' 'Merge-DomeniaIndexRows' $_ }
         if ([string]::IsNullOrWhiteSpace($dn) -and [string]::IsNullOrWhiteSpace($guid)) { continue }
         $key = if (-not [string]::IsNullOrWhiteSpace($guid)) { "g:" + $guid } else { "d:" + $dn.ToLowerInvariant() }
         $byKey[$key] = $r
@@ -17714,7 +17714,7 @@ function Merge-DomeniaIndexRows {
     foreach ($r in @($Changed)) {
         $dn = [string]$r.DN
         $guid = ""
-        try { $guid = ([string]$r.Guid).Trim().ToLowerInvariant() } catch { }
+        try { $guid = ([string]$r.Guid).Trim().ToLowerInvariant() } catch { Write-DomeniaSwallowed 'Core' 'Merge-DomeniaIndexRows' $_ }
         if ([string]::IsNullOrWhiteSpace($dn) -and [string]::IsNullOrWhiteSpace($guid)) { continue }
         $key = if (-not [string]::IsNullOrWhiteSpace($guid)) { "g:" + $guid } else { "d:" + $dn.ToLowerInvariant() }
         $existingKey = ""
@@ -17821,7 +17821,7 @@ function Complete-DomeniaIndexRefreshUi {
     Add-DomeniaUiLog -Area "Index" -Text $logText
     $mode = "AD full fallback"
     if ([bool]$effective.Incremental) { $mode = "AD delta" }
-    try { Register-DomeniaOperationSample -Operation "IndexBuild" -Mode $mode -ItemCount ([Math]::Max(1,$rowCount)) -DurationMs ([long]$effective.DurationMs) -BytesEstimated ([long]([Math]::Max(1,$rowCount)*1800)) -AdQueries ([Math]::Max(1,[int][Math]::Ceiling([Math]::Max(1,$rowCount)/1000.0))) -SuccessCount $rowCount } catch { }
+    try { Register-DomeniaOperationSample -Operation "IndexBuild" -Mode $mode -ItemCount ([Math]::Max(1,$rowCount)) -DurationMs ([long]$effective.DurationMs) -BytesEstimated ([long]([Math]::Max(1,$rowCount)*1800)) -AdQueries ([Math]::Max(1,[int][Math]::Ceiling([Math]::Max(1,$rowCount)/1000.0))) -SuccessCount $rowCount } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaIndexRefreshUi' $_ }
     Update-DomeniaIndexStats
 }
 
@@ -17833,15 +17833,15 @@ function Start-DomeniaIndexRefresh {
         $lastServer = ""
         $since = ""
         $lastInvocationId = ""
-        try { $lastUsn = [long]$script:IndexInfo.Usn } catch { }
-        try { $lastServer = [string]$script:IndexInfo.Server } catch { }
-        try { $since = [string]$script:IndexInfo.Date } catch { }
+        try { $lastUsn = [long]$script:IndexInfo.Usn } catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaIndexRefresh' $_ }
+        try { $lastServer = [string]$script:IndexInfo.Server } catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaIndexRefresh' $_ }
+        try { $since = [string]$script:IndexInfo.Date } catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaIndexRefresh' $_ }
         try { $lastInvocationId = [string]$script:IndexInfo.InvocationId } catch { $lastInvocationId = "" }
         $dbCount = Get-DomeniaDatabaseObjectCount
         if ($dbCount -lt 0) {
             # FI-19: the figures of the base are being read off the Dispatcher; nothing is started on a guess.
             if (-not $Silent) { Set-Status "État de la base locale en cours de lecture : relancez la mise à jour dans un instant." "WARN" }
-            try { Request-DomeniaIndexMetadata } catch { }
+            try { Request-DomeniaIndexMetadata } catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaIndexRefresh' $_ }
             return
         }
         if ($dbCount -eq 0) {
@@ -17907,14 +17907,14 @@ function Request-DomeniaIndexAutoRefresh {
         # Unknown (-1, not read yet) or empty base: no notice on the age of the base.
         if ((Get-DomeniaDatabaseObjectCount) -le 0) { return }
         $when = ""
-        try { $when = [string]$script:IndexInfo.Date } catch { }
+        try { $when = [string]$script:IndexInfo.Date } catch { Write-DomeniaSwallowed 'Core' 'Request-DomeniaIndexAutoRefresh' $_ }
         $ageMinutes = 999999
-        if (-not [string]::IsNullOrWhiteSpace($when)) { try { $ageMinutes = ((Get-Date) - [datetime]$when).TotalMinutes } catch { } }
+        if (-not [string]::IsNullOrWhiteSpace($when)) { try { $ageMinutes = ((Get-Date) - [datetime]$when).TotalMinutes } catch { Write-DomeniaSwallowed 'Core' 'Request-DomeniaIndexAutoRefresh' $_ } }
         $minutes = [Math]::Max(1,[int](Get-CfgValue "Index" "StartupDeltaMaxAgeMinutes" 30))
         if ($ageMinutes -ge $minutes) {
             Add-DomeniaUiLog -Area "Index" -Text ("Base locale agee de " + [int]$ageMinutes + " min : mise a jour recommandee, non lancee automatiquement. Utilise Outils > Base locale.")
         }
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'Core' 'Request-DomeniaIndexAutoRefresh' $_ }
 }
 
 function Upsert-DomeniaIndexEntryRow {
@@ -17957,7 +17957,7 @@ function Request-DomeniaIndexFlush {
             # FI-05: protected timer of the engine heartbeat; it also runs while the window is minimized.
             $script:IndexFlushTimer = New-DomeniaTimer -Owner 'Timer:IndexFlush' -IntervalMs 10000 -RunWhenHidden -Tick {
                 param($sender,$eventArgs)
-                try { $sender.Stop() } catch { }
+                try { $sender.Stop() } catch { Write-DomeniaSwallowed 'Core' 'Request-DomeniaIndexFlush' $_ }
                 [void](Flush-DomeniaIndex)
             }
         }
@@ -17969,13 +17969,13 @@ function Request-DomeniaIndexFlush {
 
 function Flush-DomeniaIndex {
     if (-not $script:IndexDirty) { return $false }
-    try { $script:IndexFlushTimer.Stop() } catch { }
+    try { $script:IndexFlushTimer.Stop() } catch { Write-DomeniaSwallowed 'Core' 'Flush-DomeniaIndex' $_ }
     $server = ""
     $baseDn = ""
     $usn = [long]0
-    try { $server = [string]$script:IndexInfo.Server } catch { }
-    try { $baseDn = [string]$script:IndexInfo.BaseDn } catch { }
-    try { $usn = [long]$script:IndexInfo.Usn } catch { }
+    try { $server = [string]$script:IndexInfo.Server } catch { Write-DomeniaSwallowed 'Core' 'Flush-DomeniaIndex' $_ }
+    try { $baseDn = [string]$script:IndexInfo.BaseDn } catch { Write-DomeniaSwallowed 'Core' 'Flush-DomeniaIndex' $_ }
+    try { $usn = [long]$script:IndexInfo.Usn } catch { Write-DomeniaSwallowed 'Core' 'Flush-DomeniaIndex' $_ }
     $ok = Save-DomeniaIndex -Rows @($script:IndexRows) -Server $server -BaseDn $baseDn -HighestUsn $usn
     if ($ok) {
         $script:IndexDirty = $false
@@ -17992,7 +17992,7 @@ function Request-DomeniaIndexFirstBuild {
         if ((Get-DomeniaDatabaseObjectCount) -eq 0) {
             Add-DomeniaUiLog -Area "Index" -Text "Aucune base locale : construction disponible manuellement dans Outils > Base locale. Aucun scan AD automatique au demarrage."
         }
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'Core' 'Request-DomeniaIndexFirstBuild' $_ }
 }
 
 
@@ -18026,7 +18026,7 @@ function Request-DomeniaIndexFirstBuild {
 # =====================================================================
 function Get-DomeniaParkSharedPath {
     $configured = ""
-    try { $configured = ([string](Get-CfgValue "ParkSweep" "SharedPath" "")).Trim() } catch { }
+    try { $configured = ([string](Get-CfgValue "ParkSweep" "SharedPath" "")).Trim() } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaParkSharedPath' $_ }
     if ([string]::IsNullOrWhiteSpace($configured)) { return "" }
     return $configured
 }
@@ -18046,7 +18046,7 @@ function Read-DomeniaParkFile {
             }
         }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Read-DomeniaParkFile' $_ }
     return $state
 }
 
@@ -18137,8 +18137,8 @@ function Complete-DomeniaLogonHarvestUi {
     [void](Set-DomeniaControlText -Name "LblParkStatus" -Text (Get-DomeniaParkStatusTextSafe))
     if (-not [bool]$State.Silent) { Set-Status $summary }
     Add-DomeniaUiLog -Area "Parc" -Text $summary
-    try{Register-DomeniaOperationSample -Operation "LogonHarvest" -Mode "DC EventLog" -ItemCount ([int]$Result.Events) -DurationMs ([long]$Result.DurationMs) -BytesEstimated ([long]$Result.Events*2200) -AdQueries 1 -SuccessCount @($Result.Pairs).Count} catch{}
-    try { Refresh-LinkGrid } catch { }
+    try{Register-DomeniaOperationSample -Operation "LogonHarvest" -Mode "DC EventLog" -ItemCount ([int]$Result.Events) -DurationMs ([long]$Result.DurationMs) -BytesEstimated ([long]$Result.Events*2200) -AdQueries 1 -SuccessCount @($Result.Pairs).Count} catch{Write-DomeniaSwallowed 'Core' 'Complete-DomeniaLogonHarvestUi' $_}
+    try { Refresh-LinkGrid } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaLogonHarvestUi' $_ }
 }
 
 function Fail-DomeniaLogonHarvestUi {
@@ -18303,7 +18303,7 @@ function Get-DomeniaParkPriority {
         if ($script:ParkState.ContainsKey($key)) { $entry = $script:ParkState[$key] }
         if ($null -eq $entry) { $jamais.Add([pscustomobject]@{ Name=$name; Age=[double]999999 }); continue }
         $age = [double]999999
-        try { $age = ((Get-Date) - [datetime]$entry.LastProbe).TotalDays } catch { }
+        try { $age = ((Get-Date) - [datetime]$entry.LastProbe).TotalDays } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaParkPriority' $_ }
         $seuil = $refreshDays
         if ([string]$entry.Status -ne "Session") { $seuil = $retryDays }
         if ($age -lt $seuil) { continue }
@@ -18319,7 +18319,7 @@ function Get-DomeniaParkPriority {
                 if ([datetime]$logon -le [datetime]$entry.LastProbe) { $dormant = $true }
             }
         }
-        catch { }
+        catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaParkPriority' $_ }
         if ($dormant) { $script:ParkDormants++; continue }
 
         $perimes.Add([pscustomobject]@{ Name=$name; Age=$age })
@@ -18356,7 +18356,7 @@ function Get-DomeniaParkCoverageText {
             if ([int]$span.TotalDays -ge 1) { $age = ", dernier passage il y a " + [int]$span.TotalDays + " jour(s)" }
             else { $age = ", dernier passage il y a " + [int]$span.TotalHours + " heure(s)" }
         }
-        catch { }
+        catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaParkCoverageText' $_ }
     }
     $dormants = ""
     if ([int]$c.Dormants -gt 0) { $dormants = ", " + [int]$c.Dormants + " écarté(s) faute dʼactivité depuis le dernier relevé" }
@@ -18398,10 +18398,10 @@ function Complete-DomeniaParkSweepUi {
         [int]$effective.Requested,[int]$effective.Reachable,[int]$effective.Probed,[int]$effective.Found,$nouveaux,([long]$effective.DurationMs)
     if ($null -ne $partage) { $summary = $summary + (" Partage : {0} recu(s), {1} actualise(s), {2} au total." -f [int]$partage.Recus,[int]$partage.Actualises,[int]$partage.Total) }
     Add-DomeniaUiLog -Area "Parc" -Text $summary
-    try{$fb=0;$tb=0;try{$fb=[int]$Result.FallbackTasks}catch{};try{$tb=[long]$Result.TaskBytes}catch{};Register-DomeniaOperationSample -Operation "ParkSweep" -Mode "Classic+TaskFallback" -ItemCount ([int]$Result.Requested) -DurationMs ([long]$Result.DurationMs) -BytesEstimated ([Math]::Max([long]$tb,[long]$Result.Requested*24000)) -RemoteAttempts ([int]$Result.Probed) -FallbackTasks $fb -SuccessCount ([int]$Result.Found) -FailureCount ([Math]::Max(0,[int]$Result.Probed-[int]$Result.Found))}catch{}
+    try{$fb=0;$tb=0;try{$fb=[int]$Result.FallbackTasks}catch{Write-DomeniaSwallowed 'Core' 'Complete-DomeniaParkSweepUi' $_};try{$tb=[long]$Result.TaskBytes}catch{Write-DomeniaSwallowed 'Core' 'Complete-DomeniaParkSweepUi' $_};Register-DomeniaOperationSample -Operation "ParkSweep" -Mode "Classic+TaskFallback" -ItemCount ([int]$Result.Requested) -DurationMs ([long]$Result.DurationMs) -BytesEstimated ([Math]::Max([long]$tb,[long]$Result.Requested*24000)) -RemoteAttempts ([int]$Result.Probed) -FallbackTasks $fb -SuccessCount ([int]$Result.Found) -FailureCount ([Math]::Max(0,[int]$Result.Probed-[int]$Result.Found))}catch{Write-DomeniaSwallowed 'Core' 'Complete-DomeniaParkSweepUi' $_}
     [void](Set-DomeniaControlText -Name "LblParkStatus" -Text (Get-DomeniaParkStatusTextSafe))
     if (-not [bool]$State.Silent) { Set-Status $summary }
-    try { Refresh-LinkGrid } catch { }
+    try { Refresh-LinkGrid } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaParkSweepUi' $_ }
 }
 
 function Fail-DomeniaParkSweepUi {
@@ -18428,7 +18428,7 @@ function Request-DomeniaParkSweepAtStartup {
         if ([bool](Get-DomeniaSetting "ParkSweepEnabled" $false)) {
             Add-DomeniaUiLog -Area "Parc" -Text "Releve automatique configure mais differe : aucun balayage du parc n'est lance au demarrage."
         }
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'Core' 'Request-DomeniaParkSweepAtStartup' $_ }
 }
 
 
@@ -18592,7 +18592,7 @@ function Complete-DomeniaIndexBuildUi {
     Update-DomeniaIndexStats
     # The home overview reads this base: out of date now, computed again once the queued index is saved (storage).
     $script:FleetStale = $true
-    try{Register-DomeniaOperationSample -Operation "IndexBuild" -Mode "AD" -ItemCount $rowCount -DurationMs ([long]$effective.DurationMs) -BytesEstimated ([long]($rowCount*1800)) -AdQueries ([Math]::Max(1,[int][Math]::Ceiling($rowCount/1000.0))) -SuccessCount $rowCount -StartedAt $(if($null-ne$State.PSObject.Properties['StartedAt']){[string]$State.StartedAt}else{""})}catch{}
+    try{Register-DomeniaOperationSample -Operation "IndexBuild" -Mode "AD" -ItemCount $rowCount -DurationMs ([long]$effective.DurationMs) -BytesEstimated ([long]($rowCount*1800)) -AdQueries ([Math]::Max(1,[int][Math]::Ceiling($rowCount/1000.0))) -SuccessCount $rowCount -StartedAt $(if($null-ne$State.PSObject.Properties['StartedAt']){[string]$State.StartedAt}else{""})}catch{Write-DomeniaSwallowed 'Core' 'Complete-DomeniaIndexBuildUi' $_}
     if ($null -ne $State -and [bool]$State.UpdateLinks) {
         try { Start-DomeniaLogonHarvest -Silent } catch { Add-DomeniaUiLog -Area "Base autonome" -Level "WARN" -Text ("Mise a jour des associations via journal non lancee : " + $_.Exception.Message) }
     }
@@ -18642,7 +18642,7 @@ function Set-DomeniaIndexPartial {
     # raise instead of only saying "limite". A marker written before these two fields still reads, with no limit named.
     param([string]$BaseDn = '',[int]$Count = 0,[string]$Reason = '',[int]$Limit = 0,[switch]$Clear)
     $value = if ($Clear) { '' } else { $BaseDn + '|' + [datetime]::Now.ToString('dd/MM/yyyy HH:mm',[Globalization.CultureInfo]::InvariantCulture) + '|' + [string]$Count + '|' + [string]$Reason + '|' + [string]$Limit }
-    try { Set-DomeniaSetting 'Index.Partial' $value; Save-DomeniaSettings -Immediate } catch { }
+    try { Set-DomeniaSetting 'Index.Partial' $value; Save-DomeniaSettings -Immediate } catch { Write-DomeniaSwallowed 'Core' 'Set-DomeniaIndexPartial' $_ }
 }
 
 function Get-DomeniaIndexPartialText {
@@ -18681,7 +18681,7 @@ function Start-DomeniaIndexScopeBuild {
         $limits = Get-DomeniaIndexLimits
         Set-DomeniaIndexProgress -Mode Busy -Message ('Lecture de ' + $target + ' dans Active Directory… progression exacte indisponible pendant la requête.')
         [void](Set-DomeniaControlText -Name "LblFleetDashboard" -Text "Lecture de lʼOU dans lʼannuaire en arrière-plan...")
-        try { Set-DomeniaFleetDashboardToolTip } catch { }
+        try { Set-DomeniaFleetDashboardToolTip } catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaIndexScopeBuild' $_ }
         $job = Start-UiTask `
             -Name "Mise à jour de lʼOU dans la base autonome" `
             -OperationId "IndexBuild" `
@@ -18882,7 +18882,7 @@ function Complete-DomeniaIndexWalkUi {
     Set-Status $summary $(if ($Aborted -or $walk.Limited -gt 0 -or $walk.Errors -gt 0) { 'WARN' } else { 'INFO' })
     Add-DomeniaUiLog -Area "Index" -Text $summary
     $script:FleetStale = $true
-    try { Request-DomeniaIndexMetadata } catch { }
+    try { Request-DomeniaIndexMetadata } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaIndexWalkUi' $_ }
 }
 
 function Get-DomeniaIndexScope {
@@ -19045,13 +19045,13 @@ function Update-DomeniaIndexStats {
         $details = ('Contrôleur de la dernière lecture : {0}. Objets enregistrés : {1:N0}. Associations utilisateur-poste : {2:N0}.' -f $(if($server){$server}else{'inconnu'}),$count,@($script:UserMachineLinks).Count)
         [void](Set-DomeniaControlText -Name 'LblIndexStats' -Text $details)
     } catch { Write-AppLog ('État de la base non affiché : ' + $_.Exception.Message) 'WARN' }
-    try { Update-DomeniaIndexLocation } catch { }
+    try { Update-DomeniaIndexLocation } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaIndexStats' $_ }
 }
 
 function Search-DomeniaIndexUi {
     try {
         $term = ""
-        try { $term = ([string](Get-DomeniaControl -Name "TxtIndexSearch").Text).Trim() } catch { }
+        try { $term = ([string](Get-DomeniaControl -Name "TxtIndexSearch").Text).Trim() } catch { Write-DomeniaSwallowed 'Core' 'Search-DomeniaIndexUi' $_ }
         if ($term.Length -eq 1) {
             $script:DomeniaIndexSearchGeneration = [long]$script:DomeniaIndexSearchGeneration + 1
             [void](Set-DomeniaItemsSource -Name "DgIndex" -Rows @())
@@ -19090,7 +19090,7 @@ function Open-DomeniaIndexSelection {
         if (-not [string]$row.DN) { return }
         Open-AdObject -Dn ([string]$row.DN) -Type ([string]$row.Type) -ObjectGuid ([string]$row.Guid) -SuppressRemoteProbes
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Open-DomeniaIndexSelection' $_ }
 }
 
 function Get-DomeniaIndexSuggestionText {
@@ -19576,7 +19576,7 @@ function Update-DomeniaSecretIndexFromRows {
                 $stamp = [string]$r.Timestamp
                 if ([string]::IsNullOrWhiteSpace($stamp)) { continue }
                 if ([string]::IsNullOrWhiteSpace($last)) { $last = $stamp; continue }
-                try { if ([datetime]$stamp -gt [datetime]$last) { $last = $stamp } } catch { }
+                try { if ([datetime]$stamp -gt [datetime]$last) { $last = $stamp } } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaSecretIndexFromRows' $_ }
             }
             return (Save-DomeniaSecretIndexEntry -Computer $Computer -BitLockerKeys (@($keys).Count) -BitLockerLast $last -Verdict $Verdict)
         }
@@ -19616,7 +19616,7 @@ function Reset-DomeniaDeferredViews {
     $script:DeferredRawDn = ""
     $script:DeferredPermissionsDn = ""
     $script:DeferredTargetDn = [string]$Dn
-    try { [void](Set-DomeniaItemsSource -Name "DgRawAttrs" -Rows @()) } catch { }
+    try { [void](Set-DomeniaItemsSource -Name "DgRawAttrs" -Rows @()) } catch { Write-DomeniaSwallowed 'Core' 'Reset-DomeniaDeferredViews' $_ }
 }
 
 function Ensure-DomeniaRawAttributes {
@@ -19667,7 +19667,7 @@ function Register-DomeniaDeferredViewHandlers {
                 if ($selected -eq "TabRaw") { Ensure-DomeniaRawAttributes }
                 elseif ($selected -eq "TabPermissions") { Ensure-DomeniaPermissions }
             }
-            catch { }
+            catch { Write-DomeniaSwallowed 'Core' 'Register-DomeniaDeferredViewHandlers' $_ }
         })
     }
 }
@@ -20051,16 +20051,16 @@ function Publish-DomeniaComputerDiagnostics {
                 Set-Status $summary
                 Add-DomeniaUiLog -Area "Diagnostic" -Text $summary
                 $methods = ""
-                try { $methods = [string]$result.MethodsUsed } catch { }
+                try { $methods = [string]$result.MethodsUsed } catch { Write-DomeniaSwallowed 'Core' 'Publish-DomeniaComputerDiagnostics' $_ }
                 if (-not [string]::IsNullOrWhiteSpace($methods)) {
                     Add-DomeniaUiLog -Area "Diagnostic" -Text ("{0} : methodes disponibles/utilisees : {1}." -f [string]$result.Computer,$methods)
                 }
                 foreach($diagRow in @($script:ComputerDiagRows)) {
                     try {
                         Add-DomeniaUiLog -Area "Diagnostic" -Level "DEBUG" -Text ("{0} | {1} | methode={2} | etat={3} | {4} ms | {5}" -f [string]$result.Computer,[string]$diagRow.Check,[string]$diagRow.Method,[string]$diagRow.Status,[int]$diagRow.DurationMs,[string]$diagRow.Detail)
-                    } catch { }
+                    } catch { Write-DomeniaSwallowed 'Core' 'Publish-DomeniaComputerDiagnostics' $_ }
                 }
-                try { Register-DomeniaOperationSample -Operation "ComputerDiagnostics" -Mode $(if([int]$result.FallbackTasks -gt 0){"Classic+TaskFallback"}else{"Classic"}) -ItemCount 1 -DurationMs ([long]$result.DurationMs) -BytesEstimated $(if([long]$result.TaskBytes -gt 0){[long]$result.TaskBytes}else{32000}) -RemoteAttempts 1 -FallbackTasks ([int]$result.FallbackTasks) -SuccessCount $ok -FailureCount $failed } catch { }
+                try { Register-DomeniaOperationSample -Operation "ComputerDiagnostics" -Mode $(if([int]$result.FallbackTasks -gt 0){"Classic+TaskFallback"}else{"Classic"}) -ItemCount 1 -DurationMs ([long]$result.DurationMs) -BytesEstimated $(if([long]$result.TaskBytes -gt 0){[long]$result.TaskBytes}else{32000}) -RemoteAttempts 1 -FallbackTasks ([int]$result.FallbackTasks) -SuccessCount $ok -FailureCount $failed } catch { Write-DomeniaSwallowed 'Core' 'Publish-DomeniaComputerDiagnostics' $_ }
 
 }
 function Fail-DomeniaComputerDiagnostics {
@@ -20110,7 +20110,7 @@ function Clear-DomeniaComputerUserProbeState {
     if ([string]$script:ActiveLinkProbeComputer -ine $normalized) { return }
     $script:ActiveLinkProbeId = ''
     $script:ActiveLinkProbeComputer = ''
-    try { if ($script:LinkProbeDone.ContainsKey($normalized)) { [void]$script:LinkProbeDone.Remove($normalized) } } catch { }
+    try { if ($script:LinkProbeDone.ContainsKey($normalized)) { [void]$script:LinkProbeDone.Remove($normalized) } } catch { Write-DomeniaSwallowed 'Core' 'Clear-DomeniaComputerUserProbeState' $_ }
 }
 
 function Receive-DomeniaComputerUserProbeProgress {
@@ -20118,7 +20118,7 @@ function Receive-DomeniaComputerUserProbeProgress {
     if ($null -eq $Job -or [string]$Job.OperationId -ne 'ComputerLastUser') { return }
     if ([long]$Job.SessionEpoch -ne [long]$script:SessionEpoch) { return }
     $queue = $null
-    try { $queue = $Job.CallbackState.Progress } catch { }
+    try { $queue = $Job.CallbackState.Progress } catch { Write-DomeniaSwallowed 'Core' 'Receive-DomeniaComputerUserProbeProgress' $_ }
     if ($null -eq $queue) { return }
     $computer = Normalize-LinkComputer ([string]$Job.CallbackState.Computer)
     $probeId = [string]$Job.CallbackState.ProbeId
@@ -20160,8 +20160,8 @@ function Complete-DomeniaComputerUserProbeUi {
     if([string](Get-DomeniaMemberValue $Result 'DataSource') -cne 'SQLite'){return}
     $computer = ""
     $probeId = ""
-    try { $computer = Normalize-LinkComputer ([string]$State.Computer) } catch { }
-    try { $probeId = [string]$State.ProbeId } catch { }
+    try { $computer = Normalize-LinkComputer ([string]$State.Computer) } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaComputerUserProbeUi' $_ }
+    try { $probeId = [string]$State.ProbeId } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaComputerUserProbeUi' $_ }
     if ([string]::IsNullOrWhiteSpace($computer)) { $computer = "machine inconnue" }
 
     # Un ancien worker ne doit jamais ecraser la fiche d'une machine selectionnee ensuite.
@@ -20178,7 +20178,7 @@ function Complete-DomeniaComputerUserProbeUi {
             $currentComputer = Get-CurrentSelectedComputerName
         }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaComputerUserProbeUi' $_ }
     if ([string]::IsNullOrWhiteSpace($currentComputer) -or $currentComputer -ine $computer) {
         Write-AppLog "Resultat user-machine ignore : machine courante '$currentComputer', resultat pour '$computer'." "INFO"
         return
@@ -20196,9 +20196,9 @@ function Complete-DomeniaComputerUserProbeUi {
         }
 
         $minimumConfidence = 60
-        try { $minimumConfidence = [Math]::Max(0,[Math]::Min(100,[int](Get-CfgValue "UserMachineLink" "MinimumConfidence" 60))) } catch { }
+        try { $minimumConfidence = [Math]::Max(0,[Math]::Min(100,[int](Get-CfgValue "UserMachineLink" "MinimumConfidence" 60))) } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaComputerUserProbeUi' $_ }
         $confidence = 0
-        try { $confidence = [int]$effective.Confidence } catch { }
+        try { $confidence = [int]$effective.Confidence } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaComputerUserProbeUi' $_ }
         $user = Normalize-LinkUser ([string]$effective.UserLogin)
 
         if ([bool]$effective.Success -and [bool]$effective.VerifiedInAD -and $confidence -ge $minimumConfidence -and -not [string]::IsNullOrWhiteSpace($user)) {
@@ -20212,15 +20212,15 @@ function Complete-DomeniaComputerUserProbeUi {
             try {
                 if (-not [string]::IsNullOrWhiteSpace([string]$effective.FallbackTransport)) { $probeMethod = [string]$effective.FallbackTransport }
                 elseif ([string]$effective.Source -match '(?i)CIM|WMI|registre|Security|profil|description|LogonUI') { $probeMethod = "Classique" }
-            } catch { }
+            } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaComputerUserProbeUi' $_ }
             Add-DomeniaUiLog -Area "Association" -Text ("{0} : information dernier utilisateur obtenue via {1} ; source={2} ; utilisateur={3} ; confiance={4}%." -f $computer,$probeMethod,[string]$effective.Source,$user,$confidence)
-            try { Refresh-AssociationContext } catch { }
-            try { Register-DomeniaOperationSample -Operation "ComputerLastUser" -Mode $(if($probeMethod -eq "PsExec"){"Classic+PsExec"}elseif($probeMethod -eq "Tache planifiee"){"Classic+TaskScheduler"}else{"Classic"}) -ItemCount 1 -DurationMs 0 -BytesEstimated $(if([long]$effective.TaskBytes -gt 0){[long]$effective.TaskBytes}else{16000}) -RemoteAttempts 1 -FallbackTasks ([int]$effective.FallbackTasks) -SuccessCount 1 } catch { }
+            try { Refresh-AssociationContext } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaComputerUserProbeUi' $_ }
+            try { Register-DomeniaOperationSample -Operation "ComputerLastUser" -Mode $(if($probeMethod -eq "PsExec"){"Classic+PsExec"}elseif($probeMethod -eq "Tache planifiee"){"Classic+TaskScheduler"}else{"Classic"}) -ItemCount 1 -DurationMs 0 -BytesEstimated $(if([long]$effective.TaskBytes -gt 0){[long]$effective.TaskBytes}else{16000}) -RemoteAttempts 1 -FallbackTasks ([int]$effective.FallbackTasks) -SuccessCount 1 } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaComputerUserProbeUi' $_ }
         }
         else {
-            try { if ($script:LinkProbeDone.ContainsKey($computer)) { [void]$script:LinkProbeDone.Remove($computer) } } catch { }
+            try { if ($script:LinkProbeDone.ContainsKey($computer)) { [void]$script:LinkProbeDone.Remove($computer) } } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaComputerUserProbeUi' $_ }
             $remoteFailed = $false
-            try { if ($null -ne $effective.PSObject.Properties["RemoteAccessFailed"]) { $remoteFailed = [bool]$effective.RemoteAccessFailed } } catch { }
+            try { if ($null -ne $effective.PSObject.Properties["RemoteAccessFailed"]) { $remoteFailed = [bool]$effective.RemoteAccessFailed } } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaComputerUserProbeUi' $_ }
             if ($remoteFailed) {
                 $cached = Get-ExistingLinkForComputer $computer
                 if ($null -ne $cached -and -not [string]::IsNullOrWhiteSpace([string]$cached.UserLogin)) {
@@ -20251,7 +20251,7 @@ function Complete-DomeniaComputerUserProbeUi {
             $script:ActiveLinkProbeId = ""
             $script:ActiveLinkProbeComputer = ""
         }
-        try { Refresh-AssociationContext -SkipResultRefresh } catch { }
+        try { Refresh-AssociationContext -SkipResultRefresh } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaComputerUserProbeUi' $_ }
     }
 }
 
@@ -20259,8 +20259,8 @@ function Fail-DomeniaComputerUserProbeUi {
     param($Message,$State)
     $computer = ""
     $probeId = ""
-    try { $computer = Normalize-LinkComputer ([string]$State.Computer) } catch { }
-    try { $probeId = [string]$State.ProbeId } catch { }
+    try { $computer = Normalize-LinkComputer ([string]$State.Computer) } catch { Write-DomeniaSwallowed 'Core' 'Fail-DomeniaComputerUserProbeUi' $_ }
+    try { $probeId = [string]$State.ProbeId } catch { Write-DomeniaSwallowed 'Core' 'Fail-DomeniaComputerUserProbeUi' $_ }
     if ([string]::IsNullOrWhiteSpace($computer)) { $computer = "machine inconnue" }
     if (-not [string]::IsNullOrWhiteSpace($probeId) -and [string]$script:ActiveLinkProbeId -ne $probeId) { return }
     if ((Get-CurrentSelectedComputerName) -ine $computer) {
@@ -20269,12 +20269,12 @@ function Fail-DomeniaComputerUserProbeUi {
     }
     $detail = ([string]$Message).Trim()
     if ([string]::IsNullOrWhiteSpace($detail)) { $detail = "Erreur inconnue du worker." }
-    try { if ($script:LinkProbeDone.ContainsKey($computer)) { [void]$script:LinkProbeDone.Remove($computer) } } catch { }
+    try { if ($script:LinkProbeDone.ContainsKey($computer)) { [void]$script:LinkProbeDone.Remove($computer) } } catch { Write-DomeniaSwallowed 'Core' 'Fail-DomeniaComputerUserProbeUi' $_ }
     if ([string]$script:ActiveLinkProbeId -eq $probeId) { $script:ActiveLinkProbeId=""; $script:ActiveLinkProbeComputer="" }
     [void](Set-DomeniaControlText -Name "LblLinkProbeStatus" -Text "Echec pour $computer : $detail")
     Set-Status "Détection du dernier utilisateur de $computer : $detail" "ERROR"
     Write-AppLog "Detection du dernier utilisateur de $computer : $detail" "ERROR"
-    try { Refresh-AssociationContext -SkipResultRefresh } catch { }
+    try { Refresh-AssociationContext -SkipResultRefresh } catch { Write-DomeniaSwallowed 'Core' 'Fail-DomeniaComputerUserProbeUi' $_ }
 }
 
 function Start-ComputerUserLinkProbe {
@@ -20320,12 +20320,12 @@ function Start-ComputerUserLinkProbe {
         $existingConfidence = 0
         $existingManual = $false
         if ($null -ne $existing) {
-            try { $existingAgeHours = ((Get-Date) - [datetime]([string]$existing.When)).TotalHours } catch { }
-            try { $existingConfidence = [int]$existing.Confidence } catch { }
+            try { $existingAgeHours = ((Get-Date) - [datetime]([string]$existing.When)).TotalHours } catch { Write-DomeniaSwallowed 'Core' 'Start-ComputerUserLinkProbe' $_ }
+            try { $existingConfidence = [int]$existing.Confidence } catch { Write-DomeniaSwallowed 'Core' 'Start-ComputerUserLinkProbe' $_ }
             $existingManual = ([string]$existing.Source -match '^(?i:Saisie manuelle|Manual)')
 
             $cacheHours = 4.0
-            try { $cacheHours = [Math]::Max(0.25,[double](Get-CfgValue "UserMachineLink" "ObjectRefreshHours" 4)) } catch { }
+            try { $cacheHours = [Math]::Max(0.25,[double](Get-CfgValue "UserMachineLink" "ObjectRefreshHours" 4)) } catch { Write-DomeniaSwallowed 'Core' 'Start-ComputerUserLinkProbe' $_ }
             $fresh = ($existingAgeHours -lt $cacheHours)
 
             # D043: the stored source and its age qualify the association; no percentage is shown.
@@ -20625,7 +20625,7 @@ function Refresh-SelectedObject {
     # and rereads its fiche. The list and the other cached objects are left as they are.
     if ($null -eq $script:SelectedObject) { return }
     $guid = ''
-    try { $guid = [string]$script:SelectedObject.Safety.Guid } catch { }
+    try { $guid = [string]$script:SelectedObject.Safety.Guid } catch { Write-DomeniaSwallowed 'Core' 'Refresh-SelectedObject' $_ }
     [void](Clear-DomeniaVisitCacheForObject -Guid $guid -Dn ([string]$script:SelectedObject.DN))
     Open-AdObject -Dn $script:SelectedObject.DN -Type $script:SelectedObject.Type -Force
 }
@@ -20651,7 +20651,7 @@ function Queue-LiveGlobalSearch {
         $script:LiveSearchTimer.Stop()
         $script:LiveSearchTimer.Interval=[System.TimeSpan]::FromMilliseconds([int](Get-CfgValue "Browser" "LiveSearchDelayMs" 900))
         $script:LiveSearchTimer.Start()
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'Core' 'Queue-LiveGlobalSearch' $_ }
 }
 
 function Load-AdCmdlets {
@@ -20700,7 +20700,7 @@ function Assert-WriteAllowed {
     if ([bool]$script:DemoMode) { throw 'Ecritures desactivees en demonstration - aucune connexion AD. Aucune ecriture tentee.' }
     if(-not $script:ReceiptReady -or $script:ReceiptPending -gt 0){throw 'Ouvrez Operations : verification des recus non terminee ou action precedente a verifier.'}
     $readOnly=$script:ReadOnlyMode
-    try { if ($script:Ctrl.ContainsKey("ChkReadOnlyMode")) { $readOnly=[bool]$script:Ctrl["ChkReadOnlyMode"].IsChecked } } catch { }
+    try { if ($script:Ctrl.ContainsKey("ChkReadOnlyMode")) { $readOnly=[bool]$script:Ctrl["ChkReadOnlyMode"].IsChecked } } catch { Write-DomeniaSwallowed 'Core' 'Assert-WriteAllowed' $_ }
     if ($readOnly) { throw "Mode lecture seule actif. Aucune ecriture AD n a ete tentee." }
 }
 
@@ -20716,7 +20716,7 @@ function Invoke-DomeniaPostWriteRefresh {
         [switch]$RefreshObject,
         [switch]$RefreshBranch
     )
-    try { $script:VisitCache.Clear() } catch { }
+    try { $script:VisitCache.Clear() } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaPostWriteRefresh' $_ }
     if (-not [string]::IsNullOrWhiteSpace($Message)) {
         Write-AppLog $Message
         Set-Status $Message
@@ -20775,7 +20775,7 @@ function Get-DomeniaRemotePostconditionText {
     try {
         $check = [string](Get-DomeniaPostconditionRule $OperationId).Check
         if ($check) { $text += ' Verification a faire : ' + $check }
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaRemotePostconditionText' $_ }
     return $text
 }
 
@@ -20786,15 +20786,15 @@ function Complete-DomeniaComputerToolUi {
     $effective = $Result
     if (($Result -is [System.Array]) -and ($Result.Count -gt 0)) { $effective = $Result[-1] }
     $message = ""
-    try { $message = [string]$effective.Message } catch { }
+    try { $message = [string]$effective.Message } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaComputerToolUi' $_ }
     if ([string]::IsNullOrWhiteSpace($message)) { $message = "Demande envoyée à $computer." }
     $remoteOperation = ""
     if ($tool -eq "GPUpdate") { $remoteOperation = "ComputerGpUpdate" } elseif ($tool -eq "Redemarrage") { $remoteOperation = "ComputerRestart" }
     if ($remoteOperation) { $message += (Get-DomeniaRemotePostconditionText -OperationId $remoteOperation -Result $effective) }
     # SE-08: the restart panel closes once the request is accepted; its result stays in the status and the journal.
-    if ($tool -eq "Redemarrage") { try { Close-DomeniaComputerRestartPanel -Computer $computer } catch { } }
+    if ($tool -eq "Redemarrage") { try { Close-DomeniaComputerRestartPanel -Computer $computer } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaComputerToolUi' $_ } }
     if ($tool -eq "Ping") { Set-Status "Ping $computer : $message" }
-    else { Set-Status $message; try { Add-DomeniaUiLog -Area 'Poste' -Text $message } catch { } }
+    else { Set-Status $message; try { Add-DomeniaUiLog -Area 'Poste' -Text $message } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaComputerToolUi' $_ } }
 }
 
 function Fail-DomeniaComputerToolUi {
@@ -20810,7 +20810,7 @@ function Assert-DomeniaRemoteWriteAllowed {
     param([string]$Operation)
     if ([bool]$script:DemoMode) { throw "$Operation non disponible en demonstration - aucune connexion au poste. Aucune action tentee." }
     $readOnly = [bool]$script:ReadOnlyMode
-    try { if ($script:Ctrl.ContainsKey("ChkReadOnlyMode")) { $readOnly = [bool]$script:Ctrl["ChkReadOnlyMode"].IsChecked } } catch { }
+    try { if ($script:Ctrl.ContainsKey("ChkReadOnlyMode")) { $readOnly = [bool]$script:Ctrl["ChkReadOnlyMode"].IsChecked } } catch { Write-DomeniaSwallowed 'Core' 'Assert-DomeniaRemoteWriteAllowed' $_ }
     if ($readOnly) { throw "$Operation est une modification distante et reste bloquee tant que le mode lecture seule est actif." }
     if((Get-DomeniaSelectionCachePolicy).Offline){throw 'Hors ligne : relisez Active Directory avant toute modification.'}
 }
@@ -20902,13 +20902,13 @@ function Complete-DomeniaRimotteUi {
     Set-Status $msg
     Add-DomeniaUiLog -Area "Poste" -Text ($msg+" "+[string]$effective.Detail)
     # UI-26: the panel closes once the task is accepted; the run of the program itself is not verified.
-    try{Close-DomeniaRunProgramPanel -Computer ([string]$State.Computer)}catch{}
-    try{Register-DomeniaOperationSample -Operation "RimotteRun" -Mode "ScheduledTask" -ItemCount 1 -DurationMs ([long]$effective.DurationMs) -BytesEstimated 6000 -RemoteAttempts 1 -FallbackTasks 1 -SuccessCount 1}catch{}
+    try{Close-DomeniaRunProgramPanel -Computer ([string]$State.Computer)}catch{Write-DomeniaSwallowed 'Core' 'Complete-DomeniaRimotteUi' $_}
+    try{Register-DomeniaOperationSample -Operation "RimotteRun" -Mode "ScheduledTask" -ItemCount 1 -DurationMs ([long]$effective.DurationMs) -BytesEstimated 6000 -RemoteAttempts 1 -FallbackTasks 1 -SuccessCount 1}catch{Write-DomeniaSwallowed 'Core' 'Complete-DomeniaRimotteUi' $_}
 }
 
 function Fail-DomeniaRimotteUi {
     param([string]$Message,$State)
-    try{Register-DomeniaOperationSample -Operation "RimotteRun" -Mode "ScheduledTask" -ItemCount 1 -DurationMs 0 -BytesEstimated 3000 -RemoteAttempts 1 -FallbackTasks 1 -FailureCount 1}catch{}
+    try{Register-DomeniaOperationSample -Operation "RimotteRun" -Mode "ScheduledTask" -ItemCount 1 -DurationMs 0 -BytesEstimated 3000 -RemoteAttempts 1 -FallbackTasks 1 -FailureCount 1}catch{Write-DomeniaSwallowed 'Core' 'Fail-DomeniaRimotteUi' $_}
     [void](Show-DomeniaOperationError -Operation ("Exécution sur "+[string]$State.Computer) -ErrorRecordOrException ([string]$Message))
 }
 
@@ -20974,7 +20974,7 @@ if($rc -ne 0){$failure=[ComponentModel.Win32Exception]::new([int]$rc,('acces a '
 }
 function Complete-DomeniaAdminShareOpen {
     param($Result,$State)
-    $computer=[string]$State.Computer;$account='';try{$account=[string]$Result.Account}catch{}
+    $computer=[string]$State.Computer;$account='';try{$account=[string]$Result.Account}catch{Write-DomeniaSwallowed 'Core' 'Complete-DomeniaAdminShareOpen' $_}
     Start-DomeniaComputerToolProcess -Tool ([string]$State.Tool) -Computer $computer
     if ($account) {
         $what = if ([string]$State.Share -eq 'C$') { "Disque C (C$)" } else { "Partage " + [string]$State.Share }
@@ -21160,7 +21160,7 @@ function Get-DomeniaAppLogFallbackPaths {
     # FI-10: same fallback chain as the connection trace when Domenia.log cannot be written: LOCALAPPDATA, then TEMP.
     $paths = New-Object 'System.Collections.Generic.List[string]'
     if (-not [string]::IsNullOrWhiteSpace([string]$env:LOCALAPPDATA)) { $paths.Add((Join-Path (Join-Path ([string]$env:LOCALAPPDATA) 'DOMENIA\Logs') 'Domenia.log')) }
-    try { $paths.Add((Join-Path (Join-Path ([IO.Path]::GetTempPath()) 'DOMENIA\Logs') 'Domenia.log')) } catch { }
+    try { $paths.Add((Join-Path (Join-Path ([IO.Path]::GetTempPath()) 'DOMENIA\Logs') 'Domenia.log')) } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaAppLogFallbackPaths' $_ }
     return $paths.ToArray()
 }
 
@@ -21175,8 +21175,8 @@ function Write-DomeniaAppLogFile {
         return
     }
     $script:AppLogLastLine = [pscustomobject]@{ Source=$Source; Level=$Level; Text=[string]$Text; Time=$Time }
-    $adIdentity = ''; try { $adIdentity = [string]$script:Conn.BindUser } catch { }
-    $winIdentity = ''; try { $winIdentity = [string]$script:ProcessIdentity } catch { }
+    $adIdentity = ''; try { $adIdentity = [string]$script:Conn.BindUser } catch { Write-DomeniaSwallowed 'Core' 'Write-DomeniaAppLogFile' $_ }
+    $winIdentity = ''; try { $winIdentity = [string]$script:ProcessIdentity } catch { Write-DomeniaSwallowed 'Core' 'Write-DomeniaAppLogFile' $_ }
     if ($null -eq $script:AppLogQueue) { $script:AppLogQueue = New-Object 'System.Collections.Generic.List[string]' }
     foreach ($line in @(ConvertTo-DomeniaLogFileLines -Time $Time -Level $Level -AdIdentity $adIdentity -WinIdentity $winIdentity -Text $Text)) { $script:AppLogQueue.Add([string]$line) }
     # Bounded memory while every target refuses the write: the oldest queued lines go first, and are counted.
@@ -21196,21 +21196,21 @@ function Start-DomeniaAppLogFlushTimer {
     if ($sameWindow -and [bool]$script:AppLogQueueClosed) { return $false }
     # PF-06: the flush timer is armed by a queued line and stops once the queue is written: nothing ticks at rest.
     if ($sameWindow -and $null -ne $script:AppLogFlushTimer) {
-        try { if (-not [bool]$script:AppLogFlushTimer.IsEnabled) { $script:AppLogFlushTimer.Start() } } catch { }
+        try { if (-not [bool]$script:AppLogFlushTimer.IsEnabled) { $script:AppLogFlushTimer.Start() } } catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaAppLogFlushTimer' $_ }
         return $true
     }
     try { if (-not $script:Window.Dispatcher.CheckAccess()) { return $false } } catch { return $false }
-    try { if ($null -ne $script:AppLogFlushTimer) { $script:AppLogFlushTimer.Stop() } } catch { }
+    try { if ($null -ne $script:AppLogFlushTimer) { $script:AppLogFlushTimer.Stop() } } catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaAppLogFlushTimer' $_ }
     # FI-05: protected timer of the engine heartbeat, also while the window is minimized.
     $timer = New-DomeniaTimer -Owner 'Timer:AppLog' -IntervalMs 500 -RunWhenHidden -Tick {
         param($sender,$eventArgs)
-        try { Flush-DomeniaAppLog } catch { }
-        if ($null -eq $script:AppLogQueue -or $script:AppLogQueue.Count -eq 0) { try { $sender.Stop() } catch { } }
+        try { Flush-DomeniaAppLog } catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaAppLogFlushTimer' $_ }
+        if ($null -eq $script:AppLogQueue -or $script:AppLogQueue.Count -eq 0) { try { $sender.Stop() } catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaAppLogFlushTimer' $_ } }
     }
     $script:AppLogFlushTimer = $timer
     $script:AppLogFlushWindow = $script:Window
     $script:AppLogQueueClosed = $false
-    try { $script:Window.Add_Closed({ try { Stop-DomeniaAppLogQueue } catch { } }) } catch { }
+    try { $script:Window.Add_Closed({ try { Stop-DomeniaAppLogQueue } catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaAppLogFlushTimer' $_ } }) } catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaAppLogFlushTimer' $_ }
     $timer.Start()
     return $true
 }
@@ -21218,7 +21218,7 @@ function Start-DomeniaAppLogFlushTimer {
 function Stop-DomeniaAppLogQueue {
     # Closing: stop the timer, write what is queued, and write every later line at once.
     $script:AppLogQueueClosed = $true
-    try { if ($null -ne $script:AppLogFlushTimer) { $script:AppLogFlushTimer.Stop() } } catch { }
+    try { if ($null -ne $script:AppLogFlushTimer) { $script:AppLogFlushTimer.Stop() } } catch { Write-DomeniaSwallowed 'Core' 'Stop-DomeniaAppLogQueue' $_ }
     $script:AppLogFlushTimer = $null
     Flush-DomeniaAppLog -Force
 }
@@ -21269,14 +21269,14 @@ function Invoke-DomeniaAppLogFlush {
     try { Initialize-DomeniaDataStore | Out-Null; $primary = [string]$script:AuditPath } catch { $failure = $_.Exception.Message }
     if ($primary) {
         try {
-            try { Invoke-DomeniaAppLogRotation -Path $primary -Written $lines.Count } catch { }
+            try { Invoke-DomeniaAppLogRotation -Path $primary -Written $lines.Count } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaAppLogFlush' $_ }
             [IO.File]::AppendAllText($primary,$text,$utf8)
             $script:AppLogDropped = [Math]::Max(0,[int]$script:AppLogDropped - $dropped)
             $script:AppLogRetryAt = $null
             if ([bool]$script:AppLogUnavailable) {
                 # Back on Domenia.log: say where the meantime lines are, once.
                 $note = @(ConvertTo-DomeniaLogFileLines -Time (Get-Date) -Level 'WARN' -Text ('Journal Domenia.log de nouveau inscriptible. Lignes intermédiaires : ' + [string]$script:AppLogFallbackPath))
-                try { [IO.File]::AppendAllText($primary,([string]::Join([Environment]::NewLine,[string[]]$note) + [Environment]::NewLine),$utf8) } catch { }
+                try { [IO.File]::AppendAllText($primary,([string]::Join([Environment]::NewLine,[string[]]$note) + [Environment]::NewLine),$utf8) } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaAppLogFlush' $_ }
                 Set-DomeniaAppLogAvailability -Available $true
             }
             return
@@ -21290,13 +21290,13 @@ function Invoke-DomeniaAppLogFlush {
             while ($null -ne $probe) { if ($probe.Exists -and ($probe.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Journal redirige refuse.' }; $probe = $probe.Parent }
             [void][IO.Directory]::CreateDirectory($folder.FullName)
             # The fallback journal is bounded like Domenia.log.
-            try { Invoke-DomeniaAppLogRotation -Path $candidate -Written $lines.Count } catch { }
+            try { Invoke-DomeniaAppLogRotation -Path $candidate -Written $lines.Count } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaAppLogFlush' $_ }
             [IO.File]::AppendAllText($candidate,$text,$utf8)
             $script:AppLogDropped = [Math]::Max(0,[int]$script:AppLogDropped - $dropped)
             $script:AppLogRetryAt = $null
             Set-DomeniaAppLogAvailability -Available $false -Fallback $candidate -Reason $failure
             return
-        } catch { }
+        } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaAppLogFlush' $_ }
     }
     # Every target refused the write: the lines go back to the head of the queue for the next flush. The queue
     # stays bounded; what it drops is counted and announced by the first line that reaches a journal.
@@ -21315,7 +21315,7 @@ function Set-DomeniaAppLogAvailability {
     $script:AppLogUnavailable = -not $Available
     $script:AppLogFallbackPath = if ($Available) { '' } else { [string]$Fallback }
     $script:AppLogUnavailableReason = if ($Available) { '' } else { [string]$Reason }
-    try { Update-DomeniaExperienceLogBadge } catch { }
+    try { Update-DomeniaExperienceLogBadge } catch { Write-DomeniaSwallowed 'Core' 'Set-DomeniaAppLogAvailability' $_ }
 }
 
 function Write-AppLog {
@@ -21327,7 +21327,7 @@ function Write-AppLog {
     # PF-09: masked once; the session journal and Domenia.log receive the same masked text.
     $Text = Protect-DomeniaLogText $Text
     $script:UiLogProtectedText = $Text
-    try { Add-DomeniaUiLog -Text $Text -Level $Level -Area $Area } catch { }
+    try { Add-DomeniaUiLog -Text $Text -Level $Level -Area $Area } catch { Write-DomeniaSwallowed 'Core' 'Write-AppLog' $_ }
     $script:UiLogProtectedText = $null
     try {
         if ($script:Ctrl.ContainsKey("TxtLog")) {
@@ -21344,13 +21344,13 @@ function Write-AppLog {
             $box.ScrollToEnd()
         }
     }
-    catch { }
-    try { Write-DomeniaAppLogFile -Text $Text -Level $Level -Time $now -Source 'AppLog' } catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Write-AppLog' $_ }
+    try { Write-DomeniaAppLogFile -Text $Text -Level $Level -Time $now -Source 'AppLog' } catch { Write-DomeniaSwallowed 'Core' 'Write-AppLog' $_ }
 }
 
 function Open-DomeniaAuditLog {
     try {
-        try { Flush-DomeniaAppLog -Force } catch { }
+        try { Flush-DomeniaAppLog -Force } catch { Write-DomeniaSwallowed 'Core' 'Open-DomeniaAuditLog' $_ }
         Initialize-DomeniaDataStore | Out-Null
         if (-not (Test-Path -LiteralPath $script:AuditPath)) { [System.IO.File]::WriteAllText($script:AuditPath,"",(New-Object System.Text.UTF8Encoding($false))) }
         Start-Process notepad.exe -ArgumentList @($script:AuditPath)
@@ -22093,27 +22093,27 @@ $script:AuthCleanupTimer = $null
 function Complete-DomeniaLoginAuthRunspaceCleanup {
     param($Session)
     if ($null -eq $Session) { return }
-    try { if ([bool]$Session.Cleaned) { return } } catch { }
+    try { if ([bool]$Session.Cleaned) { return } } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaLoginAuthRunspaceCleanup' $_ }
     # A cancellation request is not completion: an active worker still owns this secret.
     if($null -ne $Session.AsyncResult -and -not [bool]$Session.AsyncResult.IsCompleted){return}
     try {
         if ($null -ne $Session.AsyncResult -and [bool]$Session.AsyncResult.IsCompleted -and -not [bool]$Session.EndInvoked) {
-            try { [void]$Session.PowerShell.EndInvoke($Session.AsyncResult) } catch { }
+            try { [void]$Session.PowerShell.EndInvoke($Session.AsyncResult) } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaLoginAuthRunspaceCleanup' $_ }
             $Session.EndInvoked = $true
         }
     }
-    catch { }
-    try { if ($null -ne $Session.PowerShell) { $Session.PowerShell.Dispose() } } catch { }
-    try { if ($null -ne $Session.Runspace) { $Session.Runspace.Close(); $Session.Runspace.Dispose() } } catch { }
-    try { if ($null -ne $Session.Request) { $Session.Request.Credential = $null } } catch { }
-    try { if ($null -ne $Session.PSObject.Properties['OwnedSecret'] -and $null -ne $Session.OwnedSecret) { $Session.OwnedSecret.Dispose(); $Session.OwnedSecret=$null } } catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaLoginAuthRunspaceCleanup' $_ }
+    try { if ($null -ne $Session.PowerShell) { $Session.PowerShell.Dispose() } } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaLoginAuthRunspaceCleanup' $_ }
+    try { if ($null -ne $Session.Runspace) { $Session.Runspace.Close(); $Session.Runspace.Dispose() } } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaLoginAuthRunspaceCleanup' $_ }
+    try { if ($null -ne $Session.Request) { $Session.Request.Credential = $null } } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaLoginAuthRunspaceCleanup' $_ }
+    try { if ($null -ne $Session.PSObject.Properties['OwnedSecret'] -and $null -ne $Session.OwnedSecret) { $Session.OwnedSecret.Dispose(); $Session.OwnedSecret=$null } } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaLoginAuthRunspaceCleanup' $_ }
     try {
         $Session.PowerShell = $null
         $Session.Runspace = $null
         $Session.AsyncResult = $null
         $Session.Cleaned = $true
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaLoginAuthRunspaceCleanup' $_ }
 }
 
 function Ensure-DomeniaAuthCleanupTimer {
@@ -22132,14 +22132,14 @@ function Ensure-DomeniaAuthCleanupTimer {
                     continue
                 }
                 if ((Get-Date) -gt $session.CleanupRetryAt) {
-                    try { [void]$session.PowerShell.BeginStop($null,$null) } catch { }
+                    try { [void]$session.PowerShell.BeginStop($null,$null) } catch { Write-DomeniaSwallowed 'Core' 'Ensure-DomeniaAuthCleanupTimer' $_ }
                     $session.CleanupRetryAt = (Get-Date).AddSeconds(2)
                 }
                 if ((Get-Date) -gt $session.CleanupGiveUpAt) {
                     # Ne jamais bloquer le thread WPF pour forcer la destruction d'un
                     # appel domaine deja en cours. On libere seulement nos references ;
                     # le CLR recuperera le runspace lorsqu'il aura rendu la main.
-                    try { $session.Request.Credential = $null } catch { }
+                    try { $session.Request.Credential = $null } catch { Write-DomeniaSwallowed 'Core' 'Ensure-DomeniaAuthCleanupTimer' $_ }
                     $script:AuthCleanupSessions.Remove($key)
                 }
             }
@@ -22148,7 +22148,7 @@ function Ensure-DomeniaAuthCleanupTimer {
                 $script:AuthCleanupTimer = $null
             }
         }
-        catch { }
+        catch { Write-DomeniaSwallowed 'Core' 'Ensure-DomeniaAuthCleanupTimer' $_ }
     }
     $script:AuthCleanupTimer.Start()
 }
@@ -22162,7 +22162,7 @@ function Queue-DomeniaLoginAuthRunspaceCleanup {
         $script:AuthCleanupSessions[[string]$Session.Id] = $Session
         Ensure-DomeniaAuthCleanupTimer
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Queue-DomeniaLoginAuthRunspaceCleanup' $_ }
 }
 
 function Start-DomeniaLoginAuthRunspace {
@@ -22211,8 +22211,8 @@ function Start-DomeniaLoginAuthRunspace {
         }
     }
     catch {
-        try { if ($null -ne $powerShell) { $powerShell.Dispose() } } catch { }
-        try { if ($null -ne $runspace) { $runspace.Close(); $runspace.Dispose() } } catch { }
+        try { if ($null -ne $powerShell) { $powerShell.Dispose() } } catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaLoginAuthRunspace' $_ }
+        try { if ($null -ne $runspace) { $runspace.Close(); $runspace.Dispose() } } catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaLoginAuthRunspace' $_ }
         throw
     }
 }
@@ -22230,7 +22230,7 @@ function Read-DomeniaAuthRunspaceResult {
     catch {
         $Session.EndInvoked = $true
         $streamDetail = ""
-        try { $streamDetail = (@($Session.PowerShell.Streams.Error) | ForEach-Object { $_.ToString() }) -join " | " } catch { }
+        try { $streamDetail = (@($Session.PowerShell.Streams.Error) | ForEach-Object { $_.ToString() }) -join " | " } catch { Write-DomeniaSwallowed 'Core' 'Read-DomeniaAuthRunspaceResult' $_ }
         if ([string]::IsNullOrWhiteSpace($streamDetail)) { $streamDetail = [string]$_.Exception.Message }
         throw $streamDetail
     }
@@ -22238,7 +22238,7 @@ function Read-DomeniaAuthRunspaceResult {
     $result = @($rows | Where-Object { $null -ne $_ -and $null -ne $_.PSObject.Properties["Success"] } | Select-Object -Last 1)
     if ($result.Count -eq 0) {
         $streamDetail = ""
-        try { $streamDetail = (@($Session.PowerShell.Streams.Error) | ForEach-Object { $_.ToString() }) -join " | " } catch { }
+        try { $streamDetail = (@($Session.PowerShell.Streams.Error) | ForEach-Object { $_.ToString() }) -join " | " } catch { Write-DomeniaSwallowed 'Core' 'Read-DomeniaAuthRunspaceResult' $_ }
         if ([string]::IsNullOrWhiteSpace($streamDetail)) { $streamDetail = "Le runspace d authentification n a retourne aucun objet exploitable." }
         throw $streamDetail
     }
@@ -22255,7 +22255,7 @@ function Stop-DomeniaLoginAuthRunspace {
             $Session.CancelRequested = $true
             [void]$Session.PowerShell.BeginStop($null,$null)
         }
-        catch { }
+        catch { Write-DomeniaSwallowed 'Core' 'Stop-DomeniaLoginAuthRunspace' $_ }
     }
     try { $completed = [bool]$Session.AsyncResult.IsCompleted } catch { $completed = $true }
     if ($completed) { Complete-DomeniaLoginAuthRunspaceCleanup -Session $Session }
@@ -22263,7 +22263,7 @@ function Stop-DomeniaLoginAuthRunspace {
 }
 
 function Clear-DomeniaLoginAuthReferences {
-    try { if ($null -ne $script:FastLoginTimer) { $script:FastLoginTimer.Stop() } } catch { }
+    try { if ($null -ne $script:FastLoginTimer) { $script:FastLoginTimer.Stop() } } catch { Write-DomeniaSwallowed 'Core' 'Clear-DomeniaLoginAuthReferences' $_ }
     $script:FastLoginTimer = $null
 }
 
@@ -22275,7 +22275,7 @@ function Stop-DomeniaLoginAuth {
             $script:FastLoginState.Session = $null
         }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Stop-DomeniaLoginAuth' $_ }
 }
 
 function Start-PruneOrphanLinks {
@@ -22357,7 +22357,7 @@ function Add-AssociationsToRows {
     foreach ($row in @($Rows)) {
         if ($null -eq $row) { continue }
         try { $row | Add-Member -NotePropertyName "Association" -NotePropertyValue (Get-AssociationForRow -Row $row) -Force }
-        catch { }
+        catch { Write-DomeniaSwallowed 'Core' 'Add-AssociationsToRows' $_ }
         [void]$output.Add($row)
     }
     return @($output)
@@ -22368,7 +22368,7 @@ function Get-SelectedAssociationSummary {
     try {
         if ($script:SelectedObject.Type -eq "Machine") {
             $computer = ""
-            try { $computer = [string]$script:Ctrl["TxtCompName"].Text } catch { }
+            try { $computer = [string]$script:Ctrl["TxtCompName"].Text } catch { Write-DomeniaSwallowed 'Core' 'Get-SelectedAssociationSummary' $_ }
             if ([string]::IsNullOrWhiteSpace($computer)) { $computer = [string]$script:SelectedObject.Name }
             $links = @(Get-LinksForComputer -Computer $computer -Guid ([string](Get-DomeniaMember $script:SelectedObject 'Guid' '')))
             if ($links.Count -eq 0) { return "Aucun utilisateur lie" }
@@ -22382,7 +22382,7 @@ function Get-SelectedAssociationSummary {
         }
         if ($script:SelectedObject.Type -eq "Utilisateur") {
             $user = ""
-            try { $user = [string]$script:Ctrl["TxtUserSam"].Text } catch { }
+            try { $user = [string]$script:Ctrl["TxtUserSam"].Text } catch { Write-DomeniaSwallowed 'Core' 'Get-SelectedAssociationSummary' $_ }
             $links = @(Get-LinksForUser -UserLogin $user -Guid ([string](Get-DomeniaMember $script:SelectedObject 'Guid' '')))
             if ($links.Count -eq 0) { return "Aucun poste lie" }
             return (($links | ForEach-Object { "$($_.Computer) [$($_.Source)]" }) -join ", ")
@@ -22397,7 +22397,7 @@ function Update-SelectedAssociationFields {
         if ($null -eq $script:SelectedObject) { return }
         if ($script:SelectedObject.Type -eq "Machine") {
             $computer = ""
-            try { $computer = [string]$script:Ctrl["TxtCompName"].Text } catch { }
+            try { $computer = [string]$script:Ctrl["TxtCompName"].Text } catch { Write-DomeniaSwallowed 'Core' 'Update-SelectedAssociationFields' $_ }
             $links = @(Get-LinksForComputer -Computer $computer -Guid ([string](Get-DomeniaMember $script:SelectedObject 'Guid' '')))
             if ($links.Count -gt 0) {
                 $l = $links[0]
@@ -22416,14 +22416,14 @@ function Update-SelectedAssociationFields {
         }
         elseif ($script:SelectedObject.Type -eq "Utilisateur") {
             $user = ""
-            try { $user = [string]$script:Ctrl["TxtUserSam"].Text } catch { }
+            try { $user = [string]$script:Ctrl["TxtUserSam"].Text } catch { Write-DomeniaSwallowed 'Core' 'Update-SelectedAssociationFields' $_ }
             $links = @(Get-LinksForUser -UserLogin $user -Guid ([string](Get-DomeniaMember $script:SelectedObject 'Guid' '')))
             $computers = @($links | ForEach-Object { [string]$_.Computer } | Where-Object { $_ } | Sort-Object -Unique)
             [void](Set-DomeniaItemsSource -Name "TxtUserLinkedComputers" -Rows $computers)
             if ($computers.Count -gt 0) { $script:Ctrl["TxtUserLinkedComputers"].SelectedIndex = 0 }
         }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Update-SelectedAssociationFields' $_ }
 }
 
 
@@ -22519,8 +22519,8 @@ function Sync-DomeniaLinksAgainstIndex {
     $changed = 0
     foreach ($link in @($script:UserMachineLinks)) {
         $userGuid = ""; $computerGuid = ""
-        try { $userGuid = [string]$link.UserGuid } catch { }
-        try { $computerGuid = [string]$link.ComputerGuid } catch { }
+        try { $userGuid = [string]$link.UserGuid } catch { Write-DomeniaSwallowed 'Core' 'Sync-DomeniaLinksAgainstIndex' $_ }
+        try { $computerGuid = [string]$link.ComputerGuid } catch { Write-DomeniaSwallowed 'Core' 'Sync-DomeniaLinksAgainstIndex' $_ }
         # Point 9: a link carrying a GUID is matched by that GUID only. Once its object is gone, a namesake never
         # adopts it (rename keeps the GUID; a recycled name gets a new one); the link then stays unverified.
         $userRow = Find-DomeniaCachedUserRow -Login (Get-DomeniaLinkLookupName -Link $link -Kind User) -Guid $userGuid
@@ -22538,7 +22538,7 @@ function Sync-DomeniaLinksAgainstIndex {
         $verified = ($null -ne $userRow -and $null -ne $computerRow)
         if ($verified -or $Full) {
             $oldVerified = $false
-            try { $oldVerified = [bool]$link.VerifiedInAD } catch { }
+            try { $oldVerified = [bool]$link.VerifiedInAD } catch { Write-DomeniaSwallowed 'Core' 'Sync-DomeniaLinksAgainstIndex' $_ }
             if ($oldVerified -ne $verified) { $link.VerifiedInAD = $verified; $changed++ }
         }
     }
@@ -22650,9 +22650,9 @@ function Set-RowAssociationMetadata {
             }
         }
 
-        try { Set-DomeniaLiveRowValue $row "Association" $association } catch { }
-        try { Set-DomeniaLiveRowValue $row "LinkSource" $source } catch { }
-        try { Set-DomeniaLiveRowValue $row "LinkConfidence" $confidence } catch { }
+        try { Set-DomeniaLiveRowValue $row "Association" $association } catch { Write-DomeniaSwallowed 'Core' 'Set-RowAssociationMetadata' $_ }
+        try { Set-DomeniaLiveRowValue $row "LinkSource" $source } catch { Write-DomeniaSwallowed 'Core' 'Set-RowAssociationMetadata' $_ }
+        try { Set-DomeniaLiveRowValue $row "LinkConfidence" $confidence } catch { Write-DomeniaSwallowed 'Core' 'Set-RowAssociationMetadata' $_ }
         [void]$result.Add($row)
     }
 
@@ -22673,7 +22673,7 @@ function Show-ObjectRows {
     )
 
     $previousWorkspace = ''
-    try { $previousWorkspace = [string](Get-DomeniaControl -Name 'WorkspaceTabs').SelectedItem.Name } catch { }
+    try { $previousWorkspace = [string](Get-DomeniaControl -Name 'WorkspaceTabs').SelectedItem.Name } catch { Write-DomeniaSwallowed 'Core' 'Show-ObjectRows' $_ }
     $rawRows = @()
     if ($null -ne $Rows) { $rawRows = @($Rows) }
     try {
@@ -22684,7 +22684,7 @@ function Show-ObjectRows {
                 try {
                     if ($null -ne $row.PSObject.Properties["Presence"]) { $initialPresence = [string]$row.Presence }
                 }
-                catch { }
+                catch { Write-DomeniaSwallowed 'Core' 'Show-ObjectRows' $_ }
                 if ([string]::IsNullOrWhiteSpace($initialPresence) -or $initialPresence -eq "Inconnu") {
                     try { $initialPresence = Get-DomeniaCachedPresenceState -Dn ([string]$row.DN) } catch { $initialPresence = "" }
                 }
@@ -22708,7 +22708,7 @@ function Show-ObjectRows {
                     Add-Member -InputObject $row -NotePropertyName Presence -NotePropertyValue "Inconnu" -Force
                 }
             }
-            catch { }
+            catch { Write-DomeniaSwallowed 'Core' 'Show-ObjectRows' $_ }
         }
     }
 
@@ -22720,17 +22720,17 @@ function Show-ObjectRows {
         $selectedBefore = Get-DomeniaSelectedGridRow
         if ($null -ne $selectedBefore) { $preserveDn = ([string]$selectedBefore.DN).Trim() }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Show-ObjectRows' $_ }
     # Pour une recherche globale (-NoAutoOpen), seule une selection reellement
     # faite par l'operateur dans la grille peut etre conservee. Une ancienne fiche
     # ouverte ou une requete de selection en attente ne doit jamais provoquer une
     # preselection automatique dans le nouveau jeu de resultats.
     if (-not $NoAutoOpen) {
         if ([string]::IsNullOrWhiteSpace($preserveDn)) {
-            try { if ($null -ne $script:PendingObjectSelection) { $preserveDn = ([string]$script:PendingObjectSelection.Dn).Trim() } } catch { }
+            try { if ($null -ne $script:PendingObjectSelection) { $preserveDn = ([string]$script:PendingObjectSelection.Dn).Trim() } } catch { Write-DomeniaSwallowed 'Core' 'Show-ObjectRows' $_ }
         }
         if ([string]::IsNullOrWhiteSpace($preserveDn)) {
-            try { if ($null -ne $script:SelectedObject) { $preserveDn = ([string]$script:SelectedObject.DN).Trim() } } catch { }
+            try { if ($null -ne $script:SelectedObject) { $preserveDn = ([string]$script:SelectedObject.DN).Trim() } } catch { Write-DomeniaSwallowed 'Core' 'Show-ObjectRows' $_ }
         }
     }
 
@@ -22745,7 +22745,7 @@ function Show-ObjectRows {
             try {
                 if ([string]$candidate.DN -ieq $preserveDn) { $preservedRow = $candidate; break }
             }
-            catch { }
+            catch { Write-DomeniaSwallowed 'Core' 'Show-ObjectRows' $_ }
         }
     }
 
@@ -22757,7 +22757,7 @@ function Show-ObjectRows {
         if ($null -ne $grid) {
             if ($null -ne $preservedRow) {
                 $grid.SelectedItem = $preservedRow
-                try { $grid.ScrollIntoView($preservedRow) } catch { }
+                try { $grid.ScrollIntoView($preservedRow) } catch { Write-DomeniaSwallowed 'Core' 'Show-ObjectRows' $_ }
                 $selectionPreserved = $true
             }
             else {
@@ -22926,7 +22926,7 @@ function Open-LinkedUserFromMachine {
 
 function Open-LinkedComputerFromUser {
     $computer = ""
-    try { $computer = [string]$script:Ctrl["TxtUserLinkedComputers"].SelectedItem } catch { }
+    try { $computer = [string]$script:Ctrl["TxtUserLinkedComputers"].SelectedItem } catch { Write-DomeniaSwallowed 'Core' 'Open-LinkedComputerFromUser' $_ }
     Start-OpenLinkedObject -Type "Machine" -Identity $computer
 }
 
@@ -23022,7 +23022,7 @@ function Get-DomeniaCredentialUserName {
     param($Credential)
     try {
         if ($null -ne $Credential) { return ([string]$Credential.UserName).Trim() }
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaCredentialUserName' $_ }
     return ""
 }
 
@@ -23116,7 +23116,7 @@ function Update-DomeniaAccountUi {
             $secretClear = Get-DomeniaControl -Name "BtnAccountSecretsClear"
             if ($null -ne $remoteClear) { $remoteClear.IsEnabled = ($null -ne $remoteCred) }
             if ($null -ne $secretClear) { $secretClear.IsEnabled = ($null -ne $secretCred) }
-        } catch { }
+        } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaAccountUi' $_ }
         # Point 44: the in-place correction of the connection account exists for an explicit sign-in only; its row of the
         # read-only Annuaire card (CO-31) is hidden otherwise. Which account each use takes, its origin and what the
         # protection recorded (point 42), with the names the directory confirmed (point 45), are in « En ce moment ».
@@ -23193,7 +23193,7 @@ function Start-DomeniaAccountRelogin {
             $prefill = ([string]$script:Conn.User).Trim()
             if ([string]::IsNullOrWhiteSpace($prefill)) { $prefill = ([string]$script:Conn.BindUser).Trim() }
         }
-        try { if ($null -ne $script:LiveSearchTimer) { $script:LiveSearchTimer.Stop() } } catch { }
+        try { if ($null -ne $script:LiveSearchTimer) { $script:LiveSearchTimer.Stop() } } catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaAccountRelogin' $_ }
         Stop-DomeniaSelectionOpenTimer
         # UX-28: a change of account opens the form first; the Windows session stays proposed under it.
         if (-not (Show-LoginWindow -PreferForm -PrefillLogin $prefill)) { Set-Status 'Changement de compte annulé : la session courante est conservée.' 'WARN'; return }
@@ -23202,7 +23202,7 @@ function Start-DomeniaAccountRelogin {
         # Fleet observations and analysis targets belong to the previous session.
         $script:FleetObservations = $null; $script:FleetLast = $null; $script:FleetComputedKey = ''; $script:FleetStale = $true
         $script:FleetQuerySnapshotKey='';if($null -ne $script:DomeniaQueryState){$script:DomeniaQueryState.Generation++;$script:DomeniaQueryState.Records=$null;$script:DomeniaQueryState.Widgets=@{};$script:DomeniaQueryState.SearchRecipe=$null;$script:DomeniaQueryState.SearchRecords=@{}}
-    try { Reset-DomeniaSupportSession } catch { }
+    try { Reset-DomeniaSupportSession } catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaAccountRelogin' $_ }
         $script:GlobalSearchGeneration++
         $script:PresenceScanGeneration++
         $script:SelectedObjectGeneration++
@@ -23269,7 +23269,7 @@ function Start-DomeniaAccountRelogin {
         Update-DomeniaAccountUi
         Apply-CurrentPermissionUi
         Request-DomeniaDashboardRefresh
-        try { Request-DomeniaFleetRefresh -Force } catch { }
+        try { Request-DomeniaFleetRefresh -Force } catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaAccountRelogin' $_ }
         Set-Status ('Nouvelle session : ' + [string]$script:Conn.BindUser + '. Vues rechargées, lecture seule active.')
     }
     catch { [void](Show-DomeniaOperationError -Operation 'Changement de compte' -ErrorRecordOrException $_) }
@@ -23359,7 +23359,7 @@ function Wire-Events {
     }
     Initialize-DomeniaRelationsUi
     if ($script:Ctrl.ContainsKey("TabAccounts")) {
-        $script:Ctrl["TabAccounts"].Add_GotFocus({ try { Update-DomeniaAccountUi } catch { } })
+        $script:Ctrl["TabAccounts"].Add_GotFocus({ try { Update-DomeniaAccountUi } catch { Write-DomeniaSwallowed 'Core' 'Wire-Events' $_ } })
     }
 
     if ($script:Ctrl.ContainsKey("BtnClearUiLog")) {
@@ -23379,7 +23379,7 @@ function Wire-Events {
                 # Presence is only filtered from known data; no implicit scan on a filter change.
                 Add-DomeniaUiLog -Area "Filtre" -Text "Presence : $($script:CurrentPresenceFilter)"
             }
-            catch { }
+            catch { Write-DomeniaSwallowed 'Core' 'Wire-Events' $_ }
         })
     }
     if ($script:Ctrl.ContainsKey("LstUiProfile")) {
@@ -23390,7 +23390,7 @@ function Wire-Events {
                 $profile = if ($null -ne $item -and [string]$item.Tag -eq "Admin") { "Admin" } else { "Tech" }
                 if ($profile -ne $script:CurrentUiProfile) { Apply-DomeniaUiProfile -Profile $profile }
             }
-            catch { }
+            catch { Write-DomeniaSwallowed 'Core' 'Wire-Events' $_ }
         })
     }
 
@@ -23446,7 +23446,7 @@ function Wire-Events {
                 $node.IsSelected = $true
             }
         }
-        catch { }
+        catch { Write-DomeniaSwallowed 'Core' 'Wire-Events' $_ }
     })
     $script:Ctrl["DgObjects"].Add_PreviewMouseLeftButtonUp({
         param($sender,$e)
@@ -23565,7 +23565,7 @@ function Wire-Events {
                 $remove = Get-DomeniaControl -Name "BtnRemoveLink"
                 Update-DomeniaRelationsActions
             }
-            catch { }
+            catch { Write-DomeniaSwallowed 'Core' 'Wire-Events' $_ }
         })
     }
     if ($script:Ctrl.ContainsKey("DgAllLinks")) { $script:Ctrl["DgAllLinks"].Add_MouseDoubleClick({ param($sender,$e) Open-DomeniaAllLinksCell -Source $e.OriginalSource }) }
@@ -23661,7 +23661,7 @@ function Wire-Events {
                 $c = Get-DomeniaControl -Name "ChkParkSweepEnabled"
                 if ($null -ne $c) { Set-DomeniaSetting -Name "ParkSweepEnabled" -Value ([bool]$c.IsChecked) }
             }
-            catch { }
+            catch { Write-DomeniaSwallowed 'Core' 'Wire-Events' $_ }
         }
         $script:Ctrl["ChkParkSweepEnabled"].Add_Checked($handler)
         $script:Ctrl["ChkParkSweepEnabled"].Add_Unchecked($handler)
@@ -23741,10 +23741,10 @@ function Wire-Events {
     # branchement se fait donc sur le TabControl, comme les onglets de workspace plus haut.
     # UI-08 : la liste est l'affichage par defaut de l'onglet ; les graphiques et les colonnes
     # techniques ne se montrent que sur demande explicite de l'operateur.
-    if ($script:Ctrl.ContainsKey("CmbSoftwareView")) { $script:Ctrl["CmbSoftwareView"].Add_SelectionChanged({ param($sender,$e) if ($sender -eq $e.OriginalSource) { try { Update-DomeniaSoftwareSyntheseVisibility } catch { } } }) }
+    if ($script:Ctrl.ContainsKey("CmbSoftwareView")) { $script:Ctrl["CmbSoftwareView"].Add_SelectionChanged({ param($sender,$e) if ($sender -eq $e.OriginalSource) { try { Update-DomeniaSoftwareSyntheseVisibility } catch { Write-DomeniaSwallowed 'Core' 'Wire-Events' $_ } } }) }
     if ($script:Ctrl.ContainsKey("BtnSoftwareColumns")) {
-        $script:Ctrl["BtnSoftwareColumns"].Add_Checked({ param($sender,$e) try { Update-DomeniaSoftwareColumnVisibility } catch { } })
-        $script:Ctrl["BtnSoftwareColumns"].Add_Unchecked({ param($sender,$e) try { Update-DomeniaSoftwareColumnVisibility } catch { } })
+        $script:Ctrl["BtnSoftwareColumns"].Add_Checked({ param($sender,$e) try { Update-DomeniaSoftwareColumnVisibility } catch { Write-DomeniaSwallowed 'Core' 'Wire-Events' $_ } })
+        $script:Ctrl["BtnSoftwareColumns"].Add_Unchecked({ param($sender,$e) try { Update-DomeniaSoftwareColumnVisibility } catch { Write-DomeniaSwallowed 'Core' 'Wire-Events' $_ } })
     }
     if ($script:Ctrl.ContainsKey("ComputerTabs")) {
         $script:Ctrl["ComputerTabs"].Add_SelectionChanged({
@@ -23757,7 +23757,7 @@ function Wire-Events {
                 if ($null -ne $onglet -and ([string]$onglet.Name) -eq 'TabSoftware') { Show-DomeniaSoftwareFromInventory }
                 if (($null -ne $onglet) -and (([string]$onglet.Name) -eq 'TabComputerAdmin')) { Update-DomeniaComputerOperationAccount }
             }
-            catch { }
+            catch { Write-DomeniaSwallowed 'Core' 'Wire-Events' $_ }
         })
     }
     if ($script:Ctrl.ContainsKey("BtnCopySoftware")) { $script:Ctrl["BtnCopySoftware"].Add_Click({ Copy-DomeniaSoftware }) }
@@ -23773,7 +23773,7 @@ function Wire-Events {
                 if (-not $script:RestoringSettings) { Set-DomeniaSetting -Name "SoftwareScope" -Value $script:SoftwareScope }
                 Apply-DomeniaSoftwareFilter
             }
-            catch { }
+            catch { Write-DomeniaSwallowed 'Core' 'Wire-Events' $_ }
         })
     }
     if ($script:Ctrl.ContainsKey("BtnRunInventory")) { $script:Ctrl["BtnRunInventory"].Add_Click({ Start-DomeniaComputerInventory }) }
@@ -23806,11 +23806,11 @@ function Wire-Events {
         if ($script:Ctrl.ContainsKey($firstStepName)) { $script:Ctrl[$firstStepName].Tag = $firstStep; $script:Ctrl[$firstStepName].Add_Click({ param($sender,$eventArgs) try { Open-DomeniaFirstStep -Step ([string]$sender.Tag) } catch { Set-Status ('Étape non ouverte : ' + $_.Exception.Message) 'WARN' } }) }
     }
     # PF-11: the session details are rebuilt when they are opened.
-    if ($script:Ctrl.ContainsKey("UxSessionDetails")) { $script:Ctrl["UxSessionDetails"].Add_Expanded({ try { Update-Dashboard -Force } catch { } }) }
+    if ($script:Ctrl.ContainsKey("UxSessionDetails")) { $script:Ctrl["UxSessionDetails"].Add_Expanded({ try { Update-Dashboard -Force } catch { Write-DomeniaSwallowed 'Core' 'Wire-Events' $_ } }) }
     $workspaceTabs = Get-DomeniaControl 'WorkspaceTabs'
     # Deferred: a tab selected for an instant (a search started from another page passes through Accueil) starts nothing.
     # FI-19: Outils shown again with Base locale already selected inside it reads missing figures (-IfShown checks the page).
-    if ($null -ne $workspaceTabs) { $workspaceTabs.Add_SelectionChanged({ param($sender,$eventArgs) if ($sender -eq $eventArgs.OriginalSource) { try { [void]$sender.Dispatcher.BeginInvoke([System.Windows.Threading.DispatcherPriority]::Background,[Action]{ try { Request-DomeniaFleetRefresh } catch { }; try { Request-DomeniaIndexMetadataIfNeeded -IfShown } catch { } }) } catch { } } }) }
+    if ($null -ne $workspaceTabs) { $workspaceTabs.Add_SelectionChanged({ param($sender,$eventArgs) if ($sender -eq $eventArgs.OriginalSource) { try { [void]$sender.Dispatcher.BeginInvoke([System.Windows.Threading.DispatcherPriority]::Background,[Action]{ try { Request-DomeniaFleetRefresh } catch { Write-DomeniaSwallowed 'Core' 'Wire-Events' $_ }; try { Request-DomeniaIndexMetadataIfNeeded -IfShown } catch { Write-DomeniaSwallowed 'Core' 'Wire-Events' $_ } }) } catch { Write-DomeniaSwallowed 'Core' 'Wire-Events' $_ } } }) }
     if ($script:Ctrl.ContainsKey("BtnDashboardInventory")) { $script:Ctrl["BtnDashboardInventory"].Add_Click({ Start-DomeniaComputerInventory }) }
     if ($script:Ctrl.ContainsKey("BtnDashboardInventoryDeep")) { $script:Ctrl["BtnDashboardInventoryDeep"].Add_Click({ Start-DomeniaComputerInventory -Deep }) }
     if ($script:Ctrl.ContainsKey("BtnCopyInventory")) { $script:Ctrl["BtnCopyInventory"].Add_Click({ Copy-DomeniaInventory }) }
@@ -23823,7 +23823,7 @@ function Wire-Events {
                 $script:InventoryCategory = if ($null -ne $item) { [string]$item.Content } else { "Toutes" }
                 Apply-DomeniaInventoryFilter
             }
-            catch { }
+            catch { Write-DomeniaSwallowed 'Core' 'Wire-Events' $_ }
         })
     }
     $script:Ctrl["BtnCopyComputerDiag"].Add_Click({ Copy-ComputerDiagnostics })
@@ -23849,7 +23849,7 @@ function Wire-Events {
         })
     }
     if ($script:Ctrl.ContainsKey("BtnReadOnlyResume")) { $script:Ctrl["BtnReadOnlyResume"].Add_Click({ Exit-DomeniaWriteMode -Reason Manual }) }
-    if ($script:Ctrl.ContainsKey("BtnDashSelfCheck")) { $script:Ctrl["BtnDashSelfCheck"].Add_Click({ Select-DomeniaWorkspace -Workspace "TabApplicationTools"; try { $script:Ctrl["ApplicationToolTabs"].SelectedItem=$script:Ctrl["TabSelfCheck"] } catch { }; Start-SelfCheck -Full }) }
+    if ($script:Ctrl.ContainsKey("BtnDashSelfCheck")) { $script:Ctrl["BtnDashSelfCheck"].Add_Click({ Select-DomeniaWorkspace -Workspace "TabApplicationTools"; try { $script:Ctrl["ApplicationToolTabs"].SelectedItem=$script:Ctrl["TabSelfCheck"] } catch { Write-DomeniaSwallowed 'Core' 'Wire-Events' $_ }; Start-SelfCheck -Full }) }
     if ($script:Ctrl.ContainsKey("BtnDashClearCache")) { $script:Ctrl["BtnDashClearCache"].Add_Click({ Clear-VisitCache }) }
     if ($script:Ctrl.ContainsKey("BtnDashOpenLog")) { $script:Ctrl["BtnDashOpenLog"].Add_Click({ Open-DomeniaAuditLog }) }
     if ($script:Ctrl.ContainsKey("BtnPruneLinks")) { $script:Ctrl["BtnPruneLinks"].Add_Click({ Start-PruneOrphanLinks }) }
@@ -24263,7 +24263,7 @@ function Write-StartupTrace {
         $line = "{0}`t{1}`t{2}`t{3}`t{4}`t{5}`t{6}{7}" -f (Get-Date).ToString("yyyy-MM-dd HH:mm:ss.fff"),$script:StartupCorrelation,$thread,$Stage,$Status,$DurationMs,$clean,[Environment]::NewLine
         [System.IO.File]::AppendAllText($script:StartupTracePath,$line,(New-Object System.Text.UTF8Encoding($false)))
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Write-StartupTrace' $_ }
 }
 
 function Get-DomeniaStartupXaml {
@@ -24310,10 +24310,10 @@ function New-DomeniaStartupWindow {
             Cancel = $win.FindName("BtnStartupCancel")
         }
         $script:StartupCancelled = $false
-        $script:StartupCtrl.Log.Add_Click({ try { Start-Process notepad.exe -ArgumentList @($script:StartupTracePath) } catch { } })
+        $script:StartupCtrl.Log.Add_Click({ try { Start-Process notepad.exe -ArgumentList @($script:StartupTracePath) } catch { Write-DomeniaSwallowed 'Core' 'New-DomeniaStartupWindow' $_ } })
         $script:StartupCtrl.Cancel.Add_Click({
             $script:StartupCancelled = $true
-            try { $script:StartupCtrl.Cancel.IsEnabled = $false } catch { }
+            try { $script:StartupCtrl.Cancel.IsEnabled = $false } catch { Write-DomeniaSwallowed 'Core' 'New-DomeniaStartupWindow' $_ }
             Set-DomeniaStartupStage -Stage "Annulation..." -Detail "Annulation demandee ; arret propre du worker en cours."
         })
         $win.Add_Closing({ if (-not $script:StartupReady) { $script:StartupCancelled = $true } })
@@ -24323,18 +24323,18 @@ function New-DomeniaStartupWindow {
                 if ($null -ne $script:LoginAuthStarted -and $script:StartupCtrl.ContainsKey("Elapsed")) {
                     $script:StartupCtrl.Elapsed.Text = "$([int]((Get-Date)-$script:LoginAuthStarted).TotalSeconds) s"
                 }
-            } catch { }
+            } catch { Write-DomeniaSwallowed 'Core' 'New-DomeniaStartupWindow' $_ }
         }
         # D089: the monitor prolongs the explicit launch. It is never Topmost; one activation request, and a
         # voluntary Alt-Tab of the operator is remembered for the switch to the main window.
-        try { Register-DomeniaUserSwitchWatch -Window $win } catch { }
-        try { [void](Set-DomeniaWindowActivationPolicy -Window $win -UserSwitchedAway:(Test-DomeniaUserSwitchedAway)) } catch { }
+        try { Register-DomeniaUserSwitchWatch -Window $win } catch { Write-DomeniaSwallowed 'Core' 'New-DomeniaStartupWindow' $_ }
+        try { [void](Set-DomeniaWindowActivationPolicy -Window $win -UserSwitchedAway:(Test-DomeniaUserSwitchedAway)) } catch { Write-DomeniaSwallowed 'Core' 'New-DomeniaStartupWindow' $_ }
         $win.Show() | Out-Null
-        try { [void](Request-DomeniaWindowActivation -Window $win -Trigger 'StartupMonitor') } catch { }
+        try { [void](Request-DomeniaWindowActivation -Window $win -Trigger 'StartupMonitor') } catch { Write-DomeniaSwallowed 'Core' 'New-DomeniaStartupWindow' $_ }
         [System.Windows.Forms.Application]::DoEvents()
     }
     catch {
-        try { Write-StartupTrace -Stage "Moniteur de demarrage" -Status "WARN" -Detail $_.Exception.ToString() } catch { }
+        try { Write-StartupTrace -Stage "Moniteur de demarrage" -Status "WARN" -Detail $_.Exception.ToString() } catch { Write-DomeniaSwallowed 'Core' 'New-DomeniaStartupWindow' $_ }
         $script:StartupWindow = $null
         $script:StartupCtrl = @{}
     }
@@ -24352,13 +24352,13 @@ function Set-DomeniaStartupStage {
         if ($null -ne $script:LoginAuthStarted) { $script:StartupCtrl.Elapsed.Text = "$([int]((Get-Date)-$script:LoginAuthStarted).TotalSeconds) s" }
         [System.Windows.Forms.Application]::DoEvents()
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Set-DomeniaStartupStage' $_ }
 }
 
 function Close-DomeniaStartupWindow {
-    try { if ($null -ne $script:StartupTimer) { $script:StartupTimer.Stop() } } catch { }
+    try { if ($null -ne $script:StartupTimer) { $script:StartupTimer.Stop() } } catch { Write-DomeniaSwallowed 'Core' 'Close-DomeniaStartupWindow' $_ }
     $script:StartupTimer = $null
-    try { if ($null -ne $script:StartupWindow) { $script:StartupWindow.Close() } } catch { }
+    try { if ($null -ne $script:StartupWindow) { $script:StartupWindow.Close() } } catch { Write-DomeniaSwallowed 'Core' 'Close-DomeniaStartupWindow' $_ }
     $script:StartupWindow = $null
     $script:StartupCtrl = @{}
 }
@@ -24399,8 +24399,8 @@ function Invoke-WithDOMENIADataLock {
         return (& $Action)
     }
     finally {
-        if ($locked) { try { $mutex.ReleaseMutex() } catch { } }
-        if ($null -ne $mutex) { try { $mutex.Dispose() } catch { } }
+        if ($locked) { try { $mutex.ReleaseMutex() } catch { Write-DomeniaSwallowed 'Core' 'Invoke-WithDOMENIADataLock' $_ } }
+        if ($null -ne $mutex) { try { $mutex.Dispose() } catch { Write-DomeniaSwallowed 'Core' 'Invoke-WithDOMENIADataLock' $_ } }
     }
 }
 
@@ -24458,7 +24458,7 @@ function Get-DomeniaDatabasePath {
             $probeDb = Open-DomeniaDatabase -Path $legacy -ReadOnly
             $metadata = @(Invoke-DomeniaDbQuery -Sql "SELECT base_dn FROM sync_state WHERE scope='directory' LIMIT 1;" -DatabaseHandle $probeDb)
             if ($metadata.Count -eq 1 -and ([string]$metadata[0].base_dn).Trim().ToLowerInvariant() -ceq $baseDn) { $chosen = $legacy }
-        } catch { } finally { Close-DomeniaDatabase $probeDb }
+        } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaDatabasePath' $_ } finally { Close-DomeniaDatabase $probeDb }
     }
     if ([string]::IsNullOrWhiteSpace([string]$chosen)) {
         $scopeDirectory = Join-Path (Join-Path ([string]$script:DataDir) 'Domains') (Get-DomeniaScopeKey $baseDn)
@@ -24611,7 +24611,7 @@ function Invoke-DomeniaDbExec {
         return $true
     }
     finally {
-        if ($errPtr -ne [IntPtr]::Zero) { try { Initialize-DomeniaWinSqliteNative | Out-Null; [Domenia.WinSqliteNative]::sqlite3_free($errPtr) } catch { } }
+        if ($errPtr -ne [IntPtr]::Zero) { try { Initialize-DomeniaWinSqliteNative | Out-Null; [Domenia.WinSqliteNative]::sqlite3_free($errPtr) } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaDbExec' $_ } }
         if ($sqlPtr -ne [IntPtr]::Zero) { [System.Runtime.InteropServices.Marshal]::FreeHGlobal($sqlPtr) }
         if ($own) { Close-DomeniaDatabase $DatabaseHandle }
     }
@@ -24651,7 +24651,7 @@ function Invoke-DomeniaDbQuery {
         return $rows.ToArray()
     }
     finally {
-        if ($stmt -ne [IntPtr]::Zero) { try { Initialize-DomeniaWinSqliteNative | Out-Null; [void][Domenia.WinSqliteNative]::sqlite3_finalize($stmt) } catch { } }
+        if ($stmt -ne [IntPtr]::Zero) { try { Initialize-DomeniaWinSqliteNative | Out-Null; [void][Domenia.WinSqliteNative]::sqlite3_finalize($stmt) } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaDbQuery' $_ } }
         if ($sqlPtr -ne [IntPtr]::Zero) { [System.Runtime.InteropServices.Marshal]::FreeHGlobal($sqlPtr) }
         if ($own) { Close-DomeniaDatabase $DatabaseHandle }
     }
@@ -24858,7 +24858,7 @@ function Initialize-DomeniaDatabase {
             $schemaGaps=@(Get-DomeniaStorageSchemaGaps -Tables $schemaTables -Columns $schemaColumns)
             if($schemaGaps.Count){throw ('Schéma incomplet après mise à niveau, transaction annulée : '+($schemaGaps -join ', ')+'.')}
             [void](Invoke-DomeniaDbExec 'COMMIT;' $migrationDb)
-        }catch{try{[void](Invoke-DomeniaDbExec 'ROLLBACK;' $migrationDb)}catch{};throw}finally{Close-DomeniaDatabase $migrationDb}
+        }catch{try{[void](Invoke-DomeniaDbExec 'ROLLBACK;' $migrationDb)}catch{Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaDatabase' $_};throw}finally{Close-DomeniaDatabase $migrationDb}
         $probe = @(Invoke-DomeniaDbQuery "SELECT value FROM schema_info WHERE key='schema_version' LIMIT 1;")
         if ($probe.Count -eq 0) { throw "Schema SQLite initialise mais illisible." }
         $script:DomeniaDatabaseReady = $true
@@ -24899,13 +24899,13 @@ function Invoke-DomeniaDatabaseMaintenance {
             if ($check.Count -eq 0 -or [string]$check[0].quick_check -ne 'ok') { throw 'PRAGMA quick_check a signale une incoherence.' }
         }
         if ($Backup) { [void](Backup-DomeniaDatabase) }
-        try { Request-DomeniaIndexMetadata } catch { }
+        try { Request-DomeniaIndexMetadata } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaDatabaseMaintenance' $_ }
         $sw.Stop()
-        try { Register-DomeniaOperationSample -Operation 'DatabaseMaintenance' -Mode 'Local SQLite' -ItemCount 1 -DurationMs $sw.ElapsedMilliseconds -SuccessCount 1 } catch {}
+        try { Register-DomeniaOperationSample -Operation 'DatabaseMaintenance' -Mode 'Local SQLite' -ItemCount 1 -DurationMs $sw.ElapsedMilliseconds -SuccessCount 1 } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaDatabaseMaintenance' $_ }
         return $true
     } catch {
         $sw.Stop()
-        try { Register-DomeniaOperationSample -Operation 'DatabaseMaintenance' -Mode 'Local SQLite' -ItemCount 1 -DurationMs $sw.ElapsedMilliseconds -FailureCount 1 -Notes $_.Exception.Message } catch {}
+        try { Register-DomeniaOperationSample -Operation 'DatabaseMaintenance' -Mode 'Local SQLite' -ItemCount 1 -DurationMs $sw.ElapsedMilliseconds -FailureCount 1 -Notes $_.Exception.Message } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaDatabaseMaintenance' $_ }
         throw
     }
 }
@@ -24927,7 +24927,7 @@ function Get-DomeniaOperationHistoryModel {
     param([string]$Operation)
     $models = $script:OperationHistoryModels
     $current = (($null -ne $models) -and ([long]$script:OperationHistoryModelsEpoch -eq [long]$script:SessionEpoch))
-    try { Request-DomeniaOperationStats -Quiet } catch { }
+    try { Request-DomeniaOperationStats -Quiet } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaOperationHistoryModel' $_ }
     if ((-not $current) -or (-not $models.ContainsKey($Operation))) { return $null }
     return $models[$Operation]
 }
@@ -24954,7 +24954,7 @@ function Export-DomeniaOperationStatsCsv {
 function Get-DomeniaOperationImpactEstimate {
     param([string]$Operation,[int]$ItemCount=0,[int]$MaxEvents=0,[int]$BudgetMs=0)
     $model=Get-DomeniaOperationHistoryModel $Operation
-    $samples=0; try{$samples=[int]$model.n}catch{}
+    $samples=0; try{$samples=[int]$model.n}catch{Write-DomeniaSwallowed 'Core' 'Get-DomeniaOperationImpactEstimate' $_}
     $durationMs=[long]0; $bytes=[long]0; $adQueries=0; $remote=0; $fallback=[double]0; $impact="Faible"; $initialBpi=24000.0; $initialMpi=1200.0
     switch($Operation){
         "IndexBuild" {
@@ -24983,7 +24983,7 @@ function Get-DomeniaOperationImpactEstimate {
     if($BudgetMs-gt0){$durationMs=[Math]::Min($durationMs,[long]$BudgetMs)}
     if($remote-gt0){$ratio=0.25;if($samples-gt0-and$null-ne$model.fallback_ratio){$ratio=[Math]::Max(0,[Math]::Min(1,[double]$model.fallback_ratio))};$fallback=[Math]::Ceiling($remote*$ratio)}
     $minMs=0;$maxMs=0;$successPct=0
-    try{$minMs=[double]$model.min_ms_per_item}catch{};try{$maxMs=[double]$model.max_ms_per_item}catch{};try{$successPct=[Math]::Round(100*[double]$model.success_ratio,0)}catch{}
+    try{$minMs=[double]$model.min_ms_per_item}catch{Write-DomeniaSwallowed 'Core' 'Get-DomeniaOperationImpactEstimate' $_};try{$maxMs=[double]$model.max_ms_per_item}catch{Write-DomeniaSwallowed 'Core' 'Get-DomeniaOperationImpactEstimate' $_};try{$successPct=[Math]::Round(100*[double]$model.success_ratio,0)}catch{Write-DomeniaSwallowed 'Core' 'Get-DomeniaOperationImpactEstimate' $_}
     $seconds=[Math]::Max(0.001,$durationMs/1000.0)
     $avgBps=[double]$bytes/$seconds
     $avgMbit=[double]($avgBps*8/1000000.0)
@@ -25100,9 +25100,9 @@ function ConvertTo-DomeniaCanonicalLinks {
             $computer = Normalize-LinkComputer ([string]$link.Computer)
             if ([string]::IsNullOrWhiteSpace($user) -or [string]::IsNullOrWhiteSpace($computer)) { continue }
             $verified = $false
-            try { if ($null -ne $link.PSObject.Properties['VerifiedInAD']) { $verified = [bool]$link.VerifiedInAD } } catch { }
+            try { if ($null -ne $link.PSObject.Properties['VerifiedInAD']) { $verified = [bool]$link.VerifiedInAD } } catch { Write-DomeniaSwallowed 'Core' 'ConvertTo-DomeniaCanonicalLinks' $_ }
             $confidence = 0
-            try { if ($null -ne $link.PSObject.Properties['Confidence']) { $confidence = [int]$link.Confidence } } catch { }
+            try { if ($null -ne $link.PSObject.Properties['Confidence']) { $confidence = [int]$link.Confidence } } catch { Write-DomeniaSwallowed 'Core' 'ConvertTo-DomeniaCanonicalLinks' $_ }
             $when = [string]$link.When
             if ([string]::IsNullOrWhiteSpace($when)) { $when = [datetime]::UtcNow.ToString('o') }
             $row = [pscustomobject]@{
@@ -25142,15 +25142,15 @@ function ConvertTo-DomeniaCanonicalLinks {
         $seen[$computerKey] = $true
         $confidence = 0
         $verified = $false
-        try { if ($null -ne $link.PSObject.Properties['Confidence']) { $confidence = [int]$link.Confidence } } catch { }
-        try { if ($null -ne $link.PSObject.Properties['VerifiedInAD']) { $verified = [bool]$link.VerifiedInAD } } catch { }
+        try { if ($null -ne $link.PSObject.Properties['Confidence']) { $confidence = [int]$link.Confidence } } catch { Write-DomeniaSwallowed 'Core' 'ConvertTo-DomeniaCanonicalLinks' $_ }
+        try { if ($null -ne $link.PSObject.Properties['VerifiedInAD']) { $verified = [bool]$link.VerifiedInAD } } catch { Write-DomeniaSwallowed 'Core' 'ConvertTo-DomeniaCanonicalLinks' $_ }
         $when = [string]$link.When
         if ([string]::IsNullOrWhiteSpace($when)) { $when = Get-Date -Format 'yyyy-MM-dd HH:mm:ss' }
         $userGuid=""; $computerGuid=""; $userDn=""; $computerDn=""
-        try { $userGuid=[string]$link.UserGuid } catch { }
-        try { $computerGuid=[string]$link.ComputerGuid } catch { }
-        try { $userDn=[string]$link.UserDn } catch { }
-        try { $computerDn=[string]$link.ComputerDn } catch { }
+        try { $userGuid=[string]$link.UserGuid } catch { Write-DomeniaSwallowed 'Core' 'ConvertTo-DomeniaCanonicalLinks' $_ }
+        try { $computerGuid=[string]$link.ComputerGuid } catch { Write-DomeniaSwallowed 'Core' 'ConvertTo-DomeniaCanonicalLinks' $_ }
+        try { $userDn=[string]$link.UserDn } catch { Write-DomeniaSwallowed 'Core' 'ConvertTo-DomeniaCanonicalLinks' $_ }
+        try { $computerDn=[string]$link.ComputerDn } catch { Write-DomeniaSwallowed 'Core' 'ConvertTo-DomeniaCanonicalLinks' $_ }
         [void]$valid.Add([pscustomobject]@{
             UserLogin=$user
             Computer=$computer
@@ -25356,7 +25356,7 @@ function New-DomeniaWorkerRunspace {
             $existing=$script:LiveWorkerPools[$OperationId]
             if ($existing.CodeHash -cne $verifiedHash) { throw 'Empreinte de pool incohérente.' }
             $openWatch.Stop()
-            try { Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId ('RunspaceOpen:' + $OperationId) -DurationMs ([double]$openWatch.Elapsed.TotalMilliseconds) } catch { }
+            try { Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId ('RunspaceOpen:' + $OperationId) -DurationMs ([double]$openWatch.Elapsed.TotalMilliseconds) } catch { Write-DomeniaSwallowed 'Core' 'New-DomeniaWorkerRunspace' $_ }
             return $existing
         }
     }
@@ -25445,9 +25445,9 @@ $InformationPreference = "SilentlyContinue"
             $record=[pscustomobject]@{Runspace=$null;Pool=$pool;CommandName=$functionName;OperationId=$OperationId;CodeHash=$verifiedHash}
             $script:LiveWorkerPools[$OperationId]=$record
             # D019: the pool has an owner and is closed by the registry at shutdown.
-            try { [void](Register-DomeniaWorkerPool -OperationId $OperationId -Pool $pool) } catch { }
+            try { [void](Register-DomeniaWorkerPool -OperationId $OperationId -Pool $pool) } catch { Write-DomeniaSwallowed 'Core' 'New-DomeniaWorkerRunspace' $_ }
             $openWatch.Stop()
-            try { Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId ('RunspaceOpen:' + $OperationId) -DurationMs ([double]$openWatch.Elapsed.TotalMilliseconds) } catch { }
+            try { Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId ('RunspaceOpen:' + $OperationId) -DurationMs ([double]$openWatch.Elapsed.TotalMilliseconds) } catch { Write-DomeniaSwallowed 'Core' 'New-DomeniaWorkerRunspace' $_ }
             return $record
         } catch { $pool.Dispose(); throw }
     }
@@ -25458,11 +25458,11 @@ $InformationPreference = "SilentlyContinue"
         $runspace.Open()
         $openWatch.Stop()
         # D014: the synchronous Open() on the Dispatcher is measured (series 'Dispatcher' of C7). PF-10: no lookup.
-        try { Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId ('RunspaceOpen:' + $OperationId) -DurationMs ([double]$openWatch.Elapsed.TotalMilliseconds) } catch { }
+        try { Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId ('RunspaceOpen:' + $OperationId) -DurationMs ([double]$openWatch.Elapsed.TotalMilliseconds) } catch { Write-DomeniaSwallowed 'Core' 'New-DomeniaWorkerRunspace' $_ }
         return [pscustomobject]@{ Runspace=$runspace; CommandName=$functionName; OperationId=$OperationId; CodeHash=$verifiedHash }
     }
     catch {
-        try { $runspace.Dispose() } catch { }
+        try { $runspace.Dispose() } catch { Write-DomeniaSwallowed 'Core' 'New-DomeniaWorkerRunspace' $_ }
         throw
     }
 }
@@ -25478,18 +25478,18 @@ function Register-DomeniaAsyncEngineFault {
     $code = [string]$occurrence.Code
     if ([bool]$occurrence.Write) {
         $repeat = if ([int]$occurrence.Count -gt 1) { ' (même erreur ×' + [int]$occurrence.Count + ')' } else { '' }
-        try { Write-AppLog ("[$code] Moteur asynchrone$repeat : " + [string]$exception) 'ERROR' -Area 'Technique' } catch { }
+        try { Write-AppLog ("[$code] Moteur asynchrone$repeat : " + [string]$exception) 'ERROR' -Area 'Technique' } catch { Write-DomeniaSwallowed 'Core' 'Register-DomeniaAsyncEngineFault' $_ }
         # The readable journal says it as often as Domenia.log, with the same code.
-        if ([int]$script:AsyncEngineTickFailures -lt 3) { try { Set-Status ("Erreur interne du moteur des tâches ($code). Nouvel essai automatique.") 'ERROR' -NoFileLog } catch { } }
+        if ([int]$script:AsyncEngineTickFailures -lt 3) { try { Set-Status ("Erreur interne du moteur des tâches ($code). Nouvel essai automatique.") 'ERROR' -NoFileLog } catch { Write-DomeniaSwallowed 'Core' 'Register-DomeniaAsyncEngineFault' $_ } }
     }
     if ([int]$script:AsyncEngineTickFailures -lt 3) { return $false }
-    try { if ($null -ne $script:AsyncTimer) { $script:AsyncTimer.Stop() } } catch { }
+    try { if ($null -ne $script:AsyncTimer) { $script:AsyncTimer.Stop() } } catch { Write-DomeniaSwallowed 'Core' 'Register-DomeniaAsyncEngineFault' $_ }
     if ([bool]$script:AsyncEngineFaultStopped) { return $true }
     $script:AsyncEngineFaultStopped = $true
-    try { Write-AppLog ("[$code] Moteur asynchrone arrete apres 3 echecs consecutifs ; aucun nouvel essai automatique.") 'ERROR' -Area 'Technique' } catch { }
-    try { Set-Status ("Moteur des tâches arrêté après 3 erreurs consécutives ($code). Fermez puis relancez Domenia.") 'ERROR' -NoFileLog } catch { }
+    try { Write-AppLog ("[$code] Moteur asynchrone arrete apres 3 echecs consecutifs ; aucun nouvel essai automatique.") 'ERROR' -Area 'Technique' } catch { Write-DomeniaSwallowed 'Core' 'Register-DomeniaAsyncEngineFault' $_ }
+    try { Set-Status ("Moteur des tâches arrêté après 3 erreurs consécutives ($code). Fermez puis relancez Domenia.") 'ERROR' -NoFileLog } catch { Write-DomeniaSwallowed 'Core' 'Register-DomeniaAsyncEngineFault' $_ }
     # The closing guard lets the operator leave after a confirmation when a write was in progress (Initialize-Window).
-    try { Show-ErrorBox ("Le moteur des tâches sʼest arrêté après 3 erreurs consécutives : les lectures en cours nʼaboutiront plus.`r`n`r`nFermez puis relancez Domenia. Si une écriture AD était en cours, la fermeture demande une confirmation : son reçu local est conservé et sera à vérifier dans les reçus au prochain démarrage.`r`n`r`nCode incident : $code. Le détail technique est enregistré dans le journal Domenia.") } catch { }
+    try { Show-ErrorBox ("Le moteur des tâches sʼest arrêté après 3 erreurs consécutives : les lectures en cours nʼaboutiront plus.`r`n`r`nFermez puis relancez Domenia. Si une écriture AD était en cours, la fermeture demande une confirmation : son reçu local est conservé et sera à vérifier dans les reçus au prochain démarrage.`r`n`r`nCode incident : $code. Le détail technique est enregistré dans le journal Domenia.") } catch { Write-DomeniaSwallowed 'Core' 'Register-DomeniaAsyncEngineFault' $_ }
     return $true
 }
 
@@ -25514,7 +25514,7 @@ function Initialize-AsyncEngine {
         $timer = New-DomeniaTimer -Owner 'Timer:Async' -IntervalMs ([Math]::Max(100,[int](Get-CfgValue "Async" "PollIntervalMs" 250))) -RunWhenHidden -Tick {
             # FI-02: a failing poll is counted; three consecutive failures stop the timer with one message.
             try { Complete-UiTasks; $script:AsyncEngineTickFailures = 0 }
-            catch { try { [void](Register-DomeniaAsyncEngineFault -ErrorRecord $_) } catch { } }
+            catch { try { [void](Register-DomeniaAsyncEngineFault -ErrorRecord $_) } catch { Write-DomeniaSwallowed 'Core' 'Initialize-AsyncEngine' $_ } }
         }
         $script:AsyncTimer = $timer
         $script:AsyncTimer.Start()
@@ -25570,7 +25570,7 @@ try {
             [string]$Job.Name,[string]$Job.OperationId,$Message
         )
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaJobErrorUi' $_ }
 
     if (-not [string]::IsNullOrWhiteSpace([string]$Job.ErrorHandler)) {
         Invoke-DomeniaUiHandler -HandlerName ([string]$Job.ErrorHandler) -Argument $Message -CallbackState $Job.CallbackState
@@ -25618,7 +25618,7 @@ try {
             $Name,$OperationId,$payloadCount,$TimeoutSeconds,$ReplaceKey
         )
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Start-UiTask' $_ }
 
     if (-not [bool](Get-CfgValue "Async" "Enabled" $true)) { throw "Moteur multithread desactive dans la configuration." }
     if ($script:AsyncEngineClosing) { throw "Le moteur multithread est en cours de fermeture." }
@@ -25745,7 +25745,7 @@ try {
         $script:AsyncJobs[$id] = $job
         if ($foregroundValue) { Set-Status ("En attente : $Name. Aucune lecture envoyée pour lʼinstant.") }
         if ($foregroundValue) { $script:LatestTaskId = $id }
-        try { Resume-DomeniaAsyncPoll } catch { }
+        try { Resume-DomeniaAsyncPoll } catch { Write-DomeniaSwallowed 'Core' 'Start-UiTask' $_ }
         Update-TaskUi -Force
         return $id
     }
@@ -25759,9 +25759,9 @@ try {
     $script:AsyncJobs[$id] = $job
     # CO-02: LatestTaskId follows the foreground tasks only; a local save never becomes the target of Annuler.
     if ($foregroundValue) { $script:LatestTaskId = $id }
-    if ($admissionReason -and [bool]$IsWrite) { try { Set-Status $admissionReason } catch { } }
+    if ($admissionReason -and [bool]$IsWrite) { try { Set-Status $admissionReason } catch { Write-DomeniaSwallowed 'Core' 'Start-UiTask' $_ } }
     # PF-06: the engine poll stops at rest; a new task resumes it.
-    try { Resume-DomeniaAsyncPoll } catch { }
+    try { Resume-DomeniaAsyncPoll } catch { Write-DomeniaSwallowed 'Core' 'Start-UiTask' $_ }
     Update-TaskUi -Force
     return $id
 }
@@ -25784,7 +25784,7 @@ function Request-UiTaskStop {
         }
         if ([string]$job.ReplaceKey -eq "object") {
             $objectRequestId = ""
-            try { $objectRequestId = [string]$job.CallbackState.RequestId } catch { }
+            try { $objectRequestId = [string]$job.CallbackState.RequestId } catch { Write-DomeniaSwallowed 'Core' 'Request-UiTaskStop' $_ }
             if (-not $Superseded -and $objectRequestId -ceq [string]$script:CurrentObjectRequestId -and (Test-DomeniaSelectionLoadCurrent)) {
                 Update-DomeniaSelectionReadUi -Phase Failed -Message 'Lecture interrompue. Aucune relance automatique ; utilisez Reessayer la lecture.'
             }
@@ -25817,7 +25817,7 @@ function Request-UiTaskStop {
     }
     if ([string]$job.ReplaceKey -eq "object") {
         $objectRequestId = ""
-        try { $objectRequestId = [string]$job.CallbackState.RequestId } catch { }
+        try { $objectRequestId = [string]$job.CallbackState.RequestId } catch { Write-DomeniaSwallowed 'Core' 'Request-UiTaskStop' $_ }
         if (-not $Superseded -and $objectRequestId -ceq [string]$script:CurrentObjectRequestId -and (Test-DomeniaSelectionLoadCurrent)) {
             Update-DomeniaSelectionReadUi -Phase Failed -Message 'Lecture interrompue. Aucune relance automatique ; utilisez Reessayer la lecture.'
         }
@@ -25830,7 +25830,7 @@ function Request-UiTaskStop {
     if (-not $Silent -and -not $Superseded) {
         # D017: a stop request is never presented as a finished cancellation.
         $stopText = "Annulation demandee : $($job.Name). Le thread graphique reste disponible."
-        try { $stopText = Get-DomeniaCancelStatusText -Name ([string]$job.Name) -State 'StopRequested' -IsWrite ([bool]$job.IsWrite) } catch { }
+        try { $stopText = Get-DomeniaCancelStatusText -Name ([string]$job.Name) -State 'StopRequested' -IsWrite ([bool]$job.IsWrite) } catch { Write-DomeniaSwallowed 'Core' 'Request-UiTaskStop' $_ }
         Set-Status $stopText "WARN"
     }
     Update-TaskUi -Force
@@ -25882,7 +25882,7 @@ function Detach-DomeniaReadUiTask {
     # il ne doit surtout pas garder l'interface en etat "tache active" pendant
     # plusieurs minutes. On detache uniquement les LECTURES : aucun callback UI
     # ne sera rejoue, et le worker deja lance finira/sera stoppe hors du flux UI.
-    try { Set-ControlsBusy -Names $job.DisableControls -Busy $false } catch { }
+    try { Set-ControlsBusy -Names $job.DisableControls -Busy $false } catch { Write-DomeniaSwallowed 'Core' 'Detach-DomeniaReadUiTask' $_ }
     [void]$script:AsyncJobs.Remove($Id)
     if ([string]$script:LatestTaskId -eq $Id) { $script:LatestTaskId = "" }
     # W13 (point 123): the trace ends here for the interface; the native call may still finish its cleanup.
@@ -25894,15 +25894,15 @@ function Detach-DomeniaReadUiTask {
         Clear-DomeniaComputerUserProbeState -ProbeId ([string]$job.CallbackState.ProbeId) -Computer ([string]$job.CallbackState.Computer)
     }
     $job.OnSuccess = $null; $job.OnError = $null; $job.CallbackState = $null
-    try { [void]$script:DetachedReadJobs.Add($job) } catch { }
+    try { [void]$script:DetachedReadJobs.Add($job) } catch { Write-DomeniaSwallowed 'Core' 'Detach-DomeniaReadUiTask' $_ }
     try {
         Write-AppLog "[$($job.CorrelationId)] Lecture detachee du GUI apres annulation non cooperative : $($job.Name). $Reason" "WARN"
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'Core' 'Detach-DomeniaReadUiTask' $_ }
     # D017: the native call still runs and stays counted; say so instead of announcing a finished cancellation.
     if (-not [bool]$job.Superseded) {
-        try { Set-Status (Get-DomeniaCancelStatusText -Name ([string]$job.Name) -State 'Cleanup') "WARN" } catch { }
+        try { Set-Status (Get-DomeniaCancelStatusText -Name ([string]$job.Name) -State 'Cleanup') "WARN" } catch { Write-DomeniaSwallowed 'Core' 'Detach-DomeniaReadUiTask' $_ }
     }
-    try { Update-TaskUi -Force } catch { }
+    try { Update-TaskUi -Force } catch { Write-DomeniaSwallowed 'Core' 'Detach-DomeniaReadUiTask' $_ }
     return $true
 }
 
@@ -25910,7 +25910,7 @@ function Complete-UiTasks {
     Sync-DomeniaCredentialGuardUi
     Complete-DomeniaDetachedReadJobs
     # D019: per-job resources are released once their job is neither active nor detached.
-    try { Initialize-DomeniaEngineState; [void](Sync-DomeniaJobResources) } catch { }
+    try { Initialize-DomeniaEngineState; [void](Sync-DomeniaJobResources) } catch { Write-DomeniaSwallowed 'Core' 'Complete-UiTasks' $_ }
     $removed = $false
     # PF-04: a time budget per tick (Async.TickBudgetMs, about 25 ms) replaces MaxCompletionsPerTick, and finished
     # jobs are handled by class priority: Write, Explicit, Selection, then Background.
@@ -25931,13 +25931,13 @@ function Complete-UiTasks {
         $elapsed = ((Get-Date) - $job.Started).TotalSeconds
         $invokeCompleted = $false
         $stopCompleted = $false
-        try { $invokeCompleted = [bool]$job.Handle.IsCompleted } catch { }
-        try { if ($null -ne $job.StopHandle) { $stopCompleted = [bool]$job.StopHandle.IsCompleted } } catch { }
+        try { $invokeCompleted = [bool]$job.Handle.IsCompleted } catch { Write-DomeniaSwallowed 'Core' 'Complete-UiTasks' $_ }
+        try { if ($null -ne $job.StopHandle) { $stopCompleted = [bool]$job.StopHandle.IsCompleted } } catch { Write-DomeniaSwallowed 'Core' 'Complete-UiTasks' $_ }
 
         if (-not $invokeCompleted -or ($null -ne $job.StopHandle -and -not $stopCompleted)) {
             if ([bool]$job.CancelRequested -and -not [bool]$job.IsWrite) {
                 $cancelAge = 0.0
-                try { if ($null -ne $job.CancelRequestedAt) { $cancelAge = ((Get-Date) - [datetime]$job.CancelRequestedAt).TotalSeconds } } catch { }
+                try { if ($null -ne $job.CancelRequestedAt) { $cancelAge = ((Get-Date) - [datetime]$job.CancelRequestedAt).TotalSeconds } } catch { Write-DomeniaSwallowed 'Core' 'Complete-UiTasks' $_ }
                 $cancelGrace = [Math]::Max(1,[int](Get-CfgValue "Async" "CancelGraceSeconds" 5))
                 if ($cancelAge -ge $cancelGrace) {
                     if (Detach-DomeniaReadUiTask -Id $id -Reason ("BeginStop sans retour apres " + [int]$cancelAge + " s")) { $removed = $true }
@@ -25956,7 +25956,7 @@ function Complete-UiTasks {
                     $script:WriteState = "Unknown"
                     $message = "ETAT INCONNU apres $([int]$elapsed)s : $($job.Name). Ne relance pas l'action avant relecture de l'objet."
                     if (-not [bool]$job.TimeoutErrorDelivered) {
-                        try { Invoke-DomeniaJobErrorUi -Job $job -Message $message } catch { }
+                        try { Invoke-DomeniaJobErrorUi -Job $job -Message $message } catch { Write-DomeniaSwallowed 'Core' 'Complete-UiTasks' $_ }
                         $job.TimeoutErrorDelivered = $true
                     }
                     Request-UiTaskStop -Id $id -Silent -Force
@@ -25970,8 +25970,8 @@ function Complete-UiTasks {
                         try { Invoke-DomeniaJobErrorUi -Job $job -Message $message } catch { Set-Status $message "ERROR" }
                         $job.TimeoutErrorDelivered = $true
                         # D018: repeated outages of one provider pause its background reads, never the explicit ones.
-                        try { [void](Register-DomeniaTaskOutcome -Job $job -TimedOut) } catch { }
-                        try { Invoke-DomeniaTaskSubscribers -Job $job -Output $null -ErrorMessage $message } catch { }
+                        try { [void](Register-DomeniaTaskOutcome -Job $job -TimedOut) } catch { Write-DomeniaSwallowed 'Core' 'Complete-UiTasks' $_ }
+                        try { Invoke-DomeniaTaskSubscribers -Job $job -Output $null -ErrorMessage $message } catch { Write-DomeniaSwallowed 'Core' 'Complete-UiTasks' $_ }
                     }
                     Request-UiTaskStop -Id $id -Silent -Force -Reason 'Delai de lecture depasse'
                 }
@@ -26002,13 +26002,13 @@ function Complete-UiTasks {
         $errorMessage = ""
         $output = $null
         if ([bool]$job.CancelRequested) {
-            try { if ($stopCompleted) { $job.PowerShell.EndStop($job.StopHandle) } } catch { }
+            try { if ($stopCompleted) { $job.PowerShell.EndStop($job.StopHandle) } } catch { Write-DomeniaSwallowed 'Core' 'Complete-UiTasks' $_ }
             try {
                 if ($invokeCompleted) {
                     $collection=$job.PowerShell.EndInvoke($job.Handle)
                     if($null -ne $collection){if($collection.Count -eq 1){$output=$collection[0]}else{$output=@($collection)}}
                 }
-            } catch { }
+            } catch { Write-DomeniaSwallowed 'Core' 'Complete-UiTasks' $_ }
         }
         else {
             try {
@@ -26022,9 +26022,9 @@ function Complete-UiTasks {
         }
 
         # D019: the registry releases what the job owned; the direct calls stay as an idempotent fallback.
-        try { if ($null -ne $script:DomeniaResources) { [void](Release-DomeniaResources -Registry $script:DomeniaResources -Owner ([string]$id)) } } catch { }
-        try { $job.PowerShell.Dispose() } catch { }
-        try { $job.Runspace.Dispose() } catch { }
+        try { if ($null -ne $script:DomeniaResources) { [void](Release-DomeniaResources -Registry $script:DomeniaResources -Owner ([string]$id)) } } catch { Write-DomeniaSwallowed 'Core' 'Complete-UiTasks' $_ }
+        try { $job.PowerShell.Dispose() } catch { Write-DomeniaSwallowed 'Core' 'Complete-UiTasks' $_ }
+        try { $job.Runspace.Dispose() } catch { Write-DomeniaSwallowed 'Core' 'Complete-UiTasks' $_ }
         if ($null -eq $job.PSObject.Properties['BusyApplied'] -or [bool]$job.BusyApplied) { Set-ControlsBusy -Names $job.DisableControls -Busy $false }
         [void]$script:AsyncJobs.Remove($id)
         $removed = $true
@@ -26032,13 +26032,13 @@ function Complete-UiTasks {
             $script:ActiveWriteTaskId = ""
             if ($script:WriteState -ne "Unknown") { $script:WriteState = "Idle" }
         }
-        if ([bool]$job.IsWrite) { try { [void](Update-DomeniaIdlePolicy) } catch { } }
+        if ([bool]$job.IsWrite) { try { [void](Update-DomeniaIdlePolicy) } catch { Write-DomeniaSwallowed 'Core' 'Complete-UiTasks' $_ } }
         # W13/W14 (points 121, 122): one measure of the worker per job. The Collect phase of its trace (dispatch to the end
         # seen by this poll) is the duration kept for the percentiles of the operations panel, so an explained slowness
         # and a percentile never come from two clocks.
         $traceCollectMs = [double]-1
         try { $traceCollectMs = [double](Get-DomeniaJobPhaseMeasures -Job $job -WorkerEnd $traceWorkerEnd).CollectMs } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
-        try { Add-DomeniaTaskRuntimeMetric -Job $job -DurationMs $traceCollectMs } catch { }
+        try { Add-DomeniaTaskRuntimeMetric -Job $job -DurationMs $traceCollectMs } catch { Write-DomeniaSwallowed 'Core' 'Complete-UiTasks' $_ }
 
         if([bool]$job.CancelRequested -or [bool]$job.Superseded -or [long]$job.SessionEpoch -ne [long]$script:SessionEpoch){
             try{[void](Save-DomeniaSupersededCollection -Job $job -Output $output -ErrorMessage $errorMessage)}
@@ -26048,7 +26048,7 @@ function Complete-UiTasks {
         if ([bool]$job.CancelRequested) {
             if (-not [bool]$job.Superseded -and -not [bool]$job.TimeoutErrorDelivered) {
                 $endText = "Operation annulee : $($job.Name)."
-                try { $endText = Get-DomeniaCancelStatusText -Name ([string]$job.Name) -State 'Completed' } catch { }
+                try { $endText = Get-DomeniaCancelStatusText -Name ([string]$job.Name) -State 'Completed' } catch { Write-DomeniaSwallowed 'Core' 'Complete-UiTasks' $_ }
                 Set-Status $endText "WARN"
             }
             # A write stopped by its hard deadline has an unknown result; a read is stopped, replaced or out of time.
@@ -26069,9 +26069,9 @@ function Complete-UiTasks {
         # breaker and the callbacks (on the job: $Job.ErrorInfo, reachable through $script:AccessCurrentJob).
         $errorInfo = $null
         if (-not [string]::IsNullOrWhiteSpace($errorMessage)) { $errorInfo = ConvertTo-DomeniaTaskErrorInfo -Job $job -Message $errorMessage }
-        try { [void](Register-DomeniaTaskOutcome -Job $job -ErrorMessage $errorMessage -ErrorInfo $errorInfo) } catch { }
+        try { [void](Register-DomeniaTaskOutcome -Job $job -ErrorMessage $errorMessage -ErrorInfo $errorInfo) } catch { Write-DomeniaSwallowed 'Core' 'Complete-UiTasks' $_ }
         # FI-12: a SQLite lock wait that ran out is counted for the Operations panel (session counter, no retry).
-        try { [void](Register-DomeniaSqliteBusyOutcome -Job $job -Output $output -ErrorMessage $errorMessage) } catch { }
+        try { [void](Register-DomeniaSqliteBusyOutcome -Job $job -Output $output -ErrorMessage $errorMessage) } catch { Write-DomeniaSwallowed 'Core' 'Complete-UiTasks' $_ }
         $traceValidateMs = [double](([Diagnostics.Stopwatch]::GetTimestamp() - $traceMark) * 1000.0 / [Diagnostics.Stopwatch]::Frequency)
         if ([string]::IsNullOrWhiteSpace($errorMessage)) {
             $callbackWatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -26090,7 +26090,7 @@ function Complete-UiTasks {
                 $effectiveMs = [long]$callbackWatch.ElapsedMilliseconds - $modalMs
                 if ($effectiveMs -lt 0) { $effectiveMs = 0 }
                 # Keep UI completion costs distinct from worker/network duration in the local bounded metrics.
-                try { Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId ('Callback:' + [string]$job.OperationId) -DurationMs ([double]$effectiveMs) } catch { }
+                try { Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId ('Callback:' + [string]$job.OperationId) -DurationMs ([double]$effectiveMs) } catch { Write-DomeniaSwallowed 'Core' 'Complete-UiTasks' $_ }
                 # W13 (point 121): the cost, the volume received and the handler are kept for the trace; a slow callback
                 # is explained by its operation, its phases, its volume and its handler.
                 $traceVolume = [long]-1
@@ -26102,7 +26102,7 @@ function Complete-UiTasks {
                 }
             }
             # D015: each subscriber of a shared read gets its own callback (access inspection ran once above).
-            if ([string]::IsNullOrWhiteSpace($errorMessage)) { try { Invoke-DomeniaTaskSubscribers -Job $job -Output $output } catch { } }
+            if ([string]::IsNullOrWhiteSpace($errorMessage)) { try { Invoke-DomeniaTaskSubscribers -Job $job -Output $output } catch { Write-DomeniaSwallowed 'Core' 'Complete-UiTasks' $_ } }
         }
         if (-not [string]::IsNullOrWhiteSpace($errorMessage)) {
             # Circuit breaker anti-lockout : un seul rejet d'identifiants par un
@@ -26134,7 +26134,7 @@ function Complete-UiTasks {
                     Set-Status "$($job.Name) : $errorMessage" "ERROR"
                     Write-AppLog "[$($job.CorrelationId)] Callback d'erreur UI impossible : $($_.Exception.Message)" "ERROR"
                 }
-                try { Invoke-DomeniaTaskSubscribers -Job $job -Output $null -ErrorMessage $errorMessage } catch { }
+                try { Invoke-DomeniaTaskSubscribers -Job $job -Output $null -ErrorMessage $errorMessage } catch { Write-DomeniaSwallowed 'Core' 'Complete-UiTasks' $_ }
             }
             Write-AppLog "[$($job.CorrelationId)] $($job.Name) : $errorMessage" "ERROR"
         }
@@ -26153,11 +26153,11 @@ function Complete-UiTasks {
     # D015 / PF-04: queued entries start by priority while the admission and the tick budget allow; stale or expired
     # entries leave the queue.
     try { if (Invoke-DomeniaQueuedTaskPromotion -BudgetMs ([Math]::Max(5,$budgetMs - [int]$tickWatch.ElapsedMilliseconds))) { $removed = $true } }
-    catch { try { Write-AppLog ("Promotion de la file : " + $_.Exception.Message) "ERROR" } catch { } }
+    catch { try { Write-AppLog ("Promotion de la file : " + $_.Exception.Message) "ERROR" } catch { Write-DomeniaSwallowed 'Core' 'Complete-UiTasks' $_ } }
     if ($removed) { Update-TaskUi -Force } else { Update-TaskUi }
     # PF-06: without task, queued entry or detached read, the poll stops; Start-UiTask resumes it.
     if ((@($script:AsyncJobs.Keys).Count -eq 0) -and (@($script:DetachedReadJobs).Count -eq 0)) {
-        try { if ($null -ne $script:AsyncTimer -and [bool]$script:AsyncTimer.IsEnabled) { $script:AsyncTimer.Stop() } } catch { }
+        try { if ($null -ne $script:AsyncTimer -and [bool]$script:AsyncTimer.IsEnabled) { $script:AsyncTimer.Stop() } } catch { Write-DomeniaSwallowed 'Core' 'Complete-UiTasks' $_ }
     }
 }
 
@@ -26170,27 +26170,27 @@ function Dispose-AsyncEngine {
             Stop-DomeniaLoginAuthRunspace -Session $script:AccountCredentialTestSession -Terminate
             $script:AccountCredentialTestSession = $null
         }
-    } catch { }
-    try { Stop-DomeniaSelectionOpenTimer } catch { }
-    try { Clear-DomeniaTreeRenderJobs } catch { }
+    } catch { Write-DomeniaSwallowed 'Core' 'Dispose-AsyncEngine' $_ }
+    try { Stop-DomeniaSelectionOpenTimer } catch { Write-DomeniaSwallowed 'Core' 'Dispose-AsyncEngine' $_ }
+    try { Clear-DomeniaTreeRenderJobs } catch { Write-DomeniaSwallowed 'Core' 'Dispose-AsyncEngine' $_ }
     # D019: every timer registered with an owner is stopped by the registry; the historical list stays as a
     # fallback for timers created outside it. Active jobs are never disposed here (see below).
-    try { Initialize-DomeniaEngineState; [void](Release-DomeniaResources -Registry $script:DomeniaResources -Kind 'Timer') } catch { }
+    try { Initialize-DomeniaEngineState; [void](Release-DomeniaResources -Registry $script:DomeniaResources -Kind 'Timer') } catch { Write-DomeniaSwallowed 'Core' 'Dispose-AsyncEngine' $_ }
     foreach ($timerName in @('AsyncTimer','TreeRenderTimer','SelectionOpenTimer','SettingsTimer','SecretLifetimeTimer','SecretRevealTimer','SecretClipboardTimer','LinkProbeTimer','LiveSearchTimer','IndexFlushTimer','DashboardRefreshTimer','DomeniaIndexSearchTimer')) {
-        try { $timer = Get-Variable -Name $timerName -Scope Script -ValueOnly -ErrorAction SilentlyContinue; if ($null -ne $timer) { $timer.Stop() } } catch { }
+        try { $timer = Get-Variable -Name $timerName -Scope Script -ValueOnly -ErrorAction SilentlyContinue; if ($null -ne $timer) { $timer.Stop() } } catch { Write-DomeniaSwallowed 'Core' 'Dispose-AsyncEngine' $_ }
     }
     foreach ($id in @($script:AsyncJobs.Keys)) { Request-UiTaskStop -Id $id -Silent -Force }
     foreach ($id in @($script:AsyncJobs.Keys)) {
         $job = $script:AsyncJobs[$id]
         if ($null -eq $job) { [void]$script:AsyncJobs.Remove($id); continue }
         $done = $false; $stopDone = $true
-        try { $done = [bool]$job.Handle.IsCompleted } catch { }
+        try { $done = [bool]$job.Handle.IsCompleted } catch { Write-DomeniaSwallowed 'Core' 'Dispose-AsyncEngine' $_ }
         try { if ($null -ne $job.StopHandle) { $stopDone = [bool]$job.StopHandle.IsCompleted } } catch { $stopDone = $false }
         if ($done -and $stopDone) {
-            try { if ($null -ne $job.StopHandle) { $job.PowerShell.EndStop($job.StopHandle) } } catch { }
-            try { [void]($job.PowerShell.EndInvoke($job.Handle)) } catch { }
-            try { $job.PowerShell.Dispose() } catch { }
-            try { $job.Runspace.Dispose() } catch { }
+            try { if ($null -ne $job.StopHandle) { $job.PowerShell.EndStop($job.StopHandle) } } catch { Write-DomeniaSwallowed 'Core' 'Dispose-AsyncEngine' $_ }
+            try { [void]($job.PowerShell.EndInvoke($job.Handle)) } catch { Write-DomeniaSwallowed 'Core' 'Dispose-AsyncEngine' $_ }
+            try { $job.PowerShell.Dispose() } catch { Write-DomeniaSwallowed 'Core' 'Dispose-AsyncEngine' $_ }
+            try { $job.Runspace.Dispose() } catch { Write-DomeniaSwallowed 'Core' 'Dispose-AsyncEngine' $_ }
             [void]$script:AsyncJobs.Remove($id)
         } elseif (-not [bool]$job.IsWrite) {
             [void](Detach-DomeniaReadUiTask -Id $id -Reason 'Fermeture de la fenetre')
@@ -26198,17 +26198,17 @@ function Dispose-AsyncEngine {
         # Pending writes are never declared successful or silently replayed.
     }
     Complete-DomeniaDetachedReadJobs
-    try { [void](Sync-DomeniaJobResources) } catch { }
+    try { [void](Sync-DomeniaJobResources) } catch { Write-DomeniaSwallowed 'Core' 'Dispose-AsyncEngine' $_ }
     $script:PendingObjectSelection = $null
     $script:CurrentObjectRequestId = ''
     $script:CurrentObjectRequestDn = ''
     $script:AsyncEngineReady = $false
     $script:AsyncTimer = $null
     # D019: the shared read pools are owned by the registry; the historical loop closes any pool left outside it.
-    try { [void](Release-DomeniaResources -Registry $script:DomeniaResources -Kind 'RunspacePool') } catch { }
+    try { [void](Release-DomeniaResources -Registry $script:DomeniaResources -Kind 'RunspacePool') } catch { Write-DomeniaSwallowed 'Core' 'Dispose-AsyncEngine' $_ }
     if ($null -ne $script:LiveWorkerPools) {
         foreach ($record in @($script:LiveWorkerPools.Values)) {
-            try { [void]$record.Pool.BeginClose($null,$null) } catch { }
+            try { [void]$record.Pool.BeginClose($null,$null) } catch { Write-DomeniaSwallowed 'Core' 'Dispose-AsyncEngine' $_ }
         }
         $script:LiveWorkerPools=@{}
     }
@@ -26633,7 +26633,7 @@ function Complete-DomeniaOpenObjectTaskUi {
 function Fail-DomeniaOpenObjectTaskUi {
     param($Message,$State)
     if($null -ne $State -and $null -ne $State.PSObject.Properties['DirectoryPipe'] -and -not $State.DirectoryPipe.Completed){
-        try{$State.DirectoryPipe.Stop.Cancel()}catch{}
+        try{$State.DirectoryPipe.Stop.Cancel()}catch{Write-DomeniaSwallowed 'Core' 'Fail-DomeniaOpenObjectTaskUi' $_}
         Complete-DomeniaDirectoryReadPipe -Pipe $State.DirectoryPipe -Error ([string]$Message)
     }
     if ($null -eq $State -or -not (Test-DomeniaObjectCallbackIsCurrent $State)) { return }
@@ -26743,14 +26743,14 @@ function Show-AdObjectResult {
     if ($null -eq $Result.PSObject.Properties["Properties"] -or $null -eq $Result.Properties) { throw "Table des proprietes AD absente pour $Dn." }
     if ([string](Get-DomeniaMember $Result 'DataSource' '') -cne 'SQLite') { throw 'Affichage refuse : fiche non relue depuis la base locale.' }
     if ([string]::IsNullOrWhiteSpace($Type)) {
-        try { $Type = [string]$Result.Type } catch { }
+        try { $Type = [string]$Result.Type } catch { Write-DomeniaSwallowed 'Core' 'Show-AdObjectResult' $_ }
     }
     if ([string]::IsNullOrWhiteSpace($Type)) { $Type = "Objet" }
 
     if(Keep-DomeniaDraftOnResult -Result $Result -DN $Dn -Type $Type){return}
     Clear-ObjectDetails
     $isLiveRead = $false
-    try { if ($null -ne $Result.PSObject.Properties["Live"]) { $isLiveRead = [bool]$Result.Live } } catch { }
+    try { if ($null -ne $Result.PSObject.Properties["Live"]) { $isLiveRead = [bool]$Result.Live } } catch { Write-DomeniaSwallowed 'Core' 'Show-AdObjectResult' $_ }
     if (-not [bool]$script:ShowingCachedObject -and $isLiveRead) {
         # Une relecture reelle permet de retenter apres correction des ACL.
         $script:ActualSecretDeniedDn = ""
@@ -26785,7 +26785,7 @@ function Show-AdObjectResult {
     foreach ($taskId in @($script:AsyncJobs.Keys)) {
         $boundJob = $script:AsyncJobs[$taskId]
         if ($null -ne $boundJob -and [string]$boundJob.ReplaceKey -in @("computerdiag","permissions")) {
-            try { Request-UiTaskStop -Id ([string]$taskId) -Silent -Force -Superseded } catch { }
+            try { Request-UiTaskStop -Id ([string]$taskId) -Silent -Force -Superseded } catch { Write-DomeniaSwallowed 'Core' 'Show-AdObjectResult' $_ }
         }
     }
     $script:CurrentCapabilities = @{}
@@ -26809,7 +26809,7 @@ function Show-AdObjectResult {
     $script:SelectionResetDn = $Dn
 
     $script:LastLoadedEntry = $entry
-    try { Set-DomeniaSupportObjectSource -Dn $Dn -IsLive:($isLiveRead -and -not [bool]$script:ShowingCachedObject) } catch { }
+    try { Set-DomeniaSupportObjectSource -Dn $Dn -IsLive:($isLiveRead -and -not [bool]$script:ShowingCachedObject) } catch { Write-DomeniaSwallowed 'Core' 'Show-AdObjectResult' $_ }
     Reset-DomeniaDeferredViews -Dn $Dn
     Clear-Secrets
     Set-VisibleTabsForType -Type $Type -PreserveWorkspace:$NoNavigate
@@ -26825,7 +26825,7 @@ function Show-AdObjectResult {
         if (-not $NoNavigate -and $selected -eq "TabRaw") { Ensure-DomeniaRawAttributes }
         elseif (-not $NoNavigate -and $selected -eq "TabPermissions" -and [bool](Get-CfgValue "Security" "EvaluateRightsOnObjectOpen" $true)) { Ensure-DomeniaPermissions }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Show-AdObjectResult' $_ }
     Update-Dashboard
     if (-not $NoNavigate) {
         $script:SelectionLoad=$null
@@ -26888,7 +26888,7 @@ function Update-DomeniaSecretActionUi {
             $tip = [string]$explanation.ToolTip
             if (($actualDenied) -and ($tip -notmatch 'autre compte')) { $tip += ' Lecture refusée avec ce compte : cliquez pour proposer un autre compte.' }
             $control.ToolTip = $tip
-            try { [Windows.Automation.AutomationProperties]::SetHelpText($control,$tip) } catch { }
+            try { [Windows.Automation.AutomationProperties]::SetHelpText($control,$tip) } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaSecretActionUi' $_ }
             if (-not [bool]$explanation.Enabled -and [string]$explanation.Route -and -not $prerequisiteRoute) { $prerequisiteRoute = [string]$explanation.Route; $prerequisiteReason = $tip }
         }
         Update-DomeniaSecretsPrerequisite -Route $prerequisiteRoute -Reason $prerequisiteReason
@@ -26898,21 +26898,21 @@ function Update-DomeniaSecretActionUi {
         $hasReadableValue = (@($rows | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_.Value) }).Count -gt 0)
         $single = Test-DomeniaSecretSingleExposure
         $selectedSecret = $null
-        try { $selectedSecret = Get-DomeniaSelectedSecretSource } catch { }
+        try { $selectedSecret = Get-DomeniaSelectedSecretSource } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaSecretActionUi' $_ }
         $selectedMetadata = ($null -ne $selectedSecret -and [bool](Get-DomeniaMember $selectedSecret 'Metadata' $false) -and [string]::IsNullOrWhiteSpace([string]$selectedSecret.Value))
         $canCopySelected = ($null -ne $selectedSecret -and (-not [string]::IsNullOrWhiteSpace([string]$selectedSecret.Value) -or $selectedMetadata))
         $exposure = Get-DomeniaSecretExposurePolicy
 
         # UI-31: the label of the reveal button and the presence of "copy all" come from one rule only.
         $selectedKind = ""
-        try { if ($null -ne $selectedSecret) { $selectedKind = [string]$selectedSecret.Kind } } catch { }
+        try { if ($null -ne $selectedSecret) { $selectedKind = [string]$selectedSecret.Kind } } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaSecretActionUi' $_ }
         $view = Get-DomeniaSecretActionView -Single $single -Visible ([bool]$script:SecretsVisible) -HasRows $hasRows -HasReadableValue $hasReadableValue -CanUseSelected $canCopySelected -SelectedMetadata $selectedMetadata -RevealSeconds ([int]$exposure.RevealSeconds) -SelectedKind $selectedKind -ClipboardLimit ([string]$exposure.ClipboardLimit)
         $toggle = Get-DomeniaControl -Name "BtnToggleSecrets"
         if ($null -ne $toggle) {
             $toggle.Content = [string]$view.ToggleText
             $toggle.IsEnabled = [bool]$view.ToggleEnabled
             $toggle.ToolTip = [string]$view.ToggleToolTip
-            try { [Windows.Automation.AutomationProperties]::SetName($toggle,[string]$view.ToggleText); [Windows.Automation.AutomationProperties]::SetHelpText($toggle,[string]$view.ToggleToolTip) } catch { }
+            try { [Windows.Automation.AutomationProperties]::SetName($toggle,[string]$view.ToggleText); [Windows.Automation.AutomationProperties]::SetHelpText($toggle,[string]$view.ToggleToolTip) } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaSecretActionUi' $_ }
         }
 
         $copyAll = Get-DomeniaControl -Name "BtnCopyAllSecrets"
@@ -26920,7 +26920,7 @@ function Update-DomeniaSecretActionUi {
             $copyAll.Visibility = if ([bool]$view.CopyAllVisible) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
             $copyAll.IsEnabled = [bool]$view.CopyAllEnabled
             $copyAll.ToolTip = [string]$view.CopyAllToolTip
-            try { [Windows.Automation.AutomationProperties]::SetHelpText($copyAll,[string]$view.CopyAllToolTip) } catch { }
+            try { [Windows.Automation.AutomationProperties]::SetHelpText($copyAll,[string]$view.CopyAllToolTip) } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaSecretActionUi' $_ }
         }
 
         $clear = Get-DomeniaControl -Name "BtnClearSecrets"
@@ -26940,7 +26940,7 @@ function Update-DomeniaSecretActionUi {
         if ($null -ne $recoveryBox) { $recoveryBox.IsEnabled = (@($script:BitLockerKeyList).Count -gt 0) }
     }
     catch {
-        try { Write-AppLog "Etat des actions LAPS/BitLocker : $($_.Exception.Message)" "WARN" } catch { }
+        try { Write-AppLog "Etat des actions LAPS/BitLocker : $($_.Exception.Message)" "WARN" } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaSecretActionUi' $_ }
     }
 }
 
@@ -27009,16 +27009,16 @@ function Apply-CurrentPermissionUi {
     $map = Get-WriteControlMap
     $cachePolicy=Get-DomeniaSelectionCachePolicy
     $readOnly = $script:ReadOnlyMode
-    try { if ($script:Ctrl.ContainsKey("ChkReadOnlyMode")) { $readOnly = [bool]$script:Ctrl["ChkReadOnlyMode"].IsChecked } } catch { }
+    try { if ($script:Ctrl.ContainsKey("ChkReadOnlyMode")) { $readOnly = [bool]$script:Ctrl["ChkReadOnlyMode"].IsChecked } } catch { Write-DomeniaSwallowed 'Core' 'Apply-CurrentPermissionUi' $_ }
     $script:ReadOnlyMode = $readOnly
     $protected = $false
-    try { $protected = ([string]$script:SelectedObject.Safety.AdminCount -eq "1") -or [bool]$script:SelectedObject.Safety.Critical } catch { }
+    try { $protected = ([string]$script:SelectedObject.Safety.AdminCount -eq "1") -or [bool]$script:SelectedObject.Safety.Critical } catch { Write-DomeniaSwallowed 'Core' 'Apply-CurrentPermissionUi' $_ }
     $blockProtected = $protected -and [bool](Get-CfgValue "Security" "BlockProtectedObjects" $true) -and -not [bool](Get-CfgValue "Security" "AllowProtectedObjectWrites" $false)
     $blockEstimatedDenied = [bool](Get-CfgValue "Security" "BlockOnAclEstimate" $false)
     $disableIndeterminate = [bool](Get-CfgValue "Security" "DisableIndeterminateControls" $false)
     $writeActive = (-not [string]::IsNullOrWhiteSpace($script:ActiveWriteTaskId)) -or ($script:WriteState -in @("Unknown","UnknownPending"))
     $currentDn = ""
-    try { $currentDn = [string]$script:SelectedObject.DN } catch { }
+    try { $currentDn = [string]$script:SelectedObject.DN } catch { Write-DomeniaSwallowed 'Core' 'Apply-CurrentPermissionUi' $_ }
     foreach ($cap in $map.Keys) {
         $lookup = if($cap -eq "Raw"){"Edit"}else{$cap}
         $state = "Indetermine"
@@ -27056,7 +27056,7 @@ function Apply-CurrentPermissionUi {
         elseif ($writeActive) { $script:Ctrl[$name].ToolTip = "Desactive pendant la verification d'une ecriture AD." }
     }
     # X04: the restart, run and service panels of Assistance poste follow the same switch.
-    try { Update-DomeniaComputerAssistPermissions } catch { }
+    try { Update-DomeniaComputerAssistPermissions } catch { Write-DomeniaSwallowed 'Core' 'Apply-CurrentPermissionUi' $_ }
     try {
         $label = if ($readOnly) { "Mode lecture seule" } elseif ($blockProtected) { "Objet protege : ecritures bloquees" } elseif ($writeActive) { "Ecriture AD en cours" } elseif ($script:CurrentCapabilities.Count -eq 0) { "Estimation ACL : analyse en attente" } else {
             $ok = @($script:CurrentCapabilities.Values | Where-Object { $_ -eq "Autorise" }).Count
@@ -27064,10 +27064,10 @@ function Apply-CurrentPermissionUi {
             "Estimation ACL : $ok favorable(s), $no defavorable(s)"
         }
         $script:Ctrl["LblPrivilegeTop"].Text = $label
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'Core' 'Apply-CurrentPermissionUi' $_ }
     Update-DomeniaWriteModeVisual
     # SP-04 (L08): « AD injoignable depuis HH:MM » while the directory does not answer, back by itself at the next success.
-    if ($null -ne (Get-Command -Name Update-DomeniaUxSessionBadge -CommandType Function -ErrorAction SilentlyContinue)) { try { Update-DomeniaUxSessionBadge } catch { } }
+    if ($null -ne (Get-Command -Name Update-DomeniaUxSessionBadge -CommandType Function -ErrorAction SilentlyContinue)) { try { Update-DomeniaUxSessionBadge } catch { Write-DomeniaSwallowed 'Core' 'Apply-CurrentPermissionUi' $_ } }
     Update-DomeniaSecretActionUi
     # Pendant le bootstrap, ne pas refaire tout le tableau de bord ni parcourir
     # les politiques GUI : ces operations sont purement visuelles et doivent
@@ -27086,27 +27086,27 @@ function Initialize-DomeniaPresentation {
     if ($script:PresentationInitialized) { return }
     $script:PresentationInitialized = $true
 
-    try { [void](Load-DomeniaSettings) } catch { }
+    try { [void](Load-DomeniaSettings) } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaPresentation' $_ }
     # Non-blocking startup (FI-19): the page shows that the figures are being read; the LocalIndexRead worker reads
     # them once the window is painted (ContentRendered). The park and the detailed AD rows are loaded on demand.
-    try { Update-DomeniaIndexStats } catch { }
-    try { Restore-DomeniaUiSettings } catch { }
-    try { Register-DomeniaSettingsWatchers } catch { }
-    try { Restore-DomeniaWindowGeometry } catch { }
+    try { Update-DomeniaIndexStats } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaPresentation' $_ }
+    try { Restore-DomeniaUiSettings } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaPresentation' $_ }
+    try { Register-DomeniaSettingsWatchers } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaPresentation' $_ }
+    try { Restore-DomeniaWindowGeometry } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaPresentation' $_ }
 
     try {
         Load-DomeniaUiProfile | Out-Null
         Apply-DomeniaUiProfile -Profile $script:CurrentUiProfile
     }
-    catch { try { Write-AppLog "Profil d'interface : $($_.Exception.Message)" "WARN" } catch { } }
+    catch { try { Write-AppLog "Profil d'interface : $($_.Exception.Message)" "WARN" } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaPresentation' $_ } }
 
     try {
         Load-DomeniaTheme | Out-Null
         Apply-DomeniaTheme -Theme $script:CurrentTheme
     }
-    catch { try { Write-AppLog "Theme : $($_.Exception.Message)" "WARN" } catch { } }
+    catch { try { Write-AppLog "Theme : $($_.Exception.Message)" "WARN" } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaPresentation' $_ } }
 
-    try { Enable-DomeniaUxHints } catch { try { Write-AppLog "UX hints : $($_.Exception.Message)" "WARN" } catch { } }
+    try { Enable-DomeniaUxHints } catch { try { Write-AppLog "UX hints : $($_.Exception.Message)" "WARN" } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaPresentation' $_ } }
 
     try {
         $domeniaIconPath = Ensure-DomeniaIcon
@@ -27120,13 +27120,13 @@ function Initialize-DomeniaPresentation {
             if ($null -ne $script:Window) { $script:Window.Icon = $bitmap }
         }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaPresentation' $_ }
 
     # Le lancement ramene toujours sur l Accueil. Reprendre le dernier
     # espace visite depose l operateur sur un ecran sans rapport avec ce
     # qu il vient d ouvrir, et sans objet selectionne.
     try { Initialize-DomeniaAccess; Initialize-DomeniaContinuity } catch { Write-AppLog ('Initialisation assistance : '+$_.Exception.Message) 'ERROR' }
-    try { Select-DomeniaWorkspace -Workspace "TabDashboard" } catch { }
+    try { Select-DomeniaWorkspace -Workspace "TabDashboard" } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaPresentation' $_ }
 
     $sessionButton=Get-DomeniaControl 'BtnSessionsRead';if($null -ne $sessionButton){$sessionButton.Add_Click({Start-DomeniaSessionsRead})}
     # UX-39 : la grille des sessions se parcourt au double-clic et au clic droit, comme celle des associations.
@@ -27149,7 +27149,7 @@ function Assert-DomeniaCapability {
     if ($script:WriteState -in @("Unknown","UnknownPending")) { throw "Une ecriture precedente est dans un etat inconnu. Ouvrez Operations et verifiez le recu concerne avant toute nouvelle ecriture." }
     if((Get-DomeniaSelectionCachePolicy).Offline){throw 'Hors ligne : relisez Active Directory avant toute modification.'}
     $currentDn = ""
-    try { $currentDn = [string]$script:SelectedObject.DN } catch { }
+    try { $currentDn = [string]$script:SelectedObject.DN } catch { Write-DomeniaSwallowed 'Core' 'Assert-DomeniaCapability' $_ }
     if (Test-DomeniaActualCapabilityDenied -Dn $currentDn -Capability $Capability) {
         throw "Action bloquee apres un refus d'acces reel d'Active Directory pour la capacite $Capability sur cette cible. Recharge l'objet apres correction des droits."
     }
@@ -27163,10 +27163,10 @@ function Invoke-DomeniaWritePostAction {
     param($Result,$State)
     $action = "RefreshObjectBranch"
     $actionState = $null
-    try { if ($null -ne $State -and $null -ne $State.PSObject.Properties["AfterSuccessAction"] -and -not [string]::IsNullOrWhiteSpace([string]$State.AfterSuccessAction)) { $action = [string]$State.AfterSuccessAction } } catch { }
-    try { if ($null -ne $State -and $null -ne $State.PSObject.Properties["AfterSuccessState"]) { $actionState = $State.AfterSuccessState } } catch { }
+    try { if ($null -ne $State -and $null -ne $State.PSObject.Properties["AfterSuccessAction"] -and -not [string]::IsNullOrWhiteSpace([string]$State.AfterSuccessAction)) { $action = [string]$State.AfterSuccessAction } } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaWritePostAction' $_ }
+    try { if ($null -ne $State -and $null -ne $State.PSObject.Properties["AfterSuccessState"]) { $actionState = $State.AfterSuccessState } } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaWritePostAction' $_ }
     $message = "Operation verifiee."
-    try { if ($null -ne $Result -and -not [string]::IsNullOrWhiteSpace([string]$Result.Message)) { $message = [string]$Result.Message } } catch { }
+    try { if ($null -ne $Result -and -not [string]::IsNullOrWhiteSpace([string]$Result.Message)) { $message = [string]$Result.Message } } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaWritePostAction' $_ }
 
     switch ($action) {
         "None" { return }
@@ -27179,7 +27179,7 @@ function Invoke-DomeniaWritePostAction {
         "ResetPassword" {
             foreach ($name in @("PwdUserNew","PwdUserConfirm")) {
                 $control = Get-DomeniaControl -Name $name
-                if ($null -ne $control) { try { $control.Password = "" } catch { } }
+                if ($null -ne $control) { try { $control.Password = "" } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaWritePostAction' $_ } }
             }
             foreach ($name in @("TxtUserNewVisible","TxtUserConfirmVisible")) {
                 [void](Set-DomeniaControlText -Name $name -Text "")
@@ -27188,8 +27188,8 @@ function Invoke-DomeniaWritePostAction {
         }
         "UpdateDnRefreshObjectBranch" {
             $newDn = ""; $oldDn = ""
-            try { $newDn = [string]$Result.NewDn } catch { }
-            try { $oldDn = [string]$Result.Before.DN } catch { }
+            try { $newDn = [string]$Result.NewDn } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaWritePostAction' $_ }
+            try { $oldDn = [string]$Result.Before.DN } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaWritePostAction' $_ }
             # FI-20: a row moved without its fiche may leave another object in the fiche; only the moved one follows.
             if ((-not [string]::IsNullOrWhiteSpace($newDn)) -and ($null -ne $script:SelectedObject) -and ((-not $oldDn) -or ([string]$script:SelectedObject.DN -ieq $oldDn))) { $script:SelectedObject.DN = $newDn }
             Invoke-DomeniaPostWriteRefresh -Message $message -RefreshObject -RefreshBranch
@@ -27200,7 +27200,7 @@ function Invoke-DomeniaWritePostAction {
         }
         "RenameComputer" {
             $newDn = ""
-            try { $newDn = [string]$Result.NewDn } catch { }
+            try { $newDn = [string]$Result.NewDn } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaWritePostAction' $_ }
             if (-not [string]::IsNullOrWhiteSpace($newDn) -and $null -ne $script:SelectedObject) { $script:SelectedObject.DN = $newDn }
             [void](Set-DomeniaControlText -Name "TxtCompNewName" -Text "")
             Invoke-DomeniaPostWriteRefresh -Message $message -RefreshObject -RefreshBranch
@@ -27212,10 +27212,10 @@ function Invoke-DomeniaWritePostAction {
         }
         "DeleteObject" {
             $deletedType = ""; $deletedName = ""; $deletedSam = ""; $deletedDns = ""
-            try { $deletedType = [string]$actionState.DeletedType } catch { }
-            try { $deletedName = [string]$actionState.DeletedName } catch { }
-            try { $deletedSam = [string]$actionState.DeletedSam } catch { }
-            try { $deletedDns = [string]$actionState.DeletedDns } catch { }
+            try { $deletedType = [string]$actionState.DeletedType } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaWritePostAction' $_ }
+            try { $deletedName = [string]$actionState.DeletedName } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaWritePostAction' $_ }
+            try { $deletedSam = [string]$actionState.DeletedSam } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaWritePostAction' $_ }
+            try { $deletedDns = [string]$actionState.DeletedDns } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaWritePostAction' $_ }
             Remove-LinksForDeletedObject -Type $deletedType -Name $deletedName -Sam $deletedSam -Dns $deletedDns
             Clear-Secrets
             Clear-ObjectDetails
@@ -27234,14 +27234,14 @@ function Get-DomeniaWritePostcondition {
     param([string]$OperationId,$Result)
     if ($null -eq $Result) { return $null }
     $pc = $null
-    try { $pc = $Result.Postcondition } catch { }
+    try { $pc = $Result.Postcondition } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaWritePostcondition' $_ }
     $expected = $null
     $observed = $null
     $sent = $null
     if ($null -ne $pc) {
-        try { $expected = $pc.Expected } catch { }
-        try { $observed = $pc.Observed } catch { }
-        try { $sent = $pc.SentUtc } catch { }
+        try { $expected = $pc.Expected } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaWritePostcondition' $_ }
+        try { $observed = $pc.Observed } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaWritePostcondition' $_ }
+        try { $sent = $pc.SentUtc } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaWritePostcondition' $_ }
     }
     if ($null -eq (Get-Command -Name 'Resolve-DomeniaPostcondition' -ErrorAction SilentlyContinue)) { return $null }
     try {
@@ -27275,7 +27275,7 @@ function Complete-DomeniaWriteTaskUi {
     $script:ReceiptReady=$false; $script:ReceiptRefreshNeeded=$true
     $name = "Ecriture AD"
     $correlation = ""
-    try { if ($null -ne $State) { $name = [string]$State.Name; $correlation = [string]$State.Correlation } } catch { }
+    try { if ($null -ne $State) { $name = [string]$State.Name; $correlation = [string]$State.Correlation } } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaWriteTaskUi' $_ }
     if ([string]::IsNullOrWhiteSpace($name)) { $name = "Ecriture AD" }
     $verifiedOperation = $false
     try {
@@ -27284,10 +27284,10 @@ function Complete-DomeniaWriteTaskUi {
         $script:WriteState = "Idle"
         $effective = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @("Verified")
         $verified = $false
-        try { if ($null -ne $effective) { $verified = [bool]$effective.Verified } } catch { }
+        try { if ($null -ne $effective) { $verified = [bool]$effective.Verified } } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaWriteTaskUi' $_ }
         if (-not $verified) {
             $script:WriteState = "Unknown"
-            try { $script:UnknownWriteTargetDn = [string]$State.TargetDn } catch { }
+            try { $script:UnknownWriteTargetDn = [string]$State.TargetDn } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaWriteTaskUi' $_ }
             [void](Set-DomeniaWriteTaskOutcome -State $State -Outcome Uncertain)
             $msg = "Ecriture retournee sans verification positive. Etat verrouille : recharge l'objet avant toute autre ecriture."
             Write-AppLog "[$correlation] $name : $msg" "ERROR"
@@ -27305,20 +27305,20 @@ function Complete-DomeniaWriteTaskUi {
         $script:WriteState = "Idle"
         $script:UnknownWriteTargetDn = ""
         $message = "Operation verifiee."
-        try { if (-not [string]::IsNullOrWhiteSpace([string]$effective.Message)) { $message = [string]$effective.Message } } catch { }
+        try { if (-not [string]::IsNullOrWhiteSpace([string]$effective.Message)) { $message = [string]$effective.Message } } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaWriteTaskUi' $_ }
         $backend = ""
-        try { $backend = [string]$effective.Backend } catch { }
+        try { $backend = [string]$effective.Backend } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaWriteTaskUi' $_ }
         $partial = $false
-        try { if ($null -ne $effective.PSObject.Properties["Partial"]) { $partial = [bool]$effective.Partial } } catch { }
+        try { if ($null -ne $effective.PSObject.Properties["Partial"]) { $partial = [bool]$effective.Partial } } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaWriteTaskUi' $_ }
         $post = Get-DomeniaWritePostcondition -OperationId ([string]$State.OperationId) -Result $effective
         $script:LastWritePostcondition = $post
         $postStatus = ""
         $postLabel = ""
         $postProof = ""
         if ($null -ne $post) {
-            try { $postStatus = [string]$post.Status } catch { }
-            try { $postLabel = [string]$post.Label } catch { }
-            try { $postProof = [string]$post.Proof } catch { }
+            try { $postStatus = [string]$post.Status } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaWriteTaskUi' $_ }
+            try { $postLabel = [string]$post.Label } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaWriteTaskUi' $_ }
+            try { $postProof = [string]$post.Proof } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaWriteTaskUi' $_ }
         }
         if ($postLabel) {
             $postLevel = "INFO"
@@ -27338,7 +27338,7 @@ function Complete-DomeniaWriteTaskUi {
         }
         elseif ($postStatus -eq "Partiel" -or $postStatus -eq "A verifier") {
             $ruleCheck = ""
-            try { $ruleCheck = [string](Get-DomeniaPostconditionRule ([string]$State.OperationId)).Check } catch { }
+            try { $ruleCheck = [string](Get-DomeniaPostconditionRule ([string]$State.OperationId)).Check } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaWriteTaskUi' $_ }
             $info = "$name : $postLabel`r`n`r`nPreuve : $postProof"
             if ($ruleCheck) { $info += "`r`n`r`nVerification a faire : $ruleCheck" }
             Set-Status "$name : $postLabel - $postProof" "WARN"
@@ -27369,7 +27369,7 @@ function Complete-DomeniaWriteTaskUi {
         }
         else {
             $script:WriteState = "Unknown"
-            try { $script:UnknownWriteTargetDn = [string]$State.TargetDn } catch { }
+            try { $script:UnknownWriteTargetDn = [string]$State.TargetDn } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaWriteTaskUi' $_ }
             $detail = "Resultat d'ecriture non verifie : $($_.Exception.Message)"
             Write-AppLog "[$correlation] $name : $detail  $($_.Exception.ToString())" "ERROR"
             Set-Status $detail "ERROR"
@@ -27384,13 +27384,13 @@ function Fail-DomeniaWriteTaskUi {
     $script:ReceiptReady=$false; $script:ReceiptRefreshNeeded=$true
     $name = "Ecriture AD"
     $correlation = ""
-    try { if ($null -ne $State) { $name = [string]$State.Name; $correlation = [string]$State.Correlation } } catch { }
+    try { if ($null -ne $State) { $name = [string]$State.Name; $correlation = [string]$State.Correlation } } catch { Write-DomeniaSwallowed 'Core' 'Fail-DomeniaWriteTaskUi' $_ }
     if ([string]::IsNullOrWhiteSpace($name)) { $name = "Ecriture AD" }
     $detail = ([string]$Message).Trim()
     if ([string]::IsNullOrWhiteSpace($detail)) { $detail = "Erreur inconnue pendant l'ecriture AD." }
     $capability = ""
     $targetDn = ""
-    try { $capability = [string]$State.Capability; $targetDn = [string]$State.TargetDn } catch { }
+    try { $capability = [string]$State.Capability; $targetDn = [string]$State.TargetDn } catch { Write-DomeniaSwallowed 'Core' 'Fail-DomeniaWriteTaskUi' $_ }
     $errorInfo = ConvertTo-DomeniaErrorInfo -ErrorRecordOrException $detail -Operation $name
     $script:ActiveWriteTaskId = ""
     $script:ActiveWriteLock = $null
@@ -27419,7 +27419,7 @@ function Fail-DomeniaWriteTaskUi {
         try {
             $check = [string](Get-DomeniaPostconditionRule ([string]$State.OperationId)).Check
             if ($check) { $info += "`r`n`r`nIssue : A verifier. Verification a faire : $check" }
-        } catch { }
+        } catch { Write-DomeniaSwallowed 'Core' 'Fail-DomeniaWriteTaskUi' $_ }
         Show-InfoBox $info
     }
     else { Show-ErrorBox "$($errorInfo.Friendly)`r`n`r`nLe détail technique a été enregistré dans le journal Domenia." }
@@ -27677,7 +27677,7 @@ function Start-DomeniaWriteTask {
     elseif ($null -ne $Payload.PSObject.Properties["ParentDn"]) { $targetDn = [string]$Payload.ParentDn }
     elseif ($null -ne $Payload.PSObject.Properties["GroupDn"]) { $targetDn = [string]$Payload.GroupDn }
     elseif ($null -ne $Payload.PSObject.Properties["ObjectDn"]) { $targetDn = [string]$Payload.ObjectDn }
-    if ([string]::IsNullOrWhiteSpace($targetDn)) { try { $targetDn = [string]$script:SelectedObject.DN } catch { } }
+    if ([string]::IsNullOrWhiteSpace($targetDn)) { try { $targetDn = [string]$script:SelectedObject.DN } catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaWriteTask' $_ } }
     $callbackState = [pscustomobject]@{
         Name = $Name
         OperationId = $OperationId
@@ -28176,7 +28176,7 @@ function Get-DomeniaFicheDirtyControls {
                 [void]$sortie.Add($nom)
             }
         }
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaFicheDirtyControls' $_ }
     return $sortie.ToArray()
 }
 
@@ -28192,7 +28192,7 @@ function Set-DomeniaFicheFieldLock {
             $fond = $source.TryFindResource('BgReadonly')
             $alerte = $source.TryFindResource('AccentSoft')
         }
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'Core' 'Set-DomeniaFicheFieldLock' $_ }
     foreach ($nom in (Get-DomeniaFicheEditControls -Type $Type)) {
         $c = Get-DomeniaControl -Name $nom
         if ($null -eq $c) { continue }
@@ -28205,7 +28205,7 @@ function Set-DomeniaFicheFieldLock {
                 [void]$c.ClearValue([System.Windows.Controls.Control]::BackgroundProperty)
                 if ((-not $Edition) -and ($null -ne $fond)) { $c.Background = $fond }
             }
-        } catch { }
+        } catch { Write-DomeniaSwallowed 'Core' 'Set-DomeniaFicheFieldLock' $_ }
     }
 }
 
@@ -28247,7 +28247,7 @@ function Update-DomeniaFicheEditUi {
             $alerte.Text = $texte
             $alerte.Visibility = [System.Windows.Visibility]::Visible
         }
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaFicheEditUi' $_ }
 }
 
 function Start-DomeniaFicheEdit {
@@ -28287,7 +28287,7 @@ function Stop-DomeniaFicheEdit {
         $script:FicheEdit["Edition"] = $false
         if (-not [string]::IsNullOrWhiteSpace($Abandon)) { $script:FicheEdit["Abandon"] = $Abandon }
         Update-DomeniaFicheEditUi -Type $Type
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'Core' 'Stop-DomeniaFicheEdit' $_ }
 }
 
 function Snapshot-DomeniaFicheEdit {
@@ -28296,7 +28296,7 @@ function Snapshot-DomeniaFicheEdit {
     param([string]$Type)
     try {
         $dn = ""
-        try { $dn = [string]$script:SelectedObject.DN } catch { }
+        try { $dn = [string]$script:SelectedObject.DN } catch { Write-DomeniaSwallowed 'Core' 'Snapshot-DomeniaFicheEdit' $_ }
         if ((-not [string]::IsNullOrWhiteSpace($dn)) -and $dn -ceq [string]$script:FicheEdit["Dn"]) {
             $script:FicheEdit["Abandon"] = ""
         }
@@ -28309,7 +28309,7 @@ function Snapshot-DomeniaFicheEdit {
         }
         $script:FicheEdit["Originaux"] = $orig
         Update-DomeniaFicheEditUi -Type $Type
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'Core' 'Snapshot-DomeniaFicheEdit' $_ }
 }
 
 function Register-DomeniaFicheEditWatch {
@@ -28319,12 +28319,12 @@ function Register-DomeniaFicheEditWatch {
             foreach ($nom in (Get-DomeniaFicheEditControls -Type $Type)) {
                 $c = Get-DomeniaControl -Name $nom
                 if ($null -eq $c) { continue }
-                try { $c.Add_TextChanged({ Update-DomeniaFicheEditUi }) } catch { }
+                try { $c.Add_TextChanged({ Update-DomeniaFicheEditUi }) } catch { Write-DomeniaSwallowed 'Core' 'Register-DomeniaFicheEditWatch' $_ }
             }
         }
         Update-DomeniaFicheEditUi -Type 'Utilisateur'
         Update-DomeniaFicheEditUi -Type 'Machine'
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'Core' 'Register-DomeniaFicheEditWatch' $_ }
 }
 
 function Save-UserProfile {
@@ -28471,7 +28471,7 @@ function New-DomeniaTemporaryPassword {
             $tmp = $chosen[$i]; $chosen[$i] = $chosen[$j]; $chosen[$j] = $tmp
         }
         return (-join $chosen.ToArray())
-    } finally { try { $rng.Dispose() } catch { } }
+    } finally { try { $rng.Dispose() } catch { Write-DomeniaSwallowed 'Core' 'New-DomeniaTemporaryPassword' $_ } }
 }
 
 function Show-DomeniaGeneratedPassword {
@@ -28482,7 +28482,7 @@ function Show-DomeniaGeneratedPassword {
         Assert-WriteAllowed
         if ($null -eq $script:SelectedObject -or $script:SelectedObject.Type -ne "Utilisateur") { return }
         $longueur = 16
-        try { $longueur = [int](Get-CfgValue "Security" "GeneratedPasswordLength" 16) } catch { }
+        try { $longueur = [int](Get-CfgValue "Security" "GeneratedPasswordLength" 16) } catch { Write-DomeniaSwallowed 'Core' 'Show-DomeniaGeneratedPassword' $_ }
         $mot = New-DomeniaTemporaryPassword -Length $longueur
         $script:Ctrl["PwdUserNew"].Password = $mot
         $script:Ctrl["PwdUserConfirm"].Password = $mot
@@ -28584,8 +28584,8 @@ $ReadUtc=[DateTime]::UtcNow.ToString('o')
                 $securePassword = ConvertTo-DomeniaSecureString -Text ([string]$pair.New)
                 $pair = $null
                 $payload=[pscustomobject]@{DN=[string]$s.Plan.Target.DN;SecurePassword=$securePassword;Unlock=[bool]$s.Unlock;MustChange=[bool]$s.MustChange;Safety=$s.Safety}
-                foreach ($controlName in @("PwdUserNew","PwdUserConfirm")) { try { $script:Ctrl[$controlName].Password = "" } catch { } }
-                foreach ($controlName in @("TxtUserNewVisible","TxtUserConfirmVisible")) { try { $script:Ctrl[$controlName].Text = "" } catch { } }
+                foreach ($controlName in @("PwdUserNew","PwdUserConfirm")) { try { $script:Ctrl[$controlName].Password = "" } catch { Write-DomeniaSwallowed 'Core' 'Reset-UserPassword' $_ } }
+                foreach ($controlName in @("TxtUserNewVisible","TxtUserConfirmVisible")) { try { $script:Ctrl[$controlName].Text = "" } catch { Write-DomeniaSwallowed 'Core' 'Reset-UserPassword' $_ } }
                 Start-DomeniaWriteTask -Name "Reset mot de passe" -OperationId "WriteResetPassword" -Code $s.Code -Payload $payload -Plan $s.Plan -PlanChanges $s.Changes -Capability "Password" -DisableControls @("BtnUserResetPwd") -AfterSuccessAction "ResetPassword"
                 $securePassword = $null
             } catch { Show-ErrorBox "Erreur reset mot de passe : $($_.Exception.Message)" }
@@ -29234,7 +29234,7 @@ function Get-DomeniaCriticalFunctionNames {
 function Request-DomeniaDashboardRefresh {
     param([switch]$Immediate)
     if ($Immediate) {
-        try { Update-Dashboard } catch { }
+        try { Update-Dashboard } catch { Write-DomeniaSwallowed 'Core' 'Request-DomeniaDashboardRefresh' $_ }
         return
     }
     # D020 / UX-30: a hidden page or a minimized window is not rebuilt; it is marked dirty and rebuilt once when shown
@@ -29249,18 +29249,18 @@ function Request-DomeniaDashboardRefresh {
             $script:DashboardRefreshTimer = New-DomeniaTimer -Owner 'Timer:DashboardRefresh' -IntervalMs 160 -Tick {
                 param($sender,$eventArgs)
                 # Stop the timer that ticked, not the script variable: a replaced or cleared variable left it ticking forever.
-                try { $sender.Stop() } catch { }
+                try { $sender.Stop() } catch { Write-DomeniaSwallowed 'Core' 'Request-DomeniaDashboardRefresh' $_ }
                 # D020: the page may have been hidden since the request; it is then rebuilt once when shown again.
                 $tickAllowed = $true
                 try { $tickAllowed = [bool](Test-DomeniaBackgroundWorkAllowed -Source 'Dashboard') } catch { $tickAllowed = $true }
                 if (-not $tickAllowed) { $script:DashboardDirty = $true; return }
-                try { Update-Dashboard } catch { }
+                try { Update-Dashboard } catch { Write-DomeniaSwallowed 'Core' 'Request-DomeniaDashboardRefresh' $_ }
             }
         }
         $script:DashboardRefreshTimer.Stop()
         $script:DashboardRefreshTimer.Start()
     }
-    catch { try { Update-Dashboard } catch { } }
+    catch { try { Update-Dashboard } catch { Write-DomeniaSwallowed 'Core' 'Request-DomeniaDashboardRefresh' $_ } }
 }
 
 function Update-Dashboard {
@@ -29305,7 +29305,7 @@ function Update-Dashboard {
         if($script:Ctrl.ContainsKey("TxtDashSelfCheck")){$script:Ctrl["TxtDashSelfCheck"].Text=[string]$script:LastSelfCheckSummary}
         if($script:Ctrl.ContainsKey("TxtDashLinks")){$script:Ctrl["TxtDashLinks"].Text=(Get-AssociationStatsText)}
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Update-Dashboard' $_ }
 }
 
 function Complete-DomeniaStartupWarmupUi {
@@ -29415,7 +29415,7 @@ function Initialize-Window {
             # Toujours demarrer en lecture seule. L administrateur peut lever le verrou explicitement dans le GUI.
             $script:ReadOnlyMode=$true
             if($script:Ctrl.ContainsKey("ChkReadOnlyMode")){$script:Ctrl["ChkReadOnlyMode"].IsChecked=$true}
-            try{Update-DomeniaMachineAccountUi -Force}catch{}
+            try{Update-DomeniaMachineAccountUi -Force}catch{Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_}
             Assert-DomeniaReadWriteControlClassification
             Set-DomeniaStartupStage -Stage "Etat initial de securite" -Detail "Application des droits et du mode lecture seule..."
             Apply-CurrentPermissionUi
@@ -29437,15 +29437,15 @@ function Initialize-Window {
         # D020: Activated, Deactivated, StateChanged and the page selector drive the idle policy (C1).
         try { Initialize-DomeniaIdlePolicy -Window $script:Window } catch { Write-AppLog ("Politique de repos non initialisee : " + $_.Exception.Message) "WARN" }
         # D089: a voluntary Alt-Tab during the startup is respected: the main window then opens without taking the foreground.
-        try { [void](Set-DomeniaWindowActivationPolicy -Window $script:Window -UserSwitchedAway:(Test-DomeniaUserSwitchedAway)) } catch { }
+        try { [void](Set-DomeniaWindowActivationPolicy -Window $script:Window -UserSwitchedAway:(Test-DomeniaUserSwitchedAway)) } catch { Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_ }
         $script:Window.Add_Closing({param($s,$e)
             $writeJobStillAlive = $false
-            try { $writeJobStillAlive = (@($script:AsyncJobs.Values | Where-Object { $null -ne $_ -and [bool]$_.IsWrite }).Count -gt 0) } catch { }
+            try { $writeJobStillAlive = (@($script:AsyncJobs.Values | Where-Object { $null -ne $_ -and [bool]$_.IsWrite }).Count -gt 0) } catch { Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_ }
             if(-not [string]::IsNullOrWhiteSpace($script:ActiveWriteTaskId) -or $writeJobStillAlive){
                 # FI-02: a stopped engine will never confirm this write; its durable receipt keeps it to be verified.
                 if([bool]$script:AsyncEngineFaultStopped){
                     $leave=$false
-                    try{$leave=Confirm-WarningAction "Le moteur des tâches est arrêté : Domenia ne pourra plus confirmer lʼécriture AD en cours.`r`n`r`nSon reçu local est conservé. Au prochain démarrage, vérifiez cette écriture dans les reçus avant toute autre modification.`r`n`r`nFermer Domenia maintenant ?"}catch{}
+                    try{$leave=Confirm-WarningAction "Le moteur des tâches est arrêté : Domenia ne pourra plus confirmer lʼécriture AD en cours.`r`n`r`nSon reçu local est conservé. Au prochain démarrage, vérifiez cette écriture dans les reçus avant toute autre modification.`r`n`r`nFermer Domenia maintenant ?"}catch{Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_}
                     if($leave){Write-AppLog "Fermeture confirmee avec une ecriture AD non confirmee (moteur arrete) ; recu conserve." "WARN";return}
                     $e.Cancel=$true;return
                 }
@@ -29455,32 +29455,32 @@ function Initialize-Window {
             }
         })
         $script:Window.Add_Closed({
-            try{Stop-DomeniaOuTreeFilter}catch{}
-            try{Stop-DomeniaFavouriteTreeReveal}catch{}
-            try{Save-DomeniaWindowGeometry}catch{}
-            try{Save-DomeniaSettings -Immediate}catch{}
-            try{[void](Flush-DomeniaIndex)}catch{}
-            try{Stop-DomeniaAccountValidation}catch{}
-            try{Dispose-AsyncEngine}catch{}
-            try{Clear-DomeniaSecretClipboard -Silent}catch{}
-            try{Clear-Secrets}catch{}
-            try{$script:MachineCredential=$null}catch{}
-            try{$script:Conn.Credential=$null}catch{}
-            try{Stop-DomeniaLoginAuth}catch{}
+            try{Stop-DomeniaOuTreeFilter}catch{Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_}
+            try{Stop-DomeniaFavouriteTreeReveal}catch{Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_}
+            try{Save-DomeniaWindowGeometry}catch{Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_}
+            try{Save-DomeniaSettings -Immediate}catch{Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_}
+            try{[void](Flush-DomeniaIndex)}catch{Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_}
+            try{Stop-DomeniaAccountValidation}catch{Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_}
+            try{Dispose-AsyncEngine}catch{Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_}
+            try{Clear-DomeniaSecretClipboard -Silent}catch{Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_}
+            try{Clear-Secrets}catch{Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_}
+            try{$script:MachineCredential=$null}catch{Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_}
+            try{$script:Conn.Credential=$null}catch{Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_}
+            try{Stop-DomeniaLoginAuth}catch{Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_}
         })
         $script:Window.Add_ContentRendered({
             try{
                 if ([bool]$script:DemoMode) { Set-Status ("Prêt. " + (Get-DomeniaDemoBannerText) + ".") "WARN" }
                 else { Set-Status "Pret. Connexion validee, mode lecture seule actif." }
-                try { Update-DomeniaMachineAccountUi -Force } catch { }
+                try { Update-DomeniaMachineAccountUi -Force } catch { Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_ }
                 # After every ContentRendered handler: the remembered OU of Rechercher is then known to be restoring.
-                try { [void]$script:Window.Dispatcher.BeginInvoke([System.Windows.Threading.DispatcherPriority]::ApplicationIdle,[Action]{ try { Request-DomeniaFleetRefresh } catch { } }) } catch { }
+                try { [void]$script:Window.Dispatcher.BeginInvoke([System.Windows.Threading.DispatcherPriority]::ApplicationIdle,[Action]{ try { Request-DomeniaFleetRefresh } catch { Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_ } }) } catch { Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_ }
                 Write-AppLog "Pret. Base=$($script:Conn.BaseDn) Server=$($script:Conn.Server) AD=$($script:Conn.BindUser) WIN=$script:ProcessIdentity Demo=$([bool]$script:DemoMode)" "INFO"
                 Update-Dashboard
             }catch{Write-AppLog "ContentRendered : $($_.Exception.ToString())" "ERROR"}
             # D089: one activation request at the switch from login to main window, logged, never repeated.
-            try { [void](Request-DomeniaWindowActivation -Window $script:Window -Trigger 'LoginToMain') } catch { }
-            try { [void](Update-DomeniaIdlePolicy) } catch { }
+            try { [void](Request-DomeniaWindowActivation -Window $script:Window -Trigger 'LoginToMain') } catch { Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_ }
+            try { [void](Update-DomeniaIdlePolicy) } catch { Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_ }
             # Tout ce qui peut ouvrir une fenetre attend que la principale
             # soit peinte et que le fil graphique soit libre. Sinon la boite
             # n a pas de proprietaire et se cache derriere l ecran de
@@ -29491,10 +29491,10 @@ function Initialize-Window {
                     [Action]{
                         # FI-19: figures read off the Dispatcher; the notices on the age of the base and on its first
                         # build follow the answer (Complete-DomeniaIndexMetadataUi).
-                        try { Request-DomeniaIndexMetadata -StartupChecks } catch { }
-                        try { [void](Set-DomeniaControlText -Name "LblParkStatus" -Text "Etat du parc charge a la demande.") } catch { }
-                        try { Request-DomeniaParkSweepAtStartup } catch { }
-                        try { Add-DomeniaUiLog -Area "Demarrage" -Text "Politique V10.22 : aucune operation longue AD/reseau n'est lancee automatiquement ; recherche globale verifie toujours LDAP ; comptes editables sans reset." } catch { }
+                        try { Request-DomeniaIndexMetadata -StartupChecks } catch { Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_ }
+                        try { [void](Set-DomeniaControlText -Name "LblParkStatus" -Text "Etat du parc charge a la demande.") } catch { Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_ }
+                        try { Request-DomeniaParkSweepAtStartup } catch { Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_ }
+                        try { Add-DomeniaUiLog -Area "Demarrage" -Text "Politique V10.22 : aucune operation longue AD/reseau n'est lancee automatiquement ; recherche globale verifie toujours LDAP ; comptes editables sans reset." } catch { Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_ }
                     })
             }catch{Write-AppLog "Amorcage differe de l index impossible : $($_.Exception.Message)" "WARN"}
         })
@@ -29525,7 +29525,7 @@ $script:FastLoginMode = "Standard"
 
 function Get-DomeniaFastLoginLogPath {
     $validated=$false
-    try {Initialize-DomeniaDataStore | Out-Null;$validated=[bool]$script:DataStoreValidated}catch { }
+    try {Initialize-DomeniaDataStore | Out-Null;$validated=[bool]$script:DataStoreValidated}catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaFastLoginLogPath' $_ }
     if(-not [string]::IsNullOrWhiteSpace([string]$script:FastLoginLogPath)){return [string]$script:FastLoginLogPath}
     $candidates=New-Object 'System.Collections.Generic.List[string]'
     if($validated){
@@ -29549,7 +29549,7 @@ function Get-DomeniaFastLoginLogPath {
             $stream=[IO.File]::Open($probe,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None);$stream.Dispose()
             $script:FastLoginLogPath=Join-Path $logs 'Domenia-login.log'
             return [string]$script:FastLoginLogPath
-        } catch { }
+        } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaFastLoginLogPath' $_ }
         finally {if($probe -and [IO.File]::Exists($probe)){[IO.File]::Delete($probe)}}
     }
     return ''
@@ -29579,8 +29579,8 @@ function Write-DomeniaFastLoginLog {
             [Environment]::NewLine
         [System.IO.File]::AppendAllText($path, $line, (New-Object System.Text.UTF8Encoding($false)))
     }
-    catch { }
-    try { Write-StartupTrace -Stage "Login/$Stage" -Status $Status -Detail $Detail -DurationMs $DurationMs } catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Write-DomeniaFastLoginLog' $_ }
+    try { Write-StartupTrace -Stage "Login/$Stage" -Status $Status -Detail $Detail -DurationMs $DurationMs } catch { Write-DomeniaSwallowed 'Core' 'Write-DomeniaFastLoginLog' $_ }
 }
 
 function New-DomeniaFastLoginSession {
@@ -29684,7 +29684,7 @@ function Stop-DomeniaFastLoginWorker {
         else{Stop-DomeniaLoginAuthRunspace -Session $Session -Terminate:$Kill}
     }
     catch { Write-DomeniaFastLoginLog -Stage "AUTH_CANCEL" -Status "ERROR" -Detail $_.Exception.Message }
-    try { if ($null -ne $Session.Request) { $Session.Request.Credential = $null } } catch { }
+    try { if ($null -ne $Session.Request) { $Session.Request.Credential = $null } } catch { Write-DomeniaSwallowed 'Core' 'Stop-DomeniaFastLoginWorker' $_ }
 }
 
 function Get-DomeniaFastLoginVaultIdentity {
@@ -29745,7 +29745,7 @@ function Save-DomeniaFastLoginVaultPreference {
         # Login stays valid if optional persistence is unavailable; never fall back to a file or SQLite secret.
         $message=if($vaultSaved){'Connexion validée et secret dans le coffre Windows ; mémorisation du domaine et du compte dans HKCU impossible.'}else{'Connexion validée ; enregistrement facultatif dans le coffre Windows impossible.'}
         Write-DomeniaFastLoginLog -Stage 'VAULT_SAVE' -Status 'WARN' -Detail $message
-        try{Write-AppLog $message 'WARN'}catch{}
+        try{Write-AppLog $message 'WARN'}catch{Write-DomeniaSwallowed 'Core' 'Save-DomeniaFastLoginVaultPreference' $_}
     }
 }
 
@@ -29754,20 +29754,20 @@ function Set-DomeniaFastLoginBusy {
     $ui = $script:FastLoginUi
     if ($null -eq $ui) { return }
     # SE-16: a validation never starts or runs with the password shown.
-    if ($Busy) { try { Hide-DomeniaSecretPeek -Owner 'Timer:LoginPasswordPeek' } catch { } }
+    if ($Busy) { try { Hide-DomeniaSecretPeek -Owner 'Timer:LoginPasswordPeek' } catch { Write-DomeniaSwallowed 'Core' 'Set-DomeniaFastLoginBusy' $_ } }
     foreach ($name in @("Login","Password","Reveal","Remember","Connect","OtherAccount")) {
-        try { $ui[$name].IsEnabled = -not $Busy } catch { }
+        try { $ui[$name].IsEnabled = -not $Busy } catch { Write-DomeniaSwallowed 'Core' 'Set-DomeniaFastLoginBusy' $_ }
     }
     try {
         $allowWindowsSession = [bool](Get-CfgValue "Auth" "AllowWindowsSession" $true)
         $windowsIdentity = Get-DomeniaProcessWindowsIdentity
         $ui.Windows.IsEnabled = ((-not $Busy) -and $allowWindowsSession -and -not [string]::IsNullOrWhiteSpace($windowsIdentity))
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Set-DomeniaFastLoginBusy' $_ }
     if ([bool]$script:DemoMode) {
         # D002: in demonstration no password can be typed and no Windows session is offered, busy or not.
         foreach ($name in @("Password","Reveal","Remember","Windows")) {
-            try { $ui[$name].IsEnabled = $false } catch { }
+            try { $ui[$name].IsEnabled = $false } catch { Write-DomeniaSwallowed 'Core' 'Set-DomeniaFastLoginBusy' $_ }
         }
     }
     # Standard view keeps the same outer dimensions throughout a validation attempt.
@@ -29784,8 +29784,8 @@ function Set-DomeniaFastLoginBusy {
         }
     }
     Update-DomeniaFastLoginVaultUi -Busy $Busy
-    try { $ui.Cancel.Content = if ($Busy) { 'Arrêter' } else { 'Annuler' } } catch { }
-    try { $ui.Progress.Visibility = if ($Busy) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed } } catch { }
+    try { $ui.Cancel.Content = if ($Busy) { 'Arrêter' } else { 'Annuler' } } catch { Write-DomeniaSwallowed 'Core' 'Set-DomeniaFastLoginBusy' $_ }
+    try { $ui.Progress.Visibility = if ($Busy) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed } } catch { Write-DomeniaSwallowed 'Core' 'Set-DomeniaFastLoginBusy' $_ }
 }
 
 function Add-DomeniaFastLoginDetail {
@@ -29795,12 +29795,12 @@ function Add-DomeniaFastLoginDetail {
         $script:FastLoginUi.Technical.AppendText("[$((Get-Date).ToString('HH:mm:ss.fff'))] $Text`r`n")
         $script:FastLoginUi.Technical.ScrollToEnd()
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Add-DomeniaFastLoginDetail' $_ }
 }
 
 function Reset-DomeniaFastLoginAttempt {
     param([switch]$Kill,[switch]$KeepDiagnostics)
-    try { if ($null -ne $script:FastLoginTimer) { $script:FastLoginTimer.Stop() } } catch { }
+    try { if ($null -ne $script:FastLoginTimer) { $script:FastLoginTimer.Stop() } } catch { Write-DomeniaSwallowed 'Core' 'Reset-DomeniaFastLoginAttempt' $_ }
     $script:FastLoginTimer = $null
     if ($null -ne $script:FastLoginState -and $null -ne $script:FastLoginState.Session) {
         Stop-DomeniaFastLoginWorker -Session $script:FastLoginState.Session -Kill:$Kill -KeepDiagnostics:$KeepDiagnostics
@@ -29837,7 +29837,7 @@ function Complete-DomeniaFastLoginSuccess {
         $script:DirectoryCredentialFaultMessage = ""
         $script:ActualDeniedCapabilities = @{}
         $script:ActualSecretDeniedDn = ""
-        try { if ($null -ne $script:DomeniaProviderState) { Reset-DomeniaProviderState -State $script:DomeniaProviderState } } catch { }
+        try { if ($null -ne $script:DomeniaProviderState) { Reset-DomeniaProviderState -State $script:DomeniaProviderState } } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaFastLoginSuccess' $_ }
         # Nothing is remembered in HKCU in demonstration (no Save-AppConfig).
         $ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Success")
         $ui.Error.Text = "Identité de démonstration acceptée — aucune connexion AD."
@@ -29879,7 +29879,7 @@ function Complete-DomeniaFastLoginSuccess {
     $script:DirectoryCredentialFaulted = $false
     $script:DirectoryCredentialFaultMessage = ""
     # D018: an explicit reconnection is the change of account that lifts the per-resource refusals.
-    try { if ($null -ne $script:DomeniaProviderState) { Reset-DomeniaProviderState -State $script:DomeniaProviderState } } catch { }
+    try { if ($null -ne $script:DomeniaProviderState) { Reset-DomeniaProviderState -State $script:DomeniaProviderState } } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaFastLoginSuccess' $_ }
     $script:Conn.Domain = [string]$Result.Domain
     $script:Conn.Netbios = [string]$Result.Netbios
     $script:Conn.BaseDn = [string]$Result.BaseDn
@@ -29907,7 +29907,7 @@ function Complete-DomeniaFastLoginSuccess {
         throw "Le credential de la session AD n a pas ete conserve en memoire. Connexion annulee pour eviter une interface inutilisable."
     }
     $state.LoginOk = $true
-    try { $ui.Password.Password = "" } catch { }
+    try { $ui.Password.Password = "" } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaFastLoginSuccess' $_ }
     Set-DomeniaSurfaceResult $ui.Window $true
 }
 
@@ -29920,13 +29920,13 @@ function Update-DomeniaFastLoginAttempt {
     try {
         $elapsed = [int]((Get-Date) - $session.StartedAt).TotalSeconds
         $sequence = -1
-        try { $sequence = [int]$session.Progress["Sequence"] } catch { }
+        try { $sequence = [int]$session.Progress["Sequence"] } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaFastLoginAttempt' $_ }
         if ($sequence -ne [int]$session.LastProgressSequence) {
             $session.LastProgressSequence = $sequence
             $stage = ""
             $detail = ""
-            try { $stage = [string]$session.Progress["Stage"] } catch { }
-            try { $detail = [string]$session.Progress["Detail"] } catch { }
+            try { $stage = [string]$session.Progress["Stage"] } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaFastLoginAttempt' $_ }
+            try { $detail = [string]$session.Progress["Detail"] } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaFastLoginAttempt' $_ }
             if (-not [string]::IsNullOrWhiteSpace($stage) -or -not [string]::IsNullOrWhiteSpace($detail)) {
                 $signature = "$stage|$detail"
                 $ui.Stage.Text = "$stage  $detail  ${elapsed}s"
@@ -29955,7 +29955,7 @@ function Update-DomeniaFastLoginAttempt {
             return
         }
 
-        try { if ($null -ne $script:FastLoginTimer) { $script:FastLoginTimer.Stop() } } catch { }
+        try { if ($null -ne $script:FastLoginTimer) { $script:FastLoginTimer.Stop() } } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaFastLoginAttempt' $_ }
         $script:FastLoginTimer = $null
         Write-DomeniaFastLoginLog -Stage "AUTH_COMPLETED" -Detail "Runspace MTA termine."
 
@@ -29986,7 +29986,7 @@ function Update-DomeniaFastLoginAttempt {
             $errorText = if (($null -ne $result) -and (-not [string]::IsNullOrWhiteSpace([string]$result.Error))) { [string]$result.Error } else { "" }
             $rawMessage = if ($errorText) { $errorText } else { "Aucun motif renvoyé par la validation." }
             $errorCategory = ""
-            try { $errorCategory = [string]$result.ErrorCategory } catch { }
+            try { $errorCategory = [string]$result.ErrorCategory } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaFastLoginAttempt' $_ }
             # UI-20: a polite sentence with the next step on screen. The Active Directory code and the technical text
             # only go to the diagnostic (Copier le diagnostic) and to the connection log.
             $failure = Get-DomeniaLoginFailureText -Category $errorCategory -Message $errorText
@@ -30026,7 +30026,7 @@ function Update-DomeniaFastLoginAttempt {
             $ui.Error.Text = $failure.Text
             $ui.Stage.Text = 'La fenêtre reste utilisable ; détail dans Domenia-login.log.'
         }
-        catch { }
+        catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaFastLoginAttempt' $_ }
         Reset-DomeniaFastLoginAttempt -Kill
     }
 }
@@ -30046,9 +30046,9 @@ function Test-DomeniaComputerAccountIdentity {
 
 function Get-DomeniaProcessWindowsIdentity {
     $identity = ""
-    try { $identity = [string][System.Security.Principal.WindowsIdentity]::GetCurrent().Name } catch { }
+    try { $identity = [string][System.Security.Principal.WindowsIdentity]::GetCurrent().Name } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaProcessWindowsIdentity' $_ }
     if ([string]::IsNullOrWhiteSpace($identity)) {
-        try { $identity = "$env:USERDOMAIN\$env:USERNAME" } catch { }
+        try { $identity = "$env:USERDOMAIN\$env:USERNAME" } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaProcessWindowsIdentity' $_ }
     }
 
     # Un EXE demarre par SYSTEM peut s'executer sous DOMAIN\POSTE$.
@@ -30061,7 +30061,7 @@ function Get-DomeniaProcessWindowsIdentity {
             if (-not [string]::IsNullOrWhiteSpace([string]$env:COMPUTERNAME) -and $identityDomain -ieq [string]$env:COMPUTERNAME) { return "" }
         }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaProcessWindowsIdentity' $_ }
     return $identity.Trim()
 }
 
@@ -30187,7 +30187,7 @@ function Start-DomeniaFastLoginAttempt {
         }
         $state.Session = Start-DomeniaFastLoginWorker -Session $session
         # The PasswordBox is emptied once its sealed copy has left with the worker request.
-        try { $ui.Password.Password = "" } catch { }
+        try { $ui.Password.Password = "" } catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaFastLoginAttempt' $_ }
         Add-DomeniaFastLoginDetail "Validation lancee dans un runspace MTA interne. Aucun processus enfant et aucun fichier de mot de passe ne sont utilises."
 
         # FI-05: protected standalone timer (connection, before the engine).
@@ -30217,7 +30217,7 @@ function Get-DomeniaLoginWindowMode {
             return "Debug"
         }
     }
-    catch { }
+    catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaLoginWindowMode' $_ }
 
     # 2) Fichier operateur simple : Standard ou Debug sur une ligne.
     # Les formes LoginMode=Debug et LoginWindowMode=Debug sont aussi admises.
@@ -30233,14 +30233,14 @@ function Get-DomeniaLoginWindowMode {
                 $normalizedCfg = $candidate.ToLowerInvariant()
                 if (@("debug","diagnostic","diag","verbose","detail","detailed","true","1","on","oui") -contains $normalizedCfg) { return "Debug" }
                 if (@("standard","normal","production","prod","false","0","off","non") -contains $normalizedCfg) { return "Standard" }
-                try { Write-StartupTrace -Stage "Login/Mode" -Status "WARN" -Detail "Valeur '$candidate' inconnue dans $modeCfgPath. Repli securise sur Standard." } catch { }
+                try { Write-StartupTrace -Stage "Login/Mode" -Status "WARN" -Detail "Valeur '$candidate' inconnue dans $modeCfgPath. Repli securise sur Standard." } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaLoginWindowMode' $_ }
                 $script:LoginWindowModeSource = "$modeCfgPath (valeur invalide)"
                 return "Standard"
             }
         }
     }
     catch {
-        try { Write-StartupTrace -Stage "Login/Mode" -Status "WARN" -Detail "Lecture impossible de $modeCfgPath : $($_.Exception.Message). Repli sur Domenia.config.json." } catch { }
+        try { Write-StartupTrace -Stage "Login/Mode" -Status "WARN" -Detail "Lecture impossible de $modeCfgPath : $($_.Exception.Message). Repli sur Domenia.config.json." } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaLoginWindowMode' $_ }
     }
 
     # 3) Configuration JSON existante.
@@ -30250,7 +30250,7 @@ function Get-DomeniaLoginWindowMode {
     if (@("debug","diagnostic","diag","verbose","detail","detailed","true","1","on","oui") -contains $normalized) { return "Debug" }
     if (@("standard","normal","production","prod","false","0","off","non","") -contains $normalized) { return "Standard" }
 
-    try { Write-StartupTrace -Stage "Login/Mode" -Status "WARN" -Detail "Valeur '$rawMode' inconnue dans Auth.LoginWindowMode. Repli securise sur Standard." } catch { }
+    try { Write-StartupTrace -Stage "Login/Mode" -Status "WARN" -Detail "Valeur '$rawMode' inconnue dans Auth.LoginWindowMode. Repli securise sur Standard." } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaLoginWindowMode' $_ }
     $script:LoginWindowModeSource = "$($script:LoginWindowModeSource) (valeur invalide)"
     return "Standard"
 }
@@ -30558,7 +30558,7 @@ function Show-LoginWindow {
         # Request focus once; then preserve the login-only topmost exception even when Windows
         # refuses activation. No repeated focus grabbing, and no promotion of an embedded relogin.
         if (-not (Test-DomeniaMainHostAvailable)) {
-            try { [void](Request-DomeniaWindowActivation -Window $script:FastLoginUi.Window -Trigger 'Launch') } catch { }
+            try { [void](Request-DomeniaWindowActivation -Window $script:FastLoginUi.Window -Trigger 'Launch') } catch { Write-DomeniaSwallowed 'Core' 'Show-LoginWindow' $_ }
             $script:FastLoginUi.Window.Topmost = $true
         }
         if ([bool]$script:DemoMode) { $script:FastLoginUi.Connect.Focus() | Out-Null }
@@ -30570,7 +30570,7 @@ function Show-LoginWindow {
         Hide-DomeniaSecretPeek -Owner 'Timer:LoginPasswordPeek'
         if ($null -ne $script:FastLoginState.Session) { Reset-DomeniaFastLoginAttempt -Kill -KeepDiagnostics }
     })
-    if (-not (Test-DomeniaMainHostAvailable)) { try { Register-DomeniaUserSwitchWatch -Window $window } catch { } }
+    if (-not (Test-DomeniaMainHostAvailable)) { try { Register-DomeniaUserSwitchWatch -Window $window } catch { Write-DomeniaSwallowed 'Core' 'Show-LoginWindow' $_ } }
 
     Write-DomeniaFastLoginLog -Stage "WINDOW_SHOW" -Detail "ShowDialog"
     try {
@@ -30606,7 +30606,7 @@ function Invoke-DomeniaSelfTest {
             $xaml = & $factoryName
             Assert-DomeniaXamlPreflight -XamlText $xaml -Context ([string]$item.Name)
             $window = ConvertFrom-DomeniaXaml -XamlText $xaml -Context ([string]$item.Name)
-            try { $window.Close() } catch { }
+            try { $window.Close() } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaSelfTest' $_ }
             Add-SelfTestResult -Name ([string]$item.Name) -Success $true -Detail 'XML et chargement WPF valides.'
         }
         catch { Add-SelfTestResult -Name ([string]$item.Name) -Success $false -Detail $_.Exception.ToString() }
@@ -30711,7 +30711,7 @@ function Invoke-DomeniaSelfTest {
                 [void]$workerPs.AddArgument([pscustomobject]@{ Echo='Domenia-self-test' })
                 $workerHandle = $workerPs.BeginInvoke()
                 if (-not $workerHandle.AsyncWaitHandle.WaitOne(10000)) {
-                    try { [void]$workerPs.BeginStop($null,$null) } catch { }
+                    try { [void]$workerPs.BeginStop($null,$null) } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaSelfTest' $_ }
                     throw 'Le worker de controle n a pas termine en 10 secondes.'
                 }
                 $workerRows = @($workerPs.EndInvoke($workerHandle))
@@ -30721,15 +30721,15 @@ function Invoke-DomeniaSelfTest {
                 Add-SelfTestResult -Name 'Execution worker MTA' -Success $workerOk -Detail "Thread=$($workerProbe[0].WorkerThreadId), appartement=$($workerProbe[0].Apartment), echo=$($workerProbe[0].Echo)."
             }
             finally {
-                try { $workerPs.Dispose() } catch { }
-                try { $worker.Runspace.Dispose() } catch { }
+                try { $workerPs.Dispose() } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaSelfTest' $_ }
+                try { $worker.Runspace.Dispose() } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaSelfTest' $_ }
             }
         }
     }
     catch {
         Add-SelfTestResult -Name 'Moteur ferme / worker MTA' -Success $false -Detail $_.Exception.ToString()
     }
-    finally { try { Dispose-AsyncEngine } catch { } }
+    finally { try { Dispose-AsyncEngine } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaSelfTest' $_ } }
 
     $authSelfTestSession = $null
     try {
@@ -30768,7 +30768,7 @@ function Invoke-DomeniaSelfTest {
                 [void]$demoPs.AddArgument($Context)
                 [void]$demoPs.AddArgument([pscustomobject]@{Operation=$Operation;Request=$Request;Directory=$demoDirectory})
                 $demoHandle = $demoPs.BeginInvoke()
-                if (-not $demoHandle.AsyncWaitHandle.WaitOne(10000)) { try { [void]$demoPs.BeginStop($null,$null) } catch { }; throw 'Le worker DemoDirectory n a pas termine en 10 secondes.' }
+                if (-not $demoHandle.AsyncWaitHandle.WaitOne(10000)) { try { [void]$demoPs.BeginStop($null,$null) } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaSelfTest' $_ }; throw 'Le worker DemoDirectory n a pas termine en 10 secondes.' }
                 return @($demoPs.EndInvoke($demoHandle))
             } finally { $demoPs.Dispose() }
         }
@@ -30798,7 +30798,7 @@ function Invoke-DomeniaSelfTest {
         Add-SelfTestResult -Name 'Annuaire de demonstration MTA' -Success ($treeOk -and $searchOk -and $openOk -and $unavailableOk -and $refused) -Detail ("Arbre={0} ; recherche={1} ({2} evenement(s)) ; fiche={3} ; non disponible={4} ; contexte reel refuse={5}." -f $treeOk,$searchOk,$events,$openOk,$unavailableOk,$refused)
     }
     catch { Add-SelfTestResult -Name 'Annuaire de demonstration MTA' -Success $false -Detail $_.Exception.ToString() }
-    finally { if ($null -ne $demoWorker) { try { $demoWorker.Runspace.Dispose() } catch { } } }
+    finally { if ($null -ne $demoWorker) { try { $demoWorker.Runspace.Dispose() } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaSelfTest' $_ } } }
 
     $demoAuthSession = $null
     try {
@@ -30889,7 +30889,7 @@ try {
             }
             finally { Remove-Item -LiteralPath $selfTestTemporary -Force -ErrorAction SilentlyContinue }
         }
-        try { [Console]::Out.WriteLine($selfTestJson) } catch { }
+        try { [Console]::Out.WriteLine($selfTestJson) } catch { Write-DomeniaSwallowed 'Core' 'Domenia-Core.ps1' $_ }
         if (-not [bool]$selfTestResult.Success) { throw "Self-test DOMENIA en echec : $($selfTestResult.Failed) controle(s)." }
         return
     }
@@ -30948,7 +30948,7 @@ try {
     if (-not $script:StartupReady) { throw "Initialisation incomplete : la fenetre principale reste masquee." }
     Write-StartupTrace -Stage "Apres login" -Status "OK" -Detail "Fenetre principale initialisee ; Domenia.db, cache initial et pool MTA valides"
     # The geometry may have been restored maximized after the activation choice: check again just before showing.
-    try { [void](Set-DomeniaWindowActivationPolicy -Window $script:Window -UserSwitchedAway:(-not [bool]$script:Window.ShowActivated)) } catch { }
+    try { [void](Set-DomeniaWindowActivationPolicy -Window $script:Window -UserSwitchedAway:(-not [bool]$script:Window.ShowActivated)) } catch { Write-DomeniaSwallowed 'Core' 'Domenia-Core.ps1' $_ }
     # FI-22: once the main window has rendered, a failure is an unexpected stop of a shown session.
     Register-DomeniaSessionShownHook -Window $script:Window
     $null = $script:Window.ShowDialog()
@@ -30957,14 +30957,14 @@ catch {
     $fatalRecord = $_
     $fatalText = $_.Exception.ToString()
     $fatalCode = 'INC-0000'
-    try { $fatalCode = New-DomeniaIncidentCode } catch { }
-    try { Write-StartupTrace -Stage "Fatal" -Status "ERROR" -Detail ("[$fatalCode] " + $fatalText) } catch { }
-    try { Write-DomeniaFastLoginLog -Stage "FATAL" -Status "ERROR" -Detail ("[$fatalCode] " + $fatalText) } catch { }
+    try { $fatalCode = New-DomeniaIncidentCode } catch { Write-DomeniaSwallowed 'Core' 'Domenia-Core.ps1' $_ }
+    try { Write-StartupTrace -Stage "Fatal" -Status "ERROR" -Detail ("[$fatalCode] " + $fatalText) } catch { Write-DomeniaSwallowed 'Core' 'Domenia-Core.ps1' $_ }
+    try { Write-DomeniaFastLoginLog -Stage "FATAL" -Status "ERROR" -Detail ("[$fatalCode] " + $fatalText) } catch { Write-DomeniaSwallowed 'Core' 'Domenia-Core.ps1' $_ }
     $sessionShown = [bool]$script:DomeniaSessionShown
     if ($sessionShown) {
-        try { Write-AppLog ("[$fatalCode] Arret inattendu de Domenia : " + $fatalText) 'ERROR' } catch { }
+        try { Write-AppLog ("[$fatalCode] Arret inattendu de Domenia : " + $fatalText) 'ERROR' } catch { Write-DomeniaSwallowed 'Core' 'Domenia-Core.ps1' $_ }
     }
-    try { Stop-DomeniaAppLogQueue } catch { }
+    try { Stop-DomeniaAppLogQueue } catch { Write-DomeniaSwallowed 'Core' 'Domenia-Core.ps1' $_ }
 
     $summary = [string]$_.Exception.Message
     if ([string]::IsNullOrWhiteSpace($summary)) { $summary = "Erreur inconnue pendant lʼinitialisation." }
@@ -30972,9 +30972,9 @@ catch {
     $startupLog = ""
     $loginLog = ""
     $appLog = ""
-    try { $startupLog = [string]$script:StartupTracePath } catch { }
-    try { $loginLog = [string](Get-DomeniaFastLoginLogPath) } catch { }
-    try { $appLog = if ([bool]$script:AppLogUnavailable) { [string]$script:AppLogFallbackPath } else { [string]$script:AuditPath } } catch { }
+    try { $startupLog = [string]$script:StartupTracePath } catch { Write-DomeniaSwallowed 'Core' 'Domenia-Core.ps1' $_ }
+    try { $loginLog = [string](Get-DomeniaFastLoginLogPath) } catch { Write-DomeniaSwallowed 'Core' 'Domenia-Core.ps1' $_ }
+    try { $appLog = if ([bool]$script:AppLogUnavailable) { [string]$script:AppLogFallbackPath } else { [string]$script:AuditPath } } catch { Write-DomeniaSwallowed 'Core' 'Domenia-Core.ps1' $_ }
 
     if ($DomeniaSelfTest) {
         [Console]::Error.WriteLine("DOMENIA SELF-TEST FAILED: $summary")
@@ -30983,10 +30983,10 @@ catch {
 
     $existing = { param([string]$Path) if ($Path -and [IO.File]::Exists($Path)) { return $Path }; return '' }
     $forOperator = $false
-    try { $forOperator = [bool](Test-DomeniaOperatorMessage $fatalRecord) } catch { }
+    try { $forOperator = [bool](Test-DomeniaOperatorMessage $fatalRecord) } catch { Write-DomeniaSwallowed 'Core' 'Domenia-Core.ps1' $_ }
     $message = Get-DomeniaFatalMessage -SessionShown $sessionShown -Summary $summary -Code $fatalCode -StartupLog (& $existing $startupLog) -LoginLog (& $existing $loginLog) -AppLog (& $existing $appLog) -Expert ([string]$script:CurrentUiProfile -eq 'Admin') -SummaryForOperator $forOperator
     # The page banner of a session that stopped would never be read: the report is a box of its own.
-    if ($sessionShown) { try { if ($null -ne $script:Window -and $script:Window.IsVisible) { $script:Window.Hide() } } catch { } }
+    if ($sessionShown) { try { if ($null -ne $script:Window -and $script:Window.IsVisible) { $script:Window.Hide() } } catch { Write-DomeniaSwallowed 'Core' 'Domenia-Core.ps1' $_ } }
     Show-ErrorBox -Message $message
 }
 finally {
@@ -30994,13 +30994,13 @@ finally {
         if ($null -ne $script:FastLoginState -and $null -ne $script:FastLoginState.Session) {
             Reset-DomeniaFastLoginAttempt -Kill
         }
-    } catch { }
-    try { if ($script:AsyncEngineReady -or @($script:AsyncJobs.Keys).Count -gt 0) { Dispose-AsyncEngine } } catch { }
-    try { if ($null -ne $script:Conn) { $script:Conn.Credential = $null } } catch { }
-    try { Hide-DomeniaSecretPeek -Owner 'Timer:LoginPasswordPeek' } catch { }
-    try { $script:MachineCredential = $null } catch { }
-    try { $script:RemoteAdminCredential = $null } catch { }
-    try { $script:SecretsCredential = $null } catch { }
+    } catch { Write-DomeniaSwallowed 'Core' 'Domenia-Core.ps1' $_ }
+    try { if ($script:AsyncEngineReady -or @($script:AsyncJobs.Keys).Count -gt 0) { Dispose-AsyncEngine } } catch { Write-DomeniaSwallowed 'Core' 'Domenia-Core.ps1' $_ }
+    try { if ($null -ne $script:Conn) { $script:Conn.Credential = $null } } catch { Write-DomeniaSwallowed 'Core' 'Domenia-Core.ps1' $_ }
+    try { Hide-DomeniaSecretPeek -Owner 'Timer:LoginPasswordPeek' } catch { Write-DomeniaSwallowed 'Core' 'Domenia-Core.ps1' $_ }
+    try { $script:MachineCredential = $null } catch { Write-DomeniaSwallowed 'Core' 'Domenia-Core.ps1' $_ }
+    try { $script:RemoteAdminCredential = $null } catch { Write-DomeniaSwallowed 'Core' 'Domenia-Core.ps1' $_ }
+    try { $script:SecretsCredential = $null } catch { Write-DomeniaSwallowed 'Core' 'Domenia-Core.ps1' $_ }
     # PF-09: the queued Domenia.log lines are written before the process ends.
-    try { Stop-DomeniaAppLogQueue } catch { }
+    try { Stop-DomeniaAppLogQueue } catch { Write-DomeniaSwallowed 'Core' 'Domenia-Core.ps1' $_ }
 }

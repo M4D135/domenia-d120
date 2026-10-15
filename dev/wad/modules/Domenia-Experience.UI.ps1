@@ -99,7 +99,7 @@ function Set-DomeniaOperationsPanelPosition {
         }
         $layerHeight=[double]$panel.Layer.ActualHeight
         if($layerHeight -gt 0){$panel.View.MaxHeight=[Math]::Max(240.0,$layerHeight-$top-16)}
-    }catch{}
+    }catch{Write-DomeniaSwallowed 'Experience' 'Set-DomeniaOperationsPanelPosition' $_}
     $panel.View.Width=$width
     $panel.View.Margin=[Windows.Thickness]::new($left,$top,0,0)
 }
@@ -118,7 +118,7 @@ function Show-DomeniaOperationsPanel {
     $panel.Open=$true;$panel.Signature=''
     Update-DomeniaExperienceActivity -Force
     $panel.Timer.Start()
-    try{$grid=Get-DomeniaControl 'DgSuiteActivity';if($null -ne $grid){[void]$grid.Focus()}}catch{}
+    try{$grid=Get-DomeniaControl 'DgSuiteActivity';if($null -ne $grid){[void]$grid.Focus()}}catch{Write-DomeniaSwallowed 'Experience' 'Show-DomeniaOperationsPanel' $_}
     return $true
 }
 
@@ -126,11 +126,11 @@ function Hide-DomeniaOperationsPanel {
     $panel=$script:OperationsPanel
     if($null -eq $panel -or -not $panel.Open){return}
     $panel.Open=$false
-    try{$panel.Timer.Stop()}catch{}
+    try{$panel.Timer.Stop()}catch{Write-DomeniaSwallowed 'Experience' 'Hide-DomeniaOperationsPanel' $_}
     $layer=$panel.Layer
     if($layer.Children.Contains($panel.View)){[void]$layer.Children.Remove($panel.View)}
     if($layer.Children.Count -eq 0){$layer.Visibility=[Windows.Visibility]::Collapsed;$layer.ClearValue([Windows.Controls.Panel]::BackgroundProperty)}
-    $button=Get-DomeniaControl 'BtnSuiteActivity';if($null -ne $button){try{[void]$button.Focus()}catch{}}
+    $button=Get-DomeniaControl 'BtnSuiteActivity';if($null -ne $button){try{[void]$button.Focus()}catch{Write-DomeniaSwallowed 'Experience' 'Hide-DomeniaOperationsPanel' $_}}
 }
 
 function Switch-DomeniaOperationsPanel {
@@ -201,7 +201,7 @@ function Sync-DomeniaOperationRows {
 function Get-DomeniaOperationsHealthText {
     # UX-32: the health of the engine in plain words. Local measures of this session only, no network probe.
     $lines=New-Object 'System.Collections.Generic.List[string]'
-    try{$process=[Diagnostics.Process]::GetCurrentProcess();try{$lines.Add('Mémoire utilisée par Domenia : '+[Math]::Round($process.PrivateMemorySize64/1MB)+' Mo.')}finally{$process.Dispose()}}catch{}
+    try{$process=[Diagnostics.Process]::GetCurrentProcess();try{$lines.Add('Mémoire utilisée par Domenia : '+[Math]::Round($process.PrivateMemorySize64/1MB)+' Mo.')}finally{$process.Dispose()}}catch{Write-DomeniaSwallowed 'Experience' 'Get-DomeniaOperationsHealthText' $_}
     $delay=$null;try{$delay=Get-DomeniaRuntimeMetricSummary -Provenance 'Dispatcher' -Prefix 'Pulse'}catch{$delay=$null}
     if($null -ne $delay -and [int]$delay.Count -gt 0){$lines.Add('Réactivité de lʼinterface : retard habituel '+[Math]::Round([double]$delay.P50)+' ms ; 95 % des mesures sous '+[Math]::Round([double]$delay.P95)+' ms.')}
     else{$lines.Add('Réactivité de lʼinterface : pas encore mesurée.')}
@@ -221,12 +221,12 @@ function Get-DomeniaOperationsHealthText {
     if($traceFaults -gt 0){$lines.Add('Suivi des opérations : '+$traceFaults+' incident(s) de trace, sans effet sur les opérations elles-mêmes.')}
     $saved=$null;try{if($null -ne $script:Persistence){$saved=$script:Persistence.LastSavedAt}}catch{$saved=$null}
     $save=if($null -ne $saved){'Dernière sauvegarde locale à '+([datetime]$saved).ToString('HH:mm:ss')+'.'}else{'Aucune sauvegarde locale dans cette session.'}
-    try{$state=Get-DomeniaPersistenceState;if([string]$state.Label){$save+=' '+[string]$state.Label}}catch{}
+    try{$state=Get-DomeniaPersistenceState;if([string]$state.Label){$save+=' '+[string]$state.Label}}catch{Write-DomeniaSwallowed 'Experience' 'Get-DomeniaOperationsHealthText' $_}
     $lines.Add($save)
     # Points 12, 13, 16 and 160: queue waits, shared reads, CIM queries avoided and paused sources of this session.
-    try{foreach($line in @(Get-DomeniaCollectionHealthLines)){if([string]$line){$lines.Add([string]$line)}}}catch{}
+    try{foreach($line in @(Get-DomeniaCollectionHealthLines)){if([string]$line){$lines.Add([string]$line)}}}catch{Write-DomeniaSwallowed 'Experience' 'Get-DomeniaOperationsHealthText' $_}
     # FI-12: SQLite lock waits that ran out in this session, with the configured wait.
-    try{$lines.Add([string](Get-DomeniaSqliteBusyStatusText))}catch{}
+    try{$lines.Add([string](Get-DomeniaSqliteBusyStatusText))}catch{Write-DomeniaSwallowed 'Experience' 'Get-DomeniaOperationsHealthText' $_}
     return ($lines.ToArray() -join "`r`n")
 }
 
@@ -258,7 +258,7 @@ function Update-DomeniaExperienceActivity {
     $panel=$script:OperationsPanel
     if($null -eq $panel -or -not [bool]$panel.Open){return}
     # A sheet that took the layer removed the panel: it is closed, not left half open.
-    if($null -eq $panel.View.Parent){$panel.Open=$false;try{$panel.Timer.Stop()}catch{};return}
+    if($null -eq $panel.View.Parent){$panel.Open=$false;try{$panel.Timer.Stop()}catch{Write-DomeniaSwallowed 'Experience' 'Update-DomeniaExperienceActivity' $_};return}
     $now=Get-Date;$rows=New-Object 'System.Collections.Generic.List[object]'
     if($null -ne $script:AsyncJobs){
         foreach($job in @($script:AsyncJobs.Values)){
@@ -552,7 +552,7 @@ function Get-DomeniaExperienceLogCopyText {
     $masked=(($null -ne $mask) -and [bool]$mask.IsChecked)
     if($masked){
         $known=@([string]$script:Conn.Domain,[string]$script:Conn.Netbios,[string]$script:Conn.Server,[string]$script:Conn.BindUser,[string]$env:COMPUTERNAME,[string]$env:USERNAME)
-        try{$known+=[string]$script:SelectedObject.Name}catch{}
+        try{$known+=[string]$script:SelectedObject.Name}catch{Write-DomeniaSwallowed 'Experience' 'Get-DomeniaExperienceLogCopyText' $_}
         $text=ConvertTo-DomeniaMaskedLogText -Text $text -KnownNames $known
     }
     return [pscustomobject]@{Text=$text;Masked=$masked}
@@ -645,7 +645,7 @@ function Initialize-DomeniaExperience {
     $script:Window.Add_Closed({
         try{Save-DomeniaExperiencePreferences}finally{
             if($null -ne $script:ExperienceFilterTimer){$script:ExperienceFilterTimer.Stop();$script:ExperienceFilterTimer=$null}
-            if($null -ne $script:OperationsPanel){try{$script:OperationsPanel.Timer.Stop()}catch{};$script:OperationsPanel=$null}
+            if($null -ne $script:OperationsPanel){try{$script:OperationsPanel.Timer.Stop()}catch{Write-DomeniaSwallowed 'Experience' 'Initialize-DomeniaExperience' $_};$script:OperationsPanel=$null}
             $script:ExperienceInitialized=$false;$script:ExperienceActivitySignature=''
         }
     })

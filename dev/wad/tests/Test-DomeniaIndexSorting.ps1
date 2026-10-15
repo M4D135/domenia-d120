@@ -2,6 +2,10 @@
 # Actual SQLite global ordering + production callbacks with inert UI doubles. No AD/WPF/network.
 [CmdletBinding()]param([string]$ReportPath='')
 $ErrorActionPreference='Stop'
+# P-CD-09: the catch blocks of the core and of the UI modules trace an ignored error with Write-DomeniaSwallowed, defined
+# in the script scope of Domenia-Core.ps1. Functions loaded one by one stay silent here, as before the sweep (no-op double;
+# the trace itself is tested in rules/Common.Tests.ps1 and Test-DomeniaFaults.ps1).
+function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) }
 $wad=Split-Path -Parent $PSScriptRoot;$modules=Join-Path $wad 'modules';$script:checks=0
 function Expect {param([bool]$Good,[string]$Name);$script:checks++;if(-not $Good){throw $Name}}
 $tokens=$null;$errors=$null;$core=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'),[ref]$tokens,[ref]$errors)

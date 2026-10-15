@@ -27,7 +27,7 @@ function Register-DomeniaUserSwitchWatch {
     param($Window)
     if ($null -eq $Window) { return }
     [void](Get-DomeniaActivationState)
-    $Window.Add_Closing({ try { $script:DomeniaActivationClosing = $true } catch { } })
+    $Window.Add_Closing({ try { $script:DomeniaActivationClosing = $true } catch { Write-DomeniaSwallowed 'Startup' 'Register-DomeniaUserSwitchWatch' $_ } })
     $Window.Add_Deactivated({
         param($sender,$eventArgs)
         try {
@@ -37,9 +37,9 @@ function Register-DomeniaUserSwitchWatch {
                 try {
                     if ([bool]$script:DomeniaActivationClosing) { return }
                     if (-not (Test-DomeniaOwnWindowActive)) { (Get-DomeniaActivationState).UserSwitchedAway = $true }
-                } catch { }
+                } catch { Write-DomeniaSwallowed 'Startup' 'Register-DomeniaUserSwitchWatch' $_ }
             })
-        } catch { }
+        } catch { Write-DomeniaSwallowed 'Startup' 'Register-DomeniaUserSwitchWatch' $_ }
     })
     $script:DomeniaActivationClosing = $false
 }
@@ -47,9 +47,9 @@ function Register-DomeniaUserSwitchWatch {
 function Test-DomeniaOwnWindowActive {
     $candidates = New-Object System.Collections.ArrayList
     foreach ($w in @($script:StartupWindow,$script:Window)) { if ($null -ne $w) { [void]$candidates.Add($w) } }
-    try { if ($null -ne $script:FastLoginUi -and $null -ne $script:FastLoginUi.Window) { [void]$candidates.Add($script:FastLoginUi.Window) } } catch { }
-    try { if ($null -ne [System.Windows.Application]::Current) { foreach ($w in @([System.Windows.Application]::Current.Windows)) { [void]$candidates.Add($w) } } } catch { }
-    foreach ($w in $candidates) { try { if ($w -is [System.Windows.Window] -and $w.IsActive) { return $true } } catch { } }
+    try { if ($null -ne $script:FastLoginUi -and $null -ne $script:FastLoginUi.Window) { [void]$candidates.Add($script:FastLoginUi.Window) } } catch { Write-DomeniaSwallowed 'Startup' 'Test-DomeniaOwnWindowActive' $_ }
+    try { if ($null -ne [System.Windows.Application]::Current) { foreach ($w in @([System.Windows.Application]::Current.Windows)) { [void]$candidates.Add($w) } } } catch { Write-DomeniaSwallowed 'Startup' 'Test-DomeniaOwnWindowActive' $_ }
+    foreach ($w in $candidates) { try { if ($w -is [System.Windows.Window] -and $w.IsActive) { return $true } } catch { Write-DomeniaSwallowed 'Startup' 'Test-DomeniaOwnWindowActive' $_ } }
     return $false
 }
 
@@ -59,10 +59,10 @@ function Write-DomeniaActivationLog {
     $state = Get-DomeniaActivationState
     [void]$state.Log.Add($line)
     if ($Trigger -eq 'Launch') {
-        try { Write-DomeniaFastLoginLog -Stage 'ACTIVATION' -Status 'OK' -Detail ('Trigger=' + $Trigger + ' Resultat=' + $Result) } catch { }
+        try { Write-DomeniaFastLoginLog -Stage 'ACTIVATION' -Status 'OK' -Detail ('Trigger=' + $Trigger + ' Resultat=' + $Result) } catch { Write-DomeniaSwallowed 'Startup' 'Write-DomeniaActivationLog' $_ }
     }
     else {
-        try { Write-AppLog $line 'INFO' } catch { }
+        try { Write-AppLog $line 'INFO' } catch { Write-DomeniaSwallowed 'Startup' 'Write-DomeniaActivationLog' $_ }
     }
 }
 
@@ -90,7 +90,7 @@ function Request-DomeniaWindowActivation {
     $activated = $false
     try {
         # Window.Activate returns false when Windows refuses the foreground: that answer is kept as is.
-        try { if ([bool]$Window.Topmost) { $Window.Topmost = $false } } catch { }
+        try { if ([bool]$Window.Topmost) { $Window.Topmost = $false } } catch { Write-DomeniaSwallowed 'Startup' 'Request-DomeniaWindowActivation' $_ }
         $activated = [bool]$Window.Activate()
     } catch { $activated = $false }
     $state.Refused[$Trigger] = (-not $activated)

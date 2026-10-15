@@ -2,6 +2,10 @@
 # Synthetic only: no real credential, AD, WMI, SMB, VM or network operation.
 [CmdletBinding()]param([string]$ReportPath='')
 $ErrorActionPreference='Stop'
+# P-CD-09: the catch blocks of the core and of the UI modules trace an ignored error with Write-DomeniaSwallowed, defined
+# in the script scope of Domenia-Core.ps1. Functions loaded one by one stay silent here, as before the sweep (no-op double;
+# the trace itself is tested in rules/Common.Tests.ps1 and Test-DomeniaFaults.ps1).
+function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) }
 $wad=Split-Path -Parent $PSScriptRoot
 foreach($name in @('Common.Model','Guard.Model','Access.Model','Engine.Model','Engine.UI')){. (Join-Path $wad ('modules/Domenia-'+$name+'.ps1'))}
 $checks=[Collections.Generic.List[object]]::new()

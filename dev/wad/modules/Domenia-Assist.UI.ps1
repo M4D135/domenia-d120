@@ -47,7 +47,7 @@ function Initialize-DomeniaAssist {
     $account=Get-DomeniaControl 'LblCompOperationAccount'
     if($null -ne $account){$account.Add_IsVisibleChanged({param($sender,$eventArgs) if([bool]$eventArgs.NewValue){Update-DomeniaComputerOperationAccount}})}
     $details=Get-DomeniaControl 'ComputerDetailTabs'
-    if($null -ne $details){$details.Add_SelectionChanged({param($sender,$eventArgs) if($sender -ne $eventArgs.OriginalSource){return};try{if(([string]$sender.SelectedItem.Name) -eq 'TabSoftware'){Show-DomeniaSoftwareFromInventory}}catch{}})}
+    if($null -ne $details){$details.Add_SelectionChanged({param($sender,$eventArgs) if($sender -ne $eventArgs.OriginalSource){return};try{if(([string]$sender.SelectedItem.Name) -eq 'TabSoftware'){Show-DomeniaSoftwareFromInventory}}catch{Write-DomeniaSwallowed 'Assist' 'Initialize-DomeniaAssist' $_}})}
     Update-DomeniaPendingOperationsPill
 }
 
@@ -88,7 +88,7 @@ function Show-DomeniaAssistSection {
     param([string]$Name)
     $control=Get-DomeniaControl $Name
     if($null -eq $control){return}
-    try{[void]$control.Dispatcher.BeginInvoke([Action]({$control.BringIntoView()}.GetNewClosure()),[Windows.Threading.DispatcherPriority]::Loaded)}catch{}
+    try{[void]$control.Dispatcher.BeginInvoke([Action]({$control.BringIntoView()}.GetNewClosure()),[Windows.Threading.DispatcherPriority]::Loaded)}catch{Write-DomeniaSwallowed 'Assist' 'Show-DomeniaAssistSection' $_}
 }
 
 # ---------------------------------------------------------------- UX-21 five views
@@ -249,7 +249,7 @@ function Update-DomeniaComputerOperationAccount {
     # SP-16: the account used by Ouvrir le disque C and the consoles is said before the click, in the same words as the
     # « Compte poste » pill of the header (UX-15, Get-DomeniaMachineAccountInUse for the open workstation).
     $computer='';try{$open=Get-DomeniaOpenWorkstationTarget;if($null -ne $open){$computer=[string]$open.Computer}}catch{$computer=''}
-    try{[void](Set-DomeniaControlText 'LblCompOperationAccount' (Get-DomeniaMachineOperationAccountText -Target $computer))}catch{}
+    try{[void](Set-DomeniaControlText 'LblCompOperationAccount' (Get-DomeniaMachineOperationAccountText -Target $computer))}catch{Write-DomeniaSwallowed 'Assist' 'Update-DomeniaComputerOperationAccount' $_}
 }
 
 function Update-DomeniaComputerAssistPermissions {
@@ -275,7 +275,7 @@ function Test-DomeniaAssistWriteBlocked {
     # Read-only mode, an AD write being verified, or the selection only known from the local base.
     if(([bool]$script:ReadOnlyMode) -or ([bool]$script:DemoMode)){return $true}
     if((-not [string]::IsNullOrWhiteSpace([string]$script:ActiveWriteTaskId)) -or ([string]$script:WriteState -in @('Unknown','UnknownPending'))){return $true}
-    try{if((Get-DomeniaSelectionCachePolicy).Offline){return $true}}catch{}
+    try{if((Get-DomeniaSelectionCachePolicy).Offline){return $true}}catch{Write-DomeniaSwallowed 'Assist' 'Test-DomeniaAssistWriteBlocked' $_}
     return $false
 }
 
@@ -443,7 +443,7 @@ function Show-DomeniaRunProgramPanel {
         Set-DomeniaAssistVisible 'UxCompRunPanel' $true
         Update-DomeniaComputerAssistPermissions
         Show-DomeniaAssistSection -Name 'UxCompRunPanel'
-        $field=Get-DomeniaControl 'TxtCompRunCommand';if($null -ne $field){try{[void]$field.Focus()}catch{}}
+        $field=Get-DomeniaControl 'TxtCompRunCommand';if($null -ne $field){try{[void]$field.Focus()}catch{Write-DomeniaSwallowed 'Assist' 'Show-DomeniaRunProgramPanel' $_}}
     }catch{[void](Show-DomeniaOperationError -Operation 'Exécuter un programme' -ErrorRecordOrException $_)}
 }
 
@@ -627,7 +627,7 @@ function Complete-DomeniaComputerServiceControlUi {
     if(-not $message){$message='Commande de service envoyée à ' + [string]$State.Computer + '.'}
     $message+=(Get-DomeniaRemotePostconditionText -OperationId 'ComputerServiceControl' -Result $effective)
     Set-Status $message
-    try{Add-DomeniaUiLog -Area 'Poste' -Text $message}catch{}
+    try{Add-DomeniaUiLog -Area 'Poste' -Text $message}catch{Write-DomeniaSwallowed 'Assist' 'Complete-DomeniaComputerServiceControlUi' $_}
     # The row takes the state the worker has just read again, while the list still belongs to that selection.
     if((Test-DomeniaComputerServicesCurrent) -and ([long]$State.Generation -eq [long]$script:SelectedObjectGeneration) -and ([long]$State.Epoch -eq [long]$script:SessionEpoch)){
         $list=$script:DomeniaAssist.Services;$after=[string](Get-DomeniaMember $effective 'StateAfter' '')

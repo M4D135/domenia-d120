@@ -132,8 +132,8 @@ function Start-DomeniaRemoteCredentialSession {
         [void]$ps.AddCommand($w.CommandName);[void]$ps.AddParameter('Context',([pscustomobject]@{BaseDn=[string]$script:Conn.BaseDn}));[void]$ps.AddParameter('Payload',([pscustomobject]@{Computer=$Computer;Credential=$credential}))
         $handle=$ps.BeginInvoke()
     }catch{
-        if($null -ne $ps){try{$ps.Dispose()}catch{}}
-        if($null -ne $w -and $null -ne $w.Runspace){try{$w.Runspace.Dispose()}catch{}}
+        if($null -ne $ps){try{$ps.Dispose()}catch{Write-DomeniaSwallowed 'Sessions' 'Start-DomeniaRemoteCredentialSession' $_}}
+        if($null -ne $w -and $null -ne $w.Runspace){try{$w.Runspace.Dispose()}catch{Write-DomeniaSwallowed 'Sessions' 'Start-DomeniaRemoteCredentialSession' $_}}
         if($null -ne $ownedSecret){$ownedSecret.Dispose()}
         throw
     }

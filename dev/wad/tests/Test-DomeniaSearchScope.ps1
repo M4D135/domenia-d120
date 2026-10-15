@@ -3,6 +3,10 @@
 param([string]$ReportPath='', [switch]$Quiet)
 # Tests isoles : extraction AST et doubles en memoire. Aucun annuaire ni fichier de donnees ouvert.
 $ErrorActionPreference='Stop'
+# P-CD-09: the catch blocks of the core and of the UI modules trace an ignored error with Write-DomeniaSwallowed, defined
+# in the script scope of Domenia-Core.ps1. Functions loaded one by one stay silent here, as before the sweep (no-op double;
+# the trace itself is tested in rules/Common.Tests.ps1 and Test-DomeniaFaults.ps1).
+function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) }
 $core=Join-Path (Split-Path -Parent $PSScriptRoot) 'Domenia-Core.ps1'
 $tokens=$null;$parseErrors=$null
 $ast=[Management.Automation.Language.Parser]::ParseFile($core,[ref]$tokens,[ref]$parseErrors)
