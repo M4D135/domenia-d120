@@ -1899,6 +1899,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Invoke-DomeniaSearchWorkspaceRefresh',
             'Request-DomeniaSearchWorkspaceRefresh',
             'Invoke-DomeniaSearchWorkspaceListChanged',
+            'Reset-DomeniaSearchWorkspaceSession',
             'Initialize-DomeniaSearchWorkspace'
         ) }
     )

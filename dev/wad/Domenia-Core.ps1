@@ -21877,6 +21877,8 @@ function Start-DomeniaAccountRelogin {
         [void](Load-DomeniaIndexMetadata)
         Load-UserMachineLinks
         Load-TreeRoot
+        # Point 57: the personal views listed are those of the domain of the new session.
+        try { Reset-DomeniaSearchWorkspaceSession } catch { Write-AppLog ("Vues personnelles : " + $_.Exception.Message) "WARN" }
         Initialize-DomeniaAccountPanel
         Update-DomeniaAccountUi
         Apply-CurrentPermissionUi

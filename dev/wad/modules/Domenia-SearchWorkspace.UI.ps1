@@ -190,6 +190,11 @@ function Get-DomeniaSearchFilterState {
 function Update-DomeniaSearchFilterChips {
     $panel=Get-DomeniaControl 'PnlSearchFilterChips';if($null -eq $panel){return}
     $model=Get-DomeniaSearchFilterChips -State (Get-DomeniaSearchFilterState)
+    # The chips are rebuilt only when a criterion changes: a list that loads keeps its chips, their keyboard focus
+    # and their tooltips, and only the counts of the summary follow it. The panel keeps the signature it shows.
+    $signature=(@($model.Chips|ForEach-Object{[string]$_.Key+'|'+[string]$_.Scope+'|'+[string]$_.Label+'|'+[string]$_.Removable+'|'+[string]$_.Effect}) -join "`n")
+    if(([string]$panel.Tag -ceq $signature) -and ($panel.Children.Count -eq @($model.Chips).Count)){[void](Set-DomeniaControlText 'LblSearchFilterSummary' ([string]$model.Summary));return}
+    $panel.Tag=$signature
     $panel.Children.Clear()
     foreach($chip in @($model.Chips)){
         $text=[Windows.Controls.TextBlock]::new()
@@ -479,6 +484,17 @@ function Invoke-DomeniaSearchWorkspaceListChanged {
     }
     Request-DomeniaSearchWorkspaceRefresh -Preview
 }
+function Reset-DomeniaSearchWorkspaceSession {
+    # A new AD session (Changer de session) may open another domain: its own views are listed again, the undo of a
+    # removal made in the former session is dropped, and the sort waiting for a list and the preview of a former row
+    # are cleared. Nothing is read: the preview waits for a row of the new session.
+    $script:SearchWorkspaceUndo=$null;$script:SearchWorkspacePendingSort=$null;$script:SearchPreviewToken='';$script:SearchPreviewPending=$false
+    $table=Get-DomeniaControl 'DgSearchPreview';if($null -ne $table){$table.ItemsSource=@()}
+    $panel=Get-DomeniaControl 'PnlSearchPreview'
+    if(($null -ne $panel) -and ($panel.Visibility -eq 'Visible')){[void](Set-DomeniaControlText 'LblSearchPreview' 'Aperçu local : nouvelle session. Sélectionnez une ligne pour consulter sa fiche enregistrée.')}
+    Update-DomeniaSearchWorkspaces
+    Request-DomeniaSearchWorkspaceRefresh
+}
 function Initialize-DomeniaSearchWorkspace {
     if($script:SearchWorkspaceBound){return};$script:SearchWorkspaceBound=$true
     foreach($name in @('BtnSearchWorkspaceSave','BtnSearchWorkspaceOpen','BtnSearchWorkspaceRemove','BtnSearchWorkspaceUndo','BtnSearchCompare','BtnSearchPreview','BtnSearchPreviewClose')){
@@ -507,7 +523,8 @@ function Initialize-DomeniaSearchWorkspace {
         if($null -ne $descriptor){$descriptor.AddValueChanged($grid,[EventHandler]{param($sender,$eventArgs) try{Invoke-DomeniaSearchWorkspaceListChanged}catch{}})}
         # Rows appended to a live list, a local filter or a sort change the view without a new ItemsSource.
         $changed=[Collections.Specialized.INotifyCollectionChanged].GetEvent('CollectionChanged')
-        $changed.AddEventHandler($grid.Items,[Collections.Specialized.NotifyCollectionChangedEventHandler]{param($sender,$eventArgs) try{Request-DomeniaSearchWorkspaceRefresh}catch{}})
+        # This event fires once per row appended to a live list: while the refresh is already armed it returns at once.
+        $changed.AddEventHandler($grid.Items,[Collections.Specialized.NotifyCollectionChangedEventHandler]{param($sender,$eventArgs) $timer=$script:SearchWorkspaceTimer;if(($null -ne $timer) -and ([bool]$timer.IsEnabled)){return};try{Request-DomeniaSearchWorkspaceRefresh}catch{}})
     }
     # A reopened main window brings new controls: binding again must be possible then.
     if($script:Window -is [Windows.Window]){$script:Window.Add_Closed({$script:SearchWorkspaceBound=$false;$script:SearchPreviewToken='';$script:SearchWorkspacePendingSort=$null;if($null -ne $script:SearchWorkspaceTimer){$script:SearchWorkspaceTimer.Stop()}})}

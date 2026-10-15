@@ -295,6 +295,35 @@ Case 'P57 Vues personnelles : enregistrer, retrouver, ouvrir sans lecture, retir
     $before=[string]$script:Settings['Search.WorkspacesJson'];$script:SaveFails=$true;$script:FormName='Gamma';Save-DomeniaSearchWorkspace
     Expect ([string]$script:Settings['Search.WorkspacesJson'] -ceq $before -and $script:LastStatusLevel -eq 'WARN') 'Un échec dʼécriture laisse une vue non enregistrée en mémoire.'
 }
+# Unwired if a new session keeps listing the views of the former domain or the undo of a former removal, or if
+# Changer de session does not list the views again once the tree of the new domain is prepared.
+Case 'P57 Une nouvelle session liste les vues de son propre domaine, sans lecture' {
+    Initialize-DomeniaSearchWorkspace
+    $script:SelectedBranchDn='OU=Postes,DC=example,DC=invalid'
+    $script:FormName='Parc';Save-DomeniaSearchWorkspace
+    $script:FormName='Autre';Save-DomeniaSearchWorkspace
+    $script:Ctrl.CmbSearchWorkspace.SelectedItem=@($script:Ctrl.CmbSearchWorkspace.ItemsSource)[0];Remove-DomeniaSearchWorkspace
+    Expect (@($script:Ctrl.CmbSearchWorkspace.ItemsSource).Count -eq 1 -and $null -ne $script:SearchWorkspaceUndo) 'Préparation : retrait non appliqué.'
+    $script:Ctrl.PnlSearchPreview.Visibility='Visible';$script:Ctrl.DgSearchPreview.ItemsSource=@([pscustomobject]@{Property='Nom';Value='PC-01';Date=''});$script:SearchPreviewToken='ancien'
+    # Changer de session, towards another domain.
+    $script:Conn=[pscustomobject]@{Connected=$true;BaseDn='DC=autre,DC=invalid';Domain='autre.invalid';Server='dc.autre.invalid'};$script:SessionEpoch=6L
+    Reset-DomeniaSearchWorkspaceSession
+    Expect (@($script:Ctrl.CmbSearchWorkspace.ItemsSource).Count -eq 0 -and $null -eq $script:Ctrl.CmbSearchWorkspace.SelectedItem) 'Les vues de lʼancien domaine restent proposées.'
+    Expect ($null -eq $script:SearchWorkspaceUndo -and -not $script:Ctrl.BtnSearchWorkspaceUndo.IsEnabled) 'Annuler restaurerait une vue de lʼancienne session.'
+    Expect ($script:SearchPreviewToken -eq '' -and @($script:Ctrl.DgSearchPreview.ItemsSource).Count -eq 0 -and ([string]$script:Ctrl.LblSearchPreview.Text).Contains('nouvelle session')) 'Lʼaperçu montre encore une ligne de lʼancienne session.'
+    Expect ([string]$script:Settings['Search.WorkspacesJson'] -match 'Parc') 'La vue de lʼancien domaine a été effacée du stockage.'
+    # Back to the first domain: its remaining view is listed again.
+    $script:Conn=[pscustomobject]@{Connected=$true;BaseDn='DC=example,DC=invalid';Domain='example.invalid';Server='dc.example.invalid'};$script:SessionEpoch=7L
+    Reset-DomeniaSearchWorkspaceSession
+    Expect (@($script:Ctrl.CmbSearchWorkspace.ItemsSource).Count -eq 1 -and [string]@($script:Ctrl.CmbSearchWorkspace.ItemsSource)[0].Name -eq 'Parc') 'La vue du domaine nʼest pas listée au retour.'
+    Expect ($script:Searches.Count -eq 0 -and $script:StoreReads.Count -eq 0) 'La nouvelle session a lancé une lecture.'
+    # Changer de session lists the views again after the tree of the new domain.
+    $tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'),[ref]$tokens,[ref]$errors)
+    $relogin=@($ast.FindAll({param($n)($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq 'Start-DomeniaAccountRelogin')},$true))
+    Expect ($relogin.Count -eq 1) 'Changer de session introuvable.'
+    $text=$relogin[0].Extent.Text;$tree=$text.IndexOf('Load-TreeRoot');$reset=$text.IndexOf('Reset-DomeniaSearchWorkspaceSession')
+    Expect (($tree -ge 0) -and ($reset -gt $tree)) 'Changer de session ne liste pas les vues du nouveau domaine après lʼarbre.'
+}
 # Unwired if a criterion of the list is hidden, if removing a list-level chip reads the directory, or if the scope
 # chip can be removed.
 Case 'P56 Critères visibles : chaque critère est une pastille, retirée par son propre contrôle, sans lecture' {
