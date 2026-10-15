@@ -112,6 +112,16 @@ Test-Case -Id 'HR-005' -Name 'Point 77 : suspension avec motif et echeance, reac
     Assert-Equal 1 @($suspended.CustomRules).Count 'Suspendre ne supprime pas la regle personnalisee'
     Assert-Equal 'Suspended' (Get-DomeniaHealthRuleState $suspended $custom.Id)
     Assert-Equal 'Disabled' (Get-DomeniaHealthRuleState (ConvertTo-DomeniaHealthPolicy @{ CustomRules = @() } -Strict) $custom.Id) 'Regle supprimee : plus rien a reactiver'
+    $ended = ConvertTo-DomeniaEndedHealthSuspension -Suspension $active -NowUtc $script:HrNow
+    Assert-Equal 'lowdisk' ([string]$ended.RuleId); Assert-Equal 'Remplacement du disque' ([string]$ended.Reason) 'Motif conserve a la reactivation'
+    Assert-Equal $script:HrNow.ToString('o') ([string]$ended.UntilUtc) 'Reactiver maintenant termine la suspension a cet instant'
+    $back = ConvertTo-DomeniaHealthPolicy @{ Suspensions = @($ended); EvaluatedAtUtc = $script:HrNow.ToString('o') } -Strict
+    Assert-Equal 'On' (Get-DomeniaHealthRuleState $back 'lowdisk') 'Le controle compte de nouveau'
+    Assert-Equal 1 @($back.Suspensions).Count 'La trace de la suspension reste dans la politique'
+    Assert-Equal 1 @(Optimize-DomeniaHealthSuspensions -Suspensions @($ended) -NowUtc $script:HrNow.AddDays(29)).Count 'Trace gardee 30 jours'
+    Assert-Equal 0 @(Optimize-DomeniaHealthSuspensions -Suspensions @($ended) -NowUtc $script:HrNow.AddDays(31)).Count 'Trace purgee ensuite'
+    Assert-Equal ([string]$recent.UntilUtc) ([string](ConvertTo-DomeniaEndedHealthSuspension -Suspension $recent -NowUtc $script:HrNow).UntilUtc) 'Suspension deja terminee : echeance d origine'
+    Assert-Throws { ConvertTo-DomeniaEndedHealthSuspension -Suspension $null -NowUtc $script:HrNow } 'Aucune suspension choisie'
 }
 Test-Case -Id 'HR-006' -Name 'Point 78 : changement reel, perimetre, couverture et regles distingues, ordre chronologique' -Body {
     $base = @{ Machines = 100; Assessed = 80; Unassessed = 20; Healthy = 60; Problems = 20; Score = 75; PingRead = 50; WmiRead = 80; PopulationHash = 'p'; AssessedHash = 'a'; CoverageHash = 'c'; PolicyHash = 'r'; ComputedUtc = '2026-10-01T08:00:00.0000000Z' }

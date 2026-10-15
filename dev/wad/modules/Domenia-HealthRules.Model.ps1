@@ -471,6 +471,16 @@ function Optimize-DomeniaHealthSuspensions {
     }
     return $kept.ToArray()
 }
+function ConvertTo-DomeniaEndedHealthSuspension {
+    # Point 77: "Réactiver maintenant" ends the suspension at NowUtc instead of erasing it, so its reason and the moment
+    # the rule came back stay listed (then purged by Optimize-DomeniaHealthSuspensions). Returns a copy; an already
+    # ended suspension keeps its own end. Nothing is saved here.
+    param($Suspension,[datetime]$NowUtc=[datetime]::UtcNow)
+    if($null -eq $Suspension){throw 'Choisissez une suspension.'}
+    $until=ConvertFrom-DomeniaUtcText ([string](Get-DomeniaHealthValue $Suspension 'UntilUtc' ''))
+    $end=if(($null -ne $until) -and ($until -le $NowUtc)){$until}else{$NowUtc}
+    return [pscustomobject]@{RuleId=[string](Get-DomeniaHealthValue $Suspension 'RuleId' '');Reason=[string](Get-DomeniaHealthValue $Suspension 'Reason' '');UntilUtc=$end.ToUniversalTime().ToString('o')}
+}
 
 function ConvertTo-DomeniaHealthSuspensions {
     param([object[]]$Values=@(),[switch]$Strict)

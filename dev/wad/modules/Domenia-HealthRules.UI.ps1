@@ -38,7 +38,7 @@ function Show-DomeniaHealthRulesEditor {
     $hrSuspensionRow={param($v)
         $until=ConvertFrom-DomeniaUtcText ([string]$v.UntilUtc);$name=[string]$hrRuleNames[[string]$v.RuleId]
         if(-not $name){$match=@($hrCustom|Where-Object{[string]$_.Id -ceq [string]$v.RuleId}|Select-Object -First 1);$name=if($match.Count){[string]$match[0].Name}else{[string]$v.RuleId}}
-        [pscustomobject]@{RuleId=[string]$v.RuleId;Name=$name;Reason=[string]$v.Reason;UntilUtc=[string]$v.UntilUtc;UntilLocal=$(if($null -ne $until){$until.ToLocalTime().ToString('dd/MM/yyyy HH:mm')}else{'Échéance illisible'});State=$(if(($null -ne $until) -and ($until -gt [datetime]::UtcNow)){'Suspendue'}else{'Réactivée (échéance passée)'})}
+        [pscustomobject]@{RuleId=[string]$v.RuleId;Name=$name;Reason=[string]$v.Reason;UntilUtc=[string]$v.UntilUtc;UntilLocal=$(if($null -ne $until){$until.ToLocalTime().ToString('dd/MM/yyyy HH:mm')}else{'Échéance illisible'});State=$(if(($null -ne $until) -and ($until -gt [datetime]::UtcNow)){'Suspendue'}else{'Réactivée'})}
     }
     $hrWindow=[Windows.Window]::new();$hrWindow.Title='Règles de santé';$hrWindow.Width=920;$hrWindow.Height=660
     $hrRoot=[Windows.Controls.DockPanel]::new();$hrRoot.Margin=[Windows.Thickness]::new(16)
@@ -98,15 +98,15 @@ function Show-DomeniaHealthRulesEditor {
     $hrAdd.Add_Click({if($hrCustom.Count -ge 32){$hrError.Text='32 alertes personnalisées au maximum.';return};$hrCustom.Add([pscustomobject]@{Id=('custom.'+[guid]::NewGuid().ToString('N'));Name='Espace disque à surveiller';Measure='DiskFree';Operator='LessThan';Threshold=15;Severity='Warn';Enabled=$true})})
     $hrDelete.Add_Click({$selected=$hrCustomGrid.SelectedItem;if($null -ne $selected){[void]$hrCustom.Remove($selected)}})
     $hrSuspendPanel=[Windows.Controls.DockPanel]::new();$hrSuspendActions=[Windows.Controls.StackPanel]::new();$hrSuspendActions.Margin='0,10,0,10';[Windows.Controls.DockPanel]::SetDock($hrSuspendActions,'Top')
-    $hrSuspendNote=[Windows.Controls.TextBlock]::new();$hrSuspendNote.Text='Suspendre masque temporairement un contrôle pour la portée choisie : il sort du score, mais les postes quʼil aurait signalés restent affichés dans « Comprendre le score ». Le motif et lʼéchéance sont obligatoires ; le contrôle reprend seul au premier recalcul après lʼéchéance, ou tout de suite avec « Réactiver maintenant ». Aucune donnée collectée nʼest effacée et la règle nʼest pas supprimée. Une suspension terminée reste listée 30 jours.';$hrSuspendNote.TextWrapping='Wrap';$hrSuspendNote.Margin='0,0,0,8';[void]$hrSuspendActions.Children.Add($hrSuspendNote)
+    $hrSuspendNote=[Windows.Controls.TextBlock]::new();$hrSuspendNote.Text='Suspendre masque temporairement un contrôle pour la portée choisie : il sort du score, mais les postes quʼil aurait signalés restent affichés dans « Comprendre le score ». Le motif et lʼéchéance sont obligatoires ; le contrôle reprend seul au premier recalcul après lʼéchéance, ou tout de suite avec « Réactiver maintenant ». Aucune donnée collectée nʼest effacée et la règle nʼest pas supprimée. Une suspension terminée ou réactivée reste listée 30 jours avec son motif.';$hrSuspendNote.TextWrapping='Wrap';$hrSuspendNote.Margin='0,0,0,8';[void]$hrSuspendActions.Children.Add($hrSuspendNote)
     $hrSuspendChoice=[Windows.Controls.ComboBox]::new();$hrSuspendChoice.DisplayMemberPath='Name';$hrSuspendChoice.ItemsSource=@(Get-DomeniaHealthRuleCatalog)+@($hrCustom);$hrSuspendChoice.SelectedIndex=0;$hrSuspendChoice.Margin='0,0,0,6';$hrSuspendChoice.ToolTip='Contrôle à suspendre temporairement.';[void]$hrSuspendActions.Children.Add($hrSuspendChoice)
     $hrSuspendReason=[Windows.Controls.TextBox]::new();$hrSuspendReason.MaxLength=240;$hrSuspendReason.MinWidth=260;$hrSuspendReason.Margin='0,0,0,6';$hrSuspendReason.ToolTip='Motif obligatoire, de 3 à 240 caractères, visible dans lʼexplication du score.'
     $hrReasonLabel=[Windows.Controls.TextBlock]::new();$hrReasonLabel.Text='Motif (obligatoire)';[void]$hrSuspendActions.Children.Add($hrReasonLabel);[void]$hrSuspendActions.Children.Add($hrSuspendReason)
     $hrSuspendLine=[Windows.Controls.WrapPanel]::new();$hrSuspendDuration=[Windows.Controls.ComboBox]::new();$hrSuspendDuration.DisplayMemberPath='Name';$hrSuspendDuration.ItemsSource=@([pscustomobject]@{Name='1 heure';Hours=1},[pscustomobject]@{Name='24 heures';Hours=24},[pscustomobject]@{Name='7 jours';Hours=168},[pscustomobject]@{Name='30 jours';Hours=720});$hrSuspendDuration.SelectedIndex=1;$hrSuspendDuration.MinWidth=130;$hrSuspendDuration.ToolTip='Échéance de la suspension, à partir de maintenant.'
     $hrSuspendAdd=[Windows.Controls.Button]::new();$hrSuspendAdd.Content='Suspendre';$hrSuspendAdd.Margin='8,0,8,0';$hrSuspendAdd.ToolTip='Ajouter la suspension à la liste ; elle sʼapplique après Appliquer.'
-    $hrSuspendRemove=[Windows.Controls.Button]::new();$hrSuspendRemove.Content='Réactiver maintenant';$hrSuspendRemove.ToolTip='Retirer la suspension sélectionnée : le contrôle compte de nouveau après Appliquer.'
+    $hrSuspendRemove=[Windows.Controls.Button]::new();$hrSuspendRemove.Content='Réactiver maintenant';$hrSuspendRemove.IsEnabled=$false;$hrSuspendRemove.ToolTip='Terminer maintenant la suspension sélectionnée : le contrôle compte de nouveau après Appliquer ; la ligne reste listée 30 jours avec son motif.'
     foreach($control in @($hrSuspendDuration,$hrSuspendAdd,$hrSuspendRemove)){[void]$hrSuspendLine.Children.Add($control)};[void]$hrSuspendActions.Children.Add($hrSuspendLine);[void]$hrSuspendPanel.Children.Add($hrSuspendActions)
-    $hrSuspendGrid=& $hrMakeGrid $hrSuspensions;$hrSuspendGrid.IsReadOnly=$true;& $hrAddText $hrSuspendGrid 'Contrôle' 'Name' $true 180;& $hrAddText $hrSuspendGrid 'Motif' 'Reason' $true;& $hrAddText $hrSuspendGrid 'Jusquʼau (heure locale)' 'UntilLocal' $true 150;& $hrAddText $hrSuspendGrid 'État' 'State' $true 170
+    $hrSuspendGrid=& $hrMakeGrid $hrSuspensions;$hrSuspendGrid.IsReadOnly=$true;& $hrAddText $hrSuspendGrid 'Contrôle' 'Name' $true 180;& $hrAddText $hrSuspendGrid 'Motif' 'Reason' $true;& $hrAddText $hrSuspendGrid 'Fin (heure locale)' 'UntilLocal' $true 150;& $hrAddText $hrSuspendGrid 'État' 'State' $true 170
     [void]$hrSuspendPanel.Children.Add($hrSuspendGrid);$hrSuspendTab=[Windows.Controls.TabItem]::new();$hrSuspendTab.Header='Suspensions';$hrSuspendTab.Content=$hrSuspendPanel;[void]$hrTabs.Items.Add($hrSuspendTab)
     $hrSuspendTab.Add_GotFocus({
         if($hrSuspendChoice.IsDropDownOpen){return}
@@ -125,7 +125,12 @@ function Show-DomeniaHealthRulesEditor {
         foreach($old in @($hrSuspensions|Where-Object{$_.RuleId -ceq $id})){[void]$hrSuspensions.Remove($old)}
         $hrSuspensions.Add((& $hrSuspensionRow $candidate));$hrError.Text=''
     }catch{$hrError.Text=$_.Exception.Message}})
-    $hrSuspendRemove.Add_Click({if($null -ne $hrSuspendGrid.SelectedItem){[void]$hrSuspensions.Remove($hrSuspendGrid.SelectedItem)}})
+    # Point 77: reactivating ends the suspension now and keeps its line (reason, end) as the trace of the decision.
+    $hrSuspendGrid.Add_SelectionChanged({$row=$hrSuspendGrid.SelectedItem;$hrSuspendRemove.IsEnabled=(($null -ne $row) -and ([string]$row.State -eq 'Suspendue'))})
+    $hrSuspendRemove.Add_Click({try{
+        $row=$hrSuspendGrid.SelectedItem;if($null -eq $row){return};$index=$hrSuspensions.IndexOf($row);if($index -lt 0){return}
+        $hrSuspensions[$index]=(& $hrSuspensionRow (ConvertTo-DomeniaEndedHealthSuspension -Suspension $row -NowUtc ([datetime]::UtcNow)));$hrSuspendRemove.IsEnabled=$false;$hrError.Text=''
+    }catch{$hrError.Text=$_.Exception.Message}})
     # Point 76: every local exception of the domain, readable without opening each OU.
     $hrExceptionPanel=[Windows.Controls.DockPanel]::new()
     $hrExceptionTop=[Windows.Controls.StackPanel]::new();$hrExceptionTop.Margin='0,10,0,8';[Windows.Controls.DockPanel]::SetDock($hrExceptionTop,'Top')

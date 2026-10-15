@@ -1389,6 +1389,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaHealthPolicyExceptions',
             'Get-DomeniaHealthEditorScopes',
             'Optimize-DomeniaHealthSuspensions',
+            'ConvertTo-DomeniaEndedHealthSuspension',
             'ConvertTo-DomeniaHealthSuspensions',
             'Get-DomeniaHealthSuspension',
             'Update-DomeniaFleetScopedHealth'
