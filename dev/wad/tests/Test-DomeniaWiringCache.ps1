@@ -2572,6 +2572,8 @@ $env:LOCALAPPDATA=$script:G23LocalAppData
 # Extract the unchanged production bodies once; each case still imports them in its own scope.
 $script:OfflineCoreDefinitions=@(foreach($name in @('Apply-CurrentPermissionUi','Get-WriteControlMap','Get-DomeniaSafetyDescriptor','Get-DomeniaEntryFirstString','Get-DeProp','Assert-DomeniaCapability','Assert-DomeniaRemoteWriteAllowed')){Get-FunctionTextFromFile $core $name}) -join "`n"
 $script:OfflineExplanationDefinition=Get-FunctionTextFromFile (Join-Path $modules 'Domenia-Access.UI.ps1') 'Get-DomeniaControlCapabilityExplanation'
+# P-CD-09: the real first write guard, loaded by the cases that test it in place of the empty double of the fixture.
+$script:OfflineWriteGuardDefinition=Get-FunctionTextFromFile $core 'Assert-WriteAllowed'
 $script:OfflineFixture=@'
 # P-CD-09: the write guards of the core read the selection and the read-only switch through Safety.Model (fail closed).
 foreach($file in @('Domenia-Common.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Access.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Safety.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Selection.UI.ps1','Domenia-Engine.UI.ps1')){. (Join-Path $modules $file)}
@@ -2731,6 +2733,80 @@ Test-Case 'P-CD-09 : interrupteur de lecture seule illisible, ecritures et actio
     Apply-CurrentPermissionUi -StartupFastPath
     Assert-False ([bool]$script:ReadOnlyMode)
     Assert-True $script:Ctrl.BtnUserSave.IsEnabled 'Interrupteur relu : ecriture de nouveau permise'
+}
+Test-Case 'P-CD-09 : garde d ecriture reelle, interrupteur illisible refuse et explique' {
+    . ([scriptblock]::Create($script:OfflineFixture))
+    # The real Assert-WriteAllowed replaces the empty double of the fixture (this case only).
+    . ([scriptblock]::Create($script:OfflineWriteGuardDefinition))
+    $savedReceipts=@($script:ReceiptReady,$script:ReceiptPending)
+    try {
+        $script:ReceiptReady=$true;$script:ReceiptPending=0
+        Assert-WriteAllowed
+        Assert-DomeniaCapability 'Edit'
+        $switch=[pscustomobject]@{Name='ChkReadOnlyMode'}
+        $switch | Add-Member -MemberType ScriptProperty -Name IsChecked -Value { throw 'interrupteur illisible (simulation)' }
+        $script:Ctrl['ChkReadOnlyMode']=$switch
+        foreach($guard in @({Assert-WriteAllowed},{Assert-DomeniaCapability 'Edit'})){
+            $refus='';try{& $guard}catch{$refus=$_.Exception.Message}
+            Assert-True ($refus -match 'lecture seule n.a pas pu .tre lu') ('Ecriture non refusee : '+$refus)
+        }
+        Apply-CurrentPermissionUi -StartupFastPath
+        Assert-False $script:Ctrl.BtnUserSave.IsEnabled 'Bouton actif malgre un interrupteur illisible'
+        # D056: the explanation of the greyed button says the same thing as its tool tip.
+        $why=Get-DomeniaControlCapabilityExplanation 'BtnUserSave'
+        Assert-True (([string]$why.Text -match 'lecture seule n.a pas pu .tre lu') -and ([string]$why.Route -eq 'ChkReadOnlyMode')) ('Explication : '+[string]$why.Text)
+        # A readable switch, checked: the usual read-only refusal comes back.
+        $script:Ctrl['ChkReadOnlyMode']=[Windows.Controls.CheckBox]::new();$script:Ctrl['ChkReadOnlyMode'].IsChecked=$true
+        $refus='';try{Assert-WriteAllowed}catch{$refus=$_.Exception.Message}
+        Assert-True ($refus -match 'Mode lecture seule actif') ('Refus : '+$refus)
+    }
+    finally { $script:ReceiptReady=$savedReceipts[0];$script:ReceiptPending=$savedReceipts[1] }
+}
+Test-Case 'P-CD-09 : nom distinctif illisible, ecritures fermees, refus et explication concordants' {
+    . ([scriptblock]::Create($script:OfflineFixture))
+    . ([scriptblock]::Create($script:OfflineWriteGuardDefinition))
+    $savedReceipts=@($script:ReceiptReady,$script:ReceiptPending)
+    try {
+        $script:ReceiptReady=$true;$script:ReceiptPending=0
+        # The cache policy reads the DN by itself and stops on its own error before any guard: it is set aside here
+        # (this case only) so that the guard rule of the selection, its tool tips and its explanation are the ones tested.
+        function Get-DomeniaSelectionCachePolicy { return [pscustomobject]@{CanView=$true;CanCopy=$true;CanEdit=$true;CanRetry=$false;Offline=$false;Reason=''} }
+        $unreadable=[pscustomobject]@{Type='Machine';Name='PC';Safety=[pscustomobject]@{Guid=$guid;AdminCount='0';Critical=$false}}
+        $unreadable | Add-Member -MemberType ScriptProperty -Name DN -Value { throw 'DN illisible (simulation)' }
+        $script:SelectedObject=$unreadable
+        Apply-CurrentPermissionUi -StartupFastPath
+        foreach($name in @($map.Values | ForEach-Object {$_})){
+            Assert-False $script:Ctrl[$name].IsEnabled $name
+            Assert-True ([string]$script:Ctrl[$name].ToolTip -match 'nom distinctif illisible') ($name+' : '+[string]$script:Ctrl[$name].ToolTip)
+        }
+        $refus='';try{Assert-DomeniaCapability 'Edit'}catch{$refus=$_.Exception.Message}
+        Assert-True ($refus -match 'nom distinctif illisible') ('Refus : '+$refus)
+        $why=Get-DomeniaControlCapabilityExplanation 'BtnUserSave'
+        Assert-True (([string]$why.Text -match 'nom distinctif illisible') -and (-not [bool]$why.Definitive) -and ([string]$why.Route -eq 'BtnObjectReadRetry')) ('Explication : '+[string]$why.Text)
+    }
+    finally { $script:ReceiptReady=$savedReceipts[0];$script:ReceiptPending=$savedReceipts[1] }
+}
+Test-Case 'P-CD-09 : marques de protection illisibles, objet traite comme protege par le bouton et son explication' {
+    . ([scriptblock]::Create($script:OfflineFixture))
+    $safety=[pscustomobject]@{Guid=$guid;Critical=$false}
+    $safety | Add-Member -MemberType ScriptProperty -Name AdminCount -Value { throw 'adminCount illisible (simulation)' }
+    $script:SelectedObject.Safety=$safety
+    Apply-CurrentPermissionUi -StartupFastPath
+    foreach($cap in @('Edit','Raw','Account','Password','Group','Move','Delete')){
+        foreach($name in @($map[$cap])){
+            Assert-False $script:Ctrl[$name].IsEnabled $name
+            Assert-True ([string]$script:Ctrl[$name].ToolTip -match 'protection de l.objet') ($name+' : '+[string]$script:Ctrl[$name].ToolTip)
+        }
+    }
+    Assert-True $script:Ctrl.BtnCreateOu.IsEnabled 'La creation d OU ne depend pas des marques de l objet selectionne'
+    $why=Get-DomeniaControlCapabilityExplanation 'BtnUserSave'
+    Assert-True (([string]$why.Text -match 'protection de l.objet') -and (-not [bool]$why.Definitive) -and ([string]$why.Route -eq 'BtnObjectReadRetry')) ('Explication : '+[string]$why.Text)
+    # Readable markers of a protected object: the protection chosen by configuration, stated as definitive.
+    $script:SelectedObject.Safety=[pscustomobject]@{Guid=$guid;AdminCount='1';Critical=$false}
+    Apply-CurrentPermissionUi -StartupFastPath
+    Assert-True ([string]$script:Ctrl.BtnUserSave.ToolTip -match 'objet protege') ('Infobulle : '+[string]$script:Ctrl.BtnUserSave.ToolTip)
+    $why=Get-DomeniaControlCapabilityExplanation 'BtnUserSave'
+    Assert-True (([string]$why.Text -match 'objet protege') -and [bool]$why.Definitive) ('Explication : '+[string]$why.Text)
 }
 
 # K2: only disposable folders in the VM. Deny ACEs never touch the profile or installation.

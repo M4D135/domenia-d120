@@ -1172,6 +1172,43 @@ if ($infrastructure) {
             Assert-True ($script:LastWritePostcondition.Status -eq 'Verifie') ('Statut : '+[string]$script:LastWritePostcondition.Status)
         } finally { End-D093FunctionOverrides }
     }
+    Test-Case 'P-CD-09 interface : indicateur Partiel illisible = acceptation partielle, jamais un succes complet' {
+        Reset-WiringFixture
+        try {
+            if ($null -eq $script:RealCompleteWriteTaskUi) { throw 'Complete-DomeniaWriteTaskUi reel non importe.' }
+            if ($null -eq $script:RealGetWritePostcondition) { throw 'Get-DomeniaWritePostcondition reel non importe.' }
+            Set-D093Function 'Complete-DomeniaWriteTaskUi' $script:RealCompleteWriteTaskUi
+            Set-D093Function 'Get-DomeniaWritePostcondition' $script:RealGetWritePostcondition
+            Set-D093Function 'Get-DomeniaEffectiveWorkerResult' { param($Result,$RequiredProperties) return $Result }
+            Set-D093Function 'Invoke-DomeniaWritePostAction' { param($Result,$State) }
+            Set-D093Function 'Request-DomeniaDashboardRefresh' { param([switch]$Immediate) }
+            Set-D093Function 'Apply-CurrentPermissionUi' { }
+            Set-D093Function 'Set-Status' { param($Text,$Level) if ($null -eq $script:StatusLines) { $script:StatusLines=[Collections.Generic.List[string]]::new() }; $script:StatusLines.Add([string]$Text) }
+            Set-D093Function 'Show-InfoBox' { param($Message,$Details) if ($null -eq $script:InfoBoxes) { $script:InfoBoxes=[Collections.Generic.List[string]]::new() }; $script:InfoBoxes.Add([string]$Message) }
+            $script:StatusLines=[Collections.Generic.List[string]]::new()
+            $script:InfoBoxes=[Collections.Generic.List[string]]::new()
+            $state=[pscustomobject]@{Name='Deverrouillage';Correlation='c';OperationId='WriteUnlock';TargetDn='CN=Demo User,OU=Users,DC=example,DC=invalid'}
+            # Same verified result as the case above, but its Partial flag cannot be read.
+            $result=[pscustomobject]@{
+                Verified=$true
+                Backend='ADSI'
+                Message='Compte deverrouille'
+                Postcondition=[pscustomobject]@{
+                    SentUtc=(Get-Date).ToString('o')
+                    Expected=[pscustomobject]@{Server='dc01.example.invalid';Flags=[pscustomobject]@{Locked='False'}}
+                    Observed=[pscustomobject]@{ReadStatus='OK';Server='dc01.example.invalid';ReadUtc=(Get-Date).ToString('o');Flags=[pscustomobject]@{Locked='False'}}
+                }
+            }
+            $result | Add-Member -MemberType ScriptProperty -Name Partial -Value { throw 'indicateur illisible (simulation)' }
+            Complete-DomeniaWriteTaskUi -Result $result -State $state
+            Assert-True ($script:LastWritePostcondition.Status -eq 'Verifie') ('Statut : '+[string]$script:LastWritePostcondition.Status)
+            Assert-True (@($script:StatusLines | Where-Object { $_.Contains('(Partiel)') }).Count -ge 1) ('Statut partiel absent : '+($script:StatusLines -join ' | '))
+            Assert-True (@($script:StatusLines | Where-Object { $_.Contains('(Vérifié)') }).Count -eq 0) 'Succes complet annonce malgre un indicateur illisible.'
+            Assert-True ($script:InfoBoxes.Count -eq 1) ('Boites : '+$script:InfoBoxes.Count)
+            Assert-True ($script:InfoBoxes[0].Contains('accepté en partie')) ('Boite : '+$script:InfoBoxes[0])
+            Assert-True ($script:WriteState -eq 'Idle') ('WriteState : '+[string]$script:WriteState)
+        } finally { End-D093FunctionOverrides }
+    }
     Test-Case 'D093 interface : sans postcondition = A verifier avec verification a faire' {
         Reset-WiringFixture
         try {

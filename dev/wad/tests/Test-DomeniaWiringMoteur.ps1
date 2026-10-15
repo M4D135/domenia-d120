@@ -674,6 +674,29 @@ Test-Case 'P-CD-09 : configuration illisible dite au demarrage, valeurs par defa
     }
     finally { Remove-Item -LiteralPath $script:CfgPath -Force -ErrorAction SilentlyContinue }
 }
+Test-Case 'P-CD-09 : echec au milieu de la fusion, aucune valeur deja fusionnee ne reste en session' {
+    $script:RegPath = 'HKCU:\Software\DOMENIA-Wiring-' + [guid]::NewGuid().ToString('N')
+    $script:CfgPath = Join-Path ([IO.Path]::GetTempPath()) ('domenia-cfg-' + [guid]::NewGuid().ToString('N') + '.json')
+    try {
+        [IO.File]::WriteAllText($script:CfgPath,'{"Security":{"BlockProtectedObjects":false},"Auth":{"LoginTimeoutSeconds":5}}')
+        # A JSON text is either refused by ConvertFrom-Json, before any merge, or merged whole. The parser is replaced
+        # here (this case only) to fail in the middle of the merge: the first section is merged (the opposite of the
+        # default), then a value of the second section cannot be read after one of its values was merged.
+        $auth = [pscustomobject]@{LoginTimeoutSeconds=5}
+        $auth | Add-Member -MemberType ScriptProperty -Name LastLogin -Value { throw 'valeur illisible (simulation)' }
+        $parsed = [pscustomobject]@{Security=[pscustomobject]@{BlockProtectedObjects=$false};Auth=$auth}
+        function ConvertFrom-Json { $input | Out-Null; return $parsed }
+        $defaults = New-DefaultConfig
+        Assert-True ([bool]$defaults.Security.BlockProtectedObjects) 'Valeur par defaut de depart inattendue'
+        Assert-True ([int]$defaults.Auth.LoginTimeoutSeconds -ne 5) 'Valeur par defaut de depart inattendue'
+        $config = Load-AppConfig
+        $issues = @($script:ConfigLoadIssues | Where-Object { [string]$_.Source -eq 'Fichier' })
+        Assert-True (($issues.Count -eq 1) -and [bool]$issues[0].Warning) ('Echec de fusion non signale : ' + $issues.Count)
+        Assert-True ([bool]$config.Security.BlockProtectedObjects -eq [bool]$defaults.Security.BlockProtectedObjects) 'Une valeur de securite fusionnee avant l echec reste en session'
+        Assert-True ([int]$config.Auth.LoginTimeoutSeconds -eq [int]$defaults.Auth.LoginTimeoutSeconds) 'Une valeur fusionnee juste avant l echec reste en session'
+    }
+    finally { Remove-Item -LiteralPath $script:CfgPath -Force -ErrorAction SilentlyContinue }
+}
 Test-Case 'D002 : arbre reel (Load-TreeChildren) servi par DemoDirectory' {
     Enable-WiringDemo
     $tree = New-Object System.Windows.Controls.TreeView

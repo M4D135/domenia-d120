@@ -1215,6 +1215,125 @@ try {
         finally { $script:FicheEditChamps=$savedMap;$script:FicheEdit=$savedEdit }
     }
 
+    Test-Case 'P-CD-09 : postes associes illisibles, presence inconnue et aucune sonde lancee' {
+        . ([scriptblock]::Create([string](@($nodes|Where-Object{$_.Name -eq 'Update-DomeniaSelectedUserPresence'})[0].Extent.Text)))
+        $shown=New-Object 'System.Collections.Generic.List[object]';$logs=New-Object 'System.Collections.Generic.List[string]'
+        function Get-LinksForUser {param($UserLogin,$Guid,$CreatedUtc) throw 'index des associations illisible (simulation)'}
+        function Set-DomeniaPresenceText {param($Name,$State,$PresenceState='') $shown.Add([pscustomobject]@{Where='Fiche';State=[string]$State;Presence=[string]$PresenceState})}
+        function Update-DomeniaObjectPresence {param($State,$Target,$PresenceState='') $shown.Add([pscustomobject]@{Where='Resume';State=[string]$State;Presence=[string]$PresenceState})}
+        function Add-DomeniaUiLog {param($Area,$Text,$Level='INFO') $logs.Add(([string]$Level)+' '+[string]$Text)}
+        function Start-DomeniaCommittedPresence {param($Computer,$Guid,$DN,$DisplayDN,$DisplayKind,$Suffix) throw 'Sonde lancee sans poste associe connu'}
+        Update-DomeniaSelectedUserPresence -Login 'alice' -Guid '11111111-1111-1111-1111-111111111111'
+        Assert-True ($shown.Count -eq 2) ('Affichages : '+$shown.Count)
+        foreach($line in $shown){Assert-True (($line.Presence -eq 'Unknown') -and ($line.State -match 'illisibles')) ($line.Where+' : '+$line.State+' / '+$line.Presence)}
+        Assert-True (@($logs|Where-Object{$_ -like 'WARN alice*'}).Count -eq 1) ('Journal : '+($logs -join ' | '))
+        # Links read and none found: the usual "no associated workstation", never unknown.
+        $shown.Clear();$logs.Clear()
+        function Get-LinksForUser {param($UserLogin,$Guid,$CreatedUtc) return @()}
+        Update-DomeniaSelectedUserPresence -Login 'alice'
+        Assert-True (($shown.Count -eq 2) -and (@($shown|Where-Object{$_.Presence -eq 'Unknown'}).Count -eq 0) -and ($shown[0].State -eq 'Aucun poste associe')) ('Sans association : '+(@($shown|ForEach-Object{$_.State}) -join ' | '))
+    }
+
+    Test-Case 'P-CD-09 : resume d association sans nom a chercher, indisponible et jamais aucun lien' {
+        . ([scriptblock]::Create([string](@($nodes|Where-Object{$_.Name -eq 'Get-SelectedAssociationSummary'})[0].Extent.Text)))
+        $savedSelection=$script:SelectedObject;$savedControls=$script:Ctrl
+        $lookups=New-Object 'System.Collections.Generic.List[string]'
+        function Get-LinksForComputer {param($Computer,$Guid,$CreatedUtc) $lookups.Add('poste:'+[string]$Computer);return @()}
+        function Get-LinksForUser {param($UserLogin,$Guid,$CreatedUtc) $lookups.Add('compte:'+[string]$UserLogin);return @()}
+        try {
+            $script:Ctrl=@{TxtCompName=[pscustomobject]@{Text=''};TxtUserSam=[pscustomobject]@{Text=''}}
+            $script:SelectedObject=[pscustomobject]@{Type='Machine';Name='';Guid=''}
+            $summary=Get-SelectedAssociationSummary
+            Assert-True ($summary -eq 'Association indisponible') ('Poste sans nom : '+$summary)
+            $script:SelectedObject=[pscustomobject]@{Type='Utilisateur';Name='Alice';Guid=''}
+            $summary=Get-SelectedAssociationSummary
+            Assert-True ($summary -eq 'Association indisponible') ('Compte sans identifiant : '+$summary)
+            Assert-True ($lookups.Count -eq 0) ('Recherche lancee sans nom : '+($lookups -join ','))
+            # With a name, the lookup runs and an empty answer is "no link".
+            $script:Ctrl.TxtCompName.Text='PC-01';$script:SelectedObject=[pscustomobject]@{Type='Machine';Name='PC-01';Guid=''}
+            $summary=Get-SelectedAssociationSummary
+            Assert-True ($summary -eq 'Aucun utilisateur lie') ('Poste sans lien : '+$summary)
+            $script:Ctrl.TxtUserSam.Text='alice';$script:SelectedObject=[pscustomobject]@{Type='Utilisateur';Name='Alice';Guid=''}
+            $summary=Get-SelectedAssociationSummary
+            Assert-True ($summary -eq 'Aucun poste lie') ('Compte sans lien : '+$summary)
+            Assert-True (($lookups -join ',') -eq 'poste:PC-01,compte:alice') ('Recherches : '+($lookups -join ','))
+        }
+        finally { $script:SelectedObject=$savedSelection;$script:Ctrl=$savedControls }
+    }
+
+    Test-Case 'P-CD-09 : contexte d association en echec, champs dits illisibles et jamais vides' {
+        . ([scriptblock]::Create([string](@($nodes|Where-Object{$_.Name -eq 'Refresh-AssociationContext'})[0].Extent.Text)))
+        $savedSelection=$script:SelectedObject;$savedControls=$script:Ctrl
+        $logs=New-Object 'System.Collections.Generic.List[string]'
+        function Write-AppLog {param($Text,$Level='INFO') $logs.Add(([string]$Level)+' '+[string]$Text)}
+        function Get-CurrentSelectedComputerName {return 'PC-01'}
+        function Get-LinksForComputer {param($Computer,$Guid,$CreatedUtc) throw 'liens locaux illisibles (simulation)'}
+        function Get-LinksForUser {param($UserLogin,$Guid,$CreatedUtc) throw 'liens locaux illisibles (simulation)'}
+        function Refresh-LinkGrid {param([switch]$All)}
+        function Request-DomeniaDashboardRefresh {param([switch]$Immediate)}
+        try {
+            $script:Ctrl=@{}
+            foreach($name in @('TxtCompLinkedUser','TxtCompLinkSource','TxtCompLinkConfidence','TxtCompLinkWhen','LblUserLinkSummary','TxtUserSam')){$script:Ctrl[$name]=[pscustomobject]@{Text='ancienne valeur'}}
+            $script:Ctrl['TxtUserLinkedComputers']=[pscustomobject]@{ItemsSource=@('PC-ANCIEN');SelectedIndex=0}
+            $script:SelectedObject=[pscustomobject]@{Type='Machine';Name='PC-01';Guid='';DN='CN=PC-01,DC=example,DC=invalid'}
+            Refresh-AssociationContext -SkipResultRefresh
+            Assert-True ([string]$script:Ctrl.TxtCompLinkedUser.Text -match '^Inconnu') ('Utilisateur associe : '+$script:Ctrl.TxtCompLinkedUser.Text)
+            Assert-True ([string]$script:Ctrl.TxtCompLinkSource.Text -match 'non relus') ('Source : '+$script:Ctrl.TxtCompLinkSource.Text)
+            Assert-True ([string]$script:Ctrl.LblUserLinkSummary.Text -match 'illisibles') ('Resume : '+$script:Ctrl.LblUserLinkSummary.Text)
+            Assert-True (@($logs|Where-Object{$_ -like 'WARN Contexte association impossible*'}).Count -eq 1) ('Journal : '+($logs -join ' | '))
+            # A user whose links cannot be read: the summary says so and the previous workstations are gone.
+            $logs.Clear();$script:Ctrl.TxtUserSam.Text='alice'
+            $script:SelectedObject=[pscustomobject]@{Type='Utilisateur';Name='Alice';Guid='';DN='CN=Alice,DC=example,DC=invalid'}
+            Refresh-AssociationContext -SkipResultRefresh
+            Assert-True ([string]$script:Ctrl.LblUserLinkSummary.Text -match 'illisibles') ('Resume du compte : '+$script:Ctrl.LblUserLinkSummary.Text)
+            Assert-True ($null -eq $script:Ctrl.TxtUserLinkedComputers.ItemsSource) 'Anciens postes encore listes'
+            # Links read and shown, a later step fails: the fields keep what was read.
+            $logs.Clear()
+            function Get-LinksForComputer {param($Computer,$Guid,$CreatedUtc) return @([pscustomobject]@{UserLogin='alice';Computer='PC-01';Source='Saisie manuelle';Confidence=100;When='2026-10-01T08:00:00Z'})}
+            function Refresh-LinkGrid {param([switch]$All) throw 'grille indisponible (simulation)'}
+            $script:SelectedObject=[pscustomobject]@{Type='Machine';Name='PC-01';Guid='';DN='CN=PC-01,DC=example,DC=invalid'}
+            Refresh-AssociationContext -SkipResultRefresh
+            Assert-True (([string]$script:Ctrl.TxtCompLinkedUser.Text -eq 'alice') -and ([string]$script:Ctrl.TxtCompLinkSource.Text -eq 'Saisie manuelle')) ('Lien lu remplace : '+$script:Ctrl.TxtCompLinkedUser.Text)
+            Assert-True (@($logs|Where-Object{$_ -like 'WARN Contexte association impossible*'}).Count -eq 1) ('Journal : '+($logs -join ' | '))
+        }
+        finally { $script:SelectedObject=$savedSelection;$script:Ctrl=$savedControls }
+    }
+
+    Test-Case 'P-CD-09 : taches illisibles a la fermeture, l operateur decide et le refus est le defaut' {
+        $windowAst=@($nodes|Where-Object{$_.Name -eq 'Initialize-Window'})[0]
+        $closing=@($windowAst.Body.FindAll({param($n) ($n -is [Management.Automation.Language.InvokeMemberExpressionAst]) -and ([string]$n.Member.Extent.Text -eq 'Add_Closing')},$true))
+        Assert-True ($closing.Count -eq 1) ('Gestionnaire de fermeture : '+$closing.Count)
+        $blockText=[string]$closing[0].Arguments[0].Extent.Text
+        $handler=[scriptblock]::Create($blockText.Substring(1,$blockText.Length-2))
+        $savedJobs=$script:AsyncJobs;$savedWrite=$script:ActiveWriteTaskId;$savedStopped=$script:AsyncEngineFaultStopped
+        $asked=New-Object 'System.Collections.Generic.List[string]';$logs=New-Object 'System.Collections.Generic.List[string]'
+        $answer=$false
+        function Confirm-WarningAction {param([string]$Message,[string]$Title='') $asked.Add($Message);return $answer}
+        function Write-AppLog {param($Text,$Level='INFO') $logs.Add(([string]$Level)+' '+[string]$Text)}
+        function Show-WarningBox {param($Message) throw 'Avertissement d ecriture en cours sans ecriture connue'}
+        try {
+            $jobs=[pscustomobject]@{Name='Taches'}
+            $jobs | Add-Member -MemberType ScriptProperty -Name Values -Value { throw 'taches illisibles (simulation)' }
+            $script:AsyncJobs=$jobs;$script:ActiveWriteTaskId='';$script:AsyncEngineFaultStopped=$false
+            $refused=New-Object ComponentModel.CancelEventArgs
+            & $handler $null $refused
+            Assert-True $refused.Cancel 'Fermeture acceptee sans l accord de l operateur'
+            Assert-True (($asked.Count -eq 1) -and ($asked[0] -match 'AD en cours de confirmation')) ('Question : '+($asked -join ' | '))
+            Assert-True ($logs.Count -eq 0) ('Journal : '+($logs -join ' | '))
+            $answer=$true
+            $accepted=New-Object ComponentModel.CancelEventArgs
+            & $handler $null $accepted
+            Assert-True (-not $accepted.Cancel) 'Fermeture refusee malgre le choix de l operateur'
+            Assert-True (@($logs|Where-Object{$_ -like 'WARN Fermeture confirm*'}).Count -eq 1) ('Journal : '+($logs -join ' | '))
+            # A readable task list without any write: the window closes without a question.
+            $asked.Clear();$logs.Clear();$script:AsyncJobs=@{}
+            $free=New-Object ComponentModel.CancelEventArgs
+            & $handler $null $free
+            Assert-True ((-not $free.Cancel) -and ($asked.Count -eq 0)) 'Question posee alors que les taches sont lisibles'
+        }
+        finally { $script:AsyncJobs=$savedJobs;$script:ActiveWriteTaskId=$savedWrite;$script:AsyncEngineFaultStopped=$savedStopped }
+    }
+
     # ------------------------------------------------------------ Integrite : deblocage et fins de ligne
     Test-Case 'Integrite : le deblocage tolere les fins de ligne et refuse un contenu modifie' {
         # Le garde lit des octets, pas des scripts. Un clone Windows (core.autocrlf) rend le meme
