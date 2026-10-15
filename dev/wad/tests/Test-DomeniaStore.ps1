@@ -384,7 +384,7 @@ try{
   $db=[IntPtr]::Zero;$ptr=New-DomeniaUtf8Ptr $path;try{[void][Domenia.WinSqliteNative]::sqlite3_open_v2($ptr,[ref]$db,1,[IntPtr]::Zero)}finally{[Runtime.InteropServices.Marshal]::FreeHGlobal($ptr)}
   try{
    $functions=[Management.Automation.Language.Parser]::ParseInput($reader,[ref]$t,[ref]$e)
-   foreach($fn in @($functions.FindAll({param($n)($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -in @('New-IdxWUtf8','ConvertFrom-IdxWUtf8','Get-IdxWLiteral','Set-IdxWBindings','Invoke-IdxWQuery','Get-IdxWGuidSlots','Get-IdxWStatsSnapshot'))},$true))){. ([scriptblock]::Create($fn.Extent.Text))}
+   foreach($fn in @($functions.FindAll({param($n)($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -in @('Get-IdxWLiteral','Invoke-IdxWQuery','Get-IdxWGuidSlots','Get-IdxWStatsSnapshot'))},$true))){. ([scriptblock]::Create($fn.Extent.Text))}
    $IdxWStats=[pscustomobject]@{Prepared=0;Reused=0;Executed=0;Rows=0L;SqlMs=[double]0};$IdxWStatements=@{};$IdxWColumns=@{}
    foreach($slice in @(@($ids[0..31]),@($ids[32..39]))){$slots=Get-IdxWGuidSlots $slice;[void](Invoke-IdxWQuery $db ('SELECT object_guid FROM ad_objects WHERE object_guid IN ('+$slots.Sql+');') -Parameters $slots.Parameters -Cached:([bool]$slots.Cached))}
    Expect (($IdxWStats.Prepared -eq 1) -and ($IdxWStats.Reused -eq 1) -and ($IdxWStats.Rows -eq 40)) 'one statement for both slices, NULL padding matches nothing'
@@ -508,6 +508,67 @@ try{
    if($category -eq 'Observations'){Expect (((& $count "family IN ('Presence','Inventory')") -eq 0) -and ((& $count "family='Directory'") -eq 1)) 'measure purge must remove the ping and WMI clocks and keep the AD clock'}
    else{Expect ((& $count '1=1') -eq 0) 'index purge must remove the AD clock'}
   }
+ }
+ # P-CD-08: one SQLite layer (Get-DomeniaSqliteWorkerCommon) composed by every worker of the local base, never copied.
+ Case 'P-CD-08: every worker of the local base composes the one SQLite layer exactly once, without a copy' {
+  foreach($module in @('Live.Model','AdAudit.Worker','Migration.Worker')){. (Join-Path $wad ('modules/Domenia-'+$module+'.ps1'))}
+  $layer=Get-DomeniaSqliteWorkerCommon;$tokens=$null;$errors=$null
+  $layerAst=[Management.Automation.Language.Parser]::ParseInput($layer,[ref]$tokens,[ref]$errors)
+  Expect (@($errors).Count -eq 0) 'shared layer parses'
+  $names=@($layerAst.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst]},$false)|ForEach-Object{$_.Name})
+  foreach($name in @('Open-DomeniaDatabase','Close-DomeniaDatabase','Invoke-DomeniaDbExec','Invoke-DomeniaDbQuery','Invoke-DomeniaSqliteRead','Set-DomeniaSqliteBindings','New-StoreWStatement','Test-DomeniaSqliteSchemaRows')){Expect ($names -ccontains $name) ('shared layer without '+$name)}
+  $generators=[ordered]@{LocalStore='Get-DomeniaStorageWorkerCode';StorageUsage='Get-DomeniaStorageUsageWorkerCode';StoragePurge='Get-DomeniaStoragePurgeWorkerCode';StorageBackup='Get-DomeniaStorageBackupWorkerCode';StorageMaintenance='Get-DomeniaStorageMaintenanceWorkerCode';StorageRetention='Get-DomeniaStorageRetentionWorkerCode';StorageIntegrity='Get-DomeniaStorageIntegrityWorkerCode';LiveCache='Get-DomeniaLiveCacheCode';LegacyMigration='Get-DomeniaMigrationWorkerCode';LocalIndexRead='Get-DomeniaLocalIndexReadWorkerCode';RelationHistoryRead='Get-DomeniaRelationHistoryReadWorkerCode'}
+  foreach($operation in @($generators.Keys)){
+   $code=& $generators[$operation]
+   $first=$code.IndexOf($layer,[StringComparison]::Ordinal)
+   Expect (($first -ge 0) -and ($first -eq $code.LastIndexOf($layer,[StringComparison]::Ordinal))) ('shared layer not composed exactly once: '+$operation)
+   $ast=[Management.Automation.Language.Parser]::ParseInput($code,[ref]$tokens,[ref]$errors)
+   Expect (@($errors).Count -eq 0) ('worker does not parse: '+$operation)
+   foreach($name in $names){
+    $count=@($ast.FindAll({param($n)($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq $name)},$true)).Count
+    Expect ($count -eq 1) ($operation+' defines '+$name+' '+$count+' time(s)')
+   }
+  }
+ }
+ Case 'P-CD-08: the shared open creates a base only when allowed; the shared read keeps parameters, cache and BUSY marker' {
+  $missing=Join-Path $folder ('absent-'+[guid]::NewGuid().ToString('N')+'.db');$refused=$false
+  try{$db=Open-DomeniaDatabase -Path $missing -NoCreate;Close-DomeniaDatabase $db}catch{$refused=$true}
+  Expect ($refused -and (-not [IO.File]::Exists($missing))) 'an open with -NoCreate created a base'
+  $db=Open-DomeniaDatabase -Path $missing
+  try{Expect ([IO.File]::Exists($missing)) 'the default open (writer) did not create the base'}finally{Close-DomeniaDatabase $db}
+  $db=Open-DomeniaDatabase -Path $missing -ReadOnly -BusyTimeoutMs 50
+  try{
+   $echo=@(Invoke-DomeniaSqliteRead -Db $db -Sql 'SELECT ?1 AS t,typeof(?2) AS n;' -Parameters @('Été ʼx''y',$null) -CheckParameters)
+   Expect (($echo.Count -eq 1) -and ([string]$echo[0].t -ceq 'Été ʼx''y') -and ([string]$echo[0].n -ceq 'null')) 'bound text and NULL'
+   $wrong=$false;try{[void](Invoke-DomeniaSqliteRead -Db $db -Sql 'SELECT ?1 AS v;' -CheckParameters)}catch{$wrong=($_.Exception.Message -like 'Parametres SQL incoherents*')}
+   Expect $wrong 'a missing parameter must be refused when the caller checks them'
+   # Without -CheckParameters an unbound parameter reads as NULL, as Invoke-DomeniaDbQuery always did.
+   Expect ($null -eq @(Invoke-DomeniaSqliteRead -Db $db -Sql 'SELECT ?1 AS v;')[0].v) 'unbound parameter must read NULL'
+   $stats=[pscustomobject]@{Prepared=0;Reused=0;Executed=0;Rows=0L;SqlMs=[double]0};$cache=@{}
+   foreach($value in @(1,2)){[void](Invoke-DomeniaSqliteRead -Db $db -Sql 'SELECT ?1 AS v;' -Parameters @($value) -Cache $cache -Stats $stats -CheckParameters)}
+   Expect (($stats.Prepared -eq 1) -and ($stats.Reused -eq 1) -and ($stats.Executed -eq 2) -and ($stats.Rows -eq 2) -and ($cache.Count -eq 1)) 'one cached statement for both reads'
+  }finally{foreach($handle in @($cache.Values)){[void][Domenia.WinSqliteNative]::sqlite3_finalize([IntPtr]$handle)};Close-DomeniaDatabase $db}
+  $writerDb=Open-DomeniaDatabase -Path $missing;$readerDb=[IntPtr]::Zero
+  try{
+   [void](Invoke-DomeniaDbExec 'PRAGMA journal_mode=DELETE;CREATE TABLE IF NOT EXISTS t(v INTEGER);BEGIN EXCLUSIVE;INSERT INTO t(v) VALUES(1);' $writerDb)
+   $readerDb=Open-DomeniaDatabase -Path $missing -ReadOnly -BusyTimeoutMs 50
+   $marker='';try{[void](Invoke-DomeniaSqliteRead -Db $readerDb -Sql 'SELECT count(*) AS n FROM t;' -ReportBusy)}catch{$marker=$_.Exception.Message}
+   Expect ($marker -ceq 'SQLITE_BUSY') ('locked base read without the BUSY marker: '+$marker)
+   $plain='';try{[void](Invoke-DomeniaDbQuery 'SELECT count(*) AS n FROM t;' $readerDb)}catch{$plain=$_.Exception.Message}
+   Expect ($plain -match '^SQLite (?:prepare |step )?code 5 ') ('locked base read without the SQLite code: '+$plain)
+  }finally{if($readerDb -ne [IntPtr]::Zero){Close-DomeniaDatabase $readerDb};try{[void](Invoke-DomeniaDbExec 'ROLLBACK;' $writerDb)}finally{Close-DomeniaDatabase $writerDb}}
+ }
+ Case 'P-CD-08: the schema of this version (11/1) comes from one constant of the shared layer' {
+  $target=Get-DomeniaSqliteSchemaTarget
+  Expect (($target.SchemaVersion -ceq '11') -and ($target.DomeniaSchema -ceq '1') -and ($target.Label -ceq '11/1')) 'schema target'
+  $row={param([string]$Key,[string]$Value) [pscustomobject]@{key=$Key;value=$Value}}
+  Expect (Test-DomeniaSqliteSchemaRows @((& $row 'schema_version' '11'),(& $row 'domenia_schema' '1'))) 'current schema refused'
+  Expect (-not (Test-DomeniaSqliteSchemaRows @((& $row 'schema_version' '12'),(& $row 'domenia_schema' '1')))) 'newer schema accepted'
+  Expect (-not (Test-DomeniaSqliteSchemaRows @((& $row 'schema_version' '11'),(& $row 'domenia_schema' '2')))) 'newer revision accepted'
+  Expect (-not (Test-DomeniaSqliteSchemaRows @((& $row 'schema_version' '11')))) 'missing revision accepted'
+  Expect (-not (Test-DomeniaSqliteSchemaRows @((& $row 'schema_version' '11'),(& $row 'schema_version' '11'),(& $row 'domenia_schema' '1')))) 'duplicate version accepted'
+  Expect (-not (Test-DomeniaSqliteSchemaRows @())) 'empty schema accepted'
+  Expect (Test-DomeniaSqliteSchemaRows @(Read-TestDb "SELECT key,value FROM schema_info WHERE key IN ('schema_version','domenia_schema');")) 'the schema script of the core is not this version'
  }
  if($Scale){Case ($ScaleObjects.ToString()+' objects committed in bounded batches and paginated exactly') {
   $watch=[Diagnostics.Stopwatch]::StartNew();$writeWatch=[Diagnostics.Stopwatch]::StartNew();$batchTimes=[Collections.Generic.List[long]]::new()

@@ -1490,6 +1490,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Assert-StoreWDatabaseWritable'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-StorageLease.Model.ps1'); File='Domenia-Storage.Worker.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaSqliteWorkerCommon',
             'Get-DomeniaStorageWorkerCode',
             'Get-DomeniaStorageUsageWorkerCode',
             'Get-DomeniaStoragePurgeWorkerCode',
@@ -1695,7 +1696,7 @@ function Get-DomeniaRuntimeModulePlan {
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Demo.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaDemoDirectoryWorkerCode'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Engine.Worker.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Storage.Worker.ps1'); File='Domenia-Engine.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaLocalIndexReadWorkerCode',
             'Get-DomeniaParkSharedSyncWorkerCode'
         ) }
@@ -1984,7 +1985,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Find-DomeniaIdentityConflicts',
             'ConvertTo-DomeniaRelationHistoryRows'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-AdAudit.Worker.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Storage.Worker.ps1'); File='Domenia-AdAudit.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaPasswordPolicyReadWorkerCode',
             'Get-DomeniaDelegationReadWorkerCode',
             'Get-DomeniaGpoLinksReadWorkerCode',
@@ -2231,7 +2232,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Complete-DomeniaLegacyImportWork',
             'Fail-DomeniaLegacyImportWork'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Migration.Worker.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Storage.Worker.ps1'); File='Domenia-Migration.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaMigrationWorkerCode'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Cache.Model.ps1'); File='Domenia-Park.Model.ps1'; DotSource=$true; Functions=@(

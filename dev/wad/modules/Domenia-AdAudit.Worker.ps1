@@ -574,7 +574,9 @@ try{
 }
 
 function Get-DomeniaRelationHistoryReadWorkerCode {
-    return @'
+    # The SQLite layer is the shared one of the workers (P-CD-08, Get-DomeniaSqliteWorkerCommon of
+    # Domenia-Storage.Worker.ps1): read-only open with the short wait of the payload, SQLITE_BUSY reported as Busy.
+    return (Get-DomeniaSqliteWorkerCommon)+[Environment]::NewLine+@'
 # Point 107: stored history of the user / workstation relations (table user_machine_history) of ONE user login or
 # ONE workstation, read only from the local base with a short busy timeout, most recent first, Limit rows at most.
 $kind=[string]$Payload.Kind
@@ -586,69 +588,18 @@ $path=[IO.Path]::GetFullPath([string]$Payload.Path)
 if($path.StartsWith('\\')){throw 'Base locale réseau non prise en charge.'}
 if(-not [IO.File]::Exists($path)){return [pscustomobject]@{Rows=@();Total=0;Busy=$false;Missing=$true;Kind=$kind;Key=$key;Limit=$limit}}
 $busyMs=[Math]::Max(10,[Math]::Min(1000,[int]$Payload.BusyTimeoutMs))
-function New-HistUtf8 {
-    param([AllowEmptyString()][string]$Text)
-    $bytes=[Text.Encoding]::UTF8.GetBytes(([string]$Text)+[char]0)
-    $ptr=[Runtime.InteropServices.Marshal]::AllocHGlobal($bytes.Length)
-    [Runtime.InteropServices.Marshal]::Copy($bytes,0,$ptr,$bytes.Length)
-    return $ptr
-}
-function ConvertFrom-HistUtf8 {
-    param([IntPtr]$Pointer,[int]$Length=-1)
-    if($Pointer -eq [IntPtr]::Zero){return ''}
-    if($Length -lt 0){$Length=0;while([Runtime.InteropServices.Marshal]::ReadByte($Pointer,$Length) -ne 0){$Length++}}
-    if($Length -le 0){return ''}
-    $bytes=New-Object byte[] $Length
-    [Runtime.InteropServices.Marshal]::Copy($Pointer,$bytes,0,$Length)
-    return [Text.Encoding]::UTF8.GetString($bytes)
-}
-function Invoke-HistQuery {
-    param([IntPtr]$Db,[string]$Sql)
-    $sqlPtr=[IntPtr]::Zero;$stmt=[IntPtr]::Zero
-    $rows=[Collections.Generic.List[object]]::new()
-    try{
-        $sqlPtr=New-HistUtf8 $Sql
-        $rc=[Domenia.WinSqliteNative]::sqlite3_prepare_v2($Db,$sqlPtr,-1,[ref]$stmt,[IntPtr]::Zero)
-        if(($rc -eq 5) -or ($rc -eq 6)){throw 'SQLITE_BUSY'}
-        if($rc -ne 0){throw ('SQLite prepare code '+$rc+' : '+(ConvertFrom-HistUtf8 ([Domenia.WinSqliteNative]::sqlite3_errmsg($Db))))}
-        $count=[Domenia.WinSqliteNative]::sqlite3_column_count($stmt)
-        $names=New-Object 'string[]' ([Math]::Max(0,$count))
-        for($i=0;$i -lt $count;$i++){$names[$i]=ConvertFrom-HistUtf8 ([Domenia.WinSqliteNative]::sqlite3_column_name($stmt,$i))}
-        while(($step=[Domenia.WinSqliteNative]::sqlite3_step($stmt)) -eq 100){
-            $o=[ordered]@{}
-            for($i=0;$i -lt $count;$i++){
-                $type=[Domenia.WinSqliteNative]::sqlite3_column_type($stmt,$i);$value=$null
-                if($type -eq 1){$value=[long][Domenia.WinSqliteNative]::sqlite3_column_int64($stmt,$i)}
-                elseif($type -eq 2){$value=[double][Domenia.WinSqliteNative]::sqlite3_column_double($stmt,$i)}
-                elseif($type -ne 5){$p=[Domenia.WinSqliteNative]::sqlite3_column_text($stmt,$i);$n=[Domenia.WinSqliteNative]::sqlite3_column_bytes($stmt,$i);$value=ConvertFrom-HistUtf8 $p $n}
-                $o[$names[$i]]=$value
-            }
-            $rows.Add([pscustomobject]$o)
-        }
-        if(($step -eq 5) -or ($step -eq 6)){throw 'SQLITE_BUSY'}
-        if($step -ne 101){throw ('SQLite step code '+$step+' : '+(ConvertFrom-HistUtf8 ([Domenia.WinSqliteNative]::sqlite3_errmsg($Db))))}
-        return $rows.ToArray()
-    }finally{
-        if($stmt -ne [IntPtr]::Zero){try{[void][Domenia.WinSqliteNative]::sqlite3_finalize($stmt)}catch{}}
-        if($sqlPtr -ne [IntPtr]::Zero){[Runtime.InteropServices.Marshal]::FreeHGlobal($sqlPtr)}
-    }
-}
-$literal="'"+($key -replace "'","''")+"'"
+$literal=ConvertTo-DomeniaSqlLiteral $key
 $where=if($kind -eq 'User'){'user_login='+$literal+' COLLATE NOCASE'}else{'computer_key='+$literal+' COLLATE NOCASE'}
 $db=[IntPtr]::Zero
 try{
-    $pathPtr=New-HistUtf8 $path
-    try{$rc=[Domenia.WinSqliteNative]::sqlite3_open_v2($pathPtr,[ref]$db,(1 -bor 65536),[IntPtr]::Zero)}
-    finally{[Runtime.InteropServices.Marshal]::FreeHGlobal($pathPtr)}
-    if(($rc -ne 0) -or ($db -eq [IntPtr]::Zero)){throw ('Ouverture SQLite en lecture impossible (code '+$rc+').')}
-    [void][Domenia.WinSqliteNative]::sqlite3_busy_timeout($db,$busyMs)
-    if(@(Invoke-HistQuery $db "SELECT name FROM sqlite_master WHERE type='table' AND name='user_machine_history';").Count -eq 0){
+    $db=Open-DomeniaDatabase -Path $path -ReadOnly -BusyTimeoutMs $busyMs
+    if(@(Invoke-DomeniaSqliteRead -ReportBusy $db "SELECT name FROM sqlite_master WHERE type='table' AND name='user_machine_history';").Count -eq 0){
         return [pscustomobject]@{Rows=@();Total=0;Busy=$false;Missing=$true;Kind=$kind;Key=$key;Limit=$limit}
     }
-    [void](Invoke-HistQuery $db 'BEGIN;')
-    $total=[long](@(Invoke-HistQuery $db ('SELECT count(*) AS n FROM user_machine_history WHERE '+$where+';'))[0].n)
-    $rows=@(Invoke-HistQuery $db ('SELECT user_login,computer_key,computer,source,verified_in_ad,observed_at,details,user_guid,computer_guid FROM user_machine_history WHERE '+$where+' ORDER BY observed_at DESC,id DESC LIMIT '+$limit+';'))
-    [void](Invoke-HistQuery $db 'COMMIT;')
+    [void](Invoke-DomeniaSqliteRead -ReportBusy $db 'BEGIN;')
+    $total=[long](@(Invoke-DomeniaSqliteRead -ReportBusy $db ('SELECT count(*) AS n FROM user_machine_history WHERE '+$where+';'))[0].n)
+    $rows=@(Invoke-DomeniaSqliteRead -ReportBusy $db ('SELECT user_login,computer_key,computer,source,verified_in_ad,observed_at,details,user_guid,computer_guid FROM user_machine_history WHERE '+$where+' ORDER BY observed_at DESC,id DESC LIMIT '+$limit+';'))
+    [void](Invoke-DomeniaSqliteRead -ReportBusy $db 'COMMIT;')
     [pscustomobject]@{Rows=$rows;Total=$total;Busy=$false;Missing=$false;Kind=$kind;Key=$key;Limit=$limit}
 }catch{
     if([string]$_.Exception.Message -eq 'SQLITE_BUSY'){[pscustomobject]@{Rows=@();Total=0;Busy=$true;Missing=$false;Kind=$kind;Key=$key;Limit=$limit}}

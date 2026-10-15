@@ -599,146 +599,13 @@ $answer.AttemptedAtUtc=[datetime]::UtcNow.ToString('o')
 
 function Get-DomeniaLiveCacheCode {
     $body = @'
-function Initialize-DomeniaWinSqliteNative { return [Domenia.WinSqliteNative] }
-function New-DomeniaUtf8Ptr {
-    param([AllowEmptyString()][string]$Text)
-    $bytes = [System.Text.Encoding]::UTF8.GetBytes(([string]$Text) + [char]0)
-    $ptr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($bytes.Length)
-    [System.Runtime.InteropServices.Marshal]::Copy($bytes,0,$ptr,$bytes.Length)
-    return $ptr
-}
-function ConvertFrom-DomeniaUtf8Ptr {
-    param([IntPtr]$Pointer,[int]$Length = -1)
-    if ($Pointer -eq [IntPtr]::Zero) { return "" }
-    if ($Length -lt 0) {
-        $Length = 0
-        while ([System.Runtime.InteropServices.Marshal]::ReadByte($Pointer,$Length) -ne 0) { $Length++ }
-    }
-    if ($Length -le 0) { return "" }
-    $bytes = New-Object byte[] $Length
-    [System.Runtime.InteropServices.Marshal]::Copy($Pointer,$bytes,0,$Length)
-    return [System.Text.Encoding]::UTF8.GetString($bytes)
-}
-function Close-DomeniaDatabase {
-    param([IntPtr]$DatabaseHandle)
-    if($DatabaseHandle -eq [IntPtr]::Zero){return}
-    Initialize-DomeniaWinSqliteNative | Out-Null
-    $rc=[Domenia.WinSqliteNative]::sqlite3_close($DatabaseHandle)
-    if($rc -ne 0){throw ('Fermeture SQLite non confirmee (code '+$rc+'). Verrou local conserve.')}
-    if($null -ne $script:DomeniaDatabaseLeases -and $script:DomeniaDatabaseLeases.ContainsKey($DatabaseHandle.ToInt64())){
-        $lease=$script:DomeniaDatabaseLeases[$DatabaseHandle.ToInt64()];$script:DomeniaDatabaseLeases.Remove($DatabaseHandle.ToInt64())
-        Exit-StoreWDatabaseLease $lease
-    }
-}
-
-function ConvertTo-DomeniaSqlLiteral {
-    param($Value)
-    if ($null -eq $Value) { return "NULL" }
-    if ($Value -is [bool]) { return $(if ($Value) { "1" } else { "0" }) }
-    if ($Value -is [byte] -or $Value -is [int16] -or $Value -is [int32] -or $Value -is [int64] -or $Value -is [double] -or $Value -is [decimal]) { return ([Convert]::ToString($Value,[Globalization.CultureInfo]::InvariantCulture)) }
-    return "'" + (([string]$Value) -replace "'","''") + "'"
-}
-function Open-DomeniaDatabase {
-    param([string]$Path = '',[switch]$ReadOnly)
-    $native = Initialize-DomeniaWinSqliteNative
-    $db = [IntPtr]::Zero
-    $pathPtr = [IntPtr]::Zero
-    $lease=$null
-    try {
-        if ([string]::IsNullOrWhiteSpace($Path)) { $Path = Get-DomeniaDatabasePath }
-        if(-not $ReadOnly){$lease=Enter-StoreWDatabaseLease -Path $Path -TimeoutMs 1000}
-        $pathPtr = New-DomeniaUtf8Ptr $Path
-        $flags = if ($ReadOnly) { 1 -bor 65536 } else { 2 -bor 4 -bor 65536 }
-        $rc = [Domenia.WinSqliteNative]::sqlite3_open_v2($pathPtr,[ref]$db,$flags,[IntPtr]::Zero)
-        if ($rc -ne 0 -or $db -eq [IntPtr]::Zero) { throw "Ouverture SQLite impossible (code $rc)." }
-        # FI-12: lock wait from the worker context (LocalStore.DatabaseBusyTimeoutMs), 2 500 ms without one.
-        $busyMs=2500;$workerContext=Get-Variable -Name Context -ValueOnly -ErrorAction SilentlyContinue
-        if(($null -ne $workerContext) -and ($null -ne $workerContext.PSObject.Properties['BusyTimeoutMs'])){$busyMs=[Math]::Max(100,[Math]::Min(5000,[int]$workerContext.BusyTimeoutMs))}
-        [void][Domenia.WinSqliteNative]::sqlite3_busy_timeout($db,$busyMs)
-        if(-not $ReadOnly){
-            Assert-StoreWDatabaseWritable -Db $db
-            if($null -eq $script:DomeniaDatabaseLeases){$script:DomeniaDatabaseLeases=@{}}
-            $script:DomeniaDatabaseLeases[$db.ToInt64()]=$lease;$lease=$null
-        }
-        return $db
-    }
-    catch {
-        # sqlite3_open_v2 can return a non-null handle even on failure.
-        if ($db -ne [IntPtr]::Zero) { [void][Domenia.WinSqliteNative]::sqlite3_close($db) }
-        throw
-    }
-    finally { if($null -ne $lease){Exit-StoreWDatabaseLease $lease}; if ($pathPtr -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::FreeHGlobal($pathPtr) } }
-}
-function Invoke-DomeniaDbExec {
-    param([Parameter(Mandatory=$true)][AllowEmptyString()][string]$Sql,[IntPtr]$DatabaseHandle = [IntPtr]::Zero)
-    $own = ($DatabaseHandle -eq [IntPtr]::Zero)
-    $sqlPtr = [IntPtr]::Zero
-    $errPtr = [IntPtr]::Zero
-    try {
-        if ($own) { $DatabaseHandle = Open-DomeniaDatabase }
-        $native = Initialize-DomeniaWinSqliteNative
-        $sqlPtr = New-DomeniaUtf8Ptr $Sql
-        $rc = [Domenia.WinSqliteNative]::sqlite3_exec($DatabaseHandle,$sqlPtr,[IntPtr]::Zero,[IntPtr]::Zero,[ref]$errPtr)
-        if ($rc -ne 0) {
-            $msg = if ($errPtr -ne [IntPtr]::Zero) { ConvertFrom-DomeniaUtf8Ptr $errPtr } else { ConvertFrom-DomeniaUtf8Ptr ([Domenia.WinSqliteNative]::sqlite3_errmsg($DatabaseHandle)) }
-            throw "SQLite code $rc : $msg"
-        }
-        return $true
-    }
-    finally {
-        if ($errPtr -ne [IntPtr]::Zero) { try { Initialize-DomeniaWinSqliteNative | Out-Null; [Domenia.WinSqliteNative]::sqlite3_free($errPtr) } catch { } }
-        if ($sqlPtr -ne [IntPtr]::Zero) { [System.Runtime.InteropServices.Marshal]::FreeHGlobal($sqlPtr) }
-        if ($own) { Close-DomeniaDatabase $DatabaseHandle }
-    }
-}
-function Invoke-DomeniaDbQuery {
-    param([Parameter(Mandatory=$true)][AllowEmptyString()][string]$Sql,[IntPtr]$DatabaseHandle = [IntPtr]::Zero)
-    $own = ($DatabaseHandle -eq [IntPtr]::Zero)
-    $sqlPtr = [IntPtr]::Zero
-    $stmt = [IntPtr]::Zero
-    $rows = New-Object System.Collections.Generic.List[object]
-    try {
-        if ($own) { $DatabaseHandle = Open-DomeniaDatabase }
-        $native = Initialize-DomeniaWinSqliteNative
-        $sqlPtr = New-DomeniaUtf8Ptr $Sql
-        $rc = [Domenia.WinSqliteNative]::sqlite3_prepare_v2($DatabaseHandle,$sqlPtr,-1,[ref]$stmt,[IntPtr]::Zero)
-        if ($rc -ne 0) { throw "SQLite prepare code $rc : $(ConvertFrom-DomeniaUtf8Ptr ([Domenia.WinSqliteNative]::sqlite3_errmsg($DatabaseHandle)))" }
-        $count = [Domenia.WinSqliteNative]::sqlite3_column_count($stmt)
-        while (($step = [Domenia.WinSqliteNative]::sqlite3_step($stmt)) -eq 100) {
-            $o = [ordered]@{}
-            for ($i=0;$i -lt $count;$i++) {
-                $name = ConvertFrom-DomeniaUtf8Ptr ([Domenia.WinSqliteNative]::sqlite3_column_name($stmt,$i))
-                $type = [Domenia.WinSqliteNative]::sqlite3_column_type($stmt,$i)
-                $value = $null
-                switch ($type) {
-                    1 { $value = [long][Domenia.WinSqliteNative]::sqlite3_column_int64($stmt,$i) }
-                    2 { $value = [double][Domenia.WinSqliteNative]::sqlite3_column_double($stmt,$i) }
-                    3 { $p=[Domenia.WinSqliteNative]::sqlite3_column_text($stmt,$i); $n=[Domenia.WinSqliteNative]::sqlite3_column_bytes($stmt,$i); $value=ConvertFrom-DomeniaUtf8Ptr $p $n }
-                    5 { $value = $null }
-                    default { $p=[Domenia.WinSqliteNative]::sqlite3_column_text($stmt,$i); $n=[Domenia.WinSqliteNative]::sqlite3_column_bytes($stmt,$i); $value=ConvertFrom-DomeniaUtf8Ptr $p $n }
-                }
-                $o[$name] = $value
-            }
-            $rows.Add([pscustomobject]$o)
-        }
-        if ($step -ne 101) { throw "SQLite step code $step : $(ConvertFrom-DomeniaUtf8Ptr ([Domenia.WinSqliteNative]::sqlite3_errmsg($DatabaseHandle)))" }
-        return $rows.ToArray()
-    }
-    finally {
-        if ($stmt -ne [IntPtr]::Zero) { try { Initialize-DomeniaWinSqliteNative | Out-Null; [void][Domenia.WinSqliteNative]::sqlite3_finalize($stmt) } catch { } }
-        if ($sqlPtr -ne [IntPtr]::Zero) { [System.Runtime.InteropServices.Marshal]::FreeHGlobal($sqlPtr) }
-        if ($own) { Close-DomeniaDatabase $DatabaseHandle }
-    }
-}
-
 function Assert-DomeniaLiveCacheSchema {
-    # D115: the worker never writes (nor reads) a base whose schema_info is not exactly this version (11/1).
+    # D115: the worker never writes (nor reads) a base whose schema_info is not exactly this version (shared layer).
     param([IntPtr]$Db)
     if (@(Invoke-DomeniaDbQuery "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_info';" $Db).Count -eq 0) { return }
-    $versionRows = @(Invoke-DomeniaDbQuery "SELECT value FROM schema_info WHERE key='schema_version';" $Db)
-    $revisionRows = @(Invoke-DomeniaDbQuery "SELECT value FROM schema_info WHERE key='domenia_schema';" $Db)
-    if (($versionRows.Count -ne 1) -or ($revisionRows.Count -ne 1) -or ([string]$versionRows[0].value -cne '11') -or ([string]$revisionRows[0].value -cne '1')) {
-        throw 'Cache refuse : schema de base different de cette version (11/1), aucune ecriture.'
+    $schema = @(Invoke-DomeniaDbQuery "SELECT key,value FROM schema_info WHERE key IN ('schema_version','domenia_schema');" $Db)
+    if (-not (Test-DomeniaSqliteSchemaRows $schema)) {
+        throw ('Cache refuse : schema de base different de cette version (' + (Get-DomeniaSqliteSchemaTarget).Label + '), aucune ecriture.')
     }
 }
 $path=[string]$Payload.Path
@@ -822,5 +689,6 @@ BEGIN IMMEDIATE;
 }
 
 '@
-    return (Get-DomeniaStorageLeaseWorkerCode)+[Environment]::NewLine+$body
+    # Lease code and shared SQLite layer of the workers (P-CD-08), then the cache body.
+    return (Get-DomeniaStorageLeaseWorkerCode)+[Environment]::NewLine+(Get-DomeniaSqliteWorkerCommon)+[Environment]::NewLine+$body
 }

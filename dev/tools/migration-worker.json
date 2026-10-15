@@ -1,28 +1,6 @@
 {
   "Sources": [
     {
-      "File": "modules/Domenia-StorageLease.Model.ps1",
-      "Functions": [
-        "Get-StoreWLeaseName",
-        "Enter-StoreWDatabaseLease",
-        "Exit-StoreWDatabaseLease",
-        "Read-StoreWLeaseScalar",
-        "Assert-StoreWDatabaseWritable"
-      ]
-    },
-    {
-      "File": "modules/Domenia-Storage.Worker.ps1",
-      "Functions": [
-        "Initialize-DomeniaWinSqliteNative",
-        "New-DomeniaUtf8Ptr",
-        "ConvertFrom-DomeniaUtf8Ptr",
-        "Close-DomeniaDatabase",
-        "ConvertTo-DomeniaSqlLiteral",
-        "Open-DomeniaDatabase",
-        "Invoke-DomeniaDbQuery"
-      ]
-    },
-    {
       "File": "modules/Domenia-Common.Model.ps1",
       "Functions": [
         "Test-DomeniaDictionaryKey",

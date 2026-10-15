@@ -19,6 +19,13 @@ def function(source,name):
     a,b=spans[0];return source[a:b]
 def literal_bodies(fn):
     return [m[2] for m in re.finditer(r'@([\'"])\n(.*?)\n^\1@',fn,re.M|re.S)]
+# P-CD-08: operations whose generator composes the shared SQLite layer of the workers (Get-DomeniaSqliteWorkerCommon,
+# Domenia-Storage.Worker.ps1), with the lease code in front of it when they write.
+SQLITE_WITH_LEASE=('StorageUsage','StoragePurge','StorageBackup','StorageMaintenance','LiveCache','LegacyMigration')
+SQLITE_READ_ONLY=('LocalIndexRead','RelationHistoryRead')
+def sqlite_common():
+    storage=(ROOT/'wad/modules/Domenia-Storage.Worker.ps1').read_text('utf-8-sig')
+    return literal_bodies(function(storage,'Get-DomeniaSqliteWorkerCommon'))[0]
 def composed_body(item):
     """Mirror the closed generators from reviewed source; never run application code or user data."""
     source=(ROOT/item['File']).read_text('utf-8-sig')
@@ -26,6 +33,7 @@ def composed_body(item):
     literal=literal_bodies(fn)[item['LiteralIndex']]
     operation=item['Operation']
     lease=(ROOT/'wad/modules/Domenia-StorageLease.Model.ps1').read_text('utf-8-sig')
+    sqlite=sqlite_common()
     if operation=='LocalStore':
         definitions=[]
         for name in ['Common.Model','HealthRules.Model','Boards.Model','Probes.Model','Query.Model','QueryLibrary.Model']:
@@ -34,23 +42,20 @@ def composed_body(item):
             definitions.extend(text[a:b] for a,b in spans)
         model=(ROOT/'wad/modules/Domenia-QueryLibrary.Model.ps1').read_text('utf-8-sig')
         definitions.append(literal_bodies(function(model,'Get-DomeniaQueryLibraryDefinitionValidationCode'))[0])
-        return lease+'\n'+'\n'.join(definitions)+'\n'+literal
-    if operation in ('StorageUsage','StoragePurge','StorageBackup','LiveCache'):
-        return lease+'\n'+literal
-    if operation=='StorageMaintenance':
-        backup=function((ROOT/'wad/modules/Domenia-Storage.Worker.ps1').read_text('utf-8-sig'),'Get-DomeniaStorageBackupWorkerCode')
-        body=lease+'\n'+literal_bodies(backup)[0]
-        marker="function Get-DomeniaDatabasePath {throw 'Chemin de base explicite requis pour la sauvegarde.'}"
-        return body[:body.index(marker)]+literal
+        return lease+'\n'+sqlite+'\n'+'\n'.join(definitions)+'\n'+literal
+    if operation in SQLITE_WITH_LEASE:
+        return lease+'\n'+sqlite+'\n'+literal
+    if operation in SQLITE_READ_ONLY:
+        return sqlite+'\n'+literal
     # W06: two storage operations reuse the pinned helpers of another storage worker, exactly as their generators do.
     if operation=='StorageRetention':
         purge=function((ROOT/'wad/modules/Domenia-Storage.Worker.ps1').read_text('utf-8-sig'),'Get-DomeniaStoragePurgeWorkerCode')
-        body=lease+'\n'+literal_bodies(purge)[0]
+        body=lease+'\n'+sqlite+'\n'+literal_bodies(purge)[0]
         marker='# Validate all input before opening the existing database. No payload identifier becomes SQL.'
         return body[:body.index(marker)]+literal
     if operation=='StorageIntegrity':
         usage=function((ROOT/'wad/modules/Domenia-Storage.Worker.ps1').read_text('utf-8-sig'),'Get-DomeniaStorageUsageWorkerCode')
-        body=lease+'\n'+literal_bodies(usage)[0]
+        body=lease+'\n'+sqlite+'\n'+literal_bodies(usage)[0]
         marker='$path=Test-DomeniaStorageMeasurePath ([string]$Payload.Path)'
         return body[:body.index(marker)]+literal
     if item['Function']=='Get-DomeniaLiveProbeCode':

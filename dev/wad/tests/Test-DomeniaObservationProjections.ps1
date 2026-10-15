@@ -2,6 +2,8 @@
 [CmdletBinding()]param([string]$ReportPath='')
 $ErrorActionPreference='Stop';Set-StrictMode -Version 2
 $modules=Join-Path (Split-Path -Parent $PSScriptRoot) 'modules';$dev=Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+# LocalIndexRead composes the shared SQLite layer of the workers (Domenia-Storage.Worker.ps1, P-CD-08).
+. (Join-Path $modules 'Domenia-Storage.Worker.ps1')
 . (Join-Path $modules 'Domenia-Engine.Worker.ps1')
 . (Join-Path $modules 'Domenia-Probes.Model.ps1')
 if($null -eq ('Domenia.Native.ObservationReader' -as [type])){Add-Type -Path (Join-Path $dev 'native/ObservationReader.cs')}
