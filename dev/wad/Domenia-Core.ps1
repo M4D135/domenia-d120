@@ -327,6 +327,10 @@ function Export-DomeniaCsv {
     $exportColumns = @($Columns | Where-Object { $null -ne $_ })
     if (($exportColumns.Count -eq 0) -and ($null -ne $Grid)) { $exportColumns = @(Get-DomeniaGridExportColumns -Grid $Grid) }
     $projected = @(ConvertTo-DomeniaExportRows -Rows $Rows -Columns $exportColumns)
+    # Point 50: no secret leaves in an export: secret columns withheld, secret-looking text masked.
+    $secretColumns = @($exportColumns | Where-Object { Test-DomeniaSecretAttribute ([string]$_.Property) } | ForEach-Object { [string]$_.Header })
+    $redacted = Protect-DomeniaExportRows -Rows $projected -SecretColumns $secretColumns
+    $projected = @($redacted.Rows)
     if (-not $Path) {
         if (-not $Directory) { $Directory = Get-DomeniaExportDirectory }
         $name = Get-DomeniaExportFileName -Subject $Subject
@@ -335,7 +339,7 @@ function Export-DomeniaCsv {
         while ([IO.File]::Exists($Path)) { $Path = Join-Path $Directory ([IO.Path]::GetFileNameWithoutExtension($name) + '-' + $suffix + '.csv'); $suffix++ }
     }
     $projected | ConvertTo-DomeniaSpreadsheetSafeRow | Export-Csv -LiteralPath $Path -Delimiter ';' -NoTypeInformation -Encoding UTF8
-    return [pscustomobject]@{ Path=$Path; RowCount=$projected.Count }
+    return [pscustomobject]@{ Path=$Path; RowCount=$projected.Count; Masked=[int]$redacted.Masked; Withheld=@($redacted.Withheld) }
 }
 
 function Show-DomeniaExportResult {
@@ -345,6 +349,10 @@ function Show-DomeniaExportResult {
     $label = if ($count -eq 1) { '1 ligne exportée' } else { "$count lignes exportées" }
     if ($Scope) { $label += " ($Scope)" }
     $sentence = $label + ' dans ' + [IO.Path]::GetFileName([string]$Result.Path) + '.'
+    # Point 50: what was kept out of the file is said, never silently dropped.
+    $masked = [int](Get-DomeniaMember $Result 'Masked' 0)
+    if ($masked -eq 1) { $sentence += ' 1 valeur ressemblant à un secret a été masquée.' }
+    elseif ($masked -gt 1) { $sentence += ' ' + $masked + ' valeurs ressemblant à un secret ont été masquées.' }
     if ($Also) { $sentence += ' ' + $Also }
     Set-Status ($label + ' : ' + [string]$Result.Path)
     [void](Show-DomeniaPageBanner -Kind Success -Message $sentence -ActionText 'Ouvrir le dossier' -ActionPath ([string]$Result.Path))
@@ -756,6 +764,8 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnApplyAccountOptions" = "Default"
     "ExpAccountSecurityOptions" = "Default"
     "LblAccountSecurityWarning" = "Default"
+    "PwdAccountAdCorrection" = "Default"
+    "BtnAccountAdCorrect" = "Default"
     "DpAccountExpires" = "Default"
     "BtnSetExpiration" = "Default"
     "BtnNeverExpires" = "Default"
@@ -2716,8 +2726,16 @@ function Register-DomeniaErrorOccurrence {
 }
 
 function Show-DomeniaOperationError {
-    param([string]$Operation,$ErrorRecordOrException,[string]$CorrelationId="",[switch]$NoPopup)
+    param([string]$Operation,$ErrorRecordOrException,[string]$CorrelationId="",[switch]$NoPopup,[string]$OperationId='')
     $info = ConvertTo-DomeniaErrorInfo -ErrorRecordOrException $ErrorRecordOrException -Operation $Operation
+    # Point 46: the family of the failure (refused access, rejected account, unavailable resource) and what the
+    # operation needed. The operation is the one given, or the task whose error callback is running.
+    if ((-not $OperationId) -and ($null -ne $script:AccessCurrentJob)) { try { $OperationId = [string]$script:AccessCurrentJob.OperationId } catch { $OperationId = '' } }
+    try {
+        $guidance = Get-DomeniaOperationFailureGuidance -OperationId $OperationId -Category ([string]$info.Category)
+        if ([string]$guidance.Text) { $info.Friendly = ([string]$info.Friendly).TrimEnd() + ' ' + [string]$guidance.Text }
+        $info | Add-Member -NotePropertyName FailureFamily -NotePropertyValue ([string]$guidance.Family) -Force
+    } catch { }
     # FI-07: one code per error signature, identical on screen, in Domenia.log and in the Support incident.
     # FI-02: the technical line of a repeated error is written at most once a minute, with its counter.
     $occurrence = Register-DomeniaErrorOccurrence -Signature (Get-DomeniaErrorSignature -ErrorRecordOrException $ErrorRecordOrException -Source $Operation)
@@ -6329,21 +6347,38 @@ function Get-MainXaml {
                           <!-- CO-31: read-only identity card. The account changes only through Changer de compte. -->
                           <TextBlock x:Name="LblAccountAdIdentity" Text="Aucune identité active." VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,12,0,4" FontWeight="SemiBold" AutomationProperties.Name="Compte de lʼannuaire"/>
                           <TextBlock x:Name="LblAccountAdStatus" Text="Aucune connexion à lʼannuaire." Foreground="{DynamicResource MutedColor}" Margin="0,0,0,0" TextWrapping="Wrap" AutomationProperties.Name="Connexion à lʼannuaire"/>
+                          <!-- Point 44: after a password change in the directory, the SAME account is corrected in place, without
+                               reconnecting. Shown for an explicit sign-in only: a Windows session is corrected in Windows. -->
+                          <WrapPanel Margin="0,12,0,0">
+                            <StackPanel Width="250" Margin="0,0,10,0">
+                              <TextBlock Text="Mot de passe actuel" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold"/>
+                              <PasswordBox x:Name="PwdAccountAdCorrection" Margin="0" ToolTip="Mot de passe actuel du compte de connexion, après son changement dans lʼannuaire. Validé une seule fois à votre demande, jamais enregistré dans Domenia." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mot de passe actuel du compte de connexion" AutomationProperties.HelpText="Mot de passe actuel du compte de connexion, après son changement dans lʼannuaire. Validé une seule fois à votre demande, jamais enregistré dans Domenia."/>
+                            </StackPanel>
+                            <Button x:Name="BtnAccountAdCorrect" Content="Corriger le mot de passe" Margin="0,24,8,0" ToolTip="Valide ce mot de passe pour le même compte, une seule fois, puis lʼapplique sans reconnecter Domenia. Les lectures parties avec lʼancien mot de passe sont arrêtées ; aucune écriture nʼest rejouée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Corriger le mot de passe" AutomationProperties.HelpText="Valide ce mot de passe pour le même compte, une seule fois, puis lʼapplique sans reconnecter Domenia. Les lectures parties avec lʼancien mot de passe sont arrêtées ; aucune écriture nʼest rejouée."/>
+                          </WrapPanel>
                         </StackPanel>
                       </Border>
-                      <!-- UI-27: accounts really used now, per resource, and the accounts kept in memory with their remaining time. -->
+                      <!-- UI-27 / point 42: accounts really used now, per resource, with their origin and protection state, and the accounts
+                           kept in memory with their remaining time. -->
                       <Border Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="14" Padding="18" Margin="0,0,0,14">
                         <StackPanel>
                           <TextBlock Text="EN CE MOMENT" FontWeight="SemiBold"/>
-                          <TextBlock Text="Compte réellement utilisé par chaque ressource pour sa prochaine opération. Aucun mot de passe nʼest affiché." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,2,0,8"/>
-                          <DataGrid x:Name="DgAccountsInUse" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column" SelectionMode="Single" MinRowHeight="28" CanUserAddRows="False" CanUserDeleteRows="False" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTip="Compte que chaque ressource prendra pour sa prochaine opération : annuaire, postes, LAPS et BitLocker, avec son origine. Lecture seule ; aucun mot de passe nʼest affiché." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Comptes utilisés en ce moment" AutomationProperties.HelpText="Compte que chaque ressource prendra pour sa prochaine opération : annuaire, postes, LAPS et BitLocker, avec son origine. Lecture seule ; aucun mot de passe nʼest affiché.">
+                          <TextBlock Text="Compte réellement utilisé par chaque ressource pour sa prochaine opération, son origine et son état : un compte en pause après un refus dit où le corriger. Aucun mot de passe nʼest affiché." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,2,0,8"/>
+                          <DataGrid x:Name="DgAccountsInUse" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column" SelectionMode="Single" MinRowHeight="28" CanUserAddRows="False" CanUserDeleteRows="False" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTip="Compte que chaque ressource prendra pour sa prochaine opération : annuaire, postes, LAPS et BitLocker, avec son origine et son état (refus enregistré, endroit où le corriger, autres noms confirmés par lʼannuaire). Lecture seule ; aucun mot de passe nʼest affiché." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Comptes utilisés en ce moment" AutomationProperties.HelpText="Compte que chaque ressource prendra pour sa prochaine opération : annuaire, postes, LAPS et BitLocker, avec son origine et son état (refus enregistré, endroit où le corriger, autres noms confirmés par lʼannuaire). Lecture seule ; aucun mot de passe nʼest affiché.">
                             <DataGrid.Columns>
-                              <DataGridTextColumn Header="Ressource" Binding="{Binding Resource}" Width="200"/>
-                              <DataGridTextColumn Header="Compte" Binding="{Binding Account}" Width="240"/>
-                              <DataGridTemplateColumn Header="Origine" Width="*">
+                              <DataGridTextColumn Header="Ressource" Binding="{Binding Resource}" Width="180"/>
+                              <DataGridTextColumn Header="Compte" Binding="{Binding Account}" Width="220"/>
+                              <DataGridTemplateColumn Header="Origine" Width="200">
                                 <DataGridTemplateColumn.CellTemplate>
                                   <DataTemplate>
                                     <TextBlock Text="{Binding Origin}" Style="{StaticResource WrappedCellText}"/>
+                                  </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                              </DataGridTemplateColumn>
+                              <DataGridTemplateColumn Header="État" Width="*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                  <DataTemplate>
+                                    <TextBlock Text="{Binding State}" Style="{StaticResource WrappedCellText}"/>
                                   </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                               </DataGridTemplateColumn>
@@ -6351,14 +6386,21 @@ function Get-MainXaml {
                           </DataGrid>
                           <TextBlock Text="Gardés en mémoire" FontWeight="SemiBold" Margin="0,14,0,4"/>
                           <TextBlock x:Name="LblAccountsInMemory" Text="Aucun compte temporaire ni compte poste saisi en mémoire." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,0,0,6" ToolTip="Comptes gardés en mémoire pour cette session : compte poste saisi et comptes temporaires acceptés après un refus. Rien nʼest enregistré sur le disque." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Comptes gardés en mémoire" AutomationProperties.LiveSetting="Polite" AutomationProperties.HelpText="Comptes gardés en mémoire pour cette session : compte poste saisi et comptes temporaires acceptés après un refus. Rien nʼest enregistré sur le disque."/>
-                          <DataGrid x:Name="DgAccountsInMemory" Visibility="Collapsed" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column" SelectionMode="Single" MinRowHeight="30" CanUserAddRows="False" CanUserDeleteRows="False" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTip="Comptes gardés en mémoire, avec leur durée restante. « Oublier » retire le compte de la ligne ; une opération déjà envoyée garde sa copie et se termine." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Liste des comptes gardés en mémoire" AutomationProperties.HelpText="Comptes gardés en mémoire, avec leur durée restante. « Oublier » retire le compte de la ligne ; une opération déjà envoyée garde sa copie et se termine.">
+                          <DataGrid x:Name="DgAccountsInMemory" Visibility="Collapsed" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column" SelectionMode="Single" MinRowHeight="30" CanUserAddRows="False" CanUserDeleteRows="False" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTip="Comptes gardés en mémoire, avec leur durée restante et leur état. « Oublier » retire le compte de la ligne ; une opération déjà envoyée garde sa copie et se termine." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Liste des comptes gardés en mémoire" AutomationProperties.HelpText="Comptes gardés en mémoire, avec leur durée restante et leur état. « Oublier » retire le compte de la ligne ; une opération déjà envoyée garde sa copie et se termine.">
                             <DataGrid.Columns>
-                              <DataGridTextColumn Header="Ressource" Binding="{Binding Resource}" Width="200"/>
-                              <DataGridTextColumn Header="Compte" Binding="{Binding Account}" Width="240"/>
-                              <DataGridTemplateColumn Header="Durée restante" Width="*">
+                              <DataGridTextColumn Header="Ressource" Binding="{Binding Resource}" Width="180"/>
+                              <DataGridTextColumn Header="Compte" Binding="{Binding Account}" Width="220"/>
+                              <DataGridTemplateColumn Header="Durée restante" Width="200">
                                 <DataGridTemplateColumn.CellTemplate>
                                   <DataTemplate>
                                     <TextBlock Text="{Binding Remaining}" Style="{StaticResource WrappedCellText}"/>
+                                  </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                              </DataGridTemplateColumn>
+                              <DataGridTemplateColumn Header="État" Width="*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                  <DataTemplate>
+                                    <TextBlock Text="{Binding State}" Style="{StaticResource WrappedCellText}"/>
                                   </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                               </DataGridTemplateColumn>
@@ -10815,8 +10857,14 @@ function Get-WRemoteWindowsDirectory {
         $opt=New-CimSessionOption -Protocol Dcom
         $a=@{ComputerName=$Computer;SessionOption=$opt;OperationTimeoutSec=5;ErrorAction='Stop'}
         $cred=Get-WMachineCredential $Context;if($null -ne $cred){$a.Credential=$cred}
-        $session=New-CimSession @a
-        $os=Get-CimInstance -CimSession $session -ClassName Win32_OperatingSystem -Property WindowsDirectory -OperationTimeoutSec 5 -ErrorAction Stop
+        # Point 41: the session and its first authenticated query hold the account lease; a refusal is shared.
+        Set-WCredentialAttemptIdentity -Context $Context -Credential $cred -Channel Remote -Target $Computer
+        $lease=Enter-WCredentialAttempt -Context $Context -Channel Remote
+        try{
+            $session=New-CimSession @a
+            $os=Get-CimInstance -CimSession $session -ClassName Win32_OperatingSystem -Property WindowsDirectory -OperationTimeoutSec 5 -ErrorAction Stop
+        }catch{[void](Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote);throw}
+        finally{Exit-WCredentialAttempt $lease}
         $path=[string]$os.WindowsDirectory
         if($path -notmatch '^[A-Za-z]:\\[^\r\n<>"|?*]+$' -or $path -match '[\x00-\x1f]' -or $path.Contains("'")){throw 'Chemin Windows distant non confirme.'}
         return $path.TrimEnd('\')
@@ -10914,10 +10962,16 @@ function Invoke-WSchtasksRemote {
     try{
         $service=New-Object -ComObject 'Schedule.Service'
         $cred=Get-WMachineCredential $Context
-        if($null -ne $cred){
-            $net=$cred.GetNetworkCredential();$secret=[string]$net.Password
-            try{$service.Connect($Computer,[string]$net.UserName,[string]$net.Domain,$secret)}finally{$secret='';$net=$null}
-        }else{$service.Connect($Computer)}
+        # Point 41: the Task Scheduler logon holds the account lease; a rejected account is shared with every job.
+        Set-WCredentialAttemptIdentity -Context $Context -Credential $cred -Channel Remote -Target $Computer
+        $lease=Enter-WCredentialAttempt -Context $Context -Channel Remote
+        try{
+            if($null -ne $cred){
+                $net=$cred.GetNetworkCredential();$secret=[string]$net.Password
+                try{$service.Connect($Computer,[string]$net.UserName,[string]$net.Domain,$secret)}finally{$secret='';$net=$null}
+            }else{$service.Connect($Computer)}
+        }catch{[void](Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote);throw}
+        finally{Exit-WCredentialAttempt $lease}
         $folder=$service.GetFolder('\')
         switch($verb){
             '/create' {
@@ -10981,12 +11035,16 @@ function New-WAdminShareDrive {
         $parameters['Credential']=$credential
         $identity=[string]$credential.UserName
     }
+    # Point 41: mapping ADMIN$ with an explicit account holds its lease; a rejected account is shared with every job.
+    Set-WCredentialAttemptIdentity -Context $Context -Credential $credential -Channel Remote -Target $Computer
+    $lease=Enter-WCredentialAttempt -Context $Context -Channel Remote
     try { return (New-PSDrive @parameters) }
     catch {
+        [void](Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote)
         $detail=Format-WRemoteFailureDetail -Text ([string]$_.Exception.Message) -MaxLength 450
         throw ('ADMIN$ inaccessible sur '+$Computer+' avec '+$identity+' : '+$detail+'. Aucun autre compte n a ete substitue automatiquement.')
     }
-    finally { $credential=$null; $parameters.Remove('Credential') }
+    finally { Exit-WCredentialAttempt $lease; $credential=$null; $parameters.Remove('Credential') }
 }
 function Remove-WAdminShareDrive {
     param($Drive)
@@ -12402,20 +12460,11 @@ if ($filters.Count -eq 0) { throw "Aucun filtre LDAP valide n'a ete construit." 
 $contexts = New-Object Collections.ArrayList
 [void]$contexts.Add($Context)
 if (-not [string]::IsNullOrWhiteSpace([string]$Context.Server)) {
-    [void]$contexts.Add([pscustomobject]@{
-        Server=""
-        BaseDn=[string]$Context.BaseDn
-        Domain=[string]$Context.Domain
-        Netbios=[string]$Context.Netbios
-        BindUser=[string]$Context.BindUser
-        Credential=$Context.Credential
-        UseCredential=[bool]$Context.UseCredential
-        PageSize=[int]$Context.PageSize
-        CredentialGuard=$Context.CredentialGuard
-        DirectoryAuthKey=$Context.DirectoryAuthKey
-        RemoteAuthKey=$Context.RemoteAuthKey
-        RemoteAdminAuthKey=$Context.RemoteAdminAuthKey
-    })
+    # Serverless retry: a copy of the whole context (account, account generation, operation, guard keys), only the
+    # server differs. A partial copy read as generation 0 would be refused after any in-place correction (point 44).
+    $serverless = $Context.PSObject.Copy()
+    $serverless.Server = ""
+    [void]$contexts.Add($serverless)
 }
 
 $rows = New-Object Collections.ArrayList
@@ -13545,6 +13594,10 @@ function Set-MachineCredentialFromUi {
         $secure.MakeReadOnly()
         Hide-DomeniaSecretPeek -Owner 'Timer:MachineAdminPeek'
         $script:MachineCredential = New-Object System.Management.Automation.PSCredential -ArgumentList @($user,$secure)
+        # Point 44: every change of the account in use moves the account generation, like the other account changes
+        # (a survey started with the previous account stops instead of mixing two accounts). Not a validation: a
+        # pause recorded for this account stays until it is validated in Comptes.
+        $script:DomeniaAccountGeneration = [long]$script:DomeniaAccountGeneration + 1
         $script:Ctrl["PwdMachineAdmin"].Password = ""
         Update-DomeniaMachineAccountUi -Force
         Set-Status "Compte poste chargé en mémoire uniquement, jamais enregistré."
@@ -13552,6 +13605,7 @@ function Set-MachineCredentialFromUi {
 }
 
 function Clear-MachineCredential {
+    if ($null -ne $script:MachineCredential) { $script:DomeniaAccountGeneration = [long]$script:DomeniaAccountGeneration + 1 }
     $script:MachineCredential = $null
     Hide-DomeniaSecretPeek -Owner 'Timer:MachineAdminPeek'
     try { if ($script:Ctrl.ContainsKey("PwdMachineAdmin")) { $script:Ctrl["PwdMachineAdmin"].Password = "" } } catch { }
@@ -14879,7 +14933,12 @@ function Export-DomeniaInventory {
         $inventory = Export-DomeniaCsv -Rows @($script:InventoryRows) -Grid (Get-DomeniaControl -Name 'DgInventory') -Subject ($computer + '-inventaire')
         $access = Export-DomeniaCsv -Rows @($script:InventoryAccess) -Grid (Get-DomeniaControl -Name 'DgInventoryAccess') -Subject ($computer + '-acces')
         Add-DomeniaUiLog -Area "Inventaire" -Text ("Export CSV : " + [string]$inventory.Path + " et " + [string]$access.Path)
-        Show-DomeniaExportResult -Result $inventory -Also ('Accès : ' + [string]$access.RowCount + ' ligne(s) dans ' + [IO.Path]::GetFileName([string]$access.Path) + '.')
+        # Point 50: what the second file kept out is said too, never only the first file's total.
+        $also = 'Accès : ' + [string]$access.RowCount + ' ligne(s) dans ' + [IO.Path]::GetFileName([string]$access.Path) + '.'
+        $accessMasked = [int](Get-DomeniaMember $access 'Masked' 0)
+        if ($accessMasked -eq 1) { $also += ' 1 valeur ressemblant à un secret y a été masquée.' }
+        elseif ($accessMasked -gt 1) { $also += ' ' + $accessMasked + ' valeurs ressemblant à un secret y ont été masquées.' }
+        Show-DomeniaExportResult -Result $inventory -Also $also
     }
     catch { [void](Show-DomeniaOperationError -Operation "Export de l inventaire" -ErrorRecordOrException $_) }
 }
@@ -15441,8 +15500,11 @@ function Copy-DomeniaSelectedObjectDns {
 }
 
 function Show-DomeniaBatchNetworkReport {
-    param([Parameter(Mandatory=$true)]$Rows)
-    $items = @($Rows)
+    # Point 48: $Rows is the whole selection. The exact machines, the rows left out and why, and the impact are shown
+    # in the page; nothing leaves before the operator confirms there.
+    # An empty selection is a normal answer (status line), never a binding error in the palette handler.
+    param([Parameter(Mandatory=$true)][AllowEmptyCollection()][AllowNull()]$Rows,[ValidateRange(1,200)][int]$Limit=50)
+    $items = @($Rows | Where-Object { $null -ne $_ })
     if ($items.Count -eq 0) { Set-Status "Aucun poste selectionne." "WARN"; return }
 
     $code = @'
@@ -15473,9 +15535,38 @@ foreach($row in @($Payload.Rows)){
 [pscustomobject]@{Rows=@($results);Count=$results.Count}
 '@
 
-    $payload=[pscustomobject]@{Rows=@($items | ForEach-Object {[pscustomobject]@{Name=[string]$_.Name;DN=[string]$_.DN}})}
-    $callbackState=[pscustomobject]@{Rows=$items;Started=Get-Date}
-    Start-UiTask -Name "Diagnostic reseau groupe" -OperationId "BatchNetworkDiag" -Code $code -Payload $payload -CallbackState $callbackState -ReplaceKey "batch-network-diag" -TimeoutSeconds ([Math]::Max(20,[int](Get-CfgValue "Async" "ComputerTimeoutSeconds" 90))) -StatusText ("Diagnostic reseau de {0} poste(s)..." -f $items.Count) -SuccessHandler "Complete-DomeniaBatchNetworkReportUi" -ErrorHandler "Fail-DomeniaBatchNetworkReportUi" | Out-Null
+    # Every selected row is a candidate. A machine without a usable host name is left out first, with its reason; the
+    # preview then keeps the exact targets (machine, DN and GUID, no duplicate, explicit limit) from the rows
+    # themselves. A select-all of the grid runs on the interface thread: direct property reads, no function call nor
+    # copy per row; past the limit the preview only counts the rows.
+    $candidates=New-Object 'System.Collections.Generic.List[object]';$excluded=New-Object 'System.Collections.Generic.List[object]'
+    foreach($row in $items){
+        $name='';$type=''
+        if($row -is [Collections.IDictionary]){$name=[string](Get-DomeniaMember $row 'Name' '');$type=[string](Get-DomeniaMember $row 'Type' '')}
+        else{
+            $property=$row.PSObject.Properties['Name'];if($null -ne $property){$name=[string]$property.Value}
+            $property=$row.PSObject.Properties['Type'];if($null -ne $property){$type=[string]$property.Value}
+        }
+        if(($type -eq 'Machine') -and ($name.Trim() -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,252}$')){
+            $dn=[string](Get-DomeniaMember $row 'DN' '')
+            $label=$name.Trim();if(-not $label){$label=$dn}
+            $excluded.Add([pscustomobject]@{Name=$label;DN=$dn;Reason='Nom de poste absent ou non valide'});continue
+        }
+        $candidates.Add($row)
+    }
+    $timeoutSeconds=[Math]::Max(20,[int](Get-CfgValue "Async" "ComputerTimeoutSeconds" 90))
+    $impact='un poste après lʼautre ; la tâche sʼarrête au bout de '+$timeoutSeconds+' s, sans résultat partiel.'
+    $preview=New-DomeniaCollectivePreview -OperationId 'BatchNetworkDiag' -Candidates $candidates.ToArray() -Excluded $excluded.ToArray() -ExpectedType 'Machine' -Change 'écho ICMP puis ports TCP 445, 135, 5985 et 5986' -Impact $impact -Limit $Limit
+    if([int]$preview.Count -eq 0){Set-Status ('Aucun poste exploitable dans la sélection : '+[string]$preview.ExcludedCount+' ligne(s) exclue(s).') 'WARN';return}
+    $targets=@($preview.Targets)
+    $request=[pscustomobject]@{Code=$code;Rows=$targets;Count=$targets.Count;TimeoutSeconds=$timeoutSeconds;Payload=[pscustomobject]@{Rows=@($targets | ForEach-Object {[pscustomobject]@{Name=[string]$_.Name;DN=[string]$_.DN}})}}
+    $start={
+        param($s)
+        $callbackState=[pscustomobject]@{Rows=$s.Rows;Started=Get-Date}
+        Start-UiTask -Name "Diagnostic reseau groupe" -OperationId "BatchNetworkDiag" -Code $s.Code -Payload $s.Payload -CallbackState $callbackState -ReplaceKey "batch-network-diag" -TimeoutSeconds $s.TimeoutSeconds -StatusText ("Diagnostic reseau de {0} poste(s)..." -f $s.Count) -SuccessHandler "Complete-DomeniaBatchNetworkReportUi" -ErrorHandler "Fail-DomeniaBatchNetworkReportUi" | Out-Null
+    }
+    $message='Lecture réseau seule : aucun compte nʼest envoyé et rien nʼest modifié sur les postes.'
+    [void](Request-DomeniaInlineConfirmation -Title 'Diagnostic réseau groupé' -Target ([string]$script:Conn.Domain) -Message $message -ConfirmText 'Diagnostiquer' -CancelText 'Annuler' -OnConfirm ({ & $start $request }.GetNewClosure()) -Changes @($preview.Lines) -Details ([string]$preview.Details) -DetailsTitle 'Liste exacte des cibles et des exclusions' -TypedConfirmation ([string]$preview.TypedText))
 }
 
 function Complete-DomeniaBatchNetworkReportUi {
@@ -19372,9 +19463,14 @@ if ([bool]$open[445]) {
             if (-not ('Domenia.NetUse' -as [type])) { try { Add-Type -TypeDefinition ([string]$Payload.NetUseSource) } catch { if (-not ('Domenia.NetUse' -as [type])) { throw } } }
             $net = $cred.GetNetworkCredential(); $user = if ($net.Domain) { $net.Domain + '\' + $net.UserName } else { $net.UserName }
             if (-not $net.Domain -and $user -notmatch '@' -and [string]$Payload.NetbiosDomain) { $user = [string]$Payload.NetbiosDomain + '\' + $user }
-            $rc = [Domenia.NetUse]::Connect($path,$user,$net.Password)
-            if ($rc -eq 1219) { [void][Domenia.NetUse]::Disconnect('\\' + $computer + '\IPC$'); [void][Domenia.NetUse]::Disconnect($path); $rc = [Domenia.NetUse]::Connect($path,$user,$net.Password) }
-            if ($rc -ne 0) { throw ('Refuse pour ' + $user + ' : ' + (New-Object ComponentModel.Win32Exception $rc).Message) }
+            # Point 41: the SMB logon holds the account lease; the native code travels with the refusal, which is shared.
+            Set-WCredentialAttemptIdentity -Context $Context -Credential $cred -Channel Remote -Target $computer
+            $shareLease = Enter-WCredentialAttempt -Context $Context -Channel Remote
+            try {
+                $rc = [Domenia.NetUse]::Connect($path,$user,$net.Password)
+                if ($rc -eq 1219) { [void][Domenia.NetUse]::Disconnect('\\' + $computer + '\IPC$'); [void][Domenia.NetUse]::Disconnect($path); $rc = [Domenia.NetUse]::Connect($path,$user,$net.Password) }
+            } finally { Exit-WCredentialAttempt $shareLease }
+            if ($rc -ne 0) { $failure = [ComponentModel.Win32Exception]::new([int]$rc,('Refuse pour ' + $user + ' : ' + (New-Object ComponentModel.Win32Exception $rc).Message)); [void](Register-WCredentialFailure -Context $Context -ErrorValue $failure -Channel Remote); throw $failure }
         }
         if (-not (Test-Path -LiteralPath $path)) { throw $(if ($null -ne $cred) { 'Inaccessible avec le compte des operations poste' } else { 'Inaccessible avec ta session Windows' }) }
         return $path
@@ -19386,7 +19482,10 @@ if ([bool]$open[5985] -or [bool]$open[5986]) {
     Add-Diag 'WinRM' {
         $params = @{ ComputerName=$computer; ErrorAction='Stop' }
         if ($null -ne $cred) { $params['Credential'] = $cred; $params['Authentication'] = 'Default' }
-        $r = Test-WSMan @params
+        # Point 41: the WinRM logon holds the account lease; Add-Diag records a refusal for every job.
+        Set-WCredentialAttemptIdentity -Context $Context -Credential $cred -Channel Remote -Target $computer
+        $winrmLease = Enter-WCredentialAttempt -Context $Context -Channel Remote
+        try { $r = Test-WSMan @params } finally { Exit-WCredentialAttempt $winrmLease }
         return ('Protocole ' + [string]$r.ProductVersion)
     }
 }
@@ -19953,8 +20052,11 @@ try {
         }}
         if($null -ne $cred){$params["Credential"]=$cred;$params["Authentication"]="Default"}
         if (-not $open5985 -and $open5986) { $params['UseSSL']=$true }
-        Assert-WCredentialAllowed -Context $Context -Channel Remote
-        $r=Invoke-Command @params;$sw.Stop()
+        # Point 41: the WinRM logon holds the account lease, like the CIM sessions of this probe.
+        Set-WCredentialAttemptIdentity -Context $Context -Credential $cred -Channel Remote -Target $computer
+        $winrmLease=Enter-WCredentialAttempt -Context $Context -Channel Remote
+        try{$r=Invoke-Command @params}finally{Exit-WCredentialAttempt $winrmLease}
+        $sw.Stop()
         # Each value keeps its own nature: current session, explorer owner, or LogonUI history (D042/D043).
         $winrmCandidates=@([pscustomobject]@{Method='WinRM utilisateur courant';Raw=[string]$r.Current;Detail='Win32_ComputerSystem.UserName'})
         foreach($owner in @($r.Explorer)){$winrmCandidates+=[pscustomobject]@{Method='WinRM session explorer';Raw=[string]$owner;Detail='Proprietaire explorer.exe'}}
@@ -19994,7 +20096,11 @@ if ([bool]$Payload.UseSecurityLog) {
     try {
         Test-ProbeBudget
         Set-ProbeStep 'Journal Security 4624 optionnel'
-        $sw=[System.Diagnostics.Stopwatch]::StartNew();$events=@(Get-WinEvent -ComputerName $computer -FilterHashtable @{LogName="Security";Id=4624} -MaxEvents 40 -ErrorAction Stop);$sw.Stop()
+        # Point 41: this read goes out with the Windows session of Domenia, not the workstation account: its lease and
+        # any refusal belong to the session identity, never to the account of the previous CIM step.
+        Set-WCredentialAttemptIdentity -Context $Context -Credential $null -Channel Remote -Target $computer
+        $eventLease=Enter-WCredentialAttempt -Context $Context -Channel Remote
+        $sw=[System.Diagnostics.Stopwatch]::StartNew();try{$events=@(Get-WinEvent -ComputerName $computer -FilterHashtable @{LogName="Security";Id=4624} -MaxEvents 40 -ErrorAction Stop)}finally{Exit-WCredentialAttempt $eventLease};$sw.Stop()
         foreach($ev in $events){try{$lt=[string]$ev.Properties[8].Value;if($lt -notin @("2","10","11")){continue};$raw=[string]$ev.Properties[5].Value;$hit=Return-Candidate "Security 4624" $raw 80 "LogonType=$lt, Time=$($ev.TimeCreated)" ([int]$sw.ElapsedMilliseconds);if($null -ne $hit){$hit;return}}catch{}}
     } catch { if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw};Add-Attempt "Security 4624" "KO" "" 0 0 $_.Exception.Message }
 }
@@ -20431,9 +20537,14 @@ if(-not ('Domenia.NetUse' -as [type])){try{Add-Type -TypeDefinition ([string]$Pa
 $remote='\\'+$computer+'\'+$share
 $net=$cred.GetNetworkCredential();$user=if($net.Domain){$net.Domain+'\'+$net.UserName}else{$net.UserName}
 if(-not $net.Domain -and $user -notmatch '@' -and [string]$Payload.NetbiosDomain){$user=[string]$Payload.NetbiosDomain+'\'+$user}
+# Point 41: the SMB logon holds the account lease; the native code travels with the refusal, which is shared.
+Set-WCredentialAttemptIdentity -Context $Context -Credential $cred -Channel Remote -Target $computer
+$shareLease=Enter-WCredentialAttempt -Context $Context -Channel Remote
+try{
 $rc=[Domenia.NetUse]::Connect($remote,$user,$net.Password)
 if($rc -eq 1219){foreach($existing in @(('\\'+$computer+'\IPC$'),$remote)){[void][Domenia.NetUse]::Disconnect($existing)};$rc=[Domenia.NetUse]::Connect($remote,$user,$net.Password)}
-if($rc -ne 0){throw ('acces a '+$remote+' refuse pour '+$user+' : '+(New-Object ComponentModel.Win32Exception $rc).Message)}
+}finally{Exit-WCredentialAttempt $shareLease}
+if($rc -ne 0){$failure=[ComponentModel.Win32Exception]::new([int]$rc,('acces a '+$remote+' refuse pour '+$user+' : '+(New-Object ComponentModel.Win32Exception $rc).Message));[void](Register-WCredentialFailure -Context $Context -ErrorValue $failure -Channel Remote);throw $failure}
 [pscustomobject]@{Connected=$true;Account=$user}
 '@
     Start-UiTask -Name ("Partage $Share de $Computer") -OperationId "ComputerAdminShare" -Code $code -Payload ([pscustomobject]@{ Computer=$Computer; Share=$Share; NetUseSource=(Get-DomeniaNetUseSource); NetbiosDomain=[string]$script:Conn.Netbios }) -CallbackState ([pscustomobject]@{ Computer=$Computer; Share=$Share; Tool=$Tool }) -ReplaceKey ("share:" + $Computer + ":" + $Tool) -TimeoutSeconds 30 -StatusText ("Ouverture du partage $Share de $Computer avec le compte des operations poste...") -SuccessHandler "Complete-DomeniaAdminShareOpen" -ErrorHandler "Fail-DomeniaAdminShareOpen" | Out-Null
@@ -20507,7 +20618,8 @@ $computer=[string]$Payload.Computer
 if(-not [bool]$Context.UseWinRM){throw 'Non envoyé : WinRM est désactivé par la configuration (Remote.UseWinRM).'}
 $cred=Get-WMachineCredential $Context;$session=$null
 # CD-11: one transport and no fallback. A refused connection sends nothing (receipt NotSent); once the session is open
-# the request is dispatched and never replayed.
+# the request is dispatched and never replayed. Point 41: the WinRM logon holds the lease of the account it sends.
+Set-WCredentialAttemptIdentity -Context $Context -Credential $cred -Channel Remote -Target $computer
 $lease=Enter-WCredentialAttempt -Context $Context -Channel Remote
 try{
     $p=@{ComputerName=$computer;ErrorAction='Stop'};if($cred){$p.Credential=$cred}
@@ -20542,6 +20654,8 @@ $notSent="Non envoyé : le poste nʼaccepte pas la commande à distance. "
 # CD-11: one transport per choice and no fallback. Delayed: shutdown.exe through WinRM, so that the user sees the
 # message. Now: Restart-Computer -Force after a CIM session proved the workstation answers. A refused connection
 # sends nothing (receipt NotSent); a known refusal of shutdown.exe restarts nothing; nothing is ever replayed.
+# Point 41: every logon with the account holds its lease, attributed to the account this transport sends.
+Set-WCredentialAttemptIdentity -Context $Context -Credential $cred -Channel Remote -Target $computer
 $lease=Enter-WCredentialAttempt -Context $Context -Channel Remote
 try{
     if($mode -eq 'Delayed'){
@@ -20565,8 +20679,9 @@ try{
         [pscustomobject]@{Message=("Redémarrage programmé sur "+$computer+" dans "+[int][Math]::Ceiling($delay/60.0)+" min, avec message à lʼutilisateur.");Mode='Delayed';DelaySeconds=$delay;Transport='WinRM';Delivered=$true}
     }else{
         $p=@{ComputerName=$computer;Force=$true;ErrorAction='Stop'};if($cred){$p.Credential=$cred}
-        $DomeniaWriteDispatched=$true
-        Restart-Computer @p
+        # Point 41: Restart-Computer logs on again with the account: it holds the lease too, and a refusal is shared.
+        $restartLease=Enter-WCredentialAttempt -Context $Context -Channel Remote
+        try{$DomeniaWriteDispatched=$true;Restart-Computer @p}catch{[void](Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote);throw}finally{Exit-WCredentialAttempt -Lease $restartLease}
         [pscustomobject]@{Message=("Redémarrage immédiat demandé à "+$computer+".");Mode='Now';DelaySeconds=0;Transport='Classic';Delivered=$true}
     }
 }finally{if($null -ne $session){Remove-PSSession -Session $session -ErrorAction SilentlyContinue}}
@@ -22577,7 +22692,7 @@ function Show-DomeniaCommandPalette {
             "refresh" { Load-TreeRoot -ForceRefresh }
             "summary" { Copy-ObjectSummary }
             "parent" { Open-SelectedParentBranch }
-            "batch" { Show-DomeniaBatchNetworkReport -Rows (Get-DomeniaSelectedMachineRows) }
+            "batch" { Show-DomeniaBatchNetworkReport -Rows (Get-DomeniaSelectedGridRows) }
             "selfcheck" { Start-SelfCheck }
             "accounts" { Select-DomeniaWorkspace -Workspace "TabAccounts"; Update-DomeniaAccountUi }
             "relations" { Select-DomeniaWorkspace -Workspace "TabRelations"; Refresh-LinkGrid }
@@ -22706,6 +22821,21 @@ function Update-DomeniaAccountUi {
             if ($null -ne $remoteClear) { $remoteClear.IsEnabled = ($null -ne $remoteCred) }
             if ($null -ne $secretClear) { $secretClear.IsEnabled = ($null -ne $secretCred) }
         } catch { }
+        # Point 44: the in-place correction of the connection account exists for an explicit sign-in only; its row of the
+        # read-only Annuaire card (CO-31) is hidden otherwise. Which account each use takes, its origin and what the
+        # protection recorded (point 42), with the names the directory confirmed (point 45), are in « En ce moment ».
+        try {
+            $correctable = (([bool]$script:Conn.UseCredential) -and ($null -ne $script:Conn.Credential) -and (-not [bool]$script:DemoMode))
+            foreach ($name in @('PwdAccountAdCorrection','BtnAccountAdCorrect')) {
+                $control = Get-DomeniaControl -Name $name
+                if (($null -ne $control) -and (-not (Test-DomeniaControlIsBusy -Name $name))) { $control.IsEnabled = $correctable }
+            }
+            $correct = Get-DomeniaControl -Name 'BtnAccountAdCorrect'
+            if (($null -ne $correct) -and ($correct.Parent -is [Windows.UIElement])) {
+                $shown = if ($correctable) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed }
+                if ($correct.Parent.Visibility -ne $shown) { $correct.Parent.Visibility = $shown }
+            }
+        } catch { Write-AppLog "Correction du compte de connexion non affichée : $($_.Exception.Message)" "WARN" }
     }
     catch { Write-AppLog "Mise à jour de la page Comptes impossible : $($_.Exception.Message)" "WARN" }
 }
@@ -22887,6 +23017,14 @@ function Wire-Events {
     }
     if ($script:Ctrl.ContainsKey("BtnAccountAdRelogin")) {
         $script:Ctrl["BtnAccountAdRelogin"].Add_Click({ Start-DomeniaAccountRelogin })
+    }
+    if ($script:Ctrl.ContainsKey("BtnAccountAdCorrect")) {
+        # Point 44: correct the password of the connection account in place, without reconnecting Domenia. Another
+        # account goes through « Changer de compte » (CO-31: the identity of the card is read-only).
+        $script:Ctrl["BtnAccountAdCorrect"].Add_Click({
+            try { Start-DomeniaDirectoryCorrection }
+            catch { [void](Show-DomeniaOperationError -Operation "Correction du compte de connexion" -ErrorRecordOrException $_) }
+        })
     }
     if ($script:Ctrl.ContainsKey("BtnAccountRemoteTry")) {
         # FO-19: Tester only repeated the AD authentication of Activer; the real question is the right on a workstation.
@@ -24752,7 +24890,7 @@ function Get-DomeniaWorkerOperationHashes {
         LocalQuery            = "C75DF0F0CDA3F0FD44B13029E7620B592560365D56EBAEBE3F842E0D18F09C0C"
         StoragePurge          = "0C6C15C31D28A2536B66A317B70EC0EA132052B8C1DB54AA43D615BDCFDA4699"
         StorageBackup         = "69013AFFC05489EC9B5743488D2FD0532DF3BF2D50966006444A2C3EDA561888"
-        ComputerAdminShare    = "051272FF57B277E19504F52BAC289ED8297A333393644B853FF4A80624347F70"
+        ComputerAdminShare    = "43EB4F830D0B312D6AD7EC8B49876F92E0B62A693AF27BFCD111BD6BC983A5F2"
         StorageUsage          = "0441D6F5732E7EF2DB66203DE2CE814FA719341568A56394092D7A8DA8D8463E"
         LegacyMigration       = "A834585E0B1DBF3472DDF97455C59211F3DBB967D9177951778EF8BBDB27FB29"
         ReadBitLockerList     = "B1456CEA5805D83C6BF48E9A4040206F18F3C3773ED250610D6890E8D1F4EEC9"
@@ -24764,7 +24902,7 @@ function Get-DomeniaWorkerOperationHashes {
         IsolatedRead          = "4074D6ECAA620A9C80A5B6B535BB657E02DCE06A9DF97E35CA1EA47572D1060C"
         CmdletHelp            = "12505D0654AB0E97BD803A70B953BB0BBE2152836AAA1889744C1312EB215D62"
         TreeChildren          = "4187EB7520008EA02DDFB594B428FD1EBE53809D0C01C94B84BC331248A25CA5"
-        GlobalSearch          = "89AF530156FDAF8726677C9AED74106BFFC5FA20F1892703C4CD7492C845D5C6"
+        GlobalSearch          = "9EF84B6C4725DA36482F29628F817DD0DDB3BF9D4820E167AC719DF282867B45"
         PermissionAnalysis    = "79F87877EC7512EC07088C0FEADD022181873112A71510AA8E90AF76791FC9BB"
         SelfCheck             = "C73BA6DA41221073BF1B56DA687BC8CF2A3250B5151F3D996C37EAFAA8E572B3"
         ReadBitLocker         = "1051F9885858BAA1CB9B0944DA4C396B264C51763FBD108F1D9242796343BB47"
@@ -24778,14 +24916,14 @@ function Get-DomeniaWorkerOperationHashes {
         LogonHarvest          = "ACBA6332B7E314A170979C76B88BFEC11803F3A9CF0F773CE22EFF3DBA3E5A5A"
         ParkSweep             = "134ED776E45640FA67B7F51659711C33B37834105375CC4B083342469F2C26A9"
         IndexBuild            = "2CBCECC2C52EB5DF13929FC1F1A0E96069994DDF410A532F2418FACDB9A968D0"
-        UserComputerProbe     = "EB7C36419C1B8B91AFB9ECE6B98D4E3FE663B87E4011F7D264D8AEDE7735E775"
+        UserComputerProbe     = "C136061E3060C52435E5E53749B458ED568819BA69AD24EB4712D09E7CBDC4FB"
         ComputerInventory     = "B6FDD7B52FCFE426A8BA69138470A0ACB6955D448D6993FF58F98975E6ECD035"
-        ComputerDiagnostics   = "AE264F02A1AD7911106DFBCB657B41D84EE2A8A8737A824D8AC86E869ED0ED5F"
-        ComputerLastUser      = "E64F0F0F2B94F49E679E6FEC529C1BF7F9290C1021391C262DA386B05A3BD60A"
+        ComputerDiagnostics   = "BCBC9F4809C9932EAB40452BB3EBB0D23357F6380BB4416FE5E982FCCA8A120C"
+        ComputerLastUser      = "95DA27670D39B8EE6FE37BCDBE15255730F1E77AED224C7B2A72CBC3DC680096"
         CmdletInventory       = "FA1105E9540BBC2AB373FC45037CC54FA11EB8BD9B058194CE44C422E812DF75"
         ComputerPing          = "4ECADF4F231390182A3BF091EF8636B3536D7B3F8A28EF3984DE1E2D524D5BFA"
-        ComputerGpUpdate      = "0E329FCC58E25342E1F8F2ADCC92109F9559A3126CC2E87764FFECEDFF51ECBC"
-        ComputerRestart       = "CFAF51E15B278B3B8B258F5817495B787042A7FF236546944F483FE329E7C742"
+        ComputerGpUpdate      = "0F5DB1CA101E5DD9925289E5C686F5F73BE5770A2ED8B134C067BC5A8AC1B8FB"
+        ComputerRestart       = "BFA686E812F85D72A744BE75E008F18776A998D69095BC4B983CE57BD280E483"
         RimotteRun            = "A2C525F28F399B636022237DE66C50F484E4E57943EEC6ACCB7C6C246511BF1F"
         PruneLinks            = "BF226EDD5E94A974B918FAC3229A9316F5B50B9C804383DFDC3FD3544261196B"
         OpenLinkedObject      = "24863184FC8441FCE8F270A75B30736954AC066DBBC5A2DE99CDF1C5D7CAA6C2"
@@ -24812,7 +24950,7 @@ function Get-DomeniaWorkerOperationHashes {
         LiveDirectoryCheck    = "3F2FC63D6095DB5F81F03C392279FCABC849676BF71040794FE2FF6CA98ED5BD"
         SessionsList         = "DD09187778C09CF31B0BDA41EAC88FF898D9484756AFDF2F3EE643E6B5318BF6"
         RemoteCredentialCheck = "9070C7A5D9460D0FD129FD67CD5070595DE4DED7CA7EE7573C65AF102B0E515B"
-        ReceiptStore         = "AF37C7660D4E06A857209CD4E171F215A24A8E7BC3126F11DD532D4AFF49449F"
+        ReceiptStore         = "93A2008D0F26AFB193C5AA3E7B19E31F00A0A8D1AF348C721B9B6B0139122884"
         ScopeReconcile       = "5917B0E2AB92BA626EF3621CCCE7B9A4988B318E62834EFD02FD6AFEF5C0B650"
         DocumentStore        = "BFD83587CB1BA62BC141E5F0742C6C6453A561617ED157045F3B4E7AB11A14E7"
         LocalStore           = "F3458D69CC65119EB817AC69FDD1538290930C267C853C88EFA5C76D970FC8E5"
@@ -24821,7 +24959,7 @@ function Get-DomeniaWorkerOperationHashes {
         EmbeddedPathBrowse = "B643D707E242EC4416AD63622847DD7C39E5B53ED47CF64FECD56E22B5A82271"
         IndexOuList           = "DBBEAD7CED00124FFC5249F358D0FB7C6D32C6CCA0B4DB123607E1F50C3B928E"
         StorageMaintenance    = "BA22E0812B9375370FD55D0F793C255E6FF973361AB9587B6858F6FB1D9F1DC4"
-        QueryExport           = "8510B7FB0D951B4D1CA50810AE31878E3AFDFCAC3FE2B3AF90EAA71E2228EE93"
+        QueryExport           = "9EDC61CF74A81D4167A0B36E246CD56E37A7516D3463BADDCAF411155D314719"
         QueryLibrary          = "E9CC1DD4D312245C4F1401BA0C119D41E9FE1B924F2DC7AF337BBB038D84E203"
         LockoutDiagnosis      = "16A28EB41BE4F6A88BC7FD09E979D15731ABE1508171682B86C21B516C456D3C"
         ParkPing              = "AEC50398D907F22BBAB7FEAAD775ED44AAF30CC0DF64EAFA7BEE3283397C6058"
@@ -24842,6 +24980,7 @@ function Get-DomeniaWorkerOperationHashes {
         MachineIdentityRead   = "4618EA8761420689A336CEFD55B7600526B1F95E89B5BC85893B4D593A844627"
         RelationHistoryRead   = "226CAE07386AB4C0618A255E849814FF1F2AC75419D57DF080A38D3A227318B3"
         OfflineDossier        = "3D6BE65D554E7238805075A9A2A4EC85BEFAF915F4694D80B20F7126E1B8DA4D"
+        AccountAliasRead      = "702498A6FF855C7C6F6C1CC6D2C1FC36590890841E91BD1330BFDA56F2AD8EF9"
     }
 }
 
@@ -24850,7 +24989,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "8D4071FB263F79F915365A95E147289FED86D640A08755509364A4C3ED10D0DC"
+    $expectedFingerprint = "C767107B47CBB594F0D9678E515491EE2A9F11509A6900B2FD0EC65DCDD8CD56"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -27362,7 +27501,10 @@ function Invoke-WConditionalModify {
         $conn.Timeout = [TimeSpan]::FromSeconds(30)
         $request = New-Object System.DirectoryServices.Protocols.ModifyRequest -ArgumentList @([string]$Dn, $mods.ToArray())
         # Bind first: a failed bind sends nothing. From here on the request may reach the controller.
-        $conn.Bind()
+        # Point 41: the write bind holds the account lease; a rejected account is shared at once with every job.
+        Set-WCredentialAttemptIdentity -Context $Context -Credential $Context.Credential -Channel Directory -UserName $(if($Context.UseCredential){Get-WDirectoryBindUser $Context}else{[string]$Context.ProcessIdentity})
+        $bindLease=Enter-WCredentialAttempt -Context $Context -Channel Directory
+        try{$conn.Bind()}catch{[void](Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Directory);throw}finally{Exit-WCredentialAttempt $bindLease}
         $sent = $true
         $response = $conn.SendRequest($request)
         if ($null -eq $response) { return [pscustomobject]@{ResultCode=-1;Message='Reponse du controleur absente.';Sent=$true} }
@@ -27410,7 +27552,9 @@ function Get-DomeniaWorkerRulesCommon {
         'Test-DomeniaDictionaryKey','Get-DomeniaMember','ConvertTo-DomeniaFlatText','Split-DomeniaDn','ConvertFrom-DomeniaDnValue',
         'ConvertTo-DomeniaDnKey','ConvertTo-DomeniaDnDisplayName','Test-DomeniaWriteTargetDn','Test-DomeniaSecretAttribute',
         'Test-DomeniaMemberPresent','Test-DomeniaDnValuedAttribute','ConvertTo-DomeniaComparableValue','ConvertTo-DomeniaPlanChanges',
-        'Test-DomeniaPreconditionCurrent','Resolve-DomeniaConditionalWrite'
+        'Test-DomeniaPreconditionCurrent','Resolve-DomeniaConditionalWrite',
+        # Point 49: the receipt keeps the state to re-read (expectation) and the receipt worker judges the re-read.
+        'Get-DomeniaReceiptExpectation','Resolve-DomeniaReceiptCheck'
     )
     $parts=New-Object 'System.Collections.Generic.List[string]'
     foreach($name in $names){

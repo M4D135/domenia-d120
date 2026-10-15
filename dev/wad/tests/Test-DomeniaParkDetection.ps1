@@ -6,7 +6,7 @@ Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
 $wad=Split-Path -Parent $PSScriptRoot
 . (Join-Path $wad 'Domenia-Modules.ps1')
 $t=$null;$e=$null;$ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'),[ref]$t,[ref]$e)
-foreach($name in @('Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaEffectiveWorkerResult','Get-MainXaml','Start-DomeniaParkSweep','Request-DomeniaParkSweepAtStartup','Get-DomeniaSearchMode','Get-DomeniaSelectedGridRows')){
+foreach($name in @('Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaEffectiveWorkerResult','Get-MainXaml','Start-DomeniaParkSweep','Request-DomeniaParkSweepAtStartup','Get-DomeniaSearchMode','Get-DomeniaSelectedGridRows','Show-DomeniaBatchNetworkReport')){
  $f=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true))[0]
  . ([scriptblock]::Create($f.Extent.Text))
 }
@@ -20,9 +20,9 @@ function Get-DomeniaSetting {param($Name,$Default)if($null -ne $script:SettingVa
 # SE-05: the ceiling is read from the configuration (Park.MaxTargets).
 function Get-CfgValue {param($Section,$Name,$Default)$key=[string]$Section+'.'+[string]$Name;if($script:Cfg.ContainsKey($key)){return $script:Cfg[$key]};return $Default}
 function New-DomeniaObservationReader {return [pscustomobject]@{Fixture=$true}}
-function Request-DomeniaInlineConfirmation {param($Title,$Target,$Message,$ConfirmText,$CancelText,$OnConfirm,$OnCancel)$script:Confirm=$OnConfirm;$script:Cancel=$OnCancel;$script:Message=$Message;$script:ConfirmTitle=$Title;$script:ConfirmTarget=$Target;$script:ConfirmButton=$ConfirmText;$script:ConfirmText=$ConfirmText}
+function Request-DomeniaInlineConfirmation {param($Title,$Target,$Message,$ConfirmText,$CancelText,$OnConfirm,$OnCancel,$Risk,[string[]]$Changes,$Details,$DetailsTitle,[switch]$DetailsExpertOnly,$TypedConfirmation,$TypedPrompt)$script:Confirm=$OnConfirm;$script:Cancel=$OnCancel;$script:Message=$Message;$script:ConfirmTitle=$Title;$script:ConfirmTarget=$Target;$script:ConfirmButton=$ConfirmText;$script:ConfirmText=$ConfirmText;$script:Preview=[pscustomobject]@{Changes=@($Changes);Details=[string]$Details;Typed=[string]$TypedConfirmation;DetailsExpertOnly=[bool]$DetailsExpertOnly}}
 function Start-UiTask {
- param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,[switch]$NonCancellable,$TimeoutSeconds,$HardTimeoutSeconds,$TaskClass)
+ param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,[switch]$NonCancellable,$TimeoutSeconds,$HardTimeoutSeconds,$TaskClass,$ReplaceKey,$StatusText)
  $id='job-'+$script:Calls.Count
  $call=[pscustomobject]@{Id=$id;Name=$Name;Payload=$Payload;State=$CallbackState;OperationId=$OperationId;TimeoutSeconds=$TimeoutSeconds;HardTimeoutSeconds=$HardTimeoutSeconds;TaskClass=$TaskClass;Code=$Code};$script:Calls.Add($call);$script:AsyncJobs[$id]=$call;return $id
 }
@@ -118,6 +118,85 @@ Case 'Resultats : seuls les postes affiches apres filtre sont figes' {
  Start-DomeniaOnlinePark -DisplayedResults
  $p=$script:Calls[0].Payload;Assert ($p.Scope -eq 'Results' -and $p.Targets.Count -eq 1 -and $p.Targets[0].name -eq 'PC-1')
  $script:Ctrl.DgObjects.Items.Filter=$null;Assert ($p.Targets.Count -eq 1)
+}
+Case 'Point 48 : apercu exact des cibles, exclusions motivees, confirmation proportionnee' {
+ Reset-Fixture
+ $rows=[Collections.ObjectModel.ObservableCollection[object]]::new()
+ foreach($n in 1..4){$row=New-DomeniaLiveResultRow;$row.Type=$(if($n -eq 4){'Utilisateur'}else{'Machine'});$row.Name='PC-'+$n;$row.DN='CN=PC-'+$n+',DC=example,DC=invalid';$row.Guid=$(if($n -eq 3){''}else{(New-Target $n).Guid});$rows.Add($row)}
+ $script:Ctrl.DgObjects.ItemsSource=$rows
+ Start-DomeniaOnlinePark -DisplayedResults -PingOnly
+ $call=$script:Calls[0];Assert ($call.Payload.Targets.Count -eq 2) ('Cibles demandees : '+$call.Payload.Targets.Count)
+ # The local base returns PC-1 only: PC-2 is left out by it, with its reason.
+ Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@([pscustomobject]@{Computer='PC-1';Key='cn=pc-1,dc=example,dc=invalid';Guid=(New-Target 1).Guid;Previous=$null});Busy=$false}) $call.State
+ $p=$script:Preview
+ Assert ($null -ne $p) 'Aucun apercu transmis a la confirmation'
+ Assert ((@($p.Changes) -join ' ') -match '1 cible exacte') ('Nombre absent : '+(@($p.Changes) -join ' | '))
+ Assert ((@($p.Changes) -join ' ') -match 'PC-1 : ping ICMP') 'Changement par cible absent'
+ Assert ((@($p.Changes) -join ' ') -match '3 exclue') 'Exclusions non comptees'
+ Assert ($p.Details.Contains('CN=PC-1,DC=example,DC=invalid') -and $p.Details.Contains('PC-2') -and $p.Details.Contains('PC-3') -and $p.Details.Contains('PC-4')) 'Liste exacte incomplete'
+ Assert ($p.Details -match 'Type Utilisateur' -and $p.Details -match 'Identité incomplète' -and $p.Details -match 'base locale') 'Motifs d exclusion absents'
+ Assert (-not $p.DetailsExpertOnly) 'Liste des cibles reservee au profil Expert'
+ Assert ($p.Typed -eq '') 'Saisie exigee pour une lecture de 1 poste'
+ & $script:Cancel
+}
+Case 'Point 48 : un GUID present sous deux DN de la base, une seule cible interrogee et comptee' {
+ Reset-Fixture
+ Add-DisplayedMachine;Start-DomeniaOnlinePark -DisplayedResults;$call=$script:Calls[0]
+ # The local base can keep two active rows of one object (old and new DN): the preview lists it once, the run follows.
+ $old=New-Target 1;$old.Key='cn=pc-1-ancien,ou=anciens,dc=example,dc=invalid'
+ Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@((New-Target 1),$old,(New-Target 2));Busy=$false}) $call.State
+ [void]$script:AsyncJobs.Remove($call.Id)
+ $lines=(@($script:Preview.Changes) -join ' ')
+ Assert ($lines -match '2 cibles exactes') $lines
+ Assert ($script:Preview.Details -match 'Doublon') $script:Preview.Details
+ Assert (@((Run).Targets).Count -eq 2) ('Cibles du releve : '+@((Run).Targets).Count)
+ Assert ((@((Run).Targets|ForEach-Object{[string]$_.Key}) -join '|') -eq 'cn=pc-1,dc=example,dc=invalid|cn=pc-2,dc=example,dc=invalid') 'Ancien DN garde dans le releve'
+ Assert ($script:Message -match '^2 postes') $script:Message
+ & $script:Confirm
+ foreach($i in 1..6){Invoke-DomeniaParkRunTick}
+ $probed=@($script:Calls|Select-Object -Skip 1)
+ Assert ($probed.Count -eq 2) ('Postes contactes : '+$probed.Count)
+}
+Case 'Point 48 : au-dela de 200 postes, la lecture demande de saisir le nombre de cibles' {
+ Reset-Fixture;Ready-Run 201
+ Assert ($script:Preview.Typed -eq '201') ('Saisie : '+$script:Preview.Typed)
+ Assert ((@($script:Preview.Changes) -join ' ') -match 'Confirmation renforcée')
+}
+Case 'Point 48 : diagnostic reseau groupe, liste exacte de la selection, exclusions motivees, rien avant confirmation' {
+ Reset-Fixture;$script:Preview=$null
+ function Get-CfgValue {param($Section,$Name,$Default)return $Default}
+ $rows=@(
+  [pscustomobject]@{Type='Machine';Name='PC-1';DN='CN=PC-1,DC=example,DC=invalid';Guid=(New-Target 1).Guid},
+  [pscustomobject]@{Type='Machine';Name='PC-2';DN='CN=PC-2,DC=example,DC=invalid';Guid=(New-Target 2).Guid},
+  [pscustomobject]@{Type='Machine';Name='PC-1';DN='CN=PC-1,DC=example,DC=invalid';Guid=(New-Target 1).Guid},
+  [pscustomobject]@{Type='Machine';Name='';DN='CN=SANSNOM,DC=example,DC=invalid';Guid=(New-Target 3).Guid},
+  [pscustomobject]@{Type='Utilisateur';Name='alice';DN='CN=alice,DC=example,DC=invalid';Guid=(New-Target 4).Guid}
+ )
+ Show-DomeniaBatchNetworkReport -Rows @()
+ Assert (($script:Calls.Count -eq 0) -and ($null -eq $script:Preview) -and ($script:Status -match 'Aucun poste')) 'Selection vide mal traitee'
+ Show-DomeniaBatchNetworkReport -Rows $rows
+ Assert ($script:Calls.Count -eq 0) 'Diagnostic lance avant confirmation'
+ $p=$script:Preview;Assert ($null -ne $p) 'Aucun apercu transmis a la confirmation'
+ $lines=(@($p.Changes) -join ' ')
+ Assert ($lines -match '2 cibles exactes') $lines
+ Assert ($lines -match 'PC-1 : écho ICMP puis ports TCP 445, 135, 5985 et 5986') $lines
+ Assert ($lines -match '3 exclue') $lines
+ Assert ($lines -match 'Impact : un poste après lʼautre') $lines
+ Assert ($p.Details -match 'Doublon' -and $p.Details -match 'Nom de poste absent' -and $p.Details -match 'Type Utilisateur') $p.Details
+ Assert ($p.Typed -eq '') 'Saisie exigee pour une lecture de 2 postes'
+ & $script:Confirm
+ Assert ($script:Calls.Count -eq 1 -and $script:Calls[0].OperationId -eq 'BatchNetworkDiag') 'Diagnostic non lance apres confirmation'
+ $names=(@($script:Calls[0].Payload.Rows|ForEach-Object{$_.Name}) -join ',')
+ Assert ($names -eq 'PC-1,PC-2') ('Cibles envoyees : '+$names)
+}
+Case 'Point 48 : diagnostic reseau groupe borne a 50 postes, les suivants nommes' {
+ Reset-Fixture;$script:Preview=$null
+ function Get-CfgValue {param($Section,$Name,$Default)return $Default}
+ $rows=@(for($i=1;$i -le 52;$i++){[pscustomobject]@{Type='Machine';Name=('PC-'+$i);DN=('CN=PC-'+$i+',DC=example,DC=invalid');Guid=(New-Target $i).Guid}})
+ Show-DomeniaBatchNetworkReport -Rows $rows
+ Assert ($script:Preview.Details -match 'PC-51 — Au-delà de la limite de 50' -and $script:Preview.Details -match 'PC-52 — Au-delà') $script:Preview.Details
+ & $script:Confirm
+ Assert (@($script:Calls[0].Payload.Rows).Count -eq 50) 'Limite de 50 postes non appliquee'
 }
 Case 'Resultats : vide ne retombe jamais sur tout le parc' {Reset-Fixture;Start-DomeniaOnlinePark -DisplayedResults;Assert ($script:Calls.Count -eq 0 -and $null -eq (Run))}
 Case 'Parc : lecture locale avant confirmation et aucun poste sans confirmation' {Reset-Fixture;Ready-Run;Assert ($script:Calls.Count -eq 1 -and $null -ne $script:Confirm -and $null -eq (Run).Timer);& $script:Cancel;Assert (Run).Completed;Assert ($script:Calls.Count -eq 1)}
@@ -521,7 +600,7 @@ Case 'UX-12 : Arreter (n/N), barre fine, lignes marquees pendant le releve puis 
 Case 'UX-12 : Annuler la verification retire aussi la demande affichee, aucun Pinger N postes orphelin' {
  Reset-Fixture;Add-SurveyControls;Add-ResultRows 3
  $script:InlinePending=$null;$script:InlineDismissed=0
- function Request-DomeniaInlineConfirmation {param($Title,$Target,$Message,$ConfirmText,$CancelText,$OnConfirm,$OnCancel)$script:Confirm=$OnConfirm;$script:Cancel=$OnCancel;$script:ConfirmButton=$ConfirmText;$script:InlinePending=[pscustomobject]@{Id='req-1';Title=$Title};return [pscustomobject]@{Id='req-1';Title=$Title;Target=$Target;Answered=$false;Confirmed=$false;Presentation='Inline'}}
+ function Request-DomeniaInlineConfirmation {param($Title,$Target,$Message,$ConfirmText,$CancelText,$OnConfirm,$OnCancel,$Risk,[string[]]$Changes,$Details,$DetailsTitle,[switch]$DetailsExpertOnly,$TypedConfirmation,$TypedPrompt)$script:Confirm=$OnConfirm;$script:Cancel=$OnCancel;$script:ConfirmButton=$ConfirmText;$script:InlinePending=[pscustomobject]@{Id='req-1';Title=$Title};return [pscustomobject]@{Id='req-1';Title=$Title;Target=$Target;Answered=$false;Confirmed=$false;Presentation='Inline'}}
  function Get-DomeniaInlinePendingRequest {return $script:InlinePending}
  function Complete-DomeniaInlineRequest {param([switch]$Confirm,[switch]$Dismiss,[string]$Reason='')if($null -eq $script:InlinePending){return};$script:InlinePending=$null;$script:InlineDismissed++;if($Dismiss){& $script:Cancel}else{& $script:Confirm}}
  Start-DomeniaOnlinePark -DisplayedResults -PingOnly;$call=$script:Calls[0]
@@ -948,7 +1027,7 @@ Case 'Moteur : base en maintenance, le ping de la liste nʼenvoie plus de lot et
 }
 if($null -ne $script:ParkRuns){foreach($old in @($script:ParkRuns.Values)){if($null -ne $old -and $null -ne $old.PSObject.Properties['Timer'] -and $null -ne $old.Timer){$old.Timer.Stop()}}}
 $failed=@($checks|Where-Object Status -eq 'Failed').Count
-$expected=73
+$expected=78
 $report=[ordered]@{Kind='ParkDetection';Expected=$expected;Complete=($checks.Count -eq $expected -and $failed -eq 0);NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path $env:TEMP 'domenia-park-tests.json'}
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))

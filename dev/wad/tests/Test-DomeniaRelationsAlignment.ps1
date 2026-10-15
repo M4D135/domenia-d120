@@ -77,7 +77,7 @@ namespace Domenia.RelationsFixture {
 }
 '@
 function Invoke-WorkerFixture {
-    param([string]$Mode='Match',[bool]$Scan=$false,[string]$Scope='Candidates',[int]$Limit=20,[bool]$Events=$false,[bool]$Known=$true)
+    param([string]$Mode='Match',[bool]$Scan=$false,[string]$Scope='Candidates',[int]$Limit=20,[bool]$Events=$false,[bool]$Known=$true,[bool]$Guard=$false)
     # The doubles below run while the worker is executing. PowerShell resolves variables dynamically and is
     # case-insensitive: the worker assigns its own $mode (= ScanScope), which used to shadow -Mode inside the
     # doubles. A name the worker never uses keeps each case on its own fixture mode (cases 31 to 40).
@@ -86,7 +86,10 @@ function Invoke-WorkerFixture {
     $password=ConvertTo-SecureString 'FAUX-SECRET-TEST-SEULEMENT' -AsPlainText -Force
     $ad=[Management.Automation.PSCredential]::new('EXAMPLE\reader',$password)
     $remote=[Management.Automation.PSCredential]::new('EXAMPLE\postes',$password)
-    $Context=[pscustomobject]@{BaseDn='DC=example,DC=invalid';Server='dc.example.invalid';Domain='example.invalid';Netbios='EXAMPLE';Credential=$ad;MachineCredential=$remote;UseCim=($Mode -ne 'CimDisabled');RelationRemoteBlocked=($Mode -eq 'RemoteBlocked')}
+    # Point 41: with -Guard the context carries the real shared guard and the account keys of the dispatch.
+    $guardMap=$null;if($Guard){$guardMap=[hashtable]::Synchronized(@{Epoch=1L;Faults=@{};Revision=0L;NotifiedRevision=0L})}
+    $Context=[pscustomobject]@{BaseDn='DC=example,DC=invalid';Server='dc.example.invalid';Domain='example.invalid';Netbios='EXAMPLE';Credential=$ad;MachineCredential=$remote;UseCim=($Mode -ne 'CimDisabled');RelationRemoteBlocked=($Mode -eq 'RemoteBlocked');OperationId='UserComputerProbe';CredentialGuard=$guardMap;DirectoryAuthKey='reader@example.invalid';RemoteAuthKey='postes@example.invalid';RemoteAdminAuthKey='postes@example.invalid';ActiveRemoteAuthKey='postes@example.invalid';LastAuthChannel=''}
+    $leaseHeld={$held=$false;if(($null -ne $Context.CredentialGuard) -and ($Context.CredentialGuard.ContainsKey('AttemptLocks'))){foreach($l in @($Context.CredentialGuard.AttemptLocks.Values)){if([Threading.Monitor]::IsEntered($l)){$held=$true}}};$held}
     $sid=[Security.Principal.SecurityIdentifier]::new('S-1-5-21-1-2-3-1001');$sidBytes=[byte[]]::new($sid.BinaryLength);$sid.GetBinaryForm($sidBytes,0)
     $user=[pscustomobject]@{Properties=@{samaccountname=@('alice');userprincipalname=@('alice@example.invalid');objectguid=@(,([guid]'11111111-1111-1111-1111-111111111111').ToByteArray());objectsid=@(,$sidBytes)}}
     $pcA=[pscustomobject]@{Properties=@{name=@('PC-A');dnshostname=@('pc-a.example.invalid');distinguishedname=@('CN=PC-A,DC=example,DC=invalid');objectguid=@(,([guid]'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa').ToByteArray());description=@('Materiel alice');managedby=@('CN=Alice,DC=example,DC=invalid')}}
@@ -121,7 +124,7 @@ function Invoke-WorkerFixture {
     function New-CimSessionOption {param($Protocol,$ErrorAction);Expect ($Protocol -eq 'Dcom');return 'DCOM-fictif'}
     function New-CimSession {
         param($ComputerName,$SessionOption,$OperationTimeoutSec,$ErrorAction,$Credential)
-        [void]$trace.Probes.Add([pscustomobject]@{Computer=$ComputerName;User=$Credential.UserName;Timeout=$OperationTimeoutSec})
+        [void]$trace.Probes.Add([pscustomobject]@{Computer=$ComputerName;User=$Credential.UserName;Timeout=$OperationTimeoutSec;Leased=(& $leaseHeld)})
         if($relationsFixtureMode -eq 'AuthRejected'){throw [Runtime.InteropServices.COMException]::new('Logon failure fixture',-2147023570)}
         if($relationsFixtureMode -eq 'RemoteDenied'){throw [UnauthorizedAccessException]::new('Access denied fixture')}
         if($relationsFixtureMode -eq 'Timeout'){throw [TimeoutException]::new('Timeout fixture')}
@@ -135,7 +138,8 @@ function Invoke-WorkerFixture {
     function Remove-CimSession {param($CimSession,$ErrorAction);$trace.Closed++}
     function Get-WinEvent {
         param($ComputerName,$LogName,$FilterXPath,$MaxEvents,$ErrorAction,$Credential)
-        $trace.Events=[pscustomobject]@{Filter=$FilterXPath;User=$Credential.UserName;Server=$ComputerName;Max=$MaxEvents}
+        $trace.Events=[pscustomobject]@{Filter=$FilterXPath;User=$Credential.UserName;Server=$ComputerName;Max=$MaxEvents;Leased=(& $leaseHeld)}
+        if($relationsFixtureMode -eq 'EventsRejected'){throw [ComponentModel.Win32Exception]::new(1326)}
         $e=[pscustomobject]@{TimeCreated=[datetime]'2026-01-01'}
         $e|Add-Member ScriptMethod ToXml {return '<Event><EventData><Data Name="TargetSid">S-1-5-21-1-2-3-1001</Data><Data Name="IpAddress">192.0.2.42</Data></EventData></Event>'};return $e
     }
@@ -145,7 +149,7 @@ function Invoke-WorkerFixture {
     $out=@(& ([scriptblock]::Create($script:WorkerCode)))
     $r=@($out|Where-Object{$null -ne $_.PSObject.Properties['RequestId'] -and $null -ne $_.PSObject.Properties['Candidates']})
     Expect ($r.Count -eq 1) ('Resultat worker unique requis : '+$out.Count)
-    return [pscustomobject]@{Result=$r[0];Trace=$trace;Queue=$Payload.Progress}
+    return [pscustomobject]@{Result=$r[0];Trace=$trace;Queue=$Payload.Progress;Context=$Context}
 }
 function Pump {param($Window);$Window.UpdateLayout();$Window.Dispatcher.Invoke([Action]{},[Windows.Threading.DispatcherPriority]::ApplicationIdle);$Window.UpdateLayout()}
 function Open-TestWindow {
@@ -172,6 +176,8 @@ try {
     if($null -eq ('Domenia.SelectionIdentity' -as [type])){Add-Type -Path (Join-Path $wad 'modules\Domenia-Identity.Types.cs')}
     . (Join-Path $wad 'modules\Domenia-Selection.UI.ps1')
     . (Join-Path $wad 'modules\Domenia-Relations.Model.ps1')
+    # Point 41: the real guard helpers that every worker receives with its error contract.
+    . (Join-Path $wad 'modules\Domenia-Guard.Model.ps1')
     . (Join-Path $wad 'modules\Domenia-InventoryImport.Model.ps1')
     . (Join-Path $wad 'modules\Domenia-Embedded.UI.ps1')
     . (Join-Path $wad 'modules\Domenia-Relations.UI.ps1')
@@ -235,6 +241,9 @@ try {
     Case '51 Progression pleine ne bloque pas retour final' {$script:FixtureOutput=Invoke-WorkerFixture -Mode QueueFull;Expect ($script:FixtureOutput.Queue.Count -eq 256 -and $script:FixtureOutput.Result.Candidates.Count -eq 2)}
     Case '52 Perimetre OU explicitement transmis' {$script:FixtureOutput=Invoke-WorkerFixture -Scan $true -Scope OU;Expect (@($script:FixtureOutput.Trace.Ldap|Where-Object{$_.Root -eq 'OU=Test,DC=example,DC=invalid' -and $_.Filter -eq '(objectCategory=computer)'}).Count -eq 1)}
     Case '53 Perimetre liste exclut les candidats hors liste' {$script:FixtureOutput=Invoke-WorkerFixture -Scan $true -Scope Loaded;Expect ($script:FixtureOutput.Trace.Probes.Count -eq 1 -and $script:FixtureOutput.Trace.Probes[0].Computer -eq 'pc-b.example.invalid')}
+    Case '54 Point 41 : journal et consoles envoyes sous le bail du compte' {$script:FixtureOutput=Invoke-WorkerFixture -Scan $true -Events $true -Guard $true;Expect ($script:FixtureOutput.Trace.Events.Leased) 'Journal lu hors bail';Expect ($script:FixtureOutput.Trace.Probes.Count -eq 2 -and @($script:FixtureOutput.Trace.Probes|Where-Object{-not $_.Leased}).Count -eq 0) 'Console ouverte hors bail'}
+    Case '55 Point 41 : refus d une console partage avec les autres travaux, aucune autre console' {$script:FixtureOutput=Invoke-WorkerFixture -Mode AuthRejected -Scan $true -Guard $true;Expect ($script:FixtureOutput.Trace.Probes.Count -eq 1) 'Seconde console essayee';$g=$script:FixtureOutput.Context.CredentialGuard;Expect ($g.Faults.ContainsKey('postes@example.invalid')) 'Refus non partage';Expect (-not $g.Faults.ContainsKey('reader@example.invalid')) 'Compte annuaire declare refuse a tort'}
+    Case '56 Point 41 : refus du journal attribue au compte annuaire, aucune lecture AD ensuite' {$script:FixtureOutput=Invoke-WorkerFixture -Mode EventsRejected -Scan $true -Events $true -Guard $true -Scope OU;$g=$script:FixtureOutput.Context.CredentialGuard;Expect ($g.Faults.ContainsKey('reader@example.invalid')) 'Refus non attribue au compte annuaire';Expect (-not $g.Faults.ContainsKey('postes@example.invalid')) 'Compte poste declare refuse a tort';Expect (@($script:FixtureOutput.Trace.Ldap|Where-Object{$_.Filter -eq '(objectCategory=computer)'}).Count -eq 0) 'Lecture AD apres refus'}
     foreach($theme in @('Light','Dark')){
         Reset-Fixture;$w=Open-TestWindow $theme
         try{
@@ -273,7 +282,7 @@ try {
     }
 }catch{$script:Cases.Add([pscustomobject]@{Name='Initialisation ou suite interrompue';Passed=$false;Error=$_.Exception.ToString()})}
 finally{if($null -ne $script:Window){$script:Window.Close()}}
-$expected=65
+$expected=68
 $failed=@($script:Cases|Where-Object{-not $_.Passed}).Count
 $report=[ordered]@{Build='RC1.8';Suite='Relations et alignements';Expected=$expected;Passed=@($script:Cases|Where-Object{$_.Passed}).Count;Failed=$failed;Skipped=0;Complete=($script:WindowsExecuted -and $script:Cases.Count -eq $expected);WindowsPowerShellExecuted=$script:WindowsExecuted;LiveNetworkExecuted=$false;Cases=$script:Cases.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-RC1.8-relations-'+[guid]::NewGuid().ToString('N')+'.json')}

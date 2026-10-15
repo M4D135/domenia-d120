@@ -183,7 +183,7 @@ function Request-DomeniaAccessRecovery {
         try{$DN=[string]$job.CallbackState.DN;if(-not $DN){$DN=[string]$job.CallbackState.TargetDn}}catch{}
     }
     if(-not $DN -and $OperationId -ne 'LiveConsole' -and $null -ne $script:SelectedObject){$DN=[string]$script:SelectedObject.DN}
-    if($OperationId -in @('LiveConsole','LiveCache','LiveDirectoryCheck','ScopeReconcile','TreeChildren','PresenceScan','SelectedPresence','ParkSweep','ParkPing','IndexBuild')){$Interactive=$false}
+    if($OperationId -in @('LiveConsole','LiveCache','LiveDirectoryCheck','ScopeReconcile','TreeChildren','PresenceScan','SelectedPresence','ParkSweep','ParkPing','IndexBuild','AccountAliasRead')){$Interactive=$false}
     $scope=if([string]$ErrorValue -match '(?i)Canal Active Directory suspendu'){'Directory'}else{Get-DomeniaAccessScope $OperationId}
     $key=$scope+'|'+$DN
     $record=[pscustomobject]@{Key=$key;Scope=$scope;OperationId=$OperationId;Operation=$Operation;DN=$DN;Target=$resourceTarget;Kind=$kind;Epoch=[long]$script:SessionEpoch;Generation=[long]$script:SelectedObjectGeneration;IsWrite=([bool]$IsWrite -or ($null -ne $job -and [bool]$job.IsWrite));Interactive=[bool]$Interactive;At=[datetime]::UtcNow}
@@ -390,6 +390,9 @@ function Invoke-DomeniaAccessRecovery {
         }
         if($Record.Scope -eq 'Directory'){
             [void](Complete-DomeniaAccessPromptUi -Scope ([string]$Record.Scope) -Outcome Accepted)
+            # Point 44: the password of the connection account is corrected in place (Comptes), without reconnecting;
+            # a Windows session, or another account, goes through the connection window.
+            if(([bool]$script:Conn.UseCredential) -and ($null -ne $script:Conn.Credential)){Show-DomeniaDirectoryCorrection;return}
             Start-DomeniaAccountRelogin
             return
         }
@@ -415,7 +418,8 @@ function Invoke-DomeniaAccessRecovery {
         if($Record.Scope -eq 'Remote' -and $target -and (Test-DomeniaLocalAccountName -UserName ([string]$credential.UserName) -Target $target)){$credentialKey='RemoteLocal|'+(ConvertTo-DomeniaMachineKey $target).ToUpperInvariant()}
         $script:AccessState.Credentials[$credentialKey]=$credential
         [void](Save-DomeniaAccountPreference -Scope ([string]$Record.Scope) -UserName ([string]$credential.UserName) -Target $target)
-        $script:DomeniaAccountGeneration=[long]$script:DomeniaAccountGeneration+1
+        # Point 44: the same correction path as the Comptes tab: generation, protection of this account only, old reads.
+        $correction=Complete-DomeniaAccountCorrection -UserName ([string]$credential.UserName) -Scopes @([string]$Record.Scope) -Target $target -Credential $credential
         # D054: sliding inactivity lease, measured from the last worker departure, and bound to this session.
         $leases=Get-DomeniaMember $script:AccessState 'Leases' $null
         if($null -eq $leases){$leases=@{};$script:AccessState|Add-Member -NotePropertyName Leases -NotePropertyValue $leases -Force}
@@ -432,10 +436,14 @@ function Invoke-DomeniaAccessRecovery {
         Write-AppLog ('Autre compte valide pour '+$Record.Scope+' : '+$credential.UserName+'. Aucun secret persiste.') 'INFO'
         # One read may be replayed once after acceptance (Get-DomeniaReauthPlan). A write never is.
         $plan=Get-DomeniaReauthPlan -Category (ConvertTo-DomeniaAccessCategory ([string]$Record.Kind)) -IsWrite ([bool]$Record.IsWrite) -Attempt 0
-        if($plan.RetryOnce -and $Record.Scope -in @('ReadLaps','ReadBitLocker') -and $null -ne $script:SelectedObject -and $Record.DN -ieq [string]$script:SelectedObject.DN -and $Record.Generation -eq [long]$script:SelectedObjectGeneration){
+        # Point 44: while the account stays paused (another stored copy of its refused password), nothing is replayed.
+        if(([bool]$correction.Released) -and ([bool]$plan.RetryOnce) -and ($Record.Scope -in @('ReadLaps','ReadBitLocker')) -and ($null -ne $script:SelectedObject) -and ($Record.DN -ieq [string]$script:SelectedObject.DN) -and ($Record.Generation -eq [long]$script:SelectedObjectGeneration)){
             $mode=if($Record.Scope -eq 'ReadLaps'){'LAPS'}else{'BitLocker'}
             Start-LoadComputerSecrets -Mode $mode -RetryAttempt 1
-        }else{Set-Status 'Compte valide et memorise pour cette ressource. Relancez volontairement l action ; ses controles et confirmations restent obligatoires.'}
+        }else{
+            $level='INFO';if(-not [bool]$correction.Released){$level='WARN'}
+            Set-Status ('Compte valide et memorise pour cette ressource. Relancez volontairement l action ; ses controles et confirmations restent obligatoires. '+[string]$correction.Text) $level
+        }
     }finally{$script:AccessState.Showing=$false;Update-DomeniaAccessButton}
 }
 function Resolve-DomeniaCapabilityRoute {
@@ -615,6 +623,11 @@ function Initialize-DomeniaAccess {
         }
         [void](Invoke-DomeniaAccessLeaseSweep)
         Sync-DomeniaAccountPreferences
+        # Point 45: the identity validated at sign-in has its other names confirmed once per session (one exact read).
+        if(([bool]$script:Conn.Connected) -and (-not [bool]$script:DemoMode) -and (($null -eq $script:DomeniaAccountAlias) -or ([long]$script:DomeniaAccountAlias.Epoch -ne [long]$script:SessionEpoch))){
+            $sessionIdentity=[string]$script:Conn.BindUser
+            if($sessionIdentity){[void](Request-DomeniaAccountAliasRead -UserName $sessionIdentity)}
+        }
         try{$policy=Get-DomeniaControl 'DgTransportPolicy';if($null -ne $policy -and $policy.IsVisible){[void](Update-DomeniaTransportPolicyView)}}catch{}
         if($null -ne $script:DomeniaSurfaceState -and -not $script:DomeniaSurfaceState.Done){return}
         if(-not (Test-DomeniaAccessBusyWrite) -and $script:Window.IsActive){

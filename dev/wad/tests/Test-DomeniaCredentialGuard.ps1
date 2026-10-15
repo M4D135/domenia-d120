@@ -61,7 +61,8 @@ Case 'Ping and database context contain no authentication keys' {
 Case 'Guard state carries only account keys and whitelisted error metadata' {
     $c=New-Fixture;[void](Register-WCredentialFailure $c 'data 52e')
     $fields=@($c.CredentialGuard.Faults['admin@example.invalid'].PSObject.Properties.Name)
-    Assert (($fields -join ',') -eq 'Kind,Code,AtUtc')
+    # Point 44: the account generation of the refused job is whitelisted metadata too (a number, never a secret).
+    Assert (($fields -join ',') -eq 'Kind,Code,AtUtc,Generation')
 }
 Case 'Logon harvest records a credential refusal before returning its status' {
     $core = Get-Content -LiteralPath (Join-Path $wad 'Domenia-Core.ps1') -Raw
@@ -246,6 +247,151 @@ Case 'Real credential selectors record only the identity selected for that trans
     Assert ((@(Get-WCredentialGuardKeys $c Remote) -join ',') -eq 'admin@example.invalid')
     Assert ((Get-WAdCredential $c).UserName -eq 'directory@example.invalid')
     Assert ($c.LastAuthChannel -eq 'Directory')
+}
+
+# ---------------------------------------------------------------- Point 41 qualification of the refusal protection
+Case 'Point 41 audit: every explicit-account logon of worker code holds the account lease' {
+    # Static audit of every here-string body (worker operations and their common helpers). A logon that can carry an
+    # explicit account must follow Enter-WCredentialAttempt in the same function, at most 15 lines above.
+    $pattern='New-CimSession\s+[@-]|Invoke-Command\s+@|Get-WinEvent\s+@|Get-WinEvent\b.*-Credential|New-PSDrive\s+@|\$service\.Connect\(|\$conn(ection)?\.Bind\(\)|\[Domenia\.NetUse\]::Connect\(|DirectoryEntry -ArgumentList @\(\$path,\$bindUser|Restart-Computer\s+@|Test-WSMan\s+@'
+    # Directory cmdlets carrying the account (AD module, Windows LAPS) run right after a leased LDAP bind of the SAME account
+    # in the same body (fresh read before a write, entry read before LAPS): that bind proves the account first.
+    $directoryCmdlet='Get-LapsADPassword\s+@|\b(?:Set|Add|Remove|New|Clear|Move|Rename|Unlock|Enable|Disable)-AD[A-Za-z]+\s+@'
+    $directoryBind='New-WEntry|New-WSearcher|New-WRootDse|Assert-WObjectFresh|Get-WObjectSnapshot'
+    # Validation of a candidate account: one attempt per operator gesture, serialized by the validation panel itself.
+    $allowed=@('Domenia-Sessions.UI.ps1|Get-DomeniaRemoteCredentialCheckCode')
+    $files=@((Join-Path $wad 'Domenia-Core.ps1'))+@(Get-ChildItem -LiteralPath (Join-Path $wad 'modules') -Filter '*.ps1' -File|ForEach-Object{$_.FullName})
+    $missing=[Collections.Generic.List[string]]::new();$seen=0
+    foreach($file in $files){
+        $text=[IO.File]::ReadAllText($file);$name=[IO.Path]::GetFileName($file)
+        $functions=@([regex]::Matches($text,'(?m)^function\s+([A-Za-z0-9-]+)'))
+        foreach($m in [regex]::Matches($text,"(?ms)@'\r?\n(.*?)\r?\n'@")){
+            $owner='';foreach($f in $functions){if($f.Index -lt $m.Index){$owner=$f.Groups[1].Value}else{break}}
+            $lines=@($m.Groups[1].Value -split "\r?\n")
+            for($i=0;$i -lt $lines.Count;$i++){
+                if($lines[$i] -match $directoryCmdlet){
+                    $seen++
+                    $before=($lines[0..$i] -join "`n")
+                    if(($before -notmatch $directoryBind) -and ($allowed -notcontains ($name+'|'+$owner))){$missing.Add($name+' / '+$owner+' (sans bind prealable) : '+$lines[$i].Trim())}
+                    continue
+                }
+                if($lines[$i] -notmatch $pattern){continue}
+                if(($lines[$i] -match 'Get-Command\s+New-CimSession') -and ($lines[$i] -notmatch 'New-CimSession\s+@')){continue}
+                $seen++
+                $leased=$false
+                for($j=$i;$j -ge [Math]::Max(0,$i-15);$j--){
+                    if($lines[$j] -match 'Enter-WCredentialAttempt'){$leased=$true;break}
+                    if(($j -lt $i) -and ($lines[$j] -match '^\s*function\s')){break}
+                }
+                if((-not $leased) -and ($allowed -notcontains ($name+'|'+$owner))){$missing.Add($name+' / '+$owner+' : '+$lines[$i].Trim())}
+            }
+        }
+    }
+    Assert ($seen -ge 20) ('Audit incomplet : '+$seen+' appels trouves')
+    Assert ($missing.Count -eq 0) ('Appels hors bail : '+($missing -join ' | '))
+}
+Case 'Point 41: index pass, park sweep and query schema reads get the lease through the shared helpers' {
+    $text=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1'))
+    foreach($helper in @('New-WEntry','New-WRootDse','New-WDomeniaCimSession')){
+        $body=[regex]::Match($text,'(?ms)^function '+[regex]::Escape($helper)+' \{.*?^\}').Value
+        Assert ($body -match 'Enter-WCredentialAttempt') ($helper+' sans bail')
+        Assert ($body -match 'Register-WCredentialFailure') ($helper+' sans enregistrement du refus')
+    }
+    $index=[regex]::Match($text,'(?ms)^function Get-DomeniaIndexWorkerCode \{.*?^''@').Value
+    Assert ($index -match 'New-WSearcher') 'Passe d index sans le searcher commun'
+    Assert ($index -notmatch 'New-Object\s+System\.DirectoryServices\.DirectoryEntry') 'Passe d index avec un bind hors bail'
+    $park=[regex]::Match($text,'(?ms)^function Get-DomeniaParkSweepWorkerCode \{.*?^''@').Value
+    Assert ($park -match 'New-WDomeniaCimSession') 'Releve du parc sans la fabrique CIM commune'
+    $schema=[IO.File]::ReadAllText((Join-Path $wad 'modules\Domenia-QuerySchema.Worker.ps1'))
+    Assert ($schema -match 'New-WDomeniaCimSession') 'Schema de requete sans la fabrique CIM commune'
+    Assert ($schema -notmatch 'New-CimSession\s+@') 'Schema de requete avec une session hors bail'
+}
+Case 'Point 41: a read sent with the Windows session is attributed to it, never to the workstation account of the job' {
+    # The optional 4624 read of the last-user probe sends no explicit account: it selects the session identity first.
+    $text=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1'))
+    $read=[regex]::Match($text,'Set-WCredentialAttemptIdentity -Context \$Context -Credential \$null -Channel Remote -Target \$computer\r?\n[^\r\n]*Enter-WCredentialAttempt -Context \$Context -Channel Remote\r?\n[^\r\n]*Get-WinEvent -ComputerName \$computer -FilterHashtable @\{LogName="Security";Id=4624\}')
+    Assert $read.Success 'Lecture 4624 sans identite de session ni bail'
+    $c=New-Fixture 'directory@example.invalid'
+    $c|Add-Member -NotePropertyName Domain -NotePropertyValue 'example.invalid';$c|Add-Member -NotePropertyName Netbios -NotePropertyValue 'EXAMPLE';$c|Add-Member -NotePropertyName ProcessIdentity -NotePropertyValue 'EXAMPLE\session'
+    Set-WCredentialAttemptIdentity -Context $c -Credential ([pscustomobject]@{UserName='EXAMPLE\postes'}) -Channel Remote -Target 'PC-01'
+    Set-WCredentialAttemptIdentity -Context $c -Credential $null -Channel Remote -Target 'PC-01'
+    Assert ((@(Get-WCredentialGuardKeys $c Remote) -join ',') -eq 'session@example.invalid') ('Cle retenue : '+(@(Get-WCredentialGuardKeys $c Remote) -join ','))
+    Assert (Register-WCredentialFailure $c ([ComponentModel.Win32Exception]::new(1326)) Remote)
+    Assert ($c.CredentialGuard.Faults.ContainsKey('session@example.invalid')) 'Refus non attribue a la session'
+    Assert (-not $c.CredentialGuard.Faults.ContainsKey('postes@example.invalid')) 'Compte poste suspendu a tort'
+}
+Case 'Point 41: local consultation never carries an account key, whatever the guard state' {
+    $script:SessionEpoch=11L;$script:DomeniaCredentialGuard=$null
+    foreach($op in @('LocalStore','LocalIndexRead','LocalQuery','QueryLibrary','QueryExport','StorageUsage','DocumentStore','LiveCache','LiveSelectedPing','ComputerPing','SelectedPresence','PresenceScan')){
+        $ctx=[pscustomobject]@{Domain='example.invalid';Netbios='EXAMPLE';ProcessIdentity='EXAMPLE\admin';Credential=$null;MachineCredential=$null;RemoteAdminCredential=$null}
+        $ctx=Set-DomeniaCredentialGuardContext $ctx $op
+        Assert (@(Get-WCredentialGuardKeys $ctx).Count -eq 0) ($op+' porte une cle de compte')
+        $script:DomeniaCredentialGuard.Faults['admin@example.invalid']=[pscustomobject]@{Kind='LogonFailure';Code='0x8007052E';AtUtc=[datetime]::UtcNow}
+        Assert-WCredentialAllowed $ctx
+    }
+}
+Case 'Point 41: a refusal withdraws the queued reads of that account only, never a write' {
+    $script:SessionEpoch=12L;$script:DomeniaCredentialGuard=[hashtable]::Synchronized(@{Epoch=12L;Faults=@{};Revision=0L;NotifiedRevision=0L})
+    $script:Stopped=[Collections.Generic.List[string]]::new()
+    function Request-UiTaskStop {param([string]$Id,[switch]$Silent,[string]$Reason) $script:Stopped.Add($Id)}
+    function Set-Status {param($Text,$Level)}
+    function Write-AppLog {param($Text,$Level)}
+    $guardOf={param($key)[pscustomobject]@{CredentialGuard=$script:DomeniaCredentialGuard;DirectoryAuthKey=$key;RemoteAuthKey='';RemoteAdminAuthKey='';ActiveRemoteAuthKey=''}}
+    $script:AsyncJobs=[ordered]@{
+        'read-a'=[pscustomobject]@{Id='read-a';OperationId='GlobalSearch';IsWrite=$false;NonCancellable=$false;State='Queued';CancelRequested=$false;CredentialGuardContext=(& $guardOf 'admin@example.invalid')}
+        'read-b'=[pscustomobject]@{Id='read-b';OperationId='GlobalSearch';IsWrite=$false;NonCancellable=$false;State='Queued';CancelRequested=$false;CredentialGuardContext=(& $guardOf 'reader@example.invalid')}
+        'write-a'=[pscustomobject]@{Id='write-a';OperationId='WriteAttributes';IsWrite=$true;NonCancellable=$false;State='Queued';CancelRequested=$false;CredentialGuardContext=(& $guardOf 'admin@example.invalid')}
+        'running-a'=[pscustomobject]@{Id='running-a';OperationId='GlobalSearch';IsWrite=$false;NonCancellable=$false;State='Running';CancelRequested=$false;CredentialGuardContext=(& $guardOf 'admin@example.invalid')}
+    }
+    $worker=[pscustomobject]@{CredentialGuard=$script:DomeniaCredentialGuard;DirectoryAuthKey='admin@example.invalid';RemoteAuthKey='';RemoteAdminAuthKey=''}
+    Assert (Register-WCredentialFailure $worker ([ComponentModel.Win32Exception]::new(1326)) Directory)
+    Sync-DomeniaCredentialGuardUi
+    Assert (($script:Stopped -join ',') -eq 'read-a') ('Retraits : '+($script:Stopped -join ','))
+    $blocked=$false;try{Assert-WCredentialAllowed $script:AsyncJobs['running-a'].CredentialGuardContext}catch{$blocked=$true}
+    Assert $blocked 'Une lecture deja partie peut encore envoyer le compte refuse'
+}
+
+# ---------------------------------------------------------------- Point 44 in-place correction, as the workers see it
+Case 'Point 44: the serverless retry of the global search keeps the account generation, so a correction never suspends the AD channel' {
+    # The real worker block of Invoke-GlobalSearch builds its contexts; after a correction released at generation 5, a
+    # search dispatched at 5 whose preferred controller fails must still reach the serverless context.
+    $text=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1'))
+    $worker=[regex]::Match($text,"(?ms)^function Invoke-GlobalSearch \{.*?^'@").Value
+    Assert ($worker) 'Worker de recherche introuvable'
+    $block=[regex]::Match($worker,'(?ms)^\$contexts = New-Object Collections\.ArrayList\r?\n.*?(?=^\$rows = New-Object Collections\.ArrayList)').Value
+    Assert ($block) 'Construction des contextes de recherche introuvable'
+    $guard=[hashtable]::Synchronized(@{Epoch=14L;Faults=@{};Revision=0L;NotifiedRevision=0L})
+    $guard.Faults['reader@example.invalid']=[pscustomobject]@{Kind='LogonFailure';Code='0x8007052E';AtUtc=[datetime]::UtcNow;Generation=4L}
+    [void](Clear-DomeniaCredentialGuardFault -Guard $guard -Keys @('reader@example.invalid') -Generation 5)
+    $Context=[pscustomobject]@{Server='dc1.example.invalid';BaseDn='DC=example,DC=invalid';Domain='example.invalid';Netbios='EXAMPLE';BindUser='EXAMPLE\reader';Credential=$null;UseCredential=$false;PageSize=300;ProcessIdentity='EXAMPLE\reader';OperationId='GlobalSearch';CredentialGuard=$guard;DirectoryAuthKey='reader@example.invalid';RemoteAuthKey='';RemoteAdminAuthKey='';ActiveRemoteAuthKey='';LastAuthChannel='';CredentialGeneration=5L;CredentialWrite=$false}
+    . ([scriptblock]::Create($block))
+    Assert ($contexts.Count -eq 2) ('Contextes : '+$contexts.Count)
+    $serverless=$contexts[1]
+    Assert ([string]$serverless.Server -eq '') 'Le second contexte vise encore le controleur prefere'
+    Assert ([string]$Context.Server -eq 'dc1.example.invalid') 'Le contexte du worker a ete modifie'
+    Assert (([long]$serverless.CredentialGeneration -eq 5) -and ([string]$serverless.OperationId -eq 'GlobalSearch') -and ([string]$serverless.ProcessIdentity -eq 'EXAMPLE\reader')) 'Copie partielle du contexte'
+    Assert-WCredentialAllowed $serverless Directory
+    $lease=Enter-WCredentialAttempt -Context $serverless -Channel Directory -WaitSeconds 1;Exit-WCredentialAttempt $lease
+}
+Case 'Point 44: every dispatched job says whether it is a write; a write keeps its account after a correction' {
+    $script:SessionEpoch=15L;$script:DomeniaCredentialGuard=$null;$script:DomeniaAccountGeneration=3L
+    $make={param([string]$Op,[bool]$Write)
+        $ctx=[pscustomobject]@{Domain='example.invalid';Netbios='EXAMPLE';ProcessIdentity='EXAMPLE\admin';Credential=$null;MachineCredential=$null;RemoteAdminCredential=$null}
+        Set-DomeniaCredentialGuardContext -Context $ctx -OperationId $Op -IsWrite $Write}
+    $write=& $make 'ComputerRestart' $true
+    $read=& $make 'ComputerInventory' $false
+    Assert ([bool]$write.CredentialWrite -and (-not [bool]$read.CredentialWrite)) 'Nature du travail absente du contexte'
+    Assert ((@(Get-WCredentialGuardKeys $write Remote) -join ',') -eq 'admin@example.invalid') ('Cle : '+(@(Get-WCredentialGuardKeys $write Remote) -join ','))
+    $script:DomeniaAccountGeneration=4L
+    [void](Clear-DomeniaCredentialGuardFault -Guard $script:DomeniaCredentialGuard -Keys @('admin@example.invalid') -Generation 4)
+    $lease=Enter-WCredentialAttempt -Context $write -Channel Remote -WaitSeconds 1;Exit-WCredentialAttempt $lease
+    $blocked=$false;try{Assert-WCredentialAllowed $read Remote}catch{$blocked=$true}
+    Assert $blocked 'Une lecture partie avant la correction renvoie l ancien mot de passe'
+    # The dispatcher hands the nature of the job to the guard and keeps it on the job projection.
+    $engine=[IO.File]::ReadAllText((Join-Path $wad 'modules\Domenia-Engine.UI.ps1'))
+    $dispatch=[regex]::Match($engine,'(?ms)^function Invoke-DomeniaUiTaskDispatch \{.*?^\}').Value
+    Assert ($dispatch.Contains('Set-DomeniaCredentialGuardContext -Context $context -OperationId $requested -IsWrite $isWrite')) 'Nature du travail non transmise a la protection'
+    Assert ($dispatch.Contains('CredentialWrite=[bool]$isWrite')) 'Nature du travail absente du travail en file'
 }
 
 $report=[pscustomobject]@{Suite='CredentialGuard';Synthetic=$true;NetworkCalls=0;Passed=(@($checks|Where-Object{-not $_.Passed}).Count -eq 0);Cases=$checks.ToArray();PowerShell=[string]$PSVersionTable.PSVersion}
