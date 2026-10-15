@@ -225,7 +225,7 @@ function Save-GuideWindow {
     $logRow = Get-DomeniaControl 'UxLogRow'; $reduced = $false
     if ($null -ne $logRow -and $logRow.Height.Value -gt 60) { Switch-DomeniaUxLog; $reduced = $true }
     Update-GuideLayout
-    $rectangles=@(foreach($id in @('CmbQueryField','BtnQueryAddCondition','CmbFleetQuery','BtnQueryWidget','CmbCollectionConcurrency','ExpQueryObject','DgFleetMachines','DgQueryCatalog','PnlQueryCatalogDetail','DgQueryLibrary','LblQueryLibraryDescription','DgIndex','LblIndexOverview','ExpStorageMaintenance','UxSearchQueryBar','TxtSearchQueryFilter','CmbWorkView','CmbSearchQueryResult','DgObjects','LblSearchQueryDetails','LblSearchQuery','LblOperationsHealth','TvDirectory','UxSearchOuRefresh','LblSearchOuRefreshScope','LblSearchOuRefreshStatus','BtnSearchRefreshBase','BtnSearchRefreshPostes','BtnSearchRefreshBoth','BtnSearchRefreshStop','LblFleetScope','LblFleetDashboard','LblFleetOuRefreshStatus','BtnFleetIndexScope','BtnFleetRefreshPostes','BtnFleetRefreshBoth','BtnFleetRefreshStop','BtnFleetDashboardRefresh','LblIndexFreshness')){
+    $rectangles=@(foreach($id in @('CmbQueryField','BtnQueryAddCondition','CmbFleetQuery','BtnQueryWidget','CmbCollectionConcurrency','ExpQueryObject','DgFleetMachines','DgQueryCatalog','PnlQueryCatalogDetail','DgQueryLibrary','LblQueryLibraryDescription','DgIndex','LblIndexTileAccounts','LblIndexLocation','ExpStorageMaintenance','UxSearchQueryBar','TxtSearchQueryFilter','CmbWorkView','CmbSearchQueryResult','DgObjects','LblSearchQueryDetails','LblSearchQuery','LblOperationsHealth','TvDirectory','UxSearchOuRefresh','LblSearchOuRefreshScope','LblSearchOuRefreshStatus','BtnSearchRefreshBase','BtnSearchRefreshPostes','BtnSearchRefreshBoth','BtnSearchRefreshStop','LblFleetScope','LblFleetDashboard','LblFleetOuRefreshStatus','BtnFleetIndexScope','BtnFleetRefreshPostes','BtnFleetRefreshBoth','BtnFleetRefreshStop','BtnFleetDashboardRefresh','LblIndexFreshness')){
         $control=Get-DomeniaControl $id
         if($null -ne $control -and $control.ActualWidth -gt 0){try{$point=$control.TranslatePoint([Windows.Point]::new(0,0),$script:GuideHost);[pscustomobject]@{Name=$id;X=$point.X;Y=$point.Y;Width=$control.ActualWidth;Height=$control.ActualHeight;Visible=$control.IsVisible}}catch{}}
     })
@@ -731,12 +731,20 @@ Save-GuideWindow 'logiciels' 1560
 $baseFreshness=Get-DomeniaFleetFreshness -ScopeDn $script:GuideScopeDn -DomainDn $script:Conn.BaseDn -SyncStates $script:IndexSyncStates -Subtree $true
 $baseSummary=Format-DomeniaOuFreshnessSummary -IndexFreshness $baseFreshness
 Set-GuideText @{
-    TxtIndexLocation='C:\Users\tech.support\AppData\Local\Domenia\Data\Domains\exemple\Domenia.db'
-    LblIndexBackupStatus=('Sauvegardes : dossier Backups · derniere le '+$now.AddMinutes(-15).ToString('dd/MM/yyyy HH:mm'))
+    # UI-19 and DS-09 (lot X06): a summary instead of the path, four tiles instead of the technical sentence.
+    LblIndexLocation='Base du domaine example.local · 4,2 Mo · sauvegardée il y a 15 min'
+    LblIndexBackupStatus=''
     LblIndexScopeChoice='OU=Postes,OU=Lyon,DC=example,DC=local et ses sous-OU'
-    LblIndexOverview='438 objets · 212 utilisateurs · 226 postes (223 actifs, 3 désactivés)'
+    LblIndexTileAccounts='212'
+    LblIndexTileAccountsDetail='comptes utilisateurs'
+    LblIndexTileComputers='226'
+    LblIndexTileComputersDetail='223 actifs · 3 désactivés'
+    LblIndexTileLinks='34'
+    LblIndexTileLinksDetail='liens utilisateur-poste'
+    LblIndexTileUpdated='il y a 15 min'
+    LblIndexTileUpdatedDetail=('le '+$now.AddMinutes(-15).ToString('dd/MM/yyyy HH:mm'))
     LblIndexFreshness=$baseSummary.BaseText
-    LblIndexStats='Fichier local Domenia.db. Contrôleur : dc01.example.local. Repère : 184522. Associations utilisateur-poste : 34.'
+    LblIndexStats='Contrôleur de la dernière lecture : dc01.example.local. Objets enregistrés : 438. Associations utilisateur-poste : 34.'
     LblIndexStatus='200 objets affichés sur 226 · page 1 · périmètre choisi ci-dessus'
     LblParkStatus=('{0} observations mémorisées, dont {1} avec inventaire · données fictives' -f $presence.Count,@($presence | Where-Object { $null -ne $_.observation.Inventory }).Count)
 }
@@ -773,7 +781,7 @@ $script:GuideWidth=$savedWidth;$script:GuideHost.Width=$script:GuideWidth;Set-Gu
 (Get-DomeniaControl 'TabIndexUpdate').IsSelected=$true;Update-GuideLayout
 Save-GuideWindow 'base-mise-a-jour' 1080
 Set-DomeniaIndexProgress -Mode Busy -Message 'OU choisie et ses sous-OU · 328 objets reçus, 256 enregistrés ; lecture et stockage en cours. Données fictives de démonstration.'
-Set-GuideHeight 1080;Update-GuideLayout;Move-GuideScrollTo (Get-DomeniaControl 'LblIndexOverview')
+Set-GuideHeight 1080;Update-GuideLayout;Move-GuideScrollTo (Get-DomeniaControl 'LblIndexTileAccounts')
 Save-GuideWindow 'base-progression' 1080
 Set-DomeniaIndexProgress -Mode Complete -Message 'Synchronisation terminée.'
 (Get-DomeniaControl 'TabIndexStorage').IsSelected=$true;Update-GuideLayout
