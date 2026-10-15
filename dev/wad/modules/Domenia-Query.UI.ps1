@@ -1,6 +1,10 @@
 ﻿# Shared query workshop. Expensive record preparation and evaluation run in LocalQuery, never in an input event.
 $script:DomeniaQueryModuleRoot=$PSScriptRoot
 $script:DomeniaQueryState=$null
+# Delivered models prepared once per process by the QueryLibrary worker, shared by Search and the library.
+$script:DomeniaQueryTemplateRows=$null
+$script:DomeniaQueryTemplatePreparation=$null
+$script:DomeniaQueryTemplateStatus=''
 function Initialize-DomeniaQueryView {
     $hostControl=Get-DomeniaControl 'QueryWorkshopHost'
     if($null -eq $hostControl -or $null -ne $hostControl.Content){return}
@@ -226,6 +230,46 @@ function Update-DomeniaQueryLibraryControls {
     if($null -ne $tabs -and [string]$tabs.SelectedItem.Name -eq 'TabQueryLibrary'){Start-DomeniaQueryLibraryLoad}
     if($script:SearchUiInitialized -and $null -ne (Get-Command Update-DomeniaWorkViewList -CommandType Function -ErrorAction SilentlyContinue)){Update-DomeniaWorkViewList}
 }
+function Get-DomeniaPreparedQueryTemplates {
+    # Delivered models already prepared off the UI thread, or none yet. Never builds the catalog on the caller.
+    if($null -eq $script:DomeniaQueryTemplateRows){return @()}
+    return @($script:DomeniaQueryTemplateRows|ForEach-Object{$_.Recipe})
+}
+function Set-DomeniaPreparedQueryTemplateRows {
+    param([object[]]$Rows=@())
+    $templates=@($Rows|Where-Object{($null -ne $_) -and ([string]$_.SourceId -ceq 'Template')})
+    if(-not $templates.Count){return}
+    $first=($null -eq $script:DomeniaQueryTemplateRows)
+    $script:DomeniaQueryTemplateRows=$templates;$script:DomeniaQueryTemplateStatus=''
+    if($first -and $script:SearchUiInitialized){Update-DomeniaWorkViewList}
+}
+function Request-DomeniaQueryTemplatePreparation {
+    # One local preparation per process, in the pinned QueryLibrary worker: no network and no wait on the UI thread.
+    if(($null -ne $script:DomeniaQueryTemplateRows) -or ($null -ne $script:DomeniaQueryTemplatePreparation)){return}
+    $state=[pscustomobject]@{Token=[guid]::NewGuid().ToString('N');StartedUtc=[datetime]::UtcNow}
+    $script:DomeniaQueryTemplatePreparation=$state
+    $script:DomeniaQueryTemplateStatus='Modèles livrés en préparation locale : ils sʼajoutent à la liste dès quʼils sont prêts.'
+    try{
+        $job=Start-UiTask -Name 'Préparer les modèles de requêtes' -OperationId 'QueryLibrary' -Code (Get-DomeniaQueryLibraryWorkerCode) -Payload ([pscustomobject]@{ModuleRoot=$script:DomeniaQueryModuleRoot;Saved=@()}) -CallbackState $state -ReplaceKey 'query:templates' -SuccessHandler 'Complete-DomeniaQueryTemplatePreparation' -ErrorHandler 'Fail-DomeniaQueryTemplatePreparation' -TimeoutSeconds 120 -TaskClass 'Background'
+        if(-not $job){throw 'préparation non admise par le moteur.'}
+    }catch{$script:DomeniaQueryTemplatePreparation=$null;$script:DomeniaQueryTemplateStatus='Modèles livrés non préparés : '+[string]$_.Exception.Message+' Ouvrez la liste pour réessayer.'}
+}
+function Complete-DomeniaQueryTemplatePreparation {
+    param($Result,$State)
+    if(($null -eq $State) -or -not [object]::ReferenceEquals($State,$script:DomeniaQueryTemplatePreparation)){return}
+    $script:DomeniaQueryTemplatePreparation=$null
+    $result=Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @('Rows')
+    if($null -eq $result){$script:DomeniaQueryTemplateStatus='Modèles livrés non préparés : résultat incomplet. Ouvrez la liste pour réessayer.';return}
+    $clock=[Diagnostics.Stopwatch]::StartNew()
+    Set-DomeniaPreparedQueryTemplateRows -Rows @($result.Rows)
+    try{Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId 'QueryTemplates:Publish' -DurationMs ([double]$clock.Elapsed.TotalMilliseconds)}catch{}
+}
+function Fail-DomeniaQueryTemplatePreparation {
+    param($Message,$State)
+    if(($null -eq $State) -or -not [object]::ReferenceEquals($State,$script:DomeniaQueryTemplatePreparation)){return}
+    $script:DomeniaQueryTemplatePreparation=$null;$script:DomeniaQueryTemplateStatus='Modèles livrés non préparés : '+[string]$Message+' Ouvrez la liste pour réessayer.'
+    if($script:SearchUiInitialized){Update-DomeniaSearchQueryDetails}
+}
 function Start-DomeniaQueryLibraryLoad {
     $q=$script:DomeniaQueryState
     if($null -eq $q -or -not $q.Bound -or [bool](Get-DomeniaMember $q 'LibraryBusy' $false) -or [bool](Get-DomeniaMember $q 'LibraryReady' $false)){return}
@@ -243,6 +287,7 @@ function Complete-DomeniaQueryLibraryLoad {
     if($null -eq $q -or [long]$State.Epoch -ne [long]$script:SessionEpoch -or $State.Generation -ne $q.LibraryGeneration){return}
     $result=Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @('Rows')
     if($null -eq $result){Fail-DomeniaQueryLibraryLoad 'Bibliothèque incomplète.' $State;return}
+    $clock=[Diagnostics.Stopwatch]::StartNew()
     $q.LibraryBusy=$false;$q.LibraryReady=$true;$q.LibraryRows=@($result.Rows);$q.LibraryOffset=0
     $category=Get-DomeniaControl 'CmbQueryLibraryCategory'
     $script:DomeniaQueryLibraryRefreshing=$true
@@ -252,6 +297,8 @@ function Complete-DomeniaQueryLibraryLoad {
         foreach($entry in $category.ItemsSource){if($entry.Id -eq $selectedCategory){$category.SelectedItem=$entry;break}}
     }finally{$script:DomeniaQueryLibraryRefreshing=$false}
     Update-DomeniaQueryLibrary
+    try{Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId 'QueryLibrary:Publish' -DurationMs ([double]$clock.Elapsed.TotalMilliseconds)}catch{}
+    Set-DomeniaPreparedQueryTemplateRows -Rows @($result.Rows)
 }
 function Fail-DomeniaQueryLibraryLoad {
     param($Message,$State)

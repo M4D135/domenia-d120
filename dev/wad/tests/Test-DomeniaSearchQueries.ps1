@@ -11,8 +11,13 @@ $script:Checks=[Collections.Generic.List[object]]::new()
 function Case([string]$Name,[scriptblock]$Body){try{& $Body;$script:Checks.Add([pscustomobject]@{Name=$Name;Pass=$true;Error=''})}catch{$script:Checks.Add([pscustomobject]@{Name=$Name;Pass=$false;Error=$_.Exception.Message})}}
 function Expect([bool]$Ok,[string]$Message='Assertion failed'){if(-not $Ok){throw $Message}}
 $saved=New-DomeniaQueryRecipe -Id 'fixture.saved' -Name 'Postes du support'
-$catalog=@(Get-DomeniaSearchQueryCatalog -Saved @($saved) -Favorites @('ad:expiring','local:fixture.saved'))
-Case 'Catalog: 5 original LDAP views, 152 local models, one saved recipe' {Expect ($catalog.Count -eq 158);Expect (@($catalog|Where-Object SourceId -eq Ad).Count -eq 5);Expect (@($catalog|Where-Object SourceId -eq Local).Count -eq 153)}
+# Point 61: the startup list never builds the delivered models on the UI thread; they arrive prepared by the worker.
+$light=@(Get-DomeniaSearchQueryCatalog -Saved @($saved) -Favorites @('ad:expiring','local:fixture.saved'))
+$builtBeforeTemplates=($null -ne $script:DomeniaQueryTemplateCatalog)
+$templates=@(Get-DomeniaQueryTemplates)
+$catalog=@(Get-DomeniaSearchQueryCatalog -Saved @($saved) -Favorites @('ad:expiring','local:fixture.saved') -Templates $templates)
+Case 'Catalog: startup list holds LDAP views and saved recipes without building the delivered models' {Expect ($light.Count -eq 6 -and -not $builtBeforeTemplates);Expect (@($light|Where-Object SourceId -eq Local).Count -eq 1)}
+Case 'Catalog: 5 original LDAP views, every prepared local model, one saved recipe' {Expect ($catalog.Count -eq ($templates.Count+6));Expect (@($catalog|Where-Object SourceId -eq Ad).Count -eq 5);Expect (@($catalog|Where-Object SourceId -eq Local).Count -eq ($templates.Count+1))}
 Case 'Catalog: identifiers unique and both favorites preserved' {Expect (@($catalog.Id|Sort-Object -Unique).Count -eq $catalog.Count);Expect (@($catalog|Where-Object Favorite).Count -eq 2)}
 Case 'Catalog: user disable view remains separate from computer disable recipe' {$ad=@($catalog|Where-Object Id -eq 'ad:disabled')[0];$local=@($catalog|Where-Object Id -eq 'local:template.disabled')[0];Expect ($ad.TypeLabel -eq 'Utilisateurs' -and $local.TypeLabel -eq 'Postes');Expect ($null -eq $ad.Recipe)}
 Case 'Catalog: LDAP stale retains absent lastLogonTimestamp and no active-only clause' {$view=@(Get-DomeniaWorkViews|Where-Object Id -eq stalecomputers)[0];Expect ($view.Filter.Contains('(!(lastLogonTimestamp=*))'));Expect (-not $view.Filter.Contains('userAccountControl'))}

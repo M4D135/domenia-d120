@@ -84,7 +84,7 @@ foreach($file in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domeni
 }
 
 # The historical-list fallback also applies the workshop GUID filter through this real helper.
-. ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Query.UI.ps1') @('Test-DomeniaSearchQueryRow'))))
+. ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Query.UI.ps1') @('Test-DomeniaSearchQueryRow','Get-DomeniaPreparedQueryTemplates','Request-DomeniaQueryTemplatePreparation'))))
 
 # Explicit doubles: none can reach a directory, a workstation, the network, the database or a dialog window.
 function Get-CfgValue {param($Section,$Name,$Default) $key=[string]$Section+'/'+[string]$Name;if($script:CfgOverrides.ContainsKey($key)){return $script:CfgOverrides[$key]};return $Default}

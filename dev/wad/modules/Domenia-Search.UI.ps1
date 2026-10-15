@@ -39,6 +39,7 @@ function Update-DomeniaSearchHint {
 function Update-DomeniaWorkViewList {
     $combo = Get-DomeniaControl 'CmbWorkView'
     if ($null -eq $combo) { return }
+    $clock=[Diagnostics.Stopwatch]::StartNew()
     $saved=@();$script:SearchQueryLibraryError=''
     try{
         $saved=@(Get-DomeniaSavedQueryRecipes)
@@ -47,8 +48,11 @@ function Update-DomeniaWorkViewList {
         elseif($library.Error){$script:SearchQueryLibraryError='Bibliothèque personnelle non confirmée : '+[string]$library.Error}
         elseif(-not $library.Loaded){$script:SearchQueryLibraryError='Lecture des requêtes personnelles dans la base locale en cours.'}
     }catch{$script:SearchQueryLibraryError='Bibliothèque personnelle illisible : '+$_.Exception.Message}
-    $script:SearchQueryCatalog=@(Get-DomeniaSearchQueryCatalog -Saved $saved -Favorites @(Get-DomeniaSearchQueryFavorites))
+    # Point 61: the delivered models come from the QueryLibrary worker; until then only AD views and saved recipes.
+    $templates=@(Get-DomeniaPreparedQueryTemplates);if(-not $templates.Count){Request-DomeniaQueryTemplatePreparation}
+    $script:SearchQueryCatalog=@(Get-DomeniaSearchQueryCatalog -Saved $saved -Favorites @(Get-DomeniaSearchQueryFavorites) -Templates $templates)
     Update-DomeniaSearchQueryList
+    try{Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId 'SearchQueryCatalog' -DurationMs ([double]$clock.Elapsed.TotalMilliseconds)}catch{}
 }
 
 function Get-DomeniaSearchQueryFavorites {
@@ -57,7 +61,7 @@ function Get-DomeniaSearchQueryFavorites {
 function Initialize-DomeniaSearchQuerySelector {
     if($script:SearchQuerySelectorBound){return}
     Update-DomeniaWorkViewList
-    $queryChoice=Get-DomeniaControl 'CmbWorkView';if($null -ne $queryChoice){$queryChoice.Add_SelectionChanged({Update-DomeniaSearchQueryDetails})}
+    $queryChoice=Get-DomeniaControl 'CmbWorkView';if($null -ne $queryChoice){$queryChoice.Add_SelectionChanged({Update-DomeniaSearchQueryDetails});$queryChoice.Add_DropDownOpened({Request-DomeniaQueryTemplatePreparation})}
     $queryFilter=Get-DomeniaControl 'TxtSearchQueryFilter';if($null -ne $queryFilter){$queryFilter.Add_TextChanged({Update-DomeniaSearchQueryList})}
     $queryFavorites=Get-DomeniaControl 'ChkSearchQueryFavorites';if($null -ne $queryFavorites){$queryFavorites.Add_Checked({Update-DomeniaSearchQueryList});$queryFavorites.Add_Unchecked({Update-DomeniaSearchQueryList})}
     $queryStar=Get-DomeniaControl 'BtnSearchQueryFavorite';if($null -ne $queryStar){$queryStar.Add_Click({try{Switch-DomeniaSearchQueryFavorite}catch{Set-Status ('Favori non enregistré : '+$_.Exception.Message) 'WARN'}})}
@@ -91,6 +95,7 @@ function Update-DomeniaSearchQueryDetails {
     $text=if($null -ne $entry){$entry.Source+' · '+$entry.TypeLabel+' · '+$perimeter+'. '+$entry.Description}else{'Choisissez une requête ; la sélection seule ne lance rien. '+$perimeter+'.'}
     if($null -ne $scope -and $null -ne $entry -and $entry.SourceId -eq 'Local'){$text+=' '+(Get-DomeniaSearchQueryCoverageText -ScopeDn ([string]$scope.BaseDn))}
     if($script:SearchQueryLibraryError){$text+=' '+$script:SearchQueryLibraryError}
+    if([string]$script:DomeniaQueryTemplateStatus){$text+=' '+[string]$script:DomeniaQueryTemplateStatus}
     [void](Set-DomeniaControlText 'LblSearchQueryDetails' $text)
 }
 function Get-DomeniaSearchQueryCoverageText {
