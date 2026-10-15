@@ -10,7 +10,9 @@ $core=Join-Path $wad 'Domenia-Core.ps1'
 $t=$null;$e=$null;$ast=[Management.Automation.Language.Parser]::ParseFile($core,[ref]$t,[ref]$e)
 if(@($e).Count){throw $e[0].Message}
 # Only markup, palette and XML validation are loaded. Never call application startup or auth.
-foreach($name in @('Get-DomeniaStandardLoginXaml','Get-DomeniaBootThemePalette','Get-DomeniaBootThemeResources','Convert-DomeniaXamlToBootTheme','Assert-DomeniaXamlPreflight','Set-DomeniaFastLoginBusy')){
+# P-CD-09: the catch blocks of these functions and of the UI modules call Write-DomeniaSwallowed (core script scope);
+# the core's own trace is loaded first. It never throws: without journal nor ring here, a swallowed error stays silent.
+foreach($name in @('Write-DomeniaSwallowed','Get-DomeniaStandardLoginXaml','Get-DomeniaBootThemePalette','Get-DomeniaBootThemeResources','Convert-DomeniaXamlToBootTheme','Assert-DomeniaXamlPreflight','Set-DomeniaFastLoginBusy')){
     $fn=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true))
     if($fn.Count -ne 1){throw ('Fonction absente : '+$name)}
     Invoke-Expression $fn[0].Extent.Text

@@ -15,7 +15,7 @@ DEV = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(DEV / 'tools'))
 import audit_swallowed as audit  # noqa: E402
 import sweep_swallowed as sweep  # noqa: E402
-from ps_sources import mask_ps, top_level_functions  # noqa: E402
+from ps_sources import FUNCTION_RX, mask_ps, read_ps, strip_comments, top_level_functions  # noqa: E402
 
 CORE = """param([string]$Server)
 try { Early } catch { }
@@ -207,6 +207,27 @@ class SweepTests(unittest.TestCase):
         self.assertIn('wad/modules/Domenia-Panel.Worker.ps1:2 [worker-file] Get-W', text)
         self.assertNotIn('Domenia-Panel.Model.ps1:', text, 'A pure rule is traced, not left')
 
+    def test_copied_functions_are_stable_over_the_sweep(self):
+        # A copier traces its own catch blocks with its own name as the operation: once swept, that quoted name must not
+        # make the copier read as copied (its next empty catch would be left untraced).
+        core = (CORE + "function Start-SelfCopier {\n"
+                "    $d = (Get-Command -Name Invoke-DomeniaCopiedProbe -CommandType Function).Definition\n"
+                "    try { P } catch { }\n}\n")
+        model = ("function Get-RuleCopier {\n    $d = (Get-Command 'Get-DomeniaCopiedHelper').Definition\n"
+                 "    try { Q } catch { }\n}\n")
+        core_path = write(self.tmp, 'wad/Domenia-Core.ps1', core)
+        model_path = write(self.tmp, 'wad/modules/Domenia-Panel.Model.ps1', model)
+        before = sweep.copied_functions({core_path: core, model_path: model})
+        self.assertEqual(before, {'Invoke-DomeniaCopiedProbe', 'Get-DomeniaCopiedHelper'})
+        run(['--root', str(self.tmp), '--apply'])
+        swept = {core_path: read_ps(core_path), model_path: read_ps(model_path)}
+        self.assertIn("try { P } catch { Write-DomeniaSwallowed 'Core' 'Start-SelfCopier' $_ }", swept[core_path])
+        self.assertIn("Write-DomeniaRuleSwallowed 'Panel' 'Get-RuleCopier' $_", swept[model_path])
+        self.assertEqual(sweep.copied_functions(swept), before, 'The copiers are not read as copied once swept')
+        _, report, _ = run(['--root', str(self.tmp)])
+        self.assertEqual(report['Rewritten'], 0)
+        self.assertNotIn('Start-SelfCopier', report['CopiedFunctions'])
+
     def test_audit_drops_after_apply(self):
         before = audit.counts(audit.findings(self.tmp))
         run(['--root', str(self.tmp), '--apply'])
@@ -240,6 +261,56 @@ class RepositoryTests(unittest.TestCase):
         self.assertLessEqual(reasons, {'here-string', 'bootstrap', 'copied', 'worker-file', 'closure', 'remote'})
         self.assertIn('Invoke-DomeniaInProcessAuthProbe', result['Copied'])
         self.assertIn('Get-DomeniaStructuredError', result['Copied'])
+        # The copiers run in the core script scope: their own trace calls do not make them copied.
+        for copier in ('Start-DomeniaLoginAuthRunspace', 'New-DomeniaWorkerRunspace'):
+            self.assertNotIn(copier, result['Copied'])
+
+    def test_scripts_running_core_code_load_the_trace(self):
+        # Scripts outside the core script scope (offline previews, cache backup, automation interface) run swept code:
+        # core functions extracted from its syntax tree, or UI modules dot-sourced. Their catch blocks call
+        # Write-DomeniaSwallowed, which exists only in the core script scope; without it a swallowed error throws
+        # CommandNotFoundException from inside its catch. Each such script loads the core's trace or defines one.
+        # A script dot-sourced by another one (Preview-DomeniaProgress.ps1) is covered by the script that loads it.
+        call_rx = re.compile(r'\b' + re.escape(sweep.TRACE) + r'\b')
+        core_text = read_ps(DEV / 'wad/Domenia-Core.ps1')
+        core_masked = mask_ps(core_text)[0]
+        core_functions = {name for name, _, _ in top_level_functions(core_text, core_masked)}
+        traced = {name for name, start, end in top_level_functions(core_text, core_masked)
+                  if name != sweep.TRACE and call_rx.search(core_masked[start:end])}
+        ui_traced = {path.name for path in (DEV / 'wad/modules').glob('*.UI.ps1')
+                     if call_rx.search(mask_ps(read_ps(path))[0])}
+        skipped = ('wad/tests/', 'wad/modules/', 'vendor/')
+        own = {'wad/Domenia-Core.ps1', 'wad/Domenia-Start.ps1', 'wad/Domenia-Modules.ps1'}
+        needs, provides, includes = {}, {}, {}
+        for path in sorted(DEV.rglob('*.ps1')):
+            rel = path.relative_to(DEV).as_posix()
+            if rel in own or rel.startswith(skipped):
+                continue
+            text = read_ps(path)
+            masked = mask_ps(text)[0]
+            view = strip_comments(text)
+            reasons = []
+            extracts = ('Domenia-Core.ps1' in view and '.Extent.Text' in masked
+                        and re.search(r'(?i)Invoke-Expression\s+\$|\[scriptblock\]::Create\(', masked))
+            names = set(sweep.QUOTED_NAME_RX.findall(view)) & core_functions
+            if extracts:
+                reasons.extend(sorted(names & traced))
+            reasons.extend(sorted(set(re.findall(r'(Domenia-[A-Za-z0-9]+\.UI\.ps1)', view)) & ui_traced))
+            if reasons:
+                needs[rel] = reasons
+            defined = any(m.group(1) == sweep.TRACE for m in FUNCTION_RX.finditer(masked))
+            provides[rel] = defined or (bool(extracts) and sweep.TRACE in names)
+            for included in re.findall(r'\.\s*\(\s*Join-Path\s+\S+\s+[\'"]([\w.-]+\.ps1)[\'"]', view):
+                includes.setdefault(included, set()).add(rel)
+        self.assertLessEqual({'wad/maintenance/Preview-DomeniaUi.ps1', 'wad/maintenance/Preview-DomeniaLogin.ps1',
+                              'wad/maintenance/Sauvegarder-Cache.ps1', 'wad/Domenia-Automate.ps1'}, set(needs),
+                             'The detection no longer sees the scripts that run core code')
+        missing = []
+        for rel, reasons in sorted(needs.items()):
+            covered = provides[rel] or any(provides.get(parent) for parent in includes.get(Path(rel).name, ()))
+            if not covered:
+                missing.append('%s (%s)' % (rel, ', '.join(reasons[:4])))
+        self.assertEqual(missing, [], 'Load Write-DomeniaSwallowed from the core (or define it) in these scripts')
 
 
 if __name__ == '__main__':

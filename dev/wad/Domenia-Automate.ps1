@@ -70,7 +70,10 @@ function Import-DomeniaAutomationSqlite {
     if(@($errors).Count -gt 0){Stop-DomeniaAutomation 4 'Le cœur de Domenia ne passe pas le parseur PowerShell.' $Command}
     $definitions=New-Object 'System.Collections.Generic.List[string]'
     $nodes=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst]},$false))
-    foreach($name in @('Initialize-DomeniaWinSqliteNative','New-DomeniaUtf8Ptr','ConvertFrom-DomeniaUtf8Ptr','Open-DomeniaDatabase','Close-DomeniaDatabase','Invoke-DomeniaDbQuery')){
+    # P-CD-09: the reader traces a swallowed error with Write-DomeniaSwallowed, defined in the core script scope; the
+    # core's own trace comes with it. It never throws and keeps the ring of Domenia-Common.Model.ps1 (dot-sourced
+    # before this reader); there is no journal here and, without a masking rule, no message is kept.
+    foreach($name in @('Write-DomeniaSwallowed','Initialize-DomeniaWinSqliteNative','New-DomeniaUtf8Ptr','ConvertFrom-DomeniaUtf8Ptr','Open-DomeniaDatabase','Close-DomeniaDatabase','Invoke-DomeniaDbQuery')){
         $found=@($nodes|Where-Object{$_.Name -ceq $name})
         if($found.Count -ne 1){Stop-DomeniaAutomation 4 ('Fonction de lecture introuvable dans le cœur : '+$name+'.') $Command}
         $definitions.Add($found[0].Extent.Text)

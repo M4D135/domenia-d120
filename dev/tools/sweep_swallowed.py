@@ -28,6 +28,9 @@ CommandNotFoundException from inside the catch, so these blocks are left as they
   remote       a scriptblock given to -ScriptBlock, -InitializationScript, AddScript(, Start-Job or Invoke-Command;
   early        script code of the core placed before the definition of Write-DomeniaSwallowed;
   exempt       the trace functions themselves (tools/audit_swallowed.py EXEMPT).
+Scripts outside the core that run swept code (functions extracted from its syntax tree, UI modules dot-sourced: offline
+previews, cache backup, automation interface, native parser check) load the core's own Write-DomeniaSwallowed first;
+tools/tests/test_sweep_swallowed.py checks every such script.
 """
 from pathlib import Path
 import argparse
@@ -49,6 +52,9 @@ REMOTE_RX = re.compile(r'(?i)(?:-ScriptBlock|-InitializationScript|\bAddScript\s
 COPY_NAME_RX = re.compile(r'(?i)Get-Command\s+(?:-Name\s+)?([A-Za-z][\w]*-[\w-]+)')
 QUOTED_NAME_RX = re.compile(r'[\'"]([A-Za-z][\w]*-[\w-]+)[\'"]')
 DEFINITION_RX = re.compile(r'\.Definition\b')
+# The arguments of a trace call are a category and an operation, not a function to copy: a copier that traces its own
+# catch blocks quotes its own name there, and would otherwise read as copied once swept (not stable over the output).
+TRACE_CALL_RX = re.compile(r"Write-Domenia(?:Rule)?Swallowed\s+'[^']*'\s+'[^']*'")
 MODULE_RX = re.compile(r'^Domenia-([A-Za-z0-9]+)\.')
 REASONS = ('here-string', 'worker-file', 'bootstrap', 'copied', 'closure', 'remote', 'early', 'exempt')
 
@@ -90,7 +96,8 @@ def write_source(path, text, bom):
 
 def copied_functions(sources):
     """Names of the functions whose definition is copied as text into another runspace: in a function that reads
-    (Get-Command ...).Definition, every name given to Get-Command and every quoted name of a runtime function."""
+    (Get-Command ...).Definition, every name given to Get-Command and every quoted name of a runtime function, except
+    the arguments of the trace calls written by this tool (the same answer before and after a sweep)."""
     known = set()
     for text in sources.values():
         known.update(name for name, _, _ in top_level_functions(text))
@@ -102,7 +109,7 @@ def copied_functions(sources):
             code = masked[start:end]
             if 'Get-Command' not in code or not DEFINITION_RX.search(code):
                 continue
-            body = view[start:end]
+            body = TRACE_CALL_RX.sub('', view[start:end])
             found.update(COPY_NAME_RX.findall(body))
             found.update(name for name in QUOTED_NAME_RX.findall(body) if name in known)
     return found & known

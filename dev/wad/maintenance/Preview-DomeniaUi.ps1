@@ -12,6 +12,9 @@ param(
 
 # Offline preview of the actual 1.0 RC1 WPF layout. No application startup is run.
 # Only a fixed allowlist of presentation functions is extracted from the local source.
+# P-CD-09: the catch blocks of the extracted functions and of the UI modules loaded below call Write-DomeniaSwallowed,
+# defined in the core script scope. The core's own trace is extracted first (never throws; journal stubbed below, ring
+# kept by Domenia-Common.Model.ps1): without it a swallowed error would throw CommandNotFoundException from its catch.
 $ErrorActionPreference = 'Stop'
 if($Progressive -and ($Verify -or $CaptureDirectory)){throw 'Le mode progressif est un aperçu interactif distinct des tests et captures statiques.'}
 if ($PSVersionTable.PSEdition -ne 'Desktop') { throw 'Utilisez Windows PowerShell 5.1, pas PowerShell 7.' }
@@ -23,6 +26,7 @@ $tokens = $null; $parseErrors = $null
 $ast = [Management.Automation.Language.Parser]::ParseFile($corePath,[ref]$tokens,[ref]$parseErrors)
 if (@($parseErrors).Count -gt 0) { throw ('Erreur de syntaxe du coeur : ' + $parseErrors[0].Message) }
 $presentationNames = @(
+    'Write-DomeniaSwallowed',
     'Set-DomeniaControlText','Get-MainXaml','Assert-DomeniaXamlPreflight','Get-DomeniaXamlControlNames',
     'Get-DomeniaControl','Set-DomeniaContextHint','Get-DomeniaFriendlyControlLabel',
     'Get-DomeniaDefaultToolTip','Save-DomeniaUiProfile','Apply-DomeniaUiProfile',
