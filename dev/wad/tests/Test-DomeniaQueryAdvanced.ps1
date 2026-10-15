@@ -276,6 +276,183 @@ Expect ($script:Saves.Count -eq 0 -and $null -eq $script:DomeniaQueryState.Impac
 Complete-DomeniaQueryRecipeVersionUi -Recipe $version -Record ([pscustomobject]@{Revision=1}) -State ([pscustomobject]@{DraftGeneration=5;KeptName='Postes à surveiller';KeptRevision=3;Count=5})
 Expect ($script:Labels.LblQueryStatus -like 'Nouvelle requête*(nouvelle version)*révision 1*Postes à surveiller*5 élément(s) liés restent à la révision 3*' -and $script:DraftSet.Id -ceq $version.Id) 'the confirmation names the copy and the preserved revision'
 
+# ---------------------------------------------------------------------------------------------------------------
+# Points 154, 155, 156: WMI metadata explorer with cache, WQL review, relations by identity. Remote cmdlets are
+# replaced by fixtures; the actual QuerySchema worker body runs against them.
+. (Join-Path $modules 'Domenia-ProbeDetails.Model.ps1')
+. (Join-Path $modules 'Domenia-QuerySchema.Worker.ps1')
+. (Join-Path $modules 'Domenia-QuerySchema.UI.ps1')
+$mmi=$true;try{Add-Type -AssemblyName Microsoft.Management.Infrastructure -ErrorAction Stop}catch{$mmi=$false}
+function New-FixtureProperty([string]$Name,[string]$Type='String',[switch]$Key,[string]$Unit='',[string]$Description='',[switch]$Localized){
+    $qualifiers=[Collections.Generic.List[object]]::new()
+    if($Key){$qualifiers.Add([pscustomobject]@{Name='Key';Value=$true})}
+    if($Unit){$qualifiers.Add([pscustomobject]@{Name='Units';Value=$Unit})}
+    if($Localized -and $Description){$qualifiers.Add([pscustomobject]@{Name='Description';Value=$Description})}
+    return [pscustomobject]@{Name=$Name;CimType=$Type;Qualifiers=$qualifiers.ToArray()}
+}
+function Get-FixtureClass([string]$Name,[switch]$Localized){
+    $classQualifiers=[Collections.Generic.List[object]]::new();$properties=@()
+    switch($Name){
+        'Win32_Service'{$properties=@((New-FixtureProperty 'Name' -Key -Description "Nom unique`r`ndu service" -Localized:$Localized),(New-FixtureProperty 'State'),(New-FixtureProperty 'StartMode'),(New-FixtureProperty 'ProcessId' 'UInt32'),(New-FixtureProperty 'WaitHint' 'UInt32' -Unit 'milliseconds'),(New-FixtureProperty 'Dependencies' 'StringArray'),(New-FixtureProperty 'LegacyPassword'));if($Localized){$classQualifiers.Add([pscustomobject]@{Name='Description';Value='Service Windows'})}}
+        'Win32_Process'{$properties=@((New-FixtureProperty 'Handle' -Key),(New-FixtureProperty 'Name'),(New-FixtureProperty 'ProcessId' 'UInt32'),(New-FixtureProperty 'ParentProcessId' 'UInt32'),(New-FixtureProperty 'CreationDate' 'DateTime'),(New-FixtureProperty 'ExecutablePath'),(New-FixtureProperty 'CommandLine'))}
+        'Win32_DiskDrive'{$properties=@((New-FixtureProperty 'DeviceID' -Key),(New-FixtureProperty 'Model'))}
+        'Win32_DiskPartition'{$properties=@((New-FixtureProperty 'DeviceID' -Key),(New-FixtureProperty 'Size' 'UInt64' -Unit 'bytes'))}
+        'Win32_DiskDriveToDiskPartition'{$properties=@((New-FixtureProperty 'Antecedent' 'Reference' -Key),(New-FixtureProperty 'Dependent' 'Reference' -Key));$classQualifiers.Add([pscustomobject]@{Name='Association';Value=$true})}
+        'CIM_LogicalElement'{$properties=@((New-FixtureProperty 'Name'));$classQualifiers.Add([pscustomobject]@{Name='Abstract';Value=$true})}
+        'Win32_Product'{$properties=@((New-FixtureProperty 'IdentifyingNumber' -Key))}
+        '__SystemClass'{$properties=@()}
+        default{throw ('Classe absente du poste fictif : '+$Name)}
+    }
+    return [pscustomobject]@{CimClassName=$Name;CimClassProperties=$properties;CimClassQualifiers=$classQualifiers.ToArray()}
+}
+function Get-WMachineCredential($Context){return $null}
+function New-WDomeniaCimSession($Context,$Computer,$Credential,$TimeoutSeconds){$script:Sessions++;if($script:SessionFailure){throw $script:SessionFailure};return $script:FixtureSession}
+function Remove-WDomeniaCimSession($Session){$script:Removed++}
+function Assert-WCredentialAllowed{param($Context,$Channel)}
+function Register-WCredentialFailure{param($Context,$ErrorValue,$Channel)return ([string]$ErrorValue -like '*fixture-logon-failure*')}
+function Get-CimClass{[CmdletBinding()]param($CimSession,[string]$Namespace,[string]$ClassName,[int]$OperationTimeoutSec)
+    $script:CimCalls.Add('Get-CimClass '+$Namespace+' '+$ClassName)
+    if($ClassName -and -not $ClassName.Contains('*')){return (Get-FixtureClass $ClassName)}
+    return @(foreach($name in @('Win32_Service','Win32_Process','Win32_DiskDrive','Win32_DiskPartition','Win32_DiskDriveToDiskPartition','CIM_LogicalElement','Win32_Product','__SystemClass')){if(-not $ClassName -or $name -like $ClassName){Get-FixtureClass $name}})
+}
+function Get-CimInstance{[CmdletBinding()]param($CimSession,[string]$Namespace,[string]$ClassName,[string]$Query,[int]$OperationTimeoutSec)
+    $script:CimCalls.Add('Get-CimInstance '+$Namespace+' '+$ClassName+$Query)
+    if($ClassName -eq '__NAMESPACE'){return @([pscustomobject]@{Name='cimv2'},[pscustomobject]@{Name='Microsoft'},[pscustomobject]@{Name='bad name'})}
+    if($Query -like '* FROM Win32_Service*'){
+        $all=@([pscustomobject]@{Name='Spooler';State='Running';StartMode='Auto';ProcessId=[uint32]1234;__RELPATH='Win32_Service.Name="Spooler"'},[pscustomobject]@{Name='Fax';State='Stopped';StartMode='Manual';ProcessId=[uint32]0;__RELPATH='Win32_Service.Name="Fax"'})
+        if($Query -like '*WHERE ProcessId=1234'){return @($all[0])};return $all
+    }
+    if($Query -like "* FROM Win32_Process WHERE Handle='1234'"){return @([pscustomobject]@{Handle='1234';Name='spoolsv.exe';ProcessId=[uint32]1234;ParentProcessId=[uint32]600;CreationDate=[datetime]'2026-10-15T07:00:00Z';ExecutablePath='C:\Windows\System32\spoolsv.exe';CommandLine='spoolsv.exe --fixture-argument';__RELPATH='Win32_Process.Handle="1234"'})}
+    return @()
+}
+function New-CimInstance{[CmdletBinding()]param([string]$ClassName,[string]$Namespace,$Property,[string[]]$Key,[switch]$ClientOnly)$script:CimCalls.Add('New-CimInstance '+$ClassName+' '+($Key -join ','));return [pscustomobject]@{ClassName=$ClassName;Keys=$Property}}
+function Get-CimAssociatedInstance{[CmdletBinding()]param($InputObject,$CimSession,[string]$Namespace,[string]$Association,[string]$ResultClassName,[int]$OperationTimeoutSec)
+    $script:CimCalls.Add('Get-CimAssociatedInstance '+$Association+' '+$ResultClassName+' '+[string]$InputObject.Keys.DeviceID)
+    return @([pscustomobject]@{DeviceID='Disk #0, Partition #0';Size=[uint64]536870912;__RELPATH='Win32_DiskPartition.DeviceID="Disk #0, Partition #0"'},[pscustomobject]@{DeviceID='Disk #0, Partition #1';Size=[uint64]107374182400;__RELPATH='Win32_DiskPartition.DeviceID="Disk #0, Partition #1"'})
+}
+$script:FixtureSession=[pscustomobject]@{Fixture=$true}
+$script:FixtureSession|Add-Member ScriptMethod GetClass {param($Namespace,$Name,$Options)$script:LocalizedCalls++;return (Get-FixtureClass $Name -Localized)}
+$Context=[pscustomobject]@{UseCim=$true}
+$msiNames=@(Get-DomeniaMsiProviderClassNames)
+function Invoke-SchemaWorker([hashtable]$Values){
+    $script:CimCalls=[Collections.Generic.List[string]]::new();$script:Sessions=0;$script:Removed=0
+    $payload=[pscustomobject]@{ModuleRoot=$modules;Mode='Schema';Computer='PC-01';Namespace='root\cimv2';ClassName='Win32_Service';Query='';Limit=100;MsiClassNames=$msiNames;StopToken=$null;KeyValues=$null;AssociationClass='';ResultClass='';ClassFilter='';SourceProperty='';SourceValue=$null;TargetProperty=''}
+    foreach($key in $Values.Keys){$payload.$key=$Values[$key]}
+    $Payload=$payload
+    return (& ([scriptblock]::Create((Get-DomeniaQuerySchemaWorkerCode))))
+}
+$script:LocalizedCalls=0
+$result=Invoke-SchemaWorker @{Mode='Namespaces';Namespace='root'}
+Expect ((@($result.Namespaces).Namespace -join ',') -ceq 'root\cimv2,root\Microsoft' -and $result.CanonicalQuery -ceq 'NAMESPACES root' -and $result.RequestKey -ceq (Get-DomeniaQuerySchemaRequestKey 'root' 'NAMESPACES root')) 'namespaces: one level, sorted, invalid names dropped'
+Expect ($script:CimCalls.Count -eq 1 -and $script:CimCalls[0] -ceq 'Get-CimInstance root __NAMESPACE' -and $script:Removed -eq 1) 'namespace listing is a single non-recursive read and the session is closed'
+$result=Invoke-SchemaWorker @{Mode='Classes'}
+$classes=@{};foreach($row in $result.Classes){$classes[$row.Class]=$row}
+Expect (-not $classes.ContainsKey('__SystemClass') -and $classes.Count -eq 7 -and $classes['Win32_Product'].Note -like 'Fournisseur MSI*' -and $classes['CIM_LogicalElement'].Note -like 'Fournisseur MSI*' -and $classes['Win32_DiskDriveToDiskPartition'].Association -and $classes['Win32_Service'].Keys -eq 1 -and $classes['Win32_Service'].Properties -eq 7) 'class list states properties, keys, associations and MSI refusal without reading any instance'
+Expect (@($script:CimCalls|Where-Object{$_ -like 'Get-CimInstance*'}).Count -eq 0 -and $result.CanonicalQuery -ceq 'CLASSES root\cimv2 *') 'class listing never enumerates instances'
+$result=Invoke-SchemaWorker @{Mode='Classes';ClassFilter='Win32_Disk*'}
+Expect (@($result.Classes).Count -eq 3 -and $result.Filter -ceq 'Win32_Disk*' -and $result.CanonicalQuery -ceq 'CLASSES root\cimv2 Win32_Disk*') 'class filter keeps its wildcard and canonical key'
+Reject {Invoke-SchemaWorker @{Mode='Classes';ClassFilter="Win32_* OR 1=1"}} 'an invalid class filter is refused'
+Expect ($script:Sessions -eq 0) 'a refused filter opens no session'
+$result=Invoke-SchemaWorker @{Mode='Schema'}
+$properties=@{};foreach($row in $result.Schema){$properties[$row.Property]=$row}
+Expect (-not $properties.ContainsKey('LegacyPassword') -and $properties['WaitHint'].Unit -ceq 'milliseconds' -and $properties['Dependencies'].IsArray -and $properties['Name'].IsKey -and $result.CanonicalQuery -ceq 'SCHEMA Win32_Service') 'schema gives types, keys, arrays and units, never a secret property'
+if($mmi){Expect ($result.DescriptionsAvailable -and $script:LocalizedCalls -eq 1 -and $result.ClassDescription -ceq 'Service Windows' -and $properties['Name'].Description -ceq 'Nom unique du service') 'localized descriptions are read once and flattened to one line'}
+else{Expect (-not $result.DescriptionsAvailable) 'without the CIM client library, descriptions are announced as unavailable'}
+$script:FixtureSession=[pscustomobject]@{Fixture=$true}
+$result=Invoke-SchemaWorker @{Mode='Schema'}
+Expect (-not $result.DescriptionsAvailable -and -not $result.ClassDescription -and @($result.Schema).Count -eq 6) 'a provider without localized qualifiers falls back to the plain schema, said as such'
+Reject {Invoke-SchemaWorker @{Mode='Schema';ClassName='Win32_Product'}} 'the MSI provider schema is never read'
+$result=Invoke-SchemaWorker @{Mode='Select';Query="SELECT State FROM Win32_Service WHERE StartMode = 'Auto'"}
+Expect (@($script:CimCalls|Where-Object{$_ -like "Get-CimInstance root\cimv2 SELECT State,Name FROM Win32_Service WHERE StartMode = 'Auto'"}).Count -eq 1 -and $result.Rows[0].KeyValues.Name -ceq 'Spooler' -and $result.StoredCount -eq 2) 'a SELECT keeps the provider key to preserve instance identity'
+$result=Invoke-SchemaWorker @{Mode='Reference';ClassName='Win32_Service';SourceProperty='ProcessId';SourceValue=[uint32]1234;ResultClass='Win32_Process';TargetProperty='Handle'}
+Expect (@($script:CimCalls|Where-Object{$_ -like "*FROM Win32_Process WHERE Handle='1234'"}).Count -eq 1 -and $result.Rows.Count -eq 1 -and $result.Rows[0].ClassName -ceq 'Win32_Process' -and $result.Rows[0].KeyValues.Handle -ceq '1234') 'the hosting process is read by its key Handle, not by a name'
+Expect ($null -eq $result.Rows[0].Values.PSObject.Properties['CommandLine'] -and $result.CanonicalQuery -ceq 'REFERENCE Win32_Service.ProcessId=1234 TO Win32_Process.Handle' -and $result.Relation -like 'ProcessId*Win32_Process.Handle') 'a reference relation never reads the command line and keeps its identity in the canonical key'
+$result=Invoke-SchemaWorker @{Mode='Reference';ClassName='Win32_Process';SourceProperty='Handle';SourceValue='1234';ResultClass='Win32_Service';TargetProperty='ProcessId'}
+Expect (@($script:CimCalls|Where-Object{$_ -like '*FROM Win32_Service WHERE ProcessId=1234'}).Count -eq 1 -and $result.Rows.Count -eq 1 -and $result.Rows[0].KeyValues.Name -ceq 'Spooler') 'services hosted by a process are read by ProcessId'
+foreach($bad in @(@{SourceValue=0},@{SourceValue="1 OR 1=1"},@{TargetProperty='Name'},@{ResultClass='Win32_Product';TargetProperty='Handle'})){
+    $values=@{Mode='Reference';ClassName='Win32_Service';SourceProperty='ProcessId';SourceValue=[uint32]1234;ResultClass='Win32_Process';TargetProperty='Handle'};foreach($key in $bad.Keys){$values[$key]=$bad[$key]}
+    Reject {Invoke-SchemaWorker $values} ('unsafe or unplanned reference refused: '+(($bad.GetEnumerator()|ForEach-Object{$_.Key+'='+$_.Value}) -join ','))
+    Expect ($script:Sessions -eq 0) 'a refused relation opens no session'
+}
+$result=Invoke-SchemaWorker @{Mode='Associations';ClassName='Win32_DiskDrive';KeyValues=[pscustomobject]@{DeviceID='\\.\PHYSICALDRIVE0'};AssociationClass='Win32_DiskDriveToDiskPartition';ResultClass='Win32_DiskPartition'}
+Expect (@($script:CimCalls|Where-Object{$_ -ceq 'New-CimInstance Win32_DiskDrive DeviceID'}).Count -eq 1 -and @($script:CimCalls|Where-Object{$_ -ceq 'Get-CimAssociatedInstance Win32_DiskDriveToDiskPartition Win32_DiskPartition \\.\PHYSICALDRIVE0'}).Count -eq 1) 'the association starts from the source instance key'
+Expect ($result.Rows.Count -eq 2 -and $result.Rows[1].KeyValues.DeviceID -ceq 'Disk #0, Partition #1' -and $result.Rows[1].Id -like 'Win32_DiskPartition.DeviceID=*' -and $result.Relation -ceq 'Win32_DiskDriveToDiskPartition') 'each associated partition keeps its provider identity'
+$script:SessionFailure='fixture-logon-failure';Reject {Invoke-SchemaWorker @{Mode='Schema'}} 'a rejected logon stops the read';$script:SessionFailure=$null
+# UI: cache first for metadata, explicit in-page offer for a remote read, review before recipe.
+function Add-FakeEvents($Control){foreach($eventName in @('Add_Click','Add_TextChanged','Add_SelectionChanged','Add_MouseDoubleClick')){$Control|Add-Member ScriptMethod $eventName {param($Handler)}};return $Control}
+$script:Fake=@{}
+foreach($name in @('TxtQueryWmiNamespace','TxtQueryWmiClass','TxtQueryWmiClassFilter','TxtQueryWmiLimit','TxtQueryWql','ChkQueryWmiForceRead','LstQueryWmiNamespaces','DgQueryWmiClasses','DgQuerySchema','DgQueryWmiRows','TxtQueryAssociationClass','TxtQueryAssociationResult','BtnQueryWqlRecipe','BtnQueryWmiRemoteRead','LblQueryWqlPlan','QueryWorkspaceTabs','TabQueryPublish')){$script:Fake[$name]=Add-FakeEvents ([pscustomobject]@{Text='';IsChecked=$false;ItemsSource=@();SelectedItem=$null;IsEnabled=$true;Visibility='Collapsed';Tag=$null})}
+$combo=Add-FakeEvents ([pscustomobject]@{ItemsSource=@();SelectedIndex=-1;Tag=$null});$combo|Add-Member ScriptProperty SelectedItem {$items=@($this.ItemsSource);if($this.SelectedIndex -ge 0 -and $this.SelectedIndex -lt $items.Count){$items[$this.SelectedIndex]}else{$null}};$script:Fake['CmbQueryAssociationPreset']=$combo
+$script:Fake.TxtQueryWmiNamespace.Text='root\cimv2';$script:Fake.TxtQueryWmiClass.Text='Win32_Service';$script:Fake.TxtQueryWmiLimit.Text='100';$script:Fake.TxtQueryWql.Text="SELECT State FROM Win32_Service WHERE StartMode = 'Auto'"
+function Get-DomeniaControl([string]$Name){return $script:Fake[$Name]}
+function Set-DomeniaControlText([string]$Name,[string]$Text){$script:Labels[$Name]=$Text;return $true}
+function Get-DomeniaWmiComputer{return 'PC-01'}
+function New-DomeniaClassicCollectionState{param([string]$Computer,[string]$ResultKind,[string]$RequestKey,[string]$PublishHandler,[string]$PublishErrorHandler)return [pscustomobject]@{Computer=$Computer;ResultKind=$ResultKind;RequestKey=$RequestKey;PublishHandler=$PublishHandler;PublishErrorHandler=$PublishErrorHandler;StoreContext=[pscustomobject]@{StoreId='fixture-store'};StoreGuid='aaaaaaaa-0000-4000-8000-000000000001';StoreDn='CN=PC-01,DC=example,DC=test'}}
+function Request-DomeniaStoreRead{param($Context,$Query,$SuccessHandler,$ErrorHandler,$CallbackState)$script:StoreReads.Add($Query);$script:LastStoreState=$CallbackState;return 'job-store'}
+function Show-DomeniaDialog{param($Title,$Message,$Kind,$Buttons,$Details)$script:Dialogs.Add($Message);return $script:DialogAnswer}
+function Start-UiTask{param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$SuccessHandler,$ErrorHandler,$TimeoutSeconds,$HardTimeoutSeconds,$TaskClass)$script:Tasks.Add([pscustomobject]@{OperationId=$OperationId;Payload=$Payload;State=$CallbackState});return 'job-remote'}
+function Test-DomeniaRemoteStoreContext($State,$Result){return $true}
+function Test-DomeniaClassicResultCurrent($Result,$State,[switch]$ContextOnly){return $true}
+$script:SelectedObject=[pscustomobject]@{Type='Machine';Name='PC-01';DN='CN=PC-01,DC=example,DC=test';Safety=[pscustomobject]@{Guid='aaaaaaaa-0000-4000-8000-000000000001'}}
+$script:Labels=@{};$script:StoreReads=[Collections.Generic.List[object]]::new();$script:Dialogs=[Collections.Generic.List[string]]::new();$script:Tasks=[Collections.Generic.List[object]]::new();$script:DialogAnswer='Yes'
+$script:DomeniaQueryState=[pscustomobject]@{Generation=1}
+Initialize-DomeniaQuerySchemaUi
+Expect ($script:Labels.LblQueryWqlPlan -like '*Pas encore testée*' -and -not $script:Fake.BtnQueryWqlRecipe.IsEnabled) 'the WQL review is shown before any read and the recipe waits for a test'
+Invoke-DomeniaQuerySchemaAction 'Schema'
+$schemaKey=Get-DomeniaQuerySchemaRequestKey 'root\cimv2' 'SCHEMA Win32_Service'
+Expect ($script:StoreReads.Count -eq 1 -and $script:StoreReads[0].ResultKind -ceq 'WmiSchema' -and $script:StoreReads[0].RequestKey -ceq $schemaKey -and $script:Dialogs.Count -eq 0 -and $script:Tasks.Count -eq 0) 'schema is first looked up in the local database, without remote read'
+$stored=Invoke-SchemaWorker @{Mode='Schema'}
+$cached=[pscustomobject]@{DataSource='SQLite';StoreId='fixture-store';Busy=$false;Missing=$false;SnapshotRevision=9;Details=@([pscustomobject]@{Guid='AAAAAAAA-0000-4000-8000-000000000001';ResultKind='WmiSchema';RequestKey=$schemaKey;Status='Success';LastSuccessAtUtc='2026-10-14T09:30:00Z';Data=$stored})}
+Complete-DomeniaQuerySchemaCacheRead -Result $cached -State $script:LastStoreState
+Expect (@($script:Fake.DgQuerySchema.ItemsSource).Count -eq 6 -and $script:Labels.LblQueryWmiStatus -like '*métadonnées enregistrées le*sans nouvelle lecture du poste*' -and $script:Tasks.Count -eq 0 -and $script:Dialogs.Count -eq 0) 'stored metadata is displayed with its date and no remote access'
+Expect (@($script:Fake.DgQuerySchema.ItemsSource|Where-Object{$_.Description -ceq 'Description non fournie'}).Count -eq 6 -and $script:Labels.LblQueryWmiClassDescription -like 'Win32_Service : descriptions non fournies*') 'missing descriptions are stated, never invented'
+$script:Fake.TxtQueryWmiClass.Text='Win32_Process';Invoke-DomeniaQuerySchemaAction 'Schema'
+Complete-DomeniaQuerySchemaCacheRead -Result ([pscustomobject]@{DataSource='SQLite';StoreId='fixture-store';Busy=$false;Missing=$false;Details=@()}) -State $script:LastStoreState
+Expect ($script:Fake.BtnQueryWmiRemoteRead.Visibility -ceq 'Visible' -and $script:Labels.LblQueryWmiStatus -like 'Aucune métadonnée enregistrée*Lire sur le poste*' -and $script:Tasks.Count -eq 0 -and $script:Dialogs.Count -eq 0) 'without stored metadata, a callback only offers an explicit in-page remote read'
+Invoke-DomeniaQuerySchemaAction 'Remote'
+Expect ($script:Dialogs.Count -eq 1 -and $script:Tasks.Count -eq 1 -and $script:Tasks[0].OperationId -ceq 'QuerySchema' -and $script:Tasks[0].Payload.Mode -ceq 'Schema' -and $script:Tasks[0].Payload.ClassName -ceq 'Win32_Process' -and $script:Fake.BtnQueryWmiRemoteRead.Visibility -ceq 'Collapsed') 'the explicit button confirms then reads only the chosen workstation'
+$old=$script:LastStoreState;Invoke-DomeniaQuerySchemaAction 'Namespaces'
+Complete-DomeniaQuerySchemaCacheRead -Result $cached -State $old
+Expect ($script:Labels.LblQueryWmiStatus -like 'Recherche des métadonnées*') 'a late cache answer of an older request is ignored'
+$script:Fake.ChkQueryWmiForceRead.IsChecked=$true;$reads=$script:StoreReads.Count;Invoke-DomeniaQuerySchemaAction 'Classes'
+Expect ($script:StoreReads.Count -eq $reads -and $script:Tasks.Count -eq 2 -and $script:Tasks[1].Payload.Mode -ceq 'Classes' -and $script:Dialogs.Count -eq 2) 'forced refresh goes to the workstation after confirmation'
+$script:DialogAnswer='No';Invoke-DomeniaQuerySchemaAction 'Namespaces'
+Expect ($script:Tasks.Count -eq 2 -and $script:Labels.LblQueryWmiStatus -ceq 'Lecture sur le poste non lancée.') 'a declined confirmation reads nothing'
+$script:DialogAnswer='Yes';$script:Fake.ChkQueryWmiForceRead.IsChecked=$false
+$classesStored=Invoke-SchemaWorker @{Mode='Classes'};$state=$script:LastStoreState;$state.Mode='Classes';$state.FromCache=$false;$script:DomeniaQueryState.SchemaGeneration=$state.SchemaGeneration
+Complete-DomeniaQuerySchemaStored -Result ($classesStored|Add-Member NoteProperty DataSource 'SQLite' -PassThru) -State $state
+Expect (@($script:Fake.DgQueryWmiClasses.ItemsSource).Count -eq 7 -and $script:Labels.LblQueryWmiStatus -like '*7 classe(s)*lecture du poste enregistrée*') 'classes read on the workstation are displayed after storage'
+# Select, test status and recipe readiness.
+Invoke-DomeniaQuerySchemaAction 'Select'
+$selectState=$script:Tasks[$script:Tasks.Count-1].State
+$selected=Invoke-SchemaWorker @{Mode='Select';Query=$script:Tasks[$script:Tasks.Count-1].Payload.Query};$selected|Add-Member NoteProperty DataSource 'SQLite';$selected|Add-Member NoteProperty SourceCompletedUtc '2026-10-15T08:00:00Z' -Force
+Complete-DomeniaQuerySchemaStored -Result $selected -State $selectState
+Expect ($script:Fake.BtnQueryWqlRecipe.IsEnabled -and $script:Labels.LblQueryWqlPlan -like '*Testée sur PC-01*' -and @($script:Fake.DgQueryWmiRows.ItemsSource).Count -eq 2) 'a stored test of the same SELECT enables the recipe'
+$script:Fake.TxtQueryWql.Text='SELECT State, StartMode FROM Win32_Service';Update-DomeniaQueryWqlPlan
+Expect (-not $script:Fake.BtnQueryWqlRecipe.IsEnabled) 'editing the SELECT requires a new test'
+function Set-DomeniaQueryDraft($Recipe){$script:DraftSet=$Recipe}
+$script:DraftSet=$null;Invoke-DomeniaQuerySchemaAction 'Recipe'
+Expect ($null -eq $script:DraftSet -and $script:Labels.LblQueryWmiStatus -like '*nʼa pas été testée*') 'an untested SELECT never becomes a recipe'
+$script:Fake.TxtQueryWql.Text="SELECT State FROM Win32_Service WHERE StartMode = 'Auto'";Invoke-DomeniaQuerySchemaAction 'Recipe'
+Expect ($null -ne $script:DraftSet -and $script:DraftSet.ReadDefinition.CanonicalQuery -ceq $selected.CanonicalQuery -and $script:DraftSet.ReadDefinition.Limit -eq 100) 'the recipe stores the tested canonical SELECT'
+$script:SelectedObject=[pscustomobject]@{Type='Machine';Name='PC-01';DN='CN=PC-01,DC=example,DC=test';Safety=[pscustomobject]@{Guid='bbbbbbbb-0000-4000-8000-000000000002'}};Update-DomeniaQueryWqlPlan
+Expect (-not $script:Fake.BtnQueryWqlRecipe.IsEnabled) 'a recreated workstation with the same name must be tested again'
+$script:SelectedObject=[pscustomobject]@{Type='Machine';Name='PC-01';DN='CN=PC-01,DC=example,DC=test';Safety=[pscustomobject]@{Guid='aaaaaaaa-0000-4000-8000-000000000001'}}
+# Relations offered for the selected instance.
+$service=@($script:Fake.DgQueryWmiRows.ItemsSource|Where-Object{$_.KeyValues.Name -eq 'Spooler'})[0];$script:Fake.DgQueryWmiRows.SelectedItem=$service
+Update-DomeniaQueryRelationPresets
+Expect (@($combo.ItemsSource).Count -eq 3 -and $combo.SelectedItem.Kind -ceq 'Association' -and $script:Fake.TxtQueryAssociationClass.Text -ceq 'Win32_DependentService') 'relations planned for a service are offered first'
+$combo.SelectedIndex=1;Use-DomeniaQueryRelationPreset
+Expect ($combo.SelectedItem.Kind -ceq 'Reference' -and -not $script:Fake.TxtQueryAssociationClass.IsEnabled) 'a reference relation needs no free association text'
+$tasks=$script:Tasks.Count;Invoke-DomeniaQuerySchemaAction 'Relation'
+Expect ($script:Tasks.Count -eq $tasks -and $script:Labels.LblQueryWmiStatus -like '*ProcessId nʼa pas été lue*') 'a reference without the identity property read is refused before any confirmation'
+$withPid=[pscustomobject]@{Id=$service.Id;ClassName='Win32_Service';KeyValues=$service.KeyValues;Values=[pscustomobject]@{State='Running';Name='Spooler';ProcessId=1234}};$script:Fake.DgQueryWmiRows.SelectedItem=$withPid
+Invoke-DomeniaQuerySchemaAction 'Relation'
+$last=$script:Tasks[$script:Tasks.Count-1]
+Expect ($script:Tasks.Count -eq $tasks+1 -and $last.Payload.Mode -ceq 'Reference' -and [string]$last.Payload.SourceValue -ceq '1234' -and $last.Payload.ResultClass -ceq 'Win32_Process' -and $last.Payload.TargetProperty -ceq 'Handle' -and $last.State.ResultKind -ceq 'WmiQuery') 'the hosting process read is confirmed then sent with the source identity'
+$script:Fake.DgQueryWmiRows.SelectedItem=$null;$tasks=$script:Tasks.Count;Invoke-DomeniaQuerySchemaAction 'Relation'
+Expect ($script:Tasks.Count -eq $tasks -and $script:Labels.LblQueryWmiStatus -like '*Sélectionnez une instance*') 'no relation without a selected stored instance'
+
 # @@NEXT-SECTION@@
 
 $report=[pscustomobject]@{Status='PASS';Assertions=$script:checks;SourceMode=[bool]$QuerySource;ElapsedSeconds=[Math]::Round($clock.Elapsed.TotalSeconds,3);PowerShell=$PSVersionTable.PSVersion.ToString();Scope='Actual models, worker factories and click handlers with inert controls; remote WMI cmdlets replaced by fixtures; no network, AD, WMI or WPF'}

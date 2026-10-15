@@ -13,7 +13,7 @@ function ConvertFrom-DomeniaWqlSelect {
         $tokens.Add([pscustomobject]@{Kind=$kind;Text=$match.Groups[$kind].Value});$offset=$match.Index+$match.Length
         if($tokens.Count -gt 512){throw 'SELECT limité à 512 éléments.'}
     }
-    $state=@{Tokens=$tokens;Index=0;Known=$KnownProperties;Used=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)}
+    $state=@{Tokens=$tokens;Index=0;Known=$KnownProperties;Used=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase);WhereUsed=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)}
     function Read-DomeniaWqlToken($State,[string]$Text='',[string]$Kind=''){
         if($State.Index -ge $State.Tokens.Count){throw 'SELECT incomplet.'};$token=$State.Tokens[$State.Index]
         if(($Text -and $token.Text -ine $Text) -or ($Kind -and $token.Kind -cne $Kind)){throw ('SELECT : '+$(if($Text){$Text}else{$Kind})+' attendu.')};$State.Index++;return $token
@@ -29,7 +29,7 @@ function ConvertFrom-DomeniaWqlSelect {
         $token=$State.Tokens[$State.Index]
         if($token.Text -ieq 'NOT'){[void](Read-DomeniaWqlToken $State 'NOT');Read-DomeniaWqlPredicate $State ($Depth+1);return}
         if($token.Text -eq '('){[void](Read-DomeniaWqlToken $State '(');Read-DomeniaWqlOr $State ($Depth+1);[void](Read-DomeniaWqlToken $State ')');return}
-        $field=(Read-DomeniaWqlToken $State -Kind Identifier).Text;Assert-DomeniaWqlProperty $State $field
+        $field=(Read-DomeniaWqlToken $State -Kind Identifier).Text;Assert-DomeniaWqlProperty $State $field;[void]$State.WhereUsed.Add($field)
         $operator=Read-DomeniaWqlToken $State
         if($operator.Text -ieq 'IS'){
             if($State.Index -lt $State.Tokens.Count -and $State.Tokens[$State.Index].Text -ieq 'NOT'){[void](Read-DomeniaWqlToken $State 'NOT')}
@@ -54,14 +54,120 @@ function ConvertFrom-DomeniaWqlSelect {
     if($state.Index -lt $tokens.Count){[void](Read-DomeniaWqlToken $state 'WHERE');Read-DomeniaWqlOr $state 0}
     if($state.Index -ne $tokens.Count){throw 'Une seule instruction SELECT est autorisée.'}
     $canonical=($tokens|ForEach-Object{$_.Text}) -join ' '
-    [pscustomobject]@{ClassName=$class;Properties=$properties.ToArray();ReferencedProperties=@($state.Used);CanonicalQuery=$canonical}
+    [pscustomobject]@{ClassName=$class;Properties=$properties.ToArray();ReferencedProperties=@($state.Used);WhereProperties=@($state.WhereUsed);CanonicalQuery=$canonical}
+}
+function Assert-DomeniaQuerySchemaNamespace {
+    param([string]$Namespace)
+    if($Namespace -notmatch '^root(?:\\[A-Za-z_][A-Za-z0-9_]*)*$' -or $Namespace.Length -gt 256){throw 'Espace de noms WMI invalide.'}
+}
+function Assert-DomeniaQuerySchemaClassFilter {
+    # Class list filter: a class name, optionally ending with one wildcard (Win32_*). Never a WQL fragment.
+    param([string]$Filter)
+    if($Filter -and $Filter -notmatch '^[A-Za-z_][A-Za-z0-9_]{0,126}\*?$'){throw 'Filtre de classes invalide : un nom de classe, éventuellement terminé par *.'}
 }
 function Assert-DomeniaQuerySchemaTarget {
     param([string]$Namespace,[string]$ClassName,[string[]]$MsiClassNames)
-    if($Namespace -notmatch '^root(?:\\[A-Za-z_][A-Za-z0-9_]*)*$' -or $Namespace.Length -gt 256){throw 'Espace de noms WMI invalide.'}
+    Assert-DomeniaQuerySchemaNamespace $Namespace
     if($ClassName -notmatch '^[A-Za-z_][A-Za-z0-9_]{0,127}$'){throw 'Nom de classe WMI invalide.'}
     if(-not @($MsiClassNames).Count){throw 'Garde du fournisseur MSI indisponible.'}
     if($ClassName -in $MsiClassNames){throw 'Fournisseur MSI interdit : sa lecture peut déclencher une vérification ou une réparation.'}
+}
+function Get-DomeniaWmiRelationPresets {
+    # Relations a provider declares (association classes) or exposes through an identity property. A reference
+    # relation reads the target by its key at the time of the read; a process identifier can be reused later.
+    param([string]$ClassName='')
+    $all=@(
+        [pscustomobject]@{Source='Win32_DiskDrive';Kind='Association';Association='Win32_DiskDriveToDiskPartition';Result='Win32_DiskPartition';SourceProperty='';TargetProperty='';ValueKind='';Properties=@();Label='Partitions de ce disque physique'}
+        [pscustomobject]@{Source='Win32_DiskPartition';Kind='Association';Association='Win32_DiskDriveToDiskPartition';Result='Win32_DiskDrive';SourceProperty='';TargetProperty='';ValueKind='';Properties=@();Label='Disque physique qui porte cette partition'}
+        [pscustomobject]@{Source='Win32_DiskPartition';Kind='Association';Association='Win32_LogicalDiskToPartition';Result='Win32_LogicalDisk';SourceProperty='';TargetProperty='';ValueKind='';Properties=@();Label='Volume logique de cette partition'}
+        [pscustomobject]@{Source='Win32_LogicalDisk';Kind='Association';Association='Win32_LogicalDiskToPartition';Result='Win32_DiskPartition';SourceProperty='';TargetProperty='';ValueKind='';Properties=@();Label='Partition qui porte ce volume'}
+        [pscustomobject]@{Source='Win32_NetworkAdapter';Kind='Association';Association='Win32_NetworkAdapterSetting';Result='Win32_NetworkAdapterConfiguration';SourceProperty='';TargetProperty='';ValueKind='';Properties=@();Label='Configuration IP de cette carte'}
+        [pscustomobject]@{Source='Win32_NetworkAdapterConfiguration';Kind='Association';Association='Win32_NetworkAdapterSetting';Result='Win32_NetworkAdapter';SourceProperty='';TargetProperty='';ValueKind='';Properties=@();Label='Carte réseau de cette configuration'}
+        [pscustomobject]@{Source='Win32_Service';Kind='Association';Association='Win32_DependentService';Result='Win32_Service';SourceProperty='';TargetProperty='';ValueKind='';Properties=@();Label='Services liés par dépendance (dans les deux sens)'}
+        [pscustomobject]@{Source='Win32_Service';Kind='Reference';Association='';Result='Win32_Process';SourceProperty='ProcessId';TargetProperty='Handle';ValueKind='String';Properties=@('Name','ProcessId','ParentProcessId','CreationDate','ExecutablePath');Label='Processus qui héberge ce service, au moment de la lecture'}
+        [pscustomobject]@{Source='Win32_Process';Kind='Reference';Association='';Result='Win32_Service';SourceProperty='Handle';TargetProperty='ProcessId';ValueKind='Number';Properties=@('Name','DisplayName','State','StartMode','ProcessId');Label='Services hébergés par ce processus, au moment de la lecture'}
+    )
+    if(-not $ClassName){return $all}
+    return @($all|Where-Object{$_.Source -ieq $ClassName})
+}
+function Get-DomeniaWmiRelationPreset {
+    # Exact reference relation allowed for a worker read; $null for anything else. No free-form join is accepted.
+    param([string]$SourceClass,[string]$SourceProperty,[string]$TargetClass,[string]$TargetProperty)
+    foreach($preset in @(Get-DomeniaWmiRelationPresets $SourceClass)){
+        if($preset.Kind -ceq 'Reference' -and $preset.SourceProperty -ieq $SourceProperty -and $preset.Result -ieq $TargetClass -and $preset.TargetProperty -ieq $TargetProperty){return $preset}
+    }
+    return $null
+}
+function ConvertTo-DomeniaWmiReferenceValue {
+    # Identity value of a reference relation: digits only, never zero (a stopped service has no hosting process).
+    param($Preset,$Value)
+    if($null -eq $Value -or $Value -is [array]){throw ('La propriété '+[string]$Preset.SourceProperty+' nʼa pas été lue pour cette instance : ajoutez-la au SELECT puis exécutez-le à nouveau.')}
+    $text=([string]$Value).Trim()
+    if($text -notmatch '^[0-9]{1,10}$'){throw ('Identifiant '+[string]$Preset.SourceProperty+' invalide : la relation nʼest pas lue.')}
+    $number=[long]$text
+    if($number -le 0 -or $number -gt 4294967295){throw ('Aucun processus associé ('+[string]$Preset.SourceProperty+' = '+$text+') : un service arrêté nʼa pas de processus hôte.')}
+    return $number.ToString([Globalization.CultureInfo]::InvariantCulture)
+}
+function Get-DomeniaWqlProviderWarnings {
+    # Known costly providers. The list is not exhaustive: a syntax check never proves that a provider is inert.
+    param([string]$ClassName,[bool]$HasWhere)
+    $costly=[ordered]@{
+        CIM_DataFile='parcourt les fichiers du disque';CIM_Directory='parcourt les dossiers du disque';Win32_Directory='parcourt les dossiers du disque'
+        Win32_ShortcutFile='parcourt les raccourcis du disque';Win32_NTLogEvent='lit les journaux dʼévénements, parfois très volumineux'
+        Win32_ReliabilityRecords='lit lʼhistorique de fiabilité, lent sur un poste ancien';Win32_UserAccount='peut énumérer tous les comptes du domaine depuis le poste'
+        Win32_Group='peut énumérer tous les groupes du domaine depuis le poste';Win32_GroupUser='peut énumérer toutes les appartenances du domaine'
+        Win32_Account='peut énumérer tous les comptes du domaine depuis le poste';Win32_PnPSignedDriver='interroge chaque pilote, lentement'
+    }
+    $warnings=[Collections.Generic.List[string]]::new()
+    foreach($name in $costly.Keys){if($ClassName -ieq $name){$warnings.Add('Classe '+$name+' : '+$costly[$name]+'.'+$(if(-not $HasWhere){' Sans clause WHERE, la lecture porte sur tout ce périmètre.'}else{''}))}}
+    $warnings.Add('La validation syntaxique ne garantit pas quʼun fournisseur est sans effet de bord : testez la requête sur un poste choisi avant dʼen faire une recette.')
+    return $warnings.ToArray()
+}
+function Get-DomeniaWqlPlanReport {
+    # Local review of a WQL SELECT before any remote read: requested and identity properties, preconditions,
+    # limits, known provider costs and test status. Pure: the schema is the one already stored for the workstation.
+    param([string]$Namespace,[string]$Query,[int]$Limit=100,[string[]]$KnownProperties=@(),[string[]]$KeyProperties=@(),[string]$SchemaClass='',$Tested=$null,[string]$Computer='')
+    $report=[ordered]@{Valid=$false;Message='';ClassName='';CanonicalQuery='';Properties=@();KeyProperties=@();ReferencedProperties=@();MissingProperties=@();Preconditions=@();Limits=@();Warnings=@();Ready=$false;ReadyText='';Text=''}
+    try{
+        $plan=ConvertFrom-DomeniaWqlSelect $Query
+        Assert-DomeniaQuerySchemaTarget $Namespace $plan.ClassName @(Get-DomeniaMsiProviderClassNames)
+        if($Limit -lt 1 -or $Limit -gt 2000){throw 'Choisissez une limite entre 1 et 2 000 instances.'}
+    }catch{$report.Message=$_.Exception.Message;$report.Text='Requête non exécutable : '+$report.Message;return [pscustomobject]$report}
+    $report.Valid=$true;$report.ClassName=$plan.ClassName;$report.CanonicalQuery=$plan.CanonicalQuery;$report.Properties=@($plan.Properties)
+    $schemaKnown=($SchemaClass -and $SchemaClass -ieq $plan.ClassName -and @($KnownProperties).Count -gt 0)
+    if($schemaKnown){
+        $report.MissingProperties=@($plan.ReferencedProperties|Where-Object{$_ -notin @($KnownProperties)})
+        $report.KeyProperties=@($KeyProperties|Where-Object{$_ -notin @($plan.Properties)})
+    }
+    $report.ReferencedProperties=@($plan.ReferencedProperties)
+    $preconditions=[Collections.Generic.List[string]]::new()
+    $preconditions.Add($(if($Computer){'Poste choisi : '+$Computer+'.'}else{'Ouvrez la fiche du poste à interroger : aucune lecture sans poste choisi.'}))
+    $preconditions.Add('Connexion CIM (DCOM, ou WinRM si activé) avec le compte distant configuré ; un refus dʼauthentification suspend les lectures.')
+    $preconditions.Add('Droit de lecture sur lʼespace de noms '+$Namespace+'.')
+    if($schemaKnown){
+        $preconditions.Add('Schéma de '+$plan.ClassName+' relu pour ce poste : propriétés vérifiées.')
+        if(@($report.MissingProperties).Count){$preconditions.Add('Propriétés absentes du schéma relu : '+(@($report.MissingProperties) -join ', ')+'. La lecture sera refusée.')}
+    }else{$preconditions.Add('Schéma de '+$plan.ClassName+' non relu pour ce poste : la classe et les propriétés seront vérifiées au moment de la lecture.')}
+    $report.Preconditions=$preconditions.ToArray()
+    $identity=if(@($report.KeyProperties).Count){', plus les clés '+(@($report.KeyProperties) -join ', ')+' pour conserver lʼidentité des instances'}elseif(-not $schemaKnown){', plus les clés du fournisseur pour conserver lʼidentité des instances'}else{''}
+    $report.Limits=@(
+        ($Limit.ToString()+' instances au plus, 1 Mio de résultats conservés et 50 secondes de lecture.'),
+        ('Seules les propriétés citées sont demandées'+$identity+' ; aucune méthode WMI nʼest appelée.'),
+        'Un résultat partiel (limite ou budget atteint) reste marqué comme tel ; il nʼest jamais présenté comme complet.')
+    $report.Warnings=@(Get-DomeniaWqlProviderWarnings -ClassName $plan.ClassName -HasWhere (@($plan.WhereProperties).Count -gt 0))
+    $testedQuery=[string](Get-DomeniaMember $Tested 'CanonicalQuery');$testedComputer=[string](Get-DomeniaMember $Tested 'Computer')
+    $report.Ready=($null -ne $Tested -and [string](Get-DomeniaMember $Tested 'Mode') -ceq 'Select' -and $testedQuery -ceq $plan.CanonicalQuery -and [string](Get-DomeniaMember $Tested 'Namespace') -ieq $Namespace -and $Computer -and $testedComputer -ieq $Computer)
+    $report.ReadyText=if($report.Ready){'Testée sur '+$testedComputer+' (résultat enregistré le '+[string](Get-DomeniaMember $Tested 'At')+') : la recette locale peut être préparée.'}else{'Pas encore testée sous cette forme sur ce poste : exécutez-la avant dʼen faire une recette.'}
+    $lines=[Collections.Generic.List[string]]::new()
+    $lines.Add('Classe : '+$plan.ClassName+' · espace de noms : '+$Namespace)
+    $lines.Add('Propriétés demandées : '+(@($plan.Properties) -join ', ')+$(if(@($report.KeyProperties).Count){' (+ clés : '+(@($report.KeyProperties) -join ', ')+')'}else{''}))
+    $lines.Add($(if(@($plan.WhereProperties).Count){'Condition WHERE sur : '+(@($plan.WhereProperties) -join ', ')}else{'Aucune condition WHERE : toutes les instances de la classe, dans la limite choisie.'}))
+    $lines.Add('Préconditions :');foreach($line in $report.Preconditions){$lines.Add(' • '+$line)}
+    $lines.Add('Limites :');foreach($line in $report.Limits){$lines.Add(' • '+$line)}
+    $lines.Add('Prudence :');foreach($line in $report.Warnings){$lines.Add(' • '+$line)}
+    $lines.Add($report.ReadyText)
+    $report.Text=[string]::Join("`r`n",$lines.ToArray())
+    return [pscustomobject]$report
 }
 function Get-DomeniaQuerySchemaRequestKey {
     param([string]$Namespace,[string]$CanonicalQuery)

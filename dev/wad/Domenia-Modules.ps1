@@ -1811,7 +1811,14 @@ function Get-DomeniaRuntimeModulePlan {
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Boards.Model.ps1','Domenia-Workstation.Model.ps1'); File='Domenia-QuerySchema.Model.ps1'; DotSource=$true; Functions=@(
             'ConvertFrom-DomeniaWqlSelect',
+            'Assert-DomeniaQuerySchemaNamespace',
+            'Assert-DomeniaQuerySchemaClassFilter',
             'Assert-DomeniaQuerySchemaTarget',
+            'Get-DomeniaWmiRelationPresets',
+            'Get-DomeniaWmiRelationPreset',
+            'ConvertTo-DomeniaWmiReferenceValue',
+            'Get-DomeniaWqlProviderWarnings',
+            'Get-DomeniaWqlPlanReport',
             'Get-DomeniaQuerySchemaRequestKey',
             'New-DomeniaQueryReadDefinition',
             'Assert-DomeniaQueryReadDefinition',
@@ -1823,9 +1830,20 @@ function Get-DomeniaRuntimeModulePlan {
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-QuerySchema.Model.ps1','Domenia-QuerySchema.Worker.ps1','Domenia-Query.UI.ps1','Domenia-Query.Model.ps1'); File='Domenia-QuerySchema.UI.ps1'; DotSource=$true; Functions=@(
             'Initialize-DomeniaQuerySchemaUi',
+            'Get-DomeniaQuerySchemaSelectedGuid',
+            'Get-DomeniaQueryWqlPlanState',
+            'Update-DomeniaQueryWqlPlan',
+            'Update-DomeniaQueryRelationPresets',
+            'Use-DomeniaQueryRelationPreset',
+            'Hide-DomeniaQuerySchemaRemoteOffer',
             'Invoke-DomeniaQuerySchemaAction',
+            'Show-DomeniaQuerySchemaRemoteOffer',
+            'Start-DomeniaQuerySchemaRemoteRead',
+            'Complete-DomeniaQuerySchemaCacheRead',
+            'Fail-DomeniaQuerySchemaCacheRead',
             'Complete-DomeniaQuerySchemaCollected',
             'Fail-DomeniaQuerySchemaCollected',
+            'Format-DomeniaQuerySchemaDate',
             'Complete-DomeniaQuerySchemaStored',
             'Fail-DomeniaQuerySchemaRead'
         ) }
