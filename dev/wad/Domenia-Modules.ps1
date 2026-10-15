@@ -1488,7 +1488,14 @@ function Get-DomeniaRuntimeModulePlan {
             'ConvertTo-DomeniaProbeNumber',
             'Get-DomeniaProbeValues',
             'Measure-DomeniaWidgetData',
-            'Measure-DomeniaFleetProbeEntries'
+            'Measure-DomeniaFleetProbeEntries',
+            'ConvertFrom-DomeniaEdidText',
+            'Get-DomeniaMonitorIdentity',
+            'Get-DomeniaProbeHistoryPolicy',
+            'ConvertTo-DomeniaProbeHistoryItem',
+            'Get-DomeniaProbeHistorySample',
+            'Copy-DomeniaProbeHistoryMap',
+            'Add-DomeniaProbeHistory'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1'); File='Domenia-BoardFleet.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaFleetQueryPlan',

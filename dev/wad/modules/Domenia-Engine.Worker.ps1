@@ -341,6 +341,7 @@ try {
             $accountPreferences=@(Invoke-IdxWQuery $db ("SELECT scope AS Scope,user_name AS UserName,domain_dn AS DomainDn,updated_at AS UpdatedAtUtc,revision AS Revision FROM domenia_account_preferences WHERE $where ORDER BY scope;"))
             $read=[pscustomobject]@{Rows=@();Observations=@();ObservationRows=@();Details=@();SnapshotRevision=$revision};$total=$accountPreferences.Count
         }else{
+            $families=@()
             if($kind -eq 'Directory'){
                 $table='ad_objects';$column='object_guid';if($guidSql){$conditions.Add("object_guid IN ($guidSql)")}
                 if([string]$query.ScopeDn){$conditions.Add((Get-IdxWDnScopeSql 'distinguished_name' ([string]$query.ScopeDn) ([bool]$query.Subtree)))}
@@ -350,6 +351,12 @@ try {
                 $order='name COLLATE NOCASE,object_guid'
             }else{
                 $table=if($kind -eq 'Observation'){'domenia_observations'}else{'domenia_details'};$column='object_guid';$order='object_guid'
+                # Points 81-99: a reading needs a few named families of one object; at most 16, never every family.
+                $families=@();if(($kind -eq 'Observation') -and ($null -ne $query.PSObject.Properties['Families'])){$families=@(@($query.Families)|Where-Object{$_}|ForEach-Object{[string]$_}|Select-Object -Unique)}
+                if($families.Count -gt 16){throw 'Trop de familles pour une lecture.'}
+                foreach($familyName in $families){if($familyName -notmatch '^(Presence|Console|Inventory|Probe:[A-Za-z0-9_.-]{1,128})$'){throw 'Famille de lecture invalide.'}}
+                if(($families.Count -gt 0) -and ([string]$query.Family)){throw 'Famille unique et liste de familles exclusives.'}
+                if($families.Count){$conditions.Add('family IN ('+(@($families|ForEach-Object{Get-IdxWLiteral $_}) -join ',')+')')}
                 if($guidSql){$conditions.Add("object_guid IN ($guidSql)")}
                 if([string]$query.ScopeDn){$conditions.Add((Get-IdxWDnScopeSql 'dn' ([string]$query.ScopeDn) ([bool]$query.Subtree)))}
                 if($kind -eq 'Observation' -and [string]$query.Family){$conditions.Add('family='+(Get-IdxWLiteral ([string]$query.Family)))}
@@ -361,9 +368,11 @@ try {
             $detailWhere='1=1';if($kind -eq 'Detail'){if([string]$query.ResultKind){$detailWhere+=' AND result_kind='+(Get-IdxWLiteral ([string]$query.ResultKind))};if([string]$query.RequestKey){$detailWhere+=' AND request_key='+(Get-IdxWLiteral ([string]$query.RequestKey))}}
             $readArgs=@{Db=$db;Guids=@($page|ForEach-Object{[string]$_.object_guid});IncludeDirectoryDetails=([string]$query.Projection -ne 'List');IncludeObservations=($kind -eq 'Observation' -or [bool]$query.IncludeObservations);IncludeDetails=($kind -eq 'Detail');DetailWhere=$detailWhere}
             if($kind -eq 'Observation' -and [string]$query.Family){$readArgs.ObservationFamilies=@([string]$query.Family)}
+            if(($kind -eq 'Observation') -and ($families.Count -gt 0)){$readArgs.ObservationFamilies=$families}
             if($kind -eq 'Detail' -and $null -ne $query.PSObject.Properties['DetailProjection'] -and [string]$query.DetailProjection){$readArgs.DetailProjection=[string]$query.DetailProjection}
             $read=Read-StoreWCommitted @readArgs
             if($kind -eq 'Observation' -and [string]$query.Family){$read.Observations=@($read.Observations|Where-Object{[string]$_.Family -ceq [string]$query.Family})}
+            if(($kind -eq 'Observation') -and ($families.Count -gt 0)){$read.Observations=@($read.Observations|Where-Object{$families -ccontains [string]$_.Family})}
             if($kind -eq 'Detail'){$read.Details=@($read.Details|Where-Object{(-not [string]$query.ResultKind -or [string]$_.ResultKind -ceq [string]$query.ResultKind) -and (-not [string]$query.RequestKey -or [string]$_.RequestKey -ceq [string]$query.RequestKey)})}
         }
         [void](Invoke-IdxWQuery $db 'COMMIT;')

@@ -90,6 +90,18 @@ try{
   Expect ($r.DataSource -eq 'SQLite' -and $r.Total -eq 1 -and $r.Rows.Count -eq 1) 'read canonical';$r=Read-Store ([pscustomobject]@{Kind='Observation';Guids=@($guid);Family='Inventory'});Expect ($r.Observations.Count -eq 1 -and $r.Observations[0].Status -eq 'Error') 'family read'
   $refused=$false;try{Read-Store ([pscustomobject]@{Kind='Directory';MinimumRevision=9999})|Out-Null}catch{$refused=$true};Expect $refused 'minimum revision'
  }
+ Case 'Points 81-99: a reading reads its named families only, and disk volumes keep a bounded history' {
+  $volumes={param([string]$At,[double]$Free) [pscustomobject]@{Computer='PC-1';Probes=[pscustomobject]@{'disk.volumes'=[pscustomobject]@{CheckedUtc=$At;Truncated=$false;Count=1;CountComplete=$true;Instances=@([pscustomobject]@{Id='';Index=1;Values=[pscustomobject]@{DeviceID='C:';Size=107374182400;FreeSpace=$Free};IncompleteProperties=@()});Rows=@(,@('C:'))}}}}
+  [void](Commit @((Observation 'Probe:disk.volumes' '2026-02-01T12:00:00Z' 'Success' (& $volumes '2026-02-01T12:00:00Z' 53687091200))))
+  [void](Commit @((Observation 'Probe:disk.volumes' '2026-02-08T12:00:00Z' 'Success' (& $volumes '2026-02-08T12:00:00Z' 42949672960))))
+  $read=Read-Store ([pscustomobject]@{Kind='Observation';Guids=@($guid);Families=@('Probe:disk.volumes','Probe:net.dns');Limit=1})
+  Expect ((@($read.Observations).Count -eq 2) -and (@($read.Observations|Where-Object{$_.Family -notin @('Probe:disk.volumes','Probe:net.dns')}).Count -eq 0)) 'families outside the list returned'
+  $history=@(@($read.Observations|Where-Object{$_.Family -eq 'Probe:disk.volumes'})[0].Data.Probes.'disk.volumes'.History)
+  Expect (($history.Count -eq 2) -and ([double]@($history[1].Items)[0].Free -eq 42949672960)) 'history not built from the previous committed payload'
+  $summary=@(Read-TestDb "SELECT summary_payload FROM domenia_observations WHERE family='Probe:disk.volumes';")[0].summary_payload
+  Expect (-not ([string]$summary).Contains('History')) 'history copied into the fleet summary'
+  $refused=$false;try{Read-Store ([pscustomobject]@{Kind='Observation';Guids=@($guid);Families=@('Probe:x; DROP')})|Out-Null}catch{$refused=$true};Expect $refused 'invalid family accepted'
+ }
  Case 'Account preference has closed fields and no secret' {
   $change=[pscustomobject]@{Kind='AccountPreference';Scope='Remote';UserName='LAB\reader';DomainDn='dc=test';UpdatedAtUtc=$at}
   $r=Commit @($change);Expect ($r.AccountPreferences[0].UserName -eq 'LAB\reader') 'identifier persisted';$r=Read-Store ([pscustomobject]@{Kind='AccountPreference';Scope='Remote'});Expect ($r.AccountPreferences.Count -eq 1) 'preference read'
