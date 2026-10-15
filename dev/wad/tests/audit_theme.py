@@ -303,6 +303,26 @@ def main():
         return '%d jetons avec un role systeme' % len(roles)
     check('FO-22 : theme automatique (HKCU, lecture seule) et contraste eleve sur chaque jeton', automatic_and_high_contrast)
 
+    # ------------------------------------------------------------------ UI-11
+    def help_panel():
+        defaults = fn('Get-DomeniaDefaultSettings')
+        require('UxHelpVisible    = $false' in defaults and 'UxHelpIntroSeen  = $false' in defaults, 'Aide ouverte par defaut ou pastille sans preference')
+        require('<ColumnDefinition x:Name="UxHelpColumn" Width="0"/>' in main_xaml, 'Colonne d aide ouverte avant le premier calcul')
+        panel = re.search(r'x:Name="UxHelpPanel".*?</ScrollViewer>', main_xaml, re.S)[0]
+        require(panel.index('LblContextTitle') < panel.index('LblUxSelected') < panel.index('BtnUxStep1'), 'La carte utile n est pas en tete')
+        require('Aucune action n’est lancée par ce panneau.' not in panel, 'Phrase de reassurance')
+        shell_chapters = re.findall(r"(\w+)=@\('(technicien|administrateur)',(\d+),'([^']+)'\)", fn('Get-DomeniaHelpGuideChapter', shell, shell_spans))
+        require(len(shell_chapters) >= 10, 'Chapitres du guide introuvables')
+        guides = root.parent / 'guides'
+        if guides.is_dir():
+            for page, guide, number, title in shell_chapters + [('', 'technicien', '9', 'Repères')]:
+                text = (guides / (guide + '.md')).read_text(encoding='utf-8')
+                require(re.search(r'^# %s %s\s*$' % (number, re.escape(title.replace('ʼ', '’'))), text, re.M) or re.search(r'^# %s %s\s*$' % (number, re.escape(title)), text, re.M),
+                        'Chapitre absent du guide %s : %s %s' % (guide, number, title))
+            return '%d pages reliees a un chapitre existant des guides' % len(shell_chapters)
+        return '%d pages reliees (guides non disponibles ici)' % len(shell_chapters)
+    check('UI-11 : aide fermee au depart, carte utile en tete, chapitres reels des guides', help_panel)
+
     # ------------------------------------------------------------------ boot windows
     roles = dict(re.findall(r"(\w+)='(\w+)'", re.search(r'\$roles = \[ordered\]@\{(.*?)\}', fn('Get-DomeniaBootThemePalette'), re.S)[1]))
     styles = re.search(r"\$styles = @'\n(.*?)\n'@", fn('Get-DomeniaBootThemeResources'), re.S)[1]

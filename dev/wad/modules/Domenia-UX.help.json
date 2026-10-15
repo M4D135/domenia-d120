@@ -5539,5 +5539,19 @@
     "Text": "Écritures envoyées qui attendent une vérification ou une revue, comptées comme sur la pastille de lʼen-tête : les nouvelles écritures restent bloquées. Ferme ce panneau et ouvre la liste des reçus ; rien nʼest rejoué.",
     "Kind": "Button",
     "Source": "W13"
+  },
+  {
+    "Name": "LblUxHelpGuide",
+    "Title": "Chapitre du guide",
+    "Text": "Chapitre du guide qui décrit la page affichée.",
+    "Kind": "TextBlock",
+    "Source": "Z04-theme"
+  },
+  {
+    "Name": "BtnUxHelpGuide",
+    "Title": "Ouvrir le guide",
+    "Text": "Ouvre le guide PDF placé dans le dossier DOC à côté de Domenia ; le chapitre de la page est indiqué au-dessus. Aucun accès réseau.",
+    "Kind": "Button",
+    "Source": "Z04-theme"
   }
 ]

@@ -156,3 +156,23 @@ Test-Case 'FO-22' 'Bouton de theme : Automatique annonce, le clic fixe le theme 
     Assert-False $fixed.Auto;Assert-True ($fixed.ToolTip -match 'Clic droit') $fixed.ToolTip
     Assert-Equal 'Passer au thème sombre' (Get-DomeniaThemeToggleIcon 'Light').Name 'Appel historique sans choix'
 }
+Test-Case 'UI-11' 'Panneau d aide : chaque page du menu mene a un chapitre du guide' {
+    foreach ($page in @(Get-DomeniaShellPages)) {
+        $c = Get-DomeniaHelpGuideChapter -Page $page.Id
+        Assert-True ($c.Guide -in @('technicien','administrateur')) $page.Id
+        Assert-True (($c.Chapter -ge 1) -and [bool]$c.Title) $page.Id
+        Assert-Equal ('Domenia-1.0-Guide-' + $c.Guide + '.pdf') $c.File
+        Assert-Equal ($c.GuideTitle + ', chapitre ' + $c.Chapter + ' : ' + $c.Title) $c.Text
+        Assert-False ($c.Title -eq 'Repères') ('Page sans chapitre propre : ' + $page.Id)
+    }
+    Assert-Equal 'Repères' (Get-DomeniaHelpGuideChapter -Page 'PageInconnue').Title 'Page inconnue : carte de la fenetre'
+    Assert-Equal 'Guide de lʼadministrateur' (Get-DomeniaHelpGuideChapter -Page 'TabAccounts').GuideTitle
+}
+Test-Case 'UI-11' 'Pastille sur « ? » : premier lancement seulement, jamais quand l aide est ouverte' {
+    $first = Get-DomeniaHelpBadgeState -IntroSeen $false -HelpShown $false
+    Assert-True $first.Show;Assert-True $first.MarkSeen;Assert-True ([bool]$first.ItemStatus)
+    $open = Get-DomeniaHelpBadgeState -IntroSeen $false -HelpShown $true
+    Assert-False $open.Show;Assert-True $open.MarkSeen 'Aide deja ouverte : la decouverte est faite'
+    $next = Get-DomeniaHelpBadgeState -IntroSeen $true -HelpShown $false
+    Assert-False $next.Show;Assert-False $next.MarkSeen;Assert-Equal '' $next.ItemStatus
+}

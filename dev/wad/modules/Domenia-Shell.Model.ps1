@@ -1291,6 +1291,41 @@ function Get-DomeniaThemeToggleIcon {
     return [pscustomobject]@{Current='Light';Target='Dark';Glyph='Moon';Data=$moon;SunData=$sun;MoonData=$moon;Name='Passer au thème sombre';ToolTip=$tip;Auto=$auto}
 }
 
+function Get-DomeniaHelpGuideChapter {
+    # UI-11: the chapter of the user guides (guides/technicien.md, guides/administrateur.md, delivered as PDF in DOC)
+    # that describes a page of the menu. An unknown page points to « Repères », the map of the window.
+    param([AllowEmptyString()][AllowNull()][string]$Page='')
+    $chapters = @{
+        TabDashboard=@('technicien',5,'Voir et explorer le parc depuis Accueil')
+        WsQueryWorkshop=@('administrateur',8,'Tableau de bord et Atelier de requêtes')
+        WsSearch=@('technicien',1,'Trouver une personne ou un poste')
+        TabDirectory=@('technicien',1,'Trouver une personne ou un poste')
+        WsObject=@('administrateur',4,'Fiches des objets')
+        WsComputer=@('technicien',2,'Ouvrir la fiche du poste et agir dessus')
+        TabRelations=@('administrateur',12,'Relations utilisateur et poste')
+        TabAccounts=@('administrateur',13,'Comptes et droits')
+        TabApplicationTools=@('administrateur',17,'Réglages et configuration')
+        TabSupport=@('technicien',8,'En cas de problème')
+    }
+    $key = ([string]$Page).Trim()
+    $entry = @('technicien',9,'Repères')
+    if ($chapters.ContainsKey($key)) { $entry = $chapters[$key] }
+    $guide = [string]$entry[0]
+    $title = if ($guide -eq 'administrateur') { 'Guide de lʼadministrateur' } else { 'Guide du technicien' }
+    return [pscustomobject]@{
+        Page=$key;Guide=$guide;GuideTitle=$title;Chapter=[int]$entry[1];Title=[string]$entry[2]
+        File=('Domenia-1.0-Guide-' + $guide + '.pdf')
+        Text=($title + ', chapitre ' + [string]$entry[1] + ' : ' + [string]$entry[2])
+    }
+}
+
+function Get-DomeniaHelpBadgeState {
+    # UI-11: the dot on « ? » shows at the first launch only, while the help panel is closed; that launch marks it as
+    # seen (saved with the other preferences), and opening the help removes it at once.
+    param([bool]$IntroSeen=$false,[bool]$HelpShown=$false)
+    return [pscustomobject]@{Show=((-not $IntroSeen) -and (-not $HelpShown));MarkSeen=(-not $IntroSeen);ItemStatus=$(if ((-not $IntroSeen) -and (-not $HelpShown)) { 'Nouveau : aide disponible' } else { '' })}
+}
+
 function Get-DomeniaSessionBadge {
     # UI-29 / SP-04: distinguish a query deadline from a confirmed network failure.
     # Both warnings clear at the next directory success. Nothing is retried from here.

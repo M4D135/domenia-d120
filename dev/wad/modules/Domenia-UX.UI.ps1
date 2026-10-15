@@ -7,7 +7,8 @@ $script:UxHelpCatalogue = @{}
 $script:UxShellInitialized = $false
 $script:UxNavCollapsed = $false
 $script:UxNavLayoutSignature = ''
-$script:UxHelpVisible = $true
+# UI-11: closed at start; the saved choice is read by Initialize-DomeniaUxShell.
+$script:UxHelpVisible = $false
 $script:UxHelpCompactOpen = $false
 $script:UxLayoutSignature = ''
 $script:UxLogCollapsed = $false
@@ -193,6 +194,7 @@ function Sync-DomeniaUxNavigation {
     Update-DomeniaUxSessionBadge
     Update-DomeniaUxEmptyStates
     Update-DomeniaUxAccountFooter
+    Update-DomeniaUxHelpGuide
     $selectionLabel = Get-DomeniaControl 'LblUxSelected'
     if ($null -ne $selectionLabel) {
         $selectionLabel.Text = 'Aucune sélection'
@@ -657,8 +659,8 @@ function Update-DomeniaUxLayout {
     $workspaces=Get-DomeniaControl 'WorkspaceTabs'
     if($null -ne $workspaces){$workspaces.Margin=[Windows.Thickness]::new(0,0,[double]$plan.WorkspaceGap,0)}
     if ($null -ne $button) {
-        $button.ToolTip = if ($plan.HelpShown) { 'Réduire le panneau d''aide. Les infobulles restent disponibles.' } else { 'Afficher le panneau d''aide contextuelle.' }
-        [Windows.Automation.AutomationProperties]::SetName($button,$button.ToolTip)
+        $button.ToolTip = if ($plan.HelpShown) { 'Réduire le panneau dʼaide. Les infobulles restent disponibles.' } else { 'Afficher le panneau dʼaide contextuelle.' }
+        [Windows.Automation.AutomationProperties]::SetName($button,$(if ($plan.HelpShown) { 'Réduire lʼaide' } else { 'Afficher lʼaide' }))
     }
     Set-DomeniaUxShortLayout -Plan $heightPlan
 }
@@ -677,7 +679,72 @@ function Switch-DomeniaUxHelp {
     $script:UxHelpVisible=-not $plan.HelpShown
     $script:UxHelpCompactOpen=$script:UxHelpVisible
     Update-DomeniaUxLayout
+    Hide-DomeniaUxHelpBadge
     Save-DomeniaUxLayoutSettings
+}
+
+function Initialize-DomeniaUxHelpBadge {
+    # UI-11: at the first launch, while the help is closed, a dot on « ? » shows where the explanations are. The launch
+    # marks it as seen in memory; the preferences saved during the session or at closing keep it.
+    $seen = ConvertTo-DomeniaUxFlag (Get-DomeniaSetting -Name 'UxHelpIntroSeen' -Default $false)
+    $state = Get-DomeniaHelpBadgeState -IntroSeen $seen -HelpShown ([bool]$script:UxHelpVisible)
+    Set-DomeniaUxHelpBadge -Show ([bool]$state.Show) -ItemStatus ([string]$state.ItemStatus)
+    if ([bool]$state.MarkSeen) { Set-DomeniaSetting -Name 'UxHelpIntroSeen' -Value $true }
+}
+
+function Set-DomeniaUxHelpBadge {
+    param([bool]$Show=$false,[AllowEmptyString()][string]$ItemStatus='')
+    $badge = Get-DomeniaControl 'UxHelpBadge'
+    if ($null -ne $badge) { $badge.Visibility = if ($Show) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed } }
+    $button = Get-DomeniaControl 'BtnUxHelpToggle'
+    if ($null -ne $button) { [Windows.Automation.AutomationProperties]::SetItemStatus($button,$ItemStatus) }
+}
+
+function Hide-DomeniaUxHelpBadge {
+    # UI-11: opening the help once is enough; the dot does not come back.
+    Set-DomeniaUxHelpBadge -Show $false
+    Set-DomeniaSetting -Name 'UxHelpIntroSeen' -Value $true
+}
+
+function Update-DomeniaUxHelpGuide {
+    # UI-11: chapter of the guide for the page shown (no file access here; the PDF is looked up on the click).
+    $label = Get-DomeniaControl 'LblUxHelpGuide'
+    if ($null -eq $label) { return }
+    $page = ''
+    try { $page = [string](Get-DomeniaControl 'WorkspaceTabs').SelectedItem.Name } catch { $page = '' }
+    $label.Text = [string](Get-DomeniaHelpGuideChapter -Page $page).Text
+}
+
+function Open-DomeniaHelpGuide {
+    # UI-11, explicit gesture: opens the PDF of the guide of the page with the program associated with PDF files. The file
+    # is looked up in the folder DOC beside Domenia (the package, its parent or the delivery folder); nothing is read on
+    # the network and nothing is downloaded. Without the file, the help says where to place it.
+    $page = ''
+    try { $page = [string](Get-DomeniaControl 'WorkspaceTabs').SelectedItem.Name } catch { $page = '' }
+    $chapter = Get-DomeniaHelpGuideChapter -Page $page
+    $root = [string]$script:RootDir
+    $candidates = New-Object 'System.Collections.Generic.List[string]'
+    if ($root) {
+        $candidates.Add((Join-Path $root ('DOC\' + $chapter.File)))
+        $parent = Split-Path -Parent $root
+        if ($parent) {
+            $candidates.Add((Join-Path $parent ('DOC\' + $chapter.File)))
+            $grand = Split-Path -Parent $parent
+            if ($grand) { $candidates.Add((Join-Path $grand ('DOC\' + $chapter.File))) }
+        }
+    }
+    $path = ''
+    foreach ($candidate in $candidates) { if ([IO.File]::Exists($candidate)) { $path = $candidate; break } }
+    if (-not $path) {
+        Set-DomeniaContextHint -Title ([string]$chapter.GuideTitle + ' introuvable') -Text ('Placez ' + [string]$chapter.File + ' dans un dossier DOC à côté de Domenia, puis réessayez. En attendant : ' + [string]$chapter.Text + '.')
+        return
+    }
+    try {
+        Start-Process -FilePath $path
+        Set-DomeniaContextHint -Title ([string]$chapter.GuideTitle) -Text ('Le guide sʼouvre. Chapitre de cette page : ' + [string]$chapter.Chapter + ', ' + [string]$chapter.Title + '.')
+    } catch {
+        Set-DomeniaContextHint -Title 'Guide non ouvert' -Text ('Aucun lecteur de PDF nʼa ouvert ' + $path + '. Le chapitre de cette page : ' + [string]$chapter.Text + '.')
+    }
 }
 
 function Switch-DomeniaUxLog {
@@ -714,7 +781,7 @@ function Initialize-DomeniaUxShell {
         param($sender,$eventArgs)
         if ($sender -eq $eventArgs.OriginalSource) { Sync-DomeniaUxNavigation }
     })
-    $script:UxHelpVisible=ConvertTo-DomeniaUxFlag (Get-DomeniaSetting -Name 'UxHelpVisible' -Default $true) -Default $true
+    $script:UxHelpVisible=ConvertTo-DomeniaUxFlag (Get-DomeniaSetting -Name 'UxHelpVisible' -Default $false) -Default $false
     $script:UxHelpCompactOpen=ConvertTo-DomeniaUxFlag (Get-DomeniaSetting -Name 'UxHelpCompactOpen' -Default $false)
     $script:UxNavCollapsed=ConvertTo-DomeniaUxFlag (Get-DomeniaSetting -Name 'UxNavCollapsed' -Default $false)
     $script:UxNavLayoutSignature=''
@@ -722,6 +789,9 @@ function Initialize-DomeniaUxShell {
     $script:Window.Add_SizeChanged({Update-DomeniaUxLayout})
     $script:Window.Add_ContentRendered({Sync-DomeniaUxNavigation;Update-DomeniaUxLayout})
     $script:Window.Add_Closed({$script:UxShellInitialized=$false;$script:UxLayoutSignature='';$script:UxHelpCompactOpen=$false;$script:UxNavLayoutSignature='';$script:UxShortScreen=$false;$script:UxShortHelpOpen=$false;$script:UxShortLogHeld=$false;$script:UxShortLogReleased=$false;$script:UxShortNavFold=$false;$script:UxShortNavReleased=$false;$script:UxNavButtonCache=$null;Stop-DomeniaReadOnlyReturnTimer})
+    # UI-11: dot of the first launch on « ? » and the chapter of the guide of the page.
+    $guide = Get-DomeniaControl 'BtnUxHelpGuide';if ($null -ne $guide) { $guide.Add_Click({ Open-DomeniaHelpGuide }) }
+    Initialize-DomeniaUxHelpBadge
     # L08: subject chip, account of the menu foot, search bar (recent entries, local suggestions) and empty pages.
     $clear = Get-DomeniaControl 'BtnUxSubjectClear';if ($null -ne $clear) { $clear.Add_Click({ Clear-DomeniaUxSubject }) }
     $account = Get-DomeniaControl 'BtnUxNavAccount';if ($null -ne $account) { $account.Add_Click({ param($sender,$eventArgs) Show-DomeniaUxAccountMenu -Button $sender }) }

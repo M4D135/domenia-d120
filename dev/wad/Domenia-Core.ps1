@@ -1130,6 +1130,10 @@ $script:GuiElementPolicy = [ordered]@{
     "TxtCompPresence" = "Default"
     "TxtUserPresence" = "Default"
     "BtnThemeToggle" = "Default"
+    # UI-11: chapter of the guide in the help panel and the discovery dot on « ? ».
+    "LblUxHelpGuide" = "Default"
+    "BtnUxHelpGuide" = "Default"
+    "UxHelpBadge" = "Default"
     "ThemeIconSun" = "Default"
     "ThemeIconMoon" = "Default"
     "LogPanel" = "Default"
@@ -2004,7 +2008,7 @@ function Set-DomeniaContextHint {
     $titleControl = Get-DomeniaControl -Name 'LblContextTitle'
     $hintControl = Get-DomeniaControl -Name 'LblContextHint'
     $resolvedTitle = if ([string]::IsNullOrWhiteSpace($Title)) { 'Aide contextuelle' } else { $Title }
-    $resolvedText = if ([string]::IsNullOrWhiteSpace($Text)) { 'Survolez un controle ou utilisez Tab pour lire son role.' } else { $Text }
+    $resolvedText = if ([string]::IsNullOrWhiteSpace($Text)) { 'Survolez un contrôle ou utilisez Tab pour lire son rôle ici.' } else { $Text }
     if ($resolvedTitle.Length -gt 110) { $resolvedTitle=$resolvedTitle.Substring(0,110) }
     if ($resolvedText.Length -gt 900) { $resolvedText=$resolvedText.Substring(0,900) }
     if ($null -ne $titleControl) { $titleControl.Text=$resolvedTitle }
@@ -3538,8 +3542,10 @@ function Get-DomeniaDefaultSettings {
         'Search.ResultColumnsJson' = ''
         OuBookmarksJson = '{}'
         UxNavCollapsed   = $false
-        UxHelpVisible    = $true
+        # UI-11: the help panel starts closed; the dot on « ? » is shown at the first launch only.
+        UxHelpVisible    = $false
         UxHelpCompactOpen = $false
+        UxHelpIntroSeen  = $false
         UxLogCollapsed = $false
         UxLogExpandedHeight = 180
         UxLogWrap = $false
@@ -5287,7 +5293,13 @@ function Get-MainXaml {
                   <Path x:Name="ThemeIconMoon" Data="M20,14.5 A8,8 0 1 1 9.5,4 A6.5,6.5 0 0 0 20,14.5 Z" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
                 </Grid>
               </Button>
-              <Button Content="?" Style="{StaticResource UxIconButton}" FontWeight="Bold" FontSize="18" Margin="0" ToolTip="Affiche ou masque les explications à droite. Sur une fenêtre étroite, l’aide s’ouvre au-dessus du contenu ; cliquez de nouveau sur ? pour la fermer." x:Name="BtnUxHelpToggle" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Panneau d’aide" AutomationProperties.HelpText="Affiche ou masque les explications à droite. Sur une fenêtre étroite, l’aide s’ouvre au-dessus du contenu ; cliquez de nouveau sur ? pour la fermer."/>
+              <Button Style="{StaticResource UxIconButton}" FontWeight="Bold" FontSize="18" Margin="0" ToolTip="Affiche ou masque les explications à droite. Sur une fenêtre étroite, l’aide s’ouvre au-dessus du contenu ; cliquez de nouveau sur ? pour la fermer." x:Name="BtnUxHelpToggle" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Panneau d’aide" AutomationProperties.HelpText="Affiche ou masque les explications à droite. Sur une fenêtre étroite, l’aide s’ouvre au-dessus du contenu ; cliquez de nouveau sur ? pour la fermer.">
+                <Grid Width="38" Height="38" IsHitTestVisible="False">
+                  <TextBlock Text="?" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                  <!-- UI-11: dot of the first launch on « ? », gone once the help is opened (UxHelpIntroSeen). -->
+                  <Ellipse x:Name="UxHelpBadge" Width="9" Height="9" Fill="{DynamicResource AccentColor}" Stroke="{DynamicResource BgCard}" StrokeThickness="1.5" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,6,0" Visibility="Collapsed"/>
+                </Grid>
+              </Button>
             </StackPanel>
           </Grid>
           <Grid x:Name="UxPageHeader" Grid.Row="1" Margin="2,0,0,12">
@@ -5394,7 +5406,7 @@ function Get-MainXaml {
           <Grid x:Name="UxContentGrid" Grid.Row="2">
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="*"/>
-              <ColumnDefinition x:Name="UxHelpColumn" Width="300"/>
+              <ColumnDefinition x:Name="UxHelpColumn" Width="0"/>
             </Grid.ColumnDefinitions>
             <TabControl x:Name="WorkspaceTabs" ToolTip="Choisissez une rubrique dans la barre latérale." Style="{StaticResource UxWorkspaceHost}" Grid.Column="0" Margin="0,0,12,0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Choisissez une rubrique dans la barre latérale" AutomationProperties.HelpText="Choisissez une rubrique dans la barre latérale.">
               <TabItem x:Name="TabDashboard" ToolTip="Connexion en cours, droits du compte et opérations en cours." Header="Accueil" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Accueil" AutomationProperties.HelpText="Connexion en cours, droits du compte et operations en cours.">
@@ -8126,20 +8138,33 @@ function Get-MainXaml {
                 </Grid>
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                   <StackPanel Margin="0,2,3,0">
+                    <!-- UI-11: the useful card first: what the hovered or focused element does, then its chapter of the guide. -->
+                    <Border Style="{StaticResource Card}" Margin="0,0,0,12" Padding="18" Background="{DynamicResource InfoBg}">
+                      <StackPanel>
+                        <TextBlock x:Name="LblContextTitle" Text="À quoi sert cet élément ?" Foreground="{DynamicResource InfoFg}" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="LblContextHint" Text="Survolez un contrôle ou utilisez Tab pour lire son rôle ici. Les champs de mot de passe ne sont jamais recopiés dans cette aide." Foreground="{DynamicResource InfoFg}" FontSize="12" TextWrapping="Wrap" Margin="0" LineHeight="18"/>
+                        <!-- UI-11: the chapter of the guide that describes the page shown (Get-DomeniaHelpGuideChapter). -->
+                        <Border Height="1" Background="{DynamicResource InfoBorder}" Margin="0,12,0,10"/>
+                        <TextBlock x:Name="LblUxHelpGuide" Text="Guide du technicien, chapitre 9 : Repères" Foreground="{DynamicResource InfoFg}" FontSize="12" TextWrapping="Wrap" LineHeight="18" ToolTip="Chapitre du guide qui décrit la page affichée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Chapitre du guide" AutomationProperties.HelpText="Chapitre du guide qui décrit la page affichée."/>
+                        <Button x:Name="BtnUxHelpGuide" Content="Ouvrir le guide" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" MinHeight="32" Padding="12,4" Margin="0,8,0,0" ToolTip="Ouvre le guide PDF placé dans le dossier DOC à côté de Domenia ; le chapitre de la page est indiqué au-dessus. Aucun accès réseau." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir le guide" AutomationProperties.HelpText="Ouvre le guide PDF placé dans le dossier DOC à côté de Domenia ; le chapitre de la page est indiqué au-dessus. Aucun accès réseau."/>
+                      </StackPanel>
+                    </Border>
                     <Border Style="{StaticResource Card}" Margin="0,0,0,12" Padding="18">
                       <StackPanel>
                         <TextBlock Text="Contexte de travail" FontSize="15" FontWeight="SemiBold"/>
                         <TextBlock Text="Objet actuellement chargé" Margin="0,10,0,4" FontSize="11" Foreground="{DynamicResource MutedColor}"/>
                         <TextBlock Text="Aucune fiche ouverte" FontWeight="SemiBold" TextWrapping="Wrap" x:Name="LblUxSelected"/>
-                        <TextBlock Text="Aucune action n’est lancée par ce panneau." Foreground="{DynamicResource MutedColor}" FontSize="11" TextWrapping="Wrap" Margin="0,9,0,0"/>
                       <Expander x:Name="UxSuiteIdentities" Header="Comptes utilisés" IsExpanded="False" Margin="0,10,0,0" ToolTip="Affiche seulement les noms des identités configurées. Une identité active ne confirme pas ses droits sur une cible." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Comptes utilisés" AutomationProperties.HelpText="Affiche seulement les noms des identités configurées. Une identité active ne confirme pas ses droits sur une cible."><StackPanel Margin="0,8,0,0">
 <TextBlock Text="Annuaire" FontSize="11" Foreground="{DynamicResource MutedColor}"/><TextBlock x:Name="LblSuiteIdentityAd" TextWrapping="Wrap"/>
 <TextBlock Text="Postes" FontSize="11" Margin="0,8,0,0" Foreground="{DynamicResource MutedColor}"/><TextBlock x:Name="LblSuiteIdentityRemote" TextWrapping="Wrap"/>
 <TextBlock Text="Secrets" FontSize="11" Margin="0,8,0,0" Foreground="{DynamicResource MutedColor}"/><TextBlock x:Name="LblSuiteIdentitySecrets" TextWrapping="Wrap"/>
 <TextBlock Text="Identité choisie ≠ droits confirmés sur la cible." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" FontSize="11" Margin="0,10,0,0"/>
+                        <Button x:Name="BtnUxHelpAccounts" Content="Ouvrir les comptes" Uid="TabAccounts" Style="{StaticResource SecondaryButton}" Height="36" Margin="0,10,0,0" ToolTip="Vérifier quel compte est utilisé pour chaque ressource." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir les comptes" AutomationProperties.HelpText="Vérifier quel compte est utilisé pour chaque ressource."/>
 </StackPanel></Expander></StackPanel>
                     </Border>
-                    <Border Style="{StaticResource Card}" Margin="0,0,0,12" Padding="18">
+                    <!-- UI-11: the static steps left the panel (the menu already leads to each page). Their named buttons stay,
+                         collapsed, until CD-04 removes them with their references. -->
+                    <Border Style="{StaticResource Card}" Margin="0,0,0,12" Padding="18" Visibility="Collapsed">
                       <StackPanel>
                         <TextBlock Text="Aide et prochaines étapes" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,14"/>
                         <Button x:Name="BtnUxStep1" Uid="WsSearch" Style="{StaticResource UxStepButton}" Margin="0,0,0,10" ToolTip="Ouvre la recherche. Aucun scan n’est lancé par ce raccourci." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="1. Trouver" AutomationProperties.HelpText="Ouvre la recherche. Aucun scan n’est lancé par ce raccourci.">
@@ -8190,14 +8215,6 @@ function Get-MainXaml {
                             </StackPanel>
                           </Grid>
                         </Button>
-                        <Border Height="1" Background="{DynamicResource BorderColor}" Margin="0,14,0,14"/>
-                        <Button x:Name="BtnUxHelpAccounts" Content="Ouvrir les comptes" Uid="TabAccounts" Style="{StaticResource SecondaryButton}" Height="40" Margin="0,0,0,0" ToolTip="Vérifier quel compte est utilisé pour chaque ressource." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir les comptes" AutomationProperties.HelpText="Vérifier quel compte est utilisé pour chaque ressource."/>
-                      </StackPanel>
-                    </Border>
-                    <Border Style="{StaticResource Card}" Margin="0,0,0,12" Padding="18" Background="{DynamicResource InfoBg}">
-                      <StackPanel>
-                        <TextBlock x:Name="LblContextTitle" Text="À quoi sert cet élément ?" Foreground="{DynamicResource InfoFg}" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8" TextWrapping="Wrap"/>
-                        <TextBlock x:Name="LblContextHint" Text="Survolez un contrôle ou utilisez Tab pour lire son rôle ici. Les champs de mot de passe ne sont jamais recopiés dans cette aide." Foreground="{DynamicResource InfoFg}" FontSize="12" TextWrapping="Wrap" Margin="0" LineHeight="18"/>
                       </StackPanel>
                     </Border>
                   </StackPanel>

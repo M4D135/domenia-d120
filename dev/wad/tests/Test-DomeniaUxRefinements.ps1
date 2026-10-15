@@ -7,7 +7,7 @@ $wad=Split-Path $PSScriptRoot -Parent;$script:RootDir=$wad
 . (Join-Path $wad 'Domenia-Modules.ps1')
 $t=$null;$e=$null;$ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'),[ref]$t,[ref]$e)
 if($e.Count){throw 'Core parse errors'}
-foreach($name in @('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaEffectiveWorkerResult','Get-DomeniaDefaultSettings','Get-DomeniaXamlControlNames')){
+foreach($name in @('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaEffectiveWorkerResult','Get-DomeniaDefaultSettings','Get-DomeniaXamlControlNames','Set-DomeniaContextHint')){
  $node=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true))[0]
  . ([scriptblock]::Create(($node.Extent.Text -replace ('^function\s+'+[regex]::Escape($name)+'\b'),('function script:'+$name))))
 }
@@ -306,6 +306,53 @@ try{
   Complete-DomeniaQueryEvaluation -Result $queryResult -State $queryCall.State
   Expect ($null -ne $q.Result -and $q.Result.Matched -eq 0 -and @($q.Records).Count -eq 0 -and $q.SnapshotKey -ne 'stale') 'New empty snapshot does not replace stale records'
   $script:DatabaseScopedPath=''
+ }
+
+ # UI-11: the help panel starts closed, its useful card comes first with the chapter of the guide, the static steps and
+ # the reassurance left it, and a dot on « ? » marks the first launch only.
+ Case 'UI-11 : panneau d aide ferme au depart, carte utile en tete, pastille au premier lancement seulement' {
+  $defaults=Get-DomeniaDefaultSettings
+  Expect (-not [bool]$defaults.UxHelpVisible) 'Aide ouverte par defaut'
+  Expect ($defaults.Contains('UxHelpIntroSeen') -and -not [bool]$defaults.UxHelpIntroSeen) 'Preference de la pastille absente'
+  [xml]$doc=Get-MainXaml;$ns=New-Object Xml.XmlNamespaceManager($doc.NameTable);$ns.AddNamespace('w','http://schemas.microsoft.com/winfx/2006/xaml/presentation');$ns.AddNamespace('x','http://schemas.microsoft.com/winfx/2006/xaml')
+  Expect ([string]$doc.SelectSingleNode("//w:ColumnDefinition[@x:Name='UxHelpColumn']",$ns).GetAttribute('Width') -eq '0') 'Colonne d aide ouverte avant le premier calcul'
+  $cards=@($doc.SelectNodes("//w:Border[@x:Name='UxHelpPanel']//w:ScrollViewer/w:StackPanel/w:Border",$ns))
+  Expect ($cards.Count -eq 3) ('Cartes du panneau : '+$cards.Count)
+  Expect ($null -ne $cards[0].SelectSingleNode(".//*[@x:Name='LblContextTitle']",$ns) -and $null -ne $cards[0].SelectSingleNode(".//*[@x:Name='BtnUxHelpGuide']",$ns)) 'La carte « À quoi sert cet élément ? » n est pas en tete'
+  Expect ([string]$cards[2].GetAttribute('Visibility') -eq 'Collapsed' -and $null -ne $cards[2].SelectSingleNode(".//*[@x:Name='BtnUxStep1']",$ns)) 'Etapes statiques encore affichees'
+  Expect (-not $doc.OuterXml.Contains('Aucune action n'+[char]0x2019+'est lancée par ce panneau.')) 'Phrase de reassurance encore presente'
+  Expect ($null -ne $cards[1].SelectSingleNode(".//*[@x:Name='BtnUxHelpAccounts']",$ns)) 'Lien vers les comptes perdu'
+  $script:SettingsFixture=@{};$script:UxHelpVisible=$false
+  Initialize-DomeniaUxHelpBadge
+  $badge=Get-DomeniaControl 'UxHelpBadge';$toggle=Get-DomeniaControl 'BtnUxHelpToggle'
+  Expect ($badge.Visibility -eq [Windows.Visibility]::Visible) 'Pastille absente au premier lancement'
+  Expect ([Windows.Automation.AutomationProperties]::GetItemStatus($toggle) -ceq 'Nouveau : aide disponible') 'Pastille non annoncee'
+  Expect ([bool]$script:SettingsFixture['UxHelpIntroSeen']) 'Premier lancement non retenu'
+  Initialize-DomeniaUxHelpBadge
+  Expect ($badge.Visibility -eq [Windows.Visibility]::Collapsed) 'Pastille revenue au lancement suivant'
+  $script:SettingsFixture=@{};Initialize-DomeniaUxHelpBadge
+  $script:UxShortScreen=$false;$script:UxLayoutSignature=''
+  Switch-DomeniaUxHelp
+  Expect ($badge.Visibility -eq [Windows.Visibility]::Collapsed -and [string][Windows.Automation.AutomationProperties]::GetItemStatus($toggle) -eq '') 'Ouvrir l aide ne retire pas la pastille'
+  Expect ([bool]$script:UxHelpVisible -and [bool]$script:SettingsFixture['UxHelpVisible']) 'Ouverture de l aide non retenue'
+  Switch-DomeniaUxHelp
+  Expect (-not [bool]$script:UxHelpVisible) 'Fermeture de l aide non retenue'
+ }
+ Case 'UI-11 : chapitre du guide de la page et ouverture du PDF sur demande, sans fichier invente' {
+  (Get-DomeniaControl 'WorkspaceTabs').SelectedItem=Get-DomeniaControl 'TabDashboard'
+  Update-DomeniaUxHelpGuide
+  Expect ((Get-DomeniaControl 'LblUxHelpGuide').Text -ceq (Get-DomeniaHelpGuideChapter -Page 'TabDashboard').Text) 'Chapitre de l Accueil absent'
+  (Get-DomeniaControl 'WorkspaceTabs').SelectedItem=Get-DomeniaControl 'WsSearch'
+  Update-DomeniaUxHelpGuide
+  Expect ((Get-DomeniaControl 'LblUxHelpGuide').Text -like 'Guide du technicien, chapitre 1 :*') 'Chapitre de Rechercher absent'
+  $empty=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-guide-'+[guid]::NewGuid().ToString('N'));[void][IO.Directory]::CreateDirectory((Join-Path $empty 'wad'))
+  $oldRoot=$script:RootDir
+  try{
+   $script:RootDir=Join-Path $empty 'wad'
+   Open-DomeniaHelpGuide
+   Expect ((Get-DomeniaControl 'LblContextTitle').Text -like '*introuvable') ('Guide absent non signale : '+(Get-DomeniaControl 'LblContextTitle').Text)
+   Expect ((Get-DomeniaControl 'LblContextHint').Text.Contains('Domenia-1.0-Guide-technicien.pdf')) 'Emplacement du guide non indique'
+  }finally{$script:RootDir=$oldRoot;Remove-Item -LiteralPath $empty -Recurse -Force -ErrorAction SilentlyContinue}
  }
 }finally{if($null -ne $script:DomeniaQueryState -and $null -ne $script:DomeniaQueryState.Timer){$script:DomeniaQueryState.Timer.Stop()};$script:Window.Close()}
 $failed=@($script:Results|Where-Object{-not $_.Passed}).Count
