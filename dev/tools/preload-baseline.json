@@ -568,8 +568,8 @@
     "Save-UserMachineLinks": "BE795AF61C61794DFBB29B10146A8B867A5DCB4C22143448126BD067DC9256DE",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "75E9BBE876DBF275C06B6CC11FECC328A9BE6B0839314BED4AF657EF5D491517",
-    "Assert-DomeniaWorkerRegistry": "F8147B58460E9CD96B1ED8C36A26C63D7F79D5BD23097D90BC6ECBD0C3A7634A",
+    "Get-DomeniaWorkerOperationHashes": "CDC8BD9F70CFB1F3734B109388C36FBB10AF641CB0BE55754E0C8F07B9C61135",
+    "Assert-DomeniaWorkerRegistry": "3E1BA661DCFC3D331B89C55EA8F797E3F127F9E97EA79A8AF71163DFEECC5ACB",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "C39E92B423D3B448B91B25EE502B6AD3D8C382E6AB63F231965C20B2AC3D5775",
@@ -3773,6 +3773,18 @@
       "ChangedPayloads": [
         "wad/modules/Domenia-Live.UI.ps1"
       ]
+    },
+    {
+      "Previous": ".",
+      "Source": ".",
+      "Decision": "Complement X02 : nouvelle operation GroupPathRead (chemins d appartenance, Domenia-Membership.Worker) ajoutee au registre epingle apres relecture.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
     }
   ]
 }

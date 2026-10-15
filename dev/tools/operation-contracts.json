@@ -530,5 +530,12 @@
     "Function": "Get-DomeniaParkPingWorkerCode",
     "LiteralIndex": 0,
     "Sha256": "AEC50398D907F22BBAB7FEAAD775ED44AAF30CC0DF64EAFA7BEE3283397C6058"
+  },
+  {
+    "Operation": "GroupPathRead",
+    "File": "wad/modules/Domenia-Membership.Worker.ps1",
+    "Function": "Get-DomeniaGroupPathWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "348D0FB7DE1A5C85A3D96707D015B67B8FB081AB09B1C8433420FA33688CF3B0"
   }
 ]
