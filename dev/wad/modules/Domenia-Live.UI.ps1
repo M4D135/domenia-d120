@@ -154,7 +154,7 @@ function Set-DomeniaResultColumns {
         # Compte follows the accounts of the listed rows (Set-DomeniaLoginColumnVisible).
         if($key -ceq 'Login'){continue}
         $show=Test-DomeniaResultColumnShown -Key $key -Visible $script:ResultColumnChoice -HasMachine $machine -HasLinkable $linkable -HasAccount ([bool]$script:SearchListHasAccount)
-        if($RevealOnly -and -not $show){continue}
+        if($RevealOnly -and (-not $show)){continue}
         $wanted=if($show){'Visible'}else{'Collapsed'}
         if([string]$column.Visibility -ne $wanted){$column.Visibility=$wanted}
     }
@@ -924,7 +924,7 @@ function Update-DomeniaSearchMoreButton {
     if([string]$button.ToolTip -cne $tip){$button.ToolTip=$tip}
     $jump=Get-DomeniaControl 'BtnSearchMoreJump'
     if($null -eq $jump){return}
-    $offer=($enabled -and [int]$decision.JumpLimit -gt 0)
+    $offer=($enabled -and ([int]$decision.JumpLimit -gt 0))
     $wanted=if($offer){[Windows.Visibility]::Visible}else{[Windows.Visibility]::Collapsed}
     if($jump.Visibility -ne $wanted){$jump.Visibility=$wanted}
     if($offer){

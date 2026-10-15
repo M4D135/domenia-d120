@@ -331,9 +331,8 @@ function Open-DomeniaResultColumnMenu {
 }
 
 function Save-DomeniaResultColumnChoice {
-    # The choice is a preference of this workstation (column keys only), saved with the other settings.
+    # The choice is a preference of this workstation (column keys only); Set-DomeniaSetting schedules its saving.
     Set-DomeniaSetting -Name 'Search.ResultColumnsJson' -Value (ConvertTo-DomeniaResultColumnChoiceText -Visible @($script:ResultColumnChoice))
-    Save-DomeniaSettings
 }
 
 function Set-DomeniaResultColumnVisible {
