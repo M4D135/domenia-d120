@@ -18,11 +18,13 @@ Integration note: a lot that edits a historical faulty label must correct all of
 so a label partly corrected becomes a new text: the old key goes down, the new one goes up and the build fails.
 """
 from pathlib import Path
-import argparse, html, json, re, sys
+import argparse, bisect, html, json, re, sys
 
 ROOT = Path(__file__).resolve().parents[1]
 BASELINE = Path('tools/baselines/wording-baseline.json')
 SCHEMA = 'DomeniaWordingBaseline/1'
+HELP_JSON = Path('wad/modules/Domenia-UX.help.json')
+HELP_KEYS = ('Title', 'Text')
 
 ACCENT_WORDS = '''etat etats derniere dernieres detecter detecte detectee detectees detectes detection detections
 perimetre perimetres synthese syntheses resultat resultats selection selections selectionner selectionne selectionnee
@@ -56,11 +58,14 @@ XAML_RX = re.compile(r'(?<=\s)(Content|Text|Header|ToolTip)="([^"]*)"')
 CALL_RX = re.compile(r'(?<![\w-])(Set-Status|Set-DomeniaContextHint|Show-InfoBox|Show-WarningBox|Show-ErrorBox|Confirm-Action|'
                      r'Confirm-WarningAction|Show-DomeniaDialog)(?![\w-])|\[(?:System\.)?Windows\.MessageBox\]::Show\(')
 ASSIGN_RX = re.compile(r'\.(Text|Content|ToolTip|Header)\s*\+?=(?!=)')
+VARIABLE_RX = re.compile(r'\$\{[^}]*\}|\$\((?:[^()]|\([^()]*\))*\)|\$[\w:]+')
 LEVELS = {'INFO', 'WARN', 'ERROR', 'OK', 'SUCCESS', 'DEBUG'}
 
 
-def call_literals(line):
-    """String literals of the arguments that follow a call on the same line, up to ; or an unmatched ) or }."""
+def literal_spans(line):
+    """(start, end, quote, value) of each string literal of the arguments that follow a call on the same line, up to ; or an
+    unmatched ) or }. start is the opening quote, end the closing one (len(line) for a string left open on the line), value
+    the decoded text ('' or "" is one quote, a backtick escapes the next character of a double-quoted string)."""
     out = []
     i, n, depth = 0, len(line), 0
     while i < n:
@@ -75,7 +80,7 @@ def call_literals(line):
                 if q == '"' and line[j] == '`' and j + 1 < n:
                     buf.append(line[j + 1]); j += 2; continue
                 buf.append(line[j]); j += 1
-            out.append(''.join(buf)); i = j + 1; continue
+            out.append((i, j, q, ''.join(buf))); i = j + 1; continue
         if c in '({':
             depth += 1
         elif c in ')}':
@@ -85,73 +90,102 @@ def call_literals(line):
         elif c == ';' and depth == 0:
             break
         i += 1
-    return [s for s in out if s.strip() and s.strip().upper() not in LEVELS]
+    return out
+
+
+def is_label(value):
+    """True for a literal read as interface text: not blank and not a log level."""
+    return bool(value.strip()) and value.strip().upper() not in LEVELS
+
+
+def call_literals(line):
+    """String literals of the arguments that follow a call on the same line, up to ; or an unmatched ) or }."""
+    return [s[3] for s in literal_spans(line) if is_label(s[3])]
+
+
+def interface_sources(root):
+    """Source files whose interface strings are read, in audit order (the help JSON is read apart)."""
+    root = Path(root)
+    paths = ([root / 'wad/Domenia-Core.ps1', root / 'wad/Domenia-Start.ps1'] + sorted((root / 'wad/modules').glob('*.ps1')) +
+             sorted((root / 'wad/modules').glob('*.xaml')))
+    return [p for p in paths if p.is_file()]
+
+
+def line_locator(text):
+    """Function giving the 1-based line number of a character offset of text."""
+    starts = [0] + [m.end() for m in re.finditer('\n', text)]
+    return lambda pos: bisect.bisect_right(starts, pos)
+
+
+def xaml_values(text, regex=XAML_RX):
+    """(match, value) of each XAML attribute matched by regex whose unescaped value is a text (not blank, not a binding)."""
+    for m in regex.finditer(text):
+        value = html.unescape(m.group(2))
+        if value.strip() and not value.lstrip().startswith('{'):
+            yield m, value
+
+
+def code_calls(line):
+    """(kind, offset) of each interface call or property assignment of a code line; its arguments start at offset."""
+    stripped = line.lstrip()
+    if stripped.startswith('#') or stripped.startswith('function '):
+        return []
+    out = [(m.group(1) or 'MessageBox', m.end()) for m in CALL_RX.finditer(line)]
+    out += [('assign.' + m.group(1), m.end()) for m in ASSIGN_RX.finditer(line)]
+    return out
 
 
 def collect(root):
     """(file, line, source kind, text) for every interface string."""
     root = Path(root)
     items = []
-    sources = ([root / 'wad/Domenia-Core.ps1', root / 'wad/Domenia-Start.ps1'] + sorted((root / 'wad/modules').glob('*.ps1')) +
-               sorted((root / 'wad/modules').glob('*.xaml')))
-    for path in sources:
-        if not path.is_file():
-            continue
+    for path in interface_sources(root):
         rel = path.relative_to(root).as_posix()
         text = path.read_text(encoding='utf-8-sig')
-        starts = [0]
-        for m in re.finditer('\n', text):
-            starts.append(m.end())
-
-        def line_of(pos):
-            lo, hi = 0, len(starts) - 1
-            while lo < hi:
-                mid = (lo + hi + 1) // 2
-                if starts[mid] <= pos:
-                    lo = mid
-                else:
-                    hi = mid - 1
-            return lo + 1
-        for m in XAML_RX.finditer(text):
-            value = html.unescape(m.group(2))
-            if value.strip() and not value.lstrip().startswith('{'):
-                items.append((rel, line_of(m.start()), m.group(1), value))
+        line_of = line_locator(text)
+        for m, value in xaml_values(text):
+            items.append((rel, line_of(m.start()), m.group(1), value))
         if path.suffix == '.ps1':
             for number, line in enumerate(text.split('\n'), 1):
-                stripped = line.lstrip()
-                if stripped.startswith('#') or stripped.startswith('function '):
-                    continue
-                for m in CALL_RX.finditer(line):
-                    for value in call_literals(line[m.end():]):
-                        items.append((rel, number, m.group(1) or 'MessageBox', value))
-                for m in ASSIGN_RX.finditer(line):
-                    for value in call_literals(line[m.end():]):
-                        items.append((rel, number, 'assign.' + m.group(1), value))
-    help_path = root / 'wad/modules/Domenia-UX.help.json'
+                for kind, offset in code_calls(line):
+                    for value in call_literals(line[offset:]):
+                        items.append((rel, number, kind, value))
+    help_path = root / HELP_JSON
     if help_path.is_file():
         rel = help_path.relative_to(root).as_posix()
         for index, entry in enumerate(json.loads(help_path.read_text(encoding='utf-8-sig'))):
-            for key in ('Title', 'Text'):
+            for key in HELP_KEYS:
                 value = entry.get(key) if isinstance(entry, dict) else None
                 if isinstance(value, str) and value.strip():
                     items.append((rel, index + 1, 'help.' + key, value))
     return items
 
 
+def normalize(text):
+    """The audit key of a text: whitespace runs collapsed to one space, ends stripped."""
+    return ' '.join(text.split())
+
+
+def faults(text):
+    """{rule: sorted words} of the rules a normalized text breaks, rules in name order. PowerShell variables and
+    subexpressions ($detail, ${elapsed}, $($row.Etat)) are code, not wording: they are masked first."""
+    text = VARIABLE_RX.sub(' ', text)
+    hits = []
+    for m in ACCENT_RX.finditer(text):
+        hits.append(('accent', m.group(1)))
+    for m in ELISION_RX.finditer(text):
+        hits.append(('elision', m.group(0).strip()))
+    for rx in SECOND_RX:
+        for m in rx.finditer(text):
+            hits.append(('tutoiement', m.group(0).strip(' .!?:;')))
+    return {rule: sorted({h[1] for h in hits if h[0] == rule}) for rule in sorted({h[0] for h in hits})}
+
+
 def findings(root):
     rows = []
     for rel, line, kind, text in collect(root):
-        clean = ' '.join(text.split())
-        hits = []
-        for m in ACCENT_RX.finditer(clean):
-            hits.append(('accent', m.group(1)))
-        for m in ELISION_RX.finditer(clean):
-            hits.append(('elision', m.group(0).strip()))
-        for rx in SECOND_RX:
-            for m in rx.finditer(clean):
-                hits.append(('tutoiement', m.group(0).strip(' .!?:;')))
-        for rule in sorted({h[0] for h in hits}):
-            words = sorted({h[1] for h in hits if h[0] == rule})
+        clean = normalize(text)
+        for rule, words in faults(clean).items():
             rows.append({'Rule': rule, 'Text': clean, 'Words': words, 'File': rel, 'Line': line, 'Kind': kind})
     return rows
 
