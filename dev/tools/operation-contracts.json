@@ -536,7 +536,7 @@
     "File": "wad/modules/Domenia-Membership.Worker.ps1",
     "Function": "Get-DomeniaGroupPathWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "348D0FB7DE1A5C85A3D96707D015B67B8FB081AB09B1C8433420FA33688CF3B0"
+    "Sha256": "1CCA67CE78F17B6C0BCD3AD55A7CFF02B699CFF34A1BC8E055805BC0BDD8751D"
   },
   {
     "Operation": "ComputerServiceControl",
@@ -579,5 +579,12 @@
     "Function": "Get-DomeniaQueryTransferWorkerCode",
     "LiteralIndex": 0,
     "Sha256": "8067CFBC47BC1FEF79E2C491AA0AB3AB7F669B8EDE32304BB5569A8266D302F4"
+  },
+  {
+    "Operation": "PasswordPolicyRead",
+    "File": "wad/modules/Domenia-AdAudit.Worker.ps1",
+    "Function": "Get-DomeniaPasswordPolicyReadWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "70395D530CFF369568D0FC1909241AE2A96D351C59F8289129434369D240C45B"
   }
 ]

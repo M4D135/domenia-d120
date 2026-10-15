@@ -4470,6 +4470,9 @@ Test-Case 'FI-12 : les attentes SQLite depassees sont comptees pour le panneau O
     Assert-True ($text -match '2 attente\(s\) de verrou SQLite') $text
     Assert-True (($text -match 'LocalIndexRead : 1') -and ($text -match 'LocalStore : 1')) $text
     Assert-True ($text -match 'délai 2500 ms') $text
+    # Point 107: the stored history of the relations is a local read too; its Busy answer is counted the same way.
+    Assert-True (Register-DomeniaSqliteBusyOutcome -Job ([pscustomobject]@{OperationId='RelationHistoryRead'}) -Output @([pscustomobject]@{Rows=@();Busy=$true;Missing=$false})) 'Historique local occupe non compte'
+    Assert-True ((Get-DomeniaSqliteBusyStatusText) -match 'RelationHistoryRead : 1') (Get-DomeniaSqliteBusyStatusText)
     # Real wiring: one count per finished task in the engine, one line in the Operations panel.
     Assert-True ((Get-FunctionTextFromFile $core 'Complete-UiTasks').Contains('Register-DomeniaSqliteBusyOutcome -Job $job -Output $output -ErrorMessage $errorMessage')) 'Complete-UiTasks ne compte pas les attentes SQLite'
     Assert-True ((Get-FunctionTextFromFile $experienceUi 'Get-DomeniaOperationsHealthText').Contains('Get-DomeniaSqliteBusyStatusText')) 'Le panneau Operations ne montre pas les attentes SQLite'

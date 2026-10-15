@@ -1,14 +1,14 @@
 {
  "Schema": "DomeniaSwallowedBaseline/1",
  "Source": "reference initiale",
- "Total": 1283,
+ "Total": 1289,
  "Kinds": {
-  "empty": 1282,
+  "empty": 1288,
   "null": 1
  },
  "Places": {
   "code": 1049,
-  "here-string": 234
+  "here-string": 240
  },
  "Findings": {
   "Add-AssociationsToRows": 1,
@@ -136,6 +136,8 @@
   "Get-BranchQueryData": 1,
   "Get-CfgValue": 1,
   "Get-DeProp": 1,
+  "Get-DomeniaAdConsistencyScanWorkerCode [here-string]": 1,
+  "Get-DomeniaAdHealthReadWorkerCode [here-string]": 1,
   "Get-DomeniaAdModuleSources": 4,
   "Get-DomeniaAppLogFallbackPaths": 1,
   "Get-DomeniaBannerSupportText": 1,
@@ -150,6 +152,7 @@
   "Get-DomeniaCsvDelimiter": 1,
   "Get-DomeniaCurrentSelectionIdentity": 4,
   "Get-DomeniaDatabasePath": 1,
+  "Get-DomeniaDelegationReadWorkerCode [here-string]": 1,
   "Get-DomeniaDemoConfiguredIdentity": 1,
   "Get-DomeniaDemoDirectoryWorkerCode [here-string]": 1,
   "Get-DomeniaDialogOwner": 1,
@@ -163,9 +166,10 @@
   "Get-DomeniaFastLoginLogPath": 2,
   "Get-DomeniaFicheDirtyControls": 1,
   "Get-DomeniaFleetBoardData": 2,
+  "Get-DomeniaGpoLinksReadWorkerCode [here-string]": 1,
   "Get-DomeniaGridColumnKey": 1,
   "Get-DomeniaGridExportColumns": 3,
-  "Get-DomeniaGroupPathWorkerCode [here-string]": 4,
+  "Get-DomeniaGroupPathWorkerCode [here-string]": 3,
   "Get-DomeniaIndexOuListWorkerCode [here-string]": 3,
   "Get-DomeniaIndexWorkerCode [here-string]": 11,
   "Get-DomeniaInventoryWorkerCode [here-string]": 50,
@@ -188,11 +192,13 @@
   "Get-DomeniaParkSharedPath": 1,
   "Get-DomeniaParkSharedSyncWorkerCode [here-string]": 2,
   "Get-DomeniaParkSweepWorkerCode [here-string]": 6,
+  "Get-DomeniaPasswordPolicyReadWorkerCode [here-string]": 1,
   "Get-DomeniaPingState": 1,
   "Get-DomeniaProbeValues": 2,
   "Get-DomeniaProcessWindowsIdentity": 3,
   "Get-DomeniaPulse": 1,
   "Get-DomeniaReadTimeoutState": 2,
+  "Get-DomeniaRelationHistoryReadWorkerCode [here-string]": 2,
   "Get-DomeniaRelationsRestorableEntry": 1,
   "Get-DomeniaRemotePostconditionText": 1,
   "Get-DomeniaResponseTimeSummaries": 1,

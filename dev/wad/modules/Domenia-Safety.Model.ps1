@@ -17,6 +17,7 @@ function Get-DomeniaOperationEffect {
     if ($id -cmatch '^Write[A-Za-z0-9]{2,59}$') { return 'DirectoryWrite' }
     if ($id -in @('ComputerGpUpdate','ComputerRestart','RimotteRun','ComputerServiceControl','WakeOnLanSend')) { return 'RemoteMutation' }
     if ($id -in @('LocalStore','ReceiptStore','DocumentStore','StoragePurge','StorageBackup','StorageMaintenance','StorageRetention','LinkHistoryStore','LiveCache','IndexBuild','IndexRefresh')) { return 'LocalWrite' }
+    # Points 101-109 (Audit AD) add DelegationRead, AdHealthRead, DcServicesRead and RelationHistoryRead: reads only.
     $reads = @(
         'SelectedPresence','PresenceScan','CmdletHelp','CmdletInventory','TreeChildren','GlobalSearch','PermissionAnalysis','SelfCheck',
         'ReadBitLocker','ReadBitLockerKey','ReadLaps','ComputerInventory','DomainOverview','BatchNetworkDiag','SoftwareInventory',
@@ -25,7 +26,8 @@ function Get-DomeniaOperationEffect {
         'LiveDirectoryCheck','SessionsList','RemoteCredentialCheck','ScopeReconcile','ReconcileScope','LiveSelectedPing','ParkPing',
         'EmbeddedDirectoryLookup','EmbeddedPathBrowse','ObjectChanges','StorageUsage','StorageIntegrity','ComputerQuickDiag','PasswordPolicyRead',
         'LockoutDiagnosis','GroupPathRead','JoinStateRead','UpdateStateRead','GpoLinksRead','GpoAppliedRead','DcCompareRead',
-        'ComputerEventsRead','MachineIdentityRead','AdConsistencyScan','ConnectorRead','DemoDirectory','AdSchemaRead','DirectoryAbsenceCheck','LogonByDcRead'
+        'ComputerEventsRead','MachineIdentityRead','AdConsistencyScan','ConnectorRead','DemoDirectory','AdSchemaRead','DirectoryAbsenceCheck','LogonByDcRead',
+        'DelegationRead','AdHealthRead','DcServicesRead','RelationHistoryRead'
     )
     if ($reads -contains $id) { return 'Read' }
     return 'Unknown'
