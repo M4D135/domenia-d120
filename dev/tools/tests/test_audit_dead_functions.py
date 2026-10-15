@@ -53,6 +53,31 @@ $script:Ctrl['BtnGo'].Add_Click({ Invoke-Click })
 Start-App
 """
 
+# Controls: BtnGo and BtnGuarded are declared (case ignored, as in the $script:Ctrl hashtable); BtnGone and BtnGoneToo
+# are declared by no XAML, so their event blocks never run.
+CONTROLS = """function Get-MainXaml {
+    @'
+<Window xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"><Button x:Name="BtnGo"/><Button x:Name="btnguarded"/></Window>
+'@
+}
+function Invoke-Guarded { }
+function Invoke-Missing { Get-OnlyFromMissing }
+function Get-OnlyFromMissing { }
+function Invoke-MissingGuard { }
+function Invoke-MissingTested { }
+function Get-BesideOrGuard { }
+function Get-InStringOnly { }
+$xaml = Get-MainXaml
+if ($script:Ctrl.ContainsKey("BtnGuarded")) { $script:Ctrl["BtnGuarded"].Add_Click({ Invoke-Guarded }) }
+$script:Ctrl["BtnGone"].Add_Click({ Invoke-Missing })
+$script:Ctrl['BtnGone'].Add_Checked({ Invoke-MissingTested })
+if ($script:Ctrl.ContainsKey('BtnGoneToo')) {
+    Invoke-MissingGuard
+}
+if ($script:Ctrl.ContainsKey("BtnGone") -or $other) { Get-BesideOrGuard }
+$text = '$script:Ctrl["BtnGone"].Add_Click({ Get-InStringOnly })'
+"""
+
 LOADER = """function Get-DomeniaRuntimeModulePlan {
     @(
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Fixture.Model.ps1'; DotSource=$true; Functions=@(
@@ -70,6 +95,7 @@ $script:Routes = @{ Home = 'Get-ModuleUsed' }
 
 TEST_PS = """# Get-InComment is only named in this comment
 Test-Case 'X' 'y' { Get-Tested }
+Test-Case 'W' 'w' { Invoke-MissingTested }
 function Get-Dead { 'a stub definition in a test is not a use' }
 """
 
@@ -86,7 +112,7 @@ def write(root, rel, text):
 
 
 def fixture(root):
-    write(root, 'wad/Domenia-Core.ps1', CORE)
+    write(root, 'wad/Domenia-Core.ps1', CORE + CONTROLS)
     write(root, 'wad/Domenia-Modules.ps1', LOADER)
     write(root, 'wad/modules/Fixture.Model.ps1', MODULE)
     write(root, 'wad/tests/Test-Fixture.ps1', TEST_PS)
@@ -138,12 +164,75 @@ class AnalyseTests(unittest.TestCase):
 
     def test_worker_definitions_are_not_audited(self):
         self.assertNotIn('Get-WorkerLocal', self.rows)
-        self.assertEqual(self.total, 23)
+        self.assertEqual(self.total, 31)
+
+    def test_event_blocks_of_declared_controls_are_roots(self):
+        for live in ('Invoke-Click', 'Invoke-Guarded', 'Get-BesideOrGuard', 'Get-InStringOnly'):
+            self.assertNotIn(live, self.rows, live)
+
+    def test_event_blocks_of_missing_controls_are_not_roots(self):
+        for name, control in (('Invoke-Missing', 'BtnGone'), ('Invoke-MissingGuard', 'BtnGoneToo')):
+            row = self.rows[name]
+            self.assertEqual((row['Category'], row['Kind'], row['Controls']), ('dead', 'wired-to-missing-control', [control]), name)
+        self.assertEqual(self.rows['Get-OnlyFromMissing']['Kind'], 'unreachable')
+        self.assertEqual(self.rows['Get-OnlyFromMissing']['Callers'], ['Invoke-Missing'])
+        row = self.rows['Invoke-MissingTested']
+        self.assertEqual((row['Category'], row['Kind'], row['Tests']),
+                         ('tests-only', 'wired-to-missing-control', ['wad/tests/Test-Fixture.ps1']))
+
+    def test_missing_control_rule_needs_declared_names(self):
+        write(self.tmp, 'wad/Domenia-Core.ps1', CORE + CONTROLS.replace('x:Name=', 'Title='))
+        rows = {r['Name']: r for r in audit.analyse(self.tmp)[0]}
+        for live in ('Invoke-Click', 'Invoke-Missing', 'Invoke-MissingGuard', 'Get-OnlyFromMissing'):
+            self.assertNotIn(live, rows, live)
 
     def test_location(self):
         row = self.rows['Get-Dead']
         self.assertEqual((row['File'], row['Line']), ('wad/Domenia-Core.ps1', 27))
         self.assertEqual(self.rows['Get-ModuleListed']['File'], 'wad/modules/Fixture.Model.ps1')
+
+
+class RuntimeScriptTests(unittest.TestCase):
+    """wad/Support scripts and the other Runtime scripts of the package manifest are references, never definitions."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix='dead-runtime-'))
+        fixture(self.tmp)
+        write(self.tmp, 'wad/modules/Fixture-Release.Model.ps1', """function Get-InstallPlan { Get-PlanHelper }
+function Get-PlanHelper { }
+function Get-NamedInSupportComment { }
+function Get-ExtraRuntimeUsed { }
+function Get-OfflineOnly { }
+""")
+        write(self.tmp, 'wad/Support/INSTALLER.ps1', """function Get-SupportLocal { 'helper of the installer process' }
+# Get-NamedInSupportComment
+. (Join-Path $staged 'wad/modules/Fixture-Release.Model.ps1')
+$decision = Get-InstallPlan -Manifest $manifest
+""")
+        write(self.tmp, 'wad/Extra/Run.ps1', "Get-ExtraRuntimeUsed\n")
+        write(self.tmp, 'Offline.ps1', "Get-OfflineOnly\n")
+        manifest = {'Files': [{'Path': 'wad/Extra/Run.ps1', 'Runtime': True}, {'Path': 'Offline.ps1', 'Runtime': False},
+                              {'Path': 'wad/tests/Test-Fixture.ps1', 'Runtime': True}]}
+        (self.tmp / 'wad/package-manifest.json').write_text(json.dumps(manifest), encoding='utf-8')
+        rows, self.total = audit.analyse(self.tmp)
+        self.rows = {r['Name']: r for r in rows}
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_support_script_calling_a_dot_sourced_module_makes_it_live(self):
+        self.assertNotIn('Get-InstallPlan', self.rows)
+        self.assertNotIn('Get-PlanHelper', self.rows, 'Reachability continues from a Support root')
+
+    def test_support_comments_and_definitions(self):
+        self.assertEqual(self.rows['Get-NamedInSupportComment']['Category'], 'dead')
+        self.assertNotIn('Get-SupportLocal', self.rows)
+        self.assertEqual(self.total, 36, 'A Support script defines nothing audited')
+
+    def test_manifest_runtime_scripts(self):
+        self.assertNotIn('Get-ExtraRuntimeUsed', self.rows)
+        self.assertEqual(self.rows['Get-OfflineOnly']['Category'], 'dead', 'A script that is not Runtime is no root')
+        self.assertEqual(self.rows['Get-Tested']['Category'], 'tests-only', 'wad/tests stays out of the roots')
 
 
 class RatchetTests(unittest.TestCase):
@@ -173,7 +262,7 @@ class RatchetTests(unittest.TestCase):
         code, report = run(self.args)
         self.assertEqual((code, report['Status'], report['Fixed']), (0, 'PASS', 0))
 
-        write(self.tmp, 'wad/Domenia-Core.ps1', CORE + 'function Get-NewDead { }\n')
+        write(self.tmp, 'wad/Domenia-Core.ps1', CORE + CONTROLS + 'function Get-NewDead { }\n')
         code, report = run(self.args)
         self.assertEqual((code, report['Status']), (1, 'FAIL'))
         self.assertEqual([n['Name'] for n in report['New']], ['Get-NewDead'])
@@ -182,7 +271,7 @@ class RatchetTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertEqual(self.baseline.read_text(encoding='utf-8'), before, 'An increase never rewrites the reference')
 
-        write(self.tmp, 'wad/Domenia-Core.ps1', CORE.replace('function Get-Recursive { Get-Recursive }\n', ''))
+        write(self.tmp, 'wad/Domenia-Core.ps1', (CORE + CONTROLS).replace('function Get-Recursive { Get-Recursive }\n', ''))
         code, report = run(self.args)
         self.assertEqual((code, report['Status'], report['Fixed']), (0, 'PASS', 1))
         code, report = run(self.args + ['--update'])

@@ -13,13 +13,22 @@ These never count: the definition itself (`function Name`, also inside a string)
 body (recursion), and the closed lists `Functions=@(...)` of wad/Domenia-Modules.ps1 (they name every module function).
 A function is live when it is reachable from a root: a reference outside every top-level function of a runtime file
 (script code of the core, of the loader and of the modules, wad/Domenia-Start.ps1, module JSON and XAML files).
+The shipped scripts of wad/Support (and any other .ps1 marked Runtime in wad/package-manifest.json, outside wad/tests)
+run in their own process: they define nothing audited, but each of their references is a root, since they may
+dot-source a module and call it (the update installer runs Get-DomeniaInstallPlan of Domenia-Release.Model.ps1).
+The scripts of the dev root are forwarders, not Runtime: they are neither definitions nor references.
 Reachability follows the references made from the body of each live function, so a function called only by dead code
 is dead too ("unreachable"), next to the functions referenced nowhere ("unreferenced").
+A reference inside an event block wired to a control that no XAML declares never runs, so it is neither a root nor an
+edge: `$script:Ctrl['Name'].Add_Click({ ... })` and the body of `if ($script:Ctrl.ContainsKey('Name')) { ... }`, where
+Name is no x:Name of the definition files (Get-MainXaml and the other XAML here-strings) nor of wad/modules/*.xaml;
+$script:Ctrl holds only names collected from that XAML. A function referenced there and nowhere live is reported as
+"wired-to-missing-control", with the control names. Without any x:Name collected this rule is off.
 Tests and offline tooling (wad/tests, wad/maintenance, tools, engineering: .ps1 and .py, comments excluded) are
-not roots: a dead function that they reach is reported separately as "tests-only". The scripts of wad/Support and of
-the dev root run in their own process and are neither definitions nor references.
+not roots: a dead function that they reach is reported separately as "tests-only".
 Limits: a name built at run time ('Complete-' + $kind) is not seen, so every finding is a candidate to read before
-removing it; a homonym in a worker here-string counts as a reference to the top-level function (safe direction).
+removing it; a homonym in a worker here-string or in a wad/Support script counts as a reference to the top-level
+function (safe direction); a control reached through a variable (Get-DomeniaControl $name) is assumed present.
 The reference tools/baselines/dead-functions-baseline.json is a ratchet keyed by function name: a new unused function
 makes the audit fail, a function moving between "dead" and "tests-only" does not. --update rewrites the reference
 after removals and refuses any increase.
@@ -34,7 +43,7 @@ import sys
 import tokenize
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from ps_sources import Enclosing, LineIndex, mask_ps, read_ps, strip_comments, top_level_functions  # noqa: E402
+from ps_sources import Enclosing, LineIndex, mask_ps, matching_brace, read_ps, strip_comments, top_level_functions  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 BASELINE = Path('tools/baselines/dead-functions-baseline.json')
@@ -43,6 +52,10 @@ LOADER = 'wad/Domenia-Modules.ps1'
 NAME_RX = re.compile(r'[\w-]+')
 DEFINITION_RX = re.compile(r'(?i)(?<![\w-])(?:function|filter|workflow)\s+([\w-]+)')
 LOADER_LIST_RX = re.compile(r'(?i)\bFunctions\s*=\s*@\(')
+MANIFEST = 'wad/package-manifest.json'
+XAML_NAME_RX = re.compile(r'x:Name\s*=\s*"([^"]+)"')
+CONTROL_GUARD_RX = re.compile(r'''(?i)\bif\s*\(\s*\$script:Ctrl\.ContainsKey\(\s*(["'])([\w-]+)\1\s*\)\s*\)\s*\{''')
+CONTROL_EVENT_RX = re.compile(r'''(?i)\$script:Ctrl\[\s*(["'])([\w-]+)\1\s*\]\.Add_\w+\s*\(''')
 TEST_ROOTS = ('wad/tests', 'wad/maintenance', 'tools', 'engineering')
 TEST_SUFFIXES = ('.ps1', '.py')
 SKIPPED_DIRS = {'__pycache__', '.git'}
@@ -52,9 +65,81 @@ def definition_files(root):
     return [root / 'wad/Domenia-Core.ps1', root / LOADER] + sorted((root / 'wad/modules').glob('*.ps1'))
 
 
+def manifest_runtime_scripts(root):
+    """The .ps1 files marked Runtime in the package manifest, outside wad/tests (empty without a manifest)."""
+    path = root / MANIFEST
+    if not path.is_file():
+        return []
+    data = json.loads(path.read_text(encoding='utf-8-sig'))
+    found = []
+    for entry in data.get('Files', []):
+        rel = str(entry.get('Path', '')).replace('\\', '/')
+        if entry.get('Runtime') is True and rel.lower().endswith('.ps1') and not rel.lower().startswith('wad/tests/'):
+            found.append(root / rel)
+    return found
+
+
 def runtime_files(root):
     extra = [root / 'wad/Domenia-Start.ps1'] + sorted((root / 'wad/modules').glob('*.json')) + sorted((root / 'wad/modules').glob('*.xaml'))
-    return [p for p in definition_files(root) + extra if p.is_file()]
+    extra += sorted((root / 'wad/Support').glob('*.ps1')) + manifest_runtime_scripts(root)
+    seen = set()
+    files = []
+    for path in definition_files(root) + extra:
+        key = path.resolve()
+        if path.is_file() and key not in seen:
+            seen.add(key)
+            files.append(path)
+    return files
+
+
+def xaml_names(root, texts):
+    """Every x:Name written in the definition files (XAML here-strings) and in wad/modules/*.xaml, lower case: the keys of
+    $script:Ctrl (a PowerShell hashtable) ignore case."""
+    names = set()
+    for text in texts:
+        names.update(n.lower() for n in XAML_NAME_RX.findall(text))
+    for path in sorted((root / 'wad/modules').glob('*.xaml')):
+        names.update(n.lower() for n in XAML_NAME_RX.findall(path.read_text(encoding='utf-8-sig', errors='replace')))
+    return names
+
+
+def matching_paren(masked, open_index):
+    """Offset just after the parenthesis that closes masked[open_index] ('('), or len(masked) when unbalanced."""
+    depth = 0
+    for i in range(open_index, len(masked)):
+        c = masked[i]
+        if c == '(':
+            depth += 1
+        elif c == ')':
+            depth -= 1
+            if depth == 0:
+                return i + 1
+    return len(masked)
+
+
+def missing_control_spans(view, masked, declared):
+    """[(start, end, control)] of the event blocks wired to a control that no XAML declares: the arguments of
+    $script:Ctrl['Name'].Add_*(...) and the body of if ($script:Ctrl.ContainsKey('Name')) {...}. Matches inside strings
+    and here-strings (blank in the masked code) are ignored."""
+    spans = []
+    if not declared:
+        return spans
+    for rx, opener in ((CONTROL_GUARD_RX, '{'), (CONTROL_EVENT_RX, '(')):
+        for m in rx.finditer(view):
+            name = m.group(2)
+            last = m.end() - 1
+            if name.lower() in declared or masked[m.start()] != view[m.start()] or masked[last] != opener:
+                continue
+            end = matching_brace(masked, last) if opener == '{' else matching_paren(masked, last)
+            spans.append((last, end, name))
+    return spans
+
+
+def control_at(spans, offset):
+    for start, end, name in spans:
+        if start <= offset < end:
+            return name
+    return None
 
 
 def test_files(root):
@@ -150,8 +235,10 @@ def analyse(root):
         for name, start, _end in spans:
             defs.setdefault(name.lower(), {'Name': name, 'File': rel, 'Line': index.line(start)})
     known = set(defs)
+    declared = xaml_names(root, texts.values())
     edges = {name: set() for name in known}
     callers = {name: set() for name in known}
+    wired = {}
     roots = set()
     for path in runtime_files(root):
         rel = path.relative_to(root).as_posix()
@@ -159,7 +246,13 @@ def analyse(root):
         if text is None:
             text = read_ps(path)
         enclosing = Enclosing(spans_by_file.get(rel, []))
-        for offset, name in references(reference_view(rel, text), known):
+        view = reference_view(rel, text)
+        missing = [] if rel.endswith('.json') or rel.endswith('.xaml') else missing_control_spans(view, mask_ps(text)[0], declared)
+        for offset, name in references(view, known):
+            control = control_at(missing, offset)
+            if control is not None:
+                wired.setdefault(name, set()).add(control)
+                continue
             owner = enclosing.at(offset)
             if owner is None:
                 roots.add(name)
@@ -183,11 +276,15 @@ def analyse(root):
         if name in live:
             continue
         dead_callers = sorted(defs[c]['Name'] for c in callers[name])
+        kind = 'unreachable' if dead_callers else 'unreferenced'
+        if name in wired:
+            kind = 'wired-to-missing-control'
         rows.append({
             'Name': info['Name'], 'File': info['File'], 'Line': info['Line'],
             'Category': 'tests-only' if name in test_live else 'dead',
-            'Kind': 'unreachable' if dead_callers else 'unreferenced',
+            'Kind': kind,
             'Callers': dead_callers,
+            'Controls': sorted(wired.get(name, set())),
             'Tests': sorted(tested.get(name, set())),
         })
     rows.sort(key=lambda r: (r['File'], r['Line']))
@@ -267,6 +364,8 @@ def main(argv=None):
     if a.list:
         for r in rows:
             detail = ''
+            if r['Controls']:
+                detail += ' ; branchee sur un controle absent du XAML : ' + ', '.join(r['Controls'])
             if r['Callers']:
                 detail += ' ; appelee seulement par du code mort : ' + ', '.join(r['Callers'])
             if r['Tests']:
@@ -287,7 +386,7 @@ def main(argv=None):
     by_name = {r['Name']: r for r in rows}
     report = {'Status': 'FAIL' if new else 'PASS', 'Functions': total_functions, 'Total': len(current),
               'Reference': reference.get('Total', 0), 'Fixed': fixed, 'Summary': summary(rows),
-              'New': [{k: by_name[n][k] for k in ('Name', 'File', 'Line', 'Category', 'Kind', 'Callers', 'Tests')} for n in new]}
+              'New': [{k: by_name[n][k] for k in ('Name', 'File', 'Line', 'Category', 'Kind', 'Callers', 'Controls', 'Tests')} for n in new]}
     if a.update:
         if new:
             report['Reason'] = 'Hausse refusee : supprimer ou raccorder les nouvelles fonctions avant d abaisser la reference.'
