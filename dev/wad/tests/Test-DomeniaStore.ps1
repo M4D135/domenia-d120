@@ -377,6 +377,13 @@ try{
    foreach($slice in @(@($ids[0..31]),@($ids[32..39]))){$slots=Get-IdxWGuidSlots $slice;[void](Invoke-IdxWQuery $db ('SELECT object_guid FROM ad_objects WHERE object_guid IN ('+$slots.Sql+');') -Parameters $slots.Parameters -Cached:([bool]$slots.Cached))}
    Expect (($IdxWStats.Prepared -eq 1) -and ($IdxWStats.Reused -eq 1) -and ($IdxWStats.Rows -eq 40)) 'one statement for both slices, NULL padding matches nothing'
    $wrong=$false;try{[void](Invoke-IdxWQuery $db 'SELECT ?1 AS v;' -Parameters @('a','b'))}catch{$wrong=$true};Expect $wrong 'parameter count must match'
+   # One binding rule with the prepared writes of LocalStore (PF-07): UTF-16 text of exact length, booleans and integral
+   # numbers as INTEGER, other numbers as REAL, $null as NULL.
+   $text='Été ʼ'+[char]::ConvertFromUtf32(0x1D11E)+' x''y'
+   $echo=@(Invoke-IdxWQuery $db 'SELECT ?1 AS t,typeof(?1) AS tt,?2 AS b,typeof(?2) AS bt,?3 AS d,typeof(?3) AS dt,?4 AS i,typeof(?4) AS it,?5 AS w,typeof(?5) AS wt,typeof(?6) AS nt;' -Parameters @($text,$true,1.5,[long]42,[double]7,$null))
+   Expect (($echo.Count -eq 1) -and ([string]$echo[0].t -ceq $text) -and ([string]$echo[0].tt -ceq 'text')) 'text bound as exact UTF-16'
+   Expect (([long]$echo[0].b -eq 1) -and ([string]$echo[0].bt -ceq 'integer') -and ([double]$echo[0].d -eq 1.5) -and ([string]$echo[0].dt -ceq 'real')) 'boolean and real bound like LocalStore'
+   Expect (([long]$echo[0].i -eq 42) -and ([string]$echo[0].it -ceq 'integer') -and ([long]$echo[0].w -eq 7) -and ([string]$echo[0].wt -ceq 'integer') -and ([string]$echo[0].nt -ceq 'null')) 'integers and NULL bound like LocalStore'
   }finally{foreach($cached in @($IdxWStatements.Values)){[void][Domenia.WinSqliteNative]::sqlite3_finalize([IntPtr]$cached)};[void][Domenia.WinSqliteNative]::sqlite3_close($db)}
  }
  if($Scale){Case ($ScaleObjects.ToString()+' objects committed in bounded batches and paginated exactly') {

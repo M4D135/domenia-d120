@@ -155,6 +155,17 @@ Test-Case 'P33' 'Un échec de la session est affiché sans double point' {
     Assert-True ($r.Text -like '*disque plein.*') 'message'
     Assert-False ($r.Text -like '*disque plein..*') 'un seul point'
 }
+Test-Case 'P33' 'Une seule vérification pour toutes les sauvegardes : contrôle SQLite, empreinte et date' {
+    # Manual, scheduled and before-gesture copies (FI-13) are accepted by the same rule.
+    $good=[pscustomobject]@{Backup='C:\Base\Backups\Geste-1.db';CopiedTo='';Verified=$true;VerifiedAtUtc=$script:StorageNow.ToString('o');SHA256=('0123456789abcdef'*4);Bytes=4096}
+    Assert-True (Test-DomeniaBackupReceiptVerified $good) 'reçu complet'
+    foreach($case in @(@('Verified',$false),@('Verified','True'),@('SHA256',''),@('SHA256',('0123456789ABCDEF'*4)),@('SHA256','abc'),@('VerifiedAtUtc',''),@('VerifiedAtUtc','hier'),@('Backup',''))){
+        $receipt=$good.PSObject.Copy();$receipt.([string]$case[0])=$case[1]
+        Assert-False (Test-DomeniaBackupReceiptVerified $receipt) ('refusé : '+[string]$case[0]+'='+[string]$case[1])
+    }
+    Assert-False (Test-DomeniaBackupReceiptVerified ([pscustomobject]@{Backup='C:\a.db';Verified=$true;VerifiedAtUtc=$script:StorageNow.ToString('o')})) 'sans empreinte'
+    Assert-False (Test-DomeniaBackupReceiptVerified $null) 'sans reçu'
+}
 Test-Case 'P35' 'Sans mesure, lʼespace disque reste inconnu et ne bloque rien' {
     $s=Get-DomeniaStorageSpaceState -NowUtc $script:StorageNow
     Assert-Equal 'Unknown' $s.State 'inconnu'
@@ -182,7 +193,7 @@ Test-Case 'P35' 'La file en attente relève les seuils et une mesure ancienne es
 Test-Case 'P35' 'Ce qui reste en mémoire est dit précisément' {
     Assert-Equal 'Aucune donnée en attente dʼenregistrement.' (Format-DomeniaStorageUnsaved ([pscustomobject]@{Pending=0;QueuedChanges=0;QueuedBytes=0;Suspended=$false})) 'rien'
     $text=Format-DomeniaStorageUnsaved ([pscustomobject]@{Pending=3;QueuedChanges=10;QueuedBytes=2048;Suspended=$true})
-    foreach($part in @('3 élément(s)','10 changement(s)','2 Ko','Fiabilité')){Assert-True ($text -like ('*'+$part+'*')) $part}
+    foreach($part in @('3 élément(s)','10 changement(s)','2 Ko','section Reprises')){Assert-True ($text -like ('*'+$part+'*')) $part}
 }
 Test-Case 'P36' 'Le verdict dʼintégrité exige un rapport complet et cohérent' {
     Assert-Equal 'Sain' (Get-DomeniaStorageIntegrityVerdict (New-StorageTestReport)).Verdict 'sain'
@@ -227,6 +238,7 @@ Test-Case 'P40' 'Les limites sont explicites et ne promettent pas un stockage in
     Assert-True (@($lines|Where-Object{$_ -like '*non mesurée*'}).Count -eq 1) 'taille non mesurée dite'
     Assert-True (@($lines|Where-Object{$_ -like '*4 096 changements*'}).Count -eq 1) 'file bornée'
     Assert-True (@($lines|Where-Object{$_ -like 'Conservation :*cache de recherche : 20 requêtes par périmètre*'}).Count -eq 1) 'cache de recherche sur disque, borné'
+    Assert-True (@($lines|Where-Object{$_ -like '*sauvegardes : 7 copies manuelles ou automatiques et 7 copies avant un geste, toutes vérifiées*'}).Count -eq 1) 'une politique, deux séries de sauvegardes'
 }
 Test-Case 'P40' 'Les collections les plus volumineuses viennent de la dernière mesure' {
     $usage=[pscustomobject]@{MeasuredUtc=$script:StorageNow.ToString('o');DatabaseBytes=1048576;WalBytes=0;DbstatAvailable=$true;Categories=@([pscustomobject]@{Category='Observations';Bytes=3000;Rows=10},[pscustomobject]@{Category='Index';Bytes=5000;Rows=20},[pscustomobject]@{Category='History';Bytes=10;Rows=1},[pscustomobject]@{Category='Snapshots';Bytes=1;Rows=1})}

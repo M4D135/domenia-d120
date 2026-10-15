@@ -200,7 +200,7 @@ function Get-DomeniaStorageSchemaExpectation {
     # StorageIntegrity worker carries the same constant lists (Test-DomeniaStorageMaintenance compares both).
     return [pscustomobject]@{
         Version='11';Revision='1'
-        Tables=@('schema_info','ad_objects','user_machine_links','user_machine_history','park_state','presence_cache','sync_state','user_scan_history','secret_state','operation_runs','domenia_provenance','ad_computer_facts','fleet_snapshots','domenia_store_state','domenia_store_batches','domenia_directory_data','domenia_observations','domenia_legacy_observation_imports','domenia_account_preferences','domenia_details','domenia_domain_metadata','domenia_query_recipes','domenia_query_recipe_revisions','domenia_query_migrations','domenia_query_recipe_dependencies')
+        Tables=@('schema_info','ad_objects','user_machine_links','user_machine_history','park_state','presence_cache','sync_state','user_scan_history','secret_state','operation_runs','domenia_provenance','ad_computer_facts','fleet_snapshots','park_session_cache','domenia_store_state','domenia_store_batches','domenia_directory_data','domenia_observations','domenia_legacy_observation_imports','domenia_account_preferences','domenia_details','domenia_domain_metadata','domenia_query_recipes','domenia_query_recipe_revisions','domenia_query_migrations','domenia_query_recipe_dependencies')
         Columns=[ordered]@{
             domenia_observations=@('object_guid','family','dn','attempt_at','status','success_at','payload','attempt_payload','summary_payload','attempt_summary','revision')
             domenia_details=@('object_guid','result_kind','request_key','dn','attempt_at','status','success_at','payload','attempt_payload','summary_payload','attempt_summary','revision')
@@ -336,6 +336,18 @@ function Get-DomeniaStorageInputRefusal {
     if($recovery -and ($null -eq (Get-DomeniaMember $Maintenance 'Receipt' $null))){return 'Base locale illisible : modification non enregistrée. Restaurez dʼabord une sauvegarde vérifiée (Outils > Base autonome > Stockage).'}
     return 'Maintenance de la base locale en cours : modification non enregistrée. Refaites-la à la fin de lʼassistant (Outils > Base autonome > Stockage).'
 }
+function Test-DomeniaBackupReceiptVerified {
+    # Point 33 and FI-13: one verification rule for every copy of the base, manual, scheduled or taken before a gesture.
+    # A StorageBackup receipt proves a usable copy only with its file, the passed quick_check (Verified), the SHA-256 of
+    # the produced file and the date of that verification.
+    param($Receipt)
+    if($null -eq $Receipt){return $false}
+    if(-not [string](Get-DomeniaMember $Receipt 'Backup' '')){return $false}
+    $verified=Get-DomeniaMember $Receipt 'Verified' $false
+    if(($verified -isnot [bool]) -or (-not $verified)){return $false}
+    if([string](Get-DomeniaMember $Receipt 'SHA256' '') -cnotmatch '^[a-f0-9]{64}$'){return $false}
+    return ($null -ne (ConvertFrom-DomeniaStorageUtc ([string](Get-DomeniaMember $Receipt 'VerifiedAtUtc' ''))))
+}
 function Get-DomeniaStorageBackupSchedule {
     # Point 33. What the automatic backup will do and what it last proved. A success comes from the verified receipt of
     # the StorageBackup worker (quick_check then SHA-256 of the produced file); failures are those of this session.
@@ -404,7 +416,7 @@ function Format-DomeniaStorageUnsaved {
     if(($pending -le 0) -and ($changes -le 0)){return 'Aucune donnée en attente dʼenregistrement.'}
     $text='Non enregistré, en mémoire : '+$pending+' élément(s) en file'
     if($changes -gt 0){$text+=', dont '+$changes+' changement(s) collecté(s) ('+(Format-DomeniaSize $bytes)+')'}
-    if([bool](Get-DomeniaMember $Persistence 'Suspended' $false)){$text+=' ; enregistrement suspendu, reprise dans Fiabilité'}
+    if([bool](Get-DomeniaMember $Persistence 'Suspended' $false)){$text+=' ; enregistrement suspendu, reprise dans Stockage, section Reprises'}
     return $text+'.'
 }
 function Get-DomeniaStorageIntegrityVerdict {
@@ -494,7 +506,7 @@ function Get-DomeniaStorageLimitLines {
     $lines.Add('Espace disque : nouvelles collectes suspendues sous '+(Format-DomeniaSize $suspend)+' libres, écritures refusées sous '+(Format-DomeniaSize $write)+' (seuils relevés de quatre fois la file en attente).')
     $retention=New-Object 'System.Collections.Generic.List[string]'
     foreach($family in @(Get-DomeniaStorageRetentionFamilies)){$days=[int]$policy.([string]$family.PolicyKey);$retention.Add([string]$family.Label+' '+$(if($days -gt 0){[string]$days+' j'}else{'sans limite'}))}
-    $lines.Add('Conservation : '+($retention -join ', ')+'. Mesures de performance : 10 000 dernières ; instantanés du parc : 400 jours ; cache de recherche : 20 requêtes par périmètre, chacune de 20 000 lignes et 32 Mo au plus ; sauvegardes : '+$policy.BackupKeep+' copies. Reçus gardés sans limite, détail compacté après chaque lot.')
+    $lines.Add('Conservation : '+($retention -join ', ')+'. Mesures de performance : 10 000 dernières ; instantanés du parc : 400 jours ; cache de recherche : 20 requêtes par périmètre, chacune de 20 000 lignes et 32 Mo au plus ; sauvegardes : '+$policy.BackupKeep+' copies manuelles ou automatiques et '+$policy.BackupKeep+' copies avant un geste, toutes vérifiées. Reçus gardés sans limite, détail compacté après chaque lot.')
     $categories=@(Get-DomeniaMember $Usage 'Categories' @()|Where-Object{$null -ne $_})
     if($categories.Count){
         $byBytes=[bool](Get-DomeniaMember $Usage 'DbstatAvailable' $false)

@@ -133,7 +133,7 @@ function Set-DomeniaCredentialGuardContext {
         $script:DomeniaCredentialGuard=[hashtable]::Synchronized(@{Epoch=[long]$script:SessionEpoch;Faults=@{};Revision=0L;NotifiedRevision=0L})
     }
     $needs=Get-DomeniaOperationCredentialNeeds $OperationId
-    $local=([string]$needs.Provider -in @('Storage','Local') -or $OperationId -in @('LiveSelectedPing','ComputerPing','SelectedPresence','PresenceScan','WakeOnLanSend','ParkSharedSync','ConnectorRead'))
+    $local=([string]$needs.Provider -in @('Storage','Local') -or $OperationId -in @('LiveSelectedPing','ParkPing','ComputerPing','SelectedPresence','PresenceScan','WakeOnLanSend','ParkSharedSync','ConnectorRead'))
     $directory='';$remote='';$remoteAdmin=''
     if(-not $local){
         if([bool]$needs.Directory){
@@ -1030,14 +1030,322 @@ function Fail-DomeniaIndexSearchUi {
     try { Add-DomeniaUiLog -Level 'WARN' -Area 'Index' -Text ('Recherche locale : ' + $detail) } catch { }
 }
 
+# ---------------------------------------------------------------- FI-19 (L20): local reads off the Dispatcher
+# The last SQLite reads of the WPF thread (index metadata, user-workstation associations, secret metadata of a
+# workstation, operation measures) go through the pinned LocalIndexRead worker: read-only, 250 ms busy timeout. Each
+# view shows what it already knows and completes itself in the callback. A newer request of the same kind replaces
+# the older one (generation, ReplaceKey); a change of session or of base (epoch) discards a late answer. These reads
+# are short and never offered to Annuler: a cancelled read would call no handler and leave its view waiting.
+# A view waits for each of them, so none is sent as background work: the Storage budget (D018, one background job)
+# would refuse it whenever another local job runs, starting with its sibling (the figures and the associations are
+# asked together at startup, on a change of account and after a switch of base). Explicit, or Selection for the
+# summary of the selected workstation, as the index search and the stored park state: at worst queued, never refused.
+function Start-DomeniaLocalRead {
+    param(
+        [Parameter(Mandatory=$true)][string]$Name,
+        [Parameter(Mandatory=$true)][ValidateSet('IndexMetadata','UserMachineLinks','SecretIndexEntry','OperationStats')][string]$Action,
+        [Parameter(Mandatory=$true)]$State,
+        [Parameter(Mandatory=$true)][string]$ReplaceKey,
+        [Parameter(Mandatory=$true)][string]$SuccessHandler,
+        [Parameter(Mandatory=$true)][string]$ErrorHandler,
+        [hashtable]$Fields=@{},
+        [int]$TimeoutSeconds=30,
+        [ValidateSet('Explicit','Selection')][string]$TaskClass='Explicit'
+    )
+    # FI-12: no fixed wait here, the worker follows LocalStore.DatabaseBusyTimeoutMs from its context.
+    $payload = [ordered]@{Action=$Action;Path=(Get-DomeniaLocalDatabasePathForRead)}
+    foreach ($key in @($Fields.Keys)) { $payload[[string]$key] = $Fields[$key] }
+    $id = Start-UiTask -Name $Name -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload ([pscustomobject]$payload) -CallbackState $State -ReplaceKey $ReplaceKey -TimeoutSeconds $TimeoutSeconds -SuccessHandler $SuccessHandler -ErrorHandler $ErrorHandler -TaskClass $TaskClass -NonCancellable
+    if (-not [string]$id) { throw 'Lecture locale non admise par le moteur.' }
+    return [string]$id
+}
+
+function Test-DomeniaLocalReadCurrent {
+    # True when the answer belongs to the newest request of its kind and to the current session and base.
+    param($State,[long]$Generation)
+    if ($null -eq $State) { return $false }
+    return (([long](Get-DomeniaMember $State 'Generation' -1) -eq $Generation) -and ([long](Get-DomeniaMember $State 'Epoch' -1) -eq [long]$script:SessionEpoch))
+}
+
+function Reset-DomeniaIndexMetadataState {
+    # A new session or a new base (change of account, switch of the local store): nothing read from the previous base
+    # stays on screen. The figures are unknown (-1) until Request-DomeniaIndexMetadata answers; a reading still running
+    # for the previous base is discarded by its generation.
+    $script:IndexMetadataGeneration = [long]$script:IndexMetadataGeneration + 1
+    $script:IndexMetadataPending = $false
+    $script:IndexInfo = $null
+    $script:IndexSyncStates = @{}
+    $script:IndexMetadataError = ''
+    $script:IndexDbCount = -1; $script:IndexDbUsers = -1; $script:IndexDbComputers = -1
+    $script:IndexDbMachinesActive = -1; $script:IndexDbMachinesDisabled = -1
+}
+
+function Request-DomeniaIndexMetadata {
+    # Checkpoint, coverage and counters of the local index (Outils > Base locale, refresh checkpoint). -StartupChecks
+    # runs the startup notices (age of the base, first build) once the figures are known.
+    param([switch]$StartupChecks,[int]$Attempt=0)
+    if ($StartupChecks) { $script:IndexMetadataStartupChecks = $true }
+    $script:IndexMetadataGeneration = [long]$script:IndexMetadataGeneration + 1
+    $script:IndexMetadataPending = $true
+    $state = [pscustomobject]@{Generation=[long]$script:IndexMetadataGeneration;Epoch=[long]$script:SessionEpoch;Attempt=$Attempt}
+    try { [void](Start-DomeniaLocalRead -Name 'Lecture de lʼétat de la base locale' -Action 'IndexMetadata' -State $state -ReplaceKey 'local:index-metadata' -SuccessHandler 'Complete-DomeniaIndexMetadataUi' -ErrorHandler 'Fail-DomeniaIndexMetadataUi') }
+    catch { Fail-DomeniaIndexMetadataUi -Message $_.Exception.Message -State $state }
+}
+
+function Request-DomeniaIndexMetadataIfNeeded {
+    # Outils > Base locale shown: the figures are read again only when the last reading failed or never answered in
+    # this session, and no reading is running. A page that shows figures is never re-read by a simple display.
+    # -IfShown (change of workspace): Outils shown again by the side bar, Ctrl+I or a first step of Accueil while Base
+    # locale is already its selected tab raises no SelectionChanged on the inner tabs; the page is checked here.
+    param([switch]$IfShown)
+    if ($IfShown) {
+        $outer = Get-DomeniaControl -Name 'WorkspaceTabs'
+        $inner = Get-DomeniaControl -Name 'ApplicationToolTabs'
+        if (($null -eq $outer) -or ($null -eq $inner) -or ($null -eq $outer.SelectedItem) -or ($null -eq $inner.SelectedItem)) { return }
+        if (([string]$outer.SelectedItem.Name -ne 'TabApplicationTools') -or ([string]$inner.SelectedItem.Name -ne 'TabIndex')) { return }
+    }
+    if ([bool]$script:IndexMetadataPending) { return }
+    if ((-not [string]$script:IndexMetadataError) -and ([int]$script:IndexDbCount -ge 0)) { return }
+    Request-DomeniaIndexMetadata
+}
+
+function Complete-DomeniaIndexMetadataUi {
+    param($Result,$State)
+    if (-not (Test-DomeniaLocalReadCurrent -State $State -Generation ([long]$script:IndexMetadataGeneration))) { return }
+    $effective = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @('Rows','Busy')
+    if ($null -eq $effective) { Fail-DomeniaIndexMetadataUi -Message 'Réponse de la base locale illisible.' -State $State; return }
+    if ([bool]$effective.Busy) {
+        # A locked base is not an empty base: two more short attempts, then the page says it was not read.
+        if ([int]$State.Attempt -lt 2) { Request-DomeniaIndexMetadata -Attempt ([int]$State.Attempt + 1); return }
+        Fail-DomeniaIndexMetadataUi -Message 'Base locale occupée : état non relu. Il est relu à la prochaine ouverture de lʼonglet Base locale ou au prochain enregistrement de lʼindex.' -State $State
+        return
+    }
+    try { $metadata = ConvertTo-DomeniaIndexMetadataState -Result $effective }
+    catch { Fail-DomeniaIndexMetadataUi -Message $_.Exception.Message -State $State; return }
+    $script:IndexMetadataPending = $false
+    $script:IndexSyncStates = $metadata.SyncStates
+    $script:IndexInfo = $metadata.Info
+    $script:IndexDbCount = [int]$metadata.Counts.Total
+    $script:IndexDbUsers = [int]$metadata.Counts.Users
+    $script:IndexDbComputers = [int]$metadata.Counts.Computers
+    $script:IndexDbMachinesActive = [int]$metadata.Counts.MachinesActive
+    $script:IndexDbMachinesDisabled = [int]$metadata.Counts.MachinesDisabled
+    $script:IndexMetadataError = ''
+    try { Update-DomeniaIndexStats } catch { }
+    # Views that waited for these figures complete themselves: the first steps of Accueil (base built) and the park
+    # coverage when its label still shows the waiting text (a running survey keeps its own progress text).
+    try { Update-DomeniaFirstSteps } catch { }
+    try { Update-DomeniaParkCoverageAfterCount } catch { }
+    # An overview of Accueil refused while this read held the local store (D018: a background Storage job waits for
+    # none) is computed now; nothing happens when Accueil is hidden or its OU is already computed. Never before the
+    # main window is shown (FI-22): the startup overview waits for the remembered OU of Rechercher. Asked before the
+    # startup checks, whose measures read would refuse it again.
+    if ([bool]$script:DomeniaSessionShown) { try { Request-DomeniaFleetRefresh } catch { } }
+    if ([bool]$script:IndexMetadataStartupChecks) {
+        $script:IndexMetadataStartupChecks = $false
+        try { Request-DomeniaIndexAutoRefresh } catch { }
+        try { Request-DomeniaIndexFirstBuild } catch { }
+        # The impact estimates read the measured history from memory: it is read once the base is known.
+        try { Request-DomeniaOperationStats -Quiet } catch { }
+    }
+}
+
+function Fail-DomeniaIndexMetadataUi {
+    param($Message,$State)
+    if (($null -ne $State) -and (-not (Test-DomeniaLocalReadCurrent -State $State -Generation ([long]$script:IndexMetadataGeneration)))) { return }
+    $detail = ([string]$Message).Trim()
+    if (-not $detail) { $detail = 'Erreur inconnue.' }
+    # The last figures read stay in memory; the page says that the base could not be read again.
+    $script:IndexMetadataPending = $false
+    $script:IndexMetadataError = $detail
+    $script:IndexMetadataStartupChecks = $false
+    try { Write-AppLog ('Métadonnées de la base locale non relues : ' + $detail) 'WARN' } catch { }
+    try { Update-DomeniaIndexStats } catch { }
+}
+
+function Request-DomeniaUserMachineLinks {
+    # The user-workstation associations of the base. Until the answer, Queue-DomeniaLinkChanges keeps changes in
+    # memory: the reference of the single writer must be what the base holds, never an empty list.
+    param([int]$Attempt=0)
+    # A change deferred by a reading of this session stays owed to the next one; one of a previous session is not.
+    $deferred = (($null -ne $script:LinkLoad) -and ([bool](Get-DomeniaMember $script:LinkLoad 'Deferred' $false)) -and ([long](Get-DomeniaMember $script:LinkLoad 'Epoch' -1) -eq [long]$script:SessionEpoch))
+    $script:LinkLoadGeneration = [long]$script:LinkLoadGeneration + 1
+    $state = [pscustomobject]@{Generation=[long]$script:LinkLoadGeneration;Epoch=[long]$script:SessionEpoch;Attempt=$Attempt}
+    $script:LinkLoad = [pscustomobject]@{Pending=$true;Generation=[long]$state.Generation;Epoch=[long]$state.Epoch;Deferred=$deferred}
+    try { [void](Start-DomeniaLocalRead -Name 'Lecture des associations utilisateur-poste' -Action 'UserMachineLinks' -State $state -ReplaceKey 'local:user-machine-links' -SuccessHandler 'Complete-DomeniaUserMachineLinksUi' -ErrorHandler 'Fail-DomeniaUserMachineLinksUi' -TimeoutSeconds 60) }
+    catch { Fail-DomeniaUserMachineLinksUi -Message $_.Exception.Message -State $state }
+}
+
+function Complete-DomeniaUserMachineLinksUi {
+    param($Result,$State)
+    if (-not (Test-DomeniaLocalReadCurrent -State $State -Generation ([long]$script:LinkLoadGeneration))) { return }
+    $effective = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @('Rows','Busy')
+    if ($null -eq $effective) { Fail-DomeniaUserMachineLinksUi -Message 'Réponse de la base locale illisible.' -State $State; return }
+    if ([bool]$effective.Busy) {
+        if ([int]$State.Attempt -lt 2) { Request-DomeniaUserMachineLinks -Attempt ([int]$State.Attempt + 1); return }
+        Fail-DomeniaUserMachineLinksUi -Message 'Base locale occupée.' -State $State
+        return
+    }
+    $stored = [object[]]@(ConvertTo-DomeniaCanonicalLinks -Links @($effective.Rows))
+    $session = @(@($script:UserMachineLinks) | Where-Object { $null -ne $_ })
+    $deferred = (($null -ne $script:LinkLoad) -and ([bool](Get-DomeniaMember $script:LinkLoad 'Deferred' $false)))
+    $script:LinkLoad = $null
+    # D028: the reference of the single writer is what the base holds (this also ends a conflict state). Associations
+    # observed or entered while the base was read are kept on top and saved against that reference.
+    $script:UserMachineLinks = $stored
+    Reset-DomeniaLinkBaseline
+    if ($session.Count -gt 0) { $script:UserMachineLinks = [object[]]@(ConvertTo-DomeniaCanonicalLinks -Links (@($session) + @($stored))) }
+    Rebuild-UserMachineLinkIndex
+    Refresh-LinkGrid
+    Refresh-AssociationContext
+    try { Write-AppLog ('{0} association(s) utilisateur-poste lue(s) dans la base locale.' -f $stored.Count) 'INFO' } catch { }
+    try { Update-DomeniaIndexStats } catch { }
+    try { Request-DomeniaDashboardRefresh } catch { }
+    # Same as the figures: an overview refused while this read held the local store is computed now. At startup this
+    # answer may come before the main window is shown: the overview then waits for its own request (ContentRendered).
+    if ([bool]$script:DomeniaSessionShown) { try { Request-DomeniaFleetRefresh } catch { } }
+    if (($session.Count -gt 0) -or $deferred) { Request-DomeniaLinkPersistence }
+}
+
+function Fail-DomeniaUserMachineLinksUi {
+    param($Message,$State)
+    if (($null -ne $State) -and (-not (Test-DomeniaLocalReadCurrent -State $State -Generation ([long]$script:LinkLoadGeneration)))) { return }
+    $deferred = (($null -ne $script:LinkLoad) -and ([bool](Get-DomeniaMember $script:LinkLoad 'Deferred' $false)))
+    $script:LinkLoad = $null
+    $detail = ([string]$Message).Trim()
+    if (-not $detail) { $detail = 'Erreur inconnue.' }
+    # The associations in memory stay, without any reference: a later save meets the optimistic check of the writer,
+    # which keeps the version of the base and reports the conflict instead of overwriting it.
+    $session = @(@($script:UserMachineLinks) | Where-Object { $null -ne $_ })
+    $script:UserMachineLinks = @()
+    Reset-DomeniaLinkBaseline
+    $script:UserMachineLinks = [object[]]$session
+    try { Write-AppLog ('Associations utilisateur-poste non relues : ' + $detail + ' Rechargez-les par Comptes > Changer de compte, ou au prochain démarrage.') 'ERROR' } catch { }
+    Rebuild-UserMachineLinkIndex
+    Refresh-LinkGrid
+    if ($deferred) { Request-DomeniaLinkPersistence }
+}
+
+function Request-DomeniaSecretIndexSummary {
+    # Fiche poste: the non-secret summary of the last BitLocker/LAPS reading completes LblSecretsStatus. Every call
+    # replaces the previous one; an empty name (another type of object) only cancels it.
+    param([AllowEmptyString()][string]$Computer='')
+    $script:SecretIndexSummaryGeneration = [long]$script:SecretIndexSummaryGeneration + 1
+    $key = ([string]$Computer).Trim().ToUpperInvariant()
+    if (-not $key) { return }
+    $hint = ''
+    $label = Get-DomeniaControl -Name 'LblSecretsStatus'
+    if ($null -ne $label) { $hint = [string]$label.Text }
+    $state = [pscustomobject]@{Generation=[long]$script:SecretIndexSummaryGeneration;Epoch=[long]$script:SessionEpoch;Computer=$key;Hint=$hint}
+    try { [void](Start-DomeniaLocalRead -Name 'Lecture du dernier relevé des secrets du poste' -Action 'SecretIndexEntry' -Fields @{Computer=$key} -State $state -ReplaceKey 'local:secret-index' -SuccessHandler 'Complete-DomeniaSecretIndexSummaryUi' -ErrorHandler 'Fail-DomeniaSecretIndexSummaryUi' -TimeoutSeconds 15 -TaskClass 'Selection') }
+    catch { Fail-DomeniaSecretIndexSummaryUi -Message $_.Exception.Message -State $state }
+}
+
+function Complete-DomeniaSecretIndexSummaryUi {
+    param($Result,$State)
+    if (-not (Test-DomeniaLocalReadCurrent -State $State -Generation ([long]$script:SecretIndexSummaryGeneration))) { return }
+    $effective = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @('Rows','Busy')
+    if (($null -eq $effective) -or ([bool]$effective.Busy)) { return }
+    $rows = @($effective.Rows | Where-Object { $null -ne $_ })
+    if ($rows.Count -eq 0) { return }
+    $summary = Format-DomeniaSecretIndexSummary -Entry $rows[0]
+    if (-not $summary) { return }
+    # The workstation is still the one shown (loaded fiche, or the selection being loaded).
+    $current = $script:SelectedObject
+    if (($null -eq $current) -and ($null -ne $script:SelectionLoad)) { $current = Get-DomeniaMember $script:SelectionLoad 'Context' $null }
+    if ($null -eq $current) { return }
+    if (([string](Get-DomeniaMember $current 'Type' '') -ne 'Machine') -or (([string](Get-DomeniaMember $current 'Name' '')).Trim().ToUpperInvariant() -cne [string]$State.Computer)) { return }
+    # Only a "no secret in memory" text is completed (the hint of the selection, or the one of Clear-Secrets once the
+    # fiche is shown): a secret being read or loaded meanwhile always wins.
+    if ((@($script:SecretRows).Count -gt 0) -or ([string]$script:ActiveSecretRequestId)) { return }
+    $label = Get-DomeniaControl -Name 'LblSecretsStatus'
+    if ($null -eq $label) { return }
+    if ([string]$label.Text -notin @([string]$State.Hint,'Aucun secret conserve en memoire.')) { return }
+    [void](Set-DomeniaControlText -Name 'LblSecretsStatus' -Text $summary)
+}
+
+function Fail-DomeniaSecretIndexSummaryUi {
+    param($Message,$State)
+    if (($null -ne $State) -and (-not (Test-DomeniaLocalReadCurrent -State $State -Generation ([long]$script:SecretIndexSummaryGeneration)))) { return }
+    # The hint already shown stays. This reading follows every selection of a workstation: its failure (base busy or
+    # under maintenance) goes to Domenia.log at the Trace level, never once per click into the session journal.
+    try { Write-DomeniaTrace -Area 'Base locale' -Text ('Dernier relevé des secrets non relu pour ' + [string](Get-DomeniaMember $State 'Computer' '') + ' : ' + ([string]$Message).Trim()) } catch { }
+}
+
+function Request-DomeniaOperationStats {
+    # Outils > Statistiques and the history used by the impact estimates (Get-DomeniaOperationHistoryModel).
+    # -Export exports the grid once it is filled; -Quiet leaves the statistics label alone while reading.
+    param([switch]$Export,[switch]$Quiet)
+    if ($Export) { $script:OperationStatsExportPending = $true }
+    $script:OperationStatsGeneration = [long]$script:OperationStatsGeneration + 1
+    $state = [pscustomobject]@{Generation=[long]$script:OperationStatsGeneration;Epoch=[long]$script:SessionEpoch;Quiet=[bool]$Quiet}
+    # The label announces the reading until an answer: a quiet request (impact estimate) that replaces a visible one
+    # still owes the label its result, success or failure.
+    if (-not $Quiet) { $script:OperationStatsLabelPending = $true; [void](Set-DomeniaControlText -Name 'LblOperationStats' -Text 'Lecture des mesures dans la base locale…') }
+    try { [void](Start-DomeniaLocalRead -Name 'Lecture des mesures dʼopérations' -Action 'OperationStats' -State $state -ReplaceKey 'local:operation-stats' -SuccessHandler 'Complete-DomeniaOperationStatsUi' -ErrorHandler 'Fail-DomeniaOperationStatsUi') }
+    catch { Fail-DomeniaOperationStatsUi -Message $_.Exception.Message -State $state }
+}
+
+function Complete-DomeniaOperationStatsUi {
+    param($Result,$State)
+    if (-not (Test-DomeniaLocalReadCurrent -State $State -Generation ([long]$script:OperationStatsGeneration))) { return }
+    $effective = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @('Rows','Busy')
+    if ($null -eq $effective) { Fail-DomeniaOperationStatsUi -Message 'Réponse de la base locale illisible.' -State $State; return }
+    if ([bool]$effective.Busy) { Fail-DomeniaOperationStatsUi -Message 'Base locale occupée : réessayez dans un instant.' -State $State; return }
+    $raw = @($effective.Rows | Where-Object { $null -ne $_ })
+    $script:OperationHistoryModels = ConvertTo-DomeniaOperationHistoryModels -Rows $raw
+    $script:OperationHistoryModelsEpoch = [long]$script:SessionEpoch
+    $rows = New-Object 'System.Collections.Generic.List[object]'
+    $total = 0
+    foreach ($r in $raw) {
+        $samples = [int]$r.samples; $total += $samples
+        $avgDuration = [double]$r.avg_duration_ms; $avgBytes = [double]$r.avg_bytes; $avgPer = [double]$r.avg_ms_per_item
+        $fallbackPct = 0; if ([double]$r.remote_attempts -gt 0) { $fallbackPct = [Math]::Round(100 * [double]$r.fallback_tasks / [double]$r.remote_attempts,1) }
+        $den = [double]$r.successes + [double]$r.failures; $successPct = 0; if ($den -gt 0) { $successPct = [Math]::Round(100 * [double]$r.successes / $den,1) }
+        $bps = 0; if ($avgDuration -gt 0) { $bps = $avgBytes / ($avgDuration / 1000.0) }
+        $band = '-'
+        if ($bps -ge 125000) { $band = '{0:N2} Mbit/s' -f ($bps * 8 / 1000000.0) } elseif ($bps -gt 0) { $band = '{0:N1} kbit/s' -f ($bps * 8 / 1000.0) }
+        $last = [string]$r.last_run; try { if ($last) { $last = ([datetime]$last).ToString('dd/MM/yyyy HH:mm') } } catch { }
+        $rows.Add([pscustomobject]@{
+            Operation=[string]$r.operation; Samples=$samples; AvgPerItem=$(if ($avgPer -gt 0) { '{0:N0} ms' -f $avgPer } else { '-' })
+            AvgDuration=$(if ($avgDuration -ge 60000) { '{0:N1} min' -f ($avgDuration / 60000.0) } else { '{0:N1} s' -f ($avgDuration / 1000.0) })
+            AvgNetwork=(Format-DomeniaByteEstimate ([long]$avgBytes)); AvgBandwidth=$band; FallbackPct=('{0:N1} %' -f $fallbackPct); SuccessPct=$(if ($den -gt 0) { '{0:N1} %' -f $successPct } else { '-' }); LastRun=$last
+        })
+    }
+    [void](Set-DomeniaItemsSource -Name 'DgOperationStats' -Rows $rows.ToArray())
+    $script:OperationStatsLabelPending = $false
+    [void](Set-DomeniaControlText -Name 'LblOperationStats' -Text ('{0} mesure(s) sur {1} type(s) dʼopération. Base : {2}' -f $total,$rows.Count,(Get-DomeniaLocalDatabasePathForRead)))
+    if ([bool]$script:OperationStatsExportPending) {
+        $script:OperationStatsExportPending = $false
+        Export-DomeniaOperationStatsCsv
+    }
+}
+
+function Fail-DomeniaOperationStatsUi {
+    param($Message,$State)
+    if (($null -ne $State) -and (-not (Test-DomeniaLocalReadCurrent -State $State -Generation ([long]$script:OperationStatsGeneration)))) { return }
+    $detail = ([string]$Message).Trim()
+    if (-not $detail) { $detail = 'Erreur inconnue.' }
+    $export = [bool]$script:OperationStatsExportPending
+    $script:OperationStatsExportPending = $false
+    $labelPending = [bool]$script:OperationStatsLabelPending
+    $script:OperationStatsLabelPending = $false
+    # Estimates keep the last history read (or the initial values); the grid keeps what it showed.
+    if (($null -eq $State) -or (-not [bool](Get-DomeniaMember $State 'Quiet' $false)) -or $export -or $labelPending) {
+        [void](Set-DomeniaControlText -Name 'LblOperationStats' -Text ('Statistiques non relues : ' + $detail))
+    }
+    if ($export) { Set-Status ('Export des statistiques non effectué : ' + $detail) 'WARN' }
+    try { Write-AppLog ('Mesures dʼopérations non relues : ' + $detail) 'WARN' } catch { }
+}
+
 function Request-DomeniaParkStateReload {
     # The stored park state is read in the LocalIndexRead worker; the in-memory state stays usable meanwhile.
     if ($null -ne $script:DomeniaParkStateReloadJob -and $script:AsyncJobs.Contains([string]$script:DomeniaParkStateReloadJob)) { return }
     try {
         # Continuation of an explicit park result: never refused as background work, at worst queued.
-        # Short local read (250 ms busy, 30 s cap): not offered to Annuler, whose cancel path calls no handler and
-        # would strand the deferred park results (revue adversariale du 2026-10-02).
-        $script:DomeniaParkStateReloadJob = Start-UiTask -Name 'Lecture du releve local du parc' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload ([pscustomobject]@{Action='ParkState';Path=(Get-DomeniaLocalDatabasePathForRead);BusyTimeoutMs=250}) -CallbackState ([pscustomobject]@{Epoch=[long]$script:SessionEpoch}) -TimeoutSeconds 30 -SuccessHandler 'Complete-DomeniaParkStateReloadUi' -ErrorHandler 'Fail-DomeniaParkStateReloadUi' -TaskClass 'Explicit' -NonCancellable
+        # Short local read (configured SQLite lock wait, FI-12: at most 5 s; 30 s cap): not offered to Annuler, whose
+        # cancel path calls no handler and would strand the deferred park results (revue adversariale du 2026-10-02).
+        $script:DomeniaParkStateReloadJob = Start-UiTask -Name 'Lecture du releve local du parc' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload ([pscustomobject]@{Action='ParkState';Path=(Get-DomeniaLocalDatabasePathForRead)}) -CallbackState ([pscustomobject]@{Epoch=[long]$script:SessionEpoch}) -TimeoutSeconds 30 -SuccessHandler 'Complete-DomeniaParkStateReloadUi' -ErrorHandler 'Fail-DomeniaParkStateReloadUi' -TaskClass 'Explicit' -NonCancellable
     } catch {
         # A refused start must not strand the deferred results: they are applied without the stored counters.
         Fail-DomeniaParkStateReloadUi -Message $_.Exception.Message -State $null
@@ -1079,6 +1387,8 @@ function Complete-DomeniaParkStateReloadUi {
     if ($null -eq $current) { $current = @{} }
     # Stored rows are the base; anything observed in this session since then wins when it is more recent.
     $script:ParkState = (Merge-DomeniaParkState -Base $stored -Incoming $current).State
+    # FI-19: the active workstation count read in the same answer feeds the coverage without the in-memory index.
+    $script:ParkMachineCount = [pscustomobject]@{Epoch=[long]$script:SessionEpoch;Count=[int](Get-DomeniaMember $effective 'MachineCount' -1)}
     Invoke-DomeniaParkDeferredResults
     [void](Set-DomeniaControlText -Name 'LblParkStatus' -Text (Get-DomeniaParkStatusTextSafe))
 }
@@ -1092,11 +1402,43 @@ function Fail-DomeniaParkStateReloadUi {
 }
 
 function Get-DomeniaParkStatusTextSafe {
-    # Coverage text without a synchronous database count: the count needs the in-memory index.
-    if (@($script:IndexRows).Count -gt 0 -and $null -ne $script:ParkState) { return (Get-DomeniaParkCoverageText) }
+    # Coverage text without a synchronous database count (FI-19): the count comes from the in-memory index, from the
+    # figures of the base (IndexMetadata) or from the stored survey (ParkState), all read off the Dispatcher.
+    if (($null -ne $script:ParkState) -and ((@($script:IndexRows).Count -gt 0) -or ((Get-DomeniaParkMachineCount) -ge 0))) { return (Get-DomeniaParkCoverageText) }
     $count = 0
     if ($null -ne $script:ParkState) { $count = @($script:ParkState.Keys).Count }
-    return ([string]$count + ' poste(s) releve(s) en memoire. La couverture du parc se calcule avec l index en memoire.')
+    return (Get-DomeniaParkCoverageWaitingText -Surveyed $count)
+}
+
+function Get-DomeniaParkMachineCount {
+    # Active workstations of the local base for this session, -1 while unknown. Same count (Machine, not disabled) in
+    # the figures of the base, refreshed after every saved index update, and in the stored survey read once.
+    if ([int]$script:IndexDbMachinesActive -ge 0) { return [int]$script:IndexDbMachinesActive }
+    $known = $script:ParkMachineCount
+    if (($null -eq $known) -or ([long](Get-DomeniaMember $known 'Epoch' -1) -ne [long]$script:SessionEpoch)) { return -1 }
+    return [int](Get-DomeniaMember $known 'Count' -1)
+}
+
+function Get-DomeniaParkCoverageWaitingText {
+    # The coverage needs the active workstation count of the base: the figures are asked for (unless a reading is
+    # running or they are known) and the text shown meanwhile is remembered, so that their answer replaces it.
+    param([int]$Surveyed=0)
+    $text = ('{0} poste(s) relevé(s) en mémoire. La couverture du parc sʼaffiche dès que lʼétat de la base locale est lu.' -f [Math]::Max(0,$Surveyed))
+    $script:ParkCoverageWaitingText = $text
+    try { Request-DomeniaIndexMetadataIfNeeded } catch { }
+    return $text
+}
+
+function Update-DomeniaParkCoverageAfterCount {
+    # Called when the figures of the base arrive: LblParkStatus is completed only while it still shows the waiting
+    # text (a survey in progress, a deferred result or an error message keep their own text).
+    $waiting = [string]$script:ParkCoverageWaitingText
+    if (-not $waiting) { return }
+    if ((Get-DomeniaParkMachineCount) -lt 0) { return }
+    $script:ParkCoverageWaitingText = ''
+    $label = Get-DomeniaControl -Name 'LblParkStatus'
+    if (($null -eq $label) -or ([string]$label.Text -cne $waiting) -or ($null -eq $script:ParkState)) { return }
+    [void](Set-DomeniaControlText -Name 'LblParkStatus' -Text (Get-DomeniaParkStatusTextSafe))
 }
 
 function Start-DomeniaParkSharedSync {

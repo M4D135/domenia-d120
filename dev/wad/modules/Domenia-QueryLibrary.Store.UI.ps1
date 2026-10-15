@@ -143,7 +143,7 @@ function Fail-DomeniaQueryLibraryStoreRead {
     if($null -ne $script:DomeniaQueryState){$script:DomeniaQueryState.LibraryError=$store.Error;[void](Set-DomeniaControlText 'LblQueryStatus' ('Bibliothèque non disponible : '+$store.Error))}
 }
 function Save-DomeniaQueryRecipe {
-    param($Recipe,[string]$SuccessHandler='Complete-DomeniaQueryRecipeSaveUi',$CallbackState=$null,[switch]$Archive,[object[]]$AdditionalDependencies=@(),[string]$ErrorHandler='')
+    param($Recipe,[string]$SuccessHandler='Complete-DomeniaQueryRecipeSaveUi',$CallbackState=$null,[switch]$Archive,[object[]]$AdditionalDependencies=@(),[string]$ErrorHandler='',[switch]$ImpactConfirmed)
     $store=Initialize-DomeniaQueryLibraryStore
     if($null -eq $store -or -not $store.Loaded){throw 'Attendez la lecture confirmée de la bibliothèque locale.'}
     if($store.Saving){throw 'Un enregistrement de requête est déjà en cours.'}
@@ -158,7 +158,8 @@ function Save-DomeniaQueryRecipe {
     $record=New-DomeniaQueryLibraryRecord -Context $store.Context -Recipe $Recipe -ExpectedRevision $expected
     $record.Archived=[bool]$Archive
     $dependencies=@($store.Dependencies|Where-Object{[string]$_.RecipeId -ceq [string]$Recipe.Id})
-    if($dependencies.Count){
+    # The workshop shows its in-page impact review first (ImpactConfirmed); other callers keep the confirmation.
+    if($dependencies.Count -and -not $ImpactConfirmed){
         $action=if($Archive){'Archiver cette requête et retirer ses widgets'}else{'Mettre à jour les widgets qui utilisent cette requête'}
         $details=($dependencies|ForEach-Object{[string]$_.ConsumerKind+' · '+[string]$_.ConsumerId+' · révision '+[string]$_.BoundRevision}) -join "`r`n"
         $answer=Show-DomeniaDialog -Title 'Éléments qui utilisent cette requête' -Message ($action+' ? '+$dependencies.Count+' lien(s) concerné(s). Les anciennes révisions restent conservées dans la base.') -Details $details -Kind Question -Buttons YesNo

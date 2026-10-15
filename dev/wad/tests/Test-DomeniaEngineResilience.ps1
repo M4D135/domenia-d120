@@ -103,8 +103,8 @@ Case 'Base page size and offset are the same in callback and worker' {
 }
 Case 'Obsolete collection releases the lazy cache buffers' {
  Reset-Fixture;$target=[pscustomobject]@{PreviousJson='large';Previous=[pscustomobject]@{large='data'}}
- $script:ParkRun=[pscustomobject]@{Epoch=6L;Path=$script:DatabaseScopedPath;Stopping=$false;Completed=$false;Targets=@($target);Timer=(New-FixtureTimer)}
- Invoke-DomeniaParkRunTick;Assert $script:ParkRun.Completed;Assert ($null -eq $target.Previous -and $target.PreviousJson -eq '');Assert ($script:ParkRun.Timer.Stops -eq 1)
+ $run=[pscustomobject]@{Slot='List';Epoch=6L;Path=$script:DatabaseScopedPath;Stopping=$false;Completed=$false;Targets=@($target);Timer=(New-FixtureTimer);PendingRows=@{}};$script:ParkRuns=@{List=$run}
+ Invoke-DomeniaParkRunTick -Slot 'List';Assert $run.Completed;Assert ($null -eq $target.Previous -and $target.PreviousJson -eq '');Assert ($run.Timer.Stops -eq 1)
 }
 Case 'Lazy collection decode validates GUID and clears consumed JSON' {
  Reset-Fixture;$target=[pscustomobject]@{Key='cn=one';Guid='g';Previous=$null;PreviousJson='{"Key":"cn=one","Guid":"g","Inventory":{"Rows":[1,2]}}'}
@@ -339,8 +339,8 @@ Case 'Park partial measurements count as failed while complete observations are 
  foreach($kind in @('InventoryError','ProbeError','Truncated','Success')){
   Reset-Fixture;$script:SelectedObject=$null;$script:FleetLast=$null;$script:FleetObservations=@{};$script:QueuedObservation=$null
   $target=[pscustomobject]@{Key='dn';Guid='g';Computer='PC';Previous=$null;PreviousJson=''}
-  $script:ParkRun=[pscustomobject]@{Id='r';Pending=@{j=$true};PingOnly=$false;CachedMeasurements=0;Done=0;Online=0;Failed=0;Stopping=$false;Reused=0;Changed=0}
-  $state=[pscustomobject]@{RunId='r';Epoch=7L;Path=$script:DatabaseScopedPath;Job='j';Target=$target}
+  $run=[pscustomobject]@{Id='r';Slot='List';Epoch=7L;Path=$script:DatabaseScopedPath;Pending=@{j=$true};StorePending=@{};PingOnly=$false;WmiOnly=$false;CachedMeasurements=0;Done=0;Online=0;NoReply=0;Errors=0;Failed=0;Stopping=$false;Reused=0;Changed=0;PendingRows=@{}};$script:ParkRuns=@{List=$run}
+  $state=[pscustomobject]@{RunId='r';Slot='List';Epoch=7L;Path=$script:DatabaseScopedPath;Job='j';Target=$target}
   $probe=[pscustomobject]@{Error=$(if($kind -eq 'ProbeError'){'failed'}else{''});Truncated=($kind -eq 'Truncated');Rows=@(,@('raw'));CheckedUtc=[datetime]::UtcNow.ToString('o')}
   $packet=[pscustomobject]@{Key='dn';Guid='g';Computer='PC';Outcome='NoConsole';Presence='En ligne';InventoryError=$(if($kind -eq 'InventoryError'){'denied'}else{''});Probes=[pscustomobject]@{fixture=$probe}}
   function Queue-DomeniaMetadata {param($Kind,$Key,$Row)$script:QueuedObservation=$Row;return $true}
@@ -348,15 +348,15 @@ Case 'Park partial measurements count as failed while complete observations are 
   function Update-DomeniaParkResultRows {param($Packet,$Observation)}
   function Update-DomeniaParkRunStatus {}
   Complete-DomeniaParkSession $packet $state
-  Assert ($script:ParkRun.Done -eq 1 -and $script:ParkRun.Online -eq 1 -and $script:ParkRun.Pending.Count -eq 0) $kind
-  Assert ($script:ParkRun.Failed -eq $(if($kind -eq 'Success'){0}else{1})) ('failure count '+$kind)
+  Assert ($run.Done -eq 1 -and $run.Online -eq 1 -and $run.Pending.Count -eq 0) $kind
+  Assert ($run.Failed -eq $(if($kind -eq 'Success'){0}else{1})) ('failure count '+$kind)
   Assert ($null -ne $script:QueuedObservation -and $script:QueuedObservation.Probes.fixture.Rows[0][0] -eq 'raw') ('full persisted observation '+$kind)
   if($kind -eq 'InventoryError'){Assert ($script:QueuedObservation.InventoryError -eq 'denied' -and $script:QueuedObservation.InventoryAttemptUtc)}
  }
 }
 # Points 31, 32 and 34: storage assistant state, synthetic only (no worker body runs, no file is opened).
 function Reset-StorageFixture {
- Reset-Fixture;$script:ParkRun=$null;$script:StorageMaintenance=$null;$script:StorageLastSwitch=$null;$script:DomeniaDirectoryReads=$null
+ Reset-Fixture;$script:ParkRuns=@{};$script:StorageMaintenance=$null;$script:StorageLastSwitch=$null;$script:DomeniaDirectoryReads=$null
  $script:Conn=[pscustomobject]@{Server='example.invalid';BaseDn='dc=example,dc=invalid'}
 }
 Case 'Storage switch drops only the queue of the other base and tells its callers' {
