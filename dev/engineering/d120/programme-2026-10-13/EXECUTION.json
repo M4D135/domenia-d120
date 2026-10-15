@@ -1,1300 +1,2628 @@
 {
   "schema": 1,
   "authorized_at": "2026-10-13",
-  "updated_at": "2026-10-14",
-  "status": "committed_windows_qualification_open",
-  "suivi_note": "Arbre local commite le 2026-10-14. Gel des contrats, DLL Native et Query recompilees avec csc 4.8.9221.0 sur DESKTOP-285EKHU, baux Enter/Exit sur la moisson et les lectures CIM, vues de recherche branchees. Les 160 points ne sont pas termines. Qualification 10000/20000 non executee. CNAMTS-W11-01 a ete rallumee ; la campagne complete n a pas abouti.",
+  "updated_at": "2026-10-16",
+  "status": "implementation_integrated_windows_qualification_pending",
+  "suivi_note": "151 points avec implementation, 9 de qualification Windows seule. Statuts consolides depuis les 153 fiches equipe et les 7 points manquants. Aucun point clos : il faut un rapport Windows 5.1 lie aux SHA-256 finaux. Les tests VM sont desormais autorises par David, apres le developpement.",
   "minimum_computers": 10000,
   "qualification_computers": 20000,
-  "publication": "roadmap_only_published_software_in_progress",
+  "publication": "source_integration_not_windows_qualified",
   "requirements": [
     {
       "id": 1,
       "title": "Achever le circuit collecte vers base vers interface",
-      "status": "in_progress",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W03-collect-truth",
+      "evidence": [
+        "dev/wad/modules/Domenia-Park.UI.ps1:Start-DomeniaCommittedPresence",
+        "dev/wad/tests/Test-DomeniaCollectCircuit.ps1",
+        "dev/wad/modules/Domenia-Live.UI.ps1:Get-DomeniaLiveWorkerCount",
+        "dev/wad/modules/Domenia-Live.UI.ps1:Stop-DomeniaLiveJob",
+        "dev/wad/tests/Test-DomeniaStreaming.ps1"
+      ],
+      "remaining": [
+        "Il reste à exécuter CollectCircuit et Streaming en VM sous Windows PowerShell 5.1. QuerySchema, QueryTransfer et StorageRetention restent à épingler par l'intégrateur : c'est une dette de master, hors de ce lot."
+      ],
+      "implementation_summary": "Le ping explicite du poste sélectionné utilise LiveSelectedPing et passe par SQLite avant publication. La suite CollectCircuit lit maintenant le contrat des opérations en deux temps, comme Test-Domenia.ps1 (CO-23) ; avant, sous WinPS 5.1, tout le tableau tombait sur une seule clé. Elle vérifie aussi que la carte contient plus de 50 entrées. Les lancements de master encore non épinglés sont listés dans PendingPins et ne font plus échouer le circuit de collecte. Ce budget de ping n'est plus compté dans les sondes de la recherche."
     },
     {
       "id": 2,
       "title": "Unifier les populations comparées",
-      "status": "in_progress",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W03-collect-truth",
+      "evidence": [
+        "dev/wad/modules/Domenia-Collection.Model.ps1:New-DomeniaPopulationDescriptor",
+        "dev/wad/modules/Domenia-Collection.Model.ps1:Compare-DomeniaPopulation",
+        "dev/wad/modules/Domenia-BoardFleet.Model.ps1:Get-DomeniaFleetBoardData",
+        "dev/wad/modules/Domenia-Query.UI.ps1:Get-DomeniaQueryExportPopulation",
+        "dev/wad/tests/rules/Collection.Tests.ps1:COL-014"
+      ],
+      "remaining": [
+        "Il reste à exécuter en VM les tests de règles et QueryScale."
+      ],
+      "implementation_summary": "La population est décrite et comparée : domaine, OU, profondeur, types, critères et instantané SQLite. Le tableau du parc, ses widgets, l'aperçu et l'export de l'atelier la portent. La revue n'a rien changé à ce point."
     },
     {
       "id": 3,
       "title": "Séparer les états inconnus",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W03-collect-truth",
+      "evidence": [
+        "dev/wad/modules/Domenia-Collection.Model.ps1:Get-DomeniaMeasureState",
+        "dev/wad/modules/Domenia-BoardFleet.Model.ps1:Format-DomeniaOuFreshnessSummary",
+        "dev/wad/modules/Domenia-UX.help.json:LblFleetDashboard"
+      ],
+      "remaining": [
+        "Il reste à exécuter en VM les tests de règles."
+      ],
+      "implementation_summary": "Chaque famille de mesure garde son état : valide, jamais relevé, non lu, refusé, périmé, incomplet ou en erreur. Aucun de ces états ne devient zéro ou sain. L'aide de LblFleetDashboard décrit maintenant le comptage par raison."
     },
     {
       "id": 4,
       "title": "Garder trois horloges de collecte",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W03-collect-truth",
+      "evidence": [
+        "dev/wad/modules/Domenia-Dashboard.UI.ps1:Start-DomeniaFleetDashboard",
+        "dev/wad/modules/Domenia-Storage.Worker.ps1:Get-DomeniaStoragePurgeWorkerCode",
+        "dev/wad/modules/Domenia-Cache.Model.ps1:Get-DomeniaPurgeTargets",
+        "dev/wad/tests/Test-DomeniaStore.ps1:Explicit purge removes the scope clocks of the purged families only",
+        "dev/wad/tests/Test-DomeniaFreshness.ps1:A scope without collection keys requests no scope clock",
+        "dev/wad/tests/rules/Cache.Tests.ps1:D029"
+      ],
+      "remaining": [
+        "Il reste à exécuter en VM les suites Store, Freshness et OuRefresh ainsi que Cache.Tests. La mesure d'occupation (StorageUsage) ne compte pas encore domenia_domain_metadata dans ses catégories."
+      ],
+      "implementation_summary": "Les horloges de périmètre ont un écrivain, LocalStore, et un lecteur, FleetStats. Une liste de clés vide (périmètre hors du domaine) est maintenant envoyée comme null : ses horloges restent inconnues au lieu d'afficher « aucun relevé ». La purge explicite supprime les horloges ping et WMI avec les mesures (Observations) et l'horloge AD avec l'index (Index). Le modèle Get-DomeniaPurgeTargets et le worker StoragePurge sont alignés, et la simulation compte ces lignes."
     },
     {
       "id": 5,
       "title": "Conserver la dernière réussite",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W03-collect-truth",
+      "evidence": [
+        "dev/wad/modules/Domenia-Collection.Model.ps1:Get-DomeniaCollectionClock",
+        "dev/wad/modules/Domenia-Collection.Model.ps1:Format-DomeniaCollectionCounts",
+        "dev/wad/modules/Domenia-Dashboard.UI.ps1:Set-DomeniaFleetDashboardToolTip",
+        "dev/wad/tests/rules/Collection.Tests.ps1:COL-015",
+        "dev/wad/tests/rules/Collection.Tests.ps1:COL-016",
+        "dev/wad/tests/Test-DomeniaFreshness.ps1:The dashboard tool tip keeps its catalogued help"
+      ],
+      "remaining": [
+        "Il reste à exécuter en VM les tests de règles et Freshness."
+      ],
+      "implementation_summary": "La dernière réussite reste séparée de la dernière tentative en échec. Une OU n'est plus dite « englobante » quand seule la profondeur diffère : l'héritage se juge sur le DN du relevé. Une lecture AD compte désormais des « objets AD », plus des postes. L'infobulle de l'accueil garde l'aide du catalogue et y ajoute la provenance. Au démarrage, au refus ou à l'échec d'un calcul, elle revient à l'aide seule."
     },
     {
       "id": 6,
       "title": "Expliquer chaque chiffre",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W01-dashboard",
+      "evidence": [
+        "dev/wad/modules/Domenia-Widgets.UI.ps1:Get-DomeniaWidgetExplanationData, Show-DomeniaWidgetExplanation",
+        "dev/wad/modules/Domenia-WidgetCollect.Model.ps1:Get-DomeniaWidgetExplanation (-Members)",
+        "dev/wad/tests/rules/WidgetCollect.Tests.ps1:WGC-011"
+      ],
+      "remaining": [
+        "Exécuter la suite Boards sous Windows."
+      ],
+      "implementation_summary": "Le panneau « Comprendre ce chiffre » ne réagrège plus le parc sur le thread d'interface : la couverture d'une sonde du parc vient du calcul du worker. La ligne « Postes du total » dit maintenant la vérité : liste exacte, liste recalculée pour les sondes et les requêtes, ou poste sélectionné sans bouton de liste."
     },
     {
       "id": 7,
       "title": "Rendre les détails des sondes complets",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W08-navigation",
+      "evidence": [
+        "dev/wad/modules/Domenia-ProbeDetails.Model.ps1:New-DomeniaProbeDetailProjection",
+        "dev/wad/modules/Domenia-ProbeDetails.Model.ps1:Get-DomeniaProbeDetailPage",
+        "dev/wad/modules/Domenia-Live.Model.ps1:323-345",
+        "dev/wad/modules/Domenia-ProbeDetails.UI.ps1:Update-DomeniaProbeDetailsPage",
+        "dev/wad/tests/Test-DomeniaProbeDetails.ps1"
+      ],
+      "remaining": [
+        "Qualification sous Windows PowerShell 5.1 en VM."
+      ],
+      "implementation_summary": "Déjà sur master et raccordé : le worker garde au plus 2 000 instances ou 256 Ko et projette sous un budget de 96 Ko. L'UI pagine par 100 lignes et affiche le « Total rapporté » à part des « Détails mémorisés »."
     },
     {
       "id": 8,
       "title": "Exporter tous les résultats",
-      "status": "implemented_portable_validated",
-      "owner": "root",
+      "status": "implemented_windows_qualification_pending",
+      "owner": "Codex integration",
       "evidence": [
-        "validation/2026-10-13/central-store/query-scale-binary.json"
+        "validation/2026-10-13/central-store/query-scale-binary.json",
+        "Validation portable avant equipe, relevee dans le relais du 16 octobre."
       ],
       "remaining": [
-        "Qualification Windows5.1 du binaire et export depuis atelier graphique."
+        "Qualification Windows PowerShell 5.1 liee au SHA-256 des paquets."
       ]
     },
     {
       "id": 9,
       "title": "Préserver l’identité lors des changements",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W03-collect-truth",
+      "evidence": [
+        "dev/wad/Domenia-Core.ps1:Get-DomeniaSecretIndexEntry",
+        "dev/wad/Domenia-Core.ps1:Get-DomeniaSecretIndexSummary",
+        "dev/wad/Domenia-Core.ps1:Reset-DomeniaSelectionBoundViews",
+        "dev/wad/modules/Domenia-Selection.UI.ps1:Enter-DomeniaSelectionContext",
+        "dev/wad/Domenia-Core.ps1:Fill-ComputerObject",
+        "dev/wad/modules/Domenia-Engine.Worker.ps1:Get-DomeniaLocalIndexReadWorkerCode (FleetStats bk)",
+        "dev/wad/tests/Test-DomeniaStore.ps1:Secret metadata recorded before the computer now holding the name stays unknown (point 9)"
+      ],
+      "remaining": [
+        "Il reste à exécuter Store et WiringRelations en VM. Correction du rapport précédent : la colonne d'association de la grille, Get-SelectedAssociationSummary et le contexte d'association ne signalent pas l'état Unknown. La grille ne connaît pas la date de création : un lien hérité sans GUID et antérieur au poste y reste visible alors que la fiche le masque."
+      ],
+      "implementation_summary": "Les métadonnées BitLocker et LAPS de la fiche lisent maintenant whenCreated par le GUID de l'objet affiché, sur la clé primaire d'ad_computer_facts. Il n'y a plus de recherche par nom, de LIMIT 1 arbitraire ni de balayage sur le fil d'interface. Sans GUID, rien n'est masqué. Le seau BitLocker « U » de FleetStats est testé sur une vraie base SQLite, comme le filtre de la fiche, avec une ligne témoin qui reste affichée. La fiche poste affiche « identité non vérifiable » pour un lien hérité sans GUID qui ne précède pas la création du poste."
     },
     {
       "id": 10,
       "title": "Qualifier la fraîcheur des sources",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W03-collect-truth",
+      "evidence": [
+        "dev/wad/modules/Domenia-Collection.Model.ps1:Test-DomeniaCollectionClock",
+        "dev/wad/modules/Domenia-Collection.Model.ps1:Format-DomeniaCollectionClock",
+        "dev/wad/modules/Domenia-ProbeDetails.UI.ps1:Update-DomeniaProbeDetailsPage"
+      ],
+      "remaining": [
+        "Il reste à exécuter les tests en VM. Le fournisseur réel d'une mesure de poste (WinRM ou DCOM) n'est pas affiché faute de donnée fiable."
+      ],
+      "implementation_summary": "Chaque relevé conserve contrôleur, fournisseur, heures, enregistrement et version de collecte. Les dates incohérentes sont signalées, jamais corrigées. L'unité des compteurs suit maintenant la famille du relevé."
     },
     {
       "id": 11,
       "title": "Configurer les durées de fraîcheur par profil",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W04-engine",
+      "evidence": [
+        "dev/wad/modules/Domenia-Collection.Model.ps1:Resolve-DomeniaFreshnessTable",
+        "dev/wad/modules/Domenia-Collection.UI.ps1:Update-DomeniaCollectionSettingsUi",
+        "dev/wad/modules/Domenia-Query.xaml:192",
+        "dev/wad/modules/Domenia-Park.Model.ps1:New-DomeniaCollectionPlan",
+        "dev/wad/tests/Test-DomeniaCollectionWiring.ps1"
+      ],
+      "remaining": [
+        "Exécuter les règles et la suite de raccordement dans la VM Windows PowerShell 5.1."
+      ],
+      "implementation_summary": "Profils d'usage (Standard, Réseau lent, Dépannage) et durées par famille, modifiables et rétablissables dans Outils > Requêtes > Réglages de collecte. Chaque famille proposée a un lecteur qui applique la durée du profil. Correctif de revue : l'infobulle de « Réutiliser les mesures fraîches » et le libellé du profil disent maintenant que le plafond vaut pour l'inventaire et les sondes WMI d'un relevé, pas pour toutes les familles."
     },
     {
       "id": 12,
       "title": "Mutualiser les demandes simultanées",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W04-engine",
+      "evidence": [
+        "dev/wad/modules/Domenia-Engine.Model.ps1:Get-DomeniaTaskDedupKey",
+        "dev/wad/Domenia-Core.ps1:Start-UiTask",
+        "dev/wad/modules/Domenia-Engine.UI.ps1:Add-DomeniaTaskSubscriber"
+      ],
+      "remaining": [
+        "Exécuter Engine.Tests et Test-DomeniaCollectionWiring dans la VM."
+      ],
+      "implementation_summary": "La clé de partage d'une lecture couvre l'opération, la charge utile, le compte, le contexte et les exigences. Chaque lecture rejointe est comptée et affichée dans le panneau Opérations. Aucun changement dans cette passe."
     },
     {
       "id": 13,
       "title": "Étendre le regroupement WMI déjà présent",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W04-engine",
+      "evidence": [
+        "dev/wad/modules/Domenia-Live.Model.ps1:Get-DomeniaLiveProbeCode",
+        "dev/wad/modules/Domenia-Collection.Model.ps1:Measure-DomeniaCimQueryPlan",
+        "dev/wad/tests/Test-DomeniaRemoteStore.ps1"
+      ],
+      "remaining": [
+        "Épingler LiveConsole et LiveSelectedPing (intégrateur), puis exécuter Test-DomeniaRemoteStore dans la VM."
+      ],
+      "implementation_summary": "Le worker LiveConsole/LiveSelectedPing lit une seule fois les classes partagées par la console, l'inventaire et les sondes, et compte les requêtes envoyées et évitées. La règle de regroupement est dans le corps épinglé. Aucun changement de logique dans cette passe."
     },
     {
       "id": 14,
       "title": "Adapter la concurrence à la latence",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W04-engine",
+      "evidence": [
+        "dev/wad/modules/Domenia-Collection.Model.ps1:Get-DomeniaReadStepLatencyMs",
+        "dev/wad/modules/Domenia-Collection.Model.ps1:New-DomeniaCampaignSources",
+        "dev/wad/modules/Domenia-Park.UI.ps1:Get-DomeniaParkReadProgressSnapshot",
+        "dev/wad/modules/Domenia-Park.UI.ps1:Register-DomeniaParkMeasurement",
+        "dev/wad/tests/rules/Collection.Tests.ps1:P14 Latence par étape"
+      ],
+      "remaining": [
+        "Exécuter Collection.Tests et Test-DomeniaParkDetection dans la VM."
+      ],
+      "implementation_summary": "Chaque sous-réseau d'un relevé a son propre budget. Correctif de revue : la latence d'une réponse part de l'horloge posée par le moteur au départ (l'attente en file est exclue) et elle est divisée par le nombre d'étapes terminées (Get-DomeniaReadStepLatencyMs). Un plan déjà en cache et une lecture complète se comparent donc. Le plancher de lenteur d'un relevé est maintenant de 500 ms par étape."
     },
     {
       "id": 15,
       "title": "Limiter la charge par site et fournisseur",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W04-engine",
+      "evidence": [
+        "dev/wad/modules/Domenia-Engine.Model.ps1:Get-DomeniaProviderBudget",
+        "dev/wad/modules/Domenia-Engine.Model.ps1:Test-DomeniaProviderAdmission",
+        "dev/wad/modules/Domenia-Collection.Model.ps1:Get-DomeniaCollectionSourceKey"
+      ],
+      "remaining": [
+        "Exécuter les règles et les suites dans la VM."
+      ],
+      "implementation_summary": "Budgets distincts par contrôleur, sous-réseau présumé et fournisseur, appliqués dans le moteur et dans les relevés. Aucun changement dans cette passe."
     },
     {
       "id": 16,
       "title": "Qualifier la priorité du travail visible",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W04-engine",
+      "evidence": [
+        "dev/wad/modules/Domenia-Engine.Model.ps1:Select-DomeniaNextQueuedEntry",
+        "dev/wad/modules/Domenia-Engine.UI.ps1:Invoke-DomeniaQueuedTaskPromotion",
+        "dev/wad/tests/Test-DomeniaEngineLoad.ps1"
+      ],
+      "remaining": [
+        "Lancer le banc Test-DomeniaEngineLoad (cas Point 16) dans la VM."
+      ],
+      "implementation_summary": "Un travail de fond en longue attente obtient une place réservée, même si le fournisseur est saturé par des actions explicites. Il ne passe jamais par-dessus une pause ou un compte rejeté. Aucun changement dans cette passe."
     },
     {
       "id": 17,
       "title": "Adapter les délais à la progression",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W04-engine",
+      "evidence": [
+        "dev/wad/modules/Domenia-Engine.UI.ps1:Invoke-DomeniaUiTaskDispatch",
+        "dev/wad/modules/Domenia-Park.UI.ps1:Add-DomeniaParkHeldTime",
+        "dev/wad/tests/Test-DomeniaCollectionWiring.ps1:Point 17",
+        "dev/wad/tests/Test-DomeniaParkDetection.ps1:Campagne : plus rien à envoyer"
+      ],
+      "remaining": [
+        "Exécuter Test-DomeniaCollectionWiring et Test-DomeniaParkDetection dans la VM."
+      ],
+      "implementation_summary": "Les lectures d'un relevé portent un canal de progression, et le moteur distingue l'absence de progrès de la durée totale. Correctifs de revue : un nouveau cas de raccordement exécute le vrai Invoke-DomeniaUiTaskDispatch sur un runspace local inerte. Il vérifie que l'horloge et les étapes sont remises à zéro au départ, que le canal est le même objet sur le travail et que le moteur juge la lecture sur sa progression. Par ailleurs, l'attente réelle ne croît plus quand il ne reste rien à envoyer."
     },
     {
       "id": 18,
       "title": "Classer les erreurs avant toute reprise",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W04-engine",
+      "evidence": [
+        "dev/wad/modules/Domenia-Collection.Model.ps1:ConvertTo-DomeniaCollectionFailure",
+        "dev/wad/modules/Domenia-Collection.Model.ps1:Get-DomeniaCollectionRetryDecision",
+        "dev/wad/modules/Domenia-Live.Model.ps1:Get-DomeniaLiveProbeCode (Step-WReadProgress)",
+        "dev/wad/modules/Domenia-Park.UI.ps1:Fail-DomeniaParkSession",
+        "dev/wad/modules/Domenia-Park.UI.ps1:Complete-DomeniaParkStored",
+        "dev/wad/tests/rules/Collection.Tests.ps1:P18",
+        "dev/wad/tests/Test-DomeniaParkDetection.ps1",
+        "dev/wad/tests/Test-DomeniaRemoteStore.ps1"
+      ],
+      "remaining": [
+        "Épingler LiveConsole et LiveSelectedPing (intégrateur), puis exécuter les règles et les suites dans la VM."
+      ],
+      "implementation_summary": "Seul un poste dont la réponse est prouvée est relu, au plus deux fois (30 s puis 2 min). Correctifs de revue : en WMI seul, « serveur RPC indisponible » est classé Unreachable/Neutral, sans reprise ni effet sur le budget du sous-réseau. Une lecture arrêtée par le moteur n'est reprise que si son ping a répondu : le worker dépose la réponse du ping dans le canal de progression. Un poste relu garde son observation précédente jusqu'au dernier essai."
     },
     {
       "id": 19,
       "title": "Mémoriser les capacités des postes",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W04-engine",
+      "evidence": [
+        "dev/wad/modules/Domenia-Collection.Model.ps1:Get-DomeniaCapabilityPlan",
+        "dev/wad/modules/Domenia-Park.UI.ps1:Invoke-DomeniaParkRunTick"
+      ],
+      "remaining": [
+        "Exécuter les règles et les suites dans la VM."
+      ],
+      "implementation_summary": "Les capacités manquantes d'un poste sont gardées un temps limité, et elles sont invalidées par une nouvelle version de Windows ou par un changement de compte. Une reprise après incident garde maintenant les preuves de l'observation précédente (version de Windows, classes absentes)."
     },
     {
       "id": 20,
       "title": "Enregistrer les campagnes pour reprise",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W04-engine",
+      "evidence": [
+        "dev/wad/modules/Domenia-Collection.UI.ps1:Update-DomeniaCampaignResumeUi",
+        "dev/wad/modules/Domenia-Collection.UI.ps1:Complete-DomeniaCampaignPlan",
+        "dev/wad/modules/Domenia-Collection.UI.ps1:Initialize-DomeniaCollectionSettingsUi",
+        "dev/wad/modules/Domenia-Park.UI.ps1:Update-DomeniaParkControls",
+        "dev/wad/modules/Domenia-Park.UI.ps1:Invoke-DomeniaParkRunTick",
+        "dev/wad/modules/Domenia-Collection.Model.ps1:ConvertFrom-DomeniaCampaignProgressText",
+        "dev/wad/modules/Domenia-Collection.Model.ps1:New-DomeniaCampaignPlan",
+        "dev/wad/tests/Test-DomeniaCollectionWiring.ps1:Point 20 zone de reprise",
+        "dev/wad/tests/rules/Collection.Tests.ps1:P20"
+      ],
+      "remaining": [
+        "Exécuter les règles et les suites dans la VM, et mesurer le temps d'approbation d'un plan de 20 000 postes."
+      ],
+      "implementation_summary": "Plan durable avec reprise des seuls postes non validés. Correctifs de revue : la zone de reprise des réglages se met à jour quand un relevé démarre ou s'achève, quand le plan est enregistré ou retiré, et quand la section est dépliée. Pendant un relevé, rien n'est proposé. Un changement de compte, de base ou de session est enregistré comme incident avec son motif. Le compte des bits se fait octet par octet, et le plan se construit sans appel de fonction par poste."
     },
     {
       "id": 21,
       "title": "Fiabiliser le suivi différentiel existant",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W04-engine",
+      "evidence": [
+        "dev/wad/Domenia-Core.ps1:Start-DomeniaIndexRefresh",
+        "dev/wad/modules/Domenia-Cache.Model.ps1:Test-DomeniaSyncCheckpoint",
+        "dev/wad/tests/Test-DomeniaCollectionWiring.ps1:Point 21 repère refusé"
+      ],
+      "remaining": [
+        "Épingler IndexBuild (intégrateur), puis exécuter Cache.Tests et la suite de raccordement dans la VM."
+      ],
+      "implementation_summary": "Le repère n'est réutilisé que sur le même contrôleur et la même instance, avec des données cohérentes. Correctif de revue : quand le repère est refusé, la confirmation estime une relecture complète (nombre d'objets de la base) sous le titre « Relecture complète du domaine : <motif> ». Le motif est journalisé une seule fois, au lancement réel."
     },
     {
       "id": 22,
       "title": "Conserver un recensement complet de l’OU",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W05-directory",
+      "evidence": [
+        "dev/wad/Domenia-Core.ps1:Get-DomeniaIndexWorkerCode (recensement avec uSNChanged, Identity.Usn)",
+        "dev/wad/Domenia-Core.ps1:Load-DomeniaIndexMetadata (CensusGap compté dans ad_census_gaps)",
+        "dev/wad/Domenia-Core.ps1:Start-DomeniaIndexRefresh (revenu au texte d'origine : delta toujours)",
+        "dev/wad/modules/Domenia-Storage.Worker.ps1:IndexBulk (index_seen.usn, ad_census_gaps, nettoyage par lecture et par OU complète)",
+        "dev/wad/modules/Domenia-Storage.Worker.ps1:DirectoryAbsence (résultats Gap)",
+        "dev/wad/modules/Domenia-DirectorySync.Model.ps1:Get-DomeniaCensusAdvice (ClockInvalid), ConvertTo-DomeniaSnapshotCoverage, New-DomeniaCensusGapStoreRow, Get-DomeniaCensusGapSummary",
+        "dev/wad/modules/Domenia-DirectorySync.UI.ps1:Request/Start/Complete/Fail-DomeniaCensusGapRead",
+        "dev/wad/modules/Domenia-Engine.Worker.ps1:LocalIndexRead DirectorySync (Gaps, GapTotal)",
+        "dev/wad/tests/rules/DirectorySync.Tests.ps1:P22 (horloge via Get-DomeniaFleetFreshness, lecture des manquants)",
+        "dev/wad/tests/Test-DomeniaIndexPersistence.ps1:P22 (borne USN, lecture coupée puis delta, lecture par GUID, OU complète)",
+        "dev/wad/tests/Test-DomeniaDirectoryReads.ps1:P22 census gaps read by GUID"
+      ],
+      "remaining": [
+        "Exécuter sous Windows PowerShell 5.1 dans la VM : Test-DomeniaRules, Test-DomeniaIndexPersistence, Test-DomeniaDirectoryReads ; qualifier la lecture des manquants sur CNAMTS-DC01."
+      ],
+      "implementation_summary": "Le recensement GUID lit aussi uSNChanged : seules les identités dont l'USN est au plus égal au repère capturé avant la passe comptent comme manquantes (gap=), une création pendant la passe revient au delta suivant. Les manquantes sont gardées dans ad_census_gaps (50 000 au plus, total exact), retirées dès qu'une lecture les apporte et vidées dans le périmètre d'une OU relue en entier. La mise à jour des changements reste toujours un delta (plus de conversion en relecture complète du domaine, qui pouvait bloquer le delta) ; l'onglet Contrôles propose « Lire les objets manquants… » (lecture par GUID, 200 au plus, confirmée, sans lecture des objets supprimés). Le conseil « horloge douteuse » s'affiche désormais depuis ClockInvalid de Get-DomeniaFleetFreshness, y compris dans la couverture d'un relevé."
     },
     {
       "id": 23,
       "title": "Traiter les déplacements entre OU",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W05-directory",
+      "evidence": [
+        "dev/wad/modules/Domenia-DirectorySync.Worker.ps1:Get-DomeniaAbsenceCheckWorkerCode (faits du poste)",
+        "dev/wad/modules/Domenia-Storage.Worker.ps1:DirectoryAbsence (INSERT OR REPLACE ad_computer_facts)",
+        "dev/wad/modules/Domenia-Continuity.UI.ps1:Invoke-DomeniaObjectChanges",
+        "dev/wad/tests/Test-DomeniaWiringCache.ps1:P23 (deux cas)",
+        "dev/wad/tests/Test-DomeniaIndexPersistence.ps1:P23 faits retrouvés",
+        "dev/wad/tests/Test-DomeniaDirectoryReads.ps1:P24 (faits relus)"
+      ],
+      "remaining": [
+        "Qualifier sous 5.1 : Test-DomeniaWiringCache, Test-DomeniaLiveSearchView et Test-DomeniaIndexPersistence dans la VM."
+      ],
+      "implementation_summary": "Un objet déplacé ou renommé garde une seule ligne sous son GUID (liste en direct, revalidation, base locale). Un poste retrouvé par la vérification reprend aussi ses faits (version du système, création, dernier mot de passe, expiration LAPS) lus en même temps, datés de la vérification. La branche de déplacement d'Invoke-DomeniaObjectChanges est couverte : changement de clé, instantané déplacé, cache de visite vidé par GUID, état « Déplacé vers … », et refus de fusion quand la nouvelle clé existe déjà."
     },
     {
       "id": 24,
       "title": "Distinguer disparition et suppression",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W05-directory",
+      "evidence": [
+        "dev/wad/modules/Domenia-Storage.Worker.ps1:Get-DomeniaStorageUsageWorkerCode, Get-DomeniaStoragePurgeWorkerCode",
+        "dev/wad/modules/Domenia-Cache.Model.ps1:Get-DomeniaPurgeTargets",
+        "dev/wad/tests/Test-DomeniaIndexPersistence.ps1:mesure et purge Index",
+        "dev/wad/tests/rules/Cache.Tests.ps1:D029"
+      ],
+      "remaining": [
+        "Qualifier sur le DC du labo avec la corbeille AD et un compte non administrateur."
+      ],
+      "implementation_summary": "Inchangé sur le fond : un objet absent d'une lecture complète est « non revu », jamais supprimé ; seule une entrée isDeleted lue par GUID prouve une suppression. Les tables ad_absences (et les autres copies locales de l'annuaire) sont maintenant mesurées et purgées avec la catégorie Index."
     },
     {
       "id": 25,
       "title": "Lire les grands groupes sans troncature",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "Codex integration",
+      "evidence": [
+        "Commit ff4d18a"
+      ],
+      "remaining": [
+        "Qualification Windows PowerShell 5.1 liee au SHA-256 des paquets."
+      ]
     },
     {
       "id": 26,
       "title": "Afficher le contrôleur effectivement interrogé",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "Codex integration",
+      "evidence": [
+        "Commit ff4d18a"
+      ],
+      "remaining": [
+        "Qualification Windows PowerShell 5.1 liee au SHA-256 des paquets."
+      ]
     },
     {
       "id": 27,
       "title": "Expliquer les données de connexion AD",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W05-directory",
+      "evidence": [
+        "dev/wad/modules/Domenia-LogonActivity.Worker.ps1:Get-DomeniaLogonByDcWorkerCode",
+        "dev/wad/tests/Test-DomeniaDirectoryReads.ps1:P27"
+      ],
+      "remaining": [
+        "Qualifier dans la VM avec CNAMTS-DC01 (et un second contrôleur si disponible)."
+      ],
+      "implementation_summary": "Aucun changement dans cette passe : lastLogonTimestamp expliqué et lastLogon lu sur chaque contrôleur par LogonByDcRead, sur geste explicite."
     },
     {
       "id": 28,
       "title": "Parcourir le schéma en lecture seule",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W05-directory",
+      "evidence": [
+        "dev/wad/modules/Domenia-DirectorySchema.Model.ps1:ConvertTo-DomeniaAdSchemaCatalog (AttributeKeys, ClassKeys), Find-DomeniaAdSchemaEntries",
+        "dev/wad/modules/Domenia-DirectorySchema.UI.ps1:Request-DomeniaAdSchemaListUpdate",
+        "dev/wad/tests/rules/DirectorySchema.Tests.ps1:P28"
+      ],
+      "remaining": [
+        "Qualifier la lecture du schéma réel du labo et la frappe dans le filtre sous 5.1."
+      ],
+      "implementation_summary": "Le catalogue du schéma garde ses noms triés une fois ; le filtre compte toutes les correspondances mais ne construit que les lignes affichées (500), et la saisie est différée de 250 ms par un minuteur protégé (New-DomeniaTimer, lié à la session) au lieu d'un filtrage à chaque frappe."
     },
     {
       "id": 29,
       "title": "Optimiser les filtres LDAP",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W05-directory",
+      "evidence": [
+        "dev/wad/modules/Domenia-DirectorySchema.Model.ps1:Get-DomeniaLdapFilterAnalysis, Test-DomeniaTypedSearchAllowed",
+        "dev/wad/tests/rules/DirectorySchema.Tests.ps1:P29"
+      ],
+      "remaining": [
+        "Qualifier sous 5.1 : règles, puis frappe dans la barre globale."
+      ],
+      "implementation_summary": "Aucun changement dans cette passe : analyse locale du coût d'un filtre LDAP et blocage des recherches larges à la frappe."
     },
     {
       "id": 30,
       "title": "Comparer deux relevés d’annuaire",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W05-directory",
+      "evidence": [
+        "dev/wad/modules/Domenia-Storage.Worker.ps1:DirectorySnapshot (Get-SnapWRowsSha256, copie SQL)",
+        "dev/wad/modules/Domenia-Storage.UI.ps1:Start-DomeniaStorageWork, Fail-DomeniaStorageWork",
+        "dev/wad/modules/Domenia-DirectorySync.UI.ps1:Start-DomeniaSnapshotCapture (ObjectEstimate)",
+        "dev/wad/tests/Test-DomeniaIndexPersistence.ps1:P30 (empreinte recalculée, banc 50 000, niveau direct)",
+        "dev/wad/tests/Test-DomeniaWiringCache.ps1:P30 lot dédié"
+      ],
+      "remaining": [
+        "Exécuter le banc 50 000 objets et la suite IndexPersistence sous 5.1 dans la VM (le SQL a seulement été vérifié avec sqlite3 3.53 de Python, non qualifiant)."
+      ],
+      "implementation_summary": "La copie d'un relevé se fait dans SQLite en une instruction (INSERT … SELECT), les seules lignes à antislash avant le suffixe sont vérifiées aux frontières RDN en PowerShell, et l'empreinte SHA-256 (même définition qu'avant) est calculée en une lecture continue du tampon SQLite, sans objet par ligne. Un relevé passe seul dans son lot de stockage avec un délai à sa taille (60 s + 1 s par 250 objets, 120 à 1800 s) ; un relevé en échec est signalé et n'est pas rejoué, sans compter dans la suspension des sauvegardes. Banc minuté de 50 000 objets ajouté."
     },
     {
       "id": 31,
       "title": "Choisir l’emplacement local de la base",
-      "status": "in_progress",
-      "owner": "engine_audit",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W06-storage",
+      "evidence": [
+        "dev/wad/modules/Domenia-Storage.Worker.ps1:Get-DomeniaStorageMaintenanceWorkerCode (Test-MaintWTarget)",
+        "dev/wad/modules/Domenia-Store.Model.ps1:Get-DomeniaStorageMaintenancePreview",
+        "dev/wad/modules/Domenia-Storage.UI.ps1:Start-DomeniaStorageMaintenanceApply",
+        "dev/wad/modules/Domenia-Storage.UI.ps1:Start-DomeniaStorageMaintenanceDrain",
+        "dev/wad/modules/Domenia-Storage.UI.ps1:Start-DomeniaStorageMaintenanceUndo",
+        "dev/wad/tests/Test-DomeniaEngineResilience.ps1:Case 'Writes queued after the preview are saved, then previewed again before any copy'",
+        "dev/wad/tests/Test-DomeniaStorageMaintenance.ps1:Case 'Point 31: a completed move is undone only through the marker of its original'"
+      ],
+      "remaining": [
+        "Aucune suite n'a été exécutée : passage sous Windows PowerShell 5.1 dans la VM. L'intégrateur doit ré-épingler le worker StorageMaintenance."
+      ],
+      "implementation_summary": "L'assistant « Déplacer la base… » valide la destination avant tout changement (nouveau .db local, dossier existant, aucune annexe SQLite, réserve de deux fois la base plus 32 Mo, test d'écriture réel). L'aperçu donne la taille, l'espace libre, la réserve et le retour arrière. « Revenir à la base précédente » reste offert dans la session tant que la nouvelle base n'a reçu aucune écriture. Depuis la relecture, des écritures arrivées entre l'aperçu et la confirmation sont enregistrées, puis un nouvel aperçu est demandé : l'ancien comportement menait à une copie refusée d'avance."
     },
     {
       "id": 32,
       "title": "Déplacer la base avec un assistant",
-      "status": "in_progress",
-      "owner": "engine_audit",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W06-storage",
+      "evidence": [
+        "dev/wad/Domenia-Core.ps1:Start-UiTask",
+        "dev/wad/modules/Domenia-Store.Model.ps1:Test-DomeniaStorageLockedWriter",
+        "dev/wad/modules/Domenia-Store.Model.ps1:Get-DomeniaStorageInputRefusal",
+        "dev/wad/modules/Domenia-Storage.UI.ps1:Queue-DomeniaLinkChanges",
+        "dev/wad/modules/Domenia-Storage.UI.ps1:Queue-DomeniaMetadata",
+        "dev/wad/modules/Domenia-Storage.UI.ps1:Submit-DomeniaStoreBatch",
+        "dev/wad/modules/Domenia-Storage.UI.ps1:Request-DomeniaStorageWork",
+        "dev/wad/modules/Domenia-Storage.UI.ps1:Start-DomeniaStorageWork",
+        "dev/wad/modules/Domenia-Storage.UI.ps1:Invoke-DomeniaStorageMaintenanceSwitch",
+        "dev/wad/modules/Domenia-QueryLibrary.Store.UI.ps1:Save recipe / migration admission",
+        "dev/wad/tests/rules/Storage.Tests.ps1:P32",
+        "dev/wad/tests/Test-DomeniaEngineResilience.ps1:Case 'Under the lock an association, a saved query or an import is refused where it is made; collected data waits'",
+        "dev/wad/tests/Test-DomeniaEngineResilience.ps1:Case 'The save timer idles at one second while a maintenance holds the base'",
+        "dev/wad/tests/Test-DomeniaEngineResilience.ps1:Case 'The maintenance lock refuses the writers of the base, not the receipts journal or a chosen document'"
+      ],
+      "remaining": [
+        "Qualification VM d'un déplacement réel avec collecte en cours, puis d'une reprise après redémarrage."
+      ],
+      "implementation_summary": "Collectes suspendues, file vidée avant la copie, verrou réel, copie vérifiée, bascule et rechargement des vues ; l'original est conservé. Corrections de la relecture : le verrou ne refuse plus que les opérations qui écrivent la base (Test-DomeniaStorageLockedWriter). ReceiptStore et DocumentStore restent donc admis et les écritures AD ne sont plus bloquées. Une association, une requête enregistrée ou une reprise d'anciennes données saisie sous le verrou est refusée avec son motif (Get-DomeniaStorageInputRefusal) au lieu d'être perdue en silence après la bascule. La minuterie d'enregistrement revient à 1 s pendant le verrou, au lieu de 20 ms."
     },
     {
       "id": 33,
       "title": "Automatiser les sauvegardes cohérentes",
-      "status": "in_progress",
-      "owner": "engine_audit",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W06-storage",
+      "evidence": [
+        "dev/wad/modules/Domenia-Store.Model.ps1:Get-DomeniaStorageBackupSchedule",
+        "dev/wad/modules/Domenia-Storage.UI.ps1:Invoke-DomeniaScheduledBackup",
+        "dev/wad/tests/rules/Storage.Tests.ps1:P33"
+      ],
+      "remaining": [
+        "Qualification VM d'un cycle automatique complet."
+      ],
+      "implementation_summary": "La fréquence (1 à 720 h), la rotation (2 à 30 copies), la prochaine échéance, le dernier succès vérifié et le dernier échec de la session sont affichés. Un succès n'est compté que sur un reçu vérifié (quick_check, taille, SHA-256). Inchangé par la relecture."
     },
     {
       "id": 34,
       "title": "Restaurer depuis l’interface",
-      "status": "in_progress",
-      "owner": "engine_audit",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W06-storage",
+      "evidence": [
+        "dev/wad/modules/Domenia-Storage.UI.ps1:Request-DomeniaStorageMaintenance",
+        "dev/wad/modules/Domenia-Storage.UI.ps1:Invoke-DomeniaStorageMaintenanceDrainTick",
+        "dev/wad/modules/Domenia-Storage.UI.ps1:Start-DomeniaStorageMaintenanceApply",
+        "dev/wad/modules/Domenia-Storage.UI.ps1:Clear-DomeniaStoragePendingForOtherBase",
+        "dev/wad/tests/Test-DomeniaEngineResilience.ps1:Case 'A restore over an unreadable base inspects at once although its queue holds collected data'",
+        "dev/wad/tests/Test-DomeniaEngineResilience.ps1:Case 'A restore over an unreadable base waits only for running work, and its timeout keeps collections suspended'",
+        "dev/wad/tests/Test-DomeniaStorageMaintenance.ps1:Case 'Point 34: restore over a corrupt active base...'"
+      ],
+      "remaining": [
+        "Qualification VM d'une restauration sur une base corrompue."
+      ],
+      "implementation_summary": "La restauration prévisualise puis restaure dans un nouveau fichier ; une base corrompue reste intacte et ouvre un mode restauration au démarrage. Corrigé : la restauration sur une base illisible n'attend plus une file que l'écrivain verrouillé ne videra jamais, ce qui bloquait l'assistant pour toute la session. La demande, l'attente et l'application admettent cette file (AllowQueued) ; la bascule la retire et en affiche le nombre. Après 120 s, le message de dépassement dit que les collectes restent suspendues."
     },
     {
       "id": 35,
       "title": "Détecter l’espace disque insuffisant",
-      "status": "in_progress",
-      "owner": "engine_audit",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W06-storage",
+      "evidence": [
+        "dev/wad/modules/Domenia-Store.Model.ps1:Get-DomeniaStorageSpaceState",
+        "dev/wad/modules/Domenia-Storage.UI.ps1:Update-DomeniaStorageSpace",
+        "dev/wad/tests/rules/Storage.Tests.ps1:P35"
+      ],
+      "remaining": [
+        "Qualification VM sur un volume presque plein."
+      ],
+      "implementation_summary": "Chaque reçu donne l'espace libre mesuré. Les nouvelles collectes sont suspendues sous 512 Mo (plus quatre fois la file) ; le worker refuse d'écrire sous 32 Mo, et ce qui reste en mémoire est affiché. Inchangé par la relecture."
     },
     {
       "id": 36,
       "title": "Contrôler l’intégrité et les migrations",
-      "status": "in_progress",
-      "owner": "engine_audit",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W06-storage",
+      "evidence": [
+        "dev/wad/modules/Domenia-Storage.Worker.ps1:Get-DomeniaStorageIntegrityWorkerCode",
+        "dev/wad/modules/Domenia-Store.Model.ps1:Get-DomeniaStorageIntegrityVerdict",
+        "dev/wad/tests/Test-DomeniaStorageMaintenance.ps1:Case 'Point 36: integrity check...'"
+      ],
+      "remaining": [
+        "Épinglage de StorageIntegrity (--add) par l'intégrateur, puis exécution VM."
+      ],
+      "implementation_summary": "Contrôle d'intégrité explicite en lecture seule, avec un verdict honnête ; la migration de schéma est vérifiée dans sa transaction ; une base illisible ouvre le mode restauration. Inchangé par la relecture."
     },
     {
       "id": 37,
       "title": "Régler la rétention par famille",
-      "status": "in_progress",
-      "owner": "engine_audit",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W06-storage",
+      "evidence": [
+        "dev/wad/modules/Domenia-Storage.Worker.ps1:Get-DomeniaStorageRetentionWorkerCode (LinkHistory Prepare/OrderCheck)",
+        "dev/wad/modules/Domenia-Store.Model.ps1:ConvertTo-DomeniaStoragePolicy",
+        "dev/wad/tests/Test-DomeniaStorageMaintenance.ps1:Case 'Point 37: link history compaction reads each observation once on a large park'",
+        "dev/wad/tests/Test-DomeniaStorageMaintenance.ps1:Case 'Point 37: link history keeps every change and the bounds of each period'",
+        "dev/wad/tests/rules/Storage.Tests.ps1:P37",
+        "guides/administrateur.md:Conservation par famille"
+      ],
+      "remaining": [
+        "Épinglage de StorageRetention (jamais épinglée, donc refusée à l'exécution sur master), puis exécution VM, dont le cas à 400 000 lignes."
+      ],
+      "implementation_summary": "La famille « Historique des associations » résume l'historique sans perdre de changement. Corrigé : les voisins sont calculés en une seule passe ordonnée (table TEMP numérotée par poste, date et id, avec un contrôle d'ordre qui refuse toute suppression si la numérotation est fausse), au lieu de sous-requêtes corrélées dont le coût dépassait le délai de 300 s sur un grand parc. Le résultat est identique à l'ancienne requête sur 60 jeux aléatoires, et 400 000 lignes sont traitées en 0,6 s (Python sqlite3 3.53). Le défaut de LinkHistoryDays passe à 0 (conservé sans limite), conformément à la décision du 2026-10-04."
     },
     {
       "id": 38,
       "title": "Compacter les reçus sans casser la reprise",
-      "status": "in_progress",
-      "owner": "engine_audit",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "Codex integration",
+      "evidence": [
+        "Commit 4943481"
+      ],
+      "remaining": [
+        "Qualification Windows PowerShell 5.1 liee au SHA-256 des paquets."
+      ]
     },
     {
       "id": 39,
       "title": "Accélérer les lectures SQL mesurées",
-      "status": "in_progress",
-      "owner": "engine_audit",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W06-storage",
+      "evidence": [
+        "dev/wad/modules/Domenia-Engine.Worker.ps1:Get-DomeniaLocalIndexReadWorkerCode (Read-StoreWCommitted -DetailResultKind/-DetailRequestKey)",
+        "dev/wad/Domenia-Core.ps1:Get-DomeniaSqliteSchemaText",
+        "dev/wad/tests/Test-DomeniaStore.ps1:Case 'Point 39: detail filters are bound after the GUID slots and keep only the requested result'"
+      ],
+      "remaining": [
+        "Gain réel à mesurer sur un grand parc dans la VM, ainsi que le coût de création de l'index au premier démarrage sur une grosse base."
+      ],
+      "implementation_summary": "Index composite ix_ad_objects_type_name, requêtes préparées avec valeurs liées, réutilisation d'une requête préparée pour les tranches de 32 GUID, plans et temps mesurés. Corrigé : le type et la clé de résultat des détails sont maintenant liés en paramètres après les emplacements GUID, au lieu d'être insérés comme littéraux. Un cas de parité vérifie le type seul, la clé seule, les deux, une apostrophe et une tentative d'injection."
     },
     {
       "id": 40,
       "title": "Rendre les limites de stockage visibles",
-      "status": "in_progress",
-      "owner": "engine_audit",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W06-storage",
+      "evidence": [
+        "dev/wad/modules/Domenia-Store.Model.ps1:Get-DomeniaStorageLimitLines",
+        "dev/wad/tests/rules/Storage.Tests.ps1:P40"
+      ],
+      "remaining": [
+        "Exécution VM des règles."
+      ],
+      "implementation_summary": "« Limites du stockage » affiche les bornes explicites, la taille mesurée et les collections les plus volumineuses. Inchangé par la relecture ; la ligne de conservation reste exacte avec le nouveau défaut."
     },
     {
       "id": 41,
       "title": "Qualifier la protection contre les refus d’authentification",
-      "status": "in_progress",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "windows_qualification_only",
+      "owner": "W07-accounts-writes",
+      "evidence": [
+        "dev/wad/modules/Domenia-Guard.Model.ps1:Enter-WCredentialAttempt",
+        "dev/wad/Domenia-Core.ps1:Invoke-GlobalSearch (repli sans contrôleur, PSObject.Copy)",
+        "dev/wad/tests/Test-DomeniaCredentialGuard.ps1:Point 41 cases"
+      ],
+      "remaining": [
+        "Exécuter Test-DomeniaCredentialGuard, Test-DomeniaRelationsAlignment et Test-DomeniaWiringAcces sous Windows PowerShell 5.1 dans la VM ; ré-épinglage des opérations par l'intégrateur."
+      ],
+      "implementation_summary": "Inchangé par la reprise : chaque appel qui envoie un compte prend le bail et partage le refus ; la lecture 4624 est attribuée à la session Windows. La reprise ajoute que le repli sans contrôleur de la recherche globale garde tout le contexte (génération, opération, identité), donc le même bail et la même attribution."
     },
     {
       "id": 42,
       "title": "Simplifier les comptes secondaires",
-      "status": "in_progress",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W07-accounts-writes",
+      "evidence": [
+        "dev/wad/modules/Domenia-Access.Model.ps1:Get-DomeniaAccountUsageRows",
+        "dev/wad/modules/Domenia-Accounts.Async.ps1:Get-DomeniaAccountAliasSummary",
+        "dev/wad/Domenia-Core.ps1:Update-DomeniaAccountUi",
+        "dev/wad/tests/Test-DomeniaWiringAcces.ps1:P42 (aucune ligne de noms sans nom), P45 (libellé exact)"
+      ],
+      "remaining": [
+        "Exécution des suites sous Windows PowerShell 5.1 (VM)."
+      ],
+      "implementation_summary": "L'onglet Comptes affiche le compte, la provenance et l'état enregistré de chaque usage. Corrigé : Get-DomeniaAccountUsageRows et Get-DomeniaAccountAliasSummary rendent leurs lignes sans virgule de tête ; la ligne « Noms confirmés par lʼannuaire » n'apparaît plus vide et ses groupes sont séparés par « ; »."
     },
     {
       "id": 43,
       "title": "Qualifier le coffre Windows optionnel",
-      "status": "in_progress",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "windows_qualification_only",
+      "owner": "W07-accounts-writes",
+      "evidence": [
+        "dev/wad/tests/Test-DomeniaVaultQualification.ps1",
+        "dev/wad/modules/Domenia-Access.Model.ps1:Get-DomeniaAccountUsageRows"
+      ],
+      "remaining": [
+        "Exécuter Test-DomeniaVaultQualification.ps1 -NativeWindows dans la session utilisateur de la VM de qualification."
+      ],
+      "implementation_summary": "Inchangé : suite de qualification du coffre Windows facultatif. Test-DomeniaVaultQualification reçoit désormais des lignes aplaties de Get-DomeniaAccountUsageRows."
     },
     {
       "id": 44,
       "title": "Corriger un compte sans reconnecter toute l’application",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W07-accounts-writes",
+      "evidence": [
+        "dev/wad/modules/Domenia-Accounts.Async.ps1:Complete-DomeniaAccountCorrection",
+        "dev/wad/modules/Domenia-Accounts.Async.ps1:Get-DomeniaAccountCredentialHolders",
+        "dev/wad/modules/Domenia-Accounts.Async.ps1:Register-DomeniaCredentialValidation",
+        "dev/wad/modules/Domenia-Access.Model.ps1:Get-DomeniaAccountReleaseDecision",
+        "dev/wad/modules/Domenia-Guard.Model.ps1:Assert-WCredentialAllowed / Register-WCredentialFailure",
+        "dev/wad/modules/Domenia-Engine.UI.ps1:Set-DomeniaCredentialGuardContext / Invoke-DomeniaUiTaskDispatch",
+        "dev/wad/modules/Domenia-Access.UI.ps1:Invoke-DomeniaAccessRecovery",
+        "dev/wad/Domenia-Core.ps1:Invoke-GlobalSearch",
+        "dev/wad/tests/rules/Access.Tests.ps1:P44 (écriture, anti-verrouillage)",
+        "dev/wad/tests/Test-DomeniaCredentialGuard.ps1:Point 44 cases",
+        "dev/wad/tests/Test-DomeniaAccounts.ps1:Point 44 compte de connexion valide comme compte poste",
+        "dev/wad/tests/Test-DomeniaWiringAcces.ps1:P44 Anti-verrouillage"
+      ],
+      "remaining": [
+        "Exécution de Test-DomeniaRules, Test-DomeniaCredentialGuard, Test-DomeniaAccounts et Test-DomeniaWiringAcces sous 5.1 (VM) ; ré-épinglage de GlobalSearch par l'intégrateur."
+      ],
+      "implementation_summary": "Un seul chemin de correction sans reconnexion, désormais câblé : les listes de clés, de pauses levées et de travaux arrivent aplaties, donc les lectures anciennes sont bien arrêtées et « Protection levée » n'est annoncée que si une pause a été levée. Une écriture garde son compte jusqu'à sa fin, sauf si ce compte lui a déjà été refusé. Le repli sans contrôleur de la recherche garde la génération. Anti-verrouillage : la pause n'est levée que si toutes les copies stockées du compte (connexion, session Windows, poste, secrets, compte poste saisi, temporaires) ont été revalidées après le refus. Sinon l'opérateur est guidé et rien n'est arrêté ni rejoué."
     },
     {
       "id": 45,
       "title": "Rapprocher les alias depuis une identité validée",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W07-accounts-writes",
+      "evidence": [
+        "dev/wad/modules/Domenia-Guard.Model.ps1:Get-DomeniaCredentialAliasKeys / Get-DomeniaCredentialGroupKeys",
+        "dev/wad/modules/Domenia-Accounts.Async.ps1:Complete-DomeniaAccountAliasRead",
+        "dev/wad/tests/rules/Access.Tests.ps1:P45",
+        "dev/wad/tests/Test-DomeniaWiringAcces.ps1:P45 Resultat du worker"
+      ],
+      "remaining": [
+        "Épinglage de la nouvelle opération AccountAliasRead par l'intégrateur ; exécution 5.1 en VM."
+      ],
+      "implementation_summary": "Corrigé : Get-DomeniaCredentialAliasKeys et Get-DomeniaCredentialGroupKeys rendent des clés distinctes et non une chaîne jointe par des espaces. Les noms d'un même SID partagent donc réellement la pause, le verrou et l'attribution des refus, et ils sont visibles dans Comptes."
     },
     {
       "id": 46,
       "title": "Expliquer les droits nécessaires",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W07-accounts-writes",
+      "evidence": [
+        "dev/wad/modules/Domenia-Access.Model.ps1:Get-DomeniaOperationRequirement",
+        "dev/wad/modules/Domenia-Access.Model.ps1:Get-DomeniaOperationFailureGuidance",
+        "dev/wad/tests/rules/Access.Tests.ps1:P46"
+      ],
+      "remaining": [
+        "Exécution 5.1 en VM."
+      ],
+      "implementation_summary": "Inchangé par la reprise : chaque opération annonce le compte, le droit et l'accès réseau requis, et une erreur distingue refus d'accès, compte rejeté et ressource indisponible."
     },
     {
       "id": 47,
       "title": "Diagnostiquer les verrouillages avec des preuves",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "Codex integration",
+      "evidence": [
+        "Commit 56cfb7f"
+      ],
+      "remaining": [
+        "Qualification Windows PowerShell 5.1 liee au SHA-256 des paquets."
+      ]
     },
     {
       "id": 48,
       "title": "Prévisualiser les opérations collectives",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W07-accounts-writes",
+      "evidence": [
+        "dev/wad/modules/Domenia-Safety.Model.ps1:New-DomeniaCollectivePreview (Index, NamedBeyond, Uncounted, ImpactFor)",
+        "dev/wad/modules/Domenia-Park.UI.ps1:Complete-DomeniaParkTargets",
+        "dev/wad/Domenia-Core.ps1:Show-DomeniaBatchNetworkReport",
+        "dev/wad/tests/rules/Safety.Tests.ps1:P48 au-delà de la limite",
+        "dev/wad/tests/Test-DomeniaParkDetection.ps1:un GUID présent sous deux DN",
+        "dev/wad/tests/Test-DomeniaOuRefresh.ps1:New-BaseTarget"
+      ],
+      "remaining": [
+        "Exécution 5.1 en VM (Test-DomeniaParkDetection, Test-DomeniaOuRefresh, Test-DomeniaRules)."
+      ],
+      "implementation_summary": "La liste exacte est appliquée au relevé : seules les cibles de l'aperçu (repérées par leur position) sont interrogées et comptées, ce qui écarte un même GUID sous deux DN. L'impact est calculé sur ce nombre exact. Au-delà de la limite, les premières lignes sont nommées et les autres seulement comptées (une ligne de synthèse). Le diagnostic réseau groupé lit les lignes directement, sans appel de fonction ni copie par ligne."
     },
     {
       "id": 49,
       "title": "Confirmer le résultat des écritures",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W07-accounts-writes",
+      "evidence": [
+        "dev/wad/modules/Domenia-Safety.Model.ps1:Resolve-DomeniaReceiptCheck",
+        "dev/wad/modules/Domenia-Receipts.Worker.ps1:Get-DomeniaReceiptWorkerCode"
+      ],
+      "remaining": [
+        "Exécution 5.1 en VM (Test-DomeniaFaults, Test-DomeniaWiringEcritures)."
+      ],
+      "implementation_summary": "Inchangé par la reprise, hors parenthésage des opérandes dans Resolve-DomeniaReceiptCheck : la relecture de l'état effectif décide sur la seule relecture, sans jamais renvoyer."
     },
     {
       "id": 50,
       "title": "Protéger les informations sensibles",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W07-accounts-writes",
+      "evidence": [
+        "dev/wad/Domenia-Core.ps1:Export-DomeniaInventory",
+        "dev/wad/modules/Domenia-Access.Model.ps1:Protect-DomeniaExportRows",
+        "dev/wad/tests/Test-Domenia.ps1:CSV point 50 export d inventaire"
+      ],
+      "remaining": [
+        "Exécution 5.1 en VM ; ré-épinglage de QueryExport."
+      ],
+      "implementation_summary": "Les exports sont expurgés et annoncent leur total. Corrigé : l'export d'inventaire annonce aussi les valeurs masquées du fichier « <poste>-acces.csv »."
     },
     {
       "id": 51,
       "title": "Ouvrir l’arbre depuis un favori",
-      "status": "implemented_portable_validated",
-      "owner": "root",
+      "status": "implemented_windows_qualification_pending",
+      "owner": "Codex integration",
       "evidence": [
-        "validation/2026-10-13/central-store/favourite-reveal.json"
+        "validation/2026-10-13/central-store/favourite-reveal.json",
+        "Validation portable avant equipe, relevee dans le relais du 16 octobre."
       ],
       "remaining": [
-        "Qualification graphique native WPF du favori et du dépliage asynchrone."
+        "Qualification Windows PowerShell 5.1 liee au SHA-256 des paquets."
       ]
     },
     {
       "id": 52,
       "title": "Afficher un fil d’Ariane navigable",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W08-navigation",
+      "evidence": [
+        "dev/wad/modules/Domenia-Search.UI.ps1:Update-DomeniaOuBreadcrumb",
+        "dev/wad/modules/Domenia-UX.UI.ps1:Copy-DomeniaUxOuPath",
+        "dev/wad/modules/Domenia-Search.Model.ps1:Get-DomeniaOuDistinctLabels",
+        "dev/wad/tests/Test-DomeniaNavigation.ps1:P52"
+      ],
+      "remaining": [
+        "Exécution des suites sous Windows PowerShell 5.1."
+      ],
+      "implementation_summary": "Fil d'Ariane navigable : chaque niveau intermédiaire est un bouton avec son chemin complet. « Copier le chemin » copie le DN exact. Deux OU de même nom se distinguent par leur parent dans la portée et les favoris."
     },
     {
       "id": 53,
       "title": "Filtrer l’arbre en conservant le chemin",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W08-navigation",
+      "evidence": [
+        "dev/wad/modules/Domenia-Search.UI.ps1:Invoke-DomeniaOuTreeFilterSlice",
+        "dev/wad/modules/Domenia-Embedded.UI.ps1:Complete-DomeniaOuPickerRead",
+        "dev/wad/tests/Test-DomeniaNavigation.ps1:P53"
+      ],
+      "remaining": [
+        "Exécution sous Windows 5.1."
+      ],
+      "implementation_summary": "Le filtre de l'arbre garde les ancêtres des correspondances et compte les branches trouvées. Le groupe « Conteneurs système » n'apparaît que pour un conteneur trouvé, sans aucune lecture. Les enfants sont triés par nom et l'arbre défile verticalement."
     },
     {
       "id": 54,
       "title": "Unifier les sélecteurs d’OU",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W08-navigation",
+      "evidence": [
+        "dev/wad/modules/Domenia-Embedded.UI.ps1:Start-DomeniaOuPickerReveal",
+        "dev/wad/modules/Domenia-Embedded.UI.ps1:Continue-DomeniaOuPickerReveal",
+        "dev/wad/modules/Domenia-Embedded.UI.ps1:Show-DomeniaOuTreePicker",
+        "dev/wad/tests/Test-DomeniaNavigation.ps1:P54 (3 cas)"
+      ],
+      "remaining": [
+        "Exécution sous Windows 5.1."
+      ],
+      "implementation_summary": "Un seul sélecteur d'OU, avec favoris, profondeur et ligne de confirmation, sert le Dashboard, l'Atelier, les Outils et la fiche. Correctif de cette passe : ouvert sur la racine du domaine, il ne dit plus « hors domaine ». Sur un conteneur (CN=Computers), il annonce un conteneur au lieu d'inviter à Choisir."
     },
     {
       "id": 55,
       "title": "Revenir exactement à la vue précédente",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W08-navigation",
+      "evidence": [
+        "dev/wad/modules/Domenia-Search.UI.ps1:Get-DomeniaOpenTreeNodes",
+        "dev/wad/modules/Domenia-Search.UI.ps1:Get-DomeniaRealizedTreeIndex",
+        "dev/wad/modules/Domenia-Search.UI.ps1:Find-DomeniaRealizedTreeNode",
+        "dev/wad/modules/Domenia-Search.UI.ps1:Restore-DomeniaTreeNavState",
+        "dev/wad/modules/Domenia-Search.UI.ps1:Restore-DomeniaNavState",
+        "dev/wad/modules/Domenia-Search.Model.ps1:Get-DomeniaNavTreePlan",
+        "dev/wad/tests/rules/Search.Tests.ps1:P55",
+        "dev/wad/tests/Test-DomeniaNavigation.ps1:P55 (3 cas)"
+      ],
+      "remaining": [
+        "Exécution sous Windows 5.1."
+      ],
+      "implementation_summary": "Précédent rend le filtre, le type, la présence, le tri, les lignes sélectionnées, les défilements, la taille de liste, les branches ouvertes et l'OU de l'arbre. Correctif : l'arbre est indexé en entier, sans plafond de 600 éléments ni de 128 branches ouvertes. L'OU de l'étape est retrouvée par ses ancêtres, et une OU absente de sa branche lue est comptée à part d'une branche non lue."
     },
     {
       "id": 56,
       "title": "Composer des filtres visibles",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W08-navigation",
+      "evidence": [
+        "dev/wad/modules/Domenia-SearchWorkspace.UI.ps1:Get-DomeniaSearchFilterState",
+        "dev/wad/modules/Domenia-SearchWorkspace.UI.ps1:Remove-DomeniaSearchFilterChip",
+        "dev/wad/modules/Domenia-SearchWorkspace.Model.ps1:Get-DomeniaSearchFilterChips",
+        "dev/wad/tests/Test-DomeniaNavigation.ps1:P56 (3 cas)"
+      ],
+      "remaining": [
+        "Exécution sous Windows 5.1."
+      ],
+      "implementation_summary": "Chaque critère est une pastille avec sa portée, son effet et un ×. Correctifs : une requête locale terminée ne décrit plus une liste lue depuis, car le run n'est retenu que si ActiveSearchViewId lui appartient. Retirer la sélection de l'atelier ne retire que ce filtre et garde la liste de la requête."
     },
     {
       "id": 57,
       "title": "Enregistrer des vues personnelles",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W08-navigation",
+      "evidence": [
+        "dev/wad/modules/Domenia-SearchWorkspace.Model.ps1:ConvertFrom-DomeniaSearchWorkspaceStore",
+        "dev/wad/modules/Domenia-SearchWorkspace.Model.ps1:Add-DomeniaSearchWorkspaceRecord",
+        "dev/wad/modules/Domenia-SearchWorkspace.Model.ps1:Remove-DomeniaSearchWorkspaceRecord",
+        "dev/wad/modules/Domenia-SearchWorkspace.UI.ps1:Undo-DomeniaSearchWorkspace",
+        "dev/wad/tests/rules/SearchWorkspace.Tests.ps1:P57 (3 cas)",
+        "dev/wad/tests/Test-DomeniaNavigation.ps1:P57 (3 cas)"
+      ],
+      "remaining": [
+        "Exécution sous Windows 5.1."
+      ],
+      "implementation_summary": "Les vues personnelles sont uniques par domaine, ne lisent rien à l'ouverture et leur retrait peut être annulé. Correctifs : l'ancien format imbriqué ([[],{v1}] puis [[[],{v1}],{v2}]) est aplati et relu sans perte. Toute entrée illisible reste stockée telle quelle et est réécrite. Un échec d'écriture pendant Annuler garde l'annulation pour un nouvel essai."
     },
     {
       "id": 58,
       "title": "Comparer plusieurs postes",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W08-navigation",
+      "evidence": [
+        "dev/wad/modules/Domenia-SearchWorkspace.Model.ps1:Get-DomeniaComputerComparison",
+        "dev/wad/modules/Domenia-SearchWorkspace.UI.ps1:Show-DomeniaSearchComparison",
+        "dev/wad/tests/Test-DomeniaNavigation.ps1:P58"
+      ],
+      "remaining": [
+        "Exécution sous Windows 5.1."
+      ],
+      "implementation_summary": "Comparaison de 2 à 8 postes dans une feuille intégrée à la page, depuis la base locale seulement. Chaque valeur garde sa date, « Non lu » n'est jamais identique, les différences sont en gras et « Différences seulement » est disponible."
     },
     {
       "id": 59,
       "title": "Ouvrir un aperçu latéral",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W08-navigation",
+      "evidence": [
+        "dev/wad/modules/Domenia-SearchWorkspace.UI.ps1:Request-DomeniaSearchPreview",
+        "dev/wad/modules/Domenia-SearchWorkspace.Model.ps1:Get-DomeniaSearchPreviewRows",
+        "dev/wad/tests/Test-DomeniaNavigation.ps1:P59"
+      ],
+      "remaining": [
+        "Exécution sous Windows 5.1."
+      ],
+      "implementation_summary": "Aperçu latéral de la ligne courante, lu dans la base locale avec jeton, époque et génération. La sélection multiple est conservée et une réponse tardive est ignorée."
     },
     {
       "id": 60,
       "title": "Rendre les sélections collectives explicites",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W08-navigation",
+      "evidence": [
+        "dev/wad/modules/Domenia-SearchWorkspace.UI.ps1:Get-DomeniaSearchListCompleteness",
+        "dev/wad/modules/Domenia-SearchWorkspace.UI.ps1:Invoke-DomeniaSearchWorkspaceRefresh",
+        "dev/wad/modules/Domenia-SearchWorkspace.UI.ps1:Initialize-DomeniaSearchWorkspace",
+        "dev/wad/Domenia-Core.ps1:Build-DomeniaObjectsContextMenu",
+        "dev/wad/modules/Domenia-Park.UI.ps1:Complete-DomeniaParkTargets",
+        "dev/wad/tests/Test-DomeniaNavigation.ps1:P60 (3 cas)",
+        "dev/wad/tests/Test-DomeniaParkDetection.ps1:Portee choisie"
+      ],
+      "remaining": [
+        "Exécution sous Windows 5.1."
+      ],
+      "implementation_summary": "La portée « Liste affichée » ou « Lignes sélectionnées » est annoncée avant l'export et les relevés. Correctifs : la ligne de portée suit la fin d'une lecture progressive (réarmement tant que l'état est Loading) et chaque passage du filtre, via le texte de LblSuiteResultCount. Il n'y a plus de gestionnaire CollectionChanged par ligne. Une requête terminée ne prête plus sa limite à une autre liste, et le menu contextuel nomme la portée de l'export."
     },
     {
       "id": 61,
       "title": "Charger la bibliothèque progressivement",
-      "status": "in_progress",
-      "owner": "search_engine_deadlines",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W09-recipes",
+      "evidence": [
+        "dev/wad/modules/Domenia-Query.UI.ps1:Request-DomeniaQueryTemplatePreparation",
+        "dev/wad/modules/Domenia-Query.UI.ps1:Complete-DomeniaQueryTemplatePreparation",
+        "dev/wad/modules/Domenia-Query.UI.ps1:Set-DomeniaPreparedQueryTemplateRows",
+        "dev/wad/modules/Domenia-Search.UI.ps1:Update-DomeniaWorkViewList",
+        "dev/wad/tests/Test-DomeniaQueryLibraryTiming.ps1 (rappel abandonné, tâche disparue, résultat tardif ignoré)",
+        "dev/wad/tests/Test-DomeniaUxRefinements.ps1 (sélecteur unifié : vues AD + requêtes, puis modèles préparés)",
+        "dev/wad/tests/Test-DomeniaWiringRecherche.ps1"
+      ],
+      "remaining": [
+        "Mesurer le gain sous Windows PowerShell 5.1 dans la VM (Test-DomeniaQueryLibraryTiming.ps1 -ReportPath) et rattacher le rapport au ZIP qualifié. Aucune suite exécutée ici (pas de PowerShell)."
+      ],
+      "implementation_summary": "Recherche ne construit plus les 515 modèles sur le fil UI : le worker QueryLibrary les prépare une seule fois, à l'ouverture ou au filtrage de la liste ou avec la Bibliothèque, puis Recherche et Bibliothèque les partagent. Correctif : une préparation dont le rappel a été abandonné par le moteur (nouvelle session, changement de base, tâche disparue) ne bloque plus. L'état garde désormais JobId et Epoch, et une nouvelle préparation est relancée."
     },
     {
       "id": 62,
       "title": "Expliquer chaque correspondance",
-      "status": "in_progress",
-      "owner": "search_engine_deadlines",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W09-recipes",
+      "evidence": [
+        "dev/wad/modules/Domenia-Query.Model.ps1:Get-DomeniaQueryExplanation",
+        "dev/wad/modules/Domenia-Query.Model.ps1:Get-DomeniaQueryClauseLabel",
+        "dev/wad/modules/Domenia-Query.Model.ps1:Format-DomeniaQueryValueLabel",
+        "dev/wad/modules/Domenia-Query.UI.ps1:Show-DomeniaQueryObjectDetails",
+        "dev/wad/tests/Test-DomeniaQueryExpression.ps1"
+      ],
+      "remaining": [
+        "Qualification VM (Test-DomeniaQueryExpression.ps1, Test-DomeniaQueryWorkshopFeatures.ps1)."
+      ],
+      "implementation_summary": "« Pourquoi ce résultat ? » rédige chaque condition en français : Oui/Non, unités, état codé, paramètre nommé, texte cité. La valeur relevée s'affiche avec son unité et une condition de collection montre les instances examinées. Ce point n'a pas changé pendant la correction."
     },
     {
       "id": 63,
       "title": "Afficher la couverture avant exécution",
-      "status": "in_progress",
-      "owner": "search_engine_deadlines",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W09-recipes",
+      "evidence": [
+        "dev/wad/modules/Domenia-Query.Model.ps1:Measure-DomeniaQueryCoverage",
+        "dev/wad/modules/Domenia-Query.Worker.ps1:Get-DomeniaQueryWorkerCode (CoverageOnly)",
+        "dev/wad/tests/Test-DomeniaQueryWorkshopFeatures.ps1 (20 000 enregistrements)"
+      ],
+      "remaining": [
+        "Qualification VM de la suite seulement."
+      ],
+      "implementation_summary": "La couverture avant exécution était déjà raccordée : Measure-DomeniaQueryCoverage, mode CoverageOnly du worker LocalQuery, affichage « Vérifier les informations disponibles »."
     },
     {
       "id": 64,
       "title": "Collecter seulement les informations manquantes",
-      "status": "in_progress",
-      "owner": "search_engine_deadlines",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W09-recipes",
+      "evidence": [
+        "dev/wad/modules/Domenia-Query.Model.ps1:New-DomeniaMissingCollectionPlan",
+        "dev/wad/modules/Domenia-Query.Model.ps1:Measure-DomeniaCollectionPlanWorkload",
+        "dev/wad/modules/Domenia-Query.UI.ps1:Show-DomeniaQueryCollectionPlan",
+        "dev/wad/tests/Test-DomeniaQueryWorkshopFeatures.ps1 (point 64)"
+      ],
+      "remaining": [
+        "Durée non estimée faute d'historique chronométré (dit à l'opérateur). Qualification VM."
+      ],
+      "implementation_summary": "Plan pur New-DomeniaMissingCollectionPlan des seules mesures manquantes, signalées ou périmées, sur les postes actifs. Son coût compté s'affiche avant la confirmation du relevé, sans durée inventée."
     },
     {
       "id": 65,
       "title": "Ajouter des modèles paramétrés",
-      "status": "in_progress",
-      "owner": "search_engine_deadlines",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W09-recipes",
+      "evidence": [
+        "dev/wad/modules/Domenia-Query.Model.ps1:ConvertTo-DomeniaQueryParameterValue",
+        "dev/wad/modules/Domenia-Query.Model.ps1:Get-DomeniaQueryParameterRows",
+        "dev/wad/modules/Domenia-Query.Model.ps1:Get-DomeniaQueryDefinitionSummary (Paramètre avec bornes)",
+        "dev/wad/modules/Domenia-Query.UI.ps1:Show-DomeniaQueryParameterEditor",
+        "dev/wad/tests/Test-DomeniaQueryTemplates.ps1 (point 65)",
+        "dev/wad/tests/Test-DomeniaQueryWorkshopFeatures.ps1 (bornes comparées)"
+      ],
+      "remaining": [
+        "Qualification VM. Aucune sonde d'inventaire logiciel (Win32_Product refusé) : le modèle « logiciel » porte sur les services Windows."
+      ],
+      "implementation_summary": "Paramètre fermé et typé (nom, information, exemple, libellé, bornes), une seule règle de conversion pour le compilateur et le formulaire, sept modèles paramétrés, formulaire typé contrôlé en direct. Correctif : la comparaison des définitions inclut maintenant le champ et les bornes de chaque paramètre."
     },
     {
       "id": 66,
       "title": "Composer des conditions imbriquées",
-      "status": "in_progress",
-      "owner": "search_engine_deadlines",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W09-recipes",
+      "evidence": [
+        "dev/wad/modules/Domenia-Query.Model.ps1:Get-DomeniaQueryExpressionOutline",
+        "dev/wad/modules/Domenia-QueryDetails.UI.ps1:Start-DomeniaQueryDetailRead",
+        "dev/wad/modules/Domenia-Search.UI.ps1:Start-DomeniaSearchLocalCompute",
+        "dev/wad/tests/Test-DomeniaQueryExpression.ps1",
+        "dev/wad/tests/Test-DomeniaSearchQueries.ps1"
+      ],
+      "remaining": [
+        "Qualification VM des suites."
+      ],
+      "implementation_summary": "L'éditeur ET/OU/NON affiche des libellés français. Une requête lancée depuis Recherche lit, comme l'atelier, les verdicts de collection et les SELECT mémorisés de son OU. Une suite couvre l'édition, les budgets et la logique à trois états."
     },
     {
       "id": 67,
       "title": "Accepter les unités usuelles",
-      "status": "in_progress",
-      "owner": "search_engine_deadlines",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W09-recipes",
+      "evidence": [
+        "dev/wad/modules/Domenia-Query.Model.ps1:Get-DomeniaQueryNumberPreview",
+        "dev/wad/modules/Domenia-Query.UI.ps1:Update-DomeniaQueryValuePreview",
+        "dev/wad/tests/Test-DomeniaQueryWorkshopFeatures.ps1 (point 67)"
+      ],
+      "remaining": [
+        "Qualification VM."
+      ],
+      "implementation_summary": "Un contrôle immédiat s'affiche sous la valeur saisie (« 8192 Mo = 8 Go », « 48 h = 2 j »), ou le motif du refus. La valeur reste un décimal typé."
     },
     {
       "id": 68,
       "title": "Faire évoluer les requêtes personnelles",
-      "status": "in_progress",
-      "owner": "search_engine_deadlines",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W09-recipes",
+      "evidence": [
+        "dev/wad/modules/Domenia-Query.UI.ps1:Set-DomeniaQueryDraft (CategoryRecipeId, CategoryShown)",
+        "dev/wad/modules/Domenia-Query.UI.ps1:Get-DomeniaQuerySaveCategory",
+        "dev/wad/modules/Domenia-Query.UI.ps1:Invoke-DomeniaQueryAction (Save)",
+        "dev/wad/modules/Domenia-QueryTargets.UI.ps1:Add-DomeniaWorkshopWidget (-Category)",
+        "dev/wad/modules/Domenia-QueryLibrary.Store.UI.ps1:Save-DomeniaQueryRecipe",
+        "dev/wad/modules/Domenia-Query.Worker.ps1:Get-DomeniaQueryLibraryWorkerCode",
+        "dev/wad/tests/Test-DomeniaQueryLibraryStore.ps1",
+        "dev/wad/tests/Test-DomeniaQueryWorkshopFeatures.ps1 (point 68)"
+      ],
+      "remaining": [
+        "L'intégrateur doit ré-épingler QueryLibrary et LocalStore (voir worker_operations). Qualification VM, dont la suite SQLite."
+      ],
+      "implementation_summary": "Bibliothèque SQLite paginée par catégorie, archives vérifiées hors du fil UI puis restaurables, accès rapide aux 100 dernières requêtes. Correctif : une catégorie saisie survit aux redessins du brouillon (ajout de condition, paramètre, figer). Elle s'applique aussi à « Créer une sonde dashboard », et une case non modifiée ne déplace plus une recette, même si la bibliothèque a été lue entre-temps."
     },
     {
       "id": 69,
       "title": "Partager des packs de recettes versionnés",
-      "status": "in_progress",
-      "owner": "search_engine_deadlines",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W17-completion",
+      "evidence": [
+        "dev/wad/modules/Domenia-QueryTransfer.UI.ps1 (Select-DomeniaQueryTransferPath, Start-DomeniaQueryTransferTask)",
+        "dev/wad/tests/Test-DomeniaQueryWorkshopFeatures.ps1 (Point 69 end-to-end block)",
+        "dev/wad/tests/Test-DomeniaCollectCircuit.ps1 (knownUnpinned)",
+        "commits ea3ec94, ea94de0"
+      ],
+      "remaining": [
+        "Provenance is not stored per recipe in domenia_query_recipes. It stays in the import journal and in the 'Import · <pack>' category. Suites not run under Windows PowerShell 5.1."
+      ],
+      "implementation_summary": "The pinned QueryTransfer worker already handled ExportPack, ImportPreview, JournalRead and JournalAppend, and the UI launched all four. The file picker is now split out (Select-DomeniaQueryTransferPath), so Start-DomeniaQueryTransferTask can be tested on its own. The local preparation status is now set before the task starts. An end-to-end suite case runs the real pinned worker body through an engine double and covers: export, re-examination, choosing and creating a new recipe, journaling, read-back after a restart, rollback, and the import no longer being offered. Fixer: the start guard now has every operand of -or in parentheses."
     },
     {
       "id": 70,
       "title": "Transformer une requête en collection ou widget",
-      "status": "in_progress",
-      "owner": "search_engine_deadlines",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W17-completion",
+      "evidence": [
+        "dev/wad/modules/Domenia-Query.Model.ps1 Format-DomeniaQueryWidgetRevision",
+        "dev/wad/modules/Domenia-Query.UI.ps1 Get-DomeniaQueryWidgetRevision",
+        "dev/wad/modules/Domenia-QueryLibrary.Store.UI.ps1 Initialize-DomeniaQueryLibraryStore, Complete-DomeniaQueryLibraryStoreRead, Complete-DomeniaQueryLibraryMigrationBatch",
+        "dev/wad/tests/Test-DomeniaQueryWorkshopFeatures.ps1 (Point 70 widget block + 'Point 70 across pages' block)",
+        "dev/wad/tests/rules/Query.Tests.ps1 P70",
+        "commits 1d8d505, 2406edb"
+      ],
+      "remaining": [
+        "LocalStore must be re-pinned because the composed body includes Query.Model. Health-rule, search-list and report consumers are not covered. Tests not run under Windows."
+      ],
+      "implementation_summary": "Each dashboard query widget names the library revision it evaluated. It turns to its warning state when its link lags behind or runs ahead of the stored revision, when the recipe is archived, modified or missing, or when the library has not been read. Fixer: the LocalStore worker returns only the links of the page it read (250 recipes per page). The store now collects links page by page in ReadDependencies, clears them when a read restarts, and publishes them together with the rows. Before this, only the last page's links survived. The final migration batch now replaces only the links of its own recipes, where it used to replace all of them. New suite case: 251 recipes on two pages, a restart during the read, and a lagging link on page 1 that is reported."
     },
     {
       "id": 71,
       "title": "Séparer activation AD et activité réelle",
-      "status": "in_progress",
-      "owner": "progress_timeout_policy",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W02-health",
+      "evidence": [
+        "dev/wad/modules/Domenia-BoardFleet.Model.ps1:Get-DomeniaFleetBoardData (fleet.stale, Snapshot.Figures.StaleDays, fleet.trend.stale)",
+        "dev/wad/modules/Domenia-BoardFleet.Model.ps1:Get-DomeniaStaleTrendNote",
+        "dev/wad/tests/rules/BoardFleet.Tests.ps1:BF-019, BF-026"
+      ],
+      "remaining": [
+        "Tests de règles non exécutés : pas de PowerShell sur cet hôte. Qualification Windows PowerShell 5.1 à faire en VM."
+      ],
+      "implementation_summary": "Widgets séparés (comptes activés, désactivés, état AD inconnu, connexions par période, inactifs au seuil réglé). Le seuil StaleDays est conservé dans l’instantané quotidien et la courbe signale les jours comptés avec un autre seuil. Pas de changement dans cette passe de correction."
     },
     {
       "id": 72,
       "title": "Séparer présence ping et réponse WMI",
-      "status": "in_progress",
-      "owner": "progress_timeout_policy",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W02-health",
+      "evidence": [
+        "dev/wad/modules/Domenia-BoardFleet.Model.ps1:Get-DomeniaFleetBoardData ($wmiOldest, $wmiOld, -State de fleet.wmi et fleet.reach)",
+        "dev/wad/modules/Domenia-BoardFleet.Model.ps1:Get-DomeniaFleetWmiResponse",
+        "dev/wad/tests/rules/BoardFleet.Tests.ps1:BF-024 (WMI lu il y a 10 jours grisé, console seule cohérente avec la matrice), BF-025"
+      ],
+      "remaining": [
+        "Non exécuté sous Windows PowerShell 5.1 ; qualification en VM."
+      ],
+      "implementation_summary": "La réponse WMI est lue par famille CIM et n’est jamais déduite du ping. Les widgets fleet.wmi et fleet.reach donnent les GUID exacts. Correction : fleet.wmi passe en gris quand une réponse WMI utilisée date de plus de 7 jours, et fleet.reach quand le ping ou WMI est ancien (règle FI-04). La matrice de couverture ne contredit plus fleet.wmi."
     },
     {
       "id": 73,
       "title": "Conserver la liste exacte derrière chaque widget",
-      "status": "in_progress",
-      "owner": "progress_timeout_policy",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W01-dashboard",
+      "evidence": [
+        "dev/wad/modules/Domenia-Widgets.UI.ps1:Show-DomeniaWidgetExplanation (Snapshot), Invoke-DomeniaBoardAction (Details)",
+        "dev/wad/tests/Test-DomeniaBoards.ps1:Comprendre ce chiffre (calcul remplace)"
+      ],
+      "remaining": [
+        "Exécuter sous Windows. Les sondes et requêtes du parc restent détaillées par réévaluation du même calcul ; le panneau le dit."
+      ],
+      "implementation_summary": "Le bouton « Afficher les postes » du panneau d'explication emporte maintenant la clé du calcul qu'il explique. Si le calcul est remplacé pendant que le panneau est ouvert, l'ouverture est refusée et le tableau redessiné, comme avec le bouton du widget."
     },
     {
       "id": 74,
       "title": "Afficher la couverture à côté de la santé",
-      "status": "in_progress",
-      "owner": "progress_timeout_policy",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W01-dashboard",
+      "evidence": [
+        "dev/wad/modules/Domenia-Boards.Model.ps1:Get-DomeniaHealthCoverage, Get-DomeniaFleetHealth",
+        "dev/wad/tests/rules/Boards.Tests.ps1:BRD-025",
+        "dev/wad/tests/rules/BoardFleet.Tests.ps1:BF-011"
+      ],
+      "remaining": [
+        "Exécuter sous Windows les règles et les suites HealthRules et HealthAdvanced."
+      ],
+      "implementation_summary": "La couverture s'affiche à côté du score de santé ; sous 50 % de postes évalués, aucun score n'est affiché. Le test BF-011 attend désormais le nouveau détail, qui inclut « couverture 85 % (6 évalué(s) sur 7) »."
     },
     {
       "id": 75,
       "title": "Expliquer le score de santé",
-      "status": "in_progress",
-      "owner": "progress_timeout_policy",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W02-health",
+      "evidence": [
+        "dev/wad/modules/Domenia-HealthRules.Model.ps1:Get-DomeniaHealthExplanation",
+        "dev/wad/modules/Domenia-HealthRules.UI.ps1:Show-DomeniaHealthExplanation",
+        "dev/wad/tests/rules/HealthRules.Tests.ps1:HR-001..HR-003"
+      ],
+      "remaining": [
+        "Non exécuté sous Windows PowerShell 5.1."
+      ],
+      "implementation_summary": "Score expliqué règle par règle : population évaluable, postes signalés, effet sur le score, postes masqués par une règle désactivée ou suspendue, ouverture par GUID exacts. Les opérandes -and de Show-DomeniaHealthExplanation sont maintenant parenthésés."
     },
     {
       "id": 76,
       "title": "Définir des politiques par OU",
-      "status": "in_progress",
-      "owner": "progress_timeout_policy",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W02-health",
+      "evidence": [
+        "dev/wad/modules/Domenia-HealthRules.Model.ps1:Get-DomeniaHealthPolicyOrigins, Get-DomeniaHealthPolicyExceptions, Get-DomeniaHealthEditorScopes, Format-DomeniaHealthScopeLabel",
+        "dev/wad/tests/rules/HealthRules.Tests.ps1:HR-004",
+        "dev/wad/tests/Test-DomeniaHealthPolicies.ps1:Point 76"
+      ],
+      "remaining": [
+        "Non exécuté sous Windows PowerShell 5.1."
+      ],
+      "implementation_summary": "Origine de chaque réglage (domaine, OU parente, exception locale), liste des exceptions et portées de l’éditeur. Les opérandes de Format-DomeniaHealthScopeLabel sont maintenant parenthésés."
     },
     {
       "id": 77,
       "title": "Suspendre temporairement une alerte",
-      "status": "in_progress",
-      "owner": "progress_timeout_policy",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W02-health",
+      "evidence": [
+        "dev/wad/modules/Domenia-HealthRules.Model.ps1:Set-DomeniaHealthScopePolicy (paramètre NowUtc, comparaison après purge)",
+        "dev/wad/modules/Domenia-HealthRules.Model.ps1:New-DomeniaHealthEditorPolicy",
+        "dev/wad/modules/Domenia-HealthRules.UI.ps1:Show-DomeniaHealthRulesEditor ($hrSave)",
+        "dev/wad/tests/rules/HealthRules.Tests.ps1:HR-005, HR-009",
+        "dev/wad/tests/Test-DomeniaHealthPolicies.ps1:Point 77 saving an OU from the editor"
+      ],
+      "remaining": [
+        "Non exécuté sous Windows PowerShell 5.1."
+      ],
+      "implementation_summary": "Correction du défaut majeur : Set-DomeniaHealthScopePolicy compare les suspensions de l’OU et les suspensions héritées après la même purge à 30 jours. Enregistrer une OU sans toucher aux suspensions ne crée donc plus d’exception locale qui bloquerait les suspensions ajoutées plus tard au domaine. Le calcul déclenché par « Appliquer » est extrait dans New-DomeniaHealthEditorPolicy, un modèle pur testé. Une réactivation propre à l’OU reste bien une exception."
     },
     {
       "id": 78,
       "title": "Comparer la santé entre deux dates",
-      "status": "in_progress",
-      "owner": "progress_timeout_policy",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W02-health",
+      "evidence": [
+        "dev/wad/modules/Domenia-Boards.Model.ps1:Compare-DomeniaHealthSnapshots",
+        "dev/wad/tests/rules/HealthRules.Tests.ps1:HR-006"
+      ],
+      "remaining": [
+        "Non exécuté sous Windows PowerShell 5.1. Limite connue (implémenteur) : l’empreinte des règles inclut les suspensions terminées, donc leur purge peut faire lire « Règles modifiées » une fois."
+      ],
+      "implementation_summary": "La comparaison de deux relevés nomme la cause : réel, périmètre, couverture, règles, mixte ou limitée. La ligne de comparaison « WMI renseigné » devient « Inventaire WMI renseigné ». La définition du chiffre WmiRead ne change pas, pour rester comparable avec les relevés déjà stockés."
     },
     {
       "id": 79,
       "title": "Créer des tableaux croisés",
-      "status": "in_progress",
-      "owner": "progress_timeout_policy",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W02-health",
+      "evidence": [
+        "dev/wad/modules/Domenia-Boards.Model.ps1:Get-DomeniaFleetPivots",
+        "dev/wad/modules/Domenia-Boards.Model.ps1:ConvertTo-DomeniaPivotMatrix",
+        "dev/wad/modules/Domenia-HealthRules.UI.ps1:Show-DomeniaFleetAnalysis",
+        "dev/wad/tests/rules/BoardFleet.Tests.ps1:BF-024",
+        "dev/wad/tests/rules/HealthRules.Tests.ps1:HR-007, HR-008"
+      ],
+      "remaining": [
+        "Non exécuté sous Windows PowerShell 5.1."
+      ],
+      "implementation_summary": "Matrices avec totaux cohérents et cellules qui ouvrent leurs postes. Les colonnes de la matrice OU / site × couverture disent maintenant ce qu’elles comptent : « Ping et inventaire WMI », « Ping sans inventaire WMI », « Inventaire WMI sans ping », « Ni ping ni inventaire WMI ». L’intitulé du tableau suit. Une réponse WMI de la console seule n’y passe plus pour une absence de WMI."
     },
     {
       "id": 80,
       "title": "Qualifier l’organisation des widgets",
-      "status": "in_progress",
-      "owner": "progress_timeout_policy",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W01-dashboard",
+      "evidence": [
+        "dev/wad/modules/Domenia-Boards.Model.ps1:Get-DomeniaBoardKeyGesture, Get-DomeniaBoardFitScale",
+        "dev/wad/modules/Domenia-Widgets.UI.ps1:New-DomeniaBoardWidget, Update-DomeniaBoardFit",
+        "dev/wad/tests/rules/WidgetCollect.Tests.ps1:WGC-010"
+      ],
+      "remaining": [
+        "Qualifier sous Windows à 125, 150 et 200 % et avec un lecteur d'écran."
+      ],
+      "implementation_summary": "Clavier, accès aux raccourcis et mise à l'échelle DPI : inchangés, tels que livrés par l'implémenteur. Seul le parenthésage des opérandes -and/-or a été corrigé."
     },
     {
       "id": 81,
       "title": "Capacité et occupation mémoire",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W11-inventory",
+      "evidence": [
+        "dev/wad/modules/Domenia-ProbeCatalog.json:hw.memoryusage, hw.memoryarrays (Use)",
+        "dev/wad/modules/Domenia-Readings.Model.ps1:Get-DomeniaMemoryReading",
+        "dev/wad/Domenia-Core.ps1:Get-DomeniaInventoryWorkerCode (collecteur Memoire, filtre Use)",
+        "dev/wad/modules/Domenia-BoardComputer.UI.ps1:Get-DomeniaComputerBoardData (computer.memory)",
+        "dev/wad/tests/rules/Readings.Tests.ps1:RDG-081 (groupe flash Use=5)",
+        "dev/wad/tests/rules/Boards.Tests.ps1:BRD-081"
+      ],
+      "remaining": [
+        "Qualification sous Windows PowerShell 5.1 : suites écrites mais non exécutées (pas de PowerShell sur ce Mac)."
+      ],
+      "implementation_summary": "Sonde hw.memoryusage et lecture interprétée : capacité par barrettes, emplacements libres et maximum firmware (SMBIOS), utilisation instantanée datée, séparés. Correction de revue : seuls les groupes mémoire système (Use = 3) comptent dans le worker et dans la lecture ; « Use » ajouté à la projection hw.memoryarrays. Un ancien relevé sans cette colonne garde tous les groupes."
     },
     {
       "id": 82,
       "title": "Disques et prévision de saturation",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W11-inventory",
+      "evidence": [
+        "dev/wad/modules/Domenia-Probes.Model.ps1:Add-DomeniaProbeHistory, Get-DomeniaProbeHistoryPolicy",
+        "dev/wad/modules/Domenia-Storage.Worker.ps1:Invoke-StoreWBatch",
+        "dev/wad/modules/Domenia-Readings.Model.ps1:Get-DomeniaVolumeSaturationForecast, Get-DomeniaVolumeReading",
+        "dev/wad/tests/rules/Readings.Tests.ps1:RDG-082, RDG-082B",
+        "dev/wad/tests/Test-DomeniaStore.ps1:Points 81-99 case"
+      ],
+      "remaining": [
+        "Qualification sous Windows 5.1 ; l’historique ne commence qu’avec les relevés faits après la livraison."
+      ],
+      "implementation_summary": "Historique borné de disk.volumes (60 relevés espacés de 6 h, 400 jours) conservé dans la dernière charge réussie. La prévision linéaire exige 4 relevés sur 14 jours, une taille constante et un ajustement d’au moins 0,6. Correction de revue : la charge précédente n’est désérialisée que pour une sonde qui garde un historique (Get-DomeniaProbeHistoryPolicy)."
     },
     {
       "id": 83,
       "title": "Santé du stockage",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W11-inventory",
+      "evidence": [
+        "dev/wad/modules/Domenia-Readings.Model.ps1:Get-DomeniaStorageHealthReading",
+        "dev/wad/Domenia-Core.ps1:Get-DomeniaInventoryWorkerCode (Disques physiques)",
+        "dev/wad/tests/rules/Readings.Tests.ps1:RDG-083"
+      ],
+      "remaining": [
+        "Qualification matérielle et sous Windows 5.1."
+      ],
+      "implementation_summary": "Lecture de santé du stockage : état du pilote, code inconnu jamais « Sain », disque virtuel ou RAID signalé, compteurs de fiabilité exposés ou non, refus distinct. Correction de revue : un état inconnu garde la limite calculée (disque virtuel, RAID, lecture partielle) suivie de « Un état inconnu nʼest pas un disque sain »."
     },
     {
       "id": 84,
       "title": "Batteries des portables",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W11-inventory",
+      "evidence": [
+        "dev/wad/modules/Domenia-ProbeCatalog.json:hw.batterystatic, hw.batteryfullcharge, hw.batterycycles",
+        "dev/wad/modules/Domenia-Readings.Model.ps1:Get-DomeniaBatteryReading",
+        "dev/wad/tests/rules/Readings.Tests.ps1:RDG-084"
+      ],
+      "remaining": [
+        "Qualification sur portables réels (classes root\\wmi selon le pilote)."
+      ],
+      "implementation_summary": "Trois sondes du pilote de batterie (root\\wmi) jointes par InstanceName. L’usure n’est estimée qu’avec deux capacités valides ; zéro cycle vaut « non renseigné » ; chaque valeur est datée et sourcée ; repli sur Win32_Battery."
     },
     {
       "id": 85,
       "title": "BIOS et micrologiciels",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W11-inventory",
+      "evidence": [
+        "dev/wad/modules/Domenia-Readings.Model.ps1:Compare-DomeniaBiosVersion, Get-DomeniaBiosReading, Set-DomeniaBiosReference",
+        "dev/wad/modules/Domenia-ProbeDetails.UI.ps1:Invoke-DomeniaBiosReferenceAction",
+        "dev/wad/modules/Domenia-Experience.Model.ps1:Test-DomeniaScopedSettingName, ConvertTo-DomeniaExperienceSettings",
+        "dev/wad/Domenia-Core.ps1:Load-DomeniaSettings",
+        "dev/wad/tests/Test-DomeniaExperience.ps1:Configuration de domaine ; Reference BIOS approuvee conservee apres enregistrement et rechargement",
+        "dev/wad/modules/Domenia-Boards.Model.ps1:Get-DomeniaFleetPivots (ModelBios)",
+        "dev/wad/tests/rules/Readings.Tests.ps1:RDG-085"
+      ],
+      "remaining": [
+        "Qualification sous Windows 5.1."
+      ],
+      "implementation_summary": "Lecture du BIOS comparée à une référence approuvée par fabricant et modèle (réglage local par domaine, boutons « Approuver » et « Retirer »), plus un tableau croisé Modèle × version du BIOS. Correction de revue (bloquant) : Load-DomeniaSettings et ConvertTo-DomeniaExperienceSettings conservent désormais les réglages par domaine au nom fermé (Inventory.BiosReferences, Dashboard.HealthPolicies, Storage.Database suivis d’un SHA-256 en minuscules), en texte seul, 1 Mio par valeur et 256 clés au plus. Les approbations survivent ainsi au redémarrage et à l’enregistrement suivant."
     },
     {
       "id": 86,
       "title": "Processeurs et virtualisation",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W11-inventory",
+      "evidence": [
+        "dev/wad/modules/Domenia-ProbeCatalog.json:hw.computersystem, hw.processors.LoadPercentage",
+        "dev/wad/modules/Domenia-Readings.Model.ps1:Get-DomeniaVirtualPlatform, Get-DomeniaProcessorReading",
+        "dev/wad/tests/rules/Readings.Tests.ps1:RDG-086"
+      ],
+      "remaining": [
+        "Qualification sous Windows 5.1."
+      ],
+      "implementation_summary": "Sonde hw.computersystem et charge datée dans hw.processors. La lecture donne sockets, architecture, cœurs, capacités et charge instantanée. La machine virtuelle est estimée par la signature du modèle ; sinon « physique probable » ou « non déterminé »."
     },
     {
       "id": 87,
       "title": "Écrans et stations d’accueil",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W17-completion",
+      "evidence": [
+        "dev/wad/modules/Domenia-ProbeCatalog.json hw.dockhints",
+        "dev/wad/modules/Domenia-Readings.Model.ps1 Get-DomeniaDockHintFacts",
+        "dev/wad/modules/Domenia-ProbeContract.Model.ps1",
+        "dev/wad/tests/Test-DomeniaProbeCatalog.ps1",
+        "dev/wad/tests/rules/ProbeContract.Tests.ps1 PCT-008",
+        "dev/wad/tests/rules/Readings.Tests.ps1 RDG-087B",
+        "commit c8b7582"
+      ],
+      "remaining": [
+        "Provider behaviour must be checked under Windows."
+      ],
+      "implementation_summary": "New catalog probe hw.dockhints: a bounded, read-only CIM query on Win32_PnPEntity for Dock class devices and Dock, Thunderbolt, USB4 or DisplayLink names. Its limitations are documented. The 'Écrans, raccordements et stations dʼaccueil' reading shows each hint as Estimé, never Constaté. With no hint the fact stays Inconnu. An unread probe is said. The probe contract now accepts the WQL LIKE wildcard '%'."
     },
     {
       "id": 88,
       "title": "Interfaces réseau",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W11-inventory",
+      "evidence": [
+        "dev/wad/modules/Domenia-Readings.Model.ps1:Get-DomeniaNetworkReading, Test-DomeniaVirtualAdapterName",
+        "dev/wad/tests/rules/Readings.Tests.ps1:RDG-088"
+      ],
+      "remaining": [
+        "Qualification sous Windows 5.1."
+      ],
+      "implementation_summary": "Cartes physiques avec état, vitesse déclarée, MAC, IP, passerelle, DNS et DHCP joints par index ; cartes virtuelles séparées ; la configuration ne prouve aucune connectivité."
     },
     {
       "id": 89,
       "title": "Imprimantes et périphériques en erreur",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W11-inventory",
+      "evidence": [
+        "dev/wad/modules/Domenia-Readings.Model.ps1:Get-DomeniaDeviceReading, Get-DomeniaDeviceErrorText",
+        "dev/wad/tests/rules/Readings.Tests.ps1:RDG-089"
+      ],
+      "remaining": [
+        "Qualification sous Windows 5.1."
+      ],
+      "implementation_summary": "Imprimantes (hors ligne, en erreur, défaut, pilote, port) et périphériques en erreur avec le libellé du code. Les codes 22 et 45 ne comptent pas comme anomalies ; une lecture partielle est signalée."
     },
     {
       "id": 90,
       "title": "Diagnostic réseau par couche",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W11-inventory",
+      "evidence": [
+        "dev/wad/modules/Domenia-Workstation.Model.ps1:Get-DomeniaNetworkLayerDiagnosis, ConvertTo-DomeniaDiagVerdict",
+        "dev/wad/tests/rules/Workstation.Tests.ps1:D090"
+      ],
+      "remaining": [
+        "Qualification sous Windows 5.1."
+      ],
+      "implementation_summary": "Diagnostic réseau par couche (nom, ICMP, TCP, protocole) qui nomme la première étape bloquante. Un ping filtré sur un poste joignable n’est plus annoncé éteint."
     },
     {
       "id": 91,
       "title": "Logiciels installés sans effets de bord MSI",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W11-inventory",
+      "evidence": [
+        "dev/wad/Domenia-Core.ps1:Get-DomeniaSoftwareWorkerCode (Add-Software, -Owner, script local de repli)",
+        "dev/wad/modules/Domenia-BoardSoftware.Model.ps1:Get-DomeniaSoftwareBoardData (software.duplicates)",
+        "dev/wad/tests/rules/BoardSoftware.Tests.ps1:BS-091",
+        "dev/wad/tests/Test-Domenia.ps1:Points 91 a 100 case (scenarios SCCM + repli, SID)"
+      ],
+      "remaining": [
+        "Qualification sous Windows 5.1."
+      ],
+      "implementation_summary": "La clé de dédoublonnage inclut l’architecture et le profil, et une tuile « Installés en double » s’ajoute. Correction de revue : le profil est identifié par son SID (paramètre -Owner, transmis par StdRegProv et par la tâche locale). Une ligne sans architecture (SCCM) et la même entrée lue ensuite en x64 ou x86 fusionnent, dans un ordre ou dans l’autre. Les vrais doublons 32/64 bits ou multi-profils restent visibles. Test comportemental sur les vraies fonctions du worker."
     },
     {
       "id": 92,
       "title": "État des mises à jour",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W11-inventory",
+      "evidence": [
+        "dev/wad/modules/Domenia-Readings.Model.ps1:Get-DomeniaUpdateReading",
+        "dev/wad/modules/Domenia-BoardComputer.UI.ps1:Get-DomeniaComputerBoardData (computer.wsus)",
+        "dev/wad/Domenia-Core.ps1:Get-DomeniaInventoryWorkerCode (Windows Update)",
+        "dev/wad/tests/rules/Readings.Tests.ps1:RDG-092",
+        "dev/wad/tests/rules/Boards.Tests.ps1:BRD-081C"
+      ],
+      "remaining": [
+        "Qualification sous Windows 5.1."
+      ],
+      "implementation_summary": "Build et révision (UBR), correctifs CBS datés, dates Windows Update, source WSUS et UseWUServer ; la conformité n’est jamais conclue. Correction de revue : la tuile computer.wsus affiche « Windows Update » avec « Adresse WSUS déclarée, non appliquée (UseWUServer) » quand la stratégie vaut Non, en cohérence avec computer.updates."
     },
     {
       "id": 93,
       "title": "Redémarrage en attente",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W11-inventory",
+      "evidence": [
+        "dev/wad/Domenia-Core.ps1:Get-DomeniaInventoryWorkerCode (Redemarrage en attente, Get-RegMultiString)",
+        "dev/wad/modules/Domenia-Readings.Model.ps1:Get-DomeniaPendingRebootReading",
+        "dev/wad/tests/rules/Readings.Tests.ps1:RDG-093"
+      ],
+      "remaining": [
+        "Qualification sous Windows 5.1."
+      ],
+      "implementation_summary": "Une ligne par indice de redémarrage avec sa source : obligation confirmée ou indice partiel. PendingFileRenameOperations est lu en REG_MULTI_SZ. Le tableau ne signale qu’une obligation confirmée."
     },
     {
       "id": 94,
       "title": "Services et dépendances",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W11-inventory",
+      "evidence": [
+        "dev/wad/modules/Domenia-Readings.Model.ps1:Get-DomeniaServiceProfile, Get-DomeniaServiceReading",
+        "dev/wad/Domenia-Core.ps1:Get-DomeniaInventoryWorkerCode (Services en defaut)",
+        "dev/wad/tests/rules/Readings.Tests.ps1:RDG-094"
+      ],
+      "remaining": [
+        "Profil attendu intégré, non paramétrable par OU ; qualification sous Windows 5.1."
+      ],
+      "implementation_summary": "Profil attendu d’un poste joint au domaine, écarts nommés, services absents, arrêts automatiques sur erreur (1077 exclu), aucune action. L’inventaire ajoute les dépendances des services automatiques arrêtés."
     },
     {
       "id": 95,
       "title": "Processus et charge ponctuelle",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W11-inventory",
+      "evidence": [
+        "dev/wad/Domenia-Core.ps1:Get-DomeniaInventoryWorkerCode (collecteur Processus, requete projetee)",
+        "dev/wad/modules/Domenia-Readings.Model.ps1:Measure-DomeniaProcessLoad",
+        "dev/wad/modules/Domenia-BoardComputer.UI.ps1:Get-DomeniaComputerBoardData (computer.processes)",
+        "dev/wad/tests/rules/Readings.Tests.ps1:RDG-095 (ligne PID 0)"
+      ],
+      "remaining": [
+        "Qualification sous Windows 5.1."
+      ],
+      "implementation_summary": "Deux lectures de Win32_Process séparées par un intervalle borné ; part de processeur par processus. Corrections de revue : le pseudo-processus inactif (PID 0, « System Idle Process » ou « Idle ») est exclu dans le worker (WHERE ProcessId <> 0, puis saut) et dans Measure-DomeniaProcessLoad. Il n’est ni listé ni compté dans le total. Les deux lectures sont une requête WQL limitée à six colonnes : la ligne de commande n’est plus transférée."
     },
     {
       "id": 96,
       "title": "Tâches planifiées et démarrage automatique",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W17-completion",
+      "evidence": [
+        "dev/wad/modules/Domenia-Workstation.Model.ps1 Get-DomeniaCommandExecutable",
+        "dev/wad/Domenia-Core.ps1 Get-DomeniaInventoryWorkerCode (copy of Get-DomeniaCommandExecutable; collector 'Taches planifiees' with $readTasksByCim)",
+        "dev/wad/tests/rules/Workstation.Tests.ps1 D096: S3cret loop adds node/cmd/powershell/net use/absolute-path cases and exact program assertions; new D096 behavioural test runs the extracted collector with doubles (WinRM refused -> CIM rows + 'DCOM apres echec WinRM (...)'; credential refusal propagated with no CIM read; double failure named)",
+        "Python simulation of the new regex on 22 inputs: no S3cret kept, existing D096 expectations unchanged",
+        "guides/administrateur.md",
+        "commits 8ef5fd2, be15fa2, 76f6976"
+      ],
+      "remaining": [
+        "ComputerInventory must be re-pinned by the integrator. TaskCache needs local admin rights on the workstation; to check under Windows. Known residual ambiguity: in an unquoted absolute path, an argument with no switch, drive, '=' or '&' before a later program (e.g. 'C:\\tools\\run S3cret\\b.exe') cannot be told apart from a directory name containing a space. Windows itself resolves such a path the same way."
+      ],
+      "implementation_summary": "Startup programs: only the program leaves the ComputerInventory worker. Scheduled tasks are read through MSFT_ScheduledTask over CIM, plus the last start date from the TaskCache registry; the last result is never guessed. Fixer, finding 1 (also reported as finding 5): Get-DomeniaCommandExecutable now scans across spaces only for an unquoted absolute path (drive, UNC or %VAR%\\). The scan cannot cross a switch (whitespace followed by - or /), another drive, a character Windows refuses in a path, '=' or '&'. Any other command keeps its first word only, split on whitespace or a comma. The verbatim worker copy is identical. Fixer, finding 3: the CIM and TaskCache path is now a local scriptblock. It runs when WinRM is closed, and also when Invoke-Remote fails for a non-credential reason (WinRM listener, HTTP policy, Kerberos or SPN). The transport label names the WinRM failure. A refused credential is rethrown and CIM is not read. If CIM also fails, both errors are reported. The admin guide is updated."
     },
     {
       "id": 97,
       "title": "Defender ou antivirus présent",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W11-inventory",
+      "evidence": [
+        "dev/wad/modules/Domenia-ProbeCatalog.json:sec.avproducts",
+        "dev/wad/modules/Domenia-Readings.Model.ps1:ConvertFrom-DomeniaAvProductState, Get-DomeniaAntivirusReading",
+        "dev/wad/tests/rules/Readings.Tests.ps1:RDG-097"
+      ],
+      "remaining": [
+        "Qualification sous Windows 5.1."
+      ],
+      "implementation_summary": "Sonde sec.avproducts (Centre de sécurité). productState est décodé en « estimé » ; Defender est détaillé ; la lecture distingue protection tierce, Defender actif, absence de protection et serveur sans Centre de sécurité."
     },
     {
       "id": 98,
       "title": "Pare-feu effectif",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W11-inventory",
+      "evidence": [
+        "dev/wad/modules/Domenia-Readings.Model.ps1:Get-DomeniaFirewallReading, Get-DomeniaAppliedFirewallProfiles",
+        "dev/wad/modules/Domenia-HealthRules.Model.ps1:Get-DomeniaHealthRuleCatalog",
+        "dev/wad/tests/rules/Readings.Tests.ps1:RDG-098, RDG-099B",
+        "dev/wad/tests/rules/Boards.Tests.ps1:BRD-081B"
+      ],
+      "remaining": [
+        "Qualification sous Windows 5.1."
+      ],
+      "implementation_summary": "Profils du pare-feu et profil appliqué à chaque connexion active (net.connectionprofiles). L’inventaire lit les profils appliqués. Correction de revue : les nouveaux points d’attention bitlocker.suspended et secureboot (et certificates, point 100) entrent au catalogue des règles de santé, donc désactivables et suspendables."
     },
     {
       "id": 99,
       "title": "BitLocker et démarrage sécurisé",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W11-inventory",
+      "evidence": [
+        "dev/wad/modules/Domenia-Readings.Model.ps1:Get-DomeniaProtectionReading, Get-DomeniaBitLockerInventoryState, Get-DomeniaSecureBootInventoryState",
+        "dev/wad/modules/Domenia-BoardComputer.UI.ps1:Get-DomeniaComputerBoardData (computer.bitlocker, computer.secureboot)",
+        "dev/wad/tests/rules/Readings.Tests.ps1:RDG-099, RDG-099B",
+        "dev/wad/tests/rules/Boards.Tests.ps1:BRD-081, BRD-081B"
+      ],
+      "remaining": [
+        "Qualification sous Windows 5.1."
+      ],
+      "implementation_summary": "Chiffrement et protection BitLocker distincts (protection suspendue sur volume chiffré signalée), TPM, VBS ; Secure Boot lu en DWORD et jamais déduit. Le point secureboot est désormais désactivable dans l’éditeur des règles de santé."
     },
     {
       "id": 100,
       "title": "Certificats et expiration",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W11-inventory",
+      "evidence": [
+        "dev/wad/Domenia-Core.ps1:Get-DomeniaInventoryWorkerCode (Get-RegSubKeyRead, collecteur Certificats machine)",
+        "dev/wad/modules/Domenia-Readings.Model.ps1:Get-DomeniaCertificateReading",
+        "dev/wad/modules/Domenia-BoardComputer.UI.ps1:Get-DomeniaComputerBoardData (computer.certificates)",
+        "dev/wad/tests/rules/Readings.Tests.ps1:RDG-100",
+        "dev/wad/tests/rules/Boards.Tests.ps1:BRD-081C"
+      ],
+      "remaining": [
+        "Qualification sous Windows 5.1."
+      ],
+      "implementation_summary": "Certificats du magasin Personnel lus dans le registre (propriété 32 seulement, aucune clé privée), avec leurs échéances. Corrections de revue : le code de retour d’EnumKey est lu (0 lu, 2 magasin vide, autre code non lu avec bascule vers WinRM, jamais « aucun certificat »). StoreCount et Truncated sont conservés ; la lecture et la tuile affichent « lecture partielle : N lu(s) sur M », sans état Ok."
     },
     {
       "id": 101,
       "title": "Comptes utilisateurs à vérifier",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W12-ad-security",
+      "evidence": [
+        "dev/wad/modules/Domenia-Search.Model.ps1:Get-DomeniaWorkViews",
+        "dev/wad/tests/rules/Search.Tests.ps1:Test-Case '101'",
+        "dev/wad/tests/Test-DomeniaSearchQueries.ps1"
+      ],
+      "remaining": [
+        "Exécuter les règles et la suite sous Windows PowerShell 5.1 dans la VM CNAMTS-W11-01."
+      ],
+      "implementation_summary": "Huit vues de revue des comptes dans le catalogue des vues de travail : expirés, verrouillés, inactifs depuis 90 jours, jamais connectés, plus l'hygiène des mots de passe. Elles sont bornées à une OU, en lecture seule, et leurs notes disent ce qu'elles ne prouvent pas. Le fixer n'a rien modifié sur ce point."
     },
     {
       "id": 102,
       "title": "Hygiène des mots de passe",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W12-ad-security",
+      "evidence": [
+        "dev/wad/modules/Domenia-AdAudit.Model.ps1:ConvertTo-DomeniaPasswordPolicyView",
+        "dev/wad/modules/Domenia-AdAudit.Worker.ps1:Get-DomeniaPasswordPolicyReadWorkerCode",
+        "dev/wad/tests/rules/AdAudit.Tests.ps1:Test-Case '102' 'msDS-ResultantPSO non lu ...'"
+      ],
+      "remaining": [
+        "Exécution 5.1 dans la VM. L'intégrateur enregistre PasswordPolicyRead."
+      ],
+      "implementation_summary": "Hygiène des mots de passe sans lecture de secret, avec la stratégie effective (msDS-ResultantPSO, sinon stratégie du domaine) et les états Applies/None/Unreadable. Correctif : quand la lecture de msDS-ResultantPSO échoue (ResultantError), l'état reste Unreadable. La stratégie du domaine n'est plus présentée comme applicable et aucune expiration n'en est déduite."
     },
     {
       "id": 103,
       "title": "Groupes imbriqués et cycles",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W12-ad-security",
+      "evidence": [
+        "dev/wad/modules/Domenia-AdAudit.Model.ps1:ConvertTo-DomeniaNestedGroupView",
+        "dev/wad/modules/Domenia-AdAudit.UI.ps1:Fail-DomeniaAdAuditGroupConfirm",
+        "dev/wad/tests/rules/AdAudit.Tests.ps1:Test-Case '103' 'Groupe audite pris dans une boucle ...'",
+        "dev/wad/tests/Test-DomeniaAdAudit.ps1:Case 'Groupes : ...'"
+      ],
+      "remaining": [
+        "Exécution 5.1 dans la VM. L'intégrateur enregistre GroupPathRead."
+      ],
+      "implementation_summary": "Groupes imbriqués : lecture bornée, chemin, profondeur, cycles et groupes privilégiés, confirmation par LDAP_MATCHING_RULE_IN_CHAIN. Correctifs : le groupe audité entre dans la détection des cycles, donc une boucle G0 → G1 → G0 est signalée. L'échec de la confirmation ne s'affiche que sous le groupe qui a été demandé au contrôleur."
     },
     {
       "id": 104,
       "title": "Délégations et droits sur les objets",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W12-ad-security",
+      "evidence": [
+        "dev/wad/modules/Domenia-AdAudit.Worker.ps1:Get-DomeniaDelegationReadWorkerCode",
+        "dev/wad/modules/Domenia-AdAudit.Model.ps1:ConvertTo-DomeniaDelegationView",
+        "dev/wad/modules/Domenia-AdAudit.Model.ps1:Get-DomeniaAccessEstimate"
+      ],
+      "remaining": [
+        "Exécution 5.1 dans la VM : les cas ACL et SecurityIdentifier ne se qualifient que sous Windows. L'intégrateur enregistre DelegationRead."
+      ],
+      "implementation_summary": "Délégations : lecture de l'ACL avec droits, GUID et héritage résolus. L'estimation d'accès par tokenGroups est présentée comme une estimation. Le fixer n'a rien modifié sur ce point."
     },
     {
       "id": 105,
       "title": "Liens GPO et résultat appliqué",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W12-ad-security",
+      "evidence": [
+        "dev/wad/modules/Domenia-AdAudit.Worker.ps1:Get-DomeniaGpoAppliedReadWorkerCode",
+        "dev/wad/modules/Domenia-Access.UI.ps1:Get-DomeniaAccessScope",
+        "dev/wad/tests/Test-DomeniaAdAudit.ps1:Case 'Classification : ...'"
+      ],
+      "remaining": [
+        "Exécution 5.1 dans la VM. L'intégrateur enregistre GpoLinksRead et GpoAppliedRead."
+      ],
+      "implementation_summary": "Liens GPO de la chaîne de conteneurs, séparés du résultat appliqué lu sur le poste (RSoP). Correctif : GpoAppliedRead passe en portée d'accès Remote. Le compte de remplacement saisi après un refus va donc sur le canal machine utilisé par le worker."
     },
     {
       "id": 106,
       "title": "État de Windows LAPS",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "windows_qualification_only",
+      "owner": "W12-ad-security",
+      "evidence": [
+        "dev/wad/tests/Test-DomeniaLapsQualification.ps1"
+      ],
+      "remaining": [
+        "Exécuter la suite dans la VM et jouer les quatre scénarios manuels."
+      ],
+      "implementation_summary": "L'état Windows LAPS existait déjà. Une suite de qualification a été ajoutée : contrôles hors ligne, contrôle -Live facultatif et quatre scénarios manuels déclarés NotExecuted. Le fixer n'a rien modifié sur ce point."
     },
     {
       "id": 107,
       "title": "Relation poste et utilisateur",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W12-ad-security",
+      "evidence": [
+        "dev/wad/modules/Domenia-Relations.Model.ps1:Get-DomeniaRelationOverview",
+        "dev/wad/modules/Domenia-Relations.UI.ps1:Update-DomeniaLinkOverview",
+        "dev/wad/modules/Domenia-AdAudit.Worker.ps1:Get-DomeniaRelationHistoryReadWorkerCode"
+      ],
+      "remaining": [
+        "Exécution 5.1 dans la VM. L'intégrateur refait la ligne de base de la charge épinglée Domenia-Relations.UI.ps1 et enregistre RelationHistoryRead."
+      ],
+      "implementation_summary": "Relation poste-utilisateur : badge Historique distinct d'Observé, filtre ChkAllLinksHistory, résumé en trois lignes et historique SQLite lu en lecture seule. Le fixer n'a rien modifié sur ce point."
     },
     {
       "id": 108,
       "title": "Santé AD et réplication",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W12-ad-security",
+      "evidence": [
+        "dev/wad/modules/Domenia-AdAudit.UI.ps1:New-DomeniaAdAuditRequestState",
+        "dev/wad/modules/Domenia-AdAudit.UI.ps1:Test-DomeniaAdAuditRequestCurrent",
+        "dev/wad/modules/Domenia-AdAudit.UI.ps1:Start-DomeniaAdAuditDcServices",
+        "dev/wad/modules/Domenia-AdAudit.Worker.ps1:Get-DomeniaDcServicesReadWorkerCode",
+        "dev/wad/modules/Domenia-AdAudit.Model.ps1:Get-DomeniaDcServiceView",
+        "dev/wad/tests/Test-DomeniaAdAudit.ps1:Case 'Controleurs : ...'",
+        "dev/wad/tests/rules/AdAudit.Tests.ps1:Test-Case '108' 'Services : controleur non interroge ...'"
+      ],
+      "remaining": [
+        "Exécution 5.1 dans la VM contre CNAMTS-DC01. L'intégrateur enregistre AdHealthRead et DcServicesRead (corps modifié par le fixer)."
+      ],
+      "implementation_summary": "Santé AD : liste des DC, sonde explicite, puis services lus après confirmation. Correctifs : un compteur par type de demande, donc la lecture des services et le diagnostic ne s'annulent plus. DcServicesRead s'arrête avant le délai de la tâche, rend les contrôleurs restants « Non interrogé » et garde ceux déjà lus. Ce délai grandit avec le nombre de contrôleurs, la lecture a sa propre ressource (Target) et passe en portée Remote."
     },
     {
       "id": 109,
       "title": "Cohérence des noms et identités",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W12-ad-security",
+      "evidence": [
+        "dev/wad/modules/Domenia-AdAudit.Model.ps1:Find-DomeniaIdentityConflicts",
+        "dev/wad/modules/Domenia-AdAudit.UI.ps1:Complete-DomeniaAdAuditScan",
+        "dev/wad/modules/Domenia-AdAudit.UI.ps1:Fail-DomeniaAdAuditScanIndex",
+        "dev/wad/modules/Domenia-AdAudit.UI.ps1:Update-DomeniaAdAuditScanFindings",
+        "dev/wad/tests/rules/AdAudit.Tests.ps1:Test-Case '109'",
+        "dev/wad/tests/Test-DomeniaAdAudit.ps1:Case 'Identites : ...'"
+      ],
+      "remaining": [
+        "Exécution 5.1 dans la VM. L'intégrateur enregistre AdConsistencyScan et MachineIdentityRead."
+      ],
+      "implementation_summary": "Cohérence des noms sur une OU et identité d'un poste nommé. Correctifs : un échec de la lecture locale s'affiche « Base locale non lue (raison) », et non plus « occupée ». Au-delà de 1000 noms par type, la vue dit « N noms sur M comparés ». MachineIdentityRead passe en portée Remote."
     },
     {
       "id": 110,
       "title": "Recettes d’assistance",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W12-ad-security",
+      "evidence": [
+        "dev/wad/modules/Domenia-Assistance.Model.ps1:Test-DomeniaAssistanceDispatched",
+        "dev/wad/modules/Domenia-Assistance.UI.ps1:Get-DomeniaAssistanceTaskMarks",
+        "dev/wad/modules/Domenia-Assistance.UI.ps1:Invoke-DomeniaAssistanceStep",
+        "dev/wad/tests/rules/Assistance.Tests.ps1:Test-Case '110' 'Lancement constate seulement ...'",
+        "dev/wad/tests/Test-DomeniaAdAudit.ps1:Case 'Assistance : une etape, ...'"
+      ],
+      "remaining": [
+        "Exécution 5.1 dans la VM (règles et cas WPF de Test-DomeniaAdAudit.ps1)."
+      ],
+      "implementation_summary": "Recettes d'assistance avec une étape par clic, une liste fermée de lectures et le bon sujet. Correctif : l'étape n'est marquée « Lancée à HH:MM » que si une tâche de son opération est réellement partie, nouvelle ou rejointe comme lecture identique (D015). Sinon l'étape reste « À lancer » et la vue affiche « rien nʼa été lancé »."
     },
     {
       "id": 111,
       "title": "Alléger les écrans principaux",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W13-ux",
+      "evidence": [
+        "dev/wad/Domenia-Core.ps1:Get-MainXaml (BtnUserManagerPick, BtnCompManagedByPick, BtnUserMove, BtnAccountAdRelogin, BtnSetMachineCredential, BtnWmiNamespaces, BtnRefreshMachineLink en SecondaryButton)",
+        "dev/wad/tests/Test-DomeniaUxQualification.ps1:P111 (deux cas)"
+      ],
+      "remaining": [
+        "Exécuter Test-DomeniaUxQualification.ps1 sous Windows PowerShell 5.1, puis revue visuelle des pages par David."
+      ],
+      "implementation_summary": "Une seule action principale par carte : sept actions secondaires passent au style secondaire, les options avancées restent repliées et la palette propose les commandes secondaires selon le contexte. Un contrôle automatique vérifie une action principale par carte, onglet ou extenseur (paires indépendantes listées) et des extenseurs repliés par défaut. Point non modifié par ce correctif."
     },
     {
       "id": 112,
       "title": "Uniformiser les composants",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W17-completion",
+      "evidence": [
+        "dev/wad/Domenia-Core.ps1 Get-MainXaml",
+        "dev/wad/modules/*.xaml",
+        "dev/tools/audit_typography.py",
+        "dev/tools/baselines/typography-baseline.json",
+        "dev/tools/tests/test_audit_typography.py",
+        "dev/wad/tests/Test-DomeniaUxQualification.ps1 P112",
+        "commits 8c2e274, 98cfad4"
+      ],
+      "remaining": [
+        "Visual rendering must be checked under Windows by David. Some sizes shift slightly on purpose. Board and chart drawing code, the sign-in window and Show-DomeniaDialog are left on the ratchet baseline."
+      ],
+      "implementation_summary": "Closed type scale of 8 named FontSize resources used across the page and module views. 15 named spacing resources are used by the shared styles. A new gate, tools/audit_typography.py, is wired into build_packages and keeps a ratchet baseline for the remaining literal values."
     },
     {
       "id": 113,
       "title": "Adapter le contenu à la fenêtre",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W13-ux",
+      "evidence": [
+        "dev/wad/modules/Domenia-Operations.xaml",
+        "dev/wad/modules/Domenia-Commands.UI.ps1:Set-DomeniaCommandPalettePosition",
+        "dev/wad/modules/Domenia-Experience.UI.ps1:Set-DomeniaOperationsPanelPosition",
+        "dev/wad/tests/Test-DomeniaUxQualification.ps1:P113"
+      ],
+      "remaining": [
+        "Exécuter Test-DomeniaGeometry et Test-DomeniaUxQualification sous Windows, puis une session RDP réelle en 1024x768 et 1280x720."
+      ],
+      "implementation_summary": "Le panneau Opérations défile en entier (ScrollViewer) et la palette est bornée et centrée dans la fenêtre. Un cas de suite vérifie les deux panneaux dans une fenêtre RDP 1024x768 à 150 %. Point non modifié par ce correctif."
     },
     {
       "id": 114,
       "title": "Qualifier le zoom et les changements de DPI",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "windows_qualification_only",
+      "owner": "W13-ux",
+      "evidence": [
+        "dev/wad/modules/Domenia-UX.UI.ps1:Update-DomeniaUiZoomForDpi",
+        "dev/wad/modules/Domenia-UX.UI.ps1:Initialize-DomeniaUiZoom",
+        "dev/wad/tests/Test-DomeniaUxQualification.ps1:P114 (zoom 80 à 150 %, recalage sur changement de DPI, raccordement)"
+      ],
+      "remaining": [
+        "Qualification humaine sous Windows : deux écrans de mises à l'échelle différentes, puis changement de mise à l'échelle à chaud. Le recalage par DpiChanged n'agira que si Domenia passe un jour en DPI par écran."
+      ],
+      "implementation_summary": "Correction de ce qui était annoncé : Window.DpiChanged n'est levé que dans un processus DPI par écran. Sous powershell.exe (DPI système), Windows met lui-même la fenêtre à l'échelle, et un changement de résolution recale déjà la page par RootScroll.ScrollChanged. Le crochet est conservé pour un hôte DPI par écran. Il appelle désormais un gestionnaire nommé, Update-DomeniaUiZoomForDpi, testé en vrai : le zoom reste à 120 %, la page est recalée, la saisie, le curseur et le focus restent intacts. Le test qui cherchait seulement la chaîne « Add_DpiChanged » est remplacé."
     },
     {
       "id": 115,
       "title": "Rendre le clavier suffisant",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W13-ux",
+      "evidence": [
+        "dev/wad/Domenia-Core.ps1:Register-DomeniaShortcuts",
+        "dev/wad/modules/Domenia-Commands.Model.ps1:Get-DomeniaKeyboardShortcuts",
+        "dev/wad/modules/Domenia-Commands.Model.ps1:Test-DomeniaPresentationUndoKey",
+        "dev/wad/tests/Test-DomeniaCommandPalette.ps1:P115",
+        "dev/wad/tests/rules/Commands.Tests.ps1:P115"
+      ],
+      "remaining": [
+        "Parcours clavier complet par un opérateur sous Windows (qualification humaine)."
+      ],
+      "implementation_summary": "Raccourcis découvrables : chaque action de la palette affiche son raccourci, et la liste des raccourcis est vérifiée identique à celle enregistrée sur la fenêtre. Échap ferme la palette ou le panneau ouvert, sinon il efface la saisie. Ctrl+Z dans la liste est désormais décidé par une règle testée (voir 120)."
     },
     {
       "id": 116,
       "title": "Qualifier lecteur d’écran et contrastes",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "windows_qualification_only",
+      "owner": "W13-ux",
+      "evidence": [
+        "dev/wad/modules/Domenia-UX.UI.ps1:Set-DomeniaLiveText",
+        "dev/wad/modules/Domenia-UX.UI.ps1:Update-DomeniaSearchEmptyState",
+        "dev/wad/modules/Domenia-Commands.UI.ps1:Update-DomeniaCommandPaletteList",
+        "dev/wad/modules/Domenia-Commands.UI.ps1:Invoke-DomeniaCommandPaletteEntry",
+        "dev/wad/modules/Domenia-Observability.UI.ps1:Update-DomeniaOperationsTraceDetail",
+        "dev/wad/modules/Domenia-Experience.UI.ps1:Update-DomeniaExperienceActivity",
+        "dev/wad/Domenia-Core.ps1:Get-MainXaml (LblSearchEmptyText LiveSetting)",
+        "dev/wad/tests/Test-DomeniaUxQualification.ps1:P116, P119 (annonces)",
+        "dev/wad/tests/Test-DomeniaCommandPalette.ps1:P116, P117 (annonces)"
+      ],
+      "remaining": [
+        "Passage Narrateur ou NVDA sur les pages principales, la palette et le panneau Opérations (qualification humaine)."
+      ],
+      "implementation_summary": "Les zones polies sont désormais réellement annoncées : Set-DomeniaLiveText réécrit le texte seulement s'il change, puis appelle Send-DomeniaUxLiveChange (WPF ne lève rien de lui-même). Sont couverts : l'état vide de la liste (titre et explication, LiveSetting ajouté sur LblSearchEmptyText), l'état et le détail de la palette, et le motif d'un refus sur Entrée (annoncé même s'il est déjà affiché). Le détail des dernières opérations est annoncé seulement au changement d'opération choisie ou d'état, pas à chaque lot. La ligne d'état du panneau Opérations est aussi couverte. Les annonces sont vérifiées par un double d'enregistrement dans les suites STA, en plus d'un contrôle sur l'arbre syntaxique."
     },
     {
       "id": 117,
       "title": "Améliorer la palette de commandes",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W13-ux",
+      "evidence": [
+        "dev/wad/modules/Domenia-Commands.Model.ps1:Get-DomeniaCommandCatalogue",
+        "dev/wad/tests/rules/Commands.Tests.ps1:P117 'Catalogue : 42 actions entieres'",
+        "dev/wad/modules/Domenia-Commands.UI.ps1:Show-DomeniaCommandPaletteView",
+        "dev/wad/tests/Test-DomeniaCommandPalette.ps1"
+      ],
+      "remaining": [
+        "Exécuter sous Windows les règles et Test-DomeniaCommandPalette.ps1 (STA)."
+      ],
+      "implementation_summary": "Bloquant corrigé : chaque ligne du catalogue se termine maintenant par une virgule. Sous PowerShell 5.1, les 42 actions étaient aplaties en 378 valeurs d'une lettre, et aucune commande ne partait. Une règle directe vérifie 42 actions, l'ordre, la première (« search ») et la dernière (« restart »), les groupes et les cibles. La palette reste une vue de la page avec un catalogue fermé : une écriture ou une lecture protégée amène seulement son bouton à l'écran."
     },
     {
       "id": 118,
       "title": "Regrouper opérations et notifications",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W13-ux",
+      "evidence": [
+        "dev/wad/modules/Domenia-Observability.UI.ps1:Sync-DomeniaOperationsRecent",
+        "dev/wad/modules/Domenia-Live.Types.cs:OperationRow (Phase, Reference)",
+        "dev/wad/tests/Test-DomeniaWiringMoteur.ps1:W13 (point 118) dernieres operations mises a jour sur place"
+      ],
+      "remaining": [
+        "Exécuter sous Windows Test-DomeniaOperationTrace.ps1 et Test-DomeniaWiringMoteur.ps1."
+      ],
+      "implementation_summary": "« Dernières opérations » n'est plus reconstruite chaque seconde. Une collection unique reste liée à la grille, avec des lignes Domenia.Live.OperationRow (propriétés Phase et Reference ajoutées) mises à jour sur place. Les lignes sont reconstruites et réordonnées seulement quand une trace change ; sinon seule la durée des lignes ouvertes avance. La sélection, le défilement et le focus clavier sont gardés. Un cas de câblage le vérifie."
     },
     {
       "id": 119,
       "title": "Rendre les écrans vides utiles",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W13-ux",
+      "evidence": [
+        "dev/wad/modules/Domenia-Shell.Model.ps1:Get-DomeniaEmptyState",
+        "dev/wad/modules/Domenia-UX.UI.ps1:Update-DomeniaSearchEmptyState",
+        "dev/wad/tests/rules/Shell.Tests.ps1:P119",
+        "dev/wad/tests/Test-DomeniaUxQualification.ps1:P119"
+      ],
+      "remaining": [
+        "Exécuter sous Windows les règles et la suite (STA)."
+      ],
+      "implementation_summary": "La liste de résultats n'a qu'un état vide, choisi d'après ce qui a vraiment été lu, avec une prochaine action jamais automatique. Le verdict puis son explication sont désormais annoncés une fois, sans nouvelle annonce si l'état ne change pas."
     },
     {
       "id": 120,
       "title": "Étendre l’annulation des présentations",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W13-ux",
+      "evidence": [
+        "dev/wad/modules/Domenia-Commands.Model.ps1:Test-DomeniaPresentationUndoKey",
+        "dev/wad/modules/Domenia-Commands.UI.ps1:Invoke-DomeniaPresentationUndoKey",
+        "dev/wad/modules/Domenia-Commands.UI.ps1:Request-DomeniaPresentationRebase",
+        "dev/wad/tests/rules/Commands.Tests.ps1:P120 Ctrl+Z",
+        "dev/wad/tests/Test-DomeniaCommandPalette.ps1:P120 (Ctrl+Z, liste hors recherche en direct)"
+      ],
+      "remaining": [
+        "Exécuter sous Windows, puis Ctrl+Z avec la vraie touche Ctrl par un opérateur."
+      ],
+      "implementation_summary": "Ctrl+Z passe par Test-DomeniaPresentationUndoKey, une règle pure liée au raccourci du catalogue. Elle accepte Ctrl+Z venant de la liste, et refuse Z seul, Ctrl+Maj+Z, Ctrl+Y et Ctrl+Z venant d'un champ de saisie. Le cas STA passe par la vraie fonction de routage. Sur une liste hors recherche en direct, le filtre local repeint la même liste sans la prendre pour une nouvelle : l'étape « filtre de la liste » reste annulable. Seul un nouveau $script:BranchObjects devient la référence."
     },
     {
       "id": 121,
       "title": "Attribuer les lenteurs à une opération",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W13-ux",
+      "evidence": [
+        "dev/wad/modules/Domenia-Observability.Model.ps1:Get-DomeniaSlownessVerdict",
+        "dev/wad/modules/Domenia-Observability.Model.ps1:Get-DomeniaStallAttribution",
+        "dev/wad/modules/Domenia-Observability.UI.ps1:Register-DomeniaJobPublication",
+        "dev/wad/modules/Domenia-Guard.UI.ps1:Initialize-DomeniaGuard",
+        "dev/wad/tests/rules/Observability.Tests.ps1:P121"
+      ],
+      "remaining": [
+        "Exécuter sous Windows, puis confirmer les seuils (120 ms, 5 s, 400 ms) sur des mesures réelles."
+      ],
+      "implementation_summary": "Un rappel lent est expliqué par l'opération, ses phases mesurées, le volume et le traitement ; une opération de plus de 5 s aussi. Un retard du battement est attribué au travail qui le recouvre, sinon il est dit non attribué. Point non modifié par ce correctif."
     },
     {
       "id": 122,
       "title": "Mesurer les percentiles de réponse",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W14-quality-perf",
+      "evidence": [
+        "dev/wad/modules/Domenia-Engine.UI.ps1:Invoke-DomeniaUiTaskDispatch (MetricKey)",
+        "dev/wad/modules/Domenia-Engine.UI.ps1:Add-DomeniaTaskRuntimeMetric",
+        "dev/wad/modules/Domenia-Engine.UI.ps1:Add-DomeniaRuntimeMetric",
+        "dev/wad/modules/Domenia-Engine.UI.ps1:Get-DomeniaResponseTimeSummaries",
+        "dev/wad/modules/Domenia-Engine.Model.ps1:Get-DomeniaResponseTimeCategories",
+        "dev/wad/modules/Domenia-Engine.Model.ps1:Select-DomeniaResponseTimeSamples",
+        "dev/wad/modules/Domenia-Operations.xaml:LblOperationsHealth",
+        "dev/wad/modules/Domenia-UX.help.json:LblOperationsHealth",
+        "dev/wad/tests/rules/Engine.Tests.ps1 (P122)",
+        "dev/wad/tests/Test-DomeniaInterfaceTelemetry.ps1",
+        "dev/wad/tests/Test-DomeniaSearchProgressWiring.ps1 (répartition réelle)"
+      ],
+      "remaining": [
+        "Rien n'a été exécuté sous Windows PowerShell 5.1 : ni les règles P122, ni Test-DomeniaInterfaceTelemetry, ni Test-DomeniaSearchProgressWiring. Le rendu WPF n'est mesuré qu'à travers la catégorie Callback."
+      ],
+      "implementation_summary": "Médiane, 95e centile (à partir de 20 mesures) et maximum par catégorie disjointe, affichés dans la santé du panneau Opérations. Correction de revue : la clé de série (LocalIndexRead:Search, LocalQuery:Search) est fixée dans Invoke-DomeniaUiTaskDispatch avant que la charge ne soit libérée (MetricKey). La recherche locale a donc vraiment sa propre série dans l'application. Écritures et actions à distance (IsWrite) préfixées Write: et comptées dans une sixième catégorie, jamais parmi les lectures. Résumés mis en cache par série : le battement ne force aucun recalcul. Lecture directe des séries typées. Infobulle et aide à jour."
     },
     {
       "id": 123,
       "title": "Relier les événements d’une opération",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W13-ux",
+      "evidence": [
+        "dev/wad/modules/Domenia-Observability.Model.ps1:Add-DomeniaTraceJob (-Stage)",
+        "dev/wad/modules/Domenia-Observability.Model.ps1:Add-DomeniaOperationTraceEvent",
+        "dev/wad/modules/Domenia-Observability.UI.ps1:Join-DomeniaPipeTrace",
+        "dev/wad/modules/Domenia-Observability.UI.ps1:Complete-DomeniaRequestTrace",
+        "dev/wad/modules/Domenia-Observability.UI.ps1:Complete-DomeniaJobTrace",
+        "dev/wad/modules/Domenia-DirectoryStore.UI.ps1:Invoke-DomeniaDirectoryStoreTick",
+        "dev/wad/modules/Domenia-DirectoryStore.UI.ps1:Fail-DomeniaDirectoryStoreBatch",
+        "dev/wad/Domenia-Core.ps1:Start-UiTask",
+        "dev/wad/tests/rules/Observability.Tests.ps1:P123 'Etape du flux'",
+        "dev/wad/tests/Test-DomeniaOperationTrace.ps1:P123 demande en flux / tache jamais envoyee",
+        "dev/wad/tests/Test-DomeniaWiringMoteur.ps1:W13 (point 123) corps refuse avant la mise en file"
+      ],
+      "remaining": [
+        "Exécuter sous Windows les règles, Test-DomeniaOperationTrace.ps1 et les cas W13 de Test-DomeniaWiringMoteur.ps1."
+      ],
+      "implementation_summary": "Lecture en flux : à la fin d'une tâche envoyée, le flux de lecture de sa demande (enregistrement SQLite, relecture, publication) devient une étape ouverte de la trace. Cette étape n'est ni comptée comme tâche ni listée dans le journal. La trace reste donc « En cours » et son total court jusqu'à la dernière publication, avec une seule ligne Trace écrite après les rappels du flux. Un échec d'enregistrement local ferme l'étape en échec, et un événement arrivé après la fin repousse la fin. Dans Start-UiTask, un corps refusé avant la mise en file ferme maintenant la trace (Refusée avant envoi)."
     },
     {
       "id": 124,
       "title": "Produire un diagnostic expurgé",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W13-ux",
+      "evidence": [
+        "dev/wad/modules/Domenia-Observability.Model.ps1:New-DomeniaRedactedDiagnostic",
+        "dev/wad/modules/Domenia-Observability.Model.ps1:Get-DomeniaDiagnosticPreviewText",
+        "dev/wad/modules/Domenia-Dossier.UI.ps1:Export-DomeniaTechnicalDossier",
+        "dev/wad/tests/rules/Observability.Tests.ps1:P124",
+        "dev/wad/tests/Test-DomeniaOperationTrace.ps1:P124"
+      ],
+      "remaining": [
+        "Exécuter sous Windows les règles et Test-DomeniaOperationTrace.ps1."
+      ],
+      "implementation_summary": "Le dossier technique devient un diagnostic expurgé par liste blanche : versions, compteurs, mesures locales, codes d'incident, traces par référence et lenteurs, sans message, nom, chemin AD, adresse ni secret. L'opérateur voit un aperçu complet, confirme, puis choisit un fichier local ; rien n'est envoyé. Le diagnostic est accessible depuis Garde et depuis le panneau Opérations. Point non modifié par ce correctif."
     },
     {
       "id": 125,
       "title": "Tester charge et stabilité longues",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "windows_qualification_only",
+      "owner": "W14-quality-perf",
+      "evidence": [
+        "dev/wad/tests/Test-DomeniaLoadStability.ps1",
+        "dev/wad/tests/fixtures/Domenia-LoadFixtures.ps1",
+        "dev/wad/tests/rules/LoadFixtures.Tests.ps1 (P125)"
+      ],
+      "remaining": [
+        "Exécution dans la VM à 10 000 puis 20 000 postes."
+      ],
+      "implementation_summary": "Suite Test-DomeniaLoadStability.ps1 : 10 000 et 20 000 postes, démarrage à froid, cache chaud, historique volumineux, postes très équipés, mémoire stable et files bornées. Inchangée par cette correction ; elle rapporte maintenant six catégories d'application."
     },
     {
       "id": 126,
       "title": "Injecter les pannes de stockage",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "windows_qualification_only",
+      "owner": "W14-quality-perf",
+      "evidence": [
+        "dev/wad/tests/Test-DomeniaStorageFaults.ps1"
+      ],
+      "remaining": [
+        "Exécution dans la VM ; un volume physiquement plein n'est pas simulé."
+      ],
+      "implementation_summary": "Suite Test-DomeniaStorageFaults.ps1 : base verrouillée, disque plein, arrêts brutaux réels, contrôle d'intégrité, rejeu unique. Inchangée par cette correction."
     },
     {
       "id": 127,
       "title": "Injecter les pannes réseau",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W14-quality-perf",
+      "evidence": [
+        "dev/wad/modules/Domenia-Live.Model.ps1:Get-DomeniaLiveProbeCode (Get-LiveHostMismatch)",
+        "dev/wad/modules/Domenia-Access.Model.ps1:Get-DomeniaErrorDecision",
+        "dev/wad/tests/Test-DomeniaNetworkFaults.ps1",
+        "dev/wad/tests/Test-DomeniaSearchPresence.ps1",
+        "dev/wad/tests/rules/NetworkFaults.Tests.ps1 (P127)"
+      ],
+      "remaining": [
+        "L'intégrateur doit réépingler LiveConsole et LiveSelectedPing. Aucune exécution Windows. Les sondes seules restent sans contrôle d'identité, et la présence ICMP n'est pas invalidée par une identité incohérente."
+      ],
+      "implementation_summary": "Le corps LiveConsole et LiveSelectedPing vérifie l'identité du poste qui répond. Correction de revue : Get-LiveHostMismatch reconnaît le même poste dès qu'une identité correspond, sous l'une des formes suivantes : libellé DNS, NetBIOS tronqué à 15 caractères, cible cn face à un nom d'hôte long. Le refus n'est déclaré que si aucune ne correspond. Nouveaux cas réseau ajoutés (cn tronqué, nom long, autre poste à nom long). La doublure CIM de SearchPresence accepte Name et DNSHostName et ajoute un cas « autre poste ». Opérandes -or parenthésés dans Get-DomeniaErrorDecision."
     },
     {
       "id": 128,
       "title": "Vérifier les invariants automatiquement",
-      "status": "in_progress",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W14-quality-perf",
+      "evidence": [
+        "dev/wad/tests/fixtures/Domenia-Invariants.ps1",
+        "dev/wad/tests/rules/Invariants.Tests.ps1 (P128)",
+        "dev/wad/tests/Test-DomeniaNetworkFaults.ps1 (aucune réponse d'une ancienne sélection)"
+      ],
+      "remaining": [
+        "Exécution Windows."
+      ],
+      "implementation_summary": "Bibliothèque d'invariants (comptes de widgets, rendu daté, inconnu conservé, réponse courante). Correction de revue : la suite réseau énumérait le tableau de violations imbriqué par @() ; elle énumère maintenant le tableau rendu, ce qui la rend satisfiable."
     },
     {
       "id": 129,
       "title": "Qualifier les parcours graphiques natifs",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "windows_qualification_only",
+      "owner": "W14-quality-perf",
+      "evidence": [
+        "dev/engineering/d120/lab/Invoke-DomeniaGuiJourney.ps1",
+        "dev/wad/tests/fixtures/Domenia-GuiJourney.ps1:Get-DomeniaGuiJourneyVerdict",
+        "dev/wad/tests/rules/GuiJourney.Tests.ps1 (P129)",
+        "dev/engineering/d120/qualification/README.md"
+      ],
+      "remaining": [
+        "Parcours à exécuter dans une session interactive de la VM, puis à la main par une personne (relevé humain)."
+      ],
+      "implementation_summary": "Banc Invoke-DomeniaGuiJourney.ps1. Corrections de revue : l'appel de Test-DomeniaGuiJourneyDefinition n'est plus enveloppé dans @(), donc le banc ne s'arrête plus sur un fichier valide, et la règle P129 « fichier livré valide » est corrigée de la même façon. Les parcours inconnus de -Journeys sont refusés. Un passage partiel donne « Partiel » et nomme les parcours exécutés et manquants, jamais « Qualifié ». La zone de travail doit contenir 1920×1080 hors barre des tâches ; la fenêtre est placée dans cette zone et la contenance est vérifiée."
     },
     {
       "id": 130,
       "title": "Distinguer laboratoire et domaine réel",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "windows_qualification_only",
+      "owner": "W14-quality-perf",
+      "evidence": [
+        "dev/tools/validation_matrix.py:report_facts",
+        "dev/tools/validation_matrix.py:verify_report",
+        "dev/tools/validation_matrix.py:add_evidence",
+        "dev/engineering/d120/test_validation_matrix.py",
+        "dev/engineering/d120/qualification/README.md",
+        "dev/engineering/d120/qualification/validation-matrix.json"
+      ],
+      "remaining": [
+        "Ajouter avec --add-evidence les rapports du laboratoire, puis ceux du domaine cible, quand ils existeront."
+      ],
+      "implementation_summary": "Matrice de validation. Correction de revue : le mode --add-evidence lit dans le rapport lui-même son SHA-256, son domaine, son poste et sa date, puis en déduit l'environnement ; rien n'est saisi. À chaque contrôle, un rapport lisible est relu, et toute différence d'empreinte, de domaine, de poste ou d'environnement est refusée. Un rapport illisible ici est listé comme non relu. 17 tests unitaires."
     },
     {
       "id": 131,
       "title": "Extraire progressivement le cœur monolithique",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "Codex integration",
+      "evidence": [
+        "dev/wad/Domenia-Main.xaml",
+        "dev/wad/modules/Domenia-Confirmation.UI.ps1",
+        "dev/tools/tests/test_release_stamping.py",
+        "dev/engineering/d120/programme-2026-10-13/SUIVI-2026-10-16.md"
+      ],
+      "remaining": [
+        "Qualification Windows PowerShell 5.1 liee au SHA-256 des paquets."
+      ],
+      "implementation_summary": "XAML principal externe, declare dans le preflight et les deux packs ; trois fonctions de confirmation extraites a contenu identique dans un module ferme ; audits, preview, estampillage et tests adaptes."
     },
     {
       "id": 132,
       "title": "Compiler seulement les points chauds mesurés",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W16-release",
+      "evidence": [
+        "dev/tools/compiled-code.json (probe-aggregation : Hotspot [probe-aggregation, probe-selection])",
+        "dev/tools/compiled_code.py:hotspot_ids,report_failures,judge,decide",
+        "dev/wad/tests/Test-DomeniaHotspots.ps1:New-PowerShellProbeSamples,Measure-PowerShellFleetProbeEntries,Test-PowerShellProbeSelection,Get-ProbeValueRows",
+        "dev/tools/tests/test_compiled_code.py:test_a_report_with_a_failed_case_justifies_nothing,test_a_unit_with_several_operations_needs_every_measure",
+        "dev/tools/tests/test_delivery_recipe.py:HotspotCriterionTests",
+        "dev/tools/delivery-recipe.json (R13)"
+      ],
+      "remaining": [
+        "Lancer Test-DomeniaHotspots (maintenant 5 cas, 3 mesures) et Test-DomeniaQueryScale dans la VM : sans ces rapports, chaque point chaud reste « Mesure à produire »."
+      ],
+      "implementation_summary": "Registre tools/compiled-code.json de chaque unité C# et contrôle tools/compiled_code.py, garde de build_packages. Après revue : le décodage est chronométré sans la mise en forme et Parity vient de la comparaison complète des valeurs (-ceq). L'agrégation est mesurée contre une référence PowerShell complète (seaux, échantillons, groupes) et ProbeSelection contre son équivalent PowerShell. L'unité probe-aggregation exige ses deux mesures, et decide() refuse un rapport qui a un cas en échec ou ne compte pas ses échecs."
     },
     {
       "id": 133,
       "title": "Versionner les contrats entre modules",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W16-release",
+      "evidence": [
+        "dev/wad/modules/Domenia-Common.Model.ps1:Get-DomeniaContractCatalog,Get-DomeniaContract",
+        "dev/wad/modules/Domenia-QueryLibrary.Model.ps1:Get-DomeniaQueryLibraryDefinitionValidationCode (Assert-WQueryLibraryDefinition)",
+        "dev/wad/modules/Domenia-Storage.Worker.ps1:Get-DomeniaStorageWorkerCode (Assert-StoreWQueryRecord)",
+        "dev/wad/modules/Domenia-Store.Model.ps1:ConvertTo-DomeniaStoreQueryChange",
+        "dev/wad/modules/Domenia-Dashboard.UI.ps1:Get-DomeniaWindowsLifecycleTable",
+        "dev/wad/modules/Domenia-Compatibility.Model.ps1:Test-DomeniaCompatibilityMatrix",
+        "dev/wad/tests/rules/Contracts.Tests.ps1 (CTR-009)",
+        "dev/wad/tests/rules/Compatibility.Tests.ps1 (CMP-010)",
+        "dev/wad/tests/Test-DomeniaDelivery.ps1 (2 nouveaux cas P133)"
+      ],
+      "remaining": [
+        "Exécution 5.1 des règles et de Test-DomeniaDelivery dans la VM. Empreinte de LocalStore à ré-épingler par l'intégrateur."
+      ],
+      "implementation_summary": "Catalogue de contrats versionnés dans Domenia-Common.Model.ps1. Après revue, le catalogue et un index ordinal sont construits une fois par runspace, avec une lecture tolérante à Set-StrictMode. Passent aussi par le catalogue : la validation de la bibliothèque du worker LocalStore (Assert-WQueryLibraryDefinition, enregistrements Domenia.QueryLibraryRecord côté worker et côté Store.Model), la table des fins de service Windows et la matrice de compatibilité. Une donnée produite par une version plus récente est refusée avec sa version."
     },
     {
       "id": 134,
       "title": "Partager les briques avec Pesto et FilPro",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W15-integration",
+      "evidence": [
+        "dev/engineering/d120/contrats/briques-communes.json",
+        "dev/engineering/d120/contrats/BRIQUES-COMMUNES.md",
+        "dev/tools/tests/test_shared_bricks.py:SharedBricksContract"
+      ],
+      "remaining": [
+        "Confirmer avec les mainteneurs de Pesto et FILPRO les besoins notés « non vérifié » ; reverser QueryEngine.cs dans m4d-admin-common (hors dépôt)."
+      ],
+      "implementation_summary": "Contrat Domenia.SharedBricks/1 inchangé par la correction : requêtes, identité, coffre, journal expurgé, composants GUI, passage de contexte et contrats publiés, avec preuves de besoin et test Python de cohérence."
     },
     {
       "id": 135,
       "title": "Définir un contrat de sonde extensible",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W15-integration",
+      "evidence": [
+        "dev/wad/modules/Domenia-ProbeContract.Model.ps1:ConvertTo-DomeniaProbeContract",
+        "dev/wad/modules/Domenia-ProbeContract.Model.ps1:Test-DomeniaProbeContract",
+        "dev/wad/tests/rules/ProbeContract.Tests.ps1:PCT-001..PCT-003"
+      ],
+      "remaining": [
+        "Exécuter Test-DomeniaRules.ps1 et Test-DomeniaProbeCatalog.ps1 sous Windows PowerShell 5.1."
+      ],
+      "implementation_summary": "Contrat Domenia.ProbeContract/1 par sonde (entrées CIM, champs typés, privilèges, coût, limites, sources, tests attendus), vérifié par les règles et affiché dans le sélecteur et les détails de sonde. Aucun changement dans cette correction."
     },
     {
       "id": 136,
       "title": "Isoler les sondes avancées",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W15-integration",
+      "evidence": [
+        "dev/wad/modules/Domenia-ProbeCatalog.Model.ps1:Assert-DomeniaCustomProbeDeclaration",
+        "dev/wad/modules/Domenia-QueryLibrary.Model.ps1:Get-DomeniaQueryLibraryDefinitionValidationCode",
+        "dev/wad/modules/Domenia-Storage.Worker.ps1:Get-DomeniaStorageWorkerCode",
+        "dev/wad/tests/rules/ProbeContract.Tests.ps1:PCT-004..PCT-006"
+      ],
+      "remaining": [
+        "Réépingler LocalStore à partir de la composition réelle sous Windows (Get-DomeniaWorkerCodeHash (Get-DomeniaStorageWorkerCode)), pas avec le miroir Python ; exécution des règles sous 5.1."
+      ],
+      "implementation_summary": "Sonde « Personnalisée » refusée sans comportement, privilèges et coût déclarés (Assert-DomeniaCustomProbeDeclaration) ; plan d’isolement honnête. Ce changement de Domenia-ProbeCatalog.Model.ps1 modifie le corps composé de LocalStore à l’exécution : LocalStore est désormais listé pour réépinglage."
     },
     {
       "id": 137,
       "title": "Importer des inventaires existants",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W15-integration",
+      "evidence": [
+        "dev/wad/modules/Domenia-InventoryImport.Model.ps1:ConvertFrom-DomeniaOsqueryText",
+        "dev/wad/modules/Domenia-InventoryImport.Model.ps1:Select-DomeniaLatestInventoryRecords",
+        "dev/wad/modules/Domenia-Cache.Model.ps1:Get-DomeniaProtectedAssociationSources",
+        "dev/wad/modules/Domenia-Storage.Worker.ps1:Get-DomeniaStoragePurgeWorkerCode",
+        "dev/wad/modules/Domenia-Relations.UI.ps1:Start-DomeniaLinkImportIndexCheck",
+        "dev/wad/modules/Domenia-UX.help.json:BtnLinkImportApply",
+        "dev/wad/tests/rules/InventoryImport.Tests.ps1:IMP-004,IMP-007",
+        "dev/wad/tests/rules/Cache.Tests.ps1:D029 point 137",
+        "dev/wad/tests/Test-DomeniaWiringCache.ps1:D029 / point 137"
+      ],
+      "remaining": [
+        "Réépingler StoragePurge ; exécuter les règles, Test-DomeniaWiringCache.ps1 et Test-DomeniaWiringRelations.ps1 sous Windows PowerShell 5.1 ; valider sur de vrais exports GLPI et journaux osquery."
+      ],
+      "implementation_summary": "Adaptateurs CSV, GLPI et osquery corrigés : les sessions osquery sans personne (utilisateur vide de la session des services, SYSTEM, DWM-n, UMFD-n, pseudo-comptes utmp) sont ignorées et comptées, et un enregistrement sans compte ou rejeté ne départage plus un poste. La purge « Historique » du worker StoragePurge protège aussi Import GLPI et Import osquery, avec une liste unique Get-DomeniaProtectedAssociationSources comparée au worker par un test de règles. La tâche, le journal et l’aide nomment la source réelle de l’import."
     },
     {
       "id": 138,
       "title": "Prévisualiser et annuler un import local",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W15-integration",
+      "evidence": [
+        "dev/wad/modules/Domenia-InventoryImport.Model.ps1:New-DomeniaImportBatchId",
+        "dev/wad/modules/Domenia-InventoryImport.Model.ps1:Get-DomeniaImportBatchToken",
+        "dev/wad/modules/Domenia-InventoryImport.Model.ps1:Get-DomeniaImportBatches",
+        "dev/wad/tests/rules/InventoryImport.Tests.ps1:IMP-009,IMP-010",
+        "dev/engineering/d120/contrats/IMPORT-INVENTAIRES.md"
+      ],
+      "remaining": [
+        "Exécution Windows 5.1 ; les associations importées avant cette version n’ont pas de lot."
+      ],
+      "implementation_summary": "Le lot de retour arrière est désormais daté à la milliseconde (AAAAMMJJTHHMMSSmmmZ-xxxxxxxx) : après un redémarrage, « Annuler lʼimport » vise bien le dernier import, même quand deux imports ont eu lieu dans la même minute. L’aperçu classé et la provenance imposée sont inchangés."
     },
     {
       "id": 139,
       "title": "Produire un dossier de diagnostic hors ligne",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W15-integration",
+      "evidence": [
+        "dev/wad/modules/Domenia-Automation.UI.ps1:Test-DomeniaOfflineDossierRunning",
+        "dev/wad/modules/Domenia-Automation.UI.ps1:Start-DomeniaOfflineDossier",
+        "dev/wad/modules/Domenia-Automation.Model.ps1:Get-DomeniaOfflineDossierPerimeter",
+        "dev/wad/Domenia-Automate.ps1",
+        "dev/wad/tests/rules/Automation.Tests.ps1:AUT-008,AUT-010",
+        "dev/wad/tests/Test-DomeniaAutomation.ps1:Point 139 Atelier",
+        "Integration Codex : diagnostic charge a la demande dans Outils ; bouton dossier hors ligne accessible ; test de reprise apres echec."
+      ],
+      "remaining": [
+        "Épingler OfflineDossier ; exécuter Test-DomeniaAutomation.ps1 et les règles sous Windows PowerShell 5.1 (VM)."
+      ],
+      "implementation_summary": "Dossier hors ligne corrigé. Une OU au nom accentué (OU=Écoles) est trouvée par l’Atelier, sous-OU comprises. « Préparer le dossier » n’est plus bloqué après une annulation, un retrait de file ou un détachement : le TaskId est suivi dans $script:AsyncJobs. Le dossier temporaire est supprimé dans finally, y compris quand la tâche est arrêtée. Le classement de l’opération OfflineDossier est figé par un test : voie Local, aucun compte d’annuaire, LocalWrite, aucun reçu."
     },
     {
       "id": 140,
       "title": "Proposer une interface automatisable locale",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W15-integration",
+      "evidence": [
+        "dev/wad/modules/Domenia-Automation.Model.ps1:ConvertTo-DomeniaAutomationGlobText",
+        "dev/wad/modules/Domenia-Automation.Model.ps1:Get-DomeniaAutomationPerimeterSql",
+        "dev/wad/modules/Domenia-Automation.Model.ps1:ConvertTo-DomeniaAutomationDn",
+        "dev/wad/Domenia-Automate.ps1:Test-DomeniaAutomationLocalPath",
+        "dev/wad/tests/rules/Automation.Tests.ps1:AUT-002,AUT-003,AUT-009",
+        "dev/wad/tests/Test-DomeniaAutomation.ps1:OU accentuee",
+        "dev/engineering/d120/contrats/AUTOMATISATION-LOCALE.md"
+      ],
+      "remaining": [
+        "Régénérer les manifestes (le CLI refuse tant que Domenia-Automation.Model.ps1 n’est pas dans package-manifest.json) ; exécuter la suite Windows."
+      ],
+      "implementation_summary": "Interface Domenia.Automation/1 corrigée. Le périmètre OU passe par un motif GLOB avec des classes de casse ([Éé]) : la comparaison est exacte en SQL, sous-requêtes comprises, et Limit/Truncated restent justes. La casse saisie est conservée. Set-StrictMode -Off protège le lecteur SQLite du cœur d’un appelant en mode strict, ce qui corrige l’échec en processus avec -PassThru. Un lecteur réseau mappé est refusé comme un chemin UNC, et les opérandes -and/-or sont parenthésées."
     },
     {
       "id": 141,
       "title": "Signer les exécutables et distributions",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W16-release",
+      "evidence": [
+        "dev/tools/Signer-Distribution.ps1",
+        "dev/tools/Test-DomeniaSignature.ps1",
+        "dev/tools/build_packages.py:write_checksums",
+        "dev/tools/tests/test_licence_inventory.py:ChecksumFileTests"
+      ],
+      "remaining": [
+        "Fournir le certificat de l'organisation, puis signer et vérifier réellement sous Windows."
+      ],
+      "implementation_summary": "La signature existait déjà : Signer-Distribution.ps1 signe une copie préparée seulement si un certificat Code Signing est fourni, et Test-DomeniaSignature.ps1 vérifie hors ligne. Le lot ajoute SHA256SUMS, écrit par build_packages. Ce point n'est pas modifié par la correction."
     },
     {
       "id": 142,
       "title": "Construire les deux packs de façon reproductible",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W16-release",
+      "evidence": [
+        "dev/tools/build_packages.py:build,select_members,component_inventory",
+        "dev/tools/delivery_recipe.py:check_rebuild",
+        "dev/tools/tests/test_delivery_recipe.py:test_second_build_must_give_identical_archives"
+      ],
+      "remaining": [
+        "KI-003 : DLL natives recompilées sans fabrication déterministe."
+      ],
+      "implementation_summary": "build_packages était déjà déterministe : deux constructions successives donnent des ZIP identiques à l'octet. Le critère de recette R12 compare deux constructions du même commit. Ce point n'est pas modifié par la correction."
     },
     {
       "id": 143,
       "title": "Sécuriser la mise à jour de l’application",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W16-release",
+      "evidence": [
+        "dev/wad/modules/Domenia-Release.Model.ps1:Get-DomeniaDataSchemaTransition",
+        "dev/wad/Support/INSTALLER-MISE-A-JOUR.ps1:Import-PackageModel,Get-DataSchemaVersion,Restore-FromBackup",
+        "dev/wad/tests/rules/Delivery.Tests.ps1 (DLV-001, DLV-002)"
+      ],
+      "remaining": [
+        "Exécuter Test-DomeniaInstaller dans la VM après régénération des manifestes."
+      ],
+      "implementation_summary": "Get-DomeniaDataSchemaTransition : l'installateur annonce la migration du schéma avant la réponse, la consigne dans le journal et la rappelle au retour arrière. Ce point n'est pas modifié par la correction."
     },
     {
       "id": 144,
       "title": "Tester installation et désinstallation",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W16-release",
+      "evidence": [
+        "dev/wad/Support/INSTALLER-MISE-A-JOUR.ps1:Get-OpenReceipts,Resolve-DataChoice,Invoke-DomeniaUninstall",
+        "dev/wad/modules/Domenia-Release.Model.ps1:Get-DomeniaUninstallPlan",
+        "dev/wad/tests/rules/Delivery.Tests.ps1 (DLV-007)",
+        "dev/wad/tests/Test-DomeniaInstaller.ps1 (2 nouveaux cas P144, Expected 26)"
+      ],
+      "remaining": [
+        "Exécuter Test-DomeniaInstaller dans la VM avec un compte standard. Le refus pour reçus ouverts est vérifié sur un dossier fixture et sur l'ordre du texte, jamais sur le vrai profil (KI-005). -ProfileData Supprimer reste à qualifier sur un compte jetable."
+      ],
+      "implementation_summary": "Désinstallation avec -LocalData et -ProfileData. Après revue, les choix sont ramenés à leur orthographe canonique dans l'installateur (Resolve-DataChoice) et dans Get-DomeniaUninstallPlan : « supprimer » supprime et « demander » ne fait plus échouer la liaison. Les reçus du profil sont relus avant la première suppression. Un reçu à vérifier ou illisible refuse la suppression des données du profil, rien n'est supprimé, et les reçus sont nommés. La question indique le nombre de reçus."
     },
     {
       "id": 145,
       "title": "Tenir une matrice de compatibilité",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W16-release",
+      "evidence": [
+        "dev/wad/modules/Domenia-Compatibility.UI.ps1:Update-DomeniaAboutCompatibility",
+        "dev/wad/Domenia-Core.ps1:Get-MainXaml (LblUxAboutCompatibility)",
+        "dev/wad/modules/Domenia-UX.help.json (LblUxAboutCompatibility)",
+        "dev/wad/tests/Test-DomeniaDelivery.ps1 (P145 À propos : HelpText égal à l'infobulle)"
+      ],
+      "remaining": [
+        "Suite dans la VM. Une ligne ne passe à Qualifie qu'avec un rapport release_guard lié au ZIP."
+      ],
+      "implementation_summary": "Matrice de compatibilité livrée et verdict par dimension dans À propos. Après revue, LblUxAboutCompatibility a une infobulle statique égale à son HelpText et une entrée d'aide. Update-DomeniaAboutCompatibility pose ensemble l'infobulle par dimension et l'aide accessible, et revient à l'aide statique en l'absence de détail ou en cas d'erreur. La matrice est contrôlée par le catalogue des contrats."
     },
     {
       "id": 146,
       "title": "Inventorier licences et dépendances",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W16-release",
+      "evidence": [
+        "dev/tools/licence-inventory.json",
+        "dev/tools/licence_inventory.py:validate,summary"
+      ],
+      "remaining": [
+        "Revue juridique des trois composants bloquants (KI-001)."
+      ],
+      "implementation_summary": "Inventaire des licences et contrôle licence_inventory.py, utilisé comme garde par build_packages. Ce point n'est pas modifié par la correction."
     },
     {
       "id": 147,
       "title": "Définir une politique de données locale",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W16-release",
+      "evidence": [
+        "dev/wad/modules/Domenia-DataPolicy.Model.ps1:Get-DomeniaLocalDataPolicy (-Areas)",
+        "dev/wad/modules/Domenia-DataPolicy.UI.ps1:Update-DomeniaDataPolicyView",
+        "dev/wad/Domenia-Core.ps1:Get-MainXaml (ExpStorageDataPolicy, LblStorageDataPolicy)",
+        "dev/wad/tests/rules/Delivery.Tests.ps1 (DPO-001, DPO-003, DPO-005)",
+        "dev/wad/tests/Test-DomeniaDelivery.ps1 (P147 : 15 catégories et zones)"
+      ],
+      "remaining": [
+        "Exécution dans la VM."
+      ],
+      "implementation_summary": "Politique des données locales dans Stockage. Après revue, elle a 15 catégories : Exports CSV, Diagnostics et Anciennes données sont ajoutées. Les emplacements viennent des zones Cache de la disposition du stockage, passées par Update-DomeniaDataPolicyView. La colonne Export indique le dossier des exports, et la suppression des reçus est refusée tant qu'un reçu reste à vérifier. L'expandeur et l'engagement ont une infobulle, un HelpText et une entrée d'aide."
     },
     {
       "id": 148,
       "title": "Guider le premier démarrage",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W16-release",
+      "evidence": [
+        "dev/wad/modules/Domenia-Dashboard.UI.ps1:Complete-DomeniaFleetDashboard",
+        "dev/wad/Domenia-Core.ps1:GuiElementPolicy, Get-MainXaml (LblFirstStepsDeferred)",
+        "dev/wad/modules/Domenia-UX.help.json (BtnFirstStepOu, BtnFirstStepBase, BtnFirstStepDashboard, DgStorageDataPolicy)",
+        "dev/wad/tests/Test-DomeniaBoards.ps1 (Parc : vue calculée sur l'Atelier, DashboardSeen vide)",
+        "dev/tools/tests/test_release_documents.py:MainXamlControlTests"
+      ],
+      "remaining": [
+        "Exécution de Test-DomeniaBoards dans la VM."
+      ],
+      "implementation_summary": "Premiers pas en quatre étapes. Après revue, la découverte du tableau de bord n'est enregistrée que si l'Accueil (TabDashboard) est affiché : l'Atelier ne compte plus. LblFirstStepsDeferred a une infobulle, un HelpText et une entrée d'aide. Les quatre libellés d'étape ajoutés sont déclarés dans GuiElementPolicy, et les titres d'aide sont alignés sur les noms d'automation."
     },
     {
       "id": 149,
       "title": "Synchroniser aide et documentation v1.0",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W17-completion",
+      "evidence": [
+        "dev/tools/doc_sync.py",
+        "dev/tools/baselines/doc-sync-baseline.json",
+        "dev/tools/tests/test_doc_sync.py",
+        "dev/wad/modules/Domenia-UX.help.json",
+        "guides/administrateur.md, guides/technicien.md",
+        "commits ba67e97, be15fa2",
+        "doc_sync --check PASS after the fixer's guide edit"
+      ],
+      "remaining": [
+        "Screenshots and the regenerated DOCX and PDF guides are David's manual job under Windows. 56 figure gaps remain until then."
+      ],
+      "implementation_summary": "All 79 quotation gaps in the guides were re-read against the interface. doc_sync now indexes the cells of catalogue tables. Stale quotations were fixed and 8 help entries without a control were removed. The baseline was tightened."
     },
     {
       "id": 150,
       "title": "Formaliser une recette de livraison",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W16-release",
+      "evidence": [
+        "dev/tools/delivery-recipe.json (R13)",
+        "dev/tools/delivery_recipe.py:check_hotspots",
+        "dev/tools/tests/test_delivery_recipe.py"
+      ],
+      "remaining": [
+        "Fournir le rapport release_guard Windows et les campagnes, puis résoudre KI-001."
+      ],
+      "implementation_summary": "La recette de livraison est mesurable, avec 13 critères bloquants et les incidents ouverts. Après revue, le seuil R13 exige que chaque opération d'un point chaud soit comparée à PowerShell, avec un rapport sans cas en échec."
     },
     {
       "id": 151,
       "title": "Contrôler la cohérence temporelle des conditions",
-      "status": "in_progress",
-      "owner": "search_engine_deadlines",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W10-query-advanced",
+      "evidence": [
+        "dev/wad/modules/Domenia-Query.Model.ps1:Measure-DomeniaQueryCoverage",
+        "dev/wad/modules/Domenia-Query.Model.ps1:Get-DomeniaQueryCoherenceProposal",
+        "dev/wad/modules/Domenia-Query.UI.ps1:Show-DomeniaQueryCoherence",
+        "dev/wad/modules/Domenia-Query.UI.ps1:Use-DomeniaQueryCoherenceProposal",
+        "dev/wad/tests/Test-DomeniaQueryAdvanced.ps1 (section 151)",
+        "dev/wad/tests/rules/Query.Tests.ps1 (P151)"
+      ],
+      "remaining": [
+        "Suites non exécutées ici (pas de PowerShell) : exécution Windows PowerShell 5.1 en VM."
+      ],
+      "implementation_summary": "Vérification de couverture comparée à la fenêtre de la recette (référence 24 h annoncée comme telle), dates regroupées par source avec la plus ancienne et la plus récente, plus petite fenêtre usuelle couvrant 90 % des postes datés proposée et appliquée au seul brouillon. Inchangé par ce correctif."
     },
     {
       "id": 152,
       "title": "Interroger correctement les collections",
-      "status": "in_progress",
-      "owner": "search_engine_deadlines",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W10-query-advanced",
+      "evidence": [
+        "dev/wad/modules/Domenia-ProbeCatalog.json:soft.installed",
+        "dev/wad/modules/Domenia-Query.Model.ps1:ConvertTo-DomeniaQueryExpression",
+        "dev/wad/tests/Test-DomeniaQueryAdvanced.ps1 (section 152)"
+      ],
+      "remaining": [
+        "Qualification Windows du fournisseur Win32_InstalledWin32Program ; exécution de la suite en VM."
+      ],
+      "implementation_summary": "Quantificateurs au moins une / toutes / aucune et contrainte « même instance » testés ; collection « Applications installées » (Win32_InstalledWin32Program, jamais Windows Installer). Cardinalités de la section 152 relues sans écart. Inchangé par ce correctif."
     },
     {
       "id": 153,
       "title": "Prévisualiser l’impact d’une recette modifiée",
-      "status": "in_progress",
-      "owner": "search_engine_deadlines",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W10-query-advanced",
+      "evidence": [
+        "dev/wad/modules/Domenia-QueryTargets.UI.ps1:Add-DomeniaWorkshopWidget",
+        "dev/wad/modules/Domenia-QueryTargets.UI.ps1:Complete-DomeniaWorkshopWidgetSave",
+        "dev/wad/modules/Domenia-Query.UI.ps1:Show-DomeniaQueryImpact (mode Widget)",
+        "dev/wad/modules/Domenia-Query.UI.ps1:Invoke-DomeniaQueryImpactAction",
+        "dev/wad/modules/Domenia-QueryLibrary.Store.UI.ps1:Save-DomeniaQueryRecipe (-ImpactConfirmed)",
+        "dev/wad/tests/Test-DomeniaQueryAdvanced.ps1 (section 153, bouton widget)"
+      ],
+      "remaining": [
+        "Exécution Windows de la suite. La suite ancienne Test-DomeniaQueryTargets.ps1 appelle Add-DomeniaWorkshopWidget sans charger Domenia-QueryLibrary.Store.UI.ps1 : ses cas widget échouent déjà sur master (hors périmètre)."
+      ],
+      "implementation_summary": "La revue d'impact dans la page couvre maintenant aussi le bouton « Créer une sonde dashboard » : une définition enregistrée modifiée affiche widgets, liens orphelins et vue de Recherche sans fenêtre modale, rien n'est écrit ni ajouté avant le choix ; « mettre à jour » enregistre la définition et le lien du widget dans le même lot, « garder l'ancienne version » crée la copie et un widget lié à la copie seule. Revue périmée toujours refusée."
     },
     {
       "id": 154,
       "title": "Explorer les champs WMI disponibles",
-      "status": "in_progress",
-      "owner": "search_engine_deadlines",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W10-query-advanced",
+      "evidence": [
+        "dev/wad/modules/Domenia-QuerySchema.Worker.ps1:Get-DomeniaQuerySchemaWorkerCode",
+        "dev/wad/modules/Domenia-QuerySchema.UI.ps1:Invoke-DomeniaQuerySchemaAction",
+        "dev/wad/modules/Domenia-Engine.Model.ps1:Get-DomeniaOperationProvider",
+        "dev/wad/modules/Domenia-Safety.Model.ps1:Get-DomeniaOperationEffect",
+        "dev/wad/tests/rules/Query.Tests.ps1 (P154)"
+      ],
+      "remaining": [
+        "Intégrateur : update_worker_contracts.py --add QuerySchema Get-DomeniaQuerySchemaWorkerCode puis --apply. Vérifier CimOperationFlags.LocalizedQualifiers sous Windows."
+      ],
+      "implementation_summary": "Explorateur WMI sans récursion (espaces de noms, classes filtrées, schéma localisé) avec cache local et lecture distante explicite confirmée ; opération QuerySchema classée. Inchangé par ce correctif."
     },
     {
       "id": 155,
       "title": "Proposer un éditeur WQL avancé",
-      "status": "in_progress",
-      "owner": "search_engine_deadlines",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W10-query-advanced",
+      "evidence": [
+        "dev/wad/modules/Domenia-QuerySchema.Model.ps1:Assert-DomeniaWqlAccountScope",
+        "dev/wad/modules/Domenia-QuerySchema.Model.ps1:ConvertFrom-DomeniaWqlSelect",
+        "dev/wad/modules/Domenia-QuerySchema.Model.ps1:Get-DomeniaWqlProviderWarnings",
+        "dev/wad/modules/Domenia-QuerySchema.Model.ps1:Get-DomeniaWqlPlanReport",
+        "dev/wad/tests/rules/Query.Tests.ps1 (P155 jamais tous les comptes ou groupes du domaine)"
+      ],
+      "remaining": [
+        "Inscription QuerySchema au registre par l'intégrateur ; exécution Windows des règles."
+      ],
+      "implementation_summary": "Revue locale du SELECT avant lecture, recette seulement après test sur le même poste. Ajout d'une garde dans la grammaire WQL (donc appliquée à la revue, à la définition de recette et au worker) : Win32_UserAccount, Win32_Group et Win32_Account exigent LocalAccount = TRUE dans chaque branche du WHERE (NOT, OU partiel, Domain = nom et 'TRUE' en texte refusés) ; Win32_GroupUser, Win32_GroupInDomain, Win32_UserInDomain, Win32_AccountSID, CIM_LogicalElement et CIM_ManagedSystemElement sont refusées."
     },
     {
       "id": 156,
       "title": "Parcourir les associations WMI",
-      "status": "in_progress",
-      "owner": "search_engine_deadlines",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W10-query-advanced",
+      "evidence": [
+        "dev/wad/modules/Domenia-QuerySchema.Model.ps1:Get-DomeniaWmiRelationPresets",
+        "dev/wad/modules/Domenia-QuerySchema.Model.ps1:ConvertTo-DomeniaWmiReferenceValue",
+        "dev/wad/modules/Domenia-QuerySchema.Worker.ps1 (mode Reference)",
+        "dev/wad/tests/rules/Query.Tests.ps1 (P156)"
+      ],
+      "remaining": [
+        "Inscription QuerySchema au registre ; qualification des associations sur un poste réel."
+      ],
+      "implementation_summary": "Relations proposées selon la classe (associations déclarées, processus hôte et services lus par clé, jamais par nom ni ligne de commande). Inchangé par ce correctif."
     },
     {
       "id": 157,
       "title": "Exporter une recette en script lisible",
-      "status": "in_progress",
-      "owner": "search_engine_deadlines",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W10-query-advanced",
+      "evidence": [
+        "dev/wad/modules/Domenia-QueryLibrary.Model.ps1:ConvertTo-DomeniaQueryPowerShell",
+        "dev/wad/modules/Domenia-QueryTransfer.Worker.ps1:Get-DomeniaQueryTransferWorkerCode",
+        "dev/wad/tests/rules/Query.Tests.ps1 (P157)",
+        "dev/wad/tests/Test-DomeniaQueryAdvanced.ps1 (section 157, indentation imbriquée)",
+        "dev/tools/validate_powershell_static.py:typographic_quotes, worker_body_errors"
+      ],
+      "remaining": [
+        "Intégrateur : update_worker_contracts.py --add QueryTransfer Get-DomeniaQueryTransferWorkerCode puis --apply (épingle le corps corrigé). Exécution Windows."
+      ],
+      "implementation_summary": "Script PowerShell commenté et paramétrable ; les commentaires conservent désormais l'indentation des groupes et collections imbriqués. Le corps du worker QueryTransfer ne contient plus de guillemet typographique fermant la chaîne (lʼextension en U+02BC) : export pack, export PowerShell et aperçu d'import redeviennent compilables. Valeur attendue du test P157 corrigée (forme échappée ’é, ASCII seulement)."
     },
     {
       "id": 158,
       "title": "Agréger plus de 10 000 valeurs distinctes",
-      "status": "in_progress",
-      "owner": "search_engine_deadlines",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W10-query-advanced",
+      "evidence": [
+        "dev/wad/modules/Domenia-Query.Model.ps1:Get-DomeniaQueryGroupPage",
+        "dev/wad/tests/Test-DomeniaQueryAdvanced.ps1 (section 158)",
+        "dev/wad/tests/rules/Query.Tests.ps1 (P158)"
+      ],
+      "remaining": [
+        "Re-épinglage LocalQuery par l'intégrateur ; mesure de durée à 20 000 postes sous Windows 5.1."
+      ],
+      "implementation_summary": "Répartition exacte au-delà de 10 000 valeurs, paginée et filtrable. Assertion du filtre corrigée : 12 libellés contiennent « 1999 » (01999, 11999, 19990 à 19999), recompté par énumération ; autres cardinalités de la section revérifiées. Marqueur de génération retiré."
     },
     {
       "id": 159,
       "title": "Définir des fenêtres de collecte par profil",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W04-engine",
+      "evidence": [
+        "dev/wad/modules/Domenia-Collection.Model.ps1:Test-DomeniaCollectionWindowOpen",
+        "dev/wad/modules/Domenia-Engine.UI.ps1:Test-DomeniaBackgroundWorkAllowed",
+        "dev/wad/modules/Domenia-Collection.UI.ps1:Initialize-DomeniaCollectionSettingsUi"
+      ],
+      "remaining": [
+        "Exécuter les règles et les suites dans la VM."
+      ],
+      "implementation_summary": "La fenêtre de collecte par profil ne retient que les sources de fond réseau. Une action explicite reste possible et sa confirmation le signale. L'état « ouverte jusqu'à » est maintenant relu à chaque dépliage des réglages."
     },
     {
       "id": 160,
       "title": "Suspendre une source en échec répété",
-      "status": "queued",
-      "owner": "root",
-      "evidence": [],
-      "remaining": []
+      "status": "implemented_windows_qualification_pending",
+      "owner": "W04-engine",
+      "evidence": [
+        "dev/wad/modules/Domenia-Engine.Model.ps1:Get-DomeniaProviderStateSummary",
+        "dev/wad/tests/rules/Engine.Tests.ps1:P160 Panneau regroupé"
+      ],
+      "remaining": [
+        "Exécuter Engine.Tests dans la VM."
+      ],
+      "implementation_summary": "Des délais répétés suspendent seulement le site, le contrôleur ou le fournisseur concerné, avec une reprise progressive. Correctif de revue : le panneau Opérations regroupe les postes en pause, en reprise ou bloqués par fournisseur et par état (nombre et trois noms au plus). Les sites et les fournisseurs restent nommés un par un."
     }
   ],
   "roadmap_publication": {
@@ -1302,5 +2630,21 @@
     "branch": "master",
     "verified": true
   },
-  "pause_reason": "David : on a plus de tokens, go calmer. Développement et agents interrompus ; tests et publication différés."
+  "pause_reason": "David : on a plus de tokens, go calmer. Développement et agents interrompus ; tests et publication différés.",
+  "qualification_only_ids": [
+    41,
+    43,
+    106,
+    114,
+    116,
+    125,
+    126,
+    129,
+    130
+  ],
+  "integration_sources": [
+    "RELAIS-CODEX-2026-10-16.md",
+    "Copie des statuts de Domenia-D120-team/_pilotage/points-final.json du 16 octobre 2026",
+    "SUIVI-2026-10-16.md"
+  ]
 }

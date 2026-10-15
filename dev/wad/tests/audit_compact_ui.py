@@ -46,7 +46,7 @@ for rel in ['wad/Domenia-Core.ps1','wad/modules/Domenia-UX.UI.ps1','wad/maintena
 for p in root.glob('*.cmd'):
  if p.name in ['APERCU-CONNEXION.cmd','TESTER-ERGONOMIE.cmd']:
   ck('No accidental control character '+p.name,all(c>=32 or c in (10,13,9) for c in p.read_bytes()))
-main=re.search(r'@"\n(.*?)\n"@',f('Get-MainXaml'),re.S)[1];er=ET.fromstring(main);r=E.fromstring(main.encode());cs=window_controls(er)
+main=(root/'wad/Domenia-Main.xaml').read_text(encoding='utf-8-sig');er=ET.fromstring(main);r=E.fromstring(main.encode());cs=window_controls(er)
 ns={'p':'http://schemas.microsoft.com/winfx/2006/xaml/presentation','x':'http://schemas.microsoft.com/winfx/2006/xaml'};namekey='{'+ns['x']+'}Name'
 ck('Main XML with unique namescopes',lambda:assert_scoped_names(er))
 oldxml=re.search(r'@"\n(.*?)\n"@',b[slice(*bf['Get-MainXaml'][0])],re.S)[1]

@@ -112,7 +112,7 @@ def main():
         print(status,name,detail if status=='FAIL' else '')
     def require(condition,detail='Assertion failed'):
         if not condition:raise AssertionError(detail)
-    xml=re.search(r'@"\n(.*?)\n"@',f('Get-MainXaml'),re.S)[1]
+    xml=(root/'wad/Domenia-Main.xaml').read_text(encoding='utf-8-sig')
     mainxml=ET.fromstring(xml);controls=window_controls(mainxml)
     test('566 existing top-level functions retained',set(baseline['Functions']) <= set(spans) and len(spans)==566)
     changed=[n for n,d in baseline['Functions'].items() if sha(f(n))!=d]

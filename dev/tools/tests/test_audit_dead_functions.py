@@ -186,6 +186,15 @@ class AnalyseTests(unittest.TestCase):
         for live in ('Invoke-Click', 'Invoke-Missing', 'Invoke-MissingGuard', 'Get-OnlyFromMissing'):
             self.assertNotIn(live, rows, live)
 
+    def test_external_main_xaml_controls_are_roots(self):
+        write(self.tmp, 'wad/Domenia-Core.ps1', CORE + CONTROLS.replace('x:Name=', 'Title='))
+        write(self.tmp, 'wad/Domenia-Main.xaml', '<Window xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"><Button x:Name="BtnGo"/><Button x:Name="BtnGuarded"/></Window>')
+        rows = {r['Name']: r for r in audit.analyse(self.tmp)[0]}
+        self.assertNotIn('Invoke-Click', rows)
+        self.assertNotIn('Invoke-Guarded', rows)
+        self.assertEqual(rows['Invoke-Missing']['Kind'], 'wired-to-missing-control')
+        self.assertIn(self.tmp / 'wad/Domenia-Main.xaml', audit.runtime_files(self.tmp))
+
     def test_location(self):
         row = self.rows['Get-Dead']
         self.assertEqual((row['File'], row['Line']), ('wad/Domenia-Core.ps1', 27))

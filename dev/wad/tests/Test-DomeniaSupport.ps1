@@ -242,7 +242,7 @@ function Reset-SupportUiFixture {
         $name=$el.GetAttribute('Name','http://schemas.microsoft.com/winfx/2006/xaml')
         if($name){$script:Ctrl[$name]=[pscustomobject]@{Text='';Items=@();SelectedItem=$null;SelectedIndex=-1;IsChecked=$false;IsSelected=$true}}
     }
-    $script:Ctrl['TabSupport']=[pscustomobject]@{IsSelected=$true}
+    $script:Ctrl['TabSupport']=[pscustomobject]@{IsSelected=$true;IsVisible=$true}
     $script:Conn=[pscustomobject]@{BaseDn='DC=example,DC=test';BindUser='EXAMPLE\reader'}
     $script:SessionEpoch=1L;$script:Window=$null;$script:SupportView=[pscustomobject]@{};$script:SupportTimer=$null
     $script:SelectedObject=$null;$script:CurrentObjectRequestDn='';$script:SelectedObjectGeneration=0L
@@ -325,6 +325,36 @@ Invoke-SupportTest 'Clear workspace leaves the original selected object unchange
     Assert-SupportTest ([object]::ReferenceEquals($before,$script:SelectedObject))
     Assert-SupportTest ($null -eq $script:SupportState.A)
 }
+Invoke-SupportTest 'Lazy diagnostic failure rolls back controls and allows a clean retry' {
+    Reset-SupportUiFixture
+    $script:SupportView=$null; $script:SupportLoading=$false
+    $script:SupportLoadPanel=[pscustomobject]@{Placeholder=$true}
+    $script:Ctrl['TabSupport']=[pscustomobject]@{Content=$script:SupportLoadPanel;IsSelected=$true;IsVisible=$true}
+    $script:Ctrl['SupportLoadStatus']=[pscustomobject]@{Text=''}
+    $script:Ctrl['SupportLoadRetry']=[pscustomobject]@{Visibility='Collapsed'}
+    $state=$script:SupportState
+    $keys=@($script:Ctrl.Keys)
+    $saved=(Get-Command Initialize-DomeniaSupportContent).ScriptBlock
+    function Write-AppLog {param($Message,$Level);$script:LastSupportError=$Message}
+    try {
+        Set-Item Function:Initialize-DomeniaSupportContent -Value {
+            $script:Ctrl['PartialSupportControl']=[pscustomobject]@{}
+            $script:SupportView=[pscustomobject]@{}
+            throw 'Synthetic load failure'
+        }
+        Invoke-DomeniaSupportLoad
+        Assert-SupportTest (-not $script:SupportLoading -and $null -eq $script:SupportView) 'Load state not reset.'
+        Assert-SupportTest ($script:Ctrl.Count -eq $keys.Count -and -not $script:Ctrl.ContainsKey('PartialSupportControl')) 'Partial controls retained.'
+        Assert-SupportTest ([object]::ReferenceEquals($state,$script:SupportState)) 'Session erased on load failure.'
+        Assert-SupportTest ($script:Ctrl.SupportLoadRetry.Visibility -eq 'Visible') 'Retry hidden.'
+        Assert-SupportTest ([object]::ReferenceEquals($script:Ctrl.TabSupport.Content,$script:SupportLoadPanel)) 'Shell lost.'
+        Set-Item Function:Initialize-DomeniaSupportContent -Value {$script:SupportView=[pscustomobject]@{Loaded=$true}}
+        Invoke-DomeniaSupportLoad
+        Assert-SupportTest ([bool]$script:SupportView.Loaded -and -not $script:SupportLoading) 'Retry did not load.'
+    } finally {
+        Set-Item Function:Initialize-DomeniaSupportContent -Value $saved
+    }
+}
 if($Wpf){
     # A real Window/XAML test, deliberately separate from the no-WPF installer tests.
     Invoke-SupportTest 'WPF host and Atelier view load with native namescopes and both themes' {
@@ -350,18 +380,35 @@ if($Wpf){
             . ([scriptblock]::Create($uxPalette[0].Extent.Text))
         }
         function Add-DomeniaUiLog {param($Area,$Level,$Text)}
+        # Timer scheduling is covered by Engine tests; this view fixture controls ticks explicitly.
+        function New-DomeniaTimer {
+            param($Owner,$IntervalMs,$Tick,[switch]$Transient)
+            $timer=[pscustomobject]@{IsEnabled=$false}
+            $timer|Add-Member ScriptMethod Start {$this.IsEnabled=$true}
+            $timer|Add-Member ScriptMethod Stop {$this.IsEnabled=$false}
+            return $timer
+        }
+
         function Write-AppLog {param($Message,$Level);if($Level -eq 'WARN' -or $Level -eq 'ERROR'){throw $Message}}
         $script:Ctrl=@{};$script:SupportView=$null;$script:SupportTimer=$null
-        $hostXml=Get-MainXaml
+        $hostXml=Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)
         $script:Window=[Windows.Markup.XamlReader]::Parse($hostXml)
-        foreach($name in @('WorkspaceTabs','TxtUiLog','LogPanel','BtnThemeToggle','ThemeIconCircle','ThemeIconGlyph')){
+        foreach($name in @('WorkspaceTabs','ApplicationToolTabs','TabApplicationTools','TxtUiLog','LogPanel','BtnThemeToggle','ThemeIconCircle','ThemeIconGlyph')){
             $ctrl=$script:Window.FindName($name);if($null -ne $ctrl){$script:Ctrl[$name]=$ctrl}
         }
         $script:Conn=[pscustomobject]@{BaseDn='DC=example,DC=test';BindUser='EXAMPLE\test'};$script:SelectedObject=$null
         try{
             Initialize-DomeniaSupportUi
+            Assert-SupportTest ($null -eq $script:SupportView) 'Shell should defer loading the view.'
+            $tab=$script:Ctrl.TabSupport
+            Initialize-DomeniaSupportUi
+            Assert-SupportTest ([object]::ReferenceEquals($tab,$script:Ctrl.TabSupport)) 'Duplicate shell.'
+            Assert-SupportTest ($script:Ctrl.ApplicationToolTabs.Items.Contains($tab)) 'Diagnostic must be in Tools.'
+            Select-DomeniaWorkspace -Workspace 'TabSupport' -Inner 'SupportTabs' -Tab 'SupportCompareTab'
+            Assert-SupportTest ($null -ne $script:SupportView) 'Diagnostic content not loaded.'
+            Assert-SupportTest ($script:Ctrl.SupportTabs.SelectedItem -eq $script:Ctrl.SupportCompareTab) 'Nested route lost.'
+            Assert-SupportTest ($null -ne $script:Ctrl.BtnSupportOfflineDossier) 'Offline dossier missing.'
             $script:SupportTimer.Stop()
-            $script:Ctrl.TabSupport.IsSelected=$true
             foreach($theme in @('Dark','Light','Dark')){
                 Apply-DomeniaTheme $theme
                 $script:Window.Measure((New-Object Windows.Size(1200,800)))

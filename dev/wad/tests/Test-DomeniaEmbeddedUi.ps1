@@ -66,7 +66,7 @@ function Run-Path {param([string]$Path,[string]$Action='Browse',[string]$Mode='O
     return (& ([scriptblock]::Create((Get-DomeniaEmbeddedPathCode))))
 }
 function Load-Host {param([string]$Theme)
-    $script:Theme=$Theme;$reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml))
+    $script:Theme=$Theme;$reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)))
     try{$w=[Windows.Markup.XamlReader]::Load($reader)}finally{$reader.Close()}
     $w.Title='DOMENIA RC1.9 | TEST LOCAL SANS RESEAU';$w.Width=1350;$w.Height=850;$w.ShowInTaskbar=$false
     $palette=(Get-Content -LiteralPath (Join-Path $wad 'modules\SupportSuite.UI.json') -Raw|ConvertFrom-Json).Palettes.$Theme
@@ -209,7 +209,7 @@ namespace Domenia.EmbeddedTests {
             Expect (-not $shown.Contains('Rimotte')) ($fn+' affiche encore le nom Rimotte.')
         }
         Expect (([regex]::Matches((@($ast.FindAll({param($n)(($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq 'Start-DomeniaRimotteRun'))},$true))[0].Extent.Text),'-OperationId "RimotteRun"')).Count -eq 1) 'L operation epinglee RimotteRun a change de nom.'
-        [xml]$main=Get-MainXaml
+        [xml]$main=Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)
         $x='http://schemas.microsoft.com/winfx/2006/xaml'
         $panel=@($main.SelectNodes('//*') | Where-Object { $_.GetAttribute('Name',$x) -eq 'UxCompRunPanel' })
         Expect ($panel.Count -eq 1) 'Panneau d execution absent du XAML principal.'

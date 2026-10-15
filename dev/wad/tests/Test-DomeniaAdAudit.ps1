@@ -194,7 +194,7 @@ if($infrastructure){
         Expect ($missing.Missing -and @($missing.Rows).Count -eq 0) 'Base absente : aucune ligne inventee'
     }
     Case 'XAML principal : onglet Audit AD nomme, aide egale a l infobulle, raccorde par Wire-Events' {
-        [xml]$main=Get-MainXaml
+        [xml]$main=Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)
         $tab=@($main.SelectNodes('//*[local-name()="TabItem"]')|Where-Object{$_.GetAttribute('Name','http://schemas.microsoft.com/winfx/2006/xaml') -eq 'WsAdAudit'})
         Expect ($tab.Count -eq 1) 'Onglet WsAdAudit absent'
         $tip=[string](Get-TestCatalogueHelp $tab[0] 'ToolTip')
@@ -420,7 +420,7 @@ if($infrastructure){
         Expect ($script:Ctrl.LblAdAuditScan.Text -match '1000 noms sur 1200 comparés') $script:Ctrl.LblAdAuditScan.Text
     }
     Case 'Relations : historique distinct dans la page, puce de filtre et synthese en trois lignes' {
-        [xml]$main=Get-MainXaml
+        [xml]$main=Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)
         $x='http://schemas.microsoft.com/winfx/2006/xaml'
         foreach($name in @('ChkAllLinksHistory','LblLinkOverview')){
             $node=@($main.SelectNodes('//*')|Where-Object{$_.GetAttribute('Name',$x) -eq $name})
@@ -446,7 +446,7 @@ if($infrastructure){
         Expect (-not (Test-DomeniaRelationMatchesFilter ([pscustomobject]@{Badge='Historique';UserLogin='ancien'}) '' @('Observe'))) 'L historique passe encore pour une observation'
     }
     Case 'Assistance : onglet, vue WPF et recettes proposees sans lecture' {
-        [xml]$main=Get-MainXaml
+        [xml]$main=Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)
         $x='http://schemas.microsoft.com/winfx/2006/xaml'
         $tab=@($main.SelectNodes('//*[local-name()="TabItem"]')|Where-Object{$_.GetAttribute('Name',$x) -eq 'WsAssistance'})
         Expect ($tab.Count -eq 1 -and ([string](Get-TestCatalogueHelp $tab[0] 'ToolTip') -ceq [string](Get-TestCatalogueHelp $tab[0] 'AutomationProperties.HelpText'))) 'Onglet Assistance'

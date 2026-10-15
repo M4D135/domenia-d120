@@ -72,9 +72,9 @@ def runtime_document(contract):
 
 
 def check(contract, problems, warnings=None):
-    text = CORE.read_text(encoding='utf-8-sig')
+    sources = {path: path.read_text(encoding='utf-8-sig') for path in (CORE, CORE.with_name('Domenia-Main.xaml'))}
     for name, rx, count, value in SITES:
-        found = rx.findall(text)
+        found = rx.findall(sources[site_path(name)])
         if len(found) != count:
             problems.append(f'Site de version {name} : {len(found)} occurrence(s), {count} attendue(s).')
             continue
@@ -102,17 +102,24 @@ def check(contract, problems, warnings=None):
         warnings.append(warning)
 
 
+def site_path(name):
+    return CORE.with_name('Domenia-Main.xaml') if name == 'NavFooter' else CORE
+
+
 def stamp(contract):
-    raw = CORE.read_bytes()
-    bom = raw.startswith(b'\xef\xbb\xbf')
-    text = raw.decode('utf-8-sig')
+    # Validate every site before writing either source: a missing XAML must not partly stamp the core.
+    sources = {path: path.read_bytes() for path in (CORE, CORE.with_name('Domenia-Main.xaml'))}
+    texts = {path: data.decode('utf-8-sig') for path, data in sources.items()}
     for name, rx, count, value in SITES:
+        path = site_path(name)
+        text = texts[path]
         found = rx.findall(text)
         if len(found) != count:
             raise ValueError(f'Site de version {name} : {len(found)} occurrence(s), {count} attendue(s) ; estampillage refuse.')
         expected = value(contract)
-        text = rx.sub(lambda m: m.group(0)[:m.start(1) - m.start(0)] + expected + m.group(0)[m.end(1) - m.start(0):], text)
-    CORE.write_bytes((b'\xef\xbb\xbf' if bom else b'') + text.encode('utf-8'))
+        texts[path] = rx.sub(lambda m: m.group(0)[:m.start(1) - m.start(0)] + expected + m.group(0)[m.end(1) - m.start(0):], text)
+    for path, text in texts.items():
+        path.write_bytes((b'\xef\xbb\xbf' if sources[path].startswith(b'\xef\xbb\xbf') else b'') + text.encode('utf-8'))
     RUNTIME_FILE.write_text(json.dumps(runtime_document(contract), ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 
 

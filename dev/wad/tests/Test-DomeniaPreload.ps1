@@ -231,7 +231,7 @@ Test-Case 'Every worker literal passes the native parser, without executing the 
 if(-not $SkipWpf){
     foreach($theme in @('Light','Dark')) {
         Test-Case ('WPF: both content hosts and nonmodal loading placeholders, '+$theme) {
-            $xml=Get-MainXaml;$reader=[Xml.XmlNodeReader]::new([xml]$xml);$window=$null
+            $xml=Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot);$reader=[Xml.XmlNodeReader]::new([xml]$xml);$window=$null
             try {
                 $window=[Windows.Markup.XamlReader]::Load($reader)
                 foreach($kind in @('Object','Computer')){

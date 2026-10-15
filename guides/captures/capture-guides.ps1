@@ -425,7 +425,7 @@ $entry = @{ pwdLastSet = [string]($now.AddDays(-12).ToFileTimeUtc()); lastLogonT
 $computer = [pscustomobject]@{ Type = 'Machine'; Name = 'PC-COMPTA-014'; DN = 'CN=PC-COMPTA-014,OU=Compta,OU=Postes,OU=Lyon,DC=example,DC=local'; Entry = $entry; Safety = [pscustomobject]@{ Guid = '00000000-0000-4000-8000-000000000004' } }
 
 # ------------------------------------------------------------------ window
-$xamlText = Get-MainXaml
+$xamlText = Get-MainXaml -WadRoot $wad
 $reader = [Xml.XmlNodeReader]::new([xml]$xamlText); try { $script:Window = [Windows.Markup.XamlReader]::Load($reader) } finally { $reader.Close() }
 foreach ($name in @(Get-DomeniaXamlControlNames -XamlText $xamlText)) { $c = $script:Window.FindName($name); if ($null -ne $c) { $script:Ctrl[$name] = $c } }
 [Windows.Controls.ToolTipService]::SetIsEnabled($script:Window,$false)

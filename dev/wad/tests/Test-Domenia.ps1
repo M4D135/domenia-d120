@@ -594,7 +594,7 @@ try {
         $sizes = @([pscustomobject]@{Name='a';SizeKb=9.0},[pscustomobject]@{Name='b';SizeKb=120.0},[pscustomobject]@{Name='c';SizeKb=1000.0})
         Assert-True ((@($sizes | Sort-Object SizeKb | ForEach-Object { $_.Name }) -join '') -eq 'abc') 'Tailles triees par texte'
         # Les colonnes du XAML reel designent la cle, pas le texte affiche.
-        $xaml = [xml](Get-MainXaml)
+        $xaml = [xml](Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot))
         $cols = @($xaml.SelectNodes('//*[local-name()="DataGridTextColumn" or local-name()="DataGridTemplateColumn"]'))
         foreach ($want in @(@('Dernière connexion','LastLogonSort'),@('Modifie','ChangedSort'),@('Installe le','InstallDateSort'),@('Taille','SizeKb'))) {
             $hit = @($cols | Where-Object { $_.Header -eq $want[0] -and $_.SortMemberPath -eq $want[1] })
@@ -625,12 +625,12 @@ try {
         Assert-True ($menu.Count -eq 1) 'Build-DomeniaTreeContextMenu introuvable dans le coeur'
         Assert-True (-not ([string]$menu[0].Extent.Text).Contains('Show-DomeniaFormDialog')) 'Le menu de l arbre ouvre encore une fenetre pour creer une OU'
         # La branche cible doit se lire avant de confirmer, en lecture seule.
-        $xaml = [xml](Get-MainXaml)
+        $xaml = [xml](Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot))
         $XNS = 'http://schemas.microsoft.com/winfx/2006/xaml'
         $champ = @($xaml.SelectNodes('//*[local-name()="TextBox"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq 'TxtNewOuParent' })
         Assert-True ($champ.Count -eq 1) ('TxtNewOuParent : ' + $champ.Count + ' occurrence(s)')
         Assert-True (([string]$champ[0].GetAttribute('IsReadOnly')) -ceq 'True') 'La branche parente est modifiable'
-        Assert-True (-not ([string](Get-MainXaml)).Contains('est créée sous la branche sélectionnée dans lʼarborescence')) "Le texte muet renvoie encore a l arborescence sans montrer la branche"
+        Assert-True (-not ([string](Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot))).Contains('est créée sous la branche sélectionnée dans lʼarborescence')) "Le texte muet renvoie encore a l arborescence sans montrer la branche"
         # Le fichier d aide est indexe par x:Name : Titre = nom d automation, Text = infobulle.
         $aideBrutee = Get-Content -LiteralPath (Join-Path (Split-Path $core -Parent) 'modules/Domenia-UX.help.json') -Raw -Encoding UTF8 | ConvertFrom-Json
         $aide = @($aideBrutee)
@@ -643,7 +643,7 @@ try {
         # Le champ portait le nom d automation et l infobulle des vraies saisies de mot de passe :
         # un lecteur d ecran annoncait « Mot de passe » la ou l operateur lit une date, et l aide
         # jurait de ne jamais lire une valeur que l ecran affiche en clair.
-        $xaml = [xml](Get-MainXaml)
+        $xaml = [xml](Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot))
         $XNS = 'http://schemas.microsoft.com/winfx/2006/xaml'
         $champ = @($xaml.SelectNodes('//*[local-name()="TextBox"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq 'TxtUserPwdLastSet' })
         Assert-True ($champ.Count -eq 1) ('TxtUserPwdLastSet : ' + $champ.Count + ' occurrence(s)')
@@ -653,7 +653,7 @@ try {
         $bulle = [string](Get-TestCatalogueHelp $champ[0] 'ToolTip')
         Assert-True (-not $bulle.StartsWith('Saisie')) 'L infobulle parle encore de saisie protegee'
         Assert-True ($bulle -ceq [string](Get-TestCatalogueHelp $champ[0] 'AutomationProperties.HelpText')) 'Infobulle et aide d automation divergent'
-        $texteXaml = Get-MainXaml
+        $texteXaml = Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)
         Assert-True (-not $texteXaml.Contains('Pwd last set')) 'Le libelle anglais est reste dans le XAML'
         Assert-True ($texteXaml.Contains('Content="Mot de passe changé le"')) 'Le libelle en francais est absent du XAML'
         # Le fichier d aide est indexe par x:Name : Titre = nom d automation, Text = infobulle.
@@ -693,7 +693,7 @@ try {
         Assert-True (-not $texteCore.Contains('["TxtCompUac"].Text = [string]$uac')) 'TxtCompUac recoit encore le masque brut'
         # Les deux champs d'identite etaient libelles en anglais alors que tout le reste de la fiche
         # est en francais, infobulle et nom d'automation compris.
-        $xaml = Get-MainXaml
+        $xaml = Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)
         Assert-True ($xaml.Contains('<Label Grid.Row="3" Grid.Column="0" Content="Identifiant"/>')) 'Le champ sAMAccountName est encore libelle en anglais'
         Assert-True ($xaml.Contains('<Label Grid.Row="3" Grid.Column="2" Content="Nom de connexion"/>')) 'Le champ userPrincipalName est encore libelle en anglais'
         Assert-True (-not $xaml.Contains('Content="Login"')) 'Un libelle « Login » est reste dans le XAML'
@@ -704,7 +704,7 @@ try {
         # « Derniere connexion » etaient tous deux en ligne 8, colonne 3 : le second effacait le
         # premier. La regle est celle de l audit : un controle masque (Collapsed ou Hidden) ne compte
         # pas, un libelle non plus, et une etendue (RowSpan / ColumnSpan) occupe toutes ses cellules.
-        $xaml = [xml](Get-MainXaml)
+        $xaml = [xml](Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot))
         $XNS = 'http://schemas.microsoft.com/winfx/2006/xaml'
         $interactifs = @('TextBox','ComboBox','CheckBox','Button','PasswordBox','ListBox','DatePicker')
         $cellules = @()
@@ -737,7 +737,7 @@ try {
         # Les six options qui affaiblissent le compte etaient alignees avec les trois autres, a portee de clic
         # en profil Essentiel. Elles restent dans le meme bloc, repliees dans un Expander que le profil Expert
         # est seul a deplier. L etat du compte reste lisible en Essentiel : Get-UacFlagsLabel les nomme toutes.
-        $xaml = [xml](Get-MainXaml)
+        $xaml = [xml](Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot))
         $XNS = 'http://schemas.microsoft.com/winfx/2006/xaml'
         $expander = @($xaml.SelectNodes('//*[local-name()="Expander"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq 'ExpAccountSecurityOptions' })
         Assert-True ($expander.Count -eq 1) ('Expander des options avancees : ' + $expander.Count + ' occurrence(s)')
@@ -770,7 +770,7 @@ try {
         $avert = @($expander[0].SelectNodes('.//*[local-name()="TextBlock"]'))
         Assert-True ($avert.Count -eq 1) ('Avertissement du bloc avance : ' + $avert.Count + ' occurrence(s)')
         Assert-True (([string]$avert[0].GetAttribute('Foreground')) -ceq '{DynamicResource DangerColor}') "L'avertissement du bloc avance n'est pas rouge"
-        Assert-True ((Get-MainXaml).Contains('x:Key="DangerColor"')) 'La ressource DangerColor a disparu du theme'
+        Assert-True ((Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)).Contains('x:Key="DangerColor"')) 'La ressource DangerColor a disparu du theme'
         # Le fichier d aide est indexe par x:Name : Titre = nom d automation, Text = infobulle, Kind = element.
         $aideBrutee = Get-Content -LiteralPath (Join-Path (Split-Path $core -Parent) 'modules/Domenia-UX.help.json') -Raw -Encoding UTF8 | ConvertFrom-Json
         $aide = @($aideBrutee)
@@ -811,7 +811,7 @@ try {
         }
         # La destination doit exister telle quelle dans la fenetre : un onglet qui n est pas enfant du groupe
         # demande ne se selectionne pas, et Select-DomeniaWorkspace passe alors sans rien signaler.
-        $xaml = [xml](Get-MainXaml)
+        $xaml = [xml](Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot))
         $XNS = 'http://schemas.microsoft.com/winfx/2006/xaml'
         foreach ($destination in @(@('WsObject','DetailTabs','TabUser'),@('WsComputer','ComputerTabs','TabComputer'),
                                    @('WsObject','DetailTabs','TabGroup'),@('WsObject','DetailTabs','TabContainer'),
@@ -836,7 +836,7 @@ try {
         $texteModule = Get-Content -LiteralPath (Join-Path (Split-Path $core -Parent) 'modules/Domenia-UX.UI.ps1') -Raw -Encoding UTF8
         Assert-True ($texteModule.Contains('LblObjClass=$expert;TxtObjClass=$expert;LblObjGuid=$expert;TxtObjGuid=$expert')) 'Classe et GUID ne dependent pas du profil Expert'
         # Le bouton rouge a quitte la rangee : la suppression se choisit dans « Plus… », et n est plus rouge.
-        $texte = Get-MainXaml
+        $texte = Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)
         Assert-True (-not $texte.Contains('x:Name="BtnDeleteObject"')) 'Le bouton Supprimer est reste dans la rangee des boutons de lecture'
         $bouton = @($xaml.SelectNodes('//*[local-name()="Button"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq 'BtnObjectMore' })
         Assert-True ($bouton.Count -eq 1) ('BtnObjectMore : ' + $bouton.Count + ' occurrence(s)')
@@ -869,7 +869,7 @@ try {
         # Le compte etait le seul objet deplace par un champ ou l on tape le chemin complet de l OU,
         # alors que le poste a deja un selecteur. Le champ disparait : une destination tapee n est pas
         # une destination verifiee, et le selecteur commun cherche, montre l OU actuelle et confirme.
-        $texte = Get-MainXaml
+        $texte = Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)
         $xaml = [xml]$texte
         $XNS = 'http://schemas.microsoft.com/winfx/2006/xaml'
         Assert-True (-not $texte.Contains('TxtUserMoveTarget')) 'Le champ libre du chemin complet est reste a l ecran'
@@ -914,7 +914,7 @@ try {
         # Les deux champs Responsable etaient des zones libres remplies du DN brut et relues telles
         # quelles a l enregistrement : une phrase saisie partait au DC comme DN. La fiche montre un
         # nom, le DN reste dans la variable script, et le choix passe par le selecteur commun.
-        $texte = Get-MainXaml
+        $texte = Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)
         $xaml = [xml]$texte
         $XNS = 'http://schemas.microsoft.com/winfx/2006/xaml'
         $texteCore = Get-Content $core -Raw -Encoding UTF8
@@ -982,7 +982,7 @@ try {
         # La case « Changement obligatoire » arrivait decochee et rien ne fabriquait un mot de passe :
         # le support dictait une valeur qui restait valable indefiniment. Elle se coche des la fiche
         # ouverte, et « Generer » place une valeur forte dans les champs existants, sans ecrire.
-        $texte = Get-MainXaml
+        $texte = Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)
         $xaml = [xml]$texte
         $XNS = 'http://schemas.microsoft.com/winfx/2006/xaml'
         $texteCore = Get-Content $core -Raw -Encoding UTF8
@@ -1035,7 +1035,7 @@ try {
 
     # ------------------------------------------------------------ UX-13 : mode edition de la fiche
     Test-Case 'UX-13 : la fiche se verrouille, un crayon la modifie, la page dit ce qui est abandonne' {
-        $texte = Get-MainXaml
+        $texte = Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)
         $xaml = [xml]$texte
         $XNS = 'http://schemas.microsoft.com/winfx/2006/xaml'
         $texteCore = Get-Content $core -Raw -Encoding UTF8
@@ -1377,7 +1377,7 @@ try {
     # ------------------------------------------------------------ FO-06 : bandeau d'etat du compte
     Test-Case 'FO-06 : la fiche annonce verrouillage, echeance et echecs de mot de passe' {
         # Le modele savait dire ces trois-la depuis D061-D063, l'interface ne les a jamais demandés.
-        $texte = Get-MainXaml
+        $texte = Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)
         $xaml = [xml]$texte
         $XNS = 'http://schemas.microsoft.com/winfx/2006/xaml'
         $texteCore = Get-Content $core -Raw -Encoding UTF8
@@ -1436,7 +1436,7 @@ try {
     }
 
     Test-Case 'SP-06 : les boutons de l inventaire annoncent la duree que le code paie' {
-        $xaml = Get-MainXaml
+        $xaml = Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)
         $approx = [string][char]0x2248
         $rapide = 'Inventaire rapide (' + $approx + '1 min)'
         $complet = 'Inventaire complet (' + $approx + '3 min)'
@@ -1460,7 +1460,7 @@ try {
         }
     }
     Test-Case 'UX-37 : la grille d inventaire affiche le libelle calcule, la valeur brute reste relisible' {
-        $xaml = Get-MainXaml
+        $xaml = Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)
         $texteCore = Get-Content $core -Raw -Encoding UTF8
         $x = [regex]::Match($texteCore, '(?s)function Set-DomeniaItemsSource.*?\r?\n\}')
         Assert-True ($x.Value.Contains('if ($Name -eq ''DgInventory'')')) 'Set-DomeniaItemsSource ne calcule pas ValueText pour DgInventory'
@@ -1473,7 +1473,7 @@ try {
         Assert-True ($uxui.Contains('if (([string]$column.Header) -eq ''Source'')')) 'La colonne Source de l inventaire n est pas reservee a l Expert'
     }
     Test-Case 'UX-39 : la page des sessions rend la vue testee, plus les lignes brutes du poste' {
-        $xaml = Get-MainXaml
+        $xaml = Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)
         $texteCore = Get-Content $core -Raw -Encoding UTF8
         $sessions = Get-Content (Join-Path (Split-Path $core -Parent) 'modules\Domenia-Sessions.UI.ps1') -Raw -Encoding UTF8
         # La vue de D072 etait testee sans jamais etre appelee : le banc epingle l appel, pas la presence
@@ -1501,7 +1501,7 @@ try {
         Assert-True ($native.Contains('IdleTicks=Ticks(server,s.SessionId,WTSIdleTime)')) 'La duree d inactivite n est pas lue'
     }
     Test-Case 'UX-17 : le diagnostic rend sa phrase en francais et garde les codes pour la copie' {
-        $xaml = Get-MainXaml
+        $xaml = Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)
         $texteCore = Get-Content $core -Raw -Encoding UTF8
         $diag = [regex]::Match($xaml, '(?s)<DataGrid x:Name="DgComputerDiag".*?</DataGrid>')
         Assert-True ($diag.Value.Contains('Text="{Binding EtatLibelle}"')) 'La colonne Etat affiche encore le code brut du worker'
@@ -1593,7 +1593,7 @@ try {
         Assert-True (-not ($code.Contains('La lecture par profil necessite WinRM'))) 'La portee utilisateur exige encore WinRM'
         Assert-True (-not ($code.Contains("Get-ChildItem 'Registry::HKEY_USERS'"))) 'La portee utilisateur parcourt encore les ruches a distance par WinRM'
         Assert-True (-not ($code.Contains('$includePerUser -and @($rows'))) 'Une portee utilisateur vide declenche encore la collecte locale SYSTEM'
-        $xaml = Get-MainXaml
+        $xaml = Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)
         # PF-24: the tool tip of ChkSoftwarePerUser comes from the help catalogue.
         $parUtilisateur = @(([xml]$xaml).SelectNodes("//*[@*[local-name()='Name']='ChkSoftwarePerUser']"))
         Assert-True (($parUtilisateur.Count -eq 1) -and ((Get-TestCatalogueHelp $parUtilisateur[0] 'ToolTip') -ceq 'Ajoute les logiciels installés dans le profil des utilisateurs connectés.')) 'L infobulle promet toujours le profil de chaque utilisateur'

@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import sys
 import unittest
+import tempfile
 
 DEV = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(DEV / 'tools'))
@@ -33,6 +34,33 @@ class TypographyRulesTests(unittest.TestCase):
         self.assertEqual(fixed, ['v.xaml'])
         increased, _ = at.compare({'b.ps1|G': 1}, {}, baseline)
         self.assertEqual(len(increased), 1, 'un nouveau fichier ne passe pas sans référence')
+
+
+    def test_main_xaml_reader_uses_supplied_root_without_fallback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'wad').mkdir()
+            path = root / 'wad/Domenia-Main.xaml'
+            path.write_text('temporary view', encoding='utf-8')
+            self.assertEqual(at.main_xaml(root), 'temporary view')
+            path.unlink()
+            with self.assertRaises(FileNotFoundError):
+                at.main_xaml(root)
+
+    def test_external_page_and_tree_template_literal_fonts_are_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'wad/modules').mkdir(parents=True)
+            xaml = at.main_xaml(DEV).replace('<Window ', '<Window FontSize="12" ', 1)
+            self.assertNotEqual(xaml, at.main_xaml(DEV))
+            (root / 'wad/Domenia-Main.xaml').write_text(xaml, encoding='utf-8')
+            (root / 'wad/Domenia-Core.ps1').write_text('function Get-DomeniaTreeHeaderTemplate {\n\'<TextBlock FontSize="12"/>\'\n}', encoding='utf-8')
+            (root / 'wad/modules/SupportSuite.UI.json').write_bytes((DEV / 'wad/modules/SupportSuite.UI.json').read_bytes())
+            problems, fonts, spacing = at.collect(root)
+            self.assertTrue(any('Domenia-Main.xaml' in p for p in problems))
+            self.assertTrue(any('Get-DomeniaTreeHeaderTemplate' in p for p in problems))
+            self.assertEqual(fonts['wad/Domenia-Main.xaml|'], 1)
+            self.assertIn('wad/Domenia-Main.xaml', spacing)
 
 
 class RepositoryTypographyTests(unittest.TestCase):

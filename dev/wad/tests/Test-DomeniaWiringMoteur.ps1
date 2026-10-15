@@ -208,10 +208,10 @@ function Stop-WiringJobs {
     try { if ($null -ne $script:DashboardRefreshTimer) { $script:DashboardRefreshTimer.Stop() } } catch { }
 }
 function New-WiringMainWindow {
-    $reader = [Xml.XmlNodeReader]::new([xml](Get-MainXaml))
+    $reader = [Xml.XmlNodeReader]::new([xml](Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)))
     try { $window = [Windows.Markup.XamlReader]::Load($reader) } finally { $reader.Close() }
     $controls = @{}
-    foreach ($match in [regex]::Matches((Get-MainXaml),'x:Name="([^"]+)"')) {
+    foreach ($match in [regex]::Matches((Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)),'x:Name="([^"]+)"')) {
         $control = $window.FindName($match.Groups[1].Value)
         if ($null -ne $control) { $controls[$match.Groups[1].Value] = $control }
     }

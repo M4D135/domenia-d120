@@ -3,7 +3,7 @@
 
 wad/modules/Domenia-UX.help.json is the only source of the help of a catalogued control: at load time
 Initialize-DomeniaUxControlHelp (Domenia-UX.UI.ps1) gives each control of the catalogue its tool tip, its help text
-for screen readers and its ShowOnDisabled. The main XAML (Get-MainXaml in wad/Domenia-Core.ps1) therefore carries none
+for screen readers and its ShowOnDisabled. The main XAML (wad/Domenia-Main.xaml) therefore carries none
 of these three attributes for such a control:
   ToolTip   AutomationProperties.HelpText   ToolTipService.ShowOnDisabled
 AutomationProperties.Name stays in the XAML (accessible name before the catalogue loads, and for the tests that read
@@ -24,25 +24,11 @@ import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-CORE = Path('wad/Domenia-Core.ps1')
 HELP = Path('wad/modules/Domenia-UX.help.json')
+MAIN_XAML = Path('wad/Domenia-Main.xaml')
 ATTRIBUTES = ('ToolTip', 'AutomationProperties.HelpText', 'ToolTipService.ShowOnDisabled')
 ATTRIBUTE_RX = re.compile(r'\s+(ToolTip|AutomationProperties\.HelpText|ToolTipService\.ShowOnDisabled)="([^"]*)"')
 NAME_RX = re.compile(r'\sx:Name="([^"]+)"')
-START = 'function Get-MainXaml {\n@"\n'
-END = '\n"@\n'
-
-
-def main_xaml_span(core: str):
-    """Start and end offsets of the XAML literal of Get-MainXaml."""
-    start = core.find(START)
-    if start < 0:
-        raise ValueError('Get-MainXaml introuvable ou ecrit autrement (here-string attendue juste apres la fonction).')
-    start += len(START)
-    end = core.find(END, start)
-    if end < 0:
-        raise ValueError('Fin du XAML principal introuvable.')
-    return start, end
 
 
 def start_tags(xaml: str):
@@ -107,13 +93,13 @@ def analyse(xaml: str, catalogue: dict):
 
 
 def run(root: Path, apply: bool):
-    path = root / CORE
+    path = root / MAIN_XAML
+    if not path.exists():
+        raise FileNotFoundError(f'Fichier XAML principal introuvable : {path}')
     raw = path.read_bytes()
     bom = raw.startswith(b'\xef\xbb\xbf')
-    core = raw.decode('utf-8-sig')
+    xaml = raw.decode('utf-8-sig')
     catalogue = load_catalogue(root)
-    start, end = main_xaml_span(core)
-    xaml = core[start:end]
     stripped, findings, uncatalogued = analyse(xaml, catalogue)
     summary = {
         'Status': 'PASS' if not findings else ('APPLIED' if apply else 'FAIL'),
@@ -127,8 +113,7 @@ def run(root: Path, apply: bool):
         'Controls': [f['Name'] for f in findings][:50],
     }
     if apply and findings:
-        text = core[:start] + stripped + core[end:]
-        data = text.encode('utf-8')
+        data = stripped.encode('utf-8')
         path.write_bytes((b'\xef\xbb\xbf' if bom else b'') + data)
     return summary
 

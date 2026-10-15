@@ -84,9 +84,12 @@ def main() -> int:
     observations['OriginalFunctionCount'] = len(baseline['OriginalFunctions'])
     for name in ['Get-MainXaml', 'Get-DomeniaStandardLoginXaml', 'Get-DomeniaStartupXaml']:
         def validate_xml(name=name):
-            matches = list(re.finditer(r'@([\'\"])\n(.*?)^\1@', function_text(source, name), re.S | re.M))
-            require(matches, f'No literal XML for {name}')
-            element = ET.fromstring(matches[0][2].strip())
+            if name == 'Get-MainXaml':
+                element = ET.parse(root/'wad/Domenia-Main.xaml').getroot()
+            else:
+                matches = list(re.finditer(r'@([\'\"])\n(.*?)^\1@', function_text(source, name), re.S | re.M))
+                require(matches, f'No literal XML for {name}')
+                element = ET.fromstring(matches[0][2].strip())
             names = [item.attrib['{http://schemas.microsoft.com/winfx/2006/xaml}Name'] for item in element.iter() if '{http://schemas.microsoft.com/winfx/2006/xaml}Name' in item.attrib]
             # R1.7: standard PART_* names may recur in distinct WPF template namescopes.
             def scoped_names(node, scope='window', seen=None):

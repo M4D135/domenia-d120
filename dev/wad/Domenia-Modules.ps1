@@ -1133,7 +1133,9 @@ function Get-DomeniaRuntimeModulePlan {
             'New-DomeniaSupportUiReport',
             'Export-DomeniaSupportHtml',
             'Stop-DomeniaSupportUi',
-            'Initialize-DomeniaSupportUi'
+            'Initialize-DomeniaSupportContent',
+            'Initialize-DomeniaSupportUi',
+            'Invoke-DomeniaSupportLoad'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-Automation.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaAutomationContract',
@@ -3272,6 +3274,11 @@ function Get-DomeniaRuntimeModulePlan {
             'Start-DomeniaSnapshotCompare',
             'Complete-DomeniaSnapshotCompare',
             'Fail-DomeniaSnapshotCompare'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Safety.Model.ps1'); File='Domenia-Confirmation.UI.ps1'; DotSource=$true; Functions=@(
+            'Format-DomeniaByteEstimate',
+            'Format-DomeniaOperationImpact',
+            'Format-DomeniaPlanConfirmation'
         ) }
     )
 }

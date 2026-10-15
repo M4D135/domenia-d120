@@ -72,10 +72,10 @@ def hex_counts(root):
     """Literal colours of the runtime sources: Core, modules (.ps1, .xaml). The palette JSON is the source itself."""
     counts = {}
     core = root / 'wad/Domenia-Core.ps1'
-    files = [core] + sorted((root / 'wad/modules').glob('*.ps1')) + sorted((root / 'wad/modules').glob('*.xaml'))
+    files = [core, root / 'wad/Domenia-Main.xaml'] + sorted((root / 'wad/modules').glob('*.ps1')) + sorted((root / 'wad/modules').glob('*.xaml'))
     for path in files:
         text = path.read_text(encoding='utf-8-sig')
-        if path == core:
+        if path.name == 'Domenia-Main.xaml':
             # The start-up brushes of the main XAML mirror the Light palette and are checked for equality below.
             text = re.sub(r'<SolidColorBrush x:Key="\w+" Color="#[0-9A-Fa-f]{6}"/>', '', text)
         number = len(HEX.findall(text))
@@ -105,6 +105,8 @@ def main():
         return source[a:b]
 
     def literal(name):
+        if name == 'Get-MainXaml':
+            return (root / 'wad/Domenia-Main.xaml').read_text(encoding='utf-8-sig')
         match = re.search(r'@"\n(.*?)\n"@', fn(name), re.S)
         assert match, name
         return match[1]

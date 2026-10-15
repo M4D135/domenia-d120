@@ -523,7 +523,7 @@ Case 'P60 Liste progressive : la ligne de portée suit la fin de la lecture, san
 # page describe different scopes.
 Case 'P60 Export et relevés nomment la portée choisie : infobulle, aide dʼautomation et aide de la page identiques' {
     . ([scriptblock]::Create((Import-AstFunctions (Join-Path $wad 'Domenia-Core.ps1') @('Get-MainXaml'))))
-    [xml]$xaml=Get-MainXaml
+    [xml]$xaml=Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)
     $aideBrutee=[IO.File]::ReadAllText((Join-Path $modules 'Domenia-UX.help.json'),[Text.Encoding]::UTF8)|ConvertFrom-Json
     $aide=@($aideBrutee)
     foreach($name in @('BtnParkVerify','BtnExportResults','CmbResultScope','PnlOuBreadcrumb')){

@@ -42,7 +42,7 @@ try {
         if($nodes.Count -ne 1){throw ('Fonction absente ou ambigue : '+$name)}
         . ([scriptblock]::Create($nodes[0].Extent.Text))
     }
-    $script:Xaml=Get-MainXaml
+    $script:Xaml=Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)
     $script:Design=Get-Content -LiteralPath (Join-Path $wad 'modules\SupportSuite.UI.json') -Raw -Encoding UTF8|ConvertFrom-Json
 }
 catch {

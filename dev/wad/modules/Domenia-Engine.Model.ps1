@@ -427,7 +427,7 @@ AdSchemaRead           |Pinned  |Directory|Read          |Explicit        |Direc
 # BatchNetworkDiag: remote actions are budgeted per target with the CIM provider: an outage never slows the directory.
 BatchNetworkDiag       |Pinned  |Cim      |Read          |Explicit        |Remote                  |Remote   |-
 # BitLockerPresence: lot L01: recovery objects of one OU, Secrets account, refusals kept on the BitLocker resource.
-BitLockerPresence      |Pinned  |Directory|Unknown       |Explicit        |Directory               |BitLocker|-
+BitLockerPresence      |Pinned  |Directory|Read          |Explicit        |Directory               |BitLocker|-
 CmdletHelp             |Pinned  |Local    |Read          |Explicit        |-                       |Local    |-
 CmdletInventory        |Pinned  |Local    |Read          |Explicit        |-                       |Local    |-
 ComputerAdminShare     |Pinned  |Network  |Read          |Explicit        |Remote,Machine          |Remote   |-
@@ -456,16 +456,16 @@ GpoAppliedRead         |Pinned  |Cim      |Read          |Explicit        |Remot
 GpoLinksRead           |Pinned  |Directory|Read          |Explicit        |Directory               |Directory|Shared
 GroupPathRead          |Pinned  |Directory|Read          |Explicit        |Directory               |Directory|Shared
 IndexBuild             |Pinned  |Directory|LocalWrite    |Explicit        |Directory               |Directory|-
-IndexOuList            |Pinned  |Directory|Unknown       |Explicit        |Directory               |Directory|-
+IndexOuList            |Pinned  |Directory|Read          |Explicit        |Directory               |Directory|-
 IsolatedRead           |Pinned  |Local    |Unknown       |Explicit        |-                       |Local    |-
-LegacyMigration        |Pinned  |Storage  |Unknown       |Explicit        |-                       |Local    |-
+LegacyMigration        |Pinned  |Storage  |LocalWrite    |Explicit        |-                       |Local    |-
 LiveCache              |Pinned  |Storage  |LocalWrite    |Background      |-                       |Local    |Pool
 # LiveConsole: same pinned body as LiveSelectedPing, chosen by a check box after a selection.
 LiveConsole            |Pinned  |Cim      |Read          |Selection       |Directory,Remote,Machine|Remote   |Pool
 LiveDirectoryCheck     |Pinned  |Directory|Read          |Background      |Directory               |Directory|Pool
 LiveSelectedPing       |Pinned  |Network  |Read          |Selection       |-                       |Network  |Pool
-LocalIndexRead         |Pinned  |Storage  |Unknown       |Explicit        |-                       |Local    |Pool
-LocalQuery             |Pinned  |Storage  |Unknown       |Explicit        |-                       |Local    |Pool
+LocalIndexRead         |Pinned  |Storage  |Read          |Explicit        |-                       |Local    |Pool
+LocalQuery             |Pinned  |Storage  |Read          |Explicit        |-                       |Local    |Pool
 LocalStore             |Pinned  |Storage  |LocalWrite    |Background      |-                       |Local    |Pool
 LockoutDiagnosis       |Pinned  |Directory|Read          |Explicit        |Directory               |Directory|Shared
 LogonByDcRead          |Pinned  |Directory|Read          |Explicit        |Directory               |Directory|Shared
@@ -479,19 +479,19 @@ OpenLinkedObject       |Pinned  |Directory|Read          |Explicit        |Direc
 # ParkPing: MO-08: ICMP echoes of a list in parallel batches, network only, no credential.
 ParkPing               |Pinned  |Network  |Read          |Explicit        |-                       |Network  |-
 # ParkSharedSync: reads and writes a shared file, possibly on a UNC path: network I/O, not the local base.
-ParkSharedSync         |Pinned  |Network  |Unknown       |Background      |-                       |Network  |-
+ParkSharedSync         |Pinned  |Network  |RemoteMutation|Background      |-                       |Network  |-
 ParkSweep              |Pinned  |Cim      |Read          |Explicit        |Remote,Machine          |Remote   |-
 PasswordPolicyRead     |Pinned  |Directory|Read          |Explicit        |Directory               |Directory|Shared
 PermissionAnalysis     |Pinned  |Directory|Read          |Explicit        |Directory               |Directory|-
 PresenceScan           |Pinned  |Network  |Read          |Background      |Directory               |Network  |-
 PruneLinks             |Pinned  |Directory|Read          |Explicit        |Directory               |Directory|-
-QueryExport            |Pinned  |Storage  |Unknown       |Explicit        |-                       |Local    |-
-QueryLibrary           |Pinned  |Storage  |Unknown       |Explicit        |-                       |Local    |-
-QueryTransfer          |Pinned  |Storage  |Unknown       |Explicit        |-                       |Local    |-
+QueryExport            |Pinned  |Storage  |LocalWrite    |Explicit        |-                       |Local    |-
+QueryLibrary           |Pinned  |Storage  |Read          |Explicit        |-                       |Local    |-
+QueryTransfer          |Pinned  |Storage  |LocalWrite    |Explicit        |-                       |Local    |-
 ReadBitLocker          |Pinned  |Directory|Read          |Explicit        |Directory               |BitLocker|-
 ReadBitLockerKey       |Pinned  |Directory|Read          |Explicit        |Directory               |BitLocker|-
 # ReadBitLockerList: D058: ReadBitLockerList and ReadBitLockerKey read BitLocker exactly like ReadBitLocker.
-ReadBitLockerList      |Pinned  |Directory|Unknown       |Explicit        |Directory               |BitLocker|-
+ReadBitLockerList      |Pinned  |Directory|Read          |Explicit        |Directory               |BitLocker|-
 ReadLaps               |Pinned  |Directory|Read          |Explicit        |Directory               |Laps     |-
 # ReceiptStore: records the bind identity of a write: the directory account, without the directory channel.
 ReceiptStore           |Pinned  |Storage  |LocalWrite    |Background      |Bind                    |Local    |-

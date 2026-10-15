@@ -103,6 +103,7 @@ try {
     foreach($rel in @(
         'Domenia.exe',
         'wad/Domenia-Core.ps1',
+        'wad/Domenia-Main.xaml',
         'wad/Domenia-Start.ps1',
         'wad/Domenia-Modules.ps1',
         'wad/Domenia.release.json',

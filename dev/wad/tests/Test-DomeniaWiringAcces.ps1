@@ -134,10 +134,10 @@ function Read-DomeniaAuthRunspaceResult {param($Session) return $null}
 
 # ---------------------------------------------------------------- 4. real main window controls
 $script:MainWindow=$null
-$xamlReader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml))
+$xamlReader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)))
 try{$script:MainWindow=[Windows.Markup.XamlReader]::Load($xamlReader)}finally{$xamlReader.Close()}
 $script:MainControls=@{}
-foreach($match in [regex]::Matches((Get-MainXaml),'x:Name="([^"]+)"')){
+foreach($match in [regex]::Matches((Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)),'x:Name="([^"]+)"')){
     $control=$script:MainWindow.FindName($match.Groups[1].Value)
     if($null -ne $control){$script:MainControls[$match.Groups[1].Value]=$control}
 }
@@ -796,7 +796,7 @@ Test-Case 'UI-31 Copier tout absent en mode valeur unique, libelles poses par un
         }
     }
     Assert-True ((@($writers|Sort-Object -Unique) -join ',') -eq 'Update-DomeniaSecretActionUi') ('Libelle pose par : '+(@($writers|Sort-Object -Unique) -join ','))
-    $xaml=[xml](Get-MainXaml);$x='http://schemas.microsoft.com/winfx/2006/xaml'
+    $xaml=[xml](Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot));$x='http://schemas.microsoft.com/winfx/2006/xaml'
     $bl=@($xaml.SelectNodes('//*')|Where-Object{$_.GetAttribute('Name',$x) -eq 'BtnLoadBitLocker'})[0];$lp=@($xaml.SelectNodes('//*')|Where-Object{$_.GetAttribute('Name',$x) -eq 'BtnLoadLaps'})[0]
     Assert-True ($bl.GetAttribute('Content') -eq 'Lister les clés BitLocker' -and $lp.GetAttribute('Content') -eq 'Lire le mot de passe LAPS') 'Boutons non renommes'
     $help=@(Get-Content -LiteralPath (Join-Path $wad 'modules\Domenia-UX.help.json') -Raw -Encoding UTF8|ConvertFrom-Json)

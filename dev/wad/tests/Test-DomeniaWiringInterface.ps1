@@ -604,7 +604,7 @@ try{
     foreach($fn in @($parkAst.FindAll({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst]},$true))){
         if(@('Publish-DomeniaCommittedPresence') -contains $fn.Name){. ([scriptblock]::Create($fn.Extent.Text))}
     }
-    $mainXaml=Get-MainXaml
+    $mainXaml=Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)
     [xml]$mainDoc=$mainXaml
     $mainReader=New-Object Xml.XmlNodeReader $mainDoc
     try{$main=[Windows.Markup.XamlReader]::Load($mainReader)}finally{$mainReader.Close()}

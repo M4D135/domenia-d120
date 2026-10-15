@@ -2,11 +2,11 @@
 """Point 112: offline audit of the typographic scale and of the named spacing. Reads files only; no PowerShell runs.
 
 Rules:
-  1. the window resources (Get-MainXaml) define exactly the eight named sizes of the scale with their values, and the
+  1. the window resources (wad/Domenia-Main.xaml) define exactly the eight named sizes of the scale with their values, and the
      named spacing used by the shared styles, consistent with the metrics of wad/modules/SupportSuite.UI.json;
   2. every size reference ({DynamicResource FontSize...} in XAML, SetResourceReference(...FontSizeProperty,'FontSize...')
      in code) names one of these eight sizes;
-  3. the page (Get-MainXaml, Get-DomeniaTreeHeaderTemplate) and the module views (wad/modules/*.xaml) hold no literal
+  3. the page (wad/Domenia-Main.xaml, Get-DomeniaTreeHeaderTemplate) and the module views (wad/modules/*.xaml) hold no literal
      FontSize; elsewhere a literal FontSize (other windows such as the sign-in window, chart and board drawing code) is
      a ratchet: tools/baselines/typography-baseline.json gives the allowed count per file and function;
   4. literal Margin and Padding values of the page and of the module views are a ratchet too (per file): new layout
@@ -30,7 +30,7 @@ SPACING = {'SpaceStackSmall': '0,0,0,4', 'SpaceStack': '0,0,0,8', 'SpaceStackLar
            'SpaceInline': '0,0,8,0', 'SpaceInlineSmall': '0,0,6,0', 'PadButton': '14,8', 'PadButtonSecondary': '14,7',
            'PadInput': '9,6', 'PadCompact': '6,4', 'PadCard': '18', 'PadTab': '12,8', 'MarginTab': '0,0,5,6',
            'PadToolTip': '12,10', 'PadHeader': '8,6'}
-PAGE_FUNCTIONS = ('Get-MainXaml', 'Get-DomeniaTreeHeaderTemplate')
+PAGE_FUNCTIONS = ('Get-DomeniaTreeHeaderTemplate',)
 LITERAL_FONT = re.compile(r'FontSize="[0-9.]+"|Property="FontSize" Value="[0-9.]+"|\.FontSize\s*=\s*[0-9]')
 FONT_KEY = re.compile(r"\{DynamicResource (FontSize\w*)\}|FontSizeProperty\s*,\s*'(FontSize\w*)'")
 SPACING_LITERAL = re.compile(r'\b(?:Margin|Padding)="[0-9][0-9.,\s-]*"|Property="(?:Margin|Padding)" Value="[0-9][0-9.,\s-]*"')
@@ -54,16 +54,15 @@ def owner_counts(text, pattern):
     return counts
 
 
-def main_xaml(core_text):
-    start, end = functions(core_text)['Get-MainXaml'][0]
-    return re.search(r'@"\n(.*?)\n"@', core_text[start:end], re.S).group(1)
+def main_xaml(root=ROOT):
+    return read(Path(root) / 'wad' / 'Domenia-Main.xaml')
 
 
 def collect(root=ROOT):
     root = Path(root)
     problems = []
     core = read(root / 'wad' / 'Domenia-Core.ps1')
-    xaml = main_xaml(core)
+    xaml = main_xaml(root)
     resources = xaml[xaml.index('<Window.Resources>'):xaml.index('</Window.Resources>')]
     defined = dict(re.findall(r'<sys:Double [^>]*x:Key="(FontSize\w+)"[^>]*>([^<]*)</sys:Double>', resources))
     if defined != SCALE:
@@ -79,7 +78,7 @@ def collect(root=ROOT):
         if str(contract.get(metric)) != size:
             problems.append('Espacement %s (%s) différent de la métrique %s du contrat visuel (%s)' % (key, size, metric, contract.get(metric)))
     sources = [root / 'wad' / 'Domenia-Core.ps1'] + sorted(Path(p) for p in glob.glob(str(root / 'wad' / 'modules' / '*.ps1')))
-    views = sorted(Path(p) for p in glob.glob(str(root / 'wad' / 'modules' / '*.xaml')))
+    views = sorted(Path(p) for p in glob.glob(str(root / 'wad' / 'modules' / '*.xaml'))) + [root / 'wad' / 'Domenia-Main.xaml']
     fonts = {}
     for path in sources:
         rel = path.relative_to(root).as_posix()
@@ -107,7 +106,7 @@ def collect(root=ROOT):
         rel = path.relative_to(root).as_posix()
         if fonts.get(rel + '|'):
             problems.append('Taille de police littérale dans la vue %s (%d)' % (rel, fonts[rel + '|']))
-    spacing_counts = {'wad/Domenia-Core.ps1|Get-MainXaml': len(SPACING_LITERAL.findall(xaml))}
+    spacing_counts = {}
     for path in views:
         spacing_counts[path.relative_to(root).as_posix()] = len(SPACING_LITERAL.findall(read(path)))
     return problems, fonts, spacing_counts

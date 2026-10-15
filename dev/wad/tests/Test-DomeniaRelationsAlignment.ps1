@@ -158,12 +158,12 @@ function Invoke-WorkerFixture {
 function Pump {param($Window);$Window.UpdateLayout();$Window.Dispatcher.Invoke([Action]{},[Windows.Threading.DispatcherPriority]::ApplicationIdle);$Window.UpdateLayout()}
 function Open-TestWindow {
     param([string]$Theme='Dark')
-    $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml))
+    $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)))
     try{$w=[Windows.Markup.XamlReader]::Load($reader)}finally{$reader.Close()}
     $w.Title='DOMENIA RC1.8 | APERCU LOCAL, DONNEES FICTIVES, SANS RESEAU';$w.ShowActivated=$false;$w.ShowInTaskbar=$false;$w.Width=1500;$w.Height=950
     $palette=(Get-Content (Join-Path $wad 'modules\SupportSuite.UI.json') -Raw|ConvertFrom-Json).Palettes.$Theme
     $converter=[Windows.Media.BrushConverter]::new();foreach($p in $palette.PSObject.Properties){$w.Resources[$p.Name]=$converter.ConvertFromInvariantString([string]$p.Value)}
-    $script:Ctrl=@{};foreach($m in [regex]::Matches((Get-MainXaml),'x:Name="([^"]+)"')){$c=$w.FindName($m.Groups[1].Value);if($null -ne $c){$script:Ctrl[$m.Groups[1].Value]=$c}}
+    $script:Ctrl=@{};foreach($m in [regex]::Matches((Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)),'x:Name="([^"]+)"')){$c=$w.FindName($m.Groups[1].Value);if($null -ne $c){$script:Ctrl[$m.Groups[1].Value]=$c}}
     $script:Window=$w;$w.FindName('WorkspaceTabs').SelectedItem=$w.FindName('TabRelations');$w.Show();Pump $w;return $w
 }
 try {

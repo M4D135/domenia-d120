@@ -30,6 +30,17 @@ class OperationTableTest(unittest.TestCase):
         items = [item for item in self.items if item['Operation'] != 'ParkPing']
         self.assertIn('Ligne Pinned sans operation epinglee : ParkPing', contracts.operation_table_problems(items))
 
+    def test_reviewed_effects_are_explicit_and_dynamic_wrapper_is_closed(self):
+        source = (DEV / 'wad/modules/Domenia-Engine.Model.ps1').read_text('utf-8-sig')
+        table = contracts.literal_bodies(contracts.function(source, 'Get-DomeniaOperationTable'))[0]
+        effects = {}
+        for line in table.splitlines():
+            cells = [cell.strip() for cell in line.split('#', 1)[0].split('|')]
+            if len(cells) == 8:
+                effects[cells[0]] = cells[3]
+        expected = {'BitLockerPresence': 'Read', 'IndexOuList': 'Read', 'IsolatedRead': 'Unknown', 'LegacyMigration': 'LocalWrite', 'LocalIndexRead': 'Read', 'LocalQuery': 'Read', 'ParkSharedSync': 'RemoteMutation', 'QueryExport': 'LocalWrite', 'QueryLibrary': 'Read', 'QueryTransfer': 'LocalWrite', 'ReadBitLockerList': 'Read'}
+        self.assertEqual(expected, {name: effects[name] for name in expected})
+
 
 if __name__ == '__main__':
     unittest.main()

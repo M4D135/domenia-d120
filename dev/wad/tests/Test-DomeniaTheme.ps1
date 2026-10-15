@@ -317,7 +317,7 @@ $modules=@(Get-Command -Name 'Resolve-DomeniaEffectiveTheme','ConvertTo-DomeniaT
         Test-ThemeCase 'DS-11 : bouton desactive lisible (4,5:1), plein ou neutre ; Arreter cache sans travail' {
             $script:Window=$null
             try {
-                $script:Window=ConvertFrom-DomeniaXaml -XamlText (Get-MainXaml) -Context 'DS-11'
+                $script:Window=ConvertFrom-DomeniaXaml -XamlText (Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)) -Context 'DS-11'
                 $panel=$script:Window.FindName('UxHeaderTools')
                 foreach($theme in @('Light','Dark')) {
                     Apply-DomeniaTheme -Theme $theme
@@ -350,7 +350,7 @@ $modules=@(Get-Command -Name 'Resolve-DomeniaEffectiveTheme','ConvertTo-DomeniaT
             Assert-Theme (-not [Domenia.WindowFrame]::SetDarkTitleBar([IntPtr]::Zero,$true)) 'Fenetre absente acceptee'
             $script:Window=$null
             try {
-                $script:Window=ConvertFrom-DomeniaXaml -XamlText (Get-MainXaml) -Context 'DS-18'
+                $script:Window=ConvertFrom-DomeniaXaml -XamlText (Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)) -Context 'DS-18'
                 $script:Window.ShowInTaskbar=$false
                 Apply-DomeniaTheme -Theme Dark
                 Assert-Theme ([string]$script:Window.Resources['Domenia.FrameTheme'] -eq 'Dark') 'Theme de la barre non retenu avant la creation de la fenetre'
@@ -390,7 +390,7 @@ $modules=@(Get-Command -Name 'Resolve-DomeniaEffectiveTheme','ConvertTo-DomeniaT
             function Get-DomeniaWindowsAppTheme { return [string]$script:FakeWindowsTheme }
             function Set-Status { param($Text,$Level) $script:LastStatus=[string]$Text }
             try {
-                $script:Window=ConvertFrom-DomeniaXaml -XamlText (Get-MainXaml) -Context 'FO-22'
+                $script:Window=ConvertFrom-DomeniaXaml -XamlText (Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)) -Context 'FO-22'
                 [void](Load-DomeniaSettings);Apply-DomeniaTheme -Theme (Get-DomeniaStoredTheme)
                 Set-DomeniaThemePreference -Preference Auto
                 Assert-Theme ((Get-TestBrushHex $script:Window.Background) -eq (Get-SuitePalette Dark).WindowBg) 'Automatique ne suit pas Windows sombre'
@@ -414,7 +414,7 @@ $modules=@(Get-Command -Name 'Resolve-DomeniaEffectiveTheme','ConvertTo-DomeniaT
             [IO.File]::Copy((Join-Path $script:DataDir 'Domenia.settings.json'),$path)
             $before=[IO.File]::ReadAllText($path)
             try {
-                $script:Window=ConvertFrom-DomeniaXaml -XamlText (Get-MainXaml) -Context 'Principale themes'
+                $script:Window=ConvertFrom-DomeniaXaml -XamlText (Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)) -Context 'Principale themes'
                 Apply-DomeniaTheme -Theme (Get-DomeniaStoredTheme)
                 [void](Load-DomeniaSettings);[void](Load-DomeniaTheme)
                 Apply-DomeniaTheme -Theme $script:CurrentTheme

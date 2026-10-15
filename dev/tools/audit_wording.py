@@ -106,7 +106,7 @@ def call_literals(line):
 def interface_sources(root):
     """Source files whose interface strings are read, in audit order (the help JSON is read apart)."""
     root = Path(root)
-    paths = ([root / 'wad/Domenia-Core.ps1', root / 'wad/Domenia-Start.ps1'] + sorted((root / 'wad/modules').glob('*.ps1')) +
+    paths = ([root / 'wad/Domenia-Core.ps1', root / 'wad/Domenia-Start.ps1'] + sorted((root / 'wad').glob('*.xaml')) + sorted((root / 'wad/modules').glob('*.ps1')) +
              sorted((root / 'wad/modules').glob('*.xaml')))
     return [p for p in paths if p.is_file()]
 

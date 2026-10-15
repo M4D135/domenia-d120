@@ -760,3 +760,21 @@ Writeattributes|Directory|DirectoryWrite|Explicit|Explicit|0|0|0|Directory|1|1|0
     }
     Assert-True ($count -ge 117) ('Référence incomplète : ' + $count)
 }
+
+# F01 follow-up: reviewed effects, including the dynamic wrapper which must remain fail closed.
+Test-Case 'D018' 'Effets des operations de lecture et de stockage classes apres revue' {
+    $expected=@{
+        'BitLockerPresence'='Read'
+        'IndexOuList'='Read'
+        'IsolatedRead'='Unknown'
+        'LegacyMigration'='LocalWrite'
+        'LocalIndexRead'='Read'
+        'LocalQuery'='Read'
+        'ParkSharedSync'='RemoteMutation'
+        'QueryExport'='LocalWrite'
+        'QueryLibrary'='Read'
+        'QueryTransfer'='LocalWrite'
+        'ReadBitLockerList'='Read'
+    }
+    foreach($id in $expected.Keys){Assert-Equal $expected[$id] (Get-DomeniaOperationRow $id).Effect $id}
+}

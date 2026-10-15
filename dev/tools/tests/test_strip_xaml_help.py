@@ -26,9 +26,9 @@ XAML = '''<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentati
 
 def tree(root: Path, xaml=XAML, bom=True):
     (root / 'wad/modules').mkdir(parents=True)
-    core = 'function Get-Other { 1 }\nfunction Get-MainXaml {\n@"\n' + xaml + '\n"@\n}\nfunction Get-After { 2 }\n'
-    data = core.encode('utf-8')
-    (root / 'wad/Domenia-Core.ps1').write_bytes((b'\xef\xbb\xbf' if bom else b'') + data)
+    (root / 'wad/Domenia-Core.ps1').write_bytes(b'\xef\xbb\xbf# Core sentinel\n')
+    data = xaml.encode('utf-8')
+    (root / 'wad/Domenia-Main.xaml').write_bytes((b'\xef\xbb\xbf' if bom else b'') + data)
     catalogue = [{'Name': 'BtnKnown', 'Title': 'Lire', 'Text': 'Texte du catalogue', 'Kind': 'Button'},
                  {'Name': 'TxtKnown', 'Title': 'Saisie', 'Text': 'Saisie', 'Kind': 'TextBox'}]
     (root / 'wad/modules/Domenia-UX.help.json').write_text(json.dumps(catalogue, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
@@ -55,7 +55,7 @@ class StripXamlHelp(unittest.TestCase):
             code, report = run(root, '--apply')
             self.assertEqual(0, code)
             self.assertEqual(5, report['AttributesRemoved'])
-            raw = (root / 'wad/Domenia-Core.ps1').read_bytes()
+            raw = (root / 'wad/Domenia-Main.xaml').read_bytes()
             self.assertTrue(raw.startswith(b'\xef\xbb\xbf'), 'BOM kept')
             self.assertNotIn(b'\r\n', raw, 'LF kept')
             text = raw.decode('utf-8-sig')
@@ -64,7 +64,8 @@ class StripXamlHelp(unittest.TestCase):
             self.assertIn('<Button x:Name="BtnOther" Content="Autre" ToolTip="Reste dans le XAML" AutomationProperties.Name="Autre"/>', text)
             self.assertIn('<TextBlock Text="Sans nom" ToolTip="Reste aussi"/>', text)
             self.assertIn('<!-- <Button x:Name="BtnInComment" ToolTip="Commentaire"/> -->', text, 'comments untouched')
-            self.assertTrue(text.startswith('function Get-Other { 1 }\n') and text.endswith('function Get-After { 2 }\n'))
+            self.assertTrue(text.startswith('<Window'))
+            self.assertEqual((root / 'wad/Domenia-Core.ps1').read_bytes(), b'\xef\xbb\xbf# Core sentinel\n')
             code, report = run(root)
             self.assertEqual((0, 'PASS', 0), (code, report['Status'], report['ControlsWithHelpAttributes']))
 
@@ -82,9 +83,9 @@ class StripXamlHelp(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             tree(root)
-            core = root / 'wad/Domenia-Core.ps1'
-            core.write_text(core.read_text(encoding='utf-8-sig').replace('function Get-MainXaml {', 'function Get-Other2 {'), encoding='utf-8')
-            with self.assertRaises(ValueError):
+            xaml_path = root / 'wad/Domenia-Main.xaml'
+            xaml_path.unlink()
+            with self.assertRaises(FileNotFoundError):
                 strip.run(root, False)
 
     def test_repository_main_xaml_has_no_help_attribute_on_a_catalogued_control(self):

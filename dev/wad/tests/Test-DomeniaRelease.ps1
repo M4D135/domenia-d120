@@ -202,7 +202,7 @@ Case 'WPF : ordre et tailles font un aller retour JSON sans lignes' {
     Assert-Release ($g.Columns[2].DisplayIndex -eq 0 -and $g.Columns[1].Width.Value -eq 257)
 }
 Case 'WPF : XAML principal charge et boutons conserves' {
-    $r=[Xml.XmlNodeReader]::new([xml](Get-MainXaml));$w=$null
+    $r=[Xml.XmlNodeReader]::new([xml](Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)));$w=$null
     try{$w=[Windows.Markup.XamlReader]::Load($r);Assert-Release ($null -ne $w.FindName('BtnAccessRecovery') -and $null -ne $w.FindName('BtnLoadLaps') -and $null -ne $w.FindName('BtnLoadBitLocker') -and $null -ne $w.FindName('TvDirectory'))}finally{$r.Close();if($null -ne $w){$w.Close()}}
 }
 Case 'WPF : dialogue credentials reel en clair et sombre sans authentification' {

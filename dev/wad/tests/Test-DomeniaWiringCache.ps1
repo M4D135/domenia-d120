@@ -1383,7 +1383,7 @@ Test-Case 'D023 : le vrai XAML virtualise 100, 500 et 2000 lignes et recycle apr
     function Get-DomeniaControl { param($Name) return $window.FindName($Name) }
     function Get-CfgValue { param($Section,$Name,$Default) return $Default }
     function Set-DomeniaSetting { param($Name,$Value) throw 'Aucune preference ecrite par ce test' }
-    $xaml=Get-MainXaml
+    $xaml=Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)
     $reader=[Xml.XmlNodeReader]::new([xml]$xaml);$window=$null
     $oldWindow=$script:Window;$oldCtrl=$script:Ctrl;$cacheHost=$null
     function Settle-CacheLayout {
@@ -4894,7 +4894,7 @@ Test-Case 'UI-19 : un resume lisible de la base, le chemin en infobulle et une a
         Assert-Equal $script:TestDbPath $script:X06Clipboard 'Chemin copie different'
         # Real XAML, help and policy: the summary replaces the path box, the copy button is declared like its peers.
         . ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Get-MainXaml')))
-        $xaml = [xml](Get-MainXaml); $xns = 'http://schemas.microsoft.com/winfx/2006/xaml'
+        $xaml = [xml](Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)); $xns = 'http://schemas.microsoft.com/winfx/2006/xaml'
         # Windows PowerShell 5.1 emits a JSON array as one pipeline object: assign first, then enumerate.
         $helpRaw = Get-Content -LiteralPath (Join-Path $modules 'Domenia-UX.help.json') -Raw -Encoding UTF8 | ConvertFrom-Json
         $help = @($helpRaw)

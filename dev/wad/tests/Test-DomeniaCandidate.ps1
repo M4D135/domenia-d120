@@ -142,7 +142,7 @@ if($Wpf){
     Case 'WPF principal : chargement natif sans demarrage' {
         if([Threading.Thread]::CurrentThread.ApartmentState -ne 'STA'){throw 'WPF exige STA.'}
         Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
-        $xml=Get-MainXaml;$reader=[Xml.XmlNodeReader]::new([xml]$xml);$w=$null
+        $xml=Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot);$reader=[Xml.XmlNodeReader]::new([xml]$xml);$w=$null
         try{$w=[Windows.Markup.XamlReader]::Load($reader);Expect ($null -ne $w.FindName('DgGuardReceipts'));Expect ($null -ne $w.FindName('DgSessions'));$w.Measure([Windows.Size]::new(1440,900));$w.Arrange([Windows.Rect]::new(0,0,1440,900));$w.UpdateLayout()}
         finally{$reader.Close();if($null -ne $w){$w.Close()}}
     }

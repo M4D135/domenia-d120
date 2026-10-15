@@ -49,7 +49,7 @@ def read(path):
 
 def ui_sources(dev=DEV):
     """Files whose texts a user of the pack can see."""
-    patterns = ['wad/Domenia-Core.ps1', 'wad/Domenia-Start.ps1', 'wad/modules/*.ps1', 'wad/modules/*.xaml',
+    patterns = ['wad/Domenia-Core.ps1', 'wad/Domenia-Start.ps1', 'wad/modules/*.ps1', 'wad/modules/*.xaml', 'wad/Domenia-Main.xaml',
                 'wad/modules/*.json', 'wad/Support/*.ps1', 'wad/Support/*.cmd', 'wad/maintenance/*.ps1', '*.cmd',
                 'INSTALLER-MISE-A-JOUR.ps1', 'tools/launcher/launcher.c', 'tools/Fabriquer-Prod.ps1',
                 'tools/Production.Source.ps1', 'tools/Signer-Distribution.ps1', 'tools/Test-DomeniaSignature.ps1']
@@ -146,11 +146,7 @@ def guide_quotes(repo=REPO):
 
 
 def main_xaml_names(dev=DEV):
-    sys.path.insert(0, str(Path(dev) / 'wad' / 'tests'))
-    from powershell_lex import functions
-    core = read(Path(dev) / 'wad' / 'Domenia-Core.ps1')
-    start, end = functions(core)['Get-MainXaml'][0]
-    root = ET.fromstring(re.search(r'@"\n(.*?)\n"@', core[start:end], re.S).group(1))
+    root = ET.fromstring(read(Path(dev) / 'wad' / 'Domenia-Main.xaml'))
     names = {e.get(XNAME) for e in root.iter() if e.get(XNAME)}
     for path in glob.glob(str(Path(dev) / 'wad' / 'modules' / '*.xaml')):
         try:

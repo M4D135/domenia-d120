@@ -201,7 +201,7 @@ Case 'Expired missing bookmark has no broad fallback' {
     Expect (-not $script:Continuity.Restoring -and $script:SearchCalls.Count -eq 0)
 }
 Case 'Every results column has a plain stable header' {
-    [xml]$xml=Get-MainXaml;$ns=[Xml.XmlNamespaceManager]::new($xml.NameTable);$ns.AddNamespace('p','http://schemas.microsoft.com/winfx/2006/xaml/presentation');$ns.AddNamespace('x','http://schemas.microsoft.com/winfx/2006/xaml')
+    [xml]$xml=Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot);$ns=[Xml.XmlNamespaceManager]::new($xml.NameTable);$ns.AddNamespace('p','http://schemas.microsoft.com/winfx/2006/xaml/presentation');$ns.AddNamespace('x','http://schemas.microsoft.com/winfx/2006/xaml')
     $cols=@($xml.SelectNodes("//p:DataGrid[@x:Name='DgObjects']/p:DataGrid.Columns/*",$ns))
     Expect ($cols.Count -eq 18)
     foreach($c in $cols){Expect (-not [string]::IsNullOrWhiteSpace([string]$c.GetAttribute('Header'))) ('Blank header: '+$c.OuterXml)}
@@ -209,7 +209,7 @@ Case 'Every results column has a plain stable header' {
 if($env:OS -eq 'Windows_NT' -and -not $SkipWpf){
     Case 'Native WPF headers remain visible after reorder and narrow layout' {
         Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
-        $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml));$window=$null
+        $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)));$window=$null
         try{
             $window=[Windows.Markup.XamlReader]::Load($reader);$grid=$window.FindName('DgObjects')
             $window.ShowActivated=$false;$window.ShowInTaskbar=$false;$window.Show()

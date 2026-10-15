@@ -1,0 +1,96 @@
+{
+  "Reference": "553fe9e",
+  "NewAgainstOldRatchet": [
+    {
+      "File": "wad/modules/Domenia-Search.Model.ps1",
+      "Name": "ConvertTo-DomeniaAdsPathDn",
+      "Category": "tests-only",
+      "PresentIn553fe9e": true,
+      "PreviousCategory": "tests-only"
+    },
+    {
+      "File": "wad/modules/Domenia-Assistance.Model.ps1",
+      "Name": "Get-DomeniaAssistanceRecipe",
+      "Category": "tests-only",
+      "PresentIn553fe9e": true,
+      "PreviousCategory": "tests-only"
+    },
+    {
+      "File": "wad/modules/Domenia-Assist.Model.ps1",
+      "Name": "Get-DomeniaComputerViewNames",
+      "Category": "tests-only",
+      "PresentIn553fe9e": true,
+      "PreviousCategory": "tests-only"
+    },
+    {
+      "File": "wad/modules/Domenia-Experience.UI.ps1",
+      "Name": "Get-DomeniaExperienceExportRows",
+      "Category": "tests-only",
+      "PresentIn553fe9e": true,
+      "PreviousCategory": "tests-only"
+    },
+    {
+      "File": "wad/modules/Domenia-Experience.UI.ps1",
+      "Name": "Get-DomeniaExperienceVisibleRows",
+      "Category": "tests-only",
+      "PresentIn553fe9e": true,
+      "PreviousCategory": "tests-only"
+    },
+    {
+      "File": "wad/modules/Domenia-Relations.Model.ps1",
+      "Name": "Get-DomeniaLinkLookupName",
+      "Category": "tests-only",
+      "PresentIn553fe9e": true,
+      "PreviousCategory": "tests-only"
+    },
+    {
+      "File": "wad/modules/Domenia-Store.Model.ps1",
+      "Name": "Get-DomeniaStorageCopyReserve",
+      "Category": "tests-only",
+      "PresentIn553fe9e": true,
+      "PreviousCategory": "tests-only"
+    },
+    {
+      "File": "wad/modules/Domenia-Engine.Model.ps1",
+      "Name": "Select-DomeniaNextQueuedTask",
+      "Category": "tests-only",
+      "PresentIn553fe9e": true,
+      "PreviousCategory": "tests-only"
+    },
+    {
+      "File": "wad/modules/Domenia-Collection.Model.ps1",
+      "Name": "Test-DomeniaCampaignTargetName",
+      "Category": "tests-only",
+      "PresentIn553fe9e": true,
+      "PreviousCategory": "tests-only"
+    },
+    {
+      "File": "wad/modules/Domenia-Common.Model.ps1",
+      "Name": "Test-DomeniaContractCatalog",
+      "Category": "tests-only",
+      "PresentIn553fe9e": true,
+      "PreviousCategory": "tests-only"
+    },
+    {
+      "File": "wad/modules/Domenia-Common.Model.ps1",
+      "Name": "Test-DomeniaContractValue",
+      "Category": "tests-only",
+      "PresentIn553fe9e": true,
+      "PreviousCategory": "tests-only"
+    },
+    {
+      "File": "wad/modules/Domenia-ProbeContract.Model.ps1",
+      "Name": "Test-DomeniaProbeCatalogContracts",
+      "Category": "tests-only",
+      "PresentIn553fe9e": true,
+      "PreviousCategory": "tests-only"
+    },
+    {
+      "File": "wad/modules/Domenia-Cache.Model.ps1",
+      "Name": "Test-DomeniaSyncCheckpoint",
+      "Category": "tests-only",
+      "PresentIn553fe9e": true,
+      "PreviousCategory": "tests-only"
+    }
+  ]
+}

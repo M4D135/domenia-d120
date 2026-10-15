@@ -11,6 +11,7 @@ pattern (fnmatch, case-sensitive) of a retired file, a JSON list of patterns (on
 a test removed or renamed on purpose is declared, never silently dropped. A frozen reference refuses an unreadable
 suite report."""
 import argparse, datetime, fnmatch, glob, json, os, sys
+from pathlib import Path
 
 SCHEMA = 'DomeniaTestReference/1'
 PASSED = (True, 'Passed', 'PASS', 'True', 'OK', 'Pass', 'Success')
@@ -21,7 +22,7 @@ def load_run(directory):
     for path in sorted(glob.glob(os.path.join(directory, '*.json'))):
         suite = os.path.basename(path).replace('.ps1.json', '')
         try:
-            report = json.load(open(path, encoding='utf-8-sig'))
+            report = json.loads(Path(path).read_text(encoding='utf-8-sig'))
         except Exception as error:
             out[suite] = {'__error__': str(error)}
             continue
@@ -35,7 +36,7 @@ def load_run(directory):
             status = test.get('Status', test.get('Passed', test.get('Result', test.get('Success', ''))))
             results[str(test.get('Name'))] = 'PASS' if status in PASSED else ('SKIP' if str(status) in ('Skipped', 'SKIP') else 'FAIL')
         exit_path = path + '.exit'
-        exit_code = open(exit_path).read().strip() if os.path.exists(exit_path) else None
+        exit_code = Path(exit_path).read_text().strip() if os.path.exists(exit_path) else None
         out[suite] = {'tests': results, 'exit': exit_code}
     return out
 
@@ -43,7 +44,7 @@ def load_run(directory):
 def load(source):
     """A run folder or a frozen reference, as {suite: {'tests': {name: status}, 'exit': code}}."""
     if os.path.isfile(source):
-        reference = json.load(open(source, encoding='utf-8-sig'))
+        reference = json.loads(Path(source).read_text(encoding='utf-8-sig'))
         if reference.get('Schema') != SCHEMA:
             raise SystemExit('Reference de tests inconnue : ' + source)
         return {suite: {'tests': dict(data.get('Tests', {})), 'exit': data.get('Exit')} for suite, data in reference.get('Suites', {}).items()}
@@ -156,7 +157,7 @@ def main(argv=None):
         parser.error('une execution, deux executions, ou --freeze RUN OUT')
     patterns = []
     for path in args.retired:
-        patterns.extend(str(pattern) for pattern in json.load(open(path, encoding='utf-8-sig')))
+        patterns.extend(str(pattern) for pattern in json.loads(Path(path).read_text(encoding='utf-8-sig')))
     lines, regress, _fixed, _added, _retired = compare(load(args.runs[0]), load(args.runs[1]), patterns)
     print('\n'.join(lines))
     return 1 if regress else 0

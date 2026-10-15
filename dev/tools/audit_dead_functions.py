@@ -80,7 +80,7 @@ def manifest_runtime_scripts(root):
 
 
 def runtime_files(root):
-    extra = [root / 'wad/Domenia-Start.ps1'] + sorted((root / 'wad/modules').glob('*.json')) + sorted((root / 'wad/modules').glob('*.xaml'))
+    extra = [root / 'wad/Domenia-Start.ps1'] + sorted((root / 'wad/modules').glob('*.json')) + sorted((root / 'wad').glob('*.xaml')) + sorted((root / 'wad/modules').glob('*.xaml'))
     extra += sorted((root / 'wad/Support').glob('*.ps1')) + manifest_runtime_scripts(root)
     seen = set()
     files = []
@@ -98,7 +98,7 @@ def xaml_names(root, texts):
     names = set()
     for text in texts:
         names.update(n.lower() for n in XAML_NAME_RX.findall(text))
-    for path in sorted((root / 'wad/modules').glob('*.xaml')):
+    for path in sorted((root / 'wad').glob('*.xaml')) + sorted((root / 'wad/modules').glob('*.xaml')):
         names.update(n.lower() for n in XAML_NAME_RX.findall(path.read_text(encoding='utf-8-sig', errors='replace')))
     return names
 

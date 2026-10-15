@@ -795,12 +795,12 @@ try {
     }
 
     # ------------------------------------------------------------ real WPF controls of the main XAML
-    $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml))
+    $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)))
     try{$w=[Windows.Markup.XamlReader]::Load($reader)}finally{$reader.Close()}
     $w.Title='DOMENIA | TEST DE RACCORDEMENT RELATIONS, DONNEES FICTIVES, SANS RESEAU';$w.ShowActivated=$false;$w.ShowInTaskbar=$false;$w.Width=1500;$w.Height=950
     $palette=(Get-Content (Join-Path $wad 'modules\SupportSuite.UI.json') -Raw|ConvertFrom-Json).Palettes.Dark
     $converter=[Windows.Media.BrushConverter]::new();foreach($p in $palette.PSObject.Properties){$w.Resources[$p.Name]=$converter.ConvertFromInvariantString([string]$p.Value)}
-    $script:Ctrl=@{};foreach($m in [regex]::Matches((Get-MainXaml),'x:Name="([^"]+)"')){$c=$w.FindName($m.Groups[1].Value);if($null -ne $c){$script:Ctrl[$m.Groups[1].Value]=$c}}
+    $script:Ctrl=@{};foreach($m in [regex]::Matches((Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)),'x:Name="([^"]+)"')){$c=$w.FindName($m.Groups[1].Value);if($null -ne $c){$script:Ctrl[$m.Groups[1].Value]=$c}}
     $script:Window=$w;$w.FindName('WorkspaceTabs').SelectedItem=$w.FindName('TabRelations');$w.Show();Pump $w
     try{
         Case 'D041 Onglet Associer utilisable depuis un poste, recherche d un utilisateur' {

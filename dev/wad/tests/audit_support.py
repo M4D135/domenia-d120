@@ -78,7 +78,7 @@ def main():
     test('Installer runs support tests before backup/copy','integration',lambda:require(install.index('& $supportTests -ReportPath')<install.index("$backupParent=Join-Path")))
     test('52 functional tests and one optional WPF test supplied, not executed here','test-presence',lambda:require(len(re.findall(r'^Invoke-SupportTest ',native,re.M))==52 and len(re.findall(r'^    Invoke-SupportTest ',native,re.M))==1))
     ns='{http://schemas.microsoft.com/winfx/2006/xaml}'
-    host=ET.fromstring(re.search(r'@"\n(.*?)\n"@',f('Get-MainXaml'),re.S).group(1))
+    host=ET.parse(root/'wad/Domenia-Main.xaml').getroot()
     view=ET.parse(root/'wad/modules/Domenia-Support.xaml').getroot()
     ctrls=[e.attrib[ns+'Name'] for e in view.iter() if ns+'Name' in e.attrib]
     host_names={e.attrib[ns+'Name'] for e in host.iter() if ns+'Name' in e.attrib}

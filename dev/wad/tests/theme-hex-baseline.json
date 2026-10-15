@@ -1,8 +1,8 @@
 {
   "Kind": "Couleurs fixes #RRGGBB des sources runtime (cliquet CD-05)",
-  "Total": 85,
+  "Total": 11,
   "Counts": {
-    "wad/Domenia-Core.ps1": 75,
+    "wad/Domenia-Main.xaml": 1,
     "wad/modules/Domenia-Support.Model.ps1": 10
   }
 }

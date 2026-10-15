@@ -16,4 +16,4 @@ Opération ré-épinglée : **LocalStore uniquement**. Nouvelle empreinte : `D97
 - Couche SQLite : audit PASS et 12 tests Python PASS ; la fixture inclut désormais le catalogue réel.
 - Paquets DEV et PROD reconstruits ; référence preload mise à jour uniquement pour les deux fonctions portant les empreintes relues.
 
-Le rapport JSON joint est une preuve de construction hors Windows, **pas une qualification Windows PowerShell 5.1**. Les contrôles permanents F01 et leurs tests sont en préparation avec le Spark. Les essais de la VM seront effectués après les modifications, conformément à la décision de David du 16 octobre.
+Le rapport JSON joint est une preuve de construction hors Windows, **pas une qualification Windows PowerShell 5.1**. Le contrôle permanent `tools/check_worker_composition.py` est intégré au packaging : 11 tests de mutation sur copies temporaires passent. La fixture `wad/tests/Test-DomeniaWorkerComposition.ps1` compare les 12 fabriques pures avec PROD sans exécuter les opérations. Les essais de la VM seront effectués après les modifications, conformément à la décision de David du 16 octobre.

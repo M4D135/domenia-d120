@@ -98,9 +98,7 @@ class MainXamlControlTests(unittest.TestCase):
         sys.path.insert(0, str(DEV / 'wad' / 'tests'))
         from powershell_lex import functions
         core = (DEV / 'wad' / 'Domenia-Core.ps1').read_text(encoding='utf-8-sig')
-        spans = functions(core)['Get-MainXaml']
-        start, end = spans[0]
-        xaml = re.search(r'@"\n(.*?)\n"@', core[start:end], re.S).group(1)
+        xaml = (DEV / 'wad' / 'Domenia-Main.xaml').read_text(encoding='utf-8-sig')
         cls.root = ET.fromstring(xaml)
         cls.policy = core[core.index('$script:GuiElementPolicy = [ordered]@{'):]
         cls.policy = cls.policy[:cls.policy.index('\n}\n')]

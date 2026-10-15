@@ -3,6 +3,8 @@
 $script:SupportState=$null
 $script:SupportTimer=$null
 $script:SupportView=$null
+$script:SupportLoading=$false
+$script:SupportLoadPanel=$null
 $script:SupportModuleRoot=$PSScriptRoot
 
 function Get-DomeniaSupportSessionKey {
@@ -176,7 +178,7 @@ function Update-DomeniaSupportView {
     if ($Force -and $null -ne $script:SupportTimer) { $script:SupportTimer.Start() }
     Sync-DomeniaSupportSession
     $tab=Get-DomeniaControl 'TabSupport'
-    if (-not $Force -and -not $tab.IsSelected) { return }
+    if (-not $Force -and (-not $tab.IsSelected -or -not $tab.IsVisible)) { return }
     $objectKey=[string]$script:SelectedObjectGeneration+'|'+[string]$script:CurrentObjectRequestDn
     if ($null -eq $script:SelectedObject) { $objectKey+='|none' }
     $objectKey+='|'+[datetime]::UtcNow.ToString('yyyyMMddHHmm')
@@ -224,14 +226,14 @@ function Stop-DomeniaSupportUi {
     if ($null -ne $script:SupportTimer) { $script:SupportTimer.Stop(); $script:SupportTimer=$null }
     if ($null -ne $script:Ctrl -and $script:Ctrl.ContainsKey('TabSupport')) {
         $tab=$script:Ctrl['TabSupport']; $tab.IsEnabled=$false
-        $tabs=Get-DomeniaControl 'WorkspaceTabs'
+        $tabs=Get-DomeniaControl 'ApplicationToolTabs'
         if ($null -ne $tabs) { [void]$tabs.Items.Remove($tab) }
         foreach ($key in @($script:Ctrl.Keys)) { if ($key -eq 'TabSupport' -or $key -match '^(DomeniaSupport|Support|BtnSupport|DgSupport|TxtSupport|LblSupport|ChkSupport|CmbSupport)') { $script:Ctrl.Remove($key) } }
     }
-    $script:SupportState=$null; $script:SupportView=$null
+    $script:SupportState=$null; $script:SupportView=$null; $script:SupportLoadPanel=$null; $script:SupportLoading=$false
 }
 
-function Initialize-DomeniaSupportUi {
+function Initialize-DomeniaSupportContent {
     if ($null -ne $script:SupportView) { return }
     $path=Join-Path $script:SupportModuleRoot 'Domenia-Support.xaml'
     $text=[IO.File]::ReadAllText($path,[Text.Encoding]::UTF8)
@@ -248,14 +250,11 @@ function Initialize-DomeniaSupportUi {
             $script:Ctrl[$name]=$control
         }
     }
-    $tab=New-Object Windows.Controls.TabItem
-    $tab.Name='TabSupport';$tab.Header='Atelier';$tab.Content=$view
-    $tab.ToolTip='Analyse locale, comparaison de captures et dossier support. Sans scan automatique.'
-    $script:Ctrl['TabSupport']=$tab
-    $workspaces=Get-DomeniaControl 'WorkspaceTabs'
-    [void]$workspaces.Items.Add($tab)
+    $tab=Get-DomeniaControl 'TabSupport'
+    if ($null -eq $tab) { throw 'Onglet Diagnostic indisponible.' }
+    $tab.Content=$view
     $script:SupportView=$view
-    Reset-DomeniaSupportSession
+    Sync-DomeniaSupportSession
     # All event scriptblocks use named functions or global state: no expired local closures.
     (Get-DomeniaControl 'BtnSupportAnalyse').Add_Click({Invoke-DomeniaSafeUiAction -Operation 'Synthese atelier' -Action {Update-DomeniaSupportView -Force}})
     (Get-DomeniaControl 'BtnSupportAccounts').Add_Click({Select-DomeniaWorkspace -Workspace 'TabAccounts';Update-DomeniaAccountUi})
@@ -302,15 +301,61 @@ function Initialize-DomeniaSupportUi {
     (Get-DomeniaControl 'BtnSupportExportHtml').Add_Click({Invoke-DomeniaSafeUiAction -Operation 'Exporter dossier support' -Action {Export-DomeniaSupportHtml}})
     # Point 139: offline diagnostic folder, written by the local automation interface (Domenia-Automation.UI.ps1).
     (Get-DomeniaControl 'BtnSupportOfflineDossier').Add_Click({Invoke-DomeniaSafeUiAction -Operation 'Dossier hors ligne' -Action {Start-DomeniaOfflineDossier}})
-    $script:SupportTimer=New-Object Windows.Threading.DispatcherTimer
-    $script:SupportTimer.Interval=[timespan]::FromSeconds(1)
-    $script:SupportTimer.Add_Tick({
+    $script:SupportTimer=New-DomeniaTimer -Owner 'Timer:Support' -IntervalMs 1000 -Transient -Tick {
         try {Update-DomeniaSupportView} catch {
             # Inert degradation: stop this timer, not the main app. A manual recalculation remains available.
             $script:SupportTimer.Stop()
             [void](Set-DomeniaControlText 'LblSupportCoverage' ('Actualisation atelier suspendue : '+$_.Exception.Message))
         }
-    })
+    }
     $script:SupportTimer.Start()
+}
+
+function Initialize-DomeniaSupportUi {
+    # Install the shell only. Parsing the optional view is deferred until its first selection.
+    if ($script:Ctrl.ContainsKey('TabSupport')) { return }
+    $toolsTabs=Get-DomeniaControl 'ApplicationToolTabs'
+    if ($null -eq $toolsTabs) { throw 'Onglets des outils indisponibles.' }
+    $tab=New-Object Windows.Controls.TabItem
+    $tab.Name='TabSupport'; $tab.Header='Diagnostic'
+    $tab.ToolTip='Analyse locale, comparaison de captures et dossier support. Sans scan automatique.'
+    $panel=New-Object Windows.Controls.StackPanel
+    $panel.SetResourceReference([Windows.FrameworkElement]::MarginProperty,'PadCard')
+    $status=New-Object Windows.Controls.TextBlock
+    $status.Text='Ouvrez Diagnostic pour charger les outils locaux.'
+    $status.TextWrapping=[Windows.TextWrapping]::Wrap
+    $retry=New-Object Windows.Controls.Button
+    $retry.Content='Réessayer'; $retry.HorizontalAlignment='Left'; $retry.Visibility='Collapsed'
+    [void]$panel.Children.Add($status); [void]$panel.Children.Add($retry)
+    $tab.Content=$panel
+    $script:Ctrl['TabSupport']=$tab
+    $script:Ctrl['SupportLoadStatus']=$status
+    $script:Ctrl['SupportLoadRetry']=$retry
+    $script:SupportLoadPanel=$panel
+    $tab.Add_Selected({param($sender,$e) if ($e.OriginalSource -eq $sender) { Invoke-DomeniaSupportLoad }})
+    $retry.Add_Click({Invoke-DomeniaSupportLoad})
+    [void]$toolsTabs.Items.Add($tab)
     $script:Window.Add_Closed({Stop-DomeniaSupportUi})
+}
+
+function Invoke-DomeniaSupportLoad {
+    if ($null -ne $script:SupportView -or $script:SupportLoading) { return }
+    $script:SupportLoading=$true
+    $existingKeys=@{}
+    foreach ($key in $script:Ctrl.Keys) { $existingKeys[$key]=$true }
+    try {
+        (Get-DomeniaControl 'SupportLoadStatus').Text='Chargement du diagnostic...'
+        Initialize-DomeniaSupportContent
+    } catch {
+        # Roll back only this attempt: retain the shell, the session and existing control registrations.
+        if ($null -ne $script:SupportTimer) { $script:SupportTimer.Stop(); $script:SupportTimer=$null }
+        $script:SupportView=$null
+        foreach ($key in @($script:Ctrl.Keys)) { if (-not $existingKeys.ContainsKey($key)) { $script:Ctrl.Remove($key) } }
+        (Get-DomeniaControl 'TabSupport').Content=$script:SupportLoadPanel
+        (Get-DomeniaControl 'SupportLoadStatus').Text='Diagnostic indisponible. Vous pouvez réessayer ; le journal contient le détail.'
+        (Get-DomeniaControl 'SupportLoadRetry').Visibility='Visible'
+        Write-AppLog ('Chargement du diagnostic : '+$_.Exception.Message) 'ERROR'
+    } finally {
+        $script:SupportLoading=$false
+    }
 }

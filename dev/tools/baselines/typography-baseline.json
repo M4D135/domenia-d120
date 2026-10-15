@@ -21,7 +21,7 @@
     "wad/modules/Domenia-Widgets.UI.ps1|Show-DomeniaBoardEditor": 5
   },
   "SpacingLiterals": {
-    "wad/Domenia-Core.ps1|Get-MainXaml": 1117,
+    "wad/Domenia-Main.xaml": 1110,
     "wad/modules/Domenia-AdAudit.xaml": 46,
     "wad/modules/Domenia-Assistance.xaml": 9,
     "wad/modules/Domenia-CommandPalette.xaml": 8,

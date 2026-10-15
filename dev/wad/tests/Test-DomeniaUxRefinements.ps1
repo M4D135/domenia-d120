@@ -39,7 +39,7 @@ function Update-DomeniaSearchMoreButton {param($Search)}
 function Save-DomeniaFleetSnapshot {param($Scope,$Board)return $false}
 function Select-DomeniaWorkspace {param($Workspace,$Inner,$Tab);(Get-DomeniaControl 'WorkspaceTabs').SelectedItem=Get-DomeniaControl $Workspace;if($Inner -and $Tab){(Get-DomeniaControl $Inner).SelectedItem=Get-DomeniaControl $Tab}}
 $script:Conn=[pscustomobject]@{BaseDn='DC=example,DC=invalid';Connected=$false};$script:SessionEpoch=1
-$xaml=Get-MainXaml;$script:Window=[Windows.Markup.XamlReader]::Parse($xaml);foreach($name in @(Get-DomeniaXamlControlNames -XamlText $xaml)){$control=$script:Window.FindName($name);if($null -ne $control){$script:Ctrl[$name]=$control}};$script:Window.Width=1280;$script:Window.Height=720;$script:Window.ShowInTaskbar=$false
+$xaml=Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot);$script:Window=[Windows.Markup.XamlReader]::Parse($xaml);foreach($name in @(Get-DomeniaXamlControlNames -XamlText $xaml)){$control=$script:Window.FindName($name);if($null -ne $control){$script:Ctrl[$name]=$control}};$script:Window.Width=1280;$script:Window.Height=720;$script:Window.ShowInTaskbar=$false
 try{
  $script:Window.Show();$script:Window.UpdateLayout()
  Case 'The query editor occupies its own workspace, outside the dashboard' {
@@ -318,7 +318,7 @@ try{
   $defaults=Get-DomeniaDefaultSettings
   Expect (-not [bool]$defaults.UxHelpVisible) 'Aide ouverte par defaut'
   Expect ($defaults.Contains('UxHelpIntroSeen') -and -not [bool]$defaults.UxHelpIntroSeen) 'Preference de la pastille absente'
-  [xml]$doc=Get-MainXaml;$ns=New-Object Xml.XmlNamespaceManager($doc.NameTable);$ns.AddNamespace('w','http://schemas.microsoft.com/winfx/2006/xaml/presentation');$ns.AddNamespace('x','http://schemas.microsoft.com/winfx/2006/xaml')
+  [xml]$doc=Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot);$ns=New-Object Xml.XmlNamespaceManager($doc.NameTable);$ns.AddNamespace('w','http://schemas.microsoft.com/winfx/2006/xaml/presentation');$ns.AddNamespace('x','http://schemas.microsoft.com/winfx/2006/xaml')
   Expect ([string]$doc.SelectSingleNode("//w:ColumnDefinition[@x:Name='UxHelpColumn']",$ns).GetAttribute('Width') -eq '0') 'Colonne d aide ouverte avant le premier calcul'
   $cards=@($doc.SelectNodes("//w:Border[@x:Name='UxHelpPanel']//w:ScrollViewer/w:StackPanel/w:Border",$ns))
   Expect ($cards.Count -eq 3) ('Cartes du panneau : '+$cards.Count)
@@ -392,7 +392,7 @@ try{
  # PF-24 / UI-10: the catalogue is the only source of the help of its controls, a container has no tool tip and an
  # icon button a one-line tool tip; the help text stays the whole catalogue text.
  Case 'PF-24 : aides du catalogue seulement, aucune infobulle de conteneur, une ligne pour un bouton-icone' {
-  [xml]$doc=Get-MainXaml;$x='http://schemas.microsoft.com/winfx/2006/xaml'
+  [xml]$doc=Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot);$x='http://schemas.microsoft.com/winfx/2006/xaml'
   $catalogue=@{};foreach($entry in @([IO.File]::ReadAllText((Join-Path $wad 'modules\Domenia-UX.help.json'),[Text.Encoding]::UTF8)|ConvertFrom-Json)){$catalogue[[string]$entry.Name]=$entry}
   $carriers=@($doc.SelectNodes('//*')|Where-Object{$catalogue.ContainsKey([string]$_.GetAttribute('Name',$x)) -and ($_.HasAttribute('ToolTip') -or $_.HasAttribute('AutomationProperties.HelpText') -or $_.HasAttribute('ToolTipService.ShowOnDisabled'))}|ForEach-Object{$_.GetAttribute('Name',$x)})
   Expect ($carriers.Count -eq 0) ('Aides encore dans le XAML : '+(($carriers|Select-Object -First 8) -join ', '))
@@ -400,7 +400,7 @@ try{
    $setters=@($doc.SelectNodes("//*[local-name()='Window.Resources']/*[local-name()='Style'][@TargetType='$style']/*[local-name()='Setter'][@Property='ToolTip']"))
    Expect ($setters.Count -eq 0) ('Infobulle generique dans le style '+$style)
   }
-  Initialize-DomeniaUxWindowHelp -Window $script:Window -XamlText (Get-MainXaml)
+  Initialize-DomeniaUxWindowHelp -Window $script:Window -XamlText (Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot))
   foreach($name in @('WorkspaceTabs','TxtUiLog','DgObjects','TvDirectory')){
    $c=Get-DomeniaControl $name
    Expect ($null -eq $c.ToolTip) ($name+' : infobulle sur un conteneur')

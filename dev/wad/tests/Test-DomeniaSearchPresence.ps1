@@ -228,7 +228,7 @@ Case 'Persistent observation round-trip retains separate times' {$v=ConvertTo-Do
 if($env:OS -eq 'Windows_NT' -and -not $SkipWpf){
     Case 'WPF global ancestor hides OU filters, keeps the filter of the list and the result grid (CO-05, FO-05)' {
         Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
-        $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml));$window=$null
+        $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)));$window=$null
         try{
             $window=[Windows.Markup.XamlReader]::Load($reader);$window.ShowActivated=$false;$window.ShowInTaskbar=$false;$window.Show()
             $window.FindName('WorkspaceTabs').SelectedItem=$window.FindName('WsSearch');$layout=$window.FindName('SearchBrowserLayout')
@@ -247,7 +247,7 @@ if($env:OS -eq 'Windows_NT' -and -not $SkipWpf){
     # DS-03: unwired if a filter shows a bare « Tous » or « 100 » again, or if the display changes the value read by the rules.
     Case 'DS-03 Les filtres disent leur sens : Tous les types, Toute presence, lignes max' {
         Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
-        $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml));$window=$null
+        $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)));$window=$null
         try{
             $window=[Windows.Markup.XamlReader]::Load($reader);$window.ShowActivated=$false;$window.ShowInTaskbar=$false;$window.Show()
             $window.FindName('WorkspaceTabs').SelectedItem=$window.FindName('WsSearch');$window.UpdateLayout()
@@ -263,7 +263,7 @@ if($env:OS -eq 'Windows_NT' -and -not $SkipWpf){
             $unit=$window.FindName('LblGlobalLimitUnit')
             Expect (($unit.Text -ceq 'lignes max') -and ($unit.IsVisible) -and ([Windows.Controls.DockPanel]::GetDock($unit) -eq 'Right')) 'Unite de la limite absente'
             Expect ([string][Windows.Automation.AutomationProperties]::GetName($window.FindName('TxtGlobalLimit')) -ceq 'Lignes max') 'Nom accessible de la limite'
-            Expect (-not ([string](Get-MainXaml)).Contains('Saisissez ou consultez cette information')) 'Aide generique restante dans la page Rechercher'
+            Expect (-not ([string](Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot))).Contains('Saisissez ou consultez cette information')) 'Aide generique restante dans la page Rechercher'
         }finally{$reader.Close();if($null -ne $window){$window.Close()}}
     }
     Case 'CO-03 DgObjects : la grille recoit des cles de tri, pas seulement du texte affiche' {

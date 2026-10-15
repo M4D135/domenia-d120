@@ -1745,6 +1745,14 @@ Domenia écrit un journal applicatif, une trace de démarrage et une trace de co
 - Outils, onglet « Charge & stats » : durée, volume réseau estimé, replis distants et taux de réussite des opérations.
 - Outils, onglet « Domaine » : rôles FSMO, niveaux fonctionnels, contrôleurs et stratégie du domaine.
 
+## Diagnostic de la fiche et dossier hors ligne
+
+Dans Outils, ouvrez Diagnostic. Ses outils se chargent à la première ouverture. En cas d’échec de chargement, Réessayer permet de reprendre sans fermer Domenia ; le journal conserve le détail de l’erreur.
+
+Recalculer la synthèse relit les informations déjà disponibles pour la fiche. Comparer A / B aide à examiner deux captures du même objet, en distinguant les attributs inconnus des valeurs effectivement vides. Cette analyse locale ne lance pas une collecte AD, ping ou WMI.
+
+Dans Dossier hors ligne, choisissez le périmètre puis Préparer le dossier. Domenia crée un dossier daté dans Exports à partir de la base locale. Il n’effectue aucune collecte réseau pour cet export. Vérifiez la fraîcheur et la couverture avant de l’utiliser pour une intervention. Les champs secrets dédiés sont exclus ; les identités et les chemins internes restent des informations à relire avant partage.
+
 ## Santé du moteur et réactivité de l’interface
 
 Ouvrez le panneau « Opérations » depuis le bandeau, ou « État du moteur » depuis le Journal de session déplié. Il présente les opérations actives, en attente ou en nettoyage, la mémoire privée du processus et la dernière sauvegarde locale.

@@ -117,10 +117,10 @@ try {
         $ast=Parse-UiSource (Join-Path $wad 'Domenia-Core.ps1')
         foreach($n in @('Get-MainXaml','Get-DomeniaXamlControlNames','Get-DomeniaControl','Update-TaskUi','Update-DomeniaWriteModeVisual')){Import-UiFunction $ast $n}
         Import-UiFunction (Parse-UiSource (Join-Path $wad 'modules\Domenia-Experience.UI.ps1')) 'Update-DomeniaExperienceActivity'
-        Expect ((Get-MainXaml).Contains('UxActivityStrip'))
+        Expect ((Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)).Contains('UxActivityStrip'))
     }
     if(-not $script:Cases[1].Passed){throw 'Extraction des fonctions impossible.'}
-    $xaml=Get-MainXaml
+    $xaml=Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)
     if($Preview){$w=New-UiWindow $xaml;Install-PreviewMode $w;return}
     foreach($theme in @('Light','Dark')) {
         Case ($theme+' : reproduire le decalage de la ligne Auto RC1.6') {

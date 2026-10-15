@@ -197,7 +197,7 @@ function Open-PreviewObject {
 
 $script:Window = $null
 try {
-    $xamlText = Get-MainXaml
+    $xamlText = Get-MainXaml -WadRoot $wad
     Assert-DomeniaXamlPreflight -XamlText $xamlText -Context 'Apercu local RC1.4'
     $reader = [Xml.XmlNodeReader]::new([xml]$xamlText)
     try { $script:Window = [Windows.Markup.XamlReader]::Load($reader) } finally { $reader.Close() }

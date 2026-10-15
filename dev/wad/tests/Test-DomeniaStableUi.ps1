@@ -172,7 +172,7 @@ try {
             }
         } finally {if($null -ne $w){$w.Close()};$script:FastLoginUi=$null}
         try {
-            $w=Load-TestWindow (Get-MainXaml);$w.Title='DOMENIA TEST LOCAL : COMPTEURS SANS AD'
+            $w=Load-TestWindow (Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot));$w.Title='DOMENIA TEST LOCAL : COMPTEURS SANS AD'
             $w.Width=if($theme -eq 'Light'){1560.0}else{1120.0};$w.Height=860
             $palette=Get-SuitePalette -Theme $theme
             $bc=[Windows.Media.BrushConverter]::new()

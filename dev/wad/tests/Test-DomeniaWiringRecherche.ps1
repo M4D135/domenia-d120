@@ -1114,11 +1114,11 @@ Case 'UX-25 Liste de lʼhistorique : bandeau, Actualiser, type, presence et filt
 # DS-20 / SP-02: unwired if the grid shows every column again, if « Colonnes… » does not change and store the choice,
 # or if a chosen workstation column appears in a list without workstations.
 Case 'DS-20 Colonnes choisies : six par defaut, choix enregistre, colonnes poste seulement avec un poste' {
-    $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml));$window=$null
+    $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)));$window=$null
     try{
         $window=[Windows.Markup.XamlReader]::Load($reader)
         $script:Ctrl=@{}
-        foreach($match in [regex]::Matches((Get-MainXaml),'x:Name="([^"]+)"')){$control=$window.FindName($match.Groups[1].Value);if($null -ne $control){$script:Ctrl[$match.Groups[1].Value]=$control}}
+        foreach($match in [regex]::Matches((Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)),'x:Name="([^"]+)"')){$control=$window.FindName($match.Groups[1].Value);if($null -ne $control){$script:Ctrl[$match.Groups[1].Value]=$control}}
         $script:Window=$window;$script:ResultColumnChoice=$null;$script:ResultColumnMenuBound=$false
         $script:SearchListHasMachine=$true;$script:SearchListHasUser=$true;$script:SearchListHasAccount=$true
         Initialize-DomeniaResultColumns
@@ -1174,7 +1174,7 @@ Case 'DS-20 Colonnes choisies : six par defaut, choix enregistre, colonnes poste
     }finally{$reader.Close();if($null -ne $window){$window.Close()}}
 }
 Case 'Main XAML carries the search controls wired by the code' {
-    $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml));$window=$null
+    $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)));$window=$null
     try{
         $window=[Windows.Markup.XamlReader]::Load($reader)
         foreach($n in @('LblSearchHint','BtnSearchMore','CmbWorkView','BtnWorkView','BtnNavBack','BtnNavForward','OuRestoreBanner','LblOuRestoreMessage','BtnOuRestoreRetry','BtnOuRestoreDismiss')){Expect ($null -ne $window.FindName($n)) ('Controle absent : '+$n)}
@@ -1186,7 +1186,7 @@ Case 'Main XAML carries the search controls wired by the code' {
         $trigger=@($grid.RowStyle.Triggers|Where-Object{$_ -is [Windows.DataTrigger] -and [string]$_.Value -eq 'Compte admin'})
         Expect ($trigger.Count -eq 1) 'Marque des comptes dʼadministration absente.'
         $script:Ctrl=@{}
-        foreach($match in [regex]::Matches((Get-MainXaml),'x:Name="([^"]+)"')){$control=$window.FindName($match.Groups[1].Value);if($null -ne $control){$script:Ctrl[$match.Groups[1].Value]=$control}}
+        foreach($match in [regex]::Matches((Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)),'x:Name="([^"]+)"')){$control=$window.FindName($match.Groups[1].Value);if($null -ne $control){$script:Ctrl[$match.Groups[1].Value]=$control}}
         $script:Window=$window
         Initialize-DomeniaSearchUi
         # Unified catalog: no preselected query, no implicit read or probe while choosing/filtering. Point 61: loading

@@ -215,7 +215,7 @@ if(-not $PureOnly){
         foreach($name in @('Update-DomeniaUxLayout','Test-DomeniaUxNavFolded','Update-DomeniaUxSidebar','Set-DomeniaUxHeaderLayout')){Import-Function $ux $name}
         $core=Read-Ast (Join-Path $wad 'Domenia-Core.ps1')
         foreach($name in @('Get-MainXaml','Get-DomeniaXamlControlNames')){Import-Function $core $name}
-        $script:Controls=@{};$xaml=Get-MainXaml
+        $script:Controls=@{};$xaml=Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)
         $script:Window=[Windows.Markup.XamlReader]::Parse($xaml)
         foreach($name in @(Get-DomeniaXamlControlNames $xaml)){$control=$script:Window.FindName($name);if($null -ne $control){$script:Controls[$name]=$control}}
         $script:Window.Width=1000;$script:Window.Height=700;$script:Window.ShowInTaskbar=$false
@@ -388,7 +388,7 @@ if(-not $PureOnly){
             }
             return [pscustomobject]@{Bounds=$bounds;Visible=$visible}
         }
-        $script:Controls=@{};$xaml=Get-MainXaml
+        $script:Controls=@{};$xaml=Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)
         $script:Window=[Windows.Markup.XamlReader]::Parse($xaml)
         foreach($name in @(Get-DomeniaXamlControlNames $xaml)){$control=$script:Window.FindName($name);if($null -ne $control){$script:Controls[$name]=$control}}
         $script:Window.Width=1920;$script:Window.Height=1080;$script:Window.ShowInTaskbar=$false

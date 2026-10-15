@@ -96,7 +96,7 @@ def audit():
     for label,s in [('selection module',m)]+[(n,fn(n)) for n in changed if n!='Get-MainXaml']:
         masked,_=mask_ps(s)
         ck('No readonly variable assignment: '+label,not re.search(r'(?i)\$(?:host|pid|pshome|psversiontable|true|false|null)\s*(?:[+*/-]?=(?!=)|\+\+|--)',masked))
-    raw=re.search(r'@"\s*\n(.*?)\n"@',fn('Get-MainXaml'),re.S).group(1)
+    raw=(ROOT/'wad/Domenia-Main.xaml').read_text(encoding='utf-8-sig')
     xml=ET.fromstring(raw);ns={'w':'http://schemas.microsoft.com/winfx/2006/xaml/presentation'};x='{http://schemas.microsoft.com/winfx/2006/xaml}';w='{http://schemas.microsoft.com/winfx/2006/xaml/presentation}'
     byname={n.get(x+'Name'):n for n in xml.iter() if n.get(x+'Name')}
     for kind in ['Object','Computer']:

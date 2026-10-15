@@ -737,7 +737,7 @@ Case 'FO-18 : selection, meme plafond et meme confirmation que la liste' {
 }
 
 Case 'Interface : un seul bouton Verifier la liste, ses choix, pastilles, selection et poste cables ; anciens boutons retires' {
- $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml));try{$window=[Windows.Markup.XamlReader]::Load($reader)}finally{$reader.Close()}
+ $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)));try{$window=[Windows.Markup.XamlReader]::Load($reader)}finally{$reader.Close()}
  try{
   $script:Clicks=[Collections.Generic.List[string]]::new()
   function Invoke-DomeniaParkVerify {param($Mode,$Anchor)$script:Clicks.Add('Verify')}

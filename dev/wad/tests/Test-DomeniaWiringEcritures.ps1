@@ -62,6 +62,7 @@ try {
         if (-not (Get-Command Get-DomeniaReceiptRequirement -ErrorAction SilentlyContinue)) { foreach($p in @(Get-ChildItem -LiteralPath $modulesDir -Filter '*.Model.ps1' -File | ForEach-Object{$_.FullName})) { . $p } }
         # The real in-page confirmation: without the main window it answers through Confirm-Action / Confirm-TextAction.
         . (Join-Path $modulesDir 'Domenia-Inline.UI.ps1')
+        . (Join-Path $modulesDir 'Domenia-Confirmation.UI.ps1')
     }
     if (-not (Get-Command Protect-DomeniaSecretText -ErrorAction SilentlyContinue)) { function Protect-DomeniaSecretText {param($Text); return [string]$Text} }
     if (-not (Get-Command Test-DomeniaSecretAttribute -ErrorAction SilentlyContinue)) { function Test-DomeniaSecretAttribute {param($Attribute); return $false} }
@@ -971,7 +972,7 @@ if ($infrastructure) {
         $map=(Get-FunctionAst $script:CoreAst 'Get-WriteControlMap').Extent.Text
         Assert-True ($map.Contains('Move = @("BtnUserMove","BtnCompRename","BtnCompMove")')) 'Le deplacement du poste echappe au mode lecture seule.'
         [void](Import-AstFunction $script:CoreAst 'Get-MainXaml')
-        [xml]$xaml=[string](Get-MainXaml)
+        [xml]$xaml=[string](Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot))
         $x='http://schemas.microsoft.com/winfx/2006/xaml'
         foreach($name in @('BtnObjectReread','BtnCompMove')){
             $node=@($xaml.SelectNodes('//*')|Where-Object{$_.GetAttribute('Name',$x) -eq $name})

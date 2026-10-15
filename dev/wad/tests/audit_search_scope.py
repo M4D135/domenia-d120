@@ -41,7 +41,7 @@ def main():
     for rel,h in base['PreservedFiles'].items():check('Preserved '+rel,sha((root/rel).read_bytes())==h)
     for rel in ['wad/Domenia-Core.ps1','wad/modules/Domenia-UX.UI.ps1','wad/maintenance/Preview-DomeniaUi.ps1','wad/tests/Test-DomeniaSearchScope.ps1','INSTALLER-MISE-A-JOUR.ps1']:
         text=(root/rel).read_text(encoding='utf-8-sig');check('Approximate delimiters '+rel,lambda s=text:delimiters(s));check('UTF8 BOM '+rel,(root/rel).read_bytes().startswith(b'\xef\xbb\xbf'))
-    x=re.search(r'@"\n(.*?)\n"@',f('Get-MainXaml'),re.S)[1];r=ET.fromstring(x);controls=window_controls(r)
+    x=(root/'wad/Domenia-Main.xaml').read_text(encoding='utf-8-sig');r=ET.fromstring(x);controls=window_controls(r)
     check('XAML namescopes unique',lambda:assert_scoped_names(r))
     ns='{http://schemas.microsoft.com/winfx/2006/xaml/presentation}';xn='{http://schemas.microsoft.com/winfx/2006/xaml}Name'
     names={e.get(xn) for e in controls['WsSearch'].iter()}

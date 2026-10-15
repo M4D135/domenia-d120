@@ -274,6 +274,7 @@ def build(out,manifest_only=False,windows_report=None,require_windows=False,evid
     gate('tools/update_migration_worker.py','Migration worker sources')
     # P-CD-08: one SQLite layer for every worker of the local base, composed, never copied.
     gate('tools/check_sqlite_layer.py','Shared SQLite layer of the workers')
+    gate('tools/check_worker_composition.py','Composed worker recipes and startup registry')
     # Verify every operation body AND the startup registry fingerprint before packaging.
     result=subprocess.run([sys.executable,str(ROOT/'tools/update_worker_contracts.py')],capture_output=True,text=True)
     if result.returncode:raise ValueError('Worker contracts not verified: '+result.stdout+result.stderr)
