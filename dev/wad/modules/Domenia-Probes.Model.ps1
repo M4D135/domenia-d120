@@ -107,6 +107,16 @@ evt.unexpected|Evenements|Arrets inattendus (7 j)|root\cimv2|Win32_NTLogEvent|Ev
     $script:DomeniaProbeCatalog = @($catalog | ForEach-Object { Add-DomeniaProbeMetadata $_ })
     return $script:DomeniaProbeCatalog
 }
+function Get-DomeniaProbeVisuals {
+    # Representations that make sense for this kind of data (decision David 2026-10-07): text values can be shared out,
+    # measures are bucketed; a single workstation only gets a figure or a text.
+    param($Probe,[string]$Board = 'Fleet')
+    if ($null -eq $Probe) { return @() }
+    if ($Board -eq 'Computer') { return @('Kpi','Text') }
+    $numeric = ([string]$Probe.Mode -eq 'Count' -or [string]$Probe.Transform -match '^(GB|GBfromKB|MB|Mbps|Number|DaysSince|PercentFree)$')
+    if ($numeric) { return @('Column','Kpi','Text') }
+    return @('Pie','Bar','Text','Kpi')
+}
 function Get-DomeniaProbe {
     param([string]$Id)
     foreach ($probe in @(Get-DomeniaProbeCatalog)) { if ($probe.Id -ceq $Id) { return $probe } }

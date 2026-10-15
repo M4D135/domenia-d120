@@ -2440,6 +2440,7 @@ function Get-DomeniaRuntimeModulePlan {
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-ProbeCatalog.Model.ps1'); File='Domenia-Probes.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaProbeCatalog',
+            'Get-DomeniaProbeVisuals',
             'Get-DomeniaProbe',
             'ConvertTo-DomeniaProbePayload',
             'New-DomeniaObservationReader',

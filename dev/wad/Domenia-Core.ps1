@@ -17724,15 +17724,6 @@ function Complete-DomeniaParkSweepUi {
     try { Refresh-LinkGrid } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaParkSweepUi' $_ }
 }
 
-function Fail-DomeniaParkSweepUi {
-    param($Message,$State)
-    $detail = ([string]$Message).Trim()
-    if ([string]::IsNullOrWhiteSpace($detail)) { $detail = "Erreur inconnue." }
-    Add-DomeniaUiLog -Area "Parc" -Level "WARN" -Text ("Releve du parc interrompu : " + $detail)
-    [void](Set-DomeniaControlText -Name "LblParkStatus" -Text ("Releve interrompu : " + $detail))
-    if (-not [bool]$State.Silent) { Set-Status ("Releve du parc impossible : " + $detail) "ERROR" }
-}
-
 function Start-DomeniaParkSweep {
     param([switch]$Silent)
     # Decision David 2026-10-05: no whole-park detection any more (too wide, it disturbed the associations).
@@ -25366,7 +25357,7 @@ function Dispose-AsyncEngine {
     # D019: every timer registered with an owner is stopped by the registry; the historical list stays as a
     # fallback for timers created outside it. Active jobs are never disposed here (see below).
     try { Initialize-DomeniaEngineState; [void](Release-DomeniaResources -Registry $script:DomeniaResources -Kind 'Timer') } catch { Write-DomeniaSwallowed 'Core' 'Dispose-AsyncEngine' $_ }
-    foreach ($timerName in @('AsyncTimer','TreeRenderTimer','SelectionOpenTimer','SettingsTimer','SecretLifetimeTimer','SecretRevealTimer','SecretClipboardTimer','LinkProbeTimer','LiveSearchTimer','IndexFlushTimer','DashboardRefreshTimer','DomeniaIndexSearchTimer')) {
+    foreach ($timerName in @('AsyncTimer','TreeRenderTimer','SelectionOpenTimer','SettingsTimer','SecretLifetimeTimer','SecretRevealTimer','SecretClipboardTimer','LinkProbeTimer','LiveSearchTimer','DashboardRefreshTimer','DomeniaIndexSearchTimer')) {
         try { $timer = Get-Variable -Name $timerName -Scope Script -ValueOnly -ErrorAction SilentlyContinue; if ($null -ne $timer) { $timer.Stop() } } catch { Write-DomeniaSwallowed 'Core' 'Dispose-AsyncEngine' $_ }
     }
     foreach ($id in @($script:AsyncJobs.Keys)) { Request-UiTaskStop -Id $id -Silent -Force }
