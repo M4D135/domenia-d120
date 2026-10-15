@@ -151,9 +151,11 @@ function Update-DomeniaParkRunStatus {
 }
 function Get-DomeniaParkVerifyButtonText {
     # UI-23: the main part of the button names the reading it runs (the last one chosen in this session).
+    # Point 60 (W08): it also names the scope chosen beside the results when that scope is the selected rows.
+    $selected=((Get-DomeniaResultScopeMode) -eq 'Selected')
     $entry=@(Get-DomeniaParkVerifyModes|Where-Object{$_.Mode -eq [string]$script:ParkDefaultMode})
-    if($entry.Count){return 'Vérifier : '+[string]$entry[0].Label}
-    return 'Vérifier la liste'
+    if($entry.Count){return $(if($selected){'Vérifier la sélection : '}else{'Vérifier : '})+[string]$entry[0].Label}
+    return $(if($selected){'Vérifier la sélection'}else{'Vérifier la liste'})
 }
 function Set-DomeniaParkControlVisible {
     param([string]$Name,[bool]$Visible)
@@ -273,9 +275,14 @@ function Set-DomeniaParkOutcomeFilter {
 }
 function Get-DomeniaParkSelectionTargets {
     # FO-18: the selected workstations of the list, with their AD identity (DN and GUID); a row without them is counted.
-    $rows=@(Get-DomeniaSelectedGridRows|Where-Object{$null -ne $_ -and [string]$_.Type -eq 'Machine'})
-    $targets=@(foreach($row in $rows){if([string]$row.DN -and [string]$row.Guid){[pscustomobject]@{name=[string]$row.Name;distinguished_name=[string]$row.DN;object_guid=[string]$row.Guid}}})
-    return [pscustomobject]@{Rows=$rows;Targets=$targets;Skipped=($rows.Count-$targets.Count)}
+    # Point 60 (W08): the rows come from the 'Selected' plan of the list, the one the export of the selection uses:
+    # selected rows still shown, in the displayed order, each once. Plan: its statement for an empty selection.
+    $grid=Get-DomeniaControl 'DgObjects';$visible=@()
+    if($null -ne $grid){$visible=@($grid.Items)}
+    $plan=Get-DomeniaSearchSelectionPlan -VisibleRows $visible -SelectedRows @(Get-DomeniaSelectedGridRows) -Mode Selected
+    $rows=@($plan.Rows|Where-Object{($null -ne $_) -and ([string]$_.Type -eq 'Machine')})
+    $targets=@(foreach($row in $rows){if(([string]$row.DN) -and ([string]$row.Guid)){[pscustomobject]@{name=[string]$row.Name;distinguished_name=[string]$row.DN;object_guid=[string]$row.Guid}}})
+    return [pscustomobject]@{Rows=$rows;Targets=$targets;Skipped=($rows.Count-$targets.Count);Plan=$plan}
 }
 function Update-DomeniaParkSelectionBar {
     # FO-18: from two selected rows, a bar replaces the selection line: « 3 postes sélectionnés : Pinger · Qui est
@@ -287,19 +294,20 @@ function Update-DomeniaParkSelectionBar {
     Set-DomeniaParkControlVisible 'UxSelectionBar' $show
     Set-DomeniaParkControlVisible 'LblSelectionReadState' (-not $show)
     if(-not $show){return}
-    $machines=@($selected|Where-Object{[string]$_.Type -eq 'Machine'}).Count
-    $text=[string]$selected.Count+' lignes sélectionnées'
-    if($machines -eq $selected.Count){$text=[string]$machines+' postes sélectionnés'}
-    elseif($machines -gt 0){$text+=' dont '+[string]$machines+' '+$(if($machines -gt 1){'postes'}else{'poste'})}
-    [void](Set-DomeniaControlText 'LblSelectionBar' ($text+' :'))
+    $machines=0;foreach($row in $selected){if([string]$row.Type -eq 'Machine'){$machines++}}
+    # Point 60 (W08): the same statement of the selection as the scope announced before an export or a survey.
+    [void](Set-DomeniaControlText 'LblSelectionBar' ((Get-DomeniaSearchSelectionText -SelectedCount $selected.Count -MachineCount $machines)+' :'))
     $survey=(($machines -gt 0) -and (-not $ListRunning) -and [bool]$grid.IsEnabled -and (-not [bool]$script:ListSurveyBlocked) -and (-not [bool]$script:DemoMode))
     foreach($name in @('BtnSelectionPing','BtnSelectionConsole')){$button=Get-DomeniaControl $name;if($null -ne $button){$button.IsEnabled=$survey}}
 }
 function Start-DomeniaParkSelectionSurvey {
-    # FO-18: ping or console reading of the selected workstations only, with the confirmation and the ceiling of the list.
-    param([ValidateSet('Ping','Console')][string]$Mode)
+    # FO-18: ping, console reading or analysis of the selected workstations only, with the confirmation and the ceiling
+    # of the list. Point 60 (W08): « Vérifier la liste ▾ » runs it too when the scope chosen beside the results is the
+    # selected rows.
+    param([ValidateSet('Ping','Console','Analyse')][string]$Mode)
     $selection=Get-DomeniaParkSelectionTargets
-    if(-not $selection.Rows.Count){Set-Status 'Aucun poste dans la sélection.' 'WARN';return}
+    if(-not $selection.Rows.Count){Set-Status $(if([int]$selection.Plan.Count -gt 0){'Aucun poste dans la sélection.'}else{[string]$selection.Plan.Label}) 'WARN';return}
+    if($Mode -eq 'Analyse'){Start-DomeniaParkAnalysis -Selection -ScopeTargets @($selection.Targets) -SkippedTargets ([int]$selection.Skipped);return}
     Start-DomeniaOnlinePark -Selection -ScopeTargets @($selection.Targets) -SkippedTargets ([int]$selection.Skipped) -PingOnly:($Mode -eq 'Ping')
 }
 function Invoke-DomeniaParkVerify {
@@ -313,6 +321,9 @@ function Invoke-DomeniaParkVerify {
     if(-not $Mode){Open-DomeniaParkVerifyMenu -Anchor $Anchor;return}
     if($Mode -notin @('Ping','Console','Analyse')){Set-Status ('Vérification inconnue : '+$Mode) 'WARN';return}
     $script:ParkDefaultMode=$Mode
+    # Point 60 (W08): the scope chosen beside the results decides what is read: the list as shown after its filters,
+    # or the selected rows only (same confirmation and ceiling as the bar of a multiple selection).
+    if((Get-DomeniaResultScopeMode) -eq 'Selected'){Start-DomeniaParkSelectionSurvey -Mode $Mode;Update-DomeniaParkControls;return}
     switch($Mode){
         'Ping' {Start-DomeniaOnlinePark -DisplayedResults -PingOnly}
         'Console' {Start-DomeniaOnlinePark -DisplayedResults}
@@ -346,7 +357,8 @@ function Start-DomeniaOnlinePark {
     # -Slot (FI-18): 'List' or 'Computer'; without it the scope follows the request (Get-DomeniaParkRunSlot).
     # Widget collections (decision David 2026-10-14): -NoConsole reads no console user, -ReuseMaxAgeDays collects only
     # what is missing (the stored measurements of each workstation are checked before any read by
-    # Invoke-DomeniaParkPlanStep and an answered workstation is never contacted), -WidgetBoard/-WidgetIds name the
+    # Invoke-DomeniaParkPlanStep and an answered workstation is never contacted; the workshop's collection of the
+    # missing information of a recipe uses it too), -WidgetBoard/-WidgetIds name the
     # widgets that show the progress of the run and -Preapproved (an added widget: the add click is the gesture)
     # starts without the confirmation up to the limit of Get-DomeniaWidgetCollectAdmission. Every widget collection
     # keeps the ceiling of a survey (SE-05), counted on the workstations left to read.
@@ -375,6 +387,8 @@ function Start-DomeniaOnlinePark {
         # Pending local saves of a survey of the other scope are expected; otherwise wait for their confirmation.
         if(-not (Test-DomeniaParkRunActive) -and ((Get-DomeniaPersistenceState).Pending -gt 0 -or ($null -ne $script:Persistence -and $script:Persistence.LinkBusy))){throw 'Attendez la confirmation des enregistrements locaux avant un nouveau relevé.'}
         if(-not $script:DatabaseScopedPath){throw 'Aucune base autonome active.'}
+        # Points 32 and 35: no new collection during a base maintenance, a suspended writer or a nearly full disk.
+        $storageRefusal=Get-DomeniaStorageCollectionRefusal;if($storageRefusal){throw $storageRefusal}
         [void](Initialize-DomeniaWinSqliteNative)
         $targets=@();$excluded=@();$skipped=[Math]::Max(0,$SkippedTargets);$scopeKind='Scope';$label=[string]$ScopeLabel;$subtree=$false;$listLimit=0
         if($null -ne $ScopeTargets){
@@ -446,11 +460,15 @@ function Start-DomeniaOnlinePark {
 function Start-DomeniaParkAnalysis {
     # Analyser la liste (decision David 2026-10-08): ping, console user and light WMI reading of the displayed
     # workstations, plus the WMI queries of the dashboard widgets. Read only, confirmed with the count first.
+    # Point 60 / FO-18: -Selection analyses only the selected workstations given in -ScopeTargets, with the
+    # confirmation and the ceiling of a selection of the list.
+    param([switch]$Selection,[object[]]$ScopeTargets=$null,[int]$SkippedTargets=0)
     $probes=$null
     try{
         $ids=@(Get-DomeniaBoardProbeIds)
         if($ids.Count){$probes=@(ConvertTo-DomeniaProbePayload -Ids $ids)}
     }catch{Set-Status ('Requêtes des widgets ignorées : '+$_.Exception.Message) 'WARN';$probes=$null}
+    if($Selection){Start-DomeniaOnlinePark -Selection -ScopeTargets @($ScopeTargets) -SkippedTargets $SkippedTargets -Inventory -Probes $probes;return}
     Start-DomeniaOnlinePark -DisplayedResults -Inventory -Probes $probes
 }
 function Complete-DomeniaParkTargets {
@@ -477,8 +495,9 @@ function Complete-DomeniaParkTargets {
         $r|Add-Member -NotePropertyName PreviewExcluded -NotePropertyValue @($exact.Excluded) -Force
         if(-not $r.Targets.Count){throw ('aucun poste exploitable. '+(@($exact.Lines|Where-Object{([string]$_) -match '^\d+ exclue'}) -join ' '))}
         foreach($target in $r.Targets){$r.TargetsByKey[([string]$target.Key).ToLowerInvariant()]=$target}
-        # A widget collection that reads only what is missing first checks the stored measurements of each
-        # workstation, without any network read; its admission then counts the workstations left to read.
+        # A collection that reads only what is missing (a widget, or the workshop for a recipe) first checks the
+        # stored measurements of each workstation, without any network read; its admission then counts the
+        # workstations left to read.
         if([int](Get-DomeniaMember $r 'ReuseMaxAgeDays' 0) -gt 0){$r.Planning=$true;Start-DomeniaParkRunTimer -RunId $r.Id -Planning;return}
         Request-DomeniaParkAdmission -Run $r
     }catch{Fail-DomeniaParkTargets $_.Exception.Message $State}
@@ -545,6 +564,9 @@ function Start-DomeniaParkRunTimer {
     if([string]$r.RefreshOperationId -and -not (Test-DomeniaOuRefreshCurrent ([string]$r.RefreshOperationId))){Stop-DomeniaOnlinePark -RunId $RunId;return}
     if(-not $Planning){
         if(([bool]$r.Approved) -and ($null -ne $r.Timer)){return}
+        # Start of the confirmed collection, kept from its first approval: the attempt time of its scope clocks
+        # (Refresh.UI), never a measure date.
+        if(-not [bool]$r.Approved){$r|Add-Member -NotePropertyName ApprovedUtc -NotePropertyValue ([datetime]::UtcNow.ToString('o')) -Force}
         $r.Approved=$true;$r.InlineRequestId=''
         # UX-12: every target of the run carries its « relevé en cours » marker until its measure is stored.
         Set-DomeniaParkPendingRows -Run $r
@@ -644,6 +666,8 @@ function Invoke-DomeniaParkRunTick {
     if($script:ActiveWriteTaskId -or $script:WriteState -in @('Unknown','UnknownPending')){return}
     if($null -ne $script:Persistence){
         if($script:Persistence.Failures -ge 3 -or $script:Persistence.Conflicts.Count){$r.Stopping=$true;Update-DomeniaParkRunStatus -Run $r;return}
+        # Points 32 and 35: started workers finish and are saved; no further target is admitted.
+        if(Get-DomeniaStorageCollectionRefusal){$r.Stopping=$true;Update-DomeniaParkRunStatus -Run $r;return}
         if($script:Persistence.Pending.Count -ge 64 -or $script:Persistence.LinkBusy){return}
     }
     # One admission per tick keeps the Dispatcher responsive. The engine may impose a smaller provider budget.
@@ -661,7 +685,9 @@ function Invoke-DomeniaParkRunTick {
     }catch{$r.Stopping=$true;$r.FailureMessage='Relevé interrompu : '+$_.Exception.Message+' Les résultats précédents sont conservés.';[void](Set-DomeniaControlText 'LblParkStatus' $r.FailureMessage)}
 }
 function Invoke-DomeniaParkPlanStep {
-    # Widget collections (decision David 2026-10-14, collect only what is missing). The stored observation of each
+    # The single "collect only what is missing" planner (decision David 2026-10-14): widget collections and the
+    # workshop's collection of the missing information of a recipe (New-DomeniaMissingCollectionPlan proposes the
+    # workstations and counts the estimate with the same reuse age). The stored observation of each
     # workstation, read by ParkTargets with the observation families of this run, is checked against what the run
     # reads: a workstation already answered is counted apart and never contacted. A slice per tick, bounded in count
     # and in time, keeps the Dispatcher responsive whatever the size of the OU, and nothing is read on the network
@@ -691,7 +717,8 @@ function Invoke-DomeniaParkPlanStep {
         # Every workstation already answers: the run ends without contacting any of them and without approval.
         $r.Completed=$true;if($null -ne $r.Timer){$r.Timer.Stop()}
         Update-DomeniaParkRunStatus -Run $r
-        Set-Status ('Widget à jour : '+[int]$r.AlreadyFresh+' poste(s)'+$(if($r.ScopeLabel){' de '+$r.ScopeLabel}else{''})+' ont déjà une mesure exploitable de moins de '+$days+' jours ; aucun poste contacté.') 'INFO'
+        $subject=if([string](Get-DomeniaMember $r 'WidgetBoard' '')){'Widget à jour : '+[int]$r.AlreadyFresh+' poste(s)'+$(if($r.ScopeLabel){' de '+$r.ScopeLabel}else{''})}else{'Rien à relire : les '+[int]$r.AlreadyFresh+' poste(s) proposés'}
+        Set-Status ($subject+' ont déjà une mesure exploitable de moins de '+$days+' jours ; aucun poste contacté.') 'INFO'
         return
     }
     Update-DomeniaParkRunStatus -Run $r
@@ -1090,7 +1117,9 @@ function Start-DomeniaCommittedPresence {
         if(-not [guid]::TryParse($Guid,[ref]$identity) -or $identity -eq [guid]::Empty -or -not $DN){throw 'Identite AD du poste non enregistree. Relisez sa fiche avant de mesurer sa presence.'}
         $state=[pscustomobject]@{Computer=$Computer;DisplayDN=$DisplayDN;DisplayKind=$DisplayKind;Suffix=$Suffix;Explicit=[bool]$Explicit;RemoteStartedUtc=[datetime]::UtcNow.ToString('o')}
         [void](Initialize-DomeniaRemoteStoreState -State $state -Guid $Guid -DN $DN -Generation ([long]$script:GlobalSearchGeneration))
-        $job=Start-UiTask -Name ('Presence de '+$Computer) -OperationId 'SelectedPresence' -Code (Get-DomeniaLiveProbeCode) -Payload ([pscustomobject]@{Computer=$Computer;Key=$DN;Guid=$Guid;CollectPing=$true;ProbeUser=$false;Inventory=$false;Probes=@();ValidateConsoleIdentity=$false}) -CallbackState $state -ReplaceKey 'presence-selected' -TimeoutSeconds 8 -SuccessHandler 'Complete-DomeniaCommittedPresence' -ErrorHandler 'Fail-DomeniaCommittedPresence'
+        # Point 1: this ping-only read runs the pinned live probe body, registered as LiveSelectedPing (credential free).
+        # SelectedPresence pins another body (Get-DomeniaSelectedPresenceWorkerCode): the engine refused this pairing.
+        $job=Start-UiTask -Name ('Presence de '+$Computer) -OperationId 'LiveSelectedPing' -Code (Get-DomeniaLiveProbeCode) -Payload ([pscustomobject]@{Computer=$Computer;Key=$DN;Guid=$Guid;CollectPing=$true;ProbeUser=$false;Inventory=$false;Probes=@();ValidateConsoleIdentity=$false}) -CallbackState $state -ReplaceKey 'presence-selected' -TimeoutSeconds 8 -SuccessHandler 'Complete-DomeniaCommittedPresence' -ErrorHandler 'Fail-DomeniaCommittedPresence'
         if(-not $job){throw 'Controle de presence non admis.'}
         Set-Status ('Ping de '+$Computer+' en cours ; les valeurs affichees gardent leur date jusquʼa enregistrement.')
     }catch{Set-Status $_.Exception.Message 'WARN'}

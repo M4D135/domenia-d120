@@ -5,7 +5,7 @@ $ErrorActionPreference='Stop'
 $wad=Split-Path -Parent $PSScriptRoot;$modules=Join-Path $wad 'modules'
 if($QuerySource){Add-Type -Path (Join-Path (Split-Path -Parent $wad) 'vendor/m4d-admin-common/src/Query/QueryEngine.cs')}else{Add-Type -Path (Join-Path $modules 'M4D.Admin.Common.Query.dll')}
 Add-Type -Path (Join-Path $modules 'Domenia.Native.dll')
-foreach($name in @('Common.Model','Boards.Model','Probes.Model','Query.Model','Query.Worker')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+foreach($name in @('Common.Model','HealthRules.Model','Boards.Model','Probes.Model','QuerySchema.Model','Workstation.Model','Query.Model','Query.Worker')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 $checks=0;$watch=[Diagnostics.Stopwatch]::StartNew()
 function Expect([bool]$Good,[string]$Name){$script:checks++;if(-not $Good){throw $Name}}
 function Reject([scriptblock]$Action,[string]$Name){$failed=$false;try{& $Action|Out-Null}catch{$failed=$true};Expect $failed $Name}
@@ -26,6 +26,9 @@ try{
     $ids=Get-DomeniaQueryMatchIds $records $segment
     Expect ($ids.Count -eq 19990) 'Other segment provides all 19990 exact identities'
     $request=[pscustomobject]@{SnapshotKey='fixture-20000';RecipeJson=($recipe|ConvertTo-Json -Depth 16 -Compress);TextFilter='';StateFilter='';Selection='Match';SortField='name';Descending=$true;ExpectedRows=20000;EvaluatedAtUtc='2026-10-13T10:00:00Z';ScopeDn='OU=Fixture,DC=example,DC=test';Subtree=$true}
+    # Point 2: the frozen request names its population and the clocks of its data; the worker copies them as given.
+    $request|Add-Member -NotePropertyName Population -NotePropertyValue ([pscustomobject]@{Version=1;Key='fixture-population';DomainDn='dc=example,dc=test';ScopeDn='OU=Fixture,DC=example,DC=test';Subtree=$true;Types=@('Machine');SnapshotRevision=42;Text='comptes ordinateur · OU=Fixture,DC=example,DC=test et ses sous-OU'})
+    $request|Add-Member -NotePropertyName DataClocks -NotePropertyValue ([pscustomobject]@{Directory='Base locale (AD) : lecture complète le 13/10/2026 09:00';Measures='Postes actifs : ping 0/0';Runs='';Calculation='Vue recalculée';SnapshotAtUtc='2026-10-13T10:00:00.0000000Z'})
     $Payload=[pscustomobject]@{ModuleRoot=$modules;Path=(Join-Path $folder 'all.csv');Records=$records;Request=$request}
     $code=[scriptblock]::Create((Get-DomeniaQueryExportWorkerCode))
     $result=& $code
@@ -34,6 +37,7 @@ try{
     Expect ($csv.Count -eq 20000 -and $csv[0].Nom -ceq 'PC-19999' -and $csv[19999].Nom -ceq 'PC-00000') 'global descending order crosses every page boundary'
     Expect (@($csv.GUID|Select-Object -Unique).Count -eq 20000) 'no omitted or duplicated identity in full export'
     Expect ($metadata.RowCount -eq 20000 -and $metadata.SnapshotKey -ceq 'fixture-20000' -and $metadata.ScopeDn -ceq $request.ScopeDn) 'export metadata identifies exact scope and snapshot'
+    Expect (([string]$metadata.Population.Key -ceq 'fixture-population') -and ([long]$metadata.Population.SnapshotRevision -eq 42) -and ([string]$metadata.DataClocks.Directory -like 'Base locale (AD)*') -and ([string]$metadata.DataClocks.SnapshotAtUtc -like '2026-10-13T10:00:00*')) 'export metadata keeps the population and the data clocks of the preview'
     Expect ((Get-FileHash -LiteralPath $result.Path -Algorithm SHA256).Hash.ToLowerInvariant() -ceq $metadata.CsvSHA256) 'export receipt SHA256 matches actual file'
     Reject {& $code} 'existing export is never overwritten'
     $Payload.Path=Join-Path $folder 'mismatch.csv';$request.ExpectedRows=19999
@@ -45,6 +49,10 @@ try{
     Expect ($result.RowCount -eq 10000 -and $result.Pages -eq 50 -and $csv[0].Nom -ceq 'PC-10000' -and $csv[9999].Nom -ceq 'PC-19999') 'unknown selection exports10000 without inventing zero'
     $request.Selection='NoMatch';$request.ExpectedRows=0;$Payload.Path=Join-Path $folder 'empty.csv';$result=& $code
     Expect ($result.RowCount -eq 0 -and $result.Pages -eq 0 -and @([IO.File]::ReadAllLines($result.Path)).Count -eq 1) 'empty selection publishes a valid header-only CSV'
+    # Point 70: the report names the versioned definition it exported (stored revision, modified draft, model).
+    $request|Add-Member -NotePropertyName Definition -NotePropertyValue ([pscustomobject]@{RecipeId='personal.scale';Revision=7;DefinitionSHA256=('a'*64);State='Saved';Label='révision 7 enregistrée'}) -Force
+    $Payload.Path=Join-Path $folder 'bound.csv';$result=& $code;$metadata=Get-Content -Raw -LiteralPath $result.MetadataPath|ConvertFrom-Json
+    Expect ($metadata.Definition.Revision -eq 7 -and $metadata.Definition.State -ceq 'Saved' -and $metadata.Definition.RecipeId -ceq 'personal.scale') 'the report metadata names the exported definition revision'
     $unsafe=[Collections.Generic.Dictionary[string,object]]::new();$unsafe.Add('name','  =HYPERLINK("bad")');$unsafe.Add('dn',"CN=line1`nline2");$unsafe.Add('active',$false)
     $Payload.Records=@([M4D.Admin.Common.Query.QueryRecord]::new('literal',$unsafe));$request.RecipeJson=(New-DomeniaQueryRecipe|ConvertTo-Json -Depth 16 -Compress);$request.Selection='Match';$request.ExpectedRows=1;$Payload.Path=Join-Path $folder 'literal.csv'
     $result=& $code;$csv=@(Import-Csv -LiteralPath $result.Path -Delimiter ';')

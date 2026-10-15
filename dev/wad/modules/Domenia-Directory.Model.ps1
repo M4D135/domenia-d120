@@ -794,6 +794,23 @@ function ConvertTo-DomeniaMembershipEdges {
     return $edges
 }
 
+function ConvertTo-DomeniaGroupPathEdges {
+    # UI-06 / point 103: the memberOf edges (DN -> parent DNs) of a GroupPathRead answer: the object to its direct
+    # groups (StartParents), then each group read to its own parents (Nodes). The DNs keep their case, so that the
+    # rows built from them show the names as read; a group not read has no entry (its parents are unknown).
+    param($Read)
+    $pairs = @{}
+    if ($null -eq $Read) { return $pairs }
+    $dn = [string](Get-DomeniaMember $Read 'Dn' '')
+    if ($dn) { $pairs[$dn] = @(Get-DomeniaMember $Read 'StartParents' @()) }
+    foreach ($node in @(Get-DomeniaMember $Read 'Nodes' @())) {
+        if ($null -eq $node) { continue }
+        $nodeDn = [string](Get-DomeniaMember $node 'Dn' '')
+        if ($nodeDn) { $pairs[$nodeDn] = @(Get-DomeniaMember $node 'Parents' @()) }
+    }
+    return (ConvertTo-DomeniaMembershipEdges $pairs)
+}
+
 function Get-DomeniaNestedMembershipRows {
     # UI-06: the groups reached only through other groups (depth 2 or more), from one breadth-first walk of the edges:
     # Via names the direct group the shortest path goes through, Depth counts the levels. Direct groups are not repeated.

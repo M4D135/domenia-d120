@@ -1,0 +1,45 @@
+﻿<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Name="DomeniaAssistanceView">
+  <UserControl.Resources>
+    <Style x:Key="AssistanceWrap" TargetType="TextBlock">
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="VerticalAlignment" Value="Top"/>
+    </Style>
+  </UserControl.Resources>
+  <Grid x:Name="UxAssistanceLayout" Margin="12">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+    <StackPanel Margin="0,0,0,8">
+      <TextBlock Text="Recettes dʼassistance" FontSize="18" FontWeight="SemiBold"/>
+      <TextBlock Text="Parcours guidés : chaque étape dit ce quʼelle lit, pourquoi et à quel coût. Aucune étape ne part seule et aucune nʼécrit." TextWrapping="Wrap" Margin="0,2,0,0" Foreground="{DynamicResource MutedColor}"/>
+    </StackPanel>
+    <StackPanel Grid.Row="1" Margin="0,0,0,8">
+      <WrapPanel>
+        <ComboBox x:Name="CmbAssistanceRecipe" Width="320" MinHeight="32" DisplayMemberPath="Title" ToolTip="Choisissez le symptôme décrit par lʼutilisateur. Le choix seul ne lit rien." AutomationProperties.Name="Recette dʼassistance" AutomationProperties.HelpText="Choisissez le symptôme décrit par lʼutilisateur. Le choix seul ne lit rien." ToolTipService.ShowOnDisabled="True"/>
+        <TextBlock x:Name="LblAssistanceSubject" Text="Aucune sélection : ouvrez la fiche du compte ou du poste concerné." VerticalAlignment="Center" Margin="12,0,0,0" FontWeight="SemiBold" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+      </WrapPanel>
+      <TextBlock x:Name="LblAssistanceRecipe" Text="Choisissez une recette." TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{DynamicResource MutedColor}" AutomationProperties.LiveSetting="Polite"/>
+    </StackPanel>
+    <DataGrid x:Name="DgAssistanceSteps" Grid.Row="2" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" SelectionMode="Single" MinRowHeight="28" EnableRowVirtualization="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTip="Étapes de la recette : ce qui est lu, pourquoi et à quel coût. Choisissez une étape, puis lancez-la." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Étapes de la recette" AutomationProperties.HelpText="Étapes de la recette : ce qui est lu, pourquoi et à quel coût. Choisissez une étape, puis lancez-la.">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="N°" Binding="{Binding Order}" Width="40"/>
+        <DataGridTextColumn Header="Étape" Binding="{Binding Title}" Width="190" ElementStyle="{StaticResource AssistanceWrap}"/>
+        <DataGridTextColumn Header="Pour" Binding="{Binding Pour}" Width="90"/>
+        <DataGridTextColumn Header="Ce qui est lu" Binding="{Binding Reads}" Width="3*" ElementStyle="{StaticResource AssistanceWrap}"/>
+        <DataGridTextColumn Header="Pourquoi" Binding="{Binding Why}" Width="3*" ElementStyle="{StaticResource AssistanceWrap}"/>
+        <DataGridTextColumn Header="Coût" Binding="{Binding Cost}" Width="2*" ElementStyle="{StaticResource AssistanceWrap}"/>
+        <DataGridTextColumn Header="État" Binding="{Binding State}" Width="170" ElementStyle="{StaticResource AssistanceWrap}"/>
+      </DataGrid.Columns>
+    </DataGrid>
+    <StackPanel Grid.Row="3" Margin="0,8,0,0">
+      <WrapPanel>
+        <Button x:Name="BtnAssistanceRun" Content="Lancer lʼétape choisie" Style="{DynamicResource RunButton}" MinHeight="32" ToolTip="Ouvre la vue de lʼétape puis lance sa seule lecture, pour lʼobjet sélectionné. Rien dʼautre ne part." AutomationProperties.Name="Lancer lʼétape choisie" AutomationProperties.HelpText="Ouvre la vue de lʼétape puis lance sa seule lecture, pour lʼobjet sélectionné. Rien dʼautre ne part." ToolTipService.ShowOnDisabled="True"/>
+        <Button x:Name="BtnAssistanceOpen" Content="Ouvrir la vue" MinHeight="32" Margin="8,0,0,0" ToolTip="Ouvre la vue où lʼétape présente ses informations, sans rien lire." AutomationProperties.Name="Ouvrir la vue de lʼétape" AutomationProperties.HelpText="Ouvre la vue où lʼétape présente ses informations, sans rien lire." ToolTipService.ShowOnDisabled="True"/>
+      </WrapPanel>
+      <TextBlock x:Name="LblAssistanceStep" Text="Choisissez une étape." TextWrapping="Wrap" Margin="0,8,0,0" AutomationProperties.LiveSetting="Polite"/>
+    </StackPanel>
+  </Grid>
+</UserControl>

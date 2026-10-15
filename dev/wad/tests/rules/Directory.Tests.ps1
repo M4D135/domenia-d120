@@ -208,3 +208,18 @@ Test-Case 'UI-06' 'Groupes imbriques et « Pourquoi membre ? » depuis les appar
     $unknown=Get-DomeniaMembershipWhy -Edges @{$u=@($g1)} -ObjectDn $u -GroupDn $g4 -Read $true
     Assert-False $unknown.Known;Assert-True ($unknown.Text.Contains('groupe principal'))
 }
+Test-Case 'UI-06' 'Reponse GroupPathRead partagee avec l audit AD : aretes de l objet et des groupes lus' {
+    $u='CN=Jean Dupont,OU=RH,DC=example,DC=invalid';$g1='CN=GG-Lyon,DC=example,DC=invalid';$g2='CN=GG-RH,DC=example,DC=invalid';$g3='CN=GG-Compta,DC=example,DC=invalid'
+    # Answer of the pinned body (point 103 shape): StartParents for the object, Parents for each group read.
+    $read=[pscustomobject]@{Dn=$u;StartParents=@($g1,$g2);Nodes=@([pscustomobject]@{Dn=$g1;Parents=@($g3)},[pscustomobject]@{Dn=$g2;Parents=$g3},[pscustomobject]@{Dn=$g3;Parents=@()});Unread=@()}
+    $edges=ConvertTo-DomeniaGroupPathEdges $read
+    Assert-Equal 4 $edges.Count 'Objet et trois groupes lus'
+    Assert-Equal 2 @($edges[$u]).Count;Assert-Equal $g3 @($edges[$g2])[0] 'Un parent unique reste un DN'
+    Assert-Equal 0 @($edges[$g3]).Count 'Groupe lu sans parent'
+    $nested=Get-DomeniaNestedMembershipRows $edges $u
+    Assert-Equal 1 $nested.Count;Assert-Equal 'GG-Compta' $nested[0].Name 'Casse des DN conservee pour les noms'
+    # A group that could not be read has no edge: its parents stay unknown, never an empty list.
+    $partial=ConvertTo-DomeniaGroupPathEdges ([pscustomobject]@{Dn=$u;StartParents=@($g1);Nodes=@();Unread=@([pscustomobject]@{Dn=$g1;Reason='Introuvable ou non lisible avec ce compte'})})
+    Assert-Equal 1 $partial.Count;Assert-False $partial.ContainsKey($g1)
+    Assert-Equal 0 (ConvertTo-DomeniaGroupPathEdges $null).Count 'Aucune reponse : aucune arete'
+}

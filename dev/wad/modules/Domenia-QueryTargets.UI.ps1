@@ -105,9 +105,10 @@ function Add-DomeniaWorkshopWidget {
     $state=[pscustomobject]@{DraftGeneration=$script:DomeniaQueryState.Generation;Destination=$board;Visual=$visual;Item=$item}
     # A modified saved definition is reviewed in the page first (widgets, links, Search views): nothing is written
     # and no widget is added before the operator chooses to update the linked elements or to keep the old version.
+    # Same category rule as Enregistrer: the category typed in the workshop applies to the recipe saved for the widget.
     $impact=Get-DomeniaQueryDraftImpact -Recipe $recipe
     if($null -ne $impact){Show-DomeniaQueryImpact -Impact $impact -Recipe $recipe -Mode Widget -Widget $state;return}
-    [void](Save-DomeniaQueryRecipe -Recipe $recipe -ImpactConfirmed -SuccessHandler 'Complete-DomeniaWorkshopWidgetSave' -CallbackState $state -AdditionalDependencies @([pscustomobject]@{ConsumerKind=$board;ConsumerId=[string]$item.Id}))
+    [void](Save-DomeniaQueryRecipe -Recipe $recipe -ImpactConfirmed -SuccessHandler 'Complete-DomeniaWorkshopWidgetSave' -CallbackState $state -AdditionalDependencies @([pscustomobject]@{ConsumerKind=$board;ConsumerId=[string]$item.Id}) -Category (Get-DomeniaQuerySaveCategory))
     [void](Set-DomeniaControlText 'LblQueryStatus' 'Enregistrement de la requête et de son lien avant création du widget…')
 }
 function Complete-DomeniaWorkshopWidgetSave {

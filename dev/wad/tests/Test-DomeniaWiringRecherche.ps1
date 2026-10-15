@@ -72,6 +72,8 @@ $script:TypeWiring=Get-WireEventsHandler 'CmbGlobalType' 'Add_SelectionChanged'
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Guard.Model.ps1') @('ConvertTo-DomeniaSavedSearch'))))
 # UI-23 / FO-18 / SE-05: the real survey commands of the list and their rules (Park.Model is dot-sourced below).
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Park.UI.ps1') @('Start-DomeniaOnlinePark','Get-DomeniaParkRuns','Get-DomeniaParkRun','Test-DomeniaParkRunActive','Get-DomeniaParkMaxTargets','Get-DomeniaParkListContext','Get-DomeniaParkDisplayedTargets','Test-DomeniaParkListStoppable','Test-DomeniaParkRunOnOpenComputer','Update-DomeniaParkControls','Set-DomeniaParkControlVisible','Get-DomeniaParkVerifyButtonText','Update-DomeniaParkOutcomePills','Update-DomeniaParkSelectionBar'))))
+# Point 60 (W08): « Vérifier la liste ▾ » names the scope chosen beside the results; the export follows that scope.
+. ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-SearchWorkspace.UI.ps1') @('Get-DomeniaResultScopeMode','Get-DomeniaResultScopePlan','Get-DomeniaSearchListCompleteness','Get-DomeniaSearchLoadedCount'))))
 # Worker helpers live in the WorkerCommon text of the core: the row builder of the list is read from it, not copied.
 $coreText=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1'))
 $workerCommon=[regex]::Match($coreText,'(?ms)^\$script:WorkerCommon = @''\r?\n(.*?)\r?\n''@').Groups[1].Value
@@ -83,12 +85,12 @@ foreach($name in @('Convert-WLargeInteger','Convert-WFileTime','Escape-WLdap','C
     if($node.Count -ne 1){throw ('Fonction worker absente : '+$name)}
     . ([scriptblock]::Create($node[0].Extent.Text))
 }
-foreach($file in @('Domenia-Common.Model.ps1','Domenia-Store.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-Query.Model.ps1','Domenia-Search.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Live.Model.ps1','Domenia-Park.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Live.UI.ps1','Domenia-Continuity.Model.ps1','Domenia-Continuity.UI.ps1','Domenia-Selection.UI.ps1','Domenia-Search.UI.ps1')){
+foreach($file in @('Domenia-Common.Model.ps1','Domenia-Store.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-Query.Model.ps1','Domenia-Search.Model.ps1','Domenia-SearchWorkspace.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Live.Model.ps1','Domenia-Park.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Live.UI.ps1','Domenia-Continuity.Model.ps1','Domenia-Continuity.UI.ps1','Domenia-Selection.UI.ps1','Domenia-Search.UI.ps1')){
     . (Join-Path $modules $file)
 }
 
 # The historical-list fallback also applies the workshop GUID filter through this real helper.
-. ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Query.UI.ps1') @('Test-DomeniaSearchQueryRow'))))
+. ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Query.UI.ps1') @('Test-DomeniaSearchQueryRow','Get-DomeniaPreparedQueryTemplates','Request-DomeniaQueryTemplatePreparation','Set-DomeniaPreparedQueryTemplateRows'))))
 
 # Explicit doubles: none can reach a directory, a workstation, the network, the database or a dialog window.
 function Get-CfgValue {param($Section,$Name,$Default) $key=[string]$Section+'/'+[string]$Name;if($script:CfgOverrides.ContainsKey($key)){return $script:CfgOverrides[$key]};return $Default}
@@ -858,7 +860,7 @@ Case 'UX-26 / CO-35 / SP-05 Menu de la liste court et sans ecriture, Reverifier 
     $top=@($menu.Items)
     Expect ($top.Count -le 8) ('Menu trop long : '+$top.Count+' entrees.')
     $headers=@($top|Where-Object{$_ -is [Windows.Controls.MenuItem]}|ForEach-Object{[string]$_.Header})
-    foreach($h in @('Ouvrir la fiche de PC-0042','Assistance poste','Revérifier ce poste','Rechercher lʼutilisateur associé','Ouvrir lʼOU parente','Copier','Exporter la liste en CSV')){Expect ($headers -contains $h) ('Entree absente : '+$h)}
+    foreach($h in @('Ouvrir la fiche de PC-0042','Assistance poste','Revérifier ce poste','Rechercher lʼutilisateur associé','Ouvrir lʼOU parente','Copier','Exporter la liste affichée en CSV')){Expect ($headers -contains $h) ('Entree absente : '+$h)}
     # Every action of the menu, submenus included, and the helpers it calls stay read-only.
     $all=[Collections.Generic.List[object]]::new();$queue=[Collections.Generic.Queue[object]]::new();foreach($i in $top){$queue.Enqueue($i)}
     while($queue.Count){$i=$queue.Dequeue();if($i -isnot [Windows.Controls.MenuItem]){continue};$all.Add($i);foreach($child in @($i.Items)){$queue.Enqueue($child)}}
@@ -1146,20 +1148,21 @@ Case 'DS-20 Colonnes choisies : six par defaut, choix enregistre, colonnes poste
         $association=@($grid.Columns|Where-Object{[string]$_.Header -eq 'Association mémorisée'})[0]
         $content=$association.CellTemplate.LoadContent()
         Expect (($association.ClipboardContentBinding.Path.Path -eq 'Association') -and ($content.Inlines.Count -eq 2)) 'Cellule dʼassociation non fusionnee.'
-        # « Exporter CSV » (real Export-CurrentResults and column reading; only the file write is replaced by an
-        # in-memory CSV): the merged cell still exports Source lien and Qualification, right after the association.
+        # « Exporter CSV » (real Export-CurrentResults, scope plan of point 60 and column reading; only the file write is
+        # replaced by an in-memory CSV): the merged cell still exports Source lien and Qualification, right after the
+        # association.
         . ([scriptblock]::Create((Import-AstFunctions (Join-Path $wad 'Domenia-Core.ps1') @('Export-CurrentResults','Get-DomeniaGridExportColumns','ConvertTo-DomeniaExportRows','ConvertTo-DomeniaSpreadsheetCell','ConvertTo-DomeniaSpreadsheetSafeRow'))))
-        . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Experience.UI.ps1') @('Get-DomeniaExperienceVisibleRows','Get-DomeniaExperienceExportRows'))))
         function Export-DomeniaCsv {param([object[]]$Rows=@(),[object[]]$Columns=@(),$Grid=$null,[string]$Subject='')
             $script:ExportCsvText=@(ConvertTo-DomeniaExportRows -Rows $Rows -Columns $Columns|ConvertTo-DomeniaSpreadsheetSafeRow|ConvertTo-Csv -Delimiter ';' -NoTypeInformation)
             return [pscustomobject]@{Path='C:\DomeniaTest\export.csv';RowCount=@($Rows).Count}}
-        function Show-DomeniaExportResult {param($Result,[string]$Scope='') $script:ExportShown=$Result}
+        function Show-DomeniaExportResult {param($Result,[string]$Scope='',[string]$Also='') $script:ExportShown=$Result;$script:ExportScope=$Scope}
         function Get-DomeniaSearchExportSubject {return 'Postes'}
         function Show-ErrorBox {param($Message) throw ([string]$Message)}
         $script:ExportCsvText=@();$script:ExportShown=$null
         $grid.ItemsSource=[Collections.ObjectModel.ObservableCollection[object]]::new([object[]]@([pscustomobject]@{Type='Machine';Name='PC-COMPTA-014';SessionDisplay='';Association='Camille Martin';LinkSource='Console observée';LinkConfidence='Observé';Presence='En ligne';State='Actif';DN='CN=PC-COMPTA-014,OU=Postes,DC=example,DC=invalid'}))
         Export-CurrentResults
         Expect (($null -ne $script:ExportShown) -and (@($script:ExportCsvText).Count -eq 2)) ('Export non produit : '+(@($script:ExportCsvText) -join ' / '))
+        Expect ([string]$script:ExportScope -eq 'liste affichée') ('Portée de lʼexport : '+[string]$script:ExportScope)
         Expect (([string]$script:ExportCsvText[0]).Contains('"Association mémorisée";"Source lien";"Qualification"')) ('En-tete CSV : '+[string]$script:ExportCsvText[0])
         Expect (([string]$script:ExportCsvText[1]).Contains('"Camille Martin";"Console observée";"Observé"')) ('Ligne CSV : '+[string]$script:ExportCsvText[1])
         $grid.ItemsSource=$null
@@ -1182,9 +1185,12 @@ Case 'Main XAML carries the search controls wired by the code' {
         foreach($match in [regex]::Matches((Get-MainXaml),'x:Name="([^"]+)"')){$control=$window.FindName($match.Groups[1].Value);if($null -ne $control){$script:Ctrl[$match.Groups[1].Value]=$control}}
         $script:Window=$window
         Initialize-DomeniaSearchUi
-        # Unified catalog: no preselected query, no implicit read or probe while choosing/filtering.
-        Expect ($script:Ctrl.CmbWorkView.Items.Count -eq (@(Get-DomeniaWorkViews).Count + @(Get-DomeniaQueryTemplates).Count) -and -not $script:Ctrl.BtnNavBack.IsEnabled) 'Catalogue incomplet.'
+        # Unified catalog: no preselected query, no implicit read or probe while choosing/filtering. Point 61: loading
+        # lists the AD views only; the delivered models arrive once prepared off the UI thread (worker result simulated).
+        Expect ($script:Ctrl.CmbWorkView.Items.Count -eq @(Get-DomeniaWorkViews).Count -and -not $script:Ctrl.BtnNavBack.IsEnabled) 'Catalogue initial incorrect.'
         Expect ($script:Ctrl.CmbWorkView.SelectedIndex -eq -1 -and -not $script:Ctrl.BtnWorkView.IsEnabled -and $script:Tasks.Count -eq 0) 'Une requete est preselectionnee ou lancee au chargement.'
+        Set-DomeniaPreparedQueryTemplateRows -Rows @(Get-DomeniaQueryTemplates|ForEach-Object{[pscustomobject]@{SourceId='Template';Recipe=$_}})
+        Expect ($script:Ctrl.CmbWorkView.Items.Count -eq (@(Get-DomeniaWorkViews).Count + @(Get-DomeniaQueryTemplates).Count) -and $script:Tasks.Count -eq 0) 'Catalogue incomplet apres preparation des modeles.'
         foreach($n in @('TxtSearchQueryFilter','LblSearchQueryDetails','CmbSearchQueryResult','BtnSearchQueryFavorite','ChkSearchQueryFavorites','BtnSearchQueryWorkshop','BtnQueryClearSearch')){Expect ($null -ne $window.FindName($n)) ('Controle Requetes absent : '+$n)}
         $script:Ctrl.CmbWorkView.SelectedItem=@($script:Ctrl.CmbWorkView.Items|Where-Object{$_.Id -eq 'ad:disabled'})[0]
         Expect ($script:Ctrl.BtnWorkView.IsEnabled -and $script:Ctrl.CmbSearchQueryResult.Visibility -eq 'Collapsed' -and $script:Tasks.Count -eq 0) 'Le choix Annuaire a lance une lecture ou propose un etat local.'

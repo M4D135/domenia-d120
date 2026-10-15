@@ -153,6 +153,7 @@ function Get-DomeniaSoftwareBoardData {
             Version = (& $text $row 'Version')
             Architecture = (& $text $row 'Architecture')
             Scope = (& $text $row 'Scope')
+            Owner = $(if ((& $text $row 'Scope') -eq 'Utilisateur') { & $text $row 'Kind' } else { '' })
             InstallDate = (& $text $row 'InstallDate')
             SizeKb = $kb
         })
@@ -192,6 +193,17 @@ function Get-DomeniaSoftwareBoardData {
     if ($multiple.Count -eq 1) { $multipleDetail = [string]$multiple[0].Name + ' : ' + [string]$multiple[0].Versions + ' versions' }
     elseif ($multiple.Count -gt 1) { $multipleDetail = [string]$multiple[0].Name + ' et ' + [string]($multiple.Count - 1) + ' autre(s)' }
     Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'software.multiversion' -Kind Value -Value ([string]$multiple.Count) -Detail $multipleDetail -State $(if ($multiple.Count) { 'Warn' } else { 'Ok' }))
+
+    # Point 91: the same name and version installed more than once - both architectures, machine and user scopes or
+    # several profiles. Each occurrence is its own uninstall entry; nothing is merged and no fault is assumed.
+    $duplicates = @($software | Group-Object -Property { ([string]$_.Name).ToLowerInvariant() + '|' + ([string]$_.Version).ToLowerInvariant() } | Where-Object { $_.Count -gt 1 } | ForEach-Object {
+        $places = @($_.Group | ForEach-Object { ((@([string]$_.Scope,[string]$_.Architecture,[string]$_.Owner) | Where-Object { $_ }) -join ' ') } | Sort-Object -Unique)
+        [pscustomobject]@{ Name = [string]$_.Group[0].Name; Count = [int]$_.Count; Places = $places }
+    } | Sort-Object -Property @(@{ Expression = 'Count'; Descending = $true }, @{ Expression = 'Name'; Descending = $false }))
+    $duplicateDetail = 'Aucune installation en double'
+    if ($duplicates.Count -eq 1) { $duplicateDetail = [string]$duplicates[0].Name + ' : ' + (@($duplicates[0].Places) -join ' ; ') }
+    elseif ($duplicates.Count -gt 1) { $duplicateDetail = [string]$duplicates[0].Name + ' et ' + [string]($duplicates.Count - 1) + ' autre(s)' }
+    Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'software.duplicates' -Kind Value -Value ([string]$duplicates.Count) -Detail $duplicateDetail)
 
     # Synthese: products without a declared publisher, in list order.
     $anonymous = @($software | Where-Object { -not $_.Publisher })

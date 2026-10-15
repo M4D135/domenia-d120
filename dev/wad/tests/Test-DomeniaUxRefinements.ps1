@@ -80,18 +80,20 @@ try{
  }
  Case 'Catalog is exhaustive, locally searchable and prepares a field without changing a recipe' {
   $entries=@(Get-DomeniaQueryCatalog);$fields=@(Get-DomeniaQueryFields)
-  Expect ($entries.Count -eq $fields.Count -and $entries.Count -eq 105) 'Catalog field coverage differs from engine'
+  # The probe catalog grows with documented projections (points 81-99): the expectation follows it, never a frozen count.
+  $probeCount=@(Get-DomeniaProbeCatalog).Count
+  Expect (($entries.Count -eq $fields.Count) -and ($entries.Count -eq (27+$probeCount))) 'Catalog field coverage differs from engine'
   Expect (@(Compare-Object @($fields.Id|Sort-Object) @($entries.Id|Sort-Object)).Count -eq 0) 'Catalog identifiers differ'
   $accent=@(Find-DomeniaQueryCatalogEntries -Entries $entries -Text 'mémoire');$plain=@(Find-DomeniaQueryCatalogEntries -Entries $entries -Text 'MEMOIRE')
   Expect ($accent.Count -gt 0 -and @(Compare-Object @($accent.Id) @($plain.Id)).Count -eq 0) 'Accent/case-insensitive search differs'
   Expect (@(Find-DomeniaQueryCatalogEntries -Entries $entries -Text 'Win32_QuickFixEngineering').Count -eq 1) 'Technical class lookup differs'
-  Expect (@(Find-DomeniaQueryCatalogEntries -Entries $entries -SourceId Probe).Count -eq 78) 'Probe source filter differs'
+  Expect (@(Find-DomeniaQueryCatalogEntries -Entries $entries -SourceId Probe).Count -eq $probeCount) 'Probe source filter differs'
   $category=$entries[0].Category;$categoryRows=@(Find-DomeniaQueryCatalogEntries -Entries $entries -Category $category)
   Expect ($categoryRows.Count -gt 0 -and @($categoryRows|Where-Object{$_.Category -ne $category}).Count -eq 0) 'Category filter differs'
   $beforeTasks=$script:FixtureTasks.Count;$beforeRecipe=$script:DomeniaQueryState.Recipe|ConvertTo-Json -Depth 10 -Compress
   (Get-DomeniaControl 'QueryWorkspaceTabs').SelectedItem=Get-DomeniaControl 'TabQueryCatalog'
   $grid=Get-DomeniaControl 'DgQueryCatalog';$search=Get-DomeniaControl 'TxtQueryCatalogSearch'
-  Expect ($grid.Items.Count -eq 105) 'Real WPF catalog not filled'
+  Expect ($grid.Items.Count -eq $entries.Count) 'Real WPF catalog not filled'
   $search.Text='zzzz_no_synthetic_match';Expect ($grid.Items.Count -eq 0 -and -not (Get-DomeniaControl 'BtnQueryCatalogUse').IsEnabled) 'Empty catalog keeps selectable stale row'
   $search.Text='diskFreePercent';Expect ($grid.Items.Count -eq 1) 'Local field lookup not unique'
   (Get-DomeniaControl 'BtnQueryCatalogUse').RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
@@ -126,15 +128,21 @@ try{
   }
  }
  Case 'Search selector unifies LDAP and local recipes without implicit execution' {
-  $beforeTasks=$script:FixtureTasks.Count;$oldBranch=$script:SelectedBranchDn;$oldSettings=$script:SettingsFixture.Clone()
+  $beforeTasks=$script:FixtureTasks.Count;$oldBranch=$script:SelectedBranchDn;$oldSettings=$script:SettingsFixture.Clone();$oldTemplates=$script:DomeniaQueryTemplateRows;$oldPreparation=$script:DomeniaQueryTemplatePreparation
   try{
    $script:SelectedBranchDn='OU=Recherche,DC=example,DC=invalid'
    $saved=New-DomeniaQueryRecipe -Id 'fixture.searchselector' -Name 'Mémoire sélectionnée'
    $script:SettingsFixture['Query.Library']=ConvertTo-DomeniaQueryLibraryJson @($saved)
    (Get-DomeniaControl 'WorkspaceTabs').SelectedItem=Get-DomeniaControl 'WsSearch'
+   # Point 61: the initial list holds the AD views and the saved recipes; the delivered models join it once the
+   # QueryLibrary worker has prepared them (its result is simulated here, no worker runs in this fixture).
+   $script:DomeniaQueryTemplateRows=$null;$script:DomeniaQueryTemplatePreparation=$null
    Initialize-DomeniaSearchQuerySelector
    $combo=Get-DomeniaControl 'CmbWorkView';$filter=Get-DomeniaControl 'TxtSearchQueryFilter';$favorites=Get-DomeniaControl 'ChkSearchQueryFavorites'
-   Expect ($combo.Items.Count -eq 158 -and $combo.SelectedIndex -eq -1 -and -not (Get-DomeniaControl 'BtnWorkView').IsEnabled) 'Unified catalog count or empty initial selection differs'
+   $initialCount=@(Get-DomeniaWorkViews).Count+@(Get-DomeniaSavedQueryRecipes).Count
+   Expect ($combo.Items.Count -eq $initialCount -and $combo.SelectedIndex -eq -1 -and -not (Get-DomeniaControl 'BtnWorkView').IsEnabled) 'Initial catalog must list the AD views and saved recipes only, without selection'
+   Set-DomeniaPreparedQueryTemplateRows -Rows @(Get-DomeniaQueryTemplates|ForEach-Object{[pscustomobject]@{SourceId='Template';Recipe=$_}});Update-DomeniaWorkViewList
+   Expect ($combo.Items.Count -eq ($initialCount+@(Get-DomeniaQueryTemplates).Count) -and $combo.SelectedIndex -eq -1) 'Prepared delivered models are missing from the unified catalog'
    $combo.SelectedItem=@($combo.Items|Where-Object Id -eq 'ad:disabled')[0]
    Expect ((Get-DomeniaControl 'LblSearchQueryDetails').Text -like '*Annuaire en direct*Utilisateurs*OU=Recherche*') 'AD source, type or Search OU not visible'
    Expect (-not (Get-DomeniaControl 'CmbSearchQueryResult').IsEnabled -and (Get-DomeniaControl 'CmbSearchQueryResult').Visibility -eq 'Collapsed') 'Unknown selection offered for LDAP view'
@@ -157,7 +165,7 @@ try{
    (Get-DomeniaControl 'BtnQueryClearSearch').RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
    Expect ($null -eq $script:SearchQueryRun -and -not $script:ActiveSearchViewId -and [int]$script:GlobalSearchGeneration -gt $generation -and $combo.SelectedIndex -eq -1) 'Real clear button did not invalidate local query'
    Expect ($script:FixtureTasks.Count -eq $beforeTasks) 'Selection/filter/favorite/edit executed a query or collection'
-  }finally{$script:SelectedBranchDn=$oldBranch;$script:SettingsFixture=$oldSettings;(Get-DomeniaControl 'TxtSearchQueryFilter').Text='';(Get-DomeniaControl 'ChkSearchQueryFavorites').IsChecked=$false;Update-DomeniaWorkViewList}
+  }finally{$script:SelectedBranchDn=$oldBranch;$script:SettingsFixture=$oldSettings;$script:DomeniaQueryTemplateRows=$oldTemplates;$script:DomeniaQueryTemplatePreparation=$oldPreparation;(Get-DomeniaControl 'TxtSearchQueryFilter').Text='';(Get-DomeniaControl 'ChkSearchQueryFavorites').IsChecked=$false;Update-DomeniaWorkViewList}
  }
  Case 'Selected computer preview and widget use the shared workshop through actual buttons' {
   $oldSelected=$script:SelectedObject;$oldRecipe=$script:DomeniaQueryState.Recipe;$oldSaved=$script:DomeniaQueryState.Saved;$before=$script:FixtureTasks.Count

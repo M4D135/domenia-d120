@@ -1314,15 +1314,20 @@ function Fail-DomeniaUserMachineLinksUi {
 function Request-DomeniaSecretIndexSummary {
     # Fiche poste: the non-secret summary of the last BitLocker/LAPS reading completes LblSecretsStatus. Every call
     # replaces the previous one; an empty name (another type of object) only cancels it.
-    param([AllowEmptyString()][string]$Computer='')
+    # Point 9: with the GUID of the displayed workstation, the worker also reads its creation date by that GUID (never
+    # by name) so that metadata recorded for a former holder of the name is left out. Without GUID nothing is hidden.
+    param([AllowEmptyString()][string]$Computer='',[AllowEmptyString()][string]$Guid='')
     $script:SecretIndexSummaryGeneration = [long]$script:SecretIndexSummaryGeneration + 1
     $key = ([string]$Computer).Trim().ToUpperInvariant()
     if (-not $key) { return }
+    $guidText = ([string](ConvertTo-DomeniaGuidText $Guid)).ToLowerInvariant()
     $hint = ''
     $label = Get-DomeniaControl -Name 'LblSecretsStatus'
     if ($null -ne $label) { $hint = [string]$label.Text }
-    $state = [pscustomobject]@{Generation=[long]$script:SecretIndexSummaryGeneration;Epoch=[long]$script:SessionEpoch;Computer=$key;Hint=$hint}
-    try { [void](Start-DomeniaLocalRead -Name 'Lecture du dernier relevé des secrets du poste' -Action 'SecretIndexEntry' -Fields @{Computer=$key} -State $state -ReplaceKey 'local:secret-index' -SuccessHandler 'Complete-DomeniaSecretIndexSummaryUi' -ErrorHandler 'Fail-DomeniaSecretIndexSummaryUi' -TimeoutSeconds 15 -TaskClass 'Selection') }
+    $state = [pscustomobject]@{Generation=[long]$script:SecretIndexSummaryGeneration;Epoch=[long]$script:SessionEpoch;Computer=$key;Guid=$guidText;Hint=$hint}
+    $fields = @{Computer=$key}
+    if ($guidText) { $fields.Guid = $guidText }
+    try { [void](Start-DomeniaLocalRead -Name 'Lecture du dernier relevé des secrets du poste' -Action 'SecretIndexEntry' -Fields $fields -State $state -ReplaceKey 'local:secret-index' -SuccessHandler 'Complete-DomeniaSecretIndexSummaryUi' -ErrorHandler 'Fail-DomeniaSecretIndexSummaryUi' -TimeoutSeconds 15 -TaskClass 'Selection') }
     catch { Fail-DomeniaSecretIndexSummaryUi -Message $_.Exception.Message -State $state }
 }
 
@@ -1333,6 +1338,9 @@ function Complete-DomeniaSecretIndexSummaryUi {
     if (($null -eq $effective) -or ([bool]$effective.Busy)) { return }
     $rows = @($effective.Rows | Where-Object { $null -ne $_ })
     if ($rows.Count -eq 0) { return }
+    # Point 9: metadata kept by name and written before the displayed computer was created (date read by its GUID)
+    # belongs to a previous holder of the name: it is not shown for this object. Unknown dates prove nothing.
+    if (Test-DomeniaRecordPredatesObject -RecordedUtc ([string](Get-DomeniaMember $rows[0] 'checked_at' '')) -CreatedUtc ([string](Get-DomeniaMember $effective 'CreatedUtc' ''))) { return }
     $summary = Format-DomeniaSecretIndexSummary -Entry $rows[0]
     if (-not $summary) { return }
     # The workstation is still the one shown (loaded fiche, or the selection being loaded).
@@ -1340,6 +1348,9 @@ function Complete-DomeniaSecretIndexSummaryUi {
     if (($null -eq $current) -and ($null -ne $script:SelectionLoad)) { $current = Get-DomeniaMember $script:SelectionLoad 'Context' $null }
     if ($null -eq $current) { return }
     if (([string](Get-DomeniaMember $current 'Type' '') -ne 'Machine') -or (([string](Get-DomeniaMember $current 'Name' '')).Trim().ToUpperInvariant() -cne [string]$State.Computer)) { return }
+    # Same name, another object (recreated meanwhile): the creation date read belongs to the requested GUID only.
+    $currentGuid = ([string](ConvertTo-DomeniaGuidText (Get-DomeniaMember $current 'Guid' ''))).ToLowerInvariant()
+    if (([string]$State.Guid) -and ($currentGuid) -and ($currentGuid -cne [string]$State.Guid)) { return }
     # Only a "no secret in memory" text is completed (the hint of the selection, or the one of Clear-Secrets once the
     # fiche is shown): a secret being read or loaded meanwhile always wins.
     if ((@($script:SecretRows).Count -gt 0) -or ([string]$script:ActiveSecretRequestId)) { return }

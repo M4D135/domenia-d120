@@ -42,6 +42,17 @@ def composed_body(item):
         body=lease+'\n'+literal_bodies(backup)[0]
         marker="function Get-DomeniaDatabasePath {throw 'Chemin de base explicite requis pour la sauvegarde.'}"
         return body[:body.index(marker)]+literal
+    # W06: two storage operations reuse the pinned helpers of another storage worker, exactly as their generators do.
+    if operation=='StorageRetention':
+        purge=function((ROOT/'wad/modules/Domenia-Storage.Worker.ps1').read_text('utf-8-sig'),'Get-DomeniaStoragePurgeWorkerCode')
+        body=lease+'\n'+literal_bodies(purge)[0]
+        marker='# Validate all input before opening the existing database. No payload identifier becomes SQL.'
+        return body[:body.index(marker)]+literal
+    if operation=='StorageIntegrity':
+        usage=function((ROOT/'wad/modules/Domenia-Storage.Worker.ps1').read_text('utf-8-sig'),'Get-DomeniaStorageUsageWorkerCode')
+        body=lease+'\n'+literal_bodies(usage)[0]
+        marker='$path=Test-DomeniaStorageMeasurePath ([string]$Payload.Path)'
+        return body[:body.index(marker)]+literal
     if item['Function']=='Get-DomeniaLiveProbeCode':
         model=(ROOT/'wad/modules/Domenia-ProbeDetails.Model.ps1').read_text('utf-8-sig')
         definitions=[]

@@ -45,7 +45,7 @@ computer.attention|Local|Contrôles en défaut du poste, du plus grave au moins 
 computer.os|ComputerQuick|Version commerciale déduite du build de Windows.|Win32_OperatingSystem et table des fins de service livrée.|Aucune.
 computer.model|ComputerQuick|Fabricant, modèle et numéro de série du châssis.|Win32_ComputerSystem et Win32_SystemEnclosure.|Valeurs que le fabricant ne renseigne pas.
 computer.cpu|ComputerQuick|Modèle, cœurs et threads du premier processeur.|Win32_Processor.|Aucune.
-computer.memory|ComputerQuick|Mémoire physique installée.|Win32_PhysicalMemory, sinon Win32_ComputerSystem.|Barrettes non exposées (machines virtuelles).
+computer.memory|ComputerQuick|Mémoire physique installée, avec le nombre de barrettes et dʼemplacements.|Win32_PhysicalMemory et emplacements de Win32_PhysicalMemoryArray ; sans barrette exposée, mémoire visible par Windows (Win32_OperatingSystem).|Barrettes non exposées (machines virtuelles) : le total est alors la mémoire visible, annoncée comme telle.
 computer.uptime|ComputerQuick|Durée depuis le dernier démarrage, au moment de lʼinventaire.|Win32_OperatingSystem.LastBootUpTime.|Aucune.
 computer.user|ComputerQuick|Compte en session console au moment de lʼinventaire.|Win32_ComputerSystem.UserName.|Sessions RDP.
 computer.ip|ComputerQuick|Première adresse IPv4 et passerelle de la même carte.|Win32_NetworkAdapterConfiguration.|Cartes sans adresse.
@@ -63,13 +63,15 @@ computer.battery|ComputerQuick|Charge restante de la batterie.|Win32_Battery.Est
 computer.disk.system|ComputerQuick|Espace libre ÷ taille du disque système.|Win32_LogicalDisk C: ; seuils de la politique.|Aucune.
 computer.disk.volumes|ComputerQuick|Espace libre des autres volumes, en pourcentage.|Win32_LogicalDisk.|Disque système.
 computer.services|ComputerQuick|Services en cours, arrêtés et désactivés.|Win32_Service.|Aucune.
-computer.processes|ComputerDeep|Mémoire utilisée par processus, les plus gourmands.|Win32_Process, lu par lʼinventaire complet.|Processus au-delà des premiers.
+computer.processes|ComputerDeep|Part du processeur par processus entre deux lectures espacées de quelques secondes : temps processeur consommé ÷ (intervalle × processeurs logiques), cumulée par nom. Sans mesure sur intervalle, mémoire utilisée par processus.|Win32_Process lu deux fois par lʼinventaire complet, sans ligne de commande ni argument.|Processus démarrés, arrêtés ou dont lʼidentifiant a changé pendant lʼintervalle ; processus inactif du système ; processus au-delà des huit premiers.
 computer.events|ComputerDeep|Erreurs du journal Système par source sur 3 jours.|Win32_NTLogEvent, lu par lʼinventaire complet.|Erreurs connues sans gravité.
 computer.antivirus|ComputerQuick|Produit antivirus déclaré à Windows.|Centre de sécurité Windows (SecurityCenter2).|Serveurs sans centre de sécurité.
-computer.firewall|ComputerQuick|État effectif du pare-feu par profil.|Registre FirewallPolicy ; la stratégie prime sur la clé locale.|Aucune.
-computer.bitlocker|ComputerQuick|Protection du volume système.|Win32_EncryptableVolume.|Autres volumes.
-computer.wsus|ComputerQuick|Serveur WSUS configuré.|Registre WindowsUpdate.|Aucune.
-computer.reboot|ComputerQuick|Redémarrage demandé par une installation.|Clés de registre de redémarrage en attente.|Aucune.
+computer.firewall|ComputerQuick|État effectif du pare-feu par profil, et profil appliqué à chaque connexion active.|Registre FirewallPolicy, la stratégie prime sur la clé locale ; catégorie des connexions actives (MSFT_NetConnectionProfile).|Aucune.
+computer.bitlocker|ComputerQuick|Protection et chiffrement du volume système : un volume chiffré dont la protection est désactivée est suspendu, pas non chiffré.|Win32_EncryptableVolume (ProtectionStatus et ConversionStatus).|Autres volumes.
+computer.secureboot|ComputerQuick|État de Secure Boot écrit par Windows au démarrage, avec le type de micrologiciel.|Registre SecureBoot\State (UEFISecureBootEnabled) et PEFirmwareType.|BIOS hérité ou valeur non exposée : état non mesuré, sans point dʼattention.
+computer.updates|ComputerQuick|Build et révision installés, correctif CBS le plus récent et source des mises à jour.|Win32_OperatingSystem, registre CurrentVersion (UBR), Win32_QuickFixEngineering et registre WindowsUpdate.|Aucune conformité nʼest conclue : Win32_QuickFixEngineering ne liste pas toutes les mises à jour.
+computer.wsus|ComputerQuick|Serveur WSUS configuré et réellement utilisé par le client de mise à jour.|Registre Policies\WindowsUpdate (WUServer) et valeur UseWUServer de la clé AU.|Adresse WSUS déclarée sans UseWUServer = 1 : non retenue, Windows Update est affiché.
+computer.reboot|ComputerQuick|Redémarrage en attente confirmé par une source dʼobligation ; les indices partiels sont montrés sans point dʼattention.|Clés de registre de redémarrage en attente, chacune classée obligation confirmée (CBS, Windows Update, renommage du poste) ou indice partiel.|Indices partiels seuls (renommages de fichiers, paquets CBS, jonction en attente) : jamais comptés comme une obligation.
 computer.services.stopped|ComputerQuick|Services automatiques à lʼarrêt.|Win32_Service.|Services démarrés sur déclencheur.
 computer.devices|ComputerQuick|Périphériques signalés en erreur.|Win32_PnPEntity.|Aucune.
 computer.drivers|ComputerQuick|Pilotes sans signature numérique.|Win32_PnPSignedDriver.|Aucune.
@@ -80,12 +82,13 @@ computer.shares|ComputerQuick|Dossiers partagés par le poste.|Win32_Share.|Aucu
 computer.printers|ComputerQuick|Imprimantes installées.|Win32_Printer.|Aucune.
 computer.display|ComputerQuick|Carte graphique et résolution.|Win32_VideoController.|Aucune.
 computer.physicaldisk|ComputerQuick|Modèle et interface du disque.|Win32_DiskDrive.|Aucune.
-computer.certificates|ComputerDeep|Certificats du magasin ordinateur.|Magasin LocalMachine\My, lu par lʼinventaire complet.|Aucune.
+computer.certificates|ComputerDeep|Certificats du magasin Personnel de lʼordinateur : expirés, expirant dans les 30 jours, valides.|Registre SystemCertificates\MY, lu par lʼinventaire complet ; la clé privée nʼest jamais lue.|Autres magasins ; une lecture partielle nʼest jamais montrée comme un bon état.
 computer.hotfix|ComputerQuick|Ancienneté du dernier correctif installé.|Win32_QuickFixEngineering.|Mises à jour que QFE nʼexpose pas.
 software.count|Software|Nombre de logiciels et dʼéditeurs de la liste.|Registre Uninstall du poste, lu sur demande.|Logiciels non déclarés dans le registre.
 software.size|Software|Somme des tailles déclarées.|Tailles déclarées dans le registre Uninstall.|Logiciels sans taille déclarée.
 software.recent|Software|Logiciels installés ces 30 derniers jours.|Date dʼinstallation déclarée par le logiciel.|Logiciels sans date déclarée.
 software.multiversion|Software|Logiciels présents en plusieurs versions.|Nom et version de la liste.|Aucune.
+software.duplicates|Software|Logiciels de même nom et même version installés plus dʼune fois.|Nom, version, architecture, portée et profil de la liste.|Aucune : chaque occurrence reste une entrée de désinstallation distincte, rien nʼest fusionné.
 software.nopublisher|Software|Logiciels sans éditeur déclaré.|Éditeur de la liste.|Aucune.
 software.runtime|Software|Composants dʼexécution déclarés : Visual C++, .NET et WebView2.|Noms de la liste.|Aucune.
 software.browsers|Software|Navigateurs détectés et leur version.|Noms et versions de la liste.|Aucune.
@@ -118,25 +121,43 @@ function Get-DomeniaWidgetSource {
     if ($index.ContainsKey($Key)) { return $index[$Key] }
     return $null
 }
+function Get-DomeniaProbeWidgetSource {
+    # Formula, criteria and exclusions of a probe widget, from its catalog entry: the class, namespace and properties
+    # read, and the documented limitations of that projection (e.g. a zero cycle count is unknown, an undocumented
+    # code is an estimate), so the explanation never says more than the probe can. $null for an unknown probe.
+    param($Probe,[ValidateSet('Computer','Fleet','Software')][string]$Board = 'Computer')
+    if ($null -eq $Probe) { return $null }
+    $name = [string](Get-DomeniaMember $Probe 'Name' '')
+    $namespace = [string](Get-DomeniaMember $Probe 'Namespace' '')
+    $formula = if ($Board -eq 'Fleet') { 'Répartition des postes analysés selon la valeur relevée par « ' + $name + ' ».' } else { 'Valeur relevée par « ' + $name + ' » sur ce poste.' }
+    $criteria = 'Requête WMI en lecture seule : classe ' + [string](Get-DomeniaMember $Probe 'Class' '') + $(if ($namespace) { ' (' + $namespace + ')' } else { '' }) + ', propriété(s) ' + (@(Get-DomeniaMember $Probe 'Properties' @()) -join ', ') + '.'
+    $exclusions = 'Postes sans relevé exploitable (non lu, en erreur ou expiré) ; comptes désactivés.'
+    $limits = ([string](Get-DomeniaMember $Probe 'Limitations' '')).Trim()
+    if ($limits) { $exclusions += ' Limites documentées : ' + $limits }
+    return [pscustomobject]@{ Formula = $formula; Criteria = $criteria; Exclusions = $exclusions }
+}
 function Get-DomeniaWidgetFieldNeeds {
-    # Fields of a saved query to what a collection reads. A probe or instance field is a WMI query of the catalog,
-    # inventory fields come from the light WMI reading, presence from the ping, user from the console read; detail
-    # fields are custom WMI reads of the workshop; every other field comes from the AD copy of the local base.
+    # Fields of a saved query to what a collection reads, by the family of the collection planner shared with the
+    # workshop (Get-DomeniaCollectionFieldFamily): a probe or instance field is a WMI query of the catalog, inventory
+    # fields come from the light WMI reading, presence from the ping, user from the console read; detail fields are
+    # custom WMI reads of the workshop; every other field comes from the AD copy of the local base.
     param([string[]]$Fields = @())
     $probes = New-Object System.Collections.Generic.List[string]
     $ping = $false; $console = $false; $inventory = $false; $directory = $false; $workshop = $false
     foreach ($field in @($Fields)) {
         $name = [string]$field
         if (-not $name) { continue }
-        $id = ''
-        if ($name -like 'probe:*') { $id = $name.Substring(6) }
-        elseif ($name -match '^instance:([^:]+):') { $id = [string]$Matches[1] }
-        if ($id) { if (-not $probes.Contains($id)) { $probes.Add($id) }; continue }
-        if ($name -in @('model','ramGB','diskFreePercent','uptimeDays','inventoryDays','observedRelease')) { $inventory = $true }
-        elseif ($name -in @('presence','presenceBucket','checkedDays')) { $ping = $true }
-        elseif ($name -eq 'user') { $console = $true }
-        elseif ($name -like 'detail:*') { $workshop = $true }
-        else { $directory = $true }
+        switch (Get-DomeniaCollectionFieldFamily $name) {
+            'Probe' {
+                $id = if ($name -like 'probe:*') { $name.Substring(6) } else { [string]($name.Split(':'))[1] }
+                if ($id -and (-not $probes.Contains($id))) { $probes.Add($id) }
+            }
+            'Inventory' { $inventory = $true }
+            'Presence' { $ping = $true }
+            'Console' { $console = $true }
+            'Detail' { $workshop = $true }
+            default { $directory = $true }
+        }
     }
     return [pscustomobject]@{ ProbeIds = @($probes | Sort-Object); Ping = $ping; Console = $console; Inventory = $inventory; Directory = $directory; Workshop = $workshop }
 }

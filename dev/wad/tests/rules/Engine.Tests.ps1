@@ -210,6 +210,8 @@ Test-Case 'D018' 'C3 : un refus WTS ou stockage ne suspend jamais le canal AD' {
     foreach($op in @('SessionsList','LocalStore','ReceiptStore','DocumentStore','EmbeddedPathBrowse','LiveConsole','ComputerLastUser','ComputerGpUpdate')){Assert-False (Get-DomeniaOperationCredentialNeeds $op).DirectoryBreaker $op}
     foreach($op in @('GlobalSearch','OpenAdObject','TreeChildren','UserComputerProbe')){Assert-True (Get-DomeniaOperationCredentialNeeds $op).DirectoryBreaker $op}
     foreach($op in @('DemoDirectory','LocalIndexRead','ParkSharedSync','IsolatedRead')){$n=Get-DomeniaOperationCredentialNeeds $op;Assert-False $n.Directory $op;Assert-False $n.DirectoryCredential $op;Assert-False $n.RemoteAdmin $op}
+    # Query packs, scripts and the import journal are local files: never the AD account, never a remote target.
+    foreach($op in @('LocalQuery','QueryExport','QueryLibrary','QueryTransfer')){$n=Get-DomeniaOperationCredentialNeeds $op;Assert-False $n.Directory $op;Assert-False $n.DirectoryCredential $op;Assert-False $n.RemoteAdmin $op;Assert-Equal 'Storage' $n.Provider $op;Assert-Equal 'Local' $n.Resource $op}
     Assert-Equal 'Laps' (Get-DomeniaOperationCredentialNeeds 'ReadLaps').Resource;Assert-Equal 'Remote' (Get-DomeniaOperationCredentialNeeds 'SessionsList').Resource
 }
 Test-Case 'D051' 'C3 : liste et cle BitLocker classees comme ReadBitLocker (compte Secrets, ressource BitLocker)' {
@@ -363,6 +365,9 @@ Test-Case 'P122' 'Percentiles : la recherche locale garde sa propre serie' {
     Assert-Equal 'LocalIndexRead:Search' (Get-DomeniaRuntimeMetricOperationKey 'LocalIndexRead' ([pscustomobject]@{Action='Search'}))
     Assert-Equal 'LocalIndexRead:FleetStats' (Get-DomeniaRuntimeMetricOperationKey 'LocalIndexRead' @{Action='FleetStats'})
     Assert-Equal 'LocalIndexRead:OperationStats' (Get-DomeniaRuntimeMetricOperationKey 'LocalIndexRead' ([pscustomobject]@{Action='OperationStats'}))
+    # W05 (points 22, 24, 30): the Contrôles tab read and the comparison of two snapshots keep their own series.
+    Assert-Equal 'LocalIndexRead:DirectorySync' (Get-DomeniaRuntimeMetricOperationKey 'LocalIndexRead' ([pscustomobject]@{Action='DirectorySync'}))
+    Assert-Equal 'LocalIndexRead:SnapshotCompare' (Get-DomeniaRuntimeMetricOperationKey 'LocalIndexRead' ([pscustomobject]@{Action='SnapshotCompare'}))
     Assert-Equal 'LocalIndexRead' (Get-DomeniaRuntimeMetricOperationKey 'LocalIndexRead' ([pscustomobject]@{Action='Inconnue'})) 'Action hors liste fermee'
     Assert-Equal 'LocalIndexRead' (Get-DomeniaRuntimeMetricOperationKey 'LocalIndexRead' $null) 'Charge absente'
     Assert-Equal 'LocalQuery:Search' (Get-DomeniaRuntimeMetricOperationKey 'LocalQuery' ([pscustomobject]@{SearchOutput=$true}))
