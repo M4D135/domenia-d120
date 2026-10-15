@@ -359,6 +359,23 @@ Case 'Actual dispatch resets a queued tracker, retains it on the job and shares 
         if($null -ne $job.Runspace){$job.Runspace.Dispose()}
     }
 }
+Case 'Actual dispatch fixes the response-time series of a local search before releasing the request (point 122)' {
+    $script:DemoMode=$false
+    $tracker=[hashtable]::Synchronized(@{StartedTimestamp=1L;LastRowTimestamp=0L;RowsRead=0L})
+    $job=[pscustomobject]@{
+        OperationId='LocalIndexRead';IsWrite=$false;Payload=[pscustomobject]@{Action='Search';SearchReadProgress=$tracker};Provider='Storage';CredentialIdentity='';SchedulerManaged=$false;Code='inert';TimeoutSeconds=20
+        BusyApplied=$false;DisableControls=@();StatusText='';PowerShell=$null;Runspace=$null;Handle=$null;CodeHash='';ExecutedOperationId='';Demo=$false;Isolated=$false;State='Queued';Started=[datetime]::UtcNow
+    }
+    try{
+        [void](Invoke-DomeniaUiTaskDispatch $job)
+        Expect ($null -eq $job.Payload) 'Dispatch kept the request on the job.'
+        Expect ([string]$job.MetricKey -ceq 'LocalIndexRead:Search') ('Series key not fixed before the request was released: '+[string]$job.MetricKey)
+        if(-not $job.Handle.AsyncWaitHandle.WaitOne(5000)){throw 'Inert runspace did not complete in five seconds.'}
+    }finally{
+        if($null -ne $job.PowerShell){$job.PowerShell.Dispose()}
+        if($null -ne $job.Runspace){$job.Runspace.Dispose()}
+    }
+}
 $failed=@($script:Checks|Where-Object{-not $_.Passed})
 $report=[ordered]@{
     Status=$(if($failed.Count){'FAIL'}else{'PASS'});Scope='Actual GlobalSearch body and dispatch; inert LDAP/UI ports and a local runspace; not Windows/AD qualification'

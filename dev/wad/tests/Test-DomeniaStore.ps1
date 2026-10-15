@@ -92,6 +92,18 @@ try{
   Expect ($r.DataSource -eq 'SQLite' -and $r.Total -eq 1 -and $r.Rows.Count -eq 1) 'read canonical';$r=Read-Store ([pscustomobject]@{Kind='Observation';Guids=@($guid);Family='Inventory'});Expect ($r.Observations.Count -eq 1 -and $r.Observations[0].Status -eq 'Error') 'family read'
   $refused=$false;try{Read-Store ([pscustomobject]@{Kind='Directory';MinimumRevision=9999})|Out-Null}catch{$refused=$true};Expect $refused 'minimum revision'
  }
+ Case 'Points 81-99: a reading reads its named families only, and disk volumes keep a bounded history' {
+  $volumes={param([string]$At,[double]$Free) [pscustomobject]@{Computer='PC-1';Probes=[pscustomobject]@{'disk.volumes'=[pscustomobject]@{CheckedUtc=$At;Truncated=$false;Count=1;CountComplete=$true;Instances=@([pscustomobject]@{Id='';Index=1;Values=[pscustomobject]@{DeviceID='C:';Size=107374182400;FreeSpace=$Free};IncompleteProperties=@()});Rows=@(,@('C:'))}}}}
+  [void](Commit @((Observation 'Probe:disk.volumes' '2026-02-01T12:00:00Z' 'Success' (& $volumes '2026-02-01T12:00:00Z' 53687091200))))
+  [void](Commit @((Observation 'Probe:disk.volumes' '2026-02-08T12:00:00Z' 'Success' (& $volumes '2026-02-08T12:00:00Z' 42949672960))))
+  $read=Read-Store ([pscustomobject]@{Kind='Observation';Guids=@($guid);Families=@('Probe:disk.volumes','Probe:net.dns');Limit=1})
+  Expect ((@($read.Observations).Count -eq 2) -and (@($read.Observations|Where-Object{$_.Family -notin @('Probe:disk.volumes','Probe:net.dns')}).Count -eq 0)) 'families outside the list returned'
+  $history=@(@($read.Observations|Where-Object{$_.Family -eq 'Probe:disk.volumes'})[0].Data.Probes.'disk.volumes'.History)
+  Expect (($history.Count -eq 2) -and ([double]@($history[1].Items)[0].Free -eq 42949672960)) 'history not built from the previous committed payload'
+  $summary=@(Read-TestDb "SELECT summary_payload FROM domenia_observations WHERE family='Probe:disk.volumes';")[0].summary_payload
+  Expect (-not ([string]$summary).Contains('History')) 'history copied into the fleet summary'
+  $refused=$false;try{Read-Store ([pscustomobject]@{Kind='Observation';Guids=@($guid);Families=@('Probe:x; DROP')})|Out-Null}catch{$refused=$true};Expect $refused 'invalid family accepted'
+ }
  Case 'Account preference has closed fields and no secret' {
   $change=[pscustomobject]@{Kind='AccountPreference';Scope='Remote';UserName='LAB\reader';DomainDn='dc=test';UpdatedAtUtc=$at}
   $r=Commit @($change);Expect ($r.AccountPreferences[0].UserName -eq 'LAB\reader') 'identifier persisted';$r=Read-Store ([pscustomobject]@{Kind='AccountPreference';Scope='Remote'});Expect ($r.AccountPreferences.Count -eq 1) 'preference read'
@@ -385,6 +397,117 @@ try{
    Expect (([long]$echo[0].b -eq 1) -and ([string]$echo[0].bt -ceq 'integer') -and ([double]$echo[0].d -eq 1.5) -and ([string]$echo[0].dt -ceq 'real')) 'boolean and real bound like LocalStore'
    Expect (([long]$echo[0].i -eq 42) -and ([string]$echo[0].it -ceq 'integer') -and ([long]$echo[0].w -eq 7) -and ([string]$echo[0].wt -ceq 'integer') -and ([string]$echo[0].nt -ceq 'null')) 'integers and NULL bound like LocalStore'
   }finally{foreach($cached in @($IdxWStatements.Values)){[void][Domenia.WinSqliteNative]::sqlite3_finalize([IntPtr]$cached)};[void][Domenia.WinSqliteNative]::sqlite3_close($db)}
+ }
+ # Points 4, 5 and 10: scope clocks of the explicit OU collections (domenia_domain_metadata).
+ Case 'Scope clocks keep the last success beside a newer failed attempt and read back from SQLite' {
+  . (Join-Path $wad 'modules/Domenia-Common.Model.ps1');. (Join-Path $wad 'modules/Domenia-Collection.Model.ps1')
+  $scope='OU=Parc,DC=test'
+  $ok=New-DomeniaCollectionRunChange -Family Presence -DomainDn 'dc=test' -ScopeDn $scope -Status Success -AttemptedAtUtc '2026-01-03T08:00:00Z' -FinishedAtUtc '2026-01-03T08:05:00Z' -Targets 4 -Done 4 -Succeeded 4 -Failed 0 -CollectorVersion 'fixture-build'
+  $r=Commit @($ok);Expect (($r.Saved) -and (@($r.CollectionRuns).Count -eq 1)) 'run receipt read back'
+  $run=@($r.CollectionRuns)[0]
+  Expect (($run.Status -eq 'Success') -and ($run.LastSuccessAtUtc -eq $run.LastAttemptAtUtc) -and ([string]$run.Data.RecordedAtUtc -eq [string]$r.CommittedAtUtc) -and ($null -eq $run.AttemptData)) 'success clock and recorded time'
+  Expect (([string]$run.Data.CollectorVersion -eq 'fixture-build') -and ([string]$run.Data.Provider -eq 'ICMP') -and ([long]$run.Data.Done -eq 4)) 'provenance kept'
+  $bad=New-DomeniaCollectionRunChange -Family Presence -DomainDn 'dc=test' -ScopeDn $scope -Status Error -AttemptedAtUtc '2026-01-03T09:00:00Z' -FinishedAtUtc '2026-01-03T09:01:00Z' -ErrorText 'Identifiants refuses'
+  $r=Commit @($bad);$run=@($r.CollectionRuns)[0]
+  Expect (($run.Status -eq 'Error') -and ($run.Error -eq 'Identifiants refuses') -and ($run.LastSuccessAtUtc -like '2026-01-03T08:00:00*') -and ([long]$run.Data.Done -eq 4) -and ([string]$run.AttemptData.StartedAtUtc -like '2026-01-03T09:00:00*')) 'failure kept beside the success'
+  $late=New-DomeniaCollectionRunChange -Family Presence -DomainDn 'dc=test' -ScopeDn $scope -Status Success -AttemptedAtUtc '2026-01-03T07:00:00Z' -FinishedAtUtc '2026-01-03T07:01:00Z' -Done 1
+  $r=Commit @($late);$run=@($r.CollectionRuns)[0]
+  Expect (($run.Status -eq 'Error') -and ($run.LastSuccessAtUtc -like '2026-01-03T08:00:00*') -and ([long]$run.Data.Done -eq 4)) 'late older success cannot hide the newer state'
+  $clock=Get-DomeniaCollectionClock -Runs @($r.CollectionRuns) -Family Presence -ScopeDn $scope -DomainDn 'DC=test' -NowUtc ([datetime]::UtcNow)
+  Expect (($clock.State -eq 'SuccessThenFailure') -and ($clock.Success.AtUtc.Hour -eq 8) -and ($clock.Attempt.Error -eq 'Identifiants refuses')) 'model reads the committed receipt'
+  Expect ((Read-TestDb "SELECT count(*) n FROM domenia_domain_metadata WHERE family='Presence';")[0].n -eq 1) 'one row per scope and family'
+ }
+ Case 'StoreRead dates each measure with the commit of the batch that wrote it' {
+  $id='00000000-0000-0000-0000-000000000097';$c=Directory $id 'Recorded-1';[void](Commit @($c))
+  $o=Observation Presence '2026-01-05T08:00:00Z';$o.Guid=$id;$o.DN=$c.DN;$r=Commit @($o)
+  $read=Read-Store ([pscustomobject]@{Kind='Observation';Guids=@($id);Family='Presence';Limit=1})
+  $row=@($read.Observations)[0]
+  Expect (([string]$row.RecordedAtUtc -eq [string]$r.CommittedAtUtc) -and ([string]$row.LastSuccessAtUtc -like '2026-01-05T08:00:00*')) 'recorded time of the measure'
+ }
+ Case 'Scope clock admission refuses forged keys, foreign scopes and errors on success without writes' {
+  . (Join-Path $wad 'modules/Domenia-Common.Model.ps1');. (Join-Path $wad 'modules/Domenia-Collection.Model.ps1')
+  $before=(Read-TestDb 'SELECT count(*) n FROM domenia_domain_metadata;')[0].n
+  $data=[pscustomobject]@{Format='Domenia.CollectionRun/1';Family='Inventory';ScopeDn='OU=Parc,DC=test';Subtree=$true;Provider='CIM/DCOM'}
+  $base=@{Kind='CollectionRun';Family='Inventory';DomainDn='dc=test';ScopeDn='OU=Parc,DC=test';Subtree=$true;RequestKey='subtree:ou=parc,dc=test';Status='Success';AttemptedAtUtc='2026-01-04T08:00:00Z';FinishedAtUtc='2026-01-04T08:00:00Z';Error='';Data=$data}
+  foreach($variant in @(@{RequestKey='subtree:ou=autre,dc=test'},@{RequestKey='onelevel:ou=parc,dc=test'},@{ScopeDn='OU=X,DC=other';RequestKey='subtree:ou=x,dc=other'},@{Error='refus'},@{Status='Error'},@{FinishedAtUtc='2026-01-04T07:00:00Z'},@{AttemptedAtUtc='2099-01-01T00:00:00Z';FinishedAtUtc='2099-01-01T00:00:00Z'},@{Family='Console'})){
+   $change=@{};foreach($k in $base.Keys){$change[$k]=$base[$k]};foreach($k in $variant.Keys){$change[$k]=$variant[$k]}
+   $refused=$false;try{[void](Commit @([pscustomobject]$change))}catch{$refused=$true}
+   Expect $refused ('forged run admitted: '+(($variant.Keys|ForEach-Object{$_+'='+$variant[$_]}) -join ','))
+  }
+  Expect ((Read-TestDb 'SELECT count(*) n FROM domenia_domain_metadata;')[0].n -eq $before) 'refused runs wrote rows'
+ }
+ Case 'FleetStats reads only the requested scope clocks inside its snapshot and dates the board with them' {
+  Add-Type -Path (Join-Path $wad 'modules/Domenia.Native.dll')
+  foreach($name in @('Common.Model','Collection.Model','Boards.Model','BoardFleet.Model','Probes.Model','HealthRules.Model')){. (Join-Path $wad ('modules/Domenia-'+$name+'.ps1'))}
+  $now=[datetime]::UtcNow;$scope='OU=Parc,DC=test'
+  $other=New-DomeniaCollectionRunChange -Family Presence -DomainDn 'dc=test' -ScopeDn 'OU=Autre,DC=test' -Status Success -AttemptedAtUtc $now.AddMinutes(-5) -FinishedAtUtc $now.AddMinutes(-4) -Done 9
+  [void](Commit @($other))
+  $keys=@(Get-DomeniaCollectionRunKeys -ScopeDn $scope -DomainDn 'DC=test' -Subtree $true)
+  $Payload=[pscustomobject]@{Action='FleetStats';Path=$path;ModuleRoot=(Join-Path $wad 'modules');BusyTimeoutMs=1000;Scope=$scope;Subtree=$true;Plan=(Get-DomeniaFleetQueryPlan -Now $now);Keys=@();ScopeKey=$scope;DomainDn='DC=test';RunKeys=$keys;ComputeBoard=$true;ObservationMaxAgeDays=30}
+  $r=& ([scriptblock]::Create($reader))
+  Expect ((@($r.CollectionRuns).Count -eq 1) -and ([string]@($r.CollectionRuns)[0].RequestKey -eq 'subtree:ou=parc,dc=test')) 'scope filter of collection runs'
+  $runs=$r.Board.Freshness.Runs
+  Expect (($runs.Presence.State -eq 'SuccessThenFailure') -and ($runs.Presence.Success.AtUtc.Hour -eq 8) -and ($runs.Inventory.State -eq 'NeverRecorded')) 'board clocks from the snapshot'
+  $text=Format-DomeniaOuFreshnessSummary -IndexFreshness $r.Board.Freshness.Index -Observations $r.Board.Freshness.Observations -ComputedAtUtc $r.Board.Freshness.ComputedAtUtc -Runs $runs
+  Expect (($text.RunsText -like '*ping relevé réussi le *dernière tentative le *Identifiants refuses*') -and ($text.RunsDetail -like '*version de collecte fixture-build*')) 'three clocks text and provenance'
+  $Payload.PSObject.Properties.Remove('RunKeys');$plain=& ([scriptblock]::Create($reader))
+  Expect (($null -eq $plain.CollectionRuns) -and ($null -eq $plain.Board.Freshness.Runs)) 'clocks read or invented without an explicit scope request'
+  Expect ((Read-TestDb 'SELECT count(*) n FROM domenia_domain_metadata;')[0].n -eq 2) 'read-only worker changed scope clocks'
+ }
+ Case 'Secret metadata recorded before the computer now holding the name stays unknown (point 9)' {
+  Add-Type -Path (Join-Path $wad 'modules/Domenia.Native.dll')
+  foreach($name in @('Common.Model','Relations.Model','Boards.Model','BoardFleet.Model','Probes.Model','HealthRules.Model')){. (Join-Path $wad ('modules/Domenia-'+$name+'.ps1'))}
+  $now=[datetime]::UtcNow;$scope='OU=SecretFixture,DC=test';$stamp=$now.AddMinutes(-1).ToString('o')
+  $recycled='30000000-0000-0000-0000-000000000001';$kept='30000000-0000-0000-0000-000000000002'
+  $changes=@(foreach($fixture in @(@($recycled,'Recycled-1','2026-02-01T00:00:00Z'),@($kept,'Kept-1','2025-06-01T00:00:00Z'))){
+   $c=Directory $fixture[0] $fixture[1] $stamp;$c.DN='CN='+$fixture[1]+','+$scope;$c.Facts.WhenCreated=$fixture[2];$c
+  })
+  [void](Commit $changes)
+  # Same read date for both names: before the creation of RECYCLED-1 (former holder), after the creation of KEPT-1.
+  $db=Open-DomeniaDatabase $path
+  try{
+   foreach($row in @(@('RECYCLED-1','Recycled-1',2),@('KEPT-1','Kept-1',1))){
+    [void](Invoke-DomeniaDbExec ("INSERT OR REPLACE INTO secret_state(computer_key,computer,checked_at,bitlocker_keys,bitlocker_last,laps_scheme,laps_expiry,verdict,detail) VALUES('"+$row[0]+"','"+$row[1]+"','2026-01-15T00:00:00.0000000Z',"+$row[2]+",'','','','','');") $db)
+   }
+  }finally{Close-DomeniaDatabase $db}
+  $Payload=[pscustomobject]@{Action='FleetStats';Path=$path;ModuleRoot=(Join-Path $wad 'modules');BusyTimeoutMs=1000;Scope=$scope;Subtree=$true;Plan=(Get-DomeniaFleetQueryPlan -Now $now);Keys=@();ScopeKey=$scope;DomainDn='dc=test'}
+  $r=& ([scriptblock]::Create($reader))
+  $bitlocker=@{};foreach($group in @($r.Groups)){$bitlocker[[string]$group.gid]=[string]$group.bk}
+  $byName=@{};foreach($machine in @($r.Machines)){$byName[[string]$machine.name]=$bitlocker[[string]$machine.gid]}
+  Expect (($byName['Recycled-1'] -ceq 'U') -and ($byName['Kept-1'] -ceq 'K')) ('BitLocker state by name: '+((@($byName.Keys)|Sort-Object|ForEach-Object{$_+'='+$byName[$_]}) -join ','))
+  Expect ($r.Coverage.BitLockerRead -eq 1) ('metadata of a former holder counted as read: '+$r.Coverage.BitLockerRead)
+  # Same rule on the fiche, read off the Dispatcher (FI-19): LocalIndexRead SecretIndexEntry reads the creation date by
+  # the GUID of the displayed computer and Complete-DomeniaSecretIndexSummaryUi applies Test-DomeniaRecordPredatesObject.
+  $secret={param([string]$Computer,[string]$Guid)
+   $Payload=[pscustomobject]@{Action='SecretIndexEntry';Path=$path;BusyTimeoutMs=1000;Computer=$Computer}
+   if($Guid){$Payload|Add-Member -NotePropertyName Guid -NotePropertyValue $Guid}
+   & ([scriptblock]::Create($reader))
+  }
+  $hidden={param($Answer) return ((@($Answer.Rows).Count -eq 1) -and (Test-DomeniaRecordPredatesObject -RecordedUtc ([string]@($Answer.Rows)[0].checked_at) -CreatedUtc ([string]$Answer.CreatedUtc)))}
+  $former=& $secret 'Recycled-1' $recycled
+  Expect (([string]$former.CreatedUtc) -and (& $hidden $former)) ('metadata of a former holder shown on the fiche: '+[string]$former.CreatedUtc)
+  $shown=& $secret 'Kept-1' $kept.ToUpperInvariant()
+  Expect (([string]$shown.CreatedUtc) -and (-not (& $hidden $shown)) -and ([int]@($shown.Rows)[0].bitlocker_keys -eq 1)) 'metadata of the current holder hidden'
+  $unproven=& $secret 'Recycled-1' ''
+  Expect ((-not [string]$unproven.CreatedUtc) -and (-not (& $hidden $unproven)) -and ([int]@($unproven.Rows)[0].bitlocker_keys -eq 2)) 'without the GUID nothing is proven, so nothing is hidden'
+  $refused=$false;try{[void](& $secret 'Kept-1' "x' OR 1=1 --")}catch{$refused=$true}
+  Expect $refused 'malformed GUID read'
+ }
+ Case 'Explicit purge removes the scope clocks of the purged families only' {
+  . (Join-Path $wad 'modules/Domenia-Common.Model.ps1');. (Join-Path $wad 'modules/Domenia-Collection.Model.ps1')
+  $now=[datetime]::UtcNow
+  [void](Commit @(foreach($family in @('Directory','Inventory')){New-DomeniaCollectionRunChange -Family $family -DomainDn 'dc=test' -ScopeDn 'OU=Parc,DC=test' -Status Success -AttemptedAtUtc $now.AddMinutes(-3) -FinishedAtUtc $now.AddMinutes(-2) -Done 3}))
+  $count={param([string]$Where) [long](Read-TestDb ('SELECT count(*) n FROM domenia_domain_metadata WHERE '+$Where+';'))[0].n}
+  Expect (((& $count "family IN ('Presence','Inventory')") -ge 2) -and ((& $count "family='Directory'") -eq 1)) 'scope clock fixture'
+  foreach($category in @('Observations','Index')){
+   $Payload=[pscustomobject]@{Path=$path;Selection=@($category);DryRun=$true};$preview=& ([scriptblock]::Create((Get-DomeniaStoragePurgeWorkerCode)))
+   $planned=@($preview.Counts|Where-Object{$_.Table -eq 'domenia_domain_metadata'})
+   Expect (($planned.Count -eq 1) -and ([long]$planned[0].Rows -ge 1)) ('scope clocks absent from the dry run: '+$category)
+   $Payload=[pscustomobject]@{Path=$path;Selection=@($category);DryRun=$false;ExpectedFingerprint=$preview.Fingerprint};$result=& ([scriptblock]::Create((Get-DomeniaStoragePurgeWorkerCode)))
+   Expect ($result.Committed) ('purge not committed: '+$category)
+   if($category -eq 'Observations'){Expect (((& $count "family IN ('Presence','Inventory')") -eq 0) -and ((& $count "family='Directory'") -eq 1)) 'measure purge must remove the ping and WMI clocks and keep the AD clock'}
+   else{Expect ((& $count '1=1') -eq 0) 'index purge must remove the AD clock'}
+  }
  }
  if($Scale){Case ($ScaleObjects.ToString()+' objects committed in bounded batches and paginated exactly') {
   $watch=[Diagnostics.Stopwatch]::StartNew();$writeWatch=[Diagnostics.Stopwatch]::StartNew();$batchTimes=[Collections.Generic.List[long]]::new()
