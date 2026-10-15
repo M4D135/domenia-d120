@@ -23,7 +23,7 @@ class RecipeAndIssuesTests(unittest.TestCase):
     def test_shipped_recipe_is_complete_and_documents_support_and_rollback(self):
         recipe = dr.read_json(dr.RECIPE)
         self.assertEqual(dr.validate_recipe(recipe), [])
-        self.assertEqual(sorted(c['Id'] for c in recipe['Criteria']), ['R%02d' % i for i in range(1, 13)])
+        self.assertEqual(sorted(c['Id'] for c in recipe['Criteria']), ['R%02d' % i for i in range(1, 14)])
         self.assertTrue(all(c['Blocking'] for c in recipe['Criteria']))
         broken = copy.deepcopy(recipe)
         broken['Rollback'] = []
@@ -137,6 +137,25 @@ class LabRunTests(unittest.TestCase):
             self.assertEqual(dr.check_scale(criterion, scale)['Status'], 'PASS')
             self.assertEqual(dr.check_scale(criterion, same)['Status'], 'FAIL')
             self.assertEqual(dr.check_scale(criterion, None)['Status'], 'NON_MESURE')
+
+
+class HotspotCriterionTests(unittest.TestCase):
+    def test_hot_spots_need_the_campaign_reports(self):
+        self.assertEqual(dr.check_hotspots(None)['Status'], 'NON_MESURE')
+        with tempfile.TemporaryDirectory() as run:
+            run = Path(run)
+            (run / 'Test-DomeniaHotspots.ps1.json').write_text(json.dumps({'Hotspots': [
+                {'Id': 'observation-decode', 'PowerShellMs': 9000, 'CompiledMs': 300, 'Units': 2000, 'Parity': True},
+                {'Id': 'probe-aggregation', 'PowerShellMs': 4000, 'CompiledMs': 500, 'Units': 2000, 'Parity': True}]}), encoding='utf-8')
+            self.assertEqual(dr.check_hotspots(run)['Status'], 'NON_MESURE', 'le moteur de requête attend sa suite d’échelle')
+            (run / 'Test-DomeniaQueryScale.ps1.json').write_text(json.dumps({'Status': 'PASS', 'Records': 20000, 'ElapsedSeconds': 3.5}), encoding='utf-8')
+            self.assertEqual(dr.check_hotspots(run)['Status'], 'PASS')
+            (run / 'Test-DomeniaHotspots.ps1.json').write_text(json.dumps({'Hotspots': [
+                {'Id': 'observation-decode', 'PowerShellMs': 400, 'CompiledMs': 300, 'Units': 2000, 'Parity': True},
+                {'Id': 'probe-aggregation', 'PowerShellMs': 4000, 'CompiledMs': 500, 'Units': 2000, 'Parity': True}]}), encoding='utf-8')
+            outcome = dr.check_hotspots(run)
+            self.assertEqual(outcome['Status'], 'FAIL')
+            self.assertIn('observation-reader', outcome['Detail'])
 
 
 class VerdictTests(unittest.TestCase):

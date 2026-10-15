@@ -8,7 +8,8 @@ folder, recette.json and RECETTE.md:
   - R07 reads build-report.json and SHA256SUMS of the output folder and recomputes the archive hashes;
   - R12 compares the archives with those of a second build of the same commit (--rebuild-output);
   - R08 checks the Windows PowerShell 5.1 campaign report against both archives (release_guard.require_evidence);
-  - R09 compares two lab runs (compare_runs.py), R10 reads the scale suites of the delivery run.
+  - R09 compares two lab runs (compare_runs.py), R10 reads the scale suites of the delivery run, R13 applies the
+    compiled-code decision (tools/compiled_code.py) to the hot spot and scale reports of that run.
 A criterion without evidence is NON_MESURE, never PASS. The verdict is « Livrable » only when every blocking criterion
 passed and no open incident is Bloquant.
 
@@ -249,6 +250,34 @@ def check_scale(criterion, lab_run=None, dev=DEV):
     return result('PASS', 'Suites dʼéchelle réussies : ' + ', '.join(criterion.get('Suites', [])) + '.', str(lab_run))
 
 
+def check_hotspots(lab_run=None, dev=DEV):
+    """R13: register complete, hot spots justified by the reports of the delivery campaign (compiled_code.decide)."""
+    sys.path.insert(0, str(Path(dev) / 'tools'))
+    import compiled_code
+    register = read_json(compiled_code.REGISTER)
+    problems, _units = compiled_code.validate(register, dev)
+    if problems:
+        return result('FAIL', ' '.join(problems[:5]), 'tools/compiled-code.json')
+    if not lab_run:
+        return result('NON_MESURE', 'Campagne de livraison non fournie (--lab-run) : points chauds non mesurés.', 'tools/compiled-code.json')
+    reports = []
+    for path in sorted(Path(lab_run).glob('*.json')):
+        try:
+            data = read_json(path)
+        except ValueError:
+            continue
+        if isinstance(data, dict):
+            reports.append(data)
+    decisions = [d for d in compiled_code.decide(register, reports) if d['Kind'] == 'PointChaud']
+    refused = [d['Id'] + ' : ' + d.get('Detail', '') for d in decisions if d['Decision'] == 'Non justifié']
+    missing = [d['Id'] for d in decisions if d['Decision'] == 'Mesure à produire']
+    if refused:
+        return result('FAIL', 'Point(s) chaud(s) non justifié(s) : ' + ' ; '.join(refused), str(lab_run))
+    if missing:
+        return result('NON_MESURE', 'Mesure absente de la campagne pour : ' + ', '.join(missing) + '.', str(lab_run))
+    return result('PASS', ' ; '.join(d['Id'] + ' ' + d['Decision'].lower() for d in decisions) + '.', str(lab_run))
+
+
 def verdict(recipe, results):
     """Livrable only when every blocking criterion passed (NON_MESURE never counts as passed)."""
     reasons = []
@@ -318,6 +347,8 @@ def main():
             results[cid] = check_regressions(args.baseline_run, args.lab_run)
         elif cid == 'R10':
             results[cid] = check_scale(criterion, args.lab_run)
+        elif cid == 'R13':
+            results[cid] = check_hotspots(args.lab_run)
         elif cid == 'R11':
             results[cid] = issues_result
         elif criterion.get('Command'):

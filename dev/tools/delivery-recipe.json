@@ -113,6 +113,13 @@
       "Kind": "Fabrication",
       "Threshold": "Une seconde construction depuis le même commit, avec le même Python et le même zlib, donne des ZIP PROD et DEV aux mêmes SHA-256.",
       "Blocking": true
+    },
+    {
+      "Id": "R13",
+      "Label": "Code compilé limité aux points chauds mesurés",
+      "Kind": "Windows",
+      "Threshold": "Chaque site C# enregistré ; chaque point chaud comparé à PowerShell au moins MinimumGain fois plus rapide à résultats identiques (Test-DomeniaHotspots), chaque point chaud à budget mesuré par sa suite dʼéchelle.",
+      "Blocking": true
     }
   ],
   "Support": [

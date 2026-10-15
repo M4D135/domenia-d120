@@ -1,0 +1,126 @@
+{
+  "Schema": "DomeniaCompiledCode/1",
+  "Rule": "Le code reste en PowerShell par défaut. Une unité C# nʼest admise que pour un point chaud mesuré (le chemin compilé doit être au moins MinimumGain fois plus rapide que le chemin PowerShell équivalent, à résultats identiques, ou tenir un budget mesuré sans équivalent PowerShell maintenu), pour une interface Windows sans équivalent PowerShell (Interop), ou pour des types immuables partagés (Types). Chaque site de compilation du dépôt figure ici.",
+  "MinimumGain": 2.0,
+  "Units": [
+    {
+      "Id": "observation-reader",
+      "Kind": "PointChaud",
+      "Sources": [
+        "native/ObservationReader.cs"
+      ],
+      "Binary": "wad/modules/Domenia.Native.dll",
+      "Reason": "Décodage JSON des observations de milliers de postes à chaque calcul du tableau de bord et des requêtes.",
+      "Measure": {
+        "Suite": "Test-DomeniaHotspots",
+        "Hotspot": "observation-decode",
+        "Comparison": "PowerShell",
+        "Metrics": [
+          "PowerShellMs",
+          "CompiledMs",
+          "Units",
+          "Parity"
+        ]
+      }
+    },
+    {
+      "Id": "probe-aggregation",
+      "Kind": "PointChaud",
+      "Sources": [
+        "native/ProbeAggregation.cs"
+      ],
+      "Binary": "wad/modules/Domenia.Native.dll",
+      "Reason": "Regroupement en tranches des sondes de tout le parc pour les widgets (ProbeBatch, ProbeSamples) ; appelé à chaque calcul de vue.",
+      "Measure": {
+        "Suite": "Test-DomeniaHotspots",
+        "Hotspot": "probe-aggregation",
+        "Comparison": "PowerShell",
+        "Metrics": [
+          "PowerShellMs",
+          "CompiledMs",
+          "Units",
+          "Parity"
+        ]
+      }
+    },
+    {
+      "Id": "query-engine",
+      "Kind": "PointChaud",
+      "Sources": [
+        "vendor/m4d-admin-common/src/Query/QueryEngine.cs"
+      ],
+      "Binary": "wad/modules/M4D.Admin.Common.Query.dll",
+      "Reason": "Évaluation des recettes de requête sur 20 000 enregistrements sans repasser par le pipeline PowerShell.",
+      "Measure": {
+        "Suite": "Test-DomeniaQueryScale",
+        "Hotspot": "query-20000",
+        "Comparison": "Budget",
+        "Metrics": [
+          "Records",
+          "ElapsedSeconds"
+        ]
+      }
+    },
+    {
+      "Id": "identity-types",
+      "Kind": "Types",
+      "Sources": [
+        "wad/modules/Domenia-Identity.Types.cs"
+      ],
+      "Reason": "Identités immuables partagées par Fiche, Relations, Assistance et les plans dʼintervention : comparaison par valeur et aucune mutation possible."
+    },
+    {
+      "Id": "live-types",
+      "Kind": "Types",
+      "Sources": [
+        "wad/modules/Domenia-Live.Types.cs"
+      ],
+      "Reason": "Lignes de résultats en direct qui notifient WPF seulement sur son fil ; aucune donnée sensible stockée."
+    },
+    {
+      "Id": "clipboard",
+      "Kind": "Interop",
+      "Sources": [
+        "wad/modules/Domenia-Clipboard.Native.cs"
+      ],
+      "Api": "Presse-papiers Windows (user32) : copie sans historique ni synchronisation",
+      "Reason": "Aucune commande PowerShell 5.1 ne pose les formats qui excluent lʼhistorique du presse-papiers."
+    },
+    {
+      "Id": "credential-vault",
+      "Kind": "Interop",
+      "Sources": [
+        "wad/modules/Domenia-CredentialVault.Native.cs"
+      ],
+      "Api": "Gestionnaire dʼidentification Windows (advapi32 CredRead, CredWrite, CredDelete)",
+      "Reason": "Coffre Windows optionnel des comptes ; aucune commande PowerShell 5.1 native."
+    },
+    {
+      "Id": "sessions",
+      "Kind": "Interop",
+      "Sources": [
+        "wad/modules/Domenia-Sessions.Native.cs"
+      ],
+      "Api": "Services Bureau à distance (wtsapi32 WTSEnumerateSessions)",
+      "Reason": "Lecture des sessions dʼun poste sans lancer de processus distant."
+    },
+    {
+      "Id": "net-use",
+      "Kind": "Interop",
+      "Sources": [
+        "wad/Domenia-Core.ps1:Get-DomeniaNetUseSource"
+      ],
+      "Api": "Connexion SMB sous un compte explicite (mpr WNetAddConnection2)",
+      "Reason": "Ouvre C$ ou ADMIN$ avec le compte choisi sans mot de passe dans une ligne de commande."
+    },
+    {
+      "Id": "winsqlite",
+      "Kind": "Interop",
+      "Sources": [
+        "wad/Domenia-Core.ps1:Initialize-DomeniaWinSqliteNative"
+      ],
+      "Api": "SQLite fourni par Windows (winsqlite3.dll), déclaré par Reflection.Emit",
+      "Reason": "Base locale sans composant SQLite livré."
+    }
+  ]
+}

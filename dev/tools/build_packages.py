@@ -16,6 +16,7 @@ Point 146: tools/licence-inventory.json must cover every binary, asset and vendo
 a delivered component whose redistribution is not established keeps the delivery unpublishable (build-report Licences).
 Point 141: SHA256SUMS lists the SHA-256 of both archives and of the build report, in the format of sha256sum -c.
 Point 149: tools/doc_sync.py checks that guides and contextual help quote only texts the pack displays.
+Point 132: tools/compiled_code.py checks that every C# unit is registered (measured hot spot, interop or types).
 """
 from pathlib import Path
 import argparse,hashlib,json,platform,re,stat,struct,subprocess,sys,zipfile,zlib
@@ -241,6 +242,8 @@ def build(out,manifest_only=False,windows_report=None,require_windows=False,evid
     gate('tools/licence_inventory.py','Licence inventory','--check')
     # Point 149: guides and contextual help quote only texts the pack displays (ratchet tools/baselines/doc-sync-baseline.json).
     gate('tools/doc_sync.py','Documentation and help sync','--check')
+    # Point 132: every C# unit is registered as a measured hot spot, a Windows interop or shared immutable types.
+    gate('tools/compiled_code.py','Compiled code register','--check')
     # TE-01: the interface wording reference is a ratchet; a delivery never adds an unaccented, unelided or tutoyed text.
     gate('tools/audit_wording.py','Interface wording ratchet')
     # Mandatory static preflight over every PowerShell source shipped in DEV.
