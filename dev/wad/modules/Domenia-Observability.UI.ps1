@@ -8,6 +8,8 @@ $script:DomeniaLastStall=$null
 # Faults of the observability itself (a trace that could not be written): counted, shown in Santé and in the diagnostic,
 # never raised into the operation they follow.
 $script:DomeniaTraceFaults=0
+# Reference of the directory read pipe of a request among the open members of its trace (Join-DomeniaPipeTrace).
+$script:DomeniaPipeTraceRef='pipeline'
 
 function Get-DomeniaTraceNow {
     # One monotonic clock for every trace, UI work and heartbeat measure (milliseconds).
@@ -83,20 +85,43 @@ function Add-DomeniaJobTraceEvent {
 function Add-DomeniaRequestTraceEvent {
     # One event on the trace of a request id (directory read pipe, store context). A request without trace is ignored:
     # no trace is created from a pipe alone.
-    param([string]$RequestId='',[Parameter(Mandatory=$true)][string]$Phase,[string]$Detail='',[long]$Volume=-1,[double]$DurationMs=-1,[switch]$Final)
+    param([string]$RequestId='',[Parameter(Mandatory=$true)][string]$Phase,[string]$Detail='',[long]$Volume=-1,[double]$DurationMs=-1)
     $ring = Get-DomeniaTraceRing
     if ((-not $RequestId) -or (-not $ring.Contains($RequestId))) { return }
-    $trace = $ring[$RequestId]
-    [void](Add-DomeniaOperationTraceEvent -Trace $trace -Phase $Phase -AtMs (Get-DomeniaTraceNow) -Detail $Detail -Volume $Volume -DurationMs $DurationMs)
-    if ($Final) { Write-DomeniaTraceSummaryLog -Trace $trace }
+    [void](Add-DomeniaOperationTraceEvent -Trace $ring[$RequestId] -Phase $Phase -AtMs (Get-DomeniaTraceNow) -Detail $Detail -Volume $Volume -DurationMs $DurationMs)
 }
 
-function Write-DomeniaRequestTraceLog {
-    # Summary line of the trace of a request id (fiche relue, pipe without list), when that request has a trace.
-    param([string]$RequestId='')
+function Join-DomeniaPipeTrace {
+    # A dispatched job of a streaming request (search, fiche) ends before its rows are stored, read back and published:
+    # the directory read pipe of that request (same request id) then becomes an open member of the trace, so the trace
+    # stays « En cours » and its total keeps running until the pipe closes (Complete-DomeniaRequestTrace). Once per
+    # pipe; a pipe already closed or failed is not joined. $true when the pipe joined.
+    param([Parameter(Mandatory=$true)]$Trace)
+    $reads = $script:DomeniaDirectoryReads
+    $id = [string]$Trace.TraceId
+    if (($null -eq $reads) -or (-not $id) -or (-not $reads.ContainsKey($id))) { return $false }
+    $pipe = $reads[$id]
+    if (($null -eq $pipe) -or [bool](Get-DomeniaMember $pipe 'Closed' $false) -or [string](Get-DomeniaMember $pipe 'Failure' '')) { return $false }
+    if ([string](Get-DomeniaMember $pipe 'TraceStage' '')) { return $false }
+    [void](Add-DomeniaTraceJob -Trace $Trace -JobRef $script:DomeniaPipeTraceRef -Stage)
+    $pipe | Add-Member -NotePropertyName TraceStage -NotePropertyValue 'Open' -Force
+    return $true
+}
+
+function Complete-DomeniaRequestTrace {
+    # The directory read pipe of a request closed (rows stored, read back and handed over) or failed: its step of the
+    # trace ends. The summary line of Domenia.log is written here only when no job of the request is still open, so a
+    # request gives one line, with the total up to its last publication. Idempotent per pipe.
+    param($Pipe,[Parameter(Mandatory=$true)][ValidateSet('Succeeded','Failed')][string]$Outcome,[string]$Detail='')
+    if (($null -eq $Pipe) -or ([string](Get-DomeniaMember $Pipe 'TraceStage' '') -cne 'Open')) { return $null }
+    $Pipe | Add-Member -NotePropertyName TraceStage -NotePropertyValue 'Closed' -Force
+    $requestId = [string](Get-DomeniaMember (Get-DomeniaMemberValue $Pipe 'Context' $null) 'RequestId' '')
     $ring = Get-DomeniaTraceRing
-    if ((-not $RequestId) -or (-not $ring.Contains($RequestId))) { return }
-    Write-DomeniaTraceSummaryLog -Trace $ring[$RequestId]
+    if ((-not $requestId) -or (-not $ring.Contains($requestId))) { return $null }
+    $trace = $ring[$requestId]
+    [void](Complete-DomeniaTraceJob -Trace $trace -JobRef $script:DomeniaPipeTraceRef -Outcome $Outcome -AtMs (Get-DomeniaTraceNow) -Detail $Detail)
+    if ($trace.OpenJobs.Count -eq 0) { Write-DomeniaTraceSummaryLog -Trace $trace }
+    return $trace
 }
 
 function Get-DomeniaJobPhaseMeasures {
@@ -196,6 +221,9 @@ function Complete-DomeniaJobTrace {
     if ($publishMs -ge 0) { [void](Add-DomeniaOperationTraceEvent -Trace $trace -Phase 'Publish' -AtMs ($now - $publishMs) -DurationMs $publishMs -Volume $volume -Detail ([string]$Job.SuccessHandler) -JobRef $reference) }
     $category = ''
     if ($Category -match '^[A-Za-z]{2,40}$') { $category = $Category }
+    # The rows of a dispatched job may still be on their way to SQLite and to the list: the pipe takes over before the
+    # job leaves, so the trace never looks finished in between. A job never sent fed no pipe.
+    if (-not $NotDispatched) { try { [void](Join-DomeniaPipeTrace -Trace $trace) } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 } }
     [void](Complete-DomeniaTraceJob -Trace $trace -JobRef $reference -Outcome $Outcome -AtMs $now -Category $category -Detail $Detail)
     if (-not [bool](Get-DomeniaMember $Job 'TraceSlowRecorded' $false)) {
         $verdict = Get-DomeniaSlownessVerdict -Name ([string]$Job.Name) -OperationId ([string]$Job.OperationId) -Handler ([string]$Job.SuccessHandler) -QueueMs ([double]$measures.QueueMs) -CollectMs ([double]$measures.CollectMs) -ValidateMs $ValidateMs -PublishMs $publishMs -Volume $volume -PublishThresholdMs ([double]::MaxValue) -TotalThresholdMs 5000
@@ -335,41 +363,90 @@ function New-DomeniaSessionDiagnostic {
 
 # ---------------------------------------------------------------- operations panel (points 118, 123, 124)
 $script:DomeniaOperationsRecentSignature=''
+$script:DomeniaOperationsRecentRows=$null
+$script:DomeniaOperationsRecentMap=@{}
+# Operation and state whose detail was last announced: a streaming operation refreshes its detail silently.
+$script:DomeniaOperationsTraceKey=''
 
 function Sync-DomeniaOperationsRecent {
-    # « Dernières opérations »: rebuilt only when a trace changed (or an open one ages), the selection kept by trace.
-    # The signature is read on the traces themselves (cheap, once a second while the panel is open); the rows, their
-    # summaries and advice are built only when it changes. An open trace ages by whole seconds.
+    # « Dernières opérations », once a second while the panel is open. The rows are kept in one collection bound once
+    # and updated in place (Domenia.Live.OperationRow): the selection, the scroll position and the keyboard focus inside
+    # the grid stay where the operator left them. The set of rows, their order and their content are rebuilt only when
+    # a trace changes (new event, end, open jobs); otherwise only the duration of the open rows moves.
     $grid = Get-DomeniaControl 'DgOperationsRecent'
     if ($null -eq $grid) { return }
+    if ($null -eq $script:DomeniaOperationsRecentRows) {
+        $script:DomeniaOperationsRecentRows = New-Object 'System.Collections.ObjectModel.ObservableCollection[object]'
+        $script:DomeniaOperationsRecentMap = @{}
+        $script:DomeniaOperationsRecentSignature = ''
+    }
+    $rows = $script:DomeniaOperationsRecentRows
+    if (-not [object]::ReferenceEquals($grid.ItemsSource,$rows)) { $grid.ItemsSource = $rows }
+    $type = 'Domenia.Live.OperationRow' -as [type]
+    $typed = (($null -ne $type) -and ($null -ne $type.GetProperty('Reference')))
     $now = Get-DomeniaTraceNow
     $parts = New-Object 'System.Collections.Generic.List[string]'
+    $open = New-Object 'System.Collections.Generic.List[object]'
     foreach ($trace in @((Get-DomeniaTraceRing).Values)) {
         if (-not (Test-DomeniaTraceListed $trace)) { continue }
-        $part = [string]$trace.TraceId + '=' + [string]$trace.Outcome + '/' + [string]$trace.OpenJobs.Count + '/' + [string]$trace.Events.Count
-        if ($trace.OpenJobs.Count -gt 0) { $part += '/' + [string][long][Math]::Floor(($now - [double]$trace.StartedMs) / 1000) }
-        $parts.Add($part)
+        # LastMs moves with every event, merged batches included: their volume and count reach the detail in place.
+        $parts.Add([string]$trace.TraceId + '=' + [string]$trace.Outcome + '/' + [string]$trace.OpenJobs.Count + '/' + [string]$trace.Events.Count + '/' + [string]$trace.Dropped + '/' + [string][long]$trace.LastMs)
+        if ($trace.OpenJobs.Count -gt 0) { $open.Add($trace) }
     }
     $signature = $parts.ToArray() -join '|'
-    if ($signature -ceq [string]$script:DomeniaOperationsRecentSignature) { return }
-    $script:DomeniaOperationsRecentSignature = $signature
-    $rows = @(Get-DomeniaRecentTraceRows -Maximum 20)
-    $selected = ''
-    if ($null -ne $grid.SelectedItem) { $selected = [string]$grid.SelectedItem.Id }
-    $grid.ItemsSource = $rows
-    if ($selected) { foreach ($row in $rows) { if ([string]$row.Id -ceq $selected) { $grid.SelectedItem = $row; break } } }
-    Update-DomeniaOperationsTraceDetail
+    if ($signature -cne [string]$script:DomeniaOperationsRecentSignature) {
+        $script:DomeniaOperationsRecentSignature = $signature
+        $projections = @(Get-DomeniaRecentTraceRows -Maximum 20)
+        $map = $script:DomeniaOperationsRecentMap
+        if (-not $typed) {
+            # Without the notifying type the rows are replaced, only when the traces change.
+            $rows.Clear(); $map.Clear()
+            foreach ($projection in $projections) { $rows.Add($projection); $map[[string]$projection.Id] = $projection }
+        } else {
+            $wanted = @{}
+            foreach ($projection in $projections) { $wanted[[string]$projection.Id] = $true }
+            foreach ($id in @($map.Keys)) { if (-not $wanted.ContainsKey([string]$id)) { [void]$rows.Remove($map[$id]); $map.Remove($id) } }
+            for ($index = 0; $index -lt $projections.Count; $index++) {
+                $projection = $projections[$index]; $id = [string]$projection.Id
+                $row = $map[$id]
+                if ($null -eq $row) {
+                    $row = New-Object Domenia.Live.OperationRow; $row.Id = $id; $map[$id] = $row
+                    $rows.Insert([Math]::Min($index,$rows.Count),$row)
+                } else {
+                    $at = $rows.IndexOf($row)
+                    if (($at -ge 0) -and ($at -ne $index)) { $rows.Move($at,$index) }
+                }
+                $row.State = [string]$projection.State; $row.Name = [string]$projection.Name; $row.Kind = [string]$projection.Kind
+                $row.Duration = [string]$projection.Duration; $row.Phase = [string]$projection.Phase; $row.Reference = [string]$projection.Reference
+                $row.Detail = [string]$projection.Detail
+            }
+        }
+        Update-DomeniaOperationsTraceDetail
+        return
+    }
+    if (-not $typed) { return }
+    # Nothing changed but time: the duration of each open row, in place.
+    foreach ($trace in $open) {
+        $row = $script:DomeniaOperationsRecentMap[[string]$trace.TraceId]
+        if ($null -ne $row) { $row.Duration = Format-DomeniaDurationText ([Math]::Max(0,$now - [double]$trace.StartedMs)) }
+    }
 }
 
 function Update-DomeniaOperationsTraceDetail {
-    # Detail of the chosen operation: its steps with their own measures and what can be done next.
+    # Detail of the chosen operation: its steps with their own measures and what can be done next. A polite live
+    # region: announced when another operation is chosen or when the chosen one changes state (En cours, Terminée...);
+    # the batches of a streaming operation refresh it without a new announcement every second.
     $grid = Get-DomeniaControl 'DgOperationsRecent'
     $row = $null
     if ($null -ne $grid) { $row = $grid.SelectedItem }
     $text = 'Sélectionnez une opération pour lire ses étapes : demande, file dʼattente, collecte, validation, lecture locale et publication.'
     if ($null -ne $row) { $text = [string]$row.Detail }
     elseif (($null -ne $grid) -and (@($grid.Items).Count -eq 0)) { $text = 'Aucune opération suivie depuis lʼouverture de cette session.' }
-    [void](Set-DomeniaControlText 'LblOperationsTrace' $text)
+    $label = Get-DomeniaControl 'LblOperationsTrace'
+    $key = ''
+    if ($null -ne $row) { $key = [string]$row.Id + '|' + [string]$row.State }
+    if ($key -cne [string]$script:DomeniaOperationsTraceKey) { $script:DomeniaOperationsTraceKey = $key; [void](Set-DomeniaLiveText -Control $label -Text $text) }
+    elseif (($null -ne $label) -and ([string]$label.Text -cne $text)) { $label.Text = $text }
     $copy = Get-DomeniaControl 'BtnOperationsCopyTrace'
     if ($null -ne $copy) { $copy.IsEnabled = ($null -ne $row) }
 }

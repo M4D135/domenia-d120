@@ -71,6 +71,27 @@ Test-Case 'P123' 'Plusieurs taches : la pire fin l emporte, la trace reste ouver
     Assert-Equal 'Unknown' $w.Outcome 'Un resultat d ecriture inconnu reste visible';Assert-Equal 'Écriture' $w.Kind
     Assert-Equal 'Uncertain' (Get-DomeniaOperationTraceSummary -Trace $w).OutcomeStatus
 }
+Test-Case 'P123' 'Etape du flux : garde la trace ouverte sans compter comme tache ; un evenement tardif repousse la fin' {
+    $t=New-DomeniaOperationTrace -TraceId 'ffffffff-0000' -OperationId 'GlobalSearch' -AtMs 0
+    [void](Add-DomeniaTraceJob -Trace $t -JobRef 'aaaaaaaa')
+    [void](Add-DomeniaTraceJob -Trace $t -JobRef 'pipeline' -Stage)
+    [void](Complete-DomeniaTraceJob -Trace $t -JobRef 'aaaaaaaa' -Outcome 'Succeeded' -AtMs 1000)
+    $open=Get-DomeniaOperationTraceSummary -Trace $t -NowMs 1500
+    Assert-True $open.Open 'La trace reste ouverte tant que le flux enregistre';Assert-Equal 1500 ([int]$open.TotalMs);Assert-Equal -1 ([int]$t.EndedMs)
+    Assert-Equal 1 ([int]$t.Jobs) 'L etape n est pas une tache';Assert-Equal 'aaaaaaaa' ($t.JobRefs.ToArray() -join ',') 'L etape ne figure pas parmi les references de Domenia.log'
+    [void](Add-DomeniaOperationTraceEvent -Trace $t -Phase 'StoreRead' -AtMs 1800 -Volume 100 -DurationMs 40)
+    [void](Add-DomeniaOperationTraceEvent -Trace $t -Phase 'Publish' -AtMs 2500 -Volume 100)
+    [void](Complete-DomeniaTraceJob -Trace $t -JobRef 'pipeline' -Outcome 'Succeeded' -AtMs 2600)
+    $s=Get-DomeniaOperationTraceSummary -Trace $t -NowMs 9000
+    Assert-False $s.Open;Assert-Equal 2600 ([int]$s.TotalMs) 'Le total couvre la derniere publication'
+    $late=New-DomeniaOperationTrace -TraceId 'abababab-0000' -OperationId 'OpenAdObject' -AtMs 0
+    [void](Add-DomeniaTraceJob -Trace $late -JobRef 'cdcdcdcd')
+    [void](Complete-DomeniaTraceJob -Trace $late -JobRef 'cdcdcdcd' -Outcome 'Succeeded' -AtMs 100)
+    [void](Add-DomeniaOperationTraceEvent -Trace $late -Phase 'StoreRead' -AtMs 400 -Volume 1 -DurationMs 5)
+    [void](Add-DomeniaOperationTraceEvent -Trace $late -Phase 'Queue' -AtMs 50 -DurationMs 5)
+    Assert-Equal 400 ([int]$late.EndedMs) 'Un evenement apres la fin repousse la fin, un evenement anterieur ne la recule pas'
+    Assert-Equal 400 ([int](Get-DomeniaOperationTraceSummary -Trace $late).TotalMs)
+}
 Test-Case 'P123' 'Anneau plein : les traces terminees les plus anciennes partent d abord' {
     $traces=@(for($i=0;$i -lt 5;$i++){$t=New-DomeniaOperationTrace -TraceId ('trace000'+$i) -OperationId 'LocalStore' -AtMs ($i*10);$t.LastMs=$i*10;$t})
     [void](Add-DomeniaTraceJob -Trace $traces[0] -JobRef 'open0000')

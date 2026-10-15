@@ -261,7 +261,10 @@ function Update-DomeniaExperienceActivity {
     $state=[string]$script:WriteState
     $message=if($active+$detached+$queued -eq 0){'Aucune opération active. Les résultats précédents restent dans le journal.'}else{"$active opération(s) active(s) · $queued en attente · $detached lecture(s) en nettoyage."}
     if($state -in @('Unknown','UnknownPending')){$message+=' Écriture à vérifier : ne relancez pas lʼaction avant relecture de lʼobjet.'}
-    [void](Set-DomeniaControlText 'LblSuiteActivityState' $message)
+    # W13 (point 116): the state line is a polite live region, announced once per change (WPF raises nothing itself;
+    # Send-DomeniaUxLiveChange comes from Domenia-UX.UI.ps1, which loads this module).
+    $stateLabel=Get-DomeniaControl 'LblSuiteActivityState'
+    if(($null -ne $stateLabel) -and ([string]$stateLabel.Text -cne $message)){$stateLabel.Text=$message;Send-DomeniaUxLiveChange -Control $stateLabel}
     [void](Set-DomeniaControlText 'LblOperationsHealth' (Get-DomeniaOperationsHealthText))
 }
 

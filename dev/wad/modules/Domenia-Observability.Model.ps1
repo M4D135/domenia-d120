@@ -84,11 +84,17 @@ function New-DomeniaOperationTrace {
 
 function Add-DomeniaTraceJob {
     # A job (worker) joins the trace; the trace stays open while one of its jobs runs.
-    param([Parameter(Mandatory=$true)]$Trace,[AllowEmptyString()][string]$JobRef='',[bool]$IsWrite=$false,[bool]$Foreground=$false)
+    # -Stage: a step of the request carried by the interface, not by a worker (the directory read pipe that stores,
+    # reads back and publishes the rows of a search or a fiche). It keeps the trace open like a job, but it is neither
+    # counted as a job nor listed among the job references of Domenia.log.
+    param([Parameter(Mandatory=$true)]$Trace,[AllowEmptyString()][string]$JobRef='',[bool]$IsWrite=$false,[bool]$Foreground=$false,[switch]$Stage)
     $reference = ConvertTo-DomeniaTraceJobRef $JobRef
-    if ($reference -and -not $Trace.OpenJobs.Contains($reference)) { $Trace.OpenJobs.Add($reference); $Trace.Jobs = [int]$Trace.Jobs + 1 }
+    if ($reference -and -not $Trace.OpenJobs.Contains($reference)) {
+        $Trace.OpenJobs.Add($reference)
+        if (-not $Stage) { $Trace.Jobs = [int]$Trace.Jobs + 1 }
+    }
     # The first eight job references are kept: they are the [correlation] prefixes of the lines of Domenia.log.
-    if ($reference -and ($Trace.JobRefs.Count -lt 8) -and -not $Trace.JobRefs.Contains($reference)) { $Trace.JobRefs.Add($reference) }
+    if ((-not $Stage) -and $reference -and ($Trace.JobRefs.Count -lt 8) -and -not $Trace.JobRefs.Contains($reference)) { $Trace.JobRefs.Add($reference) }
     if ($IsWrite -and -not [bool]$Trace.IsWrite) { $Trace.IsWrite = $true; $Trace.Kind = 'Écriture' }
     if ($Foreground -or $IsWrite) { $Trace.Foreground = $true }
     $Trace.EndedMs = [double]-1
@@ -125,6 +131,8 @@ function Add-DomeniaOperationTraceEvent {
     $detailText = ConvertTo-DomeniaFlatText $Detail ([int]$limits.DetailLength)
     $reference = ConvertTo-DomeniaTraceJobRef $JobRef
     if ([double]$AtMs -gt [double]$Trace.LastMs) { $Trace.LastMs = [double]$AtMs }
+    # An event that arrives after the end of a closed trace moves its end: the total never leaves out a step.
+    if (([double]$Trace.EndedMs -ge 0) -and ([double]$AtMs -gt [double]$Trace.EndedMs)) { $Trace.EndedMs = [double]$AtMs }
     if (($events.Count -gt 0) -and ($Phase -in @('StoreRead','Publish'))) {
         # Only batches of one source merge: the callback of a job and the rows handed to the list stay apart.
         $last = $events[$events.Count - 1]

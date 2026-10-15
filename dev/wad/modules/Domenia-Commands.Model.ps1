@@ -20,6 +20,18 @@ function Get-DomeniaKeyboardShortcuts {
     )
 }
 
+function Test-DomeniaPresentationUndoKey {
+    # Point 120: the Undo shortcut of the catalogue (Ctrl+Z) pressed in the result list undoes its presentation; typed in
+    # a text field (local filter, cell being edited) it stays the undo of the typing. Key and Modifiers are the names of
+    # the WPF values (Key Z, ModifierKeys Control); Ctrl+Maj+Z or Z alone are not the shortcut.
+    param([AllowEmptyString()][string]$Key='',[AllowEmptyString()][string]$Modifiers='',[bool]$FromTextInput=$false)
+    if ($FromTextInput) { return $false }
+    foreach ($shortcut in @(Get-DomeniaKeyboardShortcuts)) {
+        if ([string]$shortcut.Id -ceq 'Undo') { return (([string]$shortcut.Key -ceq $Key) -and ([string]$shortcut.Modifiers -ceq $Modifiers)) }
+    }
+    return $false
+}
+
 function Get-DomeniaCommandCatalogue {
     # Closed catalogue of the palette. Effect says what Entrée does:
     #   Navigate      opens a view, reads nothing;
@@ -30,47 +42,47 @@ function Get-DomeniaCommandCatalogue {
     # Requires: object type of the selection ('' any or none, Selection = any open object, MachineRows = rows of the list).
     # Target: the named control the command acts on or brings forward ('' for an action of the shell).
     $rows = @(
-        @('search','Rechercher dans Active Directory','trouver nom compte poste','Navigation','Navigate','','',$false,'Search')
-        @('dashboard','Ouvrir lʼaccueil','tableau de bord parc','Navigation','Navigate','','',$false,'Dashboard')
-        @('operations','Afficher les opérations en cours','taches suivi lenteur sante','Navigation','Navigate','','',$false,'')
-        @('journal','Ouvrir le journal de session','log erreurs historique','Navigation','Navigate','','',$false,'Journal')
-        @('index','Ouvrir lʼindex local','base locale cache','Navigation','Navigate','','',$false,'Index')
-        @('queries','Ouvrir lʼatelier de requêtes','requete filtre parc','Navigation','Navigate','','',$false,'')
-        @('accounts','Ouvrir Comptes et accès','identite compte secondaire laps bitlocker','Navigation','Navigate','','',$false,'')
-        @('relations','Ouvrir les relations utilisateur et poste','association lien poste utilisateur','Navigation','Navigate','','',$false,'')
-        @('tools','Ouvrir les outils et lʼaide','aide parametres','Navigation','Navigate','','',$false,'Tools')
-        @('shortcuts','Afficher les raccourcis clavier','clavier touches aide','Aide','Local','','',$false,'')
-        @('theme','Changer de thème clair ou sombre','sombre clair couleurs','Présentation','Local','','',$false,'Theme')
-        @('undo','Annuler la dernière présentation de la liste','colonnes tri filtre retour','Présentation','Local','','',$false,'Undo')
-        @('summary','Copier le résumé de lʼobjet','presse-papiers fiche','Objet ouvert','Local','Selection','',$false,'Summary')
-        @('parent','Ouvrir le conteneur parent','ou dossier parent','Objet ouvert','Navigate','Selection','',$true,'')
-        @('diagnostic','Préparer le diagnostic expurgé','support export versions mesures','Application','Local','','',$false,'')
-        @('selfcheck','Vérifier lʼapplication','auto-verification prerequis','Application','Read','','',$false,'')
-        @('tree','Actualiser lʼarborescence','ou arbre recharger','Lecture','Read','','',$true,'Tree')
-        @('batch','Diagnostic réseau des postes sélectionnés','ping ports smb winrm','Lecture','Read','MachineRows','',$true,'')
-        @('ping','Pinger ce poste','reseau joignable','Lecture','Read','Machine','BtnCompPing',$true,'')
-        @('sessions','Lire les sessions du poste','utilisateur connecte rdp','Lecture','Read','Machine','BtnSessionsRead',$true,'')
-        @('computerdiag','Lancer le diagnostic du poste','sante disque services','Lecture','Read','Machine','BtnRunComputerDiag',$true,'')
-        @('inventory','Lancer lʼinventaire rapide du poste','materiel wmi','Lecture','Read','Machine','BtnRunInventory',$true,'')
-        @('software','Charger les logiciels du poste','applications installees','Lecture','Read','Machine','BtnLoadSoftware',$true,'')
-        @('lastuser','Détecter lʼutilisateur du poste','session utilisateur','Lecture','Read','Machine','BtnRefreshMachineLink',$true,'')
-        @('lockouts','Lire les verrouillages du compte (4740)','verrouillage evenement securite','Lecture','Read','Utilisateur','BtnUserSupportLockouts',$true,'')
-        @('permissions','Analyser les permissions de lʼobjet','acl droits securite','Lecture','Read','Selection','BtnPermissionRefresh',$true,'')
-        @('laps','Lire le mot de passe LAPS','administrateur local secret','Lecture protégée','Sensitive','Machine','BtnLoadLaps',$true,'')
-        @('bitlocker','Lire les clés BitLocker','recuperation secret','Lecture protégée','Sensitive','Machine','BtnLoadBitLocker',$true,'')
-        @('useredit','Modifier la fiche de lʼutilisateur','editer champs','Écriture préparée','PrepareWrite','Utilisateur','BtnUserEdit',$true,'')
-        @('unlock','Déverrouiller le compte','verrouille debloquer','Écriture préparée','PrepareWrite','Utilisateur','BtnUserUnlock',$true,'')
-        @('resetpassword','Réinitialiser le mot de passe','mot de passe changer','Écriture préparée','PrepareWrite','Utilisateur','BtnUserResetPwd',$true,'')
-        @('userenable','Activer le compte','activer utilisateur','Écriture préparée','PrepareWrite','Utilisateur','BtnUserEnable',$true,'')
-        @('userdisable','Désactiver le compte','desactiver utilisateur','Écriture préparée','PrepareWrite','Utilisateur','BtnUserDisable',$true,'')
-        @('usermove','Déplacer lʼutilisateur','ou deplacer','Écriture préparée','PrepareWrite','Utilisateur','BtnUserMove',$true,'')
-        @('useraddgroup','Ajouter lʼutilisateur à un groupe','groupe membre','Écriture préparée','PrepareWrite','Utilisateur','BtnUserAddGroup',$true,'')
-        @('groupadd','Ajouter un membre au groupe','groupe membre','Écriture préparée','PrepareWrite','Groupe','BtnGroupAddMember',$true,'')
-        @('groupremove','Retirer un membre du groupe','groupe membre','Écriture préparée','PrepareWrite','Groupe','BtnGroupRemoveMember',$true,'')
-        @('computeredit','Modifier la fiche du poste','description emplacement','Écriture préparée','PrepareWrite','Machine','BtnCompEdit',$true,'')
-        @('computerenable','Activer le poste','activer ordinateur','Écriture préparée','PrepareWrite','Machine','BtnCompEnable',$true,'')
-        @('computerdisable','Désactiver le poste','desactiver ordinateur','Écriture préparée','PrepareWrite','Machine','BtnCompDisable',$true,'')
-        @('gpupdate','Actualiser les stratégies du poste','gpupdate gpo','Écriture préparée','PrepareWrite','Machine','BtnCompGpUpdate',$true,'')
+        @('search','Rechercher dans Active Directory','trouver nom compte poste','Navigation','Navigate','','',$false,'Search'),
+        @('dashboard','Ouvrir lʼaccueil','tableau de bord parc','Navigation','Navigate','','',$false,'Dashboard'),
+        @('operations','Afficher les opérations en cours','taches suivi lenteur sante','Navigation','Navigate','','',$false,''),
+        @('journal','Ouvrir le journal de session','log erreurs historique','Navigation','Navigate','','',$false,'Journal'),
+        @('index','Ouvrir lʼindex local','base locale cache','Navigation','Navigate','','',$false,'Index'),
+        @('queries','Ouvrir lʼatelier de requêtes','requete filtre parc','Navigation','Navigate','','',$false,''),
+        @('accounts','Ouvrir Comptes et accès','identite compte secondaire laps bitlocker','Navigation','Navigate','','',$false,''),
+        @('relations','Ouvrir les relations utilisateur et poste','association lien poste utilisateur','Navigation','Navigate','','',$false,''),
+        @('tools','Ouvrir les outils et lʼaide','aide parametres','Navigation','Navigate','','',$false,'Tools'),
+        @('shortcuts','Afficher les raccourcis clavier','clavier touches aide','Aide','Local','','',$false,''),
+        @('theme','Changer de thème clair ou sombre','sombre clair couleurs','Présentation','Local','','',$false,'Theme'),
+        @('undo','Annuler la dernière présentation de la liste','colonnes tri filtre retour','Présentation','Local','','',$false,'Undo'),
+        @('summary','Copier le résumé de lʼobjet','presse-papiers fiche','Objet ouvert','Local','Selection','',$false,'Summary'),
+        @('parent','Ouvrir le conteneur parent','ou dossier parent','Objet ouvert','Navigate','Selection','',$true,''),
+        @('diagnostic','Préparer le diagnostic expurgé','support export versions mesures','Application','Local','','',$false,''),
+        @('selfcheck','Vérifier lʼapplication','auto-verification prerequis','Application','Read','','',$false,''),
+        @('tree','Actualiser lʼarborescence','ou arbre recharger','Lecture','Read','','',$true,'Tree'),
+        @('batch','Diagnostic réseau des postes sélectionnés','ping ports smb winrm','Lecture','Read','MachineRows','',$true,''),
+        @('ping','Pinger ce poste','reseau joignable','Lecture','Read','Machine','BtnCompPing',$true,''),
+        @('sessions','Lire les sessions du poste','utilisateur connecte rdp','Lecture','Read','Machine','BtnSessionsRead',$true,''),
+        @('computerdiag','Lancer le diagnostic du poste','sante disque services','Lecture','Read','Machine','BtnRunComputerDiag',$true,''),
+        @('inventory','Lancer lʼinventaire rapide du poste','materiel wmi','Lecture','Read','Machine','BtnRunInventory',$true,''),
+        @('software','Charger les logiciels du poste','applications installees','Lecture','Read','Machine','BtnLoadSoftware',$true,''),
+        @('lastuser','Détecter lʼutilisateur du poste','session utilisateur','Lecture','Read','Machine','BtnRefreshMachineLink',$true,''),
+        @('lockouts','Lire les verrouillages du compte (4740)','verrouillage evenement securite','Lecture','Read','Utilisateur','BtnUserSupportLockouts',$true,''),
+        @('permissions','Analyser les permissions de lʼobjet','acl droits securite','Lecture','Read','Selection','BtnPermissionRefresh',$true,''),
+        @('laps','Lire le mot de passe LAPS','administrateur local secret','Lecture protégée','Sensitive','Machine','BtnLoadLaps',$true,''),
+        @('bitlocker','Lire les clés BitLocker','recuperation secret','Lecture protégée','Sensitive','Machine','BtnLoadBitLocker',$true,''),
+        @('useredit','Modifier la fiche de lʼutilisateur','editer champs','Écriture préparée','PrepareWrite','Utilisateur','BtnUserEdit',$true,''),
+        @('unlock','Déverrouiller le compte','verrouille debloquer','Écriture préparée','PrepareWrite','Utilisateur','BtnUserUnlock',$true,''),
+        @('resetpassword','Réinitialiser le mot de passe','mot de passe changer','Écriture préparée','PrepareWrite','Utilisateur','BtnUserResetPwd',$true,''),
+        @('userenable','Activer le compte','activer utilisateur','Écriture préparée','PrepareWrite','Utilisateur','BtnUserEnable',$true,''),
+        @('userdisable','Désactiver le compte','desactiver utilisateur','Écriture préparée','PrepareWrite','Utilisateur','BtnUserDisable',$true,''),
+        @('usermove','Déplacer lʼutilisateur','ou deplacer','Écriture préparée','PrepareWrite','Utilisateur','BtnUserMove',$true,''),
+        @('useraddgroup','Ajouter lʼutilisateur à un groupe','groupe membre','Écriture préparée','PrepareWrite','Utilisateur','BtnUserAddGroup',$true,''),
+        @('groupadd','Ajouter un membre au groupe','groupe membre','Écriture préparée','PrepareWrite','Groupe','BtnGroupAddMember',$true,''),
+        @('groupremove','Retirer un membre du groupe','groupe membre','Écriture préparée','PrepareWrite','Groupe','BtnGroupRemoveMember',$true,''),
+        @('computeredit','Modifier la fiche du poste','description emplacement','Écriture préparée','PrepareWrite','Machine','BtnCompEdit',$true,''),
+        @('computerenable','Activer le poste','activer ordinateur','Écriture préparée','PrepareWrite','Machine','BtnCompEnable',$true,''),
+        @('computerdisable','Désactiver le poste','desactiver ordinateur','Écriture préparée','PrepareWrite','Machine','BtnCompDisable',$true,''),
+        @('gpupdate','Actualiser les stratégies du poste','gpupdate gpo','Écriture préparée','PrepareWrite','Machine','BtnCompGpUpdate',$true,''),
         @('restart','Redémarrer le poste','redemarrage reboot','Écriture préparée','PrepareWrite','Machine','BtnCompRestart',$true,'')
     )
     $order = 0

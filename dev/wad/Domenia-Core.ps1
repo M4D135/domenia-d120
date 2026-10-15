@@ -5553,7 +5553,7 @@ function Get-MainXaml {
                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="440" Margin="16">
                               <Path Data="M17,17 L23,23 M20,11 A9,9 0 1 1 2,11 A9,9 0 1 1 20,11" Width="38" Height="38" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,0,15" IsHitTestVisible="False" HorizontalAlignment="Center"/>
                               <TextBlock x:Name="LblSearchEmptyTitle" Text="Rien nʼa encore été interrogé" FontSize="19" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" ToolTip="Pourquoi la liste est vide : rien interrogé, lecture en cours, aucun résultat, filtre local, lecture refusée, partielle ou sans source. Jamais une preuve dʼabsence dans lʼannuaire." AutomationProperties.Name="État de la liste de résultats" AutomationProperties.HelpText="Pourquoi la liste est vide : rien interrogé, lecture en cours, aucun résultat, filtre local, lecture refusée, partielle ou sans source. Jamais une preuve dʼabsence dans lʼannuaire."/>
-                              <TextBlock x:Name="LblSearchEmptyText" Text="Aucun poste ni aucune source nʼa encore été interrogé pour cette vue : lʼaffichage vide ne renseigne pas sur lʼétat réel." TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0" ToolTip="Ce qui a été lu, dans quel périmètre, et ce que la liste vide ne permet pas de conclure." AutomationProperties.Name="Explication de la liste vide" AutomationProperties.HelpText="Ce qui a été lu, dans quel périmètre, et ce que la liste vide ne permet pas de conclure."/>
+                              <TextBlock x:Name="LblSearchEmptyText" Text="Aucun poste ni aucune source nʼa encore été interrogé pour cette vue : lʼaffichage vide ne renseigne pas sur lʼétat réel." TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0" AutomationProperties.LiveSetting="Polite" ToolTip="Ce qui a été lu, dans quel périmètre, et ce que la liste vide ne permet pas de conclure." AutomationProperties.Name="Explication de la liste vide" AutomationProperties.HelpText="Ce qui a été lu, dans quel périmètre, et ce que la liste vide ne permet pas de conclure."/>
                               <Button x:Name="BtnSearchEmptyNext" Content="Rechercher un nom ou choisir une OU" Tag="StartRead" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Center" Margin="0,14,0,0" ToolTip="Prochaine action proposée pour cette liste vide. Rien ne part tout seul : une lecture ne commence quʼavec ce clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Prochaine action proposée" AutomationProperties.HelpText="Prochaine action proposée pour cette liste vide. Rien ne part tout seul : une lecture ne commence quʼavec ce clic."/>
                             </StackPanel>
                           </Border></Grid>
@@ -24206,7 +24206,12 @@ try {
     try { [void](Start-DomeniaJobTrace -Job $job -RequestedTraceId $TraceId -Payload $Payload -CallbackState $CallbackState) } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
     if ($admission -eq 'Queue') {
         # Nothing is sent yet: the pinned body is checked now, the worker starts when Complete-UiTasks promotes it.
-        [void](Assert-DomeniaWorkerOperationCode -OperationId $OperationId -Code $Code)
+        try { [void](Assert-DomeniaWorkerOperationCode -OperationId $OperationId -Code $Code) }
+        catch {
+            # W13 (point 123): a body refused before queueing ends the trace of the job, like a refusal before dispatch.
+            try { [void](Complete-DomeniaJobTrace -Job $job -Outcome 'Refused' -NotDispatched) } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
+            throw
+        }
         $job.State = 'Queued'
         $job.QueuedAt = $now
         Set-ControlsBusy -Names $DisableControls -Busy $true

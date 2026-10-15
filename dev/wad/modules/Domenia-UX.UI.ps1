@@ -936,6 +936,18 @@ function Send-DomeniaUxLiveChange {
     } catch { }
 }
 
+function Set-DomeniaLiveText {
+    # W13 (point 116): text of a polite live region (state of the result list, palette, operations panel). WPF raises
+    # no LiveRegionChanged by itself: the text is rewritten only when it changes, then the change is announced once.
+    # Returns $true when the text changed.
+    param($Control,[AllowNull()][AllowEmptyString()][string]$Text)
+    if ($null -eq $Control) { return $false }
+    if ([string]$Control.Text -ceq [string]$Text) { return $false }
+    $Control.Text = [string]$Text
+    Send-DomeniaUxLiveChange -Control $Control
+    return $true
+}
+
 function Get-DomeniaUxSubject {
     # The current subject: the loaded object, otherwise the object being read; never a former object.
     $name = ''; $type = ''
@@ -1474,10 +1486,10 @@ function Update-DomeniaSearchEmptyState {
         $label = [string]$state.NextAction.Label; $command = [string]$state.NextAction.Command
         if ($null -ne $script:DomeniaSearchEmptyTimer) { $script:DomeniaSearchEmptyTimer.Stop() }
     }
-    $titleBlock = Get-DomeniaControl 'LblSearchEmptyTitle'
-    if (($null -ne $titleBlock) -and ([string]$titleBlock.Text -cne $title)) { $titleBlock.Text = $title }
-    $textBlock = Get-DomeniaControl 'LblSearchEmptyText'
-    if (($null -ne $textBlock) -and ([string]$textBlock.Text -cne $text)) { $textBlock.Text = $text }
+    # Both blocks are polite live regions: a new verdict (refusée, aucun résultat...) is announced once, then its
+    # explanation; an unchanged text is not announced again.
+    [void](Set-DomeniaLiveText -Control (Get-DomeniaControl 'LblSearchEmptyTitle') -Text $title)
+    [void](Set-DomeniaLiveText -Control (Get-DomeniaControl 'LblSearchEmptyText') -Text $text)
     $button = Get-DomeniaControl 'BtnSearchEmptyNext'
     if ($null -ne $button) {
         $button.Tag = $command
@@ -1694,6 +1706,14 @@ function Set-DomeniaUiZoom {
     Update-DomeniaUxLayout
     if($Persist){Set-DomeniaSetting 'Ui.ZoomPercent' $percent;Save-DomeniaSettings}
 }
+function Update-DomeniaUiZoomForDpi {
+    # W13 (point 114): a DPI change of the window (moved to a screen of another scale, scale changed while open) fits
+    # the zoomed page again on the new pixel grid. Layout only: the typed text, the caret and the focus are not touched.
+    # WPF raises Window.DpiChanged only in a per-monitor DPI aware process. Domenia runs in powershell.exe, which is
+    # system DPI aware: there Windows scales the whole window itself, the DPI seen by WPF does not change, and a change of
+    # resolution reaches the page through RootScroll.ScrollChanged. This handler is the path of a per-monitor host.
+    try { Set-DomeniaUiZoom -Percent $script:DomeniaUiZoomPercent } catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
+}
 function Initialize-DomeniaUiZoom {
     $reset=Get-DomeniaControl 'BtnUiZoomReset'
     if($null -eq $reset -or [string]$reset.Tag -eq 'ZoomBound'){return}
@@ -1702,9 +1722,9 @@ function Initialize-DomeniaUiZoom {
     (Get-DomeniaControl 'BtnUiZoomIn').Add_Click({Set-DomeniaUiZoom -Percent ($script:DomeniaUiZoomPercent+10) -Persist})
     $reset.Add_Click({Set-DomeniaUiZoom -Percent 100 -Persist})
     (Get-DomeniaControl 'RootScroll').Add_ScrollChanged({param($s,$e)if([object]::ReferenceEquals($s,$e.OriginalSource) -and ($e.ViewportWidthChange -ne 0 -or $e.ViewportHeightChange -ne 0)){Set-DomeniaUiZoom -Percent $script:DomeniaUiZoomPercent}})
-    # W13 (point 114): a DPI change while open (window moved to another screen, display scale changed) fits the zoomed
-    # page again on the new pixel grid. Layout only: the typed text, the selection and the focus are not touched.
-    try{if(($null -ne $script:Window) -and ($null -ne $script:Window.GetType().GetEvent('DpiChanged'))){$script:Window.Add_DpiChanged({try{Set-DomeniaUiZoom -Percent $script:DomeniaUiZoomPercent}catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }})}}catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
+    # W13 (point 114): Update-DomeniaUiZoomForDpi on Window.DpiChanged. Only a per-monitor DPI aware process receives it;
+    # under powershell.exe (system DPI aware) Windows scales the whole window and RootScroll.ScrollChanged fits again.
+    try{if(($null -ne $script:Window) -and ($null -ne $script:Window.GetType().GetEvent('DpiChanged'))){$script:Window.Add_DpiChanged({Update-DomeniaUiZoomForDpi})}}catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
     $percent=100
     try{$percent=[int](Get-DomeniaSetting 'Ui.ZoomPercent' '100')}catch{$percent=100}
     Set-DomeniaUiZoom -Percent $percent

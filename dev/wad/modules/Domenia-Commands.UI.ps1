@@ -7,6 +7,8 @@ $script:DomeniaPaletteFocusTarget=$null
 $script:DomeniaPresentationHistory=$null
 $script:DomeniaPresentationApplying=$false
 $script:DomeniaPresentationTimer=$null
+# The list whose presentation is the reference of the undo history ($script:BranchObjects when it was taken).
+$script:DomeniaPresentationList=$null
 # Faults of best-effort interface steps (focus, deferred layout): counted for the diagnostic, never shown as an error.
 $script:DomeniaInterfaceFaults=0
 
@@ -219,7 +221,8 @@ function Update-DomeniaCommandPaletteList {
     $status = ''
     if ($rows.Count -eq 0) { $status = 'Aucune action ne correspond à « ' + (ConvertTo-DomeniaFlatText $query 40) + ' ». Effacez la saisie pour tout revoir.' }
     else { $status = [string]$rows.Count + ' action(s), dont ' + [string]$unavailable + ' indisponible(s) pour cette fiche ou ce mode. Entrée exécute, Échap ferme.' }
-    [void](Set-DomeniaControlText 'LblPaletteStatus' $status)
+    # Point 116: the status and the detail are polite live regions, announced when their text changes.
+    [void](Set-DomeniaLiveText -Control (Get-DomeniaControl 'LblPaletteStatus') -Text $status)
     Update-DomeniaCommandPaletteDetail
 }
 
@@ -232,7 +235,7 @@ function Update-DomeniaCommandPaletteDetail {
         if ([string]$row.Shortcut) { $text += ' (' + [string]$row.Shortcut + ')' }
         $text += "`r`n" + [string]$row.Entry.Detail
     }
-    [void](Set-DomeniaControlText 'LblPaletteDetail' $text)
+    [void](Set-DomeniaLiveText -Control (Get-DomeniaControl 'LblPaletteDetail') -Text $text)
 }
 
 function Invoke-DomeniaCommandPaletteKey {
@@ -261,11 +264,16 @@ function Invoke-DomeniaCommandPaletteEntry {
     $entry = $Row.Entry
     if ([string]$entry.Id -ceq 'shortcuts') {
         Update-DomeniaCommandPaletteDetail
-        [void](Set-DomeniaControlText 'LblPaletteStatus' 'Raccourcis clavier affichés ci-dessus. Échap ferme la palette.')
+        [void](Set-DomeniaLiveText -Control (Get-DomeniaControl 'LblPaletteStatus') -Text 'Raccourcis clavier affichés ci-dessus. Échap ferme la palette.')
         return
     }
     $decision = Get-DomeniaPaletteDecision -Entry $entry
-    if ([string]$decision.Action -eq 'None') { [void](Set-DomeniaControlText 'LblPaletteStatus' ([string]$decision.Status)); return }
+    # An unavailable action keeps the focus in the field: the reason is announced, even when it is already displayed.
+    if ([string]$decision.Action -eq 'None') {
+        $status = Get-DomeniaControl 'LblPaletteStatus'
+        if (-not (Set-DomeniaLiveText -Control $status -Text ([string]$decision.Status))) { Send-DomeniaUxLiveChange -Control $status }
+        return
+    }
     Hide-DomeniaCommandPalette -KeepFocus:([string]$decision.Action -ne 'Run')
     Invoke-DomeniaSafeUiAction -Operation ([string]$entry.Label) -Action { Invoke-DomeniaPaletteDecision -Entry $entry -Decision $decision }
 }
@@ -337,17 +345,13 @@ function Initialize-DomeniaPresentationUndo {
     $grid = Get-DomeniaControl 'DgObjects'
     if ($null -eq $grid) { return }
     $script:DomeniaPresentationHistory = New-DomeniaPresentationHistory -Maximum 10
+    $script:DomeniaPresentationList = $script:BranchObjects
     [void](Add-DomeniaPresentationState -History $script:DomeniaPresentationHistory -State (Get-DomeniaCurrentPresentation))
     $script:DomeniaPresentationTimer = New-DomeniaTimer -Owner 'Timer:PresentationUndo' -IntervalMs 900 -Tick { $script:DomeniaPresentationTimer.Stop(); Save-DomeniaPresentationStep }
     $grid.Add_ColumnReordered({ Request-DomeniaPresentationStep -Soon })
     $grid.Add_Sorting({ Request-DomeniaPresentationStep -Soon })
     $grid.Add_PreviewMouseLeftButtonUp({ Request-DomeniaPresentationStep -Soon })
-    $grid.Add_PreviewKeyDown({
-        param($sender,$eventArgs)
-        if (($eventArgs.Key -eq [Windows.Input.Key]::Z) -and ([Windows.Input.Keyboard]::Modifiers -eq [Windows.Input.ModifierKeys]::Control) -and ($eventArgs.OriginalSource -isnot [Windows.Controls.Primitives.TextBoxBase])) {
-            $eventArgs.Handled = $true; Undo-DomeniaResultPresentation
-        }
-    })
+    $grid.Add_PreviewKeyDown({ param($sender,$eventArgs) [void](Invoke-DomeniaPresentationUndoKey -KeyEvent $eventArgs) })
     $filter = Get-DomeniaControl 'TxtSuiteResultFilter'
     if ($null -ne $filter) { $filter.Add_TextChanged({ Request-DomeniaPresentationStep }) }
     $presence = Get-DomeniaControl 'CmbPresenceFilter'
@@ -368,12 +372,33 @@ function Request-DomeniaPresentationStep {
     if ($null -ne $script:DomeniaPresentationTimer) { $script:DomeniaPresentationTimer.Stop(); $script:DomeniaPresentationTimer.Start() }
 }
 
+function Invoke-DomeniaPresentationUndoKey {
+    # PreviewKeyDown of the result list: Ctrl+Z undoes its presentation (Test-DomeniaPresentationUndoKey), never the typing
+    # of a text field inside it. -Modifiers: the keys held, read from the keyboard when not given. $true when handled.
+    param($KeyEvent,[string]$Modifiers='')
+    if ($null -eq $KeyEvent) { return $false }
+    if (-not $PSBoundParameters.ContainsKey('Modifiers')) { $Modifiers = [string][Windows.Input.Keyboard]::Modifiers }
+    $fromText = ($KeyEvent.OriginalSource -is [Windows.Controls.Primitives.TextBoxBase])
+    if (-not (Test-DomeniaPresentationUndoKey -Key ([string]$KeyEvent.Key) -Modifiers $Modifiers -FromTextInput $fromText)) { return $false }
+    $KeyEvent.Handled = $true
+    Undo-DomeniaResultPresentation
+    return $true
+}
+
 function Request-DomeniaPresentationRebase {
-    # A new list: its presentation becomes the reference once its sort is set (Begin-DomeniaLiveSearch), no step.
+    # A new list (search, branch, cache, history: a new $script:BranchObjects) becomes the reference once its sort is
+    # set (Begin-DomeniaLiveSearch), without a step. The same list repainted by its local or presence filter
+    # (Apply-DomeniaPresenceFilter assigns a filtered copy) is not a new list: the filter step still pending is kept.
     if ($null -eq $script:DomeniaPresentationHistory) { return }
     try {
         [void]$script:Window.Dispatcher.BeginInvoke([Windows.Threading.DispatcherPriority]::ApplicationIdle,[Action]{
-            try { if (-not [bool]$script:DomeniaPresentationApplying) { Reset-DomeniaPresentationCurrent -History $script:DomeniaPresentationHistory -State (Get-DomeniaCurrentPresentation) } } catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
+            try {
+                if ([bool]$script:DomeniaPresentationApplying) { return }
+                $list = $script:BranchObjects
+                if (($null -ne $list) -and [object]::ReferenceEquals($list,$script:DomeniaPresentationList)) { return }
+                $script:DomeniaPresentationList = $list
+                Reset-DomeniaPresentationCurrent -History $script:DomeniaPresentationHistory -State (Get-DomeniaCurrentPresentation)
+            } catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
         })
     } catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
 }

@@ -10,6 +10,19 @@ function New-PaletteControls {
     return $map
 }
 function Get-PaletteEntry { param([object[]]$Entries,[string]$Id) return @($Entries|Where-Object{$_.Id -ceq $Id})[0] }
+Test-Case 'P117' 'Catalogue : 42 actions entieres, une ligne par action, jamais des lettres isolees' {
+    $catalogue=@(Get-DomeniaCommandCatalogue)
+    Assert-Equal 42 $catalogue.Count 'Catalogue aplati ou incomplet'
+    Assert-Equal 'search' $catalogue[0].Id;Assert-Equal 1 $catalogue[0].Order;Assert-Equal 'Navigate' $catalogue[0].Effect;Assert-Equal 'Search' $catalogue[0].Shortcut
+    Assert-Equal 'restart' $catalogue[41].Id;Assert-Equal 42 $catalogue[41].Order;Assert-Equal 'BtnCompRestart' $catalogue[41].Target;Assert-True $catalogue[41].NeedsConnection
+    $groups=@('Navigation','Aide','Présentation','Objet ouvert','Application','Lecture','Lecture protégée','Écriture préparée')
+    foreach($c in $catalogue){
+        Assert-True ($c.Id -match '^[a-z]{3,20}$') ('Identifiant : '+$c.Id)
+        Assert-True ($groups -ccontains $c.Group) ('Groupe : '+$c.Group)
+        Assert-True (($c.Target -eq '') -or ($c.Target -match '^Btn[A-Za-z]+$')) ('Cible : '+$c.Target)
+    }
+    Assert-Equal 'BtnUserUnlock' @($catalogue|Where-Object{$_.Id -eq 'unlock'})[0].Target
+}
 Test-Case 'P117' 'Catalogue ferme : identifiants uniques, effets connus, ecritures et secrets portes par leur bouton' {
     $catalogue=@(Get-DomeniaCommandCatalogue)
     Assert-Equal $catalogue.Count @($catalogue|ForEach-Object{$_.Id}|Select-Object -Unique).Count 'Identifiants dupliques'
@@ -128,4 +141,13 @@ Test-Case 'P120' 'Dix etapes au plus ; une nouvelle liste devient la reference s
     $entries=@(Get-DomeniaPaletteEntries -Context (New-PaletteContext -Undo $true -UndoText 'colonnes'))
     Assert-True (Get-PaletteEntry $entries 'undo').Available;Assert-True ((Get-PaletteEntry $entries 'undo').Label.Contains('(colonnes)'))
     Assert-Equal 'Aucune présentation de la liste à annuler.' (Get-PaletteEntry @(Get-DomeniaPaletteEntries -Context (New-PaletteContext)) 'undo').Reason
+}
+Test-Case 'P120' 'Ctrl+Z : annule la presentation depuis la liste, reste a la saisie dans un champ, rien sans Ctrl' {
+    Assert-True (Test-DomeniaPresentationUndoKey -Key 'Z' -Modifiers 'Control' -FromTextInput $false) 'Ctrl+Z dans la liste'
+    Assert-False (Test-DomeniaPresentationUndoKey -Key 'Z' -Modifiers 'Control' -FromTextInput $true) 'Ctrl+Z dans un champ de saisie'
+    Assert-False (Test-DomeniaPresentationUndoKey -Key 'Z' -Modifiers 'None') 'Z seul'
+    Assert-False (Test-DomeniaPresentationUndoKey -Key 'Z' -Modifiers 'Control, Shift') 'Ctrl+Maj+Z'
+    Assert-False (Test-DomeniaPresentationUndoKey -Key 'Y' -Modifiers 'Control') 'Ctrl+Y'
+    $undo=@(Get-DomeniaKeyboardShortcuts|Where-Object{$_.Id -eq 'Undo'})[0]
+    Assert-Equal 'Ctrl+Z' $undo.Text 'Le raccourci annonce est celui qui est traite'
 }

@@ -60,10 +60,57 @@ Check-Suite 'P123 : lecture locale et publication d une demande sont ajoutees a 
     Add-DomeniaRequestTraceEvent -RequestId $request -Phase 'StoreRead' -Volume 100 -DurationMs 30
     Add-DomeniaRequestTraceEvent -RequestId $request -Phase 'StoreRead' -Volume 50 -DurationMs 0
     Add-DomeniaRequestTraceEvent -RequestId 'inconnue-0000' -Phase 'StoreRead' -Volume 1
-    Add-DomeniaRequestTraceEvent -RequestId $request -Phase 'Publish' -Volume 150 -Detail 'lignes transmises à la liste' -Final
+    Add-DomeniaRequestTraceEvent -RequestId $request -Phase 'Publish' -Volume 150 -Detail 'lignes transmises à la liste'
     $trace=(Get-DomeniaTraceRing)[$request]
     $store=@($trace.Events|Where-Object{$_.Phase -eq 'StoreRead'})
+    [void](Complete-DomeniaJobTrace -Job $job -Outcome 'Succeeded')
     ((Get-DomeniaTraceRing).Count -eq 1) -and ($store.Count -eq 1) -and ([int]$store[0].Volume -eq 150) -and ($script:TraceLines.Count -eq 1) -and ($script:TraceLines[0].Contains('[trace 11111111]'))
+}
+function New-TracePipe {param([string]$RequestId) return [pscustomobject]@{Context=[pscustomobject]@{RequestId=$RequestId};Collector=[hashtable]::Synchronized(@{Started=$true;Done=$false});Closed=$false;Failure=''}}
+Check-Suite 'P123 : demande en flux : la trace reste ouverte apres la tache jusqu a la derniere publication, une seule ligne' {
+    Reset-TraceState
+    $request='22222222-3333-4444-5555-666666666666'
+    $pipe=New-TracePipe $request;$script:DomeniaDirectoryReads=@{$request=$pipe}
+    $job=New-TraceJob -Operation 'GlobalSearch'
+    [void](Start-DomeniaJobTrace -Job $job -CallbackState ([pscustomobject]@{StoreContext=[pscustomobject]@{RequestId=$request}}))
+    # The LDAP job ends first; its rows are still on their way to SQLite and to the list.
+    [void](Complete-DomeniaJobTrace -Job $job -Outcome 'Succeeded' -ValidateMs 1)
+    $trace=(Get-DomeniaTraceRing)[$request]
+    $afterJob=Get-DomeniaOperationTraceSummary -Trace $trace -NowMs (Get-DomeniaTraceNow)
+    $linesAfterJob=$script:TraceLines.Count
+    Start-Sleep -Milliseconds 60
+    Add-DomeniaRequestTraceEvent -RequestId $request -Phase 'StoreRead' -Volume 100 -DurationMs 20
+    Start-Sleep -Milliseconds 60
+    Add-DomeniaRequestTraceEvent -RequestId $request -Phase 'StoreRead' -Volume 100 -DurationMs 20
+    $stillOpen=(Get-DomeniaOperationTraceSummary -Trace $trace -NowMs (Get-DomeniaTraceNow)).Open
+    $pipe.Closed=$true;$script:DomeniaDirectoryReads.Remove($request)
+    Add-DomeniaRequestTraceEvent -RequestId $request -Phase 'Publish' -Volume 200 -Detail 'lignes transmises à la liste'
+    $publishAt=[double]@($trace.Events|Where-Object{[string]$_.Phase -eq 'Publish'})[-1].AtMs
+    [void](Complete-DomeniaRequestTrace -Pipe $pipe -Outcome 'Succeeded')
+    [void](Complete-DomeniaRequestTrace -Pipe $pipe -Outcome 'Succeeded')
+    $final=Get-DomeniaOperationTraceSummary -Trace $trace -NowMs ((Get-DomeniaTraceNow)+60000)
+    if((-not $afterJob.Open) -or ($afterJob.OutcomeStatus -ne 'Pending') -or ($linesAfterJob -ne 0) -or (-not $stillOpen)){throw 'Trace close avant la fin de l enregistrement local'}
+    if($final.Open -or ($final.Outcome -ne 'Succeeded') -or ([double]$trace.EndedMs -lt $publishAt) -or ($final.TotalMs -lt ($publishAt-[double]$trace.StartedMs))){throw ('Total sans la derniere publication : '+$final.TotalText)}
+    if(($final.TotalMs -lt 100) -or ($final.TotalMs -gt 30000)){throw ('Total fige ou non borne : '+$final.TotalText)}
+    ($script:TraceLines.Count -eq 1) -and ($trace.JobRefs.Count -eq 1) -and ([int]$trace.Jobs -eq 1) -and $script:TraceLines[0].Contains('Publication')
+}
+Check-Suite 'P123 : une tache jamais envoyee ne rattache pas le flux ; un echec d enregistrement local ferme l etape' {
+    Reset-TraceState
+    $request='33333333-4444-5555-6666-777777777777'
+    $pipe=New-TracePipe $request;$script:DomeniaDirectoryReads=@{$request=$pipe}
+    $refused=New-TraceJob -Operation 'OpenAdObject';[void](Start-DomeniaJobTrace -Job $refused -RequestedTraceId $request)
+    [void](Complete-DomeniaJobTrace -Job $refused -Outcome 'Refused' -NotDispatched)
+    $notJoined=((Get-DomeniaTraceRing)[$request].OpenJobs.Count -eq 0) -and ($script:TraceLines.Count -eq 1) -and (-not [string](Get-DomeniaMember $pipe 'TraceStage' ''))
+    Reset-TraceState
+    $request='44444444-5555-6666-7777-888888888888'
+    $pipe=New-TracePipe $request;$script:DomeniaDirectoryReads=@{$request=$pipe}
+    $job=New-TraceJob -Operation 'OpenAdObject';[void](Start-DomeniaJobTrace -Job $job -RequestedTraceId $request)
+    [void](Complete-DomeniaJobTrace -Job $job -Outcome 'Succeeded')
+    $open=((Get-DomeniaTraceRing)[$request].OpenJobs.Count -eq 1) -and ($script:TraceLines.Count -eq 0)
+    $pipe.Failure='Recu SQLite incoherent'
+    [void](Complete-DomeniaRequestTrace -Pipe $pipe -Outcome 'Failed' -Detail 'enregistrement local non confirmé')
+    $t=(Get-DomeniaTraceRing)[$request]
+    $notJoined -and $open -and ($t.OpenJobs.Count -eq 0) -and ([string]$t.Outcome -eq 'Failed') -and ($script:TraceLines.Count -eq 1)
 }
 Check-Suite 'P123/P121 : fin de tache : file, collecte, validation, publication puis fin, une seule fois' {
     Reset-TraceState
@@ -125,9 +172,10 @@ function Get-SuiteFunctionText {param([string]$Path,[string]$Name)
     return [string]$nodes[0].Extent.Text
 }
 $core=Join-Path $wad 'Domenia-Core.ps1'
-Check-Suite 'P123 : Start-UiTask ouvre la trace avant file ou envoi, et la ferme sur un refus' {
+Check-Suite 'P123 : Start-UiTask ouvre la trace avant file ou envoi, et la ferme sur un refus (file comprise)' {
     $t=Get-SuiteFunctionText $core 'Start-UiTask'
-    $t.Contains('[string]$TraceId') -and ($t.IndexOf('Start-DomeniaJobTrace') -lt $t.IndexOf("if (`$admission -eq 'Queue')")) -and $t.Contains("Complete-DomeniaJobTrace -Job `$job -Outcome 'Refused' -NotDispatched")
+    $queue=$t.IndexOf("if (`$admission -eq 'Queue')")
+    $t.Contains('[string]$TraceId') -and ($t.IndexOf('Start-DomeniaJobTrace') -lt $queue) -and ([regex]::Matches($t,[regex]::Escape("Complete-DomeniaJobTrace -Job `$job -Outcome 'Refused' -NotDispatched")).Count -eq 2) -and ($t.IndexOf("Complete-DomeniaJobTrace -Job `$job -Outcome 'Refused' -NotDispatched",$queue) -lt $t.IndexOf("`$job.State = 'Queued'"))
 }
 Check-Suite 'P123 : Complete-UiTasks ferme la trace sur chaque fin (arret, remplacement, reussite, echec)' {
     $t=Get-SuiteFunctionText $core 'Complete-UiTasks'
@@ -136,9 +184,11 @@ Check-Suite 'P123 : Complete-UiTasks ferme la trace sur chaque fin (arret, rempl
 Check-Suite 'P123 : detachement et retrait de file ecrivent la fin de la trace' {
     (Get-SuiteFunctionText $core 'Detach-DomeniaReadUiTask').Contains('Complete-DomeniaJobTrace') -and (Get-SuiteFunctionText (Join-Path $modules 'Domenia-Engine.UI.ps1') 'Remove-DomeniaQueuedTask').Contains('Complete-DomeniaJobTrace') -and (Get-SuiteFunctionText $core 'Request-UiTaskStop').Contains('-TraceOutcome')
 }
-Check-Suite 'P123 : lecture locale relue et publication de la recherche reliees a la demande' {
+Check-Suite 'P123 : lecture locale relue et publication de la recherche reliees a la demande, etape du flux fermee une fois' {
     $store=Join-Path $modules 'Domenia-DirectoryStore.UI.ps1'
-    (Get-SuiteFunctionText $store 'Complete-DomeniaDirectoryStoreBatch').Contains("-Phase 'StoreRead'") -and (Get-SuiteFunctionText $store 'Invoke-DomeniaDirectoryStoreTick').Contains("-Phase 'Publish'") -and (Get-SuiteFunctionText (Join-Path $modules 'Domenia-Storage.UI.ps1') 'Request-DomeniaStoreRead').Contains('-TraceId ([string]$Context.RequestId)')
+    $tick=Get-SuiteFunctionText $store 'Invoke-DomeniaDirectoryStoreTick'
+    $closedAfterHandlers=($tick.IndexOf('Complete-DomeniaRequestTrace') -gt $tick.IndexOf('& $pipe.CompleteHandler'))
+    (Get-SuiteFunctionText $store 'Complete-DomeniaDirectoryStoreBatch').Contains("-Phase 'StoreRead'") -and $tick.Contains("-Phase 'Publish'") -and $closedAfterHandlers -and (Get-SuiteFunctionText $store 'Fail-DomeniaDirectoryStoreBatch').Contains("Complete-DomeniaRequestTrace -Pipe `$State -Outcome 'Failed'") -and (Get-SuiteFunctionText (Join-Path $modules 'Domenia-Storage.UI.ps1') 'Request-DomeniaStoreRead').Contains('-TraceId ([string]$Context.RequestId)')
 }
 Check-Suite 'P121 : le battement de garde et les minuteurs alimentent l attribution des retards' {
     (Get-SuiteFunctionText (Join-Path $modules 'Domenia-Guard.UI.ps1') 'Initialize-DomeniaGuard').Contains('Register-DomeniaDispatcherLateness') -and (Get-SuiteFunctionText (Join-Path $modules 'Domenia-Engine.UI.ps1') 'Invoke-DomeniaTimerTick').Contains('Register-DomeniaUiWork')

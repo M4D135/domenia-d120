@@ -24,6 +24,7 @@ foreach($file in @('Domenia-Common.Model.ps1','Domenia-Continuity.Model.ps1','Do
 Import-SuiteFunction (Join-Path $modules 'Domenia-Continuity.UI.ps1') 'Get-DomeniaGridColumnKey'
 Import-SuiteFunction (Join-Path $modules 'Domenia-SearchWorkspace.UI.ps1') 'Get-DomeniaResultPresentation'
 Import-SuiteFunction (Join-Path $modules 'Domenia-SearchWorkspace.UI.ps1') 'Restore-DomeniaResultPresentation'
+Import-SuiteFunction (Join-Path $modules 'Domenia-UX.UI.ps1') 'Set-DomeniaLiveText'
 
 # ---------------------------------------------------------------- inert doubles of the core
 function Get-DomeniaControl {param([string]$Name);if($null -eq $script:Ctrl){return $null};return $script:Ctrl[$Name]}
@@ -38,6 +39,9 @@ function Select-DomeniaWorkspace {param([string]$Workspace,[string]$Inner='',[st
 function Update-DomeniaSearchFilterChips {$script:ChipUpdates++}
 function Save-DomeniaGridLayout {param($Grid) $script:LayoutSaves++}
 function New-DomeniaTimer {param([string]$Owner,[int]$IntervalMs,[scriptblock]$Tick) $t=[pscustomobject]@{Owner=$Owner;Running=$false};$t|Add-Member -MemberType ScriptMethod -Name Start -Value {$this.Running=$true};$t|Add-Member -MemberType ScriptMethod -Name Stop -Value {$this.Running=$false};return $t}
+# The live region announcement is recorded: which control the screen reader is told about, in order.
+$script:Announced=New-Object 'System.Collections.Generic.List[string]'
+function Send-DomeniaUxLiveChange {param($Control) if($null -ne $Control){$script:Announced.Add([string]$Control.Name)}}
 function Test-SuiteFocus {param($Control) return [object]::ReferenceEquals([Windows.Input.FocusManager]::GetFocusedElement($script:Window),$Control)}
 function Pump {param($Window);$Window.UpdateLayout();$Window.Dispatcher.Invoke([Action]{},[Windows.Threading.DispatcherPriority]::ApplicationIdle);$Window.UpdateLayout()}
 
@@ -60,8 +64,12 @@ Check-Suite 'P115 : Echap ferme la couche ouverte ou efface la saisie, jamais la
     $escape.Contains('Hide-DomeniaCommandPalette') -and $escape.Contains('Hide-DomeniaOperationsPanel') -and (-not $escape.Contains('Set-DomeniaItemsSource')) -and (-not $escape.Contains('BranchObjects'))
 }
 Check-Suite 'P120 : la liste de resultats a son annulation de presentation (puce et Ctrl+Z)' {
-    $ws=Join-Path $modules 'Domenia-SearchWorkspace.UI.ps1'
-    (Get-SuiteFunctionText $ws 'Update-DomeniaSearchFilterChips').Contains('New-DomeniaPresentationUndoChip') -and (Get-SuiteFunctionText $ws 'Initialize-DomeniaSearchWorkspace').Contains('Initialize-DomeniaPresentationUndo')
+    $ws=Join-Path $modules 'Domenia-SearchWorkspace.UI.ps1';$ui=Join-Path $modules 'Domenia-Commands.UI.ps1'
+    (Get-SuiteFunctionText $ws 'Update-DomeniaSearchFilterChips').Contains('New-DomeniaPresentationUndoChip') -and (Get-SuiteFunctionText $ws 'Initialize-DomeniaSearchWorkspace').Contains('Initialize-DomeniaPresentationUndo') -and (Get-SuiteFunctionText $ui 'Initialize-DomeniaPresentationUndo').Contains('Invoke-DomeniaPresentationUndoKey -KeyEvent $eventArgs') -and (Get-SuiteFunctionText $ui 'Invoke-DomeniaPresentationUndoKey').Contains('Test-DomeniaPresentationUndoKey')
+}
+Check-Suite 'P116 : la palette annonce ses changements (etat, detail, motif d un refus sur Entree)' {
+    $ui=Join-Path $modules 'Domenia-Commands.UI.ps1'
+    (Get-SuiteFunctionText $ui 'Update-DomeniaCommandPaletteList').Contains("Set-DomeniaLiveText -Control (Get-DomeniaControl 'LblPaletteStatus')") -and (Get-SuiteFunctionText $ui 'Update-DomeniaCommandPaletteDetail').Contains("Set-DomeniaLiveText -Control (Get-DomeniaControl 'LblPaletteDetail')") -and (Get-SuiteFunctionText $ui 'Invoke-DomeniaCommandPaletteEntry').Contains('Send-DomeniaUxLiveChange -Control $status') -and (Get-SuiteFunctionText (Join-Path $modules 'Domenia-UX.UI.ps1') 'Set-DomeniaLiveText').Contains('Send-DomeniaUxLiveChange -Control $Control')
 }
 Check-Suite 'P117/P116 : vue de la palette : noms accessibles, info-bulle egale au texte d aide et au catalogue' {
     [xml]$view=[IO.File]::ReadAllText((Join-Path $modules 'Domenia-CommandPalette.xaml'),[Text.Encoding]::UTF8)
@@ -164,12 +172,18 @@ if([Threading.Thread]::CurrentThread.GetApartmentState() -ne [Threading.Apartmen
         }
         Check-Suite 'P117 : Entree sur une action indisponible garde la palette ouverte et dit pourquoi' {
             [void](Show-DomeniaCommandPaletteView);Pump $main
+            $script:Announced.Clear()
             (Get-DomeniaControl 'TxtPaletteSearch').Text='verrouillages';Pump $main
+            $typedAnnounced=$script:Announced.Contains('LblPaletteStatus') -and $script:Announced.Contains('LblPaletteDetail')
             $row=(Get-DomeniaControl 'LstPaletteCommands').SelectedItem
+            $script:Announced.Clear()
             Invoke-DomeniaCommandPaletteEntry -Row $row;Pump $main
+            Invoke-DomeniaCommandPaletteEntry -Row $row;Pump $main
+            # The focus stays in the field: the reason is told to the screen reader at each Entrée, even unchanged.
+            $told=@($script:Announced|Where-Object{$_ -eq 'LblPaletteStatus'}).Count
             $still=Test-DomeniaCommandPaletteOpen;$why=[string](Get-DomeniaControl 'LblPaletteStatus').Text
             Hide-DomeniaCommandPalette;Pump $main
-            ($row.Id -eq 'lockouts') -and $still -and $why.Contains('Sélectionnez un utilisateur') -and $row.Glyph -eq [string][char]0x2298
+            ($row.Id -eq 'lockouts') -and $still -and $why.Contains('Sélectionnez un utilisateur') -and ($row.Glyph -eq [string][char]0x2298) -and $typedAnnounced -and ($told -eq 2)
         }
         Check-Suite 'P120 : filtre puis tri : une etape chacun, Ctrl+Z rend la liste precedente, la puce dit quoi' {
             $script:ChipUpdates=0;$script:LayoutSaves=0
@@ -184,16 +198,38 @@ if([Threading.Thread]::CurrentThread.GetApartmentState() -ne [Threading.Apartmen
             Undo-DomeniaResultPresentation;Pump $main
             $chipText.Contains('filtre de la liste') -and ($afterSort -eq 'tri') -and $sortGone -and ($script:Ctrl['TxtSuiteResultFilter'].Text -eq '') -and ($null -eq (New-DomeniaPresentationUndoChip)) -and ($script:LayoutSaves -eq 2) -and $script:Status.Contains('Aucune opération sur lʼannuaire')
         }
-        Check-Suite 'P120 : Ctrl+Z dans la liste annule ; dans un champ de saisie, il reste a la saisie' {
-            $script:Ctrl['TxtSuiteResultFilter'].Text='paris';Save-DomeniaPresentationStep
-            $grid=$script:Ctrl['DgObjects']
-            $key=New-Object Windows.Input.KeyEventArgs ([Windows.Input.Keyboard]::PrimaryDevice),([Windows.PresentationSource]::FromVisual($grid)),0,([Windows.Input.Key]::Z)
-            $key.RoutedEvent=[Windows.Input.Keyboard]::PreviewKeyDownEvent
-            # Keyboard.Modifiers reads the real keyboard: without Ctrl held, the list keeps the filter (no false undo).
-            $grid.RaiseEvent($key);Pump $main
-            $kept=($script:Ctrl['TxtSuiteResultFilter'].Text -eq 'paris')
+        Check-Suite 'P120 : Ctrl+Z depuis la liste annule ; depuis un champ de saisie, ou sans Ctrl, rien n est annule' {
+            $grid=$script:Ctrl['DgObjects'];$filter=$script:Ctrl['TxtSuiteResultFilter']
+            $filter.Text='paris';Save-DomeniaPresentationStep
+            $fromGrid=New-Object Windows.Input.KeyEventArgs ([Windows.Input.Keyboard]::PrimaryDevice),([Windows.PresentationSource]::FromVisual($grid)),0,([Windows.Input.Key]::Z)
+            $fromGrid.RoutedEvent=[Windows.Input.Keyboard]::PreviewKeyDownEvent
+            # Routed through the real handler of the list with the real keyboard (Ctrl not held): Z alone undoes nothing.
+            $grid.RaiseEvent($fromGrid);Pump $main
+            $keptWithoutCtrl=($filter.Text -eq 'paris') -and (-not $fromGrid.Handled)
+            $fromText=New-Object Windows.Input.KeyEventArgs ([Windows.Input.Keyboard]::PrimaryDevice),([Windows.PresentationSource]::FromVisual($filter)),0,([Windows.Input.Key]::Z)
+            $fromText.RoutedEvent=[Windows.Input.Keyboard]::PreviewKeyDownEvent
+            $filter.RaiseEvent($fromText);Pump $main
+            # The same routing function with Ctrl held: refused from the text field, accepted from the list.
+            $textRefused=(-not (Invoke-DomeniaPresentationUndoKey -KeyEvent $fromText -Modifiers 'Control')) -and ($filter.Text -eq 'paris')
+            $undone=Invoke-DomeniaPresentationUndoKey -KeyEvent $fromGrid -Modifiers 'Control';Pump $main
+            $keptWithoutCtrl -and $textRefused -and $undone -and $fromGrid.Handled -and ($filter.Text -eq '')
+        }
+        Check-Suite 'P120 : liste hors recherche en direct : le filtre local repeint la meme liste, son etape reste annulable' {
+            $grid=$script:Ctrl['DgObjects'];$filter=$script:Ctrl['TxtSuiteResultFilter']
+            $script:BranchObjects=@([pscustomobject]@{Name='PC-COMPTA-01';Type='Machine'},[pscustomobject]@{Name='PC-RH-01';Type='Machine'})
+            $grid.ItemsSource=[Collections.ArrayList]::new(@($script:BranchObjects));Pump $main
+            $newList=[object]::ReferenceEquals($script:DomeniaPresentationList,$script:BranchObjects)
+            $before=$script:DomeniaPresentationHistory.Undo.Count
+            $filter.Text='compta'
+            # Apply-DomeniaPresenceFilter through Set-DomeniaItemsSource: a filtered copy of the same list, assigned twice,
+            # before the 900 ms step timer records the filter.
+            $grid.ItemsSource=$null;$grid.ItemsSource=[Collections.ArrayList]::new(@($script:BranchObjects[0]));Pump $main
+            Save-DomeniaPresentationStep
+            $text=Get-DomeniaPresentationUndoText $script:DomeniaPresentationHistory
+            $count=$script:DomeniaPresentationHistory.Undo.Count
             Undo-DomeniaResultPresentation;Pump $main
-            $kept -and ($script:Ctrl['TxtSuiteResultFilter'].Text -eq '')
+            $restored=($filter.Text -eq '')
+            $newList -and ($text -eq 'filtre de la liste') -and ($count -eq ($before+1)) -and $restored
         }
     }finally{try{$main.Close()}catch{}}
 }

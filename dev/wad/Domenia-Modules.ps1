@@ -469,6 +469,7 @@ function Get-DomeniaRuntimeModulePlan {
         # W13 (points 115, 117, 120): command palette, keyboard shortcuts and presentation undo of the result list.
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-Commands.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaKeyboardShortcuts',
+            'Test-DomeniaPresentationUndoKey',
             'Get-DomeniaCommandCatalogue',
             'Get-DomeniaShortcutListText',
             'Get-DomeniaCommandEffectText',
@@ -697,6 +698,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Initialize-DomeniaUxLoginPresentation',
             'Test-DomeniaUxExpertAllowed',
             'Send-DomeniaUxLiveChange',
+            'Set-DomeniaLiveText',
             'Get-DomeniaUxSubject',
             'Update-DomeniaUxPageTitle',
             'Update-DomeniaUxSessionBadge',
@@ -742,6 +744,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Stop-DomeniaReadOnlyReturnTimer',
             'Get-DomeniaUiZoomLayoutSize',
             'Set-DomeniaUiZoom',
+            'Update-DomeniaUiZoomForDpi',
             'Initialize-DomeniaUiZoom'
         ) }
         [pscustomobject]@{ File='Domenia-Experience.Model.ps1'; DotSource=$false; Functions=@(
@@ -1295,7 +1298,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Complete-DomeniaLockoutEventRead',
             'Fail-DomeniaLockoutEventRead'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Commands.Model.ps1'); File='Domenia-Commands.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Commands.Model.ps1','Domenia-UX.UI.ps1'); File='Domenia-Commands.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaControlReach',
             'Show-DomeniaControlInPage',
             'Get-DomeniaPaletteContext',
@@ -1314,12 +1317,13 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaCurrentPresentation',
             'Initialize-DomeniaPresentationUndo',
             'Request-DomeniaPresentationStep',
+            'Invoke-DomeniaPresentationUndoKey',
             'Request-DomeniaPresentationRebase',
             'Save-DomeniaPresentationStep',
             'Undo-DomeniaResultPresentation',
             'New-DomeniaPresentationUndoChip'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Observability.Model.ps1'); File='Domenia-Observability.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Observability.Model.ps1','Domenia-UX.UI.ps1'); File='Domenia-Observability.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaTraceNow',
             'Get-DomeniaTraceRing',
             'Register-DomeniaTrace',
@@ -1327,7 +1331,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Start-DomeniaJobTrace',
             'Add-DomeniaJobTraceEvent',
             'Add-DomeniaRequestTraceEvent',
-            'Write-DomeniaRequestTraceLog',
+            'Join-DomeniaPipeTrace',
+            'Complete-DomeniaRequestTrace',
             'Get-DomeniaJobPhaseMeasures',
             'Register-DomeniaUiWork',
             'Add-DomeniaSlowEvent',

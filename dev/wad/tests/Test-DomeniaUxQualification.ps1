@@ -121,8 +121,16 @@ Check-Suite 'P119 : un seul etat vide pour la liste, avec son titre, son texte e
     $init=(Get-SuiteFunctionText (Join-Path $modules 'Domenia-SearchWorkspace.UI.ps1') 'Initialize-DomeniaSearchWorkspace').Contains('Initialize-DomeniaSearchEmptyState')
     ($empty.Count -eq 1) -and ($inside.Count -eq 3) -and (-not $legacy) -and $init
 }
-Check-Suite 'P114 : un changement de DPI recale la page zoomee' {
-    (Get-SuiteFunctionText (Join-Path $modules 'Domenia-UX.UI.ps1') 'Initialize-DomeniaUiZoom').Contains('Add_DpiChanged')
+Check-Suite 'P114 : Window.DpiChanged passe par le recalage teste ci-dessous (seulement en processus DPI par ecran)' {
+    $t=Get-SuiteFunctionText (Join-Path $modules 'Domenia-UX.UI.ps1') 'Initialize-DomeniaUiZoom'
+    $t.Contains('Add_DpiChanged({Update-DomeniaUiZoomForDpi})') -and $t.Contains("GetEvent('DpiChanged')")
+}
+Check-Suite 'P116 : les vues annoncent leurs changements (zones polies : Send-DomeniaUxLiveChange)' {
+    $ux=Join-Path $modules 'Domenia-UX.UI.ps1'
+    $empty=Get-SuiteFunctionText $ux 'Update-DomeniaSearchEmptyState'
+    $trace=Get-SuiteFunctionText (Join-Path $modules 'Domenia-Observability.UI.ps1') 'Update-DomeniaOperationsTraceDetail'
+    $activity=Get-SuiteFunctionText (Join-Path $modules 'Domenia-Experience.UI.ps1') 'Update-DomeniaExperienceActivity'
+    $empty.Contains("Set-DomeniaLiveText -Control (Get-DomeniaControl 'LblSearchEmptyTitle')") -and $empty.Contains("Set-DomeniaLiveText -Control (Get-DomeniaControl 'LblSearchEmptyText')") -and $trace.Contains("`$label = Get-DomeniaControl 'LblOperationsTrace'") -and $trace.Contains('Set-DomeniaLiveText -Control $label') -and $activity.Contains('Send-DomeniaUxLiveChange -Control $stateLabel') -and (Get-SuiteFunctionText $ux 'Set-DomeniaLiveText').Contains('Send-DomeniaUxLiveChange -Control $Control')
 }
 
 # ---------------------------------------------------------------- WPF (STA)
@@ -142,8 +150,11 @@ if([Threading.Thread]::CurrentThread.GetApartmentState() -ne [Threading.Apartmen
     function Set-DomeniaSetting {param($Name,$Value)}
     function Save-DomeniaSettings {}
     function Pump {param($Window);$Window.UpdateLayout();$Window.Dispatcher.Invoke([Action]{},[Windows.Threading.DispatcherPriority]::ApplicationIdle);$Window.UpdateLayout()}
+    # The live region announcement is recorded: which control the screen reader is told about, in order.
+    $script:Announced=New-Object 'System.Collections.Generic.List[string]'
+    function Send-DomeniaUxLiveChange {param($Control) if($null -ne $Control){$script:Announced.Add([string]$Control.Name)}}
     $ux=Join-Path $modules 'Domenia-UX.UI.ps1'
-    foreach($name in @('Get-DomeniaSearchEmptyInputs','Update-DomeniaSearchEmptyState','Invoke-DomeniaSearchEmptyAction','Initialize-DomeniaSearchEmptyState','Get-DomeniaUxOuDisplay','Get-DomeniaUiZoomLayoutSize','Set-DomeniaUiZoom')){Import-SuiteFunction $ux $name}
+    foreach($name in @('Get-DomeniaSearchEmptyInputs','Update-DomeniaSearchEmptyState','Invoke-DomeniaSearchEmptyAction','Initialize-DomeniaSearchEmptyState','Get-DomeniaUxOuDisplay','Get-DomeniaUiZoomLayoutSize','Set-DomeniaUiZoom','Set-DomeniaLiveText','Update-DomeniaUiZoomForDpi')){Import-SuiteFunction $ux $name}
     $script:DomeniaSearchEmptyTimer=$null;$script:DomeniaSearchEmptyBound=$false
     $xaml=@'
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Width="1024" Height="720" ShowActivated="False">
@@ -197,14 +208,20 @@ if([Threading.Thread]::CurrentThread.GetApartmentState() -ne [Threading.Apartmen
             [Windows.Data.CollectionViewSource]::GetDefaultView($rows).Filter=$null
             $refusedRows=New-Object 'System.Collections.ObjectModel.ObservableCollection[object]'
             $script:Live=[pscustomobject]@{Search=[pscustomobject]@{Stopped=$false;Finalized=$true;Final=$null;Error='Acces refuse';Rows=$refusedRows;State=[pscustomobject]@{Search='';SearchMode='OU';BaseDn='OU=Paris,DC=example,DC=invalid'}}}
+            $script:Announced.Clear()
             $grid.ItemsSource=$refusedRows;Pump $window
             $refused=[string]$script:Ctrl['LblSearchEmptyTitle'].Text;$refusedText=[string]$script:Ctrl['LblSearchEmptyText'].Text
+            # The verdict is announced once, then its explanation; recomputing the same state announces nothing more.
+            $announcedRefusal=($script:Announced.ToArray() -join ',')
+            Update-DomeniaSearchEmptyState;Pump $window
+            $announcedAgain=$script:Announced.Count
             if($nothing -ne 'Rien nʼa encore été interrogé'){throw ('Depart : '+$nothing)}
             if(($running -ne 'Lecture en cours') -or (-not $timerOn)){throw ('En cours : '+$running)}
             if(($none -ne 'Aucun résultat') -or (-not $noneText.Contains('« dupont »')) -or (-not $noneText.Contains('tout le domaine')) -or ($noneButton -ne 'Élargir le périmètre ou corriger la saisie')){throw ('Aucun resultat : '+$none+' / '+$noneText)}
             if($shown -ne 2){throw 'Lignes non affichees'}
             if(($filtered -ne 'Filtre local sans correspondance') -or (-not $filteredText.Contains('2 résultat(s)')) -or (-not $cleared)){throw ('Filtre : '+$filtered+' / '+$filteredText)}
             if(($refused -ne 'Lecture refusée') -or (-not $refusedText.Contains('(Paris)'))){throw ('Refus : '+$refused+' / '+$refusedText)}
+            if(($announcedRefusal -ne 'LblSearchEmptyTitle,LblSearchEmptyText') -or ($announcedAgain -ne 2)){throw ('Annonces : '+$announcedRefusal+' puis '+$announcedAgain)}
             Test-DomeniaNoAbsenceClaim ($none+' '+$noneText+' '+$filteredText+' '+$refusedText)
         }
         Check-Suite 'P114 : zoom de 80 a 150 % sans perte de saisie, de curseur ni de focus' {
@@ -218,6 +235,16 @@ if([Threading.Thread]::CurrentThread.GetApartmentState() -ne [Threading.Apartmen
                 if([Math]::Abs($shell.LayoutTransform.ScaleX-($percent/100.0)) -gt 0.001){$ok=$false}
             }
             $ok
+        }
+        Check-Suite 'P114 : recalage sur changement de DPI : zoom garde, saisie, curseur et focus intacts' {
+            # Window.DpiChanged cannot be raised by a test (its arguments are internal to WPF): its handler is run directly.
+            $box=$script:Ctrl['TxtGlobalSearch'];$box.Text='saisie en cours';[void]$box.Focus();$box.CaretIndex=4;Pump $window
+            Set-DomeniaUiZoom -Percent 120;Pump $window
+            $shell=$script:Ctrl['UxShellGrid'];$shell.Width=10;$shell.Height=10
+            Update-DomeniaUiZoomForDpi;Pump $window
+            $refitted=($shell.Width -gt 10) -and ($shell.Height -gt 10)
+            $kept=($box.Text -eq 'saisie en cours') -and ($box.CaretIndex -eq 4) -and [object]::ReferenceEquals([Windows.Input.FocusManager]::GetFocusedElement($window),$box)
+            $refitted -and $kept -and ([Math]::Abs($shell.LayoutTransform.ScaleX-1.2) -lt 0.001) -and ([int]$script:DomeniaUiZoomPercent -eq 120)
         }
     }finally{try{$window.Close()}catch{}}
     Check-Suite 'P113 : panneau des operations et palette tiennent dans une fenetre RDP courte (1024x768 a 150 %)' {
