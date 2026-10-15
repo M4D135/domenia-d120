@@ -322,15 +322,22 @@
     },
     {
       "Path": "engineering/d120/programme-2026-10-08/langue-corrections-a-relire.json",
-      "Sha256": "A8CA403D29E386273D661B1D99253D7D9AF38185DDF65B4836DB4C41A0050B1B",
-      "Bytes": 17988,
+      "Sha256": "7BAD6B453B388E36146720FC0B8623036117C8628B7C9FCAA085FDDC31CE544C",
+      "Bytes": 11715,
       "Runtime": false,
       "PreserveExisting": false
     },
     {
       "Path": "engineering/d120/programme-2026-10-08/langue-corrections-sures.json",
-      "Sha256": "8F3945A90C9BF59F39E0CD5B084D37626D6A00525DFC60AD593B2AFBC10B2895",
-      "Bytes": 108403,
+      "Sha256": "C383CE54E697899D24BD303213C0149E5D12D6B2E3F62CFE2972E4A5591D9D18",
+      "Bytes": 138989,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/langue-dependances-ecartees.json",
+      "Sha256": "3F617A09F763BF22ED6A325328FA2C4BEE11ACE3D7C7CB464CF94C8DD041EA7E",
+      "Bytes": 18032,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -861,8 +868,8 @@
     },
     {
       "Path": "engineering/d120/test_dev_tools.py",
-      "Sha256": "C0C42AB4169B87E4D2C5332C3A49656C3179E439970BFE2EE616FD88A8612B38",
-      "Bytes": 9087,
+      "Sha256": "4ED6397601921E3EF177A4DFBEC5B0440E92AB00A603862DF09776D68FCE1DE6",
+      "Bytes": 9409,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -966,8 +973,8 @@
     },
     {
       "Path": "tools/audit_wording.py",
-      "Sha256": "4DF58949F7D804E6AFF5C924C5860D779C6838432AF7F22EDE194A362B6E8EB8",
-      "Bytes": 12055,
+      "Sha256": "DA440228F0D605FBEA7A1E87EA4B3F67EDB4F28BB1B16ECF4B4E413D76DF040C",
+      "Bytes": 13520,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -994,8 +1001,8 @@
     },
     {
       "Path": "tools/baselines/wording-baseline.json",
-      "Sha256": "EF856491FB770A685AF00BE5C1D4E4F29F67F68559A8C35303A28E5AB463E4C4",
-      "Bytes": 26206,
+      "Sha256": "59BD97C2344DF21F4D0BA4743CC4DEA843A3F9959C7211023DCFD9C3A5BFAA79",
+      "Bytes": 25913,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1024,6 +1031,13 @@
       "Path": "tools/integrate_lots.py",
       "Sha256": "BE9BA92A3CE866F8AF5CF2A7532F677DED285DEAA9173358B244BA2630A82319",
       "Bytes": 11589,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "tools/lang_pass.py",
+      "Sha256": "8541BCE0223C0FE6BE5FABA36291359FC9E0551025A0F27FFE91D52164CE1742",
+      "Bytes": 48914,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1064,8 +1078,8 @@
     },
     {
       "Path": "tools/preload-baseline.json",
-      "Sha256": "A05198C7D45DADF35F193C3F35649238D5E262E1C18AA4A4DBD226C5A0FC8574",
-      "Bytes": 230839,
+      "Sha256": "F8F0242E92ECCCF36326F34B654EAA0943CD24E0B67B24CC2BD94D3DEAFDD14D",
+      "Bytes": 231321,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1122,6 +1136,13 @@
       "Path": "tools/tests/test_classic_packaging.py",
       "Sha256": "FB68CD023CDC04F1D0D27BA4663F12CEFF9002DA7F432B8D4C9AA5E4951A54AE",
       "Bytes": 18865,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "tools/tests/test_lang_pass.py",
+      "Sha256": "590A14113FE168C1F62ED63E91103C5151995873C7CF1ECA5CA9C142A1CE6980",
+      "Bytes": 28088,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1514,6 +1535,13 @@
       "Path": "wad/docs/CORRECTIF-SELECTION-RC1.3.md",
       "Sha256": "0D6C125666E6B9F76E6DB38B11E6846310076811724E41A87BCB895B648B68B7",
       "Bytes": 8570,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "wad/docs/GLOSSAIRE-INTERFACE.md",
+      "Sha256": "CAD104B094EDE027BB49696D27DE1E2F48BFA93722F93176DED47FA4BF794141",
+      "Bytes": 13164,
       "Runtime": false,
       "PreserveExisting": false
     },

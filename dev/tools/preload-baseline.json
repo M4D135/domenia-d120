@@ -3642,6 +3642,15 @@
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],
       "ChangedPayloads": []
+    },
+    {
+      "Previous": ".",
+      "Source": ".",
+      "Decision": "Lot Z01 (pistes UI-04, UI-21, preparation) : outil lang_pass.py (essai a blanc par defaut), cartes de corrections relues (sures et a relire), dependances ecartees relues, glossaire d interface. Aucun texte runtime modifie : application prevue en Z08 apres toutes les fusions.",
+      "ChangedCoreFunctions": [],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
     }
   ]
 }
