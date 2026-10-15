@@ -3491,6 +3491,8 @@ Test-Case 'FI-19 : rappel des metadonnees ignore une reponse perimee, relit une 
     Assert-Equal 2 $script:Fi19Starts.Count
     $first=$script:Fi19Starts[0];$second=$script:Fi19Starts[1]
     Assert-True (($first.OperationId -eq 'LocalIndexRead') -and ($first.Payload.Action -eq 'IndexMetadata') -and ($first.ReplaceKey -eq 'local:index-metadata') -and ($first.NonCancellable)) 'Lecture non confiee au worker LocalIndexRead.'
+    # A view waits for it: never background work, which the Storage budget refuses while another local job runs.
+    Assert-Equal 'Explicit' ([string]$first.TaskClass) 'Lecture des chiffres envoyee comme travail de fond.'
     $answer=[pscustomobject]@{Rows=@();Busy=$false;Missing=$false;MachineCount=1;SyncStates=@([pscustomobject]@{scope='directory';server='dc1';base_dn='DC=example,DC=invalid';highest_usn=7;last_sync='2026-10-01T08:00:00Z';item_count=2;details=''});Counts=[pscustomobject]@{Total=2;Users=1;Computers=1;MachinesActive=1;MachinesDisabled=0}}
     Complete-DomeniaIndexMetadataUi -Result $answer -State $first.State
     Assert-Equal (-1) ([int]$script:IndexDbCount) 'Une reponse remplacee par une demande plus recente a ete appliquee.'
@@ -3620,12 +3622,12 @@ Test-Case 'FI-19 : base mise en service par une bascule : chiffres et associatio
     function Start-UiTask { param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,$ReplaceKey,$TimeoutSeconds,$TaskClass,[switch]$NonCancellable) $script:Fi19Starts.Add([pscustomobject]@{OperationId=$OperationId;Action=[string]$Payload.Action;State=$CallbackState}); return ('fi19-'+$script:Fi19Starts.Count) }
     function Get-DomeniaLocalIndexReadWorkerCode { return 'corps epingle' }
     function Initialize-DomeniaDatabase { if($script:Fi19InitFails){throw 'schema illisible'}; $script:Fi19Inits++; return $true }
-    function Initialize-DomeniaQueryLibraryStore { param([switch]$Force) }
+    function Initialize-DomeniaQueryLibraryStore { param([switch]$Force) if($script:Fi19LibraryFails){throw 'bibliotheque illisible'} }
     function Request-DomeniaFleetRefresh { param([switch]$Force) }
     function Update-DomeniaIndexLocation { }
     function Update-DomeniaIndexStats { $script:Fi19Stats++ }
     . ([scriptblock]::Create((Get-FunctionTextFromFile (Join-Path $modules 'Domenia-StorageContext.UI.ps1') 'Resume-DomeniaDatabaseViews')))
-    $script:Fi19Inits=0;$script:Fi19Stats=0;$script:Fi19InitFails=$false;$script:LinkLoad=$null
+    $script:Fi19Inits=0;$script:Fi19Stats=0;$script:Fi19InitFails=$false;$script:Fi19LibraryFails=$false;$script:LinkLoad=$null
     $script:IndexDbCount=40;$script:IndexDbMachinesActive=20;$script:IndexMetadataError=''
     Resume-DomeniaDatabaseViews
     Assert-Equal 0 $script:Fi19Starts.Count 'Une retention relit les associations : les saisies en memoire seraient prises pour des nouveautes.'
@@ -3636,13 +3638,85 @@ Test-Case 'FI-19 : base mise en service par une bascule : chiffres et associatio
     Assert-Equal (-1) ([int]$script:IndexDbMachinesActive) 'Les chiffres de la base precedente restent affiches.'
     Assert-True (($null -ne $script:LinkLoad) -and ([bool]$script:LinkLoad.Pending)) 'Les associations de la nouvelle base ne sont pas attendues.'
     Assert-True ($script:Fi19Stats -ge 1) 'La page Base locale ne dit pas que la base est en lecture.'
-    $script:Fi19Starts.Clear();$script:LinkLoad=$null;$script:Fi19InitFails=$true
+    # The schema of the new base cannot be opened: nothing of the replaced base stays (figures, pending associations),
+    # and Base locale says that the base could not be read.
+    $script:Fi19Starts.Clear();$script:Fi19InitFails=$true;$script:Fi19Stats=0
+    $script:IndexDbCount=40;$script:IndexDbMachinesActive=20;$script:IndexMetadataError=''
+    $script:LinkLoad=[pscustomobject]@{Pending=$true;Generation=[long]5;Epoch=[long]$script:SessionEpoch;Deferred=$false}
     Resume-DomeniaDatabaseViews -ReloadLocalState
     Assert-Equal 0 $script:Fi19Starts.Count 'Lecture d une base dont le schema n a pas pu etre ouvert.'
     Assert-True (@($script:Statuses|Where-Object{$_ -match 'relecture locale'}).Count -ge 1) 'Echec de l ouverture non signale.'
+    Assert-Equal (-1) ([int]$script:IndexDbMachinesActive) 'Une ouverture en echec laisse les postes actifs de la base remplacee (couverture du parc).'
+    Assert-Equal (-1) ([int]$script:IndexDbCount) 'Une ouverture en echec laisse les chiffres de la base remplacee.'
+    Assert-True ($null -eq $script:LinkLoad) 'Une lecture d associations de la base remplacee reste attendue.'
+    Assert-True (([string]$script:IndexMetadataError).Contains('schema illisible')) ('Base locale ne dit pas que la base n a pas pu etre lue : ' + [string]$script:IndexMetadataError)
+    Assert-True ($script:Fi19Stats -ge 1) 'La page Base locale n est pas actualisee apres l echec.'
+    # A later step fails after the opening: the reads already started keep the page, the error is not theirs.
+    $script:Fi19Starts.Clear();$script:Fi19InitFails=$false;$script:Fi19LibraryFails=$true;$script:LinkLoad=$null;$script:IndexMetadataError=''
+    Resume-DomeniaDatabaseViews -ReloadLocalState
+    Assert-Equal 'IndexMetadata,UserMachineLinks' ((@($script:Fi19Starts)|ForEach-Object{$_.Action}) -join ',') 'Lectures de la nouvelle base apres son ouverture'
+    Assert-Equal '' ([string]$script:IndexMetadataError) 'L echec d une etape posterieure est attribue a la lecture des chiffres.'
+    Assert-True ([bool]$script:IndexMetadataPending) 'La lecture des chiffres n est plus attendue.'
+    $script:Fi19LibraryFails=$false
     $apply=Get-FunctionTextFromFile $storageUi 'Complete-DomeniaStorageMaintenanceApply'
     Assert-True ($apply.Contains('Resume-DomeniaDatabaseViews -ReloadLocalState')) 'La bascule ne relit pas l etat de la nouvelle base.'
-    $script:LinkLoad=$null
+    $script:LinkLoad=$null;$script:IndexMetadataPending=$false
+}
+Test-Case 'FI-19 : retour sur Outils avec Base locale deja ouverte : etat manquant relu, page cachee ignoree' {
+    # WPF raises no SelectionChanged on the inner tabs when Outils is shown again with Base locale already selected
+    # (side bar, Ctrl+I, first steps of Accueil): the change of workspace asks, and only for that page.
+    $script:Fi19Starts=[Collections.Generic.List[object]]::new()
+    function Start-UiTask { param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,$ReplaceKey,$TimeoutSeconds,$TaskClass,[switch]$NonCancellable) $script:Fi19Starts.Add([pscustomobject]@{Action=[string]$Payload.Action;State=$CallbackState}); return ('fi19-'+$script:Fi19Starts.Count) }
+    function Get-DomeniaLocalIndexReadWorkerCode { return 'corps epingle' }
+    function Update-DomeniaIndexStats { }
+    $script:Fi19Tabs=@{WorkspaceTabs=[pscustomobject]@{SelectedItem=[pscustomobject]@{Name='TabDashboard'}};ApplicationToolTabs=[pscustomobject]@{SelectedItem=[pscustomobject]@{Name='TabIndex'}}}
+    function Get-DomeniaControl { param([string]$Name) return $script:Fi19Tabs[$Name] }
+    Reset-DomeniaIndexMetadataState
+    $script:IndexMetadataError='Base locale occupée.'
+    Request-DomeniaIndexMetadataIfNeeded -IfShown
+    Assert-Equal 0 $script:Fi19Starts.Count 'Lecture demandee alors que Base locale n est pas affichee.'
+    $script:Fi19Tabs['WorkspaceTabs'].SelectedItem=[pscustomobject]@{Name='TabApplicationTools'}
+    $script:Fi19Tabs['ApplicationToolTabs'].SelectedItem=[pscustomobject]@{Name='TabOperationStats'}
+    Request-DomeniaIndexMetadataIfNeeded -IfShown
+    Assert-Equal 0 $script:Fi19Starts.Count 'Lecture demandee pour un autre outil.'
+    $script:Fi19Tabs['ApplicationToolTabs'].SelectedItem=[pscustomobject]@{Name='TabIndex'}
+    Request-DomeniaIndexMetadataIfNeeded -IfShown
+    Assert-Equal 'IndexMetadata' ((@($script:Fi19Starts)|ForEach-Object{$_.Action}) -join ',') 'Retour sur Base locale apres un echec : etat non relu.'
+    Request-DomeniaIndexMetadataIfNeeded -IfShown
+    Assert-Equal 1 $script:Fi19Starts.Count 'Une seconde lecture part alors que la premiere court.'
+    $wire=Get-FunctionTextFromFile $core 'Wire-Events'
+    Assert-True ($wire.Contains('Request-DomeniaIndexMetadataIfNeeded -IfShown')) 'Le changement d espace de travail ne relit pas l etat manquant de Base locale.'
+    Reset-DomeniaIndexMetadataState
+}
+Test-Case 'FI-19 : vue d ensemble refusee pendant une lecture locale redemandee a sa reponse, jamais avant l affichage' {
+    # D018: a background Storage job (the quiet overview of Accueil) is refused while a local read runs. The answers of
+    # the figures and of the associations ask for it again; before the main window is shown the overview waits for the
+    # remembered OU of Rechercher and is not asked.
+    $script:Fi19Starts=[Collections.Generic.List[object]]::new();$script:Fi19Fleet=0
+    function Start-UiTask { param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,$ReplaceKey,$TimeoutSeconds,$TaskClass,[switch]$NonCancellable) $script:Fi19Starts.Add([pscustomobject]@{Action=[string]$Payload.Action;State=$CallbackState}); return ('fi19-'+$script:Fi19Starts.Count) }
+    function Get-DomeniaLocalIndexReadWorkerCode { return 'corps epingle' }
+    function Update-DomeniaIndexStats { }
+    function Update-DomeniaFirstSteps { }
+    function Request-DomeniaDashboardRefresh { }
+    function Request-DomeniaFleetRefresh { param([switch]$Force) $script:Fi19Fleet++ }
+    function ConvertTo-DomeniaCanonicalLinks { param($Links) @($Links) }
+    $shown=$script:DomeniaSessionShown
+    try {
+        $script:IndexMetadataStartupChecks=$false;$script:LinkLoad=$null;$script:UserMachineLinks=@()
+        $figures=[pscustomobject]@{Rows=@();Busy=$false;Missing=$false;MachineCount=0;SyncStates=@();Counts=[pscustomobject]@{Total=0;Users=0;Computers=0;MachinesActive=0;MachinesDisabled=0}}
+        $links=[pscustomobject]@{Rows=@();Busy=$false;Missing=$false;MachineCount=0}
+        foreach($visible in @($false,$true)){
+            $script:DomeniaSessionShown=$visible
+            Request-DomeniaIndexMetadata
+            Complete-DomeniaIndexMetadataUi -Result $figures -State $script:Fi19Starts[$script:Fi19Starts.Count-1].State
+            Request-DomeniaUserMachineLinks
+            Complete-DomeniaUserMachineLinksUi -Result $links -State $script:Fi19Starts[$script:Fi19Starts.Count-1].State
+            if(-not $visible){Assert-Equal 0 $script:Fi19Fleet 'Vue d ensemble demandee avant l affichage de la fenetre principale.'}
+        }
+        Assert-Equal 2 $script:Fi19Fleet 'Vue d ensemble refusee pendant une lecture locale non redemandee a sa reponse.'
+        Assert-Equal 0 ([int]$script:IndexDbCount) 'Chiffres non appliques.'
+        Assert-True ($null -eq $script:LinkLoad) 'Associations toujours attendues.'
+    } finally { $script:DomeniaSessionShown=$shown;$script:LinkLoad=$null;Reset-DomeniaIndexMetadataState }
 }
 Test-Case 'FI-19 : couverture du parc par les chiffres de la base, texte d attente complete par leur reponse' {
     $script:Fi19Label=[pscustomobject]@{Text=''}

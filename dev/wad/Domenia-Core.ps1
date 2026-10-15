@@ -22296,7 +22296,8 @@ function Wire-Events {
     if ($script:Ctrl.ContainsKey("UxSessionDetails")) { $script:Ctrl["UxSessionDetails"].Add_Expanded({ try { Update-Dashboard -Force } catch { } }) }
     $workspaceTabs = Get-DomeniaControl 'WorkspaceTabs'
     # Deferred: a tab selected for an instant (a search started from another page passes through Accueil) starts nothing.
-    if ($null -ne $workspaceTabs) { $workspaceTabs.Add_SelectionChanged({ param($sender,$eventArgs) if ($sender -eq $eventArgs.OriginalSource) { try { [void]$sender.Dispatcher.BeginInvoke([System.Windows.Threading.DispatcherPriority]::Background,[Action]{ try { Request-DomeniaFleetRefresh } catch { } }) } catch { } } }) }
+    # FI-19: Outils shown again with Base locale already selected inside it reads missing figures (-IfShown checks the page).
+    if ($null -ne $workspaceTabs) { $workspaceTabs.Add_SelectionChanged({ param($sender,$eventArgs) if ($sender -eq $eventArgs.OriginalSource) { try { [void]$sender.Dispatcher.BeginInvoke([System.Windows.Threading.DispatcherPriority]::Background,[Action]{ try { Request-DomeniaFleetRefresh } catch { }; try { Request-DomeniaIndexMetadataIfNeeded -IfShown } catch { } }) } catch { } } }) }
     if ($script:Ctrl.ContainsKey("BtnDashboardInventory")) { $script:Ctrl["BtnDashboardInventory"].Add_Click({ Start-DomeniaComputerInventory }) }
     if ($script:Ctrl.ContainsKey("BtnDashboardInventoryDeep")) { $script:Ctrl["BtnDashboardInventoryDeep"].Add_Click({ Start-DomeniaComputerInventory -Deep }) }
     if ($script:Ctrl.ContainsKey("BtnCopyInventory")) { $script:Ctrl["BtnCopyInventory"].Add_Click({ Copy-DomeniaInventory }) }

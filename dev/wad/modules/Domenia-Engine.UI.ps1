@@ -1036,6 +1036,10 @@ function Fail-DomeniaIndexSearchUi {
 # view shows what it already knows and completes itself in the callback. A newer request of the same kind replaces
 # the older one (generation, ReplaceKey); a change of session or of base (epoch) discards a late answer. These reads
 # are short and never offered to Annuler: a cancelled read would call no handler and leave its view waiting.
+# A view waits for each of them, so none is sent as background work: the Storage budget (D018, one background job)
+# would refuse it whenever another local job runs, starting with its sibling (the figures and the associations are
+# asked together at startup, on a change of account and after a switch of base). Explicit, or Selection for the
+# summary of the selected workstation, as the index search and the stored park state: at worst queued, never refused.
 function Start-DomeniaLocalRead {
     param(
         [Parameter(Mandatory=$true)][string]$Name,
@@ -1045,11 +1049,12 @@ function Start-DomeniaLocalRead {
         [Parameter(Mandatory=$true)][string]$SuccessHandler,
         [Parameter(Mandatory=$true)][string]$ErrorHandler,
         [hashtable]$Fields=@{},
-        [int]$TimeoutSeconds=30
+        [int]$TimeoutSeconds=30,
+        [ValidateSet('Explicit','Selection')][string]$TaskClass='Explicit'
     )
     $payload = [ordered]@{Action=$Action;Path=(Get-DomeniaLocalDatabasePathForRead);BusyTimeoutMs=250}
     foreach ($key in @($Fields.Keys)) { $payload[[string]$key] = $Fields[$key] }
-    $id = Start-UiTask -Name $Name -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload ([pscustomobject]$payload) -CallbackState $State -ReplaceKey $ReplaceKey -TimeoutSeconds $TimeoutSeconds -SuccessHandler $SuccessHandler -ErrorHandler $ErrorHandler -TaskClass 'Background' -NonCancellable
+    $id = Start-UiTask -Name $Name -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload ([pscustomobject]$payload) -CallbackState $State -ReplaceKey $ReplaceKey -TimeoutSeconds $TimeoutSeconds -SuccessHandler $SuccessHandler -ErrorHandler $ErrorHandler -TaskClass $TaskClass -NonCancellable
     if (-not [string]$id) { throw 'Lecture locale non admise par le moteur.' }
     return [string]$id
 }
@@ -1089,6 +1094,15 @@ function Request-DomeniaIndexMetadata {
 function Request-DomeniaIndexMetadataIfNeeded {
     # Outils > Base locale shown: the figures are read again only when the last reading failed or never answered in
     # this session, and no reading is running. A page that shows figures is never re-read by a simple display.
+    # -IfShown (change of workspace): Outils shown again by the side bar, Ctrl+I or a first step of Accueil while Base
+    # locale is already its selected tab raises no SelectionChanged on the inner tabs; the page is checked here.
+    param([switch]$IfShown)
+    if ($IfShown) {
+        $outer = Get-DomeniaControl -Name 'WorkspaceTabs'
+        $inner = Get-DomeniaControl -Name 'ApplicationToolTabs'
+        if (($null -eq $outer) -or ($null -eq $inner) -or ($null -eq $outer.SelectedItem) -or ($null -eq $inner.SelectedItem)) { return }
+        if (([string]$outer.SelectedItem.Name -ne 'TabApplicationTools') -or ([string]$inner.SelectedItem.Name -ne 'TabIndex')) { return }
+    }
     if ([bool]$script:IndexMetadataPending) { return }
     if ((-not [string]$script:IndexMetadataError) -and ([int]$script:IndexDbCount -ge 0)) { return }
     Request-DomeniaIndexMetadata
@@ -1121,6 +1135,11 @@ function Complete-DomeniaIndexMetadataUi {
     # coverage when its label still shows the waiting text (a running survey keeps its own progress text).
     try { Update-DomeniaFirstSteps } catch { }
     try { Update-DomeniaParkCoverageAfterCount } catch { }
+    # An overview of Accueil refused while this read held the local store (D018: a background Storage job waits for
+    # none) is computed now; nothing happens when Accueil is hidden or its OU is already computed. Never before the
+    # main window is shown (FI-22): the startup overview waits for the remembered OU of Rechercher. Asked before the
+    # startup checks, whose measures read would refuse it again.
+    if ([bool]$script:DomeniaSessionShown) { try { Request-DomeniaFleetRefresh } catch { } }
     if ([bool]$script:IndexMetadataStartupChecks) {
         $script:IndexMetadataStartupChecks = $false
         try { Request-DomeniaIndexAutoRefresh } catch { }
@@ -1181,6 +1200,9 @@ function Complete-DomeniaUserMachineLinksUi {
     try { Write-AppLog ('{0} association(s) utilisateur-poste lue(s) dans la base locale.' -f $stored.Count) 'INFO' } catch { }
     try { Update-DomeniaIndexStats } catch { }
     try { Request-DomeniaDashboardRefresh } catch { }
+    # Same as the figures: an overview refused while this read held the local store is computed now. At startup this
+    # answer may come before the main window is shown: the overview then waits for its own request (ContentRendered).
+    if ([bool]$script:DomeniaSessionShown) { try { Request-DomeniaFleetRefresh } catch { } }
     if (($session.Count -gt 0) -or $deferred) { Request-DomeniaLinkPersistence }
 }
 
@@ -1214,7 +1236,7 @@ function Request-DomeniaSecretIndexSummary {
     $label = Get-DomeniaControl -Name 'LblSecretsStatus'
     if ($null -ne $label) { $hint = [string]$label.Text }
     $state = [pscustomobject]@{Generation=[long]$script:SecretIndexSummaryGeneration;Epoch=[long]$script:SessionEpoch;Computer=$key;Hint=$hint}
-    try { [void](Start-DomeniaLocalRead -Name 'Lecture du dernier relevé des secrets du poste' -Action 'SecretIndexEntry' -Fields @{Computer=$key} -State $state -ReplaceKey 'local:secret-index' -SuccessHandler 'Complete-DomeniaSecretIndexSummaryUi' -ErrorHandler 'Fail-DomeniaSecretIndexSummaryUi' -TimeoutSeconds 15) }
+    try { [void](Start-DomeniaLocalRead -Name 'Lecture du dernier relevé des secrets du poste' -Action 'SecretIndexEntry' -Fields @{Computer=$key} -State $state -ReplaceKey 'local:secret-index' -SuccessHandler 'Complete-DomeniaSecretIndexSummaryUi' -ErrorHandler 'Fail-DomeniaSecretIndexSummaryUi' -TimeoutSeconds 15 -TaskClass 'Selection') }
     catch { Fail-DomeniaSecretIndexSummaryUi -Message $_.Exception.Message -State $state }
 }
 

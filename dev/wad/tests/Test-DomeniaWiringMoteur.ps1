@@ -1126,6 +1126,54 @@ Test-Case 'D028 : consoles simultanees : verification et ecriture dans une seule
 }
 
 
+# ---------------------------------------------------------------- FI-19 (L20): local reads admitted by the real engine
+# Real Start-UiTask, Invoke-DomeniaUiTaskDispatch and provider budget (D018, scheduler on), real pinned LocalIndexRead
+# body on the real schema, real Request/Complete/Fail callbacks. The Storage budget refuses a second background job of
+# the provider: a view waiting for its local read must never be refused because its sibling or a local save runs.
+Test-Case 'FI-19 : lectures locales admises par le vrai moteur, ensemble et pendant un travail local' {
+    try {
+        Reset-WiringStore
+        [void](New-WiringStoreDatabase)
+        Assert-True (Test-DomeniaSchedulerEnabled) 'Ordonnanceur inactif : le budget des fournisseurs ne serait pas exerce.'
+        $script:IndexMetadataGeneration = 0L; $script:IndexMetadataStartupChecks = $false; $script:LinkLoadGeneration = 0L
+        Reset-DomeniaIndexMetadataState
+        $script:LinkLoad = $null
+        # Same turn, as Start-DomeniaAccountRelogin and Resume-DomeniaDatabaseViews: the figures, then the associations.
+        Request-DomeniaIndexMetadata
+        Request-DomeniaUserMachineLinks
+        $reads = @($script:AsyncJobs.Values | Where-Object { ($null -ne $_) -and ([string]$_.OperationId -eq 'LocalIndexRead') })
+        Assert-True ($reads.Count -eq 2) ('Lectures admises : ' + $reads.Count + ' ; journal : ' + (@($script:Logs) -join ' | '))
+        Assert-True (@($reads | Where-Object { [string]$_.State -notin @('Running','Queued') }).Count -eq 0) 'Lecture dans un etat inattendu.'
+        Assert-True (@($reads | Where-Object { [string]$_.Class -ne 'Explicit' }).Count -eq 0) 'Lecture envoyee comme travail de fond.'
+        Assert-True (Wait-WiringCondition -Complete -TimeoutMs 30000 { (-not [bool]$script:IndexMetadataPending) -and ($null -eq $script:LinkLoad) }) 'Lectures sans rappel.'
+        Assert-True (@($script:Logs | Where-Object { $_ -match 'non relu' }).Count -eq 0) ('Gestionnaire d echec appele : ' + (@($script:Logs) -join ' | '))
+        Assert-True (([int]$script:IndexDbCount -ge 0) -and (-not [string]$script:IndexMetadataError)) ('Chiffres non lus : ' + [string]$script:IndexMetadataError)
+        # A background local save holds the Storage budget: the statistics asked by the operator and the summary of the
+        # selected workstation are still admitted (Explicit, Selection), never refused as background work.
+        $gate = New-WiringGate
+        [void](Start-WiringTask -OperationId 'LocalStore' -Name 'Ecrivain' -Gate $gate.Name -Tag 'ecrivain')
+        Assert-True (Wait-WiringCondition { (@(Get-WiringCalls) -match '^LocalStore\|').Count -eq 1 }) 'Travail local non demarre.'
+        $script:SecretIndexSummaryGeneration = 0L; $script:OperationStatsGeneration = 0L; $script:OperationStatsExportPending = $false; $script:OperationStatsLabelPending = $false
+        $script:Fi19Traces = New-Object 'System.Collections.Generic.List[string]'
+        $traceReal = (Get-Command Write-DomeniaTrace -CommandType Function).ScriptBlock
+        Set-Item function:script:Write-DomeniaTrace -Value { param([string]$Text,[string]$Area = 'Tache') if ([string]$Text -match 'non relu pour') { $script:Fi19Traces.Add([string]$Text) } }
+        try {
+            Request-DomeniaOperationStats
+            Request-DomeniaSecretIndexSummary -Computer 'PC1'
+            $stats = @($script:AsyncJobs.Values | Where-Object { ($null -ne $_) -and ([string]$_.ReplaceKey -eq 'local:operation-stats') })
+            $secret = @($script:AsyncJobs.Values | Where-Object { ($null -ne $_) -and ([string]$_.ReplaceKey -eq 'local:secret-index') })
+            Assert-True (($stats.Count -eq 1) -and ([string]$stats[0].Class -eq 'Explicit')) ('Statistiques refusees pendant un travail local : ' + [string](Get-DomeniaControl -Name 'LblOperationStats').Text)
+            Assert-True (($secret.Count -eq 1) -and ([string]$secret[0].Class -eq 'Selection')) ('Resume des secrets refuse pendant un travail local : ' + ($script:Fi19Traces -join ' | '))
+            [void]$gate.Handle.Set()
+            Assert-True (Wait-WiringCondition -Complete -TimeoutMs 30000 { @($script:AsyncJobs.Values | Where-Object { ($null -ne $_) -and ([string]$_.OperationId -in @('LocalIndexRead','LocalStore')) }).Count -eq 0 }) 'Lectures ou travail local sans rappel.'
+            Assert-True ($script:Fi19Traces.Count -eq 0) ('Echec du resume des secrets : ' + ($script:Fi19Traces -join ' | '))
+            $label = [string](Get-DomeniaControl -Name 'LblOperationStats').Text
+            Assert-True (($label -notmatch 'non relues') -and ($label -match 'mesure\(s\)')) ('Statistiques non affichees : ' + $label)
+        } finally { Set-Item function:script:Write-DomeniaTrace -Value $traceReal }
+    } finally { $script:LinkLoad = $null; $script:IndexMetadataPending = $false }
+}
+
+
 # ---------------------------------------------------------------- L09 : admission, pulsation, minuteurs, inactivite
 Test-Case 'FI-03 : ecriture admise malgre 12 lectures detachees, lectures de fond en file' {
     foreach ($i in 1..12) { [void]$script:DetachedReadJobs.Add([pscustomobject]@{Id=('detache' + $i);Name='Detache';OperationId='TreeChildren';Handle=[pscustomobject]@{IsCompleted=$false};StopHandle=$null;PowerShell=$null;Runspace=$null;IsWrite=$false;Started=(Get-Date)}) }
