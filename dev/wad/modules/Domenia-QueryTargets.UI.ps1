@@ -54,6 +54,8 @@ function Get-DomeniaComputerQueryRecords {
 function ConvertTo-DomeniaQueryCountEntry {
     param([string]$Id,[string]$Title,$Count,[string]$Visual='Kpi',[string]$Context='')
     $detail=$Context+' · '+('{0} correspondant(s), {1} inconnu(s), {2} non correspondant(s)' -f $Count.Matched,$Count.Unknown,$Count.NotMatched)
+    $categories=[long](Get-DomeniaMember $Count 'CategoryCount' 0)
+    if([string]$Count.GroupBy -and $categories -gt 10){$detail+=' · '+$categories+' valeurs distinctes : les dix principales sont affichées, les autres sont regroupées avec leur total exact. La liste complète est dans lʼatelier.'}
     $state=if($Count.Unknown){'Warn'}else{''}
     if([string]$Count.GroupBy -or $Visual -in @('Bar','Pie','Column')){
         $items=if([string]$Count.GroupBy){@($Count.Items)}else{@([pscustomobject]@{Label='Correspondants';Value=[double]$Count.Matched},[pscustomobject]@{Label='Inconnus';Value=[double]$Count.Unknown},[pscustomobject]@{Label='Non correspondants';Value=[double]$Count.NotMatched})}

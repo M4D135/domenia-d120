@@ -75,6 +75,25 @@
                   </DataGrid>
                 </StackPanel>
               </Expander>
+              <Expander x:Name="ExpQueryGroups" DockPanel.Dock="Bottom" Header="Répartition complète · toutes les valeurs" IsExpanded="False" Visibility="Collapsed" Margin="0,10,0,0">
+                <StackPanel>
+                  <TextBlock x:Name="LblQueryGroups" TextWrapping="Wrap" Margin="0,4,0,6" AutomationProperties.LiveSetting="Polite" />
+                  <WrapPanel Margin="0,0,0,6">
+                    <TextBox x:Name="TxtQueryGroupFilter" Width="220" MinHeight="30" MaxLength="256" Margin="0,0,8,0" ToolTip="Filtrer les valeurs de la répartition. Calcul local, sans collecte." AutomationProperties.Name="Filtrer les valeurs de la répartition" />
+                    <Button x:Name="BtnQueryGroupsPrevious" Content="Valeurs précédentes" IsEnabled="False" MinHeight="30" Margin="0,0,6,0" />
+                    <Button x:Name="BtnQueryGroupsNext" Content="Valeurs suivantes" IsEnabled="False" MinHeight="30" Margin="0,0,6,0" />
+                    <Button x:Name="BtnQueryGroupsShow" Content="Afficher ces postes" IsEnabled="False" MinHeight="30" ToolTip="Ajoute la valeur choisie comme segment et recalcule lʼaperçu local. Aucune collecte." />
+                  </WrapPanel>
+                  <DataGrid x:Name="DgQueryGroups" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" SelectionMode="Single" MaxHeight="260" EnableRowVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling" AutomationProperties.Name="Valeurs de la répartition et nombre de postes">
+                    <DataGrid.Columns>
+                      <DataGridTextColumn Header="Rang" Binding="{Binding Rank}" Width="60" />
+                      <DataGridTextColumn Header="Valeur" Binding="{Binding Label}" Width="*" />
+                      <DataGridTextColumn Header="Postes" Binding="{Binding Count}" Width="90" />
+                      <DataGridTextColumn Header="Part" Binding="{Binding Share}" Width="80" />
+                    </DataGrid.Columns>
+                  </DataGrid>
+                </StackPanel>
+              </Expander>
               <DataGrid x:Name="DgFleetMachines" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" AutomationProperties.Name="Postes du périmètre depuis la base locale" MinHeight="100" ScrollViewer.VerticalScrollBarVisibility="Auto">
                 <DataGrid.Columns>
                   <DataGridTemplateColumn Header="Présence" Width="100" SortMemberPath="PresenceLabel">

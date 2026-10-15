@@ -70,6 +70,8 @@ function Initialize-DomeniaQueryWorkshop {
     $script:DomeniaQueryState=[pscustomobject]@{Recipe=(New-DomeniaQueryRecipe);Saved=$saved;LibraryError=$errorText;Records=$null;SnapshotKey='';At=[datetime]::MinValue;WidgetLibrary='';SortField='name';SortDescending=$false;Generation=0;Widgets=@{};Result=$null;Offset=0;Job='';Busy=$false;Timer=$null;Bound=$false;SearchRecipe=$null;SearchRefinement=$null;SearchRecords=@{};SearchUnknown=0;SearchAt=[datetime]::MinValue;SearchSnapshotKey=''}
     $script:DomeniaQueryState|Add-Member -NotePropertyName ProbeWidgets -NotePropertyValue @{}
     $script:DomeniaQueryState|Add-Member -NotePropertyName ProbeLibrary -NotePropertyValue ''
+    $script:DomeniaQueryState|Add-Member -NotePropertyName GroupSummary -NotePropertyValue $null
+    $script:DomeniaQueryState|Add-Member -NotePropertyName GroupOffset -NotePropertyValue 0
     $fields=Get-DomeniaControl 'CmbQueryField'
     if($null -eq $fields){return}
     $fields.ItemsSource=@(Get-DomeniaQueryFields);$fields.DisplayMemberPath='Name';$fields.SelectedIndex=0
@@ -120,6 +122,10 @@ function Initialize-DomeniaQueryWorkshop {
     (Get-DomeniaControl 'DgQueryLibrary').Add_SelectionChanged({Show-DomeniaQueryLibraryDetails})
     (Get-DomeniaControl 'BtnQueryLibraryUse').Add_Click({Use-DomeniaQueryLibrarySelection})
     (Get-DomeniaControl 'BtnQueryPreviewComputer').Add_Click({Show-DomeniaWorkshopComputerPreview})
+    $groupFilter=Get-DomeniaControl 'TxtQueryGroupFilter';if($null -ne $groupFilter){$groupFilter.Add_TextChanged({$script:DomeniaQueryState.GroupOffset=0;Update-DomeniaQueryGroups})}
+    foreach($entry in @(@('BtnQueryGroupsPrevious',-1),@('BtnQueryGroupsNext',1))){$control=Get-DomeniaControl $entry[0];if($null -ne $control){$control.Tag=$entry[1];$control.Add_Click({param($s,$e)Move-DomeniaQueryGroupPage ([int]$s.Tag)})}}
+    $groupShow=Get-DomeniaControl 'BtnQueryGroupsShow';if($null -ne $groupShow){$groupShow.Add_Click({Show-DomeniaQueryGroupMachines})}
+    $groupGrid=Get-DomeniaControl 'DgQueryGroups';if($null -ne $groupGrid){$groupGrid.Add_SelectionChanged({$button=Get-DomeniaControl 'BtnQueryGroupsShow';if($null -ne $button){$button.IsEnabled=($null -ne (Get-DomeniaControl 'DgQueryGroups').SelectedItem)}});$groupGrid.Add_MouseDoubleClick({Show-DomeniaQueryGroupMachines})}
     (Get-DomeniaControl 'QueryWorkspaceTabs').Add_SelectionChanged({param($sender,$args)if([object]::ReferenceEquals($sender,$args.OriginalSource) -and [string]$sender.SelectedItem.Name -eq 'TabQueryLibrary'){Start-DomeniaQueryLibraryLoad}})
     (Get-DomeniaControl 'BtnQueryLibraryPrevious').Add_Click({$q=$script:DomeniaQueryState;$q.LibraryOffset=[Math]::Max(0,$q.LibraryOffset-100);Update-DomeniaQueryLibrary -KeepPage})
     (Get-DomeniaControl 'BtnQueryLibraryNext').Add_Click({$q=$script:DomeniaQueryState;$q.LibraryOffset+=100;Update-DomeniaQueryLibrary -KeepPage})
@@ -290,6 +296,47 @@ function Reset-DomeniaQueryResults {
     foreach($detailName in @('DgQueryObjectFields','DgQueryExplanation')){$details=Get-DomeniaControl $detailName;if($null -ne $details){$details.ItemsSource=@()}}
     [void](Set-DomeniaControlText 'LblQueryObject' 'Sélectionnez un poste pour consulter ses données.')
     [void](Set-DomeniaControlText 'LblQueryPublishSummary' 'Aperçu à recalculer après modification des critères. La sauvegarde conserve la définition de la requête.')
+    # A distribution belongs to one computed preview; it disappears with the counts it was computed with.
+    $q=$script:DomeniaQueryState;if($null -ne $q -and $null -ne $q.PSObject.Properties['GroupSummary']){$q.GroupSummary=$null;$q.GroupOffset=0}
+    Update-DomeniaQueryGroups
+}
+function Update-DomeniaQueryGroups {
+    $q=$script:DomeniaQueryState;$expander=Get-DomeniaControl 'ExpQueryGroups';$grid=Get-DomeniaControl 'DgQueryGroups'
+    if($null -eq $q -or $null -eq $expander -or $null -eq $grid){return}
+    $summary=Get-DomeniaMemberValue $q 'GroupSummary'
+    foreach($name in @('BtnQueryGroupsPrevious','BtnQueryGroupsNext','BtnQueryGroupsShow')){$button=Get-DomeniaControl $name;if($null -ne $button){$button.IsEnabled=$false}}
+    if($null -eq $summary){$expander.Visibility='Collapsed';$grid.ItemsSource=@();[void](Set-DomeniaControlText 'LblQueryGroups' '');return}
+    $expander.Visibility='Visible'
+    if([string](Get-DomeniaMember $summary 'Error')){$grid.ItemsSource=@();[void](Set-DomeniaControlText 'LblQueryGroups' ('Répartition non calculée : '+[string]$summary.Error));return}
+    $filter=Get-DomeniaControl 'TxtQueryGroupFilter';$text=if($null -ne $filter){[string]$filter.Text}else{''}
+    $page=Get-DomeniaQueryGroupPage -Summary $summary -Offset ([int]$q.GroupOffset) -Limit 100 -Text $text
+    $q.GroupOffset=[int]$page.Offset;$grid.ItemsSource=@($page.Rows)
+    $culture=[Globalization.CultureInfo]::GetCultureInfo('fr-FR')
+    $label=$page.CategoryCount.ToString('N0',$culture)+' valeur(s) distincte(s) pour '+$page.Matched.ToString('N0',$culture)+' poste(s) correspondant(s), total exact'
+    if($page.Missing){$label+=', dont '+$page.Missing.ToString('N0',$culture)+' sans valeur lisible'}
+    $label+='. '+$(if($page.Filtered){'Valeurs '+($page.Offset+1).ToString('N0',$culture)+' à '+($page.Offset+@($page.Rows).Count).ToString('N0',$culture)+' sur '+$page.Filtered.ToString('N0',$culture)}else{'Aucune valeur ne correspond au filtre'})
+    $label+='. Même calcul que le widget, sur tout le périmètre ; les filtres dʼaffichage de la liste ne sʼappliquent pas.'
+    [void](Set-DomeniaControlText 'LblQueryGroups' $label)
+    (Get-DomeniaControl 'BtnQueryGroupsPrevious').IsEnabled=[bool]$page.HasPrevious
+    (Get-DomeniaControl 'BtnQueryGroupsNext').IsEnabled=[bool]$page.HasNext
+}
+function Move-DomeniaQueryGroupPage {
+    param([int]$Direction)
+    $q=$script:DomeniaQueryState;if($null -eq $q -or $null -eq (Get-DomeniaMemberValue $q 'GroupSummary')){return}
+    $q.GroupOffset=[Math]::Max(0,[int]$q.GroupOffset+(100*[Math]::Sign($Direction)))
+    Update-DomeniaQueryGroups
+}
+function Show-DomeniaQueryGroupMachines {
+    try{
+        $q=$script:DomeniaQueryState;$row=(Get-DomeniaControl 'DgQueryGroups').SelectedItem
+        if($null -eq $q -or $null -eq $row){throw 'Sélectionnez une valeur de la répartition.'}
+        $summary=Get-DomeniaMemberValue $q 'GroupSummary'
+        if($null -eq $summary -or $q.Busy -or [string]$summary.Field -cne [string](Get-DomeniaMember $q.Recipe 'GroupBy')){throw 'La répartition ne correspond plus à la requête affichée : relancez lʼaperçu.'}
+        $recipe=New-DomeniaQuerySegmentRecipe $q.Recipe $row.Select
+        Set-DomeniaQueryDraft $recipe
+        (Get-DomeniaControl 'CmbQueryResult').SelectedIndex=0
+        Start-DomeniaQueryEvaluation
+    }catch{[void](Set-DomeniaControlText 'LblQueryStatus' $_.Exception.Message)}
 }
 function Set-DomeniaQueryDraft {
     param($Recipe)
@@ -523,6 +570,7 @@ function Complete-DomeniaQueryEvaluation {
     $exportRequest=Get-DomeniaMemberValue $State 'ExportRequest'
     if($null -ne $exportRequest){$exportRequest.ExpectedRows=$count;$q|Add-Member -NotePropertyName ExportRequest -NotePropertyValue $exportRequest -Force}
     $exportButton=Get-DomeniaControl 'BtnQueryExport';if($null -ne $exportButton){$exportButton.IsEnabled=($null -ne $exportRequest -and -not [bool](Get-DomeniaMember $q 'ExportBusy' $false))}
+    $q.GroupSummary=Get-DomeniaMemberValue $r 'Groups';$q.GroupOffset=0;Update-DomeniaQueryGroups
 
     if([bool](Get-DomeniaMember $State 'RefreshWidgets' $true)){Show-DomeniaBoard -Board Fleet -Quiet -DeferIfHidden}
 }

@@ -47,6 +47,12 @@ if($searchOutput){
 }
 $fields=@(Get-DomeniaQueryRequestedFields $Payload.Recipe)
 $rows=@(ConvertTo-DomeniaQueryGridRows -Rows $result.Rows -Fields $fields)
+# Complete distribution of the draft, computed like its widget on the whole scope (display filters excluded).
+$groups=$null
+if([string](Get-DomeniaMember $Payload.Recipe 'GroupBy')){
+    try{$groups=Get-DomeniaQueryGroupSummary -Records $records -Recipe $Payload.Recipe}
+    catch{$groups=[pscustomobject]@{Field=[string]$Payload.Recipe.GroupBy;Error=$_.Exception.Message}}
+}
 $widgets=$null;if($null -ne $Payload.PSObject.Properties['CachedWidgets']){$widgets=$Payload.CachedWidgets}
 if($null -eq $widgets){
 $widgets=@{}
@@ -57,7 +63,7 @@ foreach($recipe in @($Payload.Saved)){
 }
 $probeWidgets=$null;if($null -ne $Payload.PSObject.Properties['CachedProbeWidgets']){$probeWidgets=$Payload.CachedProbeWidgets}
 if($null -eq $probeWidgets){$requests=@();if($null -ne $Payload.PSObject.Properties['ProbeRequests']){$requests=@($Payload.ProbeRequests)};$probeWidgets=Measure-DomeniaFleetProbeEntries -Fleet $Payload.Fleet -Observations $Payload.Observations -Requests $requests -MaxAgeDays ([int]$Payload.MaxAgeDays)}
-[pscustomobject]@{Rows=$rows;Records=$records;Widgets=$widgets;ProbeWidgets=$probeWidgets;Total=$result.Total;Matched=$result.Matched;Unknown=$result.Unknown;NotMatched=$result.NotMatched;ScopeTotal=$records.Count;Offset=$options.Offset;Selection=[string]$options.Selection}
+[pscustomobject]@{Rows=$rows;Records=$records;Widgets=$widgets;ProbeWidgets=$probeWidgets;Groups=$groups;Total=$result.Total;Matched=$result.Matched;Unknown=$result.Unknown;NotMatched=$result.NotMatched;ScopeTotal=$records.Count;Offset=$options.Offset;Selection=[string]$options.Selection}
 '@
 }
 function Get-DomeniaQueryExportWorkerCode {

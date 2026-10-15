@@ -672,19 +672,95 @@ function Get-DomeniaQueryMatchIds {
 }
 function Measure-DomeniaQueryWidget {
     param($Records,$Recipe)
+    $groupBy=[string](Get-DomeniaMember $Recipe 'GroupBy')
+    if(-not $groupBy){
+        $population=Select-DomeniaQueryPopulation $Records $Recipe
+        $query=ConvertTo-DomeniaCompiledQuery $Recipe
+        $counts=$query.Execute($population,[M4D.Admin.Common.Query.QueryOptions]@{Limit=0})
+        return [pscustomobject]@{Total=$counts.Total;Matched=$counts.Matched;Unknown=$counts.Unknown;NotMatched=$counts.NotMatched;GroupBy='';Items=@();Error='';CategoryCount=0L}
+    }
+    # The widget and the complete distribution share one exact summary: same order, same top ten, same totals.
+    $summary=Get-DomeniaQueryGroupSummary -Records $Records -Recipe $Recipe
+    $items=@(ConvertTo-DomeniaQueryGroupItems -Summary $summary -Top 10)
+    return [pscustomobject]@{Total=$summary.Total;Matched=$summary.Matched;Unknown=$summary.Unknown;NotMatched=$summary.NotMatched;GroupBy=$groupBy;Items=$items;Error='';CategoryCount=[long]$summary.CategoryCount}
+}
+function ConvertTo-DomeniaQueryGroupLabel {
+    # Display text of one typed category. The typed value itself is kept separately for exact drill-down.
+    param($Value)
+    if($null -eq $Value){return 'Valeur inconnue'}
+    if($Value -is [bool]){if($Value){return 'Oui'};return 'Non'}
+    if($Value -is [DateTimeOffset]){return $Value.ToLocalTime().ToString('dd/MM/yyyy HH:mm',[Globalization.CultureInfo]::GetCultureInfo('fr-FR'))}
+    if($Value -is [decimal] -or $Value -is [double] -or $Value -is [int] -or $Value -is [long]){return ([decimal]$Value).ToString('G',[Globalization.CultureInfo]::GetCultureInfo('fr-FR'))}
+    return [string]$Value
+}
+function Get-DomeniaQueryGroupSummary {
+    # Exact distribution of the matching population. CountBy bounds memory explicitly (100 000 distinct values at
+    # most) and refuses beyond it: no category is sampled, merged or silently dropped.
+    param($Records,$Recipe,[int]$MaxCategories=100000)
+    if($MaxCategories -lt 1 -or $MaxCategories -gt 100000){throw 'Budget de catégories invalide (1 à 100 000).'}
+    $groupBy=[string](Get-DomeniaMember $Recipe 'GroupBy')
+    if(-not $groupBy){throw 'Choisissez une information de répartition.'}
     $population=Select-DomeniaQueryPopulation $Records $Recipe
     $query=ConvertTo-DomeniaCompiledQuery $Recipe
     $counts=$query.Execute($population,[M4D.Admin.Common.Query.QueryOptions]@{Limit=0})
-    $groupBy=[string](Get-DomeniaMember $Recipe 'GroupBy');$items=@()
-    if($groupBy){
-        # Bounded distinct categories. Exceeding the bound is explicit, never a silently sampled chart.
-        $buckets=@($query.CountBy($population,$groupBy,100000));$known=@($buckets|Where-Object{-not $_.Missing}|Sort-Object Count -Descending)
-        $top=@($known|Select-Object -First 10);$items=@(foreach($bucket in $top){[pscustomobject]@{Label=[string]$bucket.Value;Value=[double]$bucket.Count;Select=[pscustomobject]@{Label=[string]$bucket.Value;Field=$groupBy;Missing=$false;Value=$bucket.Value;Excluded=@()}}})
-        $others=0L;foreach($bucket in @($known|Select-Object -Skip 10)){$others+=$bucket.Count}
-        if($others){$items+=@([pscustomobject]@{Label='Autres valeurs';Value=[double]$others;Select=[pscustomobject]@{Label='Autres valeurs';Field=$groupBy;Missing=$false;Value=$null;Excluded=@($top|ForEach-Object{$_.Value})}})}
-        foreach($bucket in @($buckets|Where-Object{$_.Missing})){$items+=@([pscustomobject]@{Label='Valeur inconnue';Value=[double]$bucket.Count;Select=[pscustomobject]@{Label='Valeur inconnue';Field=$groupBy;Missing=$true;Value=$null;Excluded=@()}})}
+    try{$buckets=@($query.CountBy($population,$groupBy,$MaxCategories))}
+    catch{
+        $inner=$_.Exception;while($null -ne $inner.InnerException){$inner=$inner.InnerException}
+        if($inner -is [InvalidOperationException]){throw ('Plus de '+$MaxCategories.ToString('N0',[Globalization.CultureInfo]::GetCultureInfo('fr-FR'))+' valeurs distinctes pour cette répartition : choisissez une information moins détaillée ou réduisez le périmètre. Aucune répartition partielle nʼest publiée.')}
+        throw
     }
-    return [pscustomobject]@{Total=$counts.Total;Matched=$counts.Matched;Unknown=$counts.Unknown;NotMatched=$counts.NotMatched;GroupBy=$groupBy;Items=$items;Error=''}
+    $known=[Collections.Generic.List[object]]::new();$missing=0L;$knownTotal=0L
+    foreach($bucket in $buckets){if([bool]$bucket.Missing){$missing+=[long]$bucket.Count}else{$known.Add($bucket);$knownTotal+=[long]$bucket.Count}}
+    if(($knownTotal+$missing) -ne [long]$counts.Matched){throw 'Répartition incohérente avec le nombre de postes correspondants : aucun graphique publié.'}
+    # Count descending, then the typed value order of CountBy: deterministic ties without a script comparer.
+    $items=$known.ToArray();$keys=New-Object 'long[]' ($items.Length)
+    for($i=0;$i -lt $items.Length;$i++){$keys[$i]=(-[long]$items[$i].Count)*1000000L+$i}
+    [Array]::Sort($keys,$items)
+    $categories=[Collections.Generic.List[object]]::new($items.Length)
+    for($i=0;$i -lt $items.Length;$i++){$categories.Add([pscustomobject]@{Rank=($i+1);Label=(ConvertTo-DomeniaQueryGroupLabel $items[$i].Value);Value=$items[$i].Value;Count=[long]$items[$i].Count;Missing=$false})}
+    return [pscustomobject]@{Field=$groupBy;Total=[long]$counts.Total;Matched=[long]$counts.Matched;Unknown=[long]$counts.Unknown;NotMatched=[long]$counts.NotMatched;Categories=$categories.ToArray();CategoryCount=[long]$categories.Count;Missing=$missing;MaxCategories=$MaxCategories;Error=''}
+}
+function ConvertTo-DomeniaQueryGroupItems {
+    # Chart items: the largest categories, then one exact remainder and the unknown bucket. Totals are preserved.
+    param($Summary,[int]$Top=10)
+    if($Top -lt 1 -or $Top -gt 64){throw 'Nombre de catégories affichées invalide (1 à 64).'}
+    $field=[string]$Summary.Field;$categories=@($Summary.Categories)
+    $shown=@($categories|Select-Object -First $Top)
+    $items=[Collections.Generic.List[object]]::new()
+    foreach($category in $shown){$items.Add([pscustomobject]@{Label=[string]$category.Label;Value=[double]$category.Count;Select=[pscustomobject]@{Label=[string]$category.Label;Field=$field;Missing=$false;Value=$category.Value;Excluded=@()}})}
+    $others=0L;for($i=$shown.Count;$i -lt $categories.Count;$i++){$others+=[long]$categories[$i].Count}
+    if($others){$items.Add([pscustomobject]@{Label='Autres valeurs';Value=[double]$others;Select=[pscustomobject]@{Label='Autres valeurs';Field=$field;Missing=$false;Value=$null;Excluded=@($shown|ForEach-Object{$_.Value})}})}
+    if([long]$Summary.Missing){$items.Add([pscustomobject]@{Label='Valeur inconnue';Value=[double]$Summary.Missing;Select=[pscustomobject]@{Label='Valeur inconnue';Field=$field;Missing=$true;Value=$null;Excluded=@()}})}
+    return $items.ToArray()
+}
+function Get-DomeniaQueryGroupPage {
+    # One page of the complete distribution, optionally filtered by label. Pure: the summary is already exact.
+    param($Summary,[int]$Offset=0,[int]$Limit=100,[string]$Text='')
+    if($null -eq $Summary -or $null -eq (Get-DomeniaMemberValue $Summary 'Categories')){throw 'Répartition non calculée : relancez lʼaperçu.'}
+    if($Offset -lt 0 -or $Limit -lt 1 -or $Limit -gt 500){throw 'Page de répartition invalide (1 à 500 valeurs).'}
+    if($Text.Length -gt 256){throw 'Filtre de répartition limité à 256 caractères.'}
+    $field=[string]$Summary.Field;$matched=[long]$Summary.Matched
+    $all=[Collections.Generic.List[object]]::new()
+    foreach($category in @($Summary.Categories)){$all.Add($category)}
+    if([long]$Summary.Missing -gt 0){$all.Add([pscustomobject]@{Rank=0;Label='Valeur inconnue';Value=$null;Count=[long]$Summary.Missing;Missing=$true})}
+    $terms=@($Text.Trim() -split '\s+'|Where-Object{$_})
+    $compare=[Globalization.CultureInfo]::GetCultureInfo('fr-FR').CompareInfo
+    $options=[Globalization.CompareOptions]::IgnoreCase -bor [Globalization.CompareOptions]::IgnoreNonSpace
+    $filtered=[Collections.Generic.List[object]]::new()
+    foreach($category in $all){
+        $keep=$true;foreach($term in $terms){if($compare.IndexOf([string]$category.Label,$term,$options) -lt 0){$keep=$false;break}}
+        if($keep){$filtered.Add($category)}
+    }
+    if($filtered.Count -gt 0 -and $Offset -ge $filtered.Count){$Offset=[int]([Math]::Floor(($filtered.Count-1)/$Limit)*$Limit)}
+    if(-not $filtered.Count){$Offset=0}
+    $culture=[Globalization.CultureInfo]::GetCultureInfo('fr-FR')
+    $rows=[Collections.Generic.List[object]]::new()
+    for($i=$Offset;$i -lt [Math]::Min($filtered.Count,$Offset+$Limit);$i++){
+        $category=$filtered[$i];$share=if($matched -gt 0){[Math]::Round(100.0*[double]$category.Count/[double]$matched,1).ToString('0.0',$culture)+' %'}else{'0,0 %'}
+        $select=if([bool]$category.Missing){[pscustomobject]@{Label='Valeur inconnue';Field=$field;Missing=$true;Value=$null;Excluded=@()}}else{[pscustomobject]@{Label=[string]$category.Label;Field=$field;Missing=$false;Value=$category.Value;Excluded=@()}}
+        $rows.Add([pscustomobject]@{Rank=$(if([bool]$category.Missing){'—'}else{[string]$category.Rank});Label=[string]$category.Label;Count=[long]$category.Count;Share=$share;Select=$select})
+    }
+    return [pscustomobject]@{Rows=$rows.ToArray();Offset=$Offset;Limit=$Limit;Filtered=[long]$filtered.Count;CategoryCount=[long]$Summary.CategoryCount;Missing=[long]$Summary.Missing;Matched=$matched;HasPrevious=($Offset -gt 0);HasNext=(($Offset+$Limit) -lt $filtered.Count);Text=$Text.Trim()}
 }
 function New-DomeniaQuerySegmentRecipe {
     param($Recipe,$Selection)
