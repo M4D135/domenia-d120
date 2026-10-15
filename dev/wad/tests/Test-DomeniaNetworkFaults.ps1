@@ -115,14 +115,19 @@ function Assert-KnownKept {
 }
 
 # ---------------------------------------------------------------- storage helpers (partial pages, out of order)
-$script:Schema=@($core.FindAll({param($n)($n -is [Management.Automation.Language.StringConstantExpressionAst]) -or ($n -is [Management.Automation.Language.ExpandableStringExpressionAst])},$true)|Where-Object{($_.Value -match '^PRAGMA journal_mode=WAL;') -and ($_.Value -match 'CREATE TABLE IF NOT EXISTS schema_info')})
+# The production schema is the text Get-DomeniaSqliteSchemaText returns (its here-string expands the query library
+# schema): the function is taken from the core and run, never its raw literal.
+$schemaAst=@($core.FindAll({param($n)($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq 'Get-DomeniaSqliteSchemaText')},$true))
+if($schemaAst.Count -ne 1){throw 'Schema de production introuvable.'}
+. ([scriptblock]::Create($schemaAst[0].Extent.Text))
+$script:SchemaText=Get-DomeniaSqliteSchemaText
 function New-NetworkBase {
     param([string]$Name)
-    if($script:Schema.Count -ne 1){throw 'Schema de production introuvable.'}
+    if(($script:SchemaText -notmatch 'CREATE TABLE IF NOT EXISTS schema_info') -or ($script:SchemaText -match '\$\(')){throw 'Schema de production introuvable ou non developpe.'}
     $directory=Join-Path $folder $Name;[void][IO.Directory]::CreateDirectory($directory);[void][IO.Directory]::CreateDirectory((Join-Path $directory 'index-spool'))
     $path=Join-Path $directory 'network.sqlite'
     $db=Open-DomeniaDatabase $path
-    try{[void](Invoke-DomeniaDbExec $script:Schema[0].Value $db)}finally{Close-DomeniaDatabase $db}
+    try{[void](Invoke-DomeniaDbExec $script:SchemaText $db)}finally{Close-DomeniaDatabase $db}
     return [pscustomobject]@{Path=$path;Directory=$directory;Context=[pscustomobject]@{Version=1;Path=$path;DomainDn=$script:Domain;StoreId=(Get-DomeniaStoreId $path $script:Domain);RequestId='network';Generation=1;SessionEpoch=1;ScopeDn=$script:Domain;Subtree=$true}}
 }
 function Invoke-NetworkStorage {param($Payload);return (& ([scriptblock]::Create($script:Worker)))}

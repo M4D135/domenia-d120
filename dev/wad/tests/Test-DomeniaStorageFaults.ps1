@@ -42,15 +42,23 @@ $script:Anchors=@{
     precommit="  [void](Invoke-DomeniaDbExec 'COMMIT;' `$db);`$transaction=`$false`n  # A second, read-only transaction observes committed rows, never in-memory collector objects."
     postcommit="  # A second, read-only transaction observes committed rows, never in-memory collector objects."
     import="        [void]`$sql.AppendLine('INSERT INTO domenia_legacy_observation_imports(object_guid,payload_hash,imported_at) VALUES('+((`$v|ForEach-Object{ConvertTo-DomeniaSqlLiteral `$_}) -join ',')+');')`n        [void](Invoke-DomeniaDbExec `$sql.ToString() `$Db)"
-    index="      if((`$readCount % 256) -eq 0){[void](Invoke-DomeniaDbExec `$sqlBatch.ToString() `$db);[void]`$sqlBatch.Clear();if(`$null -ne `$progress){`$progress.Count=`$readCount}}"
+    # Index rows written as text batches (former body) or through prepared statements (PF-07): either text, once.
+    index=@("      if((`$readCount % 256) -eq 0){[void](Invoke-DomeniaDbExec `$sqlBatch.ToString() `$db);[void]`$sqlBatch.Clear();if(`$null -ne `$progress){`$progress.Count=`$readCount}}",
+            "      if(((`$readCount % 256) -eq 0) -and (`$null -ne `$progress)){`$progress.Count=`$readCount}")
     synchronous="[void](Invoke-DomeniaDbExec 'PRAGMA synchronous=FULL;' `$db)"
+}
+function Find-FaultAnchor {
+    # The one text of an injection point present exactly once in the worker; alternatives cover reviewed versions.
+    param([string]$Point)
+    $found=@(foreach($candidate in @($script:Anchors[$Point])){if(([regex]::Matches($script:Worker,[regex]::Escape([string]$candidate))).Count -eq 1){[string]$candidate}})
+    $present=@(foreach($candidate in @($script:Anchors[$Point])){if($script:Worker.Contains([string]$candidate)){[string]$candidate}})
+    if(($found.Count -ne 1) -or ($present.Count -ne 1)){throw ('Point dʼinjection introuvable ou ambigu dans le worker de stockage : '+$Point+' ('+$present.Count+')')}
+    return $found[0]
 }
 function Get-FaultWorkerCode {
     # Private copy of the worker with one statement inserted at an anchor that must appear exactly once.
     param([string]$Point,[string]$Hook)
-    $anchor=[string]$script:Anchors[$Point]
-    $count=([regex]::Matches($script:Worker,[regex]::Escape($anchor))).Count
-    if($count -ne 1){throw ('Point dʼinjection introuvable ou ambigu dans le worker de stockage : '+$Point+' ('+$count+')')}
+    $anchor=Find-FaultAnchor $Point
     switch($Point){
         'precommit' {return $script:Worker.Replace($anchor,$Hook+"`n"+$anchor)}
         'postcommit' {return $script:Worker.Replace($anchor,$Hook+"`n"+$anchor)}
@@ -94,15 +102,20 @@ function Case {param([string]$Name,[scriptblock]$Code)
     try{& $Code;$cases.Add([pscustomobject]@{Name=$Name;Passed=$true;Error=''})}
     catch{$cases.Add([pscustomobject]@{Name=$Name;Passed=$false;Error=($_.Exception.Message+' @ '+$_.ScriptStackTrace)});Write-Output ('FAIL '+$Name+': '+$_.Exception.Message)}
 }
-$script:Schema=@($core.FindAll({param($n)($n -is [Management.Automation.Language.StringConstantExpressionAst]) -or ($n -is [Management.Automation.Language.ExpandableStringExpressionAst])},$true)|Where-Object{($_.Value -match '^PRAGMA journal_mode=WAL;') -and ($_.Value -match 'CREATE TABLE IF NOT EXISTS schema_info')})
+# The production schema is the text Get-DomeniaSqliteSchemaText returns (its here-string expands the query library
+# schema): the function is taken from the core and run, never its raw literal.
+$schemaAst=@($core.FindAll({param($n)($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq 'Get-DomeniaSqliteSchemaText')},$true))
+if($schemaAst.Count -ne 1){throw 'Schema de production introuvable.'}
+. ([scriptblock]::Create($schemaAst[0].Extent.Text))
+$script:SchemaText=Get-DomeniaSqliteSchemaText
 function New-FaultBase {
     # One disposable base per case: production schema, then three computers committed by the real worker.
     param([string]$Name)
-    if($script:Schema.Count -ne 1){throw 'Schema de production introuvable.'}
+    if(($script:SchemaText -notmatch 'CREATE TABLE IF NOT EXISTS schema_info') -or ($script:SchemaText -match '\$\(')){throw 'Schema de production introuvable ou non developpe.'}
     $directory=Join-Path $folder $Name;[void][IO.Directory]::CreateDirectory($directory)
     $path=Join-Path $directory 'faults.sqlite'
     $db=Open-DomeniaDatabase $path
-    try{[void](Invoke-DomeniaDbExec $script:Schema[0].Value $db)}finally{Close-DomeniaDatabase $db}
+    try{[void](Invoke-DomeniaDbExec $script:SchemaText $db)}finally{Close-DomeniaDatabase $db}
     $context=[pscustomobject]@{Version=1;Path=$path;DomainDn=$script:Domain;StoreId=(Get-DomeniaStoreId $path $script:Domain);RequestId='faults';Generation=1;SessionEpoch=1;ScopeDn=$script:Domain;Subtree=$true}
     $base=[pscustomobject]@{Path=$path;Directory=$directory;Context=$context}
     $changes=@(foreach($n in 1..3){New-FaultDirectoryChange (Get-DomeniaLoadComputer -Index $n)})
@@ -181,8 +194,8 @@ function Stop-FaultChild {
 try{
     [void][IO.Directory]::CreateDirectory($folder)
     Case 'Points dʼinjection presents une seule fois dans le worker de stockage livre' {
-        foreach($point in @($script:Anchors.Keys)){Expect (([regex]::Matches($script:Worker,[regex]::Escape([string]$script:Anchors[$point]))).Count -eq 1) ('anchor '+$point)}
-        Expect ($script:Schema.Count -eq 1) 'production schema found'
+        foreach($point in @($script:Anchors.Keys)){[void](Find-FaultAnchor $point)}
+        Expect (($script:SchemaText -match 'CREATE TABLE IF NOT EXISTS schema_info') -and ($script:SchemaText -notmatch '\$\(')) 'production schema found and expanded'
     }
     Case 'Base occupee par une autre instance : refus explicite, aucun recu, reprise apres son arret brutal' {
         $base=New-FaultBase 'holder';$before=Get-FaultState $base

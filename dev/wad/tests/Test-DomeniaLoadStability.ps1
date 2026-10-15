@@ -55,6 +55,12 @@ function Import-LoadFunction {
         . ([scriptblock]::Create(($nodes[0].Extent.Text -replace ('^function\s+'+[regex]::Escape($name)+'\b'),('function script:'+$name))))
     }
 }
+# The production schema is the text Get-DomeniaSqliteSchemaText returns (its here-string expands the query library
+# schema): the function is taken from the core and run, never its raw literal.
+$schemaAst=@($core.FindAll({param($n)($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq 'Get-DomeniaSqliteSchemaText')},$true))
+if($schemaAst.Count -ne 1){throw 'Schema de production introuvable.'}
+. ([scriptblock]::Create($schemaAst[0].Extent.Text))
+$script:SchemaText=Get-DomeniaSqliteSchemaText
 Import-LoadFunction 'Domenia-Engine.UI.ps1' @('Add-DomeniaRuntimeMetric','Get-DomeniaRuntimeMetricSummary','Get-DomeniaResponseTimeSummaries')
 Import-LoadFunction 'Domenia-Storage.UI.ps1' @('Submit-DomeniaStoreBatch')
 . (Join-Path (Join-Path $PSScriptRoot 'fixtures') 'Domenia-LoadFixtures.ps1')
@@ -163,10 +169,9 @@ try{
 
     Case 'Fixture : 10 000 postes minimum indexes par le vrai worker de stockage, observations generees' {
         Expect ($catalog.Count -ge 40) 'probe catalogue holds at least 40 probes'
-        $schema=@($core.FindAll({param($n)$n -is [Management.Automation.Language.StringConstantExpressionAst]},$true)|Where-Object{($_.Value -match '^PRAGMA journal_mode=WAL;') -and ($_.Value -match 'CREATE TABLE IF NOT EXISTS schema_info')})
-        Expect ($schema.Count -eq 1) 'production schema found'
+        Expect (($script:SchemaText -match '^PRAGMA journal_mode=WAL;') -and ($script:SchemaText -match 'CREATE TABLE IF NOT EXISTS schema_info') -and ($script:SchemaText -notmatch '\$\(')) 'production schema found and expanded'
         $db=Open-DomeniaDatabase $base
-        try{[void](Invoke-DomeniaDbExec $schema[0].Value $db)}finally{Close-DomeniaDatabase $db}
+        try{[void](Invoke-DomeniaDbExec $script:SchemaText $db)}finally{Close-DomeniaDatabase $db}
         $spool=Join-Path (Split-Path -Parent $base) 'index-spool';[void][IO.Directory]::CreateDirectory($spool)
         $file=Join-Path $spool ([guid]::NewGuid().ToString('N')+'.jsonl')
         $writer=[IO.StreamWriter]::new($file,$false,[Text.UTF8Encoding]::new($false))
