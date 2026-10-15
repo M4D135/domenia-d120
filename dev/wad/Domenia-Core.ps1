@@ -13710,6 +13710,52 @@ function Get-CimDate {
     if ($null -eq $Value) { return '' }
     try { return ([datetime]$Value).ToString('dd/MM/yyyy HH:mm:ss') } catch { return [string]$Value }
 }
+# Point 96: exact copies of the Workstation.Model rules (the worker runspace does not load the modules).
+function Get-DomeniaCommandExecutable {
+    # Point 96: the program of a startup command, without its arguments, which may hold a password, a token or a
+    # private path. A quoted program is taken whole; otherwise the text up to the first known program extension,
+    # else the first word. The ComputerInventory worker carries an exact copy of this function (checked by the
+    # Workstation rules): the arguments never leave the worker.
+    param([AllowEmptyString()][AllowNull()][string]$Command)
+    $text = ([string]$Command).Trim()
+    if (-not $text) { return '' }
+    if ($text.StartsWith('"')) {
+        $end = $text.IndexOf('"', 1)
+        if ($end -gt 1) { return $text.Substring(1, $end - 1).Trim() }
+        return ''
+    }
+    $program = [regex]::Match($text, '^.*?\.(?:exe|com|bat|cmd|ps1|vbs|vbe|js|jse|wsf|lnk|scr|msc|cpl|pif|hta|msi|dll)(?=\s|,|$)', [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    if ($program.Success) { return $program.Value.Trim() }
+    $space = $text.IndexOfAny([char[]]@(' ', [char]9))
+    if ($space -gt 0) { return $text.Substring(0, $space) }
+    return $text
+}
+function ConvertFrom-DomeniaTaskCacheDynamicInfo {
+    # Point 96: dates the Task Scheduler keeps in the DynamicInfo value of its registry cache
+    # (HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tasks\{id}), read by StdRegProv when WinRM
+    # is not available. Microsoft does not document this binary value: only the two dates every known layout shares
+    # are decoded, registration (offset 4) and last start (offset 12), as UTC FILETIME. The last result is never
+    # guessed from it. A value shorter than 20 bytes or a date outside 2000-2100 decodes nothing. The ComputerInventory
+    # worker carries an exact copy of this function (checked by the Workstation rules).
+    param([AllowNull()][byte[]]$Bytes)
+    $result = [pscustomobject]@{ Decoded = $false; RegisteredUtc = $null; LastStartUtc = $null; NeverStarted = $false }
+    if (($null -eq $Bytes) -or ($Bytes.Length -lt 20)) { return $result }
+    $dates = @()
+    foreach ($offset in @(4, 12)) {
+        $ticks = [BitConverter]::ToInt64($Bytes, $offset)
+        if ($ticks -eq 0) { $dates += ,$null; continue }
+        $date = $null
+        try { $date = [datetime]::FromFileTimeUtc($ticks) } catch { return $result }
+        if (($date.Year -lt 2000) -or ($date.Year -gt 2100)) { return $result }
+        $dates += ,$date
+    }
+    if ($null -eq $dates[0]) { return $result }
+    $result.Decoded = $true
+    $result.RegisteredUtc = $dates[0]
+    $result.LastStartUtc = $dates[1]
+    $result.NeverStarted = ($null -eq $dates[1])
+    return $result
+}
 function Get-InventoryControllerClockOffset {
     # Seconds between the currentTime of the connected controller's RootDSE and this computer's clock; $null when not
     # read. One read of the controller already used by the session, nothing else on the network.
@@ -14445,8 +14491,11 @@ try {
     } 20000
 
     Invoke-Collector 'Demarrage automatique' {
-        foreach ($s in (@(Get-Cim 'Win32_StartupCommand') | Select-Object -First 40)) {
-            Add-Item 'Demarrage automatique' ([string]$s.Name + ' (' + [string]$s.User + ')') ([string]$s.Command + ' depuis ' + [string]$s.Location) 'Win32_StartupCommand'
+        # Point 96: only the program of each entry leaves the worker; its arguments may hold a secret and are dropped.
+        foreach ($s in (@(Get-Cim '' 'root\cimv2' '' 'SELECT Name,User,Location,Command FROM Win32_StartupCommand') | Select-Object -First 40)) {
+            $program = Get-DomeniaCommandExecutable ([string]$s.Command)
+            if (-not $program) { $program = 'programme non declare' }
+            Add-Item 'Demarrage automatique' ([string]$s.Name + ' (' + [string]$s.User + ')') ($program + ' depuis ' + [string]$s.Location) 'Win32_StartupCommand (programme seul, arguments non conserves)'
         }
     }
 
@@ -14660,6 +14709,36 @@ try {
         Invoke-Collector 'Taches planifiees' {
             # Point 96: author, last run, last result and missed runs of the non-Microsoft tasks, by the read-only
             # Get-ScheduledTaskInfo in the same WinRM round trip. Actions, arguments and principals are never read.
+            if (-not $script:WinrmReady) {
+                # Without WinRM: the documented MSFT_ScheduledTask class, projected on its name, folder, state and author
+                # through the CIM session, gives the inventory; the last start date comes from the Task Scheduler
+                # registry cache (StdRegProv: Tree\<task> Id, then Tasks\{id} DynamicInfo, a binary value Microsoft
+                # does not document). The Actions value, the arguments and the last result are not read this way.
+                $cacheRoot = 'SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache'
+                $stateText = @{ '0'='Unknown'; '1'='Disabled'; '2'='Queued'; '3'='Ready'; '4'='Running' }
+                $listed = @(Get-Cim '' 'root\Microsoft\Windows\TaskScheduler' '' 'SELECT TaskName,TaskPath,State,Author FROM MSFT_ScheduledTask' | Where-Object { ([string]$_.State -ne '1') -and ([string]$_.TaskPath -notlike '\Microsoft\*') } | Select-Object -First 40)
+                $unread = 0
+                foreach ($t in $listed) {
+                    $author = [string]$t.Author; if ([string]::IsNullOrWhiteSpace($author)) { $author = 'non declare' }
+                    $taskPath = [string]$t.TaskPath; $taskName = [string]$t.TaskName
+                    $state = [string]$t.State; if ($stateText.ContainsKey($state)) { $state = [string]$stateText[$state] }
+                    $run = 'non lu'
+                    if (Test-CollectorBudget) {
+                        try {
+                            $taskId = Get-RegString $HKLM ($cacheRoot + '\Tree' + $taskPath.TrimEnd('\') + '\' + $taskName) 'Id'
+                            if ($taskId -match '^\{[0-9A-Fa-f-]{36}\}$') {
+                                $cache = ConvertFrom-DomeniaTaskCacheDynamicInfo (Get-RegBinary $HKLM ($cacheRoot + '\Tasks\' + $taskId) 'DynamicInfo')
+                                if ([bool]$cache.Decoded) { if ([bool]$cache.NeverStarted) { $run = 'jamais' } else { $run = ([datetime]$cache.LastStartUtc).ToLocalTime().ToString('dd/MM/yyyy HH:mm') } }
+                            }
+                        } catch { if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw} }
+                    }
+                    if ($run -eq 'non lu') { $unread++ }
+                    Add-Item 'Taches planifiees' $taskName ($taskPath + ' etat ' + $state + ' ; auteur ' + $author + ' ; dernier demarrage ' + $run + ' ; resultat non lu (WinRM requis)') 'MSFT_ScheduledTask (CIM) et cache du Planificateur (registre, format non documente)'
+                }
+                if ($unread -gt 0) { Set-CollectorTruncated ('Dernier demarrage non lu pour ' + [string]$unread + ' tache(s) : cache du Planificateur reserve aux administrateurs du poste, absent ou budget atteint.') }
+                if ($listed.Count -eq 0) { Add-Item 'Taches planifiees' 'Etat' 'Aucune tache hors Microsoft active' 'MSFT_ScheduledTask (CIM)' }
+                return
+            }
             $tasks = Invoke-Remote -TimeoutSeconds 30 -ScriptBlock {
                 Get-ScheduledTask -ErrorAction SilentlyContinue |
                     Where-Object { ($_.State -ne 'Disabled') -and ($_.TaskPath -notlike '\Microsoft\*') } |

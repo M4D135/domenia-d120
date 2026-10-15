@@ -530,6 +530,53 @@ function ConvertFrom-DomeniaTaskResultCode {
     return [pscustomobject]@{ Code = $text; Text = 'code de sortie ou erreur à vérifier'; Failure = $true }
 }
 
+function Get-DomeniaCommandExecutable {
+    # Point 96: the program of a startup command, without its arguments, which may hold a password, a token or a
+    # private path. A quoted program is taken whole; otherwise the text up to the first known program extension,
+    # else the first word. The ComputerInventory worker carries an exact copy of this function (checked by the
+    # Workstation rules): the arguments never leave the worker.
+    param([AllowEmptyString()][AllowNull()][string]$Command)
+    $text = ([string]$Command).Trim()
+    if (-not $text) { return '' }
+    if ($text.StartsWith('"')) {
+        $end = $text.IndexOf('"', 1)
+        if ($end -gt 1) { return $text.Substring(1, $end - 1).Trim() }
+        return ''
+    }
+    $program = [regex]::Match($text, '^.*?\.(?:exe|com|bat|cmd|ps1|vbs|vbe|js|jse|wsf|lnk|scr|msc|cpl|pif|hta|msi|dll)(?=\s|,|$)', [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    if ($program.Success) { return $program.Value.Trim() }
+    $space = $text.IndexOfAny([char[]]@(' ', [char]9))
+    if ($space -gt 0) { return $text.Substring(0, $space) }
+    return $text
+}
+
+function ConvertFrom-DomeniaTaskCacheDynamicInfo {
+    # Point 96: dates the Task Scheduler keeps in the DynamicInfo value of its registry cache
+    # (HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tasks\{id}), read by StdRegProv when WinRM
+    # is not available. Microsoft does not document this binary value: only the two dates every known layout shares
+    # are decoded, registration (offset 4) and last start (offset 12), as UTC FILETIME. The last result is never
+    # guessed from it. A value shorter than 20 bytes or a date outside 2000-2100 decodes nothing. The ComputerInventory
+    # worker carries an exact copy of this function (checked by the Workstation rules).
+    param([AllowNull()][byte[]]$Bytes)
+    $result = [pscustomobject]@{ Decoded = $false; RegisteredUtc = $null; LastStartUtc = $null; NeverStarted = $false }
+    if (($null -eq $Bytes) -or ($Bytes.Length -lt 20)) { return $result }
+    $dates = @()
+    foreach ($offset in @(4, 12)) {
+        $ticks = [BitConverter]::ToInt64($Bytes, $offset)
+        if ($ticks -eq 0) { $dates += ,$null; continue }
+        $date = $null
+        try { $date = [datetime]::FromFileTimeUtc($ticks) } catch { return $result }
+        if (($date.Year -lt 2000) -or ($date.Year -gt 2100)) { return $result }
+        $dates += ,$date
+    }
+    if ($null -eq $dates[0]) { return $result }
+    $result.Decoded = $true
+    $result.RegisteredUtc = $dates[0]
+    $result.LastStartUtc = $dates[1]
+    $result.NeverStarted = ($null -eq $dates[1])
+    return $result
+}
+
 function Get-DomeniaInventoryValueText {
     <#
         UX-37 : le libelle que l operateur doit lire dans la colonne Valeur de l inventaire du poste, a

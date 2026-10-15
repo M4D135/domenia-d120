@@ -486,6 +486,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaSoftwareAccessSummary',
             'Get-DomeniaInventoryMapText',
             'ConvertFrom-DomeniaTaskResultCode',
+            'Get-DomeniaCommandExecutable',
+            'ConvertFrom-DomeniaTaskCacheDynamicInfo',
             'Get-DomeniaInventoryValueText',
             'Get-DomeniaQuickDiagPlan',
             'Test-DomeniaQuickDiagAllowed',

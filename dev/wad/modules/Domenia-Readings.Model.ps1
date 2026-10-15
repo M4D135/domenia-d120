@@ -909,7 +909,7 @@ function Get-DomeniaTaskReading {
             $value = Join-DomeniaReadingText @(('état ' + (Get-DomeniaReadingCode (Get-DomeniaReadingNumber $task 'State') $taskState)),$(if ($author) { 'auteur ' + $author } else { 'auteur non déclaré' }),$(if ($null -ne $registered) { 'enregistrée le ' + $registered.ToString('dd/MM/yyyy',[Globalization.CultureInfo]::InvariantCulture) } else { '' }))
             Add-DomeniaReadingFact $facts ('Tâche ' + (Get-DomeniaReadingText $task 'TaskPath') + (Get-DomeniaReadingText $task 'TaskName')) $value 'Constate' 'MSFT_ScheduledTask' 'Auteur déclaré par la tâche, non vérifié.' '' $Tasks.CheckedUtc
         }
-        Add-DomeniaReadingFact $facts 'Dernière exécution et dernier résultat' 'Non lus par cette requête : la classe dʼénumération des tâches ne les fournit pas' 'Inconnu' 'MSFT_ScheduledTask' 'Aucun résultat dʼexécution nʼest déduit de lʼétat ; lʼinventaire complet les lit quand WinRM est disponible.'
+        Add-DomeniaReadingFact $facts 'Dernière exécution et dernier résultat' 'Non lus par cette requête : la classe dʼénumération des tâches ne les fournit pas' 'Inconnu' 'MSFT_ScheduledTask' 'Aucun résultat dʼexécution nʼest déduit de lʼétat. Lʼinventaire complet les lit par WinRM ; sans WinRM, il relève seulement la date du dernier démarrage dans le cache du Planificateur (registre, format non documenté), jamais le résultat.'
     }
     if ($Startup.State -ne 'Read') { Add-DomeniaReadingSourceFact $facts $Startup 'Démarrage automatique' 'Win32_StartupCommand' }
     else {

@@ -767,3 +767,64 @@ Test-Case 'D096' 'Point 96 : resultat de tache lu, etats du planificateur distin
     Assert-Equal ('\Contoso\ etat Ready ; auteur CONTOSO\admin ; derniere execution 14/10/2026 08:00 ; r'+$e+'sultat 0x1 (code de sortie ou erreur '+[char]0x00E0+' v'+$e+'rifier)') $value
     Assert-Equal '\Contoso\ etat Ready' (Get-DomeniaInventoryValueText 'Taches planifiees' 'Ancien' '\Contoso\ etat Ready') 'ancien inventaire sans resultat'
 }
+Test-Case 'D096' 'Point 96 : demarrage automatique, seul le programme est garde, jamais ses arguments' {
+    Assert-Equal 'C:\Program Files\Contoso\agent.exe' (Get-DomeniaCommandExecutable '"C:\Program Files\Contoso\agent.exe" --token=SECRET-123 /silent')
+    Assert-Equal 'C:\Program Files\Contoso\agent.exe' (Get-DomeniaCommandExecutable 'C:\Program Files\Contoso\agent.exe -password hunter2')
+    Assert-Equal 'rundll32.exe' (Get-DomeniaCommandExecutable 'rundll32.exe shell32.dll,Control_RunDLL secret')
+    Assert-Equal '%ProgramFiles%\Outil\outil.EXE' (Get-DomeniaCommandExecutable '%ProgramFiles%\Outil\outil.EXE,/arg')
+    Assert-Equal 'C:\Users\Public\Start.lnk' (Get-DomeniaCommandExecutable 'C:\Users\Public\Start.lnk')
+    Assert-Equal 'outil' (Get-DomeniaCommandExecutable 'outil /cle:abc') 'sans extension connue : le premier mot seul'
+    Assert-Equal '' (Get-DomeniaCommandExecutable '"programme sans fin')
+    Assert-Equal '' (Get-DomeniaCommandExecutable '   ')
+    Assert-Equal '' (Get-DomeniaCommandExecutable $null)
+    foreach ($command in @('"C:\a\b.exe" -p S3cret','C:\a\b.exe -p S3cret','b.cmd S3cret','"C:\a\b c\d.ps1" -Key S3cret')) {
+        Assert-False ((Get-DomeniaCommandExecutable $command).Contains('S3cret')) ('Argument conserve : ' + $command)
+    }
+}
+Test-Case 'D096' 'Point 96 : cache du Planificateur, seules les dates communes a toutes les versions sont decodees' {
+    $registered = [datetime]::new(2026,9,1,8,30,0,[DateTimeKind]::Utc); $started = [datetime]::new(2026,10,14,6,0,0,[DateTimeKind]::Utc)
+    $bytes = New-Object byte[] 36
+    [Array]::Copy([BitConverter]::GetBytes([int]3), 0, $bytes, 0, 4)
+    [Array]::Copy([BitConverter]::GetBytes($registered.ToFileTimeUtc()), 0, $bytes, 4, 8)
+    [Array]::Copy([BitConverter]::GetBytes($started.ToFileTimeUtc()), 0, $bytes, 12, 8)
+    [Array]::Copy([BitConverter]::GetBytes([int]-2147024891), 0, $bytes, 24, 4)
+    $info = ConvertFrom-DomeniaTaskCacheDynamicInfo $bytes
+    Assert-True $info.Decoded
+    Assert-Equal $registered ([datetime]$info.RegisteredUtc)
+    Assert-Equal $started ([datetime]$info.LastStartUtc)
+    Assert-False $info.NeverStarted
+    Assert-Equal 'Decoded,RegisteredUtc,LastStartUtc,NeverStarted' (@($info.PSObject.Properties.Name) -join ',') 'aucun resultat devine depuis une valeur non documentee'
+    $never = New-Object byte[] 28
+    [Array]::Copy([BitConverter]::GetBytes($registered.ToFileTimeUtc()), 0, $never, 4, 8)
+    $info = ConvertFrom-DomeniaTaskCacheDynamicInfo $never
+    Assert-True ($info.Decoded -and $info.NeverStarted -and ($null -eq $info.LastStartUtc)) 'jamais demarree : aucune date inventee'
+    Assert-False (ConvertFrom-DomeniaTaskCacheDynamicInfo (New-Object byte[] 19)).Decoded 'valeur trop courte'
+    Assert-False (ConvertFrom-DomeniaTaskCacheDynamicInfo $null).Decoded
+    Assert-False (ConvertFrom-DomeniaTaskCacheDynamicInfo (New-Object byte[] 36)).Decoded 'enregistrement absent : rien decode'
+    $odd = New-Object byte[] 36
+    [Array]::Copy([BitConverter]::GetBytes($registered.ToFileTimeUtc()), 0, $odd, 4, 8)
+    [Array]::Copy([BitConverter]::GetBytes([datetime]::new(1990,1,1,0,0,0,[DateTimeKind]::Utc).ToFileTimeUtc()), 0, $odd, 12, 8)
+    Assert-False (ConvertFrom-DomeniaTaskCacheDynamicInfo $odd).Decoded 'date hors 2000-2100 : format inattendu, rien decode'
+}
+Test-Case 'D096' 'Point 96 : le worker d inventaire porte les copies exactes des regles et ne garde ni commande ni action' {
+    $tokens = $null; $errors = $null
+    $coreAst = [Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'), [ref]$tokens, [ref]$errors)
+    $factory = @($coreAst.FindAll({ param($n) ($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -ceq 'Get-DomeniaInventoryWorkerCode') }, $false))
+    Assert-Equal 1 $factory.Count 'fabrique du worker'
+    $body = @($factory[0].Body.FindAll({ param($n) $n -is [Management.Automation.Language.StringConstantExpressionAst] }, $true) | Sort-Object { $_.Value.Length } -Descending)[0].Value
+    $workerAst = [Management.Automation.Language.Parser]::ParseInput($body, [ref]$tokens, [ref]$errors)
+    Assert-Equal 0 @($errors).Count 'worker lisible'
+    $modelText = [IO.File]::ReadAllText((Join-Path $modules 'Domenia-Workstation.Model.ps1'), [Text.Encoding]::UTF8)
+    $modelAst = [Management.Automation.Language.Parser]::ParseInput($modelText, [ref]$tokens, [ref]$errors)
+    foreach ($name in @('Get-DomeniaCommandExecutable','ConvertFrom-DomeniaTaskCacheDynamicInfo')) {
+        $copy = @($workerAst.FindAll({ param($n) ($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -ceq $name) }, $true))
+        $rule = @($modelAst.FindAll({ param($n) ($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -ceq $name) }, $true))
+        Assert-True (($copy.Count -eq 1) -and ($rule.Count -eq 1)) ('Copie absente : ' + $name)
+        Assert-Equal $rule[0].Extent.Text $copy[0].Extent.Text ('Copie divergente : ' + $name)
+    }
+    Assert-False ($body -match '\[string\]\$s\.Command\s*\+') 'commande complete du demarrage automatique conservee'
+    Assert-True ($body.Contains('Get-DomeniaCommandExecutable ([string]$s.Command)')) 'demarrage automatique sans filtrage des arguments'
+    Assert-False ($body -match "'(Actions|Arguments)'") 'valeur Actions ou arguments lus'
+    Assert-True ($body.Contains("'SELECT TaskName,TaskPath,State,Author FROM MSFT_ScheduledTask'")) 'taches sans WinRM : projection sans actions ni principal'
+    Assert-True ($body.Contains("resultat non lu (WinRM requis)")) 'resultat presente comme lu sans WinRM'
+}
