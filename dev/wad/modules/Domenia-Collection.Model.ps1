@@ -705,6 +705,13 @@ function Get-DomeniaCampaignProgressState {
 # ---------------------------------------------------------------- point 20: durable campaign plan
 function Get-DomeniaCampaignPlanKinds { return @('Ping','Console','Wmi','Analysis') }
 
+function Test-DomeniaCampaignTargetName {
+    # A workstation kept in a durable plan: a host name that the resume reads back exactly. The same rule decides at
+    # approval (a plan that could not be read back is reported as not saved) and when the plan is read.
+    param([AllowEmptyString()][string]$Name)
+    return ([string]$Name -cmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,252}$')
+}
+
 function New-DomeniaCampaignPlan {
     # Read-only campaigns only: ping, console, WMI or analysis of explicit workstations. The plan never holds a
     # credential, an AD write or a free query; only names, DN, GUID and the probe identifiers of the catalog.
@@ -718,7 +725,7 @@ function New-DomeniaCampaignPlan {
         $name = [string](Get-DomeniaMember $target 'Computer' (Get-DomeniaMember $target 'name' ''))
         $dn = [string](Get-DomeniaMember $target 'Key' (Get-DomeniaMember $target 'distinguished_name' ''))
         $guid = ConvertTo-DomeniaGuidText (Get-DomeniaMember $target 'Guid' (Get-DomeniaMember $target 'object_guid' ''))
-        if ((-not $name) -or (-not $dn) -or (-not $guid)) { continue }
+        if ((-not (Test-DomeniaCampaignTargetName $name)) -or (-not $dn) -or ($dn -match '[\x00-\x1F]') -or (-not $guid)) { continue }
         $key = $guid.ToLowerInvariant()
         if ($seen.ContainsKey($key)) { continue }
         $seen[$key] = $true
@@ -809,7 +816,7 @@ function ConvertFrom-DomeniaCampaignPlanText {
         $fields = $line.Split([char]9)
         if ($fields.Count -ne 3) { throw 'Poste du plan invalide.' }
         $guid = ConvertTo-DomeniaGuidText $fields[2]
-        if ((-not $guid) -or ($fields[0] -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,252}$') -or (-not $fields[1])) { throw 'Poste du plan invalide.' }
+        if ((-not $guid) -or (-not (Test-DomeniaCampaignTargetName $fields[0])) -or (-not $fields[1])) { throw 'Poste du plan invalide.' }
         $clean.Add([pscustomobject]@{N=$fields[0];D=$fields[1];G=$guid})
     }
     if ($clean.Count -ne [int](Get-DomeniaMember $head 'Count' -1)) { throw 'Nombre de postes du plan incohérent.' }

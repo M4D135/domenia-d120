@@ -163,6 +163,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Measure-DomeniaCimQueryPlan',
             'Get-DomeniaCampaignProgressState',
             'Get-DomeniaCampaignPlanKinds',
+            'Test-DomeniaCampaignTargetName',
             'New-DomeniaCampaignPlan',
             'New-DomeniaCampaignProgress',
             'Set-DomeniaCampaignTargetDone',

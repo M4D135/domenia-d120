@@ -313,6 +313,9 @@ Test-Case 'P20' 'Plan durable : relu à lʼidentique, compressé, sans doublon e
     $head = ConvertFrom-Json $text; $head.Kind = 'Write'
     Assert-Throws { ConvertFrom-DomeniaCampaignPlanText ($head | ConvertTo-Json -Compress) } 'Type non autorisé accepté'
     Assert-Throws { ConvertFrom-DomeniaCampaignPlanText 'pas du json' }
+    $odd = New-DomeniaCampaignPlan -Kind 'Ping' -Targets @([pscustomobject]@{Computer='PC 1';Key='CN=PC 1,DC=example,DC=test';Guid='00000000-0000-0000-0000-000000000001'},[pscustomobject]@{Computer='PC-2';Key=('CN=PC-2' + [char]10 + ',DC=example,DC=test');Guid='00000000-0000-0000-0000-000000000002'},[pscustomobject]@{Computer='PC-3';Key='CN=PC-3,DC=example,DC=test';Guid='00000000-0000-0000-0000-000000000003'})
+    Assert-Equal 1 @($odd.Targets).Count 'Nom dʼhôte ou DN non relisible à lʼidentique : poste écarté, plan signalé non enregistré'
+    Assert-Equal 'PC-3' (ConvertFrom-DomeniaCampaignPlanText (ConvertTo-DomeniaCampaignPlanText $odd)).Targets[0].N
 }
 Test-Case 'P20' 'Avancement : un poste validé nʼest jamais relu, le compteur vient des bits' {
     $plan = New-CltPlan

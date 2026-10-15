@@ -215,7 +215,7 @@ function Save-DomeniaCampaignPlan {
     if ($null -eq $Run) { return $false }
     try {
         $plan = New-DomeniaCampaignPlan -Kind (Get-DomeniaCampaignPlanKind $Run) -Targets @($Run.Targets) -ProbeIds @(@(Get-DomeniaMember $Run 'Probes' @()) | ForEach-Object { [string](Get-DomeniaMember $_ 'Id' '') }) -Inventory ([bool](Get-DomeniaMember $Run 'Inventory' $false)) -ScopeLabel ([string](Get-DomeniaMember $Run 'ScopeLabel' '')) -DomainDn ([string]$script:Conn.BaseDn) -DatabasePath ([string]$Run.Path) -Id ([string]$Run.Id)
-        if (@($plan.Targets).Count -ne @($Run.Targets).Count) { throw 'des postes sans nom, DN ou GUID utilisables' }
+        if (@($plan.Targets).Count -ne @($Run.Targets).Count) { throw 'des postes sans nom dʼhôte, DN ou GUID conservables, ou en double' }
         $text = ConvertTo-DomeniaCampaignPlanText $plan
         if ([Text.Encoding]::UTF8.GetByteCount($text) -gt 900KB) { throw 'liste trop longue pour le fichier de reprise' }
         $progress = New-DomeniaCampaignProgress -Plan $plan
