@@ -10,7 +10,7 @@ function Complete-DomeniaDocumentTask {
     if($State.Epoch -ne $script:SessionEpoch){return}
     if($State.Action -eq 'Read'){
         $value=$r.Content|ConvertFrom-Json
-        if($value.Format -ne 'Domenia.Capture.1'){throw 'Format de capture non reconnu.'}
+        [void](Assert-DomeniaContractFormat -Format ([string](Get-DomeniaMember $value 'Format' '')) -Family 'Domenia.Capture')
         $capture=ConvertTo-DomeniaStoredCapture $value.Capture $State.Domain
         if($State.Slot -notin @('A','B')){throw 'Emplacement de capture invalide.'}
         Sync-DomeniaSupportSession;$script:SupportState.($State.Slot)=$capture;Update-DomeniaSupportComparison

@@ -80,7 +80,7 @@ function Assert-DomeniaQueryReadDefinition {
     param($Definition)
     if($null -eq $Definition){return}
     foreach($property in $Definition.PSObject.Properties){if($property.Name -cnotin @('Format','Namespace','ClassName','CanonicalQuery','Properties','RequestKey','Limit')){throw ('Propriété de lecture WMI inconnue : '+$property.Name)}}
-    if([string]$Definition.Format -cne 'Domenia.WmiRead/1'){throw 'Format de définition WMI inconnu.'}
+    [void](Assert-DomeniaContractFormat -Format ([string]$Definition.Format) -Family 'Domenia.WmiRead')
     $expected=New-DomeniaQueryReadDefinition -Namespace ([string]$Definition.Namespace) -Query ([string]$Definition.CanonicalQuery) -Limit ([int]$Definition.Limit)
     if($expected.RequestKey -cne [string]$Definition.RequestKey -or $expected.ClassName -cne [string]$Definition.ClassName -or $expected.CanonicalQuery -cne [string]$Definition.CanonicalQuery -or ($expected.Properties -join "`n") -cne (@($Definition.Properties) -join "`n")){throw 'Définition WMI ou empreinte incohérente.'}
 }

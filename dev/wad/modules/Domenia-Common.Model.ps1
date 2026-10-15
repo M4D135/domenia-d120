@@ -308,3 +308,159 @@ function Get-DomeniaDnSite {
     if ($Scope) { return '(directement dans l OU)' }
     return 'Hors OU'
 }
+
+# ---------------------------------------------------------------- point 133: versioned contracts between modules
+# Kept here because every worker runspace dot-sources this file first: a format check reads the same catalog on the
+# interface thread and in a worker.
+
+function Get-DomeniaContractCatalog {
+    # Formats and closed vocabularies exchanged between modules or kept on disk. Current is the highest version this
+    # build writes (a writer may keep a lower version that is a strict subset, as Domenia.Query/1). Readable lists the
+    # versions this build reads; each older one reaches Current through a declared migration ('Subset': read as is,
+    # every field keeps its meaning). A version above Current comes from a newer Domenia and is refused, never guessed.
+    # Values is the closed vocabulary of an error or capability contract.
+    $subset = { param([int]$From,[int]$To) [pscustomobject]@{ From = $From; To = $To; Mode = 'Subset' } }
+    return @(
+        [pscustomobject]@{ Family = 'Domenia.Query'; Label = 'Recette de requête'; Kind = 'Format'; Separator = '/'; Current = 2; Readable = @(1,2); Migrations = @(& $subset 1 2); Values = @(); Owner = 'Domenia-Query.Model.ps1' }
+        [pscustomobject]@{ Family = 'Domenia.QueryLibrary'; Label = 'Bibliothèque de requêtes'; Kind = 'Format'; Separator = '/'; Current = 1; Readable = @(1); Migrations = @(); Values = @(); Owner = 'Domenia-Query.Model.ps1' }
+        [pscustomobject]@{ Family = 'Domenia.QueryPack'; Label = 'Pack de recettes'; Kind = 'Format'; Separator = '/'; Current = 1; Readable = @(1); Migrations = @(); Values = @(); Owner = 'Domenia-QueryTransfer.Worker.ps1' }
+        [pscustomobject]@{ Family = 'Domenia.QueryLibraryRecord'; Label = 'Enregistrement de recette'; Kind = 'Format'; Separator = '/'; Current = 1; Readable = @(1); Migrations = @(); Values = @(); Owner = 'Domenia-QueryLibrary.Model.ps1' }
+        [pscustomobject]@{ Family = 'Domenia.QueryImportPlan'; Label = 'Plan dʼimport de recettes'; Kind = 'Format'; Separator = '/'; Current = 1; Readable = @(1); Migrations = @(); Values = @(); Owner = 'Domenia-QueryLibrary.Model.ps1' }
+        [pscustomobject]@{ Family = 'Domenia.QueryExport'; Label = 'Export de résultats'; Kind = 'Format'; Separator = '/'; Current = 1; Readable = @(1); Migrations = @(); Values = @(); Owner = 'Domenia-Query.Worker.ps1' }
+        [pscustomobject]@{ Family = 'Domenia.WmiRead'; Label = 'Définition de lecture WMI'; Kind = 'Format'; Separator = '/'; Current = 1; Readable = @(1); Migrations = @(); Values = @(); Owner = 'Domenia-QuerySchema.Model.ps1' }
+        [pscustomobject]@{ Family = 'Domenia.DetailQuerySummary'; Label = 'Résumé de lecture détaillée'; Kind = 'Format'; Separator = '/'; Current = 1; Readable = @(1); Migrations = @(); Values = @(); Owner = 'Domenia-Storage.Worker.ps1' }
+        [pscustomobject]@{ Family = 'Domenia.Capture'; Label = 'Capture historique'; Kind = 'Format'; Separator = '.'; Current = 1; Readable = @(1); Migrations = @(); Values = @(); Owner = 'Domenia-Dossier.UI.ps1' }
+        [pscustomobject]@{ Family = 'Domenia.Support'; Label = 'Dossier technique'; Kind = 'Format'; Separator = '.'; Current = 1; Readable = @(1); Migrations = @(); Values = @(); Owner = 'Domenia-Dossier.UI.ps1' }
+        [pscustomobject]@{ Family = 'DomeniaTicket'; Label = 'Ticket de support'; Kind = 'Format'; Separator = '/'; Current = 1; Readable = @(1); Migrations = @(); Values = @(); Owner = 'Domenia-Insight.Model.ps1' }
+        [pscustomobject]@{ Family = 'DomeniaSuiteContract'; Label = 'Contrat de la suite'; Kind = 'Format'; Separator = '/'; Current = 1; Readable = @(1); Migrations = @(); Values = @(); Owner = 'Domenia-Workstation.Model.ps1' }
+        [pscustomobject]@{ Family = 'DomeniaDemoDirectory'; Label = 'Annuaire de démonstration'; Kind = 'Format'; Separator = '/'; Current = 1; Readable = @(1); Migrations = @(); Values = @(); Owner = 'Domenia-Demo.Model.ps1' }
+        [pscustomobject]@{ Family = 'DomeniaSelectionPreview'; Label = 'Aperçu de sélection'; Kind = 'Format'; Separator = '/'; Current = 1; Readable = @(1); Migrations = @(); Values = @(); Owner = 'Domenia-Shell.Model.ps1' }
+        [pscustomobject]@{ Family = 'DomeniaWindowsLifecycle'; Label = 'Table des fins de service Windows'; Kind = 'Format'; Separator = '/'; Current = 1; Readable = @(1); Migrations = @(); Values = @(); Owner = 'Domenia-Dashboard.UI.ps1' }
+        [pscustomobject]@{ Family = 'DomeniaCompatibilityMatrix'; Label = 'Matrice de compatibilité'; Kind = 'Format'; Separator = '/'; Current = 1; Readable = @(1); Migrations = @(); Values = @(); Owner = 'Domenia-Compatibility.Model.ps1' }
+        [pscustomobject]@{ Family = 'DomeniaReleaseContract'; Label = 'Contrat de livraison'; Kind = 'Format'; Separator = '/'; Current = 1; Readable = @(1); Migrations = @(); Values = @(); Owner = 'tools/release_contract.py' }
+        [pscustomobject]@{ Family = 'Domenia.ProviderOutcome'; Label = 'Issue dʼune opération'; Kind = 'Erreurs'; Separator = '/'; Current = 1; Readable = @(1); Migrations = @(); Values = @('Success','Cancelled','Timeout','CredentialRejected','AccessDenied','Failure'); Owner = 'Domenia-Engine.Model.ps1' }
+        [pscustomobject]@{ Family = 'Domenia.Provider'; Label = 'Fournisseur dʼune opération'; Kind = 'Capacites'; Separator = '/'; Current = 1; Readable = @(1); Migrations = @(); Values = @('Directory','Cim','Wts','Storage','Local','Network'); Owner = 'Domenia-Engine.Model.ps1' }
+    )
+}
+
+function Get-DomeniaContract {
+    # Catalog entry of one family (case-sensitive), $null when the family is not declared. -Catalog replaces the
+    # shipped catalog (rule tests of a future version).
+    param([AllowEmptyString()][string]$Family,[object[]]$Catalog = $null)
+    if ($null -eq $Catalog) { $Catalog = @(Get-DomeniaContractCatalog) }
+    foreach ($contract in @($Catalog)) { if ([string](Get-DomeniaMember $contract 'Family' '') -ceq $Family) { return $contract } }
+    return $null
+}
+
+function ConvertFrom-DomeniaContractFormat {
+    # 'Domenia.Query/2' or the older dotted form 'Domenia.Support.1' -> Family, Separator, Version. $null when the
+    # text is not a versioned format (no version, version 0, more than four digits, unexpected characters).
+    param([AllowEmptyString()][string]$Format)
+    $found = [regex]::Match(([string]$Format),'^([A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z][A-Za-z0-9]*)*)([/.])([1-9][0-9]{0,3})$')
+    if (-not $found.Success) { return $null }
+    return [pscustomobject]@{ Family = $found.Groups[1].Value; Separator = $found.Groups[2].Value; Version = [int]$found.Groups[3].Value; Text = [string]$Format }
+}
+
+function Resolve-DomeniaContractFormat {
+    # Decision for a format read from a file, a worker result or the local base. Accepted: Lire (current version) or
+    # Migrer (older readable version, with the declared steps). Refused with a reason: Illisible, Inattendu (another
+    # family), Inconnu (family not declared), PlusRecent (written by a newer Domenia) or TropAncien.
+    param([AllowEmptyString()][string]$Format,[Parameter(Mandatory = $true)][string]$Family,[AllowEmptyString()][string]$Label = '',[object[]]$Catalog = $null)
+    $contract = Get-DomeniaContract -Family $Family -Catalog $Catalog
+    $name = $Label
+    if ((-not $name) -and ($null -ne $contract)) { $name = [string]$contract.Label }
+    if (-not $name) { $name = $Family }
+    $shown = ConvertTo-DomeniaFlatText ([string]$Format) 80
+    $result = [pscustomobject]@{ Accepted = $false; Decision = 'Refuser'; Reason = ''; Family = $Family; Version = 0; Current = 0; Steps = @(); Message = '' }
+    if ($null -eq $contract) { $result.Reason = 'Inconnu'; $result.Message = 'Format inconnu : ' + $shown + '. Rien nʼest lu.'; return $result }
+    $result.Current = [int]$contract.Current
+    $parsed = ConvertFrom-DomeniaContractFormat $Format
+    if ($null -eq $parsed) { $result.Reason = 'Illisible'; $result.Message = $name + ' : format illisible (' + $shown + '). Rien nʼest lu.'; return $result }
+    if (([string]$parsed.Family -cne $Family) -or ([string]$parsed.Separator -cne [string]$contract.Separator)) { $result.Reason = 'Inattendu'; $result.Message = $name + ' : format ' + $shown + ' inattendu (' + $Family + [string]$contract.Separator + [string]$contract.Current + ' attendu). Rien nʼest lu.'; return $result }
+    $result.Version = [int]$parsed.Version
+    $readable = @($contract.Readable | ForEach-Object { [int]$_ })
+    if ($result.Version -gt $result.Current) {
+        $result.Reason = 'PlusRecent'
+        $result.Message = $name + ' : format ' + $shown + ' produit par une version plus récente de Domenia ; cette version lit jusquʼà la version ' + [string]$result.Current + '. Rien nʼest lu ni modifié : utilisez la version de Domenia qui a produit ces données.'
+        return $result
+    }
+    if ($readable -notcontains $result.Version) {
+        $result.Reason = 'TropAncien'
+        $result.Message = $name + ' : format ' + $shown + ' trop ancien pour cette version (versions lues : ' + [string]::Join(', ',[string[]]$readable) + '). Rien nʼest lu.'
+        return $result
+    }
+    if ($result.Version -eq $result.Current) { $result.Accepted = $true; $result.Decision = 'Lire'; $result.Reason = 'Courant'; return $result }
+    $steps = New-Object 'System.Collections.Generic.List[object]'
+    $position = $result.Version
+    while ($position -lt $result.Current) {
+        $step = $null
+        foreach ($migration in @($contract.Migrations)) { if ([int]$migration.From -eq $position) { $step = $migration; break } }
+        if (($null -eq $step) -or ([int]$step.To -le $position)) {
+            $result.Reason = 'TropAncien'
+            $result.Message = $name + ' : format ' + $shown + ', aucune migration déclarée depuis la version ' + [string]$position + '. Rien nʼest lu.'
+            return $result
+        }
+        $steps.Add($step)
+        $position = [int]$step.To
+    }
+    $result.Accepted = $true; $result.Decision = 'Migrer'; $result.Reason = 'Ancien'; $result.Steps = $steps.ToArray()
+    $result.Message = $name + ' : format ' + $shown + ' lu par migration vers la version ' + [string]$result.Current + '.'
+    return $result
+}
+
+function Assert-DomeniaContractFormat {
+    # Throws the French message of a refused format; returns the decision of an accepted one.
+    param([AllowEmptyString()][string]$Format,[Parameter(Mandatory = $true)][string]$Family,[AllowEmptyString()][string]$Label = '')
+    $resolution = Resolve-DomeniaContractFormat -Format $Format -Family $Family -Label $Label
+    if (-not $resolution.Accepted) { throw [InvalidOperationException]::new([string]$resolution.Message) }
+    return $resolution
+}
+
+function Test-DomeniaContractValue {
+    # True when Value belongs to the closed vocabulary of an error or capability contract.
+    param([Parameter(Mandatory = $true)][string]$Family,[AllowEmptyString()][string]$Value)
+    $contract = Get-DomeniaContract $Family
+    if (($null -eq $contract) -or (@($contract.Values).Count -eq 0)) { return $false }
+    return (@($contract.Values) -ccontains $Value)
+}
+
+function Test-DomeniaContractCatalog {
+    # Consistency of the catalog: unique families, Current readable, each older readable version reaching Current
+    # through declared steps, a known separator, a closed and non-empty vocabulary for error and capability contracts.
+    param([object[]]$Catalog = $null)
+    if ($null -eq $Catalog) { $Catalog = @(Get-DomeniaContractCatalog) }
+    $problems = New-Object 'System.Collections.Generic.List[string]'
+    $seen = @{}
+    foreach ($contract in @($Catalog)) {
+        $family = [string](Get-DomeniaMember $contract 'Family' '')
+        if ($null -eq (ConvertFrom-DomeniaContractFormat ($family + [string](Get-DomeniaMember $contract 'Separator' '/') + '1'))) { $problems.Add('Famille ou séparateur invalide : ' + $family); continue }
+        if ($seen.ContainsKey($family)) { $problems.Add('Famille en double : ' + $family) }
+        $seen[$family] = $true
+        $current = [int](Get-DomeniaMember $contract 'Current' 0)
+        $readable = @(@(Get-DomeniaMember $contract 'Readable' @()) | ForEach-Object { [int]$_ })
+        if (($current -lt 1) -or ($readable -notcontains $current)) { $problems.Add($family + ' : la version courante doit être lisible.') }
+        if (@($readable | Where-Object { $_ -gt $current }).Count -gt 0) { $problems.Add($family + ' : version lisible supérieure à la version courante.') }
+        $migrations = @(Get-DomeniaMember $contract 'Migrations' @())
+        foreach ($migration in $migrations) {
+            if (@('Subset') -cnotcontains [string](Get-DomeniaMember $migration 'Mode' '')) { $problems.Add($family + ' : mode de migration inconnu.') }
+        }
+        foreach ($version in $readable) {
+            $position = $version
+            $guard = 0
+            while (($position -lt $current) -and ($guard -lt 100)) {
+                $next = @($migrations | Where-Object { [int](Get-DomeniaMember $_ 'From' 0) -eq $position })
+                if (($next.Count -ne 1) -or ([int](Get-DomeniaMember $next[0] 'To' 0) -le $position)) { $problems.Add($family + ' : pas de migration unique depuis la version ' + [string]$position + '.'); break }
+                $position = [int](Get-DomeniaMember $next[0] 'To' 0)
+                $guard++
+            }
+        }
+        $kind = [string](Get-DomeniaMember $contract 'Kind' '')
+        $values = @(Get-DomeniaMember $contract 'Values' @())
+        if (@('Format','Erreurs','Capacites') -cnotcontains $kind) { $problems.Add($family + ' : nature inconnue.') }
+        $distinct = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
+        foreach ($value in $values) { [void]$distinct.Add([string]$value) }
+        if (($kind -cne 'Format') -and (($values.Count -eq 0) -or ($distinct.Count -ne $values.Count))) { $problems.Add($family + ' : vocabulaire fermé vide ou en double.') }
+        if (($kind -ceq 'Format') -and ($values.Count -gt 0)) { $problems.Add($family + ' : un format nʼa pas de vocabulaire.') }
+    }
+    return [pscustomobject]@{ Valid = ($problems.Count -eq 0); Problems = $problems.ToArray() }
+}

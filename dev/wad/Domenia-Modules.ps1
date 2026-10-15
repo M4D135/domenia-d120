@@ -31,7 +31,14 @@ function Get-DomeniaRuntimeModulePlan {
             'Split-DomeniaRawDn',
             'Get-DomeniaRawDnParent',
             'ConvertFrom-DomeniaDnLabel',
-            'Get-DomeniaDnSite'
+            'Get-DomeniaDnSite',
+            'Get-DomeniaContractCatalog',
+            'Get-DomeniaContract',
+            'ConvertFrom-DomeniaContractFormat',
+            'Resolve-DomeniaContractFormat',
+            'Assert-DomeniaContractFormat',
+            'Test-DomeniaContractValue',
+            'Test-DomeniaContractCatalog'
         ) }
         [pscustomobject]@{ Phase='Bootstrap'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-Engine.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaStartupPhases',

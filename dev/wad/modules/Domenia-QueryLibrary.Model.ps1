@@ -66,7 +66,8 @@ function New-DomeniaQueryPackImportPlan {
     Assert-DomeniaQueryLibraryContext $Context
     if([Text.Encoding]::UTF8.GetByteCount($Json) -gt 16777216){throw 'Pack de recettes trop volumineux (16 Mio).'}
     $pack=ConvertFrom-Json -InputObject $Json -ErrorAction Stop
-    if([string](Get-DomeniaMember $pack 'Format') -cne 'Domenia.QueryPack/1'){throw 'Format de pack inconnu.'}
+    # Point 133: a pack written by a newer Domenia is refused with its version, never read as an unknown file.
+    [void](Assert-DomeniaContractFormat -Format ([string](Get-DomeniaMember $pack 'Format')) -Family 'Domenia.QueryPack')
     $recipes=@(Get-DomeniaMember $pack 'Recipes' @());if($recipes.Count -gt 5000){throw 'Le pack dépasse 5 000 recettes.'}
     $origin=[string](Get-DomeniaMember $pack 'Origin');if($origin.Length -gt 256 -or $origin -match '[\p{Cc}]'){throw 'Provenance du pack invalide.'}
     $existing=@{};foreach($row in $ExistingRows){$existing[[string]$row.Id]=$row}

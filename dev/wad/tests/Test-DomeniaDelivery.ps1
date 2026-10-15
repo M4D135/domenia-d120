@@ -85,6 +85,41 @@ Case 'P145 matrice absente : compatibilite inconnue, jamais compatible par defau
     }finally{Remove-Item -LiteralPath $empty -Recurse -Force -ErrorAction SilentlyContinue;Reset-Compatibility}
 }
 
+# ---------------------------------------------------------------- point 133 : contrats versionnes entre modules
+function Get-DeliveryThrown {param([scriptblock]$Body) try{& $Body|Out-Null;return ''}catch{return [string]$_.Exception.Message}}
+Case 'P133 pack de recettes dʼune version plus recente : refuse avec sa version, rien nʼest prepare' {
+    $context=[pscustomobject]@{Version=1;StoreId='store-test';DomainDn='DC=example,DC=invalid';Path=(Join-Path ([IO.Path]::GetTempPath()) 'Domenia-test.db')}
+    $message=Get-DeliveryThrown {New-DomeniaQueryPackImportPlan -Context $context -Json '{"Format":"Domenia.QueryPack/2","Origin":"test","Recipes":[]}'}
+    Assert-Delivery ($message -like 'Pack de recettes : format Domenia.QueryPack/2 produit par une version plus récente de Domenia*') $message
+    $current=New-DomeniaQueryPackImportPlan -Context $context -Json '{"Format":"Domenia.QueryPack/1","Origin":"test","Recipes":[]}'
+    Assert-Delivery (([string]$current.Format -ceq 'Domenia.QueryImportPlan/1') -and (@($current.Items).Count -eq 0)) 'Pack courant non lu'
+}
+Case 'P133 recette, bibliotheque et lecture WMI dʼun format futur refusees avant toute evaluation' {
+    $recipe=Get-DeliveryThrown {ConvertTo-DomeniaCompiledQuery -Recipe ([pscustomobject]@{Format='Domenia.Query/3';Id='q';Name='Futur'})}
+    Assert-Delivery ($recipe -like 'Recette de requête : format Domenia.Query/3 produit par une version plus récente*') $recipe
+    $library=Get-DeliveryThrown {ConvertFrom-DomeniaQueryLibrary -Json '{"Format":"Domenia.QueryLibrary/2","Queries":[]}'}
+    Assert-Delivery ($library -like 'Bibliothèque de requêtes : format Domenia.QueryLibrary/2 produit*') $library
+    Assert-Delivery (@(ConvertFrom-DomeniaQueryLibrary -Json '{"Format":"Domenia.QueryLibrary/1","Queries":[]}').Count -eq 0) 'Bibliotheque courante refusee'
+    $wmi=Get-DeliveryThrown {Assert-DomeniaQueryReadDefinition ([pscustomobject]@{Format='Domenia.WmiRead/2'})}
+    Assert-Delivery ($wmi -like 'Définition de lecture WMI : format Domenia.WmiRead/2 produit*') $wmi
+    $other=Get-DeliveryThrown {Assert-DomeniaQueryReadDefinition ([pscustomobject]@{Format='Domenia.QueryPack/1'})}
+    Assert-Delivery ($other -like '*inattendu (Domenia.WmiRead/1 attendu)*') $other
+}
+Case 'P133 le catalogue charge par lʼapplication est celui des workers (Common.Model)' {
+    $command=Get-Command -Name Get-DomeniaContractCatalog -CommandType Function
+    Assert-Delivery ([IO.Path]::GetFileName([string]$command.ScriptBlock.File) -ceq 'Domenia-Common.Model.ps1') ([string]$command.ScriptBlock.File)
+    $check=Test-DomeniaContractCatalog
+    Assert-Delivery ([bool]$check.Valid) ([string]::Join(' | ',[string[]]$check.Problems))
+    foreach($worker in @('Domenia-Query.Worker.ps1','Domenia-QuerySchema.Worker.ps1')){
+        $source=[IO.File]::ReadAllText((Join-Path $wad ('modules\'+$worker)),[Text.Encoding]::UTF8)
+        $lines=@($source -split "`n" | Where-Object {($_ -match 'Model\.ps1') -and ($_ -match 'foreach\(\$file in')})
+        Assert-Delivery ($lines.Count -ge 1) ('Chargement des modeles introuvable : '+$worker)
+        foreach($line in $lines){
+            Assert-Delivery ($line.IndexOf('Domenia-Common.Model.ps1') -ge 0) ('Worker sans Common.Model : '+$worker)
+        }
+    }
+}
+
 $bad=@($script:Tests|Where-Object{-not $_.Passed})
 $report=[ordered]@{Suite='Test-DomeniaDelivery';Environment='Windows PowerShell 5.1 / WPF sans fenetre';NoNetwork=$true;Passed=$script:Tests.Count-$bad.Count;Failed=$bad.Count;Tests=$script:Tests.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-delivery-'+[guid]::NewGuid().ToString('N')+'.json')}
