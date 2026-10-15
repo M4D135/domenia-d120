@@ -1,0 +1,292 @@
+﻿<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Name="DomeniaAdAuditView">
+  <UserControl.Resources>
+    <Style x:Key="AuditWrap" TargetType="TextBlock">
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="VerticalAlignment" Value="Top"/>
+    </Style>
+  </UserControl.Resources>
+  <Grid x:Name="UxAdAuditLayout" Margin="12">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+    </Grid.RowDefinitions>
+    <DockPanel Margin="0,0,0,8">
+      <Button x:Name="BtnAdAuditCopy" DockPanel.Dock="Right" Content="Copier la vue" MinHeight="32" Margin="8,0,0,0" ToolTip="Copie le résumé et les lignes de la vue affichée, pour un ticket. Aucune donnée nʼest relue." AutomationProperties.Name="Copier la vue affichée" AutomationProperties.HelpText="Copie le résumé et les lignes de la vue affichée, pour un ticket. Aucune donnée nʼest relue." ToolTipService.ShowOnDisabled="True"/>
+      <StackPanel>
+        <TextBlock Text="Audit Active Directory" FontSize="18" FontWeight="SemiBold"/>
+        <TextBlock Text="Lectures à la demande, bornées à lʼobjet sélectionné, à une OU ou aux contrôleurs choisis. Aucune écriture, aucun mot de passe lu." TextWrapping="Wrap" Margin="0,2,0,0" Foreground="{DynamicResource MutedColor}"/>
+      </StackPanel>
+    </DockPanel>
+    <TabControl x:Name="AdAuditTabs" Grid.Row="1" ToolTip="Objet sélectionné, contrôleurs du domaine ou identités dʼune OU." AutomationProperties.Name="Vues de lʼaudit AD" AutomationProperties.HelpText="Objet sélectionné, contrôleurs du domaine ou identités dʼune OU." ToolTipService.ShowOnDisabled="True">
+      <TabItem x:Name="TabAdAuditObject" Header="Objet sélectionné" ToolTip="Lectures portant sur lʼobjet de la fiche ouverte." AutomationProperties.Name="Objet sélectionné" AutomationProperties.HelpText="Lectures portant sur lʼobjet de la fiche ouverte.">
+        <DockPanel Margin="8">
+          <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+            <Button x:Name="BtnAdAuditUseSelection" DockPanel.Dock="Right" Content="Reprendre la sélection" MinHeight="32" Margin="8,0,0,0" ToolTip="Prend lʼobjet de la fiche ouverte comme cible. Les résultats de la cible précédente sont effacés ; rien nʼest lu." AutomationProperties.Name="Reprendre la sélection" AutomationProperties.HelpText="Prend lʼobjet de la fiche ouverte comme cible. Les résultats de la cible précédente sont effacés ; rien nʼest lu." ToolTipService.ShowOnDisabled="True"/>
+            <TextBlock x:Name="LblAdAuditTarget" Text="Aucun objet : ouvrez une fiche depuis Rechercher, puis revenez ici." TextWrapping="Wrap" VerticalAlignment="Center" FontWeight="SemiBold" AutomationProperties.LiveSetting="Polite"/>
+          </DockPanel>
+          <TabControl x:Name="AdAuditObjectTabs" ToolTip="Mot de passe, groupes, délégations, stratégies de groupe, identité du poste et associations." AutomationProperties.Name="Lectures de lʼobjet" AutomationProperties.HelpText="Mot de passe, groupes, délégations, stratégies de groupe, identité du poste et associations." ToolTipService.ShowOnDisabled="True">
+            <TabItem x:Name="TabAdAuditPolicy" Header="Mot de passe" ToolTip="Stratégie de mot de passe applicable au compte." AutomationProperties.Name="Stratégie de mot de passe" AutomationProperties.HelpText="Stratégie de mot de passe applicable au compte.">
+              <DockPanel Margin="8">
+                <StackPanel DockPanel.Dock="Top">
+                  <WrapPanel>
+                    <Button x:Name="BtnAdAuditPolicy" Content="Lire la stratégie applicable" Style="{DynamicResource RunButton}" MinHeight="32" ToolTip="Lit la stratégie fine applicable (msDS-ResultantPSO), celle du domaine et lʼéchéance calculée par le contrôleur. Aucun mot de passe nʼest lu." AutomationProperties.Name="Lire la stratégie applicable" AutomationProperties.HelpText="Lit la stratégie fine applicable (msDS-ResultantPSO), celle du domaine et lʼéchéance calculée par le contrôleur. Aucun mot de passe nʼest lu." ToolTipService.ShowOnDisabled="True"/>
+                  </WrapPanel>
+                  <TextBlock x:Name="LblAdAuditPolicy" Text="Lecture à la demande pour un compte utilisateur." TextWrapping="Wrap" Margin="0,8,0,8" Foreground="{DynamicResource MutedColor}" AutomationProperties.LiveSetting="Polite"/>
+                </StackPanel>
+                <DataGrid x:Name="DgAdAuditPolicy" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MinRowHeight="28" EnableRowVirtualization="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTipService.ShowOnDisabled="True" ToolTip="Éléments de la stratégie applicable, avec leur source et leur limite." AutomationProperties.Name="Stratégie applicable" AutomationProperties.HelpText="Éléments de la stratégie applicable, avec leur source et leur limite.">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn Header="Élément" Binding="{Binding Fait}" Width="220" ElementStyle="{StaticResource AuditWrap}"/>
+                    <DataGridTextColumn Header="Valeur" Binding="{Binding Valeur}" Width="2*" ElementStyle="{StaticResource AuditWrap}"/>
+                    <DataGridTextColumn Header="État" Binding="{Binding Etat}" Width="90"/>
+                    <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="170" ElementStyle="{StaticResource AuditWrap}"/>
+                    <DataGridTextColumn Header="Limite" Binding="{Binding Limite}" Width="3*" ElementStyle="{StaticResource AuditWrap}"/>
+                  </DataGrid.Columns>
+                </DataGrid>
+              </DockPanel>
+            </TabItem>
+            <TabItem x:Name="TabAdAuditGroups" Header="Groupes imbriqués" ToolTip="Appartenances directes et imbriquées, cycles et groupes non lus." AutomationProperties.Name="Groupes imbriqués" AutomationProperties.HelpText="Appartenances directes et imbriquées, cycles et groupes non lus.">
+              <DockPanel Margin="8">
+                <StackPanel DockPanel.Dock="Top">
+                  <WrapPanel>
+                    <Button x:Name="BtnAdAuditGroups" Content="Lire les appartenances imbriquées" Style="{DynamicResource RunButton}" MinHeight="32" ToolTip="Parcourt les groupes de lʼobjet puis leurs propres groupes : 2 000 groupes, 16 niveaux et 10 secondes au plus." AutomationProperties.Name="Lire les appartenances imbriquées" AutomationProperties.HelpText="Parcourt les groupes de lʼobjet puis leurs propres groupes : 2 000 groupes, 16 niveaux et 10 secondes au plus." ToolTipService.ShowOnDisabled="True"/>
+                  </WrapPanel>
+                  <TextBlock x:Name="LblAdAuditGroups" Text="Lecture à la demande pour un utilisateur, un poste ou un groupe." TextWrapping="Wrap" Margin="0,8,0,8" Foreground="{DynamicResource MutedColor}" AutomationProperties.LiveSetting="Polite"/>
+                </StackPanel>
+                <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,8,0,0">
+                  <StackPanel>
+                    <TextBlock Text="Pourquoi membre de ce groupe ?" FontWeight="SemiBold"/>
+                    <WrapPanel Margin="0,6,0,0">
+                      <ComboBox x:Name="CmbAdAuditGroupTarget" Width="340" MinHeight="32" DisplayMemberPath="Groupe" ToolTip="Groupe à expliquer, choisi parmi ceux lus. Le choix calcule le chemin sans nouvelle lecture." AutomationProperties.Name="Groupe à expliquer" AutomationProperties.HelpText="Groupe à expliquer, choisi parmi ceux lus. Le choix calcule le chemin sans nouvelle lecture." ToolTipService.ShowOnDisabled="True"/>
+                      <Button x:Name="BtnAdAuditGroupConfirm" Content="Confirmer sur le contrôleur" MinHeight="32" Margin="8,0,0,0" ToolTip="Demande au contrôleur si lʼobjet est membre, directement ou par imbrication, du groupe choisi (une lecture LDAP)." AutomationProperties.Name="Confirmer sur le contrôleur" AutomationProperties.HelpText="Demande au contrôleur si lʼobjet est membre, directement ou par imbrication, du groupe choisi (une lecture LDAP)." ToolTipService.ShowOnDisabled="True"/>
+                    </WrapPanel>
+                    <TextBlock x:Name="LblAdAuditGroupPath" Text="Lisez dʼabord les appartenances, puis choisissez un groupe." TextWrapping="Wrap" Margin="0,6,0,0" AutomationProperties.LiveSetting="Polite"/>
+                  </StackPanel>
+                </Border>
+                <DataGrid x:Name="DgAdAuditGroups" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MinRowHeight="28" EnableRowVirtualization="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTipService.ShowOnDisabled="True" ToolTip="Groupes lus, avec la profondeur, le groupe par lequel lʼappartenance arrive et lʼétat de lecture." AutomationProperties.Name="Groupes imbriqués lus" AutomationProperties.HelpText="Groupes lus, avec la profondeur, le groupe par lequel lʼappartenance arrive et lʼétat de lecture.">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn Header="Groupe" Binding="{Binding Groupe}" Width="2*" ElementStyle="{StaticResource AuditWrap}"/>
+                    <DataGridTextColumn Header="Profondeur" Binding="{Binding Profondeur}" Width="90"/>
+                    <DataGridTextColumn Header="Arrive par" Binding="{Binding Via}" Width="2*" ElementStyle="{StaticResource AuditWrap}"/>
+                    <DataGridTextColumn Header="État de lecture" Binding="{Binding Etat}" Width="2*" ElementStyle="{StaticResource AuditWrap}"/>
+                    <DataGridTextColumn Header="Cycle" Binding="{Binding Cycle}" Width="60"/>
+                    <DataGridTextColumn Header="Privilèges" Binding="{Binding Privilegie}" Width="80"/>
+                  </DataGrid.Columns>
+                </DataGrid>
+              </DockPanel>
+            </TabItem>
+            <TabItem x:Name="TabAdAuditAcl" Header="Délégations" ToolTip="Entrées de la liste de contrôle dʼaccès de lʼobjet et estimation pour un bénéficiaire." AutomationProperties.Name="Délégations" AutomationProperties.HelpText="Entrées de la liste de contrôle dʼaccès de lʼobjet et estimation pour un bénéficiaire.">
+              <DockPanel Margin="8">
+                <StackPanel DockPanel.Dock="Top">
+                  <WrapPanel>
+                    <Button x:Name="BtnAdAuditAcl" Content="Lire les délégations" Style="{DynamicResource RunButton}" MinHeight="32" ToolTip="Lit le propriétaire et la liste de contrôle dʼaccès de lʼobjet (1 000 entrées au plus), sans rien modifier." AutomationProperties.Name="Lire les délégations" AutomationProperties.HelpText="Lit le propriétaire et la liste de contrôle dʼaccès de lʼobjet (1 000 entrées au plus), sans rien modifier." ToolTipService.ShowOnDisabled="True"/>
+                    <CheckBox x:Name="ChkAdAuditAclExplicit" Content="Entrées posées sur lʼobjet seulement" VerticalAlignment="Center" Margin="12,0,0,0" ToolTip="Masque les entrées héritées des conteneurs parents. Filtre local." AutomationProperties.Name="Entrées posées sur lʼobjet seulement" AutomationProperties.HelpText="Masque les entrées héritées des conteneurs parents. Filtre local." ToolTipService.ShowOnDisabled="True"/>
+                    <TextBox x:Name="TxtAdAuditAclFilter" Width="220" MinHeight="30" Margin="12,0,0,0" VerticalContentAlignment="Center" ToolTip="Filtre local sur le bénéficiaire, les droits ou la cible." AutomationProperties.Name="Filtrer les délégations" AutomationProperties.HelpText="Filtre local sur le bénéficiaire, les droits ou la cible." ToolTipService.ShowOnDisabled="True"/>
+                  </WrapPanel>
+                  <TextBlock x:Name="LblAdAuditAcl" Text="Lecture à la demande pour lʼobjet sélectionné." TextWrapping="Wrap" Margin="0,8,0,8" Foreground="{DynamicResource MutedColor}" AutomationProperties.LiveSetting="Polite"/>
+                </StackPanel>
+                <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,8,0,0">
+                  <DockPanel>
+                    <StackPanel DockPanel.Dock="Top">
+                      <WrapPanel>
+                        <TextBlock Text="Estimation pour le bénéficiaire sélectionné" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <Button x:Name="BtnAdAuditAclToken" Content="Inclure ses groupes" MinHeight="30" Margin="12,0,0,0" ToolTip="Lit les groupes de sécurité du bénéficiaire choisi (tokenGroups) pour compter les entrées qui les désignent. Une lecture LDAP." AutomationProperties.Name="Inclure les groupes du bénéficiaire" AutomationProperties.HelpText="Lit les groupes de sécurité du bénéficiaire choisi (tokenGroups) pour compter les entrées qui les désignent. Une lecture LDAP." ToolTipService.ShowOnDisabled="True"/>
+                      </WrapPanel>
+                      <TextBlock x:Name="LblAdAuditAclEstimate" Text="Sélectionnez une entrée pour estimer les droits de son bénéficiaire." TextWrapping="Wrap" Margin="0,6,0,6" Foreground="{DynamicResource MutedColor}" AutomationProperties.LiveSetting="Polite"/>
+                    </StackPanel>
+                    <DataGrid x:Name="DgAdAuditAclEstimate" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MinRowHeight="28" EnableRowVirtualization="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTipService.ShowOnDisabled="True" MaxHeight="220" ToolTip="Résultat estimé par catégorie de droit, avec lʼentrée qui le décide." AutomationProperties.Name="Estimation des droits" AutomationProperties.HelpText="Résultat estimé par catégorie de droit, avec lʼentrée qui le décide.">
+                      <DataGrid.Columns>
+                        <DataGridTextColumn Header="Droit" Binding="{Binding Droit}" Width="230"/>
+                        <DataGridTextColumn Header="Résultat estimé" Binding="{Binding Resultat}" Width="2*" ElementStyle="{StaticResource AuditWrap}"/>
+                        <DataGridTextColumn Header="Décidé par" Binding="{Binding Par}" Width="2*" ElementStyle="{StaticResource AuditWrap}"/>
+                      </DataGrid.Columns>
+                    </DataGrid>
+                  </DockPanel>
+                </Border>
+                <DataGrid x:Name="DgAdAuditAcl" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MinRowHeight="28" EnableRowVirtualization="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTipService.ShowOnDisabled="True" SelectionMode="Single" ToolTip="Entrées observées : bénéficiaire, droits, cible et origine. Une entrée nʼest pas un droit effectif." AutomationProperties.Name="Entrées de la liste de contrôle dʼaccès" AutomationProperties.HelpText="Entrées observées : bénéficiaire, droits, cible et origine. Une entrée nʼest pas un droit effectif.">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn Header="Bénéficiaire" Binding="{Binding Beneficiaire}" Width="180" ElementStyle="{StaticResource AuditWrap}"/>
+                    <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="100"/>
+                    <DataGridTextColumn Header="Droits" Binding="{Binding Droits}" Width="2*" ElementStyle="{StaticResource AuditWrap}"/>
+                    <DataGridTextColumn Header="Cible" Binding="{Binding Cible}" Width="2*" ElementStyle="{StaticResource AuditWrap}"/>
+                    <DataGridTextColumn Header="Sʼapplique à" Binding="{Binding SappliqueA}" Width="150" ElementStyle="{StaticResource AuditWrap}"/>
+                    <DataGridTextColumn Header="Origine" Binding="{Binding Origine}" Width="170" ElementStyle="{StaticResource AuditWrap}"/>
+                    <DataGridTextColumn Header="Portée" Binding="{Binding Portee}" Width="170" ElementStyle="{StaticResource AuditWrap}"/>
+                  </DataGrid.Columns>
+                </DataGrid>
+              </DockPanel>
+            </TabItem>
+            <TabItem x:Name="TabAdAuditGpo" Header="Stratégies de groupe" ToolTip="GPO liées dans lʼannuaire et résultat appliqué sur le poste, présentés séparément." AutomationProperties.Name="Stratégies de groupe" AutomationProperties.HelpText="GPO liées dans lʼannuaire et résultat appliqué sur le poste, présentés séparément.">
+              <DockPanel Margin="8">
+                <StackPanel DockPanel.Dock="Top">
+                  <WrapPanel>
+                    <Button x:Name="BtnAdAuditGpoLinks" Content="Lire les liens GPO" Style="{DynamicResource RunButton}" MinHeight="32" ToolTip="Lit gPLink et gPOptions de chaque OU au-dessus de lʼobjet et du domaine, puis le nom des GPO. Liens de site non lus." AutomationProperties.Name="Lire les liens GPO" AutomationProperties.HelpText="Lit gPLink et gPOptions de chaque OU au-dessus de lʼobjet et du domaine, puis le nom des GPO. Liens de site non lus." ToolTipService.ShowOnDisabled="True"/>
+                    <Button x:Name="BtnAdAuditGpoApplied" Content="Lire le résultat sur le poste" MinHeight="32" Margin="8,0,0,0" ToolTip="Lit par CIM le dernier résultat appliqué enregistré par le poste (RSoP). Droits dʼadministration du poste requis ; aucune actualisation des stratégies." AutomationProperties.Name="Lire le résultat appliqué sur le poste" AutomationProperties.HelpText="Lit par CIM le dernier résultat appliqué enregistré par le poste (RSoP). Droits dʼadministration du poste requis ; aucune actualisation des stratégies." ToolTipService.ShowOnDisabled="True"/>
+                  </WrapPanel>
+                  <TextBlock x:Name="LblAdAuditGpo" Text="Lecture à la demande pour un utilisateur, un poste ou une unité dʼorganisation." TextWrapping="Wrap" Margin="0,8,0,8" Foreground="{DynamicResource MutedColor}" AutomationProperties.LiveSetting="Polite"/>
+                </StackPanel>
+                <DataGrid x:Name="DgAdAuditGpoFacts" DockPanel.Dock="Bottom" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MinRowHeight="28" EnableRowVirtualization="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTipService.ShowOnDisabled="True" MaxHeight="170" Margin="0,8,0,0" ToolTip="Ce qui a été lu, ce qui ne lʼa pas été et ce que cela ne prouve pas." AutomationProperties.Name="Constats des stratégies de groupe" AutomationProperties.HelpText="Ce qui a été lu, ce qui ne lʼa pas été et ce que cela ne prouve pas.">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn Header="Élément" Binding="{Binding Fait}" Width="200" ElementStyle="{StaticResource AuditWrap}"/>
+                    <DataGridTextColumn Header="Valeur" Binding="{Binding Valeur}" Width="2*" ElementStyle="{StaticResource AuditWrap}"/>
+                    <DataGridTextColumn Header="État" Binding="{Binding Etat}" Width="90"/>
+                    <DataGridTextColumn Header="Limite" Binding="{Binding Limite}" Width="3*" ElementStyle="{StaticResource AuditWrap}"/>
+                  </DataGrid.Columns>
+                </DataGrid>
+                <DataGrid x:Name="DgAdAuditGpo" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MinRowHeight="28" EnableRowVirtualization="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTipService.ShowOnDisabled="True" ToolTip="Une ligne par lien : lien, héritage et résultat sur le poste. Un lien ne prouve pas lʼapplication." AutomationProperties.Name="Liens GPO et résultat appliqué" AutomationProperties.HelpText="Une ligne par lien : lien, héritage et résultat sur le poste. Un lien ne prouve pas lʼapplication.">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn Header="GPO" Binding="{Binding Gpo}" Width="2*" ElementStyle="{StaticResource AuditWrap}"/>
+                    <DataGridTextColumn Header="Liée à" Binding="{Binding LieA}" Width="140" ElementStyle="{StaticResource AuditWrap}"/>
+                    <DataGridTextColumn Header="Lien" Binding="{Binding Lien}" Width="110" ElementStyle="{StaticResource AuditWrap}"/>
+                    <DataGridTextColumn Header="Forcée" Binding="{Binding Force}" Width="70"/>
+                    <DataGridTextColumn Header="Héritage" Binding="{Binding Heritage}" Width="150" ElementStyle="{StaticResource AuditWrap}"/>
+                    <DataGridTextColumn Header="Attendue par les liens" Binding="{Binding AttenduParLiens}" Width="110"/>
+                    <DataGridTextColumn Header="Résultat sur le poste" Binding="{Binding Resultat}" Width="3*" ElementStyle="{StaticResource AuditWrap}"/>
+                    <DataGridTextColumn Header="État de la GPO" Binding="{Binding EtatGpo}" Width="150" ElementStyle="{StaticResource AuditWrap}"/>
+                  </DataGrid.Columns>
+                </DataGrid>
+              </DockPanel>
+            </TabItem>
+            <TabItem x:Name="TabAdAuditMachine" Header="Identité du poste" ToolTip="Nom dans lʼannuaire, résolution DNS et identité renvoyée par le poste." AutomationProperties.Name="Identité du poste" AutomationProperties.HelpText="Nom dans lʼannuaire, résolution DNS et identité renvoyée par le poste.">
+              <DockPanel Margin="8">
+                <StackPanel DockPanel.Dock="Top">
+                  <WrapPanel>
+                    <Button x:Name="BtnAdAuditMachineIdentity" Content="Vérifier lʼidentité du poste" Style="{DynamicResource RunButton}" MinHeight="32" ToolTip="Résout le nom DNS depuis ce poste, lit le nom inverse et interroge le poste par CIM (Win32_ComputerSystem). Aucune attribution ni fusion." AutomationProperties.Name="Vérifier lʼidentité du poste" AutomationProperties.HelpText="Résout le nom DNS depuis ce poste, lit le nom inverse et interroge le poste par CIM (Win32_ComputerSystem). Aucune attribution ni fusion." ToolTipService.ShowOnDisabled="True"/>
+                  </WrapPanel>
+                  <TextBlock x:Name="LblAdAuditMachineIdentity" Text="Lecture à la demande pour un poste." TextWrapping="Wrap" Margin="0,8,0,8" Foreground="{DynamicResource MutedColor}" AutomationProperties.LiveSetting="Polite"/>
+                </StackPanel>
+                <DataGrid x:Name="DgAdAuditMachineIdentity" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MinRowHeight="28" EnableRowVirtualization="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTipService.ShowOnDisabled="True" ToolTip="Identité vue par lʼannuaire, par le DNS et par le poste, avec leur source." AutomationProperties.Name="Identité du poste" AutomationProperties.HelpText="Identité vue par lʼannuaire, par le DNS et par le poste, avec leur source.">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn Header="Élément" Binding="{Binding Fait}" Width="220"/>
+                    <DataGridTextColumn Header="Valeur" Binding="{Binding Valeur}" Width="2*" ElementStyle="{StaticResource AuditWrap}"/>
+                    <DataGridTextColumn Header="État" Binding="{Binding Etat}" Width="90"/>
+                    <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="190"/>
+                    <DataGridTextColumn Header="Limite" Binding="{Binding Limite}" Width="2*" ElementStyle="{StaticResource AuditWrap}"/>
+                  </DataGrid.Columns>
+                </DataGrid>
+              </DockPanel>
+            </TabItem>
+            <TabItem x:Name="TabAdAuditHistory" Header="Postes et utilisateurs" ToolTip="Affectation déclarée, dernière session observée et historique enregistré, chacun avec son origine et sa date." AutomationProperties.Name="Postes et utilisateurs" AutomationProperties.HelpText="Affectation déclarée, dernière session observée et historique enregistré, chacun avec son origine et sa date.">
+              <DockPanel Margin="8">
+                <StackPanel DockPanel.Dock="Top">
+                  <TextBlock x:Name="LblAdAuditRelationOverview" Text="Sélectionnez un utilisateur ou un poste." TextWrapping="Wrap" Margin="0,0,0,8" AutomationProperties.LiveSetting="Polite"/>
+                  <WrapPanel>
+                    <Button x:Name="BtnAdAuditHistory" Content="Lire lʼhistorique enregistré" Style="{DynamicResource RunButton}" MinHeight="32" ToolTip="Lit dans la base locale de ce poste les associations enregistrées pour ce sujet (200 lignes au plus). Aucune lecture réseau." AutomationProperties.Name="Lire lʼhistorique enregistré" AutomationProperties.HelpText="Lit dans la base locale de ce poste les associations enregistrées pour ce sujet (200 lignes au plus). Aucune lecture réseau." ToolTipService.ShowOnDisabled="True"/>
+                  </WrapPanel>
+                  <TextBlock x:Name="LblAdAuditHistory" Text="Historique non lu." TextWrapping="Wrap" Margin="0,8,0,8" Foreground="{DynamicResource MutedColor}" AutomationProperties.LiveSetting="Polite"/>
+                </StackPanel>
+                <DataGrid x:Name="DgAdAuditHistory" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MinRowHeight="28" EnableRowVirtualization="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTipService.ShowOnDisabled="True" ToolTip="Associations enregistrées, les plus récentes en premier, avec la nature de la preuve et son origine." AutomationProperties.Name="Historique enregistré des associations" AutomationProperties.HelpText="Associations enregistrées, les plus récentes en premier, avec la nature de la preuve et son origine.">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn Header="Date" Binding="{Binding Date}" SortMemberPath="DateSort" Width="130"/>
+                    <DataGridTextColumn Header="Utilisateur" Binding="{Binding Utilisateur}" Width="140"/>
+                    <DataGridTextColumn Header="Poste" Binding="{Binding Poste}" Width="140"/>
+                    <DataGridTextColumn Header="Nature" Binding="{Binding Nature}" Width="110"/>
+                    <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="2*" ElementStyle="{StaticResource AuditWrap}"/>
+                    <DataGridTextColumn Header="Vérifié dans AD" Binding="{Binding VerifieAd}" Width="110"/>
+                    <DataGridTextColumn Header="Détails" Binding="{Binding Details}" Width="2*" ElementStyle="{StaticResource AuditWrap}"/>
+                  </DataGrid.Columns>
+                </DataGrid>
+              </DockPanel>
+            </TabItem>
+          </TabControl>
+        </DockPanel>
+      </TabItem>
+      <TabItem x:Name="TabAdAuditDcs" Header="Contrôleurs" ToolTip="Diagnostic ciblé des contrôleurs choisis : DNS, joignabilité, heure et réplication." AutomationProperties.Name="Contrôleurs" AutomationProperties.HelpText="Diagnostic ciblé des contrôleurs choisis : DNS, joignabilité, heure et réplication.">
+        <Grid Margin="8">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="160"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+          <StackPanel>
+            <WrapPanel>
+              <Button x:Name="BtnAdAuditDcList" Content="Lister les contrôleurs" Style="{DynamicResource RunButton}" MinHeight="32" ToolTip="Lit les comptes des contrôleurs du domaine (100 au plus) et lʼémulateur PDC. Aucune sonde réseau." AutomationProperties.Name="Lister les contrôleurs" AutomationProperties.HelpText="Lit les comptes des contrôleurs du domaine (100 au plus) et lʼémulateur PDC. Aucune sonde réseau." ToolTipService.ShowOnDisabled="True"/>
+              <Button x:Name="BtnAdAuditDcProbe" Content="Diagnostiquer la sélection" MinHeight="32" Margin="8,0,0,0" ToolTip="Pour 10 contrôleurs choisis au plus : DNS, ports LDAP et Kerberos, heure, synchronisation et réplication entrante. Sans droit dʼadministration." AutomationProperties.Name="Diagnostiquer les contrôleurs choisis" AutomationProperties.HelpText="Pour 10 contrôleurs choisis au plus : DNS, ports LDAP et Kerberos, heure, synchronisation et réplication entrante. Sans droit dʼadministration." ToolTipService.ShowOnDisabled="True"/>
+              <Button x:Name="BtnAdAuditDcServices" Content="Lire les services (droits dʼadministration)" MinHeight="32" Margin="8,0,0,0" ToolTip="Sonde privilégiée, sur demande seulement : état des services de lʼannuaire des contrôleurs choisis, lu par CIM. Aucun service nʼest démarré ni arrêté." AutomationProperties.Name="Lire les services des contrôleurs" AutomationProperties.HelpText="Sonde privilégiée, sur demande seulement : état des services de lʼannuaire des contrôleurs choisis, lu par CIM. Aucun service nʼest démarré ni arrêté." ToolTipService.ShowOnDisabled="True"/>
+            </WrapPanel>
+            <TextBlock x:Name="LblAdAuditDc" Text="Listez les contrôleurs, choisissez-en jusquʼà 10, puis lancez le diagnostic." TextWrapping="Wrap" Margin="0,8,0,8" Foreground="{DynamicResource MutedColor}" AutomationProperties.LiveSetting="Polite"/>
+          </StackPanel>
+          <DataGrid x:Name="DgAdAuditDcList" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MinRowHeight="28" EnableRowVirtualization="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTipService.ShowOnDisabled="True" SelectionMode="Extended" ToolTip="Contrôleurs du domaine. Sélection multiple avec Ctrl ou Maj ; 10 au plus par diagnostic." AutomationProperties.Name="Contrôleurs du domaine" AutomationProperties.HelpText="Contrôleurs du domaine. Sélection multiple avec Ctrl ou Maj ; 10 au plus par diagnostic.">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Contrôleur" Binding="{Binding DnsHostName}" Width="2*"/>
+              <DataGridTextColumn Header="Site" Binding="{Binding Site}" Width="150"/>
+              <DataGridTextColumn Header="Système" Binding="{Binding Os}" Width="2*"/>
+              <DataGridTextColumn Header="Rôle" Binding="{Binding Role}" Width="180"/>
+            </DataGrid.Columns>
+          </DataGrid>
+          <TabControl x:Name="AdAuditDcResultTabs" Grid.Row="2" Margin="0,8,0,0" ToolTip="Synthèse par contrôleur, liens de réplication et services." AutomationProperties.Name="Résultats du diagnostic des contrôleurs" AutomationProperties.HelpText="Synthèse par contrôleur, liens de réplication et services." ToolTipService.ShowOnDisabled="True">
+            <TabItem x:Name="TabAdAuditDcHealth" Header="Synthèse">
+              <DockPanel Margin="4">
+                <DataGrid x:Name="DgAdAuditDcFacts" DockPanel.Dock="Bottom" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MinRowHeight="28" EnableRowVirtualization="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTipService.ShowOnDisabled="True" MaxHeight="140" Margin="0,6,0,0" ToolTip="Enregistrements DNS et écarts calculés entre contrôleurs, avec leurs limites." AutomationProperties.Name="Constats du diagnostic" AutomationProperties.HelpText="Enregistrements DNS et écarts calculés entre contrôleurs, avec leurs limites.">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn Header="Élément" Binding="{Binding Fait}" Width="260" ElementStyle="{StaticResource AuditWrap}"/>
+                    <DataGridTextColumn Header="Valeur" Binding="{Binding Valeur}" Width="2*" ElementStyle="{StaticResource AuditWrap}"/>
+                    <DataGridTextColumn Header="État" Binding="{Binding Etat}" Width="90"/>
+                    <DataGridTextColumn Header="Limite" Binding="{Binding Limite}" Width="2*" ElementStyle="{StaticResource AuditWrap}"/>
+                  </DataGrid.Columns>
+                </DataGrid>
+                <DataGrid x:Name="DgAdAuditHealth" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MinRowHeight="28" EnableRowVirtualization="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTipService.ShowOnDisabled="True" ToolTip="Un contrôleur injoignable est « Non lu », jamais déclaré en panne." AutomationProperties.Name="Synthèse par contrôleur" AutomationProperties.HelpText="Un contrôleur injoignable est « Non lu », jamais déclaré en panne.">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn Header="Contrôleur" Binding="{Binding Controleur}" Width="170" ElementStyle="{StaticResource AuditWrap}"/>
+                    <DataGridTextColumn Header="Verdict" Binding="{Binding Verdict}" Width="130"/>
+                    <DataGridTextColumn Header="Joignable" Binding="{Binding Joignable}" Width="150" ElementStyle="{StaticResource AuditWrap}"/>
+                    <DataGridTextColumn Header="Heure" Binding="{Binding Heure}" Width="150" ElementStyle="{StaticResource AuditWrap}"/>
+                    <DataGridTextColumn Header="Synchronisé" Binding="{Binding Synchronise}" Width="90"/>
+                    <DataGridTextColumn Header="Réplication entrante" Binding="{Binding Replication}" Width="2*" ElementStyle="{StaticResource AuditWrap}"/>
+                    <DataGridTextColumn Header="Échecs" Binding="{Binding Echecs}" Width="70"/>
+                    <DataGridTextColumn Header="DNS" Binding="{Binding Dns}" Width="2*" ElementStyle="{StaticResource AuditWrap}"/>
+                    <DataGridTextColumn Header="Détail" Binding="{Binding Detail}" Width="3*" ElementStyle="{StaticResource AuditWrap}"/>
+                  </DataGrid.Columns>
+                </DataGrid>
+              </DockPanel>
+            </TabItem>
+            <TabItem x:Name="TabAdAuditDcRepl" Header="Réplication">
+              <DataGrid x:Name="DgAdAuditRepl" Margin="4" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MinRowHeight="28" EnableRowVirtualization="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTipService.ShowOnDisabled="True" ToolTip="Liens de réplication entrants lus sur chaque contrôleur." AutomationProperties.Name="Liens de réplication entrants" AutomationProperties.HelpText="Liens de réplication entrants lus sur chaque contrôleur.">
+                <DataGrid.Columns>
+                  <DataGridTextColumn Header="Contrôleur" Binding="{Binding Controleur}" Width="170"/>
+                  <DataGridTextColumn Header="Partenaire" Binding="{Binding Partenaire}" Width="140"/>
+                  <DataGridTextColumn Header="Partition" Binding="{Binding Partition}" Width="2*" ElementStyle="{StaticResource AuditWrap}"/>
+                  <DataGridTextColumn Header="Dernier succès" Binding="{Binding DernierSucces}" Width="130"/>
+                  <DataGridTextColumn Header="Dernière tentative" Binding="{Binding DerniereTentative}" Width="130"/>
+                  <DataGridTextColumn Header="Résultat" Binding="{Binding Resultat}" Width="2*" ElementStyle="{StaticResource AuditWrap}"/>
+                  <DataGridTextColumn Header="Échecs consécutifs" Binding="{Binding Echecs}" Width="120"/>
+                </DataGrid.Columns>
+              </DataGrid>
+            </TabItem>
+            <TabItem x:Name="TabAdAuditDcServices" Header="Services">
+              <DataGrid x:Name="DgAdAuditServices" Margin="4" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MinRowHeight="28" EnableRowVirtualization="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTipService.ShowOnDisabled="True" ToolTip="Services de lʼannuaire des contrôleurs, comparés à lʼétat attendu." AutomationProperties.Name="Services des contrôleurs" AutomationProperties.HelpText="Services de lʼannuaire des contrôleurs, comparés à lʼétat attendu.">
+                <DataGrid.Columns>
+                  <DataGridTextColumn Header="Contrôleur" Binding="{Binding Controleur}" Width="170"/>
+                  <DataGridTextColumn Header="Service" Binding="{Binding Service}" Width="100"/>
+                  <DataGridTextColumn Header="État" Binding="{Binding Etat}" Width="2*" ElementStyle="{StaticResource AuditWrap}"/>
+                  <DataGridTextColumn Header="Démarrage" Binding="{Binding Demarrage}" Width="110"/>
+                  <DataGridTextColumn Header="Constat" Binding="{Binding Constat}" Width="3*" ElementStyle="{StaticResource AuditWrap}"/>
+                </DataGrid.Columns>
+              </DataGrid>
+            </TabItem>
+          </TabControl>
+        </Grid>
+      </TabItem>
+      <TabItem x:Name="TabAdAuditIdentity" Header="Identités" ToolTip="Doublons, noms DNS partagés et noms recyclés dans lʼOU choisie, sans fusion automatique." AutomationProperties.Name="Identités" AutomationProperties.HelpText="Doublons, noms DNS partagés et noms recyclés dans lʼOU choisie, sans fusion automatique.">
+        <DockPanel Margin="8">
+          <StackPanel DockPanel.Dock="Top">
+            <TextBlock x:Name="LblAdAuditScope" Text="Périmètre : choisissez une OU dans lʼarbre de Rechercher." TextWrapping="Wrap" FontWeight="SemiBold" AutomationProperties.LiveSetting="Polite"/>
+            <WrapPanel Margin="0,8,0,0">
+              <Button x:Name="BtnAdAuditScan" Content="Analyser les identités de lʼOU" Style="{DynamicResource RunButton}" MinHeight="32" ToolTip="Lit les utilisateurs et postes de lʼOU choisie (5 000 au plus), puis compare leurs noms avec la base locale de ce poste. Jamais le domaine entier." AutomationProperties.Name="Analyser les identités de lʼOU" AutomationProperties.HelpText="Lit les utilisateurs et postes de lʼOU choisie (5 000 au plus), puis compare leurs noms avec la base locale de ce poste. Jamais le domaine entier." ToolTipService.ShowOnDisabled="True"/>
+              <CheckBox x:Name="ChkAdAuditScanSubtree" Content="Inclure les sous-OU" VerticalAlignment="Center" Margin="12,0,0,0" ToolTip="Étend la lecture aux OU contenues dans lʼOU choisie. Refusé à la racine du domaine." AutomationProperties.Name="Inclure les sous-OU" AutomationProperties.HelpText="Étend la lecture aux OU contenues dans lʼOU choisie. Refusé à la racine du domaine." ToolTipService.ShowOnDisabled="True"/>
+            </WrapPanel>
+            <TextBlock x:Name="LblAdAuditScan" Text="Analyse à la demande. Chaque constat est à revoir : rien nʼest fusionné, renommé ni supprimé." TextWrapping="Wrap" Margin="0,8,0,8" Foreground="{DynamicResource MutedColor}" AutomationProperties.LiveSetting="Polite"/>
+          </StackPanel>
+          <DataGrid x:Name="DgAdAuditScan" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MinRowHeight="28" EnableRowVirtualization="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTipService.ShowOnDisabled="True" ToolTip="Constats à revoir, avec les objets concernés et la limite du constat." AutomationProperties.Name="Constats sur les identités" AutomationProperties.HelpText="Constats à revoir, avec les objets concernés et la limite du constat.">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Catégorie" Binding="{Binding Categorie}" Width="190" ElementStyle="{StaticResource AuditWrap}"/>
+              <DataGridTextColumn Header="Élément" Binding="{Binding Element}" Width="2*" ElementStyle="{StaticResource AuditWrap}"/>
+              <DataGridTextColumn Header="Objets" Binding="{Binding Objets}" Width="2*" ElementStyle="{StaticResource AuditWrap}"/>
+              <DataGridTextColumn Header="Conclusion" Binding="{Binding Conclusion}" Width="90"/>
+              <DataGridTextColumn Header="Limite" Binding="{Binding Limite}" Width="3*" ElementStyle="{StaticResource AuditWrap}"/>
+            </DataGrid.Columns>
+          </DataGrid>
+        </DockPanel>
+      </TabItem>
+    </TabControl>
+  </Grid>
+</UserControl>

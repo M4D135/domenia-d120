@@ -4065,5 +4065,327 @@
     "Source": "specific",
     "Title": "Dates des mesures et du calcul",
     "Text": "Le ping et l’inventaire WMI conservent leurs dates propres. N/M compte les mesures utilisables parmi les postes actifs ; du… au… décrit leur intervalle de dates. Vue recalculée indique seulement la préparation locale de l’affichage, sans nouvelle collecte."
+  },
+  {
+    "Name": "WsAdAudit",
+    "Title": "Audit AD",
+    "Text": "Stratégie de mot de passe, groupes imbriqués, délégations, GPO, contrôleurs et identités : lectures bornées et à la demande, sans écriture.",
+    "Kind": "TabItem",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditCopy",
+    "Title": "Copier la vue affichée",
+    "Text": "Copie le résumé et les lignes de la vue affichée, pour un ticket. Aucune donnée nʼest relue.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "AdAuditTabs",
+    "Title": "Vues de lʼaudit AD",
+    "Text": "Objet sélectionné, contrôleurs du domaine ou identités dʼune OU.",
+    "Kind": "TabControl",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "TabAdAuditObject",
+    "Title": "Objet sélectionné",
+    "Text": "Lectures portant sur lʼobjet de la fiche ouverte.",
+    "Kind": "TabItem",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditUseSelection",
+    "Title": "Reprendre la sélection",
+    "Text": "Prend lʼobjet de la fiche ouverte comme cible. Les résultats de la cible précédente sont effacés ; rien nʼest lu.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "AdAuditObjectTabs",
+    "Title": "Lectures de lʼobjet",
+    "Text": "Mot de passe, groupes, délégations, stratégies de groupe, identité du poste et associations.",
+    "Kind": "TabControl",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "TabAdAuditPolicy",
+    "Title": "Stratégie de mot de passe",
+    "Text": "Stratégie de mot de passe applicable au compte.",
+    "Kind": "TabItem",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditPolicy",
+    "Title": "Lire la stratégie applicable",
+    "Text": "Lit la stratégie fine applicable (msDS-ResultantPSO), celle du domaine et lʼéchéance calculée par le contrôleur. Aucun mot de passe nʼest lu.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAdAuditPolicy",
+    "Title": "Stratégie applicable",
+    "Text": "Éléments de la stratégie applicable, avec leur source et leur limite.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "TabAdAuditGroups",
+    "Title": "Groupes imbriqués",
+    "Text": "Appartenances directes et imbriquées, cycles et groupes non lus.",
+    "Kind": "TabItem",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditGroups",
+    "Title": "Lire les appartenances imbriquées",
+    "Text": "Parcourt les groupes de lʼobjet puis leurs propres groupes : 2 000 groupes, 16 niveaux et 10 secondes au plus.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "CmbAdAuditGroupTarget",
+    "Title": "Groupe à expliquer",
+    "Text": "Groupe à expliquer, choisi parmi ceux lus. Le choix calcule le chemin sans nouvelle lecture.",
+    "Kind": "ComboBox",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditGroupConfirm",
+    "Title": "Confirmer sur le contrôleur",
+    "Text": "Demande au contrôleur si lʼobjet est membre, directement ou par imbrication, du groupe choisi (une lecture LDAP).",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAdAuditGroups",
+    "Title": "Groupes imbriqués lus",
+    "Text": "Groupes lus, avec la profondeur, le groupe par lequel lʼappartenance arrive et lʼétat de lecture.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "TabAdAuditAcl",
+    "Title": "Délégations",
+    "Text": "Entrées de la liste de contrôle dʼaccès de lʼobjet et estimation pour un bénéficiaire.",
+    "Kind": "TabItem",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditAcl",
+    "Title": "Lire les délégations",
+    "Text": "Lit le propriétaire et la liste de contrôle dʼaccès de lʼobjet (1 000 entrées au plus), sans rien modifier.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "ChkAdAuditAclExplicit",
+    "Title": "Entrées posées sur lʼobjet seulement",
+    "Text": "Masque les entrées héritées des conteneurs parents. Filtre local.",
+    "Kind": "CheckBox",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "TxtAdAuditAclFilter",
+    "Title": "Filtrer les délégations",
+    "Text": "Filtre local sur le bénéficiaire, les droits ou la cible.",
+    "Kind": "TextBox",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditAclToken",
+    "Title": "Inclure les groupes du bénéficiaire",
+    "Text": "Lit les groupes de sécurité du bénéficiaire choisi (tokenGroups) pour compter les entrées qui les désignent. Une lecture LDAP.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAdAuditAclEstimate",
+    "Title": "Estimation des droits",
+    "Text": "Résultat estimé par catégorie de droit, avec lʼentrée qui le décide.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAdAuditAcl",
+    "Title": "Entrées de la liste de contrôle dʼaccès",
+    "Text": "Entrées observées : bénéficiaire, droits, cible et origine. Une entrée nʼest pas un droit effectif.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "TabAdAuditGpo",
+    "Title": "Stratégies de groupe",
+    "Text": "GPO liées dans lʼannuaire et résultat appliqué sur le poste, présentés séparément.",
+    "Kind": "TabItem",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditGpoLinks",
+    "Title": "Lire les liens GPO",
+    "Text": "Lit gPLink et gPOptions de chaque OU au-dessus de lʼobjet et du domaine, puis le nom des GPO. Liens de site non lus.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditGpoApplied",
+    "Title": "Lire le résultat appliqué sur le poste",
+    "Text": "Lit par CIM le dernier résultat appliqué enregistré par le poste (RSoP). Droits dʼadministration du poste requis ; aucune actualisation des stratégies.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAdAuditGpoFacts",
+    "Title": "Constats des stratégies de groupe",
+    "Text": "Ce qui a été lu, ce qui ne lʼa pas été et ce que cela ne prouve pas.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAdAuditGpo",
+    "Title": "Liens GPO et résultat appliqué",
+    "Text": "Une ligne par lien : lien, héritage et résultat sur le poste. Un lien ne prouve pas lʼapplication.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "TabAdAuditMachine",
+    "Title": "Identité du poste",
+    "Text": "Nom dans lʼannuaire, résolution DNS et identité renvoyée par le poste.",
+    "Kind": "TabItem",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditMachineIdentity",
+    "Title": "Vérifier lʼidentité du poste",
+    "Text": "Résout le nom DNS depuis ce poste, lit le nom inverse et interroge le poste par CIM (Win32_ComputerSystem). Aucune attribution ni fusion.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAdAuditMachineIdentity",
+    "Title": "Identité du poste",
+    "Text": "Identité vue par lʼannuaire, par le DNS et par le poste, avec leur source.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "TabAdAuditHistory",
+    "Title": "Postes et utilisateurs",
+    "Text": "Affectation déclarée, dernière session observée et historique enregistré, chacun avec son origine et sa date.",
+    "Kind": "TabItem",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditHistory",
+    "Title": "Lire lʼhistorique enregistré",
+    "Text": "Lit dans la base locale de ce poste les associations enregistrées pour ce sujet (200 lignes au plus). Aucune lecture réseau.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAdAuditHistory",
+    "Title": "Historique enregistré des associations",
+    "Text": "Associations enregistrées, les plus récentes en premier, avec la nature de la preuve et son origine.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "TabAdAuditDcs",
+    "Title": "Contrôleurs",
+    "Text": "Diagnostic ciblé des contrôleurs choisis : DNS, joignabilité, heure et réplication.",
+    "Kind": "TabItem",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditDcList",
+    "Title": "Lister les contrôleurs",
+    "Text": "Lit les comptes des contrôleurs du domaine (100 au plus) et lʼémulateur PDC. Aucune sonde réseau.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditDcProbe",
+    "Title": "Diagnostiquer les contrôleurs choisis",
+    "Text": "Pour 10 contrôleurs choisis au plus : DNS, ports LDAP et Kerberos, heure, synchronisation et réplication entrante. Sans droit dʼadministration.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditDcServices",
+    "Title": "Lire les services des contrôleurs",
+    "Text": "Sonde privilégiée, sur demande seulement : état des services de lʼannuaire des contrôleurs choisis, lu par CIM. Aucun service nʼest démarré ni arrêté.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAdAuditDcList",
+    "Title": "Contrôleurs du domaine",
+    "Text": "Contrôleurs du domaine. Sélection multiple avec Ctrl ou Maj ; 10 au plus par diagnostic.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "AdAuditDcResultTabs",
+    "Title": "Résultats du diagnostic des contrôleurs",
+    "Text": "Synthèse par contrôleur, liens de réplication et services.",
+    "Kind": "TabControl",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAdAuditDcFacts",
+    "Title": "Constats du diagnostic",
+    "Text": "Enregistrements DNS et écarts calculés entre contrôleurs, avec leurs limites.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAdAuditHealth",
+    "Title": "Synthèse par contrôleur",
+    "Text": "Un contrôleur injoignable est « Non lu », jamais déclaré en panne.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAdAuditRepl",
+    "Title": "Liens de réplication entrants",
+    "Text": "Liens de réplication entrants lus sur chaque contrôleur.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAdAuditServices",
+    "Title": "Services des contrôleurs",
+    "Text": "Services de lʼannuaire des contrôleurs, comparés à lʼétat attendu.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "TabAdAuditIdentity",
+    "Title": "Identités",
+    "Text": "Doublons, noms DNS partagés et noms recyclés dans lʼOU choisie, sans fusion automatique.",
+    "Kind": "TabItem",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditScan",
+    "Title": "Analyser les identités de lʼOU",
+    "Text": "Lit les utilisateurs et postes de lʼOU choisie (5 000 au plus), puis compare leurs noms avec la base locale de ce poste. Jamais le domaine entier.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "ChkAdAuditScanSubtree",
+    "Title": "Inclure les sous-OU",
+    "Text": "Étend la lecture aux OU contenues dans lʼOU choisie. Refusé à la racine du domaine.",
+    "Kind": "CheckBox",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAdAuditScan",
+    "Title": "Constats sur les identités",
+    "Text": "Constats à revoir, avec les objets concernés et la limite du constat.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
   }
 ]

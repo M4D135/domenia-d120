@@ -944,6 +944,7 @@ $script:GuiElementPolicy = [ordered]@{
     "DgPermissions" = "Default"
     "TabApplicationTools" = "Default"
     "ApplicationToolTabs" = "Default"
+    "WsAdAudit" = "Default"
     "TabSelfCheck" = "Default"
     "BtnSelfCheckQuick" = "Default"
     "BtnSelfCheckFull" = "Default"
@@ -7257,6 +7258,8 @@ function Get-MainXaml {
                       <TabItem x:Name="WsQueryWorkshop" Header="Atelier de requêtes" ToolTip="Créer, modifier et enregistrer les requêtes communes à Recherche et aux tableaux de bord." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Atelier de requêtes" AutomationProperties.HelpText="Créer, modifier et enregistrer des requêtes. Choisir un modèle ne lance aucune collecte.">
                         <ContentControl x:Name="QueryWorkshopHost" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
                       </TabItem>
+                      <!-- Points 102 to 109: content loaded from Domenia-AdAudit.xaml at the first opening (Domenia-AdAudit.UI.ps1). -->
+                      <TabItem x:Name="WsAdAudit" Header="Audit AD" ToolTip="Stratégie de mot de passe, groupes imbriqués, délégations, GPO, contrôleurs et identités : lectures bornées et à la demande, sans écriture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Audit AD" AutomationProperties.HelpText="Stratégie de mot de passe, groupes imbriqués, délégations, GPO, contrôleurs et identités : lectures bornées et à la demande, sans écriture."/>
                       <TabItem x:Name="TabDomain" ToolTip="Roles FSMO, niveaux fonctionnels, controleurs et strategie du domaine." Header="Domaine" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Domaine" AutomationProperties.HelpText="Roles FSMO, niveaux fonctionnels, controleurs et strategie du domaine.">
                         <DockPanel Margin="4">
                           <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
@@ -22446,6 +22449,8 @@ function Wire-Events {
     [void](Register-DomeniaContextMenus)
     Register-DomeniaDeferredViewHandlers
     [void](Register-DomeniaShortcuts)
+    # Points 102 to 109: the Audit AD tool loads its own view at the first opening of its tab.
+    try { Register-DomeniaAdAuditTool } catch { Write-AppLog ('Audit AD non raccordé : ' + $_.Exception.Message) 'ERROR' }
 }
 
 
