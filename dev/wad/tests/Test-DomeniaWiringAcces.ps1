@@ -61,7 +61,9 @@ $coreNames=@('Protect-DomeniaLogText','ConvertTo-DomeniaErrorInfo','Show-Domenia
     # L02: incident code of Show-DomeniaOperationError and queued Domenia.log writer of Write-AppLog.
     'New-DomeniaIncidentCode','Get-DomeniaErrorSignature','Register-DomeniaErrorOccurrence',
     'ConvertTo-DomeniaLogFileLines','Get-DomeniaAppLogFallbackPaths','Write-DomeniaAppLogFile','Start-DomeniaAppLogFlushTimer','Stop-DomeniaAppLogQueue',
-    'Invoke-DomeniaAppLogRotation','Flush-DomeniaAppLog','Invoke-DomeniaAppLogFlush','Set-DomeniaAppLogAvailability','Test-DomeniaInternalFault','Test-DomeniaOperatorMessage')
+    'Invoke-DomeniaAppLogRotation','Flush-DomeniaAppLog','Invoke-DomeniaAppLogFlush','Set-DomeniaAppLogAvailability','Test-DomeniaInternalFault','Test-DomeniaOperatorMessage',
+    # X03 (UX-15): workstation account typed in the side panel of Assistance poste.
+    'Set-MachineCredentialFromUi','Clear-MachineCredential','Get-DomeniaMachineOperationAccountText')
 foreach($name in $coreNames){. ([scriptblock]::Create((Get-CoreFunctionText $name)))}
 $script:RealAssertWorker=${function:Assert-DomeniaWorkerOperationCode}
 $script:RealShowAlternate=${function:Show-DomeniaAlternateCredential}
@@ -605,6 +607,75 @@ Test-Case 'FO-19 Sans poste ouvert ou apres un changement de session : aucune le
     Assert-True ([string]$script:Ctrl.LblAccountRemoteTry.Text -eq 'avant') 'Resultat d une session precedente affiche'
     Assert-True ((@($script:CoreAst.FindAll({param($a)$a -is [Management.Automation.Language.FunctionDefinitionAst] -and $a.Name -eq 'Wire-Events'},$true))[0].Extent.Text).Contains('Start-DomeniaRemoteAccountTrial')) 'Bouton non raccorde'
     Assert-True (-not $script:CoreText.Contains('x:Name="BtnAccountRemoteTest"')) 'Ancien bouton Tester encore present'
+}
+
+# ================================================================ UX-15 (lot X03) compte des postes visible en permanence
+function New-AccessLease {param([string]$Key,[string]$Account) return (New-DomeniaCredentialLease -Scope $Key -Account $Account -Mode Inactivity -InactivityMinutes 30 -Epoch ([long]$script:SessionEpoch) -NowUtc $script:Clock)}
+function Invoke-TestClick {param($Control) $Control.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Primitives.ButtonBase]::ClickEvent))}
+Test-Case 'UX-15 Pastille Compte poste : en-tete d Assistance poste, meme compte que le contexte worker' {
+    $pill=$script:Ctrl.BtnCompAccountPill
+    Assert-True ($null -ne $pill) 'Pastille absente du XAML principal'
+    $names=@();$node=$pill
+    while($null -ne $node){$node=[Windows.LogicalTreeHelper]::GetParent($node);if(($node -is [Windows.FrameworkElement]) -and $node.Name){$names+=[string]$node.Name}}
+    Assert-True (($names -contains 'ComputerReadRoot') -and ($names -notcontains 'ComputerTabs')) ('Pastille hors de l en-tete commun aux onglets : '+($names -join ' > '))
+    $arrow=[string][char]0x25BE
+    Update-DomeniaMachineAccountUi -Force
+    Assert-True ([string]$pill.Content -ceq ('Compte poste : session Windows '+$arrow)) ('Session Windows : '+$pill.Content)
+    Assert-True ([string]$pill.ToolTip -match 'session Windows \(EXAMPLE\\lecteur\)') ('Infobulle : '+$pill.ToolTip)
+    $script:RemoteAdminCredential=New-TestCredential 'EXAMPLE\postes'
+    Update-DomeniaMachineAccountUi
+    Assert-True ([string]$pill.Content -ceq ('Compte poste : EXAMPLE\postes '+$arrow)) ('Compte Postes : '+$pill.Content)
+    $script:AccessState.Credentials['Remote']=New-TestCredential 'EXAMPLE\temporaire';$script:AccessState.Leases['Remote']=New-AccessLease 'Remote' 'EXAMPLE\temporaire'
+    Update-DomeniaMachineAccountUi
+    Assert-True ([string]$pill.Content -ceq ('Compte poste : EXAMPLE\temporaire '+$arrow)) ('Compte temporaire : '+$pill.Content)
+    $script:AccessState.Credentials['RemoteLocal|PC-01']=New-TestCredential 'PC-01\admin';$script:AccessState.Leases['RemoteLocal|PC-01']=New-AccessLease 'RemoteLocal|PC-01' 'PC-01\admin'
+    Update-DomeniaMachineAccountUi
+    Assert-True ([string]$pill.Content -ceq ('Compte poste : PC-01\admin '+$arrow)) ('Compte local du poste : '+$pill.Content)
+    # The pill announces the account the worker context really hands to an operation on this workstation.
+    $ctx=[pscustomobject]@{OperationId='ComputerInventory';Credential=$null;BindUser='';UseCredential=$false;AuthMode='Windows';MachineCredential=$script:RemoteAdminCredential;RemoteAdminCredential=$null;RemoteAdminUser=''}
+    $ctx=Set-DomeniaTargetCredentialContext -Context (Set-DomeniaRetryWorkerContext -Context $ctx -OperationId 'ComputerInventory') -Payload ([pscustomobject]@{Computer='pc-01.example.invalid'})
+    Assert-True ([string]$ctx.MachineCredential.UserName -ceq 'PC-01\admin') ('Contexte worker : '+$ctx.MachineCredential.UserName)
+    # Another workstation open: the local account of PC-01 is not announced for it.
+    $script:SelectedObject=[pscustomobject]@{Type='Machine';DN='CN=PC-02,OU=Postes,DC=example,DC=invalid';Name='PC-02';Entry=[pscustomobject]@{Name='PC-02';Dns='pc-02.example.invalid'};Safety=[pscustomobject]@{Guid='22222222-2222-3333-4444-555555555555'}}
+    Update-DomeniaMachineAccountUi
+    Assert-True ([string]$pill.Content -ceq ('Compte poste : EXAMPLE\temporaire '+$arrow)) ('Autre poste : '+$pill.Content)
+    Assert-True ((Get-DomeniaMachineOperationAccountText) -ceq 'Opérations poste : EXAMPLE\temporaire (compte temporaire accepté après un refus).') (Get-DomeniaMachineOperationAccountText)
+}
+Test-Case 'UX-15 Panneau lateral dans la page : compte saisi en memoire, retour au compte de connexion, fermeture sans changement' {
+    $script:Window=$script:MainWindow
+    $wire=Get-CoreFunctionText 'Wire-Events'
+    Assert-True (-not $script:CoreText.Contains('x:Name="TxtMachineAdminUser"') -and -not $wire.Contains('BtnSetMachineCredential')) 'Champs du compte poste encore dans l onglet Diagnostic'
+    Assert-True ($script:CoreText -notmatch 'compte poste dans (l onglet )?Diagnostic') 'Message renvoyant encore vers l onglet Diagnostic'
+    Assert-True (-not $script:CoreText.Contains('compte poste saisi dans Diagnostic')) 'Phrase technique encore dans l onglet Actions'
+    Initialize-DomeniaAccountsUi
+    Invoke-TestClick $script:Ctrl.BtnCompAccountPill
+    Assert-True (Test-DomeniaMachineAccountPanelOpen) 'La pastille n ouvre pas le panneau'
+    $layer=$script:MainWindow.FindName('DomeniaDialogLayer')
+    Assert-True (($layer.Visibility -eq [Windows.Visibility]::Visible) -and $layer.Children.Contains($script:MachineAccountPanel.View)) 'Panneau hors de la couche de la page'
+    foreach($n in @('TxtMachineAdminUser','PwdMachineAdmin','BtnRevealMachineAdmin','BtnSetMachineCredential','BtnClearMachineCredential','LblMachineCredential','BtnMachineAccountClose')){Assert-True ($script:Ctrl.ContainsKey($n)) ('Controle du panneau non enregistre : '+$n)}
+    Assert-True ($script:Ctrl.PwdMachineAdmin -is [Windows.Controls.PasswordBox]) 'Le mot de passe n est plus saisi dans un PasswordBox'
+    $script:Ctrl.TxtMachineAdminUser.Text='EXAMPLE\adm-poste'
+    $script:Ctrl.PwdMachineAdmin.Password=[guid]::NewGuid().ToString('N')
+    Invoke-TestClick $script:Ctrl.BtnSetMachineCredential
+    Assert-True (($null -ne $script:MachineCredential) -and ($script:MachineCredential.UserName -ceq 'EXAMPLE\adm-poste')) 'Compte saisi non utilise'
+    Assert-True ($script:MachineCredential.Password.IsReadOnly()) 'SecureString du compte poste encore modifiable'
+    Assert-True ([string]$script:Ctrl.PwdMachineAdmin.Password -eq '') 'Mot de passe laisse dans le champ'
+    Assert-True ([string]$script:Ctrl.BtnCompAccountPill.Content -ceq ('Compte poste : EXAMPLE\adm-poste '+[string][char]0x25BE)) ('Pastille : '+$script:Ctrl.BtnCompAccountPill.Content)
+    Assert-True ([string]$script:Ctrl.LblMachineCredential.Text -ceq 'Opérations poste : EXAMPLE\adm-poste (compte poste saisi, en mémoire seulement).') ('Libelle : '+$script:Ctrl.LblMachineCredential.Text)
+    Invoke-TestClick $script:Ctrl.BtnClearMachineCredential
+    Assert-True ($null -eq $script:MachineCredential) 'Compte saisi non oublie'
+    Assert-True ([string]$script:Ctrl.BtnCompAccountPill.Content -ceq ('Compte poste : session Windows '+[string][char]0x25BE)) ('Retour : '+$script:Ctrl.BtnCompAccountPill.Content)
+    # Closing without « Utiliser ce compte » changes nothing and drops the typed password.
+    $script:Ctrl.PwdMachineAdmin.Password=[guid]::NewGuid().ToString('N')
+    Invoke-TestClick $script:Ctrl.BtnMachineAccountClose
+    Assert-True (-not (Test-DomeniaMachineAccountPanelOpen)) 'Panneau encore ouvert'
+    Assert-True (($null -eq $script:MachineCredential) -and ([string]$script:Ctrl.PwdMachineAdmin.Password -eq '')) 'Fermer a change le compte ou garde le mot de passe'
+    Assert-True ($layer.Visibility -eq [Windows.Visibility]::Collapsed) 'Couche de la page laissee visible'
+    Invoke-TestClick $script:Ctrl.BtnCompAccountPill
+    Assert-True (Test-DomeniaMachineAccountPanelOpen) 'Le panneau ne se rouvre pas'
+    Invoke-TestClick $script:Ctrl.BtnCompAccountPill
+    Assert-True (-not (Test-DomeniaMachineAccountPanelOpen)) 'Un second clic sur la pastille ne ferme pas le panneau'
+    $script:Window=$null
 }
 
 if($null -ne $script:SecretRevealTimer){try{$script:SecretRevealTimer.Stop()}catch{}}

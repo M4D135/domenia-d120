@@ -975,7 +975,14 @@ function Get-DomeniaRuntimeModulePlan {
             'Start-DomeniaRemoteAccountTrial',
             'Test-DomeniaRemoteTrialStateCurrent',
             'Complete-DomeniaRemoteAccountTrial',
-            'Fail-DomeniaRemoteAccountTrial'
+            'Fail-DomeniaRemoteAccountTrial',
+            'Initialize-DomeniaAccountsUi',
+            'Update-DomeniaMachineAccountUi',
+            'Initialize-DomeniaMachineAccountPanel',
+            'Test-DomeniaMachineAccountPanelOpen',
+            'Show-DomeniaMachineAccountPanel',
+            'Hide-DomeniaMachineAccountPanel',
+            'Switch-DomeniaMachineAccountPanel'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Store.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaStoreValue',

@@ -602,6 +602,7 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnLogin" = "Default"
     "BtnLoginOtherAccount" = "Default"
     "BtnAccountRemoteTry" = "Default"
+    "BtnCompAccountPill" = "Default"
     "LblAccountRemoteTry" = "Default"
     "LblStatus" = "Default"
     "LblPrivilegeTop" = "Default"
@@ -6378,7 +6379,7 @@ function Get-MainXaml {
                       </StackPanel>
                     </Border>
                   </ScrollViewer>
-                </Border><Grid Margin="4,0,4,6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions><TextBlock Text="Sélectionnez un objet dans Rechercher." VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Foreground="{DynamicResource MutedColor}" FontSize="12" x:Name="LblComputerReadStatus"/><Button Content="Reessayer la lecture" Visibility="Hidden" Height="30" MinHeight="30" Padding="10,3" Margin="8,0,0,0" ToolTip="Relit uniquement cette fiche AD. Aucun ping, aucune sonde de poste et aucune écriture." Grid.Column="1" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Reessayer la lecture AD" x:Name="BtnComputerReadRetry"/></Grid><Grid Visibility="Collapsed" IsEnabled="False" Grid.Row="1" x:Name="ComputerReadContent"><TabControl x:Name="ComputerTabs" Margin="0,4,0,0" ToolTip="Choisissez les informations AD, les actions, le diagnostic, l’inventaire, les logiciels ou les secrets du poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vues d’assistance poste" AutomationProperties.HelpText="Choisissez les informations AD, les actions, le diagnostic, l’inventaire, les logiciels ou les secrets du poste.">
+                </Border><Grid Margin="4,0,4,6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions><TextBlock Text="Sélectionnez un objet dans Rechercher." VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Foreground="{DynamicResource MutedColor}" FontSize="12" x:Name="LblComputerReadStatus"/><!-- UX-15: account used for the workstations, always visible in the header of Assistance poste. --><Button Grid.Column="1" x:Name="BtnCompAccountPill" Content="Compte poste : session Windows ▾" Style="{StaticResource SecondaryButton}" Height="30" MinHeight="30" Padding="12,2" Margin="8,0,0,0" MaxWidth="360" ToolTip="Compte utilisé pour les opérations sur ce poste : C$, consoles, inventaire, diagnostic et sessions. Ouvre un panneau pour saisir un autre compte ou revenir au compte de connexion." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Compte poste" AutomationProperties.HelpText="Compte utilisé pour les opérations sur ce poste : C$, consoles, inventaire, diagnostic et sessions. Ouvre un panneau pour saisir un autre compte ou revenir au compte de connexion."/><Button Content="Reessayer la lecture" Visibility="Hidden" Height="30" MinHeight="30" Padding="10,3" Margin="8,0,0,0" ToolTip="Relit uniquement cette fiche AD. Aucun ping, aucune sonde de poste et aucune écriture." Grid.Column="2" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Reessayer la lecture AD" x:Name="BtnComputerReadRetry"/></Grid><Grid Visibility="Collapsed" IsEnabled="False" Grid.Row="1" x:Name="ComputerReadContent"><TabControl x:Name="ComputerTabs" Margin="0,4,0,0" ToolTip="Choisissez les informations AD, les actions, le diagnostic, l’inventaire, les logiciels ou les secrets du poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vues d’assistance poste" AutomationProperties.HelpText="Choisissez les informations AD, les actions, le diagnostic, l’inventaire, les logiciels ou les secrets du poste.">
                   <TabItem x:Name="TabComputer" ToolTip="Nom, système, état du compte et utilisateur associé." Header="Machine" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Machine" AutomationProperties.HelpText="Nom, systeme, etat du compte et utilisateur associe.">
                     <Border Style="{StaticResource Card}" Margin="4">
                       <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -6524,7 +6525,6 @@ function Get-MainXaml {
                             <Button Grid.Column="2" x:Name="BtnCompAddGroup" ToolTip="Ajoute ce poste au groupe indique." Content="Ajouter" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ajouter" AutomationProperties.HelpText="Ajoute ce poste au groupe indique."/>
                             <Button Grid.Column="3" x:Name="BtnCompRemoveGroup" ToolTip="Retire ce poste du groupe indique." Content="Retirer" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Retirer" AutomationProperties.HelpText="Retire ce poste du groupe indique."/>
                           </Grid>
-                          <TextBlock Text="Ouvrir C$ et les consoles utilisent le compte des opérations poste : compte poste saisi dans Diagnostic, sinon compte admin distant, sinon compte de connexion. Le bureau à distance passe par Windows." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,14,0,0"/>
                         </StackPanel>
                       </ScrollViewer>
                     </Border>
@@ -6537,53 +6537,7 @@ function Get-MainXaml {
                       <DockPanel>
                         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
                           <TextBlock Text="Diagnostic du poste" FontSize="18" FontWeight="SemiBold"/>
-                          <TextBlock Text="Compte utilisé pour interroger les postes. Il peut être différent de celui de la connexion et nʼest jamais enregistré." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
-                          <Border Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="12" Padding="12" Margin="0,0,0,10">
-                            <Grid>
-                              <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                              </Grid.RowDefinitions>
-                              <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="16"/>
-                                <ColumnDefinition Width="1.18*"/>
-                              </Grid.ColumnDefinitions>
-                              <StackPanel Grid.Row="0" Grid.Column="0">
-                                <TextBlock Text="Compte poste" Foreground="{DynamicResource MutedColor}" FontSize="11" Margin="1,0,0,5"/>
-                                <TextBox x:Name="TxtMachineAdminUser" Height="34" VerticalContentAlignment="Center" ToolTip="Compte disposant de droits d administration sur les postes. Vide : ta session Windows est utilisee." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Compte poste" AutomationProperties.HelpText="Compte disposant de droits d administration sur les postes. Vide : ta session Windows est utilisee."/>
-                              </StackPanel>
-                              <StackPanel Grid.Row="0" Grid.Column="2">
-                                <TextBlock Text="Mot de passe" Foreground="{DynamicResource MutedColor}" FontSize="11" Margin="1,0,0,5"/>
-                                <Grid>
-                                  <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="8"/>
-                                    <ColumnDefinition Width="Auto" MinWidth="96"/>
-                                  </Grid.ColumnDefinitions>
-                                  <Grid Grid.Column="0">
-                                    <PasswordBox x:Name="PwdMachineAdmin" ToolTip="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ." Height="34" VerticalContentAlignment="Center" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mot de passe" AutomationProperties.HelpText="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ."/>
-                                    <!-- SE-16: read-only overlay shown 5 s on request; the PasswordBox stays the only source of the secret. -->
-                                    <Border x:Name="MachineAdminPeek" Margin="1" CornerRadius="6" Background="{DynamicResource BgInput}" Visibility="Collapsed" IsHitTestVisible="False" Focusable="False">
-                                      <TextBlock x:Name="LblMachineAdminPeek" Text="" Margin="9,0" VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" FontFamily="Consolas" Foreground="{DynamicResource TextColor}" Focusable="False" ToolTip="Mot de passe affiché pendant 5 secondes, en lecture seule, sans copie possible." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mot de passe affiché" AutomationProperties.HelpText="Mot de passe affiché pendant 5 secondes, en lecture seule, sans copie possible."/>
-                                    </Border>
-                                  </Grid>
-                                  <Button Grid.Column="2" x:Name="BtnRevealMachineAdmin" Content="👁" Style="{StaticResource EyeButton}" Height="34" MinHeight="34" Margin="0" ToolTip="Affiche le mot de passe du compte poste pendant 5 secondes, en lecture seule. Rien nʼest copié ni enregistré." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Afficher le mot de passe du compte poste pendant 5 secondes" AutomationProperties.HelpText="Affiche le mot de passe du compte poste pendant 5 secondes, en lecture seule. Rien nʼest copié ni enregistré."/>
-                                </Grid>
-                              </StackPanel>
-                              <Grid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,11,0,0">
-                                <Grid.ColumnDefinitions>
-                                  <ColumnDefinition Width="*"/>
-                                  <ColumnDefinition Width="Auto"/>
-                                  <ColumnDefinition Width="8"/>
-                                  <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" x:Name="LblMachineCredential" Text="Opérations poste : session Windows courante." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0"/>
-                                <Button Grid.Column="1" x:Name="BtnSetMachineCredential" Content="Utiliser ce compte" Style="{StaticResource RunButton}" Height="34" MinHeight="34" Margin="0" ToolTip="Utilise ce compte pour interroger les postes. Il n est jamais enregistre sur le disque." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Utiliser ce compte" AutomationProperties.HelpText="Utilise ce compte pour interroger les postes. Il n est jamais enregistre sur le disque."/>
-                                <Button Grid.Column="3" x:Name="BtnClearMachineCredential" Content="Compte de connexion" Height="34" MinHeight="34" Margin="0" ToolTip="Oublie le compte saisi : les postes sont interroges avec le compte de connexion Domenia (ou ta session Windows si tu t es connecte sans mot de passe)." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ma session Windows" AutomationProperties.HelpText="Revient a ta session Windows pour interroger les postes."/>
-                              </Grid>
-                            </Grid>
-                          </Border>
+                          <TextBlock Text="Le diagnostic utilise le compte poste affiché dans la pastille « Compte poste », en haut de la page." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
                           <WrapPanel>
                             <Button x:Name="BtnRunComputerDiag" Content="Lancer le diagnostic" Style="{StaticResource RunButton}" ToolTip="Verifie la resolution DNS, la joignabilite, les ports, SMB, WinRM, WMI, le systeme, l espace disque et la session ouverte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lancer le diagnostic" AutomationProperties.HelpText="Verifie la resolution DNS, la joignabilite, les ports, SMB, WinRM, WMI, le systeme, l espace disque et la session ouverte."/>
                             <Button x:Name="BtnCopyComputerDiag" ToolTip="Copie le rapport de diagnostic." Content="Copier le rapport" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier le rapport" AutomationProperties.HelpText="Copie le rapport de diagnostic."/>
@@ -12749,17 +12703,18 @@ function Set-MachineCredentialFromUi {
         $secure.MakeReadOnly()
         Hide-DomeniaSecretPeek -Owner 'Timer:MachineAdminPeek'
         $script:MachineCredential = New-Object System.Management.Automation.PSCredential -ArgumentList @($user,$secure)
-        $script:Ctrl["LblMachineCredential"].Text = (Get-DomeniaMachineOperationAccountText) + " Rien ne sera enregistré."
         $script:Ctrl["PwdMachineAdmin"].Password = ""
-        Set-Status "Compte poste chargé en mémoire uniquement."
+        Update-DomeniaMachineAccountUi -Force
+        Set-Status "Compte poste chargé en mémoire uniquement, jamais enregistré."
     } catch { Show-ErrorBox "Compte poste non utilisé : $($_.Exception.Message)" }
 }
 
 function Clear-MachineCredential {
     $script:MachineCredential = $null
     Hide-DomeniaSecretPeek -Owner 'Timer:MachineAdminPeek'
-    try { $script:Ctrl["PwdMachineAdmin"].Password = ""; $script:Ctrl["LblMachineCredential"].Text = (Get-DomeniaMachineOperationAccountText) } catch { }
-    Set-Status "Compte poste oublié : les postes sont interrogés avec le compte de connexion."
+    try { if ($script:Ctrl.ContainsKey("PwdMachineAdmin")) { $script:Ctrl["PwdMachineAdmin"].Password = "" } } catch { }
+    try { Update-DomeniaMachineAccountUi -Force } catch { }
+    Set-Status ("Compte poste oublié. " + (Get-DomeniaMachineOperationAccountText))
 }
 
 
@@ -19372,7 +19327,7 @@ $runLevel=$(if($elevated){'HighestAvailable'}else{'LeastPrivilege'})
 $logonType='ServiceAccount';$taskUser='S-1-5-18';$createExtra=@();$interactive=$false
 if($mode -eq 'MachineCredential'){
     $cred=Get-WMachineCredential $Context
-    if($null-eq$cred){throw "Mode Compte poste : renseigne d abord le compte poste dans Diagnostic."}
+    if($null-eq$cred){throw "Mode Compte poste : choisissez dʼabord un compte poste dans la pastille « Compte poste » dʼAssistance poste."}
     $taskUser=[string]$cred.UserName;$logonType='Password'
     throw 'Mode tache avec mot de passe en argument retire. Choisissez SYSTEM ou une session interactive deja ouverte, apres autorisation.'
 }elseif($mode -eq 'Interactive'){
@@ -19487,7 +19442,7 @@ function Show-DomeniaRimotteDialog {
                 $modeIndex=[int]$dlg.FindName("CmbRMode").SelectedIndex
                 $mode=$(if($modeIndex-eq1){"MachineCredential"}elseif($modeIndex-eq2){"Interactive"}else{"System"})
                 $user=([string]$dlg.FindName("TxtRUser").Text).Trim();if($mode-eq"Interactive"-and[string]::IsNullOrWhiteSpace($user)){throw "Renseigne le compte de la session interactive."}
-                if($mode-eq"MachineCredential"-and$null-eq$script:MachineCredential){throw "Renseigne d abord le compte poste dans l onglet Diagnostic."}
+                if($mode-eq"MachineCredential"-and$null-eq$script:MachineCredential){throw "Choisissez dʼabord un compte poste : pastille « Compte poste » en haut dʼAssistance poste."}
                 $dlg.Tag=[pscustomobject]@{Computer=$computer;Command=$exe;Arguments=[string]$dlg.FindName("TxtRArgs").Text;Mode=$mode;RunUser=$user;Elevated=[bool]$dlg.FindName("ChkRElevated").IsChecked}
                 Set-DomeniaSurfaceResult $dlg $true
             }catch{Show-DomeniaDialog -Message $_.Exception.Message -Title 'Exécution distante' -Kind Warning|Out-Null}
@@ -19508,10 +19463,11 @@ function Get-DomeniaMachineOperationCredential {
 }
 
 function Get-DomeniaMachineOperationAccountText {
-    $credential = Get-DomeniaMachineOperationCredential
-    if ($null -eq $credential) { return "Operations poste : session Windows $script:ProcessIdentityDisplay." }
-    if ($null -ne $script:MachineCredential) { return "Operations poste : compte saisi $($credential.UserName), en memoire seulement." }
-    return "Operations poste : compte de connexion Domenia $($credential.UserName) (CIM, C$, consoles)."
+    # UX-15: same order and words as the « Compte poste » pill (Get-DomeniaMachineAccountInUse), temporary accounts
+    # accepted after a refusal included. Names only, never a secret.
+    param([string]$Target = '')
+    $label = Get-DomeniaMachineAccountInUse -Target $Target
+    return ('Opérations poste : ' + [string]$label.Long + '.')
 }
 
 function Get-DomeniaNetUseSource {
@@ -22090,11 +22046,8 @@ function Wire-Events {
     $script:Ctrl["DgSecrets"].Add_MouseDoubleClick({
         if ($null -ne $script:Ctrl["DgSecrets"].SelectedItem) { Copy-SelectedSecret }
     })
-    # SE-16: read-only reveal for 5 s, closed as soon as the password changes.
-    $script:Ctrl["BtnRevealMachineAdmin"].Add_Click({ [void](Show-DomeniaSecretPeek -PasswordBox $script:Ctrl["PwdMachineAdmin"] -Overlay $script:Ctrl["MachineAdminPeek"] -Display $script:Ctrl["LblMachineAdminPeek"] -Button $script:Ctrl["BtnRevealMachineAdmin"] -Owner 'Timer:MachineAdminPeek' -ShownContent '🙈') })
-    $script:Ctrl["PwdMachineAdmin"].Add_PasswordChanged({ Hide-DomeniaSecretPeek -Owner 'Timer:MachineAdminPeek' })
-    $script:Ctrl["BtnSetMachineCredential"].Add_Click({ Set-MachineCredentialFromUi })
-    $script:Ctrl["BtnClearMachineCredential"].Add_Click({ Clear-MachineCredential })
+    # UX-15: the workstation account fields live in the side panel of Assistance poste (Domenia-MachineAccount.xaml);
+    # Initialize-DomeniaMachineAccountPanel wires them when the « Compte poste » pill opens it for the first time.
     $script:Ctrl["BtnRunComputerDiag"].Add_Click({ Start-ComputerDiagnostics })
     if ($script:Ctrl.ContainsKey("BtnUserSaveContact")) { $script:Ctrl["BtnUserSaveContact"].Add_Click({ Save-DomeniaUserContact }) }
     if ($script:Ctrl.ContainsKey("BtnIndexScopePick")) { $script:Ctrl["BtnIndexScopePick"].Add_Click({
@@ -25541,6 +25494,8 @@ function Initialize-DomeniaPresentation {
     # UX-39 : la grille des sessions se parcourt au double-clic et au clic droit, comme celle des associations.
     $sessionGrid=Get-DomeniaControl 'DgSessions';if($null -ne $sessionGrid){$sessionGrid.ContextMenu=New-DomeniaSessionsContextMenu;$sessionGrid.Add_MouseDoubleClick({param($sender,$e) Open-DomeniaSessionFiche -Source $e.OriginalSource});$sessionGrid.Add_PreviewMouseRightButtonDown({param($sender,$e) $hit=Get-DomeniaGridHit $e.OriginalSource;if($null -ne $hit -and $null -ne $hit.Row){$sender.SelectedItem=$hit.Row.Item}})}
     Initialize-DomeniaGuard
+    # X03 (UX-15, UI-27): « Compte poste » pill, its side panel and the « En ce moment » section of Comptes.
+    try { Initialize-DomeniaAccountsUi } catch { Write-AppLog ('Initialisation des comptes : '+$_.Exception.Message) 'WARN' }
     Initialize-DomeniaLive
     Initialize-DomeniaReconcile
     Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 pret."
@@ -27782,7 +27737,7 @@ function Initialize-Window {
             # Toujours demarrer en lecture seule. L administrateur peut lever le verrou explicitement dans le GUI.
             $script:ReadOnlyMode=$true
             if($script:Ctrl.ContainsKey("ChkReadOnlyMode")){$script:Ctrl["ChkReadOnlyMode"].IsChecked=$true}
-            try{$script:Ctrl["LblMachineCredential"].Text=(Get-DomeniaMachineOperationAccountText)}catch{}
+            try{Update-DomeniaMachineAccountUi -Force}catch{}
             Assert-DomeniaReadWriteControlClassification
             Set-DomeniaStartupStage -Stage "Etat initial de securite" -Detail "Application des droits et du mode lecture seule..."
             Apply-CurrentPermissionUi
@@ -27838,7 +27793,7 @@ function Initialize-Window {
             try{
                 if ([bool]$script:DemoMode) { Set-Status ("Prêt. " + (Get-DomeniaDemoBannerText) + ".") "WARN" }
                 else { Set-Status "Pret. Connexion validee, mode lecture seule actif." }
-                try { $script:Ctrl["LblMachineCredential"].Text = (Get-DomeniaMachineOperationAccountText) } catch { }
+                try { Update-DomeniaMachineAccountUi -Force } catch { }
                 # After every ContentRendered handler: the remembered OU of Rechercher is then known to be restoring.
                 try { [void]$script:Window.Dispatcher.BeginInvoke([System.Windows.Threading.DispatcherPriority]::ApplicationIdle,[Action]{ try { Request-DomeniaFleetRefresh } catch { } }) } catch { }
                 Write-AppLog "Pret. Base=$($script:Conn.BaseDn) Server=$($script:Conn.Server) AD=$($script:Conn.BindUser) WIN=$script:ProcessIdentity Demo=$([bool]$script:DemoMode)" "INFO"

@@ -1870,14 +1870,14 @@
   {
     "Name": "TxtMachineAdminUser",
     "Title": "Compte poste",
-    "Text": "Compte disposant de droits d administration sur les postes. Vide : ta session Windows est utilisee.",
+    "Text": "Compte administrateur des postes, sous la forme DOMAINE\\nom ou POSTE\\nom. Vide, Domenia garde le compte en service affiché au-dessus.",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
   {
     "Name": "PwdMachineAdmin",
-    "Title": "Mot de passe",
-    "Text": "Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ.",
+    "Title": "Mot de passe du compte poste",
+    "Text": "Saisie protégée : lʼaide contextuelle ne lit jamais la valeur de ce champ.",
     "Kind": "PasswordBox",
     "Source": "specific-sensitive"
   },
@@ -1896,18 +1896,32 @@
     "Source": "existing-help"
   },
   {
+    "Name": "LblMachineCredential",
+    "Title": "Compte utilisé pour les postes",
+    "Text": "Compte réellement utilisé pour la prochaine opération sur ce poste, et son origine. Aucun mot de passe nʼest affiché.",
+    "Kind": "TextBlock",
+    "Source": "X03"
+  },
+  {
     "Name": "BtnSetMachineCredential",
-    "Title": "Utiliser ce compte",
-    "Text": "Utilise ce compte pour interroger les postes. Il n est jamais enregistre sur le disque.",
+    "Title": "Utiliser ce compte pour les postes",
+    "Text": "Utilise ce compte pour les opérations sur les postes, en mémoire seulement. Il nʼest jamais enregistré sur le disque.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnClearMachineCredential",
-    "Title": "Ma session Windows",
-    "Text": "Revient a ta session Windows pour interroger les postes.",
+    "Title": "Revenir au compte de connexion",
+    "Text": "Oublie le compte saisi : les postes sont interrogés avec le compte Postes de la page Comptes sʼil existe, sinon avec le compte de connexion ou votre session Windows.",
     "Kind": "Button",
     "Source": "existing-help"
+  },
+  {
+    "Name": "BtnMachineAccountClose",
+    "Title": "Fermer le panneau du compte poste",
+    "Text": "Ferme ce panneau sans changer le compte utilisé pour les postes.",
+    "Kind": "Button",
+    "Source": "X03"
   },
   {
     "Name": "BtnRunComputerDiag",
@@ -3351,6 +3365,13 @@
     "Title": "Reessayer la lecture AD",
     "Text": "Relit uniquement cette fiche AD, sans ping, sonde ni ecriture.",
     "Kind": "Button"
+  },
+  {
+    "Name": "BtnCompAccountPill",
+    "Title": "Compte poste",
+    "Text": "Compte utilisé pour les opérations sur ce poste : C$, consoles, inventaire, diagnostic et sessions. Ouvre un panneau pour saisir un autre compte ou revenir au compte de connexion.",
+    "Kind": "Button",
+    "Source": "X03"
   },
   {
     "Name": "BtnRestoreLink",

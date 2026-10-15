@@ -137,11 +137,12 @@ Quand : vous voulez tester le poste, ouvrir son disque, une console d'administra
 
 Quand : l'administrateur vous a donné un compte réservé aux postes, ou « Ouvrir C$ » est refusé avec votre compte habituel.
 
-1. **Saisir le compte.** Dans l'onglet « Diagnostic », carte « Diagnostic du poste », remplissez « Compte poste » et « Mot de passe ».
-2. **Valider.** Cliquez sur « Utiliser ce compte ». La ligne sous les champs commence par « Operations poste : compte saisi ».
-3. **Relancer l'outil.** Revenez à l'onglet « Actions » et cliquez de nouveau sur l'outil voulu.
+1. **Ouvrir le panneau.** En haut d'Assistance poste, cliquez sur la pastille « Compte poste : … ▾ ». Un panneau s'ouvre sur le côté de la page.
+2. **Saisir le compte.** Remplissez « Identifiant » et « Mot de passe ».
+3. **Valider.** Cliquez sur « Utiliser ce compte » ou appuyez sur Entrée. La pastille affiche le compte et le panneau indique « compte poste saisi, en mémoire seulement ».
+4. **Relancer l'outil.** Fermez le panneau et cliquez de nouveau sur l'outil voulu.
 
-> [!RESULTAT] « Ouvrir C$ » et les consoles utilisent ce compte, jamais enregistré sur le disque. « Compte de connexion » revient au compte de départ.
+> [!RESULTAT] « Ouvrir C$ », les consoles, l'inventaire, le diagnostic et les sessions utilisent ce compte, jamais enregistré sur le disque. « Revenir au compte de connexion » revient au compte de départ.
 
 ## Lancer un inventaire
 

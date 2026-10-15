@@ -4,6 +4,9 @@
 $script:DomeniaSecretPeeks=@{}
 $script:RemoteAccountTrial=$null
 $script:RemoteTrialHint='Ouvrez un poste dans Assistance poste pour essayer le compte.'
+$script:DomeniaAccountsModuleRoot=$PSScriptRoot
+$script:DomeniaAccountsUi=$null
+$script:MachineAccountPanel=$null
 
 function Show-DomeniaSecretPeek {
     # SE-16: shows the typed secret for a few seconds in a read-only TextBlock laid over its PasswordBox, then hides
@@ -229,4 +232,128 @@ function Fail-DomeniaRemoteAccountTrial {
     Set-DomeniaRemoteTrialText $verdict.Text
     Add-DomeniaUiLog -Area 'Comptes' -Text $verdict.Text
     Update-DomeniaRemoteTrialUi
+}
+
+# ---------------------------------------------------------------- UX-15 account used for the workstations
+function Initialize-DomeniaAccountsUi {
+    # UX-15: wires the « Compte poste » pill of Assistance poste and keeps it current with one protected heartbeat
+    # timer (FI-05). The timer only reads session facts: nothing is tested or read on the network.
+    if($null -ne $script:DomeniaAccountsUi){return}
+    $pill=Get-DomeniaControl 'BtnCompAccountPill'
+    if($null -ne $pill){$pill.Add_Click({Switch-DomeniaMachineAccountPanel})}
+    $script:DomeniaAccountsUi=[pscustomobject]@{Timer=$null}
+    $script:DomeniaAccountsUi.Timer=New-DomeniaTimer -Owner 'Timer:Accounts' -IntervalMs 1000 -IdleIntervalMs 1000 -Tick {
+        if($script:AsyncEngineClosing -or ($null -eq $script:DomeniaAccountsUi)){return}
+        Update-DomeniaMachineAccountUi
+    }
+    $script:DomeniaAccountsUi.Timer.Start()
+    if($null -ne $script:Window){$script:Window.Add_Closed({if(($null -ne $script:DomeniaAccountsUi) -and ($null -ne $script:DomeniaAccountsUi.Timer)){$script:DomeniaAccountsUi.Timer.Stop()}})}
+    Update-DomeniaMachineAccountUi -Force
+}
+
+function Update-DomeniaMachineAccountUi {
+    # UX-15: the pill and the lines of its side panel name the account the next operation on the open workstation
+    # takes (Get-DomeniaMachineAccountInUse, same order as the worker context). A control changes only with its text.
+    param([switch]$Force)
+    $target=Get-DomeniaOpenWorkstationTarget
+    $computer='';if($null -ne $target){$computer=[string]$target.Computer}
+    $label=Get-DomeniaMachineAccountInUse -Target $computer
+    $pill=Get-DomeniaControl 'BtnCompAccountPill'
+    if($null -ne $pill){
+        $help='Compte utilisé pour les opérations sur ce poste : '+[string]$label.Long+'. Ouvre un panneau pour saisir un autre compte ou revenir au compte de connexion.'
+        if($Force -or ([string]$pill.Content -cne [string]$label.Pill)){
+            $pill.Content=[string]$label.Pill
+            [Windows.Automation.AutomationProperties]::SetName($pill,('Compte poste : '+[string]$label.Short))
+        }
+        if($Force -or ([string]$pill.ToolTip -cne $help)){$pill.ToolTip=$help;[Windows.Automation.AutomationProperties]::SetHelpText($pill,$help)}
+    }
+    $line=Get-DomeniaControl 'LblMachineCredential'
+    if($null -ne $line){
+        $text='Opérations poste : '+[string]$label.Long+'.'
+        if($Force -or ([string]$line.Text -cne $text)){$line.Text=$text}
+    }
+}
+
+function Initialize-DomeniaMachineAccountPanel {
+    # UX-15: side panel of Assistance poste, loaded once from Domenia-MachineAccount.xaml into DomeniaDialogLayer
+    # (model: Initialize-DomeniaOperationsPanel). Its fields keep their names, so Set-MachineCredentialFromUi and
+    # Clear-MachineCredential read them through $script:Ctrl as before.
+    if($null -ne $script:MachineAccountPanel){return $true}
+    if(($null -eq $script:Window) -or ($null -eq $script:Ctrl)){return $false}
+    $layer=$script:Window.FindName('DomeniaDialogLayer')
+    if($null -eq $layer){return $false}
+    $path=Join-Path $script:DomeniaAccountsModuleRoot 'Domenia-MachineAccount.xaml'
+    [xml]$document=[IO.File]::ReadAllText($path,[Text.Encoding]::UTF8)
+    $reader=New-Object Xml.XmlNodeReader $document
+    try{$view=[Windows.Markup.XamlReader]::Load($reader)}finally{$reader.Close()}
+    $names=[Collections.Generic.List[string]]::new()
+    foreach($element in $document.SelectNodes('//*')){
+        $name=$element.GetAttribute('Name','http://schemas.microsoft.com/winfx/2006/xaml')
+        if([string]::IsNullOrWhiteSpace($name)){continue}
+        if($script:Ctrl.ContainsKey($name)){throw ('Nom de contrôle déjà présent : '+$name)}
+        $control=if($name -eq [string]$view.Name){$view}else{$view.FindName($name)}
+        if($null -eq $control){throw ('Contrôle du panneau du compte poste introuvable : '+$name)}
+        $names.Add($name)
+    }
+    foreach($name in $names){$script:Ctrl[$name]=$(if($name -eq [string]$view.Name){$view}else{$view.FindName($name)})}
+    (Get-DomeniaControl 'BtnMachineAccountClose').Add_Click({Hide-DomeniaMachineAccountPanel})
+    # SE-16: read-only reveal for 5 s, closed as soon as the password changes.
+    (Get-DomeniaControl 'BtnRevealMachineAdmin').Add_Click({[void](Show-DomeniaSecretPeek -PasswordBox $script:Ctrl['PwdMachineAdmin'] -Overlay $script:Ctrl['MachineAdminPeek'] -Display $script:Ctrl['LblMachineAdminPeek'] -Button $script:Ctrl['BtnRevealMachineAdmin'] -Owner 'Timer:MachineAdminPeek' -ShownContent '🙈')})
+    $password=Get-DomeniaControl 'PwdMachineAdmin'
+    $password.Add_PasswordChanged({Hide-DomeniaSecretPeek -Owner 'Timer:MachineAdminPeek'})
+    $password.Add_KeyDown({param($sender,$eventArgs) if($eventArgs.Key -eq [Windows.Input.Key]::Enter){$eventArgs.Handled=$true;Set-MachineCredentialFromUi}})
+    (Get-DomeniaControl 'BtnSetMachineCredential').Add_Click({Set-MachineCredentialFromUi})
+    (Get-DomeniaControl 'BtnClearMachineCredential').Add_Click({Clear-MachineCredential})
+    $view.Add_PreviewKeyDown({param($sender,$eventArgs) if($eventArgs.Key -eq [Windows.Input.Key]::Escape){$eventArgs.Handled=$true;Hide-DomeniaMachineAccountPanel}})
+    # A click beside the panel (on the transparent layer itself) closes it, like the panel of the operations.
+    $layer.Add_MouseLeftButtonDown({param($sender,$eventArgs) if([object]::ReferenceEquals($eventArgs.OriginalSource,$sender) -and (Test-DomeniaMachineAccountPanelOpen)){$eventArgs.Handled=$true;Hide-DomeniaMachineAccountPanel}})
+    $script:MachineAccountPanel=[pscustomobject]@{View=$view;Layer=$layer;Open=$false;Names=$names.ToArray()}
+    Update-DomeniaMachineAccountUi -Force
+    return $true
+}
+
+function Test-DomeniaMachineAccountPanelOpen {
+    # Another sheet of the layer may have replaced the panel: open means shown, not only flagged.
+    $panel=$script:MachineAccountPanel
+    return (($null -ne $panel) -and [bool]$panel.Open -and $panel.Layer.Children.Contains($panel.View))
+}
+
+function Show-DomeniaMachineAccountPanel {
+    # Returns $false when the panel cannot open (no main window, or a sheet waiting for an answer holds the layer).
+    $ready=$false
+    try{$ready=Initialize-DomeniaMachineAccountPanel}catch{Write-AppLog ('Panneau du compte poste indisponible : '+$_.Exception.Message) 'WARN';$ready=$false}
+    if(-not $ready){return $false}
+    if(($null -ne $script:DomeniaSurfaceState) -and (-not $script:DomeniaSurfaceState.Done)){return $false}
+    if(Test-DomeniaOperationsPanelOpen){Hide-DomeniaOperationsPanel}
+    $panel=$script:MachineAccountPanel;$layer=$panel.Layer
+    if(-not $layer.Children.Contains($panel.View)){[void]$layer.Children.Add($panel.View)}
+    $layer.Background=[Windows.Media.Brushes]::Transparent
+    $layer.Visibility=[Windows.Visibility]::Visible
+    $panel.Open=$true
+    Update-DomeniaMachineAccountUi -Force
+    $user=Get-DomeniaControl 'TxtMachineAdminUser'
+    if($null -ne $user){try{[void]$user.Focus()}catch{}}
+    return $true
+}
+
+function Hide-DomeniaMachineAccountPanel {
+    # Closing never changes the account in service: a password typed without « Utiliser ce compte » is dropped.
+    $panel=$script:MachineAccountPanel
+    if(($null -eq $panel) -or (-not [bool]$panel.Open)){return}
+    $panel.Open=$false
+    Hide-DomeniaSecretPeek -Owner 'Timer:MachineAdminPeek'
+    $password=Get-DomeniaControl 'PwdMachineAdmin'
+    if($null -ne $password){try{$password.Clear()}catch{}}
+    $layer=$panel.Layer
+    if($layer.Children.Contains($panel.View)){[void]$layer.Children.Remove($panel.View)}
+    if($layer.Children.Count -eq 0){$layer.Visibility=[Windows.Visibility]::Collapsed;$layer.ClearValue([Windows.Controls.Panel]::BackgroundProperty)}
+    $pill=Get-DomeniaControl 'BtnCompAccountPill'
+    if(($null -ne $pill) -and [bool]$pill.IsVisible){try{[void]$pill.Focus()}catch{}}
+}
+
+function Switch-DomeniaMachineAccountPanel {
+    if(Test-DomeniaMachineAccountPanelOpen){Hide-DomeniaMachineAccountPanel}else{
+        if(($null -ne $script:MachineAccountPanel) -and [bool]$script:MachineAccountPanel.Open){$script:MachineAccountPanel.Open=$false}
+        [void](Show-DomeniaMachineAccountPanel)
+    }
 }

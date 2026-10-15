@@ -234,20 +234,22 @@ Le contrôle du port 445 et l'ouverture SMB se font dans le worker ComputerAdmin
 
 Pour les consoles, si l'ouverture préalable échoue, la console s'ouvre quand même avec la session Windows : « Console ouverte avec la session Windows : » suivi du motif. Si le technicien s'est connecté avec « Utiliser mon compte Windows », sans mot de passe, il n'y a pas d'ouverture préalable.
 
-> [!NOTE] Sous les boutons, l'onglet rappelle : « Ouvrir C$ et les consoles utilisent le compte des operations poste : compte poste saisi dans Diagnostic, sinon compte admin distant, sinon compte de connexion. Le bureau a distance passe par Windows. »
+> [!NOTE] Le compte en service est toujours affiché dans la pastille « Compte poste » en haut d'Assistance poste (section suivante). Le bureau à distance passe par Windows.
 
 ## Compte des opérations poste
 
-C'est le compte qui interroge les postes : WMI et CIM, C$, consoles, inventaire, détection et requêtes des widgets. Il peut différer du compte de connexion et n'est jamais enregistré sur le disque. Il se règle dans l'onglet « Diagnostic » : « Compte poste », « Mot de passe », « Utiliser ce compte » et « Compte de connexion » (oublie le compte saisi).
+C'est le compte qui interroge les postes : WMI et CIM, C$, consoles, inventaire, détection et requêtes des widgets. Il peut différer du compte de connexion et n'est jamais enregistré sur le disque. La pastille « Compte poste : … ▾ », en haut d'Assistance poste et visible dans tous ses onglets, nomme le compte en service. Un clic ouvre un panneau latéral dans la page : « Identifiant », « Mot de passe », « Utiliser ce compte » et « Revenir au compte de connexion » (oublie le compte saisi). Fermer le panneau, par « Fermer », Échap ou un clic à côté, ne change pas le compte et efface un mot de passe tapé sans « Utiliser ce compte ».
 
 Ordre de choix pour une opération sur un poste :
 
-1. **Compte poste saisi.** Celui de l'onglet « Diagnostic », en mémoire seulement.
-2. **Compte distant.** Celui de la zone « POSTES / WMI / DISTANT » de la page « Comptes » (chapitre 13).
-3. **Compte de connexion.** Le compte saisi dans la fenêtre de connexion de Domenia.
-4. **Session Windows.** La session qui exécute Domenia.
+1. **Compte local temporaire.** Un compte local de ce poste accepté après un refus, pour ce poste seulement.
+2. **Compte temporaire.** Un compte accepté après un refus pour les postes, oublié après une période sans utilisation.
+3. **Compte poste saisi.** Celui du panneau « Compte poste », en mémoire seulement.
+4. **Compte Postes.** Celui de la zone « POSTES / WMI / DISTANT » de la page « Comptes » (chapitre 13).
+5. **Compte de connexion.** Le compte saisi dans la fenêtre de connexion de Domenia.
+6. **Session Windows.** La session qui exécute Domenia.
 
-Le libellé sous les champs dit le compte en service : « Operations poste : compte saisi », « Operations poste : compte de connexion Domenia » ou « Operations poste : session Windows ».
+Le panneau dit le compte en service et son origine, par exemple « Opérations poste : DOMAINE\adm-poste (compte poste saisi, en mémoire seulement). » ou « Opérations poste : session Windows (DOMAINE\technicien). ».
 
 ## Diagnostic sessions et secrets
 
