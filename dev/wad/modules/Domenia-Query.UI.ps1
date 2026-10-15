@@ -304,11 +304,17 @@ function Reset-DomeniaQueryResults {
     $q=$script:DomeniaQueryState;if($null -ne $q -and $null -ne $q.PSObject.Properties['GroupSummary']){$q.GroupSummary=$null;$q.GroupOffset=0}
     Update-DomeniaQueryGroups
 }
+function Set-DomeniaQueryControlProperty {
+    # Sets one member of a workshop control only when the control exposes it (view not loaded, inert double).
+    param($Control,[string]$Name,$Value)
+    if($null -eq $Control -or $null -eq $Control.PSObject.Properties[$Name]){return}
+    $Control.$Name=$Value
+}
 function Reset-DomeniaQueryCoherence {
     $q=$script:DomeniaQueryState;if($null -ne $q -and $null -ne $q.PSObject.Properties['CoherenceProposal']){$q.CoherenceProposal=$null}
-    $grid=Get-DomeniaControl 'DgQueryCoherenceSources';if($null -ne $grid){$grid.ItemsSource=@()}
+    Set-DomeniaQueryControlProperty (Get-DomeniaControl 'DgQueryCoherenceSources') 'ItemsSource' @()
     [void](Set-DomeniaControlText 'LblQueryCoherenceProposal' '')
-    $button=Get-DomeniaControl 'BtnQueryApplyCoherence';if($null -ne $button){$button.IsEnabled=$false}
+    Set-DomeniaQueryControlProperty (Get-DomeniaControl 'BtnQueryApplyCoherence') 'IsEnabled' $false
 }
 function Show-DomeniaQueryCoherence {
     # Dates of each source and the proposed common window. Nothing is applied until the explicit button.
@@ -321,7 +327,7 @@ function Show-DomeniaQueryCoherence {
     $applicable=($null -ne $proposal -and [bool]$proposal.Needed -and $null -ne $proposal.Hours)
     if($applicable -and $null -ne $current -and [double]$current -eq [double]$proposal.Hours){$text+=' Cette fenêtre est déjà celle du brouillon.';$applicable=$false}
     elseif($null -ne $current){$text+=' Fenêtre actuelle du brouillon : '+(Format-DomeniaQueryHours ([double]$current))+'.'}
-    $q.CoherenceProposal=if($applicable){$proposal}else{$null}
+    $q|Add-Member -NotePropertyName CoherenceProposal -NotePropertyValue $(if($applicable){$proposal}else{$null}) -Force
     [void](Set-DomeniaControlText 'LblQueryCoherenceProposal' $text)
     $button=Get-DomeniaControl 'BtnQueryApplyCoherence';if($null -ne $button){$button.IsEnabled=$applicable}
 }
@@ -367,7 +373,7 @@ function Request-DomeniaQueryRecipeSave {
 function Show-DomeniaQueryImpact {
     param($Impact,$Recipe,[ValidateSet('Save','Archive')][string]$Mode)
     $q=$script:DomeniaQueryState
-    $q.ImpactPending=[pscustomobject]@{Mode=$Mode;Recipe=$Recipe;Generation=[long]$q.Generation;RecipeId=[string]$Recipe.Id;Revision=[long]$Impact.CurrentRevision;Count=[int]$Impact.Count}
+    $q|Add-Member -NotePropertyName ImpactPending -NotePropertyValue ([pscustomobject]@{Mode=$Mode;Recipe=$Recipe;Generation=[long]$q.Generation;RecipeId=[string]$Recipe.Id;Revision=[long]$Impact.CurrentRevision;Count=[int]$Impact.Count}) -Force
     (Get-DomeniaControl 'DgQueryImpact').ItemsSource=@($Impact.Rows)
     $parts=@($Impact.Widgets.ToString()+' widget(s)',$Impact.Views.ToString()+' vue(s) de Recherche');if($Impact.Orphans){$parts+=@($Impact.Orphans.ToString()+' lien(s) sans widget affiché')}
     $text=$Impact.Count.ToString()+' élément(s) utilisent la révision '+$Impact.CurrentRevision+' de « '+[string]$Recipe.Name+' » : '+($parts -join ', ')+'. Aucune alerte ne dépend des requêtes dans cette version.'
@@ -380,8 +386,8 @@ function Show-DomeniaQueryImpact {
 }
 function Clear-DomeniaQueryImpact {
     $q=$script:DomeniaQueryState;if($null -ne $q -and $null -ne $q.PSObject.Properties['ImpactPending']){$q.ImpactPending=$null}
-    $panel=Get-DomeniaControl 'PnlQueryImpact';if($null -ne $panel){$panel.Visibility='Collapsed'}
-    $grid=Get-DomeniaControl 'DgQueryImpact';if($null -ne $grid){$grid.ItemsSource=@()}
+    Set-DomeniaQueryControlProperty (Get-DomeniaControl 'PnlQueryImpact') 'Visibility' 'Collapsed'
+    Set-DomeniaQueryControlProperty (Get-DomeniaControl 'DgQueryImpact') 'ItemsSource' @()
 }
 function Invoke-DomeniaQueryImpactAction {
     param([ValidateSet('Migrate','Keep','Archive','Cancel')][string]$Action)
@@ -423,21 +429,21 @@ function Update-DomeniaQueryGroups {
     $q=$script:DomeniaQueryState;$expander=Get-DomeniaControl 'ExpQueryGroups';$grid=Get-DomeniaControl 'DgQueryGroups'
     if($null -eq $q -or $null -eq $expander -or $null -eq $grid){return}
     $summary=Get-DomeniaMemberValue $q 'GroupSummary'
-    foreach($name in @('BtnQueryGroupsPrevious','BtnQueryGroupsNext','BtnQueryGroupsShow')){$button=Get-DomeniaControl $name;if($null -ne $button){$button.IsEnabled=$false}}
-    if($null -eq $summary){$expander.Visibility='Collapsed';$grid.ItemsSource=@();[void](Set-DomeniaControlText 'LblQueryGroups' '');return}
-    $expander.Visibility='Visible'
-    if([string](Get-DomeniaMember $summary 'Error')){$grid.ItemsSource=@();[void](Set-DomeniaControlText 'LblQueryGroups' ('Répartition non calculée : '+[string]$summary.Error));return}
+    foreach($name in @('BtnQueryGroupsPrevious','BtnQueryGroupsNext','BtnQueryGroupsShow')){Set-DomeniaQueryControlProperty (Get-DomeniaControl $name) 'IsEnabled' $false}
+    if($null -eq $summary){Set-DomeniaQueryControlProperty $expander 'Visibility' 'Collapsed';Set-DomeniaQueryControlProperty $grid 'ItemsSource' @();[void](Set-DomeniaControlText 'LblQueryGroups' '');return}
+    Set-DomeniaQueryControlProperty $expander 'Visibility' 'Visible'
+    if([string](Get-DomeniaMember $summary 'Error')){Set-DomeniaQueryControlProperty $grid 'ItemsSource' @();[void](Set-DomeniaControlText 'LblQueryGroups' ('Répartition non calculée : '+[string]$summary.Error));return}
     $filter=Get-DomeniaControl 'TxtQueryGroupFilter';$text=if($null -ne $filter){[string]$filter.Text}else{''}
     $page=Get-DomeniaQueryGroupPage -Summary $summary -Offset ([int]$q.GroupOffset) -Limit 100 -Text $text
-    $q.GroupOffset=[int]$page.Offset;$grid.ItemsSource=@($page.Rows)
+    $q|Add-Member -NotePropertyName GroupOffset -NotePropertyValue ([int]$page.Offset) -Force;Set-DomeniaQueryControlProperty $grid 'ItemsSource' @($page.Rows)
     $culture=[Globalization.CultureInfo]::GetCultureInfo('fr-FR')
     $label=$page.CategoryCount.ToString('N0',$culture)+' valeur(s) distincte(s) pour '+$page.Matched.ToString('N0',$culture)+' poste(s) correspondant(s), total exact'
     if($page.Missing){$label+=', dont '+$page.Missing.ToString('N0',$culture)+' sans valeur lisible'}
     $label+='. '+$(if($page.Filtered){'Valeurs '+($page.Offset+1).ToString('N0',$culture)+' à '+($page.Offset+@($page.Rows).Count).ToString('N0',$culture)+' sur '+$page.Filtered.ToString('N0',$culture)}else{'Aucune valeur ne correspond au filtre'})
     $label+='. Même calcul que le widget, sur tout le périmètre ; les filtres dʼaffichage de la liste ne sʼappliquent pas.'
     [void](Set-DomeniaControlText 'LblQueryGroups' $label)
-    (Get-DomeniaControl 'BtnQueryGroupsPrevious').IsEnabled=[bool]$page.HasPrevious
-    (Get-DomeniaControl 'BtnQueryGroupsNext').IsEnabled=[bool]$page.HasNext
+    Set-DomeniaQueryControlProperty (Get-DomeniaControl 'BtnQueryGroupsPrevious') 'IsEnabled' ([bool]$page.HasPrevious)
+    Set-DomeniaQueryControlProperty (Get-DomeniaControl 'BtnQueryGroupsNext') 'IsEnabled' ([bool]$page.HasNext)
 }
 function Move-DomeniaQueryGroupPage {
     param([int]$Direction)
@@ -694,7 +700,7 @@ function Complete-DomeniaQueryEvaluation {
     $exportRequest=Get-DomeniaMemberValue $State 'ExportRequest'
     if($null -ne $exportRequest){$exportRequest.ExpectedRows=$count;$q|Add-Member -NotePropertyName ExportRequest -NotePropertyValue $exportRequest -Force}
     $exportButton=Get-DomeniaControl 'BtnQueryExport';if($null -ne $exportButton){$exportButton.IsEnabled=($null -ne $exportRequest -and -not [bool](Get-DomeniaMember $q 'ExportBusy' $false))}
-    $q.GroupSummary=Get-DomeniaMemberValue $r 'Groups';$q.GroupOffset=0;Update-DomeniaQueryGroups
+    $q|Add-Member -NotePropertyName GroupSummary -NotePropertyValue (Get-DomeniaMemberValue $r 'Groups') -Force;$q|Add-Member -NotePropertyName GroupOffset -NotePropertyValue 0 -Force;Update-DomeniaQueryGroups
 
     if([bool](Get-DomeniaMember $State 'RefreshWidgets' $true)){Show-DomeniaBoard -Board Fleet -Quiet -DeferIfHidden}
 }

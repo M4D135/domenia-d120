@@ -1758,6 +1758,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Show-DomeniaQueryLibraryDetails',
             'Use-DomeniaQueryLibrarySelection',
             'Reset-DomeniaQueryResults',
+            'Set-DomeniaQueryControlProperty',
             'Reset-DomeniaQueryCoherence',
             'Show-DomeniaQueryCoherence',
             'Use-DomeniaQueryCoherenceProposal',
