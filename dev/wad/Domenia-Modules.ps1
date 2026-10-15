@@ -466,6 +466,25 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaSourceReadPlan',
             'ConvertFrom-DomeniaWaptHost'
         ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-Compatibility.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaCompatibilityStatuses',
+            'Get-DomeniaCompatibilityStatusLabel',
+            'ConvertTo-DomeniaNetFrameworkLabel',
+            'ConvertTo-DomeniaCompatibilityVersion',
+            'ConvertTo-DomeniaEnvironmentFacts',
+            'Test-DomeniaCompatibilityMatch',
+            'Test-DomeniaCompatibilityMatrix',
+            'Get-DomeniaCompatibilityVerdict',
+            'Get-DomeniaCompatibilityText'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Compatibility.Model.ps1'); File='Domenia-Compatibility.UI.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaCompatibilityMatrix',
+            'Read-DomeniaLocalRegistryValue',
+            'Get-DomeniaEnvironmentFacts',
+            'Get-DomeniaLocalCompatibility',
+            'Update-DomeniaAboutCompatibility',
+            'Get-DomeniaCompatibilitySupportFields'
+        ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Shell.Model.ps1'); File='Domenia-Selection.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaObjectReadIdentity',
             'Get-DomeniaRowSelectionIdentity',

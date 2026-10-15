@@ -42,6 +42,8 @@ function Export-DomeniaTechnicalDossier {
     $counts=[ordered]@{Format='Domenia.Support.1';Build=[string]$script:MasterBuild;CapturedUtc=[datetime]::UtcNow.ToString('o');Tasks=[int]$script:AsyncJobs.Count;ReceiptPending=[int]$script:ReceiptPending;ReceiptReady=[bool]$script:ReceiptReady;WriteState=[string]$script:WriteState;Runtime=[string]$PSVersionTable.PSVersion;Bitness=64;ContainsRawLogs=$false;ContainsTargets=$false}
     if($null -ne $script:Guard){$counts['DispatcherP95Ms']=Get-DomeniaPercentile $script:Guard.Samples.ToArray() 95}
     if($null -ne $script:Persistence){$counts['PendingLocalWrites']=[int]$script:Persistence.Pending.Count;$counts['LocalWriteFailures']=[int]$script:Persistence.Failures}
+    # Point 145: versions and compatibility statuses of this workstation, never a name or a path.
+    try{$compatibility=Get-DomeniaCompatibilitySupportFields;foreach($key in @($compatibility.Keys)){$counts[$key]=$compatibility[$key]}}catch{$counts['Compatibility']='Inconnu'}
     $text=$counts|ConvertTo-Json -Depth 4
     [void](Show-DomeniaDialog -Title 'Apercu du dossier technique' -Message 'Ce dossier ne contient que les compteurs ci-dessous. Aucun compte, nom de machine, journal brut, mot de passe ou cle ne sera ajoute.' -Details $text)
     if(-not (Confirm-Action 'Enregistrer exactement ces compteurs dans un fichier local ? Aucun envoi automatique.')){return}

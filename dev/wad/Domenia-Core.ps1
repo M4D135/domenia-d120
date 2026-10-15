@@ -999,6 +999,8 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnReadOnlyResume" = "Default"
     "BtnUxNavAccount" = "Default"
     "UxAboutPanel" = "Default"
+    # Point 145: compatibility of this workstation in À propos.
+    "LblUxAboutCompatibility" = "Default"
     "ObjectEmptyState" = "Default"
     "ComputerEmptyState" = "Default"
 
@@ -4777,6 +4779,7 @@ function Get-MainXaml {
                   <StackPanel>
                     <TextBlock Text="DOMENIA 1.0 · RC1.17.7" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
                     <TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0"/>
+                    <TextBlock x:Name="LblUxAboutCompatibility" Text="Compatibilité de ce poste : non évaluée." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0" AutomationProperties.Name="Compatibilité de ce poste"/>
                   </StackPanel>
                 </Border>
               </StackPanel>
