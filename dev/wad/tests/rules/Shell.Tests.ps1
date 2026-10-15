@@ -280,7 +280,7 @@ Test-Case 'D087' 'Six etats vides distincts, chacun avec sa prochaine action' {
     foreach($s in $states){Assert-True (($s.Title.Length -gt 3) -and ($s.NextAction.Label.Length -gt 5)) $s.Kind;Assert-False $s.ProvesAbsence $s.Kind;Assert-False $s.NextAction.Automatic $s.Kind}
     Assert-Equal 'Refuse' @($states|Where-Object{$_.Kind -eq 'Refused'})[0].Etat;Assert-Equal 'TabAccounts' @($states|Where-Object{$_.Kind -eq 'Refused'})[0].NextAction.Route
     Assert-True (@($states|Where-Object{$_.Kind -eq 'Partial'})[0].Text -match '3 source\(s\) sur 5')
-    Assert-True (@($states|Where-Object{$_.Kind -eq 'NoResult'})[0].Text -match 'dupont');Assert-True (@($states|Where-Object{$_.Kind -eq 'LocalFilterEmpty'})[0].Text -match '5 resultat')
+    Assert-True (@($states|Where-Object{$_.Kind -eq 'NoResult'})[0].Text -match 'dupont');Assert-True (@($states|Where-Object{$_.Kind -eq 'LocalFilterEmpty'})[0].Text -match '5 résultat')
     Assert-Equal 'ClearLocalFilter' @($states|Where-Object{$_.Kind -eq 'LocalFilterEmpty'})[0].NextAction.Command
     Assert-Equal 'ReadRdpSessions' (Get-DomeniaEmptyState NoResult -Subject Session).NextAction.Command 'Console vide : proposer la lecture RDP'
 }
@@ -297,6 +297,27 @@ Test-Case 'D087' 'Jamais n existe pas, ni pour un objet ni pour une session' {
         $s=Get-DomeniaEmptyState $k -Subject $subject -Query 'x' -Scope 'OU=Paris' -LocalFilter 'actif' -Answered 1 -Total 4
         Assert-True (Test-DomeniaNoAbsenceClaim ($s.Title+' '+$s.Text+' '+$s.NextAction.Label)) ($subject+'/'+$k)
     }}
+}
+Test-Case 'P119' 'Liste de resultats vide : chaque cause a son texte accentue et sa prochaine action, jamais automatique' {
+    Assert-Equal 'NothingQueried' (Resolve-DomeniaSearchEmptyKind -Displayed 0 -Loaded 0)
+    Assert-Equal '' (Resolve-DomeniaSearchEmptyKind -InFlight $true) 'Pendant la lecture, pas de verdict'
+    Assert-Equal 'NoResult' (Resolve-DomeniaSearchEmptyKind -Completed $true)
+    Assert-Equal 'LocalFilterEmpty' (Resolve-DomeniaSearchEmptyKind -Loaded 12 -InFlight $true) 'Le filtre local masque des lignes deja lues'
+    Assert-Equal 'Refused' (Resolve-DomeniaSearchEmptyKind -Completed $true -ErrorKind 'AccountState') 'Un compte bloque est un refus, pas une absence de source'
+    Assert-Equal 'NoSource' (Resolve-DomeniaSearchEmptyKind -Completed $true -ErrorKind 'Timeout')
+    Assert-Equal 'Partial' (Resolve-DomeniaSearchEmptyKind -Completed $true -Partial $true)
+    Assert-Equal '' (Resolve-DomeniaSearchEmptyKind -Displayed 3 -ErrorKind 'AccessDenied')
+    $none=Get-DomeniaEmptyState NothingQueried
+    Assert-Equal 'Rechercher un nom ou choisir une OU' $none.NextAction.Label;Assert-Equal 'Rien nʼa encore été interrogé' $none.Title
+    $result=Get-DomeniaEmptyState NoResult -Query 'dupont' -Scope 'tout le domaine'
+    Assert-True ($result.Text.Contains('périmètre interrogé (tout le domaine)')) $result.Text;Assert-Equal 'Élargir le périmètre ou corriger la saisie' $result.NextAction.Label
+    Assert-Equal 'TabAccounts' (Get-DomeniaEmptyState NoSource).NextAction.Route
+    # UX-03 merged into the one empty state: same title and action as the filter state of the list.
+    $filtered=Get-DomeniaEmptyState LocalFilterEmpty -LocalFilter 'compta' -Total 1250
+    Assert-Equal ('Le filtre masque '+(1250).ToString('N0',[Globalization.CultureInfo]::GetCultureInfo('fr-FR'))+' lignes') $filtered.Title;Assert-Equal 'Effacer le filtre' $filtered.NextAction.Label
+    Assert-Equal 'Le filtre masque 1 ligne' (Get-DomeniaEmptyState LocalFilterEmpty -Total 1).Title
+    Assert-False (Test-DomeniaNoAbsenceClaim 'Compte supprimé') 'Un accent ne fait pas passer une absence affirmee'
+    Assert-False (Test-DomeniaNoAbsenceClaim 'Le poste nʼest plus présent') 'Forme accentuee detectee'
 }
 Test-Case 'D088' 'Chaque controle grise a un motif court, lisible a la souris et au clavier' {
     $reasons=@('ReadOnly','NoSelection','WrongType','Busy','Refused','Stale','Offline','Prerequisite','Pending');$texts=@()

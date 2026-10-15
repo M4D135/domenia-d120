@@ -1,13 +1,13 @@
 {
  "Schema": "DomeniaSwallowedBaseline/1",
  "Source": "reference initiale",
- "Total": 1325,
+ "Total": 1323,
  "Kinds": {
-  "empty": 1324,
+  "empty": 1322,
   "null": 1
  },
  "Places": {
-  "code": 1082,
+  "code": 1080,
   "here-string": 243
  },
  "Findings": {
@@ -334,7 +334,6 @@
   "Register-DomeniaParkMeasurement": 1,
   "Register-DomeniaParkPingOutcome": 1,
   "Register-DomeniaSettingsWatchers": 1,
-  "Register-DomeniaShortcuts": 1,
   "Register-DomeniaUserSwitchWatch": 3,
   "Register-DomeniaWorkerPool": 1,
   "Remove-DomeniaQueuedTask": 2,
@@ -407,7 +406,6 @@
   "Show-AdObjectResult": 5,
   "Show-DomeniaAssistSection": 1,
   "Show-DomeniaBoard": 1,
-  "Show-DomeniaCommandPalette": 1,
   "Show-DomeniaDialog": 3,
   "Show-DomeniaDirectoryCorrection": 2,
   "Show-DomeniaEmbeddedWindow": 1,

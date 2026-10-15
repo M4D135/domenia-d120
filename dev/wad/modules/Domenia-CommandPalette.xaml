@@ -1,0 +1,76 @@
+<Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Name="CommandPalettePanel" Width="640" MaxHeight="560" HorizontalAlignment="Left" VerticalAlignment="Top" Padding="14,12"
+        CornerRadius="12" BorderThickness="1" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderColor}"
+        KeyboardNavigation.TabNavigation="Cycle" AutomationProperties.Name="Palette de commandes"
+        AutomationProperties.HelpText="Actions disponibles selon la fiche ouverte, la sélection et vos droits. Tapez pour filtrer, Entrée exécute, Échap ferme. Une écriture nʼest jamais lancée depuis la palette : son bouton est seulement amené à lʼécran.">
+  <!-- W13 (points 115, 117): in-page palette (no window). The list follows the selection and the rights; a write only
+       brings its own button forward, where its confirmation stays the explicit step. -->
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+      <TextBlock Text="Palette de commandes" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource TextColor}"/>
+      <Button x:Name="BtnPaletteClose" Grid.Column="1" Content="Fermer" MinHeight="30" Padding="10,2"
+              ToolTip="Ferme la palette sans rien lancer. Échap fait de même."
+              ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Fermer la palette"
+              AutomationProperties.HelpText="Ferme la palette sans rien lancer. Échap fait de même."/>
+    </Grid>
+    <TextBox x:Name="TxtPaletteSearch" Grid.Row="1" Margin="0,10,0,8" MinHeight="34" Padding="8,4" VerticalContentAlignment="Center"
+             Background="{DynamicResource BgInput}" Foreground="{DynamicResource TextColor}"
+             ToolTip="Tapez quelques lettres : accents et majuscules sont ignorés. Flèches pour choisir, Entrée pour exécuter, Échap pour fermer."
+             ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher une action"
+             AutomationProperties.HelpText="Tapez quelques lettres : accents et majuscules sont ignorés. Flèches pour choisir, Entrée pour exécuter, Échap pour fermer."/>
+    <ListBox x:Name="LstPaletteCommands" Grid.Row="2" MinHeight="120" MaxHeight="330" BorderThickness="0" Background="Transparent"
+             ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingPanel.IsVirtualizing="True"
+             ToolTip="Actions de la palette : les disponibles dʼabord, avec leur raccourci. Une action indisponible dit pourquoi."
+             ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actions"
+             AutomationProperties.HelpText="Actions de la palette : les disponibles dʼabord, avec leur raccourci. Une action indisponible dit pourquoi.">
+      <ListBox.ItemContainerStyle>
+        <Style TargetType="ListBoxItem">
+          <Setter Property="AutomationProperties.Name" Value="{Binding Spoken}"/>
+          <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+          <Setter Property="Padding" Value="6,4"/>
+          <Style.Triggers>
+            <DataTrigger Binding="{Binding Available}" Value="False">
+              <Setter Property="Opacity" Value="0.62"/>
+            </DataTrigger>
+          </Style.Triggers>
+        </Style>
+      </ListBox.ItemContainerStyle>
+      <ListBox.ItemTemplate>
+        <DataTemplate>
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="22"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="{Binding Glyph}" FontFamily="Segoe UI Symbol" VerticalAlignment="Top" Foreground="{DynamicResource MutedColor}"/>
+            <StackPanel Grid.Column="1">
+              <TextBlock Text="{Binding Label}" TextWrapping="Wrap" Foreground="{DynamicResource TextColor}"/>
+              <TextBlock Text="{Binding Line}" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource MutedColor}"/>
+            </StackPanel>
+            <TextBlock Grid.Column="2" Text="{Binding Shortcut}" Margin="12,0,0,0" VerticalAlignment="Top" FontSize="11" Foreground="{DynamicResource MutedColor}"/>
+          </Grid>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+    <TextBlock x:Name="LblPaletteDetail" Grid.Row="3" Text="" TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{DynamicResource TextColor}"
+               ToolTip="Ce que fait lʼaction choisie, ou pourquoi elle est indisponible."
+               AutomationProperties.Name="Détail de lʼaction choisie" AutomationProperties.LiveSetting="Polite"
+               AutomationProperties.HelpText="Ce que fait lʼaction choisie, ou pourquoi elle est indisponible."/>
+    <TextBlock x:Name="LblPaletteStatus" Grid.Row="4" Text="" TextWrapping="Wrap" Margin="0,8,0,0" FontSize="11" Foreground="{DynamicResource MutedColor}"
+               ToolTip="Nombre dʼactions affichées et touches utiles : Entrée exécute, Échap ferme, Ctrl+K rouvre la palette."
+               AutomationProperties.Name="État de la palette" AutomationProperties.LiveSetting="Polite"
+               AutomationProperties.HelpText="Nombre dʼactions affichées et touches utiles : Entrée exécute, Échap ferme, Ctrl+K rouvre la palette."/>
+  </Grid>
+</Border>

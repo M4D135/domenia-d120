@@ -681,6 +681,50 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaSourceReadPlan',
             'ConvertFrom-DomeniaWaptHost'
         ) }
+        # W13 (points 115, 117, 120): command palette, keyboard shortcuts and presentation undo of the result list.
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-Commands.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaKeyboardShortcuts',
+            'Test-DomeniaPresentationUndoKey',
+            'Get-DomeniaCommandCatalogue',
+            'Get-DomeniaShortcutListText',
+            'Get-DomeniaCommandEffectText',
+            'ConvertTo-DomeniaCommandSearchKey',
+            'Get-DomeniaPaletteEntries',
+            'Select-DomeniaPaletteEntries',
+            'Get-DomeniaPaletteDecision',
+            'ConvertTo-DomeniaPresentationKey',
+            'Get-DomeniaPresentationChangeText',
+            'New-DomeniaPresentationHistory',
+            'Add-DomeniaPresentationState',
+            'Get-DomeniaPresentationUndoText',
+            'Reset-DomeniaPresentationCurrent',
+            'Undo-DomeniaPresentationState'
+        ) }
+        # W13 (points 118, 121, 123, 124): traces of the operations, explained slowness and redacted diagnostic.
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-Observability.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaTraceLimits',
+            'Get-DomeniaTracePhases',
+            'Get-DomeniaTraceOutcomes',
+            'Get-DomeniaTraceOutcome',
+            'Get-DomeniaTraceReference',
+            'Resolve-DomeniaTraceId',
+            'New-DomeniaOperationTrace',
+            'Add-DomeniaTraceJob',
+            'ConvertTo-DomeniaTraceJobRef',
+            'Add-DomeniaOperationTraceEvent',
+            'Complete-DomeniaTraceJob',
+            'Format-DomeniaDurationText',
+            'Format-DomeniaVolumeText',
+            'Get-DomeniaOperationTraceSummary',
+            'Test-DomeniaTraceListed',
+            'Select-DomeniaTraceEviction',
+            'Get-DomeniaOutputVolume',
+            'Get-DomeniaSlownessVerdict',
+            'Get-DomeniaStallAttribution',
+            'New-DomeniaRedactedDiagnostic',
+            'Get-DomeniaDiagnosticPreviewText',
+            'Get-DomeniaTraceAdvice'
+        ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Shell.Model.ps1'); File='Domenia-Selection.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaObjectReadIdentity',
             'Get-DomeniaRowSelectionIdentity',
@@ -897,6 +941,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Initialize-DomeniaUxLoginPresentation',
             'Test-DomeniaUxExpertAllowed',
             'Send-DomeniaUxLiveChange',
+            'Set-DomeniaLiveText',
             'Get-DomeniaUxSubject',
             'Update-DomeniaUxPageTitle',
             'Update-DomeniaUxSessionBadge',
@@ -926,6 +971,10 @@ function Get-DomeniaRuntimeModulePlan {
             'Initialize-DomeniaUxEmptyStates',
             'Update-DomeniaUxEmptyStates',
             'Invoke-DomeniaUxEmptySearch',
+            'Get-DomeniaSearchEmptyInputs',
+            'Update-DomeniaSearchEmptyState',
+            'Invoke-DomeniaSearchEmptyAction',
+            'Initialize-DomeniaSearchEmptyState',
             'Get-DomeniaUxReadOnlyDelay',
             'Request-DomeniaWriteMode',
             'Enable-DomeniaWriteMode',
@@ -938,6 +987,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Stop-DomeniaReadOnlyReturnTimer',
             'Get-DomeniaUiZoomLayoutSize',
             'Set-DomeniaUiZoom',
+            'Update-DomeniaUiZoomForDpi',
             'Initialize-DomeniaUiZoom'
         ) }
         [pscustomobject]@{ File='Domenia-Experience.Model.ps1'; DotSource=$false; Functions=@(
@@ -1684,6 +1734,58 @@ function Get-DomeniaRuntimeModulePlan {
             'Format-DomeniaLockoutReport',
             'Complete-DomeniaLockoutEventRead',
             'Fail-DomeniaLockoutEventRead'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Commands.Model.ps1','Domenia-UX.UI.ps1'); File='Domenia-Commands.UI.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaControlReach',
+            'Show-DomeniaControlInPage',
+            'Get-DomeniaPaletteContext',
+            'Initialize-DomeniaCommandPalette',
+            'Set-DomeniaCommandPalettePosition',
+            'Show-DomeniaCommandPaletteView',
+            'Hide-DomeniaCommandPalette',
+            'Test-DomeniaCommandPaletteOpen',
+            'Get-DomeniaPaletteGlyph',
+            'Update-DomeniaCommandPaletteList',
+            'Update-DomeniaCommandPaletteDetail',
+            'Invoke-DomeniaCommandPaletteKey',
+            'Invoke-DomeniaCommandPaletteEntry',
+            'Invoke-DomeniaPaletteDecision',
+            'Invoke-DomeniaPaletteCommand',
+            'Get-DomeniaCurrentPresentation',
+            'Initialize-DomeniaPresentationUndo',
+            'Request-DomeniaPresentationStep',
+            'Invoke-DomeniaPresentationUndoKey',
+            'Request-DomeniaPresentationRebase',
+            'Save-DomeniaPresentationStep',
+            'Undo-DomeniaResultPresentation',
+            'New-DomeniaPresentationUndoChip'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Observability.Model.ps1','Domenia-UX.UI.ps1'); File='Domenia-Observability.UI.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaTraceNow',
+            'Get-DomeniaTraceRing',
+            'Register-DomeniaTrace',
+            'Get-DomeniaTraceContextHint',
+            'Start-DomeniaJobTrace',
+            'Add-DomeniaJobTraceEvent',
+            'Add-DomeniaRequestTraceEvent',
+            'Join-DomeniaPipeTrace',
+            'Complete-DomeniaRequestTrace',
+            'Get-DomeniaJobPhaseMeasures',
+            'Register-DomeniaUiWork',
+            'Add-DomeniaSlowEvent',
+            'Register-DomeniaJobPublication',
+            'Complete-DomeniaJobTrace',
+            'Write-DomeniaTraceSummaryLog',
+            'Register-DomeniaDispatcherLateness',
+            'Get-DomeniaSlowEventLines',
+            'Get-DomeniaRecentTraceRows',
+            'Get-DomeniaDiagnosticInputs',
+            'New-DomeniaSessionDiagnostic',
+            'Sync-DomeniaOperationsRecent',
+            'Update-DomeniaOperationsTraceDetail',
+            'Copy-DomeniaOperationsTrace',
+            'Open-DomeniaOperationsJournal',
+            'Start-DomeniaOperationsDiagnostic'
         ) }
         # X04 (programme 08/10): Assistance poste - five views, fixed header, restart, run, services, pending operations.
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-Assist.Model.ps1'; DotSource=$true; Functions=@(

@@ -650,6 +650,10 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnSearchResultMenu" = "Default"
     "LblSearchCardCount" = "Default"
     "LblBranchCount" = "Default"
+    "UxSearchEmpty" = "Default"
+    "LblSearchEmptyTitle" = "Default"
+    "LblSearchEmptyText" = "Default"
+    "BtnSearchEmptyNext" = "Default"
     "TxtBranchSearch" = "Default"
     "CmbObjectFilter" = "Default"
     "TxtBranchLimit" = "Default"
@@ -657,10 +661,6 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnLoadBranch" = "Default"
     "BtnClearBranch" = "Default"
     "DgObjects" = "Default"
-    "UxSearchFilteredEmpty" = "Default"
-    "LblSearchFilteredEmpty" = "Default"
-    "LblSearchFilteredDetail" = "Default"
-    "BtnSearchFilteredClear" = "Default"
     "DetailTabs" = "Default"
     "TabDashboard" = "Default"
     "BtnDashRoot" = "Default"
@@ -2103,6 +2103,7 @@ function Set-DomeniaItemsSource {
     param([Parameter(Mandatory=$true)][string]$Name,$Rows)
     $control = Get-DomeniaControl -Name $Name
     if ($null -eq $control) { return $false }
+    $filterCounts = $null
     try {
         if ($Name -eq 'DgObjects') {
             $loaded=@($Rows | Where-Object { $null -ne $_ })
@@ -2118,8 +2119,7 @@ function Set-DomeniaItemsSource {
             [void](Set-DomeniaControlText 'LblSuiteResultCount' ("$visible ligne(s) visible(s) · filtre de la liste, sans requête AD"))
             # UX-03: a repainted copy (presence, history) counts against the whole list it was taken from.
             if ($null -ne (Get-Command Update-DomeniaFilteredEmptyState -CommandType Function -ErrorAction SilentlyContinue)) {
-                $whole=[Math]::Max($loaded.Count,@($script:BranchObjects).Count)
-                Update-DomeniaFilteredEmptyState -Loaded $whole -Visible $visible
+                $filterCounts=[pscustomobject]@{Loaded=[Math]::Max($loaded.Count,@($script:BranchObjects).Count);Visible=$visible}
             }
         }
         if ($Name -eq 'DgInventory') {
@@ -2136,6 +2136,9 @@ function Set-DomeniaItemsSource {
         if ($null -ne $Rows) {
             foreach ($row in $Rows) { [void]$materialized.Add($row) }
         }
+        # W13 (point 119): the counts belong to the copy about to be shown; the one empty state of the list reads them
+        # when the grid takes it (« Le filtre masque N lignes » instead of an empty answer).
+        if ($null -ne $filterCounts) { Update-DomeniaFilteredEmptyState -Loaded ([int]$filterCounts.Loaded) -Visible ([int]$filterCounts.Visible) -Source $materialized }
         $control.ItemsSource = $null
         $control.ItemsSource = $materialized
         return $true
@@ -5804,22 +5807,14 @@ function Get-MainXaml {
                               <DataGridTextColumn Header="Chemin complet" Binding="{Binding DN}" Width="520"/>
                             </DataGrid.Columns>
                           </DataGrid>
-                          <Border Style="{StaticResource UxEmptyResults}" x:Name="UxSearchEmpty">
-                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="360">
+                          <!-- W13 (point 119): one empty state for the result list, chosen from what was really read
+                               (Resolve-DomeniaSearchEmptyKind, Get-DomeniaEmptyState) with its next action, never automatic. -->
+                          <Border Style="{StaticResource UxEmptyResults}" x:Name="UxSearchEmpty" IsHitTestVisible="True">
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="440" Margin="16">
                               <Path Data="M17,17 L23,23 M20,11 A9,9 0 1 1 2,11 A9,9 0 1 1 20,11" Width="38" Height="38" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,0,15" IsHitTestVisible="False" HorizontalAlignment="Center"/>
-                              <TextBlock Text="Aucun résultat affiché" FontSize="19" FontWeight="SemiBold" TextAlignment="Center"/>
-                              <TextBlock Text="Sélectionnez une OU à gauche ou saisissez un nom en haut. Les filtres OU, type et sous-OU se combinent. Une liste vide ne prouve pas une absence dans AD." TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0"/>
-                            </StackPanel>
-                          </Border>
-                        <Border Background="{DynamicResource BgCard}" Margin="2,36,18,18" IsHitTestVisible="False">
-<Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding HasItems, ElementName=DgObjects}" Value="False"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></Border.Style>
-<StackPanel VerticalAlignment="Center" Margin="24"><TextBlock Text="Aucune ligne à afficher" FontSize="18" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap"/><TextBlock Text="Lancez une recherche, choisissez une OU ou ajustez les filtres. Le filtre local ne parcourt pas le domaine." TextAlignment="Center" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0"/></StackPanel></Border>
-                          <!-- UX-03: every loaded row hidden by the filter of the list (text or presence): say how many and offer to clear it. -->
-                          <Border x:Name="UxSearchFilteredEmpty" Visibility="Collapsed" Background="{DynamicResource BgCard}" Margin="2,36,18,18" ToolTip="Toutes les lignes chargées sont masquées par le filtre de la liste (texte ou présence). Aucune requête AD nʼest relancée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lignes masquées par le filtre" AutomationProperties.HelpText="Toutes les lignes chargées sont masquées par le filtre de la liste (texte ou présence). Aucune requête AD nʼest relancée.">
-                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="440" Margin="24">
-                              <TextBlock x:Name="LblSearchFilteredEmpty" Text="Le filtre masque toutes les lignes" FontSize="18" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap" ToolTip="Nombre de lignes chargées que le filtre de la liste masque. La recherche et sa limite restent inchangées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lignes masquées" AutomationProperties.HelpText="Nombre de lignes chargées que le filtre de la liste masque. La recherche et sa limite restent inchangées."/>
-                              <TextBlock x:Name="LblSearchFilteredDetail" Text="" TextAlignment="Center" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,8,0,12" ToolTip="Filtres de la liste appliqués aux lignes déjà chargées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtre de la liste" AutomationProperties.HelpText="Filtres de la liste appliqués aux lignes déjà chargées."/>
-                              <Button x:Name="BtnSearchFilteredClear" Content="Effacer le filtre" HorizontalAlignment="Center" MinHeight="32" Padding="12,2" ToolTip="Vide le texte du filtre et remet la présence sur « Toute présence ». Les lignes déjà chargées réapparaissent, sans requête AD." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer le filtre de la liste" AutomationProperties.HelpText="Vide le texte du filtre et remet la présence sur « Toute présence ». Les lignes déjà chargées réapparaissent, sans requête AD."/>
+                              <TextBlock x:Name="LblSearchEmptyTitle" Text="Rien nʼa encore été interrogé" FontSize="19" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" ToolTip="Pourquoi la liste est vide : rien interrogé, lecture en cours, aucun résultat, filtre local, lecture refusée, partielle ou sans source. Jamais une preuve dʼabsence dans lʼannuaire." AutomationProperties.Name="État de la liste de résultats" AutomationProperties.HelpText="Pourquoi la liste est vide : rien interrogé, lecture en cours, aucun résultat, filtre local, lecture refusée, partielle ou sans source. Jamais une preuve dʼabsence dans lʼannuaire."/>
+                              <TextBlock x:Name="LblSearchEmptyText" Text="Aucun poste ni aucune source nʼa encore été interrogé pour cette vue : lʼaffichage vide ne renseigne pas sur lʼétat réel." TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0" AutomationProperties.LiveSetting="Polite" ToolTip="Ce qui a été lu, dans quel périmètre, et ce que la liste vide ne permet pas de conclure." AutomationProperties.Name="Explication de la liste vide" AutomationProperties.HelpText="Ce qui a été lu, dans quel périmètre, et ce que la liste vide ne permet pas de conclure."/>
+                              <Button x:Name="BtnSearchEmptyNext" Content="Rechercher un nom ou choisir une OU" Tag="StartRead" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Center" Margin="0,14,0,0" ToolTip="Prochaine action proposée pour cette liste vide. Rien ne part tout seul : une lecture ne commence quʼavec ce clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Prochaine action proposée" AutomationProperties.HelpText="Prochaine action proposée pour cette liste vide. Rien ne part tout seul : une lecture ne commence quʼavec ce clic."/>
                             </StackPanel>
                           </Border>
                           <GridSplitter x:Name="SearchPreviewSplitter" Grid.Column="1" Width="6" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Stretch" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" ShowsPreview="True" Background="{DynamicResource SplitterBg}" Cursor="SizeWE" ToolTip="Faites glisser pour ajuster la largeur de lʼaperçu latéral." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Largeur de lʼaperçu" AutomationProperties.HelpText="Faites glisser pour ajuster la largeur de lʼaperçu latéral."/>
@@ -5982,7 +5977,7 @@ function Get-MainXaml {
                               <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBox Grid.Column="0" x:Name="TxtUserManager" IsReadOnly="True" Background="{DynamicResource BgReadonly}" VerticalContentAlignment="Center" Margin="0,0,8,0" ToolTip="Nom du responsable hiérarchique, lu dans lʼannuaire. Le chemin complet reste interne : il ne se tape plus." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Responsable" AutomationProperties.HelpText="Nom du responsable hiérarchique, lu dans lʼannuaire. Le chemin complet reste interne : il ne se tape plus."/>
-                            <Button Grid.Column="1" x:Name="BtnUserManagerPick" Content="Choisir…" Style="{StaticResource RunButton}" MinHeight="32" Padding="10,4" Margin="0,0,6,0" ToolTip="Ouvre le sélecteur dʼutilisateurs du domaine : la recherche se lance sur Entrée ou sur le bouton, jamais pendant la frappe. Le choix reste local, aucune écriture nʼest lancée par ce clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Choisir le responsable" AutomationProperties.HelpText="Ouvre le sélecteur dʼutilisateurs du domaine : la recherche se lance sur Entrée ou sur le bouton, jamais pendant la frappe. Le choix reste local, aucune écriture nʼest lancée par ce clic."/>
+                            <Button Grid.Column="1" x:Name="BtnUserManagerPick" Content="Choisir…" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="10,4" Margin="0,0,6,0" ToolTip="Ouvre le sélecteur dʼutilisateurs du domaine : la recherche se lance sur Entrée ou sur le bouton, jamais pendant la frappe. Le choix reste local, aucune écriture nʼest lancée par ce clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Choisir le responsable" AutomationProperties.HelpText="Ouvre le sélecteur dʼutilisateurs du domaine : la recherche se lance sur Entrée ou sur le bouton, jamais pendant la frappe. Le choix reste local, aucune écriture nʼest lancée par ce clic."/>
                             <Button Grid.Column="2" x:Name="BtnUserManagerOpen" Content="Ouvrir" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="10,4" Margin="0,0,6,0" Visibility="Collapsed" ToolTip="Ouvre la fiche de lʼutilisateur choisi comme responsable. Aucune écriture, aucune sonde de poste lancée par ce clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir le responsable" AutomationProperties.HelpText="Ouvre la fiche de lʼutilisateur choisi comme responsable. Aucune écriture, aucune sonde de poste lancée par ce clic."/>
                             <Button Grid.Column="3" x:Name="BtnUserManagerClear" Content="Retirer" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="10,4" Visibility="Collapsed" ToolTip="Retirer le responsable affiché de la fiche. Lʼeffacement de la valeur dans lʼannuaire ne se fait quʼà lʼenregistrement." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Retirer le responsable" AutomationProperties.HelpText="Retirer le responsable affiché de la fiche. Lʼeffacement de la valeur dans lʼannuaire ne se fait quʼà lʼenregistrement."/>
                           </Grid>
@@ -6162,7 +6157,7 @@ function Get-MainXaml {
                               <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <Label Grid.Column="0" Content="Déplacement"/>
-                            <Button Grid.Column="1" x:Name="BtnUserMove" Content="Choisir lʼOU de destination…" HorizontalAlignment="Left" Style="{StaticResource RunButton}" ToolTip="Ouvre le sélecteur dʼunités dʼorganisation du domaine : la destination se cherche, se choisit, puis se confirme. Aucun déplacement nʼest lancé par ce clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Choisir lʼOU de destination" AutomationProperties.HelpText="Ouvre le sélecteur dʼunités dʼorganisation du domaine : la destination se cherche, se choisit, puis se confirme. Aucun déplacement nʼest lancé par ce clic."/>
+                            <Button Grid.Column="1" x:Name="BtnUserMove" Content="Choisir lʼOU de destination…" HorizontalAlignment="Left" Style="{StaticResource SecondaryButton}" ToolTip="Ouvre le sélecteur dʼunités dʼorganisation du domaine : la destination se cherche, se choisit, puis se confirme. Aucun déplacement nʼest lancé par ce clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Choisir lʼOU de destination" AutomationProperties.HelpText="Ouvre le sélecteur dʼunités dʼorganisation du domaine : la destination se cherche, se choisit, puis se confirme. Aucun déplacement nʼest lancé par ce clic."/>
                           </Grid>
                           <Grid>
                             <Grid.ColumnDefinitions>
@@ -6890,7 +6885,7 @@ function Get-MainXaml {
                               <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBox Grid.Column="0" x:Name="TxtCompManagedBy" IsReadOnly="True" Background="{DynamicResource BgReadonly}" VerticalContentAlignment="Center" Margin="0,0,8,0" ToolTip="Nom du responsable du poste, lu dans lʼannuaire. Le chemin complet reste interne : il ne se tape plus." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Responsable" AutomationProperties.HelpText="Nom du responsable du poste, lu dans lʼannuaire. Le chemin complet reste interne : il ne se tape plus."/>
-                            <Button Grid.Column="1" x:Name="BtnCompManagedByPick" Content="Choisir…" Style="{StaticResource RunButton}" MinHeight="32" Padding="10,4" Margin="0,0,6,0" ToolTip="Ouvre le sélecteur dʼutilisateurs du domaine : la recherche se lance sur Entrée ou sur le bouton, jamais pendant la frappe. Le choix reste local, aucune écriture nʼest lancée par ce clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Choisir le responsable" AutomationProperties.HelpText="Ouvre le sélecteur dʼutilisateurs du domaine : la recherche se lance sur Entrée ou sur le bouton, jamais pendant la frappe. Le choix reste local, aucune écriture nʼest lancée par ce clic."/>
+                            <Button Grid.Column="1" x:Name="BtnCompManagedByPick" Content="Choisir…" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="10,4" Margin="0,0,6,0" ToolTip="Ouvre le sélecteur dʼutilisateurs du domaine : la recherche se lance sur Entrée ou sur le bouton, jamais pendant la frappe. Le choix reste local, aucune écriture nʼest lancée par ce clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Choisir le responsable" AutomationProperties.HelpText="Ouvre le sélecteur dʼutilisateurs du domaine : la recherche se lance sur Entrée ou sur le bouton, jamais pendant la frappe. Le choix reste local, aucune écriture nʼest lancée par ce clic."/>
                             <Button Grid.Column="2" x:Name="BtnCompManagedByOpen" Content="Ouvrir" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="10,4" Margin="0,0,6,0" Visibility="Collapsed" ToolTip="Ouvre la fiche de lʼutilisateur choisi comme responsable du poste. Aucune écriture, aucune sonde de poste lancée par ce clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir le responsable" AutomationProperties.HelpText="Ouvre la fiche de lʼutilisateur choisi comme responsable du poste. Aucune écriture, aucune sonde de poste lancée par ce clic."/>
                             <Button Grid.Column="3" x:Name="BtnCompManagedByClear" Content="Retirer" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="10,4" Visibility="Collapsed" ToolTip="Retirer le responsable affiché de la fiche. Lʼeffacement de la valeur dans lʼannuaire ne se fait quʼà lʼenregistrement." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Retirer le responsable" AutomationProperties.HelpText="Retirer le responsable affiché de la fiche. Lʼeffacement de la valeur dans lʼannuaire ne se fait quʼà lʼenregistrement."/>
                           </Grid>
@@ -7346,7 +7341,7 @@ function Get-MainXaml {
                           <TextBlock Text="Explorateur WMI" FontSize="18" FontWeight="SemiBold"/>
                           <TextBlock Text="Explore les donnees WMI du poste : espaces de noms, classes, proprietes et valeurs. Consultation uniquement, aucune modification possible." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
                           <WrapPanel>
-                            <Button x:Name="BtnWmiNamespaces" Content="Charger" Style="{StaticResource RunButton}" ToolTip="Liste root et ses espaces de noms WMI directs. Les classes sont ensuite chargées à la demande." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Charger" AutomationProperties.HelpText="Liste root et ses espaces de noms WMI directs. Les classes sont ensuite chargees a la demande."/>
+                            <Button x:Name="BtnWmiNamespaces" Content="Charger" Style="{StaticResource SecondaryButton}" ToolTip="Liste root et ses espaces de noms WMI directs. Les classes sont ensuite chargées à la demande." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Charger" AutomationProperties.HelpText="Liste root et ses espaces de noms WMI directs. Les classes sont ensuite chargees a la demande."/>
                             <Button x:Name="BtnWmiClasses" Content="Classes" ToolTip="Liste les classes de l espace de noms selectionne." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Classes" AutomationProperties.HelpText="Liste les classes de l espace de noms selectionne."/>
                             <Button x:Name="BtnWmiQuery" Content="Interroger" Style="{StaticResource RunButton}" ToolTip="Affiche les valeurs de la classe selectionnee sur ce poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Interroger" AutomationProperties.HelpText="Affiche les valeurs de la classe selectionnee sur ce poste."/>
                             <Button x:Name="BtnWmiCopy" ToolTip="Copie les valeurs affichees." Content="Copier" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier" AutomationProperties.HelpText="Copie les valeurs affichees."/>
@@ -7551,7 +7546,7 @@ function Get-MainXaml {
 <WrapPanel><Button AutomationProperties.Name="Autoriser une intervention sur cette machine" AutomationProperties.HelpText="Autorisation de cinq minutes, pour la machine sélectionnée uniquement. Ne lance rien ; les droits restent obligatoires." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardRemote" Content="Autoriser une intervention sur cette machine" ToolTip="Autorisation de cinq minutes, pour la machine sélectionnée uniquement. Ne lance rien ; les droits restent obligatoires."/><Button AutomationProperties.Name="Lire ce poste par tache planifiee" AutomationProperties.HelpText="Une seule lecture, pour la machine selectionnee. Le repli PsExec ou tache ne se declenche jamais sans cette demande." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardReadFallback" Content="Lire ce poste par tâche planifiée" ToolTip="A demander quand CIM ne répond pas : autorise une seule lecture par PsExec ou tâche planifiée, pour la machine sélectionnée."/><Button AutomationProperties.Name="Retirer l'autorisation" AutomationProperties.HelpText="Les sondes déjà envoyées peuvent encore finir. Aucune nouvelle intervention avec dépôt ne sera autorisée." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardRemoteOff" Content="Retirer l'autorisation" ToolTip="Les sondes déjà envoyées peuvent encore finir. Aucune nouvelle intervention avec dépôt ne sera autorisée."/></WrapPanel>
 </StackPanel></Border>
 <Border Style="{StaticResource Card}" Margin="0,0,0,12"><StackPanel><TextBlock Text="Suite support et mesures" FontSize="18" FontWeight="SemiBold"/>
-<WrapPanel Margin="0,6,0,10"><Button x:Name="BtnGuardExport" Content="Dossier technique" ToolTip="Affiche puis exporte les seuls compteurs techniques, sans logs bruts ni identifiants." AutomationProperties.Name="Dossier technique" AutomationProperties.HelpText="Affiche puis exporte les seuls compteurs techniques, sans logs bruts ni identifiants."/><Button x:Name="BtnGuardWhy" Content="Pourquoi une action est indisponible ?" ToolTip="Explique les protections et preconditions actuelles sans modifier de droit." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Pourquoi une action est indisponible ?" AutomationProperties.HelpText="Explique les protections et preconditions actuelles sans modifier de droit."/></WrapPanel><CheckBox x:Name="ChkGuardReconcile" Content="Reverifier le perimetre consulte en arriere-plan" IsChecked="True" Margin="0,0,0,8" ToolTip="Relit la dernière requête explicite, au plus toutes les trois minutes et dans sa limite de résultats. Aucun scan au démarrage." AutomationProperties.Name="Reverifier le perimetre consulte en arriere-plan" AutomationProperties.HelpText="Relit la derniere requete explicite, au plus toutes les trois minutes et dans sa limite de resultats. Aucun scan au demarrage."/><TextBlock x:Name="LblGuardMetrics" Text="Les mesures locales apparaîtront ici." TextWrapping="Wrap" Margin="0,8,0,12" Foreground="{DynamicResource MutedColor}"/>
+<WrapPanel Margin="0,6,0,10"><Button x:Name="BtnGuardExport" Content="Diagnostic expurgé" ToolTip="Prépare le diagnostic expurgé (versions, mesures locales, codes dʼerreur, traces sans cible), le montre en entier, puis lʼenregistre dans un fichier local après confirmation. Aucun envoi." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Diagnostic expurgé" AutomationProperties.HelpText="Prépare le diagnostic expurgé (versions, mesures locales, codes dʼerreur, traces sans cible), le montre en entier, puis lʼenregistre dans un fichier local après confirmation. Aucun envoi."/><Button x:Name="BtnGuardWhy" Content="Pourquoi une action est indisponible ?" ToolTip="Explique les protections et preconditions actuelles sans modifier de droit." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Pourquoi une action est indisponible ?" AutomationProperties.HelpText="Explique les protections et preconditions actuelles sans modifier de droit."/></WrapPanel><CheckBox x:Name="ChkGuardReconcile" Content="Reverifier le perimetre consulte en arriere-plan" IsChecked="True" Margin="0,0,0,8" ToolTip="Relit la dernière requête explicite, au plus toutes les trois minutes et dans sa limite de résultats. Aucun scan au démarrage." AutomationProperties.Name="Reverifier le perimetre consulte en arriere-plan" AutomationProperties.HelpText="Relit la derniere requete explicite, au plus toutes les trois minutes et dans sa limite de resultats. Aucun scan au demarrage."/><TextBlock x:Name="LblGuardMetrics" Text="Les mesures locales apparaîtront ici." TextWrapping="Wrap" Margin="0,8,0,12" Foreground="{DynamicResource MutedColor}"/>
 <WrapPanel><Button AutomationProperties.Name="Ouvrir Pesto" AutomationProperties.HelpText="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardPesto" Content="Ouvrir Pesto" ToolTip="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis."/><Button AutomationProperties.Name="Ouvrir FilPro" AutomationProperties.HelpText="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardFilPro" Content="Ouvrir FilPro" ToolTip="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis."/></WrapPanel>
 </StackPanel></Border>
 </StackPanel></ScrollViewer></TabItem>
@@ -19271,16 +19266,13 @@ function Register-DomeniaShortcuts {
         @{ Key="I"; Modifiers="Control"; Action={ Select-DomeniaWorkspace -Workspace "TabApplicationTools" -Inner "ApplicationToolTabs" -Tab "TabIndex" } },
         @{ Key="T"; Modifiers="Control"; Action={ Toggle-DomeniaTheme } },
         @{ Key="Escape"; Modifiers="None"; Action={
+            # W13 (point 115): Échap closes the open layer (palette, operations panel) or clears the text typed in the
+            # search bar. It never empties a result list: the list stays until the next search.
+            try { if (Test-DomeniaCommandPaletteOpen) { Hide-DomeniaCommandPalette; return } } catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
+            try { if (Test-DomeniaOperationsPanelOpen) { Hide-DomeniaOperationsPanel; return } } catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
             $box = Get-DomeniaControl -Name "TxtGlobalSearch"
-            if ($null -ne $box -and $box.IsKeyboardFocusWithin) {
-                try {
-                    $box.Text = ""
-                    $script:BranchObjects = @()
-                    [void](Set-DomeniaItemsSource -Name "DgObjects" -Rows @())
-                    [void](Set-DomeniaControlText -Name "LblBranchCount" -Text "0 objet")
-                    Update-Dashboard
-                }
-                catch { }
+            if ($null -ne $box -and $box.IsKeyboardFocusWithin -and -not [string]::IsNullOrEmpty([string]$box.Text)) {
+                try { $box.Text = "" } catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
             }
         } }
     )
@@ -19322,7 +19314,7 @@ function Register-DomeniaShortcuts {
         }
     }
 
-    Add-DomeniaUiLog -Area "Interface" -Text ("{0} raccourci(s) clavier actifs : F5 arbre, Ctrl+K raccourcis, Ctrl+Shift+C résumé, F1 outils, Ctrl+F rechercher, Ctrl+D accueil, Ctrl+L journal de session, Ctrl+I index, Ctrl+T thème, Échap effacer." -f $poses)
+    Add-DomeniaUiLog -Area "Interface" -Text ("{0} raccourci(s) clavier actifs : F5 arbre, Ctrl+K palette, Ctrl+Maj+C résumé, F1 outils, Ctrl+F rechercher, Ctrl+D accueil, Ctrl+L journal de session, Ctrl+I index, Ctrl+T thème, Échap fermer ou effacer la saisie. Liste complète : palette, Afficher les raccourcis clavier." -f $poses)
     return $poses
 }
 
@@ -22623,102 +22615,13 @@ function Remove-SelectedLink {
 
 
 function Show-DomeniaCommandPalette {
-    $window = New-Object System.Windows.Window
-    $window.Title = "DOMENIA  Actions rapides"
-    $window.Width = 620
-    $window.Height = 520
-    $window.MinWidth = 520
-    $window.MinHeight = 420
-    $window.WindowStartupLocation = [System.Windows.WindowStartupLocation]::CenterOwner
-    $window.ResizeMode = [System.Windows.ResizeMode]::CanResize
-    $window.Background = [System.Windows.Media.Brushes]::White
-    try { $owner=Get-DomeniaDialogOwner; if($null -ne $owner){$window.Owner=$owner} } catch {}
-    $root=New-Object System.Windows.Controls.Grid
-    $root.Margin="18"
-    [void]$root.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition -Property @{Height="Auto"}))
-    [void]$root.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition -Property @{Height="Auto"}))
-    [void]$root.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition -Property @{Height="*"}))
-    [void]$root.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition -Property @{Height="Auto"}))
-    $title=New-Object System.Windows.Controls.TextBlock
-    $title.Text="Actions rapides"
-    $title.FontSize=20
-    $title.FontWeight=[System.Windows.FontWeights]::SemiBold
-    [void]$root.Children.Add($title)
-    $search=New-Object System.Windows.Controls.TextBox
-    $search.Margin="0,12,0,12"
-    $search.Height=34
-    $search.VerticalContentAlignment="Center"
-    $search.ToolTip="Tape quelques lettres pour filtrer les actions."
-    [System.Windows.Controls.Grid]::SetRow($search,1)
-    [void]$root.Children.Add($search)
-    $list=New-Object System.Windows.Controls.ListBox
-    [System.Windows.Controls.Grid]::SetRow($list,2)
-    [void]$root.Children.Add($list)
-    $items=@(
-        [pscustomobject]@{Name="Rechercher dans Active Directory";Key="search"},
-        [pscustomobject]@{Name="Actualiser l'arborescence";Key="refresh"},
-        [pscustomobject]@{Name="Copier le resume de l'objet";Key="summary"},
-        [pscustomobject]@{Name="Ouvrir le conteneur parent";Key="parent"},
-        [pscustomobject]@{Name="Diagnostic reseau de la selection";Key="batch"},
-        [pscustomobject]@{Name="Lancer l'auto-verification DOMENIA";Key="selfcheck"},
-        [pscustomobject]@{Name="Ouvrir la gestion des comptes";Key="accounts"},
-        [pscustomobject]@{Name="Ouvrir les relations utilisateur / poste";Key="relations"},
-        [pscustomobject]@{Name="Ouvrir le journal detaille";Key="log"},
-        [pscustomobject]@{Name="Outils : atelier de requêtes";Key="queries"}
-    )
-    foreach($i in $items){[void]$list.Items.Add($i)}
-    $list.DisplayMemberPath="Name"
-    $footer=New-Object System.Windows.Controls.TextBlock
-    $footer.Text="Entree : executer      Echap : fermer      Ctrl+F : recherche      F5 : arborescence"
-    $footer.Foreground=[System.Windows.Media.Brushes]::Gray
-    $footer.Margin="0,12,0,0"
-    [System.Windows.Controls.Grid]::SetRow($footer,3)
-    [void]$root.Children.Add($footer)
-    $refresh={
-        $term=([string]$search.Text).Trim()
-        $list.Items.Clear()
-        foreach($i in $items){
-            if([string]::IsNullOrWhiteSpace($term) -or ([string]$i.Name).IndexOf($term,[StringComparison]::OrdinalIgnoreCase) -ge 0){[void]$list.Items.Add($i)}
-        }
-        if($list.Items.Count -gt 0){$list.SelectedIndex=0}
+    # W13 (point 117): the palette is a view of the page (Domenia-Commands.UI.ps1, Domenia-CommandPalette.xaml): it
+    # follows the selection and the rights, and a write only brings its own button forward. A second Ctrl+K closes it.
+    try {
+        if (Test-DomeniaCommandPaletteOpen) { Hide-DomeniaCommandPalette; return }
+        if (-not (Show-DomeniaCommandPaletteView)) { Set-Status 'Palette indisponible : une demande attend votre réponse dans la page, ou la vue nʼa pas pu se charger (voir le journal).' 'WARN' }
     }
-    $search.Add_TextChanged($refresh)
-    $run={
-        $item=$list.SelectedItem
-        if($null -eq $item){return}
-        Set-DomeniaSurfaceResult $window $true
-        switch([string]$item.Key){
-            "search" { $c=Get-DomeniaControl -Name "TxtGlobalSearch"; if($null -ne $c){$c.Focus();$c.SelectAll()} }
-            "refresh" { Load-TreeRoot -ForceRefresh }
-            "summary" { Copy-ObjectSummary }
-            "parent" { Open-SelectedParentBranch }
-            "batch" { Show-DomeniaBatchNetworkReport -Rows (Get-DomeniaSelectedGridRows) }
-            "selfcheck" { Start-SelfCheck }
-            "accounts" { Select-DomeniaWorkspace -Workspace "TabAccounts"; Update-DomeniaAccountUi }
-            "relations" { Select-DomeniaWorkspace -Workspace "TabRelations"; Refresh-LinkGrid }
-            "log" { Select-DomeniaWorkspace -Workspace "TabApplicationTools" -Inner "ApplicationToolTabs" -Tab "TabLog" }
-            "queries" { Show-DomeniaQueryWorkshop }
-            "support" { Invoke-DomeniaSafeUiAction -Operation "Atelier" -Action { Select-DomeniaWorkspace -Workspace "TabSupport" -Inner "SupportTabs" -Tab "SupportAnalysisTab"; Update-DomeniaSupportView -Force } }
-            "supportdiff" { Select-DomeniaWorkspace -Workspace "TabSupport" -Inner "SupportTabs" -Tab "SupportCompareTab" }
-        }
-    }
-    $list.Add_MouseDoubleClick({&$run})
-    $search.Add_KeyDown({param($s,$e) if($e.Key -eq "Enter"){&$run;$e.Handled=$true}elseif($e.Key -eq "Down"){ $list.Focus(); if($list.Items.Count -gt 0){$list.SelectedIndex=0};$e.Handled=$true }elseif($e.Key -eq "Escape"){$window.Close();$e.Handled=$true}})
-    $list.Add_KeyDown({param($s,$e) if($e.Key -eq "Enter"){&$run;$e.Handled=$true}elseif($e.Key -eq "Escape"){$window.Close();$e.Handled=$true}})
-    # Copy the host resources for this owned window; native styles preserve selection contrast.
-    if ($null -ne $script:Window) {
-        foreach ($key in $script:Window.Resources.Keys) { $window.Resources[$key]=$script:Window.Resources[$key] }
-        $window.SetResourceReference([System.Windows.Controls.Control]::BackgroundProperty,'WindowBg')
-        $window.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty,'TextColor')
-        $search.SetResourceReference([System.Windows.Controls.Control]::BackgroundProperty,'BgInput')
-        $search.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty,'TextColor')
-        $list.SetResourceReference([System.Windows.Controls.Control]::BackgroundProperty,'BgCard')
-        $list.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty,'TextColor')
-        $footer.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty,'MutedColor')
-    }
-    $window.Content=$root
-    Register-DomeniaSurfaceReady $window ({$search.Focus();$list.SelectedIndex=0})
-    [void](Invoke-DomeniaHostWindow -Window $window)
+    catch { [void](Show-DomeniaOperationError -Operation 'Palette de commandes' -ErrorRecordOrException $_ -NoPopup) }
 }
 
 
@@ -25294,6 +25197,8 @@ function Start-UiTask {
         [switch]$IsWrite,
         [switch]$NonCancellable,
         [string]$CorrelationId = "",
+        # W13 (point 123): identifier shared by every event of one request; empty = Resolve-DomeniaTraceId.
+        [string]$TraceId = "",
         $CallbackState = $null,
         # D015: the caller may state the class of its request (automatic work = Background).
         [ValidateSet('','Explicit','Selection','Background')][string]$TaskClass = "",
@@ -25421,9 +25326,16 @@ try {
         ExecutedOperationId=''; Demo=$false; Isolated=$false; DedupKey=$dedupKey; SchedulerManaged=[bool]$scheduler; CredentialIdentity=''
         Foreground=[bool]$foregroundValue; ErrorInfo=$null
     }
+    # W13 (point 123): the job joins the trace of its request before it is queued or dispatched.
+    try { [void](Start-DomeniaJobTrace -Job $job -RequestedTraceId $TraceId -Payload $Payload -CallbackState $CallbackState) } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
     if ($admission -eq 'Queue') {
         # Nothing is sent yet: the pinned body is checked now, the worker starts when Complete-UiTasks promotes it.
-        [void](Assert-DomeniaWorkerOperationCode -OperationId $OperationId -Code $Code)
+        try { [void](Assert-DomeniaWorkerOperationCode -OperationId $OperationId -Code $Code) }
+        catch {
+            # W13 (point 123): a body refused before queueing ends the trace of the job, like a refusal before dispatch.
+            try { [void](Complete-DomeniaJobTrace -Job $job -Outcome 'Refused' -NotDispatched) } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
+            throw
+        }
         $job.State = 'Queued'
         $job.QueuedAt = $now
         Set-ControlsBusy -Names $DisableControls -Busy $true
@@ -25436,7 +25348,12 @@ try {
         return $id
     }
     # D015/C2/D016/D018/D019: the launch body lives in Invoke-DomeniaUiTaskDispatch (Domenia-Engine.UI.ps1).
-    [void](Invoke-DomeniaUiTaskDispatch -Job $job)
+    try { [void](Invoke-DomeniaUiTaskDispatch -Job $job) }
+    catch {
+        # W13 (point 123): a refusal before dispatch ends the trace of the job; the refusal itself still reaches the caller.
+        try { [void](Complete-DomeniaJobTrace -Job $job -Outcome 'Refused' -NotDispatched) } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
+        throw
+    }
     $script:AsyncJobs[$id] = $job
     # CO-02: LatestTaskId follows the foreground tasks only; a local save never becomes the target of Annuler.
     if ($foregroundValue) { $script:LatestTaskId = $id }
@@ -25471,7 +25388,7 @@ function Request-UiTaskStop {
             }
             if (-not [string]::IsNullOrWhiteSpace($objectRequestId)) { Clear-DomeniaCurrentObjectRequest -RequestId $objectRequestId }
         }
-        Remove-DomeniaQueuedTask -Job $job -Silent:([bool]$Silent -or [bool]$Superseded)
+        Remove-DomeniaQueuedTask -Job $job -Silent:([bool]$Silent -or [bool]$Superseded) -TraceOutcome $(if ([bool]$Superseded) { 'Superseded' } else { 'Withdrawn' })
         Update-TaskUi -Force
         return
     }
@@ -25566,6 +25483,10 @@ function Detach-DomeniaReadUiTask {
     try { Set-ControlsBusy -Names $job.DisableControls -Busy $false } catch { }
     [void]$script:AsyncJobs.Remove($Id)
     if ([string]$script:LatestTaskId -eq $Id) { $script:LatestTaskId = "" }
+    # W13 (point 123): the trace ends here for the interface; the native call may still finish its cleanup.
+    $traceOutcome = 'Stopped'
+    if ([bool]$job.Superseded) { $traceOutcome = 'Superseded' } elseif ([bool]$job.TimeoutErrorDelivered) { $traceOutcome = 'TimedOut' }
+    try { [void](Complete-DomeniaJobTrace -Job $job -Outcome $traceOutcome -Detail 'lecture détachée de lʼinterface') } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
     if ($null -eq $script:DetachedReadJobs) { $script:DetachedReadJobs = New-Object System.Collections.ArrayList }
     if ([string]$job.OperationId -eq 'ComputerLastUser') {
         Clear-DomeniaComputerUserProbeState -ProbeId ([string]$job.CallbackState.ProbeId) -Computer ([string]$job.CallbackState.Computer)
@@ -25669,6 +25590,12 @@ function Complete-UiTasks {
         $handled++
         $invokeCompleted = [bool]$entry.InvokeCompleted
         $stopCompleted = [bool]$entry.StopCompleted
+        # W13 (points 121, 123): end of the worker as seen by the poll, and start of the reception and validation.
+        $traceWorkerEnd = Get-Date
+        $traceMark = [Diagnostics.Stopwatch]::GetTimestamp()
+        $traceValidateMs = [double]-1
+        $traceSlowText = ''
+        $traceCallbackFailed = $false
 
         $errorMessage = ""
         $output = $null
@@ -25704,7 +25631,12 @@ function Complete-UiTasks {
             if ($script:WriteState -ne "Unknown") { $script:WriteState = "Idle" }
         }
         if ([bool]$job.IsWrite) { try { [void](Update-DomeniaIdlePolicy) } catch { } }
-        try { Add-DomeniaTaskRuntimeMetric -Job $job } catch { }
+        # W13/W14 (points 121, 122): one measure of the worker per job. The Collect phase of its trace (dispatch to the end
+        # seen by this poll) is the duration kept for the percentiles of the operations panel, so an explained slowness
+        # and a percentile never come from two clocks.
+        $traceCollectMs = [double]-1
+        try { $traceCollectMs = [double](Get-DomeniaJobPhaseMeasures -Job $job -WorkerEnd $traceWorkerEnd).CollectMs } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
+        try { Add-DomeniaTaskRuntimeMetric -Job $job -DurationMs $traceCollectMs } catch { }
 
         if([bool]$job.CancelRequested -or [bool]$job.Superseded -or [long]$job.SessionEpoch -ne [long]$script:SessionEpoch){
             try{[void](Save-DomeniaSupersededCollection -Job $job -Output $output -ErrorMessage $errorMessage)}
@@ -25717,11 +25649,18 @@ function Complete-UiTasks {
                 try { $endText = Get-DomeniaCancelStatusText -Name ([string]$job.Name) -State 'Completed' } catch { }
                 Set-Status $endText "WARN"
             }
+            # A write stopped by its hard deadline has an unknown result; a read is stopped, replaced or out of time.
+            $traceOutcome = 'Stopped'
+            if ([bool]$job.IsWrite) { $traceOutcome = 'Unknown' } elseif ([bool]$job.TimeoutErrorDelivered) { $traceOutcome = 'TimedOut' } elseif ([bool]$job.Superseded) { $traceOutcome = 'Superseded' }
+            try { [void](Complete-DomeniaJobTrace -Job $job -Outcome $traceOutcome -WorkerEnd $traceWorkerEnd) } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
             continue
         }
 
         if ([bool]$script:AsyncEngineClosing -or [bool]$job.Superseded -or [long]$job.SessionEpoch -ne [long]$script:SessionEpoch) {
             $output = $null
+            $traceOutcome = 'Superseded'
+            if ([bool]$job.IsWrite) { $traceOutcome = 'Unknown' }
+            try { [void](Complete-DomeniaJobTrace -Job $job -Outcome $traceOutcome -WorkerEnd $traceWorkerEnd) } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
             continue
         }
         # CD-12: the error of a task is analysed once; the same object feeds the provider outcome, the anti-lockout
@@ -25731,6 +25670,7 @@ function Complete-UiTasks {
         try { [void](Register-DomeniaTaskOutcome -Job $job -ErrorMessage $errorMessage -ErrorInfo $errorInfo) } catch { }
         # FI-12: a SQLite lock wait that ran out is counted for the Operations panel (session counter, no retry).
         try { [void](Register-DomeniaSqliteBusyOutcome -Job $job -Output $output -ErrorMessage $errorMessage) } catch { }
+        $traceValidateMs = [double](([Diagnostics.Stopwatch]::GetTimestamp() - $traceMark) * 1000.0 / [Diagnostics.Stopwatch]::Frequency)
         if ([string]::IsNullOrWhiteSpace($errorMessage)) {
             $callbackWatch = [System.Diagnostics.Stopwatch]::StartNew()
             $modalBefore = [long]$script:ModalBlockedMs
@@ -25739,6 +25679,7 @@ function Complete-UiTasks {
                 $callbackMessage = [string]$_.Exception.Message
                 $callbackStack = [string]$_.ScriptStackTrace
                 $errorMessage = "Callback UI ($($job.Name)) : $callbackMessage"
+                $traceCallbackFailed = $true
                 Write-AppLog "[$($job.CorrelationId)] $errorMessage  pile=$callbackStack" "ERROR"
             }
             finally {
@@ -25748,8 +25689,14 @@ function Complete-UiTasks {
                 if ($effectiveMs -lt 0) { $effectiveMs = 0 }
                 # Keep UI completion costs distinct from worker/network duration in the local bounded metrics.
                 try { Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId ('Callback:' + [string]$job.OperationId) -DurationMs ([double]$effectiveMs) } catch { }
+                # W13 (point 121): the cost, the volume received and the handler are kept for the trace; a slow callback
+                # is explained by its operation, its phases, its volume and its handler.
+                $traceVolume = [long]-1
+                try { $traceVolume = [long](Get-DomeniaOutputVolume $output) } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
+                try { $traceSlowText = [string](Register-DomeniaJobPublication -Job $job -PublishMs ([double]$effectiveMs) -Volume $traceVolume -ThresholdMs ([double]$callbackWarningMs) -ValidateMs $traceValidateMs -WorkerEnd $traceWorkerEnd) } catch { $traceSlowText = '' }
                 if ($effectiveMs -gt $callbackWarningMs) {
-                    Write-AppLog "[$($job.CorrelationId)] Callback UI lent : $($job.Name), $effectiveMs ms (hors $modalMs ms d'attente modale ; seuil $callbackWarningMs ms ; operation $($job.OperationId) ; traitement $($job.SuccessHandler))." "WARN"
+                    if (-not $traceSlowText) { $traceSlowText = "Callback UI lent : $($job.Name), $effectiveMs ms (seuil $callbackWarningMs ms ; operation $($job.OperationId) ; traitement $($job.SuccessHandler))." }
+                    Write-AppLog "[$($job.CorrelationId)] $traceSlowText Hors $modalMs ms d'attente modale." "WARN"
                 }
             }
             # D015: each subscriber of a shared read gets its own callback (access inspection ran once above).
@@ -25789,6 +25736,17 @@ function Complete-UiTasks {
             }
             Write-AppLog "[$($job.CorrelationId)] $($job.Name) : $errorMessage" "ERROR"
         }
+        # W13 (point 123): end of the trace of this job, with its error category (a code, never the message).
+        try {
+            if ([string]::IsNullOrWhiteSpace($errorMessage)) { [void](Complete-DomeniaJobTrace -Job $job -Outcome 'Succeeded' -ValidateMs $traceValidateMs -WorkerEnd $traceWorkerEnd) }
+            else {
+                $traceCategory = [string](Get-DomeniaMember $errorInfo 'Category' '')
+                if ($traceCallbackFailed) { $traceCategory = 'InterfaceCallback' }
+                $traceOutcome = 'Failed'
+                if ([bool]$job.IsWrite -and ([string]$script:WriteState -in @('Unknown','UnknownPending'))) { $traceOutcome = 'Unknown' }
+                [void](Complete-DomeniaJobTrace -Job $job -Outcome $traceOutcome -ValidateMs $traceValidateMs -Category $traceCategory -WorkerEnd $traceWorkerEnd)
+            }
+        } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
     }
     # D015 / PF-04: queued entries start by priority while the admission and the tick budget allow; stale or expired
     # entries leave the queue.
