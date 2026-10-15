@@ -179,8 +179,8 @@ try{
         $transfer=[pscustomobject]@{Path=$file;Sha256=(Get-FileHash $file -Algorithm SHA256).Hash;RowCount=$Computers}
         $receipt=Measure-LoadStep 'FixtureIndex' 'Indexation initiale (worker de stockage)' {Invoke-LoadStorage ([pscustomobject]@{Path=$base;Items=@([pscustomobject]@{Kind='IndexBulk';Row=[pscustomobject]@{Rows=@();Transfer=$transfer;At=$at;Server='dc.example.invalid';BaseDn=$script:Domain;Complete=$true;ReplaceAll=$true;HighestUsn=$Computers}})})}
         Expect ([bool]$receipt.Saved) 'index committed by the storage worker'
-        $cacheSchema=@($ast.FindAll({param($n)($n -is [Management.Automation.Language.StringConstantExpressionAst]) -and ($n.Value -like 'CREATE TABLE IF NOT EXISTS park_session_cache*')},$true))[0].Value
-        $statements=[Collections.Generic.List[string]]::new();$statements.Add($cacheSchema)
+        # Same definition as the storage worker (park_session_cache is an additive table of schema 11/1).
+        $statements=[Collections.Generic.List[string]]::new();$statements.Add('CREATE TABLE IF NOT EXISTS park_session_cache(object_key TEXT PRIMARY KEY,checked_utc TEXT NOT NULL,payload TEXT NOT NULL);')
         for($n=1;$n -le $Computers;$n++){
             $c=Get-DomeniaLoadComputer -Index $n
             if(-not $c.Observed){continue}
