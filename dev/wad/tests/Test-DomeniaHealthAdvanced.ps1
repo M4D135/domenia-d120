@@ -59,8 +59,21 @@ Case 'Comparisons separate population coverage and policy changes from observed 
 }
 Case 'All cross-table cells keep exact unique GUIDs and include unread dimensions' {
  $board=Board (New-PolicyBook)
- foreach($key in @('OuWindows','ModelRam','SiteCoverage')){$pivot=$board.Pivots[$key];$ids=[Collections.Generic.HashSet[string]]::new();$total=0;foreach($cell in $pivot.Rows){Expect ($cell.Count -eq $cell.Targets.Count) ('Cell count mismatch '+$key);$total+=$cell.Count;foreach($target in $cell.Targets){Expect ($ids.Add([string]$target.object_guid)) ('GUID occurs in two cells '+$key)}};Expect ($total -eq 4 -and $ids.Count -eq 4 -and $pivot.Total -eq 4) ('Incomplete table '+$key)}
+ foreach($key in @('OuWindows','ModelRam','SiteCoverage','ModelBios')){$pivot=$board.Pivots[$key];$ids=[Collections.Generic.HashSet[string]]::new();$total=0;foreach($cell in $pivot.Rows){Expect ($cell.Count -eq $cell.Targets.Count) ('Cell count mismatch '+$key);$total+=$cell.Count;foreach($target in $cell.Targets){Expect ($ids.Add([string]$target.object_guid)) ('GUID occurs in two cells '+$key)}};Expect ($total -eq 4 -and $ids.Count -eq 4 -and $pivot.Total -eq 4) ('Incomplete table '+$key)}
  Expect (@($board.Pivots.ModelRam.Rows|Where-Object{$_.Column -eq 'RAM non lue'}).Count -eq 1) 'Unknown RAM silently removed'
+}
+Case 'Point 85: model x BIOS cross table reads the dated BIOS probe and keeps unread workstations apart' {
+ if($null -eq ('Domenia.Native.ProbeResult' -as [type])){Add-Type -Path (Join-Path $modules 'Domenia.Native.dll')}
+ . (Join-Path $modules 'Domenia-Probes.Model.ps1');$script:DomeniaProbeCatalog=$null
+ $source=New-Source;$at=$now.ToString('o')
+ $source.Presence[0].observation|Add-Member -NotePropertyName Probes -NotePropertyValue ([pscustomobject]@{'hw.bios'=[pscustomobject]@{Rows=@(,@('1.15.0'));Count=1;CheckedUtc=$at;Error='';Truncated=$false}})
+ $source.Presence[2].observation|Add-Member -NotePropertyName Probes -NotePropertyValue ([pscustomobject]@{'hw.biosdetails'=[pscustomobject]@{Rows=@(,@('1.9.2','Dell Inc.'));Count=1;CheckedUtc=$at;Error='';Truncated=$false}})
+ $source.Presence[1].observation|Add-Member -NotePropertyName Probes -NotePropertyValue ([pscustomobject]@{'hw.bios'=[pscustomobject]@{Rows=@(,@('0.1'));Count=1;CheckedUtc=$now.AddDays(-90).ToString('o');Error='';Truncated=$false}})
+ $book=New-PolicyBook;$board=Get-DomeniaFleetBoardData $source -Scope $scope -Now $now -HealthPolicy (Resolve-DomeniaHealthPolicy $book $scope) -HealthPolicyBook $book
+ $pivot=$board.Pivots.ModelBios
+ Expect ((@($pivot.Rows|Where-Object{($_.Row -eq 'Model-1') -and ($_.Column -eq '1.15.0')}).Count -eq 1) -and (@($pivot.Rows|Where-Object{($_.Row -eq 'Model-1') -and ($_.Column -eq '1.9.2')}).Count -eq 1)) 'BIOS version not crossed with its model'
+ Expect (@($pivot.Rows|Where-Object{$_.Column -eq '0.1'}).Count -eq 0) 'Expired BIOS reading used'
+ Expect ((@($pivot.Rows|Where-Object{$_.Column -eq 'BIOS non relevé'})|Measure-Object -Property Count -Sum).Sum -eq 2) 'Unread BIOS silently removed'
 }
 Case 'New GUI modules and worker body parse, keyboard and canonical hooks remain present' {
  foreach($n in @('HealthRules.Model','HealthRules.UI','Boards.Model','BoardFleet.Model','BoardComputer.UI','Charts.UI','Widgets.UI','Dashboard.UI','Engine.Worker','Refresh.UI')){$tokens=$null;$errors=$null;[void][Management.Automation.Language.Parser]::ParseFile((Join-Path $modules ('Domenia-'+$n+'.ps1')),[ref]$tokens,[ref]$errors);Expect (@($errors).Count -eq 0) ($n+' '+($errors|Out-String))}

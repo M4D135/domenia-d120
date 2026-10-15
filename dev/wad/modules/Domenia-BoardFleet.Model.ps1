@@ -287,6 +287,15 @@ function Get-DomeniaFleetBoardData {
         if ($user -and $userAge -ne 'Expired') { $users[$user.ToLowerInvariant()] = $true; $sessions++ }
         $inventory = & $member $observation 'Inventory' $null
         $inventoryAge=Test-DomeniaObservationAge -CheckedUtc ([string](& $member $inventory 'CheckedUtc' '')) -NowUtc $nowUtc -MaxDays $ObservationMaxAgeDays
+        # Point 85: BIOS version of each workstation for the model x BIOS cross table, from the detailed probe first.
+        foreach($biosProbeId in @('hw.biosdetails','hw.bios')){
+            $biosResult=Get-DomeniaHealthValue $probes $biosProbeId
+            if($null -eq $biosResult){continue}
+            if((Test-DomeniaObservationAge -CheckedUtc ([string](Get-DomeniaHealthValue $biosResult 'CheckedUtc' '')) -NowUtc $nowUtc -MaxDays $ObservationMaxAgeDays) -eq 'Expired'){continue}
+            $biosProbe=Get-DomeniaProbe $biosProbeId;if($null -eq $biosProbe){continue}
+            $biosVersion=[string](@(Get-DomeniaProbeValues $biosProbe $biosResult|Where-Object{[string]$_})|Select-Object -First 1)
+            if($biosVersion){& $addWidgetTargets ('fleet.bios|'+$biosVersion.Trim()) @($target);break}
+        }
         if ($null -ne $inventory -and $inventoryAge -ne 'Expired') {
             [void]$inventories.Add([pscustomobject]@{ Inventory = $inventory; Target = $target })
             $inventoryAt=ConvertFrom-DomeniaUtcText ([string](& $member $inventory 'CheckedUtc' ''))

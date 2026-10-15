@@ -832,18 +832,20 @@ function Compare-DomeniaHealthSnapshots {
 function Get-DomeniaFleetPivots {
     # Every non-empty cell owns the complete set of GUIDs; unread dimensions remain explicit categories.
     param($Data)
-    $dimensions=@{};foreach($name in @('fleet.ou','fleet.versions','fleet.models','fleet.ram','fleet.presence')){$dimensions[$name]=@{}}
+    $dimensions=@{};foreach($name in @('fleet.ou','fleet.versions','fleet.models','fleet.ram','fleet.presence','fleet.bios')){$dimensions[$name]=@{}}
     foreach($key in $Data.Last.WidgetTargets.Keys){foreach($name in $dimensions.Keys){$prefix=$name+'|';if(-not ([string]$key).StartsWith($prefix,[StringComparison]::Ordinal)){continue};$label=([string]$key).Substring($prefix.Length);foreach($target in $Data.Last.WidgetTargets[$key]){$dimensions[$name][[string]$target.object_guid]=$label}}}
-    $tables=@{OuWindows=@{};ModelRam=@{};SiteCoverage=@{}};$seen=@{}
+    $tables=@{OuWindows=@{};ModelRam=@{};SiteCoverage=@{};ModelBios=@{}};$seen=@{}
     foreach($target in $Data.Last.Targets){
         $guid=[string]$target.object_guid;if(-not $guid -or $seen.ContainsKey($guid)){continue};$seen[$guid]=$true
         $site=[string]$dimensions['fleet.ou'][$guid];if(-not $site){$site='OU non renseignée'}
         $windows=[string]$dimensions['fleet.versions'][$guid];if(-not $windows){$windows='Version non lue'}
         $model=[string]$dimensions['fleet.models'][$guid];if(-not $model){$model='Modèle non lu'}
         $ram=[string]$dimensions['fleet.ram'][$guid];if(-not $ram){$ram='RAM non lue'}
+        # Point 85: a workstation without a dated BIOS reading stays in its own explicit column.
+        $bios=[string]$dimensions['fleet.bios'][$guid];if(-not $bios){$bios='BIOS non relevé'}
         $ping=[string]$dimensions['fleet.presence'][$guid] -in @('En ligne','Sans réponse');$wmi=$Data.HealthInventoryKnown.ContainsKey($guid)
         $coverage=if($ping -and $wmi){'Ping et WMI'}elseif($ping){'Ping seul'}elseif($wmi){'WMI seul'}else{'Aucun relevé exploitable'}
-        foreach($pair in @(@('OuWindows',$site,$windows),@('ModelRam',$model,$ram),@('SiteCoverage',$site,$coverage))){
+        foreach($pair in @(@('OuWindows',$site,$windows),@('ModelRam',$model,$ram),@('SiteCoverage',$site,$coverage),@('ModelBios',$model,$bios))){
             $row=[string]$pair[1];$col=[string]$pair[2];$key=$row.Length.ToString()+':'+$row+$col.Length.ToString()+':'+$col;$table=$tables[$pair[0]]
             if(-not $table.ContainsKey($key)){$table[$key]=[pscustomobject]@{Row=$row;Column=$col;Count=0;Targets=[Collections.Generic.List[object]]::new()}}
             $cell=$table[$key];$cell.Count++;$cell.Targets.Add($target)
