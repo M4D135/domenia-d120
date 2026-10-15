@@ -3633,6 +3633,15 @@
         "Refresh-DomeniaOperationStatsUi"
       ],
       "ChangedPayloads": []
+    },
+    {
+      "Previous": ".",
+      "Source": ".",
+      "Decision": "Correctif de la fusion X07 : accolades fermantes perdues a la jonction des ajouts X06/X07 (Domenia-Cache.Model.ps1, Cache.Tests.ps1) ; baseline, contrats et manifestes regeneres.",
+      "ChangedCoreFunctions": [],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
     }
   ]
 }

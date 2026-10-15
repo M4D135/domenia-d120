@@ -650,6 +650,7 @@ function Get-DomeniaIndexTiles {
         [pscustomobject]@{Key='Links';Caption='Associations';Value=$links.ToString('N0',$fr);Detail='liens utilisateur-poste'}
         [pscustomobject]@{Key='Updated';Caption='Dernière mise à jour';Value=$updatedValue;Detail=$updatedDetail}
     )
+}
 
 # ---------------------------------------------------------------- FI-19 local reads answered off the Dispatcher
 # The LocalIndexRead worker answers the reads that used to run on the WPF thread; these rules turn its answer into the

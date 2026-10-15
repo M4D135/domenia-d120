@@ -390,6 +390,7 @@ Test-Case 'DS-09' 'Les quatre tuiles de la base autonome, sans USN ni duree' {
     $unreadable=@(Get-DomeniaIndexTiles -Unreadable)
     Assert-Equal 4 $unreadable.Count
     foreach($tile in $unreadable){Assert-Equal '—' $tile.Value;Assert-Equal 'base illisible' $tile.Detail}
+}
 # FI-19 (L20) : lectures locales hors du fil de l interface. Reponses du worker LocalIndexRead, donnees fictives.
 Test-Case 'FI-19' 'Metadonnees : base absente lue comme vide, reponse incomplete refusee' {
     $state=ConvertTo-DomeniaIndexMetadataState -Result ([pscustomobject]@{Rows=@();Busy=$false;Missing=$true;MachineCount=0})
