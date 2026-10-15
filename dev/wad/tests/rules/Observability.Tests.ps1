@@ -183,6 +183,16 @@ Test-Case 'P124' 'Diagnostic expurge : liste blanche, aucun secret, aucun nom, a
     $preview=Get-DomeniaDiagnosticPreviewText -Diagnostic $d
     Assert-True ($preview.Contains('Jamais inclus')) $preview;Assert-True ($preview.Contains('2 code(s) incident')) $preview
 }
+Test-Case 'P145' 'Diagnostic expurge : compatibilite du poste en versions et statuts, ni nom ni chemin' {
+    $fields=[ordered]@{Compatibility='Teste';CompatibilityMatrix='2026-10-15';CompatibilityWindows='Qualifie';CompatibilityPowerShell='Teste';CompatibilityDotNet='Attendu';CompatibilitySqlite='Teste';WindowsBuild=26100;WindowsProduct='Client';DotNetRelease=533320;WinSqlite=$true;Poste='PC-PARIS-SENTINEL'}
+    $d=New-DomeniaRedactedDiagnostic -Compatibility $fields -CapturedUtc '2026-10-15T08:00:00.0000000Z'
+    Assert-Equal 'Teste' ([string]$d.Compatibility.Compatibility);Assert-Equal 26100 ([long]$d.Compatibility.WindowsBuild);Assert-True ([bool]$d.Compatibility.WinSqlite)
+    Assert-Equal 'Qualifie' ([string]$d.Compatibility.CompatibilityWindows);Assert-True ($null -eq $d.Compatibility.PSObject.Properties['Poste']) 'Champ hors liste blanche garde'
+    $leak=New-DomeniaRedactedDiagnostic -Compatibility ([pscustomobject]@{Compatibility='C:\Users\alex.sentinel';WindowsProduct='PC-PARIS-SENTINEL pwd=x'})
+    Assert-True (($leak|ConvertTo-Json -Depth 6) -notmatch '(?i)sentinel') 'Valeur hors forme gardee'
+    Assert-True ((Get-DomeniaDiagnosticPreviewText -Diagnostic $d).Contains('Compatibilité du poste : Teste')) 'Apercu sans compatibilite'
+    Assert-False ((Get-DomeniaDiagnosticPreviewText -Diagnostic $leak).Contains('Compatibilité')) 'Compatibilite annoncee sans valeur'
+}
 Test-Case 'P124' 'Diagnostic borne : 200 mesures, 64 traces, 16 lenteurs au plus' {
     $metrics=@(for($i=0;$i -lt 260;$i++){[pscustomobject]@{Provenance='Ldap';OperationId=('Op'+$i);Count=1;P50=1;P95=1;Max=1}})
     $traces=@(for($i=0;$i -lt 80;$i++){[pscustomobject]@{Reference=('{0:x8}' -f $i);OperationId='LocalStore';Kind='Lecture';Outcome='Succeeded';Category='';Open=$false;TotalMs=1;Phases=@()}})

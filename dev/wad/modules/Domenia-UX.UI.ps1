@@ -1103,7 +1103,11 @@ function Switch-DomeniaUxAbout {
     if ($null -eq $panel) { return }
     $show = ($panel.Visibility -ne [Windows.Visibility]::Visible)
     $panel.Visibility = if ($show) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed }
-    if ($show) { Set-DomeniaContextHint -Title 'À propos de Domenia' -Text ([string]$script:DomeniaBuild + '. Les actions restent sous votre contrôle ; aucune écriture ne part sans votre geste.') }
+    if ($show) {
+        # Point 145: local facts only (registry, winsqlite3.dll version), read once per session.
+        try { Update-DomeniaAboutCompatibility } catch { Write-AppLog ('Compatibilité du poste non évaluée : ' + $_.Exception.Message) 'WARN' }
+        Set-DomeniaContextHint -Title 'À propos de Domenia' -Text ([string]$script:DomeniaBuild + '. Les actions restent sous votre contrôle ; aucune écriture ne part sans votre geste.')
+    }
 }
 
 function Clear-DomeniaUxSubject {

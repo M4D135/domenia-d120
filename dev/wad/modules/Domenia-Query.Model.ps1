@@ -150,7 +150,8 @@ function Get-DomeniaQueryIdentitySelection {
 }
 function ConvertTo-DomeniaCompiledQuery {
     param([Parameter(Mandatory=$true)]$Recipe)
-    if([string](Get-DomeniaMember $Recipe 'Format') -cnotin @('Domenia.Query/1','Domenia.Query/2')){throw 'Format de requête non reconnu.'}
+    # Point 133: versioned contract; Domenia.Query/1 is a strict subset of /2, a newer version is refused.
+    [void](Assert-DomeniaContractFormat -Format ([string](Get-DomeniaMember $Recipe 'Format')) -Family 'Domenia.Query')
     Assert-DomeniaQueryReadDefinition (Get-DomeniaMemberValue $Recipe 'ReadDefinition')
     $Recipe=Resolve-DomeniaQueryParameters $Recipe
     [void](ConvertTo-DomeniaQueryProbeSelection $Recipe)
@@ -471,7 +472,7 @@ function ConvertFrom-DomeniaQueryLibrary {
     if(-not $Json){return @()}
     if([Text.Encoding]::UTF8.GetByteCount($Json) -gt 16777216){throw 'Bibliothèque de requêtes trop volumineuse (16 Mio maximum en UTF-8).'}
     $library=ConvertFrom-Json -InputObject $Json -ErrorAction Stop
-    if([string](Get-DomeniaMember $library 'Format') -cne 'Domenia.QueryLibrary/1'){throw 'Bibliothèque de requêtes non reconnue.'}
+    [void](Assert-DomeniaContractFormat -Format ([string](Get-DomeniaMember $library 'Format')) -Family 'Domenia.QueryLibrary')
     $queries=@(Get-DomeniaMember $library 'Queries' @());if($queries.Count -gt 5000){throw '5 000 requêtes personnelles au maximum dans la bibliothèque locale.'}
     $ids=@{}
     foreach($recipe in $queries){

@@ -413,9 +413,10 @@ function Read-StoreWQueryLibrary {
 }
 function Assert-StoreWQueryRecord {
     param($Record,$Context)
-    if([string]$Record.Format -cne 'Domenia.QueryLibraryRecord/1' -or [string]$Record.StoreId -cne [string]$Context.StoreId -or [string]$Record.DomainDn -ine [string]$Context.DomainDn){throw 'Contexte de recette incompatible.'}
+    [void](Assert-DomeniaContractFormat -Format ([string]$Record.Format) -Family 'Domenia.QueryLibraryRecord')
+    if(([string]$Record.StoreId -cne [string]$Context.StoreId) -or ([string]$Record.DomainDn -ine [string]$Context.DomainDn)){throw 'Contexte de recette incompatible.'}
     if([string]$Record.Id -cnotmatch '^[a-zA-Z0-9_.-]{1,80}$' -or [string]$Record.Id -like 'template.*' -or -not [string]$Record.Name -or ([string]$Record.Name).Length -gt 120 -or [string]$Record.Name -match '[\p{Cc}]' -or ([string]$Record.Category).Length -gt 80 -or [string]$Record.Category -match '[\p{Cc}]'){throw 'Identite de recette invalide.'}
-    if([long]$Record.ExpectedRevision -lt 0 -or [long]$Record.ExpectedRevision -ge [long]::MaxValue -or [long]$Record.Revision -ne [long]$Record.ExpectedRevision+1 -or [int]$Record.DefinitionVersion -notin @(1,2) -or $Record.Archived -isnot [bool]){throw 'Revision de recette invalide.'}
+    if(([long]$Record.ExpectedRevision -lt 0) -or ([long]$Record.ExpectedRevision -ge [long]::MaxValue) -or ([long]$Record.Revision -ne [long]$Record.ExpectedRevision+1) -or ([int]$Record.DefinitionVersion -notin @((Get-DomeniaContract -Family 'Domenia.Query').Readable)) -or ($Record.Archived -isnot [bool])){throw 'Revision de recette invalide.'}
     $json=[string]$Record.DefinitionJson
     if([Text.Encoding]::UTF8.GetByteCount($json) -gt 1048576){throw 'Definition de recette trop volumineuse.'}
     $hash=[Security.Cryptography.SHA256]::Create();try{$actual=[BitConverter]::ToString($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes($json))).Replace('-','').ToLowerInvariant()}finally{$hash.Dispose()}

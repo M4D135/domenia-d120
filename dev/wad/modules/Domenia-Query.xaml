@@ -481,7 +481,7 @@
                         <TextBlock x:Name="LblQueryCatalogTechnical" TextWrapping="Wrap" Margin="0,6,0,0" />
                       </Expander>
                     </StackPanel>
-                    <Button x:Name="BtnQueryCatalogUse" Content="Utiliser cette information" MinHeight="34" HorizontalAlignment="Left" IsEnabled="False" ToolTip="Prépare le champ dans Composer la requête. Vous choisissez ensuite la condition et cliquez sur Ajouter." />
+                    <Button x:Name="BtnQueryCatalogUse" Content="Utiliser cette information" MinHeight="34" HorizontalAlignment="Left" IsEnabled="False" ToolTip="Prépare le champ dans lʼonglet 1. Créer. Vous choisissez ensuite la condition et cliquez sur Ajouter." />
                   </StackPanel>
                 </ScrollViewer>
               </Grid>

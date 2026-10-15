@@ -74,6 +74,9 @@ python tools/audit_preload.py
 python tools/update_worker_contracts.py
 python -m unittest -v engineering/d120/test_release_guard.py     (depuis engineering/d120)
 python tools/build_packages.py --output <dossier>
+python tools/licence_inventory.py --check          (inventaire des licences, point 146)
+python tools/doc_sync.py --check                   (guides et aide synchronisés avec le pack, point 149)
+python tools/delivery_recipe.py --output <dossier> [--rebuild-output <dossier 2>] [--windows-report <rapport>]   (recette, point 150)
 ```
 
 Ligne de base réelle avant raccordement (Windows PowerShell 5.1.26100.9549) : 1215 tests réussis, 79 en échec.

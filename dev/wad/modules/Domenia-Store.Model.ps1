@@ -106,7 +106,8 @@ function ConvertTo-DomeniaStoreQueryChange {
     $kind=[string](Get-DomeniaStoreValue $Change 'Kind')
     if($kind -eq 'QueryRecipe'){
         $record=Get-DomeniaStoreValue $Change 'Record';Assert-DomeniaStoreSafeData $record
-        if([string](Get-DomeniaStoreValue $record 'Format') -cne 'Domenia.QueryLibraryRecord/1' -or [string](Get-DomeniaStoreValue $record 'StoreId') -cne [string]$Context.StoreId -or [string](Get-DomeniaStoreValue $record 'DomainDn') -ine [string]$Context.DomainDn){throw 'Contexte de recette incompatible.'}
+        [void](Assert-DomeniaContractFormat -Format ([string](Get-DomeniaStoreValue $record 'Format')) -Family 'Domenia.QueryLibraryRecord')
+        if(([string](Get-DomeniaStoreValue $record 'StoreId') -cne [string]$Context.StoreId) -or ([string](Get-DomeniaStoreValue $record 'DomainDn') -ine [string]$Context.DomainDn)){throw 'Contexte de recette incompatible.'}
         $json=[string](Get-DomeniaStoreValue $record 'DefinitionJson')
         if([Text.Encoding]::UTF8.GetByteCount($json) -gt 1048576 -or (Get-DomeniaStoreHash $json) -cne [string](Get-DomeniaStoreValue $record 'DefinitionSHA256')){throw 'Definition ou empreinte de recette invalide.'}
         $recipe=ConvertFrom-Json -InputObject $json -ErrorAction Stop;Assert-DomeniaStoreSafeData $recipe
@@ -160,7 +161,8 @@ function ConvertTo-DomeniaStoreCollectionRun {
     if(($status -eq 'Success') -and ($message)){throw 'Une collecte réussie ne porte pas dʼerreur.'}
     if(($status -ne 'Success') -and (-not $message)){throw 'Une collecte non réussie doit porter son erreur.'}
     $data=Get-DomeniaStoreValue $Change 'Data';Assert-DomeniaStoreSafeData $data
-    if([string](Get-DomeniaStoreValue $data 'Format') -cne 'Domenia.CollectionRun/1'){throw 'Format de collecte inconnu.'}
+    # Point 133: a clock written by a newer Domenia is refused with its version, never read as an unknown format.
+    [void](Assert-DomeniaContractFormat -Format ([string](Get-DomeniaStoreValue $data 'Format')) -Family 'Domenia.CollectionRun')
     if([Text.Encoding]::UTF8.GetByteCount(($data|ConvertTo-Json -Depth 4 -Compress)) -gt 16384){throw 'Description de collecte trop volumineuse.'}
     return [pscustomobject]@{Kind='CollectionRun';Family=$family;DomainDn=$domain;ScopeDn=$scope;Subtree=[bool]$subtree;RequestKey=$key;Status=$status;AttemptedAtUtc=$attempt;FinishedAtUtc=$finished;Error=$message;Data=$data}
 }
@@ -172,6 +174,7 @@ function ConvertTo-DomeniaStoragePolicy {
     # association history (decision of 2026-10-04: only an explicit operator choice removes any of it).
     $policy=[ordered]@{Version=1;AutomaticBackup=$false;BackupHours=24;BackupKeep=7;PresenceDays=30;ConsoleDays=90;InventoryDays=180;ProbeDays=90;DetailDays=30;LinkHistoryDays=0}
     if($null -ne $Value){
+        # Snapshot of the keys: writing a value while enumerating .Keys throws under Windows PowerShell 5.1.
         foreach($key in @($policy.Keys)){$v=Get-DomeniaStoreValue $Value $key $null;if($null -ne $v){
             if($key -eq 'AutomaticBackup'){if($v -isnot [bool]){throw 'Activation de sauvegarde invalide.'};$policy[$key]=[bool]$v}
             else{$number=0;if(-not [int]::TryParse([string]$v,[ref]$number)){throw ('Reglage de stockage invalide : '+$key)};$policy[$key]=$number}

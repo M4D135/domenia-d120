@@ -409,7 +409,9 @@ function New-DomeniaRedactedDiagnostic {
     # copied: a value is kept only when it has the shape of a version, a code identifier or a number, so a name, an
     # address or a secret cannot pass even when a caller hands it by mistake. Bounded: 200 metrics, 200 errors,
     # 64 traces, 16 slowness explanations.
-    param($Versions=$null,$Counters=$null,[object[]]$Metrics=@(),[object[]]$Errors=@(),[object[]]$Traces=@(),[object[]]$Slow=@(),[AllowEmptyString()][string]$CapturedUtc='')
+    # Point 145: -Compatibility carries the compatibility of this workstation (Get-DomeniaCompatibilitySupportFields):
+    # versions and statuses only, filtered by the same allow-list rule (short codes, numbers, booleans).
+    param($Versions=$null,$Counters=$null,[object[]]$Metrics=@(),[object[]]$Errors=@(),[object[]]$Traces=@(),[object[]]$Slow=@(),[AllowEmptyString()][string]$CapturedUtc='',$Compatibility=$null)
     $versionKeys = @('Domenia','Build','PowerShell','Clr','Os','Bitness','UiProfile','Theme')
     $versionsOut = [ordered]@{}
     foreach ($key in $versionKeys) {
@@ -475,12 +477,19 @@ function New-DomeniaRedactedDiagnostic {
         if ((-not $operation) -and (-not $phase)) { continue }
         $slowOut.Add([ordered]@{OperationId=$operation;Phase=$phase;Handler=$handler;DurationMs=[Math]::Round([double](Get-DomeniaMember $item 'DurationMs' -1),1);TotalMs=[Math]::Round([double](Get-DomeniaMember $item 'TotalMs' -1),1);Volume=[long](Get-DomeniaMember $item 'Volume' -1)})
     }
+    $compatibilityOut = [ordered]@{}
+    foreach ($key in @('Compatibility','CompatibilityMatrix','CompatibilityWindows','CompatibilityPowerShell','CompatibilityDotNet','CompatibilitySqlite','WindowsBuild','WindowsProduct','DotNetRelease','WinSqlite')) {
+        $value = Get-DomeniaMemberValue $Compatibility $key $null
+        if ($value -is [bool]) { $compatibilityOut[$key] = [bool]$value }
+        elseif (($value -is [int]) -or ($value -is [long])) { $compatibilityOut[$key] = [long]$value }
+        elseif (($value -is [string]) -and ($value -match '^[A-Za-z0-9._-]{1,32}$')) { $compatibilityOut[$key] = [string]$value }
+    }
     $captured = ''
     if ($CapturedUtc -match '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]{8,16}(Z|[+-][0-9]{2}:[0-9]{2})?$') { $captured = $CapturedUtc }
     return [pscustomobject]@{
         Format='Domenia.Diagnostic.2';CapturedUtc=$captured
         ContainsNames=$false;ContainsMessages=$false;ContainsSecrets=$false;ContainsTargets=$false
-        Versions=[pscustomobject]$versionsOut;Counters=[pscustomobject]$countersOut
+        Versions=[pscustomobject]$versionsOut;Counters=[pscustomobject]$countersOut;Compatibility=[pscustomobject]$compatibilityOut
         Metrics=$metricsOut.ToArray();Errors=$errorsOut.ToArray();Traces=$tracesOut.ToArray();Slowness=$slowOut.ToArray()
     }
 }
@@ -491,6 +500,9 @@ function Get-DomeniaDiagnosticPreviewText {
     $lines = New-Object 'System.Collections.Generic.List[string]'
     $versions = @($Diagnostic.Versions.PSObject.Properties | ForEach-Object { [string]$_.Name + ' ' + [string]$_.Value })
     $lines.Add('Versions : ' + $(if ($versions.Count) { $versions -join ' · ' } else { 'aucune' }) + '.')
+    $compatibility = Get-DomeniaMemberValue $Diagnostic 'Compatibility' $null
+    $verdict = [string](Get-DomeniaMember $compatibility 'Compatibility' '')
+    if ($verdict) { $lines.Add('Compatibilité du poste : ' + $verdict + ', versions de Windows, PowerShell, .NET et SQLite et statut de chaque dimension.') }
     $lines.Add('Mesures locales : ' + @($Diagnostic.Metrics).Count + ' série(s) (médiane, 95e centile, maximum).')
     $lines.Add('Erreurs : ' + @($Diagnostic.Errors).Count + ' code(s) incident, avec leur nombre, leur type .NET et leur ligne de script.')
     $lines.Add('Opérations : ' + @($Diagnostic.Traces).Count + ' trace(s) par identifiant dʼopération, phases et durées.')
