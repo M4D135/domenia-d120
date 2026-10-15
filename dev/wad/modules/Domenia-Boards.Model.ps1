@@ -88,6 +88,7 @@ software.count|Synthese|Logiciels|Value|Kpi|S|Nombre de logiciels et d editeurs
 software.size|Synthese|Taille declaree|Value|Kpi|S|Somme des tailles connues
 software.recent|Synthese|Installés ces 30 derniers jours|Value|Kpi|S|Date dʼinstallation déclarée par le logiciel, lue dans la liste
 software.multiversion|Synthese|Installes en plusieurs versions|Value|Kpi|S|Logiciels presents en plusieurs versions
+software.duplicates|Synthese|Installés en double|Value|Kpi|S|Même nom et même version présents dans plusieurs architectures, portées ou profils
 software.nopublisher|Synthese|Sans editeur declare|Value|Kpi|S|Logiciels sans editeur renseigne
 software.runtime|Synthese|Composants dʼexécution|Value|Kpi|S|Socles Visual C++, .NET et WebView2 déclarés dans la liste
 software.browsers|Synthese|Navigateurs et versions|Value|Kpi|S|Navigateurs détectés dans la liste, avec leur version

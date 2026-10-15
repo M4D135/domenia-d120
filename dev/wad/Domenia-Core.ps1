@@ -14910,7 +14910,11 @@ function Add-Software {
     )
     $clean = ([string]$Name).Trim()
     if ([string]::IsNullOrWhiteSpace($clean)) { return }
-    $key = ($Scope + '|' + $clean + '|' + [string]$Version).ToLowerInvariant()
+    # Point 91: one row per uninstall entry of a scope, an architecture and, for the user scope, a profile. The same
+    # product installed in both registry views or for two users stays two rows: duplicates are shown, not merged.
+    $owner = ''
+    if ($Scope -eq 'Utilisateur') { $owner = [string]$Kind }
+    $key = ($Scope + '|' + $owner + '|' + [string]$Architecture + '|' + $clean + '|' + [string]$Version).ToLowerInvariant()
     if ($seen.ContainsKey($key)) { return }
     $seen[$key] = $true
     $size = ''
