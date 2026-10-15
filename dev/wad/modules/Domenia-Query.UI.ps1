@@ -74,7 +74,8 @@ function Initialize-DomeniaQueryWorkshop {
     if($null -eq $fields){return}
     $fields.ItemsSource=@(Get-DomeniaQueryFields);$fields.DisplayMemberPath='Name';$fields.SelectedIndex=0
     $fields.Add_SelectionChanged({Update-DomeniaQueryOperators})
-    (Get-DomeniaControl 'CmbQueryOperator').Add_SelectionChanged({$op=(Get-DomeniaControl 'CmbQueryOperator').SelectedItem;$enabled=($null -ne $op -and [string]$op.Id -notin @('IsMissing','IsPresent'));foreach($name in @('TxtQueryValue','CmbQueryValueChoice')){(Get-DomeniaControl $name).IsEnabled=$enabled}})
+    (Get-DomeniaControl 'CmbQueryOperator').Add_SelectionChanged({$op=(Get-DomeniaControl 'CmbQueryOperator').SelectedItem;$enabled=($null -ne $op -and [string]$op.Id -notin @('IsMissing','IsPresent'));foreach($name in @('TxtQueryValue','CmbQueryValueChoice')){(Get-DomeniaControl $name).IsEnabled=$enabled};Update-DomeniaQueryValuePreview})
+    (Get-DomeniaControl 'TxtQueryValue').Add_TextChanged({Update-DomeniaQueryValuePreview})
     (Get-DomeniaControl 'CmbQueryValueChoice').Add_SelectionChanged({param($s,$e)if($null -ne $s.SelectedItem){(Get-DomeniaControl 'TxtQueryValue').Text=[Convert]::ToString($s.SelectedItem.Value,[Globalization.CultureInfo]::InvariantCulture)}})
     Update-DomeniaQueryOperators
     foreach($entry in @(
@@ -194,6 +195,16 @@ function Update-DomeniaQueryOperators {
     if($null -ne $choice){$choice.ItemsSource=$choices;$choice.Visibility=if($choices.Count){'Visible'}else{'Collapsed'};$choice.SelectedIndex=if($choices.Count){0}else{-1}}
     if($null -ne $value){$value.Visibility=if($choices.Count){'Collapsed'}else{'Visible'}}
     if($entry.Count){[void](Set-DomeniaControlText 'LblQueryFieldHelp' ($entry[0].Source+' · '+$entry[0].Unit+' · '+$entry[0].Description+"`r`n"+$entry[0].Cost+"`r`n"+$entry[0].Freshness))}
+    Update-DomeniaQueryValuePreview
+}
+function Update-DomeniaQueryValuePreview {
+    # Shows the converted value (8192 Mo = 8 Go, 48 h = 2 j) or the refusal before the condition is added.
+    $field=(Get-DomeniaControl 'CmbQueryField').SelectedItem;$operator=(Get-DomeniaControl 'CmbQueryOperator').SelectedItem
+    $text=''
+    if($null -ne $field -and [string]$field.Kind -eq 'Number' -and $null -ne $operator -and [string]$operator.Id -notin @('IsMissing','IsPresent')){
+        $text=(Get-DomeniaQueryNumberPreview -Text ([string](Get-DomeniaControl 'TxtQueryValue').Text) -Field ([string]$field.Id)).Text
+    }
+    [void](Set-DomeniaControlText 'LblQueryValueConversion' $text)
 }
 function Update-DomeniaQueryLibraryControls {
     $q=$script:DomeniaQueryState;if($null -eq $q){return}

@@ -724,6 +724,17 @@ function ConvertTo-DomeniaQueryNumber {
     if(-not $scales.ContainsKey($suffix)){throw ('Unité incompatible : '+$suffix+'. Unité attendue : '+$unit+'.')}
     return [decimal]($number*[decimal]$scales[$suffix])
 }
+function Get-DomeniaQueryNumberPreview {
+    # Live check of a typed number: the converted canonical value with its unit, or the reason it is refused.
+    param([string]$Text,[string]$Field)
+    if(-not ([string]$Text).Trim()){return [pscustomobject]@{Valid=$false;Value=$null;Text=''}}
+    try{$value=ConvertTo-DomeniaQueryNumber -Text $Text -Field $Field}catch{return [pscustomobject]@{Valid=$false;Value=$null;Text=[string]$_.Exception.Message}}
+    $entry=@(@(Get-DomeniaQueryCatalog)+@(Get-DomeniaQueryInstanceFields)|Where-Object{$_.Id -ceq $Field}|Select-Object -First 1)
+    $shown=Format-DomeniaQueryValueLabel -Value $value -Field $(if($entry.Count){$entry[0]}else{$null})
+    $typed=([string]$Text).Trim()
+    $message=if($typed -match '[%\p{L}/]\s*$' -and $typed -cne $shown){$typed+' = '+$shown}else{'Valeur retenue : '+$shown}
+    return [pscustomobject]@{Valid=$true;Value=$value;Text=$message}
+}
 function Get-DomeniaQueryExplanation {
     param($Record,$Recipe)
     $Recipe=Resolve-DomeniaQueryParameters $Recipe

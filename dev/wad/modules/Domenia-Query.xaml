@@ -117,6 +117,7 @@
                   <Button x:Name="BtnQueryAddCondition" Content="Ajouter" MinHeight="32" />
                   <Button x:Name="BtnQueryBrowseCatalog" Content="Parcourir le catalogue…" MinHeight="32" Margin="6,0,0,0" ToolTip="Rechercher une information et comprendre sa source avant de préparer une condition." />
                 </WrapPanel>
+                <TextBlock x:Name="LblQueryValueConversion" TextWrapping="Wrap" Margin="0,0,0,2" AutomationProperties.Name="Contrôle de la valeur saisie" AutomationProperties.LiveSetting="Polite" />
                 <TextBlock x:Name="LblQueryFieldHelp" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,4,0,14" />
                 <TextBlock Text="Vos critères" FontWeight="SemiBold" Margin="0,0,0,6" />
                 <DataGrid x:Name="DgQueryConditions" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MaxHeight="170" MinHeight="65" SelectionMode="Single" AutomationProperties.Name="Conditions de la requête">

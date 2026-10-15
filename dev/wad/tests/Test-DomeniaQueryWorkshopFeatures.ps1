@@ -11,6 +11,15 @@ function Expect([bool]$Good,[string]$Name){$script:checks++;if(-not $Good){throw
 function Reject([scriptblock]$Action,[string]$Name){$failed=$false;try{& $Action|Out-Null}catch{$failed=$true};Expect $failed $Name}
 foreach($case in @(@('ramGB','8192 Mo',8),@('ramGB','1,5 To',1536),@('ramGB','8',8),@('uptimeDays','48 h',2),@('checkedDays','1440 min',1),@('diskFreePercent','10,5 %',10.5),@('probe:net.speed','1 Gbit/s',1000),@('probe:hw.cpumhz','2,5 GHz',2500))){Expect ((ConvertTo-DomeniaQueryNumber -Field $case[0] -Text $case[1]) -eq [decimal]$case[2]) ('Unit conversion '+$case[0]+'/'+$case[1])}
 foreach($case in @(@('ramGB','8 h'),@('uptimeDays','8 Go'),@('diskFreePercent','NaN'),@('ramGB','1e999'),@('name','8 Go'))){Reject {ConvertTo-DomeniaQueryNumber -Field $case[0] -Text $case[1]} ('Unit rejection '+$case[0]+'/'+$case[1])}
+# Point 67: the conversion is shown before the condition is added and the stored value stays typed.
+$preview=Get-DomeniaQueryNumberPreview -Text '8192 Mo' -Field 'ramGB'
+Expect ($preview.Valid -and $preview.Value -eq 8 -and $preview.Text -ceq '8192 Mo = 8 Go') 'live preview shows the converted canonical value'
+$preview=Get-DomeniaQueryNumberPreview -Text '48 h' -Field 'uptimeDays'
+Expect ($preview.Text -ceq '48 h = 2 j' -and $preview.Value -is [decimal]) 'hours convert exactly to days and stay a decimal'
+$preview=Get-DomeniaQueryNumberPreview -Text '8 h' -Field 'ramGB'
+Expect (-not $preview.Valid -and $preview.Text -like 'Unité incompatible*') 'an incompatible unit is explained before adding'
+Expect ((Get-DomeniaQueryNumberPreview -Text '' -Field 'ramGB').Text -ceq '') 'an empty entry shows nothing'
+Expect ((Get-DomeniaQueryNumberPreview -Text '10' -Field 'diskFreePercent').Text -ceq 'Valeur retenue : 10 %') 'a plain number shows the retained unit'
 $values=[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::OrdinalIgnoreCase)
 $values['name']='FIXTURE';$values['ramGB']=8;$values['_at:ad']='2026-10-13T10:00:00Z';$values['_at:inventory']='2026-10-10T10:00:00Z';$values['_quality:diskFreePercent']='Expiré';$values['_quality:probe:sec.defender']='Erreur de lecture';$values['_quality:probe:hw.cpu']='Lecture incomplète'
 $record=[M4D.Admin.Common.Query.QueryRecord]::new('11111111-1111-1111-1111-111111111111',$values)
