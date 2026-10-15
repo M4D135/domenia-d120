@@ -61,25 +61,129 @@ function New-DomeniaQueryLibraryRead {
     # Text is a literal parameter. The eventual SQL adapter must escape %, _ and the escape character for LIKE.
     [pscustomobject]@{Kind='QueryLibrary';StoreId=[string]$Context.StoreId;DomainDn=[string]$Context.DomainDn;Term=(ConvertTo-DomeniaQuerySearchKey $Text);Category=$Category;Offset=$Offset;Limit=$Limit;Archived=[bool]$Archived;IncludeArchived=[bool]$IncludeArchived;MinimumRevision=$MinimumRevision;OrderBy='name_fold,id'}
 }
+function Get-DomeniaQuerySha256 {
+    param([string]$Text)
+    $hash=[Security.Cryptography.SHA256]::Create()
+    try{return [BitConverter]::ToString($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes([string]$Text))).Replace('-','').ToLowerInvariant()}finally{$hash.Dispose()}
+}
+function Get-DomeniaQueryPackId {
+    # Stable identity of a named pack across its versions: every version of one pack name shares this id.
+    param([string]$PackName)
+    return (Get-DomeniaQuerySha256 ('Domenia.QueryPack|'+(ConvertTo-DomeniaQuerySearchKey $PackName))).Substring(0,32)
+}
+function Get-DomeniaQueryPackContentHash {
+    # Integrity of a versioned pack: identity, version and the canonical SHA-256 of every definition, in order.
+    param([string]$PackId,[long]$PackVersion,[object[]]$Records=@())
+    $lines=[Collections.Generic.List[string]]::new();$lines.Add('Domenia.QueryPack/2');$lines.Add($PackId);$lines.Add([string]$PackVersion)
+    foreach($record in $Records){$lines.Add([string]$record.Id+':'+[string]$record.DefinitionSHA256)}
+    return (Get-DomeniaQuerySha256 ([string]::Join("`n",$lines.ToArray())))
+}
+function Assert-DomeniaQueryPackIdentity {
+    param([string]$PackName,[long]$PackVersion)
+    if(-not $PackName.Trim() -or $PackName.Length -gt 80 -or $PackName -match '[\p{Cc}]'){throw 'Nom de pack invalide (1 à 80 caractères, sans caractère de contrôle).'}
+    if($PackVersion -lt 1 -or $PackVersion -gt 1000000){throw 'Version de pack invalide (nombre entier de 1 à 1 000 000).'}
+}
+function New-DomeniaQueryPack {
+    # Versioned, self-checking pack of personal recipes. Data only: importing it never executes anything.
+    param($Context,[object[]]$Recipes=@(),[string]$PackName,[long]$PackVersion=1,[string]$Origin='',[datetime]$NowUtc=[datetime]::UtcNow)
+    Assert-DomeniaQueryLibraryContext $Context
+    $PackName=([string]$PackName).Trim();Assert-DomeniaQueryPackIdentity -PackName $PackName -PackVersion $PackVersion
+    if($Origin.Length -gt 256 -or $Origin -match '[\p{Cc}]'){throw 'Provenance du pack invalide.'}
+    if(@($Recipes).Count -gt 5000){throw 'Un pack contient au maximum 5 000 recettes ; exportez la sélection en plusieurs packs.'}
+    # The fingerprint is computed on the same JSON form an importer parses, so number scales cannot diverge.
+    $list=@(foreach($recipe in @($Recipes)){ConvertFrom-Json -InputObject (ConvertTo-Json -InputObject $recipe -Depth 32 -Compress) -ErrorAction Stop})
+    $seen=@{};$records=@(foreach($recipe in $list){
+        if($seen.ContainsKey([string]$recipe.Id)){throw 'Identifiant de recette dupliqué dans le pack.'};$seen[[string]$recipe.Id]=$true
+        New-DomeniaQueryLibraryRecord -Context $Context -Recipe $recipe -ExpectedRevision 0
+    })
+    $id=Get-DomeniaQueryPackId $PackName
+    [pscustomobject]@{Format='Domenia.QueryPack/2';PackId=$id;PackName=$PackName;PackVersion=$PackVersion;Origin=$Origin;DomainDn=[string]$Context.DomainDn;ExportedAtUtc=$NowUtc.ToUniversalTime().ToString('o');ContentSHA256=(Get-DomeniaQueryPackContentHash -PackId $id -PackVersion $PackVersion -Records $records);Recipes=$list}
+}
+function Format-DomeniaQueryChangeSummary {
+    param([object[]]$Changes=@(),[string]$Status='')
+    $rows=@($Changes|Where-Object{$null -ne $_})
+    if($Status -eq 'Nouvelle'){return 'Nouvelle requête'}
+    if(-not $rows.Count){return 'Aucune différence de définition'}
+    $kinds=@($rows|ForEach-Object{[string]$_.Element}|Select-Object -Unique)
+    return ([string]$rows.Count+' différence(s) : '+((@($kinds|Select-Object -First 3)) -join ', ')+$(if($kinds.Count -gt 3){', …'}else{''}))
+}
 function New-DomeniaQueryPackImportPlan {
-    param($Context,[string]$Json,[object[]]$ExistingRows=@())
+    # Preview only: provenance, version, verified integrity, per-recipe differences and allowed choices.
+    param($Context,[string]$Json,[object[]]$ExistingRows=@(),[object[]]$History=@())
     Assert-DomeniaQueryLibraryContext $Context
     if([Text.Encoding]::UTF8.GetByteCount($Json) -gt 16777216){throw 'Pack de recettes trop volumineux (16 Mio).'}
     $pack=ConvertFrom-Json -InputObject $Json -ErrorAction Stop
-    if([string](Get-DomeniaMember $pack 'Format') -cne 'Domenia.QueryPack/1'){throw 'Format de pack inconnu.'}
+    $format=[string](Get-DomeniaMember $pack 'Format')
+    if($format -cnotin @('Domenia.QueryPack/1','Domenia.QueryPack/2')){throw 'Format de pack inconnu.'}
     $recipes=@(Get-DomeniaMember $pack 'Recipes' @());if($recipes.Count -gt 5000){throw 'Le pack dépasse 5 000 recettes.'}
     $origin=[string](Get-DomeniaMember $pack 'Origin');if($origin.Length -gt 256 -or $origin -match '[\p{Cc}]'){throw 'Provenance du pack invalide.'}
     $existing=@{};foreach($row in $ExistingRows){$existing[[string]$row.Id]=$row}
+    $records=[Collections.Generic.List[object]]::new()
     $seen=@{};$items=@(foreach($recipe in $recipes){
         if($seen.ContainsKey([string]$recipe.Id)){throw 'Identifiant de recette dupliqué dans le pack.'};$seen[[string]$recipe.Id]=$true
         $current=$existing[[string]$recipe.Id];$expected=if($null -ne $current){[long]$current.Revision}else{0L}
-        $record=New-DomeniaQueryLibraryRecord -Context $Context -Recipe $recipe -ExpectedRevision $expected
+        $record=New-DomeniaQueryLibraryRecord -Context $Context -Recipe $recipe -ExpectedRevision $expected;$records.Add($record)
         $domainBound=($null -ne (Get-DomeniaQueryIdentitySelection $recipe))
         $foreign=($domainBound -and [string](Get-DomeniaMember $pack 'DomainDn') -ine [string]$Context.DomainDn)
-        $status=if($foreign){'Domaine différent'}elseif($null -eq $current){'Nouvelle'}elseif([string]$current.DefinitionSHA256 -ceq $record.DefinitionSHA256){'Identique'}else{'Conflit'}
-        [pscustomobject]@{Id=$record.Id;Name=$record.Name;Status=$status;DefaultAction='Ignorer';Action='Ignorer';AllowedActions=$(if($foreign){@('Ignorer')}elseif($status -eq 'Nouvelle'){@('Ignorer','Créer')}elseif($status -eq 'Conflit'){@('Ignorer','Nouvelle copie','Remplacer après confirmation')}else{@('Ignorer')});ExpectedRevision=$expected;Before=$current;After=$record}
+        $archived=($null -ne $current -and [bool]$current.Archived)
+        $status=if($foreign){'Domaine différent'}elseif($null -eq $current){'Nouvelle'}elseif($archived){'Archivée localement'}elseif([string]$current.DefinitionSHA256 -ceq $record.DefinitionSHA256){'Identique'}else{'Conflit'}
+        $before=if($null -ne $current){ConvertFrom-Json -InputObject ([string]$current.DefinitionJson) -ErrorAction Stop}else{$null}
+        $changes=@(Compare-DomeniaQueryRecipeDefinitions -Before $before -After (ConvertFrom-Json -InputObject $record.DefinitionJson -ErrorAction Stop))
+        $allowed=if($foreign){@('Ignorer')}elseif($status -eq 'Nouvelle'){@('Ignorer','Créer')}elseif($status -in @('Conflit','Archivée localement')){@('Ignorer','Nouvelle copie','Remplacer après confirmation')}else{@('Ignorer')}
+        [pscustomobject]@{Id=$record.Id;Name=$record.Name;Status=$status;ChangeSummary=(Format-DomeniaQueryChangeSummary -Changes $changes -Status $status);Changes=$changes;DefaultAction='Ignorer';Action='Ignorer';AllowedActions=$allowed;ExpectedRevision=$expected;Before=$current;After=$record}
     })
-    [pscustomobject]@{Format='Domenia.QueryImportPlan/1';StoreId=$Context.StoreId;DomainDn=$Context.DomainDn;Origin=$origin;Items=$items;RequiresExplicitSelection=$true;Executable=$false}
+    $packId='';$packName='';$packVersion=0L;$verified=$false
+    if($format -ceq 'Domenia.QueryPack/2'){
+        $packId=[string](Get-DomeniaMember $pack 'PackId');$packName=[string](Get-DomeniaMember $pack 'PackName');$packVersion=[long](Get-DomeniaMember $pack 'PackVersion' 0)
+        Assert-DomeniaQueryPackIdentity -PackName $packName -PackVersion $packVersion
+        if($packId -cnotmatch '^[0-9a-f]{32}$' -or $packId -cne (Get-DomeniaQueryPackId $packName)){throw 'Identité du pack incohérente avec son nom. Aucune recette importée.'}
+        if((Get-DomeniaQueryPackContentHash -PackId $packId -PackVersion $packVersion -Records $records.ToArray()) -cne [string](Get-DomeniaMember $pack 'ContentSHA256')){throw 'Pack modifié ou incomplet : son empreinte de contenu ne correspond pas. Aucune recette importée.'}
+        $verified=$true
+    }
+    $previous=@($History|Where-Object{$null -ne $_ -and $packId -and [string]$_.PackId -ceq $packId}|Sort-Object -Property @{Expression={[long]$_.PackVersion};Descending=$true}|Select-Object -First 1)
+    [pscustomobject]@{Format='Domenia.QueryImportPlan/2';PackFormat=$format;StoreId=$Context.StoreId;DomainDn=$Context.DomainDn;Origin=$origin;PackId=$packId;PackName=$packName;PackVersion=$packVersion;ExportedAtUtc=[string](Get-DomeniaMember $pack 'ExportedAtUtc');Verified=$verified;PreviousVersion=$(if($previous.Count){[long]$previous[0].PackVersion}else{0L});Items=$items;RequiresExplicitSelection=$true;Executable=$false}
+}
+function New-DomeniaQueryImportJournalEntry {
+    # One durable line per import or rollback: pack provenance and, for each confirmed write, the definition it
+    # replaced (or none for a creation) so the import can be undone after a restart. No secret is ever stored.
+    param($Context,[object[]]$Applied=@(),$Plan=$null,[string]$RollsBack='',[datetime]$NowUtc=[datetime]::UtcNow)
+    Assert-DomeniaQueryLibraryContext $Context
+    $items=@(foreach($change in @($Applied|Sort-Object Sequence)){
+        $before=Get-DomeniaMemberValue $change 'Before'
+        [pscustomobject]@{Id=[string]$change.Id;Name=[string](Get-DomeniaMember $change 'Name' '');Revision=[long]$change.Revision;Sequence=[int]$change.Sequence;Before=$(if($null -ne $before){[pscustomobject]@{Revision=[long]$before.Revision;Archived=[bool]$before.Archived;Category=[string]$before.Category;DefinitionJson=[string]$before.DefinitionJson;DefinitionSHA256=[string]$before.DefinitionSHA256}}else{$null})}
+    })
+    [pscustomobject]@{Format='Domenia.QueryImportJournal/1';Kind=$(if($RollsBack){'Rollback'}else{'Import'});ImportId=[guid]::NewGuid().ToString('N');RollsBack=$RollsBack;StoreId=[string]$Context.StoreId;DomainDn=[string]$Context.DomainDn;AtUtc=$NowUtc.ToUniversalTime().ToString('o');PackId=[string](Get-DomeniaMember $Plan 'PackId' '');PackName=[string](Get-DomeniaMember $Plan 'PackName' '');PackVersion=[long](Get-DomeniaMember $Plan 'PackVersion' 0);Origin=[string](Get-DomeniaMember $Plan 'Origin' '');Verified=[bool](Get-DomeniaMember $Plan 'Verified' $false);Items=$items}
+}
+function Format-DomeniaQueryImportJournalLabel {
+    param($Entry,[bool]$Restorable)
+    $at=ConvertFrom-DomeniaUtcText ([string]$Entry.AtUtc)
+    return ($(if($null -ne $at){$at.ToLocalTime().ToString('dd/MM/yyyy HH:mm')}else{'Date inconnue'})+' · '+$(if([string]$Entry.PackName){[string]$Entry.PackName+' v'+[string]$Entry.PackVersion}else{'pack sans version'})+' · '+@($Entry.Items).Count+' recette(s)'+$(if($Restorable){''}else{' · non restaurable'}))
+}
+function ConvertFrom-DomeniaQueryImportJournal {
+    # Imports of this store that can still be undone, newest first. A rolled-back import, a foreign store, an
+    # unreadable line or an altered replaced definition is never offered as restorable.
+    param([string[]]$Lines=@(),[string]$StoreId,[int]$Limit=20)
+    $imports=[Collections.Generic.List[object]]::new();$rolledBack=@{};$rejected=0
+    foreach($line in @($Lines)){
+        if(-not ([string]$line).Trim()){continue}
+        try{$entry=ConvertFrom-Json -InputObject ([string]$line) -ErrorAction Stop}catch{$rejected++;continue}
+        if([string](Get-DomeniaMember $entry 'Format') -cne 'Domenia.QueryImportJournal/1' -or [string](Get-DomeniaMember $entry 'StoreId') -cne $StoreId){continue}
+        if([string]$entry.Kind -ceq 'Rollback'){$rolledBack[[string]$entry.RollsBack]=$true;continue}
+        if([string]$entry.Kind -cne 'Import' -or [string]$entry.ImportId -cnotmatch '^[0-9a-f]{32}$'){$rejected++;continue}
+        $restorable=(@($entry.Items).Count -gt 0)
+        foreach($item in @($entry.Items)){
+            $before=Get-DomeniaMemberValue $item 'Before'
+            if([string]$item.Id -cnotmatch '^[a-zA-Z0-9_.-]{1,80}$' -or [long]$item.Revision -le 0){$restorable=$false;break}
+            if($null -ne $before -and (Get-DomeniaQuerySha256 ([string]$before.DefinitionJson)) -cne [string]$before.DefinitionSHA256){$restorable=$false;break}
+        }
+        $label=Format-DomeniaQueryImportJournalLabel -Entry $entry -Restorable $restorable
+        $entry|Add-Member -NotePropertyName Restorable -NotePropertyValue $restorable -Force
+        $entry|Add-Member -NotePropertyName DisplayName -NotePropertyValue $label -Force
+        $imports.Add($entry)
+    }
+    $available=@($imports|Where-Object{-not $rolledBack.ContainsKey([string]$_.ImportId)})
+    [array]::Reverse($available)
+    return [pscustomobject]@{Entries=@($available|Select-Object -First ([Math]::Max(1,[Math]::Min(100,$Limit))));Rejected=$rejected}
 }
 function Get-DomeniaQueryLibraryDefinitionValidationCode {
     # Trusted, versioned source definitions only. Never concatenate a recipe or user text into executable code.

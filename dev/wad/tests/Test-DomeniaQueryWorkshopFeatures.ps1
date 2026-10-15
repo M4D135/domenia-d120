@@ -97,6 +97,52 @@ Expect ($plan.Items[0].Status -ceq 'Conflit' -and $plan.Items[0].Before.Definiti
 $pack.Recipes=@(New-DomeniaQueryRecipe -ObjectIds @($record.Id));$pack.DomainDn='DC=another,DC=test'
 $plan=New-DomeniaQueryPackImportPlan -Context $context -Json ($pack|ConvertTo-Json -Depth 16)
 Expect ($plan.Items[0].Status -ceq 'Domaine différent' -and $plan.Items[0].AllowedActions.Count -eq 1) 'identity-bound imported query cannot silently switch domains'
+# Point 69: versioned packs with a verified fingerprint, readable differences and a durable rollback journal.
+$packRecipes=@((New-DomeniaQueryRecipe -Id 'personal.pack1' -Name 'Mémoire faible' -Clauses @([pscustomobject]@{Field='ramGB';Operator='Less';Value=[decimal]8})),(New-DomeniaQueryRecipe -Id 'personal.pack2' -Name 'Disque plein' -Clauses @([pscustomobject]@{Field='diskFreePercent';Operator='Less';Value=[decimal]10})))
+$packed=New-DomeniaQueryPack -Context $context -Recipes $packRecipes -PackName 'Revue matériel' -PackVersion 3 -NowUtc $now
+Expect ($packed.Format -ceq 'Domenia.QueryPack/2' -and $packed.PackId -ceq (Get-DomeniaQueryPackId 'REVUE MATERIEL') -and $packed.ContentSHA256 -cmatch '^[0-9a-f]{64}$') 'a pack carries a stable identity per name and a content fingerprint'
+$packJson=ConvertTo-Json -InputObject $packed -Depth 32
+$verifiedPlan=New-DomeniaQueryPackImportPlan -Context $context -Json $packJson -History @([pscustomobject]@{PackId=$packed.PackId;PackVersion=2})
+Expect ($verifiedPlan.Verified -and $verifiedPlan.PackName -ceq 'Revue matériel' -and $verifiedPlan.PackVersion -eq 3 -and $verifiedPlan.PreviousVersion -eq 2 -and -not $verifiedPlan.Executable -and $verifiedPlan.Items[0].ChangeSummary -ceq 'Nouvelle requête') 'the preview verifies the fingerprint and recalls the version already imported'
+$tampered=ConvertFrom-Json -InputObject $packJson;$tampered.Recipes[0].Clauses[0].Value=4
+Reject {New-DomeniaQueryPackImportPlan -Context $context -Json (ConvertTo-Json -InputObject $tampered -Depth 32)} 'an altered pack is refused before any preview'
+$renamed=ConvertFrom-Json -InputObject $packJson;$renamed.PackName='Autre pack'
+Reject {New-DomeniaQueryPackImportPlan -Context $context -Json (ConvertTo-Json -InputObject $renamed -Depth 32)} 'a pack whose identity does not match its name is refused'
+Reject {New-DomeniaQueryPack -Context $context -Recipes $packRecipes -PackName 'Revue' -PackVersion 0} 'the pack version range is explicit'
+$existingRow=New-DomeniaQueryLibraryRecord -Context $context -Recipe $packRecipes[0] -ExpectedRevision 4
+$changedRecipe=Copy-DomeniaQueryRecipe $packRecipes[0];$changedRecipe.Clauses[0].Value=16;$changedRecipe.Name='Mémoire à revoir'
+$changePack=New-DomeniaQueryPack -Context $context -Recipes @($changedRecipe) -PackName 'Revue matériel' -PackVersion 4
+$conflict=(New-DomeniaQueryPackImportPlan -Context $context -Json (ConvertTo-Json -InputObject $changePack -Depth 32) -ExistingRows @($existingRow)).Items[0]
+Expect ($conflict.Status -ceq 'Conflit' -and $conflict.ChangeSummary -like '3 différence(s) : *' -and @($conflict.Changes|Where-Object{$_.Element -ceq 'Condition ajoutée' -and $_.After -like '*16 Go'}).Count -eq 1 -and @($conflict.Changes|Where-Object{$_.Element -ceq 'Nom' -and $_.Before -ceq 'Mémoire faible'}).Count -eq 1) 'a conflict lists each readable difference before any choice'
+$archivedRow=New-DomeniaQueryLibraryRecord -Context $context -Recipe $packRecipes[0] -ExpectedRevision 4;$archivedRow.Archived=$true
+$archivedItem=(New-DomeniaQueryPackImportPlan -Context $context -Json $packJson -ExistingRows @($archivedRow)).Items[0]
+Expect ($archivedItem.Status -ceq 'Archivée localement' -and $archivedItem.AllowedActions -ccontains 'Remplacer après confirmation') 'a locally archived recipe can be restored only by an explicit replacement'
+$applied=@([pscustomobject]@{Id='personal.pack1';Name='Mémoire faible';Revision=5;Sequence=0;Before=$existingRow},[pscustomobject]@{Id='personal.pack2';Name='Disque plein';Revision=1;Sequence=1;Before=$null})
+$journalEntry=New-DomeniaQueryImportJournalEntry -Context $context -Applied $applied -Plan $verifiedPlan -NowUtc $now
+Expect ($journalEntry.Kind -ceq 'Import' -and $journalEntry.PackVersion -eq 3 -and $journalEntry.Items[0].Before.DefinitionSHA256 -ceq $existingRow.DefinitionSHA256 -and $null -eq $journalEntry.Items[1].Before) 'the journal keeps the provenance and only the definitions it replaced'
+$line=ConvertTo-Json -InputObject $journalEntry -Depth 32 -Compress
+$foreignEntry=ConvertFrom-Json -InputObject $line;$foreignEntry.StoreId='another-store'
+$journal=ConvertFrom-DomeniaQueryImportJournal -Lines @($line,'{not json',(ConvertTo-Json -InputObject $foreignEntry -Depth 32 -Compress)) -StoreId $context.StoreId
+Expect (@($journal.Entries).Count -eq 1 -and $journal.Entries[0].Restorable -and $journal.Rejected -eq 1 -and $journal.Entries[0].DisplayName -like '*Revue matériel v3 · 2 recette(s)') 'an import of this store stays restorable after a restart; foreign and unreadable lines are not offered'
+Expect (-not (ConvertFrom-DomeniaQueryImportJournal -Lines @($line.Replace($existingRow.DefinitionSHA256,('0'*64))) -StoreId $context.StoreId).Entries[0].Restorable) 'an altered replaced definition is never restorable'
+$undo=ConvertTo-Json -InputObject (New-DomeniaQueryImportJournalEntry -Context $context -Applied @($applied[0]) -RollsBack $journalEntry.ImportId -NowUtc $now) -Depth 32 -Compress
+Expect (@((ConvertFrom-DomeniaQueryImportJournal -Lines @($line,$undo) -StoreId $context.StoreId).Entries).Count -eq 0) 'an import already rolled back is no longer offered'
+$journalPath=Join-Path ([IO.Path]::GetTempPath()) ('domenia-'+[guid]::NewGuid().ToString('N')+'.sqlite.query-imports.jsonl')
+$exportPath=Join-Path ([IO.Path]::GetTempPath()) ('domenia-pack-'+[guid]::NewGuid().ToString('N')+'.json')
+try{
+    for($i=0;$i -lt 41;$i++){$Payload=[pscustomobject]@{ModuleRoot=$modules;Mode='JournalAppend';Path=$journalPath;Entry=(New-DomeniaQueryImportJournalEntry -Context $context -Applied $applied -Plan $verifiedPlan -NowUtc $now)};$appended=& ([scriptblock]::Create((Get-DomeniaQueryTransferWorkerCode)))}
+    Expect ($appended.Journaled -and @([IO.File]::ReadAllLines($journalPath)|Where-Object{$_}).Count -eq 40) 'the journal keeps its most recent lines within the explicit bound'
+    $Payload=[pscustomobject]@{ModuleRoot=$modules;Mode='JournalRead';Path=$journalPath;StoreId=$context.StoreId}
+    $journalRead=& ([scriptblock]::Create((Get-DomeniaQueryTransferWorkerCode)))
+    Expect (@($journalRead.Entries).Count -eq 20 -and $journalRead.Entries[0].Restorable) 'reading returns the twenty most recent restorable imports'
+    $Payload=[pscustomobject]@{ModuleRoot=$modules;Mode='JournalRead';Path=($journalPath+'.txt');StoreId=$context.StoreId}
+    Reject {& ([scriptblock]::Create((Get-DomeniaQueryTransferWorkerCode)))} 'only the dedicated journal file is read'
+    $Payload=[pscustomobject]@{ModuleRoot=$modules;Mode='ExportPack';Path=$exportPath;Context=$context;Recipes=$packRecipes;PackName='Revue matériel';PackVersion=5}
+    $exported=& ([scriptblock]::Create((Get-DomeniaQueryTransferWorkerCode)))
+    $Payload=[pscustomobject]@{ModuleRoot=$modules;Mode='ImportPreview';Path=$exportPath;Context=$context;ExistingRows=@();History=@()}
+    $preview=& ([scriptblock]::Create((Get-DomeniaQueryTransferWorkerCode)))
+    Expect ($exported.Complete -and $exported.PackVersion -eq 5 -and $preview.Plan.Verified -and $preview.Plan.PackVersion -eq 5 -and @($preview.Plan.Items).Count -eq 2) 'a pack written by Domenia is verified when it is examined again'
+}finally{foreach($file in @($journalPath,$exportPath)){if([IO.File]::Exists($file)){[IO.File]::Delete($file)}}}
 # Actual UI pagination with inert controls, no WPF claim.
 $script:Fake=@{};foreach($name in @('DgQueryLibrary','CmbQueryLibrarySource','CmbQueryLibraryCategory','TxtQueryLibrarySearch','BtnQueryLibraryPrevious','BtnQueryLibraryNext','BtnQueryLibraryUse')){$script:Fake[$name]=[pscustomobject]@{ItemsSource=@();SelectedItem=$null;SelectedIndex=-1;Text='';IsEnabled=$false}}
 function Get-DomeniaControl([string]$Name){return $script:Fake[$Name]}

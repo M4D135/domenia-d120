@@ -245,14 +245,26 @@
           <TabItem x:Name="TabQueryPublish" Header="3. Enregistrer">
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
               <StackPanel Margin="14">
-                <Expander Header="Partager ou importer des recettes" Margin="0,0,0,12"><StackPanel>
-                  <WrapPanel Margin="0,8,0,8"><Button x:Name="BtnQueryPackExport" Content="Exporter ma bibliothèque (JSON)…" MinHeight="32" Margin="0,0,6,0" /><Button x:Name="BtnQueryScriptExport" Content="Exporter cette requête (PowerShell)…" MinHeight="32" Margin="0,0,6,0" /><Button x:Name="BtnQueryPackImport" Content="Examiner un pack…" MinHeight="32" /></WrapPanel>
-                  <TextBlock x:Name="LblQueryImportStatus" Text="L’import affiche les différences avant toute écriture. Les recettes ne lancent jamais de collecte implicitement." TextWrapping="Wrap" Margin="0,0,0,8" />
-                  <DataGrid x:Name="DgQueryImport" AutoGenerateColumns="False" CanUserAddRows="False" MaxHeight="220" EnableRowVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling"><DataGrid.Columns>
-                    <DataGridTextColumn Header="Requête" Binding="{Binding Name}" IsReadOnly="True" Width="*" /><DataGridTextColumn Header="Différence" Binding="{Binding Status}" IsReadOnly="True" Width="150" />
+                <Expander x:Name="ExpQueryTransfer" Header="Partager ou importer des recettes" Margin="0,0,0,12"><StackPanel>
+                  <WrapPanel Margin="0,8,0,4">
+                    <TextBlock Text="Pack exporté" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <TextBox x:Name="TxtQueryPackName" Text="Bibliothèque Domenia" Width="230" MaxLength="80" MinHeight="32" Margin="0,0,6,0" AutomationProperties.Name="Nom du pack exporté" ToolTip="Nom stable du pack : toutes ses versions partagent ce nom et son identité." />
+                    <TextBlock Text="version" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <TextBox x:Name="TxtQueryPackVersion" Text="1" Width="80" MaxLength="7" MinHeight="32" Margin="0,0,6,0" AutomationProperties.Name="Version du pack exporté" ToolTip="Nombre entier de 1 à 1 000 000, à augmenter à chaque nouvelle diffusion du même pack." />
+                  </WrapPanel>
+                  <WrapPanel Margin="0,4,0,8"><Button x:Name="BtnQueryPackExport" Content="Exporter ma bibliothèque (JSON)…" MinHeight="32" Margin="0,0,6,0" /><Button x:Name="BtnQueryScriptExport" Content="Exporter cette requête (PowerShell)…" MinHeight="32" Margin="0,0,6,0" /><Button x:Name="BtnQueryPackImport" Content="Examiner un pack…" MinHeight="32" /></WrapPanel>
+                  <TextBlock x:Name="LblQueryImportStatus" Text="L’import affiche les différences avant toute écriture. Les recettes ne lancent jamais de collecte implicitement." TextWrapping="Wrap" Margin="0,0,0,4" AutomationProperties.LiveSetting="Polite" />
+                  <TextBlock x:Name="LblQueryImportPack" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,0,0,8" />
+                  <DataGrid x:Name="DgQueryImport" AutoGenerateColumns="False" CanUserAddRows="False" SelectionMode="Single" MaxHeight="220" EnableRowVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling" AutomationProperties.Name="Recettes du pack examiné"><DataGrid.Columns>
+                    <DataGridTextColumn Header="Requête" Binding="{Binding Name}" IsReadOnly="True" Width="*" /><DataGridTextColumn Header="État" Binding="{Binding Status}" IsReadOnly="True" Width="140" /><DataGridTextColumn Header="Changements" Binding="{Binding ChangeSummary}" IsReadOnly="True" Width="220" />
                     <DataGridTemplateColumn Header="Choix" Width="230"><DataGridTemplateColumn.CellTemplate><DataTemplate><ComboBox ItemsSource="{Binding AllowedActions}" SelectedItem="{Binding Action, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" /></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                   </DataGrid.Columns></DataGrid>
-                  <WrapPanel Margin="0,8,0,0"><Button x:Name="BtnQueryImportNew" Content="Choisir les nouvelles" Margin="0,0,6,0" /><Button x:Name="BtnQueryImportApply" Content="Appliquer mes choix…" Margin="0,0,6,0" /><Button x:Name="BtnQueryImportRollback" Content="Restaurer avant cet import…" /></WrapPanel>
+                  <DataGrid x:Name="DgQueryImportChanges" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MaxHeight="160" Margin="0,6,0,0" EnableRowVirtualization="True" AutomationProperties.Name="Différences de la recette sélectionnée"><DataGrid.Columns>
+                    <DataGridTextColumn Header="Élément" Binding="{Binding Element}" Width="160" /><DataGridTextColumn Header="Avant (base locale)" Binding="{Binding Before}" Width="*" /><DataGridTextColumn Header="Après (pack)" Binding="{Binding After}" Width="*" />
+                  </DataGrid.Columns></DataGrid>
+                  <WrapPanel Margin="0,8,0,0"><Button x:Name="BtnQueryImportNew" Content="Choisir les nouvelles" Margin="0,0,6,0" /><Button x:Name="BtnQueryImportApply" Content="Appliquer mes choix…" Margin="0,0,6,0" /></WrapPanel>
+                  <TextBlock Text="Imports précédents" FontWeight="SemiBold" Margin="0,12,0,4" />
+                  <WrapPanel><ComboBox x:Name="CmbQueryImportHistory" Width="430" MinHeight="32" Margin="0,0,6,0" DisplayMemberPath="DisplayName" AutomationProperties.Name="Imports précédents de cette base" ToolTip="Imports confirmés de cette base, conservés dans un journal local à côté de la base. Un import déjà annulé nʼapparaît plus." /><Button x:Name="BtnQueryImportRollback" Content="Restaurer avant cet import…" IsEnabled="False" MinHeight="32" /></WrapPanel>
                 </StackPanel></Expander>
                 <TextBlock x:Name="LblQueryPublishSummary" Text="Consultez l’aperçu pour vérifier les postes correspondants et les informations inconnues." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,0,0,12" />
                 <TextBlock Text="Gardez cette requête à portée de main" FontWeight="SemiBold" FontSize="15" Margin="0,2,0,10" />

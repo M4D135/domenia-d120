@@ -1685,6 +1685,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaQueryFieldMap',
             'Format-DomeniaQueryValueLabel',
             'Get-DomeniaQueryClauseLabel',
+            'Get-DomeniaQueryDefinitionSummary',
+            'Compare-DomeniaQueryRecipeDefinitions',
             'Get-DomeniaQueryExpressionOutline',
             'Edit-DomeniaQueryExpression',
             'Get-DomeniaCollectionFieldFamily',
@@ -1704,7 +1706,16 @@ function Get-DomeniaRuntimeModulePlan {
             'Assert-DomeniaQueryLibraryContext',
             'New-DomeniaQueryLibraryRecord',
             'New-DomeniaQueryLibraryRead',
+            'Get-DomeniaQuerySha256',
+            'Get-DomeniaQueryPackId',
+            'Get-DomeniaQueryPackContentHash',
+            'Assert-DomeniaQueryPackIdentity',
+            'New-DomeniaQueryPack',
+            'Format-DomeniaQueryChangeSummary',
             'New-DomeniaQueryPackImportPlan',
+            'New-DomeniaQueryImportJournalEntry',
+            'Format-DomeniaQueryImportJournalLabel',
+            'ConvertFrom-DomeniaQueryImportJournal',
             'Get-DomeniaQueryLibraryDefinitionValidationCode',
             'ConvertTo-DomeniaQueryPowerShell'
         ) }
@@ -1847,13 +1858,20 @@ function Get-DomeniaRuntimeModulePlan {
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-QueryTransfer.Worker.ps1','Domenia-Query.UI.ps1','Domenia-QueryLibrary.Store.UI.ps1'); File='Domenia-QueryTransfer.UI.ps1'; DotSource=$true; Functions=@(
             'Initialize-DomeniaQueryTransferUi',
+            'Get-DomeniaQueryImportJournalPath',
             'Invoke-DomeniaQueryTransfer',
+            'Format-DomeniaQueryImportPackText',
             'Complete-DomeniaQueryTransfer',
             'Fail-DomeniaQueryTransfer',
+            'Show-DomeniaQueryImportChanges',
+            'Request-DomeniaQueryImportHistory',
+            'Update-DomeniaQueryImportHistoryList',
+            'Update-DomeniaQueryImportHistoryControls',
             'Start-DomeniaQueryImport',
             'Submit-DomeniaQueryImportNext',
             'Complete-DomeniaQueryImportItem',
-            'Fail-DomeniaQueryImportItem'
+            'Fail-DomeniaQueryImportItem',
+            'Save-DomeniaQueryImportJournal'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Continuity.Model.ps1'); File='Domenia-SearchWorkspace.Model.ps1'; DotSource=$true; Functions=@(
             'ConvertTo-DomeniaSearchWorkspace',

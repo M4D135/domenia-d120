@@ -1081,6 +1081,52 @@ function Get-DomeniaQueryClauseLabel {
     if($operatorId -in @('IsMissing','IsPresent')){return $name+' '+$verb}
     return $name+' '+$verb+' '+(Format-DomeniaQueryValueLabel -Value (Get-DomeniaMemberValue $Clause 'Value') -Field $field)
 }
+function Get-DomeniaQueryDefinitionSummary {
+    # French description of every element of a definition, used to compare two revisions or a pack entry.
+    param($Recipe,[hashtable]$Fields)
+    if($null -eq $Recipe){return $null}
+    $summary=[ordered]@{}
+    $summary['Nom']=@([string](Get-DomeniaMember $Recipe 'Name' ''))
+    $summary['Combinaison']=@($(if([string](Get-DomeniaMember $Recipe 'Junction') -ceq 'Any'){'Au moins une condition (OU)'}else{'Toutes les conditions (ET)'}))
+    $summary['Condition']=@(foreach($clause in @(Get-DomeniaMember $Recipe 'Clauses' @())){Get-DomeniaQueryClauseLabel -Clause $clause -Fields $Fields})
+    $summary['Segment']=@(foreach($clause in @(Get-DomeniaMember $Recipe 'Refinements' @())){Get-DomeniaQueryClauseLabel -Clause $clause -Fields $Fields})
+    $summary['Conditions avancées']=@(foreach($node in @(Get-DomeniaQueryExpressionOutline -Node (Get-DomeniaMemberValue $Recipe 'Expression') -Fields $Fields)){('· '*$node.Depth)+([string]$node.Label).Trim()})
+    $group=[string](Get-DomeniaMember $Recipe 'GroupBy')
+    $summary['Répartition']=@($(if(-not $group){'Compteur de postes'}elseif($Fields.ContainsKey($group)){[string]$Fields[$group].Name}else{$group}))
+    $summary['Paramètre']=@(foreach($row in @(Get-DomeniaQueryParameterRows $Recipe)){[string]$row.Label+' = '+[string]$row.ValueLabel})
+    $coherence=Get-DomeniaMemberValue $Recipe 'CoherenceHours'
+    $summary['Cohérence des dates']=@($(if($null -ne $coherence){'Écart maximal '+[string]$coherence+' h'}else{'Aucune contrainte'}))
+    $objects=Get-DomeniaMemberValue $Recipe 'ObjectIds'
+    $summary['Sélection figée']=@($(if($null -ne $objects){[string]@($objects).Count+' GUID'}else{'Aucune'}))
+    $probe=Get-DomeniaMemberValue $Recipe 'ProbeSelection'
+    $summary['Segment de sonde']=@($(if($null -ne $probe){[string]$probe.Key+' · '+[string]$probe.Mode}else{'Aucun'}))
+    $read=Get-DomeniaMemberValue $Recipe 'ReadDefinition'
+    $summary['SELECT mémorisé']=@($(if($null -ne $read){[string]$read.CanonicalQuery}else{'Aucun'}))
+    return $summary
+}
+function Compare-DomeniaQueryRecipeDefinitions {
+    # Readable before/after rows between two definitions; only differences are listed. A new recipe lists its content.
+    param($Before,$After)
+    $fields=Get-DomeniaQueryFieldMap $After
+    foreach($field in @(Get-DomeniaQueryReadDefinitionFields $Before)){$fields[[string]$field.Id]=$field}
+    $old=Get-DomeniaQueryDefinitionSummary -Recipe $Before -Fields $fields;$new=Get-DomeniaQueryDefinitionSummary -Recipe $After -Fields $fields
+    $lists=@{'Condition'=@('Condition retirée','Condition ajoutée');'Segment'=@('Segment retiré','Segment ajouté');'Paramètre'=@('Paramètre retiré','Paramètre ajouté')}
+    foreach($key in @($new.Keys)){
+        $after=@($new[$key]|Where-Object{[string]$_})
+        if($null -eq $old){
+            if($key -in @('Cohérence des dates','Sélection figée','Segment de sonde','SELECT mémorisé','Répartition') -and $after.Count -eq 1 -and $after[0] -in @('Aucune contrainte','Aucune','Aucun','Compteur de postes')){continue}
+            foreach($value in $after){[pscustomobject]@{Element=$key;Before='';After=[string]$value}}
+            continue
+        }
+        $before=@($old[$key]|Where-Object{[string]$_})
+        if($lists.ContainsKey($key)){
+            foreach($value in @($before|Where-Object{$after -cnotcontains $_})){[pscustomobject]@{Element=$lists[$key][0];Before=[string]$value;After=''}}
+            foreach($value in @($after|Where-Object{$before -cnotcontains $_})){[pscustomobject]@{Element=$lists[$key][1];Before='';After=[string]$value}}
+        }elseif(($before -join "`n") -cne ($after -join "`n")){
+            [pscustomobject]@{Element=$key;Before=($before -join ' ; ');After=($after -join ' ; ')}
+        }
+    }
+}
 function Get-DomeniaQueryExpressionOutline {
     param($Node,[string]$Path='',[int]$Depth=0,[string]$CollectionProbe='',[hashtable]$Fields=$null)
     if($null -eq $Node){return};if($Depth -gt 8){throw 'Arbre de conditions limité à 8 niveaux.'}
