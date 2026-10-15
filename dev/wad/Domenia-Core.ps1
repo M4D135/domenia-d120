@@ -21681,7 +21681,9 @@ function Update-DomeniaAccountUi {
         if ($null -ne $secretsStatus) { $secretsStatus.Text = if ($secretName) { 'LAPS et BitLocker utilisent ce compte pendant cette session. Le coffre Windows reste facultatif.' } else { 'Saisissez un compte et son mot de passe puis « Activer » si les secrets exigent dʼautres droits.' } }
 
         Update-DomeniaRemoteTrialUi
-        Update-DomeniaAccountsInUse -Force
+        # UI-27: no forced rebuild here. GotFocus bubbles from the « Oublier » buttons themselves: rebuilding the grid
+        # on mouse down would remove the button before its Click. The rows change only when a text changes.
+        Update-DomeniaAccountsInUse
         try {
             $remoteClear = Get-DomeniaControl -Name "BtnAccountRemoteClear"
             $secretClear = Get-DomeniaControl -Name "BtnAccountSecretsClear"

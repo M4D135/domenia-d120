@@ -724,7 +724,8 @@ Test-Case 'UI-27 Oublier : meme regle que la fenetre Acces, refus pendant une ec
     & $click 'Typed:Machine'
     Assert-True ($null -eq $script:MachineCredential) 'Compte poste saisi non oublie'
     Assert-True ($script:Ctrl.DgAccountsInMemory.Visibility -eq [Windows.Visibility]::Collapsed -and [string]$script:Ctrl.LblAccountsInMemory.Text -match '^Aucun compte') 'Etat vide non affiche'
-    Assert-True ((Get-CoreFunctionText 'Update-DomeniaAccountUi').Contains('Update-DomeniaAccountsInUse -Force')) 'Page Comptes sans actualisation de la section'
+    $page=Get-CoreFunctionText 'Update-DomeniaAccountUi'
+    Assert-True ($page.Contains('Update-DomeniaAccountsInUse') -and -not $page.Contains('Update-DomeniaAccountsInUse -Force')) 'Page Comptes sans actualisation de la section, ou reconstruction forcee a chaque focus'
 }
 
 # ================================================================ UX-16 (lot X03) autorisation d intervention dans Actions
