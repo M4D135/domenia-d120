@@ -109,30 +109,173 @@ function Assert-WQueryLibraryDefinition {
     return [string]::Join("`r`n",$definitions.ToArray())
 }
 
-function ConvertTo-DomeniaQueryPowerShell {
+function ConvertTo-DomeniaScriptCommentText {
+    # One comment line of a generated script: no line terminator or control character can end the comment.
+    param([string]$Text,[int]$MaxLength=400)
+    $clean=([regex]::Replace([string]$Text,'[\p{Cc}\p{Zl}\p{Zp}\u0085]+',' ')).Trim()
+    if($clean.Length -gt $MaxLength){$clean=$clean.Substring(0,$MaxLength)+'…'}
+    return $clean
+}
+function ConvertTo-DomeniaAsciiJson {
+    # Every non-ASCII character becomes a JSON \u escape: typographic quotes, which PowerShell also treats as
+    # string delimiters, can never close the single-quoted data literal of a generated script.
+    param([string]$Json)
+    $builder=[Text.StringBuilder]::new($Json.Length+64)
+    foreach($character in $Json.ToCharArray()){
+        $code=[int]$character
+        if($code -lt 32 -or $code -gt 126){[void]$builder.Append('\u').Append($code.ToString('x4'))}else{[void]$builder.Append($character)}
+    }
+    return $builder.ToString()
+}
+function ConvertTo-DomeniaQueryValueText {
+    param($Value)
+    if($null -eq $Value){return ''}
+    $parameter=Get-DomeniaMemberValue $Value 'Parameter'
+    if($null -ne $parameter){return ('paramètre '+[string]$parameter)}
+    if($Value -is [bool]){if($Value){return 'Oui'};return 'Non'}
+    return [Convert]::ToString($Value,[Globalization.CultureInfo]::InvariantCulture)
+}
+function Get-DomeniaQueryRecipeOutline {
+    # Readable French description of a recipe: conditions, information sources, parameters and notes.
+    # Pure; shared by the PowerShell export and the review panels. Never evaluates the recipe on data.
     param($Recipe)
     [void](ConvertTo-DomeniaCompiledQuery $Recipe)
+    $fields=@{}
+    foreach($entry in @(Get-DomeniaQueryCatalog)){$fields[[string]$entry.Id]=[pscustomobject]@{Name=[string]$entry.Name;Kind=[string]$entry.Kind;Source=[string]$entry.Source;Freshness=[string]$entry.Freshness}}
+    foreach($entry in @(@(Get-DomeniaQueryInstanceFields)+@(Get-DomeniaQueryReadDefinitionFields $Recipe))){
+        $source=if([string]$entry.Id -like 'detail:*'){'SELECT WMI mémorisé'}else{'Sonde WMI, propriété dʼune instance'}
+        $fields[[string]$entry.Id]=[pscustomobject]@{Name=[string]$entry.Name;Kind=[string]$entry.Kind;Source=$source;Freshness='Date propre au relevé de la sonde ou du SELECT ; ce script ne la rajeunit pas.'}
+    }
+    $clauseText={param($Clause)
+        $id=[string](Get-DomeniaMember $Clause 'Field');$field=$fields[$id];$name=if($null -ne $field){$field.Name}else{$id}
+        $kind=if($null -ne $field){$field.Kind}else{'Text'}
+        $operator=@(Get-DomeniaQueryOperators $kind|Where-Object{$_.Id -ceq [string](Get-DomeniaMember $Clause 'Operator')})
+        $label=if($operator.Count){$operator[0].Name}else{[string](Get-DomeniaMember $Clause 'Operator')}
+        $value=ConvertTo-DomeniaQueryValueText (Get-DomeniaMemberValue $Clause 'Value')
+        if([string](Get-DomeniaMember $Clause 'Operator') -in @('IsMissing','IsPresent')){return ($name+' '+$label)}
+        return ($name+' '+$label+' '+$value)
+    }
+    $conditions=[Collections.Generic.List[string]]::new()
+    $clauses=@(Get-DomeniaMember $Recipe 'Clauses' @())
+    if($clauses.Count){
+        $conditions.Add($(if([string]$Recipe.Junction -eq 'Any'){'Au moins une des conditions suivantes (OU) :'}else{'Toutes les conditions suivantes (ET) :'}))
+        $i=0;foreach($clause in $clauses){$i++;$conditions.Add(('  '+$i+'. '+(& $clauseText $clause)))}
+    }
+    $walk={param($Node,[int]$Depth)
+        $indent='  '*($Depth+1);$kind=[string](Get-DomeniaMember $Node 'Kind')
+        switch($kind){
+            'Clause'{$conditions.Add($indent+'- '+(& $clauseText (Get-DomeniaMemberValue $Node 'Clause')))}
+            'All'{$conditions.Add($indent+'Toutes les conditions suivantes (ET) :')}
+            'Any'{$conditions.Add($indent+'Au moins une des conditions suivantes (OU) :')}
+            'Not'{$conditions.Add($indent+'Aucune des conditions suivantes (NON) :')}
+            'Collection'{
+                $probe=Get-DomeniaProbe ([string]$Node.CollectionField).Substring(6);$probeName=if($null -ne $probe){[string]$probe.Name}else{[string]$Node.CollectionField}
+                $quantifier=switch([string]$Node.Quantifier){'All'{'Toutes les instances'};'None'{'Aucune instance'};default{'Au moins une instance'}}
+                $conditions.Add($indent+$quantifier+' de « '+$probeName+' » vérifie, sur la même instance :')
+            }
+        }
+        if($kind -ne 'Clause'){foreach($child in @(Get-DomeniaMember $Node 'Children' @())){& $walk $child ($Depth+1)}}
+    }
+    $tree=Get-DomeniaMemberValue $Recipe 'Expression'
+    if($null -ne $tree){if($clauses.Count){$conditions.Add('Et les groupes avancés suivants :')}else{$conditions.Add('Groupes de conditions :')};& $walk $tree 0}
+    foreach($refinement in @(Get-DomeniaMember $Recipe 'Refinements' @())){$conditions.Add('Segment (ET) : '+(& $clauseText $refinement))}
+    if(-not $conditions.Count){$conditions.Add('Aucune condition : tous les postes de lʼinstantané fourni correspondent.')}
+    $notes=[Collections.Generic.List[string]]::new()
+    $probeSelection=Get-DomeniaMemberValue $Recipe 'ProbeSelection'
+    if($null -ne $probeSelection){$probe=Get-DomeniaProbe ([string]$probeSelection.Key);$notes.Add('Segment de sonde : '+$(if($null -ne $probe){[string]$probe.Name}else{[string]$probeSelection.Key})+' · mode '+[string]$probeSelection.Mode+'.')}
+    $identities=Get-DomeniaQueryIdentitySelection $Recipe
+    if($null -ne $identities){$notes.Add('Sélection figée de '+$identities.Count+' GUID : seuls ces postes sont évalués, pour le domaine dʼorigine.')}
+    $coherence=Get-DomeniaMemberValue $Recipe 'CoherenceHours'
+    if($null -ne $coherence){$notes.Add('Fenêtre commune : '+([double]$coherence).ToString('0.##',[Globalization.CultureInfo]::GetCultureInfo('fr-FR'))+' h au plus entre les dates des sources ; au-delà, ou sans date, le verdict est Inconnu.')}
+    $definition=Get-DomeniaMemberValue $Recipe 'ReadDefinition'
+    if($null -ne $definition){$notes.Add('Résultats WMI mémorisés : '+[string]$definition.Namespace+' · '+[string]$definition.CanonicalQuery+' (au plus '+[string]$definition.Limit+' instances). Ce script ne relit pas le poste.')}
+    $groupBy=[string](Get-DomeniaMember $Recipe 'GroupBy')
+    if($groupBy){$name=if($fields.ContainsKey($groupBy)){$fields[$groupBy].Name}else{$groupBy};$notes.Add('Répartition du widget : '+$name+'. Ce script rend les postes, pas la répartition.')}
+    $sources=@(foreach($id in @(Get-DomeniaQueryRequestedFields $Recipe)){
+        $field=$fields[$id];if($null -eq $field){continue}
+        $field.Name+' : '+$field.Source+$(if($field.Freshness){' · '+$field.Freshness}else{''})
+    })
+    $parameters=@(foreach($parameter in @(Get-DomeniaMember $Recipe 'Parameters' @())){
+        $field=$fields[[string]$parameter.Field];$current=Get-DomeniaMemberValue (Get-DomeniaMemberValue $Recipe 'ParameterValues') ([string]$parameter.Name) (Get-DomeniaMemberValue $parameter 'Default')
+        [string]$parameter.Name+' : '+$(if($null -ne $field){$field.Name}else{[string]$parameter.Field})+', valeur '+(ConvertTo-DomeniaQueryValueText $current)
+    })
+    return [pscustomobject]@{Conditions=$conditions.ToArray();Sources=$sources;Parameters=$parameters;Notes=$notes.ToArray()}
+}
+function ConvertTo-DomeniaQueryPowerShell {
+    # Readable, commented script that evaluates one recipe on an already read snapshot. The recipe is embedded as an
+    # ASCII JSON data literal; the script holds no credential, opens no connection and is never run by the export.
+    param($Recipe,[datetime]$ExportedUtc=[datetime]::UtcNow)
+    $outline=Get-DomeniaQueryRecipeOutline $Recipe
     $json=ConvertTo-Json -InputObject $Recipe -Depth 32 -Compress
-    # Single-quoted PowerShell data literal: quotes are doubled; no recipe text becomes executable syntax.
-    $literal="'"+$json.Replace("'","''")+"'"
-    $prefix=@'
-#requires -Version 5.1
-# Requête Domenia exportée. Lecture locale uniquement : aucun accès AD, WMI ou réseau.
-# Fournir les QueryRecord d’un instantané local déjà lu ; -ShowDefinition affiche les critères sans exécution.
+    $literal="'"+(ConvertTo-DomeniaAsciiJson $json).Replace("'","''")+"'"
+    $lines=[Collections.Generic.List[string]]::new()
+    $comment={param([string]$Text)$lines.Add(('# '+(ConvertTo-DomeniaScriptCommentText $Text)).TrimEnd())}
+    $lines.Add('#requires -Version 5.1')
+    & $comment '===== Requête Domenia exportée ====='
+    & $comment ('Nom : '+[string]$Recipe.Name)
+    & $comment ('Identifiant : '+[string]$Recipe.Id+' · format '+[string]$Recipe.Format)
+    & $comment ('Exportée le '+$ExportedUtc.ToUniversalTime().ToString('dd/MM/yyyy HH:mm',[Globalization.CultureInfo]::InvariantCulture)+' UTC. Lʼexport nʼa rien exécuté : relisez puis lancez ce script vous-même.')
+    $lines.Add('#')
+    & $comment 'Ce script ne contacte ni lʼannuaire, ni WMI, ni le réseau, nʼécrit rien et ne contient ni identifiant ni secret.'
+    & $comment 'Il évalue la requête sur des enregistrements QueryRecord déjà lus (instantané local fourni par -Records).'
+    $lines.Add('#')
+    & $comment 'Conditions :'
+    foreach($line in $outline.Conditions){& $comment ('  '+$line)}
+    foreach($line in $outline.Notes){& $comment ('  '+$line)}
+    $lines.Add('#')
+    & $comment 'Informations utilisées et sources :'
+    if(@($outline.Sources).Count){foreach($line in $outline.Sources){& $comment ('  - '+$line)}}else{& $comment '  (aucune)'}
+    $lines.Add('#')
+    & $comment 'Paramètres de la recette (modifiables avec -ParameterValues @{ Nom = valeur }) :'
+    if(@($outline.Parameters).Count){foreach($line in $outline.Parameters){& $comment ('  - '+$line)}}else{& $comment '  (aucun)'}
+    $lines.Add('#')
+    & $comment 'Limites :'
+    & $comment '  - Une information absente, expirée, en erreur ou incomplète donne Inconnu, jamais Faux ni zéro.'
+    & $comment '  - Le résultat ne vaut que pour lʼinstantané fourni : ses dates et son périmètre restent ceux de la lecture.'
+    & $comment '  - 64 conditions et 8 niveaux de groupes au plus ; aucune collecte nʼest déclenchée.'
+    $lines.Add('#')
+    & $comment 'Sortie : un objet par poste retenu (Id, Nom, CheminAD, Verdict, Valeurs, Etats). -Selection choisit Match, Unknown ou NoMatch.'
+    & $comment 'Exemple : .\requete.ps1 -ModuleRoot C:\Domenia\wad\modules -Records $instantane -Selection Unknown'
+    $body=@'
 [CmdletBinding()]
-param([Parameter(Mandatory=$true)][string]$ModuleRoot,[object[]]$Records=@(),[switch]$ShowDefinition)
+param(
+    [Parameter(Mandatory=$true)][string]$ModuleRoot,
+    [object[]]$Records=@(),
+    [ValidateSet('Match','Unknown','NoMatch')][string]$Selection='Match',
+    [hashtable]$ParameterValues=@{},
+    [switch]$ShowDefinition
+)
 $ErrorActionPreference='Stop'
 Add-Type -Path (Join-Path $ModuleRoot 'M4D.Admin.Common.Query.dll')
 Add-Type -Path (Join-Path $ModuleRoot 'Domenia.Native.dll')
 foreach($name in @('Common.Model','HealthRules.Model','Boards.Model','Probes.Model','QuerySchema.Model','Workstation.Model','Query.Model')){. (Join-Path $ModuleRoot ('Domenia-'+$name+'.ps1'))}
-'@
-    $suffix=@'
+$recipe=ConvertFrom-Json -InputObject @@LITERAL@@
+if($ParameterValues.Count){
+    $known=@(foreach($parameter in @($recipe.Parameters)){[string]$parameter.Name})
+    $values=[ordered]@{}
+    if($null -ne $recipe.ParameterValues){foreach($property in $recipe.ParameterValues.PSObject.Properties){$values[$property.Name]=$property.Value}}
+    foreach($key in $ParameterValues.Keys){if([string]$key -cnotin $known){throw ('Paramètre inconnu pour cette requête : '+[string]$key)};$values[[string]$key]=$ParameterValues[$key]}
+    $recipe.ParameterValues=[pscustomobject]$values
+}
 if($ShowDefinition){$recipe|ConvertTo-Json -Depth 32;return}
-$population=Select-DomeniaQueryPopulation -Records $Records -Recipe $recipe
 $compiled=ConvertTo-DomeniaCompiledQuery $recipe
-$summary=$compiled.Count($population)
-Write-Verbose ('Correspondants : '+$summary.Matched+' ; inconnus : '+$summary.Unknown+' ; non correspondants : '+$summary.NotMatched)
-foreach($record in $population){if($compiled.Evaluate($record.Values) -eq [M4D.Admin.Common.Query.MatchState]::Match){$record}}
+$population=Select-DomeniaQueryPopulation -Records $Records -Recipe $recipe
+$counts=$compiled.Execute($population,[M4D.Admin.Common.Query.QueryOptions]@{Limit=0})
+Write-Verbose ('Postes évalués : '+$counts.Total+' ; correspondants : '+$counts.Matched+' ; inconnus : '+$counts.Unknown+' ; non correspondants : '+$counts.NotMatched)
+$state=[M4D.Admin.Common.Query.MatchState]$Selection
+$labels=@{Match='Correspond';Unknown='Inconnu';NoMatch='Ne correspond pas'};$verdict=$labels[$Selection]
+$fields=@(Get-DomeniaQueryRequestedFields $recipe|Where-Object{$_ -notlike 'instance:*'})
+foreach($record in $population){
+    if($compiled.Evaluate($record.Values) -ne $state){continue}
+    $values=[ordered]@{};$states=[ordered]@{}
+    foreach($field in $fields){
+        $presentation=Get-DomeniaQueryValuePresentation -Record $record -Field $field
+        $values[$field]=$(if($presentation.Known){$record.Values[$field]}else{$null});$states[$field]=$presentation.State
+    }
+    [pscustomobject]@{Id=$record.Id;Nom=[string]$record.Values['name'];CheminAD=[string]$record.Values['dn'];Verdict=$verdict;Valeurs=[pscustomobject]$values;Etats=[pscustomobject]$states}
+}
 '@
-    return $prefix+"`r`n"+'$recipe=ConvertFrom-Json -InputObject '+$literal+"`r`n"+$suffix
+    foreach($line in ($body.Replace("`r",'') -split "`n")){$lines.Add($line.Replace('@@LITERAL@@',$literal))}
+    while($lines.Count -and -not $lines[$lines.Count-1]){$lines.RemoveAt($lines.Count-1)}
+    return [string]::Join("`r`n",$lines.ToArray())+"`r`n"
 }

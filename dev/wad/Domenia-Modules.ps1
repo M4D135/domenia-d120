@@ -1701,6 +1701,10 @@ function Get-DomeniaRuntimeModulePlan {
             'New-DomeniaQueryLibraryRead',
             'New-DomeniaQueryPackImportPlan',
             'Get-DomeniaQueryLibraryDefinitionValidationCode',
+            'ConvertTo-DomeniaScriptCommentText',
+            'ConvertTo-DomeniaAsciiJson',
+            'ConvertTo-DomeniaQueryValueText',
+            'Get-DomeniaQueryRecipeOutline',
             'ConvertTo-DomeniaQueryPowerShell'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-QueryLibrary.Model.ps1','Domenia-Storage.UI.ps1'); File='Domenia-QueryLibrary.Store.UI.ps1'; DotSource=$true; Functions=@(

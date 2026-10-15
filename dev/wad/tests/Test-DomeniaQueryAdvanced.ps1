@@ -143,6 +143,57 @@ Expect (-not $script:Fake.BtnQueryApplyCoherence.IsEnabled -and $null -eq $scrip
 $script:DomeniaQueryState.CoherenceProposal=$null;Use-DomeniaQueryCoherenceProposal
 Expect ($script:Labels.LblQueryStatus -like 'Fenêtre non appliquée*') 'no proposal, no change'
 
+# ---------------------------------------------------------------------------------------------------------------
+# Point 157: readable PowerShell export, parameters, sources, limits and structured output; nothing executed.
+. (Join-Path $modules 'Domenia-QueryTransfer.Worker.ps1')
+$hostile="Postes d"+[char]0x2019+"Anne's`r`n#> Remove-Item C:\ -Recurse "+[char]0x201C+"x"+[char]0x201D
+$exported=New-DomeniaQueryRecipe -Id 'personal.export' -Name $hostile -Clauses @([pscustomobject]@{Field='active';Operator='Equal';Value=$true},[pscustomobject]@{Field='ramGB';Operator='Less';Value=[pscustomobject]@{Parameter='Seuil'}}) -Parameters @([pscustomobject]@{Name='Seuil';Field='ramGB';Default=16})
+$text=ConvertTo-DomeniaQueryPowerShell -Recipe $exported -ExportedUtc ([datetime]::Parse('2026-10-15T08:00:00Z').ToUniversalTime())
+$tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseInput($text,[ref]$tokens,[ref]$errors)
+Expect ($errors.Count -eq 0) ('exported script parses: '+(@($errors|ForEach-Object{$_.Message}) -join ' | '))
+$commands=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.CommandAst]},$true)|ForEach-Object{$_.GetCommandName()}|Where-Object{$_}|Sort-Object -Unique)
+$allowed=@('Add-Type','ConvertFrom-Json','ConvertTo-DomeniaCompiledQuery','ConvertTo-Json','Get-DomeniaQueryRequestedFields','Get-DomeniaQueryValuePresentation','Join-Path','Select-DomeniaQueryPopulation','Where-Object','Write-Verbose')
+Expect (@($commands|Where-Object{$_ -notin $allowed}).Count -eq 0) ('exported script calls only local evaluation commands: '+($commands -join ', '))
+Expect ($text -notmatch '(?i)Credential|SecureString|Invoke-Expression|New-CimSession|Get-CimInstance|DirectoryEntry|Remove-Item C:\\ -Recurse\r\n') 'no credential, connection or injected command line in the export'
+$parameterNames=@($ast.ParamBlock.Parameters|ForEach-Object{$_.Name.VariablePath.UserPath})
+Expect (($parameterNames -join ',') -ceq 'ModuleRoot,Records,Selection,ParameterValues,ShowDefinition') 'script parameters are explicit and contain no identity'
+$lines=@($text -split "`r`n")
+$codeStart=[Array]::IndexOf($lines,'[CmdletBinding()]')
+Expect ($lines[0] -ceq '#requires -Version 5.1' -and $codeStart -gt 5 -and @($lines[1..($codeStart-1)]|Where-Object{$_ -notlike '#*'}).Count -eq 0) 'the header is made of comment lines only'
+$nameLine=@($lines|Where-Object{$_ -like '# Nom : *'})
+Expect ($nameLine.Count -eq 1 -and $nameLine[0] -like '*Anne*Remove-Item*') 'a hostile name stays on one comment line'
+Expect ($text -like '*paramètre Seuil*' -and $text -like '*Seuil : Mémoire relevée en Go, valeur 16*' -and $text -like '*Mémoire relevée en Go : Relevé du poste*' -and $text -like '*donne Inconnu, jamais Faux ni zéro*' -and $text -like '*15/10/2026 08:00 UTC*') 'conditions, parameters, sources, limits and export date are documented'
+$literal=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.CommandAst] -and $n.GetCommandName() -ceq 'ConvertFrom-Json'},$true))[0].CommandElements[2]
+Expect ($literal.Value -cmatch '^[\x20-\x7E]+$' -and (ConvertFrom-Json -InputObject $literal.Value).Name -ceq $hostile) 'the recipe literal is pure ASCII and restores the exact name'
+$folder=Join-Path ([IO.Path]::GetTempPath()) ('domenia-query-export-'+[guid]::NewGuid().ToString('N'));[void][IO.Directory]::CreateDirectory($folder)
+try{
+    $script=Join-Path $folder 'requete.ps1';[IO.File]::WriteAllText($script,$text,[Text.UTF8Encoding]::new($true))
+    $snapshot=[Collections.Generic.List[M4D.Admin.Common.Query.QueryRecord]]::new()
+    $snapshot.Add((New-FixtureRecord 'a1' @{name='PC-A';dn='CN=PC-A,DC=example,DC=test';active=$true;ramGB=8.0;'_at:inventory'='2026-10-15T07:00:00Z'}))
+    $snapshot.Add((New-FixtureRecord 'a2' @{name='PC-B';dn='CN=PC-B,DC=example,DC=test';active=$true;ramGB=32.0}))
+    $snapshot.Add((New-FixtureRecord 'a3' @{name='PC-C';dn='CN=PC-C,DC=example,DC=test';active=$true}))
+    $snapshot.Add((New-FixtureRecord 'a4' @{name='PC-D';dn='CN=PC-D,DC=example,DC=test';active=$false;ramGB=4.0}))
+    $rows=@(& $script -ModuleRoot $modules -Records $snapshot)
+    Expect ($rows.Count -eq 1 -and $rows[0].Id -ceq 'a1' -and $rows[0].Nom -ceq 'PC-A' -and $rows[0].Verdict -ceq 'Correspond' -and $rows[0].Valeurs.ramGB -eq 8 -and $rows[0].Etats.ramGB -ceq 'Disponible') 'the script returns structured objects for matching workstations'
+    $rows=@(& $script -ModuleRoot $modules -Records $snapshot -Selection Unknown)
+    Expect ($rows.Count -eq 1 -and $rows[0].Id -ceq 'a3' -and $rows[0].Verdict -ceq 'Inconnu' -and $null -eq $rows[0].Valeurs.ramGB -and $rows[0].Etats.ramGB -ceq 'Non lu') 'an unread value stays unknown in the script output'
+    $rows=@(& $script -ModuleRoot $modules -Records $snapshot -ParameterValues @{Seuil=64})
+    Expect ($rows.Count -eq 2) 'recipe parameters are changed at run time without editing the script'
+    Reject {& $script -ModuleRoot $modules -Records $snapshot -ParameterValues @{Inconnu=1}} 'an unknown parameter is refused' '*Paramètre inconnu*'
+    $definition=(& $script -ModuleRoot $modules -ShowDefinition|Out-String)
+    Expect ((ConvertFrom-Json $definition).Id -ceq 'personal.export') 'ShowDefinition prints the criteria without evaluation'
+    $Payload=[pscustomobject]@{ModuleRoot=$modules;Mode='ExportPowerShell';Path=(Join-Path $folder 'worker.ps1');Recipe=$exported;Context=$null}
+    $result=& ([scriptblock]::Create((Get-DomeniaQueryTransferWorkerCode)))
+    $bytes=[IO.File]::ReadAllBytes($result.Path)
+    Expect ($result.Complete -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF -and @(Get-ChildItem -LiteralPath $folder -Filter '*.tmp' -Force).Count -eq 0) 'actual transfer worker writes the UTF-8 BOM script atomically'
+    Reject {& ([scriptblock]::Create((Get-DomeniaQueryTransferWorkerCode)))} 'an existing script is never overwritten'
+}finally{Remove-Item -LiteralPath $folder -Recurse -Force -ErrorAction SilentlyContinue}
+$advanced=New-DomeniaQueryRecipe -Name 'Disque presque plein' -Expression ([pscustomobject]@{Kind='Collection';CollectionField='probe:disk.volumes';Quantifier='Any';Children=@([pscustomobject]@{Kind='All';Children=@([pscustomobject]@{Kind='Clause';Clause=[pscustomobject]@{Field='instance:disk.volumes:FreeSpace';Operator='Less';Value=1000000000}},[pscustomobject]@{Kind='Clause';Clause=[pscustomobject]@{Field='instance:disk.volumes:DeviceID';Operator='Equal';Value='C:'}})})}) -CoherenceHours 48 -GroupBy 'model'
+$outline=Get-DomeniaQueryRecipeOutline $advanced
+Expect (@($outline.Conditions|Where-Object{$_ -like '*Au moins une instance de « Volumes locaux*même instance*'}).Count -eq 1 -and @($outline.Conditions|Where-Object{$_ -like '*FreeSpace*est inférieur à 1000000000*'}).Count -eq 1) 'collection criteria are described on the same instance'
+Expect (@($outline.Notes|Where-Object{$_ -like 'Fenêtre commune : 48 h*'}).Count -eq 1 -and @($outline.Notes|Where-Object{$_ -like 'Répartition du widget*'}).Count -eq 1) 'window and distribution limits are stated'
+Expect ((ConvertTo-DomeniaScriptCommentText ("a`nb"+[char]0x2028+'c')) -ceq 'a b c' -and (ConvertTo-DomeniaAsciiJson ('"'+[char]0x2019+'"')) -ceq '"\u2019"') 'comment and literal encoders neutralise line breaks and typographic quotes'
+
 # @@NEXT-SECTION@@
 
 $report=[pscustomobject]@{Status='PASS';Assertions=$script:checks;SourceMode=[bool]$QuerySource;ElapsedSeconds=[Math]::Round($clock.Elapsed.TotalSeconds,3);PowerShell=$PSVersionTable.PSVersion.ToString();Scope='Actual models, worker factories and click handlers with inert controls; remote WMI cmdlets replaced by fixtures; no network, AD, WMI or WPF'}
