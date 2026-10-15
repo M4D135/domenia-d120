@@ -1648,11 +1648,22 @@ function Get-DomeniaRuntimeModulePlan {
             'Test-DomeniaHealthRuleEnabled',
             'Add-DomeniaCustomHealthAttention',
             'Update-DomeniaFleetHealthPopulation',
+            'Get-DomeniaHealthRuleState',
+            'Format-DomeniaHealthSuspensionText',
+            'Get-DomeniaFleetRuleEligibility',
+            'Get-DomeniaComputerRuleEvidence',
             'Get-DomeniaHealthExplanation',
             'Test-DomeniaHealthScope',
             'ConvertTo-DomeniaHealthPolicyBook',
             'Resolve-DomeniaHealthPolicy',
             'Set-DomeniaHealthScopePolicy',
+            'Format-DomeniaHealthScopeLabel',
+            'Get-DomeniaHealthPolicyOrigins',
+            'Get-DomeniaHealthPolicyExceptions',
+            'Get-DomeniaHealthEditorScopes',
+            'Optimize-DomeniaHealthSuspensions',
+            'ConvertTo-DomeniaEndedHealthSuspension',
+            'New-DomeniaHealthEditorPolicy',
             'ConvertTo-DomeniaHealthSuspensions',
             'Get-DomeniaHealthSuspension',
             'Update-DomeniaFleetScopedHealth'
@@ -1712,7 +1723,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaHealthFingerprint',
             'Set-DomeniaHealthSnapshotMetadata',
             'Compare-DomeniaHealthSnapshots',
-            'Get-DomeniaFleetPivots'
+            'Get-DomeniaFleetPivots',
+            'ConvertTo-DomeniaPivotMatrix'
         ) }
         # Per-widget collection and explanation (decision David 2026-10-14, points 6, 73, 74): pure rules.
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Boards.Model.ps1','Domenia-Park.Model.ps1'); File='Domenia-WidgetCollect.Model.ps1'; DotSource=$true; Functions=@(
@@ -1792,7 +1804,10 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaFleetBoardData',
             'Get-DomeniaFleetFreshness',
             'Get-DomeniaOuObservationFreshness',
-            'Format-DomeniaOuFreshnessSummary'
+            'Format-DomeniaOuFreshnessSummary',
+            'Get-DomeniaFleetWmiResponse',
+            'Get-DomeniaFleetReachLabel',
+            'Get-DomeniaStaleTrendNote'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1'); File='Domenia-BoardSoftware.Model.ps1'; DotSource=$true; Functions=@(
             'Test-DomeniaSoftwareRowMatchesSelect',
