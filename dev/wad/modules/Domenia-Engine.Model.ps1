@@ -337,8 +337,9 @@ function Get-DomeniaOperationProvider {
     # per target with the CIM provider: an outage there must never slow the directory.
     $cim = @('ComputerDiagnostics','ComputerInventory','SoftwareInventory','WmiNamespaces','WmiClasses','WmiQuery','LiveConsole','ComputerLastUser','ComputerQuickDiag','JoinStateRead','UpdateStateRead','GpoAppliedRead','ComputerEventsRead','MachineIdentityRead','ParkSweep','BatchNetworkDiag','ComputerGpUpdate','ComputerRestart','RimotteRun','UserComputerProbe','RemoteCredentialCheck')
     $wts = @('SessionsList')
-    $storage = @('LegacyMigration','LocalStore','LiveCache','ReceiptStore','DocumentStore','StorageUsage','StoragePurge','StorageBackup','StorageMaintenance','StorageRetention','LinkHistoryStore','LocalIndexRead','LocalQuery','QueryExport','QueryLibrary','OfflineDossier')
-    $local = @('CmdletHelp','CmdletInventory','EngineSelfTest','EmbeddedPathBrowse','LocalAssistant','DemoDirectory','IsolatedRead')
+    $storage = @('LegacyMigration','LocalStore','LiveCache','ReceiptStore','DocumentStore','StorageUsage','StoragePurge','StorageBackup','StorageMaintenance','StorageRetention','LinkHistoryStore','LocalIndexRead','LocalQuery','QueryExport','QueryLibrary')
+    # OfflineDossier (point 139) only reads the base read-only and writes in Exports: it never holds the single storage lane.
+    $local = @('CmdletHelp','CmdletInventory','EngineSelfTest','EmbeddedPathBrowse','LocalAssistant','DemoDirectory','IsolatedRead','OfflineDossier')
     # ParkSharedSync reads and writes a shared file, possibly on a UNC path: network I/O, not the local base.
     $network = @('LiveSelectedPing','ComputerPing','ComputerAdminShare','SelectedPresence','PresenceScan','WakeOnLanSend','ConnectorRead','ParkSharedSync')
     if ($cim -contains $OperationId) { return 'Cim' }
