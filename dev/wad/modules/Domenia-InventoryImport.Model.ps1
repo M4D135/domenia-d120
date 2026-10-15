@@ -322,12 +322,15 @@ function Get-DomeniaImportBatches {
     # Durable rollback (point 138): the batches still present in the stored associations, most recent first. A batch is
     # identified by its token, never by a file name; associations imported before batches existed have none.
     param([object[]]$Links=@())
+    # Called on every refresh of Relations: one cheap test per association, the token is parsed for imported ones only.
     $byId = @{}
     foreach ($link in @($Links)) {
         if ($null -eq $link) { continue }
-        $source = [string](Get-DomeniaMember $link 'Source' '')
-        if ($source -notmatch '^Import ') { continue }
-        $details = [string](Get-DomeniaMember $link 'Details' '')
+        $sourceProperty = $link.PSObject.Properties['Source']
+        if (($null -eq $sourceProperty) -or (-not ([string]$sourceProperty.Value).StartsWith('Import ',[StringComparison]::Ordinal))) { continue }
+        $source = [string]$sourceProperty.Value
+        $detailsProperty = $link.PSObject.Properties['Details']
+        $details = if ($null -ne $detailsProperty) { [string]$detailsProperty.Value } else { '' }
         $token = Get-DomeniaImportBatchToken $details
         if (-not $token) { continue }
         if (-not $byId.ContainsKey($token)) {
