@@ -41,6 +41,19 @@ Test-Case '102' 'Strategies fines visibles et aucune ne vise le compte : strateg
     Assert-Equal 'Estimé' (@($rows|Where-Object{$_.Fait -eq 'Expiration du mot de passe'})[0].Etat)
     Assert-Equal 0 @($rows|Where-Object{$_.Fait -like 'Domaine (référence)*'}).Count
 }
+Test-Case '102' 'msDS-ResultantPSO non lu : strategie inconnue meme si des strategies fines sont visibles' {
+    # The worker fell back to the plain attributes: an empty ResultantPso is "not read", never "none applies".
+    $read=[pscustomobject]@{Dn='CN=Jean';User=@{userAccountControl='512';pwdLastSet=$script:AaNow.AddDays(-10).ToFileTimeUtc()};ResultantPso='';ResultantError='Attribut construit refusé.';Pso=$null;PsoVisibleCount=2;Domain=@{minPwdLength='8';maxPwdAge=-36288000000000L;pwdProperties='1';lockoutThreshold='0'}}
+    $view=ConvertTo-DomeniaPasswordPolicyView -Read $read -NowUtc $script:AaNow
+    Assert-Equal 'Unreadable' $view.State;Assert-False $view.PolicyKnown
+    Assert-True ($view.Summary -match 'msDS-ResultantPSO non lu \(Attribut construit refusé\)') $view.Summary
+    Assert-False ($view.Summary -match 'domaine sʼapplique') 'Strategie du domaine presentee comme applicable'
+    $rows=@(ConvertTo-DomeniaAdAuditFactRows $view.Facts)
+    Assert-Equal 0 @($rows|Where-Object{$_.Fait -eq 'Longueur minimale'}).Count 'Valeur du domaine presentee comme applicable'
+    Assert-Equal 1 @($rows|Where-Object{$_.Fait -eq 'Domaine (référence) · Longueur minimale'}).Count 'Domaine montre en reference seulement'
+    Assert-Equal 'Inconnu' (@($rows|Where-Object{$_.Fait -eq 'Expiration du mot de passe'})[0].Etat)
+    Assert-True ($null -eq $view.ExpiresUtc) 'Expiration estimee a partir du domaine'
+}
 Test-Case '102' 'Strategie fine nommee mais illisible : inconnue, nommee, jamais remplacee par le domaine' {
     $read=[pscustomobject]@{Dn='CN=Jean';User=@{userAccountControl='512'};ResultantPso=('CN=PSO-Direction,CN=Password Settings Container,CN=System,'+$script:AaDomain);Pso=$null;PsoVisibleCount=0;Domain=@{minPwdLength='8'}}
     $view=ConvertTo-DomeniaPasswordPolicyView -Read $read -NowUtc $script:AaNow
@@ -102,6 +115,23 @@ Test-Case '103' 'Appartenances imbriquees : profondeur, chemin, cycle, groupe no
     Assert-True ($view.Summary -match '1 groupe\(s\) non lu') $view.Summary
     Assert-True ($view.Summary -match 'Groupe principal : Domain Users')
     Assert-False $view.Truncated
+}
+Test-Case '103' 'Groupe audite pris dans une boucle : le cycle qui passe par lui est signale' {
+    $g0='CN=G0,'+$script:AaDomain;$g1='CN=G1,'+$script:AaDomain
+    $read=[pscustomobject]@{
+        Dn=$g0;StartParents=@($g1);StartComplete=$true;StartNote='';Truncated=$false;TruncatedReason='';PrimaryGroup=$null;Unread=@()
+        Nodes=@([pscustomobject]@{Dn=$g1;Name='G1';Sid=($script:AaSid+'-1201');AdminCount='';Parents=@($g0);Partial=$false})
+    }
+    $view=ConvertTo-DomeniaNestedGroupView $read
+    Assert-Equal 1 $view.CycleCount ('Cycles : '+($view.Cycles -join ' | '))
+    Assert-True ($view.Cycles[0] -match '^(G0 → G1 → G0|G1 → G0 → G1)$') $view.Cycles[0]
+    Assert-Equal 1 @($view.Rows).Count 'Le groupe audite nʼest pas une ligne de ses propres appartenances'
+    Assert-Equal 'Oui' @($view.Rows)[0].Cycle
+    Assert-True ($view.Summary -match '1 cycle\(s\)') $view.Summary
+    # A user is never the parent of a group: the same graph started from a user has no cycle through it.
+    $user=[pscustomobject]@{Dn=('CN=Jean,'+$script:AaDomain);StartParents=@($g1);StartComplete=$true;StartNote='';Truncated=$false;TruncatedReason='';PrimaryGroup=$null;Unread=@()
+        Nodes=@([pscustomobject]@{Dn=$g1;Name='G1';Sid=($script:AaSid+'-1201');AdminCount='';Parents=@();Partial=$false})}
+    Assert-Equal 0 (ConvertTo-DomeniaNestedGroupView $user).CycleCount
 }
 Test-Case '103' 'Pourquoi membre : chemin lu, reponse du controleur, lecture bornee et groupe principal' {
     $view=ConvertTo-DomeniaNestedGroupView (New-AaGroupRead)
@@ -237,6 +267,13 @@ Test-Case '108' 'Services des controleurs : refus distinct d un arret, DNS absen
     Assert-Equal 'Conforme' $dc2['NTDS'].Constat;Assert-Equal 'Non démarré : à vérifier' $dc2['W32Time'].Constat;Assert-Equal 'Arrêté' $dc2['W32Time'].Etat
     Assert-True ($dc2['DNS'].Constat -match 'normal si le DNS');Assert-True ($dc2['NtFrs'].Constat -match 'DFSR réplique SYSVOL');Assert-True ($dc2['DFSR'].Constat -match '^Conforme')
 }
+Test-Case '108' 'Services : controleur non interroge faute de temps, sans conclusion sur son etat' {
+    $read=[pscustomobject]@{BudgetSeconds=65;Results=@([pscustomobject]@{Dc='dc3';State='NotRead';Message='Budget de temps épuisé (65 s) : contrôleur non interrogé, relancez la lecture pour lui seul.';Services=@()})}
+    $rows=@(Get-DomeniaDcServiceView -Read $read)
+    Assert-Equal 1 $rows.Count 'Aucun service suppose pour un controleur non interroge'
+    Assert-Equal 'Non interrogé' $rows[0].Etat;Assert-True ($rows[0].Constat -match 'Budget de temps épuisé') $rows[0].Constat
+    Assert-False ($rows[0].Etat -match 'refusée|Arrêté') 'Un controleur non interroge nʼest ni refuse ni arrete'
+}
 
 # ---------------------------------------------------------------- 109
 Test-Case '109' 'Identites : doublons, nom DNS partage, noms divergents et noms recycles, tous a revoir' {
@@ -258,6 +295,16 @@ Test-Case '109' 'Identites : doublons, nom DNS partage, noms divergents et noms 
     Assert-False (($result.Findings|ConvertTo-Json -Depth 3) -match 'Supprim|Fusionn') 'Aucune suppression ni fusion proposee'
     Assert-True ($result.Summary -match 'comparés avec la base locale')
     Assert-True ((Find-DomeniaIdentityConflicts -Rows $rows -LocalIndex ([pscustomobject]@{Busy=$true;Missing=$false})).Summary -match 'occupée')
+    $failed=Find-DomeniaIdentityConflicts -Rows $rows -LocalIndex ([pscustomobject]@{Busy=$false;Missing=$false;Failed=$true;Message='Délai dépassé.'})
+    Assert-Equal 'Failed' $failed.LocalIndex
+    Assert-True ($failed.Summary -match 'Base locale non lue \(Délai dépassé\) : noms recyclés non recherchés') $failed.Summary
+    Assert-False ($failed.Summary -match 'occupée') 'Un echec de lecture nʼest pas une base occupee'
+    Assert-Equal 0 @($failed.Findings|Where-Object{$_.Categorie -eq 'Nom recyclé ou objet recréé'}).Count
+    $partial=Find-DomeniaIdentityConflicts -Rows $rows -LocalIndex $index -NowUtc $script:AaNow -ComparedNames 2000 -TotalNames 3000
+    Assert-True ($partial.Summary -match '2000 noms sur 3000 comparés avec la base locale') $partial.Summary
+    $full=Find-DomeniaIdentityConflicts -Rows $rows -LocalIndex $index -NowUtc $script:AaNow -ComparedNames 4 -TotalNames 4
+    Assert-True ($full.Summary -match 'Noms comparés avec la base locale de ce poste\.') $full.Summary
+    Assert-False ($full.Summary -match 'noms sur') 'Comparaison complete presentee comme partielle'
     Assert-True ((Find-DomeniaIdentityConflicts -Rows $rows).Summary -match 'non consultée')
     Assert-True (@((Find-DomeniaIdentityConflicts -Rows $rows -Truncated $true).Findings)[0].Limite -match 'partiellement')
 }

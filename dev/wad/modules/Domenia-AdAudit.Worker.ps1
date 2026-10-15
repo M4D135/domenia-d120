@@ -614,17 +614,30 @@ function Get-DomeniaDcServicesReadWorkerCode {
 # Point 108: privileged probe, on its own explicit gesture. State of the directory services of at most 10 chosen
 # controllers (NTDS, Netlogon, KDC, W32Time, ADWS, DNS, DFSR, NtFrs) read by CIM. It needs administrative rights on
 # each controller; a refusal is reported per controller. Nothing is started, stopped or changed.
+# Time budget: after the first one, a controller is started only when its worst case (each CIM protocol opened and
+# probed, then the services query) still fits in Payload.BudgetSeconds, kept below the task timeout by the caller.
+# The others are returned as NotRead, so the controllers already read are never lost to a timeout.
 $dcs=@(@($Payload.Dcs)|ForEach-Object{([string]$_).Trim()}|Where-Object{$_}|Select-Object -Unique)
 if(($dcs.Count -lt 1) -or ($dcs.Count -gt 10)){throw 'Choisissez de 1 à 10 contrôleurs.'}
 foreach($dc in $dcs){if($dc -notmatch '^[A-Za-z0-9][A-Za-z0-9.-]{0,253}$'){throw 'Nom de contrôleur invalide : aucune lecture.'}}
+$budget=100
+if(([string]$Payload.BudgetSeconds) -match '^\d{1,4}$'){$budget=[Math]::Max(30,[Math]::Min(600,[int][string]$Payload.BudgetSeconds))}
+$sessionSeconds=10;$querySeconds=15
+$protocols=1;if([bool]$Context.UseWinRM){$protocols=2}
+$worstSeconds=($protocols*2*$sessionSeconds)+$querySeconds+5
+$watch=[Diagnostics.Stopwatch]::StartNew()
 $filter=(@('NTDS','Netlogon','Kdc','W32Time','ADWS','DNS','DFSR','NtFrs')|ForEach-Object{"Name='"+$_+"'"}) -join ' OR '
 $credential=Get-WMachineCredential $Context
 $results=[Collections.Generic.List[object]]::new()
 foreach($dc in $dcs){
+    if(($results.Count -gt 0) -and (($watch.Elapsed.TotalSeconds+$worstSeconds) -gt $budget)){
+        $results.Add([pscustomobject]@{Dc=$dc;State='NotRead';Message=('Budget de temps épuisé ('+[string]$budget+' s) : contrôleur non interrogé, relancez la lecture pour lui seul.');Services=@()})
+        continue
+    }
     $state='Read';$message='';$services=@();$session=$null
     try{
-        $session=New-WDomeniaCimSession $Context $dc $credential 15
-        $services=@(Get-CimInstance -CimSession $session -ClassName Win32_Service -Filter $filter -Property Name,State,StartMode -OperationTimeoutSec 20 -ErrorAction Stop | ForEach-Object {[pscustomobject]@{Name=[string]$_.Name;State=[string]$_.State;StartMode=[string]$_.StartMode}})
+        $session=New-WDomeniaCimSession $Context $dc $credential $sessionSeconds
+        $services=@(Get-CimInstance -CimSession $session -ClassName Win32_Service -Filter $filter -Property Name,State,StartMode -OperationTimeoutSec $querySeconds -ErrorAction Stop | ForEach-Object {[pscustomobject]@{Name=[string]$_.Name;State=[string]$_.State;StartMode=[string]$_.StartMode}})
     }catch{
         if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw}
         $state=if([string](Get-DomeniaStructuredError $_).Kind -eq 'AccessDenied'){'Refused'}else{'Unavailable'}
@@ -632,7 +645,8 @@ foreach($dc in $dcs){
     }finally{Remove-WDomeniaCimSession $session}
     $results.Add([pscustomobject]@{Dc=$dc;State=$state;Message=$message;Services=$services})
 }
-[pscustomobject]@{Results=$results.ToArray();ObservedUtc=[datetime]::UtcNow.ToString('o')}
+$watch.Stop()
+[pscustomobject]@{Results=$results.ToArray();BudgetSeconds=$budget;ElapsedMs=[long]$watch.ElapsedMilliseconds;ObservedUtc=[datetime]::UtcNow.ToString('o')}
 '@
 }
 

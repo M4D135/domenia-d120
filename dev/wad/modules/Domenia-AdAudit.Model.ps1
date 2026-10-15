@@ -154,11 +154,15 @@ function ConvertTo-DomeniaPasswordPolicyView {
     $pso = Get-DomeniaMember $Read 'Pso' $null
     $domain = Get-DomeniaMember $Read 'Domain' $null
     $visible = [int](Get-DomeniaMember $Read 'PsoVisibleCount' (-1))
+    # The worker falls back to the plain attributes when the read naming msDS-ResultantPSO fails: an empty value then
+    # means "not read", never "no fine-grained policy".
+    $resultantError = ([string](Get-DomeniaMember $Read 'ResultantError' '')).Trim().TrimEnd('.')
     $state = 'Unreadable'; $reason = ''
     if ($resultant) {
         if ($null -ne $pso) { $state = 'Applies' }
         else { $reason = 'Une stratégie fine sʼapplique (' + (Get-DomeniaCnFromDn $resultant) + ') mais ses paramètres ne sont pas lisibles avec ce compte.' }
     }
+    elseif ($resultantError) { $reason = 'msDS-ResultantPSO non lu (' + $resultantError + ') : la stratégie du domaine nʼest donc pas présumée.' }
     elseif ($visible -gt 0) {
         if ($null -ne $domain) { $state = 'None' }
         else { $reason = 'Aucune stratégie fine ne sʼapplique, mais la stratégie du domaine nʼa pas pu être lue.' }
@@ -326,9 +330,9 @@ function ConvertTo-DomeniaNestedGroupView {
             $queue.Enqueue($parent)
         }
     }
-    $groupEdges = @{}
-    foreach ($key in @($edges.Keys)) { if ($key -ne $startKey) { $groupEdges[$key] = $edges[$key] } }
-    $cycles = Find-DomeniaGroupCycles -Edges $groupEdges -MaxCycles 20
+    # The object itself takes part: an audited group inside a loop (G0 -> G1 -> G0) closes a cycle through it. A user
+    # or a computer is never listed in the memberOf of a group, so a start node of that kind cannot close one.
+    $cycles = Find-DomeniaGroupCycles -Edges $edges -MaxCycles 20
     $inCycle = @{}
     foreach ($cycle in $cycles) { foreach ($member in @($cycle)) { $inCycle[[string]$member] = $true } }
     $rows = New-Object 'System.Collections.Generic.List[object]'
@@ -870,8 +874,10 @@ function Get-DomeniaDcServiceView {
         $dc = [string](Get-DomeniaMember $result 'Dc' '')
         $state = [string](Get-DomeniaMember $result 'State' '')
         if ($state -ne 'Read') {
+            # NotRead: the time budget of the probe ran out before this controller; nothing is concluded about it.
             $text = 'Lecture impossible'
             if ($state -eq 'Refused') { $text = 'Lecture refusée : droits dʼadministration du contrôleur requis' }
+            elseif ($state -eq 'NotRead') { $text = 'Non interrogé' }
             $rows.Add([pscustomobject]@{Controleur=$dc;Service='';Etat=$text;Demarrage='';Constat=([string](Get-DomeniaMember $result 'Message' ''))})
             continue
         }
@@ -930,8 +936,9 @@ function Find-DomeniaIdentityConflicts {
     # Point 109: names and identities to review in one perimeter: duplicates (mail, logon name, employee number),
     # computers sharing a DNS name, AD name and DNS name that diverge, and names the local index associates with
     # another object (recycled name or recreated object). Every finding is "À revoir": nothing is merged, renamed or
-    # deleted, and observations stay with the object GUID they were read for.
-    param([object[]]$Rows=@(),$LocalIndex=$null,[bool]$Truncated=$false,[datetime]$NowUtc=[datetime]::UtcNow,[ValidateRange(30,3650)][int]$StaleDays=180)
+    # deleted, and observations stay with the object GUID they were read for. ComparedNames / TotalNames: how many
+    # logon and workstation names were sent to the local index out of those of the perimeter (-1: not said).
+    param([object[]]$Rows=@(),$LocalIndex=$null,[bool]$Truncated=$false,[datetime]$NowUtc=[datetime]::UtcNow,[ValidateRange(30,3650)][int]$StaleDays=180,[int]$ComparedNames=-1,[int]$TotalNames=0)
     $findings = New-Object 'System.Collections.Generic.List[object]'
     $limit = 'Périmètre choisi uniquement.'
     if ($Truncated) { $limit = 'Périmètre lu partiellement : la liste des constats est incomplète.' }
@@ -955,6 +962,7 @@ function Find-DomeniaIdentityConflicts {
     $localState = 'NotRead'
     if ($null -ne $LocalIndex) {
         if ([bool](Get-DomeniaMember $LocalIndex 'Missing' $false)) { $localState = 'Missing' }
+        elseif ([bool](Get-DomeniaMember $LocalIndex 'Failed' $false)) { $localState = 'Failed' }
         elseif ([bool](Get-DomeniaMember $LocalIndex 'Busy' $false)) { $localState = 'Busy' }
         else { $localState = 'Read' }
     }
@@ -988,7 +996,15 @@ function Find-DomeniaIdentityConflicts {
         }
     }
     $localText = switch ($localState) {
-        'Read' { 'Noms comparés avec la base locale de ce poste.' }
+        'Read' {
+            if (($ComparedNames -ge 0) -and ($ComparedNames -lt $TotalNames)) { [string]$ComparedNames + ' noms sur ' + [string]$TotalNames + ' comparés avec la base locale de ce poste : les autres ne sont pas recherchés, analysez une OU plus petite.' }
+            else { 'Noms comparés avec la base locale de ce poste.' }
+        }
+        'Failed' {
+            $message = ([string](Get-DomeniaMember $LocalIndex 'Message' '')).Trim().TrimEnd('.')
+            if (-not $message) { $message = 'raison non renvoyée' }
+            'Base locale non lue (' + $message + ') : noms recyclés non recherchés.'
+        }
         'Missing' { 'Base locale absente : noms recyclés non recherchés.' }
         'Busy' { 'Base locale occupée : noms recyclés non recherchés, relancez lʼanalyse.' }
         default { 'Base locale non consultée : noms recyclés non recherchés.' }

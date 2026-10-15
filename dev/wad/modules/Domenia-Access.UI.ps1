@@ -24,7 +24,8 @@ function Get-DomeniaAccessScope {
         if($resource -eq 'Laps'){return 'ReadLaps'}
         if($resource -eq 'BitLocker'){return 'ReadBitLocker'}
     }
-    if($OperationId -in @('SessionsList','LiveConsole','ComputerDiagnostics','ComputerLastUser','ComputerInventory','SoftwareInventory','WmiNamespaces','WmiClasses','WmiQuery','ComputerGpUpdate','ComputerRestart','RimotteRun','UserComputerProbe','BatchNetworkDiag','ParkSweep')){return 'Remote'}
+    # Points 105, 108 and 109: the CIM reads of the Audit AD keep the replacement account on the machine channel.
+    if($OperationId -in @('SessionsList','LiveConsole','ComputerDiagnostics','ComputerLastUser','ComputerInventory','SoftwareInventory','WmiNamespaces','WmiClasses','WmiQuery','ComputerGpUpdate','ComputerRestart','RimotteRun','UserComputerProbe','BatchNetworkDiag','ParkSweep','GpoAppliedRead','DcServicesRead','MachineIdentityRead')){return 'Remote'}
     if($OperationId){return 'AD:'+ $OperationId}
     return 'Directory'
 }

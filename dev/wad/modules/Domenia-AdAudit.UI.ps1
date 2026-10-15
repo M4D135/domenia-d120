@@ -91,7 +91,8 @@ function Reset-DomeniaAdAuditData {
     # A new session or a new target starts empty: nothing read for another account or object is kept.
     $script:AdAuditData=[pscustomobject]@{
         Epoch=[long]$script:SessionEpoch;GroupView=$null;Acl=$null;AclView=$null;Token=$null;GpoLinks=$null;GpoRsop=$null
-        DcList=@();DcPdc='';DcRequest=0L;ScanRequest=0L;ScanRead=$null;ScanIndex=$null
+        DcList=@();DcPdc='';DcListRequest=0L;DcProbeRequest=0L;DcServicesRequest=0L;ScanRequest=0L;ScanRead=$null;ScanIndex=$null
+        ScanIndexCompared=-1;ScanIndexTotal=0
     }
     $script:AdAuditTarget=$null
     if($null -eq $script:AdAuditView){return}
@@ -283,6 +284,9 @@ function Complete-DomeniaAdAuditGroupConfirm {
 function Fail-DomeniaAdAuditGroupConfirm {
     param($Message,$State)
     if(-not (Test-DomeniaAdAuditCallback $State)){return}
+    # Same rule as the success: the failure is told only under the group the controller was asked about.
+    $choice=(Get-DomeniaControl 'CmbAdAuditGroupTarget').SelectedItem
+    if(($null -eq $choice) -or ([string]$choice.Dn -ine [string]$State.Extra)){return}
     Update-DomeniaAdAuditGroupPath -ServerError ([string]$Message)
     Update-DomeniaAdAuditTargetUi
 }
@@ -544,9 +548,12 @@ function Fail-DomeniaAdAuditHistoryRead {
 
 # ---------------------------------------------------------------- point 108
 function New-DomeniaAdAuditRequestState {
-    param([string]$Kind)
-    if($Kind -eq 'Scan'){$script:AdAuditData.ScanRequest=[long]$script:AdAuditData.ScanRequest+1;$request=[long]$script:AdAuditData.ScanRequest}
-    else{$script:AdAuditData.DcRequest=[long]$script:AdAuditData.DcRequest+1;$request=[long]$script:AdAuditData.DcRequest}
+    # One counter per kind of request: a newer list replaces an older list only, so a services read started during a
+    # probe never discards the probe (and the reverse). A new session resets every counter (Reset-DomeniaAdAuditData).
+    param([ValidateSet('DcList','DcProbe','DcServices','Scan')][string]$Kind)
+    $field=$Kind+'Request'
+    $request=[long]$script:AdAuditData.$field+1
+    $script:AdAuditData.$field=$request
     return [pscustomobject]@{Epoch=[long]$script:SessionEpoch;Kind=$Kind;Request=$request}
 }
 
@@ -554,8 +561,10 @@ function Test-DomeniaAdAuditRequestCurrent {
     param($State)
     if(($null -eq $State) -or ($null -eq $script:AdAuditData)){return $false}
     if(([long]$State.Epoch -ne [long]$script:SessionEpoch) -or ([long]$script:AdAuditData.Epoch -ne [long]$script:SessionEpoch)){return $false}
-    if([string]$State.Kind -eq 'Scan'){return ([long]$State.Request -eq [long]$script:AdAuditData.ScanRequest)}
-    return ([long]$State.Request -eq [long]$script:AdAuditData.DcRequest)
+    $kind=[string]$State.Kind
+    if($kind -notin @('DcList','DcProbe','DcServices','Scan')){return $false}
+    $field=$kind+'Request'
+    return ([long]$State.Request -eq [long]$script:AdAuditData.$field)
 }
 
 function Start-DomeniaAdAuditDcList {
@@ -634,7 +643,12 @@ function Start-DomeniaAdAuditDcServices {
     if($dcs.Count -gt 10){[void](Set-DomeniaControlText 'LblAdAuditDc' ('Lecture bornée à 10 contrôleurs : '+[string]$dcs.Count+' sont choisis.'));return}
     if(-not (Confirm-Action ('Lire par CIM lʼétat des services de lʼannuaire sur '+[string]$dcs.Count+' contrôleur(s) ? Cette sonde demande des droits dʼadministration sur chaque contrôleur ; aucun service nʼest modifié.'))){return}
     [void](Set-DomeniaControlText 'LblAdAuditDc' ('Lecture des services de '+[string]$dcs.Count+' contrôleur(s)…'))
-    Invoke-DomeniaAdAuditStart 'LblAdAuditDc' {Start-UiTask -Name 'Audit AD : services des contrôleurs' -OperationId 'DcServicesRead' -Code (Get-DomeniaDcServicesReadWorkerCode) -Payload ([pscustomobject]@{Dcs=$dcs}) -CallbackState (New-DomeniaAdAuditRequestState 'DcServices') -ReplaceKey 'adaudit-dc-services' -DisableControls @('BtnAdAuditDcServices') -TimeoutSeconds 120 -SuccessHandler 'Complete-DomeniaAdAuditDcServices' -ErrorHandler 'Fail-DomeniaAdAuditDcServices' -TaskClass 'Explicit'}
+    # An unreachable controller costs up to two CIM attempts: the task timeout grows with the number chosen and the
+    # worker keeps 20 s below it, so the controllers already read are returned instead of a timeout. Target keeps the
+    # outcome of this privileged probe on its own resource, not on the provider-wide CIM entry of background reads.
+    $timeout=[Math]::Min(300,60+(25*$dcs.Count))
+    $payload=[pscustomobject]@{Dcs=$dcs;BudgetSeconds=($timeout-20);Target='adaudit-dc-services'}
+    Invoke-DomeniaAdAuditStart 'LblAdAuditDc' {Start-UiTask -Name 'Audit AD : services des contrôleurs' -OperationId 'DcServicesRead' -Code (Get-DomeniaDcServicesReadWorkerCode) -Payload $payload -CallbackState (New-DomeniaAdAuditRequestState 'DcServices') -ReplaceKey 'adaudit-dc-services' -DisableControls @('BtnAdAuditDcServices') -TimeoutSeconds $timeout -SuccessHandler 'Complete-DomeniaAdAuditDcServices' -ErrorHandler 'Fail-DomeniaAdAuditDcServices' -TaskClass 'Explicit'}
 }
 
 function Complete-DomeniaAdAuditDcServices {
@@ -647,7 +661,10 @@ function Complete-DomeniaAdAuditDcServices {
     $tabs=Get-DomeniaControl 'AdAuditDcResultTabs'
     $tab=Get-DomeniaControl 'TabAdAuditDcServices'
     if(($null -ne $tabs) -and ($null -ne $tab)){$tabs.SelectedItem=$tab}
-    [void](Set-DomeniaControlText 'LblAdAuditDc' ('Services lus le '+(Get-DomeniaAdAuditTimeText $read.ObservedUtc)+'. Un refus signale un manque de droits, pas un service arrêté.'))
+    $text='Services lus le '+(Get-DomeniaAdAuditTimeText $read.ObservedUtc)+'. Un refus signale un manque de droits, pas un service arrêté.'
+    $skipped=@(@($read.Results)|Where-Object{($null -ne $_) -and ([string]$_.State -eq 'NotRead')}).Count
+    if($skipped -gt 0){$text+=' '+[string]$skipped+' contrôleur(s) non interrogé(s) : temps de lecture épuisé.'}
+    [void](Set-DomeniaControlText 'LblAdAuditDc' $text)
 }
 
 function Fail-DomeniaAdAuditDcServices {
@@ -671,7 +688,7 @@ function Start-DomeniaAdAuditScan {
     if((-not $domain) -or (-not $ou)){[void](Set-DomeniaControlText 'LblAdAuditScan' 'Choisissez dʼabord une OU dans lʼarbre de Rechercher.');return}
     $subtree=[bool](Get-DomeniaControl 'ChkAdAuditScanSubtree').IsChecked
     if($subtree -and ($ou -ieq $domain)){[void](Set-DomeniaControlText 'LblAdAuditScan' 'Le domaine entier nʼest pas analysé : choisissez une OU, ou décochez « Inclure les sous-OU ».');return}
-    $script:AdAuditData.ScanRead=$null;$script:AdAuditData.ScanIndex=$null
+    $script:AdAuditData.ScanRead=$null;$script:AdAuditData.ScanIndex=$null;$script:AdAuditData.ScanIndexCompared=-1;$script:AdAuditData.ScanIndexTotal=0
     [void](Set-DomeniaItemsSource 'DgAdAuditScan' @())
     [void](Set-DomeniaControlText 'LblAdAuditScan' 'Lecture des utilisateurs et postes de lʼOU (5 000 au plus)…')
     $payload=[pscustomobject]@{BaseDn=$ou;Subtree=$subtree;Limit=5000}
@@ -689,9 +706,14 @@ function Complete-DomeniaAdAuditScan {
     Update-DomeniaAdAuditScanFindings
     $path=[string](Get-DomeniaLocalDatabasePathForRead)
     if(-not $path){return}
-    $users=@(@($read.Rows)|Where-Object{[string]$_.Type -eq 'Utilisateur'}|ForEach-Object{[string]$_.Sam}|Where-Object{$_}|Select-Object -First 1000)
-    $computers=@(@($read.Rows)|Where-Object{[string]$_.Type -eq 'Machine'}|ForEach-Object{[string]$_.Name}|Where-Object{$_}|Select-Object -First 1000)
+    # The local read takes 1000 names of each kind: the view says how many were compared out of the perimeter.
+    $allUsers=@(@($read.Rows)|Where-Object{[string]$_.Type -eq 'Utilisateur'}|ForEach-Object{([string]$_.Sam).Trim()}|Where-Object{$_}|Sort-Object -Unique)
+    $allComputers=@(@($read.Rows)|Where-Object{[string]$_.Type -eq 'Machine'}|ForEach-Object{([string]$_.Name).Trim()}|Where-Object{$_}|Sort-Object -Unique)
+    $users=@($allUsers|Select-Object -First 1000)
+    $computers=@($allComputers|Select-Object -First 1000)
     if(($users.Count -eq 0) -and ($computers.Count -eq 0)){return}
+    $script:AdAuditData.ScanIndexCompared=($users.Count+$computers.Count)
+    $script:AdAuditData.ScanIndexTotal=($allUsers.Count+$allComputers.Count)
     $payload=[pscustomobject]@{Action='ResolveNames';Path=$path;BusyTimeoutMs=250;Users=$users;Computers=$computers}
     # The AD findings are already shown: a local read that cannot start only leaves the recycled names unsearched.
     try{[void](Start-UiTask -Name 'Audit AD : noms dans la base locale' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload $payload -CallbackState $State -ReplaceKey 'adaudit-scan-index' -TimeoutSeconds 30 -SuccessHandler 'Complete-DomeniaAdAuditScanIndex' -ErrorHandler 'Fail-DomeniaAdAuditScanIndex' -TaskClass 'Explicit')}
@@ -716,14 +738,15 @@ function Complete-DomeniaAdAuditScanIndex {
 function Fail-DomeniaAdAuditScanIndex {
     param($Message,$State)
     if(-not (Test-DomeniaAdAuditRequestCurrent $State)){return}
-    $script:AdAuditData.ScanIndex=[pscustomobject]@{Busy=$true;Missing=$false;Message=[string]$Message}
+    # A failed, refused or timed-out local read is said as such: the base was not necessarily busy.
+    $script:AdAuditData.ScanIndex=[pscustomobject]@{Busy=$false;Missing=$false;Failed=$true;Message=[string]$Message}
     Update-DomeniaAdAuditScanFindings
 }
 
 function Update-DomeniaAdAuditScanFindings {
     $read=$script:AdAuditData.ScanRead
     if($null -eq $read){return}
-    $result=Find-DomeniaIdentityConflicts -Rows @($read.Rows) -LocalIndex $script:AdAuditData.ScanIndex -Truncated ([bool]$read.Truncated) -NowUtc ([datetime]::UtcNow)
+    $result=Find-DomeniaIdentityConflicts -Rows @($read.Rows) -LocalIndex $script:AdAuditData.ScanIndex -Truncated ([bool]$read.Truncated) -NowUtc ([datetime]::UtcNow) -ComparedNames ([int]$script:AdAuditData.ScanIndexCompared) -TotalNames ([int]$script:AdAuditData.ScanIndexTotal)
     [void](Set-DomeniaItemsSource 'DgAdAuditScan' @($result.Findings))
     $text=[string]$result.Summary+' Lu sur '+[string]$read.Server+' le '+(Get-DomeniaAdAuditTimeText $read.ObservedUtc)
     if([bool]$read.Truncated){$text+=' ; lecture bornée à '+[string]$read.Limit+' objets'}

@@ -1377,6 +1377,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Test-DomeniaAssistanceRecipes',
             'Get-DomeniaAssistanceSubjectLabel',
             'Get-DomeniaAssistanceStepState',
+            'Test-DomeniaAssistanceDispatched',
             'ConvertTo-DomeniaAssistanceStepRows',
             'Get-DomeniaAssistancePlanText'
         ) }
@@ -1390,6 +1391,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Update-DomeniaAssistanceStepDetail',
             'Open-DomeniaAssistanceRoute',
             'Open-DomeniaAssistanceStepView',
+            'Get-DomeniaAssistanceTaskMarks',
             'Invoke-DomeniaAssistanceStep'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Demo.Model.ps1'); File='Domenia-Demo.UI.ps1'; DotSource=$true; Functions=@(

@@ -54,3 +54,12 @@ Test-Case '110' 'Plan annonce avant le premier clic : lectures par sujet, droits
     Assert-True $deep.Arguments['Deep'] 'Inventaire complet demande explicitement'
     Assert-Equal 'ComputerInventory' $deep.OperationId
 }
+Test-Case '110' 'Lancement constate seulement quand une lecture part : nouvelle tache ou lecture identique rejointe' {
+    Assert-False (Test-DomeniaAssistanceDispatched -Before @{} -After @{}) 'Aucune tache : rien n est parti'
+    Assert-False (Test-DomeniaAssistanceDispatched -Before @{'t1'=0} -After @{'t1'=0}) 'Tache deja presente, inchangee : rien n est parti'
+    Assert-False (Test-DomeniaAssistanceDispatched -Before @{'t1'=1} -After @{}) 'Tache terminee entre-temps : pas un lancement'
+    Assert-True (Test-DomeniaAssistanceDispatched -Before @{'t1'=0} -After @{'t1'=0;'t2'=0}) 'Nouvelle tache de l operation'
+    Assert-True (Test-DomeniaAssistanceDispatched -Before @{'t1'=0} -After @{'t1'=1}) 'Lecture identique rejointe (D015)'
+    Assert-True (Test-DomeniaAssistanceDispatched -Before $null -After @{'t1'=0})
+    Assert-False (Test-DomeniaAssistanceDispatched -Before @{'t1'=0} -After $null)
+}

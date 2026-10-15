@@ -135,6 +135,23 @@ function Open-DomeniaAssistanceStepView {
     if(-not (Open-DomeniaAssistanceRoute $row.Step)){[void](Set-DomeniaControlText 'LblAssistanceStep' 'Vue de cette étape indisponible dans cette version.')}
 }
 
+function Get-DomeniaAssistanceTaskMarks {
+    # Engine tasks of one operation, queued or running: task id -> number of subscribers of a shared read (D015).
+    # Compared before and after a step by Test-DomeniaAssistanceDispatched.
+    param([string]$OperationId)
+    $marks=@{}
+    if((-not $OperationId) -or ($null -eq $script:AsyncJobs)){return $marks}
+    foreach($id in @($script:AsyncJobs.Keys)){
+        $job=$script:AsyncJobs[$id]
+        if(($null -eq $job) -or ([string](Get-DomeniaMember $job 'OperationId' '') -cne $OperationId)){continue}
+        $subscribers=Get-DomeniaMemberValue $job 'Subscribers' $null
+        $count=0
+        if($null -ne $subscribers){$count=@($subscribers).Count}
+        $marks[[string]$id]=$count
+    }
+    return $marks
+}
+
 function Invoke-DomeniaAssistanceStep {
     # One click, one read: the step's view is opened, then its single explicit read is started for the selection.
     $row=(Get-DomeniaControl 'DgAssistanceSteps').SelectedItem
@@ -152,7 +169,15 @@ function Invoke-DomeniaAssistanceStep {
     [void](Open-DomeniaAssistanceRoute $step)
     $arguments=@{}
     foreach($key in @($step.Arguments.Keys)){$arguments[[string]$key]=$step.Arguments[$key]}
+    # The operation comes from the closed list, never from the row: only a task of that read counts as a launch.
+    $operation=[string]$actions[[string]$step.Action]
+    $before=Get-DomeniaAssistanceTaskMarks $operation
     & $command @arguments
+    if(-not (Test-DomeniaAssistanceDispatched -Before $before -After (Get-DomeniaAssistanceTaskMarks $operation))){
+        # The action returned without sending its read (target not loaded, engine busy, refusal): its own view says why.
+        [void](Set-DomeniaControlText 'LblAssistanceStep' ([string]$row.Title+' : rien nʼa été lancé, voir le message de la vue ouverte.'))
+        return
+    }
     $script:AssistanceLaunched[[string]$selection.Key+'|'+[string]$recipe.Id+'|'+[string]$step.Id]=[datetime]::UtcNow
     Update-DomeniaAssistanceView
     [void](Set-DomeniaControlText 'LblAssistanceStep' ([string]$row.Title+' : lecture demandée. Son résultat sʼaffiche dans la vue ouverte ; revenez ici pour lʼétape suivante.'))

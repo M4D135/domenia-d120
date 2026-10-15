@@ -154,6 +154,20 @@ function Get-DomeniaAssistanceStepState {
     return [pscustomobject]@{CanRun=$true;CanOpen=$true;Text='À lancer'}
 }
 
+function Test-DomeniaAssistanceDispatched {
+    # Whether the read of a step really left. Several allowed actions return without starting anything (target not
+    # loaded, engine at capacity, maintenance, target refused) and only show their reason in their own view. Before
+    # and After map the engine tasks of the step's operation (task id -> number of subscribers) around the call: a
+    # new task, or one more subscriber on an identical read already queued or running (D015), proves a dispatch.
+    param([Collections.IDictionary]$Before=$null,[Collections.IDictionary]$After=$null)
+    if ($null -eq $After) { return $false }
+    foreach ($key in @($After.Keys)) {
+        if (($null -eq $Before) -or (-not $Before.Contains($key))) { return $true }
+        if ([int]$After[$key] -gt [int]$Before[$key]) { return $true }
+    }
+    return $false
+}
+
 function ConvertTo-DomeniaAssistanceStepRows {
     # Grid rows of one recipe for the current selection. $Launched: map step id -> UTC time of its last launch.
     param($Recipe,[AllowEmptyString()][string]$SelectionType='',[Collections.IDictionary]$Launched=$null)

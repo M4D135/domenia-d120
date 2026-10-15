@@ -44,10 +44,12 @@ try{
         throw 'Windows PowerShell 5.1 x64 -STA requis ; une execution sous un autre moteur ne vaut pas preuve.'
     }
     Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
-    foreach($file in @($script:AuditFiles+@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Search.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Directory.Model.ps1','Domenia-Workstation.Model.ps1','Domenia-Safety.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Engine.Worker.ps1'))){
+    foreach($file in @($script:AuditFiles+@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Search.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Directory.Model.ps1','Domenia-Workstation.Model.ps1','Domenia-Safety.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Engine.Worker.ps1','Domenia-Access.Model.ps1'))){
         [void](Read-SourceAst (Join-Path $modules $file))
         . (Join-Path $modules $file)
     }
+    # Scope of a replacement account (channel AD or machine), taken alone from the access module of the interface.
+    . ([scriptblock]::Create((Get-FunctionText (Read-SourceAst (Join-Path $modules 'Domenia-Access.UI.ps1')) 'Get-DomeniaAccessScope')))
     $script:CoreAst=Read-SourceAst (Join-Path $wad 'Domenia-Core.ps1')
     $script:CoreText=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1'),[Text.Encoding]::UTF8)
     foreach($name in @('Get-DomeniaControl','Set-DomeniaControlText','Set-DomeniaControlEnabled','Set-DomeniaItemsSource','Get-DomeniaEffectiveWorkerResult','Get-MainXaml')){
@@ -62,7 +64,7 @@ try{
 # Doubles of the application boundaries: no worker, no network, no clipboard, no dialog.
 function Start-UiTask {
     param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$DisableControls,$TimeoutSeconds,$SuccessHandler,$ErrorHandler,$TaskClass)
-    $script:Tasks.Add([pscustomobject]@{Name=$Name;OperationId=$OperationId;Code=$Code;Payload=$Payload;State=$CallbackState;ReplaceKey=$ReplaceKey;Success=$SuccessHandler;Error=$ErrorHandler;TaskClass=$TaskClass;Disable=@($DisableControls)})
+    $script:Tasks.Add([pscustomobject]@{Name=$Name;OperationId=$OperationId;Code=$Code;Payload=$Payload;State=$CallbackState;ReplaceKey=$ReplaceKey;Success=$SuccessHandler;Error=$ErrorHandler;TaskClass=$TaskClass;Disable=@($DisableControls);Timeout=[int]$TimeoutSeconds})
     return ('task-'+$script:Tasks.Count)
 }
 function Set-Status {param($Text,$Level);$script:Statuses.Add([string]$Text)}
@@ -122,12 +124,15 @@ if($infrastructure){
             Expect ((Get-DomeniaOperationProvider $operation) -eq 'Cim') $operation
             $needs=Get-DomeniaOperationCredentialNeeds $operation
             Expect ($needs.Machine -and $needs.Remote -and (-not $needs.Directory) -and (-not $needs.DirectoryBreaker) -and ($needs.Resource -eq 'Remote')) ('Comptes : '+$operation)
+            # A replacement account entered after a refusal goes to the machine channel these workers use.
+            Expect ((Get-DomeniaAccessScope $operation) -eq 'Remote') ('Portee du compte de remplacement : '+$operation+' -> '+(Get-DomeniaAccessScope $operation))
         }
         $history=Get-DomeniaOperationCredentialNeeds 'RelationHistoryRead'
         Expect ((Get-DomeniaOperationProvider 'RelationHistoryRead') -eq 'Storage' -and $history.NonDirectory -and (-not $history.DirectoryCredential) -and ($history.Resource -eq 'Local'))
         foreach($operation in @('PasswordPolicyRead','GroupPathRead','DelegationRead','GpoLinksRead','AdHealthRead','AdConsistencyScan')){
             $needs=Get-DomeniaOperationCredentialNeeds $operation
             Expect (((Get-DomeniaOperationProvider $operation) -eq 'Directory') -and $needs.Directory -and $needs.DirectoryCredential -and (-not $needs.Remote)) ('Annuaire : '+$operation)
+            Expect ((Get-DomeniaAccessScope $operation) -eq ('AD:'+$operation)) ('Portee annuaire : '+$operation)
             Expect ([bool](Get-DomeniaTaskDedupKey -OperationId $operation -ReaderIdentity 'r' -Payload ([pscustomobject]@{Dn='x'}))) ('Lecture non partageable : '+$operation)
         }
     }
@@ -246,6 +251,17 @@ if($infrastructure){
         Expect ($confirm.Payload.Mode -eq 'Confirm' -and $confirm.Payload.TargetDn -eq 'CN=G2,DC=example,DC=invalid' -and $confirm.ReplaceKey -eq 'adaudit-group-confirm')
         Complete-DomeniaAdAuditGroupConfirm ([pscustomobject]@{Dn=$dn;TargetDn='CN=G2,DC=example,DC=invalid';ServerAnswer=$true;ServerError=''}) $confirm.State
         Expect ($script:Ctrl.LblAdAuditGroupPath.Text -match 'confirmé par le contrôleur') $script:Ctrl.LblAdAuditGroupPath.Text
+        # A failure arriving after another group was chosen is not written under that group.
+        Start-DomeniaAdAuditGroupConfirm
+        $again=Get-LastTask
+        $script:Ctrl.CmbAdAuditGroupTarget.SelectedItem=@($script:Ctrl.CmbAdAuditGroupTarget.ItemsSource|Where-Object{$_.Groupe -eq 'G1'})[0]
+        Update-DomeniaAdAuditGroupPath
+        $shown=$script:Ctrl.LblAdAuditGroupPath.Text
+        Fail-DomeniaAdAuditGroupConfirm 'Serveur injoignable' $again.State
+        Expect (($script:Ctrl.LblAdAuditGroupPath.Text -eq $shown) -and ($shown -notmatch 'Confirmation du contrôleur impossible')) 'Echec affiche sous un groupe non demande'
+        $script:Ctrl.CmbAdAuditGroupTarget.SelectedItem=@($script:Ctrl.CmbAdAuditGroupTarget.ItemsSource|Where-Object{$_.Groupe -eq 'G2'})[0]
+        Fail-DomeniaAdAuditGroupConfirm 'Serveur injoignable' $again.State
+        Expect ($script:Ctrl.LblAdAuditGroupPath.Text -match 'Confirmation du contrôleur impossible : Serveur injoignable') $script:Ctrl.LblAdAuditGroupPath.Text
     }
     Case 'Delegations : liste lue, filtre local, estimation sans puis avec les groupes du beneficiaire' {
         Reset-AuditFixture;Select-AuditObject
@@ -324,8 +340,31 @@ if($infrastructure){
         $script:ConfirmAnswer=$true;Start-DomeniaAdAuditDcServices
         $services=Get-LastTask
         Expect ($services.OperationId -eq 'DcServicesRead' -and @($services.Payload.Dcs).Count -eq 2)
-        Complete-DomeniaAdAuditDcServices ([pscustomobject]@{Results=@([pscustomobject]@{Dc='dc1.example.invalid';State='Refused';Message='Accès refusé';Services=@()});ObservedUtc=$now.ToString('o')}) $services.State
-        Expect (@($script:Ctrl.DgAdAuditServices.ItemsSource).Count -eq 1 -and $script:Ctrl.AdAuditDcResultTabs.SelectedItem.Name -eq 'TabAdAuditDcServices')
+        # The worker keeps 20 s below a timeout sized by the number of controllers, on its own resource.
+        Expect (($services.Timeout -eq 110) -and ([int]$services.Payload.BudgetSeconds -eq 90) -and ([string]$services.Payload.Target -eq 'adaudit-dc-services')) ('Budget : '+[string]$services.Timeout+' / '+[string]$services.Payload.BudgetSeconds)
+        Complete-DomeniaAdAuditDcServices ([pscustomobject]@{Results=@([pscustomobject]@{Dc='dc1.example.invalid';State='Refused';Message='Accès refusé';Services=@()},[pscustomobject]@{Dc='dc3.example.invalid';State='NotRead';Message='Budget de temps épuisé (90 s) : contrôleur non interrogé, relancez la lecture pour lui seul.';Services=@()});ObservedUtc=$now.ToString('o')}) $services.State
+        Expect (@($script:Ctrl.DgAdAuditServices.ItemsSource).Count -eq 2 -and $script:Ctrl.AdAuditDcResultTabs.SelectedItem.Name -eq 'TabAdAuditDcServices')
+        Expect ($script:Ctrl.LblAdAuditDc.Text -match '1 contrôleur\(s\) non interrogé\(s\)') $script:Ctrl.LblAdAuditDc.Text
+        # A services read started during a probe does not discard the probe, and the reverse.
+        Start-DomeniaAdAuditDcProbe;$probe2=Get-LastTask
+        Start-DomeniaAdAuditDcServices;$services2=Get-LastTask
+        Expect ($probe2.OperationId -eq 'AdHealthRead' -and $services2.OperationId -eq 'DcServicesRead')
+        $script:Ctrl.DgAdAuditHealth.ItemsSource=@()
+        Complete-DomeniaAdAuditDcProbe ([pscustomobject]@{Action='Probe';SrvState='ModuleMissing';Srv=@();Pdc='dc1.example.invalid';ObservedUtc=$now.ToString('o');Results=@([pscustomobject]@{Dc='dc3.example.invalid';Ldap=$false;Kerberos=$false;RootDse='NotRead';Addresses=@()})}) $probe2.State
+        Expect ((@($script:Ctrl.DgAdAuditHealth.ItemsSource).Count -eq 1) -and (@($script:Ctrl.DgAdAuditHealth.ItemsSource)[0].Controleur -eq 'dc3.example.invalid')) 'Diagnostic jete par la lecture des services'
+        $script:Ctrl.DgAdAuditServices.ItemsSource=@()
+        Complete-DomeniaAdAuditDcServices ([pscustomobject]@{Results=@([pscustomobject]@{Dc='dc3.example.invalid';State='Refused';Message='Accès refusé';Services=@()});ObservedUtc=$now.ToString('o')}) $services2.State
+        Expect (@($script:Ctrl.DgAdAuditServices.ItemsSource).Count -eq 1) 'Services jetes par le diagnostic'
+        Start-DomeniaAdAuditDcServices;$services3=Get-LastTask
+        Start-DomeniaAdAuditDcProbe;$probe3=Get-LastTask
+        $script:Ctrl.DgAdAuditServices.ItemsSource=@()
+        Complete-DomeniaAdAuditDcServices ([pscustomobject]@{Results=@([pscustomobject]@{Dc='dc1.example.invalid';State='Refused';Message='Accès refusé';Services=@()});ObservedUtc=$now.ToString('o')}) $services3.State
+        Expect (@($script:Ctrl.DgAdAuditServices.ItemsSource).Count -eq 1) 'Services jetes par un diagnostic lance ensuite'
+        # Within one kind, only the latest request is applied.
+        $script:Ctrl.DgAdAuditServices.ItemsSource=@()
+        Complete-DomeniaAdAuditDcServices ([pscustomobject]@{Results=@([pscustomobject]@{Dc='dc1.example.invalid';State='Refused';Message='Accès refusé';Services=@()});ObservedUtc=$now.ToString('o')}) $services2.State
+        Expect (@($script:Ctrl.DgAdAuditServices.ItemsSource).Count -eq 0) 'Ancienne lecture des services appliquee apres une plus recente'
+        Start-DomeniaAdAuditDcList
         Complete-DomeniaAdAuditDcList ([pscustomobject]@{Action='List';Dcs=@();Pdc=''}) $list.State
         Expect (@($script:Ctrl.DgAdAuditDcList.ItemsSource).Count -eq 12) 'Ancienne liste appliquee apres une demande plus recente'
     }
@@ -346,6 +385,19 @@ if($infrastructure){
         Expect ($script:Ctrl.LblAdAuditScan.Text -match 'non consultée') $script:Ctrl.LblAdAuditScan.Text
         Complete-DomeniaAdAuditScanIndex ([pscustomobject]@{Busy=$false;Missing=$false;Users=@();Computers=@([pscustomobject]@{name='PC-01';login='PC-01$';object_guid='99999999-9999-4999-8999-999999999999'})}) $index.State
         Expect (@($script:Ctrl.DgAdAuditScan.ItemsSource|Where-Object{$_.Categorie -eq 'Nom recyclé ou objet recréé'}).Count -eq 1) 'Nom recycle non signale'
+        Expect ($script:Ctrl.LblAdAuditScan.Text -match 'Noms comparés avec la base locale') $script:Ctrl.LblAdAuditScan.Text
+        # A failed local read is not a busy base.
+        Fail-DomeniaAdAuditScanIndex 'Délai dépassé' $index.State
+        Expect (($script:Ctrl.LblAdAuditScan.Text -match 'Base locale non lue \(Délai dépassé\)') -and ($script:Ctrl.LblAdAuditScan.Text -notmatch 'occupée')) $script:Ctrl.LblAdAuditScan.Text
+        # Beyond 1000 names of a kind, the view says how many were compared.
+        Start-DomeniaAdAuditScan
+        $big=Get-LastTask
+        $many=@(1..1200|ForEach-Object{[pscustomobject]@{Guid=('{0:D8}-0000-4000-8000-000000000000' -f $_);Name=('PC-'+$_);Sam=('PC-'+$_+'$');Type='Machine';DnsHostName='';Uac='4096';Dn=('CN=PC-'+$_+',OU=Support,DC=example,DC=invalid')}})
+        Complete-DomeniaAdAuditScan ([pscustomobject]@{BaseDn='OU=Support,DC=example,DC=invalid';Rows=$many;Truncated=$false;Limit=5000;Server='dc1';ObservedUtc=[datetime]::UtcNow.ToString('o')}) $big.State
+        $bigIndex=Get-LastTask
+        Expect (($bigIndex.OperationId -eq 'LocalIndexRead') -and (@($bigIndex.Payload.Computers).Count -eq 1000)) 'Lecture locale non bornee a 1000 noms'
+        Complete-DomeniaAdAuditScanIndex ([pscustomobject]@{Busy=$false;Missing=$false;Users=@();Computers=@()}) $bigIndex.State
+        Expect ($script:Ctrl.LblAdAuditScan.Text -match '1000 noms sur 1200 comparés') $script:Ctrl.LblAdAuditScan.Text
     }
     Case 'Relations : historique distinct dans la page, puce de filtre et synthese en trois lignes' {
         [xml]$main=Get-MainXaml
@@ -404,10 +456,18 @@ if($infrastructure){
         }
         $script:AssistanceView=[pscustomobject]@{Name='DomeniaAssistanceView'};$script:AssistanceLaunched=@{};$script:SessionEpoch=9L
         $script:Calls=[Collections.Generic.List[string]]::new()
+        # Engine registry double: a dispatched read is a task of its operation, a shared read one more subscriber.
+        $script:AsyncJobs=@{};$script:LockoutDispatch=$false
+        function Add-FakeAssistanceJob {param([string]$OperationId);$script:AsyncJobs[('job-'+($script:AsyncJobs.Count+1))]=[pscustomobject]@{OperationId=$OperationId;Subscribers=(New-Object System.Collections.ArrayList)}}
         function Select-DomeniaWorkspace {param($Workspace,$Inner,$Tab);$script:Calls.Add('route:'+$Workspace+'/'+$Inner+'/'+$Tab)}
-        function Start-DomeniaLockoutEventRead {$script:Calls.Add('lockouts')}
-        function Start-DomeniaComputerInventory {param([switch]$Deep);$script:Calls.Add('inventory:'+[string][bool]$Deep)}
-        function Start-DomeniaAdAuditPolicyRead {$script:Calls.Add('policy')}
+        # Like the real read, the lockout read returns without dispatching when the fiche target is not loaded.
+        function Start-DomeniaLockoutEventRead {$script:Calls.Add('lockouts');if($script:LockoutDispatch){Add-FakeAssistanceJob 'LockoutDiagnosis'}}
+        function Start-DomeniaComputerInventory {param([switch]$Deep);$script:Calls.Add('inventory:'+[string][bool]$Deep);Add-FakeAssistanceJob 'ComputerInventory'}
+        function Start-DomeniaAdAuditPolicyRead {
+            $script:Calls.Add('policy')
+            foreach($job in @($script:AsyncJobs.Values)){if($job.OperationId -eq 'PasswordPolicyRead'){[void]$job.Subscribers.Add('abonne');return}}
+            Add-FakeAssistanceJob 'PasswordPolicyRead'
+        }
         function Show-DomeniaAdAuditTool {$script:Calls.Add('audit-view')}
         $script:SelectedObject=[pscustomobject]@{DN='CN=Jean Dupont,OU=Support,DC=example,DC=invalid';Type='Utilisateur';Name='Jean Dupont'}
         $script:Ctrl.CmbAssistanceRecipe.SelectedItem=Get-DomeniaAssistanceRecipe 'logon'
@@ -419,13 +479,21 @@ if($infrastructure){
         Expect ($script:Ctrl.BtnAssistanceRun.IsEnabled) 'Etape du compte non proposee'
         Invoke-DomeniaAssistanceStep
         Expect (($script:Calls -join ',') -eq 'route:WsObject/DetailTabs/TabUser,lockouts') ($script:Calls -join ',')
+        Expect (@($script:Ctrl.DgAssistanceSteps.ItemsSource)[1].State -eq 'À lancer') 'Etape marquee lancee alors que rien nʼest parti'
+        Expect ($script:Ctrl.LblAssistanceStep.Text -match 'rien nʼa été lancé') $script:Ctrl.LblAssistanceStep.Text
+        $script:Calls.Clear();$script:LockoutDispatch=$true
+        Invoke-DomeniaAssistanceStep
+        Expect (($script:Calls -join ',') -eq 'route:WsObject/DetailTabs/TabUser,lockouts') ($script:Calls -join ',')
         $after=@($script:Ctrl.DgAssistanceSteps.ItemsSource)
         Expect ($after[1].State -match '^Lancée à' -and $after[2].State -eq 'À lancer' -and [object]::ReferenceEquals($script:Ctrl.DgAssistanceSteps.SelectedItem,$after[1])) 'Etat ou selection perdus'
         Expect ($script:Ctrl.LblAssistanceStep.Text -match 'lecture demandée') $script:Ctrl.LblAssistanceStep.Text
         $script:Calls.Clear();$script:Ctrl.DgAssistanceSteps.SelectedItem=$after[3];Invoke-DomeniaAssistanceStep
         Expect ($script:Calls.Count -eq 0 -and $script:Ctrl.LblAssistanceStep.Text -eq 'Sélectionnez le poste concerné.') 'Etape du poste lancee pour un compte'
+        # An identical read already running is joined: the step is launched without a second read.
+        Add-FakeAssistanceJob 'PasswordPolicyRead'
         $script:Ctrl.DgAssistanceSteps.SelectedItem=$after[2];Invoke-DomeniaAssistanceStep
         Expect (($script:Calls -join ',') -eq 'route:TabApplicationTools/ApplicationToolTabs/WsAdAudit,audit-view,policy') ($script:Calls -join ',')
+        Expect ((@($script:Ctrl.DgAssistanceSteps.ItemsSource)[2].State -match '^Lancée à') -and (@($script:AsyncJobs.Values|Where-Object{$_.OperationId -eq 'PasswordPolicyRead'}).Count -eq 1)) 'Lecture partagee non reconnue'
         $script:Calls.Clear();$script:Ctrl.DgAssistanceSteps.SelectedItem=$after[0];Open-DomeniaAssistanceStepView
         Expect (($script:Calls -join ',') -eq 'route:WsObject/DetailTabs/TabUser') 'Vue sans lecture'
         $script:Calls.Clear()
