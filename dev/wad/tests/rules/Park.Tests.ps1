@@ -124,6 +124,20 @@ Test-Case 'P-UX-24' 'Confirmation : selection, perimetre, liste tronquee, un seu
     Assert-Equal 'Ce qui sera lu : utilisateur connecté · matériel, en lecture seule.' ([string]$wmi.Lines[1])
     Assert-False ([string]$wmi.Lines[2] -like '*réutilisées*') 'relecture forcee annoncee comme reutilisee'
 }
+Test-Case 'P-UX-24' 'Confirmation : profil de collecte, requetes WMI regroupees et budget par sous-reseau dans les trois lignes' {
+    $console = New-DomeniaParkConfirmationText -Count 48 -ScopeLabel 'OU Postes' -Concurrency 4 -CacheMinutes 15 -Inventory $true -ProfileLabel 'Réseau lent ou site distant' -CimRequested 4 -CimExecuted 3 -SourceBudgets $true
+    Assert-Equal 3 @($console.Lines).Count
+    Assert-Equal 'Ce qui sera lu : présence · utilisateur connecté · matériel, en lecture seule. Requêtes WMI prévues par poste : 3 au lieu de 4 grâce au regroupement.' ([string]$console.Lines[1])
+    Assert-True ([string]$console.Lines[2]).EndsWith(' ; arrêt possible à tout moment. Les postes dʼun même sous-réseau présumé partagent un budget qui ralentit si leurs réponses tardent ; les autres continuent. Un incident transitoire est relu au plus deux fois, espacé ; aucun nouvel essai après un refus dʼidentifiants. Réutilisation des mesures encore fraîches selon le profil « Réseau lent ou site distant », au plus 15 min.') ([string]$console.Lines[2])
+    $ping = New-DomeniaParkConfirmationText -Count 48 -PingOnly $true -ProfileLabel 'Standard' -CimRequested 4 -CimExecuted 3 -SourceBudgets $true
+    Assert-Equal 'Ce qui sera lu : présence, en lecture seule.' ([string]$ping.Lines[1]) 'aucune requete WMI annoncee pour un ping'
+    Assert-Equal 'Durée estimée : moins dʼune minute, échos envoyés par lots de 32 ; arrêt possible à tout moment. Les postes dʼun même sous-réseau présumé partagent un budget qui ralentit si leurs réponses tardent ; les autres continuent.' ([string]$ping.Lines[2]) 'un ping nʼest jamais relu ni reutilise'
+    $none = New-DomeniaParkConfirmationText -Count 2 -ScopeKind Scope -ScopeLabel 'PC-1' -CimRequested 2 -CimExecuted 2 -ProfileLabel 'Standard' -CacheMinutes 0
+    Assert-Equal 'Ce qui sera lu : présence · utilisateur connecté, en lecture seule.' ([string]$none.Lines[1]) 'rien evite : aucune mention du regroupement'
+    Assert-False ([string]$none.Lines[2] -like '*réutilis*') 'relecture forcee annoncee comme reutilisee'
+    $widget = New-DomeniaParkConfirmationText -Count 3 -ScopeKind Scope -ScopeLabel 'Postes' -WmiOnly $true -NoConsole $true -ProbeCount 1 -Widget $true -ReuseMaxAgeDays 30 -ProfileLabel 'Standard' -SourceBudgets $true
+    Assert-True ([string]$widget.Lines[2]).EndsWith(' Seules les mesures absentes, en erreur ou de plus de 30 jours sont relues.') ([string]$widget.Lines[2])
+}
 Test-Case 'P-UX-24' 'Duree estimee : echos par lots de 32, lectures quatre par quatre, libelles en francais' {
     Assert-Equal 14 (Get-DomeniaParkDurationEstimate -Count 200 -PingOnly $true)
     Assert-Equal 500 (Get-DomeniaParkDurationEstimate -Count 500 -Concurrency 4)

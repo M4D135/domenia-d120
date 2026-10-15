@@ -45,9 +45,14 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaTaskClass',
             'Get-DomeniaTaskPriority',
             'Get-DomeniaPayloadDigest',
+            'Get-DomeniaTaskReaderIdentity',
+            'Get-DomeniaTaskRequirements',
             'Get-DomeniaTaskDedupKey',
             'Test-DomeniaTaskAdmission',
+            'Test-DomeniaBackgroundAgingDue',
+            'Get-DomeniaQueuedSeconds',
             'Select-DomeniaNextQueuedTask',
+            'Select-DomeniaNextQueuedEntry',
             'Test-DomeniaForegroundTaskClass',
             'Get-DomeniaTaskOrder',
             'Test-DomeniaPulseDue',
@@ -63,9 +68,11 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaProviderBudget',
             'New-DomeniaProviderState',
             'Get-DomeniaProviderStateKey',
+            'New-DomeniaProviderStateEntry',
             'Register-DomeniaProviderOutcome',
             'Reset-DomeniaProviderState',
             'Test-DomeniaProviderAdmission',
+            'Get-DomeniaProviderStateSummary',
             'Test-DomeniaAutoRetryAllowed',
             'New-DomeniaResourceRegistry',
             'Register-DomeniaResource',
@@ -97,6 +104,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaCacheKey',
             'Test-DomeniaCacheEntryValid',
             'Resolve-DomeniaIncrementalSync',
+            'Test-DomeniaSyncCheckpoint',
             'New-DomeniaNegativeCache',
             'Get-DomeniaNegativeTtlSeconds',
             'Register-DomeniaFailure',
@@ -114,6 +122,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Resolve-DomeniaDirectoryReachability',
             'Get-DomeniaCacheReadPolicy',
             'Get-DomeniaCacheCatalogRows',
+            'Get-DomeniaProtectedAssociationSources',
             'Test-DomeniaProtectedAssociationSource',
             'Get-DomeniaSqliteBusyTimeoutMs',
             'Test-DomeniaSqliteBusyText',
@@ -128,6 +137,129 @@ function Get-DomeniaRuntimeModulePlan {
             'Format-DomeniaSecretIndexSummary',
             'ConvertTo-DomeniaOperationHistoryModels',
             'Get-DomeniaParkCoverageFigures'
+        ) }
+        # Collection rules (pure): collection truth of 13 October 2026 (points 2 to 5 and 10: clocks per scope, measure
+        # states, compared populations) and collection for slow networks (points 11 to 21, 159 and 160); then the
+        # settings, session memories and durable campaigns of the latter.
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-Collection.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaCollectionLimits',
+            'Get-DomeniaCollectionFamilies',
+            'Get-DomeniaCollectionFamily',
+            'Get-DomeniaCollectionRunKey',
+            'Get-DomeniaCollectionRunKeys',
+            'ConvertTo-DomeniaCollectionCount',
+            'ConvertTo-DomeniaCollectionText',
+            'New-DomeniaCollectionRunChange',
+            'New-DomeniaRefreshRunChanges',
+            'Test-DomeniaCollectionClock',
+            'ConvertFrom-DomeniaCollectionRunRecord',
+            'Get-DomeniaCollectionClock',
+            'Get-DomeniaCollectionClocks',
+            'Get-DomeniaCollectionStatusText',
+            'Format-DomeniaCollectionCounts',
+            'Format-DomeniaCollectionClock',
+            'Format-DomeniaCollectionClocks',
+            'Format-DomeniaObservationProvenance',
+            'Get-DomeniaMeasureStateKeys',
+            'Get-DomeniaMeasureStateLabel',
+            'Test-DomeniaMeasureRefusal',
+            'Get-DomeniaMeasureState',
+            'Measure-DomeniaMeasureStates',
+            'Format-DomeniaMeasureStates',
+            'New-DomeniaPopulationDescriptor',
+            'Compare-DomeniaPopulation',
+            'Get-DomeniaFreshnessFamilies',
+            'Get-DomeniaCollectionProfiles',
+            'Get-DomeniaCollectionProfile',
+            'Get-DomeniaFreshnessDurationChoices',
+            'Format-DomeniaCollectionDuration',
+            'ConvertFrom-DomeniaFreshnessOverrides',
+            'ConvertTo-DomeniaFreshnessOverridesText',
+            'Resolve-DomeniaFreshnessTable',
+            'Get-DomeniaCollectionWindowSources',
+            'ConvertFrom-DomeniaCollectionWindowText',
+            'Test-DomeniaCollectionWindowRule',
+            'Test-DomeniaCollectionWindowOpen',
+            'Format-DomeniaCollectionWindowState',
+            'Test-DomeniaCollectionWindowAllows',
+            'New-DomeniaSourcePolicy',
+            'New-DomeniaSourceHealth',
+            'Get-DomeniaSourceEntry',
+            'Get-DomeniaSourceOpenSeconds',
+            'Register-DomeniaSourceOutcome',
+            'Test-DomeniaSourceAdmission',
+            'Get-DomeniaReadStepLatencyMs',
+            'ConvertTo-DomeniaIPv4Text',
+            'Get-DomeniaAddressFromText',
+            'Get-DomeniaSubnetKey',
+            'Get-DomeniaCollectionSourceKey',
+            'Get-DomeniaCollectionSourceLabel',
+            'New-DomeniaCampaignSources',
+            'Get-DomeniaCampaignSourcePolicy',
+            'Get-DomeniaCampaignSourceSummary',
+            'ConvertTo-DomeniaCollectionFailure',
+            'Get-DomeniaCollectionRetryDecision',
+            'New-DomeniaCapabilityMemory',
+            'Get-DomeniaCapabilityTtlSeconds',
+            'Test-DomeniaWmiClassAbsentText',
+            'Get-DomeniaCapabilityKey',
+            'Get-DomeniaProbeCapability',
+            'Register-DomeniaCapabilityFact',
+            'Clear-DomeniaCapabilityFact',
+            'Test-DomeniaCapabilityFact',
+            'Get-DomeniaCapabilityPlan',
+            'Get-DomeniaCimGroupKey',
+            'Measure-DomeniaCimQueryPlan',
+            'Get-DomeniaCampaignProgressState',
+            'Get-DomeniaCampaignPlanKinds',
+            'Test-DomeniaCampaignRunDurable',
+            'Get-DomeniaCampaignTargetNamePattern',
+            'Test-DomeniaCampaignTargetName',
+            'New-DomeniaCampaignPlan',
+            'New-DomeniaCampaignProgress',
+            'Set-DomeniaCampaignTargetDone',
+            'ConvertTo-DomeniaCampaignTargetsText',
+            'ConvertTo-DomeniaCampaignPlanText',
+            'ConvertFrom-DomeniaCampaignPlanText',
+            'ConvertTo-DomeniaCampaignProgressText',
+            'ConvertFrom-DomeniaCampaignProgressText',
+            'Get-DomeniaCampaignRemainingTargets',
+            'Get-DomeniaCampaignResumeState'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Collection.Model.ps1'); File='Domenia-Collection.UI.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaProfileSetting',
+            'Set-DomeniaProfileSetting',
+            'Get-DomeniaCollectionProfileId',
+            'Get-DomeniaActiveFreshnessTable',
+            'Set-DomeniaFreshnessOverride',
+            'Get-DomeniaCollectionWindowText',
+            'Set-DomeniaCollectionWindowText',
+            'Get-DomeniaActiveCollectionWindow',
+            'Test-DomeniaCollectionWindowAllowsSource',
+            'Get-DomeniaCollectionWindowStatusText',
+            'Get-DomeniaCollectionWindowCampaignNote',
+            'Register-DomeniaTargetAddress',
+            'Get-DomeniaTargetAddress',
+            'Get-DomeniaKnownTargetGroup',
+            'Get-DomeniaCapabilityMemory',
+            'Register-DomeniaCollectionCapabilities',
+            'Get-DomeniaCampaignPlanKind',
+            'Save-DomeniaCampaignPlan',
+            'Set-DomeniaCampaignTargetValidated',
+            'Save-DomeniaCampaignProgress',
+            'Complete-DomeniaCampaignPlan',
+            'Register-DomeniaCampaignCloseHook',
+            'Read-DomeniaCampaignProgressFile',
+            'Get-DomeniaCampaignResumeStatus',
+            'Get-DomeniaCampaignReplacementNote',
+            'Start-DomeniaCampaignResume',
+            'Clear-DomeniaCampaignPlan',
+            'Request-DomeniaCampaignResumeOffer',
+            'Initialize-DomeniaCollectionSettingsUi',
+            'Update-DomeniaCollectionFreshnessEditor',
+            'Update-DomeniaCollectionSettingsUi',
+            'Update-DomeniaCampaignResumeUi',
+            'Get-DomeniaCollectionHealthLines'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1'); File='Domenia-Search.Model.ps1'; DotSource=$true; Functions=@(
             'ConvertTo-DomeniaLdapLiteral',
@@ -245,7 +377,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Test-DomeniaRelationMatchesFilter',
             'ConvertFrom-DomeniaLinkCsvRow',
             'Get-DomeniaLinkImportStatus',
-            'New-DomeniaImportedRelation'
+            'New-DomeniaImportedRelation',
+            'Get-DomeniaRelationOverview'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Relations.Model.ps1'); File='Domenia-Access.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaOperationResource',
@@ -263,8 +396,13 @@ function Get-DomeniaRuntimeModulePlan {
             'Test-DomeniaCredentialLease',
             'Use-DomeniaCredentialLease',
             'Clear-DomeniaCredentialLease',
+            'Get-DomeniaAccountCorrectionPlan',
+            'Get-DomeniaAccountReleaseDecision',
             'Get-DomeniaOperationAuthNeed',
             'Get-DomeniaCapabilityExplanation',
+            'Get-DomeniaOperationRequirement',
+            'Get-DomeniaFailureFamily',
+            'Get-DomeniaOperationFailureGuidance',
             'ConvertTo-DomeniaLapsView',
             'ConvertTo-DomeniaBitLockerKeyList',
             'Find-DomeniaBitLockerKey',
@@ -277,6 +415,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaSecretActionView',
             'Protect-DomeniaSecretText',
             'Test-DomeniaTextHasSecret',
+            'Get-DomeniaSecretTextHint',
+            'Protect-DomeniaExportRows',
             'Select-DomeniaAllowedFields',
             'Get-DomeniaTransportPolicy',
             'Test-DomeniaTransportFallbackAllowed',
@@ -315,6 +455,7 @@ function Get-DomeniaRuntimeModulePlan {
             'ConvertTo-DomeniaMembershipRows',
             'Test-DomeniaMembershipRow',
             'ConvertTo-DomeniaMembershipEdges',
+            'ConvertTo-DomeniaGroupPathEdges',
             'Get-DomeniaNestedMembershipRows',
             'Get-DomeniaMembershipWhy'
         ) }
@@ -458,6 +599,9 @@ function Get-DomeniaRuntimeModulePlan {
             'Test-DomeniaPlanStillValid',
             'Get-DomeniaPostconditionRule',
             'Resolve-DomeniaPostcondition',
+            'New-DomeniaCollectivePreview',
+            'Get-DomeniaReceiptExpectation',
+            'Resolve-DomeniaReceiptCheck',
             'Get-DomeniaReceiptRequirement',
             'Get-DomeniaReceiptResumeState',
             'Get-DomeniaOperationDisplayName',
@@ -641,7 +785,26 @@ function Get-DomeniaRuntimeModulePlan {
             'Fail-DomeniaEmbeddedPath',
             'Show-DomeniaInlineFilePicker'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Selection.UI.ps1'); File='Domenia-Relations.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Relations.Model.ps1'); File='Domenia-InventoryImport.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaInventoryAdapters',
+            'Get-DomeniaInventoryAdapter',
+            'Get-DomeniaInventoryLimits',
+            'New-DomeniaInventoryRecord',
+            'ConvertTo-DomeniaInventoryHeaderKey',
+            'Get-DomeniaInventoryColumnValue',
+            'ConvertFrom-DomeniaCsvInventoryRow',
+            'ConvertFrom-DomeniaGlpiRow',
+            'Get-DomeniaOsqueryMember',
+            'ConvertFrom-DomeniaOsqueryText',
+            'ConvertTo-DomeniaInventoryWhen',
+            'Select-DomeniaLatestInventoryRecords',
+            'Test-DomeniaInventoryIdentity',
+            'Resolve-DomeniaInventoryPriority',
+            'New-DomeniaImportBatchId',
+            'Get-DomeniaImportBatchToken',
+            'Get-DomeniaImportBatches'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Selection.UI.ps1','Domenia-InventoryImport.Model.ps1'); File='Domenia-Relations.UI.ps1'; DotSource=$true; Functions=@(
             'Initialize-DomeniaRelationsState',
             'Set-DomeniaRelationsSelection',
             'Set-DomeniaRelationsGridSelection',
@@ -667,6 +830,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Clear-DomeniaAllLinksFilter',
             'Update-DomeniaAllLinksView',
             'Refresh-DomeniaRelationViews',
+            'Update-DomeniaLinkOverview',
             'Update-DomeniaRelationDetectionCounters',
             'Invoke-DomeniaRelationsTick',
             'Update-DomeniaRelationLinkIndex',
@@ -721,8 +885,11 @@ function Get-DomeniaRuntimeModulePlan {
             'New-DomeniaAllLinksContextMenu',
             'New-DomeniaLinkImportPlan',
             'Update-DomeniaLinkImportUi',
+            'Get-DomeniaRelationsLatestImportBatch',
+            'Update-DomeniaLinkImportUndo',
             'Set-DomeniaLinkImportPlan',
             'Show-DomeniaLinkImportPreview',
+            'Get-DomeniaLinkImportAdapterChoice',
             'Start-DomeniaLinkImportIndexCheck',
             'Test-DomeniaLinkImportIndexState',
             'Complete-DomeniaLinkImportIndexCheck',
@@ -910,6 +1077,36 @@ function Get-DomeniaRuntimeModulePlan {
             'Stop-DomeniaSupportUi',
             'Initialize-DomeniaSupportUi'
         ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-Automation.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaAutomationContract',
+            'Get-DomeniaAutomationLimits',
+            'ConvertTo-DomeniaAutomationSqlText',
+            'ConvertTo-DomeniaAutomationGlobText',
+            'ConvertTo-DomeniaAutomationDn',
+            'Test-DomeniaAutomationRequest',
+            'Get-DomeniaAutomationPerimeterSql',
+            'Get-DomeniaAutomationQuery',
+            'Test-DomeniaDiagnosticSecretName',
+            'Protect-DomeniaDiagnosticValue',
+            'ConvertTo-DomeniaAutomationItems',
+            'New-DomeniaAutomationEnvelope',
+            'ConvertTo-DomeniaAutomationCsv',
+            'Get-DomeniaOfflineDossierName',
+            'New-DomeniaOfflineDossier',
+            'Get-DomeniaOfflineDossierPerimeter'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Automation.Worker.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaOfflineDossierWorkerCode'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Automation.Model.ps1','Domenia-Automation.Worker.ps1','Domenia-Support.UI.ps1'); File='Domenia-Automation.UI.ps1'; DotSource=$true; Functions=@(
+            'Set-DomeniaOfflineDossierStatus',
+            'Get-DomeniaOfflineDossierSections',
+            'Test-DomeniaOfflineDossierRunning',
+            'Start-DomeniaOfflineDossier',
+            'Test-DomeniaOfflineDossierState',
+            'Complete-DomeniaOfflineDossier',
+            'Fail-DomeniaOfflineDossier'
+        ) }
         [pscustomobject]@{ File='Domenia-Live.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaLiveHash',
             'Get-DomeniaLiveField',
@@ -1059,6 +1256,11 @@ function Get-DomeniaRuntimeModulePlan {
             'Enter-WCredentialAttempt',
             'Exit-WCredentialAttempt',
             'Register-WCredentialFailure',
+            'Clear-DomeniaCredentialGuardFault',
+            'Get-DomeniaCredentialGroupKeys',
+            'ConvertTo-DomeniaAccountLookup',
+            'Get-DomeniaCredentialAliasKeys',
+            'Register-DomeniaCredentialAliases',
             'Get-DomeniaLinkFingerprint',
             'ConvertTo-DomeniaLinkRecord',
             'Get-DomeniaDraftFieldMap',
@@ -1089,10 +1291,21 @@ function Get-DomeniaRuntimeModulePlan {
         [pscustomobject]@{ File='Domenia-Accounts.Async.ps1'; DotSource=$true; Functions=@(
             'Start-DomeniaAccountValidation',
             'Complete-DomeniaAccountValidation',
-            'Stop-DomeniaAccountValidation'
+            'Stop-DomeniaAccountValidation',
+            'Start-DomeniaDirectoryCorrection',
+            'Show-DomeniaDirectoryCorrection',
+            'Get-DomeniaAccountCorrectionJobs',
+            'Register-DomeniaCredentialValidation',
+            'Get-DomeniaAccountCredentialHolders',
+            'Complete-DomeniaAccountCorrection',
+            'Request-DomeniaAccountAliasRead',
+            'Invoke-DomeniaAccountAliasQueue',
+            'Complete-DomeniaAccountAliasRead',
+            'Fail-DomeniaAccountAliasRead',
+            'Get-DomeniaAccountAliasSummary'
         ) }
         # X03: pure sign-in and accounts presentation rules (no WPF, no network, no credential object).
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Access.Model.ps1'); File='Domenia-Accounts.Model.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Access.Model.ps1','Domenia-Guard.Model.ps1'); File='Domenia-Accounts.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaLoginFailureText',
             'Get-DomeniaLoginChoice',
             'Get-DomeniaDirectoryAccountText',
@@ -1195,7 +1408,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Complete-DomeniaDirectoryChangesCommit',
             'Complete-DomeniaDirectoryChangesRead'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-ProbeDetails.Model.ps1','Domenia-Storage.UI.ps1','Domenia-Collection.Model.ps1','Domenia-Readings.Model.ps1'); File='Domenia-ProbeDetails.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-ProbeDetails.Model.ps1','Domenia-Storage.UI.ps1','Domenia-Collection.Model.ps1','Domenia-Readings.Model.ps1','Domenia-ProbeContract.Model.ps1'); File='Domenia-ProbeDetails.UI.ps1'; DotSource=$true; Functions=@(
             'Show-DomeniaProbeDetails',
             'New-DomeniaProbeReadingGrid',
             'Get-DomeniaBiosReferenceSettingKey',
@@ -1330,6 +1543,9 @@ function Get-DomeniaRuntimeModulePlan {
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Lockout.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaLockoutEventWorkerCode'
         ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Accounts.Worker.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaAccountAliasWorkerCode'
+        ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Receipts.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaReceiptsCommon',
             'Get-DomeniaReceiptWorkerCode'
@@ -1423,7 +1639,7 @@ function Get-DomeniaRuntimeModulePlan {
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Isolation.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaIsolatedReadWorkerCode'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Demo.Model.ps1','Domenia-Demo.Worker.ps1','Domenia-Engine.Worker.ps1','Domenia-Isolation.Worker.ps1','Domenia-Access.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Relations.Model.ps1'); File='Domenia-Engine.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Demo.Model.ps1','Domenia-Demo.Worker.ps1','Domenia-Engine.Worker.ps1','Domenia-Isolation.Worker.ps1','Domenia-Access.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Collection.UI.ps1'); File='Domenia-Engine.UI.ps1'; DotSource=$true; Functions=@(
             'Initialize-DomeniaEngineState',
             'Test-DomeniaSchedulerEnabled',
             'Get-DomeniaEngineLimits',
@@ -1434,6 +1650,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaCredentialGuardFailures',
             'Add-DomeniaCredentialFailureHistory',
             'Get-DomeniaCredentialFailureHistory',
+            'Initialize-DomeniaCredentialGuard',
             'Set-DomeniaCredentialGuardContext',
             'Sync-DomeniaCredentialGuardUi',
             'Save-DomeniaSupersededCollection',
@@ -1666,6 +1883,150 @@ function Get-DomeniaRuntimeModulePlan {
             'Add-DomeniaNestedMembershipRows',
             'Format-DomeniaNestedMembershipSummary',
             'Register-DomeniaMembershipUi'
+        ) }
+        # Points 101 to 109 (Audit AD): pure rules, pinned read workers and the view of Outils > Audit AD. The nested
+        # groups (point 103) use the GroupPathRead worker of Domenia-Membership.Worker.ps1, shared with « Pourquoi membre ? ».
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Directory.Model.ps1','Domenia-Workstation.Model.ps1','Domenia-Relations.Model.ps1'); File='Domenia-AdAudit.Model.ps1'; DotSource=$true; Functions=@(
+            'New-DomeniaAdAuditTarget',
+            'Test-DomeniaAdAuditStateCurrent',
+            'Get-DomeniaAdAuditAvailability',
+            'Get-DomeniaFactStateLabel',
+            'Format-DomeniaLegacyFactText',
+            'ConvertTo-DomeniaAdAuditFactRows',
+            'ConvertTo-DomeniaAdAuditCopyText',
+            'ConvertTo-DomeniaPasswordPolicyView',
+            'ConvertTo-DomeniaGroupKey',
+            'Find-DomeniaGroupCycles',
+            'ConvertTo-DomeniaNestedGroupView',
+            'Get-DomeniaGroupMembershipExplanation',
+            'Get-DomeniaWellKnownSidName',
+            'Get-DomeniaAdGuidLabel',
+            'ConvertTo-DomeniaAdRightNames',
+            'Format-DomeniaAdRights',
+            'Test-DomeniaAceAppliesToObject',
+            'ConvertTo-DomeniaDelegationView',
+            'Select-DomeniaDelegationRows',
+            'Get-DomeniaAdRightCategories',
+            'Get-DomeniaAccessEstimate',
+            'Get-DomeniaGpoContainerChain',
+            'Get-DomeniaGpoStatusText',
+            'ConvertTo-DomeniaGpoAuditView',
+            'ConvertFrom-DomeniaGeneralizedTime',
+            'ConvertFrom-DomeniaReplNeighbor',
+            'Get-DomeniaReplResultText',
+            'Get-DomeniaDurationText',
+            'Get-DomeniaAdHealthView',
+            'Get-DomeniaDcServiceView',
+            'ConvertTo-DomeniaIdentityScanObjects',
+            'Find-DomeniaIdentityConflicts',
+            'ConvertTo-DomeniaRelationHistoryRows'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-AdAudit.Worker.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaPasswordPolicyReadWorkerCode',
+            'Get-DomeniaDelegationReadWorkerCode',
+            'Get-DomeniaGpoLinksReadWorkerCode',
+            'Get-DomeniaGpoAppliedReadWorkerCode',
+            'Get-DomeniaAdHealthReadWorkerCode',
+            'Get-DomeniaDcServicesReadWorkerCode',
+            'Get-DomeniaAdConsistencyScanWorkerCode',
+            'Get-DomeniaMachineIdentityReadWorkerCode',
+            'Get-DomeniaRelationHistoryReadWorkerCode'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Workstation.Model.ps1','Domenia-AdAudit.Model.ps1','Domenia-AdAudit.Worker.ps1','Domenia-Membership.Worker.ps1','Domenia-Engine.UI.ps1','Domenia-Engine.Worker.ps1'); File='Domenia-AdAudit.UI.ps1'; DotSource=$true; Functions=@(
+            'Register-DomeniaAdAuditTool',
+            'Show-DomeniaAdAuditTool',
+            'Initialize-DomeniaAdAuditView',
+            'Register-DomeniaAdAuditEvents',
+            'Get-DomeniaAdAuditTimeText',
+            'Reset-DomeniaAdAuditData',
+            'Clear-DomeniaAdAuditObjectResults',
+            'Sync-DomeniaAdAuditTarget',
+            'Update-DomeniaAdAuditTargetUi',
+            'Get-DomeniaAdAuditCheckedTarget',
+            'New-DomeniaAdAuditState',
+            'Test-DomeniaAdAuditCallback',
+            'Invoke-DomeniaAdAuditStart',
+            'Get-DomeniaAdAuditReader',
+            'Start-DomeniaAdAuditPolicyRead',
+            'Complete-DomeniaAdAuditPolicyRead',
+            'Fail-DomeniaAdAuditPolicyRead',
+            'Start-DomeniaAdAuditGroupRead',
+            'Complete-DomeniaAdAuditGroupRead',
+            'Fail-DomeniaAdAuditGroupRead',
+            'Update-DomeniaAdAuditGroupPath',
+            'Start-DomeniaAdAuditGroupConfirm',
+            'Complete-DomeniaAdAuditGroupConfirm',
+            'Fail-DomeniaAdAuditGroupConfirm',
+            'Start-DomeniaAdAuditAclRead',
+            'Complete-DomeniaAdAuditAclRead',
+            'Fail-DomeniaAdAuditAclRead',
+            'Update-DomeniaAdAuditAclGrid',
+            'Update-DomeniaAdAuditEstimate',
+            'Start-DomeniaAdAuditTokenRead',
+            'Complete-DomeniaAdAuditTokenRead',
+            'Fail-DomeniaAdAuditTokenRead',
+            'Start-DomeniaAdAuditGpoLinks',
+            'Complete-DomeniaAdAuditGpoLinks',
+            'Fail-DomeniaAdAuditGpoLinks',
+            'Start-DomeniaAdAuditGpoApplied',
+            'Complete-DomeniaAdAuditGpoApplied',
+            'Fail-DomeniaAdAuditGpoApplied',
+            'Update-DomeniaAdAuditGpoView',
+            'Start-DomeniaAdAuditMachineIdentity',
+            'Complete-DomeniaAdAuditMachineIdentity',
+            'Fail-DomeniaAdAuditMachineIdentity',
+            'Get-DomeniaAdAuditRelations',
+            'Update-DomeniaAdAuditRelationOverview',
+            'Start-DomeniaAdAuditHistoryRead',
+            'Complete-DomeniaAdAuditHistoryRead',
+            'Fail-DomeniaAdAuditHistoryRead',
+            'New-DomeniaAdAuditRequestState',
+            'Test-DomeniaAdAuditRequestCurrent',
+            'Start-DomeniaAdAuditDcList',
+            'Complete-DomeniaAdAuditDcList',
+            'Fail-DomeniaAdAuditDcList',
+            'Get-DomeniaAdAuditChosenDcs',
+            'Start-DomeniaAdAuditDcProbe',
+            'Complete-DomeniaAdAuditDcProbe',
+            'Fail-DomeniaAdAuditDcProbe',
+            'Start-DomeniaAdAuditDcServices',
+            'Complete-DomeniaAdAuditDcServices',
+            'Fail-DomeniaAdAuditDcServices',
+            'Update-DomeniaAdAuditScopeLabel',
+            'Start-DomeniaAdAuditScan',
+            'Complete-DomeniaAdAuditScan',
+            'Fail-DomeniaAdAuditScan',
+            'Complete-DomeniaAdAuditScanIndex',
+            'Fail-DomeniaAdAuditScanIndex',
+            'Update-DomeniaAdAuditScanFindings',
+            'Get-DomeniaAdAuditGridSection',
+            'Copy-DomeniaAdAuditView'
+        ) }
+        # Point 110 (support recipes): pure recipes and the view of Outils > Assistance.
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Safety.Model.ps1'); File='Domenia-Assistance.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaAssistanceActions',
+            'New-DomeniaAssistanceStep',
+            'Get-DomeniaAssistanceRecipes',
+            'Get-DomeniaAssistanceRecipe',
+            'Test-DomeniaAssistanceRecipes',
+            'Get-DomeniaAssistanceSubjectLabel',
+            'Get-DomeniaAssistanceStepState',
+            'Test-DomeniaAssistanceDispatched',
+            'ConvertTo-DomeniaAssistanceStepRows',
+            'Get-DomeniaAssistancePlanText'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Assistance.Model.ps1','Domenia-Assist.Model.ps1','Domenia-AdAudit.UI.ps1','Domenia-Lockout.UI.ps1'); File='Domenia-Assistance.UI.ps1'; DotSource=$true; Functions=@(
+            'Register-DomeniaAssistanceTool',
+            'Show-DomeniaAssistanceTool',
+            'Initialize-DomeniaAssistanceView',
+            'Get-DomeniaAssistanceSelection',
+            'Get-DomeniaAssistanceLaunchedMap',
+            'Update-DomeniaAssistanceView',
+            'Update-DomeniaAssistanceStepDetail',
+            'Open-DomeniaAssistanceRoute',
+            'Open-DomeniaAssistanceStepView',
+            'Get-DomeniaAssistanceTaskMarks',
+            'Invoke-DomeniaAssistanceStep'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Demo.Model.ps1'); File='Domenia-Demo.UI.ps1'; DotSource=$true; Functions=@(
             'Initialize-DomeniaDemoMode',
@@ -1979,6 +2340,7 @@ function Get-DomeniaRuntimeModulePlan {
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-ProbeCatalog.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaExtendedProbeCatalog',
+            'Assert-DomeniaCustomProbeDeclaration',
             'Add-DomeniaProbeMetadata'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-ProbeCatalog.Model.ps1'); File='Domenia-Probes.Model.ps1'; DotSource=$true; Functions=@(
@@ -1998,6 +2360,23 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaProbeHistorySample',
             'Copy-DomeniaProbeHistoryMap',
             'Add-DomeniaProbeHistory'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-ProbeContract.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaProbeContractValue',
+            'Get-DomeniaProbeExecutionLimits',
+            'Get-DomeniaProbeDeniedClasses',
+            'Get-DomeniaProbeDeniedNamespaces',
+            'Get-DomeniaProbePrivilege',
+            'Get-DomeniaProbeCost',
+            'Get-DomeniaProbeExpectedTests',
+            'Get-DomeniaProbeBehavior',
+            'ConvertTo-DomeniaProbeContract',
+            'Test-DomeniaProbeContract',
+            'Get-DomeniaProbeIsolationPlan',
+            'Get-DomeniaProbeContractSummary',
+            'Get-DomeniaProbeContractLines',
+            'Get-DomeniaProbeContract',
+            'Test-DomeniaProbeCatalogContracts'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Probes.Model.ps1'); File='Domenia-Readings.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaReadingCatalog',
@@ -2056,34 +2435,6 @@ function Get-DomeniaRuntimeModulePlan {
             'Measure-DomeniaProcessLoad',
             'Get-DomeniaUpdateReading'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-Collection.Model.ps1'; DotSource=$true; Functions=@(
-            'Get-DomeniaCollectionLimits',
-            'Get-DomeniaCollectionFamilies',
-            'Get-DomeniaCollectionFamily',
-            'Get-DomeniaCollectionRunKey',
-            'Get-DomeniaCollectionRunKeys',
-            'ConvertTo-DomeniaCollectionCount',
-            'ConvertTo-DomeniaCollectionText',
-            'New-DomeniaCollectionRunChange',
-            'New-DomeniaRefreshRunChanges',
-            'Test-DomeniaCollectionClock',
-            'ConvertFrom-DomeniaCollectionRunRecord',
-            'Get-DomeniaCollectionClock',
-            'Get-DomeniaCollectionClocks',
-            'Get-DomeniaCollectionStatusText',
-            'Format-DomeniaCollectionCounts',
-            'Format-DomeniaCollectionClock',
-            'Format-DomeniaCollectionClocks',
-            'Format-DomeniaObservationProvenance',
-            'Get-DomeniaMeasureStateKeys',
-            'Get-DomeniaMeasureStateLabel',
-            'Test-DomeniaMeasureRefusal',
-            'Get-DomeniaMeasureState',
-            'Measure-DomeniaMeasureStates',
-            'Format-DomeniaMeasureStates',
-            'New-DomeniaPopulationDescriptor',
-            'Compare-DomeniaPopulation'
-        ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1','Domenia-Collection.Model.ps1'); File='Domenia-BoardFleet.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaFleetQueryPlan',
             'Get-DomeniaFleetPointTargets',
@@ -2115,7 +2466,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Show-DomeniaHealthExplanation',
             'Show-DomeniaFleetAnalysis'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-HealthRules.UI.ps1','Domenia-WidgetCollect.Model.ps1'); File='Domenia-Widgets.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-HealthRules.UI.ps1','Domenia-WidgetCollect.Model.ps1','Domenia-ProbeContract.Model.ps1'); File='Domenia-Widgets.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaWidgetList',
             'Get-DomeniaBoardPanelName',
             'Get-DomeniaBoardState',
@@ -2231,7 +2582,7 @@ function Get-DomeniaRuntimeModulePlan {
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Park.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaParkPingWorkerCode'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Park.Model.ps1','Domenia-Park.Worker.ps1','Domenia-Relations.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Inline.UI.ps1','Domenia-Engine.Worker.ps1','Domenia-WidgetCollect.Model.ps1','Domenia-SearchWorkspace.Model.ps1'); File='Domenia-Park.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Park.Model.ps1','Domenia-Park.Worker.ps1','Domenia-Relations.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Inline.UI.ps1','Domenia-Engine.Worker.ps1','Domenia-WidgetCollect.Model.ps1','Domenia-SearchWorkspace.Model.ps1','Domenia-Collection.UI.ps1'); File='Domenia-Park.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaParkRuns',
             'Get-DomeniaParkRun',
             'Get-DomeniaParkRunById',
@@ -2243,6 +2594,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaParkDisplayedTargets',
             'Test-DomeniaParkListStoppable',
             'Update-DomeniaParkRunStatus',
+            'Get-DomeniaParkInFlightCount',
+            'Get-DomeniaParkRunDetailText',
             'Get-DomeniaParkVerifyButtonText',
             'Set-DomeniaParkControlVisible',
             'Update-DomeniaParkControls',
@@ -2257,10 +2610,21 @@ function Get-DomeniaRuntimeModulePlan {
             'Start-DomeniaOnlinePark',
             'Start-DomeniaParkAnalysis',
             'Complete-DomeniaParkTargets',
+            'Set-DomeniaParkTargetIndex',
+            'Get-DomeniaParkTargetIndex',
             'Request-DomeniaParkAdmission',
             'Fail-DomeniaParkTargets',
             'Start-DomeniaParkRunTimer',
             'Stop-DomeniaOnlinePark',
+            'Close-DomeniaParkCampaign',
+            'Set-DomeniaParkStopReason',
+            'Get-DomeniaParkListCount',
+            'Test-DomeniaParkWorkRemaining',
+            'Add-DomeniaParkHeldTime',
+            'Update-DomeniaParkHeldStatus',
+            'Get-DomeniaParkTargetSourceKey',
+            'Select-DomeniaParkNextTarget',
+            'Select-DomeniaParkPingBatch',
             'Stop-DomeniaParkPingWorker',
             'Test-DomeniaRemoteStoreBlocked',
             'Close-DomeniaParkStoreBacklog',
@@ -2268,15 +2632,19 @@ function Get-DomeniaRuntimeModulePlan {
             'Invoke-DomeniaParkPlanStep',
             'Start-DomeniaParkPingJob',
             'Receive-DomeniaParkPingQueue',
+            'Register-DomeniaParkPingOutcome',
             'Test-DomeniaParkPingBuffered',
             'Submit-DomeniaParkPingResults',
             'Close-DomeniaParkPingBuffer',
             'Complete-DomeniaParkPingJob',
             'Fail-DomeniaParkPingJob',
             'Complete-DomeniaParkPingWithdrawn',
+            'Close-DomeniaParkPingJobTargets',
             'Complete-DomeniaParkPingStored',
             'Fail-DomeniaParkPingStored',
             'Complete-DomeniaParkSession',
+            'Get-DomeniaParkReadProgressSnapshot',
+            'Register-DomeniaParkMeasurement',
             'Complete-DomeniaParkStored',
             'Publish-DomeniaParkObservation',
             'Fail-DomeniaParkStored',
@@ -2443,7 +2811,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Add-DomeniaWorkshopWidget',
             'Complete-DomeniaWorkshopWidgetSave'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-QueryLibrary.Store.UI.ps1','Domenia-Collection.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-WidgetCollect.Model.ps1'); File='Domenia-Query.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-QueryLibrary.Store.UI.ps1','Domenia-Collection.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-WidgetCollect.Model.ps1','Domenia-Collection.UI.ps1'); File='Domenia-Query.UI.ps1'; DotSource=$true; Functions=@(
             'Initialize-DomeniaQueryView',
             'Update-DomeniaQueryScopeLabel',
             'Show-DomeniaQueryWorkshop',

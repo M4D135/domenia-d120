@@ -205,6 +205,231 @@ Test-Case 'D060' 'Aucun affaiblissement de Windows dans le code livre' {
         Assert-True $check.Safe ($file.Name+' : '+($check.Findings -join ', '))
     }
 }
+# Point 46 : droit requis par operation et trois causes distinctes (refus d acces, compte rejete, ressource indisponible).
+$script:P46Pinned=@('BatchNetworkDiag','BitLockerPresence','CmdletHelp','CmdletInventory','ComputerAdminShare','ComputerDiagnostics','ComputerGpUpdate','ComputerInventory','ComputerLastUser','ComputerPing','ComputerRestart','DemoDirectory','DocumentStore','DomainOverview','EmbeddedDirectoryLookup','EmbeddedPathBrowse','EngineSelfTest','GlobalSearch','IndexBuild','IndexOuList','IsolatedRead','LegacyMigration','LiveCache','LiveConsole','LiveDirectoryCheck','LiveSelectedPing','LocalIndexRead','LocalQuery','LocalStore','LockoutDiagnosis','LogonHarvest','OpenAdObject','OpenLinkedObject','ParkSharedSync','ParkSweep','PermissionAnalysis','PresenceScan','PruneLinks','QueryExport','QueryLibrary','ReadBitLocker','ReadBitLockerKey','ReadBitLockerList','ReadLaps','ReceiptStore','RemoteCredentialCheck','RimotteRun','ScopeReconcile','SelectedPresence','SelfCheck','SessionsList','SoftwareInventory','StartupWarmCache','StorageBackup','StorageMaintenance','StoragePurge','StorageUsage','TreeChildren','UserComputerProbe','WmiClasses','WmiNamespaces','WmiQuery','WriteAccountDisabled','WriteAccountOptions','WriteAttributes','WriteCreateOu','WriteDeleteObject','WriteExpiration','WriteExpirePassword','WriteGroupMember','WriteMoveObject','WriteObjectGroup','WriteRenameComputer','WriteResetPassword','WriteUnlock','AccountAliasRead','ComputerServiceControl','GroupPathRead','ParkPing')
+Test-Case 'P46' 'Chaque operation epinglee annonce son compte, son droit et son acces reseau' {
+    foreach($op in $script:P46Pinned){
+        $r=Get-DomeniaOperationRequirement $op
+        Assert-True ([bool]$r.Known) ('Droit non documente : '+$op)
+        Assert-True (([string]$r.Right).Length -gt 20) ('Droit trop vague : '+$op)
+        Assert-True ([bool]([string]$r.Account)) ('Compte absent : '+$op)
+        Assert-True ([bool]([string]$r.Access)) ('Acces reseau absent : '+$op)
+    }
+    Assert-Equal 'Laps' (Get-DomeniaOperationRequirement 'ReadLaps').Resource
+    Assert-True ((Get-DomeniaOperationRequirement 'LockoutDiagnosis').Right -match 'Lecteurs des journaux')
+    Assert-True ((Get-DomeniaOperationRequirement 'WriteResetPassword').Right -match 'Réinitialiser le mot de passe')
+    Assert-Equal 'Aucun compte' (Get-DomeniaOperationRequirement 'ComputerPing').Account
+    # A network diagnostic sends no account: it is never described with the rights of a WMI read.
+    $batch=Get-DomeniaOperationRequirement 'BatchNetworkDiag';Assert-Equal 'Aucun compte' $batch.Account;Assert-True ($batch.Access -match '5985') $batch.Access
+}
+Test-Case 'P46' 'Une operation inconnue ne recoit jamais un droit devine' {
+    foreach($op in @('OperationInventee','')){
+        $r=Get-DomeniaOperationRequirement $op
+        Assert-False ([bool]$r.Known) ('Droit devine pour <'+$op+'>')
+        Assert-True ($r.Right -match 'non documenté')
+        Assert-Equal '' $r.Account
+    }
+}
+Test-Case 'P46' 'Refus d acces, compte rejete et indisponibilite reseau ne se confondent jamais' {
+    $denied=Get-DomeniaOperationFailureGuidance 'ReadLaps' 'AccessDenied'
+    $rejected=Get-DomeniaOperationFailureGuidance 'ReadLaps' 'CredentialsRejected'
+    $locked=Get-DomeniaOperationFailureGuidance 'ReadLaps' 'AccountState'
+    $network=Get-DomeniaOperationFailureGuidance 'ReadLaps' 'Network'
+    $timeout=Get-DomeniaOperationFailureGuidance 'ComputerInventory' 'Timeout'
+    Assert-Equal 'AccessDenied' $denied.Family;Assert-Equal 'AccountRejected' $rejected.Family;Assert-Equal 'AccountRejected' $locked.Family
+    Assert-Equal 'Unavailable' $network.Family;Assert-Equal 'Unavailable' $timeout.Family
+    Assert-True ($denied.Text -match 'Droit requis') 'Un refus cite le droit requis'
+    Assert-False ($rejected.Text -match 'Droit requis') 'Un compte rejete ne suggere pas un droit manquant'
+    Assert-True ($rejected.Text -match 'Compte secrets') 'Un compte rejete nomme le compte de la ressource'
+    Assert-False ($network.Text -match 'Droit requis') 'Une indisponibilite ne suggere pas un droit manquant'
+    Assert-True ($network.Text -match '389/TCP') 'Une indisponibilite cite l acces reseau necessaire'
+    Assert-True ($timeout.Text -match '135/TCP')
+    Assert-Equal 'AccessDenied' (Get-DomeniaOperationFailureGuidance 'ReadLaps' 'DecryptionDenied').Family
+}
+Test-Case 'P46' 'La famille vient du code natif, en francais comme en anglais' {
+    $family={param($e,$t) (Get-DomeniaFailureFamily ((Get-DomeniaErrorDecision (Get-DomeniaStructuredError $e) $t).Category)).Family}
+    Assert-Equal 'AccessDenied' (& $family ([ComponentModel.Win32Exception]::new(5)) 'Accès refusé')
+    Assert-Equal 'AccessDenied' (& $family ([ComponentModel.Win32Exception]::new(5)) 'Access is denied')
+    Assert-Equal 'AccountRejected' (& $family ([ComponentModel.Win32Exception]::new(1326)) 'Nom d utilisateur ou mot de passe incorrect')
+    Assert-Equal 'AccountRejected' (& $family 'LDAP error 49 data 775' '')
+    Assert-Equal 'Unavailable' (& $family ([ComponentModel.Win32Exception]::new(1722)) 'Le serveur RPC n est pas disponible')
+}
+Test-Case 'P46' 'Une erreur non classee ou sans operation n invente aucune cause' {
+    Assert-Equal '' (Get-DomeniaOperationFailureGuidance 'GlobalSearch' 'Unknown').Text
+    Assert-Equal '' (Get-DomeniaOperationFailureGuidance 'GlobalSearch' 'Uncertain').Text
+    $g=Get-DomeniaOperationFailureGuidance '' 'AccessDenied'
+    Assert-Equal 'AccessDenied' $g.Family;Assert-False ($g.Text -match 'Droit requis') 'Sans operation connue, aucun droit n est cite'
+}
+# Points 44 et 45 : correction d un compte sans reconnexion, alias rapproches par SID. Contextes complets (mode strict).
+$script:P45Guard={[hashtable]::Synchronized(@{Epoch=1L;Faults=@{};Revision=0L;NotifiedRevision=0L})}
+$script:P45Context={param($Guard,[string]$Directory='',[string]$Remote='',[long]$Generation=0,[string]$Operation='GlobalSearch')
+    [pscustomobject]@{CredentialGuard=$Guard;DirectoryAuthKey=$Directory;RemoteAuthKey=$Remote;RemoteAdminAuthKey=$Remote;ActiveRemoteAuthKey=$Remote;LastAuthChannel='';OperationId=$Operation;CredentialGeneration=$Generation}}
+Test-Case 'P45' 'Formes de nom recherchees : domaine\compte, UPN, nom nu ; compte local et autre domaine exclus' {
+    $l=ConvertTo-DomeniaAccountLookup 'CORP\jdupont' 'corp.example' 'CORP';Assert-True $l.Valid;Assert-Equal 'jdupont' $l.Sam;Assert-Equal '' $l.Upn
+    $l=ConvertTo-DomeniaAccountLookup 'jean.dupont@corp.example.com' 'corp.example' 'CORP';Assert-True $l.Valid;Assert-Equal '' $l.Sam;Assert-Equal 'jean.dupont@corp.example.com' $l.Upn
+    $l=ConvertTo-DomeniaAccountLookup 'jdupont@corp.example' 'corp.example' 'CORP';Assert-Equal 'jdupont' $l.Sam;Assert-Equal 'jdupont@corp.example' $l.Upn
+    $l=ConvertTo-DomeniaAccountLookup 'jdupont' 'corp.example' 'CORP';Assert-True $l.Valid;Assert-Equal 'jdupont' $l.Sam
+    foreach($bad in @('.\admin','PC-01\admin','OTHER\jdupont','','a*b','x(y)','CORP\a\b')){Assert-False (ConvertTo-DomeniaAccountLookup $bad 'corp.example' 'CORP').Valid ('Forme acceptee : '+$bad)}
+}
+Test-Case 'P45' 'Cles des noms confirmes : DOMAINE\compte et UPN, sans doublon' {
+    $k=@(Get-DomeniaCredentialAliasKeys -Sam 'jdupont' -Upn 'Jean.Dupont@corp.example.com' -Domain 'corp.example' -Netbios 'CORP' -Also @('CORP\JDupont'))
+    Assert-Equal 2 $k.Count;Assert-True ($k -contains 'jdupont@corp.example');Assert-True ($k -contains 'jean.dupont@corp.example.com')
+}
+Test-Case 'P45' 'Un refus sous un nom suspend ses alias confirmes sans nouvel essai, jamais un autre compte' {
+    $g=& $script:P45Guard
+    Assert-True (Register-DomeniaCredentialAliases $g 'S-1-5-21-1-2-3-1104' @('jdupont@corp.example','jean.dupont@corp.example.com')).Registered
+    Assert-True (Register-WCredentialFailure (& $script:P45Context $g 'jdupont@corp.example') ([ComponentModel.Win32Exception]::new(1326)) Directory)
+    Assert-True $g.Faults.ContainsKey('jean.dupont@corp.example.com') 'Alias non suspendu'
+    $alias=& $script:P45Context $g '' 'jean.dupont@corp.example.com'
+    Assert-Throws {Assert-WCredentialAllowed $alias Remote} 'L alias peut encore envoyer le compte refuse'
+    Assert-WCredentialAllowed (& $script:P45Context $g 'reader@corp.example') Directory
+}
+Test-Case 'P45' 'Une pause deja enregistree couvre les alias confirmes ensuite et retire leurs lectures en file' {
+    $g=& $script:P45Guard
+    [void](Register-WCredentialFailure (& $script:P45Context $g 'jdupont@corp.example') 'data 52e' Directory)
+    $revision=[long]$g.Revision
+    $r=Register-DomeniaCredentialAliases $g 'S-1-5-21-1-2-3-1104' @('jdupont@corp.example','jean.dupont@corp.example.com')
+    Assert-Equal 1 ([int]$r.Propagated);Assert-True ([long]$g.Revision -gt $revision) 'Revision inchangee : lectures en file non retirees'
+    Assert-True $g.Faults.ContainsKey('jean.dupont@corp.example.com')
+}
+Test-Case 'P45' 'Un nom lie a un autre SID n est jamais deplace ; SID local refuse' {
+    $g=& $script:P45Guard
+    [void](Register-DomeniaCredentialAliases $g 'S-1-5-21-1-2-3-1104' @('a@corp.example','b@corp.example'))
+    $r=Register-DomeniaCredentialAliases $g 'S-1-5-21-1-2-3-1105' @('b@corp.example','c@corp.example')
+    Assert-Equal 'b@corp.example' (@($r.Conflicts) -join ',');Assert-Equal 'sid:S-1-5-21-1-2-3-1104' ([string]$g.Aliases['b@corp.example'])
+    Assert-False (Register-DomeniaCredentialAliases $g 'S-1-5-32-544' @('x@corp.example')).Registered
+    Assert-False (Register-DomeniaCredentialAliases $null 'S-1-5-21-1-2-3-1104' @('x@corp.example')).Registered
+}
+Test-Case 'P45' 'Les alias partagent un verrou ; leur refus sans provenance reste attribue' {
+    $g=& $script:P45Guard
+    [void](Register-DomeniaCredentialAliases $g 'S-1-5-21-1-2-3-1104' @('jdupont@corp.example','jean.dupont@corp.example.com'))
+    $c=& $script:P45Context $g 'jdupont@corp.example' 'jean.dupont@corp.example.com'
+    $lease=Enter-WCredentialAttempt $c All
+    try{Assert-Equal 1 @($lease.Locks).Count}finally{Exit-WCredentialAttempt $lease}
+    [void](Register-WCredentialFailure $c ([ComponentModel.Win32Exception]::new(1326)))
+    Assert-False (($g.ContainsKey('AmbiguousOperations')) -and ($g.AmbiguousOperations.Count -gt 0)) 'Refus entre alias declare ambigu'
+    Assert-True $g.Faults.ContainsKey('jdupont@corp.example')
+}
+Test-Case 'P44' 'Corriger un compte leve sa seule pause et celle de ses alias, jamais une operation non attribuee' {
+    $g=& $script:P45Guard
+    [void](Register-DomeniaCredentialAliases $g 'S-1-5-21-1-2-3-1104' @('jdupont@corp.example','jean.dupont@corp.example.com'))
+    foreach($k in @('jdupont@corp.example','other@corp.example')){[void](Register-WCredentialFailure (& $script:P45Context $g $k) 'data 52e' Directory)}
+    $g.AmbiguousOperations=@{Mixed=[pscustomobject]@{Kind='LogonFailure';Code='0x00000000';AtUtc=$script:A0}}
+    $removed=@(Clear-DomeniaCredentialGuardFault $g @('JDupont@corp.example') 5)
+    Assert-Equal 2 $removed.Count
+    Assert-False $g.Faults.ContainsKey('jean.dupont@corp.example.com');Assert-True $g.Faults.ContainsKey('other@corp.example') 'Un autre compte libere'
+    Assert-True $g.AmbiguousOperations.ContainsKey('Mixed') 'Operation non attribuee liberee'
+    Assert-Equal 5 ([long]$g.Released['jean.dupont@corp.example.com'])
+    Assert-Equal 'AtUtc,Key,Kind' ((@($removed[0].PSObject.Properties.Name)|Sort-Object) -join ',')
+}
+Test-Case 'P44' 'Une operation partie avant la correction ne renvoie plus l ancien mot de passe et son refus ne suspend rien' {
+    $g=& $script:P45Guard
+    [void](Clear-DomeniaCredentialGuardFault $g @('jdupont@corp.example') 7)
+    $old=& $script:P45Context $g 'jdupont@corp.example' '' 6
+    $new=& $script:P45Context $g 'jdupont@corp.example' '' 7
+    Assert-Throws {Assert-WCredentialAllowed $old Directory} 'Ancien mot de passe encore envoye'
+    Assert-WCredentialAllowed $new Directory
+    Assert-True (Register-WCredentialFailure $old ([ComponentModel.Win32Exception]::new(1326)) Directory) 'Le refus reste un echec pour l operation'
+    Assert-False $g.Faults.ContainsKey('jdupont@corp.example') 'Refus de l ancien mot de passe enregistre'
+    Assert-True (Register-WCredentialFailure $new ([ComponentModel.Win32Exception]::new(1326)) Directory)
+    Assert-True $g.Faults.ContainsKey('jdupont@corp.example') 'Refus du compte valide ignore'
+}
+Test-Case 'P45' 'Une validation posterieure au refus d un alias l emporte ; un refus posterieur reprend la pause' {
+    $g=& $script:P45Guard
+    [void](Register-WCredentialFailure (& $script:P45Context $g 'jdupont@corp.example' '' 3) 'data 52e' Directory)
+    [void](Clear-DomeniaCredentialGuardFault $g @('jean.dupont@corp.example.com') 5)
+    $r=Register-DomeniaCredentialAliases $g 'S-1-5-21-1-2-3-1104' @('jdupont@corp.example','jean.dupont@corp.example.com')
+    Assert-Equal 0 ([int]$r.Propagated) 'Refus anterieur a la validation propage'
+    Assert-WCredentialAllowed (& $script:P45Context $g '' 'jean.dupont@corp.example.com' 5) Remote
+    Assert-Throws {Assert-WCredentialAllowed (& $script:P45Context $g 'jdupont@corp.example' '' 4) Directory} 'Une operation partie avant la validation reste autorisee'
+    [void](Register-WCredentialFailure (& $script:P45Context $g 'jdupont@corp.example' '' 6) 'data 52e' Directory)
+    Assert-Throws {Assert-WCredentialAllowed (& $script:P45Context $g '' 'jean.dupont@corp.example.com' 6) Remote} 'Un refus posterieur a la validation ne suspend pas l alias'
+}
+Test-Case 'P44' 'Une ecriture partie avant la correction garde son compte jusqu a sa fin, sans renvoyer un mot de passe refuse depuis' {
+    $g=& $script:P45Guard
+    [void](Clear-DomeniaCredentialGuardFault $g @('jdupont@corp.example') 7)
+    $write=& $script:P45Context $g '' 'jdupont@corp.example' 6 'RimotteRun'
+    $write|Add-Member -NotePropertyName CredentialWrite -NotePropertyValue $true
+    # Its next step (the removal of its own scheduled task, say) still takes the lease of its account.
+    $lease=Enter-WCredentialAttempt $write Remote 1
+    Exit-WCredentialAttempt $lease
+    Assert-Throws {Assert-WCredentialAllowed (& $script:P45Context $g '' 'jdupont@corp.example' 6 'ComputerInventory') Remote} 'Une lecture partie avant la correction renvoie l ancien mot de passe'
+    Assert-True (Register-WCredentialFailure $write ([ComponentModel.Win32Exception]::new(1326)) Remote) 'Le refus reste un echec pour l ecriture'
+    Assert-False $g.Faults.ContainsKey('jdupont@corp.example') 'Le refus de l ancien mot de passe suspend le compte corrige'
+    Assert-Throws {Assert-WCredentialAllowed $write Remote} 'L ecriture renvoie un mot de passe refuse depuis la correction'
+    Assert-WCredentialAllowed (& $script:P45Context $g '' 'jdupont@corp.example' 7 'ComputerInventory') Remote
+    # A write refused before the correction recorded the pause itself; once the account is released, it still never
+    # sends the password refused to it.
+    $g2=& $script:P45Guard
+    $early=& $script:P45Context $g2 '' 'jdupont@corp.example' 6 'RimotteRun'
+    $early|Add-Member -NotePropertyName CredentialWrite -NotePropertyValue $true
+    Assert-True (Register-WCredentialFailure $early ([ComponentModel.Win32Exception]::new(1326)) Remote)
+    Assert-True $g2.Faults.ContainsKey('jdupont@corp.example') 'Refus de l ecriture non enregistre'
+    [void](Clear-DomeniaCredentialGuardFault $g2 @('jdupont@corp.example') 7)
+    Assert-Throws {Assert-WCredentialAllowed $early Remote} 'L ecriture renvoie le mot de passe qui lui a ete refuse'
+    Assert-Equal 'jdupont@corp.example' (@($early.CredentialRefusedKeys) -join ',')
+}
+Test-Case 'P44' 'Anti-verrouillage : la pause reste tant qu une autre copie du mot de passe refuse envoie le compte' {
+    $h={param([string]$Use,[string]$Key,[long]$Generation)[pscustomobject]@{Use=$Use;Key=$Key;Generation=$Generation}}
+    $keys=@('jdupont@corp.example','jean.dupont@corp.example.com')
+    Assert-True (Get-DomeniaAccountReleaseDecision @((& $h 'Directory' 'jdupont@corp.example' (-1))) $keys (-1)).Release 'Rien en pause : rien a proteger'
+    # Validated as the workstation account; the connection account still holds the refused password.
+    $d=Get-DomeniaAccountReleaseDecision @((& $h 'Directory' 'jdupont@corp.example' (-1)),(& $h 'Remote' 'jdupont@corp.example' 8),(& $h 'Secrets' 'reader@corp.example' (-1))) $keys 5
+    Assert-False $d.Release 'Pause levee alors que le compte de connexion envoie encore l ancien mot de passe'
+    Assert-Equal 'Directory' (@($d.Stale) -join ',')
+    Assert-True ($d.Text -match 'compte de connexion') $d.Text;Assert-True ($d.Text -match 'Corriger le mot de passe') $d.Text;Assert-True ($d.Text -match 'lʼenvoie encore') $d.Text
+    # Another confirmed name of the same account, held by a temporary account, counts as well.
+    $d=Get-DomeniaAccountReleaseDecision @((& $h 'Remote' 'jdupont@corp.example' 8),(& $h 'Temporary' 'Jean.Dupont@corp.example.com' 4),(& $h 'Session' 'jdupont@corp.example' (-1))) $keys 5
+    Assert-Equal 'Session,Temporary' ((@($d.Stale)|Sort-Object) -join ',');Assert-True ($d.Text -match 'lʼenvoient encore') $d.Text
+    # Every copy validated after the refusal: released. A refusal of the validated password itself keeps the pause.
+    Assert-True (Get-DomeniaAccountReleaseDecision @((& $h 'Directory' 'jdupont@corp.example' 9),(& $h 'Remote' 'jdupont@corp.example' 8)) $keys 5).Release
+    Assert-False (Get-DomeniaAccountReleaseDecision @((& $h 'Remote' 'jdupont@corp.example' 8)) $keys 8).Release
+    Assert-True (Get-DomeniaAccountReleaseDecision @((& $h 'Directory' 'reader@corp.example' (-1))) $keys 5).Release 'Un autre compte bloque la liberation'
+}
+Test-Case 'P44' 'Plan de correction : lectures anciennes arretees, ecritures et autres comptes intacts' {
+    $job={param($Id,[bool]$Write,[string]$State,[string]$Key,[long]$Generation,[bool]$Protected=$false)[pscustomobject]@{Id=$Id;IsWrite=$Write;NonCancellable=$Protected;State=$State;Keys=@($Key);Generation=$Generation}}
+    $jobs=@((& $job 'read-old' $false 'Running' 'jdupont@corp.example' 3),(& $job 'read-alias' $false 'Running' 'jean.dupont@corp.example.com' 3),(& $job 'write' $true 'Running' 'jdupont@corp.example' 3),
+        (& $job 'queued' $false 'Queued' 'jdupont@corp.example' 0),(& $job 'other' $false 'Running' 'reader@corp.example' 3),(& $job 'fresh' $false 'Running' 'jdupont@corp.example' 4),(& $job 'store' $false 'Running' 'jdupont@corp.example' 3 $true))
+    $p=Get-DomeniaAccountCorrectionPlan $jobs @('JDupont@corp.example','jean.dupont@corp.example.com') 4
+    Assert-Equal 'read-old,read-alias' (@($p.Stop) -join ',')
+    Assert-Equal 1 ([int]$p.Writes);Assert-Equal 1 ([int]$p.AlreadyCurrent)
+    Assert-True ($p.Text -match 'relancez-les');Assert-True ($p.Text -match 'ni interrompue ni rejouée')
+    $none=Get-DomeniaAccountCorrectionPlan @() @('x@corp.example') 1
+    Assert-Equal 0 @($none.Stop).Count;Assert-True ($none.Text -match 'en attente partiront avec le compte validé')
+}
+# Point 50 : exports expurges. Marqueurs generes a l execution, aucun secret reel.
+Test-Case 'P50' 'Export : colonne d attribut secret retenue, texte secret masque, valeurs ordinaires intactes' {
+    $marker=[guid]::NewGuid().ToString('N')
+    $key=((1..8|ForEach-Object{'{0:D6}' -f (100000+$_*111)}) -join '-')
+    $when=[datetime]::SpecifyKind([datetime]'2026-05-09T08:00:00',[DateTimeKind]::Utc)
+    $r=Protect-DomeniaExportRows @([pscustomobject]@{Nom='PC-01';Description=('password='+$marker);Note=('cle '+$key);'msFVE-RecoveryPassword'=$marker;Taille=12;Vu=$when;Actif=$true})
+    $row=$r.Rows[0]
+    Assert-False ((($row|ConvertTo-Json -Compress)).Contains($marker)) 'Secret exporte'
+    Assert-False (([string]$row.Note).Contains($key)) 'Cle de recuperation exportee'
+    Assert-Equal 'PC-01' $row.Nom;Assert-Equal 12 $row.Taille;Assert-Equal $when $row.Vu;Assert-Equal $true $row.Actif
+    Assert-Equal 3 ([int]$r.Masked);Assert-Equal 'msFVE-RecoveryPassword' (@($r.Withheld) -join ',')
+    $clean=Protect-DomeniaExportRows @([pscustomobject]@{Nom='PC-02';Description='Poste du hall'})
+    Assert-Equal 0 ([int]$clean.Masked);Assert-Equal 'Poste du hall' $clean.Rows[0].Description
+    Assert-Equal 0 @((Protect-DomeniaExportRows @()).Rows).Count
+}
+Test-Case 'P50' 'Indice rapide : toute forme masquee par la regle du journal le declenche, une valeur ordinaire jamais' {
+    $hint=Get-DomeniaSecretTextHint
+    $key=((1..8|ForEach-Object{'{0:D6}' -f (100000+$_*111)}) -join '-')
+    $secrets=@($key,'Authorization: Bearer abc.def','Basic dXNlcjpwYXNz','{"p":"x1"}','{"p" : "x1"}','{"token":"abc"}','password=abc','Mot de passe : abc','motdepasse=abc','pwd: abc','secret=abc','token=abc','api-key=abc','apikey: abc','client_secret=abc','cmd -p abc','cmd /pwd:abc','-rp abc','/password=abc','-pass abc')
+    foreach($text in $secrets){
+        Assert-True ((Protect-DomeniaSecretText $text) -cne $text) ('Forme non masquee par la regle : '+$text)
+        Assert-True ($text -match $hint) ('Forme masquee que l indice laisse passer : '+$text)
+    }
+    foreach($text in @('PC-01','CN=PC-01,OU=Postes,DC=example,DC=test','00000000-0000-0000-0000-000000000001','Windows 11 Entreprise','Non recueillie / expirée','12.5 j')){
+        Assert-False ($text -match $hint) ('Valeur ordinaire envoyee a la regle complete : '+$text)
+    }
+}
+Test-Case 'P50' 'Export : une colonne liee a un attribut secret est retenue quel que soit son titre' {
+    $marker=[guid]::NewGuid().ToString('N')
+    $r=Protect-DomeniaExportRows -Rows @([pscustomobject]@{Poste='PC-01';'Mot de passe LAPS'=$marker},[pscustomobject]@{Poste='PC-02';'Mot de passe LAPS'=''}) -SecretColumns @('Mot de passe LAPS')
+    Assert-False (((@($r.Rows))|ConvertTo-Json -Compress).Contains($marker)) 'Valeur de la colonne liee exportee'
+    Assert-Equal 1 ([int]$r.Masked);Assert-Equal 'Mot de passe LAPS' (@($r.Withheld) -join ',');Assert-Equal 'PC-02' ([string]$r.Rows[1].Poste)
+}
 Test-Case 'UI-31' 'Secrets : libelles des boutons poses par une seule regle, Copier tout absent en mode valeur unique' {
     # One value at a time (default): "copy all" is never offered, whatever was read.
     foreach($readable in @($true,$false)){

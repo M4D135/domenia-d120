@@ -1,0 +1,287 @@
+{
+  "Schema": "Domenia.SharedBricks/1",
+  "ReviewedUtc": "2026-10-15",
+  "Scope": "Contrat tenu dans ce dépôt seulement. Les dépôts Pesto, FILPRO et m4d-admin-common n'ont pas été modifiés ni consultés pour cette revue.",
+  "Statuses": {
+    "Partagee": "Déjà partagée avec un autre produit ou publiée par Domenia, version et empreinte tenues ici.",
+    "Candidate": "Règle pure ou native, sans état du cœur : extractible vers la bibliothèque commune après validation d'un consommateur.",
+    "ExtractionRequise": "Dépend encore du cœur monolithique : à séparer avant tout partage.",
+    "PropreADomenia": "Contrat publié par Domenia pour être lu par d'autres outils, non partagé comme code."
+  },
+  "ExtractionRules": [
+    "PowerShell 5.1 et C# 5 seulement ; aucune dépendance à $script: du cœur ni à WPF pour une règle.",
+    "Aucun accès réseau, annuaire ou disque au chargement ; aucun secret dans le code, les journaux ou les arguments.",
+    "Version sémantique et empreinte SHA-256 du contenu ; le consommateur vérifie l'empreinte avant chargement (RuntimeDownload interdit).",
+    "Tests de règles portables livrés avec la brique ; une diffusion n'est autorisée qu'après validation de la même version dans chaque produit consommateur (Test-DomeniaSuiteKitDiffusion).",
+    "Une modification locale d'une brique amont est déclarée (LocalModification) et reversée avant la version suivante."
+  ],
+  "Bricks": [
+    {
+      "Id": "requetes",
+      "Name": "Moteur de requêtes",
+      "Status": "Partagee",
+      "Kind": "Natif",
+      "Sources": [
+        {
+          "File": "wad/modules/M4D.Admin.Common.Query.dll",
+          "Sha256Manifest": "wad/modules/Domenia-CommonLibrary.json"
+        },
+        {
+          "File": "wad/modules/Domenia-Query.Model.ps1",
+          "Functions": [
+            "ConvertTo-DomeniaCompiledQuery"
+          ]
+        },
+        {
+          "File": "wad/modules/Domenia-QueryLibrary.Model.ps1",
+          "Functions": [
+            "Get-DomeniaQueryLibrarySchema"
+          ]
+        }
+      ],
+      "Interface": "Types M4D.Admin.Common.Query (QueryEngine, QueryRecord, QueryOptions, MatchState) ; recettes Domenia.Query/2 propres à Domenia.",
+      "Upstream": "https://github.com/M4D135/m4d-admin-common",
+      "Evidence": [
+        {
+          "File": "wad/modules/Domenia-CommonLibrary.json",
+          "Contains": "\"LocalModification\": true"
+        },
+        {
+          "File": "wad/Domenia-Modules.ps1",
+          "Contains": "M4D.Admin.Common.Query.dll"
+        }
+      ],
+      "Needs": {
+        "Pesto": "Non vérifié dans ce dépôt.",
+        "FilPro": "Non vérifié dans ce dépôt."
+      },
+      "Remaining": "Reverser la modification locale de QueryEngine.cs (SourceSHA256 différent de l'amont) avant d'étendre la bibliothèque."
+    },
+    {
+      "Id": "identite",
+      "Name": "Identité et correspondance des noms",
+      "Status": "Candidate",
+      "Kind": "Pur",
+      "Sources": [
+        {
+          "File": "wad/modules/Domenia-Common.Model.ps1",
+          "Functions": [
+            "ConvertTo-DomeniaGuidText",
+            "ConvertTo-DomeniaSidText",
+            "Get-DomeniaTextHash"
+          ]
+        },
+        {
+          "File": "wad/modules/Domenia-Relations.Model.ps1",
+          "Functions": [
+            "ConvertTo-DomeniaRelationLoginKey",
+            "ConvertTo-DomeniaRelationComputerKey"
+          ]
+        },
+        {
+          "File": "wad/modules/Domenia-Guard.Model.ps1",
+          "Functions": [
+            "Get-DomeniaCredentialAccountKey"
+          ]
+        },
+        {
+          "File": "wad/modules/Domenia-InventoryImport.Model.ps1",
+          "Functions": [
+            "Test-DomeniaInventoryIdentity"
+          ]
+        }
+      ],
+      "Interface": "Texte GUID/SID canonique, clés de compte et de poste comparables, refus des identités d'un autre domaine.",
+      "Evidence": [
+        {
+          "File": "wad/modules/Domenia-Workstation.Model.ps1",
+          "Contains": "ComputerGuid='guid'"
+        }
+      ],
+      "Needs": {
+        "Pesto": "Le contrat de passage DomeniaSuiteContract/1 transmet ComputerGuid et UserGuid : même forme canonique attendue (à confirmer).",
+        "FilPro": "Idem (à confirmer)."
+      },
+      "Remaining": "Regrouper ces règles dans un module Identity.Model sans dépendance au domaine Relations, puis extraire."
+    },
+    {
+      "Id": "coffre",
+      "Name": "Coffre Windows optionnel",
+      "Status": "Candidate",
+      "Kind": "Natif",
+      "Sources": [
+        {
+          "File": "wad/modules/Domenia-CredentialVault.Model.ps1",
+          "Functions": [
+            "Get-DomeniaCredentialVaultTarget",
+            "Initialize-DomeniaCredentialVault",
+            "Get-DomeniaCredentialVaultCredential",
+            "Save-DomeniaCredentialVaultCredential",
+            "Remove-DomeniaCredentialVaultCredential"
+          ]
+        },
+        {
+          "File": "wad/modules/Domenia-CredentialVault.Native.cs",
+          "Contains": "public static class CredentialVault"
+        }
+      ],
+      "Interface": "Gestionnaire d'identification Windows, cible préfixée par domaine et portée, activation explicite, aucun mot de passe en clair hors SecureString.",
+      "Evidence": [
+        {
+          "File": "wad/modules/Domenia-CredentialVault.Model.ps1",
+          "Contains": "Optional local Windows vault"
+        }
+      ],
+      "Needs": {
+        "Pesto": "Non vérifié dans ce dépôt.",
+        "FilPro": "Non vérifié dans ce dépôt."
+      },
+      "Remaining": "Préfixe de cible propre à chaque produit avant partage ; qualification Windows du point 43."
+    },
+    {
+      "Id": "journal",
+      "Name": "Journal expurgé",
+      "Status": "ExtractionRequise",
+      "Kind": "Mixte",
+      "Sources": [
+        {
+          "File": "wad/modules/Domenia-Access.Model.ps1",
+          "Functions": [
+            "Protect-DomeniaSecretText"
+          ]
+        },
+        {
+          "File": "wad/Domenia-Core.ps1",
+          "Functions": [
+            "Protect-DomeniaLogText",
+            "Write-AppLog",
+            "Test-DomeniaSensitiveAttributeName"
+          ]
+        }
+      ],
+      "Interface": "Masquage des secrets avant toute écriture de journal ; niveaux INFO, WARN, ERROR.",
+      "Evidence": [
+        {
+          "File": "wad/Domenia-Core.ps1",
+          "Contains": "Defence in depth, not a promise to recognise every possible secret."
+        }
+      ],
+      "Needs": {
+        "Pesto": "Non vérifié dans ce dépôt.",
+        "FilPro": "Non vérifié dans ce dépôt."
+      },
+      "Remaining": "Protect-DomeniaLogText et Write-AppLog vivent dans le cœur (état $script:) : séparer la règle de masquage (pure) de l'écriture (point 131) avant partage."
+    },
+    {
+      "Id": "interface",
+      "Name": "Composants et thème de la suite",
+      "Status": "Partagee",
+      "Kind": "Donnees",
+      "Sources": [
+        {
+          "File": "wad/modules/SupportSuite.UI.json"
+        },
+        {
+          "File": "wad/modules/Domenia-Release.Model.ps1",
+          "Functions": [
+            "Get-DomeniaSuiteKitManifest",
+            "Test-DomeniaSuiteKitDiffusion"
+          ]
+        },
+        {
+          "File": "wad/docs/reference-filpro/Login.xaml"
+        },
+        {
+          "File": "wad/docs/reference-filpro/Controls.xaml"
+        }
+      ],
+      "Interface": "Jetons de couleur des deux thèmes, mesures et vocabulaire versionnés par empreinte (SupportSuite/1+hash) ; styles de connexion repris de FILPRO 2.5.0.",
+      "Evidence": [
+        {
+          "File": "wad/docs/RC1.5-FILPRO-reference.json",
+          "Contains": "\"FILPROArchive\": \"FILPRO_2.5.0_RC1_DEV.zip\""
+        },
+        {
+          "File": "wad/modules/Domenia-Release.Model.ps1",
+          "Contains": "Kit verifie dans Domenia uniquement : Pesto et FILPRO ne sont pas disponibles ici."
+        }
+      ],
+      "Needs": {
+        "Pesto": "Besoin réel non confirmé ; le kit déclare les produits DOMENIA, GP et RBP, sans nommer Pesto.",
+        "FilPro": "Besoin réel établi : les styles de connexion de FILPRO 2.5.0 sont repris (RC1.5-FILPRO-reference.json)."
+      },
+      "Remaining": "Établir la correspondance GP/RBP avec Pesto et FILPRO ; valider la même version du kit dans chaque produit avant diffusion."
+    },
+    {
+      "Id": "passage-contexte",
+      "Name": "Passage de contexte vers Pesto et FILPRO",
+      "Status": "PropreADomenia",
+      "Kind": "Contrat",
+      "Sources": [
+        {
+          "File": "wad/modules/Domenia-Workstation.Model.ps1",
+          "Functions": [
+            "Get-DomeniaSuiteContextFields",
+            "Test-DomeniaSuiteContract"
+          ]
+        },
+        {
+          "File": "wad/modules/Domenia-Guard.UI.ps1",
+          "Functions": [
+            "Open-DomeniaSuiteTool"
+          ]
+        }
+      ],
+      "Interface": "DomeniaSuiteContract/1 déclaré par l'outil cible ; exécutable contrôlé par empreinte ; aucun compte, mot de passe ni ordre d'intervention transmis.",
+      "Evidence": [
+        {
+          "File": "wad/modules/Domenia-Guard.UI.ps1",
+          "Contains": "ValidateSet('Pesto','FilPro')"
+        }
+      ],
+      "Needs": {
+        "Pesto": "Besoin réel établi : bouton « Ouvrir Pesto » contrôlé par empreinte.",
+        "FilPro": "Besoin réel établi : bouton « Ouvrir FILPRO » contrôlé par empreinte."
+      },
+      "Remaining": "Chaque outil doit publier son suite-contract.json ; non vérifiable depuis ce dépôt."
+    },
+    {
+      "Id": "automatisation",
+      "Name": "Interface automatisable et contrat de sonde",
+      "Status": "PropreADomenia",
+      "Kind": "Contrat",
+      "Sources": [
+        {
+          "File": "wad/modules/Domenia-Automation.Model.ps1",
+          "Functions": [
+            "Get-DomeniaAutomationContract",
+            "Test-DomeniaAutomationRequest"
+          ]
+        },
+        {
+          "File": "wad/Domenia-Automate.ps1",
+          "Contains": "Domenia.Automation/1"
+        },
+        {
+          "File": "wad/modules/Domenia-ProbeContract.Model.ps1",
+          "Functions": [
+            "ConvertTo-DomeniaProbeContract",
+            "Test-DomeniaProbeContract"
+          ]
+        }
+      ],
+      "Interface": "Domenia.Automation/1 (lecture et export locaux en ligne de commande) et Domenia.ProbeContract/1 (déclaration d'une sonde) : lisibles par un autre outil sans partager de code.",
+      "Evidence": [
+        {
+          "File": "wad/Domenia-Automate.ps1",
+          "Contains": "aucun port réseau"
+        }
+      ],
+      "Needs": {
+        "Pesto": "Non vérifié dans ce dépôt.",
+        "FilPro": "Non vérifié dans ce dépôt."
+      },
+      "Remaining": "Aucun pour Domenia ; un consommateur lit la sortie JSON versionnée."
+    }
+  ]
+}

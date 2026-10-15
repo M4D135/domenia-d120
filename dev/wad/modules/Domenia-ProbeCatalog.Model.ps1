@@ -20,9 +20,29 @@ function Get-DomeniaExtendedProbeCatalog {
         foreach($name in @($p.Properties)){if(-not $names.Contains([string]$name)){throw 'Métadonnées de propriété manquantes.'}}
         foreach($url in @($p.SourceUrls)){if([string]$url -notmatch '^https://(learn\.microsoft\.com/|github\.com/(microsoft|MicrosoftDocs)/)'){throw 'Référence documentaire non autorisée.'}}
         if(-not [string]$p.Description -or -not [string]$p.Rights -or -not [string]$p.Compatibility -or -not [string]$p.UnknownMeaning -or -not [string]$p.Limitations -or @($p.SourceUrls).Count -eq 0){throw 'Documentation de sonde incomplète.'}
+        Assert-DomeniaCustomProbeDeclaration $p
     }
     $script:DomeniaExtendedProbeCatalog=@($data.Probes)
     return $script:DomeniaExtendedProbeCatalog
+}
+
+function Assert-DomeniaCustomProbeDeclaration {
+    # Point 136: an entry flagged Personnalisée declares its behaviour, privileges and cost itself (Domenia.ProbeContract/1).
+    # It reads CIM only, carries no code and calls no method, runs on an explicit collection and never on a controller.
+    # Self-contained: also evaluated in the query library validator, where only this file's functions are loaded.
+    param($Probe)
+    if($null -eq $Probe){throw 'Sonde absente.'}
+    $originProperty=$Probe.PSObject.Properties['Origin']
+    $origin=if($null -ne $originProperty){[string]$originProperty.Value}else{''}
+    if(($origin) -and ($origin -cnotin @('Catalogue détaillé','Personnalisée'))){throw 'Origine de sonde inconnue.'}
+    if($origin -cne 'Personnalisée'){return}
+    $declared=@{}
+    foreach($name in @('Behavior','Privilege','Cost','Slow','SkipOnDc')){$member=$Probe.PSObject.Properties[$name];if(($null -ne $member) -and ($null -ne $member.Value)){$declared[$name]=$member.Value}}
+    if(-not (($declared.ContainsKey('Behavior')) -and ($declared.ContainsKey('Privilege')) -and ($declared.ContainsKey('Cost')))){throw ('Sonde personnalisée sans comportement, privilèges ou coût déclarés : '+[string]$Probe.Id)}
+    $behavior=$declared['Behavior'];$reads=$behavior.PSObject.Properties['Reads'];$writes=$behavior.PSObject.Properties['Writes'];$code=$behavior.PSObject.Properties['Code'];$methods=$behavior.PSObject.Properties['Methods']
+    $readOnly=(($null -ne $reads) -and ([string]$reads.Value -ceq 'CIM') -and ($null -ne $writes) -and ($writes.Value -is [bool]) -and (-not [bool]$writes.Value) -and ($null -ne $code) -and ([string]$code.Value -ceq 'Aucun'))
+    if((-not $readOnly) -or (($null -ne $methods) -and (@($methods.Value).Count -gt 0))){throw ('Comportement de sonde personnalisée refusé : '+[string]$Probe.Id)}
+    if((-not $declared.ContainsKey('Slow')) -or (-not [bool]$declared['Slow']) -or (-not $declared.ContainsKey('SkipOnDc')) -or (-not [bool]$declared['SkipOnDc'])){throw ('Sonde personnalisée : collecte explicite et exclusion des contrôleurs requises : '+[string]$Probe.Id)}
 }
 
 function Add-DomeniaProbeMetadata {

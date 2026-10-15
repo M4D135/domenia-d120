@@ -35,25 +35,38 @@ function Get-DomeniaEngineLimits {
     $maxWait = [Math]::Max(5,[Math]::Min(3600,[int](Get-CfgValue 'Async' 'MaxQueueWaitSeconds' 120)))
     # PF-04: time budget of one engine tick for promotions and for completions (replaces MaxCompletionsPerTick).
     $budget = [Math]::Max(5,[Math]::Min(250,[int](Get-CfgValue 'Async' 'TickBudgetMs' 25)))
-    return [pscustomobject]@{MaxConcurrent=$maxConcurrent;MaxOutstanding=$maxOutstanding;MaxQueued=$maxQueued;ReservedForeground=$reserved;MaxQueueWaitSeconds=$maxWait;TickBudgetMs=$budget}
+    # Point 16: background work waiting this long while no background work runs may take one reserved place.
+    $aging = [Math]::Max(5,[Math]::Min(600,[int](Get-CfgValue 'Async' 'BackgroundAgingSeconds' 30)))
+    return [pscustomobject]@{MaxConcurrent=$maxConcurrent;MaxOutstanding=$maxOutstanding;MaxQueued=$maxQueued;ReservedForeground=$reserved;MaxQueueWaitSeconds=$maxWait;TickBudgetMs=$budget;BackgroundAgingSeconds=$aging}
 }
 
 function Get-DomeniaEngineLoad {
     # A queued entry holds no thread. A detached read still holds one until its native call really ends.
     # MO-05: ProviderLoad counts the started workers of each provider, as the provider budget of the dispatch does.
+    # Points 15 and 160: SourceLoad counts the started workers per 'Provider|target' and per 'Provider|group:<g>'.
+    # Point 16: BackgroundRunning counts the background workers that still hold a place.
     $queued = New-Object 'System.Collections.Generic.List[object]'
-    $running = 0; $active = 0; $providers = @{}
+    $running = 0; $active = 0; $providers = @{}; $sources = @{}; $background = 0
     foreach ($job in @($script:AsyncJobs.Values)) {
         if ($null -eq $job) { continue }
         if ([string]$job.State -eq 'Queued') { $queued.Add($job); continue }
         $active++
-        if (-not [bool]$job.CancelRequested) { $running++ }
+        if (-not [bool]$job.CancelRequested) {
+            $running++
+            if ([string](Get-DomeniaMember $job 'Class' '') -eq 'Background') { $background++ }
+        }
         $provider = [string](Get-DomeniaMember $job 'Provider' '')
-        if ($provider) { $providers[$provider] = [int]$providers[$provider] + 1 }
+        if ($provider) {
+            $providers[$provider] = [int]$providers[$provider] + 1
+            $targetKey = Get-DomeniaProviderStateKey $provider ([string](Get-DomeniaMember $job 'ProviderTarget' ''))
+            $sources[$targetKey] = [int]$sources[$targetKey] + 1
+            $group = [string](Get-DomeniaMember $job 'ProviderGroup' '')
+            if ($group) { $groupKey = Get-DomeniaProviderStateKey $provider ('group:' + $group); $sources[$groupKey] = [int]$sources[$groupKey] + 1 }
+        }
     }
     $detached = 0
     foreach ($job in @($script:DetachedReadJobs)) { if ($null -ne $job) { $detached++ } }
-    return [pscustomobject]@{Queued=$queued.ToArray();QueuedCount=$queued.Count;Running=$running;Active=$active;Detached=$detached;Outstanding=($active + $detached);ProviderLoad=$providers}
+    return [pscustomobject]@{Queued=$queued.ToArray();QueuedCount=$queued.Count;Running=$running;Active=$active;Detached=$detached;Outstanding=($active + $detached);ProviderLoad=$providers;SourceLoad=$sources;BackgroundRunning=$background}
 }
 
 function Get-DomeniaUiTaskAdmission {
@@ -123,15 +136,26 @@ function Get-DomeniaCredentialFailureHistory {
     foreach($f in @(Get-DomeniaCredentialGuardFailures $script:DomeniaCredentialGuard)){if($null -ne $f){$rows.Add($f)}}
     return ,$rows.ToArray()
 }
-function Set-DomeniaCredentialGuardContext {
-    # One shared breaker for every use of the same account, independent of target/provider/scheduler.
-    # A new login session gets a new map; a successful unrelated read never clears an existing refusal.
-    param($Context,[string]$OperationId)
+function Initialize-DomeniaCredentialGuard {
+    # One shared breaker per login session. A new session gets a new map; the aliases confirmed by the directory
+    # (point 45) stay true for the same domain and are applied again, without any authentication.
     if($null -eq $script:DomeniaCredentialGuard -or [long]$script:DomeniaCredentialGuard.Epoch -ne [long]$script:SessionEpoch){
         # Point 47: the refusals of the closing session stay available to the lockout diagnosis.
         if($null -ne $script:DomeniaCredentialGuard){Add-DomeniaCredentialFailureHistory @(Get-DomeniaCredentialGuardFailures $script:DomeniaCredentialGuard)}
         $script:DomeniaCredentialGuard=[hashtable]::Synchronized(@{Epoch=[long]$script:SessionEpoch;Faults=@{};Revision=0L;NotifiedRevision=0L})
+        if($null -ne $script:DomeniaCredentialAliasBook){
+            foreach($entry in @($script:DomeniaCredentialAliasBook.Values)){
+                if(($null -ne $entry) -and ([string]$entry.BaseDn -ieq [string]$script:Conn.BaseDn)){[void](Register-DomeniaCredentialAliases -Guard $script:DomeniaCredentialGuard -Sid ([string]$entry.Sid) -Keys @($entry.Keys))}
+            }
+        }
     }
+    return $script:DomeniaCredentialGuard
+}
+function Set-DomeniaCredentialGuardContext {
+    # One shared breaker for every use of the same account, independent of target/provider/scheduler.
+    # A new login session gets a new map; a successful unrelated read never clears an existing refusal.
+    param($Context,[string]$OperationId,[bool]$IsWrite=$false)
+    [void](Initialize-DomeniaCredentialGuard)
     $needs=Get-DomeniaOperationCredentialNeeds $OperationId
     $local=([string]$needs.Provider -in @('Storage','Local') -or $OperationId -in @('LiveSelectedPing','ParkPing','ComputerPing','SelectedPresence','PresenceScan','WakeOnLanSend','ParkSharedSync','ConnectorRead'))
     $directory='';$remote='';$remoteAdmin=''
@@ -153,6 +177,11 @@ function Set-DomeniaCredentialGuardContext {
     $Context | Add-Member -NotePropertyName RemoteAdminAuthKey -NotePropertyValue $remoteAdmin -Force
     $Context | Add-Member -NotePropertyName ActiveRemoteAuthKey -NotePropertyValue $remote -Force
     $Context | Add-Member -NotePropertyName LastAuthChannel -NotePropertyValue '' -Force
+    # Point 44: the account generation at dispatch. A read that left before a correction of its account keeps the
+    # previous password: the guard refuses its next attempt and ignores its refusal.
+    $Context | Add-Member -NotePropertyName CredentialGeneration -NotePropertyValue ([long]$script:DomeniaAccountGeneration) -Force
+    # A write keeps that account until its end, even after a correction (Assert-WCredentialAllowed).
+    $Context | Add-Member -NotePropertyName CredentialWrite -NotePropertyValue ([bool]$IsWrite) -Force
     return $Context
 }
 
@@ -175,8 +204,10 @@ function Sync-DomeniaCredentialGuardUi {
         if($affected -and -not [bool]$job.CancelRequested){Request-UiTaskStop -Id ([string]$job.Id) -Silent -Reason 'Protection du compte apres refus d authentification'}
     }
     if($ambiguous.Count){Set-Status 'Origine du refus d''authentification indeterminee : opération suspendue, sans declarer les autres comptes invalides. Reconnectez-vous pour reprendre.' 'WARN'}
-    else{Set-Status 'Compte protege : collectes suspendues après un refus d''authentification. Reconnectez-vous ; la base locale reste consultable.' 'WARN'}
+    else{Set-Status 'Compte protégé : collectes suspendues après un refus dʼauthentification. Corrigez ce compte dans Comptes ou reconnectez-vous ; la base locale reste consultable.' 'WARN'}
     Write-AppLog 'Protection du compte activee : aucun nouvel essai automatique avec les comptes refuses. Les appels deja transmis ne peuvent pas etre rappeles.' 'WARN'
+    # Point 42: the Comptes tab shows at once which use is paused.
+    try{Update-DomeniaAccountUi}catch{}
 }
 
 function Save-DomeniaSupersededCollection {
@@ -214,7 +245,7 @@ function Invoke-DomeniaUiTaskDispatch {
     # The production guards (circuit breaker, refused scopes, alternate accounts) run on the requested operation.
     $context = Set-DomeniaTargetCredentialContext -Context (Get-WorkerContext -OperationId $requested -Payload $Job.Payload) -Payload $Job.Payload
     $context | Add-Member -NotePropertyName CredentialTarget -NotePropertyValue ([string](Get-DomeniaMember $Job.Payload 'Computer' '')) -Force
-    $context = Set-DomeniaCredentialGuardContext -Context $context -OperationId $requested
+    $context = Set-DomeniaCredentialGuardContext -Context $context -OperationId $requested -IsWrite $isWrite
     if($requested -eq 'LiveConsole' -and -not [bool](Get-DomeniaMember $Job.Payload 'ValidateConsoleIdentity' $true)){$context.DirectoryAuthKey=''}
     if($requested -eq 'LiveConsole' -and -not [bool](Get-DomeniaMember $Job.Payload 'ProbeUser' $true) -and -not [bool](Get-DomeniaMember $Job.Payload 'Inventory' $false) -and @((Get-DomeniaMember $Job.Payload 'Probes' @())).Count -eq 0){
         $context.DirectoryAuthKey='';$context.RemoteAuthKey='';$context.RemoteAdminAuthKey='';$context.ActiveRemoteAuthKey=''
@@ -225,14 +256,22 @@ function Invoke-DomeniaUiTaskDispatch {
     }
     if(-not [bool]$script:DemoMode){Assert-WCredentialAllowed -Context $context}
     # Keep only the map and account keys on the job, never a second reference to its credentials.
-    $Job | Add-Member -NotePropertyName CredentialGuardContext -NotePropertyValue ([pscustomobject]@{CredentialGuard=$context.CredentialGuard;DirectoryAuthKey=$context.DirectoryAuthKey;RemoteAuthKey=$context.RemoteAuthKey;RemoteAdminAuthKey=$context.RemoteAdminAuthKey;ActiveRemoteAuthKey=$context.ActiveRemoteAuthKey;OperationId=$requested}) -Force
+    $Job | Add-Member -NotePropertyName CredentialGuardContext -NotePropertyValue ([pscustomobject]@{CredentialGuard=$context.CredentialGuard;DirectoryAuthKey=$context.DirectoryAuthKey;RemoteAuthKey=$context.RemoteAuthKey;RemoteAdminAuthKey=$context.RemoteAdminAuthKey;ActiveRemoteAuthKey=$context.ActiveRemoteAuthKey;OperationId=$requested;CredentialGeneration=[long]$context.CredentialGeneration;CredentialWrite=[bool]$isWrite}) -Force
     $provider = [string]$Job.Provider
     if (-not $provider) { $provider = Get-DomeniaOperationProvider $requested }
     $Job.CredentialIdentity = Get-DomeniaContextCredentialIdentity -Context $context -Provider $provider
     if ([bool]$Job.SchedulerManaged) {
         # D018: a refused account is never retried on the same resource; repeated outages pause background reads.
-        $runningForProvider = @(@($script:AsyncJobs.Values) | Where-Object { $null -ne $_ -and [string]$_.State -ne 'Queued' -and [string]$_.Provider -eq $provider -and -not [object]::ReferenceEquals($_,$Job) }).Count
-        $budget = Test-DomeniaProviderAdmission -State $script:DomeniaProviderState -Provider $provider -Target ([string]$Job.ProviderTarget) -Class ([string]$Job.Class) -RunningForProvider $runningForProvider -Identity ([string]$Job.CredentialIdentity)
+        # Points 15 and 160: the controller or presumed subnet of the read has its own budget and recovers progressively.
+        $sameProvider = @(@($script:AsyncJobs.Values) | Where-Object { $null -ne $_ -and [string]$_.State -ne 'Queued' -and [string]$_.Provider -eq $provider -and -not [object]::ReferenceEquals($_,$Job) })
+        $runningForProvider = $sameProvider.Count
+        $jobTarget = ([string]$Job.ProviderTarget).Trim()
+        $runningForTarget = @($sameProvider | Where-Object { ([string]$_.ProviderTarget).Trim() -ieq $jobTarget }).Count
+        $group = [string](Get-DomeniaMember $Job 'ProviderGroup' '')
+        $runningForGroup = -1
+        if ($group) { $runningForGroup = @($sameProvider | Where-Object { [string](Get-DomeniaMember $_ 'ProviderGroup' '') -ieq $group }).Count }
+        # Point 16: the exception granted by the queue to a long-waiting background read is applied here too, once.
+        $budget = Test-DomeniaProviderAdmission -State $script:DomeniaProviderState -Provider $provider -Target $jobTarget -Class ([string]$Job.Class) -RunningForProvider $runningForProvider -Identity ([string]$Job.CredentialIdentity) -Group $group -RunningForTarget $runningForTarget -RunningForGroup $runningForGroup -Aged ([bool](Get-DomeniaMember $Job 'AgedAdmission' $false))
         if (-not [bool]$budget.Allowed) { throw ([string]$budget.Reason) }
     }
     $executed = $requested
@@ -284,6 +323,19 @@ function Invoke-DomeniaUiTaskDispatch {
                     $searchProgress.RowsRead = 0L
                 } finally { [Threading.Monitor]::Exit($searchProgress.SyncRoot) }
                 Add-Member -InputObject $Job -NotePropertyName SearchReadProgress -NotePropertyValue $searchProgress -Force
+            }
+        }
+        elseif (-not $isWrite -and -not $demo -and -not $isolated) {
+            # Point 17: a read that carries a progress channel (a campaign workstation) gets the same dispatch clock.
+            $readProgress = Get-DomeniaMemberValue $Job.Payload 'ReadProgress' $null
+            if ($readProgress -is [Collections.IDictionary]) {
+                [Threading.Monitor]::Enter(([Collections.ICollection]$readProgress).SyncRoot)
+                try {
+                    $readProgress['StartedTimestamp'] = [Diagnostics.Stopwatch]::GetTimestamp()
+                    $readProgress['LastRowTimestamp'] = 0L
+                    $readProgress['RowsRead'] = 0L
+                } finally { [Threading.Monitor]::Exit(([Collections.ICollection]$readProgress).SyncRoot) }
+                Add-Member -InputObject $Job -NotePropertyName ReadProgress -NotePropertyValue $readProgress -Force
             }
         }
         $handle = $ps.BeginInvoke()
@@ -744,6 +796,8 @@ function Add-DomeniaTaskSubscriber {
         }
         if ($null -eq $job.Subscribers) { $job.Subscribers = New-Object System.Collections.ArrayList }
         [void]$job.Subscribers.Add([pscustomobject]@{SuccessHandler=$SuccessHandler;ErrorHandler=$ErrorHandler;OnSuccess=$OnSuccess;OnError=$OnError;CallbackState=$CallbackState})
+        # Point 12: counted for the operations panel (a second call that was not sent).
+        $script:DomeniaSharedReadCount = [int]$script:DomeniaSharedReadCount + 1
         # UX-04: engine detail, Domenia.log only.
         Write-DomeniaTrace ('Lecture identique partagée : ' + [string]$job.Name + ' (' + [string]$job.OperationId + '), aucun second appel.')
         try { Add-DomeniaJobTraceEvent -Job $job -Phase 'Shared' -Detail 'demande identique rattachée, aucun second appel' } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
@@ -815,9 +869,17 @@ function Invoke-DomeniaQueuedTaskPromotion {
     while ($watch.ElapsedMilliseconds -lt $BudgetMs) {
         $load = Get-DomeniaEngineLoad
         if ($load.QueuedCount -eq 0) { break }
-        $next = Select-DomeniaNextQueuedTask -Queued $load.Queued -Running $load.Running -Outstanding $load.Outstanding -MaxConcurrent $limits.MaxConcurrent -MaxOutstanding $limits.MaxOutstanding -ReservedForeground $limits.ReservedForeground -ProviderLoad $load.ProviderLoad -ProviderState $script:DomeniaProviderState
-        if ($null -eq $next) { break }
+        $entry = Select-DomeniaNextQueuedEntry -Queued $load.Queued -Running $load.Running -Outstanding $load.Outstanding -MaxConcurrent $limits.MaxConcurrent -MaxOutstanding $limits.MaxOutstanding -ReservedForeground $limits.ReservedForeground -ProviderLoad $load.ProviderLoad -ProviderState $script:DomeniaProviderState -BackgroundRunning ([int]$load.BackgroundRunning) -AgingSeconds ([int]$limits.BackgroundAgingSeconds) -SourceLoad $load.SourceLoad
+        if ($null -eq $entry) { break }
+        $next = $entry.Task
         $changed = $true
+        # Point 16: a background entry that started only thanks to its long wait (reserved place, or one place above
+        # its provider or site budget) is marked for the dispatch, counted and traced.
+        if ([bool]$entry.Aged) {
+            Add-Member -InputObject $next -NotePropertyName AgedAdmission -NotePropertyValue $true -Force
+            $script:DomeniaAgedPromotions = [int]$script:DomeniaAgedPromotions + 1
+            Write-DomeniaTrace ('Travail de fond en attente depuis ' + [string][int](Get-DomeniaQueuedSeconds $next) + ' s : place accordée malgré la charge (' + [string]$next.Name + ').')
+        }
         try {
             [void](Invoke-DomeniaUiTaskDispatch -Job $next)
             # CO-02: Annuler and the progress label follow the foreground task, never a local save or a background read.
@@ -886,7 +948,7 @@ function Register-DomeniaTaskOutcome {
     $kind = ''
     if ($failed) { $kind = 'Unknown'; if ($null -ne $structured) { $kind = [string](Get-DomeniaMember $structured 'Kind' 'Unknown') } }
     $outcome = ConvertTo-DomeniaProviderOutcome -ErrorKind $kind -Cancelled ([bool]$Cancelled) -TimedOut ([bool]$TimedOut) -Failed $failed
-    return (Register-DomeniaProviderOutcome -State $script:DomeniaProviderState -Provider ([string]$Job.Provider) -Target ([string]$Job.ProviderTarget) -Outcome $outcome -Identity ([string]$Job.CredentialIdentity))
+    return (Register-DomeniaProviderOutcome -State $script:DomeniaProviderState -Provider ([string]$Job.Provider) -Target ([string]$Job.ProviderTarget) -Outcome $outcome -Identity ([string]$Job.CredentialIdentity) -Group ([string](Get-DomeniaMember $Job 'ProviderGroup' '')))
 }
 
 function ConvertTo-DomeniaTaskErrorInfo {
@@ -937,12 +999,17 @@ function Test-DomeniaIdlePolicyEnabled {
 function Test-DomeniaBackgroundWorkAllowed {
     # C1. $true when the idle policy (D020) allows background work for this source
     # ('Live','Reconcile','ObjectChanges','Dashboard','Index','Park'); $true also while it is not initialized.
+    # Point 159: the sources that read the network on their own also respect the collection window of the profile.
     param([string]$Source)
-    if ($null -eq $script:DomeniaIdlePolicy) { return $true }
-    try {
-        $activity = Get-DomeniaIdleActivityForSource -Source $Source
-        return [bool](Test-DomeniaIdleAllows -Policy $script:DomeniaIdlePolicy -Activity ([string]$activity.Activity) -Page ([string]$activity.Page))
-    } catch { return $true }
+    $allowed = $true
+    if ($null -ne $script:DomeniaIdlePolicy) {
+        try {
+            $activity = Get-DomeniaIdleActivityForSource -Source $Source
+            $allowed = [bool](Test-DomeniaIdleAllows -Policy $script:DomeniaIdlePolicy -Activity ([string]$activity.Activity) -Page ([string]$activity.Page))
+        } catch { $allowed = $true }
+    }
+    if ($allowed) { try { $allowed = [bool](Test-DomeniaCollectionWindowAllowsSource -Source $Source) } catch { $allowed = $true } }
+    return $allowed
 }
 
 function Update-DomeniaIdlePolicy {
@@ -967,6 +1034,9 @@ function Update-DomeniaIdlePolicy {
         $script:DashboardDirty = $false
         try { Request-DomeniaDashboardRefresh } catch { }
     }
+    # Point 20: once per session and base, an interrupted campaign is offered for resumption (nothing is read
+    # without the answer « Reprendre »).
+    if ([bool]$window.IsActive -and -not $minimized -and -not $hidden) { try { Request-DomeniaCampaignResumeOffer } catch { } }
     return $script:DomeniaIdlePolicy
 }
 

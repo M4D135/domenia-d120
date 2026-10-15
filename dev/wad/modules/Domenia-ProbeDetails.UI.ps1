@@ -27,6 +27,17 @@ function Show-DomeniaProbeDetails {
         foreach($control in @($readingTitle,$readingGrid,$readingActions)){[void]$top.Children.Add($control)}
         if([string]$readingDefinition.Id -ceq 'bios'){$readingActions.Visibility='Visible'}
     }
+    # Points 135-136: the probe contract (inputs, types, rights, cost, limits, sources, expected tests) and what isolates it.
+    $contractEntry=Get-DomeniaProbeContract $ProbeId
+    $contractBox=[Windows.Controls.Expander]::new();$contractBox.Header='Contrat de la sonde';$contractBox.Margin='0,8,0,0';$contractBox.IsExpanded=$false
+    [Windows.Automation.AutomationProperties]::SetName($contractBox,'Contrat de la sonde '+[string]$definition.Name)
+    $contractText=[Windows.Controls.TextBox]::new();$contractText.IsReadOnly=$true;$contractText.TextWrapping='Wrap';$contractText.MaxHeight=220;$contractText.VerticalScrollBarVisibility='Auto'
+    if($null -eq $contractEntry){$contractText.Text='Contrat de sonde indisponible.'}
+    else{
+        $isolation=Get-DomeniaProbeIsolationPlan -Contract $contractEntry.Contract -IsolatedReadsEnabled ([bool](Get-DomeniaFeatureFlag 'IsolatedReads' $false))
+        $contractText.Text=(@(Get-DomeniaProbeContractLines -Contract $contractEntry.Contract -Check $contractEntry.Check -Isolation $isolation|ForEach-Object{[string]$_.Section+' : '+[string]$_.Valeur}) -join [Environment]::NewLine)
+    }
+    $contractBox.Content=$contractText;[void]$top.Children.Add($contractBox)
     $rawTitle=[Windows.Controls.TextBlock]::new();$rawTitle.Text='Valeurs enregistrées de la requête';$rawTitle.FontSize=15;$rawTitle.FontWeight='SemiBold';$rawTitle.Margin='0,12,0,4';[void]$top.Children.Add($rawTitle)
     $choice=[Windows.Controls.ComboBox]::new();$choice.Items.Add('Dernière réussite')|Out-Null;$choice.Items.Add('Dernière tentative')|Out-Null;$choice.SelectedIndex=0;$choice.IsEnabled=$false;$choice.Margin='0,0,0,10';[void]$top.Children.Add($choice)
     [void]$root.Children.Add($top)

@@ -560,13 +560,14 @@ function Update-DomeniaStorageLimitsUi {
 }
 function Register-DomeniaSqliteBusyOutcome {
     # FI-12: counts, for the Operations panel, every finished worker whose SQLite lock wait ran out: an error worded as
-    # SQLITE_BUSY/LOCKED by any storage worker, or a local read (LocalIndexRead) answered Busy. Session counters only;
-    # nothing is retried or replayed here. Called once per finished task by Complete-UiTasks.
+    # SQLITE_BUSY/LOCKED by any storage worker, or a local read (LocalIndexRead, RelationHistoryRead of point 107)
+    # answered Busy. Session counters only; nothing is retried or replayed here. Called once per finished task by
+    # Complete-UiTasks.
     param($Job,$Output=$null,[AllowEmptyString()][string]$ErrorMessage='')
     if($null -eq $Job){return $false}
     $busy=$false
     if(-not [string]::IsNullOrWhiteSpace($ErrorMessage)){$busy=Test-DomeniaSqliteBusyText $ErrorMessage}
-    elseif([string]$Job.OperationId -eq 'LocalIndexRead'){
+    elseif([string]$Job.OperationId -in @('LocalIndexRead','RelationHistoryRead')){
         foreach($item in @($Output)){if(($null -ne $item) -and ($null -ne $item.PSObject.Properties['Busy']) -and ($item.Busy -is [bool]) -and ([bool]$item.Busy)){$busy=$true}}
     }
     if(-not $busy){return $false}

@@ -322,7 +322,9 @@ function Invoke-DomeniaPaletteCommand {
         'diagnostic' { Export-DomeniaTechnicalDossier }
         'selfcheck' { Start-SelfCheck }
         'tree' { Load-TreeRoot -ForceRefresh }
-        'batch' { Show-DomeniaBatchNetworkReport -Rows (Get-DomeniaSelectedMachineRows) }
+        # Point 48 (W07): the whole selection is the candidate list; the exact preview keeps the workstations and names
+        # each row set aside with its reason, then asks for confirmation in the page.
+        'batch' { Show-DomeniaBatchNetworkReport -Rows (Get-DomeniaSelectedGridRows) }
     }
 }
 

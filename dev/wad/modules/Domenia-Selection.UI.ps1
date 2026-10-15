@@ -162,7 +162,9 @@ function Get-DomeniaSelectionCachePolicy {
         $identityMatches=([string]$record.DN -ieq [string]$context.DN -and $guid -ieq [string]$context.Guid)
         if($null -ne $context -and $null -ne $context.PSObject.Properties['Epoch']){$identityMatches=($identityMatches -and [long]$context.Epoch -eq [long]$script:SessionEpoch)}
     }
-    $freshness=Get-DomeniaRecordFreshness $record 'Attributes'
+    # Point 11: the attribute duration of the usage profile, as in the object card.
+    $freshnessTable=$null;try{$freshnessTable=Get-DomeniaActiveFreshnessTable}catch{$freshnessTable=$null}
+    $freshness=Get-DomeniaRecordFreshness $record 'Attributes' -Table $freshnessTable
     $fresh=($freshness.State -eq 'Fresh' -and -not [bool]$script:ShowingCachedObject)
     if($null -ne $load -and [string]$load.Phase -ne 'Ready'){$fresh=$false}
     $reachability=$script:DirectoryReachability

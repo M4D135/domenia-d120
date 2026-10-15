@@ -1,5 +1,6 @@
 ﻿# Lot X03 (connexion et comptes) : regles de presentation pures. Aucune fenetre, aucun compte reel, aucun reseau.
 # Les identites et les codes sont des donnees synthetiques (domaine example.invalid).
+. (Join-Path $modules 'Domenia-Guard.Model.ps1')
 . (Join-Path $modules 'Domenia-Accounts.Model.ps1')
 
 # ---------------------------------------------------------------- UI-20 refus de connexion en clair
@@ -216,6 +217,42 @@ Test-Case 'X03-UI27' 'Annuaire : une operation qui a son compte temporaire a sa 
     Assert-True ($lines[3].StartsWith('Postes (WMI, C$, consoles)|EXAMPLE\postes-temp|')) $lines[3]
     Assert-False (@($r.Now|Where-Object{([string]$_.Resource).StartsWith('AD:') -or ([string]$_.Resource -eq 'Postes')}).Count -gt 0) 'Cle interne ou compte des postes en double dans En ce moment'
     Assert-Equal 3 @($r.Memory).Count
+}
+
+Test-Case 'P42' 'En ce moment : compte de connexion par defaut, etat de la protection, aucun etat invente' {
+    # Point 42 x UI-27: one view of the accounts in use. The connection account serves every resource by default; a
+    # specific account is optional; the state says what the protection recorded and never declares an account valid.
+    $machine=Get-DomeniaMachineAccountLabel -Source 'Connection' -Account 'CORP\jdupont'
+    $r=Get-DomeniaAccountsInUseRows -DirectoryAccount 'CORP\jdupont' -DirectoryMode 'Explicit' -Machine $machine -Domain 'corp.example' -Netbios 'CORP'
+    Assert-Equal 4 @($r.Now).Count
+    Assert-Equal 4 @(@($r.Now)|Where-Object{$_.Account -eq 'CORP\jdupont'}).Count
+    Assert-Equal 'compte de connexion' @($r.Now)[1].Origin
+    Assert-Equal 'même compte que lʼannuaire' @($r.Now)[2].Origin
+    foreach($row in @($r.Now)){Assert-Equal 'Aucun refus enregistré.' $row.State ($row.Resource);Assert-False ($row.State -match '(?i)\bvalid') 'Un compte non teste est presente comme valide'}
+    Assert-Equal 'session Windows' @((Get-DomeniaAccountsInUseRows -DirectoryAccount 'CORP\jdupont' -DirectoryMode 'Windows' -Machine $machine).Now)[0].Origin
+}
+Test-Case 'P42' 'En ce moment : un compte en pause dit ou le corriger, sous chacun de ses noms, compte temporaire et local compris' {
+    $t0=[datetime]::SpecifyKind([datetime]'2026-10-02T08:00:00',[DateTimeKind]::Utc)
+    $lease={param([string]$Key,[string]$Account) New-DomeniaCredentialLease -Scope $Key -Account $Account -Mode Inactivity -InactivityMinutes 30 -Epoch 7 -NowUtc $t0}
+    $local=[pscustomobject]@{Key='RemoteLocal|PC-01';UserName='.\admin';Lease=(& $lease 'RemoteLocal|PC-01' '.\admin')}
+    $write=[pscustomobject]@{Key='AD:WriteAttributes';UserName='CORP\delegue';Lease=(& $lease 'AD:WriteAttributes' 'CORP\delegue')}
+    $faults=@([pscustomobject]@{Key='adm-postes@corp.example'},[pscustomobject]@{Key='pc-01\admin'},[pscustomobject]@{Key='JDUPONT@corp.example'},[pscustomobject]@{Key=''})
+    $machine=Get-DomeniaMachineAccountLabel -Source 'Remote' -Account 'CORP\adm-postes'
+    $r=Get-DomeniaAccountsInUseRows -DirectoryAccount 'CORP\jdupont' -DirectoryMode 'Explicit' -Machine $machine -SecretsAccount 'CORP\lecteur-laps' -Temporary @($local,$write) -Epoch 7 -NowUtc $t0 -Faults $faults -AliasGroups @(,@('jdupont@corp.example','jean.dupont@corp.example.com')) -Domain 'corp.example' -Netbios 'CORP'
+    $now=@{};foreach($row in @($r.Now)){$now[[string]$row.Resource]=$row}
+    Assert-True ($now['Annuaire'].State -match '^En pause après un refus : « Corriger le mot de passe » dans la carte Annuaire, ou « Changer de compte »\.') $now['Annuaire'].State
+    Assert-True ($now['Annuaire'].State -match 'Même compte que jean\.dupont@corp\.example\.com \(SID confirmé par lʼannuaire\)\.$') $now['Annuaire'].State
+    Assert-True ($now['Postes (WMI, C$, consoles)'].State -match 'ressaisissez son mot de passe puis « Activer » dans Comptes secondaires') $now['Postes (WMI, C$, consoles)'].State
+    Assert-Equal 'Aucun refus enregistré.' $now['Secrets : LAPS'].State
+    Assert-Equal 'Aucun refus enregistré.' $now['Annuaire : opération WriteAttributes'].State
+    $memory=@{};foreach($row in @($r.Memory)){$memory[[string]$row.Key]=$row}
+    # A local account of one workstation is keyed with that workstation, as the worker guard keys it.
+    Assert-True ($memory['RemoteLocal|PC-01'].State -match '^En pause après un refus : relancez lʼaction pour ressaisir son mot de passe, ou « Oublier » ce compte\.$') $memory['RemoteLocal|PC-01'].State
+    Assert-Equal 'Poste PC-01 (compte local)' $memory['RemoteLocal|PC-01'].Resource
+    $typed=Get-DomeniaAccountsInUseRows -DirectoryAccount 'CORP\jdupont' -DirectoryMode 'Windows' -TypedMachineAccount 'CORP\adm-postes' -Machine (Get-DomeniaMachineAccountLabel -Source 'Typed' -Account 'CORP\adm-postes') -Faults $faults -Domain 'corp.example' -Netbios 'CORP'
+    Assert-True ((@($typed.Memory)[0]).State -match '« Oublier » ce compte, puis validez-le dans Comptes secondaires') (@($typed.Memory)[0]).State
+    Assert-True ((@($typed.Now)[0]).State -match 'corrigez le mot de passe dans Windows') (@($typed.Now)[0]).State
+    Assert-Equal 'Aucun compte' (@((Get-DomeniaAccountsInUseRows -Faults $faults -Domain 'corp.example' -Netbios 'CORP').Now)[0]).State
 }
 
 # ---------------------------------------------------------------- UX-16 autorisation d intervention dans Actions

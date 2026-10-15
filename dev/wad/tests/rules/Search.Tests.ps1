@@ -216,6 +216,138 @@ Test-Case 'UX-33' 'Le domaine entier est un choix explicite, sans releve possibl
     Assert-True (Get-DomeniaWorkViewPlan $view 'OU' $script:DomainDn $script:DomainDn $false).SurveyAllowed 'Enfants directs de la racine : pas le domaine entier'
     Assert-Equal $null (Get-DomeniaWorkViewPlan $null 'OU' '' $script:DomainDn)
 }
+
+# ---------------------------------------------------------------- points 101 et 102 : comptes et mots de passe a revoir
+# Evaluateur minimal des filtres LDAP des vues (&, |, !, =, >=, <=, presence, ET binaire 1.2.840.113556.1.4.803) :
+# les criteres sont verifies sur des comptes fictifs, pas seulement sur leur texte.
+function Read-W12LdapNode {
+    param([string]$Text,[ref]$Pos,[hashtable]$Account)
+    if ($Text[$Pos.Value] -ne '(') { throw ('Parenthese attendue en ' + $Pos.Value + ' : ' + $Text) }
+    $Pos.Value++
+    $op = [string]$Text[$Pos.Value]
+    if (($op -eq '&') -or ($op -eq '|')) {
+        $Pos.Value++
+        $results = New-Object 'System.Collections.Generic.List[bool]'
+        while ($Text[$Pos.Value] -eq '(') { $results.Add([bool](Read-W12LdapNode $Text $Pos $Account)) }
+        if ($Text[$Pos.Value] -ne ')') { throw ('Groupe non ferme : ' + $Text) }
+        $Pos.Value++
+        if ($op -eq '&') { return (-not $results.Contains($false)) }
+        return $results.Contains($true)
+    }
+    if ($op -eq '!') {
+        $Pos.Value++
+        $inner = [bool](Read-W12LdapNode $Text $Pos $Account)
+        if ($Text[$Pos.Value] -ne ')') { throw ('Negation non fermee : ' + $Text) }
+        $Pos.Value++
+        return (-not $inner)
+    }
+    $end = $Text.IndexOf(')',$Pos.Value)
+    if ($end -lt 0) { throw ('Element non ferme : ' + $Text) }
+    $item = $Text.Substring($Pos.Value,$end - $Pos.Value)
+    $Pos.Value = $end + 1
+    $bitwise = [regex]::Match($item,'^(?<a>[A-Za-z]+):1\.2\.840\.113556\.1\.4\.803:=(?<v>\d+)$')
+    if ($bitwise.Success) {
+        $name = $bitwise.Groups['a'].Value; $mask = [long]$bitwise.Groups['v'].Value
+        if (-not $Account.ContainsKey($name)) { return $false }
+        return (([long]$Account[$name] -band $mask) -eq $mask)
+    }
+    $simple = [regex]::Match($item,'^(?<a>[A-Za-z]+)(?<o><=|>=|=)(?<v>.*)$')
+    if (-not $simple.Success) { throw ('Element inconnu : ' + $item) }
+    $name = $simple.Groups['a'].Value; $operator = $simple.Groups['o'].Value; $value = $simple.Groups['v'].Value
+    if (($operator -eq '=') -and ($value -eq '*')) { return $Account.ContainsKey($name) }
+    if (-not $Account.ContainsKey($name)) { return $false }
+    $actual = $Account[$name]
+    if (($actual -is [long]) -or ($actual -is [int])) {
+        $number = [long]$value
+        if ($operator -eq '>=') { return ([long]$actual -ge $number) }
+        if ($operator -eq '<=') { return ([long]$actual -le $number) }
+        return ([long]$actual -eq $number)
+    }
+    return ([string]$actual -ieq $value)
+}
+function Test-W12LdapFilter {
+    param([string]$Filter,[hashtable]$Account)
+    $pos = 0
+    $result = [bool](Read-W12LdapNode $Filter ([ref]$pos) $Account)
+    if ($pos -ne $Filter.Length) { throw ('Texte apres le filtre : ' + $Filter) }
+    return $result
+}
+function Get-W12ReviewAccounts {
+    param([datetime]$NowUtc)
+    $make = {
+        param([string]$Name,[hashtable]$Values)
+        $account = @{sAMAccountName=$Name;objectCategory='person';objectClass='user';userAccountControl=512L;accountExpires=0L;pwdLastSet=$NowUtc.AddDays(-30).ToFileTimeUtc();lastLogonTimestamp=$NowUtc.AddDays(-5).ToFileTimeUtc()}
+        foreach ($key in @($Values.Keys)) { if ($null -eq $Values[$key]) { $account.Remove($key) } else { $account[$key] = $Values[$key] } }
+        return $account
+    }
+    return @(
+        (& $make 'recent' @{})
+        (& $make 'inactif' @{lastLogonTimestamp=$NowUtc.AddDays(-120).ToFileTimeUtc()})
+        (& $make 'desactive-inactif' @{userAccountControl=514L;lastLogonTimestamp=$NowUtc.AddDays(-120).ToFileTimeUtc()})
+        (& $make 'jamais-connecte' @{lastLogonTimestamp=$null})
+        (& $make 'desactive-jamais' @{userAccountControl=514L;lastLogonTimestamp=$null})
+        (& $make 'expire' @{accountExpires=$NowUtc.AddDays(-1).ToFileTimeUtc()})
+        (& $make 'expire-bientot' @{accountExpires=$NowUtc.AddDays(10).ToFileTimeUtc()})
+        (& $make 'sans-expiration-max' @{accountExpires=[long]::MaxValue})
+        (& $make 'verrouille' @{lockoutTime=$NowUtc.AddHours(-1).ToFileTimeUtc()})
+        (& $make 'deverrouille' @{lockoutTime=0L})
+        (& $make 'mdp-ancien' @{pwdLastSet=$NowUtc.AddDays(-400).ToFileTimeUtc()})
+        (& $make 'desactive-mdp-ancien' @{userAccountControl=514L;pwdLastSet=$NowUtc.AddDays(-400).ToFileTimeUtc()})
+        (& $make 'mdp-a-changer' @{pwdLastSet=0L})
+        (& $make 'mdp-sans-expiration' @{userAccountControl=66048L})
+        (& $make 'mdp-non-requis' @{userAccountControl=544L})
+    )
+}
+function Get-W12ViewMatches {
+    param($View,[object[]]$Accounts)
+    return ((@($Accounts | Where-Object { Test-W12LdapFilter ([string]$View.Filter) $_ } | ForEach-Object { [string]$_['sAMAccountName'] }) | Sort-Object) -join ',')
+}
+Test-Case '101' 'Comptes a verifier : expiration, desactivation, verrouillage et inactivite selon des criteres distincts' {
+    $now = [datetime]::SpecifyKind([datetime]'2026-01-01',[DateTimeKind]::Utc)
+    $views = @{}
+    foreach ($view in @(Get-DomeniaWorkViews $now)) { $views[[string]$view.Id] = $view }
+    $accounts = Get-W12ReviewAccounts $now
+    foreach ($id in @('expiring','disabled','expiredaccounts','lockedusers','inactiveusers','neverloggedusers')) {
+        Assert-True $views.ContainsKey($id) ('Vue absente : ' + $id)
+        Assert-Equal 'Utilisateur' ([string]$views[$id].Type) $id
+        Assert-True $views[$id].NeedsOu ('Vue sans OU : ' + $id)
+    }
+    Assert-Equal 'inactif' (Get-W12ViewMatches $views['inactiveusers'] $accounts) 'Inactivite : comptes actifs avec une date ancienne seulement'
+    Assert-Equal 'jamais-connecte' (Get-W12ViewMatches $views['neverloggedusers'] $accounts) 'Jamais connectes : actifs sans date, a part des inactifs'
+    Assert-Equal 'expire' (Get-W12ViewMatches $views['expiredaccounts'] $accounts) 'Expiration depassee : 0 et la valeur maximale exclus'
+    Assert-Equal 'expire-bientot' (Get-W12ViewMatches $views['expiring'] $accounts)
+    Assert-Equal 'verrouille' (Get-W12ViewMatches $views['lockedusers'] $accounts) 'lockoutTime nul exclu'
+    Assert-Equal 'desactive-inactif,desactive-jamais,desactive-mdp-ancien' (Get-W12ViewMatches $views['disabled'] $accounts)
+    Assert-True ([string]$views['lockedusers'].Note -match 'fiche') 'Le verrouillage enregistre renvoie a l etat calcule de la fiche'
+    Assert-True ([string]$views['inactiveusers'].Note -match '14 jours') 'Approximation de lastLogonTimestamp annoncee'
+    Assert-True ([string]$views['inactiveusers'].Note -match 'supprimable') 'Aucun compte declare supprimable'
+}
+Test-Case '102' 'Hygiene des mots de passe : age et options lus, aucun secret ni verdict de compromission' {
+    $now = [datetime]::SpecifyKind([datetime]'2026-01-01',[DateTimeKind]::Utc)
+    $views = @{}
+    foreach ($view in @(Get-DomeniaWorkViews $now)) { $views[[string]$view.Id] = $view }
+    $accounts = Get-W12ReviewAccounts $now
+    Assert-Equal 'mdp-ancien' (Get-W12ViewMatches $views['pwdold'] $accounts) 'Age : comptes actifs, changement demande exclu'
+    Assert-Equal 'mdp-a-changer' (Get-W12ViewMatches $views['pwdmustchange'] $accounts)
+    Assert-Equal 'mdp-sans-expiration' (Get-W12ViewMatches $views['pwdneverexpires'] $accounts)
+    Assert-Equal 'mdp-non-requis' (Get-W12ViewMatches $views['pwdnotrequired'] $accounts)
+    Assert-True (([string]$views['pwdold'].Filter).Contains('(pwdLastSet<=' + $now.AddDays(-365).ToFileTimeUtc() + ')')) 'Seuil de 365 jours'
+    foreach ($view in @(Get-DomeniaWorkViews $now)) {
+        Assert-False ([string]$view.Filter -match '(?i)unicodePwd|userPassword|ms-Mcs-AdmPwd|msLAPS|supplementalCredentials') ('Attribut secret dans ' + $view.Id)
+        Assert-False ([string]$view.Name -match '(?i)compromis|faible|pirat|dangereux') ('Verdict arbitraire dans le nom de ' + $view.Id)
+    }
+    foreach ($id in @('pwdneverexpires','pwdnotrequired')) { Assert-True ([string]$views[$id].Note -match 'Aucun mot de passe nʼest lu') $id }
+    Assert-True ([string]$views['pwdold'].Note -match 'ni la robustesse ni une compromission') 'Age sans conclusion'
+}
+Test-Case '101' 'Filtres des vues : parentheses equilibrees et evaluables' {
+    $now = [datetime]::SpecifyKind([datetime]'2026-01-01',[DateTimeKind]::Utc)
+    $probe = @{objectCategory='person';objectClass='user';userAccountControl=512L}
+    foreach ($view in @(Get-DomeniaWorkViews $now)) {
+        $depth = 0; foreach ($ch in ([string]$view.Filter).ToCharArray()) { if ($ch -eq '(') { $depth++ } elseif ($ch -eq ')') { $depth-- }; Assert-True ($depth -ge 0) ('Filtre desequilibre : ' + $view.Id) }
+        Assert-Equal 0 $depth ('Filtre desequilibre : ' + $view.Id)
+        [void](Test-W12LdapFilter ([string]$view.Filter) $probe)
+    }
+}
 Test-Case 'UI-16' 'Conteneurs systeme regroupes, Users et Computers visibles' {
     $rows=@(
         [pscustomobject]@{Name='Computers';DN=('CN=Computers,'+$script:DomainDn);Kind='Conteneur'}

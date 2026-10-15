@@ -49,6 +49,8 @@ $script:ParkStops=[Collections.Generic.List[string]]::new()
 function Stop-DomeniaOnlinePark {param([string]$RunId='',[string]$Slot='List');$script:ParkStops.Add($RunId);$run=$(if($RunId){Get-DomeniaParkRunById $RunId}else{Get-DomeniaParkRun -Slot $Slot});if($null -ne $run){$run.Completed=$true}}
 # The end of a run goes through the real Update-DomeniaParkRunStatus (Park.UI): nothing pending in the local store.
 function Get-DomeniaPersistenceState {return [pscustomobject]@{Pending=0;Suspended=$false;Conflicts=0}}
+# Point 20: the resume area of the collection settings (Collection.UI) is not part of the boards.
+function Update-DomeniaCampaignResumeUi {}
 function Clear-DomeniaParkTargetBuffers {param([object[]]$Targets)}
 # Overview calculation (FleetStats worker): recorded, never run.
 $script:StartCalls=[Collections.Generic.List[object]]::new();$script:AsyncJobs=@{}
@@ -164,12 +166,12 @@ try{
     $script:SessionEpoch=1L;$script:SelectedObject=$null
     $coreText=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1'));$ast=Parse-Text $coreText
     foreach($n in @('Get-MainXaml','Get-DomeniaEffectiveWorkerResult','Get-DomeniaDefaultSettings')){Import-Function $ast $n}
-    $parkAst=Parse-Text ([IO.File]::ReadAllText((Join-Path $wad 'modules\Domenia-Park.UI.ps1')));foreach($n in @('Get-DomeniaParkRuns','Get-DomeniaParkRun','Get-DomeniaParkRunById','Test-DomeniaParkRunActive','Clear-DomeniaParkPendingRow','Clear-DomeniaParkPendingRows','Sync-DomeniaParkGrid','Start-DomeniaParkAnalysis','Update-DomeniaParkRunStatus','Update-DomeniaParkControls')){Import-Function $parkAst $n}
+    $parkAst=Parse-Text ([IO.File]::ReadAllText((Join-Path $wad 'modules\Domenia-Park.UI.ps1')));foreach($n in @('Get-DomeniaParkRuns','Get-DomeniaParkRun','Get-DomeniaParkRunById','Test-DomeniaParkRunActive','Clear-DomeniaParkPendingRow','Clear-DomeniaParkPendingRows','Sync-DomeniaParkGrid','Start-DomeniaParkAnalysis','Update-DomeniaParkRunStatus','Update-DomeniaParkControls','Get-DomeniaParkRunDetailText','Get-DomeniaParkInFlightCount','Get-DomeniaParkListCount')){Import-Function $parkAst $n}
     # FI-18: the survey scopes of Park.UI and the texts of a survey (Park.Model); the buffers of the targets stay a fixture.
     $parkModelAst=Parse-Text ([IO.File]::ReadAllText((Join-Path $wad 'modules\Domenia-Park.Model.ps1')));foreach($n in @('Get-DomeniaParkPlural','Get-DomeniaParkProgressText')){Import-Function $parkModelAst $n}
     $script:FleetScopeDn=''
     # FI-05 / PF-06: Engine.UI holds the protected timer factory (banners, counters, park run).
-    foreach($m in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Embedded.UI.ps1','Domenia-Workstation.Model.ps1','Domenia-HealthRules.Model.ps1','Domenia-HealthRules.UI.ps1','Domenia-Boards.Model.ps1','Domenia-WidgetCollect.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-Readings.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-BoardSoftware.Model.ps1','Domenia-BoardComputer.UI.ps1','Domenia-Widgets.UI.ps1','Domenia-Dashboard.UI.ps1','Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-Query.UI.ps1','Domenia-QueryTargets.UI.ps1')){. (Join-Path $wad ('modules\'+$m))}
+    foreach($m in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Collection.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Embedded.UI.ps1','Domenia-Workstation.Model.ps1','Domenia-HealthRules.Model.ps1','Domenia-HealthRules.UI.ps1','Domenia-Boards.Model.ps1','Domenia-WidgetCollect.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-ProbeContract.Model.ps1','Domenia-Readings.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-BoardSoftware.Model.ps1','Domenia-BoardComputer.UI.ps1','Domenia-Widgets.UI.ps1','Domenia-Dashboard.UI.ps1','Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-Query.UI.ps1','Domenia-QueryTargets.UI.ps1')){. (Join-Path $wad ('modules\'+$m))}
     $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml));try{$w=[Windows.Markup.XamlReader]::Load($reader)}finally{$reader.Close()}
     $w.Width=1400;$w.Height=900;$w.ShowInTaskbar=$false
     $palette=(Get-Content -LiteralPath (Join-Path $wad 'modules\SupportSuite.UI.json') -Raw|ConvertFrom-Json).Palettes.Light

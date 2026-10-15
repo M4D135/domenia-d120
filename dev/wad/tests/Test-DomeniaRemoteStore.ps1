@@ -3,7 +3,7 @@
 param([string]$ReportPath='')
 $ErrorActionPreference='Stop'
 $modules=Join-Path (Split-Path -Parent $PSScriptRoot) 'modules'
-foreach($module in @('Common.Model','Store.Model','Live.Model','Park.Model','Park.UI')){. (Join-Path $modules ('Domenia-'+$module+'.ps1'))}
+foreach($module in @('Common.Model','Collection.Model','ProbeDetails.Model','Store.Model','Live.Model','Park.Model','Park.UI')){. (Join-Path $modules ('Domenia-'+$module+'.ps1'))}
 $worker=[scriptblock]::Create((Get-DomeniaLiveProbeCode))
 $script:checks=[Collections.Generic.List[object]]::new()
 function Check($name,[scriptblock]$body){try{&$body;$script:checks.Add([pscustomobject]@{Name=$name;Passed=$true})}catch{$script:checks.Add([pscustomobject]@{Name=$name;Passed=$false;Error=$_.Exception.Message})}}
@@ -58,6 +58,77 @@ Check 'Catalog probes share one class call and one session' {
  Assert ($script:Calls.Count -eq 1 -and $script:Calls[0].Properties.Count -eq 2) 'Probe calls not shared'
  Assert ($r.Probes.'sec.defender'.Count -eq 1 -and $r.Probes.'sec.realtime'.Count -eq 1) 'Probe result absent'
  Assert ($script:PingCalls -eq 0 -and $script:Sessions -eq 1 -and $script:Disposed -eq 1) 'Unexpected transport calls'
+}
+
+# Point 13: console, light inventory and catalog probes of the same class share one CIM read; the worker counts the
+# queries avoided. Point 17: every finished CIM query advances the progress channel of a campaign.
+function New-SharedProbe {param([string]$Id,[string]$Class,[string]$Property,[string]$Skip='',[string]$Namespace='root\cimv2')[pscustomobject]@{Id=$Id;Namespace=$Namespace;Class=$Class;Properties=@($Property);Filter='';Mode='First';Skip=$Skip}}
+Check 'Console, inventory and same-class probes share their reads; avoided queries are counted' {
+ Reset-Fixture;$p=New-Payload
+ $p.Probes=@((New-SharedProbe 'hw.maker' 'Win32_ComputerSystem' 'Manufacturer'),(New-SharedProbe 'hw.threads' 'Win32_ComputerSystem' 'NumberOfLogicalProcessors'),(New-SharedProbe 'os.caption' 'Win32_OperatingSystem' 'Caption'))
+ $p|Add-Member AllowedClasses @('Win32_ComputerSystem','Win32_OperatingSystem');$r=Invoke-Fixture $p
+ Assert (@($script:Calls|Where-Object Class -eq Win32_ComputerSystem).Count -eq 1) 'ComputerSystem read twice'
+ Assert (@($script:Calls|Where-Object Class -eq Win32_OperatingSystem).Count -eq 1) 'OperatingSystem read twice'
+ Assert (@(@($script:Calls|Where-Object Class -eq Win32_ComputerSystem)[0].Properties) -contains 'NumberOfLogicalProcessors') 'Probe property not joined'
+ Assert ($r.Probes.'hw.maker'.Count -eq 1 -and -not $r.Probes.'hw.maker'.Error -and $r.Probes.'os.caption'.Count -eq 1) 'Probe not served by the shared read'
+ Assert ($r.CimQueries.Executed -eq 3 -and $r.CimQueries.Consumers -eq 7 -and $r.CimQueries.Avoided -eq 4) ('Counters '+$r.CimQueries.Executed+'/'+$r.CimQueries.Consumers+'/'+$r.CimQueries.Avoided)
+}
+Check 'A joined read refused as invalid falls back to the console read; the probe keeps its own failure' {
+ Reset-Fixture
+ function Get-CimInstance {
+  [CmdletBinding()]param($CimSession,$Namespace,$ClassName,$Property,$Filter,$OperationTimeoutSec)
+  $script:Calls.Add([pscustomobject]@{Class=$ClassName;Properties=@($Property);Filter=$Filter})
+  if(@($Property) -contains 'NumberOfLogicalProcessors'){throw 'Invalid query'}
+  switch($ClassName){
+   'Win32_ComputerSystem'{[pscustomobject]@{UserName='EXAMPLE\alice';Manufacturer='Fixture';Model='Example';TotalPhysicalMemory=8589934592}}
+   'Win32_OperatingSystem'{[pscustomobject]@{Caption='Windows fixture';BuildNumber='26100';LastBootUpTime=[datetime]'2026-10-12';ProductType=1}}
+   'Win32_LogicalDisk'{[pscustomobject]@{Size=100GB;FreeSpace=40GB}}
+   default{throw ('Unknown fixture class '+$ClassName)}
+  }
+ }
+ $p=New-Payload;$p.Probes=@(New-SharedProbe 'hw.threads' 'Win32_ComputerSystem' 'NumberOfLogicalProcessors');$p|Add-Member AllowedClasses @('Win32_ComputerSystem');$r=Invoke-Fixture $p
+ Assert ($r.Outcome -eq 'Observed' -and $r.User -eq 'EXAMPLE\alice' -and $null -ne $r.Inventory) ('Console lost because of a probe: '+$r.Outcome)
+ Assert ([string]$r.Probes.'hw.threads'.Error) 'Probe failure hidden'
+ Assert (@($script:Calls|Where-Object Class -eq Win32_ComputerSystem).Count -eq 3) 'Expected joined read, base read and probe read'
+ Assert ($r.CimQueries.Executed -eq 5) ('Executed '+$r.CimQueries.Executed)
+}
+Check 'Controller check reuses the system type of the inventory read' {
+ Reset-Fixture;$p=New-Payload
+ $p.Probes=@(New-SharedProbe 'sec.defender' 'MSFT_MpComputerStatus' 'AntivirusEnabled' 'DomainController' 'root\Microsoft\Windows\Defender')
+ $p|Add-Member AllowedClasses @('MSFT_MpComputerStatus');$r=Invoke-Fixture $p
+ $os=@($script:Calls|Where-Object Class -eq Win32_OperatingSystem)
+ Assert ($os.Count -eq 1 -and @($os[0].Properties) -contains 'ProductType') 'System type read separately'
+ Assert ($r.Probes.'sec.defender'.Count -eq 1 -and -not $r.Probes.'sec.defender'.Skipped) 'Workstation probe skipped'
+}
+Check 'Each finished CIM query advances the progress channel of a campaign' {
+ Reset-Fixture;$progress=[hashtable]::Synchronized(@{StartedTimestamp=1L;LastRowTimestamp=0L;RowsRead=0L})
+ $p=New-Payload;$p|Add-Member ReadProgress $progress;[void](Invoke-Fixture $p)
+ Assert ([long]$progress.RowsRead -eq 3 -and [long]$progress.LastRowTimestamp -gt 0) ('Steps '+$progress.RowsRead)
+}
+Check 'The ping step leaves its answer in the progress channel of a campaign' {
+ # Point 18: a read the engine stops later is retried only when this answer says the workstation replied.
+ Reset-Fixture;$progress=[hashtable]::Synchronized(@{StartedTimestamp=1L;LastRowTimestamp=0L;RowsRead=0L})
+ $p=New-Payload;$p.CollectPing=$true;$p|Add-Member ReadProgress $progress;$r=Invoke-Fixture $p
+ Assert ($script:PingCalls -eq 1 -and [string]$r.Presence -eq 'Erreur de ping') 'Ping fixture not reached'
+ Assert ([string]$progress['Presence'] -eq 'Erreur de ping' -and [long]$progress['RowsRead'] -eq 4) ('Presence <'+[string]$progress['Presence']+'>, steps '+$progress['RowsRead'])
+ Reset-Fixture;$silent=[hashtable]::Synchronized(@{StartedTimestamp=1L;LastRowTimestamp=0L;RowsRead=0L})
+ $q=New-Payload;$q|Add-Member ReadProgress $silent;[void](Invoke-Fixture $q)
+ Assert (-not $silent.ContainsKey('Presence')) 'WMI only reported a ping answer'
+}
+
+Check 'The pinned body carries the CIM grouping rule itself, with no prelude added at run time' {
+ # The worker hash covers the composed code: a function copied from the session at run time would make the reviewed
+ # contract (update_worker_contracts.py mirrors the ProbeDetails prelude only) differ from the code really sent.
+ $code=Get-DomeniaLiveProbeCode
+ Assert ($code.StartsWith((Get-DomeniaProbeDetailWorkerPrelude)+[Environment]::NewLine,[StringComparison]::Ordinal)) 'Unexpected prelude'
+ Assert (-not $code.Contains('function Get-DomeniaCimGroupKey')) 'Model function copied at run time'
+ $tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseInput($code,[ref]$tokens,[ref]$errors)
+ $fn=$ast.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Get-WCimGroupKey'},$true)
+ Assert ($null -ne $fn) 'Grouping rule absent from the pinned body'
+ . ([scriptblock]::Create($fn.Extent.Text))
+ foreach($case in @(@('root\cimv2','Win32_LogicalDisk',"DeviceID='C:'"),@('ROOT\CIMV2','win32_service',"Name='a'"),@('root\Microsoft\Windows\Defender','MSFT_MpComputerStatus',''))){
+  Assert ((Get-WCimGroupKey $case[0] $case[1] $case[2]) -ceq (Get-DomeniaCimGroupKey $case[0] $case[1] $case[2])) ('Worker and model rules differ for '+$case[1])
+ }
 }
 
 Check 'Authentication refusal stops remaining CIM calls on the same host' {

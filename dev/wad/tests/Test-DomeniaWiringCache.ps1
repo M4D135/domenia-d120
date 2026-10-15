@@ -3209,6 +3209,28 @@ Test-Case 'D029 : simulation puis purge atomique, associations et fichiers prote
         Assert-Equal $script:TestDbPath (Get-DomeniaDatabasePath)
     } finally {Remove-Item $root -Recurse -Force}
 }
+Test-Case 'D029 / point 137 : la purge Historique conserve aussi les associations Import GLPI et Import osquery' {
+    $root=New-LegacySandbox
+    try {
+        Add-PurgeFixtureRows
+        $db=Open-DomeniaDatabase -Path $script:TestDbPath
+        try {
+            [void](Invoke-DomeniaDbExec @'
+BEGIN IMMEDIATE;
+INSERT INTO user_machine_links(computer_key,user_login,source) VALUES('GLPI-PC','gil','Import GLPI'),('OSQ-PC','oscar','Import osquery');
+INSERT INTO user_machine_history(computer_key,source,observed_at) VALUES('GLPI-PC','Journal du controleur','2020-01-01'),('OSQ-PC','Journal du controleur','2020-01-01'),('g',' Import GLPI ','2020-01-01'),('o','import OSQUERY','2020-01-01');
+COMMIT;
+'@ $db)
+        } finally {Close-DomeniaDatabase $db}
+        $links=Get-PurgeTableDigest 'user_machine_links'
+        $preview=Invoke-PurgeWorker @('History')
+        $result=Invoke-PurgeWorker @('History') $false $preview.Fingerprint
+        Assert-True $result.Committed
+        Assert-Equal 4 (Get-LegacyCount "user_machine_history WHERE computer_key IN ('GLPI-PC','OSQ-PC','g','o')") 'historique d une association importee GLPI ou osquery purge'
+        Assert-Equal 0 (Get-LegacyCount "user_machine_history WHERE computer_key='AUTO-PC'") 'historique automatique ancien conserve'
+        Assert-Equal $links (Get-PurgeTableDigest 'user_machine_links')
+    } finally {Remove-Item $root -Recurse -Force}
+}
 Test-Case 'D029 : categories protegees ou inconnues refusees avant toute suppression' {
     $root=New-LegacySandbox
     try {
@@ -4470,6 +4492,9 @@ Test-Case 'FI-12 : les attentes SQLite depassees sont comptees pour le panneau O
     Assert-True ($text -match '2 attente\(s\) de verrou SQLite') $text
     Assert-True (($text -match 'LocalIndexRead : 1') -and ($text -match 'LocalStore : 1')) $text
     Assert-True ($text -match 'délai 2500 ms') $text
+    # Point 107: the stored history of the relations is a local read too; its Busy answer is counted the same way.
+    Assert-True (Register-DomeniaSqliteBusyOutcome -Job ([pscustomobject]@{OperationId='RelationHistoryRead'}) -Output @([pscustomobject]@{Rows=@();Busy=$true;Missing=$false})) 'Historique local occupe non compte'
+    Assert-True ((Get-DomeniaSqliteBusyStatusText) -match 'RelationHistoryRead : 1') (Get-DomeniaSqliteBusyStatusText)
     # Real wiring: one count per finished task in the engine, one line in the Operations panel.
     Assert-True ((Get-FunctionTextFromFile $core 'Complete-UiTasks').Contains('Register-DomeniaSqliteBusyOutcome -Job $job -Output $output -ErrorMessage $errorMessage')) 'Complete-UiTasks ne compte pas les attentes SQLite'
     Assert-True ((Get-FunctionTextFromFile $experienceUi 'Get-DomeniaOperationsHealthText').Contains('Get-DomeniaSqliteBusyStatusText')) 'Le panneau Operations ne montre pas les attentes SQLite'

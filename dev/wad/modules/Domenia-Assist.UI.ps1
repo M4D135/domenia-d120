@@ -142,6 +142,8 @@ function Set-DomeniaAssistTone {
         'Pending' {$edge='AccentColor';$ink='AccentColor'}
         'Declare' {$edge='AccentColor';$ink='AccentText';$fill='AccentSoft'}
         'Observe' {$edge='StatusSuccess';$ink='TextColor'}
+        # Point 107: an old logon read in a journal or a profile is history, not a current observation: neutral tone.
+        'Historique' {$edge='BorderColor';$ink='MutedColor'}
         'Contradictoire' {$edge='StatusWarning';$ink='TextColor'}
     }
     $Border.SetResourceReference([Windows.Controls.Border]::BackgroundProperty,$fill)
