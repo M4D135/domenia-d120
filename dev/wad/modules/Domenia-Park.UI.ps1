@@ -57,9 +57,12 @@ function Get-DomeniaParkRunDetailText {
     return ($parts.ToArray() -join ' ')
 }
 function Update-DomeniaParkControls {
-    # The stop button is active only while a detection is running.
+    # The stop button is active only while a detection is running. Point 20: when a run starts or ends, the resume
+    # area of the collection settings follows (the file is read on these transitions only).
+    $running=($null -ne $script:ParkRun -and -not $script:ParkRun.Completed)
     $stop=Get-DomeniaControl 'BtnParkResultsStop'
-    if($null -ne $stop -and -not $script:DemoMode){$stop.IsEnabled=($null -ne $script:ParkRun -and -not $script:ParkRun.Completed)}
+    if($null -ne $stop -and -not $script:DemoMode){$stop.IsEnabled=$running}
+    if($running -ne [bool]$script:DomeniaParkRunningShown){$script:DomeniaParkRunningShown=$running;try{Update-DomeniaCampaignResumeUi}catch{}}
 }
 function Start-DomeniaOnlinePark {
     # -PingOnly (decision David 2026-10-07): ping of the listed workstations only, no console reading.
@@ -195,10 +198,11 @@ function Test-DomeniaParkWorkRemaining {
 }
 function Add-DomeniaParkHeldTime {
     # Point 17: real waiting time while places were free (budgets, retries, storage). At most five seconds per tick,
-    # so that a suspended Dispatcher never counts as waiting.
+    # so that a suspended Dispatcher never counts as waiting. Once nothing remains to send, the last reads in flight
+    # are not a wait.
     param($Run,[datetime]$NowUtc,[switch]$Clear)
     if($null -eq $Run.PSObject.Properties['HeldSinceUtc']){return}
-    if($Clear){$Run.HeldSinceUtc=$null;return}
+    if($Clear -or -not (Test-DomeniaParkWorkRemaining $Run)){$Run.HeldSinceUtc=$null;return}
     if($null -ne $Run.HeldSinceUtc){$Run.HeldSeconds=[double]$Run.HeldSeconds+[Math]::Min(5.0,[Math]::Max(0.0,($NowUtc-[datetime]$Run.HeldSinceUtc).TotalSeconds))}
     $Run.HeldSinceUtc=$NowUtc
 }
@@ -252,7 +256,11 @@ function Select-DomeniaParkNextTarget {
 }
 function Invoke-DomeniaParkRunTick {
     $r=$script:ParkRun;if($null -eq $r){return}
-    if($r.Epoch -ne [long]$script:SessionEpoch -or $r.Path -cne [string]$script:DatabaseScopedPath -or $r.AccountGeneration -ne [long]$script:DomeniaAccountGeneration -or $script:AsyncEngineClosing){$r.Stopping=$true;$r.Completed=$true;Clear-DomeniaParkTargetBuffers $r.Targets;if($null -ne $r.Timer){$r.Timer.Stop()};try{Complete-DomeniaCampaignPlan $r}catch{};return}
+    if($r.Epoch -ne [long]$script:SessionEpoch -or $r.Path -cne [string]$script:DatabaseScopedPath -or $r.AccountGeneration -ne [long]$script:DomeniaAccountGeneration -or $script:AsyncEngineClosing){
+        # Point 20: the durable plan says why the campaign stopped; closing Domenia is recorded as such by the plan.
+        if($null -ne $r.PSObject.Properties['StopReason'] -and -not [string]$r.StopReason){$r.StopReason=$(if($r.AccountGeneration -ne [long]$script:DomeniaAccountGeneration){'changement de compte pendant le relevé'}elseif($r.Path -cne [string]$script:DatabaseScopedPath){'changement de base locale pendant le relevé'}else{'nouvelle session pendant le relevé'})}
+        $r.Stopping=$true;$r.Completed=$true;Clear-DomeniaParkTargetBuffers $r.Targets;if($null -ne $r.Timer){$r.Timer.Stop()};try{Complete-DomeniaCampaignPlan $r}catch{};return
+    }
     if($null -ne $r.PSObject.Properties['RefreshOperationId'] -and [string]$r.RefreshOperationId -and -not (Test-DomeniaOuRefreshCurrent ([string]$r.RefreshOperationId))){$r.Stopping=$true}
     # Cancelled workers never silently cause the rest of the fleet to start.
     foreach($id in @($r.Pending.Keys)){
@@ -293,7 +301,7 @@ function Invoke-DomeniaParkRunTick {
     }
     if($skipCim){$r.CimSkipped=[int]$r.CimSkipped+1}
     $plan=New-DomeniaCollectionPlan -Previous $target.Previous -Guid $target.Guid -Key $target.Key -Probes @($capability.Probes) -Inventory ([bool]$r.Inventory) -CacheMinutes ([int]$r.CacheMinutes) -Freshness $r.Freshness
-    $state=[pscustomobject]@{RunId=$r.Id;Epoch=$r.Epoch;Path=$r.Path;Target=$target;Job='';Plan=$plan;PingOnly=$r.PingOnly;WmiOnly=$r.WmiOnly;RemoteStartedUtc=[datetime]::UtcNow.ToString('o');Index=[int]$pick.Index;Attempt=[int]$pick.Attempt;SourceKey=[string]$pick.SourceKey;DispatchedUtc=$nowUtc;SkipCim=$skipCim}
+    $state=[pscustomobject]@{RunId=$r.Id;Epoch=$r.Epoch;Path=$r.Path;Target=$target;Job='';Plan=$plan;PingOnly=$r.PingOnly;WmiOnly=$r.WmiOnly;RemoteStartedUtc=[datetime]::UtcNow.ToString('o');Index=[int]$pick.Index;Attempt=[int]$pick.Attempt;SourceKey=[string]$pick.SourceKey;SkipCim=$skipCim}
     [void](Initialize-DomeniaRemoteStoreState -State $state -Guid $target.Guid -DN $target.Key -Generation $r.Generation)
     # Point 17: one step per finished ping or CIM query; no progress for the idle delay ends the read, and a read
     # that keeps progressing still stops at its total duration.
@@ -303,6 +311,8 @@ function Invoke-DomeniaParkRunTick {
     $idle=if($probeCount -or $sendInventory){25}else{20}
     $total=if($probeCount -or $sendInventory){[Math]::Min(300,30+12*$probeCount+$(if($sendInventory){12}else{0}))}else{30}
     $readProgress=[hashtable]::Synchronized(@{StartedTimestamp=0L;LastRowTimestamp=0L;RowsRead=0L})
+    # Points 14 and 18: the answer reads back the dispatch clock (latency per step) and the ping step of a stopped read.
+    $state|Add-Member -NotePropertyName ReadProgress -NotePropertyValue $readProgress -Force
     # What was really asked: a failure is dated only for the families that were sent.
     $state|Add-Member -NotePropertyName SentConsole -NotePropertyValue (-not [bool]$r.PingOnly -and -not $skipCim) -Force
     $state|Add-Member -NotePropertyName SentInventory -NotePropertyValue $sendInventory -Force
@@ -328,6 +338,19 @@ function Complete-DomeniaParkSession {
     }catch{Fail-DomeniaParkStored -Message $_.Exception.Message -State $State}
 }
 
+function Get-DomeniaParkReadProgressSnapshot {
+    # Fields of the progress channel of one workstation read, copied under the lock its worker uses.
+    param($State)
+    $snapshot=[pscustomobject]@{StartedTimestamp=0L;LastRowTimestamp=0L;RowsRead=0L;Presence=''}
+    $progress=Get-DomeniaMemberValue $State 'ReadProgress' $null
+    if($progress -isnot [Collections.IDictionary]){return $snapshot}
+    $syncRoot=([Collections.ICollection]$progress).SyncRoot;$locked=$false
+    try{
+        [Threading.Monitor]::Enter($syncRoot);$locked=$true
+        $snapshot.StartedTimestamp=[long]$progress['StartedTimestamp'];$snapshot.LastRowTimestamp=[long]$progress['LastRowTimestamp'];$snapshot.RowsRead=[long]$progress['RowsRead'];$snapshot.Presence=[string]$progress['Presence']
+    }catch{}finally{if($locked){[Threading.Monitor]::Exit($syncRoot)}}
+    return $snapshot
+}
 function Register-DomeniaParkMeasurement {
     # Points 13, 14, 15, 18, 19 and 160 for one workstation answer, before it is stored: the source budget learns
     # from the answer and its delay, a transient incident gets a bounded and spaced retry, missing capabilities are
@@ -336,9 +359,15 @@ function Register-DomeniaParkMeasurement {
     if($null -eq $Run.PSObject.Properties['Sources']){return}
     try{
         $nowUtc=[datetime]::UtcNow
-        $failure=ConvertTo-DomeniaCollectionFailure -Outcome ([string]$Packet.Outcome) -Presence ([string](Get-DomeniaMember $Packet 'Presence' '')) -PingCollected (-not [bool]$State.WmiOnly) -JobFailed ([bool](Get-DomeniaMember $State 'JobFailed' $false)) -ErrorText ([string](Get-DomeniaMember $State 'JobError' ''))
-        $latency=-1.0;$dispatched=Get-DomeniaMemberValue $State 'DispatchedUtc'
-        if($null -ne $dispatched){$latency=[Math]::Max(0.0,($nowUtc-[datetime]$dispatched).TotalMilliseconds)}
+        # A read stopped by the engine is classified from the ping step its worker reported, never from the packet
+        # built for the store (which records the failed attempt only).
+        $jobFailed=[bool](Get-DomeniaMember $State 'JobFailed' $false)
+        $presence=if($jobFailed){[string](Get-DomeniaMember $State 'JobPresence' '')}else{[string](Get-DomeniaMember $Packet 'Presence' '')}
+        $failure=ConvertTo-DomeniaCollectionFailure -Outcome ([string]$Packet.Outcome) -Presence $presence -PingCollected (-not [bool]$State.WmiOnly) -JobFailed $jobFailed -ErrorText ([string](Get-DomeniaMember $State 'JobError' ''))
+        # Point 14: mean duration of one finished step on the dispatch clock: no queue wait, comparable between a
+        # plan of reused measurements and a full read.
+        $snapshot=Get-DomeniaParkReadProgressSnapshot $State
+        $latency=Get-DomeniaReadStepLatencyMs -StartedTimestamp ([long]$snapshot.StartedTimestamp) -LastTimestamp ([long]$snapshot.LastRowTimestamp) -Steps ([long]$snapshot.RowsRead)
         $key=[string](Get-DomeniaMember $State 'SourceKey' '')
         if($key){[void](Register-DomeniaSourceOutcome -Health $Run.Sources.Health -Key $key -Outcome ([string]$failure.Health) -LatencyMs $latency -Policy (Get-DomeniaCampaignSourcePolicy $Run.Sources $key) -NowUtc $nowUtc)}
         $retry=Get-DomeniaCollectionRetryDecision -Category ([string]$failure.Category) -Attempt ([int](Get-DomeniaMember $State 'Attempt' 1)) -NowUtc $nowUtc
@@ -375,8 +404,10 @@ function Complete-DomeniaParkStored {
         if(@($Result.Observations|Where-Object{[string]$_.Guid -ieq [string]$State.StoreGuid -and [string]$_.Status -eq 'Error'}).Count){$r.Failed++}
         if($null -ne $r.PSObject.Properties['LastValidatedUtc']){$r.LastValidatedUtc=[datetime]::UtcNow}
         try{Set-DomeniaCampaignTargetValidated -Run $r -Index ([int](Get-DomeniaMember $State 'Index' -1))}catch{}
+        # A target that will be read again keeps its previous observation: the retry reuses its fresh measurements
+        # and its capability evidence. Its buffers are released after the last attempt (or when the run ends).
+        Clear-DomeniaParkTargetBuffers @($State.Target)
     }
-    Clear-DomeniaParkTargetBuffers @($State.Target)
     if($null -eq $script:FleetObservations){$script:FleetObservations=@{}}
     $keep=([string]$script:SelectedObject.DN -ieq [string]$observation.Key)
     if($null -ne $script:FleetLast){$keep=$keep -or (Test-DomeniaLiveRowInScope -Dn $observation.Key -BaseDn ([string]$script:FleetLast.Scope) -Scope $(if($script:FleetLast.Subtree){'Subtree'}else{'OneLevel'}))}
@@ -401,6 +432,7 @@ function Fail-DomeniaParkSession {
     # Point 18: a worker that ended without answer (delay, engine refusal) is classified from its message.
     $State|Add-Member -NotePropertyName JobFailed -NotePropertyValue $true -Force
     $State|Add-Member -NotePropertyName JobError -NotePropertyValue ([string]$Message) -Force
+    $State|Add-Member -NotePropertyName JobPresence -NotePropertyValue ([string](Get-DomeniaParkReadProgressSnapshot $State).Presence) -Force
     $consoleSent=-not [bool]$State.PingOnly;$inventorySent=[bool]$State.Plan.Inventory
     if($null -ne $State.PSObject.Properties['SentConsole']){$consoleSent=[bool]$State.SentConsole;$inventorySent=[bool]$State.SentInventory}
     $packet=[pscustomobject]@{Outcome='Unavailable';Key=$State.Target.Key;Guid=$State.Target.Guid;Computer=$State.Target.Computer;Detail=[string]$Message;Presence='Erreur de ping';PresenceDetail=[string]$Message;PresenceCheckedUtc=$(if(-not $State.WmiOnly){$State.RemoteStartedUtc}else{''});ConsoleAttempted=$consoleSent;ConsoleCheckedUtc=$(if($consoleSent){$State.RemoteStartedUtc}else{''});InventoryAttempted=$inventorySent;InventoryCheckedUtc=$State.RemoteStartedUtc;InventoryError=[string]$Message;CacheReused=$false;DirectoryAuthRejected=$false}

@@ -191,12 +191,15 @@ $answer.ConsoleCheckedUtc='';$answer.InventoryCheckedUtc=''
 $answer.AttemptedAtUtc=[datetime]::UtcNow.ToString('o')
 # Point 17: a campaign passes a progress channel; every finished ping or CIM query is one step, so the engine tells a
 # slow but advancing workstation from a stalled one. Same three fields and lock as the GlobalSearch channel.
+# Point 18: the ping step also leaves its answer there, so a read stopped later by the engine is retried only when
+# the workstation answered.
 $readProgress=$null
 if($null -ne $Payload.PSObject.Properties['ReadProgress'] -and $Payload.ReadProgress -is [Collections.IDictionary]){$readProgress=$Payload.ReadProgress}
 function Step-WReadProgress{
+    param([string]$Presence='')
     if($null -eq $readProgress){return}
     $locked=$false
-    try{[Threading.Monitor]::Enter($readProgress.SyncRoot);$locked=$true;$readProgress['RowsRead']=[long]$readProgress['RowsRead']+1;$readProgress['LastRowTimestamp']=[Diagnostics.Stopwatch]::GetTimestamp()}catch{}finally{if($locked){[Threading.Monitor]::Exit($readProgress.SyncRoot)}}
+    try{[Threading.Monitor]::Enter($readProgress.SyncRoot);$locked=$true;if($Presence){$readProgress['Presence']=$Presence};$readProgress['RowsRead']=[long]$readProgress['RowsRead']+1;$readProgress['LastRowTimestamp']=[Diagnostics.Stopwatch]::GetTimestamp()}catch{}finally{if($locked){[Threading.Monitor]::Exit($readProgress.SyncRoot)}}
 }
 
 function Get-NativeCode($ErrorValue){
@@ -233,7 +236,7 @@ try {
     $answer.Presence='Erreur de ping';$answer.PresenceDetail='Le contrôle ICMP n''a pas abouti (résolution DNS ou erreur réseau). '+[string]$inner.Message
 } finally {if($null -ne $ping){$ping.Dispose()}}
 $answer.PresenceCheckedUtc=[datetime]::UtcNow.ToString('o')
-Step-WReadProgress
+Step-WReadProgress ([string]$answer.Presence)
 if($null -ne $Payload.PSObject.Properties['PresenceProgress'] -and $null -ne $Payload.PresenceProgress){
     $packet=[pscustomobject]@{Outcome='PresenceOnly';Key=$answer.Key;Guid=$answer.Guid;Computer=$target;Presence=$answer.Presence;PresenceCheckedUtc=$answer.PresenceCheckedUtc;PresenceDetail=$answer.PresenceDetail}
     $Payload.PresenceProgress.Enqueue([pscustomobject]@{Result=$packet;State=$Payload.PresenceState})

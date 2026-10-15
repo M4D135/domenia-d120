@@ -1,8 +1,9 @@
 ﻿#requires -Version 5.1
-# Wiring of the collection lot (roadmap points 11, 12, 15, 16, 20, 21, 159 and 160) in the real modules: engine
-# admission and outcomes, background gate of the collection window, settings of the usage profile in the workshop
-# view, durable campaign offer, and the core call sites read from the real Domenia-Core.ps1. No domain, no network,
-# no disk: settings and preference files live in memory. Windows PowerShell 5.1 x64 STA only.
+# Wiring of the collection lot (roadmap points 11, 12, 15, 16, 17, 20, 21, 159 and 160) in the real modules: engine
+# admission, dispatch clock and outcomes, background gate of the collection window, settings of the usage profile in
+# the workshop view, durable campaign offer, and the core call sites read from the real Domenia-Core.ps1. No domain,
+# no network, no disk: settings and preference files live in memory; the dispatch case runs an inert local runspace.
+# Windows PowerShell 5.1 x64 STA only.
 [CmdletBinding()]param([string]$ReportPath='',[switch]$Quiet)
 $ErrorActionPreference='Stop'
 if($PSVersionTable.PSEdition -ne 'Desktop' -or $PSVersionTable.PSVersion.Minor -ne 1 -or -not [Environment]::Is64BitProcess -or [Threading.Thread]::CurrentThread.ApartmentState -ne 'STA'){throw 'Windows PowerShell 5.1 x64 STA requis.'}
@@ -34,7 +35,7 @@ function Reset-Fixture {
  $script:DomeniaIdlePolicy=$null;$script:DomeniaSchedulerEnabled=$true;$script:AsyncEngineClosing=$false;$script:SessionEpoch=5L;$script:DemoMode=$false
  $script:DomeniaProviderState=@{};$script:DomeniaAgedPromotions=0;$script:AsyncJobs=[ordered]@{};$script:DetachedReadJobs=@();$script:LatestTaskId=''
  $script:DatabaseScopedPath='C:\fixture\domain.db';$script:Conn=[pscustomobject]@{Domain='example.test';BaseDn='DC=example,DC=test';Server='dc01.example.test'}
- $script:ParkRun=$null;$script:DomeniaCampaignResumeOfferKey='';$script:DomeniaTargetAddresses=$null
+ $script:ParkRun=$null;$script:DomeniaCampaignResumeOfferKey='';$script:DomeniaTargetAddresses=$null;$script:DomeniaParkRunningShown=$false
 }
 
 Case 'Point 159 : le fond réseau attend la fenêtre du profil ; la sélection et le tableau de bord non' {
@@ -156,6 +157,87 @@ Case 'Point 21 : repère vérifié avant la synchronisation incrémentale, USN j
  $complete=Get-CoreFunctionText 'Complete-DomeniaIndexRefreshUi'
  Assert ($complete.Contains("'CheckpointRejected'")) 'Motif du worker non journalisé'
 }
+Case 'Point 21 : un repère refusé est estimé et confirmé comme une relecture complète du domaine' {
+ . ([scriptblock]::Create((Get-CoreFunctionText 'Start-DomeniaIndexRefresh')))
+ function Test-DomeniaIndexWriteReady {return $true}
+ function Get-DomeniaDatabaseObjectCount {return 200000}
+ function Add-DomeniaUiLog {param($Area,$Text,$Level)$script:IndexLog.Add([string]$Text)}
+ function Get-DomeniaOperationImpactEstimate {param($Operation,[int]$ItemCount)return [pscustomobject]@{Operation=$Operation;ItemCount=$ItemCount}}
+ function Request-DomeniaOperationImpact {param($Estimate,$Title,$OnConfirm,$OnCancel,$Target)$script:Impact=[pscustomobject]@{Estimate=$Estimate;Title=[string]$Title}}
+ function Start-UiTask {throw 'Lecture envoyée sans confirmation.'}
+ $script:IndexLog=[Collections.Generic.List[string]]::new();$script:Impact=$null
+ # Checkpoint taken on another controller: the pass would read the whole domain again.
+ $script:IndexInfo=[pscustomobject]@{Usn=50000L;Server='dc02.example.test';Date=[datetime]::UtcNow.AddHours(-2).ToString('o');InvocationId='11111111-2222-3333-4444-555555555555';BaseDn='DC=example,DC=test';Count=199000}
+ Start-DomeniaIndexRefresh
+ Assert ($null -ne $script:Impact -and $script:Impact.Estimate.ItemCount -eq 200000 -and $script:Impact.Title -match '^Relecture complète du domaine : Repère pris sur dc02\.example\.test') ('Estimation : '+$script:Impact.Estimate.ItemCount+' · '+$script:Impact.Title)
+ Assert ($script:IndexLog.Count -eq 0) 'Motif journalisé avant la confirmation'
+ $script:IndexInfo.Server='dc01.example.test';$script:Impact=$null
+ Start-DomeniaIndexRefresh
+ Assert ($null -ne $script:Impact -and $script:Impact.Estimate.ItemCount -eq 10000 -and $script:Impact.Title -eq 'Mettre à jour les changements') 'Repère valide : estimation incrémentale attendue'
+}
+Case 'Point 17 : le moteur donne son horloge au canal de progression dʼune lecture de relevé, à son départ' {
+ # The production dispatcher runs against a short-lived local runspace; only the submitted command is inert.
+ function Set-DomeniaTargetCredentialContext {param($Context,$Payload)return $Context}
+ function Get-WorkerContext {param($OperationId,$Payload)return [pscustomobject]@{OperationId=$OperationId;CredentialGuard=$null;DirectoryAuthKey='';RemoteAuthKey='';RemoteAdminAuthKey='';ActiveRemoteAuthKey=''}}
+ function Set-DomeniaCredentialGuardContext {param($Context,$OperationId)return $Context}
+ function Assert-WCredentialAllowed {param($Context,$Channel)}
+ function Get-DomeniaContextCredentialIdentity {param($Context,$Provider)return 'fixture'}
+ function Get-DomeniaDispatchIsolation {param($Job,$Context)return [pscustomobject]@{Isolate=$false}}
+ function Register-DomeniaJobResources {param($Job)}
+ function New-DomeniaWorkerRunspace {
+  param($OperationId,$Code,[switch]$IsWrite)
+  $initial=[Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
+  $initial.Commands.Add([Management.Automation.Runspaces.SessionStateFunctionEntry]::new('Invoke-InertCampaignRead',@'
+param($Context,$Payload)
+$p=$Payload.ReadProgress
+$root=([Collections.ICollection]$p).SyncRoot
+[Threading.Monitor]::Enter($root)
+try{
+    if([long]$p['StartedTimestamp'] -le 1 -or [long]$p['RowsRead'] -ne 0 -or [long]$p['LastRowTimestamp'] -ne 0){throw 'Canal non remis à zéro au départ.'}
+    $p['RowsRead']=2L;$p['LastRowTimestamp']=[Diagnostics.Stopwatch]::GetTimestamp()
+}finally{[Threading.Monitor]::Exit($root)}
+'@))
+  $runspace=[Management.Automation.Runspaces.RunspaceFactory]::CreateRunspace($initial);$runspace.Open()
+  return [pscustomobject]@{Runspace=$runspace;CommandName='Invoke-InertCampaignRead';CodeHash='inert-fixture'}
+ }
+ # Values left by the queue: the dispatch alone starts the clock and clears the steps.
+ $progress=[hashtable]::Synchronized(@{StartedTimestamp=1L;LastRowTimestamp=1L;RowsRead=99L})
+ $job=[pscustomobject]@{Id='campagne';Name='Console du parc : PC-1';OperationId='LiveConsole';IsWrite=$false;Payload=[pscustomobject]@{Computer='PC-1';ReadProgress=$progress};Provider='Cim';ProviderTarget='PC-1';ProviderGroup='';CredentialIdentity=''
+  SchedulerManaged=$false;Code='inert';TimeoutSeconds=25;HardTimeoutSeconds=90;Class='Explicit';CancelRequested=$false;Superseded=$false;BusyApplied=$false;DisableControls=@();StatusText=''
+  PowerShell=$null;Runspace=$null;Handle=$null;CodeHash='';ExecutedOperationId='';Demo=$false;Isolated=$false;State='Queued';Started=(Get-Date).AddMinutes(-5)}
+ Assert (-not (Get-DomeniaReadTimeoutState -Job $job -ElapsedSeconds 300).Expired) 'Délai compté pendant lʼattente en file'
+ $before=[Diagnostics.Stopwatch]::GetTimestamp()
+ try{
+  [void](Invoke-DomeniaUiTaskDispatch $job)
+  if(-not $job.Handle.AsyncWaitHandle.WaitOne(5000)){throw 'Runspace inerte non terminé en cinq secondes.'}
+  [void]$job.PowerShell.EndInvoke($job.Handle)
+  Assert ($job.PowerShell.Streams.Error.Count -eq 0) 'Le canal nʼa pas été remis à zéro au départ'
+  Assert ([object]::ReferenceEquals($job.ReadProgress,$progress) -and $null -eq $job.Payload) 'Canal non conservé sur le travail'
+  Assert ([long]$progress['StartedTimestamp'] -ge $before -and [long]$progress['RowsRead'] -eq 2) 'Horloge de départ absente ou canal copié'
+  # Started five minutes ago in the queue: the engine judges the read on its own progress, not on the 25 s rule.
+  $deadline=Get-DomeniaReadTimeoutState -Job $job -ElapsedSeconds 300
+  Assert ((-not $deadline.Expired) -and [long]$deadline.RowsRead -eq 2) ('Règle historique appliquée : '+$deadline.Reason)
+ }finally{
+  if($null -ne $job.PowerShell){$job.PowerShell.Dispose()}
+  if($null -ne $job.Runspace){$job.Runspace.Dispose()}
+ }
+}
+Case 'Point 20 : la zone de reprise suit les relevés : fermée pendant, proposée à lʼarrêt, retirée une fois terminé' {
+ foreach($name in @('BtnCollectionResume','BtnCollectionResumeDiscard')){$script:Ctrl[$name]=[Windows.Controls.Button]::new()}
+ $script:Ctrl['LblCollectionResume']=[Windows.Controls.TextBlock]::new()
+ $targets=@(for($i=1;$i -le 2;$i++){[pscustomobject]@{Computer=('PC-'+$i);Key=('CN=PC-'+$i+',DC=example,DC=test');Guid=('00000000-0000-0000-0000-'+$i.ToString('d12'))}})
+ $run=[pscustomobject]@{Id=[guid]::NewGuid().ToString('N');Targets=$targets;Path=$script:DatabaseScopedPath;PingOnly=$true;WmiOnly=$false;Inventory=$false;Probes=@();ScopeLabel='OU=Postes';Completed=$false;Stopping=$false;FailureMessage='';StopReason=''}
+ $script:ParkRun=$run;Update-DomeniaParkControls
+ Assert ($script:Ctrl.LblCollectionResume.Text -match 'Relevé en cours' -and -not $script:Ctrl.BtnCollectionResume.IsEnabled) 'Reprise proposée pendant le relevé'
+ Assert (Save-DomeniaCampaignPlan -Run $run) 'Plan non enregistré'
+ Assert (-not $script:Ctrl.BtnCollectionResume.IsEnabled) 'Plan du relevé en cours proposé à la reprise'
+ $run.Stopping=$true;$run.Completed=$true;Complete-DomeniaCampaignPlan $run
+ Assert ($script:Ctrl.BtnCollectionResume.IsEnabled -and $script:Ctrl.BtnCollectionResumeDiscard.IsEnabled -and $script:Ctrl.LblCollectionResume.Text -match '2 poste') ('Reprise non proposée à lʼarrêt : '+$script:Ctrl.LblCollectionResume.Text)
+ # The same plan once every workstation is validated: nothing is offered any more.
+ foreach($i in 0..1){[void](Set-DomeniaCampaignTargetDone $run.CampaignProgress $i)}
+ Complete-DomeniaCampaignPlan $run
+ Assert (-not $script:Ctrl.BtnCollectionResume.IsEnabled -and -not $script:Ctrl.BtnCollectionResumeDiscard.IsEnabled) 'Reprise encore proposée après un relevé terminé'
+}
 Case 'Point 20 : la reprise est proposée une fois par session et base, jamais par-dessus une autre demande' {
  $targets=@(for($i=1;$i -le 3;$i++){[pscustomobject]@{Computer=('PC-'+$i);Key=('CN=PC-'+$i+',DC=example,DC=test');Guid=('00000000-0000-0000-0000-'+$i.ToString('d12'))}})
  $plan=New-DomeniaCampaignPlan -Kind 'Ping' -Targets $targets -DomainDn $script:Conn.BaseDn -DatabasePath $script:DatabaseScopedPath
@@ -185,7 +267,7 @@ Case 'Opérations : la santé du moteur inclut les mesures de la collecte' {
  Assert ($health.Contains('Get-DomeniaCollectionHealthLines')) 'Panneau non raccordé'
 }
 $failed=@($checks|Where-Object Status -eq 'Failed').Count
-$report=[ordered]@{Kind='CollectionWiring';Expected=13;Complete=($checks.Count -eq 13 -and $failed -eq 0);NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
+$report=[ordered]@{Kind='CollectionWiring';Expected=15;Complete=($checks.Count -eq 15 -and $failed -eq 0);NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path $env:TEMP 'domenia-collection-wiring-tests.json'}
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
 Write-Host ($report.Passed.ToString()+' reussis, '+$failed+' echecs. '+$ReportPath)

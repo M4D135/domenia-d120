@@ -232,6 +232,8 @@ function Save-DomeniaCampaignPlan {
         $Run | Add-Member -NotePropertyName CampaignNote -NotePropertyValue ('Plan de reprise non enregistré : ' + $_.Exception.Message + '.') -Force
         try { Write-AppLog ('Plan de reprise du relevé non enregistré : ' + $_.Exception.Message) 'WARN' } catch { }
         return $false
+    } finally {
+        try { Update-DomeniaCampaignResumeUi } catch { }
     }
 }
 
@@ -259,6 +261,7 @@ function Save-DomeniaCampaignProgress {
             [void](Write-DomeniaPreference -FileName 'Domenia.campaign-progress.json' -Value '{}')
             [void](Write-DomeniaPreference -FileName 'Domenia.campaign-plan.json' -Value '{}')
             $Run.CampaignProgress = $null
+            try { Update-DomeniaCampaignResumeUi } catch { }
         }
         elseif (-not (Write-DomeniaPreference -FileName 'Domenia.campaign-progress.json' -Value (ConvertTo-DomeniaCampaignProgressText $progress))) { throw 'écriture refusée' }
         $Run.CampaignSavedUtc = [datetime]::UtcNow
@@ -271,28 +274,34 @@ function Save-DomeniaCampaignProgress {
 }
 
 function Complete-DomeniaCampaignPlan {
-    # End of a campaign: complete plans disappear; the others keep their remaining workstations for a resume.
+    # End of a campaign: complete plans disappear; the others keep their remaining workstations for a resume. The
+    # resume area of the settings view then shows the plan as it now stands (an earlier plan when this one was not
+    # saved), whichever way the campaign ended.
     param($Run)
-    $progress = Get-DomeniaMemberValue $Run 'CampaignProgress' $null
-    if ($null -eq $progress) { return }
-    $state = 'Complete'; $reason = ''
-    if ([int]$progress.DoneCount -lt [int]$progress.Total) {
-        $failure = [string](Get-DomeniaMember $Run 'FailureMessage' '')
-        if ($script:AsyncEngineClosing) { $state = 'Closed' }
-        elseif ($failure) { $state = 'Incident'; $reason = $failure }
-        elseif ([bool](Get-DomeniaMember $Run 'Stopping' $false)) {
-            $state = 'Paused'
-            $why = [string](Get-DomeniaMember $Run 'StopReason' '')
-            if ($why) { $state = 'Incident'; $reason = $why }
+    try {
+        $progress = Get-DomeniaMemberValue $Run 'CampaignProgress' $null
+        if ($null -eq $progress) { return }
+        $state = 'Complete'; $reason = ''
+        if ([int]$progress.DoneCount -lt [int]$progress.Total) {
+            $failure = [string](Get-DomeniaMember $Run 'FailureMessage' '')
+            if ($script:AsyncEngineClosing) { $state = 'Closed' }
+            elseif ($failure) { $state = 'Incident'; $reason = $failure }
+            elseif ([bool](Get-DomeniaMember $Run 'Stopping' $false)) {
+                $state = 'Paused'
+                $why = [string](Get-DomeniaMember $Run 'StopReason' '')
+                if ($why) { $state = 'Incident'; $reason = $why }
+            }
+            else {
+                # A WMI-only workstation skipped for a remembered refusal was not measured: it stays to be read later.
+                $state = 'Incident'; $reason = 'postes non validés à la fin du relevé'
+                $skipped = [int](Get-DomeniaMember $Run 'SkippedTargets' 0)
+                if ($skipped -gt 0) { $reason = [string]$skipped + ' poste(s) non lu(s) : WMI refusé ou inaccessible mémorisé pour un temps limité' }
+            }
         }
-        else {
-            # A WMI-only workstation skipped for a remembered refusal was not measured: it stays to be read later.
-            $state = 'Incident'; $reason = 'postes non validés à la fin du relevé'
-            $skipped = [int](Get-DomeniaMember $Run 'SkippedTargets' 0)
-            if ($skipped -gt 0) { $reason = [string]$skipped + ' poste(s) non lu(s) : WMI refusé ou inaccessible mémorisé pour un temps limité' }
-        }
+        [void](Save-DomeniaCampaignProgress -Run $Run -State $state -Reason $reason -Force)
+    } finally {
+        if (-not $script:AsyncEngineClosing) { try { Update-DomeniaCampaignResumeUi } catch { } }
     }
-    [void](Save-DomeniaCampaignProgress -Run $Run -State $state -Reason $reason -Force)
 }
 
 function Register-DomeniaCampaignCloseHook {
@@ -438,6 +447,11 @@ function Initialize-DomeniaCollectionSettingsUi {
     if ($null -ne $resumeButton) { $resumeButton.Add_Click({ Start-DomeniaCampaignResume }) }
     $discard = Get-DomeniaControl 'BtnCollectionResumeDiscard'
     if ($null -ne $discard) { $discard.Add_Click({ Clear-DomeniaCampaignPlan }) }
+    # The window state (« ouverte jusquʼà ») and the resume offer change with time and campaigns: they are read again
+    # each time the « Réglages de collecte » section is unfolded.
+    $node = $profileBox
+    while (($null -ne $node) -and (-not ($node -is [Windows.Controls.Expander]))) { $node = [Windows.LogicalTreeHelper]::GetParent($node) }
+    if ($null -ne $node) { $node.Add_Expanded({ try { Update-DomeniaCollectionSettingsUi } catch { } }) }
     $script:DomeniaCollectionSettingsWired = $true
     Update-DomeniaCollectionSettingsUi
 }
@@ -461,7 +475,7 @@ function Update-DomeniaCollectionSettingsUi {
     param([AllowEmptyString()][string]$Family='')
     $table = Get-DomeniaActiveFreshnessTable
     $definition = Get-DomeniaCollectionProfile ([string]$table.Profile)
-    $profileText = [string]$definition.Description + ' La durée retenue pour un relevé est la plus courte de cette durée et de « Réutiliser les mesures fraîches ».'
+    $profileText = [string]$definition.Description + ' Pour lʼinventaire et les sondes WMI dʼun relevé, la durée retenue est la plus courte de cette durée et de « Réutiliser les mesures fraîches ».'
     if (@($table.Errors).Count) { $profileText += ' ' + (@($table.Errors) -join ' ') }
     [void](Set-DomeniaControlText 'LblCollectionProfile' $profileText)
     $grid = Get-DomeniaControl 'DgCollectionFreshness'
@@ -477,15 +491,23 @@ function Update-DomeniaCollectionSettingsUi {
 }
 
 function Update-DomeniaCampaignResumeUi {
+    # Called when the view opens, after a resume or an abandonment, and when a campaign starts, saves its plan or
+    # ends. While a campaign runs, its own plan is being written: nothing is offered and the file is not read.
     $label = Get-DomeniaControl 'LblCollectionResume'
     if ($null -eq $label) { return }
-    $status = Get-DomeniaCampaignResumeStatus
-    [void](Set-DomeniaControlText 'LblCollectionResume' ([string]$status.Reason))
     $running = (($null -ne $script:ParkRun) -and (-not $script:ParkRun.Completed))
     $resume = Get-DomeniaControl 'BtnCollectionResume'
-    if ($null -ne $resume) { $resume.IsEnabled = ([bool]$status.Resumable -and (-not $running) -and (-not $script:DemoMode)) }
     $discard = Get-DomeniaControl 'BtnCollectionResumeDiscard'
-    if ($null -ne $discard) { $discard.IsEnabled = (([int]$status.Remaining -gt 0) -and (-not $running)) }
+    if ($running) {
+        [void](Set-DomeniaControlText 'LblCollectionResume' 'Relevé en cours : sʼil est arrêté ou interrompu, ses postes restants seront proposés ici.')
+        if ($null -ne $resume) { $resume.IsEnabled = $false }
+        if ($null -ne $discard) { $discard.IsEnabled = $false }
+        return
+    }
+    $status = Get-DomeniaCampaignResumeStatus
+    [void](Set-DomeniaControlText 'LblCollectionResume' ([string]$status.Reason))
+    if ($null -ne $resume) { $resume.IsEnabled = ([bool]$status.Resumable -and (-not $script:DemoMode)) }
+    if ($null -ne $discard) { $discard.IsEnabled = ([int]$status.Remaining -gt 0) }
 }
 
 # ---------------------------------------------------------------- operations panel (points 12, 13, 16, 160)

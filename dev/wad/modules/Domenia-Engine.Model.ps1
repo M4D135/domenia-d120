@@ -672,21 +672,61 @@ function Test-DomeniaProviderAdmission {
 
 function Get-DomeniaProviderStateSummary {
     # Point 160: plain lines for the operations panel. Paused sources are named with their provider; healthy sources
-    # are not listed, and no line ever says that the whole directory is unreachable.
-    param($State,[datetime]$NowUtc=[datetime]::UtcNow)
+    # are not listed, and no line ever says that the whole directory is unreachable. Sites, controllers and whole
+    # providers get one line each; single workstations are counted per provider and state (a campaign over a slow
+    # site may leave thousands of them in progressive recovery), with a few names.
+    param($State,[datetime]$NowUtc=[datetime]::UtcNow,[int]$MaxNames=3)
     $lines = New-Object 'System.Collections.Generic.List[string]'
     if ($null -eq $State) { return @() }
     $names = @{Directory='annuaire';Cim='WMI';Wts='sessions';Network='réseau';Storage='base locale';Local='local'}
+    $groups = [ordered]@{}
     foreach ($key in @($State.Keys | Sort-Object)) {
         $entry = $State[$key]
         $provider = [string]$entry.Provider
         $label = $provider
         if ($names.ContainsKey($provider)) { $label = [string]$names[$provider] }
-        $target = [string]$entry.Target
-        if ($target -like 'group:*') { $target = 'site ' + $target.Substring(6) } elseif (-not $target) { $target = 'toutes cibles' }
-        if ([bool]$entry.CredentialBlocked) { $lines.Add($label + ' · ' + $target + ' : identifiants rejetés, reprise après un changement de compte explicite.'); continue }
-        if ([datetime]$entry.BackoffUntilUtc -gt $NowUtc) { $lines.Add($label + ' · ' + $target + ' : lectures de fond suspendues jusquʼà ' + ([datetime]$entry.BackoffUntilUtc).ToLocalTime().ToString('HH:mm:ss') + '.'); continue }
-        if ([bool](Get-DomeniaMember $entry 'Recovering' $false)) { $lines.Add($label + ' · ' + $target + ' : reprise progressive (' + [string][int](Get-DomeniaMember $entry 'RecoveryLimit' 1) + ' lecture(s) de fond à la fois).') }
+        $raw = [string]$entry.Target
+        $kind = ''
+        if ([bool]$entry.CredentialBlocked) { $kind = 'Blocked' }
+        elseif ([datetime]$entry.BackoffUntilUtc -gt $NowUtc) { $kind = 'Paused' }
+        elseif ([bool](Get-DomeniaMember $entry 'Recovering' $false)) { $kind = 'Recovering' }
+        if (-not $kind) { continue }
+        if ($raw -and ($raw -notlike 'group:*')) {
+            $groupKey = $label + '|' + $kind
+            if (-not $groups.Contains($groupKey)) { $groups[$groupKey] = [pscustomobject]@{Label=$label;Kind=$kind;Names=(New-Object 'System.Collections.Generic.List[string]');Until=[datetime]::MinValue;Limit=1} }
+            $group = $groups[$groupKey]
+            $group.Names.Add($raw)
+            if ([datetime]$entry.BackoffUntilUtc -gt [datetime]$group.Until) { $group.Until = [datetime]$entry.BackoffUntilUtc }
+            $group.Limit = [int](Get-DomeniaMember $entry 'RecoveryLimit' 1)
+            continue
+        }
+        $target = if ($raw -like 'group:*') { 'site ' + $raw.Substring(6) } else { 'toutes cibles' }
+        switch ($kind) {
+            'Blocked' { $lines.Add($label + ' · ' + $target + ' : identifiants rejetés, reprise après un changement de compte explicite.') }
+            'Paused' { $lines.Add($label + ' · ' + $target + ' : lectures de fond suspendues jusquʼà ' + ([datetime]$entry.BackoffUntilUtc).ToLocalTime().ToString('HH:mm:ss') + '.') }
+            default { $lines.Add($label + ' · ' + $target + ' : reprise progressive (' + [string][int](Get-DomeniaMember $entry 'RecoveryLimit' 1) + ' lecture(s) de fond à la fois).') }
+        }
+    }
+    foreach ($group in @($groups.Values)) {
+        $count = $group.Names.Count
+        if ($count -eq 1) {
+            $who = $group.Label + ' · ' + $group.Names[0]
+            switch ([string]$group.Kind) {
+                'Blocked' { $lines.Add($who + ' : identifiants rejetés, reprise après un changement de compte explicite.') }
+                'Paused' { $lines.Add($who + ' : lectures de fond suspendues jusquʼà ' + ([datetime]$group.Until).ToLocalTime().ToString('HH:mm:ss') + '.') }
+                default { $lines.Add($who + ' : reprise progressive (' + [string][int]$group.Limit + ' lecture(s) de fond à la fois).') }
+            }
+            continue
+        }
+        $shown = @($group.Names | Select-Object -First ([Math]::Max(1,$MaxNames)))
+        $list = $shown -join ', '
+        if ($count -gt $shown.Count) { $list += ' et ' + [string]($count - $shown.Count) + ' autre(s)' }
+        $who = $group.Label + ' · ' + [string]$count + ' cibles (' + $list + ')'
+        switch ([string]$group.Kind) {
+            'Blocked' { $lines.Add($who + ' : identifiants rejetés, reprise après un changement de compte explicite.') }
+            'Paused' { $lines.Add($who + ' : lectures de fond suspendues, au plus tard jusquʼà ' + ([datetime]$group.Until).ToLocalTime().ToString('HH:mm:ss') + '.') }
+            default { $lines.Add($who + ' : reprise progressive, une lecture de fond de plus à chaque réponse.') }
+        }
     }
     return $lines.ToArray()
 }

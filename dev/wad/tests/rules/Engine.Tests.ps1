@@ -488,3 +488,18 @@ Test-Case 'P160' 'Reprise progressive : après la pause, une lecture de fond à 
     foreach($i in 1..3){[void](Register-DomeniaProviderOutcome -State $paused -Provider 'Cim' -Target ('pc'+$i) -Outcome 'Timeout' -NowUtc $script:ET0 -Group '10.1.2.0/24')}
     Assert-Equal 1 @(Get-DomeniaProviderStateSummary -State $paused -NowUtc $script:ET0.AddSeconds(5) | Where-Object { $_ -match 'site 10\.1\.2\.0/24 : lectures de fond suspendues' }).Count
 }
+Test-Case 'P160' 'Panneau : les postes en pause ou en reprise sont regroupés par fournisseur, les sites restent nommés' {
+    # A campaign over a slow site: forty workstations with two time-outs each.
+    $s=New-DomeniaProviderState
+    foreach($i in 1..40){foreach($n in 1..2){[void](Register-DomeniaProviderOutcome -State $s -Provider 'Cim' -Target ('pc'+$i) -Outcome 'Timeout' -NowUtc $script:ET0 -Group '10.1.2.0/24')}}
+    $later=@(Get-DomeniaProviderStateSummary -State $s -NowUtc $script:ET0.AddHours(1))
+    Assert-Equal 2 $later.Count ($later -join ' | ')
+    Assert-Equal 1 @($later | Where-Object { $_ -match '^WMI · 40 cibles \(pc1, pc10, pc11 et 37 autre\(s\)\) : reprise progressive' }).Count ($later -join ' | ')
+    Assert-Equal 1 @($later | Where-Object { $_ -match '^WMI · site 10\.1\.2\.0/24 : reprise progressive' }).Count
+    $paused=@(Get-DomeniaProviderStateSummary -State $s -NowUtc $script:ET0.AddSeconds(5))
+    Assert-Equal 2 $paused.Count ($paused -join ' | ')
+    Assert-Equal 1 @($paused | Where-Object { $_ -match '^WMI · 40 cibles .* lectures de fond suspendues' }).Count
+    $one=New-DomeniaProviderState
+    foreach($n in 1..2){[void](Register-DomeniaProviderOutcome -State $one -Provider 'Cim' -Target 'pc1' -Outcome 'Timeout' -NowUtc $script:ET0)}
+    Assert-True ((@(Get-DomeniaProviderStateSummary -State $one -NowUtc $script:ET0.AddHours(1)) -join ' ') -match '^WMI · pc1 : reprise progressive') 'Un seul poste reste nommé'
+}

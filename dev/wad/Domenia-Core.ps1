@@ -16481,23 +16481,29 @@ function Start-DomeniaIndexRefresh {
         }
         # Point 21: the checkpoint is reused only on its controller and instance, with the data it describes;
         # otherwise the pass reads everything again and the journal says why. No USN goes to another controller.
-        if ($null -ne $script:IndexInfo) {
-            $checkpointCheck = Test-DomeniaSyncCheckpoint -Checkpoint $script:IndexInfo -Server ([string]$script:Conn.Server) -DomainDn ([string]$script:Conn.BaseDn) -ObjectCount ([long]$dbCount)
-            if (-not [bool]$checkpointCheck.Usable) {
-                $lastUsn = [long]0; $lastInvocationId = ''; $since = ''
-                Add-DomeniaUiLog -Area "Index" -Text ([string]$checkpointCheck.Reason)
-            }
+        $checkpointCheck = Test-DomeniaSyncCheckpoint -Checkpoint $script:IndexInfo -Server ([string]$script:Conn.Server) -DomainDn ([string]$script:Conn.BaseDn) -ObjectCount ([long]$dbCount)
+        $fullPass = (-not [bool]$checkpointCheck.Usable)
+        if ($fullPass) {
+            $lastUsn = [long]0; $lastInvocationId = ''; $since = ''
+            if ($Silent -or $Confirmed) { Add-DomeniaUiLog -Area "Index" -Text ([string]$checkpointCheck.Reason) }
         }
         if (-not $Silent) {
             if (-not $Confirmed) {
                 # UX-07: the estimate is confirmed in the page; the refresh starts again from the answer, once.
+                # V10.20: a rejected checkpoint means a complete read of the domain, estimated and named as such.
+                if ($fullPass) {
+                    $why = ([string]$checkpointCheck.Reason) -replace '\s*:\s*lecture complète.*$',''
+                    $impact=Get-DomeniaOperationImpactEstimate -Operation "IndexBuild" -ItemCount ([int][Math]::Min([long][int]::MaxValue,[Math]::Max([long]1,[long]$dbCount)))
+                    [void](Request-DomeniaOperationImpact -Estimate $impact -Title ("Relecture complète du domaine : " + $why) -Target 'impact:IndexRefresh' -OnConfirm { Start-DomeniaIndexRefresh -Confirmed })
+                    return
+                }
                 $impact=Get-DomeniaOperationImpactEstimate -Operation "IndexBuild" -ItemCount ([Math]::Max(1000,[int]($dbCount*0.05)))
                 [void](Request-DomeniaOperationImpact -Estimate $impact -Title "Mettre à jour les changements" -Target 'impact:IndexRefresh' -OnConfirm { Start-DomeniaIndexRefresh -Confirmed })
                 return
             }
-            [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text "Recherche des objets modifies...")
+            [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text $(if ($fullPass) { "Relecture complète du domaine..." } else { "Recherche des objets modifies..." }))
         }
-        Set-DomeniaIndexProgress -Mode Busy -Message 'Synchronisation incrémentale avec Active Directory… progression exacte indisponible pendant la requête.'
+        Set-DomeniaIndexProgress -Mode Busy -Message $(if ($fullPass) { 'Relecture complète du domaine (repère de synchronisation non réutilisable)… progression exacte indisponible pendant la requête.' } else { 'Synchronisation incrémentale avec Active Directory… progression exacte indisponible pendant la requête.' })
         Start-UiTask `
             -Name "Mise a jour des changements" `
             -OperationId "IndexBuild" `

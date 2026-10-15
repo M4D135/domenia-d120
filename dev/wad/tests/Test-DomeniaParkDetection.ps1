@@ -241,9 +241,55 @@ Case 'Campagne : hors fenêtre de collecte, la confirmation le dit et le lanceme
  $script:AsyncJobs.Remove($call.Id);& $script:Confirm;Invoke-DomeniaParkRunTick
  Assert ($script:Calls.Count -eq 2) 'Relevé explicite bloqué par la fenêtre'
 }
+Case 'Campagne : WMI seul, un poste éteint (serveur RPC indisponible) nʼest ni relu ni compté contre son sous-réseau' {
+ Reset-Fixture;Add-DisplayedMachine;Start-DomeniaOnlinePark -DisplayedResults -WmiOnly;$call=$script:Calls[0]
+ Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@((New-Target 1),(New-Target 2));Busy=$false}) $call.State;$script:AsyncJobs.Remove($call.Id);$script:ParkRun.Approved=$true
+ $script:DomeniaTargetAddresses=@{'pc-1'='10.1.2.11';'pc-2'='10.1.2.12'}
+ Invoke-DomeniaParkRunTick;$state=$script:Calls[1].State
+ Assert ($state.SourceKey -eq 'site:10.1.2.0/24') ('Source '+$state.SourceKey)
+ $p=New-Result $state.Target;$p.Outcome='Unavailable';$p.Presence='Non vérifié';$p.PresenceCheckedUtc='';$p.User='';$p.Detail='Lecture CIM/DCOM non confirmée. Le serveur RPC nʼest pas disponible. (0x800706BA)'
+ Complete-DomeniaParkSession $p $state
+ Assert ($script:ParkRun.Retry.Count -eq 0 -and $script:ParkRun.Retried -eq 0) 'Poste éteint relu'
+ $entry=Get-DomeniaSourceEntry $script:ParkRun.Sources.Health 'site:10.1.2.0/24' $script:ParkRun.Sources.Policy
+ Assert ([int]$entry.Limit -eq [int]$script:ParkRun.Concurrency -and [int]$entry.ConsecutiveFailures -eq 0) 'Budget du sous-réseau réduit par un poste éteint'
+}
+Case 'Campagne : une lecture arrêtée par le moteur nʼest relue que si son ping a répondu' {
+ foreach($presence in @('','Sans réponse au ping','En ligne')){
+  Reset-Fixture;Ready-Run 1;Invoke-DomeniaParkRunTick;$state=$script:Calls[1].State
+  Assert ([object]::ReferenceEquals($state.ReadProgress,$script:Calls[1].Payload.ReadProgress)) 'Canal de progression absent de lʼétat'
+  if($presence){$state.ReadProgress['Presence']=$presence}
+  Fail-DomeniaParkSession 'Délai dépassé : Console du parc : PC-1 — aucune étape terminée pendant le délai' $state
+  $expected=$(if($presence -eq 'En ligne'){1}else{0})
+  Assert ($script:ParkRun.Retry.Count -eq $expected) ('Ping « '+$presence+' » : '+$script:ParkRun.Retry.Count+' reprise(s)')
+ }
+}
+Case 'Campagne : un poste relu après un incident garde ses mesures réutilisables jusquʼau dernier essai' {
+ Reset-Fixture;Ready-Run 1;Invoke-DomeniaParkRunTick;$state=$script:Calls[1].State
+ $previous=[pscustomobject]@{Key=$state.Target.Key;Guid=$state.Target.Guid;Inventory=[pscustomobject]@{Build='26100';CheckedUtc=[datetime]::UtcNow.ToString('o')}}
+ $state.Target.Previous=$previous
+ $p=New-Result $state.Target;$p.Outcome='Timeout';Complete-DomeniaParkSession $p $state;Commit-Saved
+ Assert ([object]::ReferenceEquals($state.Target.Previous,$previous)) 'Observation précédente libérée avant la reprise'
+ $script:ParkRun.Retry[0].NotBeforeUtc=[datetime]::UtcNow.AddSeconds(-1);Invoke-DomeniaParkRunTick
+ Assert ($script:Calls.Count -eq 3 -and [object]::ReferenceEquals($script:Calls[2].Payload.Previous,$previous)) 'Reprise sans lʼobservation précédente'
+ $second=$script:Calls[2].State;Complete-DomeniaParkSession (New-Result $second.Target) $second;Commit-Saved 1
+ Assert ($null -eq $second.Target.Previous) 'Tampon conservé après le dernier essai'
+}
+Case 'Campagne : plus rien à envoyer, les dernières lectures en vol ne comptent pas comme attente' {
+ Reset-Fixture;Ready-Run 1;Invoke-DomeniaParkRunTick
+ Assert ($script:ParkRun.Pending.Count -eq 1 -and -not (Test-DomeniaParkWorkRemaining $script:ParkRun)) 'Préparation'
+ $script:ParkRun.HeldSinceUtc=[datetime]::UtcNow.AddSeconds(-3)
+ Invoke-DomeniaParkRunTick;Invoke-DomeniaParkRunTick
+ Assert ([double]$script:ParkRun.HeldSeconds -eq 0 -and $null -eq $script:ParkRun.HeldSinceUtc) ('Attente comptée : '+$script:ParkRun.HeldSeconds)
+}
+Case 'Campagne : un changement de compte arrête le relevé avec ce motif, jamais « arrêté par lʼopérateur »' {
+ Reset-Fixture;Approve-Run 2;$script:DomeniaAccountGeneration=2L;Invoke-DomeniaParkRunTick
+ $progress=ConvertFrom-DomeniaCampaignProgressText $script:Prefs['Domenia.campaign-progress.json']
+ Assert ($script:ParkRun.Completed -and $progress.State -eq 'Incident' -and $progress.Reason -match 'changement de compte') ('État '+$progress.State+' : '+$progress.Reason)
+ Assert (-not ((Get-DomeniaCampaignResumeState -Progress $progress -DomainDn $script:Conn.BaseDn -DatabasePath $script:DatabaseScopedPath).Reason -match 'opérateur')) 'Motif attribué à lʼopérateur'
+}
 if($null -ne $script:ParkRun -and $null -ne $script:ParkRun.Timer){$script:ParkRun.Timer.Stop()}
 $failed=@($checks|Where-Object Status -eq 'Failed').Count
-$report=[ordered]@{Kind='ParkDetection';Expected=34;Complete=($checks.Count -eq 34 -and $failed -eq 0);NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
+$report=[ordered]@{Kind='ParkDetection';Expected=39;Complete=($checks.Count -eq 39 -and $failed -eq 0);NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path $env:TEMP 'domenia-park-tests.json'}
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
 Write-Host ($report.Passed.ToString()+' reussis, '+$failed+' echecs. '+$ReportPath)

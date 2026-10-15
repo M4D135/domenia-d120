@@ -151,6 +151,24 @@ Test-Case 'P14' 'Concurrence : une seule baisse par intervalle, les réponses sa
     foreach ($i in 1..10) { [void](Register-DomeniaSourceOutcome $h $k 'Neutral' -1 $p $script:CT0.AddSeconds(20 + $i)) }
     Assert-Equal 2 $h[$k].Limit; Assert-Equal 3 $h[$k].ConsecutiveFailures
 }
+Test-Case 'P14' 'Latence par étape : ni lʼattente en file ni un plan déjà en cache ne ralentissent un site sain' {
+    $f = 1000L
+    Assert-Equal 200.0 (Get-DomeniaReadStepLatencyMs -StartedTimestamp 1000 -LastTimestamp 1400 -Steps 2 -Frequency $f)
+    Assert-Equal -1.0 (Get-DomeniaReadStepLatencyMs -StartedTimestamp 0 -LastTimestamp 1400 -Steps 2 -Frequency $f) 'Lecture jamais partie'
+    Assert-Equal -1.0 (Get-DomeniaReadStepLatencyMs -StartedTimestamp 1000 -LastTimestamp 1400 -Steps 0 -Frequency $f) 'Aucune étape terminée'
+    Assert-Equal -1.0 (Get-DomeniaReadStepLatencyMs -StartedTimestamp 1500 -LastTimestamp 1400 -Steps 2 -Frequency $f) 'Horloge incohérente'
+    $s = New-DomeniaCampaignSources -MaxLimit 4; $k = 'site:10.1.2.0/24'; $policy = Get-DomeniaCampaignSourcePolicy $s $k
+    # Three plans of reused measurements (ping and one query in 0.4 s), then full reads (ping and twelve queries in
+    # 2.6 s): the same pace per step, so no decrease.
+    $at = $script:CT0
+    foreach ($i in 1..3) { $at = $at.AddSeconds(1); [void](Register-DomeniaSourceOutcome $s.Health $k 'Success' (Get-DomeniaReadStepLatencyMs 1000 1400 2 $f) $policy $at) }
+    foreach ($i in 1..5) { $at = $at.AddSeconds(1); [void](Register-DomeniaSourceOutcome $s.Health $k 'Success' (Get-DomeniaReadStepLatencyMs 1000 3600 13 $f) $policy $at) }
+    Assert-Equal 4 $s.Health[$k].Limit 'Lecture complète prise pour un ralentissement'
+    Assert-Equal 0 ([int]$s.Health[$k].Decreases)
+    # Steps that really became slower still halve the source.
+    $at = $at.AddSeconds(20); [void](Register-DomeniaSourceOutcome $s.Health $k 'Success' (Get-DomeniaReadStepLatencyMs 1000 13000 2 $f) $policy $at)
+    Assert-Equal 2 $s.Health[$k].Limit 'Étapes trente fois plus lentes'
+}
 
 # ---------------------------------------------------------------- point 15
 Test-Case 'P15' 'Budgets par site : un sous-réseau lent ne prend pas les places des autres' {
@@ -236,15 +254,34 @@ Test-Case 'P18' 'Classement : seul un incident transitoire est repris, borné et
     Assert-Equal 'Credential' (ConvertTo-DomeniaCollectionFailure -Outcome 'AuthRejected').Category
     Assert-Equal 'AccessDenied' (ConvertTo-DomeniaCollectionFailure -Outcome 'Denied').Category
     Assert-Equal 'ProtocolUnreachable' (ConvertTo-DomeniaCollectionFailure -Outcome 'Unavailable' -Presence 'En ligne').Category
-    Assert-Equal 'Transient' (ConvertTo-DomeniaCollectionFailure -JobFailed $true -ErrorText 'Délai dépassé : Console du parc').Category
+    Assert-Equal 'Transient' (ConvertTo-DomeniaCollectionFailure -JobFailed $true -ErrorText 'Délai dépassé : Console du parc' -Presence 'En ligne').Category 'Arrêté par le moteur après un ping réussi'
     Assert-Equal 'Credential' (ConvertTo-DomeniaCollectionFailure -JobFailed $true -ErrorText 'Identifiants rejetés pour cette ressource').Category
     Assert-Equal 'Success' (ConvertTo-DomeniaCollectionFailure -Outcome 'Observed' -Presence 'En ligne').Category
     $first = Get-DomeniaCollectionRetryDecision -Category 'Transient' -Attempt 1 -NowUtc $script:CT0
     Assert-True $first.Retry; Assert-Equal 30 $first.DelaySeconds; Assert-Equal $script:CT0.AddSeconds(30) $first.NotBeforeUtc
     Assert-Equal 120 (Get-DomeniaCollectionRetryDecision -Category 'Transient' -Attempt 2 -NowUtc $script:CT0).DelaySeconds
     Assert-False (Get-DomeniaCollectionRetryDecision -Category 'Transient' -Attempt 3 -NowUtc $script:CT0).Retry 'Trois essais au plus'
-    foreach ($category in @('Credential','AccessDenied','Offline','ProtocolUnreachable','Permanent','ClassAbsent','Success')) { Assert-False (Get-DomeniaCollectionRetryDecision -Category $category -Attempt 1).Retry $category }
+    foreach ($category in @('Credential','AccessDenied','Offline','Unreachable','ProtocolUnreachable','Permanent','ClassAbsent','Success')) { Assert-False (Get-DomeniaCollectionRetryDecision -Category $category -Attempt 1).Retry $category }
     Assert-False (Get-DomeniaCollectionRetryDecision -Category 'Transient' -Attempt 1 -IsWrite $true).Retry 'Une écriture nʼest jamais rejouée'
+}
+Test-Case 'P18' 'Classement : sans preuve que le poste répond, ni reprise ni charge comptée contre son site' {
+    # WMI only: DCOM answers « serveur RPC indisponible » (Unavailable) for a workstation switched off.
+    $wmiOnly = ConvertTo-DomeniaCollectionFailure -Outcome 'Unavailable' -Presence 'Non vérifié' -PingCollected $false
+    Assert-Equal 'Unreachable' $wmiOnly.Category; Assert-Equal 'Neutral' $wmiOnly.Health
+    Assert-False (Get-DomeniaCollectionRetryDecision -Category $wmiOnly.Category -Attempt 1).Retry 'WMI seul, poste éteint relu'
+    # Read stopped by the engine: the ping step reported by the worker decides.
+    $unknown = ConvertTo-DomeniaCollectionFailure -JobFailed $true -ErrorText 'Délai dépassé : Console du parc : PC-1 — aucune étape terminée pendant le délai' -Presence ''
+    Assert-Equal 'Unreachable' $unknown.Category 'Ping non terminé'; Assert-Equal 'Neutral' $unknown.Health
+    Assert-Equal 'Offline' (ConvertTo-DomeniaCollectionFailure -JobFailed $true -ErrorText 'Délai dépassé' -Presence 'Sans réponse au ping').Category
+    Assert-Equal 'Unreachable' (ConvertTo-DomeniaCollectionFailure -JobFailed $true -ErrorText 'Délai dépassé' -Presence '' -PingCollected $false).Category 'WMI seul arrêté par le moteur'
+    $proven = ConvertTo-DomeniaCollectionFailure -JobFailed $true -ErrorText 'Délai dépassé' -Presence 'En ligne'
+    Assert-Equal 'Transient' $proven.Category; Assert-Equal 'Timeout' $proven.Health
+    Assert-Equal 'Transient' (ConvertTo-DomeniaCollectionFailure -Outcome 'Timeout' -Presence 'Non vérifié' -PingCollected $false).Category 'Délai dʼune requête CIM signalé par le worker'
+    # Five workstations switched off in one subnet leave its budget untouched.
+    $p = New-DomeniaSourcePolicy -MaxLimit 4 -FailureThreshold 3 -DecreaseCooldownSeconds 0
+    $h = New-DomeniaSourceHealth; $k = 'site:10.1.2.0/24'
+    foreach ($i in 1..5) { [void](Register-DomeniaSourceOutcome $h $k ([string]$wmiOnly.Health) -1 $p $script:CT0.AddSeconds($i)) }
+    Assert-Equal 4 $h[$k].Limit; Assert-Equal 'Closed' $h[$k].State
 }
 
 # ---------------------------------------------------------------- point 19
@@ -332,6 +369,36 @@ Test-Case 'P20' 'Avancement : un poste validé nʼest jamais relu, le compteur v
     Assert-Equal 298 $remaining.Count; Assert-Equal 'PC-2' $remaining[0].name
     Assert-Equal 0 @($remaining | Where-Object { $_.name -eq 'PC-300' }).Count
     Assert-Throws { ConvertFrom-DomeniaCampaignProgressText (ConvertTo-DomeniaCampaignProgressText $progress) ([pscustomobject]@{Id='ffffffffffffffffffffffffffffffff';Targets=@()}) } 'Avancement dʼun autre plan accepté'
+}
+Test-Case 'P20' 'Avancement : bits comptés octet par octet, bits au-delà du dernier poste ignorés' {
+    $plan = New-CltPlan
+    $progress = New-DomeniaCampaignProgress $plan $script:CT0
+    foreach ($i in @(0,7,8,150,296,299)) { [void](Set-DomeniaCampaignTargetDone $progress $i) }
+    $data = ConvertFrom-Json (ConvertTo-DomeniaCampaignProgressText $progress)
+    # 300 workstations: 38 bytes, the last one holds four of them; its four high bits belong to no workstation.
+    $bytes = [Convert]::FromBase64String([string]$data.Done); $bytes[37] = [byte]($bytes[37] -bor 0xF0)
+    $data.Done = [Convert]::ToBase64String($bytes); $data.DoneCount = 0
+    $back = ConvertFrom-DomeniaCampaignProgressText ($data | ConvertTo-Json -Compress) $plan
+    Assert-Equal 6 $back.DoneCount 'Bits hors plan comptés'
+    $remaining = @(Get-DomeniaCampaignRemainingTargets $plan $back)
+    Assert-Equal 294 $remaining.Count; Assert-Equal 'PC-2' $remaining[0].name; Assert-Equal 'PC-299' $remaining[-1].name
+    $full = New-DomeniaCampaignProgress $plan $script:CT0
+    for ($i = 0; $i -lt 300; $i++) { [void](Set-DomeniaCampaignTargetDone $full $i) }
+    Assert-Equal 300 (ConvertFrom-DomeniaCampaignProgressText (ConvertTo-DomeniaCampaignProgressText $full) $plan).DoneCount
+}
+Test-Case 'P20' 'Plan durable : champs du relevé ou du périmètre explicite, GUID texte ou octets, même lecture' {
+    $targets = @(
+        [pscustomobject]@{Computer='PC-7';Key='CN=PC-7,DC=example,DC=test';Guid=([guid]'00000000-0000-0000-0000-000000000007').ToString('B')},
+        [pscustomobject]@{name='PC-8';distinguished_name='CN=PC-8,DC=example,DC=test';object_guid=([guid]'00000000-0000-0000-0000-000000000008').ToByteArray()},
+        @{Computer='PC-9';Key='CN=PC-9,DC=example,DC=test';Guid='00000000-0000-0000-0000-000000000009'},
+        [pscustomobject]@{Computer='PC-10';Key='CN=PC-10,DC=example,DC=test';Guid=[guid]::Empty.ToString()},
+        [pscustomobject]@{Computer='PC-11';Key='CN=PC-11,DC=example,DC=test';Guid='pas un guid'})
+    $plan = New-DomeniaCampaignPlan -Kind 'Ping' -Targets $targets
+    Assert-Equal 3 @($plan.Targets).Count 'GUID vide ou invalide accepté'
+    Assert-Equal '00000000-0000-0000-0000-000000000007' $plan.Targets[0].G
+    Assert-Equal 'PC-8' $plan.Targets[1].N; Assert-Equal '00000000-0000-0000-0000-000000000008' $plan.Targets[1].G
+    Assert-Equal 'CN=PC-9,DC=example,DC=test' $plan.Targets[2].D
+    Assert-True (Test-DomeniaCampaignTargetName 'PC-9'); Assert-False (Test-DomeniaCampaignTargetName 'PC 9')
 }
 Test-Case 'P20' 'Reprise : proposée seulement sur le même domaine et la même base, avec le motif' {
     $plan = New-CltPlan

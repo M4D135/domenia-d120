@@ -105,6 +105,16 @@ Check 'Each finished CIM query advances the progress channel of a campaign' {
  $p=New-Payload;$p|Add-Member ReadProgress $progress;[void](Invoke-Fixture $p)
  Assert ([long]$progress.RowsRead -eq 3 -and [long]$progress.LastRowTimestamp -gt 0) ('Steps '+$progress.RowsRead)
 }
+Check 'The ping step leaves its answer in the progress channel of a campaign' {
+ # Point 18: a read the engine stops later is retried only when this answer says the workstation replied.
+ Reset-Fixture;$progress=[hashtable]::Synchronized(@{StartedTimestamp=1L;LastRowTimestamp=0L;RowsRead=0L})
+ $p=New-Payload;$p.CollectPing=$true;$p|Add-Member ReadProgress $progress;$r=Invoke-Fixture $p
+ Assert ($script:PingCalls -eq 1 -and [string]$r.Presence -eq 'Erreur de ping') 'Ping fixture not reached'
+ Assert ([string]$progress['Presence'] -eq 'Erreur de ping' -and [long]$progress['RowsRead'] -eq 4) ('Presence <'+[string]$progress['Presence']+'>, steps '+$progress['RowsRead'])
+ Reset-Fixture;$silent=[hashtable]::Synchronized(@{StartedTimestamp=1L;LastRowTimestamp=0L;RowsRead=0L})
+ $q=New-Payload;$q|Add-Member ReadProgress $silent;[void](Invoke-Fixture $q)
+ Assert (-not $silent.ContainsKey('Presence')) 'WMI only reported a ping answer'
+}
 
 Check 'The pinned body carries the CIM grouping rule itself, with no prelude added at run time' {
  # The worker hash covers the composed code: a function copied from the session at run time would make the reviewed

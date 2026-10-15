@@ -396,6 +396,16 @@ function Test-DomeniaSourceAdmission {
     return [pscustomobject]@{Allowed=$false;State='Closed';Limit=$limit;Reason=('Limite adaptée atteinte : ' + [string]$limit + ' lecture(s) simultanée(s) pour cette source.');RetryAfterUtc=$null}
 }
 
+function Get-DomeniaReadStepLatencyMs {
+    # Point 14: latency of one workstation read for its source budget, as the mean duration of one finished step
+    # (ping or CIM query) measured on the dispatch clock of its progress channel. The wait in the engine queue is
+    # excluded, and a plan whose measurements were reused (two steps) compares with a full read (inventory and
+    # probes). -1 when the channel holds no valid measurement: the answer then carries no latency.
+    param([long]$StartedTimestamp=0,[long]$LastTimestamp=0,[long]$Steps=0,[long]$Frequency=[Diagnostics.Stopwatch]::Frequency)
+    if (($StartedTimestamp -le 0) -or ($LastTimestamp -lt $StartedTimestamp) -or ($Steps -le 0) -or ($Frequency -le 0)) { return [double]-1 }
+    return ([double]($LastTimestamp - $StartedTimestamp) * 1000.0 / [double]$Frequency / [double]$Steps)
+}
+
 function ConvertTo-DomeniaIPv4Text {
     # Dotted IPv4 text or ''. Loopback, unspecified and multicast addresses are not a site.
     param([AllowEmptyString()][string]$Text)
@@ -459,10 +469,11 @@ function Get-DomeniaCollectionSourceLabel {
 
 function New-DomeniaCampaignSources {
     # Per-source budgets of one campaign: every site or controller adapts on its own, bounded by the chosen value.
-    # Workstations without known address share one budget that never suspends (it is not a site).
+    # Workstations without known address share one budget that never suspends (it is not a site). The latency is
+    # per finished step (Get-DomeniaReadStepLatencyMs), so the floor of a slow answer is per step too.
     param([int]$MaxLimit=4)
     $max = [Math]::Max(1,[Math]::Min(32,$MaxLimit))
-    return [pscustomobject]@{Health=(New-DomeniaSourceHealth);Policy=(New-DomeniaSourcePolicy -MaxLimit $max);UnknownPolicy=(New-DomeniaSourcePolicy -MaxLimit $max -FailureThreshold 0);MaxLimit=$max}
+    return [pscustomobject]@{Health=(New-DomeniaSourceHealth);Policy=(New-DomeniaSourcePolicy -MaxLimit $max -SlowFloorMs 500);UnknownPolicy=(New-DomeniaSourcePolicy -MaxLimit $max -FailureThreshold 0 -SlowFloorMs 500);MaxLimit=$max}
 }
 
 function Get-DomeniaCampaignSourcePolicy {
@@ -490,16 +501,24 @@ function Get-DomeniaCampaignSourceSummary {
 # ---------------------------------------------------------------- point 18: classify before any retry
 function ConvertTo-DomeniaCollectionFailure {
     # Class of one workstation measurement. Health feeds the source budget; Category decides a retry.
-    # Transient: the machine answered the ping (or no ping was asked) but the read timed out, or the worker itself
-    # timed out. Offline: no answer at all, a retry soon would only wait again. A refusal is never transient.
+    # Point 18: only a workstation proven reachable is read again. Transient: the machine answered the ping and the
+    # read did not finish, or the worker itself reported the time-out of a CIM query. Offline: no answer to the ping.
+    # Unreachable: the read failed and nothing proves the machine is on (WMI only, or the engine stopped the read
+    # before its ping ended); a machine switched off looks the same, so it waits for the next campaign and says
+    # nothing about its site. A refusal is never transient. For -JobFailed, $Presence is the ping step the worker
+    # reported before it was stopped ('' when unknown).
     param([AllowEmptyString()][string]$Outcome='',[AllowEmptyString()][string]$Presence='',[bool]$PingCollected=$true,[bool]$JobFailed=$false,[AllowEmptyString()][string]$ErrorText='')
+    $online = ([string]$Presence -eq 'En ligne')
+    $silent = ([string]$Presence -in @('Sans réponse au ping','Erreur de ping'))
     if ($JobFailed) {
-        if ([string]$ErrorText -match '(?i)timeout|timed out|d[eé]lai|aucune requ[eê]te') { return [pscustomobject]@{Category='Transient';Health='Timeout';Reason='Délai dépassé avant la fin de la lecture.'} }
+        if ([string]$ErrorText -match '(?i)timeout|timed out|d[eé]lai|aucune requ[eê]te') {
+            if ($PingCollected -and $online) { return [pscustomobject]@{Category='Transient';Health='Timeout';Reason='Délai dépassé sur un poste qui répond au ping.'} }
+            if ($PingCollected -and $silent) { return [pscustomobject]@{Category='Offline';Health='Neutral';Reason='Poste sans réponse : pas de reprise immédiate.'} }
+            return [pscustomobject]@{Category='Unreachable';Health='Neutral';Reason='Délai dépassé sans preuve que le poste est joignable : pas de reprise immédiate.'}
+        }
         if ([string]$ErrorText -match '(?i)identifiants?.{0,20}(rejet|refus)|logon failure|password is incorrect|mot de passe') { return [pscustomobject]@{Category='Credential';Health='Neutral';Reason='Identifiants rejetés.'} }
         return [pscustomobject]@{Category='Permanent';Health='Failure';Reason='Lecture interrompue : erreur non transitoire.'}
     }
-    $online = ([string]$Presence -eq 'En ligne')
-    $silent = ([string]$Presence -in @('Sans réponse au ping','Erreur de ping'))
     switch ([string]$Outcome) {
         'AuthRejected' { return [pscustomobject]@{Category='Credential';Health='Neutral';Reason='Identifiants rejetés : aucune reprise automatique.'} }
         'Denied' { return [pscustomobject]@{Category='AccessDenied';Health='Success';Reason='Droit refusé : aucune reprise automatique.'} }
@@ -510,7 +529,8 @@ function ConvertTo-DomeniaCollectionFailure {
         'Unavailable' {
             if ($online) { return [pscustomobject]@{Category='ProtocolUnreachable';Health='Neutral';Reason='Le poste répond au ping mais refuse WMI (DCOM) : pas de reprise immédiate.'} }
             if ($PingCollected -and $silent) { return [pscustomobject]@{Category='Offline';Health='Neutral';Reason='Poste sans réponse : pas de reprise immédiate.'} }
-            return [pscustomobject]@{Category='Transient';Health='Failure';Reason='Lecture WMI non confirmée.'}
+            # WMI only: DCOM gives the same answer (RPC server unavailable) for a machine switched off.
+            return [pscustomobject]@{Category='Unreachable';Health='Neutral';Reason='Lecture WMI non confirmée sans preuve que le poste est joignable : pas de reprise immédiate.'}
         }
         default {
             if ($PingCollected -and ([string]$Presence -eq 'Erreur de ping')) { return [pscustomobject]@{Category='Permanent';Health='Neutral';Reason='Nom non résolu ou erreur réseau locale.'} }
@@ -531,6 +551,7 @@ function Get-DomeniaCollectionRetryDecision {
             'Credential' { 'Identifiants rejetés : reprise seulement après un changement de compte explicite.' }
             'AccessDenied' { 'Droit refusé : une nouvelle lecture donnerait le même refus.' }
             'Offline' { 'Poste sans réponse : il sera relu au prochain relevé.' }
+            'Unreachable' { 'Poste non joignable sans preuve quʼil est allumé : il sera relu au prochain relevé.' }
             'ProtocolUnreachable' { 'WMI inaccessible sur ce poste : il sera relu au prochain relevé.' }
             'Success' { '' }
             default { 'Erreur non transitoire : aucune reprise automatique.' }
@@ -707,27 +728,53 @@ function Get-DomeniaCampaignProgressState {
 # ---------------------------------------------------------------- point 20: durable campaign plan
 function Get-DomeniaCampaignPlanKinds { return @('Ping','Console','Wmi','Analysis') }
 
-function Test-DomeniaCampaignTargetName {
+function Get-DomeniaCampaignTargetNamePattern {
     # A workstation kept in a durable plan: a host name that the resume reads back exactly. The same rule decides at
     # approval (a plan that could not be read back is reported as not saved) and when the plan is read.
+    return '^[A-Za-z0-9][A-Za-z0-9._-]{0,252}$'
+}
+
+function Test-DomeniaCampaignTargetName {
     param([AllowEmptyString()][string]$Name)
-    return ([string]$Name -cmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,252}$')
+    return ([string]$Name -cmatch (Get-DomeniaCampaignTargetNamePattern))
 }
 
 function New-DomeniaCampaignPlan {
     # Read-only campaigns only: ping, console, WMI or analysis of explicit workstations. The plan never holds a
     # credential, an AD write or a free query; only names, DN, GUID and the probe identifiers of the catalog.
+    # It runs on the Dispatcher at approval for up to tens of thousands of workstations: the fields are read directly
+    # (no helper call per target) and the name rule is fetched once.
     param([Parameter(Mandatory=$true)][ValidateSet('Ping','Console','Wmi','Analysis')][string]$Kind,[object[]]$Targets=@(),
         [string[]]$ProbeIds=@(),[bool]$Inventory=$false,[AllowEmptyString()][string]$ScopeLabel='',[AllowEmptyString()][string]$DomainDn='',
         [AllowEmptyString()][string]$DatabasePath='',[datetime]$NowUtc=[datetime]::UtcNow,[AllowEmptyString()][string]$Id='')
     $rows = New-Object 'System.Collections.Generic.List[object]'
     $seen = @{}
+    $namePattern = Get-DomeniaCampaignTargetNamePattern
     foreach ($target in @($Targets)) {
         if ($null -eq $target) { continue }
-        $name = [string](Get-DomeniaMember $target 'Computer' (Get-DomeniaMember $target 'name' ''))
-        $dn = [string](Get-DomeniaMember $target 'Key' (Get-DomeniaMember $target 'distinguished_name' ''))
-        $guid = ConvertTo-DomeniaGuidText (Get-DomeniaMember $target 'Guid' (Get-DomeniaMember $target 'object_guid' ''))
-        if ((-not (Test-DomeniaCampaignTargetName $name)) -or (-not $dn) -or ($dn -match '[\x00-\x1F]') -or (-not $guid)) { continue }
+        $name = ''; $dn = ''; $guidValue = $null
+        if ($target -is [Collections.IDictionary]) {
+            $name = [string](Get-DomeniaMember $target 'Computer' (Get-DomeniaMember $target 'name' ''))
+            $dn = [string](Get-DomeniaMember $target 'Key' (Get-DomeniaMember $target 'distinguished_name' ''))
+            $guidValue = Get-DomeniaMemberValue $target 'Guid' (Get-DomeniaMemberValue $target 'object_guid' '')
+        }
+        else {
+            # Same precedence as Get-DomeniaMember: the collection fields first, then the explicit scope fields.
+            $properties = $target.PSObject.Properties
+            $field = $properties['Computer']; if ($null -eq $field) { $field = $properties['name'] }
+            if ($null -ne $field) { $name = [string]$field.Value }
+            $field = $properties['Key']; if ($null -eq $field) { $field = $properties['distinguished_name'] }
+            if ($null -ne $field) { $dn = [string]$field.Value }
+            $field = $properties['Guid']; if ($null -eq $field) { $field = $properties['object_guid'] }
+            if ($null -ne $field) { $guidValue = $field.Value }
+        }
+        $guid = ''
+        if ($guidValue -is [string]) {
+            $parsed = [guid]::Empty
+            if ([guid]::TryParse($guidValue,[ref]$parsed) -and ($parsed -ne [guid]::Empty)) { $guid = $parsed.ToString('D') }
+        }
+        elseif ($null -ne $guidValue) { $guid = ConvertTo-DomeniaGuidText $guidValue }
+        if ((-not ($name -cmatch $namePattern)) -or (-not $dn) -or ($dn -match '[\x00-\x1F]') -or (-not $guid)) { continue }
         $key = $guid.ToLowerInvariant()
         if ($seen.ContainsKey($key)) { continue }
         $seen[$key] = $true
@@ -756,12 +803,6 @@ function Set-DomeniaCampaignTargetDone {
     $Progress.Done[$byte] = [byte]([byte]$Progress.Done[$byte] -bor $bit)
     $Progress.DoneCount = [int]$Progress.DoneCount + 1
     return $true
-}
-
-function Test-DomeniaCampaignTargetDone {
-    param([Parameter(Mandatory=$true)]$Progress,[int]$Index)
-    if (($Index -lt 0) -or ($Index -ge [int]$Progress.Total)) { return $false }
-    return ((([byte]$Progress.Done[[int][Math]::Floor($Index / 8)]) -band [byte](1 -shl ($Index % 8))) -ne 0)
 }
 
 function ConvertTo-DomeniaCampaignTargetsText {
@@ -813,13 +854,14 @@ function ConvertFrom-DomeniaCampaignPlanText {
     } catch { throw 'Liste des postes du plan illisible.' }
     if ((Get-DomeniaTextHash $raw) -cne [string](Get-DomeniaMember $head 'TargetsSha256' '')) { throw 'Liste des postes du plan altérée.' }
     $clean = New-Object 'System.Collections.Generic.List[object]'
+    $namePattern = Get-DomeniaCampaignTargetNamePattern
     foreach ($line in $raw.Split([char]10)) {
         if (-not $line) { continue }
         $fields = $line.Split([char]9)
         if ($fields.Count -ne 3) { throw 'Poste du plan invalide.' }
-        $guid = ConvertTo-DomeniaGuidText $fields[2]
-        if ((-not $guid) -or (-not (Test-DomeniaCampaignTargetName $fields[0])) -or (-not $fields[1])) { throw 'Poste du plan invalide.' }
-        $clean.Add([pscustomobject]@{N=$fields[0];D=$fields[1];G=$guid})
+        $parsed = [guid]::Empty
+        if ((-not [guid]::TryParse($fields[2],[ref]$parsed)) -or ($parsed -eq [guid]::Empty) -or (-not ($fields[0] -cmatch $namePattern)) -or (-not $fields[1])) { throw 'Poste du plan invalide.' }
+        $clean.Add([pscustomobject]@{N=$fields[0];D=$fields[1];G=$parsed.ToString('D')})
     }
     if ($clean.Count -ne [int](Get-DomeniaMember $head 'Count' -1)) { throw 'Nombre de postes du plan incohérent.' }
     return [pscustomobject]@{Schema='DomeniaCampaignPlan/1';Id=[string]$head.Id;Kind=[string]$head.Kind;CreatedUtc=[string](Get-DomeniaMember $head 'CreatedUtc' '');DomainDn=[string](Get-DomeniaMember $head 'DomainDn' '')
@@ -852,22 +894,29 @@ function ConvertFrom-DomeniaCampaignProgressText {
     $bytes = $null
     try { $bytes = [Convert]::FromBase64String([string](Get-DomeniaMember $data 'Done' '')) } catch { throw 'Avancement du relevé illisible.' }
     if ($bytes.Length -ne [int][Math]::Ceiling($total / 8.0)) { throw 'Avancement incohérent avec le plan.' }
-    $progress = [pscustomobject]@{Schema='DomeniaCampaignProgress/1';PlanId=[string]$data.PlanId;Kind=[string]$data.Kind;CreatedUtc=[string](Get-DomeniaMember $data 'CreatedUtc' '')
-        DomainDn=[string](Get-DomeniaMember $data 'DomainDn' '');DatabasePath=[string](Get-DomeniaMember $data 'DatabasePath' '');ScopeLabel=[string](Get-DomeniaMember $data 'ScopeLabel' '')
-        Done=$bytes;DoneCount=0;Total=$total;State=[string](Get-DomeniaMember $data 'State' 'Interrupted');Reason=[string](Get-DomeniaMember $data 'Reason' '');UpdatedUtc=[string](Get-DomeniaMember $data 'UpdatedUtc' '')}
+    # Bits counted byte by byte (each settings refresh and the resume offer read this file on the Dispatcher): the
+    # bits past the last target of a partial byte are ignored.
     $done = 0
-    for ($i = 0; $i -lt $total; $i++) { if (Test-DomeniaCampaignTargetDone $progress $i) { $done++ } }
-    $progress.DoneCount = $done
-    return $progress
+    $whole = [int][Math]::Floor($total / 8)
+    for ($index = 0; $index -lt $bytes.Length; $index++) {
+        $value = [int]$bytes[$index]
+        if ($index -ge $whole) { $value = $value -band ((1 -shl ($total % 8)) - 1) }
+        while ($value -ne 0) { $value = $value -band ($value - 1); $done++ }
+    }
+    return [pscustomobject]@{Schema='DomeniaCampaignProgress/1';PlanId=[string]$data.PlanId;Kind=[string]$data.Kind;CreatedUtc=[string](Get-DomeniaMember $data 'CreatedUtc' '')
+        DomainDn=[string](Get-DomeniaMember $data 'DomainDn' '');DatabasePath=[string](Get-DomeniaMember $data 'DatabasePath' '');ScopeLabel=[string](Get-DomeniaMember $data 'ScopeLabel' '')
+        Done=$bytes;DoneCount=$done;Total=$total;State=[string](Get-DomeniaMember $data 'State' 'Interrupted');Reason=[string](Get-DomeniaMember $data 'Reason' '');UpdatedUtc=[string](Get-DomeniaMember $data 'UpdatedUtc' '')}
 }
 
 function Get-DomeniaCampaignRemainingTargets {
     # Workstations not validated yet, in plan order, in the shape of the explicit scope of a collection.
     param([Parameter(Mandatory=$true)]$Plan,[Parameter(Mandatory=$true)]$Progress)
     $out = New-Object 'System.Collections.Generic.List[object]'
+    $done = [byte[]]$Progress.Done
     $index = 0
     foreach ($target in @($Plan.Targets)) {
-        if (-not (Test-DomeniaCampaignTargetDone $Progress $index)) { $out.Add([pscustomobject]@{name=[string]$target.N;distinguished_name=[string]$target.D;object_guid=[string]$target.G}) }
+        # Bit layout of Set-DomeniaCampaignTargetDone, read inline: one call per target would hold the Dispatcher.
+        if (($index -ge $done.Length * 8) -or (([int]$done[$index -shr 3] -band (1 -shl ($index -band 7))) -eq 0)) { $out.Add([pscustomobject]@{name=[string]$target.N;distinguished_name=[string]$target.D;object_guid=[string]$target.G}) }
         $index++
     }
     return $out.ToArray()
