@@ -1093,39 +1093,147 @@ function Get-DomeniaQueryDefinitionSummary {
     $summary['Conditions avancées']=@(foreach($node in @(Get-DomeniaQueryExpressionOutline -Node (Get-DomeniaMemberValue $Recipe 'Expression') -Fields $Fields)){('· '*$node.Depth)+([string]$node.Label).Trim()})
     $group=[string](Get-DomeniaMember $Recipe 'GroupBy')
     $summary['Répartition']=@($(if(-not $group){'Compteur de postes'}elseif($Fields.ContainsKey($group)){[string]$Fields[$group].Name}else{$group}))
-    $summary['Paramètre']=@(foreach($row in @(Get-DomeniaQueryParameterRows $Recipe)){[string]$row.Label+' = '+[string]$row.ValueLabel})
+    $summary['Paramètre']=@(foreach($row in @(Get-DomeniaQueryParameterRows $Recipe)){
+        $field=$Fields[[string]$row.Field];$min=Get-DomeniaMemberValue $row.Definition 'Minimum';$max=Get-DomeniaMemberValue $row.Definition 'Maximum'
+        $bounds=if(($null -ne $min) -and ($null -ne $max)){' · de '+(Format-DomeniaQueryValueLabel -Value $min -Field $field)+' à '+(Format-DomeniaQueryValueLabel -Value $max -Field $field)}elseif($null -ne $min){' · au moins '+(Format-DomeniaQueryValueLabel -Value $min -Field $field)}elseif($null -ne $max){' · au plus '+(Format-DomeniaQueryValueLabel -Value $max -Field $field)}else{''}
+        [string]$row.Label+' ('+[string]$row.FieldName+') = '+[string]$row.ValueLabel+$bounds
+    })
     $coherence=Get-DomeniaMemberValue $Recipe 'CoherenceHours'
     $summary['Cohérence des dates']=@($(if($null -ne $coherence){'Écart maximal '+[string]$coherence+' h'}else{'Aucune contrainte'}))
-    $objects=Get-DomeniaMemberValue $Recipe 'ObjectIds'
-    $summary['Sélection figée']=@($(if($null -ne $objects){[string]@($objects).Count+' GUID'}else{'Aucune'}))
+    # Same count is not the same selection: the sorted GUID set is fingerprinted.
+    $objects=Get-DomeniaQueryObjectIdSet $Recipe
+    $summary['Sélection figée']=@($(if($null -ne $objects){[string]$objects.Count+' GUID · empreinte '+(Get-DomeniaQuerySha256 $objects.Text).Substring(0,12)}else{'Aucune'}))
     $probe=Get-DomeniaMemberValue $Recipe 'ProbeSelection'
-    $summary['Segment de sonde']=@($(if($null -ne $probe){[string]$probe.Key+' · '+[string]$probe.Mode}else{'Aucun'}))
+    $summary['Segment de sonde']=@($(if($null -ne $probe){Format-DomeniaQueryProbeSelectionLabel -Selection $probe -Fields $Fields}else{'Aucun'}))
     $read=Get-DomeniaMemberValue $Recipe 'ReadDefinition'
     $summary['SELECT mémorisé']=@($(if($null -ne $read){[string]$read.CanonicalQuery}else{'Aucun'}))
     return $summary
 }
+function Get-DomeniaQuerySha256 {
+    param([string]$Text)
+    $hash=[Security.Cryptography.SHA256]::Create()
+    try{return [BitConverter]::ToString($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes([string]$Text))).Replace('-','').ToLowerInvariant()}finally{$hash.Dispose()}
+}
+function Get-DomeniaQueryObjectIdSet {
+    # Order-insensitive identity of a frozen selection: normalised GUIDs, sorted ordinally. $null without selection.
+    param($Recipe)
+    $values=Get-DomeniaMemberValue $Recipe 'ObjectIds'
+    if($null -eq $values){return $null}
+    $ids=[Collections.Generic.List[string]]::new()
+    try{$set=Get-DomeniaQueryIdentitySelection $Recipe;foreach($id in $set){$ids.Add([string]$id)}}
+    catch{$ids.Clear();foreach($value in @($values)){$ids.Add(([string]$value).Trim().ToLowerInvariant())}}
+    $sorted=$ids.ToArray();[Array]::Sort($sorted,[StringComparer]::Ordinal)
+    return [pscustomobject]@{Count=$sorted.Length;Ids=$sorted;Text=[string]::Join("`n",$sorted)}
+}
+function Format-DomeniaQueryProbeSelectionLabel {
+    # Every element of a probe segment: probe, then the value, the bounds or the excluded categories it keeps.
+    param($Selection,[hashtable]$Fields=$null)
+    $key=[string](Get-DomeniaMember $Selection 'Key');$mode=[string](Get-DomeniaMember $Selection 'Mode')
+    $field=if($null -ne $Fields){$Fields['probe:'+$key]}else{$null}
+    $name=if($null -ne $field){[string]$field.Name}else{$key}
+    switch($mode){
+        'Equal'{return $name+' · égal à '+(Format-DomeniaQueryValueLabel -Value (Get-DomeniaMemberValue $Selection 'Value') -Field $field)}
+        'Range'{
+            $low=Get-DomeniaMemberValue $Selection 'Low';$high=Get-DomeniaMemberValue $Selection 'High'
+            if(($null -ne $low) -and ($null -ne $high)){return $name+' · de '+(Format-DomeniaQueryValueLabel -Value $low -Field $field)+' à '+(Format-DomeniaQueryValueLabel -Value $high -Field $field)}
+            if($null -ne $low){return $name+' · à partir de '+(Format-DomeniaQueryValueLabel -Value $low -Field $field)}
+            if($null -ne $high){return $name+' · jusquʼà '+(Format-DomeniaQueryValueLabel -Value $high -Field $field)}
+            return $name+' · tranche sans borne'
+        }
+        'Other'{
+            $excluded=[string[]]@(Get-DomeniaMember $Selection 'Excluded' @()|ForEach-Object{[string]$_});[Array]::Sort($excluded,[StringComparer]::Ordinal)
+            return $name+' · autres valeurs, hors '+($excluded -join ', ')
+        }
+    }
+    return $name+' · '+$mode
+}
+function ConvertTo-DomeniaQueryCanonicalText {
+    # Canonical text of a JSON-shaped value: members sorted ordinally, a null member equal to an absent one,
+    # numbers in one invariant form and length-prefixed strings. Two equal definitions always give the same text.
+    param($Value,[int]$Depth=0)
+    if($Depth -gt 64){throw 'Définition de requête trop profonde.'}
+    if($null -eq $Value){return 'null'}
+    if($Value -is [string]){return 's'+[string]$Value.Length+':'+$Value}
+    if($Value -is [bool]){if($Value){return 'true'};return 'false'}
+    if(($Value -is [int]) -or ($Value -is [long]) -or ($Value -is [decimal]) -or ($Value -is [double]) -or ($Value -is [single]) -or ($Value -is [int16]) -or ($Value -is [byte])){
+        try{return 'n'+([decimal]$Value).ToString('G29',[Globalization.CultureInfo]::InvariantCulture)}catch{return 'n'+([double]$Value).ToString('R',[Globalization.CultureInfo]::InvariantCulture)}
+    }
+    if($Value -is [ValueType]){return 'v'+[Convert]::ToString($Value,[Globalization.CultureInfo]::InvariantCulture)}
+    $builder=[Text.StringBuilder]::new()
+    if($Value -is [Collections.IDictionary]){
+        $keys=[string[]]@($Value.Keys|ForEach-Object{[string]$_});[Array]::Sort($keys,[StringComparer]::Ordinal)
+        [void]$builder.Append('{')
+        foreach($key in $keys){$item=$Value[$key];if($null -eq $item){continue};[void]$builder.Append('s'+[string]$key.Length+':'+$key+'=').Append((ConvertTo-DomeniaQueryCanonicalText -Value $item -Depth ($Depth+1))).Append(';')}
+        return $builder.Append('}').ToString()
+    }
+    if($Value -is [Collections.IEnumerable]){
+        [void]$builder.Append('[')
+        # Strings are appended inline: a 20 000 GUID selection must not cost one call per element.
+        foreach($item in $Value){
+            if($item -is [string]){[void]$builder.Append('s'+[string]$item.Length+':'+$item)}else{[void]$builder.Append((ConvertTo-DomeniaQueryCanonicalText -Value $item -Depth ($Depth+1)))}
+            [void]$builder.Append(',')
+        }
+        return $builder.Append(']').ToString()
+    }
+    $names=[string[]]@($Value.PSObject.Properties|ForEach-Object{[string]$_.Name});[Array]::Sort($names,[StringComparer]::Ordinal)
+    [void]$builder.Append('{')
+    foreach($name in $names){$item=$Value.PSObject.Properties[$name].Value;if($null -eq $item){continue};[void]$builder.Append('s'+[string]$name.Length+':'+$name+'=').Append((ConvertTo-DomeniaQueryCanonicalText -Value $item -Depth ($Depth+1))).Append(';')}
+    return $builder.Append('}').ToString()
+}
+function Get-DomeniaQueryDefinitionFingerprint {
+    # SHA-256 of everything a definition evaluates, in canonical form. Key order, container type, number scale,
+    # GUID or excluded-category order and an explicit default parameter value never change it; any other element does.
+    param($Recipe)
+    if($null -eq $Recipe){return ''}
+    $fields=Get-DomeniaQueryFieldMap $Recipe;$effective=[ordered]@{}
+    foreach($row in @(Get-DomeniaQueryParameterRows $Recipe)){
+        $value=$row.Value;$field=$fields[[string]$row.Field]
+        if($null -ne $field){try{$value=ConvertTo-DomeniaQueryParameterValue -Definition $row.Definition -Field $field -Value $row.Value}catch{$value=$row.Value}}
+        $effective[[string]$row.Name]=$value
+    }
+    # A sorted GUID array passed as one value: one GUID stays an array and an empty selection stays empty.
+    $objects=Get-DomeniaQueryObjectIdSet $Recipe;$objectIds=$null;if($null -ne $objects){$objectIds=$objects.Ids}
+    $probe=Get-DomeniaMemberValue $Recipe 'ProbeSelection'
+    if($null -ne $probe){
+        $probe=ConvertFrom-Json -InputObject (ConvertTo-Json -InputObject $probe -Depth 8 -Compress) -ErrorAction Stop
+        $excluded=[string[]]@(Get-DomeniaMember $probe 'Excluded' @()|ForEach-Object{[string]$_})
+        if($excluded.Count){[Array]::Sort($excluded,[StringComparer]::Ordinal);$probe|Add-Member -NotePropertyName Excluded -NotePropertyValue $excluded -Force}
+    }
+    $junction=if([string](Get-DomeniaMember $Recipe 'Junction') -ceq 'Any'){'Any'}else{'All'}
+    $copy=New-DomeniaQueryRecipe -Id ([string](Get-DomeniaMember $Recipe 'Id' '')) -Name ([string](Get-DomeniaMember $Recipe 'Name' '')) -Junction $junction -Clauses @(Get-DomeniaMember $Recipe 'Clauses' @()) -GroupBy ([string](Get-DomeniaMember $Recipe 'GroupBy')) -Refinements @(Get-DomeniaMember $Recipe 'Refinements' @()) -ProbeSelection $probe -ObjectIds $objectIds -Parameters @(Get-DomeniaMember $Recipe 'Parameters' @()) -ParameterValues ([pscustomobject]$effective) -Expression (Get-DomeniaMemberValue $Recipe 'Expression') -CoherenceHours (Get-DomeniaMemberValue $Recipe 'CoherenceHours') -ReadDefinition (Get-DomeniaMemberValue $Recipe 'ReadDefinition')
+    # The same JSON form on both sides: a live draft and a stored revision differ only by what they define.
+    $plain=ConvertFrom-Json -InputObject (ConvertTo-Json -InputObject $copy -Depth 32 -Compress) -ErrorAction Stop
+    return (Get-DomeniaQuerySha256 (ConvertTo-DomeniaQueryCanonicalText $plain))
+}
 function Compare-DomeniaQueryRecipeDefinitions {
     # Readable before/after rows between two definitions; only differences are listed. A new recipe lists its content.
+    # When no readable element differs but the canonical definitions do, one row says so: a difference is never hidden.
     param($Before,$After)
     $fields=Get-DomeniaQueryFieldMap $After
     foreach($field in @(Get-DomeniaQueryReadDefinitionFields $Before)){$fields[[string]$field.Id]=$field}
     $old=Get-DomeniaQueryDefinitionSummary -Recipe $Before -Fields $fields;$new=Get-DomeniaQueryDefinitionSummary -Recipe $After -Fields $fields
     $lists=@{'Condition'=@('Condition retirée','Condition ajoutée');'Segment'=@('Segment retiré','Segment ajouté');'Paramètre'=@('Paramètre retiré','Paramètre ajouté')}
+    $rows=[Collections.Generic.List[object]]::new()
     foreach($key in @($new.Keys)){
         $after=@($new[$key]|Where-Object{[string]$_})
         if($null -eq $old){
             if($key -in @('Cohérence des dates','Sélection figée','Segment de sonde','SELECT mémorisé','Répartition') -and $after.Count -eq 1 -and $after[0] -in @('Aucune contrainte','Aucune','Aucun','Compteur de postes')){continue}
-            foreach($value in $after){[pscustomobject]@{Element=$key;Before='';After=[string]$value}}
+            foreach($value in $after){$rows.Add([pscustomobject]@{Element=$key;Before='';After=[string]$value})}
             continue
         }
         $before=@($old[$key]|Where-Object{[string]$_})
         if($lists.ContainsKey($key)){
-            foreach($value in @($before|Where-Object{$after -cnotcontains $_})){[pscustomobject]@{Element=$lists[$key][0];Before=[string]$value;After=''}}
-            foreach($value in @($after|Where-Object{$before -cnotcontains $_})){[pscustomobject]@{Element=$lists[$key][1];Before='';After=[string]$value}}
+            foreach($value in @($before|Where-Object{$after -cnotcontains $_})){$rows.Add([pscustomobject]@{Element=$lists[$key][0];Before=[string]$value;After=''})}
+            foreach($value in @($after|Where-Object{$before -cnotcontains $_})){$rows.Add([pscustomobject]@{Element=$lists[$key][1];Before='';After=[string]$value})}
         }elseif(($before -join "`n") -cne ($after -join "`n")){
-            [pscustomobject]@{Element=$key;Before=($before -join ' ; ');After=($after -join ' ; ')}
+            $rows.Add([pscustomobject]@{Element=$key;Before=($before -join ' ; ');After=($after -join ' ; ')})
         }
     }
+    if(($null -ne $old) -and ($null -ne $After) -and -not $rows.Count){
+        $beforePrint=Get-DomeniaQueryDefinitionFingerprint $Before;$afterPrint=Get-DomeniaQueryDefinitionFingerprint $After
+        if($beforePrint -cne $afterPrint){$rows.Add([pscustomobject]@{Element='Autre élément de la définition';Before=('empreinte '+$beforePrint.Substring(0,12));After=('empreinte '+$afterPrint.Substring(0,12))})}
+    }
+    return $rows.ToArray()
 }
 function Get-DomeniaQueryExpressionOutline {
     param($Node,[string]$Path='',[int]$Depth=0,[string]$CollectionProbe='',[hashtable]$Fields=$null)

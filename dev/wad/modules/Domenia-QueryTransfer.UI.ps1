@@ -63,7 +63,7 @@ function Complete-DomeniaQueryTransfer {
         'JournalRead'{
             # Durable entries replace the list; imports of this session not yet journaled stay available.
             $read=@($packet.Entries);$ids=@{};foreach($entry in $read){$ids[[string]$entry.ImportId]=$true}
-            $session=@(@(Get-DomeniaMember $q 'ImportHistory' @())|Where-Object{-not $ids.ContainsKey([string]$_.ImportId) -and -not [bool](Get-DomeniaMember $_ 'Journaled' $false)})
+            $session=@(@(Get-DomeniaMember $q 'ImportHistory' @())|Where-Object{([string]$_.StoreId -ceq [string]$State.StoreId) -and -not $ids.ContainsKey([string]$_.ImportId) -and -not [bool](Get-DomeniaMember $_ 'Journaled' $false)})
             $q|Add-Member NoteProperty ImportHistory (@($session)+@($read)) -Force
             $q|Add-Member NoteProperty ImportHistoryLoaded ([string]$State.StoreId) -Force
             Update-DomeniaQueryImportHistoryList
@@ -88,6 +88,7 @@ function Show-DomeniaQueryImportChanges {
 }
 function Request-DomeniaQueryImportHistory {
     # Reads the local journal once per store; a later import updates the list in memory immediately.
+    Close-DomeniaQueryStaleImportRun
     $store=$script:DomeniaQueryLibraryStoreState;$q=$script:DomeniaQueryState
     if($null -eq $store -or -not $store.Loaded -or $null -eq $q -or [string](Get-DomeniaMember $q 'ImportHistoryLoaded' '') -ceq [string]$store.Context.StoreId){return}
     $state=[pscustomobject]@{StoreId=$store.Context.StoreId;Epoch=$store.Context.SessionEpoch;Generation=$store.Generation}
@@ -98,19 +99,42 @@ function Request-DomeniaQueryImportHistory {
 }
 function Update-DomeniaQueryImportHistoryList {
     $combo=Get-DomeniaControl 'CmbQueryImportHistory';if($null -eq $combo){return}
-    $entries=@(Get-DomeniaMember $script:DomeniaQueryState 'ImportHistory' @())
+    # Only the imports of the database in use are offered; another database keeps its own journal.
+    $store=$script:DomeniaQueryLibraryStoreState;$storeId=if($null -ne $store){[string]$store.Context.StoreId}else{''}
+    $entries=@(@(Get-DomeniaMember $script:DomeniaQueryState 'ImportHistory' @())|Where-Object{(-not $storeId) -or ([string]$_.StoreId -ceq $storeId)})
     $combo.ItemsSource=$entries;$combo.SelectedIndex=$(if($entries.Count){0}else{-1})
     Update-DomeniaQueryImportHistoryControls
 }
 function Update-DomeniaQueryImportHistoryControls {
     $button=Get-DomeniaControl 'BtnQueryImportRollback';if($null -eq $button){return}
     $combo=Get-DomeniaControl 'CmbQueryImportHistory';$entry=if($null -ne $combo){$combo.SelectedItem}else{$null};$run=Get-DomeniaMemberValue $script:DomeniaQueryState 'ImportRun'
-    $button.IsEnabled=($null -ne $entry -and [bool](Get-DomeniaMember $entry 'Restorable' $false) -and -not ($null -ne $run -and [bool]$run.Running))
+    $button.IsEnabled=(($null -ne $entry) -and [bool](Get-DomeniaMember $entry 'Restorable' $false) -and -not (Test-DomeniaQueryImportRunActive $run))
+}
+function Test-DomeniaQueryImportRunActive {
+    # A run belongs to the library store it started on. After a new session or a database switch the engine drops
+    # its callbacks, so it can no longer finish and must not block a later import or rollback.
+    param($Run)
+    return (($null -ne $Run) -and [bool]$Run.Running -and (Test-DomeniaQueryLibraryStoreState $Run))
+}
+function Close-DomeniaQueryStaleImportRun {
+    # Ends a run whose callbacks were dropped. Its confirmed writes are journaled beside their own database so they
+    # stay restorable; the write in flight is not replayed and its outcome is read again from the database.
+    $q=$script:DomeniaQueryState;$run=Get-DomeniaMemberValue $q 'ImportRun'
+    if(($null -eq $run) -or -not [bool]$run.Running -or (Test-DomeniaQueryLibraryStoreState $run)){return}
+    $run.Running=$false;$run.Error='session ou base locale changée pendant les écritures'
+    Save-DomeniaQueryImportJournal $run
+}
+function Format-DomeniaQueryImportStopText {
+    param($Run,[string]$Message)
+    $done=[int]$Run.Applied.Count;$left=[Math]::Max(0,@($Run.Items).Count-[int]$Run.Index)
+    if([bool]$Run.Rollback){return ('Restauration arrêtée après '+$done+' confirmation(s) : '+$Message.TrimEnd('.')+'.'+$(if($done){' Les '+$left+' recette(s) non restaurées restent proposées dans lʼhistorique des imports.'}else{''}))}
+    return ('Import arrêté après '+$done+' confirmation(s) : '+$Message.TrimEnd('.')+'.'+$(if($done){' Les écritures confirmées peuvent être restaurées.'}else{''}))
 }
 function Start-DomeniaQueryImport {
     param([switch]$Rollback)
+    Close-DomeniaQueryStaleImportRun
     $q=$script:DomeniaQueryState;$store=$script:DomeniaQueryLibraryStoreState;$items=[Collections.Generic.List[object]]::new();$plan=$null;$source=$null
-    $previousRun=Get-DomeniaMemberValue $q 'ImportRun';if($null -ne $previousRun -and [bool]$previousRun.Running){throw 'Un import ou une restauration est déjà en cours.'}
+    if(Test-DomeniaQueryImportRunActive (Get-DomeniaMemberValue $q 'ImportRun')){throw 'Un import ou une restauration est déjà en cours.'}
     if($Rollback){
         $source=(Get-DomeniaControl 'CmbQueryImportHistory').SelectedItem
         if($null -eq $source -or [string]$source.StoreId -cne $store.Context.StoreId -or -not [bool](Get-DomeniaMember $source 'Restorable' $false)){throw 'Choisissez un import restaurable de cette base.'}
@@ -118,7 +142,8 @@ function Start-DomeniaQueryImport {
             $current=$store.Rows[[string]$change.Id]
             if($null -eq $current -or [long]$current.Revision -ne [long]$change.Revision){throw 'Une recette importée a été modifiée depuis. Restauration globale refusée pour préserver cette modification.'}
             $before=Get-DomeniaMemberValue $change 'Before'
-            $items.Add([pscustomobject]@{Id=[string]$change.Id;ExpectedRevision=[long]$change.Revision;Recipe=$(if($null -ne $before){ConvertFrom-Json -InputObject ([string]$before.DefinitionJson) -ErrorAction Stop}else{ConvertFrom-Json -InputObject ([string]$current.DefinitionJson) -ErrorAction Stop});Archive=($null -eq $before -or [bool]$before.Archived);Before=$current;Category=$(if($null -ne $before){[string]$before.Category}else{''})})
+            # Source keeps the journal item: an interrupted rollback journals the items it did not reach.
+            $items.Add([pscustomobject]@{Id=[string]$change.Id;ExpectedRevision=[long]$change.Revision;Recipe=$(if($null -ne $before){ConvertFrom-Json -InputObject ([string]$before.DefinitionJson) -ErrorAction Stop}else{ConvertFrom-Json -InputObject ([string]$current.DefinitionJson) -ErrorAction Stop});Archive=($null -eq $before -or [bool]$before.Archived);Before=$current;Category=$(if($null -ne $before){[string]$before.Category}else{''});Source=$change})
         }
     }else{
         $plan=Get-DomeniaMemberValue $q 'ImportPlan';if($null -eq $plan -or $plan.StoreId -cne $store.Context.StoreId){throw 'Préparez un aperçu du pack pour cette base.'}
@@ -137,7 +162,8 @@ function Start-DomeniaQueryImport {
     $details=($items|Select-Object -First 20|ForEach-Object{$_.Recipe.Name+' · révision attendue '+$_.ExpectedRevision}) -join "`r`n"
     $answer=Show-DomeniaDialog -Title $(if($Rollback){'Restaurer avant l''import'}else{'Importer les recettes choisies'}) -Message ($items.Count.ToString()+' modification(s) dans la bibliothèque. Chaque écriture vérifie sa révision. Le journal local conserve les définitions remplacées pour permettre un retour arrière, y compris après un redémarrage. Aucune requête nʼest exécutée.') -Details $details -Kind Question -Buttons YesNo
     if([string]$answer -ne 'Yes'){return}
-    $run=[pscustomobject]@{StoreId=$store.Context.StoreId;Epoch=$store.Context.SessionEpoch;Generation=$store.Generation;Items=$items.ToArray();Index=0;Applied=[Collections.Generic.List[object]]::new();Running=$true;Rollback=[bool]$Rollback;Error='';Plan=$plan;SourceImportId=$(if($Rollback){[string]$source.ImportId}else{''})}
+    # The run keeps its own store context and journal path: its journal line never lands beside another database.
+    $run=[pscustomobject]@{StoreId=$store.Context.StoreId;Epoch=$store.Context.SessionEpoch;Generation=$store.Generation;Context=$store.Context;JournalPath=(Get-DomeniaQueryImportJournalPath $store);Items=$items.ToArray();Index=0;Applied=[Collections.Generic.List[object]]::new();Running=$true;Rollback=[bool]$Rollback;Error='';Plan=$(if($Rollback){$source}else{$plan});SourceImportId=$(if($Rollback){[string]$source.ImportId}else{''})}
     $q|Add-Member NoteProperty ImportRun $run -Force
     Update-DomeniaQueryImportHistoryControls
     Submit-DomeniaQueryImportNext $run
@@ -147,7 +173,7 @@ function Submit-DomeniaQueryImportNext {
     if(-not (Test-DomeniaQueryLibraryStoreState $Run)){return}
     if($Run.Index -ge $Run.Items.Count){
         $Run.Running=$false;Save-DomeniaQueryImportJournal $Run
-        [void](Set-DomeniaControlText 'LblQueryImportStatus' ($Run.Index.ToString()+' recette(s) confirmée(s) par la base. Les révisions précédentes sont conservées.'))
+        [void](Set-DomeniaControlText 'LblQueryImportStatus' ($Run.Index.ToString()+' recette(s) '+$(if([bool]$Run.Rollback){'restaurée(s)'}else{'confirmée(s)'})+' par la base. Les révisions précédentes sont conservées.'))
         return
     }
     try{
@@ -155,7 +181,7 @@ function Submit-DomeniaQueryImportNext {
         if($revision -ne [long]$item.ExpectedRevision){throw ('La recette '+$item.Recipe.Name+' a changé depuis l''aperçu. Repréparez l''import.')}
         [void](Save-DomeniaQueryRecipe -Recipe $item.Recipe -Archive:([bool]$item.Archive) -Category ([string](Get-DomeniaMember $item 'Category' '')) -SuccessHandler 'Complete-DomeniaQueryImportItem' -ErrorHandler 'Fail-DomeniaQueryImportItem' -CallbackState $Run)
         [void](Set-DomeniaControlText 'LblQueryImportStatus' ('Enregistrement '+($Run.Index+1)+' / '+$Run.Items.Count+'…'))
-    }catch{$Run.Running=$false;$Run.Error=$_.Exception.Message;Save-DomeniaQueryImportJournal $Run;[void](Set-DomeniaControlText 'LblQueryImportStatus' ('Import arrêté après '+$Run.Applied.Count+' confirmation(s) : '+$Run.Error+$(if($Run.Applied.Count){' Les écritures confirmées peuvent être restaurées.'}else{''})))}
+    }catch{$Run.Running=$false;$Run.Error=$_.Exception.Message;Save-DomeniaQueryImportJournal $Run;[void](Set-DomeniaControlText 'LblQueryImportStatus' (Format-DomeniaQueryImportStopText -Run $Run -Message $Run.Error))}
 }
 function Complete-DomeniaQueryImportItem {
     param($Recipe,$Record,$State)
@@ -168,25 +194,26 @@ function Fail-DomeniaQueryImportItem {
     param($Message,$State)
     if(-not (Test-DomeniaQueryLibraryStoreState $State)){return}
     $State.Running=$false;$State.Error=[string]$Message;Save-DomeniaQueryImportJournal $State
-    [void](Set-DomeniaControlText 'LblQueryImportStatus' ('Import arrêté après '+$State.Applied.Count+' confirmation(s) : '+[string]$Message+$(if($State.Applied.Count){'. Les écritures confirmées peuvent être restaurées.'}else{'.'})))
+    [void](Set-DomeniaControlText 'LblQueryImportStatus' (Format-DomeniaQueryImportStopText -Run $State -Message ([string]$Message)))
 }
 function Save-DomeniaQueryImportJournal {
     # Confirmed writes become restorable at once in memory, then durably in the local journal (worker, no network).
+    # A rollback hides its source import; when it stopped early, the items it did not restore stay offered.
     param($Run)
     if($null -eq $Run -or -not $Run.Applied.Count -or [bool](Get-DomeniaMember $Run 'Journaled' $false)){Update-DomeniaQueryImportHistoryControls;return}
     $Run|Add-Member -NotePropertyName Journaled -NotePropertyValue $true -Force
-    $store=$script:DomeniaQueryLibraryStoreState;$q=$script:DomeniaQueryState
-    $entry=New-DomeniaQueryImportJournalEntry -Context $store.Context -Applied @($Run.Applied) -Plan $Run.Plan -RollsBack ([string]$Run.SourceImportId)
+    $q=$script:DomeniaQueryState
+    $remaining=@(if([bool]$Run.Rollback){for($index=[int]$Run.Index;$index -lt @($Run.Items).Count;$index++){Get-DomeniaMemberValue $Run.Items[$index] 'Source'}})
+    $entry=New-DomeniaQueryImportJournalEntry -Context $Run.Context -Applied @($Run.Applied) -Plan $Run.Plan -RollsBack ([string]$Run.SourceImportId) -Remaining $remaining
     $history=@(Get-DomeniaMember $q 'ImportHistory' @())
-    if([string]$entry.Kind -ceq 'Import'){
-        $view=[pscustomobject]@{Format=$entry.Format;Kind=$entry.Kind;ImportId=$entry.ImportId;StoreId=$entry.StoreId;DomainDn=$entry.DomainDn;AtUtc=$entry.AtUtc;PackId=$entry.PackId;PackName=$entry.PackName;PackVersion=$entry.PackVersion;Origin=$entry.Origin;Verified=$entry.Verified;Items=$entry.Items;Restorable=$true;DisplayName=(Format-DomeniaQueryImportJournalLabel -Entry $entry -Restorable $true);Journaled=$false}
-        $history=@($view)+$history
-    }else{$history=@($history|Where-Object{[string]$_.ImportId -cne [string]$Run.SourceImportId})}
+    if([string]$entry.Kind -ceq 'Rollback'){$history=@($history|Where-Object{[string]$_.ImportId -cne [string]$Run.SourceImportId})}
+    $point=New-DomeniaQueryImportRestorePoint -Entry $entry -Trusted
+    if([bool]$point.Restorable){$point|Add-Member -NotePropertyName Journaled -NotePropertyValue $false -Force;$history=@($point)+$history}
     $q|Add-Member NoteProperty ImportHistory $history -Force
     Update-DomeniaQueryImportHistoryList
-    $state=[pscustomobject]@{StoreId=$store.Context.StoreId;Epoch=$store.Context.SessionEpoch;Generation=$store.Generation;ImportId=[string]$entry.ImportId}
+    $state=[pscustomobject]@{StoreId=[string]$Run.StoreId;Epoch=$Run.Epoch;Generation=$Run.Generation;ImportId=[string]$entry.ImportId}
     try{
-        $job=Start-UiTask -Name 'Journaliser lʼimport de requêtes' -OperationId 'QueryTransfer' -Code (Get-DomeniaQueryTransferWorkerCode) -Payload ([pscustomobject]@{ModuleRoot=$script:DomeniaQueryModuleRoot;Mode='JournalAppend';Path=(Get-DomeniaQueryImportJournalPath $store);Entry=$entry}) -CallbackState $state -SuccessHandler 'Complete-DomeniaQueryTransfer' -ErrorHandler 'Fail-DomeniaQueryTransfer' -TimeoutSeconds 60 -TaskClass Explicit
+        $job=Start-UiTask -Name 'Journaliser lʼimport de requêtes' -OperationId 'QueryTransfer' -Code (Get-DomeniaQueryTransferWorkerCode) -Payload ([pscustomobject]@{ModuleRoot=$script:DomeniaQueryModuleRoot;Mode='JournalAppend';Path=[string]$Run.JournalPath;Entry=$entry}) -CallbackState $state -SuccessHandler 'Complete-DomeniaQueryTransfer' -ErrorHandler 'Fail-DomeniaQueryTransfer' -TimeoutSeconds 60 -TaskClass Explicit
         if(-not $job){throw 'écriture du journal non admise.'}
     }catch{[void](Set-DomeniaControlText 'LblQueryImportPack' ('Retour arrière disponible pendant cette session seulement : '+$_.Exception.Message))}
 }

@@ -65,20 +65,21 @@ function Get-DomeniaQueryDefinitionBinding {
     # Which versioned definition a consumer evaluates (list, indicator, report): the exact stored revision, a draft
     # modified since that revision, an unsaved draft, an archived revision or a delivered model. The comparison is
     # semantic (Compare-DomeniaQueryRecipeDefinitions), so key order or number scale never fakes a modification.
-    param($Recipe,$Row=$null)
+    # A delivered model is compared with the model as delivered (-Template); without it the state stays unknown.
+    param($Recipe,$Row=$null,$Template=$null)
     $id=[string](Get-DomeniaMember $Recipe 'Id' '')
-    if($id -like 'template.*'){return [pscustomobject]@{RecipeId=$id;Revision=0L;DefinitionSHA256='';State='Template';Label='modèle livré avec Domenia'}}
+    if($id -like 'template.*'){
+        if(($null -eq $Template) -or ([string](Get-DomeniaMember $Template 'Id' '') -cne $id)){return [pscustomobject]@{RecipeId=$id;Revision=0L;DefinitionSHA256='';State='Unknown';Label='modèle livré non préparé : définition non vérifiée'}}
+        $changes=@(Compare-DomeniaQueryRecipeDefinitions -Before $Template -After $Recipe)
+        if($changes.Count){return [pscustomobject]@{RecipeId=$id;Revision=0L;DefinitionSHA256='';State='Modified';Label=('brouillon modifié depuis le modèle livré ('+[string]$changes.Count+' différence(s))')}}
+        return [pscustomobject]@{RecipeId=$id;Revision=0L;DefinitionSHA256='';State='Template';Label='modèle livré avec Domenia'}
+    }
     if($null -eq $Row){return [pscustomobject]@{RecipeId=$id;Revision=0L;DefinitionSHA256='';State='Unsaved';Label='brouillon non enregistré'}}
     $stored=ConvertFrom-Json -InputObject ([string]$Row.DefinitionJson) -ErrorAction Stop
     $changes=@(Compare-DomeniaQueryRecipeDefinitions -Before $stored -After $Recipe)
     $state=if([bool]$Row.Archived){'Archived'}elseif($changes.Count){'Modified'}else{'Saved'}
     $label=switch($state){Archived{'révision '+[string]$Row.Revision+' archivée'};Modified{'brouillon modifié depuis la révision '+[string]$Row.Revision+' ('+[string]$changes.Count+' différence(s))'};default{'révision '+[string]$Row.Revision+' enregistrée'}}
     return [pscustomobject]@{RecipeId=$id;Revision=[long]$Row.Revision;DefinitionSHA256=[string]$Row.DefinitionSHA256;State=$state;Label=$label}
-}
-function Get-DomeniaQuerySha256 {
-    param([string]$Text)
-    $hash=[Security.Cryptography.SHA256]::Create()
-    try{return [BitConverter]::ToString($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes([string]$Text))).Replace('-','').ToLowerInvariant()}finally{$hash.Dispose()}
 }
 function Get-DomeniaQueryPackId {
     # Stable identity of a named pack across its versions: every version of one pack name shares this id.
@@ -160,40 +161,62 @@ function New-DomeniaQueryPackImportPlan {
 function New-DomeniaQueryImportJournalEntry {
     # One durable line per import or rollback: pack provenance and, for each confirmed write, the definition it
     # replaced (or none for a creation) so the import can be undone after a restart. No secret is ever stored.
-    param($Context,[object[]]$Applied=@(),$Plan=$null,[string]$RollsBack='',[datetime]$NowUtc=[datetime]::UtcNow)
+    # An interrupted rollback also lists, in Remaining, the source items it did not restore yet: they stay restorable.
+    param($Context,[object[]]$Applied=@(),$Plan=$null,[string]$RollsBack='',[object[]]$Remaining=@(),[datetime]$NowUtc=[datetime]::UtcNow)
     Assert-DomeniaQueryLibraryContext $Context
-    $items=@(foreach($change in @($Applied|Sort-Object Sequence)){
-        $before=Get-DomeniaMemberValue $change 'Before'
-        [pscustomobject]@{Id=[string]$change.Id;Name=[string](Get-DomeniaMember $change 'Name' '');Revision=[long]$change.Revision;Sequence=[int]$change.Sequence;Before=$(if($null -ne $before){[pscustomobject]@{Revision=[long]$before.Revision;Archived=[bool]$before.Archived;Category=[string]$before.Category;DefinitionJson=[string]$before.DefinitionJson;DefinitionSHA256=[string]$before.DefinitionSHA256}}else{$null})}
-    })
-    [pscustomobject]@{Format='Domenia.QueryImportJournal/1';Kind=$(if($RollsBack){'Rollback'}else{'Import'});ImportId=[guid]::NewGuid().ToString('N');RollsBack=$RollsBack;StoreId=[string]$Context.StoreId;DomainDn=[string]$Context.DomainDn;AtUtc=$NowUtc.ToUniversalTime().ToString('o');PackId=[string](Get-DomeniaMember $Plan 'PackId' '');PackName=[string](Get-DomeniaMember $Plan 'PackName' '');PackVersion=[long](Get-DomeniaMember $Plan 'PackVersion' 0);Origin=[string](Get-DomeniaMember $Plan 'Origin' '');Verified=[bool](Get-DomeniaMember $Plan 'Verified' $false);Items=$items}
+    $normalize={
+        param([object[]]$Changes)
+        foreach($change in @($Changes|Where-Object{$null -ne $_}|Sort-Object Sequence)){
+            $before=Get-DomeniaMemberValue $change 'Before'
+            [pscustomobject]@{Id=[string]$change.Id;Name=[string](Get-DomeniaMember $change 'Name' '');Revision=[long]$change.Revision;Sequence=[int]$change.Sequence;Before=$(if($null -ne $before){[pscustomobject]@{Revision=[long]$before.Revision;Archived=[bool]$before.Archived;Category=[string]$before.Category;DefinitionJson=[string]$before.DefinitionJson;DefinitionSHA256=[string]$before.DefinitionSHA256}}else{$null})}
+        }
+    }
+    $items=@(& $normalize $Applied)
+    $left=@(if($RollsBack){& $normalize $Remaining})
+    [pscustomobject]@{Format='Domenia.QueryImportJournal/1';Kind=$(if($RollsBack){'Rollback'}else{'Import'});ImportId=[guid]::NewGuid().ToString('N');RollsBack=$RollsBack;StoreId=[string]$Context.StoreId;DomainDn=[string]$Context.DomainDn;AtUtc=$NowUtc.ToUniversalTime().ToString('o');PackId=[string](Get-DomeniaMember $Plan 'PackId' '');PackName=[string](Get-DomeniaMember $Plan 'PackName' '');PackVersion=[long](Get-DomeniaMember $Plan 'PackVersion' 0);Origin=[string](Get-DomeniaMember $Plan 'Origin' '');Verified=[bool](Get-DomeniaMember $Plan 'Verified' $false);Items=$items;Remaining=$left}
 }
 function Format-DomeniaQueryImportJournalLabel {
     param($Entry,[bool]$Restorable)
     $at=ConvertFrom-DomeniaUtcText ([string]$Entry.AtUtc)
-    return ($(if($null -ne $at){$at.ToLocalTime().ToString('dd/MM/yyyy HH:mm')}else{'Date inconnue'})+' · '+$(if([string]$Entry.PackName){[string]$Entry.PackName+' v'+[string]$Entry.PackVersion}else{'pack sans version'})+' · '+@($Entry.Items).Count+' recette(s)'+$(if($Restorable){''}else{' · non restaurable'}))
+    $count=if([bool](Get-DomeniaMember $Entry 'Partial' $false)){' · restauration interrompue, '+@($Entry.Items).Count+' recette(s) encore à restaurer'}else{' · '+@($Entry.Items).Count+' recette(s)'}
+    return ($(if($null -ne $at){$at.ToLocalTime().ToString('dd/MM/yyyy HH:mm')}else{'Date inconnue'})+' · '+$(if([string]$Entry.PackName){[string]$Entry.PackName+' v'+[string]$Entry.PackVersion}else{'pack sans version'})+$count+$(if($Restorable){''}else{' · non restaurable'}))
+}
+function New-DomeniaQueryImportRestorePoint {
+    # What a journal line still allows to undo: an import, or the part of an interrupted rollback not restored yet
+    # (its Remaining items, under the rollback's own id). -Trusted skips the integrity check for a line of this session.
+    param($Entry,[switch]$Trusted)
+    $partial=([string](Get-DomeniaMember $Entry 'Kind') -ceq 'Rollback')
+    $items=@(if($partial){Get-DomeniaMember $Entry 'Remaining' @()}else{Get-DomeniaMember $Entry 'Items' @()})
+    $restorable=($items.Count -gt 0)
+    if(-not $Trusted){
+        foreach($item in $items){
+            $before=Get-DomeniaMemberValue $item 'Before'
+            if(([string]$item.Id -cnotmatch '^[a-zA-Z0-9_.-]{1,80}$') -or ([long]$item.Revision -le 0)){$restorable=$false;break}
+            if(($null -ne $before) -and ((Get-DomeniaQuerySha256 ([string]$before.DefinitionJson)) -cne [string]$before.DefinitionSHA256)){$restorable=$false;break}
+        }
+    }
+    $view=[pscustomobject]@{Format=[string](Get-DomeniaMember $Entry 'Format' '');Kind=[string](Get-DomeniaMember $Entry 'Kind' '');ImportId=[string](Get-DomeniaMember $Entry 'ImportId' '');RollsBack=[string](Get-DomeniaMember $Entry 'RollsBack' '');StoreId=[string](Get-DomeniaMember $Entry 'StoreId' '');DomainDn=[string](Get-DomeniaMember $Entry 'DomainDn' '');AtUtc=[string](Get-DomeniaMember $Entry 'AtUtc' '');PackId=[string](Get-DomeniaMember $Entry 'PackId' '');PackName=[string](Get-DomeniaMember $Entry 'PackName' '');PackVersion=[long](Get-DomeniaMember $Entry 'PackVersion' 0);Origin=[string](Get-DomeniaMember $Entry 'Origin' '');Verified=[bool](Get-DomeniaMember $Entry 'Verified' $false);Items=$items;Partial=$partial;Restorable=$restorable;DisplayName=''}
+    $view.DisplayName=Format-DomeniaQueryImportJournalLabel -Entry $view -Restorable $restorable
+    return $view
 }
 function ConvertFrom-DomeniaQueryImportJournal {
     # Imports of this store that can still be undone, newest first. A rolled-back import, a foreign store, an
-    # unreadable line or an altered replaced definition is never offered as restorable.
+    # unreadable line or an altered replaced definition is never offered as restorable. The rest of an interrupted
+    # rollback is offered under the rollback's id until a later rollback of that id completes it.
     param([string[]]$Lines=@(),[string]$StoreId,[int]$Limit=20)
     $imports=[Collections.Generic.List[object]]::new();$rolledBack=@{};$rejected=0
     foreach($line in @($Lines)){
         if(-not ([string]$line).Trim()){continue}
         try{$entry=ConvertFrom-Json -InputObject ([string]$line) -ErrorAction Stop}catch{$rejected++;continue}
         if([string](Get-DomeniaMember $entry 'Format') -cne 'Domenia.QueryImportJournal/1' -or [string](Get-DomeniaMember $entry 'StoreId') -cne $StoreId){continue}
-        if([string]$entry.Kind -ceq 'Rollback'){$rolledBack[[string]$entry.RollsBack]=$true;continue}
-        if([string]$entry.Kind -cne 'Import' -or [string]$entry.ImportId -cnotmatch '^[0-9a-f]{32}$'){$rejected++;continue}
-        $restorable=(@($entry.Items).Count -gt 0)
-        foreach($item in @($entry.Items)){
-            $before=Get-DomeniaMemberValue $item 'Before'
-            if([string]$item.Id -cnotmatch '^[a-zA-Z0-9_.-]{1,80}$' -or [long]$item.Revision -le 0){$restorable=$false;break}
-            if($null -ne $before -and (Get-DomeniaQuerySha256 ([string]$before.DefinitionJson)) -cne [string]$before.DefinitionSHA256){$restorable=$false;break}
+        if([string](Get-DomeniaMember $entry 'ImportId') -cnotmatch '^[0-9a-f]{32}$'){$rejected++;continue}
+        if([string]$entry.Kind -ceq 'Rollback'){
+            $rolledBack[[string]$entry.RollsBack]=$true
+            if(@(Get-DomeniaMember $entry 'Remaining' @()).Count){$imports.Add((New-DomeniaQueryImportRestorePoint -Entry $entry))}
+            continue
         }
-        $label=Format-DomeniaQueryImportJournalLabel -Entry $entry -Restorable $restorable
-        $entry|Add-Member -NotePropertyName Restorable -NotePropertyValue $restorable -Force
-        $entry|Add-Member -NotePropertyName DisplayName -NotePropertyValue $label -Force
-        $imports.Add($entry)
+        if([string]$entry.Kind -cne 'Import'){$rejected++;continue}
+        $imports.Add((New-DomeniaQueryImportRestorePoint -Entry $entry))
     }
     $available=@($imports|Where-Object{-not $rolledBack.ContainsKey([string]$_.ImportId)})
     [array]::Reverse($available)
@@ -231,12 +254,13 @@ function ConvertTo-DomeniaQueryPowerShell {
     param($Recipe)
     [void](ConvertTo-DomeniaCompiledQuery $Recipe)
     $json=ConvertTo-Json -InputObject $Recipe -Depth 32 -Compress
-    # Single-quoted PowerShell data literal: quotes are doubled; no recipe text becomes executable syntax.
-    $literal="'"+$json.Replace("'","''")+"'"
+    # Single-quoted PowerShell data literal. PowerShell also closes such a literal on U+2018, U+2019, U+201A and
+    # U+201B, which ConvertTo-Json leaves as is: every one of them is doubled, so no recipe text becomes syntax.
+    $literal="'"+[regex]::Replace($json,'[''\u2018\u2019\u201A\u201B]',{param($match)$match.Value+$match.Value})+"'"
     $prefix=@'
 #requires -Version 5.1
 # Requête Domenia exportée. Lecture locale uniquement : aucun accès AD, WMI ou réseau.
-# Fournir les QueryRecord d’un instantané local déjà lu ; -ShowDefinition affiche les critères sans exécution.
+# Fournir les QueryRecord dʼun instantané local déjà lu ; -ShowDefinition affiche les critères sans exécution.
 [CmdletBinding()]
 param([Parameter(Mandatory=$true)][string]$ModuleRoot,[object[]]$Records=@(),[switch]$ShowDefinition)
 $ErrorActionPreference='Stop'

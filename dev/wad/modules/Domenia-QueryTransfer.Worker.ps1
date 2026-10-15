@@ -7,17 +7,25 @@ $path=[IO.Path]::GetFullPath([string]$Payload.Path)
 $mode=[string]$Payload.Mode
 if($mode -in @('JournalAppend','JournalRead')){
     if(-not $path.EndsWith('.query-imports.jsonl',[StringComparison]::OrdinalIgnoreCase)){throw 'Journal des imports invalide.'}
-    $lines=[Collections.Generic.List[string]]::new()
+    # Bounds: 40 lines of at most 3 Mio. Reading streams the file and keeps only the 40 most recent lines within the
+    # line bound, so an oversized or foreign line is skipped and the journal can always be compacted again.
+    $lineLimit=3145728;$lines=[Collections.Generic.List[string]]::new();$skipped=0
     if([IO.File]::Exists($path)){
-        if(([IO.FileInfo]::new($path)).Length -gt 134217728){throw 'Journal des imports supérieur à 128 Mio.'}
-        foreach($existing in [IO.File]::ReadAllLines($path,[Text.Encoding]::UTF8)){if($existing.Trim()){$lines.Add($existing)}}
+        $reader=[IO.StreamReader]::new($path,[Text.Encoding]::UTF8,$true)
+        try{
+            while($null -ne ($existing=$reader.ReadLine())){
+                if(-not $existing.Trim()){continue}
+                if(($existing.Length -gt $lineLimit) -or ([Text.Encoding]::UTF8.GetByteCount($existing) -gt $lineLimit)){$skipped++;continue}
+                $lines.Add($existing);if($lines.Count -gt 40){$lines.RemoveAt(0)}
+            }
+        }finally{$reader.Dispose()}
     }
     if($mode -eq 'JournalRead'){
         $journal=ConvertFrom-DomeniaQueryImportJournal -Lines $lines.ToArray() -StoreId ([string]$Payload.StoreId)
-        [pscustomobject]@{Mode=$mode;Path=$path;Entries=@($journal.Entries);Rejected=$journal.Rejected};return
+        [pscustomobject]@{Mode=$mode;Path=$path;Entries=@($journal.Entries);Rejected=([int]$journal.Rejected+$skipped)};return
     }
     $line=ConvertTo-Json -InputObject $Payload.Entry -Depth 32 -Compress
-    if([Text.Encoding]::UTF8.GetByteCount($line) -gt 4194304){[pscustomobject]@{Mode=$mode;Path=$path;Journaled=$false;Reason='journal de cet import supérieur à 4 Mio'};return}
+    if([Text.Encoding]::UTF8.GetByteCount($line) -gt $lineLimit){[pscustomobject]@{Mode=$mode;Path=$path;Journaled=$false;Reason='journal de cet import supérieur à 3 Mio'};return}
     $lines.Add($line)
     # Twenty imports with their rollback markers stay available; older lines are compacted away.
     while($lines.Count -gt 40){$lines.RemoveAt(0)}

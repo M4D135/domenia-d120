@@ -101,7 +101,8 @@ function Add-DomeniaWorkshopWidget {
     $existing=@(Get-DomeniaBoardLayout $board|Where-Object{$_.Source -eq 'Query' -and $_.Key -eq $recipe.Id}|Select-Object -First 1)
     $item=if($existing.Count){$existing[0]}else{New-DomeniaBoardItem -Source Query -Key $recipe.Id -Visual $visual -Size M -Group 'Mes sondes' -Title $recipe.Name}
     $state=[pscustomobject]@{DraftGeneration=$script:DomeniaQueryState.Generation;Destination=$board;Visual=$visual;Item=$item}
-    [void](Save-DomeniaQueryRecipe -Recipe $recipe -SuccessHandler 'Complete-DomeniaWorkshopWidgetSave' -CallbackState $state -AdditionalDependencies @([pscustomobject]@{ConsumerKind=$board;ConsumerId=[string]$item.Id}))
+    # Same category rule as Enregistrer: the category typed in the workshop applies to the recipe saved for the widget.
+    [void](Save-DomeniaQueryRecipe -Recipe $recipe -SuccessHandler 'Complete-DomeniaWorkshopWidgetSave' -CallbackState $state -AdditionalDependencies @([pscustomobject]@{ConsumerKind=$board;ConsumerId=[string]$item.Id}) -Category (Get-DomeniaQuerySaveCategory))
     [void](Set-DomeniaControlText 'LblQueryStatus' 'Enregistrement de la requête et de son lien avant création du widget…')
 }
 function Complete-DomeniaWorkshopWidgetSave {

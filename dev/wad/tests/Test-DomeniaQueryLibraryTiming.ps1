@@ -56,16 +56,28 @@ $filterRuns=@(for($i=0;$i -lt $Repeat;$i++){$script:Fake.TxtQueryLibrarySearch.T
 
 # 5. Wiring: one background preparation per process, never repeated while pending, and no network operation.
 $script:DomeniaQueryTemplateRows=$null;$script:DomeniaQueryTemplatePreparation=$null;$script:Tasks=[Collections.Generic.List[object]]::new()
-function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$SuccessHandler,$ErrorHandler,$TimeoutSeconds,$TaskClass);$script:Tasks.Add([pscustomobject]@{OperationId=$OperationId;Payload=$Payload;State=$CallbackState;ReplaceKey=$ReplaceKey;TaskClass=$TaskClass;Success=$SuccessHandler});return 'fixture'}
+$script:SessionEpoch=1L;$script:AsyncJobs=[ordered]@{}
+# Same contract as the engine: a started task is listed in AsyncJobs until Complete-UiTasks removes it.
+function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$SuccessHandler,$ErrorHandler,$TimeoutSeconds,$TaskClass);$id='fixture-'+($script:Tasks.Count+1);$script:Tasks.Add([pscustomobject]@{Id=$id;OperationId=$OperationId;Payload=$Payload;State=$CallbackState;ReplaceKey=$ReplaceKey;TaskClass=$TaskClass;Success=$SuccessHandler});$script:AsyncJobs[$id]=$script:Tasks[$script:Tasks.Count-1];return $id}
 function Get-DomeniaEffectiveWorkerResult {param($Result,$RequiredProperties);return $Result}
 function Add-DomeniaRuntimeMetric {param($Provenance,$OperationId,$DurationMs);$script:Metric=[pscustomobject]@{Provenance=$Provenance;OperationId=$OperationId;DurationMs=$DurationMs}}
 Request-DomeniaQueryTemplatePreparation;Request-DomeniaQueryTemplatePreparation
 Expect ($script:Tasks.Count -eq 1 -and $script:Tasks[0].OperationId -ceq 'QueryLibrary' -and $script:Tasks[0].TaskClass -ceq 'Background' -and @($script:Tasks[0].Payload.Saved).Count -eq 0) 'A single local background preparation is admitted'
 Expect ([string]$script:DomeniaQueryTemplateStatus -like 'Modèles livrés en préparation*') 'Search states that the delivered models are still being prepared'
+# A callback dropped by the engine (new session or database switch) never leaves the models blocked in preparation.
+$script:SessionEpoch=2L
+Request-DomeniaQueryTemplatePreparation
+Expect ($script:Tasks.Count -eq 2 -and [long]$script:DomeniaQueryTemplatePreparation.Epoch -eq 2L -and [string]$script:DomeniaQueryTemplatePreparation.JobId -ceq $script:Tasks[1].Id) 'A preparation started before a new session is replaced by a new one'
+$script:AsyncJobs.Remove($script:Tasks[1].Id)
+Request-DomeniaQueryTemplatePreparation
+Expect ($script:Tasks.Count -eq 3) 'A preparation whose task ended without its callback is started again'
 & $script:Tasks[0].Success -Result ([pscustomobject]@{Rows=$rows}) -State $script:Tasks[0].State
+Expect (@(Get-DomeniaPreparedQueryTemplates).Count -eq 0) 'A late result of a replaced preparation is ignored'
+$script:AsyncJobs.Remove($script:Tasks[2].Id)
+& $script:Tasks[2].Success -Result ([pscustomobject]@{Rows=$rows}) -State $script:Tasks[2].State
 Expect (@(Get-DomeniaPreparedQueryTemplates).Count -eq $script:Templates.Count -and $script:Metric.OperationId -ceq 'QueryTemplates:Publish') 'Completion publishes the models and records its UI-thread duration'
 Request-DomeniaQueryTemplatePreparation
-Expect ($script:Tasks.Count -eq 1) 'Prepared models are never rebuilt in the same process'
+Expect ($script:Tasks.Count -eq 3) 'Prepared models are never rebuilt in the same process'
 
 $windows51=(($PSVersionTable.PSVersion.Major -eq 5) -and ([string]$PSVersionTable.PSEdition -ne 'Core'))
 $measurements=[ordered]@{

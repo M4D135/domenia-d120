@@ -249,13 +249,22 @@ function Set-DomeniaPreparedQueryTemplateRows {
 }
 function Request-DomeniaQueryTemplatePreparation {
     # One local preparation per process, in the pinned QueryLibrary worker: no network and no wait on the UI thread.
-    if(($null -ne $script:DomeniaQueryTemplateRows) -or ($null -ne $script:DomeniaQueryTemplatePreparation)){return}
-    $state=[pscustomobject]@{Token=[guid]::NewGuid().ToString('N');StartedUtc=[datetime]::UtcNow}
+    if($null -ne $script:DomeniaQueryTemplateRows){return}
+    $pending=$script:DomeniaQueryTemplatePreparation
+    if($null -ne $pending){
+        # The engine drops the callbacks of a task cancelled, superseded or started before a new session or a
+        # database switch: such a preparation never completes, so it no longer blocks a new one.
+        $jobId=[string](Get-DomeniaMember $pending 'JobId' '')
+        if(([long](Get-DomeniaMember $pending 'Epoch' -1L) -eq [long]$script:SessionEpoch) -and [bool]$jobId -and ($null -ne $script:AsyncJobs) -and $script:AsyncJobs.Contains($jobId)){return}
+        $script:DomeniaQueryTemplatePreparation=$null
+    }
+    $state=[pscustomobject]@{Token=[guid]::NewGuid().ToString('N');StartedUtc=[datetime]::UtcNow;Epoch=[long]$script:SessionEpoch;JobId=''}
     $script:DomeniaQueryTemplatePreparation=$state
     $script:DomeniaQueryTemplateStatus='Modèles livrés en préparation locale : ils sʼajoutent à la liste dès quʼils sont prêts.'
     try{
         $job=Start-UiTask -Name 'Préparer les modèles de requêtes' -OperationId 'QueryLibrary' -Code (Get-DomeniaQueryLibraryWorkerCode) -Payload ([pscustomobject]@{ModuleRoot=$script:DomeniaQueryModuleRoot;Saved=@()}) -CallbackState $state -ReplaceKey 'query:templates' -SuccessHandler 'Complete-DomeniaQueryTemplatePreparation' -ErrorHandler 'Fail-DomeniaQueryTemplatePreparation' -TimeoutSeconds 120 -TaskClass 'Background'
         if(-not $job){throw 'préparation non admise par le moteur.'}
+        $state.JobId=[string]$job
     }catch{$script:DomeniaQueryTemplatePreparation=$null;$script:DomeniaQueryTemplateStatus='Modèles livrés non préparés : '+[string]$_.Exception.Message+' Ouvrez la liste pour réessayer.'}
 }
 function Complete-DomeniaQueryTemplatePreparation {
@@ -383,11 +392,17 @@ function Set-DomeniaQueryDraft {
     $title=Get-DomeniaControl 'TxtFleetQueryName';if($null -ne $title){$title.Text=[string]$Recipe.Name}
     $categoryBox=Get-DomeniaControl 'CmbQuerySaveCategory'
     if($null -ne $categoryBox){
-        # Stored categories organise the personal library; a new recipe starts in Mes requêtes.
+        # Stored categories organise the personal library; a new recipe starts in Mes requêtes. A category the
+        # operator typed for this recipe survives the redraws of its draft (conditions, parameters, freeze).
         $map=@{};$store=$script:DomeniaQueryLibraryStoreState
         if($null -ne $store -and $null -ne $store.PSObject.Properties['Categories'] -and $store.Categories -is [hashtable]){$map=$store.Categories}
+        $id=[string]$Recipe.Id;$typed=[string]$categoryBox.Text
+        $stored=if($map.ContainsKey($id)){[string]$map[$id]}else{'Mes requêtes'}
+        $edited=(($id -ceq [string](Get-DomeniaMember $q 'CategoryRecipeId' '')) -and [bool]$typed.Trim() -and ($typed -cne [string](Get-DomeniaMember $q 'CategoryShown' '')))
         $categoryBox.ItemsSource=@(@(@('Mes requêtes')+@($map.Values))|Where-Object{[string]$_}|Sort-Object -Unique -Culture 'fr-FR')
-        $categoryBox.Text=if($map.ContainsKey([string]$Recipe.Id)){[string]$map[[string]$Recipe.Id]}else{'Mes requêtes'}
+        $categoryBox.Text=if($edited){$typed}else{$stored}
+        $q|Add-Member -NotePropertyName CategoryRecipeId -NotePropertyValue $id -Force
+        $q|Add-Member -NotePropertyName CategoryShown -NotePropertyValue $stored -Force
     }
     $junction=Get-DomeniaControl 'CmbQueryJunction';if($null -ne $junction){$junction.SelectedIndex=$(if($Recipe.Junction -eq 'Any'){1}else{0})}
     $group=Get-DomeniaControl 'CmbQueryGroupField';if($null -ne $group){$group.SelectedIndex=0;foreach($entry in $group.ItemsSource){if($entry.Id -ceq [string](Get-DomeniaMember $Recipe 'GroupBy')){$group.SelectedItem=$entry}}}
@@ -408,6 +423,15 @@ function Set-DomeniaQueryDraft {
     if($null -ne $grid){$grid.ItemsSource=@(foreach($c in @($Recipe.Clauses)){$entry=$fields[[string]$c.Field];[pscustomobject]@{Field=$c.Field;Operator=$c.Operator;Value=(Format-DomeniaQueryValueLabel -Value (Get-DomeniaMemberValue $c 'Value') -Field $entry);FieldLabel=$(if($null -ne $entry){[string]$entry.Name}else{[string]$c.Field});OperatorLabel=[string](@(Get-DomeniaQueryOperators $(if($null -ne $entry){[string]$entry.Kind}else{'Text'}) | Where-Object{$_.Id -eq $c.Operator})[0].Name)}})}
     Update-DomeniaQueryAdvancedDraft $Recipe
     [void](Set-DomeniaControlText 'LblQueryStatus' 'Prêt. Exécuter applique ces conditions aux données locales du périmètre courant.')
+}
+function Get-DomeniaQuerySaveCategory {
+    # Category the operator typed or chose for the next save, or '' to keep the stored one (Mes requêtes when new).
+    # A box still showing the category it was given never moves a recipe, even if the library was read meanwhile.
+    $box=Get-DomeniaControl 'CmbQuerySaveCategory';$q=$script:DomeniaQueryState
+    if(($null -eq $box) -or ($null -eq $q)){return ''}
+    $text=([string]$box.Text).Trim()
+    if((-not $text) -or ($text -ceq ([string](Get-DomeniaMember $q 'CategoryShown' '')).Trim())){return ''}
+    return $text
 }
 function Get-DomeniaQueryDraft {
     $q=$script:DomeniaQueryState
@@ -471,7 +495,7 @@ function Invoke-DomeniaQueryAction {
                 [void](ConvertTo-DomeniaCompiledQuery $draft);Set-DomeniaQueryDraft $draft;return
             }
             'Remove'{$grid=Get-DomeniaControl 'DgQueryConditions';$index=$grid.SelectedIndex;if($index -ge 0){$draft=Get-DomeniaQueryDraft;$draft.Clauses=@(for($i=0;$i -lt $draft.Clauses.Count;$i++){if($i -ne $index){$draft.Clauses[$i]}});Set-DomeniaQueryDraft $draft};return}
-            'Save'{$categoryBox=Get-DomeniaControl 'CmbQuerySaveCategory';$category=if($null -ne $categoryBox){[string]$categoryBox.Text}else{''};[void](Save-DomeniaQueryRecipe -Recipe (Get-DomeniaQueryDraft) -CallbackState ([pscustomobject]@{DraftGeneration=$q.Generation}) -Category $category);[void](Set-DomeniaControlText 'LblQueryStatus' 'Enregistrement de la requête dans la base…');return}
+            'Save'{[void](Save-DomeniaQueryRecipe -Recipe (Get-DomeniaQueryDraft) -CallbackState ([pscustomobject]@{DraftGeneration=$q.Generation}) -Category (Get-DomeniaQuerySaveCategory));[void](Set-DomeniaControlText 'LblQueryStatus' 'Enregistrement de la requête dans la base…');return}
             'Delete'{[void](Save-DomeniaQueryRecipe -Recipe (Get-DomeniaQueryDraft) -Archive -SuccessHandler 'Complete-DomeniaQueryRecipeArchiveUi');[void](Set-DomeniaControlText 'LblQueryStatus' 'Archivage de la requête dans la base…');return}
             'Widget'{Add-DomeniaWorkshopWidget;return}
             'OpenObject'{$row=Get-DomeniaQuerySelectedRow;Open-AdObject -Dn ([string]$row.distinguished_name) -Type Machine -ObjectGuid ([string]$row.Id) -SuppressRemoteProbes;return}
@@ -509,9 +533,19 @@ function Request-DomeniaQueryEvaluation {
 function Get-DomeniaQueryRecipeBinding {
     # Binding of a recipe to its stored revision in the local library; never fails an evaluation.
     param($Recipe)
-    $row=$null;$store=$script:DomeniaQueryLibraryStoreState
-    if($null -ne $store -and $null -ne $store.PSObject.Properties['Rows'] -and $store.Rows -is [hashtable]){$row=$store.Rows[[string]$Recipe.Id]}
-    try{return (Get-DomeniaQueryDefinitionBinding -Recipe $Recipe -Row $row)}catch{return [pscustomobject]@{RecipeId=[string]$Recipe.Id;Revision=0L;DefinitionSHA256='';State='Unknown';Label='révision non déterminée'}}
+    $id=[string](Get-DomeniaMember $Recipe 'Id' '')
+    try{
+        if($id -like 'template.*'){
+            # Compared with the delivered model prepared by the QueryLibrary worker; never rebuilt on the UI thread.
+            $template=$null
+            foreach($prepared in @($script:DomeniaQueryTemplateRows)){if(($null -ne $prepared) -and ([string]$prepared.Recipe.Id -ceq $id)){$template=$prepared.Recipe;break}}
+            return (Get-DomeniaQueryDefinitionBinding -Recipe $Recipe -Template $template)
+        }
+        # Without a confirmed read of the library, a missing row proves nothing: the revision stays undetermined.
+        $store=$script:DomeniaQueryLibraryStoreState
+        if(($null -eq $store) -or -not [bool](Get-DomeniaMember $store 'Loaded' $false) -or ($store.Rows -isnot [hashtable])){return [pscustomobject]@{RecipeId=$id;Revision=0L;DefinitionSHA256='';State='Unknown';Label='révision non déterminée : bibliothèque locale non lue'}}
+        return (Get-DomeniaQueryDefinitionBinding -Recipe $Recipe -Row $store.Rows[$id])
+    }catch{return [pscustomobject]@{RecipeId=$id;Revision=0L;DefinitionSHA256='';State='Unknown';Label='révision non déterminée'}}
 }
 function Get-DomeniaQueryWidgetRecipes {
     # Saved library size must not multiply a 20k fleet scan. Evaluate only visible board dependencies.

@@ -5,7 +5,7 @@ $ErrorActionPreference='Stop'
 $wad=Split-Path -Parent $PSScriptRoot;$modules=Join-Path $wad 'modules'
 if($QuerySource){Add-Type -Path (Join-Path (Split-Path -Parent $wad) 'vendor/m4d-admin-common/src/Query/QueryEngine.cs')}else{Add-Type -Path (Join-Path $modules 'M4D.Admin.Common.Query.dll')}
 Add-Type -Path (Join-Path $modules 'Domenia.Native.dll')
-foreach($name in @('Common.Model','HealthRules.Model','Boards.Model','Probes.Model','QuerySchema.Model','Workstation.Model','Query.Model','QueryLibrary.Model','Query.Worker','Query.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+foreach($name in @('Common.Model','HealthRules.Model','Boards.Model','Probes.Model','QuerySchema.Model','Workstation.Model','Query.Model','QueryLibrary.Model','Query.Worker','QueryTransfer.Worker','Query.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 $script:checks=0;$clock=[Diagnostics.Stopwatch]::StartNew()
 function Expect([bool]$Good,[string]$Name){$script:checks++;if(-not $Good){throw $Name}}
 function Reject([scriptblock]$Action,[string]$Name){$failed=$false;try{& $Action|Out-Null}catch{$failed=$true};Expect $failed $Name}
@@ -127,6 +127,14 @@ Expect (@($journal.Entries).Count -eq 1 -and $journal.Entries[0].Restorable -and
 Expect (-not (ConvertFrom-DomeniaQueryImportJournal -Lines @($line.Replace($existingRow.DefinitionSHA256,('0'*64))) -StoreId $context.StoreId).Entries[0].Restorable) 'an altered replaced definition is never restorable'
 $undo=ConvertTo-Json -InputObject (New-DomeniaQueryImportJournalEntry -Context $context -Applied @($applied[0]) -RollsBack $journalEntry.ImportId -NowUtc $now) -Depth 32 -Compress
 Expect (@((ConvertFrom-DomeniaQueryImportJournal -Lines @($line,$undo) -StoreId $context.StoreId).Entries).Count -eq 0) 'an import already rolled back is no longer offered'
+# An interrupted rollback hides its source import only with the recipes it did not restore offered under its own id.
+$partialUndo=New-DomeniaQueryImportJournalEntry -Context $context -Applied @([pscustomobject]@{Id='personal.pack2';Name='Disque plein';Revision=2;Sequence=1;Before=$null}) -Plan $journalEntry -RollsBack $journalEntry.ImportId -Remaining @($journalEntry.Items[0]) -NowUtc $now
+$partialLine=ConvertTo-Json -InputObject $partialUndo -Depth 32 -Compress
+$afterPartial=ConvertFrom-DomeniaQueryImportJournal -Lines @($line,$partialLine) -StoreId $context.StoreId
+$rest=@($afterPartial.Entries)
+Expect ($rest.Count -eq 1 -and $rest[0].ImportId -ceq $partialUndo.ImportId -and $rest[0].Partial -and $rest[0].Restorable -and @($rest[0].Items).Count -eq 1 -and [string]$rest[0].Items[0].Id -ceq 'personal.pack1' -and [long]$rest[0].Items[0].Revision -eq 5 -and $rest[0].DisplayName -like '*Revue matériel v3 · restauration interrompue, 1 recette(s) encore à restaurer') 'an interrupted rollback keeps the recipes it did not restore restorable'
+$finish=ConvertTo-Json -InputObject (New-DomeniaQueryImportJournalEntry -Context $context -Applied @($rest[0].Items[0]) -Plan $rest[0] -RollsBack $partialUndo.ImportId -NowUtc $now) -Depth 32 -Compress
+Expect (@((ConvertFrom-DomeniaQueryImportJournal -Lines @($line,$partialLine,$finish) -StoreId $context.StoreId).Entries).Count -eq 0) 'restoring the rest of an interrupted rollback closes the import'
 $journalPath=Join-Path ([IO.Path]::GetTempPath()) ('domenia-'+[guid]::NewGuid().ToString('N')+'.sqlite.query-imports.jsonl')
 $exportPath=Join-Path ([IO.Path]::GetTempPath()) ('domenia-pack-'+[guid]::NewGuid().ToString('N')+'.json')
 try{
@@ -135,6 +143,18 @@ try{
     $Payload=[pscustomobject]@{ModuleRoot=$modules;Mode='JournalRead';Path=$journalPath;StoreId=$context.StoreId}
     $journalRead=& ([scriptblock]::Create((Get-DomeniaQueryTransferWorkerCode)))
     Expect (@($journalRead.Entries).Count -eq 20 -and $journalRead.Entries[0].Restorable) 'reading returns the twenty most recent restorable imports'
+    # 40 lines of at most 3 Mio stay under any read bound; an oversized line never makes the journal unusable.
+    $Payload=[pscustomobject]@{ModuleRoot=$modules;Mode='JournalAppend';Path=$journalPath;Entry=[pscustomobject]@{Kind='Import';Filler=('x'*3145728)}}
+    $refused=& ([scriptblock]::Create((Get-DomeniaQueryTransferWorkerCode)))
+    Expect (-not $refused.Journaled -and [string]$refused.Reason -like '*3 Mio*' -and @([IO.File]::ReadAllLines($journalPath)|Where-Object{$_}).Count -eq 40) 'an import line above 3 Mio is refused before any write'
+    [IO.File]::AppendAllText($journalPath,(('y'*3145729)+"`n"),[Text.UTF8Encoding]::new($false))
+    $Payload=[pscustomobject]@{ModuleRoot=$modules;Mode='JournalRead';Path=$journalPath;StoreId=$context.StoreId}
+    $oversizedRead=& ([scriptblock]::Create((Get-DomeniaQueryTransferWorkerCode)))
+    Expect (@($oversizedRead.Entries).Count -eq 20 -and [int]$oversizedRead.Rejected -eq 1) 'an oversized line is counted and skipped when reading'
+    $Payload=[pscustomobject]@{ModuleRoot=$modules;Mode='JournalAppend';Path=$journalPath;Entry=(New-DomeniaQueryImportJournalEntry -Context $context -Applied $applied -Plan $verifiedPlan -NowUtc $now)}
+    $recovered=& ([scriptblock]::Create((Get-DomeniaQueryTransferWorkerCode)))
+    $kept=@([IO.File]::ReadAllLines($journalPath)|Where-Object{$_})
+    Expect ($recovered.Journaled -and $kept.Count -eq 40 -and @($kept|Where-Object{$_.Length -gt 3145728}).Count -eq 0) 'the next import compacts an oversized line away'
     $Payload=[pscustomobject]@{ModuleRoot=$modules;Mode='JournalRead';Path=($journalPath+'.txt');StoreId=$context.StoreId}
     Reject {& ([scriptblock]::Create((Get-DomeniaQueryTransferWorkerCode)))} 'only the dedicated journal file is read'
     $Payload=[pscustomobject]@{ModuleRoot=$modules;Mode='ExportPack';Path=$exportPath;Context=$context;Recipes=$packRecipes;PackName='Revue matériel';PackVersion=5}
@@ -164,11 +184,67 @@ $draft=Copy-DomeniaQueryRecipe $bindingRecipe;$draft.Clauses[0].Value=16
 $modified=Get-DomeniaQueryDefinitionBinding -Recipe $draft -Row $bindingRow
 Expect ($modified.State -ceq 'Modified' -and $modified.Label -ceq 'brouillon modifié depuis la révision 3 (2 différence(s))') 'a modified draft is never presented as the stored revision'
 $archivedBinding=New-DomeniaQueryLibraryRecord -Context $context -Recipe $bindingRecipe -ExpectedRevision 2;$archivedBinding.Archived=$true
-Expect ((Get-DomeniaQueryDefinitionBinding -Recipe $bindingRecipe -Row $archivedBinding).State -ceq 'Archived' -and (Get-DomeniaQueryDefinitionBinding -Recipe $bindingRecipe).State -ceq 'Unsaved' -and (Get-DomeniaQueryDefinitionBinding -Recipe @(Get-DomeniaQueryTemplates)[0]).State -ceq 'Template') 'archived, unsaved and delivered definitions are distinguished'
+$deliveredModel=@(Get-DomeniaQueryTemplates)[0]
+Expect ((Get-DomeniaQueryDefinitionBinding -Recipe $bindingRecipe -Row $archivedBinding).State -ceq 'Archived' -and (Get-DomeniaQueryDefinitionBinding -Recipe $bindingRecipe).State -ceq 'Unsaved' -and (Get-DomeniaQueryDefinitionBinding -Recipe (Copy-DomeniaQueryRecipe $deliveredModel) -Template $deliveredModel).State -ceq 'Template') 'archived, unsaved and delivered definitions are distinguished'
+$editedModel=Copy-DomeniaQueryRecipe $deliveredModel;$editedModel.Clauses=@(@($editedModel.Clauses)+@([pscustomobject]@{Field='ramGB';Operator='Less';Value=[decimal]4}))
+$editedBinding=Get-DomeniaQueryDefinitionBinding -Recipe $editedModel -Template $deliveredModel
+Expect ($editedBinding.State -ceq 'Modified' -and $editedBinding.Label -like 'brouillon modifié depuis le modèle livré (*') 'an edited delivered model is never presented as the delivered model'
+Expect ((Get-DomeniaQueryDefinitionBinding -Recipe $deliveredModel).State -ceq 'Unknown') 'a delivered model is not certified without the model as delivered'
+# The workshop and Search compare with the models prepared by the worker and wait for a confirmed library read.
+$script:DomeniaQueryTemplateRows=@([pscustomobject]@{SourceId='Template';Recipe=$deliveredModel})
+Expect ((Get-DomeniaQueryRecipeBinding $editedModel).State -ceq 'Modified' -and (Get-DomeniaQueryRecipeBinding (Copy-DomeniaQueryRecipe $deliveredModel)).State -ceq 'Template') 'the binding uses the prepared delivered model'
+$script:DomeniaQueryTemplateRows=$null
+Expect ((Get-DomeniaQueryRecipeBinding $editedModel).State -ceq 'Unknown') 'without prepared models the delivered state stays undetermined'
+$script:DomeniaQueryLibraryStoreState=$null
+Expect ((Get-DomeniaQueryRecipeBinding $bindingRecipe).State -ceq 'Unknown') 'without a library store a saved recipe is never called an unsaved draft'
+$script:DomeniaQueryLibraryStoreState=[pscustomobject]@{Loaded=$false;Rows=@{}}
+Expect ((Get-DomeniaQueryRecipeBinding $bindingRecipe).State -ceq 'Unknown') 'while the library is read a saved recipe is never called an unsaved draft'
+$script:DomeniaQueryLibraryStoreState=[pscustomobject]@{Loaded=$true;Rows=@{'personal.binding'=$bindingRow}}
+Expect ((Get-DomeniaQueryRecipeBinding (ConvertFrom-Json -InputObject $bindingRow.DefinitionJson)).State -ceq 'Saved' -and (Get-DomeniaQueryRecipeBinding (New-DomeniaQueryRecipe -Id 'personal.unsaved' -Name 'Nouvelle')).State -ceq 'Unsaved') 'a confirmed library read distinguishes saved and unsaved recipes'
+$script:DomeniaQueryLibraryStoreState=$null
 $paramStored=Copy-DomeniaQueryRecipe (@(Get-DomeniaQueryTemplates|Where-Object{$_.Id -ceq 'template.param.diskfree'})[0]) -Id 'personal.param';$paramStored.ParameterValues=[pscustomobject]@{Seuil=15}
 $paramRow=New-DomeniaQueryLibraryRecord -Context $context -Recipe $paramStored -ExpectedRevision 0
 $paramDraft=Copy-DomeniaQueryRecipe $paramStored;$paramDraft.ParameterValues=@{Seuil=[decimal]15}
 Expect ((Get-DomeniaQueryDefinitionBinding -Recipe $paramDraft -Row $paramRow).State -ceq 'Saved') 'equal parameter values held in another container do not fake a modification'
+$workshopDraft=Copy-DomeniaQueryRecipe $bindingRecipe;$workshopDraft.ParameterValues=@{}
+Expect ((Get-DomeniaQueryDefinitionBinding -Recipe $workshopDraft -Row $bindingRow).State -ceq 'Saved') 'the empty parameter values of a workshop draft do not fake a modification'
+# The comparison covers the whole definition: probe segment value, GUID set, parameter bounds and any other element.
+$segmentA=New-DomeniaQueryRecipe -Id 'personal.segment' -Name 'Antivirus' -ProbeSelection ([pscustomobject]@{Key='sec.av';Mode='Equal';Value='A'})
+$segmentRow=New-DomeniaQueryLibraryRecord -Context $context -Recipe $segmentA -ExpectedRevision 1
+$segmentB=Copy-DomeniaQueryRecipe $segmentA;$segmentB.ProbeSelection.Value='B'
+$segmentChanges=@(Compare-DomeniaQueryRecipeDefinitions -Before $segmentA -After $segmentB)
+Expect ($segmentChanges.Count -eq 1 -and $segmentChanges[0].Element -ceq 'Segment de sonde' -and $segmentChanges[0].Before -cne $segmentChanges[0].After) 'a probe segment that differs only by its value is listed'
+Expect ((Get-DomeniaQueryDefinitionBinding -Recipe $segmentB -Row $segmentRow).State -ceq 'Modified') 'a draft whose segment value changed is not the stored revision'
+$segmentPack=New-DomeniaQueryPack -Context $context -Recipes @($segmentB) -PackName 'Segments' -PackVersion 1
+$segmentItem=(New-DomeniaQueryPackImportPlan -Context $context -Json (ConvertTo-Json -InputObject $segmentPack -Depth 32) -ExistingRows @($segmentRow)).Items[0]
+Expect ($segmentItem.Status -ceq 'Conflit' -and $segmentItem.ChangeSummary -ceq '1 différence(s) : Segment de sonde') 'a pack conflict shows the segment value it would replace'
+$frozenA=New-DomeniaQueryRecipe -Id 'personal.frozen' -Name 'Sélection' -ObjectIds @('aaaaaaaa-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000002')
+$frozenRow=New-DomeniaQueryLibraryRecord -Context $context -Recipe $frozenA -ExpectedRevision 0
+$frozenB=Copy-DomeniaQueryRecipe $frozenA;$frozenB.ObjectIds=@('aaaaaaaa-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000003')
+$frozenChanges=@(Compare-DomeniaQueryRecipeDefinitions -Before $frozenA -After $frozenB)
+Expect ($frozenChanges.Count -eq 1 -and $frozenChanges[0].Element -ceq 'Sélection figée' -and $frozenChanges[0].Before -like '2 GUID · empreinte *' -and $frozenChanges[0].After -like '2 GUID · empreinte *' -and $frozenChanges[0].Before -cne $frozenChanges[0].After) 'another frozen selection of the same size is a listed difference'
+Expect ((Get-DomeniaQueryDefinitionBinding -Recipe $frozenB -Row $frozenRow).State -ceq 'Modified') 'a draft bound to other workstations is not the stored revision'
+$frozenSame=Copy-DomeniaQueryRecipe $frozenA;$frozenSame.ObjectIds=@('AAAAAAAA-0000-0000-0000-000000000002','aaaaaaaa-0000-0000-0000-000000000001')
+Expect ((Get-DomeniaQueryDefinitionBinding -Recipe $frozenSame -Row $frozenRow).State -ceq 'Saved') 'GUID order or case never fakes a modification'
+$boundA=Copy-DomeniaQueryRecipe (@(Get-DomeniaQueryTemplates|Where-Object{$_.Id -ceq 'template.param.diskfree'})[0]) -Id 'personal.bounds'
+$boundB=Copy-DomeniaQueryRecipe $boundA;$boundB.Parameters[0]|Add-Member -NotePropertyName Maximum -NotePropertyValue 90 -Force
+$boundChanges=@(Compare-DomeniaQueryRecipeDefinitions -Before $boundA -After $boundB)
+Expect (@($boundChanges|Where-Object{($_.Element -ceq 'Paramètre ajouté') -and ($_.After -like '*90 %*')}).Count -eq 1) 'a parameter whose bound changed is listed'
+$netA=Copy-DomeniaQueryRecipe $boundA;$netA.ParameterValues=[pscustomobject]@{Seuil=15}
+$netB=Copy-DomeniaQueryRecipe $netA;$netB.Parameters[0]|Add-Member -NotePropertyName Default -NotePropertyValue 20 -Force
+$netChanges=@(Compare-DomeniaQueryRecipeDefinitions -Before $netA -After $netB)
+Expect ($netChanges.Count -eq 1 -and $netChanges[0].Element -ceq 'Autre élément de la définition' -and $netChanges[0].Before -cne $netChanges[0].After) 'a difference no readable row describes is still reported'
+Expect (@(Compare-DomeniaQueryRecipeDefinitions -Before $netA -After (Copy-DomeniaQueryRecipe $netA)).Count -eq 0) 'an identical definition reports no difference'
+# An exported script keeps every single-quote character, typographic ones included, inside its data literal.
+$quoteName='Postes d'+[char]0x2019+'accueil '+[char]0x2018+'A'+[char]0x201A+[char]0x201B+''''
+$quoted=New-DomeniaQueryRecipe -Id 'personal.quotes' -Name $quoteName -Clauses @([pscustomobject]@{Field='name';Operator='Equal';Value=('PC'+[char]0x2019+'; Remove-Item fixture')})
+$exportedScript=ConvertTo-DomeniaQueryPowerShell -Recipe $quoted
+$scriptTokens=$null;$scriptErrors=$null;$scriptAst=[Management.Automation.Language.Parser]::ParseInput($exportedScript,[ref]$scriptTokens,[ref]$scriptErrors)
+$dataLiterals=@($scriptAst.FindAll({param($node)($node -is [Management.Automation.Language.StringConstantExpressionAst]) -and ($node.StringConstantType -eq [Management.Automation.Language.StringConstantType]::SingleQuoted) -and ($node.Value.StartsWith('{'))},$true))
+$injected=@($scriptAst.FindAll({param($node)($node -is [Management.Automation.Language.CommandAst]) -and ([string]$node.GetCommandName() -ceq 'Remove-Item')},$true))
+Expect (@($scriptErrors).Count -eq 0 -and $dataLiterals.Count -eq 1 -and $injected.Count -eq 0) 'typographic quotes never end the data literal of an exported script'
+$roundTrip=ConvertFrom-Json -InputObject $dataLiterals[0].Value
+Expect ($roundTrip.Name -ceq $quoteName -and [string]$roundTrip.Clauses[0].Value -ceq ('PC'+[char]0x2019+'; Remove-Item fixture')) 'the exported definition keeps its exact text'
 # Point 68: personal recipes keep their stored category; archives are parsed off the UI thread and listed apart.
 $archivedRecipe=New-DomeniaQueryRecipe -Id 'personal.archived' -Name 'Ancienne revue'
 $Payload=[pscustomobject]@{ModuleRoot=$modules;Saved=@(New-DomeniaQueryRecipe -Id 'personal.sorted' -Name 'Revue rangée');Categories=@{'personal.sorted'='Audit 2026';'personal.archived'='Audit 2025'};Archived=@(
@@ -198,6 +274,25 @@ $script:Fake.TxtQueryParameterValue.Text='150';Update-DomeniaQueryParameterCheck
 Expect (-not $script:Fake.BtnQueryParameterApply.IsEnabled -and $script:LastLabel -like '*inférieure ou égale à 100 %*') 'an out-of-range entry disables Apply and states the bound'
 $script:Fake.TxtQueryParameterValue.Text='15 %';Update-DomeniaQueryParameterCheck
 Expect ($script:Fake.BtnQueryParameterApply.IsEnabled -and $script:LastLabel -ceq 'Valeur retenue : 15 %') 'a valid entry shows the retained typed value'
+# Point 69: a run left by a new session or another database no longer blocks import and rollback, and its
+# confirmed writes are still journaled beside their own database (inert controls, no worker started).
+foreach($name in @('QueryLibrary.Store.UI','QueryTransfer.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+$script:SessionEpoch=4L;$script:DatabaseScopedPath=$context.Path;$script:Conn=[pscustomobject]@{BaseDn=$context.DomainDn}
+$storeContext=[pscustomobject]@{Version=1;StoreId=$context.StoreId;DomainDn=$context.DomainDn;Path=$context.Path;SessionEpoch=3L}
+$script:DomeniaQueryLibraryStoreState=[pscustomobject]@{Context=$storeContext;Generation=2L;Loaded=$true;Saving=$false;Rows=@{};Categories=@{}}
+$staleRun=[pscustomobject]@{StoreId=$context.StoreId;Epoch=3L;Generation=2L;Context=$storeContext;JournalPath=($context.Path+'.query-imports.jsonl');Items=@($applied[0]);Index=1;Applied=[Collections.Generic.List[object]]::new();Running=$true;Rollback=$false;Error='';Plan=$verifiedPlan;SourceImportId=''}
+$staleRun.Applied.Add($applied[0])
+$script:DomeniaQueryState=[pscustomobject]@{ImportRun=$staleRun;ImportHistory=@()}
+$script:TransferTasks=[Collections.Generic.List[object]]::new()
+function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,$TimeoutSeconds,$TaskClass);$script:TransferTasks.Add([pscustomobject]@{OperationId=$OperationId;Payload=$Payload;State=$CallbackState});return ('transfer-'+$script:TransferTasks.Count)}
+Expect (-not (Test-DomeniaQueryImportRunActive $staleRun)) 'a run of a former session is no longer active'
+$freshRun=[pscustomobject]@{StoreId=$context.StoreId;Epoch=4L;Generation=2L;Running=$true}
+Expect (Test-DomeniaQueryImportRunActive $freshRun) 'a run of the current store still blocks a second import'
+Close-DomeniaQueryStaleImportRun
+$journalTask=@($script:TransferTasks)
+Expect (-not $staleRun.Running -and $journalTask.Count -eq 1 -and $journalTask[0].OperationId -ceq 'QueryTransfer' -and [string]$journalTask[0].Payload.Mode -ceq 'JournalAppend' -and [string]$journalTask[0].Payload.Path -ceq $staleRun.JournalPath -and @($journalTask[0].Payload.Entry.Items).Count -eq 1 -and @($script:DomeniaQueryState.ImportHistory).Count -eq 1) 'the confirmed writes of a stale run stay restorable and are journaled beside their database'
+Close-DomeniaQueryStaleImportRun
+Expect ($script:TransferTasks.Count -eq 1) 'a stale run is journaled once'
 $report=[pscustomobject]@{Status='PASS';Assertions=$checks;CoveragePopulation=20000;SourceMode=[bool]$QuerySource;ElapsedSeconds=[Math]::Round($clock.Elapsed.TotalSeconds,3);PowerShell=$PSVersionTable.PSVersion.ToString();Scope='Actual models, worker factories, XML-independent UI pagination with inert controls; no network, AD, WMI or WPF'}
 if($ReportPath){[IO.File]::WriteAllText($ReportPath,($report|ConvertTo-Json),[Text.UTF8Encoding]::new($false))}
 $report|ConvertTo-Json -Compress
