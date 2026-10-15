@@ -177,7 +177,7 @@ function Get-DomeniaTaskDedupKey {
     param([Parameter(Mandatory=$true)][string]$OperationId,[string]$ReaderIdentity='',[long]$Epoch=0,[long]$Generation=0,$Payload=$null,[bool]$IsWrite=$false,[string[]]$Shareable=@())
     if ($IsWrite) { return '' }
     # Points 101-109: the Audit AD reads are shareable too (DelegationRead to RelationHistoryRead).
-    $allowed = @('OpenAdObject','EmbeddedDirectoryLookup','SessionsList','ComputerQuickDiag','PasswordPolicyRead','LockoutDiagnosis','GroupPathRead','JoinStateRead','UpdateStateRead','GpoLinksRead','GpoAppliedRead','DcCompareRead','ComputerEventsRead','MachineIdentityRead','DelegationRead','AdHealthRead','DcServicesRead','AdConsistencyScan','RelationHistoryRead') + @($Shareable)
+    $allowed = @('OpenAdObject','EmbeddedDirectoryLookup','SessionsList','ComputerQuickDiag','PasswordPolicyRead','LockoutDiagnosis','GroupPathRead','JoinStateRead','UpdateStateRead','GpoLinksRead','GpoAppliedRead','DcCompareRead','ComputerEventsRead','MachineIdentityRead','AdSchemaRead','DirectoryAbsenceCheck','LogonByDcRead','DelegationRead','AdHealthRead','DcServicesRead','AdConsistencyScan','RelationHistoryRead') + @($Shareable)
     if ($allowed -notcontains $OperationId) { return '' }
     $digest = Get-DomeniaPayloadDigest $Payload
     if (-not $digest) { return '' }
@@ -339,7 +339,7 @@ function Get-DomeniaOperationProvider {
     # UX-38 (X04): ComputerServiceControl starts or restarts one service of the selected workstation through CIM.
     $cim = @('ComputerDiagnostics','ComputerInventory','SoftwareInventory','WmiNamespaces','WmiClasses','WmiQuery','LiveConsole','ComputerLastUser','ComputerQuickDiag','JoinStateRead','UpdateStateRead','GpoAppliedRead','ComputerEventsRead','MachineIdentityRead','DcServicesRead','ParkSweep','BatchNetworkDiag','ComputerGpUpdate','ComputerRestart','RimotteRun','ComputerServiceControl','UserComputerProbe','RemoteCredentialCheck','QuerySchema')
     $wts = @('SessionsList')
-    $storage = @('LegacyMigration','LocalStore','LiveCache','ReceiptStore','DocumentStore','StorageUsage','StoragePurge','StorageBackup','StorageMaintenance','StorageRetention','LinkHistoryStore','LocalIndexRead','LocalQuery','QueryExport','QueryLibrary','QueryTransfer','RelationHistoryRead')
+    $storage = @('LegacyMigration','LocalStore','LiveCache','ReceiptStore','DocumentStore','StorageUsage','StoragePurge','StorageBackup','StorageMaintenance','StorageRetention','StorageIntegrity','LinkHistoryStore','LocalIndexRead','LocalQuery','QueryExport','QueryLibrary','QueryTransfer','RelationHistoryRead')
     $local = @('CmdletHelp','CmdletInventory','EngineSelfTest','EmbeddedPathBrowse','LocalAssistant','DemoDirectory','IsolatedRead')
     # ParkSharedSync reads and writes a shared file, possibly on a UNC path: network I/O, not the local base.
     # ParkPing (MO-08) sends the ICMP echoes of a list in parallel batches: network only, no credential.
@@ -361,7 +361,7 @@ function Get-DomeniaOperationCredentialNeeds {
     $remote = @('SessionsList','ComputerDiagnostics','ComputerLastUser','LiveConsole','ComputerPing','ComputerAdminShare','ComputerGpUpdate','ComputerRestart','ComputerInventory','SoftwareInventory','ParkSweep','BatchNetworkDiag','WmiNamespaces','WmiClasses','WmiQuery','RimotteRun','ComputerServiceControl','QuerySchema','GpoAppliedRead','DcServicesRead','MachineIdentityRead')
     $machine = @('SessionsList','ComputerAdminShare','ComputerDiagnostics','ComputerInventory','SoftwareInventory','ParkSweep','WmiNamespaces','WmiClasses','WmiQuery','ComputerLastUser','LiveConsole','ComputerGpUpdate','ComputerRestart','UserComputerProbe','RimotteRun','ComputerServiceControl','QuerySchema','GpoAppliedRead','DcServicesRead','MachineIdentityRead')
     # Local or storage operations that never bind to the directory. New D120 operations are classified here.
-    $local = @('StorageUsage','StoragePurge','StorageBackup','StorageMaintenance','StorageRetention','LegacyMigration','CmdletHelp','CmdletInventory','EngineSelfTest','LiveCache','LiveSelectedPing','ParkPing','LocalStore','ReceiptStore','SessionsList','DocumentStore','EmbeddedPathBrowse','DemoDirectory','LocalIndexRead','LocalQuery','QueryExport','QueryLibrary','ParkSharedSync','IsolatedRead','QueryTransfer','RelationHistoryRead')
+    $local = @('StorageUsage','StoragePurge','StorageBackup','StorageMaintenance','StorageRetention','StorageIntegrity','LegacyMigration','CmdletHelp','CmdletInventory','EngineSelfTest','LiveCache','LiveSelectedPing','ParkPing','LocalStore','ReceiptStore','SessionsList','DocumentStore','EmbeddedPathBrowse','DemoDirectory','LocalIndexRead','LocalQuery','QueryExport','QueryLibrary','ParkSharedSync','IsolatedRead','QueryTransfer','RelationHistoryRead')
     $id = [string]$OperationId
     $isRemote = ($remote -contains $id)
     $nonDirectory = (($local -contains $id) -or $isRemote)
@@ -739,7 +739,7 @@ function Get-DomeniaRuntimeMetricOperationKey {
     $id = [string]$OperationId
     if ($id -ceq 'LocalIndexRead') {
         $action = [string](Get-DomeniaMember $Payload 'Action' '')
-        if ($action -cin @('Search','FleetStats','ParkTargets','ParkState','StoreRead','ResolveNames','IndexMetadata','UserMachineLinks','SecretIndexEntry','OperationStats')) { return ($id + ':' + $action) }
+        if ($action -cin @('Search','FleetStats','ParkTargets','ParkState','StoreRead','ResolveNames','IndexMetadata','UserMachineLinks','SecretIndexEntry','OperationStats','DirectorySync','SnapshotCompare')) { return ($id + ':' + $action) }
         return $id
     }
     if ($id -ceq 'LocalQuery') {

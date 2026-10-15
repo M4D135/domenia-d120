@@ -16,7 +16,7 @@ function Get-DomeniaOperationEffect {
     # Same pattern as Start-DomeniaWriteTask: every directory write is named Write<Name>.
     if ($id -cmatch '^Write[A-Za-z0-9]{2,59}$') { return 'DirectoryWrite' }
     if ($id -in @('ComputerGpUpdate','ComputerRestart','RimotteRun','ComputerServiceControl','WakeOnLanSend')) { return 'RemoteMutation' }
-    if ($id -in @('LocalStore','ReceiptStore','DocumentStore','StoragePurge','StorageBackup','LinkHistoryStore','LiveCache','IndexBuild','IndexRefresh')) { return 'LocalWrite' }
+    if ($id -in @('LocalStore','ReceiptStore','DocumentStore','StoragePurge','StorageBackup','StorageMaintenance','StorageRetention','LinkHistoryStore','LiveCache','IndexBuild','IndexRefresh')) { return 'LocalWrite' }
     # Points 101-109 (Audit AD) add DelegationRead, AdHealthRead, DcServicesRead and RelationHistoryRead: reads only.
     $reads = @(
         'SelectedPresence','PresenceScan','CmdletHelp','CmdletInventory','TreeChildren','GlobalSearch','PermissionAnalysis','SelfCheck',
@@ -24,9 +24,9 @@ function Get-DomeniaOperationEffect {
         'WmiNamespaces','WmiClasses','WmiQuery','QuerySchema','UserComputerProbe','LogonHarvest','ParkSweep','ComputerDiagnostics','ComputerLastUser',
         'ComputerPing','ComputerAdminShare','PruneLinks','OpenLinkedObject','EngineSelfTest','OpenAdObject','StartupWarmCache','StartupWarmup','LiveConsole',
         'LiveDirectoryCheck','SessionsList','RemoteCredentialCheck','ScopeReconcile','ReconcileScope','LiveSelectedPing','ParkPing',
-        'EmbeddedDirectoryLookup','EmbeddedPathBrowse','ObjectChanges','StorageUsage','ComputerQuickDiag','PasswordPolicyRead',
+        'EmbeddedDirectoryLookup','EmbeddedPathBrowse','ObjectChanges','StorageUsage','StorageIntegrity','ComputerQuickDiag','PasswordPolicyRead',
         'LockoutDiagnosis','GroupPathRead','JoinStateRead','UpdateStateRead','GpoLinksRead','GpoAppliedRead','DcCompareRead',
-        'ComputerEventsRead','MachineIdentityRead','AdConsistencyScan','ConnectorRead','DemoDirectory',
+        'ComputerEventsRead','MachineIdentityRead','AdConsistencyScan','ConnectorRead','DemoDirectory','AdSchemaRead','DirectoryAbsenceCheck','LogonByDcRead',
         'DelegationRead','AdHealthRead','DcServicesRead','RelationHistoryRead'
     )
     if ($reads -contains $id) { return 'Read' }

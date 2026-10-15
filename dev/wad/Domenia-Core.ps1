@@ -709,6 +709,8 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnUserManagerClear" = "Default"
     "TxtUserState" = "Default"
     "TxtUserLastLogon" = "Default"
+    "BtnUserLogonByDc" = "Default"
+    "TxtUserLogonByDc" = "Default"
     "TxtUserPwdLastSet" = "Default"
     "TxtUserExpires" = "Default"
     "TxtUserUac" = "Default"
@@ -775,6 +777,8 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnCompManagedByClear" = "Default"
     "TxtCompState" = "Default"
     "TxtCompLastLogon" = "Default"
+    "BtnCompLogonByDc" = "Default"
+    "TxtCompLogonByDc" = "Default"
     "TxtCompUac" = "Default"
     "TxtCompLinkedUser" = "Default"
     "TxtCompLinkSource" = "Default"
@@ -964,6 +968,32 @@ $script:GuiElementPolicy = [ordered]@{
     "LblIndexTileUpdated" = "Default"
     "LblIndexTileUpdatedDetail" = "Default"
     "BtnIndexExport" = "Default"
+    "BtnIndexOpenFolder" = "Default"
+    "BtnIndexBackup" = "Default"
+    "BtnIndexBackupTo" = "Default"
+    "BtnStorageMove" = "Default"
+    "BtnStorageRestore" = "Default"
+    "BtnStorageResume" = "Default"
+    "BtnStorageRollback" = "Default"
+    "LblStorageMaintenance" = "Default"
+    "LblStorageSpace" = "Default"
+    "ChkStorageAutoBackup" = "Default"
+    "TxtStorageBackupHours" = "Default"
+    "TxtStorageBackupKeep" = "Default"
+    "LblStorageBackupSchedule" = "Default"
+    "TxtStoragePresenceDays" = "Default"
+    "TxtStorageConsoleDays" = "Default"
+    "TxtStorageInventoryDays" = "Default"
+    "TxtStorageProbeDays" = "Default"
+    "TxtStorageDetailDays" = "Default"
+    "TxtStorageLinkHistoryDays" = "Default"
+    "BtnStoragePolicySave" = "Default"
+    "BtnStorageRetentionPreview" = "Default"
+    "BtnStorageRetentionApply" = "Default"
+    "LblStorageRetention" = "Default"
+    "BtnStorageIntegrity" = "Default"
+    "LblStorageIntegrity" = "Default"
+    "LblStorageLimits" = "Default"
     "BtnStorageUsage" = "Default"
     "BtnStoragePurgePreview" = "Default"
     "BtnStoragePurge" = "Default"
@@ -3536,6 +3566,12 @@ function Load-DomeniaSettings {
                 if ($null -eq $property.Value) { continue }
                 $settings[$key] = $property.Value
             }
+            # Domain-scoped preferences (database choice, health policies, approved BIOS references) live under a
+            # closed name pattern outside the declared keys; ConvertTo-DomeniaExperienceSettings bounds them.
+            foreach ($property in @($stored.PSObject.Properties)) {
+                if (($settings.Contains($property.Name)) -or (-not (Test-DomeniaScopedSettingName ([string]$property.Name)))) { continue }
+                if ($property.Value -is [string]) { $settings[$property.Name] = $property.Value }
+            }
         }
     }
     catch { try { Write-AppLog "Reglages illisibles, valeurs par defaut appliquees : $($_.Exception.Message)" "WARN" } catch { } }
@@ -5860,6 +5896,7 @@ function Get-MainXaml {
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                           </Grid.RowDefinitions>
                           <TextBlock Grid.Row="0" Grid.ColumnSpan="4" Text="Fiche utilisateur" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
                           <Label Grid.Row="1" Grid.Column="0" Content="Prenom"/>
@@ -5919,6 +5956,13 @@ function Get-MainXaml {
                             <Button Grid.Row="13" Grid.Column="2" x:Name="BtnUserEdit" Content="Modifier" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,0,0,8" ToolTip="Déverrouille les champs de la fiche pour les modifier. Le crayon nʼécrit rien : il ouvre seulement la saisie, et « Enregistrer » reste seul à décider de ce qui part dans lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Modifier la fiche" AutomationProperties.HelpText="Déverrouille les champs de la fiche pour les modifier. Le crayon nʼécrit rien : il ouvre seulement la saisie, et « Enregistrer » reste seul à décider de ce qui part dans lʼannuaire."/>
                             <Button Grid.Row="13" Grid.Column="3" x:Name="BtnUserCancelEdit" Content="Annuler" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,0,0,8" Visibility="Collapsed" ToolTip="Rejette les modifications non enregistrées : chaque champ reprend la valeur lue dans lʼannuaire et la fiche se verrouille de nouveau." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Annuler les modifications" AutomationProperties.HelpText="Rejette les modifications non enregistrées : chaque champ reprend la valeur lue dans lʼannuaire et la fiche se verrouille de nouveau."/>
                             <TextBlock Grid.Row="14" Grid.ColumnSpan="4" x:Name="LblUserEditState" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,0,0,8" Visibility="Collapsed" AutomationProperties.Name="État des modifications de la fiche" AutomationProperties.HelpText="Dit ce que la fiche a en modification, et le signale quand une valeur non enregistrée a été abandonnée en changeant dʼobjet. Rien nʼest parti sans que la page le dise."/>
+                          <Border Grid.Row="15" Grid.ColumnSpan="4" Margin="0,6,0,8" Padding="10" CornerRadius="8" Background="{DynamicResource BgReadonly}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
+                            <StackPanel>
+                              <TextBlock Text="Activité de connexion" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                              <TextBlock x:Name="TxtUserLogonByDc" TextWrapping="Wrap" Margin="0,0,0,6" ToolTip="Activité de connexion de lʼobjet : date approximative répliquée (lastLogonTimestamp) et, après lecture, la date exacte connue de chaque contrôleur avec sa couverture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Activité de connexion du compte" AutomationProperties.HelpText="Activité de connexion de lʼobjet : date approximative répliquée (lastLogonTimestamp) et, après lecture, la date exacte connue de chaque contrôleur avec sa couverture." AutomationProperties.LiveSetting="Polite"/>
+                              <Button x:Name="BtnUserLogonByDc" Content="Lire la connexion sur chaque contrôleur" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="10,4" HorizontalAlignment="Left" IsEnabled="False" ToolTip="Lit, pour cet objet seulement, la date exacte de dernière connexion (lastLogon) sur chaque contrôleur du domaine, avec la liste des contrôleurs lus et non lus. Lecture seule ; aucun contrôleur nʼest plus interrogé après 75 secondes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lire la dernière connexion sur chaque contrôleur" AutomationProperties.HelpText="Lit, pour cet objet seulement, la date exacte de dernière connexion (lastLogon) sur chaque contrôleur du domaine, avec la liste des contrôleurs lus et non lus. Lecture seule ; aucun contrôleur nʼest plus interrogé après 75 secondes."/>
+                            </StackPanel>
+                          </Border>
                         </Grid>
                         </StackPanel>
                       </ScrollViewer>
@@ -6745,6 +6789,7 @@ function Get-MainXaml {
                               <RowDefinition Height="Auto"/>
                               <RowDefinition Height="Auto"/>
                               <RowDefinition Height="Auto"/>
+                              <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                           <TextBlock Grid.Row="0" Grid.ColumnSpan="4" Text="Fiche du poste" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
                           <Label Grid.Row="1" Grid.Column="0" Content="Nom"/>
@@ -6804,6 +6849,13 @@ function Get-MainXaml {
                             </WrapPanel>
                           </Border>
                           <TextBlock Grid.Row="9" Grid.ColumnSpan="4" x:Name="LblCompEditState" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="Collapsed" AutomationProperties.Name="État des modifications de la fiche" AutomationProperties.HelpText="Dit ce que la fiche a en modification, et le signale quand une valeur non enregistrée a été abandonnée en changeant dʼobjet. Rien nʼest parti sans que la page le dise."/>
+                          <Border Grid.Row="10" Grid.ColumnSpan="4" Margin="0,10,0,8" Padding="10" CornerRadius="8" Background="{DynamicResource BgReadonly}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
+                            <StackPanel>
+                              <TextBlock Text="Activité de connexion" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                              <TextBlock x:Name="TxtCompLogonByDc" TextWrapping="Wrap" Margin="0,0,0,6" ToolTip="Activité de connexion du compte ordinateur : date approximative répliquée (lastLogonTimestamp) et, après lecture, la date exacte connue de chaque contrôleur avec sa couverture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Activité de connexion du poste" AutomationProperties.HelpText="Activité de connexion du compte ordinateur : date approximative répliquée (lastLogonTimestamp) et, après lecture, la date exacte connue de chaque contrôleur avec sa couverture." AutomationProperties.LiveSetting="Polite"/>
+                              <Button x:Name="BtnCompLogonByDc" Content="Lire la connexion sur chaque contrôleur" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="10,4" HorizontalAlignment="Left" IsEnabled="False" ToolTip="Lit, pour ce poste seulement, la date exacte de dernière connexion de son compte ordinateur (lastLogon) sur chaque contrôleur du domaine, avec la liste des contrôleurs lus et non lus. Lecture seule ; aucun contrôleur nʼest plus interrogé après 75 secondes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lire la dernière connexion du poste sur chaque contrôleur" AutomationProperties.HelpText="Lit, pour ce poste seulement, la date exacte de dernière connexion de son compte ordinateur (lastLogon) sur chaque contrôleur du domaine, avec la liste des contrôleurs lus et non lus. Lecture seule ; aucun contrôleur nʼest plus interrogé après 75 secondes."/>
+                            </StackPanel>
+                          </Border>
                           </Grid>
                         </Border>
                         <!-- UX-21 (X04): the dashboard of the last inventory, under the fiche in the same view. -->
@@ -7594,17 +7646,18 @@ function Get-MainXaml {
                 <TextBlock x:Name="LblIndexBackupStatus" Text="" Visibility="Collapsed" Background="{DynamicResource InfoBg}" Foreground="{DynamicResource InfoFg}" Padding="10,6" TextWrapping="Wrap" Margin="0,4,0,6" />
                 <WrapPanel>
                   <Button x:Name="BtnIndexCopyPath" Content="Copier le chemin" Margin="0,0,8,0" ToolTip="Copie le chemin complet du fichier de la base dans le presse-papiers." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier le chemin de la base" AutomationProperties.HelpText="Copie le chemin complet du fichier de la base dans le presse-papiers." />
-                  <Button x:Name="BtnIndexOpenFolder" Content="Ouvrir l emplacement" Margin="0,0,8,0" ToolTip="Ouvre le dossier de la base dans lʼexplorateur, fichier sélectionné." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir l emplacement de la base" />
-                  <Button x:Name="BtnIndexBackup" Content="Sauvegarder maintenant" Margin="0,0,8,0" ToolTip="Copie cohérente de la base (sauvegarde SQLite à chaud) dans son dossier Backups. Lʼoriginal nʼest pas modifié." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Sauvegarder la base maintenant" />
-                  <Button x:Name="BtnIndexBackupTo" Content="Copier une sauvegarde vers..." Margin="0,0,8,0" ToolTip="Sauvegarde la base puis copie cette sauvegarde vers le fichier de votre choix (cle USB, partage...)." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier une sauvegarde de la base" />
+                  <Button x:Name="BtnIndexOpenFolder" Content="Ouvrir l emplacement" Margin="0,0,8,0" ToolTip="Ouvre le dossier de la base dans lʼexplorateur, fichier sélectionné." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir l emplacement de la base" AutomationProperties.HelpText="Ouvre le dossier de la base dans lʼexplorateur, fichier sélectionné." />
+                  <Button x:Name="BtnIndexBackup" Content="Sauvegarder maintenant" Margin="0,0,8,0" ToolTip="Copie cohérente de la base (sauvegarde SQLite à chaud) dans son dossier Backups. Lʼoriginal nʼest pas modifié." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Sauvegarder la base maintenant" AutomationProperties.HelpText="Copie cohérente de la base (sauvegarde SQLite à chaud) dans son dossier Backups. Lʼoriginal nʼest pas modifié." />
+                  <Button x:Name="BtnIndexBackupTo" Content="Copier une sauvegarde vers..." Margin="0,0,8,0" ToolTip="Sauvegarde la base puis copie cette sauvegarde vérifiée vers le fichier de votre choix (clé USB, partage…)." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier une sauvegarde de la base" AutomationProperties.HelpText="Sauvegarde la base puis copie cette sauvegarde vérifiée vers le fichier de votre choix (clé USB, partage…)." />
                 </WrapPanel>
                 <WrapPanel Margin="0,10,0,0">
-                  <Button x:Name="BtnStorageMove" Content="Déplacer la base…" Margin="0,0,8,6" AutomationProperties.Name="Déplacer la base vers un autre dossier local"/>
-                  <Button x:Name="BtnStorageRestore" Content="Restaurer une sauvegarde…" Margin="0,0,8,6" AutomationProperties.Name="Prévisualiser et restaurer une sauvegarde locale"/>
-                  <Button x:Name="BtnStorageResume" Content="Reprendre la bascule" Margin="0,0,8,6"/>
-                  <Button x:Name="BtnStorageRollback" Content="Revenir à la base précédente" Margin="0,0,8,6"/>
+                  <Button x:Name="BtnStorageMove" Content="Déplacer la base…" Margin="0,0,8,6" ToolTip="Déplace la base vers un nouveau fichier local : vérification de la destination, copie contrôlée puis bascule. Lʼoriginal est conservé en lecture seule." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Déplacer la base vers un autre dossier local" AutomationProperties.HelpText="Déplace la base vers un nouveau fichier local : vérification de la destination, copie contrôlée puis bascule. Lʼoriginal est conservé en lecture seule."/>
+                  <Button x:Name="BtnStorageRestore" Content="Restaurer une sauvegarde…" Margin="0,0,8,6" ToolTip="Restaure une sauvegarde vérifiée dans un nouveau fichier local, après aperçu du domaine, des dates et du contenu. Aucune base nʼest écrasée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Prévisualiser et restaurer une sauvegarde locale" AutomationProperties.HelpText="Restaure une sauvegarde vérifiée dans un nouveau fichier local, après aperçu du domaine, des dates et du contenu. Aucune base nʼest écrasée."/>
+                  <Button x:Name="BtnStorageResume" Content="Reprendre la bascule" IsEnabled="False" Margin="0,0,8,6" ToolTip="Reprend une bascule interrompue après vérification de la copie. Les deux fichiers sont conservés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Reprendre la bascule interrompue" AutomationProperties.HelpText="Reprend une bascule interrompue après vérification de la copie. Les deux fichiers sont conservés."/>
+                  <Button x:Name="BtnStorageRollback" Content="Revenir à la base précédente" IsEnabled="False" Margin="0,0,8,6" ToolTip="Revient au fichier dʼorigine si la nouvelle base nʼa reçu aucune écriture. Les deux fichiers sont conservés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Revenir à la base précédente" AutomationProperties.HelpText="Revient au fichier dʼorigine si la nouvelle base nʼa reçu aucune écriture. Les deux fichiers sont conservés."/>
                 </WrapPanel>
-                <TextBlock x:Name="LblStorageMaintenance" Text="La base active reste sur un disque local. Chaque déplacement ou restauration conserve le fichier original." TextWrapping="Wrap" Margin="0,0,0,8" Foreground="{DynamicResource MutedColor}"/>
+                <TextBlock x:Name="LblStorageMaintenance" Text="La base active reste sur un disque local. Chaque déplacement ou restauration conserve le fichier dʼorigine." TextWrapping="Wrap" Margin="0,0,0,8" Foreground="{DynamicResource MutedColor}" ToolTip="Étape et résultat de lʼassistant de déplacement ou de restauration de la base." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Assistant de stockage" AutomationProperties.HelpText="Étape et résultat de lʼassistant de déplacement ou de restauration de la base."/>
+                <TextBlock x:Name="LblStorageSpace" Text="Espace libre du volume de la base : non mesuré dans cette session." TextWrapping="Wrap" Margin="0,6,0,0" ToolTip="Espace libre mesuré du volume de la base, seuil de suspension des collectes et données encore en mémoire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Espace disque de la base" AutomationProperties.HelpText="Espace libre mesuré du volume de la base, seuil de suspension des collectes et données encore en mémoire." />
               </StackPanel>
             </Expander>
             <!-- UX-19 (X04): the resumptions of the local storage, formerly in the hidden Fiabilité tab, beside the storage. -->
@@ -7623,34 +7676,40 @@ function Get-MainXaml {
             <Expander Header="Sauvegardes automatiques et conservation" IsExpanded="False" Margin="0,8,0,12" Padding="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
               <StackPanel>
                 <TextBlock Text="Les lectures alimentent la base automatiquement. Ces réglages concernent ses copies de sécurité et la durée de conservation des mesures." TextWrapping="Wrap" Margin="0,0,0,12"/>
-                <CheckBox x:Name="ChkStorageAutoBackup" Content="Sauvegarder automatiquement pendant que Domenia est ouvert" Margin="0,0,0,10"/>
+                <CheckBox x:Name="ChkStorageAutoBackup" Content="Sauvegarder automatiquement pendant que Domenia est ouvert" Margin="0,0,0,10" ToolTip="Sauvegarde cohérente automatique, contrôlée par SQLite et par empreinte, tant que Domenia est ouvert. Enregistrez les réglages pour lʼappliquer." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Sauvegarde automatique" AutomationProperties.HelpText="Sauvegarde cohérente automatique, contrôlée par SQLite et par empreinte, tant que Domenia est ouvert. Enregistrez les réglages pour lʼappliquer."/>
                 <WrapPanel Margin="0,0,0,14">
                   <TextBlock Text="Intervalle (heures)" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                  <TextBox x:Name="TxtStorageBackupHours" Width="65" Margin="0,0,16,0" AutomationProperties.Name="Intervalle entre sauvegardes en heures"/>
+                  <TextBox x:Name="TxtStorageBackupHours" Width="65" Margin="0,0,16,0" ToolTip="Intervalle entre deux sauvegardes automatiques, de 1 à 720 heures." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Intervalle entre sauvegardes en heures" AutomationProperties.HelpText="Intervalle entre deux sauvegardes automatiques, de 1 à 720 heures."/>
                   <TextBlock Text="Copies à conserver" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                  <TextBox x:Name="TxtStorageBackupKeep" Width="65" AutomationProperties.Name="Nombre de sauvegardes à conserver"/>
+                  <TextBox x:Name="TxtStorageBackupKeep" Width="65" ToolTip="Nombre de sauvegardes gardées dans le dossier Backups, de 2 à 30 ; les plus anciennes sont retirées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Nombre de sauvegardes à conserver" AutomationProperties.HelpText="Nombre de sauvegardes gardées dans le dossier Backups, de 2 à 30 ; les plus anciennes sont retirées."/>
                 </WrapPanel>
-                <TextBlock Text="Conservation des mesures en jours" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                <TextBlock Text="Une valeur de 0 conserve la famille sans limite de durée. Aucune suppression automatique : prévisualisez puis confirmez. La base est sauvegardée avant application." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                <TextBlock x:Name="LblStorageBackupSchedule" Text="État des sauvegardes : non calculé." TextWrapping="Wrap" Margin="0,0,0,14" ToolTip="Fréquence, prochaine sauvegarde, dernier succès vérifié et dernier échec de cette session." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="État des sauvegardes" AutomationProperties.HelpText="Fréquence, prochaine sauvegarde, dernier succès vérifié et dernier échec de cette session."/>
+                <TextBlock Text="Conservation par famille, en jours" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                <TextBlock Text="Une valeur de 0 conserve la famille sans limite de durée. Aucune suppression automatique : la prévisualisation annonce la perte de détail, puis vous confirmez. La base est sauvegardée avant application. Lʼhistorique des associations nʼest que résumé : chaque changement dʼutilisateur est gardé." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,0,0,10"/>
                 <WrapPanel>
-                  <StackPanel Margin="0,0,16,8"><TextBlock Text="Présence ping"/><TextBox x:Name="TxtStoragePresenceDays" Width="95" HorizontalAlignment="Left" AutomationProperties.Name="Conservation présence ping en jours"/></StackPanel>
-                  <StackPanel Margin="0,0,16,8"><TextBlock Text="Utilisateur connecté"/><TextBox x:Name="TxtStorageConsoleDays" Width="95" HorizontalAlignment="Left" AutomationProperties.Name="Conservation utilisateur connecté en jours"/></StackPanel>
-                  <StackPanel Margin="0,0,16,8"><TextBlock Text="Inventaire"/><TextBox x:Name="TxtStorageInventoryDays" Width="95" HorizontalAlignment="Left" AutomationProperties.Name="Conservation inventaire en jours"/></StackPanel>
-                  <StackPanel Margin="0,0,16,8"><TextBlock Text="Sondes"/><TextBox x:Name="TxtStorageProbeDays" Width="95" HorizontalAlignment="Left" AutomationProperties.Name="Conservation sondes en jours"/></StackPanel>
-                  <StackPanel Margin="0,0,16,8"><TextBlock Text="Détails"/><TextBox x:Name="TxtStorageDetailDays" Width="95" HorizontalAlignment="Left" AutomationProperties.Name="Conservation détails en jours"/></StackPanel>
+                  <StackPanel Margin="0,0,16,8"><TextBlock Text="Présence ping"/><TextBox x:Name="TxtStoragePresenceDays" Width="95" HorizontalAlignment="Left" ToolTip="Âge au-delà duquel le dernier relevé de présence ping dʼun poste peut être retiré. 0 conserve sans limite." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Conservation présence ping en jours" AutomationProperties.HelpText="Âge au-delà duquel le dernier relevé de présence ping dʼun poste peut être retiré. 0 conserve sans limite."/></StackPanel>
+                  <StackPanel Margin="0,0,16,8"><TextBlock Text="Utilisateur connecté"/><TextBox x:Name="TxtStorageConsoleDays" Width="95" HorizontalAlignment="Left" ToolTip="Âge au-delà duquel le dernier utilisateur connecté relevé peut être retiré. 0 conserve sans limite." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Conservation utilisateur connecté en jours" AutomationProperties.HelpText="Âge au-delà duquel le dernier utilisateur connecté relevé peut être retiré. 0 conserve sans limite."/></StackPanel>
+                  <StackPanel Margin="0,0,16,8"><TextBlock Text="Inventaire"/><TextBox x:Name="TxtStorageInventoryDays" Width="95" HorizontalAlignment="Left" ToolTip="Âge au-delà duquel le dernier inventaire léger dʼun poste peut être retiré. 0 conserve sans limite." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Conservation inventaire en jours" AutomationProperties.HelpText="Âge au-delà duquel le dernier inventaire léger dʼun poste peut être retiré. 0 conserve sans limite."/></StackPanel>
+                  <StackPanel Margin="0,0,16,8"><TextBlock Text="Sondes"/><TextBox x:Name="TxtStorageProbeDays" Width="95" HorizontalAlignment="Left" ToolTip="Âge au-delà duquel les résultats de sondes WMI peuvent être retirés. 0 conserve sans limite." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Conservation sondes en jours" AutomationProperties.HelpText="Âge au-delà duquel les résultats de sondes WMI peuvent être retirés. 0 conserve sans limite."/></StackPanel>
+                  <StackPanel Margin="0,0,16,8"><TextBlock Text="Détails"/><TextBox x:Name="TxtStorageDetailDays" Width="95" HorizontalAlignment="Left" ToolTip="Âge au-delà duquel les résultats détaillés peuvent être retirés. 0 conserve sans limite." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Conservation détails en jours" AutomationProperties.HelpText="Âge au-delà duquel les résultats détaillés peuvent être retirés. 0 conserve sans limite."/></StackPanel>
+                  <StackPanel Margin="0,0,16,8"><TextBlock Text="Historique des associations"/><TextBox x:Name="TxtStorageLinkHistoryDays" Width="95" HorizontalAlignment="Left" ToolTip="Âge au-delà duquel les observations identiques répétées de lʼhistorique des associations sont résumées ; chaque changement dʼutilisateur est gardé. 0 conserve tout." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Résumé de lʼhistorique des associations en jours" AutomationProperties.HelpText="Âge au-delà duquel les observations identiques répétées de lʼhistorique des associations sont résumées ; chaque changement dʼutilisateur est gardé. 0 conserve tout."/></StackPanel>
                 </WrapPanel>
                 <WrapPanel Margin="0,6,0,8">
-                  <Button x:Name="BtnStoragePolicySave" Content="Enregistrer les réglages" Margin="0,0,8,6"/>
-                  <Button x:Name="BtnStorageRetentionPreview" Content="Prévisualiser la conservation" Margin="0,0,8,6"/>
-                  <Button x:Name="BtnStorageRetentionApply" Content="Appliquer…" IsEnabled="False" Margin="0,0,8,6"/>
+                  <Button x:Name="BtnStoragePolicySave" Content="Enregistrer les réglages" Margin="0,0,8,6" ToolTip="Enregistre la fréquence des sauvegardes et la conservation par famille. Rien nʼest supprimé à lʼenregistrement." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Enregistrer les réglages de stockage" AutomationProperties.HelpText="Enregistre la fréquence des sauvegardes et la conservation par famille. Rien nʼest supprimé à lʼenregistrement."/>
+                  <Button x:Name="BtnStorageRetentionPreview" Content="Prévisualiser la conservation" Margin="0,0,8,6" ToolTip="Compte, sans rien supprimer, ce que la conservation retirerait par famille, et annonce la perte de détail." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Prévisualiser la conservation" AutomationProperties.HelpText="Compte, sans rien supprimer, ce que la conservation retirerait par famille, et annonce la perte de détail."/>
+                  <Button x:Name="BtnStorageRetentionApply" Content="Appliquer…" IsEnabled="False" Margin="0,0,8,6" ToolTip="Après la prévisualisation : sauvegarde vérifiée de la base, puis retrait des données annoncées. Confirmation demandée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Appliquer la conservation" AutomationProperties.HelpText="Après la prévisualisation : sauvegarde vérifiée de la base, puis retrait des données annoncées. Confirmation demandée."/>
                 </WrapPanel>
-                <TextBlock x:Name="LblStorageRetention" Text="Enregistrez les réglages puis prévisualisez les données concernées." TextWrapping="Wrap"/>
+                <TextBlock x:Name="LblStorageRetention" Text="Enregistrez les réglages puis prévisualisez les données concernées." TextWrapping="Wrap" ToolTip="Résultat de la prévisualisation ou de lʼapplication de la conservation, famille par famille." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Résultat de la conservation" AutomationProperties.HelpText="Résultat de la prévisualisation ou de lʼapplication de la conservation, famille par famille."/>
               </StackPanel>
             </Expander>
             <Expander x:Name="ExpStorageMaintenance" Header="Stockage local" Margin="0,0,0,12" IsExpanded="True">
               <StackPanel Margin="0,8,0,0">
                 <Button x:Name="BtnStorageUsage" Content="Mesurer" HorizontalAlignment="Left" MinHeight="32" Margin="0,0,0,6" ToolTip="Compte les lignes et mesure la base locale en lecture seule, sans contacter lʼannuaire ni les postes." AutomationProperties.Name="Mesurer le stockage local" AutomationProperties.HelpText="Mesure volontaire en arrière-plan ; aucune suppression." />
                 <TextBlock x:Name="LblStorageUsage" Text="Aucune mesure pour cette session." TextWrapping="Wrap" AutomationProperties.Name="Mesure du stockage local" />
+                <Button x:Name="BtnStorageIntegrity" Content="Contrôler lʼintégrité" HorizontalAlignment="Left" MinHeight="32" Margin="0,12,0,6" ToolTip="Contrôle la base en lecture seule : schéma, tables, identité, reçus, structure SQLite et journal. Aucune réparation automatique." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Contrôler lʼintégrité de la base locale" AutomationProperties.HelpText="Contrôle la base en lecture seule : schéma, tables, identité, reçus, structure SQLite et journal. Aucune réparation automatique." />
+                <TextBlock x:Name="LblStorageIntegrity" Text="Aucun contrôle dʼintégrité dans cette session." TextWrapping="Wrap" ToolTip="Résultat du dernier contrôle dʼintégrité de cette session." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Résultat du contrôle dʼintégrité" AutomationProperties.HelpText="Résultat du dernier contrôle dʼintégrité de cette session." />
+                <TextBlock Text="Limites du stockage" FontWeight="SemiBold" Margin="0,16,0,8" />
+                <TextBlock x:Name="LblStorageLimits" Text="Limites non calculées." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" ToolTip="Limites explicites de mémoire, de disque et de conservation du stockage local." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Limites du stockage local" AutomationProperties.HelpText="Limites explicites de mémoire, de disque et de conservation du stockage local." />
                 <TextBlock Text="Purge volontaire" FontWeight="SemiBold" Margin="0,16,0,8" />
                 <CheckBox x:Name="ChkStoragePurgeObservations" Content="Toutes les observations et les relevés du parc" Margin="0,0,0,8" ToolTip="Données reconstructibles ; associations conservées." AutomationProperties.Name="Purger les observations" />
                 <CheckBox x:Name="ChkStoragePurgeSnapshots" Content="Tous les instantanés de recherche" Margin="0,0,0,8" ToolTip="Résultats déjà lus ; aucune suppression dans AD." AutomationProperties.Name="Purger les instantanés" />
@@ -8869,9 +8928,11 @@ function Clear-ObjectDetails {
         "TxtUserStreet","TxtUserCity","TxtUserState2","TxtUserPostalCode","TxtUserCountry",
         "TxtUserHomePhone","TxtUserMobile","TxtUserFax","TxtUserIpPhone","TxtUserWebPage",
         "TxtUserEmployeeId","TxtUserProfilePath","TxtUserScriptPath","TxtUserHomeDirectory",
-        "TxtUserHomeDrive","TxtUserWorkstations","TxtCompName","TxtCompDns","TxtCompOs","TxtCompOsVersion","TxtCompDescription","TxtCompLocation","TxtCompManagedBy","TxtCompState","TxtCompLastLogon","TxtCompUac","TxtCompLinkedUser","TxtCompLinkSource","TxtGroupName","TxtGroupDescription")) {
+        "TxtUserHomeDrive","TxtUserWorkstations","TxtCompName","TxtCompDns","TxtCompOs","TxtCompOsVersion","TxtCompDescription","TxtCompLocation","TxtCompManagedBy","TxtCompState","TxtCompLastLogon","TxtCompUac","TxtCompLinkedUser","TxtCompLinkSource","TxtGroupName","TxtGroupDescription","TxtUserLogonByDc","TxtCompLogonByDc")) {
         try { $script:Ctrl[$name].Text = "" } catch { }
     }
+    # Point 27: the per-controller read waits for the next object (Z02: a missing control is skipped, never swallowed).
+    foreach ($name in @("BtnUserLogonByDc","BtnCompLogonByDc")) { $button = $script:Ctrl[$name]; if ($null -ne $button) { $button.IsEnabled = $false } }
     Update-DomeniaUserSupportBand -Entry $null
     Set-DomeniaManagerField -Target 'Utilisateur' -Dn ''
     Set-DomeniaManagerField -Target 'Machine' -Dn ''
@@ -9154,6 +9215,8 @@ function Fill-UserObject {
     Set-DomeniaManagerField -Target 'Utilisateur' -Dn ([string](Get-DeProp $Entry "manager" ""))
     $script:Ctrl["TxtUserState"].Text = Get-UacStatusLabel $uac $lockout (Get-DeProp $entry "msDS-User-Account-Control-Computed" $null)
     $script:Ctrl["TxtUserLastLogon"].Text = Convert-FileTimeLabel (Get-DeProp $Entry "lastLogonTimestamp" 0)
+    # Point 27: what this approximate date means, and an explicit per-controller read of lastLogon.
+    if (${function:Update-DomeniaLogonActivityPanel}) { Update-DomeniaLogonActivityPanel -Kind User -Entry $Entry }
     $script:Ctrl["TxtUserPwdLastSet"].Text = Convert-FileTimeLabel (Get-DeProp $Entry "pwdLastSet" 0)
     $script:Ctrl["TxtUserExpires"].Text = Convert-FileTimeLabel (Get-DeProp $Entry "accountExpires" 0)
     $script:Ctrl["TxtUserUac"].Text = Get-UacFlagsLabel $uac
@@ -9262,6 +9325,7 @@ function Fill-ComputerObject {
     Set-DomeniaManagerField -Target 'Machine' -Dn ([string](Get-DeProp $Entry "managedBy" ""))
     $script:Ctrl["TxtCompState"].Text = Get-UacStatusLabel $uac 0
     $script:Ctrl["TxtCompLastLogon"].Text = Convert-FileTimeLabel (Get-DeProp $Entry "lastLogonTimestamp" 0)
+    if (${function:Update-DomeniaLogonActivityPanel}) { Update-DomeniaLogonActivityPanel -Kind Computer -Entry $Entry }
     $script:Ctrl["TxtCompUac"].Text = Get-UacFlagsLabel $uac
     $script:Ctrl["TxtCompNewName"].Text = [string](Get-DeProp $Entry "name" "")
     try {
@@ -13469,7 +13533,7 @@ $DomeniaCollectedResult = & {
 $rows = New-Object Collections.ArrayList
 $access = New-Object Collections.ArrayList
 # Numbers for the workstation dashboard (decision David 2026-10-07); the rows stay the textual inventory.
-$metrics = [pscustomobject]@{ MemoryTotal=0.0; MemoryFree=0.0; LastBoot=''; CpuLoad=-1.0; Battery=-1.0; ClockSkewSeconds=$null; ClockReference=''; Disks=(New-Object Collections.ArrayList); Hotfixes=(New-Object Collections.ArrayList); Processes=(New-Object Collections.ArrayList); Services=@{} }
+$metrics = [pscustomobject]@{ MemoryTotal=0.0; MemoryFree=0.0; MemorySource=''; MemorySlots=-1; MemoryModules=-1; LastBoot=''; CpuLoad=-1.0; Battery=-1.0; ClockSkewSeconds=$null; ClockReference=''; LogicalProcessors=0; Disks=(New-Object Collections.ArrayList); Hotfixes=(New-Object Collections.ArrayList); Processes=(New-Object Collections.ArrayList); ProcessSample=$null; Certificates=$null; Services=@{} }
 $computer = [string]$Payload.Computer
 $deep = [bool]$Payload.Deep
 $cred = Get-WMachineCredential $Context
@@ -13720,6 +13784,34 @@ function Get-RegSubKeys {
     if ([int]$r.ReturnValue -ne 0) { return @() }
     return @($r.sNames)
 }
+function Get-RegSubKeyRead {
+    # EnumKey with its return code: 0 = read, 2 = key absent (nothing to list); any other code (5 = access denied)
+    # means the key was not read and must never be reported as empty.
+    param([uint32]$Hive,[string]$Key)
+    Assert-WCredentialAllowed -Context $Context -Channel Remote
+    $session = $script:PrimarySession
+    try{$r = Invoke-CimMethod -CimSession $session -Namespace 'root\cimv2' -ClassName 'StdRegProv' -MethodName 'EnumKey' -Arguments @{ hDefKey=$Hive; sSubKeyName=$Key } -ErrorAction Stop}catch{[void](Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote);throw}
+    return [pscustomobject]@{ Code=[int]$r.ReturnValue; Names=@(@($r.sNames) | Where-Object { $null -ne $_ }) }
+}
+function Get-RegMultiString {
+    # REG_MULTI_SZ read by StdRegProv; $null when the value is absent or not readable.
+    param([uint32]$Hive,[string]$Key,[string]$Name)
+    Assert-WCredentialAllowed -Context $Context -Channel Remote
+    $session = $script:PrimarySession
+    try{$r = Invoke-CimMethod -CimSession $session -Namespace 'root\cimv2' -ClassName 'StdRegProv' -MethodName 'GetMultiStringValue' -Arguments @{ hDefKey=$Hive; sSubKeyName=$Key; sValueName=$Name } -ErrorAction Stop}catch{[void](Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote);throw}
+    if ([int]$r.ReturnValue -ne 0) { return $null }
+    $values = @(@($r.sValue) | Where-Object { $null -ne $_ } | ForEach-Object { [string]$_ })
+    return ,([string[]]$values)
+}
+function Get-RegBinary {
+    # REG_BINARY read by StdRegProv; $null when the value is absent or not readable.
+    param([uint32]$Hive,[string]$Key,[string]$Name)
+    Assert-WCredentialAllowed -Context $Context -Channel Remote
+    $session = $script:PrimarySession
+    try{$r = Invoke-CimMethod -CimSession $session -Namespace 'root\cimv2' -ClassName 'StdRegProv' -MethodName 'GetBinaryValue' -Arguments @{ hDefKey=$Hive; sSubKeyName=$Key; sValueName=$Name } -ErrorAction Stop}catch{[void](Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote);throw}
+    if (([int]$r.ReturnValue -ne 0) -or ($null -eq $r.uValue)) { return $null }
+    return ,([byte[]]@($r.uValue))
+}
 function Test-RegKey {
     param([uint32]$Hive,[string]$Key)
     try {
@@ -13801,6 +13893,7 @@ try {
             Add-Item 'Systeme' 'Modele' $cs.Model 'Win32_ComputerSystem'
             Add-Item 'Systeme' 'Memoire physique totale' (Format-Size $cs.TotalPhysicalMemory) 'Win32_ComputerSystem'
             Add-Item 'Systeme' 'Processeurs logiques' $cs.NumberOfLogicalProcessors 'Win32_ComputerSystem'
+            try { if ([int]$cs.NumberOfLogicalProcessors -gt 0) { $metrics.LogicalProcessors = [int]$cs.NumberOfLogicalProcessors } } catch { }
             Add-Item 'Systeme' 'Utilisateur connecte' $cs.UserName 'Win32_ComputerSystem'
             Add-Item 'Systeme' 'Role dans le domaine' $cs.DomainRole 'Win32_ComputerSystem'
             Add-Item 'Systeme' 'Type de systeme' $cs.SystemType 'Win32_ComputerSystem'
@@ -13824,18 +13917,19 @@ try {
             Add-Item 'BIOS et firmware' 'Date' (Get-CimDate $b.ReleaseDate) 'Win32_BIOS'
             Add-Item 'BIOS et firmware' 'Numero de serie' $b.SerialNumber 'Win32_BIOS'
         }
-        $secureBoot = ''
-        try { $secureBoot = Get-RegString $HKLM 'SYSTEM\CurrentControlSet\Control\SecureBoot\State' 'UEFISecureBootEnabled' } catch { }
-        if ([string]::IsNullOrWhiteSpace($secureBoot)) {
+        # Point 99: UEFISecureBootEnabled is a DWORD written by Windows at boot; it is read, never inferred.
+        $secureBoot = $null
+        try { $secureBoot = Get-RegDword $HKLM 'SYSTEM\CurrentControlSet\Control\SecureBoot\State' 'UEFISecureBootEnabled' } catch { }
+        if ($null -eq $secureBoot) {
             $present = Test-RegKey $HKLM 'SYSTEM\CurrentControlSet\Control\SecureBoot\State'
-            $label = 'Non expose'
+            $label = 'Non expose (BIOS herite ou systeme sans Secure Boot)'
             if ($present) { $label = 'Cle presente, valeur non lisible' }
-            Add-Item 'BIOS et firmware' 'Secure Boot' $label 'Registre SecureBoot'
+            Add-Item 'BIOS et firmware' 'Secure Boot' $label 'Registre SecureBoot\State'
         }
         else {
             $label = 'Desactive'
-            if ($secureBoot -eq '1') { $label = 'Active' }
-            Add-Item 'BIOS et firmware' 'Secure Boot' $label 'Registre SecureBoot'
+            if ([int]$secureBoot -eq 1) { $label = 'Active' }
+            Add-Item 'BIOS et firmware' 'Secure Boot' $label 'Registre SecureBoot\State'
         }
         $firmware = 'BIOS herite'
         try {
@@ -13882,12 +13976,27 @@ try {
             $value = $size + ' a ' + $speed + ' MHz, emplacement ' + $slot
             Add-Item 'Memoire' $label $value 'Win32_PhysicalMemory'
         }
-        if ($index -gt 0) { Add-Item 'Memoire' 'Total installe' (Format-Size $total) 'Win32_PhysicalMemory'; $metrics.MemoryTotal = [double]$total }
+        if ($index -gt 0) { Add-Item 'Memoire' 'Total installe' (Format-Size $total) 'Win32_PhysicalMemory'; $metrics.MemoryTotal = [double]$total; $metrics.MemorySource = 'Barrettes' }
+        $metrics.MemoryModules = $index
+        # Point 81: slots and firmware maximum from the SMBIOS memory arrays; a missing table leaves them unknown.
+        # Only system memory arrays (Use 3) count: a video, flash or NVRAM array declares no RAM slot.
+        try {
+            $slots = 0; $maximum = 0.0; $slotsKnown = $true; $maximumKnown = $true; $arrays = 0
+            foreach ($array in (Get-Cim 'Win32_PhysicalMemoryArray')) {
+                if (($null -ne $array.Use) -and ([int]$array.Use -ne 3)) { continue }
+                $arrays++
+                if (($null -eq $array.MemoryDevices) -or ([int]$array.MemoryDevices -le 0)) { $slotsKnown = $false } else { $slots += [int]$array.MemoryDevices }
+                if (($null -eq $array.MaxCapacityEx) -or ([double]$array.MaxCapacityEx -le 0)) { $maximumKnown = $false } else { $maximum += [double]$array.MaxCapacityEx * 1024 }
+            }
+            if (($arrays -gt 0) -and $slotsKnown) { Add-Item 'Memoire' 'Emplacements' ([string]$slots + ' emplacement(s), ' + [string]$index + ' occupe(s)') 'Win32_PhysicalMemoryArray'; $metrics.MemorySlots = $slots }
+            if (($arrays -gt 0) -and $maximumKnown) { Add-Item 'Memoire' 'Capacite maximale declaree' (Format-Size $maximum) 'Win32_PhysicalMemoryArray' }
+        } catch { if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw} }
         foreach ($os in (Get-Cim 'Win32_OperatingSystem')) {
             Add-Item 'Memoire' 'Memoire libre' (Format-Size ([double]$os.FreePhysicalMemory * 1024)) 'Win32_OperatingSystem'
+            Add-Item 'Memoire' 'Memoire visible par Windows' (Format-Size ([double]$os.TotalVisibleMemorySize * 1024)) 'Win32_OperatingSystem'
             try { $metrics.MemoryFree = [double]$os.FreePhysicalMemory * 1024 } catch { }
-            # Virtual machines expose no memory module: the visible memory of the system gives the total.
-            if ($metrics.MemoryTotal -le 0) { try { $metrics.MemoryTotal = [double]$os.TotalVisibleMemorySize * 1024 } catch { } }
+            # Virtual machines expose no memory module: the visible memory of the system gives the total, and says so.
+            if ($metrics.MemoryTotal -le 0) { try { $metrics.MemoryTotal = [double]$os.TotalVisibleMemorySize * 1024; $metrics.MemorySource = 'Visible' } catch { } }
         }
         foreach ($pf in (Get-Cim 'Win32_PageFileUsage')) {
             $value = 'taille ' + [string]$pf.AllocatedBaseSize + ' Mo, pic ' + [string]$pf.PeakUsage + ' Mo'
@@ -13979,13 +14088,18 @@ try {
         }
         try {
             foreach ($pd in (Get-Cim 'MSFT_PhysicalDisk' 'root\Microsoft\Windows\Storage')) {
-                $media = 'Inconnu'
+                $media = 'Type non precise'
                 if ([int]$pd.MediaType -eq 3) { $media = 'HDD' }
                 elseif ([int]$pd.MediaType -eq 4) { $media = 'SSD' }
-                $health = 'Sain'
-                if ([int]$pd.HealthStatus -eq 1) { $health = 'Avertissement' }
-                elseif ([int]$pd.HealthStatus -eq 2) { $health = 'Defaillant' }
-                Add-Item 'Disques physiques' ('Support ' + [string]$pd.DeviceId) ($media + ', etat ' + $health) 'MSFT_PhysicalDisk'
+                # Point 83: only the codes 0, 1 and 2 are states; an absent or unknown code is never 'Sain'.
+                $health = 'inconnu'
+                if ($null -ne $pd.HealthStatus) {
+                    if ([int]$pd.HealthStatus -eq 0) { $health = 'Sain' }
+                    elseif ([int]$pd.HealthStatus -eq 1) { $health = 'Avertissement' }
+                    elseif ([int]$pd.HealthStatus -eq 2) { $health = 'Defaillant' }
+                    else { $health = 'inconnu (code ' + [string]$pd.HealthStatus + ')' }
+                }
+                Add-Item 'Disques physiques' ('Support ' + [string]$pd.DeviceId) ($media + ', etat ' + $health + ' selon le pilote') 'MSFT_PhysicalDisk'
             }
         }
         catch { }
@@ -13999,6 +14113,12 @@ try {
             $label = 'Volume ' + [string]$v.DriveLetter
             Add-Item 'BitLocker' $label ('Protection ' + $protection) 'Win32_EncryptableVolume'
             Add-Item 'BitLocker' ($label + ' methode') $v.EncryptionMethod 'Win32_EncryptableVolume'
+            # Point 99: encrypted and protected are two facts; an encrypted volume may have its protection suspended.
+            $conversion = 'Non renseigne'
+            if ($null -ne $v.ConversionStatus) {
+                switch ([int]$v.ConversionStatus) { 0 { $conversion = 'Non chiffre' } 1 { $conversion = 'Entierement chiffre' } 2 { $conversion = 'Chiffrement en cours' } 3 { $conversion = 'Dechiffrement en cours' } 4 { $conversion = 'Chiffrement en pause' } 5 { $conversion = 'Dechiffrement en pause' } default { $conversion = 'Code ' + [string]$v.ConversionStatus } }
+            }
+            Add-Item 'BitLocker' ($label + ' chiffrement') $conversion 'Win32_EncryptableVolume'
         }
     }
 
@@ -14059,7 +14179,22 @@ try {
             $state = 'Desactive'
             if ([int]$value -eq 1) { $state = 'Active' }
             Add-Item 'Pare-feu' ([string]$profile.Label) ($state + ' (' + $origin + ')') 'Registre FirewallPolicy'
+            if (($null -ne $policyValue) -and ($null -ne $localValue) -and ([int]$policyValue -ne [int]$localValue)) {
+                $localText = 'desactive'
+                if ([int]$localValue -eq 1) { $localText = 'active' }
+                Add-Item 'Pare-feu' ([string]$profile.Label + ' reglage local') ('Reglage local ' + $localText + ', remplace par la strategie') 'Registre SharedAccess FirewallPolicy'
+            }
         }
+        # Point 98: the category of each active connection names the profile Windows applies to it.
+        try {
+            foreach ($connection in (Get-Cim 'MSFT_NetConnectionProfile' 'root\StandardCimv2')) {
+                $category = 'Categorie ' + [string]$connection.NetworkCategory
+                if (([string]$connection.NetworkCategory -eq '2') -or ([string]$connection.NetworkCategory -eq 'DomainAuthenticated')) { $category = 'Domaine' }
+                elseif (([string]$connection.NetworkCategory -eq '1') -or ([string]$connection.NetworkCategory -eq 'Private')) { $category = 'Prive' }
+                elseif (([string]$connection.NetworkCategory -eq '0') -or ([string]$connection.NetworkCategory -eq 'Public')) { $category = 'Public' }
+                Add-Item 'Pare-feu' ('Profil applique a ' + [string]$connection.InterfaceAlias) ($category + ' (reseau ' + [string]$connection.Name + ')') 'MSFT_NetConnectionProfile'
+            }
+        } catch { if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw} }
     }
 
     Invoke-Collector 'Antivirus' {
@@ -14105,6 +14240,10 @@ try {
         $wsus = ''
         try { $wsus = Get-RegString $HKLM 'SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate' 'WUServer' } catch { }
         if (-not [string]::IsNullOrWhiteSpace($wsus)) { Add-Item 'Windows Update' 'Serveur WSUS' $wsus 'Registre WindowsUpdate' }
+        # Point 92: a WSUS address without UseWUServer=1 is not used by the update client.
+        $useWsus = $null
+        try { $useWsus = Get-RegDword $HKLM 'SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' 'UseWUServer' } catch { }
+        if ($null -ne $useWsus) { Add-Item 'Windows Update' 'Strategie WSUS appliquee' $(if ([int]$useWsus -eq 1) { 'Oui' } else { 'Non' }) 'Registre WindowsUpdate\AU' }
     }
 
     Invoke-Collector 'Logiciels installes' {
@@ -14190,13 +14329,25 @@ try {
     }
 
     Invoke-Collector 'Services en defaut' {
-        $stopped = @(Get-Cim 'Win32_Service' 'root\cimv2' 'StartMode="Auto" AND State="Stopped"')
+        $allServices = @(Get-Cim 'Win32_Service')
+        $stateByName = @{}
+        foreach ($service in $allServices) { $stateByName[([string]$service.Name).ToLowerInvariant()] = [string]$service.State }
+        $stopped = @($allServices | Where-Object { ([string]$_.StartMode -eq 'Auto') -and ([string]$_.State -eq 'Stopped') })
         foreach ($s in (@($stopped) | Select-Object -First 40)) {
-            Add-Item 'Services en defaut' $s.DisplayName ('Demarrage automatique mais arrete. Nom : ' + [string]$s.Name) 'Win32_Service'
+            # Point 94: declared dependencies (registry DependOnService) and their state, read only.
+            $dependencies = ''
+            try {
+                $depends = Get-RegMultiString $HKLM ('SYSTEM\CurrentControlSet\Services\' + [string]$s.Name) 'DependOnService'
+                $parts = @(foreach ($name in @($depends | Select-Object -First 8)) { if ([string]::IsNullOrWhiteSpace($name)) { continue }; $state = $stateByName[([string]$name).ToLowerInvariant()]; if (-not $state) { $state = 'pilote ou groupe' }; [string]$name + ' (' + $state + ')' })
+                if ($parts.Count) { $dependencies = ' Depend de : ' + ($parts -join ', ') + '.' }
+            } catch { if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw} }
+            $exit = ''
+            if (($null -ne $s.ExitCode) -and ([int]$s.ExitCode -ne 0) -and ([int]$s.ExitCode -ne 1077)) { $exit = ' Code de sortie ' + [string]$s.ExitCode + '.' }
+            Add-Item 'Services en defaut' $s.DisplayName ('Demarrage automatique mais arrete.' + $exit + $dependencies + ' Nom : ' + [string]$s.Name) 'Win32_Service'
         }
         if (@($stopped).Count -eq 0) { Add-Item 'Services en defaut' 'Etat' 'Aucun service automatique arrete' 'Win32_Service' }
-        # Distribution of all services for the dashboard ring (one more CIM read of the same class).
-        foreach ($service in @(Get-Cim 'Win32_Service')) {
+        # Distribution of all services for the dashboard ring, from the same read.
+        foreach ($service in $allServices) {
             $key = if ([string]$service.StartMode -eq 'Disabled') { 'Desactives' } elseif ([string]$service.State -eq 'Running') { 'En cours' } elseif ([string]$service.StartMode -eq 'Auto') { 'Arretes (automatiques)' } else { 'Arretes (manuels)' }
             $metrics.Services[$key] = 1 + [int]$metrics.Services[$key]
         }
@@ -14299,28 +14450,77 @@ try {
     }
 
     Invoke-Collector 'Redemarrage en attente' {
-        $reasons = New-Object Collections.ArrayList
+        # Point 93: one row per indicator with its source. Confirmed: servicing, Windows Update or a computer rename
+        # waits for a restart. Partial: hints often left by installers, not an obligation on their own.
+        $confirmed = New-Object Collections.ArrayList
+        $partial = New-Object Collections.ArrayList
+        $unread = 0
         foreach ($c in @(
-            @{ Key='SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending'; Label='Maintenance de composants' },
-            @{ Key='SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'; Label='Windows Update' },
-            @{ Key='SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootInProgress'; Label='Maintenance en cours' }
+            @{ Key='SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending'; Label='Maintenance des composants (CBS)'; Kind='Confirme' },
+            @{ Key='SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'; Label='Windows Update'; Kind='Confirme' },
+            @{ Key='SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootInProgress'; Label='Maintenance CBS en cours'; Kind='Partiel' },
+            @{ Key='SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\PackagesPending'; Label='Paquets CBS en attente'; Kind='Partiel' },
+            @{ Key='SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\PostRebootReporting'; Label='Rapport Windows Update apres redemarrage'; Kind='Partiel' },
+            @{ Key='SYSTEM\CurrentControlSet\Services\Netlogon\JoinDomain'; Label='Jonction au domaine en attente'; Kind='Partiel' }
         )) {
-            if (Test-RegKey $HKLM ([string]$c.Key)) { [void]$reasons.Add([string]$c.Label) }
+            $present = Test-RegKey $HKLM ([string]$c.Key)
+            if ($present) { if ([string]$c.Kind -eq 'Confirme') { [void]$confirmed.Add([string]$c.Label) } else { [void]$partial.Add([string]$c.Label) } }
+            Add-Item 'Redemarrage en attente' ([string]$c.Label) $(if ($present) { 'Present (' + $(if ([string]$c.Kind -eq 'Confirme') { 'obligation confirmee' } else { 'indice partiel' }) + ')' } else { 'Absent' }) ('Registre HKLM\' + [string]$c.Key)
         }
-        $pendingRename = ''
-        try { $pendingRename = Get-RegString $HKLM 'SYSTEM\CurrentControlSet\Control\Session Manager' 'PendingFileRenameOperations' } catch { }
-        if (-not [string]::IsNullOrWhiteSpace($pendingRename)) { [void]$reasons.Add('Renommage de fichiers en attente') }
-        if (@($reasons).Count -eq 0) { Add-Item 'Redemarrage en attente' 'Etat' 'Aucun redemarrage en attente' 'Registre' }
-        else { Add-Item 'Redemarrage en attente' 'Etat' ('Redemarrage requis : ' + (@($reasons) -join ', ')) 'Registre' }
+        $renames = $null
+        try { $renames = Get-RegMultiString $HKLM 'SYSTEM\CurrentControlSet\Control\Session Manager' 'PendingFileRenameOperations' } catch { $unread++ }
+        $operations = @(@($renames) | Where-Object { [string]$_ -like '\??\*' }).Count
+        if ($operations -gt 0) { [void]$partial.Add('Renommages de fichiers en attente') }
+        Add-Item 'Redemarrage en attente' 'Renommages de fichiers en attente' $(if ($operations -gt 0) { 'Present (indice partiel) : ' + [string]$operations + ' operation(s)' } elseif (($null -eq $renames) -and ($unread -gt 0)) { 'Non lu' } else { 'Absent' }) 'Registre Session Manager\PendingFileRenameOperations'
+        $active = ''; $pendingName = ''
+        try { $active = Get-RegString $HKLM 'SYSTEM\CurrentControlSet\Control\ComputerName\ActiveComputerName' 'ComputerName' } catch { }
+        try { $pendingName = Get-RegString $HKLM 'SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName' 'ComputerName' } catch { }
+        if (($active) -and ($pendingName)) {
+            $renamed = ($active -ine $pendingName)
+            if ($renamed) { [void]$confirmed.Add('Renommage du poste') }
+            Add-Item 'Redemarrage en attente' 'Renommage du poste' $(if ($renamed) { 'Present (obligation confirmee) : ' + $active + ' deviendra ' + $pendingName } else { 'Absent' }) 'Registre ComputerName'
+        }
+        else { Add-Item 'Redemarrage en attente' 'Renommage du poste' 'Non lu' 'Registre ComputerName' }
+        $volatile = $null
+        try { $volatile = Get-RegDword $HKLM 'SOFTWARE\Microsoft\Updates' 'UpdateExeVolatile' } catch { }
+        if (($null -ne $volatile) -and ([int]$volatile -ne 0)) { [void]$partial.Add('Mise a jour en cours (UpdateExeVolatile)') }
+        Add-Item 'Redemarrage en attente' 'Mise a jour en cours (UpdateExeVolatile)' $(if (($null -ne $volatile) -and ([int]$volatile -ne 0)) { 'Present (indice partiel)' } else { 'Absent' }) 'Registre Updates\UpdateExeVolatile'
+        if (@($confirmed).Count -gt 0) { Add-Item 'Redemarrage en attente' 'Etat' ('Redemarrage requis : ' + (@($confirmed) -join ', ') + $(if (@($partial).Count) { ' ; indices partiels : ' + (@($partial) -join ', ') } else { '' })) 'Registre' }
+        elseif (@($partial).Count -gt 0) { Add-Item 'Redemarrage en attente' 'Etat' ('Indices partiels seulement : ' + (@($partial) -join ', ')) 'Registre' }
+        else { Add-Item 'Redemarrage en attente' 'Etat' 'Aucun redemarrage en attente' 'Registre' }
     }
 
     if ($deep) {
         Invoke-Collector 'Processus' {
-            foreach ($p in (@(Get-Cim 'Win32_Process') | Sort-Object WorkingSetSize -Descending | Select-Object -First 12)) {
+            # Point 95: two reads of the same class over a bounded interval give the processor time used meanwhile.
+            # The query projects times, sizes and names only: no command line or argument is read on the workstation.
+            # The idle pseudo-process (PID 0) holds the unused processor time: it is never sampled as a consumer.
+            $processQuery = 'SELECT ProcessId,Name,CreationDate,KernelModeTime,UserModeTime,WorkingSetSize FROM Win32_Process WHERE ProcessId <> 0'
+            $sampleWatch = [System.Diagnostics.Stopwatch]::StartNew()
+            $firstRead = @(Get-Cim '' 'root\cimv2' '' $processQuery)
+            $firstMs = [long]$sampleWatch.ElapsedMilliseconds
+            $intervalMs = 2000
+            if ($null -ne $Payload.PSObject.Properties['ProcessSampleMs']) { $intervalMs = [Math]::Max(1000,[Math]::Min(5000,[int]$Payload.ProcessSampleMs)) }
+            Start-Sleep -Milliseconds $intervalMs
+            $secondRead = @(Get-Cim '' 'root\cimv2' '' $processQuery)
+            $secondMs = [long]$sampleWatch.ElapsedMilliseconds
+            $sampledUtc = [datetime]::UtcNow.ToString('o')
+            $before = @{}
+            foreach ($p in $firstRead) { try { $before[[string]$p.ProcessId] = [pscustomobject]@{ Time=([double]$p.KernelModeTime + [double]$p.UserModeTime); Created=[string]$p.CreationDate } } catch { } }
+            $items = New-Object Collections.ArrayList
+            foreach ($p in @($secondRead | Select-Object -First 600)) {
+                if ([long]$p.ProcessId -eq 0) { continue }
+                $previous = $before[[string]$p.ProcessId]
+                $time = $null; try { $time = [double]$p.KernelModeTime + [double]$p.UserModeTime } catch { }
+                [void]$items.Add([pscustomobject]@{ Pid=[long]$p.ProcessId; Name=[string]$p.Name; FirstTime=$(if (($null -ne $previous) -and ([string]$previous.Created -eq [string]$p.CreationDate)) { $previous.Time } else { $null }); SecondTime=$time; WorkingSet=$(try { [double]$p.WorkingSetSize } catch { $null }) })
+            }
+            $metrics.ProcessSample = [pscustomobject]@{ IntervalMs=($secondMs - $firstMs); SampledUtc=$sampledUtc; LogicalProcessors=[int]$metrics.LogicalProcessors; FirstCount=$firstRead.Count; SecondCount=$secondRead.Count; Truncated=($secondRead.Count -gt 600); Items=@($items) }
+            Add-Item 'Processus' 'Mesure de charge' ('Deux lectures a ' + [string]($secondMs - $firstMs) + ' ms d intervalle, terminees le ' + (Get-CimDate ([datetime]::Now))) 'Win32_Process'
+            foreach ($p in (@($secondRead) | Sort-Object WorkingSetSize -Descending | Select-Object -First 12)) {
                 Add-Item 'Processus' ([string]$p.Name + ' (PID ' + [string]$p.ProcessId + ')') (Format-Size $p.WorkingSetSize) 'Win32_Process'
                 try { [void]$metrics.Processes.Add([pscustomobject]@{ Name=[string]$p.Name; Mb=[Math]::Round([double]$p.WorkingSetSize / 1MB) }) } catch { }
             }
-        } 12000
+        } 20000
 
         Invoke-Collector 'Evenements systeme' {
             $since = (Get-Date).AddDays(-3)
@@ -14336,18 +14536,77 @@ try {
         } 30000
 
         Invoke-Collector 'Taches planifiees' {
+            # Point 96: author, last run, last result and missed runs of the non-Microsoft tasks, by the read-only
+            # Get-ScheduledTaskInfo in the same WinRM round trip. Actions, arguments and principals are never read.
             $tasks = Invoke-Remote -TimeoutSeconds 30 -ScriptBlock {
                 Get-ScheduledTask -ErrorAction SilentlyContinue |
-                    Where-Object { $_.State -ne 'Disabled' -and $_.TaskPath -notlike '\Microsoft\*' } |
-                    Select-Object TaskName,TaskPath,State
+                    Where-Object { ($_.State -ne 'Disabled') -and ($_.TaskPath -notlike '\Microsoft\*') } |
+                    Select-Object -First 40 |
+                    ForEach-Object {
+                        $info = $null
+                        try { $info = $_ | Get-ScheduledTaskInfo -ErrorAction Stop } catch { $info = $null }
+                        [pscustomobject]@{ TaskName = [string]$_.TaskName; TaskPath = [string]$_.TaskPath; State = [string]$_.State; Author = [string]$_.Author; InfoRead = ($null -ne $info); LastRunTime = $(if ($null -ne $info) { $info.LastRunTime } else { $null }); LastTaskResult = $(if ($null -ne $info) { $info.LastTaskResult } else { $null }); MissedRuns = $(if ($null -ne $info) { $info.NumberOfMissedRuns } else { $null }) }
+                    }
             }
             foreach ($t in (@($tasks) | Select-Object -First 40)) {
-                Add-Item 'Taches planifiees' ([string]$t.TaskName) ([string]$t.TaskPath + ' etat ' + [string]$t.State) 'Get-ScheduledTask via WinRM'
+                $author = [string]$t.Author; if ([string]::IsNullOrWhiteSpace($author)) { $author = 'non declare' }
+                $run = 'non lue'; $result = 'non lu'; $missed = ''
+                if ([bool]$t.InfoRead) {
+                    $run = 'jamais'
+                    try { $last = [datetime]$t.LastRunTime; if ($last.Year -ge 2000) { $run = $last.ToString('dd/MM/yyyy HH:mm') } } catch { $run = 'illisible' }
+                    try { if ($null -ne $t.LastTaskResult) { $result = '0x' + ([uint32]([int64]$t.LastTaskResult -band 0xFFFFFFFFL)).ToString('X') } } catch { $result = 'illisible' }
+                    try { if ([int]$t.MissedRuns -gt 0) { $missed = ' ; executions manquees ' + [string][int]$t.MissedRuns } } catch { }
+                }
+                Add-Item 'Taches planifiees' ([string]$t.TaskName) ([string]$t.TaskPath + ' etat ' + [string]$t.State + ' ; auteur ' + $author + ' ; derniere execution ' + $run + ' ; resultat ' + $result + $missed) 'Get-ScheduledTask et Get-ScheduledTaskInfo via WinRM'
             }
             if (@($tasks).Count -eq 0) { Add-Item 'Taches planifiees' 'Etat' 'Aucune tache hors Microsoft active' 'Get-ScheduledTask via WinRM' }
         } 35000
 
         Invoke-Collector 'Certificats machine' {
+            # Point 100: the Personal store of the computer only, read in the registry by StdRegProv. Each Blob holds the
+            # certificate (property 32) and its properties; private keys are stored elsewhere and are never read.
+            $storeKey = 'SOFTWARE\Microsoft\SystemCertificates\MY\Certificates'
+            $registryRead = $false
+            $truncated = ''
+            $thumbprints = @()
+            $found = New-Object Collections.ArrayList
+            try {
+                # Return code 0: store listed; 2: no certificate key, a true empty store; any other code: not read,
+                # the WinRM path below is tried instead of reporting an empty store.
+                $enum = Get-RegSubKeyRead $HKLM $storeKey
+                if ($enum.Code -eq 0) { $thumbprints = @($enum.Names); $registryRead = $true }
+                elseif ($enum.Code -eq 2) { $registryRead = $true }
+                foreach ($thumbprint in @($thumbprints | Select-Object -First 50)) {
+                    if (-not (Test-CollectorBudget)) { $truncated = 'Lecture arretee : budget de la source atteint.'; Set-CollectorTruncated $truncated; break }
+                    $blob = $null
+                    try { $blob = Get-RegBinary $HKLM ($storeKey + '\' + [string]$thumbprint) 'Blob' } catch { if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw} }
+                    if ($null -eq $blob) { continue }
+                    $der = $null; $keyDeclared = $false; $offset = 0
+                    while ($offset + 12 -le $blob.Length) {
+                        $propertyId = [BitConverter]::ToUInt32($blob,$offset); $length = [BitConverter]::ToUInt32($blob,$offset + 8)
+                        if ($length -gt ($blob.Length - $offset - 12)) { break }
+                        if ($propertyId -eq 2) { $keyDeclared = $true }
+                        if ($propertyId -eq 32) { $der = New-Object byte[] $length; [Array]::Copy($blob,$offset + 12,$der,0,$length) }
+                        $offset = $offset + 12 + [int]$length
+                    }
+                    if ($null -eq $der) { continue }
+                    try {
+                        $certificate = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2 (,$der)
+                        $usages = @()
+                        foreach ($extension in @($certificate.Extensions)) { if ($extension.Oid.Value -eq '2.5.29.37') { $usages = @($extension.EnhancedKeyUsages | ForEach-Object { if ($_.FriendlyName) { [string]$_.FriendlyName } else { [string]$_.Value } }) } }
+                        [void]$found.Add([pscustomobject]@{ Subject=[string]$certificate.Subject; Issuer=[string]$certificate.Issuer; NotBeforeUtc=$certificate.NotBefore.ToUniversalTime().ToString('o'); NotAfterUtc=$certificate.NotAfter.ToUniversalTime().ToString('o'); Thumbprint=[string]$certificate.Thumbprint; Usages=@($usages | Select-Object -First 6); KeyDeclared=$keyDeclared; Store='Ordinateur local\Personnel' })
+                        $days = [int][Math]::Floor(($certificate.NotAfter.ToUniversalTime() - [datetime]::UtcNow).TotalDays)
+                        Add-Item 'Certificats machine' ([string]$certificate.Subject) ('expire le ' + $certificate.NotAfter.ToString('dd/MM/yyyy') + ' (' + [string]$days + ' jour(s)) ; emetteur ' + [string]$certificate.Issuer + ' ; empreinte ' + [string]$certificate.Thumbprint) 'Registre SystemCertificates\MY'
+                        $certificate.Dispose()
+                    } catch { }
+                }
+                if ((-not $truncated) -and (@($thumbprints).Count -gt 50)) { $truncated = [string]@($thumbprints).Count + ' certificats, 50 lus.'; Set-CollectorTruncated $truncated }
+            } catch { if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw}; $registryRead = $false }
+            if ($registryRead) {
+                $metrics.Certificates = [pscustomobject]@{ Source='Registre SystemCertificates\MY'; Items=@($found); ReadUtc=[datetime]::UtcNow.ToString('o'); StoreCount=@($thumbprints).Count; Truncated=[bool]$truncated }
+                if ($found.Count -eq 0) { Add-Item 'Certificats machine' 'Etat' 'Aucun certificat machine' 'Registre SystemCertificates\MY' }
+                return
+            }
             $certs = Invoke-Remote -TimeoutSeconds 25 -ScriptBlock {
                 Get-ChildItem -Path 'Cert:\LocalMachine\My' -ErrorAction SilentlyContinue |
                     Select-Object Subject,NotAfter,Thumbprint,Issuer
@@ -15480,17 +15739,33 @@ function Convert-InstallDate {
     try { return ([datetime]$text).ToString('dd/MM/yyyy') } catch { return $text }
 }
 $seen = @{}
+$seenProducts = @{}
 function Add-Software {
     param(
         [string]$Name,[string]$Version,[string]$Publisher,$InstallDate,$SizeKb,
         [string]$Location,[string]$Architecture,[string]$Scope,[string]$Kind,
-        [string]$UninstallString,[string]$Source
+        [string]$UninstallString,[string]$Source,[string]$Owner = ''
     )
     $clean = ([string]$Name).Trim()
     if ([string]::IsNullOrWhiteSpace($clean)) { return }
-    $key = ($Scope + '|' + $clean + '|' + [string]$Version).ToLowerInvariant()
+    # Point 91: one row per uninstall entry of a scope, an architecture and, for the user scope, a profile. The same
+    # product installed in both registry views or for two users stays two rows: duplicates are shown, not merged.
+    # The profile is keyed by its SID when the source gives it, so two transports naming one account differently
+    # still meet. A source without architecture (SCCM) cannot tell the registry views apart: its row and any row
+    # of the same product merge, in either order, so a later transport never lists the same entry twice.
+    # PowerShell names are case-insensitive: the keys below never reuse a parameter name ($Owner, $Architecture).
+    $ownerKey = ''
+    if ($Scope -eq 'Utilisateur') { $ownerKey = if (-not [string]::IsNullOrWhiteSpace($Owner)) { $Owner.Trim() } else { [string]$Kind } }
+    $archKey = ([string]$Architecture).Trim()
+    $key = ($Scope + '|' + $ownerKey + '|' + $archKey + '|' + $clean + '|' + [string]$Version).ToLowerInvariant()
     if ($seen.ContainsKey($key)) { return }
+    $product = ($Scope + '|' + $ownerKey + '|' + $clean + '|' + [string]$Version).ToLowerInvariant()
+    if ($seenProducts.ContainsKey($product)) {
+        if ((-not $archKey) -or ($seenProducts[$product].ContainsKey(''))) { return }
+    }
+    else { $seenProducts[$product] = @{} }
     $seen[$key] = $true
+    $seenProducts[$product][$archKey.ToLowerInvariant()] = $true
     $size = ''
     try { if ([double]$SizeKb -gt 0) { $size = Format-Size ([double]$SizeKb * 1024) } } catch { }
     [void]$rows.Add([pscustomobject]@{
@@ -15762,7 +16037,7 @@ try {
                         try { $size = Get-RegDword $HKU $key 'EstimatedSize' } catch { }
                         Add-Software -Name $display -Version $version -Publisher $publisher -InstallDate $installDate `
                             -SizeKb $size -Location $location -Architecture '' -Scope 'Utilisateur' -Kind $account `
-                            -UninstallString $uninstall -Source 'HKU via StdRegProv'
+                            -UninstallString $uninstall -Source 'HKU via StdRegProv' -Owner ([string]$sid)
                     }
                     if ($userStopped -ne '') { break }
                 }
@@ -15825,7 +16100,8 @@ finally {
 }
 
 # Si les transports classiques n'ont pas rendu les portees demandees,
-# une seule tache locale complete la collecte. Add-Software deduplique.
+# une seule tache locale complete la collecte. Add-Software deduplique : profil par SID, ligne sans
+# architecture (SCCM) fusionnee avec la meme entree lue ensuite par x64 ou x86.
 $needTask = ($rows.Count -eq 0)
 # MO-09 : une portee utilisateur vide n'est pas un echec, c'est souvent qu'aucun utilisateur n'est
 # connecte. Elle ne declenche plus la collecte locale SYSTEM ; seul un inventaire machine entierement
@@ -15834,11 +16110,11 @@ if ($includeStore -and @($rows | Where-Object {[string]$_.Scope -eq 'Store'}).Co
 if ($needTask) {
     try {
         $classic='Inventaire logiciel classique vide ou incomplet.'
-        $local=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String("JG91dD1OZXctT2JqZWN0IENvbGxlY3Rpb25zLkFycmF5TGlzdApmdW5jdGlvbiBBZGQoJHAsW3N0cmluZ10kU2NvcGUsW3N0cmluZ10kQXJjaCxbc3RyaW5nXSRLaW5kLFtzdHJpbmddJFNvdXJjZSl7aWYoJHAuRGlzcGxheU5hbWUpe1t2b2lkXSRvdXQuQWRkKFtwc2N1c3RvbW9iamVjdF1Ae05hbWU9W3N0cmluZ10kcC5EaXNwbGF5TmFtZTtWZXJzaW9uPVtzdHJpbmddJHAuRGlzcGxheVZlcnNpb247UHVibGlzaGVyPVtzdHJpbmddJHAuUHVibGlzaGVyO0luc3RhbGxEYXRlPVtzdHJpbmddJHAuSW5zdGFsbERhdGU7U2l6ZUtiPSRwLkVzdGltYXRlZFNpemU7TG9jYXRpb249W3N0cmluZ10kcC5JbnN0YWxsTG9jYXRpb247QXJjaGl0ZWN0dXJlPSRBcmNoO1Njb3BlPSRTY29wZTtLaW5kPSRLaW5kO1VuaW5zdGFsbFN0cmluZz1bc3RyaW5nXSRwLlVuaW5zdGFsbFN0cmluZztTb3VyY2U9JFNvdXJjZX0pfX0KZm9yZWFjaCgkbSBpbiBAKEB7UGF0aD0nSEtMTTpcU09GVFdBUkVcTWljcm9zb2Z0XFdpbmRvd3NcQ3VycmVudFZlcnNpb25cVW5pbnN0YWxsXConO0FyY2g9J3g2NCd9LEB7UGF0aD0nSEtMTTpcU09GVFdBUkVcV09XNjQzMk5vZGVcTWljcm9zb2Z0XFdpbmRvd3NcQ3VycmVudFZlcnNpb25cVW5pbnN0YWxsXConO0FyY2g9J3g4Nid9KSl7Zm9yZWFjaCgkcCBpbiBAKEdldC1JdGVtUHJvcGVydHkgLVBhdGggJG0uUGF0aCAtRXJyb3JBY3Rpb24gU2lsZW50bHlDb250aW51ZSkpe2lmKC1ub3QkcC5EaXNwbGF5TmFtZSl7Y29udGludWV9OyR1cGQ9KFtzdHJpbmddJHAuUmVsZWFzZVR5cGUgLW1hdGNoICcoP2kpdXBkYXRlfGhvdGZpeHxzZWN1cml0eScpLW9yKC1ub3Rbc3RyaW5nXTo6SXNOdWxsT3JXaGl0ZVNwYWNlKFtzdHJpbmddJHAuUGFyZW50S2V5TmFtZSkpO2lmKCR1cGQtYW5kLW5vdFtib29sXSRQYXlsb2FkLkluY2x1ZGVVcGRhdGVzKXtjb250aW51ZX07JGtpbmQ9aWYoJHVwZCl7J01pc2UgYSBqb3VyJ31lbHNlaWYoW3N0cmluZ10kcC5XaW5kb3dzSW5zdGFsbGVyLWVxJzEnKXsnUGFxdWV0IE1TSSd9ZWxzZXsnQXBwbGljYXRpb24nfTtBZGQgJHAgJ01hY2hpbmUnICRtLkFyY2ggJGtpbmQgJ1JlZ2lzdHJlIGxvY2FsJ319CmlmKFtib29sXSRQYXlsb2FkLkluY2x1ZGVQZXJVc2VyKXtmb3JlYWNoKCRoIGluIEAoR2V0LUNoaWxkSXRlbSAnUmVnaXN0cnk6OkhLRVlfVVNFUlMnIC1FcnJvckFjdGlvbiBTaWxlbnRseUNvbnRpbnVlKSl7aWYoJGguUFNDaGlsZE5hbWUgLW5vdG1hdGNoICdeUy0xLTUtMjEtJyAtb3IgJGguUFNDaGlsZE5hbWUgLW1hdGNoICdfQ2xhc3NlcyQnKXtjb250aW51ZX07JHNpZD0kaC5QU0NoaWxkTmFtZTskYWNjb3VudD0kc2lkO3RyeXskYWNjb3VudD0oTmV3LU9iamVjdCBTZWN1cml0eS5QcmluY2lwYWwuU2VjdXJpdHlJZGVudGlmaWVyKCRzaWQpKS5UcmFuc2xhdGUoW1NlY3VyaXR5LlByaW5jaXBhbC5OVEFjY291bnRdKS5WYWx1ZX1jYXRjaHt9OyRwYXRoPSdSZWdpc3RyeTo6SEtFWV9VU0VSU1wnKyRzaWQrJ1xTT0ZUV0FSRVxNaWNyb3NvZnRcV2luZG93c1xDdXJyZW50VmVyc2lvblxVbmluc3RhbGxcKic7Zm9yZWFjaCgkcCBpbiBAKEdldC1JdGVtUHJvcGVydHkgLVBhdGggJHBhdGggLUVycm9yQWN0aW9uIFNpbGVudGx5Q29udGludWUpKXtBZGQgJHAgJ1V0aWxpc2F0ZXVyJyAnJyAkYWNjb3VudCAnSEtFWV9VU0VSUyBsb2NhbCd9fX0KaWYoW2Jvb2xdJFBheWxvYWQuSW5jbHVkZVN0b3JlKXt0cnl7Zm9yZWFjaCgkcCBpbiBAKEdldC1BcHB4UGFja2FnZSAtQWxsVXNlcnMgLUVycm9yQWN0aW9uIFNpbGVudGx5Q29udGludWUpKXtbdm9pZF0kb3V0LkFkZChbcHNjdXN0b21vYmplY3RdQHtOYW1lPVtzdHJpbmddJHAuTmFtZTtWZXJzaW9uPVtzdHJpbmddJHAuVmVyc2lvbjtQdWJsaXNoZXI9W3N0cmluZ10kcC5QdWJsaXNoZXI7SW5zdGFsbERhdGU9Jyc7U2l6ZUtiPTA7TG9jYXRpb249W3N0cmluZ10kcC5JbnN0YWxsTG9jYXRpb247QXJjaGl0ZWN0dXJlPVtzdHJpbmddJHAuQXJjaGl0ZWN0dXJlO1Njb3BlPSdTdG9yZSc7S2luZD0kKGlmKCRwLklzRnJhbWV3b3JrKXsnRnJhbWV3b3JrIFN0b3JlJ31lbHNleydBcHBsaWNhdGlvbiBTdG9yZSd9KTtVbmluc3RhbGxTdHJpbmc9Jyc7U291cmNlPSdHZXQtQXBweFBhY2thZ2UgbG9jYWwnfSl9fWNhdGNoe319Cltwc2N1c3RvbW9iamVjdF1Ae1Jvd3M9QCgkb3V0KX0="))
+        $local=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String("JG91dD1OZXctT2JqZWN0IENvbGxlY3Rpb25zLkFycmF5TGlzdApmdW5jdGlvbiBBZGQoJHAsW3N0cmluZ10kU2NvcGUsW3N0cmluZ10kQXJjaCxbc3RyaW5nXSRLaW5kLFtzdHJpbmddJFNvdXJjZSxbc3RyaW5nXSRPd25lcj0nJyl7aWYoJHAuRGlzcGxheU5hbWUpe1t2b2lkXSRvdXQuQWRkKFtwc2N1c3RvbW9iamVjdF1Ae05hbWU9W3N0cmluZ10kcC5EaXNwbGF5TmFtZTtWZXJzaW9uPVtzdHJpbmddJHAuRGlzcGxheVZlcnNpb247UHVibGlzaGVyPVtzdHJpbmddJHAuUHVibGlzaGVyO0luc3RhbGxEYXRlPVtzdHJpbmddJHAuSW5zdGFsbERhdGU7U2l6ZUtiPSRwLkVzdGltYXRlZFNpemU7TG9jYXRpb249W3N0cmluZ10kcC5JbnN0YWxsTG9jYXRpb247QXJjaGl0ZWN0dXJlPSRBcmNoO1Njb3BlPSRTY29wZTtLaW5kPSRLaW5kO1VuaW5zdGFsbFN0cmluZz1bc3RyaW5nXSRwLlVuaW5zdGFsbFN0cmluZztTb3VyY2U9JFNvdXJjZTtPd25lcj0kT3duZXJ9KX19CmZvcmVhY2goJG0gaW4gQChAe1BhdGg9J0hLTE06XFNPRlRXQVJFXE1pY3Jvc29mdFxXaW5kb3dzXEN1cnJlbnRWZXJzaW9uXFVuaW5zdGFsbFwqJztBcmNoPSd4NjQnfSxAe1BhdGg9J0hLTE06XFNPRlRXQVJFXFdPVzY0MzJOb2RlXE1pY3Jvc29mdFxXaW5kb3dzXEN1cnJlbnRWZXJzaW9uXFVuaW5zdGFsbFwqJztBcmNoPSd4ODYnfSkpe2ZvcmVhY2goJHAgaW4gQChHZXQtSXRlbVByb3BlcnR5IC1QYXRoICRtLlBhdGggLUVycm9yQWN0aW9uIFNpbGVudGx5Q29udGludWUpKXtpZigtbm90JHAuRGlzcGxheU5hbWUpe2NvbnRpbnVlfTskdXBkPShbc3RyaW5nXSRwLlJlbGVhc2VUeXBlIC1tYXRjaCAnKD9pKXVwZGF0ZXxob3RmaXh8c2VjdXJpdHknKS1vcigtbm90W3N0cmluZ106OklzTnVsbE9yV2hpdGVTcGFjZShbc3RyaW5nXSRwLlBhcmVudEtleU5hbWUpKTtpZigkdXBkLWFuZC1ub3RbYm9vbF0kUGF5bG9hZC5JbmNsdWRlVXBkYXRlcyl7Y29udGludWV9OyRraW5kPWlmKCR1cGQpeydNaXNlIGEgam91cid9ZWxzZWlmKFtzdHJpbmddJHAuV2luZG93c0luc3RhbGxlci1lcScxJyl7J1BhcXVldCBNU0knfWVsc2V7J0FwcGxpY2F0aW9uJ307QWRkICRwICdNYWNoaW5lJyAkbS5BcmNoICRraW5kICdSZWdpc3RyZSBsb2NhbCd9fQppZihbYm9vbF0kUGF5bG9hZC5JbmNsdWRlUGVyVXNlcil7Zm9yZWFjaCgkaCBpbiBAKEdldC1DaGlsZEl0ZW0gJ1JlZ2lzdHJ5OjpIS0VZX1VTRVJTJyAtRXJyb3JBY3Rpb24gU2lsZW50bHlDb250aW51ZSkpe2lmKCRoLlBTQ2hpbGROYW1lIC1ub3RtYXRjaCAnXlMtMS01LTIxLScgLW9yICRoLlBTQ2hpbGROYW1lIC1tYXRjaCAnX0NsYXNzZXMkJyl7Y29udGludWV9OyRzaWQ9JGguUFNDaGlsZE5hbWU7JGFjY291bnQ9JHNpZDt0cnl7JGFjY291bnQ9KE5ldy1PYmplY3QgU2VjdXJpdHkuUHJpbmNpcGFsLlNlY3VyaXR5SWRlbnRpZmllcigkc2lkKSkuVHJhbnNsYXRlKFtTZWN1cml0eS5QcmluY2lwYWwuTlRBY2NvdW50XSkuVmFsdWV9Y2F0Y2h7fTskcGF0aD0nUmVnaXN0cnk6OkhLRVlfVVNFUlNcJyskc2lkKydcU09GVFdBUkVcTWljcm9zb2Z0XFdpbmRvd3NcQ3VycmVudFZlcnNpb25cVW5pbnN0YWxsXConO2ZvcmVhY2goJHAgaW4gQChHZXQtSXRlbVByb3BlcnR5IC1QYXRoICRwYXRoIC1FcnJvckFjdGlvbiBTaWxlbnRseUNvbnRpbnVlKSl7QWRkICRwICdVdGlsaXNhdGV1cicgJycgJGFjY291bnQgJ0hLRVlfVVNFUlMgbG9jYWwnICRzaWR9fX0KaWYoW2Jvb2xdJFBheWxvYWQuSW5jbHVkZVN0b3JlKXt0cnl7Zm9yZWFjaCgkcCBpbiBAKEdldC1BcHB4UGFja2FnZSAtQWxsVXNlcnMgLUVycm9yQWN0aW9uIFNpbGVudGx5Q29udGludWUpKXtbdm9pZF0kb3V0LkFkZChbcHNjdXN0b21vYmplY3RdQHtOYW1lPVtzdHJpbmddJHAuTmFtZTtWZXJzaW9uPVtzdHJpbmddJHAuVmVyc2lvbjtQdWJsaXNoZXI9W3N0cmluZ10kcC5QdWJsaXNoZXI7SW5zdGFsbERhdGU9Jyc7U2l6ZUtiPTA7TG9jYXRpb249W3N0cmluZ10kcC5JbnN0YWxsTG9jYXRpb247QXJjaGl0ZWN0dXJlPVtzdHJpbmddJHAuQXJjaGl0ZWN0dXJlO1Njb3BlPSdTdG9yZSc7S2luZD0kKGlmKCRwLklzRnJhbWV3b3JrKXsnRnJhbWV3b3JrIFN0b3JlJ31lbHNleydBcHBsaWNhdGlvbiBTdG9yZSd9KTtVbmluc3RhbGxTdHJpbmc9Jyc7U291cmNlPSdHZXQtQXBweFBhY2thZ2UgbG9jYWwnfSl9fWNhdGNoe319Cltwc2N1c3RvbW9iamVjdF1Ae1Jvd3M9QCgkb3V0KX0="))
         $fb=Invoke-WRemoteTaskScript $Context $computer $local ([pscustomobject]@{IncludePerUser=$includePerUser;IncludeStore=$includeStore;IncludeUpdates=$includeUpdates}) ([Math]::Min(90,[int]$Context.TaskFallbackTimeoutSeconds)) $classic
         $fallbackLabel=if([string]$fb.DomeniaTransport -eq 'PsExec'){'PsExec'}else{'TaskScheduler'}
         $fallbackTransport = $fallbackLabel
-        foreach($p in @($fb.Rows)) { Add-Software -Name ([string]$p.Name) -Version ([string]$p.Version) -Publisher ([string]$p.Publisher) -InstallDate $p.InstallDate -SizeKb $p.SizeKb -Location ([string]$p.Location) -Architecture ([string]$p.Architecture) -Scope ([string]$p.Scope) -Kind ([string]$p.Kind) -UninstallString ([string]$p.UninstallString) -Source ($fallbackLabel+' local SYSTEM / '+[string]$p.Source) }
+        foreach($p in @($fb.Rows)) { Add-Software -Name ([string]$p.Name) -Version ([string]$p.Version) -Publisher ([string]$p.Publisher) -InstallDate $p.InstallDate -SizeKb $p.SizeKb -Location ([string]$p.Location) -Architecture ([string]$p.Architecture) -Scope ([string]$p.Scope) -Kind ([string]$p.Kind) -UninstallString ([string]$p.UninstallString) -Source ($fallbackLabel+' local SYSTEM / '+[string]$p.Source) -Owner ([string]$p.Owner) }
         $fallbackTasks=if($fallbackLabel -eq 'TaskScheduler'){1}else{0};try{$taskBytes=[long]$fb.DomeniaBytesSent+[long]$fb.DomeniaBytesReceived}catch{}
         $fbCount = @($fb.Rows).Count
         $fbStatus = if ($fbCount -gt 0) { 'OK' } else { 'VIDE' }
@@ -17805,6 +18081,9 @@ function Get-DomeniaIndexPartialText {
 function Test-DomeniaIndexWriteReady {
     # A new directory pass must observe the committed checkpoint of the previous one.
     if ($null -ne $script:IndexWalk) { Set-Status 'Une passe par OU est déjà en cours.' 'WARN'; return $false }
+    # Points 32 and 35: no new directory pass during a base maintenance, a suspended writer or a nearly full disk.
+    $storageRefusal = Get-DomeniaStorageCollectionRefusal
+    if ($storageRefusal) { Set-Status $storageRefusal 'WARN'; return $false }
     if ($null -ne $script:Persistence) {
         if ($script:Persistence.Job) { Set-Status 'Enregistrement local en cours : attendez sa confirmation avant une nouvelle lecture.' 'WARN'; return $false }
         foreach ($item in $script:Persistence.Pending.Values) {
@@ -17934,6 +18213,9 @@ function Start-DomeniaIndexWalkStep {
     $walk = $script:IndexWalk
     if ($null -eq $walk) { return }
     if ($walk.Queue.Count -eq 0) { Complete-DomeniaIndexWalkUi; return }
+    # Points 32 and 35: the saved branches stay; the next branch is not read during a maintenance or on a full disk.
+    $storageRefusal = Get-DomeniaStorageCollectionRefusal
+    if ($storageRefusal) { $walk.Queue.Clear(); Complete-DomeniaIndexWalkUi -Aborted -Detail $storageRefusal; return }
     $dn = $walk.Queue.Dequeue()
     $walk.Done = $walk.Done + 1
     $isRoot = $dn.Equals([string]$script:Conn.BaseDn,[StringComparison]::OrdinalIgnoreCase)
@@ -18166,6 +18448,15 @@ function Update-DomeniaIndexStats {
         if($coverage.Partial){$freshness.Add(('Dernière tentative incomplète le {0}. Les données reçues sont conservées ; la date de lecture complète reste inchangée.' -f $coverage.AttemptAt.ToLocalTime().ToString('dd/MM/yyyy HH:mm')))}
         $partial = if($target.IsDomain){[string](Get-DomeniaIndexPartialText)}else{''}
         if ($partial) { $freshness.Add('À vérifier : ' + $partial) }
+        # Point 22: a complete census of this scope is advised when due; it is never started automatically.
+        if (${function:Get-DomeniaCensusAdvice}) {
+            $gap = 0L; try { $gap = [long]$script:IndexInfo.CensusGap } catch { $gap = 0L }
+            # Index.FullRebuildDays (7 by default) is the age after which a complete read of the scope is advised.
+            $days = 7; try { $days = [int](Get-CfgValue 'Index' 'FullRebuildDays' 7) } catch { $days = 7 }
+            $census = Get-DomeniaCensusAdvice -Coverage $coverage -GapCount ([int]$gap) -MaxAgeDays $days -NowUtc ([datetime]::UtcNow) -IsDomain ([bool]$target.IsDomain)
+            if ([bool]$census.Due) { $freshness.Add([string]$census.Text) }
+        }
+        if (${function:Update-DomeniaCensusAdviceUi}) { Update-DomeniaCensusAdviceUi }
         [void](Set-DomeniaControlText -Name 'LblIndexFreshness' -Text ($freshness -join "`n"))
         # DS-09: the synchronisation mark (USN) goes to the journal, once per change; the page keeps readable facts.
         $mark = $server + '|' + [string]$usn
@@ -18576,7 +18867,9 @@ if($incremental -and -not $truncated){
         $filter='(|(&(objectCategory=person)(objectClass=user))(objectCategory=computer))'
         # PF-02: MaxObjects + 1 at most; the extra identity proves the limit and the census is then refused.
         $censusLimit=0;if($maxObjects -gt 0){$censusLimit=$maxObjects+1}
-        $searcher=New-WSearcher $Context $searchBase $filter @('objectGUID','distinguishedName') $searchScope $censusLimit
+        # Point 22: uSNChanged lets the storage tell an identity missed by the delta (USN at or below the checkpoint of
+        # this pass) from one created or changed during the pass, which the next delta returns anyway.
+        $searcher=New-WSearcher $Context $searchBase $filter @('objectGUID','distinguishedName','uSNChanged') $searchScope $censusLimit
         $searcher.PageSize=1000;$searcher.CacheResults=$false
         $searcher.ServerTimeLimit=[TimeSpan]::FromSeconds($serverTimeLimitSeconds)
         $searcher.ClientTimeout=[TimeSpan]::FromSeconds($serverTimeLimitSeconds+30)
@@ -18591,7 +18884,8 @@ if($incremental -and -not $truncated){
             if(-not $seen.Add($guidText)){throw 'GUID duplique dans le recensement.'}
             $dn=Clean-Field (Get-WPropFirst $r.Properties 'distinguishedname' '')
             if(-not (Test-IdxDnInScope $dn $searchBase $searchScope)){throw 'DN absent ou hors perimetre dans le recensement.'}
-            $identity=[pscustomobject]@{Kind='Identity';Guid=$guidText;DN=$dn}
+            $identityUsn=0L;try{$identityUsn=[int64](Get-WPropFirst $r.Properties 'usnchanged' 0)}catch{$identityUsn=0L}
+            $identity=[pscustomobject]@{Kind='Identity';Guid=$guidText;DN=$dn;Usn=$identityUsn}
             if($null -ne $spoolWriter){$spoolWriter.WriteLine((ConvertTo-Json -InputObject $identity -Compress))}else{$identities.Add($identity)}
             $censusCount++;if($null -ne $progress -and ($censusCount % 1000) -eq 0){$progress.Count=$censusCount}
         }
@@ -19747,7 +20041,11 @@ function Queue-LiveGlobalSearch {
                 $script:LiveSearchTimer.Stop()
                 $text=($script:Ctrl["TxtGlobalSearch"].Text+"").Trim()
                 $min=[int](Get-CfgValue "Browser" "GlobalSearchMinChars" 2)
-                if ($text.Length -ge $min -or $text -eq "*") { Invoke-GlobalSearch -SilentError }
+                # Point 29: typing never starts a broad LDAP read ('*', a leading wildcard or a short text);
+                # the explicit Rechercher still can, with its own limits.
+                $typed=Test-DomeniaTypedSearchAllowed -Text $text -MinimumLength $min
+                if ([bool]$typed.Allowed) { Invoke-GlobalSearch -SilentError }
+                elseif ($text) { [void](Set-DomeniaControlText -Name 'LblSearchHint' -Text ([string]$typed.Reason)) }
             })
             $script:LiveSearchTimer=$timer
         }
@@ -22709,6 +23007,8 @@ function Wire-Events {
     $script:Ctrl["BtnUserGenPassword"].Add_Click({ Show-DomeniaGeneratedPassword })
     $script:Ctrl["BtnUserSupportUnlock"].Add_Click({ Unlock-UserAccount })
     $script:Ctrl["BtnUserSupportLockouts"].Add_Click({ Start-DomeniaLockoutEventRead })
+    $script:Ctrl["BtnUserLogonByDc"].Add_Click({ Start-DomeniaLogonByDcRead -Kind User })
+    $script:Ctrl["BtnCompLogonByDc"].Add_Click({ Start-DomeniaLogonByDcRead -Kind Computer })
     $script:Ctrl["BtnUserResetPwd"].Add_Click({ Reset-UserPassword })
     $script:Ctrl["BtnApplyAccountOptions"].Add_Click({ Apply-UserAccountOptions })
     $script:Ctrl["BtnSetExpiration"].Add_Click({ Set-UserExpiration $false })
@@ -22801,7 +23101,7 @@ function Wire-Events {
     }) }
     if ($script:Ctrl.ContainsKey("BtnIndexBuild")) { $script:Ctrl["BtnIndexBuild"].Add_Click({ Start-DomeniaIndexBuild -UpdateLinks }) }
     if ($script:Ctrl.ContainsKey("BtnIndexWalk")) { $script:Ctrl["BtnIndexWalk"].Add_Click({ Start-DomeniaIndexWalk }) }
-    foreach($name in @('BtnStorageMove','BtnStorageRestore','BtnStorageResume','BtnStorageRollback','BtnStoragePolicySave','BtnStorageRetentionPreview','BtnStorageRetentionApply')){
+    foreach($name in @('BtnStorageMove','BtnStorageRestore','BtnStorageResume','BtnStorageRollback','BtnStoragePolicySave','BtnStorageRetentionPreview','BtnStorageRetentionApply','BtnStorageIntegrity')){
         $button=Get-DomeniaControl $name
         if($null -ne $button){$button.Add_Click({param($sender,$eventArgs)
             switch([string]$sender.Name){
@@ -22812,6 +23112,7 @@ function Wire-Events {
                 'BtnStoragePolicySave'{Save-DomeniaStoragePolicy}
                 'BtnStorageRetentionPreview'{Start-DomeniaStorageRetention}
                 'BtnStorageRetentionApply'{Request-DomeniaStorageRetention}
+                'BtnStorageIntegrity'{Start-DomeniaStorageIntegrity}
             }
         })}
     }
@@ -23692,8 +23993,9 @@ function Initialize-DomeniaWinSqliteNative {
         @{N="sqlite3_column_bytes"; R=[int]; P=[Type[]]@([IntPtr],[int])},
         @{N="sqlite3_column_int64"; R=[long]; P=[Type[]]@([IntPtr],[int])},
         @{N="sqlite3_column_double"; R=[double]; P=[Type[]]@([IntPtr],[int])},
-        # PF-07: prepared statements reused for bulk writes. Text is bound as UTF-16 (CharSet Unicode, explicit byte
-        # length, SQLITE_TRANSIENT so that SQLite copies it during the call); nothing is concatenated into SQL.
+        # Point 39 (bound reads of LocalIndexRead) and PF-07 (prepared bulk writes of LocalStore): one set of prepared
+        # statement bindings for every worker. Text is bound as UTF-16 (CharSet Unicode, explicit byte length,
+        # SQLITE_TRANSIENT so that SQLite copies it during the call); nothing typed is concatenated into SQL.
         @{N="sqlite3_bind_parameter_count"; R=[int]; P=[Type[]]@([IntPtr])},
         @{N="sqlite3_bind_null"; R=[int]; P=[Type[]]@([IntPtr],[int])},
         @{N="sqlite3_bind_int64"; R=[int]; P=[Type[]]@([IntPtr],[int],[long])},
@@ -23935,6 +24237,7 @@ CREATE INDEX IF NOT EXISTS ix_ad_objects_upn ON ad_objects(upn COLLATE NOCASE);
 CREATE INDEX IF NOT EXISTS ix_ad_objects_dn ON ad_objects(distinguished_name COLLATE NOCASE);
 CREATE INDEX IF NOT EXISTS ix_ad_objects_usn ON ad_objects(usn_changed);
 CREATE INDEX IF NOT EXISTS ix_ad_objects_type ON ad_objects(object_type);
+CREATE INDEX IF NOT EXISTS ix_ad_objects_type_name ON ad_objects(object_type,name COLLATE NOCASE);
 CREATE TABLE IF NOT EXISTS user_machine_links(
  computer_key TEXT PRIMARY KEY,user_login TEXT,computer TEXT,source TEXT,confidence INTEGER,
  verified_in_ad INTEGER,observed_at TEXT,details TEXT,user_guid TEXT,computer_guid TEXT,user_dn TEXT,computer_dn TEXT);
@@ -23990,6 +24293,7 @@ function Initialize-DomeniaDatabase {
     [void](Get-DomeniaDatabasePath)
     if ($script:DomeniaDatabaseReady) { return $true }
     Initialize-DomeniaDataStore | Out-Null
+    $migrationBackup = ''
     try {
         # D115/D113: forward-only schema decided by the pure rule (Release.Model). A newer, unreadable, too old or
         # interrupted base is refused untouched, with the rule's message; an older base is migrated only after a
@@ -24030,6 +24334,12 @@ function Initialize-DomeniaDatabase {
                     if($column -notin $columns){[void](Invoke-DomeniaDbExec ('ALTER TABLE '+$table+' ADD COLUMN '+$column+' TEXT;') $migrationDb)}
                 }
             }
+            # Point 36: targeted check of the result inside the same transaction. A missing table or column rolls the
+            # whole step back; the base stays as it was, with its migration backup when one was required.
+            $schemaTables=@(Invoke-DomeniaDbQuery "SELECT name FROM sqlite_master WHERE type='table';" $migrationDb|ForEach-Object{[string]$_.name})
+            $schemaColumns=@{};foreach($table in @((Get-DomeniaStorageSchemaExpectation).Columns.Keys)){$schemaColumns[[string]$table]=@(Invoke-DomeniaDbQuery ('PRAGMA table_info('+[string]$table+');') $migrationDb|ForEach-Object{[string]$_.name})}
+            $schemaGaps=@(Get-DomeniaStorageSchemaGaps -Tables $schemaTables -Columns $schemaColumns)
+            if($schemaGaps.Count){throw ('Schéma incomplet après mise à niveau, transaction annulée : '+($schemaGaps -join ', ')+'.')}
             [void](Invoke-DomeniaDbExec 'COMMIT;' $migrationDb)
         }catch{try{[void](Invoke-DomeniaDbExec 'ROLLBACK;' $migrationDb)}catch{};throw}finally{Close-DomeniaDatabase $migrationDb}
         $probe = @(Invoke-DomeniaDbQuery "SELECT value FROM schema_info WHERE key='schema_version' LIMIT 1;")
@@ -24045,6 +24355,7 @@ function Initialize-DomeniaDatabase {
             try { [void](Recover-DomeniaDatabase -Reason $msg); return (Initialize-DomeniaDatabase) }
             catch { $msg = $msg + " ; restauration impossible : " + $_.Exception.Message }
         }
+        if ([string]$migrationBackup) { $msg = $msg + ' Sauvegarde faite avant la migration, conservée : ' + [string]$migrationBackup + '.' }
         Write-AppLog "Base autonome indisponible : $msg" "ERROR"
         throw $msg
     }
@@ -24365,16 +24676,16 @@ function Get-DomeniaWorkerOperationHashes {
     # Registre ferme : seules ces operations internes, avec leur corps exact, peuvent entrer dans un runspace.
     return [ordered]@{
         LocalQuery            = "DF2E6CDA9551F55A36567BB3B40E1304967319DE1133C68049869DE8AC5B0C9B"
-        StoragePurge          = "9586625EDAF3764D3ADD4BC91DD6FE94264FAE87006089A1746F4019212B5741"
+        StoragePurge          = "4C8095F621B4AB23BD5B8D0B1B052D1FA458776B17AB066E8EECC2DC2BDE335E"
         StorageBackup         = "69013AFFC05489EC9B5743488D2FD0532DF3BF2D50966006444A2C3EDA561888"
         ComputerAdminShare    = "051272FF57B277E19504F52BAC289ED8297A333393644B853FF4A80624347F70"
-        StorageUsage          = "E7D18C2D439C6CB69C218EF711CEE1E3986EBE5553BFF42B64273A464073E8DE"
+        StorageUsage          = "0441D6F5732E7EF2DB66203DE2CE814FA719341568A56394092D7A8DA8D8463E"
         LegacyMigration       = "A834585E0B1DBF3472DDF97455C59211F3DBB967D9177951778EF8BBDB27FB29"
         ReadBitLockerList     = "B1456CEA5805D83C6BF48E9A4040206F18F3C3773ED250610D6890E8D1F4EEC9"
         ReadBitLockerKey      = "8A98EBCDC48AD572404E1566826035C84F34ACB87564330A7AA511FAAC01EE6F"
         BitLockerPresence     = "F1A7C8FD83BA659E7826DE2DDBDD01EE13BC185819FD9330656B77A99ACD6764"
         DemoDirectory         = "FBE11A3ADE0630788C56DF30F9E883FEA8FF6033FE71D2E9B1E2BE92007268BF"
-        LocalIndexRead        = "6447CE90B60D536515E8D0B7DA7FA06E054A9BBF41378AA7DC5F223FAEC9E32A"
+        LocalIndexRead        = "43CECD0D5B033141AA3B2B7B49D910E36E64ADB08A3CFC4DA58B0BF55A559AF3"
         ParkSharedSync        = "B3A64051813F12A24BD5E791D59CF7E2330FA84E965C9F44BD62366D4A81415E"
         IsolatedRead          = "4074D6ECAA620A9C80A5B6B535BB657E02DCE06A9DF97E35CA1EA47572D1060C"
         CmdletHelp            = "12505D0654AB0E97BD803A70B953BB0BBE2152836AAA1889744C1312EB215D62"
@@ -24389,12 +24700,12 @@ function Get-DomeniaWorkerOperationHashes {
         WmiNamespaces         = "C31716BC38A3C978E078E8D8EB403163E7315C98FC641F1FB8F6506709A7E878"
         WmiClasses            = "C9899F025E00FDD2D1A018719CC26EDA282250CCE0B6930A5778DB36DBFB7555"
         WmiQuery              = "23C668EA65F3EF82127C2BA278753865A626E35F4122D0D5862AF95A6E06407D"
-        SoftwareInventory     = "48FCB741DE94B062BC1884463B0FB25DCFE1B446479DA261A8BBD8153F295F6B"
+        SoftwareInventory     = "BA54894D64A123711CFCCDEE996643C8D98D92A4C96EDBF4D2F9D1B29B0B1F53"
         LogonHarvest          = "ACBA6332B7E314A170979C76B88BFEC11803F3A9CF0F773CE22EFF3DBA3E5A5A"
         ParkSweep             = "134ED776E45640FA67B7F51659711C33B37834105375CC4B083342469F2C26A9"
-        IndexBuild            = "6E48BB9DECC36F341BF5D3FBB0EB927120703DE82E393E1FB020C6B230ED0F20"
+        IndexBuild            = "A8F70A287A8CE32CF996DCDAC97B20E51B48856A07AC33E06F7E26696B9ED7C1"
         UserComputerProbe     = "EB7C36419C1B8B91AFB9ECE6B98D4E3FE663B87E4011F7D264D8AEDE7735E775"
-        ComputerInventory     = "810FA1C5106CC6B8A0B86D24E879FC7627C99ADCA2D4D9F98643142933EC972E"
+        ComputerInventory     = "B6FDD7B52FCFE426A8BA69138470A0ACB6955D448D6993FF58F98975E6ECD035"
         ComputerDiagnostics   = "AE264F02A1AD7911106DFBCB657B41D84EE2A8A8737A824D8AC86E869ED0ED5F"
         ComputerLastUser      = "E64F0F0F2B94F49E679E6FEC529C1BF7F9290C1021391C262DA386B05A3BD60A"
         CmdletInventory       = "FA1105E9540BBC2AB373FC45037CC54FA11EB8BD9B058194CE44C422E812DF75"
@@ -24430,18 +24741,22 @@ function Get-DomeniaWorkerOperationHashes {
         ReceiptStore         = "AF37C7660D4E06A857209CD4E171F215A24A8E7BC3126F11DD532D4AFF49449F"
         ScopeReconcile       = "5917B0E2AB92BA626EF3621CCCE7B9A4988B318E62834EFD02FD6AFEF5C0B650"
         DocumentStore        = "BFD83587CB1BA62BC141E5F0742C6C6453A561617ED157045F3B4E7AB11A14E7"
-        LocalStore           = "A2942E2887A69AFCB0F3957904FA620D0937E321CF9262E6F764B87B1BC56CC2"
+        LocalStore           = "795271F9E0C6A15302C7F3DE5E7B615C97193605801F8434D09A142B61162BD5"
         EngineSelfTest        = "40E2C89F858E22E1D221AC48DC04DD5BF627F1ACBC836AB48036C43DB9F7E1D1"
             EmbeddedDirectoryLookup = "F43B3C78876A45E016E4B0ACBB7B30BA7DF114738BD8DCAB5249BC5B6E066689"
         EmbeddedPathBrowse = "B643D707E242EC4416AD63622847DD7C39E5B53ED47CF64FECD56E22B5A82271"
         IndexOuList           = "DBBEAD7CED00124FFC5249F358D0FB7C6D32C6CCA0B4DB123607E1F50C3B928E"
-        StorageMaintenance    = "0D0868D47DFAAA5FC3EE79607E500EE1FA314017053693D1764D26A0920DB844"
+        StorageMaintenance    = "BA22E0812B9375370FD55D0F793C255E6FF973361AB9587B6858F6FB1D9F1DC4"
         QueryExport           = "46B9B72F77067A1F6369060B36BBC384BD842E1C873A4BA943D1E8B727E7B4D3"
         QueryLibrary          = "73B589ECA5FD4FE34B49113ECCB9AA43C0B0DF8635110F5DB124035A6AC4A08C"
         LockoutDiagnosis      = "16A28EB41BE4F6A88BC7FD09E979D15731ABE1508171682B86C21B516C456D3C"
         ParkPing              = "AEC50398D907F22BBAB7FEAAD775ED44AAF30CC0DF64EAFA7BEE3283397C6058"
         GroupPathRead         = "348D0FB7DE1A5C85A3D96707D015B67B8FB081AB09B1C8433420FA33688CF3B0"
         ComputerServiceControl = "AEF0B956D70FF477939AEF6048D32BC7C377E5E4F685E046D64BF87F7C66DADB"
+        DirectoryAbsenceCheck = "4A35BFF449957D0FD5AE9375C073B68B04834AA376E8DF3CB379FF359096C71E"
+        LogonByDcRead         = "0C1E9EC26F3E5FCA7F9FF821E29C4A35999F907AFD722222CCA855A21E668759"
+        AdSchemaRead          = "94EF172741C979EDB72E3460FD498AC94ED231FB5C7ACB972FFB0E51001877A6"
+        StorageIntegrity      = "E4DF16C6211B9038B58561CDEF7CE5F7F7E68CD62F138F2055CD3DDFD79BEC2B"
     }
 }
 
@@ -24450,7 +24765,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "45FC8847C90C344678AB9B372CD3A3DDEF3D8EAA7D91A3BCEA135998FF24D6C8"
+    $expectedFingerprint = "C965D5AE4DECD88168AB020320C7EEC44AD76DED9EF94A55680FA1DB01F74DF0"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -24762,7 +25077,6 @@ function Start-UiTask {
         [long]$Generation = 0
     )
 try {
-        if($null -ne $script:StorageMaintenance -and $script:StorageMaintenance.Locked -and $OperationId -notin @('StorageMaintenance','StorageRetention')){throw 'Maintenance de la base en cours : terminez ou reprenez la bascule avant une nouvelle opération.'}
         $payloadCount = 0
         if ($null -ne $Payload) {
             try { $payloadCount = @($Payload).Count } catch { $payloadCount = 1 }
@@ -24777,6 +25091,10 @@ try {
 
     if (-not [bool](Get-CfgValue "Async" "Enabled" $true)) { throw "Moteur multithread desactive dans la configuration." }
     if ($script:AsyncEngineClosing) { throw "Le moteur multithread est en cours de fermeture." }
+    # Points 32 and 34: while a base maintenance holds its lock (copy, switch to finish, unreadable base), no other writer
+    # of the base is admitted; reads, the receipts journal and chosen documents stay available, and collected results wait
+    # in the single queue. This refusal used to sit inside the trace block above, whose empty catch swallowed it.
+    if(($null -ne $script:StorageMaintenance) -and [bool]$script:StorageMaintenance.Locked -and (Test-DomeniaStorageLockedWriter -OperationId $OperationId)){throw 'Maintenance de la base en cours : terminez ou reprenez la bascule avant une nouvelle écriture locale.'}
     if($OperationId -eq 'StoragePurge'){Assert-DomeniaStoragePurgeReady}
     if($OperationId -ne 'ReceiptStore' -and (@($script:AsyncJobs.Values|Where-Object{$_.OperationId -eq 'StoragePurge'}).Count -or @($script:DetachedReadJobs|Where-Object{$_.OperationId -eq 'StoragePurge'}).Count)){throw 'Une simulation ou purge locale est encore active. Attendez sa fin.'}
     # D094: durable receipt required before dispatch for known mutations only.
@@ -26227,6 +26545,8 @@ function Initialize-DomeniaPresentation {
     try { Initialize-DomeniaAccountsUi } catch { Write-AppLog ('Initialisation des comptes : '+$_.Exception.Message) 'WARN' }
     Initialize-DomeniaLive
     Initialize-DomeniaReconcile
+    # Points 22, 24 and 30: census, disappeared objects and snapshots, as a tab of the autonomous base page.
+    try { Initialize-DomeniaDirectorySyncUi } catch { Write-AppLog ('Onglet Contrôles de la base indisponible : ' + $_.Exception.Message) 'ERROR' }
     Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 pret."
 }
 
@@ -28463,11 +28783,23 @@ function Initialize-Window {
         Invoke-DomeniaStartupStage "Base autonome DOMENIA" {
             $dbBoot=[Diagnostics.Stopwatch]::StartNew()
             try{Initialize-DomeniaDatabase | Out-Null}catch{
-                if([string]$_.Exception.Message -notmatch 'StorageRedirected'){throw}
+                $bootError=[string]$_.Exception.Message
+                $redirected=($bootError -match 'StorageRedirected')
+                # Point 36: a proven corrupt base no longer stops the start. The UI stays reachable for the restore
+                # assistant; the file stays untouched and every collection waits behind the maintenance lock.
+                $unreadable=((-not $redirected) -and [bool](Test-DomeniaStorageUnreadableMessage $bootError) -and (-not [string]::IsNullOrWhiteSpace([string]$script:DatabaseScopedPath)))
+                if((-not $redirected) -and (-not $unreadable)){throw}
+                if($unreadable){
+                    $script:StorageMaintenance=[pscustomobject]@{Id='recovery-unreadable';Mode='Restore';Recovery=$true;Locked=$true;Hold=$true;Draining=$false;DrainNext='';DrainUntil=[datetime]::MinValue;Epoch=[long]$script:SessionEpoch;Path=[string]$script:DatabaseScopedPath;DomainDn=[string]$script:Conn.BaseDn;SourcePath='';TargetPath='';Fingerprint='';Job='';Receipt=$null}
+                    [void](Set-DomeniaControlText 'LblStorageMaintenance' ('Base locale illisible, laissée intacte : '+[string]$script:DatabaseScopedPath+'. Restaurez une sauvegarde vérifiée avec « Restaurer une sauvegarde… ». Détail : '+$bootError))
+                    Write-AppLog ('Base locale illisible au démarrage, mode restauration : '+$bootError) 'ERROR'
+                    Set-DomeniaStartupStage -Stage 'Base locale illisible' -Detail 'Restaurez une sauvegarde vérifiée dans Outils, Base autonome, Stockage.'
+                    return
+                }
                 # Keep the UI reachable for recovery. Never silently write to an old copy after a move.
-                $script:StorageMaintenance=[pscustomobject]@{Id='recovery-pending';Locked=$true;Epoch=[long]$script:SessionEpoch;Path=[string]$script:DatabaseScopedPath;Job=''}
+                $script:StorageMaintenance=[pscustomobject]@{Id='recovery-pending';Locked=$true;Hold=$true;Draining=$false;Recovery=$false;Epoch=[long]$script:SessionEpoch;Path=[string]$script:DatabaseScopedPath;Job='';Receipt=$null}
                 [void](Request-DomeniaStorageRecovery -Path ([string]$script:DatabaseScopedPath) -DomainDn ([string]$script:Conn.BaseDn))
-                Set-DomeniaStartupStage -Stage 'Base locale en attente' -Detail 'Une bascule doit être reprise dans Outils, Base locale, Stockage.'
+                Set-DomeniaStartupStage -Stage 'Base locale en attente' -Detail 'Une bascule doit être reprise dans Outils, Base autonome, Stockage.'
                 return
             }
             $dbBoot.Stop()
@@ -28500,7 +28832,8 @@ function Initialize-Window {
         Invoke-DomeniaStartupStage "Prechargement cache AD" { Invoke-DomeniaStartupCacheWarmup } | Out-Null
         Invoke-DomeniaStartupStage "Preparation arbre AD" {
             if($null -ne $script:StorageMaintenance -and $script:StorageMaintenance.Locked){
-                Set-Status 'Bascule locale à reprendre dans Outils > Base locale > Stockage. Les collectes sont suspendues.' 'WARN'
+                if([string]$script:StorageMaintenance.Id -ceq 'recovery-unreadable'){Set-Status 'Base locale illisible : restaurez une sauvegarde vérifiée dans Outils > Base autonome > Stockage. Les collectes sont suspendues.' 'WARN'}
+                else{Set-Status 'Bascule locale à reprendre dans Outils > Base autonome > Stockage. Les collectes sont suspendues.' 'WARN'}
             }else{Load-TreeRoot;Update-Dashboard}
         } | Out-Null
         Invoke-DomeniaStartupStage "Barriere de disponibilite" { Assert-DomeniaStartupReadiness } | Out-Null

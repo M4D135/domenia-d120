@@ -252,6 +252,22 @@ try {
    Expect ($grid.Items.Count -eq 2) 'Clearing the filter of the list did not show the global rows again'
    Snapshot-Fixture 'fresh-global-search'
   }
+  Case 'Point 23: a renamed or moved object keeps one row under its GUID' {
+   $s=$script:Live.Search;$row=@($s.Rows|Where-Object{[string]$_.Guid -ieq $script:Ids[0]})[0]
+   Expect ($null -ne $row) 'Starting row missing'
+   # A revalidation of the displayed list (ScopeReconcile) returns the same GUID under its new DN.
+   $event=New-FixtureEvent 'GLOBAL-ALPHA-2' $script:Ids[0];Add-Member -InputObject $event -NotePropertyName Revalidated -NotePropertyValue $true
+   $s.Progress.Enqueue($event)
+   Invoke-DomeniaTimerSoon -Owner 'Timer:Live'
+   Wait-FixtureState -Stage 'renamed-row' -Condition {$s.Progress.IsEmpty -and @($s.Rows|Where-Object{[string]$_.Name -eq 'GLOBAL-ALPHA-2'}).Count -eq 1}
+   Expect-HealthyTimer
+   Expect ($s.Rows.Count -eq 2 -and $grid.Items.Count -eq 2) ('Renamed object doubled its row: '+$s.Rows.Count)
+   Expect (@($s.Rows|Where-Object{[string]$_.Guid -ieq $script:Ids[0]}).Count -eq 1) 'GUID listed twice'
+   Expect ($s.Map.ContainsKey('cn=global-alpha-2,ou=lab,dc=example,dc=invalid') -and -not $s.Map.ContainsKey('cn=global-alpha,ou=lab,dc=example,dc=invalid')) 'DN key not moved with the object'
+   Expect ([object]::ReferenceEquals($s.Map['cn=global-alpha-2,ou=lab,dc=example,dc=invalid'],$row)) 'The row was replaced instead of updated in place'
+   Expect ([string]$row.DirectoryState -match '^Renommé') ('Row state: '+$row.DirectoryState)
+   Snapshot-Fixture 'renamed-row'
+  }
   # MO-07: unwired if « Charger la suite » rebuilds the list (new collection, rows read again) instead of resuming it.
   Case 'MO-07 A continuation keeps the loaded rows and adds only the next ones' {
    $script:SearchMode='OU';$script:GlobalSearchGeneration++;$script:Ctrl.TxtSuiteResultFilter.Text='';$script:CurrentPresenceFilter='Tous'

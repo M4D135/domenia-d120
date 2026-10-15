@@ -1,9 +1,9 @@
 {
  "Schema": "DomeniaWordingBaseline/1",
  "Source": "RC1.13.0 (2a98dd6) puis L05 : TE-01 etendu aux affectations de libelles et aux boites de message",
- "Total": 345,
+ "Total": 344,
  "Rules": {
-  "accent": 267,
+  "accent": 266,
   "elision": 71,
   "tutoiement": 7
  },
@@ -169,7 +169,6 @@
   "accent|Resultat reprise des anciennes donnees non recu. Verifiez le stockage puis refaites la simulation avant toute nouvelle demande.": 1,
   "accent|Reverifier le perimetre consulte en arriere-plan": 1,
   "accent|Saisissez les premiers caracteres de l identifiant affiche par le poste. Filtre local sur les metadonnees deja lues : aucune cle n est lue ni revelee.": 1,
-  "accent|Sauvegarde la base puis copie cette sauvegarde vers le fichier de votre choix (cle USB, partage...).": 1,
   "accent|Secrets retires de la vue et references effacees apres expiration.": 1,
   "accent|Selection sans identite exacte (domaine et GUID) : relire l objet avant toute ecriture.": 3,
   "accent|Selectionne d abord une classe.": 1,

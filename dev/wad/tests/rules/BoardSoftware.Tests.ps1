@@ -433,3 +433,18 @@ Test-Case -Id 'FO-15d' -Name 'Tuiles à 0 réduites à une coche ; famille incon
     Assert-Equal 'Runtime' $famille.Family
     Assert-Equal 'Visual C++' $famille.Label
 }
+Test-Case -Id 'BS-091' -Name 'Point 91 : meme logiciel et meme version installes deux fois, architecture et portee nommees' -Body {
+    $rows = @(
+        (New-DomeniaSoftwareBoardTestRow -Name 'Contoso Agent' -Publisher 'Contoso' -Version '2.1' -Architecture 'x64'),
+        (New-DomeniaSoftwareBoardTestRow -Name 'contoso agent' -Publisher 'Contoso' -Version '2.1' -Architecture 'x86'),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Fabrikam Viewer' -Publisher 'Fabrikam' -Version '1.0'))
+    $d = Get-DomeniaSoftwareBoardData -Rows $rows
+    $entry = $d.Entries['software.duplicates']
+    Assert-Equal '1' ([string]$entry.Value)
+    Assert-Equal 'Contoso Agent : Machine x64 ; Machine x86' ([string]$entry.Detail)
+    $user = [pscustomobject]@{ Name = 'Fabrikam Viewer'; Publisher = 'Fabrikam'; Version = '1.0'; Architecture = ''; Scope = 'Utilisateur'; Kind = 'EX\jdupont'; SizeKb = 0; InstallDate = '' }
+    $mixed = Get-DomeniaSoftwareBoardData -Rows @($rows[2], $user)
+    Assert-Equal 'Fabrikam Viewer : Machine 64 bits ; Utilisateur EX\jdupont' ([string]$mixed.Entries['software.duplicates'].Detail)
+    $none = Get-DomeniaSoftwareBoardData -Rows @($rows[0], $rows[2])
+    Assert-Equal 'Aucune installation en double' ([string]$none.Entries['software.duplicates'].Detail)
+}

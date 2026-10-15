@@ -361,6 +361,8 @@ function Start-DomeniaOnlinePark {
         # Pending local saves of a survey of the other scope are expected; otherwise wait for their confirmation.
         if(-not (Test-DomeniaParkRunActive) -and ((Get-DomeniaPersistenceState).Pending -gt 0 -or ($null -ne $script:Persistence -and $script:Persistence.LinkBusy))){throw 'Attendez la confirmation des enregistrements locaux avant un nouveau relevé.'}
         if(-not $script:DatabaseScopedPath){throw 'Aucune base autonome active.'}
+        # Points 32 and 35: no new collection during a base maintenance, a suspended writer or a nearly full disk.
+        $storageRefusal=Get-DomeniaStorageCollectionRefusal;if($storageRefusal){throw $storageRefusal}
         [void](Initialize-DomeniaWinSqliteNative)
         $targets=@();$skipped=[Math]::Max(0,$SkippedTargets);$scopeKind='Scope';$label=[string]$ScopeLabel;$subtree=$false;$listLimit=0
         if($null -ne $ScopeTargets){
@@ -606,6 +608,8 @@ function Invoke-DomeniaParkRunTick {
     if($script:ActiveWriteTaskId -or $script:WriteState -in @('Unknown','UnknownPending')){return}
     if($null -ne $script:Persistence){
         if($script:Persistence.Failures -ge 3 -or $script:Persistence.Conflicts.Count){$r.Stopping=$true;Update-DomeniaParkRunStatus -Run $r;return}
+        # Points 32 and 35: started workers finish and are saved; no further target is admitted.
+        if(Get-DomeniaStorageCollectionRefusal){$r.Stopping=$true;Update-DomeniaParkRunStatus -Run $r;return}
         if($script:Persistence.Pending.Count -ge 64 -or $script:Persistence.LinkBusy){return}
     }
     # One admission per tick keeps the Dispatcher responsive. The engine may impose a smaller provider budget.

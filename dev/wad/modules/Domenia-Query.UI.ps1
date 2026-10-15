@@ -109,6 +109,8 @@ function Initialize-DomeniaQueryWorkshop {
     Initialize-DomeniaQueryAdvanced
     Initialize-DomeniaQuerySchemaUi
     Initialize-DomeniaQueryTransferUi
+    # Points 28 and 29: read-only AD schema and local LDAP filter analysis, as one more workshop tab.
+    if(${function:Initialize-DomeniaDirectorySchemaUi}){Initialize-DomeniaDirectorySchemaUi}
     (Get-DomeniaControl 'TxtQueryFieldSearch').Add_TextChanged({
         $control=Get-DomeniaControl 'CmbQueryField';$selected=[string]$control.SelectedItem.Id
         $control.ItemsSource=@(Find-DomeniaQueryCatalogEntries -Entries @($script:DomeniaQueryState.Catalog) -Text ([string](Get-DomeniaControl 'TxtQueryFieldSearch').Text))

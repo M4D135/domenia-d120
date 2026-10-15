@@ -1479,7 +1479,7 @@ Pour la recherche globale, seuls les nouveaux objets reçus d’AD relancent le 
 |---|---|---|
 | LocalStore.Mode | Compatible | Compatible, UserLocal ou Portable (chapitre 18). |
 | LocalStore.DatabaseFile | Domenia.db | Nom du fichier, sans chemin. |
-| LocalStore.DatabaseBackupCount | 7 | Sauvegardes gardées (2 à 30). |
+| LocalStore.DatabaseBackupCount | 7 | Ancien nombre de sauvegardes gardées (2 à 30). Les sauvegardes faites depuis Stockage, manuelles, automatiques ou avant un geste, suivent « Copies à conserver ». |
 | LocalStore.BackupTimeoutSeconds | 30 | Budget d'une sauvegarde (5 à 120 s). |
 | LocalStore.DatabaseBusyTimeoutMs, MutexTimeoutMilliseconds | 2500, 350 | Attente d'une base occupée. DatabaseBusyTimeoutMs (borné de 100 à 5000 ms) vaut pour l'interface et pour tous les workers ; les attentes dépassées sont comptées dans le panneau Opérations. |
 | Index.StartupDeltaMaxAgeMinutes | 5 | Âge au-delà duquel le journal recommande une mise à jour. |
@@ -1524,7 +1524,21 @@ La base autonome est une copie locale des utilisateurs et des postes, suivie par
 - La base doit être locale, sans repli silencieux. Chemin réseau : « Une base active SQLite doit etre locale. Choisissez UserLocal ; les sources existantes seront conservees. ». Dossier redirigé : « Stockage redirige par un lien : choisissez un dossier local non redirige. ». Dossier non inscriptible : « Stockage non inscriptible : » suivi du chemin et de « Aucun repli silencieux. Configurez UserLocal. ».
 - Une ancienne base à la racine du dossier n'est adoptée que si sa base DN correspond ; elle n'est jamais déplacée ni fusionnée.
 
-Dans l’onglet « Stockage », dépliez « Emplacement et sauvegarde » : une ligne résume la base (« Base du domaine example.local · 4,2 Mo · sauvegardée il y a 2 h »). Le chemin exact s’affiche dans son infobulle et « Copier le chemin » le place dans le presse-papiers. Une alerte s’affiche quand la base n’a jamais été sauvegardée ou que sa dernière sauvegarde a plus de 7 jours. « Ouvrir l emplacement » ouvre l’Explorateur sur le fichier.
+Dans l’onglet « Stockage », dépliez « Emplacement et sauvegarde » : une ligne résume la base (« Base du domaine example.local · 4,2 Mo · sauvegardée il y a 2 h »). Le chemin exact s’affiche dans son infobulle et « Copier le chemin » le place dans le presse-papiers. Une alerte s’affiche quand la base n’a jamais été sauvegardée ou que sa dernière sauvegarde a plus de 7 jours. « Ouvrir l emplacement » ouvre l’Explorateur sur le fichier. Sous les commandes de l’assistant, une ligne donne l’espace libre mesuré du volume de la base et ce qui attend encore son enregistrement (voir « Espace disque » plus bas).
+
+## Déplacer la base
+
+« Déplacer la base… » copie la base vers un nouveau fichier local, la vérifie, puis la met en service. L’original n’est jamais supprimé.
+
+1. **Choisir.** Indiquez un nouveau fichier .db dans un dossier local existant. Un fichier existant, la base active ou un nom déjà accompagné de fichiers -wal, -shm ou -journal sont refusés.
+2. **Vérifier.** Le worker StorageMaintenance lit la source en lecture seule (PRAGMA quick_check, domaine, révision, nombre de lignes), mesure l’espace libre de la destination et exige deux fois la taille de la base plus 32 Mo. Il crée puis supprime un fichier sonde dans le dossier choisi pour prouver l’écriture.
+3. **Confirmer.** L’aperçu donne la taille, l’espace libre, la réserve exigée et le retour arrière. « Copier, vérifier puis utiliser la nouvelle base » lance la copie ; « Conserver la base actuelle » annule sans rien écrire.
+4. **Copier.** Les nouvelles collectes (passes AD, relevés de postes, actualisation d’OU) sont suspendues dès l’ouverture de l’assistant. La file d’enregistrement est vidée avant la copie (120 s au plus). Si des écritures arrivent entre l’aperçu et la confirmation, elles sont enregistrées puis un nouvel aperçu est demandé. Pendant la copie, aucune écriture locale n’est admise ; les lectures restent possibles. Une association, une requête enregistrée ou une reprise d’anciennes données faite à ce moment est refusée avec le message « Maintenance de la base locale en cours : modification non enregistrée » : refaites-la à la fin de l’assistant. La copie passe par l’API de sauvegarde SQLite, puis elle est contrôlée et identifiée avant sa publication atomique.
+5. **Basculer.** L’original reçoit un marqueur qui le garde en lecture seule. Message : « Étape 3 sur 3 : base vérifiée en service : » suivi du chemin.
+
+Tant que la nouvelle base n’a reçu aucune écriture, « Revenir à la base précédente » reste disponible dans la même session : le worker vérifie que la révision de la copie n’a pas bougé, retire le marqueur, puis Domenia revient à l’original. Après une écriture, le retour est refusé et les deux fichiers sont conservés.
+
+Un refus avant la copie (destination prise, espace insuffisant, source modifiée depuis l’aperçu) ne publie rien : « Maintenance locale non effectuée : » suivi du motif, et les collectes reprennent. Toute autre interruption laisse la base verrouillée ; au démarrage suivant, Domenia détecte le marqueur et propose « Reprendre la bascule » ou « Revenir à la base précédente ». Les éléments collectés pour l’ancienne base pendant la copie ne sont pas enregistrés dans la nouvelle ; leur nombre est affiché.
 
 ## Mettre à jour la base
 
@@ -1534,7 +1548,7 @@ La même lecture AD peut être lancée avec « Base locale » depuis Accueil ou 
 |---|---|
 | Mise à jour | Relire l’OU choisie, suivre la progression et la fraîcheur de la copie locale. |
 | Données | Chercher et parcourir les objets enregistrés dans le périmètre choisi, ouvrir leur fiche ou exporter la page. |
-| Stockage | Afficher l’emplacement, sauvegarder ou mesurer toute la base, puis préparer une purge par catégories sur cette base. |
+| Stockage | Afficher l’emplacement, déplacer, sauvegarder, restaurer, contrôler ou mesurer toute la base, régler la conservation par famille, puis préparer une purge par catégories sur cette base. |
 
 ![Mise à jour de la base : OU choisie et commande de relecture ciblée ; données fictives](fig:base-commandes)
 
@@ -1592,13 +1606,17 @@ Pour un parc de 5 000 postes ou plus, gardez les listes paginées, commencez ave
 1. **Lancer.** Ouvrez « Stockage », dépliez « Emplacement et sauvegarde », puis cliquez « Sauvegarder maintenant ». La barre d'état affiche « Sauvegarde de la base en cours... ».
 2. **Copie à chaud.** Le worker StorageBackup copie la base par l'API de sauvegarde SQLite. L'original reste ouvert en lecture seule et n'est pas modifié.
 3. **Contrôle.** La copie est vérifiée (PRAGMA quick_check) dans le budget LocalStore.BackupTimeoutSeconds (30 s). Une copie partielle est supprimée.
-4. **Rotation.** Le fichier va dans le dossier Backups de la base, nommé Domenia-DATE-HEURE-ID.db. Seules les LocalStore.DatabaseBackupCount (7) plus récentes sont gardées.
+4. **Rotation.** Le fichier va dans le dossier Backups de la base, nommé Domenia-DATE-HEURE-ID.db. Seules les plus récentes sont gardées, autant que « Copies à conserver » (7 par défaut, réglé dans « Sauvegardes automatiques et conservation »).
 
 > [!RESULTAT] « Sauvegarde de la base enregistree : » suivi du chemin. Le résumé de l'encadré passe à « sauvegardée à lʼinstant ».
 
 « Copier une sauvegarde vers... » fait la même sauvegarde puis la copie vers le fichier choisi (clé USB, partage), nom proposé Domenia-DATE-HEURE.db : « Sauvegarde de la base copiee : » suivi du chemin. La base active et ses journaux ne peuvent pas servir de destination. Un fichier temporaire précède le remplacement de l’export choisi pour préserver l’export existant si la copie échoue. Échec : « Sauvegarde de la base impossible : » suivi du motif.
 
-> [!ATTENTION] La sauvegarde périodique se règle dans « Sauvegardes automatiques et conservation » ; elle est désactivée par défaut. En dehors d'elle, Domenia sauvegarde la base de lui-même avant une migration de schéma (dans Backups\migrations, hors rotation) et avant les gestes qui la modifient (ci-dessous). Gardez une copie hors du poste.
+Chaque sauvegarde réussie, qu’elle soit manuelle, automatique ou faite avant un geste, est contrôlée par SQLite (PRAGMA quick_check) puis par l’empreinte SHA-256 du fichier produit. Seule une sauvegarde ainsi vérifiée devient la « Dernière sauvegarde vérifiée : » de la base, avec sa date, sa taille et le début de son empreinte ; c’est elle que résume la ligne de l’encadré (« sauvegardée il y a … »). Un reçu sans contrôle ou sans empreinte est traité comme un échec.
+
+**Sauvegarde automatique.** Dans « Sauvegardes automatiques et conservation », cochez « Sauvegarder automatiquement pendant que Domenia est ouvert », réglez « Intervalle (heures) » (1 à 720) et « Copies à conserver » (2 à 30), puis « Enregistrer les réglages ». « Copies à conserver » vaut aussi pour les sauvegardes manuelles et pour celles faites avant un geste. Domenia vérifie l’échéance une fois par minute, tant qu’il est ouvert. La sauvegarde attend la fin des opérations et des enregistrements en cours ; après un échec, un nouvel essai part au plus tôt 15 minutes plus tard. La ligne d’état sous les réglages donne la fréquence, la prochaine échéance, la dernière sauvegarde vérifiée et le dernier échec de la session, quelle que soit la sauvegarde qui a échoué.
+
+> [!ATTENTION] La sauvegarde automatique est désactivée par défaut. Elle ne tourne que lorsque Domenia est ouvert, et dans le dossier Backups du même disque. En dehors d'elle, Domenia sauvegarde la base de lui-même avant une migration de schéma (dans Backups\migrations, hors rotation) et avant les gestes qui la modifient (ci-dessous). Gardez une copie hors du poste avec « Copier une sauvegarde vers... ».
 
 Hors de l'application, le paquet DEV fournit wad\maintenance\Sauvegarder-Cache.ps1 : sauvegarde cohérente d'un fichier .db, de préférence Domenia fermé, 7 copies au plus dans Backups, avec le chemin et l'empreinte SHA-256. Il refuse PowerShell 7 et les processus 32 bits.
 
@@ -1608,20 +1626,29 @@ powershell -NoProfile -STA -File wad\maintenance\Sauvegarder-Cache.ps1 -Database
 
 ### Sauvegarde avant les gestes qui modifient la base
 
-Quatre gestes passent d'abord par une sauvegarde vérifiée de la base, faite par le worker StorageBackup dans le dossier Backups sous le nom Geste-DATE.db. Ces copies tournent à part : les plus récentes sont gardées, autant que le nombre de copies réglé dans la conservation (7 par défaut), et elles ne retirent jamais les copies automatiques ou manuelles (Domenia-DATE.db) :
+Quatre gestes passent d'abord par une sauvegarde vérifiée de la base, faite par le worker StorageBackup dans le dossier Backups sous le nom Geste-DATE.db. Elles suivent la même vérification que les autres sauvegardes (contrôle SQLite et empreinte SHA-256) et deviennent la dernière sauvegarde vérifiée de la base. Ces copies tournent à part : les plus récentes sont gardées, autant que « Copies à conserver » (7 par défaut), et elles ne retirent jamais les copies automatiques ou manuelles (Domenia-DATE.db) :
 
 - la relecture AD d'une OU (« Mettre à jour lʼOU choisie » dans Base autonome, « Objets AD » depuis Accueil ou Rechercher) ;
 - l'import CSV des associations ;
 - le retrait des associations orphelines ;
 - « Oublier les relevés ».
 
-La confirmation de l'import, du retrait et de l'oubli des relevés l'annonce : « Une sauvegarde vérifiée de la base sera faite avant. ». Une sauvegarde vérifiée de moins de 30 minutes sert de point de retour : aucune nouvelle copie n'est faite et la confirmation le dit. Le geste ne démarre qu'après le reçu de la sauvegarde. Si elle échoue, rien n'est lancé : la page propose « Ne pas lancer » ou « Continuer sans sauvegarde », et ce second choix est écrit dans le journal. La base de démonstration et un domaine sans base encore créée ne sont pas sauvegardés.
+La confirmation de l'import, du retrait et de l'oubli des relevés l'annonce : « Une sauvegarde vérifiée de la base sera faite avant. ». Une sauvegarde vérifiée de moins de 30 minutes sert de point de retour : aucune nouvelle copie n'est faite et la confirmation le dit. Le geste ne démarre qu'après le reçu de la sauvegarde. Si elle échoue, rien n'est lancé : la page propose « Ne pas lancer » ou « Continuer sans sauvegarde », et ce second choix est écrit dans le journal. La base de démonstration et un domaine sans base encore créée ne sont pas sauvegardés. Pendant le déplacement ou la restauration de la base, ces gestes sont refusés avec le motif de la maintenance (« Maintenance de la base locale en cours : modification non enregistrée »), sans proposer de continuer sans sauvegarde.
 
 Le geste porte sur ce qui a été confirmé au clic. Si une autre OU ou un autre aperçu CSV est choisi pendant la sauvegarde, rien n'est lu ni importé : « Actualisation non lancée : lʼOU, la base ou la session a changé pendant la sauvegarde ; aucune lecture AD. Cliquez à nouveau pour lʼOU affichée. » ou « Lʼaperçu a changé pendant la sauvegarde : rien nʼest importé. Vérifiez lʼaperçu affiché puis cliquez « Importer ». ». Le retrait des orphelines porte sur les lignes cochées au moment de la confirmation, même si les cases changent pendant la sauvegarde. « Annuler » pendant la sauvegarde arrête la copie, et le geste n'est pas lancé.
 
 ## Restaurer une sauvegarde
 
-Aucun outil de restauration n'est livré : la restauration est manuelle. Si la base est illisible, Domenia ne déplace et n'écrase rien ; il affiche « Le cache SQLite est illisible. Aucune base ni sauvegarde n'a ete deplacee ou ecrasee. » et demande de restaurer une sauvegarde vérifiée.
+« Restaurer une sauvegarde… » restaure une sauvegarde dans un nouveau fichier local. La sauvegarde choisie n’est jamais modifiée et la base active n’est jamais écrasée.
+
+1. **Choisir.** Sélectionnez la sauvegarde (le dossier Backups de la base est proposé), puis le nouveau fichier de la base restaurée.
+2. **Comparer.** L’aperçu donne le domaine, la date d’écriture du fichier, le dernier lot enregistré, la dernière mesure, le contenu (objets AD, mesures, détails, associations, requêtes, reçus) et l’écart avec la base active. Une date absente est dite inconnue.
+3. **Restaurer.** Après confirmation, la copie est vérifiée puis mise en service avec la même bascule que le déplacement. Les écritures postérieures à la sauvegarde ne sont plus visibles ; la base précédente reste disponible par « Revenir à la base précédente » tant que la base restaurée n’a reçu aucune écriture.
+4. **Rattraper.** Relisez les OU suivies dans « Mise à jour » pour retrouver les objets AD récents.
+
+**Base illisible au démarrage.** Si SQLite prouve la corruption (code 11 ou 26, quick_check en échec), Domenia démarre en mode restauration : « Base locale illisible, laissée intacte : » suivi du chemin. Les collectes restent suspendues et seul « Restaurer une sauvegarde… » est actif ; ce qui attendait son enregistrement pour la base illisible ne retarde pas la restauration et son nombre est affiché après la bascule. Une modification saisie dans ce mode est refusée avec le message « Base locale illisible : modification non enregistrée ». Le fichier illisible n’est ni modifié ni marqué ; aucun retour vers lui n’est proposé. Un verrou, un schéma inconnu ou un autre domaine ne sont pas une corruption : la base est alors refusée intacte, comme avant.
+
+**Restauration manuelle**, Domenia fermé, si l’application ne peut pas démarrer :
 
 1. **Fermer Domenia.** Fermez toutes les fenêtres Domenia qui utilisent ce dossier de données.
 2. **Mettre de côté.** Copiez dans un dossier à part le fichier Domenia.db actuel et ses fichiers -wal et -shm. Ne supprimez rien.
@@ -1636,11 +1663,21 @@ Aucun outil de restauration n'est livré : la restauration est manuelle. Si la b
 
 Le schéma de données est en version 11. Les migrations ne vont que vers l'avant ; une base plus récente, illisible ou ambiguë est refusée intacte. Avant une migration, une sauvegarde obligatoire est écrite dans Backups\migrations.
 
+La mise à niveau du schéma se fait dans une seule transaction. Avant de la valider, Domenia vérifie que les tables et les colonnes attendues existent ; s’il en manque, la transaction est annulée, la base reste dans son état précédent et le message cite la sauvegarde de migration conservée.
+
+« Contrôler lʼintégrité » (encadré « Stockage local ») lit la base sans la modifier : ouverture, schéma 11/1, tables et colonnes, identité de la base (domaine et emplacement), marqueur de bascule, reçus plus récents que la base, références orphelines, PRAGMA quick_check et taille du journal SQLite. Verdict : « Sain », « À surveiller », « Défaut » ou « Incomplet ». Un défaut renvoie vers « Restaurer une sauvegarde… » ; aucune réparation n’est automatique.
+
 ## Mesure et purge
 
-Dans Outils → Base autonome → Stockage, « Mesurer » compte les lignes et le volume de la base, en lecture seule. Dans « Purge volontaire », choisissez les données reconstructibles à oublier dans toute la base, indépendamment de l’OU affichée : observations, instantanés de recherche, index local ou anciennes traces selon l’âge indiqué. « Simuler la purge » compte les lignes concernées ; « Purger… » demande ensuite confirmation de cette sélection.
+Dans Outils → Base autonome → Stockage, « Mesurer » compte les lignes et le volume de la base, en lecture seule. La mesure chronomètre aussi quatre lectures types sur cette base (page de l’index par type, postes actifs triés, page de mesures d’une famille, recherche de texte) et indique comment SQLite les a servies d’après son plan : index, tri complet en mémoire ou parcours complet (« Lectures mesurées sur cette base : »). Dans « Purge volontaire », choisissez les données reconstructibles à oublier dans toute la base, indépendamment de l’OU affichée : observations, instantanés de recherche, index local ou anciennes traces selon l’âge indiqué. « Simuler la purge » compte les lignes concernées ; « Purger… » demande ensuite confirmation de cette sélection.
 
 La purge conserve toujours les associations et leurs traces protégées, les secrets, la configuration, les préférences, les journaux et les reçus. Elle ne compacte pas le fichier SQLite. Purger l’index impose une nouvelle mise à jour explicite des OU utiles pour retrouver leurs objets locaux.
+
+**Conservation par famille.** Dans « Sauvegardes automatiques et conservation », une durée en jours se règle pour « Présence ping », « Utilisateur connecté », « Inventaire », « Sondes », « Détails » et « Historique des associations » ; 0 conserve la famille sans limite. L’historique des associations est conservé sans limite par défaut : seul un choix explicite le résume. Rien n’est supprimé à l’enregistrement. « Prévisualiser la conservation » compte, famille par famille, ce qui serait retiré et annonce la perte de détail ; « Appliquer… » demande confirmation, crée une sauvegarde vérifiée puis retire seulement les lignes annoncées. L’historique des associations n’est que résumé : une observation ancienne n’est retirée que si la précédente et la suivante du même poste nomment le même utilisateur ; chaque changement, la première et la dernière observation de chaque période, les dates illisibles et l’historique des associations déclarées sont gardés.
+
+**Espace disque.** Chaque enregistrement mesure l’espace libre du volume de la base. Les nouvelles collectes sont suspendues sous 512 Mo libres (« Espace disque insuffisant : ») et les écritures refusées sous 32 Mo (« Espace disque critique : »), ces seuils étant relevés de quatre fois la file en attente. Ce qui est collecté mais pas encore enregistré est affiché ; libérez de la place puis cliquez sur « Mesurer ». Sans mesure dans la session, l’espace reste annoncé comme non mesuré.
+
+**Limites.** L’encadré « Limites du stockage » rappelle les bornes de la file d’écriture (4 096 changements ou 32 Mo), des recherches, du moteur, de la conservation et des sauvegardes, avec la taille de la base et les collections les plus volumineuses de la dernière mesure. Le stockage local n’est pas illimité.
 
 Après un échec du stockage local, « Reprendre les sauvegardes » relance l'enregistrement des lots restés en mémoire, et « Reprendre les anciennes données » affiche la simulation de la reprise des anciens fichiers avant toute confirmation : les deux sont dans Stockage, section « Reprises ». Les messages de Domenia qui en parlent portent un bouton qui ouvre cet endroit. Les reçus d’écriture s'ouvrent par la pastille « opérations à vérifier » de l'en-tête de page ; les autorisations d’intervention se donnent en tête de la vue « Intervenir » d’Assistance poste.
 

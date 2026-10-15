@@ -334,7 +334,23 @@ function Invoke-DomeniaObjectChanges {
         if([string]$row.Guid -ine [string]$r.Guid){continue}
         # DS-15 / FI-16: DirectoryFresh carries the key of the freshness icon; the wording stays in DirectoryState.
         if($r.Status -eq 'Unconfirmed'){$row.DirectoryState='A reverifier : deplace, filtre ou acces';Set-DomeniaLiveRowValue $row 'DirectoryFresh' 'Warning';continue}
-        if($r.DN -ine $row.DN){$row.DirectoryState='Objet deplace : relancer la recherche';Set-DomeniaLiveRowValue $row 'DirectoryFresh' 'Warning';$c.CacheDirty=$true;continue}
+        if($r.DN -ine $row.DN){
+            # Point 23: moved or renamed inside the scope of this list (the check reads that scope only). The row keeps
+            # its GUID and takes its new DN under a new key: no second row, no stale path in the fiche.
+            $newKey=([string]$r.DN).Trim().ToLowerInvariant()
+            if($newKey -and (-not $s.Map.ContainsKey($newKey))){
+                $oldDn=[string]$row.DN
+                [void]$s.Map.Remove($key);$s.Map[$newKey]=$row
+                if($s.Fresh.ContainsKey($key)){$s.Fresh[$newKey]=$s.Fresh[$key];[void]$s.Fresh.Remove($key)}
+                if($null -ne $r.Row){$snapshot=ConvertTo-DomeniaLiveSnapshot $r.Row;foreach($p in $snapshot.PSObject.Properties){Set-DomeniaLiveRowValue $row $p.Name $p.Value};$s.Fresh[$newKey]=$snapshot}
+                else{Set-DomeniaLiveRowValue $row 'DN' ([string]$r.DN)}
+                [void](Clear-DomeniaVisitCacheForObject -Guid ([string]$row.Guid) -Dn $oldDn)
+                $row.DirectoryState=if(${function:Get-DomeniaMoveStateText}){Get-DomeniaMoveStateText (Get-DomeniaDirectoryMove -OldDn $oldDn -NewDn ([string]$r.DN) -ScopeDn ([string]$s.State.BaseDn) -Scope $(if([string]$s.State.Scope -ieq 'OneLevel'){'OneLevel'}else{'Subtree'}))}else{'Déplacé ou renommé'}
+                Set-DomeniaLiveRowValue $row 'DirectoryFresh' 'Verified';$s.RefreshNeeded=$true
+            }else{$row.DirectoryState='Objet déplacé : relancer la recherche';Set-DomeniaLiveRowValue $row 'DirectoryFresh' 'Warning'}
+            $row.DirectoryChecked=$event.At;$c.Stamps[[string]$r.Guid]=[string]$r.Stamp;$c.CacheDirty=$true
+            continue
+        }
         if($r.Status -eq 'Changed' -and $null -ne $r.Row){
             $snapshot=ConvertTo-DomeniaLiveSnapshot $r.Row
             foreach($p in $snapshot.PSObject.Properties){Set-DomeniaLiveRowValue $row $p.Name $p.Value}
