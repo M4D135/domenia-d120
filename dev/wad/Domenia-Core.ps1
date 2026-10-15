@@ -3932,7 +3932,7 @@ function Get-DomeniaBootThemePalette {
     # case, and never a second copy of the palette. Self-contained: tests extract it alone.
     $roles = [ordered]@{
         Window='WindowBg';Surface='BgCard';Input='BgInput';Text='TextColor';Muted='MutedColor';Border='BorderColor'
-        Button='BtnBg';ButtonText='BtnFg';Accent='AccentColor';AccentText='AccentText';OnAccent='OnAccent'
+        Button='BtnBg';ButtonText='BtnFg';Accent='AccentColor';AccentHover='AccentHover';AccentText='AccentText';OnAccent='OnAccent'
         Error='StatusError';Warning='StatusWarning';Success='StatusSuccess'
     }
     $source = $null
@@ -3954,7 +3954,7 @@ function Get-DomeniaBootThemePalette {
         Window=$system.Window;Surface=$system.Window;Input=$system.Window
         Text=$system.WindowText;Muted=$system.WindowText;Border=$system.WindowText
         Button=$system.Control;ButtonText=$system.ControlText
-        Accent=$system.Highlight;AccentText=$system.HotTrack;OnAccent=$system.HighlightText
+        Accent=$system.Highlight;AccentHover=$system.Highlight;AccentText=$system.HotTrack;OnAccent=$system.HighlightText
         Error=$system.WindowText;Warning=$system.WindowText;Success=$system.WindowText
     }
 }
@@ -4008,9 +4008,9 @@ function Get-DomeniaBootThemeResources {
                                 TextElement.Foreground="{TemplateBinding Foreground}"/>
             </Border>
             <ControlTemplate.Triggers>
-              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="BootButtonBorder" Property="Opacity" Value="0.92"/></Trigger>
-              <Trigger Property="IsPressed" Value="True"><Setter TargetName="BootButtonBorder" Property="Opacity" Value="0.80"/></Trigger>
-              <Trigger Property="IsEnabled" Value="False"><Setter TargetName="BootButtonBorder" Property="Opacity" Value="0.55"/></Trigger>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="BootButtonBorder" Property="Background" Value="{Binding BorderBrush, RelativeSource={RelativeSource TemplatedParent}}"/></Trigger>
+              <Trigger Property="IsPressed" Value="True"><Setter TargetName="BootButtonBorder" Property="Background" Value="{Binding BorderBrush, RelativeSource={RelativeSource TemplatedParent}}"/><Setter TargetName="BootButtonBorder" Property="BorderBrush" Value="{DynamicResource DomeniaBootAccentText}"/></Trigger>
+              <Trigger Property="IsEnabled" Value="False"><Setter TargetName="BootButtonBorder" Property="Background" Value="{DynamicResource DomeniaBootInput}"/><Setter TargetName="BootButtonBorder" Property="BorderBrush" Value="{DynamicResource DomeniaBootBorder}"/><Setter Property="Foreground" Value="{DynamicResource DomeniaBootMuted}"/><Setter Property="Cursor" Value="Arrow"/></Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
         </Setter.Value>
@@ -4263,18 +4263,21 @@ function Get-MainXaml {
             <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="9" SnapsToDevicePixels="True">
               <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}" RecognizesAccessKey="True"/>
             </Border>
+            <!-- DS-11: the hover is a tint, never a fade; a disabled button keeps a readable text (MutedColor on
+                 BgReadonly, 4.5:1 in both themes); the focus has one ring, the FocusVisualStyle above. -->
             <ControlTemplate.Triggers>
               <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="Bd" Property="Opacity" Value="0.92"/>
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource RowHoverBg}"/>
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource InfoBorder}"/>
               </Trigger>
               <Trigger Property="IsPressed" Value="True">
-                <Setter TargetName="Bd" Property="Opacity" Value="0.78"/>
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentSoft}"/>
               </Trigger>
               <Trigger Property="IsEnabled" Value="False">
-                <Setter TargetName="Bd" Property="Opacity" Value="0.45"/>
-              </Trigger>
-              <Trigger Property="IsKeyboardFocused" Value="True">
-                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentColor}"/>
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgReadonly}"/>
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource BorderColor}"/>
+                <Setter Property="Foreground" Value="{DynamicResource MutedColor}"/>
+                <Setter Property="Cursor" Value="Arrow"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -4282,17 +4285,41 @@ function Get-MainXaml {
       </Setter>
     </Style>
     <Style TargetType="Button" BasedOn="{StaticResource BaseButton}"/>
+    <!-- DS-11: filled buttons (main action, danger). Their border carries the darker hover colour of their fill; the
+         disabled state is the same readable neutral style as every other button. -->
+    <ControlTemplate x:Key="UxFilledButtonTemplate" TargetType="Button">
+      <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="9" SnapsToDevicePixels="True">
+        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}" RecognizesAccessKey="True"/>
+      </Border>
+      <ControlTemplate.Triggers>
+        <Trigger Property="IsMouseOver" Value="True">
+          <Setter TargetName="Bd" Property="Background" Value="{Binding BorderBrush, RelativeSource={RelativeSource TemplatedParent}}"/>
+        </Trigger>
+        <Trigger Property="IsPressed" Value="True">
+          <Setter TargetName="Bd" Property="Background" Value="{Binding BorderBrush, RelativeSource={RelativeSource TemplatedParent}}"/>
+          <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource TextColor}"/>
+        </Trigger>
+        <Trigger Property="IsEnabled" Value="False">
+          <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgReadonly}"/>
+          <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource BorderColor}"/>
+          <Setter Property="Foreground" Value="{DynamicResource MutedColor}"/>
+          <Setter Property="Cursor" Value="Arrow"/>
+        </Trigger>
+      </ControlTemplate.Triggers>
+    </ControlTemplate>
     <Style x:Key="RunButton" TargetType="Button" BasedOn="{StaticResource BaseButton}">
       <Setter Property="Background" Value="{DynamicResource AccentColor}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource AccentColor}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentHover}"/>
       <Setter Property="Foreground" Value="{DynamicResource OnAccent}"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Template" Value="{StaticResource UxFilledButtonTemplate}"/>
     </Style>
     <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource BaseButton}">
       <Setter Property="Background" Value="{DynamicResource DangerColor}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource DangerColor}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource DangerHover}"/>
       <Setter Property="Foreground" Value="{DynamicResource OnAccent}"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Template" Value="{StaticResource UxFilledButtonTemplate}"/>
     </Style>
     <Style x:Key="EyeButton" TargetType="Button" BasedOn="{StaticResource BaseButton}">
       <Setter Property="FontFamily" Value="Segoe UI Emoji"/>
@@ -4333,7 +4360,8 @@ function Get-MainXaml {
                 <Setter TargetName="UxInputBorder" Property="BorderBrush" Value="{DynamicResource AccentColor}"/>
               </Trigger>
               <Trigger Property="IsEnabled" Value="False">
-                <Setter TargetName="UxInputBorder" Property="Opacity" Value="0.6"/>
+                <Setter TargetName="UxInputBorder" Property="Background" Value="{DynamicResource BgReadonly}"/>
+                <Setter Property="Foreground" Value="{DynamicResource MutedColor}"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -4363,7 +4391,8 @@ function Get-MainXaml {
                 <Setter TargetName="UxInputBorder" Property="BorderBrush" Value="{DynamicResource AccentColor}"/>
               </Trigger>
               <Trigger Property="IsEnabled" Value="False">
-                <Setter TargetName="UxInputBorder" Property="Opacity" Value="0.6"/>
+                <Setter TargetName="UxInputBorder" Property="Background" Value="{DynamicResource BgReadonly}"/>
+                <Setter Property="Foreground" Value="{DynamicResource MutedColor}"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -4411,7 +4440,8 @@ function Get-MainXaml {
                 <Setter Property="BorderBrush" Value="{DynamicResource AccentColor}"/>
               </Trigger>
               <Trigger Property="IsEnabled" Value="False">
-                <Setter Property="Opacity" Value="0.6"/>
+                <Setter Property="Background" Value="{DynamicResource BgReadonly}"/>
+                <Setter Property="Foreground" Value="{DynamicResource MutedColor}"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -4676,7 +4706,7 @@ function Get-MainXaml {
                 <Setter Property="Foreground" Value="{DynamicResource RowSelFg}"/>
               </Trigger>
               <Trigger Property="IsEnabled" Value="False">
-                <Setter Property="Opacity" Value="0.55"/>
+                <Setter Property="Foreground" Value="{DynamicResource MutedColor}"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -4754,11 +4784,9 @@ function Get-MainXaml {
                 <Setter Property="Foreground" Value="{DynamicResource AccentText}"/>
                 <Setter Property="FontWeight" Value="SemiBold"/>
               </Trigger>
-              <Trigger Property="IsKeyboardFocused" Value="True">
-                <Setter TargetName="UxNavBorder" Property="BorderThickness" Value="2"/>
-              </Trigger>
               <Trigger Property="IsEnabled" Value="False">
-                <Setter Property="Opacity" Value="0.55"/>
+                <Setter Property="Foreground" Value="{DynamicResource MutedColor}"/>
+                <Setter Property="Cursor" Value="Arrow"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -4781,6 +4809,29 @@ function Get-MainXaml {
       <Setter Property="Foreground" Value="{DynamicResource MutedColor}"/>
       <Setter Property="MinHeight" Value="24"/>
       <Setter Property="Padding" Value="6,2"/>
+      <Setter Property="Margin" Value="0"/>
+    </Style>
+    <!-- DS-11: « Arrêter » only shows while its work runs (disabled = nothing to stop). Hidden, not Collapsed: the row
+         keeps its place and nothing moves when a refresh starts. -->
+    <Style x:Key="UxStopButton" TargetType="Button" BasedOn="{StaticResource BaseButton}">
+      <Setter Property="Background" Value="{DynamicResource TileBg}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderColor}"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextColor}"/>
+      <Setter Property="Padding" Value="14,7"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Style.Triggers>
+        <Trigger Property="IsEnabled" Value="False">
+          <Setter Property="Visibility" Value="Hidden"/>
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+    <!-- DS-11: back and forward arrows drawn in the button colour, so an unavailable step reads as disabled. -->
+    <Style x:Key="UxNavArrowButton" TargetType="Button" BasedOn="{StaticResource BaseButton}">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="Foreground" Value="{DynamicResource AccentText}"/>
+      <Setter Property="MinHeight" Value="24"/>
+      <Setter Property="Padding" Value="0"/>
       <Setter Property="Margin" Value="0"/>
     </Style>
     <Style x:Key="UxSegment" TargetType="ListBox">
@@ -4809,6 +4860,7 @@ function Get-MainXaml {
       <Setter Property="ItemContainerStyle">
         <Setter.Value>
           <Style TargetType="ListBoxItem">
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextColor}"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -5110,11 +5162,11 @@ function Get-MainXaml {
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                   </Grid.ColumnDefinitions>
-                  <Button x:Name="BtnNavBack" Style="{StaticResource UxGhostButton}" Width="28" MinWidth="28" Height="28" MinHeight="28" Padding="0" Margin="0,0,2,0" IsEnabled="False" ToolTip="Revient à lʼétape précédente (Alt+Gauche) : page, recherche, OU et sélection restituées depuis la mémoire, sans nouvelle lecture ni sonde des postes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Précédent" AutomationProperties.HelpText="Revient à lʼétape précédente (Alt+Gauche) : page, recherche, OU et sélection restituées depuis la mémoire, sans nouvelle lecture ni sonde des postes.">
-                    <Path Data="M15,5 L8,12 15,19" Width="14" Height="14" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" IsHitTestVisible="False"/>
+                  <Button x:Name="BtnNavBack" Style="{StaticResource UxNavArrowButton}" Width="28" MinWidth="28" Height="28" MinHeight="28" Padding="0" Margin="0,0,2,0" IsEnabled="False" ToolTip="Revient à lʼétape précédente (Alt+Gauche) : page, recherche, OU et sélection restituées depuis la mémoire, sans nouvelle lecture ni sonde des postes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Précédent" AutomationProperties.HelpText="Revient à lʼétape précédente (Alt+Gauche) : page, recherche, OU et sélection restituées depuis la mémoire, sans nouvelle lecture ni sonde des postes.">
+                    <Path Data="M15,5 L8,12 15,19" Width="14" Height="14" Stretch="Uniform" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" IsHitTestVisible="False"/>
                   </Button>
-                  <Button x:Name="BtnNavForward" Grid.Column="1" Style="{StaticResource UxGhostButton}" Width="28" MinWidth="28" Height="28" MinHeight="28" Padding="0" Margin="0,0,8,0" IsEnabled="False" ToolTip="Revient à lʼétape suivante (Alt+Droite), sans nouvelle lecture ni sonde des postes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Suivant" AutomationProperties.HelpText="Revient à lʼétape suivante (Alt+Droite), sans nouvelle lecture ni sonde des postes.">
-                    <Path Data="M9,5 L16,12 9,19" Width="14" Height="14" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" IsHitTestVisible="False"/>
+                  <Button x:Name="BtnNavForward" Grid.Column="1" Style="{StaticResource UxNavArrowButton}" Width="28" MinWidth="28" Height="28" MinHeight="28" Padding="0" Margin="0,0,8,0" IsEnabled="False" ToolTip="Revient à lʼétape suivante (Alt+Droite), sans nouvelle lecture ni sonde des postes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Suivant" AutomationProperties.HelpText="Revient à lʼétape suivante (Alt+Droite), sans nouvelle lecture ni sonde des postes.">
+                    <Path Data="M9,5 L16,12 9,19" Width="14" Height="14" Stretch="Uniform" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" IsHitTestVisible="False"/>
                   </Button>
                   <TextBlock Grid.Column="2" Text="Accueil" FontSize="22" FontWeight="SemiBold" x:Name="LblUxPageTitle" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" AutomationProperties.LiveSetting="Polite" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                 </Grid>
@@ -5172,7 +5224,7 @@ function Get-MainXaml {
                           </Grid.ColumnDefinitions>
                           <Grid Width="15" Height="15" Margin="0,0,8,0" VerticalAlignment="Center">
                             <Path x:Name="UxLockClosed" Data="M6,11 L18,11 18,21 6,21 Z M8.5,11 L8.5,8 A3.5,3.5 0 0 1 15.5,8 L15.5,11" Stretch="Uniform" Stroke="{DynamicResource TextColor}" StrokeThickness="1.7" StrokeLineJoin="Round"/>
-                            <Path x:Name="UxLockOpen" Data="M6,11 L18,11 18,21 6,21 Z M8.5,11 L8.5,8 A3.5,3.5 0 0 1 15.4,6.6" Stretch="Uniform" Stroke="White" StrokeThickness="1.7" StrokeLineJoin="Round" Visibility="Collapsed"/>
+                            <Path x:Name="UxLockOpen" Data="M6,11 L18,11 18,21 6,21 Z M8.5,11 L8.5,8 A3.5,3.5 0 0 1 15.4,6.6" Stretch="Uniform" Stroke="{DynamicResource OnAccent}" StrokeThickness="1.7" StrokeLineJoin="Round" Visibility="Collapsed"/>
                           </Grid>
                           <ContentPresenter x:Name="UxReadOnlyText" Grid.Column="1" VerticalAlignment="Center" RecognizesAccessKey="False" TextElement.Foreground="{DynamicResource TextColor}"/>
                         </Grid>
@@ -5311,7 +5363,7 @@ function Get-MainXaml {
                           <Button x:Name="BtnFleetIndexScope" Content="Objets AD" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,4" ToolTip="Relire les objets AD de cette OU et ses sous-OU. Chaque résultat est enregistré automatiquement, après une sauvegarde vérifiée de la base. Aucun ping ni WMI." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser Objets AD de lʼOU"/>
                           <Button x:Name="BtnFleetRefreshPostes" Content="Ping" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,4" ToolTip="Mesurer seulement la présence réseau des postes activés dans AD de cette OU. Enregistrement automatique ; les dates AD et WMI restent inchangées." AutomationProperties.Name="Actualiser Ping de lʼOU"/>
                           <Button x:Name="BtnFleetRefreshBoth" Content="WMI" Style="{StaticResource RunButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,4" ToolTip="Relire les informations WMI et les sondes choisies pour les postes de cette OU. Aucun ping imposé ; enregistrement automatique." AutomationProperties.Name="Actualiser WMI de lʼOU"/>
-                          <Button x:Name="BtnFleetRefreshStop" Content="Arrêter" IsEnabled="False" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,4" ToolTip="Arrêter cette actualisation ; conserver les données déjà enregistrées. La phase suivante ne sera pas lancée." AutomationProperties.Name="Arrêter lʼactualisation de cette OU"/>
+                          <Button x:Name="BtnFleetRefreshStop" Content="Arrêter" IsEnabled="False" Style="{StaticResource UxStopButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,4" ToolTip="Arrêter cette actualisation ; conserver les données déjà enregistrées. La phase suivante ne sera pas lancée." AutomationProperties.Name="Arrêter lʼactualisation de cette OU"/>
                         </WrapPanel>
                         <TextBlock x:Name="LblFleetOuRefreshStatus" Text="Objets AD · Ping · WMI : trois collectes indépendantes, enregistrées automatiquement." FontSize="11.5" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,6,0,0"/>
 
@@ -5503,7 +5555,7 @@ function Get-MainXaml {
                             <Button x:Name="BtnSearchRefreshBase" Content="Objets AD" IsEnabled="False" MinHeight="30" Padding="8,3" Margin="0,0,4,4" ToolTip="Relire les objets AD de lʼOU choisie et de ses sous-OU, puis afficher les données enregistrées. Une sauvegarde vérifiée de la base précède la lecture. Aucun ping ni WMI." AutomationProperties.Name="Actualiser Objets AD de lʼOU"/>
                             <Button x:Name="BtnSearchRefreshPostes" Content="Ping" IsEnabled="False" MinHeight="30" Padding="8,3" Margin="0,0,4,4" ToolTip="Mesurer seulement le ping des postes activés dans AD de cette OU et de ses sous-OU. Les filtres de recherche restent inchangés." AutomationProperties.Name="Actualiser Ping de lʼOU"/>
                             <Button x:Name="BtnSearchRefreshBoth" Content="WMI" IsEnabled="False" Style="{StaticResource RunButton}" MinHeight="30" Padding="8,3" Margin="0,0,4,4" ToolTip="Relire les informations WMI et les sondes choisies pour cette OU et ses sous-OU. Aucun ping imposé ; enregistrement automatique." AutomationProperties.Name="Actualiser WMI de lʼOU"/>
-                            <Button x:Name="BtnSearchRefreshStop" Content="Arrêter" IsEnabled="False" MinHeight="30" Padding="8,3" Margin="0,0,0,4" ToolTip="Arrêter cette actualisation et empêcher le lancement de la phase suivante. Les données enregistrées sont conservées." AutomationProperties.Name="Arrêter lʼactualisation de lʼOU choisie"/>
+                            <Button x:Name="BtnSearchRefreshStop" Content="Arrêter" IsEnabled="False" Style="{StaticResource UxStopButton}" MinHeight="30" Padding="8,3" Margin="0,0,0,4" ToolTip="Arrêter cette actualisation et empêcher le lancement de la phase suivante. Les données enregistrées sont conservées." AutomationProperties.Name="Arrêter lʼactualisation de lʼOU choisie"/>
                           </WrapPanel>
                           <TextBlock x:Name="LblSearchOuRefreshStatus" Text="La mise à jour couvre toujours les sous-OU." FontSize="11" TextWrapping="Wrap" MaxHeight="58" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" Foreground="{DynamicResource MutedColor}"/>
                         </StackPanel>
@@ -6917,7 +6969,7 @@ function Get-MainXaml {
                             <!-- FI-18: the survey of this workstation (queries of its board) shows its state and its Arrêter here. -->
                             <StackPanel x:Name="UxComputerParkRun" Orientation="Horizontal" Visibility="Collapsed" VerticalAlignment="Center" Margin="8,0,0,0" ToolTip="Relevé en cours des requêtes des widgets de ce poste, indépendant du relevé de la liste de Rechercher." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Relevé en cours des requêtes des widgets de ce poste, indépendant du relevé de la liste de Rechercher." AutomationProperties.Name="Relevé de ce poste">
                               <TextBlock x:Name="LblComputerParkStatus" Text="" FontSize="11.5" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" Margin="0,0,8,0" ToolTip="Avancement du relevé de ce poste. Le détail complet est écrit dans le journal." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Avancement du relevé de ce poste. Le détail complet est écrit dans le journal." AutomationProperties.Name="Avancement du relevé de ce poste" AutomationProperties.LiveSetting="Polite"/>
-                              <Button x:Name="BtnComputerParkStop" Content="Arrêter" Style="{StaticResource SecondaryButton}" IsEnabled="False" ToolTip="Arrête le relevé de ce poste. Les mesures déjà reçues sont conservées ; rien nʼest relancé." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Arrête le relevé de ce poste. Les mesures déjà reçues sont conservées ; rien nʼest relancé." AutomationProperties.Name="Arrêter le relevé de ce poste"/>
+                              <Button x:Name="BtnComputerParkStop" Content="Arrêter" Style="{StaticResource UxStopButton}" IsEnabled="False" ToolTip="Arrête le relevé de ce poste. Les mesures déjà reçues sont conservées ; rien nʼest relancé." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Arrête le relevé de ce poste. Les mesures déjà reçues sont conservées ; rien nʼest relancé." AutomationProperties.Name="Arrêter le relevé de ce poste"/>
                             </StackPanel>
                           </WrapPanel>
                             </StackPanel>
@@ -29866,15 +29918,16 @@ function Get-DomeniaStandardLoginXaml {
       <Border x:Name="Chrome" CornerRadius="10" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
         <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" RecognizesAccessKey="True" TextElement.Foreground="{TemplateBinding Foreground}"/>
       </Border>
+      <!-- DS-11: hover and press take the colour of the border (a darker tint for the main action), the disabled state
+           stays readable (secondary text on the input surface) and the focus keeps one ring (FocusRing). -->
       <ControlTemplate.Triggers>
-        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Opacity" Value="0.82"/></Trigger>
-        <Trigger Property="IsPressed" Value="True"><Setter TargetName="Chrome" Property="Opacity" Value="0.65"/></Trigger>
-        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource DomeniaBootAccentText}"/></Trigger>
-        <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Chrome" Property="Opacity" Value="0.45"/><Setter Property="Cursor" Value="Arrow"/></Trigger>
+        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="{Binding BorderBrush, RelativeSource={RelativeSource TemplatedParent}}"/></Trigger>
+        <Trigger Property="IsPressed" Value="True"><Setter TargetName="Chrome" Property="Background" Value="{Binding BorderBrush, RelativeSource={RelativeSource TemplatedParent}}"/><Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource DomeniaBootAccentText}"/></Trigger>
+        <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Chrome" Property="Background" Value="{DynamicResource DomeniaBootInput}"/><Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource DomeniaBootBorder}"/><Setter Property="Foreground" Value="{DynamicResource DomeniaBootMuted}"/><Setter Property="Cursor" Value="Arrow"/></Trigger>
       </ControlTemplate.Triggers>
     </ControlTemplate></Setter.Value></Setter>
   </Style>
-  <Style x:Key="Run" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Setter Property="Background" Value="{DynamicResource DomeniaBootAccent}"/><Setter Property="Foreground" Value="White"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="BorderBrush" Value="{DynamicResource DomeniaBootAccent}"/></Style>
+  <Style x:Key="Run" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Setter Property="Background" Value="{DynamicResource DomeniaBootAccent}"/><Setter Property="Foreground" Value="{DynamicResource DomeniaBootOnAccent}"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="BorderBrush" Value="{DynamicResource DomeniaBootAccentHover}"/></Style>
   <Style TargetType="TextBox">
     <Setter Property="Background" Value="{DynamicResource DomeniaBootInput}"/><Setter Property="Foreground" Value="{DynamicResource DomeniaBootText}"/><Setter Property="CaretBrush" Value="{DynamicResource DomeniaBootText}"/><Setter Property="SelectionBrush" Value="{DynamicResource DomeniaBootAccent}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource DomeniaBootBorder}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Padding" Value="11,8"/><Setter Property="MinHeight" Value="36"/>
@@ -29885,7 +29938,7 @@ function Get-DomeniaStandardLoginXaml {
     <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="PasswordBox"><Border x:Name="PasswordBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="9"><ScrollViewer x:Name="PART_ContentHost"/></Border><ControlTemplate.Triggers><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="PasswordBorder" Property="BorderBrush" Value="{DynamicResource DomeniaBootAccentText}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
   </Style>
   <Style TargetType="CheckBox"><Setter Property="Foreground" Value="{DynamicResource DomeniaBootText}"/><Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,3"/><Setter Property="MinHeight" Value="32"/><Setter Property="Cursor" Value="Hand"/><Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/><Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
-    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox"><Grid Background="Transparent"><Grid.ColumnDefinitions><ColumnDefinition Width="20"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border x:Name="CheckBorder" Width="18" Height="18" CornerRadius="5" Background="{DynamicResource DomeniaBootInput}" BorderBrush="{DynamicResource DomeniaBootBorder}" BorderThickness="1" VerticalAlignment="Center"><Path x:Name="Tick" Data="M 3,8 L 6,11 L 12,4" Stroke="White" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Visibility="Collapsed"/></Border><ContentPresenter Grid.Column="1" Margin="9,0,0,0" VerticalAlignment="Center" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" RecognizesAccessKey="True" TextElement.Foreground="{TemplateBinding Foreground}"/></Grid><ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="CheckBorder" Property="Background" Value="{DynamicResource DomeniaBootAccent}"/><Setter TargetName="CheckBorder" Property="BorderBrush" Value="{DynamicResource DomeniaBootAccent}"/><Setter TargetName="Tick" Property="Visibility" Value="Visible"/></Trigger><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="CheckBorder" Property="BorderBrush" Value="{DynamicResource DomeniaBootAccentText}"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.55"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox"><Grid Background="Transparent"><Grid.ColumnDefinitions><ColumnDefinition Width="20"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border x:Name="CheckBorder" Width="18" Height="18" CornerRadius="5" Background="{DynamicResource DomeniaBootInput}" BorderBrush="{DynamicResource DomeniaBootBorder}" BorderThickness="1" VerticalAlignment="Center"><Path x:Name="Tick" Data="M 3,8 L 6,11 L 12,4" Stroke="{DynamicResource DomeniaBootOnAccent}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Visibility="Collapsed"/></Border><ContentPresenter Grid.Column="1" Margin="9,0,0,0" VerticalAlignment="Center" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" RecognizesAccessKey="True" TextElement.Foreground="{TemplateBinding Foreground}"/></Grid><ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="CheckBorder" Property="Background" Value="{DynamicResource DomeniaBootAccent}"/><Setter TargetName="CheckBorder" Property="BorderBrush" Value="{DynamicResource DomeniaBootAccent}"/><Setter TargetName="Tick" Property="Visibility" Value="Visible"/></Trigger><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="CheckBorder" Property="BorderBrush" Value="{DynamicResource DomeniaBootAccentText}"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.55"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
   </Style>
   <Style TargetType="ProgressBar"><Setter Property="Foreground" Value="{DynamicResource DomeniaBootAccentText}"/><Setter Property="Background" Value="{DynamicResource DomeniaBootBorder}"/><Setter Property="BorderThickness" Value="0"/></Style>
   </Grid.Resources><!-- Only the input area can scroll on a very small desktop. Actions remain outside it. -->
@@ -29904,7 +29957,7 @@ function Get-DomeniaStandardLoginXaml {
             <ColumnDefinition Width="Auto"/>
           </Grid.ColumnDefinitions>
           <Border Width="42" Height="42" CornerRadius="12" Background="{DynamicResource DomeniaBootAccent}" VerticalAlignment="Center" Margin="0,0,13,0">
-            <TextBlock Text="D" FontSize="27" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" ToolTipService.ShowOnDisabled="True"/>
+            <TextBlock Text="D" FontSize="27" FontWeight="SemiBold" Foreground="{DynamicResource DomeniaBootOnAccent}" HorizontalAlignment="Center" VerticalAlignment="Center" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" ToolTipService.ShowOnDisabled="True"/>
           </Border>
           <StackPanel Grid.Column="1" VerticalAlignment="Center">
             <TextBlock Text="Connexion à Domenia" FontSize="22" FontWeight="SemiBold" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" ToolTipService.ShowOnDisabled="True"/>

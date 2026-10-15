@@ -247,6 +247,26 @@ def main():
         return '%d couples ; ' % len(pairs) + ' ; '.join(lines)
     check('Palette : couples de Get-DomeniaSuiteContrastPairs dans les deux themes', suite_pairs)
 
+    # ------------------------------------------------------------------ DS-11
+    def disabled_and_cards():
+        for theme, palette in palettes.items():
+            require(contrast(palette['MutedColor'], palette['BgReadonly']) >= 4.5, theme + ' : texte desactive sous 4,5:1')
+        dark = palettes['Dark']
+        require(contrast(dark['BgCard'], dark['WindowBg']) >= 1.2, 'Carte sombre trop proche du fond')
+        base = re.search(r'<Style x:Key="BaseButton".*?<Style TargetType="Button" BasedOn="\{StaticResource BaseButton\}"/>', main_xaml, re.S)[0]
+        filled = re.search(r'<ControlTemplate x:Key="UxFilledButtonTemplate".*?</ControlTemplate>', main_xaml, re.S)
+        require(filled and 'BgReadonly' in filled[0] and 'MutedColor' in filled[0], 'Boutons pleins sans style desactive lisible')
+        stop = re.search(r'<Style x:Key="UxStopButton".*?</Style>', main_xaml, re.S)
+        require(stop and 'Property="Visibility" Value="Hidden"' in stop[0], 'Arreter reste visible quand rien ne tourne')
+        for name in ('BtnFleetRefreshStop', 'BtnSearchRefreshStop', 'BtnComputerParkStop'):
+            require(re.search(r'x:Name="%s"[^>]*Style="\{StaticResource UxStopButton\}"' % name, main_xaml), name + ' sans style UxStopButton')
+        require('Property="Opacity" Value="0.45"' not in base and 'Property="Opacity" Value="0.92"' not in base, 'Opacite au survol ou a la desactivation')
+        disabled = re.search(r'<Trigger Property="IsEnabled" Value="False">(.*?)</Trigger>', base, re.S)
+        require(disabled and 'BgReadonly' in disabled[1] and 'MutedColor' in disabled[1], 'Style desactive dedie absent')
+        require('IsKeyboardFocused' not in base, 'Deux anneaux de focus (bordure et FocusVisualStyle)')
+        return 'carte/fond sombre %.2f:1' % contrast(dark['BgCard'], dark['WindowBg'])
+    check('DS-11 : boutons desactives lisibles, cartes sombres visibles, un seul anneau de focus', disabled_and_cards)
+
     # ------------------------------------------------------------------ boot windows
     roles = dict(re.findall(r"(\w+)='(\w+)'", re.search(r'\$roles = \[ordered\]@\{(.*?)\}', fn('Get-DomeniaBootThemePalette'), re.S)[1]))
     styles = re.search(r"\$styles = @'\n(.*?)\n'@", fn('Get-DomeniaBootThemeResources'), re.S)[1]

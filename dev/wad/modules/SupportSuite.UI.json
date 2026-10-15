@@ -20,8 +20,8 @@
   },
   "Palettes": {
     "Dark": {
-      "BgCard": "#182538",
-      "BgInput": "#1D2D43",
+      "BgCard": "#1E2D44",
+      "BgInput": "#17263A",
       "BgReadonly": "#142133",
       "BorderColor": "#3A4F6B",
       "TextColor": "#EDF4FF",
@@ -30,9 +30,9 @@
       "AccentSoft": "#203958",
       "DangerColor": "#B9233B",
       "WindowBg": "#101A29",
-      "DataGridBg": "#182538",
-      "DataGridAlt": "#1C2A3E",
-      "HeaderBg": "#203149",
+      "DataGridBg": "#1E2D44",
+      "DataGridAlt": "#22344D",
+      "HeaderBg": "#253854",
       "LogBg": "#121C2B",
       "LogFg": "#D8E5F8",
       "BtnBg": "#21334B",

@@ -87,3 +87,17 @@ Test-Case 'CD-05' 'Couples de texte et de graphisme de la palette : 4,5:1 et 3:1
         Assert-True $r.Passed ($theme + ' : ' + ((@($r.Failures) | ForEach-Object { $_.Name + ' ' + $_.Display }) -join ', '))
     }
 }
+Test-Case 'DS-11' 'Bouton desactive lisible et carte sombre visible sur son fond' {
+    foreach ($theme in @('Light','Dark')) {
+        $p = Get-SuitePalette -Theme $theme
+        Assert-True ((Get-DomeniaContrastRatio $p['MutedColor'] $p['BgReadonly']) -ge 4.5) ($theme + ' : texte desactive')
+        Assert-True ((Get-DomeniaContrastRatio $p['OnAccent'] $p['AccentHover']) -ge 4.5) ($theme + ' : survol du bouton principal')
+        Assert-True ((Get-DomeniaContrastRatio $p['OnAccent'] $p['DangerHover']) -ge 4.5) ($theme + ' : survol du bouton de danger')
+        Assert-True ((Get-DomeniaContrastRatio $p['BtnFg'] $p['RowHoverBg']) -ge 4.5) ($theme + ' : survol teinte')
+    }
+    $dark = Get-SuitePalette -Theme Dark
+    Assert-Equal '#1E2D44' ([string]$dark['BgCard']) 'Carte sombre eclaircie'
+    Assert-True ((Get-DomeniaContrastRatio $dark['BgCard'] $dark['WindowBg']) -ge 1.2) 'Carte sombre distincte du fond'
+    Assert-True ((Get-DomeniaContrastRatio $dark['BorderColor'] $dark['BgCard']) -ge 1.5) 'Bordure de carte visible'
+    Assert-True ([string]$dark['BgInput'] -cne [string]$dark['BgCard']) 'Champ distinct de la carte'
+}

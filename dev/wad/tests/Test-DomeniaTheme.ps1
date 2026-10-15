@@ -146,7 +146,7 @@ try {
         [void](Load-DomeniaSettings);Assert-Theme ((Load-DomeniaTheme) -eq 'Light')
     }
     Test-ThemeCase 'CD-05 : palette d amorcage = roles du contrat SupportSuite.UI.json, aucune copie' {
-        $roles=@{Window='WindowBg';Surface='BgCard';Input='BgInput';Text='TextColor';Muted='MutedColor';Border='BorderColor';Button='BtnBg';ButtonText='BtnFg';Accent='AccentColor';AccentText='AccentText';OnAccent='OnAccent';Error='StatusError';Warning='StatusWarning';Success='StatusSuccess'}
+        $roles=@{Window='WindowBg';Surface='BgCard';Input='BgInput';Text='TextColor';Muted='MutedColor';Border='BorderColor';Button='BtnBg';ButtonText='BtnFg';Accent='AccentColor';AccentHover='AccentHover';AccentText='AccentText';OnAccent='OnAccent';Error='StatusError';Warning='StatusWarning';Success='StatusSuccess'}
         foreach($theme in @('Light','Dark')) {
             $boot=Get-DomeniaBootThemePalette -Theme $theme;$suite=Get-SuitePalette -Theme $theme
             Assert-Theme (@($boot.Keys).Count -eq $roles.Count) ($theme+' : nombre de roles')
@@ -221,6 +221,38 @@ try {
                 }
             }
             $script:CurrentTheme='Light';$script:DomeniaPaintedPalette=$null
+        }
+        Test-ThemeCase 'DS-11 : bouton desactive lisible (4,5:1), plein ou neutre ; Arreter cache sans travail' {
+            $script:Window=$null
+            try {
+                $script:Window=ConvertFrom-DomeniaXaml -XamlText (Get-MainXaml) -Context 'DS-11'
+                $panel=$script:Window.FindName('UxHeaderTools')
+                foreach($theme in @('Light','Dark')) {
+                    Apply-DomeniaTheme -Theme $theme
+                    $palette=Get-SuitePalette -Theme $theme
+                    foreach($styleKey in @('RunButton','DangerButton','SecondaryButton','BaseButton','UxNavArrowButton')) {
+                        $button=[Windows.Controls.Button]::new();$button.Content='Essai';$button.Style=$script:Window.Resources[$styleKey];$button.IsEnabled=$false
+                        [void]$panel.Children.Add($button);[void]$button.ApplyTemplate()
+                        $border=$button.Template.FindName('Bd',$button)
+                        $fg=Get-TestBrushHex $button.Foreground;$bg=Get-TestBrushHex $border.Background
+                        Assert-Theme ($fg -eq $palette.MutedColor) ($theme+' '+$styleKey+' : texte '+$fg)
+                        Assert-Theme ($bg -eq $palette.BgReadonly) ($theme+' '+$styleKey+' : fond '+$bg)
+                        $a=Get-TestLuminance $fg;$b=Get-TestLuminance $bg
+                        Assert-Theme ((([Math]::Max($a,$b)+0.05)/([Math]::Min($a,$b)+0.05)) -ge 4.5) ($theme+' '+$styleKey+' : contraste')
+                        $button.IsEnabled=$true
+                        Assert-Theme ((Get-TestBrushHex $button.Foreground) -ne $palette.MutedColor) ($theme+' '+$styleKey+' : texte actif')
+                        [void]$panel.Children.Remove($button)
+                    }
+                    foreach($name in @('BtnSearchRefreshStop','BtnFleetRefreshStop','BtnComputerParkStop')) {
+                        $stop=$script:Window.FindName($name)
+                        Assert-Theme ($stop.Visibility -eq [Windows.Visibility]::Hidden) ($theme+' : '+$name+' visible sans travail')
+                        $stop.IsEnabled=$true
+                        Assert-Theme ($stop.Visibility -eq [Windows.Visibility]::Visible) ($name+' cache pendant un travail')
+                        $stop.IsEnabled=$false
+                    }
+                }
+            }
+            finally { if ($null -ne $script:Window) { $script:Window.Close();$script:Window=$null } }
         }
         Test-ThemeCase 'Principale : Dark restaure sans modifier le fichier de preferences' {
             Reset-TestPreferences '{"Theme":"Dark"}' 'Light'

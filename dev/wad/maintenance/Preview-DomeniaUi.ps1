@@ -574,7 +574,7 @@ try {
             } finally {$grid.IsEnabled=$was;Update-PreviewLayout}
         }
         Test-PreviewAssertion 'Contrat partage importe avant affichage' {
-            $null -ne (Get-SuiteDesign) -and (Get-SuitePalette -Theme 'Dark').BgCard -eq '#182538'
+            $null -ne (Get-SuiteDesign) -and (Get-SuitePalette -Theme 'Dark').BgCard -eq '#1E2D44'
         }
         Test-PreviewAssertion 'Filtre local reduit la grille sans changer le perimetre' {
             (Get-DomeniaControl 'TxtGlobalSearch').Text='';Reset-DomeniaSearchScope

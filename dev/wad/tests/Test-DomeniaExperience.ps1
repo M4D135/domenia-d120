@@ -95,7 +95,7 @@ Check-Suite 'Enregistrement refuse remonte explicitement' {
     try{Save-DomeniaSettings -Immediate -ThrowOnFailure}catch{return $true};$false
 }
 Check-Suite 'Enregistrement accepte ne leve pas erreur' {$script:Writable=$true;Save-DomeniaSettings -Immediate -ThrowOnFailure;$true}
-Check-Suite 'Palette claire et sombre chargees' {(Get-SuitePalette Light).BgCard -eq '#FFFFFF' -and (Get-SuitePalette Dark).BgCard -eq '#182538'}
+Check-Suite 'Palette claire et sombre chargees' {(Get-SuitePalette Light).BgCard -eq '#FFFFFF' -and (Get-SuitePalette Dark).BgCard -eq '#1E2D44'}
 Check-Suite 'Login et principale partagent le bleu' {(Get-DomeniaBootThemePalette Dark).Accent -ceq (Get-SuitePalette Dark).AccentColor}
 Check-Suite 'Login et principale partagent le fond' {(Get-DomeniaBootThemePalette Light).Window -ceq (Get-SuitePalette Light).WindowBg}
 $row=[pscustomobject]@{Type='Machine';Name='PC-PARIS-01';Login='Paris';UPN='pc-paris-01.example.invalid';Association='Alex Martin';Presence='En ligne';Password='HIDDEN_SENTINEL'}
