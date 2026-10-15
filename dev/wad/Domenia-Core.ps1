@@ -24794,6 +24794,7 @@ function Get-DomeniaWorkerOperationHashes {
         StorageIntegrity      = "E4DF16C6211B9038B58561CDEF7CE5F7F7E68CD62F138F2055CD3DDFD79BEC2B"
         QueryTransfer         = "8067CFBC47BC1FEF79E2C491AA0AB3AB7F669B8EDE32304BB5569A8266D302F4"
         PasswordPolicyRead    = "70395D530CFF369568D0FC1909241AE2A96D351C59F8289129434369D240C45B"
+        DelegationRead        = "B17802D6BD798BAE7BB831079C76B6050DDA7CA548D4B70FA29C98418E547FE6"
     }
 }
 
@@ -24802,7 +24803,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "C7BD63BF0CC4B35037C0A6537FE539C1C7FDE0B571C2E05D86D5C074C41A15AB"
+    $expectedFingerprint = "1EF55E5EFE7A043B8F4F0E0597E7221A9A5FCD8B2D92ABAD7ED9C7EAAB08D402"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }

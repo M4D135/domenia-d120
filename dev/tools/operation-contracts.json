@@ -586,5 +586,12 @@
     "Function": "Get-DomeniaPasswordPolicyReadWorkerCode",
     "LiteralIndex": 0,
     "Sha256": "70395D530CFF369568D0FC1909241AE2A96D351C59F8289129434369D240C45B"
+  },
+  {
+    "Operation": "DelegationRead",
+    "File": "wad/modules/Domenia-AdAudit.Worker.ps1",
+    "Function": "Get-DomeniaDelegationReadWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "B17802D6BD798BAE7BB831079C76B6050DDA7CA548D4B70FA29C98418E547FE6"
   }
 ]
