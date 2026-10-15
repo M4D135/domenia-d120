@@ -187,10 +187,10 @@ function Test-DomeniaCurrentAnswerInvariant {
         if ($name -eq 'Guid') { $left = $left.Trim().Trim('{','}').ToLowerInvariant(); $right = $right.Trim().Trim('{','}').ToLowerInvariant() }
         if (($left -cne $right) -or (-not $left)) { $differences.Add($name) }
     }
-    if ($Applied -and $differences.Count -gt 0) {
+    if ($Applied -and ($differences.Count -gt 0)) {
         $violations.Add((New-DomeniaInvariantViolation 'CurrentAnswer' $Subject 'réponse écartée' ('appliquée (' + ($differences -join ', ') + ' différent)') 'Réponse dʼune ancienne sélection appliquée.'))
     }
-    if ((-not $Applied) -and $differences.Count -eq 0 -and [bool]$RequireCurrentApplied) {
+    if ((-not $Applied) -and ($differences.Count -eq 0) -and [bool]$RequireCurrentApplied) {
         $violations.Add((New-DomeniaInvariantViolation 'CurrentAnswer' $Subject 'réponse appliquée' 'écartée' 'Réponse de la sélection courante perdue.'))
     }
     return ,($violations.ToArray())
