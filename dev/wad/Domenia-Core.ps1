@@ -895,6 +895,8 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnOpenLinksCsv" = "Default"
     "BtnPruneLinks" = "Default"
     "LblLinkContext" = "Default"
+    "LblLinkOverview" = "Default"
+    "ChkAllLinksHistory" = "Default"
     "LblLinkProbeStatus" = "Default"
     "BtnDetectUserComputers" = "Default"
     "ChkUserScanPark" = "Default"
@@ -1079,6 +1081,8 @@ $script:GuiElementPolicy = [ordered]@{
     "DgPermissions" = "Default"
     "TabApplicationTools" = "Default"
     "ApplicationToolTabs" = "Default"
+    "WsAdAudit" = "Default"
+    "WsAssistance" = "Default"
     "TabSelfCheck" = "Default"
     "BtnSelfCheckQuick" = "Default"
     "BtnSelfCheckFull" = "Default"
@@ -5743,7 +5747,7 @@ function Get-MainXaml {
                               <!-- DS-20: the association, its qualification and its source in one cell (« Camille Martin · Observé », source in the
                                    tooltip); the former columns Source lien and Qualification are merged here. -->
                               <DataGridTemplateColumn Header="Association mémorisée" SortMemberPath="Association" ClipboardContentBinding="{Binding Association}" Width="260">
-                                <DataGridTemplateColumn.HeaderStyle><Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}"><Setter Property="ToolTip" Value="Utilisateur associé au poste ou postes associés au compte, suivi de la qualification du lien (Observé, Déclaré, Importé, Indice, Contradictoire) ; lʼinfobulle de la cellule donne sa source. Cette information mémorisée ne prouve pas une session actuelle ; la qualification nʼest jamais une probabilité."/></Style></DataGridTemplateColumn.HeaderStyle>
+                                <DataGridTemplateColumn.HeaderStyle><Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}"><Setter Property="ToolTip" Value="Utilisateur associé au poste ou postes associés au compte, suivi de la qualification du lien (Observé, Déclaré, Historique, Importé, Indice, Contradictoire) ; lʼinfobulle de la cellule donne sa source. Cette information mémorisée ne prouve pas une session actuelle ; la qualification nʼest jamais une probabilité."/></Style></DataGridTemplateColumn.HeaderStyle>
                                 <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock TextTrimming="CharacterEllipsis" VerticalAlignment="Center"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="ToolTip" Value="{Binding LinkSource}"/><Style.Triggers><DataTrigger Binding="{Binding LinkSource}" Value=""><Setter Property="ToolTip" Value="{x:Null}"/></DataTrigger></Style.Triggers></Style></TextBlock.Style><Run Text="{Binding Association, Mode=OneWay}"/><Run Foreground="{DynamicResource MutedColor}"><Run.Style><Style TargetType="Run"><Setter Property="Text" Value="{Binding LinkConfidence, Mode=OneWay, StringFormat=' · {0}'}"/><Style.Triggers><DataTrigger Binding="{Binding LinkConfidence}" Value=""><Setter Property="Text" Value=""/></DataTrigger><DataTrigger Binding="{Binding Association}" Value=""><Setter Property="Text" Value=""/></DataTrigger></Style.Triggers></Style></Run.Style></Run></TextBlock></DataTemplate></DataGridTemplateColumn.CellTemplate>
                               </DataGridTemplateColumn>
                               <!-- DS-15: presence as a pastel pill (dot from the state key PresenceState, FI-16), short label and discreet age; UX-12: ProbePending marks a row still to be read by the running survey. -->
@@ -6476,6 +6480,7 @@ function Get-MainXaml {
                               <Style.Triggers>
                                 <DataTrigger Binding="{Binding Badge}" Value="Declare"><Setter Property="Background" Value="#DBEAFE"/></DataTrigger>
                                 <DataTrigger Binding="{Binding Badge}" Value="Observe"><Setter Property="Background" Value="#DCFCE7"/></DataTrigger>
+                                <DataTrigger Binding="{Binding Badge}" Value="Historique"><Setter Property="Background" Value="#FEF3C7"/></DataTrigger>
                                 <DataTrigger Binding="{Binding Badge}" Value="Contradictoire"><Setter Property="Background" Value="#FFEDD5"/></DataTrigger>
                               </Style.Triggers>
                             </Style>
@@ -6487,6 +6492,7 @@ function Get-MainXaml {
                                 <Style.Triggers>
                                   <DataTrigger Binding="{Binding Badge}" Value="Declare"><Setter Property="Foreground" Value="#1E3A8A"/></DataTrigger>
                                   <DataTrigger Binding="{Binding Badge}" Value="Observe"><Setter Property="Foreground" Value="#14532D"/></DataTrigger>
+                                  <DataTrigger Binding="{Binding Badge}" Value="Historique"><Setter Property="Foreground" Value="#78350F"/></DataTrigger>
                                   <DataTrigger Binding="{Binding Badge}" Value="Contradictoire"><Setter Property="Foreground" Value="#7C2D12"/></DataTrigger>
                                 </Style.Triggers>
                               </Style>
@@ -6550,6 +6556,7 @@ function Get-MainXaml {
                             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                             <StackPanel Grid.Row="0" Margin="0,0,0,10">
                               <TextBlock x:Name="LblLinkContext" Text="Aucune sélection." Foreground="{DynamicResource AccentText}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                              <TextBlock x:Name="LblLinkOverview" Visibility="Collapsed" Margin="0,6,0,0" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" ToolTip="Affectation déclarée, dernière session observée et historique, chacun avec son origine et sa date. Une observation ne vaut pas affectation." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Synthèse des associations" AutomationProperties.HelpText="Affectation déclarée, dernière session observée et historique, chacun avec son origine et sa date. Une observation ne vaut pas affectation."/>
                               <WrapPanel Margin="0,8,0,0">
                                 <Button x:Name="BtnRemoveLink" Content="Supprimer lʼassociation" Style="{StaticResource DangerButton}" Margin="0,0,8,6" ToolTip="Retire uniquement le lien sélectionné, jamais lʼobjet Active Directory. La suppression est journalisée et restaurable."/>
                                 <Button x:Name="BtnRestoreLink" Content="Restaurer la suppression" IsEnabled="False" Margin="0,0,8,6" ToolTipService.ShowOnDisabled="True" ToolTip="Aucune suppression locale à restaurer."/>
@@ -6667,6 +6674,7 @@ function Get-MainXaml {
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                               <ToggleButton x:Name="ChkAllLinksDeclared" Content="Déclaré" Style="{StaticResource RelationChipToggle}" Tag="#DBEAFE" ToolTip="Nʼafficher que les associations déclarées par un opérateur." AutomationProperties.Name="Filtre Déclaré"/>
                               <ToggleButton x:Name="ChkAllLinksObserved" Content="Observé" Style="{StaticResource RelationChipToggle}" Tag="#DCFCE7" ToolTip="Nʼafficher que les sessions observées sur les postes." AutomationProperties.Name="Filtre Observé"/>
+                              <ToggleButton x:Name="ChkAllLinksHistory" Content="Historique" Style="{StaticResource RelationChipToggle}" Tag="#FEF3C7" ToolTip="Nʼafficher que les ouvertures de session anciennes relevées dans un journal ou un profil : un historique, pas une présence actuelle." AutomationProperties.Name="Filtre Historique" AutomationProperties.HelpText="Nʼafficher que les ouvertures de session anciennes relevées dans un journal ou un profil : un historique, pas une présence actuelle."/>
                               <ToggleButton x:Name="ChkAllLinksConflict" Content="Contradictoire" Style="{StaticResource RelationChipToggle}" Tag="#FFEDD5" ToolTip="Nʼafficher que les postes où les sources désignent des comptes différents." AutomationProperties.Name="Filtre Contradictoire"/>
                             </StackPanel>
                             <TextBlock x:Name="LblAllLinksCount" Grid.Column="2" Text="" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="10,0,0,0" TextTrimming="CharacterEllipsis"/>
@@ -7780,6 +7788,10 @@ function Get-MainXaml {
                       <TabItem x:Name="WsQueryWorkshop" Header="Atelier de requêtes" ToolTip="Créer, modifier et enregistrer les requêtes communes à Recherche et aux tableaux de bord." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Atelier de requêtes" AutomationProperties.HelpText="Créer, modifier et enregistrer des requêtes. Choisir un modèle ne lance aucune collecte.">
                         <ContentControl x:Name="QueryWorkshopHost" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
                       </TabItem>
+                      <!-- Points 102 to 109: content loaded from Domenia-AdAudit.xaml at the first opening (Domenia-AdAudit.UI.ps1). -->
+                      <TabItem x:Name="WsAdAudit" Header="Audit AD" ToolTip="Stratégie de mot de passe, groupes imbriqués, délégations, GPO, contrôleurs et identités : lectures bornées et à la demande, sans écriture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Audit AD" AutomationProperties.HelpText="Stratégie de mot de passe, groupes imbriqués, délégations, GPO, contrôleurs et identités : lectures bornées et à la demande, sans écriture."/>
+                      <!-- Point 110: content loaded from Domenia-Assistance.xaml at the first opening (Domenia-Assistance.UI.ps1). -->
+                      <TabItem x:Name="WsAssistance" Header="Assistance" ToolTip="Recettes guidées pour une connexion impossible, un poste lent, un manque dʼespace ou un logiciel absent : chaque étape dit ce quʼelle lit et part sur votre clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Assistance" AutomationProperties.HelpText="Recettes guidées pour une connexion impossible, un poste lent, un manque dʼespace ou un logiciel absent : chaque étape dit ce quʼelle lit et part sur votre clic."/>
                       <TabItem x:Name="TabDomain" ToolTip="Roles FSMO, niveaux fonctionnels, controleurs et strategie du domaine." Header="Domaine" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Domaine" AutomationProperties.HelpText="Roles FSMO, niveaux fonctionnels, controleurs et strategie du domaine.">
                         <DockPanel Margin="4">
                           <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
@@ -23386,6 +23398,9 @@ function Wire-Events {
     [void](Register-DomeniaContextMenus)
     Register-DomeniaDeferredViewHandlers
     [void](Register-DomeniaShortcuts)
+    # Points 102 to 110: the Audit AD and Assistance tools load their own view at the first opening of their tab.
+    try { Register-DomeniaAdAuditTool } catch { Write-AppLog ('Audit AD non raccordé : ' + $_.Exception.Message) 'ERROR' }
+    try { Register-DomeniaAssistanceTool } catch { Write-AppLog ('Assistance non raccordée : ' + $_.Exception.Message) 'ERROR' }
 }
 
 
@@ -24776,13 +24791,14 @@ function Get-DomeniaWorkerOperationHashes {
         QueryLibrary          = "E9CC1DD4D312245C4F1401BA0C119D41E9FE1B924F2DC7AF337BBB038D84E203"
         LockoutDiagnosis      = "16A28EB41BE4F6A88BC7FD09E979D15731ABE1508171682B86C21B516C456D3C"
         ParkPing              = "AEC50398D907F22BBAB7FEAAD775ED44AAF30CC0DF64EAFA7BEE3283397C6058"
-        GroupPathRead         = "348D0FB7DE1A5C85A3D96707D015B67B8FB081AB09B1C8433420FA33688CF3B0"
+        GroupPathRead         = "1CCA67CE78F17B6C0BCD3AD55A7CFF02B699CFF34A1BC8E055805BC0BDD8751D"
         ComputerServiceControl = "AEF0B956D70FF477939AEF6048D32BC7C377E5E4F685E046D64BF87F7C66DADB"
         DirectoryAbsenceCheck = "4A35BFF449957D0FD5AE9375C073B68B04834AA376E8DF3CB379FF359096C71E"
         LogonByDcRead         = "0C1E9EC26F3E5FCA7F9FF821E29C4A35999F907AFD722222CCA855A21E668759"
         AdSchemaRead          = "94EF172741C979EDB72E3460FD498AC94ED231FB5C7ACB972FFB0E51001877A6"
         StorageIntegrity      = "E4DF16C6211B9038B58561CDEF7CE5F7F7E68CD62F138F2055CD3DDFD79BEC2B"
         QueryTransfer         = "8067CFBC47BC1FEF79E2C491AA0AB3AB7F669B8EDE32304BB5569A8266D302F4"
+        PasswordPolicyRead    = "70395D530CFF369568D0FC1909241AE2A96D351C59F8289129434369D240C45B"
     }
 }
 
@@ -24791,7 +24807,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "1D341828913A60EB4E901AD2AE5DA8629039B65D234B24BDEEFF126E894A5B06"
+    $expectedFingerprint = "C7BD63BF0CC4B35037C0A6537FE539C1C7FDE0B571C2E05D86D5C074C41A15AB"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }

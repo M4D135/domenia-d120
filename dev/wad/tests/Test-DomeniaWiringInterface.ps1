@@ -927,12 +927,13 @@ try{
             Expect (([string]$script:Ctrl['LblMembershipWhy'].Text).Contains('membre direct de « GG-Lyon »') -and ($tasks.Count -eq 0)) ('Pourquoi direct : '+$script:Ctrl['LblMembershipWhy'].Text)
             Click $script:Ctrl['BtnMemberOfNested']
             $read=@($tasks|Where-Object{$_.OperationId -eq 'GroupPathRead'})
-            Expect (($read.Count -eq 1) -and ([string]$read[0].Payload.ObjectDn -eq $user) -and (@($read[0].Payload.StartGroups).Count -eq 2) -and (-not [string]$read[0].Payload.TargetDn)) 'Lecture des groupes imbriques non conforme.'
-            $answer=[pscustomobject]@{ObjectDn=$user;TargetDn='';Edges=@{$user=@($g1,$g2);$g1=@($g3)};Unread=@([pscustomobject]@{Dn='CN=GU,DC=autre,DC=local';Reason='Autre domaine'});Truncated=$false;ServerAnswer=$null}
+            # Same pinned body as the nested groups of the Audit AD (point 103): the worker reads the object's memberOf itself.
+            Expect (($read.Count -eq 1) -and ([string]$read[0].Payload.Dn -eq $user) -and ([string]$read[0].Payload.Mode -eq 'Expand') -and ([int]$read[0].Payload.MaxNodes -eq 2000) -and (-not [string]$read[0].Payload.TargetDn)) 'Lecture des groupes imbriques non conforme.'
+            $answer=[pscustomobject]@{Dn=$user;Mode='Expand';StartParents=@($g1,$g2);StartComplete=$true;StartNote='';Nodes=@([pscustomobject]@{Dn=$g1;Name='GG-Lyon';Parents=@($g3)},[pscustomobject]@{Dn=$g2;Name='GG-RH';Parents=@()},[pscustomobject]@{Dn=$g3;Name='GG-Compta';Parents=@()});Unread=@([pscustomobject]@{Dn='CN=GU,DC=autre,DC=local';Reason='Autre domaine ou partition : non lu depuis ce contrôleur'});Truncated=$false;TruncatedReason='';PrimaryGroup=[pscustomobject]@{Sid='S-1-5-21-1-2-3-513';Dn='CN=Domain Users,CN=Users,DC=example,DC=local';Name='Domain Users';Error=''};TargetDn='';ServerAnswer=$null;ServerError=''}
             Complete-DomeniaMembershipPathRead -Result $answer -State $read[0].State;Pump $main
             $nested=@($grid.Items|Where-Object{[string]$_.Membership -eq 'Imbriquée'})
             Expect (($grid.Items.Count -eq 3) -and ($nested.Count -eq 1) -and ([string]$nested[0].Name -eq 'GG-Compta') -and ([string]$nested[0].Via -eq 'GG-Lyon')) 'Groupe imbrique absent de la grille.'
-            Expect (([string]$script:Ctrl['LblMembershipWhy'].Text).Contains('1 groupe(s) imbriqué(s)') -and ([string]$script:Ctrl['LblMembershipWhy'].Text).Contains('1 autre domaine')) ('Resume : '+$script:Ctrl['LblMembershipWhy'].Text)
+            Expect (([string]$script:Ctrl['LblMembershipWhy'].Text).Contains('1 groupe(s) imbriqué(s)') -and ([string]$script:Ctrl['LblMembershipWhy'].Text).Contains('1 autre domaine') -and ([string]$script:Ctrl['LblMembershipWhy'].Text).Contains('Groupe principal : Domain Users')) ('Resume : '+$script:Ctrl['LblMembershipWhy'].Text)
             Expect (([string]$script:Ctrl['LblMemberOf'].Text).Contains('1 groupe(s) imbriqué(s) lu(s)')) ('Compteur : '+$script:Ctrl['LblMemberOf'].Text)
             $grid.SelectedItem=$nested[0];Invoke-DomeniaMembershipWhy
             Expect (([string]$script:Ctrl['LblMembershipWhy'].Text).Contains('Jean Dupont → GG-Lyon → GG-Compta (2 niveaux)') -and (@($tasks|Where-Object{$_.OperationId -eq 'GroupPathRead'}).Count -eq 1)) ('Pourquoi imbrique : '+$script:Ctrl['LblMembershipWhy'].Text)
@@ -940,7 +941,7 @@ try{
             Expect (($headers -contains 'Pourquoi membre ?') -and ($headers -contains 'Afficher les groupes imbriqués') -and ($headers -contains 'Copier le DN')) ('Menu : '+($headers -join ', '))
             # A late answer for a fiche replaced since is ignored.
             $script:SelectedObjectGeneration=4L
-            Complete-DomeniaMembershipPathRead -Result ([pscustomobject]@{ObjectDn=$user;TargetDn='';Edges=@{};Unread=@();Truncated=$false}) -State $read[0].State
+            Complete-DomeniaMembershipPathRead -Result ([pscustomobject]@{Dn=$user;TargetDn='';StartParents=@();Nodes=@();Unread=@();Truncated=$false}) -State $read[0].State
             Expect ($grid.Items.Count -eq 3) 'Une ancienne reponse a modifie la grille.'
             # Members of a group: readable rows, types read in the local copy (no directory request).
             $group='CN=GG-Postes,OU=Groupes,DC=example,DC=local';$pc='CN=PC-COMPTA-014,OU=Postes,DC=example,DC=local';$other='CN=Inconnu,OU=Postes,DC=example,DC=local'
