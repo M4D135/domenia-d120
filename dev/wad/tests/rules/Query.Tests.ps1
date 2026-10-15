@@ -51,6 +51,19 @@ Test-Case -Id 'P154' -Name 'Exploration WMI : espace de noms et filtre de classe
     foreach ($filter in @('', 'Win32_*', 'MSFT_PhysicalDisk', '__NAMESPACE')) { Assert-DomeniaQuerySchemaClassFilter $filter }
     foreach ($filter in @('*', 'Win32_* OR 1=1', "Win32_Service'", 'Win*32', '%')) { Assert-Throws { Assert-DomeniaQuerySchemaClassFilter $filter } ('filtre refusé : ' + $filter) }
 }
+Test-Case -Id 'P154' -Name 'Opérations de lʼatelier classées : QuerySchema lecture CIM du poste, QueryTransfer fichiers locaux' -Body {
+    $schema = Get-DomeniaOperationCredentialNeeds 'QuerySchema'
+    Assert-Equal 'Cim' $schema.Provider
+    Assert-Equal 'Remote' $schema.Resource
+    Assert-True ($schema.Machine -and $schema.Remote -and $schema.NonDirectory) 'compte distant du poste, sans canal AD'
+    Assert-False $schema.DirectoryBreaker 'un refus sur le poste ne suspend pas lʼannuaire'
+    Assert-Equal 'Read' (Get-DomeniaOperationEffect 'QuerySchema')
+    Assert-Equal '' (Get-DomeniaTaskDedupKey -OperationId 'QuerySchema' -Payload ([pscustomobject]@{ Computer = 'PC-01' })) 'lecture explicite jamais mutualisée'
+    $transfer = Get-DomeniaOperationCredentialNeeds 'QueryTransfer'
+    Assert-Equal 'Storage' $transfer.Provider
+    Assert-Equal 'Local' $transfer.Resource
+    Assert-False ($transfer.Directory -or $transfer.RemoteAdmin) 'aucun compte AD ni distant pour un export de fichier'
+}
 Test-Case -Id 'P156' -Name 'Relations WMI : associations déclarées, références par identité, aucune jointure libre' -Body {
     Assert-Equal 'Win32_DiskDriveToDiskPartition' (@(Get-DomeniaWmiRelationPresets 'win32_diskdrive')[0].Association)
     Assert-Equal 2 @(Get-DomeniaWmiRelationPresets 'Win32_DiskPartition').Count 'partition vers disque et vers volume'
