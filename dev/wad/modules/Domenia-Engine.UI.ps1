@@ -657,6 +657,20 @@ function Get-DomeniaRuntimeMetricSummary {
     return [pscustomobject]@{Count=$sorted.Count;P50=[Math]::Round($p50,2);P95=[Math]::Round($p95,2);Max=[Math]::Round($sorted[$sorted.Count - 1],2)}
 }
 
+function Get-DomeniaResponseTimeSummaries {
+    # Point 122: median, 95th percentile and maximum per category of Get-DomeniaResponseTimeCategories (local search,
+    # result processing on the interface thread, local base, directory, workstations), read from the bounded series of
+    # this session. Local measures only: nothing is written to disk and nothing leaves the process.
+    $rows = New-Object 'System.Collections.Generic.List[object]'
+    foreach ($category in @(Get-DomeniaResponseTimeCategories)) {
+        $samples = Select-DomeniaResponseTimeSamples -Series $script:DomeniaRuntimeMetrics -Category $category
+        $summary = Get-DomeniaLatencySummary -Samples $samples
+        $rows.Add([pscustomobject]@{ Id=[string]$category.Id; Label=[string]$category.Label; Summary=$summary; Text=(Format-DomeniaLatencySummaryText -Label ([string]$category.Label) -Summary $summary) })
+    }
+    # One row per category on the pipeline: callers wrap the call in @().
+    return $rows.ToArray()
+}
+
 function Write-DomeniaTrace {
     # UX-04: the Trace level is written to Domenia.log only. The session journal keeps the facts useful to the operator.
     param([string]$Text,[string]$Area='Tache')
@@ -831,7 +845,11 @@ function Add-DomeniaTaskRuntimeMetric {
         $provenance = 'Ldap'
         switch ([string]$Job.Provider) { 'Cim' { $provenance = 'Cim' } 'Wts' { $provenance = 'Cim' } 'Storage' { $provenance = 'Sqlite' } 'Local' { $provenance = 'Queue' } 'Network' { $provenance = 'Cim' } }
         if ([bool]$Job.Demo) { $provenance = 'Cache' }
-        Add-DomeniaRuntimeMetric -Provenance $provenance -OperationId ([string]$Job.OperationId) -DurationMs ([double]$duration)
+        # Point 122: a local search is kept apart from the other actions of the same reader (Get-DomeniaRuntimeMetricOperationKey).
+        $payload = $null
+        if ($null -ne $Job.PSObject.Properties['Payload']) { $payload = $Job.Payload }
+        $key = Get-DomeniaRuntimeMetricOperationKey -OperationId ([string]$Job.OperationId) -Payload $payload
+        Add-DomeniaRuntimeMetric -Provenance $provenance -OperationId $key -DurationMs ([double]$duration)
     } catch { }
 }
 
