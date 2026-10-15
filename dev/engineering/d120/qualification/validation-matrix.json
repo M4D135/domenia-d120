@@ -1,0 +1,697 @@
+{
+  "Schema": "DomeniaValidationMatrix/1",
+  "Title": "Matrice de validation Domenia par système, protocole et droit",
+  "Note": "Seules les preuves Laboratoire et Cible viennent dʼune exécution sur un vrai réseau. Ajouter une preuve : rapport de campagne (Invoke-D120Campaign.ps1) conservé hors de dev, son SHA-256, sa date, son domaine et son poste ; tools/validation_matrix.py vérifie quʼun rapport du laboratoire nʼest jamais compté pour le domaine cible.",
+  "LabDomains": [
+    "cnamts.local"
+  ],
+  "LabHosts": [
+    "CNAMTS-W11-01",
+    "CNAMTS-DC01",
+    "DESKTOP-285EKHU"
+  ],
+  "Systems": [
+    {
+      "Id": "admin-w11",
+      "Label": "Poste dʼadministration Windows 11 (Windows PowerShell 5.1)"
+    },
+    {
+      "Id": "admin-w10",
+      "Label": "Poste dʼadministration Windows 10 22H2 (Windows PowerShell 5.1)"
+    },
+    {
+      "Id": "dc-2019",
+      "Label": "Contrôleur de domaine Windows Server 2019"
+    },
+    {
+      "Id": "dc-2022",
+      "Label": "Contrôleur de domaine Windows Server 2022"
+    },
+    {
+      "Id": "dc-2025",
+      "Label": "Contrôleur de domaine Windows Server 2025"
+    },
+    {
+      "Id": "target-w10",
+      "Label": "Poste cible Windows 10"
+    },
+    {
+      "Id": "target-w11",
+      "Label": "Poste cible Windows 11"
+    }
+  ],
+  "Protocols": [
+    {
+      "Id": "ldap",
+      "Label": "LDAP 389 signé et scellé"
+    },
+    {
+      "Id": "ldaps",
+      "Label": "LDAPS 636"
+    },
+    {
+      "Id": "gc",
+      "Label": "Catalogue global 3268"
+    },
+    {
+      "Id": "kerberos",
+      "Label": "Kerberos"
+    },
+    {
+      "Id": "ntlm",
+      "Label": "NTLM (repli)"
+    },
+    {
+      "Id": "cim-dcom",
+      "Label": "CIM sur DCOM (RPC)"
+    },
+    {
+      "Id": "cim-wsman",
+      "Label": "CIM sur WS-Management"
+    },
+    {
+      "Id": "smb",
+      "Label": "SMB 445 (partage dʼadministration)"
+    },
+    {
+      "Id": "icmp",
+      "Label": "ICMP (présence)"
+    },
+    {
+      "Id": "dns",
+      "Label": "DNS (résolution des postes)"
+    },
+    {
+      "Id": "eventlog",
+      "Label": "Journal de sécurité distant"
+    }
+  ],
+  "Rights": [
+    {
+      "Id": "reader",
+      "Label": "Utilisateur du domaine"
+    },
+    {
+      "Id": "support",
+      "Label": "Support délégué sur une OU"
+    },
+    {
+      "Id": "secrets",
+      "Label": "Lecteur LAPS et BitLocker délégué"
+    },
+    {
+      "Id": "local-admin",
+      "Label": "Administrateur local des postes"
+    },
+    {
+      "Id": "domain-admin",
+      "Label": "Admin du domaine (laboratoire seulement)",
+      "LabOnly": true
+    }
+  ],
+  "Cells": [
+    {
+      "System": "dc-2019",
+      "Protocol": "ldap",
+      "Right": "reader",
+      "Scenario": "Recherche, fiche, relations et index local en lecture",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaWiringRecherche.ps1",
+          "Note": "réseau doublé"
+        },
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaSearchTimeout.ps1",
+          "Note": "délais de lecture"
+        }
+      ]
+    },
+    {
+      "System": "dc-2019",
+      "Protocol": "ldaps",
+      "Right": "reader",
+      "Scenario": "Connexion et lecture en LDAPS avec vérification du certificat",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaLogin.ps1",
+          "Note": "connexion doublée"
+        }
+      ]
+    },
+    {
+      "System": "dc-2019",
+      "Protocol": "gc",
+      "Right": "reader",
+      "Scenario": "Recherche dans le catalogue global",
+      "Evidence": []
+    },
+    {
+      "System": "dc-2019",
+      "Protocol": "kerberos",
+      "Right": "reader",
+      "Scenario": "Ouverture de session et liaison LDAP avec le compte Windows",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaLogin.ps1",
+          "Note": "authentification doublée"
+        }
+      ]
+    },
+    {
+      "System": "dc-2019",
+      "Protocol": "ntlm",
+      "Right": "reader",
+      "Scenario": "Repli NTLM refusé ou accepté selon la stratégie du domaine",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaCredentialGuard.ps1",
+          "Note": "comptes synthétiques"
+        }
+      ]
+    },
+    {
+      "System": "dc-2019",
+      "Protocol": "ldap",
+      "Right": "support",
+      "Scenario": "Écritures déléguées avec reçu, résultat confirmé par relecture",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaWiringEcritures.ps1",
+          "Note": "annuaire doublé"
+        },
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaFaults.ps1",
+          "Note": "refus et coupure après envoi"
+        }
+      ]
+    },
+    {
+      "System": "dc-2019",
+      "Protocol": "ldap",
+      "Right": "secrets",
+      "Scenario": "Lecture LAPS et BitLocker, refus de déchiffrement distingué",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaFaults.ps1",
+          "Note": "déchiffrement LAPS refusé"
+        },
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaWiringAcces.ps1",
+          "Note": "comptes par ressource"
+        }
+      ]
+    },
+    {
+      "System": "dc-2019",
+      "Protocol": "eventlog",
+      "Right": "support",
+      "Scenario": "Lecture des verrouillages 4740 sur lʼémulateur PDC",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/rules/Directory.Tests.ps1",
+          "Note": "règles pures"
+        }
+      ]
+    },
+    {
+      "System": "dc-2019",
+      "Protocol": "ldap",
+      "Right": "domain-admin",
+      "Scenario": "Validation des écritures de contrôle sur lʼOU du laboratoire",
+      "Evidence": []
+    },
+    {
+      "System": "dc-2022",
+      "Protocol": "ldap",
+      "Right": "reader",
+      "Scenario": "Recherche, fiche, relations et index local en lecture",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaWiringRecherche.ps1",
+          "Note": "réseau doublé"
+        },
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaSearchTimeout.ps1",
+          "Note": "délais de lecture"
+        }
+      ]
+    },
+    {
+      "System": "dc-2022",
+      "Protocol": "ldaps",
+      "Right": "reader",
+      "Scenario": "Connexion et lecture en LDAPS avec vérification du certificat",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaLogin.ps1",
+          "Note": "connexion doublée"
+        }
+      ]
+    },
+    {
+      "System": "dc-2022",
+      "Protocol": "gc",
+      "Right": "reader",
+      "Scenario": "Recherche dans le catalogue global",
+      "Evidence": []
+    },
+    {
+      "System": "dc-2022",
+      "Protocol": "kerberos",
+      "Right": "reader",
+      "Scenario": "Ouverture de session et liaison LDAP avec le compte Windows",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaLogin.ps1",
+          "Note": "authentification doublée"
+        }
+      ]
+    },
+    {
+      "System": "dc-2022",
+      "Protocol": "ntlm",
+      "Right": "reader",
+      "Scenario": "Repli NTLM refusé ou accepté selon la stratégie du domaine",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaCredentialGuard.ps1",
+          "Note": "comptes synthétiques"
+        }
+      ]
+    },
+    {
+      "System": "dc-2022",
+      "Protocol": "ldap",
+      "Right": "support",
+      "Scenario": "Écritures déléguées avec reçu, résultat confirmé par relecture",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaWiringEcritures.ps1",
+          "Note": "annuaire doublé"
+        },
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaFaults.ps1",
+          "Note": "refus et coupure après envoi"
+        }
+      ],
+      "Notes": "Validation D096 du 04/10/2026 sur le contrôleur du laboratoire consignée dans lʼen-tête de Validate-D096-Controller.ps1, sans rapport lié : non comptée."
+    },
+    {
+      "System": "dc-2022",
+      "Protocol": "ldap",
+      "Right": "secrets",
+      "Scenario": "Lecture LAPS et BitLocker, refus de déchiffrement distingué",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaFaults.ps1",
+          "Note": "déchiffrement LAPS refusé"
+        },
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaWiringAcces.ps1",
+          "Note": "comptes par ressource"
+        }
+      ]
+    },
+    {
+      "System": "dc-2022",
+      "Protocol": "eventlog",
+      "Right": "support",
+      "Scenario": "Lecture des verrouillages 4740 sur lʼémulateur PDC",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/rules/Directory.Tests.ps1",
+          "Note": "règles pures"
+        }
+      ]
+    },
+    {
+      "System": "dc-2022",
+      "Protocol": "ldap",
+      "Right": "domain-admin",
+      "Scenario": "Validation des écritures de contrôle sur lʼOU du laboratoire",
+      "Evidence": []
+    },
+    {
+      "System": "dc-2025",
+      "Protocol": "ldap",
+      "Right": "reader",
+      "Scenario": "Recherche, fiche, relations et index local en lecture",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaWiringRecherche.ps1",
+          "Note": "réseau doublé"
+        },
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaSearchTimeout.ps1",
+          "Note": "délais de lecture"
+        }
+      ]
+    },
+    {
+      "System": "dc-2025",
+      "Protocol": "ldaps",
+      "Right": "reader",
+      "Scenario": "Connexion et lecture en LDAPS avec vérification du certificat",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaLogin.ps1",
+          "Note": "connexion doublée"
+        }
+      ]
+    },
+    {
+      "System": "dc-2025",
+      "Protocol": "gc",
+      "Right": "reader",
+      "Scenario": "Recherche dans le catalogue global",
+      "Evidence": []
+    },
+    {
+      "System": "dc-2025",
+      "Protocol": "kerberos",
+      "Right": "reader",
+      "Scenario": "Ouverture de session et liaison LDAP avec le compte Windows",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaLogin.ps1",
+          "Note": "authentification doublée"
+        }
+      ]
+    },
+    {
+      "System": "dc-2025",
+      "Protocol": "ntlm",
+      "Right": "reader",
+      "Scenario": "Repli NTLM refusé ou accepté selon la stratégie du domaine",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaCredentialGuard.ps1",
+          "Note": "comptes synthétiques"
+        }
+      ]
+    },
+    {
+      "System": "dc-2025",
+      "Protocol": "ldap",
+      "Right": "support",
+      "Scenario": "Écritures déléguées avec reçu, résultat confirmé par relecture",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaWiringEcritures.ps1",
+          "Note": "annuaire doublé"
+        },
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaFaults.ps1",
+          "Note": "refus et coupure après envoi"
+        }
+      ]
+    },
+    {
+      "System": "dc-2025",
+      "Protocol": "ldap",
+      "Right": "secrets",
+      "Scenario": "Lecture LAPS et BitLocker, refus de déchiffrement distingué",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaFaults.ps1",
+          "Note": "déchiffrement LAPS refusé"
+        },
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaWiringAcces.ps1",
+          "Note": "comptes par ressource"
+        }
+      ]
+    },
+    {
+      "System": "dc-2025",
+      "Protocol": "eventlog",
+      "Right": "support",
+      "Scenario": "Lecture des verrouillages 4740 sur lʼémulateur PDC",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/rules/Directory.Tests.ps1",
+          "Note": "règles pures"
+        }
+      ]
+    },
+    {
+      "System": "dc-2025",
+      "Protocol": "ldap",
+      "Right": "domain-admin",
+      "Scenario": "Validation des écritures de contrôle sur lʼOU du laboratoire",
+      "Evidence": []
+    },
+    {
+      "System": "target-w10",
+      "Protocol": "cim-dcom",
+      "Right": "local-admin",
+      "Scenario": "Compte console, inventaire et sondes, identité du poste vérifiée",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaNetworkFaults.ps1",
+          "Note": "transport doublé"
+        },
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaStreaming.ps1",
+          "Note": "transport doublé"
+        },
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaRemoteStore.ps1",
+          "Note": "transport doublé"
+        }
+      ]
+    },
+    {
+      "System": "target-w10",
+      "Protocol": "cim-wsman",
+      "Right": "local-admin",
+      "Scenario": "Lecture CIM par WinRM quand le poste lʼexpose",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaRemote.ps1",
+          "Note": "transport doublé"
+        }
+      ]
+    },
+    {
+      "System": "target-w10",
+      "Protocol": "smb",
+      "Right": "local-admin",
+      "Scenario": "Contrôle du partage dʼadministration",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaRemote.ps1",
+          "Note": "transport doublé"
+        }
+      ]
+    },
+    {
+      "System": "target-w10",
+      "Protocol": "icmp",
+      "Right": "reader",
+      "Scenario": "Présence réseau par ICMP, distincte de la réponse WMI",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaNetworkFaults.ps1",
+          "Note": "ping doublé"
+        },
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaSearchPresence.ps1",
+          "Note": "ping doublé"
+        }
+      ]
+    },
+    {
+      "System": "target-w10",
+      "Protocol": "dns",
+      "Right": "reader",
+      "Scenario": "Résolution du poste, DNS périmé détecté avant attribution",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaNetworkFaults.ps1",
+          "Note": "résolution doublée"
+        },
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/rules/Workstation.Tests.ps1",
+          "Note": "règle de cohérence dʼidentité"
+        }
+      ]
+    },
+    {
+      "System": "target-w10",
+      "Protocol": "cim-dcom",
+      "Right": "support",
+      "Scenario": "Lecture refusée sans droit dʼadministration locale : refus conservé, aucun autre compte imposé",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaNetworkFaults.ps1",
+          "Note": "refus doublé"
+        }
+      ]
+    },
+    {
+      "System": "target-w11",
+      "Protocol": "cim-dcom",
+      "Right": "local-admin",
+      "Scenario": "Compte console, inventaire et sondes, identité du poste vérifiée",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaNetworkFaults.ps1",
+          "Note": "transport doublé"
+        },
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaStreaming.ps1",
+          "Note": "transport doublé"
+        },
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaRemoteStore.ps1",
+          "Note": "transport doublé"
+        }
+      ]
+    },
+    {
+      "System": "target-w11",
+      "Protocol": "cim-wsman",
+      "Right": "local-admin",
+      "Scenario": "Lecture CIM par WinRM quand le poste lʼexpose",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaRemote.ps1",
+          "Note": "transport doublé"
+        }
+      ]
+    },
+    {
+      "System": "target-w11",
+      "Protocol": "smb",
+      "Right": "local-admin",
+      "Scenario": "Contrôle du partage dʼadministration",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaRemote.ps1",
+          "Note": "transport doublé"
+        }
+      ]
+    },
+    {
+      "System": "target-w11",
+      "Protocol": "icmp",
+      "Right": "reader",
+      "Scenario": "Présence réseau par ICMP, distincte de la réponse WMI",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaNetworkFaults.ps1",
+          "Note": "ping doublé"
+        },
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaSearchPresence.ps1",
+          "Note": "ping doublé"
+        }
+      ]
+    },
+    {
+      "System": "target-w11",
+      "Protocol": "dns",
+      "Right": "reader",
+      "Scenario": "Résolution du poste, DNS périmé détecté avant attribution",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaNetworkFaults.ps1",
+          "Note": "résolution doublée"
+        },
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/rules/Workstation.Tests.ps1",
+          "Note": "règle de cohérence dʼidentité"
+        }
+      ]
+    },
+    {
+      "System": "target-w11",
+      "Protocol": "cim-dcom",
+      "Right": "support",
+      "Scenario": "Lecture refusée sans droit dʼadministration locale : refus conservé, aucun autre compte imposé",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaNetworkFaults.ps1",
+          "Note": "refus doublé"
+        }
+      ]
+    },
+    {
+      "System": "admin-w11",
+      "Protocol": "ldap",
+      "Right": "reader",
+      "Scenario": "Démarrage, connexion et interface sous Windows PowerShell 5.1 x64 STA",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaStartupLogin.ps1",
+          "Note": "démarrage sans domaine"
+        }
+      ]
+    },
+    {
+      "System": "admin-w10",
+      "Protocol": "ldap",
+      "Right": "reader",
+      "Scenario": "Démarrage, connexion et interface sous Windows PowerShell 5.1 x64 STA",
+      "Evidence": [
+        {
+          "Environment": "Synthetic",
+          "Reference": "wad/tests/Test-DomeniaStartupLogin.ps1",
+          "Note": "démarrage sans domaine"
+        }
+      ]
+    }
+  ]
+}
