@@ -3922,9 +3922,12 @@ Test-Case 'FI-12 : aucun delai SQLite fige dans les workers ; la lecture locale 
     }
     $read = Get-DomeniaLocalIndexReadWorkerCode
     Assert-True ($read.Contains('[Math]::Min(5000,$busyMs)') -and $read.Contains("Get-Variable -Name Context")) 'LocalIndexRead ne lit pas le contexte'
-    foreach ($file in @('Domenia-Park.UI.ps1','Domenia-Search.UI.ps1','Domenia-Refresh.UI.ps1','Domenia-Dashboard.UI.ps1')) {
-        Assert-False ([IO.File]::ReadAllText((Join-Path $modules $file),[Text.Encoding]::UTF8) -match 'BusyTimeoutMs\s*=\s*250') ('Delai de 250 ms encore impose par ' + $file)
+    foreach ($file in @('Domenia-Park.UI.ps1','Domenia-Search.UI.ps1','Domenia-Refresh.UI.ps1','Domenia-Dashboard.UI.ps1','Domenia-Engine.UI.ps1','Domenia-Storage.UI.ps1')) {
+        Assert-False ([IO.File]::ReadAllText((Join-Path $modules $file),[Text.Encoding]::UTF8) -match 'BusyTimeoutMs\s*=\s*(?:250|1000)\b') ('Delai fige encore impose par ' + $file)
     }
+    # Only the type-ahead of the local grid keeps an explicit short wait (it retries by itself).
+    $explicit = @([regex]::Matches([IO.File]::ReadAllText((Join-Path $modules 'Domenia-Engine.UI.ps1'),[Text.Encoding]::UTF8),'BusyTimeoutMs\s*=\s*(\d+)') | ForEach-Object { $_.Groups[1].Value })
+    Assert-Equal '50' ($explicit -join ',') 'Attente explicite inattendue dans Engine.UI'
 }
 
 Test-Case 'FI-12 : les attentes SQLite depassees sont comptees pour le panneau Operations, pas les autres erreurs' {

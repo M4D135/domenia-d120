@@ -479,7 +479,7 @@ function Register-DomeniaSqliteBusyOutcome {
     $busy=$false
     if(-not [string]::IsNullOrWhiteSpace($ErrorMessage)){$busy=Test-DomeniaSqliteBusyText $ErrorMessage}
     elseif([string]$Job.OperationId -eq 'LocalIndexRead'){
-        foreach($item in @($Output)){if(($null -ne $item) -and ($null -ne $item.PSObject.Properties['Busy']) -and ($item.Busy -is [bool]) -and [bool]$item.Busy){$busy=$true}}
+        foreach($item in @($Output)){if(($null -ne $item) -and ($null -ne $item.PSObject.Properties['Busy']) -and ($item.Busy -is [bool]) -and ([bool]$item.Busy)){$busy=$true}}
     }
     if(-not $busy){return $false}
     if($null -eq $script:DomeniaSqliteBusy){$script:DomeniaSqliteBusy=[pscustomobject]@{Count=0;LastUtc=$null;ByOperation=@{}}}
