@@ -21,7 +21,7 @@
         <ColumnDefinition Width="*"/>
         <ColumnDefinition Width="Auto"/>
       </Grid.ColumnDefinitions>
-      <TextBlock Text="Opérations" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource TextColor}"/>
+      <TextBlock Text="Opérations" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource TextColor}"/>
       <Button x:Name="BtnOperationsClose" Grid.Column="1" Content="Fermer" MinHeight="30" Padding="10,2" ToolTip="Ferme ce panneau. Les opérations continuent et restent comptées sur le bouton Opérations."
               ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Fermer le panneau des opérations"
               AutomationProperties.HelpText="Ferme ce panneau. Les opérations continuent et restent comptées sur le bouton Opérations."/>

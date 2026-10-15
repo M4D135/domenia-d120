@@ -1,0 +1,36 @@
+{
+  "Schema": "DomeniaTypographyBaseline/1",
+  "Note": "Point 112 (lot W17, 15 octobre 2026) : la page et ses vues nʼont plus aucune taille de police littérale ; elles se réfèrent aux huit tailles nommées des ressources de la fenêtre. Restent admis, par fichier et fonction : les fenêtres hors de la page qui nʼont pas ces ressources (connexion, démarrage, dialogues de secours) et le tracé des tableaux de bord (Charts, Widgets, Dashboard), qui a sa propre échelle. Les marges et remplissages littéraux de la page et des vues sont comptés : les styles partagés prennent les espacements nommés et le nombre ne peut que baisser. Une hausse fait échouer tools/audit_typography.py.",
+  "FontSizeLiterals": {
+    "wad/Domenia-Core.ps1|Get-DomeniaStandardLoginXaml": 20,
+    "wad/Domenia-Core.ps1|Get-DomeniaStartupXaml": 2,
+    "wad/Domenia-Core.ps1|Show-DomeniaDialog": 2,
+    "wad/Domenia-Core.ps1|Show-DomeniaFormDialog": 2,
+    "wad/modules/Domenia-Access.UI.ps1|Show-DomeniaAlternateCredential": 2,
+    "wad/modules/Domenia-Charts.UI.ps1|Add-DomeniaAttentionRows": 3,
+    "wad/modules/Domenia-Charts.UI.ps1|New-DomeniaSheetCard": 1,
+    "wad/modules/Domenia-Dashboard.UI.ps1|Update-DomeniaFleetScopeText": 2,
+    "wad/modules/Domenia-SearchWorkspace.UI.ps1|Show-DomeniaSearchComparison": 1,
+    "wad/modules/Domenia-Widgets.UI.ps1|New-DomeniaBoardAddTile": 2,
+    "wad/modules/Domenia-Widgets.UI.ps1|New-DomeniaBoardButton": 1,
+    "wad/modules/Domenia-Widgets.UI.ps1|New-DomeniaBoardChromeButton": 1,
+    "wad/modules/Domenia-Widgets.UI.ps1|New-DomeniaBoardHint": 1,
+    "wad/modules/Domenia-Widgets.UI.ps1|New-DomeniaBoardMenu": 1,
+    "wad/modules/Domenia-Widgets.UI.ps1|New-DomeniaBoardVisualPicker": 2,
+    "wad/modules/Domenia-Widgets.UI.ps1|New-DomeniaBoardWidget": 1,
+    "wad/modules/Domenia-Widgets.UI.ps1|Show-DomeniaBoardEditor": 5
+  },
+  "SpacingLiterals": {
+    "wad/Domenia-Core.ps1|Get-MainXaml": 1110,
+    "wad/modules/Domenia-AdAudit.xaml": 46,
+    "wad/modules/Domenia-Assistance.xaml": 9,
+    "wad/modules/Domenia-CommandPalette.xaml": 8,
+    "wad/modules/Domenia-DirectorySchema.xaml": 12,
+    "wad/modules/Domenia-DirectorySync.xaml": 25,
+    "wad/modules/Domenia-Inline.xaml": 10,
+    "wad/modules/Domenia-MachineAccount.xaml": 15,
+    "wad/modules/Domenia-Operations.xaml": 18,
+    "wad/modules/Domenia-Query.xaml": 214,
+    "wad/modules/Domenia-Support.xaml": 30
+  }
+}

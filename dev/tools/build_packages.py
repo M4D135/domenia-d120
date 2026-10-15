@@ -246,6 +246,8 @@ def build(out,manifest_only=False,windows_report=None,require_windows=False,evid
     gate('tools/compiled_code.py','Compiled code register','--check')
     # TE-01: the interface wording reference is a ratchet; a delivery never adds an unaccented, unelided or tutoyed text.
     gate('tools/audit_wording.py','Interface wording ratchet')
+    # Point 112: closed typographic scale and named spacing of the page and its views (ratchet tools/baselines/typography-baseline.json).
+    gate('tools/audit_typography.py','Typography and spacing scale')
     # Mandatory static preflight over every PowerShell source shipped in DEV.
     preflight=subprocess.run([sys.executable,str(ROOT/'tools/validate_powershell_static.py')],capture_output=True,text=True)
     if preflight.returncode: raise ValueError('PowerShell static preflight failed:\n'+preflight.stdout+preflight.stderr)

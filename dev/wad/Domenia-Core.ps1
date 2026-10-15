@@ -4240,7 +4240,7 @@ function Toggle-DomeniaTheme {
 
 function Get-MainXaml {
 @"
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Domenia" Height="960" Width="1600" MinHeight="500" MinWidth="960" WindowStartupLocation="CenterScreen" FontFamily="Segoe UI Variable, Segoe UI" FontSize="13" Background="{DynamicResource WindowBg}" Foreground="{DynamicResource TextColor}" UseLayoutRounding="True">
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Domenia" Height="960" Width="1600" MinHeight="500" MinWidth="960" WindowStartupLocation="CenterScreen" FontFamily="Segoe UI Variable, Segoe UI" FontSize="{DynamicResource FontSizeBody}" Background="{DynamicResource WindowBg}" Foreground="{DynamicResource TextColor}" UseLayoutRounding="True">
   <Window.Resources>
     <SolidColorBrush x:Key="UxSidebar" Color="#EEF3FA"/>
     <SolidColorBrush x:Key="BgCard" Color="#FFFFFF"/>
@@ -4273,8 +4273,8 @@ function Get-MainXaml {
     <Style x:Key="BaseButton" TargetType="Button">
       <Setter Property="VerticalAlignment" Value="Center"/>
       <Setter Property="MinHeight" Value="36"/>
-      <Setter Property="Padding" Value="14,8"/>
-      <Setter Property="Margin" Value="0,0,8,0"/>
+      <Setter Property="Padding" Value="{DynamicResource PadButton}"/>
+      <Setter Property="Margin" Value="{DynamicResource SpaceInline}"/>
       <Setter Property="Background" Value="{DynamicResource BtnBg}"/>
       <Setter Property="Foreground" Value="{DynamicResource BtnFg}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource BorderColor}"/>
@@ -4332,7 +4332,7 @@ function Get-MainXaml {
     </Style>
     <Style x:Key="EyeButton" TargetType="Button" BasedOn="{StaticResource BaseButton}">
       <Setter Property="FontFamily" Value="Segoe UI Emoji"/>
-      <Setter Property="FontSize" Value="16"/>
+      <Setter Property="FontSize" Value="{DynamicResource FontSizeSection}"/>
       <Setter Property="Width" Value="44"/>
       <Setter Property="MinWidth" Value="44"/>
       <Setter Property="Height" Value="32"/>
@@ -4352,7 +4352,7 @@ function Get-MainXaml {
       <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>
       <Setter Property="MinHeight" Value="34"/>
-      <Setter Property="Padding" Value="9,6"/>
+      <Setter Property="Padding" Value="{DynamicResource PadInput}"/>
       <Setter Property="Background" Value="{DynamicResource BgInput}"/>
       <Setter Property="Foreground" Value="{DynamicResource TextColor}"/>
       <Setter Property="CaretBrush" Value="{DynamicResource TextColor}"/>
@@ -4382,7 +4382,7 @@ function Get-MainXaml {
       <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>
       <Setter Property="MinHeight" Value="34"/>
-      <Setter Property="Padding" Value="9,6"/>
+      <Setter Property="Padding" Value="{DynamicResource PadInput}"/>
       <Setter Property="Background" Value="{DynamicResource BgInput}"/>
       <Setter Property="Foreground" Value="{DynamicResource TextColor}"/>
       <Setter Property="CaretBrush" Value="{DynamicResource TextColor}"/>
@@ -4412,7 +4412,7 @@ function Get-MainXaml {
       <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
       <Setter Property="Foreground" Value="{DynamicResource TextColor}"/>
       <Setter Property="MinHeight" Value="32"/>
-      <Setter Property="Padding" Value="6,4"/>
+      <Setter Property="Padding" Value="{DynamicResource PadCompact}"/>
       <Setter Property="Background" Value="{DynamicResource BgInput}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource BorderColor}"/>
       <Setter Property="Template">
@@ -4463,7 +4463,7 @@ function Get-MainXaml {
       <Setter Property="BorderBrush" Value="{DynamicResource BorderColor}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="15"/>
-      <Setter Property="Padding" Value="18"/>
+      <Setter Property="Padding" Value="{DynamicResource PadCard}"/>
       <Setter Property="SnapsToDevicePixels" Value="True"/>
       <Setter Property="Effect">
         <Setter.Value>
@@ -4508,7 +4508,7 @@ function Get-MainXaml {
       <Setter Property="Background" Value="{DynamicResource TileBg}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource BorderColor}"/>
       <Setter Property="Foreground" Value="{DynamicResource TextColor}"/>
-      <Setter Property="Padding" Value="14,7"/>
+      <Setter Property="Padding" Value="{DynamicResource PadButtonSecondary}"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
     <Style TargetType="DataGrid">
@@ -4534,7 +4534,7 @@ function Get-MainXaml {
       <Setter Property="Background" Value="{DynamicResource HeaderBg}"/>
       <Setter Property="Foreground" Value="{DynamicResource MutedColor}"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="Padding" Value="8,6"/>
+      <Setter Property="Padding" Value="{DynamicResource PadHeader}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource BorderColor}"/>
     </Style>
     <Style TargetType="DataGridRow">
@@ -4582,7 +4582,7 @@ function Get-MainXaml {
       <Setter Property="ToolTipService.ShowDuration" Value="20000"/>
       <Setter Property="ToolTipService.InitialShowDelay" Value="350"/>
       <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
-      <Setter Property="Padding" Value="6,4"/>
+      <Setter Property="Padding" Value="{DynamicResource PadCompact}"/>
       <Setter Property="Background" Value="Transparent"/>
       <Setter Property="Foreground" Value="{DynamicResource TextColor}"/>
       <Setter Property="Template">
@@ -4616,7 +4616,7 @@ function Get-MainXaml {
       <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
       <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
       <Setter Property="FontFamily" Value="Consolas"/>
-      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}"/>
       <Setter Property="IsReadOnly" Value="True"/>
       <Setter Property="Padding" Value="12"/>
     </Style>
@@ -4637,7 +4637,7 @@ function Get-MainXaml {
       <Setter Property="ToolTipService.InitialShowDelay" Value="350"/>
       <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
       <Setter Property="Padding" Value="3"/>
-      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
       <Setter Property="Foreground" Value="{DynamicResource TextColor}"/>
     </Style>
     <Style TargetType="TabControl">
@@ -4664,8 +4664,8 @@ function Get-MainXaml {
       <Setter Property="ToolTipService.ShowDuration" Value="20000"/>
       <Setter Property="ToolTipService.InitialShowDelay" Value="350"/>
       <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
-      <Setter Property="Padding" Value="12,8"/>
-      <Setter Property="Margin" Value="0,0,5,6"/>
+      <Setter Property="Padding" Value="{DynamicResource PadTab}"/>
+      <Setter Property="Margin" Value="{DynamicResource MarginTab}"/>
       <Setter Property="Foreground" Value="{DynamicResource MutedColor}"/>
       <Setter Property="Background" Value="{DynamicResource TileBg}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource BorderColor}"/>
@@ -4697,7 +4697,7 @@ function Get-MainXaml {
       </Setter>
     </Style>
     <Style TargetType="ComboBoxItem">
-      <Setter Property="Padding" Value="9,6"/>
+      <Setter Property="Padding" Value="{DynamicResource PadInput}"/>
       <Setter Property="Background" Value="{DynamicResource BgInput}"/>
       <Setter Property="Foreground" Value="{DynamicResource TextColor}"/>
       <Setter Property="Template">
@@ -4724,8 +4724,8 @@ function Get-MainXaml {
       <Setter Property="Background" Value="#243248"/>
       <Setter Property="Foreground" Value="#FFFFFF"/>
       <Setter Property="BorderBrush" Value="#52627B"/>
-      <Setter Property="Padding" Value="12,10"/>
-      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="Padding" Value="{DynamicResource PadToolTip}"/>
+      <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}"/>
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="ToolTip">
@@ -4809,7 +4809,7 @@ function Get-MainXaml {
       <Setter Property="Height" Value="40"/>
       <Setter Property="MinHeight" Value="40"/>
       <Setter Property="Padding" Value="0"/>
-      <Setter Property="Margin" Value="0,0,6,0"/>
+      <Setter Property="Margin" Value="{DynamicResource SpaceInlineSmall}"/>
     </Style>
     <Style x:Key="UxGhostButton" TargetType="Button" BasedOn="{StaticResource BaseButton}">
       <Setter Property="Background" Value="Transparent"/>
@@ -4846,7 +4846,7 @@ function Get-MainXaml {
         <Setter.Value>
           <Style TargetType="ListBoxItem">
             <Setter Property="Foreground" Value="{DynamicResource TextColor}"/>
-            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
               <Setter.Value>
@@ -4902,6 +4902,35 @@ function Get-MainXaml {
       <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
       <Setter Property="ToolTip" Value="Action du menu. Vérifiez la sélection avant toute modification."/>
     </Style>
+    <!-- Point 112: closed typographic scale (eight named sizes instead of sixteen literal ones) and named spacing. Every
+         FontSize of the page and of its views refers to one of these sizes, and a control built in code takes the same
+         key with SetResourceReference; the shared styles take their spacing here (tools/audit_typography.py). Old size to
+         level: 10, 10.5, 11 Caption; 11.5, 12 Small; 13 Body (the window); 14, 15 Subtitle; 16, 17 Section; 18, 19, 20
+         Title; 22 PageTitle; 26, 27 Display. The headings keep the implicit TextBlock styles of their containers (theme
+         colours), so no keyed text style replaces them: the size alone is named. No colour is defined in this block. -->
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=mscorlib" x:Key="FontSizeCaption">11</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=mscorlib" x:Key="FontSizeSmall">12</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=mscorlib" x:Key="FontSizeBody">13</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=mscorlib" x:Key="FontSizeSubtitle">14</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=mscorlib" x:Key="FontSizeSection">16</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=mscorlib" x:Key="FontSizeTitle">18</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=mscorlib" x:Key="FontSizePageTitle">22</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=mscorlib" x:Key="FontSizeDisplay">27</sys:Double>
+    <Thickness x:Key="SpaceStackSmall">0,0,0,4</Thickness>
+    <Thickness x:Key="SpaceStack">0,0,0,8</Thickness>
+    <Thickness x:Key="SpaceStackLarge">0,0,0,12</Thickness>
+    <Thickness x:Key="SpaceSection">0,0,0,16</Thickness>
+    <Thickness x:Key="SpaceInline">0,0,8,0</Thickness>
+    <Thickness x:Key="SpaceInlineSmall">0,0,6,0</Thickness>
+    <Thickness x:Key="PadButton">14,8</Thickness>
+    <Thickness x:Key="PadButtonSecondary">14,7</Thickness>
+    <Thickness x:Key="PadInput">9,6</Thickness>
+    <Thickness x:Key="PadCompact">6,4</Thickness>
+    <Thickness x:Key="PadCard">18</Thickness>
+    <Thickness x:Key="PadTab">12,8</Thickness>
+    <Thickness x:Key="MarginTab">0,0,5,6</Thickness>
+    <Thickness x:Key="PadToolTip">12,10</Thickness>
+    <Thickness x:Key="PadHeader">8,6</Thickness>
   </Window.Resources>
   <Grid>
     <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
@@ -4917,13 +4946,13 @@ function Get-MainXaml {
           <DockPanel LastChildFill="True">
             <StackPanel DockPanel.Dock="Top">
               <StackPanel Margin="8,8,0,14" x:Name="UxBrandExpanded">
-                <TextBlock FontSize="27" FontWeight="Bold">
+                <TextBlock FontSize="{DynamicResource FontSizeDisplay}" FontWeight="Bold">
                   <Run Text="Domenia"/>
                   
                 </TextBlock>
-                <TextBlock Text="Votre console d’assistance" FontSize="11" Foreground="{DynamicResource MutedColor}" Margin="0,5,0,0"/>
+                <TextBlock Text="Votre console d’assistance" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource MutedColor}" Margin="0,5,0,0"/>
               </StackPanel>
-              <TextBlock Text="D" FontSize="19" FontWeight="Bold" Foreground="{DynamicResource AccentText}" HorizontalAlignment="Center" Margin="0,10,0,10" Visibility="Collapsed" x:Name="UxBrandCompact"/>
+              <TextBlock Text="D" FontSize="{DynamicResource FontSizeTitle}" FontWeight="Bold" Foreground="{DynamicResource AccentText}" HorizontalAlignment="Center" Margin="0,10,0,10" Visibility="Collapsed" x:Name="UxBrandCompact"/>
             </StackPanel>
             <StackPanel DockPanel.Dock="Bottom" x:Name="UxNavBottom">
               <Border Height="1" Background="{DynamicResource BorderColor}" Margin="6,6,6,6" x:Name="UxNavBottomRule"/>
@@ -4946,15 +4975,15 @@ function Get-MainXaml {
                 </ListBox>
                 <Button x:Name="BtnUxNavAccount" Style="{StaticResource UxNavButton}" Margin="0,8,0,0" Padding="10,6" MinHeight="44" ToolTip="Compte et domaine utilisés pour lʼannuaire. Cliquez pour changer de compte ou lire « À propos »." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Compte connecté" AutomationProperties.HelpText="Compte et domaine utilisés pour lʼannuaire. Cliquez pour changer de compte ou lire « À propos ».">
                   <StackPanel IsHitTestVisible="False">
-                    <TextBlock x:Name="LblUxNavAccount" Text="Compte en préparation" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock x:Name="LblUxNavDomain" Text="Domaine non connecté" FontSize="11" Foreground="{DynamicResource MutedColor}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+                    <TextBlock x:Name="LblUxNavAccount" Text="Compte en préparation" FontSize="{DynamicResource FontSizeSmall}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock x:Name="LblUxNavDomain" Text="Domaine non connecté" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource MutedColor}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
                   </StackPanel>
                 </Button>
                 <Border x:Name="UxAboutPanel" Visibility="Collapsed" Margin="10,6,0,0">
                   <StackPanel>
-                    <TextBlock Text="DOMENIA 1.0 · RC1.17.7" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
-                    <TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0"/>
-                    <TextBlock x:Name="LblUxAboutCompatibility" Text="Compatibilité de ce poste : non évaluée." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0" ToolTip="Compare ce poste à la matrice de compatibilité livrée : Windows, PowerShell, .NET et SQLite. Une fois évalué, le survol détaille chaque dimension. Lecture locale, sans réseau." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Compatibilité de ce poste" AutomationProperties.HelpText="Compare ce poste à la matrice de compatibilité livrée : Windows, PowerShell, .NET et SQLite. Une fois évalué, le survol détaille chaque dimension. Lecture locale, sans réseau."/>
+                    <TextBlock Text="DOMENIA 1.0 · RC1.17.7" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}"/>
+                    <TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeCaption}" Margin="0,4,0,0"/>
+                    <TextBlock x:Name="LblUxAboutCompatibility" Text="Compatibilité de ce poste : non évaluée." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeCaption}" Margin="0,4,0,0" ToolTip="Compare ce poste à la matrice de compatibilité livrée : Windows, PowerShell, .NET et SQLite. Une fois évalué, le survol détaille chaque dimension. Lecture locale, sans réseau." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Compatibilité de ce poste" AutomationProperties.HelpText="Compare ce poste à la matrice de compatibilité livrée : Windows, PowerShell, .NET et SQLite. Une fois évalué, le survol détaille chaque dimension. Lecture locale, sans réseau."/>
                   </StackPanel>
                 </Border>
               </StackPanel>
@@ -5057,12 +5086,12 @@ function Get-MainXaml {
                   <Button x:Name="BtnGlobalSearchClear" Style="{StaticResource UxGhostButton}" Width="26" MinWidth="26" Height="26" MinHeight="26" Padding="0" Margin="0,0,4,0" Visibility="Collapsed" ToolTip="Vide le champ de recherche. Les résultats affichés et lʼOU restent inchangés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vider la recherche" AutomationProperties.HelpText="Vide le champ de recherche. Les résultats affichés et lʼOU restent inchangés.">
                     <Path Data="M6,6 L18,18 M18,6 L6,18" Width="10" Height="10" Stretch="Uniform" Stroke="{DynamicResource MutedColor}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" IsHitTestVisible="False"/>
                   </Button>
-                  <Button x:Name="BtnCommandPalette" Content="Ctrl K" Style="{StaticResource UxGhostButton}" Height="26" MinHeight="26" MinWidth="50" Padding="6,0" FontSize="11" ToolTip="Ouvre la palette des actions disponibles. Raccourci Windows : Ctrl+K." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Palette de commandes" AutomationProperties.HelpText="Ouvre la palette des actions disponibles. Raccourci Windows : Ctrl+K."/>
+                  <Button x:Name="BtnCommandPalette" Content="Ctrl K" Style="{StaticResource UxGhostButton}" Height="26" MinHeight="26" MinWidth="50" Padding="6,0" FontSize="{DynamicResource FontSizeCaption}" ToolTip="Ouvre la palette des actions disponibles. Raccourci Windows : Ctrl+K." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Palette de commandes" AutomationProperties.HelpText="Ouvre la palette des actions disponibles. Raccourci Windows : Ctrl+K."/>
                 </StackPanel>
                 <Canvas x:Name="UxSearchSuggestHost" Height="0" VerticalAlignment="Bottom" ClipToBounds="False">
                   <Border x:Name="UxSearchSuggest" Canvas.Top="4" Visibility="Collapsed" Width="{Binding ActualWidth, ElementName=UxSearchBox}" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="9" Padding="6" AutomationProperties.Name="Suggestions de recherche" AutomationProperties.HelpText="Recherches et fiches récentes, puis objets de la base locale. Aucune requête AD avant Entrée.">
                     <StackPanel>
-                      <TextBlock x:Name="LblSearchSuggestTitle" Text="Recherches et fiches récentes" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource MutedColor}" Margin="6,2,6,4"/>
+                      <TextBlock x:Name="LblSearchSuggestTitle" Text="Recherches et fiches récentes" FontSize="{DynamicResource FontSizeCaption}" FontWeight="SemiBold" Foreground="{DynamicResource MutedColor}" Margin="6,2,6,4"/>
                       <ListBox x:Name="LstSearchSuggest" MaxHeight="300" Focusable="False" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Suggestions" AutomationProperties.HelpText="Flèches pour choisir, Entrée pour chercher dans lʼannuaire, Échap pour fermer.">
                         <ListBox.ItemContainerStyle>
                           <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
@@ -5078,7 +5107,7 @@ function Get-MainXaml {
                           </DataTemplate>
                         </ListBox.ItemTemplate>
                       </ListBox>
-                      <TextBlock x:Name="LblSearchSuggestHint" Text="Entrée lance la recherche dans lʼannuaire ; les suggestions viennent de la mémoire et de la base locales." FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="6,4,6,2"/>
+                      <TextBlock x:Name="LblSearchSuggestHint" Text="Entrée lance la recherche dans lʼannuaire ; les suggestions viennent de la mémoire et de la base locales." FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="6,4,6,2"/>
                     </StackPanel>
                   </Border>
                 </Canvas>
@@ -5109,14 +5138,14 @@ function Get-MainXaml {
                 <Grid Width="38" Height="38" IsHitTestVisible="False">
                   <Path Data="M13,8 A5,5 0 1 1 3,8 A5,5 0 1 1 13,8 M11.5,11.5 L21,21 M17,17 L19.5,14.5 M19,19 L21.5,16.5" Width="18" Height="18" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                   <Border x:Name="BadgeAccessRecovery" Width="24" Height="16" CornerRadius="8" Background="{DynamicResource AccentColor}" HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Hidden">
-                    <TextBlock x:Name="LblAccessRecoveryCount" Text="0" FontSize="10" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="LblAccessRecoveryCount" Text="0" FontSize="{DynamicResource FontSizeCaption}" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                   </Border>
                 </Grid>
               </Button><Button x:Name="BtnSuiteActivity" Style="{StaticResource UxIconButton}" Width="40" MinWidth="40" MaxWidth="40" Height="40" MinHeight="40" MaxHeight="40" ToolTip="Opérations : affiche sous ce bouton les opérations en cours et en attente, leur durée, Arrêter par ligne et la santé du moteur. Aucun accès AD supplémentaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Opérations" AutomationProperties.HelpText="Ouvre le suivi des opérations. Le compteur inclut les lectures en nettoyage. Aucun accès AD supplémentaire.">
                 <Grid Width="38" Height="38" IsHitTestVisible="False">
                   <Path Data="M2,12 L7,12 10,5 14,19 17,12 22,12" Width="18" Height="18" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                   <Border x:Name="BadgeSuiteActivity" Width="24" Height="16" CornerRadius="8" Background="{DynamicResource AccentColor}" HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Hidden">
-                    <TextBlock x:Name="LblSuiteActivityCount" Text="0" FontSize="10" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="LblSuiteActivityCount" Text="0" FontSize="{DynamicResource FontSizeCaption}" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                   </Border>
                 </Grid>
               </Button>
@@ -5127,7 +5156,7 @@ function Get-MainXaml {
                   <Path x:Name="ThemeIconMoon" Data="M20,14.5 A8,8 0 1 1 9.5,4 A6.5,6.5 0 0 0 20,14.5 Z" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
                 </Grid>
               </Button>
-              <Button Content="?" Style="{StaticResource UxIconButton}" FontWeight="Bold" FontSize="18" Margin="0" ToolTip="Affiche ou masque les explications à droite. Sur une fenêtre étroite, l’aide s’ouvre au-dessus du contenu ; cliquez de nouveau sur ? pour la fermer." x:Name="BtnUxHelpToggle" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Panneau d’aide" AutomationProperties.HelpText="Affiche ou masque les explications à droite. Sur une fenêtre étroite, l’aide s’ouvre au-dessus du contenu ; cliquez de nouveau sur ? pour la fermer."/>
+              <Button Content="?" Style="{StaticResource UxIconButton}" FontWeight="Bold" FontSize="{DynamicResource FontSizeTitle}" Margin="0" ToolTip="Affiche ou masque les explications à droite. Sur une fenêtre étroite, l’aide s’ouvre au-dessus du contenu ; cliquez de nouveau sur ? pour la fermer." x:Name="BtnUxHelpToggle" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Panneau d’aide" AutomationProperties.HelpText="Affiche ou masque les explications à droite. Sur une fenêtre étroite, l’aide s’ouvre au-dessus du contenu ; cliquez de nouveau sur ? pour la fermer."/>
             </StackPanel>
           </Grid>
           <Grid x:Name="UxPageHeader" Grid.Row="1" Margin="2,0,0,12">
@@ -5153,22 +5182,22 @@ function Get-MainXaml {
                   <Button x:Name="BtnNavForward" Grid.Column="1" Style="{StaticResource UxGhostButton}" Width="28" MinWidth="28" Height="28" MinHeight="28" Padding="0" Margin="0,0,8,0" IsEnabled="False" ToolTip="Revient à lʼétape suivante (Alt+Droite), sans nouvelle lecture ni sonde des postes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Suivant" AutomationProperties.HelpText="Revient à lʼétape suivante (Alt+Droite), sans nouvelle lecture ni sonde des postes.">
                     <Path Data="M9,5 L16,12 9,19" Width="14" Height="14" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" IsHitTestVisible="False"/>
                   </Button>
-                  <TextBlock Grid.Column="2" Text="Accueil" FontSize="22" FontWeight="SemiBold" x:Name="LblUxPageTitle" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" AutomationProperties.LiveSetting="Polite" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                  <TextBlock Grid.Column="2" Text="Accueil" FontSize="{DynamicResource FontSizePageTitle}" FontWeight="SemiBold" x:Name="LblUxPageTitle" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" AutomationProperties.LiveSetting="Polite" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                 </Grid>
                 <StackPanel x:Name="UxPageSubRow" Orientation="Horizontal" Margin="0,5,0,0">
                   <Border x:Name="UxDomainBadge" Background="{DynamicResource AccentSoft}" CornerRadius="12" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Center">
-                    <TextBlock Text="Session AD en préparation" FontSize="11" Foreground="{DynamicResource InfoFg}" x:Name="LblUxDomain" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" AutomationProperties.LiveSetting="Polite" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                    <TextBlock Text="Session AD en préparation" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource InfoFg}" x:Name="LblUxDomain" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" AutomationProperties.LiveSetting="Polite" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                   </Border>
                   <Border x:Name="UxSubjectChip" Visibility="Collapsed" Margin="8,0,0,0" CornerRadius="12" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" Background="{DynamicResource BgCard}" Padding="8,0,2,0" VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal">
-                      <TextBlock x:Name="LblUxSubject" Text="" FontSize="11" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="260" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                      <TextBlock x:Name="LblUxSubject" Text="" FontSize="{DynamicResource FontSizeCaption}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="260" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                       <Button x:Name="BtnUxSubjectClear" Style="{StaticResource UxGhostButton}" Width="22" MinWidth="22" Height="22" MinHeight="22" Padding="0" Margin="2,0,0,0" ToolTip="Désélectionne cet objet : sa fiche nʼest plus affichée. Rien nʼest modifié ni relu." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Désélectionner" AutomationProperties.HelpText="Désélectionne cet objet : sa fiche nʼest plus affichée. Rien nʼest modifié ni relu.">
                         <Path Data="M6,6 L18,18 M18,6 L6,18" Width="8" Height="8" Stretch="Uniform" Stroke="{DynamicResource MutedColor}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" IsHitTestVisible="False"/>
                       </Button>
                     </StackPanel>
                   </Border>
                   <!-- UX-19 (X04): « Opérations à vérifier » is a header pill, shown only while a durable receipt waits. -->
-                  <Button x:Name="BtnPendingOperations" Visibility="Collapsed" Content="1 opération à vérifier" Margin="8,0,0,0" MinHeight="24" Height="24" Padding="10,0" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" Background="{DynamicResource InfoBg}" BorderBrush="{DynamicResource StatusWarning}" Foreground="{DynamicResource InfoFg}" ToolTip="Une écriture envoyée attend une vérification ou une revue : les nouvelles écritures restent bloquées. Ouvre la liste des reçus ; rien nʼest rejoué." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Opérations à vérifier" AutomationProperties.HelpText="Une écriture envoyée attend une vérification ou une revue : les nouvelles écritures restent bloquées. Ouvre la liste des reçus ; rien nʼest rejoué."/>
+                  <Button x:Name="BtnPendingOperations" Visibility="Collapsed" Content="1 opération à vérifier" Margin="8,0,0,0" MinHeight="24" Height="24" Padding="10,0" FontSize="{DynamicResource FontSizeCaption}" FontWeight="SemiBold" VerticalAlignment="Center" Background="{DynamicResource InfoBg}" BorderBrush="{DynamicResource StatusWarning}" Foreground="{DynamicResource InfoFg}" ToolTip="Une écriture envoyée attend une vérification ou une revue : les nouvelles écritures restent bloquées. Ouvre la liste des reçus ; rien nʼest rejoué." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Opérations à vérifier" AutomationProperties.HelpText="Une écriture envoyée attend une vérification ou une revue : les nouvelles écritures restent bloquées. Ouvre la liste des reçus ; rien nʼest rejoué."/>
                 </StackPanel>
               </StackPanel>
               <!-- The activity strip always exists. Busy/idle only changes visibility inside its fixed slots (Hidden, never Collapsed). -->
@@ -5180,17 +5209,17 @@ function Get-MainXaml {
                   <ColumnDefinition Width="96"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock x:Name="LblStatus" Text="" Visibility="Collapsed" Foreground="{DynamicResource MutedColor}" TextTrimming="CharacterEllipsis"/>
-                <TextBlock x:Name="LblPrivilegeTop" Text="" Visibility="Collapsed" Foreground="{DynamicResource PrivilegeFg}" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                <TextBlock x:Name="LblPrivilegeTop" Text="" Visibility="Collapsed" Foreground="{DynamicResource PrivilegeFg}" FontSize="{DynamicResource FontSizeCaption}" TextTrimming="CharacterEllipsis"/>
                 <!-- DS-02 / SE-06: in write mode, the fixed state slot offers the return to read-only (theme colours, no emoji). -->
                 <Border x:Name="WriteModeBanner" Grid.Column="1" Width="240" Height="32" Background="Transparent" Margin="0,0,12,0" Visibility="Collapsed" VerticalAlignment="Center">
                   <Button x:Name="BtnReadOnlyResume" Height="32" MinHeight="32" Padding="10,0" Margin="0" HorizontalAlignment="Left" BorderBrush="{DynamicResource DangerColor}" ToolTip="Repasse tout de suite en lecture seule : les modifications AD et les actions distantes modificatrices sont de nouveau bloquées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Repasser en lecture seule" AutomationProperties.HelpText="Repasse tout de suite en lecture seule : les modifications AD et les actions distantes modificatrices sont de nouveau bloquées.">
                     <StackPanel Orientation="Horizontal">
                       <Path Data="M6,11 L18,11 18,21 6,21 Z M8.5,11 L8.5,8 A3.5,3.5 0 0 1 15.5,8 L15.5,11" Width="14" Height="14" Stretch="Uniform" Stroke="{DynamicResource TextColor}" StrokeThickness="1.7" StrokeLineJoin="Round" Margin="0,0,7,0" VerticalAlignment="Center" IsHitTestVisible="False"/>
-                      <TextBlock x:Name="LblWriteMode" Text="Repasser en lecture" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                      <TextBlock x:Name="LblWriteMode" Text="Repasser en lecture" FontSize="{DynamicResource FontSizeSmall}" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     </StackPanel>
                   </Button>
                 </Border>
-                <TextBlock x:Name="LblTaskElapsed" Grid.Column="0" Text="" Visibility="Hidden" Height="24" MaxHeight="24" MinWidth="0" Foreground="{DynamicResource MutedColor}" FontSize="12" VerticalAlignment="Center" HorizontalAlignment="Stretch" TextAlignment="Left" Margin="0,0,12,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                <TextBlock x:Name="LblTaskElapsed" Grid.Column="0" Text="" Visibility="Hidden" Height="24" MaxHeight="24" MinWidth="0" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeSmall}" VerticalAlignment="Center" HorizontalAlignment="Stretch" TextAlignment="Left" Margin="0,0,12,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                 <ProgressBar x:Name="PbTop" Grid.Column="2" Width="130" MinWidth="130" MaxWidth="130" Height="8" MinHeight="8" MaxHeight="8" Visibility="Hidden" IsIndeterminate="False" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="0,0,14,0" ToolTip="Indicateur d’activité. Une animation sans pourcentage ne mesure pas la progression exacte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Indicateur d’activité" AutomationProperties.HelpText="Indicateur d’activité. Une animation sans pourcentage ne mesure pas la progression exacte."/>
                 <Button x:Name="BtnCancelTask" Grid.Column="3" Width="96" MinWidth="96" MaxWidth="96" Height="32" MinHeight="32" MaxHeight="32" Padding="10,4" ToolTip="Demande l’arrêt d’une lecture annulable. Une écriture ou un appel natif ne sont pas interrompus de force." Content="Annuler" Visibility="Hidden" Margin="0" VerticalAlignment="Center" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Annuler la lecture" AutomationProperties.HelpText="Demande l’arrêt d’une lecture annulable. Une écriture ou un appel natif ne sont pas interrompus de force."/>
                 <Button x:Name="BtnAccountsHeader" Content="Identités" Width="92" Height="42" MinWidth="82" Margin="0,0,6,0" ToolTip="Ouvre les identités de connexion utilisées par Domenia pour lʼannuaire, les postes et les secrets." VerticalAlignment="Center" Visibility="Collapsed" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Identités de connexion" AutomationProperties.HelpText="Ouvre les identités de connexion utilisées par Domenia pour lʼannuaire, les postes et les secrets."/>
@@ -5198,7 +5227,7 @@ function Get-MainXaml {
               <!-- DS-02: a lock switch, « Lecture seule » (neutral) or « Écriture active · N min » (solid red); fixed width so that
                    the activity strip never moves when it changes. The profile choice moved to the foot of the menu (UI-30). -->
               <WrapPanel x:Name="UxReadOnlyHost" Grid.Column="2" VerticalAlignment="Center" Margin="12,0,0,0">
-                <CheckBox x:Name="ChkReadOnlyMode" Width="206" Height="34" IsChecked="True" ToolTip="Lecture seule : les modifications AD et les actions distantes modificatrices sont bloquées. Cliquez pour autoriser les modifications, après confirmation." Content="Lecture seule" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center" Margin="0,5,0,5" Cursor="Hand" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Protection des modifications" AutomationProperties.LiveSetting="Polite" AutomationProperties.HelpText="Lecture seule : les modifications AD et les actions distantes modificatrices sont bloquées. Cliquez pour autoriser les modifications, après confirmation.">
+                <CheckBox x:Name="ChkReadOnlyMode" Width="206" Height="34" IsChecked="True" ToolTip="Lecture seule : les modifications AD et les actions distantes modificatrices sont bloquées. Cliquez pour autoriser les modifications, après confirmation." Content="Lecture seule" FontWeight="SemiBold" FontSize="{DynamicResource FontSizeSmall}" VerticalAlignment="Center" Margin="0,5,0,5" Cursor="Hand" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Protection des modifications" AutomationProperties.LiveSetting="Polite" AutomationProperties.HelpText="Lecture seule : les modifications AD et les actions distantes modificatrices sont bloquées. Cliquez pour autoriser les modifications, après confirmation.">
                   <CheckBox.Template>
                     <ControlTemplate TargetType="CheckBox">
                       <Border x:Name="UxReadOnlySwitch" CornerRadius="17" Background="{DynamicResource BgInput}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" Padding="12,0,12,0">
@@ -5242,8 +5271,8 @@ function Get-MainXaml {
                   <StackPanel Margin="2,2,10,8">
                     <Border Style="{StaticResource Card}" Margin="0,0,0,14" Padding="24">
                       <StackPanel>
-                        <TextBlock Text="Que souhaitez-vous faire ?" FontSize="26" FontWeight="SemiBold" Margin="0,0,0,7"/>
-                        <TextBlock Text="Retrouvez une personne ou un poste, consultez sa fiche, puis préparez votre intervention." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="14"/>
+                        <TextBlock Text="Que souhaitez-vous faire ?" FontSize="{DynamicResource FontSizeDisplay}" FontWeight="SemiBold" Margin="0,0,0,7"/>
+                        <TextBlock Text="Retrouvez une personne ou un poste, consultez sa fiche, puis préparez votre intervention." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeSubtitle}"/>
                       </StackPanel>
                     </Border>
                     <UniformGrid Columns="2" Margin="0,0,0,6">
@@ -5255,8 +5284,8 @@ function Get-MainXaml {
                           </Grid.ColumnDefinitions>
                           <Path Data="M17,17 L23,23 M20,11 A9,9 0 1 1 2,11 A9,9 0 1 1 20,11" Width="26" Height="26" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False" Grid.Column="0"/>
                           <StackPanel Grid.Column="1">
-                            <TextBlock Text="Rechercher" FontSize="16" FontWeight="SemiBold"/>
-                            <TextBlock Text="Nom, identifiant, adresse mail ou poste" FontSize="12" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/>
+                            <TextBlock Text="Rechercher" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold"/>
+                            <TextBlock Text="Nom, identifiant, adresse mail ou poste" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/>
                           </StackPanel>
                         </Grid>
                       </Button>
@@ -5268,8 +5297,8 @@ function Get-MainXaml {
                           </Grid.ColumnDefinitions>
                           <Path Data="M2,6 L10,6 12,9 23,9 23,22 2,22 Z M2,6 L2,3 10,3 13,6 22,6 22,9" Width="26" Height="26" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False" Grid.Column="0"/>
                           <StackPanel Grid.Column="1">
-                            <TextBlock Text="Choisir une OU" FontSize="16" FontWeight="SemiBold"/>
-                            <TextBlock Text="OU et conteneurs du domaine" FontSize="12" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/>
+                            <TextBlock Text="Choisir une OU" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold"/>
+                            <TextBlock Text="OU et conteneurs du domaine" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/>
                           </StackPanel>
                         </Grid>
                       </Button>
@@ -5281,8 +5310,8 @@ function Get-MainXaml {
                           </Grid.ColumnDefinitions>
                           <Path Data="M4,7 L20,7 20,23 4,23 Z M8,7 L8,3 16,3 16,7 M8,12 L16,12 M8,16 L16,16" Width="26" Height="26" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False" Grid.Column="0"/>
                           <StackPanel Grid.Column="1">
-                            <TextBlock Text="Préparer un dossier" FontSize="16" FontWeight="SemiBold"/>
-                            <TextBlock Text="Comparer des fiches et rédiger un ticket" FontSize="12" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/>
+                            <TextBlock Text="Préparer un dossier" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold"/>
+                            <TextBlock Text="Comparer des fiches et rédiger un ticket" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/>
                           </StackPanel>
                         </Grid>
                       </Button>
@@ -5294,21 +5323,21 @@ function Get-MainXaml {
                           </Grid.ColumnDefinitions>
                           <Path Data="M12,2 L22,6 21,16 Q18,22 12,25 Q6,22 3,16 L2,6 Z M7,13 L11,17 18,9" Width="26" Height="26" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False" Grid.Column="0"/>
                           <StackPanel Grid.Column="1">
-                            <TextBlock Text="Identités de connexion" FontSize="16" FontWeight="SemiBold"/>
-                            <TextBlock Text="Comptes utilisés par Domenia : annuaire, postes, secrets" FontSize="12" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/>
+                            <TextBlock Text="Identités de connexion" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold"/>
+                            <TextBlock Text="Comptes utilisés par Domenia : annuaire, postes, secrets" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/>
                           </StackPanel>
                         </Grid>
                       </Button>
                     </UniformGrid>
                     <Border Style="{StaticResource Card}" Margin="0,0,0,14" Background="{DynamicResource InfoBg}">
                       <StackPanel>
-                        <TextBlock Text="La consultation est protégée par défaut" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource InfoFg}"/>
+                        <TextBlock Text="La consultation est protégée par défaut" FontSize="{DynamicResource FontSizeSubtitle}" FontWeight="SemiBold" Foreground="{DynamicResource InfoFg}"/>
                         <TextBlock Text="Le mode Essentiel simplifie les vues. La case Lecture seule contrôle les modifications : ce sont deux réglages indépendants." TextWrapping="Wrap" Foreground="{DynamicResource InfoFg}" Margin="0,6,0,0"/>
                       </StackPanel>
                     </Border>
                     <Border x:Name="CardFirstSteps" Style="{StaticResource Card}" Margin="0,0,0,12" Visibility="Collapsed" AutomationProperties.Name="Premiers pas">
                       <StackPanel>
-                        <TextBlock Text="Premiers pas" FontSize="18" FontWeight="SemiBold"/>
+                        <TextBlock Text="Premiers pas" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"/>
                         <TextBlock Text="Quatre étapes pour démarrer : connexion, OU de travail, première lecture, tableau de bord. Chaque bouton ouvre lʼécran concerné, sans rien lancer." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,4,0,10"/>
                         <Grid>
                           <Grid.ColumnDefinitions><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -5332,26 +5361,26 @@ function Get-MainXaml {
                     <Border Style="{StaticResource Card}" Margin="0,0,0,12" Padding="18,12">
                       <StackPanel>
                         <DockPanel>
-                          <Button x:Name="BtnFleetShowMachines" DockPanel.Dock="Right" Content="&#xE8A1;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="13" Width="34" MinHeight="30" Padding="0" Margin="8,0,0,0" ToolTip="Ouvrir lʼatelier de requêtes et les postes du périmètre." AutomationProperties.Name="Ouvrir lʼatelier de requêtes"/>
-                          <Button x:Name="BtnFleetDashboardRefresh" DockPanel.Dock="Right" Content="Recalculer la vue" Style="{StaticResource SecondaryButton}" FontSize="12" MinHeight="30" Padding="10,3" Margin="8,0,0,0" ToolTip="Recalculer la vue : relit uniquement les données déjà enregistrées. Les dates AD, ping et WMI restent celles de leur collecte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Recalculer la vue sans collecte"/>
+                          <Button x:Name="BtnFleetShowMachines" DockPanel.Dock="Right" Content="&#xE8A1;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="{DynamicResource FontSizeBody}" Width="34" MinHeight="30" Padding="0" Margin="8,0,0,0" ToolTip="Ouvrir lʼatelier de requêtes et les postes du périmètre." AutomationProperties.Name="Ouvrir lʼatelier de requêtes"/>
+                          <Button x:Name="BtnFleetDashboardRefresh" DockPanel.Dock="Right" Content="Recalculer la vue" Style="{StaticResource SecondaryButton}" FontSize="{DynamicResource FontSizeSmall}" MinHeight="30" Padding="10,3" Margin="8,0,0,0" ToolTip="Recalculer la vue : relit uniquement les données déjà enregistrées. Les dates AD, ping et WMI restent celles de leur collecte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Recalculer la vue sans collecte"/>
                           <WrapPanel VerticalAlignment="Center">
                             <WrapPanel x:Name="PnlFleetCrumbs" VerticalAlignment="Center" AutomationProperties.Name="OU de la vue dʼensemble"/>
-                          <TextBlock x:Name="LblFleetScope" Text="Tout le domaine indexé" FontSize="15" VerticalAlignment="Center" TextWrapping="Wrap" AutomationProperties.Name="Périmètre de la vue dʼensemble"/>
+                          <TextBlock x:Name="LblFleetScope" Text="Tout le domaine indexé" FontSize="{DynamicResource FontSizeSubtitle}" VerticalAlignment="Center" TextWrapping="Wrap" AutomationProperties.Name="Périmètre de la vue dʼensemble"/>
                           </WrapPanel>
                         </DockPanel>
-                        <TextBlock x:Name="LblFleetDashboard" Text="Calculée depuis la base autonome locale." Foreground="{DynamicResource MutedColor}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                        <TextBlock x:Name="LblFleetDashboard" Text="Calculée depuis la base autonome locale." Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeSmall}" TextWrapping="Wrap" Margin="0,4,0,0"/>
                         <WrapPanel Margin="0,8,0,0">
                           <Button x:Name="BtnFleetScope" Content="Choisir une OU" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,0" ToolTip="Choisit le périmètre local du tableau de bord. La recherche reste indépendante." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Choisir lʼOU du tableau de bord"/>
                           <Button x:Name="BtnFleetOpenSearch" Content="Ouvrir dans Rechercher" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" ToolTip="Action facultative : transmet tous les postes recensés de cette OU à Recherche, y compris les désactivés, pour lancer Pinger, Détecter ou Analyser la liste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir ces postes dans Rechercher"/>
                         </WrapPanel>
-                        <TextBlock Text="Mettre à jour les données de cette OU et de ses sous-OU" FontSize="11.5" Foreground="{DynamicResource MutedColor}" Margin="0,10,0,4"/>
+                        <TextBlock Text="Mettre à jour les données de cette OU et de ses sous-OU" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" Margin="0,10,0,4"/>
                         <WrapPanel>
                           <Button x:Name="BtnFleetIndexScope" Content="Objets AD" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,4" ToolTip="Relire les objets AD de cette OU et ses sous-OU. Chaque résultat est enregistré automatiquement, après une sauvegarde vérifiée de la base. Aucun ping ni WMI." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser Objets AD de lʼOU"/>
                           <Button x:Name="BtnFleetRefreshPostes" Content="Ping" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,4" ToolTip="Mesurer seulement la présence réseau des postes activés dans AD de cette OU. Enregistrement automatique ; les dates AD et WMI restent inchangées." AutomationProperties.Name="Actualiser Ping de lʼOU"/>
                           <Button x:Name="BtnFleetRefreshBoth" Content="WMI" Style="{StaticResource RunButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,4" ToolTip="Relire les informations WMI et les sondes choisies pour les postes de cette OU. Aucun ping imposé ; enregistrement automatique." AutomationProperties.Name="Actualiser WMI de lʼOU"/>
                           <Button x:Name="BtnFleetRefreshStop" Content="Arrêter" IsEnabled="False" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,4" ToolTip="Arrêter cette actualisation ; conserver les données déjà enregistrées. La phase suivante ne sera pas lancée." AutomationProperties.Name="Arrêter lʼactualisation de cette OU"/>
                         </WrapPanel>
-                        <TextBlock x:Name="LblFleetOuRefreshStatus" Text="Objets AD · Ping · WMI : trois collectes indépendantes, enregistrées automatiquement." FontSize="11.5" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                        <TextBlock x:Name="LblFleetOuRefreshStatus" Text="Objets AD · Ping · WMI : trois collectes indépendantes, enregistrées automatiquement." FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,6,0,0"/>
 
                       </StackPanel>
                     </Border>
@@ -5487,12 +5516,12 @@ function Get-MainXaml {
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
                           </Grid.ColumnDefinitions>
-                          <TextBlock Text="Parcourir les OU" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                          <TextBlock Text="Parcourir les OU" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold" VerticalAlignment="Center"/>
                           <Button Grid.Column="1" x:Name="BtnTreeRefresh" Width="34" MinWidth="34" Height="30" MinHeight="30" Padding="0" Margin="6,0,0,0" ToolTip="Recharge les branches de l’arbre. Le texte de recherche et le filtre OU courant sont conservés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser l’arbre" AutomationProperties.HelpText="Recharge les branches de l’arbre. Le texte de recherche et le filtre OU courant sont conservés.">
-                            <TextBlock Text="↻" FontFamily="Segoe UI Symbol" FontSize="19" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <TextBlock Text="↻" FontFamily="Segoe UI Symbol" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                           </Button>
                           <Button Grid.Column="2" x:Name="BtnOuMenu" Width="34" MinWidth="34" Height="30" MinHeight="30" Padding="0" Margin="6,0,0,0" ToolTip="Options de lʼarbre : sous-OU, favori et chemin LDAP. Ouvrir ce menu ne lance aucune lecture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Options de lʼarbre des OU" AutomationProperties.HelpText="Options de lʼarbre : sous-OU, favori et chemin LDAP. Ouvrir ce menu ne lance aucune lecture.">
-                            <TextBlock Text="⋯" FontFamily="Segoe UI Symbol" FontSize="19" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <TextBlock Text="⋯" FontFamily="Segoe UI Symbol" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                           </Button>
                         </Grid>
                         <Border x:Name="UxOuMenuPanel" Visibility="Collapsed" Background="{DynamicResource BgReadonly}" CornerRadius="10" Padding="10" Margin="0,0,0,8">
@@ -5501,7 +5530,7 @@ function Get-MainXaml {
                             <WrapPanel Margin="0,0,0,4">
                               <Button x:Name="BtnOuFavouriteToggle" Content="Épingler cette OU" Margin="8,0,0,4" Padding="10,2" MinHeight="30" ToolTip="Ajoute lʼOU choisie aux favoris en haut de lʼarbre, ou lʼen retire. Préférence locale : rien nʼest lu ni modifié dans lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Épingler ou retirer lʼOU choisie" AutomationProperties.HelpText="Ajoute lʼOU choisie aux favoris en haut de lʼarbre, ou lʼen retire. Préférence locale : rien nʼest lu ni modifié dans lʼannuaire."/>
                             </WrapPanel>
-                            <Expander x:Name="UxOuPathDetails" Header="Voir le chemin LDAP" IsExpanded="False" Margin="0" FontSize="12" Foreground="{DynamicResource MutedColor}" ToolTip="Déplie le DN exact utilisé par la recherche. Cela ne change pas le périmètre et ne lance aucune requête." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Chemin complet de l’OU" AutomationProperties.HelpText="Déplie le DN exact utilisé par la recherche. Cela ne change pas le périmètre et ne lance aucune requête.">
+                            <Expander x:Name="UxOuPathDetails" Header="Voir le chemin LDAP" IsExpanded="False" Margin="0" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" ToolTip="Déplie le DN exact utilisé par la recherche. Cela ne change pas le périmètre et ne lance aucune requête." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Chemin complet de l’OU" AutomationProperties.HelpText="Déplie le DN exact utilisé par la recherche. Cela ne change pas le périmètre et ne lance aucune requête.">
                               <StackPanel Margin="0,8,0,2">
                                 <TextBox x:Name="TxtBranchDn" IsReadOnly="True" Background="{DynamicResource BgReadonly}" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" ToolTip="Chemin LDAP complet de la branche sélectionnée. Cette racine est utilisée par la requête AD, pas seulement pour masquer des lignes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="OU utilisée pour la recherche" AutomationProperties.HelpText="Chemin LDAP complet de la branche sélectionnée. Cette racine est utilisée par la requête AD, pas seulement pour masquer des lignes." MaxHeight="128" MinHeight="64" Padding="10,8" VerticalContentAlignment="Top" Margin="0,0,0,8" HorizontalScrollBarVisibility="Disabled"/>
                                 <Button Content="Copier le chemin" MinHeight="32" Margin="0" HorizontalAlignment="Left" Padding="10,4" x:Name="BtnUxCopyOuPath" ToolTip="Copie seulement le DN de l’OU sélectionnée. Ne modifie pas le filtre et ne contacte pas l’annuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier le chemin LDAP" AutomationProperties.HelpText="Copie seulement le DN de l’OU sélectionnée. Ne modifie pas le filtre et ne contacte pas l’annuaire."/>
@@ -5511,7 +5540,7 @@ function Get-MainXaml {
                         </Border>
                         <Border x:Name="OuRestoreBanner" Visibility="Collapsed" Background="{DynamicResource BgReadonly}" BorderBrush="{DynamicResource AccentColor}" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,8">
                           <StackPanel>
-                            <TextBlock x:Name="LblOuRestoreMessage" Text="" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource TextColor}"/>
+                            <TextBlock x:Name="LblOuRestoreMessage" Text="" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource TextColor}"/>
                             <WrapPanel Margin="0,8,0,0">
                               <Button x:Name="BtnOuRestoreRetry" Content="Relire" MinHeight="30" Padding="10,2" Margin="0,0,8,0" ToolTip="Relance une seule fois la restauration de lʼOU mémorisée dans lʼarbre. Aucun autre périmètre nʼest appliqué." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Relire lʼOU mémorisée" AutomationProperties.HelpText="Relance une seule fois la restauration de lʼOU mémorisée dans lʼarbre. Aucun autre périmètre nʼest appliqué."/>
                               <Button x:Name="BtnOuRestoreDismiss" Content="Choisir une autre OU" MinHeight="30" Padding="10,2" ToolTip="Ferme cet avertissement : choisissez une OU dans lʼarbre. Le périmètre actuel nʼest pas modifié." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Choisir une autre OU" AutomationProperties.HelpText="Ferme cet avertissement : choisissez une OU dans lʼarbre. Le périmètre actuel nʼest pas modifié."/>
@@ -5520,13 +5549,13 @@ function Get-MainXaml {
                         </Border>
                         <Grid>
                           <TextBox x:Name="TxtOuFilter" MaxLength="80" MinHeight="32" VerticalContentAlignment="Center" ToolTip="Filtre local de lʼarbre sur le nom des branches déjà affichées. Aucune lecture de lʼannuaire ; une branche repliée et jamais ouverte nʼest pas parcourue." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtrer les OU" AutomationProperties.HelpText="Filtre local de lʼarbre sur le nom des branches déjà affichées. Aucune lecture de lʼannuaire ; une branche repliée et jamais ouverte nʼest pas parcourue."/>
-                          <TextBlock Text="Filtrer les OU" Margin="10,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" FontSize="12" Foreground="{DynamicResource MutedColor}">
+                          <TextBlock Text="Filtrer les OU" Margin="10,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}">
                             <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=TxtOuFilter}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
                           </TextBlock>
                         </Grid>
                         <Border x:Name="UxOuFavourites" Visibility="Collapsed" Margin="0,8,0,0" ToolTip="Favoris : OU épinglées. Un clic affiche son contenu ; × la retire des favoris sans rien modifier dans lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Favoris" AutomationProperties.HelpText="Favoris : OU épinglées. Un clic affiche son contenu ; × la retire des favoris sans rien modifier dans lʼannuaire.">
                           <StackPanel>
-                            <TextBlock Text="FAVORIS" FontSize="10.5" FontWeight="SemiBold" Foreground="{DynamicResource MutedColor}" Margin="0,0,0,4"/>
+                            <TextBlock Text="FAVORIS" FontSize="{DynamicResource FontSizeCaption}" FontWeight="SemiBold" Foreground="{DynamicResource MutedColor}" Margin="0,0,0,4"/>
                             <ScrollViewer MaxHeight="132" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                               <StackPanel x:Name="PnlOuFavourites"/>
                             </ScrollViewer>
@@ -5536,17 +5565,17 @@ function Get-MainXaml {
                       <Border DockPanel.Dock="Bottom" x:Name="UxSearchOuRefresh" Margin="0,8,0,0" Padding="8" Background="{DynamicResource BgReadonly}" CornerRadius="8">
                         <StackPanel>
                           <TextBlock x:Name="UxSearchOuRefreshTitle" Text="Données de lʼOU" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                          <TextBlock x:Name="LblSearchOuRefreshScope" Text="Choisissez une OU dans lʼarbre." FontSize="11.5" TextWrapping="Wrap" MaxHeight="48" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" Foreground="{DynamicResource MutedColor}"/>
+                          <TextBlock x:Name="LblSearchOuRefreshScope" Text="Choisissez une OU dans lʼarbre." FontSize="{DynamicResource FontSizeSmall}" TextWrapping="Wrap" MaxHeight="48" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" Foreground="{DynamicResource MutedColor}"/>
                           <WrapPanel x:Name="UxSearchOuRefreshActions" Margin="0,6,0,0">
                             <Button x:Name="BtnSearchRefreshBase" Content="Objets AD" IsEnabled="False" MinHeight="30" Padding="8,3" Margin="0,0,4,4" ToolTip="Relire les objets AD de lʼOU choisie et de ses sous-OU, puis afficher les données enregistrées. Une sauvegarde vérifiée de la base précède la lecture. Aucun ping ni WMI." AutomationProperties.Name="Actualiser Objets AD de lʼOU"/>
                             <Button x:Name="BtnSearchRefreshPostes" Content="Ping" IsEnabled="False" MinHeight="30" Padding="8,3" Margin="0,0,4,4" ToolTip="Mesurer seulement le ping des postes activés dans AD de cette OU et de ses sous-OU. Les filtres de recherche restent inchangés." AutomationProperties.Name="Actualiser Ping de lʼOU"/>
                             <Button x:Name="BtnSearchRefreshBoth" Content="WMI" IsEnabled="False" Style="{StaticResource RunButton}" MinHeight="30" Padding="8,3" Margin="0,0,4,4" ToolTip="Relire les informations WMI et les sondes choisies pour cette OU et ses sous-OU. Aucun ping imposé ; enregistrement automatique." AutomationProperties.Name="Actualiser WMI de lʼOU"/>
                             <Button x:Name="BtnSearchRefreshStop" Content="Arrêter" IsEnabled="False" MinHeight="30" Padding="8,3" Margin="0,0,0,4" ToolTip="Arrêter cette actualisation et empêcher le lancement de la phase suivante. Les données enregistrées sont conservées." AutomationProperties.Name="Arrêter lʼactualisation de lʼOU choisie"/>
                           </WrapPanel>
-                          <TextBlock x:Name="LblSearchOuRefreshStatus" Text="La mise à jour couvre toujours les sous-OU." FontSize="11" TextWrapping="Wrap" MaxHeight="58" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" Foreground="{DynamicResource MutedColor}"/>
+                          <TextBlock x:Name="LblSearchOuRefreshStatus" Text="La mise à jour couvre toujours les sous-OU." FontSize="{DynamicResource FontSizeCaption}" TextWrapping="Wrap" MaxHeight="58" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" Foreground="{DynamicResource MutedColor}"/>
                         </StackPanel>
                       </Border>
-                      <TextBlock x:Name="LblTreeStatus" Text="Arbre pret." Foreground="{DynamicResource MutedColor}" FontSize="11" TextWrapping="NoWrap" Margin="0,10,0,0" DockPanel.Dock="Bottom" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                      <TextBlock x:Name="LblTreeStatus" Text="Arbre pret." Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}" TextWrapping="NoWrap" Margin="0,10,0,0" DockPanel.Dock="Bottom" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                       <TreeView x:Name="TvDirectory" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto" ToolTip="Développez les sous-OU ou cliquez une branche pour afficher son contenu. Le texte de la recherche globale reste conservé mais ne filtre pas cette navigation." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Arbre des OU et conteneurs" AutomationProperties.HelpText="Développez les sous-OU ou cliquez une branche pour afficher son contenu. Le texte de la recherche globale reste conservé mais ne filtre pas cette navigation."/>
                     </DockPanel>
                   </Border>
@@ -5562,20 +5591,20 @@ function Get-MainXaml {
                     <Border x:Name="UxSearchFilterCard" Grid.Row="0" Margin="0" Padding="16" BorderBrush="{DynamicResource BorderColor}" BorderThickness="0,0,0,1">
                       <StackPanel>
                         <DockPanel x:Name="UxSearchCardHeader" Margin="0,0,0,6" LastChildFill="True">
-                          <TextBlock x:Name="LblSearchCardCount" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" ToolTip="Nombre de lignes affichées dans la liste, après le filtre de la liste. Le compteur détaillé, au-dessus des résultats, indique les lignes chargées et la limite." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lignes affichées" AutomationProperties.HelpText="Nombre de lignes affichées dans la liste, après le filtre de la liste. Le compteur détaillé, au-dessus des résultats, indique les lignes chargées et la limite.">
+                          <TextBlock x:Name="LblSearchCardCount" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" ToolTip="Nombre de lignes affichées dans la liste, après le filtre de la liste. Le compteur détaillé, au-dessus des résultats, indique les lignes chargées et la limite." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lignes affichées" AutomationProperties.HelpText="Nombre de lignes affichées dans la liste, après le filtre de la liste. Le compteur détaillé, au-dessus des résultats, indique les lignes chargées et la limite.">
                             <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="{Binding Items.Count, ElementName=DgObjects, StringFormat='· {0} objets'}"/><Style.Triggers><DataTrigger Binding="{Binding Items.Count, ElementName=DgObjects}" Value="0"><Setter Property="Text" Value="· aucun objet"/></DataTrigger><DataTrigger Binding="{Binding Items.Count, ElementName=DgObjects}" Value="1"><Setter Property="Text" Value="· 1 objet"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
                           </TextBlock>
                           <Grid>
-                            <TextBlock Text="Recherche dans lʼannuaire" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                            <TextBlock Text="Recherche dans lʼannuaire" FontSize="{DynamicResource FontSizeSubtitle}" FontWeight="SemiBold" VerticalAlignment="Center"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
                             <WrapPanel x:Name="PnlOuBreadcrumb" ToolTip="Chemin de lʼOU choisie. Un niveau intermédiaire remonte à cette OU ; Copier le chemin copie son DN exact." ToolTipService.ShowOnDisabled="True" VerticalAlignment="Center" AutomationProperties.HelpText="Chemin de lʼOU choisie. Un niveau intermédiaire remonte à cette OU ; Copier le chemin copie son DN exact." AutomationProperties.Name="Chemin de la branche choisie"><WrapPanel.Style><Style TargetType="WrapPanel"><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></WrapPanel.Style></WrapPanel>
                           </Grid>
                         </DockPanel>
                         <Grid x:Name="UxSearchScopeInfo"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <Button x:Name="BtnSearchQueryOptions" Grid.Column="2" Visibility="Collapsed" Content="Options de requête" MinHeight="28" Padding="6,1" Margin="6,0,0,2" FontSize="11" AutomationProperties.Name="Options de requête" ToolTip="Afficher ou replier les options : recherche de modèle, favoris, source et état des résultats."/>
-                        <ComboBox x:Name="CmbWorkViewScope" Grid.Column="2" Grid.Row="0" VerticalAlignment="Top" SelectedIndex="0" MinWidth="0" MinHeight="0" Height="24" MaxWidth="210" Margin="8,0,0,2" Padding="6,0,4,0" FontSize="11.5" VerticalContentAlignment="Center" ToolTip="Périmètre des requêtes : lʼOU choisie dans lʼarbre. Les requêtes utilisent lʼOU choisie, sans ping, détection ni analyse des postes listés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Périmètre des requêtes" AutomationProperties.HelpText="Périmètre des requêtes : lʼOU choisie dans lʼarbre. Les requêtes utilisent lʼOU choisie, sans ping, détection ni analyse des postes listés.">
+                        <Button x:Name="BtnSearchQueryOptions" Grid.Column="2" Visibility="Collapsed" Content="Options de requête" MinHeight="28" Padding="6,1" Margin="6,0,0,2" FontSize="{DynamicResource FontSizeCaption}" AutomationProperties.Name="Options de requête" ToolTip="Afficher ou replier les options : recherche de modèle, favoris, source et état des résultats."/>
+                        <ComboBox x:Name="CmbWorkViewScope" Grid.Column="2" Grid.Row="0" VerticalAlignment="Top" SelectedIndex="0" MinWidth="0" MinHeight="0" Height="24" MaxWidth="210" Margin="8,0,0,2" Padding="6,0,4,0" FontSize="{DynamicResource FontSizeSmall}" VerticalContentAlignment="Center" ToolTip="Périmètre des requêtes : lʼOU choisie dans lʼarbre. Les requêtes utilisent lʼOU choisie, sans ping, détection ni analyse des postes listés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Périmètre des requêtes" AutomationProperties.HelpText="Périmètre des requêtes : lʼOU choisie dans lʼarbre. Les requêtes utilisent lʼOU choisie, sans ping, détection ni analyse des postes listés.">
                           <ComboBoxItem Tag="OU" Content="Requêtes · OU choisie"/>
-                        </ComboBox><TextBlock Text="Dans : tout le domaine | Sous-OU incluses" TextWrapping="NoWrap" Margin="0,0,0,4" Foreground="{DynamicResource AccentText}" FontSize="12" x:Name="LblSearchScope" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" TextTrimming="CharacterEllipsis"/>
-                        <TextBlock x:Name="LblSearchHint" Grid.Row="1" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" Text="" Height="18" Margin="0,0,0,8" FontSize="11.5" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/></Grid>
+                        </ComboBox><TextBlock Text="Dans : tout le domaine | Sous-OU incluses" TextWrapping="NoWrap" Margin="0,0,0,4" Foreground="{DynamicResource AccentText}" FontSize="{DynamicResource FontSizeSmall}" x:Name="LblSearchScope" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock x:Name="LblSearchHint" Grid.Row="1" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" Text="" Height="18" Margin="0,0,0,8" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/></Grid>
                         <Grid x:Name="UxSearchFilterQueryLayout"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0"/></Grid.ColumnDefinitions>
                         <WrapPanel x:Name="UxSearchFilters">
                           <StackPanel Width="148" Margin="0,0,12,8"><StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>
@@ -5600,7 +5629,7 @@ function Get-MainXaml {
                           <!-- DS-03: « 100 lignes max » reads as a limit without the caption (kept short on a tiny screen, Set-DomeniaSearchQueryOptionsLayout). -->
                           <StackPanel Width="128" Margin="0,0,12,8">
                             <DockPanel LastChildFill="True">
-                              <TextBlock x:Name="LblGlobalLimitUnit" DockPanel.Dock="Right" Text="lignes max" Margin="6,0,0,0" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" ToolTip="La limite de la liste est un nombre de lignes lues dans lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Unité de la limite" AutomationProperties.HelpText="La limite de la liste est un nombre de lignes lues dans lʼannuaire."/>
+                              <TextBlock x:Name="LblGlobalLimitUnit" DockPanel.Dock="Right" Text="lignes max" Margin="6,0,0,0" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" ToolTip="La limite de la liste est un nombre de lignes lues dans lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Unité de la limite" AutomationProperties.HelpText="La limite de la liste est un nombre de lignes lues dans lʼannuaire."/>
                               <TextBox x:Name="TxtGlobalLimit" Text="100" ToolTip="Nombre maximum de lignes lues dans lʼannuaire pour cette liste, 20 000 au plus. « Charger la suite » lit les lignes suivantes sans changer ce nombre." Margin="0" MinWidth="0" VerticalContentAlignment="Center" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lignes max" AutomationProperties.HelpText="Nombre maximum de lignes lues dans lʼannuaire pour cette liste, 20 000 au plus. « Charger la suite » lit les lignes suivantes sans changer ce nombre." MinHeight="36"/>
                             </DockPanel>
                           </StackPanel>
@@ -5615,12 +5644,12 @@ function Get-MainXaml {
                           <Grid x:Name="UxSearchQueryExecute" Grid.Row="1">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <ComboBox x:Name="CmbWorkView" MinWidth="0" MinHeight="34" DisplayMemberPath="DisplayName" MaxDropDownHeight="420" ScrollViewer.VerticalScrollBarVisibility="Auto" ToolTip="Choisir une requête Annuaire ou Données locales, puis Exécuter. Le choix seul ne lance rien." AutomationProperties.Name="Requête à exécuter"/>
-                            <TextBlock Text="Vues prêtes…" Margin="10,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" FontSize="12" Foreground="{DynamicResource MutedColor}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding SelectedItem, ElementName=CmbWorkView}" Value="{x:Null}"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                            <TextBlock Text="Vues prêtes…" Margin="10,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding SelectedItem, ElementName=CmbWorkView}" Value="{x:Null}"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
                             <Button x:Name="BtnWorkView" Grid.Column="1" Content="Exécuter" Margin="6,0,0,0" MinHeight="34" Padding="10,3" ToolTip="Exécuter la requête choisie dans lʼOU de Recherche et selon la profondeur affichée." AutomationProperties.Name="Exécuter la requête sélectionnée"/>
-                            <Button x:Name="BtnSearchQueryFavorite" Grid.Column="2" Content="☆" Width="34" MinWidth="0" MinHeight="34" Padding="3" Margin="6,0,0,0" FontSize="18" ToolTip="Épingler ou retirer cette requête des favoris." AutomationProperties.Name="Épingler la requête"/>
+                            <Button x:Name="BtnSearchQueryFavorite" Grid.Column="2" Content="☆" Width="34" MinWidth="0" MinHeight="34" Padding="3" Margin="6,0,0,0" FontSize="{DynamicResource FontSizeTitle}" ToolTip="Épingler ou retirer cette requête des favoris." AutomationProperties.Name="Épingler la requête"/>
                             <Button x:Name="BtnSearchQueryWorkshop" Grid.Column="3" Content="&#xE70F;" FontFamily="Segoe MDL2 Assets" Width="34" MinWidth="0" MinHeight="34" Padding="6" Margin="6,0,0,0" ToolTip="Créer ou modifier une requête dans Outils, Atelier de requêtes." AutomationProperties.Name="Modifier dans lʼatelier de requêtes"/>
                           </Grid>
-                          <TextBlock x:Name="LblSearchQueryDetails" Grid.Row="2" Margin="0,5,0,0" Text="Choisissez une requête pour voir sa source et son périmètre." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" FontSize="11.5" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                          <TextBlock x:Name="LblSearchQueryDetails" Grid.Row="2" Margin="0,5,0,0" Text="Choisissez une requête pour voir sa source et son périmètre." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeSmall}" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                           <WrapPanel x:Name="UxSearchQueryResultBar" Grid.Row="3" Margin="0,5,0,0">
                             <TextBlock x:Name="LblSearchQuery" Text="Aucune requête appliquée aux résultats." TextWrapping="Wrap" MaxWidth="640" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" Margin="0,0,8,0"/>
                             <ComboBox x:Name="CmbSearchQueryResult" Width="165" MinWidth="0" MinHeight="30" SelectedIndex="0" Margin="0,0,6,0" Visibility="Collapsed" AutomationProperties.Name="Résultats de la requête locale" ToolTip="Choisir Correspondants, Inconnus ou Non correspondants, puis cliquer sur Exécuter.">
@@ -5663,17 +5692,17 @@ function Get-MainXaml {
                               <Button MinHeight="30" Padding="10,2" Margin="0" Visibility="Collapsed" x:Name="BtnExportResults" Content="Exporter CSV" ToolTip="Exporte au format CSV la portée choisie à côté des résultats : la liste affichée après les filtres, ou seulement les lignes sélectionnées. Le message final dit ce qui est exclu." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Exporter CSV" AutomationProperties.HelpText="Exporte au format CSV la portée choisie à côté des résultats : la liste affichée après les filtres, ou seulement les lignes sélectionnées. Le message final dit ce qui est exclu."/>
                             </Grid>
                             <Button MinHeight="30" Padding="10,2" Margin="0,0,8,0" x:Name="BtnGlobalClear" Content="Effacer" ToolTip="Efface le texte et les résultats sans modifier l’OU sélectionnée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer la recherche" AutomationProperties.HelpText="Efface le texte et les résultats sans modifier l’OU sélectionnée."/>
-                            <Button x:Name="BtnSearchResultMenu" Content="⋯" MinHeight="30" MinWidth="38" Padding="8,0" Margin="0" FontSize="16" FontWeight="SemiBold" ToolTip="Autres actions de la liste : actualiser, exporter en CSV et choisir les colonnes affichées. Aucune lecture ne part à lʼouverture du menu." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Autres actions de la liste" AutomationProperties.HelpText="Autres actions de la liste : actualiser, exporter en CSV et choisir les colonnes affichées. Aucune lecture ne part à lʼouverture du menu."/>
+                            <Button x:Name="BtnSearchResultMenu" Content="⋯" MinHeight="30" MinWidth="38" Padding="8,0" Margin="0" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold" ToolTip="Autres actions de la liste : actualiser, exporter en CSV et choisir les colonnes affichées. Aucune lecture ne part à lʼouverture du menu." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Autres actions de la liste" AutomationProperties.HelpText="Autres actions de la liste : actualiser, exporter en CSV et choisir les colonnes affichées. Aucune lecture ne part à lʼouverture du menu."/>
                           </StackPanel>
                           <Button x:Name="BtnSearchMore" Content="Charger la suite" DockPanel.Dock="Right" IsEnabled="False" MinHeight="30" Padding="10,2" Margin="8,0,0,0" ToolTip="Disponible quand la liste est limitée : lit seulement les lignes suivantes de la même recherche, triées par nom, sans relire les lignes déjà chargées. Plafond de sécurité : 20 000 lignes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Charger la suite" AutomationProperties.HelpText="Disponible quand la liste est limitée : lit seulement les lignes suivantes de la même recherche, triées par nom, sans relire les lignes déjà chargées. Plafond de sécurité : 20 000 lignes."/>
                           <!-- MO-07: one gesture to bring a limited list to 1 000 rows (then 5 000, then 20 000), reading only the missing rows. -->
                           <Button x:Name="BtnSearchMoreJump" Content="Charger jusquʼà 1 000" DockPanel.Dock="Right" IsEnabled="False" Visibility="Collapsed" MinHeight="30" Padding="10,2" Margin="8,0,0,0" ToolTip="Porte la liste à 1 000 lignes en une fois (puis 5 000, puis 20 000) : lit seulement les lignes manquantes, sans relire celles déjà chargées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Charger jusquʼà 1 000" AutomationProperties.HelpText="Porte la liste à 1 000 lignes en une fois (puis 5 000, puis 20 000) : lit seulement les lignes manquantes, sans relire celles déjà chargées."/>
-                          <TextBlock x:Name="LblBranchCount" Text="0 objet" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="12,0,0,0" DockPanel.Dock="Right" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" MaxWidth="320" FontSize="12" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                          <TextBlock x:Name="LblBranchCount" Text="0 objet" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="12,0,0,0" DockPanel.Dock="Right" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" MaxWidth="320" FontSize="{DynamicResource FontSizeSmall}" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                           <StackPanel Orientation="Horizontal">
                             <Border x:Name="UxHistoryBanner" Visibility="Collapsed" Margin="0" Padding="8,0,2,0" CornerRadius="10" Background="{DynamicResource BgReadonly}" VerticalAlignment="Center" ToolTip="Liste remise depuis lʼhistorique (Précédent ou Suivant) : elle nʼest pas relue et un clic ne vérifie pas le poste. Actualiser relance la même recherche." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Liste de lʼhistorique" AutomationProperties.HelpText="Liste remise depuis lʼhistorique (Précédent ou Suivant) : elle nʼest pas relue et un clic ne vérifie pas le poste. Actualiser relance la même recherche.">
                               <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="Liste de lʼhistorique ·" FontSize="11.5" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}"/>
-                                <Button x:Name="BtnHistoryRefresh" Content="Actualiser" MinHeight="0" Height="22" MinWidth="0" Padding="6,0" Margin="4,1,0,1" FontSize="11.5" ToolTip="Relance la recherche de cette liste dans lʼannuaire, avec son périmètre, sa vue et ses filtres. Aucun ping ni relevé des postes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser la liste de lʼhistorique" AutomationProperties.HelpText="Relance la recherche de cette liste dans lʼannuaire, avec son périmètre, sa vue et ses filtres. Aucun ping ni relevé des postes."/>
+                                <TextBlock Text="Liste de lʼhistorique ·" FontSize="{DynamicResource FontSizeSmall}" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}"/>
+                                <Button x:Name="BtnHistoryRefresh" Content="Actualiser" MinHeight="0" Height="22" MinWidth="0" Padding="6,0" Margin="4,1,0,1" FontSize="{DynamicResource FontSizeSmall}" ToolTip="Relance la recherche de cette liste dans lʼannuaire, avec son périmètre, sa vue et ses filtres. Aucun ping ni relevé des postes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser la liste de lʼhistorique" AutomationProperties.HelpText="Relance la recherche de cette liste dans lʼannuaire, avec son périmètre, sa vue et ses filtres. Aucun ping ni relevé des postes."/>
                               </StackPanel>
                             </Border>
                           </StackPanel>
@@ -5682,9 +5711,9 @@ function Get-MainXaml {
                         <Button x:Name="BtnSearchContains" Visibility="Collapsed" HorizontalAlignment="Right" Margin="0,0,0,8" MinHeight="28" Padding="12,2" Style="{StaticResource SecondaryButton}" Content="Chercher aussi les noms qui contiennent ce texte" ToolTip="Proposé quand la barre du haut trouve peu de noms ou aucun : relance la même recherche (même périmètre, même type, même limite) sur les noms qui contiennent le texte, pas seulement ceux qui commencent par lui. Plus lent ; rien nʼest lu avant le clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Chercher aussi les noms qui contiennent ce texte" AutomationProperties.HelpText="Proposé quand la barre du haut trouve peu de noms ou aucun : relance la même recherche (même périmètre, même type, même limite) sur les noms qui contiennent le texte, pas seulement ceux qui commencent par lui. Plus lent ; rien nʼest lu avant le clic."/>
                         <!-- CO-05 / SP-14: the filter of the list works on any loaded list, global search included; no request. -->
                         <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-<StackPanel Width="112" VerticalAlignment="Center" Margin="0,0,10,0"><TextBlock Text="Filtrer la liste" FontSize="11" Foreground="{DynamicResource MutedColor}"/><TextBlock x:Name="LblSuiteResultCount" Text="Filtre local : affine seulement les lignes déjà chargées." FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Height="18" Margin="0" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/></StackPanel>
+<StackPanel Width="112" VerticalAlignment="Center" Margin="0,0,10,0"><TextBlock Text="Filtrer la liste" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource MutedColor}"/><TextBlock x:Name="LblSuiteResultCount" Text="Filtre local : affine seulement les lignes déjà chargées." FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Height="18" Margin="0" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/></StackPanel>
 <Grid Grid.Column="1"><TextBox x:Name="TxtSuiteResultFilter" MaxLength="120" MinHeight="32" VerticalContentAlignment="Center" ToolTip="Filtre de la liste : garde les lignes déjà chargées dont le nom, le login, le type, la présence ou lʼassociation contient le texte. Plusieurs mots se combinent. Aucune requête AD ; une nouvelle recherche le remet à zéro." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtrer la liste" AutomationProperties.HelpText="Filtre de la liste : garde les lignes déjà chargées dont le nom, le login, le type, la présence ou lʼassociation contient le texte. Plusieurs mots se combinent. Aucune requête AD ; une nouvelle recherche le remet à zéro." IsEnabled="{Binding IsEnabled, ElementName=DgObjects}"/>
-<TextBlock Text="nom, login, poste… (sans requête AD)" Margin="10,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" FontSize="12" Foreground="{DynamicResource MutedColor}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=TxtSuiteResultFilter}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></Grid>
+<TextBlock Text="nom, login, poste… (sans requête AD)" Margin="10,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=TxtSuiteResultFilter}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></Grid>
 <Button x:Name="BtnSuiteResultClear" Grid.Column="2" Content="Effacer le filtre" Margin="8,0,0,0" MinHeight="32" ToolTip="Réaffiche les lignes déjà chargées, en conservant le filtre OU, la présence et le texte de recherche AD." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer le filtre local" AutomationProperties.HelpText="Réaffiche les lignes déjà chargées, en conservant le filtre OU, la présence et le texte de recherche AD." IsEnabled="{Binding IsEnabled, ElementName=DgObjects}"/>
 </Grid><Grid x:Name="UxResultLive" Margin="0,10,0,0"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0"/></Grid.ColumnDefinitions>
                             <WrapPanel>
@@ -5695,33 +5724,33 @@ function Get-MainXaml {
                               <!-- UI-23: one secondary « Vérifier la liste ▾ » (Rechercher stays the only main button); its main part runs the reading chosen last in this session or stops the running survey (UX-12). -->
                               <StackPanel Orientation="Horizontal" Margin="0,0,8,4">
                                 <Button x:Name="BtnParkVerify" Content="Vérifier la liste" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0" IsEnabled="False" ToolTip="Vérifie les postes de la portée choisie à côté des résultats : la liste affichée après vos filtres, ou seulement les lignes sélectionnées. Sans choix dans cette session, ouvre les trois vérifications ; ensuite, relance la dernière choisie. Confirmation avec le nombre de postes avant tout envoi, plafond réglable (500 postes par défaut). Pendant un relevé, ce bouton lʼarrête." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Vérifie les postes de la portée choisie à côté des résultats : la liste affichée après vos filtres, ou seulement les lignes sélectionnées. Sans choix dans cette session, ouvre les trois vérifications ; ensuite, relance la dernière choisie. Confirmation avec le nombre de postes avant tout envoi, plafond réglable (500 postes par défaut). Pendant un relevé, ce bouton lʼarrête." AutomationProperties.Name="Vérifier la liste"/>
-                                <Button x:Name="BtnParkVerifyMenu" Content="&#xE70D;" FontFamily="Segoe MDL2 Assets" FontSize="10" Style="{StaticResource SecondaryButton}" MinHeight="30" MinWidth="0" Width="28" Padding="0" Margin="1,0,0,0" IsEnabled="False" ToolTip="Choisir la vérification de la liste : Qui répond ? (ping), Qui est connecté ? (ping et utilisateur console) ou Matériel et widgets (relevé WMI léger). Le dernier choix devient lʼaction du bouton pour cette session." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Choisir la vérification de la liste : Qui répond ? (ping), Qui est connecté ? (ping et utilisateur console) ou Matériel et widgets (relevé WMI léger). Le dernier choix devient lʼaction du bouton pour cette session." AutomationProperties.Name="Choisir la vérification de la liste"/>
+                                <Button x:Name="BtnParkVerifyMenu" Content="&#xE70D;" FontFamily="Segoe MDL2 Assets" FontSize="{DynamicResource FontSizeCaption}" Style="{StaticResource SecondaryButton}" MinHeight="30" MinWidth="0" Width="28" Padding="0" Margin="1,0,0,0" IsEnabled="False" ToolTip="Choisir la vérification de la liste : Qui répond ? (ping), Qui est connecté ? (ping et utilisateur console) ou Matériel et widgets (relevé WMI léger). Le dernier choix devient lʼaction du bouton pour cette session." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Choisir la vérification de la liste : Qui répond ? (ping), Qui est connecté ? (ping et utilisateur console) ou Matériel et widgets (relevé WMI léger). Le dernier choix devient lʼaction du bouton pour cette session." AutomationProperties.Name="Choisir la vérification de la liste"/>
                               </StackPanel>
                               <StackPanel x:Name="UxListRevalidation" Orientation="Horizontal" Visibility="Collapsed" VerticalAlignment="Center" Margin="0,0,8,4">
                                 <CheckBox x:Name="ChkListRevalidation" Content="Revérifier la liste" IsChecked="True" VerticalAlignment="Center" ToolTip="Activé par lʼadministrateur : relit dans lʼannuaire les objets listés, par petits lots, tant que la page est affichée. Décochez pour lʼarrêter pendant cette session." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Revérifier la liste en arrière-plan" AutomationProperties.HelpText="Activé par lʼadministrateur : relit dans lʼannuaire les objets listés, par petits lots, tant que la page est affichée. Décochez pour lʼarrêter pendant cette session."/>
-                                <TextBlock x:Name="LblListRevalidation" Text="" Margin="8,0,0,0" FontSize="11" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}"/>
+                                <TextBlock x:Name="LblListRevalidation" Text="" Margin="8,0,0,0" FontSize="{DynamicResource FontSizeCaption}" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}"/>
                               </StackPanel>
                             </WrapPanel>
                             <!-- UX-12: thin bar of the survey of the list, in the bottom margin of the actions (no layout shift). -->
                             <ProgressBar x:Name="PbParkProgress" Height="3" VerticalAlignment="Bottom" Minimum="0" Maximum="100" Value="0" Visibility="Collapsed" IsHitTestVisible="False" ToolTip="Avancement du relevé de la liste en cours." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Avancement du relevé de la liste en cours." AutomationProperties.Name="Avancement du relevé de la liste"/>
                             <!-- DS-06: the selection and list states share one line (two halves); in compact mode they stack beside the actions. -->
-                            <Grid x:Name="UxResultLiveStatuses" Grid.Row="1"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="Sélectionnez une ligne pour précharger sa fiche. Double-clic : ouvrir." Foreground="{DynamicResource MutedColor}" FontSize="11" Height="20" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" x:Name="LblSelectionReadState" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                            <Grid x:Name="UxResultLiveStatuses" Grid.Row="1"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="Sélectionnez une ligne pour précharger sa fiche. Double-clic : ouvrir." Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}" Height="20" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" x:Name="LblSelectionReadState" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                               <!-- FO-18: from two selected rows, the selection line becomes its actions (same height, no layout shift). -->
                               <StackPanel x:Name="UxSelectionBar" Orientation="Horizontal" Height="20" Visibility="Collapsed" VerticalAlignment="Center" ToolTip="Actions sur les lignes sélectionnées : ping ou utilisateur connecté des seuls postes sélectionnés, avec la même confirmation et le même plafond que la liste ; copie et export de la sélection." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Actions sur les lignes sélectionnées : ping ou utilisateur connecté des seuls postes sélectionnés, avec la même confirmation et le même plafond que la liste ; copie et export de la sélection." AutomationProperties.Name="Actions sur la sélection">
-                                <TextBlock x:Name="LblSelectionBar" Text="" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,6,0" ToolTip="Nombre de lignes sélectionnées. Ctrl ou Maj et clic pour composer la sélection." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Nombre de lignes sélectionnées. Ctrl ou Maj et clic pour composer la sélection." AutomationProperties.Name="Lignes sélectionnées"/>
-                                <Button x:Name="BtnSelectionPing" Content="Pinger" MinHeight="0" Height="20" MinWidth="0" Padding="8,0" Margin="0,0,4,0" FontSize="11" ToolTip="Pinge les seuls postes sélectionnés, après confirmation avec leur nombre. Aucune lecture de session." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Pinge les seuls postes sélectionnés, après confirmation avec leur nombre. Aucune lecture de session." AutomationProperties.Name="Pinger les postes sélectionnés"/>
-                                <Button x:Name="BtnSelectionConsole" Content="Qui est connecté ?" MinHeight="0" Height="20" MinWidth="0" Padding="8,0" Margin="0,0,4,0" FontSize="11" ToolTip="Ping puis utilisateur connecté à la console des seuls postes sélectionnés, après confirmation avec leur nombre." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Ping puis utilisateur connecté à la console des seuls postes sélectionnés, après confirmation avec leur nombre." AutomationProperties.Name="Utilisateur connecté des postes sélectionnés"/>
-                                <Button x:Name="BtnSelectionCopy" Content="Copier" MinHeight="0" Height="20" MinWidth="0" Padding="8,0" Margin="0,0,4,0" FontSize="11" ToolTip="Copie une ligne lisible par objet sélectionné pour un ticket : type, nom, compte, présence, utilisateur console et OU. Sans GUID ni champ interne." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Copie une ligne lisible par objet sélectionné pour un ticket : type, nom, compte, présence, utilisateur console et OU. Sans GUID ni champ interne." AutomationProperties.Name="Copier la sélection pour un ticket"/>
-                                <Button x:Name="BtnSelectionExport" Content="Exporter" MinHeight="0" Height="20" MinWidth="0" Padding="8,0" Margin="0" FontSize="11" ToolTip="Exporte les lignes sélectionnées au format CSV, avec les colonnes visibles." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Exporte les lignes sélectionnées au format CSV, avec les colonnes visibles." AutomationProperties.Name="Exporter la sélection"/>
+                                <TextBlock x:Name="LblSelectionBar" Text="" FontSize="{DynamicResource FontSizeCaption}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,6,0" ToolTip="Nombre de lignes sélectionnées. Ctrl ou Maj et clic pour composer la sélection." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Nombre de lignes sélectionnées. Ctrl ou Maj et clic pour composer la sélection." AutomationProperties.Name="Lignes sélectionnées"/>
+                                <Button x:Name="BtnSelectionPing" Content="Pinger" MinHeight="0" Height="20" MinWidth="0" Padding="8,0" Margin="0,0,4,0" FontSize="{DynamicResource FontSizeCaption}" ToolTip="Pinge les seuls postes sélectionnés, après confirmation avec leur nombre. Aucune lecture de session." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Pinge les seuls postes sélectionnés, après confirmation avec leur nombre. Aucune lecture de session." AutomationProperties.Name="Pinger les postes sélectionnés"/>
+                                <Button x:Name="BtnSelectionConsole" Content="Qui est connecté ?" MinHeight="0" Height="20" MinWidth="0" Padding="8,0" Margin="0,0,4,0" FontSize="{DynamicResource FontSizeCaption}" ToolTip="Ping puis utilisateur connecté à la console des seuls postes sélectionnés, après confirmation avec leur nombre." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Ping puis utilisateur connecté à la console des seuls postes sélectionnés, après confirmation avec leur nombre." AutomationProperties.Name="Utilisateur connecté des postes sélectionnés"/>
+                                <Button x:Name="BtnSelectionCopy" Content="Copier" MinHeight="0" Height="20" MinWidth="0" Padding="8,0" Margin="0,0,4,0" FontSize="{DynamicResource FontSizeCaption}" ToolTip="Copie une ligne lisible par objet sélectionné pour un ticket : type, nom, compte, présence, utilisateur console et OU. Sans GUID ni champ interne." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Copie une ligne lisible par objet sélectionné pour un ticket : type, nom, compte, présence, utilisateur console et OU. Sans GUID ni champ interne." AutomationProperties.Name="Copier la sélection pour un ticket"/>
+                                <Button x:Name="BtnSelectionExport" Content="Exporter" MinHeight="0" Height="20" MinWidth="0" Padding="8,0" Margin="0" FontSize="{DynamicResource FontSizeCaption}" ToolTip="Exporte les lignes sélectionnées au format CSV, avec les colonnes visibles." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Exporte les lignes sélectionnées au format CSV, avec les colonnes visibles." AutomationProperties.Name="Exporter la sélection"/>
                               </StackPanel>
-                              <TextBlock x:Name="LblLiveState" Grid.Row="0" Grid.Column="1" Margin="12,0,0,0" Text="Un clic : fiche AD seulement, sans ping · Double-clic : ouvrir la fiche · Aucune sonde de liste" FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Height="18" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                              <TextBlock x:Name="LblLiveState" Grid.Row="0" Grid.Column="1" Margin="12,0,0,0" Text="Un clic : fiche AD seulement, sans ping · Double-clic : ouvrir la fiche · Aucune sonde de liste" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Height="18" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                               <!-- UX-12 / CO-19: short count of the survey of the list, then three pills that filter by presence. -->
                               <StackPanel x:Name="UxParkProgress" Grid.Row="0" Grid.Column="1" Margin="12,0,0,0" Orientation="Horizontal" Height="18" Visibility="Collapsed" ToolTip="Avancement du relevé de la liste : postes traités, joignables, puis en ligne, sans réponse et en erreur. Le détail complet est écrit dans le journal." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Avancement du relevé de la liste : postes traités, joignables, puis en ligne, sans réponse et en erreur. Le détail complet est écrit dans le journal." AutomationProperties.Name="Relevé de la liste">
-                                <TextBlock x:Name="LblParkProgress" Text="" FontSize="11" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" Margin="0,0,8,0" ToolTip="Avancement du relevé de la liste : postes traités, joignables, puis en ligne, sans réponse et en erreur. Le détail complet est écrit dans le journal." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Avancement du relevé de la liste : postes traités, joignables, puis en ligne, sans réponse et en erreur. Le détail complet est écrit dans le journal." AutomationProperties.Name="Avancement du relevé" AutomationProperties.LiveSetting="Polite"/>
+                                <TextBlock x:Name="LblParkProgress" Text="" FontSize="{DynamicResource FontSizeCaption}" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" Margin="0,0,8,0" ToolTip="Avancement du relevé de la liste : postes traités, joignables, puis en ligne, sans réponse et en erreur. Le détail complet est écrit dans le journal." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Avancement du relevé de la liste : postes traités, joignables, puis en ligne, sans réponse et en erreur. Le détail complet est écrit dans le journal." AutomationProperties.Name="Avancement du relevé" AutomationProperties.LiveSetting="Polite"/>
                                 <StackPanel x:Name="PnlParkOutcome" Orientation="Horizontal" Visibility="Collapsed" VerticalAlignment="Center" ToolTip="Résultat du dernier ping de la liste. Chaque pastille filtre la liste par présence ; un second clic retire le filtre." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Résultat du dernier ping de la liste. Chaque pastille filtre la liste par présence ; un second clic retire le filtre." AutomationProperties.Name="Résultat du ping de la liste">
-                                  <Button x:Name="BtnParkOutcomeOnline" MinHeight="0" Height="18" MinWidth="0" Padding="6,0" Margin="0,0,4,0" FontSize="11" VerticalAlignment="Center" ToolTip="Affiche seulement les postes qui ont répondu au ping. Un second clic retire le filtre. Filtre local, sans appel réseau." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Affiche seulement les postes qui ont répondu au ping. Un second clic retire le filtre. Filtre local, sans appel réseau." AutomationProperties.Name="Afficher les postes en ligne"><StackPanel Orientation="Horizontal"><Ellipse Width="7" Height="7" Margin="0,0,5,0" VerticalAlignment="Center" Fill="{DynamicResource StatusSuccess}"/><TextBlock Text="0 en ligne" VerticalAlignment="Center"/></StackPanel></Button>
-                                  <Button x:Name="BtnParkOutcomeNoReply" MinHeight="0" Height="18" MinWidth="0" Padding="6,0" Margin="0,0,4,0" FontSize="11" VerticalAlignment="Center" ToolTip="Affiche seulement les postes sans réponse au ping : éteint, hors réseau ou ICMP filtré, sans preuve dʼarrêt. Un second clic retire le filtre." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Affiche seulement les postes sans réponse au ping : éteint, hors réseau ou ICMP filtré, sans preuve dʼarrêt. Un second clic retire le filtre." AutomationProperties.Name="Afficher les postes sans réponse"><StackPanel Orientation="Horizontal"><Ellipse Width="7" Height="7" Margin="0,0,5,0" VerticalAlignment="Center" Fill="{DynamicResource StatusWarning}"/><TextBlock Text="0 sans réponse" VerticalAlignment="Center"/></StackPanel></Button>
-                                  <Button x:Name="BtnParkOutcomeError" MinHeight="0" Height="18" MinWidth="0" Padding="6,0" Margin="0,0,4,0" FontSize="11" VerticalAlignment="Center" ToolTip="Affiche seulement les postes dont le ping nʼa pas abouti (résolution DNS, erreur réseau ou lecture interrompue). Un second clic retire le filtre." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Affiche seulement les postes dont le ping nʼa pas abouti (résolution DNS, erreur réseau ou lecture interrompue). Un second clic retire le filtre." AutomationProperties.Name="Afficher les postes en erreur de ping"><StackPanel Orientation="Horizontal"><Ellipse Width="7" Height="7" Margin="0,0,5,0" VerticalAlignment="Center" Fill="{DynamicResource StatusError}"/><TextBlock Text="0 erreur" VerticalAlignment="Center"/></StackPanel></Button>
+                                  <Button x:Name="BtnParkOutcomeOnline" MinHeight="0" Height="18" MinWidth="0" Padding="6,0" Margin="0,0,4,0" FontSize="{DynamicResource FontSizeCaption}" VerticalAlignment="Center" ToolTip="Affiche seulement les postes qui ont répondu au ping. Un second clic retire le filtre. Filtre local, sans appel réseau." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Affiche seulement les postes qui ont répondu au ping. Un second clic retire le filtre. Filtre local, sans appel réseau." AutomationProperties.Name="Afficher les postes en ligne"><StackPanel Orientation="Horizontal"><Ellipse Width="7" Height="7" Margin="0,0,5,0" VerticalAlignment="Center" Fill="{DynamicResource StatusSuccess}"/><TextBlock Text="0 en ligne" VerticalAlignment="Center"/></StackPanel></Button>
+                                  <Button x:Name="BtnParkOutcomeNoReply" MinHeight="0" Height="18" MinWidth="0" Padding="6,0" Margin="0,0,4,0" FontSize="{DynamicResource FontSizeCaption}" VerticalAlignment="Center" ToolTip="Affiche seulement les postes sans réponse au ping : éteint, hors réseau ou ICMP filtré, sans preuve dʼarrêt. Un second clic retire le filtre." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Affiche seulement les postes sans réponse au ping : éteint, hors réseau ou ICMP filtré, sans preuve dʼarrêt. Un second clic retire le filtre." AutomationProperties.Name="Afficher les postes sans réponse"><StackPanel Orientation="Horizontal"><Ellipse Width="7" Height="7" Margin="0,0,5,0" VerticalAlignment="Center" Fill="{DynamicResource StatusWarning}"/><TextBlock Text="0 sans réponse" VerticalAlignment="Center"/></StackPanel></Button>
+                                  <Button x:Name="BtnParkOutcomeError" MinHeight="0" Height="18" MinWidth="0" Padding="6,0" Margin="0,0,4,0" FontSize="{DynamicResource FontSizeCaption}" VerticalAlignment="Center" ToolTip="Affiche seulement les postes dont le ping nʼa pas abouti (résolution DNS, erreur réseau ou lecture interrompue). Un second clic retire le filtre." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Affiche seulement les postes dont le ping nʼa pas abouti (résolution DNS, erreur réseau ou lecture interrompue). Un second clic retire le filtre." AutomationProperties.Name="Afficher les postes en erreur de ping"><StackPanel Orientation="Horizontal"><Ellipse Width="7" Height="7" Margin="0,0,5,0" VerticalAlignment="Center" Fill="{DynamicResource StatusError}"/><TextBlock Text="0 erreur" VerticalAlignment="Center"/></StackPanel></Button>
                                 </StackPanel>
                               </StackPanel></Grid>
                           </Grid></StackPanel>
@@ -5735,7 +5764,7 @@ function Get-MainXaml {
                                 <Button x:Name="BtnSearchWorkspaceUndo" Content="Annuler" IsEnabled="False" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="8,2" Margin="0" ToolTip="Annule le dernier retrait de vue personnelle." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Annuler le retrait de vue" AutomationProperties.HelpText="Annule le dernier retrait de vue personnelle."/>
                               </StackPanel>
                               <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,4">
-                                <TextBlock Text="Portée" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="12" FontWeight="SemiBold"/>
+                                <TextBlock Text="Portée" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="{DynamicResource FontSizeSmall}" FontWeight="SemiBold"/>
                                 <ComboBox x:Name="CmbResultScope" MinWidth="170" MinHeight="30" SelectedIndex="0" Margin="0,0,8,0" VerticalAlignment="Center" ToolTip="Portée de lʼexport CSV et de « Vérifier la liste » : la liste affichée après les filtres, ou seulement les lignes sélectionnées. La barre dʼune sélection multiple agit toujours sur les lignes sélectionnées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Portée de lʼexport et des relevés" AutomationProperties.HelpText="Portée de lʼexport CSV et de « Vérifier la liste » : la liste affichée après les filtres, ou seulement les lignes sélectionnées. La barre dʼune sélection multiple agit toujours sur les lignes sélectionnées.">
                                   <ComboBoxItem Tag="Visible" Content="Liste affichée"/>
                                   <ComboBoxItem Tag="Selected" Content="Lignes sélectionnées"/>
@@ -5745,8 +5774,8 @@ function Get-MainXaml {
                               </StackPanel>
                             </WrapPanel>
                             <WrapPanel x:Name="PnlSearchFilterChips" Margin="0,2,0,0" ToolTip="Critères qui forment la liste. × retire un critère : le type relit lʼOU, les critères de la liste chargée nʼappellent pas le réseau." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Critères de la liste" AutomationProperties.HelpText="Critères qui forment la liste. × retire un critère : le type relit lʼOU, les critères de la liste chargée nʼappellent pas le réseau."/>
-                            <TextBlock x:Name="LblSearchFilterSummary" Text="" TextWrapping="Wrap" MaxHeight="36" TextTrimming="CharacterEllipsis" FontSize="11.5" Foreground="{DynamicResource MutedColor}" Margin="0,2,0,0" ToolTip="Combinaison des critères et nombre de lignes affichées. Les critères de la liste chargée ne lisent rien au-delà des lignes déjà chargées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Combinaison des critères" AutomationProperties.HelpText="Combinaison des critères et nombre de lignes affichées. Les critères de la liste chargée ne lisent rien au-delà des lignes déjà chargées."/>
-                            <TextBlock x:Name="LblResultScope" Text="" TextWrapping="Wrap" MaxHeight="36" TextTrimming="CharacterEllipsis" FontSize="11.5" Foreground="{DynamicResource MutedColor}" Margin="0,2,0,0" ToolTip="Lignes que lʼexport et les relevés vont traiter, avec ce qui est exclu et ce que lʼon sait de la complétude de la liste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lignes traitées par lʼexport et les relevés" AutomationProperties.HelpText="Lignes que lʼexport et les relevés vont traiter, avec ce qui est exclu et ce que lʼon sait de la complétude de la liste."/>
+                            <TextBlock x:Name="LblSearchFilterSummary" Text="" TextWrapping="Wrap" MaxHeight="36" TextTrimming="CharacterEllipsis" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" Margin="0,2,0,0" ToolTip="Combinaison des critères et nombre de lignes affichées. Les critères de la liste chargée ne lisent rien au-delà des lignes déjà chargées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Combinaison des critères" AutomationProperties.HelpText="Combinaison des critères et nombre de lignes affichées. Les critères de la liste chargée ne lisent rien au-delà des lignes déjà chargées."/>
+                            <TextBlock x:Name="LblResultScope" Text="" TextWrapping="Wrap" MaxHeight="36" TextTrimming="CharacterEllipsis" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" Margin="0,2,0,0" ToolTip="Lignes que lʼexport et les relevés vont traiter, avec ce qui est exclu et ce que lʼon sait de la complétude de la liste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lignes traitées par lʼexport et les relevés" AutomationProperties.HelpText="Lignes que lʼexport et les relevés vont traiter, avec ce qui est exclu et ce que lʼon sait de la complétude de la liste."/>
                           </StackPanel>
                           <Grid Grid.Row="2">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="240"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -5774,7 +5803,7 @@ function Get-MainXaml {
                               <DataGridTemplateColumn Header="Fraîcheur AD" SortMemberPath="DirectoryState" ClipboardContentBinding="{Binding DirectoryState}" Width="72">
                                 <DataGridTemplateColumn.HeaderStyle><Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}"><Setter Property="ToolTip" Value="Coche : valeurs relues dans AD pour cette liste. Horloge : valeurs reprises du cache, à vérifier. Alerte : objet à revérifier. Survolez lʼicône pour le détail."/></Style></DataGridTemplateColumn.HeaderStyle>
                                 <DataGridTemplateColumn.CellTemplate><DataTemplate>
-                                  <TextBlock x:Name="DirectoryFreshGlyph" Text="" FontFamily="Segoe MDL2 Assets" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" ToolTip="{Binding DirectoryState}" AutomationProperties.Name="{Binding DirectoryState}"/>
+                                  <TextBlock x:Name="DirectoryFreshGlyph" Text="" FontFamily="Segoe MDL2 Assets" FontSize="{DynamicResource FontSizeBody}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" ToolTip="{Binding DirectoryState}" AutomationProperties.Name="{Binding DirectoryState}"/>
                                   <DataTemplate.Triggers>
                                     <DataTrigger Binding="{Binding DirectoryFresh}" Value="Verified"><Setter TargetName="DirectoryFreshGlyph" Property="Text" Value="&#xE73E;"/><Setter TargetName="DirectoryFreshGlyph" Property="Foreground" Value="{DynamicResource StatusSuccess}"/></DataTrigger>
                                     <DataTrigger Binding="{Binding DirectoryFresh}" Value="Cached"><Setter TargetName="DirectoryFreshGlyph" Property="Text" Value="&#xE823;"/></DataTrigger>
@@ -5800,7 +5829,7 @@ function Get-MainXaml {
                                     <StackPanel Orientation="Horizontal">
                                       <Ellipse x:Name="PresenceDot" Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center" Fill="{DynamicResource MutedColor}"/>
                                       <TextBlock Text="{Binding Presence}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                      <TextBlock x:Name="PresenceAgeText" Text="{Binding PresenceAge}" Margin="6,0,0,0" FontSize="11" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center"/>
+                                      <TextBlock x:Name="PresenceAgeText" Text="{Binding PresenceAge}" Margin="6,0,0,0" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                   </Border>
                                   <DataTemplate.Triggers>
@@ -5827,7 +5856,7 @@ function Get-MainXaml {
                           <Border Style="{StaticResource UxEmptyResults}" x:Name="UxSearchEmpty" IsHitTestVisible="True">
                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="440" Margin="16">
                               <Path Data="M17,17 L23,23 M20,11 A9,9 0 1 1 2,11 A9,9 0 1 1 20,11" Width="38" Height="38" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,0,15" IsHitTestVisible="False" HorizontalAlignment="Center"/>
-                              <TextBlock x:Name="LblSearchEmptyTitle" Text="Rien nʼa encore été interrogé" FontSize="19" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" ToolTip="Pourquoi la liste est vide : rien interrogé, lecture en cours, aucun résultat, filtre local, lecture refusée, partielle ou sans source. Jamais une preuve dʼabsence dans lʼannuaire." AutomationProperties.Name="État de la liste de résultats" AutomationProperties.HelpText="Pourquoi la liste est vide : rien interrogé, lecture en cours, aucun résultat, filtre local, lecture refusée, partielle ou sans source. Jamais une preuve dʼabsence dans lʼannuaire."/>
+                              <TextBlock x:Name="LblSearchEmptyTitle" Text="Rien nʼa encore été interrogé" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" ToolTip="Pourquoi la liste est vide : rien interrogé, lecture en cours, aucun résultat, filtre local, lecture refusée, partielle ou sans source. Jamais une preuve dʼabsence dans lʼannuaire." AutomationProperties.Name="État de la liste de résultats" AutomationProperties.HelpText="Pourquoi la liste est vide : rien interrogé, lecture en cours, aucun résultat, filtre local, lecture refusée, partielle ou sans source. Jamais une preuve dʼabsence dans lʼannuaire."/>
                               <TextBlock x:Name="LblSearchEmptyText" Text="Aucun poste ni aucune source nʼa encore été interrogé pour cette vue : lʼaffichage vide ne renseigne pas sur lʼétat réel." TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0" AutomationProperties.LiveSetting="Polite" ToolTip="Ce qui a été lu, dans quel périmètre, et ce que la liste vide ne permet pas de conclure." AutomationProperties.Name="Explication de la liste vide" AutomationProperties.HelpText="Ce qui a été lu, dans quel périmètre, et ce que la liste vide ne permet pas de conclure."/>
                               <Button x:Name="BtnSearchEmptyNext" Content="Rechercher un nom ou choisir une OU" Tag="StartRead" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Center" Margin="0,14,0,0" ToolTip="Prochaine action proposée pour cette liste vide. Rien ne part tout seul : une lecture ne commence quʼavec ce clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Prochaine action proposée" AutomationProperties.HelpText="Prochaine action proposée pour cette liste vide. Rien ne part tout seul : une lecture ne commence quʼavec ce clic."/>
                             </StackPanel>
@@ -5864,16 +5893,16 @@ function Get-MainXaml {
                   <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <Border Style="{StaticResource Card}" Margin="4" Padding="24" VerticalAlignment="Top">
                       <StackPanel MaxWidth="640" HorizontalAlignment="Left">
-                        <TextBlock x:Name="LblObjectEmptyTitle" Text="Aucune fiche ouverte" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextColor}" AutomationProperties.LiveSetting="Polite"/>
+                        <TextBlock x:Name="LblObjectEmptyTitle" Text="Aucune fiche ouverte" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold" Foreground="{DynamicResource TextColor}" AutomationProperties.LiveSetting="Polite"/>
                         <TextBlock Text="Cherchez une personne, un poste ou un groupe : Entrée lance la recherche dans tout le domaine. Rien nʼest lu sur le réseau avant." Margin="0,6,0,14" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}"/>
                         <TextBox x:Name="TxtObjectEmptySearch" MinHeight="38" Padding="10,6" VerticalContentAlignment="Center" ToolTip="Nom, identifiant, adresse mail ou poste. Entrée lance la recherche dans tout le domaine ; la saisie seule ne lit rien." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher une fiche" AutomationProperties.HelpText="Nom, identifiant, adresse mail ou poste. Entrée lance la recherche dans tout le domaine ; la saisie seule ne lit rien."/>
                         <TextBlock Text="Dernières fiches consultées" FontWeight="SemiBold" Margin="0,18,0,6" Foreground="{DynamicResource TextColor}"/>
                         <ListBox x:Name="LstObjectEmptyRecent" MaxHeight="260" BorderThickness="0" DisplayMemberPath="Label" ToolTip="Fiches ouvertes récemment, gardées dans la mémoire locale de ce poste. Un clic recopie le nom dans le champ ; Entrée lance la recherche." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Dernières fiches consultées" AutomationProperties.HelpText="Fiches ouvertes récemment, gardées dans la mémoire locale de ce poste. Un clic recopie le nom dans le champ ; Entrée lance la recherche."/>
-                        <TextBlock x:Name="LblObjectEmptyRecentNone" Text="Aucune fiche consultée récemment." TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource MutedColor}"/>
+                        <TextBlock x:Name="LblObjectEmptyRecentNone" Text="Aucune fiche consultée récemment." TextWrapping="Wrap" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}"/>
                       </StackPanel>
                     </Border>
                   </ScrollViewer>
-                </Border><Grid Margin="4,0,4,6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions><TextBlock Text="Sélectionnez un objet dans Rechercher." VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Foreground="{DynamicResource MutedColor}" FontSize="12" x:Name="LblObjectReadStatus"/><Button Content="Reessayer la lecture" Visibility="Hidden" Height="30" MinHeight="30" Padding="10,3" Margin="8,0,0,0" ToolTip="Relit uniquement cette fiche AD. Aucun ping, aucune sonde de poste et aucune écriture." Grid.Column="1" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Reessayer la lecture AD" x:Name="BtnObjectReadRetry"/></Grid><Grid Visibility="Collapsed" IsEnabled="False" Grid.Row="1" x:Name="ObjectReadContent"><TabControl x:Name="DetailTabs" Margin="0,4,0,0" ToolTip="Affiche les informations et actions adaptées au type d’objet. Le mode Expert ajoute les vues techniques." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vues de la fiche" AutomationProperties.HelpText="Affiche les informations et actions adaptées au type d’objet. Le mode Expert ajoute les vues techniques.">
+                </Border><Grid Margin="4,0,4,6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions><TextBlock Text="Sélectionnez un objet dans Rechercher." VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeSmall}" x:Name="LblObjectReadStatus"/><Button Content="Reessayer la lecture" Visibility="Hidden" Height="30" MinHeight="30" Padding="10,3" Margin="8,0,0,0" ToolTip="Relit uniquement cette fiche AD. Aucun ping, aucune sonde de poste et aucune écriture." Grid.Column="1" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Reessayer la lecture AD" x:Name="BtnObjectReadRetry"/></Grid><Grid Visibility="Collapsed" IsEnabled="False" Grid.Row="1" x:Name="ObjectReadContent"><TabControl x:Name="DetailTabs" Margin="0,4,0,0" ToolTip="Affiche les informations et actions adaptées au type d’objet. Le mode Expert ajoute les vues techniques." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vues de la fiche" AutomationProperties.HelpText="Affiche les informations et actions adaptées au type d’objet. Le mode Expert ajoute les vues techniques.">
                   <TabItem x:Name="TabGeneric" ToolTip="Type, nom, identifiant, dates de creation et emplacement." Header="Resume" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Resume" AutomationProperties.HelpText="Type, nom, identifiant, dates de creation et emplacement.">
                     <Border Style="{StaticResource Card}" Margin="4">
                       <Grid>
@@ -5892,7 +5921,7 @@ function Get-MainXaml {
                           <RowDefinition Height="Auto"/>
                           <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.ColumnSpan="4" Text="Objet sélectionné" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                        <TextBlock Grid.Row="0" Grid.ColumnSpan="4" Text="Objet sélectionné" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold" Margin="0,0,0,12"/>
                         <Label Grid.Row="1" Grid.Column="0" Content="Type"/>
                         <TextBox Grid.Row="1" Grid.Column="1" x:Name="TxtObjType" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Utilisateur, machine, groupe ou conteneur : le type détermine les vues disponibles." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Type de l’objet" AutomationProperties.HelpText="Utilisateur, machine, groupe ou conteneur : le type détermine les vues disponibles."/>
                         <Label Grid.Row="1" Grid.Column="2" Content="Nom"/>
@@ -5927,11 +5956,11 @@ function Get-MainXaml {
                         <StackPanel>
                         <Border x:Name="PnlUserSupportBand" Visibility="Collapsed" Background="{DynamicResource BgReadonly}" BorderBrush="{DynamicResource AccentColor}" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,10" ToolTip="Ce que le contrôleur a répondu sur ce compte : verrouillage, échéance du mot de passe, échecs de connexion. Rien nʼest déduit dʼune stratégie non lue." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="État du compte pour le support" AutomationProperties.HelpText="Ce que le contrôleur a répondu sur ce compte : verrouillage, échéance du mot de passe, échecs de connexion. Rien nʼest déduit dʼune stratégie non lue.">
                           <StackPanel>
-                            <TextBlock x:Name="TxtUserSupportBand" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" AutomationProperties.Name="État du compte relevé sur le contrôleur" AutomationProperties.HelpText="État relevé à la lecture de la fiche : verrouillage, échéance du mot de passe, échecs de connexion. Le bandeau ne parait que quand le contrôleur a quelque chose à signaler."/>
-                            <TextBlock x:Name="TxtUserSupportDetail" FontSize="13" TextWrapping="Wrap" Margin="0,4,0,0" Visibility="Collapsed" AutomationProperties.Name="Limites de lʼétat du compte" AutomationProperties.HelpText="Rappelle ce que la valeur affichée ne prouve pas : un compteur dʼéchecs nʼest pas répliqué, une échéance calculée ne remplace pas la stratégie."/>
+                            <TextBlock x:Name="TxtUserSupportBand" FontSize="{DynamicResource FontSizeSubtitle}" FontWeight="SemiBold" TextWrapping="Wrap" AutomationProperties.Name="État du compte relevé sur le contrôleur" AutomationProperties.HelpText="État relevé à la lecture de la fiche : verrouillage, échéance du mot de passe, échecs de connexion. Le bandeau ne parait que quand le contrôleur a quelque chose à signaler."/>
+                            <TextBlock x:Name="TxtUserSupportDetail" FontSize="{DynamicResource FontSizeBody}" TextWrapping="Wrap" Margin="0,4,0,0" Visibility="Collapsed" AutomationProperties.Name="Limites de lʼétat du compte" AutomationProperties.HelpText="Rappelle ce que la valeur affichée ne prouve pas : un compteur dʼéchecs nʼest pas répliqué, une échéance calculée ne remplace pas la stratégie."/>
                             <Button x:Name="BtnUserSupportUnlock" Content="Déverrouiller maintenant" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="10,4" Margin="0,8,0,0" HorizontalAlignment="Left" MinWidth="170" Visibility="Collapsed" ToolTip="Efface lʼhorodatage de verrouillage sur le contrôleur interrogé, avec la valeur avant et la valeur après." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Déverrouiller maintenant le compte verrouillé" AutomationProperties.HelpText="Efface lʼhorodatage de verrouillage sur le contrôleur interrogé, avec la valeur avant et la valeur après."/>
                             <Button x:Name="BtnUserSupportLockouts" Content="Lire les verrouillages (4740)" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="10,4" Margin="0,8,0,0" HorizontalAlignment="Left" MinWidth="170" Visibility="Collapsed" ToolTip="Lit les événements 4740 de ce compte sur lʼémulateur PDC (7 derniers jours) et les rapproche des refus dʼauthentification de Domenia." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lire les verrouillages du compte" AutomationProperties.HelpText="Lit les événements 4740 de ce compte sur lʼémulateur PDC (7 derniers jours) et les rapproche des refus dʼauthentification de Domenia."/>
-                            <TextBlock x:Name="TxtUserSupportLockouts" FontSize="13" TextWrapping="Wrap" Margin="0,6,0,0" Visibility="Collapsed" ToolTip="Verrouillages relevés dans le journal Sécurité, poste à lʼorigine et refus de Domenia juste avant. Le rapprochement horaire est une piste, pas une preuve." AutomationProperties.Name="Verrouillages journalisés du compte" AutomationProperties.HelpText="Verrouillages relevés dans le journal Sécurité, poste à lʼorigine et refus de Domenia juste avant. Le rapprochement horaire est une piste, pas une preuve."/>
+                            <TextBlock x:Name="TxtUserSupportLockouts" FontSize="{DynamicResource FontSizeBody}" TextWrapping="Wrap" Margin="0,6,0,0" Visibility="Collapsed" ToolTip="Verrouillages relevés dans le journal Sécurité, poste à lʼorigine et refus de Domenia juste avant. Le rapprochement horaire est une piste, pas une preuve." AutomationProperties.Name="Verrouillages journalisés du compte" AutomationProperties.HelpText="Verrouillages relevés dans le journal Sécurité, poste à lʼorigine et refus de Domenia juste avant. Le rapprochement horaire est une piste, pas une preuve."/>
                           </StackPanel>
                         </Border>
                         <Grid>
@@ -5959,7 +5988,7 @@ function Get-MainXaml {
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                           </Grid.RowDefinitions>
-                          <TextBlock Grid.Row="0" Grid.ColumnSpan="4" Text="Fiche utilisateur" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                          <TextBlock Grid.Row="0" Grid.ColumnSpan="4" Text="Fiche utilisateur" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold" Margin="0,0,0,12"/>
                           <Label Grid.Row="1" Grid.Column="0" Content="Prenom"/>
                           <TextBox Grid.Row="1" Grid.Column="1" x:Name="TxtUserGivenName" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Prénom de lʼutilisateur." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Prenom" AutomationProperties.HelpText="Prenom de l utilisateur."/>
                           <Label Grid.Row="1" Grid.Column="2" Content="Nom"/>
@@ -6053,7 +6082,7 @@ function Get-MainXaml {
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                           </Grid.RowDefinitions>
-                          <TextBlock Grid.Row="0" Grid.ColumnSpan="4" Text="Adresse" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                          <TextBlock Grid.Row="0" Grid.ColumnSpan="4" Text="Adresse" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold" Margin="0,0,0,10"/>
                           <Label Grid.Row="1" Grid.Column="0" Content="Rue"/>
                           <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" x:Name="TxtUserStreet" IsReadOnly="True" Background="{DynamicResource BgReadonly}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="52" Margin="0,0,0,8" ToolTip="Numero et nom de rue." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rue" AutomationProperties.HelpText="Numero et nom de rue." VerticalContentAlignment="Top"/>
                           <Label Grid.Row="2" Grid.Column="0" Content="Ville"/>
@@ -6064,7 +6093,7 @@ function Get-MainXaml {
                           <TextBox Grid.Row="3" Grid.Column="1" x:Name="TxtUserPostalCode" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Code postal." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Code postal" AutomationProperties.HelpText="Code postal."/>
                           <Label Grid.Row="3" Grid.Column="2" Content="Pays"/>
                           <TextBox Grid.Row="3" Grid.Column="3" x:Name="TxtUserCountry" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" ToolTip="Nom complet du pays." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Pays" AutomationProperties.HelpText="Nom complet du pays."/>
-                          <TextBlock Grid.Row="4" Grid.ColumnSpan="4" Text="Telephonie" FontSize="16" FontWeight="SemiBold" Margin="0,10,0,10"/>
+                          <TextBlock Grid.Row="4" Grid.ColumnSpan="4" Text="Telephonie" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold" Margin="0,10,0,10"/>
                           <Label Grid.Row="5" Grid.Column="0" Content="Domicile"/>
                           <TextBox Grid.Row="5" Grid.Column="1" x:Name="TxtUserHomePhone" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Telephone personnel." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Domicile" AutomationProperties.HelpText="Telephone personnel."/>
                           <Label Grid.Row="5" Grid.Column="2" Content="Mobile"/>
@@ -6077,7 +6106,7 @@ function Get-MainXaml {
                           <TextBox Grid.Row="7" Grid.Column="1" x:Name="TxtUserWebPage" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Adresse de la page web personnelle." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Page web" AutomationProperties.HelpText="Adresse de la page web personnelle."/>
                           <Label Grid.Row="7" Grid.Column="2" Content="Matricule"/>
                           <TextBox Grid.Row="7" Grid.Column="3" x:Name="TxtUserEmployeeId" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" ToolTip="Matricule interne de lʼemployé." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Matricule" AutomationProperties.HelpText="Matricule interne de l employe."/>
-                          <TextBlock Grid.Row="8" Grid.ColumnSpan="4" Text="Profil et session" FontSize="16" FontWeight="SemiBold" Margin="0,10,0,10"/>
+                          <TextBlock Grid.Row="8" Grid.ColumnSpan="4" Text="Profil et session" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold" Margin="0,10,0,10"/>
                           <Label Grid.Row="9" Grid.Column="0" Content="Chemin du profil"/>
                           <TextBox Grid.Row="9" Grid.Column="1" x:Name="TxtUserProfilePath" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Chemin réseau du profil itinérant. Vide : profil local." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Chemin du profil" AutomationProperties.HelpText="Chemin reseau du profil itinerant. Vide : profil local."/>
                           <Label Grid.Row="9" Grid.Column="2" Content="Script de connexion"/>
@@ -6099,7 +6128,7 @@ function Get-MainXaml {
                     <Border Style="{StaticResource Card}" Margin="4">
                       <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <StackPanel>
-                          <TextBlock Text="Actions sur le compte" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                          <TextBlock Text="Actions sur le compte" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold" Margin="0,0,0,12"/>
                           <WrapPanel Margin="0,0,0,12">
                             <Button x:Name="BtnUserUnlock" Content="Déverrouiller le compte" Style="{StaticResource RunButton}" ToolTip="Deverrouille le compte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Déverrouiller le compte" AutomationProperties.HelpText="Deverrouille le compte."/>
                             <Button x:Name="BtnUserEnable" Content="Activer" ToolTip="Reactive le compte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Activer" AutomationProperties.HelpText="Reactive le compte."/>
@@ -6134,14 +6163,14 @@ function Get-MainXaml {
                             <Button Grid.Row="2" Grid.Column="1" x:Name="BtnUserGenPassword" ToolTip="Génère un mot de passe temporaire, le place dans les deux champs et le copie dans le presse-papiers, qui sʼefface à lʼéchéance réglée. Aucune écriture nʼest lancée par ce clic." Content="Générer" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="10,4" Margin="0,0,8,8" HorizontalAlignment="Left" MinWidth="112" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Générer un mot de passe temporaire" AutomationProperties.HelpText="Génère un mot de passe temporaire, le place dans les deux champs et le copie dans le presse-papiers, qui sʼefface à lʼéchéance réglée. Aucune écriture nʼest lancée par ce clic."/>
                             <Button Grid.Row="2" Grid.Column="3" x:Name="BtnUserResetPwd" ToolTip="Definit un nouveau mot de passe pour ce compte." Content="Reinitialiser le mot de passe" Style="{StaticResource DangerButton}" Margin="0,0,0,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mot de passe" AutomationProperties.HelpText="Definit un nouveau mot de passe pour ce compte."/>
                           </Grid>
-                          <TextBlock Text="Options de compte" FontSize="16" FontWeight="SemiBold" Margin="0,4,0,8"/>
+                          <TextBlock Text="Options de compte" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold" Margin="0,4,0,8"/>
                           <WrapPanel Margin="0,0,0,12">
                             <CheckBox x:Name="ChkPwdNeverExpires" Content="Mot de passe sans expiration" Margin="0,0,18,8" ToolTip="Le mot de passe nʼexpire jamais." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mot de passe" AutomationProperties.HelpText="Le mot de passe n expire jamais."/>
                             <CheckBox x:Name="ChkSmartcardRequired" Content="Carte a puce" Margin="0,0,18,8" ToolTip="Exige une carte à puce pour ouvrir une session." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Carte a puce" AutomationProperties.HelpText="Exige une carte a puce pour ouvrir une session."/>
                             <CheckBox x:Name="ChkAccountNotDelegated" Content="Non delegable" Margin="0,0,18,8" ToolTip="Interdit la délégation de ce compte. Recommandé pour les comptes à privilèges." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Non delegable" AutomationProperties.HelpText="Interdit la delegation de ce compte. Recommande pour les comptes a privileges."/>
                             <Button x:Name="BtnApplyAccountOptions" ToolTip="Enregistre les options de compte cochées ci-dessus." Content="Appliquer" Style="{StaticResource RunButton}" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Appliquer" AutomationProperties.HelpText="Enregistre les options de compte cochees ci-dessus."/>
                           </WrapPanel>
-                          <Expander x:Name="ExpAccountSecurityOptions" Header="Options de sécurité avancées" IsExpanded="False" Visibility="Collapsed" Margin="0,0,0,12" FontSize="12" Foreground="{DynamicResource MutedColor}" ToolTip="Six options qui affaiblissent la sécurité du compte. Elles ne sont proposées quʼen profil Expert et chaque changement passe par une confirmation qui affiche la valeur avant et la valeur après." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Options de sécurité avancées" AutomationProperties.HelpText="Six options qui affaiblissent la sécurité du compte. Elles ne sont proposées quʼen profil Expert et chaque changement passe par une confirmation qui affiche la valeur avant et la valeur après.">
+                          <Expander x:Name="ExpAccountSecurityOptions" Header="Options de sécurité avancées" IsExpanded="False" Visibility="Collapsed" Margin="0,0,0,12" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" ToolTip="Six options qui affaiblissent la sécurité du compte. Elles ne sont proposées quʼen profil Expert et chaque changement passe par une confirmation qui affiche la valeur avant et la valeur après." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Options de sécurité avancées" AutomationProperties.HelpText="Six options qui affaiblissent la sécurité du compte. Elles ne sont proposées quʼen profil Expert et chaque changement passe par une confirmation qui affiche la valeur avant et la valeur après.">
                             <StackPanel>
                               <TextBlock x:Name="LblAccountSecurityWarning" Text="Ces options affaiblissent la sécurité du compte." Foreground="{DynamicResource DangerColor}" TextWrapping="Wrap" Margin="0,0,0,8" ToolTip="Le moteur refuse dʼenregistrer lʼune de ces options sans une confirmation qui montre la valeur avant et la valeur après." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Avertissement de sécurité" AutomationProperties.HelpText="Le moteur refuse dʼenregistrer lʼune de ces options sans une confirmation qui montre la valeur avant et la valeur après."/>
                               <CheckBox x:Name="ChkPwdNotRequired" Content="Mot de passe non requis" Margin="0,0,18,8" ToolTip="Le compte peut fonctionner sans mot de passe. Deconseille." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mot de passe" AutomationProperties.HelpText="Le compte peut fonctionner sans mot de passe. Deconseille."/>
@@ -6195,7 +6224,7 @@ function Get-MainXaml {
                     <Border Style="{StaticResource Card}" Margin="4">
                       <DockPanel>
                         <StackPanel DockPanel.Dock="Top">
-                          <TextBlock Text="Groupe" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                          <TextBlock Text="Groupe" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold" Margin="0,0,0,12"/>
                           <Grid Margin="0,0,0,8">
                             <Grid.ColumnDefinitions>
                               <ColumnDefinition Width="150"/>
@@ -6216,7 +6245,7 @@ function Get-MainXaml {
                           </WrapPanel>
                           <!-- UI-06: readable members (Nom, Type, OU; DN in the tooltip of the row) with a local filter and a counter. -->
                           <DockPanel LastChildFill="True">
-                            <Grid DockPanel.Dock="Right" Width="220" Margin="8,0,0,0"><TextBox x:Name="TxtGroupMembersFilter" MinHeight="30" MaxLength="120" VerticalContentAlignment="Center" ToolTip="Filtre les membres affichés par nom, type, OU ou DN. Aucune requête AD : seuls les membres déjà lus sont filtrés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtrer les membres" AutomationProperties.HelpText="Filtre les membres affichés par nom, type, OU ou DN. Aucune requête AD : seuls les membres déjà lus sont filtrés."/><TextBlock Text="nom, type, OU… (sans requête AD)" Margin="8,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" FontSize="12" Foreground="{DynamicResource MutedColor}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=TxtGroupMembersFilter}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></Grid>
+                            <Grid DockPanel.Dock="Right" Width="220" Margin="8,0,0,0"><TextBox x:Name="TxtGroupMembersFilter" MinHeight="30" MaxLength="120" VerticalContentAlignment="Center" ToolTip="Filtre les membres affichés par nom, type, OU ou DN. Aucune requête AD : seuls les membres déjà lus sont filtrés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtrer les membres" AutomationProperties.HelpText="Filtre les membres affichés par nom, type, OU ou DN. Aucune requête AD : seuls les membres déjà lus sont filtrés."/><TextBlock Text="nom, type, OU… (sans requête AD)" Margin="8,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=TxtGroupMembersFilter}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></Grid>
                             <TextBlock x:Name="LblGroupMembers" Text="Membres" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                           </DockPanel>
                         </StackPanel>
@@ -6234,7 +6263,7 @@ function Get-MainXaml {
                   <TabItem x:Name="TabContainer" ToolTip="Créer une unité dʼorganisation sous la branche sélectionnée." Header="Unite d organisation" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Unite d organisation" AutomationProperties.HelpText="Creer une unite d organisation sous la branche selectionnee.">
                     <Border Style="{StaticResource Card}" Margin="4">
                       <StackPanel>
-                        <TextBlock Text="Unité dʼorganisation" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                        <TextBlock Text="Unité dʼorganisation" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold" Margin="0,0,0,12"/>
                         <Grid Margin="0,0,0,12">
                           <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="160"/>
@@ -6262,7 +6291,7 @@ function Get-MainXaml {
                              demand and « Pourquoi membre ? » (context menu). -->
                         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8" LastChildFill="True">
                           <Button x:Name="BtnMemberOfNested" DockPanel.Dock="Right" Content="Groupes imbriqués" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,2" Margin="8,0,0,0" ToolTip="Lit, à la demande, les groupes dont ces groupes sont membres (2 000 groupes, 16 niveaux et 10 secondes au plus) et les ajoute à la liste comme appartenances imbriquées. Lecture seule ; aucun parcours du domaine." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lire les groupes imbriqués" AutomationProperties.HelpText="Lit, à la demande, les groupes dont ces groupes sont membres (2 000 groupes, 16 niveaux et 10 secondes au plus) et les ajoute à la liste comme appartenances imbriquées. Lecture seule ; aucun parcours du domaine."/>
-                          <Grid DockPanel.Dock="Right" Width="220" Margin="8,0,0,0"><TextBox x:Name="TxtMemberOfFilter" MinHeight="30" MaxLength="120" VerticalContentAlignment="Center" ToolTip="Filtre les groupes affichés par nom, OU, appartenance ou DN. Aucune requête AD : seuls les groupes déjà lus sont filtrés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtrer les groupes" AutomationProperties.HelpText="Filtre les groupes affichés par nom, OU, appartenance ou DN. Aucune requête AD : seuls les groupes déjà lus sont filtrés."/><TextBlock Text="nom, OU… (sans requête AD)" Margin="8,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" FontSize="12" Foreground="{DynamicResource MutedColor}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=TxtMemberOfFilter}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></Grid>
+                          <Grid DockPanel.Dock="Right" Width="220" Margin="8,0,0,0"><TextBox x:Name="TxtMemberOfFilter" MinHeight="30" MaxLength="120" VerticalContentAlignment="Center" ToolTip="Filtre les groupes affichés par nom, OU, appartenance ou DN. Aucune requête AD : seuls les groupes déjà lus sont filtrés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtrer les groupes" AutomationProperties.HelpText="Filtre les groupes affichés par nom, OU, appartenance ou DN. Aucune requête AD : seuls les groupes déjà lus sont filtrés."/><TextBlock Text="nom, OU… (sans requête AD)" Margin="8,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=TxtMemberOfFilter}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></Grid>
                           <TextBlock x:Name="LblMemberOf" Text="Groupes" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                         </DockPanel>
                         <TextBlock x:Name="LblMembershipWhy" DockPanel.Dock="Bottom" Visibility="Collapsed" TextWrapping="Wrap" Margin="0,8,0,0" ToolTip="Réponse de « Pourquoi membre ? » : appartenance directe, chemin des groupes imbriqués lus, ou lecture incomplète. Le groupe principal nʼest pas compris dans memberOf." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Pourquoi membre" AutomationProperties.HelpText="Réponse de « Pourquoi membre ? » : appartenance directe, chemin des groupes imbriqués lus, ou lecture incomplète. Le groupe principal nʼest pas compris dans memberOf."/>
@@ -6310,7 +6339,7 @@ function Get-MainXaml {
                     <Border Style="{StaticResource Card}" Margin="4">
                       <DockPanel>
                         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                          <TextBlock Text="Droits de ton compte sur cet objet" FontSize="18" FontWeight="SemiBold"/>
+                          <TextBlock Text="Droits de ton compte sur cet objet" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"/>
                           <TextBlock Text="Estime ce que ton compte peut modifier sur cet objet. Les actions manifestement interdites sont grisees ; les autres restent verifiees au moment de l execution." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
                           <WrapPanel>
                             <Button x:Name="BtnPermissionRefresh" ToolTip="Analyse les droits de ton compte sur cet objet." Content="Analyser" Style="{StaticResource RunButton}" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Analyser" AutomationProperties.HelpText="Analyse les droits de ton compte sur cet objet."/>
@@ -6336,13 +6365,13 @@ function Get-MainXaml {
                     </Border>
                   </TabItem>
                 </TabControl>
-              </Grid><Border Style="{StaticResource Card}" Margin="4" Padding="24" VerticalAlignment="Top" Grid.Row="1" x:Name="ObjectReadPlaceholder"><StackPanel><TextBlock Text="La fiche se prepare en arriere-plan." FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{DynamicResource TextColor}"/><TextBlock Text="Vous pouvez continuer à utiliser la recherche. Les données du précédent objet ne sont pas affichées ici." Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}"/></StackPanel></Border></Grid></TabItem>
+              </Grid><Border Style="{StaticResource Card}" Margin="4" Padding="24" VerticalAlignment="Top" Grid.Row="1" x:Name="ObjectReadPlaceholder"><StackPanel><TextBlock Text="La fiche se prepare en arriere-plan." FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{DynamicResource TextColor}"/><TextBlock Text="Vous pouvez continuer à utiliser la recherche. Les données du précédent objet ne sont pas affichées ici." Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}"/></StackPanel></Border></Grid></TabItem>
               <TabItem x:Name="TabAccounts" Header="Comptes" ToolTip="Identités de connexion utilisées par Domenia : annuaire, postes et secrets. Les mots de passe ne sont jamais écrits dans Domenia.db ni dans les préférences." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Comptes" AutomationProperties.HelpText="Identités de connexion utilisées par Domenia : annuaire, postes et secrets. Les mots de passe ne sont jamais écrits dans Domenia.db ni dans les préférences.">
                 <Border Style="{StaticResource Card}" Margin="4" Padding="10">
                   <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel>
                       <!-- SP-12: same name as the home card, Identités de connexion; the menu keeps Comptes. -->
-                      <TextBlock Text="Comptes : identités de connexion" FontSize="20" FontWeight="SemiBold"/>
+                      <TextBlock Text="Comptes : identités de connexion" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"/>
                       <TextBlock Text="Comptes utilisés par Domenia : annuaire, postes, secrets. Votre compte de connexion sert à tout ; ajoutez un compte secondaire seulement si une ressource exige dʼautres droits." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,12" TextWrapping="Wrap"/>
                       <Border Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="14" Padding="18" Margin="0,0,0,14">
                         <StackPanel>
@@ -6362,7 +6391,7 @@ function Get-MainXaml {
                                reconnecting. Shown for an explicit sign-in only: a Windows session is corrected in Windows. -->
                           <WrapPanel Margin="0,12,0,0">
                             <StackPanel Width="250" Margin="0,0,10,0">
-                              <TextBlock Text="Mot de passe actuel" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold"/>
+                              <TextBlock Text="Mot de passe actuel" Margin="0,0,0,6" FontSize="{DynamicResource FontSizeSmall}" FontWeight="SemiBold"/>
                               <PasswordBox x:Name="PwdAccountAdCorrection" Margin="0" ToolTip="Mot de passe actuel du compte de connexion, après son changement dans lʼannuaire. Validé une seule fois à votre demande, jamais enregistré dans Domenia." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mot de passe actuel du compte de connexion" AutomationProperties.HelpText="Mot de passe actuel du compte de connexion, après son changement dans lʼannuaire. Validé une seule fois à votre demande, jamais enregistré dans Domenia."/>
                             </StackPanel>
                             <Button x:Name="BtnAccountAdCorrect" Content="Corriger le mot de passe" Margin="0,24,8,0" ToolTip="Valide ce mot de passe pour le même compte, une seule fois, puis lʼapplique sans reconnecter Domenia. Les lectures parties avec lʼancien mot de passe sont arrêtées ; aucune écriture nʼest rejouée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Corriger le mot de passe" AutomationProperties.HelpText="Valide ce mot de passe pour le même compte, une seule fois, puis lʼapplique sans reconnecter Domenia. Les lectures parties avec lʼancien mot de passe sont arrêtées ; aucune écriture nʼest rejouée."/>
@@ -6441,11 +6470,11 @@ function Get-MainXaml {
                           <TextBlock x:Name="LblAccountRemoteIdentity" Text="Repli sur le compte AD courant." VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,12,0,10" FontWeight="SemiBold"/>
                           <WrapPanel>
                             <StackPanel Width="250" Margin="0,0,10,10">
-                              <TextBlock Text="Identifiant" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold"/>
+                              <TextBlock Text="Identifiant" Margin="0,0,0,6" FontSize="{DynamicResource FontSizeSmall}" FontWeight="SemiBold"/>
                               <TextBox x:Name="TxtAccountRemoteUser" ToolTip="Identifiant ayant les droits administrateur sur les postes." Margin="0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Identifiant" AutomationProperties.HelpText="Identifiant ayant les droits administrateur sur les postes."/>
                             </StackPanel>
                             <StackPanel Width="210" Margin="0,0,10,10">
-                              <TextBlock Text="Mot de passe" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold"/>
+                              <TextBlock Text="Mot de passe" Margin="0,0,0,6" FontSize="{DynamicResource FontSizeSmall}" FontWeight="SemiBold"/>
                               <PasswordBox x:Name="PwdAccountRemote" Margin="0" ToolTip="Mot de passe destiné au compte d’accès aux postes. Sa valeur n’est jamais lue ni affichée par l’aide contextuelle." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mot de passe du compte poste" AutomationProperties.HelpText="Mot de passe destiné au compte d’accès aux postes. Sa valeur n’est jamais lue ni affichée par l’aide contextuelle."/>
                             </StackPanel>
                             <Button x:Name="BtnAccountRemoteSave" Content="Activer" Style="{StaticResource RunButton}" Margin="0,24,8,10" ToolTip="Charge ce compte en mémoire pour les opérations distantes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Activer" AutomationProperties.HelpText="Charge ce compte en memoire pour les operations distantes."/>
@@ -6475,11 +6504,11 @@ function Get-MainXaml {
                           <TextBlock x:Name="LblAccountSecretsIdentity" Text="Repli sur le compte AD courant." VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,12,0,10" FontWeight="SemiBold"/>
                           <WrapPanel>
                             <StackPanel Width="250" Margin="0,0,10,10">
-                              <TextBlock Text="Identifiant" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold"/>
+                              <TextBlock Text="Identifiant" Margin="0,0,0,6" FontSize="{DynamicResource FontSizeSmall}" FontWeight="SemiBold"/>
                               <TextBox x:Name="TxtAccountSecretsUser" ToolTip="Identifiant autorisé à lire LAPS et BitLocker dans Active Directory." Margin="0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Identifiant" AutomationProperties.HelpText="Identifiant autorise a lire LAPS et BitLocker dans Active Directory."/>
                             </StackPanel>
                             <StackPanel Width="210" Margin="0,0,10,10">
-                              <TextBlock Text="Mot de passe" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold"/>
+                              <TextBlock Text="Mot de passe" Margin="0,0,0,6" FontSize="{DynamicResource FontSizeSmall}" FontWeight="SemiBold"/>
                               <PasswordBox x:Name="PwdAccountSecrets" Margin="0" ToolTip="Mot de passe destiné à la lecture des secrets AD. Sa valeur n’est jamais lue ni affichée par l’aide contextuelle." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mot de passe du compte secrets" AutomationProperties.HelpText="Mot de passe destiné à la lecture des secrets AD. Sa valeur n’est jamais lue ni affichée par l’aide contextuelle."/>
                             </StackPanel>
                             <Button x:Name="BtnAccountSecretsTest" Content="Tester" Margin="0,24,8,10" ToolTip="Teste lʼauthentification du compte contre le domaine." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tester" AutomationProperties.HelpText="Teste l authentification du compte contre le domaine."/>
@@ -6545,7 +6574,7 @@ function Get-MainXaml {
                               </Style.Triggers>
                             </Style>
                           </Border.Style>
-                          <TextBlock Text="{Binding BadgeLabel}" FontSize="12" FontWeight="SemiBold">
+                          <TextBlock Text="{Binding BadgeLabel}" FontSize="{DynamicResource FontSizeSmall}" FontWeight="SemiBold">
                             <TextBlock.Style>
                               <Style TargetType="TextBlock">
                                 <Setter Property="Foreground" Value="#374151"/>
@@ -6592,8 +6621,8 @@ function Get-MainXaml {
                     <Grid Grid.Row="0" Margin="0,0,0,10">
                       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                       <StackPanel>
-                        <TextBlock Text="Relations utilisateur / poste" FontSize="18" FontWeight="SemiBold"/>
-                        <TextBlock x:Name="LblRelationsSelection" Text="Sélectionnez un utilisateur ou un poste depuis Rechercher." FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}" Margin="0,6,0,2" TextWrapping="Wrap"/>
+                        <TextBlock Text="Relations utilisateur / poste" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"/>
+                        <TextBlock x:Name="LblRelationsSelection" Text="Sélectionnez un utilisateur ou un poste depuis Rechercher." FontSize="{DynamicResource FontSizeSubtitle}" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}" Margin="0,6,0,2" TextWrapping="Wrap"/>
                         <TextBlock x:Name="LblLinkProbeStatus" Text="Aucune recherche complémentaire en cours." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
                       </StackPanel>
                       <Button x:Name="BtnRelationsHelp" Grid.Column="1" Content="?" Width="34" Height="34" MinHeight="34" Padding="0" Margin="10,0,0,0" FontWeight="Bold" VerticalAlignment="Top" ToolTip="Affiche ou masque les précautions de cette page et lʼétat de la détection du parc." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Précautions des relations" AutomationProperties.HelpText="Affiche ou masque les précautions de cette page et lʼétat de la détection du parc."/>
@@ -6642,7 +6671,7 @@ function Get-MainXaml {
                           <Border x:Name="RelationAddPanel" Grid.Column="2" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="10" Padding="10" ToolTipService.ShowOnDisabled="True" ToolTip="Depuis un utilisateur : détecter ou rechercher ses postes. Depuis un poste : lire sa session ou rechercher un utilisateur. Tout reste dans cette page." AutomationProperties.Name="Ajouter une association">
                             <Grid>
                               <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                              <TextBlock Grid.Row="0" Text="Ajouter une association" FontSize="14" FontWeight="SemiBold"/>
+                              <TextBlock Grid.Row="0" Text="Ajouter une association" FontSize="{DynamicResource FontSizeSubtitle}" FontWeight="SemiBold"/>
                               <TextBlock x:Name="LblRelationAssociateHint" Grid.Row="1" Text="Sélectionnez dʼabord un utilisateur ou un poste dans Rechercher. Ensuite choisissez Détecter ou Rechercher." Foreground="{DynamicResource MutedColor}" Margin="0,4,0,8" TextWrapping="Wrap"/>
                               <TabControl x:Name="RelationAssociateModeTabs" Grid.Row="2">
                                 <TabItem x:Name="TabRelationDetect" Header="Détecter" ToolTip="Utilisateur : associations connues et indices AD, puis aperçu du périmètre avant toute lecture de poste. Poste : lecture de sa session.">
@@ -6807,16 +6836,16 @@ function Get-MainXaml {
                   <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <Border Style="{StaticResource Card}" Margin="4" Padding="24" VerticalAlignment="Top">
                       <StackPanel MaxWidth="640" HorizontalAlignment="Left">
-                        <TextBlock x:Name="LblComputerEmptyTitle" Text="Aucun poste ouvert" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextColor}" AutomationProperties.LiveSetting="Polite"/>
+                        <TextBlock x:Name="LblComputerEmptyTitle" Text="Aucun poste ouvert" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold" Foreground="{DynamicResource TextColor}" AutomationProperties.LiveSetting="Polite"/>
                         <TextBlock Text="Cherchez un poste par son nom : Entrée lance la recherche dans tout le domaine. Aucun poste nʼest sondé avant votre choix." Margin="0,6,0,14" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}"/>
                         <TextBox x:Name="TxtComputerEmptySearch" MinHeight="38" Padding="10,6" VerticalContentAlignment="Center" ToolTip="Nom du poste. Entrée lance la recherche dans tout le domaine ; la saisie seule ne lit rien et ne sonde aucun poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher un poste" AutomationProperties.HelpText="Nom du poste. Entrée lance la recherche dans tout le domaine ; la saisie seule ne lit rien et ne sonde aucun poste."/>
                         <TextBlock Text="Derniers postes consultés" FontWeight="SemiBold" Margin="0,18,0,6" Foreground="{DynamicResource TextColor}"/>
                         <ListBox x:Name="LstComputerEmptyRecent" MaxHeight="260" BorderThickness="0" DisplayMemberPath="Label" ToolTip="Postes ouverts récemment, gardés dans la mémoire locale de ce poste. Un clic recopie le nom dans le champ ; Entrée lance la recherche." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Derniers postes consultés" AutomationProperties.HelpText="Postes ouverts récemment, gardés dans la mémoire locale de ce poste. Un clic recopie le nom dans le champ ; Entrée lance la recherche."/>
-                        <TextBlock x:Name="LblComputerEmptyRecentNone" Text="Aucun poste consulté récemment." TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource MutedColor}"/>
+                        <TextBlock x:Name="LblComputerEmptyRecentNone" Text="Aucun poste consulté récemment." TextWrapping="Wrap" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}"/>
                       </StackPanel>
                     </Border>
                   </ScrollViewer>
-                </Border><Grid Margin="4,0,4,6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions><TextBlock Text="Sélectionnez un objet dans Rechercher." VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Foreground="{DynamicResource MutedColor}" FontSize="12" x:Name="LblComputerReadStatus"/><Button Content="Reessayer la lecture" Visibility="Hidden" Height="30" MinHeight="30" Padding="10,3" Margin="8,0,0,0" ToolTip="Relit uniquement cette fiche AD. Aucun ping, aucune sonde de poste et aucune écriture." Grid.Column="1" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Reessayer la lecture AD" x:Name="BtnComputerReadRetry"/></Grid><Grid Visibility="Collapsed" IsEnabled="False" Grid.Row="1" x:Name="ComputerReadContent"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                </Border><Grid Margin="4,0,4,6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions><TextBlock Text="Sélectionnez un objet dans Rechercher." VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeSmall}" x:Name="LblComputerReadStatus"/><Button Content="Reessayer la lecture" Visibility="Hidden" Height="30" MinHeight="30" Padding="10,3" Margin="8,0,0,0" ToolTip="Relit uniquement cette fiche AD. Aucun ping, aucune sonde de poste et aucune écriture." Grid.Column="1" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Reessayer la lecture AD" x:Name="BtnComputerReadRetry"/></Grid><Grid Visibility="Collapsed" IsEnabled="False" Grid.Row="1" x:Name="ComputerReadContent"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                 <!-- DS-08 (X04): fixed header of the workstation, the same above the five views: name, system, presence pill,
                      associated user (a link to its fiche), age of the last inventory and three quick actions, each on a click. -->
                 <Border x:Name="UxComputerHeader" Grid.Row="0" Margin="4,0,4,2" Padding="14,10" CornerRadius="12" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" AutomationProperties.Name="En-tête du poste">
@@ -6824,11 +6853,11 @@ function Get-MainXaml {
                     <Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="200"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0" Margin="0,0,12,0" VerticalAlignment="Center">
                       <WrapPanel>
-                        <TextBlock x:Name="LblCompHeaderName" Text="" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0" TextTrimming="CharacterEllipsis" AutomationProperties.Name="Nom du poste"/>
+                        <TextBlock x:Name="LblCompHeaderName" Text="" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0" TextTrimming="CharacterEllipsis" AutomationProperties.Name="Nom du poste"/>
                         <Border x:Name="UxCompPresencePill" CornerRadius="11" Padding="9,2" BorderThickness="1" VerticalAlignment="Center" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" AutomationProperties.Name="Présence du poste">
                           <StackPanel Orientation="Horizontal">
                             <Ellipse Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center" Fill="{DynamicResource MutedColor}"/>
-                            <TextBlock x:Name="LblCompHeaderPresence" Text="Présence non vérifiée" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" AutomationProperties.Name="Présence du poste" AutomationProperties.LiveSetting="Polite"/>
+                            <TextBlock x:Name="LblCompHeaderPresence" Text="Présence non vérifiée" FontSize="{DynamicResource FontSizeSmall}" FontWeight="SemiBold" VerticalAlignment="Center" AutomationProperties.Name="Présence du poste" AutomationProperties.LiveSetting="Polite"/>
                           </StackPanel>
                         </Border>
                       </WrapPanel>
@@ -6877,7 +6906,7 @@ function Get-MainXaml {
                               <RowDefinition Height="Auto"/>
                               <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
-                          <TextBlock Grid.Row="0" Grid.ColumnSpan="4" Text="Fiche du poste" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                          <TextBlock Grid.Row="0" Grid.ColumnSpan="4" Text="Fiche du poste" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold" Margin="0,0,0,12"/>
                           <Label Grid.Row="1" Grid.Column="0" Content="Nom"/>
                           <TextBox Grid.Row="1" Grid.Column="1" x:Name="TxtCompName" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Nom du poste tel qu’il figure dans l’annuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Nom du compte ordinateur" AutomationProperties.HelpText="Nom du poste tel qu’il figure dans l’annuaire."/>
                           <Label Grid.Row="1" Grid.Column="2" Content="DNS"/>
@@ -6917,7 +6946,7 @@ function Get-MainXaml {
                           <Grid Grid.Row="7" Grid.Column="1" Grid.ColumnSpan="3" Margin="0,0,0,8">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <Border x:Name="UxCompLinkBadge" Grid.Column="0" CornerRadius="9" Padding="8,1" Margin="0,0,8,0" VerticalAlignment="Center" Visibility="Collapsed" Background="{DynamicResource TileBg}" AutomationProperties.Name="Qualification de lʼassociation">
-                              <TextBlock x:Name="LblCompLinkBadge" Text="" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextColor}" AutomationProperties.Name="Badge de lʼassociation"/>
+                              <TextBlock x:Name="LblCompLinkBadge" Text="" FontSize="{DynamicResource FontSizeSmall}" FontWeight="SemiBold" Foreground="{DynamicResource TextColor}" AutomationProperties.Name="Badge de lʼassociation"/>
                             </Border>
                             <TextBlock x:Name="LblCompLinkSummary" Grid.Column="1" Text="Aucun utilisateur associé" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0" AutomationProperties.Name="Utilisateur associé" AutomationProperties.LiveSetting="Polite"/>
                             <Button x:Name="BtnOpenLinkedUser" Grid.Column="2" Content="Ouvrir la fiche" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="12,4" Margin="0,0,6,0" IsEnabled="False" ToolTip="Ouvre la fiche de lʼutilisateur associé à ce poste. Aucune écriture, aucune sonde du poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Ouvre la fiche de lʼutilisateur associé à ce poste. Aucune écriture, aucune sonde du poste." AutomationProperties.Name="Ouvrir la fiche de lʼutilisateur associé"/>
@@ -6948,14 +6977,14 @@ function Get-MainXaml {
                         <Border x:Name="UxComputerDashboardSection" Background="{DynamicResource WindowBg}" CornerRadius="12" Padding="18,16,10,4" Margin="4" AutomationProperties.Name="Tableau de bord du poste">
                           <StackPanel>
                             <StackPanel Margin="0,0,0,10">
-                          <TextBlock Text="Tableau de bord du poste" FontSize="22" FontWeight="SemiBold" FontFamily="Segoe UI Variable Display, Segoe UI"/>
+                          <TextBlock Text="Tableau de bord du poste" FontSize="{DynamicResource FontSizePageTitle}" FontWeight="SemiBold" FontFamily="Segoe UI Variable Display, Segoe UI"/>
                           <TextBlock x:Name="LblComputerDashboard" Text="Lancez un inventaire (rapide ou complet) : le tableau de bord se remplit avec ses résultats." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,4,0,8"/>
                           <WrapPanel>
                             <Button x:Name="BtnDashboardInventory" Content="Inventaire rapide" Style="{StaticResource RunButton}" ToolTip="Lit lʼinventaire du poste (CIM) en environ 1 minute puis remplit ce tableau de bord." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Inventaire rapide pour le tableau de bord" AutomationProperties.HelpText="Lit lʼinventaire du poste (CIM) en environ 1 minute puis remplit ce tableau de bord."/>
                             <Button x:Name="BtnDashboardInventoryDeep" Content="Inventaire complet" ToolTip="Inventaire complet, plus long (environ 3 minutes) : ajoute les processus, les erreurs système, les tâches planifiées, les certificats et les connexions réseau." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Inventaire complet pour le tableau de bord" AutomationProperties.HelpText="Inventaire complet, plus long (environ 3 minutes) : ajoute les processus, les erreurs système, les tâches planifiées, les certificats et les connexions réseau."/>
                             <!-- FI-18: the survey of this workstation (queries of its board) shows its state and its Arrêter here. -->
                             <StackPanel x:Name="UxComputerParkRun" Orientation="Horizontal" Visibility="Collapsed" VerticalAlignment="Center" Margin="8,0,0,0" ToolTip="Relevé en cours des requêtes des widgets de ce poste, indépendant du relevé de la liste de Rechercher." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Relevé en cours des requêtes des widgets de ce poste, indépendant du relevé de la liste de Rechercher." AutomationProperties.Name="Relevé de ce poste">
-                              <TextBlock x:Name="LblComputerParkStatus" Text="" FontSize="11.5" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" Margin="0,0,8,0" ToolTip="Avancement du relevé de ce poste. Le détail complet est écrit dans le journal." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Avancement du relevé de ce poste. Le détail complet est écrit dans le journal." AutomationProperties.Name="Avancement du relevé de ce poste" AutomationProperties.LiveSetting="Polite"/>
+                              <TextBlock x:Name="LblComputerParkStatus" Text="" FontSize="{DynamicResource FontSizeSmall}" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" Margin="0,0,8,0" ToolTip="Avancement du relevé de ce poste. Le détail complet est écrit dans le journal." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Avancement du relevé de ce poste. Le détail complet est écrit dans le journal." AutomationProperties.Name="Avancement du relevé de ce poste" AutomationProperties.LiveSetting="Polite"/>
                               <Button x:Name="BtnComputerParkStop" Content="Arrêter" Style="{StaticResource SecondaryButton}" IsEnabled="False" ToolTip="Arrête le relevé de ce poste. Les mesures déjà reçues sont conservées ; rien nʼest relancé." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Arrête le relevé de ce poste. Les mesures déjà reçues sont conservées ; rien nʼest relancé." AutomationProperties.Name="Arrêter le relevé de ce poste"/>
                             </StackPanel>
                           </WrapPanel>
@@ -6990,19 +7019,19 @@ function Get-MainXaml {
                       <WrapPanel Orientation="Horizontal">
                         <Border Style="{StaticResource Card}" Width="292" Margin="0,0,12,12" Padding="16" VerticalAlignment="Stretch">
                           <StackPanel>
-                            <TextBlock Text="Se connecter" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBlock Text="Se connecter" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold" Margin="0,0,0,4"/>
                             <TextBlock Text="Outils Windows ouverts sur ce poste." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,0,0,12"/>
                             <Button x:Name="BtnCompRdp" Content="Bureau à distance" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="36" Margin="0,0,0,8" ToolTip="Ouvre une connexion Bureau à distance vers ce poste avec le client Windows (mstsc)." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Ouvre une connexion Bureau à distance vers ce poste avec le client Windows (mstsc)." AutomationProperties.Name="Bureau à distance"/>
                             <Button x:Name="BtnCompC" Content="Ouvrir le disque C" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="36" Margin="0,0,0,8" ToolTip="Ouvre le partage administratif C$ du poste dans lʼExplorateur, avec le compte des opérations poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Ouvre le partage administratif C$ du poste dans lʼExplorateur, avec le compte des opérations poste." AutomationProperties.Name="Ouvrir le disque C (C$)"/>
                             <Button x:Name="BtnCompManage" Content="Gestion de lʼordinateur" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="36" Margin="0,0,0,8" ToolTip="Ouvre la console Gestion de lʼordinateur sur ce poste : services, journaux, disques et utilisateurs locaux." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Ouvre la console Gestion de lʼordinateur sur ce poste : services, journaux, disques et utilisateurs locaux." AutomationProperties.Name="Gestion de lʼordinateur"/>
                             <Button x:Name="BtnCompEvents" Content="Observateur dʼévénements" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="36" Margin="0,0,0,8" ToolTip="Ouvre lʼObservateur dʼévénements sur ce poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Ouvre lʼObservateur dʼévénements sur ce poste." AutomationProperties.Name="Observateur dʼévénements"/>
                             <Button x:Name="BtnCompPSRemote" Content="Copier la commande PowerShell" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="36" Margin="0,0,0,8" ToolTip="Copie une commande Enter-PSSession pour ce poste. Avec un compte poste, elle le nomme : Windows demandera son mot de passe, jamais copié." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Copie une commande Enter-PSSession pour ce poste. Avec un compte poste, elle le nomme : Windows demandera son mot de passe, jamais copié." AutomationProperties.Name="Copier la commande PowerShell"/>
-                            <TextBlock x:Name="LblCompOperationAccount" Text="" FontSize="12" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,2,0,0" AutomationProperties.Name="Compte des opérations poste"/>
+                            <TextBlock x:Name="LblCompOperationAccount" Text="" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,2,0,0" AutomationProperties.Name="Compte des opérations poste"/>
                           </StackPanel>
                         </Border>
                         <Border Style="{StaticResource Card}" Width="292" Margin="0,0,12,12" Padding="16" VerticalAlignment="Stretch">
                           <StackPanel>
-                            <TextBlock Text="Vérifier" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBlock Text="Vérifier" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold" Margin="0,0,0,4"/>
                             <TextBlock Text="Lectures seules, sans aucune modification du poste." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,0,0,12"/>
                             <Button x:Name="BtnCompPing" Content="Tester la réponse" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="36" Margin="0,0,0,8" ToolTip="Envoie un ping à ce poste et met à jour sa présence. Aucune autre sonde." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Envoie un ping à ce poste et met à jour sa présence. Aucune autre sonde." AutomationProperties.Name="Tester la réponse"/>
                             <Button x:Name="BtnCompOpenDiag" Content="Lancer le diagnostic" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="36" Margin="0,0,0,8" ToolTip="Ouvre la vue Diagnostic et lance ses contrôles en lecture seule : DNS, ports, partage, WinRM, WMI, espace disque et session." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Ouvre la vue Diagnostic et lance ses contrôles en lecture seule : DNS, ports, partage, WinRM, WMI, espace disque et session." AutomationProperties.Name="Lancer le diagnostic"/>
@@ -7010,7 +7039,7 @@ function Get-MainXaml {
                         </Border>
                         <Border Style="{StaticResource Card}" Width="292" Margin="0,0,12,12" Padding="16" VerticalAlignment="Stretch">
                           <StackPanel>
-                            <TextBlock Text="Intervenir" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBlock Text="Intervenir" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold" Margin="0,0,0,4"/>
                             <TextBlock Text="Chaque action se confirme dans la page avant de partir, une seule fois." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,0,0,12"/>
                             <Button x:Name="BtnCompGpUpdate" Content="Actualiser les stratégies" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="36" Margin="0,0,0,8" ToolTip="Demande au poste dʼappliquer de nouveau les stratégies de groupe (gpupdate /force), après une confirmation dans la page." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Demande au poste dʼappliquer de nouveau les stratégies de groupe (gpupdate /force), après une confirmation dans la page." AutomationProperties.Name="Actualiser les stratégies"/>
                             <Button x:Name="BtnCompRimotte" Content="Exécuter un programme…" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="36" Margin="0,0,0,8" ToolTip="Prépare dans la page le lancement dʼun programme sur ce poste : en arrière-plan sous le compte système, ou dans la session dʼun utilisateur. Rien ne part avant « Lancer » et sa confirmation." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Prépare dans la page le lancement dʼun programme sur ce poste : en arrière-plan sous le compte système, ou dans la session dʼun utilisateur. Rien ne part avant « Lancer » et sa confirmation." AutomationProperties.Name="Exécuter un programme"/>
@@ -7020,7 +7049,7 @@ function Get-MainXaml {
                         </Border>
                         <Border Style="{StaticResource Card}" Width="292" Margin="0,0,12,12" Padding="16" VerticalAlignment="Stretch">
                           <StackPanel>
-                            <TextBlock Text="Compte AD" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBlock Text="Compte AD" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold" Margin="0,0,0,4"/>
                             <TextBlock x:Name="LblCompAccountState" Text="État du compte non lu." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,0,0,12" AutomationProperties.Name="État du compte du poste"/>
                             <Button x:Name="BtnCompEnable" Content="Activer le compte" Style="{StaticResource RunButton}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="36" Margin="0,0,0,8" Visibility="Collapsed" ToolTip="Réactive le compte du poste dans le domaine. Le changement se confirme dans la page avant lʼenvoi." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Réactive le compte du poste dans le domaine. Le changement se confirme dans la page avant lʼenvoi." AutomationProperties.Name="Activer le compte du poste"/>
                             <Button x:Name="BtnCompDisable" Content="Désactiver le compte" Style="{StaticResource DangerButton}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="36" Margin="0,0,0,8" Visibility="Collapsed" ToolTip="Désactive le compte du poste dans le domaine : il ne pourra plus sʼauthentifier. Le changement se confirme dans la page avant lʼenvoi." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Désactive le compte du poste dans le domaine : il ne pourra plus sʼauthentifier. Le changement se confirme dans la page avant lʼenvoi." AutomationProperties.Name="Désactiver le compte du poste"/>
@@ -7042,7 +7071,7 @@ function Get-MainXaml {
                            restart with a message (default) or the immediate one is chosen; the in-page confirmation sends it once. -->
                       <Border x:Name="UxCompRestartPanel" Visibility="Collapsed" Margin="0,0,12,12" Padding="16" CornerRadius="12" BorderThickness="1" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource DangerColor}" AutomationProperties.Name="Préparer le redémarrage du poste">
                         <StackPanel>
-                          <TextBlock x:Name="LblCompRestartTitle" Text="Redémarrer le poste" FontSize="16" FontWeight="SemiBold" AutomationProperties.Name="Poste à redémarrer"/>
+                          <TextBlock x:Name="LblCompRestartTitle" Text="Redémarrer le poste" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold" AutomationProperties.Name="Poste à redémarrer"/>
                           <TextBlock x:Name="LblCompRestartSessions" Text="Lecture des sessions ouvertes…" TextWrapping="Wrap" Margin="0,6,0,4" AutomationProperties.Name="Sessions ouvertes avant le redémarrage" AutomationProperties.LiveSetting="Polite"/>
                           <TextBlock x:Name="LblCompRestartSessionLines" Text="" TextWrapping="Wrap" Margin="14,0,0,10" Foreground="{DynamicResource MutedColor}" Visibility="Collapsed" AutomationProperties.Name="Liste des sessions ouvertes"/>
                           <RadioButton x:Name="RbCompRestartDelayed" GroupName="CompRestart" IsChecked="True" Content="Dans 5 min avec message à lʼutilisateur" Margin="0,4,0,0" ToolTip="Redémarrage différé : lʼutilisateur voit le message et peut enregistrer son travail avant lʼéchéance. Choix par défaut." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Redémarrage différé : lʼutilisateur voit le message et peut enregistrer son travail avant lʼéchéance. Choix par défaut." AutomationProperties.Name="Redémarrer après un délai, avec message"/>
@@ -7057,7 +7086,7 @@ function Get-MainXaml {
                       <!-- UI-26 (X04): run a program in the page, theme colours, two ways only; replaces the former window. -->
                       <Border x:Name="UxCompRunPanel" Visibility="Collapsed" Margin="0,0,12,12" Padding="16" CornerRadius="12" BorderThickness="1" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource AccentColor}" AutomationProperties.Name="Exécuter un programme sur le poste">
                         <StackPanel>
-                          <TextBlock x:Name="LblCompRunTitle" Text="Exécuter un programme sur le poste" FontSize="16" FontWeight="SemiBold" AutomationProperties.Name="Poste où exécuter le programme"/>
+                          <TextBlock x:Name="LblCompRunTitle" Text="Exécuter un programme sur le poste" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold" AutomationProperties.Name="Poste où exécuter le programme"/>
                           <TextBlock Text="Une tâche planifiée unique lance le programme puis est supprimée. Le programme doit exister sur le poste ; son exécution nʼest pas vérifiée." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,4,0,10"/>
                           <!-- X03 x X04: the state of the one authorisation control (top of Intervenir), never a second grant button. -->
                           <Border Padding="10,8" CornerRadius="8" BorderThickness="1" Background="{DynamicResource InfoBg}" BorderBrush="{DynamicResource InfoBorder}" Margin="0,0,0,12">
@@ -7084,7 +7113,7 @@ function Get-MainXaml {
                       </Border>
                       <Border x:Name="UxCompSessionsSection" Style="{StaticResource Card}" Margin="0,0,12,12" AutomationProperties.Name="Sessions Windows du poste">
                         <StackPanel>
-                          <TextBlock Text="Sessions Windows" FontSize="16" FontWeight="SemiBold"/>
+                          <TextBlock Text="Sessions Windows" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold"/>
                           <TextBlock x:Name="LblSessionsState" Text="Lecture à la demande, distincte du dernier utilisateur connu. Un accès refusé ne signifie pas absence de session." TextWrapping="Wrap" Margin="0,6,0,10" Foreground="{DynamicResource MutedColor}"/>
                           <Button x:Name="BtnSessionsRead" Content="Lire les sessions" HorizontalAlignment="Left" Style="{StaticResource RunButton}" ToolTip="Interroge WTS sur la machine sélectionnée. Utilise le compte poste indiqué ; aucune déconnexion ni écriture distante." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lire les sessions Windows" AutomationProperties.HelpText="Interroge WTS sur la machine sélectionnée. Utilise le compte poste indiqué ; aucune déconnexion ni écriture distante."/>
                           <DataGrid x:Name="DgSessions" Margin="0,10,0,0" MaxHeight="260" IsReadOnly="True" AutoGenerateColumns="False" ToolTip="Sessions avec un compte. Les lignes sans compte (services, écran de connexion, écouteur RDP) sont masquées et comptées dans lʼétat. Double-clic sur une ligne : ouvrir la fiche du compte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Sessions Windows" AutomationProperties.HelpText="Sessions avec un compte. Les lignes sans compte (services, écran de connexion, écouteur RDP) sont masquées et comptées dans lʼétat. Double-clic sur une ligne : ouvrir la fiche du compte."><DataGrid.Columns><DataGridTextColumn Header="Session" Binding="{Binding Session}" Width="110"/><DataGridTextColumn Header="Compte" Binding="{Binding Utilisateur}" Width="170"/><DataGridTextColumn Header="État" Binding="{Binding Etat}" Width="105"/><DataGridTextColumn Header="Protocole" Binding="{Binding Protocole}" Width="85"/><DataGridTextColumn Header="Ouverte à" Binding="{Binding Ouverte}" Width="90"/><DataGridTextColumn Header="Inactive depuis" Binding="{Binding Inactive}" Width="105"/><DataGridTextColumn Header="Information" Binding="{Binding Detail}" Width="*"/></DataGrid.Columns></DataGrid>
@@ -7094,7 +7123,7 @@ function Get-MainXaml {
                            start and restart are remote writes confirmed in the page, refused in read-only mode. -->
                       <Border x:Name="UxCompServicesSection" Style="{StaticResource Card}" Margin="0,0,12,12" AutomationProperties.Name="Services du poste">
                         <StackPanel>
-                          <TextBlock Text="Services du poste" FontSize="16" FontWeight="SemiBold"/>
+                          <TextBlock Text="Services du poste" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold"/>
                           <TextBlock x:Name="LblCompServicesState" Text="Services non lus. « Lire les services » interroge ce poste en lecture seule." TextWrapping="Wrap" Margin="0,6,0,10" Foreground="{DynamicResource MutedColor}" AutomationProperties.Name="État de la liste des services" AutomationProperties.LiveSetting="Polite"/>
                           <WrapPanel Margin="0,0,0,8">
                             <Button x:Name="BtnCompServicesRead" Content="Lire les services" Style="{StaticResource RunButton}" Margin="0,0,12,6" ToolTip="Lit la liste des services de ce poste (Win32_Service) en lecture seule, sur ce clic uniquement." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Lit la liste des services de ce poste (Win32_Service) en lecture seule, sur ce clic uniquement." AutomationProperties.Name="Lire les services du poste"/>
@@ -7120,7 +7149,7 @@ function Get-MainXaml {
                     <Border Style="{StaticResource Card}" Margin="4">
                       <DockPanel>
                         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                          <TextBlock Text="Inventaire du poste" FontSize="18" FontWeight="SemiBold"/>
+                          <TextBlock Text="Inventaire du poste" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"/>
                           <TextBlock Text="Matériel, système et configuration du poste. Le rapport du bas indique ce qui a pu être lu et ce qui a été refusé." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
                           <WrapPanel>
                             <Button x:Name="BtnRunInventory" Content="Inventaire rapide (≈1 min)" Style="{StaticResource RunButton}" ToolTip="Matériel, système, disques, réseau, sécurité, correctifs, logiciels, services, comptes, partages et imprimantes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Inventaire rapide (≈1 min)" AutomationProperties.HelpText="Materiel, systeme, disques, reseau, securite, correctifs, logiciels, services, comptes, partages et imprimantes."/>
@@ -7192,7 +7221,7 @@ function Get-MainXaml {
                     <Border Style="{StaticResource Card}" Margin="4">
                       <DockPanel>
                         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                          <TextBlock Text="Logiciels installes" FontSize="18" FontWeight="SemiBold"/>
+                          <TextBlock Text="Logiciels installes" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"/>
                           <TextBlock Text="Logiciels installes sur le poste : pour tous les utilisateurs, par profil, et applications du Microsoft Store." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
                           <WrapPanel>
                             <Button x:Name="BtnLoadSoftware" Content="Charger les logiciels" Style="{StaticResource RunButton}" ToolTip="Liste les logiciels installes pour tous les utilisateurs du poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Charger les logiciels" AutomationProperties.HelpText="Liste les logiciels installes pour tous les utilisateurs du poste."/>
@@ -7237,8 +7266,8 @@ function Get-MainXaml {
                           </Grid>
                           <Border x:Name="UxSoftwareFilterChip" Visibility="Collapsed" HorizontalAlignment="Left" Margin="0,6,0,0" Padding="8,2" CornerRadius="10" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" ToolTip="Filtre appliqué à la liste par un clic sur un graphique." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtre appliqué à la liste" AutomationProperties.HelpText="Nom du filtre appliqué à la liste des logiciels par un clic sur un graphique ; le retirer avec le bouton Fermer.">
                             <StackPanel Orientation="Horizontal">
-                              <TextBlock x:Name="LblSoftwareFilterChip" Text="" VerticalAlignment="Center" FontSize="12"/>
-                              <Button x:Name="BtnSoftwareFilterClear" Content="✕" Margin="6,0,0,0" Padding="4,0" MinWidth="22" MinHeight="20" FontSize="11" VerticalAlignment="Center" ToolTip="Retire le filtre appliqué à la liste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Retirer le filtre" AutomationProperties.HelpText="Retire le filtre appliqué à la liste des logiciels par un clic sur un graphique."/>
+                              <TextBlock x:Name="LblSoftwareFilterChip" Text="" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeSmall}"/>
+                              <Button x:Name="BtnSoftwareFilterClear" Content="✕" Margin="6,0,0,0" Padding="4,0" MinWidth="22" MinHeight="20" FontSize="{DynamicResource FontSizeCaption}" VerticalAlignment="Center" ToolTip="Retire le filtre appliqué à la liste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Retirer le filtre" AutomationProperties.HelpText="Retire le filtre appliqué à la liste des logiciels par un clic sur un graphique."/>
                             </StackPanel>
                           </Border>
                         </StackPanel>
@@ -7296,7 +7325,7 @@ function Get-MainXaml {
                     <Border Style="{StaticResource Card}" Margin="4">
                       <DockPanel>
                         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                          <TextBlock Text="Diagnostic du poste" FontSize="18" FontWeight="SemiBold"/>
+                          <TextBlock Text="Diagnostic du poste" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"/>
                           <TextBlock Text="Le diagnostic utilise le compte poste affiché dans la pastille « Compte poste », en haut de la page." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
                           <WrapPanel>
                             <Button x:Name="BtnRunComputerDiag" Content="Lancer le diagnostic" Style="{StaticResource RunButton}" ToolTip="Verifie la resolution DNS, la joignabilite, les ports, SMB, WinRM, WMI, le systeme, l espace disque et la session ouverte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lancer le diagnostic" AutomationProperties.HelpText="Verifie la resolution DNS, la joignabilite, les ports, SMB, WinRM, WMI, le systeme, l espace disque et la session ouverte."/>
@@ -7324,7 +7353,7 @@ function Get-MainXaml {
                                         </Style.Triggers>
                                       </Style>
                                     </Border.Style>
-                                    <TextBlock Text="{Binding EtatLibelle}" FontSize="12" FontWeight="SemiBold">
+                                    <TextBlock Text="{Binding EtatLibelle}" FontSize="{DynamicResource FontSizeSmall}" FontWeight="SemiBold">
                                       <TextBlock.Style>
                                         <Style TargetType="TextBlock">
                                           <Setter Property="Foreground" Value="#374151"/>
@@ -7356,7 +7385,7 @@ function Get-MainXaml {
                     <Border Style="{StaticResource Card}" Margin="4">
                       <DockPanel>
                         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                          <TextBlock Text="Explorateur WMI" FontSize="18" FontWeight="SemiBold"/>
+                          <TextBlock Text="Explorateur WMI" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"/>
                           <TextBlock Text="Explore les donnees WMI du poste : espaces de noms, classes, proprietes et valeurs. Consultation uniquement, aucune modification possible." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
                           <WrapPanel>
                             <Button x:Name="BtnWmiNamespaces" Content="Charger" Style="{StaticResource SecondaryButton}" ToolTip="Liste root et ses espaces de noms WMI directs. Les classes sont ensuite chargées à la demande." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Charger" AutomationProperties.HelpText="Liste root et ses espaces de noms WMI directs. Les classes sont ensuite chargees a la demande."/>
@@ -7390,15 +7419,15 @@ function Get-MainXaml {
                           </Grid.ColumnDefinitions>
                           <DockPanel Grid.Column="0">
                             <TextBlock DockPanel.Dock="Top" Text="Espaces de noms" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                            <TextBlock DockPanel.Dock="Bottom" x:Name="LblWmiNamespaceCount" Text="0 espace" Foreground="{DynamicResource MutedColor}" FontSize="11" Margin="0,6,0,0"/>
-                            <ListBox x:Name="LstWmiNamespaces" ToolTip="Espaces de noms disponibles. Double-clic pour voir leurs classes." FontFamily="Consolas" FontSize="11" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="0 espace" AutomationProperties.HelpText="Espaces de noms disponibles. Double-clic pour voir leurs classes."/>
+                            <TextBlock DockPanel.Dock="Bottom" x:Name="LblWmiNamespaceCount" Text="0 espace" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}" Margin="0,6,0,0"/>
+                            <ListBox x:Name="LstWmiNamespaces" ToolTip="Espaces de noms disponibles. Double-clic pour voir leurs classes." FontFamily="Consolas" FontSize="{DynamicResource FontSizeCaption}" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="0 espace" AutomationProperties.HelpText="Espaces de noms disponibles. Double-clic pour voir leurs classes."/>
                           </DockPanel>
                           <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="{DynamicResource SplitterBg}" ShowsPreview="True" x:Name="UxSplitter2" ToolTip="Faites glisser pour redimensionner les panneaux." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Faites glisser pour redimensionner les panneaux" AutomationProperties.HelpText="Faites glisser pour redimensionner les panneaux."/>
                           <DockPanel Grid.Column="2">
                             <TextBlock DockPanel.Dock="Top" Text="Classes" FontWeight="SemiBold" Margin="0,0,0,6"/>
                             <TextBox DockPanel.Dock="Top" x:Name="TxtWmiClassFilter" Margin="0,0,0,6" ToolTip="Cherche une classe par son nom." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Classes" AutomationProperties.HelpText="Cherche une classe par son nom."/>
-                            <TextBlock DockPanel.Dock="Bottom" x:Name="LblWmiClassCount" Text="0 classe" Foreground="{DynamicResource MutedColor}" FontSize="11" Margin="0,6,0,0"/>
-                            <ListBox x:Name="LstWmiClasses" ToolTip="Classes de lʼespace de noms. Double-clic pour lire leurs valeurs." FontFamily="Consolas" FontSize="11" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="0 classe" AutomationProperties.HelpText="Classes de l espace de noms. Double-clic pour lire leurs valeurs."/>
+                            <TextBlock DockPanel.Dock="Bottom" x:Name="LblWmiClassCount" Text="0 classe" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}" Margin="0,6,0,0"/>
+                            <ListBox x:Name="LstWmiClasses" ToolTip="Classes de lʼespace de noms. Double-clic pour lire leurs valeurs." FontFamily="Consolas" FontSize="{DynamicResource FontSizeCaption}" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="0 classe" AutomationProperties.HelpText="Classes de l espace de noms. Double-clic pour lire leurs valeurs."/>
                           </DockPanel>
                           <GridSplitter Grid.Column="3" Width="6" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="{DynamicResource SplitterBg}" ShowsPreview="True" x:Name="UxSplitter3" ToolTip="Faites glisser pour redimensionner les panneaux." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Faites glisser pour redimensionner les panneaux" AutomationProperties.HelpText="Faites glisser pour redimensionner les panneaux."/>
                           <Grid Grid.Column="4">
@@ -7452,7 +7481,7 @@ function Get-MainXaml {
                     <Border Style="{StaticResource Card}" Margin="4">
                       <DockPanel>
                         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                          <TextBlock Text="Secrets du poste" FontSize="18" FontWeight="SemiBold"/>
+                          <TextBlock Text="Secrets du poste" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"/>
                           <TextBlock Text="Clés de récupération BitLocker et mot de passe administrateur local. Les valeurs restent masquées tant que vous ne demandez pas à les afficher." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
                           <WrapPanel>
                             <Button x:Name="BtnLoadBitLocker" Content="Lister les clés BitLocker" Style="{StaticResource RunButton}" ToolTip="Liste les clés de récupération BitLocker de ce poste. Aucune clé nʼest affichée sans votre demande." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lister les clés BitLocker" AutomationProperties.HelpText="Liste les clés de récupération BitLocker de ce poste. Aucune clé nʼest affichée sans votre demande."/>
@@ -7466,7 +7495,7 @@ function Get-MainXaml {
                           <Button x:Name="BtnSecretsPrerequisite" Content="Ouvrir le prerequis" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,8,0,0" Visibility="Collapsed" ToolTip="Ouvre la page du prerequis manquant. Navigation seule : aucun droit ni reglage modifie." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir le prerequis" AutomationProperties.HelpText="Ouvre la page du prerequis manquant. Navigation seule : aucun droit ni reglage modifie."/>
                           <WrapPanel Margin="0,10,0,0">
                             <StackPanel Width="300" Margin="0,0,12,0">
-                              <TextBlock Text="Identifiant de récupération BitLocker" Margin="0,0,0,4" FontSize="12" FontWeight="SemiBold"/>
+                              <TextBlock Text="Identifiant de récupération BitLocker" Margin="0,0,0,4" FontSize="{DynamicResource FontSizeSmall}" FontWeight="SemiBold"/>
                               <TextBox x:Name="TxtBitLockerRecoveryId" MaxLength="40" IsEnabled="False" ToolTip="Saisissez les premiers caractères de lʼidentifiant affiché par le poste. Filtre local : aucune clé nʼest lue ni révélée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Identifiant de recuperation BitLocker" AutomationProperties.HelpText="Saisissez les premiers caracteres de l identifiant affiche par le poste. Filtre local : aucune cle n est lue ni revelee."/>
                             </StackPanel>
                             <TextBlock x:Name="LblBitLockerRecoveryHint" Text="« Lister les clés BitLocker » affiche les métadonnées, sans aucune clé. Une seule clé est lue, à votre demande." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Bottom" MaxWidth="520" TextWrapping="Wrap"/>
@@ -7477,7 +7506,7 @@ function Get-MainXaml {
                             <Grid>
                               <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                               <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="Clé de récupération BitLocker" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource InfoFg}"/>
+                                <TextBlock Text="Clé de récupération BitLocker" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold" Foreground="{DynamicResource InfoFg}"/>
                                 <TextBlock x:Name="LblBitLockerKeyCardId" Text="" Margin="0,4,0,10" TextWrapping="Wrap" Foreground="{DynamicResource InfoFg}" ToolTip="Comparez cet identifiant à celui affiché par lʼécran de récupération du poste avant de dicter la clé." ToolTipService.Placement="Top" AutomationProperties.Name="Identifiant de récupération de la clé affichée" AutomationProperties.HelpText="Comparez cet identifiant à celui affiché par lʼécran de récupération du poste avant de dicter la clé."/>
                                 <ItemsControl x:Name="BitLockerKeyBlocks" Focusable="False" ToolTip="Les huit blocs de six chiffres, dans lʼordre où le poste les demande." ToolTipService.Placement="Bottom" AutomationProperties.Name="Blocs de la clé de récupération" AutomationProperties.HelpText="Les huit blocs de six chiffres, dans lʼordre où le poste les demande.">
                                   <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
@@ -7485,8 +7514,8 @@ function Get-MainXaml {
                                     <DataTemplate>
                                       <Border Margin="0,0,10,8" Padding="10,4" CornerRadius="6" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1">
                                         <StackPanel>
-                                          <TextBlock Text="{Binding Label}" FontSize="11" Foreground="{DynamicResource MutedColor}"/>
-                                          <TextBlock Text="{Binding Digits}" FontFamily="Consolas, Cascadia Mono, Courier New" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextColor}"/>
+                                          <TextBlock Text="{Binding Label}" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource MutedColor}"/>
+                                          <TextBlock Text="{Binding Digits}" FontFamily="Consolas, Cascadia Mono, Courier New" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold" Foreground="{DynamicResource TextColor}"/>
                                         </StackPanel>
                                       </Border>
                                     </DataTemplate>
@@ -7525,7 +7554,7 @@ function Get-MainXaml {
                     </Border>
                   </TabItem>
                 </TabControl>
-              </Grid><Border Style="{StaticResource Card}" Margin="4" Padding="24" VerticalAlignment="Top" Grid.Row="1" x:Name="ComputerReadPlaceholder"><StackPanel><TextBlock Text="La fiche se prepare en arriere-plan." FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{DynamicResource TextColor}"/><TextBlock Text="Vous pouvez continuer à utiliser la recherche. Les données du précédent objet ne sont pas affichées ici." Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}"/></StackPanel></Border></Grid></TabItem>
+              </Grid><Border Style="{StaticResource Card}" Margin="4" Padding="24" VerticalAlignment="Top" Grid.Row="1" x:Name="ComputerReadPlaceholder"><StackPanel><TextBlock Text="La fiche se prepare en arriere-plan." FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{DynamicResource TextColor}"/><TextBlock Text="Vous pouvez continuer à utiliser la recherche. Les données du précédent objet ne sont pas affichées ici." Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}"/></StackPanel></Border></Grid></TabItem>
               <TabItem x:Name="TabApplicationTools" ToolTip="Vérification de lʼapplication, état du domaine, aide sur les commandes et journal." Header="Outils" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Outils" AutomationProperties.HelpText="Verification de l application, etat du domaine, aide sur les commandes et journal.">
                 <Border Style="{StaticResource Card}" Margin="4" Padding="10">
                   <DockPanel>
@@ -7533,7 +7562,7 @@ function Get-MainXaml {
                       <TabItem x:Name="TabGuard" Visibility="Collapsed" Header="Fiabilité" ToolTip="Recus durables, saisies, autorisations temporaires et mesures locales." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Fiabilité" AutomationProperties.HelpText="Recus durables, saisies, autorisations temporaires et mesures locales."><ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel Margin="4">
 
 <Border Style="{StaticResource Card}" Margin="0,0,0,12"><StackPanel>
-<TextBlock Text="Opérations à vérifier" FontSize="18" FontWeight="SemiBold"/>
+<TextBlock Text="Opérations à vérifier" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"/>
 <TextBlock x:Name="LblGuardReceipts" Text="Lecture des reçus locaux en attente. Les écritures restent protégées." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,8,0,12"/>
 <WrapPanel Margin="0,0,0,12">
 <Button AutomationProperties.Name="Actualiser les reçus" AutomationProperties.HelpText="Lit les reçus locaux sans rejouer aucune opération." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardReceiptRefresh" Content="Actualiser les reçus" ToolTip="Lit les reçus locaux sans rejouer aucune opération."/>
@@ -7542,28 +7571,28 @@ function Get-MainXaml {
 <DataGrid AutomationProperties.Name="Reçus des opérations" AutomationProperties.HelpText="Reçus des écritures envoyées par Domenia, ceux à vérifier en premier. Survolez lʼobjet pour lire son nom distinctif." ToolTipService.ShowOnDisabled="True" x:Name="DgGuardReceipts" IsReadOnly="True" AutoGenerateColumns="False" Height="200" SelectionMode="Single" ToolTip="Reçus des écritures envoyées par Domenia, ceux à vérifier en premier. Survolez lʼobjet pour lire son nom distinctif."><DataGrid.Columns>
 <DataGridTemplateColumn Header="État" Width="200" SortMemberPath="StageLabel"><DataGridTemplateColumn.CellTemplate><DataTemplate>
 <Border CornerRadius="9" Padding="8,1" Margin="0,2" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTip="{Binding Explanation}"><Border.Style><Style TargetType="Border"><Setter Property="Background" Value="#E5E7EB"/><Style.Triggers><DataTrigger Binding="{Binding Tone}" Value="Pending"><Setter Property="Background" Value="#FEF3C7"/></DataTrigger><DataTrigger Binding="{Binding Tone}" Value="Verified"><Setter Property="Background" Value="#DCFCE7"/></DataTrigger><DataTrigger Binding="{Binding Tone}" Value="Reviewed"><Setter Property="Background" Value="#DBEAFE"/></DataTrigger><DataTrigger Binding="{Binding Tone}" Value="Delivered"><Setter Property="Background" Value="#E0F2FE"/></DataTrigger></Style.Triggers></Style></Border.Style>
-<TextBlock Text="{Binding StageLabel}" FontSize="12" FontWeight="SemiBold"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Foreground" Value="#374151"/><Style.Triggers><DataTrigger Binding="{Binding Tone}" Value="Pending"><Setter Property="Foreground" Value="#92400E"/></DataTrigger><DataTrigger Binding="{Binding Tone}" Value="Verified"><Setter Property="Foreground" Value="#166534"/></DataTrigger><DataTrigger Binding="{Binding Tone}" Value="Reviewed"><Setter Property="Foreground" Value="#1E3A8A"/></DataTrigger><DataTrigger Binding="{Binding Tone}" Value="Delivered"><Setter Property="Foreground" Value="#075985"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+<TextBlock Text="{Binding StageLabel}" FontSize="{DynamicResource FontSizeSmall}" FontWeight="SemiBold"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Foreground" Value="#374151"/><Style.Triggers><DataTrigger Binding="{Binding Tone}" Value="Pending"><Setter Property="Foreground" Value="#92400E"/></DataTrigger><DataTrigger Binding="{Binding Tone}" Value="Verified"><Setter Property="Foreground" Value="#166534"/></DataTrigger><DataTrigger Binding="{Binding Tone}" Value="Reviewed"><Setter Property="Foreground" Value="#1E3A8A"/></DataTrigger><DataTrigger Binding="{Binding Tone}" Value="Delivered"><Setter Property="Foreground" Value="#075985"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
 </Border></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
 <DataGridTextColumn Header="Opération" Binding="{Binding OperationLabel}" Width="210"/>
 <DataGridTemplateColumn Header="Objet" Width="*" MinWidth="160" SortMemberPath="ObjectName"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding ObjectName}" ToolTip="{Binding DnToolTip}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
 <DataGridTextColumn Header="Mis à jour" Binding="{Binding UpdatedLabel}" SortMemberPath="UpdatedUtc" Width="130"/><DataGridTextColumn Header="Compte" Binding="{Binding Identity}" Width="160"/><DataGridTextColumn Header="Contrôleur" Binding="{Binding Server}" Width="160"/>
 </DataGrid.Columns></DataGrid>
 <TextBlock x:Name="LblGuardReceiptSelection" Text="Sélectionnez un reçu dans la liste pour le vérifier ou consigner une revue." TextWrapping="Wrap" Margin="0,12,0,8" ToolTip="Ce que dit le reçu sélectionné et ce que vous pouvez en faire." AutomationProperties.Name="Reçu sélectionné" AutomationProperties.HelpText="Ce que dit le reçu sélectionné et ce que vous pouvez en faire."/>
-<TextBlock Text="Motif de la revue, après votre contrôle réel (sans secret)" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+<TextBlock Text="Motif de la revue, après votre contrôle réel (sans secret)" FontSize="{DynamicResource FontSizeSmall}" FontWeight="SemiBold" Margin="0,0,0,4"/>
 <TextBox x:Name="TxtGuardReceiptReason" MaxLength="240" TextWrapping="Wrap" AcceptsReturn="False" MinHeight="56" IsEnabled="False" ToolTip="Décrivez le contrôle réalisé avec un autre outil, en 12 à 240 caractères. Le motif est enregistré dans le reçu : nʼy saisissez ni mot de passe ni clé." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Motif de la revue" AutomationProperties.HelpText="Décrivez le contrôle réalisé avec un autre outil, en 12 à 240 caractères. Le motif est enregistré dans le reçu : nʼy saisissez ni mot de passe ni clé."/>
 <TextBlock x:Name="LblGuardReceiptReasonCount" Text="Saisissez le contrôle réalisé : 12 à 240 caractères." Foreground="{DynamicResource MutedColor}" Margin="0,4,0,10" TextWrapping="Wrap" ToolTip="Longueur du motif saisi : 12 caractères au minimum, 240 au maximum." AutomationProperties.Name="Longueur du motif" AutomationProperties.HelpText="Longueur du motif saisi : 12 caractères au minimum, 240 au maximum."/>
 <WrapPanel>
 <Button AutomationProperties.Name="Vérifier par relecture" AutomationProperties.HelpText="Relit sur le contrôleur initial les valeurs attendues dʼune modification de fiche. Aucune commande nʼest renvoyée." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardReceiptVerify" Content="Vérifier par relecture" IsEnabled="False" ToolTip="Relit sur le contrôleur initial les valeurs attendues dʼune modification de fiche. Aucune commande nʼest renvoyée."/>
 <Button AutomationProperties.Name="Consigner la revue" AutomationProperties.HelpText="Enregistre dans le reçu le motif saisi, après votre contrôle réel. Le reçu devient « Revue manuelle », pas un succès automatique." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardReceiptReview" Content="Consigner la revue" IsEnabled="False" ToolTip="Enregistre dans le reçu le motif saisi, après votre contrôle réel. Le reçu devient « Revue manuelle », pas un succès automatique."/>
 </WrapPanel></StackPanel></Border>
-<Border Style="{StaticResource Card}" Margin="0,0,0,12"><StackPanel><TextBlock Text="Saisies et accès distants" FontSize="18" FontWeight="SemiBold"/>
+<Border Style="{StaticResource Card}" Margin="0,0,0,12"><StackPanel><TextBlock Text="Saisies et accès distants" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"/>
 <TextBlock x:Name="LblGuardDraft" Text="Aucune modification de formulaire en attente." TextWrapping="Wrap" Margin="0,8,0,10"/>
 <Button AutomationProperties.Name="Comparer les saisies" AutomationProperties.HelpText="Compare les champs modifiés avec la première lecture et une éventuelle réponse plus récente. Aucun remplacement automatique." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardDraft" Content="Comparer les saisies" HorizontalAlignment="Left" ToolTip="Compare les champs modifiés avec la première lecture et une éventuelle réponse plus récente. Aucun remplacement automatique."/>
 <TextBlock x:Name="LblGuardRemote" Text="Les sondes ordinaires ne créent ni service ni tâche. Les anciens transports avec dépôts demandent une autorisation distincte." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,16,0,10"/>
 <TextBlock x:Name="LblGuardReadFallback" Text="Une lecture ne bascule jamais seule sur PsExec ou une tâche planifiée. Demandez-le pour la lecture qui en a besoin." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,16,0,10"/>
 <WrapPanel><Button AutomationProperties.Name="Autoriser une intervention sur cette machine" AutomationProperties.HelpText="Autorisation de cinq minutes, pour la machine sélectionnée uniquement. Ne lance rien ; les droits restent obligatoires." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardRemote" Content="Autoriser une intervention sur cette machine" ToolTip="Autorisation de cinq minutes, pour la machine sélectionnée uniquement. Ne lance rien ; les droits restent obligatoires."/><Button AutomationProperties.Name="Lire ce poste par tache planifiee" AutomationProperties.HelpText="Une seule lecture, pour la machine selectionnee. Le repli PsExec ou tache ne se declenche jamais sans cette demande." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardReadFallback" Content="Lire ce poste par tâche planifiée" ToolTip="A demander quand CIM ne répond pas : autorise une seule lecture par PsExec ou tâche planifiée, pour la machine sélectionnée."/><Button AutomationProperties.Name="Retirer l'autorisation" AutomationProperties.HelpText="Les sondes déjà envoyées peuvent encore finir. Aucune nouvelle intervention avec dépôt ne sera autorisée." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardRemoteOff" Content="Retirer l'autorisation" ToolTip="Les sondes déjà envoyées peuvent encore finir. Aucune nouvelle intervention avec dépôt ne sera autorisée."/></WrapPanel>
 </StackPanel></Border>
-<Border Style="{StaticResource Card}" Margin="0,0,0,12"><StackPanel><TextBlock Text="Suite support et mesures" FontSize="18" FontWeight="SemiBold"/>
+<Border Style="{StaticResource Card}" Margin="0,0,0,12"><StackPanel><TextBlock Text="Suite support et mesures" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"/>
 <WrapPanel Margin="0,6,0,10"><Button x:Name="BtnGuardExport" Content="Diagnostic expurgé" ToolTip="Prépare le diagnostic expurgé (versions, mesures locales, codes dʼerreur, traces sans cible), le montre en entier, puis lʼenregistre dans un fichier local après confirmation. Aucun envoi." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Diagnostic expurgé" AutomationProperties.HelpText="Prépare le diagnostic expurgé (versions, mesures locales, codes dʼerreur, traces sans cible), le montre en entier, puis lʼenregistre dans un fichier local après confirmation. Aucun envoi."/><Button x:Name="BtnGuardWhy" Content="Pourquoi une action est indisponible ?" ToolTip="Explique les protections et preconditions actuelles sans modifier de droit." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Pourquoi une action est indisponible ?" AutomationProperties.HelpText="Explique les protections et preconditions actuelles sans modifier de droit."/></WrapPanel><CheckBox x:Name="ChkGuardReconcile" Content="Reverifier le perimetre consulte en arriere-plan" IsChecked="True" Margin="0,0,0,8" ToolTip="Relit la dernière requête explicite, au plus toutes les trois minutes et dans sa limite de résultats. Aucun scan au démarrage." AutomationProperties.Name="Reverifier le perimetre consulte en arriere-plan" AutomationProperties.HelpText="Relit la derniere requete explicite, au plus toutes les trois minutes et dans sa limite de resultats. Aucun scan au demarrage."/><TextBlock x:Name="LblGuardMetrics" Text="Les mesures locales apparaîtront ici." TextWrapping="Wrap" Margin="0,8,0,12" Foreground="{DynamicResource MutedColor}"/>
 <WrapPanel><Button AutomationProperties.Name="Ouvrir Pesto" AutomationProperties.HelpText="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardPesto" Content="Ouvrir Pesto" ToolTip="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis."/><Button AutomationProperties.Name="Ouvrir FilPro" AutomationProperties.HelpText="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardFilPro" Content="Ouvrir FilPro" ToolTip="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis."/></WrapPanel>
 </StackPanel></Border>
@@ -7575,7 +7604,7 @@ function Get-MainXaml {
                             <RowDefinition Height="*"/>
                           </Grid.RowDefinitions>
                           <StackPanel Grid.Row="0" Margin="0,0,0,10">
-                            <TextBlock Text="Vérification de lʼapplication" FontSize="18" FontWeight="SemiBold"/>
+                            <TextBlock Text="Vérification de lʼapplication" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"/>
                             <TextBlock Text="Verifie que la connexion, les lectures et les composants de l application fonctionnent. Aucune modification d Active Directory." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
                             <WrapPanel>
                               <Button x:Name="BtnSelfCheckQuick" ToolTip="Controles essentiels de la connexion et des composants." Content="Verification rapide" Style="{StaticResource RunButton}" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Verification rapide" AutomationProperties.HelpText="Controles essentiels de la connexion et des composants."/>
@@ -7630,28 +7659,28 @@ function Get-MainXaml {
                     <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="10" Padding="12,8" Margin="0,0,8,0">
                       <StackPanel>
                         <TextBlock Text="Comptes" Foreground="{DynamicResource MutedColor}" TextTrimming="CharacterEllipsis" />
-                        <TextBlock x:Name="LblIndexTileAccounts" Text="—" FontSize="22" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="Comptes utilisateurs enregistrés dans la base locale de ce domaine." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Comptes de la base locale" AutomationProperties.HelpText="Comptes utilisateurs enregistrés dans la base locale de ce domaine." />
+                        <TextBlock x:Name="LblIndexTileAccounts" Text="—" FontSize="{DynamicResource FontSizePageTitle}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="Comptes utilisateurs enregistrés dans la base locale de ce domaine." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Comptes de la base locale" AutomationProperties.HelpText="Comptes utilisateurs enregistrés dans la base locale de ce domaine." />
                         <TextBlock x:Name="LblIndexTileAccountsDetail" Text="" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" ToolTip="Nature des objets comptés dans la tuile Comptes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Précision sur les comptes" AutomationProperties.HelpText="Nature des objets comptés dans la tuile Comptes." />
                       </StackPanel>
                     </Border>
                     <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="10" Padding="12,8" Margin="0,0,8,0">
                       <StackPanel>
                         <TextBlock Text="Postes" Foreground="{DynamicResource MutedColor}" TextTrimming="CharacterEllipsis" />
-                        <TextBlock x:Name="LblIndexTileComputers" Text="—" FontSize="22" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="Postes (objets ordinateur) enregistrés dans la base locale de ce domaine." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Postes de la base locale" AutomationProperties.HelpText="Postes (objets ordinateur) enregistrés dans la base locale de ce domaine." />
+                        <TextBlock x:Name="LblIndexTileComputers" Text="—" FontSize="{DynamicResource FontSizePageTitle}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="Postes (objets ordinateur) enregistrés dans la base locale de ce domaine." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Postes de la base locale" AutomationProperties.HelpText="Postes (objets ordinateur) enregistrés dans la base locale de ce domaine." />
                         <TextBlock x:Name="LblIndexTileComputersDetail" Text="" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" ToolTip="Postes actifs et désactivés dans Active Directory, selon la dernière lecture enregistrée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Postes actifs et désactivés" AutomationProperties.HelpText="Postes actifs et désactivés dans Active Directory, selon la dernière lecture enregistrée." />
                       </StackPanel>
                     </Border>
                     <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="10" Padding="12,8" Margin="0,0,8,0">
                       <StackPanel>
                         <TextBlock Text="Associations" Foreground="{DynamicResource MutedColor}" TextTrimming="CharacterEllipsis" />
-                        <TextBlock x:Name="LblIndexTileLinks" Text="—" FontSize="22" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="Associations utilisateur-poste conservées dans la base locale." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Associations de la base locale" AutomationProperties.HelpText="Associations utilisateur-poste conservées dans la base locale." />
+                        <TextBlock x:Name="LblIndexTileLinks" Text="—" FontSize="{DynamicResource FontSizePageTitle}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="Associations utilisateur-poste conservées dans la base locale." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Associations de la base locale" AutomationProperties.HelpText="Associations utilisateur-poste conservées dans la base locale." />
                         <TextBlock x:Name="LblIndexTileLinksDetail" Text="" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" ToolTip="Nature des liens comptés dans la tuile Associations." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Précision sur les associations" AutomationProperties.HelpText="Nature des liens comptés dans la tuile Associations." />
                       </StackPanel>
                     </Border>
                     <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="10" Padding="12,8" Margin="0">
                       <StackPanel>
                         <TextBlock Text="Dernière mise à jour" Foreground="{DynamicResource MutedColor}" TextTrimming="CharacterEllipsis" />
-                        <TextBlock x:Name="LblIndexTileUpdated" Text="—" FontSize="22" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="Âge de la dernière lecture complète couvrant le périmètre choisi." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Âge de la dernière mise à jour" AutomationProperties.HelpText="Âge de la dernière lecture complète couvrant le périmètre choisi." />
+                        <TextBlock x:Name="LblIndexTileUpdated" Text="—" FontSize="{DynamicResource FontSizePageTitle}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="Âge de la dernière lecture complète couvrant le périmètre choisi." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Âge de la dernière mise à jour" AutomationProperties.HelpText="Âge de la dernière lecture complète couvrant le périmètre choisi." />
                         <TextBlock x:Name="LblIndexTileUpdatedDetail" Text="" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" ToolTip="Date et heure de la dernière lecture complète couvrant le périmètre choisi." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Date de la dernière mise à jour" AutomationProperties.HelpText="Date et heure de la dernière lecture complète couvrant le périmètre choisi." />
                       </StackPanel>
                     </Border>
@@ -7839,7 +7868,7 @@ function Get-MainXaml {
                       <TabItem x:Name="TabOperationStats" Header="Charge &amp; stats" ToolTip="Mesures réelles des opérations DOMENIA : durée, volume réseau estimé, fallback distant et taux de réussite." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Charge &amp; stats" AutomationProperties.HelpText="Mesures reelles des operations DOMENIA : duree, volume reseau estime, fallback distant et taux de reussite.">
                         <DockPanel Margin="8">
                           <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                            <TextBlock Text="Impact et statistiques" FontSize="18" FontWeight="SemiBold"/>
+                            <TextBlock Text="Impact et statistiques" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"/>
                             <TextBlock Text="DOMENIA chronomètre les opérations longues et les accès distants. Ces mesures alimentent automatiquement les estimations affichées avant les gros lots." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
                             <WrapPanel>
                               <Button x:Name="BtnOperationStatsRefresh" Content="Actualiser" Style="{StaticResource RunButton}" ToolTip="Relit les statistiques depuis Domenia.db." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser" AutomationProperties.HelpText="Relit les statistiques depuis Domenia.db."/>
@@ -7872,7 +7901,7 @@ function Get-MainXaml {
                       <TabItem x:Name="TabDomain" ToolTip="Roles FSMO, niveaux fonctionnels, controleurs et strategie du domaine." Header="Domaine" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Domaine" AutomationProperties.HelpText="Roles FSMO, niveaux fonctionnels, controleurs et strategie du domaine.">
                         <DockPanel Margin="4">
                           <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                            <TextBlock Text="État du domaine" FontSize="18" FontWeight="SemiBold"/>
+                            <TextBlock Text="État du domaine" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"/>
                             <TextBlock Text="État du domaine : rôles FSMO, niveaux fonctionnels, contrôleurs, sites, approbations, corbeille, stratégie de mot de passe et comptes à privilèges." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
                             <WrapPanel>
                               <Button x:Name="BtnLoadDomain" ToolTip="Lit lʼétat du domaine et de ses contrôleurs." Content="Analyser le domaine" Style="{StaticResource RunButton}" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Analyser le domaine" AutomationProperties.HelpText="Lit l etat du domaine et de ses controleurs."/>
@@ -7905,7 +7934,7 @@ function Get-MainXaml {
                             <RowDefinition Height="*"/>
                           </Grid.RowDefinitions>
                           <StackPanel Grid.Row="0" Margin="0,0,0,10">
-                            <TextBlock Text="Commandes Active Directory et LAPS" FontSize="18" FontWeight="SemiBold"/>
+                            <TextBlock Text="Commandes Active Directory et LAPS" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"/>
                             <TextBlock Text="Commandes Active Directory et LAPS disponibles sur ce poste. Selectionne-en une pour voir sa syntaxe, ses parametres et ses exemples." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
                             <Grid>
                               <Grid.ColumnDefinitions>
@@ -7965,7 +7994,7 @@ function Get-MainXaml {
                       </TabItem>
                       <TabItem x:Name="TabLog" ToolTip="Journal detaille de la session en cours." Header="Journal" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Journal" AutomationProperties.HelpText="Journal detaille de la session en cours.">
                         <Border Margin="8" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="12" Padding="8" Background="{DynamicResource BgCard}">
-                          <TextBox x:Name="TxtLog" FontFamily="Consolas" FontSize="12" AcceptsReturn="True" TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" IsReadOnly="True" ToolTip="Journal détaillé de l’application. Les noms internes ne sont pas anonymisés par la consultation ou la copie." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Journal technique" AutomationProperties.HelpText="Journal détaillé de l’application. Les noms internes ne sont pas anonymisés par la consultation ou la copie." VerticalContentAlignment="Top"/>
+                          <TextBox x:Name="TxtLog" FontFamily="Consolas" FontSize="{DynamicResource FontSizeSmall}" AcceptsReturn="True" TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" IsReadOnly="True" ToolTip="Journal détaillé de l’application. Les noms internes ne sont pas anonymisés par la consultation ou la copie." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Journal technique" AutomationProperties.HelpText="Journal détaillé de l’application. Les noms internes ne sont pas anonymisés par la consultation ou la copie." VerticalContentAlignment="Top"/>
                         </Border>
                       </TabItem>
                     </TabControl>
@@ -7980,27 +8009,27 @@ function Get-MainXaml {
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                   </Grid.ColumnDefinitions>
-                  <TextBlock Text="Aide contextuelle" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="4,0,8,0"/>
-                  <Button Grid.Column="1" x:Name="BtnUxHelpClose" Content="›" FontSize="22" Width="34" MinWidth="34" Height="32" MinHeight="32" Padding="0" Margin="0" ToolTip="Masque la colonne de droite pour agrandir les résultats. Le bouton d’aide du bandeau permet de la rouvrir ; les infobulles restent actives." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Réduire le panneau d’aide" AutomationProperties.HelpText="Masque la colonne de droite pour agrandir les résultats. Le bouton d’aide du bandeau permet de la rouvrir ; les infobulles restent actives."/>
+                  <TextBlock Text="Aide contextuelle" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="4,0,8,0"/>
+                  <Button Grid.Column="1" x:Name="BtnUxHelpClose" Content="›" FontSize="{DynamicResource FontSizePageTitle}" Width="34" MinWidth="34" Height="32" MinHeight="32" Padding="0" Margin="0" ToolTip="Masque la colonne de droite pour agrandir les résultats. Le bouton d’aide du bandeau permet de la rouvrir ; les infobulles restent actives." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Réduire le panneau d’aide" AutomationProperties.HelpText="Masque la colonne de droite pour agrandir les résultats. Le bouton d’aide du bandeau permet de la rouvrir ; les infobulles restent actives."/>
                 </Grid>
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                   <StackPanel Margin="0,2,3,0">
                     <Border Style="{StaticResource Card}" Margin="0,0,0,12" Padding="18">
                       <StackPanel>
-                        <TextBlock Text="Contexte de travail" FontSize="15" FontWeight="SemiBold"/>
-                        <TextBlock Text="Objet actuellement chargé" Margin="0,10,0,4" FontSize="11" Foreground="{DynamicResource MutedColor}"/>
+                        <TextBlock Text="Contexte de travail" FontSize="{DynamicResource FontSizeSubtitle}" FontWeight="SemiBold"/>
+                        <TextBlock Text="Objet actuellement chargé" Margin="0,10,0,4" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource MutedColor}"/>
                         <TextBlock Text="Aucune fiche ouverte" FontWeight="SemiBold" TextWrapping="Wrap" x:Name="LblUxSelected"/>
-                        <TextBlock Text="Aucune action n’est lancée par ce panneau." Foreground="{DynamicResource MutedColor}" FontSize="11" TextWrapping="Wrap" Margin="0,9,0,0"/>
+                        <TextBlock Text="Aucune action n’est lancée par ce panneau." Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}" TextWrapping="Wrap" Margin="0,9,0,0"/>
                       <Expander x:Name="UxSuiteIdentities" Header="Comptes utilisés" IsExpanded="False" Margin="0,10,0,0" ToolTip="Affiche seulement les noms des identités configurées. Une identité active ne confirme pas ses droits sur une cible." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Comptes utilisés" AutomationProperties.HelpText="Affiche seulement les noms des identités configurées. Une identité active ne confirme pas ses droits sur une cible."><StackPanel Margin="0,8,0,0">
-<TextBlock Text="Annuaire" FontSize="11" Foreground="{DynamicResource MutedColor}"/><TextBlock x:Name="LblSuiteIdentityAd" TextWrapping="Wrap"/>
-<TextBlock Text="Postes" FontSize="11" Margin="0,8,0,0" Foreground="{DynamicResource MutedColor}"/><TextBlock x:Name="LblSuiteIdentityRemote" TextWrapping="Wrap"/>
-<TextBlock Text="Secrets" FontSize="11" Margin="0,8,0,0" Foreground="{DynamicResource MutedColor}"/><TextBlock x:Name="LblSuiteIdentitySecrets" TextWrapping="Wrap"/>
-<TextBlock Text="Identité choisie ≠ droits confirmés sur la cible." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" FontSize="11" Margin="0,10,0,0"/>
+<TextBlock Text="Annuaire" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource MutedColor}"/><TextBlock x:Name="LblSuiteIdentityAd" TextWrapping="Wrap"/>
+<TextBlock Text="Postes" FontSize="{DynamicResource FontSizeCaption}" Margin="0,8,0,0" Foreground="{DynamicResource MutedColor}"/><TextBlock x:Name="LblSuiteIdentityRemote" TextWrapping="Wrap"/>
+<TextBlock Text="Secrets" FontSize="{DynamicResource FontSizeCaption}" Margin="0,8,0,0" Foreground="{DynamicResource MutedColor}"/><TextBlock x:Name="LblSuiteIdentitySecrets" TextWrapping="Wrap"/>
+<TextBlock Text="Identité choisie ≠ droits confirmés sur la cible." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}" Margin="0,10,0,0"/>
 </StackPanel></Expander></StackPanel>
                     </Border>
                     <Border Style="{StaticResource Card}" Margin="0,0,0,12" Padding="18">
                       <StackPanel>
-                        <TextBlock Text="Aide et prochaines étapes" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,14"/>
+                        <TextBlock Text="Aide et prochaines étapes" FontSize="{DynamicResource FontSizeSubtitle}" FontWeight="SemiBold" Margin="0,0,0,14"/>
                         <Button x:Name="BtnUxStep1" Uid="WsSearch" Style="{StaticResource UxStepButton}" Margin="0,0,0,10" ToolTip="Ouvre la recherche. Aucun scan n’est lancé par ce raccourci." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="1. Trouver" AutomationProperties.HelpText="Ouvre la recherche. Aucun scan n’est lancé par ce raccourci.">
                           <Grid>
                             <Grid.ColumnDefinitions>
@@ -8012,8 +8041,8 @@ function Get-MainXaml {
                               <TextBlock Text="1" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}"/>
                             </Border>
                             <StackPanel Grid.Column="2" VerticalAlignment="Top">
-                              <TextBlock Text="Trouver" FontWeight="SemiBold" FontSize="14" Foreground="{DynamicResource TextColor}"/>
-                              <TextBlock Text="Rechercher une personne ou un poste." TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource MutedColor}" Margin="0,3,0,0" LineHeight="18"/>
+                              <TextBlock Text="Trouver" FontWeight="SemiBold" FontSize="{DynamicResource FontSizeSubtitle}" Foreground="{DynamicResource TextColor}"/>
+                              <TextBlock Text="Rechercher une personne ou un poste." TextWrapping="Wrap" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" Margin="0,3,0,0" LineHeight="18"/>
                             </StackPanel>
                           </Grid>
                         </Button>
@@ -8028,8 +8057,8 @@ function Get-MainXaml {
                               <TextBlock Text="2" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}"/>
                             </Border>
                             <StackPanel Grid.Column="2" VerticalAlignment="Top">
-                              <TextBlock Text="Consulter" FontWeight="SemiBold" FontSize="14" Foreground="{DynamicResource TextColor}"/>
-                              <TextBlock Text="Vérifier la fiche et la source des données." TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource MutedColor}" Margin="0,3,0,0" LineHeight="18"/>
+                              <TextBlock Text="Consulter" FontWeight="SemiBold" FontSize="{DynamicResource FontSizeSubtitle}" Foreground="{DynamicResource TextColor}"/>
+                              <TextBlock Text="Vérifier la fiche et la source des données." TextWrapping="Wrap" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" Margin="0,3,0,0" LineHeight="18"/>
                             </StackPanel>
                           </Grid>
                         </Button>
@@ -8044,8 +8073,8 @@ function Get-MainXaml {
                               <TextBlock Text="3" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}"/>
                             </Border>
                             <StackPanel Grid.Column="2" VerticalAlignment="Top">
-                              <TextBlock Text="Préparer" FontWeight="SemiBold" FontSize="14" Foreground="{DynamicResource TextColor}"/>
-                              <TextBlock Text="Comparer des captures et rédiger un dossier." TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource MutedColor}" Margin="0,3,0,0" LineHeight="18"/>
+                              <TextBlock Text="Préparer" FontWeight="SemiBold" FontSize="{DynamicResource FontSizeSubtitle}" Foreground="{DynamicResource TextColor}"/>
+                              <TextBlock Text="Comparer des captures et rédiger un dossier." TextWrapping="Wrap" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" Margin="0,3,0,0" LineHeight="18"/>
                             </StackPanel>
                           </Grid>
                         </Button>
@@ -8055,8 +8084,8 @@ function Get-MainXaml {
                     </Border>
                     <Border Style="{StaticResource Card}" Margin="0,0,0,12" Padding="18" Background="{DynamicResource InfoBg}">
                       <StackPanel>
-                        <TextBlock x:Name="LblContextTitle" Text="À quoi sert cet élément ?" Foreground="{DynamicResource InfoFg}" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8" TextWrapping="Wrap"/>
-                        <TextBlock x:Name="LblContextHint" Text="Survolez un contrôle ou utilisez Tab pour lire son rôle ici. Les champs de mot de passe ne sont jamais recopiés dans cette aide." Foreground="{DynamicResource InfoFg}" FontSize="12" TextWrapping="Wrap" Margin="0" LineHeight="18"/>
+                        <TextBlock x:Name="LblContextTitle" Text="À quoi sert cet élément ?" Foreground="{DynamicResource InfoFg}" FontSize="{DynamicResource FontSizeSubtitle}" FontWeight="SemiBold" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="LblContextHint" Text="Survolez un contrôle ou utilisez Tab pour lire son rôle ici. Les champs de mot de passe ne sont jamais recopiés dans cette aide." Foreground="{DynamicResource InfoFg}" FontSize="{DynamicResource FontSizeSmall}" TextWrapping="Wrap" Margin="0" LineHeight="18"/>
                       </StackPanel>
                     </Border>
                   </StackPanel>
@@ -8080,10 +8109,10 @@ function Get-MainXaml {
                 <TextBlock Grid.Column="1" x:Name="LblUiLogLast" AutomationProperties.LiveSetting="Polite" Visibility="Collapsed" VerticalAlignment="Center" Margin="4,0,8,0" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource MutedColor}" ToolTip="Dernier message de la session. Un clic sur la barre déplie le journal." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Dernier message du journal" AutomationProperties.HelpText="Dernier message de la session. Un clic sur la barre déplie le journal."/>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="4,0,8,0">
                   <Border x:Name="UiLogErrorBadge" Visibility="Collapsed" Background="{DynamicResource DangerColor}" CornerRadius="10" Padding="8,2" Margin="2,0,6,0" VerticalAlignment="Center" ToolTip="Erreur non lue dans le journal. Dépliez le journal pour la lire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Erreur non lue" AutomationProperties.HelpText="Erreur non lue dans le journal. Dépliez le journal pour la lire.">
-                    <TextBlock x:Name="LblUiLogErrorBadge" Text="1 erreur" Foreground="White" FontSize="11" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="LblUiLogErrorBadge" Text="1 erreur" Foreground="White" FontSize="{DynamicResource FontSizeCaption}" FontWeight="SemiBold"/>
                   </Border>
                   <Border x:Name="UiLogUnavailableBadge" Visibility="Collapsed" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource StatusWarning}" BorderThickness="1" CornerRadius="10" Padding="8,1" Margin="2,0,6,0" VerticalAlignment="Center" ToolTip="Domenia.log nʼest pas inscriptible. Un journal de secours est utilisé si possible." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Journal indisponible" AutomationProperties.HelpText="Domenia.log nʼest pas inscriptible. Un journal de secours est utilisé si possible.">
-                    <TextBlock Text="Journal indisponible" Foreground="{DynamicResource StatusWarning}" FontSize="11" FontWeight="SemiBold"/>
+                    <TextBlock Text="Journal indisponible" Foreground="{DynamicResource StatusWarning}" FontSize="{DynamicResource FontSizeCaption}" FontWeight="SemiBold"/>
                   </Border>
                   <StackPanel x:Name="UxLogCommands" Orientation="Horizontal" VerticalAlignment="Center">
                     <CheckBox x:Name="ChkUiLogFollow" Content="Suivre" IsChecked="True" VerticalAlignment="Center" Margin="4,0,10,0" ToolTip="Désactivez pour lire le journal sans défilement automatique." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Suivre" AutomationProperties.HelpText="Désactivez pour lire le journal sans défilement automatique."/>
@@ -8095,7 +8124,7 @@ function Get-MainXaml {
                   <Button Content="˅" Margin="4,0,0,0" Height="28" MinHeight="28" Padding="8,2" ToolTip="Déplie ou replie le journal de session. Replié, il montre la dernière ligne et une pastille rouge pour une erreur non lue. Lʼenregistrement continue dans les deux cas." x:Name="BtnUxLogToggle" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Taille du journal" AutomationProperties.HelpText="Déplie ou replie le journal de session. Replié, il montre la dernière ligne et une pastille rouge pour une erreur non lue. Lʼenregistrement continue dans les deux cas."/>
                 </StackPanel>
               </Grid>
-              <TextBox x:Name="TxtUiLog" Grid.Row="2" Background="{DynamicResource LogBg}" Foreground="{DynamicResource LogFg}" BorderThickness="0" FontFamily="Consolas" FontSize="11" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Padding="10" ToolTip="Événements et erreurs de la session. Désactivez Suivre pour lire sans défilement automatique. Copier masque les noms internes si Masquer les noms est coché." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Journal de session" AutomationProperties.HelpText="Événements et erreurs de la session. Désactivez Suivre pour lire sans défilement automatique. Copier masque les noms internes si Masquer les noms est coché." VerticalContentAlignment="Top"/>
+              <TextBox x:Name="TxtUiLog" Grid.Row="2" Background="{DynamicResource LogBg}" Foreground="{DynamicResource LogFg}" BorderThickness="0" FontFamily="Consolas" FontSize="{DynamicResource FontSizeCaption}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Padding="10" ToolTip="Événements et erreurs de la session. Désactivez Suivre pour lire sans défilement automatique. Copier masque les noms internes si Masquer les noms est coché." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Journal de session" AutomationProperties.HelpText="Événements et erreurs de la session. Désactivez Suivre pour lire sans défilement automatique. Copier masque les noms internes si Masquer les noms est coché." VerticalContentAlignment="Top"/>
               <ListBox x:Name="LstUiLogReadable" Grid.Row="2" Visibility="Collapsed" Background="{DynamicResource LogBg}" Foreground="{DynamicResource LogFg}" BorderThickness="0" Padding="8,4" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTip="Journal lisible : heure, niveau et message. Le format brut et lʼétat du moteur sont dans le profil Expert." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Journal de session lisible" AutomationProperties.HelpText="Journal lisible : heure, niveau et message. Le format brut et lʼétat du moteur sont dans le profil Expert.">
                 <ListBox.ItemTemplate>
                   <DataTemplate>
@@ -8109,15 +8138,15 @@ function Get-MainXaml {
                 </ListBox.ItemTemplate>
               </ListBox>
             <WrapPanel x:Name="UxSuiteLogTools" Grid.Row="1" Margin="10,0,10,6" VerticalAlignment="Center">
-<TextBlock Text="Dans le journal" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11"/>
+<TextBlock Text="Dans le journal" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="{DynamicResource FontSizeCaption}"/>
 <TextBox x:Name="TxtSuiteLogFind" Width="190" MaxLength="120" MinHeight="28" Padding="7,3" ToolTip="Recherche littérale dans le journal actuellement affiché. Entrée ou Suivant parcourt les occurrences sans requête réseau." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher dans le journal" AutomationProperties.HelpText="Recherche littérale dans le journal actuellement affiché. Entrée ou Suivant parcourt les occurrences sans requête réseau."/>
 <Button x:Name="BtnSuiteLogNext" Content="Suivant" MinHeight="28" Padding="10,3" Margin="6,0,12,0" ToolTip="Sélectionne la prochaine occurrence et met le défilement automatique en pause. L’enregistrement du journal continue." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Occurrence suivante" AutomationProperties.HelpText="Sélectionne la prochaine occurrence et met le défilement automatique en pause. L’enregistrement du journal continue."/>
 <CheckBox x:Name="ChkUiLogErrorsOnly" Content="Erreurs seulement" VerticalAlignment="Center" Margin="0,0,12,0" ToolTip="Nʼaffiche que les erreurs du journal lisible. Lʼenregistrement continue pour tous les niveaux." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Erreurs seulement" AutomationProperties.HelpText="Nʼaffiche que les erreurs du journal lisible. Lʼenregistrement continue pour tous les niveaux."/>
 <CheckBox x:Name="ChkSuiteLogWrap" Content="Retour à la ligne" VerticalAlignment="Center" Margin="0,0,12,0" ToolTip="Replie les longues lignes pour les lire sans déplacement horizontal. Ne modifie pas les événements enregistrés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Retour à la ligne du journal" AutomationProperties.HelpText="Replie les longues lignes pour les lire sans déplacement horizontal. Ne modifie pas les événements enregistrés."/>
 <ComboBox x:Name="CmbSuiteLogSize" Width="60" MinHeight="28" SelectedIndex="1" ToolTip="Ajuste uniquement la taille de lecture, entre 10 et 18. Le choix est mémorisé." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Taille du texte du journal" AutomationProperties.HelpText="Ajuste uniquement la taille de lecture, entre 10 et 18. Le choix est mémorisé."><ComboBoxItem Content="10"/><ComboBoxItem Content="11"/><ComboBoxItem Content="12"/><ComboBoxItem Content="14"/><ComboBoxItem Content="16"/><ComboBoxItem Content="18"/></ComboBox>
-<TextBlock Text="Lignes des résultats" VerticalAlignment="Center" Margin="14,0,8,0" FontSize="11"/>
+<TextBlock Text="Lignes des résultats" VerticalAlignment="Center" Margin="14,0,8,0" FontSize="{DynamicResource FontSizeCaption}"/>
 <ComboBox x:Name="CmbSuiteDensity" Width="104" MinHeight="28" SelectedIndex="0" ToolTip="Réglage dʼaffichage : Confort, lignes de 36 unités ; Compact, lignes de 28 unités. Mémorisé. Ne change ni les filtres AD ni vos droits." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Densité des résultats" AutomationProperties.HelpText="Réglage dʼaffichage : Confort, lignes de 36 unités ; Compact, lignes de 28 unités. Mémorisé. Ne change ni les filtres AD ni vos droits."><ComboBoxItem Content="Confort"/><ComboBoxItem Content="Compact"/></ComboBox>
-<TextBlock x:Name="LblSuiteLogFind" VerticalAlignment="Center" Margin="10,0,0,0" FontSize="11" Foreground="{DynamicResource MutedColor}"/>
+<TextBlock x:Name="LblSuiteLogFind" VerticalAlignment="Center" Margin="10,0,0,0" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource MutedColor}"/>
 </WrapPanel></Grid>
           </Border>
           <GridSplitter x:Name="LogGridSplitter" Height="8" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="{DynamicResource SplitterBg}" ShowsPreview="True" ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" Cursor="SizeNS" Grid.Row="3" ToolTip="Faites glisser cette séparation pour ajuster la hauteur du journal." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Hauteur du journal" AutomationProperties.HelpText="Faites glisser cette séparation pour ajuster la hauteur du journal."/>
@@ -8461,7 +8490,7 @@ function Get-DomeniaTreeHeaderTemplate {
 <DataTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <StackPanel x:Name="HeaderRoot" Orientation="Horizontal" Background="Transparent">
     <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
-    <Button x:Name="OuStar" Content="☆" Visibility="Hidden" Focusable="False" Margin="6,0,0,0" MinWidth="0" MinHeight="0" Cursor="Hand" FontFamily="Segoe UI Symbol" FontSize="13" Foreground="{DynamicResource AccentText}" ToolTip="Épingler cette OU dans les favoris" AutomationProperties.Name="Épingler cette OU">
+    <Button x:Name="OuStar" Content="☆" Visibility="Hidden" Focusable="False" Margin="6,0,0,0" MinWidth="0" MinHeight="0" Cursor="Hand" FontFamily="Segoe UI Symbol" FontSize="{DynamicResource FontSizeBody}" Foreground="{DynamicResource AccentText}" ToolTip="Épingler cette OU dans les favoris" AutomationProperties.Name="Épingler cette OU">
       <Button.Template><ControlTemplate TargetType="Button"><Border Background="Transparent" Padding="2,0"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></ControlTemplate></Button.Template>
     </Button>
   </StackPanel>

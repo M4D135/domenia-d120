@@ -12,9 +12,9 @@ function Show-DomeniaProbeDetails {
     $window=[Windows.Window]::new();$window.Title='Détails de la sonde · '+$definition.Name;$window.Width=1000;$window.Height=760
     $root=[Windows.Controls.DockPanel]::new();$root.Margin=[Windows.Thickness]::new(16)
     $top=[Windows.Controls.StackPanel]::new();[Windows.Controls.DockPanel]::SetDock($top,'Top')
-    $title=[Windows.Controls.TextBlock]::new();$title.Text=[string]$selected.Name+' · '+$definition.Name;$title.FontSize=20;$title.FontWeight='SemiBold';$title.TextWrapping='Wrap';[void]$top.Children.Add($title)
+    $title=[Windows.Controls.TextBlock]::new();$title.Text=[string]$selected.Name+' · '+$definition.Name;$title.SetResourceReference([Windows.Controls.TextBlock]::FontSizeProperty,'FontSizeTitle');$title.FontWeight='SemiBold';$title.TextWrapping='Wrap';[void]$top.Children.Add($title)
     $status=[Windows.Controls.TextBlock]::new();$status.Text='Lecture des mesures enregistrées dans la base locale…';$status.TextWrapping='Wrap';$status.Margin='0,8,0,8';[void]$top.Children.Add($status)
-    $readingTitle=[Windows.Controls.TextBlock]::new();$readingTitle.FontSize=15;$readingTitle.FontWeight='SemiBold';$readingTitle.TextWrapping='Wrap';$readingTitle.Margin='0,4,0,4'
+    $readingTitle=[Windows.Controls.TextBlock]::new();$readingTitle.SetResourceReference([Windows.Controls.TextBlock]::FontSizeProperty,'FontSizeSubtitle');$readingTitle.FontWeight='SemiBold';$readingTitle.TextWrapping='Wrap';$readingTitle.Margin='0,4,0,4'
     $readingGrid=New-DomeniaProbeReadingGrid
     $readingActions=[Windows.Controls.WrapPanel]::new();$readingActions.Margin='0,6,0,0';$readingActions.Visibility='Collapsed'
     $approve=[Windows.Controls.Button]::new();$approve.Content='Approuver cette version pour ce modèle';$approve.Margin='0,0,8,0';$approve.IsEnabled=$false
@@ -38,7 +38,7 @@ function Show-DomeniaProbeDetails {
         $contractText.Text=(@(Get-DomeniaProbeContractLines -Contract $contractEntry.Contract -Check $contractEntry.Check -Isolation $isolation|ForEach-Object{[string]$_.Section+' : '+[string]$_.Valeur}) -join [Environment]::NewLine)
     }
     $contractBox.Content=$contractText;[void]$top.Children.Add($contractBox)
-    $rawTitle=[Windows.Controls.TextBlock]::new();$rawTitle.Text='Valeurs enregistrées de la requête';$rawTitle.FontSize=15;$rawTitle.FontWeight='SemiBold';$rawTitle.Margin='0,12,0,4';[void]$top.Children.Add($rawTitle)
+    $rawTitle=[Windows.Controls.TextBlock]::new();$rawTitle.Text='Valeurs enregistrées de la requête';$rawTitle.SetResourceReference([Windows.Controls.TextBlock]::FontSizeProperty,'FontSizeSubtitle');$rawTitle.FontWeight='SemiBold';$rawTitle.Margin='0,12,0,4';[void]$top.Children.Add($rawTitle)
     $choice=[Windows.Controls.ComboBox]::new();$choice.Items.Add('Dernière réussite')|Out-Null;$choice.Items.Add('Dernière tentative')|Out-Null;$choice.SelectedIndex=0;$choice.IsEnabled=$false;$choice.Margin='0,0,0,10';[void]$top.Children.Add($choice)
     [void]$root.Children.Add($top)
     $footer=[Windows.Controls.WrapPanel]::new();$footer.Margin='0,10,0,0';[Windows.Controls.DockPanel]::SetDock($footer,'Bottom')

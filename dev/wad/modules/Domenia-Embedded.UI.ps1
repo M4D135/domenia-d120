@@ -128,7 +128,7 @@ function Show-DomeniaEmbeddedWindow {
     $header=[Windows.Controls.Grid]::new();$header.Margin='0,0,0,12'
     [void]$header.ColumnDefinitions.Add([Windows.Controls.ColumnDefinition]::new())
     [void]$header.ColumnDefinitions.Add([Windows.Controls.ColumnDefinition]::new());$header.ColumnDefinitions[1].Width='Auto'
-    $title=[Windows.Controls.TextBlock]::new();$title.Text=[string]$Window.Title;$title.FontSize=18;$title.FontWeight='SemiBold';$title.TextWrapping='Wrap';$title.VerticalAlignment='Center';$title.Margin='0,0,12,0'
+    $title=[Windows.Controls.TextBlock]::new();$title.Text=[string]$Window.Title;$title.SetResourceReference([Windows.Controls.TextBlock]::FontSizeProperty,'FontSizeTitle');$title.FontWeight='SemiBold';$title.TextWrapping='Wrap';$title.VerticalAlignment='Center';$title.Margin='0,0,12,0'
     $title.SetResourceReference([Windows.Controls.TextBlock]::ForegroundProperty,'TextColor')
     [void]$header.Children.Add($title)
     $close=[Windows.Controls.Button]::new();$close.Name='EmbeddedClose';$close.Content='Fermer';$close.Width=84;$close.Height=36;$close.Margin='0'
@@ -269,7 +269,7 @@ function Show-DomeniaBanner {
     [Windows.Automation.AutomationProperties]::SetName($border,$kindLabel+' : '+$plan.Headline)
     $grid=[Windows.Controls.Grid]::new()
     foreach($w in @('Auto','*','Auto')){$c=[Windows.Controls.ColumnDefinition]::new();$c.Width=[Windows.GridLengthConverter]::new().ConvertFromInvariantString($w);[void]$grid.ColumnDefinitions.Add($c)}
-    $icon=[Windows.Controls.TextBlock]::new();$icon.FontFamily='Segoe UI Symbol';$icon.FontSize=18;$icon.Margin='0,0,10,0';$icon.VerticalAlignment='Top'
+    $icon=[Windows.Controls.TextBlock]::new();$icon.FontFamily='Segoe UI Symbol';$icon.SetResourceReference([Windows.Controls.TextBlock]::FontSizeProperty,'FontSizeTitle');$icon.Margin='0,0,10,0';$icon.VerticalAlignment='Top'
     $icon.Text=switch($Kind){'Error'{[string][char]0x2715}'Warning'{[string][char]0x26A0}'Success'{[string][char]0x2713}default{'i'}}
     $icon.SetResourceReference([Windows.Controls.TextBlock]::ForegroundProperty,$(if($Kind -eq 'Info'){'AccentText'}elseif($Kind -eq 'Error'){'DangerColor'}else{$accent}))
     [void]$grid.Children.Add($icon)
@@ -282,7 +282,7 @@ function Show-DomeniaBanner {
         $scroll=[Windows.Controls.ScrollViewer]::new();$scroll.MaxHeight=180;$scroll.VerticalScrollBarVisibility='Auto';$scroll.Content=$body
         [void]$stack.Children.Add($scroll)
     }
-    $counter=[Windows.Controls.TextBlock]::new();$counter.FontSize=11;$counter.Margin='0,4,0,0';$counter.Visibility='Collapsed'
+    $counter=[Windows.Controls.TextBlock]::new();$counter.SetResourceReference([Windows.Controls.TextBlock]::FontSizeProperty,'FontSizeCaption');$counter.Margin='0,4,0,0';$counter.Visibility='Collapsed'
     $counter.SetResourceReference([Windows.Controls.TextBlock]::ForegroundProperty,'MutedColor');[void]$stack.Children.Add($counter)
     $detail=[Windows.Controls.TextBox]::new();$detail.Text=$plan.Details;$detail.IsReadOnly=$true;$detail.TextWrapping='Wrap';$detail.AcceptsReturn=$true
     $detail.MaxHeight=200;$detail.VerticalScrollBarVisibility='Auto';$detail.Margin='0,6,0,0';$detail.Visibility='Collapsed'

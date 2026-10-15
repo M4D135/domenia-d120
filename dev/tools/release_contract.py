@@ -25,7 +25,8 @@ SITES = [
     ('Version', re.compile(r'^\$script:Version = "([^"]*)"$', re.M), 3, lambda c: c['Version']),
     ('MasterBuild', re.compile(r'^\$script:MasterBuild = "([^"]*)"$', re.M), 1, lambda c: c['Build']),
     ('DomeniaBuild', re.compile(r'^\$script:DomeniaBuild = "([^"]*)"$', re.M), 1, lambda c: c['DisplayName']),
-    ('NavFooter', re.compile(r'<TextBlock Text="(DOMENIA [^"]*)" Foreground="\{DynamicResource MutedColor\}" FontSize="11"/>'), 1,
+    # Point 112: the footer size is the Caption level of the typographic scale (FontSizeCaption resource).
+    ('NavFooter', re.compile(r'<TextBlock Text="(DOMENIA [^"]*)" Foreground="\{DynamicResource MutedColor\}" FontSize="\{DynamicResource FontSizeCaption\}"/>'), 1,
      lambda c: 'DOMENIA %s · %s' % (c['Version'], c['Release'])),
     ('ReadyLog', re.compile(r'Add-DomeniaUiLog -Area "Application" -Text "([^"]*) pret\."'), 1, lambda c: c['DisplayName']),
     ('StartTrace', re.compile(r'Write-StartupTrace -Stage "Application" -Status "START" -Detail "(Demarrage [^"]*)"'), 1,

@@ -13,7 +13,7 @@
     <DockPanel Margin="0,0,0,8">
       <Button x:Name="BtnAdAuditCopy" DockPanel.Dock="Right" Content="Copier la vue" MinHeight="32" Margin="8,0,0,0" ToolTip="Copie le résumé et les lignes de la vue affichée, pour un ticket. Aucune donnée nʼest relue." AutomationProperties.Name="Copier la vue affichée" AutomationProperties.HelpText="Copie le résumé et les lignes de la vue affichée, pour un ticket. Aucune donnée nʼest relue." ToolTipService.ShowOnDisabled="True"/>
       <StackPanel>
-        <TextBlock Text="Audit Active Directory" FontSize="18" FontWeight="SemiBold"/>
+        <TextBlock Text="Audit Active Directory" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"/>
         <TextBlock Text="Lectures à la demande, bornées à lʼobjet sélectionné, à une OU ou aux contrôleurs choisis. Aucune écriture, aucun mot de passe lu." TextWrapping="Wrap" Margin="0,2,0,0" Foreground="{DynamicResource MutedColor}"/>
       </StackPanel>
     </DockPanel>
