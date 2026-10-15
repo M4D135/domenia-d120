@@ -93,7 +93,7 @@ Test-Case 'AUT-005' 'Point 140 : lignes publiees, donnees illisibles ou trop vol
     Assert-Equal 'aaaaaaaa-0000-0000-0000-000000000001:Inventory.Inventory.AdminPassword' (@($converted.Excluded) -join ',')
     Assert-True (($null -eq $items[1].Donnees) -and ($items[1].Note -match 'illisibles') -and ($items[1].Erreur -eq 'Acces refuse.')) 'donnees illisibles'
     Assert-True (($null -eq $items[2].Donnees) -and ($items[2].Note -match 'non reprises')) 'donnees trop volumineuses'
-    $links = @(ConvertTo-DomeniaAutomationItems -Kind Links -Rows @([pscustomobject]@{computer='PC-01';user_login='alice';source='Import GLPI';confidence=0;verified_in_ad=1;observed_at='2026-10-14T08:00:00Z';details='Lot';user_guid='';computer_guid='';user_dn='';computer_dn=''})).Items
+    $links = @((ConvertTo-DomeniaAutomationItems -Kind Links -Rows @([pscustomobject]@{computer='PC-01';user_login='alice';source='Import GLPI';confidence=0;verified_in_ad=1;observed_at='2026-10-14T08:00:00Z';details='Lot';user_guid='';computer_guid='';user_dn='';computer_dn=''})).Items)
     Assert-True ([bool]@($links)[0].VerifieAD) 'verification AD perdue'
     $envelope = New-DomeniaAutomationEnvelope -Command 'observations' -Items $items -Truncated $true -Excluded @($converted.Excluded) -NowUtc '2026-10-15T10:00:00Z'
     Assert-True (($envelope.Contract -eq 'Domenia.Automation/1') -and ($envelope.Count -eq 3) -and $envelope.Truncated -and ($envelope.GeneratedUtc -eq '2026-10-15T10:00:00.0000000Z')) 'enveloppe'

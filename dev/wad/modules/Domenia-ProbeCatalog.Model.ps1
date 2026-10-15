@@ -38,7 +38,7 @@ function Assert-DomeniaCustomProbeDeclaration {
     if($origin -cne 'Personnalisée'){return}
     $declared=@{}
     foreach($name in @('Behavior','Privilege','Cost','Slow','SkipOnDc')){$member=$Probe.PSObject.Properties[$name];if(($null -ne $member) -and ($null -ne $member.Value)){$declared[$name]=$member.Value}}
-    if(-not ($declared.ContainsKey('Behavior') -and $declared.ContainsKey('Privilege') -and $declared.ContainsKey('Cost'))){throw ('Sonde personnalisée sans comportement, privilèges ou coût déclarés : '+[string]$Probe.Id)}
+    if(-not (($declared.ContainsKey('Behavior')) -and ($declared.ContainsKey('Privilege')) -and ($declared.ContainsKey('Cost')))){throw ('Sonde personnalisée sans comportement, privilèges ou coût déclarés : '+[string]$Probe.Id)}
     $behavior=$declared['Behavior'];$reads=$behavior.PSObject.Properties['Reads'];$writes=$behavior.PSObject.Properties['Writes'];$code=$behavior.PSObject.Properties['Code'];$methods=$behavior.PSObject.Properties['Methods']
     $readOnly=(($null -ne $reads) -and ([string]$reads.Value -ceq 'CIM') -and ($null -ne $writes) -and ($writes.Value -is [bool]) -and (-not [bool]$writes.Value) -and ($null -ne $code) -and ([string]$code.Value -ceq 'Aucun'))
     if((-not $readOnly) -or (($null -ne $methods) -and (@($methods.Value).Count -gt 0))){throw ('Comportement de sonde personnalisée refusé : '+[string]$Probe.Id)}

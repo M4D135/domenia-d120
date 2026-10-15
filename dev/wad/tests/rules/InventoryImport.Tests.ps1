@@ -86,6 +86,7 @@ Test-Case 'IMP-006' 'Point 137 : correspondance d identite, autre domaine refuse
     Assert-True ((Test-DomeniaInventoryIdentity -User 'bob' -Computer 'PC-01.other.example' -DomainDns 'corp.example' -Netbios 'CORP').Reject -match 'autre domaine DNS') 'poste d un autre domaine DNS'
     Assert-True ((Test-DomeniaInventoryIdentity -User 'bob' -Computer '10.0.0.5' -DomainDns 'corp.example' -Netbios 'CORP').Reject -match 'Adresse IP') 'adresse IP prise pour un poste'
     Assert-True ((Test-DomeniaInventoryIdentity -User 'CORP\bob' -Computer 'PC-01').Reject -match 'domaine courant inconnu') 'qualification devinee sans domaine'
+    Assert-True ((Test-DomeniaInventoryIdentity -User 'bob' -Computer '4C4C4544-0042-3510-8051-B4C04F4E4E32' -DomainDns 'corp.example' -Netbios 'CORP').Reject -match 'Identifiant matériel') 'UUID osquery pris pour un poste'
 }
 Test-Case 'IMP-007' 'Point 137 : priorite des sources dans le fichier' {
     $items = @(

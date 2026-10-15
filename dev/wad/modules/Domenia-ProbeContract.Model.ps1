@@ -1,6 +1,6 @@
 ﻿# Points 135 and 136: the contract every probe of the catalogue satisfies (Domenia.ProbeContract/1).
-# Pure rules: no WPF, no network, no disk. Self-contained on purpose: Domenia-Probes.Model.ps1 dot-sources this file
-# in worker runspaces where the common helpers are not loaded.
+# Pure rules: no WPF, no network, no disk. Self-contained on purpose (no common helper needed), so a rules test or a
+# tool can load it alone. The catalogue loader keeps its own check of custom entries (Assert-DomeniaCustomProbeDeclaration).
 # A probe is data, never code: inputs (CIM namespace, class, properties, filter, mode), typed fields, privileges,
 # cost, limits, documentary sources, the tests it must pass and its declared behaviour. A probe of origin
 # "Personnalisée" must declare its behaviour, privileges, cost and tests itself; nothing is derived for it.
@@ -94,7 +94,7 @@ function Get-DomeniaProbeCost {
 
 function Get-DomeniaProbeExpectedTests {
     # Tests every probe must pass, from its characteristics. Rules tests run them generically on the whole catalogue
-    # (Probes.Tests.ps1, PRB-CONTRACT-*); a declared list may add tests but never removes a required one.
+    # (ProbeContract.Tests.ps1, PCT-002); a declared list may add tests but never removes a required one.
     param($Probe)
     $tests = New-Object 'System.Collections.Generic.List[object]'
     $tests.Add([pscustomobject]@{Id='Projection';Text='Une ligne lue produit la valeur transformée attendue.'})
@@ -106,7 +106,7 @@ function Get-DomeniaProbeExpectedTests {
     if ([string](Get-DomeniaProbeContractValue $Probe 'Transform' '') -like 'Map:*') { $tests.Add([pscustomobject]@{Id='Correspondance';Text='Valeur absente de la table conservée brute, jamais inventée.'}) }
     foreach ($extra in @(Get-DomeniaProbeContractValue $Probe 'ExpectedTests' @())) {
         $id = [string](Get-DomeniaProbeContractValue $extra 'Id' '')
-        if ($id -and -not @($tests | Where-Object { $_.Id -ceq $id }).Count) { $tests.Add([pscustomobject]@{Id=$id;Text=[string](Get-DomeniaProbeContractValue $extra 'Text' '')}) }
+        if (($id) -and (-not @($tests | Where-Object { $_.Id -ceq $id }).Count)) { $tests.Add([pscustomobject]@{Id=$id;Text=[string](Get-DomeniaProbeContractValue $extra 'Text' '')}) }
     }
     return $tests.ToArray()
 }
@@ -202,7 +202,7 @@ function Test-DomeniaProbeContract {
     if ([string]$Contract.Privilege.Level -cnotin @('LectureDistanteWmi','AdministrateurLocal')) { $errors.Add('Niveau de privilège inconnu.') }
     if (-not [string]$Contract.Privilege.Text) { $errors.Add('Privilèges non décrits.') }
     if ([string]$Contract.Cost.Level -cnotin @('Léger','Modéré','Lourd')) { $errors.Add('Coût inconnu.') }
-    if (([string]$Contract.Cost.Level -ceq 'Lourd') -and -not [bool]$Contract.Cost.Slow) { $errors.Add('Coût lourd sans collecte explicite (indicateur Slow).') }
+    if (([string]$Contract.Cost.Level -ceq 'Lourd') -and (-not [bool]$Contract.Cost.Slow)) { $errors.Add('Coût lourd sans collecte explicite (indicateur Slow).') }
     if (-not [string]$Contract.Limits.Text) { $errors.Add('Limites non décrites.') }
     if (-not [string]$Contract.Limits.UnknownMeaning) { $errors.Add('Sens dʼun résultat inconnu non décrit.') }
     $sources = @($Contract.Sources)
@@ -216,7 +216,7 @@ function Test-DomeniaProbeContract {
     if (([string]$in.Mode -ne 'Count') -and ($testIds -cnotcontains 'Troncature')) { $errors.Add('Test attendu manquant : Troncature.') }
     $behavior = $Contract.Behavior
     if ([string]$behavior.Reads -cne 'CIM') { $errors.Add('Comportement : seule la lecture CIM est admise.') }
-    if ($behavior.Writes -isnot [bool] -or [bool]$behavior.Writes) { $errors.Add('Comportement : une sonde nʼécrit jamais.') }
+    if (($behavior.Writes -isnot [bool]) -or ([bool]$behavior.Writes)) { $errors.Add('Comportement : une sonde nʼécrit jamais.') }
     if ([string]$behavior.Code -cne 'Aucun') { $errors.Add('Comportement : aucun script ni commande ne peut accompagner une sonde.') }
     if (@($behavior.Methods).Count) { $errors.Add('Comportement : aucune méthode WMI nʼest appelée par une sonde.') }
     if ([string]$Contract.Origin -ceq 'Personnalisée') {
@@ -238,7 +238,7 @@ function Get-DomeniaProbeIsolationPlan {
     $decision = $null
     $decisionCommand = Get-Command -Name 'Get-DomeniaIsolationDecision' -CommandType Function -ErrorAction SilentlyContinue
     if ($null -ne $decisionCommand) { $decision = Get-DomeniaIsolationDecision -OperationId 'LiveConsole' -Enabled $IsolatedReadsEnabled -HasCredential $ExplicitCredential -PayloadDigest 'probe-contract' }
-    $helper = (($null -ne $decision) -and [bool]$decision.Isolate)
+    $helper = (($null -ne $decision) -and ([bool]$decision.Isolate))
     $limits = Get-DomeniaProbeExecutionLimits
     $guarantees = New-Object 'System.Collections.Generic.List[string]'
     $guarantees.Add('Aucun code fourni par la sonde : le collecteur construit une lecture SELECT à partir de noms validés.')

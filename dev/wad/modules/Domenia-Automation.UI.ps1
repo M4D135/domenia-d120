@@ -15,7 +15,7 @@ function Get-DomeniaOfflineDossierSections {
     foreach($name in @('etat','postes')){$sections.Add($name)}
     foreach($pair in @(@('ChkSupportOfflineObservations','observations'),@('ChkSupportOfflineLinks','associations'),@('ChkSupportOfflineQueries','requetes'))){
         $box=Get-DomeniaControl $pair[0]
-        if(($null -eq $box) -or [bool]$box.IsChecked){$sections.Add($pair[1])}
+        if(($null -eq $box) -or ([bool]$box.IsChecked)){$sections.Add($pair[1])}
     }
     return ,$sections.ToArray()
 }

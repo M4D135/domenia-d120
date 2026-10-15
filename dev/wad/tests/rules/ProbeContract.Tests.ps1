@@ -1,6 +1,8 @@
 ﻿# Points 135 et 136 : contrat de sonde Domenia.ProbeContract/1 et isolement des sondes avancées. Regles pures :
 # le catalogue entier doit satisfaire son contrat, les tests attendus de chaque sonde sont executes ici, et une sonde
 # personnalisee qui ne declare pas son comportement est refusee. Aucun reseau, aucune base, aucun WPF.
+# Boards.Model holds Get-DomeniaWindowsRelease, used by the Release transform of the projection rule.
+. (Join-Path $modules 'Domenia-Boards.Model.ps1')
 . (Join-Path $modules 'Domenia-Probes.Model.ps1')
 . (Join-Path $modules 'Domenia-ProbeContract.Model.ps1')
 $script:DomeniaProbeCatalog = $null

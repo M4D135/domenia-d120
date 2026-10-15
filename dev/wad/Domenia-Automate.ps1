@@ -140,7 +140,7 @@ function Test-DomeniaAutomationLocalPath {
 }
 
 # ---------------------------------------------------------------- start
-if($PSVersionTable.PSEdition -eq 'Core' -or -not [Environment]::Is64BitProcess){Stop-DomeniaAutomation 2 'Utilisez Windows PowerShell 5.1 64 bits.' $Command}
+if(($PSVersionTable.PSEdition -eq 'Core') -or (-not [Environment]::Is64BitProcess)){Stop-DomeniaAutomation 2 'Utilisez Windows PowerShell 5.1 64 bits.' $Command}
 Assert-DomeniaAutomationIntegrity
 . (Join-Path $automationWad 'modules\Domenia-Common.Model.ps1')
 . (Join-Path $automationWad 'modules\Domenia-Automation.Model.ps1')
@@ -184,7 +184,7 @@ if($request.Command -eq 'version'){
         $subject=switch([string]$request.Perimeter.Kind){'OU'{([string]$request.Perimeter.OrganizationalUnit).Split(',')[0] -replace '^(ou|dc)=',''}'Noms'{if(@($request.Perimeter.Computers).Count -eq 1){[string]@($request.Perimeter.Computers)[0]}else{[string]@($request.Perimeter.Computers).Count+'-postes'}}default{[string]@($request.Perimeter.Guids).Count+'-postes'}}
         $baseName=Get-DomeniaOfflineDossierName -Subject $subject
         $target=Join-Path $parent $baseName;$suffix=2
-        while([IO.Directory]::Exists($target) -or [IO.File]::Exists($target)){$target=Join-Path $parent ($baseName+'-'+$suffix);$suffix++}
+        while(([IO.Directory]::Exists($target)) -or ([IO.File]::Exists($target))){$target=Join-Path $parent ($baseName+'-'+$suffix);$suffix++}
         $temporary=Join-Path $parent ('.domenia-dossier-'+[guid]::NewGuid().ToString('N')+'.tmp')
         try{
             [void][IO.Directory]::CreateDirectory($temporary)

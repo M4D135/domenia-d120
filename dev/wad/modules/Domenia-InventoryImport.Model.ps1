@@ -192,7 +192,7 @@ function ConvertTo-DomeniaInventoryWhen {
     if (-not $text) { return [pscustomobject]@{Text='';Ticks=0L;Note=''} }
     if ($UnixTime) {
         $seconds = 0L
-        if (($text -match '^\d{1,11}$') -and [long]::TryParse($text,[ref]$seconds) -and ($seconds -gt 0)) { $utc = ([datetime]::new(1970,1,1,0,0,0,[DateTimeKind]::Utc)).AddSeconds($seconds) }
+        if (($text -match '^\d{1,11}$') -and ([long]::TryParse($text,[ref]$seconds)) -and ($seconds -gt 0)) { $utc = ([datetime]::new(1970,1,1,0,0,0,[DateTimeKind]::Utc)).AddSeconds($seconds) }
     }
     elseif ($text -match '^\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2}(\.\d+)?)?)?(Z|[+-]\d{2}:?\d{2})?$') { $utc = ConvertTo-DomeniaRelationUtcDate $text }
     if ($null -eq $utc) { return [pscustomobject]@{Text=$text;Ticks=0L;Note=''} }
@@ -250,6 +250,8 @@ function Test-DomeniaInventoryIdentity {
         if ($suffix -cne $dns) { return [pscustomobject]@{Reject=('Poste dʼun autre domaine DNS (' + $c + ') : ligne non importée.')} }
     }
     if ($c -match '^\d{1,3}(\.\d{1,3}){3}$') { return [pscustomobject]@{Reject=('Adresse IP (' + $c + ') au lieu dʼun nom de poste : ligne non importée.')} }
+    # osquery may identify a host by its UUID (host_identifier=uuid): never taken for a workstation name.
+    if ($c -match '^\{?[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}?$') { return [pscustomobject]@{Reject=('Identifiant matériel (' + $c + ') au lieu dʼun nom de poste : configurez host_identifier=hostname dans osquery ou ajoutez la colonne hostname.')} }
     return [pscustomobject]@{Reject=''}
 }
 
