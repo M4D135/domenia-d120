@@ -205,6 +205,50 @@ function Protect-DomeniaLogText {
     return $value
 }
 
+function Write-DomeniaSwallowed {
+    # P-CD-09: trace of an error that a catch block deliberately does not rethrow, for example
+    #   catch { Write-DomeniaSwallowed 'Theme' 'Set-DomeniaTheme' $_ }
+    # The ring, the masking and the sampling are the pure Add-DomeniaSwallowedEntry (Domenia-Common.Model.ps1), given
+    # Protect-DomeniaLogText as its masking rule. This wrapper adds the side effect: at most once a minute per category
+    # and operation, the line due goes to the technical journal (Write-AppLog, level DEBUG, area Technique: Domenia.log
+    # and the Expert view, never the readable journal) and its entry is marked Logged.
+    # Never throws and writes nothing to the pipeline, so it is safe in any catch block. A trace emitted while the line
+    # is being written (a journal failure traced from inside Write-AppLog) is kept in the ring as a reentry, without
+    # masking or journal call. Defined before any script statement of this file, so every catch of the core and of the
+    # UI modules can call it, at load time too (before the closed loader, Add-DomeniaSwallowedEntry is not loaded yet
+    # and the call does nothing). It exists only in this script scope: worker here-strings, functions copied into a
+    # runspace and .GetNewClosure() scriptblocks cannot call it (tools/sweep_swallowed.py leaves their catch blocks).
+    param(
+        [AllowNull()][AllowEmptyString()][string]$Category='',
+        [AllowNull()][AllowEmptyString()][string]$Operation='',
+        [AllowNull()]$ErrorRecord=$null,
+        [AllowNull()]$Now=$null
+    )
+    try {
+        $writing = $false
+        try { $writing = [bool]$script:DomeniaSwallowedWriting } catch { $writing = $false }
+        if ($writing) {
+            $null = Add-DomeniaSwallowedEntry -Category $Category -Operation $Operation -ErrorRecord $ErrorRecord -Now $Now -Reentry
+            return
+        }
+        $mask = $null
+        try { $mask = ${function:Protect-DomeniaLogText} } catch { $mask = $null }
+        $script:DomeniaSwallowedWriting = $true
+        try {
+            $due = Add-DomeniaSwallowedEntry -Category $Category -Operation $Operation -ErrorRecord $ErrorRecord -Now $Now -Mask $mask
+            if ($null -ne $due) {
+                try { $null = Write-AppLog -Text ([string]$due.Line) -Level 'DEBUG' -Area 'Technique'; $due.Entry.Journal = 'Logged' }
+                catch { $due.Entry.Journal = 'Unavailable' }
+            }
+        }
+        finally { $script:DomeniaSwallowedWriting = $false }
+    }
+    catch {
+        # Exempt from tools/audit_swallowed.py: the trace of a swallowed error cannot trace its own failure.
+        $null = $_
+    }
+}
+
 function ConvertTo-DomeniaSpreadsheetCell {
     param($Value)
     if ($null -eq $Value) { return $null }
@@ -21302,47 +21346,6 @@ function Write-AppLog {
     }
     catch { }
     try { Write-DomeniaAppLogFile -Text $Text -Level $Level -Time $now -Source 'AppLog' } catch { }
-}
-
-function Write-DomeniaSwallowed {
-    # P-CD-09: trace of an error that a catch block deliberately does not rethrow, for example
-    #   catch { Write-DomeniaSwallowed 'Theme' 'Set-DomeniaTheme' $_ }
-    # The ring, the masking and the sampling are the pure Add-DomeniaSwallowedEntry (Domenia-Common.Model.ps1), given
-    # Protect-DomeniaLogText as its masking rule. This wrapper adds the side effect: at most once a minute per category
-    # and operation, the line due goes to the technical journal (Write-AppLog, level DEBUG, area Technique: Domenia.log
-    # and the Expert view, never the readable journal) and its entry is marked Logged.
-    # Never throws and writes nothing to the pipeline, so it is safe in any catch block. A trace emitted while the line
-    # is being written (a journal failure traced from inside Write-AppLog) is kept in the ring as a reentry, without
-    # masking or journal call. Worker code, without this core, calls Add-DomeniaSwallowedEntry (ring only).
-    param(
-        [AllowNull()][AllowEmptyString()][string]$Category='',
-        [AllowNull()][AllowEmptyString()][string]$Operation='',
-        [AllowNull()]$ErrorRecord=$null,
-        [AllowNull()]$Now=$null
-    )
-    try {
-        $writing = $false
-        try { $writing = [bool]$script:DomeniaSwallowedWriting } catch { $writing = $false }
-        if ($writing) {
-            $null = Add-DomeniaSwallowedEntry -Category $Category -Operation $Operation -ErrorRecord $ErrorRecord -Now $Now -Reentry
-            return
-        }
-        $mask = $null
-        try { $mask = ${function:Protect-DomeniaLogText} } catch { $mask = $null }
-        $script:DomeniaSwallowedWriting = $true
-        try {
-            $due = Add-DomeniaSwallowedEntry -Category $Category -Operation $Operation -ErrorRecord $ErrorRecord -Now $Now -Mask $mask
-            if ($null -ne $due) {
-                try { $null = Write-AppLog -Text ([string]$due.Line) -Level 'DEBUG' -Area 'Technique'; $due.Entry.Journal = 'Logged' }
-                catch { $due.Entry.Journal = 'Unavailable' }
-            }
-        }
-        finally { $script:DomeniaSwallowedWriting = $false }
-    }
-    catch {
-        # Exempt from tools/audit_swallowed.py: the trace of a swallowed error cannot trace its own failure.
-        $null = $_
-    }
 }
 
 function Open-DomeniaAuditLog {

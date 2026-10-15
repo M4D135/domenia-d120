@@ -52,6 +52,36 @@ Test-Case 'P-CD-09' 'Ligne due : une par categorie et operation et par minute, l
     Assert-True ($lines[2].EndsWith('(+2 occurrence(s) depuis la ligne précédente)',[StringComparison]::Ordinal)) $lines[2]
     Assert-False ($lines[3].Contains('occurrence(s)')) 'Le compteur repart a zero apres chaque ligne'
 }
+Test-Case 'P-CD-09' 'Repetition echantillonnee : ni masquage ni message, categorie et operation de la ligne due' {
+    # A catch in a loop that fails on every row: only the line due of each minute pays for the masking.
+    $script:DomeniaSwallowedState=$null
+    $script:SwMaskCalls=0
+    $mask={ param([string]$Text) $script:SwMaskCalls++; return $Text.Replace('MARQUEUR-SECRET-0009','[SECRET MASQUE]') }
+    $err=[InvalidOperationException]::new('lecture de MARQUEUR-SECRET-0009 refusee')
+    $first=@(Add-DomeniaSwallowedEntry 'Grille' 'Show-ObjectRows' $err -Now $script:Sw0 -Mask $mask)
+    Assert-Equal 1 $first.Count 'La premiere occurrence rend sa ligne'
+    Assert-Equal 3 ([int]$script:SwMaskCalls) 'Categorie, operation et message masques pour la ligne due'
+    for($i=1;$i -le 50;$i++){
+        $out=@(Add-DomeniaSwallowedEntry 'Grille' 'Show-ObjectRows' $err -Now ($script:Sw0.AddMilliseconds($i*100)) -Mask $mask)
+        Assert-Equal 0 $out.Count 'Aucune ligne pour une repetition dans la minute'
+    }
+    Assert-Equal 3 ([int]$script:SwMaskCalls) 'Aucun masquage pour une repetition echantillonnee'
+    $entries=@(Get-DomeniaSwallowedEntries)
+    Assert-Equal 51 $entries.Count 'Chaque appel garde son entree'
+    Assert-Equal 'lecture de [SECRET MASQUE] refusee' $entries[0].Message
+    $sampled=@($entries|Where-Object{$_.Journal -eq 'Sampled'})
+    Assert-Equal 50 $sampled.Count
+    foreach($e in $sampled){
+        Assert-Equal '' $e.Message 'Une repetition ne garde pas de message';Assert-Equal 'System.InvalidOperationException' $e.Type
+        Assert-Equal 'Grille' $e.Category;Assert-Equal 'Show-ObjectRows' $e.Operation
+    }
+    $next=@(Add-DomeniaSwallowedEntry 'Grille' 'Show-ObjectRows' $err -Now ($script:Sw0.AddSeconds(60)) -Mask $mask)
+    Assert-Equal 1 $next.Count 'Une ligne de nouveau apres la minute'
+    Assert-True (([string]$next[0].Line).EndsWith('(+50 occurrence(s) depuis la ligne précédente)',[StringComparison]::Ordinal)) ([string]$next[0].Line)
+    Assert-False (([string]$next[0].Line).Contains('MARQUEUR-SECRET-0009')) 'La ligne due suivante est masquee'
+    Assert-Equal 6 ([int]$script:SwMaskCalls) 'La ligne due suivante est masquee de nouveau'
+    $script:DomeniaSwallowedState=$null
+}
 Test-Case 'P-CD-09' 'Anneau borne a 200 entrees, les plus anciennes sortent en premier' {
     $script:DomeniaSwallowedState=$null
     for($i=0;$i -lt 250;$i++){ $null=Add-DomeniaSwallowedEntry 'Charge' ('op-'+$i) ([InvalidOperationException]::new('echec')) -Now $script:Sw0 }
