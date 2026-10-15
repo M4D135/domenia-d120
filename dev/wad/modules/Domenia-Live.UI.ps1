@@ -225,12 +225,39 @@ function Begin-DomeniaLiveSearch {
     # Only canonical SQL readbacks enter Progress. Legacy query snapshots are no longer a data source.
     return $s
 }
+function Resume-DomeniaLiveSearch {
+    # MO-07: « Charger la suite » adds the next rows to the list on screen instead of reading it again. The same search
+    # object keeps its rows, its identity map, its selection and its generation; a new SQLite pipe (new request id)
+    # publishes the new rows only, and the list is finalized again when they are committed.
+    param($State,$Payload)
+    $s=$null;if($null -ne $script:Live){$s=$script:Live.Search}
+    if($null -eq $s -or -not (Test-DomeniaLiveSearchActive)){throw 'Liste courante introuvable : relancez la recherche.'}
+    $stop=[Threading.CancellationTokenSource]::new()
+    $s.Stop=$stop;$s.Ended=$false;$s.Finalized=$false;$s.Final=$null;$s.Error='';$s.Prune=$null;$s.RefreshNeeded=$true
+    $s.State=$State
+    $script:BranchCountLabel='Chargement de la suite…'
+    Add-Member -InputObject $State -NotePropertyName LiveState -NotePropertyValue $s -Force
+    $directoryPipe=New-DomeniaDirectoryReadPipe -Context $State.StoreContext -ReadyQueue $s.Progress -Search $s
+    Add-Member -InputObject $s -NotePropertyName DirectoryPipe -NotePropertyValue $directoryPipe -Force
+    Add-Member -InputObject $Payload -NotePropertyName Progress -NotePropertyValue $directoryPipe.Input -Force
+    Add-Member -InputObject $Payload -NotePropertyName DirectoryReadState -NotePropertyValue $directoryPipe.Collector -Force
+    Add-Member -InputObject $Payload -NotePropertyName StopToken -NotePropertyValue $stop.Token -Force
+    Add-Member -InputObject $Payload -NotePropertyName StreamPageSize -NotePropertyValue ([Math]::Max(100,[Math]::Min(1000,[int](Get-DomeniaMember $Payload 'StreamPageSize' 250)))) -Force
+    try{if($null -ne $script:Live.Timer -and -not [bool]$script:Live.Timer.IsEnabled){$script:Live.Timer.Start()};Invoke-DomeniaTimerSoon -Owner 'Timer:Live'}catch{}
+    Update-DomeniaSearchMoreButton -Search $s
+    return $s
+}
 function Complete-DomeniaLiveSearch {
     param($Result,$State)
     $s=$State.LiveState
     if($null -eq $s){return}
     $effective=Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @('Rows','BaseDn','Scope')
     if($null -eq $effective -or [string]$effective.BaseDn -ine [string]$State.BaseDn -or [string]$effective.Scope -ne [string]$State.Scope){throw 'Résultat de recherche sans périmètre valide.'}
+    # MO-07: a complete continuation moves the cursor of the next one to the last name it added.
+    if([bool](Get-DomeniaMember $effective 'Continuation' $false) -and -not [bool](Get-DomeniaMember $effective 'Partial' $false)){
+        $last=[string](Get-DomeniaMember $effective 'LastName' '')
+        if($last){Add-Member -InputObject $s -NotePropertyName ContinuationCursor -NotePropertyValue $last -Force}
+    }
     $errorText=''
     # Once AD completed, old cache rows can no longer contribute to the list. Detach the queue
     # even if a cache reader still owns it, so idle ticks cannot retain/revisit thousands of stale rows.
@@ -869,31 +896,63 @@ function Test-DomeniaLiveTickNeeded {
 }
 function Update-DomeniaSearchMoreButton {
     # D037: 'Charger la suite' is enabled only for the current, finished and limited list, below 20 000 lines.
+    # MO-07: « Charger jusquʼà 1 000 » (then 5 000, then 20 000) brings the list to that size in one gesture.
     param($Search)
     $button=Get-DomeniaControl 'BtnSearchMore'
     if($null -eq $button){return}
     $decision=$null
     # SearchRules is resolved once per search by Begin-DomeniaLiveSearch: no command lookup on each tick.
     if($null -ne $Search -and [bool]$Search.SearchRules){
-        $decision=Get-DomeniaContinuationDecision -Finalized ([bool]$Search.Finalized) -HasError (-not [string]::IsNullOrEmpty([string]$Search.Error)) -LimitReached ($null -ne $Search.Final -and [bool]$Search.Final.LimitReached) -Limit ([int]$Search.State.Limit)
+        $decision=Get-DomeniaContinuationDecision -Finalized ([bool]$Search.Finalized) -HasError (-not [string]::IsNullOrEmpty([string]$Search.Error)) -LimitReached ($null -ne $Search.Final -and [bool]$Search.Final.LimitReached) -Limit ([int]$Search.State.Limit) -Loaded ([int]$Search.Fresh.Count)
     }
     $enabled=($null -ne $decision -and [bool]$decision.Allowed -and -not (Test-DomeniaAccessBusyWrite))
     $tip=if($null -ne $decision){[string]$decision.Reason}else{'Aucune liste courante à prolonger : lancez une recherche.'}
     if([bool]$button.IsEnabled -ne $enabled){$button.IsEnabled=$enabled}
     if([string]$button.ToolTip -cne $tip){$button.ToolTip=$tip}
+    $jump=Get-DomeniaControl 'BtnSearchMoreJump'
+    if($null -eq $jump){return}
+    $offer=($enabled -and [int]$decision.JumpLimit -gt 0)
+    $wanted=if($offer){[Windows.Visibility]::Visible}else{[Windows.Visibility]::Collapsed}
+    if($jump.Visibility -ne $wanted){$jump.Visibility=$wanted}
+    if($offer){
+        $text=[string]$decision.JumpText
+        $jumpTip=$text+' : lit les '+([int]$decision.JumpPage).ToString('N0',[Globalization.CultureInfo]::GetCultureInfo('fr-FR'))+' lignes suivantes en une fois, sans relire les lignes déjà chargées. Plafond de sécurité : 20 000 lignes.'
+        if([string]$jump.Content -cne $text){$jump.Content=$text}
+        if([string]$jump.ToolTip -cne $jumpTip){$jump.ToolTip=$jumpTip;[Windows.Automation.AutomationProperties]::SetName($jump,$text);[Windows.Automation.AutomationProperties]::SetHelpText($jump,$jumpTip)}
+    }
+    if([bool]$jump.IsEnabled -ne $offer){$jump.IsEnabled=$offer}
 }
 function Invoke-DomeniaSearchMore {
-    # D037: explicit continuation. The same query, mode and view are read again with a doubled bound (20 000 at most).
-    # Rows are deduplicated by directory identity and the older generation is discarded; nothing is replayed automatically.
+    # D037 / MO-07: explicit continuation. Only the next rows of the same query, mode, view and perimeter are read,
+    # sorted by name after the last name already read; the rows on screen stay and are never read or published again.
+    # -Step Jump brings the list to the next milestone (« Charger jusquʼà 1 000 »). Nothing is replayed automatically.
+    param([ValidateSet('Next','Jump')][string]$Step='Next')
     if(-not (Test-DomeniaLiveSearchActive)){Set-Status 'La liste affichée nʼest plus la recherche courante : relancez la recherche.' 'WARN';Update-DomeniaSearchMoreButton -Search $null;return}
     $s=$script:Live.Search
-    $decision=Get-DomeniaContinuationDecision -Finalized ([bool]$s.Finalized) -HasError (-not [string]::IsNullOrEmpty([string]$s.Error)) -LimitReached ($null -ne $s.Final -and [bool]$s.Final.LimitReached) -Limit ([int]$s.State.Limit)
+    $decision=Get-DomeniaContinuationDecision -Finalized ([bool]$s.Finalized) -HasError (-not [string]::IsNullOrEmpty([string]$s.Error)) -LimitReached ($null -ne $s.Final -and [bool]$s.Final.LimitReached) -Limit ([int]$s.State.Limit) -Loaded ([int]$s.Fresh.Count)
     if(-not [bool]$decision.Allowed){Set-Status ([string]$decision.Reason) 'WARN';Update-DomeniaSearchMoreButton -Search $s;return}
+    $target=[int]$decision.NextLimit
+    if($Step -eq 'Jump'){
+        if([int]$decision.JumpLimit -le 0){Set-Status 'Aucun palier supérieur : utilisez « Charger la suite ».' 'WARN';return}
+        $target=[int]$decision.JumpLimit
+    }
     $mode=if([string]$s.State.SearchMode -eq 'Global'){'Global'}else{'OU'}
     $viewId='';if($null -ne $s.State.PSObject.Properties['ViewId']){$viewId=[string]$s.State.ViewId}
     # D037 / UX-33: the same perimeter as the list (view chip choice, base, depth), not the one the chip or the tree show now.
     $viewScope='';if($viewId -and $null -ne $s.State.PSObject.Properties['ViewChoice'] -and [string]$s.State.ViewChoice -in @('OU','Domain')){$viewScope=[string]$s.State.ViewChoice}
-    Invoke-GlobalSearch -SearchMode $mode -PreserveSelection -SilentError -ViewId $viewId -LimitOverride ([int]$decision.NextLimit) -ViewScope $viewScope -ExpectBaseDn ([string]$s.State.BaseDn) -ExpectScope ([string]$s.State.Scope)
+    # MO-07: the filter that produced the list is kept from its first read; later continuations reuse it with their cursor.
+    $baseFilter=[string](Get-DomeniaMember $s 'ContinuationBaseFilter' '')
+    if(-not $baseFilter){$baseFilter=[string](Get-DomeniaMember $s.Final 'FilterUsed' '');if($baseFilter){Add-Member -InputObject $s -NotePropertyName ContinuationBaseFilter -NotePropertyValue $baseFilter -Force}}
+    $loadedDns=[Collections.Generic.List[string]]::new()
+    foreach($row in @($s.Rows)){if($null -ne $row -and [string]$row.DN){$loadedDns.Add([string]$row.DN)}}
+    $request=New-DomeniaContinuationRequest -FilterUsed $baseFilter -Cursor ([string](Get-DomeniaMember $s 'ContinuationCursor' '')) -LoadedDns $loadedDns.ToArray() -Loaded ([int]$s.Fresh.Count) -Target $target -PageSize ([int](Get-CfgValue 'Browser' 'SearchPageSize' 250)) -Reader ([string]$script:Live.Identity) -Generation ([long]$script:GlobalSearchGeneration) -BaseDn ([string]$s.State.BaseDn)
+    if(-not [bool]$request.Valid){
+        # A list without a known filter (an older result) is read again with the larger bound, as before MO-07.
+        Write-AppLog ('Charger la suite : '+[string]$request.Reason) 'WARN'
+        Invoke-GlobalSearch -SearchMode $mode -PreserveSelection -SilentError -ViewId $viewId -LimitOverride $target -ViewScope $viewScope -ExpectBaseDn ([string]$s.State.BaseDn) -ExpectScope ([string]$s.State.Scope)
+        return
+    }
+    Invoke-GlobalSearch -SearchMode $mode -PreserveSelection -SilentError -ViewId $viewId -ViewScope $viewScope -ExpectBaseDn ([string]$s.State.BaseDn) -ExpectScope ([string]$s.State.Scope) -Continuation $request
 }
 
 function Complete-DomeniaLiveObservationRead {

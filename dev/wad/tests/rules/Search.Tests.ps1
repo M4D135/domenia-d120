@@ -349,3 +349,30 @@ Test-Case 'FO-05' 'Le contrat global accepte une OU nommee par la puce et refuse
     $oneLevel=$r.PSObject.Copy();$oneLevel.Scope='OneLevel';Assert-False (Test-DomeniaGlobalSearchRequest $oneLevel $script:DomainDn)
     $plain=New-DomeniaGlobalSearchRequest 'dupont' $script:DomainDn;Assert-Equal $script:DomainDn $plain.BaseDn;Assert-Equal '' $plain.ExplicitScopeDn
 }
+Test-Case 'MO-07' 'Charger la suite ne lit que les lignes suivantes, avec un palier en un clic' {
+    $d=Get-DomeniaContinuationDecision $true $false $true 100 20000 100
+    Assert-True $d.Allowed;Assert-Equal 200 $d.NextLimit;Assert-Equal 100 $d.Page 'Seules les 100 lignes suivantes sont lues'
+    Assert-Equal 1000 $d.JumpLimit;Assert-Equal 900 $d.JumpPage
+    Assert-True ($d.JumpText -match '^Charger jusquʼà 1\D000$') ('Libelle du palier : '+$d.JumpText)
+    Assert-True ($d.Reason.Contains('sans relire les lignes déjà chargées')) $d.Reason
+    $mid=Get-DomeniaContinuationDecision $true $false $true 800 20000 800;Assert-Equal 1600 $mid.NextLimit;Assert-Equal 800 $mid.Page;Assert-Equal 5000 $mid.JumpLimit
+    $high=Get-DomeniaContinuationDecision $true $false $true 12800 20000 12800;Assert-Equal 20000 $high.NextLimit;Assert-Equal 7200 $high.Page;Assert-Equal 0 $high.JumpLimit 'Pas de palier au-dela du plafond'
+    Assert-Equal 100 (Get-DomeniaContinuationDecision $true $false $true 100).Page 'Sans nombre charge, la liste tient sa limite'
+    $short=Get-DomeniaContinuationDecision $true $false $true 100 20000 97;Assert-Equal 103 $short.Page 'Lignes en double ecartees : la page complete la liste'
+    $none=Get-DomeniaContinuationDecision $true $false $false 100 20000 40;Assert-False $none.Allowed;Assert-Equal 0 $none.JumpLimit
+}
+Test-Case 'MO-07' 'La demande de suite reprend le filtre de la liste apres le dernier nom, sans les DN deja charges' {
+    $dns=@('CN=PC-01,OU=Postes,DC=example,DC=invalid','cn=pc-01,ou=postes,dc=example,dc=invalid','CN=PC-02,OU=Postes,DC=example,DC=invalid','')
+    $first=New-DomeniaContinuationRequest '(objectCategory=computer)' '' $dns 2 4 250 'reader' 7 $script:DomainDn
+    Assert-True $first.Valid;Assert-Equal '(objectCategory=computer)' $first.Filter 'Premiere suite : lecture triee depuis le debut'
+    Assert-Equal 'name' $first.SortAttribute;Assert-Equal 2 $first.Page;Assert-Equal 4 $first.Target
+    Assert-Equal 2 @($first.KnownKeys).Count 'DN dedoublonnes sans tenir compte de la casse'
+    Assert-Equal 'cn=pc-01,ou=postes,dc=example,dc=invalid' @($first.KnownKeys)[0]
+    Assert-True (Test-DomeniaContinuationCurrent $first 'reader' 7 $script:DomainDn) 'La regle de contexte courant reconnait la demande'
+    $next=New-DomeniaContinuationRequest '(objectCategory=computer)' 'PC-02 (b)' $dns 4 8
+    Assert-Equal '(&(objectCategory=computer)(name>=PC-02 \28b\29))' $next.Filter 'Reprise au dernier nom lu, litteral echappe'
+    Assert-Equal 'PC-02 (b)' $next.AfterName;Assert-Equal 4 $next.Page
+    Assert-False (New-DomeniaContinuationRequest '' '' $dns 2 4).Valid 'Filtre inconnu : pas de suite partielle'
+    Assert-False (New-DomeniaContinuationRequest 'objectCategory=computer' '' $dns 2 4).Valid 'Filtre non parenthese refuse'
+    Assert-False (New-DomeniaContinuationRequest '(objectCategory=computer)' '' $dns 4 4).Valid 'Aucune ligne demandee'
+}

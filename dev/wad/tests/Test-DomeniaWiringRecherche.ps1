@@ -80,7 +80,7 @@ foreach($name in @('Convert-WLargeInteger','Convert-WFileTime','Escape-WLdap','C
     if($node.Count -ne 1){throw ('Fonction worker absente : '+$name)}
     . ([scriptblock]::Create($node[0].Extent.Text))
 }
-foreach($file in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-Query.Model.ps1','Domenia-Search.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Live.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Live.UI.ps1','Domenia-Continuity.Model.ps1','Domenia-Continuity.UI.ps1','Domenia-Selection.UI.ps1','Domenia-Search.UI.ps1')){
+foreach($file in @('Domenia-Common.Model.ps1','Domenia-Store.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-Query.Model.ps1','Domenia-Search.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Live.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Live.UI.ps1','Domenia-Continuity.Model.ps1','Domenia-Continuity.UI.ps1','Domenia-Selection.UI.ps1','Domenia-Search.UI.ps1')){
     . (Join-Path $modules $file)
 }
 
@@ -128,6 +128,18 @@ function Complete-DomeniaOpenObjectUi {param($Result,$CacheKey,$Dn,$Type,[switch
     $script:SelectedObject=[pscustomobject]@{DN=$Dn;Type=$Type;Name=[string]@($Result.Properties.name)[0];Entry=$Result;Safety=[pscustomobject]@{Guid=[string]@($Result.Properties.objectGUID)[0]}}
 }
 function Fail-DomeniaOpenObjectUi {param($Message,$Dn) $script:OpenFailure=[string]$Message}
+# MO-07 harness: the committed-row pipe of the list is an inert boundary (Test-DomeniaDirectoryStore covers the real
+# COMMIT ordering). Rows are fed by Feed-Live; when the worker answer arrives the double closes the list as the SQLite
+# tick does (Final, Ended, Error), so that the real Invoke-DomeniaLiveTick finalizes it.
+function New-DomeniaDirectoryReadPipe {param($Context,$ReadyQueue=$null,$Search=$null,[string]$CommitHandler='',[string]$CompleteHandler='',[string]$ErrorHandler='',$CallbackState=$null)
+    $pipe=[pscustomobject]@{Context=$Context;Ready=$ReadyQueue;Search=$Search;Input=[Collections.Concurrent.ConcurrentQueue[object]]::new();Collector=[hashtable]::Synchronized(@{Started=$false;Done=$false;Final=$null;Error=''});Closed=$false;Completed=$false}
+    $script:Pipes.Add($pipe);return $pipe
+}
+function Complete-DomeniaDirectoryReadPipe {param($Pipe,$Final=$null,[string]$Error='')
+    if($null -eq $Pipe -or $Pipe.Closed){return}
+    $Pipe.Completed=$true;$Pipe.Closed=$true
+    if($null -ne $Pipe.Search){$Pipe.Search.Final=$Final;$Pipe.Search.Ended=$true;$Pipe.Search.Error=$Error}
+}
 function Start-UiTask {
     param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$DisableControls,$TimeoutSeconds,$StatusText,$SuccessHandler,$ErrorHandler,[switch]$NonCancellable)
     $id='task-'+[guid]::NewGuid().ToString('N')
@@ -188,6 +200,8 @@ function Reset-Fixture {
     $script:CurrentObjectRequestId='';$script:CurrentObjectRequestDn='';$script:CurrentObjectRequestState=$null;$script:SelectionResetDn='';$script:DraftState=$null
     $script:BranchObjects=@();$script:BranchCountLabel='';$script:LastObjectOpenError='';$script:OpenFailure=''
     $script:Tasks=[Collections.Generic.List[object]]::new();$script:OperationErrors=[Collections.Generic.List[string]]::new();$script:Stops=0
+    # New-DomeniaStoreContext (real) needs the scoped base path; no file is opened by this suite.
+    $script:DatabaseScopedPath='C:\DomeniaTest\recherche.db';$script:Pipes=[Collections.Generic.List[object]]::new()
     $script:LastStatus='';$script:LastStatusLevel='';$script:DirtyFields=@();$script:CfgOverrides=@{};$script:Settings=@{}
     $script:SearchUiInitialized=$false;$script:SearchQuerySelectorBound=$false;$script:SearchQueryCatalogBusy=$false;$script:SearchQueryCatalog=@();$script:SearchQueryRun=$null;$script:DomeniaQueryState=$null;$script:IndexSyncStates=@{};$script:NavHistory=$null;$script:NavRestoring=$false;$script:NavSearchLaunching=$false
     $script:NavHistoryRows=$null;$script:NavHistoryState=$null;$script:NavListShape=$null;$script:OuTreeFilterStatus='';$script:TreeSelectionSource='Mouse';$script:WorkViewScopeOu='';$script:ListSurveyBlocked=$false;$script:ListRevalidationPaused=$false
@@ -506,6 +520,39 @@ Case 'D037 Complete list says so and offers nothing more' {
     Finish-Live $t $false
     Expect ($script:Ctrl.LblBranchCount.Text -match 'liste complète') ('Compteur : '+$script:Ctrl.LblBranchCount.Text)
     Expect (-not $script:Ctrl.BtnSearchMore.IsEnabled)
+}
+# MO-07: unwired if Invoke-DomeniaSearchMore reads the whole list again (new generation, doubled limit, no continuation)
+# or if the second continuation does not start after the last name read with the filter of the first read.
+Case 'MO-07 Charger la suite lit seulement les lignes suivantes de la meme liste' {
+    $script:Ctrl.BtnSearchMoreJump=[Windows.Controls.Button]::new();$script:Ctrl.BtnSearchMoreJump.Visibility='Collapsed'
+    $script:Ctrl.TxtGlobalLimit.Text='2'
+    $t=Search-Global 'alex'
+    Expect ($null -ne $t) ('Recherche non lancee : '+($script:OperationErrors -join ' | '))
+    $generation=[int]$script:GlobalSearchGeneration
+    Feed-Live (New-ResultRow 'Alex A' 'alexa');Feed-Live (New-ResultRow 'Alex B' 'alexb')
+    $filter=[string]$t.Payload.PrefixFilter
+    Complete-DomeniaLiveSearch -Result ([pscustomobject]@{Rows=@();BaseDn=$t.CallbackState.BaseDn;Scope=$t.CallbackState.Scope;Partial=$false;Failure='';LimitReached=$true;FilterUsed=$filter}) -State $t.CallbackState
+    for($i=0;$i -lt 150 -and -not $script:Live.Search.Finalized;$i++){Invoke-DomeniaLiveTick}
+    Expect ($script:Ctrl.BtnSearchMore.IsEnabled -and $script:Ctrl.BtnSearchMoreJump.Visibility -eq 'Visible' -and ([string]$script:Ctrl.BtnSearchMoreJump.Content -match '^Charger jusquʼà 1\D000$')) ('Suite ou palier indisponible : '+[string]$script:Ctrl.BtnSearchMoreJump.Content)
+    $s=$script:Live.Search;$rows=$s.Rows;$before=Get-TaskCount 'GlobalSearch'
+    Invoke-DomeniaSearchMore
+    $next=Get-LastTask 'GlobalSearch'
+    Expect ((Get-TaskCount 'GlobalSearch') -eq ($before+1)) 'Suite non lancee.'
+    $c=$next.Payload.Continuation
+    Expect (($null -ne $c) -and ($c.Filter -ceq $filter) -and ($c.SortAttribute -eq 'name')) ('Suite : '+[string]$c.Filter)
+    Expect ((@($c.KnownKeys).Count -eq 2) -and (@($c.KnownKeys) -contains 'cn=alex a,ou=lyon,dc=example,dc=invalid')) 'Les DN deja charges ne sont pas transmis.'
+    Expect (([int]$next.Payload.Limit -eq 2) -and ([int]$next.CallbackState.Limit -eq 4) -and (-not $next.Payload.PrefixFilter) -and (-not $next.Payload.BroadFilter)) ('Budget : '+$next.Payload.Limit+' / '+$next.CallbackState.Limit)
+    Expect (([int]$script:GlobalSearchGeneration -eq $generation) -and [object]::ReferenceEquals($script:Live.Search,$s) -and [object]::ReferenceEquals($script:Ctrl.DgObjects.ItemsSource,$rows) -and ($rows.Count -eq 2)) 'La liste a ete relue ou remplacee.'
+    Expect ((Test-DomeniaSearchStateCurrent $next.CallbackState) -and ($script:Ctrl.TxtGlobalLimit.Text -eq '2')) 'Contexte de la suite refuse ou limite saisie modifiee.'
+    # The worker adds one row and names its cursor; the next step starts after it with the filter of the first read.
+    Feed-Live (New-ResultRow 'Alex C' 'alexc')
+    Complete-DomeniaLiveSearch -Result ([pscustomobject]@{Rows=@();BaseDn=$next.CallbackState.BaseDn;Scope=$next.CallbackState.Scope;Partial=$false;Failure='';LimitReached=$true;FilterUsed=[string]$c.Filter;Continuation=$true;LastName='Alex C'}) -State $next.CallbackState
+    for($i=0;$i -lt 150 -and -not $script:Live.Search.Finalized;$i++){Invoke-DomeniaLiveTick}
+    Expect (($rows.Count -eq 3) -and ([string]$s.ContinuationCursor -ceq 'Alex C')) ('Lignes : '+$rows.Count+' ; curseur : '+[string]$s.ContinuationCursor)
+    Invoke-DomeniaSearchMore -Step Jump
+    $jump=Get-LastTask 'GlobalSearch'
+    Expect (([string]$jump.Payload.Continuation.Filter -ceq ('(&'+$filter+'(name>=Alex C))')) -and ([int]$jump.CallbackState.Limit -eq 1000) -and ([int]$jump.Payload.Limit -eq 997)) ('Palier : '+[string]$jump.Payload.Continuation.Filter+' / '+$jump.CallbackState.Limit+' / '+$jump.Payload.Limit)
+    Expect ((Get-TaskCount 'OpenAdObject') -eq 0) 'Une fiche a ete ouverte.'
 }
 
 # ---------------------------------------------------------------- D038 favourites and work views

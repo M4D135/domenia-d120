@@ -861,6 +861,9 @@ function Initialize-DomeniaSearchUi {
     }
     $more = Get-DomeniaControl 'BtnSearchMore'
     if ($more -is [Windows.Controls.Primitives.ButtonBase]) { $more.Add_Click({ try { Invoke-DomeniaSearchMore } catch { Write-AppLog ('Charger la suite : '+$_.Exception.Message) 'ERROR'; Set-Status ('Suite non chargée : '+$_.Exception.Message) 'ERROR' } }) }
+    # MO-07: « Charger jusquʼà 1 000 » reads the missing rows in one explicit gesture.
+    $jump = Get-DomeniaControl 'BtnSearchMoreJump'
+    if ($jump -is [Windows.Controls.Primitives.ButtonBase]) { $jump.Add_Click({ try { Invoke-DomeniaSearchMore -Step Jump } catch { Write-AppLog ('Charger jusquʼà : '+$_.Exception.Message) 'ERROR'; Set-Status ('Suite non chargée : '+$_.Exception.Message) 'ERROR' } }) }
     $back = Get-DomeniaControl 'BtnNavBack'
     if ($back -is [Windows.Controls.Primitives.ButtonBase]) { $back.Add_Click({ try { [void](Invoke-DomeniaNavStep -Direction Back) } catch { Write-AppLog ('Navigation précédente : '+$_.Exception.Message) 'WARN' } }) }
     $forward = Get-DomeniaControl 'BtnNavForward'

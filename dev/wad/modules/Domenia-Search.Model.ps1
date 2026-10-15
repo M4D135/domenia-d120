@@ -439,15 +439,32 @@ function Get-DomeniaResultCounterText {
 
 function Get-DomeniaContinuationDecision {
     # 'Charger la suite' is offered only for a finished, complete-but-limited list below the safety maximum.
-    # The next load relaunches the same query with a larger bound: rows are deduplicated by identity and an
-    # older generation is discarded by the caller.
-    param([bool]$Finalized=$false,[bool]$HasError=$false,[bool]$LimitReached=$false,[int]$Limit=100,[int]$Maximum=20000)
-    if (-not $Finalized) { return [pscustomobject]@{Allowed=$false;NextLimit=$Limit;Reason='Lecture en cours : attendez la fin du chargement.'} }
-    if ($HasError) { return [pscustomobject]@{Allowed=$false;NextLimit=$Limit;Reason='Liste partielle après une erreur : relancez la recherche.'} }
-    if (-not $LimitReached) { return [pscustomobject]@{Allowed=$false;NextLimit=$Limit;Reason='Liste complète : aucune suite à charger.'} }
-    if ($Limit -ge $Maximum) { return [pscustomobject]@{Allowed=$false;NextLimit=$Limit;Reason=('Limite de sécurité de ' + $Maximum + ' lignes atteinte : affinez la recherche.')} }
+    # MO-07: the next load reads only the following rows. NextLimit is the size of the list after it (doubled, 20 000
+    # at most) and Page the rows it still has to read (NextLimit - Loaded); the rows already loaded are never read
+    # again. JumpLimit is the next step of « Charger jusquʼà 1 000 » (then 5 000, then the maximum), 0 when it would
+    # read no more than the next load. $Loaded < 0 means the list holds exactly $Limit rows.
+    param([bool]$Finalized=$false,[bool]$HasError=$false,[bool]$LimitReached=$false,[int]$Limit=100,[int]$Maximum=20000,[int]$Loaded=-1)
+    $culture = [Globalization.CultureInfo]::GetCultureInfo('fr-FR')
+    $result = [pscustomobject]@{Allowed=$false;NextLimit=$Limit;Page=0;JumpLimit=0;JumpPage=0;JumpText='';Reason=''}
+    if (-not $Finalized) { $result.Reason = 'Lecture en cours : attendez la fin du chargement.'; return $result }
+    if ($HasError) { $result.Reason = 'Liste partielle après une erreur : relancez la recherche.'; return $result }
+    if (-not $LimitReached) { $result.Reason = 'Liste complète : aucune suite à charger.'; return $result }
+    if ($Limit -ge $Maximum) { $result.Reason = 'Limite de sécurité de ' + $Maximum.ToString('N0',$culture) + ' lignes atteinte : affinez la recherche.'; return $result }
+    $loadedRows = $Limit
+    if ($Loaded -ge 0) { $loadedRows = [Math]::Min($Loaded,$Limit) }
     $next = [Math]::Max($Limit + 1,[Math]::Min($Maximum,$Limit * 2))
-    return [pscustomobject]@{Allowed=$true;NextLimit=$next;Reason=('Relit la même recherche jusquʼà ' + $next + ' lignes, sans doublon.')}
+    $result.Allowed = $true
+    $result.NextLimit = $next
+    $result.Page = [Math]::Max(1,$next - $loadedRows)
+    foreach ($step in @(1000,5000,$Maximum)) {
+        if (($step -gt $next) -and ($step -le $Maximum)) { $result.JumpLimit = $step; break }
+    }
+    if ($result.JumpLimit -gt 0) {
+        $result.JumpPage = $result.JumpLimit - $loadedRows
+        $result.JumpText = 'Charger jusquʼà ' + $result.JumpLimit.ToString('N0',$culture)
+    }
+    $result.Reason = 'Lit les ' + $result.Page.ToString('N0',$culture) + ' lignes suivantes (liste portée à ' + $next.ToString('N0',$culture) + ' lignes), sans relire les lignes déjà chargées.'
+    return $result
 }
 
 function New-DomeniaContinuation {
@@ -456,6 +473,31 @@ function New-DomeniaContinuation {
     $filter = $BaseFilter
     if ($LastName) { $filter = '(&' + $BaseFilter + '(name>=' + (ConvertTo-DomeniaLdapLiteral $LastName) + '))' }
     return [pscustomobject]@{Filter=$filter;SortAttribute='name';PageSize=[Math]::Max(10,[Math]::Min(1000,$PageSize));Reader=$Reader;Generation=$Generation;BaseDn=$BaseDn;AfterName=$LastName}
+}
+
+function New-DomeniaContinuationRequest {
+    # MO-07: what « Charger la suite » sends to the search worker. The filter that produced the list ($FilterUsed) is
+    # read again from the last name of the previous continuation ($Cursor, '' the first time: the rows of a first,
+    # unsorted list may have any name), sorted by name on the server. The DNs already listed ($LoadedDns) are skipped
+    # by the worker, so only $Target - $Loaded new rows are added; nothing already loaded is published twice.
+    # Valid=$false: nothing is sent and Reason says why (the caller falls back to reading the whole list again).
+    param([AllowEmptyString()][AllowNull()][string]$FilterUsed='',[AllowEmptyString()][AllowNull()][string]$Cursor='',[string[]]$LoadedDns=@(),
+        [int]$Loaded=0,[int]$Target=0,[int]$PageSize=250,[string]$Reader='',[long]$Generation=0,[string]$BaseDn='')
+    $filter = ([string]$FilterUsed).Trim()
+    $invalid = [pscustomobject]@{Valid=$false;Reason='';Filter='';SortAttribute='';AfterName='';Page=0;Target=$Target;KnownKeys=@();Reader=$Reader;Generation=$Generation;BaseDn=$BaseDn}
+    if ((-not $filter) -or (-not $filter.StartsWith('(')) -or (-not $filter.EndsWith(')')) -or ($filter.Length -gt 16000)) { $invalid.Reason = 'Filtre de la liste inconnu : la suite relit toute la recherche.'; return $invalid }
+    if ($Target -le $Loaded) { $invalid.Reason = 'Aucune ligne supplémentaire demandée.'; return $invalid }
+    $known = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    $keys = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($dn in @($LoadedDns)) {
+        $key = ([string]$dn).Trim().ToLowerInvariant()
+        if ($key -and $known.Add($key)) { $keys.Add($key) }
+    }
+    $continuation = New-DomeniaContinuation -BaseFilter $filter -LastName ([string]$Cursor) -PageSize $PageSize -Reader $Reader -Generation $Generation -BaseDn $BaseDn
+    return [pscustomobject]@{
+        Valid=$true;Reason='';Filter=[string]$continuation.Filter;SortAttribute=[string]$continuation.SortAttribute;AfterName=[string]$continuation.AfterName
+        PageSize=[int]$continuation.PageSize;Page=($Target - $Loaded);Target=$Target;KnownKeys=$keys.ToArray();Reader=$Reader;Generation=$Generation;BaseDn=$BaseDn
+    }
 }
 
 function Test-DomeniaContinuationCurrent {

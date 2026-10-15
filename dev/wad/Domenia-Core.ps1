@@ -624,6 +624,7 @@ $script:GuiElementPolicy = [ordered]@{
     "LstSearchBarType" = "Default"
     "BtnGlobalClear" = "Default"
     "BtnExportResults" = "Default"
+    "BtnSearchMoreJump" = "Default"
     "LblBranchCount" = "Default"
     "TxtBranchSearch" = "Default"
     "CmbObjectFilter" = "Default"
@@ -5478,7 +5479,9 @@ function Get-MainXaml {
                             <Button MinHeight="30" Padding="10,2" Margin="0,0,8,0" x:Name="BtnGlobalClear" Content="Effacer" ToolTip="Efface le texte et les résultats sans modifier l’OU sélectionnée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer la recherche" AutomationProperties.HelpText="Efface le texte et les résultats sans modifier l’OU sélectionnée."/>
                             <Button MinHeight="30" Padding="10,2" Margin="0" x:Name="BtnExportResults" Content="Exporter CSV" ToolTip="Exporte les résultats affichés, ou uniquement les lignes sélectionnées, au format CSV." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Exporter CSV" AutomationProperties.HelpText="Exporte les resultats affiches, ou uniquement les lignes selectionnees, au format CSV."/>
                           </StackPanel>
-                          <Button x:Name="BtnSearchMore" Content="Charger la suite" DockPanel.Dock="Right" IsEnabled="False" MinHeight="30" Padding="10,2" Margin="8,0,0,0" ToolTip="Disponible quand la liste est limitée : relit la même recherche avec une limite doublée, jusquʼà 20 000 lignes, sans doublon ni ancien contexte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Charger la suite" AutomationProperties.HelpText="Disponible quand la liste est limitée : relit la même recherche avec une limite doublée, jusquʼà 20 000 lignes, sans doublon ni ancien contexte."/>
+                          <Button x:Name="BtnSearchMore" Content="Charger la suite" DockPanel.Dock="Right" IsEnabled="False" MinHeight="30" Padding="10,2" Margin="8,0,0,0" ToolTip="Disponible quand la liste est limitée : lit seulement les lignes suivantes de la même recherche, triées par nom, sans relire les lignes déjà chargées. Plafond de sécurité : 20 000 lignes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Charger la suite" AutomationProperties.HelpText="Disponible quand la liste est limitée : lit seulement les lignes suivantes de la même recherche, triées par nom, sans relire les lignes déjà chargées. Plafond de sécurité : 20 000 lignes."/>
+                          <!-- MO-07: one gesture to bring a limited list to 1 000 rows (then 5 000, then 20 000), reading only the missing rows. -->
+                          <Button x:Name="BtnSearchMoreJump" Content="Charger jusquʼà 1 000" DockPanel.Dock="Right" IsEnabled="False" Visibility="Collapsed" MinHeight="30" Padding="10,2" Margin="8,0,0,0" ToolTip="Porte la liste à 1 000 lignes en une fois (puis 5 000, puis 20 000) : lit seulement les lignes manquantes, sans relire celles déjà chargées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Charger jusquʼà 1 000" AutomationProperties.HelpText="Porte la liste à 1 000 lignes en une fois (puis 5 000, puis 20 000) : lit seulement les lignes manquantes, sans relire celles déjà chargées."/>
                           <TextBlock x:Name="LblBranchCount" Text="0 objet" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="12,0,0,0" DockPanel.Dock="Right" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" MaxWidth="320" FontSize="12" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                           <StackPanel Orientation="Horizontal">
                             <TextBlock Text="Résultats" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
@@ -11529,14 +11532,21 @@ function Invoke-GlobalSearch {
     # D037 / UX-33: -ViewScope, -ExpectBaseDn and -ExpectScope let 'Charger la suite' read the same perimeter again
     # (view chip choice, base and depth of the list), whatever the chip or the tree show now.
     # CO-05: -KeepLocalFilter keeps the filter of the list for a gesture that brings its own (favourite, history list).
+    # MO-07: -Continuation (New-DomeniaContinuationRequest) adds only the next rows to the list on screen: same search,
+    # same generation, no new history entry, the rows already loaded stay where they are.
     param([switch]$SilentError,[switch]$AllowEmpty,[switch]$PreserveSelection,
         [ValidateSet('Global','OU')][string]$SearchMode = 'Global',
         [string]$ViewId = '',[int]$LimitOverride = 0,
         [ValidateSet('','OU','Domain')][string]$ViewScope = '',[string]$ExpectBaseDn = '',[string]$ExpectScope = '',
-        [switch]$KeepLocalFilter)
+        [switch]$KeepLocalFilter,$Continuation = $null)
 
     if(Test-DomeniaAccessBusyWrite){Set-Status 'Recherche différée : écriture active ou à vérifier.' 'WARN';return}
     if(-not (Test-DomeniaDraftNavigation -DN "")){return}
+    if (($null -ne $Continuation) -and ((-not [bool](Get-DomeniaMember $Continuation 'Valid' $false)) -or (-not (Test-DomeniaLiveSearchActive)) -or
+        (-not (Test-DomeniaContinuationCurrent -Continuation $Continuation -Reader ([string]$script:Live.Identity) -Generation ([long]$script:GlobalSearchGeneration) -BaseDn ([string]$script:Live.Search.State.BaseDn))))) {
+        Set-Status 'Suite non chargée : la liste affichée nʼest plus la recherche courante. Relancez la recherche.' 'WARN'
+        return
+    }
     $navHook = $null
     try {
         $searchBox = Get-DomeniaControl -Name "TxtGlobalSearch"
@@ -11603,12 +11613,16 @@ function Invoke-GlobalSearch {
             $selectedGrid = Get-DomeniaControl -Name 'DgObjects'
             if ($null -ne $selectedGrid -and $null -ne $selectedGrid.SelectedItem) { $preserveDn = [string]$selectedGrid.SelectedItem.DN }
         }
-        # D040: the place being left is saved before this search changes the list (no request involved).
-        $navHook = Get-Command Enter-DomeniaNavSearch -CommandType Function -ErrorAction SilentlyContinue
-        if ($null -ne $navHook) { Enter-DomeniaNavSearch }
+        # MO-07: a continuation adds rows to the list on screen; it is not a new place of the history.
+        $continuing = ($null -ne $Continuation)
+        if (-not $continuing) {
+            # D040: the place being left is saved before this search changes the list (no request involved).
+            $navHook = Get-Command Enter-DomeniaNavSearch -CommandType Function -ErrorAction SilentlyContinue
+            if ($null -ne $navHook) { Enter-DomeniaNavSearch }
+        }
         # CO-05: a new search starts with an empty filter of the list, after the place being left was saved with it.
         # A refresh, a continuation, a favourite or a history list keep the filter that goes with their list.
-        if ((-not $PreserveSelection) -and (-not $KeepLocalFilter) -and ($LimitOverride -le 0)) {
+        if ((-not $PreserveSelection) -and (-not $KeepLocalFilter) -and ($LimitOverride -le 0) -and (-not $continuing)) {
             $localFilter = Get-DomeniaControl -Name 'TxtSuiteResultFilter'
             if (($null -ne $localFilter) -and (-not [string]::IsNullOrEmpty([string]$localFilter.Text))) {
                 $oldExperience = [bool]$script:ExperienceRestoring
@@ -11616,24 +11630,28 @@ function Invoke-GlobalSearch {
                 try { $localFilter.Text = '' } finally { $script:ExperienceRestoring = $oldExperience }
             }
         }
-        Set-DomeniaSearchMode -Mode $SearchMode
-        Invalidate-DomeniaSearchResults -KeepSelection:([bool]$preserveDn)
+        if (-not $continuing) {
+            Set-DomeniaSearchMode -Mode $SearchMode
+            Invalidate-DomeniaSearchResults -KeepSelection:([bool]$preserveDn)
+        }
         $generation = [int]$script:GlobalSearchGeneration
         $script:ActiveSearchViewId = $(if ($null -ne $view) { [string]$view.Id } else { '' })
         # UX-33: a work view listed over the whole domain refuses ping, detection and analysis of its rows.
         $script:ListSurveyBlocked = ($null -ne $view -and -not [bool]$viewPlan.SurveyAllowed)
         [void](Set-DomeniaControlText -Name 'LblSearchHint' -Text $searchHint)
-        Update-DomeniaSearchScopeUi
+        if (-not $continuing) { Update-DomeniaSearchScopeUi }
         if (-not $PreserveSelection) { Select-DomeniaWorkspace -Workspace 'WsSearch' }
 
         $limit = [int](Get-CfgValue "Browser" "GlobalSearchLimit" 100)
         try { $limit = [int]((Get-DomeniaControl -Name "TxtGlobalLimit").Text) } catch { }
         # D037: an explicit 'Charger la suite' raises the bound for this query only; the field keeps the operator value.
         if ($LimitOverride -gt 0) { $limit = $LimitOverride }
+        # MO-07: the list is brought to the target size of the continuation; only Target - Loaded rows are read.
+        if ($continuing) { $limit = [int](Get-DomeniaMember $Continuation 'Target' $limit) }
         if ($limit -le 0) { $limit = 100 }
         # Decision David 2026-10-05: at least 10 000 results must be displayable (former cap 500).
         if ($limit -gt 20000) { $limit = 20000 }
-        if ($LimitOverride -le 0) { [void](Set-DomeniaControlText -Name "TxtGlobalLimit" -Text ([string]$limit)) }
+        if (($LimitOverride -le 0) -and (-not $continuing)) { [void](Set-DomeniaControlText -Name "TxtGlobalLimit" -Text ([string]$limit)) }
 
         # Une nouvelle recherche repart toujours sans selection. DOMENIA affiche les
         # resultats mais ne choisit jamais une ligne a la place de l'operateur,
@@ -11801,12 +11819,26 @@ if ([string]$Payload.Scope -notin @("Subtree","OneLevel")) { throw "Portee de re
 
 $filters = New-Object Collections.ArrayList
 $seenFilter = @{}
-foreach ($candidate in @([string]$Payload.PrefixFilter,[string]$Payload.FastFilter,[string]$Payload.ExactFilter,[string]$Payload.AnrFilter,[string]$Payload.BroadFilter)) {
-    $f = ([string]$candidate).Trim()
-    if ([string]::IsNullOrWhiteSpace($f)) { continue }
-    if (-not $seenFilter.ContainsKey($f)) {
-        $seenFilter[$f] = $true
-        [void]$filters.Add($f)
+# MO-07: 'Charger la suite' reads only the next rows of the filter that produced the list, sorted by name from the
+# last name read; the DNs already listed are skipped and never published twice.
+$continuation = $null
+$known = $null
+if ($null -ne $Payload.PSObject.Properties['Continuation'] -and $null -ne $Payload.Continuation) { $continuation = $Payload.Continuation }
+if ($null -ne $continuation) {
+    $f = ([string]$continuation.Filter).Trim()
+    if (-not $f.StartsWith('(') -or -not $f.EndsWith(')') -or $f.Length -gt 16500) { throw 'Filtre de suite invalide : aucune lecture.' }
+    [void]$filters.Add($f)
+    $known = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    foreach ($knownKey in @($continuation.KnownKeys)) { if (-not [string]::IsNullOrWhiteSpace([string]$knownKey)) { [void]$known.Add(([string]$knownKey).Trim()) } }
+}
+else {
+    foreach ($candidate in @([string]$Payload.PrefixFilter,[string]$Payload.FastFilter,[string]$Payload.ExactFilter,[string]$Payload.AnrFilter,[string]$Payload.BroadFilter)) {
+        $f = ([string]$candidate).Trim()
+        if ([string]::IsNullOrWhiteSpace($f)) { continue }
+        if (-not $seenFilter.ContainsKey($f)) {
+            $seenFilter[$f] = $true
+            [void]$filters.Add($f)
+        }
     }
 }
 if ($filters.Count -eq 0) { throw "Aucun filtre LDAP valide n'a ete construit." }
@@ -11840,6 +11872,7 @@ $limitReached = $false
 $partial = $false
 $failure = ""
 $filterUsed = ""
+$lastName = ""
 
 foreach ($ctx in @($contexts)) {
     $serverLabel = if ([string]::IsNullOrWhiteSpace([string]$ctx.Server)) { "auto" } else { [string]$ctx.Server }
@@ -11856,12 +11889,15 @@ foreach ($ctx in @($contexts)) {
             $resultLimit=[int]$Payload.Limit
             if($resultLimit -lt 1 -or $resultLimit -gt 20000){throw 'Budget de recherche invalide (1 a 20000 objets).'}
             $ldapLimit=$resultLimit+1
+            # MO-07: a continuation may meet the rows already listed again (same name, or a first unsorted list).
+            if ($null -ne $known) { $ldapLimit += $known.Count }
             $searcher = New-WSearcher $ctx ([string]$Payload.BaseDn) $filterText @($Payload.Properties) ([string]$Payload.Scope) $ldapLimit
             $searcher.ServerTimeLimit = [TimeSpan]::FromSeconds([Math]::Max(3,[int]$Payload.ServerTimeLimitSeconds))
             $searcher.ClientTimeout = [TimeSpan]::FromSeconds([Math]::Max(5,[int]$Payload.ClientTimeoutSeconds))
             $searcher.PageSize = [Math]::Max(100,[Math]::Min(1000,[int]$Payload.StreamPageSize))
             $searcher.CacheResults = $false
             $searcher.Asynchronous = $true
+            if ($null -ne $continuation -and [string]$continuation.SortAttribute -eq 'name') { $searcher.Sort = New-Object System.DirectoryServices.SortOption('name',[System.DirectoryServices.SortDirection]::Ascending) }
             $rootEntry = $searcher.SearchRoot
             $collection = $searcher.FindAll()
             $serverUsed = $serverLabel
@@ -11894,10 +11930,11 @@ foreach ($ctx in @($contexts)) {
                 }
                 else { $dn.ToLowerInvariant() }
 
+                if ($null -ne $known -and $known.Contains($key)) { continue }
                 if ($seenDn.ContainsKey($key)) { continue }
                 $seenDn[$key] = $true
                 $beyondDisplayLimit=($rows.Count -ge $resultLimit)
-                if(-not $beyondDisplayLimit){[void]$rows.Add($row);$filterAdded++}
+                if(-not $beyondDisplayLimit){[void]$rows.Add($row);$filterAdded++;$lastName=[string]$row.Name}
                 # Even the look-ahead observation is stored. The publication pipe enforces the requested display budget.
                 if ($null -ne $Payload.Progress) {
                     $observedUtc=[datetime]::UtcNow.ToString('o')
@@ -11963,6 +12000,8 @@ $final=[pscustomobject]@{
     LimitReached=[bool]$limitReached
     Filters=@($diagnostics)
     FilterUsed=[string]$filterUsed
+    Continuation=($null -ne $continuation)
+    LastName=[string]$lastName
 }
 if($null -ne $Payload.DirectoryReadState){$Payload.DirectoryReadState.Final=$final;if($partial){$Payload.DirectoryReadState.Error=$failure}}
 $final
@@ -11990,6 +12029,14 @@ $final
             ClientTimeoutSeconds = $searchClientSeconds
             StreamPageSize = [Math]::Max(100,[Math]::Min(1000,[int](Get-CfgValue 'Browser' 'SearchPageSize' 250)))
             SearchReadProgress = [hashtable]::Synchronized(@{StartedTimestamp=0L;LastRowTimestamp=0L;RowsRead=0L})
+        }
+        if ($continuing) {
+            # MO-07: one filter (the one that produced the list), sorted by name, a budget of new rows only.
+            $payload.PrefixFilter = ''; $payload.FastFilter = ''; $payload.ExactFilter = ''; $payload.AnrFilter = ''; $payload.BroadFilter = ''
+            $payload.Limit = [Math]::Max(1,[Math]::Min(20000,[int]$Continuation.Page))
+            Add-Member -InputObject $payload -NotePropertyName Continuation -NotePropertyValue ([pscustomobject]@{
+                Filter=[string]$Continuation.Filter;SortAttribute=[string]$Continuation.SortAttribute;AfterName=[string]$Continuation.AfterName;KnownKeys=@($Continuation.KnownKeys)
+            })
         }
         $callbackState = [pscustomobject]@{
             SearchMode = $SearchMode
@@ -12024,13 +12071,18 @@ $final
             }
         }
 
-        [void](Begin-DomeniaLiveSearch -State $callbackState -Payload $payload)
+        if ($continuing) {
+            # MO-07: the list on screen receives the next rows; its rows, its selection and its filter stay.
+            Add-Member -InputObject $callbackState -NotePropertyName ContinuationPage -NotePropertyValue ([int]$payload.Limit) -Force
+            [void](Resume-DomeniaLiveSearch -State $callbackState -Payload $payload)
+        }
+        else { [void](Begin-DomeniaLiveSearch -State $callbackState -Payload $payload) }
 
-        Add-DomeniaUiLog -Area "Recherche" -Level "INFO" -Text "Recherche $SearchMode '$textValue' demandee, base=$($scope.BaseDn), portee=$($scope.Scope), limite=$limit."
+        Add-DomeniaUiLog -Area "Recherche" -Level "INFO" -Text ("Recherche $SearchMode '$textValue' demandee, base=$($scope.BaseDn), portee=$($scope.Scope), limite=$limit" + $(if ($continuing) { ", suite de $($payload.Limit) ligne(s) apres '$([string]$Continuation.AfterName)'." } else { '.' }))
         Write-DomeniaTrace -Area 'Recherche' -Text "Budgets : sans progression=$($searchIdleSeconds)s, maximum=$($searchMaxSeconds)s, LDAP serveur=$($searchServerSeconds)s/client=$($searchClientSeconds)s, page=$($payload.StreamPageSize)."
         if ($generation -ne [int]$script:GlobalSearchGeneration) { return }
         if (-not $PreserveSelection) { Select-DomeniaWorkspace -Workspace 'WsSearch' }
-        [void](Set-DomeniaControlText -Name 'LblBranchCount' -Text 'Recherche en cours...')
+        [void](Set-DomeniaControlText -Name 'LblBranchCount' -Text $(if ($continuing) { 'Chargement de la suite…' } else { 'Recherche en cours...' }))
         Start-UiTask -Name "Recherche dans l annuaire" -OperationId "GlobalSearch" -Code $code -Payload $payload -CallbackState $callbackState -ReplaceKey "global" -DisableControls @("BtnGlobalSearch") -TimeoutSeconds $searchIdleSeconds -HardTimeoutSeconds $searchMaxSeconds -StatusText "Recherche Active Directory en arriere-plan..." -SuccessHandler "Complete-DomeniaGlobalSearchUi" -ErrorHandler "Fail-DomeniaGlobalSearchUi" | Out-Null
     }
     catch {

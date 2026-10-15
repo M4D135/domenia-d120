@@ -3481,9 +3481,16 @@
   {
     "Name": "BtnSearchMore",
     "Title": "Charger la suite",
-    "Text": "Disponible quand la liste est limitée : relit la même recherche avec une limite doublée, jusquʼà 500 lignes, sans doublon ni ancien contexte. La limite saisie nʼest pas modifiée.",
+    "Text": "Disponible quand la liste est limitée : lit seulement les lignes suivantes de la même recherche, triées par nom, sans relire les lignes déjà chargées. Plafond de sécurité : 20 000 lignes.",
     "Kind": "Button",
     "Source": "d120-recherche"
+  },
+  {
+    "Name": "BtnSearchMoreJump",
+    "Title": "Charger jusquʼà 1 000",
+    "Text": "Porte la liste à 1 000 lignes en une fois (puis 5 000, puis 20 000) : lit seulement les lignes manquantes, sans relire celles déjà chargées.",
+    "Kind": "Button",
+    "Source": "X02"
   },
   {
     "Name": "CmbWorkView",

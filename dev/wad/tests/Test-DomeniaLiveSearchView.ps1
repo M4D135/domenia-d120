@@ -237,6 +237,38 @@ try {
    Expect ($grid.Items.Count -eq 2) 'Clearing the filter of the list did not show the global rows again'
    Snapshot-Fixture 'fresh-global-search'
   }
+  # MO-07: unwired if « Charger la suite » rebuilds the list (new collection, rows read again) instead of resuming it.
+  Case 'MO-07 A continuation keeps the loaded rows and adds only the next ones' {
+   $script:SearchMode='OU';$script:GlobalSearchGeneration++;$script:Ctrl.TxtSuiteResultFilter.Text='';$script:CurrentPresenceFilter='Tous'
+   $scope=Get-DomeniaSearchScope
+   $state=[pscustomobject]@{Generation=$script:GlobalSearchGeneration;SearchMode='OU';BaseDn=$scope.BaseDn;Scope=$scope.Scope;TypeFilter=(Get-GlobalSelectedTypeFilter);Search='';Limit=3;PreserveSelectionDn='';ViewId=''}
+   $s=Begin-DomeniaLiveSearch $state ([pscustomobject]@{})
+   foreach($n in 1..3){$s.Progress.Enqueue((New-FixtureEvent ('PC-PAGE1-'+$n) ('66666666-6666-4666-8666-00000000000'+$n)))}
+   $s.Final=[pscustomobject]@{LimitReached=$true;FilterUsed='(objectCategory=computer)';Partial=$false};$s.Ended=$true
+   Invoke-DomeniaTimerSoon -Owner 'Timer:Live'
+   Wait-FixtureState -Stage 'continuation-first-page' -Condition {$s.Finalized -and $s.Rows.Count -eq 3}
+   $rows=$s.Rows;$first=$s.Rows[0];$grid.SelectedItem=$first
+   $next=[pscustomobject]@{Generation=$script:GlobalSearchGeneration;SearchMode='OU';BaseDn=$scope.BaseDn;Scope=$scope.Scope;TypeFilter=$state.TypeFilter;Search='';Limit=5;PreserveSelectionDn=[string]$first.DN;ViewId='';StoreContext=[pscustomobject]@{RequestId='continuation-fixture'}}
+   $payload=[pscustomobject]@{StreamPageSize=250}
+   $resumed=Resume-DomeniaLiveSearch -State $next -Payload $payload
+   Expect ([object]::ReferenceEquals($resumed,$s) -and [object]::ReferenceEquals($script:Live.Search,$s)) 'The continuation replaced the search object'
+   Expect ([object]::ReferenceEquals($grid.ItemsSource,$rows) -and $s.Rows.Count -eq 3 -and -not $s.Finalized -and [object]::ReferenceEquals($s.State,$next)) 'The rows on screen were dropped or the list was not reopened'
+   Expect ($null -ne $payload.Progress -and $null -ne $payload.StopToken -and [object]::ReferenceEquals($next.LiveState,$s)) 'The worker payload is not attached to the resumed list'
+   Expect ([object]::ReferenceEquals($grid.SelectedItem,$first)) 'The selection was lost by the continuation'
+   # Two new rows, one row already listed (same GUID) and one row beyond the new size.
+   $s.Progress.Enqueue((New-FixtureEvent 'PC-PAGE2-1' '66666666-6666-4666-8666-000000000004'))
+   $s.Progress.Enqueue((New-FixtureEvent 'PC-PAGE1-2' '66666666-6666-4666-8666-000000000002'))
+   $s.Progress.Enqueue((New-FixtureEvent 'PC-PAGE2-2' '66666666-6666-4666-8666-000000000005'))
+   $s.Progress.Enqueue((New-FixtureEvent 'PC-PAGE2-3' '66666666-6666-4666-8666-000000000006'))
+   $s.Final=[pscustomobject]@{LimitReached=$true;FilterUsed='(&(objectCategory=computer)(name>=PC-PAGE1-3))';Partial=$false;Continuation=$true;LastName='PC-PAGE2-2'};$s.Ended=$true
+   Invoke-DomeniaTimerSoon -Owner 'Timer:Live'
+   Wait-FixtureState -Stage 'continuation-second-page' -Condition {$s.Finalized -and $s.Progress.IsEmpty}
+   $names=@($s.Rows|ForEach-Object{[string]$_.Name})
+   Expect ($s.Rows.Count -eq 5 -and ($names -contains 'PC-PAGE1-1') -and ($names -contains 'PC-PAGE2-2') -and -not ($names -contains 'PC-PAGE2-3')) ('Rows after the continuation: '+($names -join ', '))
+   Expect (@($s.Rows|Group-Object DN|Where-Object{$_.Count -gt 1}).Count -eq 0) 'A row already listed was added twice'
+   Expect ($grid.Items.Count -eq 5 -and [object]::ReferenceEquals($grid.ItemsSource,$rows)) 'The grid does not show the five rows of the same list'
+   Expect-HealthyTimer;Snapshot-Fixture 'continuation-two-pages'
+  }
  }else{$script:Results.Add([pscustomobject]@{Name='Filter apply/refresh/clear scenarios';Passed=$false;Error='Blocked by reproduced Timer:Live failure; no success inferred.'})}
  Case 'Explicit Fleet chrome button opens the script-local workshop; chart click stays inert' {
   Initialize-DomeniaQueryWorkshop;$script:EvaluationRequests=0
