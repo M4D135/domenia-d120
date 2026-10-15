@@ -241,6 +241,7 @@ Vues, dans l'ordre : « Vue d'ensemble » (fiche du poste et tableau de bord),
 | Intervenir : « Redémarrer… » | Ouvre le panneau du redémarrage, qui lit d'abord les sessions ouvertes (section suivante). | Grisé. |
 | Compte AD : « Activer le compte » ou « Désactiver le compte » | Un seul bouton, selon userAccountControl lu avec la fiche ; aucun quand cet attribut n'est pas lu. | Grisé. |
 | Compte AD : « Ajouter », « Retirer », « Renommer dans AD » | Groupes du poste et nom du compte ordinateur dans l'annuaire (pas Windows sur le poste). | Grisés. |
+| Compte AD : « Choisir lʼOU de destination… » | Déplace le compte ordinateur du poste ouvert : l'OU se choisit dans le sélecteur, puis le déplacement se confirme dans la page. Le contrôleur revérifie le GUID du poste avant l'envoi ; si la sélection change pendant le choix, rien n'est envoyé. | Grisé. |
 
 Dans l'en-tête d'Assistance poste, la pastille « Compte poste : … ▾ » dit avant le clic quel compte servira au disque C et aux consoles ; la ligne « Opérations poste : … » sous la carte « Se connecter » reprend le même texte.
 
@@ -323,6 +324,8 @@ L'onglet « Inventaire » de la vue « Détails » lit le poste par CIM, ave
 |---|---|
 | « Inventaire rapide (≈1 min) » | Matériel, système, disques, réseau, sécurité, correctifs, logiciels, services, comptes, partages et imprimantes. |
 | « Inventaire complet (≈3 min) » | Tout le rapide, plus les processus, les tâches planifiées, les certificats, les connexions réseau et les erreurs récentes. Plus long. |
+
+Démarrage automatique : seul le programme de chaque entrée est gardé, jamais ses arguments, qui peuvent contenir un mot de passe. Tâches planifiées : avec WinRM, l'inventaire complet lit l'état, l'auteur, la dernière exécution et le dernier résultat (40 tâches hors Microsoft au plus, jamais leurs actions ni leurs arguments). Sans WinRM, il lit la liste, l'état et l'auteur par CIM, et la date du dernier démarrage dans le cache du Planificateur (registre, format non documenté par Microsoft, réservé aux administrateurs du poste) ; le résultat reste « non lu (WinRM requis) ».
 
 L'onglet « Tableau de bord » propose les mêmes lectures avec « Inventaire rapide » et « Inventaire complet ». Délai maximal, fixé dans le code : 110 s pour le rapide, 260 s pour le complet.
 

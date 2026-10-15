@@ -24,7 +24,7 @@ Quand : avant toute intervention, vous devez retrouver un poste, un utilisateur 
 5. **Affiner sans relancer.** Tapez quelques lettres dans « Filtrer la liste » : seules les lignes chargées qui les contiennent restent, aussi après une recherche globale, sans requête AD. « Effacer le filtre » réaffiche tout. Une nouvelle recherche repart avec un filtre vide.
 6. **Choisir les colonnes.** La liste montre six colonnes : Type, Nom, Utilisateur connecté, Association mémorisée, Présence réseau et État. L’association affiche l’utilisateur ou les postes liés suivis de la qualification du lien (par exemple « Camille Martin · Observé ») ; son infobulle donne la source. Clic droit sur un en-tête de colonne, ou menu « ⋯ » puis « Colonnes… » : cochez ou décochez une colonne ; « Colonnes par défaut » revient aux six colonnes. Le choix est gardé d’une session à l’autre ; les colonnes propres aux postes n’apparaissent que si la liste contient un poste.
 7. **Vérifier un poste.** Cliquez une fois sur la ligne d'un poste. Domenia le pingue et lit l'utilisateur ouvert sur son écran : « Présence réseau » et « Utilisateur connecté (console) » se mettent à jour.
-8. **Ouvrir la fiche.** Double-cliquez sur la ligne, ou appuyez sur Entrée. La page « Fiche » s'ouvre sur l'onglet « Resume ».
+8. **Ouvrir la fiche.** Double-cliquez sur la ligne, ou appuyez sur Entrée. La page « Fiche » s'ouvre sur l'onglet « Resume ». Si l'objet a changé dans l'annuaire depuis son ouverture, « Relire depuis lʼannuaire » le relit sur le contrôleur, lui seul : la liste et les autres fiches restent telles quelles.
 
 | Zone de Rechercher | Utilisation |
 |---|---|
