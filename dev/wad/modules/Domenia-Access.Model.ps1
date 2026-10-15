@@ -430,10 +430,10 @@ function Get-DomeniaSecretActionView {
     $copyText = 'Copier la valeur'
     if ($SelectedKind -match '(?i)BitLocker|Recovery') { $copyText = 'Copier la clé BitLocker' } elseif ($SelectedKind -match '(?i)LAPS') { $copyText = 'Copier le mot de passe LAPS' }
     $copyTip = 'Sélectionnez une ligne contenant une clé BitLocker ou un mot de passe LAPS lisible.'
-    if ($CanUseSelected -and $SelectedMetadata) { $copyTip = ('Lit la seule clé sélectionnée, la copie puis programme lʼeffacement automatique du presse-papiers. ' + $ClipboardLimit).Trim() }
+    if (($CanUseSelected) -and ($SelectedMetadata)) { $copyTip = ('Lit la seule clé sélectionnée, la copie puis programme lʼeffacement automatique du presse-papiers. ' + $ClipboardLimit).Trim() }
     elseif ($CanUseSelected) { $copyTip = ('Copie uniquement la valeur sélectionnée puis programme lʼeffacement automatique du presse-papiers. ' + $ClipboardLimit).Trim() }
     if ($Single) {
-        $enabled = ($Visible -or $CanUseSelected)
+        $enabled = (($Visible) -or ($CanUseSelected))
         if ($Visible) { $text = 'Masquer la valeur'; $tip = 'Masque tout de suite la valeur affichée.' }
         elseif ($SelectedMetadata) { $text = 'Lire et afficher cette clé'; $tip = 'Lit la seule clé sélectionnée puis lʼaffiche pendant ' + [string]$RevealSeconds + ' s. Les autres clés ne sont pas lues.' }
         else { $text = 'Afficher la valeur choisie'; $tip = 'Affiche uniquement la valeur sélectionnée pendant ' + [string]$RevealSeconds + ' s. Les autres restent masquées.' }

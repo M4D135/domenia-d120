@@ -6983,7 +6983,7 @@ function Get-MainXaml {
                               <TextBlock Text="Identifiant de récupération BitLocker" Margin="0,0,0,4" FontSize="12" FontWeight="SemiBold"/>
                               <TextBox x:Name="TxtBitLockerRecoveryId" MaxLength="40" IsEnabled="False" ToolTip="Saisissez les premiers caractères de lʼidentifiant affiché par le poste. Filtre local : aucune clé nʼest lue ni révélée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Identifiant de recuperation BitLocker" AutomationProperties.HelpText="Saisissez les premiers caracteres de l identifiant affiche par le poste. Filtre local : aucune cle n est lue ni revelee."/>
                             </StackPanel>
-                            <TextBlock x:Name="LblBitLockerRecoveryHint" Text="Chargez BitLocker : les métadonnées sont listées sans aucune clé. Une seule clé est lue, à votre demande." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Bottom" MaxWidth="520" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="LblBitLockerRecoveryHint" Text="« Lister les clés BitLocker » affiche les métadonnées, sans aucune clé. Une seule clé est lue, à votre demande." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Bottom" MaxWidth="520" TextWrapping="Wrap"/>
                           </WrapPanel>
                           <TextBlock x:Name="LblSecretsExposure" Text="Une valeur à la fois, affichée brièvement, jamais journalisée ni mise en cache." Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0" TextWrapping="Wrap"/>
                           <!-- UX-18 : cle BitLocker revelee seule, en huit blocs numerotes a dicter, avec son identifiant et un compte a rebours. -->
@@ -7019,7 +7019,7 @@ function Get-MainXaml {
                             </Grid>
                           </Border>
                         </StackPanel>
-                        <DataGrid x:Name="DgSecrets" ToolTip="Clés et mots de passe récupérés. Clic droit pour copier." AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" MinRowHeight="31" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Cles et mots de passe recuperes" AutomationProperties.HelpText="Cles et mots de passe recuperes. Clic droit pour copier.">
+                        <DataGrid x:Name="DgSecrets" ToolTip="Clés et mots de passe lus pour ce poste, masqués par défaut. Choisissez une ligne, puis affichez-la ou copiez-la avec les boutons ci-dessus : une valeur à la fois." AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" MinRowHeight="31" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Clés et mots de passe récupérés" AutomationProperties.HelpText="Clés et mots de passe lus pour ce poste, masqués par défaut. Choisissez une ligne, puis affichez-la ou copiez-la avec les boutons ci-dessus : une valeur à la fois.">
                           <DataGrid.Columns>
                             <DataGridTextColumn Header="Type" Binding="{Binding Kind}" Width="150"/>
                             <DataGridTextColumn Header="Compte ou identifiant" Binding="{Binding Account}" Width="190"/>

@@ -2248,7 +2248,7 @@
   {
     "Name": "DgSecrets",
     "Title": "Clés et mots de passe récupérés",
-    "Text": "Clés et mots de passe récupérés. Clic droit pour copier.",
+    "Text": "Clés et mots de passe lus pour ce poste, masqués par défaut. Choisissez une ligne, puis affichez-la ou copiez-la avec les boutons ci-dessus : une valeur à la fois.",
     "Kind": "DataGrid",
     "Source": "existing-help"
   },

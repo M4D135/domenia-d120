@@ -113,7 +113,7 @@ function Get-DomeniaRevealedBitLockerKey {
     if(-not (Test-DomeniaSecretSingleExposure)){return $null}
     $index=-1;if($null -ne $script:RevealedSecretIndex){$index=[int]$script:RevealedSecretIndex}
     $rows=@($script:SecretRows)
-    if($index -lt 0 -or $index -ge $rows.Count){return $null}
+    if(($index -lt 0) -or ($index -ge $rows.Count)){return $null}
     $row=$rows[$index]
     if([string](Get-DomeniaMember $row 'Kind' '') -notmatch '(?i)BitLocker'){return $null}
     $blocks=@(ConvertTo-DomeniaBitLockerKeyBlocks ([string](Get-DomeniaMember $row 'Value' '')))
@@ -127,7 +127,7 @@ function Update-DomeniaSecretRevealCountdown {
     $key=Get-DomeniaRevealedBitLockerKey
     if($null -eq $key){try{if($null -ne $script:SecretCountdownTimer){$script:SecretCountdownTimer.Stop()}}catch{};return $false}
     $reveal=$script:SecretReveal
-    if($null -eq $reveal -or [int]$reveal.Index -ne [int]$key.Index){Hide-DomeniaRevealedSecret;return $false}
+    if(($null -eq $reveal) -or ([int]$reveal.Index -ne [int]$key.Index)){Hide-DomeniaRevealedSecret;return $false}
     $c=Get-DomeniaSecretRevealCountdown -DeadlineUtc $reveal.DeadlineUtc -NowUtc ([datetime]::UtcNow) -TotalSeconds ([int]$reveal.TotalSeconds) -Extended ([bool]$reveal.Extended)
     if([bool]$c.Expired){Hide-DomeniaRevealedSecret;return $false}
     [void](Set-DomeniaControlText 'LblBitLockerKeyCountdown' ([string]$c.Text))
@@ -167,11 +167,11 @@ function Update-DomeniaSecretsView {
         }else{
             if($null -ne $blocksHost){$items=[Collections.ArrayList]::new();foreach($block in @($key.Blocks)){[void]$items.Add($block)};$blocksHost.ItemsSource=$items}
             $id=[string]$key.RecoveryId
-            if([string]$key.KeyGuid -and ([string]$key.KeyGuid -cne $id)){$id+=' ('+[string]$key.KeyGuid+')'}
+            if(([string]$key.KeyGuid) -and ([string]$key.KeyGuid -cne $id)){$id+=' ('+[string]$key.KeyGuid+')'}
             if(-not $id){$id='non lu'}
             [void](Set-DomeniaControlText 'LblBitLockerKeyCardId' ('Identifiant de récupération : '+$id+'. Vérifiez quʼil correspond à celui affiché par le poste avant de dicter les huit blocs.'))
             $card.Visibility=[Windows.Visibility]::Visible
-            if((Update-DomeniaSecretRevealCountdown) -and ($null -eq $script:SecretCountdownTimer -or -not [bool]$script:SecretCountdownTimer.IsEnabled)){
+            if((Update-DomeniaSecretRevealCountdown) -and (($null -eq $script:SecretCountdownTimer) -or (-not [bool]$script:SecretCountdownTimer.IsEnabled))){
                 # FI-05: protected heartbeat timer; display only, the expiry timer stays the one that hides the key.
                 $script:SecretCountdownTimer=New-DomeniaTimer -Owner 'Timer:SecretCountdown' -IntervalMs 1000 -Start -Tick {
                     param($sender,$eventArgs)
@@ -193,7 +193,8 @@ function Invoke-DomeniaSecretRevealExtension {
     # extension is refused. Nothing is read again and nothing is copied.
     $key=Get-DomeniaRevealedBitLockerKey
     $reveal=$script:SecretReveal
-    if($null -eq $key -or $null -eq $reveal -or [int]$reveal.Index -ne [int]$key.Index){return $false}
+    if(($null -eq $key) -or ($null -eq $reveal)){return $false}
+    if([int]$reveal.Index -ne [int]$key.Index){return $false}
     $now=[datetime]::UtcNow
     $c=Get-DomeniaSecretRevealCountdown -DeadlineUtc $reveal.DeadlineUtc -NowUtc $now -TotalSeconds ([int]$reveal.TotalSeconds) -Extended ([bool]$reveal.Extended)
     if(-not [bool]$c.CanExtend){Set-Status 'Prolongation déjà utilisée : la clé sera masquée à lʼéchéance.' 'WARN';[void](Update-DomeniaSecretRevealCountdown);return $false}
@@ -245,26 +246,26 @@ function Complete-DomeniaBitLockerListUi {
     Restart-DomeniaSecretLifetime
     Update-SecretsGrid
     if($keys.Count -eq 0){
-        [void](Set-DomeniaControlText 'LblSecretsStatus' 'Aucun objet de recuperation visible avec ce compte. L absence de resultat ne prouve pas l absence de cle.')
-        Set-Status 'BitLocker : aucun objet de recuperation visible avec ce compte.' 'WARN'
+        [void](Set-DomeniaControlText 'LblSecretsStatus' 'Aucun objet de récupération visible avec ce compte. Lʼabsence de résultat ne prouve pas lʼabsence de clé.')
+        Set-Status 'BitLocker : aucun objet de récupération visible avec ce compte.' 'WARN'
         [void](Request-DomeniaAccessRecovery -Operation 'Lecture BitLocker' -ErrorValue 'Aucune cle visible.' -OperationId 'ReadBitLockerList' -DN $dn -Possible -Interactive:([int]$State.RetryAttempt -eq 0))
         try{[void](Save-DomeniaSecretIndexEntry -Computer (Get-CurrentSelectedComputerName) -BitLockerKeys 0 -Verdict 'aucune cle visible avec ce compte')}catch{}
         Update-DomeniaSecretActionUi
         return
     }
-    [void](Set-DomeniaControlText 'LblSecretsStatus' ([string]$keys.Count+' cle(s) BitLocker : metadonnees seulement, aucune cle lue. Saisissez l identifiant de recuperation affiche par le poste ou choisissez une ligne, puis Afficher ou Copier.'))
+    [void](Set-DomeniaControlText 'LblSecretsStatus' ([string]$keys.Count+' clé(s) BitLocker listée(s) : métadonnées seulement, aucune clé lue. Saisissez lʼidentifiant de récupération affiché par le poste ou choisissez une ligne, puis « Lire et afficher cette clé » ou « Copier la clé BitLocker ».'))
     try{[void](Update-DomeniaSecretIndexFromRows -Computer (Get-CurrentSelectedComputerName) -Mode 'BitLocker' -Rows $script:SecretRows -Verdict 'objets de recuperation visibles, cles non lues')}catch{}
     $box=Get-DomeniaControl 'TxtBitLockerRecoveryId'
     if($null -ne $box){$box.IsEnabled=$true;if(-not [string]::IsNullOrWhiteSpace([string]$box.Text)){Invoke-DomeniaBitLockerRecoveryIdFilter}}
     Update-DomeniaSecretActionUi
-    Set-Status ('BitLocker : '+[string]$keys.Count+' cle(s) listee(s), aucune revelee.')
+    Set-Status ('BitLocker : '+[string]$keys.Count+' clé(s) listée(s), aucune affichée.')
 }
 function Invoke-DomeniaBitLockerRecoveryIdFilter {
     # Local filter on the metadata already read: no network call, nothing revealed.
     $box=Get-DomeniaControl 'TxtBitLockerRecoveryId'
     $hint=Get-DomeniaControl 'LblBitLockerRecoveryHint'
     $text='';if($null -ne $box){$text=[string]$box.Text}
-    if([string]::IsNullOrWhiteSpace($text)){if($null -ne $hint){$hint.Text='Les huit premiers caracteres de l identifiant suffisent. Rien n est lu ni revele par cette recherche.'};return $null}
+    if([string]::IsNullOrWhiteSpace($text)){if($null -ne $hint){$hint.Text='Les huit premiers caractères de lʼidentifiant suffisent. Rien nʼest lu ni révélé par cette recherche.'};return $null}
     $found=Find-DomeniaBitLockerKey -Keys @($script:BitLockerKeyList) -RecoveryId $text
     if($null -ne $hint){$hint.Text=[string]$found.Message}
     if($found.Unique){
@@ -279,15 +280,15 @@ function Request-DomeniaBitLockerKey {
     param([ValidateSet('ExplicitReveal','ExplicitCopy')][string]$Trigger)
     $grid=Get-DomeniaControl 'DgSecrets'
     $selected=0;if($null -ne $grid -and $null -ne $grid.SelectedItem){$selected=1}
-    if(-not (Test-DomeniaSecretRevealAllowed -Trigger $Trigger -SelectedCount $selected)){Set-Status 'Selectionnez d abord la cle BitLocker a lire.';return $false}
+    if(-not (Test-DomeniaSecretRevealAllowed -Trigger $Trigger -SelectedCount $selected)){Set-Status 'Sélectionnez dʼabord la clé BitLocker à lire.';return $false}
     $row=Get-DomeniaSelectedSecretSource
     if($null -eq $row -or -not [bool](Get-DomeniaMember $row 'Metadata' $false)){return $false}
     $context=$script:BitLockerKeyContext
     if($null -eq $script:SelectedObject -or $null -eq $context -or [string]$script:SelectedObject.DN -ine [string]$context.DN -or [long]$script:SelectedObjectGeneration -ne [long]$context.Generation){
-        Set-Status 'La selection a change : rechargez BitLocker avant de lire une cle.' 'WARN';return $false
+        Set-Status 'La sélection a changé : relancez « Lister les clés BitLocker » avant de lire une clé.' 'WARN';return $false
     }
     $keyDn=[string]$row.KeyDn
-    if(-not (Test-DomeniaDirectChildDn -ParentDn ([string]$context.DN) -ChildDn $keyDn)){Set-Status 'Cle hors du poste selectionne : lecture refusee.' 'WARN';return $false}
+    if(-not (Test-DomeniaDirectChildDn -ParentDn ([string]$context.DN) -ChildDn $keyDn)){Set-Status 'Clé hors du poste sélectionné : lecture refusée.' 'WARN';return $false}
     if((Test-DomeniaSecretDenied -Mode 'BitLocker' -DN ([string]$context.DN)) -or ($null -ne $script:AccessState -and $script:AccessState.Faults.ContainsKey((Get-DomeniaAccessScope 'ReadBitLockerKey')))){
         [void](Request-DomeniaAccessRecovery -Operation 'Lecture BitLocker' -ErrorValue 'Acces refuse avec ce compte.' -OperationId 'ReadBitLockerKey' -DN ([string]$context.DN) -Interactive -Force)
         return $false
@@ -315,7 +316,7 @@ function Complete-DomeniaBitLockerKeyUi {
         $kind=[string]$effective.ErrorKind;$detail=[string]$effective.ErrorMessage
         if($kind -eq 'LogonFailure' -and $null -ne $script:AccessState){$script:AccessState.Faults[(Get-DomeniaAccessScope 'ReadBitLockerKey')]=$true}
         if($kind -eq 'AccessDenied'){Set-DomeniaSecretDenied -Mode 'BitLocker' -DN ([string]$State.DN)}
-        [void](Set-DomeniaControlText 'LblSecretsStatus' ('Cle non lue : '+$detail))
+        [void](Set-DomeniaControlText 'LblSecretsStatus' ('Clé non lue : '+$detail))
         # Same classification as the list path (Core): the worker detail alone is not recognised as a refusal.
         $offerValue=if($kind -eq 'AccessDenied'){'Acces refuse. '+$detail}else{$detail}
         $offered=Request-DomeniaAccessRecovery -Operation 'Lecture BitLocker' -ErrorValue $offerValue -OperationId 'ReadBitLockerKey' -DN ([string]$State.DN) -Interactive -Possible:($kind -eq 'NoReadableValue')
@@ -343,7 +344,7 @@ function Complete-DomeniaBitLockerKeyUi {
             Set-DomeniaProtectedClipboard -Value $value -MaxLength 1024
             Start-SecretClipboardAutoClear $value
             Write-AppLog ('Cle BitLocker copiee temporairement : '+[string]$script:SecretRows[$index].Account) 'WARN'
-            [void](Set-DomeniaControlText 'LblSecretsStatus' ('Cle copiee, effacement automatique programme. '+[string]$policy.ClipboardLimit))
+            [void](Set-DomeniaControlText 'LblSecretsStatus' ('Clé copiée, effacement automatique programmé. '+[string]$policy.ClipboardLimit))
         }catch{Show-ErrorBox ('Erreur copie secret : '+$_.Exception.Message)}
         finally{$value=''}
     }else{
@@ -360,7 +361,7 @@ function Fail-DomeniaBitLockerKeyUi {
     $script:ActiveSecretRequestId=''
     $kind=Get-DomeniaAccessFailureKind $Message
     if($kind -eq 'AccessDenied' -and $null -ne $State){Set-DomeniaSecretDenied -Mode 'BitLocker' -DN ([string]$State.DN)}
-    [void](Set-DomeniaControlText 'LblSecretsStatus' ('Cle non lue, issue non confirmee : '+[string]$Message))
+    [void](Set-DomeniaControlText 'LblSecretsStatus' ('Clé non lue, issue non confirmée : '+[string]$Message))
     $offered=$false
     if($null -ne $State){$offered=Request-DomeniaAccessRecovery -Operation 'Lecture BitLocker' -ErrorValue $Message -OperationId 'ReadBitLockerKey' -DN ([string]$State.DN) -Interactive}
     [void](Show-DomeniaOperationError -Operation 'Lecture BitLocker' -ErrorRecordOrException $Message -NoPopup:$offered)
