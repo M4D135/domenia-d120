@@ -412,7 +412,7 @@ function Get-DomeniaWorkViewPlan {
 function Get-DomeniaSearchQueryCatalog {
     # A shared selector, not a shared data source: LDAP views keep their original semantics.
     # Delivered models are passed in once prepared off the UI thread (point 61); this function never builds them.
-    param([object[]]$Saved=@(),[string[]]$Favorites=@(),[datetime]$NowUtc=[datetime]::UtcNow,[object[]]$Templates=@())
+    param([object[]]$Saved=@(),[string[]]$Favorites=@(),[datetime]$NowUtc=[datetime]::UtcNow,[object[]]$Templates=@(),[hashtable]$Categories=$null)
     $favoriteSet=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
     foreach($id in $Favorites){if($id){[void]$favoriteSet.Add($id)}}
     foreach($view in @(Get-DomeniaWorkViews -NowUtc $NowUtc)){
@@ -423,6 +423,7 @@ function Get-DomeniaSearchQueryCatalog {
     foreach($recipe in @(@($Templates)+@($Saved))){
         if($null -eq $recipe){continue}
         $key='local:'+$recipe.Id;$category=[string](Get-DomeniaMember $recipe 'Category' 'Mes requêtes')
+        if($null -ne $Categories -and [string]$recipe.Id -notlike 'template.*' -and [string]$Categories[[string]$recipe.Id]){$category=[string]$Categories[[string]$recipe.Id]}
         $description=[string](Get-DomeniaMember $recipe 'Description' 'Requête enregistrée, calculée sur les postes de la base locale.')
         [pscustomobject]@{Id=$key;Tag=$key;Name=$recipe.Name;DisplayName=('Données locales · '+$recipe.Name);SourceId='Local';Source='Base locale et relevés datés';TypeLabel='Postes';Category=$category;Description=$description;SearchText=($recipe.Name+' '+$category+' '+$description+' Données locales postes');Favorite=$favoriteSet.Contains($key);ViewId='';Recipe=$recipe}
     }

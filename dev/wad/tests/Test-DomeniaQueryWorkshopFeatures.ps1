@@ -108,6 +108,24 @@ $script:DomeniaQueryState.LibraryOffset=600;Update-DomeniaQueryLibrary -KeepPage
 Expect ($script:Fake.DgQueryLibrary.ItemsSource.Count -eq ($actual.Rows.Count-600) -and -not $script:Fake.BtnQueryLibraryNext.IsEnabled) 'library last page preserves the remaining recipes'
 $script:Fake.TxtQueryLibrarySearch.Text='Personal 124';Update-DomeniaQueryLibrary
 Expect ($script:Fake.DgQueryLibrary.ItemsSource.Count -eq 1 -and $script:DomeniaQueryState.LibraryOffset -eq 0) 'search applies to full library and resets pagination'
+# Point 68: personal recipes keep their stored category; archives are parsed off the UI thread and listed apart.
+$archivedRecipe=New-DomeniaQueryRecipe -Id 'personal.archived' -Name 'Ancienne revue'
+$Payload=[pscustomobject]@{ModuleRoot=$modules;Saved=@(New-DomeniaQueryRecipe -Id 'personal.sorted' -Name 'Revue rangée');Categories=@{'personal.sorted'='Audit 2026';'personal.archived'='Audit 2025'};Archived=@(
+    [pscustomobject]@{Id='personal.archived';Category='Audit 2025';Revision=4;UpdatedUtc='2026-10-01T08:00:00.0000000Z';DefinitionJson=(ConvertTo-Json -InputObject $archivedRecipe -Depth 32 -Compress)},
+    [pscustomobject]@{Id='personal.broken';Category='Audit 2025';Revision=1;UpdatedUtc='';DefinitionJson='{"Format":"Inconnu"}'})}
+$organised=& ([scriptblock]::Create((Get-DomeniaQueryLibraryWorkerCode)))
+$sortedRow=@($organised.Rows|Where-Object{$_.Id -ceq 'personal.sorted'})[0];$archivedRows=@($organised.Rows|Where-Object{$_.SourceId -ceq 'Archived'})
+Expect ($sortedRow.Category -ceq 'Audit 2026' -and $sortedRow.SourceId -ceq 'Saved') 'a saved recipe is listed in its stored category'
+Expect ($archivedRows.Count -eq 1 -and $archivedRows[0].Category -ceq 'Audit 2025' -and $archivedRows[0].Description -like 'Requête archivée le *révision 4*' -and $organised.ArchivedRejected -eq 1) 'archived definitions are checked off the UI thread and unreadable ones are counted, never shown'
+$script:Fake['BtnQueryLibraryRestore']=[pscustomobject]@{IsEnabled=$false;Visibility='Collapsed'}
+$script:DomeniaQueryState=[pscustomobject]@{LibraryReady=$true;LibraryOffset=0;LibraryRows=$organised.Rows}
+$script:Fake.TxtQueryLibrarySearch.Text='';$script:Fake.CmbQueryLibrarySource.SelectedItem=$null;Update-DomeniaQueryLibrary
+Expect (@($script:Fake.DgQueryLibrary.ItemsSource|Where-Object{$_.SourceId -ceq 'Archived'}).Count -eq 0) 'archived recipes stay out of the usable views'
+$script:Fake.CmbQueryLibrarySource.SelectedItem=[pscustomobject]@{Tag='Archived'};Update-DomeniaQueryLibrary
+Expect (@($script:Fake.DgQueryLibrary.ItemsSource).Count -eq 1 -and @($script:Fake.DgQueryLibrary.ItemsSource)[0].Id -ceq 'personal.archived') 'the Archives view lists the archived recipe'
+$script:Fake.DgQueryLibrary.SelectedItem=@($script:Fake.DgQueryLibrary.ItemsSource)[0];Show-DomeniaQueryLibraryDetails
+Expect ([string]$script:Fake.BtnQueryLibraryRestore.Visibility -ceq 'Visible' -and $script:Fake.BtnQueryLibraryRestore.IsEnabled -and -not $script:Fake.BtnQueryLibraryUse.IsEnabled) 'an archived recipe offers Restaurer instead of Utiliser'
+$script:Fake.CmbQueryLibrarySource.SelectedItem=$null
 # Point 65: the typed parameter editor checks the entry with the compiler rule before Apply (inert controls).
 $paramRecipe=Copy-DomeniaQueryRecipe (@(Get-DomeniaQueryTemplates|Where-Object{$_.Id -ceq 'template.param.diskfree'})[0])
 $paramRow=@(Get-DomeniaQueryParameterRows $paramRecipe)[0]

@@ -12,7 +12,7 @@ function Initialize-DomeniaQueryLibraryStore {
     if(-not $Force -and $null -ne $current -and $current.Context.StoreId -ceq $context.StoreId -and $current.Context.SessionEpoch -eq $context.SessionEpoch -and ($current.Loaded -or $current.Loading)){return $current}
     if($null -ne $current -and $current.Saving -and $current.Context.StoreId -ceq $context.StoreId -and $current.Context.SessionEpoch -eq $context.SessionEpoch){throw 'Attendez la confirmation de lʼenregistrement de la requête.'}
     $generation=if($null -ne $current){[long]$current.Generation+1}else{1L};$context.Generation=$generation
-    $state=[pscustomobject]@{Context=$context;Generation=$generation;Loading=$true;Loaded=$false;Saving=$false;Error='';Rows=@{};Recipes=@();ReadRows=@{};Offset=0;SnapshotRevision=-1L;Restarts=0;MigrationPending=$false;Dependencies=@()}
+    $state=[pscustomobject]@{Context=$context;Generation=$generation;Loading=$true;Loaded=$false;Saving=$false;Error='';Rows=@{};Recipes=@();ReadRows=@{};Offset=0;SnapshotRevision=-1L;Restarts=0;MigrationPending=$false;Dependencies=@();Categories=@{};ArchivedRows=@()}
     $script:DomeniaQueryLibraryStoreState=$state
     if($null -ne $script:DomeniaQueryState){$script:DomeniaQueryState.Saved=@();$script:DomeniaQueryState.Widgets=@{};$script:DomeniaQueryState.WidgetLibrary='';$script:DomeniaQueryState.LibraryError='Bibliothèque locale en cours de lecture.'}
     Request-DomeniaQueryLibraryStorePage
@@ -22,6 +22,12 @@ function Get-DomeniaSavedQueryRecipes {
     $state=Initialize-DomeniaQueryLibraryStore
     if($null -eq $state -or -not $state.Loaded){return @()}
     return @($state.Recipes)
+}
+function Get-DomeniaSavedQueryCategories {
+    # Operator-chosen category of every stored recipe (archives included), keyed by recipe id.
+    $state=$script:DomeniaQueryLibraryStoreState
+    if($null -eq $state -or -not $state.Loaded){return @{}}
+    return $state.Categories
 }
 function Request-DomeniaQueryLibraryStorePage {
     $state=$script:DomeniaQueryLibraryStoreState
@@ -124,6 +130,10 @@ function Complete-DomeniaQueryLibraryMigrationBatch {
 }
 function Publish-DomeniaQueryLibraryStoreCache {
     $store=$script:DomeniaQueryLibraryStoreState
+    # Categories organise the library; archived definitions are parsed later by the QueryLibrary worker only.
+    $categories=@{};$archived=[Collections.Generic.List[object]]::new()
+    foreach($row in $store.Rows.Values){$categories[[string]$row.Id]=[string]$row.Category;if([bool]$row.Archived){$archived.Add($row)}}
+    $store.Categories=$categories;$store.ArchivedRows=$archived.ToArray()
     $recipes=@(foreach($row in $store.Rows.Values){
         if([bool]$row.Archived){continue}
         $recipe=ConvertFrom-Json -InputObject ([string]$row.DefinitionJson) -ErrorAction Stop
@@ -143,7 +153,8 @@ function Fail-DomeniaQueryLibraryStoreRead {
     if($null -ne $script:DomeniaQueryState){$script:DomeniaQueryState.LibraryError=$store.Error;[void](Set-DomeniaControlText 'LblQueryStatus' ('Bibliothèque non disponible : '+$store.Error))}
 }
 function Save-DomeniaQueryRecipe {
-    param($Recipe,[string]$SuccessHandler='Complete-DomeniaQueryRecipeSaveUi',$CallbackState=$null,[switch]$Archive,[object[]]$AdditionalDependencies=@(),[string]$ErrorHandler='')
+    # -Category '' keeps the stored category of an existing recipe (or Mes requêtes for a new one).
+    param($Recipe,[string]$SuccessHandler='Complete-DomeniaQueryRecipeSaveUi',$CallbackState=$null,[switch]$Archive,[object[]]$AdditionalDependencies=@(),[string]$ErrorHandler='',[string]$Category='')
     $store=Initialize-DomeniaQueryLibraryStore
     if($null -eq $store -or -not $store.Loaded){throw 'Attendez la lecture confirmée de la bibliothèque locale.'}
     if($store.Saving){throw 'Un enregistrement de requête est déjà en cours.'}
@@ -155,7 +166,9 @@ function Save-DomeniaQueryRecipe {
     }
     $previous=$store.Rows[[string]$Recipe.Id];$expected=if($null -ne $previous){[long]$previous.Revision}else{0L}
     if($Archive -and $null -eq $previous){throw 'Cette recette nʼest pas enregistrée.'}
-    $record=New-DomeniaQueryLibraryRecord -Context $store.Context -Recipe $Recipe -ExpectedRevision $expected
+    $Category=([string]$Category).Trim()
+    if(-not $Category){$Category=if($null -ne $previous -and [string]$previous.Category){[string]$previous.Category}else{'Mes requêtes'}}
+    $record=New-DomeniaQueryLibraryRecord -Context $store.Context -Recipe $Recipe -ExpectedRevision $expected -Category $Category
     $record.Archived=[bool]$Archive
     $dependencies=@($store.Dependencies|Where-Object{[string]$_.RecipeId -ceq [string]$Recipe.Id})
     if($dependencies.Count){
@@ -209,6 +222,11 @@ function Complete-DomeniaQueryRecipeSaveUi {
     $q=$script:DomeniaQueryState
     if($null -ne $q -and ($null -eq $State -or [long]$State.DraftGeneration -eq [long]$q.Generation)){Set-DomeniaQueryDraft $Recipe}
     [void](Set-DomeniaControlText 'LblQueryStatus' ('Requête enregistrée dans la base locale · révision '+$Record.Revision+'.'))
+}
+function Complete-DomeniaQueryRecipeRestoreUi {
+    param($Recipe,$Record,$State)
+    [void](Set-DomeniaControlText 'LblQueryLibraryCount' ('Requête restaurée : '+[string]$Recipe.Name+' · révision '+$Record.Revision+' dans « '+[string]$Record.Category+' ».'))
+    [void](Set-DomeniaControlText 'LblQueryStatus' ('Requête restaurée dans la base locale · révision '+$Record.Revision+'. Ses révisions précédentes restent conservées.'))
 }
 function Complete-DomeniaQueryRecipeArchiveUi {
     param($Recipe,$Record,$State)

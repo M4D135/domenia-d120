@@ -258,6 +258,7 @@
                 <TextBlock Text="Gardez cette requête à portée de main" FontWeight="SemiBold" FontSize="15" Margin="0,2,0,10" />
                 <WrapPanel Margin="0,0,0,6">
                   <TextBox x:Name="TxtFleetQueryName" Width="330" MaxLength="120" MinHeight="32" Margin="0,0,6,0" AutomationProperties.Name="Nom de la requête" />
+                  <ComboBox x:Name="CmbQuerySaveCategory" IsEditable="True" Width="210" MinHeight="32" Margin="0,0,6,0" AutomationProperties.Name="Catégorie de rangement de la requête" ToolTip="Catégorie de rangement dans la bibliothèque : choisissez-en une ou saisissez un nouveau nom (80 caractères)." />
                   <Button x:Name="BtnQuerySave" Content="Enregistrer" MinHeight="32" Margin="0,0,6,0" />
                   <Button x:Name="BtnQueryWidget" Content="Créer une sonde dashboard" MinHeight="32" ToolTip="Enregistre la requête et ajoute sa visualisation au tableau de bord choisi. La petite icône près du crayon ouvre les postes correspondants dans lʼatelier." />
                   <Button x:Name="BtnQueryDelete" Content="Archiver la requête" MinHeight="32" ToolTip="Archive cette requête dans la base après vérification de ses widgets liés. Les données collectées sont conservées." Margin="6,0,0,0" />
@@ -303,6 +304,7 @@
                     <ComboBoxItem Content="Toutes les requêtes" Tag="" />
                     <ComboBoxItem Content="Modèles livrés" Tag="Template" />
                     <ComboBoxItem Content="Mes requêtes" Tag="Saved" />
+                    <ComboBoxItem Content="Archives" Tag="Archived" />
                   </ComboBox>
                   <TextBlock x:Name="LblQueryLibraryCount" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" />
                 </WrapPanel>
@@ -311,7 +313,10 @@
                 <WrapPanel Margin="0,0,0,8"><Button x:Name="BtnQueryLibraryPrevious" Content="Page précédente" IsEnabled="False" MinHeight="30" Margin="0,0,6,0" /><Button x:Name="BtnQueryLibraryNext" Content="Page suivante" IsEnabled="False" MinHeight="30" /></WrapPanel>
                 <TextBlock x:Name="LblQueryLibraryDescription" Text="Sélectionnez une requête pour consulter son usage." TextWrapping="Wrap" MaxHeight="76" />
                 <TextBlock x:Name="LblQueryLibraryCollection" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,5,0,8" />
-                <Button x:Name="BtnQueryLibraryUse" Content="Utiliser cette requête" IsEnabled="False" MinHeight="32" HorizontalAlignment="Left" AutomationProperties.Name="Charger la requête sélectionnée dans le compositeur" />
+                <WrapPanel>
+                  <Button x:Name="BtnQueryLibraryUse" Content="Utiliser cette requête" IsEnabled="False" MinHeight="32" Margin="0,0,6,0" AutomationProperties.Name="Charger la requête sélectionnée dans le compositeur" />
+                  <Button x:Name="BtnQueryLibraryRestore" Content="Restaurer la requête" IsEnabled="False" Visibility="Collapsed" MinHeight="32" AutomationProperties.Name="Restaurer la requête archivée sélectionnée" ToolTip="Réactive cette définition dans la base locale avec une nouvelle révision. Aucune exécution ni collecte." />
+                </WrapPanel>
               </StackPanel>
               <DataGrid x:Name="DgQueryLibrary" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Single" MinHeight="100" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Bibliothèque de requêtes pour le parc et les postes">
                 <DataGrid.Columns>

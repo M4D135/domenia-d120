@@ -1712,6 +1712,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Test-DomeniaQueryLibraryStoreState',
             'Initialize-DomeniaQueryLibraryStore',
             'Get-DomeniaSavedQueryRecipes',
+            'Get-DomeniaSavedQueryCategories',
             'Request-DomeniaQueryLibraryStorePage',
             'Complete-DomeniaQueryLibraryStoreRead',
             'Complete-DomeniaQueryLibraryMigrationRead',
@@ -1723,6 +1724,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Complete-DomeniaQueryRecipeStore',
             'Fail-DomeniaQueryRecipeStore',
             'Complete-DomeniaQueryRecipeSaveUi',
+            'Complete-DomeniaQueryRecipeRestoreUi',
             'Complete-DomeniaQueryRecipeArchiveUi'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Query.Model.ps1'); File='Domenia-Query.Worker.ps1'; DotSource=$true; Functions=@(
@@ -1761,6 +1763,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Fail-DomeniaQueryLibraryLoad',
             'Update-DomeniaQueryLibrary',
             'Show-DomeniaQueryLibraryDetails',
+            'Restore-DomeniaQueryLibrarySelection',
             'Use-DomeniaQueryLibrarySelection',
             'Reset-DomeniaQueryResults',
             'Set-DomeniaQueryDraft',

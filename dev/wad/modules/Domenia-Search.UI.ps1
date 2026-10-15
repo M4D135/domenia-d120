@@ -40,9 +40,9 @@ function Update-DomeniaWorkViewList {
     $combo = Get-DomeniaControl 'CmbWorkView'
     if ($null -eq $combo) { return }
     $clock=[Diagnostics.Stopwatch]::StartNew()
-    $saved=@();$script:SearchQueryLibraryError=''
+    $saved=@();$categories=@{};$script:SearchQueryLibraryError=''
     try{
-        $saved=@(Get-DomeniaSavedQueryRecipes)
+        $saved=@(Get-DomeniaSavedQueryRecipes);$categories=Get-DomeniaSavedQueryCategories
         $library=$script:DomeniaQueryLibraryStoreState
         if($null -eq $library){$script:SearchQueryLibraryError='Connectez une base locale pour lire vos requêtes personnelles.'}
         elseif($library.Error){$script:SearchQueryLibraryError='Bibliothèque personnelle non confirmée : '+[string]$library.Error}
@@ -50,7 +50,7 @@ function Update-DomeniaWorkViewList {
     }catch{$script:SearchQueryLibraryError='Bibliothèque personnelle illisible : '+$_.Exception.Message}
     # Point 61: the delivered models come from the QueryLibrary worker; until then only AD views and saved recipes.
     $templates=@(Get-DomeniaPreparedQueryTemplates);if(-not $templates.Count){Request-DomeniaQueryTemplatePreparation}
-    $script:SearchQueryCatalog=@(Get-DomeniaSearchQueryCatalog -Saved $saved -Favorites @(Get-DomeniaSearchQueryFavorites) -Templates $templates)
+    $script:SearchQueryCatalog=@(Get-DomeniaSearchQueryCatalog -Saved $saved -Favorites @(Get-DomeniaSearchQueryFavorites) -Templates $templates -Categories $categories)
     Update-DomeniaSearchQueryList
     try{Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId 'SearchQueryCatalog' -DurationMs ([double]$clock.Elapsed.TotalMilliseconds)}catch{}
 }

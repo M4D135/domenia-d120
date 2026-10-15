@@ -132,17 +132,33 @@ try{
 }
 
 function Get-DomeniaQueryLibraryWorkerCode {
-    # QueryLibrary builds local descriptions only when the user visits the library.
+    # QueryLibrary builds local descriptions off the UI thread: delivered models, saved recipes in their stored
+    # category, and archived definitions (parsed and checked here, listed only under Archives).
     return @'
 $root=[string]$Payload.ModuleRoot
 foreach($file in @('Domenia-Common.Model.ps1','Domenia-HealthRules.Model.ps1','Domenia-Boards.Model.ps1','Domenia-Probes.Model.ps1','Domenia-QuerySchema.Model.ps1','Domenia-Workstation.Model.ps1','Domenia-Query.Model.ps1')){. (Join-Path $root $file)}
-$rows=@(foreach($recipe in @(@(Get-DomeniaQueryTemplates)+@($Payload.Saved))){
-    $template=([string]$recipe.Id -like 'template.*');$plan=Get-DomeniaQueryCollectionRequirements -Recipes @($recipe)
-    $group=if($template){[string](Get-DomeniaMember $recipe 'Category' 'Modèles')}else{'Mes requêtes'}
-    $description=[string](Get-DomeniaMember $recipe 'Description' 'Requête enregistrée : consultez et adaptez ses conditions dans le compositeur.')
+$categories=Get-DomeniaMemberValue $Payload 'Categories'
+$describe={param($Recipe,[string]$SourceId,[string]$Group,[string]$Description)
+    $plan=Get-DomeniaQueryCollectionRequirements -Recipes @($Recipe)
     $source=if(-not $plan.Remote){'Base AD locale'}elseif($plan.ProbeIds.Count){'Relevé + '+$plan.ProbeIds.Count+' sonde(s)'}elseif($plan.Inventory){'Inventaire du poste'}else{'Présence et console'}
-    [pscustomobject]@{Id=$recipe.Id;Name=$recipe.Name;Category=$group;Description=$description;DataSource=$source;SourceId=$(if($template){'Template'}else{'Saved'});Plan=$plan;Recipe=$recipe;SearchText=($recipe.Name+' '+$group+' '+$description+' '+$source)}
+    [pscustomobject]@{Id=$Recipe.Id;Name=$Recipe.Name;Category=$Group;Description=$Description;DataSource=$source;SourceId=$SourceId;Plan=$plan;Recipe=$Recipe;SearchText=($Recipe.Name+' '+$Group+' '+$Description+' '+$source)}
+}
+$rows=@(foreach($recipe in @(@(Get-DomeniaQueryTemplates)+@($Payload.Saved))){
+    $template=([string]$recipe.Id -like 'template.*')
+    $stored=if($template){''}else{[string](Get-DomeniaMember $categories ([string]$recipe.Id) '')}
+    $group=if($template){[string](Get-DomeniaMember $recipe 'Category' 'Modèles')}elseif($stored){$stored}else{'Mes requêtes'}
+    $description=[string](Get-DomeniaMember $recipe 'Description' 'Requête enregistrée : consultez et adaptez ses conditions dans le compositeur.')
+    & $describe $recipe $(if($template){'Template'}else{'Saved'}) $group $description
 })
-[pscustomobject]@{Rows=$rows}
+$rejected=0
+$archived=@(foreach($row in @(Get-DomeniaMember $Payload 'Archived' @())){
+    $recipe=$null
+    try{$recipe=ConvertFrom-Json -InputObject ([string]$row.DefinitionJson) -ErrorAction Stop;[void](ConvertTo-DomeniaCompiledQuery $recipe)}catch{$recipe=$null}
+    if($null -eq $recipe -or [string]$recipe.Id -cne [string]$row.Id){$rejected++;continue}
+    $at=ConvertFrom-DomeniaUtcText ([string]$row.UpdatedUtc)
+    $description='Requête archivée'+$(if($null -ne $at){' le '+$at.ToLocalTime().ToString('dd/MM/yyyy HH:mm')}else{''})+' (révision '+[string]$row.Revision+'). Restaurez-la pour lʼutiliser ; ses révisions et les données collectées sont conservées.'
+    & $describe $recipe 'Archived' ([string]$row.Category) $description
+})
+[pscustomobject]@{Rows=@($rows)+@($archived);ArchivedRejected=$rejected}
 '@
 }
