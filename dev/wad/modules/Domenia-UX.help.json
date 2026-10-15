@@ -1541,9 +1541,16 @@
   {
     "Name": "BtnImportLinks",
     "Title": "Importer des associations",
-    "Text": "Lit un fichier CSV et montre un aperçu dans la page (à importer, ignorées, inconnues de l’index local) avant tout ajout. Les lignes importées portent toujours la source « Import CSV » et l’import peut être annulé.",
+    "Text": "Lit le fichier au format choisi (CSV générique, export GLPI ou résultats osquery) et montre dans cette page les lignes valides, les conflits et les rejets avant tout ajout. La source imposée dépend du format ; lʼimport peut être annulé.",
     "Kind": "Button",
     "Source": "existing-help"
+  },
+  {
+    "Name": "CmbLinkImportFormat",
+    "Title": "Format de lʼimport",
+    "Text": "Format du fichier à importer : il fixe les colonnes lues et la source imposée aux associations (Import CSV, Import GLPI ou Import osquery).",
+    "Kind": "ComboBox",
+    "Source": "W15-integration"
   },
   {
     "Name": "BtnOpenLinksCsv",
@@ -3768,7 +3775,7 @@
   {
     "Name": "BtnUndoImport",
     "Title": "Annuler l’import",
-    "Text": "Retire les associations ajoutées par le dernier import, si elles sont encore présentes, après une confirmation dans la page qui en donne le nombre. Chaque retrait est journalisé ; « Restaurer » les remet une par une.",
+    "Text": "Retire les associations du dernier lot d’import encore présentes, y compris après un redémarrage, après une confirmation dans la page qui en donne le nombre, le fichier et la date. Chaque retrait est journalisé ; « Restaurer » les remet une par une.",
     "Kind": "Button",
     "Source": "L04-relations"
   },
@@ -3782,7 +3789,7 @@
   {
     "Name": "DgLinkImportPreview",
     "Title": "Aperçu de l’import",
-    "Text": "Chaque enregistrement du fichier et ce que l’import en fera : à importer, ignoré ou inconnu dans l’index local (comptes et postes vérifiés sans accès réseau). 64 associations au plus par import ; rien n’est enregistré avant « Importer ».",
+    "Text": "Chaque enregistrement du fichier et ce que l’import en fera, avec sa catégorie : valide, conflit, rejet, doublon, déjà connue, inconnue dans l’index local ou reportée. Comptes et postes vérifiés sans accès réseau ; 64 associations au plus par import ; rien n’est enregistré avant « Importer ».",
     "Kind": "DataGrid",
     "Source": "L04-relations"
   },

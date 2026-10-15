@@ -521,7 +521,26 @@ function Get-DomeniaRuntimeModulePlan {
             'Fail-DomeniaEmbeddedPath',
             'Show-DomeniaInlineFilePicker'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Selection.UI.ps1'); File='Domenia-Relations.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Relations.Model.ps1'); File='Domenia-InventoryImport.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaInventoryAdapters',
+            'Get-DomeniaInventoryAdapter',
+            'Get-DomeniaInventoryLimits',
+            'New-DomeniaInventoryRecord',
+            'ConvertTo-DomeniaInventoryHeaderKey',
+            'Get-DomeniaInventoryColumnValue',
+            'ConvertFrom-DomeniaCsvInventoryRow',
+            'ConvertFrom-DomeniaGlpiRow',
+            'Get-DomeniaOsqueryMember',
+            'ConvertFrom-DomeniaOsqueryText',
+            'ConvertTo-DomeniaInventoryWhen',
+            'Select-DomeniaLatestInventoryRecords',
+            'Test-DomeniaInventoryIdentity',
+            'Resolve-DomeniaInventoryPriority',
+            'New-DomeniaImportBatchId',
+            'Get-DomeniaImportBatchToken',
+            'Get-DomeniaImportBatches'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Selection.UI.ps1','Domenia-InventoryImport.Model.ps1'); File='Domenia-Relations.UI.ps1'; DotSource=$true; Functions=@(
             'Initialize-DomeniaRelationsState',
             'Set-DomeniaRelationsSelection',
             'Set-DomeniaRelationsGridSelection',
@@ -601,8 +620,11 @@ function Get-DomeniaRuntimeModulePlan {
             'New-DomeniaAllLinksContextMenu',
             'New-DomeniaLinkImportPlan',
             'Update-DomeniaLinkImportUi',
+            'Get-DomeniaRelationsLatestImportBatch',
+            'Update-DomeniaLinkImportUndo',
             'Set-DomeniaLinkImportPlan',
             'Show-DomeniaLinkImportPreview',
+            'Get-DomeniaLinkImportAdapterChoice',
             'Start-DomeniaLinkImportIndexCheck',
             'Test-DomeniaLinkImportIndexState',
             'Complete-DomeniaLinkImportIndexCheck',

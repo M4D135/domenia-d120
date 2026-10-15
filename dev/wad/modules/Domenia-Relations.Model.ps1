@@ -694,48 +694,60 @@ function Get-DomeniaLinkImportStatus {
     # -Unverified says why the presence in Active Directory is not checked (index empty, unreadable or being read).
     # -ReadyBefore: rows already retained above; the storage takes 64 changes per request (Queue-DomeniaLinkChanges),
     # so the rows beyond -BatchLimit are left for a second import of the same file.
-    param([AllowEmptyString()][string]$User='',[AllowEmptyString()][string]$Computer='',[AllowEmptyString()][string]$StoredLogin='',[bool]$DuplicateInFile=$false,[bool]$IndexAvailable=$false,[bool]$UserKnown=$false,[bool]$ComputerKnown=$false,[AllowEmptyString()][string]$Unverified='',[int]$ReadyBefore=0,[int]$BatchLimit=64)
-    if (-not $User -or -not $Computer) { return [pscustomobject]@{Status='Ignorée';Import=$false;Verified=$false;Reason='Utilisateur ou poste manquant ou illisible.'} }
-    if ($DuplicateInFile) { return [pscustomobject]@{Status='Ignorée';Import=$false;Verified=$false;Reason='Poste déjà présent plus haut dans le fichier.'} }
+    # Point 138: every row also gets a Category for the preview: Valide, Conflit, Rejet, Doublon, Déjà connue, Inconnue
+    # or Reportée. -Rejected is the identity refusal of the adapter, -FileConflict and -FileSuperseded the decision of
+    # the source priority inside the file (Resolve-DomeniaInventoryPriority).
+    param([AllowEmptyString()][string]$User='',[AllowEmptyString()][string]$Computer='',[AllowEmptyString()][string]$StoredLogin='',[bool]$DuplicateInFile=$false,[bool]$IndexAvailable=$false,[bool]$UserKnown=$false,[bool]$ComputerKnown=$false,[AllowEmptyString()][string]$Unverified='',[int]$ReadyBefore=0,[int]$BatchLimit=64,[AllowEmptyString()][string]$Rejected='',[AllowEmptyString()][string]$FileConflict='',[AllowEmptyString()][string]$FileSuperseded='')
+    $out = { param($Status,$Category,$Reason,$Import=$false,$Verified=$false) [pscustomobject]@{Status=$Status;Category=$Category;Import=[bool]$Import;Verified=[bool]$Verified;Reason=$Reason} }
+    if ($Rejected) { return (& $out 'Rejetée' 'Rejet' $Rejected) }
+    if ((-not $User) -or (-not $Computer)) { return (& $out 'Ignorée' 'Rejet' 'Utilisateur ou poste manquant ou illisible.') }
+    if ($FileConflict) { return (& $out 'Conflit' 'Conflit' $FileConflict) }
+    if ($FileSuperseded) { return (& $out 'Ignorée' 'Doublon' $FileSuperseded) }
+    if ($DuplicateInFile) { return (& $out 'Ignorée' 'Doublon' 'Poste déjà présent plus haut dans le fichier.') }
     if ($StoredLogin) {
-        if ((ConvertTo-DomeniaRelationLoginKey $StoredLogin) -eq (ConvertTo-DomeniaRelationLoginKey $User)) { return [pscustomobject]@{Status='Ignorée';Import=$false;Verified=$false;Reason='Association déjà connue.'} }
-        return [pscustomobject]@{Status='Ignorée';Import=$false;Verified=$false;Reason=('Poste déjà associé à ' + $StoredLogin + ' : aucune association remplacée.')}
+        if ((ConvertTo-DomeniaRelationLoginKey $StoredLogin) -eq (ConvertTo-DomeniaRelationLoginKey $User)) { return (& $out 'Ignorée' 'Déjà connue' 'Association déjà connue.') }
+        return (& $out 'Conflit' 'Conflit' ('Poste déjà associé à ' + $StoredLogin + ' : aucune association remplacée.'))
     }
-    if ($IndexAvailable -and (-not $UserKnown -or -not $ComputerKnown)) {
+    if ($IndexAvailable -and ((-not $UserKnown) -or (-not $ComputerKnown))) {
         $missing = 'poste absent'
-        if (-not $UserKnown -and -not $ComputerKnown) { $missing = 'compte et poste absents' } elseif (-not $UserKnown) { $missing = 'compte absent' }
-        return [pscustomobject]@{Status='Inconnue';Import=$false;Verified=$false;Reason=('Inconnue dans lʼannuaire : ' + $missing + ' de lʼindex local. Ligne non importée.')}
+        if ((-not $UserKnown) -and (-not $ComputerKnown)) { $missing = 'compte et poste absents' } elseif (-not $UserKnown) { $missing = 'compte absent' }
+        return (& $out 'Inconnue' 'Inconnue' ('Inconnue dans lʼannuaire : ' + $missing + ' de lʼindex local. Ligne non importée.'))
     }
-    if ($BatchLimit -gt 0 -and $ReadyBefore -ge $BatchLimit) {
-        return [pscustomobject]@{Status='Ignorée';Import=$false;Verified=$false;Reason=('Au-delà de ' + $BatchLimit + ' associations par import : importez à nouveau le même fichier ensuite, les lignes déjà importées seront reconnues.')}
+    if (($BatchLimit -gt 0) -and ($ReadyBefore -ge $BatchLimit)) {
+        return (& $out 'Ignorée' 'Reportée' ('Au-delà de ' + $BatchLimit + ' associations par import : importez à nouveau le même fichier ensuite, les lignes déjà importées seront reconnues.'))
     }
     if (-not $IndexAvailable) {
         $why = ([string]$Unverified).Trim()
         if (-not $why) { $why = 'index local non lu' }
-        return [pscustomobject]@{Status='À importer';Import=$true;Verified=$false;Reason=('Présence dans Active Directory non vérifiée : ' + $why + '.')}
+        return (& $out 'À importer' 'Valide' ('Présence dans Active Directory non vérifiée : ' + $why + '.') $true $false)
     }
-    return [pscustomobject]@{Status='À importer';Import=$true;Verified=$true;Reason='Compte et poste connus de lʼindex local.'}
+    return (& $out 'À importer' 'Valide' 'Compte et poste connus de lʼindex local.' $true $true)
 }
 
 function New-DomeniaImportedRelation {
-    # CO-08: an imported relation always carries Source "Import CSV" (badge Importé), no score and a UTC date.
+    # CO-08: an imported relation carries the Source of the adapter chosen by the operator (Import CSV, Import GLPI or
+    # Import osquery, badge Importé), never the source written in the file, no score and a UTC date.
     # Only an ISO date (yyyy-MM-dd...) of the file is kept: "08/10/2026" is ambiguous and the import date is used.
-    param([string]$User,[string]$Computer,[AllowEmptyString()][string]$FileName='',[int]$Line=0,[AllowEmptyString()][string]$FileSource='',[AllowEmptyString()][string]$FileDetails='',[AllowEmptyString()][string]$When='',[bool]$Verified=$false,[string]$UserGuid='',[string]$ComputerGuid='',[string]$UserDn='',[string]$ComputerDn='',$NowUtc=$null)
+    # Point 138: -BatchId starts the details ("Lot dʼimport <id>.") so the batch can be undone after a restart.
+    param([string]$User,[string]$Computer,[AllowEmptyString()][string]$FileName='',[int]$Line=0,[AllowEmptyString()][string]$FileSource='',[AllowEmptyString()][string]$FileDetails='',[AllowEmptyString()][string]$When='',[bool]$Verified=$false,[string]$UserGuid='',[string]$ComputerGuid='',[string]$UserDn='',[string]$ComputerDn='',$NowUtc=$null,[ValidateSet('Import CSV','Import GLPI','Import osquery')][string]$Source='Import CSV',[AllowEmptyString()][string]$BatchId='',[AllowEmptyString()][string]$WhenNote='')
     $whenText = ''
     $note = ''
     if ($When -match '^\s*\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2}(\.\d+)?)?)?(Z|[+-]\d{2}:?\d{2})?\s*$') { $whenText = ConvertTo-DomeniaRelationWhenText $When }
     elseif ($When) { $note = ' Date du fichier non reconnue (' + $When + ') : date de lʼimport retenue.' }
+    if ($WhenNote) { $note += ' ' + $WhenNote }
     if (-not $whenText) {
         $now = ConvertTo-DomeniaUtcDate $NowUtc
         if ($null -eq $now) { $now = [datetime]::UtcNow }
         $whenText = $now.ToString('o',[Globalization.CultureInfo]::InvariantCulture)
     }
     # Import-Csv skips blank lines and joins quoted multi-line fields: the number is the record of the file, not its line.
-    $details = 'Importé depuis ' + $FileName
+    $details = ''
+    if ($BatchId) { $details = 'Lot dʼimport ' + $BatchId + '. ' }
+    $details += 'Importé depuis ' + $FileName
     if ($Line -gt 0) { $details += ', enregistrement ' + $Line }
     $details += '.' + $note
     if ($FileSource) { $details += ' Source indiquée dans le fichier : ' + $FileSource + ' (non reprise).' }
     if ($FileDetails) { $details += ' ' + $FileDetails }
     if ($details.Length -gt 400) { $details = $details.Substring(0,399) + [string][char]0x2026 }
-    return [pscustomobject]@{UserLogin=$User;Computer=$Computer;Source='Import CSV';Confidence=0;VerifiedInAD=$Verified;When=$whenText;Details=$details;UserGuid=$UserGuid;ComputerGuid=$ComputerGuid;UserDn=$UserDn;ComputerDn=$ComputerDn;Kind='Importe'}
+    return [pscustomobject]@{UserLogin=$User;Computer=$Computer;Source=$Source;Confidence=0;VerifiedInAD=$Verified;When=$whenText;Details=$details;UserGuid=$UserGuid;ComputerGuid=$ComputerGuid;UserDn=$UserDn;ComputerDn=$ComputerDn;Kind='Importe'}
 }

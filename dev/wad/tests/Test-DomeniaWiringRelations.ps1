@@ -202,6 +202,7 @@ try {
     if($null -eq ('Domenia.SelectionIdentity' -as [type])){Add-Type -Path (Join-Path $wad 'modules\Domenia-Identity.Types.cs')}
     . (Join-Path $wad 'modules\Domenia-Selection.UI.ps1')
     . (Join-Path $wad 'modules\Domenia-Relations.Model.ps1')
+    . (Join-Path $wad 'modules\Domenia-InventoryImport.Model.ps1')
     . (Join-Path $wad 'modules\Domenia-Embedded.UI.ps1')
     . (Join-Path $wad 'modules\Domenia-Relations.UI.ps1')
     # The pinned LocalIndexRead body (ResolveNames) is the code submitted by the import preview.
@@ -528,6 +529,56 @@ try {
         Expect ($script:Relations.ImportPlan.IndexState -eq 'Pending') 'Reponse d un apercu precedent appliquee'
         Complete-DomeniaLinkImportIndexCheck -Result ([pscustomobject]@{Rows=@();Busy=$true;Missing=$false}) -State $sub.State
         Expect ($script:Relations.ImportPlan.Rows[0].Reason -match 'base locale occupée') 'Base occupee non signalee'
+    }
+    Case 'Points 137-138 : export GLPI et osquery, conflits et rejets avant application, lot annulable apres redemarrage' {
+        Reset-Fixture
+        $glpi=Join-Path $script:TempRoot ('glpi-'+[guid]::NewGuid().ToString('N')+'.csv')
+        $lines=@('Nom;Usager;Utilisateur;Dernière modification;Numéro de série','PC-G1;carol;;2026-10-14 09:30;SN1','PC-G1;dave;;2026-10-14 09:30;SN1','PC-G2;OTHER\eve;;2026-10-14 09:30;SN2','PC-A;zoe;;2026-10-14 10:00;SN3','PC-G3;frank;;2026-10-13 08:00;SN4','PC-G4;;Durand Paul;2026-10-13 08:00;SN5','PC-G5.other.invalid;gina;;2026-10-13 08:00;SN6')
+        [IO.File]::WriteAllLines($glpi,[string[]]$lines,[Text.UTF8Encoding]::new($true))
+        Show-DomeniaLinkImportPreview -Path $glpi -Adapter Glpi
+        $sub=$script:Submission
+        Expect ($null -ne $sub -and $sub.Operation -eq 'LocalIndexRead' -and (@($sub.Payload.Users) -join ',') -eq 'carol,dave,zoe,frank') ('Noms demandes a l index : '+(@($sub.Payload.Users) -join ','))
+        Complete-DomeniaLinkImportIndexCheck -Result ([pscustomobject]@{Rows=@();Busy=$false;Missing=$false;IndexCount=0;Users=@();Computers=@()}) -State $sub.State
+        $p=$script:Relations.ImportPlan
+        Expect ($p.Adapter -eq 'Glpi' -and $p.Source -eq 'Import GLPI' -and $p.Ready -eq 1 -and $p.Conflicts -eq 3 -and $p.Rejected -eq 3 -and @($p.Rows).Count -eq 7) ('Apercu GLPI : '+$p.Ready+' valide(s), '+$p.Conflicts+' conflit(s), '+$p.Rejected+' rejet(s)')
+        $byRecord=@{};foreach($row in @($p.Rows)){$byRecord[[int]$row.Record]=$row}
+        Expect ($byRecord[1].Category -eq 'Conflit' -and $byRecord[2].Category -eq 'Conflit' -and $byRecord[1].Reason -match 'même date') 'Conflit du fichier non signale'
+        Expect ($byRecord[3].Category -eq 'Rejet' -and $byRecord[3].Reason -match 'autre domaine') 'Compte d un autre domaine importe'
+        Expect ($byRecord[4].Category -eq 'Conflit' -and $byRecord[4].Reason -match 'associé à alice') 'Poste deja associe remplace'
+        Expect ($byRecord[6].Category -eq 'Rejet' -and $byRecord[6].Reason -match 'Nom affiché') 'Nom affiche GLPI pris pour un identifiant'
+        Expect ($byRecord[7].Category -eq 'Rejet' -and $byRecord[7].Reason -match 'autre domaine DNS') 'Poste d un autre domaine importe'
+        Expect ($byRecord[5].Category -eq 'Valide' -and $byRecord[5].Relation.Source -eq 'Import GLPI') 'Ligne valide GLPI'
+        Expect ($script:Messages['LblLinkImportSummary'] -match 'Export GLPI' -and $script:Messages['LblLinkImportSummary'] -match '3 conflit\(s\), 3 rejet\(s\)' -and $script:Messages['LblLinkImportSummary'] -match ('Lot de retour arrière : '+[regex]::Escape([string]$p.BatchId))) ('Resume : '+$script:Messages['LblLinkImportSummary'])
+        Confirm-DomeniaLinkImport
+        $l=@(Get-LinksForComputer 'PC-G3')
+        Expect ($l.Count -eq 1 -and $l[0].Source -eq 'Import GLPI' -and (Get-DomeniaImportBatchToken ([string]$l[0].Details)) -eq [string]$p.BatchId -and @(Get-LinksForComputer 'PC-A')[0].UserLogin -eq 'alice') 'Import GLPI absent, sans lot ou poste deja associe remplace'
+        Expect (Test-DomeniaProtectedAssociationSource ([string]$l[0].Source)) 'Association GLPI non protegee des retraits automatiques'
+        # A restart forgets the import of the session: the batch is found again in the stored associations.
+        $script:Relations.LastImport=$null
+        $batch=Get-DomeniaRelationsLatestImportBatch
+        Expect ($null -ne $batch -and $batch.Id -eq [string]$p.BatchId -and @($batch.Relations).Count -eq 1) 'Lot introuvable apres redemarrage'
+        $script:ConfirmAccepted=$true;Request-DomeniaLinkImportUndo
+        Expect (@(Get-LinksForComputer 'PC-G3').Count -eq 0 -and @(Get-LinksForComputer 'PC-A').Count -eq 1 -and $null -eq $script:Relations.LastImport -and $null -eq (Get-DomeniaRelationsLatestImportBatch)) 'Lot non annule apres redemarrage'
+        # osquery: the most recent session of each workstation decides; the end of a session is not an association.
+        $log=Join-Path $script:TempRoot ('osquery-'+[guid]::NewGuid().ToString('N')+'.log')
+        $events=@(
+            '{"name":"sessions","hostIdentifier":"PC-Q1.example.invalid","unixTime":1760400000,"action":"added","columns":{"user":"henri","type":"user","time":"1760400000"}}',
+            '{"name":"sessions","hostIdentifier":"PC-Q1.example.invalid","unixTime":1760500000,"action":"added","columns":{"user":"ines","type":"user","time":"1760500000"}}',
+            '{"name":"sessions","hostIdentifier":"PC-Q1.example.invalid","unixTime":1760503600,"action":"removed","columns":{"user":"ines","type":"user","time":"1760500000"}}'
+        )
+        [IO.File]::WriteAllLines($log,[string[]]$events,[Text.UTF8Encoding]::new($false))
+        Show-DomeniaLinkImportPreview -Path $log -Adapter Osquery
+        Complete-DomeniaLinkImportIndexCheck -Result ([pscustomobject]@{Rows=@();Busy=$false;Missing=$false;IndexCount=0;Users=@();Computers=@()}) -State $script:Submission.State
+        $q=$script:Relations.ImportPlan
+        Expect ($q.Source -eq 'Import osquery' -and $q.Ready -eq 1 -and @($q.Rows).Count -eq 1 -and $q.Rows[0].User -eq 'ines' -and $q.Rows[0].Computer -eq 'PC-Q1') ('Apercu osquery : '+@($q.Rows|ForEach-Object{$_.User+'@'+$_.Computer}) -join ',')
+        Expect ($q.ParseNote -match '1 fin\(s\) de session' -and $q.ParseNote -match '1 relevé\(s\) plus ancien\(s\)') ('Note osquery : '+$q.ParseNote)
+        Expect ([string]$q.Rows[0].Relation.When -eq '2025-10-15T03:46:40.0000000Z') ('Date osquery : '+[string]$q.Rows[0].Relation.When)
+        Cancel-DomeniaLinkImportPreview
+        # The size of a file read on the interface thread is bounded before reading.
+        $big=Join-Path $script:TempRoot ('osquery-big-'+[guid]::NewGuid().ToString('N')+'.json')
+        $stream=[IO.File]::Open($big,[IO.FileMode]::CreateNew);try{$stream.SetLength(2097153)}finally{$stream.Dispose()}
+        $refused=$false;try{Show-DomeniaLinkImportPreview -Path $big -Adapter Osquery}catch{$refused=($_.Exception.Message -match 'trop volumineux')}
+        Expect ($refused -and $null -eq $script:Relations.ImportPlan) 'Fichier osquery trop volumineux lu'
     }
     Case 'Revue L04 : 64 associations au plus par enregistrement, file occupee nommee, rien a moitie applique' {
         Reset-Fixture;$script:UseRealQueue=$true
