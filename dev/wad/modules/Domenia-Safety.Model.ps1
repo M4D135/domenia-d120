@@ -16,7 +16,8 @@ function Get-DomeniaOperationEffect {
     # Same pattern as Start-DomeniaWriteTask: every directory write is named Write<Name>.
     if ($id -cmatch '^Write[A-Za-z0-9]{2,59}$') { return 'DirectoryWrite' }
     if ($id -in @('ComputerGpUpdate','ComputerRestart','RimotteRun','WakeOnLanSend')) { return 'RemoteMutation' }
-    if ($id -in @('LocalStore','ReceiptStore','DocumentStore','StoragePurge','StorageBackup','LinkHistoryStore','LiveCache','IndexBuild','IndexRefresh')) { return 'LocalWrite' }
+    # OfflineDossier (point 139) reads the local base read-only and writes a new folder in Exports: a local write.
+    if ($id -in @('LocalStore','ReceiptStore','DocumentStore','StoragePurge','StorageBackup','LinkHistoryStore','LiveCache','IndexBuild','IndexRefresh','OfflineDossier')) { return 'LocalWrite' }
     $reads = @(
         'SelectedPresence','PresenceScan','CmdletHelp','CmdletInventory','TreeChildren','GlobalSearch','PermissionAnalysis','SelfCheck',
         'ReadBitLocker','ReadBitLockerKey','ReadLaps','ComputerInventory','DomainOverview','BatchNetworkDiag','SoftwareInventory',

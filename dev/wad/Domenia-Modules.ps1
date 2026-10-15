@@ -802,6 +802,35 @@ function Get-DomeniaRuntimeModulePlan {
             'Stop-DomeniaSupportUi',
             'Initialize-DomeniaSupportUi'
         ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-Automation.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaAutomationContract',
+            'Get-DomeniaAutomationLimits',
+            'ConvertTo-DomeniaAutomationSqlText',
+            'ConvertTo-DomeniaAutomationLikeText',
+            'ConvertTo-DomeniaAutomationDn',
+            'Test-DomeniaAutomationRequest',
+            'Get-DomeniaAutomationPerimeterSql',
+            'Get-DomeniaAutomationQuery',
+            'Test-DomeniaDiagnosticSecretName',
+            'Protect-DomeniaDiagnosticValue',
+            'ConvertTo-DomeniaAutomationItems',
+            'New-DomeniaAutomationEnvelope',
+            'ConvertTo-DomeniaAutomationCsv',
+            'Get-DomeniaOfflineDossierName',
+            'New-DomeniaOfflineDossier',
+            'Get-DomeniaOfflineDossierPerimeter'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Automation.Worker.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaOfflineDossierWorkerCode'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Automation.Model.ps1','Domenia-Automation.Worker.ps1','Domenia-Support.UI.ps1'); File='Domenia-Automation.UI.ps1'; DotSource=$true; Functions=@(
+            'Set-DomeniaOfflineDossierStatus',
+            'Get-DomeniaOfflineDossierSections',
+            'Start-DomeniaOfflineDossier',
+            'Test-DomeniaOfflineDossierState',
+            'Complete-DomeniaOfflineDossier',
+            'Fail-DomeniaOfflineDossier'
+        ) }
         [pscustomobject]@{ File='Domenia-Live.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaLiveHash',
             'Get-DomeniaLiveField',

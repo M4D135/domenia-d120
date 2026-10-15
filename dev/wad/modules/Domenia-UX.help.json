@@ -2932,6 +2932,48 @@
     "Source": "specific"
   },
   {
+    "Name": "SupportOfflineTab",
+    "Title": "Dossier hors ligne",
+    "Text": "Dossier daté pour une intervention sans accès à Domenia : état local, postes, observations, associations et requêtes du périmètre choisi, secrets exclus.",
+    "Kind": "TabItem",
+    "Source": "W15-integration"
+  },
+  {
+    "Name": "CmbSupportOfflineScope",
+    "Title": "Périmètre du dossier",
+    "Text": "Périmètre du dossier : le poste sélectionné, les postes des résultats affichés (500 au plus) ou lʼOU sélectionnée dans lʼarborescence.",
+    "Kind": "ComboBox",
+    "Source": "W15-integration"
+  },
+  {
+    "Name": "ChkSupportOfflineObservations",
+    "Title": "Inclure les observations",
+    "Text": "Dernières observations enregistrées des postes (présence, console, inventaire, sondes), avec leurs dates.",
+    "Kind": "CheckBox",
+    "Source": "W15-integration"
+  },
+  {
+    "Name": "ChkSupportOfflineLinks",
+    "Title": "Inclure les associations",
+    "Text": "Associations utilisateur et poste mémorisées pour les postes du périmètre.",
+    "Kind": "CheckBox",
+    "Source": "W15-integration"
+  },
+  {
+    "Name": "ChkSupportOfflineQueries",
+    "Title": "Inclure les requêtes enregistrées",
+    "Text": "Définitions des requêtes enregistrées non archivées, avec leur empreinte.",
+    "Kind": "CheckBox",
+    "Source": "W15-integration"
+  },
+  {
+    "Name": "BtnSupportOfflineDossier",
+    "Title": "Préparer le dossier hors ligne",
+    "Text": "Écrit un nouveau dossier daté dans Exports pour le périmètre choisi. Aucune écriture dans la base, aucun accès réseau.",
+    "Kind": "Button",
+    "Source": "W15-integration"
+  },
+  {
     "Name": "ChkSupportIncludeIncident",
     "Title": "Ajouter l’incident sélectionné",
     "Text": "Inclut les explications de l’incident choisi dans le dossier, pas son message brut.",
