@@ -361,7 +361,7 @@ function Resolve-DomeniaHealthPolicy {
 }
 function Set-DomeniaHealthScopePolicy {
     # Store only differences against the parent, so later inherited changes remain inherited.
-    param($Book,[string]$ScopeDn='',$Policy,[switch]$Remove)
+    param($Book,[string]$ScopeDn='',$Policy,[switch]$Remove,[datetime]$NowUtc=[datetime]::UtcNow)
     if(-not (Test-DomeniaHealthScope $ScopeDn ([string]$Book.DomainDn)) -or ($ScopeDn -and $ScopeDn -notmatch '^(?i:OU)=')){throw 'OU de politique invalide.'}
     $next=ConvertTo-DomeniaHealthPolicyBook ($Book|ConvertTo-Json -Depth 15 -Compress) $Book.DomainDn -Strict
     if(-not $ScopeDn){if($Remove){throw 'La politique par défaut ne peut pas être supprimée.'};$next.Default=ConvertTo-DomeniaHealthPolicy $Policy -Strict;foreach($record in @($next.Scopes)){[void](Resolve-DomeniaHealthPolicy $next $record.ScopeDn)};return $next}
@@ -371,7 +371,11 @@ function Set-DomeniaHealthScopePolicy {
     $thresholds=[ordered]@{};foreach($p in $value.Thresholds.PSObject.Properties){if($p.Value -ne $parent.Thresholds.($p.Name)){$thresholds[$p.Name]=$p.Value}}
     $ruleStates=[ordered]@{};foreach($r in @(Get-DomeniaHealthRuleCatalog)){$v=Test-DomeniaHealthRuleEnabled $value $r.Id -IgnoreSuspension;if($v -ne (Test-DomeniaHealthRuleEnabled $parent $r.Id -IgnoreSuspension)){$ruleStates[$r.Id]=$v}}
     $custom=$null;if(($value.CustomRules|ConvertTo-Json -Depth 8 -Compress) -cne ($parent.CustomRules|ConvertTo-Json -Depth 8 -Compress)){$custom=@($value.CustomRules)}
-    $suspensions=$null;if(($value.Suspensions|ConvertTo-Json -Depth 8 -Compress) -cne ($parent.Suspensions|ConvertTo-Json -Depth 8 -Compress)){$suspensions=@($value.Suspensions)}
+    # Point 77: the editor purges suspensions ended beyond the retention before saving. Both lists are compared after the
+    # same purge, so a difference that only comes from an ancestor's stale trace never turns into a local exception that
+    # would stop later inherited suspensions from reaching this OU.
+    $ownSuspensions=@(Optimize-DomeniaHealthSuspensions -Suspensions @($value.Suspensions) -NowUtc $NowUtc);$inheritedSuspensions=@(Optimize-DomeniaHealthSuspensions -Suspensions @($parent.Suspensions) -NowUtc $NowUtc)
+    $suspensions=$null;if((ConvertTo-Json -InputObject $ownSuspensions -Depth 8 -Compress) -cne (ConvertTo-Json -InputObject $inheritedSuspensions -Depth 8 -Compress)){$suspensions=@($value.Suspensions)}
     if($thresholds.Count -or $ruleStates.Count -or $null -ne $custom -or $null -ne $suspensions){$next.Scopes+=,[pscustomobject]@{ScopeDn=$ScopeDn;Overrides=[pscustomobject]@{Thresholds=[pscustomobject]$thresholds;RuleStates=[pscustomobject]$ruleStates;CustomRules=$custom;Suspensions=$suspensions}}}
     $next=ConvertTo-DomeniaHealthPolicyBook $next $Book.DomainDn -Strict
     foreach($record in @($next.Scopes)){[void](Resolve-DomeniaHealthPolicy $next $record.ScopeDn)}
@@ -381,9 +385,9 @@ function Set-DomeniaHealthScopePolicy {
 function Format-DomeniaHealthScopeLabel {
     # Short label of a policy scope: the OU path without the domain suffix, or the domain defaults.
     param([string]$ScopeDn,[string]$DomainDn)
-    if(-not $ScopeDn -or $ScopeDn -ieq $DomainDn){return 'Règles par défaut du domaine'}
+    if((-not $ScopeDn) -or ($ScopeDn -ieq $DomainDn)){return 'Règles par défaut du domaine'}
     $suffix=','+$DomainDn
-    if($DomainDn -and $ScopeDn.EndsWith($suffix,[StringComparison]::OrdinalIgnoreCase)){return $ScopeDn.Substring(0,$ScopeDn.Length-$suffix.Length)}
+    if($DomainDn -and ($ScopeDn.EndsWith($suffix,[StringComparison]::OrdinalIgnoreCase))){return $ScopeDn.Substring(0,$ScopeDn.Length-$suffix.Length)}
     return $ScopeDn
 }
 function Get-DomeniaHealthPolicyOrigins {
@@ -480,6 +484,15 @@ function ConvertTo-DomeniaEndedHealthSuspension {
     $until=ConvertFrom-DomeniaUtcText ([string](Get-DomeniaHealthValue $Suspension 'UntilUtc' ''))
     $end=if(($null -ne $until) -and ($until -le $NowUtc)){$until}else{$NowUtc}
     return [pscustomobject]@{RuleId=[string](Get-DomeniaHealthValue $Suspension 'RuleId' '');Reason=[string](Get-DomeniaHealthValue $Suspension 'Reason' '');UntilUtc=$end.ToUniversalTime().ToString('o')}
+}
+function New-DomeniaHealthEditorPolicy {
+    # Point 77: the policy the rules editor saves for one scope. A suspension of a custom alert removed from the list
+    # leaves with it, and suspensions ended beyond the retention are purged. Set-DomeniaHealthScopePolicy compares the
+    # inherited list after the same purge, so this never turns an untouched inherited list into a local exception.
+    param($Thresholds=@{},[object[]]$DisabledRules=@(),[object[]]$CustomRules=@(),[object[]]$Suspensions=@(),[datetime]$NowUtc=[datetime]::UtcNow)
+    $customIds=@($CustomRules|Where-Object{$null -ne $_}|ForEach-Object{[string](Get-DomeniaHealthValue $_ 'Id' '')})
+    $kept=@($Suspensions|Where-Object{($null -ne $_) -and ((-not ([string](Get-DomeniaHealthValue $_ 'RuleId' '')).StartsWith('custom.')) -or ($customIds -contains [string](Get-DomeniaHealthValue $_ 'RuleId' '')))})
+    return ConvertTo-DomeniaHealthPolicy ([pscustomobject]@{Thresholds=$Thresholds;DisabledRules=@($DisabledRules|ForEach-Object{[string]$_});CustomRules=@($CustomRules);Suspensions=@(Optimize-DomeniaHealthSuspensions -Suspensions $kept -NowUtc $NowUtc)}) -Strict
 }
 
 function ConvertTo-DomeniaHealthSuspensions {

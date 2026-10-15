@@ -90,7 +90,7 @@ Case 'Point 79: every fleet cross table opens as a matrix whose totals match its
 }
 Case 'Points 75 to 79: the dashboard dialogs call the tested rules' {
  $ui=[IO.File]::ReadAllText((Join-Path $modules 'Domenia-HealthRules.UI.ps1'))
- foreach($hook in @('Get-DomeniaHealthPolicyOrigins','Get-DomeniaHealthPolicyExceptions','Get-DomeniaHealthEditorScopes','Optimize-DomeniaHealthSuspensions','ConvertTo-DomeniaEndedHealthSuspension','ConvertTo-DomeniaPivotMatrix','Compare-DomeniaHealthSnapshots','MaskedGuids','Show-DomeniaAttentionInWorkshop')){Expect ($ui.Contains($hook)) ('UI hook missing: '+$hook)}
+ foreach($hook in @('Get-DomeniaHealthPolicyOrigins','Get-DomeniaHealthPolicyExceptions','Get-DomeniaHealthEditorScopes','New-DomeniaHealthEditorPolicy','ConvertTo-DomeniaEndedHealthSuspension','ConvertTo-DomeniaPivotMatrix','Compare-DomeniaHealthSnapshots','MaskedGuids','Show-DomeniaAttentionInWorkshop')){Expect ($ui.Contains($hook)) ('UI hook missing: '+$hook)}
  $widgets=[IO.File]::ReadAllText((Join-Path $modules 'Domenia-Widgets.UI.ps1'))
  foreach($action in @("'HealthExplanation'","'FleetAnalysis'","'HealthRules'")){Expect ($widgets.Contains($action)) ('Board action missing: '+$action)}
 }

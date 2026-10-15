@@ -247,7 +247,8 @@ function Get-DomeniaFleetBoardData {
     $reachNames=@('Ping et WMI répondent','WMI répond, pas le ping','Ping répond, WMI non confirmé','Ni ping ni WMI','Un seul canal relevé','Aucun relevé')
     $wmiTargets=@{};foreach($name in $wmiNames){$wmiTargets[$name]=[Collections.Generic.List[object]]::new()}
     $reachTargets=@{};foreach($name in $reachNames){$reachTargets[$name]=[Collections.Generic.List[object]]::new()}
-    $unreachableWmi=0
+    # Oldest usable WMI date (success or failure), for the same seven-day greying as the other observations (FI-04).
+    $unreachableWmi=0;$wmiOldest=$null
     $users = @{}; $sessions = 0; $inventories = New-Object System.Collections.ArrayList; $lastCheck = $null; $oldest = $null
     $observations = @{}; $observed = 0;$canonicalPresence=[Collections.Generic.List[object]]::new()
     $unreachable = New-Object System.Collections.ArrayList; $lowDiskMachines = New-Object System.Collections.ArrayList; $uptimeMachines = New-Object System.Collections.ArrayList
@@ -284,7 +285,8 @@ function Get-DomeniaFleetBoardData {
         }
         $presence[$presenceKey]++
         $presenceTargets[$presenceKey].Add($target)
-        $wmiState=[string](Get-DomeniaFleetWmiResponse -Observation $observation -NowUtc $nowUtc -MaxDays $ObservationMaxAgeDays).State
+        $wmiResponse=Get-DomeniaFleetWmiResponse -Observation $observation -NowUtc $nowUtc -MaxDays $ObservationMaxAgeDays;$wmiState=[string]$wmiResponse.State
+        if(($null -ne $wmiResponse.At) -and (($null -eq $wmiOldest) -or ($wmiResponse.At -lt $wmiOldest))){$wmiOldest=$wmiResponse.At}
         $wmiTargets[$wmiByState[$wmiState]].Add($target)
         $reachTargets[(Get-DomeniaFleetReachLabel -Presence $presenceKey -Wmi $wmiState)].Add($target)
         if(($presenceKey -eq 'Sans réponse') -and ($wmiState -eq 'Responded')){$unreachableWmi++}
@@ -468,12 +470,14 @@ function Get-DomeniaFleetBoardData {
         $wmiColors = @{ 'WMI a répondu' = 'Ok'; 'WMI non confirmé' = 'Warn'; 'WMI non relevé' = 'Off' }
         $wmiItems = @(foreach ($name in $wmiNames) { if ($wmiTargets[$name].Count) { [pscustomobject]@{ Label = $name; Value = [double]$wmiTargets[$name].Count; Color = (Get-DomeniaBoardColor -Name $wmiColors[$name]) } } })
         $wmiRead = $wmiTargets['WMI a répondu'].Count + $wmiTargets['WMI non confirmé'].Count
+        # A WMI answer older than seven days is shown greyed, like the ping; the comparison is greyed when either is.
+        $wmiOld = (($null -ne $wmiOldest) -and (($nowUtc - $wmiOldest).TotalDays -gt 7))
         $lead = & $share $wmiItems $total
-        Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.wmi' -Kind Distribution -Value $lead.Value -Detail ([string]$wmiRead + ' poste(s) avec une lecture WMI datée sur ' + [string]$total + ' ; indépendant du ping') -Items $wmiItems -CenterText ([string]$total + ' postes'))
+        Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.wmi' -Kind Distribution -Value $lead.Value -Detail ([string]$wmiRead + ' poste(s) avec une lecture WMI datée sur ' + [string]$total + ' ; indépendant du ping') -State $(if ($wmiOld) { 'Off' } else { '' }) -Items $wmiItems -CenterText ([string]$total + ' postes'))
         $reachColors = @{ 'Ping et WMI répondent' = 'Ok'; 'WMI répond, pas le ping' = 'Info'; 'Ping répond, WMI non confirmé' = 'Warn'; 'Ni ping ni WMI' = 'Warn'; 'Un seul canal relevé' = 'Off'; 'Aucun relevé' = 'Off' }
         $reachItems = @(foreach ($name in $reachNames) { if ($reachTargets[$name].Count) { [pscustomobject]@{ Label = $name; Value = [double]$reachTargets[$name].Count; Color = (Get-DomeniaBoardColor -Name $reachColors[$name]) } } })
         $lead = & $share $reachItems $total
-        Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.reach' -Kind Distribution -Value $lead.Value -Detail 'Une absence de réponse au ping ou à WMI ne prouve pas que le poste est éteint.' -Items $reachItems -CenterText ([string]$total + ' postes'))
+        Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.reach' -Kind Distribution -Value $lead.Value -Detail 'Une absence de réponse au ping ou à WMI ne prouve pas que le poste est éteint.' -State $(if ($observedOld -or $wmiOld) { 'Off' } else { '' }) -Items $reachItems -CenterText ([string]$total + ' postes'))
     }
     Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.users' -Kind Value -Value ([string]$users.Count) -State $observationState -Detail ('sur ' + [string]$sessions + ' poste(s) avec une session · ' + [string]$links + ' associations au total'))
     Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.lastcheck' -Kind Value -Value $(if ($null -ne $lastCheck) { $lastCheck.ToLocalTime().ToString('dd/MM HH:mm',$invariant) } else { 'Aucune' }) -State $observationState -Detail $observedText)

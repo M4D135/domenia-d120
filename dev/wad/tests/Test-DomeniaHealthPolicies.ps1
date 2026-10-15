@@ -62,6 +62,20 @@ Case 'Point 76: the editor sees inherited origins, local exceptions and every ex
  Save-DomeniaHealthPolicy -ScopeDn $child -RemoveOverride;Save-DomeniaHealthPolicy -ScopeDn $ou -RemoveOverride
  Expect (@(Get-DomeniaHealthPolicyExceptions -Book (Get-DomeniaStoredHealthPolicyBook)).Count -eq 0) 'Removed exceptions still listed'
 }
+Case 'Point 77: saving an OU from the editor keeps inheriting suspensions after the purge of ended ones' {
+ $now=[datetime]::UtcNow;$ended=[pscustomobject]@{RuleId='lowdisk';Reason='Ancienne campagne';UntilUtc=$now.AddDays(-40).ToString('o')}
+ Save-DomeniaHealthPolicy (ConvertTo-DomeniaHealthPolicy @{Suspensions=@($ended)} -Strict) ''
+ $p=Get-DomeniaStoredHealthPolicy $ou;$limits=@{};foreach($q in $p.Thresholds.PSObject.Properties){$limits[$q.Name]=[string]$q.Value};$limits.StaleDays='33'
+ $editor=New-DomeniaHealthEditorPolicy -Thresholds $limits -DisabledRules @($p.DisabledRules) -CustomRules @($p.CustomRules) -Suspensions @($p.Suspensions) -NowUtc $now
+ Expect (@($p.Suspensions).Count -eq 1) 'Ended domain suspension not inherited';Expect (@($editor.Suspensions).Count -eq 0) 'Editor kept a suspension ended 40 days ago'
+ Save-DomeniaHealthPolicy $editor $ou
+ $record=@(@((Get-DomeniaStoredHealthPolicyBook).Scopes)|Where-Object{[string]$_.ScopeDn -ieq $ou})[0]
+ Expect (($null -eq $record.Overrides.Suspensions) -and ($record.Overrides.Thresholds.StaleDays -eq 33)) 'Purge stored a local suspensions exception'
+ Save-DomeniaHealthPolicy (ConvertTo-DomeniaHealthPolicy @{Suspensions=@([pscustomobject]@{RuleId='stale';Reason='Migration des comptes';UntilUtc=$now.AddDays(7).ToString('o')})} -Strict) ''
+ Expect ($null -ne (Get-DomeniaHealthSuspension (Get-DomeniaStoredHealthPolicy $ou) 'stale' -NowUtc $now)) 'Later domain suspension did not reach the OU'
+ Save-DomeniaHealthPolicy -ScopeDn $ou -RemoveOverride;Save-DomeniaHealthPolicy (ConvertTo-DomeniaHealthPolicy $null) ''
+ Expect (@((Get-DomeniaStoredHealthPolicyBook).Scopes).Count -eq 0) 'Test policy not reset'
+}
 Case 'Computer and fleet explanations identify formula and disabled effects' {
  $d=New-DomeniaBoardData Computer;$d.HealthPolicy=ConvertTo-DomeniaHealthPolicy @{DisabledRules=@('memory')};Add-DomeniaBoardAttention $d Alert 'Disk critical' lowdisk;Complete-DomeniaBoardData $d|Out-Null
  Expect ($d.HealthExplanation.Summary -match '25' -and $d.HealthExplanation.DisabledRules -eq 1) 'Computer score unexplained'

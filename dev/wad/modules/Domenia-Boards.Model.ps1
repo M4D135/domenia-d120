@@ -910,7 +910,7 @@ function Compare-DomeniaHealthSnapshots {
         }
     }
     $rows=[Collections.Generic.List[object]]::new()
-    foreach($pair in @(@('Comptes activés','Machines'),@('Postes évalués','Assessed'),@('Postes incomplets','Unassessed'),@('Sans problème détecté','Healthy'),@('Avec un problème','Problems'),@('Ping renseigné','PingRead'),@('WMI renseigné','WmiRead'),@('Score','Score'))){
+    foreach($pair in @(@('Comptes activés','Machines'),@('Postes évalués','Assessed'),@('Postes incomplets','Unassessed'),@('Sans problème détecté','Healthy'),@('Avec un problème','Problems'),@('Ping renseigné','PingRead'),@('Inventaire WMI renseigné','WmiRead'),@('Score','Score'))){
         $old=& $number $a $pair[1];$new=& $number $b $pair[1]
         $rows.Add([pscustomobject]@{Measure=$pair[0];Before=(& $text $old);After=(& $text $new);Delta=(& $signed $old $new)})
     }
@@ -929,8 +929,10 @@ function Get-DomeniaFleetPivots {
         $windows=[string]$dimensions['fleet.versions'][$guid];if(-not $windows){$windows='Version non lue'}
         $model=[string]$dimensions['fleet.models'][$guid];if(-not $model){$model='Modèle non lu'}
         $ram=[string]$dimensions['fleet.ram'][$guid];if(-not $ram){$ram='RAM non lue'}
-        $ping=[string]$dimensions['fleet.presence'][$guid] -in @('En ligne','Sans réponse');$wmi=$Data.HealthInventoryKnown.ContainsKey($guid)
-        $coverage=if($ping -and $wmi){'Ping et WMI'}elseif($ping){'Ping seul'}elseif($wmi){'WMI seul'}else{'Aucun relevé exploitable'}
+        # Coverage of the data the health rules use: ping read (answer or not) and light WMI inventory read. A console-only
+        # CIM answer counts in fleet.wmi but not here, so the labels name the inventory (point 72 keeps both apart).
+        $ping=([string]$dimensions['fleet.presence'][$guid] -in @('En ligne','Sans réponse'));$wmi=$Data.HealthInventoryKnown.ContainsKey($guid)
+        $coverage=if($ping -and $wmi){'Ping et inventaire WMI'}elseif($ping){'Ping sans inventaire WMI'}elseif($wmi){'Inventaire WMI sans ping'}else{'Ni ping ni inventaire WMI'}
         foreach($pair in @(@('OuWindows',$site,$windows),@('ModelRam',$model,$ram),@('SiteCoverage',$site,$coverage))){
             $row=[string]$pair[1];$col=[string]$pair[2];$key=$row.Length.ToString()+':'+$row+$col.Length.ToString()+':'+$col;$table=$tables[$pair[0]]
             if(-not $table.ContainsKey($key)){$table[$key]=[pscustomobject]@{Row=$row;Column=$col;Count=0;Targets=[Collections.Generic.List[object]]::new()}}
@@ -939,7 +941,7 @@ function Get-DomeniaFleetPivots {
     }
     # Natural column order where one exists (memory buckets, coverage levels); otherwise by size (point 79).
     $ramOrder=@(@(Get-DomeniaHealthValue (Get-DomeniaHealthValue $Data.Entries 'fleet.ram') 'Items' @())|ForEach-Object{[string]$_.Label})+@('RAM non lue')
-    $orders=@{OuWindows=@();ModelRam=$ramOrder;SiteCoverage=@('Ping et WMI','Ping seul','WMI seul','Aucun relevé exploitable')}
+    $orders=@{OuWindows=@();ModelRam=$ramOrder;SiteCoverage=@('Ping et inventaire WMI','Ping sans inventaire WMI','Inventaire WMI sans ping','Ni ping ni inventaire WMI')}
     $titles=@{OuWindows=@('OU','Version de Windows');ModelRam=@('Modèle','RAM');SiteCoverage=@('OU / site','Couverture')}
     $result=@{};foreach($name in $tables.Keys){$rows=@($tables[$name].Values|Sort-Object Row,Column);foreach($cell in $rows){$cell.Targets=$cell.Targets.ToArray()};$result[$name]=[pscustomobject]@{Rows=$rows;Total=$seen.Count;Cells=$rows.Count;Scope=[string]$Data.Last.Scope;ColumnOrder=@($orders[$name]);RowTitle=[string]$titles[$name][0];ColumnTitle=[string]$titles[$name][1]}}
     return $result
@@ -953,7 +955,7 @@ function ConvertTo-DomeniaPivotMatrix {
     $cells=@(@(Get-DomeniaHealthValue $Table 'Rows' @())|Where-Object{($null -ne $_) -and ((-not $filterText) -or (([string]$_.Row).IndexOf($filterText,[StringComparison]::OrdinalIgnoreCase) -ge 0) -or (([string]$_.Column).IndexOf($filterText,[StringComparison]::OrdinalIgnoreCase) -ge 0))})
     $columnCounts=@{};foreach($cell in $cells){$columnCounts[[string]$cell.Column]=[int]$columnCounts[[string]$cell.Column]+[int]$cell.Count}
     $ordered=[Collections.Generic.List[string]]::new()
-    foreach($label in @(Get-DomeniaHealthValue $Table 'ColumnOrder' @())){if($columnCounts.ContainsKey([string]$label) -and -not $ordered.Contains([string]$label)){$ordered.Add([string]$label)}}
+    foreach($label in @(Get-DomeniaHealthValue $Table 'ColumnOrder' @())){if($columnCounts.ContainsKey([string]$label) -and (-not $ordered.Contains([string]$label))){$ordered.Add([string]$label)}}
     foreach($pair in @($columnCounts.GetEnumerator()|Sort-Object @{Expression={[int]$_.Value};Descending=$true},@{Expression={[string]$_.Key};Descending=$false})){if(-not $ordered.Contains([string]$pair.Key)){$ordered.Add([string]$pair.Key)}}
     $folded=0;$columns=$ordered.ToArray()
     if($columns.Count -gt $MaxColumns){$folded=$columns.Count-($MaxColumns-1);$columns=@($columns[0..($MaxColumns-2)])+@('Autres colonnes ('+$folded+')')}

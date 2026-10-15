@@ -154,9 +154,7 @@ function Show-DomeniaHealthRulesEditor {
                 if(-not $g.CommitEdit([Windows.Controls.DataGridEditingUnit]::Cell,$true) -or -not $g.CommitEdit([Windows.Controls.DataGridEditingUnit]::Row,$true)){throw 'Corrigez la valeur de la cellule en cours avant dʼappliquer les règles.'}
             }
             $limits=@{};foreach($row in $hrLimits){$limits[$row.Id]=$row.Value}
-            $customIds=@($hrCustom|ForEach-Object{[string]$_.Id})
-            $kept=@($hrSuspensions|Where-Object{(-not ([string]$_.RuleId).StartsWith('custom.')) -or ($customIds -contains [string]$_.RuleId)})
-            $policy=ConvertTo-DomeniaHealthPolicy ([pscustomobject]@{Thresholds=$limits;DisabledRules=@($hrRules|Where-Object{-not $_.Enabled}|ForEach-Object{$_.Id});CustomRules=@($hrCustom);Suspensions=@(Optimize-DomeniaHealthSuspensions -Suspensions $kept -NowUtc ([datetime]::UtcNow))}) -Strict
+            $policy=New-DomeniaHealthEditorPolicy -Thresholds $limits -DisabledRules @($hrRules|Where-Object{-not $_.Enabled}|ForEach-Object{[string]$_.Id}) -CustomRules @($hrCustom) -Suspensions @($hrSuspensions) -NowUtc ([datetime]::UtcNow)
             Save-DomeniaHealthPolicy $policy -ScopeDn $hrScopeState.Dn
             Set-DomeniaSurfaceResult $hrWindow $true
         }catch{$hrError.Text=$_.Exception.Message}
@@ -207,7 +205,7 @@ function Show-DomeniaHealthExplanation {
     $heOpen={param([object[]]$Guids,[string]$Label)
         if(-not [object]::ReferenceEquals((Get-DomeniaBoardState Fleet).Data,$heData)){$heError.Text='La vue a été recalculée pendant cette consultation. Fermez puis rouvrez lʼexplication.';return}
         $wanted=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase);foreach($guid in $Guids){[void]$wanted.Add([string]$guid)}
-        $heResult.Targets=@(foreach($target in @($heData.Last.Targets)){if($null -ne $target -and $wanted.Contains([string]$target.object_guid)){$target}});$heResult.Label=$Label
+        $heResult.Targets=@(foreach($target in @($heData.Last.Targets)){if(($null -ne $target) -and $wanted.Contains([string]$target.object_guid)){$target}});$heResult.Label=$Label
         Set-DomeniaSurfaceResult $heWindow $true
     }
     $heShowFlagged.Add_Click({$row=$heGrid.SelectedItem;if($null -ne $row){& $heOpen @($row.Guids) ([string]$row.Rule+' · postes signalés')}})
@@ -221,7 +219,7 @@ function Show-DomeniaHealthExplanation {
     }
     [void]$hePanel.Children.Add($heTabs);$heWindow.Content=$hePanel
     $heOpened=[bool](Show-DomeniaEmbeddedWindow $heWindow)
-    if($heOpened -and $null -ne $heResult.Targets){Show-DomeniaAttentionInWorkshop -Targets @($heResult.Targets) -Label $heResult.Label}
+    if($heOpened -and ($null -ne $heResult.Targets)){Show-DomeniaAttentionInWorkshop -Targets @($heResult.Targets) -Label $heResult.Label}
 }
 
 function Show-DomeniaFleetAnalysis {
@@ -255,7 +253,7 @@ function Show-DomeniaFleetAnalysis {
     $faCompareTab=[Windows.Controls.TabItem]::new();$faCompareTab.Header='Comparer deux relevés';$faCompareTab.Content=$faComparePanel;[void]$faTabs.Items.Add($faCompareTab)
     # Point 79: matrix with row, column and grand totals, or the list of non-empty cells; every cell opens its workstations.
     $faPivotPanel=[Windows.Controls.DockPanel]::new();$faPivotTop=[Windows.Controls.StackPanel]::new();$faPivotTop.Margin='0,10,0,10';[Windows.Controls.DockPanel]::SetDock($faPivotTop,'Top')
-    $faPivotChoice=[Windows.Controls.ComboBox]::new();$faPivotChoice.ItemsSource=@([pscustomobject]@{Id='OuWindows';Name='OU × version de Windows'},[pscustomobject]@{Id='ModelRam';Name='Modèle × RAM'},[pscustomobject]@{Id='SiteCoverage';Name='OU / site × couverture ping et WMI'});$faPivotChoice.DisplayMemberPath='Name';$faPivotChoice.Margin='0,0,0,8';$faPivotChoice.ToolTip='Tableau croisé à afficher.';[void]$faPivotTop.Children.Add($faPivotChoice)
+    $faPivotChoice=[Windows.Controls.ComboBox]::new();$faPivotChoice.ItemsSource=@([pscustomobject]@{Id='OuWindows';Name='OU × version de Windows'},[pscustomobject]@{Id='ModelRam';Name='Modèle × RAM'},[pscustomobject]@{Id='SiteCoverage';Name='OU / site × couverture ping et inventaire WMI'});$faPivotChoice.DisplayMemberPath='Name';$faPivotChoice.Margin='0,0,0,8';$faPivotChoice.ToolTip='Tableau croisé à afficher.';[void]$faPivotTop.Children.Add($faPivotChoice)
     $faViewChoice=[Windows.Controls.ComboBox]::new();$faViewChoice.ItemsSource=@([pscustomobject]@{Id='Matrix';Name='Matrice avec totaux'},[pscustomobject]@{Id='List';Name='Liste des cellules non vides'});$faViewChoice.DisplayMemberPath='Name';$faViewChoice.Margin='0,0,0,8';$faViewChoice.ToolTip='Présentation du tableau croisé.';[void]$faPivotTop.Children.Add($faViewChoice)
     $faFilterLabel=[Windows.Controls.TextBlock]::new();$faFilterLabel.Text='Filtrer les catégories';[void]$faPivotTop.Children.Add($faFilterLabel)
     $faFilter=[Windows.Controls.TextBox]::new();$faFilter.MaxLength=256;$faFilter.Margin='0,0,0,8';$faFilter.ToolTip='Garde les cellules dont la ligne ou la colonne contient ce texte ; les totaux suivent le filtre.';[void]$faPivotTop.Children.Add($faFilter)

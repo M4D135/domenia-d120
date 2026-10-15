@@ -499,6 +499,24 @@ Test-Case -Id 'BF-024' -Name 'Point 72 : ping et WMI separes, une absence de pin
     Assert-True ($texts -contains 'Info:2 poste(s) sans lecture WMI confirmée au dernier essai (accès refusé, délai ou service indisponible) : à relever de nouveau, pas une preuve dʼarrêt.') 'Echec WMI signale sans verdict'
     Assert-Equal 0 @($board.Attention | Where-Object { ([string]$_.Level -in @('Alert','Warn')) -and ([string]$_.Point -in @('unreachable','wmi.failed')) }).Count 'Aucune penalite de score pour une absence de reponse'
     Assert-False (@($texts | Where-Object { $_ -match '(?i)éteint|hors ligne|injoignable' }).Count) 'Aucun verdict d arret'
+    Assert-Equal '' ([string]$wmi.State) 'Lectures WMI recentes en couleur'
+    Assert-Equal '' ([string]$reach.State) 'Ping et WMI recents en couleur'
+    # FI-04: a WMI answer read ten days ago is greyed like an old ping, even next to a recent ping.
+    $m = @{}; foreach ($machine in @(Get-BfMachines)) { $m[$machine.name] = $machine }
+    $oldInventory = New-BfInventory 'Latitude 5440' '19045' 8 256 120 2; $oldInventory.CheckedUtc = $script:BfNow.ToUniversalTime().AddDays(-10).ToString('o')
+    $aged = Get-BfBoard -Presence @((New-BfPresence $m['PC-L01'] 2 ([pscustomobject]@{ Presence = 'En ligne'; Guid = 'guid-PC-L01'; Inventory = $oldInventory })))
+    Assert-Equal '' ([string]$aged.Entries['fleet.presence'].State) 'Ping recent en couleur'
+    Assert-Equal 1 ([int](Get-BfPart $aged.Entries['fleet.wmi'] 'WMI a répondu')) 'Reponse WMI de dix jours encore comptee'
+    Assert-Equal 'Off' ([string]$aged.Entries['fleet.wmi'].State) 'Reponse WMI de plus de 7 jours grisee'
+    Assert-Equal 'Off' ([string]$aged.Entries['fleet.reach'].State) 'Comparaison grisee quand un des canaux est ancien'
+    # A console-only CIM answer is a WMI answer, not a light inventory: both views say so without contradicting each other.
+    $recent = $script:BfNow.ToUniversalTime().AddHours(-3).ToString('o')
+    $consoleOnly = Get-BfBoard -Presence @((New-BfPresence $m['PC-L01'] 2 ([pscustomobject]@{ Presence = 'En ligne'; Guid = 'guid-PC-L01'; Times = [pscustomobject]@{ Console = [pscustomobject]@{ ObservedUtc = $recent; LastAttemptUtc = $recent; Succeeded = $true } } })))
+    Assert-Equal 'PC-L01' ((@($consoleOnly.Last.WidgetTargets['fleet.wmi|WMI a répondu']) | ForEach-Object { [string]$_.name }) -join ',') 'Console seule : WMI a repondu'
+    Assert-Equal 'PC-L01' ((@($consoleOnly.Last.WidgetTargets['fleet.reach|Ping et WMI répondent']) | ForEach-Object { [string]$_.name }) -join ',') 'Console seule : ping et WMI repondent'
+    $cells = @(@($consoleOnly.Pivots['SiteCoverage'].Rows) | Where-Object { @(@($_.Targets) | Where-Object { [string]$_.name -ceq 'PC-L01' }).Count -gt 0 })
+    Assert-Equal 'Ping sans inventaire WMI' ((@($cells) | ForEach-Object { [string]$_.Column }) -join ',') 'Couverture : inventaire non lu, sans pretendre que WMI n a pas repondu'
+    Assert-Equal 'Ping et inventaire WMI|Ping sans inventaire WMI|Inventaire WMI sans ping|Ni ping ni inventaire WMI' ((@($consoleOnly.Pivots['SiteCoverage'].ColumnOrder)) -join '|') 'Colonnes nommees d apres l inventaire WMI'
 }
 Test-Case -Id 'BF-025' -Name 'Point 72 : reponse WMI datee famille par famille, tolerance d une meme collecte, jamais deduite du ping' -Body {
     $now = [datetime]'2026-10-07T10:00:00Z'; $now = $now.ToUniversalTime()

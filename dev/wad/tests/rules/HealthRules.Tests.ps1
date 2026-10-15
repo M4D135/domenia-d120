@@ -24,6 +24,17 @@ function New-HrSource {
 }
 function Get-HrRow { param($Board,[string]$Id) return @(@($Board.HealthExplanation.Rows) | Where-Object { [string]$_.Id -ceq $Id })[0] }
 function New-HrTarget { param([string]$Id) return [pscustomobject]@{ object_guid = $Id; name = $Id } }
+function Save-HrEditorScope {
+    # Same composition as the "Appliquer" button of the rules editor: rows loaded from the resolved policy, optional
+    # edits, the editor policy (purge included), then the scoped save.
+    param($Book, [string]$ScopeDn, [hashtable]$Thresholds = @{}, $Suspensions = $null)
+    $p = Resolve-DomeniaHealthPolicy $Book $ScopeDn
+    $limits = @{}; foreach ($q in $p.Thresholds.PSObject.Properties) { $limits[$q.Name] = [string]$q.Value }
+    foreach ($key in $Thresholds.Keys) { $limits[$key] = [string]$Thresholds[$key] }
+    $list = @($p.Suspensions); if ($null -ne $Suspensions) { $list = @($Suspensions) }
+    $policy = New-DomeniaHealthEditorPolicy -Thresholds $limits -DisabledRules @($p.DisabledRules) -CustomRules @($p.CustomRules) -Suspensions $list -NowUtc $script:HrNow
+    return Set-DomeniaHealthScopePolicy $Book $ScopeDn $policy -NowUtc $script:HrNow
+}
 
 Test-Case -Id 'HR-001' -Name 'Point 75 : contributions, population evaluable et consequences des regles desactivees ou suspendues' -Body {
     $suspension = [pscustomobject]@{ RuleId = 'stale'; Reason = 'Migration en cours'; UntilUtc = $script:HrNow.AddDays(1).ToString('o') }
@@ -180,4 +191,32 @@ Test-Case -Id 'HR-008' -Name 'Point 79 : tableaux croises du parc, chaque matric
     $ram = ConvertTo-DomeniaPivotMatrix -Table $board.Pivots['ModelRam']
     Assert-Equal '5 à 8 Go,RAM non lue' (@($ram.Columns) -join ',') 'Tranches de memoire dans leur ordre, inconnu en dernier'
     Assert-Equal 'Modèle' $ram.RowTitle
+}
+Test-Case -Id 'HR-009' -Name 'Point 77 : la purge des suspensions terminees ne cree pas d exception locale quand une OU est enregistree' -Body {
+    $ou = 'OU=Compta,' + $script:HrScope
+    $old = [pscustomobject]@{ RuleId = 'lowdisk'; Reason = 'Ancienne campagne'; UntilUtc = $script:HrNow.AddDays(-40).ToString('o') }
+    $book = ConvertTo-DomeniaHealthPolicyBook @{ Default = @{ Suspensions = @($old) } } $script:HrDomain -Strict
+    $inherited = Resolve-DomeniaHealthPolicy $book $ou
+    Assert-Equal 1 @($inherited.Suspensions).Count 'Trace terminee heritee du domaine'
+    Assert-Equal 0 @((New-DomeniaHealthEditorPolicy -Suspensions @($inherited.Suspensions) -NowUtc $script:HrNow).Suspensions).Count 'L editeur purge la trace terminee depuis 40 jours'
+    Assert-Equal 0 @((Save-HrEditorScope $book $ou).Scopes).Count 'OU enregistree sans changement : aucune exception'
+    $book = Save-HrEditorScope $book $ou @{ StaleDays = 45 }
+    Assert-Equal 1 @($book.Scopes).Count 'Seule l OU modifiee porte une exception'
+    $record = @($book.Scopes)[0]
+    Assert-True ($null -eq $record.Overrides.Suspensions) 'La purge seule ne cree pas de liste de suspensions locale'
+    Assert-Equal 'StaleDays' ((@($record.Overrides.Thresholds.PSObject.Properties) | ForEach-Object { $_.Name }) -join ',') 'Seul le seuil change devient une exception'
+    $origins = @{}; foreach ($row in @(Get-DomeniaHealthPolicyOrigins -Book $book -ScopeDn $ou)) { $origins[$row.Kind + '|' + $row.Id] = $row }
+    Assert-Equal 'Règles par défaut du domaine' ([string]$origins['Liste|Suspensions'].Origin) 'Suspensions toujours heritees'
+    $fresh = [pscustomobject]@{ RuleId = 'stale'; Reason = 'Migration des comptes'; UntilUtc = $script:HrNow.AddDays(7).ToString('o') }
+    $book = Save-HrEditorScope $book '' -Suspensions @(@((Resolve-DomeniaHealthPolicy $book '').Suspensions) + $fresh)
+    $resolved = Resolve-DomeniaHealthPolicy $book $ou
+    Assert-Equal 'stale' ((@($resolved.Suspensions) | ForEach-Object { $_.RuleId }) -join ',') 'La suspension ajoutee ensuite au domaine atteint l OU'
+    Assert-True ($null -ne (Get-DomeniaHealthSuspension $resolved 'stale' -NowUtc $script:HrNow)) 'Suspension active dans l OU'
+    Assert-Equal 45 ([int]$resolved.Thresholds.StaleDays) 'L exception de seuil reste'
+    $ended = ConvertTo-DomeniaEndedHealthSuspension -Suspension @($resolved.Suspensions)[0] -NowUtc $script:HrNow
+    $book = Save-HrEditorScope $book $ou -Suspensions @($ended)
+    $record = @(@($book.Scopes) | Where-Object { [string]$_.ScopeDn -ieq $ou })[0]
+    Assert-Equal 1 @($record.Overrides.Suspensions).Count 'Une reactivation propre a l OU reste une exception locale'
+    Assert-True ($null -eq (Get-DomeniaHealthSuspension (Resolve-DomeniaHealthPolicy $book $ou) 'stale' -NowUtc $script:HrNow)) 'Le controle compte de nouveau dans l OU'
+    Assert-True ($null -ne (Get-DomeniaHealthSuspension (Resolve-DomeniaHealthPolicy $book '') 'stale' -NowUtc $script:HrNow)) 'Le domaine garde sa suspension'
 }
