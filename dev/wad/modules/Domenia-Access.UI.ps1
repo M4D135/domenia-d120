@@ -24,7 +24,7 @@ function Get-DomeniaAccessScope {
         if($resource -eq 'Laps'){return 'ReadLaps'}
         if($resource -eq 'BitLocker'){return 'ReadBitLocker'}
     }
-    if($OperationId -in @('SessionsList','LiveConsole','ComputerDiagnostics','ComputerLastUser','ComputerInventory','SoftwareInventory','WmiNamespaces','WmiClasses','WmiQuery','ComputerGpUpdate','ComputerRestart','RimotteRun','UserComputerProbe','BatchNetworkDiag','ParkSweep')){return 'Remote'}
+    if($OperationId -in @('SessionsList','LiveConsole','ComputerDiagnostics','ComputerLastUser','ComputerInventory','SoftwareInventory','WmiNamespaces','WmiClasses','WmiQuery','ComputerGpUpdate','ComputerRestart','RimotteRun','ComputerServiceControl','UserComputerProbe','BatchNetworkDiag','ParkSweep')){return 'Remote'}
     if($OperationId){return 'AD:'+ $OperationId}
     return 'Directory'
 }

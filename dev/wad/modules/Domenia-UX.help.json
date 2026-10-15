@@ -1582,17 +1582,17 @@
   },
   {
     "Name": "ComputerTabs",
-    "Title": "Vues d’assistance poste",
-    "Text": "Choisissez les informations AD, les actions, le diagnostic, l’inventaire, les logiciels ou les secrets du poste.",
+    "Title": "Vues dʼassistance poste",
+    "Text": "Cinq vues du poste : vue dʼensemble, intervenir, détails, diagnostic et secrets. Lʼen-tête reste visible dans chacune.",
     "Kind": "TabControl",
-    "Source": "specific"
+    "Source": "X04"
   },
   {
     "Name": "TabComputer",
-    "Title": "Machine",
-    "Text": "Nom, système, état du compte et utilisateur associé.",
+    "Title": "Vue dʼensemble",
+    "Text": "Fiche AD du poste et tableau de bord de son dernier inventaire. Aucune requête à lʼouverture.",
     "Kind": "TabItem",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "TxtCompName",
@@ -1722,17 +1722,17 @@
   },
   {
     "Name": "BtnRefreshMachineLink",
-    "Title": "Détecter lʼutilisateur",
-    "Text": "Recherche le dernier utilisateur connu du poste. Un lien déjà enregistré nʼest pas remplacé.",
+    "Title": "Détecter à nouveau lʼutilisateur",
+    "Text": "Interroge ce poste pour connaître lʼutilisateur connecté. Une association déjà enregistrée nʼest pas remplacée.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnOpenLinkedUser",
-    "Title": "Ouvrir lʼutilisateur",
-    "Text": "Ouvre la fiche de lʼutilisateur associé.",
+    "Title": "Ouvrir la fiche de lʼutilisateur associé",
+    "Text": "Ouvre la fiche de lʼutilisateur associé à ce poste. Aucune écriture, aucune sonde du poste.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnCompSave",
@@ -1743,94 +1743,94 @@
   },
   {
     "Name": "TabComputerAdmin",
-    "Title": "Actions",
-    "Text": "Activation, renommage, déplacement, groupes et actions à distance.",
+    "Title": "Intervenir",
+    "Text": "Se connecter au poste, le vérifier, intervenir, gérer son compte AD, lire ses sessions et ses services. Chaque action part sur un clic.",
     "Kind": "TabItem",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnCompEnable",
-    "Title": "Activer",
-    "Text": "Reactive le compte du poste dans le domaine.",
+    "Title": "Activer le compte du poste",
+    "Text": "Réactive le compte du poste dans le domaine. Le changement se confirme dans la page avant lʼenvoi.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnCompDisable",
-    "Title": "Desactiver",
-    "Text": "Désactive le compte du poste. Il ne pourra plus sʼauthentifier.",
+    "Title": "Désactiver le compte du poste",
+    "Text": "Désactive le compte du poste dans le domaine : il ne pourra plus sʼauthentifier. Le changement se confirme dans la page avant lʼenvoi.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnCompPing",
-    "Title": "Ping",
-    "Text": "Teste si le poste répond sur le réseau.",
+    "Title": "Tester la réponse",
+    "Text": "Envoie un ping à ce poste et met à jour sa présence. Aucune autre sonde.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnCompRdp",
     "Title": "Bureau à distance",
-    "Text": "Ouvre une connexion Bureau à distance vers ce poste.",
+    "Text": "Ouvre une connexion Bureau à distance vers ce poste avec le client Windows (mstsc).",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnCompC",
-    "Title": "Ouvrir C$",
-    "Text": "Ouvre le partage administratif C du poste dans lʼexplorateur.",
+    "Title": "Ouvrir le disque C (C$)",
+    "Text": "Ouvre le partage administratif C$ du poste dans lʼExplorateur, avec le compte des opérations poste.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnCompManage",
-    "Title": "Gestion de l ordinateur",
-    "Text": "Ouvre la console Gestion de lʼordinateur sur ce poste.",
+    "Title": "Gestion de lʼordinateur",
+    "Text": "Ouvre la console Gestion de lʼordinateur sur ce poste : services, journaux, disques et utilisateurs locaux.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnCompEvents",
-    "Title": "Journaux",
+    "Title": "Observateur dʼévénements",
     "Text": "Ouvre lʼObservateur dʼévénements sur ce poste.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnCompServices",
-    "Title": "Services",
-    "Text": "Ouvre la console Services. Utilise Action puis Se connecter pour cibler ce poste.",
+    "Title": "Ouvrir les services dans la console",
+    "Text": "Ouvre Gestion de lʼordinateur sur ce poste : ses services y sont listés pour une action avancée.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnCompPSRemote",
-    "Title": "Commande PowerShell",
-    "Text": "Copie une commande de connexion PowerShell distante dans le presse-papiers.",
+    "Title": "Copier la commande PowerShell",
+    "Text": "Copie une commande Enter-PSSession pour ce poste. Avec un compte poste, elle le nomme : Windows demandera son mot de passe, jamais copié.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnCompRimotte",
     "Title": "Exécuter un programme",
-    "Text": "Lance un programme sur ce poste via une tache planifiee RunOnce unique et auto-supprimee.",
+    "Text": "Prépare dans la page le lancement dʼun programme sur ce poste : en arrière-plan sous le compte système, ou dans la session dʼun utilisateur. Rien ne part avant « Lancer » et sa confirmation.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnCompGpUpdate",
     "Title": "Actualiser les stratégies",
-    "Text": "Force la mise à jour des stratégies de groupe sur le poste. Demande confirmation.",
+    "Text": "Demande au poste dʼappliquer de nouveau les stratégies de groupe (gpupdate /force), après une confirmation dans la page.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnCompRestart",
-    "Title": "Redémarrer",
-    "Text": "Redémarre le poste. Demande confirmation.",
+    "Title": "Redémarrer le poste",
+    "Text": "Lit dʼabord les sessions ouvertes du poste, puis propose un redémarrage différé avec message à lʼutilisateur ou immédiat. Rien ne part avant votre confirmation.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "TxtCompNewName",
@@ -1842,9 +1842,9 @@
   {
     "Name": "BtnCompRename",
     "Title": "Renommer dans Active Directory",
-    "Text": "Renomme le compte d’ordinateur dans l’annuaire. Cette action ne renomme pas Windows sur le poste.",
+    "Text": "Renomme le compte dʼordinateur dans lʼannuaire. Cette action ne renomme pas Windows sur le poste.",
     "Kind": "Button",
-    "Source": "specific"
+    "Source": "X04"
   },
   {
     "Name": "TxtCompGroupTarget",
@@ -1855,24 +1855,24 @@
   },
   {
     "Name": "BtnCompAddGroup",
-    "Title": "Ajouter",
-    "Text": "Ajoute ce poste au groupe indique.",
+    "Title": "Ajouter au groupe",
+    "Text": "Ajoute ce poste au groupe indiqué.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnCompRemoveGroup",
-    "Title": "Retirer",
-    "Text": "Retire ce poste du groupe indique.",
+    "Title": "Retirer du groupe",
+    "Text": "Retire ce poste du groupe indiqué.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "TabComputerHealth",
     "Title": "Diagnostic",
-    "Text": "Vérifie que le poste répond et que les services dʼadministration sont joignables.",
+    "Text": "Contrôles de joignabilité et dʼadministration du poste ; explorateur WMI en profil Expert.",
     "Kind": "TabItem",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "TxtMachineAdminUser",
@@ -3078,22 +3078,19 @@
     "Source": "R1.13"
   },
   {
-    "Name": "TabSessions",
-    "Title": "Sessions Windows",
-    "Text": "Lecture à la demande des sessions console et RDP. Aucune fermeture de session.",
-    "Sensitive": false
-  },
-  {
     "Name": "BtnSessionsRead",
     "Title": "Lire les sessions Windows",
     "Text": "Interroge WTS sur la machine sélectionnée. Utilise le compte poste indiqué ; aucune déconnexion ni écriture distante.",
+    "Kind": "Button",
     "Sensitive": false
   },
   {
     "Name": "DgSessions",
     "Title": "Sessions Windows",
-    "Text": "Sessions observées avec leur état. Certains comptes peuvent rester non lisibles faute de droits.",
-    "Sensitive": false
+    "Text": "Sessions avec un compte. Les lignes sans compte (services, écran de connexion, écouteur RDP) sont masquées et comptées dans lʼétat. Double-clic sur une ligne : ouvrir la fiche du compte.",
+    "Kind": "DataGrid",
+    "Sensitive": false,
+    "Source": "X04"
   },
   {
     "Name": "TabGuard",
@@ -4073,6 +4070,223 @@
     "Title": "Opérations à vérifier",
     "Text": "Une écriture envoyée attend une vérification ou une revue : les nouvelles écritures restent bloquées. Ouvre la liste des reçus ; rien nʼest rejoué.",
     "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnCompHeaderUser",
+    "Title": "Ouvrir la fiche de lʼutilisateur associé",
+    "Text": "Ouvre la fiche de lʼutilisateur associé à ce poste. Aucune écriture, aucune sonde du poste.",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnCompHeaderRdp",
+    "Title": "Bureau à distance",
+    "Text": "Ouvre une connexion Bureau à distance vers ce poste avec le client Windows (mstsc).",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnCompHeaderC",
+    "Title": "Ouvrir le disque C (C$)",
+    "Text": "Ouvre le partage administratif C$ du poste dans lʼExplorateur, avec le compte des opérations poste.",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnCompHeaderPing",
+    "Title": "Tester la réponse",
+    "Text": "Envoie un ping à ce poste et met à jour la pastille de présence. Aucune autre sonde.",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnDashboardInventory",
+    "Title": "Inventaire rapide pour le tableau de bord",
+    "Text": "Lit lʼinventaire du poste (CIM) en environ 1 minute puis remplit ce tableau de bord.",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnDashboardInventoryDeep",
+    "Title": "Inventaire complet pour le tableau de bord",
+    "Text": "Inventaire complet, plus long (environ 3 minutes) : ajoute les processus, les erreurs système, les tâches planifiées, les certificats et les connexions réseau.",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnCompOpenDiag",
+    "Title": "Lancer le diagnostic",
+    "Text": "Ouvre la vue Diagnostic et lance ses contrôles en lecture seule : DNS, ports, partage, WinRM, WMI, espace disque et session.",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "RbCompRestartDelayed",
+    "Title": "Redémarrer après un délai, avec message",
+    "Text": "Redémarrage différé : lʼutilisateur voit le message et peut enregistrer son travail avant lʼéchéance. Choix par défaut.",
+    "Kind": "RadioButton",
+    "Source": "X04"
+  },
+  {
+    "Name": "TxtCompRestartMessage",
+    "Title": "Message à lʼutilisateur",
+    "Text": "Message affiché à lʼutilisateur du poste, sur une ligne de 400 caractères au plus. Vide : message par défaut.",
+    "Kind": "TextBox",
+    "Source": "X04"
+  },
+  {
+    "Name": "RbCompRestartNow",
+    "Title": "Redémarrer maintenant",
+    "Text": "Redémarrage immédiat et forcé : le travail non enregistré sur le poste est perdu.",
+    "Kind": "RadioButton",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnCompRestartSend",
+    "Title": "Confirmer le redémarrage",
+    "Text": "Demande la confirmation dans la page, puis envoie le redémarrage au poste une seule fois. Jamais rejoué.",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnCompRestartCancel",
+    "Title": "Fermer le panneau de redémarrage",
+    "Text": "Ferme ce panneau sans rien envoyer au poste.",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnCompRunConsent",
+    "Title": "Autoriser une intervention sur ce poste",
+    "Text": "Autorise pendant 5 minutes, pour ce seul poste, la création dʼune tâche planifiée par Domenia. Ne lance rien ; une confirmation est demandée.",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "RbCompRunSystem",
+    "Title": "En arrière-plan (compte système)",
+    "Text": "Le programme tourne sous le compte système du poste, sans fenêtre visible. Pour un outil technique non interactif.",
+    "Kind": "RadioButton",
+    "Source": "X04"
+  },
+  {
+    "Name": "RbCompRunUser",
+    "Title": "Dans la session de lʼutilisateur",
+    "Text": "Le programme sʼouvre dans la session déjà ouverte du compte indiqué ; il ne démarre pas si ce compte nʼa pas de session.",
+    "Kind": "RadioButton",
+    "Source": "X04"
+  },
+  {
+    "Name": "TxtCompRunUser",
+    "Title": "Compte de la session",
+    "Text": "Compte de la session ouverte sur le poste : DOMAINE\\identifiant. Prérempli avec lʼutilisateur associé.",
+    "Kind": "TextBox",
+    "Source": "X04"
+  },
+  {
+    "Name": "TxtCompRunCommand",
+    "Title": "Programme à lancer",
+    "Text": "Chemin du programme tel quʼil existe sur le poste, par exemple %SystemRoot%\\System32\\notepad.exe.",
+    "Kind": "TextBox",
+    "Source": "X04"
+  },
+  {
+    "Name": "TxtCompRunArguments",
+    "Title": "Arguments du programme",
+    "Text": "Arguments passés au programme, sur une ligne. Nʼy saisissez aucun mot de passe : ils restent lisibles dans la tâche.",
+    "Kind": "TextBox",
+    "Source": "X04"
+  },
+  {
+    "Name": "ChkCompRunElevated",
+    "Title": "Niveau dʼexécution le plus élevé",
+    "Text": "Lance le programme avec les droits les plus élevés du compte choisi.",
+    "Kind": "CheckBox",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnCompRunStart",
+    "Title": "Lancer le programme",
+    "Text": "Vérifie les champs puis demande la confirmation dans la page ; la tâche unique part une seule fois.",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnCompRunCancel",
+    "Title": "Fermer le panneau dʼexécution",
+    "Text": "Ferme ce panneau sans rien lancer.",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnCompServicesRead",
+    "Title": "Lire les services du poste",
+    "Text": "Lit la liste des services de ce poste (Win32_Service) en lecture seule, sur ce clic uniquement.",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "ChkCompServicesAutoStopped",
+    "Title": "Automatiques arrêtés seulement",
+    "Text": "Nʼaffiche que les services en démarrage automatique qui sont arrêtés. Filtre local, sans nouvelle lecture.",
+    "Kind": "CheckBox",
+    "Source": "X04"
+  },
+  {
+    "Name": "TxtCompServicesFilter",
+    "Title": "Filtrer les services",
+    "Text": "Filtre local sur le nom ou le libellé du service, sans nouvelle lecture.",
+    "Kind": "TextBox",
+    "Source": "X04"
+  },
+  {
+    "Name": "DgCompServices",
+    "Title": "Services du poste",
+    "Text": "Services lus sur le poste, automatiques arrêtés en tête. Sélectionnez une ligne pour la démarrer ou la redémarrer.",
+    "Kind": "DataGrid",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnCompServiceStart",
+    "Title": "Démarrer le service sélectionné",
+    "Text": "Démarre le service sélectionné après une confirmation dans la page. Un service désactivé est refusé.",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnCompServiceRestart",
+    "Title": "Redémarrer le service sélectionné",
+    "Text": "Arrête puis redémarre le service sélectionné après une confirmation dans la page. Ce quʼil sert est interrompu un instant.",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "TabComputerDetails",
+    "Title": "Détails",
+    "Text": "Inventaire matériel et système, et logiciels installés du poste.",
+    "Kind": "TabItem",
+    "Source": "X04"
+  },
+  {
+    "Name": "ComputerDetailTabs",
+    "Title": "Vues de détail du poste",
+    "Text": "Inventaire du poste ou logiciels installés.",
+    "Kind": "TabControl",
+    "Source": "X04"
+  },
+  {
+    "Name": "ComputerDiagTabs",
+    "Title": "Vues de diagnostic du poste",
+    "Text": "Contrôles du poste ou, en profil Expert, explorateur WMI.",
+    "Kind": "TabControl",
+    "Source": "X04"
+  },
+  {
+    "Name": "TabComputerChecks",
+    "Title": "Contrôles",
+    "Text": "Vérifie que le poste répond et que les services dʼadministration sont joignables.",
+    "Kind": "TabItem",
     "Source": "X04"
   }
 ]
