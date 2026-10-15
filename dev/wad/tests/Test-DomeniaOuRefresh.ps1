@@ -6,8 +6,9 @@ $wad=Split-Path -Parent $PSScriptRoot;$modules=Join-Path $wad 'modules'
 # Cache.Model: verified backup before an AD read (FI-13). Store.Model: storage refusals and free-space rules (points 32
 # and 35). Park.Model: rules of a survey; Live.Model: presence keys.
 # Boards.Model: paused widgets left out of the WMI refresh of the OU (decision David 2026-10-14).
+# Collection.Model/UI: freshness profile, budgets, windows and suspensions of the collection engine (points 11-21).
 # Store.Model and Collection.Model: the scope clocks recorded by a finished refresh (points 4, 5 and 10).
-foreach($name in @('Common.Model','Cache.Model','Live.Model','Store.Model','Collection.Model','Park.Model','Boards.Model','Storage.UI','Park.UI','Refresh.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+foreach($name in @('Common.Model','Cache.Model','Live.Model','Store.Model','Collection.Model','Collection.UI','Park.Model','Boards.Model','Storage.UI','Park.UI','Refresh.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 $tokens=$null;$parseErrors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'),[ref]$tokens,[ref]$parseErrors)
 if($parseErrors.Count){throw 'Core parse failure'}
 foreach($name in @('Test-DomeniaIndexWriteReady','Start-DomeniaIndexScopeBuild','Update-DomeniaIndexDatabaseRows','Complete-DomeniaIndexScopeUi','Fail-DomeniaIndexBuildUi')){

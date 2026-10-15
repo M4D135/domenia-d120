@@ -137,7 +137,7 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Get-DomeniaIndexWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "A8F70A287A8CE32CF996DCDAC97B20E51B48856A07AC33E06F7E26696B9ED7C1"
+    "Sha256": "2CBCECC2C52EB5DF13929FC1F1A0E96069994DDF410A532F2418FACDB9A968D0"
   },
   {
     "Operation": "ComputerDiagnostics",
@@ -319,7 +319,7 @@
     "File": "wad/modules/Domenia-Live.Model.ps1",
     "Function": "Get-DomeniaLiveProbeCode",
     "LiteralIndex": 0,
-    "Sha256": "498DE5875BC0CC10D760A9D84E739CA1663CD8216EB69BB6FD1B85254E69F0FE"
+    "Sha256": "775826B6402F99110E39DB0AA21E65BEEA3E533058BF0B975BBF7A2841CA4D98"
   },
   {
     "Operation": "LiveCache",
@@ -382,7 +382,7 @@
     "File": "wad/modules/Domenia-Live.Model.ps1",
     "Function": "Get-DomeniaLiveProbeCode",
     "LiteralIndex": 0,
-    "Sha256": "498DE5875BC0CC10D760A9D84E739CA1663CD8216EB69BB6FD1B85254E69F0FE"
+    "Sha256": "775826B6402F99110E39DB0AA21E65BEEA3E533058BF0B975BBF7A2841CA4D98"
   },
   {
     "Operation": "EmbeddedDirectoryLookup",

@@ -172,26 +172,48 @@ function Get-DomeniaPayloadDigest {
     return ''
 }
 
+function Get-DomeniaTaskReaderIdentity {
+    # Point 12: the account part of a shared read. The reader named by the caller (else the directory bind account),
+    # the process identity and the account generation: any change of the workstation, secrets or alternate accounts
+    # increments that generation, so a read prepared with another account is never joined.
+    param([AllowEmptyString()][string]$Reader='',[AllowEmptyString()][string]$BindUser='',[AllowEmptyString()][string]$ProcessIdentity='',[long]$AccountGeneration=0)
+    $name = ([string]$Reader).Trim()
+    if (-not $name) { $name = ([string]$BindUser).Trim() }
+    return ($name.ToLowerInvariant() + '|' + ([string]$ProcessIdentity).Trim().ToLowerInvariant() + '|comptes=' + [string]$AccountGeneration)
+}
+
+function Get-DomeniaTaskRequirements {
+    # Point 12: what the caller requires from the read besides its payload. A read waiting for 60 s never joins a
+    # read allowed 10 s, and a request for the isolated helper never joins an in-process read.
+    param([int]$TimeoutSeconds=0,[int]$HardTimeoutSeconds=0,[bool]$NonCancellable=$false,[AllowEmptyString()][string]$TaskClass='')
+    return ('delai=' + [string]$TimeoutSeconds + ';total=' + [string]$HardTimeoutSeconds + ';protege=' + [string][bool]$NonCancellable + ';classe=' + [string]$TaskClass)
+}
+
 function Get-DomeniaTaskDedupKey {
-    # Two reads may share one worker only when everything that decides their result is identical.
-    param([Parameter(Mandatory=$true)][string]$OperationId,[string]$ReaderIdentity='',[long]$Epoch=0,[long]$Generation=0,$Payload=$null,[bool]$IsWrite=$false,[string[]]$Shareable=@())
+    # Two reads may share one worker only when everything that decides their result is identical: operation, target
+    # and request (payload), account (reader identity), context (session, generation) and requirements.
+    param([Parameter(Mandatory=$true)][string]$OperationId,[string]$ReaderIdentity='',[long]$Epoch=0,[long]$Generation=0,$Payload=$null,[bool]$IsWrite=$false,[string[]]$Shareable=@(),[string]$Requirements='')
     if ($IsWrite) { return '' }
     # Points 101-109: the Audit AD reads are shareable too (DelegationRead to RelationHistoryRead).
     $allowed = @('OpenAdObject','EmbeddedDirectoryLookup','SessionsList','ComputerQuickDiag','PasswordPolicyRead','LockoutDiagnosis','GroupPathRead','JoinStateRead','UpdateStateRead','GpoLinksRead','GpoAppliedRead','DcCompareRead','ComputerEventsRead','MachineIdentityRead','AdSchemaRead','DirectoryAbsenceCheck','LogonByDcRead','DelegationRead','AdHealthRead','DcServicesRead','AdConsistencyScan','RelationHistoryRead') + @($Shareable)
     if ($allowed -notcontains $OperationId) { return '' }
     $digest = Get-DomeniaPayloadDigest $Payload
     if (-not $digest) { return '' }
-    return (Get-DomeniaTextHash ($OperationId + '|' + $ReaderIdentity + '|' + $Epoch + '|' + $Generation + '|' + $digest))
+    return (Get-DomeniaTextHash ($OperationId + '|' + $ReaderIdentity + '|' + $Epoch + '|' + $Generation + '|' + $digest + '|' + $Requirements))
 }
 
 function Test-DomeniaTaskAdmission {
     # Decides whether a request starts now, waits in the bounded queue, or is refused.
     # FI-03: reads (Selection, Background) stop at MaxOutstanding physical workers. An explicit action has one
     # reserved physical place above that cap and a write one more: detached reads never refuse a write.
+    # Point 16: background work that waited AgingSeconds while no other background work runs may take one of the
+    # reserved places (never above MaxConcurrent): a long background campaign keeps progressing under load.
+    # BackgroundRunning -1 means unknown: no aging.
     param(
         [Parameter(Mandatory=$true)][string]$Class,
         [int]$Running=0,[int]$Outstanding=0,[int]$MaxConcurrent=6,[int]$MaxOutstanding=12,
-        [int]$Queued=0,[int]$MaxQueued=32,[int]$ReservedForeground=2
+        [int]$Queued=0,[int]$MaxQueued=32,[int]$ReservedForeground=2,
+        [double]$WaitedSeconds=0,[int]$BackgroundRunning=-1,[int]$AgingSeconds=30
     )
     $reserved = [Math]::Max(0,[Math]::Min($ReservedForeground,$MaxConcurrent - 1))
     $physical = $MaxOutstanding
@@ -208,6 +230,9 @@ function Test-DomeniaTaskAdmission {
     # A write is never starved by reads: it may use one slot above the read limit.
     if ($Class -eq 'Write') { $limit = $MaxConcurrent + 1 }
     if ($Running -lt $limit) { return [pscustomobject]@{Decision='Start';Reason=$startReason} }
+    if (($Class -eq 'Background') -and (Test-DomeniaBackgroundAgingDue -WaitedSeconds $WaitedSeconds -BackgroundRunning $BackgroundRunning -AgingSeconds $AgingSeconds) -and ($Running -lt $MaxConcurrent)) {
+        return [pscustomobject]@{Decision='Start';Reason=('Travail de fond en attente depuis ' + [string][int]$WaitedSeconds + ' s : une place lui est accordée pour quʼil progresse.');Aged=$true}
+    }
     if ($Class -eq 'Write') { return [pscustomobject]@{Decision='Reject';Reason='Moteur sature : aucune ecriture mise en attente silencieuse.'} }
     if ($Queued -lt $MaxQueued) {
         $why = 'Lectures en cours : demande placee en attente.'
@@ -217,28 +242,75 @@ function Test-DomeniaTaskAdmission {
     return [pscustomobject]@{Decision='Reject';Reason='File d attente pleine : aucune nouvelle lecture acceptee.'}
 }
 
+function Test-DomeniaBackgroundAgingDue {
+    # Point 16: true when background work waited long enough and no other background work holds a place.
+    param([double]$WaitedSeconds=0,[int]$BackgroundRunning=-1,[int]$AgingSeconds=30)
+    if (($BackgroundRunning -ne 0) -or ($AgingSeconds -le 0)) { return $false }
+    return ($WaitedSeconds -ge $AgingSeconds)
+}
+
+function Get-DomeniaQueuedSeconds {
+    # Seconds spent in the queue; QueuedAt is the local time of Start-UiTask. 0 when unknown.
+    param($Task,[datetime]$Now=(Get-Date))
+    $queuedAt = Get-DomeniaMember $Task 'QueuedAt' $null
+    if ($null -eq $queuedAt) { return [double]0 }
+    try { return [Math]::Max([double]0,($Now - [datetime]$queuedAt).TotalSeconds) } catch { return [double]0 }
+}
+
 function Select-DomeniaNextQueuedTask {
-    # Returns the queued task that may start now, or $null. Priority first, then arrival order.
+    # Returns the queued task that may start now, or $null (see Select-DomeniaNextQueuedEntry).
+    param([object[]]$Queued,[int]$Running=0,[int]$Outstanding=0,[int]$MaxConcurrent=6,[int]$MaxOutstanding=12,[int]$ReservedForeground=2,
+        $ProviderLoad=$null,$ProviderState=$null,[datetime]$NowUtc=[datetime]::UtcNow,
+        [int]$BackgroundRunning=-1,[int]$AgingSeconds=30,[datetime]$Now=(Get-Date),$SourceLoad=$null)
+    $entry = Select-DomeniaNextQueuedEntry -Queued $Queued -Running $Running -Outstanding $Outstanding -MaxConcurrent $MaxConcurrent -MaxOutstanding $MaxOutstanding -ReservedForeground $ReservedForeground -ProviderLoad $ProviderLoad -ProviderState $ProviderState -NowUtc $NowUtc -BackgroundRunning $BackgroundRunning -AgingSeconds $AgingSeconds -Now $Now -SourceLoad $SourceLoad
+    if ($null -eq $entry) { return $null }
+    return $entry.Task
+}
+
+function Select-DomeniaNextQueuedEntry {
+    # Returns {Task; Aged} for the queued task that may start now, or $null. Priority first, then arrival order.
     # MO-05: with -ProviderLoad (running workers per provider), a candidate whose provider is saturated or paused
     # is skipped and stays queued; a durable refusal (rejected account) is returned so that its start reports it.
+    # Point 16: with -BackgroundRunning 0, the oldest background entry that waited AgingSeconds goes first; it may take
+    # one reserved place and start above its provider or site budget (never on a paused source). Aged says that it
+    # started only thanks to its wait, so that the dispatch applies the same exception and the start is counted.
+    # Points 15 and 160: -SourceLoad counts running workers per 'Provider|target' and 'Provider|group:<g>'.
     param([object[]]$Queued,[int]$Running=0,[int]$Outstanding=0,[int]$MaxConcurrent=6,[int]$MaxOutstanding=12,[int]$ReservedForeground=2,
-        $ProviderLoad=$null,$ProviderState=$null,[datetime]$NowUtc=[datetime]::UtcNow)
+        $ProviderLoad=$null,$ProviderState=$null,[datetime]$NowUtc=[datetime]::UtcNow,
+        [int]$BackgroundRunning=-1,[int]$AgingSeconds=30,[datetime]$Now=(Get-Date),$SourceLoad=$null)
     $candidates = @(@($Queued) | Where-Object { $null -ne $_ })
     if (-not $candidates.Count) { return $null }
-    foreach ($task in @(Get-DomeniaTaskOrder -Jobs $candidates)) {
+    $ordered = @(Get-DomeniaTaskOrder -Jobs $candidates)
+    if ($BackgroundRunning -eq 0) {
+        $aged = @($ordered | Where-Object { ([string](Get-DomeniaMember $_ 'Class' 'Background') -eq 'Background') -and (Test-DomeniaBackgroundAgingDue -WaitedSeconds (Get-DomeniaQueuedSeconds $_ $Now) -BackgroundRunning 0 -AgingSeconds $AgingSeconds) } | Select-Object -First 1)
+        if ($aged.Count) { $ordered = @($aged) + @($ordered | Where-Object { -not [object]::ReferenceEquals($_,$aged[0]) }) }
+    }
+    foreach ($task in $ordered) {
         $class = [string](Get-DomeniaMember $task 'Class' 'Background')
-        $decision = Test-DomeniaTaskAdmission -Class $class -Running $Running -Outstanding $Outstanding -MaxConcurrent $MaxConcurrent -MaxOutstanding $MaxOutstanding -Queued 0 -MaxQueued 1 -ReservedForeground $ReservedForeground
+        $waited = Get-DomeniaQueuedSeconds $task $Now
+        $agingDue = (($class -eq 'Background') -and (Test-DomeniaBackgroundAgingDue -WaitedSeconds $waited -BackgroundRunning $BackgroundRunning -AgingSeconds $AgingSeconds))
+        $decision = Test-DomeniaTaskAdmission -Class $class -Running $Running -Outstanding $Outstanding -MaxConcurrent $MaxConcurrent -MaxOutstanding $MaxOutstanding -Queued 0 -MaxQueued 1 -ReservedForeground $ReservedForeground -WaitedSeconds $waited -BackgroundRunning $BackgroundRunning -AgingSeconds $AgingSeconds
         if ($decision.Decision -ne 'Start') { continue }
+        $startedByAge = [bool](Get-DomeniaMember $decision 'Aged' $false)
         if ($null -ne $ProviderLoad) {
             $provider = [string](Get-DomeniaMember $task 'Provider' '')
             if ($provider) {
                 $busy = 0
                 if (($ProviderLoad -is [Collections.IDictionary]) -and $ProviderLoad.Contains($provider)) { $busy = [int]$ProviderLoad[$provider] }
-                $budget = Test-DomeniaProviderAdmission -State $ProviderState -Provider $provider -Target ([string](Get-DomeniaMember $task 'ProviderTarget' '')) -Class $class -RunningForProvider $busy -NowUtc $NowUtc
+                $target = [string](Get-DomeniaMember $task 'ProviderTarget' '')
+                $group = [string](Get-DomeniaMember $task 'ProviderGroup' '')
+                $forTarget = -1; $forGroup = -1
+                if ($SourceLoad -is [Collections.IDictionary]) {
+                    $targetKey = Get-DomeniaProviderStateKey $provider $target
+                    $forTarget = 0; if ($SourceLoad.Contains($targetKey)) { $forTarget = [int]$SourceLoad[$targetKey] }
+                    if ($group) { $groupKey = Get-DomeniaProviderStateKey $provider ('group:' + $group); $forGroup = 0; if ($SourceLoad.Contains($groupKey)) { $forGroup = [int]$SourceLoad[$groupKey] } }
+                }
+                $budget = Test-DomeniaProviderAdmission -State $ProviderState -Provider $provider -Target $target -Class $class -RunningForProvider $busy -NowUtc $NowUtc -Group $group -RunningForTarget $forTarget -RunningForGroup $forGroup -Aged $agingDue
                 if ((-not [bool]$budget.Allowed) -and (-not [bool](Get-DomeniaMember $budget 'Durable' $false))) { continue }
+                if ([bool](Get-DomeniaMember $budget 'Aged' $false)) { $startedByAge = $true }
             }
         }
-        return $task
+        return [pscustomobject]@{Task=$task;Aged=$startedByAge}
     }
     return $null
 }
@@ -428,14 +500,18 @@ function Get-DomeniaIsolationDecision {
 }
 
 function Get-DomeniaProviderBudget {
+    # Point 15: MaxPerGroup bounds the background reads of one controller or presumed subnet, so that one slow site
+    # never takes every place of its provider. GroupFailureThreshold consecutive time-outs suspend that site only.
+    # Every directory read of a session goes to the controller of the connection: its controller budget equals the
+    # provider budget (no hidden reduction), and the group only adds the pause of that controller.
     param([Parameter(Mandatory=$true)][string]$Provider)
     switch ($Provider) {
-        'Directory' { return [pscustomobject]@{Provider=$Provider;MaxConcurrent=4;TimeoutSeconds=30;FailureThreshold=3;BackoffSeconds=20;MaxBackoffSeconds=300} }
-        'Cim'       { return [pscustomobject]@{Provider=$Provider;MaxConcurrent=3;TimeoutSeconds=25;FailureThreshold=2;BackoffSeconds=60;MaxBackoffSeconds=600} }
-        'Wts'       { return [pscustomobject]@{Provider=$Provider;MaxConcurrent=2;TimeoutSeconds=20;FailureThreshold=2;BackoffSeconds=60;MaxBackoffSeconds=600} }
-        'Storage'   { return [pscustomobject]@{Provider=$Provider;MaxConcurrent=1;TimeoutSeconds=30;FailureThreshold=3;BackoffSeconds=15;MaxBackoffSeconds=120} }
-        'Network'   { return [pscustomobject]@{Provider=$Provider;MaxConcurrent=4;TimeoutSeconds=10;FailureThreshold=3;BackoffSeconds=30;MaxBackoffSeconds=300} }
-        default     { return [pscustomobject]@{Provider=$Provider;MaxConcurrent=2;TimeoutSeconds=30;FailureThreshold=3;BackoffSeconds=10;MaxBackoffSeconds=60} }
+        'Directory' { return [pscustomobject]@{Provider=$Provider;MaxConcurrent=4;TimeoutSeconds=30;FailureThreshold=3;BackoffSeconds=20;MaxBackoffSeconds=300;MaxPerGroup=4;GroupFailureThreshold=3} }
+        'Cim'       { return [pscustomobject]@{Provider=$Provider;MaxConcurrent=3;TimeoutSeconds=25;FailureThreshold=2;BackoffSeconds=60;MaxBackoffSeconds=600;MaxPerGroup=2;GroupFailureThreshold=3} }
+        'Wts'       { return [pscustomobject]@{Provider=$Provider;MaxConcurrent=2;TimeoutSeconds=20;FailureThreshold=2;BackoffSeconds=60;MaxBackoffSeconds=600;MaxPerGroup=1;GroupFailureThreshold=3} }
+        'Storage'   { return [pscustomobject]@{Provider=$Provider;MaxConcurrent=1;TimeoutSeconds=30;FailureThreshold=3;BackoffSeconds=15;MaxBackoffSeconds=120;MaxPerGroup=1;GroupFailureThreshold=0} }
+        'Network'   { return [pscustomobject]@{Provider=$Provider;MaxConcurrent=4;TimeoutSeconds=10;FailureThreshold=3;BackoffSeconds=30;MaxBackoffSeconds=300;MaxPerGroup=3;GroupFailureThreshold=3} }
+        default     { return [pscustomobject]@{Provider=$Provider;MaxConcurrent=2;TimeoutSeconds=30;FailureThreshold=3;BackoffSeconds=10;MaxBackoffSeconds=60;MaxPerGroup=2;GroupFailureThreshold=0} }
     }
 }
 
@@ -446,20 +522,38 @@ function Get-DomeniaProviderStateKey {
     return ($Provider + '|' + ([string]$Target).Trim().ToLowerInvariant())
 }
 
+function New-DomeniaProviderStateEntry {
+    param([string]$Provider,[string]$Target='')
+    return [pscustomobject]@{Provider=$Provider;Target=$Target;Failures=0;BackoffUntilUtc=[datetime]::MinValue;CredentialBlocked=$false;RejectedIdentity='';LastOutcome='';LastUtc=[datetime]::MinValue;Recovering=$false;RecoveryLimit=0;Suspensions=0}
+}
+
 function Register-DomeniaProviderOutcome {
     # $Identity is the account that was actually used. A credential refusal blocks that account for that
     # resource; an explicit change of account is a new decision of the operator and is not blocked.
+    # Point 160: after a pause, background reads come back one at a time (RecoveryLimit), one more per success.
+    # Point 15: -Group (controller or presumed subnet) keeps a second entry: consecutive time-outs on different
+    # targets of one site pause that site only, never the whole directory or every workstation.
     param($State,[Parameter(Mandatory=$true)][string]$Provider,[string]$Target='',
         [Parameter(Mandatory=$true)][ValidateSet('Success','Failure','Timeout','CredentialRejected','AccessDenied','Cancelled')][string]$Outcome,
-        [datetime]$NowUtc=[datetime]::UtcNow,[string]$Identity='')
+        [datetime]$NowUtc=[datetime]::UtcNow,[string]$Identity='',[string]$Group='')
     if ($null -eq $State) { return $null }
     $key = Get-DomeniaProviderStateKey $Provider $Target
-    if (-not $State.ContainsKey($key)) { $State[$key] = [pscustomobject]@{Provider=$Provider;Target=$Target;Failures=0;BackoffUntilUtc=[datetime]::MinValue;CredentialBlocked=$false;RejectedIdentity='';LastOutcome='';LastUtc=[datetime]::MinValue} }
+    if (-not $State.ContainsKey($key)) { $State[$key] = New-DomeniaProviderStateEntry $Provider $Target }
     $entry = $State[$key]
+    foreach ($field in @('Recovering','RecoveryLimit','Suspensions')) {
+        if ($null -eq $entry.PSObject.Properties[$field]) { $entry | Add-Member -NotePropertyName $field -NotePropertyValue $(if ($field -eq 'Recovering') { $false } else { 0 }) }
+    }
     $entry.LastOutcome = $Outcome; $entry.LastUtc = $NowUtc
+    $budget = Get-DomeniaProviderBudget $Provider
     switch ($Outcome) {
         # A success under another account does not unblock the rejected one: only a reconnection resets it.
-        'Success' { $entry.Failures = 0; $entry.BackoffUntilUtc = [datetime]::MinValue }
+        'Success' {
+            $entry.Failures = 0; $entry.BackoffUntilUtc = [datetime]::MinValue
+            if ([bool]$entry.Recovering) {
+                $entry.RecoveryLimit = [int]$entry.RecoveryLimit + 1
+                if ([int]$entry.RecoveryLimit -ge [int]$budget.MaxConcurrent) { $entry.Recovering = $false; $entry.RecoveryLimit = 0 }
+            }
+        }
         'Cancelled' { }
         'CredentialRejected' {
             # No timed retry: the same credentials would be rejected again and could lock the account.
@@ -471,11 +565,35 @@ function Register-DomeniaProviderOutcome {
         }
         default {
             $entry.Failures = [int]$entry.Failures + 1
-            $budget = Get-DomeniaProviderBudget $Provider
             if ($entry.Failures -ge $budget.FailureThreshold) {
                 $power = [Math]::Min(6,$entry.Failures - $budget.FailureThreshold)
                 $delay = [Math]::Min([double]$budget.MaxBackoffSeconds,[double]$budget.BackoffSeconds * [Math]::Pow(2,$power))
                 $entry.BackoffUntilUtc = $NowUtc.AddSeconds($delay)
+                $entry.Recovering = $true; $entry.RecoveryLimit = 1; $entry.Suspensions = [int]$entry.Suspensions + 1
+            }
+        }
+    }
+    if ($Group -and ([int]$budget.GroupFailureThreshold -gt 0)) {
+        $groupKey = Get-DomeniaProviderStateKey $Provider ('group:' + $Group)
+        if (-not $State.ContainsKey($groupKey)) { $State[$groupKey] = New-DomeniaProviderStateEntry $Provider ('group:' + $Group) }
+        $site = $State[$groupKey]
+        $site.LastOutcome = $Outcome; $site.LastUtc = $NowUtc
+        if ($Outcome -in @('Success','AccessDenied')) {
+            # Any answer from the site proves its path; the recovery widens one place per answer.
+            $site.Failures = 0; $site.BackoffUntilUtc = [datetime]::MinValue
+            if ([bool]$site.Recovering) {
+                $site.RecoveryLimit = [int]$site.RecoveryLimit + 1
+                if ([int]$site.RecoveryLimit -ge [int]$budget.MaxPerGroup) { $site.Recovering = $false; $site.RecoveryLimit = 0 }
+            }
+        }
+        elseif ($Outcome -eq 'Timeout') {
+            # Only time-outs count for a site: a refused or absent machine says nothing about the link.
+            $site.Failures = [int]$site.Failures + 1
+            if ([int]$site.Failures -ge [int]$budget.GroupFailureThreshold) {
+                $power = [Math]::Min(6,[int]$site.Failures - [int]$budget.GroupFailureThreshold)
+                $delay = [Math]::Min([double]$budget.MaxBackoffSeconds,[double]$budget.BackoffSeconds * [Math]::Pow(2,$power))
+                $site.BackoffUntilUtc = $NowUtc.AddSeconds($delay)
+                $site.Recovering = $true; $site.RecoveryLimit = 1; $site.Suspensions = [int]$site.Suspensions + 1
             }
         }
     }
@@ -495,11 +613,24 @@ function Reset-DomeniaProviderState {
 }
 
 function Test-DomeniaProviderAdmission {
-    param($State,[Parameter(Mandatory=$true)][string]$Provider,[string]$Target='',[string]$Class='Explicit',[int]$RunningForProvider=0,[datetime]$NowUtc=[datetime]::UtcNow,[string]$Identity='')
+    # Points 15 and 160: -Group, -RunningForTarget and -RunningForGroup add the site budget and the progressive
+    # recovery for background reads. -1 means unknown and keeps the historical decision.
+    # Point 16: -Aged (background work that waited its aging delay while no other background work runs) may start
+    # above the provider and site budgets, which explicit reads may fill on their own: it is then the only background
+    # read in flight, so the excess is one read at most. A pause, a recovery or a rejected account is never bypassed.
+    param($State,[Parameter(Mandatory=$true)][string]$Provider,[string]$Target='',[string]$Class='Explicit',[int]$RunningForProvider=0,[datetime]$NowUtc=[datetime]::UtcNow,[string]$Identity='',
+        [string]$Group='',[int]$RunningForTarget=-1,[int]$RunningForGroup=-1,[bool]$Aged=$false)
     $budget = Get-DomeniaProviderBudget $Provider
+    $agedException = ($Aged -and ($Class -eq 'Background'))
+    $usedExtra = $false
     $entries = New-Object 'System.Collections.Generic.List[object]'
     if ($null -ne $State) {
         foreach ($key in @((Get-DomeniaProviderStateKey $Provider $Target),(Get-DomeniaProviderStateKey $Provider ''))) { if ($State.ContainsKey($key)) { $entries.Add($State[$key]) } }
+    }
+    $site = $null
+    if ($Group -and ($null -ne $State)) {
+        $groupKey = Get-DomeniaProviderStateKey $Provider ('group:' + $Group)
+        if ($State.ContainsKey($groupKey)) { $site = $State[$groupKey] }
     }
     foreach ($entry in $entries) {
         if (-not [bool]$entry.CredentialBlocked) { continue }
@@ -516,10 +647,93 @@ function Test-DomeniaProviderAdmission {
             return [pscustomobject]@{Allowed=$false;Reason='Pannes repetees : nouvelles lectures de fond suspendues temporairement.';RetryAfterUtc=[datetime]$entry.BackoffUntilUtc;Budget=$budget;Durable=$false}
         }
     }
-    if ($Class -eq 'Background' -and $RunningForProvider -ge $budget.MaxConcurrent) {
-        return [pscustomobject]@{Allowed=$false;Reason='Concurrence maximale atteinte pour ce fournisseur.';RetryAfterUtc=$null;Budget=$budget;Durable=$false}
+    if ($Class -eq 'Background') {
+        if (($null -ne $site) -and ([datetime]$site.BackoffUntilUtc -gt $NowUtc)) {
+            return [pscustomobject]@{Allowed=$false;Reason=('Délais répétés sur ce site (' + $Group + ') : lectures de fond suspendues jusquʼà ' + ([datetime]$site.BackoffUntilUtc).ToLocalTime().ToString('HH:mm:ss') + ' ; les autres sites continuent.');RetryAfterUtc=[datetime]$site.BackoffUntilUtc;Budget=$budget;Durable=$false}
+        }
+        foreach ($entry in $entries) {
+            if (([bool](Get-DomeniaMember $entry 'Recovering' $false)) -and ($RunningForTarget -ge 0) -and ($RunningForTarget -ge [Math]::Max(1,[int](Get-DomeniaMember $entry 'RecoveryLimit' 1)))) {
+                return [pscustomobject]@{Allowed=$false;Reason='Reprise progressive après des pannes : une lecture de fond de plus à chaque réponse.';RetryAfterUtc=$null;Budget=$budget;Durable=$false}
+            }
+        }
+        if (($null -ne $site) -and ([bool](Get-DomeniaMember $site 'Recovering' $false)) -and ($RunningForGroup -ge 0) -and ($RunningForGroup -ge [Math]::Max(1,[int](Get-DomeniaMember $site 'RecoveryLimit' 1)))) {
+            return [pscustomobject]@{Allowed=$false;Reason=('Reprise progressive du site ' + $Group + ' : une lecture de fond de plus à chaque réponse.');RetryAfterUtc=$null;Budget=$budget;Durable=$false}
+        }
+        if ($Group -and ($RunningForGroup -ge [int]$budget.MaxPerGroup)) {
+            if (-not $agedException) {
+                return [pscustomobject]@{Allowed=$false;Reason=('Budget du site ' + $Group + ' atteint : les autres sites gardent leurs places.');RetryAfterUtc=$null;Budget=$budget;Durable=$false}
+            }
+            $usedExtra = $true
+        }
+        if ($RunningForProvider -ge [int]$budget.MaxConcurrent) {
+            if (-not $agedException) {
+                return [pscustomobject]@{Allowed=$false;Reason='Concurrence maximale atteinte pour ce fournisseur.';RetryAfterUtc=$null;Budget=$budget;Durable=$false}
+            }
+            $usedExtra = $true
+        }
     }
-    return [pscustomobject]@{Allowed=$true;Reason='';RetryAfterUtc=$null;Budget=$budget;Durable=$false}
+    return [pscustomobject]@{Allowed=$true;Reason='';RetryAfterUtc=$null;Budget=$budget;Durable=$false;Aged=$usedExtra}
+}
+
+function Get-DomeniaProviderStateSummary {
+    # Point 160: plain lines for the operations panel. Paused sources are named with their provider; healthy sources
+    # are not listed, and no line ever says that the whole directory is unreachable. Sites, controllers and whole
+    # providers get one line each; single workstations are counted per provider and state (a campaign over a slow
+    # site may leave thousands of them in progressive recovery), with a few names.
+    param($State,[datetime]$NowUtc=[datetime]::UtcNow,[int]$MaxNames=3)
+    $lines = New-Object 'System.Collections.Generic.List[string]'
+    if ($null -eq $State) { return @() }
+    $names = @{Directory='annuaire';Cim='WMI';Wts='sessions';Network='réseau';Storage='base locale';Local='local'}
+    $groups = [ordered]@{}
+    foreach ($key in @($State.Keys | Sort-Object)) {
+        $entry = $State[$key]
+        $provider = [string]$entry.Provider
+        $label = $provider
+        if ($names.ContainsKey($provider)) { $label = [string]$names[$provider] }
+        $raw = [string]$entry.Target
+        $kind = ''
+        if ([bool]$entry.CredentialBlocked) { $kind = 'Blocked' }
+        elseif ([datetime]$entry.BackoffUntilUtc -gt $NowUtc) { $kind = 'Paused' }
+        elseif ([bool](Get-DomeniaMember $entry 'Recovering' $false)) { $kind = 'Recovering' }
+        if (-not $kind) { continue }
+        if ($raw -and ($raw -notlike 'group:*')) {
+            $groupKey = $label + '|' + $kind
+            if (-not $groups.Contains($groupKey)) { $groups[$groupKey] = [pscustomobject]@{Label=$label;Kind=$kind;Names=(New-Object 'System.Collections.Generic.List[string]');Until=[datetime]::MinValue;Limit=1} }
+            $group = $groups[$groupKey]
+            $group.Names.Add($raw)
+            if ([datetime]$entry.BackoffUntilUtc -gt [datetime]$group.Until) { $group.Until = [datetime]$entry.BackoffUntilUtc }
+            $group.Limit = [int](Get-DomeniaMember $entry 'RecoveryLimit' 1)
+            continue
+        }
+        $target = if ($raw -like 'group:*') { 'site ' + $raw.Substring(6) } else { 'toutes cibles' }
+        switch ($kind) {
+            'Blocked' { $lines.Add($label + ' · ' + $target + ' : identifiants rejetés, reprise après un changement de compte explicite.') }
+            'Paused' { $lines.Add($label + ' · ' + $target + ' : lectures de fond suspendues jusquʼà ' + ([datetime]$entry.BackoffUntilUtc).ToLocalTime().ToString('HH:mm:ss') + '.') }
+            default { $lines.Add($label + ' · ' + $target + ' : reprise progressive (' + [string][int](Get-DomeniaMember $entry 'RecoveryLimit' 1) + ' lecture(s) de fond à la fois).') }
+        }
+    }
+    foreach ($group in @($groups.Values)) {
+        $count = $group.Names.Count
+        if ($count -eq 1) {
+            $who = $group.Label + ' · ' + $group.Names[0]
+            switch ([string]$group.Kind) {
+                'Blocked' { $lines.Add($who + ' : identifiants rejetés, reprise après un changement de compte explicite.') }
+                'Paused' { $lines.Add($who + ' : lectures de fond suspendues jusquʼà ' + ([datetime]$group.Until).ToLocalTime().ToString('HH:mm:ss') + '.') }
+                default { $lines.Add($who + ' : reprise progressive (' + [string][int]$group.Limit + ' lecture(s) de fond à la fois).') }
+            }
+            continue
+        }
+        $shown = @($group.Names | Select-Object -First ([Math]::Max(1,$MaxNames)))
+        $list = $shown -join ', '
+        if ($count -gt $shown.Count) { $list += ' et ' + [string]($count - $shown.Count) + ' autre(s)' }
+        $who = $group.Label + ' · ' + [string]$count + ' cibles (' + $list + ')'
+        switch ([string]$group.Kind) {
+            'Blocked' { $lines.Add($who + ' : identifiants rejetés, reprise après un changement de compte explicite.') }
+            'Paused' { $lines.Add($who + ' : lectures de fond suspendues, au plus tard jusquʼà ' + ([datetime]$group.Until).ToLocalTime().ToString('HH:mm:ss') + '.') }
+            default { $lines.Add($who + ' : reprise progressive, une lecture de fond de plus à chaque réponse.') }
+        }
+    }
+    return $lines.ToArray()
 }
 
 function Test-DomeniaAutoRetryAllowed {
@@ -641,6 +855,9 @@ function Test-DomeniaIdleAllows {
 function Get-DomeniaReadTimeoutState {
     # GlobalSearch receives a dispatch-owned monotonic clock. Only raw LDAP arrivals
     # advance it: cached rows, queue draining and UI callbacks are not network progress.
+    # Point 17: any other read whose payload carried a ReadProgress channel (a campaign workstation: one step per
+    # finished ping or CIM query) follows the same rule: no progress for TimeoutSeconds ends it (Idle), and a
+    # progressing read still stops at HardTimeoutSeconds (Total). Without a valid channel the total-elapsed rule stays.
     # This function only decides; the existing caller retains cancellation/partial results.
     param($Job,[double]$ElapsedSeconds,
         [long]$NowTimestamp=[Diagnostics.Stopwatch]::GetTimestamp(),
@@ -655,22 +872,27 @@ function Get-DomeniaReadTimeoutState {
         [string](Get-DomeniaMember $Job 'State' '') -in @('Queued','Withdrawn','Completed','StopRequested','Cleanup','Cancelled','Canceled')) { return $result }
 
     $isSearch = ([string](Get-DomeniaMember $Job 'OperationId' '') -eq 'GlobalSearch')
+    $channelName = 'ReadProgress'
+    if ($isSearch) { $channelName = 'SearchReadProgress' }
+    $progress = Get-DomeniaMemberValue $Job $channelName $null
+    $tracked = ($isSearch -or ($progress -is [Collections.IDictionary]))
     $timeout = if ($isSearch) { 120.0 } else { 60.0 }
     try {
         $configured = [double](Get-DomeniaMember $Job 'TimeoutSeconds' $timeout)
         if (-not [double]::IsNaN($configured) -and -not [double]::IsInfinity($configured) -and $configured -gt 0) { $timeout = $configured }
     } catch { }
     $hardTimeout = 900.0
-    if ($isSearch) {
+    if (-not $isSearch) { $hardTimeout = $timeout }
+    if ($tracked) {
         try {
             $configured = [double](Get-DomeniaMember $Job 'HardTimeoutSeconds' $hardTimeout)
             if (-not [double]::IsNaN($configured) -and -not [double]::IsInfinity($configured) -and $configured -gt 0) { $hardTimeout = $configured }
         } catch { }
+        if ($hardTimeout -lt $timeout) { $hardTimeout = $timeout }
     }
 
     $validProgress = $false
-    if ($isSearch -and $TimestampFrequency -gt 0 -and $NowTimestamp -gt 0) {
-        $progress = Get-DomeniaMemberValue $Job 'SearchReadProgress' $null
+    if ($tracked -and $TimestampFrequency -gt 0 -and $NowTimestamp -gt 0) {
         if ($progress -is [Collections.IDictionary]) {
             $syncRoot = $null; $locked = $false
             try {
@@ -702,8 +924,8 @@ function Get-DomeniaReadTimeoutState {
         }
     }
     # Invalid/missing clocks keep the former total-elapsed rule, never an open-ended
-    # progress extension. Even healthy row arrivals cannot exceed the search total cap.
-    if ($isSearch -and $result.ElapsedSeconds -gt $hardTimeout) {
+    # progress extension. Even healthy row arrivals cannot exceed the total cap.
+    if ($tracked -and $result.ElapsedSeconds -gt $hardTimeout) {
         $result.Expired = $true; $result.Reason = 'Total'
     }
     elseif ($validProgress -and $result.IdleSeconds -gt $timeout) {
@@ -715,8 +937,8 @@ function Get-DomeniaReadTimeoutState {
     if ($result.Expired) {
         $displayElapsed = [int][Math]::Min([int]::MaxValue,$result.ElapsedSeconds)
         $name = [string](Get-DomeniaMember $Job 'Name' '')
-        if (-not $isSearch) { $result.Message = "Timeout apres $($displayElapsed)s : $name" }
-        else {
+        if (-not $tracked) { $result.Message = "Timeout apres $($displayElapsed)s : $name" }
+        elseif ($isSearch) {
             $displayIdle = [int][Math]::Min([int]::MaxValue,$result.IdleSeconds)
             $reason = switch ($result.Reason) {
                 'Total' { 'durée totale maximale atteinte' }
@@ -726,6 +948,17 @@ function Get-DomeniaReadTimeoutState {
             $received = if ($validProgress) { "$($result.RowsRead) ligne(s) AD reçue(s)" } else { 'nombre de lignes AD reçues non confirmé' }
             $idleText = if ($validProgress) { "$($displayIdle) s sans nouvelle ligne AD" } else { 'activité AD non confirmée' }
             $result.Message = "Timeout : $name — $reason ; $($displayElapsed) s écoulées, $idleText, $received. Résultats partiels."
+        }
+        else {
+            $displayIdle = [int][Math]::Min([int]::MaxValue,$result.IdleSeconds)
+            $reason = switch ($result.Reason) {
+                'Total' { 'durée totale maximale atteinte malgré la progression' }
+                'Idle' { 'aucune étape terminée pendant le délai' }
+                default { 'délai atteint ; progression indisponible' }
+            }
+            $steps = if ($validProgress) { "$($result.RowsRead) étape(s) terminée(s)" } else { 'étapes terminées non confirmées' }
+            $idleText = if ($validProgress) { "$($displayIdle) s sans nouvelle étape" } else { 'activité non confirmée' }
+            $result.Message = "Délai dépassé : $name — $reason ; $($displayElapsed) s écoulées, $idleText, $steps. Aucune mesure partielle nʼest conservée."
         }
     }
     return $result

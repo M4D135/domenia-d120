@@ -35,25 +35,38 @@ function Get-DomeniaEngineLimits {
     $maxWait = [Math]::Max(5,[Math]::Min(3600,[int](Get-CfgValue 'Async' 'MaxQueueWaitSeconds' 120)))
     # PF-04: time budget of one engine tick for promotions and for completions (replaces MaxCompletionsPerTick).
     $budget = [Math]::Max(5,[Math]::Min(250,[int](Get-CfgValue 'Async' 'TickBudgetMs' 25)))
-    return [pscustomobject]@{MaxConcurrent=$maxConcurrent;MaxOutstanding=$maxOutstanding;MaxQueued=$maxQueued;ReservedForeground=$reserved;MaxQueueWaitSeconds=$maxWait;TickBudgetMs=$budget}
+    # Point 16: background work waiting this long while no background work runs may take one reserved place.
+    $aging = [Math]::Max(5,[Math]::Min(600,[int](Get-CfgValue 'Async' 'BackgroundAgingSeconds' 30)))
+    return [pscustomobject]@{MaxConcurrent=$maxConcurrent;MaxOutstanding=$maxOutstanding;MaxQueued=$maxQueued;ReservedForeground=$reserved;MaxQueueWaitSeconds=$maxWait;TickBudgetMs=$budget;BackgroundAgingSeconds=$aging}
 }
 
 function Get-DomeniaEngineLoad {
     # A queued entry holds no thread. A detached read still holds one until its native call really ends.
     # MO-05: ProviderLoad counts the started workers of each provider, as the provider budget of the dispatch does.
+    # Points 15 and 160: SourceLoad counts the started workers per 'Provider|target' and per 'Provider|group:<g>'.
+    # Point 16: BackgroundRunning counts the background workers that still hold a place.
     $queued = New-Object 'System.Collections.Generic.List[object]'
-    $running = 0; $active = 0; $providers = @{}
+    $running = 0; $active = 0; $providers = @{}; $sources = @{}; $background = 0
     foreach ($job in @($script:AsyncJobs.Values)) {
         if ($null -eq $job) { continue }
         if ([string]$job.State -eq 'Queued') { $queued.Add($job); continue }
         $active++
-        if (-not [bool]$job.CancelRequested) { $running++ }
+        if (-not [bool]$job.CancelRequested) {
+            $running++
+            if ([string](Get-DomeniaMember $job 'Class' '') -eq 'Background') { $background++ }
+        }
         $provider = [string](Get-DomeniaMember $job 'Provider' '')
-        if ($provider) { $providers[$provider] = [int]$providers[$provider] + 1 }
+        if ($provider) {
+            $providers[$provider] = [int]$providers[$provider] + 1
+            $targetKey = Get-DomeniaProviderStateKey $provider ([string](Get-DomeniaMember $job 'ProviderTarget' ''))
+            $sources[$targetKey] = [int]$sources[$targetKey] + 1
+            $group = [string](Get-DomeniaMember $job 'ProviderGroup' '')
+            if ($group) { $groupKey = Get-DomeniaProviderStateKey $provider ('group:' + $group); $sources[$groupKey] = [int]$sources[$groupKey] + 1 }
+        }
     }
     $detached = 0
     foreach ($job in @($script:DetachedReadJobs)) { if ($null -ne $job) { $detached++ } }
-    return [pscustomobject]@{Queued=$queued.ToArray();QueuedCount=$queued.Count;Running=$running;Active=$active;Detached=$detached;Outstanding=($active + $detached);ProviderLoad=$providers}
+    return [pscustomobject]@{Queued=$queued.ToArray();QueuedCount=$queued.Count;Running=$running;Active=$active;Detached=$detached;Outstanding=($active + $detached);ProviderLoad=$providers;SourceLoad=$sources;BackgroundRunning=$background}
 }
 
 function Get-DomeniaUiTaskAdmission {
@@ -231,8 +244,16 @@ function Invoke-DomeniaUiTaskDispatch {
     $Job.CredentialIdentity = Get-DomeniaContextCredentialIdentity -Context $context -Provider $provider
     if ([bool]$Job.SchedulerManaged) {
         # D018: a refused account is never retried on the same resource; repeated outages pause background reads.
-        $runningForProvider = @(@($script:AsyncJobs.Values) | Where-Object { $null -ne $_ -and [string]$_.State -ne 'Queued' -and [string]$_.Provider -eq $provider -and -not [object]::ReferenceEquals($_,$Job) }).Count
-        $budget = Test-DomeniaProviderAdmission -State $script:DomeniaProviderState -Provider $provider -Target ([string]$Job.ProviderTarget) -Class ([string]$Job.Class) -RunningForProvider $runningForProvider -Identity ([string]$Job.CredentialIdentity)
+        # Points 15 and 160: the controller or presumed subnet of the read has its own budget and recovers progressively.
+        $sameProvider = @(@($script:AsyncJobs.Values) | Where-Object { $null -ne $_ -and [string]$_.State -ne 'Queued' -and [string]$_.Provider -eq $provider -and -not [object]::ReferenceEquals($_,$Job) })
+        $runningForProvider = $sameProvider.Count
+        $jobTarget = ([string]$Job.ProviderTarget).Trim()
+        $runningForTarget = @($sameProvider | Where-Object { ([string]$_.ProviderTarget).Trim() -ieq $jobTarget }).Count
+        $group = [string](Get-DomeniaMember $Job 'ProviderGroup' '')
+        $runningForGroup = -1
+        if ($group) { $runningForGroup = @($sameProvider | Where-Object { [string](Get-DomeniaMember $_ 'ProviderGroup' '') -ieq $group }).Count }
+        # Point 16: the exception granted by the queue to a long-waiting background read is applied here too, once.
+        $budget = Test-DomeniaProviderAdmission -State $script:DomeniaProviderState -Provider $provider -Target $jobTarget -Class ([string]$Job.Class) -RunningForProvider $runningForProvider -Identity ([string]$Job.CredentialIdentity) -Group $group -RunningForTarget $runningForTarget -RunningForGroup $runningForGroup -Aged ([bool](Get-DomeniaMember $Job 'AgedAdmission' $false))
         if (-not [bool]$budget.Allowed) { throw ([string]$budget.Reason) }
     }
     $executed = $requested
@@ -284,6 +305,19 @@ function Invoke-DomeniaUiTaskDispatch {
                     $searchProgress.RowsRead = 0L
                 } finally { [Threading.Monitor]::Exit($searchProgress.SyncRoot) }
                 Add-Member -InputObject $Job -NotePropertyName SearchReadProgress -NotePropertyValue $searchProgress -Force
+            }
+        }
+        elseif (-not $isWrite -and -not $demo -and -not $isolated) {
+            # Point 17: a read that carries a progress channel (a campaign workstation) gets the same dispatch clock.
+            $readProgress = Get-DomeniaMemberValue $Job.Payload 'ReadProgress' $null
+            if ($readProgress -is [Collections.IDictionary]) {
+                [Threading.Monitor]::Enter(([Collections.ICollection]$readProgress).SyncRoot)
+                try {
+                    $readProgress['StartedTimestamp'] = [Diagnostics.Stopwatch]::GetTimestamp()
+                    $readProgress['LastRowTimestamp'] = 0L
+                    $readProgress['RowsRead'] = 0L
+                } finally { [Threading.Monitor]::Exit(([Collections.ICollection]$readProgress).SyncRoot) }
+                Add-Member -InputObject $Job -NotePropertyName ReadProgress -NotePropertyValue $readProgress -Force
             }
         }
         $handle = $ps.BeginInvoke()
@@ -736,6 +770,8 @@ function Add-DomeniaTaskSubscriber {
         }
         if ($null -eq $job.Subscribers) { $job.Subscribers = New-Object System.Collections.ArrayList }
         [void]$job.Subscribers.Add([pscustomobject]@{SuccessHandler=$SuccessHandler;ErrorHandler=$ErrorHandler;OnSuccess=$OnSuccess;OnError=$OnError;CallbackState=$CallbackState})
+        # Point 12: counted for the operations panel (a second call that was not sent).
+        $script:DomeniaSharedReadCount = [int]$script:DomeniaSharedReadCount + 1
         # UX-04: engine detail, Domenia.log only.
         Write-DomeniaTrace ('Lecture identique partagée : ' + [string]$job.Name + ' (' + [string]$job.OperationId + '), aucun second appel.')
         return [string]$job.Id
@@ -802,9 +838,17 @@ function Invoke-DomeniaQueuedTaskPromotion {
     while ($watch.ElapsedMilliseconds -lt $BudgetMs) {
         $load = Get-DomeniaEngineLoad
         if ($load.QueuedCount -eq 0) { break }
-        $next = Select-DomeniaNextQueuedTask -Queued $load.Queued -Running $load.Running -Outstanding $load.Outstanding -MaxConcurrent $limits.MaxConcurrent -MaxOutstanding $limits.MaxOutstanding -ReservedForeground $limits.ReservedForeground -ProviderLoad $load.ProviderLoad -ProviderState $script:DomeniaProviderState
-        if ($null -eq $next) { break }
+        $entry = Select-DomeniaNextQueuedEntry -Queued $load.Queued -Running $load.Running -Outstanding $load.Outstanding -MaxConcurrent $limits.MaxConcurrent -MaxOutstanding $limits.MaxOutstanding -ReservedForeground $limits.ReservedForeground -ProviderLoad $load.ProviderLoad -ProviderState $script:DomeniaProviderState -BackgroundRunning ([int]$load.BackgroundRunning) -AgingSeconds ([int]$limits.BackgroundAgingSeconds) -SourceLoad $load.SourceLoad
+        if ($null -eq $entry) { break }
+        $next = $entry.Task
         $changed = $true
+        # Point 16: a background entry that started only thanks to its long wait (reserved place, or one place above
+        # its provider or site budget) is marked for the dispatch, counted and traced.
+        if ([bool]$entry.Aged) {
+            Add-Member -InputObject $next -NotePropertyName AgedAdmission -NotePropertyValue $true -Force
+            $script:DomeniaAgedPromotions = [int]$script:DomeniaAgedPromotions + 1
+            Write-DomeniaTrace ('Travail de fond en attente depuis ' + [string][int](Get-DomeniaQueuedSeconds $next) + ' s : place accordée malgré la charge (' + [string]$next.Name + ').')
+        }
         try {
             [void](Invoke-DomeniaUiTaskDispatch -Job $next)
             # CO-02: Annuler and the progress label follow the foreground task, never a local save or a background read.
@@ -865,7 +909,7 @@ function Register-DomeniaTaskOutcome {
     $kind = ''
     if ($failed) { $kind = 'Unknown'; if ($null -ne $structured) { $kind = [string](Get-DomeniaMember $structured 'Kind' 'Unknown') } }
     $outcome = ConvertTo-DomeniaProviderOutcome -ErrorKind $kind -Cancelled ([bool]$Cancelled) -TimedOut ([bool]$TimedOut) -Failed $failed
-    return (Register-DomeniaProviderOutcome -State $script:DomeniaProviderState -Provider ([string]$Job.Provider) -Target ([string]$Job.ProviderTarget) -Outcome $outcome -Identity ([string]$Job.CredentialIdentity))
+    return (Register-DomeniaProviderOutcome -State $script:DomeniaProviderState -Provider ([string]$Job.Provider) -Target ([string]$Job.ProviderTarget) -Outcome $outcome -Identity ([string]$Job.CredentialIdentity) -Group ([string](Get-DomeniaMember $Job 'ProviderGroup' '')))
 }
 
 function ConvertTo-DomeniaTaskErrorInfo {
@@ -912,12 +956,17 @@ function Test-DomeniaIdlePolicyEnabled {
 function Test-DomeniaBackgroundWorkAllowed {
     # C1. $true when the idle policy (D020) allows background work for this source
     # ('Live','Reconcile','ObjectChanges','Dashboard','Index','Park'); $true also while it is not initialized.
+    # Point 159: the sources that read the network on their own also respect the collection window of the profile.
     param([string]$Source)
-    if ($null -eq $script:DomeniaIdlePolicy) { return $true }
-    try {
-        $activity = Get-DomeniaIdleActivityForSource -Source $Source
-        return [bool](Test-DomeniaIdleAllows -Policy $script:DomeniaIdlePolicy -Activity ([string]$activity.Activity) -Page ([string]$activity.Page))
-    } catch { return $true }
+    $allowed = $true
+    if ($null -ne $script:DomeniaIdlePolicy) {
+        try {
+            $activity = Get-DomeniaIdleActivityForSource -Source $Source
+            $allowed = [bool](Test-DomeniaIdleAllows -Policy $script:DomeniaIdlePolicy -Activity ([string]$activity.Activity) -Page ([string]$activity.Page))
+        } catch { $allowed = $true }
+    }
+    if ($allowed) { try { $allowed = [bool](Test-DomeniaCollectionWindowAllowsSource -Source $Source) } catch { $allowed = $true } }
+    return $allowed
 }
 
 function Update-DomeniaIdlePolicy {
@@ -942,6 +991,9 @@ function Update-DomeniaIdlePolicy {
         $script:DashboardDirty = $false
         try { Request-DomeniaDashboardRefresh } catch { }
     }
+    # Point 20: once per session and base, an interrupted campaign is offered for resumption (nothing is read
+    # without the answer « Reprendre »).
+    if ([bool]$window.IsActive -and -not $minimized -and -not $hidden) { try { Request-DomeniaCampaignResumeOffer } catch { } }
     return $script:DomeniaIdlePolicy
 }
 

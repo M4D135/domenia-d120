@@ -85,13 +85,20 @@ function Get-DomeniaProbeAnswerUtc {
 }
 function New-DomeniaCollectionPlan {
     # Reuse only measurements of this object identity, each with its own timestamp. Errors are always retried.
+    # Point 11: $Freshness is the resolved table of the usage profile (Inventory, StaticProbe, VolatileProbe in
+    # seconds). The duration kept is the shortest of the family and of CacheMinutes; 0 forces a new read.
     # -ReuseMaxAgeDays (widget collections, decision David 2026-10-14): collect only what is missing, i.e. also reuse a
     # usable measurement younger than that many days whatever the cache minutes; a probe stored as not applicable to
     # the system is an answer there, dated by its attempt (Get-DomeniaProbeAnswerUtc). 0 keeps the cache-minute rule
     # alone; a forced refresh passes CacheMinutes 0 and no reuse age.
-    param($Previous,[string]$Guid,[string]$Key,[object[]]$Probes=@(),[bool]$Inventory=$false,[int]$CacheMinutes=15,[datetime]$NowUtc=[datetime]::UtcNow,[int]$ReuseMaxAgeDays=0)
+    param($Previous,[string]$Guid,[string]$Key,[object[]]$Probes=@(),[bool]$Inventory=$false,[int]$CacheMinutes=15,[datetime]$NowUtc=[datetime]::UtcNow,$Freshness=$null,[int]$ReuseMaxAgeDays=0)
     $valid=($null -ne $Previous -and $Guid -and [string]$Previous.Guid -ieq $Guid -and [string]$Previous.Key -ieq $Key)
     $minutes=[Math]::Max(0,[Math]::Min(1440,$CacheMinutes));$reuse=0;$readInventory=$Inventory
+    $familySeconds={param([string]$Family,[int]$Default)
+        $value=$Default;$table=Get-DomeniaMember $Freshness 'Seconds' $Freshness
+        if(($table -is [Collections.IDictionary]) -and $table.Contains($Family)){$value=[int]$table[$Family]}
+        return [int][Math]::Max(0,[Math]::Min([double]$value,[double]($minutes*60)))
+    }
     $reuseDays=[Math]::Max(0,[Math]::Min(3650,$ReuseMaxAgeDays))
     $fresh={param($Value,[int]$Seconds)
         if($null -eq $Value -or $Seconds -le 0 -or [string](Get-DomeniaMember $Value 'Error') -or [string](Get-DomeniaMember $Value 'Skipped') -or [bool](Get-DomeniaMember $Value 'Truncated' $false)){return $false}
@@ -108,14 +115,14 @@ function New-DomeniaCollectionPlan {
     }
     if(($valid) -and ($Inventory) -and (-not [string](Get-DomeniaMemberValue $Previous 'InventoryError'))){
         $previousInventory=Get-DomeniaMemberValue $Previous 'Inventory'
-        if((& $fresh $previousInventory ([Math]::Min(300,$minutes*60))) -or (& $usable $previousInventory $false)){$readInventory=$false;$reuse++}
+        if((& $fresh $previousInventory (& $familySeconds 'Inventory' 300)) -or (& $usable $previousInventory $false)){$readInventory=$false;$reuse++}
     }
     $planned=[Collections.Generic.List[object]]::new();$seen=@{}
     foreach($probe in @($Probes)){
         if($null -eq $probe -or -not [string]$probe.Id -or $seen.ContainsKey([string]$probe.Id)){continue};$seen[[string]$probe.Id]=$true
-        $seconds=$minutes*60
+        $seconds=& $familySeconds 'StaticProbe' ($minutes*60)
         # CPU, battery, memory, services, network and events vary quickly. Static inventory can live longer.
-        if([string]$probe.Id -match '^(evt\.|svc\.|net\.)|load|battery|free|users|stopped|process'){$seconds=[Math]::Min(60,$seconds)}
+        if([string]$probe.Id -match '^(evt\.|svc\.|net\.)|load|battery|free|users|stopped|process'){$seconds=& $familySeconds 'VolatileProbe' 60}
         $previousProbe=if($valid){Get-DomeniaMemberValue (Get-DomeniaMemberValue $Previous 'Probes') ([string]$probe.Id)}else{$null}
         $hash=[string](Get-DomeniaMemberValue $probe 'DefinitionHash');$previousHash=[string](Get-DomeniaMemberValue $previousProbe 'DefinitionHash')
         $sameDefinition=(([bool]$hash) -and ($previousHash -ceq $hash))
@@ -330,11 +337,16 @@ function New-DomeniaParkConfirmationText {
     # postes'), -NoConsole leaves the console user out of what is read, -ReuseMaxAgeDays says that only missing,
     # failed or older measurements are read, -AlreadyFresh counts the workstations set aside before any read and
     # -DirectLimit says why an added widget asks for its count above its direct limit.
+    # Collection engine (points 11, 13, 14, 15 and 18): -ProfileLabel names the usage profile whose durations decide
+    # what is reused, -CimRequested/-CimExecuted give the WMI queries of one workstation before and after grouping, and
+    # -SourceBudgets says that the workstations of one presumed subnet share a budget (and, for reads other than the
+    # ping, that a transient incident is read again at most twice).
     param(
         [int]$Count,[int]$Skipped=0,[int]$Ignored=0,[ValidateSet('Results','Selection','Scope')][string]$ScopeKind='Results',
         [AllowEmptyString()][string]$ScopeLabel='',[bool]$Subtree=$false,[int]$ListLimit=0,
         [bool]$PingOnly=$false,[bool]$WmiOnly=$false,[bool]$Inventory=$false,[int]$ProbeCount=0,[int]$Concurrency=4,[int]$CacheMinutes=15,
-        [bool]$NoConsole=$false,[int]$ReuseMaxAgeDays=0,[int]$AlreadyFresh=0,[bool]$Widget=$false,[int]$DirectLimit=0
+        [bool]$NoConsole=$false,[int]$ReuseMaxAgeDays=0,[int]$AlreadyFresh=0,[bool]$Widget=$false,[int]$DirectLimit=0,
+        [AllowEmptyString()][string]$ProfileLabel='',[int]$CimRequested=0,[int]$CimExecuted=0,[bool]$SourceBudgets=$false
     )
     $postes = [string]$Count + ' ' + (Get-DomeniaParkPlural $Count 'poste' 'postes')
     switch ($ScopeKind) {
@@ -359,13 +371,21 @@ function New-DomeniaParkConfirmationText {
         else { $read.Add([string]$ProbeCount + ' ' + (Get-DomeniaParkPlural $ProbeCount 'requête des widgets' 'requêtes des widgets')) }
     }
     $line2 = 'Ce qui sera lu : ' + ($read.ToArray() -join ' · ') + ', en lecture seule.'
+    if ((-not $PingOnly) -and ($CimExecuted -gt 0) -and ($CimRequested -gt $CimExecuted)) { $line2 += ' Requêtes WMI prévues par poste : ' + [string]$CimExecuted + ' au lieu de ' + [string]$CimRequested + ' grâce au regroupement.' }
     $parallel = [Math]::Max(1,[Math]::Min(8,$Concurrency))
     $seconds = Get-DomeniaParkDurationEstimate -Count $Count -PingOnly $PingOnly -WmiOnly ($WmiOnly -or $NoConsole) -Inventory $Inventory -ProbeCount $ProbeCount -Concurrency $parallel
     $line3 = 'Durée estimée : ' + (Format-DomeniaParkDuration $seconds)
     if ($PingOnly) { $line3 += ', échos envoyés par lots de 32' } else { $line3 += ', ' + [string]$parallel + ' ' + (Get-DomeniaParkPlural $parallel 'poste' 'postes') + ' à la fois' }
     $line3 += ' ; arrêt possible à tout moment.'
+    if ($SourceBudgets) {
+        $line3 += ' Les postes dʼun même sous-réseau présumé partagent un budget qui ralentit si leurs réponses tardent ; les autres continuent.'
+        if (-not $PingOnly) { $line3 += ' Un incident transitoire est relu au plus deux fois, espacé ; aucun nouvel essai après un refus dʼidentifiants.' }
+    }
     if ($ReuseMaxAgeDays -gt 0) { $line3 += ' Seules les mesures absentes, en erreur ou de plus de ' + [string]$ReuseMaxAgeDays + ' jours sont relues.' }
-    elseif ((-not $PingOnly) -and ($CacheMinutes -gt 0)) { $line3 += ' Mesures de moins de ' + [string]$CacheMinutes + ' min réutilisées.' }
+    elseif ((-not $PingOnly) -and ($CacheMinutes -gt 0)) {
+        if ($ProfileLabel) { $line3 += ' Réutilisation des mesures encore fraîches selon le profil « ' + $ProfileLabel + ' », au plus ' + [string]$CacheMinutes + ' min.' }
+        else { $line3 += ' Mesures de moins de ' + [string]$CacheMinutes + ' min réutilisées.' }
+    }
     $verb = 'Vérifier'; $mode = 'qui est connecté ?'
     if ($PingOnly) { $verb = 'Pinger'; $mode = 'qui répond ?' }
     elseif ($Inventory -or ($ProbeCount -gt 0)) { $verb = 'Analyser'; $mode = 'matériel et widgets' }

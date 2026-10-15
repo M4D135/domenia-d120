@@ -326,6 +326,36 @@ Test-Case 'D029' 'Taille absente inconnue, mesure conservee sans estimation' {
     Assert-Equal (-1L) $plan.Actions[1].CurrentBytes;Assert-Equal 'inconnu' (Format-DomeniaSize $plan.Actions[1].CurrentBytes)
 }
 
+# ---------------------------------------------------------------- point 21 : repère de synchronisation par contrôleur et instance
+Test-Case 'P21' 'Repère réutilisé seulement sur son contrôleur et son instance, avec les données quʼil décrit' {
+    $now=[datetime]::SpecifyKind([datetime]'2026-10-14T10:00:00',[DateTimeKind]::Utc)
+    $cp=[pscustomobject]@{Server='dc1.example.test';BaseDn='DC=example,DC=test';Date='2026-10-14T09:00:00Z';Count=5000;Usn=12345L;InvocationId='11111111-2222-3333-4444-555555555555'}
+    Assert-True (Test-DomeniaSyncCheckpoint $cp 'DC1.example.test' 'dc=example,dc=test' 5100 0 $now).Usable
+    Assert-True (Test-DomeniaSyncCheckpoint $cp 'dc1.example.test' 'DC=example,DC=test' 5000 20000 $now).Usable 'USN de lʼinstance supérieur au repère'
+    $other=Test-DomeniaSyncCheckpoint $cp 'dc2.example.test' 'DC=example,DC=test' 5000 0 $now
+    Assert-Equal 'OtherController' $other.Code;Assert-True ($other.Reason -match 'aucun USN reporté')
+    Assert-Equal 'UsnAhead' (Test-DomeniaSyncCheckpoint $cp 'dc1.example.test' 'DC=example,DC=test' 5000 1000 $now).Code
+    Assert-Equal 'EmptyBase' (Test-DomeniaSyncCheckpoint $cp 'dc1.example.test' 'DC=example,DC=test' 0 0 $now).Code
+    Assert-Equal 'BaseShrunk' (Test-DomeniaSyncCheckpoint $cp 'dc1.example.test' 'DC=example,DC=test' 1000 0 $now).Code
+    Assert-Equal 'OtherScope' (Test-DomeniaSyncCheckpoint $cp 'dc1.example.test' 'DC=autre,DC=test' 5000 0 $now).Code
+    Assert-Equal 'Missing' (Test-DomeniaSyncCheckpoint $null 'dc1.example.test' 'DC=example,DC=test' 5000 0 $now).Code
+    $noInstance=$cp.PSObject.Copy();$noInstance.InvocationId=''
+    Assert-Equal 'NoInstance' (Test-DomeniaSyncCheckpoint $noInstance 'dc1.example.test' 'DC=example,DC=test' 5000 0 $now).Code
+    $noUsn=$cp.PSObject.Copy();$noUsn.Usn=0L
+    Assert-Equal 'NoUsn' (Test-DomeniaSyncCheckpoint $noUsn 'dc1.example.test' 'DC=example,DC=test' 5000 0 $now).Code
+    $future=$cp.PSObject.Copy();$future.Date='2026-10-20T09:00:00Z'
+    Assert-Equal 'FutureDate' (Test-DomeniaSyncCheckpoint $future 'dc1.example.test' 'DC=example,DC=test' 5000 0 $now).Code
+}
+Test-Case 'P21' 'Synchronisation : un repère dʼun autre contrôleur ou sans instance nʼavance jamais sur des données partielles' {
+    $cp=[pscustomobject]@{Dc='dc1';InvocationId='11111111-2222-3333-4444-555555555555';Usn='100';ScopeDn='DC=example,DC=test'}
+    $r=Resolve-DomeniaIncrementalSync $cp ([pscustomobject]@{Dc='dc2';InvocationId='99999999-2222-3333-4444-555555555555';HighestUsn='5000';ScopeDn='DC=example,DC=test';ScopeComplete=$true;Rows=@();KnownGuids=@()})
+    Assert-Equal 'FullRescan' $r.Mode;Assert-Equal '99999999-2222-3333-4444-555555555555' $r.CheckpointNext.InvocationId
+    $partial=Resolve-DomeniaIncrementalSync $cp ([pscustomobject]@{Dc='dc1';InvocationId='11111111-2222-3333-4444-555555555555';HighestUsn='150';ScopeDn='DC=example,DC=test';Partial=$true;Rows=@();KnownGuids=@()})
+    Assert-False $partial.CheckpointAdvanced;Assert-Equal '100' $partial.CheckpointNext.Usn
+    $unknown=Resolve-DomeniaIncrementalSync $cp ([pscustomobject]@{Dc='dc1';InvocationId='';HighestUsn='150';ScopeDn='DC=example,DC=test';Rows=@();KnownGuids=@()})
+    Assert-False $unknown.CheckpointAdvanced 'Instance inconnue : pas de repère'
+}
+
 # ---------------------------------------------------------------- Lot X06 : base locale (FI-12, FI-13, UI-19, DS-09)
 $script:X06Now=[datetime]::SpecifyKind([datetime]'2026-10-14T12:00:00',[DateTimeKind]::Utc)
 Test-Case 'FI-12' 'Le delai SQLite configure est borne et garde le defaut documente' {
