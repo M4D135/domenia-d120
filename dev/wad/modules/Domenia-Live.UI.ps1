@@ -317,7 +317,9 @@ function Stop-DomeniaLiveJob {
         Complete-DomeniaDirectoryReadPipe -Pipe $pipe -Error 'Lecture arretee : les informations deja recoltees sont conservees.'
     }
     if($null -eq $script:Live){return}
-    if($Job.OperationId -in @('LiveConsole','LiveSelectedPing') -and $null -ne $Job.CallbackState){
+    # The explicit ping of the selected workstation (Park.UI, ReplaceKey presence-selected) runs the live probe body
+    # under LiveSelectedPing but belongs to the fiche: the bookkeeping of the search rows is not applied to it.
+    if(($Job.OperationId -in @('LiveConsole','LiveSelectedPing')) -and ([string]$Job.ReplaceKey -cne 'presence-selected') -and ($null -ne $Job.CallbackState)){
         $key=[string]$Job.CallbackState.Key
         if($Job.CallbackState.Generation -eq $script:GlobalSearchGeneration -and -not $Job.Superseded){
             $script:Live.Done[$key]=$true
@@ -429,6 +431,25 @@ function Add-DomeniaLiveRow {
     if([string]$snapshot.Type -eq 'Machine' -and -not $script:SearchListHasMachine){$script:SearchListHasMachine=$true;Update-DomeniaSearchActionStates;Set-DomeniaResultColumns -RevealOnly}
     if([string]$snapshot.Type -eq 'Utilisateur' -and -not $script:SearchListHasUser){$script:SearchListHasUser=$true;Set-DomeniaResultColumns -RevealOnly}
     if([string]$snapshot.Type -in @('Utilisateur','Groupe') -and [string]$snapshot.Login -and -not [bool]$s.PSObject.Properties['LoginShown']){Set-DomeniaLoginColumnVisible $true;$s|Add-Member -NotePropertyName LoginShown -NotePropertyValue $true -Force}
+    # Point 23: rows are keyed by DN, objects by GUID. A directory row whose GUID is already listed under another DN is
+    # the same object moved or renamed: its row is re-keyed and updated in place, never doubled, and keeps its presence
+    # and session columns. This applies when the listed row came from the cache (superseded by the directory) or when
+    # the arrival is a revalidation of the displayed list; two rows of one streaming read are left as they are.
+    if($null -eq $s.PSObject.Properties['ByGuid']){$s|Add-Member -NotePropertyName ByGuid -NotePropertyValue @{} -Force}
+    $guidKey=([string](ConvertTo-DomeniaGuidText ([string]$snapshot.Guid))).ToLowerInvariant()
+    $revalidated=(($null -ne $Event.PSObject.Properties['Revalidated']) -and ([bool]$Event.Revalidated))
+    $moved=$null;$movedFromKey=''
+    # Only a fresh directory row moves an existing one: a cached row never sends an object back to an older DN.
+    if($fresh -and $guidKey -and (-not $s.Map.ContainsKey($key)) -and ($s.ByGuid.ContainsKey($guidKey))){
+        $previous=$s.ByGuid[$guidKey];$oldKey=([string]$previous.DN).Trim().ToLowerInvariant()
+        # The structural class of an object never changes: a different type under the same GUID is not a move.
+        if($oldKey -and ($oldKey -cne $key) -and ([string]$previous.Type -ceq [string]$snapshot.Type) -and ($s.Map.ContainsKey($oldKey)) -and ([object]::ReferenceEquals($s.Map[$oldKey],$previous)) -and ($revalidated -or (-not $s.Fresh.ContainsKey($oldKey)))){
+            $oldDn=[string]$previous.DN;$movedFromKey=$oldKey
+            [void]$s.Map.Remove($oldKey);$s.Map[$key]=$previous
+            if($s.Fresh.ContainsKey($oldKey)){$s.Fresh[$key]=$s.Fresh[$oldKey];[void]$s.Fresh.Remove($oldKey)}
+            $moved=if(${function:Get-DomeniaMoveStateText}){Get-DomeniaMoveStateText (Get-DomeniaDirectoryMove -OldDn $oldDn -NewDn ([string]$snapshot.DN) -ScopeDn ([string]$s.State.BaseDn) -Scope $(if([string]$s.State.Scope -ieq 'OneLevel'){'OneLevel'}else{'Subtree'}))}else{'Déplacé ou renommé'}
+        }
+    }
     $isNew=-not $s.Map.ContainsKey($key)
     if($isNew){
         if($s.Rows.Count -ge [int]$s.State.Limit){
@@ -455,6 +476,8 @@ function Add-DomeniaLiveRow {
         if($adminRow){Set-DomeniaLiveRowValue $row 'Admin' 'Compte admin'}
     }
     $row.DirectoryState=if($fresh){'AD vérifié'}else{'Cache · à vérifier'}
+    if($null -ne $moved){$row.DirectoryState=[string]$moved}
+    if($guidKey){$s.ByGuid[$guidKey]=$row}
     Set-DomeniaLiveRowValue $row 'DirectoryFresh' $(if($fresh){'Verified'}else{'Cached'})
     $row.DirectoryChecked=[string]$Event.ObservedUtc
     if($fresh){if(-not $s.Fresh.ContainsKey($key)){[void]$s.FreshOrder.Add($snapshot)};$s.Fresh[$key]=$snapshot}
@@ -484,8 +507,11 @@ function Add-DomeniaLiveRow {
     }
     if($fresh -and -not $isNew){
         $observation=$null;[void]$script:Live.Observations.TryGetValue($key,[ref]$observation)
+        # A moved row keeps the presence and session read under its former DN (same GUID, checked on the row).
+        if(($null -eq $observation) -and $movedFromKey){[void]$script:Live.Observations.TryGetValue($movedFromKey,[ref]$observation)}
         if($null -ne $observation -and $row.Guid -and $observation.Guid -and $row.Guid -ine $observation.Guid){[void]$script:Live.Done.Remove($key)}
-        if(-not $script:Live.Done.ContainsKey($key)){Set-DomeniaLiveObservationOnRow $row $observation -Cached}
+        $probed=($script:Live.Done.ContainsKey($key) -or ($movedFromKey -and $script:Live.Done.ContainsKey($movedFromKey)))
+        if(-not $probed){Set-DomeniaLiveObservationOnRow $row $observation -Cached}
     }
     if($fresh -and (Test-DomeniaLiveProbeIntent -Row $row)){
         Request-DomeniaLiveProbe -Row $row
@@ -732,10 +758,14 @@ function Fail-DomeniaLiveCache {
     Write-AppLog ('Cache progressif indisponible : '+$Message+'. La lecture AD et les données en mémoire restent indépendantes.') 'WARN'
 }
 function Get-DomeniaLiveWorkerCount {
-    param([string]$Operation='')
+    # ExcludeReplaceKey leaves out the jobs of one replace key (the selected-workstation ping shares LiveSelectedPing).
+    param([string]$Operation='',[string]$ExcludeReplaceKey='')
     $count=0
     foreach($job in @($script:AsyncJobs.Values)+@($script:DetachedReadJobs)){
-        if($null -ne $job -and (-not $Operation -or [string]$job.OperationId -eq $Operation)){$count++}
+        if($null -eq $job){continue}
+        if(($Operation) -and ([string]$job.OperationId -ne $Operation)){continue}
+        if(($ExcludeReplaceKey) -and ([string]$job.ReplaceKey -ceq $ExcludeReplaceKey)){continue}
+        $count++
     }
     return $count
 }
@@ -781,7 +811,8 @@ function Start-DomeniaLiveBackgroundWork {
     if(-not $s.Fresh.ContainsKey([string]$intent.Key)){return}
     Request-DomeniaLiveProbe -Row $selected
     $parallel=[Math]::Max(1,[Math]::Min(3,[int](Get-CfgValue 'Streaming' 'MaxUserProbes' 2)))
-    if(((Get-DomeniaLiveWorkerCount 'LiveConsole')+(Get-DomeniaLiveWorkerCount 'LiveSelectedPing')) -ge $parallel){return}
+    # The explicit ping of the selected workstation (presence-selected) belongs to the fiche, not to the live budget.
+    if(((Get-DomeniaLiveWorkerCount 'LiveConsole')+(Get-DomeniaLiveWorkerCount 'LiveSelectedPing' -ExcludeReplaceKey 'presence-selected')) -ge $parallel){return}
     $item=$script:Live.PendingKeys[[string]$intent.Key]
     if($null -eq $item -or $item.RequestId -cne $intent.RequestId -or $item.ReadyAfter -gt [datetime]::UtcNow){return}
     if(-not (Test-DomeniaLiveIdentity $item ([long]$script:SessionEpoch) $script:Live.Identity) -or $item.Generation -ne $script:GlobalSearchGeneration){Clear-DomeniaLiveProbeIntent;return}

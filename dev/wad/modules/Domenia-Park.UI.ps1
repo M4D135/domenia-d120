@@ -372,6 +372,8 @@ function Start-DomeniaOnlinePark {
         # Pending local saves of a survey of the other scope are expected; otherwise wait for their confirmation.
         if(-not (Test-DomeniaParkRunActive) -and ((Get-DomeniaPersistenceState).Pending -gt 0 -or ($null -ne $script:Persistence -and $script:Persistence.LinkBusy))){throw 'Attendez la confirmation des enregistrements locaux avant un nouveau relevé.'}
         if(-not $script:DatabaseScopedPath){throw 'Aucune base autonome active.'}
+        # Points 32 and 35: no new collection during a base maintenance, a suspended writer or a nearly full disk.
+        $storageRefusal=Get-DomeniaStorageCollectionRefusal;if($storageRefusal){throw $storageRefusal}
         [void](Initialize-DomeniaWinSqliteNative)
         $targets=@();$skipped=[Math]::Max(0,$SkippedTargets);$scopeKind='Scope';$label=[string]$ScopeLabel;$subtree=$false;$listLimit=0
         if($null -ne $ScopeTargets){
@@ -519,6 +521,9 @@ function Start-DomeniaParkRunTimer {
     if([string]$r.RefreshOperationId -and -not (Test-DomeniaOuRefreshCurrent ([string]$r.RefreshOperationId))){Stop-DomeniaOnlinePark -RunId $RunId;return}
     if(-not $Planning){
         if(([bool]$r.Approved) -and ($null -ne $r.Timer)){return}
+        # Start of the confirmed collection, kept from its first approval: the attempt time of its scope clocks
+        # (Refresh.UI), never a measure date.
+        if(-not [bool]$r.Approved){$r|Add-Member -NotePropertyName ApprovedUtc -NotePropertyValue ([datetime]::UtcNow.ToString('o')) -Force}
         $r.Approved=$true;$r.InlineRequestId=''
         # UX-12: every target of the run carries its « relevé en cours » marker until its measure is stored.
         Set-DomeniaParkPendingRows -Run $r
@@ -618,6 +623,8 @@ function Invoke-DomeniaParkRunTick {
     if($script:ActiveWriteTaskId -or $script:WriteState -in @('Unknown','UnknownPending')){return}
     if($null -ne $script:Persistence){
         if($script:Persistence.Failures -ge 3 -or $script:Persistence.Conflicts.Count){$r.Stopping=$true;Update-DomeniaParkRunStatus -Run $r;return}
+        # Points 32 and 35: started workers finish and are saved; no further target is admitted.
+        if(Get-DomeniaStorageCollectionRefusal){$r.Stopping=$true;Update-DomeniaParkRunStatus -Run $r;return}
         if($script:Persistence.Pending.Count -ge 64 -or $script:Persistence.LinkBusy){return}
     }
     # One admission per tick keeps the Dispatcher responsive. The engine may impose a smaller provider budget.
@@ -1064,7 +1071,9 @@ function Start-DomeniaCommittedPresence {
         if(-not [guid]::TryParse($Guid,[ref]$identity) -or $identity -eq [guid]::Empty -or -not $DN){throw 'Identite AD du poste non enregistree. Relisez sa fiche avant de mesurer sa presence.'}
         $state=[pscustomobject]@{Computer=$Computer;DisplayDN=$DisplayDN;DisplayKind=$DisplayKind;Suffix=$Suffix;Explicit=[bool]$Explicit;RemoteStartedUtc=[datetime]::UtcNow.ToString('o')}
         [void](Initialize-DomeniaRemoteStoreState -State $state -Guid $Guid -DN $DN -Generation ([long]$script:GlobalSearchGeneration))
-        $job=Start-UiTask -Name ('Presence de '+$Computer) -OperationId 'SelectedPresence' -Code (Get-DomeniaLiveProbeCode) -Payload ([pscustomobject]@{Computer=$Computer;Key=$DN;Guid=$Guid;CollectPing=$true;ProbeUser=$false;Inventory=$false;Probes=@();ValidateConsoleIdentity=$false}) -CallbackState $state -ReplaceKey 'presence-selected' -TimeoutSeconds 8 -SuccessHandler 'Complete-DomeniaCommittedPresence' -ErrorHandler 'Fail-DomeniaCommittedPresence'
+        # Point 1: this ping-only read runs the pinned live probe body, registered as LiveSelectedPing (credential free).
+        # SelectedPresence pins another body (Get-DomeniaSelectedPresenceWorkerCode): the engine refused this pairing.
+        $job=Start-UiTask -Name ('Presence de '+$Computer) -OperationId 'LiveSelectedPing' -Code (Get-DomeniaLiveProbeCode) -Payload ([pscustomobject]@{Computer=$Computer;Key=$DN;Guid=$Guid;CollectPing=$true;ProbeUser=$false;Inventory=$false;Probes=@();ValidateConsoleIdentity=$false}) -CallbackState $state -ReplaceKey 'presence-selected' -TimeoutSeconds 8 -SuccessHandler 'Complete-DomeniaCommittedPresence' -ErrorHandler 'Fail-DomeniaCommittedPresence'
         if(-not $job){throw 'Controle de presence non admis.'}
         Set-Status ('Ping de '+$Computer+' en cours ; les valeurs affichees gardent leur date jusquʼa enregistrement.')
     }catch{Set-Status $_.Exception.Message 'WARN'}

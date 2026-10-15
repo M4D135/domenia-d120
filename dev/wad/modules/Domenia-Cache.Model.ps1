@@ -402,6 +402,8 @@ function Get-DomeniaPurgeTargets {
             [pscustomobject]@{Table='park_session_cache';TimeColumn='checked_utc';Filter='All';Action='Delete'}
             [pscustomobject]@{Table='domenia_observations';TimeColumn='attempt_at';Filter='All';Action='Delete'}
             [pscustomobject]@{Table='domenia_details';TimeColumn='attempt_at';Filter='All';Action='Delete'}
+            # Scope clocks of the ping and WMI campaigns (families Presence and Inventory), purged with their measures.
+            [pscustomobject]@{Table='domenia_domain_metadata';TimeColumn='attempt_at';Filter='WorkstationRuns';Action='Delete'}
         }
         'Snapshots' {[pscustomobject]@{Table='adcc_live_queries';TimeColumn='observed_utc';Filter='All';Action='Delete'}}
         'History' {
@@ -417,6 +419,14 @@ function Get-DomeniaPurgeTargets {
             # Computer facts read with the index; secret_state (BitLocker and LAPS metadata) is never an index target.
             [pscustomobject]@{Table='ad_computer_facts';TimeColumn='';Filter='All';Action='Delete'}
             [pscustomobject]@{Table='domenia_directory_data';TimeColumn='';Filter='All';Action='Delete'}
+            # Points 22, 24 and 30: census gaps, objects not seen again and directory snapshots copy directory rows; they
+            # leave with the index (snapshot rows and their manifests in the same transaction).
+            [pscustomobject]@{Table='ad_absences';TimeColumn='';Filter='All';Action='Delete'}
+            [pscustomobject]@{Table='ad_census_gaps';TimeColumn='';Filter='All';Action='Delete'}
+            [pscustomobject]@{Table='ad_snapshot_rows';TimeColumn='';Filter='All';Action='Delete'}
+            [pscustomobject]@{Table='ad_snapshots';TimeColumn='';Filter='All';Action='Delete'}
+            # Scope clock of the AD reads (family Directory), purged with the index it dated.
+            [pscustomobject]@{Table='domenia_domain_metadata';TimeColumn='';Filter='DirectoryRuns';Action='Delete'}
             # Preserve other scopes, including the idempotence marker of an old-data import.
             [pscustomobject]@{Table='sync_state';TimeColumn='';Filter='DirectoryScope';Action='Reset'}
         }
@@ -685,6 +695,8 @@ function ConvertTo-DomeniaIndexMetadataState {
         $info = [pscustomobject]@{
             Server=[string](Get-DomeniaMember $d 'server' ''); BaseDn=[string](Get-DomeniaMember $d 'base_dn' ''); Date=[string](Get-DomeniaMember $d 'last_sync' '')
             Count=[int](Get-DomeniaMember $d 'item_count' 0); Usn=[long](Get-DomeniaMember $d 'highest_usn' 0); InvocationId=$inv
+            # Point 22: census identities still missing from the local copy (0 for a base without census).
+            CensusGap=[long](Get-DomeniaMember $Result 'CensusGap' 0)
         }
     }
     return [pscustomobject]@{ SyncStates=$syncStates; Info=$info; Counts=$counts; Missing=$missing }

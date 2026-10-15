@@ -80,18 +80,20 @@ try{
  }
  Case 'Catalog is exhaustive, locally searchable and prepares a field without changing a recipe' {
   $entries=@(Get-DomeniaQueryCatalog);$fields=@(Get-DomeniaQueryFields)
-  Expect ($entries.Count -eq $fields.Count -and $entries.Count -eq 105) 'Catalog field coverage differs from engine'
+  # The probe catalog grows with documented projections (points 81-99): the expectation follows it, never a frozen count.
+  $probeCount=@(Get-DomeniaProbeCatalog).Count
+  Expect (($entries.Count -eq $fields.Count) -and ($entries.Count -eq (27+$probeCount))) 'Catalog field coverage differs from engine'
   Expect (@(Compare-Object @($fields.Id|Sort-Object) @($entries.Id|Sort-Object)).Count -eq 0) 'Catalog identifiers differ'
   $accent=@(Find-DomeniaQueryCatalogEntries -Entries $entries -Text 'mémoire');$plain=@(Find-DomeniaQueryCatalogEntries -Entries $entries -Text 'MEMOIRE')
   Expect ($accent.Count -gt 0 -and @(Compare-Object @($accent.Id) @($plain.Id)).Count -eq 0) 'Accent/case-insensitive search differs'
   Expect (@(Find-DomeniaQueryCatalogEntries -Entries $entries -Text 'Win32_QuickFixEngineering').Count -eq 1) 'Technical class lookup differs'
-  Expect (@(Find-DomeniaQueryCatalogEntries -Entries $entries -SourceId Probe).Count -eq 78) 'Probe source filter differs'
+  Expect (@(Find-DomeniaQueryCatalogEntries -Entries $entries -SourceId Probe).Count -eq $probeCount) 'Probe source filter differs'
   $category=$entries[0].Category;$categoryRows=@(Find-DomeniaQueryCatalogEntries -Entries $entries -Category $category)
   Expect ($categoryRows.Count -gt 0 -and @($categoryRows|Where-Object{$_.Category -ne $category}).Count -eq 0) 'Category filter differs'
   $beforeTasks=$script:FixtureTasks.Count;$beforeRecipe=$script:DomeniaQueryState.Recipe|ConvertTo-Json -Depth 10 -Compress
   (Get-DomeniaControl 'QueryWorkspaceTabs').SelectedItem=Get-DomeniaControl 'TabQueryCatalog'
   $grid=Get-DomeniaControl 'DgQueryCatalog';$search=Get-DomeniaControl 'TxtQueryCatalogSearch'
-  Expect ($grid.Items.Count -eq 105) 'Real WPF catalog not filled'
+  Expect ($grid.Items.Count -eq $entries.Count) 'Real WPF catalog not filled'
   $search.Text='zzzz_no_synthetic_match';Expect ($grid.Items.Count -eq 0 -and -not (Get-DomeniaControl 'BtnQueryCatalogUse').IsEnabled) 'Empty catalog keeps selectable stale row'
   $search.Text='diskFreePercent';Expect ($grid.Items.Count -eq 1) 'Local field lookup not unique'
   (Get-DomeniaControl 'BtnQueryCatalogUse').RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))

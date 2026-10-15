@@ -305,8 +305,12 @@ function Get-DomeniaGlobalSearchPlan {
         }
         foreach ($note in @($syntax.Notes)) { $notes.Add($note) }
     }
+    # An explicit wildcard keeps its own explicit filter in the runtime. A leading one cannot use an index (point 29):
+    # the operator is told before the controller reads every object of the scope.
+    if (($value.Contains('*')) -and (@(Split-DomeniaSearchWords $value | Where-Object { $_.StartsWith('*') }).Count -gt 0)) {
+        $notes.Add('Joker en tête : recherche par sous-chaîne, sans index. Elle peut être longue sur un grand domaine ; préférez le début du nom.')
+    }
     $plan.Hint = ($notes.ToArray() -join ' ')
-    # An explicit wildcard keeps its own explicit filter in the runtime.
     if ($value.Contains('*')) { return $plan }
     $words = @(Split-DomeniaSearchWords $value)
     if ($words.Count -ge 2) {

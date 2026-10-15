@@ -112,7 +112,9 @@ function Get-DomeniaErrorDecision {
     elseif ($kind -in @('AccountLocked','AccountUnavailable') -or $native -in @(1909,1330,1331,1327,1328) -or $code -in @(0x80070775L,0x80070532L,0x80070533L)) { $category = 'AccountState' }
     elseif ($native -in @(1460,258,121) -or $code -in @(0x800705B4L,0x80070079L)) { $category = 'Timeout' }
     elseif ($kind -eq 'Unavailable' -and $Text -match $timeoutText) { $category = 'Timeout' }
-    elseif ($kind -eq 'Unavailable' -or $native -in @(53,64,67,1722,1721,1723,11001,11004,10060,10061,81,91) -or $code -in @(0x800706BAL,0x8007203AL,0x80070035L,0x80072EE7L)) { $category = 'Network' }
+    # Point 127: name resolution (11001-11004), refused, reset, aborted or unreachable connections (10051-10065) and an
+    # RPC call cut during the exchange (1726, 0x800706BE/BF) are network faults: never a credential question.
+    elseif (($kind -eq 'Unavailable') -or ($native -in @(53,64,67,1722,1721,1723,1726,1727,11001,11002,11003,11004,10051,10053,10054,10060,10061,10064,10065,81,91)) -or ($code -in @(0x800706BAL,0x800706BEL,0x800706BFL,0x8007203AL,0x80070035L,0x80072EE7L))) { $category = 'Network' }
     elseif ($kind -eq 'ModuleUnavailable') { $category = 'Prerequisite' }
     elseif ($kind -eq 'Unconfirmed') { $category = 'Unconfirmed' }
     elseif ($kind -eq 'AccessDenied' -or $native -in @(5,50,8344) -or $code -in @(0x80070005L,0x80072098L,0x80041003L)) {

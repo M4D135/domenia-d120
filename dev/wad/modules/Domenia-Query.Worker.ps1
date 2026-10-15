@@ -124,6 +124,10 @@ try{
     $hash=[Security.Cryptography.SHA256]::Create();$csvInput=[IO.File]::OpenRead($temporary)
     try{$sha=[BitConverter]::ToString($hash.ComputeHash($csvInput)).Replace('-','').ToLowerInvariant()}finally{$csvInput.Dispose();$hash.Dispose()}
     $metadata=[pscustomobject]@{Format='Domenia.QueryExport/1';RowCount=$count;Pages=$pages;PageSize=200;CsvSHA256=$sha;CreatedUtc=[datetime]::UtcNow.ToString('o');SnapshotKey=[string]$request.SnapshotKey;EvaluatedAtUtc=[string]$request.EvaluatedAtUtc;ScopeDn=[string]$request.ScopeDn;Subtree=[bool]$request.Subtree;Selection=[string]$request.Selection;TextFilter=$text;StateFilter=$state;SortField=$options.SortField;Descending=$options.Descending;Recipe=$recipe;Total=$snapshot.Total;Matched=$snapshot.Matched;Unknown=$snapshot.Unknown;NotMatched=$snapshot.NotMatched}
+    # Point 2: exact population of the preview (domain, OU, depth, types, criteria, snapshot) and the clocks of its
+    # data, captured with the request; absent fields stay absent, never guessed by the worker.
+    $metadata|Add-Member -NotePropertyName Population -NotePropertyValue $request.Population
+    $metadata|Add-Member -NotePropertyName DataClocks -NotePropertyValue $request.DataClocks
     [IO.File]::WriteAllText($metadataTemporary,($metadata|ConvertTo-Json -Depth 16),[Text.UTF8Encoding]::new($true))
     [IO.File]::Move($metadataTemporary,$path+'.metadata.json');$publishedMetadata=$true
     [IO.File]::Move($temporary,$path);$publishedCsv=$true
