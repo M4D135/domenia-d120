@@ -3563,17 +3563,24 @@
     "Source": "d120-cache"
   },
   {
+    "Name": "BtnParkPing",
+    "Kind": "Button",
+    "Source": "park-detection",
+    "Title": "Pinger les postes de la portée choisie",
+    "Text": "Grisé si la liste ne contient aucun poste. Ping seul des postes de la portée choisie à côté des résultats (liste affichée après vos filtres, ou lignes sélectionnées) : met à jour la présence réseau, sans lecture de session ni association. Confirmation avant envoi."
+  },
+  {
     "Name": "BtnParkResults",
     "Kind": "Button",
     "Source": "park-detection",
-    "Title": "Détecter les résultats affichés",
+    "Title": "Détecter sur les postes de la portée choisie",
     "Text": "Grisé si la liste ne contient aucun poste. Ping puis lecture de la console des seuls postes de la portée choisie (liste affichée après vos filtres, ou lignes sélectionnées). Confirmation avec le nombre de postes avant toute lecture. Cache et associations conservés."
   },
   {
     "Name": "BtnParkAnalyze",
     "Kind": "Button",
     "Source": "park-detection",
-    "Title": "Analyser les resultats affiches",
+    "Title": "Analyser les postes de la portée choisie",
     "Text": "Grisé si la liste ne contient aucun poste. Ping, utilisateur console et relevé WMI léger (modèle, mémoire, disque C:, build, démarrage) des seuls postes de la portée choisie (liste affichée ou lignes sélectionnées), plus les requêtes WMI des widgets des tableaux de bord. Lecture seule sur les postes, confirmation avec le nombre de postes avant envoi. Associations actualisées si lʼutilisateur change ; résultats conservés pour les tableaux de bord."
   },
   {

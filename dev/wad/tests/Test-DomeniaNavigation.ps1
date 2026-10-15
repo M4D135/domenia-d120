@@ -373,6 +373,27 @@ Case 'P60 Portée collective : liste affichée ou lignes sélectionnées, choisi
     $script:ListSurveyBlocked=$false;$script:Ctrl.DgObjects.SelectedItems.Clear();Export-CurrentResults
     Expect ($script:Exports.Count -eq 2 -and ([string]$script:LastStatus).Contains('Aucune ligne')) 'Une sélection vide a exporté quelque chose.'
 }
+# Unwired if a survey button or the export still names the displayed results only, or if a screen reader, the tooltip
+# and the help of the page describe different scopes.
+Case 'P60 Export et relevés nomment la portée choisie : infobulle, aide dʼautomation et aide de la page identiques' {
+    . ([scriptblock]::Create((Import-AstFunctions (Join-Path $wad 'Domenia-Core.ps1') @('Get-MainXaml'))))
+    [xml]$xaml=Get-MainXaml
+    $aideBrutee=[IO.File]::ReadAllText((Join-Path $modules 'Domenia-UX.help.json'),[Text.Encoding]::UTF8)|ConvertFrom-Json
+    $aide=@($aideBrutee)
+    foreach($name in @('BtnParkPing','BtnParkResults','BtnParkAnalyze','BtnExportResults','CmbResultScope')){
+        $node=@($xaml.SelectNodes('//*')|Where-Object{$_.GetAttribute('Name','http://schemas.microsoft.com/winfx/2006/xaml') -eq $name})
+        Expect ($node.Count -eq 1) ($name+' : '+$node.Count+' occurrence(s)')
+        $tip=[string]$node[0].GetAttribute('ToolTip');$label=[string]$node[0].GetAttribute('AutomationProperties.Name')
+        Expect ($tip.Contains('portée choisie') -or $tip.Contains('Portée de lʼexport')) ($name+' ne nomme pas la portée choisie.')
+        Expect ($tip -ceq [string]$node[0].GetAttribute('AutomationProperties.HelpText')) ($name+' : infobulle et aide dʼautomation divergent.')
+        $entry=@($aide|Where-Object{[string]$_.Name -ceq $name})
+        Expect ($entry.Count -eq 1 -and [string]$entry[0].Text -ceq $tip -and [string]$entry[0].Title -ceq $label) ($name+' : aide de la page absente ou différente.')
+    }
+    foreach($name in @('BtnParkPing','BtnParkResults','BtnParkAnalyze')){
+        $node=@($xaml.SelectNodes('//*')|Where-Object{$_.GetAttribute('Name','http://schemas.microsoft.com/winfx/2006/xaml') -eq $name})[0]
+        Expect (([string]$node.GetAttribute('AutomationProperties.Name')).Contains('portée choisie')) ($name+' : le nom lu par un lecteur dʼécran parle encore des seuls postes affichés.')
+    }
+}
 # Unwired if the preview leaves the results, loses a multiple selection, or shows a late answer of another row.
 Case 'P59 Aperçu latéral : la ligne courante est lue dans la base locale, la sélection de travail reste' {
     Initialize-DomeniaSearchWorkspace
