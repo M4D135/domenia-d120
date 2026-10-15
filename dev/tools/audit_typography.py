@@ -3,7 +3,7 @@
 
 Rules:
   1. the window resources (Get-MainXaml) define exactly the eight named sizes of the scale with their values, and the
-     named spacing used by the shared styles;
+     named spacing used by the shared styles, consistent with the metrics of wad/modules/SupportSuite.UI.json;
   2. every size reference ({DynamicResource FontSize...} in XAML, SetResourceReference(...FontSizeProperty,'FontSize...')
      in code) names one of these eight sizes;
   3. the page (Get-MainXaml, Get-DomeniaTreeHeaderTemplate) and the module views (wad/modules/*.xaml) hold no literal
@@ -72,6 +72,12 @@ def collect(root=ROOT):
     for key, value in SPACING.items():
         if spacing.get(key) != value:
             problems.append('Espacement nommé absent ou différent : %s = %r' % (key, spacing.get(key)))
+    # The named spacing follows the metrics of the visual contract shared with the support suite.
+    contract = json.loads(read(root / 'wad' / 'modules' / 'SupportSuite.UI.json')).get('Metrics', {})
+    for key, metric in (('SpaceStack', 'SpaceSmall'), ('SpaceStackLarge', 'SpaceMedium'), ('PadCard', 'SpaceLarge')):
+        size = SPACING[key].split(',')[-1]
+        if str(contract.get(metric)) != size:
+            problems.append('Espacement %s (%s) différent de la métrique %s du contrat visuel (%s)' % (key, size, metric, contract.get(metric)))
     sources = [root / 'wad' / 'Domenia-Core.ps1'] + sorted(Path(p) for p in glob.glob(str(root / 'wad' / 'modules' / '*.ps1')))
     views = sorted(Path(p) for p in glob.glob(str(root / 'wad' / 'modules' / '*.xaml')))
     fonts = {}
