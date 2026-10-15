@@ -354,7 +354,7 @@ function Get-DomeniaPersistenceLabel {
     # unavailable, suspended, conflicts (an association changed by another console, kept on disk, ours only in memory
     # until the associations are reloaded), failures, pending, saved. Positional order of the first three is kept.
     # The conflict text names the gesture that really reloads them today (Comptes > Changer de compte, which calls
-    # Load-UserMachineLinks, or a restart): no dedicated reload button exists.
+    # Request-DomeniaUserMachineLinks, or a restart): no dedicated reload button exists.
     param([int]$Pending=0,[int]$Failed=0,[bool]$Suspended=$false,[bool]$Unavailable=$false,[int]$Conflicts=0)
     if ($Unavailable) { return 'En memoire uniquement : stockage local indisponible, rien n est enregistre.' }
     if ($Suspended) { return 'En memoire uniquement : enregistrement suspendu apres des echecs. Reprise dans Fiabilite.' }
@@ -650,4 +650,116 @@ function Get-DomeniaIndexTiles {
         [pscustomobject]@{Key='Links';Caption='Associations';Value=$links.ToString('N0',$fr);Detail='liens utilisateur-poste'}
         [pscustomobject]@{Key='Updated';Caption='Dernière mise à jour';Value=$updatedValue;Detail=$updatedDetail}
     )
+
+# ---------------------------------------------------------------- FI-19 local reads answered off the Dispatcher
+# The LocalIndexRead worker answers the reads that used to run on the WPF thread; these rules turn its answer into the
+# state the interface keeps. A missing base is an empty base, a refused or unreadable answer is never presented empty.
+function ConvertTo-DomeniaIndexMetadataState {
+    # IndexMetadata answer -> sync rows by scope, the directory checkpoint (InvocationId read from 'inv=' in details)
+    # and the counters of the Outils page.
+    param($Result)
+    if ($null -eq $Result) { throw 'Réponse de la base locale absente.' }
+    $missing = [bool](Get-DomeniaMember $Result 'Missing' $false)
+    $syncStates = @{}
+    $counts = [pscustomobject]@{ Total=0; Users=0; Computers=0; MachinesActive=0; MachinesDisabled=0 }
+    if (-not $missing) {
+        if (($null -eq $Result.PSObject.Properties['SyncStates']) -or ($null -eq $Result.PSObject.Properties['Counts'])) { throw 'Réponse de la base locale incomplète.' }
+        foreach ($row in @(Get-DomeniaMember $Result 'SyncStates' @())) {
+            if ($null -eq $row) { continue }
+            $scope = [string](Get-DomeniaMember $row 'scope' '')
+            if ($scope) { $syncStates[$scope] = $row }
+        }
+        $c = Get-DomeniaMemberValue $Result 'Counts'
+        $counts = [pscustomobject]@{
+            Total=[int](Get-DomeniaMember $c 'Total' 0); Users=[int](Get-DomeniaMember $c 'Users' 0); Computers=[int](Get-DomeniaMember $c 'Computers' 0)
+            MachinesActive=[int](Get-DomeniaMember $c 'MachinesActive' 0); MachinesDisabled=[int](Get-DomeniaMember $c 'MachinesDisabled' 0)
+        }
+    }
+    $info = $null
+    if ($syncStates.ContainsKey('directory')) {
+        $d = $syncStates['directory']
+        $inv = ''
+        $m = [regex]::Match([string](Get-DomeniaMember $d 'details' ''),'(?i)inv=([0-9a-f-]{36})')
+        if ($m.Success) { $inv = $m.Groups[1].Value }
+        $info = [pscustomobject]@{
+            Server=[string](Get-DomeniaMember $d 'server' ''); BaseDn=[string](Get-DomeniaMember $d 'base_dn' ''); Date=[string](Get-DomeniaMember $d 'last_sync' '')
+            Count=[int](Get-DomeniaMember $d 'item_count' 0); Usn=[long](Get-DomeniaMember $d 'highest_usn' 0); InvocationId=$inv
+        }
+    }
+    return [pscustomobject]@{ SyncStates=$syncStates; Info=$info; Counts=$counts; Missing=$missing }
+}
+
+function Format-DomeniaSecretIndexSummary {
+    # One sentence from the non-secret metadata of a workstation (SecretIndexEntry row): key count and date, LAPS
+    # scheme and expiration, access verdict. '' when nothing was recorded. A value is never part of it.
+    param($Entry,[datetime]$Now=(Get-Date))
+    if ($null -eq $Entry) { return '' }
+    $parts = New-Object 'System.Collections.Generic.List[string]'
+    $keys = [int](Get-DomeniaMember $Entry 'bitlocker_keys' -1)
+    $last = [string](Get-DomeniaMember $Entry 'bitlocker_last' '')
+    if ($keys -gt 0) {
+        $text = '{0} clé(s) BitLocker' -f $keys
+        if (-not [string]::IsNullOrWhiteSpace($last)) { $text += ', la plus récente du ' + $last }
+        $parts.Add($text)
+    }
+    elseif ($keys -eq 0) { $parts.Add('aucune clé BitLocker') }
+    $scheme = [string](Get-DomeniaMember $Entry 'laps_scheme' '')
+    if (-not [string]::IsNullOrWhiteSpace($scheme)) {
+        $text = $scheme
+        $expiry = [string](Get-DomeniaMember $Entry 'laps_expiry' '')
+        if (-not [string]::IsNullOrWhiteSpace($expiry)) { $text += ', expiration ' + $expiry }
+        $parts.Add($text)
+    }
+    if ($parts.Count -eq 0) { return '' }
+    $checked = [string](Get-DomeniaMember $Entry 'checked_at' '')
+    $age = 'le ' + $checked
+    try {
+        $span = $Now - [datetime]$checked
+        if ([int]$span.TotalDays -ge 1) { $age = 'il y a ' + [int]$span.TotalDays + ' jour(s)' }
+        else { $age = 'il y a ' + [int]$span.TotalHours + ' heure(s)' }
+    }
+    catch { $age = 'le ' + $checked }
+    $verdict = [string](Get-DomeniaMember $Entry 'verdict' '')
+    if (-not [string]::IsNullOrWhiteSpace($verdict)) { $verdict = ' ' + $verdict + '.' } else { $verdict = '' }
+    return ('Relevé {0} : {1}.{2} Les valeurs ne sont jamais conservées : il faut les recharger.' -f $age,($parts.ToArray() -join ', '),$verdict)
+}
+
+function ConvertTo-DomeniaOperationHistoryModels {
+    # OperationStats rows -> history model per operation for the impact estimates (samples with a duration only).
+    param([object[]]$Rows=@())
+    $models = @{}
+    foreach ($row in @($Rows)) {
+        if ($null -eq $row) { continue }
+        $name = [string](Get-DomeniaMember $row 'operation' '')
+        if (-not $name) { continue }
+        $models[$name] = [pscustomobject]@{
+            n=[int](Get-DomeniaMember $row 'n' 0)
+            ms_per_item=(Get-DomeniaMember $row 'ms_per_item' $null); min_ms_per_item=(Get-DomeniaMember $row 'min_ms_per_item' $null); max_ms_per_item=(Get-DomeniaMember $row 'max_ms_per_item' $null)
+            bytes_per_item=(Get-DomeniaMember $row 'bytes_per_item' $null); fallback_ratio=(Get-DomeniaMember $row 'fallback_ratio' $null); success_ratio=(Get-DomeniaMember $row 'success_ratio' $null)
+        }
+    }
+    return $models
+}
+
+function Get-DomeniaParkCoverageFigures {
+    # Coverage of the stored park survey. The workstation count comes from the in-memory index when it is loaded,
+    # otherwise from the count read with the stored survey (LocalIndexRead ParkState); -1 means not read yet.
+    param([Collections.IDictionary]$State,[object[]]$IndexRows=@(),[int]$KnownMachineCount=-1,[int]$Dormants=0)
+    $machines = $KnownMachineCount
+    $rows = @($IndexRows | Where-Object { $null -ne $_ })
+    if ($rows.Count -gt 0) { $machines = @($rows | Where-Object { ([string]$_.Type -eq 'Machine') -and ([string]$_.State -ne 'Desactive') }).Count }
+    $surveyed = 0; $withSession = 0; $latest = ''; $latestAt = $null
+    if ($null -ne $State) {
+        foreach ($key in @($State.Keys)) {
+            $entry = $State[$key]
+            $surveyed++
+            if ([string](Get-DomeniaMember $entry 'Status' '') -eq 'Session') { $withSession++ }
+            $text = [string](Get-DomeniaMember $entry 'LastProbe' '')
+            $at = $null
+            try { if ($text) { $at = [datetime]$text } } catch { $at = $null }
+            if ($null -ne $at) { if (($null -eq $latestAt) -or ($at -gt $latestAt)) { $latestAt = $at; $latest = $text } }
+            elseif (-not $latest) { $latest = $text }
+        }
+    }
+    return [pscustomobject]@{ Machines=$machines; Releves=$surveyed; AvecSession=$withSession; Dernier=$latest; Dormants=$Dormants }
 }

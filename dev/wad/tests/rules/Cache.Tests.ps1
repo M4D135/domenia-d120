@@ -390,4 +390,74 @@ Test-Case 'DS-09' 'Les quatre tuiles de la base autonome, sans USN ni duree' {
     $unreadable=@(Get-DomeniaIndexTiles -Unreadable)
     Assert-Equal 4 $unreadable.Count
     foreach($tile in $unreadable){Assert-Equal '—' $tile.Value;Assert-Equal 'base illisible' $tile.Detail}
+# FI-19 (L20) : lectures locales hors du fil de l interface. Reponses du worker LocalIndexRead, donnees fictives.
+Test-Case 'FI-19' 'Metadonnees : base absente lue comme vide, reponse incomplete refusee' {
+    $state=ConvertTo-DomeniaIndexMetadataState -Result ([pscustomobject]@{Rows=@();Busy=$false;Missing=$true;MachineCount=0})
+    Assert-True $state.Missing;Assert-Equal 0 $state.Counts.Total;Assert-Equal 0 $state.SyncStates.Count
+    Assert-True ($null -eq $state.Info) 'Aucun repere sans base'
+    Assert-Throws { ConvertTo-DomeniaIndexMetadataState -Result ([pscustomobject]@{Rows=@();Busy=$false;Missing=$false;MachineCount=0}) } 'Une reponse sans compteurs serait presentee comme une base vide'
+    Assert-Throws { ConvertTo-DomeniaIndexMetadataState -Result $null } 'Reponse absente acceptee'
+}
+Test-Case 'FI-19' 'Metadonnees : repere du domaine, identifiant d invocation et portees indexees' {
+    $sync=@(
+        [pscustomobject]@{scope='directory';server='dc1.example.invalid';base_dn='DC=example,DC=invalid';highest_usn=4242L;last_sync='2026-10-01T08:00:00Z';item_count=3L;details='reconcile=1;inv=AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE'},
+        [pscustomobject]@{scope='ou:ou=parc,dc=example,dc=invalid';server='dc1.example.invalid';base_dn='OU=Parc,DC=example,DC=invalid';highest_usn=4242L;last_sync='2026-10-01T08:00:00Z';item_count=2L;details=''},
+        [pscustomobject]@{scope='attempt:ou=parc,dc=example,dc=invalid';server='';base_dn='';highest_usn=0L;last_sync='2026-10-02T08:00:00Z';item_count=0L;details=''})
+    $counts=[pscustomobject]@{Total=3L;Users=1L;Computers=2L;MachinesActive=1L;MachinesDisabled=1L}
+    $state=ConvertTo-DomeniaIndexMetadataState -Result ([pscustomobject]@{Rows=@();Busy=$false;Missing=$false;MachineCount=1;SyncStates=$sync;Counts=$counts})
+    Assert-False $state.Missing
+    Assert-Equal 3 $state.SyncStates.Count
+    Assert-True $state.SyncStates.ContainsKey('attempt:ou=parc,dc=example,dc=invalid')
+    Assert-Equal 'AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE' $state.Info.InvocationId
+    Assert-Equal 4242 $state.Info.Usn;Assert-Equal 3 $state.Info.Count;Assert-Equal 'dc1.example.invalid' $state.Info.Server;Assert-Equal '2026-10-01T08:00:00Z' $state.Info.Date
+    Assert-Equal 3 $state.Counts.Total;Assert-Equal 1 $state.Counts.Users;Assert-Equal 2 $state.Counts.Computers;Assert-Equal 1 $state.Counts.MachinesActive;Assert-Equal 1 $state.Counts.MachinesDisabled
+    $noInv=ConvertTo-DomeniaIndexMetadataState -Result ([pscustomobject]@{Rows=@();Busy=$false;Missing=$false;MachineCount=0;SyncStates=@([pscustomobject]@{scope='directory';server='dc1';base_dn='DC=example,DC=invalid';highest_usn=1L;last_sync='';item_count=0L;details='inv=pas-un-guid'});Counts=$counts})
+    Assert-Equal '' $noInv.Info.InvocationId 'Un identifiant mal forme ne devient pas un repere'
+    $noDirectory=ConvertTo-DomeniaIndexMetadataState -Result ([pscustomobject]@{Rows=@();Busy=$false;Missing=$false;MachineCount=0;SyncStates=@($sync[1]);Counts=$counts})
+    Assert-True ($null -eq $noDirectory.Info) 'Une OU seule ne fournit pas le repere du domaine'
+}
+Test-Case 'FI-19' 'Resume des secrets : nombre de cles, LAPS, verdict et age, sans aucune valeur' {
+    $now=[datetime]'2026-01-04T10:00:00Z'
+    $entry=[pscustomobject]@{computer='PC-1';checked_at='2026-01-01T10:00:00Z';bitlocker_keys=2L;bitlocker_last='31/12/2025';laps_scheme='LAPS Windows';laps_expiry='15/01/2026';verdict='Lecture autorisée'}
+    $text=Format-DomeniaSecretIndexSummary -Entry $entry -Now $now
+    Assert-Equal 'Relevé il y a 3 jour(s) : 2 clé(s) BitLocker, la plus récente du 31/12/2025, LAPS Windows, expiration 15/01/2026. Lecture autorisée. Les valeurs ne sont jamais conservées : il faut les recharger.' $text
+    $hours=Format-DomeniaSecretIndexSummary -Entry $entry -Now ([datetime]'2026-01-01T15:00:00Z')
+    Assert-True ($hours.StartsWith('Relevé il y a 5 heure(s) : ')) $hours
+    $none=[pscustomobject]@{checked_at='2026-01-01T10:00:00Z';bitlocker_keys=0L;bitlocker_last='';laps_scheme='';laps_expiry='';verdict=''}
+    Assert-Equal 'Relevé il y a 3 jour(s) : aucune clé BitLocker. Les valeurs ne sont jamais conservées : il faut les recharger.' (Format-DomeniaSecretIndexSummary -Entry $none -Now $now)
+    $unknown=[pscustomobject]@{checked_at='2026-01-01T10:00:00Z';bitlocker_keys=-1L;bitlocker_last='';laps_scheme='';laps_expiry='';verdict='Accès refusé'}
+    Assert-Equal '' (Format-DomeniaSecretIndexSummary -Entry $unknown -Now $now) 'Rien de releve : aucun resume'
+    Assert-Equal '' (Format-DomeniaSecretIndexSummary -Entry $null -Now $now)
+    $badDate=Format-DomeniaSecretIndexSummary -Entry ([pscustomobject]@{checked_at='date illisible';bitlocker_keys=1L;bitlocker_last='';laps_scheme='';laps_expiry='';verdict=''}) -Now $now
+    Assert-True ($badDate.StartsWith('Relevé le date illisible : 1 clé(s) BitLocker.')) $badDate
+}
+Test-Case 'FI-19' 'Historique des mesures : un modele par operation, valeurs absentes conservees' {
+    $rows=@(
+        [pscustomobject]@{operation='IndexBuild';n=2L;ms_per_item=30.0;min_ms_per_item=20.0;max_ms_per_item=40.0;bytes_per_item=20.0;fallback_ratio=$null;success_ratio=0.95},
+        [pscustomobject]@{operation='ParkSweep';n=0L;ms_per_item=$null;min_ms_per_item=$null;max_ms_per_item=$null;bytes_per_item=$null;fallback_ratio=$null;success_ratio=$null},
+        [pscustomobject]@{operation='';n=5L},
+        $null)
+    $models=ConvertTo-DomeniaOperationHistoryModels -Rows $rows
+    Assert-Equal 2 $models.Count 'Une operation sans nom est ignoree'
+    Assert-Equal 2 $models['IndexBuild'].n;Assert-Equal 30.0 $models['IndexBuild'].ms_per_item
+    Assert-True ($null -eq $models['IndexBuild'].fallback_ratio) 'Un ratio absent ne devient pas zero'
+    Assert-Equal 0 $models['ParkSweep'].n
+    Assert-True ($null -eq $models['ParkSweep'].ms_per_item)
+    Assert-Equal 0 (ConvertTo-DomeniaOperationHistoryModels -Rows @()).Count
+}
+Test-Case 'FI-19' 'Couverture du parc : index en memoire d abord, compte relu sinon, inconnu signale' {
+    $state=@{
+        'PC-1'=[pscustomobject]@{Computer='PC-1';LastProbe='2026-10-01T08:00:00';Status='Session';User='alice';Attempts=1}
+        'PC-2'=[pscustomobject]@{Computer='PC-2';LastProbe='2026-10-03T08:00:00';Status='Aucune';User='';Attempts=2}
+        'PC-3'=[pscustomobject]@{Computer='PC-3';LastProbe='illisible';Status='Session';User='bob';Attempts=1}
+    }
+    $index=@([pscustomobject]@{Type='Machine';State='Actif'},[pscustomobject]@{Type='Machine';State='Desactive'},[pscustomobject]@{Type='Utilisateur';State='Actif'},[pscustomobject]@{Type='Machine';State=''})
+    $fromIndex=Get-DomeniaParkCoverageFigures -State $state -IndexRows $index -KnownMachineCount 50 -Dormants 4
+    Assert-Equal 2 $fromIndex.Machines 'Postes actifs de l index en memoire'
+    Assert-Equal 3 $fromIndex.Releves;Assert-Equal 2 $fromIndex.AvecSession;Assert-Equal 4 $fromIndex.Dormants
+    Assert-Equal '2026-10-03T08:00:00' $fromIndex.Dernier 'Releve le plus recent'
+    Assert-Equal 50 (Get-DomeniaParkCoverageFigures -State $state -KnownMachineCount 50).Machines 'Compte relu avec le releve'
+    Assert-Equal (-1) (Get-DomeniaParkCoverageFigures -State $state).Machines 'Compte inconnu signale'
+    $empty=Get-DomeniaParkCoverageFigures -State $null -KnownMachineCount 0
+    Assert-Equal 0 $empty.Releves;Assert-Equal '' $empty.Dernier;Assert-Equal 0 $empty.Machines
 }

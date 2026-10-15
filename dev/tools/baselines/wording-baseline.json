@@ -1,9 +1,9 @@
 {
  "Schema": "DomeniaWordingBaseline/1",
  "Source": "RC1.13.0 (2a98dd6) puis L05 : TE-01 etendu aux affectations de libelles et aux boites de message",
- "Total": 411,
+ "Total": 410,
  "Rules": {
-  "accent": 309,
+  "accent": 308,
   "elision": 89,
   "tutoiement": 13
  },
@@ -149,7 +149,6 @@
   "accent|Lance un lot de releves en arriere-plan a chaque ouverture. Ce sont les seules requetes qui touchent les postes.": 1,
   "accent|Le changement reste visible pour cette session. Le dossier de preferences doit etre inscriptible pour le conserver.": 1,
   "accent|Le mode lecture seule est actif. Decoche la case du bandeau pour activer les ecritures.": 1,
-  "accent|Le poste est deja dans cette OU. Aucune ecriture AD.": 1,
   "accent|Lecture impossible : $detail": 1,
   "accent|Lecture locale, sans scan automatique. Les constats citent leurs indices ; une donnee manquante reste indeterminee. Rien n'est repare ni modifie automatiquement.": 1,
   "accent|Lecture seule (securite par defaut)": 1,

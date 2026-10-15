@@ -61,7 +61,8 @@ function Reset-DomeniaDeferredViews {}
 function Update-DomeniaSecretActionUi {}
 function Apply-CurrentPermissionUi {}
 function Request-DomeniaDashboardRefresh {}
-function Get-DomeniaSecretIndexSummary {param([string]$Computer);return ''}
+# FI-19: the secret summary of a workstation is read off the Dispatcher (LocalIndexRead); only the request is recorded.
+function Request-DomeniaSecretIndexSummary {param([AllowEmptyString()][string]$Computer='');if($null -eq $script:SecretSummaryRequests){$script:SecretSummaryRequests=[Collections.Generic.List[string]]::new()};$script:SecretSummaryRequests.Add([string]$Computer)}
 function Get-DomeniaEffectiveWorkerResult {param($Result,$RequiredProperties);return $Result}
 function Update-DomeniaInventoryCategories {}
 function Apply-DomeniaInventoryFilter { [void](Set-DomeniaItemsSource -Name 'DgInventory' -Rows $script:InventoryRows) }
@@ -411,6 +412,21 @@ try{
             Expect ($script:Ctrl['LblSoftwareStatus'].Text -eq 'Aucun logiciel charge pour cette selection.') 'LblSoftwareStatus'
             $stopped=@($script:StoppedTasks.Id)
             Expect (($stopped -contains 'inv') -and ($stopped -contains 'sw') -and ($stopped -contains 'wmi')) 'Taches inventory/software/wmi non arretes'
+        }
+
+        Case 'FI-19 : la fiche poste demande le releve des secrets en arriere-plan' {
+            Reset-Fixture;Pump $w
+            $script:SecretSummaryRequests=[Collections.Generic.List[string]]::new()
+            Reset-DomeniaSelectionBoundViews -Dn 'CN=PC-B,OU=Postes,DC=example,DC=invalid' -Type 'Machine' -Name 'PC-B'
+            Expect (($script:SecretSummaryRequests.Count -eq 1) -and ($script:SecretSummaryRequests[0] -ceq 'PC-B')) ('Demandes : '+($script:SecretSummaryRequests -join ','))
+            # Another type of object cancels the pending request (empty name) instead of keeping the workstation one.
+            Reset-DomeniaSelectionBoundViews -Dn 'CN=Alice,OU=Comptes,DC=example,DC=invalid' -Type 'Utilisateur' -Name 'Alice'
+            Expect (($script:SecretSummaryRequests.Count -eq 2) -and ($script:SecretSummaryRequests[1] -ceq '')) ('Demandes : '+($script:SecretSummaryRequests -join ','))
+            $tokens=$null;$errors=$null
+            $ast=[System.Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'),[ref]$tokens,[ref]$errors)
+            $reset=@($ast.FindAll({param($n) ($n -is [System.Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq 'Reset-DomeniaSelectionBoundViews')},$true))
+            Expect ($reset.Count -eq 1) 'Reset-DomeniaSelectionBoundViews absente ou ambigue.'
+            foreach($forbidden in @('Invoke-DomeniaDbQuery','Get-DomeniaSecretIndexSummary','Initialize-DomeniaDatabase')){Expect (-not $reset[0].Extent.Text.Contains($forbidden)) ('Lecture synchrone encore presente : '+$forbidden)}
         }
 
         Case 'D085 : Enter-DomeniaSelectionContext arrete inventory/software/wmi et vide les vues' {

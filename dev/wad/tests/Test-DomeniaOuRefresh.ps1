@@ -44,7 +44,7 @@ function Get-DomeniaLocalIndexReadWorkerCode {return 'fixture SQLite dispatch'}
 function Get-DomeniaIndexCut {param($Effective);return [pscustomobject]@{Reason='temps';Limit=30000}}
 function Set-DomeniaIndexPartial {param($BaseDn,$Count,$Reason,$Limit,[switch]$Clear)}
 function Request-DomeniaStorageWork {$script:StorageRequests++}
-function Load-DomeniaIndexMetadata {return $true}
+function Request-DomeniaIndexMetadata {param([switch]$StartupChecks,[int]$Attempt=0)}
 function Update-DomeniaIndexStats {}
 function Request-DomeniaFleetRefresh {param([switch]$Force);$script:FleetRequests++}
 function Get-DomeniaPersistenceLabel {param($Pending,$Failed,$Suspended,$Unavailable,$Conflicts);return 'fixture'}

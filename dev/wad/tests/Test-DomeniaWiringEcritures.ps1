@@ -753,6 +753,102 @@ if ($infrastructure) {
         Assert-True ($script:LastStartWritePlan.Target.DN -ceq $identity.DN) ('DN plan : '+[string]$script:LastStartWritePlan.Target.DN)
         Assert-True ([string]$script:StartUiTaskPayloads[0].DN -ceq $identity.DN) ('DN payload : '+[string]$script:StartUiTaskPayloads[0].DN)
     }
+    # FI-20 (L20): a workstation of the result list is moved from its row (DN and GUID captured before the OU picker),
+    # without loading its fiche, without nested message pump nor sleep; the worker checks the GUID on the controller.
+    function Use-Fi20MoveFixture {
+        foreach($name in @('Move-DomeniaSelectedComputerWithOuPicker','Move-SelectedObject','Get-DomeniaRowMoveSafety','Get-DomeniaParentDn')) { [void](Import-AstFunction $script:CoreAst $name) }
+        $script:FakeIdentity = New-TestIdentity -Type 'Machine' -Name 'PC-LIGNE-01' -Dn 'CN=PC-LIGNE-01,OU=Postes,DC=example,DC=invalid'
+        $script:Fi20RowIdentity = $script:FakeIdentity
+        $script:Fi20PickerCalls = 0
+        $script:Fi20PickerChangesSelection = $false
+        $script:SelectedObject = $null
+        Set-D093Function 'Get-DomeniaSelectionContext' { return [pscustomobject]@{DN=[string]$script:Fi20RowIdentity.DN;Type='Machine';Name=[string]$script:Fi20RowIdentity.Name;Guid=[string]$script:Fi20RowIdentity.Guid;SelectionIdentity=$script:Fi20RowIdentity} }
+        Set-D093Function 'Show-DomeniaOuPicker' { param($ObjectName,$CurrentParentDn,$ObjectLabel='Poste')
+            $script:Fi20PickerCalls++
+            if ($script:Fi20PickerChangesSelection) { $script:FakeIdentity = $script:OtherFakeIdentity }
+            return [pscustomobject]@{Name='Cible';DN='OU=Cible,DC=example,DC=invalid'}
+        }
+        Set-D093Function 'Open-AdObject' { param($Dn,$Type,[switch]$Force,[switch]$SelectionBound) throw 'FI-20 : la fiche ne doit pas etre chargee pour deplacer une ligne.' }
+        Set-D093Function 'Get-DomeniaSafetyDescriptor' { throw 'FI-20 : le descripteur de la fiche ne doit pas servir au deplacement d une ligne.' }
+    }
+    Test-Case 'FI-20 deplacement d un poste depuis la ligne : plan sur DN et GUID, sans fiche ni attente' {
+        Reset-WiringFixture
+        try {
+            Use-Fi20MoveFixture
+            $script:UseDoubleStartUiTask=$true
+            Move-DomeniaSelectedComputerWithOuPicker
+            Assert-True ($script:Fi20PickerCalls -eq 1) ('Selecteur appele : '+$script:Fi20PickerCalls)
+            Assert-True (@($script:Dialogs | Where-Object { $_ }).Count -eq 0) ('Message inattendu : '+(@($script:Dialogs) -join ' | '))
+            Assert-True ($script:StartUiTaskCalls -eq 1) ('Appels Start-UiTask : '+$script:StartUiTaskCalls)
+            Assert-True ($script:LastStartWritePlan -is [Domenia.InterventionPlan]) '-Plan absent.'
+            Assert-True ($script:LastStartWritePlan.Target.Guid -ceq $script:Fi20RowIdentity.Guid) 'Le plan ne vise pas le GUID de la ligne.'
+            Assert-True ($script:LastStartWritePlan.Target.DN -ceq $script:Fi20RowIdentity.DN) 'Le plan ne vise pas le DN de la ligne.'
+            $payload=$script:StartUiTaskPayloads[0]
+            Assert-True ([string]$payload.DN -ceq $script:Fi20RowIdentity.DN) ('DN payload : '+[string]$payload.DN)
+            Assert-True ([string]$payload.TargetDn -ceq 'OU=Cible,DC=example,DC=invalid') ('OU cible : '+[string]$payload.TargetDn)
+            Assert-True ([string]$payload.Safety.ExpectedGuid -ceq $script:Fi20RowIdentity.Guid) 'GUID attendu absent du controle du worker.'
+            Assert-True ([string]$payload.Safety.ExpectedDn -ceq $script:Fi20RowIdentity.DN) 'DN attendu absent du controle du worker.'
+            Assert-True ((-not [string]$payload.Safety.ExpectedUsn) -and (-not [string]$payload.Safety.ExpectedWhenChanged)) 'Une valeur de fiche absente a ete inventee.'
+            $change=@($script:LastStartWritePlanChanges)[0]
+            Assert-True ([string]$change.After -ceq 'CN=PC-LIGNE-01,OU=Cible,DC=example,DC=invalid') ('Nouveau DN : '+[string]$change.After)
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'FI-20 selection changee pendant le choix de l OU : rien n est envoye' {
+        Reset-WiringFixture
+        try {
+            Use-Fi20MoveFixture
+            $script:UseDoubleStartUiTask=$true
+            $script:Fi20PickerChangesSelection = $true
+            Move-DomeniaSelectedComputerWithOuPicker
+            Assert-True ($script:StartUiTaskCalls -eq 0) ('Appels Start-UiTask : '+$script:StartUiTaskCalls)
+            Assert-True (@($script:Dialogs | Where-Object { $_.Contains('La sélection a changé pendant le choix') }).Count -eq 1) ('Refus absent : '+(@($script:Dialogs) -join ' | '))
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'FI-20 ligne sans GUID ou meme OU : aucun plan, aucun envoi' {
+        Reset-WiringFixture
+        try {
+            Use-Fi20MoveFixture
+            $script:UseDoubleStartUiTask=$true
+            $script:Fi20RowIdentity = $null
+            Set-D093Function 'Get-DomeniaSelectionContext' { return [pscustomobject]@{DN='CN=PC-SANS-GUID,OU=Postes,DC=example,DC=invalid';Type='Machine';Name='PC-SANS-GUID';Guid='';SelectionIdentity=$null} }
+            Move-DomeniaSelectedComputerWithOuPicker
+            Assert-True ($script:Fi20PickerCalls -eq 0) 'Le selecteur s ouvre sans identite exacte.'
+            Assert-True (@($script:Dialogs | Where-Object { $_.Contains('Ligne sans identité exacte') }).Count -eq 1) ('Refus absent : '+(@($script:Dialogs) -join ' | '))
+            Reset-WiringFixture
+            Use-Fi20MoveFixture
+            $script:UseDoubleStartUiTask=$true
+            Set-D093Function 'Show-DomeniaOuPicker' { param($ObjectName,$CurrentParentDn,$ObjectLabel='Poste') return [pscustomobject]@{Name='Postes';DN=$CurrentParentDn} }
+            Move-DomeniaSelectedComputerWithOuPicker
+            Assert-True ($script:StartUiTaskCalls -eq 0) ('Appels Start-UiTask : '+$script:StartUiTaskCalls)
+            Assert-True (@($script:StatusLog | Where-Object { $_.Contains('déjà dans cette OU') }).Count -ge 1) 'Meme OU non signalee.'
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'FI-20 worker : objectGUID different sur le controleur refuse avant tout envoi' {
+        Reset-WiringFixture
+        try {
+            if (-not (Get-Command Assert-WObjectFresh -CommandType Function -ErrorAction SilentlyContinue)) { throw 'Assert-WObjectFresh absent du code commun des workers.' }
+            [void](Import-AstFunction $script:CoreAst 'Get-DomeniaRowMoveSafety')
+            $identity = New-TestIdentity -Type 'Machine' -Name 'PC-LIGNE-01' -Dn 'CN=PC-LIGNE-01,OU=Postes,DC=example,DC=invalid'
+            $safety = Get-DomeniaRowMoveSafety -Identity $identity
+            $script:Fi20SnapshotGuid = [guid]::NewGuid().ToString('D')
+            Set-D093Function 'Get-WObjectSnapshot' { param($Context,[string]$Dn) return [pscustomobject]@{Exists=$true;DN=$Dn;Guid=$script:Fi20SnapshotGuid;Usn='42';WhenChanged='20261014000000.0Z';Classes=@('computer')} }
+            Set-D093Function 'Test-WProtectedSnapshot' { param($Snapshot) return $false }
+            $context = New-WriteContext -ReceiptRoot $temp -OperationId 'WriteMoveObject'
+            $refused = ''
+            try { [void](Assert-WObjectFresh $context $safety) } catch { $refused = $_.Exception.Message }
+            Assert-True ($refused.Contains('objectGUID different')) ('Autre GUID accepte : '+$refused)
+            $script:Fi20SnapshotGuid = [string]$identity.Guid
+            $snapshot = Assert-WObjectFresh $context $safety
+            Assert-True ([string]$snapshot.Guid -ceq [string]$identity.Guid) 'Meme GUID refuse.'
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'FI-20 aucune attente active : pompe imbriquee, boucle et option retirees' {
+        Assert-True (@($script:CoreAst.FindAll({param($n)((($n -is [Management.Automation.Language.FunctionDefinitionAst])) -and (($n.Name -eq 'Invoke-DomeniaUiPump')))},$true)).Count -eq 0) 'Invoke-DomeniaUiPump existe encore.'
+        $move=(Get-FunctionAst $script:CoreAst 'Move-DomeniaSelectedComputerWithOuPicker').Extent.Text
+        foreach($forbidden in @('Start-Sleep','DoEvents','PushFrame','Open-AdObject','Invoke-DomeniaUiPump','$script:SelectedObject')) { Assert-True (-not $move.Contains($forbidden)) ('Deplacement : '+$forbidden+' encore present.') }
+        Assert-True (-not (Get-FunctionAst $script:CoreAst 'Add-DomeniaTreeRowsToNode').Extent.Text.Contains('PumpUi')) 'Rendu de l arbre : pompe encore presente.'
+        Assert-True (-not (Get-FunctionAst $script:CoreAst 'New-DefaultConfig').Extent.Text.Contains('RequireReadyBeforeMainWindow')) 'Option RequireReadyBeforeMainWindow encore presente.'
+    }
     Test-Case 'D091 creation d OU : branche changee refusee, branche stable acceptee' {
         Reset-WiringFixture
         $script:UseDoubleStartUiTask=$true
