@@ -26,6 +26,7 @@ class SqliteLayerTest(unittest.TestCase):
         for path in (DEV / 'wad/modules').glob('*.ps1'):
             shutil.copyfile(path, self.root / 'wad/modules' / path.name)
         shutil.copyfile(DEV / 'tools/operation-contracts.json', self.root / 'tools/operation-contracts.json')
+        shutil.copyfile(DEV / 'tools/Production.Source.ps1', self.root / 'tools/Production.Source.ps1')
         self.saved = (layer.ROOT, contracts.ROOT)
         layer.ROOT = contracts.ROOT = self.root
 
@@ -77,6 +78,29 @@ class SqliteLayerTest(unittest.TestCase):
         self.edit('wad/modules/Domenia-Storage.Worker.ps1', "    if(-not (Test-DomeniaSqliteSchemaRows $schema)){throw 'Schema de retention incompatible.'}\n",
                   "    if(@($schema|Where-Object{$_.value -ceq '11'}).Count -ne 1){throw 'Schema de retention incompatible.'}\n")
         self.assertIn('version de schema comparee a un litteral', self.problems())
+
+    def test_revision_literal_in_a_worker_is_refused(self):
+        self.edit('wad/modules/Domenia-Storage.Worker.ps1', "    if(-not (Test-DomeniaSqliteSchemaRows $schema)){throw 'Schema de retention incompatible.'}\n",
+                  "    $revision=[string]@($schema|Where-Object{$_.key -ceq 'domenia_schema'})[0].value\n"
+                  "    if($revision -ne '1'){throw 'Schema de retention incompatible.'}\n")
+        self.assertIn('revision domenia_schema comparee a un litteral', self.problems())
+
+    def test_reviewed_revision_rules_follow_the_layer(self):
+        self.edit('wad/modules/Domenia-Release.Model.ps1', "elseif ($revision -and ($revision -cne '1')) {", "elseif ($revision -and ($revision -cne '2')) {")
+        self.assertIn('Get-DomeniaMigrationPlan (wad/modules/Domenia-Release.Model.ps1) : revision domenia_schema 2 differente', self.problems())
+        self.edit('wad/modules/Domenia-Migration.Worker.ps1', "    if ($revision -ne '1') {", "    if ($revision -ne '3') {")
+        self.assertIn('revision domenia_schema 3 differente de la couche partagee', self.problems())
+
+    def test_prod_builder_composes_like_the_contract_mirror(self):
+        self.edit('tools/Production.Source.ps1', "$sqliteReadOnly=@('LocalIndexRead','RelationHistoryRead')", "$sqliteReadOnly=@('LocalIndexRead')")
+        self.assertIn('$sqliteReadOnly differente de tools/update_worker_contracts.py', self.problems())
+        self.edit('tools/Production.Source.ps1', '$hash=Get-DomeniaBuildHash (Get-DomeniaBuildWorkerBody $WadRoot $item $cache)',
+                  '$hash=Get-DomeniaBuildHash (Get-DomeniaBuildLiteral (Get-DomeniaBuildFunction $ast $item.Function) 0 $op)')
+        self.assertIn('epingle un litteral seul', self.problems())
+
+    def test_prod_builder_keeps_the_storage_markers(self):
+        self.edit('tools/Production.Source.ps1', "'$path=Test-DomeniaStorageMeasurePath ([string]$Payload.Path)'", "'$path=Test-DomeniaStorageMeasurePath'")
+        self.assertIn('differente de THROUGH_STORAGE', self.problems())
 
     def test_schema_target_follows_the_core_schema_script(self):
         self.edit('wad/Domenia-Core.ps1', "VALUES('schema_version','11');", "VALUES('schema_version','12');")

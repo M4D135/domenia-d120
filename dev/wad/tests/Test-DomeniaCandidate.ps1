@@ -75,17 +75,18 @@ Case 'Favori autre domaine refuse' {$v=[pscustomobject]@{Name='Test';DN='OU=Test
 Case 'Favori volume borne' {$v=[pscustomobject]@{Name='Test';DN='DC=example,DC=invalid';Query='';Type='Tous';Limit=999999;Subtree=$true};Expect ((ConvertTo-DomeniaSavedSearch $v 'DC=example,DC=invalid').Limit -eq 20000)}
 Case 'Favori requete excessive refusee' {$v=[pscustomobject]@{Name='Test';DN='DC=example,DC=invalid';Query=('x'*257);Type='Tous';Limit=100;Subtree=$true};Expect ($null -eq (ConvertTo-DomeniaSavedSearch $v 'DC=example,DC=invalid'))}
 # Parse each exact pinned worker, and both non-write/write forms used by the runtime.
+# P-CD-08: the pinned body is the one the generator returns, the shared SQLite layer and the lease of a composed
+# operation included; the PROD builder composes it from the sources without running them (Get-DomeniaBuildWorkerBody,
+# tools/Production.Source.ps1: build-time functions only), so this case also checks what a PROD build pins.
+. (Join-Path $root 'tools\Production.Source.ps1')
 $contracts=Get-Content -LiteralPath (Join-Path $root 'tools\operation-contracts.json') -Raw|ConvertFrom-Json
 $registry=Get-DomeniaWorkerOperationHashes
+$script:BuildSources=@{}
 foreach($item in $contracts){
     Case ('Worker exact : '+$item.Operation) {
-        $source=[IO.File]::ReadAllText((Join-Path $root $item.File))
-        $t=$null;$e=$null;$a=[Management.Automation.Language.Parser]::ParseInput($source,[ref]$t,[ref]$e)
-        $fn=@($a.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $item.Function},$true))
-        Expect ($fn.Count -eq 1)
-        $literal=[regex]::Matches($fn[0].Extent.Text,'(?ms)@([''"])\r?\n(.*?)\r?\n^\1@')[[int]$item.LiteralIndex].Groups[2].Value
-        Expect ((Get-DomeniaWorkerCodeHash $literal) -eq $registry.([string]$item.Operation)) 'Empreinte differente.'
-        $t=$null;$e=$null;[void][Management.Automation.Language.Parser]::ParseInput($literal,[ref]$t,[ref]$e)
+        $body=Get-DomeniaBuildWorkerBody $wad $item $script:BuildSources
+        Expect ((Get-DomeniaWorkerCodeHash $body) -eq $registry.([string]$item.Operation)) 'Empreinte differente.'
+        $t=$null;$e=$null;[void][Management.Automation.Language.Parser]::ParseInput($body,[ref]$t,[ref]$e)
         if(@($e).Count){throw $e[0].Message}
     }
 }

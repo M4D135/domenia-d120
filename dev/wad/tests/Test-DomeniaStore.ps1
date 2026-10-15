@@ -570,6 +570,44 @@ try{
   Expect (-not (Test-DomeniaSqliteSchemaRows @())) 'empty schema accepted'
   Expect (Test-DomeniaSqliteSchemaRows @(Read-TestDb "SELECT key,value FROM schema_info WHERE key IN ('schema_version','domenia_schema');")) 'the schema script of the core is not this version'
  }
+ # P-CD-08: the stored history (point 107) runs its rewritten body on the shared layer against a real base: one user
+ # or one workstation, any case, most recent first, key bound as a SQL literal, Busy without rows under a writer lock.
+ Case 'P-CD-08: RelationHistoryRead reads one user or one workstation on the shared layer and answers Busy under a lock' {
+  . (Join-Path $wad 'modules/Domenia-AdAudit.Worker.ps1')
+  $code=Get-DomeniaRelationHistoryReadWorkerCode
+  $history=Join-Path $folder ('history-'+[guid]::NewGuid().ToString('N')+'.db')
+  $read={param([string]$Kind,[string]$Key,[int]$Limit,[string]$Base=$history)
+   $Payload=[pscustomobject]@{Kind=$Kind;Key=$Key;Limit=$Limit;Path=$Base;BusyTimeoutMs=50}
+   return (& ([scriptblock]::Create($code)))
+  }
+  # The schema script of the core, then the rollback journal: an exclusive writer then really keeps a reader out.
+  $db=Open-DomeniaDatabase $history
+  try{
+   [void](Invoke-DomeniaDbExec $schemaSql $db);[void](Invoke-DomeniaDbExec 'PRAGMA journal_mode=DELETE;' $db)
+   foreach($row in @(@('o''brien','PC-01','2026-01-01T08:00:00Z'),@('O''Brien','PC-02','2026-01-03T08:00:00Z'),@('jdupont','PC-01','2026-01-02T08:00:00Z'),@('o''brien','PC-03','2026-01-02T08:00:00Z'))){
+    [void](Invoke-DomeniaSqliteRead -Db $db -Sql 'INSERT INTO user_machine_history(user_login,computer_key,computer,source,verified_in_ad,observed_at) VALUES(?1,?2,?2,''Test'',1,?3);' -Parameters $row -CheckParameters)
+   }
+  }finally{Close-DomeniaDatabase $db}
+  $user=& $read 'User' 'O''BRIEN' 2
+  Expect ((-not $user.Busy) -and (-not $user.Missing) -and ($user.Total -eq 3) -and (@($user.Rows).Count -eq 2)) 'user history: every case of the login counted, Limit rows returned'
+  Expect (([string]$user.Rows[0].computer_key -ceq 'PC-02') -and ([string]$user.Rows[1].computer_key -ceq 'PC-03')) 'user history: most recent first'
+  $computer=& $read 'Computer' 'pc-01' 10
+  Expect ((-not $computer.Busy) -and ($computer.Total -eq 2) -and (@($computer.Rows).Count -eq 2)) 'workstation history: any case of the key'
+  Expect (([string]$computer.Rows[0].user_login -ceq 'jdupont') -and ([string]$computer.Rows[1].user_login -ceq 'o''brien')) 'workstation history: most recent first, apostrophe kept'
+  $quoted=& $read 'User' 'x'' OR 1=1 --' 10
+  Expect ((-not $quoted.Busy) -and ($quoted.Total -eq 0) -and (@($quoted.Rows).Count -eq 0)) 'a quote in the key stays inside the SQL literal'
+  $writer=Open-DomeniaDatabase $history
+  try{
+   [void](Invoke-DomeniaDbExec 'BEGIN EXCLUSIVE;' $writer)
+   $busy=& $read 'User' 'jdupont' 10
+   Expect ($busy.Busy -and (-not $busy.Missing) -and ($busy.Total -eq 0) -and (@($busy.Rows).Count -eq 0)) 'locked base: Busy without rows'
+  }finally{try{[void](Invoke-DomeniaDbExec 'ROLLBACK;' $writer)}finally{Close-DomeniaDatabase $writer}}
+  $empty=Join-Path $folder ('history-empty-'+[guid]::NewGuid().ToString('N')+'.db')
+  $db=Open-DomeniaDatabase $empty
+  try{[void](Invoke-DomeniaDbExec 'CREATE TABLE other(v INTEGER);' $db)}finally{Close-DomeniaDatabase $db}
+  $none=& $read 'User' 'jdupont' 10 $empty
+  Expect ($none.Missing -and (-not $none.Busy) -and (@($none.Rows).Count -eq 0)) 'base without the history table: Missing, no row invented'
+ }
  if($Scale){Case ($ScaleObjects.ToString()+' objects committed in bounded batches and paginated exactly') {
   $watch=[Diagnostics.Stopwatch]::StartNew();$writeWatch=[Diagnostics.Stopwatch]::StartNew();$batchTimes=[Collections.Generic.List[long]]::new()
   for($page=0;$page -lt ($ScaleObjects/250);$page++){$changes=@(for($n=1;$n -le 250;$n++){$index=$page*250+$n;Directory ('10000000-0000-0000-0000-'+$index.ToString('000000000000')) ('Scale-'+$index.ToString('00000'))});$bw=[Diagnostics.Stopwatch]::StartNew();$r=Commit $changes;$bw.Stop();$batchTimes.Add($bw.ElapsedMilliseconds);Expect ($r.Rows.Count -eq 250) 'batch count'}

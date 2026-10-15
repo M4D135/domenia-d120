@@ -6,6 +6,8 @@
 # Pure decisions: no write, no network call, no disk access and no clock read happens here.
 # The only implicit values are those of the Domenia.InterventionPlan type (Id and CreatedUtc), which the
 # fingerprint deliberately ignores; every time-dependent rule takes "now" as a parameter.
+# Relies on Domenia-Engine.Model.ps1 (Requires of the loader): the effect of an operation is read from its table
+# (Get-DomeniaOperationRow), so a test harness that loads this module loads Engine.Model before it.
 
 # ---------------------------------------------------------------- shared classification
 function Get-DomeniaOperationEffect {

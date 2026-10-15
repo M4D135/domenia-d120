@@ -120,17 +120,18 @@ function Set-DomeniaSqliteBindings {
     }
 }
 function Invoke-DomeniaSqliteRead {
-    # The one statement loop of the workers. The statement is prepared, or taken from -Cache (prepared statements of the
-    # run keyed by their SQL text, fixed-shape SQL only); -Parameters bind to ?1..?N and, with -CheckParameters, their
+    # The one statement loop of the workers. The statement is prepared, or taken from -Cache (a Hashtable of the prepared
+    # statements of the run keyed by their SQL text, fixed-shape SQL only: a Hashtable, because Windows PowerShell 5.1
+    # cannot call IDictionary.Contains on a generic Dictionary); -Parameters bind to ?1..?N and, with -CheckParameters, their
     # number must match the statement even when none is given. Every row is read, column names once per statement; the
     # statement is then finalized, or reset and unbound when the cache keeps it. -ReportBusy turns SQLITE_BUSY and
     # SQLITE_LOCKED into the 'SQLITE_BUSY' marker of the read workers; -Stats counts and times the statements of a run.
-    param([IntPtr]$Db,[string]$Sql,[object[]]$Parameters = $null,[Collections.IDictionary]$Cache = $null,$Stats = $null,[switch]$CheckParameters,[switch]$ReportBusy)
+    param([IntPtr]$Db,[string]$Sql,[object[]]$Parameters = $null,[hashtable]$Cache = $null,$Stats = $null,[switch]$CheckParameters,[switch]$ReportBusy)
     $stmt = [IntPtr]::Zero; $owned = $true
     $rows = New-Object 'System.Collections.Generic.List[object]'
     $watch = [Diagnostics.Stopwatch]::StartNew()
     try {
-        if (($null -ne $Cache) -and $Cache.Contains($Sql)) {
+        if (($null -ne $Cache) -and ($Cache.ContainsKey($Sql))) {
             $stmt = [IntPtr]$Cache[$Sql]; $owned = $false
             if ($null -ne $Stats) { $Stats.Reused++ }
         }

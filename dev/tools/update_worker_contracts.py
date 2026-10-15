@@ -22,9 +22,20 @@ def function(source,name):
 def literal_bodies(fn):
     return [m[2] for m in re.finditer(r'@([\'"])\n(.*?)\n^\1@',fn,re.M|re.S)]
 # P-CD-08: operations whose generator composes the shared SQLite layer of the workers (Get-DomeniaSqliteWorkerCommon,
-# Domenia-Storage.Worker.ps1), with the lease code in front of it when they write.
+# Domenia-Storage.Worker.ps1), with the lease code in front of it when they write. The PROD builder composes the same
+# bodies (Get-DomeniaBuildWorkerBody, tools/Production.Source.ps1); tools/check_sqlite_layer.py keeps both lists equal.
 SQLITE_WITH_LEASE=('StorageUsage','StoragePurge','StorageBackup','StorageMaintenance','LiveCache','LegacyMigration')
 SQLITE_READ_ONLY=('LocalIndexRead','RelationHistoryRead')
+# LocalStore: every function of these model modules, in file order, before the query validation and the body.
+LOCAL_STORE_MODULES=('Common.Model','HealthRules.Model','Boards.Model','Probes.Model','Query.Model','QueryLibrary.Model')
+# Live probes (Get-DomeniaLiveProbeCode): the detail projection functions written in front of the body.
+PROBE_DETAIL_FUNCTIONS=('ConvertTo-DomeniaProbeDetailValue','ConvertTo-DomeniaProbeDetailInstance','New-DomeniaProbeDetailProjection')
+# W06: storage operations that reuse the pinned helpers of another storage worker, up to the marker where its own
+# body starts: operation -> (that generator, marker).
+THROUGH_STORAGE={
+    'StorageRetention':('Get-DomeniaStoragePurgeWorkerCode','# Validate all input before opening the existing database. No payload identifier becomes SQL.'),
+    'StorageIntegrity':('Get-DomeniaStorageUsageWorkerCode','$path=Test-DomeniaStorageMeasurePath ([string]$Payload.Path)'),
+}
 def sqlite_common():
     storage=(ROOT/'wad/modules/Domenia-Storage.Worker.ps1').read_text('utf-8-sig')
     return literal_bodies(function(storage,'Get-DomeniaSqliteWorkerCommon'))[0]
@@ -38,7 +49,7 @@ def composed_body(item):
     sqlite=sqlite_common()
     if operation=='LocalStore':
         definitions=[]
-        for name in ['Common.Model','HealthRules.Model','Boards.Model','Probes.Model','Query.Model','QueryLibrary.Model']:
+        for name in LOCAL_STORE_MODULES:
             text=(ROOT/('wad/modules/Domenia-'+name+'.ps1')).read_text('utf-8-sig')
             spans=sorted(span for group in functions(text).values() for span in group)
             definitions.extend(text[a:b] for a,b in spans)
@@ -50,20 +61,15 @@ def composed_body(item):
     if operation in SQLITE_READ_ONLY:
         return sqlite+'\n'+literal
     # W06: two storage operations reuse the pinned helpers of another storage worker, exactly as their generators do.
-    if operation=='StorageRetention':
-        purge=function((ROOT/'wad/modules/Domenia-Storage.Worker.ps1').read_text('utf-8-sig'),'Get-DomeniaStoragePurgeWorkerCode')
-        body=lease+'\n'+sqlite+'\n'+literal_bodies(purge)[0]
-        marker='# Validate all input before opening the existing database. No payload identifier becomes SQL.'
-        return body[:body.index(marker)]+literal
-    if operation=='StorageIntegrity':
-        usage=function((ROOT/'wad/modules/Domenia-Storage.Worker.ps1').read_text('utf-8-sig'),'Get-DomeniaStorageUsageWorkerCode')
-        body=lease+'\n'+sqlite+'\n'+literal_bodies(usage)[0]
-        marker='$path=Test-DomeniaStorageMeasurePath ([string]$Payload.Path)'
+    if operation in THROUGH_STORAGE:
+        generator,marker=THROUGH_STORAGE[operation]
+        helpers=function((ROOT/'wad/modules/Domenia-Storage.Worker.ps1').read_text('utf-8-sig'),generator)
+        body=lease+'\n'+sqlite+'\n'+literal_bodies(helpers)[0]
         return body[:body.index(marker)]+literal
     if item['Function']=='Get-DomeniaLiveProbeCode':
         model=(ROOT/'wad/modules/Domenia-ProbeDetails.Model.ps1').read_text('utf-8-sig')
         definitions=[]
-        for name in ['ConvertTo-DomeniaProbeDetailValue','ConvertTo-DomeniaProbeDetailInstance','New-DomeniaProbeDetailProjection']:
+        for name in PROBE_DETAIL_FUNCTIONS:
             body=function(model,name)
             definition=body[body.index('{')+1:body.rfind('}')]
             definitions.append('function '+name+' {\n'+definition+'\n}')
