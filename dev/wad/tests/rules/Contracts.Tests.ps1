@@ -111,3 +111,17 @@ Test-Case 'CTR-008' 'Vocabulaires fermes : issues des operations et fournisseurs
     Assert-False (Test-DomeniaContractValue -Family 'Domenia.Provider' -Value 'directory') 'vocabulaire sensible a la casse'
     Assert-False (Test-DomeniaContractValue -Family 'Domenia.Query' -Value 'Success') 'un format nʼa pas de vocabulaire'
 }
+
+Test-Case 'CTR-009' 'Le catalogue est construit une fois par runspace ; un catalogue fourni reste prioritaire' {
+    $first = @(Get-DomeniaContractCatalog)
+    $second = @(Get-DomeniaContractCatalog)
+    Assert-Equal $first.Count $second.Count
+    Assert-True ([object]::ReferenceEquals($first[0],$second[0])) 'catalogue reconstruit a chaque appel'
+    $query = @($first | Where-Object { $_.Family -ceq 'Domenia.Query' })[0]
+    Assert-True ([object]::ReferenceEquals($query,(Get-DomeniaContract 'Domenia.Query'))) 'index different du catalogue'
+    Assert-True ($null -eq (Get-DomeniaContract 'domenia.query')) 'famille sensible a la casse'
+    Assert-True ($null -eq (Get-DomeniaContract '')) 'famille vide'
+    $own = @(New-CtrContract -Family 'Domenia.Query' -Current 3 -Readable @(3))
+    Assert-Equal 3 ([int](Get-DomeniaContract -Family 'Domenia.Query' -Catalog $own).Current)
+    Assert-Equal 2 ([int](Get-DomeniaContract -Family 'Domenia.Query').Current) 'catalogue fourni retenu par le cache'
+}

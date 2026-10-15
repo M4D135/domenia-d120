@@ -5,6 +5,7 @@ $script:CompatibilityModuleRoot = $PSScriptRoot
 $script:DomeniaCompatibilityMatrix = $null
 $script:DomeniaCompatibilityMatrixRead = $false
 $script:DomeniaLocalCompatibility = $null
+$script:DomeniaAboutCompatibilityHelp = $null
 
 function Get-DomeniaCompatibilityMatrix {
     # Matrix delivered with the modules, never downloaded. Absent or unreadable: $null (the verdict is then Inconnu).
@@ -71,18 +72,23 @@ function Get-DomeniaLocalCompatibility {
 }
 
 function Update-DomeniaAboutCompatibility {
-    # À propos: one sentence and, in the tooltip, the line of each observed dimension. Never blocks the panel.
+    # À propos: one sentence and, in the tooltip, the line of each observed dimension. Never blocks the panel. The
+    # tooltip and the help text read by screen readers change together; without detail both keep the static help.
     $label = Get-DomeniaControl 'LblUxAboutCompatibility'
     if ($null -eq $label) { return }
+    if ($null -eq $script:DomeniaAboutCompatibilityHelp) { $script:DomeniaAboutCompatibilityHelp = [string]$label.ToolTip }
+    $tip = [string]$script:DomeniaAboutCompatibilityHelp
     try {
         $state = Get-DomeniaLocalCompatibility
         $label.Text = [string]$state.Text
         $lines = @(@($state.Verdict.Rows) | ForEach-Object { [string]$_.Message })
         if ($state.Verdict.ReviewedOn) { $lines += ('Matrice relue le ' + [string]$state.Verdict.ReviewedOn + '. Qualifié exige un rapport Windows lié au ZIP livré.') }
-        if ($lines.Count -gt 0) { $label.ToolTip = [string]::Join([Environment]::NewLine,[string[]]$lines) }
+        if ($lines.Count -gt 0) { $tip = [string]::Join([Environment]::NewLine,[string[]]$lines) }
     } catch {
         $label.Text = 'Compatibilité de ce poste : non évaluée (' + $_.Exception.Message + ').'
     }
+    if ($tip) { $label.ToolTip = $tip } else { $label.ToolTip = $null }
+    try { [Windows.Automation.AutomationProperties]::SetHelpText($label,$tip) } catch { }
 }
 
 function Get-DomeniaCompatibilitySupportFields {

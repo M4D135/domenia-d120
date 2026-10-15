@@ -113,3 +113,14 @@ Test-Case 'CMP-009' 'Qualifie nʼest donne que si chaque dimension observee est 
     Assert-Equal 'Qualifie' $verdict.Overall
     Assert-Equal 'Compatibilité de ce poste : environnement qualifié.' (Get-DomeniaCompatibilityText $verdict)
 }
+
+Test-Case 'CMP-010' 'Une matrice dʼune version plus recente est refusee avec sa version, par le catalogue des contrats' {
+    $future = [pscustomobject]@{ Schema = 'DomeniaCompatibilityMatrix/2'; ReviewedOn = '2027-01-01'; Dimensions = @($script:CmpMatrix.Dimensions) }
+    $check = Test-DomeniaCompatibilityMatrix $future
+    Assert-False $check.Valid
+    $all = [string]::Join(' | ',[string[]]$check.Problems)
+    Assert-True ($all -like '*Matrice de compatibilité : format DomeniaCompatibilityMatrix/2 produit par une version plus récente de Domenia*') $all
+    $other = Test-DomeniaCompatibilityMatrix ([pscustomobject]@{ Schema = 'DomeniaWindowsLifecycle/1'; Dimensions = @($script:CmpMatrix.Dimensions) })
+    Assert-True ([string]::Join(' | ',[string[]]$other.Problems) -like '*inattendu (DomeniaCompatibilityMatrix/1 attendu)*')
+    Assert-Equal 'Inconnu' (Get-DomeniaCompatibilityVerdict -Matrix $future -Facts (New-CmpFacts)).Overall
+}

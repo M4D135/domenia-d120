@@ -10,13 +10,17 @@ function Update-DomeniaDataPolicyView {
     try { $policy = Get-DomeniaCurrentStoragePolicy } catch { $unreadable = $true; Write-AppLog ('Politique des données : réglages de stockage illisibles. ' + $_.Exception.Message) 'WARN' }
     $dataRoot = ''
     $receiptRoot = ''
+    $areas = @()
     $layout = $script:StorageLayout
     if ($null -ne $layout) {
         $dataRoot = [string]$layout.DataRoot
         $receipt = @(@($layout.Categories) | Where-Object { [string]$_.Category -eq 'Receipt' })
         if ($receipt.Count -eq 1) { $receiptRoot = [string]$receipt[0].Path }
+        # Logs, backups, diagnostics, exports, legacy data and bases: the folders the layout itself declares.
+        $cache = @(@($layout.Categories) | Where-Object { [string]$_.Category -eq 'Cache' })
+        if ($cache.Count -eq 1) { $areas = @(Get-DomeniaMember $cache[0] 'Areas' @()) }
     }
-    $view = Get-DomeniaLocalDataPolicy -Policy $policy -DataRoot $dataRoot -ReceiptRoot $receiptRoot -DatabasePath ([string]$script:DatabaseScopedPath) -PolicyUnreadable:$unreadable
+    $view = Get-DomeniaLocalDataPolicy -Policy $policy -DataRoot $dataRoot -ReceiptRoot $receiptRoot -DatabasePath ([string]$script:DatabaseScopedPath) -Areas $areas -PolicyUnreadable:$unreadable
     if ($null -ne $grid) { $grid.ItemsSource = @($view.Rows) }
     if ($null -ne $label) { $label.Text = [string]$view.Statement }
 }

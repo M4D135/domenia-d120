@@ -981,7 +981,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Complete-DomeniaAccountValidation',
             'Stop-DomeniaAccountValidation'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Store.Model.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-Store.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaStoreValue',
             'Get-DomeniaStoreHash',
             'Get-DomeniaStoreId',

@@ -491,9 +491,34 @@ function Assert-NoDomeniaRunning {
         if(([string]$process.CommandLine) -match '(?i)(Domenia|ADCC)-(Core|Start)\.ps1'){throw ('Domenia est encore lancé : PID '+$process.ProcessId+'. Fermez toutes les copies avant de supprimer les données du profil. Rien nʼest supprimé.')}
     }
 }
+function Get-OpenReceipts {
+    # Write receipts of the profile that are still to be checked: Stage outside the terminal stages of Domenia, or a file
+    # that cannot be read as a receipt. Such a receipt is the only trace that an AD write may have left without
+    # verification, so the profile data is never deleted while one remains. $Folder: receipts folder ($null when absent).
+    param([AllowNull()][string]$Folder)
+    $open=New-Object 'System.Collections.Generic.List[string]'
+    $count=0
+    if(-not [string]::IsNullOrWhiteSpace($Folder)){
+        foreach($file in [IO.Directory]::EnumerateFiles($Folder,'*.json',[IO.SearchOption]::AllDirectories)){
+            $count++
+            $stage=''
+            try{
+                if(([IO.FileInfo]::new($file)).Length -le 65536){
+                    $receipt=[IO.File]::ReadAllText($file)|ConvertFrom-Json
+                    if(($null -ne $receipt) -and ([string]$receipt.Format -eq '1')){$stage=[string]$receipt.Stage}
+                }
+            }catch{$stage=''}
+            if(@('Verified','NotSent','Reviewed','Delivered') -notcontains $stage){$open.Add($file.Substring($Folder.TrimEnd([IO.Path]::DirectorySeparatorChar).Length).TrimStart([IO.Path]::DirectorySeparatorChar))}
+        }
+    }
+    return [pscustomobject]@{Count=$count;Open=$open.ToArray()}
+}
 function Resolve-DataChoice {
     # Explicit answer for one data category: Conserver unless the operator says to delete.
     param([string]$Choice,[string]$Question,[string]$Switch,[bool]$Present)
+    # ValidateSet ignores case: the value gets its canonical spelling before the case-sensitive comparisons below and
+    # in Get-DomeniaUninstallPlan ('-LocalData supprimer' must delete, '-LocalData demander' must ask).
+    foreach($canonical in @('Demander','Conserver','Supprimer')){if($Choice -ieq $canonical){$Choice=$canonical}}
     if($Choice -cne 'Demander'){return $Choice}
     if(-not $Present){return 'Conserver'}
     if(-not $askOperator){Write-Host ('Données conservées : question non posée (-Confirm:$false). Ajoutez '+$Switch+' Supprimer pour les supprimer.');return 'Conserver'}
@@ -537,16 +562,27 @@ function Invoke-DomeniaUninstall {
     if(@($preview.KeepModified).Count -gt 0){Write-Host ('Fichiers modifiés depuis lʼinstallation, conservés : '+[string]::Join(', ',[string[]]$preview.KeepModified))}
     Write-Host ('Données de ce dossier présentes : '+$(if($localPresent.Count){[string]::Join(', ',$localPresent.ToArray())}else{'aucune'})+'.')
     Write-Host ('Données Domenia du profil Windows présentes : '+$(if($profilePresent.Count){[string]::Join(', ',$profilePresent.ToArray())+' (partagées par toutes les copies de ce compte)'}else{'aucune'})+'.')
+    $receipts=Get-OpenReceipts (Get-DataFolder $profileRoot 'Domenia\Receipts')
+    if($receipts.Open.Count -gt 0){Write-Host ('Reçus dʼopérations à vérifier : '+$receipts.Open.Count+'. Les données du profil ne seront pas supprimées tant quʼils ne sont pas vérifiés dans Domenia (onglet « Fiabilité », Opérations à vérifier).')}
     if(-not $PSCmdlet.ShouldProcess($targetRoot,'Désinstaller Domenia ; les données ne sont supprimées que sur un choix explicite')){if($WhatIfPreference){return};Stop-Cancelled 'Désinstallation annulée : rien nʼest supprimé.'}
     if($askOperator){
         $answer=Read-OperatorAnswer ('Désinstaller Domenia de '+$targetRoot+' ? (O/N)')
         if($answer -ne $true){Stop-Cancelled $(if($null -eq $answer){'Désinstallation annulée faute de réponse : rien nʼest supprimé.'}else{'Désinstallation annulée : rien nʼest supprimé.'})}
     }
     $localChoice=Resolve-DataChoice $LocalData 'Supprimer aussi les données de ce dossier (préférences, wad\data, sauvegardes du code) ? (O/N, N les conserve)' '-LocalData' ($localPresent.Count -gt 0)
-    $profileChoice=Resolve-DataChoice $ProfileData 'Supprimer aussi les données Domenia de votre profil Windows (base locale, journaux, reçus), partagées par toutes les copies de Domenia de ce compte ? (O/N, N les conserve)' '-ProfileData' ($profilePresent.Count -gt 0)
+    $profileChoice=Resolve-DataChoice $ProfileData ('Supprimer aussi les données Domenia de votre profil Windows (base locale, journaux, '+$receipts.Count+' reçu(s) dʼopérations), partagées par toutes les copies de Domenia de ce compte ? (O/N, N les conserve)') '-ProfileData' ($profilePresent.Count -gt 0)
     $plan=Get-DomeniaUninstallPlan -Manifest $activeManifest -Observed $observed -LocalData $localChoice -ProfileData $profileChoice -DevTree $devTree -PendingInstall ([IO.File]::Exists($pendingPath))
     if(-not $plan.Allowed){throw ([string]::Join(' ',[string[]]$plan.Blockers))}
-    if(@($plan.ProfileFolders).Count -gt 0){Assert-NoDomeniaRunning}
+    if(@($plan.ProfileFolders).Count -gt 0){
+        Assert-NoDomeniaRunning
+        # Read again after the answers: a receipt left unchecked keeps the whole profile, and nothing is deleted.
+        $receipts=Get-OpenReceipts (Get-DataFolder $profileRoot 'Domenia\Receipts')
+        if($receipts.Open.Count -gt 0){
+            $named=[string]::Join(', ',[string[]]@($receipts.Open|Select-Object -First 10))
+            if($receipts.Open.Count -gt 10){$named+=' et '+($receipts.Open.Count-10)+' autre(s)'}
+            throw ('Reçus dʼopérations à vérifier : '+$named+'. Une écriture AD a pu partir sans vérification : vérifiez ces opérations dans Domenia (onglet « Fiabilité », Opérations à vérifier), puis relancez la désinstallation. Rien nʼest supprimé.')
+        }
+    }
     # Every data folder is checked for links before the first deletion.
     $localTargets=@(foreach($relative in @($plan.LocalFolders)){$folder=Get-DataFolder $targetRoot $relative;if($null -ne $folder){$folder}})
     $profileTargets=@(foreach($relative in @($plan.ProfileFolders)){$folder=Get-DataFolder $profileRoot $relative;if($null -ne $folder){$folder}})

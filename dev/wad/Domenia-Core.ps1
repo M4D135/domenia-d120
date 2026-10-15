@@ -1011,6 +1011,10 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnFirstStepBase" = "Default"
     "BtnFirstStepDashboard" = "Default"
     "LblFirstStepsDeferred" = "Default"
+    "LblFirstStepConnection" = "Default"
+    "LblFirstStepConnectionMark" = "Default"
+    "LblFirstStepDashboard" = "Default"
+    "LblFirstStepDashboardMark" = "Default"
     "ObjectEmptyState" = "Default"
     "ComputerEmptyState" = "Default"
 
@@ -4791,7 +4795,7 @@ function Get-MainXaml {
                   <StackPanel>
                     <TextBlock Text="DOMENIA 1.0 · RC1.17.7" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
                     <TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0"/>
-                    <TextBlock x:Name="LblUxAboutCompatibility" Text="Compatibilité de ce poste : non évaluée." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0" AutomationProperties.Name="Compatibilité de ce poste"/>
+                    <TextBlock x:Name="LblUxAboutCompatibility" Text="Compatibilité de ce poste : non évaluée." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0" ToolTip="Compare ce poste à la matrice de compatibilité livrée : Windows, PowerShell, .NET et SQLite. Une fois évalué, le survol détaille chaque dimension. Lecture locale, sans réseau." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Compatibilité de ce poste" AutomationProperties.HelpText="Compare ce poste à la matrice de compatibilité livrée : Windows, PowerShell, .NET et SQLite. Une fois évalué, le survol détaille chaque dimension. Lecture locale, sans réseau."/>
                   </StackPanel>
                 </Border>
               </StackPanel>
@@ -5139,7 +5143,7 @@ function Get-MainXaml {
                           <TextBlock x:Name="LblFirstStepDashboard" Grid.Row="3" Grid.Column="1" Text="Découvrir le tableau de bord : la vue dʼensemble de lʼOU se calcule depuis la base locale." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
                           <Button x:Name="BtnFirstStepDashboard" Grid.Row="3" Grid.Column="2" Content="Voir le tableau de bord" MinHeight="30" Padding="12,3" ToolTip="Affiche la vue dʼensemble de lʼaccueil, calculée depuis la base locale. Ce bouton ne lance aucune lecture de lʼannuaire ni des postes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Premiers pas : découvrir le tableau de bord" AutomationProperties.HelpText="Affiche la vue dʼensemble de lʼaccueil, calculée depuis la base locale. Ce bouton ne lance aucune lecture de lʼannuaire ni des postes."/>
                         </Grid>
-                        <TextBlock x:Name="LblFirstStepsDeferred" Text="Plus tard, au moment où ils servent : le compte pour les postes (Comptes et accès) et les sauvegardes de la base (Outils, Base autonome, Stockage)." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,10,0,0" AutomationProperties.Name="Options réglées plus tard"/>
+                        <TextBlock x:Name="LblFirstStepsDeferred" Text="Plus tard, au moment où ils servent : le compte pour les postes (Comptes et accès) et les sauvegardes de la base (Outils, Base autonome, Stockage)." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,10,0,0" ToolTip="Le compte utilisé sur les postes et les sauvegardes de la base ne font pas partie des premiers pas : ils se règlent au moment où ils servent." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Options réglées plus tard" AutomationProperties.HelpText="Le compte utilisé sur les postes et les sauvegardes de la base ne font pas partie des premiers pas : ils se règlent au moment où ils servent."/>
                       </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Card}" Margin="0,0,0,12" Padding="18,12">
@@ -7217,9 +7221,9 @@ function Get-MainXaml {
                 <TextBlock x:Name="LblStorageRetention" Text="Enregistrez les réglages puis prévisualisez les données concernées." TextWrapping="Wrap"/>
               </StackPanel>
             </Expander>
-            <Expander x:Name="ExpStorageDataPolicy" Header="Politique des données locales" IsExpanded="False" Margin="0,0,0,12" Padding="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" AutomationProperties.Name="Politique des données locales">
+            <Expander x:Name="ExpStorageDataPolicy" Header="Politique des données locales" IsExpanded="False" Margin="0,0,0,12" Padding="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" ToolTip="Déplie ce que Domenia garde sur ce poste : contenu, emplacement, conservation, export et suppression de chaque donnée. Lʼouverture relit seulement les réglages locaux ; rien nʼest envoyé hors du poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Politique des données locales" AutomationProperties.HelpText="Déplie ce que Domenia garde sur ce poste : contenu, emplacement, conservation, export et suppression de chaque donnée. Lʼouverture relit seulement les réglages locaux ; rien nʼest envoyé hors du poste.">
               <StackPanel>
-                <TextBlock x:Name="LblStorageDataPolicy" Text="Domenia nʼenvoie aucune donnée hors de ce poste." TextWrapping="Wrap" Margin="0,0,0,10" AutomationProperties.Name="Engagement sur les données locales"/>
+                <TextBlock x:Name="LblStorageDataPolicy" Text="Domenia nʼenvoie aucune donnée hors de ce poste." TextWrapping="Wrap" Margin="0,0,0,10" ToolTip="Engagement de Domenia : aucune télémétrie ni service en ligne. Les lectures visent seulement lʼannuaire, les postes et les serveurs internes que vous désignez." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Engagement sur les données locales" AutomationProperties.HelpText="Engagement de Domenia : aucune télémétrie ni service en ligne. Les lectures visent seulement lʼannuaire, les postes et les serveurs internes que vous désignez."/>
                 <DataGrid x:Name="DgStorageDataPolicy" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" MaxHeight="460" ToolTip="Ce que Domenia garde sur ce poste : contenu, emplacement, durée de conservation, export et suppression. Lecture seule ; rien nʼest envoyé hors du poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Données locales de Domenia" AutomationProperties.HelpText="Ce que Domenia garde sur ce poste : contenu, emplacement, durée de conservation, export et suppression. Lecture seule ; rien nʼest envoyé hors du poste.">
                   <DataGrid.Columns>
                     <DataGridTextColumn Header="Données" Binding="{Binding Label}" Width="150" ElementStyle="{StaticResource WrappedCellText}"/>

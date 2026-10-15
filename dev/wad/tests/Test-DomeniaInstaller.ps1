@@ -394,6 +394,39 @@ try{
   Assert ($r.Code -eq 0) $r.Output
   Assert (-not (Test-Path -LiteralPath $u.Path)) ('Dossier restant : '+(@(Get-ChildItem -LiteralPath $u.Path -Recurse -Force|ForEach-Object FullName) -join ', '))
  }
+ Case 'P144 choix saisis en minuscules : -LocalData supprimer supprime, -LocalData demander conserve sans question' {
+  $u=New-InstalledCopy 'fresh-lowercase'
+  Save (Join-Path $u.Path 'wad\data\a\b.txt') 'test-data'
+  $r=Install $u.Fixture -Arguments ('-Uninstall -Destination '''+$u.Path+''' -LocalData supprimer -ProfileData conserver -Confirm:$false')
+  Assert ($r.Code -eq 0) $r.Output
+  Assert (-not (Test-Path -LiteralPath $u.Path)) ('Donnees conservees malgre -LocalData supprimer : '+(@(Get-ChildItem -LiteralPath $u.Path -Recurse -Force|ForEach-Object FullName) -join ', '))
+  $k=New-InstalledCopy 'fresh-lowercase-ask'
+  Save (Join-Path $k.Path 'wad\data\keep.txt') 'test-data'
+  $r=Install $k.Fixture -Arguments ('-Uninstall -Destination '''+$k.Path+''' -LocalData demander -ProfileData conserver -Confirm:$false')
+  Assert ($r.Code -eq 0) $r.Output;Assert ($r.Output -match 'question non pos') $r.Output
+  Assert ([IO.File]::Exists((Join-Path $k.Path 'wad\data\keep.txt'))) 'Donnees supprimees sans choix explicite.'
+ }
+ Case 'P144 recus a verifier : suppression des donnees du profil refusee avant toute suppression' {
+  # The real profile is never deleted by this suite (KI-005): the receipt rule of the installer runs on a fixture
+  # folder, and its place in the uninstall is checked on the installer text.
+  . ([scriptblock]::Create((Get-InstallerFunctionText 'Get-OpenReceipts')))
+  $folder=Join-Path $root ('receipts-'+[guid]::NewGuid().ToString('N'))
+  Save (Join-Path $folder (('a'*32)+'.json')) '{"Format":1,"Stage":"Verified"}'
+  Save (Join-Path $folder (('b'*32)+'.json')) '{"Format":1,"Stage":"Sent"}'
+  Save (Join-Path $folder (('c'*32)+'.json')) '{illisible'
+  Save (Join-Path $folder ('archive\'+('d'*32)+'.json')) '{"Format":1,"Stage":"Delivered"}'
+  Save (Join-Path $folder 'writer.lock') ''
+  $state=Get-OpenReceipts $folder
+  Assert ($state.Count -eq 4) ('Recus comptes : '+$state.Count)
+  $names=[string]::Join(',',[string[]]@(@($state.Open)|Sort-Object))
+  Assert ($names -ceq ((('b'*32)+'.json')+','+(('c'*32)+'.json'))) ('Recus a verifier : '+$names)
+  Assert ((Get-OpenReceipts $null).Count -eq 0) 'Dossier absent : aucun recu attendu.'
+  $text=Get-InstallerFunctionText 'Invoke-DomeniaUninstall'
+  $check=$text.IndexOf('$receipts=Get-OpenReceipts',$text.IndexOf('Assert-NoDomeniaRunning'))
+  $firstDelete=$text.IndexOf('::Delete(')
+  Assert (($check -gt 0) -and ($firstDelete -gt 0) -and ($check -lt $firstDelete)) 'Recus non relus avant la premiere suppression.'
+  Assert ($text -like '*Une écriture AD a pu partir sans vérification*Rien nʼest supprimé.*') 'Refus sans motif ni mention de lʼabsence de suppression.'
+ }
  Case 'P144 fichier de code modifie conserve et nomme, jonction dans les donnees refusee avant toute suppression' {
   $u=New-InstalledCopy 'fresh-changed'
   [IO.File]::AppendAllText((Join-Path $u.Path 'wad\modules\Domenia-Common.Model.ps1'),"`n# Local change`n",$utf8)
@@ -451,7 +484,7 @@ try{
  Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
 }
 $passed=@($checks|Where-Object Status -eq 'Passed').Count;$failed=@($checks|Where-Object Status -eq 'Failed').Count
-$expected=if($RestoreOnly){2}else{24}
+$expected=if($RestoreOnly){2}else{26}
 # ElevatedSession: install and uninstall ran with this account; true means they do not prove standard-user rights.
 $report=[ordered]@{Suite='Test-DomeniaInstaller';Passed=$passed;Failed=$failed;Skipped=0;Expected=$expected;Complete=($checks.Count -eq $expected);NativeWindowsPowerShell51=$true;PSVersion=$PSVersionTable.PSVersion.ToString();ElevatedSession=[bool]$script:ElevatedSession;ProfileDataDeletionExecuted=$false;Checks=$checks.ToArray()}
 if($ReportPath){Save $ReportPath ($report|ConvertTo-Json -Depth 7)}

@@ -330,9 +330,13 @@ try{
         Expect ([string](Get-DomeniaControl 'LblFleetScope').Text -like 'Tout le domaine*') 'Libelle du perimetre'
     }
     Case 'Parc : tableau calcule sur le perimetre et serveurs reconnus' {
-        (Get-DomeniaControl 'WorkspaceTabs').SelectedItem=Get-DomeniaControl 'TabDashboard';$w.UpdateLayout()
         $script:FleetScopeDn=''
         $script:TestSettings['Home.DashboardSeen']=''
+        # Point 148: an overview computed while the workshop (Outils, Atelier) is shown does not complete the step.
+        (Get-DomeniaControl 'WorkspaceTabs').SelectedItem=Get-DomeniaControl 'TabApplicationTools';(Get-DomeniaControl 'ApplicationToolTabs').SelectedItem=Get-DomeniaControl 'WsQueryWorkshop';$w.UpdateLayout()
+        Complete-DomeniaFleetDashboard -Result (New-FleetResult) -State $null
+        Expect ([string]$script:TestSettings['Home.DashboardSeen'] -eq '') 'Decouverte du tableau de bord enregistree depuis l atelier'
+        (Get-DomeniaControl 'WorkspaceTabs').SelectedItem=Get-DomeniaControl 'TabDashboard';$w.UpdateLayout()
         Complete-DomeniaFleetDashboard -Result (New-FleetResult) -State $null
         # Point 148: an overview with workstations computed while Accueil is shown completes the dashboard step.
         Expect ([string]$script:TestSettings['Home.DashboardSeen'] -match '^\d{4}-\d{2}-\d{2}T') 'Decouverte du tableau de bord non enregistree'

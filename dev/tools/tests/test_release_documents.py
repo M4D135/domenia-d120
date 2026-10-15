@@ -84,6 +84,8 @@ class MainXamlControlTests(unittest.TestCase):
             for prefix in ('LblFirstStep', 'BtnFirstStep'):
                 self.find(prefix + step)
             self.find('LblFirstStep' + step + 'Mark')
+        for name in ('LblFirstStepConnection', 'LblFirstStepConnectionMark', 'LblFirstStepDashboard', 'LblFirstStepDashboardMark'):
+            self.assertIn('"%s" = "Default"' % name, self.policy)
         for gone in ('BtnFirstStepAccount', 'BtnFirstStepBackup', 'LblFirstStepAccount', 'LblFirstStepBackup'):
             self.assertFalse([e for e in self.root.iter() if e.get(self.xname) == gone], gone)
             self.assertNotIn(gone, self.help)
@@ -116,11 +118,13 @@ class MainXamlControlTests(unittest.TestCase):
                 self.assertIn('"%s" = "Default"' % name, self.policy)
                 self.assertTrue(element.get('AutomationProperties.Name'))
                 tip = element.get('ToolTip')
-                if tip is not None:
-                    self.assertEqual(tip, element.get('AutomationProperties.HelpText'))
-                    self.assertIn(name, self.help)
-                    self.assertEqual(self.help[name]['Text'], tip)
-                    self.assertEqual(element.get('ToolTipService.ShowOnDisabled'), 'True')
+                self.assertTrue(tip, name + ' sans infobulle')
+                self.assertEqual(tip, element.get('AutomationProperties.HelpText'))
+                self.assertIn(name, self.help)
+                self.assertEqual(self.help[name]['Text'], tip)
+                # The help system names the control after the catalogue title at run time.
+                self.assertEqual(self.help[name]['Title'], element.get('AutomationProperties.Name'))
+                self.assertEqual(element.get('ToolTipService.ShowOnDisabled'), 'True')
                 for value in element.attrib.values():
                     self.assertFalse(re.search('[\u2018\u2019\u201c\u201d]', value), value)
 

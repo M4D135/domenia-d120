@@ -87,6 +87,15 @@ Test-Case 'DLV-006' 'Refus : arbre DEV, mise a jour inachevee, manifeste incompl
     Assert-False (Get-DomeniaUninstallPlan -Manifest $escape -Observed (New-DlvObserved)).Allowed
 }
 
+Test-Case 'DLV-007' 'Choix saisis en minuscules : meme effet que leur orthographe canonique' {
+    $plan = Get-DomeniaUninstallPlan -Manifest (New-DlvManifest) -Observed (New-DlvObserved) -LocalData supprimer -ProfileData SUPPRIMER
+    Assert-Equal 'Supprimer' $plan.LocalData; Assert-Equal 'Supprimer' $plan.ProfileData
+    Assert-Equal 'wad/data,wad/maintenance/backups' ([string]::Join(',',[string[]]$plan.LocalFolders))
+    Assert-Equal 'Domenia\Data,Domenia\Receipts' ([string]::Join(',',[string[]]$plan.ProfileFolders))
+    $kept = Get-DomeniaUninstallPlan -Manifest (New-DlvManifest) -Observed (New-DlvObserved) -LocalData conserver -ProfileData conserver
+    Assert-Equal 'Conserver' $kept.LocalData; Assert-Equal 0 @($kept.LocalFolders).Count; Assert-Equal 0 @($kept.ProfileFolders).Count
+}
+
 # Point 147 : politique des donnees locales (Domenia-DataPolicy.Model, reglages de Domenia-Store.Model).
 . (Join-Path $modules 'Domenia-Store.Model.ps1')
 . (Join-Path $modules 'Domenia-DataPolicy.Model.ps1')
@@ -94,12 +103,13 @@ Test-Case 'DLV-006' 'Refus : arbre DEV, mise a jour inachevee, manifeste incompl
 Test-Case 'DPO-001' 'Chaque donnee gardee sur le poste a son contenu, son emplacement, sa conservation, son export et sa suppression' {
     $view = Get-DomeniaLocalDataPolicy -DataRoot 'C:\Users\agent\AppData\Local\Domenia\Data' -ReceiptRoot 'C:\Users\agent\AppData\Local\Domenia\Receipts'
     $rows = @($view.Rows)
-    Assert-Equal 12 $rows.Count
-    Assert-Equal 12 @($rows | ForEach-Object { $_.Category } | Sort-Object -Unique).Count 'categories en double'
+    Assert-Equal 15 $rows.Count
+    Assert-Equal 15 @($rows | ForEach-Object { $_.Category } | Sort-Object -Unique).Count 'categories en double'
     foreach ($row in $rows) { foreach ($field in @('Label','Content','Location','Retention','Export','Deletion')) { Assert-True ([string]$row.$field) ($row.Category + ' : ' + $field + ' vide') } }
     Assert-True ($view.Statement -like 'Domenia nʼenvoie aucune donnée hors de ce poste*') $view.Statement
     Assert-Equal 'C:\Users\agent\AppData\Local\Domenia\Data\Logs' @($rows | Where-Object { $_.Category -eq 'Log' })[0].Location
     Assert-Equal 'C:\Users\agent\AppData\Local\Domenia\Receipts' @($rows | Where-Object { $_.Category -eq 'Receipt' })[0].Location
+    Assert-Equal 'C:\Users\agent\AppData\Local\Domenia\Data\Exports' @($rows | Where-Object { $_.Category -eq 'Export' })[0].Location
 }
 
 Test-Case 'DPO-002' 'La conservation affichee vient des reglages enregistres : 0 sans limite, sinon jours confirmes' {
@@ -115,7 +125,7 @@ Test-Case 'DPO-002' 'La conservation affichee vient des reglages enregistres : 0
 
 Test-Case 'DPO-003' 'Emplacements : inconnus annonces comme tels, sauvegardes a cote de la base active' {
     $rows = @((Get-DomeniaLocalDataPolicy).Rows)
-    foreach ($category in @('Directory','Backup','Log','Receipt','Preference')) {
+    foreach ($category in @('Directory','Backup','Log','Export','Diagnostic','Legacy','Receipt','Preference')) {
         Assert-True (@($rows | Where-Object { $_.Category -eq $category })[0].Location -like 'Emplacement non déterminé*') $category
     }
     $withBase = @((Get-DomeniaLocalDataPolicy -DataRoot 'D:\Domenia\Data' -DatabasePath 'D:\Bases\cnamts\Domenia.db').Rows)
@@ -130,6 +140,22 @@ Test-Case 'DPO-004' 'Reglages illisibles : conservation inconnue, jamais une val
     }
     Assert-True (@($rows | Where-Object { $_.Category -eq 'Backup' })[0].Retention -like 'Réglages de sauvegarde illisibles*')
     Assert-Throws { Get-DomeniaLocalDataPolicy -Policy ([pscustomobject]@{ Version = 1; BackupHours = 0 }) } 'reglage hors limites accepte'
+}
+
+Test-Case 'DPO-005' 'Chaque zone du stockage local a sa ligne, a lʼemplacement declare par la disposition' {
+    $layout = Get-DomeniaStorageLayout -Mode UserLocal -InstallRoot 'C:\Domenia' -UserLocalRoot 'C:\Users\agent\AppData\Local' -Writable @{ Cache = $true; Preference = $true; Receipt = $true }
+    $areas = @(@($layout.Categories | Where-Object { $_.Category -eq 'Cache' })[0].Areas)
+    Assert-Equal 'Logs,Backups,Diagnostics,Exports,Legacy,Domains' ([string]::Join(',',[string[]]@($areas | ForEach-Object { $_.Name })))
+    # The areas win over DataRoot\<Name>: a layout that moves one is shown as declared.
+    $moved = @($areas | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Path = ('E:\Zones\' + $_.Name) } })
+    $rows = @((Get-DomeniaLocalDataPolicy -DataRoot ([string]$layout.DataRoot) -Areas $moved).Rows)
+    $byCategory = @{}; foreach ($row in $rows) { $byCategory[$row.Category] = $row }
+    foreach ($pair in @(@('Log','Logs'),@('Backup','Backups'),@('Diagnostic','Diagnostics'),@('Export','Exports'),@('Legacy','Legacy'),@('Directory','Domains'))) {
+        Assert-Equal ('E:\Zones\' + $pair[1]) $byCategory[$pair[0]].Location $pair[0]
+    }
+    foreach ($category in @('Export','Diagnostic','Legacy')) { Assert-True ($byCategory[$category].Retention -like '*jamais supprim*') ($category + ' : ' + $byCategory[$category].Retention) }
+    Assert-True ($byCategory['Probe'].Export -like '*dossier des exports*') 'export des mesures sans dossier'
+    Assert-True ($byCategory['Receipt'].Deletion -like '*reçu reste à vérifier*') $byCategory['Receipt'].Deletion
 }
 
 # Point 148 : premiers pas (Domenia-FirstRun.Model).

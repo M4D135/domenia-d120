@@ -1076,6 +1076,9 @@ function Get-DomeniaUninstallPlan {
         [bool]$DevTree = $false,
         [bool]$PendingInstall = $false
     )
+    # ValidateSet ignores case: canonical spelling before the case-sensitive tests below ('supprimer' must delete).
+    if ($LocalData -ieq 'Supprimer') { $LocalData = 'Supprimer' } else { $LocalData = 'Conserver' }
+    if ($ProfileData -ieq 'Supprimer') { $ProfileData = 'Supprimer' } else { $ProfileData = 'Conserver' }
     $blockers = New-Object 'System.Collections.Generic.List[string]'
     $remove = New-Object 'System.Collections.Generic.List[string]'
     $modified = New-Object 'System.Collections.Generic.List[string]'

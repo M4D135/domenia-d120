@@ -47,27 +47,62 @@ class RegisterTests(unittest.TestCase):
         for needle in ('suite de mesure absente', 'mesure incomplète', 'interface Windows (Api) manquante', 'en double'):
             self.assertIn(needle, text)
 
+    def test_each_operation_of_the_aggregation_unit_has_its_measure(self):
+        unit = [u for u in self.register['Units'] if u['Id'] == 'probe-aggregation'][0]
+        self.assertEqual(cc.hotspot_ids(unit['Measure']), ['probe-aggregation', 'probe-selection'])
+        broken = copy.deepcopy(self.register)
+        for empty in ([], [''], ['probe-aggregation', 3]):
+            [u for u in broken['Units'] if u['Id'] == 'probe-aggregation'][0]['Measure']['Hotspot'] = empty
+            problems, _ = cc.validate(broken)
+            self.assertTrue(any('probe-aggregation : mesure incomplète' in p for p in problems), empty)
+
 
 class DecisionTests(unittest.TestCase):
     def setUp(self):
         self.register = {'MinimumGain': 2.0, 'Units': [
             {'Id': 'a', 'Kind': 'PointChaud', 'Measure': {'Suite': 'S', 'Hotspot': 'h-a', 'Comparison': 'PowerShell', 'Metrics': ['PowerShellMs', 'CompiledMs']}},
             {'Id': 'b', 'Kind': 'PointChaud', 'Measure': {'Suite': 'Q', 'Hotspot': 'h-b', 'Comparison': 'Budget', 'Metrics': ['Records', 'ElapsedSeconds']}},
-            {'Id': 'c', 'Kind': 'Interop'}]}
+            {'Id': 'c', 'Kind': 'Interop'},
+            {'Id': 'd', 'Kind': 'PointChaud', 'Measure': {'Suite': 'S', 'Hotspot': ['h-d1', 'h-d2'], 'Comparison': 'PowerShell', 'Metrics': ['PowerShellMs', 'CompiledMs']}}]}
+
+    @staticmethod
+    def report(*rows, failed=0, tests=None):
+        report = {'Hotspots': [dict({'Units': 2000, 'Parity': True}, Id=i, PowerShellMs=ps, CompiledMs=c) for i, ps, c in rows], 'Failed': failed}
+        if tests is not None:
+            report['Tests'] = tests
+        return report
 
     def decisions(self, reports):
         return {d['Id']: d['Decision'] for d in cc.decide(self.register, reports)}
 
     def test_without_measure_nothing_is_justified(self):
-        self.assertEqual(self.decisions(None), {'a': 'Mesure à produire', 'b': 'Mesure à produire', 'c': 'Hors mesure (Interop)'})
+        self.assertEqual(self.decisions(None), {'a': 'Mesure à produire', 'b': 'Mesure à produire', 'c': 'Hors mesure (Interop)', 'd': 'Mesure à produire'})
 
     def test_gain_and_parity_decide(self):
-        fast = {'Hotspots': [{'Id': 'h-a', 'PowerShellMs': 900, 'CompiledMs': 100, 'Units': 2000, 'Parity': True}]}
-        self.assertEqual(self.decisions([fast])['a'], 'Justifié')
-        slow = {'Hotspots': [{'Id': 'h-a', 'PowerShellMs': 150, 'CompiledMs': 100, 'Units': 2000, 'Parity': True}]}
-        self.assertEqual(self.decisions([slow])['a'], 'Non justifié')
-        different = {'Hotspots': [{'Id': 'h-a', 'PowerShellMs': 900, 'CompiledMs': 100, 'Units': 2000, 'Parity': False}]}
+        self.assertEqual(self.decisions([self.report(('h-a', 900, 100))])['a'], 'Justifié')
+        self.assertEqual(self.decisions([self.report(('h-a', 150, 100))])['a'], 'Non justifié')
+        different = self.report(('h-a', 900, 100))
+        different['Hotspots'][0]['Parity'] = False
         self.assertEqual(self.decisions([different])['a'], 'Non justifié')
+
+    def test_a_report_with_a_failed_case_justifies_nothing(self):
+        # The row says Parity true, but the report counts a failed case (a parity check that threw, for instance).
+        failed = self.report(('h-a', 900, 100), failed=1)
+        decision = [d for d in cc.decide(self.register, [failed]) if d['Id'] == 'a'][0]
+        self.assertEqual(decision['Decision'], 'Non justifié')
+        self.assertIn('1 cas en échec', decision['Detail'])
+        listed = self.report(('h-a', 900, 100), tests=[{'Name': 'parite', 'Passed': False}])
+        self.assertEqual(self.decisions([listed])['a'], 'Non justifié')
+        unchecked = self.report(('h-a', 900, 100))
+        del unchecked['Failed']
+        self.assertEqual(self.decisions([unchecked])['a'], 'Non justifié')
+
+    def test_a_unit_with_several_operations_needs_every_measure(self):
+        self.assertEqual(self.decisions([self.report(('h-d1', 900, 100))])['d'], 'Mesure à produire')
+        slow = [d for d in cc.decide(self.register, [self.report(('h-d1', 900, 100), ('h-d2', 150, 100))]) if d['Id'] == 'd'][0]
+        self.assertEqual(slow['Decision'], 'Non justifié')
+        self.assertTrue(slow['Detail'].startswith('h-d2 : Gain'), slow['Detail'])
+        self.assertEqual(self.decisions([self.report(('h-d1', 900, 100), ('h-d2', 800, 100))])['d'], 'Justifié')
 
     def test_budget_unit_records_the_scale_report(self):
         scale = {'Status': 'PASS', 'Records': 20000, 'ElapsedSeconds': 3.2}

@@ -118,7 +118,7 @@
       "Id": "R13",
       "Label": "Code compilé limité aux points chauds mesurés",
       "Kind": "Windows",
-      "Threshold": "Chaque site C# enregistré ; chaque point chaud comparé à PowerShell au moins MinimumGain fois plus rapide à résultats identiques (Test-DomeniaHotspots), chaque point chaud à budget mesuré par sa suite dʼéchelle.",
+      "Threshold": "Chaque site C# enregistré ; chaque opération dʼun point chaud comparée à PowerShell, au moins MinimumGain fois plus rapide à résultats identiques, dans un rapport sans cas en échec (Test-DomeniaHotspots), chaque point chaud à budget mesuré par sa suite dʼéchelle.",
       "Blocking": true
     }
   ],

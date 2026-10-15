@@ -319,8 +319,13 @@ function Get-DomeniaContractCatalog {
     # versions this build reads; each older one reaches Current through a declared migration ('Subset': read as is,
     # every field keeps its meaning). A version above Current comes from a newer Domenia and is refused, never guessed.
     # Values is the closed vocabulary of an error or capability contract.
+    # The table is constant: it is built once per runspace (format checks run inside loops over thousands of recipes,
+    # some on the interface thread). Read through try because a caller may run under Set-StrictMode.
+    $cached = $null
+    try { $cached = $script:DomeniaContractCatalogCache } catch { $cached = $null }
+    if ($null -ne $cached) { return $cached }
     $subset = { param([int]$From,[int]$To) [pscustomobject]@{ From = $From; To = $To; Mode = 'Subset' } }
-    return @(
+    $catalog = @(
         [pscustomobject]@{ Family = 'Domenia.Query'; Label = 'Recette de requête'; Kind = 'Format'; Separator = '/'; Current = 2; Readable = @(1,2); Migrations = @(& $subset 1 2); Values = @(); Owner = 'Domenia-Query.Model.ps1' }
         [pscustomobject]@{ Family = 'Domenia.QueryLibrary'; Label = 'Bibliothèque de requêtes'; Kind = 'Format'; Separator = '/'; Current = 1; Readable = @(1); Migrations = @(); Values = @(); Owner = 'Domenia-Query.Model.ps1' }
         [pscustomobject]@{ Family = 'Domenia.QueryPack'; Label = 'Pack de recettes'; Kind = 'Format'; Separator = '/'; Current = 1; Readable = @(1); Migrations = @(); Values = @(); Owner = 'Domenia-QueryTransfer.Worker.ps1' }
@@ -341,13 +346,30 @@ function Get-DomeniaContractCatalog {
         [pscustomobject]@{ Family = 'Domenia.ProviderOutcome'; Label = 'Issue dʼune opération'; Kind = 'Erreurs'; Separator = '/'; Current = 1; Readable = @(1); Migrations = @(); Values = @('Success','Cancelled','Timeout','CredentialRejected','AccessDenied','Failure'); Owner = 'Domenia-Engine.Model.ps1' }
         [pscustomobject]@{ Family = 'Domenia.Provider'; Label = 'Fournisseur dʼune opération'; Kind = 'Capacites'; Separator = '/'; Current = 1; Readable = @(1); Migrations = @(); Values = @('Directory','Cim','Wts','Storage','Local','Network'); Owner = 'Domenia-Engine.Model.ps1' }
     )
+    $script:DomeniaContractCatalogCache = $catalog
+    return $catalog
 }
 
 function Get-DomeniaContract {
     # Catalog entry of one family (case-sensitive), $null when the family is not declared. -Catalog replaces the
     # shipped catalog (rule tests of a future version).
     param([AllowEmptyString()][string]$Family,[object[]]$Catalog = $null)
-    if ($null -eq $Catalog) { $Catalog = @(Get-DomeniaContractCatalog) }
+    if ($null -eq $Catalog) {
+        # Shipped catalog: one ordinal index per runspace, so that a check costs one lookup.
+        $index = $null
+        try { $index = $script:DomeniaContractIndex } catch { $index = $null }
+        if ($null -eq $index) {
+            $index = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([StringComparer]::Ordinal)
+            foreach ($contract in @(Get-DomeniaContractCatalog)) {
+                $name = [string](Get-DomeniaMember $contract 'Family' '')
+                if (($name) -and (-not $index.ContainsKey($name))) { $index.Add($name,$contract) }
+            }
+            $script:DomeniaContractIndex = $index
+        }
+        $found = $null
+        if ($index.TryGetValue([string]$Family,[ref]$found)) { return $found }
+        return $null
+    }
     foreach ($contract in @($Catalog)) { if ([string](Get-DomeniaMember $contract 'Family' '') -ceq $Family) { return $contract } }
     return $null
 }

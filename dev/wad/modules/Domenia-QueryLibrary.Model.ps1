@@ -98,8 +98,10 @@ function Assert-WQueryLibraryDefinition {
     param([string]$DefinitionJson,[int]$DefinitionVersion,[string]$RecipeId)
     if([Text.Encoding]::UTF8.GetByteCount($DefinitionJson) -gt 1048576){throw 'Definition de requete superieure a 1 Mio.'}
     $recipe=ConvertFrom-Json -InputObject $DefinitionJson -ErrorAction Stop
-    $version=if([string]$recipe.Format -ceq 'Domenia.Query/2'){2}elseif([string]$recipe.Format -ceq 'Domenia.Query/1'){1}else{0}
-    if($version -lt 1 -or $version -ne $DefinitionVersion -or [string]$recipe.Id -cne $RecipeId){throw 'Version ou identite de definition incoherente.'}
+    # Point 133: the versions come from the contract catalog; a recipe of a newer Domenia is refused with its version.
+    $format=Resolve-DomeniaContractFormat -Format ([string](Get-DomeniaMember $recipe 'Format' '')) -Family 'Domenia.Query'
+    if(-not $format.Accepted){throw [string]$format.Message}
+    if(([int]$format.Version -ne $DefinitionVersion) -or ([string]$recipe.Id -cne $RecipeId)){throw 'Version ou identite de definition incoherente.'}
     $allowed=@('Format','Id','Name','Junction','Clauses','GroupBy','Refinements','ProbeSelection','ObjectIds','Parameters','ParameterValues','Expression','CoherenceHours','ReadDefinition')
     foreach($property in $recipe.PSObject.Properties){if($property.Name -cnotin $allowed){throw ('Propriete de recette inconnue : '+$property.Name)}}
     foreach($clause in @(@($recipe.Clauses)+@(Get-DomeniaMember $recipe 'Refinements' @()))){foreach($property in $clause.PSObject.Properties){if($property.Name -cnotin @('Field','Operator','Value')){throw ('Propriete de condition inconnue : '+$property.Name)}}}

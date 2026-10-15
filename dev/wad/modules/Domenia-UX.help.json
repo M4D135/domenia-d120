@@ -3608,21 +3608,28 @@
     "Name": "BtnFirstStepOu",
     "Kind": "Button",
     "Source": "lot-L01",
-    "Title": "Premiers pas : OU de travail",
+    "Title": "Premiers pas : choisir lʼOU de travail",
     "Text": "Choisit lʼOU de travail du tableau de bord, sans changer Rechercher ni lancer de lecture."
   },
   {
     "Name": "BtnFirstStepBase",
     "Kind": "Button",
     "Source": "lot-L01",
-    "Title": "Premiers pas : première lecture",
+    "Title": "Premiers pas : première lecture de lʼOU",
     "Text": "Ouvre Outils, Base autonome. La première lecture ne part quʼà votre clic ; privilégiez lʼOU de travail."
   },
   {
     "Name": "BtnFirstStepDashboard",
-    "Title": "Premiers pas : tableau de bord",
+    "Title": "Premiers pas : découvrir le tableau de bord",
     "Text": "Affiche la vue dʼensemble de lʼaccueil, calculée depuis la base locale. Ce bouton ne lance aucune lecture de lʼannuaire ni des postes.",
     "Kind": "Button",
+    "Source": "point-148"
+  },
+  {
+    "Name": "LblFirstStepsDeferred",
+    "Title": "Options réglées plus tard",
+    "Text": "Le compte utilisé sur les postes et les sauvegardes de la base ne font pas partie des premiers pas : ils se règlent au moment où ils servent.",
+    "Kind": "TextBlock",
     "Source": "point-148"
   },
   {
@@ -4068,9 +4075,30 @@
   },
   {
     "Name": "DgStorageDataPolicy",
-    "Title": "Politique des données locales",
+    "Title": "Données locales de Domenia",
     "Text": "Ce que Domenia garde sur ce poste : contenu, emplacement, durée de conservation, export et suppression. Lecture seule ; rien nʼest envoyé hors du poste.",
     "Kind": "DataGrid",
     "Source": "specific"
+  },
+  {
+    "Name": "ExpStorageDataPolicy",
+    "Title": "Politique des données locales",
+    "Text": "Déplie ce que Domenia garde sur ce poste : contenu, emplacement, conservation, export et suppression de chaque donnée. Lʼouverture relit seulement les réglages locaux ; rien nʼest envoyé hors du poste.",
+    "Kind": "Expander",
+    "Source": "point-147"
+  },
+  {
+    "Name": "LblStorageDataPolicy",
+    "Title": "Engagement sur les données locales",
+    "Text": "Engagement de Domenia : aucune télémétrie ni service en ligne. Les lectures visent seulement lʼannuaire, les postes et les serveurs internes que vous désignez.",
+    "Kind": "TextBlock",
+    "Source": "point-147"
+  },
+  {
+    "Name": "LblUxAboutCompatibility",
+    "Title": "Compatibilité de ce poste",
+    "Text": "Compare ce poste à la matrice de compatibilité livrée : Windows, PowerShell, .NET et SQLite. Une fois évalué, le survol détaille chaque dimension. Lecture locale, sans réseau.",
+    "Kind": "TextBlock",
+    "Source": "point-145"
   }
 ]

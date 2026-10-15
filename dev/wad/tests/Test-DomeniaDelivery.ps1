@@ -31,7 +31,7 @@ function Case {param([string]$Name,[scriptblock]$Body)
 }
 function Reset-Compatibility {
     $script:CompatibilityModuleRoot=Join-Path $wad 'modules'
-    $script:DomeniaCompatibilityMatrix=$null;$script:DomeniaCompatibilityMatrixRead=$false;$script:DomeniaLocalCompatibility=$null
+    $script:DomeniaCompatibilityMatrix=$null;$script:DomeniaCompatibilityMatrixRead=$false;$script:DomeniaLocalCompatibility=$null;$script:DomeniaAboutCompatibilityHelp=$null
 }
 
 # ---------------------------------------------------------------- point 145 : compatibilite du poste
@@ -63,6 +63,8 @@ Case 'P145 À propos : phrase de compatibilite et detail par dimension a lʼouve
     $text=[string]$script:Ctrl.LblUxAboutCompatibility.Text
     Assert-Delivery ($text.StartsWith('Compatibilité de ce poste : environnement ')) $text
     Assert-Delivery ([string]$script:Ctrl.LblUxAboutCompatibility.ToolTip -like '*Windows*PowerShell*') ([string]$script:Ctrl.LblUxAboutCompatibility.ToolTip)
+    # Screen readers get the same per-dimension detail as the tooltip.
+    Assert-Delivery ([Windows.Automation.AutomationProperties]::GetHelpText($script:Ctrl.LblUxAboutCompatibility) -ceq [string]$script:Ctrl.LblUxAboutCompatibility.ToolTip) 'Aide accessible differente de lʼinfobulle'
     Switch-DomeniaUxAbout
     Assert-Delivery ($script:Ctrl.UxAboutPanel.Visibility -eq [Windows.Visibility]::Collapsed) 'Second clic : panneau replie'
 }
@@ -107,6 +109,39 @@ Case 'P133 recette, bibliotheque et lecture WMI dʼun format futur refusees avan
     $other=Get-DeliveryThrown {Assert-DomeniaQueryReadDefinition ([pscustomobject]@{Format='Domenia.QueryPack/1'})}
     Assert-Delivery ($other -like '*inattendu (Domenia.WmiRead/1 attendu)*') $other
 }
+Case 'P133 bibliotheque locale : recette et enregistrement dʼune version plus recente refuses avec leur version' {
+    # Real validation function of the LocalStore worker, taken from the code composed for it.
+    $code=Get-DomeniaQueryLibraryDefinitionValidationCode
+    $tokens=$null;$errors=$null
+    $ast=[Management.Automation.Language.Parser]::ParseInput($code,[ref]$tokens,[ref]$errors)
+    $definition=$ast.Find({param($node) ($node -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($node.Name -ceq 'Assert-WQueryLibraryDefinition')},$true)
+    Assert-Delivery ($null -ne $definition) 'Validation de la bibliotheque introuvable'
+    . ([scriptblock]::Create($definition.Extent.Text))
+    $future=Get-DeliveryThrown {Assert-WQueryLibraryDefinition -DefinitionJson '{"Format":"Domenia.Query/3","Id":"q","Name":"Futur"}' -DefinitionVersion 3 -RecipeId 'q'}
+    Assert-Delivery ($future -like 'Recette de requête : format Domenia.Query/3 produit par une version plus récente de Domenia*') $future
+    $mismatch=Get-DeliveryThrown {Assert-WQueryLibraryDefinition -DefinitionJson '{"Format":"Domenia.Query/2","Id":"q","Name":"Courante"}' -DefinitionVersion 1 -RecipeId 'q'}
+    Assert-Delivery ($mismatch -ceq 'Version ou identite de definition incoherente.') $mismatch
+    $context=[pscustomobject]@{Version=1;StoreId='store-test';DomainDn='DC=example,DC=invalid';Path=(Join-Path ([IO.Path]::GetTempPath()) 'Domenia-test.db')}
+    $record=[pscustomobject]@{Format='Domenia.QueryLibraryRecord/2';StoreId='store-test';DomainDn='DC=example,DC=invalid';Id='q';Name='Futur';DefinitionJson='{}';DefinitionSHA256=''}
+    $stored=Get-DeliveryThrown {ConvertTo-DomeniaStoreQueryChange -Change ([pscustomobject]@{Kind='QueryRecipe';Record=$record}) -Context $context}
+    Assert-Delivery ($stored -like 'Enregistrement de recette : format Domenia.QueryLibraryRecord/2 produit par une version plus récente*') $stored
+}
+Case 'P133 table des fins de service dʼune version plus recente : dates inconnues, version nommee dans le journal' {
+    $folder=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-lifecycle-'+[guid]::NewGuid().ToString('N'))
+    [void][IO.Directory]::CreateDirectory($folder)
+    $savedRoot=$script:DashboardModuleRoot
+    try{
+        [IO.File]::WriteAllText((Join-Path $folder 'Domenia-WindowsLifecycle.json'),'{"Format":"DomeniaWindowsLifecycle/2","Entries":[{"Build":"26100"}]}',[Text.UTF8Encoding]::new($false))
+        $script:DashboardModuleRoot=$folder;$script:DomeniaWindowsLifecycleRead=$false;$script:DomeniaWindowsLifecycle=$null;$script:Logs.Clear()
+        Assert-Delivery ($null -eq (Get-DomeniaWindowsLifecycleTable)) 'Table future lue'
+        Assert-Delivery (@($script:Logs|Where-Object{$_ -like 'Table des fins de service Windows : format DomeniaWindowsLifecycle/2 produit par une version plus récente*Dates de fin inconnues.'}).Count -eq 1) ([string]::Join(' | ',$script:Logs.ToArray()))
+        $script:DashboardModuleRoot=Join-Path $wad 'modules';$script:DomeniaWindowsLifecycleRead=$false;$script:DomeniaWindowsLifecycle=$null
+        Assert-Delivery (@((Get-DomeniaWindowsLifecycleTable).Entries).Count -gt 0) 'Table livree non lue'
+    }finally{
+        $script:DashboardModuleRoot=$savedRoot;$script:DomeniaWindowsLifecycleRead=$false;$script:DomeniaWindowsLifecycle=$null
+        Remove-Item -LiteralPath $folder -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
 Case 'P133 le catalogue charge par lʼapplication est celui des workers (Common.Model)' {
     $command=Get-Command -Name Get-DomeniaContractCatalog -CommandType Function
     Assert-Delivery ([IO.Path]::GetFileName([string]$command.ScriptBlock.File) -ceq 'Domenia-Common.Model.ps1') ([string]$command.ScriptBlock.File)
@@ -135,7 +170,10 @@ function Get-DataPolicyRow {param([string]$Category) return @(@($script:Ctrl.DgS
 Case 'P147 Stockage : politique des donnees avec les reglages enregistres et les dossiers de la disposition' {
     Reset-DataPolicyFixture '{"Version":1,"AutomaticBackup":false,"BackupHours":24,"BackupKeep":7,"PresenceDays":45,"ConsoleDays":90,"InventoryDays":0,"ProbeDays":90,"DetailDays":30}'
     Update-DomeniaDataPolicyView
-    Assert-Delivery (@($script:Ctrl.DgStorageDataPolicy.ItemsSource).Count -eq 12) 'Douze categories attendues'
+    Assert-Delivery (@($script:Ctrl.DgStorageDataPolicy.ItemsSource).Count -eq 15) 'Quinze categories attendues'
+    foreach($pair in @(@('Export','Exports'),@('Diagnostic','Diagnostics'),@('Legacy','Legacy'),@('Log','Logs'))){
+        Assert-Delivery ([string](Get-DataPolicyRow $pair[0]).Location -ceq ('C:\Users\agent\AppData\Local\Domenia\Data\'+$pair[1])) ($pair[0]+' : '+[string](Get-DataPolicyRow $pair[0]).Location)
+    }
     Assert-Delivery ([string](Get-DataPolicyRow 'Presence').Retention -like '45 jours, appliqués après prévisualisation*') ([string](Get-DataPolicyRow 'Presence').Retention)
     Assert-Delivery ([string](Get-DataPolicyRow 'Inventory').Retention -ceq 'Sans limite de durée.') ([string](Get-DataPolicyRow 'Inventory').Retention)
     Assert-Delivery ([string](Get-DataPolicyRow 'Receipt').Location -ceq 'C:\Users\agent\AppData\Local\Domenia\Receipts') ([string](Get-DataPolicyRow 'Receipt').Location)

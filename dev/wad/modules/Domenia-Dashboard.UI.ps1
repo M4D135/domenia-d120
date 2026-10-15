@@ -105,7 +105,10 @@ function Get-DomeniaWindowsLifecycleTable {
         $path = Join-Path $root 'Domenia-WindowsLifecycle.json'
         if (-not [IO.File]::Exists($path)) { Write-AppLog 'Table des fins de service absente : dates de fin inconnues.' 'WARN'; return $null }
         $table = [IO.File]::ReadAllText($path,[Text.Encoding]::UTF8) | ConvertFrom-Json
-        if (([string]$table.Format -ne 'DomeniaWindowsLifecycle/1') -or (@($table.Entries).Count -eq 0)) { Write-AppLog 'Table des fins de service illisible : dates de fin inconnues.' 'WARN'; return $null }
+        # Point 133: a table of a newer Domenia is named with its version, never read as an unknown file.
+        $format = Resolve-DomeniaContractFormat -Format ([string](Get-DomeniaMember $table 'Format' '')) -Family 'DomeniaWindowsLifecycle'
+        if (-not $format.Accepted) { Write-AppLog ([string]$format.Message + ' Dates de fin inconnues.') 'WARN'; return $null }
+        if (@($table.Entries).Count -eq 0) { Write-AppLog 'Table des fins de service vide : dates de fin inconnues.' 'WARN'; return $null }
         $script:DomeniaWindowsLifecycle = $table
     } catch { try { Write-AppLog ('Table des fins de service illisible : ' + $_.Exception.Message) 'WARN' } catch { } }
     return $script:DomeniaWindowsLifecycle
@@ -457,9 +460,12 @@ function Complete-DomeniaFleetDashboard {
     $summary=Format-DomeniaOuFreshnessSummary -IndexFreshness (Get-DomeniaMemberValue $freshness 'Index') -Observations (Get-DomeniaMemberValue $freshness 'Observations') -ComputedAtUtc (Get-DomeniaMemberValue $freshness 'ComputedAtUtc')
     [void](Set-DomeniaControlText 'LblFleetDashboard' ($summary.ObservationsText+"`n"+$summary.ComputedText))
     [void](Save-DomeniaFleetSnapshot -Scope $scope -Board $board)
-    # Point 148: the dashboard is discovered once an overview with workstations was computed while Accueil is shown.
+    # Point 148: the dashboard is discovered once an overview with workstations was computed while Accueil itself is
+    # shown. The workshop (Outils, Atelier) also reads this overview, but it is not the dashboard the step points to.
     try {
-        if (($count -gt 0) -and (Test-DomeniaFleetDashboardShown) -and (-not [bool][string](Get-DomeniaSetting -Name 'Home.DashboardSeen' -Default ''))) {
+        $workspaces = Get-DomeniaControl 'WorkspaceTabs'
+        $homeShown = (($null -ne $workspaces) -and ($null -ne $workspaces.SelectedItem) -and ([string]$workspaces.SelectedItem.Name -eq 'TabDashboard'))
+        if (($count -gt 0) -and $homeShown -and (-not [bool][string](Get-DomeniaSetting -Name 'Home.DashboardSeen' -Default ''))) {
             Set-DomeniaSetting -Name 'Home.DashboardSeen' -Value ([datetime]::UtcNow.ToString('o'))
         }
     } catch { Write-AppLog ('Premiers pas : préférence non enregistrée. ' + $_.Exception.Message) 'WARN' }

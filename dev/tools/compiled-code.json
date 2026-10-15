@@ -30,10 +30,13 @@
         "native/ProbeAggregation.cs"
       ],
       "Binary": "wad/modules/Domenia.Native.dll",
-      "Reason": "Regroupement en tranches des sondes de tout le parc pour les widgets (ProbeBatch, ProbeSamples) ; appelé à chaque calcul de vue.",
+      "Reason": "Regroupement en tranches des sondes de tout le parc pour les widgets (ProbeBatch, ProbeSamples, ValueGroup) et filtre des segments de sonde dans les requêtes (ProbeSelection) ; appelés à chaque calcul de vue ou de requête. Chaque opération est mesurée contre son équivalent PowerShell.",
       "Measure": {
         "Suite": "Test-DomeniaHotspots",
-        "Hotspot": "probe-aggregation",
+        "Hotspot": [
+          "probe-aggregation",
+          "probe-selection"
+        ],
         "Comparison": "PowerShell",
         "Metrics": [
           "PowerShellMs",

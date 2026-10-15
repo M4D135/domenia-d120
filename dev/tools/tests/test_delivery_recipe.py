@@ -144,18 +144,26 @@ class HotspotCriterionTests(unittest.TestCase):
         self.assertEqual(dr.check_hotspots(None)['Status'], 'NON_MESURE')
         with tempfile.TemporaryDirectory() as run:
             run = Path(run)
-            (run / 'Test-DomeniaHotspots.ps1.json').write_text(json.dumps({'Hotspots': [
+            (run / 'Test-DomeniaHotspots.ps1.json').write_text(json.dumps({'Failed': 0, 'Hotspots': [
                 {'Id': 'observation-decode', 'PowerShellMs': 9000, 'CompiledMs': 300, 'Units': 2000, 'Parity': True},
-                {'Id': 'probe-aggregation', 'PowerShellMs': 4000, 'CompiledMs': 500, 'Units': 2000, 'Parity': True}]}), encoding='utf-8')
+                {'Id': 'probe-aggregation', 'PowerShellMs': 4000, 'CompiledMs': 500, 'Units': 2000, 'Parity': True},
+                {'Id': 'probe-selection', 'PowerShellMs': 2500, 'CompiledMs': 200, 'Units': 2000, 'Parity': True}]}), encoding='utf-8')
             self.assertEqual(dr.check_hotspots(run)['Status'], 'NON_MESURE', 'le moteur de requête attend sa suite d’échelle')
             (run / 'Test-DomeniaQueryScale.ps1.json').write_text(json.dumps({'Status': 'PASS', 'Records': 20000, 'ElapsedSeconds': 3.5}), encoding='utf-8')
             self.assertEqual(dr.check_hotspots(run)['Status'], 'PASS')
-            (run / 'Test-DomeniaHotspots.ps1.json').write_text(json.dumps({'Hotspots': [
+            (run / 'Test-DomeniaHotspots.ps1.json').write_text(json.dumps({'Failed': 0, 'Hotspots': [
                 {'Id': 'observation-decode', 'PowerShellMs': 400, 'CompiledMs': 300, 'Units': 2000, 'Parity': True},
-                {'Id': 'probe-aggregation', 'PowerShellMs': 4000, 'CompiledMs': 500, 'Units': 2000, 'Parity': True}]}), encoding='utf-8')
+                {'Id': 'probe-aggregation', 'PowerShellMs': 4000, 'CompiledMs': 500, 'Units': 2000, 'Parity': True},
+                {'Id': 'probe-selection', 'PowerShellMs': 2500, 'CompiledMs': 200, 'Units': 2000, 'Parity': True}]}), encoding='utf-8')
             outcome = dr.check_hotspots(run)
             self.assertEqual(outcome['Status'], 'FAIL')
             self.assertIn('observation-reader', outcome['Detail'])
+            # A failed case of the measuring suite (a parity check that threw) refuses every hot spot it measured.
+            (run / 'Test-DomeniaHotspots.ps1.json').write_text(json.dumps({'Failed': 1, 'Hotspots': [
+                {'Id': 'observation-decode', 'PowerShellMs': 9000, 'CompiledMs': 300, 'Units': 2000, 'Parity': True},
+                {'Id': 'probe-aggregation', 'PowerShellMs': 4000, 'CompiledMs': 500, 'Units': 2000, 'Parity': True},
+                {'Id': 'probe-selection', 'PowerShellMs': 2500, 'CompiledMs': 200, 'Units': 2000, 'Parity': True}]}), encoding='utf-8')
+            self.assertEqual(dr.check_hotspots(run)['Status'], 'FAIL')
 
 
 class VerdictTests(unittest.TestCase):

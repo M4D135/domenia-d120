@@ -105,7 +105,8 @@ function ConvertTo-DomeniaStoreQueryChange {
     $kind=[string](Get-DomeniaStoreValue $Change 'Kind')
     if($kind -eq 'QueryRecipe'){
         $record=Get-DomeniaStoreValue $Change 'Record';Assert-DomeniaStoreSafeData $record
-        if([string](Get-DomeniaStoreValue $record 'Format') -cne 'Domenia.QueryLibraryRecord/1' -or [string](Get-DomeniaStoreValue $record 'StoreId') -cne [string]$Context.StoreId -or [string](Get-DomeniaStoreValue $record 'DomainDn') -ine [string]$Context.DomainDn){throw 'Contexte de recette incompatible.'}
+        [void](Assert-DomeniaContractFormat -Format ([string](Get-DomeniaStoreValue $record 'Format')) -Family 'Domenia.QueryLibraryRecord')
+        if(([string](Get-DomeniaStoreValue $record 'StoreId') -cne [string]$Context.StoreId) -or ([string](Get-DomeniaStoreValue $record 'DomainDn') -ine [string]$Context.DomainDn)){throw 'Contexte de recette incompatible.'}
         $json=[string](Get-DomeniaStoreValue $record 'DefinitionJson')
         if([Text.Encoding]::UTF8.GetByteCount($json) -gt 1048576 -or (Get-DomeniaStoreHash $json) -cne [string](Get-DomeniaStoreValue $record 'DefinitionSHA256')){throw 'Definition ou empreinte de recette invalide.'}
         $recipe=ConvertFrom-Json -InputObject $json -ErrorAction Stop;Assert-DomeniaStoreSafeData $recipe

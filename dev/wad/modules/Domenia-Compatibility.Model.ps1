@@ -153,7 +153,8 @@ function Test-DomeniaCompatibilityMatrix {
     param($Matrix)
     $problems = New-Object 'System.Collections.Generic.List[string]'
     if ($null -eq $Matrix) { return [pscustomobject]@{ Valid = $false; Problems = @('Matrice absente.') } }
-    if ([string](Get-DomeniaMember $Matrix 'Schema' '') -cne 'DomeniaCompatibilityMatrix/1') { $problems.Add('Schéma de matrice inconnu.') }
+    $format = Resolve-DomeniaContractFormat -Format ([string](Get-DomeniaMember $Matrix 'Schema' '')) -Family 'DomeniaCompatibilityMatrix'
+    if (-not $format.Accepted) { $problems.Add([string]$format.Message) }
     $statuses = @(Get-DomeniaCompatibilityStatuses)
     $dimensions = @(Get-DomeniaMember $Matrix 'Dimensions' @())
     if ($dimensions.Count -eq 0) { $problems.Add('Matrice sans dimension.') }
