@@ -1359,7 +1359,8 @@ La configuration de l'application tient dans wad\Domenia.config.json ; les choix
 | wad\Domenia.config.json | Configuration de l'application, lue au démarrage ; conservée par l'installateur. |
 | DOSSIER_DONNEES\Preferences\Domenia.settings.json | Préférences de l'utilisateur, avec une copie .bak ; écriture atomique différée de 1,5 s. |
 | wad\Domenia.login-mode.cfg | Mode de la fenêtre de connexion : Standard ou Debug. |
-| wad\Domenia.theme.cfg | Thème Light ou Dark, lu seulement sans choix valide dans les préférences. |
+| wad\Domenia.theme.cfg | Thème Light ou Dark, lu seulement sans choix valide dans les préférences. Le choix « Automatique (suit Windows) » des préférences lit AppsUseLightTheme sous HKCU, en lecture seule ; un thème Windows à contraste élevé impose ses couleurs système. |
+| DOC\Domenia-1.0-Guide-technicien.pdf, DOC\Domenia-1.0-Guide-administrateur.pdf | Facultatifs : guides ouverts par « Ouvrir le guide » du panneau d'aide. Le dossier DOC se place à côté de Domenia (dossier du programme ou ses deux parents) ; sans lui, l'aide indique le chapitre à lire. |
 | wad\Domenia.ui-profile.cfg | Profil de repli (Tech ou Admin), lu seulement sans choix valide dans les préférences. |
 | HKCU:\Software\DOMENIA | Identifiant mémorisé (RememberLogin, LastLogin). |
 

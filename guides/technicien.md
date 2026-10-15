@@ -559,9 +559,9 @@ Donnez-lui ces éléments :
 ## La fenêtre de Domenia
 
 - **Menu de gauche** : en haut « Accueil », « Rechercher », « Fiche », « Poste », « Utilisateurs et postes » (associations utilisateur et poste) ; en bas « Comptes », « Outils », le choix « Essentiel | Expert », le compte et le domaine connectés (menu « Changer de compte », « À propos ») et la petite icône qui replie le menu. Sous 1280 de large, le menu se replie seul sans changer votre choix.
-- **Bandeau** : barre « Personne, poste ou groupe, dans tout le domaine… » avec sa loupe, ✕ pour la vider et l'indication « Ctrl K » pour la palette des actions ; boutons-icônes « Accès » et « Opérations » (pastille au-dessus de zéro), thème (l'icône montre le thème obtenu), « ? » pour l'aide. Les flèches Précédent et Suivant sont à gauche du titre de la page.
+- **Bandeau** : barre « Personne, poste ou groupe, dans tout le domaine… » avec sa loupe, ✕ pour la vider et l'indication « Ctrl K » pour la palette des actions ; boutons-icônes « Accès » et « Opérations » (pastille au-dessus de zéro), thème (l'icône montre le thème obtenu ; clic droit : « Clair », « Sombre » ou « Automatique (suit Windows) »), « ? » pour l'aide. Les flèches Précédent et Suivant sont à gauche du titre de la page.
 - **Interrupteur « Lecture seule »** : actif à chaque démarrage. Les actions qui modifient l'annuaire ou les postes restent bloquées.
-- **Aide** : « ? » ouvre l'« Aide contextuelle » à droite. Survolez un contrôle, ou passez dessus avec Tab, pour lire son rôle.
+- **Aide** : « ? » ouvre l'« Aide contextuelle » à droite ; elle est fermée au premier démarrage et une pastille signale alors « ? ». En tête, « À quoi sert cet élément ? » : survolez un contrôle, ou passez dessus avec Tab, pour lire son rôle. Dessous, le chapitre de ce guide qui décrit la page affichée ; « Ouvrir le guide » ouvre le PDF s'il a été placé dans un dossier DOC à côté de Domenia.
 - **Zoom** : les boutons − et + en bas de la fenêtre règlent la taille de l’interface de 80 à 150 %, par pas de 10. Cliquez sur le pourcentage pour revenir à 100 %. Votre choix est conservé. Le menu et les espacements s’adaptent à la place restante après zoom ; les barres de défilement donnent accès aux zones qui dépassent.
 - **Journal de session** : en bas de la fenêtre, messages, résultats et erreurs de la session ; « Copier » le copie.
 
