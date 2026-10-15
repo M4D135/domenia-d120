@@ -24248,10 +24248,10 @@ try {
 
     if (-not [bool](Get-CfgValue "Async" "Enabled" $true)) { throw "Moteur multithread desactive dans la configuration." }
     if ($script:AsyncEngineClosing) { throw "Le moteur multithread est en cours de fermeture." }
-    # Points 32 and 34: while a base maintenance holds its lock (copy, switch to finish, unreadable base), no other local
-    # writer is admitted; reads stay available and collected results wait in the single queue. This refusal used to sit
-    # inside the trace block above, whose empty catch swallowed it.
-    if(($null -ne $script:StorageMaintenance) -and [bool]$script:StorageMaintenance.Locked -and ($OperationId -notin @('StorageMaintenance','StorageRetention','StorageIntegrity')) -and ((Get-DomeniaOperationEffect $OperationId) -eq 'LocalWrite')){throw 'Maintenance de la base en cours : terminez ou reprenez la bascule avant une nouvelle écriture locale.'}
+    # Points 32 and 34: while a base maintenance holds its lock (copy, switch to finish, unreadable base), no other writer
+    # of the base is admitted; reads, the receipts journal and chosen documents stay available, and collected results wait
+    # in the single queue. This refusal used to sit inside the trace block above, whose empty catch swallowed it.
+    if(($null -ne $script:StorageMaintenance) -and [bool]$script:StorageMaintenance.Locked -and (Test-DomeniaStorageLockedWriter -OperationId $OperationId)){throw 'Maintenance de la base en cours : terminez ou reprenez la bascule avant une nouvelle écriture locale.'}
     if($OperationId -eq 'StoragePurge'){Assert-DomeniaStoragePurgeReady}
     if($OperationId -ne 'ReceiptStore' -and (@($script:AsyncJobs.Values|Where-Object{$_.OperationId -eq 'StoragePurge'}).Count -or @($script:DetachedReadJobs|Where-Object{$_.OperationId -eq 'StoragePurge'}).Count)){throw 'Une simulation ou purge locale est encore active. Attendez sa fin.'}
     # D094: durable receipt required before dispatch for known mutations only.

@@ -224,7 +224,8 @@ function Get-StoreWProjection {
 }
 function Read-StoreWCommitted {
     # -SkipState: the caller already holds the snapshot revision of its read transaction (slices of one read).
-    param([IntPtr]$Db,[string[]]$Guids,[bool]$IncludeDirectoryDetails=$true,[bool]$IncludeObservations=$true,[bool]$IncludeDetails=$true,[string]$DetailWhere='1=1',[string[]]$ObservationFamilies=$null,[ValidateSet('Full','QuerySummary')][string]$DetailProjection='Full',[ValidateSet('Full','Summary')][string]$ObservationProjection='Full',[switch]$SkipState)
+    # -DetailResultKind / -DetailRequestKey (point 39): operator text, bound after the GUID slots, never spliced.
+    param([IntPtr]$Db,[string[]]$Guids,[bool]$IncludeDirectoryDetails=$true,[bool]$IncludeObservations=$true,[bool]$IncludeDetails=$true,[AllowEmptyString()][string]$DetailResultKind='',[AllowEmptyString()][string]$DetailRequestKey='',[string[]]$ObservationFamilies=$null,[ValidateSet('Full','QuerySummary')][string]$DetailProjection='Full',[ValidateSet('Full','Summary')][string]$ObservationProjection='Full',[switch]$SkipState)
     $in=Get-IdxWGuidSlots $Guids;$keys=$in.Sql
     $rows=[Collections.Generic.List[object]]::new();$observations=[Collections.Generic.List[object]]::new();$details=[Collections.Generic.List[object]]::new();$projections=[Collections.Generic.List[object]]::new()
     if($in.Count -gt 0){
@@ -259,7 +260,12 @@ function Read-StoreWCommitted {
                 # No JSON extension and no full payload scan: old rows without a summary stay unknown.
                 $detailColumns="object_guid,result_kind,request_key,dn,attempt_at,status,error,success_at,revision,$successColumn AS payload,$attemptColumn AS attempt_payload"
             }
-            foreach($r in @(Invoke-IdxWQuery $Db ("SELECT $detailColumns FROM domenia_details WHERE object_guid IN ($keys) AND ($DetailWhere) ORDER BY object_guid,result_kind,request_key;") -Parameters $in.Parameters -Cached:([bool]$in.Cached))){$details.Add((Convert-StoreWObservation $r 'DetailResult'))}
+            $detailParameters=[Collections.Generic.List[object]]::new();if($null -ne $in.Parameters){$detailParameters.AddRange([object[]]$in.Parameters)}
+            $detailWhere=''
+            if($DetailResultKind){$detailParameters.Add($DetailResultKind);$detailWhere+=' AND result_kind=?'+$detailParameters.Count}
+            if($DetailRequestKey){$detailParameters.Add($DetailRequestKey);$detailWhere+=' AND request_key=?'+$detailParameters.Count}
+            # The statement keeps one shape per filter combination, so a 32-slot slice still reuses its prepared form.
+            foreach($r in @(Invoke-IdxWQuery $Db ("SELECT $detailColumns FROM domenia_details WHERE object_guid IN ($keys)$detailWhere ORDER BY object_guid,result_kind,request_key;") -Parameters $detailParameters.ToArray() -Cached:([bool]$in.Cached))){$details.Add((Convert-StoreWObservation $r 'DetailResult'))}
         }
     }
     # -SkipState answers -1: no revision was read here.
@@ -428,8 +434,8 @@ try {
             }
             $where=$conditions -join ' AND ';$total=[long](@(Invoke-IdxWQuery $db "SELECT count(DISTINCT $column) AS n FROM $table WHERE $where;" -Parameters $bound.ToArray())[0].n)
             $page=@(Invoke-IdxWQuery $db "SELECT DISTINCT $column FROM $table WHERE $where ORDER BY $order LIMIT $limit OFFSET $offset;" -Parameters $bound.ToArray())
-            $detailWhere='1=1';if($kind -eq 'Detail'){if([string]$query.ResultKind){$detailWhere+=' AND result_kind='+(Get-IdxWLiteral ([string]$query.ResultKind))};if([string]$query.RequestKey){$detailWhere+=' AND request_key='+(Get-IdxWLiteral ([string]$query.RequestKey))}}
-            $readArgs=@{Db=$db;Guids=@($page|ForEach-Object{[string]$_.object_guid});IncludeDirectoryDetails=([string]$query.Projection -ne 'List');IncludeObservations=($kind -eq 'Observation' -or [bool]$query.IncludeObservations);IncludeDetails=($kind -eq 'Detail');DetailWhere=$detailWhere}
+            $readArgs=@{Db=$db;Guids=@($page|ForEach-Object{[string]$_.object_guid});IncludeDirectoryDetails=([string]$query.Projection -ne 'List');IncludeObservations=($kind -eq 'Observation' -or [bool]$query.IncludeObservations);IncludeDetails=($kind -eq 'Detail')}
+            if($kind -eq 'Detail'){$readArgs.DetailResultKind=[string]$query.ResultKind;$readArgs.DetailRequestKey=[string]$query.RequestKey}
             if($kind -eq 'Observation' -and [string]$query.Family){$readArgs.ObservationFamilies=@([string]$query.Family)}
             if($kind -eq 'Detail' -and $null -ne $query.PSObject.Properties['DetailProjection'] -and [string]$query.DetailProjection){$readArgs.DetailProjection=[string]$query.DetailProjection}
             $read=Read-StoreWCommitted @readArgs

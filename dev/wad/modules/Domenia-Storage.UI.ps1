@@ -37,7 +37,10 @@ function Request-DomeniaStorageWork {
     # The same queue/timer remains the sole writer; legacy deltas retain their debounce and failure backoff.
     if($null -eq $script:Persistence -or $null -eq $script:Persistence.Timer){return}
     $interval=1000
-    if(-not $script:Persistence.Job -and [int]$script:Persistence.Failures -eq 0){
+    # Under a maintenance lock the queue only waits (Start-DomeniaStorageWork): the idle poll resumes it within a
+    # second of the release, without spinning the Dispatcher every 20 ms for the whole lock.
+    $locked=(($null -ne $script:StorageMaintenance) -and [bool]$script:StorageMaintenance.Locked)
+    if((-not $locked) -and (-not $script:Persistence.Job) -and ([int]$script:Persistence.Failures -eq 0)){
         foreach($item in $script:Persistence.Pending.Values){if([string]$item.Kind -eq 'StoreBatch'){$interval=20};break}
     }
     try{
@@ -86,6 +89,13 @@ function Queue-DomeniaLinkChanges {
     }
     # A quiet request without any change leaves the grids and the index alone.
     if($Quiet -and ($items.Count -eq 0)){return $true}
+    # Points 32 and 34: under a maintenance lock an association would wait for a base that the switch leaves. It is
+    # refused here instead: callers undo the change in memory and say so; the quiet path retries after the lock.
+    $refusal='';if($items.Count){$refusal=Get-DomeniaStorageInputRefusal -Maintenance $script:StorageMaintenance}
+    if($refusal){
+        if(-not $Quiet){Set-Status $refusal 'WARN'}
+        return $false
+    }
     $queuedCount=$items.Count
     if($MaxItems -gt 0){$queuedCount=[Math]::Min($MaxItems,$items.Count)}
     if(((($MaxItems -eq 0) -and ($items.Count -gt 64)) -or (($script:Persistence.Pending.Count + $queuedCount) -gt 256))){
@@ -155,8 +165,12 @@ function Start-DomeniaStorageWork {
     }
     if($null -eq $script:Persistence -or $script:AsyncEngineClosing -or $script:Persistence.Job -or -not $script:Persistence.Pending.Count){return}
     # Points 32 and 34: while a maintenance step holds the base (copy, switch to finish, unreadable base) the queue waits
-    # untouched: no refused admission, no fault, no dropped import. The switch decides what happens to it.
-    if(($null -ne $script:StorageMaintenance) -and [bool]$script:StorageMaintenance.Locked){return}
+    # untouched: no refused admission, no fault, no dropped import. The switch decides what happens to it. The timer
+    # goes back to its idle poll, which resumes the queue within a second of the release.
+    if(($null -ne $script:StorageMaintenance) -and [bool]$script:StorageMaintenance.Locked){
+        if(($null -ne $script:Persistence.Timer) -and ([int]$script:Persistence.Timer.IntervalMs -ne 1000)){try{Set-DomeniaTimerInterval -Timer $script:Persistence.Timer -Interval ([timespan]::FromMilliseconds(1000))}catch{}}
+        return
+    }
     $import=@($script:Persistence.Pending.Values|Where-Object{$_.Kind -eq 'LegacyImport'}|Select-Object -First 1)
     $canStartImport=($import.Count -gt 0 -and -not $script:Persistence.LegacyImportJob)
     if(-not $canStartImport){
@@ -425,6 +439,10 @@ function Queue-DomeniaMetadata {
         if([string]::IsNullOrWhiteSpace($baseDn) -or $baseDn -notmatch '(?i)DC='){Set-Status 'Reprise des anciennes donnees impossible : domaine absent.' 'WARN';return $false}
         if($script:Persistence.LinkBusy){Set-Status 'Reprise des anciennes donnees impossible : enregistrement des liens en cours.' 'WARN';return $false}
         if($script:Persistence.LegacyImportJob){Set-Status 'Reprise des anciennes donnees deja en cours.' 'WARN';return $false}
+        # Points 32 and 34: an explicit import is refused under a maintenance lock rather than queued for a base that
+        # the switch would leave (collected observations still wait in the queue; the switch accounts for them).
+        $refusal=Get-DomeniaStorageInputRefusal -Maintenance $script:StorageMaintenance
+        if($refusal){Set-Status ('Reprise des anciennes données : '+$refusal) 'WARN';return $false}
         foreach($v in @($script:Persistence.Pending.Values)){if($v.Kind -eq 'Link' -or $v.Kind -eq 'LegacyImport'){Set-Status 'Reprise des anciennes donnees impossible : modifications de liens en attente.' 'WARN';return $false}}
         if(-not $Key){$Key=$marker}
         $queueKey='LegacyImport|'+[string]$script:DatabaseScopedPath+'|'+$Key
@@ -928,6 +946,9 @@ function Submit-DomeniaStoreBatch {
     $batch=ConvertTo-DomeniaStoreBatch -Context $Context -BatchId $BatchId -Sequence $Sequence -Changes $Changes
     if($null -eq $script:Persistence){Initialize-DomeniaPersistence}
     if([int]$script:Persistence.Failures -ge 3){return [pscustomobject]@{Accepted=$false;Backpressure=$true;Reason='StorageSuspended';BatchId=$batch.BatchId}}
+    # Points 32 and 34: a saved query is an operator change; under a maintenance lock it is refused (its caller says it
+    # was not saved) instead of waiting for a base that the switch leaves. Collected data keeps waiting in the queue.
+    if((Get-DomeniaStorageInputRefusal -Maintenance $script:StorageMaintenance) -and @($Changes|Where-Object{[string](Get-DomeniaStoreValue $_ 'Kind') -cin @('QueryRecipe','QueryDependency','QueryMigration')}).Count){return [pscustomobject]@{Accepted=$false;Backpressure=$false;Reason='StorageMaintenance';BatchId=$batch.BatchId}}
     $key='StoreBatch|'+$batch.Context.StoreId+'|'+$batch.BatchId
     $bytes=0L;$count=0L
     foreach($item in @($script:Persistence.Pending.Values)+@($script:Persistence.InFlightItems)){
@@ -1026,8 +1047,10 @@ function Request-DomeniaStorageMaintenance {
         }
         $state=[pscustomobject]@{Id=[guid]::NewGuid().ToString('D');Mode=$Mode;Epoch=[long]$script:SessionEpoch;Path=$active;DomainDn=[string]$script:Conn.BaseDn;SourcePath=[IO.Path]::GetFullPath($SourcePath);TargetPath=[IO.Path]::GetFullPath($TargetPath);Fingerprint='';Job='';Locked=$recovery;Recovery=$recovery;Hold=$true;HoldUntil=[datetime]::UtcNow.AddMinutes(10);Draining=$false;DrainNext='';DrainUntil=[datetime]::MinValue;Receipt=$null}
         $script:StorageMaintenance=$state
-        $ready=$true;try{Assert-DomeniaStoragePurgeReady}catch{$ready=$false}
-        if($ready){Start-DomeniaStorageMaintenanceInspect -State $state}else{Start-DomeniaStorageMaintenanceDrain -State $state -Next 'Inspect'}
+        # Point 34: over an unreadable base the locked writer never empties its queue; what waits there targets that
+        # base and is accounted for by the switch (Clear-DomeniaStoragePendingForOtherBase). Only running work waits.
+        $ready=$true;try{Assert-DomeniaStoragePurgeReady -AllowQueued:$recovery}catch{$ready=$false}
+        if($ready){Start-DomeniaStorageMaintenanceInspect -State $state}else{Start-DomeniaStorageMaintenanceDrain -State $state}
     }catch{Set-Status ('Maintenance locale impossible : '+$_.Exception.Message) 'WARN'}
     [void](Update-DomeniaStorageMaintenanceControls)
 }
@@ -1046,14 +1069,21 @@ function Start-DomeniaStorageMaintenanceInspect {
     [void](Update-DomeniaStorageMaintenanceControls)
 }
 function Start-DomeniaStorageMaintenanceDrain {
-    # Point 32: new collections stay suspended (Hold) while the single writer saves what is already queued; the next
-    # step starts as soon as nothing is pending. Bounded to 120 s; nothing is dropped and nothing is replayed.
-    param($State,[ValidateSet('Inspect','Apply')][string]$Next)
-    $State.Draining=$true;$State.DrainNext=$Next;$State.DrainUntil=[datetime]::UtcNow.AddSeconds(120)
+    # Point 32: new collections stay suspended (Hold) while the single writer saves what is already queued; the
+    # read-only inspection (then the confirmation) follows as soon as nothing is pending, so the preview and its
+    # fingerprint always describe the base as it will be copied. Bounded to 120 s; nothing dropped, nothing replayed.
+    # Point 34: over an unreadable base (Recovery) only running work is awaited; its queue can never be written.
+    param($State)
+    $State.Draining=$true;$State.DrainNext='Inspect';$State.DrainUntil=[datetime]::UtcNow.AddSeconds(120)
     if($null -eq $script:StorageDrainTimer){$script:StorageDrainTimer=New-DomeniaTimer -Owner 'Timer:StorageDrain' -IntervalMs 1000 -RunWhenHidden -Tick {Invoke-DomeniaStorageMaintenanceDrainTick}}
     $script:StorageDrainTimer.Start()
-    [void](Set-DomeniaControlText 'LblStorageMaintenance' ('Nouvelles collectes suspendues : enregistrement de la file avant la copie (120 s au plus). '+(Format-DomeniaStorageUnsaved (Get-DomeniaPersistenceState))))
-    Set-Status 'Maintenance de la base : nouvelles collectes suspendues le temps dʼenregistrer la file locale.'
+    if([bool]$State.Recovery){
+        [void](Set-DomeniaControlText 'LblStorageMaintenance' 'Restauration en attente de la fin de lʼactivité locale en cours (120 s au plus) ; la base illisible reste en place.')
+        Set-Status 'Restauration : attente de la fin de lʼactivité locale en cours.'
+    }else{
+        [void](Set-DomeniaControlText 'LblStorageMaintenance' ('Nouvelles collectes suspendues : enregistrement de la file avant la copie (120 s au plus). '+(Format-DomeniaStorageUnsaved (Get-DomeniaPersistenceState))))
+        Set-Status 'Maintenance de la base : nouvelles collectes suspendues le temps dʼenregistrer la file locale.'
+    }
     [void](Update-DomeniaStorageMaintenanceControls)
 }
 function Invoke-DomeniaStorageMaintenanceDrainTick {
@@ -1062,15 +1092,16 @@ function Invoke-DomeniaStorageMaintenanceDrainTick {
     if(($state.Epoch -ne [long]$script:SessionEpoch) -or ([string]$state.Path -cne [string]$script:DatabaseScopedPath)){
         $state.Draining=$false;$state.Hold=[bool]$state.Recovery;$script:StorageDrainTimer.Stop();[void](Update-DomeniaStorageMaintenanceControls);return
     }
-    $why='';try{Assert-DomeniaStoragePurgeReady}catch{$why=[string]$_.Exception.Message}
+    $why='';try{Assert-DomeniaStoragePurgeReady -AllowQueued:([bool]$state.Recovery)}catch{$why=[string]$_.Exception.Message}
     if(-not $why){
         $state.Draining=$false;$script:StorageDrainTimer.Stop()
-        if($state.DrainNext -eq 'Apply'){Start-DomeniaStorageMaintenanceApply -State $state}else{Start-DomeniaStorageMaintenanceInspect -State $state}
+        Start-DomeniaStorageMaintenanceInspect -State $state
         return
     }
     if([datetime]::UtcNow -gt $state.DrainUntil){
         $state.Draining=$false;$state.Hold=[bool]$state.Recovery;$script:StorageDrainTimer.Stop()
         $text='Maintenance non lancée : activité locale encore en cours après 120 s ('+$why.TrimEnd('.')+'). Collectes rétablies ; relancez lʼassistant quand elle sera terminée.'
+        if([bool]$state.Recovery){$text='Restauration non lancée : activité locale encore en cours après 120 s ('+$why.TrimEnd('.')+'). La base illisible reste en place et les collectes restent suspendues ; relancez « Restaurer une sauvegarde… » quand elle sera terminée.'}
         [void](Set-DomeniaControlText 'LblStorageMaintenance' $text);Set-Status $text 'WARN';[void](Update-DomeniaStorageMaintenanceControls);return
     }
     [void](Set-DomeniaControlText 'LblStorageMaintenance' ('Nouvelles collectes suspendues : attente de la fin de lʼactivité locale ('+$why.TrimEnd('.')+'). '+(Format-DomeniaStorageUnsaved (Get-DomeniaPersistenceState))))
@@ -1106,12 +1137,16 @@ function Start-DomeniaStorageMaintenanceApply {
     $wasLocked=$false;if($null -ne $State){$wasLocked=[bool]$State.Locked}
     try{
         if(($null -eq $State) -or ($null -eq $script:StorageMaintenance) -or ($State.Id -cne $script:StorageMaintenance.Id) -or ($State.Epoch -ne [long]$script:SessionEpoch) -or ([string]$State.Path -cne [string]$script:DatabaseScopedPath)){throw 'Contexte de maintenance modifié.'}
-        $ready=$true;$why='';try{Assert-DomeniaStoragePurgeReady -AllowQueued:([bool]$Recovery -and $wasLocked)}catch{$ready=$false;$why=[string]$_.Exception.Message}
+        # A restore over an unreadable base (State.Recovery) and the resume of a locked switch admit the queue that the
+        # lock keeps for another base; only running work refuses them.
+        $ready=$true;$why='';try{Assert-DomeniaStoragePurgeReady -AllowQueued:([bool]$State.Recovery -or ([bool]$Recovery -and $wasLocked))}catch{$ready=$false;$why=[string]$_.Exception.Message}
         if(-not $ready){
             if($Recovery){throw $why}
-            # Writes reached the queue after the inspection: drain them first. The copy re-checks the fingerprint and
-            # refuses a source changed since the preview.
-            Start-DomeniaStorageMaintenanceDrain -State $State -Next 'Apply';return
+            # Writes reached the queue after the inspection: once saved, they would change the source and the copy would
+            # refuse the confirmed fingerprint. Drain them, then inspect again and ask a new confirmation.
+            Start-DomeniaStorageMaintenanceDrain -State $State
+            Set-Status 'Des écritures locales sont arrivées depuis lʼaperçu : enregistrement, puis nouvel aperçu à confirmer.'
+            return
         }
         $State.Locked=$true;$State.Hold=$true
         # An undo names the original (marker holder) as the worker's active base; the session itself is on the copy.
@@ -1135,7 +1170,9 @@ function Get-DomeniaStorageMaintenanceMarkerPath {
 function Clear-DomeniaStoragePendingForOtherBase {
     # Points 32 and 34: after a switch, what was queued for another base can no longer be written there (a marker
     # keeps it read-only, or the session left it) and was never part of the verified copy. Those items are dropped
-    # and counted, never replayed into the new base; their callers are told, as for a refused batch.
+    # and counted, never replayed into the new base; their callers are told, as for a refused batch. Operator changes
+    # (associations, saved queries, imports) never reach this point: the lock refuses them where they are made
+    # (Get-DomeniaStorageInputRefusal), so what is dropped here is collected data.
     param([string]$ActivePath)
     if(($null -eq $script:Persistence) -or (-not $ActivePath)){return 0}
     $message='Base locale changée par la maintenance : lot collecté pour lʼancienne base non enregistré.'
@@ -1177,6 +1214,7 @@ function Invoke-DomeniaStorageMaintenanceSwitch {
         $script:StorageLastSwitch=[pscustomobject]@{OperationId=[string]$State.Id;OriginalPath=$original;TargetPath=[string]$Receipt.TargetPath;DomainDn=[string]$State.DomainDn;Epoch=[long]$script:SessionEpoch}
     }else{$script:StorageLastSwitch=$null}
     $dropped=0;try{$dropped=Clear-DomeniaStoragePendingForOtherBase -ActivePath ([string]$Receipt.TargetPath)}catch{Write-AppLog ('File locale après bascule non vérifiée : '+$_.Exception.Message) 'WARN'}
+    Request-DomeniaStorageWork
     $kept='Original conservé : '+$original
     if([bool]$Receipt.RedirectWritten){$kept='Original conservé en lecture seule : '+$original+' ; « Revenir à la base précédente » reste possible tant que la nouvelle base nʼa reçu aucune écriture'}
     elseif(-not [bool]$Receipt.ActiveReadable){$kept='Ancienne base illisible laissée intacte : '+$original}

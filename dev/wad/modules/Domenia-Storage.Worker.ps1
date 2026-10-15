@@ -1958,18 +1958,23 @@ foreach($family in @('Presence','Console','Inventory','Probe','Detail','LinkHist
         # the same computer name the same user (login and GUID): every change, and the first and last observation of
         # each period, stay. Unreadable dates are neither removed nor used for ordering. Declared associations and
         # their history are never touched (same protection as the manual purge).
+        # The neighbours come from one ordered pass: every readable observation is numbered in a TEMP table (computer,
+        # date, id), then joined to the rows numbered just before and after it. Correlated previous/next subqueries
+        # re-read the whole history of the computer for every row (minutes on a large park, inside the writer lock).
         $sources="('manual','saisie manuelle','import csv')"
         $identity="lower(COALESCE({0}.user_login,''))||char(31)||lower(COALESCE({0}.user_guid,''))"
-        $previous="(SELECT "+($identity -f 'p')+" FROM user_machine_history p WHERE p.computer_key=h.computer_key AND julianday(p.observed_at) IS NOT NULL AND (julianday(p.observed_at)<julianday(h.observed_at) OR (julianday(p.observed_at)=julianday(h.observed_at) AND p.id<h.id)) ORDER BY julianday(p.observed_at) DESC,p.id DESC LIMIT 1)"
-        $next="(SELECT "+($identity -f 'n')+" FROM user_machine_history n WHERE n.computer_key=h.computer_key AND julianday(n.observed_at) IS NOT NULL AND (julianday(n.observed_at)>julianday(h.observed_at) OR (julianday(n.observed_at)=julianday(h.observed_at) AND n.id>h.id)) ORDER BY julianday(n.observed_at) ASC,n.id ASC LIMIT 1)"
-        $where="id IN (SELECT h.id FROM user_machine_history h WHERE julianday(h.observed_at) IS NOT NULL AND julianday(h.observed_at)<julianday($literal) AND COALESCE(h.user_login,'')<>'' AND lower(trim(COALESCE(h.source,''))) NOT IN $sources AND lower(trim(COALESCE(h.computer_key,''))) NOT IN (SELECT lower(trim(COALESCE(computer_key,''))) FROM user_machine_links WHERE lower(trim(COALESCE(source,''))) IN $sources) AND $previous="+($identity -f 'h')+" AND $next="+($identity -f 'h')+")"
-        $targets.Add([pscustomobject]@{Family=$family;Table='user_machine_history';CutoffUtc=$date.ToString('o');Where=$where})
+        $candidate="julianday(h.observed_at)<julianday($literal) AND COALESCE(h.user_login,'')<>'' AND lower(trim(COALESCE(h.source,''))) NOT IN $sources AND lower(trim(COALESCE(h.computer_key,''))) NOT IN (SELECT lower(trim(COALESCE(computer_key,''))) FROM user_machine_links WHERE lower(trim(COALESCE(source,''))) IN $sources)"
+        $prepare="DROP TABLE IF EXISTS temp.domenia_retention_links;CREATE TEMP TABLE domenia_retention_links(seq INTEGER PRIMARY KEY,id INTEGER NOT NULL,computer_key TEXT,jd REAL NOT NULL,who TEXT NOT NULL,candidate INTEGER NOT NULL);INSERT INTO temp.domenia_retention_links(id,computer_key,jd,who,candidate) SELECT h.id,h.computer_key,julianday(h.observed_at),"+($identity -f 'h')+",CASE WHEN $candidate THEN 1 ELSE 0 END FROM user_machine_history h WHERE julianday(h.observed_at) IS NOT NULL ORDER BY h.computer_key,julianday(h.observed_at),h.id;"
+        # Guard: a numbering that does not follow (computer, date, id) is refused before anything is counted or removed.
+        $order="SELECT count(*) AS n FROM temp.domenia_retention_links t JOIN temp.domenia_retention_links p ON p.seq=t.seq-1 WHERE (t.computer_key IS NULL AND p.computer_key IS NOT NULL) OR p.computer_key>t.computer_key OR (p.computer_key=t.computer_key AND (p.jd>t.jd OR (p.jd=t.jd AND p.id>=t.id)));"
+        $where="id IN (SELECT c.id FROM temp.domenia_retention_links c JOIN temp.domenia_retention_links p ON p.seq=c.seq-1 AND p.computer_key=c.computer_key AND p.who=c.who JOIN temp.domenia_retention_links n ON n.seq=c.seq+1 AND n.computer_key=c.computer_key AND n.who=c.who WHERE c.candidate=1)"
+        $targets.Add([pscustomobject]@{Family=$family;Table='user_machine_history';CutoffUtc=$date.ToString('o');Where=$where;Prepare=$prepare;OrderCheck=$order})
         continue
     }
     $table=if($family -eq 'Detail'){'domenia_details'}else{'domenia_observations'}
     $where="julianday(attempt_at) IS NOT NULL AND julianday(attempt_at)<julianday($literal) AND (COALESCE(success_at,'')='' OR (julianday(success_at) IS NOT NULL AND julianday(success_at)<julianday($literal)))"
     if($family -ne 'Detail'){$where+=' AND '+$(if($family -eq 'Probe'){"family LIKE 'Probe:%'"}else{'family='+(ConvertTo-DomeniaSqlLiteral $family)});$where+=' AND object_guid IN (SELECT object_guid FROM domenia_legacy_observation_imports)'}
-    $targets.Add([pscustomobject]@{Family=$family;Table=$table;CutoffUtc=$date.ToString('o');Where=$where})
+    $targets.Add([pscustomobject]@{Family=$family;Table=$table;CutoffUtc=$date.ToString('o');Where=$where;Prepare='';OrderCheck=''})
 }
 if(-not $targets.Count){throw 'Toutes les familles sont conservees sans limite ; aucune suppression a appliquer.'}
 $db=[IntPtr]::Zero;$transaction=$false
@@ -1980,6 +1985,8 @@ try{
     if(@(Invoke-DomeniaDbQuery "SELECT name FROM sqlite_master WHERE type='trigger';" $db).Count){throw 'Conservation refusee : declencheur SQLite non reconnu.'}
     $state=@(Invoke-DomeniaDbQuery 'SELECT * FROM domenia_store_state WHERE id=1;' $db)
     if($state.Count -ne 1 -or [string]$state[0].store_id -cne [string]$Payload.StoreId -or [string]$state[0].domain_dn -ine [string]$Payload.DomainDn){throw 'Contexte de conservation incompatible.'}
+    # Built inside this transaction, so the count and the removal read the same history (a dry run rolls it back).
+    foreach($target in $targets){if([string]$target.Prepare){[void](Invoke-DomeniaDbExec ([string]$target.Prepare) $db);if([long](@(Invoke-DomeniaDbQuery ([string]$target.OrderCheck) $db)[0].n) -ne 0){throw 'Ordre de lʼhistorique des associations non confirme : aucune suppression.'}}}
     $counts=@(foreach($target in $targets){$n=[long](@(Invoke-DomeniaDbQuery ('SELECT count(*) AS n FROM '+$target.Table+' WHERE '+$target.Where+';') $db)[0].n);[pscustomobject]@{Family=$target.Family;CutoffUtc=$target.CutoffUtc;Rows=$n}})
     $skipped=[long](@(Invoke-DomeniaDbQuery 'SELECT count(*) AS n FROM domenia_observations WHERE object_guid NOT IN (SELECT object_guid FROM domenia_legacy_observation_imports);' $db)[0].n)
     $basis=[ordered]@{Path=$path;StoreId=$state[0].store_id;Revision=$state[0].revision;Counts=$counts;SkippedLegacyRows=$skipped}

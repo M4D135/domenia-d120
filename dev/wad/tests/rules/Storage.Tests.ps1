@@ -18,11 +18,11 @@ function New-StorageTestReport {
 
 Test-Case 'P37' 'La politique ajoute lʼhistorique des associations sans changer de version' {
     $p=ConvertTo-DomeniaStoragePolicy
-    Assert-Equal 365 $p.LinkHistoryDays 'défaut'
+    Assert-Equal 0 $p.LinkHistoryDays 'défaut : historique conservé sans limite'
     Assert-Equal 1 $p.Version 'version inchangée'
     $old=ConvertTo-DomeniaStoragePolicy ([pscustomobject]@{Version=1;AutomaticBackup=$true;BackupHours=12;BackupKeep=5;PresenceDays=10;ConsoleDays=20;InventoryDays=30;ProbeDays=40;DetailDays=50})
-    Assert-Equal 365 $old.LinkHistoryDays 'politique enregistrée avant la clé'
-    Assert-Equal 0 (ConvertTo-DomeniaStoragePolicy ([pscustomobject]@{LinkHistoryDays=0})).LinkHistoryDays 'sans limite'
+    Assert-Equal 0 $old.LinkHistoryDays 'politique enregistrée avant la clé : aucun résumé sans choix explicite'
+    Assert-Equal 365 (ConvertTo-DomeniaStoragePolicy ([pscustomobject]@{LinkHistoryDays=365})).LinkHistoryDays 'durée choisie'
     Assert-Throws {ConvertTo-DomeniaStoragePolicy ([pscustomobject]@{LinkHistoryDays=-1})} 'négatif refusé'
     Assert-Throws {ConvertTo-DomeniaStoragePolicy ([pscustomobject]@{LinkHistoryDays=36501})} 'trop grand refusé'
 }
@@ -203,8 +203,8 @@ Test-Case 'P36' 'Un contrôle incomplet, doublé ou inconnu est refusé' {
 Test-Case 'P37' 'Une date limite par famille, vide pour une famille sans limite' {
     $c=Get-DomeniaStorageRetentionCutoffs -NowUtc $script:StorageNow
     Assert-Equal ($script:StorageNow.AddDays(-30).ToString('o')) $c.Presence 'présence 30 jours'
-    Assert-Equal ($script:StorageNow.AddDays(-365).ToString('o')) $c.LinkHistory 'historique 365 jours'
-    Assert-Equal '' (Get-DomeniaStorageRetentionCutoffs -Policy ([pscustomobject]@{LinkHistoryDays=0}) -NowUtc $script:StorageNow).LinkHistory 'sans limite'
+    Assert-Equal '' $c.LinkHistory 'historique conservé sans limite par défaut'
+    Assert-Equal ($script:StorageNow.AddDays(-365).ToString('o')) (Get-DomeniaStorageRetentionCutoffs -Policy ([pscustomobject]@{LinkHistoryDays=365}) -NowUtc $script:StorageNow).LinkHistory 'historique 365 jours choisi'
 }
 Test-Case 'P37' 'La perte de détail est annoncée famille par famille avant toute suppression' {
     $cut=$script:StorageNow.AddDays(-30).ToString('o')
@@ -246,4 +246,16 @@ Test-Case 'P39' 'Les lectures mesurées disent comment SQLite les a servies' {
     Assert-True ($text -like '*recherche de texte (20000 ligne(s)) : 35 ms, parcours complet*') 'parcours'
     Assert-False ($text -like '*Unknown*') 'mesure inconnue ignorée'
     Assert-Equal '' (Format-DomeniaStorageReadProbes -Probes @()) 'aucune mesure, aucune ligne'
+}
+Test-Case 'P32' 'Le verrou de maintenance refuse les écrivains de la base, pas le journal des reçus' {
+    foreach($id in @('LocalStore','LinkHistoryStore','LiveCache','IndexBuild','IndexRefresh','StoragePurge','StorageBackup')){Assert-True (Test-DomeniaStorageLockedWriter -OperationId $id) $id}
+    foreach($id in @('ReceiptStore','DocumentStore','StorageMaintenance','StorageRetention','StorageIntegrity','StorageUsage','LocalIndexRead','WriteUserAttribute','')){Assert-False (Test-DomeniaStorageLockedWriter -OperationId $id) ('admis : '+$id)}
+}
+Test-Case 'P32' 'Une modification saisie pendant le verrou est refusée avec son motif' {
+    Assert-Equal '' (Get-DomeniaStorageInputRefusal) 'aucune maintenance'
+    Assert-Equal '' (Get-DomeniaStorageInputRefusal -Maintenance ([pscustomobject]@{Id='m';Locked=$false;Hold=$true;Recovery=$false})) 'attente de confirmation : la file sera enregistrée avant la copie'
+    $copy=Get-DomeniaStorageInputRefusal -Maintenance ([pscustomobject]@{Id='m';Locked=$true;Recovery=$false;Receipt=$null})
+    Assert-True (($copy -like 'Maintenance de la base locale en cours : modification non enregistrée*') -and ($copy -like '*Outils > Base autonome > Stockage*')) 'copie en cours'
+    $unreadable=Get-DomeniaStorageInputRefusal -Maintenance ([pscustomobject]@{Id='recovery-unreadable';Locked=$true;Recovery=$true;Receipt=$null})
+    Assert-True ($unreadable -like 'Base locale illisible : modification non enregistrée*') 'base illisible'
 }

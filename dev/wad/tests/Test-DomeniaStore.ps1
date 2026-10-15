@@ -345,6 +345,21 @@ try{
   $r=Read-Store ([pscustomobject]@{Kind='Observation';Guids=@($guid);Family="Presence' OR '1'='1"})
   Expect ($r.Observations.Count -eq 0) 'family is a value, never SQL'
  }
+ Case 'Point 39: detail filters are bound after the GUID slots and keep only the requested result' {
+  $id='00000000-0000-0000-0000-000000000395'
+  $kinds=@(@('WmiExplorer',"win32_o'neil"),@('WmiExplorer','win32_bios'),@('Registry',"win32_o'neil"))
+  [void](Commit @(foreach($pair in $kinds){[pscustomobject]@{Kind='DetailResult';Guid=$id;DN='CN=PC-D,OU=Parc,DC=test';ResultKind=$pair[0];RequestKey=$pair[1];AttemptedAtUtc=$at;ObservedAtUtc=$at;Status='Success';Data=[pscustomobject]@{Key=$pair[1]}}}))
+  $both=Read-Store ([pscustomobject]@{Kind='Detail';Guids=@($id);ResultKind='WmiExplorer';RequestKey="win32_o'neil"})
+  Expect (($both.Total -eq 1) -and (@($both.Details).Count -eq 1) -and ($both.Details[0].ResultKind -ceq 'WmiExplorer') -and ($both.Details[0].RequestKey -ceq "win32_o'neil")) 'quote in a bound request key'
+  $kind=Read-Store ([pscustomobject]@{Kind='Detail';Guids=@($id);ResultKind='WmiExplorer'})
+  Expect ((@($kind.Details|ForEach-Object{$_.RequestKey}|Sort-Object) -join ',') -ceq "win32_bios,win32_o'neil") 'result kind alone'
+  $key=Read-Store ([pscustomobject]@{Kind='Detail';Guids=@($id);RequestKey="win32_o'neil"})
+  Expect ((@($key.Details|ForEach-Object{$_.ResultKind}|Sort-Object) -join ',') -ceq 'Registry,WmiExplorer') 'request key alone'
+  $none=Read-Store ([pscustomobject]@{Kind='Detail';Guids=@($id);ResultKind="WmiExplorer' OR '1'='1"})
+  Expect (($none.Total -eq 0) -and (@($none.Details).Count -eq 0)) 'a result kind is a value, never SQL'
+  $all=Read-Store ([pscustomobject]@{Kind='Detail';Guids=@($id)})
+  Expect (@($all.Details).Count -eq 3) 'no filter, every detail of the page'
+ }
  Case 'Point 39: slices of up to 32 GUIDs reuse one prepared statement with the same rows as a literal page' {
   $ids=@(1..40|ForEach-Object{'00000000-0000-0000-0000-0000000004'+$_.ToString('00')})
   [void](Commit @($ids|ForEach-Object{Directory $_ ('SLOT-'+$_.Substring(34))}))

@@ -972,6 +972,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Format-DomeniaStorageContent',
             'Get-DomeniaStorageMaintenancePreview',
             'Get-DomeniaStorageMaintenanceControlState',
+            'Test-DomeniaStorageLockedWriter',
+            'Get-DomeniaStorageInputRefusal',
             'Get-DomeniaStorageBackupSchedule',
             'Get-DomeniaStorageSpaceState',
             'Format-DomeniaStorageUnsaved',

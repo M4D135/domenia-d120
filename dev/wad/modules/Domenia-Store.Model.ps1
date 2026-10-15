@@ -136,8 +136,9 @@ function ConvertTo-DomeniaStoreQueryChange {
 function ConvertTo-DomeniaStoragePolicy {
     param($Value=$null)
     # Point 37: LinkHistoryDays was added after version 1 shipped. A stored policy without it keeps the default, so
-    # the version stays 1 (an additive key with a safe default is not a new format).
-    $policy=[ordered]@{Version=1;AutomaticBackup=$false;BackupHours=24;BackupKeep=7;PresenceDays=30;ConsoleDays=90;InventoryDays=180;ProbeDays=90;DetailDays=30;LinkHistoryDays=365}
+    # the version stays 1 (an additive key with a safe default is not a new format). The default 0 keeps the whole
+    # association history (decision of 2026-10-04: only an explicit operator choice removes any of it).
+    $policy=[ordered]@{Version=1;AutomaticBackup=$false;BackupHours=24;BackupKeep=7;PresenceDays=30;ConsoleDays=90;InventoryDays=180;ProbeDays=90;DetailDays=30;LinkHistoryDays=0}
     if($null -ne $Value){
         foreach($key in @($policy.Keys)){$v=Get-DomeniaStoreValue $Value $key $null;if($null -ne $v){
             if($key -eq 'AutomaticBackup'){if($v -isnot [bool]){throw 'Activation de sauvegarde invalide.'};$policy[$key]=[bool]$v}
@@ -316,6 +317,24 @@ function Get-DomeniaStorageMaintenanceControlState {
         Rollback=($idle -and (($locked -and $target -and (-not $discovering) -and (-not $recovery)) -or ((-not $locked) -and $CanUndo)))
         Text=$text
     }
+}
+function Test-DomeniaStorageLockedWriter {
+    # Points 32 and 34. The operations refused while a maintenance holds the lock of the base: those that write the
+    # active SQLite base, or copy it (backup). The receipts journal (ReceiptStore) and an operator-chosen document
+    # (DocumentStore) are other files: refusing them would leave the receipts unverified, hence every directory write
+    # refused, for the whole lock. The maintenance steps (StorageMaintenance, StorageRetention) own the lock.
+    param([AllowEmptyString()][string]$OperationId)
+    return (([string]$OperationId).Trim() -cin @('LocalStore','LinkHistoryStore','LiveCache','IndexBuild','IndexRefresh','StoragePurge','StorageBackup'))
+}
+function Get-DomeniaStorageInputRefusal {
+    # Points 32 and 34. The sentence shown when an operator change of the local base (association, saved query, legacy
+    # import) arrives while a maintenance holds the lock; '' otherwise. Such a change is refused where it is made, so it
+    # stays visibly unsaved, instead of waiting in the queue of a base that the switch leaves and being discarded there.
+    param($Maintenance=$null)
+    if(-not [bool](Get-DomeniaMember $Maintenance 'Locked' $false)){return ''}
+    $recovery=(([string](Get-DomeniaMember $Maintenance 'Id' '') -ceq 'recovery-unreadable') -or [bool](Get-DomeniaMember $Maintenance 'Recovery' $false))
+    if($recovery -and ($null -eq (Get-DomeniaMember $Maintenance 'Receipt' $null))){return 'Base locale illisible : modification non enregistrée. Restaurez dʼabord une sauvegarde vérifiée (Outils > Base autonome > Stockage).'}
+    return 'Maintenance de la base locale en cours : modification non enregistrée. Refaites-la à la fin de lʼassistant (Outils > Base autonome > Stockage).'
 }
 function Get-DomeniaStorageBackupSchedule {
     # Point 33. What the automatic backup will do and what it last proved. A success comes from the verified receipt of

@@ -237,6 +237,19 @@ try{
   $lines=@(Get-DomeniaStorageRetentionLines -Counts @($preview.Counts) -Cutoffs $cutoffs -DryRun $true)
   Expect (@($lines|Where-Object{$_ -like 'Historique des associations : 3 observation(s) répétée(s)*'}).Count -eq 1) 'loss of detail announced before'
  }
+ Case 'Point 37: link history compaction reads each observation once on a large park' {
+  # 2,000 computers x 200 observations, two periods of one user each: 196 removable per computer. The former correlated
+  # previous/next subqueries re-read the history of the computer for every row (tens of seconds to minutes here).
+  $p=New-Database 'history-scale';$cut=[datetime]::UtcNow.AddDays(-30).ToString('o')
+  Query $p "WITH RECURSIVE n(i) AS (SELECT 0 UNION ALL SELECT i+1 FROM n WHERE i<399999) INSERT INTO user_machine_history(user_login,computer_key,computer,source,observed_at) SELECT CASE WHEN (i%200)<100 THEN 'alice' ELSE 'bob' END,'PC'||(i/200),'PC'||(i/200),'Console',strftime('%Y-%m-%dT%H:%M:%SZ','2024-01-01',(i%200)||' hours') FROM n;" -Write
+  Expect ((Query $p 'SELECT count(*) n FROM user_machine_history;')[0].n -eq 400000) 'fixture size'
+  $cutoffs=[pscustomobject]@{Presence='';Console='';Inventory='';Probe='';Detail='';LinkHistory=$cut}
+  $watch=[Diagnostics.Stopwatch]::StartNew();$preview=Run-Retention $p $true '' $cutoffs;$watch.Stop()
+  Expect (@($preview.Counts|Where-Object Family -eq LinkHistory)[0].Rows -eq 392000) 'every observation inside a period except its two bounds'
+  Expect ($watch.Elapsed.TotalSeconds -lt 20) ('bounded preview: '+[int]$watch.Elapsed.TotalSeconds+' s')
+  Expect ((Query $p 'SELECT count(*) n FROM user_machine_history;')[0].n -eq 400000) 'a preview removes nothing'
+  Expect ((Query $p "SELECT count(*) n FROM sqlite_master WHERE name='domenia_retention_links';")[0].n -eq 0) 'the helper table is temporary, never written to the base'
+ }
  Case 'Point 39: the composite index exists and the measured reads report their plan' {
   $p=New-Database 'probes'
   Query $p "INSERT INTO ad_objects(object_key,object_guid,object_type,name,state,search_key) VALUES('k1','g1','Machine','PC1','Actif','pc1'),('k2','g2','Machine','PC2','Actif','pc2'),('k3','g3','Utilisateur','U1','Actif','u1');" -Write
