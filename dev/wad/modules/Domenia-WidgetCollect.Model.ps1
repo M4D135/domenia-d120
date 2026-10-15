@@ -137,24 +137,27 @@ function Get-DomeniaProbeWidgetSource {
     return [pscustomobject]@{ Formula = $formula; Criteria = $criteria; Exclusions = $exclusions }
 }
 function Get-DomeniaWidgetFieldNeeds {
-    # Fields of a saved query to what a collection reads. A probe or instance field is a WMI query of the catalog,
-    # inventory fields come from the light WMI reading, presence from the ping, user from the console read; detail
-    # fields are custom WMI reads of the workshop; every other field comes from the AD copy of the local base.
+    # Fields of a saved query to what a collection reads, by the family of the collection planner shared with the
+    # workshop (Get-DomeniaCollectionFieldFamily): a probe or instance field is a WMI query of the catalog, inventory
+    # fields come from the light WMI reading, presence from the ping, user from the console read; detail fields are
+    # custom WMI reads of the workshop; every other field comes from the AD copy of the local base.
     param([string[]]$Fields = @())
     $probes = New-Object System.Collections.Generic.List[string]
     $ping = $false; $console = $false; $inventory = $false; $directory = $false; $workshop = $false
     foreach ($field in @($Fields)) {
         $name = [string]$field
         if (-not $name) { continue }
-        $id = ''
-        if ($name -like 'probe:*') { $id = $name.Substring(6) }
-        elseif ($name -match '^instance:([^:]+):') { $id = [string]$Matches[1] }
-        if ($id) { if (-not $probes.Contains($id)) { $probes.Add($id) }; continue }
-        if ($name -in @('model','ramGB','diskFreePercent','uptimeDays','inventoryDays','observedRelease')) { $inventory = $true }
-        elseif ($name -in @('presence','presenceBucket','checkedDays')) { $ping = $true }
-        elseif ($name -eq 'user') { $console = $true }
-        elseif ($name -like 'detail:*') { $workshop = $true }
-        else { $directory = $true }
+        switch (Get-DomeniaCollectionFieldFamily $name) {
+            'Probe' {
+                $id = if ($name -like 'probe:*') { $name.Substring(6) } else { [string]($name.Split(':'))[1] }
+                if ($id -and (-not $probes.Contains($id))) { $probes.Add($id) }
+            }
+            'Inventory' { $inventory = $true }
+            'Presence' { $ping = $true }
+            'Console' { $console = $true }
+            'Detail' { $workshop = $true }
+            default { $directory = $true }
+        }
     }
     return [pscustomobject]@{ ProbeIds = @($probes | Sort-Object); Ping = $ping; Console = $console; Inventory = $inventory; Directory = $directory; Workshop = $workshop }
 }

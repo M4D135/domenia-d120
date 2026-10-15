@@ -90,7 +90,7 @@ foreach($file in @('Domenia-Common.Model.ps1','Domenia-Store.Model.ps1','Domenia
 }
 
 # The historical-list fallback also applies the workshop GUID filter through this real helper.
-. ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Query.UI.ps1') @('Test-DomeniaSearchQueryRow'))))
+. ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Query.UI.ps1') @('Test-DomeniaSearchQueryRow','Get-DomeniaPreparedQueryTemplates','Request-DomeniaQueryTemplatePreparation','Set-DomeniaPreparedQueryTemplateRows'))))
 
 # Explicit doubles: none can reach a directory, a workstation, the network, the database or a dialog window.
 function Get-CfgValue {param($Section,$Name,$Default) $key=[string]$Section+'/'+[string]$Name;if($script:CfgOverrides.ContainsKey($key)){return $script:CfgOverrides[$key]};return $Default}
@@ -1185,9 +1185,12 @@ Case 'Main XAML carries the search controls wired by the code' {
         foreach($match in [regex]::Matches((Get-MainXaml),'x:Name="([^"]+)"')){$control=$window.FindName($match.Groups[1].Value);if($null -ne $control){$script:Ctrl[$match.Groups[1].Value]=$control}}
         $script:Window=$window
         Initialize-DomeniaSearchUi
-        # Unified catalog: no preselected query, no implicit read or probe while choosing/filtering.
-        Expect ($script:Ctrl.CmbWorkView.Items.Count -eq (@(Get-DomeniaWorkViews).Count + @(Get-DomeniaQueryTemplates).Count) -and -not $script:Ctrl.BtnNavBack.IsEnabled) 'Catalogue incomplet.'
+        # Unified catalog: no preselected query, no implicit read or probe while choosing/filtering. Point 61: loading
+        # lists the AD views only; the delivered models arrive once prepared off the UI thread (worker result simulated).
+        Expect ($script:Ctrl.CmbWorkView.Items.Count -eq @(Get-DomeniaWorkViews).Count -and -not $script:Ctrl.BtnNavBack.IsEnabled) 'Catalogue initial incorrect.'
         Expect ($script:Ctrl.CmbWorkView.SelectedIndex -eq -1 -and -not $script:Ctrl.BtnWorkView.IsEnabled -and $script:Tasks.Count -eq 0) 'Une requete est preselectionnee ou lancee au chargement.'
+        Set-DomeniaPreparedQueryTemplateRows -Rows @(Get-DomeniaQueryTemplates|ForEach-Object{[pscustomobject]@{SourceId='Template';Recipe=$_}})
+        Expect ($script:Ctrl.CmbWorkView.Items.Count -eq (@(Get-DomeniaWorkViews).Count + @(Get-DomeniaQueryTemplates).Count) -and $script:Tasks.Count -eq 0) 'Catalogue incomplet apres preparation des modeles.'
         foreach($n in @('TxtSearchQueryFilter','LblSearchQueryDetails','CmbSearchQueryResult','BtnSearchQueryFavorite','ChkSearchQueryFavorites','BtnSearchQueryWorkshop','BtnQueryClearSearch')){Expect ($null -ne $window.FindName($n)) ('Controle Requetes absent : '+$n)}
         $script:Ctrl.CmbWorkView.SelectedItem=@($script:Ctrl.CmbWorkView.Items|Where-Object{$_.Id -eq 'ad:disabled'})[0]
         Expect ($script:Ctrl.BtnWorkView.IsEnabled -and $script:Ctrl.CmbSearchQueryResult.Visibility -eq 'Collapsed' -and $script:Tasks.Count -eq 0) 'Le choix Annuaire a lance une lecture ou propose un etat local.'

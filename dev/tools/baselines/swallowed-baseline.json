@@ -1,13 +1,13 @@
 {
  "Schema": "DomeniaSwallowedBaseline/1",
  "Source": "reference initiale",
- "Total": 1280,
+ "Total": 1283,
  "Kinds": {
-  "empty": 1279,
+  "empty": 1282,
   "null": 1
  },
  "Places": {
-  "code": 1046,
+  "code": 1049,
   "here-string": 234
  },
  "Findings": {
@@ -74,6 +74,8 @@
   "Complete-DomeniaOuRefreshRunsStored": 1,
   "Complete-DomeniaParkSharedSyncUi": 1,
   "Complete-DomeniaParkSweepUi": 4,
+  "Complete-DomeniaQueryLibraryLoad": 1,
+  "Complete-DomeniaQueryTemplatePreparation": 1,
   "Complete-DomeniaReceiptRefresh": 1,
   "Complete-DomeniaRelationsComputerProbe": 7,
   "Complete-DomeniaRimotteUi": 2,
@@ -480,6 +482,7 @@
   "Update-DomeniaUserSupportBand": 1,
   "Update-DomeniaUxOuScope": 1,
   "Update-DomeniaUxPageTitle": 1,
+  "Update-DomeniaWorkViewList": 1,
   "Update-SecretsGrid": 2,
   "Update-SelectedAssociationFields": 3,
   "Update-TaskUi": 2,

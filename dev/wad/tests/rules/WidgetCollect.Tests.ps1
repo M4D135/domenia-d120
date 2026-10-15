@@ -5,6 +5,8 @@
 . (Join-Path $modules 'Domenia-HealthRules.Model.ps1')
 . (Join-Path $modules 'Domenia-Boards.Model.ps1')
 . (Join-Path $modules 'Domenia-Park.Model.ps1')
+# The field families of a query widget come from the collection planner shared with the workshop (Query.Model).
+. (Join-Path $modules 'Domenia-Query.Model.ps1')
 . (Join-Path $modules 'Domenia-WidgetCollect.Model.ps1')
 . (Join-Path $modules 'Domenia-Probes.Model.ps1')
 # The catalog cache of Probes.Model starts empty (StrictMode of this runner: the variable must exist).
