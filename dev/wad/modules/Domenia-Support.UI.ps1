@@ -226,7 +226,7 @@ function Stop-DomeniaSupportUi {
         $tab=$script:Ctrl['TabSupport']; $tab.IsEnabled=$false
         $tabs=Get-DomeniaControl 'WorkspaceTabs'
         if ($null -ne $tabs) { [void]$tabs.Items.Remove($tab) }
-        foreach ($key in @($script:Ctrl.Keys)) { if ($key -eq 'TabSupport' -or $key -match '^(DomeniaSupport|Support|BtnSupport|DgSupport|TxtSupport|LblSupport|ChkSupport)') { $script:Ctrl.Remove($key) } }
+        foreach ($key in @($script:Ctrl.Keys)) { if ($key -eq 'TabSupport' -or $key -match '^(DomeniaSupport|Support|BtnSupport|DgSupport|TxtSupport|LblSupport|ChkSupport|CmbSupport)') { $script:Ctrl.Remove($key) } }
     }
     $script:SupportState=$null; $script:SupportView=$null
 }
@@ -300,6 +300,8 @@ function Initialize-DomeniaSupportUi {
     (Get-DomeniaControl 'BtnSupportPreview').Add_Click({Invoke-DomeniaSafeUiAction -Operation 'Dossier support' -Action {[void](New-DomeniaSupportUiReport)}})
     (Get-DomeniaControl 'BtnSupportCopyReport').Add_Click({Invoke-DomeniaSafeUiAction -Operation 'Copier dossier support' -Action {$report=New-DomeniaSupportUiReport;Set-ClipboardSafe $report}})
     (Get-DomeniaControl 'BtnSupportExportHtml').Add_Click({Invoke-DomeniaSafeUiAction -Operation 'Exporter dossier support' -Action {Export-DomeniaSupportHtml}})
+    # Point 139: offline diagnostic folder, written by the local automation interface (Domenia-Automation.UI.ps1).
+    (Get-DomeniaControl 'BtnSupportOfflineDossier').Add_Click({Invoke-DomeniaSafeUiAction -Operation 'Dossier hors ligne' -Action {Start-DomeniaOfflineDossier}})
     $script:SupportTimer=New-Object Windows.Threading.DispatcherTimer
     $script:SupportTimer.Interval=[timespan]::FromSeconds(1)
     $script:SupportTimer.Add_Tick({

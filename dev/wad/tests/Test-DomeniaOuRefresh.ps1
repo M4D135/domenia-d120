@@ -3,9 +3,13 @@
 param([string]$ReportPath='')
 $ErrorActionPreference='Stop'
 $wad=Split-Path -Parent $PSScriptRoot;$modules=Join-Path $wad 'modules'
-# Cache.Model: verified backup before an AD read (FI-13). Park.Model: rules of a survey; Live.Model: presence keys.
+# Cache.Model: verified backup before an AD read (FI-13). Store.Model: storage refusals and free-space rules (points 32
+# and 35). Park.Model: rules of a survey; Live.Model: presence keys.
 # Boards.Model: paused widgets left out of the WMI refresh of the OU (decision David 2026-10-14).
-foreach($name in @('Common.Model','Cache.Model','Live.Model','Park.Model','Boards.Model','Storage.UI','Park.UI','Refresh.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+# Collection.Model/UI: freshness profile, budgets, windows and suspensions of the collection engine (points 11-21).
+# Store.Model and Collection.Model: the scope clocks recorded by a finished refresh (points 4, 5 and 10).
+# Point 48: Safety.Model provides the exact preview of the collective read (New-DomeniaCollectivePreview).
+foreach($name in @('Common.Model','Cache.Model','Live.Model','Store.Model','Collection.Model','Collection.UI','Park.Model','Boards.Model','Safety.Model','Storage.UI','Park.UI','Refresh.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 $tokens=$null;$parseErrors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'),[ref]$tokens,[ref]$parseErrors)
 if($parseErrors.Count){throw 'Core parse failure'}
 foreach($name in @('Test-DomeniaIndexWriteReady','Start-DomeniaIndexScopeBuild','Update-DomeniaIndexDatabaseRows','Complete-DomeniaIndexScopeUi','Fail-DomeniaIndexBuildUi')){
@@ -63,9 +67,9 @@ function Get-DomeniaSelectedGridRows {return @()}
 function Write-AppLog {param($Text,$Level)}
 # FI-18: the surveys of an OU refresh run in the scope of the lists.
 function Get-ListRun {return (Get-DomeniaParkRun -Slot 'List')}
-function Request-DomeniaInlineConfirmation {param($Title,$Target,$Message,$ConfirmText,$CancelText,$OnConfirm,$OnCancel);$script:Confirmation=[pscustomobject]@{Message=$Message;Confirm=$OnConfirm;Cancel=$OnCancel}}
+function Request-DomeniaInlineConfirmation {param($Title,$Target,$Message,$ConfirmText,$CancelText,$OnConfirm,$OnCancel,$Risk,[string[]]$Changes,$Details,$DetailsTitle,[switch]$DetailsExpertOnly,$TypedConfirmation,$TypedPrompt);$script:Confirmation=[pscustomobject]@{Message=$Message;Confirm=$OnConfirm;Cancel=$OnCancel;Changes=@($Changes);Details=[string]$Details}}
 function Reset-Fixture {
-    $script:Conn=[pscustomobject]@{BaseDn='DC=example,DC=test';Domain='example.test'};$script:DatabaseScopedPath='/fixture/local.sqlite';$script:SessionEpoch=4;$script:GlobalSearchGeneration=6
+    $script:Conn=[pscustomobject]@{BaseDn='DC=example,DC=test';Domain='example.test'};$script:DatabaseScopedPath='/fixture/local.sqlite';$script:SessionEpoch=4;$script:GlobalSearchGeneration=6;$script:MasterBuild='fixture-build'
     $script:SelectedBranchDn='OU=Recherche,DC=example,DC=test';$script:FleetScopeDn='OU=Dashboard,DC=example,DC=test';$script:IndexScopeDn='OU=Base,DC=example,DC=test';$script:SearchMode='Global'
     $script:DomeniaOuRefresh=$null;$script:ParkRuns=$null;$script:IndexWalk=$null;$script:Live=$null;$script:DemoMode=$false;$script:AsyncEngineClosing=$false;$script:AsyncJobs=[ordered]@{};$script:DetachedReadJobs=@();$script:SelectedObject=$null
     $script:DomeniaQueryState=$null;$script:BoardWidgets=@{Fleet=@();Computer=@()};$script:SavedRecipes=@();$script:BadLibrary=$false;$script:LibraryReads=0
@@ -86,6 +90,11 @@ function Complete-Targets([int]$Count=1){
     $job=$script:Jobs[$script:Jobs.Count-1];[void]$script:AsyncJobs.Remove($job.Id)
     $targets=@(for($i=0;$i -lt $Count;$i++){[pscustomobject]@{name=('PC-'+$i);distinguished_name=('CN=PC-'+$i+','+$script:DomeniaOuRefresh.Dn);object_guid=([guid]::NewGuid().ToString('D'))}})
     Complete-DomeniaOuRefreshTargets -State $job.State -Result ([pscustomobject]@{Targets=$targets;Busy=$false;Missing=$false;Scope=$job.State.Dn;Subtree=$true})
+}
+function New-BaseTarget($Job){
+    # Point 48: a target of the local base always carries its key and GUID; only such a target is probed.
+    $asked=@($Job.Payload.Targets)[0]
+    return [pscustomobject]@{Computer=[string]$asked.name;Key=([string]$asked.distinguished_name).ToLowerInvariant();Guid=[string]$asked.object_guid;Previous=$null}
 }
 Case 'Three independent OU sources; Search Global and unchecked subtrees do not widen to domain or mutate controls' {
     foreach($source in @('Fleet','Search','Index')){$c=Get-DomeniaOuRefreshContext $source;Expect ($c.Subtree -and $c.Source -eq $source)}
@@ -113,8 +122,8 @@ Case 'Session or database drift stops the chain' {Invoke-DomeniaOuRefresh Search
 Case 'Busy local target response does not prepare remote workers' {Invoke-DomeniaOuRefresh Search Postes;Invoke-DomeniaOuRefreshTick;$s=$script:Jobs[0].State;Complete-DomeniaOuRefreshTargets ([pscustomobject]@{Targets=@();Busy=$true;Missing=$false;Scope=$s.Dn;Subtree=$true}) $s;Expect ($script:DomeniaOuRefresh.Phase -eq 'Error' -and $null -eq (Get-ListRun))}
 Case 'Empty scoped base is explicit and sends no ping' {Invoke-DomeniaOuRefresh Search Postes;Invoke-DomeniaOuRefreshTick;Complete-Targets 0;Expect ($script:DomeniaOuRefresh.Completed -and $script:Jobs.Count -eq 1 -and $null -eq (Get-ListRun))}
 Case '5001 active targets ignore empty displayed grid and force fresh measurements only for this run' {Invoke-DomeniaOuRefresh Search Postes;Invoke-DomeniaOuRefreshTick;Complete-Targets 5001;Expect ($script:Jobs.Count -eq 2 -and @($script:Jobs[1].Payload.Targets).Count -eq 5001 -and (Get-ListRun).CacheMinutes -eq 0 -and (Get-ListRun).Inventory -and -not (Get-ListRun).Approved);Expect ((Get-DomeniaSetting Collection.CacheMinutes 0) -eq '15')}
-Case 'Confirmation precedes ping and names the captured OU' {Invoke-DomeniaOuRefresh Search Postes;Invoke-DomeniaOuRefreshTick;Complete-Targets 1;$j=$script:Jobs[1];Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@([pscustomobject]@{Computer='PC-0'});Busy=$false}) $j.State;Expect ($null -ne $script:Confirmation -and $script:Confirmation.Message.Contains($script:SelectedBranchDn) -and -not (Get-ListRun).Approved -and $null -eq (Get-ListRun).Timer)}
-Case 'Changing OU before confirmation cannot start the timer' {Invoke-DomeniaOuRefresh Search Postes;Invoke-DomeniaOuRefreshTick;Complete-Targets 1;Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@([pscustomobject]@{Computer='PC-0'});Busy=$false}) $script:Jobs[1].State;$script:SelectedBranchDn='OU=Changed,DC=example,DC=test';& $script:Confirmation.Confirm;Expect (-not (Get-ListRun).Approved -and (Get-ListRun).Stopping -and $null -eq (Get-ListRun).Timer)}
+Case 'Confirmation precedes ping and names the captured OU' {Invoke-DomeniaOuRefresh Search Postes;Invoke-DomeniaOuRefreshTick;Complete-Targets 1;$j=$script:Jobs[1];Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@(New-BaseTarget $j);Busy=$false}) $j.State;Expect ($null -ne $script:Confirmation -and $script:Confirmation.Message.Contains($script:SelectedBranchDn) -and -not (Get-ListRun).Approved -and $null -eq (Get-ListRun).Timer)}
+Case 'Changing OU before confirmation cannot start the timer' {Invoke-DomeniaOuRefresh Search Postes;Invoke-DomeniaOuRefreshTick;Complete-Targets 1;Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@(New-BaseTarget $script:Jobs[1]);Busy=$false}) $script:Jobs[1].State;$script:SelectedBranchDn='OU=Changed,DC=example,DC=test';& $script:Confirmation.Confirm;Expect (-not (Get-ListRun).Approved -and (Get-ListRun).Stopping -and $null -eq (Get-ListRun).Timer)}
 Case 'Cancelled AD job cannot leave the flow waiting forever' {Invoke-DomeniaOuRefresh Search Both;$script:AsyncJobs.Clear();Invoke-DomeniaOuRefreshTick;Expect ($script:DomeniaOuRefresh.Phase -eq 'Error')}
 Case 'Closing engine prevents any phase transition' {Invoke-DomeniaOuRefresh Search Postes;$script:AsyncEngineClosing=$true;Invoke-DomeniaOuRefreshTick;Expect ($script:DomeniaOuRefresh.Cancelled -and $script:Jobs.Count -eq 0)}
 Case 'Existing collection blocks another refresh before AD dispatch' {$script:ParkRuns=@{List=[pscustomobject]@{Id='other';Slot='List';Completed=$false}};Invoke-DomeniaOuRefresh Search Both;Expect ($script:Jobs.Count -eq 0 -and $null -eq $script:DomeniaOuRefresh)}
@@ -155,6 +164,55 @@ Case 'Paused query widget is left out of the WMI refresh of the OU (decision Dav
 }
 Case 'Base-only refresh is independent of a damaged query library' {$script:BoardWidgets.Fleet=@([pscustomobject]@{Source='Query';Key='saved.one'});$script:BadLibrary=$true;Invoke-DomeniaOuRefresh Search Base;Expect ($script:Jobs.Count -eq 1 -and $script:LibraryReads -eq 0)}
 Case 'Failed workstation measurements never announce full ping and WMI success' {Invoke-DomeniaOuRefresh Search Postes;Invoke-DomeniaOuRefreshTick;Complete-Targets 1;(Get-ListRun).Completed=$true;(Get-ListRun).Approved=$true;(Get-ListRun).Done=1;(Get-ListRun).Failed=1;Invoke-DomeniaOuRefreshTick;Expect ($script:DomeniaOuRefresh.Phase -eq 'Partial' -and -not $script:DomeniaOuRefresh.Status.Contains('Ping et WMI relus'))}
+# Points 4, 5 and 10: each finished refresh records the scope clocks it really collected, once, in its own database.
+function Get-RunChanges {foreach($pending in @($script:Persistence.Pending.Values)){if([string]$pending.Kind -ne 'StoreBatch'){continue};foreach($change in @((ConvertFrom-Json -InputObject ([string]$pending.Json)).Changes)){if([string]$change.Kind -eq 'CollectionRun'){$change}}}}
+Case 'Scope clocks: base refresh records one AD run with controller and count only after its receipt' {
+    Invoke-DomeniaOuRefresh Index Base;$item=Complete-Ad;Expect (@(Get-RunChanges).Count -eq 0) 'run recorded before the AD receipt'
+    Commit-Item $item;$runs=@(Get-RunChanges)
+    Expect (($runs.Count -eq 1) -and ($runs[0].Family -eq 'Directory') -and ($runs[0].Status -eq 'Success') -and ([string]$runs[0].Data.Controller -eq 'fixture') -and ([long]$runs[0].Data.Done -eq 1)) 'AD run content'
+    Expect (([string]$runs[0].RequestKey -ceq ('subtree:'+$script:IndexScopeDn.ToLowerInvariant())) -and ([string]$runs[0].Data.CollectorVersion -eq 'fixture-build') -and ([string]::CompareOrdinal([string]$runs[0].AttemptedAtUtc,[string]$runs[0].FinishedAtUtc) -le 0)) 'AD run identity and clock'
+    Submit-DomeniaOuRefreshRuns -Refresh $script:DomeniaOuRefresh;Expect (@(Get-RunChanges).Count -eq 1) 'run recorded twice'
+}
+Case 'Scope clocks: AD failure keeps its cause and records no workstation family' {
+    Invoke-DomeniaOuRefresh Search Both;Fail-DomeniaIndexBuildUi 'fixture denied' $script:Jobs[0].State
+    $runs=@(Get-RunChanges);Expect (($runs.Count -eq 1) -and ($runs[0].Family -eq 'Directory') -and ($runs[0].Status -eq 'Error') -and ([string]$runs[0].Error -like '*fixture denied*')) 'AD failure record'
+}
+Case 'Scope clocks: refused AD admission is not an attempt' {$script:RefuseAdmission=$true;Invoke-DomeniaOuRefresh Search Both;Expect (@(Get-RunChanges).Count -eq 0)}
+Case 'Scope clocks: partial AD read is recorded as partial, without ping or WMI' {
+    Invoke-DomeniaOuRefresh Search Both;$item=Complete-Ad $true;Commit-Item $item
+    $runs=@(Get-RunChanges);Expect (($runs.Count -eq 1) -and ($runs[0].Status -eq 'Partial') -and ([string]$runs[0].Error -like '*partielle*'))
+}
+Case 'Scope clocks: a declined confirmation records the AD run only' {
+    Invoke-DomeniaOuRefresh Search Both;$item=Complete-Ad;Commit-Item $item;Invoke-DomeniaOuRefreshTick;Complete-Targets 1
+    Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@(New-BaseTarget $script:Jobs[2]);Busy=$false}) $script:Jobs[2].State
+    & $script:Confirmation.Cancel;Invoke-DomeniaOuRefreshTick
+    Expect (($script:DomeniaOuRefresh.Completed) -and (((@(Get-RunChanges)|ForEach-Object{[string]$_.Family}) -join ',') -eq 'Directory')) 'declined collection recorded as an attempt'
+}
+Case 'Scope clocks: an approved ping with one failed workstation records a partial presence clock' {
+    Invoke-DomeniaOuRefresh Search Ping;Invoke-DomeniaOuRefreshTick;Complete-Targets 2
+    (Get-ListRun).Targets=@([pscustomobject]@{Computer='PC-0'},[pscustomobject]@{Computer='PC-1'});(Get-ListRun).Approved=$true
+    (Get-ListRun)|Add-Member -NotePropertyName ApprovedUtc -NotePropertyValue ([datetime]::UtcNow.AddMinutes(-1).ToString('o')) -Force
+    (Get-ListRun).Completed=$true;(Get-ListRun).Done=2;(Get-ListRun).Failed=1;Invoke-DomeniaOuRefreshTick
+    $runs=@(Get-RunChanges)
+    Expect (($runs.Count -eq 1) -and ($runs[0].Family -eq 'Presence') -and ($runs[0].Status -eq 'Partial') -and ([long]$runs[0].Data.Targets -eq 2) -and ([long]$runs[0].Data.Failed -eq 1) -and ([string]$runs[0].Data.Provider -eq 'ICMP')) 'partial ping record'
+}
+Case 'Scope clocks: a WMI run whose saves are not confirmed is never recorded as a success' {
+    Invoke-DomeniaOuRefresh Search Wmi;Invoke-DomeniaOuRefreshTick;Complete-Targets 1
+    (Get-ListRun).Targets=@([pscustomobject]@{Computer='PC-0'});(Get-ListRun).Approved=$true
+    (Get-ListRun)|Add-Member -NotePropertyName ApprovedUtc -NotePropertyValue ([datetime]::UtcNow.AddMinutes(-1).ToString('o')) -Force
+    (Get-ListRun).Completed=$true;(Get-ListRun).Done=1;$script:Persistence.Failures=3;Invoke-DomeniaOuRefreshTick
+    Expect (@(Get-RunChanges).Count -eq 0) 'run admitted while the writer is suspended'
+    Expect ($script:Status -like '*non enregistrées*') 'suspended writer not reported'
+}
+Case 'Scope clocks: another session never receives the run' {Invoke-DomeniaOuRefresh Index Base;[void](Complete-Ad);$script:SessionEpoch++;Invoke-DomeniaOuRefreshTick;Expect (($script:DomeniaOuRefresh.Cancelled) -and (@(Get-RunChanges).Count -eq 0))}
+Case 'Scope clocks: the dashboard re-reads them only after a complete SQLite receipt of this session' {
+    $state=[pscustomobject]@{OperationId='fixture';Epoch=$script:SessionEpoch;Path=$script:DatabaseScopedPath;BatchId='b';Families=@('Presence','Inventory')}
+    Complete-DomeniaOuRefreshRunsStored -Result ([pscustomobject]@{Saved=$true;DataSource='SQLite';CollectionRuns=@([pscustomobject]@{Family='Presence'})}) -State $state
+    Expect (($script:FleetRequests -eq 0) -and ($script:Status -like '*incomplet*')) 'incomplete receipt published'
+    $receipt=[pscustomobject]@{Saved=$true;DataSource='SQLite';CollectionRuns=@([pscustomobject]@{Family='Presence'},[pscustomobject]@{Family='Inventory'})}
+    Complete-DomeniaOuRefreshRunsStored -Result $receipt -State $state;Expect ($script:FleetRequests -eq 1) 'complete receipt not re-read'
+    $state.Epoch++;Complete-DomeniaOuRefreshRunsStored -Result $receipt -State $state;Expect ($script:FleetRequests -eq 1) 'old session repainted the dashboard'
+}
 Case 'FI-13 : la relecture AD de l OU attend la sauvegarde verifiee de la base ; ping, refus et echec ne lisent rien' {
     # A real base file makes the backup due; the StorageBackup worker is the fixture transport, its receipt the release.
     function Get-DomeniaStorageBackupWorkerCode {return 'fixture backup'}
@@ -175,7 +233,7 @@ Case 'FI-13 : la relecture AD de l OU attend la sauvegarde verifiee de la base ;
         Invoke-DomeniaOuRefresh Index AD
         Expect ($script:Jobs.Count -eq 1 -and $script:Jobs[0].OperationId -eq 'StorageBackup' -and $script:Jobs[0].Payload.Database -ceq $file -and $script:DomeniaOuRefresh.Completed) 'La sauvegarde ne precede pas la lecture AD'
         $backup=$script:Jobs[0];[void]$script:AsyncJobs.Remove($backup.Id)
-        Complete-DomeniaGestureBackup -Result ([pscustomobject]@{Backup=(Join-Path ([IO.Path]::GetTempPath()) 'Domenia-fixture.db');CopiedTo='';Verified=$true;VerifiedAtUtc=[datetime]::UtcNow.ToString('o')}) -State $backup.State
+        Complete-DomeniaGestureBackup -Result ([pscustomobject]@{Backup=(Join-Path ([IO.Path]::GetTempPath()) 'Domenia-fixture.db');CopiedTo='';Verified=$true;VerifiedAtUtc=[datetime]::UtcNow.ToString('o');SHA256=('ab'*32);Bytes=4096}) -State $backup.State
         Expect ($script:Jobs.Count -eq 2 -and $script:Jobs[1].OperationId -eq 'IndexBuild' -and $script:Jobs[1].Payload.SearchBase -eq $script:IndexScopeDn -and $script:DomeniaOuRefresh.Source -eq 'Index' -and $script:DomeniaOuRefresh.Phase -eq 'Directory') 'Lecture AD non lancee apres la sauvegarde verifiee'
         # A failed backup starts nothing; the explicit choice to continue without a backup is offered in the page.
         Stop-DomeniaOuRefresh -Source Index;$script:AsyncJobs.Clear();$script:BackupSettings=@{}
@@ -197,7 +255,7 @@ Case 'FI-13 : une OU choisie pendant la sauvegarde n est jamais lue sans son pro
     [IO.File]::WriteAllBytes($file,[byte[]]@(0))
     try{
         $script:DatabaseScopedPath=$file;$clicked=$script:SelectedBranchDn
-        $receipt=[pscustomobject]@{Backup=(Join-Path ([IO.Path]::GetTempPath()) 'Domenia-fixture.db');CopiedTo='';Verified=$true;VerifiedAtUtc=[datetime]::UtcNow.ToString('o')}
+        $receipt=[pscustomobject]@{Backup=(Join-Path ([IO.Path]::GetTempPath()) 'Domenia-fixture.db');CopiedTo='';Verified=$true;VerifiedAtUtc=[datetime]::UtcNow.ToString('o');SHA256=('ab'*32);Bytes=4096}
         # Another OU picked in Rechercher while the copy runs: nothing is read, neither OU.
         Invoke-DomeniaOuRefresh Search AD
         $backup=$script:Jobs[0];Expect ($backup.OperationId -eq 'StorageBackup') 'Sauvegarde absente avant la lecture AD'

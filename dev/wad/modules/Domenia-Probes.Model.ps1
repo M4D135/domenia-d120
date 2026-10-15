@@ -271,3 +271,149 @@ function Measure-DomeniaFleetProbeEntries {
     }
     return $entries
 }
+function ConvertFrom-DomeniaEdidText {
+    # EDID text fields of WmiMonitorID are arrays of character codes ended by zeros. Only printable ASCII is kept;
+    # an absent or unreadable array gives '' (unknown), never an invented name.
+    param($Codes)
+    if ($null -eq $Codes) { return '' }
+    if ($Codes -is [string]) { return ([string]$Codes).Trim() }
+    $builder = New-Object System.Text.StringBuilder
+    foreach ($code in @($Codes)) {
+        $number = ConvertTo-DomeniaProbeNumber $code
+        if ($null -eq $number -or $number -eq 0) { break }
+        if (($number -ge 32) -and ($number -le 126)) { [void]$builder.Append([char][int]$number) }
+        if ($builder.Length -ge 64) { break }
+    }
+    return $builder.ToString().Trim()
+}
+function Get-DomeniaMonitorIdentity {
+    # Stable text of one WmiMonitorID instance: name, maker code, product code and serial when the EDID gives them.
+    # Two screens of the same model without serial number cannot be told apart, and the text says so.
+    param($Values)
+    if ($null -eq $Values) { return '' }
+    $name = ConvertFrom-DomeniaEdidText (Get-DomeniaMemberValue $Values 'UserFriendlyName')
+    $maker = ConvertFrom-DomeniaEdidText (Get-DomeniaMemberValue $Values 'ManufacturerName')
+    $product = ConvertFrom-DomeniaEdidText (Get-DomeniaMemberValue $Values 'ProductCodeID')
+    $serial = ConvertFrom-DomeniaEdidText (Get-DomeniaMemberValue $Values 'SerialNumberID')
+    if (-not $maker -and -not $product -and -not $name) { return '' }
+    $label = if ($name) { $name } else { 'Écran sans nom EDID' }
+    $parts = New-Object System.Collections.Generic.List[string]
+    $parts.Add($label)
+    if ($maker) { $parts.Add('fabricant ' + $maker) }
+    if ($product) { $parts.Add('produit ' + $product) }
+    if ($serial -and $serial -ne '0') { $parts.Add('n° ' + $serial) } else { $parts.Add('sans numéro de série') }
+    return ($parts.ToArray() -join ' · ')
+}
+function Get-DomeniaProbeHistoryPolicy {
+    # Probes whose committed payload keeps a bounded history (points 82 and 87); every other probe keeps none.
+    # Series: at most one sample per MinSpacingHours. Changes: a sample only when the observed set differs.
+    param([string]$ProbeId)
+    if ($ProbeId -ceq 'disk.volumes') { return [pscustomobject]@{ Kind = 'Series'; MinSpacingHours = 6; MaxSamples = 60; MaxAgeDays = 400; MaxItems = 26 } }
+    if ($ProbeId -ceq 'hw.monitors') { return [pscustomobject]@{ Kind = 'Changes'; MinSpacingHours = 0; MaxSamples = 20; MaxAgeDays = 400; MaxItems = 16 } }
+    return $null
+}
+function ConvertTo-DomeniaProbeHistoryItem {
+    # Validated copy of one stored sample, or $null. Stored history is checked again: a damaged sample is dropped.
+    param($Item,[string]$ProbeId,$Policy)
+    if ($null -eq $Item -or $null -eq $Policy) { return $null }
+    $at = ConvertTo-DomeniaUtcDate (Get-DomeniaMember $Item 'AtUtc' $null)
+    if ($null -eq $at) { return $null }
+    $raw = @(Get-DomeniaMember $Item 'Items' @())
+    if ($raw.Count -gt [int]$Policy.MaxItems) { return $null }
+    $items = New-Object System.Collections.Generic.List[object]
+    foreach ($value in $raw) {
+        if ($Policy.Kind -ceq 'Series') {
+            $id = ([string](Get-DomeniaMember $value 'Id' '')).Trim().ToUpperInvariant()
+            $size = ConvertTo-DomeniaProbeNumber (Get-DomeniaMember $value 'Size' $null)
+            $free = ConvertTo-DomeniaProbeNumber (Get-DomeniaMember $value 'Free' $null)
+            if (($id -notmatch '^[A-Z]:$') -or ($null -eq $size) -or ($null -eq $free) -or ($size -le 0) -or ($free -lt 0) -or ($free -gt $size)) { return $null }
+            $items.Add([pscustomobject]@{ Id = $id; Size = [double]$size; Free = [double]$free })
+        } else {
+            $text = [string]$value
+            if ((-not $text) -or ($text.Length -gt 200)) { return $null }
+            $items.Add($text)
+        }
+    }
+    return [pscustomobject]@{ AtUtc = $at.ToString('o'); Items = $items.ToArray() }
+}
+function Get-DomeniaProbeHistorySample {
+    # One sample from a complete probe entry; $null for an error, a skip, a partial read or an undated entry.
+    param([string]$ProbeId,$Entry,$Policy)
+    if ($null -eq $Entry -or $null -eq $Policy) { return $null }
+    if (([string](Get-DomeniaMember $Entry 'Error' '')) -or ([string](Get-DomeniaMember $Entry 'Skipped' '')) -or ([bool](Get-DomeniaMember $Entry 'Truncated' $false))) { return $null }
+    $at = ConvertTo-DomeniaUtcDate (Get-DomeniaMember $Entry 'CheckedUtc' $null)
+    if ($null -eq $at) { return $null }
+    $instances = @(Get-DomeniaMember $Entry 'Instances' @())
+    if ($instances.Count -gt [int]$Policy.MaxItems) { return $null }
+    $items = New-Object System.Collections.Generic.List[object]
+    foreach ($instance in $instances) {
+        $values = Get-DomeniaMemberValue $instance 'Values'
+        if ($ProbeId -ceq 'disk.volumes') {
+            $id = ([string](Get-DomeniaMember $values 'DeviceID' '')).Trim().ToUpperInvariant()
+            $size = ConvertTo-DomeniaProbeNumber (Get-DomeniaMember $values 'Size' $null)
+            $free = ConvertTo-DomeniaProbeNumber (Get-DomeniaMember $values 'FreeSpace' $null)
+            if (($id -notmatch '^[A-Z]:$') -or ($null -eq $size) -or ($null -eq $free) -or ($size -le 0) -or ($free -lt 0) -or ($free -gt $size)) { continue }
+            $items.Add([pscustomobject]@{ Id = $id; Size = [double]$size; Free = [double]$free })
+        } elseif ($ProbeId -ceq 'hw.monitors') {
+            $identity = Get-DomeniaMonitorIdentity $values
+            if ($identity -and -not $items.Contains($identity)) { $items.Add($identity) }
+        }
+    }
+    $list = $items.ToArray()
+    if ($ProbeId -ceq 'hw.monitors') {
+        # Ordinal order: the same set compares equal whatever the culture of the session that stored it.
+        $names = [string[]]@($list)
+        [Array]::Sort($names,[StringComparer]::Ordinal)
+        $list = [object[]]$names
+    }
+    return [pscustomobject]@{ AtUtc = $at.ToString('o'); Items = @($list) }
+}
+function Copy-DomeniaProbeHistoryMap {
+    # Shallow ordered copy of a PSCustomObject or dictionary, so a frozen batch object is never modified in place.
+    param($Value)
+    $map = [ordered]@{}
+    if ($Value -is [Collections.IDictionary]) { foreach ($key in @($Value.Keys)) { $map[[string]$key] = $Value[$key] } }
+    elseif ($null -ne $Value) { foreach ($property in $Value.PSObject.Properties) { $map[$property.Name] = $property.Value } }
+    return $map
+}
+function Add-DomeniaProbeHistory {
+    # Points 82 and 87: bounded per-workstation history kept inside the newest successful family payload, oldest
+    # first, built from the previous committed payload of the same family. Pure: the storage worker supplies both.
+    # Returns a new payload, or $null when the probe keeps no history or the new entry is not a complete reading
+    # (the payload is then stored as it came). Samples dated after the new reading are dropped, never reordered.
+    param($Data,$PreviousData,[string]$ProbeId)
+    $policy = Get-DomeniaProbeHistoryPolicy $ProbeId
+    if ($null -eq $policy -or $null -eq $Data) { return $null }
+    $probes = Get-DomeniaMemberValue $Data 'Probes'
+    $entry = Get-DomeniaMemberValue $probes $ProbeId
+    $sample = Get-DomeniaProbeHistorySample -ProbeId $ProbeId -Entry $entry -Policy $policy
+    if ($null -eq $sample) { return $null }
+    $now = ConvertTo-DomeniaUtcDate $sample.AtUtc
+    $previousEntry = Get-DomeniaMemberValue (Get-DomeniaMemberValue $PreviousData 'Probes') $ProbeId
+    $kept = New-Object System.Collections.Generic.List[object]
+    foreach ($old in @(Get-DomeniaMember $previousEntry 'History' @())) {
+        $checked = ConvertTo-DomeniaProbeHistoryItem -Item $old -ProbeId $ProbeId -Policy $policy
+        if ($null -eq $checked) { continue }
+        $at = ConvertTo-DomeniaUtcDate $checked.AtUtc
+        if (($at -ge $now) -or (($now - $at).TotalDays -gt [double]$policy.MaxAgeDays)) { continue }
+        $kept.Add($checked)
+    }
+    $ordered = @($kept.ToArray() | Sort-Object { (ConvertTo-DomeniaUtcDate $_.AtUtc).Ticks })
+    $append = $true
+    if ($ordered.Count) {
+        $last = $ordered[$ordered.Count - 1]
+        if ($policy.Kind -ceq 'Series') { $append = (($now - (ConvertTo-DomeniaUtcDate $last.AtUtc)).TotalHours -ge [double]$policy.MinSpacingHours) }
+        else { $append = ((@($last.Items) -join "`n") -cne (@($sample.Items) -join "`n")) }
+    }
+    $history = New-Object System.Collections.Generic.List[object]
+    foreach ($item in $ordered) { $history.Add($item) }
+    if ($append) { $history.Add($sample) }
+    while ($history.Count -gt [int]$policy.MaxSamples) { $history.RemoveAt(0) }
+    $entryCopy = Copy-DomeniaProbeHistoryMap $entry
+    $entryCopy['History'] = $history.ToArray()
+    $probesCopy = Copy-DomeniaProbeHistoryMap $probes
+    $probesCopy[$ProbeId] = [pscustomobject]$entryCopy
+    $dataCopy = Copy-DomeniaProbeHistoryMap $Data
+    $dataCopy['Probes'] = [pscustomobject]$probesCopy
+    return [pscustomobject]$dataCopy
+}

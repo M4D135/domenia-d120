@@ -1321,6 +1321,13 @@ function Get-DomeniaBoardSources {
     }
     if ($Board -ne 'Software') {
         foreach ($probe in @(Get-DomeniaProbeCatalog)) {
+            # Points 135-136: a probe that does not satisfy Domenia.ProbeContract/1 is never offered, and the refusal is logged.
+            $contractEntry = Get-DomeniaProbeContract ([string]$probe.Id)
+            if (($null -eq $contractEntry) -or (-not [bool]$contractEntry.Check.Valid)) {
+                $why = if ($null -ne $contractEntry) { @($contractEntry.Check.Errors) -join ' ' } else { 'contrat introuvable' }
+                Write-AppLog ('Sonde ' + [string]$probe.Id + ' non proposée : contrat refusé (' + $why + ').') 'WARN'
+                continue
+            }
             $shown = $present.ContainsKey('Probe|' + [string]$probe.Id)
             $kind = Get-DomeniaProbeKind -Probe $probe -Board $Board
             # FI-17: a slow query is flagged before it is added.
@@ -1331,6 +1338,8 @@ function Get-DomeniaBoardSources {
             if($slow){$probeDescription+=' · Requête lente : collecte explicite recommandée.'}
             $probeDescription = $probeDescription.Trim()
             if (-not $probeDescription) { $probeDescription = 'Lu sur ' + $who + ' à la demande, en lecture seule.' }
+            # Points 135-136: rights, cost and behaviour of the contract, after the plain description.
+            $probeDescription += ' ' + (Get-DomeniaProbeContractSummary $contractEntry.Contract)
             $class = [string](Get-DomeniaHealthValue $probe 'Class' ''); $namespace = [string](Get-DomeniaHealthValue $probe 'Namespace' '')
             $tip = 'Lu sur ' + $who + ' à la demande, en lecture seule, à lʼajout puis à chaque actualisation de ce widget. Classe WMI : ' + $class + $(if ($namespace) { ' (' + $namespace + ')' } else { '' }) + '.'
             [void]$rows.Add([pscustomobject]@{ Section = 'Lu sur ' + $who + ', à la demande · ' + (Get-DomeniaBoardCategoryLabel -Name ([string]$probe.Category)); Name = [string]$probe.Name; Description = $probeDescription; Badge = $(if ($shown) { 'Déjà affiché' } else { '' }); Reads = 'Interroge ' + $who; Tip = $tip; Source = 'Probe'; Key = [string]$probe.Id; Kind = $kind; Visual = (Resolve-DomeniaBoardVisual -Visual ([string]$probe.Visual) -Kind $kind); Size = ''; Group = [string]$probe.Category; Category = [string]$probe.Category; Slow = $slow; Search = (ConvertTo-DomeniaSearchText ([string]$probe.Name + ' ' + [string]$probe.Category + ' ' + $class + ' ' + $probeDescription)) })
@@ -2331,9 +2340,9 @@ function Get-DomeniaWidgetExplanationData {
     if ([string]$Item.Source -eq 'Probe') {
         $probe = Get-DomeniaProbe -Id $key
         if ($null -ne $probe) {
-            $formula = $(if ($Board -eq 'Fleet') { 'Répartition des postes analysés selon la valeur relevée par « ' + [string]$probe.Name + ' ».' } else { 'Valeur relevée par « ' + [string]$probe.Name + ' » sur ce poste.' })
-            $criteria = 'Requête WMI en lecture seule : classe ' + [string]$probe.Class + ', propriété(s) ' + (@($probe.Properties) -join ', ') + '.'
-            $exclusions = 'Postes sans relevé exploitable (non lu, en erreur ou expiré) ; comptes désactivés.'
+            # Documented catalog entry: class, namespace, properties and the limitations of the projection.
+            $probeSource = Get-DomeniaProbeWidgetSource -Probe $probe -Board $Board
+            $formula = [string]$probeSource.Formula; $criteria = [string]$probeSource.Criteria; $exclusions = [string]$probeSource.Exclusions
             if ($Board -eq 'Fleet') {
                 # The coverage computed by the query worker with this very figure: the fleet is never aggregated
                 # again on the interface thread to explain it.

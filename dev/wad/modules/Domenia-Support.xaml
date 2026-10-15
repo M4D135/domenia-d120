@@ -119,6 +119,21 @@
                    Background="{DynamicResource BgReadonly}" Foreground="{DynamicResource TextColor}" FontFamily="Consolas" FontSize="12" Text="Aucun dossier genere. Clique sur Generer l'apercu."/>
         </Grid>
       </TabItem>
+      <TabItem x:Name="SupportOfflineTab" Header="Dossier hors ligne" ToolTip="Dossier daté pour une intervention sans accès à Domenia : état local, postes, observations, associations et requêtes du périmètre choisi, secrets exclus.">
+        <Grid Margin="10">
+          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+          <TextBlock Style="{StaticResource SupportCaption}" Text="Le dossier est écrit dans le dossier Exports de la base locale : un nouveau dossier daté, avec manifeste et empreintes SHA-256. Lecture seule de la base, sans accès réseau ni à lʼannuaire. Mots de passe, clés BitLocker, données LAPS et champs nommés comme des secrets sont exclus."/>
+          <WrapPanel Grid.Row="1" Margin="0,0,0,8">
+            <ComboBox x:Name="CmbSupportOfflineScope" Width="260" SelectedIndex="0" Margin="0,0,8,0" VerticalContentAlignment="Center" ToolTip="Périmètre du dossier : le poste sélectionné, les postes des résultats affichés (500 au plus) ou lʼOU sélectionnée dans lʼarborescence." AutomationProperties.Name="Périmètre du dossier" AutomationProperties.HelpText="Périmètre du dossier : le poste sélectionné, les postes des résultats affichés (500 au plus) ou lʼOU sélectionnée dans lʼarborescence."><ComboBoxItem Content="Poste sélectionné" Tag="Selected"/><ComboBoxItem Content="Postes des résultats affichés" Tag="Displayed"/><ComboBoxItem Content="OU sélectionnée" Tag="Branch"/></ComboBox>
+            <CheckBox x:Name="ChkSupportOfflineObservations" Content="Observations" IsChecked="True" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip="Dernières observations enregistrées des postes (présence, console, inventaire, sondes), avec leurs dates." AutomationProperties.Name="Inclure les observations"/>
+            <CheckBox x:Name="ChkSupportOfflineLinks" Content="Associations" IsChecked="True" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip="Associations utilisateur et poste mémorisées pour les postes du périmètre." AutomationProperties.Name="Inclure les associations"/>
+            <CheckBox x:Name="ChkSupportOfflineQueries" Content="Requêtes enregistrées" IsChecked="True" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip="Définitions des requêtes enregistrées non archivées, avec leur empreinte." AutomationProperties.Name="Inclure les requêtes enregistrées"/>
+            <Button x:Name="BtnSupportOfflineDossier" Content="Préparer le dossier" ToolTip="Écrit un nouveau dossier daté dans Exports pour le périmètre choisi. Aucune écriture dans la base, aucun accès réseau." AutomationProperties.Name="Préparer le dossier hors ligne"/>
+          </WrapPanel>
+          <TextBlock x:Name="LblSupportOfflineStatus" Grid.Row="2" Style="{StaticResource SupportCaption}" Text="Aucun dossier préparé dans cette session."/>
+          <TextBlock Grid.Row="3" Style="{StaticResource SupportCaption}" Text="Le même dossier sʼobtient sans lʼinterface : wad\Domenia-Automate.ps1 dossier -DatabasePath … -OrganizationalUnit … -OutputPath …. Les données sont celles de la base locale, datées ; elles ne sont pas revérifiées dans Active Directory ni sur les postes."/>
+        </Grid>
+      </TabItem>
     </TabControl>
   </Grid>
 </UserControl>

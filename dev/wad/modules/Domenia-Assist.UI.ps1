@@ -142,6 +142,8 @@ function Set-DomeniaAssistTone {
         'Pending' {$edge='AccentColor';$ink='AccentColor'}
         'Declare' {$edge='AccentColor';$ink='AccentText';$fill='AccentSoft'}
         'Observe' {$edge='StatusSuccess';$ink='TextColor'}
+        # Point 107: an old logon read in a journal or a profile is history, not a current observation: neutral tone.
+        'Historique' {$edge='BorderColor';$ink='MutedColor'}
         'Contradictoire' {$edge='StatusWarning';$ink='TextColor'}
     }
     $Border.SetResourceReference([Windows.Controls.Border]::BackgroundProperty,$fill)
@@ -202,13 +204,23 @@ function Update-DomeniaComputerAssistView {
 function Update-DomeniaComputerLinkLine {
     # UI-17: the association on one line, from the local memory only (no read, no probe), then the header.
     if(($null -eq $script:Ctrl) -or ($null -eq $script:DomeniaAssist)){return}
-    $computer='';$link=$null;$probing=$false
+    $computer='';$link=$null;$probing=$false;$unproven=$false
     if(Test-DomeniaAssistSelectedMachine){$computer=Get-CurrentSelectedComputerName}
     if($computer){
         try{$link=Get-ExistingLinkForComputer -Computer $computer}catch{$link=$null}
         if($null -eq $link){try{$probing=($null -ne (Get-DomeniaRunningComputerUserProbe -Computer $computer))}catch{$probing=$false}}
+        else{
+            # Point 9: the link of a former holder of the name is already left out (GUID of the selection); a legacy link
+            # without GUID that does not predate this workstation stays, with its identity named as not checkable.
+            try{
+                $selectedGuid=ConvertTo-DomeniaGuidText (Get-DomeniaMember $script:SelectedObject 'Guid' '')
+                $entry=Get-DomeniaMemberValue $script:SelectedObject 'Entry'
+                $created=if($null -ne $entry){Get-DeProp $entry 'whenCreated' $null}else{$null}
+                if($selectedGuid){$unproven=((Test-DomeniaLinkIdentity -Link $link -Kind Computer -Guid $selectedGuid -CreatedUtc $created).Match -eq 'Unknown')}
+            }catch{$unproven=$false}
+        }
     }
-    $summary=Get-DomeniaLinkSummaryText -Link $link -Probing:$probing
+    $summary=Get-DomeniaLinkSummaryText -Link $link -Probing:$probing -IdentityUnproven:$unproven
     [void](Set-DomeniaControlText 'LblCompLinkSummary' ([string]$summary.Text))
     $line=Get-DomeniaControl 'LblCompLinkSummary';if($null -ne $line){$line.ToolTip=[string]$summary.Detail}
     [void](Set-DomeniaControlText 'LblCompLinkBadge' ([string]$summary.BadgeLabel))

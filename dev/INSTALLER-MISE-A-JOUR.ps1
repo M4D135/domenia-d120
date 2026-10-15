@@ -6,6 +6,7 @@
      .\INSTALLER-MISE-A-JOUR.ps1 -Destination 'C:\Domenia'
      .\INSTALLER-MISE-A-JOUR.ps1 -Install -Destination 'C:\Domenia'
      .\INSTALLER-MISE-A-JOUR.ps1 -RestoreLatest -Destination 'C:\Domenia'
+     .\INSTALLER-MISE-A-JOUR.ps1 -Uninstall -Destination 'C:\Domenia' -LocalData Conserver -ProfileData Conserver
    Exit codes: 0 done (or -WhatIf), 1 error, 2 nothing installed (refused or unanswered question).
 #>
 [CmdletBinding(SupportsShouldProcess=$true,ConfirmImpact='Medium',DefaultParameterSetName='Update')]
@@ -13,6 +14,7 @@ param(
     [Parameter(Mandatory,ParameterSetName='Update')]
     [Parameter(Mandatory,ParameterSetName='Install')]
     [Parameter(Mandatory,ParameterSetName='RestoreLatest')]
+    [Parameter(Mandatory,ParameterSetName='Uninstall')]
     [string]$Destination,
     [Parameter(Mandatory,ParameterSetName='Install')][switch]$Install,
     [Parameter(Mandatory,ParameterSetName='Restore')][string]$RestoreBackup,
@@ -20,7 +22,10 @@ param(
     [Parameter(ParameterSetName='Update')][Parameter(ParameterSetName='Install')][string]$Package='',
     [Parameter(ParameterSetName='Update')][Parameter(ParameterSetName='Install')][string]$QualificationReport='',
     [Parameter(ParameterSetName='Update')][Parameter(ParameterSetName='Install')][switch]$RequireQualification,
-    [Parameter(ParameterSetName='Install')][ValidateSet('Demander','Oui','Non')][string]$Shortcuts='Demander'
+    [Parameter(ParameterSetName='Install')][ValidateSet('Demander','Oui','Non')][string]$Shortcuts='Demander',
+    [Parameter(Mandatory,ParameterSetName='Uninstall')][switch]$Uninstall,
+    [Parameter(ParameterSetName='Uninstall')][ValidateSet('Demander','Conserver','Supprimer')][string]$LocalData='Demander',
+    [Parameter(ParameterSetName='Uninstall')][ValidateSet('Demander','Conserver','Supprimer')][string]$ProfileData='Demander'
 )
 $ErrorActionPreference='Stop'
 & (Join-Path $PSScriptRoot 'wad\Support\INSTALLER-MISE-A-JOUR.ps1') @PSBoundParameters

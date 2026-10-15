@@ -271,7 +271,14 @@ Test-Case 'D029' 'Reconstructible vide a la demande, historique borne avec date 
 Test-Case 'D029' 'Liste de tables fermee et historique des associations declarees protege' {
     $targets=@(foreach($category in @('Observations','Snapshots','History','Index')){Get-DomeniaPurgeTargets $category})
     # Lot L01: ad_computer_facts (Index) and fleet_snapshots (History) join the closed list; secret_state never does.
-    Assert-Equal 13 $targets.Count
+    # Point 4: the scope clocks (domenia_domain_metadata) go with the measures (Presence, Inventory) and the index (Directory).
+    # Points 22, 24 and 30: census gaps, absences and directory snapshots (rows and manifests) join the Index category.
+    # Real count of the closed list: 7 Observations, 1 Snapshots, 4 History, 10 Index (domenia_observations,
+    # domenia_details and domenia_directory_data were never counted by the former figure).
+    Assert-Equal 22 $targets.Count
+    foreach($table in @('ad_absences','ad_census_gaps','ad_snapshot_rows','ad_snapshots')){Assert-Equal 'Index' (@(foreach($category in @('Observations','Snapshots','History','Index')){foreach($t in @(Get-DomeniaPurgeTargets $category)){if($t.Table -eq $table){$category}}})[0]) $table}
+    $clocks=@($targets | Where-Object {$_.Table -eq 'domenia_domain_metadata'})
+    Assert-Equal 'WorkstationRuns|DirectoryRuns' (@($clocks | ForEach-Object {$_.Filter}) -join '|')
     Assert-Equal 'Index' (@(foreach($category in @('Index')){foreach($t in @(Get-DomeniaPurgeTargets $category)){if($t.Table -eq 'ad_computer_facts'){$category}}})[0])
     Assert-Equal 'snapshot_day' (@(Get-DomeniaPurgeTargets History | Where-Object {$_.Table -eq 'fleet_snapshots'})[0].TimeColumn)
     foreach($target in $targets){
@@ -283,6 +290,23 @@ Test-Case 'D029' 'Liste de tables fermee et historique des associations declaree
     Assert-Equal 'observed_at' $history.TimeColumn
     $plan=Get-DomeniaPurgePlan -Selection @('Observations','Snapshots','History','Index')
     Assert-True $plan.KeepsManualLinks;Assert-True $plan.KeepsConfiguration;Assert-True $plan.KeepsUnresolvedReceipts
+}
+Test-Case 'D029' 'Point 137 : la purge et la conservation epinglees protegent exactement les sources declarees et importees' {
+    # The History purge of the pinned StoragePurge worker and the link history compaction of the pinned StorageRetention
+    # worker (point 37) each carry their own SQL list: both must stay the list of Test-DomeniaProtectedAssociationSource,
+    # or an imported association (GLPI, osquery) would lose its history.
+    $sources=@(Get-DomeniaProtectedAssociationSources)
+    foreach($source in @('Manual','Saisie manuelle','Import CSV','Import GLPI','Import osquery')){Assert-True ($sources -ccontains $source) ('source non protegee : '+$source)}
+    foreach($source in $sources){Assert-True (Test-DomeniaProtectedAssociationSource (' '+$source.ToUpperInvariant()+' ')) ('comparaison de source : '+$source)}
+    Assert-False (Test-DomeniaProtectedAssociationSource 'Journal du controleur') 'source automatique protegee'
+    $worker=[IO.File]::ReadAllText((Join-Path $modules 'Domenia-Storage.Worker.ps1'),[Text.Encoding]::UTF8)
+    $found=@([regex]::Matches($worker,'\$sources="\(([^)]*)\)"'))
+    Assert-Equal 2 $found.Count 'listes SQL des sources protegees (purge Historique et conservation de l historique des associations)'
+    $expected=@($sources|ForEach-Object{$_.ToLowerInvariant()}|Sort-Object)
+    foreach($match in $found){
+        $sql=@([regex]::Matches($match.Groups[1].Value,"'([^']*)'")|ForEach-Object{$_.Groups[1].Value})
+        Assert-Equal ($expected -join '|') (@($sql|Sort-Object) -join '|') 'purge ou conservation et regle de protection divergentes'
+    }
 }
 Test-Case 'D029' 'Index reinitialise seulement le suivi annuaire, marqueur import conserve' {
     $sync=@(Get-DomeniaPurgeTargets Index | Where-Object {$_.Table -eq 'sync_state'})[0]
@@ -300,6 +324,36 @@ Test-Case 'D029' 'Taille absente inconnue, mesure conservee sans estimation' {
     $plan=Get-DomeniaPurgePlan -Usage @([pscustomobject]@{Category='Observations';Bytes=4096L;Rows=12L}) -Selection @('Observations','Snapshots')
     Assert-Equal 4096L $plan.Actions[0].CurrentBytes;Assert-Equal 12L $plan.Actions[0].CurrentRows
     Assert-Equal (-1L) $plan.Actions[1].CurrentBytes;Assert-Equal 'inconnu' (Format-DomeniaSize $plan.Actions[1].CurrentBytes)
+}
+
+# ---------------------------------------------------------------- point 21 : repère de synchronisation par contrôleur et instance
+Test-Case 'P21' 'Repère réutilisé seulement sur son contrôleur et son instance, avec les données quʼil décrit' {
+    $now=[datetime]::SpecifyKind([datetime]'2026-10-14T10:00:00',[DateTimeKind]::Utc)
+    $cp=[pscustomobject]@{Server='dc1.example.test';BaseDn='DC=example,DC=test';Date='2026-10-14T09:00:00Z';Count=5000;Usn=12345L;InvocationId='11111111-2222-3333-4444-555555555555'}
+    Assert-True (Test-DomeniaSyncCheckpoint $cp 'DC1.example.test' 'dc=example,dc=test' 5100 0 $now).Usable
+    Assert-True (Test-DomeniaSyncCheckpoint $cp 'dc1.example.test' 'DC=example,DC=test' 5000 20000 $now).Usable 'USN de lʼinstance supérieur au repère'
+    $other=Test-DomeniaSyncCheckpoint $cp 'dc2.example.test' 'DC=example,DC=test' 5000 0 $now
+    Assert-Equal 'OtherController' $other.Code;Assert-True ($other.Reason -match 'aucun USN reporté')
+    Assert-Equal 'UsnAhead' (Test-DomeniaSyncCheckpoint $cp 'dc1.example.test' 'DC=example,DC=test' 5000 1000 $now).Code
+    Assert-Equal 'EmptyBase' (Test-DomeniaSyncCheckpoint $cp 'dc1.example.test' 'DC=example,DC=test' 0 0 $now).Code
+    Assert-Equal 'BaseShrunk' (Test-DomeniaSyncCheckpoint $cp 'dc1.example.test' 'DC=example,DC=test' 1000 0 $now).Code
+    Assert-Equal 'OtherScope' (Test-DomeniaSyncCheckpoint $cp 'dc1.example.test' 'DC=autre,DC=test' 5000 0 $now).Code
+    Assert-Equal 'Missing' (Test-DomeniaSyncCheckpoint $null 'dc1.example.test' 'DC=example,DC=test' 5000 0 $now).Code
+    $noInstance=$cp.PSObject.Copy();$noInstance.InvocationId=''
+    Assert-Equal 'NoInstance' (Test-DomeniaSyncCheckpoint $noInstance 'dc1.example.test' 'DC=example,DC=test' 5000 0 $now).Code
+    $noUsn=$cp.PSObject.Copy();$noUsn.Usn=0L
+    Assert-Equal 'NoUsn' (Test-DomeniaSyncCheckpoint $noUsn 'dc1.example.test' 'DC=example,DC=test' 5000 0 $now).Code
+    $future=$cp.PSObject.Copy();$future.Date='2026-10-20T09:00:00Z'
+    Assert-Equal 'FutureDate' (Test-DomeniaSyncCheckpoint $future 'dc1.example.test' 'DC=example,DC=test' 5000 0 $now).Code
+}
+Test-Case 'P21' 'Synchronisation : un repère dʼun autre contrôleur ou sans instance nʼavance jamais sur des données partielles' {
+    $cp=[pscustomobject]@{Dc='dc1';InvocationId='11111111-2222-3333-4444-555555555555';Usn='100';ScopeDn='DC=example,DC=test'}
+    $r=Resolve-DomeniaIncrementalSync $cp ([pscustomobject]@{Dc='dc2';InvocationId='99999999-2222-3333-4444-555555555555';HighestUsn='5000';ScopeDn='DC=example,DC=test';ScopeComplete=$true;Rows=@();KnownGuids=@()})
+    Assert-Equal 'FullRescan' $r.Mode;Assert-Equal '99999999-2222-3333-4444-555555555555' $r.CheckpointNext.InvocationId
+    $partial=Resolve-DomeniaIncrementalSync $cp ([pscustomobject]@{Dc='dc1';InvocationId='11111111-2222-3333-4444-555555555555';HighestUsn='150';ScopeDn='DC=example,DC=test';Partial=$true;Rows=@();KnownGuids=@()})
+    Assert-False $partial.CheckpointAdvanced;Assert-Equal '100' $partial.CheckpointNext.Usn
+    $unknown=Resolve-DomeniaIncrementalSync $cp ([pscustomobject]@{Dc='dc1';InvocationId='';HighestUsn='150';ScopeDn='DC=example,DC=test';Rows=@();KnownGuids=@()})
+    Assert-False $unknown.CheckpointAdvanced 'Instance inconnue : pas de repère'
 }
 
 # ---------------------------------------------------------------- Lot X06 : base locale (FI-12, FI-13, UI-19, DS-09)
@@ -420,6 +474,14 @@ Test-Case 'FI-19' 'Metadonnees : repere du domaine, identifiant d invocation et 
     Assert-Equal '' $noInv.Info.InvocationId 'Un identifiant mal forme ne devient pas un repere'
     $noDirectory=ConvertTo-DomeniaIndexMetadataState -Result ([pscustomobject]@{Rows=@();Busy=$false;Missing=$false;MachineCount=0;SyncStates=@($sync[1]);Counts=$counts})
     Assert-True ($null -eq $noDirectory.Info) 'Une OU seule ne fournit pas le repere du domaine'
+}
+Test-Case 'P22' 'Metadonnees : identites du recensement encore absentes de la copie locale' {
+    $sync=@([pscustomobject]@{scope='directory';server='dc1.example.invalid';base_dn='DC=example,DC=invalid';highest_usn=10L;last_sync='2026-10-01T08:00:00Z';item_count=3L;details='inv=AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE;gap=2'})
+    $counts=[pscustomobject]@{Total=3L;Users=1L;Computers=2L;MachinesActive=2L;MachinesDisabled=0L}
+    $state=ConvertTo-DomeniaIndexMetadataState -Result ([pscustomobject]@{Rows=@();Busy=$false;Missing=$false;MachineCount=2;SyncStates=$sync;Counts=$counts;CensusGap=2L})
+    Assert-Equal 2 $state.Info.CensusGap 'Le nombre compte dans la base est garde'
+    $older=ConvertTo-DomeniaIndexMetadataState -Result ([pscustomobject]@{Rows=@();Busy=$false;Missing=$false;MachineCount=2;SyncStates=$sync;Counts=$counts})
+    Assert-Equal 0 $older.Info.CensusGap 'Sans comptage, aucun manque n est deduit du repere'
 }
 Test-Case 'FI-19' 'Resume des secrets : nombre de cles, LAPS, verdict et age, sans aucune valeur' {
     $now=[datetime]'2026-01-04T10:00:00Z'

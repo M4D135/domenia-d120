@@ -380,7 +380,7 @@ function Update-DomeniaRelationCandidateEvidence {
 function Get-DomeniaAllLinksBadgeFilter {
     # FO-14: qualification chips checked above Toutes les associations (internal keys).
     $badges=[Collections.Generic.List[string]]::new()
-    foreach($pair in @(@('ChkAllLinksDeclared','Declare'),@('ChkAllLinksObserved','Observe'),@('ChkAllLinksConflict','Contradictoire'))){
+    foreach($pair in @(@('ChkAllLinksDeclared','Declare'),@('ChkAllLinksObserved','Observe'),@('ChkAllLinksHistory','Historique'),@('ChkAllLinksConflict','Contradictoire'))){
         $chip=Get-DomeniaControl $pair[0];if($null -ne $chip -and [bool]$chip.IsChecked){$badges.Add([string]$pair[1])}
     }
     return $badges.ToArray()
@@ -388,7 +388,7 @@ function Get-DomeniaAllLinksBadgeFilter {
 function Clear-DomeniaAllLinksFilter {
     # FO-14: « Exporter tout » exports every association, so the text filter and the chips are cleared first (visibly).
     $box=Get-DomeniaControl 'TxtAllLinksFilter';if($null -ne $box){$box.Text=''}
-    foreach($name in @('ChkAllLinksDeclared','ChkAllLinksObserved','ChkAllLinksConflict')){$chip=Get-DomeniaControl $name;if($null -ne $chip){$chip.IsChecked=$false}}
+    foreach($name in @('ChkAllLinksDeclared','ChkAllLinksObserved','ChkAllLinksHistory','ChkAllLinksConflict')){$chip=Get-DomeniaControl $name;if($null -ne $chip){$chip.IsChecked=$false}}
     Update-DomeniaAllLinksView
 }
 function Update-DomeniaAllLinksView {
@@ -419,6 +419,8 @@ function Refresh-DomeniaRelationViews {
             $grid=Get-DomeniaControl 'DgLinks';$selected=if($null -ne $grid){$grid.SelectedItem}else{$null}
             [void](Set-DomeniaItemsSource 'DgLinks' $rows);if($null -ne $selected -and $rows -contains $selected){$grid.SelectedItem=$selected}
             Update-DomeniaAllLinksView -Rows $all
+            # Point 138: the rollback batch of an earlier session stays reachable from Toutes les associations.
+            Update-DomeniaLinkImportUndo
             $title=if($null -eq $s){'Sélectionnez un utilisateur ou un poste depuis Rechercher.'}elseif($s.Type -eq 'Utilisateur'){'Utilisateur : '+$s.Login}else{'Poste : '+$s.Name}
             [void](Set-DomeniaControlText 'LblRelationsSelection' $title)
             $context=$title+' · '+$rows.Count+' association(s) mémorisée(s).'
@@ -427,6 +429,8 @@ function Refresh-DomeniaRelationViews {
             if($sessionOnly){$context+=' '+$sessionOnly+' visible(s) pour cette session seulement : le stockage local garde une relation par poste.'}
             if($contradicted){$context+=' '+$contradicted+' qualification(s) contradictoire(s) : sources différentes conservées, sans fusion.'}
             [void](Set-DomeniaControlText 'LblLinkContext' $context)
+            # Point 107: declared assignment, last observed session and history, kept apart with origin and date.
+            Update-DomeniaLinkOverview -Subject $s -Rows $rows
             $lbl=Get-DomeniaControl 'LblRelationsSelection';if($null -ne $lbl -and $null -ne $s){$lbl.ToolTip=$s.DN}
             $emptyText=if($null -eq $s){'Recherchez un utilisateur ou un poste en haut, sélectionnez sa ligne, puis ouvrez Relations.'}else{(Get-DomeniaRelationDirection $s.Type).EmptyHint+' Utilisez le panneau Ajouter pour détecter ou rechercher.'}
             [void](Set-DomeniaControlText 'LblLinkEmpty' $emptyText)
@@ -448,6 +452,16 @@ function Refresh-DomeniaRelationViews {
         }
         Update-DomeniaRelationsActions
     }finally{$script:Relations.Rendering=$false}
+}
+function Update-DomeniaLinkOverview {
+    # Point 107: three separate statements for the subject of the page, from the associations already in memory.
+    param($Subject,[object[]]$Rows=@())
+    $label=Get-DomeniaControl 'LblLinkOverview'
+    if($null -eq $label){return}
+    if(($null -eq $Subject) -or ([string]$Subject.Type -notin @('Utilisateur','Machine'))){$label.Text='';$label.Visibility='Collapsed';return}
+    $overview=Get-DomeniaRelationOverview -Relations @($Rows) -SubjectType ([string]$Subject.Type)
+    $label.Text=[string]$overview.Text
+    $label.Visibility='Visible'
 }
 function Update-DomeniaRelationDetectionCounters {
     # D048: queried / refused / unreachable / confirmed / remaining, shown while the detection progresses.
@@ -1163,7 +1177,7 @@ function Initialize-DomeniaRelationsUi {
     $workspace=Get-DomeniaControl 'WorkspaceTabs';if($null -ne $workspace){$workspace.Add_SelectionChanged({param($sender,$e) if($e.OriginalSource -eq $sender -and [string]$sender.SelectedItem.Name -eq 'TabRelations'){Open-DomeniaRelationsPage}})}
     $help=Get-DomeniaControl 'BtnRelationsHelp';if($null -ne $help){$help.Add_Click({Switch-DomeniaRelationsHelp})}
     $filter=Get-DomeniaControl 'TxtAllLinksFilter';if($null -ne $filter){$filter.Add_TextChanged({Update-DomeniaAllLinksView})}
-    foreach($name in @('ChkAllLinksDeclared','ChkAllLinksObserved','ChkAllLinksConflict')){$chip=Get-DomeniaControl $name;if($null -ne $chip){$chip.Add_Click({Update-DomeniaAllLinksView})}}
+    foreach($name in @('ChkAllLinksDeclared','ChkAllLinksObserved','ChkAllLinksHistory','ChkAllLinksConflict')){$chip=Get-DomeniaControl $name;if($null -ne $chip){$chip.Add_Click({Update-DomeniaAllLinksView})}}
     foreach($pair in @(@('BtnLinkImportApply',{Confirm-DomeniaLinkImport}),@('BtnLinkImportCancel',{Cancel-DomeniaLinkImportPreview}),@('BtnUndoImport',{Request-DomeniaLinkImportUndo}),@('BtnLinkOrphanRemove',{Request-DomeniaOrphanRemoval}),@('BtnLinkOrphanClose',{Close-DomeniaOrphanLinks}),@('BtnLinkOrphanConfirmApply',{Complete-DomeniaOrphanRemoval}),@('BtnLinkOrphanConfirmCancel',{Cancel-DomeniaOrphanRemoval}))){$button=Get-DomeniaControl $pair[0];if($null -ne $button){$button.Add_Click($pair[1])}}
     $allLinks=Get-DomeniaControl 'DgAllLinks'
     if($null -ne $allLinks){
@@ -1368,48 +1382,73 @@ function New-DomeniaAllLinksContextMenu {
 
 # ---------------------------------------------------------------- CO-08 CSV import: preview, forced source, undo
 function New-DomeniaLinkImportPlan {
-    # CO-08: every record of the file in a preview (to import, ignored, unknown in the local index). Nothing is written,
-    # nothing is read on the network. -Index is the answer of the local index (LocalIndexRead, ResolveNames: State
-    # Verified, Empty or Unavailable, Users by login, Computers by name), or $null while it is being read: the presence
-    # in Active Directory is then not checked and the preview says why.
-    param([object[]]$Items=@(),[string]$FileName='',$Index=$null,[string]$Id='',[int]$Total=-1)
+    # CO-08, points 137-138: every record of the file in a preview (valid, conflict, reject, duplicate, already known,
+    # unknown in the local index, deferred). Nothing is written, nothing is read on the network. -Index is the answer of
+    # the local index (LocalIndexRead, ResolveNames: State Verified, Empty or Unavailable, Users by login, Computers by
+    # name), or $null while it is being read: the presence in Active Directory is then not checked and the preview says
+    # why. -Items are inventory records (Domenia-InventoryImport.Model.ps1) or raw CSV rows, read as the generic CSV.
+    # -Adapter imposes the provenance; -BatchId names the rollback batch written in the details of each association.
+    param([object[]]$Items=@(),[string]$FileName='',$Index=$null,[string]$Id='',[int]$Total=-1,[ValidateSet('Csv','Glpi','Osquery')][string]$Adapter='Csv',[string]$BatchId='',[string]$ParseNote='')
+    $adapterInfo=Get-DomeniaInventoryAdapter $Adapter
     $state=if($null -ne $Index){[string]$Index.State}else{'Pending'}
     $indexAvailable=($state -eq 'Verified')
     $unverified=switch($state){'Pending'{'vérification dans lʼindex local en cours'}'Empty'{'index local vide'}'Unavailable'{[string]$Index.Detail}default{''}}
     $users=@{};$computers=@{};if($indexAvailable){$users=$Index.Users;$computers=$Index.Computers}
-    $seen=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-    $rows=[Collections.Generic.List[object]]::new();$record=0;$ready=0
+    if(-not $Id){$Id=[guid]::NewGuid().ToString('N')}
+    if(-not $BatchId){$BatchId=New-DomeniaImportBatchId -Id $Id}
+    $domainDns=[string](Get-DomeniaMember $script:Conn 'Domain' '');$netbios=[string](Get-DomeniaMember $script:Conn 'Netbios' '')
+    # Identity, normalisation and date of every record first: the source priority of the file needs all of them.
+    $records=[Collections.Generic.List[object]]::new();$number=0
     foreach($item in @($Items)){
         # Import-Csv skips blank lines and joins quoted multi-line fields: rows are numbered by record, not by line.
-        $record++
-        $v=ConvertFrom-DomeniaLinkCsvRow $item
-        $user=Normalize-LinkUser ([string]$v.User);$computer=Normalize-LinkComputer ([string]$v.Computer)
-        $stored='';$duplicate=$false;$userRow=$null;$computerRow=$null
+        $number++
+        if(($null -ne $item) -and ($null -ne $item.PSObject.Properties['InventoryAdapter'])){$records.Add($item)}else{$records.Add((ConvertFrom-DomeniaCsvInventoryRow $item $number))}
+    }
+    $prepared=[Collections.Generic.List[object]]::new()
+    foreach($rec in $records){
+        $reject=[string]$rec.Reject
+        if(-not $reject){$reject=[string](Test-DomeniaInventoryIdentity -User ([string]$rec.User) -Computer ([string]$rec.Computer) -DomainDns $domainDns -Netbios $netbios).Reject}
+        $user='';$computer=''
+        if(-not $reject){$user=Normalize-LinkUser ([string]$rec.User);$computer=Normalize-LinkComputer ([string]$rec.Computer)}
+        $when=ConvertTo-DomeniaInventoryWhen -Value ([string]$rec.When) -UnixTime ([bool]$rec.UnixTime)
+        $both=(($user) -and ($computer))
+        $prepared.Add([pscustomobject]@{Item=$rec;User=$user;Computer=$computer;Reject=$reject;When=$when;Record=[int]$rec.Record;ComputerKey=$(if($both){ConvertTo-DomeniaRelationComputerKey $computer}else{''});UserKey=$(if($both){ConvertTo-DomeniaRelationLoginKey $user}else{''});Ticks=[long]$when.Ticks})
+    }
+    $decisions=Resolve-DomeniaInventoryPriority -Items $prepared.ToArray()
+    $rows=[Collections.Generic.List[object]]::new();$ready=0
+    for($i=0;$i -lt $prepared.Count;$i++){
+        $entry=$prepared[$i];$rec=$entry.Item;$user=$entry.User;$computer=$entry.Computer;$decision=$decisions[$i]
+        $stored='';$userRow=$null;$computerRow=$null
         if($user -and $computer){
-            $duplicate=(-not $seen.Add($computer))
             $existing=@(Get-LinksForComputer $computer|Where-Object{$null -ne $_}|Select-Object -First 1)
             if($existing.Count){$stored=[string]$existing[0].UserLogin}
             if($indexAvailable){$userRow=$users[$user.ToLowerInvariant()];$computerRow=$computers[$computer]}
         }
-        $status=Get-DomeniaLinkImportStatus -User $user -Computer $computer -StoredLogin $stored -DuplicateInFile $duplicate -IndexAvailable $indexAvailable -UserKnown ($null -ne $userRow) -ComputerKnown ($null -ne $computerRow) -Unverified $unverified -ReadyBefore $ready
+        $conflict=if([string]$decision.Kind -eq 'Conflit'){[string]$decision.Reason}else{''}
+        $superseded=if([string]$decision.Kind -in @('Doublon','Remplacée')){[string]$decision.Reason}else{''}
+        $status=Get-DomeniaLinkImportStatus -User $user -Computer $computer -StoredLogin $stored -IndexAvailable $indexAvailable -UserKnown ($null -ne $userRow) -ComputerKnown ($null -ne $computerRow) -Unverified $unverified -ReadyBefore $ready -Rejected ([string]$entry.Reject) -FileConflict $conflict -FileSuperseded $superseded
         $relation=$null
         if($status.Import){
             $ready++
-            $relation=New-DomeniaImportedRelation -User $user -Computer $computer -FileName $FileName -Line $record -FileSource ([string]$v.FileSource) -FileDetails ([string]$v.Details) -When ([string]$v.When) -Verified ([bool]$status.Verified) -UserGuid $(if($null -ne $userRow){[string]$userRow.Guid}else{''}) -ComputerGuid $(if($null -ne $computerRow){[string]$computerRow.Guid}else{''}) -UserDn $(if($null -ne $userRow){[string]$userRow.DN}else{''}) -ComputerDn $(if($null -ne $computerRow){[string]$computerRow.DN}else{''})
+            $relation=New-DomeniaImportedRelation -User $user -Computer $computer -FileName $FileName -Line ([int]$rec.Record) -FileSource ([string]$rec.FileSource) -FileDetails ([string]$rec.Details) -When ([string]$entry.When.Text) -WhenNote ([string]$entry.When.Note) -Verified ([bool]$status.Verified) -UserGuid $(if($null -ne $userRow){[string]$userRow.Guid}else{''}) -ComputerGuid $(if($null -ne $computerRow){[string]$computerRow.Guid}else{''}) -UserDn $(if($null -ne $userRow){[string]$userRow.DN}else{''}) -ComputerDn $(if($null -ne $computerRow){[string]$computerRow.DN}else{''}) -Source ([string]$adapterInfo.Source) -BatchId $BatchId
         }
-        $rows.Add([pscustomobject]@{Record=$record;User=$(if($user){$user}else{[string]$v.User});Computer=$(if($computer){$computer}else{[string]$v.Computer});UserKey=$user;ComputerKey=$computer;Status=[string]$status.Status;Reason=[string]$status.Reason;Import=[bool]$status.Import;Relation=$relation})
+        $rows.Add([pscustomobject]@{Record=[int]$rec.Record;User=$(if($user){$user}else{[string]$rec.User});Computer=$(if($computer){$computer}else{[string]$rec.Computer});UserKey=$user;ComputerKey=$computer;Status=[string]$status.Status;Category=[string]$status.Category;Reason=[string]$status.Reason;Import=[bool]$status.Import;Relation=$relation})
     }
     $all=$rows.ToArray()
     if($Total -lt $all.Count){$Total=$all.Count}
-    if(-not $Id){$Id=[guid]::NewGuid().ToString('N')}
-    return [pscustomobject]@{Id=$Id;FileName=$FileName;Items=@($Items);Rows=$all;Total=$Total;Ready=$ready;Unknown=@($all|Where-Object{$_.Status -eq 'Inconnue'}).Count;Ignored=@($all|Where-Object{-not $_.Import -and $_.Status -ne 'Inconnue'}).Count;IndexAvailable=$indexAvailable;IndexState=$state;Unverified=$unverified;Epoch=[long]$script:SessionEpoch;BaseDn=[string]$script:Conn.BaseDn}
+    $count={param($Category) @($all|Where-Object{[string]$_.Category -ceq $Category}).Count}
+    return [pscustomobject]@{Id=$Id;BatchId=$BatchId;Adapter=$Adapter;AdapterLabel=[string]$adapterInfo.Label;Source=[string]$adapterInfo.Source;ParseNote=$ParseNote;FileName=$FileName;Items=$records.ToArray();Rows=$all;Total=$Total;Ready=$ready;Unknown=@($all|Where-Object{$_.Status -eq 'Inconnue'}).Count;Ignored=@($all|Where-Object{(-not $_.Import) -and ($_.Status -ne 'Inconnue')}).Count;Conflicts=(& $count 'Conflit');Rejected=(& $count 'Rejet');Duplicates=(& $count 'Doublon');Known=(& $count 'Déjà connue');Deferred=(& $count 'Reportée');IndexAvailable=$indexAvailable;IndexState=$state;Unverified=$unverified;Epoch=[long]$script:SessionEpoch;BaseDn=[string]$script:Conn.BaseDn}
 }
 function Update-DomeniaLinkImportUi {
     Initialize-DomeniaRelationsState
     $r=$script:Relations;$p=$r.ImportPlan
     $panel=Get-DomeniaControl 'LinkImportPanel';if($null -ne $panel){$panel.Visibility=if($null -ne $p){'Visible'}else{'Collapsed'}}
     if($null -ne $p){
-        $text=[string]$p.FileName+' : '+$p.Ready+' ligne(s) à importer, '+$p.Ignored+' ignorée(s), '+$p.Unknown+' inconnue(s) dans lʼindex local de lʼannuaire.'
+        # Point 138: valid rows, conflicts and rejects are counted before anything is applied.
+        $label=[string](Get-DomeniaMember $p 'AdapterLabel' 'CSV générique')
+        $text=[string]$p.FileName+' ('+$label+') : '+$p.Ready+' ligne(s) à importer, '+[int](Get-DomeniaMember $p 'Conflicts' 0)+' conflit(s), '+[int](Get-DomeniaMember $p 'Rejected' 0)+' rejet(s), '+[int](Get-DomeniaMember $p 'Duplicates' 0)+' doublon(s), '+[int](Get-DomeniaMember $p 'Known' 0)+' déjà connue(s), '+$p.Unknown+' inconnue(s) dans lʼindex local de lʼannuaire.'
+        $deferred=[int](Get-DomeniaMember $p 'Deferred' 0);if($deferred -gt 0){$text+=' '+$deferred+' reportée(s) au-delà de 64.'}
+        $note=[string](Get-DomeniaMember $p 'ParseNote' '');if($note){$text+=' '+$note}
         if([int]$p.Total -gt @($p.Rows).Count){$text+=' Aperçu limité aux '+@($p.Rows).Count+' premiers enregistrements sur '+$p.Total+'.'}
         switch([string]$p.IndexState){
             'Pending'{$text+=' Vérification des comptes et des postes dans lʼindex local en cours, sans accès réseau…'}
@@ -1417,7 +1456,9 @@ function Update-DomeniaLinkImportUi {
             default{$text+=' Présence des comptes et des postes dans Active Directory non vérifiée : '+[string]$p.Unverified+'.'}
         }
         if([int]$p.Ready -ge 64){$text+=' 64 associations au plus par import : importez à nouveau le même fichier pour les suivantes.'}
-        $text+=' Les lignes importées portent la source « Import CSV » (Importé), quelle que soit la colonne Source du fichier ; aucun poste déjà associé nʼest remplacé.'
+        $source=[string](Get-DomeniaMember $p 'Source' 'Import CSV')
+        $text+=' Les lignes importées portent la source « '+$source+' » (Importé), quelle que soit la colonne Source du fichier ; aucun poste déjà associé nʼest remplacé. Dans le fichier, la date la plus récente départage un poste ; sans date pour départager deux comptes, la ligne est en conflit.'
+        $batch=[string](Get-DomeniaMember $p 'BatchId' '');if($batch){$text+=' Lot de retour arrière : '+$batch+'.'}
         # FI-13: the saved import is preceded by a verified backup of the local base.
         $text+=' '+(Get-DomeniaGestureBackupNotice (Get-DomeniaGestureBackupState))
         [void](Set-DomeniaControlText 'LblLinkImportSummary' $text)
@@ -1429,10 +1470,26 @@ function Update-DomeniaLinkImportUi {
             $apply.Content=if($pending){'Vérification…'}else{'Importer '+$p.Ready+' association(s)'}
         }
     }else{[void](Set-DomeniaItemsSource 'DgLinkImportPreview' @())}
+    Update-DomeniaLinkImportUndo
+}
+function Get-DomeniaRelationsLatestImportBatch {
+    # Point 138: the most recent rollback batch still present in the stored associations (survives a restart).
+    $batches=@(Get-DomeniaImportBatches -Links @($script:UserMachineLinks))
+    if($batches.Count){return $batches[0]}
+    return $null
+}
+function Update-DomeniaLinkImportUndo {
+    # « Annuler lʼimport » targets the import of this session, otherwise the last batch found in the local store.
+    Initialize-DomeniaRelationsState
+    $r=$script:Relations
     $undo=Get-DomeniaControl 'BtnUndoImport'
-    if($null -ne $undo){
-        $undo.Visibility=if($null -ne $r.LastImport){'Visible'}else{'Collapsed'}
-        if($null -ne $r.LastImport){$undo.ToolTip=('Retire les '+@($r.LastImport.Relations).Count+' association(s) importée(s) depuis '+[string]$r.LastImport.FileName+', après confirmation dans la page. Chaque retrait est journalisé et restaurable ; Active Directory nʼest pas modifié.')}
+    if($null -eq $undo){return}
+    $target=$r.LastImport
+    if($null -eq $target){$target=Get-DomeniaRelationsLatestImportBatch}
+    $undo.Visibility=if($null -ne $target){'Visible'}else{'Collapsed'}
+    if($null -ne $target){
+        $when=Format-DomeniaRelationWhen ([string](Get-DomeniaMember $target 'ImportedUtc' (Get-DomeniaMember $target 'WhenUtc' '')))
+        $undo.ToolTip=('Retire les '+@($target.Relations).Count+' association(s) importée(s) depuis '+[string]$target.FileName+$(if($when){' le '+$when}else{''})+', après confirmation dans la page. Chaque retrait est journalisé et restaurable ; Active Directory nʼest pas modifié.')
     }
 }
 function Set-DomeniaLinkImportPlan {
@@ -1442,20 +1499,50 @@ function Set-DomeniaLinkImportPlan {
     Update-DomeniaLinkImportUi
 }
 function Show-DomeniaLinkImportPreview {
-    # CO-08: the file is read and shown in the page before any change. Nothing is saved until « Importer ». The
-    # accounts and workstations are then looked up in the local index by the LocalIndexRead worker (no network).
-    param([Parameter(Mandatory=$true)][string]$Path)
+    # CO-08, point 137: the file is read with the adapter chosen by the operator and shown in the page before any change.
+    # Nothing is saved until « Importer ». The accounts and workstations are then looked up in the local index by the
+    # LocalIndexRead worker (no network). The file is read on this thread, so its size is bounded first.
+    param([Parameter(Mandatory=$true)][string]$Path,[ValidateSet('Csv','Glpi','Osquery')][string]$Adapter='Csv')
     Initialize-DomeniaRelationsState
-    # CO-04: Domenia exports use a semicolon; older exports and other tools keep the comma.
-    $records=@(Import-Csv -LiteralPath $Path -Encoding UTF8 -Delimiter (Get-DomeniaCsvDelimiter -Path $Path))
-    # At most 64 rows are imported at once; the preview stays short enough for the interface thread.
-    $items=if($records.Count -gt 1000){@($records[0..999])}else{$records}
-    $plan=New-DomeniaLinkImportPlan -Items $items -FileName ([IO.Path]::GetFileName($Path)) -Total $records.Count
+    $limits=Get-DomeniaInventoryLimits
+    $adapterInfo=Get-DomeniaInventoryAdapter $Adapter
+    $maxBytes=if($Adapter -eq 'Osquery'){[long]$limits.MaxJsonBytes}else{[long]$limits.MaxCsvBytes}
+    $length=([IO.FileInfo]::new($Path)).Length
+    if($length -gt $maxBytes){throw ('fichier trop volumineux pour un aperçu '+[string]$adapterInfo.Label+' : '+$length+' octets, limite '+$maxBytes+' octets ('+[Math]::Round($maxBytes/1MB,1)+' Mio). Découpez le fichier ou filtrez lʼexport.')}
+    $notes=[Collections.Generic.List[string]]::new()
+    $records=@();$total=0
+    if($Adapter -eq 'Osquery'){
+        $parsed=ConvertFrom-DomeniaOsqueryText -Text ([IO.File]::ReadAllText($Path,[Text.Encoding]::UTF8)) -MaxRecords ([int]$limits.MaxRecords)
+        if(-not [string]$parsed.Format){throw 'fichier osquery vide.'}
+        $latest=Select-DomeniaLatestInventoryRecords -Records @($parsed.Records)
+        $records=@($latest.Records);$total=$records.Count
+        if(@($parsed.Rejected).Count){$notes.Add([string]@($parsed.Rejected).Count+' ligne(s) JSON illisible(s) écartée(s).')}
+        if([int]$parsed.Skipped -gt 0){$notes.Add([string]$parsed.Skipped+' fin(s) de session ou session(s) sans compte ignorée(s).')}
+        if([int]$latest.Dropped -gt 0){$notes.Add([string]$latest.Dropped+' relevé(s) plus ancien(s) des mêmes postes écarté(s) : la date la plus récente départage.')}
+        if([bool]$parsed.Truncated){$notes.Add('Lecture arrêtée à '+$limits.MaxRecords+' enregistrements.')}
+    }else{
+        # CO-04: Domenia exports use a semicolon; older exports and other tools keep the comma (GLPI uses the semicolon).
+        $rows=@(Import-Csv -LiteralPath $Path -Encoding UTF8 -Delimiter (Get-DomeniaCsvDelimiter -Path $Path))
+        $total=$rows.Count
+        # At most 64 rows are imported at once; the preview stays short enough for the interface thread.
+        $shown=[Math]::Min($rows.Count,[int]$limits.PreviewRecords)
+        $records=@(for($i=0;$i -lt $shown;$i++){if($Adapter -eq 'Glpi'){ConvertFrom-DomeniaGlpiRow $rows[$i] ($i+1)}else{ConvertFrom-DomeniaCsvInventoryRow $rows[$i] ($i+1)}})
+    }
+    $items=if($records.Count -gt [int]$limits.PreviewRecords){@($records[0..([int]$limits.PreviewRecords-1)])}else{$records}
+    $plan=New-DomeniaLinkImportPlan -Items $items -FileName ([IO.Path]::GetFileName($Path)) -Total $total -Adapter $Adapter -ParseNote ($notes.ToArray() -join ' ')
     Set-DomeniaLinkImportPlan $plan
-    Write-AppLog ('Import CSV : aperçu de '+[string]$plan.FileName+', '+$plan.Total+' enregistrement(s), vérification dans lʼindex local demandée. Rien nʼest encore enregistré.') 'INFO'
+    Write-AppLog ([string]$plan.Source+' : aperçu de '+[string]$plan.FileName+', '+$plan.Total+' enregistrement(s), vérification dans lʼindex local demandée. Rien nʼest encore enregistré.') 'INFO'
     $tabs=Get-DomeniaControl 'RelationTabs';$all=Get-DomeniaControl 'TabLinksAll';if($null -ne $tabs -and $null -ne $all){$tabs.SelectedItem=$all}
     Start-DomeniaLinkImportIndexCheck $plan
     Set-Status ('Aperçu de lʼimport : '+$plan.Total+' enregistrement(s) lus. Vérification dans lʼindex local, puis « Importer » ou « Annuler ».')
+}
+function Get-DomeniaLinkImportAdapterChoice {
+    # Point 137: the adapter is an explicit choice of the operator (Format de lʼimport), the generic CSV by default.
+    $combo=Get-DomeniaControl 'CmbLinkImportFormat'
+    $choice=''
+    if(($null -ne $combo) -and ($null -ne $combo.SelectedItem)){$choice=[string](Get-DomeniaMember $combo.SelectedItem 'Tag' '')}
+    if($null -eq (Get-DomeniaInventoryAdapter $choice)){$choice='Csv'}
+    return $choice
 }
 function Start-DomeniaLinkImportIndexCheck {
     # CO-08: exact names of the file, looked up in the local index (read only, never the network). FI-12: the SQLite lock
@@ -1472,10 +1559,10 @@ function Start-DomeniaLinkImportIndexCheck {
     }
     $state=[pscustomobject]@{PlanId=[string]$Plan.Id;Epoch=[long]$script:SessionEpoch;BaseDn=[string]$script:Conn.BaseDn}
     # No row names both an account and a workstation: nothing to look up, nothing can be imported.
-    if(-not $users.Count){Set-DomeniaLinkImportPlan (New-DomeniaLinkImportPlan -Items @($Plan.Items) -FileName ([string]$Plan.FileName) -Index ([pscustomobject]@{State='Verified';Detail='';Users=@{};Computers=@{}}) -Id ([string]$Plan.Id) -Total ([int]$Plan.Total));return}
+    if(-not $users.Count){Set-DomeniaLinkImportPlan (New-DomeniaLinkImportPlan -Items @($Plan.Items) -FileName ([string]$Plan.FileName) -Adapter ([string]$Plan.Adapter) -BatchId ([string]$Plan.BatchId) -ParseNote ([string]$Plan.ParseNote) -Index ([pscustomobject]@{State='Verified';Detail='';Users=@{};Computers=@{}}) -Id ([string]$Plan.Id) -Total ([int]$Plan.Total));return}
     try{
         $payload=[pscustomobject]@{Action='ResolveNames';Path=(Get-DomeniaLocalDatabasePathForRead);Users=$users.ToArray();Computers=$computers.ToArray()}
-        [void](Start-UiTask -Name 'Import CSV : vérification dans lʼindex local' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload $payload -CallbackState $state -ReplaceKey 'link-import-index' -TimeoutSeconds 30 -SuccessHandler 'Complete-DomeniaLinkImportIndexCheck' -ErrorHandler 'Fail-DomeniaLinkImportIndexCheck' -TaskClass 'Explicit')
+        [void](Start-UiTask -Name ([string](Get-DomeniaMember $Plan 'Source' 'Import CSV')+' : vérification dans lʼindex local') -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload $payload -CallbackState $state -ReplaceKey 'link-import-index' -TimeoutSeconds 30 -SuccessHandler 'Complete-DomeniaLinkImportIndexCheck' -ErrorHandler 'Fail-DomeniaLinkImportIndexCheck' -TaskClass 'Explicit')
     }catch{Fail-DomeniaLinkImportIndexCheck -Message $_.Exception.Message -State $state}
 }
 function Test-DomeniaLinkImportIndexState {
@@ -1508,18 +1595,18 @@ function Complete-DomeniaLinkImportIndexCheck {
         }
         $index=[pscustomobject]@{State='Verified';Detail='';Users=$users;Computers=$computers}
     }
-    $plan=New-DomeniaLinkImportPlan -Items @($p.Items) -FileName ([string]$p.FileName) -Index $index -Id ([string]$p.Id) -Total ([int]$p.Total)
+    $plan=New-DomeniaLinkImportPlan -Items @($p.Items) -FileName ([string]$p.FileName) -Adapter ([string]$p.Adapter) -BatchId ([string]$p.BatchId) -ParseNote ([string]$p.ParseNote) -Index $index -Id ([string]$p.Id) -Total ([int]$p.Total)
     Set-DomeniaLinkImportPlan $plan
-    Write-AppLog ('Import CSV : '+[string]$plan.FileName+', '+$plan.Ready+' ligne(s) à importer, '+$plan.Ignored+' ignorée(s), '+$plan.Unknown+' inconnue(s) dans lʼindex local ('+[string]$plan.IndexState+'). Rien nʼest encore enregistré.') 'INFO'
+    Write-AppLog ([string](Get-DomeniaMember $plan 'Source' 'Import CSV')+' : '+[string]$plan.FileName+', '+$plan.Ready+' ligne(s) à importer, '+$plan.Ignored+' ignorée(s), '+$plan.Unknown+' inconnue(s) dans lʼindex local ('+[string]$plan.IndexState+'). Rien nʼest encore enregistré.') 'INFO'
 }
 function Fail-DomeniaLinkImportIndexCheck {
     param($Message,$State)
     if(-not (Test-DomeniaLinkImportIndexState $State)){return}
     $p=$script:Relations.ImportPlan
     $detail=([string]$Message).Trim();if(-not $detail){$detail='erreur inconnue'}
-    Write-AppLog ('Import CSV : index local non lu ('+$detail+') ; présence dans Active Directory non vérifiée.') 'WARN'
+    Write-AppLog ([string](Get-DomeniaMember $p 'Source' 'Import CSV')+' : index local non lu ('+$detail+') ; présence dans Active Directory non vérifiée.') 'WARN'
     $index=[pscustomobject]@{State='Unavailable';Detail=('index local non lu ('+$detail.TrimEnd('.')+')');Users=@{};Computers=@{}}
-    Set-DomeniaLinkImportPlan (New-DomeniaLinkImportPlan -Items @($p.Items) -FileName ([string]$p.FileName) -Index $index -Id ([string]$p.Id) -Total ([int]$p.Total))
+    Set-DomeniaLinkImportPlan (New-DomeniaLinkImportPlan -Items @($p.Items) -FileName ([string]$p.FileName) -Adapter ([string]$p.Adapter) -BatchId ([string]$p.BatchId) -ParseNote ([string]$p.ParseNote) -Index $index -Id ([string]$p.Id) -Total ([int]$p.Total))
 }
 function Cancel-DomeniaLinkImportPreview {
     Initialize-DomeniaRelationsState
@@ -1560,15 +1647,16 @@ function Confirm-DomeniaLinkImport {
     if($stored -and -not (Save-UserMachineLinks)){
         $script:UserMachineLinks=$previous;$r.Observations.Clear();foreach($o in $previousObservations){$r.Observations.Add($o)};Rebuild-UserMachineLinkIndex
         $text='Import non enregistré : le stockage local a refusé la modification (motif dans le message précédent). Aucune association ajoutée ; lʼaperçu reste ouvert.'
-        Set-Status $text 'WARN';Write-AppLog ('Import CSV '+[string]$p.FileName+' : '+$text) 'WARN';Refresh-DomeniaRelationViews;return
+        Set-Status $text 'WARN';Write-AppLog ([string](Get-DomeniaMember $p 'Source' 'Import CSV')+' '+[string]$p.FileName+' : '+$text) 'WARN';Refresh-DomeniaRelationViews;return
     }
     $r.ImportPlan=$null
-    if($added.Count){$r.LastImport=[pscustomobject]@{Id=[string]$p.Id;FileName=[string]$p.FileName;Relations=$added.ToArray();WhenUtc=[datetime]::UtcNow.ToString('o');Epoch=[long]$script:SessionEpoch}}
-    $message='Import CSV '+[string]$p.FileName+' : '+$added.Count+' association(s) ajoutée(s) avec la source « Import CSV » (Importé)'
+    $source=[string](Get-DomeniaMember $p 'Source' 'Import CSV')
+    if($added.Count){$r.LastImport=[pscustomobject]@{Id=[string]$p.Id;BatchId=[string](Get-DomeniaMember $p 'BatchId' '');FileName=[string]$p.FileName;Relations=$added.ToArray();WhenUtc=[datetime]::UtcNow.ToString('o');Epoch=[long]$script:SessionEpoch}}
+    $message=$source+' '+[string]$p.FileName+' : '+$added.Count+' association(s) ajoutée(s) avec la source « '+$source+' » (Importé)'
     $notDone=[int]$p.Total-$added.Count
     if($notDone -gt 0){$message+=', '+$notDone+' enregistrement(s) non importé(s)'}
     $message+='. Aucun objet Active Directory modifié.'
-    if($added.Count){$message+=' « Annuler lʼimport » retire ces associations.'}
+    if($added.Count){$message+=' « Annuler lʼimport » retire ces associations, y compris après un redémarrage (lot '+[string](Get-DomeniaMember $p 'BatchId' '')+').'}
     Set-Status $message;Write-AppLog $message 'INFO'
     Update-DomeniaLinkImportUi;Refresh-DomeniaRelationViews
 }
@@ -1576,10 +1664,17 @@ function Request-DomeniaLinkImportUndo {
     # Review L04: removing up to 64 associations in one click is confirmed in the page first, naming the count.
     Initialize-DomeniaRelationsState
     $last=$script:Relations.LastImport
+    if($null -eq $last){
+        # Point 138: after a restart, the last batch still present in the local store is the one undone.
+        $batch=Get-DomeniaRelationsLatestImportBatch
+        if($null -ne $batch){$last=[pscustomobject]@{Id=[string]$batch.Id;BatchId=[string]$batch.Id;FileName=[string]$batch.FileName;Relations=@($batch.Relations);WhenUtc=[string]$batch.ImportedUtc;Epoch=[long]$script:SessionEpoch};$script:Relations.LastImport=$last}
+    }
     if($null -eq $last){Update-DomeniaLinkImportUi;return}
     if(Test-DomeniaAccessBusyWrite){return}
     $n=@($last.Relations).Count
-    $message='Retirer les '+$n+' association(s) ajoutée(s) par lʼimport de '+[string]$last.FileName+' ? Chaque retrait est journalisé ; « Restaurer » les remet une par une. Aucun objet Active Directory nʼest modifié.'
+    $batchText=[string](Get-DomeniaMember $last 'BatchId' '');$whenText=Format-DomeniaRelationWhen ([string](Get-DomeniaMember $last 'WhenUtc' ''))
+    $origin=[string]$last.FileName;if($batchText){$origin+=' (lot '+$batchText+$(if($whenText){', '+$whenText}else{''})+')'}
+    $message='Retirer les '+$n+' association(s) ajoutée(s) par lʼimport de '+$origin+' ? Chaque retrait est journalisé ; « Restaurer » les remet une par une. Aucun objet Active Directory nʼest modifié.'
     $inline=Get-Command -Name 'Request-DomeniaInlineConfirmation' -CommandType Function -ErrorAction SilentlyContinue
     if($null -ne $inline -and (Get-DomeniaFeatureFlag 'InlineConfirm' $true)){
         [void](Request-DomeniaInlineConfirmation -Title 'Annuler lʼimport' -Message $message -Target ('relation-import:'+[string]$last.Id) -ConfirmText ('Retirer '+$n+' association(s)') -CancelText 'Conserver' -OnConfirm {Undo-DomeniaLinkImport} -OnCancel {Set-Status 'Annulation de lʼimport abandonnée : associations conservées.'} -Risk 'Danger')
@@ -1850,7 +1945,10 @@ if([bool]$Payload.UseSecurityLog -and -not $script:RelationDirectoryBlocked -and
         $xpath="*[System[EventID=4768 and TimeCreated[timediff(@SystemTime) <= $ms]]] and *[EventData[Data[@Name='TargetSid']='$userSid' and Data[@Name='Status']='0x0']]"
         $par=@{ComputerName=[string]$Context.Server;LogName='Security';FilterXPath=$xpath;MaxEvents=100;ErrorAction='Stop'}
         $adCredential=Get-WAdCredential $Context;if($null -ne $adCredential){$par.Credential=$adCredential}
-        $events=@(Get-WinEvent @par);$seen=@{}
+        # Point 41: an explicit account goes out under its authentication lease, like every bind of the session.
+        $eventLease=Enter-WCredentialAttempt -Context $Context -Channel Directory
+        try{$events=@(Get-WinEvent @par)}finally{Exit-WCredentialAttempt $eventLease}
+        $seen=@{}
         foreach($ev in $events){
             $x=[xml]$ev.ToXml();$d=@{};foreach($v in @($x.Event.EventData.Data)){$d[[string]$v.Name]=[string]$v.'#text'}
             if([string]$d.TargetSid -ine $userSid){continue}
@@ -1863,6 +1961,8 @@ if([bool]$Payload.UseSecurityLog -and -not $script:RelationDirectoryBlocked -and
         Add-RelationAttempt 'Journal du contrôleur' $(if($events.Count){'OK'}else{'VIDE'}) ([string]$Context.Server) ($events.Count.ToString()+' événement(s) ciblés sur le SID, sur ce contrôleur uniquement. Les IP ne sont pas associées automatiquement.')
     }catch{
         $noEvents=([string]$_.FullyQualifiedErrorId -like 'NoMatchingEventsFound*')
+        # A rejected account is shared at once with every job that uses it; this worker stops its directory reads.
+        if((-not $noEvents) -and (Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Directory)){$script:RelationDirectoryBlocked=$true}
         if(-not $noEvents){$partial=$true}
         Add-RelationAttempt 'Journal du contrôleur' $(if($noEvents){'VIDE'}else{Get-RelationFailure $_}) ([string]$Context.Server) ([string]$_.Exception.Message) 'Directory' ([long]$_.Exception.HResult)
     }
@@ -1913,8 +2013,13 @@ if([bool]$Payload.ScanPark -and (Test-RelationBudget)){
                 # One credential, one protocol, no ICMP gate, no fallback task or registry history.
                 $params=@{ComputerName=$target;SessionOption=(New-CimSessionOption -Protocol Dcom -ErrorAction Stop);OperationTimeoutSec=4;ErrorAction='Stop'}
                 if($null -ne $credential){$params.Credential=$credential}
-                $session=New-CimSession @params
-                $cs=Get-CimInstance -CimSession $session -ClassName Win32_ComputerSystem -Property UserName,Name -OperationTimeoutSec 4 -ErrorAction Stop
+                # Point 41: DCOM opens lazily, so the lease covers the session and its first authenticated query.
+                Set-WCredentialAttemptIdentity -Context $Context -Credential $credential -Channel Remote -Target $target
+                $consoleLease=Enter-WCredentialAttempt -Context $Context -Channel Remote
+                try{
+                    $session=New-CimSession @params
+                    $cs=Get-CimInstance -CimSession $session -ClassName Win32_ComputerSystem -Property UserName,Name -OperationTimeoutSec 4 -ErrorAction Stop
+                }finally{Exit-WCredentialAttempt $consoleLease}
                 if($null -eq $cs){throw 'Le poste ne renvoie pas de résultat CIM.'}
                 if([string]$cs.Name -and [string]$cs.Name -ine $c.Computer){throw 'Nom du poste reçu différent de la cible AD ; résultat non attribué.'}
                 $current=([string]$cs.UserName).Trim();$c.CurrentUser=$current;$c.ObservedUtc=[datetime]::UtcNow.ToString('o')
@@ -1925,6 +2030,8 @@ if([bool]$Payload.ScanPark -and (Test-RelationBudget)){
                 Add-RelationAttempt 'Console CIM/DCOM' $(if($same){'CONFIRME'}else{'LU'}) $c.Computer ($c.Status+'. '+$c.Detail) 'Remote'
             }catch{
                 $kind=Get-RelationFailure $_;$partial=$true
+                # The shared guard records the refused account for every job; a paused account stops this loop too.
+                if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){$remoteStopped=$true}
                 $c.Status=switch($kind){'AUTH_REJETEE'{'Identifiants rejetés'}'REFUSE'{'Lecture refusée'}'DELAI'{'Délai dépassé'}default{'Lecture non confirmée'}}
                 $c.Detail=[string]$_.Exception.Message
                 if($kind -in @('AUTH_REJETEE','REFUSE')){$denied++}

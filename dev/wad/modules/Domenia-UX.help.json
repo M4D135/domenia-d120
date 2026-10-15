@@ -503,7 +503,7 @@
   {
     "Name": "BtnExportResults",
     "Title": "Exporter CSV",
-    "Text": "Exporte les résultats affichés, ou uniquement les lignes sélectionnées, au format CSV.",
+    "Text": "Exporte au format CSV la portée choisie à côté des résultats : la liste affichée après les filtres, ou seulement les lignes sélectionnées. Le message final dit ce qui est exclu.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -538,7 +538,7 @@
   {
     "Name": "BtnLoadBranch",
     "Title": "Actualiser les résultats",
-    "Text": "Relance la lecture du mode affiché, avec son périmètre et ses filtres. Pour actualiser les données de toute l’OU, utilisez Base locale, Postes (ping/WMI) ou Les deux sous l’arbre ; ces commandes incluent toujours les sous-OU.",
+    "Text": "Relance la lecture du mode affiché, avec son périmètre et ses filtres. Pour actualiser les données de toute l’OU, utilisez Objets AD, Ping ou WMI sous l’arbre ; ces commandes incluent toujours les sous-OU.",
     "Kind": "Button",
     "Source": "label-help",
     "Shortcut": ""
@@ -1497,6 +1497,20 @@
     "Source": "existing-help"
   },
   {
+    "Name": "PwdAccountAdCorrection",
+    "Title": "Mot de passe actuel du compte de connexion",
+    "Text": "Mot de passe actuel du compte de connexion, après son changement dans lʼannuaire. Validé une seule fois à votre demande, jamais enregistré dans Domenia.",
+    "Kind": "PasswordBox",
+    "Source": "specific"
+  },
+  {
+    "Name": "BtnAccountAdCorrect",
+    "Title": "Corriger le mot de passe",
+    "Text": "Valide ce mot de passe pour le même compte, une seule fois, puis lʼapplique sans reconnecter Domenia. Les lectures parties avec lʼancien mot de passe sont arrêtées ; aucune écriture nʼest rejouée.",
+    "Kind": "Button",
+    "Source": "specific"
+  },
+  {
     "Name": "BtnAccountRemoteClear",
     "Title": "Effacer",
     "Text": "Supprime le compte distant de la mémoire. DOMENIA réutilisera alors le compte AD courant.",
@@ -1604,9 +1618,16 @@
   {
     "Name": "BtnImportLinks",
     "Title": "Importer des associations",
-    "Text": "Lit un fichier CSV et montre un aperçu dans la page (à importer, ignorées, inconnues de l’index local) avant tout ajout. Les lignes importées portent toujours la source « Import CSV » et l’import peut être annulé.",
+    "Text": "Lit le fichier au format choisi (CSV générique, export GLPI ou résultats osquery) et montre dans cette page les lignes valides, les conflits et les rejets avant tout ajout. La source imposée dépend du format ; lʼimport peut être annulé.",
     "Kind": "Button",
     "Source": "existing-help"
+  },
+  {
+    "Name": "CmbLinkImportFormat",
+    "Title": "Format de lʼimport",
+    "Text": "Format du fichier à importer : il fixe les colonnes lues et la source imposée aux associations (Import CSV, Import GLPI ou Import osquery).",
+    "Kind": "ComboBox",
+    "Source": "W15-integration"
   },
   {
     "Name": "BtnOpenLinksCsv",
@@ -3065,6 +3086,48 @@
     "Source": "specific"
   },
   {
+    "Name": "SupportOfflineTab",
+    "Title": "Dossier hors ligne",
+    "Text": "Dossier daté pour une intervention sans accès à Domenia : état local, postes, observations, associations et requêtes du périmètre choisi, secrets exclus.",
+    "Kind": "TabItem",
+    "Source": "W15-integration"
+  },
+  {
+    "Name": "CmbSupportOfflineScope",
+    "Title": "Périmètre du dossier",
+    "Text": "Périmètre du dossier : le poste sélectionné, les postes des résultats affichés (500 au plus) ou lʼOU sélectionnée dans lʼarborescence.",
+    "Kind": "ComboBox",
+    "Source": "W15-integration"
+  },
+  {
+    "Name": "ChkSupportOfflineObservations",
+    "Title": "Inclure les observations",
+    "Text": "Dernières observations enregistrées des postes (présence, console, inventaire, sondes), avec leurs dates.",
+    "Kind": "CheckBox",
+    "Source": "W15-integration"
+  },
+  {
+    "Name": "ChkSupportOfflineLinks",
+    "Title": "Inclure les associations",
+    "Text": "Associations utilisateur et poste mémorisées pour les postes du périmètre.",
+    "Kind": "CheckBox",
+    "Source": "W15-integration"
+  },
+  {
+    "Name": "ChkSupportOfflineQueries",
+    "Title": "Inclure les requêtes enregistrées",
+    "Text": "Définitions des requêtes enregistrées non archivées, avec leur empreinte.",
+    "Kind": "CheckBox",
+    "Source": "W15-integration"
+  },
+  {
+    "Name": "BtnSupportOfflineDossier",
+    "Title": "Préparer le dossier hors ligne",
+    "Text": "Écrit un nouveau dossier daté dans Exports pour le périmètre choisi. Aucune écriture dans la base, aucun accès réseau.",
+    "Kind": "Button",
+    "Source": "W15-integration"
+  },
+  {
     "Name": "ChkSupportIncludeIncident",
     "Title": "Ajouter l’incident sélectionné",
     "Text": "Inclut les explications de l’incident choisi dans le dossier, pas son message brut.",
@@ -3147,34 +3210,6 @@
     "Kind": "Experience"
   },
   {
-    "Name": "UxSearchFilteredEmpty",
-    "Title": "Lignes masquées par le filtre",
-    "Text": "Toutes les lignes chargées sont masquées par le filtre de la liste (texte ou présence). Aucune requête AD nʼest relancée.",
-    "Kind": "Border",
-    "Source": "X02"
-  },
-  {
-    "Name": "LblSearchFilteredEmpty",
-    "Title": "Lignes masquées",
-    "Text": "Nombre de lignes chargées que le filtre de la liste masque. La recherche et sa limite restent inchangées.",
-    "Kind": "TextBlock",
-    "Source": "X02"
-  },
-  {
-    "Name": "LblSearchFilteredDetail",
-    "Title": "Filtre de la liste",
-    "Text": "Filtres de la liste appliqués aux lignes déjà chargées.",
-    "Kind": "TextBlock",
-    "Source": "X02"
-  },
-  {
-    "Name": "BtnSearchFilteredClear",
-    "Title": "Effacer le filtre de la liste",
-    "Text": "Vide le texte du filtre et remet la présence sur « Toute présence ». Les lignes déjà chargées réapparaissent, sans requête AD.",
-    "Kind": "Button",
-    "Source": "X02"
-  },
-  {
     "Name": "UxSuiteIdentities",
     "Title": "Comptes utilisés",
     "Text": "Affiche seulement les noms des identités configurées. Une identité active ne confirme pas ses droits sur une cible.",
@@ -3241,7 +3276,7 @@
   {
     "Name": "BtnParkVerify",
     "Title": "Vérifier la liste",
-    "Text": "Vérifie les seuls postes affichés, après vos filtres. Sans choix dans cette session, ouvre les trois vérifications ; ensuite, relance la dernière choisie. Confirmation avec le nombre de postes avant tout envoi, plafond réglable (500 postes par défaut). Pendant un relevé, ce bouton lʼarrête.",
+    "Text": "Vérifie les postes de la portée choisie à côté des résultats : la liste affichée après vos filtres, ou seulement les lignes sélectionnées. Sans choix dans cette session, ouvre les trois vérifications ; ensuite, relance la dernière choisie. Confirmation avec le nombre de postes avant tout envoi, plafond réglable (500 postes par défaut). Pendant un relevé, ce bouton lʼarrête.",
     "Kind": "Button",
     "Source": "X01",
     "Shortcut": ""
@@ -3470,8 +3505,8 @@
   },
   {
     "Name": "BtnGuardExport",
-    "Title": "Dossier technique",
-    "Text": "Affiche puis exporte les seuls compteurs techniques, sans logs bruts ni identifiants.",
+    "Title": "Diagnostic expurgé",
+    "Text": "Prépare le diagnostic expurgé (versions, mesures locales, codes dʼerreur, traces sans cible), le montre en entier, puis lʼenregistre dans un fichier local après confirmation. Aucun envoi.",
     "Sensitive": false
   },
   {
@@ -3849,7 +3884,7 @@
   {
     "Name": "DgAccountsInUse",
     "Title": "Comptes utilisés en ce moment",
-    "Text": "Compte que chaque ressource prendra pour sa prochaine opération : annuaire, postes, LAPS et BitLocker, avec son origine. Lecture seule ; aucun mot de passe nʼest affiché.",
+    "Text": "Compte que chaque ressource prendra pour sa prochaine opération : annuaire, postes, LAPS et BitLocker, avec son origine et son état (refus enregistré, endroit où le corriger, autres noms confirmés par lʼannuaire). Lecture seule ; aucun mot de passe nʼest affiché.",
     "Kind": "DataGrid",
     "Source": "X03"
   },
@@ -3863,7 +3898,7 @@
   {
     "Name": "DgAccountsInMemory",
     "Title": "Liste des comptes gardés en mémoire",
-    "Text": "Comptes gardés en mémoire, avec leur durée restante. « Oublier » retire le compte de la ligne ; une opération déjà envoyée garde sa copie et se termine.",
+    "Text": "Comptes gardés en mémoire, avec leur durée restante et leur état. « Oublier » retire le compte de la ligne ; une opération déjà envoyée garde sa copie et se termine.",
     "Kind": "DataGrid",
     "Source": "X03"
   },
@@ -3952,32 +3987,39 @@
     "Text": "Affiche dans Rechercher les postes actifs de lʼOU de lʼaccueil, depuis la base locale et sans requête. Pinger, détecter ou analyser se lancent ensuite depuis la liste, à votre clic."
   },
   {
+    "Name": "BtnFirstStepConnection",
+    "Title": "Premiers pas : connexion à lʼannuaire",
+    "Text": "Ouvre Comptes et accès : compte utilisé pour lʼannuaire et changement de compte. Aucun compte nʼest demandé ni vérifié par ce bouton.",
+    "Kind": "Button",
+    "Source": "point-148"
+  },
+  {
     "Name": "BtnFirstStepOu",
     "Kind": "Button",
     "Source": "lot-L01",
-    "Title": "Premiers pas : choisir mon OU",
-    "Text": "Ouvre lʼarbre des OU de Rechercher. Lʼaccueil suit lʼOU choisie ; aucune lecture nʼest lancée."
+    "Title": "Premiers pas : choisir lʼOU de travail",
+    "Text": "Choisit lʼOU de travail du tableau de bord, sans changer Rechercher ni lancer de lecture."
   },
   {
     "Name": "BtnFirstStepBase",
     "Kind": "Button",
     "Source": "lot-L01",
-    "Title": "Premiers pas : base autonome",
-    "Text": "Ouvre Outils, Base autonome. La mise à jour ne part quʼà votre clic sur Mettre à jour tout."
+    "Title": "Premiers pas : première lecture de lʼOU",
+    "Text": "Ouvre Outils, Base autonome. La première lecture ne part quʼà votre clic ; privilégiez lʼOU de travail."
   },
   {
-    "Name": "BtnFirstStepAccount",
+    "Name": "BtnFirstStepDashboard",
+    "Title": "Premiers pas : découvrir le tableau de bord",
+    "Text": "Affiche la vue dʼensemble de lʼaccueil, calculée depuis la base locale. Ce bouton ne lance aucune lecture de lʼannuaire ni des postes.",
     "Kind": "Button",
-    "Source": "lot-L01",
-    "Title": "Premiers pas : compte des postes",
-    "Text": "Ouvre Comptes et accès pour enregistrer le compte utilisé sur les postes. Aucun compte nʼest demandé par ce bouton."
+    "Source": "point-148"
   },
   {
-    "Name": "BtnFirstStepBackup",
-    "Kind": "Button",
-    "Source": "lot-L01",
-    "Title": "Premiers pas : première sauvegarde",
-    "Text": "Ouvre Outils, Base autonome. La sauvegarde ne part quʼà votre clic sur Sauvegarder maintenant."
+    "Name": "LblFirstStepsDeferred",
+    "Title": "Options réglées plus tard",
+    "Text": "Le compte utilisé sur les postes et les sauvegardes de la base ne font pas partie des premiers pas : ils se règlent au moment où ils servent.",
+    "Kind": "TextBlock",
+    "Source": "point-148"
   },
   {
     "Name": "BtnFleetDashboardRefresh",
@@ -4122,7 +4164,7 @@
   {
     "Name": "BtnUndoImport",
     "Title": "Annuler l’import",
-    "Text": "Retire les associations ajoutées par le dernier import, si elles sont encore présentes, après une confirmation dans la page qui en donne le nombre. Chaque retrait est journalisé ; « Restaurer » les remet une par une.",
+    "Text": "Retire les associations du dernier lot d’import encore présentes, y compris après un redémarrage, après une confirmation dans la page qui en donne le nombre, le fichier et la date. Chaque retrait est journalisé ; « Restaurer » les remet une par une.",
     "Kind": "Button",
     "Source": "L04-relations"
   },
@@ -4136,14 +4178,14 @@
   {
     "Name": "DgLinkImportPreview",
     "Title": "Aperçu de l’import",
-    "Text": "Chaque enregistrement du fichier et ce que l’import en fera : à importer, ignoré ou inconnu dans l’index local (comptes et postes vérifiés sans accès réseau). 64 associations au plus par import ; rien n’est enregistré avant « Importer ».",
+    "Text": "Chaque enregistrement du fichier et ce que l’import en fera, avec sa catégorie : valide, conflit, rejet, doublon, déjà connue, inconnue dans l’index local ou reportée. Comptes et postes vérifiés sans accès réseau ; 64 associations au plus par import ; rien n’est enregistré avant « Importer ».",
     "Kind": "DataGrid",
     "Source": "L04-relations"
   },
   {
     "Name": "BtnLinkImportApply",
     "Title": "Importer les lignes retenues",
-    "Text": "Ajoute les lignes « À importer » au stockage local, chacune journalisée, avec la source « Import CSV ».",
+    "Text": "Ajoute les lignes « À importer » au stockage local, chacune journalisée, avec la source imposée par le format choisi (Import CSV, Import GLPI ou Import osquery).",
     "Kind": "Button",
     "Source": "L04-relations"
   },
@@ -4262,7 +4304,7 @@
   {
     "Name": "LblOperationsHealth",
     "Title": "Santé du moteur",
-    "Text": "Mesures locales de cette session : mémoire, réactivité de lʼinterface, dernière sauvegarde locale. Aucune sonde réseau.",
+    "Text": "Mesures locales de cette session : mémoire, réactivité de lʼinterface, temps de réponse par catégorie (recherche locale, interface, base locale, annuaire, postes, écritures et actions : médiane, 95e centile à partir de 20 mesures, maximum), lenteurs expliquées par opération et par étape, dernière sauvegarde locale. Aucune sonde réseau.",
     "Kind": "TextBlock",
     "Source": "d120-L09"
   },
@@ -4404,7 +4446,7 @@
     "Kind": "TextBlock",
     "Source": "specific",
     "Title": "Progression de l’actualisation du périmètre",
-    "Text": "Base locale relit AD ; Postes relit le ping, la console, l’inventaire léger et les sondes des widgets configurés ; Les deux attend le stockage de la base avant le relevé. La cible est l’OU du tableau de bord avec ses sous-OU."
+    "Text": "Objets AD relit l’annuaire ; Ping mesure seulement la présence ; WMI relit la console, l’inventaire léger et les sondes des widgets configurés. Trois collectes indépendantes, enregistrées automatiquement ; la cible est l’OU du tableau de bord avec ses sous-OU."
   },
   {
     "Name": "LblFleetScope",
@@ -4418,7 +4460,553 @@
     "Kind": "TextBlock",
     "Source": "specific",
     "Title": "Dates des mesures et du calcul",
-    "Text": "Le ping et l’inventaire WMI conservent leurs dates propres. N/M compte les mesures utilisables parmi les postes actifs ; du… au… décrit leur intervalle de dates. Vue recalculée indique seulement la préparation locale de l’affichage, sans nouvelle collecte."
+    "Text": "Le ping et l’inventaire WMI conservent leurs dates propres. N/M compte les mesures utilisables parmi les postes actifs ; du… au… décrit leur intervalle de dates. Les postes sans mesure utilisable sont comptés par raison (jamais relevé, non lu, refusé, périmé, incomplet, en erreur), jamais comme mesurés. Relevés de l’OU donne la dernière réussite du ping et du WMI lancés sur l’OU et, si elle est plus récente, la dernière tentative en échec avec son erreur ; la provenance de ces relevés s’ajoute à cette aide. Vue recalculée indique seulement la préparation locale de l’affichage, sans nouvelle collecte."
+  },
+  {
+    "Name": "DgStorageDataPolicy",
+    "Title": "Données locales de Domenia",
+    "Text": "Ce que Domenia garde sur ce poste : contenu, emplacement, durée de conservation, export et suppression. Lecture seule ; rien nʼest envoyé hors du poste.",
+    "Kind": "DataGrid",
+    "Source": "specific"
+  },
+  {
+    "Name": "ExpStorageDataPolicy",
+    "Title": "Politique des données locales",
+    "Text": "Déplie ce que Domenia garde sur ce poste : contenu, emplacement, conservation, export et suppression de chaque donnée. Lʼouverture relit seulement les réglages locaux ; rien nʼest envoyé hors du poste.",
+    "Kind": "Expander",
+    "Source": "point-147"
+  },
+  {
+    "Name": "LblStorageDataPolicy",
+    "Title": "Engagement sur les données locales",
+    "Text": "Engagement de Domenia : aucune télémétrie ni service en ligne. Les lectures visent seulement lʼannuaire, les postes et les serveurs internes que vous désignez.",
+    "Kind": "TextBlock",
+    "Source": "point-147"
+  },
+  {
+    "Name": "LblUxAboutCompatibility",
+    "Title": "Compatibilité de ce poste",
+    "Text": "Compare ce poste à la matrice de compatibilité livrée : Windows, PowerShell, .NET et SQLite. Une fois évalué, le survol détaille chaque dimension. Lecture locale, sans réseau.",
+    "Kind": "TextBlock",
+    "Source": "point-145"
+  },
+  {
+    "Name": "WsAdAudit",
+    "Title": "Audit AD",
+    "Text": "Stratégie de mot de passe, groupes imbriqués, délégations, GPO, contrôleurs et identités : lectures bornées et à la demande, sans écriture.",
+    "Kind": "TabItem",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditCopy",
+    "Title": "Copier la vue affichée",
+    "Text": "Copie le résumé et les lignes de la vue affichée, pour un ticket. Aucune donnée nʼest relue.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "AdAuditTabs",
+    "Title": "Vues de lʼaudit AD",
+    "Text": "Objet sélectionné, contrôleurs du domaine ou identités dʼune OU.",
+    "Kind": "TabControl",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "TabAdAuditObject",
+    "Title": "Objet sélectionné",
+    "Text": "Lectures portant sur lʼobjet de la fiche ouverte.",
+    "Kind": "TabItem",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditUseSelection",
+    "Title": "Reprendre la sélection",
+    "Text": "Prend lʼobjet de la fiche ouverte comme cible. Les résultats de la cible précédente sont effacés ; rien nʼest lu.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "AdAuditObjectTabs",
+    "Title": "Lectures de lʼobjet",
+    "Text": "Mot de passe, groupes, délégations, stratégies de groupe, identité du poste et associations.",
+    "Kind": "TabControl",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "TabAdAuditPolicy",
+    "Title": "Stratégie de mot de passe",
+    "Text": "Stratégie de mot de passe applicable au compte.",
+    "Kind": "TabItem",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditPolicy",
+    "Title": "Lire la stratégie applicable",
+    "Text": "Lit la stratégie fine applicable (msDS-ResultantPSO), celle du domaine et lʼéchéance calculée par le contrôleur. Aucun mot de passe nʼest lu.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAdAuditPolicy",
+    "Title": "Stratégie applicable",
+    "Text": "Éléments de la stratégie applicable, avec leur source et leur limite.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "TabAdAuditGroups",
+    "Title": "Groupes imbriqués",
+    "Text": "Appartenances directes et imbriquées, cycles et groupes non lus.",
+    "Kind": "TabItem",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditGroups",
+    "Title": "Lire les appartenances imbriquées",
+    "Text": "Parcourt les groupes de lʼobjet puis leurs propres groupes : 2 000 groupes, 16 niveaux et 10 secondes au plus.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "CmbAdAuditGroupTarget",
+    "Title": "Groupe à expliquer",
+    "Text": "Groupe à expliquer, choisi parmi ceux lus. Le choix calcule le chemin sans nouvelle lecture.",
+    "Kind": "ComboBox",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditGroupConfirm",
+    "Title": "Confirmer sur le contrôleur",
+    "Text": "Demande au contrôleur si lʼobjet est membre, directement ou par imbrication, du groupe choisi (une lecture LDAP).",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAdAuditGroups",
+    "Title": "Groupes imbriqués lus",
+    "Text": "Groupes lus, avec la profondeur, le groupe par lequel lʼappartenance arrive et lʼétat de lecture.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "TabAdAuditAcl",
+    "Title": "Délégations",
+    "Text": "Entrées de la liste de contrôle dʼaccès de lʼobjet et estimation pour un bénéficiaire.",
+    "Kind": "TabItem",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditAcl",
+    "Title": "Lire les délégations",
+    "Text": "Lit le propriétaire et la liste de contrôle dʼaccès de lʼobjet (1 000 entrées au plus), sans rien modifier.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "ChkAdAuditAclExplicit",
+    "Title": "Entrées posées sur lʼobjet seulement",
+    "Text": "Masque les entrées héritées des conteneurs parents. Filtre local.",
+    "Kind": "CheckBox",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "TxtAdAuditAclFilter",
+    "Title": "Filtrer les délégations",
+    "Text": "Filtre local sur le bénéficiaire, les droits ou la cible.",
+    "Kind": "TextBox",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditAclToken",
+    "Title": "Inclure les groupes du bénéficiaire",
+    "Text": "Lit les groupes de sécurité du bénéficiaire choisi (tokenGroups) pour compter les entrées qui les désignent. Une lecture LDAP.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAdAuditAclEstimate",
+    "Title": "Estimation des droits",
+    "Text": "Résultat estimé par catégorie de droit, avec lʼentrée qui le décide.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAdAuditAcl",
+    "Title": "Entrées de la liste de contrôle dʼaccès",
+    "Text": "Entrées observées : bénéficiaire, droits, cible et origine. Une entrée nʼest pas un droit effectif.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "TabAdAuditGpo",
+    "Title": "Stratégies de groupe",
+    "Text": "GPO liées dans lʼannuaire et résultat appliqué sur le poste, présentés séparément.",
+    "Kind": "TabItem",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditGpoLinks",
+    "Title": "Lire les liens GPO",
+    "Text": "Lit gPLink et gPOptions de chaque OU au-dessus de lʼobjet et du domaine, puis le nom des GPO. Liens de site non lus.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditGpoApplied",
+    "Title": "Lire le résultat appliqué sur le poste",
+    "Text": "Lit par CIM le dernier résultat appliqué enregistré par le poste (RSoP). Droits dʼadministration du poste requis ; aucune actualisation des stratégies.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAdAuditGpoFacts",
+    "Title": "Constats des stratégies de groupe",
+    "Text": "Ce qui a été lu, ce qui ne lʼa pas été et ce que cela ne prouve pas.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAdAuditGpo",
+    "Title": "Liens GPO et résultat appliqué",
+    "Text": "Une ligne par lien : lien, héritage et résultat sur le poste. Un lien ne prouve pas lʼapplication.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "TabAdAuditMachine",
+    "Title": "Identité du poste",
+    "Text": "Nom dans lʼannuaire, résolution DNS et identité renvoyée par le poste.",
+    "Kind": "TabItem",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditMachineIdentity",
+    "Title": "Vérifier lʼidentité du poste",
+    "Text": "Résout le nom DNS depuis ce poste, lit le nom inverse et interroge le poste par CIM (Win32_ComputerSystem). Aucune attribution ni fusion.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAdAuditMachineIdentity",
+    "Title": "Identité du poste",
+    "Text": "Identité vue par lʼannuaire, par le DNS et par le poste, avec leur source.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "TabAdAuditHistory",
+    "Title": "Postes et utilisateurs",
+    "Text": "Affectation déclarée, dernière session observée et historique enregistré, chacun avec son origine et sa date.",
+    "Kind": "TabItem",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditHistory",
+    "Title": "Lire lʼhistorique enregistré",
+    "Text": "Lit dans la base locale de ce poste les associations enregistrées pour ce sujet (200 lignes au plus). Aucune lecture réseau.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAdAuditHistory",
+    "Title": "Historique enregistré des associations",
+    "Text": "Associations enregistrées, les plus récentes en premier, avec la nature de la preuve et son origine.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "TabAdAuditDcs",
+    "Title": "Contrôleurs",
+    "Text": "Diagnostic ciblé des contrôleurs choisis : DNS, joignabilité, heure et réplication.",
+    "Kind": "TabItem",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditDcList",
+    "Title": "Lister les contrôleurs",
+    "Text": "Lit les comptes des contrôleurs du domaine (100 au plus) et lʼémulateur PDC. Aucune sonde réseau.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditDcProbe",
+    "Title": "Diagnostiquer les contrôleurs choisis",
+    "Text": "Pour 10 contrôleurs choisis au plus : DNS, ports LDAP et Kerberos, heure, synchronisation et réplication entrante. Sans droit dʼadministration.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditDcServices",
+    "Title": "Lire les services des contrôleurs",
+    "Text": "Sonde privilégiée, sur demande seulement : état des services de lʼannuaire des contrôleurs choisis, lu par CIM. Aucun service nʼest démarré ni arrêté.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAdAuditDcList",
+    "Title": "Contrôleurs du domaine",
+    "Text": "Contrôleurs du domaine. Sélection multiple avec Ctrl ou Maj ; 10 au plus par diagnostic.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "AdAuditDcResultTabs",
+    "Title": "Résultats du diagnostic des contrôleurs",
+    "Text": "Synthèse par contrôleur, liens de réplication et services.",
+    "Kind": "TabControl",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAdAuditDcFacts",
+    "Title": "Constats du diagnostic",
+    "Text": "Enregistrements DNS et écarts calculés entre contrôleurs, avec leurs limites.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAdAuditHealth",
+    "Title": "Synthèse par contrôleur",
+    "Text": "Un contrôleur injoignable est « Non lu », jamais déclaré en panne.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAdAuditRepl",
+    "Title": "Liens de réplication entrants",
+    "Text": "Liens de réplication entrants lus sur chaque contrôleur.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAdAuditServices",
+    "Title": "Services des contrôleurs",
+    "Text": "Services de lʼannuaire des contrôleurs, comparés à lʼétat attendu.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "TabAdAuditIdentity",
+    "Title": "Identités",
+    "Text": "Doublons, noms DNS partagés et noms recyclés dans lʼOU choisie, sans fusion automatique.",
+    "Kind": "TabItem",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAdAuditScan",
+    "Title": "Analyser les identités de lʼOU",
+    "Text": "Lit les utilisateurs et postes de lʼOU choisie (5 000 au plus), puis compare leurs noms avec la base locale de ce poste. Jamais le domaine entier.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "ChkAdAuditScanSubtree",
+    "Title": "Inclure les sous-OU",
+    "Text": "Étend la lecture aux OU contenues dans lʼOU choisie. Refusé à la racine du domaine.",
+    "Kind": "CheckBox",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAdAuditScan",
+    "Title": "Constats sur les identités",
+    "Text": "Constats à revoir, avec les objets concernés et la limite du constat.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "ChkAllLinksHistory",
+    "Title": "Filtre Historique",
+    "Text": "Nʼafficher que les ouvertures de session anciennes relevées dans un journal ou un profil : un historique, pas une présence actuelle.",
+    "Kind": "ToggleButton",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "LblLinkOverview",
+    "Title": "Synthèse des associations",
+    "Text": "Affectation déclarée, dernière session observée et historique, chacun avec son origine et sa date. Une observation ne vaut pas affectation.",
+    "Kind": "TextBlock",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "WsAssistance",
+    "Title": "Assistance",
+    "Text": "Recettes guidées pour une connexion impossible, un poste lent, un manque dʼespace ou un logiciel absent : chaque étape dit ce quʼelle lit et part sur votre clic.",
+    "Kind": "TabItem",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "CmbAssistanceRecipe",
+    "Title": "Recette dʼassistance",
+    "Text": "Choisissez le symptôme décrit par lʼutilisateur. Le choix seul ne lit rien.",
+    "Kind": "ComboBox",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAssistanceSteps",
+    "Title": "Étapes de la recette",
+    "Text": "Étapes de la recette : ce qui est lu, pourquoi et à quel coût. Choisissez une étape, puis lancez-la.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAssistanceRun",
+    "Title": "Lancer lʼétape choisie",
+    "Text": "Ouvre la vue de lʼétape puis lance sa seule lecture, pour lʼobjet sélectionné. Rien dʼautre ne part.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAssistanceOpen",
+    "Title": "Ouvrir la vue de lʼétape",
+    "Text": "Ouvre la vue où lʼétape présente ses informations, sans rien lire.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "TxtUserLogonByDc",
+    "Title": "Activité de connexion du compte",
+    "Text": "Activité de connexion de lʼobjet : date approximative répliquée (lastLogonTimestamp) et, après lecture, la date exacte connue de chaque contrôleur avec sa couverture.",
+    "Kind": "TextBlock",
+    "Source": "P27"
+  },
+  {
+    "Name": "BtnUserLogonByDc",
+    "Title": "Lire la dernière connexion sur chaque contrôleur",
+    "Text": "Lit, pour cet objet seulement, la date exacte de dernière connexion (lastLogon) sur chaque contrôleur du domaine, avec la liste des contrôleurs lus et non lus. Lecture seule ; aucun contrôleur nʼest plus interrogé après 75 secondes.",
+    "Kind": "Button",
+    "Source": "P27"
+  },
+  {
+    "Name": "TxtCompLogonByDc",
+    "Title": "Activité de connexion du poste",
+    "Text": "Activité de connexion du compte ordinateur : date approximative répliquée (lastLogonTimestamp) et, après lecture, la date exacte connue de chaque contrôleur avec sa couverture.",
+    "Kind": "TextBlock",
+    "Source": "P27"
+  },
+  {
+    "Name": "BtnCompLogonByDc",
+    "Title": "Lire la dernière connexion du poste sur chaque contrôleur",
+    "Text": "Lit, pour ce poste seulement, la date exacte de dernière connexion de son compte ordinateur (lastLogon) sur chaque contrôleur du domaine, avec la liste des contrôleurs lus et non lus. Lecture seule ; aucun contrôleur nʼest plus interrogé après 75 secondes.",
+    "Kind": "Button",
+    "Source": "P27"
+  },
+  {
+    "Name": "CmbSearchWorkspace",
+    "Title": "Vue personnelle",
+    "Text": "Vues personnelles de ce domaine : OU, profondeur, type, présence, filtre local, limite, colonnes et tri. Choisir une vue ne lance rien ; Ouvrir lʼapplique sans appel réseau.",
+    "Kind": "ComboBox",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "BtnSearchWorkspaceSave",
+    "Title": "Enregistrer la vue",
+    "Text": "Mémorise sous un nom lʼOU, la profondeur, les filtres, les colonnes (ordre et largeur) et le tri. Les résultats et les mots de passe ne sont pas enregistrés.",
+    "Kind": "Button",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "BtnSearchWorkspaceOpen",
+    "Title": "Ouvrir la vue",
+    "Text": "Applique la vue choisie sans appel réseau. La liste reste vide jusquʼà une lecture que vous lancez.",
+    "Kind": "Button",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "BtnSearchWorkspaceRemove",
+    "Title": "Retirer la vue",
+    "Text": "Retire la vue choisie de ce domaine. Annuler la restaure tant que les vues ne changent pas.",
+    "Kind": "Button",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "BtnSearchWorkspaceUndo",
+    "Title": "Annuler le retrait de vue",
+    "Text": "Annule le dernier retrait de vue personnelle.",
+    "Kind": "Button",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "CmbResultScope",
+    "Title": "Portée de lʼexport et des relevés",
+    "Text": "Portée de lʼexport CSV et de « Vérifier la liste » : la liste affichée après les filtres, ou seulement les lignes sélectionnées. La barre dʼune sélection multiple agit toujours sur les lignes sélectionnées.",
+    "Kind": "ComboBox",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "BtnSearchCompare",
+    "Title": "Comparer les postes",
+    "Text": "Compare côte à côte deux à huit postes sélectionnés, depuis la base locale. Chaque valeur garde sa date ; aucune collecte.",
+    "Kind": "Button",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "BtnSearchPreview",
+    "Title": "Aperçu local",
+    "Text": "Affiche ou masque lʼaperçu latéral de la ligne courante, lu dans la base locale. La sélection de travail est conservée ; aucune collecte.",
+    "Kind": "Button",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "PnlSearchFilterChips",
+    "Title": "Critères de la liste",
+    "Text": "Critères qui forment la liste. × retire un critère : le type relit lʼOU, les critères de la liste chargée nʼappellent pas le réseau.",
+    "Kind": "WrapPanel",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "LblSearchFilterSummary",
+    "Title": "Combinaison des critères",
+    "Text": "Combinaison des critères et nombre de lignes affichées. Les critères de la liste chargée ne lisent rien au-delà des lignes déjà chargées.",
+    "Kind": "TextBlock",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "LblResultScope",
+    "Title": "Lignes traitées par lʼexport et les relevés",
+    "Text": "Lignes que lʼexport et les relevés vont traiter, avec ce qui est exclu et ce que lʼon sait de la complétude de la liste.",
+    "Kind": "TextBlock",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "SearchPreviewSplitter",
+    "Title": "Largeur de lʼaperçu",
+    "Text": "Faites glisser pour ajuster la largeur de lʼaperçu latéral.",
+    "Kind": "GridSplitter",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "PnlSearchPreview",
+    "Title": "Aperçu local de la fiche",
+    "Text": "Aperçu de la fiche enregistrée dans la base locale, avec la date de chaque valeur. Aucune lecture de lʼannuaire ni du poste.",
+    "Kind": "Grid",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "LblSearchPreview",
+    "Title": "Objet consulté dans lʼaperçu",
+    "Text": "Objet consulté et révision de la base locale lue.",
+    "Kind": "TextBlock",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "BtnSearchPreviewClose",
+    "Title": "Fermer lʼaperçu",
+    "Text": "Ferme lʼaperçu. La sélection et la liste sont conservées.",
+    "Kind": "Button",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "DgSearchPreview",
+    "Title": "Valeurs enregistrées de lʼobjet",
+    "Text": "Valeurs enregistrées de lʼobjet consulté, chacune avec sa date. « Non lu » signifie que la base locale ne contient pas cette information.",
+    "Kind": "DataGrid",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "PnlOuBreadcrumb",
+    "Title": "Chemin de la branche choisie",
+    "Text": "Chemin de lʼOU choisie. Un niveau intermédiaire remonte à cette OU ; Copier le chemin copie son DN exact.",
+    "Kind": "WrapPanel",
+    "Source": "W08-navigation"
   },
   {
     "Name": "LblGuardReceiptSelection",
@@ -4706,5 +5294,285 @@
     "Text": "Vérifie que le poste répond et que les services dʼadministration sont joignables.",
     "Kind": "TabItem",
     "Source": "X04"
+  },
+  {
+    "Name": "BtnIndexOpenFolder",
+    "Title": "Ouvrir lʼemplacement de la base",
+    "Text": "Ouvre le dossier de la base dans lʼexplorateur, fichier sélectionné.",
+    "Kind": "Button",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "BtnIndexBackup",
+    "Title": "Sauvegarder la base maintenant",
+    "Text": "Copie cohérente de la base (sauvegarde SQLite à chaud) dans son dossier Backups. Lʼoriginal nʼest pas modifié.",
+    "Kind": "Button",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "BtnIndexBackupTo",
+    "Title": "Copier une sauvegarde de la base",
+    "Text": "Sauvegarde la base puis copie cette sauvegarde vérifiée vers le fichier de votre choix (clé USB, partage…).",
+    "Kind": "Button",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "BtnStorageMove",
+    "Title": "Déplacer la base locale",
+    "Text": "Déplace la base vers un nouveau fichier local : vérification de la destination, copie contrôlée puis bascule. Lʼoriginal est conservé en lecture seule.",
+    "Kind": "Button",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "BtnStorageRestore",
+    "Title": "Restaurer une sauvegarde",
+    "Text": "Restaure une sauvegarde vérifiée dans un nouveau fichier local, après aperçu du domaine, des dates et du contenu. Aucune base nʼest écrasée.",
+    "Kind": "Button",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "BtnStorageResume",
+    "Title": "Reprendre la bascule",
+    "Text": "Reprend une bascule interrompue après vérification de la copie. Les deux fichiers sont conservés.",
+    "Kind": "Button",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "BtnStorageRollback",
+    "Title": "Revenir à la base précédente",
+    "Text": "Revient au fichier dʼorigine si la nouvelle base nʼa reçu aucune écriture. Les deux fichiers sont conservés.",
+    "Kind": "Button",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "LblStorageMaintenance",
+    "Title": "Assistant de stockage",
+    "Text": "Étape et résultat de lʼassistant de déplacement ou de restauration de la base.",
+    "Kind": "TextBlock",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "LblStorageSpace",
+    "Title": "Espace disque de la base",
+    "Text": "Espace libre mesuré du volume de la base, seuil de suspension des collectes et données encore en mémoire.",
+    "Kind": "TextBlock",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "ChkStorageAutoBackup",
+    "Title": "Sauvegarde automatique",
+    "Text": "Sauvegarde cohérente automatique, contrôlée par SQLite et par empreinte, tant que Domenia est ouvert. Enregistrez les réglages pour lʼappliquer.",
+    "Kind": "CheckBox",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "TxtStorageBackupHours",
+    "Title": "Intervalle des sauvegardes",
+    "Text": "Intervalle entre deux sauvegardes automatiques, de 1 à 720 heures.",
+    "Kind": "TextBox",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "TxtStorageBackupKeep",
+    "Title": "Sauvegardes à conserver",
+    "Text": "Nombre de sauvegardes gardées dans le dossier Backups, de 2 à 30 ; les plus anciennes sont retirées.",
+    "Kind": "TextBox",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "LblStorageBackupSchedule",
+    "Title": "État des sauvegardes",
+    "Text": "Fréquence, prochaine sauvegarde, dernier succès vérifié et dernier échec de cette session.",
+    "Kind": "TextBlock",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "TxtStoragePresenceDays",
+    "Title": "Conservation : Présence ping",
+    "Text": "Âge au-delà duquel le dernier relevé de présence ping dʼun poste peut être retiré. 0 conserve sans limite.",
+    "Kind": "TextBox",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "TxtStorageConsoleDays",
+    "Title": "Conservation : Utilisateur connecté",
+    "Text": "Âge au-delà duquel le dernier utilisateur connecté relevé peut être retiré. 0 conserve sans limite.",
+    "Kind": "TextBox",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "TxtStorageInventoryDays",
+    "Title": "Conservation : Inventaire",
+    "Text": "Âge au-delà duquel le dernier inventaire léger dʼun poste peut être retiré. 0 conserve sans limite.",
+    "Kind": "TextBox",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "TxtStorageProbeDays",
+    "Title": "Conservation : Sondes",
+    "Text": "Âge au-delà duquel les résultats de sondes WMI peuvent être retirés. 0 conserve sans limite.",
+    "Kind": "TextBox",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "TxtStorageDetailDays",
+    "Title": "Conservation : Détails",
+    "Text": "Âge au-delà duquel les résultats détaillés peuvent être retirés. 0 conserve sans limite.",
+    "Kind": "TextBox",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "TxtStorageLinkHistoryDays",
+    "Title": "Conservation : historique des associations",
+    "Text": "Âge au-delà duquel les observations identiques répétées de lʼhistorique des associations sont résumées ; chaque changement dʼutilisateur est gardé. 0 conserve tout.",
+    "Kind": "TextBox",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "BtnStoragePolicySave",
+    "Title": "Enregistrer les réglages de stockage",
+    "Text": "Enregistre la fréquence des sauvegardes et la conservation par famille. Rien nʼest supprimé à lʼenregistrement.",
+    "Kind": "Button",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "BtnStorageRetentionPreview",
+    "Title": "Prévisualiser la conservation",
+    "Text": "Compte, sans rien supprimer, ce que la conservation retirerait par famille, et annonce la perte de détail.",
+    "Kind": "Button",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "BtnStorageRetentionApply",
+    "Title": "Appliquer la conservation",
+    "Text": "Après la prévisualisation : sauvegarde vérifiée de la base, puis retrait des données annoncées. Confirmation demandée.",
+    "Kind": "Button",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "LblStorageRetention",
+    "Title": "Résultat de la conservation",
+    "Text": "Résultat de la prévisualisation ou de lʼapplication de la conservation, famille par famille.",
+    "Kind": "TextBlock",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "BtnStorageIntegrity",
+    "Title": "Contrôler lʼintégrité de la base",
+    "Text": "Contrôle la base en lecture seule : schéma, tables, identité, reçus, structure SQLite et journal. Aucune réparation automatique.",
+    "Kind": "Button",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "LblStorageIntegrity",
+    "Title": "Contrôle dʼintégrité",
+    "Text": "Résultat du dernier contrôle dʼintégrité de cette session.",
+    "Kind": "TextBlock",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "LblStorageLimits",
+    "Title": "Limites du stockage local",
+    "Text": "Limites explicites de mémoire, de disque et de conservation du stockage local.",
+    "Kind": "TextBlock",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "DgOperationsRecent",
+    "Title": "Dernières opérations",
+    "Text": "Opérations de cette session, la plus récente en haut : état, durée, étape la plus longue et référence à chercher dans Domenia.log. Gardées en mémoire seulement, 64 au plus.",
+    "Kind": "DataGrid",
+    "Source": "W13"
+  },
+  {
+    "Name": "LblOperationsTrace",
+    "Title": "Étapes de lʼopération choisie",
+    "Text": "Étapes mesurées de lʼopération choisie et ce qui peut être fait ensuite. Aucune relance automatique.",
+    "Kind": "TextBlock",
+    "Source": "W13"
+  },
+  {
+    "Name": "BtnOperationsCopyTrace",
+    "Title": "Copier le détail de lʼopération",
+    "Text": "Copie le détail de lʼopération choisie : étapes, durées et référence. Le nom de la cible peut y figurer : relisez avant envoi.",
+    "Kind": "Button",
+    "Source": "W13"
+  },
+  {
+    "Name": "BtnOperationsJournal",
+    "Title": "Ouvrir le journal",
+    "Text": "Ferme ce panneau et ouvre le journal de session. Les références des opérations figurent aussi dans Domenia.log.",
+    "Kind": "Button",
+    "Source": "W13"
+  },
+  {
+    "Name": "BtnOperationsDiagnostic",
+    "Title": "Diagnostic expurgé",
+    "Text": "Prépare le diagnostic expurgé (versions, mesures locales, codes dʼerreur, traces sans cible), le montre en entier, puis lʼenregistre dans un fichier local après confirmation. Aucun envoi.",
+    "Kind": "Button",
+    "Source": "W13"
+  },
+  {
+    "Name": "BtnPaletteClose",
+    "Title": "Fermer la palette",
+    "Text": "Ferme la palette sans rien lancer. Échap fait de même.",
+    "Kind": "Button",
+    "Source": "W13"
+  },
+  {
+    "Name": "TxtPaletteSearch",
+    "Title": "Rechercher une action",
+    "Text": "Tapez quelques lettres : accents et majuscules sont ignorés. Flèches pour choisir, Entrée pour exécuter, Échap pour fermer.",
+    "Kind": "TextBox",
+    "Source": "W13"
+  },
+  {
+    "Name": "LstPaletteCommands",
+    "Title": "Actions",
+    "Text": "Actions de la palette : les disponibles dʼabord, avec leur raccourci. Une action indisponible dit pourquoi.",
+    "Kind": "ListBox",
+    "Source": "W13"
+  },
+  {
+    "Name": "LblPaletteDetail",
+    "Title": "Détail de lʼaction choisie",
+    "Text": "Ce que fait lʼaction choisie, ou pourquoi elle est indisponible.",
+    "Kind": "TextBlock",
+    "Source": "W13"
+  },
+  {
+    "Name": "LblPaletteStatus",
+    "Title": "État de la palette",
+    "Text": "Nombre dʼactions affichées et touches utiles : Entrée exécute, Échap ferme, Ctrl+K rouvre la palette.",
+    "Kind": "TextBlock",
+    "Source": "W13"
+  },
+  {
+    "Name": "LblSearchEmptyTitle",
+    "Title": "État de la liste de résultats",
+    "Text": "Pourquoi la liste est vide : rien interrogé, lecture en cours, aucun résultat, filtre local, lecture refusée, partielle ou sans source. Jamais une preuve dʼabsence dans lʼannuaire.",
+    "Kind": "TextBlock",
+    "Source": "W13"
+  },
+  {
+    "Name": "LblSearchEmptyText",
+    "Title": "Explication de la liste vide",
+    "Text": "Ce qui a été lu, dans quel périmètre, et ce que la liste vide ne permet pas de conclure.",
+    "Kind": "TextBlock",
+    "Source": "W13"
+  },
+  {
+    "Name": "BtnSearchEmptyNext",
+    "Title": "Prochaine action proposée",
+    "Text": "Prochaine action proposée pour cette liste vide. Rien ne part tout seul : une lecture ne commence quʼavec ce clic.",
+    "Kind": "Button",
+    "Source": "W13"
+  },
+  {
+    "Name": "BtnOperationsReceipts",
+    "Title": "Opérations à vérifier",
+    "Text": "Écritures envoyées qui attendent une vérification ou une revue, comptées comme sur la pastille de lʼen-tête : les nouvelles écritures restent bloquées. Ferme ce panneau et ouvre la liste des reçus ; rien nʼest rejoué.",
+    "Kind": "Button",
+    "Source": "W13"
   }
 ]

@@ -1638,6 +1638,23 @@ if ($infrastructure) {
         Assert-True (($request.ConfirmText -eq 'Lancer') -and $request.DetailsExpertOnly) 'Lancer ou volet Expert absent.'
         Assert-True ($script:ImpactRuns -eq 1) ('Lancement : '+$script:ImpactRuns)
     }
+    Test-Case 'Point 49 regles des recus copiees dans le worker : fermeture complete, relecture seule' {
+        Reset-WiringFixture
+        $text=Get-DomeniaWorkerRulesCommon
+        $ps=[PowerShell]::Create([Management.Automation.RunspaceMode]::NewRunspace)
+        try {
+            [void]$ps.AddScript($text+"`r`n"+@'
+$e=Get-DomeniaReceiptExpectation -OperationId 'WriteAccountDisabled' -Payload ([pscustomobject]@{Disabled=$true})
+$yes=Resolve-DomeniaReceiptCheck -Expectation $e -Observed ([pscustomobject]@{ReadStatus='OK';Uac='514'})
+$no=Resolve-DomeniaReceiptCheck -Expectation $e -Observed ([pscustomobject]@{ReadStatus='Refused';Uac='514'})
+$none=Get-DomeniaReceiptExpectation -OperationId 'RimotteRun' -Payload ([pscustomobject]@{})
+[pscustomobject]@{Kind=[string]$e.Kind;Yes=[bool]$yes.Verified;No=[bool]$no.Verified;None=($null -eq $none)}
+'@)
+            $out=@($ps.Invoke())
+            Assert-True ($ps.Streams.Error.Count -eq 0) ('Erreurs : '+(@($ps.Streams.Error|ForEach-Object{$_.ToString()}) -join ' | '))
+            Assert-True ($out.Count -eq 1 -and $out[0].Kind -eq 'UacFlags' -and $out[0].Yes -and (-not $out[0].No) -and $out[0].None) 'Regles des recus incompletes dans le worker.'
+        } finally { $ps.Dispose() }
+    }
     Test-Case 'SE-09 regles copiees dans le worker : fermeture complete, memes reponses' {
         Reset-WiringFixture
         $text=Get-DomeniaWorkerRulesCommon

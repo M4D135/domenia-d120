@@ -896,9 +896,12 @@ function Update-DomeniaUxOuScope {
     if($null -ne $summary){
         $depth=if($Scope.Scope -eq 'Subtree'){'Sous-OU incluses'}else{'Enfants directs'}
         # D032: browsing always reads 'Dans cette OU', the upper bar always 'Domaine entier'.
-        $label='Dans : '+$display.Name+'  ·  '+$depth
+        # Point 52: an OU below another one is named with its parent, so that two OU of the same name stay distinct.
+        $ouName=[string]$display.Name
+        if(-not [bool]$Scope.IsDomain){try{$names=@(Get-DomeniaOuPathNames ([string]$Scope.BaseDn));if($names.Count -ge 2){$ouName+=' (dans '+[string]$names[1]+')'}}catch{}}
+        $label='Dans : '+$ouName+'  ·  '+$depth
         if($null -ne (Get-Command Get-DomeniaScopeLabel -CommandType Function -ErrorAction SilentlyContinue)){
-            $label=Get-DomeniaScopeLabel -Mode Browse -OuName ([string]$display.Name) -Subtree ($Scope.Scope -eq 'Subtree')
+            $label=Get-DomeniaScopeLabel -Mode Browse -OuName $ouName -Subtree ($Scope.Scope -eq 'Subtree')
         }
         $summary.Text=$label
         $summary.ToolTip='Racine LDAP : '+[string]$Scope.BaseDn+"`r`n"+$depth+"`r`nLe texte de la barre du haut ne filtre pas cette OU."
@@ -906,10 +909,13 @@ function Update-DomeniaUxOuScope {
 }
 
 function Copy-DomeniaUxOuPath {
-    $box=Get-DomeniaControl 'TxtBranchDn'
-    if($null -eq $box -or [string]::IsNullOrWhiteSpace([string]$box.Text)){return}
+    # -Dn: the exact DN of the breadcrumb that was clicked (point 52); without it, the DN of the menu box.
+    param([AllowEmptyString()][string]$Dn='')
+    $text=([string]$Dn).Trim()
+    if(-not $text){$box=Get-DomeniaControl 'TxtBranchDn';if($null -ne $box){$text=([string]$box.Text).Trim()}}
+    if([string]::IsNullOrWhiteSpace($text)){return}
     try{
-        [Windows.Clipboard]::SetText([string]$box.Text)
+        [Windows.Clipboard]::SetText($text)
         Set-DomeniaContextHint -Title 'Chemin LDAP copié' -Text 'Le DN de la branche sélectionnée est dans le presse-papiers. Le filtre et les résultats restent inchangés.'
     }catch{
         Set-DomeniaContextHint -Title 'Copie indisponible' -Text 'Le presse-papiers est occupé. Dépliez le chemin LDAP pour le sélectionner et le copier manuellement.'
@@ -965,6 +971,18 @@ function Send-DomeniaUxLiveChange {
         $peer = [Windows.Automation.Peers.UIElementAutomationPeer]::CreatePeerForElement($Control)
         if ($null -ne $peer) { $peer.RaiseAutomationEvent($liveEvent) }
     } catch { }
+}
+
+function Set-DomeniaLiveText {
+    # W13 (point 116): text of a polite live region (state of the result list, palette, operations panel). WPF raises
+    # no LiveRegionChanged by itself: the text is rewritten only when it changes, then the change is announced once.
+    # Returns $true when the text changed.
+    param($Control,[AllowNull()][AllowEmptyString()][string]$Text)
+    if ($null -eq $Control) { return $false }
+    if ([string]$Control.Text -ceq [string]$Text) { return $false }
+    $Control.Text = [string]$Text
+    Send-DomeniaUxLiveChange -Control $Control
+    return $true
 }
 
 function Get-DomeniaUxSubject {
@@ -1085,7 +1103,11 @@ function Switch-DomeniaUxAbout {
     if ($null -eq $panel) { return }
     $show = ($panel.Visibility -ne [Windows.Visibility]::Visible)
     $panel.Visibility = if ($show) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed }
-    if ($show) { Set-DomeniaContextHint -Title 'À propos de Domenia' -Text ([string]$script:DomeniaBuild + '. Les actions restent sous votre contrôle ; aucune écriture ne part sans votre geste.') }
+    if ($show) {
+        # Point 145: local facts only (registry, winsqlite3.dll version), read once per session.
+        try { Update-DomeniaAboutCompatibility } catch { Write-AppLog ('Compatibilité du poste non évaluée : ' + $_.Exception.Message) 'WARN' }
+        Set-DomeniaContextHint -Title 'À propos de Domenia' -Text ([string]$script:DomeniaBuild + '. Les actions restent sous votre contrôle ; aucune écriture ne part sans votre geste.')
+    }
 }
 
 function Clear-DomeniaUxSubject {
@@ -1426,6 +1448,168 @@ function Invoke-DomeniaUxEmptySearch {
     }
 }
 
+# ---------------------------------------------------------------- W13 (point 119): empty result list
+$script:DomeniaSearchEmptyTimer=$null
+$script:DomeniaSearchEmptyBound=$false
+
+function Get-DomeniaSearchEmptyInputs {
+    # What the list really observed: rows displayed and loaded, the search in progress or finished, its error kind,
+    # its text and its scope. Read from the page and the search state only; nothing is queried.
+    $grid = Get-DomeniaControl 'DgObjects'
+    $displayed = 0; $loaded = 0; $pending = $false
+    if ($null -ne $grid) {
+        $displayed = [int]$grid.Items.Count
+        $source = $grid.ItemsSource
+        if ($source -is [Collections.ICollection]) { $loaded = [int]$source.Count }
+        # UX-03: a repainted copy holds only its visible rows; the filter pass recorded how many rows the whole list has
+        # (Update-DomeniaFilteredEmptyState). The counts speak only for the list they were recorded with.
+        $counts = $script:DomeniaListFilterCounts
+        if ($null -ne $counts) {
+            if (($null -ne $source) -and [object]::ReferenceEquals($counts.Source,$source)) {
+                $counts.Pending = $false
+                if ([int]$counts.Loaded -gt $loaded) { $loaded = [int]$counts.Loaded }
+            } elseif (($null -eq $source) -and [bool]$counts.Pending) {
+                # The grid is between two lists (the copy is assigned right after): no verdict on an empty instant.
+                $pending = $true
+            }
+        }
+    }
+    $search = $null
+    try { if ($null -ne $script:Live) { $search = $script:Live.Search } } catch { $search = $null }
+    $inFlight = $false; $completed = $false; $partial = $false; $errorKind = ''; $query = ''; $scope = ''
+    # The state of the search speaks only for its own rows; another list (query, history, cleared list) is foreign.
+    $live = (($null -ne $search) -and ($null -ne $grid) -and [object]::ReferenceEquals($grid.ItemsSource,$search.Rows))
+    $foreign = ((-not $live) -and ($null -ne $grid) -and ($null -ne $grid.ItemsSource))
+    if ($live) {
+        $inFlight = ((-not [bool]$search.Stopped) -and (-not [bool]$search.Finalized))
+        $completed = [bool]$search.Finalized
+        $partial = [bool](Get-DomeniaMember (Get-DomeniaMemberValue $search 'Final' $null) 'Partial' $false)
+        $failure = [string](Get-DomeniaMember $search 'Error' '')
+        if ($failure -and (-not $partial)) {
+            try { $errorKind = [string](ConvertTo-DomeniaErrorInfo -ErrorRecordOrException $failure -Operation 'Recherche').Kind } catch { $errorKind = 'Unexpected' }
+            if (-not $errorKind) { $errorKind = 'Unexpected' }
+        }
+        $state = Get-DomeniaMemberValue $search 'State' $null
+        $query = [string](Get-DomeniaMember $state 'Search' '')
+        if ([string](Get-DomeniaMember $state 'SearchMode' '') -eq 'Global') { $scope = 'tout le domaine' }
+        else {
+            $dn = [string](Get-DomeniaMember $state 'BaseDn' '')
+            if ($dn) { try { $scope = [string](Get-DomeniaUxOuDisplay -DistinguishedName $dn).Name } catch { $scope = '' } }
+        }
+    }
+    $filterText = ''
+    $filter = Get-DomeniaControl 'TxtSuiteResultFilter'
+    if ($null -ne $filter) { $filterText = [string]$filter.Text }
+    # UX-03: the presence filter belongs to the OU lists; the global search never applies it.
+    $presence = [string]$script:CurrentPresenceFilter
+    try { if ((Get-DomeniaSearchMode) -eq 'Global') { $presence = 'Tous' } } catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
+    $localFilter = $filterText
+    if ($presence -and ($presence -ne 'Tous')) {
+        if ($localFilter) { $localFilter += ' · ' }
+        $localFilter += 'présence ' + $presence
+    }
+    return [pscustomobject]@{Displayed=$displayed;Loaded=$loaded;InFlight=$inFlight;Completed=$completed;ErrorKind=$errorKind;Partial=$partial;Query=$query;Scope=$scope;LocalFilter=$localFilter;FilterText=$filterText;Presence=$presence;Foreign=$foreign;Pending=$pending}
+}
+
+function Update-DomeniaSearchEmptyState {
+    # One empty state for the result list (UI-15): while a read runs it says so, then why the list is empty and the
+    # next action. Texts are only rewritten when they change, so the screen reader announces a change once.
+    $panel = Get-DomeniaControl 'UxSearchEmpty'
+    if ($null -eq $panel) { return }
+    $inputs = Get-DomeniaSearchEmptyInputs
+    if (([int]$inputs.Displayed -gt 0) -or [bool]$inputs.Pending) {
+        if ($null -ne $script:DomeniaSearchEmptyTimer) { $script:DomeniaSearchEmptyTimer.Stop() }
+        return
+    }
+    $kind = Resolve-DomeniaSearchEmptyKind -Displayed ([int]$inputs.Displayed) -Loaded ([int]$inputs.Loaded) -InFlight ([bool]$inputs.InFlight) -Completed ([bool]$inputs.Completed) -ErrorKind ([string]$inputs.ErrorKind) -Partial ([bool]$inputs.Partial)
+    $title = ''; $text = ''; $label = ''; $command = ''
+    if (($kind -eq 'NothingQueried') -and [bool]$inputs.Foreign) {
+        # An empty list of another origin (query, history, list cleared): nothing is claimed about what was read.
+        $title = 'Aucune ligne à afficher'
+        $text = 'Cette liste est vide : elle ne renseigne pas sur lʼétat réel de lʼannuaire.'
+        $label = 'Rechercher un nom ou choisir une OU'; $command = 'StartRead'
+        if ($null -ne $script:DomeniaSearchEmptyTimer) { $script:DomeniaSearchEmptyTimer.Stop() }
+    } elseif (-not $kind) {
+        $title = 'Lecture en cours'
+        $text = 'Les résultats sʼaffichent dès leur enregistrement local ; la lecture se poursuit sans autre geste.'
+        $query = ConvertTo-DomeniaFlatText ([string]$inputs.Query) 60
+        if ($query) { $text = 'Recherche de « ' + $query + ' » en cours. Les résultats sʼaffichent dès leur enregistrement local.' }
+        if ($null -eq $script:DomeniaSearchEmptyTimer) { $script:DomeniaSearchEmptyTimer = New-DomeniaTimer -Owner 'Timer:SearchEmpty' -IntervalMs 400 -Tick { Update-DomeniaSearchEmptyState } }
+        $script:DomeniaSearchEmptyTimer.Start()
+    } else {
+        $state = Get-DomeniaEmptyState -Kind $kind -Query ([string]$inputs.Query) -Scope ([string]$inputs.Scope) -LocalFilter ([string]$inputs.LocalFilter) -Total ([int]$inputs.Loaded)
+        $title = [string]$state.Title; $text = [string]$state.Text
+        $label = [string]$state.NextAction.Label; $command = [string]$state.NextAction.Command
+        if ($kind -eq 'LocalFilterEmpty') {
+            # UX-03: the filter of the list (its text or the presence) hides every loaded row: how many, which filter,
+            # and « Effacer le filtre », which shows them again without any request.
+            $filtered = Get-DomeniaFilteredEmptyState -Loaded ([int]$inputs.Loaded) -Visible ([int]$inputs.Displayed) -LocalText ([string]$inputs.FilterText) -Presence ([string]$inputs.Presence)
+            if ([bool]$filtered.Show) { $title = [string]$filtered.Text; $text = [string]$filtered.Detail }
+        }
+        if ($null -ne $script:DomeniaSearchEmptyTimer) { $script:DomeniaSearchEmptyTimer.Stop() }
+    }
+    # Both blocks are polite live regions: a new verdict (refusée, aucun résultat...) is announced once, then its
+    # explanation; an unchanged text is not announced again.
+    [void](Set-DomeniaLiveText -Control (Get-DomeniaControl 'LblSearchEmptyTitle') -Text $title)
+    [void](Set-DomeniaLiveText -Control (Get-DomeniaControl 'LblSearchEmptyText') -Text $text)
+    $button = Get-DomeniaControl 'BtnSearchEmptyNext'
+    if ($null -ne $button) {
+        $button.Tag = $command
+        if ($command) {
+            if ([string]$button.Content -cne $label) { $button.Content = $label }
+            $button.Visibility = [Windows.Visibility]::Visible
+        } else { $button.Visibility = [Windows.Visibility]::Collapsed }
+    }
+}
+
+function Invoke-DomeniaSearchEmptyAction {
+    # The next action of the empty list, on the click of the operator only. A read starts only when the action is a
+    # read (relire) and its own button is shown and enabled; otherwise the field or the view is brought forward.
+    $button = Get-DomeniaControl 'BtnSearchEmptyNext'
+    $command = ''
+    if ($null -ne $button) { $command = [string]$button.Tag }
+    $box = Get-DomeniaControl 'TxtGlobalSearch'
+    switch ($command) {
+        'ClearLocalFilter' {
+            # UX-03 (Clear-DomeniaResultFilters): text of the list and presence back to everything, no request.
+            Clear-DomeniaResultFilters
+            Set-Status 'Filtre de la liste effacé : la liste montre de nouveau toutes les lignes déjà chargées. Aucune nouvelle lecture.'
+        }
+        { $_ -in @('WidenScope','StartRead') } {
+            if ($null -ne $box) { [void]$box.Focus(); $box.SelectAll() }
+            Set-DomeniaContextHint -Title 'Lancer ou élargir la recherche' -Text 'Saisissez ou corrigez un nom dans la barre du haut puis Entrée pour chercher dans tout le domaine, ou choisissez une OU dans lʼarbre (sous-OU comprises). Rien nʼest lu avant ce geste.'
+        }
+        { $_ -in @('ChooseSource','ChangeAccount') } {
+            Select-DomeniaWorkspace -Workspace 'TabAccounts'
+            Set-Status 'Comptes et accès : vérifiez la connexion à lʼannuaire ou choisissez un compte autorisé, puis relancez la recherche. Aucune nouvelle tentative nʼest faite automatiquement.'
+        }
+        'RetryMissing' {
+            $retry = Get-DomeniaControl 'BtnSearchRefreshBase'
+            if ((Get-DomeniaSearchMode) -eq 'Global') { $retry = Get-DomeniaControl 'BtnGlobalSearch' }
+            if (($null -ne $retry) -and $retry.IsEnabled -and $retry.IsVisible) { $retry.RaiseEvent((New-Object Windows.RoutedEventArgs ([Windows.Controls.Primitives.ButtonBase]::ClickEvent))) }
+            else {
+                if ($null -ne $box) { [void]$box.Focus() }
+                Set-Status 'Relecture indisponible pour lʼinstant : relancez la recherche quand une lecture se termine.' 'WARN'
+            }
+        }
+    }
+}
+
+function Initialize-DomeniaSearchEmptyState {
+    # The empty state follows the list (rows added, filter, new list) and the button of its next action.
+    if ([bool]$script:DomeniaSearchEmptyBound) { return }
+    $grid = Get-DomeniaControl 'DgObjects'
+    if ($null -eq $grid) { return }
+    $script:DomeniaSearchEmptyBound = $true
+    # Cheap while rows arrive: the handler returns at once when the list is not empty.
+    ([Collections.Specialized.INotifyCollectionChanged]$grid.Items).add_CollectionChanged({ param($sender,$eventArgs) if ($sender.Count -eq 0) { Update-DomeniaSearchEmptyState } })
+    $descriptor = [ComponentModel.DependencyPropertyDescriptor]::FromProperty([Windows.Controls.ItemsControl]::ItemsSourceProperty,[Windows.Controls.DataGrid])
+    if ($null -ne $descriptor) { $descriptor.AddValueChanged($grid,[EventHandler]{ param($sender,$eventArgs) Update-DomeniaSearchEmptyState }) }
+    $button = Get-DomeniaControl 'BtnSearchEmptyNext'
+    if ($null -ne $button) { $button.Add_Click({ Invoke-DomeniaSearchEmptyAction }) }
+    Update-DomeniaSearchEmptyState
+}
+
 # ---------------------------------------------------------------- L08 read-only switch and automatic return (DS-02, SE-06)
 function Get-DomeniaUxReadOnlyDelay {
     $value = 15
@@ -1582,6 +1766,14 @@ function Set-DomeniaUiZoom {
     Update-DomeniaUxLayout
     if($Persist){Set-DomeniaSetting 'Ui.ZoomPercent' $percent;Save-DomeniaSettings}
 }
+function Update-DomeniaUiZoomForDpi {
+    # W13 (point 114): a DPI change of the window (moved to a screen of another scale, scale changed while open) fits
+    # the zoomed page again on the new pixel grid. Layout only: the typed text, the caret and the focus are not touched.
+    # WPF raises Window.DpiChanged only in a per-monitor DPI aware process. Domenia runs in powershell.exe, which is
+    # system DPI aware: there Windows scales the whole window itself, the DPI seen by WPF does not change, and a change of
+    # resolution reaches the page through RootScroll.ScrollChanged. This handler is the path of a per-monitor host.
+    try { Set-DomeniaUiZoom -Percent $script:DomeniaUiZoomPercent } catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
+}
 function Initialize-DomeniaUiZoom {
     $reset=Get-DomeniaControl 'BtnUiZoomReset'
     if($null -eq $reset -or [string]$reset.Tag -eq 'ZoomBound'){return}
@@ -1590,6 +1782,9 @@ function Initialize-DomeniaUiZoom {
     (Get-DomeniaControl 'BtnUiZoomIn').Add_Click({Set-DomeniaUiZoom -Percent ($script:DomeniaUiZoomPercent+10) -Persist})
     $reset.Add_Click({Set-DomeniaUiZoom -Percent 100 -Persist})
     (Get-DomeniaControl 'RootScroll').Add_ScrollChanged({param($s,$e)if([object]::ReferenceEquals($s,$e.OriginalSource) -and ($e.ViewportWidthChange -ne 0 -or $e.ViewportHeightChange -ne 0)){Set-DomeniaUiZoom -Percent $script:DomeniaUiZoomPercent}})
+    # W13 (point 114): Update-DomeniaUiZoomForDpi on Window.DpiChanged. Only a per-monitor DPI aware process receives it;
+    # under powershell.exe (system DPI aware) Windows scales the whole window and RootScroll.ScrollChanged fits again.
+    try{if(($null -ne $script:Window) -and ($null -ne $script:Window.GetType().GetEvent('DpiChanged'))){$script:Window.Add_DpiChanged({Update-DomeniaUiZoomForDpi})}}catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
     $percent=100
     try{$percent=[int](Get-DomeniaSetting 'Ui.ZoomPercent' '100')}catch{$percent=100}
     Set-DomeniaUiZoom -Percent $percent

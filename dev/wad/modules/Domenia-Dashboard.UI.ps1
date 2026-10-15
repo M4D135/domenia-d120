@@ -61,7 +61,10 @@ function Get-DomeniaFleetScope {
     if ($dn -and $dn -ine $base -and -not $dn.EndsWith(',' + $base,[StringComparison]::OrdinalIgnoreCase)) { $dn = '' }
     $whole = (-not $dn -or $dn -ieq $base)
     if ($whole) { $dn = '' }
+    # Point 54: the depth chosen in the shared OU picker. The whole domain is always read with its sub-OU, and an
+    # unset value keeps the former behaviour (sub-OU included).
     $subtree = $true
+    if ((-not $whole) -and ($script:FleetScopeSubtree -is [bool]) -and (-not $script:FleetScopeSubtree)) { $subtree = $false }
     $name = if ($whole) { 'Tout le domaine' } else { ((($dn -split '(?<!\\),')[0] -replace '^(OU|CN)=','') -replace '\\(.)','$1') }
     return [pscustomobject]@{
         Dn = $dn
@@ -106,7 +109,10 @@ function Get-DomeniaWindowsLifecycleTable {
         $path = Join-Path $root 'Domenia-WindowsLifecycle.json'
         if (-not [IO.File]::Exists($path)) { Write-AppLog 'Table des fins de service absente : dates de fin inconnues.' 'WARN'; return $null }
         $table = [IO.File]::ReadAllText($path,[Text.Encoding]::UTF8) | ConvertFrom-Json
-        if (([string]$table.Format -ne 'DomeniaWindowsLifecycle/1') -or (@($table.Entries).Count -eq 0)) { Write-AppLog 'Table des fins de service illisible : dates de fin inconnues.' 'WARN'; return $null }
+        # Point 133: a table of a newer Domenia is named with its version, never read as an unknown file.
+        $format = Resolve-DomeniaContractFormat -Format ([string](Get-DomeniaMember $table 'Format' '')) -Family 'DomeniaWindowsLifecycle'
+        if (-not $format.Accepted) { Write-AppLog ([string]$format.Message + ' Dates de fin inconnues.') 'WARN'; return $null }
+        if (@($table.Entries).Count -eq 0) { Write-AppLog 'Table des fins de service vide : dates de fin inconnues.' 'WARN'; return $null }
         $script:DomeniaWindowsLifecycle = $table
     } catch { try { Write-AppLog ('Table des fins de service illisible : ' + $_.Exception.Message) 'WARN' } catch { } }
     return $script:DomeniaWindowsLifecycle
@@ -147,6 +153,7 @@ function Request-DomeniaFleetRefresh {
     if (Test-DomeniaFleetAwaitingScope) {
         $script:FleetAwaitingRestore = $true
         [void](Set-DomeniaControlText 'LblFleetDashboard' 'En attente de l OU memorisee dans Rechercher...')
+        Set-DomeniaFleetDashboardToolTip
         return
     }
     $scope = Get-DomeniaFleetScope
@@ -179,24 +186,33 @@ function Start-DomeniaFleetDashboard {
     $coverage=Get-DomeniaFleetFreshness -ScopeDn ([string]$scope.Dn) -DomainDn ([string]$script:Conn.BaseDn) -SyncStates $script:IndexSyncStates
     $partialText=if([string]$scope.Dn){if($coverage.Partial){'dernière lecture du périmètre incomplète le '+$coverage.AttemptAt.ToLocalTime().ToString('dd/MM/yyyy HH:mm')}else{''}}else{Get-DomeniaIndexPartialText}
     $families=@('Presence','Console','Inventory')+@(Get-DomeniaBoardProbeIds|ForEach-Object{'Probe:'+$_})
+    # Clocks of the explicit OU collections: the exact scope and its enclosing subtrees, read in the same snapshot.
+    # A scope whose keys cannot be built sends none ($null): its clocks stay unknown, never "aucun relevé".
+    $runKeys=$null
+    try { $runKeys=@(Get-DomeniaCollectionRunKeys -ScopeDn ([string]$scope.Dn) -DomainDn ([string]$script:Conn.BaseDn) -Subtree ([bool]$scope.Subtree)) } catch { $runKeys=$null }
+    # No key (scope outside the connection domain, no base DN) is not "requested and none recorded".
+    if (($null -ne $runKeys) -and ($runKeys.Count -eq 0)) { $runKeys=$null }
     $job = $null
     try {
         [void](Initialize-DomeniaWinSqliteNative)
-        $job = Start-UiTask -Name 'Vue d ensemble du parc' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload ([pscustomobject]@{ Action='FleetStats'; ObservationFamilies=$families; DomainDn=[string]$script:Conn.BaseDn; Path=$path; Scope=[string]$scope.Dn; Subtree=[bool]$scope.Subtree; Plan=$plan; Keys=$keys; ScopeKey=[string]$scope.Key; ComputeBoard=$true; ModuleRoot=$script:DashboardModuleRoot; Lifecycle=(Get-DomeniaWindowsLifecycleTable); ObservationMaxAgeDays=(Get-DomeniaObservationMaxAgeDays); IndexPartial=$partialText; HealthPolicy=$policy;HealthPolicyBook=$policyBook }) -CallbackState $state -ReplaceKey 'fleet:stats' -SuccessHandler 'Complete-DomeniaFleetDashboard' -ErrorHandler 'Fail-DomeniaFleetDashboard' -TimeoutSeconds 120 -TaskClass $(if ($Quiet) { 'Background' } else { 'Explicit' })
+        $job = Start-UiTask -Name 'Vue d ensemble du parc' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload ([pscustomobject]@{ Action='FleetStats'; ObservationFamilies=$families; RunKeys=$runKeys; DomainDn=[string]$script:Conn.BaseDn; Path=$path; Scope=[string]$scope.Dn; Subtree=[bool]$scope.Subtree; Plan=$plan; Keys=$keys; ScopeKey=[string]$scope.Key; ComputeBoard=$true; ModuleRoot=$script:DashboardModuleRoot; Lifecycle=(Get-DomeniaWindowsLifecycleTable); ObservationMaxAgeDays=(Get-DomeniaObservationMaxAgeDays); IndexPartial=$partialText; HealthPolicy=$policy;HealthPolicyBook=$policyBook }) -CallbackState $state -ReplaceKey 'fleet:stats' -SuccessHandler 'Complete-DomeniaFleetDashboard' -ErrorHandler 'Fail-DomeniaFleetDashboard' -TimeoutSeconds 120 -TaskClass $(if ($Quiet) { 'Background' } else { 'Explicit' })
     } catch {
         $script:FleetPendingKey = ''; $script:FleetJobId = ''
         [void](Set-DomeniaControlText 'LblFleetDashboard' ('Vue dʼensemble non calculée : ' + $_.Exception.Message))
+        Set-DomeniaFleetDashboardToolTip
         if (-not $Quiet) { throw }
         return
     }
     if (-not $job) {
         $script:FleetPendingKey = ''; $script:FleetJobId = ''
         [void](Set-DomeniaControlText 'LblFleetDashboard' 'Vue dʼensemble non calculée : calcul non admis pour lʼinstant, réessayez avec lʼicône dʼactualisation.')
+        Set-DomeniaFleetDashboardToolTip
         return
     }
     # Computed only once drawn (Complete): a cancelled or refused calculation is tried again at the next display.
     $script:FleetPendingKey = [string]$scope.Key; $script:FleetJobId = [string]$job; $script:FleetStale = $false
     [void](Set-DomeniaControlText 'LblFleetDashboard' ('Calcul de la vue dʼensemble depuis la base locale : ' + [string]$scope.Name + '...'))
+    Set-DomeniaFleetDashboardToolTip
 }
 function Fail-DomeniaFleetDashboard {
     param($Message,$State)
@@ -206,6 +222,21 @@ function Fail-DomeniaFleetDashboard {
     # The next display of Accueil tries again.
     $script:FleetPendingKey = ''; $script:FleetJobId = ''; $script:FleetComputedKey = ''
     [void](Set-DomeniaControlText 'LblFleetDashboard' ('Vue dʼensemble non calculée : ' + [string]$Message))
+    Set-DomeniaFleetDashboardToolTip
+}
+function Set-DomeniaFleetDashboardToolTip {
+    # The catalogued help of LblFleetDashboard (Domenia-UX.help.json) stays the base of its tool tip; the provenance
+    # of the OU collections of the drawn view is appended, never substituted. Without provenance (calculation started,
+    # refused or failed) the base help comes back, so no clock of a previous OU stays attached to the label.
+    param([AllowEmptyString()][string]$Provenance='')
+    $label=Get-DomeniaControl 'LblFleetDashboard'
+    if($null -eq $label){return}
+    $base=''
+    if(($null -ne $script:UxHelpCatalogue) -and ($script:UxHelpCatalogue.ContainsKey('LblFleetDashboard'))){$base=[string]$script:UxHelpCatalogue['LblFleetDashboard'].Text}
+    $detail=if($Provenance){'Provenance des relevés de lʼOU (base locale) :'+"`r`n"+$Provenance}else{''}
+    $parts=@(@($base,$detail)|Where-Object{$_})
+    # No catalogue entry and no provenance: no help was ever attached, so the stale provenance is cleared.
+    $label.ToolTip=$(if($parts.Count){$parts -join "`r`n`r`n"}else{$null})
 }
 function Update-DomeniaFleetScopeText {
     # The committed AD coverage has its own clock. LastSyncUtc is retained for callers but never used as a global fallback.
@@ -217,7 +248,7 @@ function Update-DomeniaFleetScopeText {
     else { [void]$parts.Add('et ses sous-OU') }
     if ($Count -ge 0) { [void]$parts.Add([string]$Count + ' poste' + $(if ($Count -gt 1) { 's' } else { '' }) + ' recensé(s) dans la base') }
     $indexFreshness=if($null -ne $Freshness){Get-DomeniaMemberValue $Freshness 'Index'}else{Get-DomeniaFleetFreshness -ScopeDn ([string]$Scope.Dn) -DomainDn ([string]$script:Conn.BaseDn) -SyncStates $script:IndexSyncStates -Subtree ([bool]$Scope.Subtree) -NowUtc $NowUtc}
-    $summary=Format-DomeniaOuFreshnessSummary -IndexFreshness $indexFreshness -NowUtc $NowUtc
+    $summary=Format-DomeniaOuFreshnessSummary -IndexFreshness $indexFreshness -NowUtc $NowUtc -Runs (Get-DomeniaMemberValue $Freshness 'Runs')
     [void]$parts.Add($summary.BaseText)
     $label = Get-DomeniaControl 'LblFleetScope'
     $text = ($parts -join ' · ')
@@ -249,18 +280,24 @@ function Update-DomeniaFleetScopeText {
     }
 }
 function Show-DomeniaFleetScopeSource {
-    $picked = Show-DomeniaInlinePicker -Kind OU -Title 'Périmètre du tableau de bord' -Prompt 'Choisissez une OU dans le domaine courant. Le tableau de bord lira sa base locale; la recherche et ses filtres restent indépendants.'
+    # Point 54: the shared OU picker (same tree, search, favourites, depth and confirmation as the other pages).
+    # The tableau de bord and the Atelier read the local base of this OU; Rechercher keeps its own OU.
+    $current = Get-DomeniaFleetScope
+    $initial = ''; $subtree = $true
+    if ($null -ne $current) { $initial = [string]$current.Dn; $subtree = [bool]$current.Subtree }
+    $picked = Show-DomeniaInlinePicker -Kind OU -Title 'Périmètre du tableau de bord' -Prompt 'Choisissez une OU dans le domaine courant. Le tableau de bord et lʼatelier liront sa base locale ; la recherche et ses filtres restent indépendants.' -DepthMode Choice -Subtree $subtree -Purpose 'Effet : le tableau de bord et lʼatelier recalculent depuis la base locale, sans collecte ; les actualisations AD, ping et WMI couvrent toujours les sous-OU.' -InitialDn $initial
     if ($null -eq $picked -or -not [string]$picked.DN) { return }
     $dn = ([string]$picked.DN).Trim()
     $base = [string]$script:Conn.BaseDn
     if (-not $dn.EndsWith(',' + $base,[StringComparison]::OrdinalIgnoreCase)) { Set-Status 'Cette OU nʼappartient pas au domaine courant.' 'WARN'; return }
     $script:FleetScopeDn = $dn
+    $script:FleetScopeSubtree = [bool](Get-DomeniaMember $picked 'Subtree' $true)
     $script:FleetStale = $true
     Request-DomeniaFleetRefresh
-    Set-Status ('Périmètre du tableau de bord : ' + $dn + '. Recherche reste inchangée.')
+    Set-Status ('Périmètre du tableau de bord : ' + $dn + $(if ($script:FleetScopeSubtree) { ' et ses sous-OU' } else { ', sans ses sous-OU' }) + '. Recherche reste inchangée.')
 }
 function Select-DomeniaFleetScopeOu {
-    # Breadcrumb navigation stays inside the autonomous dashboard scope.
+    # Breadcrumb navigation stays inside the autonomous dashboard scope, with the depth already chosen.
     param([string]$Dn)
     $script:FleetScopeDn = ([string]$Dn).Trim()
     $script:FleetStale = $true
@@ -455,9 +492,22 @@ function Complete-DomeniaFleetDashboard {
     # A query run on the selected workstation refreshes its widgets even without an inventory.
     if ($null -ne $script:SelectedObject -or $null -ne $script:LastComputerDashboardResult) { try { Show-DomeniaBoard -Board Computer -Quiet -DeferIfHidden } catch { } }
     $freshness=Get-DomeniaMemberValue $board 'Freshness'
-    $summary=Format-DomeniaOuFreshnessSummary -IndexFreshness (Get-DomeniaMemberValue $freshness 'Index') -Observations (Get-DomeniaMemberValue $freshness 'Observations') -ComputedAtUtc (Get-DomeniaMemberValue $freshness 'ComputedAtUtc')
-    [void](Set-DomeniaControlText 'LblFleetDashboard' ($summary.ObservationsText+"`n"+$summary.ComputedText))
+    $summary=Format-DomeniaOuFreshnessSummary -IndexFreshness (Get-DomeniaMemberValue $freshness 'Index') -Observations (Get-DomeniaMemberValue $freshness 'Observations') -ComputedAtUtc (Get-DomeniaMemberValue $freshness 'ComputedAtUtc') -Runs (Get-DomeniaMemberValue $freshness 'Runs')
+    # Three committed clocks: measures of the active workstations, the OU collections (last success and, when newer,
+    # the failed attempt with its error), then the local calculation, which never dates the data.
+    $lines=@($summary.ObservationsText,$summary.RunsText,$summary.ComputedText|Where-Object{$_})
+    [void](Set-DomeniaControlText 'LblFleetDashboard' ($lines -join "`n"))
+    Set-DomeniaFleetDashboardToolTip -Provenance ([string]$summary.RunsDetail)
     [void](Save-DomeniaFleetSnapshot -Scope $scope -Board $board)
+    # Point 148: the dashboard is discovered once an overview with workstations was computed while Accueil itself is
+    # shown. The workshop (Outils, Atelier) also reads this overview, but it is not the dashboard the step points to.
+    try {
+        $workspaces = Get-DomeniaControl 'WorkspaceTabs'
+        $homeShown = (($null -ne $workspaces) -and ($null -ne $workspaces.SelectedItem) -and ([string]$workspaces.SelectedItem.Name -eq 'TabDashboard'))
+        if (($count -gt 0) -and $homeShown -and (-not [bool][string](Get-DomeniaSetting -Name 'Home.DashboardSeen' -Default ''))) {
+            Set-DomeniaSetting -Name 'Home.DashboardSeen' -Value ([datetime]::UtcNow.ToString('o'))
+        }
+    } catch { Write-AppLog ('Premiers pas : préférence non enregistrée. ' + $_.Exception.Message) 'WARN' }
     try { Update-DomeniaFirstSteps } catch { }
     # Data changed while computing (analysis or base saved meanwhile): computed again while Accueil is shown.
     if ([bool]$script:FleetStale) { try { Request-DomeniaFleetRefresh } catch { } }
@@ -490,7 +540,10 @@ function Show-DomeniaFleetTargetsInSearch {
     $filter=Get-DomeniaControl 'TxtSuiteResultFilter';if($null -ne $filter){$filter.Text=''}
     if($null -ne $script:DomeniaQueryState){$script:DomeniaQueryState.SearchRecipe=$null;$script:DomeniaQueryState.SearchRefinement=$null;$script:DomeniaQueryState.SearchRecords=@{}}
     [void](Set-DomeniaControlText 'LblSearchQuery' 'Aucune requête enregistrée appliquée aux résultats.')
-    $text = [string]$rows.Count + ' poste(s) de lʼaccueil' + $(if ($Label) { ' : ' + $Label } else { '' }) + ' (base locale, sans requête)'
+    # Point 2: the list is the population of the Accueil figures; the local revision that produced them is named.
+    $population = Get-DomeniaMemberValue $script:FleetLast 'Population'
+    $revision = [long](Get-DomeniaMember $population 'SnapshotRevision' -1)
+    $text = [string]$rows.Count + ' poste(s) de lʼaccueil' + $(if ($Label) { ' : ' + $Label } else { '' }) + ' (base locale' + $(if ($revision -ge 0) { ', révision ' + [string]$revision } else { '' }) + ', sans requête)'
     Show-ObjectRows -Rows $rows -Label $text -SkipPresenceScan -NoAutoOpen
     Select-DomeniaWorkspace -Workspace 'WsSearch'
     Set-Status ($text + '.')
@@ -555,50 +608,60 @@ function Fail-DomeniaFleetBitLockerPresence {
     Set-Status ('Présence BitLocker non lue : ' + [string]$Message) 'WARN'
 }
 function Get-DomeniaFirstStepsState {
-    # The four first steps (UX-20) from what the session already knows: no request, no scan.
-    $ouDone = $false
-    try { $scope = Get-DomeniaFleetScope; $ouDone = (($null -ne $scope) -and [bool][string]$scope.Dn) } catch { $ouDone = $false }
-    $baseDone = $false
-    try { $baseDone = ([int]$script:IndexDbCount -gt 0) } catch { $baseDone = $false }
-    $accountDone = $false
-    try { $accountDone = (($null -ne $script:RemoteAdminCredential) -or [bool][string](Get-DomeniaSetting -Name 'RemoteCredentialUser' -Default '')) } catch { $accountDone = $false }
-    $backupDone = $false
-    try {
-        $folder = Join-Path ([IO.Path]::GetDirectoryName((Get-DomeniaDatabasePath))) 'Backups'
-        if ([IO.Directory]::Exists($folder)) { $backupDone = (@([IO.Directory]::GetFiles($folder,'Domenia-*.db')).Count -gt 0) }
-    } catch { $backupDone = $false }
-    return [pscustomobject]@{ Ou = $ouDone; Base = $baseDone; Account = $accountDone; Backup = $backupDone; Done = ($ouDone -and $baseDone -and $accountDone -and $backupDone) }
+    # Point 148: the four first steps (connection, working OU, first read, dashboard) from what the session already
+    # knows, through the pure rule Get-DomeniaFirstRunPlan: no request, no scan.
+    $domain = ''; $account = ''; $connected = $false
+    try { $connected = [bool]$script:Conn.Connected; $domain = [string]$script:Conn.Domain; $account = [string]$script:Conn.BindUser } catch { $connected = $false }
+    if (-not $connected) { $domain = '' }
+    $scopeDn = ''; $scopeName = ''
+    try { $scope = Get-DomeniaFleetScope; if ($null -ne $scope) { $scopeDn = [string]$scope.Dn; $scopeName = [string]$scope.Name } } catch { $scopeDn = '' }
+    $indexed = 0L
+    try { $indexed = [long]$script:IndexDbCount } catch { $indexed = 0L }
+    $seen = $false
+    try { $seen = [bool][string](Get-DomeniaSetting -Name 'Home.DashboardSeen' -Default '') } catch { $seen = $false }
+    return Get-DomeniaFirstRunPlan -Domain $domain -Account $account -ScopeDn $scopeDn -ScopeName $scopeName -IndexedObjects $indexed -DashboardSeen $seen
 }
 function Update-DomeniaFirstSteps {
-    # Card shown until the four steps are done once, then hidden for good (local preference).
+    # Card shown until the four steps are done once, then hidden for good (local preference). The account used on the
+    # workstations and the backups are not steps: the card says where they are set when they are needed.
     $card = Get-DomeniaControl 'CardFirstSteps'
     if ($null -eq $card) { return }
     if ([bool](Get-DomeniaSetting -Name 'Home.FirstStepsDone' -Default $false)) { $card.Visibility = [System.Windows.Visibility]::Collapsed; return }
-    $steps = Get-DomeniaFirstStepsState
-    if ([bool]$steps.Done) {
+    $plan = Get-DomeniaFirstStepsState
+    if ([bool]$plan.Done) {
         Set-DomeniaSetting -Name 'Home.FirstStepsDone' -Value $true
         $card.Visibility = [System.Windows.Visibility]::Collapsed
         return
     }
     $card.Visibility = [System.Windows.Visibility]::Visible
-    $number = 0
-    foreach ($name in @('Ou','Base','Account','Backup')) {
-        $number++
-        $done = [bool]$steps.$name
+    foreach ($step in @($plan.Steps)) {
+        $name = [string]$step.Name
         $mark = Get-DomeniaControl ('LblFirstStep' + $name + 'Mark')
-        if ($null -ne $mark) { $mark.Text = $(if ($done) { [string][char]0x2713 } else { [string]$number }) }
+        if ($null -ne $mark) { $mark.Text = $(if ([bool]$step.Done) { [string][char]0x2713 } else { [string]$step.Number }) }
         $label = Get-DomeniaControl ('LblFirstStep' + $name)
-        if ($null -ne $label) { $label.Opacity = $(if ($done) { 0.6 } else { 1.0 }) }
+        if ($null -ne $label) {
+            $label.Text = [string]$step.Text
+            $label.Opacity = $(if ([bool]$step.Done) { 0.6 } else { 1.0 })
+            $label.FontWeight = $(if ($name -ceq [string]$plan.Next) { [System.Windows.FontWeights]::SemiBold } else { [System.Windows.FontWeights]::Normal })
+        }
+        $button = Get-DomeniaControl ('BtnFirstStep' + $name)
+        if ($null -ne $button) { $button.IsEnabled = [bool]$step.Enabled }
     }
+    [void](Set-DomeniaControlText 'LblFirstStepsDeferred' ([string]$plan.Deferred))
 }
 function Open-DomeniaFirstStep {
     # Each step opens the screen concerned and starts nothing (decision David 2026-10-08, UX-20).
-    param([ValidateSet('Ou','Base','Account','Backup')][string]$Step)
+    param([ValidateSet('Connection','Ou','Base','Dashboard')][string]$Step)
     switch ($Step) {
+        'Connection' { Invoke-DomeniaUxRoute -Route 'TabAccounts'; Set-Status 'Comptes et accès : compte utilisé pour lʼannuaire ; changer de compte reste possible à tout moment.' }
         'Ou' { Show-DomeniaFleetScopeSource }
         'Base' { Select-DomeniaWorkspace -Workspace 'TabApplicationTools' -Inner 'ApplicationToolTabs' -Tab 'TabIndex'; $tabs=Get-DomeniaControl 'IndexWorkspaceTabs'; if($null -ne $tabs){$tabs.SelectedItem=Get-DomeniaControl 'TabIndexUpdate'}; Set-Status 'Choisissez une OU, puis mettez-la à jour. La lecture couvre cette OU et ses sous-OU.' }
-        'Account' { Invoke-DomeniaUxRoute -Route 'TabAccounts'; Set-Status 'Comptes et accès : enregistrez le compte utilisé pour les postes.' }
-        'Backup' { Select-DomeniaWorkspace -Workspace 'TabApplicationTools' -Inner 'ApplicationToolTabs' -Tab 'TabIndex'; $tabs=Get-DomeniaControl 'IndexWorkspaceTabs'; if($null -ne $tabs){$tabs.SelectedItem=Get-DomeniaControl 'TabIndexStorage'}; Set-Status 'Stockage : Sauvegarder maintenant copie la base locale, à votre clic.' }
+        'Dashboard' {
+            Invoke-DomeniaUxRoute -Route 'TabDashboard'
+            $summary = Get-DomeniaControl 'LblFleetDashboard'
+            if ($null -ne $summary) { try { $summary.BringIntoView() } catch { Write-DomeniaSwallowed 'Premiers pas' 'Open-DomeniaFirstStep' $_ } }
+            Set-Status 'Tableau de bord : vue dʼensemble de lʼOU, calculée depuis la base locale à lʼaffichage de lʼaccueil. Une tuile ouvre la liste exacte de ses postes.'
+        }
     }
 }
 function Get-DomeniaBoardRouteTarget {

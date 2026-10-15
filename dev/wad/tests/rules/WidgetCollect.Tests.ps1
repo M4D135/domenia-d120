@@ -5,7 +5,12 @@
 . (Join-Path $modules 'Domenia-HealthRules.Model.ps1')
 . (Join-Path $modules 'Domenia-Boards.Model.ps1')
 . (Join-Path $modules 'Domenia-Park.Model.ps1')
+# The field families of a query widget come from the collection planner shared with the workshop (Query.Model).
+. (Join-Path $modules 'Domenia-Query.Model.ps1')
 . (Join-Path $modules 'Domenia-WidgetCollect.Model.ps1')
+. (Join-Path $modules 'Domenia-Probes.Model.ps1')
+# The catalog cache of Probes.Model starts empty (StrictMode of this runner: the variable must exist).
+$script:DomeniaProbeCatalog = $null
 
 Test-Case 'WGC-001' 'Mesure suspendue : enregistree avec la disposition, gardee par les deplacements, exclue des collectes' {
     $layout = @(
@@ -300,4 +305,35 @@ Test-Case 'WGC-014' 'Collecte dʼun widget dans le modele des releves : portee d
     $list = New-DomeniaParkConfirmationText -Count 48 -ScopeLabel 'OU Postes' -PingOnly $true
     Assert-Equal 'Vérifier la liste : qui répond ?' ([string]$list.Title)
     Assert-Equal 'Pinger 48 postes' ([string]$list.ConfirmText)
+}
+Test-Case 'WGC-015' 'Points 81 a 100 : widgets et sondes de lʼinventaire du poste avec leur source, leurs limites, leur collecte et leur pause' {
+    $item = { param([string]$Key) New-DomeniaBoardItem -Source Builtin -Key $Key -Visual Kpi -Id ('b-' + $Key) }
+    foreach ($key in @('computer.secureboot','computer.updates','computer.memory','computer.firewall','computer.bitlocker','computer.wsus','computer.reboot')) {
+        $need = Get-DomeniaWidgetCollectionNeed -Board Computer -Item (& $item $key)
+        Assert-Equal 'ComputerInventory' ([string]$need.Kind) $key
+        Assert-False $need.Deep ('inventaire rapide : ' + $key)
+    }
+    foreach ($key in @('computer.processes','computer.certificates')) { Assert-True (Get-DomeniaWidgetCollectionNeed -Board Computer -Item (& $item $key)).Deep ('inventaire complet : ' + $key) }
+    Assert-Equal 'Software' ([string](Get-DomeniaWidgetCollectionNeed -Board Software -Item (& $item 'software.duplicates')).Kind)
+    Assert-True ([string](Get-DomeniaWidgetSource -Key 'computer.processes').Formula).Contains('processeurs logiques') 'part du processeur decrite'
+    Assert-True ([string](Get-DomeniaWidgetSource -Key 'computer.reboot').Exclusions).Contains('Indices partiels') 'indices partiels exclus'
+    Assert-True ([string](Get-DomeniaWidgetSource -Key 'computer.updates').Exclusions).Contains('Aucune conformité') 'aucune conformite conclue'
+    # A paused inventory widget is a paused card with its own text and the resume button, like every other widget.
+    $paused = Get-DomeniaWidgetPlaceholder -Need (Get-DomeniaWidgetCollectionNeed -Board Computer -Item (& $item 'computer.secureboot')) -Paused $true
+    Assert-Equal 'Paused' ([string]$paused.State); Assert-Equal 'Resume' ([string]$paused.Action)
+    # The eight probes added for the inventory explain their figure from their documented catalog entry.
+    foreach ($id in @('hw.memoryusage','hw.computersystem','hw.batterystatic','hw.batteryfullcharge','hw.batterycycles','hw.monitorconnections','net.connectionprofiles','sec.avproducts')) {
+        $probe = Get-DomeniaProbe -Id $id
+        Assert-True ($null -ne $probe) ('sonde absente : ' + $id)
+        $source = Get-DomeniaProbeWidgetSource -Probe $probe -Board Fleet
+        Assert-True ([string]$source.Formula).Contains([string]$probe.Name) ('formule : ' + $id)
+        Assert-True ([string]$source.Criteria).Contains('classe ' + [string]$probe.Class + ' (' + [string]$probe.Namespace + ')') ('criteres : ' + $id)
+        Assert-True ([string]$source.Exclusions).EndsWith('Limites documentées : ' + ([string]$probe.Limitations).Trim()) ('limites : ' + $id)
+        $widget = New-DomeniaBoardItem -Source Probe -Key $id -Visual Kpi -Id ('p-' + $id)
+        $need = Get-DomeniaWidgetCollectionNeed -Board Computer -Item $widget
+        Assert-Equal $id (@($need.ProbeIds) -join ',') ('collecte de la seule sonde : ' + $id)
+        $e = Get-DomeniaWidgetExplanation -Board Computer -Item $widget -Need $need -Formula $source.Formula -Criteria $source.Criteria -Exclusions $source.Exclusions -Members Selected
+        Assert-True ([string]$e.Rows[4].Text).Contains('Limites documentées') ('explication : ' + $id)
+    }
+    Assert-Equal $null (Get-DomeniaProbeWidgetSource -Probe $null)
 }

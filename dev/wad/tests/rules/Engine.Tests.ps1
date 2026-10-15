@@ -210,6 +210,8 @@ Test-Case 'D018' 'C3 : un refus WTS ou stockage ne suspend jamais le canal AD' {
     foreach($op in @('SessionsList','LocalStore','ReceiptStore','DocumentStore','EmbeddedPathBrowse','LiveConsole','ComputerLastUser','ComputerGpUpdate')){Assert-False (Get-DomeniaOperationCredentialNeeds $op).DirectoryBreaker $op}
     foreach($op in @('GlobalSearch','OpenAdObject','TreeChildren','UserComputerProbe')){Assert-True (Get-DomeniaOperationCredentialNeeds $op).DirectoryBreaker $op}
     foreach($op in @('DemoDirectory','LocalIndexRead','ParkSharedSync','IsolatedRead')){$n=Get-DomeniaOperationCredentialNeeds $op;Assert-False $n.Directory $op;Assert-False $n.DirectoryCredential $op;Assert-False $n.RemoteAdmin $op}
+    # Query packs, scripts and the import journal are local files: never the AD account, never a remote target.
+    foreach($op in @('LocalQuery','QueryExport','QueryLibrary','QueryTransfer')){$n=Get-DomeniaOperationCredentialNeeds $op;Assert-False $n.Directory $op;Assert-False $n.DirectoryCredential $op;Assert-False $n.RemoteAdmin $op;Assert-Equal 'Storage' $n.Provider $op;Assert-Equal 'Local' $n.Resource $op}
     Assert-Equal 'Laps' (Get-DomeniaOperationCredentialNeeds 'ReadLaps').Resource;Assert-Equal 'Remote' (Get-DomeniaOperationCredentialNeeds 'SessionsList').Resource
 }
 Test-Case 'D051' 'C3 : liste et cle BitLocker classees comme ReadBitLocker (compte Secrets, ressource BitLocker)' {
@@ -356,4 +358,215 @@ Test-Case 'D029' 'Mesure et purge locales ne recoivent aucun compte annuaire' {
         Assert-True $needs.NonDirectory;Assert-Equal 'Local' $needs.Resource
         Assert-Equal 'Storage' (Get-DomeniaOperationProvider $operation)
     }
+}
+
+# ---------------------------------------------------------------- points 12, 15, 16, 17 et 160 (collecte adaptee)
+$script:ET0=[datetime]::SpecifyKind([datetime]'2026-10-14T10:00:00',[DateTimeKind]::Utc)
+Test-Case 'P12' 'Partage : un autre compte, un autre délai ou une autre classe ne partagent jamais la lecture' {
+    $r1=Get-DomeniaTaskReaderIdentity -BindUser 'EXAMPLE\lecteur' -ProcessIdentity 'EXAMPLE\op' -AccountGeneration 3
+    $r2=Get-DomeniaTaskReaderIdentity -BindUser 'EXAMPLE\lecteur' -ProcessIdentity 'EXAMPLE\op' -AccountGeneration 4
+    Assert-True ($r1 -cne $r2) 'Changement de compte distant ou secret : nouvelle génération'
+    Assert-Equal $r1 (Get-DomeniaTaskReaderIdentity -BindUser 'example\LECTEUR' -ProcessIdentity 'EXAMPLE\op' -AccountGeneration 3) 'Casse du compte sans effet'
+    Assert-Equal $r1 (Get-DomeniaTaskReaderIdentity -Reader 'EXAMPLE\lecteur' -BindUser 'EXAMPLE\autre' -ProcessIdentity 'EXAMPLE\op' -AccountGeneration 3) 'Le lecteur nommé par lʼappelant prime'
+    $q1=Get-DomeniaTaskRequirements -TimeoutSeconds 30 -TaskClass 'Selection'
+    $k=Get-DomeniaTaskDedupKey -OperationId 'OpenAdObject' -ReaderIdentity $r1 -Epoch 1 -Generation 2 -Payload ([pscustomobject]@{DN='CN=A'}) -Requirements $q1
+    Assert-True ([bool]$k)
+    Assert-Equal $k (Get-DomeniaTaskDedupKey -OperationId 'OpenAdObject' -ReaderIdentity $r1 -Epoch 1 -Generation 2 -Payload ([pscustomobject]@{DN='CN=A'}) -Requirements $q1) 'Lecture strictement identique : même clé'
+    Assert-True ($k -cne (Get-DomeniaTaskDedupKey -OperationId 'OpenAdObject' -ReaderIdentity $r2 -Epoch 1 -Generation 2 -Payload ([pscustomobject]@{DN='CN=A'}) -Requirements $q1)) 'Autre compte'
+    Assert-True ($k -cne (Get-DomeniaTaskDedupKey -OperationId 'OpenAdObject' -ReaderIdentity $r1 -Epoch 1 -Generation 2 -Payload ([pscustomobject]@{DN='CN=A'}) -Requirements (Get-DomeniaTaskRequirements -TimeoutSeconds 60 -TaskClass 'Selection'))) 'Autre délai'
+    Assert-True ($k -cne (Get-DomeniaTaskDedupKey -OperationId 'OpenAdObject' -ReaderIdentity $r1 -Epoch 1 -Generation 2 -Payload ([pscustomobject]@{DN='CN=A'}) -Requirements (Get-DomeniaTaskRequirements -TimeoutSeconds 30 -TaskClass 'Background'))) 'Autre classe'
+    Assert-True ($k -cne (Get-DomeniaTaskDedupKey -OperationId 'OpenAdObject' -ReaderIdentity $r1 -Epoch 2 -Generation 2 -Payload ([pscustomobject]@{DN='CN=A'}) -Requirements $q1)) 'Autre session'
+}
+Test-Case 'P16' 'Fond en longue attente : une place réservée lui est accordée, jamais au-delà du plafond' {
+    Assert-Equal 'Queue' (Test-DomeniaTaskAdmission -Class Background -Running 5 -Outstanding 5 -MaxConcurrent 6 -ReservedForeground 2 -WaitedSeconds 31 -BackgroundRunning 1).Decision 'Un autre travail de fond tourne déjà'
+    $aged=Test-DomeniaTaskAdmission -Class Background -Running 5 -Outstanding 5 -MaxConcurrent 6 -ReservedForeground 2 -WaitedSeconds 31 -BackgroundRunning 0
+    Assert-Equal 'Start' $aged.Decision; Assert-True ([bool]$aged.Aged)
+    Assert-Equal 'Queue' (Test-DomeniaTaskAdmission -Class Background -Running 6 -Outstanding 6 -MaxConcurrent 6 -WaitedSeconds 300 -BackgroundRunning 0).Decision 'Jamais au-delà du plafond'
+    Assert-Equal 'Queue' (Test-DomeniaTaskAdmission -Class Background -Running 5 -Outstanding 5 -MaxConcurrent 6 -WaitedSeconds 10 -BackgroundRunning 0).Decision 'Attente trop courte'
+    Assert-Equal 'Queue' (Test-DomeniaTaskAdmission -Class Background -Running 5 -Outstanding 5 -MaxConcurrent 6 -WaitedSeconds 300).Decision 'Sans mesure : décision historique'
+    Assert-Equal 'Queue' (Test-DomeniaTaskAdmission -Class Background -Running 4 -Outstanding 12 -MaxConcurrent 6 -MaxOutstanding 12 -WaitedSeconds 300 -BackgroundRunning 0).Decision 'Limite physique respectée'
+}
+Test-Case 'P16' 'File : le travail de fond le plus ancien passe devant après son attente, sinon lʼaction explicite garde la priorité' {
+    $now=[datetime]'2026-10-14T10:00:00'
+    $q=@([pscustomobject]@{Id='b1';Class='Background';Sequence=1;QueuedAt=$now.AddSeconds(-45)},[pscustomobject]@{Id='e1';Class='Explicit';Sequence=2;QueuedAt=$now.AddSeconds(-1)})
+    Assert-Equal 'b1' (Select-DomeniaNextQueuedTask $q -Running 5 -Outstanding 5 -MaxConcurrent 6 -BackgroundRunning 0 -Now $now).Id
+    Assert-Equal 'e1' (Select-DomeniaNextQueuedTask $q -Running 5 -Outstanding 5 -MaxConcurrent 6 -BackgroundRunning 1 -Now $now).Id
+    Assert-Equal 'e1' (Select-DomeniaNextQueuedTask $q -Running 5 -Outstanding 5 -MaxConcurrent 6 -Now $now).Id 'Sans mesure : priorité historique'
+    Assert-Equal 'e1' (Select-DomeniaNextQueuedTask $q -Running 2 -Outstanding 2 -MaxConcurrent 6 -BackgroundRunning 0 -Now $now.AddSeconds(-20)).Id 'Attente encore courte'
+}
+Test-Case 'P16' 'Fond en longue attente : départ malgré le budget du fournisseur ou du site occupé, jamais par-dessus une pause' {
+    $now=[datetime]'2026-10-14T10:00:00'
+    $bg=[pscustomobject]@{Id='fond';Class='Background';Sequence=1;Provider='Directory';ProviderTarget='';ProviderGroup='dc01.example.test';QueuedAt=$now.AddSeconds(-45)}
+    $load=@{Directory=4};$sources=@{'Directory|'=4;'Directory|group:dc01.example.test'=4}
+    $entry=Select-DomeniaNextQueuedEntry @($bg) -Running 5 -Outstanding 5 -MaxConcurrent 6 -ProviderLoad $load -ProviderState (New-DomeniaProviderState) -BackgroundRunning 0 -Now $now -SourceLoad $sources
+    Assert-True ($null -ne $entry) 'Fournisseur occupé par des actions explicites : le fond attend sans fin'
+    Assert-Equal 'fond' $entry.Task.Id;Assert-True ([bool]$entry.Aged) 'Démarrage non attribué à lʼattente'
+    Assert-True ($null -eq (Select-DomeniaNextQueuedEntry @($bg) -Running 5 -Outstanding 5 -MaxConcurrent 6 -ProviderLoad $load -ProviderState (New-DomeniaProviderState) -BackgroundRunning 1 -Now $now -SourceLoad $sources)) 'Un autre travail de fond tourne : pas dʼexception'
+    $full=Select-DomeniaNextQueuedEntry @($bg) -Running 5 -Outstanding 5 -MaxConcurrent 6 -ProviderLoad @{Directory=5} -ProviderState (New-DomeniaProviderState) -BackgroundRunning 0 -Now $now -SourceLoad @{'Directory|'=5;'Directory|group:dc01.example.test'=5}
+    Assert-True (($null -ne $full) -and [bool]$full.Aged) 'Actions explicites au-delà du budget du fournisseur : le fond attend sans fin'
+    $paused=New-DomeniaProviderState
+    foreach($i in 1..3){[void](Register-DomeniaProviderOutcome -State $paused -Provider 'Directory' -Target '' -Outcome 'Failure' -NowUtc $now.ToUniversalTime())}
+    Assert-True ($null -eq (Select-DomeniaNextQueuedEntry @($bg) -Running 1 -Outstanding 1 -MaxConcurrent 6 -ProviderLoad @{} -ProviderState $paused -NowUtc $now.ToUniversalTime().AddSeconds(5) -BackgroundRunning 0 -Now $now -SourceLoad @{})) 'Pause du fournisseur contournée'
+    $fresh=Select-DomeniaNextQueuedEntry @($bg) -Running 1 -Outstanding 1 -MaxConcurrent 6 -ProviderLoad @{} -ProviderState (New-DomeniaProviderState) -BackgroundRunning 0 -Now $now -SourceLoad @{}
+    Assert-False ([bool]$fresh.Aged) 'Place libre : départ ordinaire, non compté comme exception'
+    $within=Test-DomeniaProviderAdmission -State (New-DomeniaProviderState) -Provider 'Cim' -Target 'pc1' -Class 'Background' -RunningForProvider 3 -Group '10.1.2.0/24' -RunningForTarget 0 -RunningForGroup 2 -Aged $true
+    Assert-True $within.Allowed;Assert-True ([bool]$within.Aged)
+    Assert-False (Test-DomeniaProviderAdmission -State (New-DomeniaProviderState) -Provider 'Cim' -Target 'pc1' -Class 'Background' -RunningForProvider 3 -Group '10.1.2.0/24' -RunningForTarget 0 -RunningForGroup 2).Allowed 'Sans attente : budget du fournisseur appliqué'
+    Assert-False ([bool](Test-DomeniaProviderAdmission -State (New-DomeniaProviderState) -Provider 'Cim' -Target 'pc1' -Class 'Background' -RunningForProvider 0 -Aged $true).Aged) 'Exception signalée sans être utilisée'
+}
+Test-Case 'P16' 'Charge simulée : sous une rafale dʼactions explicites, le travail de fond démarre après son attente et pas avant' {
+    # Six places, cinq lectures explicites longues, puis une nouvelle lecture explicite par seconde de trois secondes.
+    $simulate={param([int]$BackgroundRunningMode)
+        $start=[datetime]'2026-10-14T10:00:00'
+        $running=New-Object System.Collections.ArrayList;$queue=New-Object System.Collections.ArrayList
+        for($i=0;$i -lt 5;$i++){[void]$running.Add([pscustomobject]@{Class='Explicit';EndsAt=$start.AddSeconds(500)})}
+        [void]$queue.Add([pscustomobject]@{Id='fond';Class='Background';Sequence=0;QueuedAt=$start})
+        $sequence=1;$startedAt=-1
+        for($t=0;$t -lt 90;$t++){
+            $clock=$start.AddSeconds($t)
+            foreach($job in @($running.ToArray())){if($job.EndsAt -le $clock){[void]$running.Remove($job)}}
+            [void]$queue.Add([pscustomobject]@{Id=('e'+$sequence);Class='Explicit';Sequence=$sequence;QueuedAt=$clock});$sequence++
+            for($guard=0;$guard -lt 10;$guard++){
+                $background=@($running|Where-Object{$_.Class -eq 'Background'}).Count
+                if($BackgroundRunningMode -lt 0){$background=-1}
+                $next=Select-DomeniaNextQueuedTask -Queued @($queue.ToArray()) -Running $running.Count -Outstanding $running.Count -MaxConcurrent 6 -MaxOutstanding 12 -ReservedForeground 2 -BackgroundRunning $background -AgingSeconds 30 -Now $clock
+                if($null -eq $next){break}
+                [void]$queue.Remove($next)
+                if($next.Class -eq 'Background'){if($startedAt -lt 0){$startedAt=$t};[void]$running.Add([pscustomobject]@{Class='Background';EndsAt=$clock.AddSeconds(5)})}
+                else{[void]$running.Add([pscustomobject]@{Class='Explicit';EndsAt=$clock.AddSeconds(3)})}
+            }
+        }
+        return $startedAt
+    }
+    $withAging=& $simulate 0
+    Assert-True (($withAging -ge 30) -and ($withAging -le 34)) ('Démarrage du fond à '+$withAging+' s')
+    Assert-Equal -1 (& $simulate -1) 'Sans vieillissement, le fond resterait bloqué'
+}
+Test-Case 'P17' 'Délais : une lecture de campagne qui progresse continue, une lecture bloquée sʼarrête, la durée totale borne tout' {
+    $job={param($progress,[double]$Idle=25,[double]$Total=90)[pscustomobject]@{OperationId='LiveConsole';Name='Console du parc : PC-1';State='Running';IsWrite=$false;CancelRequested=$false;Superseded=$false;TimeoutSeconds=$Idle;HardTimeoutSeconds=$Total;ReadProgress=$progress}}
+    $p=[hashtable]::Synchronized(@{StartedTimestamp=100000L;LastRowTimestamp=160000L;RowsRead=5L})
+    Assert-False (Get-DomeniaReadTimeoutState -Job (& $job $p) -ElapsedSeconds 70 -NowTimestamp 170000 -TimestampFrequency 1000).Expired 'Lecture qui progresse arrêtée'
+    $idle=Get-DomeniaReadTimeoutState -Job (& $job $p) -ElapsedSeconds 86 -NowTimestamp 186000 -TimestampFrequency 1000
+    Assert-True $idle.Expired;Assert-Equal 'Idle' $idle.Reason;Assert-True ($idle.Message -match 'aucune étape terminée');Assert-True ($idle.Message -match '5 étape')
+    $busy=[hashtable]::Synchronized(@{StartedTimestamp=100000L;LastRowTimestamp=195000L;RowsRead=12L})
+    $total=Get-DomeniaReadTimeoutState -Job (& $job $busy) -ElapsedSeconds 96 -NowTimestamp 196000 -TimestampFrequency 1000
+    Assert-True $total.Expired;Assert-Equal 'Total' $total.Reason;Assert-True ($total.Message -match 'durée totale')
+    $legacy=[pscustomobject]@{OperationId='LiveConsole';Name='x';State='Running';IsWrite=$false;CancelRequested=$false;Superseded=$false;TimeoutSeconds=20}
+    Assert-False (Get-DomeniaReadTimeoutState -Job $legacy -ElapsedSeconds 19).Expired
+    Assert-Equal 'Timeout' (Get-DomeniaReadTimeoutState -Job $legacy -ElapsedSeconds 21).Reason 'Sans canal : règle historique'
+    $broken=[hashtable]::Synchronized(@{StartedTimestamp=0L;LastRowTimestamp=0L;RowsRead=0L})
+    Assert-Equal 'Timeout' (Get-DomeniaReadTimeoutState -Job (& $job $broken) -ElapsedSeconds 26 -NowTimestamp 200000 -TimestampFrequency 1000).Reason 'Canal jamais initialisé : délai historique, pas de prolongation'
+}
+Test-Case 'P15' 'Sites : des délais répétés suspendent le fond de ce site seulement, ni les autres ni lʼannuaire' {
+    $s=New-DomeniaProviderState
+    foreach($i in 1..3){[void](Register-DomeniaProviderOutcome -State $s -Provider 'Cim' -Target ('pc'+$i) -Outcome 'Timeout' -NowUtc $script:ET0 -Group '10.1.2.0/24')}
+    $slow=Test-DomeniaProviderAdmission -State $s -Provider 'Cim' -Target 'pc9' -Class 'Background' -NowUtc $script:ET0.AddSeconds(5) -Group '10.1.2.0/24' -RunningForTarget 0 -RunningForGroup 0
+    Assert-False $slow.Allowed;Assert-True ($slow.Reason -match '10\.1\.2\.0/24');Assert-True ($null -ne $slow.RetryAfterUtc)
+    Assert-True (Test-DomeniaProviderAdmission -State $s -Provider 'Cim' -Target 'pc9' -Class 'Background' -NowUtc $script:ET0.AddSeconds(5) -Group '10.9.9.0/24' -RunningForTarget 0 -RunningForGroup 0).Allowed 'Un autre site continue'
+    Assert-True (Test-DomeniaProviderAdmission -State $s -Provider 'Cim' -Target 'pc9' -Class 'Explicit' -NowUtc $script:ET0.AddSeconds(5) -Group '10.1.2.0/24').Allowed 'Une action explicite reste possible'
+    Assert-True (Test-DomeniaProviderAdmission -State $s -Provider 'Directory' -Target '' -Class 'Background' -NowUtc $script:ET0.AddSeconds(5) -Group 'dc01.example.test' -RunningForTarget 0 -RunningForGroup 0).Allowed 'Annuaire non déclaré inaccessible'
+    Assert-False (Test-DomeniaProviderAdmission -State $s -Provider 'Cim' -Target 'pc9' -Class 'Background' -NowUtc $script:ET0 -Group '10.9.9.0/24' -RunningForTarget 0 -RunningForGroup 2).Allowed 'Budget du site atteint'
+    $s2=New-DomeniaProviderState
+    foreach($i in 1..2){[void](Register-DomeniaProviderOutcome -State $s2 -Provider 'Cim' -Target ('pc'+$i) -Outcome 'Timeout' -NowUtc $script:ET0 -Group '10.1.2.0/24')}
+    [void](Register-DomeniaProviderOutcome -State $s2 -Provider 'Cim' -Target 'pc3' -Outcome 'AccessDenied' -NowUtc $script:ET0 -Group '10.1.2.0/24')
+    [void](Register-DomeniaProviderOutcome -State $s2 -Provider 'Cim' -Target 'pc4' -Outcome 'Timeout' -NowUtc $script:ET0 -Group '10.1.2.0/24')
+    Assert-True (Test-DomeniaProviderAdmission -State $s2 -Provider 'Cim' -Target 'pc9' -Class 'Background' -NowUtc $script:ET0.AddSeconds(5) -Group '10.1.2.0/24' -RunningForTarget 0 -RunningForGroup 0).Allowed 'Une réponse du site remet le compte à zéro'
+}
+Test-Case 'P160' 'Reprise progressive : après la pause, une lecture de fond à la fois, une de plus par réponse' {
+    $s=New-DomeniaProviderState
+    foreach($i in 1..3){[void](Register-DomeniaProviderOutcome -State $s -Provider 'Cim' -Target ('pc'+$i) -Outcome 'Timeout' -NowUtc $script:ET0 -Group '10.1.2.0/24')}
+    $after=$script:ET0.AddSeconds(61)
+    Assert-True (Test-DomeniaProviderAdmission -State $s -Provider 'Cim' -Target 'pc9' -Class 'Background' -NowUtc $after -Group '10.1.2.0/24' -RunningForTarget 0 -RunningForGroup 0).Allowed 'Lecture dʼessai'
+    Assert-False (Test-DomeniaProviderAdmission -State $s -Provider 'Cim' -Target 'pc8' -Class 'Background' -NowUtc $after -Group '10.1.2.0/24' -RunningForTarget 0 -RunningForGroup 1).Allowed 'Une seule à la fois'
+    [void](Register-DomeniaProviderOutcome -State $s -Provider 'Cim' -Target 'pc9' -Outcome 'Success' -NowUtc $after -Group '10.1.2.0/24')
+    Assert-True (Test-DomeniaProviderAdmission -State $s -Provider 'Cim' -Target 'pc8' -Class 'Background' -NowUtc $after -Group '10.1.2.0/24' -RunningForTarget 0 -RunningForGroup 1).Allowed 'Une de plus après une réponse'
+    $t=New-DomeniaProviderState
+    foreach($i in 1..2){[void](Register-DomeniaProviderOutcome -State $t -Provider 'Cim' -Target 'pc1' -Outcome 'Failure' -NowUtc $script:ET0)}
+    Assert-False (Test-DomeniaProviderAdmission -State $t -Provider 'Cim' -Target 'pc1' -Class 'Background' -NowUtc $script:ET0.AddSeconds(61) -RunningForTarget 1).Allowed 'Poste en reprise : une lecture à la fois'
+    Assert-True (Test-DomeniaProviderAdmission -State $t -Provider 'Cim' -Target 'pc1' -Class 'Background' -NowUtc $script:ET0.AddSeconds(61) -RunningForTarget 0).Allowed
+    $lines=@(Get-DomeniaProviderStateSummary -State $s -NowUtc $script:ET0.AddSeconds(5))
+    Assert-False (($lines -join ' ') -match '(?i)annuaire.{0,20}inaccessible') 'Jamais tout lʼannuaire déclaré inaccessible'
+    $paused=New-DomeniaProviderState
+    foreach($i in 1..3){[void](Register-DomeniaProviderOutcome -State $paused -Provider 'Cim' -Target ('pc'+$i) -Outcome 'Timeout' -NowUtc $script:ET0 -Group '10.1.2.0/24')}
+    Assert-Equal 1 @(Get-DomeniaProviderStateSummary -State $paused -NowUtc $script:ET0.AddSeconds(5) | Where-Object { $_ -match 'site 10\.1\.2\.0/24 : lectures de fond suspendues' }).Count
+}
+Test-Case 'P160' 'Panneau : les postes en pause ou en reprise sont regroupés par fournisseur, les sites restent nommés' {
+    # A campaign over a slow site: forty workstations with two time-outs each.
+    $s=New-DomeniaProviderState
+    foreach($i in 1..40){foreach($n in 1..2){[void](Register-DomeniaProviderOutcome -State $s -Provider 'Cim' -Target ('pc'+$i) -Outcome 'Timeout' -NowUtc $script:ET0 -Group '10.1.2.0/24')}}
+    $later=@(Get-DomeniaProviderStateSummary -State $s -NowUtc $script:ET0.AddHours(1))
+    Assert-Equal 2 $later.Count ($later -join ' | ')
+    Assert-Equal 1 @($later | Where-Object { $_ -match '^WMI · 40 cibles \(pc1, pc10, pc11 et 37 autre\(s\)\) : reprise progressive' }).Count ($later -join ' | ')
+    Assert-Equal 1 @($later | Where-Object { $_ -match '^WMI · site 10\.1\.2\.0/24 : reprise progressive' }).Count
+    $paused=@(Get-DomeniaProviderStateSummary -State $s -NowUtc $script:ET0.AddSeconds(5))
+    Assert-Equal 2 $paused.Count ($paused -join ' | ')
+    Assert-Equal 1 @($paused | Where-Object { $_ -match '^WMI · 40 cibles .* lectures de fond suspendues' }).Count
+    $one=New-DomeniaProviderState
+    foreach($n in 1..2){[void](Register-DomeniaProviderOutcome -State $one -Provider 'Cim' -Target 'pc1' -Outcome 'Timeout' -NowUtc $script:ET0)}
+    Assert-True ((@(Get-DomeniaProviderStateSummary -State $one -NowUtc $script:ET0.AddHours(1)) -join ' ') -match '^WMI · pc1 : reprise progressive') 'Un seul poste reste nommé'
+}
+
+# Point 122 : temps de reponse mesures (mediane, 95e centile) par categorie, sans mesure inventee.
+Test-Case 'P122' 'Percentiles : la recherche locale garde sa propre serie' {
+    Assert-Equal 'LocalIndexRead:Search' (Get-DomeniaRuntimeMetricOperationKey 'LocalIndexRead' ([pscustomobject]@{Action='Search'}))
+    Assert-Equal 'LocalIndexRead:FleetStats' (Get-DomeniaRuntimeMetricOperationKey 'LocalIndexRead' @{Action='FleetStats'})
+    Assert-Equal 'LocalIndexRead:OperationStats' (Get-DomeniaRuntimeMetricOperationKey 'LocalIndexRead' ([pscustomobject]@{Action='OperationStats'}))
+    # W05 (points 22, 24, 30): the Contrôles tab read and the comparison of two snapshots keep their own series.
+    Assert-Equal 'LocalIndexRead:DirectorySync' (Get-DomeniaRuntimeMetricOperationKey 'LocalIndexRead' ([pscustomobject]@{Action='DirectorySync'}))
+    Assert-Equal 'LocalIndexRead:SnapshotCompare' (Get-DomeniaRuntimeMetricOperationKey 'LocalIndexRead' ([pscustomobject]@{Action='SnapshotCompare'}))
+    Assert-Equal 'LocalIndexRead' (Get-DomeniaRuntimeMetricOperationKey 'LocalIndexRead' ([pscustomobject]@{Action='Inconnue'})) 'Action hors liste fermee'
+    Assert-Equal 'LocalIndexRead' (Get-DomeniaRuntimeMetricOperationKey 'LocalIndexRead' $null) 'Charge absente'
+    Assert-Equal 'LocalQuery:Search' (Get-DomeniaRuntimeMetricOperationKey 'LocalQuery' ([pscustomobject]@{SearchOutput=$true}))
+    Assert-Equal 'LocalQuery' (Get-DomeniaRuntimeMetricOperationKey 'LocalQuery' ([pscustomobject]@{SearchOutput=$false}))
+    Assert-Equal 'OpenAdObject' (Get-DomeniaRuntimeMetricOperationKey 'OpenAdObject' ([pscustomobject]@{Action='Search'})) 'Autre operation inchangee'
+}
+Test-Case 'P122' 'Percentiles : categories disjointes, aucune mesure comptee deux fois' {
+    $series=@{}
+    $series['Sqlite|LocalIndexRead:Search']=[double[]]@(10,20)
+    $series['Sqlite|LocalQuery:Search']=[double[]]@(30)
+    $series['Sqlite|LocalIndexRead:FleetStats']=[double[]]@(400)
+    $series['Sqlite|LocalStore']=[double[]]@(50)
+    $series['Dispatcher|Callback:LocalQuery']=[double[]]@(5)
+    $series['Dispatcher|Pulse']=[double[]]@(2)
+    $series['Dispatcher|RunspaceOpen:LocalQuery']=[double[]]@(3)
+    $series['Ldap|OpenAdObject']=[double[]]@(120)
+    $series['Cim|ComputerInventory']=[double[]]@(900,-4,[double]::NaN)
+    $series['Queue|Wait:Explicit']=[double[]]@(1)
+    $series['Ldap|Write:ResetPassword']=[double[]]@(300)
+    $series['Cim|Write:ComputerRestart']=[double[]]@(2000,[double]::PositiveInfinity)
+    $queue=New-Object 'System.Collections.Generic.Queue[double]'
+    foreach($value in @(15,[double]::NaN,-2,[double]::NegativeInfinity)){$queue.Enqueue([double]$value)}
+    $series['Ldap|SearchUsers']=$queue
+    $series['Ldap|Legacy']=@('25','x')
+    $counts=@{}
+    foreach($category in @(Get-DomeniaResponseTimeCategories)){$samples=Select-DomeniaResponseTimeSamples $series $category;$counts[[string]$category.Id]=$samples.Count}
+    Assert-Equal 3 $counts['LocalSearch'] 'Recherche locale : index et atelier'
+    Assert-Equal 2 $counts['Sqlite'] 'Vue du parc et ecriture locale, recherche exclue'
+    Assert-Equal 1 $counts['Render'] 'Battement et ouverture de runspace exclus'
+    Assert-Equal 3 $counts['Directory'] 'Lectures seulement : file typee filtree, texte invariant lu, ecriture exclue'
+    Assert-Equal 1 $counts['Computers'] 'Valeur negative et NaN ecartees, redemarrage exclu'
+    Assert-Equal 2 $counts['Writes'] 'Ecriture et action distante dans leur propre categorie, infini ecarte'
+    $total=0;foreach($value in $counts.Values){$total+=[int]$value}
+    Assert-Equal 12 $total 'Aucune mesure comptee deux fois'
+    $empty=Select-DomeniaResponseTimeSamples $null (@(Get-DomeniaResponseTimeCategories)[0])
+    Assert-Equal 0 $empty.Count 'Aucune serie : tableau vide'
+    $labels=@(Get-DomeniaResponseTimeCategories|ForEach-Object{[string]$_.Label})
+    Assert-True ($labels -contains 'Traitement des résultats dans lʼinterface') 'Libelle du traitement dans l interface'
+}
+Test-Case 'P122' 'Percentiles : rang le plus proche, 95e centile seulement a partir de 20 mesures' {
+    $s=Get-DomeniaLatencySummary -Samples ([double[]](1..20))
+    Assert-Equal 20 ([int]$s.Count);Assert-Equal 10 ([int]$s.P50);Assert-Equal 19 ([int]$s.P95);Assert-Equal 20 ([int]$s.Max);Assert-True $s.P95Stated
+    $few=Get-DomeniaLatencySummary -Samples ([double[]]@(551,100))
+    Assert-False $few.P95Stated;Assert-True ($null -eq $few.P95) '95e centile invente sur deux mesures'
+    Assert-Equal 100 ([int]$few.P50);Assert-Equal 551 ([int]$few.Max)
+    $none=Get-DomeniaLatencySummary -Samples ([double[]]@())
+    Assert-Equal 0 ([int]$none.Count);Assert-True (($null -eq $none.P50) -and ($null -eq $none.Max)) 'Zero invente sans mesure'
+    $dirty=Get-DomeniaLatencySummary -Samples ([double[]]@(5,[double]::NaN,-1,[double]::PositiveInfinity))
+    Assert-Equal 1 ([int]$dirty.Count) 'Valeurs non mesurees ecartees'
+}
+Test-Case 'P122' 'Percentiles : texte honnete, aucune mesure ne devient 0 ms' {
+    Assert-Equal 'Recherche locale : aucune mesure dans cette session.' (Format-DomeniaLatencySummaryText 'Recherche locale' (Get-DomeniaLatencySummary -Samples ([double[]]@())))
+    Assert-Equal 'Recherche locale : médiane 100 ms ; maximum 551 ms (2 mesures, trop peu pour un 95e centile).' (Format-DomeniaLatencySummaryText 'Recherche locale' (Get-DomeniaLatencySummary -Samples ([double[]]@(100,551))))
+    Assert-Equal 'Recherche locale : médiane 7 ms ; maximum 7 ms (1 mesure, trop peu pour un 95e centile).' (Format-DomeniaLatencySummaryText 'Recherche locale' (Get-DomeniaLatencySummary -Samples ([double[]]@(7))))
+    Assert-Equal 'Recherche locale : médiane 10 ms ; 95 % sous 19 ms ; maximum 20 ms (20 mesures).' (Format-DomeniaLatencySummaryText 'Recherche locale' (Get-DomeniaLatencySummary -Samples ([double[]](1..20))))
 }

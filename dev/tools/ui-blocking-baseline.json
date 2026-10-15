@@ -244,6 +244,14 @@
       "Chain": "wad\\Domenia-Core.ps1:2602 Start-UiTask > Apply-DomeniaPresenceFilter > Set-DomeniaGridRows > Queue-DomeniaSelectedObjectOpen > Set-DomeniaRelationsGridSelection > Set-DomeniaRelationsSelection > Refresh-DomeniaRelationViews > Update-DomeniaRelationsActions > Test-DomeniaRelationsRestoreAvailable > Get-DomeniaRelationsRestorableEntry"
     },
     {
+      "Function": "Initialize-DomeniaCommandPalette",
+      "Pattern": ".ReadAllText",
+      "Status": "Justifie",
+      "Owner": "interface",
+      "Reason": "W13 (point 117) : chargement paresseux, une seule fois par session, du fichier XAML local du paquet (Domenia-CommandPalette.xaml), meme modele que Initialize-DomeniaOperationsPanel et Initialize-DomeniaInlineUi ; jamais un chemin reseau.",
+      "Chain": "Show-DomeniaCommandPalette > Show-DomeniaCommandPaletteView > Initialize-DomeniaCommandPalette"
+    },
+    {
       "Function": "Initialize-DomeniaInlineUi",
       "Pattern": ".ReadAllText",
       "Status": "Justifie",
@@ -274,6 +282,22 @@
       "Owner": "interface",
       "Reason": "Revue RC1.17.3 du 2026-10-13 : lecture du XAML du paquet, protegee par QueryWorkshopHost.Content ; une seule creation de la vue par session, deja appelee par Wire-Events au demarrage. Le raccourci de navigation rend ce chemin visible a l audit statique mais ne recharge pas le fichier. Aucun chemin choisi par l utilisateur, aucune collecte ni lecture AD. Meme contrat que les vues Inline et Operations.",
       "Chain": "Show-DomeniaCommandPalette > Show-DomeniaQueryWorkshop > Initialize-DomeniaQueryWorkshop > Initialize-DomeniaQueryView"
+    },
+    {
+      "Function": "Initialize-DomeniaAdAuditView",
+      "Pattern": ".ReadAllText",
+      "Status": "Justifie",
+      "Owner": "interface",
+      "Reason": "Lot W12 (points 102 a 109), revue du 2026-10-15 : lecture du XAML local du paquet (Domenia-AdAudit.xaml), protegee par AdAuditView ; une seule creation de la vue par session, a la premiere ouverture de l onglet Outils > Audit AD. Aucun chemin choisi par l utilisateur, aucune lecture AD ni collecte. Meme contrat que Initialize-DomeniaQueryView et Initialize-DomeniaSupportUi.",
+      "Chain": "wad\\modules\\Domenia-AdAudit.UI.ps1:14 $tabs.Add_SelectionChanged > Show-DomeniaAdAuditTool > Initialize-DomeniaAdAuditView"
+    },
+    {
+      "Function": "Initialize-DomeniaAssistanceView",
+      "Pattern": ".ReadAllText",
+      "Status": "Justifie",
+      "Owner": "interface",
+      "Reason": "Lot W12 (point 110), revue du 2026-10-15 : lecture du XAML local du paquet (Domenia-Assistance.xaml), protegee par AssistanceView ; une seule creation de la vue par session, a la premiere ouverture de l onglet Outils > Assistance. Aucun chemin choisi par l utilisateur, aucune lecture AD ni collecte. Meme contrat que Initialize-DomeniaQueryView et Initialize-DomeniaSupportUi.",
+      "Chain": "wad\\modules\\Domenia-Assistance.UI.ps1:12 $tabs.Add_SelectionChanged > Show-DomeniaAssistanceTool > Initialize-DomeniaAssistanceView"
     }
   ]
 }

@@ -19,6 +19,13 @@ function ConvertTo-SuiteNumber {
     return [Math]::Max($Minimum,[Math]::Min($Maximum,$number))
 }
 
+function Test-DomeniaScopedSettingName {
+    # Domain-scoped preferences are stored under a closed name pattern (prefix + SHA-256 of the domain DN), outside the
+    # declared defaults: database choice, health policies and approved BIOS references. Only these survive a reload.
+    param([AllowEmptyString()][string]$Name)
+    return ([string]$Name -cmatch '^(Storage\.Database|Dashboard\.HealthPolicies|Inventory\.BiosReferences)\.[0-9a-f]{64}$')
+}
+
 function ConvertTo-DomeniaExperienceSettings {
     param([System.Collections.IDictionary]$Values,[System.Collections.IDictionary]$Defaults)
     $out=[ordered]@{}
@@ -44,6 +51,16 @@ function ConvertTo-DomeniaExperienceSettings {
             $value=ConvertTo-SuiteNumber $value -Default ([double]$Defaults[$key]) -Minimum $range[0] -Maximum $range[1]
         }
         $out[$key]=$value
+    }
+    # Domain-scoped preferences pass through unchanged: string values only, at most 1 MiB each and 256 keys.
+    if($null -ne $Values){
+        $scoped=0
+        foreach($key in @($Values.Keys)){
+            if(($Defaults.Contains($key)) -or (-not (Test-DomeniaScopedSettingName ([string]$key)))){continue}
+            $value=$Values[$key]
+            if((-not ($value -is [string])) -or ($value.Length -gt 1048576) -or ($scoped -ge 256)){continue}
+            $out[[string]$key]=$value;$scoped++
+        }
     }
     return $out
 }
@@ -136,6 +153,9 @@ function Get-DomeniaExperienceTaskRow {
     elseif([bool]$Job.IsWrite -and ([bool]$Job.CancelRequested -or [bool]$Job.TimeoutNotified -or [bool]$Job.TimeoutErrorDelivered)){$state='À vérifier';$detail='Écriture envoyée : son résultat reste à vérifier. Aucun rejeu automatique.'}
     elseif([bool]$Job.CancelRequested){$state='Arrêt demandé';$detail='La demande est envoyée ; la fin du worker n''est pas confirmée.'}
     elseif([bool]$Job.TimeoutNotified -or [bool]$Job.TimeoutErrorDelivered){$state='À vérifier';$detail='Délai dépassé. Ne pas déduire une réussite ou relancer une écriture.'}
+    # Point 46: the right this operation needs, so that a refusal reads against it. Resolved at call time
+    # (Domenia-Access.Model.ps1); without that rule the row keeps its state sentence only.
+    try{$need=Get-DomeniaOperationRequirement ([string]$Job.OperationId);if([bool]$need.Known){$detail+=' Accès requis : '+[string]$need.Right}}catch{}
     $seconds=0.0;try{$seconds=[Math]::Max(0,($Now-[datetime]$Job.Started).TotalSeconds)}catch{}
     $duration=[TimeSpan]::FromSeconds([Math]::Min($seconds,315360000))
     $durationLabel=if($duration.TotalHours -ge 1){'{0:0} h {1:00} min' -f [Math]::Floor($duration.TotalHours),$duration.Minutes}else{'{0:00}:{1:00}' -f [Math]::Floor($duration.TotalMinutes),$duration.Seconds}

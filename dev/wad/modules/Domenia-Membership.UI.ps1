@@ -152,15 +152,16 @@ function Invoke-DomeniaMembershipWhy {
 }
 
 function Start-DomeniaMembershipPathRead {
-    # GroupPathRead on an explicit gesture: the memberOf of the groups of this object, breadth-first and bounded
+    # GroupPathRead on an explicit gesture: the memberOf of this object and of its groups, breadth-first and bounded
     # (2 000 groups, 16 levels, 10 s); with -TargetDn the controller also answers for that group. Never a domain search.
+    # Same pinned body as the nested groups of Outils > Audit AD (point 103): the object's memberOf is read again by
+    # the worker, ranged values included, rather than taken from the fiche.
     param([string]$TargetDn='')
     $list = $script:MembershipLists['MemberOf']
     if (($null -eq $list) -or (-not [string]$list.ObjectDn)) { Show-DomeniaMembershipWhy 'Ouvrez la fiche dʼun objet avant de lire ses groupes imbriqués.'; return }
     if (($null -eq $script:SelectedObject) -or ([string]$script:SelectedObject.DN -ine [string]$list.ObjectDn)) { Show-DomeniaMembershipWhy 'La fiche affichée a changé : rouvrez-la avant de lire ses groupes imbriqués.'; return }
-    $direct = @($list.Rows | Where-Object { [string]$_.Membership -eq 'Directe' } | ForEach-Object { [string]$_.Dn })
     $state = [pscustomobject]@{Epoch=[long]$script:SessionEpoch;Generation=[long]$script:SelectedObjectGeneration;ObjectDn=[string]$list.ObjectDn;TargetDn=$TargetDn}
-    $payload = [pscustomobject]@{ObjectDn=[string]$list.ObjectDn;TargetDn=$TargetDn;StartGroups=$direct;MaxNodes=2000;MaxDepth=16;BudgetSeconds=10}
+    $payload = [pscustomobject]@{Dn=[string]$list.ObjectDn;Mode='Expand';TargetDn=$TargetDn;MaxNodes=2000;MaxDepth=16;Seconds=10}
     Show-DomeniaMembershipWhy $(if ($TargetDn) { 'Lecture des groupes imbriqués pour expliquer lʼappartenance à « ' + (Get-DomeniaDnDisplayName $TargetDn) + ' »…' } else { 'Lecture des groupes imbriqués…' })
     try {
         $job = Start-UiTask -Name 'Groupes imbriqués' -OperationId 'GroupPathRead' -Code (Get-DomeniaGroupPathWorkerCode) -Payload $payload -CallbackState $state -ReplaceKey 'membership-path' -DisableControls @('BtnMemberOfNested') -TimeoutSeconds 60 -SuccessHandler 'Complete-DomeniaMembershipPathRead' -ErrorHandler 'Fail-DomeniaMembershipPathRead' -TaskClass 'Explicit'
@@ -179,12 +180,15 @@ function Complete-DomeniaMembershipPathRead {
     param($Result,$State)
     if (-not (Test-DomeniaMembershipPathCurrent $State)) { return }
     try {
-        $data = Get-DomeniaEffectiveWorkerResult $Result @('ObjectDn','Edges','Truncated')
-        if (($null -eq $data) -or ([string]$data.ObjectDn -ine [string]$State.ObjectDn)) { throw 'Réponse des groupes imbriqués absente ou dʼun autre objet.' }
+        $data = Get-DomeniaEffectiveWorkerResult $Result @('Dn','Nodes','Unread')
+        if (($null -eq $data) -or ([string]$data.Dn -ine [string]$State.ObjectDn)) { throw 'Réponse des groupes imbriqués absente ou dʼun autre objet.' }
         $answers = @{}
         if (($null -ne $script:MembershipNested) -and ([string]$script:MembershipNested.ObjectDn -ieq [string]$State.ObjectDn)) { $answers = $script:MembershipNested.ServerAnswers }
         if ([string]$State.TargetDn) { $answers[[string]$State.TargetDn] = Get-DomeniaMember $data 'ServerAnswer' $null }
-        $script:MembershipNested = [pscustomobject]@{ObjectDn=[string]$State.ObjectDn;Read=$true;Edges=(ConvertTo-DomeniaMembershipEdges (Get-DomeniaMember $data 'Edges' $null));Unread=@(Get-DomeniaMember $data 'Unread' @());Truncated=[bool]$data.Truncated;ServerAnswers=$answers}
+        # A memberOf of the object read only in part (more values than one range) leaves the walk incomplete too.
+        $partial = (-not [bool](Get-DomeniaMember $data 'StartComplete' $true))
+        $primary = [string](Get-DomeniaMember (Get-DomeniaMember $data 'PrimaryGroup' $null) 'Name' '')
+        $script:MembershipNested = [pscustomobject]@{ObjectDn=[string]$State.ObjectDn;Read=$true;Edges=(ConvertTo-DomeniaGroupPathEdges $data);Unread=@(Get-DomeniaMember $data 'Unread' @());Truncated=([bool](Get-DomeniaMember $data 'Truncated' $false) -or $partial);Bounded=[bool](Get-DomeniaMember $data 'Truncated' $false);StartPartial=$partial;PrimaryGroup=$primary;ServerAnswers=$answers}
         Add-DomeniaNestedMembershipRows
         $nested = $script:MembershipNested
         if ([string]$State.TargetDn) {
@@ -229,7 +233,9 @@ function Format-DomeniaNestedMembershipSummary {
         $reasons = @($unread | Group-Object { [string]$_.Reason } | ForEach-Object { [string]$_.Count + ' ' + ([string]$_.Name).ToLowerInvariant() })
         $text += ' Groupes non lus : ' + ($reasons -join ', ') + '.'
     }
-    if ([bool]$nested.Truncated) { $text += ' Lecture bornée (2 000 groupes, 16 niveaux ou 10 s) : la liste peut être incomplète.' }
+    if ([bool]$nested.Bounded) { $text += ' Lecture bornée (2 000 groupes, 16 niveaux ou 10 s) : la liste peut être incomplète.' }
+    if ([bool]$nested.StartPartial) { $text += ' Groupes directs de lʼobjet lus en partie : la liste peut être incomplète.' }
+    if ([string]$nested.PrimaryGroup) { return $text + ' Groupe principal : ' + [string]$nested.PrimaryGroup + ' (primaryGroupID, absent de memberOf).' }
     return $text + ' Le groupe principal nʼest pas compris dans memberOf.'
 }
 

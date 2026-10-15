@@ -120,8 +120,24 @@ function Get-DomeniaLiveObservationView {
     if($Pending){$state='Vérification en cours'}
     $checked=Get-DomeniaLiveField $Observation 'UserCheckedUtc' (Get-DomeniaLiveField $Observation 'CheckedUtc')
     $seen=Get-DomeniaLiveField $Observation 'ObservedUtc'
-    $detail="État : $state`r`nDernier compte observé : $last`r`nObservation UTC : $seen`r`nDernière tentative UTC : $checked`r`nSource : $(Get-DomeniaLiveField $Observation 'Source')`r`n$(Get-DomeniaLiveField $Observation 'Detail')`r`nConsole Windows uniquement : ne recense pas toutes les sessions RDP."
+    # Point 5: the committed projection keeps the last successful read (UserCheckedUtc) apart from the last attempt
+    # (ConsoleAttemptUtc) and its error. A newer failure is shown; it never replaces the observed account or its date.
+    $attempt=Get-DomeniaLiveField $Observation 'ConsoleAttemptUtc' $checked
+    $failure=Get-DomeniaLiveField $Observation 'ConsoleError'
+    $attemptLine="Dernière tentative UTC : $attempt"
+    if(Test-DomeniaLiveAttemptAfter -Attempt $attempt -Success $checked -ErrorText $failure){$attemptLine+=", non confirmée : $failure`r`nDernière lecture réussie UTC : $(if($checked){$checked}else{'aucune'}), conservée"}
+    $detail="État : $state`r`nDernier compte observé : $last`r`nObservation UTC : $seen`r`n$attemptLine`r`nSource : $(Get-DomeniaLiveField $Observation 'Source')`r`n$(Get-DomeniaLiveField $Observation 'Detail')`r`nConsole Windows uniquement : ne recense pas toutes les sessions RDP."
     [pscustomobject]@{Display=$display;State=$state;Detail=$detail;Checked=$checked;Observed=$seen;Source=Get-DomeniaLiveField $Observation 'Source'}
+}
+function Test-DomeniaLiveAttemptAfter {
+    # True when a failed attempt is newer than the last success (or no success exists). Unreadable dates are not newer.
+    param([AllowEmptyString()][string]$Attempt,[AllowEmptyString()][string]$Success,[AllowEmptyString()][string]$ErrorText)
+    if((-not $ErrorText) -or (-not $Attempt)){return $false}
+    $styles=[Globalization.DateTimeStyles]::AssumeUniversal;$culture=[Globalization.CultureInfo]::InvariantCulture
+    $attemptAt=[datetimeoffset]::MinValue;$successAt=[datetimeoffset]::MinValue
+    if(-not [datetimeoffset]::TryParse($Attempt,$culture,$styles,[ref]$attemptAt)){return $false}
+    if((-not $Success) -or (-not [datetimeoffset]::TryParse($Success,$culture,$styles,[ref]$successAt))){return $true}
+    return ($attemptAt -gt $successAt)
 }
 function Test-DomeniaLiveIdentity {
     param($State,[long]$SessionEpoch,[string]$Identity)
@@ -185,8 +201,11 @@ function Get-DomeniaLivePresenceView {
     if($key -eq 'NoReply'){$message+=' Pas de réponse ICMP : poste indisponible ou ICMP filtré, sans preuve quʼil est éteint.'}
     $historical=([bool]$Cached -and [bool]$at -and $key -ne 'Unknown')
     $age=if($at){Get-DomeniaLiveAgeText -CheckedUtc $at -NowUtc $NowUtc}else{''}
-    $detail=$message+"`r`nVérification réseau UTC : "+$at
-    if($age){$detail+=' ('+$age+')'}
+    $checkLine="`r`nVérification réseau UTC : "+$at+$(if($age){' ('+$age+')'}else{''})
+    # Point 5: a newer failed ping keeps its error beside the last valid check, which keeps its own date and age.
+    $attempt=Get-DomeniaLiveField $Observation 'PresenceAttemptUtc';$failure=Get-DomeniaLiveField $Observation 'PresenceError'
+    if(($key -ne 'Unknown') -and (Test-DomeniaLiveAttemptAfter -Attempt $attempt -Success $at -ErrorText $failure)){$checkLine="`r`nDernière tentative UTC : "+$attempt+', non confirmée : '+$failure+"`r`nDernière vérification réussie UTC : "+$(if($at){$at+$(if($age){' ('+$age+')'}else{''})+', conservée'}else{'aucune'})}
+    $detail=$message+$checkLine
     if($historical){$detail+="`r`nObservation historique, pas un état actuel confirmé."}
     [pscustomobject]@{Display=$state;State=$state;PresenceState=$key;IsCached=$historical;ObservedUtc=$at;Age=$age;Checked=$at;Detail=$detail}
 }
@@ -243,6 +262,18 @@ $answer.PingAttempted=$collectPing;$answer.ConsoleAttempted=$false
 $answer.InventoryAttempted=$collectInventory;$answer.ProbesAttempted=$collectProbes
 $answer.ConsoleCheckedUtc='';$answer.InventoryCheckedUtc=''
 $answer.AttemptedAtUtc=[datetime]::UtcNow.ToString('o')
+# Point 17: a campaign passes a progress channel; every finished ping or CIM query is one step, so the engine tells a
+# slow but advancing workstation from a stalled one. Same three fields and lock as the GlobalSearch channel.
+# Point 18: the ping step also leaves its answer there, so a read stopped later by the engine is retried only when
+# the workstation answered.
+$readProgress=$null
+if($null -ne $Payload.PSObject.Properties['ReadProgress'] -and $Payload.ReadProgress -is [Collections.IDictionary]){$readProgress=$Payload.ReadProgress}
+function Step-WReadProgress{
+    param([string]$Presence='')
+    if($null -eq $readProgress){return}
+    $locked=$false
+    try{[Threading.Monitor]::Enter($readProgress.SyncRoot);$locked=$true;if($Presence){$readProgress['Presence']=$Presence};$readProgress['RowsRead']=[long]$readProgress['RowsRead']+1;$readProgress['LastRowTimestamp']=[Diagnostics.Stopwatch]::GetTimestamp()}catch{}finally{if($locked){[Threading.Monitor]::Exit($readProgress.SyncRoot)}}
+}
 
 function Get-NativeCode($ErrorValue){
     $ex=$ErrorValue.Exception
@@ -254,6 +285,30 @@ function Get-NativeCode($ErrorValue){
         $ex=$ex.InnerException
     }
     return 0L
+}
+# Point 127 (stale DNS record, reassigned address): Win32_ComputerSystem names the workstation that answered. A
+# positive mismatch with the requested name leaves every value of this CIM read unattributed. An address target or a
+# reply without names cannot be compared and keeps the former behaviour (identity not verified, not refused).
+# The target is the DNS host name or, without one, the AD cn, which is the NetBIOS name cut at 15 characters; the reply
+# carries both its DNS host name and its NetBIOS Name. The reply is the requested workstation when any of its identities
+# matches the target in either form; a mismatch is stated only when none does.
+function Get-LiveHostMismatch($Target,$System){
+    $wanted=([string]$Target).Trim().TrimEnd('.')
+    if((-not $wanted) -or ($wanted -match '^[0-9.]+$') -or ($null -eq $System)){return ''}
+    $short=$wanted.Split('.')[0];$dns='';$name=''
+    if($null -ne $System.PSObject.Properties['DNSHostName']){$dns=([string]$System.DNSHostName).Trim().TrimEnd('.')}
+    if($null -ne $System.PSObject.Properties['Name']){$name=([string]$System.Name).Trim()}
+    if((-not $dns) -and (-not $name)){return ''}
+    $netbios=$short;if($netbios.Length -gt 15){$netbios=$netbios.Substring(0,15)}
+    if($dns){
+        $label=$dns.Split('.')[0]
+        if(($label -ieq $short) -or ($label -ieq $netbios)){return ''}
+        # A cn target holds the cut NetBIOS form of a longer host name.
+        if(($label.Length -gt 15) -and ($label.Substring(0,15) -ieq $short)){return ''}
+    }
+    if($name -and (($name -ieq $short) -or ($name -ieq $netbios))){return ''}
+    $reported=$name;if($dns){$reported=$dns}
+    return ('Le poste qui répond à '+$Target+' se nomme '+$reported+' : enregistrement DNS périmé, adresse réattribuée ou poste renommé. Aucune donnée de cette lecture nʼest attribuée.')
 }
 # Ping is an independent collection. A WMI-only request never sends ICMP.
 if($collectPing){
@@ -278,6 +333,7 @@ try {
     $answer.Presence='Erreur de ping';$answer.PresenceDetail='Le contrôle ICMP n''a pas abouti (résolution DNS ou erreur réseau). '+[string]$inner.Message
 } finally {if($null -ne $ping){$ping.Dispose()}}
 $answer.PresenceCheckedUtc=[datetime]::UtcNow.ToString('o')
+Step-WReadProgress ([string]$answer.Presence)
 if($null -ne $Payload.PSObject.Properties['PresenceProgress'] -and $null -ne $Payload.PresenceProgress){
     $packet=[pscustomobject]@{Outcome='PresenceOnly';Key=$answer.Key;Guid=$answer.Guid;Computer=$target;Presence=$answer.Presence;PresenceCheckedUtc=$answer.PresenceCheckedUtc;PresenceDetail=$answer.PresenceDetail}
     $Payload.PresenceProgress.Enqueue([pscustomobject]@{Result=$packet;State=$Payload.PresenceState})
@@ -287,6 +343,60 @@ if(-not $probeUser -and -not $collectInventory -and -not $collectProbes){
     $answer.Outcome='PresenceOnly';$answer.Detail='Contrôle réseau uniquement. Aucune lecture du compte console.'
     [pscustomobject]$answer;return
 }
+# Point 13: needs (console, inventory parts, controller check, each probe) and the CIM queries really sent. The
+# difference is the number of queries avoided by grouping; it is returned with the measurement.
+$cimStats=[pscustomobject]@{Consumers=0;Executed=0}
+$preRead=@{};$sharedProbeProps=@{};$productType=$null;$productTypeRead=$false
+function Get-WCimGroupKey([string]$Namespace,[string]$ClassName,[string]$Filter){
+    # Same rule as Get-DomeniaCimGroupKey (Domenia-Collection.Model.ps1), kept in this pinned body: namespace and class
+    # names are case-insensitive, the filter is compared byte for byte (two literals never share a result).
+    return ($Namespace.ToUpperInvariant()+'|'+$ClassName.ToUpperInvariant()+'|'+$Filter)
+}
+function Test-WInvalidCimQuery($ErrorValue){
+    $ex=$ErrorValue.Exception
+    for($n=0;$n -lt 8 -and $null -ne $ex;$n++){
+        $native=$ex.PSObject.Properties['NativeErrorCode']
+        if($null -ne $native -and [string]$native.Value -in @('InvalidQuery','InvalidParameter','InvalidProperty','NotSupported')){return $true}
+        if([string]$ex.Message -match '(?i)invalid query|requ.te non valide|invalid property|propri.t. non valide|0x80041017|0x80041011'){return $true}
+        $ex=$ex.InnerException
+    }
+    return $false
+}
+function Invoke-WSharedRead([string]$Key,[string]$ClassName,[string]$Filter,[string[]]$Base){
+    # One read of a singleton class for every consumer: base properties first, then the properties of catalog probes
+    # of the same class and filter. If the joined read is refused as an invalid query, the base read is sent alone,
+    # so that the console and the inventory never fail because of a probe.
+    $extra=@();if($sharedProbeProps.ContainsKey($Key)){$extra=@($sharedProbeProps[$Key]|Where-Object{$Base -notcontains $_})}
+    $all=@($Base)+@($extra)
+    $query=@{CimSession=$cim;ClassName=$ClassName;Property=$all;OperationTimeoutSec=$timeout;ErrorAction='Stop'}
+    if($Filter){$query.Filter=$Filter}
+    $instance=$null
+    try{
+        $cimStats.Executed++
+        try{$instance=@(Get-CimInstance @query)[0]}
+        catch{
+            if(-not $extra.Count -or -not (Test-WInvalidCimQuery $_)){throw}
+            $all=@($Base);$query.Property=$all;$cimStats.Executed++
+            $instance=@(Get-CimInstance @query)[0]
+        }
+    }finally{Step-WReadProgress}
+    if($null -ne $instance){$preRead[$Key]=[pscustomobject]@{Instance=$instance;Properties=@($all);At=[datetime]::UtcNow.ToString('o')}}
+    return $instance
+}
+if($collectProbes){
+    $sharedClasses=@();if($null -ne $Payload.PSObject.Properties['AllowedClasses']){$sharedClasses=@(@($Payload.AllowedClasses)|ForEach-Object{[string]$_})}
+    foreach($probe in @($Payload.Probes)){
+        if($null -eq $probe -or [string]$probe.Skip -eq 'DomainController'){continue}
+        if($sharedClasses -notcontains [string]$probe.Class -or [string]$probe.Class -notmatch '^[A-Za-z0-9_]+$' -or [string]$probe.Namespace -notmatch '^[A-Za-z0-9_\\]+$'){continue}
+        $sharedKey=Get-WCimGroupKey ([string]$probe.Namespace) ([string]$probe.Class) ([string]$probe.Filter)
+        if(-not $sharedProbeProps.ContainsKey($sharedKey)){$sharedProbeProps[$sharedKey]=[Collections.Generic.List[string]]::new()}
+        foreach($sharedProperty in @(@($probe.Properties)|Where-Object{[string]$_ -match '^[A-Za-z0-9_]+$'})){if(-not $sharedProbeProps[$sharedKey].Contains([string]$sharedProperty)){$sharedProbeProps[$sharedKey].Add([string]$sharedProperty)}}
+    }
+}
+$csKey=Get-WCimGroupKey 'root\cimv2' 'Win32_ComputerSystem' ''
+$osKey=Get-WCimGroupKey 'root\cimv2' 'Win32_OperatingSystem' ''
+$diskKey=Get-WCimGroupKey 'root\cimv2' 'Win32_LogicalDisk' "DeviceID='C:'"
+$needProductType=($collectProbes -and @(@($Payload.Probes)|Where-Object{$null -ne $_ -and [string]$_.Skip -eq 'DomainController'}).Count -gt 0)
 try{
     # Missing ICMP reply does not block a separately requested CIM read.
     if($null -ne $Context.PSObject.Properties['UseCim'] -and -not [bool]$Context.UseCim){throw 'Lecture CIM desactivee dans les comptes distants.'}
@@ -302,17 +412,22 @@ try{
     $cim=New-CimSession @parameters
     # Console, inventory and catalog probes share one session but fail independently.
     # CIM reachability is not an ICMP measurement and must not refresh the Ping family.
-    $system=$null
+    $system=$null;$hostMismatch=''
     if($probeUser){
         $answer.ConsoleAttempted=$true
         try{
-            $csProperties=@('UserName');if($collectInventory){$csProperties+=@('Manufacturer','Model','TotalPhysicalMemory')}
-            $system=Get-CimInstance -CimSession $cim -ClassName Win32_ComputerSystem -Property $csProperties -OperationTimeoutSec $timeout -ErrorAction Stop
+            $csProperties=@('UserName','Name','DNSHostName');if($collectInventory){$csProperties+=@('Manufacturer','Model','TotalPhysicalMemory')}
+            $cimStats.Consumers++;if($collectInventory){$cimStats.Consumers++}
+            $system=Invoke-WSharedRead $csKey 'Win32_ComputerSystem' '' $csProperties
             if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null}
             if($null -eq $system){throw 'Le fournisseur CIM ne retourne pas Win32_ComputerSystem.'}
+            $hostMismatch=Get-LiveHostMismatch $target $system
+            if($hostMismatch){$system=$null;throw $hostMismatch}
             $answer.User=([string]$system.UserName).Trim()
             $answer.Outcome=if($answer.User){'Observed'}else{'NoConsole'}
         }catch{
+            # Another workstation answered: nothing of this session is attributed (outer catch).
+            if($hostMismatch){throw}
             if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw}
             $code=Get-NativeCode $_
             $answer.Outcome=if($code -in @(2147943726,2147944309,2147943730,2147943731,2147943732,2147943734)){'AuthRejected'}elseif($code -in @(2147942405,2147749891)){'Denied'}elseif($_.Exception.Message -match '(?i)timeout|timed out|délai|delai'){'Timeout'}else{'Unavailable'}
@@ -322,13 +437,22 @@ try{
     # Fleet analysis (decision David 2026-10-07): light WMI reading in the same session, kept with the observation.
     if($collectInventory){
         try{
-            $os=Get-CimInstance -CimSession $cim -ClassName Win32_OperatingSystem -Property Caption,BuildNumber,LastBootUpTime -OperationTimeoutSec $timeout -ErrorAction Stop
+            # The system type needed by the controller check of the probes joins this read (one query instead of two).
+            $osProperties=@('Caption','BuildNumber','LastBootUpTime');if($needProductType){$osProperties+='ProductType'}
+            $cimStats.Consumers+=2
+            $os=Invoke-WSharedRead $osKey 'Win32_OperatingSystem' '' $osProperties
             if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null}
-            if($null -eq $system){$system=Get-CimInstance -CimSession $cim -ClassName Win32_ComputerSystem -Property Manufacturer,Model,TotalPhysicalMemory -OperationTimeoutSec $timeout -ErrorAction Stop}
-            $disk=Get-CimInstance -CimSession $cim -ClassName Win32_LogicalDisk -Filter "DeviceID='C:'" -Property Size,FreeSpace -OperationTimeoutSec $timeout -ErrorAction Stop
+            if($needProductType -and -not $productTypeRead -and $null -ne $os -and @($preRead[$osKey].Properties) -contains 'ProductType'){$productTypeRead=$true;try{$observedProductType=[int]$os.ProductType;if($observedProductType -in @(1,2,3)){$productType=$observedProductType}}catch{$productType=$null}}
+            if($null -eq $system){
+                $cimStats.Consumers++
+                $system=Invoke-WSharedRead $csKey 'Win32_ComputerSystem' '' @('Manufacturer','Model','TotalPhysicalMemory','Name','DNSHostName')
+                $hostMismatch=Get-LiveHostMismatch $target $system
+                if($hostMismatch){$system=$null;throw $hostMismatch}
+            }
+            $disk=Invoke-WSharedRead $diskKey 'Win32_LogicalDisk' "DeviceID='C:'" @('Size','FreeSpace')
             if($null -eq $os -or $null -eq $system){throw 'Le fournisseur CIM nʼa pas retourné les informations système demandées.'}
             $answer.Inventory=[pscustomobject]@{OsCaption=[string]$os.Caption;Build=[string]$os.BuildNumber;LastBootUtc=$(try{([datetime]$os.LastBootUpTime).ToUniversalTime().ToString('o')}catch{''});Manufacturer=([string]$system.Manufacturer).Trim();Model=([string]$system.Model).Trim();RamBytes=$(if($null -ne $system -and $null -ne $system.TotalPhysicalMemory){[double]$system.TotalPhysicalMemory}else{$null});DiskSize=$(if($null -ne $disk -and $null -ne $disk.Size){[double]$disk.Size}else{$null});DiskFree=$(if($null -ne $disk -and $null -ne $disk.FreeSpace){[double]$disk.FreeSpace}else{$null});CheckedUtc=[datetime]::UtcNow.ToString('o')}
-        }catch{if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw};$answer.InventoryError=[string]$_.Exception.Message}finally{if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null};$answer.InventoryCheckedUtc=[datetime]::UtcNow.ToString('o')}
+        }catch{if($hostMismatch){throw};if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw};$answer.InventoryError=[string]$_.Exception.Message}finally{if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null};$answer.InventoryCheckedUtc=[datetime]::UtcNow.ToString('o')}
     }
     # Widget probes (decision David 2026-10-07): catalog queries run read-only in the same CIM session. Only class,
     # namespace, property names and a filter come from the catalog; names are checked before the call.
@@ -336,7 +460,8 @@ try{
         $since=@{'{SINCE_24H}'=(Get-Date).AddHours(-24).ToUniversalTime().ToString('yyyyMMddHHmmss.000000+000');'{SINCE_7D}'=(Get-Date).AddDays(-7).ToUniversalTime().ToString('yyyyMMddHHmmss.000000+000')}
         $probeResults=[ordered]@{}
         $allowedClasses=@();if($null-ne$Payload.PSObject.Properties['AllowedClasses']){foreach($allowedClass in @($Payload.AllowedClasses)){if(-not[string]::IsNullOrWhiteSpace([string]$allowedClass)){$allowedClasses+=[string]$allowedClass}}}
-        $productType=$null;$productTypeRead=$false
+        # $productType and $productTypeRead may already come from the inventory read of Win32_OperatingSystem.
+        if($needProductType){$cimStats.Consumers++}
         # Build the plan once. Namespace/class/property names are case-insensitive, but filter values
         # must remain byte-for-byte identical: different string literals must not share a result.
         $groups=[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal)
@@ -352,12 +477,13 @@ try{
                 if(-not $properties.Count){throw 'Aucune propriete valide pour cette sonde : lecture refusee.'}
                 # Do not walk controller providers, and do not merge their properties into another probe.
                 if([string]$probe.Skip -eq 'DomainController'){
-                    if(-not $productTypeRead){$productTypeRead=$true;try{$observedProductType=[int]@(Get-CimInstance -CimSession $cim -ClassName Win32_OperatingSystem -Property ProductType -OperationTimeoutSec $timeout -ErrorAction Stop)[0].ProductType;if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null};if($observedProductType -in @(1,2,3)){$productType=$observedProductType}}catch{if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw};$productType=$null}finally{if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null}}}
+                    if(-not $productTypeRead){$productTypeRead=$true;$cimStats.Executed++;try{$observedProductType=[int]@(Get-CimInstance -CimSession $cim -ClassName Win32_OperatingSystem -Property ProductType -OperationTimeoutSec $timeout -ErrorAction Stop)[0].ProductType;Step-WReadProgress;if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null};if($observedProductType -in @(1,2,3)){$productType=$observedProductType}}catch{if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw};$productType=$null}finally{if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null}}}
                     if($null -eq $productType){throw 'Type de systeme non lu : requete ignoree par prudence.'}
                     if($productType -eq 2){$entry.Skipped='DomainController';$probeResults[[string]$probe.Id]=[pscustomobject]$entry;continue}
                 }
                 $filter=[string]$probe.Filter;foreach($token in $since.Keys){$filter=$filter.Replace($token,$since[$token])}
-                $cacheKey=([string]$probe.Namespace).ToUpperInvariant()+'|'+([string]$probe.Class).ToUpperInvariant()+'|'+$filter
+                $cacheKey=Get-WCimGroupKey ([string]$probe.Namespace) ([string]$probe.Class) $filter
+                $cimStats.Consumers++
                 if(-not $groups.ContainsKey($cacheKey)){
                     $groups[$cacheKey]=[pscustomobject]@{Namespace=[string]$probe.Namespace;Class=[string]$probe.Class;Filter=$filter;Properties=[Collections.Generic.List[string]]::new();PropertyNames=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase);Read=$false;Items=@();Count=0L;EnumerationComplete=$false;Error='';At=''}
                 }
@@ -369,8 +495,16 @@ try{
         }
         foreach($plan in $planned){
             $probe=$plan.Probe;$properties=$plan.Properties;$cached=$plan.Group;$entry=$plan.Entry
+            # A singleton already read for the console or the inventory serves the probes whose properties it holds.
+            $shared=$null;$sharedKeyOf=Get-WCimGroupKey ([string]$cached.Namespace) ([string]$cached.Class) ([string]$cached.Filter)
+            if(-not $cached.Read -and $preRead.ContainsKey($sharedKeyOf)){$shared=$preRead[$sharedKeyOf];foreach($needed in $cached.Properties){if(@($shared.Properties) -notcontains $needed){$shared=$null;break}}}
+            if($null -ne $shared){
+                $cached.Read=$true
+                $cached.Items=@(ConvertTo-DomeniaProbeDetailInstance -Instance $shared.Instance -Properties $cached.Properties.ToArray() -Index 1);$cached.Count=1L;$cached.EnumerationComplete=$true;$cached.At=[string]$shared.At
+            }
             if(-not $cached.Read){
                 $cached.Read=$true
+                $cimStats.Executed++
                 $query=@{CimSession=$cim;Namespace=$cached.Namespace;ClassName=$cached.Class;Property=$cached.Properties.ToArray();OperationTimeoutSec=[Math]::Max(10,$timeout);ErrorAction='Stop'}
                 if($cached.Filter){$query.Filter=$cached.Filter}
                 try{
@@ -388,7 +522,7 @@ try{
                         }
                     }
                     $cached.Items=$details.ToArray();$cached.Count=$instanceCount;$cached.EnumerationComplete=$true
-                }catch{if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw};$cached.Error=[string]$_.Exception.Message}finally{if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null}}
+                }catch{if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw};$cached.Error=[string]$_.Exception.Message}finally{if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null};Step-WReadProgress}
                 $cached.At=[datetime]::UtcNow.ToString('o')
             }
             $entry.CheckedUtc=$cached.At
@@ -413,6 +547,7 @@ try{
     if($collectInventory -and -not $answer.Contains('Inventory')){$answer.InventoryError=$answer.Detail;$answer.InventoryCheckedUtc=[datetime]::UtcNow.ToString('o')}
     if($collectProbes){$errors=[ordered]@{};foreach($probe in @($Payload.Probes)){if($null -ne $answer.Probes -and $null -ne $answer.Probes.PSObject.Properties[[string]$probe.Id]){$errors[[string]$probe.Id]=$answer.Probes.([string]$probe.Id);continue};$errors[[string]$probe.Id]=[pscustomobject]@{Rows=@();Count=0;Error=$answer.Detail;Truncated=$false;CheckedUtc=[datetime]::UtcNow.ToString('o')}};$answer.Probes=[pscustomobject]$errors}
 }finally{if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null};if($null -ne $cim){Remove-CimSession -CimSession $cim -ErrorAction Ignore}}
+$answer.CimQueries=[pscustomobject]@{Consumers=[int]$cimStats.Consumers;Executed=[int]$cimStats.Executed;Avoided=[int][Math]::Max(0,$cimStats.Consumers-$cimStats.Executed)}
 # Validate only a qualified account belonging to the AD domain of this session.
 # A local account or a bare username is never reinterpreted as an AD user.
 if($answer.Outcome -eq 'Observed' -and ($null -eq $Payload.PSObject.Properties['ValidateConsoleIdentity'] -or [bool]$Payload.ValidateConsoleIdentity)){

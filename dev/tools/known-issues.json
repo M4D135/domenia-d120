@@ -1,0 +1,51 @@
+{
+  "Schema": "DomeniaKnownIssues/1",
+  "ReviewedOn": "2026-10-15",
+  "Issues": [
+    {
+      "Id": "KI-001",
+      "Title": "Redistribution non établie de PsExec, des bibliothèques Active Directory et de M4D.Admin.Common",
+      "Severity": "Bloquant",
+      "Status": "Ouvert",
+      "Impact": "Le paquet ne peut pas être publié tant que les droits de redistribution de ces composants ne sont pas établis.",
+      "Workaround": "Faire valider la diffusion par le service juridique ou appliquer lʼalternative indiquée pour chaque composant.",
+      "Source": "tools/licence-inventory.json"
+    },
+    {
+      "Id": "KI-002",
+      "Title": "Guides et captures à resynchroniser avec le pack",
+      "Severity": "Majeur",
+      "Status": "Ouvert",
+      "Impact": "36 citations des guides restent à relire, 8 entrées dʼaide ne nomment plus de contrôle et 56 figures nʼont pas de provenance de capture à jour ; les DOCX et PDF datent du 13 octobre 2026.",
+      "Workaround": "Se fier aux infobulles et à lʼaide contextuelle du pack ; refaire les captures sous Windows puis régénérer les guides.",
+      "Source": "tools/baselines/doc-sync-baseline.json"
+    },
+    {
+      "Id": "KI-003",
+      "Title": "Bibliothèques natives recompilées sans fabrication déterministe",
+      "Severity": "Majeur",
+      "Status": "Ouvert",
+      "Impact": "Domenia.Native.dll et M4D.Admin.Common.Query.dll ont été recompilées avec csc ; tools/build_native.ps1 et tools/build_query.ps1 exigent PowerShell 7, absent du poste de compilation : elles ne se reconstruisent pas à lʼoctet.",
+      "Workaround": "Les DLL livrées sont épinglées par empreinte (tools/release-contract.json) ; ne pas les remplacer sans nouvelle revue.",
+      "Source": "tools/release-contract.json"
+    },
+    {
+      "Id": "KI-004",
+      "Title": "Bascule de base : courte lecture SQLite sur le fil dʼinterface",
+      "Severity": "Mineur",
+      "Status": "Ouvert",
+      "Impact": "Pendant la bascule vers une base déplacée ou restaurée, Switch-DomeniaDatabaseContext lit une ligne de la base cible sur le fil dʼinterface.",
+      "Workaround": "Aucun nécessaire : la bascule est un geste explicite et rare.",
+      "Source": "dev/wad/modules/Domenia-StorageContext.UI.ps1"
+    },
+    {
+      "Id": "KI-005",
+      "Title": "Suppression des données du profil à la désinstallation non exécutée par les suites",
+      "Severity": "Mineur",
+      "Status": "Ouvert",
+      "Impact": "-Uninstall -ProfileData Supprimer nʼest pas exécuté par Test-DomeniaInstaller : il effacerait le profil du compte de test.",
+      "Workaround": "Qualifier cette option sur un compte Windows jetable avant de la documenter aux utilisateurs.",
+      "Source": "dev/wad/tests/Test-DomeniaInstaller.ps1"
+    }
+  ]
+}

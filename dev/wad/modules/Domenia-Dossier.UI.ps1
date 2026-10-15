@@ -10,7 +10,7 @@ function Complete-DomeniaDocumentTask {
     if($State.Epoch -ne $script:SessionEpoch){return}
     if($State.Action -eq 'Read'){
         $value=$r.Content|ConvertFrom-Json
-        if($value.Format -ne 'Domenia.Capture.1'){throw 'Format de capture non reconnu.'}
+        [void](Assert-DomeniaContractFormat -Format ([string](Get-DomeniaMember $value 'Format' '')) -Family 'Domenia.Capture')
         $capture=ConvertTo-DomeniaStoredCapture $value.Capture $State.Domain
         if($State.Slot -notin @('A','B')){throw 'Emplacement de capture invalide.'}
         Sync-DomeniaSupportSession;$script:SupportState.($State.Slot)=$capture;Update-DomeniaSupportComparison
@@ -39,12 +39,12 @@ function Use-DomeniaCaptureFile {
     Start-DomeniaDocumentTask -Action $Action -Path $dialog.FileName -Text $text -Slot $slot
 }
 function Export-DomeniaTechnicalDossier {
-    $counts=[ordered]@{Format='Domenia.Support.1';Build=[string]$script:MasterBuild;CapturedUtc=[datetime]::UtcNow.ToString('o');Tasks=[int]$script:AsyncJobs.Count;ReceiptPending=[int]$script:ReceiptPending;ReceiptReady=[bool]$script:ReceiptReady;WriteState=[string]$script:WriteState;Runtime=[string]$PSVersionTable.PSVersion;Bitness=64;ContainsRawLogs=$false;ContainsTargets=$false}
-    if($null -ne $script:Guard){$counts['DispatcherP95Ms']=Get-DomeniaPercentile $script:Guard.Samples.ToArray() 95}
-    if($null -ne $script:Persistence){$counts['PendingLocalWrites']=[int]$script:Persistence.Pending.Count;$counts['LocalWriteFailures']=[int]$script:Persistence.Failures}
-    $text=$counts|ConvertTo-Json -Depth 4
-    [void](Show-DomeniaDialog -Title 'Apercu du dossier technique' -Message 'Ce dossier ne contient que les compteurs ci-dessous. Aucun compte, nom de machine, journal brut, mot de passe ou cle ne sera ajoute.' -Details $text)
-    if(-not (Confirm-Action 'Enregistrer exactement ces compteurs dans un fichier local ? Aucun envoi automatique.')){return}
-    $d=(New-DomeniaFileRequest -Mode Save);$d.Filter='Dossier technique (*.json)|*.json';$d.FileName='Domenia-Support.json';$d.OverwritePrompt=$true
-    if($d.ShowDialog($script:Window) -eq $true){Start-DomeniaDocumentTask -Action Write -Path $d.FileName -Text $text}
+    # W13 (point 124): redacted diagnostic (New-DomeniaRedactedDiagnostic). The operator reads exactly what will be
+    # written, and what is never included, then confirms and chooses a local file. Nothing is sent anywhere.
+    # Point 145: the compatibility of this workstation (versions and statuses only) is part of the diagnostic.
+    $session=New-DomeniaSessionDiagnostic
+    [void](Show-DomeniaDialog -Title 'Aperçu du diagnostic expurgé' -Message ([string]$session.Preview) -Details ([string]$session.Json))
+    if(-not (Confirm-Action 'Enregistrer exactement ce diagnostic dans un fichier local ? Aucun envoi automatique.')){return}
+    $d=(New-DomeniaFileRequest -Mode Save);$d.Filter='Diagnostic Domenia (*.json)|*.json';$d.FileName='Domenia-Diagnostic.json';$d.OverwritePrompt=$true
+    if($d.ShowDialog($script:Window) -eq $true){Start-DomeniaDocumentTask -Action Write -Path $d.FileName -Text ([string]$session.Json)}
 }

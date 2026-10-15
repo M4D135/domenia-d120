@@ -29,7 +29,7 @@ Quand : avant toute intervention, vous devez retrouver un poste, un utilisateur 
 | Zone de Rechercher | Utilisation |
 |---|---|
 | Arbre des OU | Choisissez la branche à parcourir et relisez son chemin. |
-| Données de l’OU, sous l’arbre | Base locale, Postes (ping/WMI) et Les deux actualisent toute l’OU choisie et ses sous-OU. |
+| Données de l’OU, sous l’arbre | Objets AD, Ping et WMI actualisent toute l’OU choisie et ses sous-OU ; Arrêter interrompt l’actualisation en cours. |
 | Périmètre et Requêtes | Choisissez une source, des filtres ou une recette, puis lancez la recherche. |
 | Résultats | Triez, filtrez et ouvrez les objets affichés. Les actions de liste concernent cette liste. « Actualiser » et « Exporter CSV » sont dans le menu « ⋯ ». |
 
@@ -43,7 +43,7 @@ Quand : avant toute intervention, vous devez retrouver un poste, un utilisateur 
 2. **Ouvrir sa fiche.** Double-cliquez sur la ligne, puis cliquez sur l'onglet « Utilisateur ».
 3. **Lire ses postes.** « Postes associes » liste les postes liés à ce compte. Sélectionnez-en un et cliquez sur « Ouvrir le poste ».
 
-> [!ASTUCE] Plus court : clic droit sur la ligne de l'utilisateur dans les résultats, puis « Rechercher le poste associe ».
+> [!ASTUCE] Plus court : clic droit sur la ligne de l'utilisateur dans les résultats, puis « Rechercher le poste associé ».
 
 > [!RESULTAT] La fiche du poste de l'utilisateur est ouverte.
 
@@ -53,15 +53,15 @@ Quand : vous voulez voir tous les postes ou tous les utilisateurs d'un site ou d
 
 1. **Choisir l'OU.** À gauche de la page « Rechercher », dans « Parcourir les OU », dépliez l'arbre et cliquez sur une OU. Son contenu s'affiche dans la liste.
 2. **Régler la portée.** Ouvrez le menu « ⋯ » près de « Parcourir les OU ». Décochez « Inclure les sous-OU » pour ne voir que le premier niveau.
-3. **Filtrer.** Dans la liste « Tous les types », choisissez par exemple « Machines ». Dans « Toute présence », choisissez « En ligne » ou « Sans réponse au ping ». « 100 lignes max » borne la lecture de la liste. La présence repart sur « Toute présence » à chaque lancement de Domenia : au démarrage, aucun poste nʼest encore vérifié. Si le filtre masque toutes les lignes chargées, la liste lʼindique (« Le filtre masque 48 lignes ») avec un bouton « Effacer le filtre ».
+3. **Filtrer.** Dans la liste « Tous les types », choisissez par exemple « Machines ». Dans « Toute présence », choisissez « En ligne » ou « Sans réponse au ping ». « N lignes max » (100 par défaut) borne la lecture de la liste. La présence repart sur « Toute présence » à chaque lancement de Domenia : au démarrage, aucun poste nʼest encore vérifié. Si le filtre masque toutes les lignes chargées, la liste lʼindique (« Le filtre masque N lignes ») avec un bouton « Effacer le filtre ».
 4. **Compléter la liste.** Si le compteur indique une liste limitée, cliquez sur « Charger la suite » : seules les lignes suivantes sont lues, celles déjà affichées restent en place avec votre sélection. Pour aller plus vite, « Charger jusqu’à 1 000 » complète la liste jusqu’à ce palier en un clic (puis 5 000, puis 20 000).
 5. **Changer de périmètre.** Choisissez une autre OU dans l’arbre. Pour chercher un objet par son nom dans le domaine, utilisez la barre du haut.
 
 > [!RESULTAT] La liste montre les objets de l'OU choisie.
 
-Sous l’arbre, « Données de l’OU » propose « Base locale », « Postes (ping/WMI) » et « Les deux ». Ces commandes portent toujours sur l’OU choisie et ses sous-OU, même si la liste est filtrée, limitée ou réglée au premier niveau. Elles utilisent l’OU de cet arbre, y compris pendant une recherche globale ; relisez le chemin indiqué. Le chapitre 5 explique quelle commande choisir.
+Sous l’arbre, « Données de l’OU » propose « Objets AD », « Ping » et « WMI », trois collectes indépendantes enregistrées automatiquement, ainsi que « Arrêter ». Ces commandes portent toujours sur l’OU choisie et ses sous-OU, même si la liste est filtrée, limitée ou réglée au premier niveau. Elles utilisent l’OU de cet arbre, y compris pendant une recherche globale ; relisez le chemin indiqué. Le chapitre 5 explique quelle commande choisir.
 
-Dans une petite fenêtre, le panneau sous l’arbre se compacte : le titre « Données de l’OU » se masque et « Postes (ping/WMI) » devient « Ping/WMI ». Les commandes gardent le même périmètre et le même effet.
+Dans une petite fenêtre, le panneau sous l’arbre se compacte : le titre « Données de l’OU » se masque et les boutons se resserrent. Les commandes gardent le même périmètre et le même effet.
 
 ## Exécuter une requête prête à l’emploi
 
@@ -79,11 +79,11 @@ Pour une requête locale, choisissez « Correspondants », « Inconnus » ou « 
 
 ![Requête locale : sélection des postes dont les données nécessaires restent inconnues ; données fictives](fig:recherche-inconnus)
 
-« Effacer la requête » annule la requête et efface ses résultats. Sur une liste de recherche ordinaire, il retire seulement le filtre de requête supplémentaire et conserve la liste. Aucune lecture ne se relance. Choisissez ensuite une OU, une autre requête ou la recherche de nom du bandeau. Le petit crayon ouvre Outils → Atelier de requêtes ; une recette locale sélectionnée se retrouve dans « Composer la requête ».
+« Effacer la requête » annule la requête et efface ses résultats. Sur une liste de recherche ordinaire, il retire seulement le filtre de requête supplémentaire et conserve la liste. Aucune lecture ne se relance. Choisissez ensuite une OU, une autre requête ou la recherche de nom du bandeau. Le petit crayon ouvre Outils → Atelier de requêtes ; une recette locale sélectionnée se retrouve dans « 1. Créer ».
 
 Dans une fenêtre étroite ou basse, la barre peut se replier : « Options de requête » regroupe le filtre de modèles, les favoris, la source et le choix des résultats. Le bouton rappelle le choix, par exemple « Inconnus », et « Effacer » reste directement accessible. Ouvrez ou repliez ces options selon la place nécessaire ; vos choix sont conservés et aucune recherche ne se lance. Échap referme le volet.
 
-> [!NOTE] Trois dates ont des rôles différents : la base AD indique quand les objets ont été recensés, les mesures indiquent quand les postes ont été interrogés, le calcul indique quand la vue a été préparée. Une couverture AD absente ou partielle appelle « Base locale » ou « Les deux » dans « Données de l’OU ». Un inventaire ancien appelle « Postes (ping/WMI) ». Réexécuter une requête locale ne rajeunit aucune de ces données.
+> [!NOTE] Trois dates ont des rôles différents : la base AD indique quand les objets ont été recensés, les mesures indiquent quand les postes ont été interrogés, le calcul indique quand la vue a été préparée. Une couverture AD absente ou partielle appelle « Objets AD » dans « Données de l’OU ». Une présence ancienne appelle « Ping », un inventaire ancien « WMI ». Réexécuter une requête locale ne rajeunit aucune de ces données.
 
 ## Si ça ne se passe pas comme prévu
 
@@ -91,9 +91,9 @@ La recherche globale peut continuer tant que de nouveaux objets AD arrivent, pen
 
 | Vous voyez | Que faire |
 |---|---|
-| « Saisissez au moins 2 caractères… » | Tapez au moins deux caractères ; les étoiles ne comptent pas. |
+| « Saisissez au moins N caractères… » | Tapez au moins N caractères (2 par défaut) ; les étoiles ne comptent pas. |
 | « Saisissez au moins un caractère en plus de * » | Une étoile seule listerait tout le domaine : ajoutez une partie du nom, par exemple « compta* ». |
-| « Aucun résultat affiché » | Vérifiez l’orthographe, l’OU et les filtres, ou cherchez le nom dans la barre du haut. Une liste vide ne prouve pas l'absence de l'objet. |
+| « Aucun résultat » | Vérifiez l’orthographe, l’OU et les filtres, ou cherchez le nom dans la barre du haut. Une liste vide ne prouve pas l'absence de l'objet. |
 | « La liste affichée nʼest plus la recherche courante : relancez la recherche. » | Relancez la recherche, puis cliquez de nouveau sur « Charger la suite ». |
 | « Fiche » est grisé dans le menu | Sélectionnez d'abord une ligne dans les résultats. |
 
@@ -166,7 +166,7 @@ Quand : l'administrateur vous a donné un compte réservé aux postes, ou « Ou
 Quand : vous avez besoin du matériel, du système, des disques ou de la configuration du poste.
 
 1. **Ouvrir la vue.** Cliquez sur « Détails », puis sur l'onglet « Inventaire ». La carte « Inventaire du poste » s'affiche.
-2. **Choisir l'inventaire.** Cliquez sur « Rapide » (matériel, système, disques, réseau, sécurité, logiciels, services) ou sur « Complet », plus long, qui ajoute les processus, les tâches planifiées, les certificats et les erreurs récentes.
+2. **Choisir l'inventaire.** Cliquez sur « Inventaire rapide (≈1 min) » (matériel, système, disques, réseau, sécurité, logiciels, services) ou sur « Inventaire complet (≈3 min) », plus long, qui ajoute les processus, les tâches planifiées, les certificats et les erreurs récentes.
 3. **Attendre la fin.** Sur la ligne de « Categorie », un résumé donne ensuite le nombre d'éléments lus et le nombre de sources accessibles ou refusées.
 4. **Lire le résultat.** Chaque ligne donne la « Categorie », l'« Element », la « Valeur » et la « Source ». Choisissez une catégorie dans « Categorie » pour n'afficher qu'elle.
 5. **Transmettre.** Cliquez sur « Copier » ou sur « Exporter CSV » pour joindre l'inventaire au ticket. « Exporter CSV » enregistre le fichier sans rien demander : son chemin s'affiche dans une fenêtre et dans le « Journal de session » (« Inventaire exporte : … »). Le volet « Detail par source » indique ce qui a été lu ou refusé.
@@ -201,7 +201,7 @@ Quand : vous voulez voir d'un coup d'œil l'état d'un poste et ses points à v�
 | « Compte machine dans Active Directory » | Une fiche : état du compte, OU, mot de passe machine, dernière connexion au domaine, LAPS, horloge. |
 | « Ressources » | Mémoire, processeur, batterie, espace disque. |
 | « Activité » | Services Windows ; avec l'inventaire complet, processus les plus gourmands et erreurs du journal Système sur 3 jours. |
-| « Sécurité et état » | « État de protection » coche BitLocker, pare-feu, antivirus, redémarrage en attente et dernier correctif (« Non lu » quand le contrôle n'a pas été lu) ; services automatiques arrêtés et périphériques en erreur. Les autres informations s'ajoutent depuis « Ajouter un widget ». |
+| « Sécurité et état » | « État de protection » coche BitLocker, démarrage sécurisé, pare-feu, antivirus, redémarrage en attente et dernier correctif (« Non lu » quand le contrôle n'a pas été lu) ; services automatiques arrêtés et périphériques en erreur. Les autres informations s'ajoutent depuis « Ajouter un widget ». |
 
 Pour un ticket, « Copier le résumé », dans la barre du tableau, copie le poste, la date de l'inventaire, le score, les points à vérifier et les fiches en texte. « Copier », dans le menu clic droit d'un widget (ou Ctrl+C sur le widget), copie ce seul widget.
 
@@ -233,10 +233,10 @@ Quand : vous cherchez sur quel poste travaille un utilisateur, ou quels postes d
 
 1. **Préparer la liste.** Affichez les postes voulus dans « Rechercher » : OU, recherche ou « Filtrer la liste » (chapitre 1). Seuls les postes affichés sont interrogés : une liste courte va plus vite.
 2. **Choisir la vérification.** Cliquez sur la flèche de « Vérifier la liste » : « Qui répond ? » pour savoir seulement quels postes répondent, « Qui est connecté ? » pour savoir aussi qui est connecté, « Matériel et widgets » pour connaître aussi leur matériel (modèle, mémoire, disque C:, version de Windows et date de démarrage). Le bouton garde ensuite ce choix jusqu'à la fermeture de Domenia : un clic suffit pour recommencer.
-3. **Confirmer.** La demande donne en trois lignes les postes visés, ce qui sera lu et la durée estimée. Cliquez sur « Pinger 48 postes », « Vérifier 48 postes » ou « Analyser 48 postes » (le nombre est celui de votre liste).
-4. **Suivre l'avancement.** Le bouton devient « Arrêter (12/48) », une barre fine avance sous les boutons et chaque poste encore à lire affiche « relevé en cours… ».
+3. **Confirmer.** La demande donne en trois lignes les postes visés, ce qui sera lu et la durée estimée. Cliquez sur « Pinger N postes », « Vérifier N postes » ou « Analyser N postes » (N est le nombre de postes de votre liste).
+4. **Suivre l'avancement.** Le bouton devient « Arrêter (N/M) » (N postes lus sur M), une barre fine avance sous les boutons et chaque poste encore à lire affiche « relevé en cours… ».
 5. **Lire le résultat.** Après « Qui répond ? », seule « Présence réseau » est mise à jour et trois pastilles comptent les postes en ligne, sans réponse et en erreur : cliquez sur l'une d'elles pour ne garder que ces postes, cliquez de nouveau pour tout réafficher. Après « Qui est connecté ? » ou « Matériel et widgets », « Utilisateur connecté (console) » et « Vérification utilisateur » sont aussi mis à jour. Le matériel s'affiche dans la vue d'ensemble de l'Accueil (chapitre 5).
-6. **Arrêter si besoin.** Cliquez sur « Arrêter (12/48) » : aucune nouvelle lecture ne démarre et les résultats déjà obtenus restent affichés.
+6. **Arrêter si besoin.** Cliquez sur « Arrêter (N/M) » : aucune nouvelle lecture ne démarre et les résultats déjà obtenus restent affichés.
 
 ![Ligne d'actions sous les résultats : « Vérifier au clic », « + utilisateur connecté », « Revérifier ce poste » et « Vérifier la liste » avec sa flèche](fig:recherche-actions)
 
@@ -253,7 +253,7 @@ Quand : vous cherchez sur quel poste travaille un utilisateur, ou quels postes d
 | « Vérifier la liste » est grisé | La liste ne contient aucun poste, ou c'est une vue sur tout le domaine. Affichez des postes d'une OU, par exemple avec « Type d’objet » sur « Machines ». Si le compteur indique « Actualisation de … », attendez sa fin ou arrêtez-la avec les boutons d'actualisation de l'OU. |
 | « Relevé impossible : 812 postes affichés : plafond 500. Filtrez la liste. » | Réduisez la liste (sous-OU, recherche, « Filtrer la liste ») ou sélectionnez les postes voulus. L'administrateur règle ce plafond. |
 | « Relevé impossible : Recherche globale sans terme… » ou « …racine du domaine sans autre filtre… » | Saisissez un nom ou choisissez une OU, puis relancez. Si le message commence par « Toute la liste est sélectionnée », sélectionnez seulement les postes voulus. |
-| « Relevé impossible : Un relevé de la liste est déjà en cours : arrêtez-le ou attendez sa fin. » | Attendez la fin du relevé en cours, ou cliquez sur « Arrêter (n/N) ». |
+| « Relevé impossible : Un relevé de la liste est déjà en cours : arrêtez-le ou attendez sa fin. » | Attendez la fin du relevé en cours, ou cliquez sur « Arrêter (N/M) ». |
 | « Relevé impossible : Attendez la confirmation des enregistrements locaux avant un nouveau relevé. » | Attendez quelques secondes, puis relancez. |
 | « Relevé impossible : Aucune base autonome active. » | Prévenez l'administrateur. |
 | « Aucun compte console » | Personne n'est connecté sur l'écran du poste. |
@@ -284,15 +284,15 @@ Les mêmes trois commandes sont disponibles près du choix d’OU dans Accueil e
 
 | Votre besoin | Commande | Ce qui est lu |
 |---|---|---|
-| Retrouver les objets ajoutés, déplacés ou supprimés de l’annuaire | Base locale | Active Directory, puis enregistrement de sa copie locale. Aucun ping ni inventaire. |
-| Connaître la présence et l’état actuel des postes déjà recensés | Postes (ping/WMI) | Ping, utilisateur console, inventaire léger (modèle, mémoire, disque C:, version Windows, démarrage) et sondes des widgets configurés. |
-| Actualiser le recensement puis l’état des postes | Les deux | Lecture AD et stockage terminé, puis relevé des postes. |
+| Retrouver les objets ajoutés, déplacés ou supprimés de l’annuaire | Objets AD | Active Directory, puis enregistrement de sa copie locale. Aucun ping ni WMI. |
+| Savoir quels postes répondent | Ping | Présence réseau des postes activés dans AD, seulement ; les dates AD et WMI restent inchangées. |
+| Connaître l’état actuel des postes déjà recensés | WMI | Utilisateur console, inventaire léger (modèle, mémoire, disque C:, version Windows, démarrage) et sondes des widgets configurés ; aucun ping imposé. |
 
 Relisez le chemin de l’OU et la mention des sous-OU. Les commandes portent sur toute cette branche ; les filtres, la limite et la case « Inclure les sous-OU » de la liste de Recherche ne réduisent pas leur cible. Les choix d’OU d’Accueil, de Rechercher et de Base autonome restent indépendants. Choisissez une OU avant de lancer : la racine du domaine n’est pas une cible de ces commandes.
 
-« Postes (ping/WMI) » interroge les comptes ordinateur actifs connus dans la base de cette branche. Le nombre de postes est confirmé avant la collecte. Les mesures demandées sont relues, même si une ancienne mesure est encore récente. Les comptes désactivés restent dans le recensement et ne sont pas sondés. Les sondes WMI des widgets configurés sur les tableaux Général et Poste sont aussi incluses. Leur liste est fixée au clic de lancement ; modifier ensuite un widget ne change pas l’opération en cours.
+« Ping » et « WMI » interrogent les comptes ordinateur actifs connus dans la base de cette branche. Le nombre de postes est confirmé avant la collecte. Les mesures demandées sont relues, même si une ancienne mesure est encore récente. Les comptes désactivés restent dans le recensement et ne sont pas sondés. Les sondes WMI des widgets configurés sur les tableaux Général et Poste sont aussi incluses. Leur liste est fixée au clic de lancement ; modifier ensuite un widget ne change pas l’opération en cours.
 
-Avec « Les deux », le relevé commence seulement après une lecture AD complète et son enregistrement confirmé. Une erreur, une lecture partielle ou une annulation empêche la phase suivante. « Arrêter » interdit les nouveaux départs et conserve les données déjà enregistrées. Attendez la fin indiquée avant de fermer Domenia.
+Pour actualiser le recensement puis l’état des postes, lancez « Objets AD », attendez la confirmation de son enregistrement, puis lancez « Ping » ou « WMI » : les trois collectes ne s’enchaînent pas d’elles-mêmes. « Arrêter » interdit les nouveaux départs et conserve les données déjà enregistrées. Attendez la fin indiquée avant de fermer Domenia.
 
 | Date affichée | Comment la lire |
 |---|---|
@@ -311,7 +311,7 @@ Un échec de lecture conserve les dernières valeurs réussies avec leur date. L
 1. **Ouvrir le détail.** Survolez le widget ou donnez-lui le focus avec le clavier, puis cliquez sur la petite icône de détail près du crayon. L’Atelier de requêtes s’ouvre dans Outils, avec le périmètre du tableau de bord. Un clic sur la carte ou sur un segment de graphique laisse le tableau affiché.
 2. **Lire la liste.** L’onglet « Résultats » affiche les postes correspondants. Le compteur porte sur le résultat complet. La table affiche 200 postes par page ; utilisez les commandes de page pour parcourir la suite.
 3. **Examiner un poste.** Sélectionnez sa ligne, ouvrez sa fiche ou les actions du poste. Vérifiez le nom et l'identité affichés avant une intervention.
-4. **Préciser ou revenir.** Dans « Composer la requête », ajoutez une condition, puis cliquez sur « Exécuter » pour revenir aux résultats. Le bouton « Retour » revient à l’écran précédent.
+4. **Préciser ou revenir.** Dans « 1. Créer », ajoutez une condition, puis cliquez sur « Exécuter » pour revenir aux résultats. Le bouton « Retour » revient à l’écran précédent.
 
 ![Détail local du poste sélectionné dans l’Atelier ; données fictives](fig:atelier-fiche-locale)
 
@@ -323,7 +323,7 @@ Pour un point d'attention, le premier aperçu est volontairement court. « Déta
 
 Ouvrez Outils → Atelier de requêtes, ou utilisez la petite icône de la barre du parc. Le petit crayon de Rechercher ouvre également l’Atelier ; une recette locale sélectionnée y est préparée pour modification. Dans l’Atelier, relisez le périmètre du parc affiché en haut : il peut différer de l’OU de Rechercher. Choisissez « Tous les postes recensés », cliquez sur « Charger », puis sur « Exécuter ». Elle inclut les comptes actifs et désactivés du périmètre. Une recherche textuelle dans Rechercher peut donner moins de lignes à cause de sa limite et de ses filtres ; la base et l'Atelier servent à examiner le recensement complet.
 
-Dans « Composer la requête », ajoutez une condition en choisissant une information, un opérateur et une valeur. « Toutes les conditions » impose leur réunion ; « Au moins une condition » accepte un poste qui en remplit une. Pour repérer des mesures manquantes, utilisez « est absent ».
+Dans « 1. Créer », ajoutez une condition en choisissant une information, un opérateur et une valeur. « Toutes les conditions » impose leur réunion ; « Au moins une condition » accepte un poste qui en remplit une. Pour repérer des mesures manquantes, utilisez « est absent ».
 
 Vous pouvez sauvegarder la requête sous un nom clair, la retrouver dans la liste des requêtes et l'ajouter au tableau de bord. Une répartition par système, modèle ou autre champ donne les principaux groupes ; « Autres » rassemble les groupes restants et « Inconnu » les données non renseignées.
 
@@ -335,7 +335,7 @@ Pour vérifier les comptes désactivés, choisissez leur état dans le filtre de
 
 ## Partir d’un modèle prêt à utiliser
 
-L’onglet « Bibliothèque » présente 152 modèles livrés dans 14 catégories, ainsi que vos requêtes personnelles. Recherchez un sujet, filtrez par catégorie ou par source (« Modèles livrés » ou « Mes requêtes »), puis sélectionnez une ligne. Lisez sa description et les informations nécessaires avant de cliquer sur « Utiliser cette requête ». Ajustez les conditions dans « Composer la requête », puis cliquez sur « Exécuter » pour consulter les résultats locaux. Le sélecteur rapide et « Charger », en haut de l’Atelier, restent disponibles.
+L’onglet « Bibliothèque » présente 152 modèles livrés dans 14 catégories, ainsi que vos requêtes personnelles. Recherchez un sujet, filtrez par catégorie ou par source (« Modèles livrés » ou « Mes requêtes »), puis sélectionnez une ligne. Lisez sa description et les informations nécessaires avant de cliquer sur « Utiliser cette requête ». Ajustez les conditions dans « 1. Créer », puis cliquez sur « Exécuter » pour consulter les résultats locaux. Le sélecteur rapide et « Charger », en haut de l’Atelier, restent disponibles.
 
 Un modèle peut servir au parc ou au tableau d’un poste. Donnez un nom clair à votre adaptation pour l’enregistrer comme requête personnelle. Le modèle décrit les conditions ; les données nécessaires doivent déjà avoir été relevées ou faire l’objet d’une collecte explicite.
 
@@ -345,35 +345,35 @@ Deux points de départ : « Comptes désactivés » utilise la copie AD de l’O
 
 ## Choisir une information dans le catalogue
 
-L’onglet « Catalogue des informations » aide à trouver le champ utile : nom, matériel, sécurité, réseau ou autre information. Saisissez un mot et limitez au besoin la source ou la catégorie. La fiche explique l’usage, le type de valeur et la manière d’obtenir la donnée.
+L’onglet « Informations » aide à trouver le champ utile : nom, matériel, sécurité, réseau ou autre information. Saisissez un mot et limitez au besoin la source ou la catégorie. La fiche explique l’usage, le type de valeur et la manière d’obtenir la donnée.
 
-Cliquez sur « Utiliser cette information » pour retrouver le champ dans « Composer la requête ». Choisissez ensuite l’opérateur et la valeur, puis cliquez sur « Ajouter ». Ouvrir le catalogue ou sélectionner un champ ne lance aucune collecte.
+Cliquez sur « Utiliser cette information » pour retrouver le champ dans « 1. Créer ». Choisissez ensuite l’opérateur et la valeur, puis cliquez sur « Ajouter ». Ouvrir le catalogue ou sélectionner un champ ne lance aucune collecte.
 
-![Catalogue des informations : recherche d’un champ et explication de sa source ; données fictives](fig:atelier-catalogue)
+![Onglet Informations : recherche d’un champ et explication de sa source ; données fictives](fig:atelier-catalogue)
 
 ## Exemple : suivre les disques peu disponibles
 
-1. **Choisir l’information.** Ouvrez « Composer la requête » et sélectionnez l’espace libre du disque système en pourcentage.
+1. **Choisir l’information.** Ouvrez « 1. Créer » et sélectionnez l’espace libre du disque système en pourcentage.
 2. **Définir le seuil.** Choisissez l’opérateur inférieur à, saisissez 20 puis ajoutez la condition.
 3. **Lire le résultat.** Cliquez sur « Exécuter » : l’onglet « Résultats » s’ouvre. Contrôlez le total et la date des mesures. Une valeur absente ne signifie pas que le disque est plein.
 
 ![Condition numérique : espace libre du disque système inférieur à 20 % ; données fictives](fig:atelier-condition)
 
-4. **Nommer et enregistrer.** Revenez dans « Composer la requête », donnez un nom explicite à la requête puis cliquez sur « Enregistrer ». Retrouvez-la dans la liste pour la réutiliser.
+4. **Nommer et enregistrer.** Revenez dans « 1. Créer », donnez un nom explicite à la requête puis cliquez sur « Enregistrer ». Retrouvez-la dans la liste pour la réutiliser.
 
 ![Requête nommée enregistrée dans la bibliothèque de l’Atelier ; données fictives](fig:atelier-bibliotheque)
 
-5. **Ajouter au tableau.** Dans « Composer la requête », choisissez la destination « Tableau de bord général », puis une présentation : Indicateur, Texte, Barres, Camembert ou Colonnes. Cliquez sur « Créer une sonde dashboard ». Le widget reprend la requête ; sa petite icône de détail permet de revenir aux postes concernés.
+5. **Ajouter au tableau.** Dans « 1. Créer », choisissez la destination « Tableau de bord général », puis une présentation : Indicateur, Texte, Barres, Camembert ou Colonnes. Cliquez sur « Créer une sonde dashboard ». Le widget reprend la requête ; sa petite icône de détail permet de revenir aux postes concernés.
 
 ![Sonde du tableau de bord créée depuis la requête sur les disques ; données fictives](fig:accueil-sonde-requete)
 
-6. **Filtrer Rechercher.** Dans « Composer la requête », cliquez sur « Appliquer aux résultats de Recherche ». Le filtre utilise les identités des postes trouvés ; relisez la restriction affichée et effacez-la pour revenir à la liste habituelle.
+6. **Filtrer Rechercher.** Dans « 1. Créer », cliquez sur « Appliquer aux résultats de Recherche ». Le filtre utilise les identités des postes trouvés ; relisez la restriction affichée et effacez-la pour revenir à la liste habituelle.
 
 ![Rechercher filtré par les postes trouvés dans l’Atelier ; données fictives](fig:recherche-requete)
 
 ## Réutiliser une requête sur un poste
 
-Le bouton « Atelier » du tableau de bord du poste ouvre la même bibliothèque de requêtes. Dans « Composer la requête », choisissez « Tableau de bord du poste » et la présentation souhaitée, puis « Créer une sonde dashboard ». Le widget applique la recette au poste actuellement sélectionné ; il sera réévalué lorsque vous changerez de poste.
+Le bouton « Atelier » du tableau de bord du poste ouvre la même bibliothèque de requêtes. Dans « 1. Créer », choisissez « Tableau de bord du poste » et la présentation souhaitée, puis « Créer une sonde dashboard ». Le widget applique la recette au poste actuellement sélectionné ; il sera réévalué lorsque vous changerez de poste.
 
 « Tester sur le poste sélectionné » indique s’il correspond, ne correspond pas ou si le résultat reste inconnu. Ce test lit les données locales déjà disponibles, sans lancer de collecte. La grande liste « Résultats » de l’Atelier continue à afficher les postes de l’OU indiquée en haut ; elle ne se transforme pas en liste d’un seul poste.
 
@@ -383,21 +383,21 @@ Le bouton « Atelier » du tableau de bord du poste ouvre la même bibliothèque
 
 ## Mettre à jour les relevés
 
-Pour un relevé général de l’OU, utilisez « Postes (ping/WMI) » ; si le recensement doit aussi être relu, choisissez « Les deux ». La procédure suivante concerne les seules informations demandées par une requête dans l’Atelier et permet de régler leur réutilisation.
+Pour un relevé général de l’OU, utilisez « Ping » ou « WMI » ; si le recensement doit aussi être relu, lancez d’abord « Objets AD ». La procédure suivante concerne les seules informations demandées par une requête dans l’Atelier et permet de régler leur réutilisation.
 
 1. **Choisir le périmètre.** La collecte de l’Atelier concerne tous les comptes actifs de l’OU affichée et de ses sous-OU, même si une condition réduit la table. Pour cibler un seul poste, utilisez l’action de sa fiche locale. Les comptes désactivés restent consultables et sont exclus de la collecte du parc.
-2. **Régler la collecte.** Dans « Composer la requête », dépliez « Réglages de collecte ». Commencez par 4 postes en parallèle. Le réglage propose 1, 2, 4, 6 ou 8 ; réduisez-le si le réseau ou les postes répondent mal.
+2. **Régler la collecte.** Dans « 1. Créer », dépliez « Réglages de collecte ». Commencez par 4 postes en parallèle. Le réglage propose 1, 2, 4, 6 ou 8 ; réduisez-le si le réseau ou les postes répondent mal.
 3. **Choisir la fraîcheur.** Réutilisez les mesures de moins de 5, 15 ou 60 minutes, ou forcez une relecture. Certaines données volatiles restent soumises à un délai plus court.
 4. **Lancer et confirmer.** Cliquez sur « Collecter les données requises… » et relisez le nombre de cibles avant confirmation. Suivez les réussites, les refus et les enregistrements en attente.
 
 ![Réglages de la collecte : parallélisme et durée de réutilisation des mesures ; données fictives](fig:atelier-collecte)
 5. **Arrêter si besoin.** Arrêter empêche de nouvelles lectures ; les résultats déjà obtenus sont conservés. Attendez la confirmation du stockage avant de quitter.
 
-La collecte lit les informations requises par la requête : présence, utilisateur console, inventaire léger ou sondes WMI. Si la recette utilise uniquement des données AD, Domenia invite à mettre à jour la base de l’OU. « Actualiser ce poste… » dans la fiche locale reste une demande d’inventaire léger sur ce seul poste. La commande « Postes (ping/WMI) » de l’OU relit le ping, la console, l’inventaire léger et les sondes des widgets configurés, indépendamment du brouillon de l’Atelier. Pour collecter seulement les informations d’une requête, utilisez la procédure sélective décrite ici.
+La collecte lit les informations requises par la requête : présence, utilisateur console, inventaire léger ou sondes WMI. Si la recette utilise uniquement des données AD, Domenia invite à mettre à jour la base de l’OU. « Actualiser ce poste… » dans la fiche locale reste une demande d’inventaire léger sur ce seul poste. Les commandes « Ping » et « WMI » de l’OU relisent, l’une la présence, l’autre la console, l’inventaire léger et les sondes des widgets configurés, indépendamment du brouillon de l’Atelier. Pour collecter seulement les informations d’une requête, utilisez la procédure sélective décrite ici.
 
 ## Mettre à jour la base du parc
 
-Pour relire AD sans quitter Accueil ou Rechercher, utilisez « Base locale » auprès de l’OU visée. Pour parcourir le contenu ou gérer les sauvegardes, ouvrez Outils puis Base autonome. Le choix d’OU, visible au-dessus des onglets, règle « Mise à jour » et « Données ». « Stockage » agit sur la base locale entière. Cliquez sur « Choisir une OU », sélectionnez son unité organisationnelle, puis relisez le chemin affiché. Ce choix est indépendant de Rechercher.
+Pour relire AD sans quitter Accueil ou Rechercher, utilisez « Objets AD » auprès de l’OU visée. Pour parcourir le contenu ou gérer les sauvegardes, ouvrez Outils puis Base autonome. Le choix d’OU, visible au-dessus des onglets, règle « Mise à jour » et « Données ». « Stockage » agit sur la base locale entière. Cliquez sur « Choisir une OU », sélectionnez son unité organisationnelle, puis relisez le chemin affiché. Ce choix est indépendant de Rechercher.
 
 | Votre besoin | Onglet et commande |
 |---|---|
@@ -441,8 +441,8 @@ L’onglet « Stockage » rassemble le chemin de la base et les sauvegardes. La 
 | Vous voyez | Que faire |
 |---|---|
 | Un widget compte plus de postes que Rechercher | Vérifiez l'OU, les sous-OU, les comptes désactivés, le filtre et la limite de Rechercher. Ouvrez sa petite icône de détail pour consulter la liste exacte. |
-| Une mesure est inconnue ou ancienne | Pour le ping et l’inventaire léger de l’OU, utilisez « Postes (ping/WMI) ». Pour une sonde précise, collectez depuis l’Atelier. Un ping récent ne rafraîchit pas un ancien inventaire. |
-| Le calcul est récent mais la base ou les mesures sont anciennes | Le calcul prépare l’affichage. Choisissez « Base locale », « Postes (ping/WMI) » ou « Les deux » selon la source à relire. |
+| Une mesure est inconnue ou ancienne | Pour la présence de l’OU, utilisez « Ping » ; pour la console et l’inventaire léger, « WMI ». Pour une sonde précise, collectez depuis l’Atelier. Un ping récent ne rafraîchit pas un ancien inventaire. |
+| Le calcul est récent mais la base ou les mesures sont anciennes | Le calcul prépare l’affichage. Choisissez « Objets AD », « Ping » ou « WMI » selon la source à relire. |
 | Une actualisation vise plus de postes que la liste n’en montre | Les commandes « Données de l’OU » couvrent toute l’OU et ses sous-OU. « Vérifier la liste » reste limité aux lignes affichées. |
 | Un inventaire échoue mais des valeurs restent affichées | Ce sont les dernières valeurs réussies, avec leur date. Consultez l’erreur et relancez une collecte adaptée ; leur présence ne signifie pas que le dernier essai a réussi. |
 | La base est partielle | Relancez la mise à jour selon le message affiché. Ne concluez pas à une suppression à partir d'une passe incomplète. |
@@ -458,12 +458,12 @@ Quand : vous voulez garder sous les yeux les informations utiles. Chaque tuile o
 1. **Ouvrir le panneau.** Cliquez sur « Ajouter un widget » dans la barre du tableau. Le panneau de réglage s’ouvre dans la fenêtre.
 2. **Chercher l'information.** Tapez un mot dans la recherche (disque, utilisateur, BitLocker…) : la liste des informations se réduit. Le badge « affiche » signale une information déjà sur le tableau.
 3. **Choisir.** Cliquez sur une ligne. L'« Apercu » montre le widget.
-4. **Régler.** Modifiez au besoin le « Titre », la « Représentation » (« Chiffre cle », « Jauge », « Anneau », « Barres »…), la « Taille » et la « Section ». Pour une nouvelle section, choisissez « + Nouvelle section... » et tapez son nom dans le champ qui apparaît.
+4. **Régler.** Modifiez au besoin le « Titre », la « Représentation » (« Chiffre clé », « Jauge », « Anneau », « Barres »…), la « Taille » et la « Section ». Pour une nouvelle section, choisissez « + Nouvelle section... » et tapez son nom dans le champ qui apparaît.
 5. **Ajouter.** Cliquez sur « Ajouter » : le widget apparaît à la fin de sa section et la collecte de ses données manquantes part aussitôt, pour le poste sélectionné ou les postes actifs de l’OU affichée. Le widget affiche « Recherche des mesures manquantes » : les postes déjà mesurés ne sont pas contactés, puis « Collecte en cours » et son chiffre. Au-delà de 200 postes à lire, leur nombre est confirmé dans la page ; au-delà du plafond d’un relevé (500 postes par défaut), rien n’est lu. « Annuler » ne change rien.
 
 ![Panneau « Ajouter un widget » : recherche, liste des informations, réglages à droite et aperçu du widget « Disque systeme »](fig:editeur-widget)
 
-> [!NOTE] Une ligne « Requetes WMI · » interroge les postes. Sur le tableau du poste, cliquez sur « Actualiser les requetes », puis sur « Verifier les sessions » : le widget se remplit. Sur l’Accueil, ouvrez le détail de la sonde, puis collectez ses données dans l’Atelier.
+> [!NOTE] Une ligne de la section « Lu sur …, à la demande · … » (le poste, ou les postes sur l’Accueil) interroge les postes. Sur le tableau du poste, cliquez sur « Actualiser les requetes », puis sur « Verifier les sessions » : le widget se remplit. Sur l’Accueil, ouvrez le détail de la sonde, puis collectez ses données dans l’Atelier.
 
 > [!RESULTAT] Le widget est enregistré sur le tableau, dans la section choisie.
 
@@ -482,7 +482,7 @@ Quand : vous voulez garder sous les yeux les informations utiles. Chaque tuile o
 ## Revenir en arrière
 
 1. **Annuler la dernière modification.** Après un changement, la barre du tableau le rappelle, par exemple « Widget retire », avec le bouton « Annuler ». Cliquez dessus : la disposition précédente revient.
-2. **Revenir à la disposition d'origine.** En personnalisation, cliquez sur « Par defaut ». Ce retour s'annule lui aussi avec « Annuler ».
+2. **Revenir à la disposition d'origine.** En personnalisation, cliquez sur « Par défaut ». Ce retour s'annule lui aussi avec « Annuler ».
 
 > [!ATTENTION] « Annuler » ne revient qu'une étape en arrière et disparaît dès que de nouvelles données arrivent ou que vous choisissez un autre objet. Vérifiez le tableau avant de passer à autre chose.
 
@@ -492,7 +492,7 @@ Quand : vous voulez garder sous les yeux les informations utiles. Chaque tuile o
 
 | Vous voyez | Que faire |
 |---|---|
-| « Aucun widget » | Tous les widgets ont été retirés. Cliquez sur « Ajouter un widget », ou sur « Personnaliser » puis « Par defaut ». |
+| « Aucun widget » | Tous les widgets ont été retirés. Cliquez sur « Ajouter un widget », ou sur « Personnaliser » puis « Par défaut ». |
 | Un widget affiche « En attente » | Sur le tableau du poste, cliquez sur « Actualiser les requetes ». Sur l’Accueil, ouvrez le détail de la sonde, puis collectez ses données dans l’Atelier. |
 | Un widget vide n'apparaît plus | Il réapparaît quand ses données sont lues ; « Personnaliser » le montre. |
 
@@ -595,7 +595,7 @@ Donnez-lui ces éléments :
 | AD (Active Directory) | Annuaire de l'entreprise : comptes des utilisateurs, postes et groupes. |
 | OU | Unité d’organisation, dossier de l'AD qui range les postes ou les comptes, par exemple par site ou par service. |
 | Périmètre | Zone de l’annuaire retenue dans une page. Accueil inclut les sous-OU ; Rechercher et Base autonome conservent leurs propres périmètres. |
-| Base autonome | Copie locale de l’annuaire, gardée par Domenia ; « Base locale » la met à jour pour l’OU. Outils permet aussi de la parcourir et de la sauvegarder. |
+| Base autonome | Copie locale de l’annuaire, gardée par Domenia ; « Objets AD » la met à jour pour l’OU. Outils permet aussi de la parcourir et de la sauvegarder. |
 | Fraîcheur | Âge de la lecture de la source : AD, ping, console ou inventaire. La date de calcul d’une vue n’est pas la date de ses données. |
 | Ping | Test réseau : le poste répond-il ? Une absence de réponse ne prouve pas qu'il est éteint. |
 | Utilisateur console | Personne connectée sur l'écran du poste, hors Bureau à distance. |

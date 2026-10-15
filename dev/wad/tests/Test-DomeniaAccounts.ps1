@@ -79,6 +79,8 @@ function Reset-Fixture {
     $script:Settings=@{}; $script:AccountWrites=@{}; $script:UiUpdates=0; $script:SecretUiUpdates=0
     $script:SessionEpoch=1L; $script:AsyncEngineClosing=$false; $script:ActiveWriteTaskId=''; $script:WriteState='Idle'
     $script:ControlBusyRef=@{}; $script:AccessState=$null
+    $script:Tasks=New-Object 'System.Collections.Generic.List[string]'; $script:Stops=New-Object 'System.Collections.Generic.List[string]'
+    $script:DomeniaCredentialGuard=$null; $script:DomeniaAccountAlias=$null; $script:DomeniaCredentialAliasBook=$null; $script:AsyncJobs=$null; $script:DomeniaAccountGeneration=0L
     $script:Conn=[pscustomobject]@{
         Server='dc.example.test'; BaseDn='DC=example,DC=test'; Domain='example.test'; Netbios='EXAMPLE'
         BindUser='EXAMPLE\ad-reader'; User='EXAMPLE\ad-reader'; Credential=(New-TestCredential 'EXAMPLE\ad-reader')
@@ -171,6 +173,10 @@ function Update-DomeniaSecretActionUi { $script:SecretUiUpdates++ }
 function Apply-CurrentPermissionUi { }
 function Initialize-DomeniaWorkerContextCache {}
 function Get-CfgValue { param($Section,$Name,$Default); return $Default }
+# Points 44/45 boundaries: the task engine (alias read, stop of an old read) and the journal are never reached here.
+function Start-UiTask { param($Name,$OperationId,$Code,$Payload,$SuccessHandler,$ErrorHandler,$CallbackState,$TimeoutSeconds,$TaskClass); $script:Tasks.Add([string]$OperationId); return ('task-'+$script:Tasks.Count) }
+function Request-UiTaskStop { param([string]$Id,[switch]$Silent,[switch]$Force,[switch]$Superseded,[string]$Reason); $script:Stops.Add($Id) }
+function Write-AppLog { param($Text,$Level); $script:Log.Add([string]$Text) }
 function Complete-Fixture {
     # What the 100 ms DispatcherTimer tick does once the native validation has returned.
     param([switch]$StillRunning)
@@ -406,6 +412,52 @@ Test-Case 'Validation de compte : ne promet pas les droits sur les ressources, p
     Assert-Test (-not $log.Contains($syntheticSecret)) 'Mot de passe synthetique present dans les logs.'
     # Since M15 the status names what is NOT certified instead of the R1.4 sentence about WMI/SMB rights.
     Assert-Test ($log.Contains('Droits sur la ressource non certifies par ce test AD.')) $log
+}
+Test-Case 'Point 44 : activation d un compte corrige sans reconnexion, pause levee pour lui seul, anciennes lectures arretees' {
+    $guard=Initialize-DomeniaCredentialGuard
+    $guard.Faults['operator@example.test']=[pscustomobject]@{Kind='LogonFailure';Code='0x8007052E';AtUtc=[datetime]::UtcNow}
+    $guard.Faults['other@example.test']=[pscustomobject]@{Kind='LogonFailure';Code='0x8007052E';AtUtc=[datetime]::UtcNow}
+    $old=[pscustomobject]@{CredentialGuard=$guard;DirectoryAuthKey='';RemoteAuthKey='operator@example.test';RemoteAdminAuthKey='operator@example.test';ActiveRemoteAuthKey='operator@example.test';OperationId='ComputerInventory';CredentialGeneration=0L}
+    $script:AsyncJobs=[ordered]@{'old'=[pscustomobject]@{Id='old';IsWrite=$false;NonCancellable=$false;State='Running';CredentialGuardContext=$old}}
+    $script:WorkerBindUser='EXAMPLE\operator'
+    Save-DomeniaSecondaryCredential -Scope Remote -UserName 'operator' -Password (New-TestPassword)
+    Complete-Fixture
+    Assert-Test (-not $script:LastError) $script:LastError
+    Assert-Test ($script:RemoteAdminCredential.UserName -ceq 'EXAMPLE\operator') 'Compte non active'
+    Assert-Test (-not $guard.Faults.ContainsKey('operator@example.test')) 'Pause du compte corrige conservee : reconnexion imposee'
+    Assert-Test ($guard.Faults.ContainsKey('other@example.test')) 'Pause d un autre compte levee'
+    Assert-Test (($script:Stops -join ',') -eq 'old') 'Lecture partie avec l ancien mot de passe non arretee'
+    Assert-Test ([long]$script:DomeniaAccountGeneration -ge 1) 'Generation des comptes inchangee'
+    Assert-Test ($script:Tasks -contains 'AccountAliasRead') 'Noms du compte valide non relus'
+    $blocked=$false;try{Assert-WCredentialAllowed $old Remote}catch{$blocked=$true}
+    Assert-Test $blocked 'L ancienne lecture peut encore envoyer l ancien mot de passe'
+}
+Test-Case 'Point 44 : compte de connexion valide comme compte poste, pause maintenue tant qu il garde l ancien mot de passe' {
+    $guard=Initialize-DomeniaCredentialGuard
+    $guard.Faults['ad-reader@example.test']=[pscustomobject]@{Kind='LogonFailure';Code='0x8007052E';AtUtc=[datetime]::UtcNow;Generation=0L}
+    $old=[pscustomobject]@{CredentialGuard=$guard;DirectoryAuthKey='ad-reader@example.test';RemoteAuthKey='';RemoteAdminAuthKey='';ActiveRemoteAuthKey='';OperationId='GlobalSearch';CredentialGeneration=0L}
+    $script:AsyncJobs=[ordered]@{'old'=[pscustomobject]@{Id='old';IsWrite=$false;NonCancellable=$false;State='Running';CredentialGuardContext=$old}}
+    $script:WorkerBindUser='EXAMPLE\ad-reader'
+    Save-DomeniaSecondaryCredential -Scope Remote -UserName 'ad-reader' -Password (New-TestPassword)
+    Complete-Fixture
+    Assert-Test (-not $script:LastError) $script:LastError
+    Assert-Test ($script:RemoteAdminCredential.UserName -ceq 'EXAMPLE\ad-reader') 'Compte poste non active'
+    Assert-Test ($guard.Faults.ContainsKey('ad-reader@example.test')) 'Pause levee : le compte de connexion renverrait le mot de passe refuse'
+    Assert-Test (-not (($guard.ContainsKey('Released')) -and ($guard.Released.ContainsKey('ad-reader@example.test')))) 'Compte libere'
+    Assert-Test ($script:Stops.Count -eq 0) 'Lecture arretee alors que la pause la retient deja'
+    Assert-Test (-not ($script:Tasks -contains 'AccountAliasRead')) 'Noms relus avec un compte en pause'
+    $log=Get-FixtureLog
+    Assert-Test ($log.Contains('Pause maintenue pour ce compte')) $log
+    Assert-Test ($log.Contains('Corriger le mot de passe')) $log
+    # The connection account corrected in place in turn: every stored copy is now validated, the pause is lifted.
+    $script:Conn.Credential=New-TestCredential 'EXAMPLE\ad-reader'
+    $second=Complete-DomeniaAccountCorrection -UserName 'EXAMPLE\ad-reader' -Scopes @('Directory') -Credential $script:Conn.Credential
+    Assert-Test ([bool]$second.Released) ([string]$second.Text)
+    Assert-Test (-not $guard.Faults.ContainsKey('ad-reader@example.test')) 'Pause conservee apres la correction de toutes les copies'
+    Assert-Test (([string]$second.Text).Contains('Protection levée pour ce compte seulement')) ([string]$second.Text)
+    # Nothing paused any more: a new validation announces no release.
+    $third=Complete-DomeniaAccountCorrection -UserName 'EXAMPLE\ad-reader' -Scopes @('Directory') -Credential $script:Conn.Credential
+    Assert-Test ([bool]$third.Released -and -not ([string]$third.Text).Contains('Protection levée')) ([string]$third.Text)
 }
 Test-Case 'Ecriture en cours : aucun compte ne peut etre change' {
     $script:ActiveWriteTaskId='write-1'

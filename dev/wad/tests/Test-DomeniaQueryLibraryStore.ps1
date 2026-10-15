@@ -13,7 +13,7 @@ if($PSVersionTable.PSEdition -eq 'Core'){
 . ([scriptblock]::Create($native));[void](Initialize-DomeniaWinSqliteNative)
 Add-Type -Path (Join-Path $wad 'modules/M4D.Admin.Common.Query.dll')
 Add-Type -Path (Join-Path $wad 'modules/Domenia.Native.dll')
-foreach($name in @('Common.Model','Boards.Model','Probes.Model','Query.Model','QueryLibrary.Model')){. (Join-Path $wad ('modules/Domenia-'+$name+'.ps1'))}
+foreach($name in @('Common.Model','HealthRules.Model','Boards.Model','Probes.Model','QuerySchema.Model','Workstation.Model','Query.Model','QueryLibrary.Model')){. (Join-Path $wad ('modules/Domenia-'+$name+'.ps1'))}
 . (Join-Path $wad 'modules/Domenia-Store.Model.ps1')
 . (Join-Path $wad 'modules/Domenia-Cache.Model.ps1')
 . (Join-Path $wad 'modules/Domenia-Storage.Worker.ps1')
@@ -34,9 +34,9 @@ function Commit {param([object[]]$Changes,[string]$Id=([guid]::NewGuid().ToStrin
     return & ([scriptblock]::Create($worker))
 }
 function RecipeChange {
- param([string]$Id='personal.one',[string]$Name='Mémoire connue',[long]$Expected=0,[bool]$Archived=$false)
+ param([string]$Id='personal.one',[string]$Name='Mémoire connue',[long]$Expected=0,[bool]$Archived=$false,[string]$Category='Mes requêtes')
  $recipe=New-DomeniaQueryRecipe -Id $Id -Name $Name -Clauses @()
- $record=New-DomeniaQueryLibraryRecord -Context $context -Recipe $recipe -ExpectedRevision $Expected -NowUtc ([datetime]'2026-01-01Z')
+ $record=New-DomeniaQueryLibraryRecord -Context $context -Recipe $recipe -ExpectedRevision $Expected -Category $Category -NowUtc ([datetime]'2026-01-01Z')
  $record.Archived=$Archived
  return [pscustomobject]@{Kind='QueryRecipe';Record=$record}
 }
@@ -117,6 +117,20 @@ try{
   Expect ((Read-TestDb "SELECT count(*) n FROM domenia_query_recipes WHERE id='personal.rollback2';")[0].n -eq 0) 'final batch rollback';Expect ((Read-TestDb 'SELECT count(*) n FROM domenia_query_migrations;')[0].n -eq 0) 'no premature marker'
   $marker.RecipeIds=@('personal.one','personal.bound');$r=Commit @($marker);Expect ($r.QueryMigrations.Count -eq 1 -and $r.QueryMigrations[0].SourceHash -ceq $hash -and $r.QueryRecipes.Count -eq 0) 'persisted migration marker including archived identity'
   $r=LibraryRead -IncludeArchived;Expect ($r.QueryMigrations.Count -eq 1) 'startup discovers migration'
+ }
+ Case 'Point 68: operator category is stored, read back and filterable' {
+  $r=Commit @((RecipeChange 'personal.category' 'Revue rangée' 0 $false 'Audit 2026'));Expect ($r.QueryRecipes[0].Category -ceq 'Audit 2026') 'category readback'
+  $q=New-DomeniaQueryLibraryRead -Context $context -Category 'Audit 2026';$read=Read-Store $q
+  Expect ($read.Total -eq 1 -and $read.QueryRecipes[0].Id -ceq 'personal.category') 'category filter'
+  Refused {RecipeChange 'personal.category' 'Revue rangée' 1 $false ('x'*81)} 'Catégorie'
+ }
+ Case 'Point 68: an archived recipe is restored with a new revision checked by SQLite' {
+  $current=@((LibraryRead -IncludeArchived).QueryRecipes|Where-Object{$_.Id -ceq 'personal.one'})[0]
+  Expect ($current.Archived) 'fixture archived'
+  Refused {Commit @((RecipeChange 'personal.one' 'Archived' ($current.Revision-1) $false))} 'QueryRevisionConflict'
+  $r=Commit @((RecipeChange 'personal.one' 'Archived' $current.Revision $false))
+  Expect (-not $r.QueryRecipes[0].Archived -and $r.QueryRecipes[0].Revision -eq ($current.Revision+1)) 'restored active revision'
+  Expect ((Read-TestDb "SELECT count(*) n FROM domenia_query_recipe_revisions WHERE id='personal.one';")[0].n -eq $r.QueryRecipes[0].Revision) 'every revision kept'
  }
  Case 'Admission rejects altered hash, executable properties, wrong domain and metadata' {
   $r=RecipeChange 'personal.invalid';$r.Record.DefinitionSHA256='a'*64;Refused {Commit @($r)} 'empreinte'

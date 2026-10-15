@@ -52,8 +52,10 @@ $wanted=@('Write-DomeniaAtomicText','Read-DomeniaPreference','Write-DomeniaPrefe
     'ConvertTo-DomeniaLogFileLines','Get-DomeniaAppLogFallbackPaths','Write-DomeniaAppLogFile','Start-DomeniaAppLogFlushTimer','Stop-DomeniaAppLogQueue',
     'Invoke-DomeniaAppLogRotation','Flush-DomeniaAppLog','Invoke-DomeniaAppLogFlush','Set-DomeniaAppLogAvailability','Set-Status',
     'Get-DomeniaGridExportColumns','ConvertTo-DomeniaExportRows','Get-DomeniaExportFileName','Export-DomeniaCsv','Get-DomeniaCsvDelimiter',
+    # Point 50: the inventory export writes two files and announces what each one kept out.
+    'Export-DomeniaInventory',
     # CO-03 : cles de tri des colonnes datees, et le XAML ou elles sont designees.
-    'Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys','Get-DomeniaInventoryAgeLabel','Get-DomeniaInventorySummaryText','Get-DomeniaSoftwareWorkerCode','Get-MainXaml',
+    'Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys','Get-DomeniaInventoryAgeLabel','Get-DomeniaInventorySummaryText','Get-DomeniaSoftwareWorkerCode','Get-DomeniaInventoryWorkerCode','Get-MainXaml',
     # CO-22 : decodage des options du compte affiche dans la fiche.
     'Get-UacFlagsLabel','Convert-FileTimeLabel','Convert-ADLargeIntegerToInt64',
     # UX-27 : vue d atterrissage de la fiche selon le type d objet.
@@ -71,7 +73,9 @@ foreach($name in $wanted) {
 # Import definitions only. Never dot-source the application's startup path.
 . ([scriptblock]::Create(($definitions -join "`r`n")))
 # FI-05 / PF-06: every Dispatcher timer comes from the protected factory of the engine (Domenia-Engine.UI.ps1).
-foreach($engineModule in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Engine.UI.ps1')){. (Join-Path (Split-Path -Parent $PSScriptRoot) ('modules\'+$engineModule))}
+# Point 50: Export-DomeniaCsv masks secrets through Protect-DomeniaExportRows (Access.Model, with the secret attribute
+# rule of Safety.Model), exactly as the application loads them.
+foreach($engineModule in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Safety.Model.ps1','Domenia-Access.Model.ps1')){. (Join-Path (Split-Path -Parent $PSScriptRoot) ('modules\'+$engineModule))}
 # SE-03 : les regles MSI et le catalogue ne sont pas recopies dans les gardes. Le banc les charge par AST, comme
 # les fonctions du coeur, pour juger les gardes avec la liste reelle du produit.
 $guardAst=[System.Management.Automation.Language.Parser]::ParseFile((Join-Path (Split-Path -Parent $PSScriptRoot) 'modules\Domenia-Workstation.Model.ps1'),[ref]$null,[ref]$null)
@@ -319,6 +323,34 @@ try {
         Assert-True (($round.Count -eq 2) -and ($round[1].Nom -ceq 'PC-02')) 'Relecture point-virgule impossible.'
         Assert-True (($round[0].'Présence réseau' -ceq 'En ligne') -and ($round[1].'Présence réseau' -ceq 'Hors ligne')) 'Valeurs de la colonne modele absentes.'
         Assert-True (($round[0].'Détail' -ceq 'Contrôle réussi') -and ($round[1].'Détail' -ceq 'À vérifier')) 'Valeurs de la colonne sans chemin de tri absentes.'
+    }
+    Test-Case 'CSV point 50 : export expurge, colonne secrete retenue, texte secret masque, total annonce' {
+        $dir=Join-Path $testDirectory 'exports-p50';[void][IO.Directory]::CreateDirectory($dir)
+        $marker=[guid]::NewGuid().ToString('N')
+        $key=((1..8|ForEach-Object{'{0:D6}' -f (Get-Random -Minimum 100000 -Maximum 999999)}) -join '-')
+        $rows=@([pscustomobject]@{Nom='PC-01';Description=('mot de passe : '+$marker);Note=('cle '+$key);'ms-Mcs-AdmPwd'=$marker;Taille=12})
+        $result=Export-DomeniaCsv -Rows $rows -Directory $dir -Subject 'P50'
+        $text=[IO.File]::ReadAllText($result.Path)
+        Assert-True (-not $text.Contains($marker)) 'Valeur secrete exportee'
+        Assert-True (-not $text.Contains($key)) 'Cle de recuperation exportee'
+        Assert-True ($text.Contains('PC-01') -and $text.Contains('12')) 'Valeur ordinaire perdue'
+        Assert-True ([int]$result.Masked -eq 3 -and @($result.Withheld) -contains 'ms-Mcs-AdmPwd') ('Masquees : '+[string]$result.Masked)
+    }
+    Test-Case 'CSV point 50 : export d inventaire, valeurs masquees du fichier des acces annoncees aussi' {
+        $script:InventoryRows=@([pscustomobject]@{Propriete='Modele';Valeur='Fixture'})
+        $script:InventoryAccess=@([pscustomobject]@{Compte='EXAMPLE\lecteur';Droit='Administrateur local'})
+        $script:ExportAlso=$null;$script:ExportShown=$null
+        # Files are not written here: the two results of Export-DomeniaCsv are given, only the announcement is checked.
+        function Get-DomeniaExportComputerName {param([string]$Computer='') return 'PC-P50'}
+        function Export-DomeniaCsv {param($Rows,$Grid,[string]$Subject)
+            if($Subject -like '*-acces'){return [pscustomobject]@{Path='C:\fixture\Domenia-PC-P50-acces.csv';RowCount=1;Masked=2}}
+            return [pscustomobject]@{Path='C:\fixture\Domenia-PC-P50-inventaire.csv';RowCount=1;Masked=0}
+        }
+        function Show-DomeniaExportResult {param($Result,[string]$Scope='',[string]$Also='') $script:ExportShown=$Result;$script:ExportAlso=$Also}
+        Export-DomeniaInventory
+        Assert-True ($null -ne $script:ExportShown) 'Resultat de l export non annonce'
+        Assert-True ([string]$script:ExportAlso -match 'Domenia-PC-P50-acces\.csv') ([string]$script:ExportAlso)
+        Assert-True ([string]$script:ExportAlso -match '2 valeurs ressemblant à un secret y ont été masquées') ('Masquage du fichier des acces tu : '+[string]$script:ExportAlso)
     }
     Test-Case 'CSV UX-02 : nom Domenia-<OU ou poste>-AAAAMMJJ-HHmm, jamais d ecrasement' {
         $name=Get-DomeniaExportFileName -Subject 'Postes / Paris' -Time ([datetime]'2026-10-08T14:30:59')
@@ -1406,6 +1438,67 @@ try {
         $xaml = Get-MainXaml
         Assert-True ($xaml.Contains('ToolTip="Ajoute les logiciels installés dans le profil des utilisateurs connectés."')) 'L infobulle promet toujours le profil de chaque utilisateur'
         Assert-True (-not ($xaml.Contains('dans le profil de chaque utilisateur'))) 'L infobulle promet encore tous les utilisateurs'
+    }
+
+    Test-Case 'Points 91 a 100 : les workers d inventaire lisent registre et CIM sans effet de bord' {
+        $software = [string](Get-DomeniaSoftwareWorkerCode)
+        # Point 91 : architecture et profil utilisateur font partie de la cle ; un doublon reste une ligne.
+        Assert-True ($software.Contains("`$key = (`$Scope + '|' + `$ownerKey + '|' + `$archKey + '|' + `$clean + '|' + [string]`$Version)")) 'Les doublons par architecture ou profil sont encore fusionnes'
+        # Revue du point 91 : les vraies fonctions du worker, sans reseau. Une ligne SCCM sans architecture et la meme
+        # entree relue ensuite par la tache locale (x64 ou x86) ne font qu une ligne ; un profil nomme par son compte
+        # ou par son SID reste le meme profil ; un vrai doublon 32/64 bits ou multi-profils reste visible.
+        $softwareTokens = $null; $softwareErrors = $null
+        $softwareAst = [Management.Automation.Language.Parser]::ParseInput($software,[ref]$softwareTokens,[ref]$softwareErrors)
+        Assert-True (@($softwareErrors).Count -eq 0) 'Worker logiciel illisible'
+        $definitions = @(foreach ($name in @('Format-Size','Convert-InstallDate','Add-Software')) {
+            $nodes = @($softwareAst.FindAll({ param($n) ($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq $name) }, $true))
+            Assert-True ($nodes.Count -eq 1) ('Fonction du worker logiciel absente : ' + $name)
+            $nodes[0].Extent.Text
+        })
+        $runSoftware = {
+            param([string[]]$Definitions,[scriptblock]$Body)
+            $rows = New-Object Collections.ArrayList; $seen = @{}; $seenProducts = @{}
+            foreach ($definition in $Definitions) { . ([scriptblock]::Create($definition)) }
+            . $Body
+            return ,@($rows)
+        }
+        $merged = & $runSoftware $definitions {
+            Add-Software -Name 'Contoso Agent' -Version '5.1' -Publisher 'Contoso' -InstallDate '' -SizeKb 0 -Location '' -Architecture '' -Scope 'Machine' -Kind 'Application' -UninstallString '' -Source 'Win32Reg_AddRemovePrograms'
+            Add-Software -Name 'Contoso Agent' -Version '5.1' -Publisher 'Contoso' -InstallDate '' -SizeKb 0 -Location '' -Architecture 'x86' -Scope 'Machine' -Kind 'Application' -UninstallString '' -Source 'TaskScheduler local SYSTEM / Registre local'
+            Add-Software -Name 'Fabrikam Viewer' -Version '2.0' -Publisher 'Fabrikam' -InstallDate '' -SizeKb 0 -Location '' -Architecture 'x64' -Scope 'Machine' -Kind 'Application' -UninstallString '' -Source 'Registre via WinRM'
+            Add-Software -Name 'Fabrikam Viewer' -Version '2.0' -Publisher 'Fabrikam' -InstallDate '' -SizeKb 0 -Location '' -Architecture '' -Scope 'Machine' -Kind 'Application' -UninstallString '' -Source 'Win32Reg_AddRemovePrograms'
+            Add-Software -Name 'Notes' -Version '1.0' -Publisher '' -InstallDate '' -SizeKb 0 -Location '' -Architecture '' -Scope 'Utilisateur' -Kind 'S-1-5-21-1-2-3-1104' -UninstallString '' -Source 'HKU via StdRegProv' -Owner 'S-1-5-21-1-2-3-1104'
+            Add-Software -Name 'Notes' -Version '1.0' -Publisher '' -InstallDate '' -SizeKb 0 -Location '' -Architecture '' -Scope 'Utilisateur' -Kind 'CONTOSO\alex' -UninstallString '' -Source 'TaskScheduler local SYSTEM / HKEY_USERS local' -Owner 'S-1-5-21-1-2-3-1104'
+        }
+        Assert-True (@($merged).Count -eq 3) ('Meme entree listee deux fois selon la source : ' + (@($merged | ForEach-Object { [string]$_.Name + '/' + [string]$_.Architecture + '/' + [string]$_.Source }) -join ' ; '))
+        $kept = & $runSoftware $definitions {
+            Add-Software -Name 'Contoso Agent' -Version '5.1' -Publisher 'Contoso' -InstallDate '' -SizeKb 0 -Location '' -Architecture 'x64' -Scope 'Machine' -Kind 'Application' -UninstallString '' -Source 'Registre via WinRM'
+            Add-Software -Name 'Contoso Agent' -Version '5.1' -Publisher 'Contoso' -InstallDate '' -SizeKb 0 -Location '' -Architecture 'x86' -Scope 'Machine' -Kind 'Application' -UninstallString '' -Source 'Registre via WinRM'
+            Add-Software -Name 'Notes' -Version '1.0' -Publisher '' -InstallDate '' -SizeKb 0 -Location '' -Architecture '' -Scope 'Utilisateur' -Kind 'CONTOSO\alex' -UninstallString '' -Source 'HKU via StdRegProv' -Owner 'S-1-5-21-1-2-3-1104'
+            Add-Software -Name 'Notes' -Version '1.0' -Publisher '' -InstallDate '' -SizeKb 0 -Location '' -Architecture '' -Scope 'Utilisateur' -Kind 'CONTOSO\sam' -UninstallString '' -Source 'HKU via StdRegProv' -Owner 'S-1-5-21-1-2-3-1105'
+        }
+        Assert-True (@($kept).Count -eq 4) 'Un vrai doublon 32/64 bits ou multi-profils a ete fusionne'
+        Assert-True ($software.Contains('-Source ''HKU via StdRegProv'' -Owner ([string]$sid)')) 'La portee utilisateur ne transmet pas le SID du profil'
+        $code = [string](Get-DomeniaInventoryWorkerCode)
+        [void]([scriptblock]::Create($code))
+        # Point 93 : REG_MULTI_SZ lu comme tel ; chaque indice ecrit avec sa source.
+        Assert-True ($code.Contains("Get-RegMultiString `$HKLM 'SYSTEM\CurrentControlSet\Control\Session Manager' 'PendingFileRenameOperations'")) 'PendingFileRenameOperations lu comme une chaine simple'
+        Assert-True ($code.Contains("'obligation confirmee'") -and $code.Contains("'indice partiel'")) 'Obligation confirmee et indice partiel confondus'
+        # Point 99 : UEFISecureBootEnabled est un DWORD ; le chiffrement est lu a cote de la protection.
+        Assert-True ($code.Contains("Get-RegDword `$HKLM 'SYSTEM\CurrentControlSet\Control\SecureBoot\State' 'UEFISecureBootEnabled'")) 'Secure Boot encore lu comme une chaine'
+        Assert-True ($code.Contains("(`$label + ' chiffrement')")) 'Chiffrement BitLocker non distingue de la protection'
+        # Point 83 : un etat de sante absent ou inconnu ne devient jamais Sain.
+        Assert-True (-not $code.Contains("`$health = 'Sain'`n")) 'Sante du disque initialisee a Sain'
+        # Point 100 : magasin Personnel lu dans le registre, propriete 32 seulement, aucune cle privee.
+        Assert-True ($code.Contains("'SOFTWARE\Microsoft\SystemCertificates\MY\Certificates'") -and $code.Contains('$propertyId -eq 32')) 'Certificats machine non lus dans le registre'
+        Assert-True (-not ($code -match '(?i)PrivateKey|Export\(|ExportCspBlob')) 'Une cle privee peut etre lue ou exportee'
+        # Point 95 : deux lectures bornees pour la charge, sans ligne de commande.
+        Assert-True ($code.Contains('Start-Sleep -Milliseconds $intervalMs') -and $code.Contains('[Math]::Min(5000,')) 'Intervalle de mesure non borne'
+        Assert-True (-not $code.Contains('CommandLine')) 'Ligne de commande collectee'
+        # Point 96 : derniere execution et resultat, jamais les actions ni le principal.
+        Assert-True ($code.Contains('Get-ScheduledTaskInfo') -and -not ($code -match '\.Actions\b|\.Principal\b')) 'Taches : execution non lue ou parametres exposes'
+        # Point 94 : dependances lues, aucune action sur les services.
+        Assert-True ($code.Contains("'DependOnService'") -and -not ($code -match '(?i)Start-Service|Stop-Service|StartService|StopService')) 'Dependances absentes ou action sur un service'
     }
 
     Test-Case 'PF-22 : l onglet Logiciels reprend la liste deja lue par l inventaire' {

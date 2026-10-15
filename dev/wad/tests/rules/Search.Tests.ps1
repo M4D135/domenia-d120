@@ -216,6 +216,138 @@ Test-Case 'UX-33' 'Le domaine entier est un choix explicite, sans releve possibl
     Assert-True (Get-DomeniaWorkViewPlan $view 'OU' $script:DomainDn $script:DomainDn $false).SurveyAllowed 'Enfants directs de la racine : pas le domaine entier'
     Assert-Equal $null (Get-DomeniaWorkViewPlan $null 'OU' '' $script:DomainDn)
 }
+
+# ---------------------------------------------------------------- points 101 et 102 : comptes et mots de passe a revoir
+# Evaluateur minimal des filtres LDAP des vues (&, |, !, =, >=, <=, presence, ET binaire 1.2.840.113556.1.4.803) :
+# les criteres sont verifies sur des comptes fictifs, pas seulement sur leur texte.
+function Read-W12LdapNode {
+    param([string]$Text,[ref]$Pos,[hashtable]$Account)
+    if ($Text[$Pos.Value] -ne '(') { throw ('Parenthese attendue en ' + $Pos.Value + ' : ' + $Text) }
+    $Pos.Value++
+    $op = [string]$Text[$Pos.Value]
+    if (($op -eq '&') -or ($op -eq '|')) {
+        $Pos.Value++
+        $results = New-Object 'System.Collections.Generic.List[bool]'
+        while ($Text[$Pos.Value] -eq '(') { $results.Add([bool](Read-W12LdapNode $Text $Pos $Account)) }
+        if ($Text[$Pos.Value] -ne ')') { throw ('Groupe non ferme : ' + $Text) }
+        $Pos.Value++
+        if ($op -eq '&') { return (-not $results.Contains($false)) }
+        return $results.Contains($true)
+    }
+    if ($op -eq '!') {
+        $Pos.Value++
+        $inner = [bool](Read-W12LdapNode $Text $Pos $Account)
+        if ($Text[$Pos.Value] -ne ')') { throw ('Negation non fermee : ' + $Text) }
+        $Pos.Value++
+        return (-not $inner)
+    }
+    $end = $Text.IndexOf(')',$Pos.Value)
+    if ($end -lt 0) { throw ('Element non ferme : ' + $Text) }
+    $item = $Text.Substring($Pos.Value,$end - $Pos.Value)
+    $Pos.Value = $end + 1
+    $bitwise = [regex]::Match($item,'^(?<a>[A-Za-z]+):1\.2\.840\.113556\.1\.4\.803:=(?<v>\d+)$')
+    if ($bitwise.Success) {
+        $name = $bitwise.Groups['a'].Value; $mask = [long]$bitwise.Groups['v'].Value
+        if (-not $Account.ContainsKey($name)) { return $false }
+        return (([long]$Account[$name] -band $mask) -eq $mask)
+    }
+    $simple = [regex]::Match($item,'^(?<a>[A-Za-z]+)(?<o><=|>=|=)(?<v>.*)$')
+    if (-not $simple.Success) { throw ('Element inconnu : ' + $item) }
+    $name = $simple.Groups['a'].Value; $operator = $simple.Groups['o'].Value; $value = $simple.Groups['v'].Value
+    if (($operator -eq '=') -and ($value -eq '*')) { return $Account.ContainsKey($name) }
+    if (-not $Account.ContainsKey($name)) { return $false }
+    $actual = $Account[$name]
+    if (($actual -is [long]) -or ($actual -is [int])) {
+        $number = [long]$value
+        if ($operator -eq '>=') { return ([long]$actual -ge $number) }
+        if ($operator -eq '<=') { return ([long]$actual -le $number) }
+        return ([long]$actual -eq $number)
+    }
+    return ([string]$actual -ieq $value)
+}
+function Test-W12LdapFilter {
+    param([string]$Filter,[hashtable]$Account)
+    $pos = 0
+    $result = [bool](Read-W12LdapNode $Filter ([ref]$pos) $Account)
+    if ($pos -ne $Filter.Length) { throw ('Texte apres le filtre : ' + $Filter) }
+    return $result
+}
+function Get-W12ReviewAccounts {
+    param([datetime]$NowUtc)
+    $make = {
+        param([string]$Name,[hashtable]$Values)
+        $account = @{sAMAccountName=$Name;objectCategory='person';objectClass='user';userAccountControl=512L;accountExpires=0L;pwdLastSet=$NowUtc.AddDays(-30).ToFileTimeUtc();lastLogonTimestamp=$NowUtc.AddDays(-5).ToFileTimeUtc()}
+        foreach ($key in @($Values.Keys)) { if ($null -eq $Values[$key]) { $account.Remove($key) } else { $account[$key] = $Values[$key] } }
+        return $account
+    }
+    return @(
+        (& $make 'recent' @{})
+        (& $make 'inactif' @{lastLogonTimestamp=$NowUtc.AddDays(-120).ToFileTimeUtc()})
+        (& $make 'desactive-inactif' @{userAccountControl=514L;lastLogonTimestamp=$NowUtc.AddDays(-120).ToFileTimeUtc()})
+        (& $make 'jamais-connecte' @{lastLogonTimestamp=$null})
+        (& $make 'desactive-jamais' @{userAccountControl=514L;lastLogonTimestamp=$null})
+        (& $make 'expire' @{accountExpires=$NowUtc.AddDays(-1).ToFileTimeUtc()})
+        (& $make 'expire-bientot' @{accountExpires=$NowUtc.AddDays(10).ToFileTimeUtc()})
+        (& $make 'sans-expiration-max' @{accountExpires=[long]::MaxValue})
+        (& $make 'verrouille' @{lockoutTime=$NowUtc.AddHours(-1).ToFileTimeUtc()})
+        (& $make 'deverrouille' @{lockoutTime=0L})
+        (& $make 'mdp-ancien' @{pwdLastSet=$NowUtc.AddDays(-400).ToFileTimeUtc()})
+        (& $make 'desactive-mdp-ancien' @{userAccountControl=514L;pwdLastSet=$NowUtc.AddDays(-400).ToFileTimeUtc()})
+        (& $make 'mdp-a-changer' @{pwdLastSet=0L})
+        (& $make 'mdp-sans-expiration' @{userAccountControl=66048L})
+        (& $make 'mdp-non-requis' @{userAccountControl=544L})
+    )
+}
+function Get-W12ViewMatches {
+    param($View,[object[]]$Accounts)
+    return ((@($Accounts | Where-Object { Test-W12LdapFilter ([string]$View.Filter) $_ } | ForEach-Object { [string]$_['sAMAccountName'] }) | Sort-Object) -join ',')
+}
+Test-Case '101' 'Comptes a verifier : expiration, desactivation, verrouillage et inactivite selon des criteres distincts' {
+    $now = [datetime]::SpecifyKind([datetime]'2026-01-01',[DateTimeKind]::Utc)
+    $views = @{}
+    foreach ($view in @(Get-DomeniaWorkViews $now)) { $views[[string]$view.Id] = $view }
+    $accounts = Get-W12ReviewAccounts $now
+    foreach ($id in @('expiring','disabled','expiredaccounts','lockedusers','inactiveusers','neverloggedusers')) {
+        Assert-True $views.ContainsKey($id) ('Vue absente : ' + $id)
+        Assert-Equal 'Utilisateur' ([string]$views[$id].Type) $id
+        Assert-True $views[$id].NeedsOu ('Vue sans OU : ' + $id)
+    }
+    Assert-Equal 'inactif' (Get-W12ViewMatches $views['inactiveusers'] $accounts) 'Inactivite : comptes actifs avec une date ancienne seulement'
+    Assert-Equal 'jamais-connecte' (Get-W12ViewMatches $views['neverloggedusers'] $accounts) 'Jamais connectes : actifs sans date, a part des inactifs'
+    Assert-Equal 'expire' (Get-W12ViewMatches $views['expiredaccounts'] $accounts) 'Expiration depassee : 0 et la valeur maximale exclus'
+    Assert-Equal 'expire-bientot' (Get-W12ViewMatches $views['expiring'] $accounts)
+    Assert-Equal 'verrouille' (Get-W12ViewMatches $views['lockedusers'] $accounts) 'lockoutTime nul exclu'
+    Assert-Equal 'desactive-inactif,desactive-jamais,desactive-mdp-ancien' (Get-W12ViewMatches $views['disabled'] $accounts)
+    Assert-True ([string]$views['lockedusers'].Note -match 'fiche') 'Le verrouillage enregistre renvoie a l etat calcule de la fiche'
+    Assert-True ([string]$views['inactiveusers'].Note -match '14 jours') 'Approximation de lastLogonTimestamp annoncee'
+    Assert-True ([string]$views['inactiveusers'].Note -match 'supprimable') 'Aucun compte declare supprimable'
+}
+Test-Case '102' 'Hygiene des mots de passe : age et options lus, aucun secret ni verdict de compromission' {
+    $now = [datetime]::SpecifyKind([datetime]'2026-01-01',[DateTimeKind]::Utc)
+    $views = @{}
+    foreach ($view in @(Get-DomeniaWorkViews $now)) { $views[[string]$view.Id] = $view }
+    $accounts = Get-W12ReviewAccounts $now
+    Assert-Equal 'mdp-ancien' (Get-W12ViewMatches $views['pwdold'] $accounts) 'Age : comptes actifs, changement demande exclu'
+    Assert-Equal 'mdp-a-changer' (Get-W12ViewMatches $views['pwdmustchange'] $accounts)
+    Assert-Equal 'mdp-sans-expiration' (Get-W12ViewMatches $views['pwdneverexpires'] $accounts)
+    Assert-Equal 'mdp-non-requis' (Get-W12ViewMatches $views['pwdnotrequired'] $accounts)
+    Assert-True (([string]$views['pwdold'].Filter).Contains('(pwdLastSet<=' + $now.AddDays(-365).ToFileTimeUtc() + ')')) 'Seuil de 365 jours'
+    foreach ($view in @(Get-DomeniaWorkViews $now)) {
+        Assert-False ([string]$view.Filter -match '(?i)unicodePwd|userPassword|ms-Mcs-AdmPwd|msLAPS|supplementalCredentials') ('Attribut secret dans ' + $view.Id)
+        Assert-False ([string]$view.Name -match '(?i)compromis|faible|pirat|dangereux') ('Verdict arbitraire dans le nom de ' + $view.Id)
+    }
+    foreach ($id in @('pwdneverexpires','pwdnotrequired')) { Assert-True ([string]$views[$id].Note -match 'Aucun mot de passe nʼest lu') $id }
+    Assert-True ([string]$views['pwdold'].Note -match 'ni la robustesse ni une compromission') 'Age sans conclusion'
+}
+Test-Case '101' 'Filtres des vues : parentheses equilibrees et evaluables' {
+    $now = [datetime]::SpecifyKind([datetime]'2026-01-01',[DateTimeKind]::Utc)
+    $probe = @{objectCategory='person';objectClass='user';userAccountControl=512L}
+    foreach ($view in @(Get-DomeniaWorkViews $now)) {
+        $depth = 0; foreach ($ch in ([string]$view.Filter).ToCharArray()) { if ($ch -eq '(') { $depth++ } elseif ($ch -eq ')') { $depth-- }; Assert-True ($depth -ge 0) ('Filtre desequilibre : ' + $view.Id) }
+        Assert-Equal 0 $depth ('Filtre desequilibre : ' + $view.Id)
+        [void](Test-W12LdapFilter ([string]$view.Filter) $probe)
+    }
+}
 Test-Case 'UI-16' 'Conteneurs systeme regroupes, Users et Computers visibles' {
     $rows=@(
         [pscustomobject]@{Name='Computers';DN=('CN=Computers,'+$script:DomainDn);Kind='Conteneur'}
@@ -284,6 +416,84 @@ Test-Case 'FO-04' 'Le plafond de 50 favoris compte le seul domaine de l OU' {
     Assert-Equal 3 $r.Imported 'La reprise compte par domaine';Assert-Equal 53 @($r.Favourites).Count
     $same=@(1..50|ForEach-Object{[pscustomobject]@{DN=('OU=O'+$_+','+$script:DomainDn);Name=('O'+$_)}})
     Assert-Equal 0 (Import-DomeniaOuFavourites $same $saved).Imported 'Domaine deja plein : rien n est repris'
+}
+# W08 navigation (points 52 to 55). Donnees fictives uniquement.
+Test-Case 'P52' 'Deux OU de meme nom se distinguent par leur parent le plus proche' {
+    $dns=@(('OU=Postes,OU=Lyon,OU=Sites,'+$script:DomainDn),('OU=Postes,OU=Paris,OU=Sites,'+$script:DomainDn),('OU=Serveurs,'+$script:DomainDn))
+    $labels=@(Get-DomeniaOuDistinctLabels -Dn $dns)
+    Assert-Equal 3 $labels.Count;Assert-Equal 'Postes (Lyon)' $labels[0].Label;Assert-Equal 'Postes (Paris)' $labels[1].Label
+    Assert-True $labels[0].Ambiguous;Assert-Equal 'Serveurs' $labels[2].Label;Assert-False $labels[2].Ambiguous
+    Assert-Equal $dns[0] $labels[0].DN 'Le DN exact reste l identite'
+}
+Test-Case 'P52' 'Meme parent direct : le libelle remonte jusqu au premier parent different' {
+    $dns=@(('OU=Postes,OU=Nord,OU=Lyon,'+$script:DomainDn),('OU=Postes,OU=Nord,OU=Paris,'+$script:DomainDn),('OU=Postes,'+$script:DomainDn))
+    $labels=@(Get-DomeniaOuDistinctLabels -Dn $dns)
+    Assert-Equal 'Postes (Lyon / Nord)' $labels[0].Label;Assert-Equal 'Postes (Paris / Nord)' $labels[1].Label
+    Assert-Equal 'Postes (racine du domaine)' $labels[2].Label
+}
+Test-Case 'P52' 'Libelles : doublons, casse, valeurs echappees et noms identiques jusqu au domaine' {
+    $labels=@(Get-DomeniaOuDistinctLabels -Dn @(('OU=A\,B,'+$script:DomainDn),('ou=a\,b,'+$script:DomainDn.ToLowerInvariant()),'',('OU=Postes,DC=autre,DC=invalid'),('OU=Postes,'+$script:DomainDn)))
+    Assert-Equal 3 $labels.Count 'Un meme DN en casse differente compte une fois et une valeur vide est ignoree'
+    Assert-Equal 'A,B' $labels[0].Label 'La virgule echappee fait partie du nom'
+    Assert-True ($labels[1].Label.StartsWith('Postes (') -and $labels[1].Label -ne $labels[2].Label) ('Libelles : '+$labels[1].Label+' / '+$labels[2].Label)
+    Assert-Equal 'P' (@(Get-DomeniaOuPathNames ('OU=P,OU=Q,'+$script:DomainDn)))[0];Assert-Equal 2 @(Get-DomeniaOuPathNames ('OU=P,OU=Q,'+$script:DomainDn)).Count
+}
+Test-Case 'P54' 'Le choix d OU dit le chemin, la portee imposee ou choisie et la verification' {
+    $dn='OU=Postes,OU=Lyon,'+$script:DomainDn
+    $fixed=Get-DomeniaOuChoiceSummary -Dn $dn -DomainDn $script:DomainDn -DepthMode Subtree -Purpose 'La base relira cette branche.'
+    Assert-True ($fixed.Contains('example.invalid / Lyon / Postes') -and $fixed.Contains('imposée') -and $fixed.Contains('La base relira') -and $fixed.Contains('revérifie')) $fixed
+    Assert-True ((Get-DomeniaOuChoiceSummary -Dn $dn -DomainDn $script:DomainDn -DepthMode Choice -Subtree $false).Contains('sans ses sous-OU'))
+    Assert-True ((Get-DomeniaOuChoiceSummary -Dn $dn -DomainDn $script:DomainDn -DepthMode Choice -Subtree $true).Contains('et ses sous-OU'))
+    Assert-False ((Get-DomeniaOuChoiceSummary -Dn $dn -DomainDn $script:DomainDn -DepthMode None).Contains('Portée')) 'Une page sans profondeur n en affiche pas'
+    Assert-True ((Get-DomeniaOuChoiceSummary -Dn '' -DomainDn $script:DomainDn).StartsWith('Aucune OU'))
+    Assert-True ((Get-DomeniaOuChoiceSummary -Dn 'OU=X,DC=autre,DC=invalid' -DomainDn $script:DomainDn).Contains('nʼappartient pas'))
+}
+Test-Case 'P55' 'Identite d une ligne : GUID, sinon DN exact, sinon aucune' {
+    Assert-Equal 'g:11111111-1111-1111-1111-111111111111' (Get-DomeniaNavRowKey ([pscustomobject]@{Guid='{11111111-1111-1111-1111-111111111111}';DN='CN=A'}))
+    Assert-Equal ('d:cn=a,'+$script:DomainDn.ToLowerInvariant()) (Get-DomeniaNavRowKey ([pscustomobject]@{Guid='';DN=('CN=A,'+$script:DomainDn)}))
+    Assert-Equal '' (Get-DomeniaNavRowKey ([pscustomobject]@{Guid='00000000-0000-0000-0000-000000000000';DN=''}))
+    Assert-Equal '' (Get-DomeniaNavRowKey $null)
+}
+Test-Case 'P55' 'Selection memorisee : ordre, doublons, lignes sans identite et borne' {
+    $rows=@([pscustomobject]@{Guid='22222222-2222-2222-2222-222222222222';DN='CN=B'},[pscustomobject]@{Guid='';DN='CN=A'},[pscustomobject]@{Guid='22222222-2222-2222-2222-222222222222';DN='CN=B'},[pscustomobject]@{Guid='';DN=''})
+    $r=Get-DomeniaNavSelectionKeys -Rows $rows
+    Assert-Equal 2 @($r.Keys).Count;Assert-Equal 'g:22222222-2222-2222-2222-222222222222' $r.Keys[0];Assert-Equal 1 $r.Unidentified;Assert-False $r.Truncated
+    $many=@(1..12|ForEach-Object{[pscustomobject]@{Guid='';DN=('CN=R'+$_)}})
+    $b=Get-DomeniaNavSelectionKeys -Rows $many -Maximum 10;Assert-Equal 10 @($b.Keys).Count;Assert-True $b.Truncated
+}
+Test-Case 'P55' 'Tri memorise : champs valides, sans doublon, borne a huit' {
+    $sort=@(Get-DomeniaNavSortState -Sort @([pscustomobject]@{Field='Name';Direction='Descending'},[pscustomobject]@{Field='Name';Direction='Ascending'},[pscustomobject]@{Field='a b';Direction='Ascending'},[pscustomobject]@{Field='OS';Direction='Sideways'},[pscustomobject]@{Field='LastLogonSort';Direction='Ascending'}))
+    Assert-Equal 2 $sort.Count;Assert-Equal 'Name' $sort[0].Field;Assert-Equal 'Descending' $sort[0].Direction;Assert-Equal 'LastLogonSort' $sort[1].Field
+    Assert-Equal 8 @(Get-DomeniaNavSortState -Sort @(1..12|ForEach-Object{[pscustomobject]@{Field=('F'+$_);Direction='Ascending'}})).Count
+    Assert-Equal 0 @(Get-DomeniaNavSortState -Sort @()).Count
+}
+Test-Case 'P55' 'Taille de liste memorisee : entier de 1 a 20 000, sinon 0 et la limite affichee reste' {
+    Assert-Equal 250 (Get-DomeniaNavLimit '250');Assert-Equal 250 (Get-DomeniaNavLimit 250);Assert-Equal 20000 (Get-DomeniaNavLimit ' 20000 ')
+    foreach($bad in @('',$null,'0','20001','-5','+5','1e3','12,5','abc')){Assert-Equal 0 (Get-DomeniaNavLimit $bad) ('Valeur refusee : '+[string]$bad)}
+}
+Test-Case 'P55' 'Branches ouvertes : seules les branches lues se rouvrent, les autres se replient, aucune lecture' {
+    $a='OU=A,'+$script:DomainDn;$b='OU=B,'+$script:DomainDn;$c='OU=C,'+$script:DomainDn;$d='OU=D,'+$script:DomainDn
+    $nodes=@([pscustomobject]@{DN=$a;Loaded=$true;Expanded=$false},[pscustomobject]@{DN=$b;Loaded=$true;Expanded=$true},[pscustomobject]@{DN=$c;Loaded=$false;Expanded=$false},[pscustomobject]@{DN='';Loaded=$true;Expanded=$true})
+    $plan=Get-DomeniaNavTreePlan -Remembered @($a.ToUpperInvariant(),$c,$d) -Nodes $nodes
+    Assert-Equal 1 @($plan.Expand).Count;Assert-Equal $a $plan.Expand[0] 'La branche lue et fermee se rouvre'
+    Assert-Equal 1 @($plan.Collapse).Count;Assert-Equal $b $plan.Collapse[0] 'La branche ouverte depuis se replie'
+    Assert-Equal 2 $plan.UnreadCount 'Une branche non lue ou absente est comptee, jamais lue'
+    $none=Get-DomeniaNavTreePlan -Remembered @() -Nodes @();Assert-Equal 0 @($none.Expand).Count;Assert-Equal 0 $none.UnreadCount;Assert-Equal 0 $none.MissingCount
+    # An OU absent from its read parent branch is counted apart, never as a branch left unread; a loaded item wins.
+    $split=Get-DomeniaNavTreePlan -Remembered @($a,$c,$d) -Nodes $nodes -Missing @($d.ToUpperInvariant(),$a)
+    Assert-Equal 1 $split.UnreadCount;Assert-Equal $c $split.Unread[0] 'Seule la branche non lue reste non lue'
+    Assert-Equal 1 $split.MissingCount;Assert-Equal $d $split.Missing[0] 'La branche absente de son parent lu est comptee a part'
+    Assert-Equal 1 @($split.Expand).Count 'Une branche presente et lue se rouvre meme si elle est dite absente'
+}
+Test-Case 'P54' 'Favoris proposes par le selecteur d OU : domaine de la session, sans la racine, libelles distincts' {
+    $favs=@([pscustomobject]@{DN=('OU=Postes,OU=Lyon,'+$script:DomainDn);Name='Postes'},[pscustomobject]@{DN=$script:DomainDn;Name='Domaine'},
+        [pscustomobject]@{DN='OU=Postes,DC=autre,DC=invalid';Name='Postes'},[pscustomobject]@{DN=('OU=Postes,OU=Paris,'+$script:DomainDn);Name='Postes'},
+        [pscustomobject]@{DN=('ou=postes,ou=lyon,'+$script:DomainDn.ToLowerInvariant());Name='Doublon'},[pscustomobject]@{DN=('OU=Serveurs,'+$script:DomainDn);Name='Serveurs'})
+    $choices=@(Get-DomeniaOuFavouriteChoices -Favourites $favs -DomainDn $script:DomainDn)
+    Assert-Equal 3 $choices.Count 'Racine, autre domaine et doublon ecartes'
+    Assert-Equal 'Postes (Lyon)' $choices[0].Label;Assert-Equal 'Postes (Paris)' $choices[1].Label;Assert-Equal 'Serveurs' $choices[2].Label
+    Assert-Equal 'example.invalid / Lyon / Postes' $choices[0].FullPath
+    Assert-Equal 0 @(Get-DomeniaOuFavouriteChoices -Favourites @() -DomainDn $script:DomainDn).Count
 }
 Test-Case 'CO-33' 'Une barre oblique dans un DN est echappee dans le chemin ADSI, sans double echappement' {
     Assert-Equal 'OU=Compta\/Paie,DC=x' (ConvertTo-DomeniaAdsPathDn 'OU=Compta/Paie,DC=x')
