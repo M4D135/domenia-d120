@@ -25,7 +25,7 @@ function Get-DomeniaOperationEffect {
         'LiveDirectoryCheck','SessionsList','RemoteCredentialCheck','ScopeReconcile','ReconcileScope','LiveSelectedPing',
         'EmbeddedDirectoryLookup','EmbeddedPathBrowse','ObjectChanges','StorageUsage','ComputerQuickDiag','PasswordPolicyRead',
         'LockoutDiagnosis','GroupPathRead','JoinStateRead','UpdateStateRead','GpoLinksRead','GpoAppliedRead','DcCompareRead',
-        'ComputerEventsRead','MachineIdentityRead','AdConsistencyScan','ConnectorRead','DemoDirectory'
+        'ComputerEventsRead','MachineIdentityRead','AdConsistencyScan','ConnectorRead','DemoDirectory','DirectoryAbsenceCheck'
     )
     if ($reads -contains $id) { return 'Read' }
     return 'Unknown'

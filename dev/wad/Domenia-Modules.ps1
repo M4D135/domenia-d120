@@ -1850,6 +1850,58 @@ function Get-DomeniaRuntimeModulePlan {
             'Switch-DomeniaSearchPreview',
             'Initialize-DomeniaSearchWorkspace'
         ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-DirectorySync.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaDnParts',
+            'Test-DomeniaDnInScope',
+            'Get-DomeniaDnRdnValue',
+            'Get-DomeniaDnPath',
+            'Get-DomeniaDnBreadcrumb',
+            'Get-DomeniaDnLocation',
+            'Get-DomeniaDirectoryMove',
+            'Get-DomeniaMoveStateText',
+            'Get-DomeniaAbsenceStatusLabel',
+            'Resolve-DomeniaDirectoryAbsence',
+            'Select-DomeniaAbsencesToCheck',
+            'New-DomeniaAbsenceStoreRow',
+            'Format-DomeniaUtcText',
+            'ConvertTo-DomeniaAbsenceRow',
+            'Get-DomeniaAbsenceSummary',
+            'Get-DomeniaCensusAdvice',
+            'Get-DomeniaSnapshotNotice',
+            'ConvertTo-DomeniaSnapshotCoverage',
+            'New-DomeniaSnapshotRequest',
+            'ConvertTo-DomeniaSnapshotRow',
+            'Test-DomeniaSnapshotComparable',
+            'Get-DomeniaSnapshotFields',
+            'ConvertTo-DomeniaSnapshotReport'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-DirectorySync.Worker.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaAbsenceCheckWorkerCode'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-DirectorySync.Model.ps1','Domenia-DirectorySync.Worker.ps1','Domenia-BoardFleet.Model.ps1','Domenia-Engine.Worker.ps1','Domenia-Storage.UI.ps1','Domenia-Inline.UI.ps1'); File='Domenia-DirectorySync.UI.ps1'; DotSource=$true; Functions=@(
+            'Initialize-DomeniaDirectorySyncUi',
+            'Test-DomeniaDirectorySyncVisible',
+            'Test-DomeniaDirectorySyncStateCurrent',
+            'Request-DomeniaDirectorySyncRead',
+            'Complete-DomeniaDirectorySyncRead',
+            'Fail-DomeniaDirectorySyncRead',
+            'Get-DomeniaCensusMaxAgeDays',
+            'Get-DomeniaCensusAdviceForScope',
+            'Update-DomeniaCensusAdviceUi',
+            'Request-DomeniaAbsenceCheck',
+            'Start-DomeniaAbsenceCheck',
+            'Complete-DomeniaAbsenceCheck',
+            'Fail-DomeniaAbsenceCheck',
+            'Complete-DomeniaDirectorySyncStorage',
+            'Start-DomeniaSnapshotCapture',
+            'Update-DomeniaSnapshotButtons',
+            'Update-DomeniaSnapshotChoices',
+            'Request-DomeniaSnapshotDelete',
+            'Remove-DomeniaSnapshot',
+            'Start-DomeniaSnapshotCompare',
+            'Complete-DomeniaSnapshotCompare',
+            'Fail-DomeniaSnapshotCompare'
+        ) }
     )
 }
 

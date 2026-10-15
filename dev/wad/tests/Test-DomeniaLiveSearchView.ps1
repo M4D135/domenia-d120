@@ -214,6 +214,22 @@ try {
    Expect-HealthyTimer;Expect ($s.Rows.Count -eq 2 -and $grid.Items.Count -eq 2) 'New global search inherited local filters or failed to restart'
    Snapshot-Fixture 'fresh-global-search'
   }
+  Case 'Point 23: a renamed or moved object keeps one row under its GUID' {
+   $s=$script:Live.Search;$row=@($s.Rows|Where-Object{[string]$_.Guid -ieq $script:Ids[0]})[0]
+   Expect ($null -ne $row) 'Starting row missing'
+   # A revalidation of the displayed list (ScopeReconcile) returns the same GUID under its new DN.
+   $event=New-FixtureEvent 'GLOBAL-ALPHA-2' $script:Ids[0];Add-Member -InputObject $event -NotePropertyName Revalidated -NotePropertyValue $true
+   $s.Progress.Enqueue($event)
+   Invoke-DomeniaTimerSoon -Owner 'Timer:Live'
+   Wait-FixtureState -Stage 'renamed-row' -Condition {$s.Progress.IsEmpty -and @($s.Rows|Where-Object{[string]$_.Name -eq 'GLOBAL-ALPHA-2'}).Count -eq 1}
+   Expect-HealthyTimer
+   Expect ($s.Rows.Count -eq 2 -and $grid.Items.Count -eq 2) ('Renamed object doubled its row: '+$s.Rows.Count)
+   Expect (@($s.Rows|Where-Object{[string]$_.Guid -ieq $script:Ids[0]}).Count -eq 1) 'GUID listed twice'
+   Expect ($s.Map.ContainsKey('cn=global-alpha-2,ou=lab,dc=example,dc=invalid') -and -not $s.Map.ContainsKey('cn=global-alpha,ou=lab,dc=example,dc=invalid')) 'DN key not moved with the object'
+   Expect ([object]::ReferenceEquals($s.Map['cn=global-alpha-2,ou=lab,dc=example,dc=invalid'],$row)) 'The row was replaced instead of updated in place'
+   Expect ([string]$row.DirectoryState -match '^Renommé') ('Row state: '+$row.DirectoryState)
+   Snapshot-Fixture 'renamed-row'
+  }
  }else{$script:Results.Add([pscustomobject]@{Name='Filter apply/refresh/clear scenarios';Passed=$false;Error='Blocked by reproduced Timer:Live failure; no success inferred.'})}
  Case 'Explicit Fleet chrome button opens the script-local workshop; chart click stays inert' {
   Initialize-DomeniaQueryWorkshop;$script:EvaluationRequests=0

@@ -16081,6 +16081,9 @@ function Load-DomeniaIndexMetadata {
             $inv = ''
             $details = [string]$s[0].details
             if ($details -match '(?i)inv=([0-9a-fA-F-]{36})') { $inv = $matches[1] }
+            # Point 22: identities of the last domain census that the local copy does not know.
+            $gap = 0L
+            if ($details -match '(?i)(?:^|;)gap=(\d{1,9})(?:;|$)') { $gap = [long]$matches[1] }
             $script:IndexInfo = [pscustomobject]@{
                 Server=[string]$s[0].server
                 BaseDn=[string]$s[0].base_dn
@@ -16088,6 +16091,7 @@ function Load-DomeniaIndexMetadata {
                 Count=[int]$s[0].item_count
                 Usn=[long]$s[0].highest_usn
                 InvocationId=$inv
+                CensusGap=$gap
             }
         } else { $script:IndexInfo = $null }
 
@@ -16464,6 +16468,13 @@ function Start-DomeniaIndexRefresh {
         try { $lastServer = [string]$script:IndexInfo.Server } catch { }
         try { $since = [string]$script:IndexInfo.Date } catch { }
         try { $lastInvocationId = [string]$script:IndexInfo.InvocationId } catch { $lastInvocationId = "" }
+        # Point 22: the last census saw identities the local copy does not have. A differential read would never
+        # return them (they were not modified): this update reads the whole domain instead of the changes.
+        $censusGap = 0L
+        try { $censusGap = [long]$script:IndexInfo.CensusGap } catch { $censusGap = 0L }
+        # A silent update never becomes a complete read of the domain: that read always passes the operator's confirmation.
+        if (($censusGap -gt 0) -and $Silent) { return }
+        if ($censusGap -gt 0) { $lastUsn = [long]0; $since = ""; $lastInvocationId = "" }
         $dbCount = Get-DomeniaDatabaseObjectCount
         if ($dbCount -eq 0) {
             if (-not $Silent) { Set-Status "Aucune base autonome : utilise  Mettre a jour tout  d abord." "WARN" }
@@ -16472,13 +16483,15 @@ function Start-DomeniaIndexRefresh {
         if (-not $Silent) {
             if (-not $Confirmed) {
                 # UX-07: the estimate is confirmed in the page; the refresh starts again from the answer, once.
-                $impact=Get-DomeniaOperationImpactEstimate -Operation "IndexBuild" -ItemCount ([Math]::Max(1000,[int]($dbCount*0.05)))
-                [void](Request-DomeniaOperationImpact -Estimate $impact -Title "Mettre à jour les changements" -Target 'impact:IndexRefresh' -OnConfirm { Start-DomeniaIndexRefresh -Confirmed })
+                # A complete read after a census gap is estimated on the whole base, not on the usual share of changes.
+                $estimated=if ($censusGap -gt 0) { [Math]::Max(1000,[int]($dbCount+$censusGap)) } else { [Math]::Max(1000,[int]($dbCount*0.05)) }
+                $impact=Get-DomeniaOperationImpactEstimate -Operation "IndexBuild" -ItemCount $estimated
+                [void](Request-DomeniaOperationImpact -Estimate $impact -Title $(if ($censusGap -gt 0) { "Relire tout le domaine" } else { "Mettre à jour les changements" }) -Target 'impact:IndexRefresh' -OnConfirm { Start-DomeniaIndexRefresh -Confirmed })
                 return
             }
-            [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text "Recherche des objets modifies...")
+            [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text $(if ($censusGap -gt 0) { "Relecture complète du domaine : " + $censusGap + " objet(s) recensé(s) manquent dans la base locale." } else { "Recherche des objets modifies..." }))
         }
-        Set-DomeniaIndexProgress -Mode Busy -Message 'Synchronisation incrémentale avec Active Directory… progression exacte indisponible pendant la requête.'
+        Set-DomeniaIndexProgress -Mode Busy -Message $(if ($censusGap -gt 0) { 'Relecture complète du domaine : le dernier recensement a trouvé des objets absents de la base locale… progression exacte indisponible pendant la requête.' } else { 'Synchronisation incrémentale avec Active Directory… progression exacte indisponible pendant la requête.' })
         Start-UiTask `
             -Name "Mise a jour des changements" `
             -OperationId "IndexBuild" `
@@ -17629,6 +17642,15 @@ function Update-DomeniaIndexStats {
         if($coverage.Partial){$freshness.Add(('Dernière tentative incomplète le {0}. Les données reçues sont conservées ; la date de lecture complète reste inchangée.' -f $coverage.AttemptAt.ToLocalTime().ToString('dd/MM/yyyy HH:mm')))}
         $partial = if($target.IsDomain){[string](Get-DomeniaIndexPartialText)}else{''}
         if ($partial) { $freshness.Add('À vérifier : ' + $partial) }
+        # Point 22: a complete census of this scope is advised when due; it is never started automatically.
+        if (${function:Get-DomeniaCensusAdvice}) {
+            $gap = 0L; try { $gap = [long]$script:IndexInfo.CensusGap } catch { $gap = 0L }
+            # Index.FullRebuildDays (7 by default) is the age after which a complete read of the scope is advised.
+            $days = 7; try { $days = [int](Get-CfgValue 'Index' 'FullRebuildDays' 7) } catch { $days = 7 }
+            $census = Get-DomeniaCensusAdvice -Coverage $coverage -GapCount ([int]$gap) -MaxAgeDays $days -NowUtc ([datetime]::UtcNow) -IsDomain ([bool]$target.IsDomain)
+            if ([bool]$census.Due) { $freshness.Add([string]$census.Text) }
+        }
+        if (${function:Update-DomeniaCensusAdviceUi}) { Update-DomeniaCensusAdviceUi }
         [void](Set-DomeniaControlText -Name 'LblIndexFreshness' -Text ($freshness -join "`n"))
         $details = ('Fichier : {0}. Contrôleur : {1}. Repère : {2}. Associations utilisateur-poste : {3:N0}.' -f (Get-DomeniaDatabasePath),$server,$usn,@($script:UserMachineLinks).Count)
         [void](Set-DomeniaControlText -Name 'LblIndexStats' -Text $details)
@@ -25633,6 +25655,8 @@ function Initialize-DomeniaPresentation {
     Initialize-DomeniaGuard
     Initialize-DomeniaLive
     Initialize-DomeniaReconcile
+    # Points 22, 24 and 30: census, disappeared objects and snapshots, as a tab of the autonomous base page.
+    try { Initialize-DomeniaDirectorySyncUi } catch { Write-AppLog ('Onglet Contrôles de la base indisponible : ' + $_.Exception.Message) 'ERROR' }
     Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 pret."
 }
 
