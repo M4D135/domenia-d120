@@ -1001,6 +1001,10 @@ $script:GuiElementPolicy = [ordered]@{
     "UxAboutPanel" = "Default"
     # Point 145: compatibility of this workstation in À propos.
     "LblUxAboutCompatibility" = "Default"
+    # Point 147: local data policy in Stockage.
+    "ExpStorageDataPolicy" = "Default"
+    "LblStorageDataPolicy" = "Default"
+    "DgStorageDataPolicy" = "Default"
     "ObjectEmptyState" = "Default"
     "ComputerEmptyState" = "Default"
 
@@ -7202,6 +7206,21 @@ function Get-MainXaml {
                   <Button x:Name="BtnStorageRetentionApply" Content="Appliquer…" IsEnabled="False" Margin="0,0,8,6"/>
                 </WrapPanel>
                 <TextBlock x:Name="LblStorageRetention" Text="Enregistrez les réglages puis prévisualisez les données concernées." TextWrapping="Wrap"/>
+              </StackPanel>
+            </Expander>
+            <Expander x:Name="ExpStorageDataPolicy" Header="Politique des données locales" IsExpanded="False" Margin="0,0,0,12" Padding="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" AutomationProperties.Name="Politique des données locales">
+              <StackPanel>
+                <TextBlock x:Name="LblStorageDataPolicy" Text="Domenia nʼenvoie aucune donnée hors de ce poste." TextWrapping="Wrap" Margin="0,0,0,10" AutomationProperties.Name="Engagement sur les données locales"/>
+                <DataGrid x:Name="DgStorageDataPolicy" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" MaxHeight="460" ToolTip="Ce que Domenia garde sur ce poste : contenu, emplacement, durée de conservation, export et suppression. Lecture seule ; rien nʼest envoyé hors du poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Données locales de Domenia" AutomationProperties.HelpText="Ce que Domenia garde sur ce poste : contenu, emplacement, durée de conservation, export et suppression. Lecture seule ; rien nʼest envoyé hors du poste.">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn Header="Données" Binding="{Binding Label}" Width="150" ElementStyle="{StaticResource WrappedCellText}"/>
+                    <DataGridTextColumn Header="Contenu" Binding="{Binding Content}" Width="2*" MinWidth="180" ElementStyle="{StaticResource WrappedCellText}"/>
+                    <DataGridTextColumn Header="Emplacement" Binding="{Binding Location}" Width="2*" MinWidth="160" ElementStyle="{StaticResource WrappedCellText}"/>
+                    <DataGridTextColumn Header="Conservation" Binding="{Binding Retention}" Width="2*" MinWidth="160" ElementStyle="{StaticResource WrappedCellText}"/>
+                    <DataGridTextColumn Header="Export" Binding="{Binding Export}" Width="*" MinWidth="140" ElementStyle="{StaticResource WrappedCellText}"/>
+                    <DataGridTextColumn Header="Suppression" Binding="{Binding Deletion}" Width="2*" MinWidth="160" ElementStyle="{StaticResource WrappedCellText}"/>
+                  </DataGrid.Columns>
+                </DataGrid>
               </StackPanel>
             </Expander>
             <Expander x:Name="ExpStorageMaintenance" Header="Stockage local" Margin="0,0,0,12" IsExpanded="True">

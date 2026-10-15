@@ -20,6 +20,8 @@ function Get-DomeniaControl {param($Name) if($script:Ctrl.ContainsKey([string]$N
 function Write-AppLog {param($Text,$Level) $script:Logs.Add([string]$Text)}
 function Set-Status {param($Text,$Level)}
 function Set-DomeniaContextHint {param($Title,$Text) $script:Hints.Add([string]$Title)}
+$script:SettingsFixture=@{}
+function Get-DomeniaSetting {param($Name,$Default) if($script:SettingsFixture.ContainsKey([string]$Name)){return $script:SettingsFixture[[string]$Name]};return $Default}
 $script:Tests=[Collections.Generic.List[object]]::new()
 function Assert-Delivery {param([bool]$Condition,[string]$Message='Assertion en echec') if(-not $Condition){throw $Message}}
 function Case {param([string]$Name,[scriptblock]$Body)
@@ -118,6 +120,48 @@ Case 'P133 le catalogue charge par lʼapplication est celui des workers (Common.
             Assert-Delivery ($line.IndexOf('Domenia-Common.Model.ps1') -ge 0) ('Worker sans Common.Model : '+$worker)
         }
     }
+}
+
+# ---------------------------------------------------------------- point 147 : politique des donnees locales
+function Reset-DataPolicyFixture {
+    param([string]$PolicyJson='')
+    $script:SettingsFixture=@{}
+    if($PolicyJson){$script:SettingsFixture['Storage.PolicyJson']=$PolicyJson}
+    $script:StorageLayout=Get-DomeniaStorageLayout -Mode UserLocal -InstallRoot 'C:\Domenia' -UserLocalRoot 'C:\Users\agent\AppData\Local' -Writable @{Cache=$true;Preference=$true;Receipt=$true}
+    $script:DatabaseScopedPath='C:\Users\agent\AppData\Local\Domenia\Data\Domains\cnamts\Domenia.db'
+    $script:Ctrl=@{DgStorageDataPolicy=(New-Object Windows.Controls.DataGrid);LblStorageDataPolicy=(New-Object Windows.Controls.TextBlock);ExpStorageDataPolicy=(New-Object Windows.Controls.Expander)}
+}
+function Get-DataPolicyRow {param([string]$Category) return @(@($script:Ctrl.DgStorageDataPolicy.ItemsSource)|Where-Object{[string]$_.Category -eq $Category})[0]}
+Case 'P147 Stockage : politique des donnees avec les reglages enregistres et les dossiers de la disposition' {
+    Reset-DataPolicyFixture '{"Version":1,"AutomaticBackup":false,"BackupHours":24,"BackupKeep":7,"PresenceDays":45,"ConsoleDays":90,"InventoryDays":0,"ProbeDays":90,"DetailDays":30}'
+    Update-DomeniaDataPolicyView
+    Assert-Delivery (@($script:Ctrl.DgStorageDataPolicy.ItemsSource).Count -eq 12) 'Douze categories attendues'
+    Assert-Delivery ([string](Get-DataPolicyRow 'Presence').Retention -like '45 jours, appliqués après prévisualisation*') ([string](Get-DataPolicyRow 'Presence').Retention)
+    Assert-Delivery ([string](Get-DataPolicyRow 'Inventory').Retention -ceq 'Sans limite de durée.') ([string](Get-DataPolicyRow 'Inventory').Retention)
+    Assert-Delivery ([string](Get-DataPolicyRow 'Receipt').Location -ceq 'C:\Users\agent\AppData\Local\Domenia\Receipts') ([string](Get-DataPolicyRow 'Receipt').Location)
+    Assert-Delivery ([string](Get-DataPolicyRow 'Backup').Location -ceq 'C:\Users\agent\AppData\Local\Domenia\Data\Domains\cnamts\Backups') ([string](Get-DataPolicyRow 'Backup').Location)
+    Assert-Delivery ([string]$script:Ctrl.LblStorageDataPolicy.Text -like 'Domenia nʼenvoie aucune donnée hors de ce poste*') ([string]$script:Ctrl.LblStorageDataPolicy.Text)
+}
+Case 'P147 reglages illisibles : conservation inconnue, aucune valeur par defaut presentee comme reglee' {
+    Reset-DataPolicyFixture '{illisible'
+    $script:Logs.Clear()
+    Update-DomeniaDataPolicyView
+    Assert-Delivery ([string](Get-DataPolicyRow 'Presence').Retention -ceq 'Réglages de conservation illisibles : durée inconnue.') ([string](Get-DataPolicyRow 'Presence').Retention)
+    Assert-Delivery (@($script:Logs|Where-Object{$_ -like 'Politique des données : réglages de stockage illisibles*'}).Count -eq 1) 'Lecture illisible non journalisee'
+}
+Case 'P147 ouverture de la section : la vue relit les reglages enregistres depuis' {
+    Reset-DataPolicyFixture
+    $script:DataPolicyViewWired=$false
+    Initialize-DomeniaDataPolicyView
+    Assert-Delivery ([string](Get-DataPolicyRow 'Presence').Retention -like '30 jours*') 'Valeur par defaut du reglage absent'
+    $script:SettingsFixture['Storage.PolicyJson']='{"Version":1,"PresenceDays":7}'
+    $script:Ctrl.ExpStorageDataPolicy.IsExpanded=$true
+    Assert-Delivery ([string](Get-DataPolicyRow 'Presence').Retention -like '7 jours*') ([string](Get-DataPolicyRow 'Presence').Retention)
+    Initialize-DomeniaDataPolicyView
+    $script:Ctrl.ExpStorageDataPolicy.IsExpanded=$false
+    $script:SettingsFixture['Storage.PolicyJson']='{"Version":1,"PresenceDays":9}'
+    $script:Ctrl.ExpStorageDataPolicy.IsExpanded=$true
+    Assert-Delivery ([string](Get-DataPolicyRow 'Presence').Retention -like '9 jours*') 'Section rouverte : vue non relue'
 }
 
 $bad=@($script:Tests|Where-Object{-not $_.Passed})

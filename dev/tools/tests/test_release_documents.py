@@ -73,5 +73,47 @@ class CompatibilityMatrixTests(unittest.TestCase):
         self.assertFalse(re.search('[‘’“”]', text))
 
 
+class MainXamlControlTests(unittest.TestCase):
+    """Named controls added by the release-engineering lot: policy entry, accessible name, tooltip equal to the help
+    text and to the help catalogue entry (rules of the team, checked on the real main XAML)."""
+    CONTROLS = ('LblUxAboutCompatibility', 'ExpStorageDataPolicy', 'LblStorageDataPolicy', 'DgStorageDataPolicy')
+
+    @classmethod
+    def setUpClass(cls):
+        import sys
+        import xml.etree.ElementTree as ET
+        sys.path.insert(0, str(DEV / 'wad' / 'tests'))
+        from powershell_lex import functions
+        core = (DEV / 'wad' / 'Domenia-Core.ps1').read_text(encoding='utf-8-sig')
+        spans = functions(core)['Get-MainXaml']
+        start, end = spans[0]
+        xaml = re.search(r'@"\n(.*?)\n"@', core[start:end], re.S).group(1)
+        cls.root = ET.fromstring(xaml)
+        cls.policy = core[core.index('$script:GuiElementPolicy = [ordered]@{'):]
+        cls.policy = cls.policy[:cls.policy.index('\n}\n')]
+        cls.help = {e['Name']: e for e in json.loads((DEV / 'wad' / 'modules' / 'Domenia-UX.help.json').read_text(encoding='utf-8'))}
+        cls.xname = '{http://schemas.microsoft.com/winfx/2006/xaml}Name'
+
+    def find(self, name):
+        found = [e for e in self.root.iter() if e.get(self.xname) == name]
+        self.assertEqual(len(found), 1, name)
+        return found[0]
+
+    def test_new_controls_are_declared_named_and_described(self):
+        for name in self.CONTROLS:
+            with self.subTest(control=name):
+                element = self.find(name)
+                self.assertIn('"%s" = "Default"' % name, self.policy)
+                self.assertTrue(element.get('AutomationProperties.Name'))
+                tip = element.get('ToolTip')
+                if tip is not None:
+                    self.assertEqual(tip, element.get('AutomationProperties.HelpText'))
+                    self.assertIn(name, self.help)
+                    self.assertEqual(self.help[name]['Text'], tip)
+                    self.assertEqual(element.get('ToolTipService.ShowOnDisabled'), 'True')
+                for value in element.attrib.values():
+                    self.assertFalse(re.search('[\u2018\u2019\u201c\u201d]', value), value)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

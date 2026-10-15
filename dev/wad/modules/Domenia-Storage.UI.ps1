@@ -965,6 +965,8 @@ function Initialize-DomeniaStoragePolicy {
     foreach($name in @('BackupHours','BackupKeep','PresenceDays','ConsoleDays','InventoryDays','ProbeDays','DetailDays')){$control=Get-DomeniaControl ('TxtStorage'+$name);if($control){$control.Text=[string]$policy.$name}}
     if($null -eq $script:StorageBackupTimer){$script:StorageBackupTimer=New-DomeniaTimer -Owner 'Timer:StorageBackupPolicy' -IntervalMs 60000 -RunWhenHidden -Tick {Invoke-DomeniaScheduledBackup}}
     if($policy.AutomaticBackup){$script:StorageBackupTimer.Start()}else{$script:StorageBackupTimer.Stop()}
+    # Point 147: the local data policy shows the retention just saved.
+    try{Initialize-DomeniaDataPolicyView}catch{Write-AppLog ('Politique des données non affichée : '+$_.Exception.Message) 'WARN'}
 }
 function Invoke-DomeniaScheduledBackup {
     if([bool]$script:DemoMode -or -not [string]$script:DatabaseScopedPath -or $script:AsyncEngineClosing -or $script:StorageAutoBackupJob){return}

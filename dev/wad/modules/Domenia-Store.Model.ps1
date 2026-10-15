@@ -137,7 +137,8 @@ function ConvertTo-DomeniaStoragePolicy {
     param($Value=$null)
     $policy=[ordered]@{Version=1;AutomaticBackup=$false;BackupHours=24;BackupKeep=7;PresenceDays=30;ConsoleDays=90;InventoryDays=180;ProbeDays=90;DetailDays=30}
     if($null -ne $Value){
-        foreach($key in $policy.Keys){$v=Get-DomeniaStoreValue $Value $key $null;if($null -ne $v){
+        # Snapshot of the keys: writing a value while enumerating .Keys throws under Windows PowerShell 5.1.
+        foreach($key in @($policy.Keys)){$v=Get-DomeniaStoreValue $Value $key $null;if($null -ne $v){
             if($key -eq 'AutomaticBackup'){if($v -isnot [bool]){throw 'Activation de sauvegarde invalide.'};$policy[$key]=[bool]$v}
             else{$number=0;if(-not [int]::TryParse([string]$v,[ref]$number)){throw ('Reglage de stockage invalide : '+$key)};$policy[$key]=$number}
         }}

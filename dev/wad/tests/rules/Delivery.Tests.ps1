@@ -1,5 +1,5 @@
-﻿# Points 143 et 144 : schema de donnees annonce par la mise a jour, plan de desinstallation avec choix explicite des
-# donnees locales. Regles pures de Domenia-Release.Model ; manifestes et empreintes fictifs.
+﻿# Points 143, 144 et 147 : schema de donnees annonce par la mise a jour, plan de desinstallation avec choix explicite
+# des donnees locales, politique des donnees locales. Regles pures de Domenia-Release.Model ; manifestes et empreintes fictifs.
 function New-DlvManifest {
     $hash = { param([string]$Text) (Get-DomeniaTextHash $Text) }
     return [pscustomobject]@{ Format = 1; Build = '2026.10.15-DOMENIA-1.0-TEST'; Files = @(
@@ -85,4 +85,49 @@ Test-Case 'DLV-006' 'Refus : arbre DEV, mise a jour inachevee, manifeste incompl
     $escape = New-DlvManifest
     $escape.Files = @($escape.Files) + @([pscustomobject]@{ Path = '../Windows/system.ini'; Sha256 = (Get-DomeniaTextHash 'x'); Runtime = $true; PreserveExisting = $false })
     Assert-False (Get-DomeniaUninstallPlan -Manifest $escape -Observed (New-DlvObserved)).Allowed
+}
+
+# Point 147 : politique des donnees locales (Domenia-DataPolicy.Model, reglages de Domenia-Store.Model).
+. (Join-Path $modules 'Domenia-Store.Model.ps1')
+. (Join-Path $modules 'Domenia-DataPolicy.Model.ps1')
+
+Test-Case 'DPO-001' 'Chaque donnee gardee sur le poste a son contenu, son emplacement, sa conservation, son export et sa suppression' {
+    $view = Get-DomeniaLocalDataPolicy -DataRoot 'C:\Users\agent\AppData\Local\Domenia\Data' -ReceiptRoot 'C:\Users\agent\AppData\Local\Domenia\Receipts'
+    $rows = @($view.Rows)
+    Assert-Equal 12 $rows.Count
+    Assert-Equal 12 @($rows | ForEach-Object { $_.Category } | Sort-Object -Unique).Count 'categories en double'
+    foreach ($row in $rows) { foreach ($field in @('Label','Content','Location','Retention','Export','Deletion')) { Assert-True ([string]$row.$field) ($row.Category + ' : ' + $field + ' vide') } }
+    Assert-True ($view.Statement -like 'Domenia nʼenvoie aucune donnée hors de ce poste*') $view.Statement
+    Assert-Equal 'C:\Users\agent\AppData\Local\Domenia\Data\Logs' @($rows | Where-Object { $_.Category -eq 'Log' })[0].Location
+    Assert-Equal 'C:\Users\agent\AppData\Local\Domenia\Receipts' @($rows | Where-Object { $_.Category -eq 'Receipt' })[0].Location
+}
+
+Test-Case 'DPO-002' 'La conservation affichee vient des reglages enregistres : 0 sans limite, sinon jours confirmes' {
+    $policy = [pscustomobject]@{ Version = 1; AutomaticBackup = $true; BackupHours = 12; BackupKeep = 5; PresenceDays = 0; ConsoleDays = 90; InventoryDays = 200; ProbeDays = 90; DetailDays = 30 }
+    $rows = @((Get-DomeniaLocalDataPolicy -Policy $policy).Rows)
+    $byCategory = @{}; foreach ($row in $rows) { $byCategory[$row.Category] = $row }
+    Assert-Equal 'Sans limite de durée.' $byCategory['Presence'].Retention
+    Assert-True ($byCategory['Inventory'].Retention -like '200 jours, appliqués après prévisualisation et confirmation*') $byCategory['Inventory'].Retention
+    Assert-True ($byCategory['Backup'].Retention -like 'Toutes les 12 h pendant que Domenia est ouvert, 5 copies conservées.*hors rotation.') $byCategory['Backup'].Retention
+    $manual = @((Get-DomeniaLocalDataPolicy).Rows | Where-Object { $_.Category -eq 'Backup' })[0]
+    Assert-True ($manual.Retention -like 'Sauvegarde automatique désactivée*') $manual.Retention
+}
+
+Test-Case 'DPO-003' 'Emplacements : inconnus annonces comme tels, sauvegardes a cote de la base active' {
+    $rows = @((Get-DomeniaLocalDataPolicy).Rows)
+    foreach ($category in @('Directory','Backup','Log','Receipt','Preference')) {
+        Assert-True (@($rows | Where-Object { $_.Category -eq $category })[0].Location -like 'Emplacement non déterminé*') $category
+    }
+    $withBase = @((Get-DomeniaLocalDataPolicy -DataRoot 'D:\Domenia\Data' -DatabasePath 'D:\Bases\cnamts\Domenia.db').Rows)
+    Assert-Equal 'D:\Bases\cnamts\Backups' @($withBase | Where-Object { $_.Category -eq 'Backup' })[0].Location
+    Assert-Equal 'D:\Bases\cnamts\Domenia.db' @($withBase | Where-Object { $_.Category -eq 'Inventory' })[0].Location
+}
+
+Test-Case 'DPO-004' 'Reglages illisibles : conservation inconnue, jamais une valeur par defaut presentee comme reglee' {
+    $rows = @((Get-DomeniaLocalDataPolicy -PolicyUnreadable).Rows)
+    foreach ($category in @('Presence','Console','Inventory','Probe','Detail')) {
+        Assert-Equal 'Réglages de conservation illisibles : durée inconnue.' @($rows | Where-Object { $_.Category -eq $category })[0].Retention $category
+    }
+    Assert-True (@($rows | Where-Object { $_.Category -eq 'Backup' })[0].Retention -like 'Réglages de sauvegarde illisibles*')
+    Assert-Throws { Get-DomeniaLocalDataPolicy -Policy ([pscustomobject]@{ Version = 1; BackupHours = 0 }) } 'reglage hors limites accepte'
 }

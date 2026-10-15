@@ -1113,6 +1113,14 @@ function Get-DomeniaRuntimeModulePlan {
             'Fail-DomeniaStorageRetention',
             'Reset-DomeniaStorageObservationViews'
         ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Store.Model.ps1'); File='Domenia-DataPolicy.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaDataRetentionText',
+            'Get-DomeniaLocalDataPolicy'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-DataPolicy.Model.ps1','Domenia-Storage.UI.ps1'); File='Domenia-DataPolicy.UI.ps1'; DotSource=$true; Functions=@(
+            'Update-DomeniaDataPolicyView',
+            'Initialize-DomeniaDataPolicyView'
+        ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Lockout.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaLockoutEventWorkerCode'
         ) }
