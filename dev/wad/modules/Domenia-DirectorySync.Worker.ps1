@@ -3,6 +3,7 @@ return @'
 # Points 23 and 24: objects that a complete read did not return, read again by GUID on explicit request. First in the
 # whole domain (an object found elsewhere was moved, not deleted), then among the deleted objects (isDeleted proves a
 # deletion). An empty answer from the deleted objects proves nothing unless this account can read them.
+# Point 22: the same domain read (CheckDeleted off) fills in the identities a census found missing from the local copy.
 # Bounded: 200 identities, batches of 24, 60 seconds. Nothing is written in the directory.
 $items=@($Payload.Items)
 if(($items.Count -lt 1) -or ($items.Count -gt 200)){throw 'Lot de vérification invalide : de 1 à 200 objets.'}
@@ -25,8 +26,26 @@ function Clean-AbsenceField {
     $text='';if($null -ne $Value){$text=[string]$Value}
     return ($text -replace '[\t\r\n]',' ').Trim()
 }
+function ConvertTo-AbsenceUtcText {
+    # Directory date (generalized time or large integer) as 'yyyy-MM-ddTHH:mm:ssZ', as the index read writes it; ''
+    # when absent or never.
+    param($Value)
+    if(($null -eq $Value) -or ([string]$Value -eq '')){return ''}
+    try{
+        if($Value -is [datetime]){
+            $date=$Value
+            if($date.Kind -eq [DateTimeKind]::Local){$date=$date.ToUniversalTime()}
+            return $date.ToString('yyyy-MM-ddTHH:mm:ssZ',[Globalization.CultureInfo]::InvariantCulture)
+        }
+        $ticks=Convert-WLargeInteger $Value
+        if(($ticks -le 0) -or ($ticks -eq [long]::MaxValue)){return ''}
+        return [DateTime]::FromFileTimeUtc($ticks).ToString('yyyy-MM-ddTHH:mm:ssZ',[Globalization.CultureInfo]::InvariantCulture)
+    }catch{return ''}
+}
 function New-AbsenceIndexRecord {
     # Same columns and formats as the index read, so that a found object replaces its old row under the same GUID.
+    # A computer also brings back its facts (system version, creation, password and LAPS expiry dates), which the
+    # complete read had removed with its row. Without a schema probe, no LAPS expiry read stays unknown ('').
     param($Props,[string]$Type,[string]$Guid)
     $upn='';$extra=''
     if($Type -eq 'Utilisateur'){
@@ -43,17 +62,28 @@ function New-AbsenceIndexRecord {
     $uac=0;try{$uac=[int](Get-WPropFirst $Props 'useraccountcontrol' 0)}catch{$uac=0}
     $usn=0L;try{$usn=[int64](Get-WPropFirst $Props 'usnchanged' 0)}catch{$usn=0L}
     $lastLogon='';try{$lastLogon=Clean-AbsenceField (Convert-WFileTime (Get-WPropFirst $Props 'lastlogontimestamp' 0))}catch{$lastLogon=''}
+    $facts=$false;$osVersion='';$created='';$pwdSet='';$lapsKind='';$lapsExpiry=''
+    if($Type -eq 'Machine'){
+        $facts=$true
+        $osVersion=Clean-AbsenceField (Get-WPropFirst $Props 'operatingsystemversion' '')
+        $created=ConvertTo-AbsenceUtcText (Get-WPropFirst $Props 'whencreated' $null)
+        $pwdSet=ConvertTo-AbsenceUtcText (Get-WPropFirst $Props 'pwdlastset' $null)
+        $windowsLaps=ConvertTo-AbsenceUtcText (Get-WPropFirst $Props 'mslaps-passwordexpirationtime' $null)
+        $legacyLaps=ConvertTo-AbsenceUtcText (Get-WPropFirst $Props 'ms-mcs-admpwdexpirationtime' $null)
+        if($windowsLaps){$lapsKind='Windows';$lapsExpiry=$windowsLaps}elseif($legacyLaps){$lapsKind='Legacy';$lapsExpiry=$legacyLaps}
+    }
     return [pscustomobject]@{
         Type=$Type;WhenChanged=(Clean-AbsenceField (Convert-WDate (Get-WPropFirst $Props 'whenchanged' '')));Usn=$usn;LastLogon=$lastLogon
         Name=(Clean-AbsenceField (Get-WPropFirst $Props 'name' ''));Login=(Clean-AbsenceField (Get-WPropFirst $Props 'samaccountname' ''));Upn=$upn
         Display=(Clean-AbsenceField (Get-WPropFirst $Props 'displayname' ''));Description=(Clean-AbsenceField (Get-WPropFirst $Props 'description' ''));Extra=$extra
         State=$(if(($uac -band 2) -ne 0){'Desactive'}else{'Actif'});DN=(Clean-AbsenceField (Get-WPropFirst $Props 'distinguishedname' ''));Guid=$Guid
+        Facts=$facts;OsVersion=$osVersion;WhenCreated=$created;PwdLastSet=$pwdSet;LapsKind=$lapsKind;LapsExpiry=$lapsExpiry
     }
 }
 $keys=@($requested.Keys)
 $found=@{};$checked=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
 $domainRead='Read';$domainError=''
-$props=@('objectGUID','distinguishedName','objectClass','name','sAMAccountName','userPrincipalName','dNSHostName','displayName','description','department','title','operatingSystem','location','userAccountControl','whenChanged','uSNChanged','lastLogonTimestamp')
+$props=@('objectGUID','distinguishedName','objectClass','name','sAMAccountName','userPrincipalName','dNSHostName','displayName','description','department','title','operatingSystem','location','userAccountControl','whenChanged','uSNChanged','lastLogonTimestamp','operatingSystemVersion','whenCreated','pwdLastSet','ms-Mcs-AdmPwdExpirationTime','msLAPS-PasswordExpirationTime')
 for($offset=0;$offset -lt $keys.Count;$offset+=24){
     if($watch.Elapsed.TotalSeconds -ge $budgetSeconds){$domainRead='Unavailable';$domainError='Budget de temps atteint avant la fin des lectures.';break}
     $last=[Math]::Min($keys.Count,$offset+24)-1

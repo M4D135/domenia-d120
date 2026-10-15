@@ -103,7 +103,10 @@ function ConvertTo-DomeniaAdSchemaCatalog {
             Category=(Get-DomeniaAdClassCategoryLabel ([long](Get-DomeniaMember $c 'Category' 1)));Defunct=[bool](Get-DomeniaMember $c 'Defunct' $false)
         }
     }
-    return [pscustomobject]@{Attributes=$attributeMap;Classes=$classMap;Server=$Server;ObservedUtc=$ObservedUtc;Truncated=$Truncated;DomainDn=$DomainDn;AttributeCount=$attributeMap.Count;ClassCount=$classMap.Count}
+    # Names sorted once here: filtering the list at each keystroke never sorts thousands of keys again.
+    $attributeKeys=[string[]]@($attributeMap.Keys);[Array]::Sort($attributeKeys,[StringComparer]::Ordinal)
+    $classKeys=[string[]]@($classMap.Keys);[Array]::Sort($classKeys,[StringComparer]::Ordinal)
+    return [pscustomobject]@{Attributes=$attributeMap;Classes=$classMap;AttributeKeys=$attributeKeys;ClassKeys=$classKeys;Server=$Server;ObservedUtc=$ObservedUtc;Truncated=$Truncated;DomainDn=$DomainDn;AttributeCount=$attributeMap.Count;ClassCount=$classMap.Count}
 }
 
 function Get-DomeniaAdSchemaAttribute {
@@ -177,23 +180,27 @@ function Get-DomeniaAdClassAttributes {
 
 function Find-DomeniaAdSchemaEntries {
     # Classes or attributes whose name or description contains $Text (case and accents of the text kept as typed).
+    # Every match is counted, but only the first $Limit become display rows: a short filter over 8 000 attributes stays
+    # cheap enough for the interface thread. Names come pre-sorted from the catalog (sorted here for an older catalog).
     param($Catalog,[AllowEmptyString()][AllowNull()][string]$Text='',[ValidateSet('Classes','Attributes')][string]$Kind='Classes',[ValidateRange(1,5000)][int]$Limit=500)
     $term=([string]$Text).Trim()
     $map=Get-DomeniaMember $Catalog $Kind $null
     if($null -eq $map){return [pscustomobject]@{Rows=@();Total=0;Shown=0}}
-    $rows=New-Object 'System.Collections.Generic.List[object]'
-    foreach($key in @($map.Keys|Sort-Object)){
+    $keys=Get-DomeniaMember $Catalog $(if($Kind -eq 'Classes'){'ClassKeys'}else{'AttributeKeys'}) $null
+    if(($null -eq $keys) -or (@($keys).Count -ne $map.Count)){$keys=[string[]]@($map.Keys);[Array]::Sort($keys,[StringComparer]::Ordinal)}
+    $rows=New-Object 'System.Collections.Generic.List[object]';$total=0
+    foreach($key in $keys){
         $entry=$map[$key]
         if($term -and (([string]$entry.Name).IndexOf($term,[StringComparison]::OrdinalIgnoreCase) -lt 0) -and (([string]$entry.Description).IndexOf($term,[StringComparison]::OrdinalIgnoreCase) -lt 0)){continue}
+        $total++
+        if($rows.Count -ge $Limit){continue}
         if($Kind -eq 'Classes'){
             $rows.Add([pscustomobject]@{Nom=[string]$entry.Name;Nature=$(if([bool]$entry.Defunct){'Obsolète'}else{[string]$entry.Category});Detail=('Hérite de '+[string]$entry.SubClassOf);Description=[string]$entry.Description;Kind='Class'})
         }else{
             $rows.Add([pscustomobject]@{Nom=[string]$entry.Name;Nature=$(if([bool]$entry.Defunct){'Obsolète'}else{[string]$entry.SyntaxLabel});Detail=($(if([bool]$entry.SingleValued){'Une valeur'}else{'Plusieurs valeurs'})+' · '+(Get-DomeniaAdAttributeIndexText $entry));Description=[string]$entry.Description;Kind='Attribute'})
         }
     }
-    $total=$rows.Count
-    $shown=@($rows.ToArray()|Select-Object -First $Limit)
-    return [pscustomobject]@{Rows=$shown;Total=$total;Shown=$shown.Count}
+    return [pscustomobject]@{Rows=$rows.ToArray();Total=$total;Shown=$rows.Count}
 }
 
 function Get-DomeniaAdAttributeQueryHint {

@@ -29,11 +29,12 @@ function Initialize-DomeniaDirectorySyncUi {
     [Windows.Automation.AutomationProperties]::SetName($tab,'Contrôles de la base autonome')
     $script:Ctrl['TabIndexControls']=$tab
     [void]$tabs.Items.Add($tab)
-    $script:DomeniaDirectorySync=[pscustomobject]@{ReadGeneration=0L;CompareGeneration=0L;Absences=@();AbsenceTotal=0L;Snapshots=@();CheckJob='';PendingSnapshot=$null}
+    $script:DomeniaDirectorySync=[pscustomobject]@{ReadGeneration=0L;CompareGeneration=0L;Absences=@();AbsenceTotal=0L;Snapshots=@();CheckJob='';PendingSnapshot=$null;Gaps=@();GapTotal=0L;GapJob=''}
     [void](Set-DomeniaControlText 'LblSnapshotNotice' (Get-DomeniaSnapshotNotice))
     # Event handlers call named functions only: no closure over a local that would expire.
     # Point 22: the complete read of the chosen OU is the same explicit gesture as « Mettre à jour lʼOU choisie ».
     (Get-DomeniaControl 'BtnSyncCensusRun').Add_Click({Start-DomeniaSelectedIndexScopeBuild})
+    (Get-DomeniaControl 'BtnSyncGapRead').Add_Click({Request-DomeniaCensusGapRead})
     (Get-DomeniaControl 'BtnSyncAbsencesRefresh').Add_Click({Request-DomeniaDirectorySyncRead})
     (Get-DomeniaControl 'BtnSyncAbsencesCheck').Add_Click({Request-DomeniaAbsenceCheck})
     (Get-DomeniaControl 'BtnSnapshotCapture').Add_Click({Start-DomeniaSnapshotCapture})
@@ -88,13 +89,18 @@ function Complete-DomeniaDirectorySyncRead {
         if($null -eq $r){throw 'Réponse locale absente.'}
         if([bool]$r.Busy){[void](Set-DomeniaControlText 'LblSyncAbsences' 'Base locale occupée par un enregistrement : actualisez la liste dans un instant.');return}
         if([bool](Get-DomeniaMember $r 'Missing' $false)){
-            $s.Absences=@();$s.AbsenceTotal=0L;$s.Snapshots=@()
+            $s.Absences=@();$s.AbsenceTotal=0L;$s.Snapshots=@();$s.Gaps=@();$s.GapTotal=0L
             [void](Set-DomeniaItemsSource 'DgSyncAbsences' @());[void](Set-DomeniaItemsSource 'DgSnapshots' @())
             [void](Set-DomeniaControlText 'LblSyncAbsences' 'Base locale absente : aucune disparition ni relevé.')
+            [void](Set-DomeniaControlText 'LblSyncGaps' (Get-DomeniaCensusGapSummary -Total 0))
             Update-DomeniaSnapshotChoices;Update-DomeniaSnapshotButtons
             return
         }
         if([string](Get-DomeniaMember $r 'DataSource' '') -cne 'SQLite'){throw 'Réponse locale non confirmée par SQLite.'}
+        # Point 22: identities of the last census still missing from the local copy (200 shown, exact total).
+        $s.Gaps=@(@(Get-DomeniaMember $r 'Gaps' @())|Where-Object{($null -ne $_) -and (ConvertTo-DomeniaGuidText (Get-DomeniaMember $_ 'object_guid' ''))})
+        $s.GapTotal=[long](Get-DomeniaMember $r 'GapTotal' 0)
+        [void](Set-DomeniaControlText 'LblSyncGaps' (Get-DomeniaCensusGapSummary -Total ([long]$s.GapTotal) -Shown (@($s.Gaps).Count)))
         $absences=@(@($r.Absences)|Where-Object{$null -ne $_}|ForEach-Object{ConvertTo-DomeniaAbsenceRow $_})
         $s.Absences=$absences;$s.AbsenceTotal=[long]$r.AbsenceTotal
         [void](Set-DomeniaItemsSource 'DgSyncAbsences' $absences)
@@ -142,6 +148,73 @@ function Get-DomeniaCensusAdviceForScope {
 function Update-DomeniaCensusAdviceUi {
     try{[void](Set-DomeniaControlText 'LblSyncCensus' ([string](Get-DomeniaCensusAdviceForScope).Text))}
     catch{[void](Set-DomeniaControlText 'LblSyncCensus' ('État du recensement non calculé : '+$_.Exception.Message))}
+}
+
+# ---------------------------------------------------------------- point 22: census gaps read by GUID
+function Request-DomeniaCensusGapRead {
+    # Explicit and bounded: the identities the last domain census found missing are read by GUID, never the domain.
+    $s=$script:DomeniaDirectorySync
+    if($null -eq $s){return}
+    if([bool]$script:DemoMode){[void](Set-DomeniaControlText 'LblSyncGaps' 'Lecture indisponible en démonstration : aucun contrôleur réel.');return}
+    if(([string]$s.GapJob) -and ($script:AsyncJobs.Contains([string]$s.GapJob))){[void](Set-DomeniaControlText 'LblSyncGaps' 'Une lecture des objets manquants est déjà en cours.');return}
+    $count=@($s.Gaps).Count
+    if(-not $count){[void](Set-DomeniaControlText 'LblSyncGaps' 'Aucun objet manquant à lire : actualisez la liste.');return}
+    $message=[string]$count+' objet(s) recensé(s) mais absent(s) de la base locale seront lus par leur GUID dans le domaine (attributs de la base autonome seulement). Lecture seule : rien nʼest modifié dans lʼannuaire. Un objet lu est ajouté à la base locale ; un objet que la lecture ne renvoie plus quitte la liste, sans conclusion.'
+    [void](Request-DomeniaInlineConfirmation -Title 'Lire les objets manquants' -Message $message -Target 'index:lire-objets-manquants' -OnConfirm {Start-DomeniaCensusGapRead})
+}
+
+function Start-DomeniaCensusGapRead {
+    $s=$script:DomeniaDirectorySync
+    if($null -eq $s){return}
+    $guids=@(@($s.Gaps)|ForEach-Object{(ConvertTo-DomeniaGuidText (Get-DomeniaMember $_ 'object_guid' '')).ToLowerInvariant()}|Where-Object{$_}|Select-Object -First 200)
+    if(-not $guids.Count){return}
+    $state=[pscustomobject]@{Epoch=[long]$script:SessionEpoch;Path=[string]$script:DatabaseScopedPath;DomainDn=[string]$script:Conn.BaseDn;Guids=$guids}
+    # The deleted objects are not read: a missing identity is filled in or leaves the list, it is never judged deleted.
+    $payload=[pscustomobject]@{Items=@($guids|ForEach-Object{[pscustomobject]@{Guid=[string]$_}});CheckDeleted=$false}
+    try{
+        $s.GapJob=[string](Start-UiTask -Name 'Lecture des objets manquants' -OperationId 'DirectoryAbsenceCheck' -Code (Get-DomeniaAbsenceCheckWorkerCode) -Payload $payload -CallbackState $state -SuccessHandler 'Complete-DomeniaCensusGapRead' -ErrorHandler 'Fail-DomeniaCensusGapRead' -DisableControls @('BtnSyncGapRead') -TimeoutSeconds 120 -TaskClass 'Explicit')
+        if(-not $s.GapJob){throw 'Lecture non admise par le moteur.'}
+        [void](Set-DomeniaControlText 'LblSyncGaps' ('Lecture de '+[string]$guids.Count+' objet(s) par leur GUID en cours… (aucune nouvelle lecture après 60 secondes)'))
+    }catch{$s.GapJob='';[void](Set-DomeniaControlText 'LblSyncGaps' ('Lecture non lancée : '+$_.Exception.Message))}
+}
+
+function Complete-DomeniaCensusGapRead {
+    param($Result,$State)
+    $s=$script:DomeniaDirectorySync
+    if($null -ne $s){$s.GapJob=''}
+    if(-not (Test-DomeniaDirectorySyncStateCurrent $State 'Check')){return}
+    try{
+        $r=Get-DomeniaEffectiveWorkerResult $Result @('Results','DomainRead')
+        if($null -eq $r){throw 'Réponse de lecture absente.'}
+        $asked=@{};foreach($guid in @($State.Guids)){$asked[[string]$guid]=$true}
+        $checkedUtc=ConvertTo-DomeniaUtcDate ([string]$r.ObservedUtc);if($null -eq $checkedUtc){$checkedUtc=[datetime]::UtcNow}
+        $store=New-Object 'System.Collections.Generic.List[object]';$added=0;$gone=0;$unread=0
+        foreach($answer in @($r.Results)){
+            if($null -eq $answer){continue}
+            $guid=([string]$answer.Guid).ToLowerInvariant()
+            if(-not $asked.ContainsKey($guid)){continue}
+            $row=New-DomeniaCensusGapStoreRow -Guid $guid -Check $answer -CheckedUtc $checkedUtc -Server ([string]$r.Server)
+            if([string]$row.Status -eq 'Visible'){$added++}elseif([string]$row.Status -eq 'Introuvable'){$gone++}else{$unread++}
+            $store.Add($row)
+        }
+        if(-not $store.Count){throw 'Aucun résultat ne correspond aux objets demandés.'}
+        $text='Lecture terminée : '+$added+' objet(s) à ajouter, '+$gone+' qui ne sont plus visibles, '+$unread+' non lu(s).'
+        if(($added+$gone) -gt 0){
+            $batch=[pscustomobject]@{Results=$store.ToArray();Server=[string]$r.Server;At=$checkedUtc.ToString('o');Source='CensusGap'}
+            if(-not (Queue-DomeniaMetadata -Kind 'DirectoryAbsence' -Row $batch -Key ('census-gaps-'+[guid]::NewGuid().ToString('N')))){throw 'File dʼenregistrement locale indisponible : résultats non enregistrés.'}
+            $text+=' Enregistrement local en attente de confirmation.'
+        }
+        if([string]$r.DomainRead -ne 'Read'){$text+=' Lecture du domaine interrompue : '+[string](Get-DomeniaMember $r 'DomainError' '')}
+        [void](Set-DomeniaControlText 'LblSyncGaps' $text)
+    }catch{[void](Set-DomeniaControlText 'LblSyncGaps' ('Lecture non exploitable : '+$_.Exception.Message))}
+}
+
+function Fail-DomeniaCensusGapRead {
+    param($Message,$State)
+    $s=$script:DomeniaDirectorySync
+    if($null -ne $s){$s.GapJob=''}
+    if(-not (Test-DomeniaDirectorySyncStateCurrent $State 'Check')){return}
+    [void](Set-DomeniaControlText 'LblSyncGaps' ('Lecture impossible : '+[string]$Message+' Les objets manquants restent à lire.'))
 }
 
 # ---------------------------------------------------------------- points 23 and 24: disappeared objects
@@ -219,7 +292,11 @@ function Complete-DomeniaDirectorySyncStorage {
     if((-not $mine.Count) -and (-not $index.Count)){return}
     if(-not $Saved){
         foreach($item in $mine){
-            if([string]$item.Kind -eq 'DirectorySnapshot'){[void](Set-DomeniaControlText 'LblSnapshots' ('Relevé non enregistré : '+$Message))}
+            if([string]$item.Kind -eq 'DirectorySnapshot'){
+                if([string]$item.Row.Action -eq 'Delete'){[void](Set-DomeniaControlText 'LblSnapshots' ('Relevé non supprimé : '+$Message+' Relancez la suppression.'))}
+                else{[void](Set-DomeniaControlText 'LblSnapshots' ('Relevé non enregistré : '+$Message+' Il nʼest pas relancé automatiquement ; enregistrez-le de nouveau.'))}
+            }
+            elseif([string](Get-DomeniaMember $item.Row 'Source' '') -eq 'CensusGap'){[void](Set-DomeniaControlText 'LblSyncGaps' ('Objets lus non enregistrés : '+$Message+' Ils restent à lire.'))}
             else{[void](Set-DomeniaControlText 'LblSyncAbsences' ('Résultats de vérification non enregistrés : '+$Message+' Les objets restent à vérifier.'))}
         }
         return
@@ -230,6 +307,7 @@ function Complete-DomeniaDirectorySyncStorage {
         if(($null -ne $s.PendingSnapshot) -and ([string]$s.PendingSnapshot.Id -ceq [string]$item.Row.SnapshotId)){$s.PendingSnapshot.Committed=$true}
         [void](Set-DomeniaControlText 'LblSnapshots' ('Enregistrement local confirmé : vérification du relevé « '+[string]$item.Row.Label+' » dans la base…'))
     }
+    foreach($item in @($absences|Where-Object{[string](Get-DomeniaMember $_.Row 'Source' '') -eq 'CensusGap'})){[void](Set-DomeniaControlText 'LblSyncGaps' 'Enregistrement local confirmé : la liste des objets manquants est relue dans la base…')}
     if($absences.Count){
         # Objects found again took their place in the local copy: counters and dashboards are read again.
         try{[void](Load-DomeniaIndexMetadata);Update-DomeniaIndexStats}catch{Write-AppLog ('Base locale relue partiellement : '+$_.Exception.Message) 'WARN'}
@@ -251,6 +329,9 @@ function Start-DomeniaSnapshotCapture {
         $coverage=Get-DomeniaFleetFreshness -ScopeDn $(if([bool]$scope.IsDomain){''}else{$scopeDn}) -DomainDn ([string]$script:Conn.BaseDn) -SyncStates $script:IndexSyncStates
         $label=[string](Get-DomeniaControl 'TxtSnapshotLabel').Text
         $request=New-DomeniaSnapshotRequest -DomainDn ([string]$script:Conn.BaseDn) -ScopeDn $scopeDn -Subtree $true -Label $label -Coverage $coverage -SnapshotId ([guid]::NewGuid().ToString('N')) -NowUtc ([datetime]::UtcNow)
+        # Size of the base when asked: the storage batch of this snapshot gets a time limit that follows it.
+        $estimate=0L;try{$estimate=[long]$script:IndexDbCount}catch{$estimate=0L}
+        $request|Add-Member -NotePropertyName ObjectEstimate -NotePropertyValue $(if($estimate -gt 0){$estimate}else{300000L}) -Force
         if(-not (Queue-DomeniaMetadata -Kind 'DirectorySnapshot' -Row $request -Key ('snapshot-'+[string]$request.SnapshotId))){throw 'File dʼenregistrement locale indisponible.'}
         $script:DomeniaDirectorySync.PendingSnapshot=[pscustomobject]@{Id=[string]$request.SnapshotId;Label=[string]$request.Label;Committed=$false}
         [void](Set-DomeniaControlText 'LblSnapshots' ('Relevé « '+[string]$request.Label+' » en cours dʼenregistrement. '+[string]$request.CoverageText))
@@ -263,6 +344,8 @@ function Update-DomeniaSnapshotButtons {
     $delete=Get-DomeniaControl 'BtnSnapshotDelete';if($null -ne $delete){$delete.IsEnabled=($null -ne $selected)}
     $check=Get-DomeniaControl 'BtnSyncAbsencesCheck'
     if(($null -ne $check) -and ($null -ne $script:DomeniaDirectorySync)){$check.IsEnabled=((@(Select-DomeniaAbsencesToCheck -Rows @($script:DomeniaDirectorySync.Absences) -Limit 200).Count -gt 0) -and (-not [bool]$script:DemoMode))}
+    $gapRead=Get-DomeniaControl 'BtnSyncGapRead'
+    if(($null -ne $gapRead) -and ($null -ne $script:DomeniaDirectorySync)){$gapRead.IsEnabled=((@($script:DomeniaDirectorySync.Gaps).Count -gt 0) -and (-not [bool]$script:DemoMode) -and (-not [string]$script:DomeniaDirectorySync.GapJob))}
 }
 
 function Update-DomeniaSnapshotChoices {

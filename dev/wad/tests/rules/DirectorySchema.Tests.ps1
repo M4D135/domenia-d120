@@ -43,6 +43,11 @@ Test-Case 'P28' 'Schema : types, nombre de valeurs, index et heritage des classe
     Assert-Equal 3 $found.Total
     $limited=Find-DomeniaAdSchemaEntries -Catalog $c -Text '' -Kind Attributes -Limit 2
     Assert-Equal 8 $limited.Total;Assert-Equal 2 $limited.Shown
+    # Names sorted once in the catalog; past the limit, matches are counted without building rows.
+    Assert-Equal 8 @($c.AttributeKeys).Count;Assert-Equal 5 @($c.ClassKeys).Count
+    Assert-Equal 'cn' @($limited.Rows)[0].Nom;Assert-Equal 'description' @($limited.Rows)[1].Nom;Assert-Equal 2 @($limited.Rows).Count
+    $older=[pscustomobject]@{Attributes=$c.Attributes;Classes=$c.Classes}
+    Assert-Equal 3 (Find-DomeniaAdSchemaEntries -Catalog $older -Text 'ACCOUNT' -Kind Attributes).Total 'Un catalogue sans noms tries reste filtrable.'
     Assert-Equal 'Auxiliaire' (@((Find-DomeniaAdSchemaEntries -Catalog $c -Text 'securityPrincipal' -Kind Classes).Rows)[0].Nature)
     Assert-Equal 'Référence à un objet (DN)' (Get-DomeniaAdSyntaxLabel '2.5.5.1');Assert-Equal 'Syntaxe non reconnue' (Get-DomeniaAdSyntaxLabel '9.9')
     Assert-Equal 'LargeInt' (Get-DomeniaAdSyntaxKind '2.5.5.16')

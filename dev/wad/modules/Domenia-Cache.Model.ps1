@@ -417,6 +417,12 @@ function Get-DomeniaPurgeTargets {
             # Computer facts read with the index; secret_state (BitLocker and LAPS metadata) is never an index target.
             [pscustomobject]@{Table='ad_computer_facts';TimeColumn='';Filter='All';Action='Delete'}
             [pscustomobject]@{Table='domenia_directory_data';TimeColumn='';Filter='All';Action='Delete'}
+            # Points 22, 24 and 30: census gaps, objects not seen again and directory snapshots copy directory rows; they
+            # leave with the index (snapshot rows and their manifests in the same transaction).
+            [pscustomobject]@{Table='ad_absences';TimeColumn='';Filter='All';Action='Delete'}
+            [pscustomobject]@{Table='ad_census_gaps';TimeColumn='';Filter='All';Action='Delete'}
+            [pscustomobject]@{Table='ad_snapshot_rows';TimeColumn='';Filter='All';Action='Delete'}
+            [pscustomobject]@{Table='ad_snapshots';TimeColumn='';Filter='All';Action='Delete'}
             # Preserve other scopes, including the idempotence marker of an old-data import.
             [pscustomobject]@{Table='sync_state';TimeColumn='';Filter='DirectoryScope';Action='Reset'}
         }

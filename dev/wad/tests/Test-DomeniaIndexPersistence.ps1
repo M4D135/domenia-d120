@@ -360,7 +360,8 @@ try{
             Expect ($absent[0].last_dn -eq $lost.DN -and $absent[0].scope_dn -eq 'OU=A,DC=test' -and $absent[0].noticed_at -eq '2026-10-06T00:00:00Z' -and $absent[0].object_type -eq 'Machine') 'P24 absence keeps last DN, scope, type and date'
             Expect ((Read-TestDb 'SELECT count(*) AS n FROM ad_objects;')[0].n -eq 1) 'P24 absent objects leave the local copy'
             Expect ((Read-TestDb "SELECT details FROM sync_state WHERE scope='ou:ou=a,dc=test';")[0].details -match ';absent=2(;|$)') 'P24 checkpoint counts the absences of this read'
-            $record=[pscustomobject]@{Type='Machine';Guid=$away.Guid;Name='PC-33';Login='PC-33';Upn='';Display='';Description='';Extra='';State='Actif';DN='CN=PC-33,OU=B,DC=test';WhenChanged='';Usn=7;LastLogon=''}
+            Expect ((Read-TestDb ("SELECT count(*) AS n FROM ad_computer_facts WHERE object_guid='"+$away.Guid+"';"))[0].n -eq 0) 'P24 facts leave with the row of an absent object'
+            $record=[pscustomobject]@{Type='Machine';Guid=$away.Guid;Name='PC-33';Login='PC-33';Upn='';Display='';Description='';Extra='';State='Actif';DN='CN=PC-33,OU=B,DC=test';WhenChanged='';Usn=7;LastLogon='';Facts=$true;OsVersion='10.0 (22631)';WhenCreated='2024-03-01T08:00:00Z';PwdLastSet='2026-09-20T08:00:00Z';LapsKind='Legacy';LapsExpiry='2026-10-30T00:00:00Z'}
             $results=@(
                 [pscustomobject]@{Guid=$away.Guid;Status='Deplace';FoundDn='CN=PC-33,OU=B,DC=test';Detail='Present ailleurs.';CheckedAt='2026-10-07T00:00:00.0000000Z';Server='dc.test';Record=$record}
                 [pscustomobject]@{Guid=$lost.Guid;Status='Supprime';FoundDn='';Detail='Suppression constatee.';CheckedAt='2026-10-07T00:00:00.0000000Z';Server='dc.test';Record=$null}
@@ -370,6 +371,8 @@ try{
             $moved=@(Read-TestDb ("SELECT * FROM ad_objects WHERE object_guid='"+$away.Guid+"';"))
             Expect ($moved.Count -eq 1 -and $moved[0].distinguished_name -eq 'CN=PC-33,OU=B,DC=test' -and $moved[0].object_key -eq $away.Guid) 'P23 moved object takes its new DN under the same GUID key'
             Expect ((Read-TestDb ("SELECT status FROM ad_absences WHERE object_guid='"+$away.Guid+"';"))[0].status -eq 'Deplace') 'P23 move recorded with its new location'
+            $awayFacts=@(Read-TestDb ("SELECT * FROM ad_computer_facts WHERE object_guid='"+$away.Guid+"';"))
+            Expect ($awayFacts.Count -eq 1 -and $awayFacts[0].object_key -eq $away.Guid -and $awayFacts[0].os_version -eq '10.0 (22631)' -and $awayFacts[0].when_created -eq '2024-03-01T08:00:00Z' -and $awayFacts[0].pwd_last_set -eq '2026-09-20T08:00:00Z' -and $awayFacts[0].laps_kind -eq 'Legacy' -and $awayFacts[0].laps_expiry -eq '2026-10-30T00:00:00Z' -and $awayFacts[0].read_at -eq '2026-10-07T00:00:00.0000000Z') 'P23 computer found again gets its facts back, dated by the verification'
             Expect ((Read-TestDb ("SELECT status FROM ad_absences WHERE object_guid='"+$lost.Guid+"';"))[0].status -eq 'Supprime') 'P24 proven deletion recorded'
             Expect ((Read-TestDb ("SELECT count(*) AS n FROM ad_objects WHERE object_guid='"+$lost.Guid+"';"))[0].n -eq 0) 'P24 deleted object not re-inserted'
             $Payload.Items[0].Row.Results=@([pscustomobject]@{Guid=$away.Guid;Status='Deplace';FoundDn='CN=PC-33,OU=C,DC=test';Detail='x';CheckedAt='2026-10-07T00:00:00Z';Record=$record})
@@ -385,11 +388,62 @@ try{
             Expect ((Read-TestDb "SELECT details FROM sync_state WHERE scope='directory';")[0].details -match ';gap=1(;|$)') 'P22 census identity unknown to the local copy recorded in the checkpoint'
             [void](Invoke-ReconcileBulk (New-ReconcileBulk -Identities @((New-Identity $kept),(New-Identity (New-ReconcileRow 33 'CN=PC-33,OU=B,DC=test')))))
             Expect ((Read-TestDb "SELECT details FROM sync_state WHERE scope='directory';")[0].details -notmatch 'gap=') 'P22 census without unknown identity clears the gap'
+            Expect ((Read-TestDb 'SELECT count(*) AS n FROM ad_census_gaps;')[0].n -eq 0) 'P22 census without unknown identity empties the list of missing identities'
+            # Point 22: the census gap is bounded by the USN captured before the pass and kept in the base for a read by GUID.
+            $missing=New-ReconcileRow 37 'CN=PC-37,OU=C,DC=test';$early=New-ReconcileRow 38 'CN=PC-38,OU=C,DC=test';$late=New-ReconcileRow 36 'CN=PC-36,OU=C,DC=test'
+            $earlyId=New-Identity $early;$earlyId|Add-Member -NotePropertyName Usn -NotePropertyValue 100
+            $lateId=New-Identity $late;$lateId|Add-Member -NotePropertyName Usn -NotePropertyValue 101
+            $known=@((New-Identity $kept),(New-Identity (New-ReconcileRow 33 'CN=PC-33,OU=B,DC=test')))
+            [void](Invoke-ReconcileBulk (New-ReconcileBulk -Identities ($known+@((New-Identity $missing),$earlyId,$lateId))))
+            Expect ((Read-TestDb "SELECT details FROM sync_state WHERE scope='directory';")[0].details -match ';gap=2(;|$)') 'P22 identity changed after the pass checkpoint (uSNChanged 101 > 100) is not a gap'
+            $gapRows=@(Read-TestDb 'SELECT * FROM ad_census_gaps ORDER BY object_guid;')
+            Expect ($gapRows.Count -eq 2 -and $gapRows[0].object_guid -eq $missing.Guid -and $gapRows[1].object_guid -eq $early.Guid -and $gapRows[1].usn -eq 100 -and $gapRows[0].dn -eq $missing.DN -and $gapRows[0].noticed_at -eq '2026-10-06T00:00:00Z') 'P22 missing identities kept with DN, USN and date; the late one left to the next delta'
+            # A complete read of the domain that a limit cuts keeps the list and never blocks the next delta.
+            $cut=New-ReconcileBulk -Rows @($kept) -Mode Rows -Complete $false;$cut.SyncScope='directory'
+            [void](Invoke-ReconcileBulk $cut)
+            Expect ((Read-TestDb 'SELECT count(*) AS n FROM ad_census_gaps;')[0].n -eq 2 -and (Read-TestDb "SELECT highest_usn FROM sync_state WHERE scope='directory';")[0].highest_usn -eq 100) 'P22 a cut complete read keeps the gaps and the domain checkpoint'
+            $next=New-ReconcileBulk -Identities ($known+@((New-Identity $missing),$earlyId));$next.HighestUsn=120;$next.At='2026-10-07T00:00:00Z'
+            [void](Invoke-ReconcileBulk $next)
+            $sync=(Read-TestDb "SELECT highest_usn,last_sync,details FROM sync_state WHERE scope='directory';")[0]
+            Expect ($sync.highest_usn -eq 120 -and $sync.last_sync -eq '2026-10-07T00:00:00Z' -and $sync.details -match ';gap=2(;|$)') 'P22 the next delta commits and advances its checkpoint while gaps remain'
+            # Explicit read by GUID: a found identity is added with its facts; an unread one stays to read.
+            $gapRecord=[pscustomobject]@{Type='Machine';Guid=$missing.Guid;Name='PC-37';Login='PC-37$';Upn='';Display='';Description='';Extra='';State='Actif';DN=$missing.DN;WhenChanged='';Usn=90;LastLogon='';Facts=$true;OsVersion='10.0 (26100)';WhenCreated='2025-01-02T08:00:00Z';PwdLastSet='2026-09-01T12:00:00Z';LapsKind='Windows';LapsExpiry='2026-11-01T00:00:00Z'}
+            $gapResults=@(
+                [pscustomobject]@{Guid=$missing.Guid;Status='Visible';FoundDn=$missing.DN;Detail='Lu par GUID.';CheckedAt='2026-10-08T00:00:00.0000000Z';Record=$gapRecord;Gap=$true}
+                [pscustomobject]@{Guid=$early.Guid;Status='NonConfirme';FoundDn='';Detail='Non lu.';CheckedAt='2026-10-08T00:00:00.0000000Z';Record=$null;Gap=$true}
+            )
+            $Payload=[pscustomobject]@{Path=$path;Items=@([pscustomobject]@{Kind='DirectoryAbsence';Row=[pscustomobject]@{Results=$gapResults;Server='dc.test';At='2026-10-08T00:00:00Z';Source='CensusGap'}})}
+            Expect ([bool](& ([scriptblock]::Create($worker))).Saved) 'P22 read of missing identities committed'
+            $added=@(Read-TestDb ("SELECT * FROM ad_objects WHERE object_key='"+$missing.Guid+"';"))
+            Expect ($added.Count -eq 1 -and $added[0].distinguished_name -eq $missing.DN -and $added[0].synced_at -eq '2026-10-08T00:00:00.0000000Z') 'P22 found identity added under its GUID key'
+            $addedFacts=@(Read-TestDb ("SELECT * FROM ad_computer_facts WHERE object_guid='"+$missing.Guid+"';"))
+            Expect ($addedFacts.Count -eq 1 -and $addedFacts[0].os_version -eq '10.0 (26100)' -and $addedFacts[0].laps_kind -eq 'Windows' -and $addedFacts[0].read_at -eq '2026-10-08T00:00:00.0000000Z') 'P22 found computer added with its facts'
+            $left=@(Read-TestDb 'SELECT object_guid FROM ad_census_gaps;')
+            Expect ($left.Count -eq 1 -and $left[0].object_guid -eq $early.Guid) 'P22 found identity leaves the list, unread one stays'
+            Expect ((Read-TestDb ("SELECT count(*) AS n FROM ad_absences WHERE object_guid IN ('"+$missing.Guid+"','"+$early.Guid+"');"))[0].n -eq 0) 'P22 a gap read never writes an absence'
+            $Payload=[pscustomobject]@{Action='DirectorySync';Path=$path;BusyTimeoutMs=250;DomainDn='DC=test'}
+            $gapList=& ([scriptblock]::Create((Get-DomeniaLocalIndexReadWorkerCode)))
+            Expect ([long]$gapList.GapTotal -eq 1 -and @($gapList.Gaps).Count -eq 1 -and @($gapList.Gaps)[0].object_guid -eq $early.Guid -and @($gapList.Gaps)[0].dn -eq $early.DN) 'P22 local read lists the identities still missing, with an exact total'
+            $Payload=[pscustomobject]@{Path=$path;Items=@([pscustomobject]@{Kind='DirectoryAbsence';Row=[pscustomobject]@{Results=@();Server='dc.test';At='2026-10-08T00:00:00Z';Source='CensusGap'}})}
+            $Payload.Items[0].Row.Results=@([pscustomobject]@{Guid=$early.Guid;Status='Supprime';FoundDn='';Detail='x';CheckedAt='2026-10-08T00:00:00Z';Record=$null;Gap=$true})
+            $refused=$false;try{& ([scriptblock]::Create($worker))|Out-Null}catch{$refused=$true}
+            Expect ($refused -and (Read-TestDb 'SELECT count(*) AS n FROM ad_census_gaps;')[0].n -eq 1) 'P22 a deletion is never concluded from a gap read'
+            # A complete read of the OU that holds a missing identity, without bringing it: it is no longer visible there.
+            [void](Invoke-ReconcileBulk (New-ReconcileBulk -Rows @((New-ReconcileRow 37 'CN=PC-37,OU=C,DC=test')) -Scope 'OU=C,DC=test' -Mode Rows))
+            Expect ((Read-TestDb 'SELECT count(*) AS n FROM ad_census_gaps;')[0].n -eq 0) 'P22 a complete OU read clears the missing identities of its scope'
+            Expect ((Read-TestDb ("SELECT count(*) AS n FROM ad_absences WHERE object_guid='"+$missing.Guid+"';"))[0].n -eq 0) 'P22 the identity read by GUID stays in the local copy'
             function New-SnapshotItem {param([string]$Id,[string]$Label,[string]$At);return [pscustomobject]@{Kind='DirectorySnapshot';Row=[pscustomobject]@{Action='Capture';SnapshotId=$Id;Label=$Label;DomainDn='DC=test';ScopeDn='OU=A,DC=test';Subtree=$true;CapturedUtc=$At;CoverageState='Complete';CoverageAtUtc='2026-10-06T00:00:00.0000000Z';CoverageSource='OU=A,DC=test';CoverageText='Couverture : lecture complete.'}}}
             $Payload=[pscustomobject]@{Path=$path;Items=@((New-SnapshotItem ('a'*32) 'Avant' '2026-10-08T00:00:00.0000000Z'))}
             Expect ([bool](& ([scriptblock]::Create($worker))).Saved) 'P30 snapshot committed'
             $manifest=@(Read-TestDb ("SELECT * FROM ad_snapshots WHERE snapshot_id='"+('a'*32)+"';"))
             Expect ($manifest.Count -eq 1 -and $manifest[0].object_count -eq 1 -and $manifest[0].rows_sha256 -match '^[0-9A-F]{64}$' -and $manifest[0].coverage_state -eq 'Complete') 'P30 manifest with exact count, fingerprint and coverage'
+            # The streamed fingerprint keeps its definition: SHA-256 of the copied values in GUID order, fields separated by
+            # char 31, one line (char 10) per object.
+            $snapRow=(Read-TestDb ("SELECT * FROM ad_snapshot_rows WHERE snapshot_id='"+('a'*32)+"';"))[0]
+            $lineText=(@('object_guid','object_type','name','login','upn','display_name','description','extra','state','distinguished_name','when_changed','last_logon','source_dc','synced_at')|ForEach-Object{[string]$snapRow.$_}) -join [string][char]31
+            $sha=[Security.Cryptography.SHA256]::Create();try{$expectedSha=[BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($lineText+[string][char]10))).Replace('-','')}finally{$sha.Dispose()}
+            Expect ($manifest[0].rows_sha256 -ceq $expectedSha) 'P30 fingerprint computed over the copied values in GUID order'
+            Expect ($snapRow.object_guid -ceq $kept.Guid.ToLowerInvariant() -and $snapRow.distinguished_name -eq $kept.DN) 'P30 copied row keeps the lower-case GUID and the DN'
             $Payload=[pscustomobject]@{Path=$path;Items=@((New-SnapshotItem ('a'*32) 'Doublon' '2026-10-08T00:00:00.0000000Z'))}
             Expect ([bool](& ([scriptblock]::Create($worker))).Saved -and (Read-TestDb 'SELECT count(*) AS n FROM ad_snapshots;')[0].n -eq 1) 'P30 a retried capture does not copy twice and never blocks the queue'
             Write-Batch @((New-ReconcileRow 31 'CN=PC-31,OU=Sub,OU=A,DC=test' 'Desactive'),(New-ReconcileRow 35 'CN=PC-35,OU=A,DC=test')) '2026-10-09T00:00:00Z' -Scope 'ou:ou=a,dc=test'
@@ -409,9 +463,65 @@ try{
             $Payload=[pscustomobject]@{Path=$path;Items=@([pscustomobject]@{Kind='DirectorySnapshot';Row=[pscustomobject]@{Action='Delete';SnapshotId=('a'*32)}})}
             [void](& ([scriptblock]::Create($worker)))
             Expect ((Read-TestDb ("SELECT count(*) AS n FROM ad_snapshot_rows WHERE snapshot_id='"+('a'*32)+"';"))[0].n -eq 0 -and (Read-TestDb 'SELECT count(*) AS n FROM ad_snapshots;')[0].n -eq 1) 'P30 snapshot deleted with its rows only'
+            # Points 22, 24 and 30: storage management sees the directory copies; they are measured and purged with the index.
+            $directoryCopies=@('ad_absences','ad_census_gaps','ad_snapshots','ad_snapshot_rows')
+            $Payload=[pscustomobject]@{Path=$path}
+            $usage=& ([scriptblock]::Create((Get-DomeniaStorageUsageWorkerCode)))
+            $indexUsage=@($usage.Categories|Where-Object{$_.Category -eq 'Index'})[0]
+            foreach($table in $directoryCopies){
+                $measured=@($indexUsage.Tables|Where-Object{$_.Table -eq $table})
+                Expect ($measured.Count -eq 1 -and $measured[0].State -eq 'Mesure' -and $measured[0].Rows -eq (Read-TestDb ('SELECT count(*) AS n FROM '+$table+';'))[0].n) ('Index usage measures '+$table)
+            }
+            $Payload=[pscustomobject]@{Path=$path;Selection=@('Index');DryRun=$true}
+            $preview=& ([scriptblock]::Create((Get-DomeniaStoragePurgeWorkerCode)))
+            foreach($table in $directoryCopies){
+                $counted=@($preview.Counts|Where-Object{$_.Table -eq $table})
+                Expect ($counted.Count -eq 1 -and $counted[0].Category -eq 'Index' -and [bool]$counted[0].Exists -and $counted[0].Rows -eq (Read-TestDb ('SELECT count(*) AS n FROM '+$table+';'))[0].n) ('Index purge dry run counts '+$table)
+            }
+            Expect ((Read-TestDb 'SELECT count(*) AS n FROM ad_snapshot_rows;')[0].n -gt 0 -and (Read-TestDb 'SELECT count(*) AS n FROM ad_absences;')[0].n -gt 0) 'Index purge dry run removes nothing'
+            $Payload=[pscustomobject]@{Path=$path;Selection=@('Index');DryRun=$false;ExpectedFingerprint=$preview.Fingerprint}
+            Expect ([bool](& ([scriptblock]::Create((Get-DomeniaStoragePurgeWorkerCode)))).Committed) 'Index purge committed'
+            foreach($table in @('ad_objects')+$directoryCopies){Expect ((Read-TestDb ('SELECT count(*) AS n FROM '+$table+';'))[0].n -eq 0) ('Index purge empties '+$table)}
         }finally{
             $path=$reconcilePath
             foreach($suffix in @('','-wal','-shm')){$candidate=Join-Path $folder ('directory-sync.sqlite'+$suffix);if([IO.File]::Exists($candidate)){[IO.File]::Delete($candidate)}}
+        }
+        # Point 30: a domain-wide snapshot of 50 000 objects runs in its own storage batch, copied by SQLite and hashed in
+        # one streamed read. Its time is measured; escaped commas never fake an RDN boundary.
+        $benchPath=Join-Path $folder 'snapshot-bench.sqlite'
+        $db=Open-DomeniaDatabase $benchPath;try{[void](Invoke-DomeniaDbExec $schema[0].Value $db)}finally{Close-DomeniaDatabase $db}
+        try{
+            $columns='object_key,object_guid,object_type,name,login,upn,display_name,description,extra,state,distinguished_name,when_changed,usn_changed,last_logon,search_key,source_dc,synced_at'
+            $generated="WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<50000) SELECT printf('50000000-0000-4000-8000-%012d',i),printf('50000000-0000-4000-8000-%012d',i),'Machine','PC-'||i,'PC-'||i||'$','pc-'||i||'.test','','Poste '||i,'Windows 11','Actif','CN=PC-'||i||',OU=Site-'||(i%50)||',OU=Bench,DC=test','',i,'','pc-'||i,'dc.test','2026-10-01T00:00:00Z' FROM n;"
+            $edges="INSERT INTO ad_objects($columns) VALUES('60000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000001','Machine','Trap','Trap$','','','','','Actif','CN=Trap\,OU=Bench,DC=test','',1,'','trap','dc.test','2026-10-01T00:00:00Z');"+
+                "INSERT INTO ad_objects($columns) VALUES('60000000-0000-4000-8000-000000000002','60000000-0000-4000-8000-000000000002','Machine','Slash','Slash$','','','','','Actif','CN=Slash\\,OU=Bench,DC=test','',1,'','slash','dc.test','2026-10-01T00:00:00Z');"+
+                "INSERT INTO ad_objects($columns) VALUES('60000000-0000-4000-8000-000000000003','60000000-0000-4000-8000-000000000003','Machine','Comma','Comma$','','','','','Actif','CN=Comma\,Name,OU=Bench,DC=test','',1,'','comma','dc.test','2026-10-01T00:00:00Z');"+
+                "INSERT INTO ad_objects($columns) VALUES('60000000-0000-4000-8000-000000000004','60000000-0000-4000-8000-000000000004','Machine','Other','Other$','','','','','Actif','CN=Other,OU=Bench2,DC=test','',1,'','other','dc.test','2026-10-01T00:00:00Z');"
+            $db=Open-DomeniaDatabase $benchPath;try{[void](Invoke-DomeniaDbExec ("INSERT INTO ad_objects($columns) "+$generated+$edges) $db)}finally{Close-DomeniaDatabase $db}
+            $savedPath=$path;$path=$benchPath
+            try{
+                Expect ((Read-TestDb 'SELECT count(*) AS n FROM ad_objects;')[0].n -eq 50004) 'P30 bench base holds 50 000 objects and four edge cases'
+                $item=[pscustomobject]@{Kind='DirectorySnapshot';Row=[pscustomobject]@{Action='Capture';SnapshotId=('d'*32);Label='Bench';DomainDn='DC=test';ScopeDn='OU=Bench,DC=test';Subtree=$true;CapturedUtc='2026-10-11T00:00:00.0000000Z';CoverageState='Complete';CoverageAtUtc='2026-10-10T00:00:00.0000000Z';CoverageSource='DC=test';CoverageText='Couverture : lecture complete.';ObjectEstimate=50004}}
+                $Payload=[pscustomobject]@{Path=$benchPath;Items=@($item)}
+                $timer=[Diagnostics.Stopwatch]::StartNew();$answer=& ([scriptblock]::Create($worker));$timer.Stop()
+                Expect ([bool]$answer.Saved) 'P30 bench snapshot committed'
+                $bench=@(Read-TestDb ("SELECT * FROM ad_snapshots WHERE snapshot_id='"+('d'*32)+"';"))
+                # 50 000 objects of the OU tree plus CN=Slash\\ (escaped backslash, then a real boundary) and CN=Comma\,Name;
+                # CN=Trap\, (escaped comma) belongs to the domain head, not to the OU.
+                Expect ($bench.Count -eq 1 -and $bench[0].object_count -eq 50002 -and $bench[0].rows_sha256 -match '^[0-9A-F]{64}$') ('P30 bench snapshot exact count: '+$bench[0].object_count)
+                Expect ((Read-TestDb ("SELECT count(*) AS n FROM ad_snapshot_rows WHERE snapshot_id='"+('d'*32)+"' AND object_guid IN ('60000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000004');"))[0].n -eq 0) 'P30 escaped comma and neighbouring OU stay outside the scope'
+                Expect ((Read-TestDb ("SELECT count(*) AS n FROM ad_snapshot_rows WHERE snapshot_id='"+('d'*32)+"' AND object_guid IN ('60000000-0000-4000-8000-000000000002','60000000-0000-4000-8000-000000000003');"))[0].n -eq 2) 'P30 escaped backslash and escaped comma in a name stay inside the scope'
+                # The old path took about 2 ms per row in PowerShell (over 100 s here) inside a 120 s batch shared with every save.
+                Expect ($timer.ElapsedMilliseconds -lt 60000) ('P30 50 000-object snapshot within 60 s: '+$timer.ElapsedMilliseconds+' ms')
+                Write-Output ('BENCH snapshot 50 000 objects (SQL copy + streamed SHA-256): '+$timer.ElapsedMilliseconds+' ms; local SQLite only')
+                # Direct children only: deeper objects and an escaped comma that is not a boundary are told apart.
+                $item.Row.SnapshotId=('e'*32);$item.Row.Subtree=$false;$item.Row.Label='Niveau direct'
+                [void](& ([scriptblock]::Create($worker)))
+                $direct=@(Read-TestDb ("SELECT object_guid FROM ad_snapshot_rows WHERE snapshot_id='"+('e'*32)+"' ORDER BY object_guid;"))
+                Expect ($direct.Count -eq 2 -and $direct[0].object_guid -eq '60000000-0000-4000-8000-000000000002' -and $direct[1].object_guid -eq '60000000-0000-4000-8000-000000000003') ('P30 direct-children snapshot keeps the two direct children only: '+$direct.Count)
+            }finally{$path=$savedPath}
+        }finally{
+            foreach($suffix in @('','-wal','-shm')){$candidate=Join-Path $folder ('snapshot-bench.sqlite'+$suffix);if([IO.File]::Exists($candidate)){[IO.File]::Delete($candidate)}}
         }
     }finally{
         $path=$originalPath
@@ -434,11 +544,11 @@ try{
     }
     function New-WSearcher {
         param($Context,$BaseDn,$Filter,$Properties,$Scope,$Limit)
-        $isCensus=(@($Properties).Count -eq 2 -and $Properties -contains 'objectGUID' -and $Properties -contains 'distinguishedName')
+        $isCensus=(@($Properties).Count -eq 3 -and $Properties -contains 'objectGUID' -and $Properties -contains 'distinguishedName' -and $Properties -contains 'uSNChanged')
         $s=[pscustomobject]@{PageSize=0;CacheResults=$true;ServerTimeLimit=$null;ClientTimeout=$null;Filter=$Filter;IsCensus=$isCensus;Properties=$Properties;Base=$BaseDn;Scope=$Scope}
         $s|Add-Member ScriptMethod FindAll {
             $script:mockIndexUsn=999
-            $one=[pscustomobject]@{Properties=@{name='PC-1';distinguishedname='CN=PC-1,DC=test';objectguid='00000000-0000-0000-0000-000000000001';useraccountcontrol=2}}
+            $one=[pscustomobject]@{Properties=@{name='PC-1';distinguishedname='CN=PC-1,DC=test';objectguid='00000000-0000-0000-0000-000000000001';useraccountcontrol=2;usnchanged=95}}
             if($this.IsCensus){
                 if($script:mockIndexScenario -eq 'failure'){throw 'provider interrupted'}
                 if($script:mockIndexScenario -eq 'empty'){return ,@()}
@@ -463,9 +573,11 @@ try{
         if($scenario -eq 'complete'){
             Expect (-not $result.Truncated -and $result.Reconcile.Complete -and $result.Transfer.CensusRowCount -eq 1) 'complete census receipt from real worker'
             Expect ($script:mockIndexQueries.Count -eq 3 -and $script:mockIndexQueries[2].IsCensus) 'lightweight census follows two attribute delta reads'
-            Expect ($script:mockIndexQueries[2].Filter -notmatch 'uSNChanged' -and @($script:mockIndexQueries[2].Properties).Count -eq 2) 'census reads every identity with only GUID and DN'
+            Expect ($script:mockIndexQueries[2].Filter -notmatch 'uSNChanged' -and @($script:mockIndexQueries[2].Properties).Count -eq 3) 'census reads every identity with only GUID, DN and uSNChanged, never filtered by USN'
             $lines=@(Get-Content -LiteralPath $result.Transfer.Path)
-            Expect ($lines.Count -eq 2 -and ($lines[1]|ConvertFrom-Json).Kind -eq 'Identity') 'one mixed spool retains distinct identity marker'
+            $identityLine=$lines[1]|ConvertFrom-Json
+            Expect ($lines.Count -eq 2 -and $identityLine.Kind -eq 'Identity') 'one mixed spool retains distinct identity marker'
+            Expect ([long]$identityLine.Usn -eq 95) 'P22 census identity carries its uSNChanged to bound the gap'
             Expect ($result.Transfer.Sha256 -eq (Get-FileHash $result.Transfer.Path).Hash) 'mixed serializer digest binds every byte'
         }else{Expect ($result.Truncated -and -not $result.Reconcile.Complete) ('unsafe census remains partial '+$scenario)}
         [IO.File]::Delete($result.Transfer.Path)

@@ -94,6 +94,10 @@ $domain='DC=example,DC=invalid'
 $script:G1='0f6c3a8e-2b8d-4c1e-9a77-5d2b9f1e0a11';$script:G2='1a2b3c4d-0000-4000-8000-000000000002';$script:G3='1a2b3c4d-0000-4000-8000-000000000003'
 $g1=$script:G1;$g2=$script:G2;$g3=$script:G3
 $script:DeletedWhen=[datetime]::SpecifyKind([datetime]::new(2026,10,10,9,30,0),[DateTimeKind]::Unspecified)
+# Facts of the moved computer (point 23): directory dates as the reader returns them (generalized time, FILETIME).
+$script:CreatedWhen=[datetime]::SpecifyKind([datetime]::new(2025,1,2,8,0,0),[DateTimeKind]::Utc)
+$script:PwdSetTicks=([datetime]::new(2026,9,1,12,0,0,[DateTimeKind]::Utc)).ToFileTimeUtc()
+$script:LapsTicks=([datetime]::new(2026,11,1,0,0,0,[DateTimeKind]::Utc)).ToFileTimeUtc()
 $script:AbsenceState=$null
 $script:AbsenceDirectory={
     # G1 moved to another OU, G2 deleted, every other identity missing. The state decides the visibility probe and faults.
@@ -101,7 +105,7 @@ $script:AbsenceDirectory={
     $state=$script:AbsenceState
     if(-not $q.Tombstone){
         if($state.DomainFailure){throw $state.DomainFailure}
-        foreach($guid in @(ConvertFrom-TestGuidFilter $q.Filter)){if($guid -eq $script:G1){New-TestResult @{objectGUID=$script:G1;distinguishedName='CN=PC1,OU=Paris,DC=example,DC=invalid';objectClass=@('top','person','organizationalPerson','user','computer');name='PC1';sAMAccountName='PC1$';dNSHostName='pc1.example.invalid';userAccountControl=4096;uSNChanged=88}}}
+        foreach($guid in @(ConvertFrom-TestGuidFilter $q.Filter)){if($guid -eq $script:G1){New-TestResult @{objectGUID=$script:G1;distinguishedName='CN=PC1,OU=Paris,DC=example,DC=invalid';objectClass=@('top','person','organizationalPerson','user','computer');name='PC1';sAMAccountName='PC1$';dNSHostName='pc1.example.invalid';userAccountControl=4096;uSNChanged=88;operatingSystemVersion='10.0 (26100)';whenCreated=$script:CreatedWhen;pwdLastSet=$script:PwdSetTicks;'msLAPS-PasswordExpirationTime'=$script:LapsTicks}}}
         return
     }
     if($q.Filter -match 'isCriticalSystemObject=TRUE'){
@@ -132,6 +136,9 @@ try{
         $moved=Get-TestAnswer $r $g1
         Expect ($moved.FoundDn -eq 'CN=PC1,OU=Paris,DC=example,DC=invalid' -and $moved.Type -eq 'Machine' -and $moved.Record.DN -eq $moved.FoundDn -and $moved.Record.Guid -eq $g1) 'Moved object and its index record'
         Expect ((Resolve-TestAnswer $moved).Status -eq 'Deplace') 'Moved object resolved as moved'
+        # Point 23: the facts removed with the row by the complete read come back with the record, in index formats.
+        Expect ([bool]$moved.Record.Facts -and $moved.Record.OsVersion -eq '10.0 (26100)' -and $moved.Record.WhenCreated -eq '2025-01-02T08:00:00Z' -and $moved.Record.PwdLastSet -eq '2026-09-01T12:00:00Z') ('Computer facts re-read: '+$moved.Record.WhenCreated+' / '+$moved.Record.PwdLastSet)
+        Expect ($moved.Record.LapsKind -eq 'Windows' -and $moved.Record.LapsExpiry -eq '2026-11-01T00:00:00Z') 'Windows LAPS expiry re-read, never the password'
         $deleted=Get-TestAnswer $r $g2
         Expect ($deleted.Deleted -and $deleted.DeletedRead -eq 'Read' -and $deleted.LastKnownParent -eq 'OU=Postes,OU=Lyon,DC=example,DC=invalid' -and $deleted.DeletedWhenUtc -eq '2026-10-10T09:30:00.0000000Z') 'Deleted entry with its date and last parent'
         Expect ((Resolve-TestAnswer $deleted).Status -eq 'Supprime') 'Deletion proven by the deleted entry only'
@@ -168,6 +175,19 @@ try{
         Expect (@($first|Where-Object{$_ -ne 'Read'}).Count -eq 0) 'First batch searched'
         Expect (@($rest|Where-Object{$_ -ne 'Unavailable'}).Count -eq 0) ('Second batch must stay unread: '+($rest -join ','))
         Expect ((Resolve-TestAnswer (Get-TestAnswer $r $many[29])).Status -eq 'NonConfirme') 'An unread identity is not declared missing'
+    }
+    Case 'P22 census gaps read by GUID in the domain only' {
+        $script:Searches.Clear();Set-TestAbsenceDirectory -ContainerReadable $true
+        $r=Invoke-AbsenceWorker @($g1,$g3) -CheckDeleted $false
+        Expect (@($script:Searches|Where-Object{$_.Tombstone}).Count -eq 0) 'A gap read never reads the deleted objects'
+        $at=[datetime]::new(2026,10,14,10,0,0,[DateTimeKind]::Utc)
+        $found=New-DomeniaCensusGapStoreRow -Guid $g1 -Check (Get-TestAnswer $r $g1) -CheckedUtc $at -Server 'dc1.example.invalid'
+        Expect ($found.Status -eq 'Visible' -and [bool]$found.Gap -and $found.FoundDn -eq 'CN=PC1,OU=Paris,DC=example,DC=invalid' -and $found.Record.Guid -eq $g1 -and [bool]$found.Record.Facts) 'Found gap kept with its index record and facts'
+        $gone=New-DomeniaCensusGapStoreRow -Guid $g3 -Check (Get-TestAnswer $r $g3) -CheckedUtc $at
+        Expect ($gone.Status -eq 'Introuvable' -and $null -eq $gone.Record -and $gone.Detail -match 'sans conclusion') 'Gap not returned by the domain read leaves the list without conclusion'
+        Set-TestAbsenceDirectory -DomainFailure 'TEST server unavailable'
+        $r=Invoke-AbsenceWorker @($g1) -CheckDeleted $false
+        Expect ((New-DomeniaCensusGapStoreRow -Guid $g1 -Check (Get-TestAnswer $r $g1)).Status -eq 'NonConfirme') 'An unread gap stays to read'
     }
     Case 'P24 payload limits' {
         Set-TestAbsenceDirectory

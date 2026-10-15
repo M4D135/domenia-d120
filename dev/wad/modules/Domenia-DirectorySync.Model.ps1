@@ -223,6 +223,43 @@ function New-DomeniaAbsenceStoreRow {
     }
 }
 
+function New-DomeniaCensusGapStoreRow {
+    # Point 22: what the local base keeps of one census gap read by GUID in the domain. Found as a user or a computer:
+    # its index row is added under its GUID (Visible). Read but not returned, or not a user or a computer: it leaves
+    # the list without any conclusion on its fate (Introuvable). Not read (controller unavailable, time limit, refusal):
+    # it stays to read (NonConfirme).
+    param([AllowEmptyString()][AllowNull()][string]$Guid,$Check,[datetime]$CheckedUtc=[datetime]::UtcNow,[string]$Server='')
+    $id=(ConvertTo-DomeniaGuidText $Guid).ToLowerInvariant()
+    $status='NonConfirme';$found='';$keep=$null
+    $text='Domaine non lu pour cet objet : il reste à lire.'
+    $domainRead=[string](Get-DomeniaMember $Check 'DomainRead' '')
+    if(-not $id){$text='Identité absente : aucune lecture possible.'}
+    elseif($domainRead -eq 'Read'){
+        $dn=([string](Get-DomeniaMember $Check 'FoundDn' '')).Trim()
+        $record=Get-DomeniaMember $Check 'Record' $null
+        if($dn -and ($null -ne $record) -and ([string](Get-DomeniaMember $record 'Type' '') -in @('Machine','Utilisateur')) -and ((ConvertTo-DomeniaGuidText (Get-DomeniaMember $record 'Guid' '')) -ieq $id) -and ([string](Get-DomeniaMember $record 'DN' '') -ieq $dn)){
+            $status='Visible';$found=$dn;$keep=$record
+            $text='Objet lu par son GUID et ajouté à la base locale ('+(Get-DomeniaDnLocation $dn)+').'
+        }elseif($dn){
+            $status='Introuvable'
+            $text='Objet lu par son GUID mais ni utilisateur ni poste : retiré de la liste, rien nʼest ajouté.'
+        }else{
+            $status='Introuvable'
+            $text='Objet absent de la lecture par GUID : il nʼest plus visible pour ce compte (supprimé, déplacé ou droits retirés). Retiré de la liste, sans conclusion.'
+        }
+    }elseif($domainRead -eq 'Refused'){$text='Lecture du domaine refusée pour ce compte : lʼobjet reste à lire.'}
+    return [pscustomobject]@{Guid=$id;Status=$status;FoundDn=$found;Detail=(ConvertTo-DomeniaFlatText $text 600);CheckedAt=$CheckedUtc.ToUniversalTime().ToString('o');Server=$Server;Record=$keep;Gap=$true}
+}
+
+function Get-DomeniaCensusGapSummary {
+    # One line for the census gaps of the domain: exact total and what one explicit read covers.
+    param([long]$Total=0,[int]$Shown=0)
+    if($Total -le 0){return 'Aucun objet recensé ne manque dans la base locale.'}
+    $text=[string]$Total+' objet(s) présent(s) dans lʼAD manquent dans la base locale (dernier recensement du domaine).'
+    $text+=' Une lecture par GUID en relit '+[Math]::Min(200,[Math]::Max(0,$Shown))+' à la fois, sans relire tout le domaine.'
+    return $text
+}
+
 function Format-DomeniaUtcText {
     # Local display of a stored UTC text; '' when absent or unreadable.
     param($Value)
@@ -276,7 +313,8 @@ function Get-DomeniaCensusAdvice {
     # became visible without being modified nor proves an absence: only a complete read of the scope can. $Coverage is
     # the result of Get-DomeniaFleetFreshness; $GapCount counts identities seen by the last domain census but missing
     # from the local base (a domain fact: for an OU scope it is added to the advice of the OU, it does not replace it).
-    # Nothing is started from here: the operator decides.
+    # A checkpoint dated in the future (ClockInvalid, set by Get-DomeniaFleetFreshness, which then ignores it) makes
+    # every date of the scope doubtful: the clock is checked first. Nothing is started from here: the operator decides.
     param($Coverage,[int]$GapCount=0,[int]$MaxAgeDays=7,[datetime]$NowUtc=[datetime]::UtcNow,[bool]$IsDomain=$false)
     $days=[Math]::Max(1,[Math]::Min(90,$MaxAgeDays))
     $gap=[Math]::Max(0,$GapCount)
@@ -284,7 +322,13 @@ function Get-DomeniaCensusAdvice {
     $at=ConvertTo-DomeniaUtcDate (Get-DomeniaMember $Coverage 'At' $null)
     $out=[ordered]@{State='Recent';Due=$false;AgeDays=-1;MaxAgeDays=$days;GapCount=$gap;Text=''}
     if($null -ne $at){$out.AgeDays=[int][Math]::Floor(($NowUtc-$at).TotalDays)}
-    $gapText='Recensement du domaine : '+$gap+' objet(s) présent(s) dans lʼAD manquent dans la base locale. La prochaine mise à jour des changements relira tout le domaine pour les reprendre.'
+    $gapText='Recensement du domaine : '+$gap+' objet(s) présent(s) dans lʼAD manquent dans la base locale. « Lire les objets manquants » les relit par leur GUID (200 au plus à la fois) ; la mise à jour des changements continue sans eux.'
+    $clockText='Recensement daté dans le futur : vérifiez lʼhorloge de ce poste avant de vous y fier.'
+    if([bool](Get-DomeniaMember $Coverage 'ClockInvalid' $false)){
+        $out.State='Clock';$out.Due=$true;$out.Text=$clockText
+        if($gap -gt 0){$out.Text+=' '+$gapText}
+        return [pscustomobject]$out
+    }
     if(($gap -gt 0) -and $IsDomain){
         $out.State='Gap';$out.Due=$true;$out.Text=$gapText
         return [pscustomobject]$out
@@ -296,8 +340,7 @@ function Get-DomeniaCensusAdvice {
         $out.State='Absent';$out.Due=$true
         $out.Text='Recensement : aucune lecture complète de ce périmètre. Seule une lecture complète repère les objets disparus ou devenus visibles sans modification.'
     }elseif($at -gt $NowUtc.AddMinutes(5)){
-        $out.State='Clock';$out.Due=$true
-        $out.Text='Recensement daté dans le futur : vérifiez lʼhorloge de ce poste avant de vous y fier.'
+        $out.State='Clock';$out.Due=$true;$out.Text=$clockText
     }elseif(($NowUtc-$at).TotalDays -gt $days){
         $out.State='Due';$out.Due=$true
         $out.Text='Recensement complet daté de '+$out.AgeDays+' jours (seuil : '+$days+' jours). Relisez ce périmètre pour repérer ce quʼune lecture différentielle ne voit pas : objets supprimés, devenus visibles ou invisibles pour ce compte.'
@@ -323,9 +366,13 @@ function ConvertTo-DomeniaSnapshotCoverage {
     $state='Missing'
     if($status -eq 'Complete'){$state='Complete'}elseif($status -eq 'Partial'){$state='Partial'}elseif($status -eq 'UnknownDepth'){$state='Unknown'}
     if(($state -eq 'Complete') -and ($null -eq $at)){$state='Missing'}
+    # A checkpoint dated in the future was ignored by the freshness: no date of this scope can prove a coverage.
+    $clock=[bool](Get-DomeniaMember $Coverage 'ClockInvalid' $false)
+    if($clock){$state='Unknown'}
     $source=[string](Get-DomeniaMember $Coverage 'SourceDn' '')
     $text='Couverture : aucune lecture complète de ce périmètre ; le relevé ne contient que les objets déjà connus.'
-    if($state -eq 'Complete'){$text='Couverture : lecture complète du '+$at.ToLocalTime().ToString('dd/MM/yyyy HH:mm')+$(if($source){' ('+$source+')'}else{''})+'.'}
+    if($clock){$text='Couverture : horloge douteuse (lecture datée dans le futur) ; ajouts et disparitions non concluants.'}
+    elseif($state -eq 'Complete'){$text='Couverture : lecture complète du '+$at.ToLocalTime().ToString('dd/MM/yyyy HH:mm')+$(if($source){' ('+$source+')'}else{''})+'.'}
     elseif($state -eq 'Partial'){$text='Couverture : la dernière lecture de ce périmètre était incomplète ; ajouts et disparitions non concluants.'}
     elseif($state -eq 'Unknown'){$text='Couverture : profondeur de la dernière lecture inconnue ; ajouts et disparitions non concluants.'}
     return [pscustomobject]@{State=$state;AtUtc=$(if($null -ne $at){$at.ToString('o')}else{''});Source=$source;Text=$text}

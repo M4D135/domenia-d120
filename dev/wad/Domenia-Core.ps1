@@ -16105,9 +16105,11 @@ function Load-DomeniaIndexMetadata {
             $inv = ''
             $details = [string]$s[0].details
             if ($details -match '(?i)inv=([0-9a-fA-F-]{36})') { $inv = $matches[1] }
-            # Point 22: identities of the last domain census that the local copy does not know.
+            # Point 22: identities of the last domain census that the local copy still does not know. Counted in the base,
+            # not taken from the checkpoint: a read of the OU, a complete read or a read by GUID may have brought them since.
             $gap = 0L
-            if ($details -match '(?i)(?:^|;)gap=(\d{1,9})(?:;|$)') { $gap = [long]$matches[1] }
+            try { $gap = [long](@(Invoke-DomeniaDbQuery "SELECT count(*) AS n FROM ad_census_gaps g WHERE NOT EXISTS(SELECT 1 FROM ad_objects a WHERE a.object_key=g.object_guid);")[0].n) }
+            catch { if ($_.Exception.Message -notmatch '(?i)no such table') { throw } }
             $script:IndexInfo = [pscustomobject]@{
                 Server=[string]$s[0].server
                 BaseDn=[string]$s[0].base_dn
@@ -16492,13 +16494,6 @@ function Start-DomeniaIndexRefresh {
         try { $lastServer = [string]$script:IndexInfo.Server } catch { }
         try { $since = [string]$script:IndexInfo.Date } catch { }
         try { $lastInvocationId = [string]$script:IndexInfo.InvocationId } catch { $lastInvocationId = "" }
-        # Point 22: the last census saw identities the local copy does not have. A differential read would never
-        # return them (they were not modified): this update reads the whole domain instead of the changes.
-        $censusGap = 0L
-        try { $censusGap = [long]$script:IndexInfo.CensusGap } catch { $censusGap = 0L }
-        # A silent update never becomes a complete read of the domain: that read always passes the operator's confirmation.
-        if (($censusGap -gt 0) -and $Silent) { return }
-        if ($censusGap -gt 0) { $lastUsn = [long]0; $since = ""; $lastInvocationId = "" }
         $dbCount = Get-DomeniaDatabaseObjectCount
         if ($dbCount -eq 0) {
             if (-not $Silent) { Set-Status "Aucune base autonome : utilise  Mettre a jour tout  d abord." "WARN" }
@@ -16507,15 +16502,13 @@ function Start-DomeniaIndexRefresh {
         if (-not $Silent) {
             if (-not $Confirmed) {
                 # UX-07: the estimate is confirmed in the page; the refresh starts again from the answer, once.
-                # A complete read after a census gap is estimated on the whole base, not on the usual share of changes.
-                $estimated=if ($censusGap -gt 0) { [Math]::Max(1000,[int]($dbCount+$censusGap)) } else { [Math]::Max(1000,[int]($dbCount*0.05)) }
-                $impact=Get-DomeniaOperationImpactEstimate -Operation "IndexBuild" -ItemCount $estimated
-                [void](Request-DomeniaOperationImpact -Estimate $impact -Title $(if ($censusGap -gt 0) { "Relire tout le domaine" } else { "Mettre à jour les changements" }) -Target 'impact:IndexRefresh' -OnConfirm { Start-DomeniaIndexRefresh -Confirmed })
+                $impact=Get-DomeniaOperationImpactEstimate -Operation "IndexBuild" -ItemCount ([Math]::Max(1000,[int]($dbCount*0.05)))
+                [void](Request-DomeniaOperationImpact -Estimate $impact -Title "Mettre à jour les changements" -Target 'impact:IndexRefresh' -OnConfirm { Start-DomeniaIndexRefresh -Confirmed })
                 return
             }
-            [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text $(if ($censusGap -gt 0) { "Relecture complète du domaine : " + $censusGap + " objet(s) recensé(s) manquent dans la base locale." } else { "Recherche des objets modifies..." }))
+            [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text "Recherche des objets modifies...")
         }
-        Set-DomeniaIndexProgress -Mode Busy -Message $(if ($censusGap -gt 0) { 'Relecture complète du domaine : le dernier recensement a trouvé des objets absents de la base locale… progression exacte indisponible pendant la requête.' } else { 'Synchronisation incrémentale avec Active Directory… progression exacte indisponible pendant la requête.' })
+        Set-DomeniaIndexProgress -Mode Busy -Message 'Synchronisation incrémentale avec Active Directory… progression exacte indisponible pendant la requête.'
         Start-UiTask `
             -Name "Mise a jour des changements" `
             -OperationId "IndexBuild" `
@@ -18071,7 +18064,9 @@ if($incremental -and -not $truncated){
         if($watch.ElapsedMilliseconds -ge $budgetMs){throw 'Budget du recensement des identites depasse.'}
         if($null -ne $progress){$progress.Phase='Recensement GUID';$progress.Count=0L}
         $filter='(|(&(objectCategory=person)(objectClass=user))(objectCategory=computer))'
-        $searcher=New-WSearcher $Context $searchBase $filter @('objectGUID','distinguishedName') $searchScope 0
+        # Point 22: uSNChanged lets the storage tell an identity missed by the delta (USN at or below the checkpoint of
+        # this pass) from one created or changed during the pass, which the next delta returns anyway.
+        $searcher=New-WSearcher $Context $searchBase $filter @('objectGUID','distinguishedName','uSNChanged') $searchScope 0
         $searcher.PageSize=1000;$searcher.CacheResults=$false
         $searcher.ServerTimeLimit=[TimeSpan]::FromSeconds($serverTimeLimitSeconds)
         $searcher.ClientTimeout=[TimeSpan]::FromSeconds($serverTimeLimitSeconds+30)
@@ -18086,7 +18081,8 @@ if($incremental -and -not $truncated){
             if(-not $seen.Add($guidText)){throw 'GUID duplique dans le recensement.'}
             $dn=Clean-Field (Get-WPropFirst $r.Properties 'distinguishedname' '')
             if(-not (Test-IdxDnInScope $dn $searchBase $searchScope)){throw 'DN absent ou hors perimetre dans le recensement.'}
-            $identity=[pscustomobject]@{Kind='Identity';Guid=$guidText;DN=$dn}
+            $identityUsn=0L;try{$identityUsn=[int64](Get-WPropFirst $r.Properties 'usnchanged' 0)}catch{$identityUsn=0L}
+            $identity=[pscustomobject]@{Kind='Identity';Guid=$guidText;DN=$dn;Usn=$identityUsn}
             if($null -ne $spoolWriter){$spoolWriter.WriteLine((ConvertTo-Json -InputObject $identity -Compress))}else{$identities.Add($identity)}
             $censusCount++;if($null -ne $progress -and ($censusCount % 1000) -eq 0){$progress.Count=$censusCount}
         }

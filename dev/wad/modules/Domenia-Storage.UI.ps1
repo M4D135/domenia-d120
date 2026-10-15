@@ -208,18 +208,23 @@ function Start-DomeniaStorageWork {
     $items=@($script:Persistence.Pending.Values|Where-Object{$_.Path -ceq $path -and $_.Kind -ne 'LegacyImport'}|Select-Object -First 64)
     if(-not $path){$script:Persistence.Fault='Base du contexte non disponible.';$script:Persistence.Next=[datetime]::UtcNow.AddSeconds(10);return}
     # A bulk update owns one transaction and one worker; do not combine dozens of large snapshots.
-    $bulk=@($items|Where-Object{$_.Kind -in @('IndexBulk','StoreBatch')}|Select-Object -First 1)
+    # Point 30: a directory snapshot copies a whole scope; it runs alone too, so that it never holds the small saves.
+    $soloKinds=@('IndexBulk','StoreBatch','DirectorySnapshot')
+    $bulk=@($items|Where-Object{$_.Kind -in $soloKinds}|Select-Object -First 1)
     if($bulk.Count){
-        if($items[0].Kind -in @('IndexBulk','StoreBatch')){$items=@($bulk[0])}
+        if($items[0].Kind -in $soloKinds){$items=@($bulk[0])}
         else{
             # Preserve queue order: older individual rows must commit before a newer complete rebuild.
             $prefix=[Collections.Generic.List[object]]::new()
-            foreach($item in $items){if($item.Kind -in @('IndexBulk','StoreBatch')){break};$prefix.Add($item)}
+            foreach($item in $items){if($item.Kind -in $soloKinds){break};$prefix.Add($item)}
             $items=$prefix.ToArray();$bulk=@()
         }
     }
     $storageTimeout=120
     if($bulk.Count -and $bulk[0].Kind -eq 'IndexBulk'){$storageTimeout=[Math]::Min(3600,[Math]::Max(120,60+[int]([long]$bulk[0].Row.RowCount/500)))}
+    # A snapshot copies at most 300 000 rows in SQLite, then hashes them in one streamed read: its time follows the size
+    # of the base when it was asked (ObjectEstimate), with the same bounds as an index batch.
+    if($bulk.Count -and $bulk[0].Kind -eq 'DirectorySnapshot'){$estimate=300000L;try{$estimate=[long](Get-DomeniaMember $bulk[0].Row 'ObjectEstimate' 300000)}catch{$estimate=300000L};$storageTimeout=[Math]::Min(1800,[Math]::Max(120,60+[int]([Math]::Min(300000L,[Math]::Max(0L,$estimate))/250)))}
     if($bulk.Count -and $bulk[0].Kind -eq 'IndexBulk' -and $null -ne $script:IndexProgressTimer -and $null -ne $bulk[0].Row.PSObject.Properties['Transfer'] -and $null -ne $bulk[0].Row.Transfer -and $null -ne $bulk[0].Row.Transfer.PSObject.Properties['Progress'] -and [long]$bulk[0].Epoch -eq [long]$script:SessionEpoch){$script:IndexTransferProgress=$bulk[0].Row.Transfer.Progress;$script:IndexProgressTimer.Start()}
     $state=[pscustomobject]@{Items=$items;Epoch=[long]$script:SessionEpoch}
     try {
@@ -390,8 +395,16 @@ function Fail-DomeniaStorageWork {
         $script:Persistence.LinkBusy=$hasLinkWork
         return
     }
-    $script:Persistence.Failures++;$script:Persistence.Job='';$script:Persistence.InFlight=0;$script:Persistence.Fault=[string]$Message;$script:Persistence.Next=[datetime]::UtcNow.AddSeconds(15)
     $diskFull=([string]$Message -match 'StorageInsufficientSpace|SQLite (?:code|step code) 13(?:\D|$)')
+    # Point 30: a snapshot is a derived copy of the local base, taken on request. A failed one is reported (above) and
+    # dropped: it is never retried in a loop that would suspend the other local saves. The operator can take it again.
+    if((-not $diskFull) -and (@($items).Count -gt 0) -and (@($items|Where-Object{$_.Kind -ne 'DirectorySnapshot'}).Count -eq 0)){
+        $script:Persistence.Job='';$script:Persistence.InFlight=0;$script:Persistence.Next=[datetime]::UtcNow.AddSeconds(5)
+        Add-DomeniaUiLog -Area 'Index' -Level 'WARN' -Text ('Relevé non enregistré, non relancé automatiquement : '+[string]$Message)
+        Request-DomeniaStorageWork
+        return
+    }
+    $script:Persistence.Failures++;$script:Persistence.Job='';$script:Persistence.InFlight=0;$script:Persistence.Fault=[string]$Message;$script:Persistence.Next=[datetime]::UtcNow.AddSeconds(15)
     if($diskFull){$script:Persistence.Failures=[Math]::Max(3,[int]$script:Persistence.Failures)}
     # Retry older batches first; appending them could replay an old full rebuild after a newer OU update.
     $retry=[ordered]@{}

@@ -394,6 +394,81 @@ Test-Case 'D025 : Invoke-DomeniaObjectChanges retombe sur DN quand la ligne n a 
     Assert-True $script:VisitCache.ContainsKey('other')
 }
 
+function New-MoveTestSearch {
+    # Point 23: a finalized live list over the domain with one computer row read under its old DN.
+    param([string]$Guid,[string]$OldDn)
+    $script:TestGrid=[pscustomobject]@{IsEnabled=$true;IsVisible=$true}
+    $row=[pscustomobject]@{Guid=$Guid;DN=$OldDn;Name='PC1';DirectoryState='';DirectoryChecked=$null}
+    $s=[pscustomobject]@{Finalized=$true;Error=$false;Map=@{};Rows=@($row);Fresh=@{};RefreshNeeded=$false;QueryKey='q1';State=[pscustomobject]@{SearchMode='Global';BaseDn='DC=example,DC=invalid';Scope='Subtree';TypeFilter='(objectClass=computer)';ViewId=''}}
+    $s.Map[$OldDn.ToLowerInvariant()]=$row
+    $s.Fresh[$OldDn.ToLowerInvariant()]=[pscustomobject]@{DN=$OldDn;Guid=$Guid;Name='PC1';Presence='En ligne'}
+    $script:Live=[pscustomobject]@{Search=$s;Identity='id';MemoryQueries=@{q1=[pscustomobject]@{ObservedUtc='2026-01-01T00:00:00Z'}};QueryToSave=$null}
+    $script:Continuity=[pscustomobject]@{ChangeSearch=$s;ChangeQueue=[Collections.Generic.Queue[object]]::new();ChangeEvents=[Collections.Generic.Queue[object]]::new();Stamps=@{};ChangeNext=[datetime]::UtcNow.AddSeconds(60);CacheDirty=$false;Mutation=1;ChangeJob=''}
+    return [pscustomobject]@{Search=$s;Row=$row}
+}
+function Add-MoveTestEvent {
+    param($Search,[string]$Guid,[string]$OldDn,[string]$NewDn,[string]$Stamp)
+    $r=[pscustomobject]@{OldDN=$OldDn;DN=$NewDn;Guid=$Guid;Status='Changed';Row=[pscustomobject]@{DN=$NewDn;Guid=$Guid;Name='PC1'};Stamp=$Stamp}
+    $script:Continuity.ChangeEvents.Enqueue([pscustomobject]@{State=[pscustomobject]@{Search=$Search;Identity='id';Mutation=1};Row=$r;At=[datetime]::UtcNow})
+}
+
+Test-Case 'P23 : Invoke-DomeniaObjectChanges deplace la ligne sous sa nouvelle cle, sans seconde ligne' {
+    function Test-DomeniaLiveSearchActive { return $true }
+    function Test-DomeniaAccessBusyWrite { return $false }
+    function Get-DomeniaControl { param([string]$Name) return $script:TestGrid }
+    function ConvertTo-DomeniaLiveSnapshot { param($Row) return [pscustomobject]@{DN=[string]$Row.DN;Guid=[string]$Row.Guid;Name='PC1'} }
+    # The real move rules give the state text (pure module, no WPF).
+    . (Join-Path $modules 'Domenia-DirectorySync.Model.ps1')
+    $guid='11111111-1111-1111-1111-111111111111'
+    $oldDn='CN=PC1,OU=Workstations,DC=example,DC=invalid';$newDn='CN=PC1,OU=Paris,DC=example,DC=invalid'
+    $t=New-MoveTestSearch -Guid $guid -OldDn $oldDn
+    Add-MoveTestEvent -Search $t.Search -Guid $guid -OldDn $oldDn -NewDn $newDn -Stamp 's2'
+    $script:VisitCache=@{}
+    $script:VisitCache['cache-v3|example.invalid|'+$guid+'|hash|dc1||Object|object']='obj'
+    $script:VisitCache['cache-v3|example.invalid|22222222-2222-2222-2222-222222222222|hash|dc1||Object|object']='other'
+    Invoke-DomeniaObjectChanges
+    $s=$t.Search
+    Assert-Equal 1 $s.Map.Count 'Une seule ligne pour le GUID.'
+    Assert-True $s.Map.ContainsKey($newDn.ToLowerInvariant()) 'Nouvelle cle absente.'
+    Assert-False $s.Map.ContainsKey($oldDn.ToLowerInvariant()) 'Ancienne cle conservee.'
+    Assert-True ([object]::ReferenceEquals($s.Map[$newDn.ToLowerInvariant()],$t.Row)) 'La ligne existante change de cle, aucune nouvelle ligne.'
+    Assert-True $s.Fresh.ContainsKey($newDn.ToLowerInvariant()) 'Instantane non deplace.'
+    Assert-False $s.Fresh.ContainsKey($oldDn.ToLowerInvariant()) 'Instantane laisse sous lʼancienne cle.'
+    Assert-Equal $newDn ([string]$s.Fresh[$newDn.ToLowerInvariant()].DN)
+    Assert-Equal $newDn ([string]$t.Row.DN) 'La ligne affiche son nouvel emplacement.'
+    Assert-Equal 'Déplacé vers Paris' ([string]$t.Row.DirectoryState)
+    Assert-True $s.RefreshNeeded
+    Assert-True ($null -ne $t.Row.DirectoryChecked)
+    Assert-Equal 's2' ([string]$script:Continuity.Stamps[$guid])
+    Assert-False $script:VisitCache.ContainsKey('cache-v3|example.invalid|'+$guid+'|hash|dc1||Object|object') 'Fiche en cache sous lʼancien emplacement conservee.'
+    Assert-True $script:VisitCache.ContainsKey('cache-v3|example.invalid|22222222-2222-2222-2222-222222222222|hash|dc1||Object|object') 'Un autre objet perd sa fiche en cache.'
+}
+
+Test-Case 'P23 : Invoke-DomeniaObjectChanges ne fusionne jamais deux lignes quand la nouvelle cle existe deja' {
+    function Test-DomeniaLiveSearchActive { return $true }
+    function Test-DomeniaAccessBusyWrite { return $false }
+    function Get-DomeniaControl { param([string]$Name) return $script:TestGrid }
+    function ConvertTo-DomeniaLiveSnapshot { param($Row) return [pscustomobject]@{DN=[string]$Row.DN;Guid=[string]$Row.Guid;Name='PC1'} }
+    . (Join-Path $modules 'Domenia-DirectorySync.Model.ps1')
+    $guid='11111111-1111-1111-1111-111111111111';$otherGuid='33333333-3333-3333-3333-333333333333'
+    $oldDn='CN=PC1,OU=Workstations,DC=example,DC=invalid';$newDn='CN=PC1,OU=Paris,DC=example,DC=invalid'
+    $t=New-MoveTestSearch -Guid $guid -OldDn $oldDn
+    $occupant=[pscustomobject]@{Guid=$otherGuid;DN=$newDn;Name='PC1';DirectoryState='';DirectoryChecked=$null}
+    $t.Search.Map[$newDn.ToLowerInvariant()]=$occupant
+    Add-MoveTestEvent -Search $t.Search -Guid $guid -OldDn $oldDn -NewDn $newDn -Stamp 's3'
+    $script:VisitCache=@{}
+    Invoke-DomeniaObjectChanges
+    $s=$t.Search
+    Assert-Equal 2 $s.Map.Count 'Les deux lignes restent distinctes.'
+    Assert-True ([object]::ReferenceEquals($s.Map[$oldDn.ToLowerInvariant()],$t.Row)) 'La ligne deplacee garde sa cle.'
+    Assert-True ([object]::ReferenceEquals($s.Map[$newDn.ToLowerInvariant()],$occupant)) 'La ligne occupante est remplacee.'
+    Assert-Equal $oldDn ([string]$t.Row.DN) 'Aucune valeur recopiee dans la ligne en conflit.'
+    Assert-Equal 'Objet déplacé : relancer la recherche' ([string]$t.Row.DirectoryState)
+    Assert-True $s.Fresh.ContainsKey($oldDn.ToLowerInvariant()) 'Instantane deplace malgre le conflit.'
+    Assert-False $s.RefreshNeeded
+    Assert-Equal 's3' ([string]$script:Continuity.Stamps[$guid])
+}
+
 Test-Case 'D025 : audit_preload exige Get-DomeniaCacheKey au lieu de object-v2' {
     $auditText = [IO.File]::ReadAllText($audit)
     $literalLine = [regex]::Match($auditText,'(?m)^\s*for g in \[[^\n]*GlobalSearchGeneration[^\n]*$').Value
@@ -1550,6 +1625,45 @@ Test-Case 'D028 : un lot en cours d ecriture reste En memoire jusqu au rappel' {
         Assert-Equal 2 $script:Persistence.Pending.Count 'Remise en file.'
         Assert-True ([object]::ReferenceEquals($script:Persistence.Pending[$newer.QueueKey],$newer)) 'La demande plus recente a ete ecrasee par la remise en file.'
         Assert-Equal 'En memoire : 1 enregistrement(s) en echec, nouvel essai prevu.' (Get-DomeniaPersistenceState).Label 'Libelle apres echec :'
+    } finally { Restore-TestFunctions }
+}
+
+Test-Case 'P30 : un releve passe seul, avec un delai a sa taille, et un echec ne bloque pas les autres sauvegardes' {
+    $script:SavedFunctions=@{}
+    try {
+        $script:StorageBatches = New-Object 'System.Collections.Generic.List[object]'
+        Set-TestFunction 'Start-DomeniaStorageWork' $script:StartStorageReal
+        Set-TestFunction 'Get-DomeniaStorageWorkerCode' { return '' }
+        Set-TestFunction 'Start-UiTask' {
+            param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,[switch]$NonCancellable,$TimeoutSeconds)
+            $script:StartUiCalls++
+            $id = 'store-' + $script:StartUiCalls
+            $script:AsyncJobs[$id] = [pscustomobject]@{Id=$id;OperationId=[string]$OperationId}
+            $script:LastStorageState = $CallbackState
+            $script:StorageBatches.Add([pscustomobject]@{Kinds=@(@($CallbackState.Items)|ForEach-Object{[string]$_.Kind});Timeout=[int]$TimeoutSeconds})
+            return $id
+        }
+        Initialize-DomeniaPersistence; Stop-TestTimers
+        $first = New-TestLinkItem 'PC1' 'uPC1'; $script:Persistence.Pending[$first.QueueKey] = $first
+        $snapshot = [pscustomobject]@{QueueKey='DirectorySnapshot|test-scope.db|snapshot-1';Kind='DirectorySnapshot';Path='test-scope.db';Epoch=[long]1;Row=[pscustomobject]@{Action='Capture';SnapshotId=('a'*32);Label='Avant';ObjectEstimate=50000L}}
+        $script:Persistence.Pending[$snapshot.QueueKey] = $snapshot
+        $last = New-TestLinkItem 'PC2' 'uPC2'; $script:Persistence.Pending[$last.QueueKey] = $last
+        Start-DomeniaStorageWork
+        Assert-Equal 'Link' (@($script:StorageBatches[0].Kinds) -join ',') 'Les lignes plus anciennes partent avant le releve, sans lui.'
+        Assert-Equal 120 $script:StorageBatches[0].Timeout
+        [void]$script:AsyncJobs.Remove([string]$script:Persistence.Job)
+        Complete-DomeniaStorageWork ([pscustomobject]@{Saved=$true;Conflicts=@();Count=1}) $script:LastStorageState
+        Start-DomeniaStorageWork
+        Assert-Equal 'DirectorySnapshot' (@($script:StorageBatches[1].Kinds) -join ',') 'Le releve passe seul dans son lot.'
+        Assert-Equal 260 $script:StorageBatches[1].Timeout 'Delai du releve : 60 s + 1 s par 250 objets.'
+        [void]$script:AsyncJobs.Remove([string]$script:Persistence.Job)
+        Fail-DomeniaStorageWork 'Delai depasse' $script:LastStorageState
+        Assert-Equal 0 ([int]$script:Persistence.Failures) 'Un releve en echec ne compte pas vers la suspension des sauvegardes.'
+        Assert-False $script:Persistence.Pending.Contains($snapshot.QueueKey) 'Un releve en echec nʼest pas rejoue en boucle.'
+        Assert-True $script:Persistence.Pending.Contains($last.QueueKey) 'Les autres sauvegardes restent en file.'
+        $script:Persistence.Next = [datetime]::UtcNow.AddSeconds(-1)
+        Start-DomeniaStorageWork
+        Assert-Equal 'Link' (@($script:StorageBatches[2].Kinds) -join ',') 'La sauvegarde suivante part apres lʼechec du releve.'
     } finally { Restore-TestFunctions }
 }
 
@@ -3845,7 +3959,7 @@ $report = [ordered]@{
     Wpf=$true
     MockedNetwork=$true
     LiveAD=$false
-    Points=@('D029','D118','D030','D023','D025','D028','D115','D113','D024','D026','D027','D021','D022','L01')
+    Points=@('D029','D118','D030','D023','D025','D028','D115','D113','D024','D026','D027','D021','D022','L01','P23')
     Passed=$passed
     Failed=$failed
     Complete=($failed -eq 0 -and $passed -gt 0)

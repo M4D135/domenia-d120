@@ -307,10 +307,17 @@ try {
     if ($rc -ne 0 -or $db -eq [IntPtr]::Zero) { throw ('Ouverture SQLite en lecture impossible (code ' + $rc + ').') }
     [void][Domenia.WinSqliteNative]::sqlite3_busy_timeout($db,$busyMs)
     if ($action -eq 'DirectorySync') {
-        # Points 24 and 30: objects not seen by a complete read and saved snapshots of this domain, in one read snapshot.
+        # Points 22, 24 and 30: census gaps still missing, objects not seen by a complete read and saved snapshots of this
+        # domain, in one read snapshot.
         [void](Invoke-IdxWQuery $db 'BEGIN;')
-        $tables=@(Invoke-IdxWQuery $db "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('ad_absences','ad_snapshots');"|ForEach-Object{[string]$_.name})
-        $absences=@();$absenceCounts=@();$absenceTotal=0L;$snapshots=@()
+        $tables=@(Invoke-IdxWQuery $db "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('ad_absences','ad_snapshots','ad_census_gaps');"|ForEach-Object{[string]$_.name})
+        $absences=@();$absenceCounts=@();$absenceTotal=0L;$snapshots=@();$gaps=@();$gapTotal=0L
+        if($tables -contains 'ad_census_gaps'){
+            # An identity brought since by any read (an OU, an opened object) is no longer missing.
+            $missing='FROM ad_census_gaps g WHERE NOT EXISTS(SELECT 1 FROM ad_objects a WHERE a.object_key=g.object_guid)'
+            $gaps=@(Invoke-IdxWQuery $db ("SELECT g.object_guid,g.dn,g.usn,g.noticed_at,g.server $missing ORDER BY g.noticed_at,g.object_guid LIMIT 200;"))
+            $gapTotal=[long](@(Invoke-IdxWQuery $db ("SELECT count(*) AS n $missing;"))[0].n)
+        }
         if($tables -contains 'ad_absences'){
             $absences=@(Invoke-IdxWQuery $db 'SELECT object_guid,object_type,name,last_dn,scope_dn,last_synced_at,noticed_at,server,status,checked_at,found_dn,detail FROM ad_absences ORDER BY noticed_at DESC,object_guid LIMIT 500;')
             $absenceCounts=@(Invoke-IdxWQuery $db 'SELECT status,count(*) AS n FROM ad_absences GROUP BY status ORDER BY status;')
@@ -320,7 +327,7 @@ try {
             $snapshots=@(Invoke-IdxWQuery $db ('SELECT snapshot_id,label,domain_dn,scope_dn,subtree,captured_at,object_count,coverage_state,coverage_at,coverage_source,coverage_text,rows_sha256 FROM ad_snapshots WHERE domain_dn='+(Get-IdxWLiteral ([string]$Payload.DomainDn))+' COLLATE NOCASE ORDER BY captured_at DESC LIMIT 100;'))
         }
         [void](Invoke-IdxWQuery $db 'COMMIT;')
-        return [pscustomobject]@{DataSource='SQLite';Busy=$false;Missing=$false;Rows=@();Absences=$absences;AbsenceCounts=$absenceCounts;AbsenceTotal=$absenceTotal;Snapshots=$snapshots}
+        return [pscustomobject]@{DataSource='SQLite';Busy=$false;Missing=$false;Rows=@();Absences=$absences;AbsenceCounts=$absenceCounts;AbsenceTotal=$absenceTotal;Snapshots=$snapshots;Gaps=$gaps;GapTotal=$gapTotal}
     }
     if ($action -eq 'SnapshotCompare') {
         # Point 30: two snapshots of the same scope compared in one read snapshot. Totals are exact; rows are bounded.

@@ -95,7 +95,8 @@ Test-Case 'P22' 'Recensement conseille : absent, partiel, ancien, ecart, horloge
     $partial=Get-DomeniaCensusAdvice -Coverage ([pscustomobject]@{Status='Partial';At=$now.AddDays(-1);Partial=$true}) -NowUtc $now
     Assert-Equal 'Partial' $partial.State;Assert-True ($partial.Text -match 'Aucune disparition')
     $gap=Get-DomeniaCensusAdvice -Coverage ([pscustomobject]@{Status='Complete';At=$now;Partial=$false}) -GapCount 4 -NowUtc $now -IsDomain $true
-    Assert-Equal 'Gap' $gap.State;Assert-True ($gap.Text -match '4 objet');Assert-True ($gap.Text -match 'relira tout le domaine')
+    Assert-Equal 'Gap' $gap.State;Assert-True ($gap.Text -match '4 objet');Assert-True ($gap.Text -match 'par leur GUID')
+    Assert-True ($gap.Text -match 'continue sans eux') 'Un ecart ne transforme jamais la mise a jour en relecture du domaine.'
     Assert-Equal 'Clock' (Get-DomeniaCensusAdvice -Coverage ([pscustomobject]@{Status='Complete';At=$now.AddHours(2);Partial=$false}) -NowUtc $now).State
     Assert-Equal 90 (Get-DomeniaCensusAdvice -Coverage $null -MaxAgeDays 500 -NowUtc $now).MaxAgeDays
     Assert-Equal 'Absent' (Get-DomeniaCensusAdvice -Coverage ([pscustomobject]@{Status='UnknownDepth';At=$now;Partial=$false}) -NowUtc $now).State 'Une profondeur inconnue ne vaut pas recensement.'
@@ -103,8 +104,43 @@ Test-Case 'P22' 'Recensement conseille : absent, partiel, ancien, ecart, horloge
     $ouRecent=Get-DomeniaCensusAdvice -Coverage ([pscustomobject]@{Status='Complete';At=$now.AddDays(-1);Partial=$false}) -GapCount 3 -MaxAgeDays 7 -NowUtc $now -IsDomain $false
     Assert-Equal 'Recent' $ouRecent.State;Assert-False $ouRecent.Due 'Le seuil de lʼOU decide de lʼechance.';Assert-True ($ouRecent.Text -match 'moins de 7 jours');Assert-True ($ouRecent.Text -match '3 objet')
     $ouOld=Get-DomeniaCensusAdvice -Coverage ([pscustomobject]@{Status='Complete';At=$now.AddDays(-9);Partial=$false}) -GapCount 3 -MaxAgeDays 7 -NowUtc $now
-    Assert-Equal 'Due' $ouOld.State;Assert-True ($ouOld.Text -match 'relira tout le domaine')
+    Assert-Equal 'Due' $ouOld.State;Assert-True ($ouOld.Text -match 'objets manquants')
     Assert-Equal 0 (Get-DomeniaCensusAdvice -Coverage $null -GapCount -5 -NowUtc $now).GapCount 'Un ecart negatif vaut zero.'
+}
+Test-Case 'P22' 'Horloge douteuse : coverage reelle de Get-DomeniaFleetFreshness avec un point de reprise date dans le futur' {
+    # The coverage is built as the application builds it: a sync_state row whose last_sync is in the future is ignored
+    # by the freshness (ClockInvalid), so At stays empty; the advice must still say "clock", not "never read".
+    if(-not ${function:Get-DomeniaFleetFreshness}){foreach($file in @('Domenia-HealthRules.Model.ps1','Domenia-Boards.Model.ps1','Domenia-BoardFleet.Model.ps1')){. (Join-Path $modules $file)}}
+    $now=$script:DS0;$domain='DC=example,DC=invalid'
+    $states=@{directory=[pscustomobject]@{scope='directory';server='dc1.example.invalid';base_dn=$domain;highest_usn=10;last_sync=$now.AddDays(3).ToString('o');item_count=5;details='inv=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee;depth=Subtree'}}
+    $coverage=Get-DomeniaFleetFreshness -ScopeDn '' -DomainDn $domain -SyncStates $states -NowUtc $now
+    Assert-True ([bool]$coverage.ClockInvalid) 'Point de reprise futur signale.';Assert-True ($null -eq $coverage.At) 'Point de reprise futur ignore.'
+    $advice=Get-DomeniaCensusAdvice -Coverage $coverage -NowUtc $now -IsDomain $true
+    Assert-Equal 'Clock' $advice.State;Assert-True $advice.Due;Assert-True ($advice.Text -match 'horloge')
+    Assert-False ($advice.Text -match 'aucune lecture complète') 'Pas de faux conseil de premiere lecture.'
+    $withGap=Get-DomeniaCensusAdvice -Coverage $coverage -GapCount 2 -NowUtc $now -IsDomain $true
+    Assert-Equal 'Clock' $withGap.State;Assert-True ($withGap.Text -match '2 objet') 'Lʼecart reste dit.'
+    $proof=ConvertTo-DomeniaSnapshotCoverage $coverage
+    Assert-Equal 'Unknown' $proof.State;Assert-True ($proof.Text -match 'horloge douteuse')
+    $states.directory.last_sync=$now.AddDays(-1).ToString('o')
+    Assert-Equal 'Recent' (Get-DomeniaCensusAdvice -Coverage (Get-DomeniaFleetFreshness -ScopeDn '' -DomainDn $domain -SyncStates $states -NowUtc $now) -NowUtc $now -IsDomain $true).State
+}
+Test-Case 'P22' 'Objets manquants lus par GUID : ajoutes, retires sans conclusion ou laisses a lire' {
+    $guid='0f6c3a8e-2b8d-4c1e-9a77-5d2b9f1e0a11'
+    $record=[pscustomobject]@{Type='Utilisateur';Guid=$guid;DN='CN=Ana,OU=Lyon,DC=example,DC=invalid';Name='Ana'}
+    $found=New-DomeniaCensusGapStoreRow -Guid $guid.ToUpperInvariant() -Check ([pscustomobject]@{DomainRead='Read';FoundDn='CN=Ana,OU=Lyon,DC=example,DC=invalid';Record=$record}) -CheckedUtc $script:DS0 -Server 'dc1.example.invalid'
+    Assert-Equal 'Visible' $found.Status;Assert-Equal $guid $found.Guid;Assert-True ([bool]$found.Gap);Assert-True ($null -ne $found.Record);Assert-Equal $script:DS0.ToString('o') $found.CheckedAt
+    $gone=New-DomeniaCensusGapStoreRow -Guid $guid -Check ([pscustomobject]@{DomainRead='Read';FoundDn=''})
+    Assert-Equal 'Introuvable' $gone.Status;Assert-True ($null -eq $gone.Record);Assert-True ($gone.Detail -match 'sans conclusion')
+    $group=New-DomeniaCensusGapStoreRow -Guid $guid -Check ([pscustomobject]@{DomainRead='Read';FoundDn='CN=G,DC=example,DC=invalid';Record=$null})
+    Assert-Equal 'Introuvable' $group.Status 'Ni utilisateur ni poste : retire, rien nʼest ajoute.'
+    $other=New-DomeniaCensusGapStoreRow -Guid $guid -Check ([pscustomobject]@{DomainRead='Read';FoundDn='CN=Ana,OU=Lyon,DC=example,DC=invalid';Record=([pscustomobject]@{Type='Utilisateur';Guid='22222222-2222-2222-2222-222222222222';DN='CN=Ana,OU=Lyon,DC=example,DC=invalid';Name='Ana'})})
+    Assert-True ($null -eq $other.Record) 'Une fiche dʼun autre GUID nʼest jamais ajoutee.'
+    foreach($state in @('Refused','Unavailable','')){Assert-Equal 'NonConfirme' (New-DomeniaCensusGapStoreRow -Guid $guid -Check ([pscustomobject]@{DomainRead=$state})).Status ('Domaine non lu : '+$state)}
+    Assert-Equal 'NonConfirme' (New-DomeniaCensusGapStoreRow -Guid '' -Check ([pscustomobject]@{DomainRead='Read'})).Status
+    Assert-True ((Get-DomeniaCensusGapSummary -Total 0) -match '^Aucun objet')
+    $summary=Get-DomeniaCensusGapSummary -Total 350 -Shown 200
+    Assert-True ($summary -match '^350 objet');Assert-True ($summary -match '200 à la fois')
 }
 Test-Case 'P30' 'Releve : demande validee, couverture prouvee ou declaree incomplete, jamais une sauvegarde' {
     $id='0123456789abcdef0123456789abcdef'

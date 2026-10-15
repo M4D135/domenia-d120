@@ -3,6 +3,7 @@
 $script:DomeniaAdSchemaModuleRoot=$PSScriptRoot
 $script:DomeniaAdSchema=$null
 $script:DomeniaAdSchemaGeneration=0L
+$script:DomeniaAdSchemaFilterTimer=$null
 
 function Initialize-DomeniaDirectorySchemaUi {
     # Loaded with the workshop view, from its own XAML file, in the workshop tabs. No window is created.
@@ -30,7 +31,7 @@ function Initialize-DomeniaDirectorySchemaUi {
     # Event handlers call named functions only: no closure over a local that would expire.
     (Get-DomeniaControl 'BtnAdSchemaRead').Add_Click({Start-DomeniaAdSchemaRead})
     (Get-DomeniaControl 'CmbAdSchemaKind').Add_SelectionChanged({Update-DomeniaAdSchemaList})
-    (Get-DomeniaControl 'TxtAdSchemaFilter').Add_TextChanged({Update-DomeniaAdSchemaList})
+    (Get-DomeniaControl 'TxtAdSchemaFilter').Add_TextChanged({Request-DomeniaAdSchemaListUpdate})
     (Get-DomeniaControl 'DgAdSchemaEntries').Add_SelectionChanged({Show-DomeniaAdSchemaSelection})
     (Get-DomeniaControl 'DgAdSchemaClassAttributes').Add_SelectionChanged({Show-DomeniaAdSchemaClassAttribute})
     (Get-DomeniaControl 'BtnAdSchemaAnalyze').Add_Click({Invoke-DomeniaAdSchemaFilterAnalysis})
@@ -103,6 +104,15 @@ function Get-DomeniaAdSchemaListKind {
     $combo=Get-DomeniaControl 'CmbAdSchemaKind'
     if(($null -ne $combo) -and ($null -ne $combo.SelectedItem) -and ([string]$combo.SelectedItem.Tag -eq 'Attributes')){return 'Attributes'}
     return 'Classes'
+}
+
+function Request-DomeniaAdSchemaListUpdate {
+    # Typing in the filter waits for a short pause (250 ms) before the list is filtered again: one pass per pause, not
+    # one per keystroke. FI-05: protected, session-bound timer owned by the factory.
+    if($null -eq $script:DomeniaAdSchemaFilterTimer){
+        $script:DomeniaAdSchemaFilterTimer=New-DomeniaTimer -Owner 'Timer:AdSchemaFilter' -IntervalMs 250 -SessionBound -Tick {param($sender,$eventArgs) $sender.Stop();Update-DomeniaAdSchemaList}
+    }
+    $script:DomeniaAdSchemaFilterTimer.Stop();$script:DomeniaAdSchemaFilterTimer.Start()
 }
 
 function Update-DomeniaAdSchemaList {
