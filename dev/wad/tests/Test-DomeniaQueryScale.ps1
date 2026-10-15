@@ -26,6 +26,9 @@ try{
     $ids=Get-DomeniaQueryMatchIds $records $segment
     Expect ($ids.Count -eq 19990) 'Other segment provides all 19990 exact identities'
     $request=[pscustomobject]@{SnapshotKey='fixture-20000';RecipeJson=($recipe|ConvertTo-Json -Depth 16 -Compress);TextFilter='';StateFilter='';Selection='Match';SortField='name';Descending=$true;ExpectedRows=20000;EvaluatedAtUtc='2026-10-13T10:00:00Z';ScopeDn='OU=Fixture,DC=example,DC=test';Subtree=$true}
+    # Point 2: the frozen request names its population and the clocks of its data; the worker copies them as given.
+    $request|Add-Member -NotePropertyName Population -NotePropertyValue ([pscustomobject]@{Version=1;Key='fixture-population';DomainDn='dc=example,dc=test';ScopeDn='OU=Fixture,DC=example,DC=test';Subtree=$true;Types=@('Machine');SnapshotRevision=42;Text='comptes ordinateur · OU=Fixture,DC=example,DC=test et ses sous-OU'})
+    $request|Add-Member -NotePropertyName DataClocks -NotePropertyValue ([pscustomobject]@{Directory='Base locale (AD) : lecture complète le 13/10/2026 09:00';Measures='Postes actifs : ping 0/0';Runs='';Calculation='Vue recalculée';SnapshotAtUtc='2026-10-13T10:00:00.0000000Z'})
     $Payload=[pscustomobject]@{ModuleRoot=$modules;Path=(Join-Path $folder 'all.csv');Records=$records;Request=$request}
     $code=[scriptblock]::Create((Get-DomeniaQueryExportWorkerCode))
     $result=& $code
@@ -34,6 +37,7 @@ try{
     Expect ($csv.Count -eq 20000 -and $csv[0].Nom -ceq 'PC-19999' -and $csv[19999].Nom -ceq 'PC-00000') 'global descending order crosses every page boundary'
     Expect (@($csv.GUID|Select-Object -Unique).Count -eq 20000) 'no omitted or duplicated identity in full export'
     Expect ($metadata.RowCount -eq 20000 -and $metadata.SnapshotKey -ceq 'fixture-20000' -and $metadata.ScopeDn -ceq $request.ScopeDn) 'export metadata identifies exact scope and snapshot'
+    Expect (([string]$metadata.Population.Key -ceq 'fixture-population') -and ([long]$metadata.Population.SnapshotRevision -eq 42) -and ([string]$metadata.DataClocks.Directory -like 'Base locale (AD)*') -and ([string]$metadata.DataClocks.SnapshotAtUtc -like '2026-10-13T10:00:00*')) 'export metadata keeps the population and the data clocks of the preview'
     Expect ((Get-FileHash -LiteralPath $result.Path -Algorithm SHA256).Hash.ToLowerInvariant() -ceq $metadata.CsvSHA256) 'export receipt SHA256 matches actual file'
     Reject {& $code} 'existing export is never overwritten'
     $Payload.Path=Join-Path $folder 'mismatch.csv';$request.ExpectedRows=19999

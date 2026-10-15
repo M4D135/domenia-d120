@@ -4262,7 +4262,7 @@
   {
     "Name": "LblOperationsHealth",
     "Title": "Santé du moteur",
-    "Text": "Mesures locales de cette session : mémoire, réactivité de lʼinterface, dernière sauvegarde locale. Aucune sonde réseau.",
+    "Text": "Mesures locales de cette session : mémoire, réactivité de lʼinterface, temps de réponse par catégorie (recherche locale, interface, base locale, annuaire, postes, écritures et actions : médiane, 95e centile à partir de 20 mesures, maximum), dernière sauvegarde locale. Aucune sonde réseau.",
     "Kind": "TextBlock",
     "Source": "d120-L09"
   },
@@ -4418,7 +4418,7 @@
     "Kind": "TextBlock",
     "Source": "specific",
     "Title": "Dates des mesures et du calcul",
-    "Text": "Le ping et l’inventaire WMI conservent leurs dates propres. N/M compte les mesures utilisables parmi les postes actifs ; du… au… décrit leur intervalle de dates. Vue recalculée indique seulement la préparation locale de l’affichage, sans nouvelle collecte."
+    "Text": "Le ping et l’inventaire WMI conservent leurs dates propres. N/M compte les mesures utilisables parmi les postes actifs ; du… au… décrit leur intervalle de dates. Les postes sans mesure utilisable sont comptés par raison (jamais relevé, non lu, refusé, périmé, incomplet, en erreur), jamais comme mesurés. Relevés de l’OU donne la dernière réussite du ping et du WMI lancés sur l’OU et, si elle est plus récente, la dernière tentative en échec avec son erreur ; la provenance de ces relevés s’ajoute à cette aide. Vue recalculée indique seulement la préparation locale de l’affichage, sans nouvelle collecte."
   },
   {
     "Name": "TxtUserLogonByDc",

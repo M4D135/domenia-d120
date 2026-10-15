@@ -402,6 +402,8 @@ function Get-DomeniaPurgeTargets {
             [pscustomobject]@{Table='park_session_cache';TimeColumn='checked_utc';Filter='All';Action='Delete'}
             [pscustomobject]@{Table='domenia_observations';TimeColumn='attempt_at';Filter='All';Action='Delete'}
             [pscustomobject]@{Table='domenia_details';TimeColumn='attempt_at';Filter='All';Action='Delete'}
+            # Scope clocks of the ping and WMI campaigns (families Presence and Inventory), purged with their measures.
+            [pscustomobject]@{Table='domenia_domain_metadata';TimeColumn='attempt_at';Filter='WorkstationRuns';Action='Delete'}
         }
         'Snapshots' {[pscustomobject]@{Table='adcc_live_queries';TimeColumn='observed_utc';Filter='All';Action='Delete'}}
         'History' {
@@ -423,6 +425,8 @@ function Get-DomeniaPurgeTargets {
             [pscustomobject]@{Table='ad_census_gaps';TimeColumn='';Filter='All';Action='Delete'}
             [pscustomobject]@{Table='ad_snapshot_rows';TimeColumn='';Filter='All';Action='Delete'}
             [pscustomobject]@{Table='ad_snapshots';TimeColumn='';Filter='All';Action='Delete'}
+            # Scope clock of the AD reads (family Directory), purged with the index it dated.
+            [pscustomobject]@{Table='domenia_domain_metadata';TimeColumn='';Filter='DirectoryRuns';Action='Delete'}
             # Preserve other scopes, including the idempotence marker of an old-data import.
             [pscustomobject]@{Table='sync_state';TimeColumn='';Filter='DirectoryScope';Action='Reset'}
         }

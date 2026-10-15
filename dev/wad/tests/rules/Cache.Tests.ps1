@@ -271,9 +271,14 @@ Test-Case 'D029' 'Reconstructible vide a la demande, historique borne avec date 
 Test-Case 'D029' 'Liste de tables fermee et historique des associations declarees protege' {
     $targets=@(foreach($category in @('Observations','Snapshots','History','Index')){Get-DomeniaPurgeTargets $category})
     # Lot L01: ad_computer_facts (Index) and fleet_snapshots (History) join the closed list; secret_state never does.
+    # Point 4: the scope clocks (domenia_domain_metadata) go with the measures (Presence, Inventory) and the index (Directory).
     # Points 22, 24 and 30: census gaps, absences and directory snapshots (rows and manifests) join the Index category.
-    Assert-Equal 17 $targets.Count
+    # Real count of the closed list: 7 Observations, 1 Snapshots, 4 History, 10 Index (domenia_observations,
+    # domenia_details and domenia_directory_data were never counted by the former figure).
+    Assert-Equal 22 $targets.Count
     foreach($table in @('ad_absences','ad_census_gaps','ad_snapshot_rows','ad_snapshots')){Assert-Equal 'Index' (@(foreach($category in @('Observations','Snapshots','History','Index')){foreach($t in @(Get-DomeniaPurgeTargets $category)){if($t.Table -eq $table){$category}}})[0]) $table}
+    $clocks=@($targets | Where-Object {$_.Table -eq 'domenia_domain_metadata'})
+    Assert-Equal 'WorkstationRuns|DirectoryRuns' (@($clocks | ForEach-Object {$_.Filter}) -join '|')
     Assert-Equal 'Index' (@(foreach($category in @('Index')){foreach($t in @(Get-DomeniaPurgeTargets $category)){if($t.Table -eq 'ad_computer_facts'){$category}}})[0])
     Assert-Equal 'snapshot_day' (@(Get-DomeniaPurgeTargets History | Where-Object {$_.Table -eq 'fleet_snapshots'})[0].TimeColumn)
     foreach($target in $targets){

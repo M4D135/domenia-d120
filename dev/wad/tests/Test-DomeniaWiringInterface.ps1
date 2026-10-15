@@ -62,7 +62,7 @@ function Update-DomeniaSecretActionUi {}
 function Apply-CurrentPermissionUi {}
 function Request-DomeniaDashboardRefresh {}
 # FI-19: the secret summary of a workstation is read off the Dispatcher (LocalIndexRead); only the request is recorded.
-function Request-DomeniaSecretIndexSummary {param([AllowEmptyString()][string]$Computer='');if($null -eq $script:SecretSummaryRequests){$script:SecretSummaryRequests=[Collections.Generic.List[string]]::new()};$script:SecretSummaryRequests.Add([string]$Computer)}
+function Request-DomeniaSecretIndexSummary {param([AllowEmptyString()][string]$Computer='',[AllowEmptyString()][string]$Guid='');if($null -eq $script:SecretSummaryRequests){$script:SecretSummaryRequests=[Collections.Generic.List[string]]::new()};$script:SecretSummaryRequests.Add([string]$Computer)}
 function Get-DomeniaEffectiveWorkerResult {param($Result,$RequiredProperties);return $Result}
 function Update-DomeniaInventoryCategories {}
 function Apply-DomeniaInventoryFilter { [void](Set-DomeniaItemsSource -Name 'DgInventory' -Rows $script:InventoryRows) }
