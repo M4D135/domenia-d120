@@ -16,7 +16,7 @@ if([string]$Payload.Mode -eq 'ExportPack'){
     foreach($recipe in $recipes){[void](New-DomeniaQueryLibraryRecord -Context $Payload.Context -Recipe $recipe -ExpectedRevision 0)}
     $text=ConvertTo-Json -InputObject ([pscustomobject]@{Format='Domenia.QueryPack/1';Origin='Domenia · bibliothèque locale';DomainDn=$Payload.Context.DomainDn;ExportedAtUtc=[datetime]::UtcNow.ToString('o');Recipes=$recipes}) -Depth 32
 }elseif([string]$Payload.Mode -eq 'ExportPowerShell'){
-    if([IO.Path]::GetExtension($path) -ine '.ps1'){throw 'Le script doit avoir l’extension PS1.'}
+    if([IO.Path]::GetExtension($path) -ine '.ps1'){throw 'Le script doit avoir lʼextension PS1.'}
     $text=ConvertTo-DomeniaQueryPowerShell -Recipe $Payload.Recipe
 }else{throw 'Transfert de requêtes inconnu.'}
 if([Text.Encoding]::UTF8.GetByteCount($text) -gt 16777216){throw 'Export supérieur à 16 Mio. Réduisez la sélection.'}

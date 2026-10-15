@@ -20,7 +20,7 @@ function Get-DomeniaOperationEffect {
     $reads = @(
         'SelectedPresence','PresenceScan','CmdletHelp','CmdletInventory','TreeChildren','GlobalSearch','PermissionAnalysis','SelfCheck',
         'ReadBitLocker','ReadBitLockerKey','ReadLaps','ComputerInventory','DomainOverview','BatchNetworkDiag','SoftwareInventory',
-        'WmiNamespaces','WmiClasses','WmiQuery','UserComputerProbe','LogonHarvest','ParkSweep','ComputerDiagnostics','ComputerLastUser',
+        'WmiNamespaces','WmiClasses','WmiQuery','QuerySchema','UserComputerProbe','LogonHarvest','ParkSweep','ComputerDiagnostics','ComputerLastUser',
         'ComputerPing','ComputerAdminShare','PruneLinks','OpenLinkedObject','EngineSelfTest','OpenAdObject','StartupWarmCache','StartupWarmup','LiveConsole',
         'LiveDirectoryCheck','SessionsList','RemoteCredentialCheck','ScopeReconcile','ReconcileScope','LiveSelectedPing','ParkPing',
         'EmbeddedDirectoryLookup','EmbeddedPathBrowse','ObjectChanges','StorageUsage','ComputerQuickDiag','PasswordPolicyRead',
