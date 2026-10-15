@@ -10,6 +10,10 @@ Rules enforced (an error makes the command fail):
   - a synthetic evidence names an existing test file and no domain, host or report: it never proves a network;
   - a Lab or Target evidence names its report file, its SHA-256, its date, its domain and its host;
   - a report produced in the laboratory domain or on a laboratory host is never accepted as Target evidence;
+  - when the report file is readable here, its SHA-256 is recomputed and its environment is classified from the facts
+    it recorded itself (Environment block of Invoke-D120Campaign.ps1): any difference with the declared hash, domain,
+    host or environment is an error. A report that is not readable here is listed as not re-read (not an error: reports
+    are kept outside dev, often on the machine that produced them);
   - a right marked LabOnly (domain administrator) never receives Target evidence: Domenia does not require it there;
   - identifiers are closed (systems, protocols, rights), cells are unique, the published page is up to date.
 The status of a cell is the strongest valid evidence: Cible > Laboratoire > Synthetique > Non couvert.
@@ -19,10 +23,14 @@ Usage:
   python tools/validation_matrix.py --write      rewrite engineering/d120/qualification/MATRICE-VALIDATION.md
   python tools/validation_matrix.py --classify-report <campaign.json>
                                                  environment of a campaign report from its recorded facts
+  python tools/validation_matrix.py --add-evidence <campaign.json> --cell SYSTEME/PROTOCOLE/DROIT [--note TEXTE]
+                                                 add a Lab or Target evidence built from the report itself (hash,
+                                                 domain, host and date read from the file, never typed), then rewrite
+                                                 the matrix and the published page
 Offline: reads files only, never contacts a domain. A status computed here is not a qualification by itself.
 """
 from pathlib import Path
-import argparse, json, re, sys
+import argparse, hashlib, json, re, sys
 
 ROOT = Path(__file__).resolve().parents[1]
 MATRIX = Path('engineering/d120/qualification/validation-matrix.json')
@@ -54,8 +62,49 @@ def classify(domain, computer, matrix):
     return 'Target'
 
 
-def check_evidence(evidence, cell, matrix, root, rights):
-    """Errors of one evidence and its rank (0 when it does not count)."""
+def report_facts(path):
+    """Facts of a campaign report read from the file itself: SHA-256 of its bytes, domain and host recorded in its
+    Environment block, date (AAAA-MM-JJ) of its last finished step. Raises OSError or ValueError when unreadable."""
+    data = Path(path).read_bytes()
+    try:
+        report = json.loads(data.decode('utf-8-sig'))
+    except ValueError as exc:
+        raise ValueError('rapport illisible (%s) : %s' % (path, exc))
+    if not isinstance(report, dict):
+        raise ValueError('rapport sans objet JSON : %s' % path)
+    facts = report.get('Environment') if isinstance(report.get('Environment'), dict) else {}
+    ended = sorted(str(step.get('EndedUtc') or '')[:10] for step in (report.get('Steps') or [])
+                   if isinstance(step, dict) and DATE.match(str(step.get('EndedUtc') or '')[:10]))
+    return {'Sha256': hashlib.sha256(data).hexdigest(), 'Domain': str(facts.get('Domain') or '').strip(),
+            'Computer': str(facts.get('Computer') or '').strip(), 'Date': ended[-1] if ended else '',
+            'Kind': str(report.get('Kind') or ''), 'Qualifying': bool(report.get('Qualifying'))}
+
+
+def verify_report(evidence, matrix, where):
+    """Errors when the report named by a Lab or Target evidence is readable here and differs from the declaration.
+    Returns (errors, re_read)."""
+    reference = str(evidence.get('Report', '')).strip()
+    if not reference or not Path(reference).is_file():
+        return [], False
+    try:
+        facts = report_facts(reference)
+    except (OSError, ValueError) as exc:
+        return ['%s : %s' % (where, exc)], True
+    errors = []
+    if facts['Sha256'] != str(evidence.get('Sha256', '')).strip().lower():
+        errors.append('%s : SHA-256 du rapport différent de lʼempreinte déclarée' % where)
+    if (norm(facts['Domain']) != norm(evidence.get('Domain'))) or (norm(facts['Computer']) != norm(evidence.get('Computer'))):
+        errors.append('%s : domaine et poste déclarés (%s, %s) différents de ceux relevés dans le rapport (%s, %s)'
+                      % (where, evidence.get('Domain'), evidence.get('Computer'), facts['Domain'], facts['Computer']))
+    actual = classify(facts['Domain'], facts['Computer'], matrix)
+    if actual != evidence.get('Environment'):
+        errors.append('%s : le rapport lui-même relève de lʼenvironnement %s, pas %s'
+                      % (where, actual, evidence.get('Environment')))
+    return errors, True
+
+
+def check_evidence(evidence, cell, matrix, root, rights, unread=None):
+    """Errors of one evidence and its rank (0 when it does not count). unread collects the reports not re-read here."""
     errors = []
     where = '%s/%s/%s' % (cell.get('System'), cell.get('Protocol'), cell.get('Right'))
     env = evidence.get('Environment')
@@ -89,11 +138,15 @@ def check_evidence(evidence, cell, matrix, root, rights):
                       % (where, evidence.get('Domain'), evidence.get('Computer')))
     if env == 'Target' and rights.get(cell.get('Right'), {}).get('LabOnly'):
         errors.append('%s : droit réservé au laboratoire, aucune preuve sur le domaine cible' % where)
+    found, re_read = verify_report(evidence, matrix, where)
+    errors.extend(found)
+    if (not re_read) and (unread is not None):
+        unread.append('%s : %s' % (where, evidence.get('Report')))
     return errors, (0 if errors else RANK[env])
 
 
-def evaluate(matrix, root=ROOT):
-    """Errors of the whole matrix and the status of every cell."""
+def evaluate(matrix, root=ROOT, unread=None):
+    """Errors of the whole matrix and the status of every cell. unread collects the reports not re-read here."""
     errors = []
     if matrix.get('Schema') != SCHEMA:
         errors.append('Schéma attendu %s' % SCHEMA)
@@ -119,7 +172,7 @@ def evaluate(matrix, root=ROOT):
             errors.append('Cellule %s : scénario absent' % '/'.join(map(str, key)))
         rank, kinds = 0, []
         for evidence in cell.get('Evidence') or []:
-            found, value = check_evidence(evidence, cell, matrix, root, vocab.get('Rights', {}))
+            found, value = check_evidence(evidence, cell, matrix, root, vocab.get('Rights', {}), unread)
             errors.extend(found)
             rank = max(rank, value)
             if value:
@@ -179,20 +232,67 @@ def load(root=ROOT):
     return json.loads((root / MATRIX).read_text(encoding='utf-8'))
 
 
+def add_evidence(matrix, report_path, cell_key, note='', root=ROOT):
+    """Adds to one cell (SYSTEME/PROTOCOLE/DROIT) the Lab or Target evidence of a campaign report. Hash, domain, host
+    and date come from the file, and the environment from those facts: nothing is typed. Returns the errors (the matrix
+    is left unchanged when there is one) and the evidence added."""
+    parts = str(cell_key or '').split('/')
+    if len(parts) != 3:
+        return ['Cellule attendue SYSTEME/PROTOCOLE/DROIT : %r' % cell_key], None
+    cell = next((c for c in matrix.get('Cells') or [] if (c.get('System'), c.get('Protocol'), c.get('Right')) == tuple(parts)), None)
+    if cell is None:
+        return ['Cellule inconnue : %s' % cell_key], None
+    try:
+        facts = report_facts(report_path)
+    except (OSError, ValueError) as exc:
+        return ['Rapport illisible : %s' % exc], None
+    environment = classify(facts['Domain'], facts['Computer'], matrix)
+    if environment == 'Unknown':
+        return ['Rapport sans domaine relevé (bloc Environment) : il ne prouve rien sur un réseau.'], None
+    if not facts['Date']:
+        return ['Rapport sans étape terminée datée : date dʼexécution inconnue.'], None
+    if any(str(e.get('Sha256', '')).lower() == facts['Sha256'] for e in cell.get('Evidence') or []):
+        return ['Rapport déjà enregistré pour la cellule %s.' % cell_key], None
+    evidence = {'Environment': environment, 'Report': str(Path(report_path).resolve()), 'Sha256': facts['Sha256'],
+                'Date': facts['Date'], 'Domain': facts['Domain'], 'Computer': facts['Computer']}
+    if note:
+        evidence['Note'] = str(note)
+    rights = {str(r.get('Id')): r for r in matrix.get('Rights') or []}
+    errors, _ = check_evidence(evidence, cell, matrix, root, rights)
+    if errors:
+        return errors, None
+    cell.setdefault('Evidence', []).append(evidence)
+    return [], evidence
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description='Matrice de validation Domenia (point 130).')
     ap.add_argument('--write', action='store_true', help='réécrire la page publiée')
     ap.add_argument('--classify-report', metavar='CAMPAGNE', help='environnement dʼun rapport de campagne')
+    ap.add_argument('--add-evidence', metavar='CAMPAGNE', help='ajouter la preuve dʼun rapport de campagne à une cellule')
+    ap.add_argument('--cell', metavar='SYSTEME/PROTOCOLE/DROIT', help='cellule de la preuve ajoutée')
+    ap.add_argument('--note', default='', help='remarque de la preuve ajoutée')
     a = ap.parse_args(argv)
     matrix = load()
     if a.classify_report:
-        report = json.loads(Path(a.classify_report).read_text(encoding='utf-8-sig'))
-        facts = report.get('Environment') or {}
-        print(json.dumps({'Environment': classify(facts.get('Domain'), facts.get('Computer'), matrix),
-                          'Domain': facts.get('Domain'), 'Computer': facts.get('Computer'),
-                          'Qualifying': bool(report.get('Qualifying'))}, ensure_ascii=False, indent=2))
+        facts = report_facts(a.classify_report)
+        print(json.dumps({'Environment': classify(facts['Domain'], facts['Computer'], matrix), 'Domain': facts['Domain'],
+                          'Computer': facts['Computer'], 'Date': facts['Date'], 'Sha256': facts['Sha256'],
+                          'Qualifying': facts['Qualifying']}, ensure_ascii=False, indent=2))
         return 0
-    errors, cells = evaluate(matrix)
+    if a.add_evidence:
+        found, evidence = add_evidence(matrix, a.add_evidence, a.cell, a.note)
+        if not found:
+            # The whole matrix must stay valid before anything is written.
+            found, _ = evaluate(matrix)
+        if found:
+            print(json.dumps({'Added': None, 'Errors': found}, ensure_ascii=False, indent=2))
+            return 1
+        (ROOT / MATRIX).write_text(json.dumps(matrix, ensure_ascii=False, indent=2) + '\n', encoding='utf-8', newline='\n')
+        a.write = True
+        print(json.dumps({'Added': evidence}, ensure_ascii=False, indent=2))
+    unread = []
+    errors, cells = evaluate(matrix, unread=unread)
     page = render(matrix, cells)
     if a.write and not errors:
         (ROOT / PAGE).write_text(page, encoding='utf-8', newline='\n')
@@ -201,7 +301,7 @@ def main(argv=None):
         if current != page:
             errors.append('Page publiée périmée : relancer tools/validation_matrix.py --write')
     summary = {name: sum(1 for c in cells if c['Status'] == name) for name in STATUS.values()}
-    print(json.dumps({'Cells': len(cells), 'Status': summary, 'Errors': errors}, ensure_ascii=False, indent=2))
+    print(json.dumps({'Cells': len(cells), 'Status': summary, 'ReportsNotReread': unread, 'Errors': errors}, ensure_ascii=False, indent=2))
     return 1 if errors else 0
 
 

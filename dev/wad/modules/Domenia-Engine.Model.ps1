@@ -750,14 +750,18 @@ function Get-DomeniaResponseTimeCategories {
     # Closed list of the response times shown in the operations panel. Each category names the series of
     # Add-DomeniaRuntimeMetric it gathers ('Provenance|prefix', ordinal); Exclude removes the series counted by another
     # category, so that one measure is never reported twice. Dispatcher|Callback: is the processing and display of a
-    # result on the interface thread (rendering included); worker durations never enter it.
+    # result on the interface thread (rendering included); worker durations never enter it. Add-DomeniaTaskRuntimeMetric
+    # prefixes a write or remote action with 'Write:' (password reset, unlock, restart, policy refresh...): it has its own
+    # category and never enters the reads of its provider. A local base write stays in the local base category.
     $search = @('Sqlite|LocalIndexRead:Search','Sqlite|LocalQuery:Search')
+    $writes = @('Ldap|Write:','Cim|Write:')
     return @(
         [pscustomobject]@{ Id='LocalSearch'; Label='Recherche locale'; Include=$search; Exclude=@() }
         [pscustomobject]@{ Id='Render'; Label='Traitement des résultats dans lʼinterface'; Include=@('Dispatcher|Callback:'); Exclude=@() }
         [pscustomobject]@{ Id='Sqlite'; Label='Autres lectures et écritures de la base locale'; Include=@('Sqlite|'); Exclude=$search }
-        [pscustomobject]@{ Id='Directory'; Label='Lectures de lʼannuaire'; Include=@('Ldap|'); Exclude=@() }
-        [pscustomobject]@{ Id='Computers'; Label='Collecte sur les postes (réseau et WMI)'; Include=@('Cim|'); Exclude=@() }
+        [pscustomobject]@{ Id='Directory'; Label='Lectures de lʼannuaire'; Include=@('Ldap|'); Exclude=@('Ldap|Write:') }
+        [pscustomobject]@{ Id='Computers'; Label='Collecte sur les postes (réseau et WMI)'; Include=@('Cim|'); Exclude=@('Cim|Write:') }
+        [pscustomobject]@{ Id='Writes'; Label='Écritures dans lʼannuaire et actions sur les postes'; Include=$writes; Exclude=@() }
     )
 }
 
@@ -779,6 +783,11 @@ function Select-DomeniaResponseTimeSamples {
         if (-not $kept) { continue }
         $serie = $Series[$key]
         if ($null -eq $serie) { continue }
+        if (($serie -is [Collections.Generic.Queue[double]]) -or ($serie -is [double[]])) {
+            # Runtime series (Add-DomeniaRuntimeMetric): already doubles, one comparison pair per value. NaN fails both.
+            foreach ($number in $serie) { if (($number -ge 0) -and ($number -lt [double]::PositiveInfinity)) { $values.Add($number) } }
+            continue
+        }
         foreach ($value in $serie) {
             # The runtime series hold doubles; any other value is read as an invariant number or skipped.
             $number = [double]::NaN

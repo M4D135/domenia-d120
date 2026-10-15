@@ -90,15 +90,53 @@ Case 'Operations health reports local search, interface, base, directory and wor
 }
 Case 'A finished local search is recorded apart from the other actions of the same reader' {
     $script:DomeniaRuntimeMetrics=@{}
+    # As after Invoke-DomeniaUiTaskDispatch: the request is released (Payload $null), the series key was fixed before.
+    Add-DomeniaTaskRuntimeMetric ([pscustomobject]@{Started=(Get-Date).AddMilliseconds(-40);Provider='Storage';Demo=$false;IsWrite=$false;OperationId='LocalIndexRead';Payload=$null;MetricKey='LocalIndexRead:Search'})
+    Add-DomeniaTaskRuntimeMetric ([pscustomobject]@{Started=(Get-Date).AddMilliseconds(-40);Provider='Storage';Demo=$false;IsWrite=$false;OperationId='LocalIndexRead';Payload=$null;MetricKey='LocalIndexRead:FleetStats'})
+    Add-DomeniaTaskRuntimeMetric ([pscustomobject]@{Started=(Get-Date).AddMilliseconds(-40);Provider='Storage';Demo=$false;IsWrite=$false;OperationId='LocalQuery';Payload=$null;MetricKey='LocalQuery:Search'})
+    # A job never dispatched (no MetricKey) still reads its request, then falls back to its identifier.
     Add-DomeniaTaskRuntimeMetric ([pscustomobject]@{Started=(Get-Date).AddMilliseconds(-40);Provider='Storage';Demo=$false;OperationId='LocalIndexRead';Payload=[pscustomobject]@{Action='Search'}})
-    Add-DomeniaTaskRuntimeMetric ([pscustomobject]@{Started=(Get-Date).AddMilliseconds(-40);Provider='Storage';Demo=$false;OperationId='LocalIndexRead';Payload=[pscustomobject]@{Action='FleetStats'}})
     Add-DomeniaTaskRuntimeMetric ([pscustomobject]@{Started=(Get-Date).AddMilliseconds(-40);Provider='Cim';Demo=$false;OperationId='ComputerInventory'})
-    Expect ((Get-DomeniaRuntimeMetricSummary Sqlite 'LocalIndexRead:Search').Count -eq 1) 'Local search series missing'
+    Expect ((Get-DomeniaRuntimeMetricSummary Sqlite 'LocalIndexRead:Search').Count -eq 2) 'Local search series missing after the request was released'
     Expect ((Get-DomeniaRuntimeMetricSummary Sqlite 'LocalIndexRead:FleetStats').Count -eq 1) 'Dashboard read series missing'
+    Expect ((Get-DomeniaRuntimeMetricSummary Sqlite 'LocalQuery:Search').Count -eq 1) 'Query workshop search series missing'
     Expect ((Get-DomeniaRuntimeMetricSummary Cim 'ComputerInventory').Count -eq 1) 'A job without payload lost its measure'
     $rows=@(Get-DomeniaResponseTimeSummaries)
-    Expect ($rows.Count -eq 5) ('Five categories expected, got '+$rows.Count)
-    Expect ([int]@($rows|Where-Object{$_.Id -eq 'LocalSearch'})[0].Summary.Count -eq 1) 'Local search category does not read its series'
+    Expect ($rows.Count -eq 6) ('Six categories expected, got '+$rows.Count)
+    Expect ([int]@($rows|Where-Object{$_.Id -eq 'LocalSearch'})[0].Summary.Count -eq 3) 'Local search category does not read its series'
+    Expect ([int]@($rows|Where-Object{$_.Id -eq 'Sqlite'})[0].Summary.Count -eq 1) 'Local searches blended with the other local reads'
+    $text=Get-DomeniaOperationsHealthText
+    Expect ($text -notmatch 'Recherche locale : aucune mesure') ('Local searches reported as unmeasured: '+$text)
+}
+Case 'A write or remote action never enters the reads of its provider' {
+    $script:DomeniaRuntimeMetrics=@{}
+    Add-DomeniaTaskRuntimeMetric ([pscustomobject]@{Started=(Get-Date).AddMilliseconds(-40);Provider='Directory';Demo=$false;IsWrite=$true;OperationId='ResetPassword';Payload=$null;MetricKey='ResetPassword'})
+    Add-DomeniaTaskRuntimeMetric ([pscustomobject]@{Started=(Get-Date).AddMilliseconds(-40);Provider='Cim';Demo=$false;IsWrite=$true;OperationId='ComputerRestart';Payload=$null;MetricKey='ComputerRestart'})
+    Add-DomeniaTaskRuntimeMetric ([pscustomobject]@{Started=(Get-Date).AddMilliseconds(-40);Provider='Directory';Demo=$false;IsWrite=$false;OperationId='OpenAdObject';Payload=$null;MetricKey='OpenAdObject'})
+    Expect ((Get-DomeniaRuntimeMetricSummary Ldap 'Write:ResetPassword').Count -eq 1) 'Directory write not keyed apart'
+    Expect ((Get-DomeniaRuntimeMetricSummary Cim 'Write:ComputerRestart').Count -eq 1) 'Remote action not keyed apart'
+    $rows=@(Get-DomeniaResponseTimeSummaries)
+    Expect ([int]@($rows|Where-Object{$_.Id -eq 'Directory'})[0].Summary.Count -eq 1) 'A directory write was counted as a read'
+    Expect ([int]@($rows|Where-Object{$_.Id -eq 'Computers'})[0].Summary.Count -eq 0) 'A restart was counted as a collection'
+    Expect ([int]@($rows|Where-Object{$_.Id -eq 'Writes'})[0].Summary.Count -eq 2) 'Writes and remote actions missing from their category'
+}
+Case 'Response-time summaries are recomputed only when one of their series moved' {
+    $script:DomeniaRuntimeMetrics=@{};$script:DomeniaResponseTimeCache=$null
+    1..3|ForEach-Object{Add-DomeniaRuntimeMetric Ldap 'OpenAdObject' (10*$_)}
+    $first=@(Get-DomeniaResponseTimeSummaries|Where-Object{$_.Id -eq 'Directory'})[0]
+    Add-DomeniaRuntimeMetric Dispatcher 'Pulse' 5
+    $same=@(Get-DomeniaResponseTimeSummaries|Where-Object{$_.Id -eq 'Directory'})[0]
+    Expect ([object]::ReferenceEquals($first.Summary,$same.Summary)) 'Heartbeat forced a recomputation of the directory reads'
+    Add-DomeniaRuntimeMetric Ldap 'OpenAdObject' 70
+    $moved=@(Get-DomeniaResponseTimeSummaries|Where-Object{$_.Id -eq 'Directory'})[0]
+    Expect (([int]$moved.Summary.Count -eq 4) -and ([int]$moved.Summary.Max -eq 70)) 'A new directory measure was not taken into account'
+    # A saturated series still moves: its size stays at 512, its additions grow.
+    $script:DomeniaRuntimeMetrics=@{}
+    1..520|ForEach-Object{Add-DomeniaRuntimeMetric Cim 'ComputerInventory' 1}
+    $full=@(Get-DomeniaResponseTimeSummaries|Where-Object{$_.Id -eq 'Computers'})[0]
+    Add-DomeniaRuntimeMetric Cim 'ComputerInventory' 9000
+    $after=@(Get-DomeniaResponseTimeSummaries|Where-Object{$_.Id -eq 'Computers'})[0]
+    Expect (([int]$full.Summary.Max -eq 1) -and ([int]$after.Summary.Max -eq 9000) -and ([int]$after.Summary.Count -eq 512)) 'A saturated series was served from a stale summary'
 }
 $failed=@($script:Results|Where-Object{-not $_.Pass}).Count
 $report=[pscustomobject]@{Passed=($script:Results.Count-$failed);Failed=$failed;Assertions=$script:Assertions;PowerShell=$PSVersionTable.PSVersion.ToString();Data='Controlled clock, actual Core finally block and real in-memory metric functions; no AD/WPF';Cases=$script:Results.ToArray()}

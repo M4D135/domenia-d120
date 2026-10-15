@@ -195,6 +195,15 @@ try{
         Expect ($address.Outcome -eq 'Observed') 'address target cannot be compared and keeps the former behaviour'
         $silent=Invoke-NetworkProbe -ReportedName '' -ReportedDns ''
         Expect ($silent.Outcome -eq 'Observed') 'reply without names is not refused'
+        # Windows always returns DNSHostName: a cn target (NetBIOS name cut at 15) must match the long host name.
+        $cn=Invoke-NetworkProbe -Target 'PC-TRES-LONG-NO' -ReportedDns 'pc-tres-long-nom-01' -ReportedName 'PC-TRES-LONG-NO'
+        Expect ($cn.Outcome -eq 'Observed') ('cn target refused although NetBIOS name matches: '+$cn.Detail)
+        $cnOnly=Invoke-NetworkProbe -Target 'LONGCOMPUTERNAM' -ReportedDns 'LONGCOMPUTERNAME01.example.invalid' -ReportedName ''
+        Expect ($cnOnly.Outcome -eq 'Observed') ('cut host name refused: '+$cnOnly.Detail)
+        $both=Invoke-NetworkProbe -Target 'pc-tres-long-nom-01.example.invalid' -ReportedDns 'pc-tres-long-nom-01.example.invalid' -ReportedName 'PC-TRES-LONG-NO'
+        Expect ($both.Outcome -eq 'Observed') ('complete reply refused: '+$both.Detail)
+        $other=Invoke-NetworkProbe -Target 'PC-TRES-LONG-NO' -ReportedDns 'pc-autre-tres-long-02' -ReportedName 'PC-AUTRE-TRES-L' -User 'EXAMPLEob'
+        Expect (($other.Outcome -eq 'Unavailable') -and (-not $other.User) -and ([string]$other.Detail -match 'se nomme pc-autre-tres-long-02')) ('another long-named workstation attributed: '+$other.Outcome+' '+$other.Detail)
     }
     Case 'Refus : acces, compte et connexion gardent chacun leur categorie' {
         $denied=Invoke-NetworkProbe -SessionFault 'AccessDenied'
@@ -265,7 +274,9 @@ try{
             $applied=[bool](Test-DomeniaIdentityCurrent $request.Identity $current)
             $req=[pscustomobject]@{Epoch=1;Generation=$request.Generation;Reader='EX\lecteur';Guid=$request.Row.Guid}
             $now=[pscustomobject]@{Epoch=1;Generation=$generation;Reader='EX\lecteur';Guid=$rows[2].Guid}
-            foreach($v in @(Test-DomeniaCurrentAnswerInvariant ('Reponse '+$index) $req $now $applied -RequireCurrentApplied)){$violations.Add($v)}
+            # The invariant returns its violations as one array (return ,...): enumerate it, never wrap it in @().
+            $found=Test-DomeniaCurrentAnswerInvariant ('Reponse '+$index) $req $now $applied -RequireCurrentApplied
+            foreach($v in $found){if($null -ne $v){$violations.Add($v)}}
         }
         Expect ($violations.Count -eq 0) ((@($violations|ForEach-Object{$_.Subject+' : '+$_.Text})) -join ' | ')
         Expect (-not (Test-DomeniaLiveIdentity ([pscustomobject]@{Epoch=1;Identity='lecteur'}) 2 'lecteur')) 'console answer of a previous session applied'

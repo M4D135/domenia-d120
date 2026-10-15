@@ -381,13 +381,22 @@ Test-Case 'P122' 'Percentiles : categories disjointes, aucune mesure comptee deu
     $series['Ldap|OpenAdObject']=[double[]]@(120)
     $series['Cim|ComputerInventory']=[double[]]@(900,-4,[double]::NaN)
     $series['Queue|Wait:Explicit']=[double[]]@(1)
+    $series['Ldap|Write:ResetPassword']=[double[]]@(300)
+    $series['Cim|Write:ComputerRestart']=[double[]]@(2000,[double]::PositiveInfinity)
+    $queue=New-Object 'System.Collections.Generic.Queue[double]'
+    foreach($value in @(15,[double]::NaN,-2,[double]::NegativeInfinity)){$queue.Enqueue([double]$value)}
+    $series['Ldap|SearchUsers']=$queue
+    $series['Ldap|Legacy']=@('25','x')
     $counts=@{}
     foreach($category in @(Get-DomeniaResponseTimeCategories)){$samples=Select-DomeniaResponseTimeSamples $series $category;$counts[[string]$category.Id]=$samples.Count}
     Assert-Equal 3 $counts['LocalSearch'] 'Recherche locale : index et atelier'
     Assert-Equal 2 $counts['Sqlite'] 'Vue du parc et ecriture locale, recherche exclue'
     Assert-Equal 1 $counts['Render'] 'Battement et ouverture de runspace exclus'
-    Assert-Equal 1 $counts['Directory']
-    Assert-Equal 1 $counts['Computers'] 'Valeur negative et NaN ecartees'
+    Assert-Equal 3 $counts['Directory'] 'Lectures seulement : file typee filtree, texte invariant lu, ecriture exclue'
+    Assert-Equal 1 $counts['Computers'] 'Valeur negative et NaN ecartees, redemarrage exclu'
+    Assert-Equal 2 $counts['Writes'] 'Ecriture et action distante dans leur propre categorie, infini ecarte'
+    $total=0;foreach($value in $counts.Values){$total+=[int]$value}
+    Assert-Equal 12 $total 'Aucune mesure comptee deux fois'
     $empty=Select-DomeniaResponseTimeSamples $null (@(Get-DomeniaResponseTimeCategories)[0])
     Assert-Equal 0 $empty.Count 'Aucune serie : tableau vide'
     $labels=@(Get-DomeniaResponseTimeCategories|ForEach-Object{[string]$_.Label})

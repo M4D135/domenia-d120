@@ -1,7 +1,7 @@
 {
   "Schema": "DomeniaValidationMatrix/1",
   "Title": "Matrice de validation Domenia par système, protocole et droit",
-  "Note": "Seules les preuves Laboratoire et Cible viennent dʼune exécution sur un vrai réseau. Ajouter une preuve : rapport de campagne (Invoke-D120Campaign.ps1) conservé hors de dev, son SHA-256, sa date, son domaine et son poste ; tools/validation_matrix.py vérifie quʼun rapport du laboratoire nʼest jamais compté pour le domaine cible.",
+  "Note": "Seules les preuves Laboratoire et Cible viennent dʼune exécution sur un vrai réseau. Ajouter une preuve : tools/validation_matrix.py --add-evidence <rapport de campagne conservé hors de dev> --cell SYSTEME/PROTOCOLE/DROIT, qui reprend du rapport lui-même son SHA-256, sa date, son domaine et son poste ; lʼoutil relit tout rapport lisible et vérifie quʼun rapport du laboratoire nʼest jamais compté pour le domaine cible.",
   "LabDomains": [
     "cnamts.local"
   ],

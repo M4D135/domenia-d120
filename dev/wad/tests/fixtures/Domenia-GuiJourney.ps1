@@ -23,7 +23,7 @@ function ConvertTo-DomeniaGuiKeyChord {
     # accepted only with Ctrl (shortcuts); text goes through Type.
     param([Parameter(Mandatory=$true)][string]$Text)
     $parts = @($Text.Split('+') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
-    if ($parts.Count -lt 1 -or $parts.Count -gt 3) { throw ('Combinaison de touches invalide : ' + $Text) }
+    if (($parts.Count -lt 1) -or ($parts.Count -gt 3)) { throw ('Combinaison de touches invalide : ' + $Text) }
     $shift = $false; $control = $false
     for ($i = 0; $i -lt ($parts.Count - 1); $i++) {
         switch ($parts[$i]) {
@@ -186,11 +186,19 @@ function Test-DomeniaGuiHumanRecord {
 }
 
 function Get-DomeniaGuiJourneyVerdict {
-    # Overall verdict. 'Qualifié' needs every simulated step successful, every capture valid AND a complete human record
-    # without KO. Simulated events alone never qualify a journey.
-    param([int]$SimulatedPassed,[int]$SimulatedFailed,[int]$CapturesValid,[int]$CapturesInvalid,$Human)
+    # Overall verdict. 'Qualifié' needs every declared journey run (Selected covers Defined), every simulated step
+    # successful, every capture valid AND a complete human record without KO. Simulated events alone never qualify a
+    # journey; a run limited to some journeys (-Journeys, for diagnosis) is 'Partiel' and names what did not run.
+    param([int]$SimulatedPassed,[int]$SimulatedFailed,[int]$CapturesValid,[int]$CapturesInvalid,$Human,[string[]]$Selected=@(),[string[]]$Defined=@())
     if (($SimulatedFailed -gt 0) -or ($CapturesInvalid -gt 0)) { return [pscustomobject]@{ Status='Échec'; Qualified=$false; Text='Au moins une étape simulée ou une capture a échoué.' } }
     if ($SimulatedPassed -le 0) { return [pscustomobject]@{ Status='Non exécuté'; Qualified=$false; Text='Aucune étape simulée exécutée.' } }
+    $declared = @($Defined | Where-Object { [string]$_ })
+    if (-not $declared.Count) { return [pscustomobject]@{ Status='Partiel'; Qualified=$false; Text='Parcours déclarés non indiqués : couverture du passage inconnue.' } }
+    $notRun = @($declared | Where-Object { @($Selected) -cnotcontains [string]$_ })
+    if ($notRun.Count) {
+        $ran = @($declared | Where-Object { @($Selected) -ccontains [string]$_ })
+        return [pscustomobject]@{ Status='Partiel'; Qualified=$false; Text=('Passage partiel : ' + ($ran -join ', ') + ' exécuté(s) ; ' + ($notRun -join ', ') + ' non exécuté(s). Seul un passage de tous les parcours qualifie.') }
+    }
     $complete = $false; $humanFailed = 0
     if ($null -ne $Human) { $complete = [bool](Get-DomeniaGuiMember $Human 'Complete'); $humanFailed = [int](Get-DomeniaGuiMember $Human 'Failed') }
     if (-not $complete) { return [pscustomobject]@{ Status='Simulé seulement'; Qualified=$false; Text='Événements simulés réussis ; parcours humain non relevé ou incomplet.' } }

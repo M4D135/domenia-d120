@@ -56,7 +56,8 @@ Test-Case 'P129' 'Parcours graphiques : definition valide et erreurs detectees' 
 Test-Case 'P129' 'Parcours graphiques : fichier livre valide' {
     Assert-True ([IO.File]::Exists($script:GuiDefinitionFile)) ('Fichier absent : ' + $script:GuiDefinitionFile)
     $definition = [IO.File]::ReadAllText($script:GuiDefinitionFile, [Text.Encoding]::UTF8) | ConvertFrom-Json
-    $errors = @(Test-DomeniaGuiJourneyDefinition $definition)
+    # The rule returns one array (return ,...): @() around the call would nest it and count 1.
+    $errors = Test-DomeniaGuiJourneyDefinition $definition
     Assert-Equal 0 $errors.Count ($errors -join ' | ')
 }
 Test-Case 'P129' 'Parcours graphiques : capture 1920x1080 sans infobulle, sinon refusee' {
@@ -86,12 +87,28 @@ Test-Case 'P129' 'Parcours graphiques : releve humain vierge, complet ou incompl
 }
 Test-Case 'P129' 'Parcours graphiques : jamais qualifie sur des evenements simules seuls' {
     $complete = [pscustomobject]@{ Complete=$true; Failed=0 }
+    $all = @('navigation','defilement','fenetres')
     Assert-Equal 'Simulé seulement' (Get-DomeniaGuiJourneyVerdict -SimulatedPassed 20 -SimulatedFailed 0 -CapturesValid 4 -CapturesInvalid 0 -Human $null).Status
     Assert-Equal 'Simulé seulement' (Get-DomeniaGuiJourneyVerdict -SimulatedPassed 20 -SimulatedFailed 0 -CapturesValid 4 -CapturesInvalid 0 -Human ([pscustomobject]@{ Complete=$false; Failed=0 })).Status
     Assert-Equal 'Échec' (Get-DomeniaGuiJourneyVerdict -SimulatedPassed 19 -SimulatedFailed 1 -CapturesValid 4 -CapturesInvalid 0 -Human $complete).Status
     Assert-Equal 'Échec' (Get-DomeniaGuiJourneyVerdict -SimulatedPassed 20 -SimulatedFailed 0 -CapturesValid 3 -CapturesInvalid 1 -Human $complete).Status
     Assert-Equal 'Échec humain' (Get-DomeniaGuiJourneyVerdict -SimulatedPassed 20 -SimulatedFailed 0 -CapturesValid 4 -CapturesInvalid 0 -Human ([pscustomobject]@{ Complete=$true; Failed=2 })).Status
     Assert-Equal 'Non exécuté' (Get-DomeniaGuiJourneyVerdict -SimulatedPassed 0 -SimulatedFailed 0 -CapturesValid 0 -CapturesInvalid 0 -Human $complete).Status
-    $ok = Get-DomeniaGuiJourneyVerdict -SimulatedPassed 20 -SimulatedFailed 0 -CapturesValid 4 -CapturesInvalid 0 -Human $complete
+    $ok = Get-DomeniaGuiJourneyVerdict -SimulatedPassed 20 -SimulatedFailed 0 -CapturesValid 4 -CapturesInvalid 0 -Human $complete -Selected $all -Defined $all
     Assert-Equal 'Qualifié' $ok.Status; Assert-True $ok.Qualified
+}
+Test-Case 'P129' 'Parcours graphiques : un passage partiel ne qualifie jamais' {
+    $complete = [pscustomobject]@{ Complete=$true; Failed=0 }
+    $all = @('navigation','defilement','fenetres')
+    $partial = Get-DomeniaGuiJourneyVerdict -SimulatedPassed 8 -SimulatedFailed 0 -CapturesValid 1 -CapturesInvalid 0 -Human $complete -Selected @('navigation') -Defined $all
+    Assert-Equal 'Partiel' $partial.Status; Assert-False $partial.Qualified
+    Assert-True ($partial.Text -match 'navigation exécuté') ('Sous-ensemble non nomme : ' + $partial.Text)
+    Assert-True ($partial.Text -match 'defilement, fenetres non exécuté') ('Parcours manquants non nommes : ' + $partial.Text)
+    $unstated = Get-DomeniaGuiJourneyVerdict -SimulatedPassed 20 -SimulatedFailed 0 -CapturesValid 4 -CapturesInvalid 0 -Human $complete
+    Assert-Equal 'Partiel' $unstated.Status 'Couverture non indiquee'
+    Assert-False $unstated.Qualified
+    $shipped = [IO.File]::ReadAllText($script:GuiDefinitionFile, [Text.Encoding]::UTF8) | ConvertFrom-Json
+    $ids = @(@($shipped.Journeys) | ForEach-Object { [string]$_.Id })
+    Assert-True ($ids.Count -ge 2) 'Le fichier livre declare plusieurs parcours'
+    Assert-False (Get-DomeniaGuiJourneyVerdict -SimulatedPassed 5 -SimulatedFailed 0 -CapturesValid 1 -CapturesInvalid 0 -Human $complete -Selected @($ids[0]) -Defined $ids).Qualified 'Premier parcours seul qualifie'
 }

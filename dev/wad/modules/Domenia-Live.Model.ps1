@@ -204,21 +204,25 @@ function Get-NativeCode($ErrorValue){
 # Point 127 (stale DNS record, reassigned address): Win32_ComputerSystem names the workstation that answered. A
 # positive mismatch with the requested name leaves every value of this CIM read unattributed. An address target or a
 # reply without names cannot be compared and keeps the former behaviour (identity not verified, not refused).
+# The target is the DNS host name or, without one, the AD cn, which is the NetBIOS name cut at 15 characters; the reply
+# carries both its DNS host name and its NetBIOS Name. The reply is the requested workstation when any of its identities
+# matches the target in either form; a mismatch is stated only when none does.
 function Get-LiveHostMismatch($Target,$System){
     $wanted=([string]$Target).Trim().TrimEnd('.')
     if((-not $wanted) -or ($wanted -match '^[0-9.]+$') -or ($null -eq $System)){return ''}
-    $short=$wanted.Split('.')[0];$dns='';$name='';$reported=''
+    $short=$wanted.Split('.')[0];$dns='';$name=''
     if($null -ne $System.PSObject.Properties['DNSHostName']){$dns=([string]$System.DNSHostName).Trim().TrimEnd('.')}
     if($null -ne $System.PSObject.Properties['Name']){$name=([string]$System.Name).Trim()}
+    if((-not $dns) -and (-not $name)){return ''}
+    $netbios=$short;if($netbios.Length -gt 15){$netbios=$netbios.Substring(0,15)}
     if($dns){
-        if($dns.Split('.')[0] -ieq $short){return ''}
-        $reported=$dns
-    }elseif($name){
-        # NetBIOS names are cut at 15 characters.
-        $netbios=$short;if($netbios.Length -gt 15){$netbios=$netbios.Substring(0,15)}
-        if($name -ieq $netbios){return ''}
-        $reported=$name
-    }else{return ''}
+        $label=$dns.Split('.')[0]
+        if(($label -ieq $short) -or ($label -ieq $netbios)){return ''}
+        # A cn target holds the cut NetBIOS form of a longer host name.
+        if(($label.Length -gt 15) -and ($label.Substring(0,15) -ieq $short)){return ''}
+    }
+    if($name -and (($name -ieq $short) -or ($name -ieq $netbios))){return ''}
+    $reported=$name;if($dns){$reported=$dns}
     return ('Le poste qui répond à '+$Target+' se nomme '+$reported+' : enregistrement DNS périmé, adresse réattribuée ou poste renommé. Aucune donnée de cette lecture nʼest attribuée.')
 }
 # Ping is an independent collection. A WMI-only request never sends ICMP.

@@ -304,6 +304,11 @@ function Invoke-DomeniaUiTaskDispatch {
     $Job.Isolated = $isolated
     $Job.State = 'Running'
     $Job.Started = Get-Date
+    # Point 122: the series key reads the request, so it is fixed here before the request is released;
+    # Add-DomeniaTaskRuntimeMetric runs at completion, when the payload is gone.
+    $metricKey = $requested
+    try { $metricKey = [string](Get-DomeniaRuntimeMetricOperationKey -OperationId $requested -Payload $Job.Payload) } catch { $metricKey = $requested }
+    $Job | Add-Member -NotePropertyName MetricKey -NotePropertyValue $metricKey -Force
     # The body and the request are no longer needed once the worker holds them.
     $Job.Code = $null
     $Job.Payload = $null
@@ -637,6 +642,9 @@ function Add-DomeniaRuntimeMetric {
     if ($null -eq $series) { $series = New-Object 'System.Collections.Generic.Queue[double]'; $script:DomeniaRuntimeMetrics[$key] = $series }
     $series.Enqueue([double]$DurationMs)
     while ($series.Count -gt 512) { [void]$series.Dequeue() }
+    # Point 122: additions per series, so the response-time summaries are recomputed only when one of their series moved.
+    if ($null -eq $script:DomeniaRuntimeMetricAdds) { $script:DomeniaRuntimeMetricAdds = @{} }
+    $script:DomeniaRuntimeMetricAdds[$key] = [long]$script:DomeniaRuntimeMetricAdds[$key] + 1
 }
 
 function Get-DomeniaRuntimeMetricSummary {
@@ -659,13 +667,47 @@ function Get-DomeniaRuntimeMetricSummary {
 
 function Get-DomeniaResponseTimeSummaries {
     # Point 122: median, 95th percentile and maximum per category of Get-DomeniaResponseTimeCategories (local search,
-    # result processing on the interface thread, local base, directory, workstations), read from the bounded series of
-    # this session. Local measures only: nothing is written to disk and nothing leaves the process.
+    # result processing on the interface thread, local base, directory, workstations, writes and remote actions), read
+    # from the bounded series of this session. Local measures only: nothing is written to disk and nothing leaves the process.
+    # The operations panel asks every second on the Dispatcher: a category is recomputed only when the series dictionary
+    # was replaced or when one of its series received a value since the last call (additions counted by
+    # Add-DomeniaRuntimeMetric); the heartbeat series belongs to no category and never forces a recomputation.
+    $metrics = $script:DomeniaRuntimeMetrics
+    $adds = $script:DomeniaRuntimeMetricAdds
+    $cache = $script:DomeniaResponseTimeCache
+    if (($null -eq $cache) -or (-not [object]::ReferenceEquals($cache.Metrics,$metrics))) {
+        $cache = [pscustomobject]@{ Metrics=$metrics; Rows=@{} }
+        $script:DomeniaResponseTimeCache = $cache
+    }
+    $keys = @()
+    if ($metrics -is [Collections.IDictionary]) { $keys = @($metrics.Keys) }
     $rows = New-Object 'System.Collections.Generic.List[object]'
     foreach ($category in @(Get-DomeniaResponseTimeCategories)) {
-        $samples = Select-DomeniaResponseTimeSamples -Series $script:DomeniaRuntimeMetrics -Category $category
-        $summary = Get-DomeniaLatencySummary -Samples $samples
-        $rows.Add([pscustomobject]@{ Id=[string]$category.Id; Label=[string]$category.Label; Summary=$summary; Text=(Format-DomeniaLatencySummaryText -Label ([string]$category.Label) -Summary $summary) })
+        $id = [string]$category.Id
+        # Signature: matching series, their additions and their sizes. Additions only grow while the dictionary is the
+        # same object, so an unchanged signature means unchanged samples.
+        $matched = 0; $added = [long]0; $held = [long]0
+        foreach ($key in $keys) {
+            $text = [string]$key
+            $kept = $false
+            foreach ($prefix in @($category.Include)) { if ($text.StartsWith([string]$prefix,[StringComparison]::Ordinal)) { $kept = $true; break } }
+            if (-not $kept) { continue }
+            foreach ($prefix in @($category.Exclude)) { if ($text.StartsWith([string]$prefix,[StringComparison]::Ordinal)) { $kept = $false; break } }
+            if (-not $kept) { continue }
+            $matched++
+            if ($adds -is [Collections.IDictionary]) { $added += [long]$adds[$key] }
+            $serie = $metrics[$key]
+            if ($null -ne $serie) { try { $held += [long]$serie.Count } catch { } }
+        }
+        $signature = [string]$matched + '/' + [string]$added + '/' + [string]$held
+        $row = $cache.Rows[$id]
+        if (($null -eq $row) -or ([string]$row.Signature -cne $signature) -or ([string]$row.Label -cne [string]$category.Label)) {
+            $samples = Select-DomeniaResponseTimeSamples -Series $metrics -Category $category
+            $summary = Get-DomeniaLatencySummary -Samples $samples
+            $row = [pscustomobject]@{ Id=$id; Label=[string]$category.Label; Summary=$summary; Text=(Format-DomeniaLatencySummaryText -Label ([string]$category.Label) -Summary $summary); Signature=$signature }
+            $cache.Rows[$id] = $row
+        }
+        $rows.Add([pscustomobject]@{ Id=$id; Label=[string]$row.Label; Summary=$row.Summary; Text=[string]$row.Text })
     }
     # One row per category on the pipeline: callers wrap the call in @().
     return $rows.ToArray()
@@ -845,10 +887,17 @@ function Add-DomeniaTaskRuntimeMetric {
         $provenance = 'Ldap'
         switch ([string]$Job.Provider) { 'Cim' { $provenance = 'Cim' } 'Wts' { $provenance = 'Cim' } 'Storage' { $provenance = 'Sqlite' } 'Local' { $provenance = 'Queue' } 'Network' { $provenance = 'Cim' } }
         if ([bool]$Job.Demo) { $provenance = 'Cache' }
-        # Point 122: a local search is kept apart from the other actions of the same reader (Get-DomeniaRuntimeMetricOperationKey).
-        $payload = $null
-        if ($null -ne $Job.PSObject.Properties['Payload']) { $payload = $Job.Payload }
-        $key = Get-DomeniaRuntimeMetricOperationKey -OperationId ([string]$Job.OperationId) -Payload $payload
+        # Point 122: a local search is kept apart from the other actions of the same reader. The dispatch fixed the key
+        # (MetricKey) before releasing the request; a job without it falls back to its request, then to its identifier.
+        $key = ''
+        if ($null -ne $Job.PSObject.Properties['MetricKey']) { $key = [string]$Job.MetricKey }
+        if ([string]::IsNullOrEmpty($key)) {
+            $payload = $null
+            if ($null -ne $Job.PSObject.Properties['Payload']) { $payload = $Job.Payload }
+            $key = [string](Get-DomeniaRuntimeMetricOperationKey -OperationId ([string]$Job.OperationId) -Payload $payload)
+        }
+        # A write or a remote action is never counted among the reads of the same provider (Get-DomeniaResponseTimeCategories).
+        if (($null -ne $Job.PSObject.Properties['IsWrite']) -and ([bool]$Job.IsWrite)) { $key = 'Write:' + $key }
         Add-DomeniaRuntimeMetric -Provenance $provenance -OperationId $key -DurationMs ([double]$duration)
     } catch { }
 }

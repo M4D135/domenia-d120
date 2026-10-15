@@ -5,8 +5,10 @@
 # The report keeps two kinds of evidence apart (rules in wad/tests/fixtures/Domenia-GuiJourney.ps1):
 #   SimulatedEvents  what this program sent and what the window did; it is not a person using the application;
 #   HumanJourney     the record a person filled while doing the same journeys by hand (-HumanRecord), checked for
-#                    completeness only. A journey is 'Qualifié' only when both agree.
-# Runs in an interactive Windows session with a 1920x1080 (or larger) primary screen: never in session 0 (VBoxManage
+#                    completeness only. A run is 'Qualifié' only when both agree and every declared journey ran
+#                    (-Journeys runs a subset for diagnosis, reported as 'Partiel').
+# Runs in an interactive Windows session whose primary screen has 1920x1080 free of the taskbar (larger resolution or
+# auto-hidden taskbar): never in session 0 (VBoxManage
 # guestcontrol, services), where neither input nor captures are those of a user. Target Preview starts the offline
 # preview (fictitious data, no AD connection). Target Application attaches to a Domenia started and signed in by the
 # person who qualifies (-ProcessId): this script never signs in, never types a password and never writes to AD.
@@ -31,8 +33,12 @@ if(($out+'\').StartsWith($dev+'\',[StringComparison]::OrdinalIgnoreCase)){throw 
 [void][IO.Directory]::CreateDirectory($out)
 . (Join-Path $dev 'wad\tests\fixtures\Domenia-GuiJourney.ps1')
 $definition=[IO.File]::ReadAllText((Join-Path $dev 'engineering\d120\lab\gui-journeys.json'),[Text.Encoding]::UTF8)|ConvertFrom-Json
-$definitionErrors=@(Test-DomeniaGuiJourneyDefinition $definition)
+# The rule returns its errors as one array (return ,...): assigned as is, never wrapped in @() (that would nest it).
+$definitionErrors=Test-DomeniaGuiJourneyDefinition $definition
 if($definitionErrors.Count){throw ('Parcours invalides : '+($definitionErrors -join ' | '))}
+$definedIds=@(@($definition.Journeys)|ForEach-Object{[string]$_.Id})
+$unknownIds=@($Journeys|Where-Object{$definedIds -cnotcontains [string]$_})
+if($unknownIds.Count){throw ('Parcours inconnus : '+($unknownIds -join ', ')+'. Parcours déclarés : '+($definedIds -join ', ')+'.')}
 $utf8=New-Object Text.UTF8Encoding($false)
 if($WriteHumanTemplate){
     $templatePath=Join-Path $out 'parcours-humain.json'
@@ -147,7 +153,10 @@ namespace Domenia.Journey
 $session=[Domenia.Journey.NativeInput]::SessionId($PID)
 if(($session -le 0) -or (-not [Environment]::UserInteractive)){throw ('Session interactive requise (session '+$session+') : les parcours natifs ne se qualifient pas en session 0.')}
 $screen=[Windows.Forms.Screen]::PrimaryScreen.Bounds
-if(($screen.Width -lt 1920) -or ($screen.Height -lt 1080)){throw ('Écran principal de '+$screen.Width+'×'+$screen.Height+' : 1920×1080 au moins requis pour les captures.')}
+# The capture copies the screen under the window: the taskbar (always on top) must not cover any of the 1920x1080
+# window. The working area excludes it; a 1920x1080 screen with a visible taskbar is refused.
+$script:WorkArea=[Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+if(($script:WorkArea.Width -lt 1920) -or ($script:WorkArea.Height -lt 1080)){throw ('Zone de travail de lʼécran principal de '+$script:WorkArea.Width+'×'+$script:WorkArea.Height+' (écran '+$screen.Width+'×'+$screen.Height+') : 1920×1080 libres de barre des tâches requis pour les captures. Agrandir la définition de la VM ou masquer automatiquement la barre des tâches.')}
 
 $script:Steps=New-Object 'System.Collections.Generic.List[object]'
 $script:Captures=New-Object 'System.Collections.Generic.List[object]'
@@ -219,7 +228,7 @@ function Invoke-JourneyWindowState {
         'Normal1080' {
             $window.SetWindowVisualState([Windows.Automation.WindowVisualState]::Normal)
             $transform=$script:WindowElement.GetCurrentPattern([Windows.Automation.TransformPattern]::Pattern)
-            $transform.Move(0,0);$transform.Resize(1920,1080)
+            $transform.Move([double]$script:WorkArea.X,[double]$script:WorkArea.Y);$transform.Resize(1920,1080)
         }
     }
     Start-Sleep -Milliseconds 400
@@ -229,6 +238,7 @@ function Invoke-JourneyWindowState {
     if($State -eq 'Normal1080'){
         $rect=$script:WindowElement.Current.BoundingRectangle
         if(([int]$rect.Width -ne 1920) -or ([int]$rect.Height -ne 1080)){throw ('Fenêtre de '+[int]$rect.Width+'×'+[int]$rect.Height+' au lieu de 1920×1080.')}
+        if(-not $script:WorkArea.Contains([Drawing.Rectangle]::new([int]$rect.X,[int]$rect.Y,[int]$rect.Width,[int]$rect.Height))){throw 'Fenêtre 1920×1080 en partie hors de la zone de travail (barre des tâches).'}
     }
     return ('État '+$State)
 }
@@ -358,11 +368,13 @@ try{
 $human=$null
 if($HumanRecord){$human=Test-DomeniaGuiHumanRecord ([IO.File]::ReadAllText($HumanRecord,[Text.Encoding]::UTF8)|ConvertFrom-Json) $definition}
 $passed=@($script:Steps|Where-Object{$_.Status -eq 'Réussi'}).Count;$failed=@($script:Steps|Where-Object{$_.Status -ne 'Réussi'}).Count
-$verdict=Get-DomeniaGuiJourneyVerdict -SimulatedPassed $passed -SimulatedFailed $failed -CapturesValid @($script:Captures|Where-Object{$_.Valid}).Count -CapturesInvalid @($script:Captures|Where-Object{-not $_.Valid}).Count -Human $human
+$selectedIds=@($selected|ForEach-Object{[string]$_.Id})
+$verdict=Get-DomeniaGuiJourneyVerdict -SimulatedPassed $passed -SimulatedFailed $failed -CapturesValid @($script:Captures|Where-Object{$_.Valid}).Count -CapturesInvalid @($script:Captures|Where-Object{-not $_.Valid}).Count -Human $human -Selected $selectedIds -Defined $definedIds
 $report=[ordered]@{
     Kind='DomeniaGuiJourneyQualification';Qualifying=$false;Target=$Target
     Verdict=$verdict
-    Environment=[ordered]@{Computer=[string]$env:COMPUTERNAME;Domain=$(try{[string][Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().DomainName}catch{''});Session=$session;Screen=($screen.Width.ToString()+'x'+$screen.Height.ToString());PowerShell=$PSVersionTable.PSVersion.ToString();OS=[Environment]::OSVersion.VersionString}
+    Journeys=[ordered]@{Defined=$definedIds;Selected=$selectedIds;NotRun=@($definedIds|Where-Object{$selectedIds -cnotcontains $_})}
+    Environment=[ordered]@{Computer=[string]$env:COMPUTERNAME;Domain=$(try{[string][Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().DomainName}catch{''});Session=$session;Screen=($screen.Width.ToString()+'x'+$screen.Height.ToString());WorkingArea=($script:WorkArea.Width.ToString()+'x'+$script:WorkArea.Height.ToString());PowerShell=$PSVersionTable.PSVersion.ToString();OS=[Environment]::OSVersion.VersionString}
     SimulatedEvents=[ordered]@{Note='Événements envoyés par ce programme (UI Automation et SendInput) : ils ne valent pas un parcours humain.';Passed=$passed;Failed=$failed;Steps=$script:Steps.ToArray()}
     Captures=$script:Captures.ToArray()
     HumanJourney=$(if($null -eq $human){[ordered]@{Status='NonRelevé';Note='Aucun relevé humain fourni (-HumanRecord) : le parcours à la main reste à faire.'}}else{[ordered]@{Status=$(if($human.Complete){'Relevé complet'}else{'Relevé incomplet'});Declared=$true;Note='Contenu déclaré par la personne qui a testé ; ce programme vérifie seulement sa complétude.';Tester=$human.Tester;Date=$human.Date;Passed=$human.Passed;Failed=$human.Failed;Errors=$human.Errors}})

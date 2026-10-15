@@ -10,7 +10,7 @@ résultats ne seront des preuves quʼune fois produits dans la VM de test, puis 
 | 126 | `wad/tests/Test-DomeniaStorageFaults.ps1` | VM | Base tenue ou verrouillée, disque plein (vrai `SQLITE_FULL` du moteur), arrêts brutaux réels avant `COMMIT`, entre `COMMIT` et reçu, pendant la migration et pendant une reconstruction de lʼindex, avec reprise vérifiée. Pas un volume physiquement plein. |
 | 127 | `wad/tests/Test-DomeniaNetworkFaults.ps1` | VM | Latence, DNS erroné, refus, pages partielles, déconnexion, réponses dans le désordre sur le code livré, transport doublé. Ne prouve pas le réseau cible. |
 | 128 | `wad/tests/fixtures/Domenia-Invariants.ps1` (vérifié à chaque cycle du banc de charge et par les tests de règles `P128`) | VM | Compte du widget égal aux GUID détaillés, rendu daté, inconnu conservé, aucune réponse dʼune ancienne sélection. |
-| 129 | `engineering/d120/lab/Invoke-DomeniaGuiJourney.ps1` et `gui-journeys.json` | Session interactive de la VM (console ou bureau à distance), écran 1920×1080 au moins | Événements simulés (UI Automation, `SendInput`) et captures 1920×1080 sans infobulle, séparés du relevé humain. Jamais « Qualifié » sans relevé humain complet. Refuse la session 0. |
+| 129 | `engineering/d120/lab/Invoke-DomeniaGuiJourney.ps1` et `gui-journeys.json` | Session interactive de la VM (console ou bureau à distance), zone de travail de 1920×1080 au moins hors barre des tâches (définition plus grande ou barre masquée automatiquement) | Événements simulés (UI Automation, `SendInput`) et captures 1920×1080 sans infobulle, séparés du relevé humain. Jamais « Qualifié » sans relevé humain complet ni sur une partie des parcours (`-Journeys` donne « Partiel »). Refuse la session 0. |
 | 130 | `tools/validation_matrix.py`, `validation-matrix.json`, `MATRICE-VALIDATION.md` | Hors Windows | Distingue preuve synthétique, laboratoire et domaine cible ; refuse un rapport du laboratoire présenté comme preuve du domaine réel. |
 
 ## Commandes
@@ -38,13 +38,16 @@ Matrice de validation, hors Windows :
 python tools/validation_matrix.py                    contrôle la matrice et la page publiée
 python tools/validation_matrix.py --write            régénère MATRICE-VALIDATION.md
 python tools/validation_matrix.py --classify-report <_campaign.json>
+python tools/validation_matrix.py --add-evidence <_campaign.json> --cell SYSTEME/PROTOCOLE/DROIT [--note TEXTE]
 python -m unittest -v test_validation_matrix.py      (depuis engineering/d120)
 ```
 
-Une preuve *Laboratoire* ou *Cible* sʼajoute dans `validation-matrix.json` avec le chemin du rapport conservé hors de
-`dev\`, son SHA-256, sa date, son domaine et son poste, tels que la campagne les a relevés (`Environment` de
-`_campaign.json`). Un rapport du domaine `cnamts.local` ou dʼun poste du laboratoire nʼest jamais compté pour le domaine
-cible.
+Une preuve *Laboratoire* ou *Cible* sʼajoute avec `--add-evidence` : lʼoutil lit le rapport conservé hors de `dev\`,
+calcule son SHA-256 et reprend sa date, son domaine et son poste tels que la campagne les a relevés (`Environment` de
+`_campaign.json`) ; rien nʼest saisi à la main et lʼenvironnement est déduit de ces faits. À chaque contrôle, un rapport
+lisible sur la machine est relu : empreinte, domaine, poste ou environnement différents de la déclaration sont refusés ;
+un rapport absent de la machine est signalé comme non relu. Un rapport du domaine `cnamts.local` ou dʼun poste du
+laboratoire nʼest jamais compté pour le domaine cible.
 
 ## Points à connaître avant lʼexécution
 
