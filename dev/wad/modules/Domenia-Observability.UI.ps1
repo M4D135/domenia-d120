@@ -22,11 +22,12 @@ function Register-DomeniaTrace {
     $ring = Get-DomeniaTraceRing
     if ($ring.Contains($TraceId)) { return $ring[$TraceId] }
     $trace = New-DomeniaOperationTrace -TraceId $TraceId -OperationId $OperationId -Name $Name -IsWrite $IsWrite -AtMs (Get-DomeniaTraceNow) -Foreground $Foreground
-    $ring[$TraceId] = $trace
+    # Room is made among the traces already kept, so the new one is never the one evicted.
     $maximum = [int](Get-DomeniaTraceLimits).MaxTraces
-    if ($ring.Count -gt $maximum) {
-        foreach ($id in @(Select-DomeniaTraceEviction -Traces @($ring.Values) -Maximum $maximum)) { $ring.Remove([string]$id) }
+    if ($ring.Count -ge $maximum) {
+        foreach ($id in @(Select-DomeniaTraceEviction -Traces @($ring.Values) -Maximum ($maximum - 1))) { $ring.Remove([string]$id) }
     }
+    $ring[$TraceId] = $trace
     return $trace
 }
 
@@ -339,6 +340,7 @@ function Sync-DomeniaOperationsRecent {
     $now = Get-DomeniaTraceNow
     $parts = New-Object 'System.Collections.Generic.List[string]'
     foreach ($trace in @((Get-DomeniaTraceRing).Values)) {
+        if (-not (Test-DomeniaTraceListed $trace)) { continue }
         $part = [string]$trace.TraceId + '=' + [string]$trace.Outcome + '/' + [string]$trace.OpenJobs.Count + '/' + [string]$trace.Events.Count
         if ($trace.OpenJobs.Count -gt 0) { $part += '/' + [string][long][Math]::Floor(($now - [double]$trace.StartedMs) / 1000) }
         $parts.Add($part)

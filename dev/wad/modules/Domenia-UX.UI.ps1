@@ -1412,7 +1412,10 @@ function Get-DomeniaSearchEmptyInputs {
     $search = $null
     try { if ($null -ne $script:Live) { $search = $script:Live.Search } } catch { $search = $null }
     $inFlight = $false; $completed = $false; $partial = $false; $errorKind = ''; $query = ''; $scope = ''
-    if ($null -ne $search) {
+    # The state of the search speaks only for its own rows; another list (query, history, cleared list) is foreign.
+    $live = (($null -ne $search) -and ($null -ne $grid) -and [object]::ReferenceEquals($grid.ItemsSource,$search.Rows))
+    $foreign = ((-not $live) -and ($null -ne $grid) -and ($null -ne $grid.ItemsSource))
+    if ($live) {
         $inFlight = ((-not [bool]$search.Stopped) -and (-not [bool]$search.Finalized))
         $completed = [bool]$search.Finalized
         $partial = [bool](Get-DomeniaMember (Get-DomeniaMemberValue $search 'Final' $null) 'Partial' $false)
@@ -1437,7 +1440,7 @@ function Get-DomeniaSearchEmptyInputs {
         if ($filterText) { $filterText += ' · ' }
         $filterText += 'présence ' + $presence
     }
-    return [pscustomobject]@{Displayed=$displayed;Loaded=$loaded;InFlight=$inFlight;Completed=$completed;ErrorKind=$errorKind;Partial=$partial;Query=$query;Scope=$scope;LocalFilter=$filterText}
+    return [pscustomobject]@{Displayed=$displayed;Loaded=$loaded;InFlight=$inFlight;Completed=$completed;ErrorKind=$errorKind;Partial=$partial;Query=$query;Scope=$scope;LocalFilter=$filterText;Foreign=$foreign}
 }
 
 function Update-DomeniaSearchEmptyState {
@@ -1452,7 +1455,13 @@ function Update-DomeniaSearchEmptyState {
     }
     $kind = Resolve-DomeniaSearchEmptyKind -Displayed ([int]$inputs.Displayed) -Loaded ([int]$inputs.Loaded) -InFlight ([bool]$inputs.InFlight) -Completed ([bool]$inputs.Completed) -ErrorKind ([string]$inputs.ErrorKind) -Partial ([bool]$inputs.Partial)
     $title = ''; $text = ''; $label = ''; $command = ''
-    if (-not $kind) {
+    if (($kind -eq 'NothingQueried') -and [bool]$inputs.Foreign) {
+        # An empty list of another origin (query, history, list cleared): nothing is claimed about what was read.
+        $title = 'Aucune ligne à afficher'
+        $text = 'Cette liste est vide : elle ne renseigne pas sur lʼétat réel de lʼannuaire.'
+        $label = 'Rechercher un nom ou choisir une OU'; $command = 'StartRead'
+        if ($null -ne $script:DomeniaSearchEmptyTimer) { $script:DomeniaSearchEmptyTimer.Stop() }
+    } elseif (-not $kind) {
         $title = 'Lecture en cours'
         $text = 'Les résultats sʼaffichent dès leur enregistrement local ; la lecture se poursuit sans autre geste.'
         $query = ConvertTo-DomeniaFlatText ([string]$inputs.Query) 60

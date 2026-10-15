@@ -126,8 +126,9 @@ function Add-DomeniaOperationTraceEvent {
     $reference = ConvertTo-DomeniaTraceJobRef $JobRef
     if ([double]$AtMs -gt [double]$Trace.LastMs) { $Trace.LastMs = [double]$AtMs }
     if (($events.Count -gt 0) -and ($Phase -in @('StoreRead','Publish'))) {
+        # Only batches of one source merge: the callback of a job and the rows handed to the list stay apart.
         $last = $events[$events.Count - 1]
-        if ([string]$last.Phase -ceq $Phase) {
+        if (([string]$last.Phase -ceq $Phase) -and ([string]$last.JobRef -ceq $reference)) {
             $last.Batches = [int]$last.Batches + 1
             if ([double]$AtMs -gt [double]$last.LastAtMs) { $last.LastAtMs = [double]$AtMs }
             if ($Volume -ge 0) {
@@ -203,7 +204,7 @@ function Get-DomeniaOperationTraceSummary {
     param([Parameter(Mandatory=$true)]$Trace,[double]$NowMs=-1)
     $rows = New-Object 'System.Collections.Generic.List[object]'
     $index = 0
-    foreach ($event in @($Trace.Events)) { $rows.Add([pscustomobject]@{Event=$event;Index=$index;AtMs=[double]$event.AtMs}); $index++ }
+    foreach ($traceEvent in @($Trace.Events)) { $rows.Add([pscustomobject]@{Event=$traceEvent;Index=$index;AtMs=[double]$traceEvent.AtMs}); $index++ }
     $ordered = @($rows.ToArray() | Sort-Object -Property @{Expression={[double]$_.AtMs}},@{Expression={[int]$_.Index}})
     $measured = @{}
     foreach ($phase in @(Get-DomeniaTracePhases)) { $measured[[string]$phase.Code] = [bool]$phase.Measured }
@@ -211,27 +212,27 @@ function Get-DomeniaOperationTraceSummary {
     $phases = New-Object 'System.Collections.Generic.List[object]'
     $dominant = ''; $dominantLabel = ''; $dominantMs = [double]-1
     foreach ($row in $ordered) {
-        $event = $row.Event
-        $text = [string]$event.Label
-        if ([string]$event.Phase -ceq 'End') {
-            $end = Get-DomeniaTraceOutcome ([string]$event.Outcome)
+        $traceEvent = $row.Event
+        $text = [string]$traceEvent.Label
+        if ([string]$traceEvent.Phase -ceq 'End') {
+            $end = Get-DomeniaTraceOutcome ([string]$traceEvent.Outcome)
             if ($null -ne $end) { $text = 'Fin : ' + [string]$end.Label }
         } else {
             $bits = New-Object 'System.Collections.Generic.List[string]'
-            if ([double]$event.DurationMs -ge 0) {
+            if ([double]$traceEvent.DurationMs -ge 0) {
                 $prefix = ''
-                if (-not [bool]$event.DurationComplete) { $prefix = 'au moins ' }
-                $bits.Add($prefix + (Format-DomeniaDurationText ([double]$event.DurationMs)))
+                if (-not [bool]$traceEvent.DurationComplete) { $prefix = 'au moins ' }
+                $bits.Add($prefix + (Format-DomeniaDurationText ([double]$traceEvent.DurationMs)))
             }
-            if ([long]$event.Volume -ge 0) { $bits.Add((Format-DomeniaVolumeText -Volume ([long]$event.Volume) -Complete ([bool]$event.VolumeComplete))) }
-            if ([int]$event.Batches -gt 1) { $bits.Add([string]$event.Batches + ' lots') }
-            if ([string]$event.Detail) { $bits.Add([string]$event.Detail) }
+            if ([long]$traceEvent.Volume -ge 0) { $bits.Add((Format-DomeniaVolumeText -Volume ([long]$traceEvent.Volume) -Complete ([bool]$traceEvent.VolumeComplete))) }
+            if ([int]$traceEvent.Batches -gt 1) { $bits.Add([string]$traceEvent.Batches + ' lots') }
+            if ([string]$traceEvent.Detail) { $bits.Add([string]$traceEvent.Detail) }
             if ($bits.Count -gt 0) { $text += ' ' + ($bits.ToArray() -join ', ') }
         }
         $parts.Add($text)
-        $phases.Add([pscustomobject]@{Phase=[string]$event.Phase;Label=[string]$event.Label;DurationMs=[double]$event.DurationMs;Volume=[long]$event.Volume;Batches=[int]$event.Batches;Outcome=[string]$event.Outcome})
-        if ([bool]$measured[[string]$event.Phase] -and ([double]$event.DurationMs -gt $dominantMs)) {
-            $dominant = [string]$event.Phase; $dominantLabel = [string]$event.Label; $dominantMs = [double]$event.DurationMs
+        $phases.Add([pscustomobject]@{Phase=[string]$traceEvent.Phase;Label=[string]$traceEvent.Label;DurationMs=[double]$traceEvent.DurationMs;Volume=[long]$traceEvent.Volume;Batches=[int]$traceEvent.Batches;Outcome=[string]$traceEvent.Outcome})
+        if ([bool]$measured[[string]$traceEvent.Phase] -and ([double]$traceEvent.DurationMs -gt $dominantMs)) {
+            $dominant = [string]$traceEvent.Phase; $dominantLabel = [string]$traceEvent.Label; $dominantMs = [double]$traceEvent.DurationMs
         }
     }
     $open = ($Trace.OpenJobs.Count -gt 0)

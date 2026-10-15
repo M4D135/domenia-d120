@@ -204,7 +204,7 @@ function Get-DomeniaPaletteDecision {
     $target = [string](Get-DomeniaMember $Entry 'Target' '')
     $label = [string](Get-DomeniaMember $Entry 'Label' '')
     switch ([string](Get-DomeniaMember $Entry 'Effect' '')) {
-        'PrepareWrite' { return [pscustomobject]@{Action='Focus';Target=$target;Status=($label + ' : bouton prêt. Entrée ou un clic ouvre sa confirmation ; rien nʼest encore écrit.')} }
+        'PrepareWrite' { return [pscustomobject]@{Action='Focus';Target=$target;Status=($label + ' : bouton prêt, rien nʼest encore écrit. Lʼécriture passe ensuite par sa propre étape de confirmation.')} }
         'Sensitive' { return [pscustomobject]@{Action='Focus';Target=$target;Status=($label + ' : bouton prêt. La lecture protégée part seulement après votre clic.')} }
         'Read' {
             if ($target) { return [pscustomobject]@{Action='Click';Target=$target;Status=($label + ' : lecture demandée.')} }
