@@ -708,6 +708,10 @@ Test-Case 'UI-27 Oublier : meme regle que la fenetre Acces, refus pendant une ec
     $script:Conn.BindUser='EXAMPLE\lecteur';$script:SecretsCredential=New-TestCredential 'EXAMPLE\secrets'
     $script:AccessState.Credentials['ReadLaps']=New-TestCredential 'EXAMPLE\laps-temp';$script:AccessState.Leases['ReadLaps']=New-AccessLease 'ReadLaps' 'EXAMPLE\laps-temp'
     $script:MachineCredential=New-TestCredential 'EXAMPLE\adm-poste'
+    # The temporary LAPS account was rejected: the resource carries a fault and a LAPS refusal for this computer.
+    $lapsScope=Get-DomeniaAccessScope 'ReadLaps'
+    $script:AccessState.Faults[$lapsScope]=$true;$script:AccessState.Faults['Remote']=$true
+    Set-DomeniaSecretDenied -Mode 'LAPS' -DN $script:Dn;Set-DomeniaSecretDenied -Mode 'BitLocker' -DN $script:Dn
     Initialize-DomeniaAccountsUi
     $generation=[long]$script:DomeniaAccountGeneration
     $click={param([string]$Key) $b=[Windows.Controls.Button]::new();$b.Tag=$Key;$script:Ctrl.DgAccountsInMemory.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Primitives.ButtonBase]::ClickEvent,$b))}
@@ -715,9 +719,19 @@ Test-Case 'UI-27 Oublier : meme regle que la fenetre Acces, refus pendant une ec
     & $click 'ReadLaps'
     Assert-True ($script:AccessState.Credentials.ContainsKey('ReadLaps')) 'Compte oublie pendant une ecriture'
     Assert-True (@($script:Popups|Where-Object{$_ -match 'écriture'}).Count -eq 1) 'Refus non explique'
+    Assert-True ($script:AccessState.Faults.ContainsKey($lapsScope)) 'Refus de la ressource efface alors que le compte est garde'
     $script:WriteState='Idle'
     & $click 'ReadLaps'
     Assert-True (-not $script:AccessState.Credentials.ContainsKey('ReadLaps')) 'Compte temporaire non oublie'
+    # Same rule as Clear-DomeniaSecondaryCredential: the refusal of the forgotten account goes with it, so the guard of
+    # Get-WorkerContext (Faults.ContainsKey(Get-DomeniaAccessScope $OperationId)) lets the configured account through.
+    Assert-True (-not $script:AccessState.Faults.ContainsKey($lapsScope)) 'Le compte configure reste bloque par le refus du compte oublie'
+    Assert-True (-not (Test-DomeniaSecretDenied 'LAPS' $script:Dn)) 'Refus LAPS du compte oublie conserve'
+    Assert-True ((Test-DomeniaSecretDenied 'BitLocker' $script:Dn) -and ($script:AccessState.Faults.ContainsKey('Remote'))) 'Refus d une autre ressource efface'
+    Assert-True ($null -eq (Get-DomeniaRetryCredential 'ReadLaps')) 'Compte oublie encore remis aux operations LAPS'
+    $context=Get-CoreFunctionText 'Get-WorkerContext'
+    Assert-True ($context.Contains('$retryScope=Get-DomeniaAccessScope $OperationId') -and $context.Contains('Faults.ContainsKey($retryScope)')) 'Garde des refus de Get-WorkerContext modifiee : revoir la regle de l oubli'
+    Assert-True (@($script:StatusLines|Where-Object{$_ -match 'reprend sa place'}).Count -eq 1) 'Statut de l oubli absent'
     Assert-True ([long]$script:DomeniaAccountGeneration -gt $generation) 'Generation des comptes inchangee'
     $lines=@(@($script:Ctrl.DgAccountsInUse.ItemsSource)|ForEach-Object{$_.Resource+'|'+$_.Account})
     Assert-True ($lines -contains 'Secrets : LAPS|EXAMPLE\secrets') ('Section non actualisee : '+($lines -join ' ; '))

@@ -12767,7 +12767,7 @@ function Set-MachineCredentialFromUi {
         if ([string]::IsNullOrWhiteSpace($user)) { throw "Compte poste vide." }
         # SE-16: the account is built from the SecureString of the PasswordBox, never from its plain text.
         $secure = $script:Ctrl["PwdMachineAdmin"].SecurePassword
-        if ($null -eq $secure -or $secure.Length -eq 0) { if ($null -ne $secure) { $secure.Dispose() }; throw "Mot de passe du compte poste vide." }
+        if (($null -eq $secure) -or ($secure.Length -eq 0)) { if ($null -ne $secure) { $secure.Dispose() }; throw "Mot de passe du compte poste vide." }
         $secure.MakeReadOnly()
         Hide-DomeniaSecretPeek -Owner 'Timer:MachineAdminPeek'
         $script:MachineCredential = New-Object System.Management.Automation.PSCredential -ArgumentList @($user,$secure)
@@ -19510,7 +19510,7 @@ function Show-DomeniaRimotteDialog {
                 $modeIndex=[int]$dlg.FindName("CmbRMode").SelectedIndex
                 $mode=$(if($modeIndex-eq1){"MachineCredential"}elseif($modeIndex-eq2){"Interactive"}else{"System"})
                 $user=([string]$dlg.FindName("TxtRUser").Text).Trim();if($mode-eq"Interactive"-and[string]::IsNullOrWhiteSpace($user)){throw "Renseigne le compte de la session interactive."}
-                if($mode-eq"MachineCredential"-and$null-eq$script:MachineCredential){throw "Choisissez dʼabord un compte poste : pastille « Compte poste » en haut dʼAssistance poste."}
+                if(($mode -eq "MachineCredential") -and ($null -eq $script:MachineCredential)){throw "Choisissez dʼabord un compte poste : pastille « Compte poste » en haut dʼAssistance poste."}
                 $dlg.Tag=[pscustomobject]@{Computer=$computer;Command=$exe;Arguments=[string]$dlg.FindName("TxtRArgs").Text;Mode=$mode;RunUser=$user;Elevated=[bool]$dlg.FindName("ChkRElevated").IsChecked}
                 Set-DomeniaSurfaceResult $dlg $true
             }catch{Show-DomeniaDialog -Message $_.Exception.Message -Title 'Exécution distante' -Kind Warning|Out-Null}
@@ -28011,7 +28011,7 @@ function New-DomeniaFastLoginSession {
     if (-not $UseCurrentCredentials) {
         # SE-16: the secret arrives as the SecureString of the PasswordBox or of the Windows vault. It is copied and
         # sealed for the worker; it is never rebuilt from a plain string.
-        if ($null -eq $SecurePassword -or $SecurePassword.Length -eq 0) { throw 'Mot de passe requis.' }
+        if (($null -eq $SecurePassword) -or ($SecurePassword.Length -eq 0)) { throw 'Mot de passe requis.' }
         $secure = $SecurePassword.Copy()
         $secure.MakeReadOnly()
         $credential = New-Object System.Management.Automation.PSCredential -ArgumentList @([string]$Login,$secure)
@@ -28375,7 +28375,7 @@ function Update-DomeniaFastLoginAttempt {
         Complete-DomeniaLoginAuthRunspaceCleanup -Session $session
 
         if ($null -eq $result -or -not [bool]$result.Success) {
-            $errorText = if ($null -ne $result -and -not [string]::IsNullOrWhiteSpace([string]$result.Error)) { [string]$result.Error } else { "" }
+            $errorText = if (($null -ne $result) -and (-not [string]::IsNullOrWhiteSpace([string]$result.Error))) { [string]$result.Error } else { "" }
             $rawMessage = if ($errorText) { $errorText } else { "Aucun motif renvoyé par la validation." }
             $errorCategory = ""
             try { $errorCategory = [string]$result.ErrorCategory } catch { }
@@ -28510,7 +28510,7 @@ function Start-DomeniaFastLoginAttempt {
     $secret=$null;$vaultCredential=$null;$vaultIdentity=$null
     if($UseVault){
         $vaultIdentity=Get-DomeniaFastLoginVaultIdentity
-        if($null -eq $vaultIdentity -or ($null -ne $script:FastLoginVaultRejected -and $script:FastLoginVaultRejected.ContainsKey($vaultIdentity.Target))){$ui.Error.Text='Corrigez manuellement les identifiants avant de réutiliser le coffre.';return}
+        if(($null -eq $vaultIdentity) -or (($null -ne $script:FastLoginVaultRejected) -and ($script:FastLoginVaultRejected.ContainsKey($vaultIdentity.Target)))){$ui.Error.Text='Corrigez manuellement les identifiants avant de réutiliser le coffre.';return}
         try{$vaultCredential=Get-DomeniaCredentialVaultCredential -DomainDn $vaultIdentity.DomainDn -Scope Directory -UserName $vaultIdentity.UserName -Enabled}
         catch{$ui.Error.Text='Le coffre Windows est indisponible pour cet identifiant.';return}
         if($null -eq $vaultCredential){$ui.Error.Text='Aucun identifiant enregistré dans le coffre pour ce compte.';return}
@@ -28529,7 +28529,7 @@ function Start-DomeniaFastLoginAttempt {
         $ui.Error.Text = "Identifiant manquant."
         return
     }
-    if (-not $UseCurrentCredentials -and ($null -eq $secret -or $secret.Length -eq 0)) {
+    if ((-not $UseCurrentCredentials) -and (($null -eq $secret) -or ($secret.Length -eq 0))) {
         $ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Error")
         $ui.Error.Text = "Mot de passe manquant."
         return
@@ -28935,8 +28935,8 @@ function Show-LoginWindow {
         if ($eventArgs.Key -ne "Enter") { return }
         # Entrée runs the main action shown: Se connecter with the form, the Windows session when it comes first.
         $loginUi = $script:FastLoginUi
-        if (($loginUi.Connect.Visibility -eq [System.Windows.Visibility]::Visible) -and $loginUi.Connect.IsEnabled) { $eventArgs.Handled=$true; Start-DomeniaFastLoginAttempt }
-        elseif ($loginUi.Windows.IsDefault -and ($loginUi.Windows.Visibility -eq [System.Windows.Visibility]::Visible) -and $loginUi.Windows.IsEnabled) { $eventArgs.Handled=$true; Start-DomeniaFastLoginAttempt -UseCurrentCredentials }
+        if (($loginUi.Connect.Visibility -eq [System.Windows.Visibility]::Visible) -and ([bool]$loginUi.Connect.IsEnabled)) { $eventArgs.Handled=$true; Start-DomeniaFastLoginAttempt }
+        elseif (([bool]$loginUi.Windows.IsDefault) -and ($loginUi.Windows.Visibility -eq [System.Windows.Visibility]::Visible) -and ([bool]$loginUi.Windows.IsEnabled)) { $eventArgs.Handled=$true; Start-DomeniaFastLoginAttempt -UseCurrentCredentials }
     })
     Register-DomeniaSurfaceReady $window ({
         Write-DomeniaFastLoginLog -Stage "WINDOW_READY" -Detail "Fenetre affichee. Mode=$($script:FastLoginMode) Source=$($script:LoginWindowModeSource) Script=$($script:LaunchPath)"
@@ -28953,7 +28953,7 @@ function Show-LoginWindow {
             $script:FastLoginUi.Window.Topmost = $true
         }
         if ([bool]$script:DemoMode) { $script:FastLoginUi.Connect.Focus() | Out-Null }
-        elseif ($script:FastLoginUi.Windows.IsDefault -and $script:FastLoginUi.Windows.IsEnabled) { $script:FastLoginUi.Windows.Focus() | Out-Null }
+        elseif (([bool]$script:FastLoginUi.Windows.IsDefault) -and ([bool]$script:FastLoginUi.Windows.IsEnabled)) { $script:FastLoginUi.Windows.Focus() | Out-Null }
         elseif (-not [string]::IsNullOrWhiteSpace([string]$script:FastLoginUi.Login.Text)) { $script:FastLoginUi.Password.Focus() | Out-Null }
         else { $script:FastLoginUi.Login.Focus() | Out-Null }
     })

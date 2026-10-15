@@ -186,9 +186,9 @@ try {
     Test-Case 'Depot distant refuse sans consentement explicite' {
         $before=$script:NativeCalls
         $noConsent=$context.PSObject.Copy();$noConsent.AllowRemoteArtifacts=$false
-        Assert-Throws {Invoke-WRemotePsExecScript $noConsent 'TESTPC' '1' @{} 10} 'non autorise'
+        Assert-Throws {Invoke-WRemotePsExecScript $noConsent 'TESTPC' '1' @{} 10} 'non autorisé pour ce poste.*Assistance poste > Actions'
         $otherTarget=$context.PSObject.Copy();$otherTarget.ArtifactTarget='AUTREPC'
-        Assert-Throws {Invoke-WRemotePsExecScript $otherTarget 'TESTPC' '1' @{} 10} 'non autorise'
+        Assert-Throws {Invoke-WRemotePsExecScript $otherTarget 'TESTPC' '1' @{} 10} 'non autorisé pour ce poste.*Assistance poste > Actions'
         Assert-Test ($script:NativeCalls -eq $before) 'Un processus a ete lance sans consentement pour cette cible.'
     }
     Test-Case 'PsExec: cible invalide ne lance aucun processus' {

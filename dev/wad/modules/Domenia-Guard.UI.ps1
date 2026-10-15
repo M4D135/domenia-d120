@@ -137,20 +137,20 @@ function Update-DomeniaInterventionPill {
     $open=Get-DomeniaOpenMachineConsentTarget
     $state=Get-DomeniaInterventionPillState -ArtifactConsent $script:ArtifactConsent -ReadConsent $script:ReadFallbackConsent -Target ([string]$open.Target) -Short ([string]$open.Short) -Epoch ([long]$script:SessionEpoch) -NowUtc ([datetime]::UtcNow)
     $visibility=if([bool]$state.Active){[Windows.Visibility]::Visible}else{[Windows.Visibility]::Collapsed}
-    if($Force -or ($pill.Visibility -ne $visibility)){$pill.Visibility=$visibility}
+    if(([bool]$Force) -or ($pill.Visibility -ne $visibility)){$pill.Visibility=$visibility}
     $label=Get-DomeniaControl 'LblCompIntervention'
-    if(($null -ne $label) -and ($Force -or ([string]$label.Text -cne [string]$state.PillText))){$label.Text=[string]$state.PillText}
+    if(($null -ne $label) -and (([bool]$Force) -or ([string]$label.Text -cne [string]$state.PillText))){$label.Text=[string]$state.PillText}
     $grant=Get-DomeniaControl 'BtnCompInterventionGrant'
     if($null -ne $grant){
         $grantVisibility=if([bool]$state.Active){[Windows.Visibility]::Collapsed}else{[Windows.Visibility]::Visible}
-        if($Force -or ($grant.Visibility -ne $grantVisibility)){$grant.Visibility=$grantVisibility}
-        if($Force -or ([bool]$grant.IsEnabled -ne [bool]$state.CanGrant)){$grant.IsEnabled=[bool]$state.CanGrant}
+        if(([bool]$Force) -or ($grant.Visibility -ne $grantVisibility)){$grant.Visibility=$grantVisibility}
+        if(([bool]$Force) -or ([bool]$grant.IsEnabled -ne [bool]$state.CanGrant)){$grant.IsEnabled=[bool]$state.CanGrant}
     }
     $read=Get-DomeniaControl 'BtnCompReadFallback'
     $canRead=[bool]$open.Target
-    if(($null -ne $read) -and ($Force -or ([bool]$read.IsEnabled -ne $canRead))){$read.IsEnabled=$canRead}
+    if(($null -ne $read) -and (([bool]$Force) -or ([bool]$read.IsEnabled -ne $canRead))){$read.IsEnabled=$canRead}
     $line=Get-DomeniaControl 'LblCompInterventionState'
-    if(($null -ne $line) -and ($Force -or ([string]$line.Text -cne [string]$state.StateText))){$line.Text=[string]$state.StateText}
+    if(($null -ne $line) -and (([bool]$Force) -or ([string]$line.Text -cne [string]$state.StateText))){$line.Text=[string]$state.StateText}
 }
 function Set-DomeniaReadFallbackConsent {
     # SE-07 : demande propre a une lecture. L'autorisation d'intervention ne dit rien d'une

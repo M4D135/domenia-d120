@@ -26,7 +26,7 @@ function Show-DomeniaSecretPeek {
     if($null -eq $script:DomeniaSecretPeeks){$script:DomeniaSecretPeeks=@{}}
     $state=$null
     if($script:DomeniaSecretPeeks.ContainsKey($Owner)){$state=$script:DomeniaSecretPeeks[$Owner]}
-    if(($null -ne $state) -and [bool]$state.Shown){Hide-DomeniaSecretPeek -Owner $Owner;return $false}
+    if(($null -ne $state) -and ([bool]$state.Shown)){Hide-DomeniaSecretPeek -Owner $Owner;return $false}
     if(-not [bool]$PasswordBox.IsEnabled){return $false}
     if($null -eq $state){
         $state=[pscustomobject]@{Owner=$Owner;Overlay=$null;Display=$null;Button=$null;ButtonContent=$null;Timer=$null;Shown=$false}
@@ -54,7 +54,7 @@ function Hide-DomeniaSecretPeek {
     try{if($null -ne $state.Timer){$state.Timer.Stop()}}catch{}
     try{if($null -ne $state.Display){$state.Display.Text=''}}catch{}
     try{if($null -ne $state.Overlay){$state.Overlay.Visibility=[Windows.Visibility]::Collapsed}}catch{}
-    try{if(($null -ne $state.Button) -and [bool]$state.Shown -and ($null -ne $state.ButtonContent)){$state.Button.Content=$state.ButtonContent}}catch{}
+    try{if(($null -ne $state.Button) -and ([bool]$state.Shown) -and ($null -ne $state.ButtonContent)){$state.Button.Content=$state.ButtonContent}}catch{}
     $state.Shown=$false
 }
 
@@ -124,14 +124,14 @@ function Get-DomeniaMachineAccountInUse {
     param([string]$Target='')
     $access=$script:AccessState
     $live=(($null -ne $access) -and ([long]$access.Epoch -eq [long]$script:SessionEpoch) -and ([string]$access.BaseDn -ieq [string]$script:Conn.BaseDn))
-    if($live -and $Target){
+    if(($live) -and ($Target)){
         $key='RemoteLocal|'+(ConvertTo-DomeniaMachineKey $Target).ToUpperInvariant()
         if($access.Credentials.ContainsKey($key) -and (Test-DomeniaAccessLeaseUsable -Key $key)){return (Get-DomeniaMachineAccountLabel -Source 'TemporaryLocal' -Account ([string]$access.Credentials[$key].UserName))}
     }
-    if($live -and $access.Credentials.ContainsKey('Remote') -and (Test-DomeniaAccessLeaseUsable -Key 'Remote')){return (Get-DomeniaMachineAccountLabel -Source 'Temporary' -Account ([string]$access.Credentials['Remote'].UserName))}
+    if(($live) -and ($access.Credentials.ContainsKey('Remote')) -and (Test-DomeniaAccessLeaseUsable -Key 'Remote')){return (Get-DomeniaMachineAccountLabel -Source 'Temporary' -Account ([string]$access.Credentials['Remote'].UserName))}
     if($null -ne $script:MachineCredential){return (Get-DomeniaMachineAccountLabel -Source 'Typed' -Account ([string]$script:MachineCredential.UserName))}
     if($null -ne $script:RemoteAdminCredential){return (Get-DomeniaMachineAccountLabel -Source 'Remote' -Account ([string]$script:RemoteAdminCredential.UserName))}
-    if([bool]$script:Conn.UseCredential -and ($null -ne $script:Conn.Credential)){return (Get-DomeniaMachineAccountLabel -Source 'Connection' -Account ([string]$script:Conn.Credential.UserName))}
+    if(([bool]$script:Conn.UseCredential) -and ($null -ne $script:Conn.Credential)){return (Get-DomeniaMachineAccountLabel -Source 'Connection' -Account ([string]$script:Conn.Credential.UserName))}
     return (Get-DomeniaMachineAccountLabel -Source 'Windows' -Account ([string]$script:ProcessIdentity))
 }
 
@@ -253,7 +253,7 @@ function Initialize-DomeniaAccountsUi {
     }
     $script:DomeniaAccountsUi=[pscustomobject]@{Timer=$null;InUseSignature=''}
     $script:DomeniaAccountsUi.Timer=New-DomeniaTimer -Owner 'Timer:Accounts' -IntervalMs 1000 -IdleIntervalMs 1000 -Tick {
-        if($script:AsyncEngineClosing -or ($null -eq $script:DomeniaAccountsUi)){return}
+        if(([bool]$script:AsyncEngineClosing) -or ($null -eq $script:DomeniaAccountsUi)){return}
         Update-DomeniaMachineAccountUi
         Update-DomeniaAccountsInUse
     }
@@ -273,7 +273,7 @@ function Get-DomeniaUsableTemporaryAccounts {
     foreach($key in @($access.Credentials.Keys)){
         $k=[string]$key;$credential=$access.Credentials[$key]
         if(($null -eq $credential) -or (-not (Test-DomeniaAccessLeaseUsable -Key $k))){continue}
-        $lease=$null;if(($null -ne $leases) -and $leases.ContainsKey($k)){$lease=$leases[$k]}
+        $lease=$null;if(($null -ne $leases) -and ($leases.ContainsKey($k))){$lease=$leases[$k]}
         $result.Add([pscustomobject]@{Key=$k;UserName=[string]$credential.UserName;Lease=$lease})
     }
     return $result.ToArray()
@@ -311,9 +311,18 @@ function Invoke-DomeniaAccountInMemoryForget {
     if([string]::IsNullOrWhiteSpace($Key)){return}
     if(Test-DomeniaAccessBusyWrite){Show-InfoBox 'Une écriture reste active ou à vérifier : les comptes ne changent pas avant sa vérification.';return}
     if($Key -ceq 'Typed:Machine'){Clear-MachineCredential}
-    elseif(($null -ne $script:AccessState) -and $script:AccessState.Credentials.ContainsKey($Key)){
+    elseif(($null -ne $script:AccessState) -and ($script:AccessState.Credentials.ContainsKey($Key))){
         $label=Get-DomeniaAccessScopeLabel $Key
         Remove-DomeniaAccessCredential -Key $Key
+        # The refusal recorded for this resource belonged to the forgotten account: like Clear-DomeniaSecondaryCredential
+        # and the acceptance of a new account (Invoke-DomeniaAccessRecovery), it goes with it, so the configured account
+        # really takes over for the next operation instead of being stopped by Get-WorkerContext.
+        [void]$script:AccessState.Faults.Remove($Key)
+        $deniedPrefix=''
+        if($Key -ceq 'ReadLaps'){$deniedPrefix='laps|'}elseif($Key -ceq 'ReadBitLocker'){$deniedPrefix='bitlocker|'}
+        if($deniedPrefix){
+            foreach($denied in @($script:AccessState.Denied.Keys)){if(([string]$denied).StartsWith($deniedPrefix,[StringComparison]::Ordinal)){[void]$script:AccessState.Denied.Remove($denied)}}
+        }
         Set-Status ('Compte temporaire oublié pour '+$label+'. Le compte configuré reprend sa place.')
     }
     Update-DomeniaMachineAccountUi -Force
@@ -330,16 +339,16 @@ function Update-DomeniaMachineAccountUi {
     $pill=Get-DomeniaControl 'BtnCompAccountPill'
     if($null -ne $pill){
         $help='Compte utilisé pour les opérations sur ce poste : '+[string]$label.Long+'. Ouvre un panneau pour saisir un autre compte ou revenir au compte de connexion.'
-        if($Force -or ([string]$pill.Content -cne [string]$label.Pill)){
+        if(([bool]$Force) -or ([string]$pill.Content -cne [string]$label.Pill)){
             $pill.Content=[string]$label.Pill
             [Windows.Automation.AutomationProperties]::SetName($pill,('Compte poste : '+[string]$label.Short))
         }
-        if($Force -or ([string]$pill.ToolTip -cne $help)){$pill.ToolTip=$help;[Windows.Automation.AutomationProperties]::SetHelpText($pill,$help)}
+        if(([bool]$Force) -or ([string]$pill.ToolTip -cne $help)){$pill.ToolTip=$help;[Windows.Automation.AutomationProperties]::SetHelpText($pill,$help)}
     }
     $line=Get-DomeniaControl 'LblMachineCredential'
     if($null -ne $line){
         $text='Opérations poste : '+[string]$label.Long+'.'
-        if($Force -or ([string]$line.Text -cne $text)){$line.Text=$text}
+        if(([bool]$Force) -or ([string]$line.Text -cne $text)){$line.Text=$text}
     }
 }
 
@@ -387,7 +396,7 @@ function Initialize-DomeniaMachineAccountPanel {
 function Test-DomeniaMachineAccountPanelOpen {
     # Another sheet of the layer may have replaced the panel: open means shown, not only flagged.
     $panel=$script:MachineAccountPanel
-    return (($null -ne $panel) -and [bool]$panel.Open -and $panel.Layer.Children.Contains($panel.View))
+    return (($null -ne $panel) -and ([bool]$panel.Open) -and ($panel.Layer.Children.Contains($panel.View)))
 }
 
 function Show-DomeniaMachineAccountPanel {
@@ -420,12 +429,12 @@ function Hide-DomeniaMachineAccountPanel {
     if($layer.Children.Contains($panel.View)){[void]$layer.Children.Remove($panel.View)}
     if($layer.Children.Count -eq 0){$layer.Visibility=[Windows.Visibility]::Collapsed;$layer.ClearValue([Windows.Controls.Panel]::BackgroundProperty)}
     $pill=Get-DomeniaControl 'BtnCompAccountPill'
-    if(($null -ne $pill) -and [bool]$pill.IsVisible){try{[void]$pill.Focus()}catch{}}
+    if(($null -ne $pill) -and ([bool]$pill.IsVisible)){try{[void]$pill.Focus()}catch{}}
 }
 
 function Switch-DomeniaMachineAccountPanel {
     if(Test-DomeniaMachineAccountPanelOpen){Hide-DomeniaMachineAccountPanel}else{
-        if(($null -ne $script:MachineAccountPanel) -and [bool]$script:MachineAccountPanel.Open){$script:MachineAccountPanel.Open=$false}
+        if(($null -ne $script:MachineAccountPanel) -and ([bool]$script:MachineAccountPanel.Open)){$script:MachineAccountPanel.Open=$false}
         [void](Show-DomeniaMachineAccountPanel)
     }
 }

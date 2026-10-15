@@ -1025,13 +1025,13 @@ La page « Comptes : identités de connexion » s'ouvre par le menu « Compte
 | Zone | Usage | Boutons |
 |---|---|---|
 | « ANNUAIRE AD » | Utilisateurs, groupes, OU, attributs, recherche et écritures AD. Carte en lecture seule : compte réellement lié, mode de connexion (session Windows ou compte saisi), contrôleur et domaine. | « Changer de compte » : connexion préremplie avec le compte saisi pour la session, formulaire d'abord ; « Annuler » garde la session en cours. Rien n'est écrit dans les préférences. |
-| « EN CE MOMENT » | Compte réellement utilisé par chaque ressource (annuaire, postes, LAPS, BitLocker) et son origine, puis les comptes gardés en mémoire avec leur durée restante. Aucun mot de passe n'est affiché. | « Oublier » sur chaque compte gardé en mémoire. |
+| « EN CE MOMENT » | Compte réellement utilisé par chaque ressource (annuaire, opération d'annuaire qui a reçu son propre compte temporaire, postes, LAPS, BitLocker) et son origine, puis les comptes gardés en mémoire avec leur durée restante. Aucun mot de passe n'est affiché. | « Oublier » sur chaque compte gardé en mémoire. |
 | « POSTES / WMI / DISTANT » | WMI, WinRM, SMB, inventaire, diagnostics et actions distantes. | « Activer », « Essayer sur le poste sélectionné », « Effacer ». |
 | « SECRETS AD » | Lecture LAPS et BitLocker. | « Tester », « Activer », « Effacer ». |
 
 - Le compte poste saisi dans le panneau « Compte poste » d'Assistance poste passe avant le compte « POSTES / WMI / DISTANT » (chapitre 5).
 - « Essayer sur le poste sélectionné », grisé sans poste ouvert dans Assistance poste, fait au clic une seule lecture WMI légère (Win32_OperatingSystem) du poste ouvert avec le compte utilisé pour les postes. Réponses : « Accès administrateur OK sur … », « Accès refusé sur … : droit administrateur requis sur ce poste. », « Identifiants refusés par … », « Poste … injoignable (réseau, nom ou service WMI) ». Aucun relevé, aucun autre poste, aucun repli intrusif.
-- Un compte temporaire accepté après un refus passe avant, pour sa seule ressource et son poste. Il est oublié après Security.AlternateCredentialIdleMinutes (30 min) sans usage, à la fin de la session, par la fenêtre du bouton d'accès ou par « Oublier » dans « En ce moment ». « Oublier » est refusé tant qu'une écriture reste active ou à vérifier ; une opération déjà envoyée garde sa copie du compte.
+- Un compte temporaire accepté après un refus passe avant, pour sa seule ressource et son poste. Il est oublié après Security.AlternateCredentialIdleMinutes (30 min) sans usage, à la fin de la session, par la fenêtre du bouton d'accès ou par « Oublier » dans « En ce moment ». « Oublier » efface aussi le refus enregistré pour cette ressource : le compte configuré reprend la main dès l'opération suivante. Il est refusé tant qu'une écriture reste active ou à vérifier ; une opération déjà envoyée garde sa copie du compte.
 - Si le périmètre AD change, les comptes secondaires sont retirés de la mémoire, pour ne pas les envoyer dans un autre domaine.
 
 ## Droits à prévoir

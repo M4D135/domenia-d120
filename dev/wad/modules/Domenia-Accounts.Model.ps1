@@ -19,8 +19,8 @@ function Get-DomeniaLoginFailureText {
     $internalText='(?i)NullArray|Indexation impossible dans un tableau Null|Cannot index into a null array|DOMENIA_AUTH_(ENTRY|PROPERTIES|NATIVE)_NULL'
     $credentialText='(?i)logon failure|unknown user name or bad password|user ?name or password is incorrect|nom d.?utilisateur.*mot de passe.*incorrect|identifiant.*mot de passe.*(incorrect|refus)|mot de passe.*incorrect|invalid credentials|credentials.*invalid'
     $kind=''
-    if($c -eq 'Internal' -or $m -match $internalText){$kind='Internal'}
-    elseif($short -and $byCode.ContainsKey($short)){$kind=[string]$byCode[$short]}
+    if(($c -eq 'Internal') -or ($m -match $internalText)){$kind='Internal'}
+    elseif(($short) -and ($byCode.ContainsKey($short))){$kind=[string]$byCode[$short]}
     elseif($c -eq 'Metadata'){$kind='Metadata'}
     elseif($c -eq 'AccessDenied'){$kind='AccessDenied'}
     elseif($c -eq 'Timeout'){$kind='Timeout'}
@@ -72,8 +72,8 @@ function Get-DomeniaLoginChoice {
     # $PreferForm: the operator asked to change account, the form opens directly with the Windows button below it.
     param([AllowNull()][AllowEmptyString()][string]$WindowsIdentity='',[bool]$AllowWindowsSession=$true,[bool]$Demo=$false,[bool]$PreferForm=$false)
     $identity=([string]$WindowsIdentity).Trim()
-    $offered=($AllowWindowsSession -and (-not $Demo))
-    $available=($offered -and ($identity.Length -gt 0))
+    $offered=(([bool]$AllowWindowsSession) -and (-not $Demo))
+    $available=(($offered) -and ($identity.Length -gt 0))
     $label='Utiliser mon compte Windows';$tip=''
     if($available){
         $label='Continuer en tant que '+$identity
@@ -81,7 +81,7 @@ function Get-DomeniaLoginChoice {
     }elseif($offered){
         $tip='Indisponible : Domenia nʼest pas lancé sous un compte utilisateur du domaine.'
     }
-    return [pscustomobject]@{Offered=$offered;Available=$available;WindowsFirst=($available -and (-not $PreferForm));WindowsLabel=$label;WindowsToolTip=$tip;OtherAccountLabel='Utiliser un autre compte'}
+    return [pscustomobject]@{Offered=$offered;Available=$available;WindowsFirst=(($available) -and (-not $PreferForm));WindowsLabel=$label;WindowsToolTip=$tip;OtherAccountLabel='Utiliser un autre compte'}
 }
 
 # ---------------------------------------------------------------- CO-31 read-only identity of the directory
@@ -124,7 +124,7 @@ function Get-DomeniaMachineAccountLabel {
     $isWindows=($origin -eq 'session Windows')
     $short=if($isWindows){'session Windows'}elseif($name){$name}else{$origin}
     $long=if($name){$name+' ('+$origin+')'}else{$origin}
-    if($isWindows -and $name){$long='session Windows ('+$name+')'}
+    if(($isWindows) -and ($name)){$long='session Windows ('+$name+')'}
     return [pscustomobject]@{Source=$(if($isWindows){'Windows'}else{([string]$Source).Trim()});Account=$name;Origin=$origin;Short=$short;Long=$long;Pill=('Compte poste : '+$short+' '+[string][char]0x25BE)}
 }
 
@@ -183,9 +183,10 @@ function Get-DomeniaLeaseRemainingText {
 
 function Get-DomeniaAccountsInUseRows {
     # UI-27: « En ce moment » of the Comptes page. Now: the account each resource takes for its next operation
-    # (directory, workstations, LAPS, BitLocker). Memory: what can be forgotten (account typed for the workstations,
-    # temporary accounts accepted after a refusal) with the remaining time. The UI layer passes names and leases
-    # only: no credential, no secret, no clock read here. $Machine is a Get-DomeniaMachineAccountLabel object;
+    # (directory, each directory operation holding its own temporary account, workstations, LAPS, BitLocker).
+    # Memory: what can be forgotten (account typed for the workstations, temporary accounts accepted after a
+    # refusal) with the remaining time. The UI layer passes names and leases only: no credential, no secret, no
+    # clock read here. $Machine is a Get-DomeniaMachineAccountLabel object;
     # $Temporary holds the usable temporary accounts as @{Key;UserName;Lease}.
     param(
         [AllowNull()][AllowEmptyString()][string]$DirectoryAccount='',
@@ -205,6 +206,11 @@ function Get-DomeniaAccountsInUseRows {
     if(-not $directory){$directoryOrigin='aucune connexion'}
     $now=[Collections.Generic.List[object]]::new()
     $now.Add([pscustomobject]@{Resource='Annuaire';Account=$(if($directory){$directory}else{'Aucune identité active'});Origin=$directoryOrigin})
+    # A directory operation that received its own temporary account (key AD:<operation>, Get-DomeniaRetryCredential)
+    # takes it instead of the connection account: one line per operation, right under the directory.
+    foreach($key in @($byKey.Keys|Where-Object{([string]$_).StartsWith('AD:',[StringComparison]::Ordinal)}|Sort-Object)){
+        $now.Add([pscustomobject]@{Resource=(Get-DomeniaAccessScopeLabel $key);Account=[string]$byKey[$key].UserName;Origin=$temporaryOrigin})
+    }
     if($null -ne $Machine){
         $machineAccount=[string]$Machine.Account;if(-not $machineAccount){$machineAccount=[string]$Machine.Short}
         $now.Add([pscustomobject]@{Resource='Postes (WMI, C$, consoles)';Account=$machineAccount;Origin=[string]$Machine.Origin})
@@ -233,7 +239,7 @@ function Test-DomeniaConsentCovers {
     if($null -eq $Consent){return $false}
     if(([long]$Consent.Epoch -ne $Epoch) -or ([datetime]$Consent.Expires -le $NowUtc)){return $false}
     $names=@(@([string]$Consent.Target)+@($Consent.Aliases)|Where-Object{-not [string]::IsNullOrWhiteSpace([string]$_)}|ForEach-Object{([string]$_).Trim()})
-    foreach($candidate in @(([string]$Target).Trim(),([string]$Short).Trim())){if($candidate -and ($names -icontains $candidate)){return $true}}
+    foreach($candidate in @(([string]$Target).Trim(),([string]$Short).Trim())){if(($candidate) -and ($names -icontains $candidate)){return $true}}
     return $false
 }
 
@@ -256,8 +262,8 @@ function Get-DomeniaInterventionPillState {
     elseif($active){$state='Intervention autorisée sur '+[string]$ArtifactConsent.Target+' pendant encore '+$remaining+', pour ce poste seulement et pour vos actions volontaires.'}
     elseif($elsewhere){$state='Une intervention est autorisée sur '+$elsewhere+', pas sur ce poste. « Exécuter un programme » et les replis PsExec ou tâche planifiée la demandent ici.'}
     else{$state='Aucune intervention autorisée sur ce poste. « Exécuter un programme » et les replis PsExec ou tâche planifiée la demandent.'}
-    if($target -and $read){$state+=' Prochaine lecture de ce poste autorisée par tâche planifiée (une seule lecture).'}
-    return [pscustomobject]@{Active=[bool]$active;Seconds=$seconds;Remaining=$remaining;PillText=$(if($active){'Intervention autorisée '+$remaining+' ·'}else{''});StateText=$state;ReadPending=[bool]($target -and $read);CanGrant=[bool]($target -and (-not $active))}
+    if(($target) -and ($read)){$state+=' Prochaine lecture de ce poste autorisée par tâche planifiée (une seule lecture).'}
+    return [pscustomobject]@{Active=[bool]$active;Seconds=$seconds;Remaining=$remaining;PillText=$(if($active){'Intervention autorisée '+$remaining+' ·'}else{''});StateText=$state;ReadPending=[bool](($target) -and ($read));CanGrant=[bool](($target) -and (-not $active))}
 }
 
 function Get-DomeniaMessageRoute {

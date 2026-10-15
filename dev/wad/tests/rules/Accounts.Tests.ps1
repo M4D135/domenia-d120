@@ -200,6 +200,23 @@ Test-Case 'X03-UI27' 'En ce moment : compte par ressource, comptes en memoire av
     Assert-Equal 'même compte que lʼannuaire' @($none.Now)[2].Origin
     Assert-Equal 0 @($none.Memory).Count
 }
+Test-Case 'X03-UI27' 'Annuaire : une operation qui a son compte temporaire a sa propre ligne, sous l annuaire' {
+    $t0=[datetime]::SpecifyKind([datetime]'2026-10-02T08:00:00',[DateTimeKind]::Utc)
+    $lease={param([string]$Key,[string]$Account) New-DomeniaCredentialLease -Scope $Key -Account $Account -Mode Inactivity -InactivityMinutes 30 -Epoch 7 -NowUtc $t0}
+    $fiches=[pscustomobject]@{Key='AD:OpenAdObject';UserName='EXAMPLE\fiches-temp';Lease=(& $lease 'AD:OpenAdObject' 'EXAMPLE\fiches-temp')}
+    $recherche=[pscustomobject]@{Key='AD:GlobalSearch';UserName='EXAMPLE\recherche-temp';Lease=(& $lease 'AD:GlobalSearch' 'EXAMPLE\recherche-temp')}
+    $postes=[pscustomobject]@{Key='Remote';UserName='EXAMPLE\postes-temp';Lease=(& $lease 'Remote' 'EXAMPLE\postes-temp')}
+    $machine=Get-DomeniaMachineAccountLabel -Source 'Temporary' -Account 'EXAMPLE\postes-temp'
+    $r=Get-DomeniaAccountsInUseRows -DirectoryAccount 'EXAMPLE\jdupont' -DirectoryMode 'Windows' -Machine $machine -Temporary @($fiches,$postes,$recherche) -Epoch 7 -NowUtc $t0
+    $lines=@(@($r.Now)|ForEach-Object{$_.Resource+'|'+$_.Account+'|'+$_.Origin})
+    Assert-Equal 6 $lines.Count ($lines -join ' ; ')
+    Assert-Equal 'Annuaire|EXAMPLE\jdupont|session Windows' $lines[0]
+    Assert-Equal 'Annuaire : recherche|EXAMPLE\recherche-temp|compte temporaire accepté après un refus' $lines[1]
+    Assert-Equal 'Annuaire : lecture des fiches|EXAMPLE\fiches-temp|compte temporaire accepté après un refus' $lines[2]
+    Assert-True ($lines[3].StartsWith('Postes (WMI, C$, consoles)|EXAMPLE\postes-temp|')) $lines[3]
+    Assert-False (@($r.Now|Where-Object{([string]$_.Resource).StartsWith('AD:') -or ([string]$_.Resource -eq 'Postes')}).Count -gt 0) 'Cle interne ou compte des postes en double dans En ce moment'
+    Assert-Equal 3 @($r.Memory).Count
+}
 
 # ---------------------------------------------------------------- UX-16 autorisation d intervention dans Actions
 Test-Case 'X03-UX16' 'Pastille : compte a rebours m:ss, poste cible seulement, session courante' {
