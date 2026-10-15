@@ -1421,7 +1421,8 @@ function ConvertFrom-DomeniaCampaignPlanText {
     param([AllowEmptyString()][string]$Text)
     $head = $null
     try { $head = ConvertFrom-Json -InputObject ([string]$Text) -ErrorAction Stop } catch { throw 'Plan de relevé illisible.' }
-    if ([string](Get-DomeniaMember $head 'Schema' '') -cne 'DomeniaCampaignPlan/1') { throw 'Plan de relevé dʼune version inconnue.' }
+    # Point 133: a plan written by a newer Domenia is refused with its version (contract catalogue of Common.Model).
+    [void](Assert-DomeniaContractFormat -Format ([string](Get-DomeniaMember $head 'Schema' '')) -Family 'DomeniaCampaignPlan')
     if (@(Get-DomeniaCampaignPlanKinds) -notcontains [string](Get-DomeniaMember $head 'Kind' '')) { throw 'Plan de relevé dʼun type non autorisé.' }
     if ([string](Get-DomeniaMember $head 'Id' '') -notmatch '^[0-9a-fA-F]{32}$') { throw 'Identifiant de plan invalide.' }
     $raw = $null
@@ -1463,7 +1464,7 @@ function ConvertFrom-DomeniaCampaignProgressText {
     param([AllowEmptyString()][string]$Text,$Plan=$null)
     $data = $null
     try { $data = ConvertFrom-Json -InputObject ([string]$Text) -ErrorAction Stop } catch { throw 'Avancement du relevé illisible.' }
-    if ([string](Get-DomeniaMember $data 'Schema' '') -cne 'DomeniaCampaignProgress/1') { throw 'Avancement du relevé dʼune version inconnue.' }
+    [void](Assert-DomeniaContractFormat -Format ([string](Get-DomeniaMember $data 'Schema' '')) -Family 'DomeniaCampaignProgress')
     if ([string](Get-DomeniaMember $data 'PlanId' '') -notmatch '^[0-9a-fA-F]{32}$') { throw 'Avancement du relevé illisible.' }
     if (@(Get-DomeniaCampaignPlanKinds) -notcontains [string](Get-DomeniaMember $data 'Kind' '')) { throw 'Avancement dʼun relevé dʼun type non autorisé.' }
     $total = [int](Get-DomeniaMember $data 'Total' -1)

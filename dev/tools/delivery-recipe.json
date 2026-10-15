@@ -1,0 +1,138 @@
+{
+  "Schema": "DomeniaDeliveryRecipe/1",
+  "Rule": "Une livraison est livrable seulement si chaque critère bloquant est mesuré et réussi. Un critère sans preuve est « Non mesuré », jamais réussi. Les incidents ouverts sont listés dans la recette et un incident ouvert de gravité Bloquant empêche la livraison.",
+  "Criteria": [
+    {
+      "Id": "R01",
+      "Label": "Identité de version unique",
+      "Kind": "Hors ligne",
+      "Command": [
+        "tools/release_contract.py",
+        "--check"
+      ],
+      "Threshold": "Contrat de version cohérent avec le cœur, wad/Domenia.release.json et les composants épinglés.",
+      "Blocking": true
+    },
+    {
+      "Id": "R02",
+      "Label": "Chargeur fermé et noms de fonctions uniques",
+      "Kind": "Hors ligne",
+      "Command": [
+        "tools/audit_function_names.py"
+      ],
+      "Threshold": "Aucun problème.",
+      "Blocking": true
+    },
+    {
+      "Id": "R03",
+      "Label": "Libellés de lʼinterface",
+      "Kind": "Hors ligne",
+      "Command": [
+        "tools/audit_wording.py"
+      ],
+      "Threshold": "Aucun nouveau libellé non accentué, non élidé ou tutoyé.",
+      "Blocking": true
+    },
+    {
+      "Id": "R04",
+      "Label": "Préchargement, contrats et empreintes des workers",
+      "Kind": "Hors ligne",
+      "Command": [
+        "tools/audit_preload.py"
+      ],
+      "Threshold": "0 contrôle en échec.",
+      "Blocking": true
+    },
+    {
+      "Id": "R05",
+      "Label": "Licences et droits de redistribution",
+      "Kind": "Hors ligne",
+      "Command": [
+        "tools/licence_inventory.py",
+        "--check",
+        "--require-publishable"
+      ],
+      "Threshold": "Inventaire complet et aucun composant livré à la redistribution non établie ou refusée.",
+      "Blocking": true
+    },
+    {
+      "Id": "R06",
+      "Label": "Guides et aide synchronisés avec le pack",
+      "Kind": "Hors ligne",
+      "Command": [
+        "tools/doc_sync.py",
+        "--check"
+      ],
+      "Threshold": "Aucun nouvel écart par rapport à la référence relue.",
+      "Blocking": true
+    },
+    {
+      "Id": "R07",
+      "Label": "Archives DEV et PROD intègres et reproductibles",
+      "Kind": "Fabrication",
+      "Threshold": "build-report.json : ZIP et manifestes valides pour PROD et DEV, runtime identique dans les deux, construits depuis un commit propre ; SHA256SUMS égal aux archives.",
+      "Blocking": true
+    },
+    {
+      "Id": "R08",
+      "Label": "Qualification Windows PowerShell 5.1 liée aux deux ZIP",
+      "Kind": "Windows",
+      "Threshold": "Les 10 scénarios requis par release_guard.py exécutés, réussis, horodatés et liés aux SHA-256 des deux ZIP ; preuves recalculées quand le dossier est fourni.",
+      "Blocking": true
+    },
+    {
+      "Id": "R09",
+      "Label": "Aucune régression des suites Windows",
+      "Kind": "Windows",
+      "Threshold": "0 test réussi dans la campagne de référence qui échoue ou disparaît dans la campagne de la livraison (compare_runs.py).",
+      "Blocking": true
+    },
+    {
+      "Id": "R10",
+      "Label": "Tenue à lʼéchelle",
+      "Kind": "Windows",
+      "Suites": [
+        "Test-DomeniaScale",
+        "Test-DomeniaQueryScale",
+        "Test-DomeniaDashboardScale",
+        "Test-DomeniaStoreLoad"
+      ],
+      "Threshold": "Chaque suite dʼéchelle présente dans la campagne, terminée avec le code 0 et sans test en échec.",
+      "Blocking": true
+    },
+    {
+      "Id": "R11",
+      "Label": "Incidents connus visibles",
+      "Kind": "Hors ligne",
+      "Threshold": "Chaque incident a une gravité, un impact, un contournement et une source ; aucun incident ouvert de gravité Bloquant.",
+      "Blocking": true
+    },
+    {
+      "Id": "R12",
+      "Label": "Reconstruction à lʼidentique",
+      "Kind": "Fabrication",
+      "Threshold": "Une seconde construction depuis le même commit, avec le même Python et le même zlib, donne des ZIP PROD et DEV aux mêmes SHA-256.",
+      "Blocking": true
+    },
+    {
+      "Id": "R13",
+      "Label": "Code compilé limité aux points chauds mesurés",
+      "Kind": "Windows",
+      "Threshold": "Chaque site C# enregistré ; chaque opération dʼun point chaud comparée à PowerShell, au moins MinimumGain fois plus rapide à résultats identiques, dans un rapport sans cas en échec (Test-DomeniaHotspots), chaque point chaud à budget mesuré par sa suite dʼéchelle.",
+      "Blocking": true
+    }
+  ],
+  "Support": [
+    "Journaux : Domenia.log et le journal de démarrage dans %LOCALAPPDATA%\\Domenia\\Data\\Logs (wad\\data\\Logs en mode portable), 5 Mo plus une génération.",
+    "Dossier technique : compteurs, versions et compatibilité du poste, sans nom de poste, de compte ni chemin ; enregistré localement après aperçu, aucun envoi automatique.",
+    "Lanceur : Domenia.exe --diagnostic démarre avec une console visible ; Domenia.exe --check contrôle le paquet (Domenia-Start -CheckOnly) sans ouvrir Domenia.",
+    "Intégrité et éditeur dʼune copie : tools\\Test-DomeniaSignature.ps1 (lecture seule, hors ligne).",
+    "Compatibilité du poste : menu du compte, À propos de Domenia."
+  ],
+  "Rollback": [
+    "Code : wad\\Support\\INSTALLER-MISE-A-JOUR.ps1 -RestoreLatest -Destination <dossier Domenia> ; cinq sauvegardes complètes du code sont gardées, la restauration refuse dʼécraser un fichier modifié depuis.",
+    "Base locale : toute migration du schéma est précédée dʼune sauvegarde vérifiée, gardée hors rotation ; Outils, Base autonome, onglet Stockage : Restaurer une sauvegarde.",
+    "Version précédente : garder le ZIP et le SHA256SUMS de la livraison précédente ; une version plus ancienne refuse une base migrée sans la modifier.",
+    "Désinstallation : -Uninstall ; les données locales ne sont supprimées que sur un choix explicite."
+  ]
+}

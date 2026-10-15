@@ -351,13 +351,16 @@ function Get-DomeniaDiagnosticInputs {
     $traces = @($ring.Values | ForEach-Object { Get-DomeniaOperationTraceSummary -Trace $_ -NowMs $now })
     $slow = @()
     if ($null -ne $script:DomeniaSlowEvents) { $slow = $script:DomeniaSlowEvents.ToArray() }
-    return [pscustomobject]@{Versions=[pscustomobject]$versions;Counters=[pscustomobject]$counters;Metrics=$metrics.ToArray();Errors=$errors.ToArray();Traces=$traces;Slow=$slow}
+    # Point 145: compatibility of this workstation, versions and statuses only (never a name or a path).
+    $compatibility = $null
+    try { $compatibility = Get-DomeniaCompatibilitySupportFields } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
+    return [pscustomobject]@{Versions=[pscustomobject]$versions;Counters=[pscustomobject]$counters;Metrics=$metrics.ToArray();Errors=$errors.ToArray();Traces=$traces;Slow=$slow;Compatibility=$compatibility}
 }
 
 function New-DomeniaSessionDiagnostic {
     # The redacted diagnostic of this session and its JSON text, ready for the preview.
     $inputs = Get-DomeniaDiagnosticInputs
-    $diagnostic = New-DomeniaRedactedDiagnostic -Versions $inputs.Versions -Counters $inputs.Counters -Metrics $inputs.Metrics -Errors $inputs.Errors -Traces $inputs.Traces -Slow $inputs.Slow -CapturedUtc ([datetime]::UtcNow.ToString('o'))
+    $diagnostic = New-DomeniaRedactedDiagnostic -Versions $inputs.Versions -Counters $inputs.Counters -Metrics $inputs.Metrics -Errors $inputs.Errors -Traces $inputs.Traces -Slow $inputs.Slow -CapturedUtc ([datetime]::UtcNow.ToString('o')) -Compatibility $inputs.Compatibility
     return [pscustomobject]@{Diagnostic=$diagnostic;Json=($diagnostic | ConvertTo-Json -Depth 6);Preview=(Get-DomeniaDiagnosticPreviewText -Diagnostic $diagnostic)}
 }
 

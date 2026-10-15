@@ -1152,6 +1152,22 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnReadOnlyResume" = "Default"
     "BtnUxNavAccount" = "Default"
     "UxAboutPanel" = "Default"
+    # Point 145: compatibility of this workstation in À propos.
+    "LblUxAboutCompatibility" = "Default"
+    # Point 147: local data policy in Stockage.
+    "ExpStorageDataPolicy" = "Default"
+    "LblStorageDataPolicy" = "Default"
+    "DgStorageDataPolicy" = "Default"
+    # Point 148: first steps (connection, working OU, first read, dashboard).
+    "BtnFirstStepConnection" = "Default"
+    "BtnFirstStepOu" = "Default"
+    "BtnFirstStepBase" = "Default"
+    "BtnFirstStepDashboard" = "Default"
+    "LblFirstStepsDeferred" = "Default"
+    "LblFirstStepConnection" = "Default"
+    "LblFirstStepConnectionMark" = "Default"
+    "LblFirstStepDashboard" = "Default"
+    "LblFirstStepDashboardMark" = "Default"
     "ObjectEmptyState" = "Default"
     "ComputerEmptyState" = "Default"
     # W08 (points 52 to 60): breadcrumb, saved views, filter chips, collective scope, side preview.
@@ -3596,6 +3612,8 @@ function Get-DomeniaDefaultSettings {
         'Collection.WindowsJson' = ''
         # The last update of this domain stopped at its limit: '<BaseDn>|<date>|<objects read>' (Accueil warning).
         'Index.Partial'    = ''
+        # Point 148: UTC date of the first overview computed with workstations while Accueil was shown; '' until then.
+        'Home.DashboardSeen' = ''
         # Lot L01: the "Premiers pas" card of Accueil stays hidden once its four steps were done.
         'Home.FirstStepsDone' = $false
         # SP-15: a click on a workstation of Rechercher pings it only when the operator checked « Vérifier au clic ».
@@ -5140,6 +5158,7 @@ function Get-MainXaml {
                   <StackPanel>
                     <TextBlock Text="DOMENIA 1.0 · RC1.17.7" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
                     <TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0"/>
+                    <TextBlock x:Name="LblUxAboutCompatibility" Text="Compatibilité de ce poste : non évaluée." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0" AutomationProperties.Name="Compatibilité de ce poste"/>
                   </StackPanel>
                 </Border>
               </StackPanel>
@@ -5500,23 +5519,24 @@ function Get-MainXaml {
                     <Border x:Name="CardFirstSteps" Style="{StaticResource Card}" Margin="0,0,0,12" Visibility="Collapsed" AutomationProperties.Name="Premiers pas">
                       <StackPanel>
                         <TextBlock Text="Premiers pas" FontSize="18" FontWeight="SemiBold"/>
-                        <TextBlock Text="Quatre étapes pour une vue du parc complète. Le périmètre du tableau de bord est indépendant de Rechercher. Chaque bouton ouvre lʼécran concerné, sans rien lancer." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,4,0,10"/>
+                        <TextBlock Text="Quatre étapes pour démarrer : connexion, OU de travail, première lecture, tableau de bord. Chaque bouton ouvre lʼécran concerné, sans rien lancer." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,4,0,10"/>
                         <Grid>
                           <Grid.ColumnDefinitions><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                           <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                          <TextBlock x:Name="LblFirstStepOuMark" Grid.Row="0" Grid.Column="0" Text="1" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
-                          <TextBlock x:Name="LblFirstStepOu" Grid.Row="0" Grid.Column="1" Text="Choisir le périmètre local du tableau de bord." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                          <Button x:Name="BtnFirstStepOu" Grid.Row="0" Grid.Column="2" Content="Choisir une OU" MinHeight="30" Padding="12,3" Margin="0,0,0,6" AutomationProperties.Name="Premiers pas : choisir lʼOU du tableau de bord"/>
-                          <TextBlock x:Name="LblFirstStepBaseMark" Grid.Row="1" Grid.Column="0" Text="2" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
-                          <TextBlock x:Name="LblFirstStepBase" Grid.Row="1" Grid.Column="1" Text="Construire la base locale : choisissez une OU dans Outils, puis relisez-la." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                          <Button x:Name="BtnFirstStepBase" Grid.Row="1" Grid.Column="2" Content="Ouvrir la base autonome" MinHeight="30" Padding="12,3" Margin="0,0,0,6" AutomationProperties.Name="Premiers pas : ouvrir la base autonome"/>
-                          <TextBlock x:Name="LblFirstStepAccountMark" Grid.Row="2" Grid.Column="0" Text="3" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
-                          <TextBlock x:Name="LblFirstStepAccount" Grid.Row="2" Grid.Column="1" Text="Enregistrer le compte des postes pour les analyses : Comptes et accès." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                          <Button x:Name="BtnFirstStepAccount" Grid.Row="2" Grid.Column="2" Content="Ouvrir Comptes et accès" MinHeight="30" Padding="12,3" Margin="0,0,0,6" AutomationProperties.Name="Premiers pas : ouvrir Comptes et accès"/>
-                          <TextBlock x:Name="LblFirstStepBackupMark" Grid.Row="3" Grid.Column="0" Text="4" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
-                          <TextBlock x:Name="LblFirstStepBackup" Grid.Row="3" Grid.Column="1" Text="Faire une première sauvegarde de la base locale." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                          <Button x:Name="BtnFirstStepBackup" Grid.Row="3" Grid.Column="2" Content="Ouvrir la sauvegarde" MinHeight="30" Padding="12,3" AutomationProperties.Name="Premiers pas : ouvrir la sauvegarde"/>
+                          <TextBlock x:Name="LblFirstStepConnectionMark" Grid.Row="0" Grid.Column="0" Text="1" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
+                          <TextBlock x:Name="LblFirstStepConnection" Grid.Row="0" Grid.Column="1" Text="Se connecter à lʼannuaire avec son compte habituel." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                          <Button x:Name="BtnFirstStepConnection" Grid.Row="0" Grid.Column="2" Content="Voir le compte" MinHeight="30" Padding="12,3" Margin="0,0,0,6" AutomationProperties.Name="Premiers pas : connexion à lʼannuaire"/>
+                          <TextBlock x:Name="LblFirstStepOuMark" Grid.Row="1" Grid.Column="0" Text="2" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
+                          <TextBlock x:Name="LblFirstStepOu" Grid.Row="1" Grid.Column="1" Text="Choisir lʼOU de travail du tableau de bord ; Rechercher reste indépendant." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                          <Button x:Name="BtnFirstStepOu" Grid.Row="1" Grid.Column="2" Content="Choisir une OU" MinHeight="30" Padding="12,3" Margin="0,0,0,6" AutomationProperties.Name="Premiers pas : choisir lʼOU de travail"/>
+                          <TextBlock x:Name="LblFirstStepBaseMark" Grid.Row="2" Grid.Column="0" Text="3" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
+                          <TextBlock x:Name="LblFirstStepBase" Grid.Row="2" Grid.Column="1" Text="Faire la première lecture de cette OU dans la base locale (Outils, Base autonome)." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                          <Button x:Name="BtnFirstStepBase" Grid.Row="2" Grid.Column="2" Content="Ouvrir la base autonome" MinHeight="30" Padding="12,3" Margin="0,0,0,6" AutomationProperties.Name="Premiers pas : première lecture de lʼOU"/>
+                          <TextBlock x:Name="LblFirstStepDashboardMark" Grid.Row="3" Grid.Column="0" Text="4" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
+                          <TextBlock x:Name="LblFirstStepDashboard" Grid.Row="3" Grid.Column="1" Text="Découvrir le tableau de bord : la vue dʼensemble de lʼOU se calcule depuis la base locale." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                          <Button x:Name="BtnFirstStepDashboard" Grid.Row="3" Grid.Column="2" Content="Voir le tableau de bord" MinHeight="30" Padding="12,3" AutomationProperties.Name="Premiers pas : découvrir le tableau de bord"/>
                         </Grid>
+                        <TextBlock x:Name="LblFirstStepsDeferred" Text="Plus tard, au moment où ils servent : le compte pour les postes (Comptes et accès) et les sauvegardes de la base (Outils, Base autonome, Stockage)." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,10,0,0" AutomationProperties.Name="Options réglées plus tard"/>
                       </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Card}" Margin="0,0,0,12" Padding="18,12">
@@ -7975,6 +7995,21 @@ function Get-MainXaml {
                   <Button x:Name="BtnStorageRetentionApply" Content="Appliquer…" IsEnabled="False" Margin="0,0,8,6" AutomationProperties.Name="Appliquer la conservation"/>
                 </WrapPanel>
                 <TextBlock x:Name="LblStorageRetention" Text="Enregistrez les réglages puis prévisualisez les données concernées." TextWrapping="Wrap" AutomationProperties.Name="Résultat de la conservation"/>
+              </StackPanel>
+            </Expander>
+            <Expander x:Name="ExpStorageDataPolicy" Header="Politique des données locales" IsExpanded="False" Margin="0,0,0,12" Padding="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" AutomationProperties.Name="Politique des données locales">
+              <StackPanel>
+                <TextBlock x:Name="LblStorageDataPolicy" Text="Domenia nʼenvoie aucune donnée hors de ce poste." TextWrapping="Wrap" Margin="0,0,0,10" AutomationProperties.Name="Engagement sur les données locales"/>
+                <DataGrid x:Name="DgStorageDataPolicy" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" MaxHeight="460" AutomationProperties.Name="Données locales de Domenia">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn Header="Données" Binding="{Binding Label}" Width="150" ElementStyle="{StaticResource WrappedCellText}"/>
+                    <DataGridTextColumn Header="Contenu" Binding="{Binding Content}" Width="2*" MinWidth="180" ElementStyle="{StaticResource WrappedCellText}"/>
+                    <DataGridTextColumn Header="Emplacement" Binding="{Binding Location}" Width="2*" MinWidth="160" ElementStyle="{StaticResource WrappedCellText}"/>
+                    <DataGridTextColumn Header="Conservation" Binding="{Binding Retention}" Width="2*" MinWidth="160" ElementStyle="{StaticResource WrappedCellText}"/>
+                    <DataGridTextColumn Header="Export" Binding="{Binding Export}" Width="*" MinWidth="140" ElementStyle="{StaticResource WrappedCellText}"/>
+                    <DataGridTextColumn Header="Suppression" Binding="{Binding Deletion}" Width="2*" MinWidth="160" ElementStyle="{StaticResource WrappedCellText}"/>
+                  </DataGrid.Columns>
+                </DataGrid>
               </StackPanel>
             </Expander>
             <Expander x:Name="ExpStorageMaintenance" Header="Stockage local" Margin="0,0,0,12" IsExpanded="True">
@@ -23621,7 +23656,7 @@ function Wire-Events {
     Update-DomeniaOuRefreshUi
     if ($script:Ctrl.ContainsKey("BtnFleetOpenSearch")) { $script:Ctrl["BtnFleetOpenSearch"].Add_Click({ try { Show-DomeniaFleetAnalyzeSource } catch { Set-Status ('Rechercher indisponible : ' + $_.Exception.Message) 'WARN' } }) }
     # First steps (UX-20): each step opens its screen and starts nothing.
-    foreach ($firstStep in @('Ou','Base','Account','Backup')) {
+    foreach ($firstStep in @('Connection','Ou','Base','Dashboard')) {
         $firstStepName = 'BtnFirstStep' + $firstStep
         if ($script:Ctrl.ContainsKey($firstStepName)) { $script:Ctrl[$firstStepName].Tag = $firstStep; $script:Ctrl[$firstStepName].Add_Click({ param($sender,$eventArgs) try { Open-DomeniaFirstStep -Step ([string]$sender.Tag) } catch { Set-Status ('Étape non ouverte : ' + $_.Exception.Message) 'WARN' } }) }
     }
@@ -23818,6 +23853,12 @@ function New-DefaultConfig {
             RefreshAfterEachAction = $true
             # Lot L01: observations older than this are left out of the overview (greyed past 7 days).
             ObservationMaxAgeDays = 30
+            # FO-17: team layout of each board, set by the administrator: the JSON list exported by « Exporter » (or the
+            # whole exported document, or its text). Empty: the delivered layout. Applied by « Par défaut » and to a board
+            # never customised; an unreadable value is ignored and the delivered layout stays.
+            DefaultLayoutComputer = ''
+            DefaultLayoutFleet = ''
+            DefaultLayoutSoftware = ''
         }
         UI = [ordered]@{
             WindowWidth = 1720
@@ -25072,7 +25113,7 @@ function Get-DomeniaWorkerOperationHashes {
         ReceiptStore         = "93A2008D0F26AFB193C5AA3E7B19E31F00A0A8D1AF348C721B9B6B0139122884"
         ScopeReconcile       = "5917B0E2AB92BA626EF3621CCCE7B9A4988B318E62834EFD02FD6AFEF5C0B650"
         DocumentStore        = "BFD83587CB1BA62BC141E5F0742C6C6453A561617ED157045F3B4E7AB11A14E7"
-        LocalStore           = "F3458D69CC65119EB817AC69FDD1538290930C267C853C88EFA5C76D970FC8E5"
+        LocalStore           = "8AFC87052F7DDF6FB5F6F45CC72349047CE7D88BCE394482C14B8CE7B5D48EC2"
         EngineSelfTest        = "40E2C89F858E22E1D221AC48DC04DD5BF627F1ACBC836AB48036C43DB9F7E1D1"
             EmbeddedDirectoryLookup = "F43B3C78876A45E016E4B0ACBB7B30BA7DF114738BD8DCAB5249BC5B6E066689"
         EmbeddedPathBrowse = "B643D707E242EC4416AD63622847DD7C39E5B53ED47CF64FECD56E22B5A82271"
@@ -25108,7 +25149,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "C767107B47CBB594F0D9678E515491EE2A9F11509A6900B2FD0EC65DCDD8CD56"
+    $expectedFingerprint = "352B93C6656568DB59AE4891911EDF70CE454DDC7E8CEC48EE6845A8C0F20DFE"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }

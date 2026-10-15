@@ -13,12 +13,19 @@
    Exit codes: 0 done (or -WhatIf), 1 error, 2 nothing installed (refused or unanswered question).
    -WhatIf performs verification and lists the plan without writing.
    Restore is hash-guarded: it refuses to discard an independently modified file.
+   Point 144: -Uninstall removes an installed copy (code files that still carry their manifest hash, then the manifest,
+   then the lifecycle lock, and the Domenia.lnk shortcuts aimed at it). Local data goes only on an explicit choice:
+   -LocalData Supprimer (preferences, wad\data, code backups) and -ProfileData Supprimer (base, logs and receipts of the
+   Windows profile, shared by every copy of this account). Without an answer, or with -Confirm:$false and Demander, the
+   data is kept. No administrator right is needed for a copy the user installed.
+   Point 143: the data schema transition of an update is announced before the answer and kept in the journal.
 #>
 [CmdletBinding(SupportsShouldProcess=$true,ConfirmImpact='Medium',DefaultParameterSetName='Update')]
 param(
     [Parameter(Mandatory,ParameterSetName='Update')]
     [Parameter(Mandatory,ParameterSetName='Install')]
     [Parameter(Mandatory,ParameterSetName='RestoreLatest')]
+    [Parameter(Mandatory,ParameterSetName='Uninstall')]
     [string]$Destination,
     [Parameter(Mandatory,ParameterSetName='Install')][switch]$Install,
     [Parameter(Mandatory,ParameterSetName='Restore')][string]$RestoreBackup,
@@ -26,7 +33,10 @@ param(
     [Parameter(ParameterSetName='Update')][Parameter(ParameterSetName='Install')][string]$Package='',
     [Parameter(ParameterSetName='Update')][Parameter(ParameterSetName='Install')][string]$QualificationReport='',
     [Parameter(ParameterSetName='Update')][Parameter(ParameterSetName='Install')][switch]$RequireQualification,
-    [Parameter(ParameterSetName='Install')][ValidateSet('Demander','Oui','Non')][string]$Shortcuts='Demander'
+    [Parameter(ParameterSetName='Install')][ValidateSet('Demander','Oui','Non')][string]$Shortcuts='Demander',
+    [Parameter(Mandatory,ParameterSetName='Uninstall')][switch]$Uninstall,
+    [Parameter(ParameterSetName='Uninstall')][ValidateSet('Demander','Conserver','Supprimer')][string]$LocalData='Demander',
+    [Parameter(ParameterSetName='Uninstall')][ValidateSet('Demander','Conserver','Supprimer')][string]$ProfileData='Demander'
 )
 $ErrorActionPreference='Stop'
 # -Confirm:$false waives the question; an explicit -Confirm already asked through ShouldProcess.
@@ -194,6 +204,28 @@ function Stop-Cancelled {
     exit 2
 }
 function Get-BackupRoot {param([string]$Root) return (Join-Path $Root 'wad\maintenance\backups')}
+function Get-DataSchemaVersion {
+    # Point 143: DataSchemaVersion declared by wad\Domenia.release.json of a Domenia folder; '' when absent or unreadable
+    # (version without release contract, file redirected, too large or invalid).
+    param([string]$Root)
+    try{
+        $info=[IO.FileInfo]::new((Join-Path $Root 'wad\Domenia.release.json'))
+        if((-not $info.Exists) -or ($info.Length -gt 1MB) -or ($info.Attributes -band [IO.FileAttributes]::ReparsePoint)){return ''}
+        $value=([IO.File]::ReadAllText($info.FullName)|ConvertFrom-Json).DataSchemaVersion
+        if(($value -is [int]) -or ($value -is [long])){return [string]$value}
+    }catch{}
+    return ''
+}
+function Import-PackageModel {
+    # Dot-sources one pure rule file of the package being installed, after checking it against the package manifest
+    # (same bytes as the staged copy loaded later). Nothing of the active installation is executed.
+    param([string]$Source,[object]$Manifest,[string]$Relative)
+    $entry=@($Manifest.Files|Where-Object{[string]$_.Path -ceq $Relative})
+    if($entry.Count -ne 1){throw ('Règle absente du manifeste : '+$Relative)}
+    $path=Get-SafePackagePath $Source $Relative
+    if((Get-CodeHash $path) -cne [string]$entry[0].Sha256){throw ('Intégrité du paquet invalide : '+$Relative)}
+    return $path
+}
 function Get-CompletedBackups {
     # Backup folders created by this installer (yyyyMMdd-HHmmss-xxxxxxxx), newest first, with their journal status.
     param([string]$Root)
@@ -403,6 +435,198 @@ function Restore-FromBackup {
     if([IO.File]::Exists($restoredManifest)){try{$restoredBuild=[string](([IO.File]::ReadAllText($restoredManifest)|ConvertFrom-Json).Build)}catch{}}
     Write-Host ('Code précédent restauré. Version avant : '+[string]$journal.Build+' ; version après : '+$restoredBuild+'.')
     Write-Host 'wad\data et les préférences conservées nʼont pas été modifiés.'
+    # Point 143: what the restored code will do with a base that the installed version may have migrated.
+    $notice=$journal.PSObject.Properties['RestoreNotice']
+    if(($null -ne $notice) -and -not [string]::IsNullOrWhiteSpace([string]$notice.Value)){Write-Host ([string]$notice.Value)}
+    else{Write-Host 'Base locale : schéma de données non consigné par cette sauvegarde. Si la version restaurée refuse la base, restaurez dans Domenia la sauvegarde de la base faite avant la migration.'}
+}
+
+function ConvertTo-LongPath {
+    # Long form of an existing path (8.3 segments expanded by the file system), compared case-insensitively. A segment
+    # that cannot be resolved is kept as given.
+    param([string]$Path)
+    $full=[IO.Path]::GetFullPath($Path)
+    $rootPart=[IO.Path]::GetPathRoot($full)
+    $current=$rootPart
+    foreach($segment in @($full.Substring($rootPart.Length).Split([IO.Path]::DirectorySeparatorChar)|Where-Object{$_})){
+        $next=Join-Path $current $segment
+        try{$found=@([IO.Directory]::GetFileSystemEntries($current,$segment));if($found.Count -eq 1){$next=$found[0]}}catch{}
+        $current=$next
+    }
+    return $current
+}
+function Get-DataFolder {
+    # Absolute folder of one data category under a root, $null when absent. Refuses a path leaving the root and any link
+    # or junction in the folder or below it, before anything is deleted.
+    param([string]$Root,[string]$Relative)
+    if([string]::IsNullOrWhiteSpace($Root)){return $null}
+    $prefix=[IO.Path]::GetFullPath($Root).TrimEnd([IO.Path]::DirectorySeparatorChar)+[IO.Path]::DirectorySeparatorChar
+    $path=[IO.Path]::GetFullPath((Join-Path $prefix $Relative))
+    if(-not $path.StartsWith($prefix,[StringComparison]::OrdinalIgnoreCase)){throw ('Dossier de données hors de son emplacement : '+$Relative)}
+    $info=[IO.DirectoryInfo]::new($path)
+    if(-not $info.Exists){return $null}
+    $pending=New-Object 'System.Collections.Generic.Stack[System.IO.DirectoryInfo]'
+    $pending.Push($info)
+    while($pending.Count -gt 0){
+        $folder=$pending.Pop()
+        if($folder.Attributes -band [IO.FileAttributes]::ReparsePoint){throw ('Lien ou jonction dans les données, rien nʼest supprimé : '+$folder.FullName)}
+        foreach($file in $folder.GetFiles()){if($file.Attributes -band [IO.FileAttributes]::ReparsePoint){throw ('Lien dans les données, rien nʼest supprimé : '+$file.FullName)}}
+        foreach($child in $folder.GetDirectories()){$pending.Push($child)}
+    }
+    return $path
+}
+function Remove-EmptyFolders {
+    # Removes the empty folders below Root (links are never entered), then Root itself when it is empty.
+    param([string]$Root)
+    $info=[IO.DirectoryInfo]::new($Root)
+    if((-not $info.Exists) -or ($info.Attributes -band [IO.FileAttributes]::ReparsePoint)){return}
+    foreach($child in $info.GetDirectories()){if(-not ($child.Attributes -band [IO.FileAttributes]::ReparsePoint)){Remove-EmptyFolders $child.FullName}}
+    if(@([IO.Directory]::EnumerateFileSystemEntries($Root)).Count -eq 0){[IO.Directory]::Delete($Root)}
+}
+function Assert-NoDomeniaRunning {
+    # The profile data is shared by every copy of Domenia of this account: no copy may be running while it is removed.
+    if(@(Get-Process -Name Domenia,ADCC -ErrorAction SilentlyContinue).Count -gt 0){throw 'Une copie de Domenia est ouverte : fermez toutes les copies avant de supprimer les données du profil. Rien nʼest supprimé.'}
+    foreach($process in @(Get-CimInstance -ClassName Win32_Process -Filter "Name='powershell.exe' OR Name='powershell_ise.exe' OR Name='pwsh.exe'" -ErrorAction Stop)){
+        if([int]$process.ProcessId -eq $PID){continue}
+        if(([string]$process.CommandLine) -match '(?i)(Domenia|ADCC)-(Core|Start)\.ps1'){throw ('Domenia est encore lancé : PID '+$process.ProcessId+'. Fermez toutes les copies avant de supprimer les données du profil. Rien nʼest supprimé.')}
+    }
+}
+function Get-OpenReceipts {
+    # Write receipts of the profile that are still to be checked: Stage outside the terminal stages of Domenia, or a file
+    # that cannot be read as a receipt. Such a receipt is the only trace that an AD write may have left without
+    # verification, so the profile data is never deleted while one remains. $Folder: receipts folder ($null when absent).
+    param([AllowNull()][string]$Folder)
+    $open=New-Object 'System.Collections.Generic.List[string]'
+    $count=0
+    if(-not [string]::IsNullOrWhiteSpace($Folder)){
+        foreach($file in [IO.Directory]::EnumerateFiles($Folder,'*.json',[IO.SearchOption]::AllDirectories)){
+            $count++
+            $stage=''
+            try{
+                if(([IO.FileInfo]::new($file)).Length -le 65536){
+                    $receipt=[IO.File]::ReadAllText($file)|ConvertFrom-Json
+                    if(($null -ne $receipt) -and ([string]$receipt.Format -eq '1')){$stage=[string]$receipt.Stage}
+                }
+            }catch{$stage=''}
+            if(@('Verified','NotSent','Reviewed','Delivered') -notcontains $stage){$open.Add($file.Substring($Folder.TrimEnd([IO.Path]::DirectorySeparatorChar).Length).TrimStart([IO.Path]::DirectorySeparatorChar))}
+        }
+    }
+    return [pscustomobject]@{Count=$count;Open=$open.ToArray()}
+}
+function Resolve-DataChoice {
+    # Explicit answer for one data category: Conserver unless the operator says to delete.
+    param([string]$Choice,[string]$Question,[string]$Switch,[bool]$Present)
+    # ValidateSet ignores case: the value gets its canonical spelling before the case-sensitive comparisons below and
+    # in Get-DomeniaUninstallPlan ('-LocalData supprimer' must delete, '-LocalData demander' must ask).
+    foreach($canonical in @('Demander','Conserver','Supprimer')){if($Choice -ieq $canonical){$Choice=$canonical}}
+    if($Choice -cne 'Demander'){return $Choice}
+    if(-not $Present){return 'Conserver'}
+    if(-not $askOperator){Write-Host ('Données conservées : question non posée (-Confirm:$false). Ajoutez '+$Switch+' Supprimer pour les supprimer.');return 'Conserver'}
+    $answer=Read-OperatorAnswer $Question
+    if($answer -eq $true){return 'Supprimer'}
+    if($null -eq $answer){Write-Host 'Aucune réponse : données conservées.'}
+    return 'Conserver'
+}
+function Invoke-DomeniaUninstall {
+    param([string]$Root)
+    $targetRoot=[IO.Path]::GetFullPath((Resolve-Path -LiteralPath $Root).Path).TrimEnd([IO.Path]::DirectorySeparatorChar)
+    if(-not (Test-Path -LiteralPath (Join-Path $targetRoot 'wad\Domenia-Core.ps1') -PathType Leaf)){throw 'Destination incorrecte : choisissez le dossier Domenia contenant wad\Domenia-Core.ps1. Rien nʼest supprimé.'}
+    $manifestPath=Get-SafePackagePath $targetRoot 'wad/package-manifest.json'
+    if(-not [IO.File]::Exists($manifestPath)){throw 'Manifeste absent : cette copie nʼa pas été installée par ce programme. Rien nʼest supprimé.'}
+    Assert-AppClosed $targetRoot
+    $activeManifest=Get-CodeManifest $manifestPath -Previous
+    # The removal rule comes from this installer's own package, checked against its manifest.
+    $ownManifest=Get-CodeManifest (Get-SourceManifestPath $source)
+    . (Import-PackageModel $source $ownManifest 'wad/modules/Domenia-Common.Model.ps1')
+    . (Import-PackageModel $source $ownManifest 'wad/modules/Domenia-Release.Model.ps1')
+    # A DEV tree carries its tools and its Windows suites folder; neither is ever run here, only detected.
+    $devTree=([IO.Directory]::Exists((Join-Path $targetRoot 'tools')) -or [IO.Directory]::Exists([IO.Path]::Combine($targetRoot,'wad','tests')))
+    $pendingPath=Join-Path $targetRoot 'wad\Support\.update.pending'
+    $observed=@{}
+    foreach($entry in @($activeManifest.Files)){
+        $relative=[string]$entry.Path
+        if(($relative -ceq 'wad/Support/.lifecycle.lock') -or [bool]$entry.PreserveExisting){continue}
+        $path=Get-SafePackagePath $targetRoot $relative
+        if([IO.File]::Exists($path)){$observed[$relative]=Get-CodeHash $path}
+    }
+    $profileRoot=[Environment]::GetFolderPath('LocalApplicationData')
+    $preview=Get-DomeniaUninstallPlan -Manifest $activeManifest -Observed $observed -LocalData Supprimer -ProfileData Supprimer -DevTree $devTree -PendingInstall ([IO.File]::Exists($pendingPath))
+    if(-not $preview.Allowed){throw ([string]::Join(' ',[string[]]$preview.Blockers))}
+    # Data really present, so that a question is asked only when there is something to keep or delete.
+    $localPresent=New-Object 'System.Collections.Generic.List[string]'
+    foreach($relative in @($preview.LocalFolders)){if($null -ne (Get-DataFolder $targetRoot $relative)){$localPresent.Add($relative)}}
+    foreach($relative in @($preview.RemoveSettings)){if([IO.File]::Exists((Get-SafePackagePath $targetRoot $relative))){$localPresent.Add($relative)}}
+    $profilePresent=New-Object 'System.Collections.Generic.List[string]'
+    foreach($relative in @($preview.ProfileFolders)){if($null -ne (Get-DataFolder $profileRoot $relative)){$profilePresent.Add($relative)}}
+    Write-Host ('Désinstallation de Domenia '+[string]$preview.Build+' dans '+$targetRoot+' : '+@($preview.RemoveCode).Count+' fichier(s) de code.')
+    if(@($preview.KeepModified).Count -gt 0){Write-Host ('Fichiers modifiés depuis lʼinstallation, conservés : '+[string]::Join(', ',[string[]]$preview.KeepModified))}
+    Write-Host ('Données de ce dossier présentes : '+$(if($localPresent.Count){[string]::Join(', ',$localPresent.ToArray())}else{'aucune'})+'.')
+    Write-Host ('Données Domenia du profil Windows présentes : '+$(if($profilePresent.Count){[string]::Join(', ',$profilePresent.ToArray())+' (partagées par toutes les copies de ce compte)'}else{'aucune'})+'.')
+    $receipts=Get-OpenReceipts (Get-DataFolder $profileRoot 'Domenia\Receipts')
+    if($receipts.Open.Count -gt 0){Write-Host ('Reçus dʼopérations à vérifier : '+$receipts.Open.Count+'. Les données du profil ne seront pas supprimées tant quʼils ne sont pas vérifiés dans Domenia (onglet « Fiabilité », Opérations à vérifier).')}
+    if(-not $PSCmdlet.ShouldProcess($targetRoot,'Désinstaller Domenia ; les données ne sont supprimées que sur un choix explicite')){if($WhatIfPreference){return};Stop-Cancelled 'Désinstallation annulée : rien nʼest supprimé.'}
+    if($askOperator){
+        $answer=Read-OperatorAnswer ('Désinstaller Domenia de '+$targetRoot+' ? (O/N)')
+        if($answer -ne $true){Stop-Cancelled $(if($null -eq $answer){'Désinstallation annulée faute de réponse : rien nʼest supprimé.'}else{'Désinstallation annulée : rien nʼest supprimé.'})}
+    }
+    $localChoice=Resolve-DataChoice $LocalData 'Supprimer aussi les données de ce dossier (préférences, wad\data, sauvegardes du code) ? (O/N, N les conserve)' '-LocalData' ($localPresent.Count -gt 0)
+    $profileChoice=Resolve-DataChoice $ProfileData ('Supprimer aussi les données Domenia de votre profil Windows (base locale, journaux, '+$receipts.Count+' reçu(s) dʼopérations), partagées par toutes les copies de Domenia de ce compte ? (O/N, N les conserve)') '-ProfileData' ($profilePresent.Count -gt 0)
+    $plan=Get-DomeniaUninstallPlan -Manifest $activeManifest -Observed $observed -LocalData $localChoice -ProfileData $profileChoice -DevTree $devTree -PendingInstall ([IO.File]::Exists($pendingPath))
+    if(-not $plan.Allowed){throw ([string]::Join(' ',[string[]]$plan.Blockers))}
+    if(@($plan.ProfileFolders).Count -gt 0){
+        Assert-NoDomeniaRunning
+        # Read again after the answers: a receipt left unchecked keeps the whole profile, and nothing is deleted.
+        $receipts=Get-OpenReceipts (Get-DataFolder $profileRoot 'Domenia\Receipts')
+        if($receipts.Open.Count -gt 0){
+            $named=[string]::Join(', ',[string[]]@($receipts.Open|Select-Object -First 10))
+            if($receipts.Open.Count -gt 10){$named+=' et '+($receipts.Open.Count-10)+' autre(s)'}
+            throw ('Reçus dʼopérations à vérifier : '+$named+'. Une écriture AD a pu partir sans vérification : vérifiez ces opérations dans Domenia (onglet « Fiabilité », Opérations à vérifier), puis relancez la désinstallation. Rien nʼest supprimé.')
+        }
+    }
+    # Every data folder is checked for links before the first deletion.
+    $localTargets=@(foreach($relative in @($plan.LocalFolders)){$folder=Get-DataFolder $targetRoot $relative;if($null -ne $folder){$folder}})
+    $profileTargets=@(foreach($relative in @($plan.ProfileFolders)){$folder=Get-DataFolder $profileRoot $relative;if($null -ne $folder){$folder}})
+    # Shortcuts aimed at this copy, read before its Domenia.exe is removed.
+    $exe=ConvertTo-LongPath (Join-Path $targetRoot 'Domenia.exe')
+    $links=New-Object 'System.Collections.Generic.List[string]'
+    $shell=New-Object -ComObject WScript.Shell
+    try{
+        foreach($folder in @([Environment]::GetFolderPath('DesktopDirectory'),[Environment]::GetFolderPath('Programs'))){
+            if([string]::IsNullOrWhiteSpace($folder)){continue}
+            $link=Join-Path $folder 'Domenia.lnk'
+            if(-not [IO.File]::Exists($link)){continue}
+            $target=[string]$shell.CreateShortcut($link).TargetPath
+            if($target -and [IO.File]::Exists($target) -and ((ConvertTo-LongPath $target) -ieq $exe)){$links.Add($link)}
+            else{Write-Host ('Raccourci conservé, il vise une autre copie : '+$link)}
+        }
+    }finally{[void][Runtime.InteropServices.Marshal]::ReleaseComObject($shell)}
+    Assert-AppClosed $targetRoot
+    $lockPath=Join-Path $targetRoot 'wad\Support\.lifecycle.lock'
+    $lock=$null
+    if([IO.File]::Exists($lockPath)){$lock=[IO.File]::Open($lockPath,[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)}
+    $removed=0;$changed=New-Object 'System.Collections.Generic.List[string]'
+    try{
+        foreach($relative in @($plan.RemoveCode)){
+            if($relative -ceq 'wad/Support/.lifecycle.lock'){continue}
+            $path=Get-SafePackagePath $targetRoot $relative
+            if(-not [IO.File]::Exists($path)){continue}
+            # Read again under the exclusive lock: a file changed since the plan is kept, never removed blindly.
+            if(($relative -cne 'wad/package-manifest.json') -and ((Get-CodeHash $path) -cne [string]$observed[$relative])){$changed.Add($relative);continue}
+            [IO.File]::Delete($path);$removed++
+        }
+        foreach($relative in @($plan.RemoveSettings)){$path=Get-SafePackagePath $targetRoot $relative;if([IO.File]::Exists($path)){[IO.File]::Delete($path)}}
+        foreach($folder in $localTargets){[IO.Directory]::Delete($folder,$true)}
+    }finally{if($null -ne $lock){$lock.Dispose()}}
+    if((@($plan.RemoveCode) -ccontains 'wad/Support/.lifecycle.lock') -and [IO.File]::Exists($lockPath)){[IO.File]::Delete($lockPath);$removed++}
+    foreach($link in $links){if([IO.File]::Exists($link)){[IO.File]::Delete($link)}}
+    foreach($folder in $profileTargets){[IO.Directory]::Delete($folder,$true)}
+    if($profileTargets.Count -gt 0){$profileFolder=Join-Path $profileRoot 'Domenia';if([IO.Directory]::Exists($profileFolder) -and (@([IO.Directory]::EnumerateFileSystemEntries($profileFolder)).Count -eq 0)){[IO.Directory]::Delete($profileFolder)}}
+    Remove-EmptyFolders $targetRoot
+    Write-Host ('Domenia désinstallé : '+$removed+' fichier(s) de code supprimé(s), '+$links.Count+' raccourci(s) retiré(s).')
+    foreach($line in @($plan.Lines|Select-Object -Skip 1)){Write-Host $line}
+    if($changed.Count -gt 0){Write-Host ('Fichiers modifiés pendant la désinstallation, conservés : '+[string]::Join(', ',$changed.ToArray()))}
+    if([IO.Directory]::Exists($targetRoot)){Write-Host ('Dossier conservé : '+$targetRoot+' (données conservées ou fichiers non livrés par ce paquet).')}
+    else{Write-Host ('Dossier supprimé : '+$targetRoot)}
 }
 
 if($PSCmdlet.ParameterSetName -eq 'Restore') {
@@ -430,6 +654,10 @@ if($PSCmdlet.ParameterSetName -eq 'RestoreLatest') {
 }
 
 $source=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..')).TrimEnd([IO.Path]::DirectorySeparatorChar)
+if($Uninstall){
+    Invoke-DomeniaUninstall -Root $Destination
+    return
+}
 if($Install){
     $fullDestination=$PSCmdlet.GetUnresolvedProviderPathFromPSPath($Destination).TrimEnd([IO.Path]::DirectorySeparatorChar)
     if([IO.File]::Exists($fullDestination)){throw 'La destination est un fichier : choisissez un dossier vide.'}
@@ -572,7 +800,13 @@ $manifestRelative='wad/package-manifest.json';$manifestTarget=Get-SafePackagePat
 $manifestExists=[IO.File]::Exists($manifestTarget)
 $plan.Add([pscustomobject]@{Path=$manifestRelative;Existed=$manifestExists;OldSha256=$(if($manifestExists){Get-CodeHash $manifestTarget}else{''});NewSha256=$manifestHash})
 $activeLabel=if($activeBuild){$activeBuild}else{'(inconnue)'}
+# Point 143: the data schema transition is announced before the answer; the application migrates the base itself at
+# its first start, after a verified backup, and the restore advice is kept in the transaction journal.
+. (Import-PackageModel $source $manifest 'wad/modules/Domenia-Common.Model.ps1')
+. (Import-PackageModel $source $manifest 'wad/modules/Domenia-Release.Model.ps1')
+$schemaTransition=Get-DomeniaDataSchemaTransition -ActiveSchema (Get-DataSchemaVersion $targetRoot) -TargetSchema (Get-DataSchemaVersion $source)
 Write-Host ('Version active : '+$activeLabel+' ; version préparée : '+[string]$manifest.Build+'.')
+Write-Host ([string]$schemaTransition.UpdateNotice)
 Write-Host ('Fichiers à installer : '+$plan.Count)
 foreach($entry in $plan){Write-Host ('  '+$entry.Path)}
 if(-not $PSCmdlet.ShouldProcess($targetRoot,'Sauvegarder le code puis installer la mise à jour, sans toucher à wad\data')) {if($WhatIfPreference){return};Stop-Cancelled 'Installation annulée : aucun fichier modifié.'}
@@ -616,7 +850,8 @@ $lockPath=Join-Path $targetRoot 'wad\Support\.lifecycle.lock'
 $lock=[IO.File]::Open($lockPath,[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
 $pendingPath=Join-Path $targetRoot 'wad\Support\.update.pending'
 if([IO.File]::Exists($pendingPath)){$lock.Dispose();throw 'Installation précédente incomplète. Lancez dʼabord -RestoreLatest -Destination avec ce dossier Domenia.'}
-$journal=[ordered]@{Format=1;Build=[string]$manifest.Build;Created=(Get-Date).ToString('o');Destination=$targetRoot;Status='Prepared';Files=$plan.ToArray()}
+$journal=[ordered]@{Format=1;Build=[string]$manifest.Build;Created=(Get-Date).ToString('o');Destination=$targetRoot;Status='Prepared';Files=$plan.ToArray()
+    DataSchema=[ordered]@{Before=[int]$schemaTransition.ActiveSchema;After=[int]$schemaTransition.TargetSchema;Direction=[string]$schemaTransition.Direction};RestoreNotice=[string]$schemaTransition.RestoreNotice}
 $journalPath=Join-Path $backup 'transaction.json'
 $encoding=[Text.UTF8Encoding]::new($false)
 $started=$false
@@ -667,4 +902,5 @@ try {
 Write-Host ('Mise à jour installée. Version avant : '+$activeLabel+' ; version après : '+[string]$manifest.Build+'.')
 Write-Host ('Code précédent sauvegardé dans '+$backup+' ('+$keptBackups+' sauvegardes complètes au plus ; '+$cleanup.Count+' ancienne(s) retirée(s)).')
 Write-Host ('Retour arrière : wad\Support\INSTALLER-MISE-A-JOUR.ps1 -RestoreLatest -Destination '''+$targetRoot+'''')
+if(-not [bool]$schemaTransition.RestoreReadsBase){Write-Host ('Avant un retour arrière : '+[string]$schemaTransition.RestoreNotice)}
 Write-Host 'Lancez Domenia.exe. Les anciens fichiers DEV ne sont pas supprimés automatiquement.'

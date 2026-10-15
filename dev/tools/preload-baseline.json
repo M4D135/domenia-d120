@@ -128,7 +128,7 @@
     "Get-DomeniaPreferencePath": "DAD987C58AF30E7836681C0973FEB76FD5D74107B3EF657B007AE9F988E5FD9B",
     "Read-DomeniaPreference": "EDFF1A7694CC5F41E486EAFD212EBF955B1F1BAE1DDC8FD4ED506040833AF5F6",
     "Write-DomeniaPreference": "6E832555C47A274225FE97F2AF7CBF3F7313DAB57A4D4E1CFE2BB997C6B0514B",
-    "Get-DomeniaDefaultSettings": "860F1FAC9EF9E88AEC35CADC85F9023A64383BDBB3C8238F3E08BD129AB47C23",
+    "Get-DomeniaDefaultSettings": "3679FD4423582DA7CAE3579CACF2CEAFDB8B2C3302D5F7F74ACEAB42C1C31288",
     "Load-DomeniaSettings": "658995AADC062CA8B233F4A2F88E52929723B730E15AFEDEC56CC28892B4F319",
     "Save-DomeniaSettings": "B34013701E4A591E2E4F85E378DDC78291E35999A17A2941D0FC05ADEFFB3B6F",
     "Get-DomeniaSetting": "0EAAF3A4E8C78628E947B9C542C314AFFC0AE47C1C64F69D2F75E5B55C9718D7",
@@ -151,7 +151,7 @@
     "Set-DomeniaResourceColor": "27391F9046A85B14658803F03178045ABEDF0B1F4DD5364D7BA5575C5E4F11BE",
     "Apply-DomeniaTheme": "517948EA9FBEF1B5408EBDD35BA5F48353CB9A940498C2150464FA315035BD91",
     "Toggle-DomeniaTheme": "EA7E0F31A78D8B4A0BFAB0C27D8028521C1C3A1A255DDA4BEA3B65B5F7C99F03",
-    "Get-MainXaml": "DD46A274C4B4EF982AD6C88BA12960DE2E20DD9209D7645E67E5FC8DF1B18062",
+    "Get-MainXaml": "DD84E5FFDE303FC8EB0A755A7478CE1BAAA4767FB5DE47B216BE2A16952C9F03",
     "Assert-DomeniaXamlPreflight": "20BB1DA04FD88D78E1A52C5610376467D5E9408437BC823DDC8EC8F40C0EAEB7",
     "Save-DomeniaXamlDiagnostic": "D648C9D6BD6F5F3A6613957D22A6A42EC1AAC0C1FA6218195A55D10EADF4DC67",
     "ConvertFrom-DomeniaXaml": "855E6CA9E56D62F77F5C22ACAC048293D24281B5B8FCC7FEB6806450BE561228",
@@ -529,8 +529,8 @@
     "Clear-DomeniaSecondaryCredential": "D848EE48F6AAAC462AA6DA16553E10CABA466A8A97B444ABC16EFB28C181211E",
     "Start-DomeniaAccountRelogin": "5F1A3BAA29C9EF553574C5159F9DB970FDE3D38A36B9D012822A4F6214A1CA13",
     "Initialize-DomeniaAccountPanel": "0F0046243BF0E0733F2B2D5CCCD3DB5BF0D1F0E7B2E31C4FFFDE11E72C219C0C",
-    "Wire-Events": "A8793313E0A6E1999331494DBF7335978F2F324219689B5528149623CE299BDA",
-    "New-DefaultConfig": "2354E10CF363A01B79DC38F98255CC2C614BEEEAB126708C6BFA8B42E11F7BC0",
+    "Wire-Events": "EE5FA40BA0EE95E76FAAAEC6625324B1F82B08EBBB83B0DDA3E8CFD0F35AAF3C",
+    "New-DefaultConfig": "486F796274C7FF3B93AC1654194F3B8F2AF6707F01BC0EA282BC289A0CADA354",
     "Initialize-DomeniaDataStore": "75C63F73149D4C8CACBAA107F9223E9140830F4F01360F1899E8D79DC6A51E5A",
     "Write-StartupTrace": "216F93F6D1D37A669438F904233E5819260B8DA5AD48CF8887D6C5A372435250",
     "Get-DomeniaStartupXaml": "3945EB4C86332E38EC1491FC14A462CD4F2A103E615D82682E132E8164245F7F",
@@ -567,8 +567,8 @@
     "Save-UserMachineLinks": "BE795AF61C61794DFBB29B10146A8B867A5DCB4C22143448126BD067DC9256DE",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "F7476F449D4314D0C16B46393B748B7C52567AD74595A332311BF00B82651BA2",
-    "Assert-DomeniaWorkerRegistry": "C2779C5F4FCA99B3BC84D7D26C4E0512799F21D734CFE4EF6EBE49E2B8C82177",
+    "Get-DomeniaWorkerOperationHashes": "9B5BA254271FCC1ACD9AE55F637A4D0186E48829921AC899E1EAAA086BB549CD",
+    "Assert-DomeniaWorkerRegistry": "3A94F66E645B4D5E23C0F718D253A96A87FD3A8B4C644EA93D478C901B52D01D",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "C39E92B423D3B448B91B25EE502B6AD3D8C382E6AB63F231965C20B2AC3D5775",
@@ -4123,6 +4123,43 @@
         "Show-DomeniaCommandPalette",
         "Start-UiTask"
       ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": ".",
+      "Source": ".",
+      "Decision": "Lot W16 (points 132, 133, 141 a 150) : registre du code compile, catalogue de contrats versionnes (26 formats), signature si un certificat est fourni, builds reproductibles, mise a jour avec migration annoncee, installation et desinstallation, matrice de compatibilite, inventaire des licences, politique des donnees locales (20 categories couvrant les donnees de tous les lots), premiers pas, synchronisation de l aide et des guides, recette de livraison mesurable. LocalStore re-epingle apres relecture.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaDefaultSettings",
+        "Get-DomeniaWorkerOperationHashes",
+        "Get-MainXaml",
+        "Wire-Events"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": ".",
+      "Source": ".",
+      "Decision": "Lot Z03 (pistes DS-04, DS-05, UX-11, FO-13, FO-17, UI-14) : tableaux en grille fluide, carte Sante unique (score et points), tableau du poste allege a 14 widgets avec fiches Identite, Compte machine et liste Etat de protection (Secure Boot inclus), copie d un widget et du resume pour un ticket, dispositions d equipe definies par l administrateur, editeur de widget sans jargon WMI. Synchronise avec W11, W15, W16.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes",
+        "New-DefaultConfig"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": ".",
+      "Source": ".",
+      "Decision": "Lot Z03 (pistes DS-04, DS-05, UX-11, FO-13, FO-17, UI-14) : tableaux en grille fluide, carte Sante unique, tableau du poste allege a 14 widgets (fiches Identite et Compte machine, liste Etat de protection avec Secure Boot), copie d un widget et du resume pour un ticket, dispositions d equipe definies par l administrateur, editeur de widget sans jargon WMI. Synchronise avec W11, W15, W16. Reference doc_sync mise a jour apres relecture (libelles de catalogue et textes composes a l execution).",
+      "ChangedCoreFunctions": [],
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],
       "ChangedPayloads": []

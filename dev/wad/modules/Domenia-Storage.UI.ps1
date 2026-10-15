@@ -1570,6 +1570,8 @@ function Initialize-DomeniaStoragePolicy {
     if($null -eq $script:StorageMaintenance){[void](Set-DomeniaControlText 'LblStorageMaintenance' ([string]$control.Text))}
     Update-DomeniaStorageSpaceUi
     Update-DomeniaStorageLimitsUi
+    # Point 147: the local data policy shows the retention just saved.
+    try{Initialize-DomeniaDataPolicyView}catch{Write-AppLog ('Politique des données non affichée : '+$_.Exception.Message) 'WARN'}
 }
 function Get-DomeniaStorageBackupKey {
     # Settings key of the active base for its backup receipts; '' without an active base.

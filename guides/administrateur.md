@@ -46,7 +46,7 @@ La page « Rechercher » lit l'annuaire à la demande ; elle ne sonde aucun po
 | Zone de Rechercher | Utilisation |
 |---|---|
 | Arbre des OU | Choisissez la branche à parcourir et relisez son chemin. |
-| Données de l’OU, sous l’arbre | Base locale, Postes (ping/WMI) et Les deux actualisent toute l’OU choisie et ses sous-OU. |
+| Données de l’OU, sous l’arbre | Objets AD, Ping et WMI actualisent toute l’OU choisie et ses sous-OU ; Arrêter interrompt l’actualisation en cours. |
 | Périmètre et Requêtes | Choisissez une source, des filtres ou une recette, puis lancez la recherche. |
 | Résultats | Triez, filtrez et ouvrez les objets affichés. Les actions de liste concernent cette liste. |
 
@@ -54,7 +54,7 @@ La page « Rechercher » lit l'annuaire à la demande ; elle ne sonde aucun po
 
 La barre du haut cherche dans tout le domaine, tous types d'objets, sans filtre de présence ni de liste. Deux puces sous la barre la précisent explicitement : « Partout » ou « Dans « Postes » » (l’OU choisie dans l’arbre, sous-OU incluses ; jamais la racine ni une OU d’un autre domaine), et « Tout », « Personnes », « Postes » ou « Groupes ». Le texte d’attente de la barre et le résumé au-dessus des résultats reprennent ces choix ; en recherche globale, les filtres propres à la liste d’une OU (type, présence) sont masqués. Entrée ou le bouton « Rechercher » la lancent ; changer une puce ne lit rien. Aucun poste n'est sondé avant une sélection.
 
-- Minimum de caractères : Browser.GlobalSearchMinChars (2), étoiles non comptées. En dessous, Domenia affiche « Saisissez au moins 2 caractères » et nʼenvoie rien. Une saisie faite seulement dʼétoiles est refusée dans la barre du haut (« Saisissez au moins un caractère en plus de * ») ; dans une OU, elle liste lʼOU comme un simple parcours. Plusieurs étoiles consécutives sont fusionnées en une seule avant lʼenvoi du filtre LDAP.
+- Minimum de caractères : Browser.GlobalSearchMinChars (2), étoiles non comptées. En dessous, Domenia affiche « Saisissez au moins N caractères… » (N : ce minimum) et nʼenvoie rien. Une saisie faite seulement dʼétoiles est refusée dans la barre du haut (« Saisissez au moins un caractère en plus de * ») ; dans une OU, elle liste lʼOU comme un simple parcours. Plusieurs étoiles consécutives sont fusionnées en une seule avant lʼenvoi du filtre LDAP.
 - Limite : celle du champ « lignes max » (100 par défaut), retenue d'une session à l'autre dans la préférence SearchLimit. « Charger la suite » lit seulement les lignes suivantes de la même recherche (la liste double, jusqu'à 20 000 lignes) : l'annuaire reprend après le dernier nom lu, trié par nom, et les lignes déjà chargées ne sont ni relues ni affichées deux fois. « Charger jusqu'à 1 000 » (puis 5 000, puis 20 000) porte la liste à ce palier en un seul geste.
 - Recherche globale : 120 s sans nouvel objet AD, 900 s au total ; annulation possible. Délais LDAP : 60/90 s, pages de 250 objets. Réglages et bornes au chapitre 17.
 - Recherche « contient » : après une recherche globale complète de texte simple qui renvoie 5 noms ou moins, la puce « Chercher aussi les noms qui contiennent… » relance, au clic seulement, la même recherche avec le filtre *mot* sur name, displayName, sAMAccountName et dNSHostName (chaque mot doit figurer, quatre mots au plus). Ce filtre n’utilise pas d’index : l’annuaire parcourt tous les noms du périmètre, avec la même limite.
@@ -118,7 +118,7 @@ La lecture de la console passe par CIM en DCOM, avec le compte des opérations p
 
 La confirmation nomme la liste visée (« OU Postes, sous-OU », « recherche « PC » » ou « la sélection »), jamais le domaine : une liste filtrée de la racine du domaine reste « les résultats affichés ». Elle signale les lignes sans identifiant AD ignorées et, quand la liste a atteint sa limite de lignes, que les autres postes ne sont pas concernés. Un relevé est refusé au-delà de Park.MaxTargets postes (500 par défaut, 5 000 au plus), pour une liste de la racine du domaine sans autre filtre et pour une recherche globale sans terme : filtrez la liste ou choisissez une OU.
 
-Pendant le relevé, le bouton devient « Arrêter (12/48) » ; une barre fine et un compteur court (« 12/48 · 9 joignables ») suivent l'avancement, et chaque poste encore à lire affiche « relevé en cours… » dans « Présence réseau ». Le détail complet part dans le journal à la fin du relevé. Après un ping, trois pastilles comptent à part « en ligne », « sans réponse » et « erreurs » (nom introuvable dans le DNS, échec réseau ou lecture interrompue) ; dans une liste d'OU, chaque pastille filtre la liste par présence et un second clic retire le filtre.
+Pendant le relevé, le bouton devient « Arrêter (N/M) » (N postes lus sur M) ; une barre fine et un compteur court (« 12/48 · 9 joignables ») suivent l'avancement, et chaque poste encore à lire affiche « relevé en cours… » dans « Présence réseau ». Le détail complet part dans le journal à la fin du relevé. Après un ping, trois pastilles comptent à part « en ligne », « sans réponse » et « erreurs » (nom introuvable dans le DNS, échec réseau ou lecture interrompue) ; dans une liste d'OU, chaque pastille filtre la liste par présence et un second clic retire le filtre.
 
 À partir de deux lignes sélectionnées, la ligne d'état devient une barre d'actions : « Pinger » et « Qui est connecté ? » visent les seuls postes sélectionnés, avec la même confirmation et le même plafond ; une sélection de toute la liste (Ctrl+A) suit les règles de la liste, donc la racine du domaine sans filtre et la recherche globale sans terme restent refusées ; « Copier » copie une ligne lisible par objet pour un ticket ; « Exporter » enregistre la sélection en CSV.
 
@@ -130,9 +130,9 @@ Les confirmations s'affichent dans la page, sans nouvelle fenêtre ; Échap choi
 
 ## Actualiser les données de l’OU
 
-Sous l’arbre de Rechercher, « Données de l’OU » reprend l’unité choisie dans cet arbre, même lorsque la liste montre une recherche globale. « Base locale », « Postes (ping/WMI) » et « Les deux » portent toujours sur cette OU et ses sous-OU. Les filtres, la limite de lignes et le réglage de profondeur de la liste ne changent pas leur cible. Le chemin annoncé fait foi ; sans OU explicite, aucune de ces actions ne démarre. Le chapitre 8 décrit leur enchaînement et les trois dates à distinguer.
+Sous l’arbre de Rechercher, « Données de l’OU » reprend l’unité choisie dans cet arbre, même lorsque la liste montre une recherche globale. « Objets AD », « Ping » et « WMI » portent toujours sur cette OU et ses sous-OU. Les filtres, la limite de lignes et le réglage de profondeur de la liste ne changent pas leur cible. Le chemin annoncé fait foi ; sans OU explicite, aucune de ces actions ne démarre. Le chapitre 8 décrit leur usage et les trois dates à distinguer.
 
-Dans une petite fenêtre, le panneau sous l’arbre se compacte : le titre « Données de l’OU » se masque et « Postes (ping/WMI) » devient « Ping/WMI ». Les commandes gardent le même périmètre et le même effet.
+Dans une petite fenêtre, le panneau sous l’arbre se compacte : le titre « Données de l’OU » se masque et les boutons se resserrent. Les commandes gardent le même périmètre et le même effet.
 
 « Vérifier la liste » garde sa cible propre : les postes affichés après filtrage. « Actualiser », dans le menu « ⋯ » de la liste, relance leur lecture ; cette commande ne remplace pas une mise à jour de la base ou un relevé WMI de toute l’OU.
 
@@ -161,7 +161,7 @@ Pour une requête locale, choisissez l’état puis cliquez sur « Exécuter » 
 
 Le compteur sépare les lignes affichées, le total de l’état choisi et les trois états. La limite est de 20 000 lignes au maximum. Une limite atteinte n’est pas un recensement complet : pour une requête locale, augmentez-la puis réexécutez. « Charger la suite » concerne les lectures Annuaire lorsque ce bouton est disponible. Le changement de session, de base ou d’OU invalide un ancien retour ; aucune ligne ne s’ouvre et aucune collecte ne part automatiquement à la réception du résultat.
 
-La date « calcul local » décrit l’évaluation. La « dernière lecture complète couvrante » décrit la copie AD de l’OU, éventuellement assurée par la lecture complète d’une OU parente. La mention d’une tentative incomplète reste visible. Ces dates ne rajeunissent pas les mesures des postes ; une couverture absente n’empêche pas le calcul sur les objets déjà connus, mais ne permet pas de conclure à leur exhaustivité.
+La date « calcul local » décrit l’évaluation. La « Dernière lecture complète couvrante » décrit la copie AD de l’OU, éventuellement assurée par la lecture complète d’une OU parente. La mention d’une tentative incomplète reste visible. Ces dates ne rajeunissent pas les mesures des postes ; une couverture absente n’empêche pas le calcul sur les objets déjà connus, mais ne permet pas de conclure à leur exhaustivité.
 
 « Effacer la requête » annule la requête et efface ses résultats. Sur une liste de recherche ordinaire, il retire seulement le filtre de requête supplémentaire, dont une ancienne sélection de GUID, et conserve la liste sans relancer de lecture. Le crayon ouvre Outils → Atelier de requêtes. Une recette locale est chargée dans Composer ; une vue Annuaire conserve son filtre LDAP et ouvre la Bibliothèque, car le compositeur sert aux recettes locales des postes.
 
@@ -169,7 +169,7 @@ Dans une fenêtre étroite ou basse, la barre peut se replier : « Options de re
 
 ## Export et menu clic droit
 
-« Exporter CSV », dans le menu « ⋯ » de la liste (à droite de « Effacer »), enregistre les lignes affichées, ou seulement les lignes sélectionnées. Le menu clic droit d'une ligne est court et n'écrit rien : « Ouvrir la fiche », pour un poste « Assistance poste », « Revérifier ce poste » et « Rechercher l'utilisateur associé » (pour un utilisateur, « Rechercher le poste associé »), « Ouvrir l'OU parente », « Copier » (dont « Pour un ticket ») et « Exporter la liste en CSV ». Les écritures, les outils distants et les collectes restent dans la fiche et dans Assistance poste, chacun avec sa confirmation. Un clic droit sur l'en-tête d'une colonne ouvre « Colonnes… ».
+« Exporter CSV », dans le menu « ⋯ » de la liste (à droite de « Effacer »), enregistre les lignes affichées, ou seulement les lignes sélectionnées. Le menu clic droit d'une ligne est court et n'écrit rien : « Ouvrir la fiche », pour un poste « Assistance poste », « Revérifier ce poste » et « Rechercher l'utilisateur associé » (pour un utilisateur, « Rechercher le poste associé »), « Ouvrir l'OU parente », « Copier » (dont « Pour un ticket ») et « Exporter la liste affichée en CSV ». Les écritures, les outils distants et les collectes restent dans la fiche et dans Assistance poste, chacun avec sa confirmation. Un clic droit sur l'en-tête d'une colonne ouvre « Colonnes… ».
 
 # 4 Fiches des objets
 
@@ -255,7 +255,7 @@ Dans l'en-tête d'Assistance poste, la pastille « Compte poste : … ▾ » dit
 
 L'envoi attend la fin de la lecture des sessions et passe par une confirmation dans la page. Une lecture refusée ne conclut à rien : le panneau le dit et recommande le redémarrage différé. Si un arrêt est déjà programmé sur le poste (code 1190), Domenia ne programme rien.
 
-Pour « Actualiser les stratégies » comme pour le redémarrage, il n'y a plus de repli par tâche planifiée. Une connexion refusée n'envoie rien et laisse un reçu « non envoyé » : « Non envoyé : le poste nʼaccepte pas la commande à distance ». Une demande envoyée n'est jamais rejouée.
+Pour « Actualiser les stratégies » comme pour le redémarrage, il n'y a plus de repli par tâche planifiée. Une connexion refusée n'envoie rien et laisse un reçu à lʼétat « Non envoyée » : « Non envoyé : le poste nʼaccepte pas la commande à distance ». Une demande envoyée n'est jamais rejouée.
 
 ## Services du poste
 
@@ -295,7 +295,7 @@ Le panneau dit le compte en service et son origine, par exemple « Opérations 
 
 - « Diagnostic », onglet « Contrôles » : « Lancer le diagnostic » contrôle le DNS, la joignabilité, les ports, SMB, WinRM, WMI, le système, le disque et la session. « Copier le rapport » copie le résultat pour un ticket.
 - « Intervenir », « Sessions Windows » : « Lire les sessions » consulte les sessions par WTS, sans déconnexion. Un accès refusé ne signifie pas l'absence de session.
-- « Secrets » : lecture de BitLocker et de LAPS avec le compte des secrets, même en lecture seule. « Une valeur a la fois, affichee brievement, jamais journalisee ni mise en cache. ». Le presse-papiers est vidé après Security.AutoClearSecretClipboardSeconds (30 s).
+- « Secrets » : lecture de BitLocker et de LAPS avec le compte des secrets, même en lecture seule. « Une valeur à la fois, affichée brièvement, jamais journalisée ni mise en cache. ». Le presse-papiers est vidé après Security.AutoClearSecretClipboardSeconds (30 s).
 
 ## Transports utilisés
 
@@ -321,8 +321,8 @@ L'onglet « Inventaire » de la vue « Détails » lit le poste par CIM, ave
 
 | Bouton | Ce qui est lu |
 |---|---|
-| « Rapide » | Matériel, système, disques, réseau, sécurité, correctifs, logiciels, services, comptes, partages et imprimantes. |
-| « Complet » | Tout le rapide, plus les processus, les tâches planifiées, les certificats, les connexions réseau et les erreurs récentes. Plus long. |
+| « Inventaire rapide (≈1 min) » | Matériel, système, disques, réseau, sécurité, correctifs, logiciels, services, comptes, partages et imprimantes. |
+| « Inventaire complet (≈3 min) » | Tout le rapide, plus les processus, les tâches planifiées, les certificats, les connexions réseau et les erreurs récentes. Plus long. |
 
 L'onglet « Tableau de bord » propose les mêmes lectures avec « Inventaire rapide » et « Inventaire complet ». Délai maximal, fixé dans le code : 110 s pour le rapide, 260 s pour le complet.
 
@@ -350,7 +350,7 @@ Le tableau du poste résume le dernier inventaire et les attributs du compte ord
 | Section | Source | Si vide |
 |---|---|---|
 | Vue d ensemble | Calculée sur toutes les vérifications ci-dessous. | — |
-| Identite du poste | Inventaire rapide ou complet. | « Lancez un inventaire (Rapide ou Complet) pour remplir cette section. » |
+| Identite du poste | Inventaire rapide ou complet. | « Lancez un inventaire (rapide ou complet) pour remplir cette section. » |
 | Compte machine dans Active Directory | Attributs lus avec la fiche du poste. | « Ouvrez la fiche du poste dans l annuaire pour lire son compte machine. » |
 | Ressources | Mesures de l'inventaire par CIM. | « Lancez un inventaire pour mesurer la memoire, le processeur et les disques. » |
 | Activite | Inventaire complet. | « Inventaire complet requis : correctifs, processus et evenements. » |
@@ -361,8 +361,8 @@ Quand on sélectionne un autre objet, les tableaux du poste et des logiciels son
 ## Score de santé
 
 - Score = 100 − 25 par point critique − 10 par point à surveiller, jamais sous 0. Les informations ne comptent pas.
-- Verdict : au moins un point critique donne « Critique » ; sinon 85 et plus « Bon etat », 60 et plus « A surveiller », en dessous « Degrade ».
-- Exemples : un point à surveiller donne 90 « Bon etat » ; un point critique donne 75 « Critique ».
+- Verdict : au moins un point critique donne « Critique » ; sinon 85 et plus « Bon état », 60 et plus « À surveiller », en dessous « Dégradé ».
+- Exemples : un point à surveiller donne 90 « Bon état » ; un point critique donne 75 « Critique ».
 - Le score et la liste portent sur toutes les vérifications, que leur widget soit affiché ou non. La liste est triée : critiques, à surveiller, puis informations.
 - Parc : le score est la part des postes évalués sans point détecté. Les postes incomplets sont comptés à part, jamais comme sains. Dès qu’un poste n’est pas évalué, la couverture s’affiche à côté du score, par exemple « couverture 90 % (18 évalué(s) sur 20) ». Sous 50 % des comptes activés évalués, aucun score n’est affiché : « Couverture insuffisante », ou « Critique » si un point critique est établi.
 
@@ -436,15 +436,15 @@ Accueil et Rechercher proposent les mêmes actions. Elles utilisent le choix d�
 
 | Commande | Population | Travail effectué |
 |---|---|---|
-| Base locale | Objets AD de l’OU et de ses sous-OU | Lecture de l’annuaire puis enregistrement local. Une lecture complète rapproche les absences uniquement dans ce sous-arbre ; les autres branches sont conservées. |
-| Postes (ping/WMI) | Comptes ordinateur actifs déjà recensés dans cette branche | Ping, console, inventaire léger et sondes WMI des widgets Général/Poste forcés, après confirmation du nombre de cibles. |
-| Les deux | Branche AD, puis comptes ordinateur actifs du recensement obtenu | Même mise à jour de la base, puis même relevé des postes après confirmation du stockage réussi. |
+| Objets AD | Objets AD de l’OU et de ses sous-OU | Lecture de l’annuaire puis enregistrement local. Une lecture complète rapproche les absences uniquement dans ce sous-arbre ; les autres branches sont conservées. Aucun ping ni WMI. |
+| Ping | Comptes ordinateur actifs déjà recensés dans cette branche | Présence réseau seulement, après confirmation du nombre de cibles ; les dates AD et WMI restent inchangées. |
+| WMI | Comptes ordinateur actifs déjà recensés dans cette branche | Console, inventaire léger et sondes WMI des widgets Général/Poste forcés, après confirmation du nombre de cibles ; aucun ping imposé. |
 
-Le relevé des postes ignore les filtres et limites de résultats. Il conserve le parallélisme borné configuré pour la collecte, mais relit les mesures demandées au lieu de les réutiliser à cause de leur âge. Les sondes des widgets configurés sur les tableaux Général et Poste sont dédoublonnées ; leur plan est fixé au clic initial, avant la phase AD et la confirmation. Modifier un widget pendant la passe ne change pas les lectures déjà préparées. Les comptes désactivés restent consultables et ne sont pas sondés. Si le recensement est ancien ou incomplet, « Les deux » permet de le relire avant de préparer les cibles.
+Le relevé des postes ignore les filtres et limites de résultats. Il conserve le parallélisme borné configuré pour la collecte, mais relit les mesures demandées au lieu de les réutiliser à cause de leur âge. Les sondes des widgets configurés sur les tableaux Général et Poste sont dédoublonnées ; leur plan est fixé au clic initial, avant la phase AD et la confirmation. Modifier un widget pendant la passe ne change pas les lectures déjà préparées. Les comptes désactivés restent consultables et ne sont pas sondés. Si le recensement est ancien ou incomplet, lancez d’abord « Objets AD » et attendez la confirmation de son enregistrement avant de préparer les cibles.
 
-L’enchaînement de « Les deux » attend le reçu d’enregistrement complet de sa propre lecture AD. Un résultat LDAP reçu ne suffit pas. Une passe partielle, un échec de stockage, un arrêt ou un changement de session, de base ou d’OU cible empêche le lancement de la phase suivante. Une nouvelle tentative d’enregistrement automatique ne doit pas relancer la collecte annulée. Les données déjà validées restent conservées ; un échec de mesure conserve les dernières valeurs réussies et leur date, avec un état d’échec distinct.
+Les trois commandes ne s’enchaînent pas : chacune est une collecte indépendante, enregistrée automatiquement. Une lecture AD n’est à jour qu’après le reçu d’enregistrement complet ; un résultat LDAP reçu ne suffit pas. Une passe partielle, un échec de stockage, un arrêt ou un changement de session, de base ou d’OU cible arrête la collecte en cours. Une nouvelle tentative d’enregistrement automatique ne doit pas relancer la collecte annulée. Les données déjà validées restent conservées ; un échec de mesure conserve les dernières valeurs réussies et leur date, avec un état d’échec distinct.
 
-« Arrêter » coupe les nouveaux départs et l’enchaînement. La progression distingue la lecture AD, l’enregistrement et le relevé des postes. Relisez son bilan et les erreurs par poste avant de conclure que toute la branche est à jour.
+« Arrêter » coupe les nouveaux départs. La progression distingue la lecture AD, l’enregistrement et le relevé des postes. Relisez son bilan et les erreurs par poste avant de conclure que toute la branche est à jour.
 
 Le bouton « Recalculer la vue » prépare uniquement l’affichage depuis les données locales. Il ne contacte ni AD ni les postes et ne modifie aucune date de lecture.
 
@@ -458,10 +458,10 @@ Les observations détaillées restent dans SQLite. La préparation d'une collect
 
 | Source | Informations | Actualisation |
 |---|---|---|
-| Annuaire indexé | Identité, OU, compte actif, système déclaré, dates AD | « Base locale », « Les deux » ou « Mettre à jour lʼOU choisie » dans Base autonome. |
-| Présence et console | Ping, utilisateur ouvert sur l'écran physique | « Postes (ping/WMI) », « Les deux », collecte ciblée ou vérification du poste. |
-| Inventaire | Modèle, mémoire, disque C, système mesuré, démarrage | « Postes (ping/WMI) », « Les deux » ou analyse ciblée. |
-| Sondes | Informations du catalogue WMI | Postes (ping/WMI) pour les sondes des widgets configurés, ou collecte ciblée. |
+| Annuaire indexé | Identité, OU, compte actif, système déclaré, dates AD | « Objets AD » ou « Mettre à jour lʼOU choisie » dans Base autonome. |
+| Présence et console | Ping, utilisateur ouvert sur l'écran physique | « Ping » pour la présence, « WMI » pour la console, collecte ciblée ou vérification du poste. |
+| Inventaire | Modèle, mémoire, disque C, système mesuré, démarrage | « WMI » ou analyse ciblée. |
+| Sondes | Informations du catalogue WMI | « WMI » pour les sondes des widgets configurés, ou collecte ciblée. |
 
 Trois horloges restent distinctes : la dernière lecture complète AD couvrant l’OU, les dates réelles des mesures de chaque poste, et l’heure du calcul local de la vue. La date d’un calcul ou d’une mesure récente sur un seul poste ne décrit pas la fraîcheur de toute la branche. Une lecture AD partielle garde la date complète précédente et affiche séparément la tentative.
 
@@ -489,14 +489,14 @@ Sélectionnez une ligne pour consulter son détail local. Relisez l’identité,
 
 ## Construire une requête
 
-L’Atelier se trouve dans Outils → Atelier de requêtes. La petite icône de la barre du parc y ouvre le brouillon ; le crayon de Rechercher prépare la recette locale sélectionnée. L’Atelier utilise le périmètre du tableau de bord, indiqué en haut de sa page : relisez-le, car il peut différer de l’OU de Rechercher. « Résultats » réserve la place au tableau et à la fiche locale ; « Composer la requête » regroupe les conditions, les sauvegardes, les sondes et les réglages de collecte. « Bibliothèque » présente les modèles et vos requêtes personnelles. « Catalogue des informations » aide à choisir un champ et à comprendre sa source.
+L’Atelier se trouve dans Outils → Atelier de requêtes. La petite icône de la barre du parc y ouvre le brouillon ; le crayon de Rechercher prépare la recette locale sélectionnée. L’Atelier utilise le périmètre du tableau de bord, indiqué en haut de sa page : relisez-le, car il peut différer de l’OU de Rechercher. « Résultats » réserve la place au tableau et à la fiche locale ; « 1. Créer » regroupe les conditions, les sauvegardes, les sondes et les réglages de collecte. « Bibliothèque » présente les modèles et vos requêtes personnelles. « Informations » aide à choisir un champ et à comprendre sa source.
 
-1. **Choisir une base.** Sélectionnez Tous les postes recensés ou un modèle adapté, puis « Charger ». « Nouvelle » prépare une requête vide. Ces deux commandes ouvrent « Composer la requête ».
+1. **Choisir une base.** Sélectionnez Tous les postes recensés ou un modèle adapté, puis « Charger ». « Nouvelle » prépare une requête vide. Ces deux commandes ouvrent « 1. Créer ».
 2. **Ajouter les conditions.** Choisissez le champ, l'opérateur proposé et la valeur. Les opérateurs sont adaptés au type texte, nombre ou booléen.
 3. **Choisir la combinaison.** Toutes les conditions correspond à ET ; Au moins une condition correspond à OU. Une restriction de détail ou une sélection figée s’applique en plus lorsqu’elle est affichée.
 4. **Exécuter.** Cliquez sur « Exécuter » pour afficher « Résultats ». Lisez le total, le périmètre et les données absentes avant d’examiner les pages.
-5. **Regrouper si utile.** Dans « Composer la requête », choisissez un champ de répartition. Les dix principaux groupes s'affichent, complétés par Autres et Inconnu lorsque nécessaire.
-6. **Conserver.** Dans « Composer la requête », enregistrez la recette, créez une sonde dashboard ou appliquez-la aux résultats de Recherche.
+5. **Regrouper si utile.** Dans « 1. Créer », choisissez un champ de répartition. Les dix principaux groupes s'affichent, complétés par Autres et Inconnu lorsque nécessaire.
+6. **Conserver.** Dans « 1. Créer », enregistrez la recette, créez une sonde dashboard ou appliquez-la aux résultats de Recherche.
 
 Le moteur est un langage de filtres typés ; la recette ne contient ni PowerShell ni SQL libre. Une requête admet 64 conditions en comptant ses raffinements. Les requêtes personnelles enregistrées sont limitées à 100 recettes dans une enveloppe de 1 Mio ; les modèles livrés sont distincts. Les données des postes ne sont pas copiées dans chaque recette. Une sauvegarde refusée est signalée et ne doit pas être considérée comme enregistrée.
 
@@ -508,7 +508,7 @@ Le filtre d’état conserve l’accès aux comptes désactivés : ils appartien
 
 ## Bibliothèque de modèles
 
-L’onglet « Bibliothèque » propose 152 modèles livrés dans 14 catégories, accompagnés d’une description. La recherche textuelle et les filtres de catégorie et de source (« Modèles livrés » ou « Mes requêtes ») réduisent la liste. Celle-ci indique le nom, la catégorie et les informations nécessaires. Sélectionnez une ligne, relisez sa description puis cliquez sur « Utiliser cette requête » pour ouvrir « Composer la requête ». Le sélecteur rapide et « Charger » restent disponibles en haut de l’Atelier. Les modèles partagent le même moteur et les mêmes champs que vos requêtes personnelles ; ils peuvent alimenter le tableau général ou celui du poste.
+L’onglet « Bibliothèque » propose 152 modèles livrés dans 14 catégories, accompagnés d’une description. La recherche textuelle et les filtres de catégorie et de source (« Modèles livrés » ou « Mes requêtes ») réduisent la liste. Celle-ci indique le nom, la catégorie et les informations nécessaires. Sélectionnez une ligne, relisez sa description puis cliquez sur « Utiliser cette requête » pour ouvrir « 1. Créer ». Le sélecteur rapide et « Charger » restent disponibles en haut de l’Atelier. Les modèles partagent le même moteur et les mêmes champs que vos requêtes personnelles ; ils peuvent alimenter le tableau général ou celui du poste.
 
 | Catégories | Exemples d’usage |
 |---|---|
@@ -526,37 +526,37 @@ Le nombre de modèles est distinct des 105 champs du catalogue : un modèle comb
 
 ![Bibliothèque de modèles : recherche locale, informations nécessaires et description de la sélection ; données fictives](fig:atelier-modeles)
 
-## Catalogue des informations
+## Onglet Informations
 
 Le catalogue contient les 105 champs acceptés par le moteur : 27 informations du parc et 78 sondes WMI. La recherche ignore les accents et la casse ; elle porte sur le nom, l’usage et les détails techniques, dont les classes et propriétés. Les filtres Source et Catégorie réduisent la liste.
 
 La fiche précise l’usage, le type, l’unité, un exemple de valeur, la collecte nécessaire et les conditions de disponibilité. « Détails techniques » déplie les identifiants, classes et propriétés utiles au diagnostic. Une information présente au catalogue n’est pas une preuve de disponibilité sur tous les postes : les fournisseurs Windows et les droits peuvent varier.
 
-« Utiliser cette information » prépare le champ dans « Composer la requête ». L’opérateur, la valeur et le bouton « Ajouter » restent à choisir explicitement ; cette commande n’ajoute pas de condition et ne lance aucune collecte.
+« Utiliser cette information » prépare le champ dans « 1. Créer ». L’opérateur, la valeur et le bouton « Ajouter » restent à choisir explicitement ; cette commande n’ajoute pas de condition et ne lance aucune collecte.
 
-![Catalogue des informations : champ sélectionné, usage, source et disponibilité ; données fictives](fig:atelier-catalogue)
+![Onglet Informations : champ sélectionné, usage, source et disponibilité ; données fictives](fig:atelier-catalogue)
 
 ## Exemple de requête réutilisable
 
-Dans « Composer la requête », choisissez l’espace libre du disque système en pourcentage, l’opérateur inférieur à et la valeur 20. Ajoutez la condition puis cliquez sur « Exécuter ». Les mesures absentes ne sont pas assimilées à zéro.
+Dans « 1. Créer », choisissez l’espace libre du disque système en pourcentage, l’opérateur inférieur à et la valeur 20. Ajoutez la condition puis cliquez sur « Exécuter ». Les mesures absentes ne sont pas assimilées à zéro.
 
 ![Requête numérique sur les disques ayant moins de 20 % d’espace libre ; données fictives](fig:atelier-condition)
 
-Revenez dans « Composer la requête », nommez la recette, enregistrez-la puis sélectionnez-la dans la bibliothèque. Son nom doit décrire le critère et rester compréhensible hors du contexte de création.
+Revenez dans « 1. Créer », nommez la recette, enregistrez-la puis sélectionnez-la dans la bibliothèque. Son nom doit décrire le critère et rester compréhensible hors du contexte de création.
 
 ![Bibliothèque : requête nommée sauvegardée et réutilisable ; données fictives](fig:atelier-bibliotheque)
 
-Dans « Composer la requête », choisissez « Tableau de bord général » et une présentation (Indicateur, Texte, Barres, Camembert ou Colonnes), puis « Créer une sonde dashboard » pour suivre le résultat dans le tableau de bord. Le widget conserve les conditions ; sa petite icône de détail ouvre les postes concernés.
+Dans « 1. Créer », choisissez « Tableau de bord général » et une présentation (Indicateur, Texte, Barres, Camembert ou Colonnes), puis « Créer une sonde dashboard » pour suivre le résultat dans le tableau de bord. Le widget conserve les conditions ; sa petite icône de détail ouvre les postes concernés.
 
 ![Widget du parc créé à partir de la requête enregistrée ; données fictives](fig:accueil-sonde-requete)
 
-Dans « Composer la requête », « Appliquer aux résultats de Recherche » transmet les GUID des postes trouvés. Le résultat affiché dans Rechercher garde cette restriction tant qu’elle n’est pas effacée ; un nouveau nom ou un changement d’OU ne substitue pas un autre objet à cette identité.
+Dans « 1. Créer », « Appliquer aux résultats de Recherche » transmet les GUID des postes trouvés. Le résultat affiché dans Rechercher garde cette restriction tant qu’elle n’est pas effacée ; un nouveau nom ou un changement d’OU ne substitue pas un autre objet à cette identité.
 
 ![Filtre de l’Atelier appliqué à la liste Rechercher ; données fictives](fig:recherche-requete)
 
 ## Réutiliser la recette sur le tableau du poste
 
-La bibliothèque est commune à l’Atelier, aux widgets du parc, aux widgets du poste et au filtre de Rechercher. Depuis le tableau du poste, le bouton « Atelier » ouvre « Composer la requête » avec la destination « Tableau de bord du poste ». Vous pouvez aussi choisir cette destination depuis une autre entrée de l’Atelier, puis la présentation et « Créer une sonde dashboard ».
+La bibliothèque est commune à l’Atelier, aux widgets du parc, aux widgets du poste et au filtre de Rechercher. Depuis le tableau du poste, le bouton « Atelier » ouvre « 1. Créer » avec la destination « Tableau de bord du poste ». Vous pouvez aussi choisir cette destination depuis une autre entrée de l’Atelier, puis la présentation et « Créer une sonde dashboard ».
 
 Le widget du poste évalue la recette sur l’objet sélectionné et ses données locales, avec ses états correspondant, inconnu ou non correspondant. Il utilise les mêmes conditions que le widget général, mais son périmètre est un seul poste. Changer de poste réévalue le widget. « Tester sur le poste sélectionné » fournit cet aperçu sans lecture réseau. La liste « Résultats » de l’Atelier garde le périmètre OU affiché dans son en-tête.
 
@@ -568,9 +568,9 @@ Une nouvelle création avec la même recette et la même destination met à jour
 
 ## Régler et suivre la collecte
 
-Les réglages ci-dessous concernent la collecte sélective d’une requête. Les commandes générales « Postes (ping/WMI) » et « Les deux » forcent le ping, la console, l’inventaire léger de l’OU et les sondes des widgets configurés sans leur appliquer cette réutilisation des mesures.
+Les réglages ci-dessous concernent la collecte sélective d’une requête. Les commandes générales « Ping » et « WMI » forcent respectivement la présence, ou la console, l’inventaire léger de l’OU et les sondes des widgets configurés, sans leur appliquer cette réutilisation des mesures.
 
-Dans « Composer la requête », « Collecter les données requises… » confirme le nombre de postes et utilise le compte des opérations poste. La collecte traite tous les comptes actifs du périmètre, indépendamment des conditions qui réduisent les résultats de la requête. Pour limiter la collecte, choisissez une OU plus précise ou l’action d’un seul poste dans sa fiche locale. L’encadré « Réglages de collecte » propose 1, 2, 4, 6 ou 8 postes simultanés, avec 4 par défaut. La réutilisation des mesures propose une ancienneté maximale de 5, 15 ou 60 minutes, ou une relecture forcée. Les mesures volatiles conservent leur délai propre ; le choix d'une heure n'impose pas une heure de cache à toutes les sondes.
+Dans « 1. Créer », « Collecter les données requises… » confirme le nombre de postes et utilise le compte des opérations poste. La collecte traite tous les comptes actifs du périmètre, indépendamment des conditions qui réduisent les résultats de la requête. Pour limiter la collecte, choisissez une OU plus précise ou l’action d’un seul poste dans sa fiche locale. L’encadré « Réglages de collecte » propose 1, 2, 4, 6 ou 8 postes simultanés, avec 4 par défaut. La réutilisation des mesures propose une ancienneté maximale de 5, 15 ou 60 minutes, ou une relecture forcée. Les mesures volatiles conservent leur délai propre ; le choix d'une heure n'impose pas une heure de cache à toutes les sondes.
 
 Le plan de collecte est calculé à partir des conditions, des restrictions et du champ de regroupement. « Collecter les données requises… » et l’actualisation des requêtes des widgets partagent ce plan.
 
@@ -581,7 +581,7 @@ Le plan de collecte est calculé à partir des conditions, des restrictions et d
 | Modèle, mémoire, disque C:, durée depuis le démarrage, âge de l’inventaire ou version Windows relevée | Inventaire léger. |
 | Sondes du catalogue | Union des sondes demandées, sans doublon. |
 
-« Actualiser ce poste… » dans la fiche locale d’un résultat reste une action distincte qui prépare un inventaire léger de ce poste après confirmation. « Postes (ping/WMI) » relit le ping, la console et l’inventaire léger des comptes actifs de l’OU et de ses sous-OU, ainsi que les sondes des widgets configurés. Son plan est figé au clic et ne dépend pas du brouillon de l’Atelier. Les collectes du parc nécessitent une OU explicitement choisie et une vue locale correspondant à ce périmètre.
+« Actualiser ce poste… » dans la fiche locale d’un résultat reste une action distincte qui prépare un inventaire léger de ce poste après confirmation. « WMI » relit la console et l’inventaire léger des comptes actifs de l’OU et de ses sous-OU, ainsi que les sondes des widgets configurés ; « Ping » relit leur seule présence. Le plan de « WMI » est figé au clic et ne dépend pas du brouillon de l’Atelier. Les collectes du parc nécessitent une OU explicitement choisie et une vue locale correspondant à ce périmètre.
 
 Le moteur regroupe les sondes WMI d’un poste par classe et filtre, puis demande l’union de leurs propriétés pour réutiliser la lecture. Les filtres restent distincts. Un comptage porte sur toutes les instances lues même si le détail conservé est limité à vingt lignes ; l’inventaire et la lecture de la console conservent leurs lectures propres. Une lecture lente ou refusée n'empêche pas les autres créneaux d'avancer. L'arrêt interdit les nouveaux départs et conserve les résultats déjà obtenus. La progression distingue la collecte du stockage local : attendez les enregistrements avant de conclure que la passe est terminée.
 
@@ -611,10 +611,13 @@ Les trois tableaux de bord sont faits de widgets : chaque tuile ou graphique se 
 |---|---|---|
 | « Actualiser les requetes » | Tableau du poste, si au moins un widget de requête est présent. | Prépare les lectures requises par les widgets pour le poste sélectionné, en lecture seule et après confirmation. Une recette fondée uniquement sur AD renvoie vers la mise à jour de la base. Sur le parc, ouvrez le détail de la sonde puis collectez depuis l’Atelier, ou utilisez « Matériel et widgets » de « Vérifier la liste ». |
 | « Recalculer la vue » | Tableau du parc. | Relit les données locales et recalcule les widgets ; aucune nouvelle lecture AD, ping ou WMI. |
-| « Base locale », « Postes (ping/WMI) », « Les deux » | Tableau du parc ou Données de l’OU dans Rechercher. | Actualisent la source choisie pour l’OU et ses sous-OU, selon le parcours du chapitre 8. |
+| « Objets AD », « Ping », « WMI » | Tableau du parc ou Données de l’OU dans Rechercher. | Actualisent la source choisie pour l’OU et ses sous-OU, selon le parcours du chapitre 8. |
+| « Copier le résumé » | Dès que le tableau a une lecture. | Copie en texte brut, pour un ticket : l'objet (poste, OU ou liste de logiciels) et la date de ses données, le score avec son verdict et sa couverture, les points à vérifier, puis les fiches Identité, Compte machine et État de protection du poste, ou les comptes et la sécurité de l'OU, ou la synthèse des logiciels. Un secret éventuel est masqué avant le presse-papiers ; rien n'est relu. |
 | « Ajouter un widget » | Toujours. | Ouvre l'éditeur. |
 | « Personnaliser » | Hors personnalisation. | Passe en mode personnalisation. |
-| « Par defaut » | En personnalisation. | Revient à la disposition livrée, sans confirmation mais annulable. |
+| « Par défaut » | En personnalisation. | Revient à la disposition de l'équipe si l'administrateur en a défini une (voir « Enregistrement de la disposition »), sinon à la disposition livrée ; sans confirmation mais annulable. |
+| « Exporter » | En personnalisation. | Enregistre la disposition en JSON (Domenia-disposition-poste, -accueil ou -logiciels, avec la date) dans le dossier des exports, par le worker DocumentStore ; la confirmation reste dans la page avec « Ouvrir le dossier ». Aucun fichier existant n'est remplacé. |
+| « Importer » | En personnalisation. | Choisit un fichier JSON dans le sélecteur intégré à la page, jamais une boîte de dialogue Windows, puis le lit en arrière-plan : une disposition d'un autre tableau est refusée, les widgets inconnus et les requêtes personnelles absentes de ce poste sont écartés. Le remplacement est annulable. |
 | « Terminer » | En personnalisation. | Quitte la personnalisation. |
 | « Annuler » | Après une modification. | Revient à la disposition précédente. |
 
@@ -626,28 +629,31 @@ L'annulation n'a qu'un niveau. Elle est perdue quand de nouvelles données arriv
 
 - En personnalisation, chaque section se termine par une tuile en pointillés « Ajouter ici », qui ouvre l'éditeur avec la section choisie. Les boutons ronds de modification et de retrait restent visibles ; hors personnalisation, ils apparaissent au survol ou au clavier.
 - Un widget sans chiffre dit pourquoi, avec le bouton qui agit : « Pas encore collecté pour ce tableau. » (« Collecter »), « Absent du dernier relevé du … » (« Relire »), « Lu par l’inventaire complet seulement » (« Inventaire complet »). Il garde une place compacte dès que le tableau du poste a une lecture ; avant toute lecture, seuls les widgets suspendus ou en collecte sont affichés. En personnalisation, tous les widgets restent visibles à leur taille.
-- Le menu clic droit d'un widget, toujours disponible, propose « Modifier... », « Représentation », « Taille » (« Compacte », « Moyenne », « Large »), « Déplacer » et « Retirer du tableau de bord ». Les déplacements du menu restent dans la section.
+- Le menu clic droit d'un widget, toujours disponible, propose « Copier » (le titre, la valeur, le détail, les lignes et la date des données, en texte brut, secret éventuel masqué), « Modifier... », « Représentation », « Taille » (« Compacte », « Moyenne », « Large »), « Déplacer » et « Retirer du tableau de bord ». Un widget suspendu ou sans chiffre n'a pas « Copier ». Les déplacements du menu restent dans la section.
 - Le glisser-déposer est actif en mode « Personnaliser ». Lâché sur un autre widget, le widget prend sa place et sa section ; lâché dans une section hors d'un widget, il va à la fin de cette section. La page défile près des bords.
 
 ## Un widget à la fois
 
 - **Actualiser.** Le bouton rond d’actualisation, l’entrée « Actualiser ce widget » du menu ou la touche F5 sur le widget relisent seulement ce que ce widget affiche, pour le périmètre de son tableau : le poste sélectionné, ou les postes actifs de l’OU affichée sur l’Accueil, jamais tout le domaine. Une requête WMI relit ses seules sondes, sans console ni ping ; un widget du poste relance l’inventaire rapide ou complet qui le remplit ; un widget de l’annuaire relit les objets AD de l’OU ; un widget calculé est recalculé localement. Une relecture des postes demande la confirmation de leur nombre, comme « Vérifier la liste » (« Collecter N postes »).
 - **Ajouter.** Ajouter un widget, depuis l’éditeur ou l’Atelier, est le geste explicite : la collecte de ce qui lui manque part aussitôt. Seuls les postes sans mesure exploitable de moins de 30 jours (durée de conservation) sont contactés ; un poste déjà mesuré n’est pas interrogé. Avant toute lecture, le relevé vérifie les mesures enregistrées de chaque poste (« Recherche des mesures manquantes ») ; une requête non applicable au système, sur un contrôleur de domaine par exemple, compte comme une réponse. Jusqu’à 200 postes à lire, la collecte démarre sans confirmation ; au-delà, le nombre de postes à lire est confirmé dans la page (« Collecter N postes »), en trois lignes : postes visés et postes déjà à jour, ce qui sera lu, durée estimée. Le plafond d’un relevé (Park.MaxTargets, 500 postes par défaut) s’applique aux postes à lire : au-delà, rien n’est lu et la barre d’état le dit. Les budgets et le parallélisme du moteur s’appliquent.
-- **Suivre.** Pendant la collecte, le widget affiche « Collecte en cours · 3/40 poste(s) », avec les postes déjà à jour et les lectures non confirmées. Le chiffre reste le dernier enregistré jusqu’à la fin. Un widget de l’Accueil est relevé dans la portée de la liste : « Vérifier la liste » affiche son avancement (« Relevé de … ») et devient son « Arrêter ». Un widget du poste est relevé dans la portée du poste ouvert, à côté d’un relevé de la liste. Un relevé déjà en cours dans la même portée met le widget « En file » ; il démarre à la fin de ce relevé, une fois le recalcul de l’OU affiché sur l’Accueil (« En file : en attente du recalcul de l’OU. »), 20 widgets au plus en attente. Si le poste sélectionné ou l’OU affichée change entre-temps, la collecte en file est abandonnée et la barre d’état le dit : elle ne part jamais sur une autre population. La progression d’une collecte ne s’affiche que sur le tableau de son poste ou de son OU.
+- **Suivre.** Pendant la collecte, le widget affiche « Collecte en cours · N/M poste(s) », avec les postes déjà à jour et les lectures non confirmées. Le chiffre reste le dernier enregistré jusqu’à la fin. Un widget de l’Accueil est relevé dans la portée de la liste : « Vérifier la liste » affiche son avancement (« Relevé de … ») et devient son « Arrêter ». Un widget du poste est relevé dans la portée du poste ouvert, à côté d’un relevé de la liste. Un relevé déjà en cours dans la même portée met le widget « En file » ; il démarre à la fin de ce relevé, une fois le recalcul de l’OU affiché sur l’Accueil (« En file : en attente du recalcul de l’OU. »), 20 widgets au plus en attente. Si le poste sélectionné ou l’OU affichée change entre-temps, la collecte en file est abandonnée et la barre d’état le dit : elle ne part jamais sur une autre population. La progression d’une collecte ne s’affiche que sur le tableau de son poste ou de son OU.
 - **Suspendre la mesure.** Le bouton rond pause ou l’entrée du menu suspend le widget : il garde sa place, sa taille et son titre et affiche « Mesure suspendue ». Il est exclu de toutes les collectes : son actualisation, celle du tableau, « Analyser la liste » et l’actualisation WMI de l’OU. Un relevé lancé pour lui seul est arrêté. Les lectures communes restent faites par leurs propres actions (inventaire du poste, ping et relevé WMI léger utilisés par la santé) ; le texte du widget le précise. « Reprendre la mesure » collecte ce qui lui manque, après confirmation du nombre de postes à lire. L’état est enregistré avec la disposition et s’annule comme elle.
 - **Comprendre ce chiffre.** Le bouton rond d’information ou l’entrée du menu ouvre, dans la page, la valeur affichée, la formule, le périmètre, les critères, les exclusions, la couverture, les dates et le nombre de postes du total. « Afficher les postes » ouvre la liste exacte des GUID du calcul affiché, nommée avec son compte et sa date ; pour une requête WMI ou une requête enregistrée, aucune liste figée n’est conservée et la liste est recalculée depuis le calcul affiché, sans nouvelle lecture. Sur le tableau du poste, le chiffre porte sur le poste sélectionné. Si la vue a été recalculée entre-temps, même pendant que le panneau est ouvert, le détail est refusé et le tableau redessiné. Rien n’est relu pour expliquer un chiffre.
-- **Clavier.** Tab place le focus sur un widget ; Maj+F10 ouvre son menu ; F5 l’actualise. En personnalisation, Alt+flèches et Alt+Début/Fin le déplacent, Alt+Maj+flèches changent sa taille d’un cran, Suppr le retire (annulable).
-- **Haute résolution.** Un widget plus large que la page (affichage à 150 ou 200 %, fenêtre étroite) est réduit proportionnellement, jamais sous 60 %, au lieu d’être coupé ; il reprend sa taille quand la page s’élargit.
+- **Clavier.** Tab place le focus sur un widget ; Maj+F10 ouvre son menu ; F5 l’actualise ; Ctrl+C le copie en texte. En personnalisation, Alt+flèches et Alt+Début/Fin le déplacent, Alt+Maj+flèches changent sa taille d’un cran, Suppr le retire (annulable).
+- **Grille.** Chaque section range ses widgets dans une grille de 4 colonnes quand la page mesure au moins 1 100 points, 3 à partir de 780, 2 à partir de 440 et une seule en dessous. Compacte, Moyenne et Large occupent 1, 2 ou 3 colonnes. Chaque rangée est pleine : les colonnes restantes vont d’abord aux cartes hautes. À côté d’une carte haute (graphique, jauge, fiche), deux tuiles compactes s’empilent dans une colonne ; les cartes d’une rangée prennent la même hauteur. Quand la largeur change, les widgets sont replacés et redimensionnés aussitôt, sans rien relire ; leurs dessins suivent dès que la fenêtre ne bouge plus (0,3 s). Une marge de 24 points autour de chaque seuil évite qu’une barre de défilement fasse basculer la grille.
+- **Haute résolution.** Une carte n’est jamais dessinée sous 200 points de large ; sur une page plus étroite encore (affichage à 200 % dans une fenêtre réduite), elle est réduite proportionnellement, jamais sous 60 %, au lieu d’être coupée.
 
 ## Éditeur de widget
 
 ![Panneau Ajouter un widget : recherche, liste des informations disponibles, puis titre, représentation, taille, section et aperçu en direct](fig:editeur-widget)
 
-- À gauche, en ajout seulement : la recherche (« Rechercher : disque, utilisateur, BitLocker... ») et la liste des informations disponibles, groupée en « Tableau de bord » puis en « Requetes WMI » par catégorie. Le badge « affiche » marque ce qui est déjà sur le tableau.
-- La recherche ignore accents et casse ; tous les mots tapés doivent se trouver dans le nom, la description ou la section (pour une requête : le nom, la catégorie ou la classe).
-- À droite : « Titre », « Représentation », « Taille », « Section » et l'aperçu. La liste « Section » propose les sections du tableau, puis « + Nouvelle section... », qui affiche un champ pour taper son nom ; laissé vide, ce nom devient « Mes widgets ».
+- À gauche, en ajout seulement : la recherche (« Rechercher : RAM, disque, BitLocker, redémarrage… »), deux rangées de filtres rapides et la liste des informations disponibles, groupée en « Informations du tableau · … » puis en « Lu sur …, à la demande · … » (le poste, ou les postes sur l'Accueil ; … : la catégorie) et « Mes requêtes ». La classe WMI d'une requête n'apparaît que dans son infobulle. Le badge « Déjà affiché » marque ce qui est sur le tableau ; le badge « Interroge le poste » (« Interroge les postes ») signale qu'à l'ajout, le widget lit aussitôt ce qui lui manque, en lecture seule.
+- Filtres rapides : l'origine (« Tout », « Informations du tableau », « Lu sur le poste », « Mes requêtes » s'il y en a), puis les catégories existantes de cette origine (« Toutes », Identité du poste, Ressources, Matériel, Disques, Réseau, Sécurité…).
+- La recherche ignore accents et casse ; tous les mots tapés doivent se trouver dans le nom, la description ou la section (pour une requête : le nom, la catégorie ou la classe). Une petite table locale de synonymes complète les mots usuels absents du catalogue : RAM et memory (mémoire), SSD, HDD et stockage (disque), Defender et AV (antivirus), firewall (pare-feu), reboot, restart et redémarrer (redémarrage), IP (adresse IP, réseau), uptime (en service, démarrage), MAJ, update, patch et KB (mise à jour, correctif), CPU (processeur), GPU (graphique, affichage).
+- À droite : « Titre », « Représentation » (des vignettes cliquables, une icône et un nom par représentation permise ; les flèches passent de l'une à l'autre), « Taille », « Section » et l'aperçu. La liste « Section » propose les sections du tableau, puis « + Nouvelle section... », qui affiche un champ pour taper son nom ; laissé vide, ce nom devient « Mes widgets ».
+- Le panneau n'a que « Annuler » et « Ajouter » (« Enregistrer » en modification) ; Échap ferme sans rien changer.
 - L'aperçu montre les vraies données si le tableau en a, sinon un exemple de même nature.
-- Un widget ajouté va à la fin de sa section et la collecte de ses données manquantes part aussitôt (voir « Un widget à la fois »). Sans poste ni OU utilisable, la barre affiche « Widget enregistre : il s affichera des que ses donnees seront lues. ».
+- Un widget ajouté va à la fin de sa section et la collecte de ses données manquantes part aussitôt (voir la section Un widget à la fois). Sans poste ni OU utilisable, la barre affiche « Widget enregistre : il s affichera des que ses donnees seront lues. ».
 
 ## Natures représentations et tailles
 
@@ -661,25 +667,25 @@ Chaque widget porte une nature de donnée. Elle fixe les représentations permis
 | Répartition (Distribution) | Anneau, Barres, Histogramme, Liste, Chiffre cle |
 | Valeurs numériques (Measure) | Histogramme, Barres, Courbe, Chiffre cle, Liste |
 | Série ordonnée (Series) | Histogramme, Courbe, Barres, Liste, Chiffre cle |
+| Valeurs datées (Timeline) | Courbe, Histogramme, Liste |
 | Liste de points (List) | Liste de points |
-| Score (Health) | Score, Chiffre cle |
+| Santé (Health) | Score et points, Score, Chiffre clé |
+| Fiche (Sheet) | Fiche, Liste |
+| Liste d'état (Checklist) | Liste d'état, Fiche, Liste |
 
-| Représentation | Compacte | Moyenne | Large |
-|---|---|---|---|
-| Chiffre cle | 230 × 118 | 345 × 118 | 475 × 118 |
-| Liste | 300 × auto | 420 × auto | 560 × auto |
-| Anneau | 310 × 250 | 390 × 250 | 490 × 250 |
-| Barres, Histogramme, Courbe | 320 × 250 | 440 × 250 | 600 × 250 |
-| Jauge, Score | 230 × 250 | 300 × 250 | 380 × 250 |
-| Liste de points | 380 × auto | 500 × auto | 660 × auto |
+Sur un tableau, la largeur vient de la grille : Compacte, Moyenne et Large occupent 1, 2 ou 3 colonnes (voir « Grille »). La hauteur dépend de la représentation : 118 points pour un chiffre clé, 250 pour un anneau, des barres, un histogramme, une courbe, une jauge ou un score ; la liste, la liste de points, la carte « Score et points », la fiche et la liste d'état suivent leur contenu. Dans une rangée, chaque carte prend la hauteur de la plus haute. Les largeurs de l'aperçu de l'éditeur restent celles d'une page de 4 colonnes.
 
-Dimensions en pixels, largeur × hauteur ; auto suit le contenu. Limites d'affichage : un anneau montre 8 parts au plus, les plus petites regroupées en « Autres » ; une liste montre 10 lignes, la liste de points 9. Une jauge passe à l'orange au-delà de 80 % et au rouge au-delà de 90 %, sens inversé pour la batterie.
+« Score et points » réunit dans une carte le score (anneau, verdict, détail, couverture ou lecture partielle, bouton de la lecture complète) et les points à vérifier, du plus grave au moins grave, sous le titre « 4 points à vérifier · 1 information » : les informations sont comptées à part. Sur l'Accueil, un point déplie ses postes ; sur le poste, il ouvre la vue de l'action utile. Sans point à vérifier, une seule ligne verte « Rien à signaler », seulement si le score est établi ; un score retenu ou partiel affiche « Aucun problème établi ». La couleur de l'état reste sur les icônes. En dessous de 520 points, les points passent sous le score.
+
+Limites d'affichage : un anneau montre 8 parts au plus, les plus petites regroupées en « Autres » ; une liste montre 10 lignes, la liste de points et la carte « Score et points » 9, une fiche 12. Une jauge passe à l'orange au-delà de 80 % et au rouge au-delà de 90 %, sens inversé pour la batterie.
 
 ## Enregistrement de la disposition
 
 - Une clé par tableau dans les préférences de l'utilisateur : Dashboard.Computer.Layout, Dashboard.Fleet.Layout et Dashboard.Software.Layout. Chaque élément garde son identifiant, sa source (Builtin pour le catalogue, Probe pour une requête), sa clé, sa représentation, son titre, sa taille et sa section.
-- Rien d'enregistré donne la disposition livrée, c'est-à-dire tout le catalogue dans son ordre. Une liste vide enregistrée est un tableau vidé volontairement et reste vide.
-- À la lecture, un widget inconnu du catalogue est écarté, les identifiants sont rendus uniques, représentation et taille sont corrigées.
+- Rien d'enregistré donne la disposition de l'équipe si l'administrateur en a défini une, sinon la disposition livrée : le catalogue dans son ordre sans les widgets marqués « catalogue seulement » (colonne « Affichage initial » à Non). Sur le poste, 14 widgets : la carte Santé, les fiches Identité du poste et Compte machine, la liste d'état « État de protection », les ressources, l'activité, les services automatiques arrêtés et les périphériques en erreur ; les autres tuiles restent au catalogue. Sur l'Accueil, la carte Santé remplace le score et la liste des points côte à côte. Une liste vide enregistrée est un tableau vidé volontairement et reste vide.
+- Une disposition enregistrée identique à une disposition livrée auparavant (tout le catalogue du poste, le score et les points séparés de l'Accueil, ou l'Accueil de la RC1.13.0), sans titre changé ni widget suspendu, est remplacée par la disposition livrée actuelle. Toute disposition modifiée par l'opérateur est conservée telle quelle ; « Par défaut » applique la nouvelle.
+- Disposition de l'équipe : l'administrateur exporte la disposition voulue (« Exporter » en personnalisation), puis recopie le fichier, ou sa seule liste « Layout », dans la clé Dashboard.DefaultLayoutComputer, Dashboard.DefaultLayoutFleet ou Dashboard.DefaultLayoutSoftware de wad\Domenia.config.json. Elle s'applique aux tableaux jamais personnalisés et à « Par défaut ». Elle ne garde que les widgets connus du tableau, sans les requêtes personnelles ; une valeur illisible, vide ou d'un autre tableau est ignorée et la disposition livrée s'applique.
+- À la lecture, un widget inconnu du catalogue est écarté, représentation et taille sont corrigées. Un identifiant absent ou répété (disposition d'équipe écrite à la main, par exemple) est remplacé par un identifiant tiré de la clé du widget et de sa place dans la liste : le même texte donne toujours les mêmes identifiants, et les menus, « Copier » et « Actualiser » retrouvent le widget affiché.
 - L'écriture est différée de 1,5 s pour regrouper les changements ; un changement sans effet n'est ni enregistré ni proposé à l'annulation.
 
 ## Animation
@@ -690,23 +696,25 @@ Dimensions en pixels, largeur × hauteur ; auto suit le contenu. Limites d'affic
 
 | Widget | Groupe | Affichage initial | Information |
 |---|---|---|---|
-| Etat general | Vue d ensemble | Oui | Score calcule a partir des points d attention |
-| Points d attention | Vue d ensemble | Oui | Problemes detectes, du plus grave au moins grave |
-| Systeme | Identite du poste | Oui | Version commerciale de Windows et build |
-| Modele | Identite du poste | Oui | Fabricant, modele et numero de serie |
-| Processeur | Identite du poste | Oui | Modele, coeurs et threads |
-| Memoire installee | Identite du poste | Oui | Memoire physique et barrettes |
-| En service depuis | Identite du poste | Oui | Duree depuis le dernier demarrage |
-| Utilisateur connecte | Identite du poste | Oui | Session console au moment de l inventaire |
-| Adresse IP | Identite du poste | Oui | Adresse IPv4 et passerelle |
-| Domaine | Identite du poste | Oui | Domaine et role du poste |
-| Mot de passe machine | Compte machine dans Active Directory | Oui | Age du mot de passe du compte ordinateur |
-| Derniere connexion au domaine | Compte machine dans Active Directory | Oui | Attribut lastLogonTimestamp |
-| Compte ordinateur | Compte machine dans Active Directory | Oui | Actif ou desactive, date de creation |
-| Unite d organisation | Compte machine dans Active Directory | Oui | OU qui contient le poste |
-| Mot de passe LAPS | Compte machine dans Active Directory | Oui | Expiration du mot de passe administrateur local |
-| Gere par | Compte machine dans Active Directory | Oui | Attribut managedBy |
-| Horloge du poste | Compte machine dans Active Directory | Oui | Écart avec la référence disponible : contrôleur ou poste d’administration |
+| Santé du poste | Vue d ensemble | Oui | Score sur 100 et points à vérifier, du plus grave au moins grave (carte « Score et points ») |
+| Points d’attention | Vue d ensemble | Non | Problèmes détectés, du plus grave au moins grave |
+| Identité du poste | Identite du poste | Oui | Fiche : système, modèle, processeur, mémoire, durée de fonctionnement, session, adresse IP et domaine |
+| Systeme | Identite du poste | Non | Version commerciale de Windows et build |
+| Modele | Identite du poste | Non | Fabricant, modele et numero de serie |
+| Processeur | Identite du poste | Non | Modele, coeurs et threads |
+| Memoire installee | Identite du poste | Non | Memoire physique et barrettes |
+| En service depuis | Identite du poste | Non | Duree depuis le dernier demarrage |
+| Utilisateur connecte | Identite du poste | Non | Session console au moment de l inventaire |
+| Adresse IP | Identite du poste | Non | Adresse IPv4 et passerelle |
+| Domaine | Identite du poste | Non | Domaine et role du poste |
+| Compte machine | Compte machine dans Active Directory | Oui | Fiche : état du compte, OU, mot de passe machine, LAPS, dernière connexion, responsable et horloge |
+| Mot de passe machine | Compte machine dans Active Directory | Non | Age du mot de passe du compte ordinateur |
+| Derniere connexion au domaine | Compte machine dans Active Directory | Non | Attribut lastLogonTimestamp |
+| Compte ordinateur | Compte machine dans Active Directory | Non | Actif ou desactive, date de creation |
+| Unite d organisation | Compte machine dans Active Directory | Non | OU qui contient le poste |
+| Mot de passe LAPS | Compte machine dans Active Directory | Non | Expiration du mot de passe administrateur local |
+| Gere par | Compte machine dans Active Directory | Non | Attribut managedBy |
+| Horloge du poste | Compte machine dans Active Directory | Non | Écart avec la référence disponible : contrôleur ou poste d’administration |
 | Memoire utilisee | Ressources | Oui | Memoire occupee au moment de l inventaire |
 | Charge du processeur | Ressources | Oui | Charge du processeur au moment de l inventaire |
 | Batterie | Ressources | Oui | Charge restante des postes portables |
@@ -715,23 +723,26 @@ Dimensions en pixels, largeur × hauteur ; auto suit le contenu. Limites d'affic
 | Services Windows | Activite | Oui | Services en cours, arretes et desactives |
 | Processus les plus gourmands | Activite | Oui | Memoire utilisee par processus, en Mo |
 | Erreurs systeme par source | Activite | Oui | Journal Systeme des 3 derniers jours |
-| Antivirus | Securite et etat | Oui | Produit antivirus declare a Windows |
-| Pare-feu | Securite et etat | Oui | Profils du pare-feu actifs |
-| BitLocker | Securite et etat | Oui | Protection du volume systeme |
-| Windows Update | Securite et etat | Oui | Serveur WSUS configure |
-| Redemarrage en attente | Securite et etat | Oui | Redemarrage demande par une installation |
+| État de protection | Securite et etat | Oui | Liste d'état : BitLocker, démarrage sécurisé, pare-feu, antivirus, redémarrage en attente et dernier correctif, contrôle par contrôle ; un contrôle non lu est marqué « Non lu », jamais conforme |
+| Antivirus | Securite et etat | Non | Produit antivirus declare a Windows |
+| Pare-feu | Securite et etat | Non | Profils du pare-feu actifs |
+| BitLocker | Securite et etat | Non | Protection du volume systeme |
+| Démarrage sécurisé | Securite et etat | Non | Secure Boot lu dans le registre du poste par l’inventaire ; aussi une ligne de « État de protection » |
+| Mises à jour | Securite et etat | Non | Build, révision et source des mises à jour, sans verdict de conformité |
+| Windows Update | Securite et etat | Non | Serveur WSUS configure |
+| Redemarrage en attente | Securite et etat | Non | Redemarrage demande par une installation |
 | Services automatiques arretes | Securite et etat | Oui | Services automatiques a l arret |
 | Peripheriques en erreur | Securite et etat | Oui | Peripheriques signales en erreur |
-| Pilotes non signes | Securite et etat | Oui | Pilotes sans signature numerique |
-| Administrateurs locaux | Securite et etat | Oui | Membres du groupe Administrateurs |
-| Sessions et comptes locaux | Securite et etat | Oui | Comptes et sessions du poste |
-| Demarrage automatique | Securite et etat | Oui | Programmes lances au demarrage |
-| Partages | Securite et etat | Oui | Dossiers partages par le poste |
-| Imprimantes | Securite et etat | Oui | Imprimantes installees |
-| Affichage | Securite et etat | Oui | Carte graphique et resolution |
-| Disque physique | Securite et etat | Oui | Modele et interface du disque |
-| Certificats machine | Securite et etat | Oui | Certificats du magasin ordinateur |
-| Dernier correctif | Securite et etat | Oui | Date du dernier correctif installe |
+| Pilotes non signes | Securite et etat | Non | Pilotes sans signature numerique |
+| Administrateurs locaux | Securite et etat | Non | Membres du groupe Administrateurs |
+| Sessions et comptes locaux | Securite et etat | Non | Comptes et sessions du poste |
+| Demarrage automatique | Securite et etat | Non | Programmes lances au demarrage |
+| Partages | Securite et etat | Non | Dossiers partages par le poste |
+| Imprimantes | Securite et etat | Non | Imprimantes installees |
+| Affichage | Securite et etat | Non | Carte graphique et resolution |
+| Disque physique | Securite et etat | Non | Modele et interface du disque |
+| Certificats machine | Securite et etat | Non | Certificats du magasin ordinateur |
+| Dernier correctif | Securite et etat | Non | Date du dernier correctif installe |
 
 ## Catalogue du tableau du parc
 
@@ -739,8 +750,8 @@ Le catalogue contient 29 widgets de parc. Les requêtes personnelles et les 78 s
 
 | Groupe | Widget | Information |
 |---|---|---|
-| Santé | État du parc | Part des postes sans point critique ni à surveiller |
-| Santé | Points dʼattention | Problèmes détectés sur le périmètre ; l’action de détail ouvre les postes concernés |
+| Santé | Santé du parc | Part des postes sans point critique ni à surveiller et points à vérifier dans la même carte ; un point déplie ses postes |
+| Santé | Points dʼattention | Problèmes détectés sur le périmètre ; l’action de détail ouvre les postes concernés (catalogue seulement) |
 | Inventaire du périmètre | Postes | Tous les comptes ordinateur recensés du périmètre, actifs et désactivés. |
 | Inventaire du périmètre | Sans connexion depuis 90 j | Attribut lastLogonTimestamp, à 14 jours près |
 | Inventaire du périmètre | Comptes désactivés encore dans lʼOU | Comptes ordinateur désactivés à déplacer ou supprimer |
@@ -777,6 +788,7 @@ Le catalogue contient 29 widgets de parc. Les requêtes personnelles et les 78 s
 | Taille declaree | Synthese | Oui | Somme des tailles connues |
 | Installés ces 30 derniers jours | Synthese | Oui | Date dʼinstallation déclarée par le logiciel, lue dans la liste |
 | Installes en plusieurs versions | Synthese | Oui | Logiciels presents en plusieurs versions |
+| Installés en double | Synthese | Oui | Même nom et même version présents dans plusieurs architectures, portées ou profils |
 | Sans editeur declare | Synthese | Oui | Logiciels sans editeur renseigne |
 | Composants dʼexécution | Synthese | Oui | Socles Visual C++, .NET et WebView2 déclarés dans la liste |
 | Navigateurs et versions | Synthese | Oui | Navigateurs détectés dans la liste, avec leur version |
@@ -800,7 +812,7 @@ Le catalogue propose 78 sondes WMI en lecture seule, en 8 catégories. On les aj
 ## Exécution
 
 1. **Lancer.** Poste : cliquez « Actualiser les requetes » sur son tableau ; il faut un poste sélectionné. Parc : préparez les postes dans l’Atelier et lancez la collecte, ou utilisez « Matériel et widgets » de « Vérifier la liste » dans Rechercher. Les requêtes des widgets présents sont regroupées, sans doublon.
-2. **Confirmer.** Poste : confirmation « Sonder pour les widgets », bouton « Verifier les sessions ». Parc : confirmation « Analyser les postes affiches », bouton « Analyser ». Les deux donnent le nombre de postes et de requêtes ; « Annuler » ne lance rien.
+2. **Confirmer.** Poste comme parc, la confirmation dans la page sʼintitule « Relevé des postes : … », ici « matériel et widgets », et son bouton « Analyser N postes » donne le nombre de postes visés ; elle annonce aussi le nombre de requêtes. « Annuler » ne lance rien.
 3. **Suivre.** De 1 à 8 postes en parallèle selon le réglage. Délai par poste : 20 s plus 8 s par requête, plafonné à 150 s.
 4. **Lire.** En fin de relevé, les widgets se remplissent et la vue du parc se recalcule.
 
@@ -1082,7 +1094,7 @@ La page « Comptes : identités de connexion » s'ouvre par le menu « Compte
 
 - Le compte poste saisi dans le panneau « Compte poste » d'Assistance poste passe avant le compte « POSTES / WMI / DISTANT » (chapitre 5).
 - « Essayer sur le poste sélectionné », grisé sans poste ouvert dans Assistance poste, fait au clic une seule lecture WMI légère (Win32_OperatingSystem) du poste ouvert avec le compte utilisé pour les postes. Réponses : « Accès administrateur OK sur … », « Accès refusé sur … : droit administrateur requis sur ce poste. », « Identifiants refusés par … », « Poste … injoignable (réseau, nom ou service WMI) ». Aucun relevé, aucun autre poste, aucun repli intrusif.
-- Un compte temporaire accepté après un refus passe avant, pour sa seule ressource et son poste. Il est oublié après Security.AlternateCredentialIdleMinutes (30 min) sans usage, à la fin de la session, par la fenêtre du bouton d'accès ou par « Oublier » dans « En ce moment ». « Oublier » efface aussi le refus enregistré pour cette ressource : le compte configuré reprend la main dès l'opération suivante. Il est refusé tant qu'une écriture reste active ou à vérifier ; une opération déjà envoyée garde sa copie du compte.
+- Un compte temporaire accepté après un refus passe avant, pour sa seule ressource et son poste. Il est oublié après Security.AlternateCredentialIdleMinutes (30 min) sans usage, à la fin de la session, par la fenêtre du bouton d'accès ou par « Oublier » dans « EN CE MOMENT ». « Oublier » efface aussi le refus enregistré pour cette ressource : le compte configuré reprend la main dès l'opération suivante. Il est refusé tant qu'une écriture reste active ou à vérifier ; une opération déjà envoyée garde sa copie du compte.
 - Si le périmètre AD change, les comptes secondaires sont retirés de la mémoire, pour ne pas les envoyer dans un autre domaine.
 
 ## Droits à prévoir
@@ -1092,7 +1104,7 @@ La page « Comptes : identités de connexion » s'ouvre par le menu « Compte
 | Annuaire, lecture | Un compte AD capable de lire les utilisateurs, groupes, postes et OU. |
 | Annuaire, écriture | Les délégations AD correspondant à chaque écriture permise : déverrouillage, réinitialisation, déplacement, groupes. |
 | Postes | « Identifiant ayant les droits administrateur sur les postes. » pour WMI et CIM, C$ et les consoles. |
-| Secrets | « Identifiant autorise a lire LAPS et BitLocker dans Active Directory. » |
+| Secrets | « Identifiant autorisé à lire LAPS et BitLocker dans Active Directory. » |
 | Journal du contrôleur | Lecture du journal Sécurité du contrôleur de domaine. |
 
 > [!NOTE] Non vérifié. Les droits AD exacts de chaque écriture et l'absence de besoin d'administrateur local pour lancer Domenia en mode UserLocal n'ont pas été qualifiés. Validez-les dans votre domaine de test.
@@ -1139,7 +1151,7 @@ Restent disponibles : lectures, recherches, inventaires, détection, requêtes d
 
 ## Reçus et non rejeu
 
-Chaque écriture laisse un reçu dans %LOCALAPPDATA%\Domenia\Receipts. Une écriture n'est jamais rejouée automatiquement. Après un résultat incertain, Domenia affiche : « Une operation precedente reste a verifier. Consultez les recus, pas une relance automatique. ». Relisez l'objet dans AD avant toute nouvelle action. Tant qu'un reçu attend une vérification, la pastille « 1 opération à vérifier » (ou « n opérations à vérifier ») s'affiche dans l'en-tête de page ; elle ouvre la liste des reçus. Rien n'est rejoué depuis cette liste.
+Chaque écriture laisse un reçu dans %LOCALAPPDATA%\Domenia\Receipts. Une écriture n'est jamais rejouée automatiquement. Après un résultat incertain, Domenia affiche : « Une operation precedente reste a verifier. Consultez les recus, pas une relance automatique. ». Relisez l'objet dans AD avant toute nouvelle action. Tant qu'un reçu attend une vérification, la pastille « 1 opération à vérifier » (ou « N opérations à vérifier ») s'affiche dans l'en-tête de page ; elle ouvre la liste des reçus. Rien n'est rejoué depuis cette liste.
 
 ## Démonstration pour la formation
 
@@ -1322,7 +1334,7 @@ Codes de sortie : 0 installation faite (ou -WhatIf), 1 erreur, 2 rien n'a été 
 
 -RestoreLatest choisit la sauvegarde de l'installation interrompue s'il y en a une, sinon la dernière installation terminée de ce dossier.
 
-La restauration relit la transaction, vérifie tout sans écrire, refuse d'écraser un fichier modifié depuis la mise à jour, puis remet l'ancien code. Message de fin : « Code precedent restaure. wad\data et les preferences conservees n ont pas ete modifies. ».
+La restauration relit la transaction, vérifie tout sans écrire, refuse d'écraser un fichier modifié depuis la mise à jour, puis remet l'ancien code. Message de fin : « Code précédent restauré. Version avant : … ; version après : … », puis « wad\data et les préférences conservées nʼont pas été modifiés. », suivi de lʼavis sur le schéma de la base locale.
 
 > [!ATTENTION] Ne supprimez jamais wad\Support\.lifecycle.lock ni wad\Support\.update.pending à la main. Le marqueur bloque le lancement tant qu'une installation n'est ni terminée ni restaurée ; c'est voulu.
 
@@ -1410,6 +1422,7 @@ Une clé absente, nulle ou vide prend la valeur par défaut du code. Une section
 | Streaming.RevalidateIntervalSeconds | 60 | Intervalle de cette relecture (30 à 600 s). |
 | Streaming.ReconcileSeconds | 180 | Relecture de fond du périmètre d'une liste de 500 lignes au plus (120 à 900 s). |
 | Park.MaxTargets | 500 | Plafond d'un relevé de la liste ou de sa sélection : « Vérifier la liste » et la barre de la sélection refusent au-delà (5 000 au plus). La collecte d'un widget le respecte aussi, comptée sur les postes à lire. |
+| Dashboard.DefaultLayoutComputer, DefaultLayoutFleet, DefaultLayoutSoftware | vide | Disposition de l'équipe pour le tableau du poste, de l'Accueil ou des logiciels : le fichier produit par « Exporter », sa liste « Layout » ou le même JSON en texte. Appliquée aux tableaux jamais personnalisés et par « Par défaut » ; une valeur illisible, vide ou d'un autre tableau est ignorée. |
 | Browser.GlobalSearchLimit | 100 | Valeur initiale du champ « Limite », aussitôt remplacée par la préférence SearchLimit (100 par défaut) ; ne sert que si ce champ n'est pas un nombre. |
 | Browser.GlobalSearchMinChars | 2 | Caractères minimum. |
 | Browser.MaxPageSize | 300 | Taille de page LDAP. |
@@ -1543,7 +1556,7 @@ Un refus avant la copie (destination prise, espace insuffisant, source modifiée
 
 ## Mettre à jour la base
 
-La même lecture AD peut être lancée avec « Base locale » depuis Accueil ou Rechercher pour l’OU annoncée sur cet écran. Elle ne relève ni le ping ni WMI. Dans Base autonome, le choix d’OU, placé au-dessus des onglets, règle « Mise à jour » et « Données ». « Stockage » agit sur la base locale entière : les sauvegardes et purges ne sont pas limitées à cette OU. Utilisez « Choisir une OU », puis « Mettre à jour lʼOU choisie » dans l’onglet « Mise à jour ». Une unité organisationnelle doit être choisie ; ses sous-OU sont incluses. La cible est propre à cet outil et ne modifie pas Rechercher. Relisez le chemin affiché avant de lancer une opération.
+La même lecture AD peut être lancée avec « Objets AD » depuis Accueil ou Rechercher pour l’OU annoncée sur cet écran. Elle ne relève ni le ping ni WMI. Dans Base autonome, le choix d’OU, placé au-dessus des onglets, règle « Mise à jour » et « Données ». « Stockage » agit sur la base locale entière : les sauvegardes et purges ne sont pas limitées à cette OU. Utilisez « Choisir une OU », puis « Mettre à jour lʼOU choisie » dans l’onglet « Mise à jour ». Une unité organisationnelle doit être choisie ; ses sous-OU sont incluses. La cible est propre à cet outil et ne modifie pas Rechercher. Relisez le chemin affiché avant de lancer une opération.
 
 | Onglet | Usage |
 |---|---|
@@ -1570,7 +1583,7 @@ Dans « Mise à jour », quatre tuiles résument la copie locale : « Comptes »
 
 L’onglet « Mise à jour » regroupe la commande, « État de la copie locale » et ses tuiles, les dates et la progression. L’onglet « Données » réserve la place aux résultats, avec ses filtres et boutons de pagination. Les sauvegardes et la maintenance sont accessibles dans « Stockage ».
 
-La lecture de l’annuaire et l’enregistrement dans SQLite sont deux phases distinctes. Les compteurs affichent les objets lus, les lots écrits et les éventuels refus ou délais dépassés. La fraîcheur AD du périmètre repose sur sa dernière lecture complète ou celle d’une OU parente qui le couvre ; le chemin couvert reste indiqué. Une tentative partielle ne remplace pas cette date et demeure signalée. Attendez la confirmation finale du stockage avant de considérer la base à jour. Cette date ne décrit ni le ping ni WMI ; « Les deux » attend précisément ce stockage avant de préparer le relevé des postes.
+La lecture de l’annuaire et l’enregistrement dans SQLite sont deux phases distinctes. Les compteurs affichent les objets lus, les lots écrits et les éventuels refus ou délais dépassés. La fraîcheur AD du périmètre repose sur sa dernière lecture complète ou celle d’une OU parente qui le couvre ; le chemin couvert reste indiqué. Une tentative partielle ne remplace pas cette date et demeure signalée. Attendez la confirmation finale du stockage avant de considérer la base à jour. Cette date ne décrit ni le ping ni WMI ; attendez précisément ce stockage avant de lancer « Ping » ou « WMI » sur un recensement relu.
 
 La lecture est transférée dans un flux local contrôlé, puis intégrée par transactions de 256 objets. Les objets sont suivis par GUID : un renommage ou un déplacement conserve l’identité. Une lecture complète d’OU rapproche les absences uniquement dans son sous-arbre ; les autres OU restent intactes. Si la lecture ou le recensement est partiel, les objets effectivement lus sont fusionnés, mais aucun absent n’est retiré et ni le repère ni la date complète ne progressent. Les fiches et mesures enregistrées plus récemment pendant la lecture sont préservées lors de la fusion. Ces retraits concernent l’index local : ils ne suppriment rien dans AD, ni les associations manuelles ou les relevés conservés.
 
@@ -1758,7 +1771,7 @@ La seconde forme, lancée depuis une console Windows PowerShell 5.1 x64 dans le 
 
 ## Démarrage en diagnostic
 
-Domenia.exe --diagnostic, ou LANCER-Domenia.cmd du paquet DEV, démarre Domenia avec une console visible. Une erreur fatale du cœur affiche « DOMENIA na pas pu terminer son initialisation. » avec les chemins des journaux de démarrage et de connexion.
+Domenia.exe --diagnostic, ou LANCER-Domenia.cmd du paquet DEV, démarre Domenia avec une console visible. Une erreur fatale du cœur affiche « Domenia nʼa pas pu terminer son initialisation. » avec les chemins des journaux de démarrage et de connexion.
 
 Pour une connexion qui échoue sans cause claire, passez temporairement la fenêtre de connexion en Debug (chapitre 14), reproduisez, puis remettez Standard.
 

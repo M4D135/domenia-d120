@@ -10,7 +10,7 @@ function Complete-DomeniaDocumentTask {
     if($State.Epoch -ne $script:SessionEpoch){return}
     if($State.Action -eq 'Read'){
         $value=$r.Content|ConvertFrom-Json
-        if($value.Format -ne 'Domenia.Capture.1'){throw 'Format de capture non reconnu.'}
+        [void](Assert-DomeniaContractFormat -Format ([string](Get-DomeniaMember $value 'Format' '')) -Family 'Domenia.Capture')
         $capture=ConvertTo-DomeniaStoredCapture $value.Capture $State.Domain
         if($State.Slot -notin @('A','B')){throw 'Emplacement de capture invalide.'}
         Sync-DomeniaSupportSession;$script:SupportState.($State.Slot)=$capture;Update-DomeniaSupportComparison
@@ -41,6 +41,7 @@ function Use-DomeniaCaptureFile {
 function Export-DomeniaTechnicalDossier {
     # W13 (point 124): redacted diagnostic (New-DomeniaRedactedDiagnostic). The operator reads exactly what will be
     # written, and what is never included, then confirms and chooses a local file. Nothing is sent anywhere.
+    # Point 145: the compatibility of this workstation (versions and statuses only) is part of the diagnostic.
     $session=New-DomeniaSessionDiagnostic
     [void](Show-DomeniaDialog -Title 'Aperçu du diagnostic expurgé' -Message ([string]$session.Preview) -Details ([string]$session.Json))
     if(-not (Confirm-Action 'Enregistrer exactement ce diagnostic dans un fichier local ? Aucun envoi automatique.')){return}

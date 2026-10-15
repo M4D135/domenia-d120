@@ -463,6 +463,17 @@ function New-DomeniaAttentionCard {
     [void]$head.Children.Add($titles)
     [void]$panel.Children.Add($head)
 
+    Add-DomeniaAttentionRows -Into $panel -Items $ordered -Board $Board -Max $Max
+    $state = if ($alerts) { 'Alert' } elseif ($warnings) { 'Warn' } else { '' }
+    return New-DomeniaChartCard -Width $Width -Height 0 -Content $panel -State $state -MinHeight $MinHeight
+}
+
+function Add-DomeniaAttentionRows {
+    # Lines of the points of attention, in the order given (most serious first), into a panel: a Fleet point naming its
+    # workstations unfolds them on click (Switch-DomeniaAttentionDetails), a workstation point naming a route offers a
+    # link to the tab of its useful action. Shared by the list of points and the Santé card (DS-05).
+    param($Into,[object[]]$Items = @(),[string]$Board = '',[int]$Max = 9)
+    $ordered = @($Items | Where-Object { $null -ne $_ })
     $shown = 0
     foreach ($item in ($ordered | Select-Object -First $Max)) {
         $level = [string]$item.Level
@@ -512,7 +523,7 @@ function New-DomeniaAttentionCard {
                 [void]$hyperlink.Inlines.Add($routeText)
                 $hyperlink.ToolTip = 'Ouvre lʼécran de lʼaction utile, sans rien exécuter.'
                 $hyperlink.Tag = $route
-                $hyperlink.Add_Click({ param($s,$e) try { Invoke-DomeniaBoardRoute -Route ([string]$s.Tag) } catch { } })
+                $hyperlink.Add_Click({ param($s,$e) try { Invoke-DomeniaBoardRoute -Route ([string]$s.Tag) } catch { Write-AppLog ('Écran de lʼaction utile non ouvert : ' + $_.Exception.Message) 'WARN'; Set-Status 'Écran de lʼaction utile non ouvert : détail dans le journal.' 'WARN' } })
                 [void]$link.Inlines.Add($hyperlink)
                 [System.Windows.Controls.DockPanel]::SetDock($link, [System.Windows.Controls.Dock]::Right)
                 $row.Children.Insert(0, $link)
@@ -520,14 +531,11 @@ function New-DomeniaAttentionCard {
             [void]$row.Children.Add((New-DomeniaChartText -Text ([string]$item.Text) -Size 12.5 -Key 'TextColor'))
             $line.Child = $row
         }
-        [void]$panel.Children.Add($line)
+        [void]$Into.Children.Add($line)
         $shown++
     }
-    if ($ordered.Count -gt $Max) { $more = New-DomeniaChartText -Text ('et ' + ($ordered.Count - $Max) + ' autre(s) point(s)') -Size 11.5 -Key 'MutedColor'; $more.Margin = [System.Windows.Thickness]::new(32, 4, 0, 0); [void]$panel.Children.Add($more) }
-    $state = if ($alerts) { 'Alert' } elseif ($warnings) { 'Warn' } else { '' }
-    return New-DomeniaChartCard -Width $Width -Height 0 -Content $panel -State $state -MinHeight $MinHeight
+    if ($ordered.Count -gt $Max) { $more = New-DomeniaChartText -Text ('et ' + ($ordered.Count - $Max) + ' autre(s) point(s)') -Size 11.5 -Key 'MutedColor'; $more.Margin = [System.Windows.Thickness]::new(32, 4, 0, 0); [void]$Into.Children.Add($more) }
 }
-
 function Invoke-DomeniaChartSelect {
     # FO-09: a ring part or a bar that carries a Select payload hands it to the handler of the board that drew the
     # card. The handler is optional and comes from the board (only the software board offers one): a chart without
@@ -1170,6 +1178,205 @@ function New-DomeniaHealthCard {
         [void]$body.Children.Add($button)
     }
     return New-DomeniaChartCard -Width $Width -Height $Height -Content $body
+}
+function New-DomeniaHealthSummaryCard {
+    # DS-05: one Santé card: the score (ring, verdict, detail, coverage or partial badge and the button of the full
+    # reading) on the left, the points to check on the right, most serious first, with the lines of
+    # Add-DomeniaAttentionRows (unfolded workstations on the overview, links to the useful view on a workstation).
+    # The height follows the content and the colour of the state stays on the icons; with nothing to check, a single
+    # green line, only when the score is established (-Reliable). Below 520 px the list goes under the score.
+    param(
+        [string]$Title = 'Santé',
+        $Score = $null,
+        [string]$Verdict = '',
+        [string]$Detail = '',
+        [ValidateSet('','Ok','Warn','Alert','Off')][string]$State = 'Ok',
+        [string]$Badge = '',
+        $Action = $null,
+        [object[]]$Points = @(),
+        [string]$PointsTitle = '',
+        [bool]$Reliable = $true,
+        [string]$Board = '',
+        [double]$Width = 760,
+        [int]$Max = 9
+    )
+    $wide = ($Width -ge 520)
+    $layout = New-Object System.Windows.Controls.Grid
+    if ($wide) {
+        $left = New-Object System.Windows.Controls.ColumnDefinition; $left.Width = [System.Windows.GridLength]::new(220)
+        $gap = New-Object System.Windows.Controls.ColumnDefinition; $gap.Width = [System.Windows.GridLength]::new(25)
+        $right = New-Object System.Windows.Controls.ColumnDefinition; $right.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
+        foreach ($column in @($left, $gap, $right)) { [void]$layout.ColumnDefinitions.Add($column) }
+    } else {
+        foreach ($height in @('Auto','Auto')) { $row = New-Object System.Windows.Controls.RowDefinition; $row.Height = [System.Windows.GridLength](New-Object System.Windows.GridLengthConverter).ConvertFromString($height); [void]$layout.RowDefinitions.Add($row) }
+    }
+    # Left: score and verdict.
+    $scoreSide = New-Object System.Windows.Controls.StackPanel
+    [void]$scoreSide.Children.Add((New-DomeniaChartHeader -Title $Title -Width $(if ($wide) { 220 } else { $Width - 32 })))
+    $stateKey = if ($State -in @('Warn','Alert')) { Get-DomeniaStateTextKey $State } else { 'TextColor' }
+    if ($null -ne $Score) {
+        $size = 128.0
+        $thickness = [Math]::Round($size * 0.11)
+        $radius = ($size - $thickness - 6) / 2.0
+        $center = $size / 2.0
+        $pct = [Math]::Min(1.0, [Math]::Max(0.0, [double]$Score / 100.0))
+        $ring = New-Object System.Windows.Controls.Grid
+        $ring.Width = $size; $ring.Height = $size
+        $ring.HorizontalAlignment = $(if ($wide) { [System.Windows.HorizontalAlignment]::Left } else { [System.Windows.HorizontalAlignment]::Center })
+        $canvas = New-Object System.Windows.Controls.Canvas
+        $canvas.Width = $size; $canvas.Height = $size
+        [void]$ring.Children.Add($canvas)
+        $track = New-DomeniaArcPath -Center $center -Radius $radius -Start 0 -Sweep 359.9 -Thickness $thickness
+        $track.Path.SetResourceReference([System.Windows.Shapes.Shape]::StrokeProperty, 'BorderColor')
+        $track.Path.Opacity = 0.4
+        [void]$canvas.Children.Add($track.Path)
+        if ($pct -gt 0.004) {
+            $arc = New-DomeniaArcPath -Center $center -Radius $radius -Start 0 -Sweep (360.0 * $pct) -Thickness $thickness -Round
+            $arc.Path.Stroke = ConvertTo-DomeniaChartBrush $(if ($State) { Get-DomeniaStateColor $State } else { Get-DomeniaBoardColor 'Info' })
+            [void]$canvas.Children.Add($arc.Path)
+            Register-DomeniaArcDrawing -Card $ring -Arc $arc -Ms 1000
+        }
+        $middle = New-Object System.Windows.Controls.StackPanel
+        $middle.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Center
+        $middle.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+        $big = New-DomeniaChartText -Text ([string][int][Math]::Round([double]$Score)) -Size 32 -Weight SemiBold -Key 'TextColor' -Display
+        $big.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Center
+        [void]$middle.Children.Add($big)
+        Register-DomeniaCountUp $big
+        $outOf = New-DomeniaChartText -Text 'sur 100' -Size 11 -Key 'MutedColor'
+        $outOf.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Center
+        [void]$middle.Children.Add($outOf)
+        [void]$ring.Children.Add($middle)
+        [void]$scoreSide.Children.Add($ring)
+    }
+    $verdictText = New-DomeniaChartText -Text $Verdict -Size $(if ($null -ne $Score) { 15 } else { 18 }) -Weight SemiBold -Key $stateKey -Display
+    $verdictText.Margin = [System.Windows.Thickness]::new(0, $(if ($null -ne $Score) { 10 } else { 4 }), 0, 0)
+    if (-not $wide) { $verdictText.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Center; $verdictText.TextAlignment = [System.Windows.TextAlignment]::Center }
+    [void]$scoreSide.Children.Add($verdictText)
+    if ($Detail) {
+        $sub = New-DomeniaChartText -Text $Detail -Size 11.5 -Key 'MutedColor'
+        $sub.MaxHeight = 48; $sub.TextTrimming = [System.Windows.TextTrimming]::CharacterEllipsis; $sub.ToolTip = $Detail
+        if (-not $wide) { $sub.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Center; $sub.TextAlignment = [System.Windows.TextAlignment]::Center }
+        [void]$scoreSide.Children.Add($sub)
+    }
+    if ($Badge) {
+        # Coverage of the score (point 74) or partial reading (UX-23): said beside the score, never hidden.
+        $pill = New-Object System.Windows.Controls.Border
+        $pill.CornerRadius = [System.Windows.CornerRadius]::new(9)
+        $pill.Padding = [System.Windows.Thickness]::new(8, 2, 8, 3)
+        $pill.Margin = [System.Windows.Thickness]::new(0, 6, 0, 0)
+        $pill.HorizontalAlignment = $(if ($wide) { [System.Windows.HorizontalAlignment]::Left } else { [System.Windows.HorizontalAlignment]::Center })
+        $pill.Background = ConvertTo-DomeniaChartBrush (Get-DomeniaStateDotColor 'Warn') 0.16
+        $badgeText = New-DomeniaChartText -Text $Badge -Size 11 -Weight SemiBold -Key (Get-DomeniaStateTextKey 'Warn')
+        $badgeText.MaxWidth = $(if ($wide) { 204 } else { [Math]::Max(120, $Width - 64) })
+        $pill.Child = $badgeText
+        [System.Windows.Automation.AutomationProperties]::SetName($pill, $Badge)
+        [void]$scoreSide.Children.Add($pill)
+    }
+    if (($null -ne $Action) -and [string](Get-DomeniaHealthValue $Action 'Id' '')) {
+        $button = New-Object System.Windows.Controls.Button
+        $button.SetResourceReference([System.Windows.Controls.Control]::StyleProperty, 'SecondaryButton')
+        $button.MinHeight = 28
+        $button.Padding = [System.Windows.Thickness]::new(10, 2, 10, 2)
+        $button.Margin = [System.Windows.Thickness]::new(0, 8, 0, 0)
+        $button.HorizontalAlignment = $(if ($wide) { [System.Windows.HorizontalAlignment]::Left } else { [System.Windows.HorizontalAlignment]::Center })
+        $button.Content = [string]$Action.Text
+        $button.ToolTip = [string]$Action.Tip
+        [System.Windows.Automation.AutomationProperties]::SetName($button, [string]$Action.Text)
+        $button.Tag = @{ Board = $Board; Action = 'EntryAction'; Value = [string]$Action.Id }
+        $button.Add_Click({ param($s,$e) Invoke-DomeniaBoardAction -Tag $s.Tag })
+        [void]$scoreSide.Children.Add($button)
+    }
+    [void]$layout.Children.Add($scoreSide)
+    # Right: the points.
+    $pointSide = New-Object System.Windows.Controls.StackPanel
+    $listed = @($Points | Where-Object { $null -ne $_ })
+    $alerts = @($listed | Where-Object { [string]$_.Level -eq 'Alert' }).Count
+    $warnings = @($listed | Where-Object { [string]$_.Level -eq 'Warn' }).Count
+    $head = New-Object System.Windows.Controls.DockPanel
+    $head.Margin = [System.Windows.Thickness]::new(0, $(if ($wide) { 0 } else { 14 }), 0, 4)
+    $iconState = if ($alerts) { 'Alert' } elseif ($warnings) { 'Warn' } elseif ($listed.Count -or (-not $Reliable)) { 'Info' } else { 'Ok' }
+    $glyph = switch ($iconState) { 'Alert' { [string][char]0xEA39 } 'Warn' { [string][char]0xE7BA } 'Info' { [string][char]0xE946 } default { [string][char]0xE73E } }
+    $icon = New-DomeniaChartIcon $glyph $(if ((-not $Reliable) -and (-not ($alerts + $warnings))) { Get-DomeniaStateDotColor 'Off' } else { Get-DomeniaStateDotColor $iconState }) 26
+    $icon.Margin = [System.Windows.Thickness]::new(0, 0, 10, 0)
+    [void]$head.Children.Add($icon)
+    $headline = if ($PointsTitle) { $PointsTitle } else { Get-DomeniaHealthPointsTitle -Points ($alerts + $warnings) -Information ($listed.Count - $alerts - $warnings) -Reliable $Reliable }
+    $headText = New-DomeniaChartText -Text $headline -Size 14.5 -Weight SemiBold -Key $(if (($iconState -eq 'Ok') -and $Reliable) { 'StatusSuccess' } else { 'TextColor' }) -Display
+    $headText.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+    [void]$head.Children.Add($headText)
+    [void]$pointSide.Children.Add($head)
+    if ($listed.Count) { Add-DomeniaAttentionRows -Into $pointSide -Items $listed -Board $Board -Max $Max }
+    else {
+        $calm = New-DomeniaChartText -Text $(if ($Reliable) { 'Toutes les vérifications activées sont passées.' } else { 'Aucun point détecté sur ce qui a été évalué ; le score reste à confirmer.' }) -Size 12 -Key 'MutedColor'
+        $calm.Margin = [System.Windows.Thickness]::new(36, 0, 0, 0)
+        [void]$pointSide.Children.Add($calm)
+    }
+    if ($wide) { [System.Windows.Controls.Grid]::SetColumn($pointSide, 2) } else { [System.Windows.Controls.Grid]::SetRow($pointSide, 1) }
+    [void]$layout.Children.Add($pointSide)
+    if ($wide) {
+        $rule = New-Object System.Windows.Controls.Border
+        $rule.Width = 1; $rule.Margin = [System.Windows.Thickness]::new(12, 2, 12, 2)
+        $rule.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, 'BorderColor')
+        $rule.Opacity = 0.75
+        [System.Windows.Controls.Grid]::SetColumn($rule, 1)
+        [void]$layout.Children.Add($rule)
+    }
+    return New-DomeniaChartCard -Width $Width -Height 0 -Content $layout
+}
+function New-DomeniaSheetCard {
+    # UX-11: lines label / value of one object (identity, computer account), the detail of each value under it.
+    # -Checklist: each line is a check marked by its state: done (Ok), to check (Warn), critical (Alert), not read (Off,
+    # never shown as passed) or merely declared (no state).
+    param([string]$Title,[string]$Subtitle = '',[object[]]$Items = @(),[double]$Width = 420,[double]$MinHeight = 0,[switch]$Checklist,[int]$Max = 12)
+    $panel = New-Object System.Windows.Controls.StackPanel
+    [void]$panel.Children.Add((New-DomeniaChartHeader -Title $Title -Width $Width -Subtitle $Subtitle))
+    $rows = @($Items | Where-Object { $null -ne $_ })
+    $labelWidth = [Math]::Floor([Math]::Max(90, [Math]::Min(180, ($Width - 32) * 0.4)))
+    $first = $true
+    foreach ($item in @($rows | Select-Object -First $Max)) {
+        $state = [string](Get-DomeniaHealthValue $item 'State' '')
+        $line = New-Object System.Windows.Controls.Border
+        $line.BorderThickness = [System.Windows.Thickness]::new(0, $(if ($first) { 0 } else { 1 }), 0, 0)
+        $line.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, 'BorderColor')
+        $line.Padding = [System.Windows.Thickness]::new(0, 6, 0, 6)
+        $first = $false
+        $dock = New-Object System.Windows.Controls.DockPanel
+        if ($Checklist) {
+            $markHost = New-Object System.Windows.Controls.Grid
+            $markHost.Width = 18; $markHost.Margin = [System.Windows.Thickness]::new(0, 1, 8, 0); $markHost.VerticalAlignment = [System.Windows.VerticalAlignment]::Top
+            if ($state -eq 'Off') {
+                $ring = New-Object System.Windows.Shapes.Ellipse
+                $ring.Width = 11; $ring.Height = 11; $ring.StrokeThickness = 1.4; $ring.Margin = [System.Windows.Thickness]::new(0, 2, 0, 0)
+                $ring.SetResourceReference([System.Windows.Shapes.Shape]::StrokeProperty, 'MutedColor')
+                [void]$markHost.Children.Add($ring)
+            } else {
+                $mark = New-Object System.Windows.Controls.TextBlock
+                $mark.Text = switch ($state) { 'Ok' { [string][char]0xE73E } 'Warn' { [string][char]0xE7BA } 'Alert' { [string][char]0xEA39 } default { [string][char]0xE946 } }
+                $mark.FontFamily = [System.Windows.Media.FontFamily]::new($script:DomeniaChartIconFont)
+                $mark.FontSize = 12
+                $mark.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, $(switch ($state) { 'Ok' { 'StatusSuccess' } 'Warn' { 'StatusWarning' } 'Alert' { 'StatusError' } default { 'AccentText' } }))
+                [void]$markHost.Children.Add($mark)
+            }
+            [System.Windows.Automation.AutomationProperties]::SetName($markHost, $(switch ($state) { 'Ok' { 'Conforme' } 'Warn' { 'À vérifier' } 'Alert' { 'Critique' } 'Off' { 'Non lu' } default { 'Déclaré' } }))
+            [void]$dock.Children.Add($markHost)
+        }
+        $label = New-DomeniaChartText -Text ([string](Get-DomeniaHealthValue $item 'Label' '')) -Size 12 -Key 'MutedColor' -OneLine
+        $label.Width = $labelWidth; $label.VerticalAlignment = [System.Windows.VerticalAlignment]::Top; $label.Margin = [System.Windows.Thickness]::new(0, 1, 10, 0)
+        [void]$dock.Children.Add($label)
+        $values = New-Object System.Windows.Controls.StackPanel
+        $valueKey = switch ($state) { 'Warn' { 'StatusWarning' } 'Alert' { 'StatusError' } 'Off' { 'MutedColor' } default { 'TextColor' } }
+        $value = New-DomeniaChartText -Text ([string](Get-DomeniaHealthValue $item 'Value' '')) -Size 12.5 -Weight SemiBold -Key $valueKey
+        $value.MaxHeight = 36; $value.TextTrimming = [System.Windows.TextTrimming]::CharacterEllipsis; $value.ToolTip = [string](Get-DomeniaHealthValue $item 'Value' '')
+        [void]$values.Children.Add($value)
+        $detail = [string](Get-DomeniaHealthValue $item 'Detail' '')
+        if ($detail) { [void]$values.Children.Add((New-DomeniaChartText -Text $detail -Size 11.5 -Key 'MutedColor' -OneLine)) }
+        [void]$dock.Children.Add($values)
+        $line.Child = $dock
+        [System.Windows.Automation.AutomationProperties]::SetName($line, ([string](Get-DomeniaHealthValue $item 'Label' '') + ' : ' + [string](Get-DomeniaHealthValue $item 'Value' '')))
+        [void]$panel.Children.Add($line)
+    }
+    if ($rows.Count -gt $Max) { $more = New-DomeniaChartText -Text ('et ' + ($rows.Count - $Max) + ' autre(s)') -Size 11.5 -Key 'MutedColor'; $more.Margin = [System.Windows.Thickness]::new(0, 4, 0, 0); [void]$panel.Children.Add($more) }
+    return New-DomeniaChartCard -Width $Width -Height 0 -Content $panel -MinHeight $MinHeight
 }
 function New-DomeniaListCard {
     # Values as a clean list: label on the left, figure on the right, hairline separators.

@@ -33,7 +33,14 @@ function Get-DomeniaRuntimeModulePlan {
             'ConvertFrom-DomeniaDnLabel',
             'Get-DomeniaDnSite',
             'Add-DomeniaSwallowedEntry',
-            'Get-DomeniaSwallowedEntries'
+            'Get-DomeniaSwallowedEntries',
+            'Get-DomeniaContractCatalog',
+            'Get-DomeniaContract',
+            'ConvertFrom-DomeniaContractFormat',
+            'Resolve-DomeniaContractFormat',
+            'Assert-DomeniaContractFormat',
+            'Test-DomeniaContractValue',
+            'Test-DomeniaContractCatalog'
         ) }
         [pscustomobject]@{ Phase='Bootstrap'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-Engine.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaStartupPhases',
@@ -666,6 +673,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaInstallTimeline',
             'Test-DomeniaLaunchSet',
             'Resolve-DomeniaInstallInterruption',
+            'Get-DomeniaDataSchemaTransition',
+            'Get-DomeniaUninstallPlan',
             'ConvertFrom-DomeniaSchemaLabel',
             'Test-DomeniaSchemaStepSafety',
             'Test-DomeniaSchemaCompatibility',
@@ -683,6 +692,25 @@ function Get-DomeniaRuntimeModulePlan {
             'Test-DomeniaConnectorAvailable',
             'Get-DomeniaSourceReadPlan',
             'ConvertFrom-DomeniaWaptHost'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-Compatibility.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaCompatibilityStatuses',
+            'Get-DomeniaCompatibilityStatusLabel',
+            'ConvertTo-DomeniaNetFrameworkLabel',
+            'ConvertTo-DomeniaCompatibilityVersion',
+            'ConvertTo-DomeniaEnvironmentFacts',
+            'Test-DomeniaCompatibilityMatch',
+            'Test-DomeniaCompatibilityMatrix',
+            'Get-DomeniaCompatibilityVerdict',
+            'Get-DomeniaCompatibilityText'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Compatibility.Model.ps1'); File='Domenia-Compatibility.UI.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaCompatibilityMatrix',
+            'Read-DomeniaLocalRegistryValue',
+            'Get-DomeniaEnvironmentFacts',
+            'Get-DomeniaLocalCompatibility',
+            'Update-DomeniaAboutCompatibility',
+            'Get-DomeniaCompatibilitySupportFields'
         ) }
         # W13 (points 115, 117, 120): command palette, keyboard shortcuts and presentation undo of the result list.
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-Commands.Model.ps1'; DotSource=$true; Functions=@(
@@ -1565,6 +1593,14 @@ function Get-DomeniaRuntimeModulePlan {
             'Fail-DomeniaStorageRetention',
             'Reset-DomeniaStorageObservationViews'
         ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Store.Model.ps1'); File='Domenia-DataPolicy.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaDataRetentionText',
+            'Get-DomeniaLocalDataPolicy'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-DataPolicy.Model.ps1','Domenia-Storage.UI.ps1'); File='Domenia-DataPolicy.UI.ps1'; DotSource=$true; Functions=@(
+            'Update-DomeniaDataPolicyView',
+            'Initialize-DomeniaDataPolicyView'
+        ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Lockout.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaLockoutEventWorkerCode'
         ) }
@@ -1785,7 +1821,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Undo-DomeniaResultPresentation',
             'New-DomeniaPresentationUndoChip'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Observability.Model.ps1','Domenia-UX.UI.ps1'); File='Domenia-Observability.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Observability.Model.ps1','Domenia-UX.UI.ps1','Domenia-Compatibility.UI.ps1'); File='Domenia-Observability.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaTraceNow',
             'Get-DomeniaTraceRing',
             'Register-DomeniaTrace',
@@ -2272,6 +2308,10 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaHealthCoverage',
             'Get-DomeniaFleetHealth',
             'Complete-DomeniaBoardData',
+            'Get-DomeniaHealthPointsTitle',
+            'Get-DomeniaHealthLevelName',
+            'Get-DomeniaComputerSheetSources',
+            'Add-DomeniaComputerSheetEntries',
             'Get-DomeniaBoardVisualNames',
             'Get-DomeniaBoardVisuals',
             'Resolve-DomeniaBoardVisual',
@@ -2284,10 +2324,26 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaBoardNextSize',
             'Get-DomeniaBoardFitScale',
             'Get-DomeniaBoardKeyGesture',
+            'Get-DomeniaBoardColumnCount',
+            'Test-DomeniaBoardRedrawNeeded',
+            'Get-DomeniaBoardSpan',
+            'Test-DomeniaBoardShortWidget',
+            'Get-DomeniaBoardGridPlacement',
+            'Get-DomeniaBoardCatalogLayout',
             'Get-DomeniaBoardDefaultLayout',
-            'Test-DomeniaFleetLegacyLayout',
+            'Test-DomeniaBoardLayoutText',
+            'Test-DomeniaBoardLegacyLayout',
+            'ConvertTo-DomeniaBoardCleanLayout',
             'ConvertTo-DomeniaBoardLayout',
+            'Get-DomeniaBoardLayoutRows',
             'ConvertTo-DomeniaBoardLayoutJson',
+            'ConvertTo-DomeniaBoardLayoutDocument',
+            'ConvertFrom-DomeniaBoardLayoutDocument',
+            'Get-DomeniaBoardTeamLayout',
+            'Get-DomeniaBoardName',
+            'Get-DomeniaBoardScopeName',
+            'Get-DomeniaBoardDocumentMessage',
+            'Get-DomeniaBoardLayoutFileName',
             'Get-DomeniaBoardGroups',
             'Add-DomeniaBoardItem',
             'Remove-DomeniaBoardItem',
@@ -2297,6 +2353,13 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaProbeUnit',
             'ConvertFrom-DomeniaProbeMeasure',
             'ConvertTo-DomeniaSearchText',
+            'Format-DomeniaBoardTextNumber',
+            'ConvertTo-DomeniaBoardItemLines',
+            'ConvertTo-DomeniaWidgetText',
+            'ConvertTo-DomeniaBoardSummaryText',
+            'Get-DomeniaBoardSearchTerms',
+            'Test-DomeniaBoardSourceMatch',
+            'Get-DomeniaBoardCategoryLabel',
             'New-DomeniaBoardSample',
             'Get-DomeniaChartCategoryGroups',
             'Get-DomeniaHealthFingerprint',
@@ -2353,6 +2416,7 @@ function Get-DomeniaRuntimeModulePlan {
             'New-DomeniaKpiTile',
             'New-DomeniaRowButton',
             'New-DomeniaAttentionCard',
+            'Add-DomeniaAttentionRows',
             'Invoke-DomeniaChartSelect',
             'New-DomeniaArcPath',
             'Register-DomeniaArcDrawing',
@@ -2364,6 +2428,8 @@ function Get-DomeniaRuntimeModulePlan {
             'New-DomeniaColumnChart',
             'New-DomeniaLineChart',
             'New-DomeniaHealthCard',
+            'New-DomeniaHealthSummaryCard',
+            'New-DomeniaSheetCard',
             'New-DomeniaListCard'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-ProbeCatalog.Model.ps1'; DotSource=$true; Functions=@(
@@ -2494,10 +2560,12 @@ function Get-DomeniaRuntimeModulePlan {
             'Show-DomeniaHealthExplanation',
             'Show-DomeniaFleetAnalysis'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-HealthRules.UI.ps1','Domenia-WidgetCollect.Model.ps1','Domenia-ProbeContract.Model.ps1'); File='Domenia-Widgets.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-HealthRules.UI.ps1','Domenia-WidgetCollect.Model.ps1','Domenia-Access.Model.ps1','Domenia-Dossier.Model.ps1','Domenia-ProbeContract.Model.ps1'); File='Domenia-Widgets.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaWidgetList',
             'Get-DomeniaBoardPanelName',
             'Get-DomeniaBoardState',
+            'Get-DomeniaBoardTeamLayoutText',
+            'Get-DomeniaBoardDefaultLayoutFor',
             'Get-DomeniaBoardLayout',
             'Sync-DomeniaBoardUndo',
             'Clear-DomeniaBoardUndo',
@@ -2516,7 +2584,13 @@ function Get-DomeniaRuntimeModulePlan {
             'New-DomeniaBoardButton',
             'New-DomeniaBoardToolbar',
             'New-DomeniaBoardAddTile',
-            'Optimize-DomeniaBoardRow',
+            'Get-DomeniaBoardGridMetrics',
+            'Get-DomeniaBoardCardWidth',
+            'Set-DomeniaBoardSectionGrid',
+            'Get-DomeniaBoardSectionGrids',
+            'Update-DomeniaBoardGrid',
+            'Request-DomeniaBoardRelayout',
+            'Invoke-DomeniaBoardRelayout',
             'Resolve-DomeniaBoardEntry',
             'Get-DomeniaBoardSelectHandler',
             'New-DomeniaWidgetVisual',
@@ -2524,14 +2598,27 @@ function Get-DomeniaRuntimeModulePlan {
             'New-DomeniaBoardMenu',
             'Set-DomeniaBoardSegmentSelection',
             'New-DomeniaWidgetStateCard',
+            'Get-DomeniaBoardWidgetPlan',
             'New-DomeniaBoardWidget',
             'Invoke-DomeniaBoardAutoScroll',
             'Request-DomeniaBoardDrop',
             'Complete-DomeniaBoardDrop',
             'Invoke-DomeniaBoardAction',
             'Restore-DomeniaBoardFocus',
+            'Copy-DomeniaBoardText',
+            'Get-DomeniaBoardDataMoment',
+            'Copy-DomeniaBoardWidget',
+            'Copy-DomeniaBoardSummary',
+            'Export-DomeniaBoardLayout',
+            'Import-DomeniaBoardLayout',
+            'Start-DomeniaBoardDocumentTask',
+            'Complete-DomeniaBoardDocument',
+            'Fail-DomeniaBoardDocument',
             'Get-DomeniaBoardSources',
             'Get-DomeniaBoardPreviewEntry',
+            'Get-DomeniaBoardVisualGlyph',
+            'New-DomeniaBoardVisualPicker',
+            'New-DomeniaBoardChip',
             'Show-DomeniaBoardEditor',
             'Get-DomeniaWidgetObservations',
             'ConvertTo-DomeniaWidgetGuid',
@@ -2564,7 +2651,10 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaWidgetExplanationData',
             'Show-DomeniaWidgetExplanation'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Charts.UI.ps1'); File='Domenia-Dashboard.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-FirstRun.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaFirstRunPlan'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Charts.UI.ps1','Domenia-FirstRun.Model.ps1'); File='Domenia-Dashboard.UI.ps1'; DotSource=$true; Functions=@(
             'Clear-DomeniaDashboards',
             'Get-DomeniaInventoryValue',
             'Get-DomeniaCategorySummary',

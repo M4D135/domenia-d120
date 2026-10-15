@@ -538,7 +538,7 @@
   {
     "Name": "BtnLoadBranch",
     "Title": "Actualiser les résultats",
-    "Text": "Relance la lecture du mode affiché, avec son périmètre et ses filtres. Pour actualiser les données de toute l’OU, utilisez Base locale, Postes (ping/WMI) ou Les deux sous l’arbre ; ces commandes incluent toujours les sous-OU.",
+    "Text": "Relance la lecture du mode affiché, avec son périmètre et ses filtres. Pour actualiser les données de toute l’OU, utilisez Objets AD, Ping ou WMI sous l’arbre ; ces commandes incluent toujours les sous-OU.",
     "Kind": "Button",
     "Source": "label-help",
     "Shortcut": ""
@@ -3987,32 +3987,39 @@
     "Text": "Affiche dans Rechercher tous les postes recensés de lʼOU de lʼaccueil, y compris les comptes désactivés, depuis la base locale et sans requête. Pinger, détecter ou analyser se lancent ensuite depuis la liste, à votre clic."
   },
   {
+    "Name": "BtnFirstStepConnection",
+    "Title": "Premiers pas : connexion à lʼannuaire",
+    "Text": "Ouvre Comptes et accès : compte utilisé pour lʼannuaire et changement de compte. Aucun compte nʼest demandé ni vérifié par ce bouton.",
+    "Kind": "Button",
+    "Source": "point-148"
+  },
+  {
     "Name": "BtnFirstStepOu",
     "Kind": "Button",
     "Source": "lot-L01",
-    "Title": "Premiers pas : choisir mon OU",
-    "Text": "Ouvre lʼarbre des OU de Rechercher. Lʼaccueil suit lʼOU choisie ; aucune lecture nʼest lancée."
+    "Title": "Premiers pas : choisir lʼOU de travail",
+    "Text": "Choisit lʼOU de travail du tableau de bord, sans changer Rechercher ni lancer de lecture."
   },
   {
     "Name": "BtnFirstStepBase",
     "Kind": "Button",
     "Source": "lot-L01",
-    "Title": "Premiers pas : base autonome",
-    "Text": "Ouvre Outils, Base autonome. La mise à jour ne part quʼà votre clic sur Mettre à jour tout."
+    "Title": "Premiers pas : première lecture de lʼOU",
+    "Text": "Ouvre Outils, Base autonome. La première lecture ne part quʼà votre clic ; privilégiez lʼOU de travail."
   },
   {
-    "Name": "BtnFirstStepAccount",
+    "Name": "BtnFirstStepDashboard",
+    "Title": "Premiers pas : découvrir le tableau de bord",
+    "Text": "Affiche la vue dʼensemble de lʼaccueil, calculée depuis la base locale. Ce bouton ne lance aucune lecture de lʼannuaire ni des postes.",
     "Kind": "Button",
-    "Source": "lot-L01",
-    "Title": "Premiers pas : compte des postes",
-    "Text": "Ouvre Comptes et accès pour enregistrer le compte utilisé sur les postes. Aucun compte nʼest demandé par ce bouton."
+    "Source": "point-148"
   },
   {
-    "Name": "BtnFirstStepBackup",
-    "Kind": "Button",
-    "Source": "lot-L01",
-    "Title": "Premiers pas : première sauvegarde",
-    "Text": "Ouvre Outils, Base autonome. La sauvegarde ne part quʼà votre clic sur Sauvegarder maintenant."
+    "Name": "LblFirstStepsDeferred",
+    "Title": "Options réglées plus tard",
+    "Text": "Le compte utilisé sur les postes et les sauvegardes de la base ne font pas partie des premiers pas : ils se règlent au moment où ils servent.",
+    "Kind": "TextBlock",
+    "Source": "point-148"
   },
   {
     "Name": "BtnFleetDashboardRefresh",
@@ -4439,7 +4446,7 @@
     "Kind": "TextBlock",
     "Source": "specific",
     "Title": "Progression de l’actualisation du périmètre",
-    "Text": "Base locale relit AD ; Postes relit le ping, la console, l’inventaire léger et les sondes des widgets configurés ; Les deux attend le stockage de la base avant le relevé. La cible est l’OU du tableau de bord avec ses sous-OU."
+    "Text": "Objets AD relit l’annuaire ; Ping mesure seulement la présence ; WMI relit la console, l’inventaire léger et les sondes des widgets configurés. Trois collectes indépendantes, enregistrées automatiquement ; la cible est l’OU du tableau de bord avec ses sous-OU."
   },
   {
     "Name": "LblFleetScope",
@@ -4454,6 +4461,34 @@
     "Source": "specific",
     "Title": "Dates des mesures et du calcul",
     "Text": "Le ping et l’inventaire WMI conservent leurs dates propres. N/M compte les mesures utilisables parmi les postes actifs ; du… au… décrit leur intervalle de dates. Les postes sans mesure utilisable sont comptés par raison (jamais relevé, non lu, refusé, périmé, incomplet, en erreur), jamais comme mesurés. Relevés de l’OU donne la dernière réussite du ping et du WMI lancés sur l’OU et, si elle est plus récente, la dernière tentative en échec avec son erreur ; la provenance de ces relevés s’ajoute à cette aide. Vue recalculée indique seulement la préparation locale de l’affichage, sans nouvelle collecte."
+  },
+  {
+    "Name": "DgStorageDataPolicy",
+    "Title": "Données locales de Domenia",
+    "Text": "Ce que Domenia garde sur ce poste : contenu, emplacement, durée de conservation, export et suppression. Lecture seule ; rien nʼest envoyé hors du poste.",
+    "Kind": "DataGrid",
+    "Source": "specific"
+  },
+  {
+    "Name": "ExpStorageDataPolicy",
+    "Title": "Politique des données locales",
+    "Text": "Déplie ce que Domenia garde sur ce poste : contenu, emplacement, conservation, export et suppression de chaque donnée. Lʼouverture relit seulement les réglages locaux ; rien nʼest envoyé hors du poste.",
+    "Kind": "Expander",
+    "Source": "point-147"
+  },
+  {
+    "Name": "LblStorageDataPolicy",
+    "Title": "Engagement sur les données locales",
+    "Text": "Engagement de Domenia : aucune télémétrie ni service en ligne. Les lectures visent seulement lʼannuaire, les postes et les serveurs internes que vous désignez.",
+    "Kind": "TextBlock",
+    "Source": "point-147"
+  },
+  {
+    "Name": "LblUxAboutCompatibility",
+    "Title": "Compatibilité de ce poste",
+    "Text": "Compare ce poste à la matrice de compatibilité livrée : Windows, PowerShell, .NET et SQLite. Une fois évalué, le survol détaille chaque dimension. Lecture locale, sans réseau.",
+    "Kind": "TextBlock",
+    "Source": "point-145"
   },
   {
     "Name": "WsAdAudit",
