@@ -857,6 +857,111 @@ try{
                 $area.Child=$null;$main.Content=$null;$main.Content=$content;$script:Window=$realWindow;$script:UxLayoutSignature='';$script:UxNavLayoutSignature=''
             }
         }
+        # MO-04: unwired if the count button comes back, if the overview counts the directory again, or if the totals
+        # are not read from the local copy (LocalIndexRead, explicit gesture) with their date.
+        Case 'MO-04 : Analyser le domaine ne denombre plus l annuaire, les totaux viennent de la copie locale' {
+            Expect ($null -eq $main.FindName('BtnCountDomain')) 'Le bouton Analyser et denombrer est revenu.'
+            $label=$script:Ctrl['LblDomainLocalTotals']
+            Expect ($null -ne $label) 'Libelle des totaux absent de la fenetre principale.'
+            Expect ([string]$label.ToolTip -ceq [string][Windows.Automation.AutomationProperties]::GetHelpText($label)) 'Totaux : infobulle et aide divergent.'
+            $worker=@($coreAst.FindAll({param($n)$n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Get-DomeniaDomainWorkerCode'},$true))[0].Extent.Text
+            Expect ((-not $worker.Contains('Denombrement')) -and (-not $worker.Contains('$Payload.Count'))) 'Le worker DomainOverview denombre encore lʼannuaire.'
+            $overviewAst=@($coreAst.FindAll({param($n)$n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Start-DomeniaDomainOverview'},$true))
+            Expect ($overviewAst.Count -eq 1) 'Start-DomeniaDomainOverview absent.'
+            . ([scriptblock]::Create($overviewAst[0].Extent.Text))
+            $dashboardTokens=$null;$dashboardErrors=$null
+            $dashboardAst=[System.Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'modules\Domenia-Dashboard.UI.ps1'),[ref]$dashboardTokens,[ref]$dashboardErrors)
+            foreach($fn in @($dashboardAst.FindAll({param($n)$n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -like '*-DomeniaDomainLocalTotals*'},$true))){. ([scriptblock]::Create($fn.Extent.Text))}
+            . (Join-Path $wad 'modules\Domenia-Search.Model.ps1')
+            . (Join-Path $wad 'modules\Domenia-Directory.Model.ps1')
+            $tasks=New-Object 'System.Collections.ArrayList'
+            function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$DisableControls,$TimeoutSeconds,$StatusText,$SuccessHandler,$ErrorHandler,$TaskClass);[void]$tasks.Add([pscustomobject]@{OperationId=[string]$OperationId;Payload=$Payload;State=$CallbackState;Disable=@($DisableControls)});return ('task-mo04-'+$tasks.Count)}
+            function Initialize-DomeniaWinSqliteNative {return $true}
+            function Get-DomeniaFleetQueryPlan {param($ObservationMaxAgeDays,$Now,$HealthPolicy);return [pscustomobject]@{Fixture=$true}}
+            function Get-DomeniaObservationMaxAgeDays {return 30}
+            function Get-DomeniaDomainWorkerCode {return 'fixture'}
+            function Show-DomeniaOperationError {param($Operation,$ErrorRecordOrException,[switch]$NoPopup);throw ([string]$ErrorRecordOrException)}
+            $script:DatabaseScopedPath='C:\DomeniaTest\Domenia.db';$script:DashboardModuleRoot=Join-Path $wad 'modules';$script:DomainTotalsState=$null
+            Start-DomeniaDomainOverview
+            $overview=@($tasks|Where-Object{$_.OperationId -eq 'DomainOverview'});$local=@($tasks|Where-Object{$_.OperationId -eq 'LocalIndexRead'})
+            Expect ($tasks.Count -eq 2) ('Lectures lancees : '+(@($tasks|ForEach-Object{$_.OperationId}) -join ', '))
+            Expect (($overview.Count -eq 1) -and ($null -eq $overview[0].Payload.PSObject.Properties['Count']) -and (-not ($overview[0].Disable -contains 'BtnCountDomain'))) 'Analyse : un comptage est encore demande.'
+            Expect (($local.Count -eq 1) -and ([string]$local[0].Payload.Action -eq 'FleetStats') -and ([string]$local[0].Payload.Scope -eq [string]$script:Conn.BaseDn) -and (-not [bool]$local[0].Payload.Subtree) -and (-not [bool]$local[0].Payload.ComputeBoard)) 'Totaux : lecture locale attendue.'
+            Expect ($label.Text -eq 'Totaux du domaine : lecture de la copie locale…') ('Etat de lecture : '+$label.Text)
+            $sync=@{directory=[pscustomobject]@{scope='directory';last_sync='2026-10-14T06:15:00.0000000Z'}}
+            $answer=[pscustomobject]@{Busy=$false;Missing=$false;Types=@([pscustomobject]@{t='Utilisateur';s='Actif';n=12},[pscustomobject]@{t='Machine';s='Actif';n=5});SyncStates=$sync}
+            Complete-DomeniaDomainLocalTotals -Result $answer -State $local[0].State
+            Expect (($label.Text.StartsWith('Totaux de la copie locale au ')) -and ($label.Text.EndsWith(' : 12 utilisateurs · 5 postes.'))) ('Libelle : '+$label.Text)
+            $old=$local[0].State;Start-DomeniaDomainOverview
+            Complete-DomeniaDomainLocalTotals -Result ([pscustomobject]@{Busy=$false;Missing=$false;Types=@();SyncStates=@{}}) -State $old
+            Expect ($label.Text -eq 'Totaux du domaine : lecture de la copie locale…') 'Un ancien resultat a remplace la lecture en cours.'
+        }
+        # UI-06: unwired if the fiche shows DN lists again, if the grids lose their filter or counter, if « Pourquoi membre ? »
+        # reads anything for a group already explained, or if the nested groups are read without the explicit gesture.
+        Case 'UI-06 : appartenances en grilles lisibles, filtre local, groupes imbriques et Pourquoi membre au clic' {
+            foreach($n in @('LstMemberOf','LstGroupMembers')){Expect ($null -eq $main.FindName($n)) ('Liste de DN revenue : '+$n)}
+            foreach($n in @('DgMemberOf','DgGroupMembers','TxtMemberOfFilter','TxtGroupMembersFilter','BtnMemberOfNested','LblMembershipWhy')){
+                $c=$script:Ctrl[$n];Expect ($null -ne $c) ('Controle absent : '+$n)
+                Expect ([string]$c.ToolTip -ceq [string][Windows.Automation.AutomationProperties]::GetHelpText($c)) ('Infobulle et aide divergent : '+$n)
+            }
+            foreach($file in @('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Directory.Model.ps1','Domenia-Membership.Worker.ps1','Domenia-Membership.UI.ps1')){. (Join-Path $wad ('modules\'+$file))}
+            foreach($name in @('Get-DomeniaMembershipLabel','New-DomeniaMenuItem')){. ([scriptblock]::Create(@($coreAst.FindAll({param($n)$n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true))[0].Extent.Text))}
+            $tasks=New-Object 'System.Collections.ArrayList'
+            function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$DisableControls,$TimeoutSeconds,$StatusText,$SuccessHandler,$ErrorHandler,$TaskClass);[void]$tasks.Add([pscustomobject]@{OperationId=[string]$OperationId;Payload=$Payload;State=$CallbackState;Success=[string]$SuccessHandler});return ('task-ui06-'+$tasks.Count)}
+            function Get-DomeniaLocalDatabasePathForRead {return 'C:\DomeniaTest\Domenia.db'}
+            function Get-DomeniaLocalIndexReadWorkerCode {return 'fixture'}
+            function Start-DomeniaSearchFor {param($Term);$script:SearchedFor=[string]$Term}
+            function Set-ClipboardSafe {param($Text);$script:Copied=[string]$Text}
+            $user='CN=Jean Dupont,OU=RH,DC=example,DC=local';$g1='CN=GG-Lyon,OU=Groupes,DC=example,DC=local';$g2='CN=GG-RH,OU=Groupes,DC=example,DC=local';$g3='CN=GG-Compta,OU=Groupes,DC=example,DC=local'
+            $script:SelectedObjectGeneration=3L;$script:SelectedObject=[pscustomobject]@{DN=$user;Type='Utilisateur';Name='Jean Dupont'};$script:MembershipUiBound=$false
+            [void](Register-DomeniaMembershipUi)
+            Set-DomeniaMembershipList -Kind MemberOf -Dns @($g1,$g2) -ObjectDn $user;Pump $main
+            $grid=$script:Ctrl['DgMemberOf']
+            Expect (($grid.Items.Count -eq 2) -and ([string]$grid.Items[0].Name -eq 'GG-Lyon') -and ([string]$grid.Items[0].Ou -eq 'example.local / Groupes')) 'Groupes non lisibles.'
+            Expect ([string]$script:Ctrl['LblMemberOf'].Text -eq '2 groupe(s) direct(s)') ('Compteur : '+$script:Ctrl['LblMemberOf'].Text)
+            $script:Ctrl['TxtMemberOfFilter'].Text='lyon';Pump $main
+            Expect (($grid.Items.Count -eq 1) -and ([string]$script:Ctrl['LblMemberOf'].Text).Contains('1 affiché(s) après le filtre')) ('Filtre : '+$script:Ctrl['LblMemberOf'].Text)
+            $script:Ctrl['TxtMemberOfFilter'].Text='';Pump $main
+            Expect ($grid.Items.Count -eq 2) 'Le filtre vide ne reaffiche pas tout.'
+            $grid.SelectedItem=$grid.Items[0];Invoke-DomeniaMembershipWhy
+            Expect (([string]$script:Ctrl['LblMembershipWhy'].Text).Contains('membre direct de « GG-Lyon »') -and ($tasks.Count -eq 0)) ('Pourquoi direct : '+$script:Ctrl['LblMembershipWhy'].Text)
+            Click $script:Ctrl['BtnMemberOfNested']
+            $read=@($tasks|Where-Object{$_.OperationId -eq 'GroupPathRead'})
+            Expect (($read.Count -eq 1) -and ([string]$read[0].Payload.ObjectDn -eq $user) -and (@($read[0].Payload.StartGroups).Count -eq 2) -and (-not [string]$read[0].Payload.TargetDn)) 'Lecture des groupes imbriques non conforme.'
+            $answer=[pscustomobject]@{ObjectDn=$user;TargetDn='';Edges=@{$user=@($g1,$g2);$g1=@($g3)};Unread=@([pscustomobject]@{Dn='CN=GU,DC=autre,DC=local';Reason='Autre domaine'});Truncated=$false;ServerAnswer=$null}
+            Complete-DomeniaMembershipPathRead -Result $answer -State $read[0].State;Pump $main
+            $nested=@($grid.Items|Where-Object{[string]$_.Membership -eq 'Imbriquée'})
+            Expect (($grid.Items.Count -eq 3) -and ($nested.Count -eq 1) -and ([string]$nested[0].Name -eq 'GG-Compta') -and ([string]$nested[0].Via -eq 'GG-Lyon')) 'Groupe imbrique absent de la grille.'
+            Expect (([string]$script:Ctrl['LblMembershipWhy'].Text).Contains('1 groupe(s) imbriqué(s)') -and ([string]$script:Ctrl['LblMembershipWhy'].Text).Contains('1 autre domaine')) ('Resume : '+$script:Ctrl['LblMembershipWhy'].Text)
+            Expect (([string]$script:Ctrl['LblMemberOf'].Text).Contains('1 groupe(s) imbriqué(s) lu(s)')) ('Compteur : '+$script:Ctrl['LblMemberOf'].Text)
+            $grid.SelectedItem=$nested[0];Invoke-DomeniaMembershipWhy
+            Expect (([string]$script:Ctrl['LblMembershipWhy'].Text).Contains('Jean Dupont → GG-Lyon → GG-Compta (2 niveaux)') -and (@($tasks|Where-Object{$_.OperationId -eq 'GroupPathRead'}).Count -eq 1)) ('Pourquoi imbrique : '+$script:Ctrl['LblMembershipWhy'].Text)
+            $headers=@($grid.ContextMenu.Items|Where-Object{$_ -is [Windows.Controls.MenuItem]}|ForEach-Object{[string]$_.Header})
+            Expect (($headers -contains 'Pourquoi membre ?') -and ($headers -contains 'Afficher les groupes imbriqués') -and ($headers -contains 'Copier le DN')) ('Menu : '+($headers -join ', '))
+            # A late answer for a fiche replaced since is ignored.
+            $script:SelectedObjectGeneration=4L
+            Complete-DomeniaMembershipPathRead -Result ([pscustomobject]@{ObjectDn=$user;TargetDn='';Edges=@{};Unread=@();Truncated=$false}) -State $read[0].State
+            Expect ($grid.Items.Count -eq 3) 'Une ancienne reponse a modifie la grille.'
+            # Members of a group: readable rows, types read in the local copy (no directory request).
+            $group='CN=GG-Postes,OU=Groupes,DC=example,DC=local';$pc='CN=PC-COMPTA-014,OU=Postes,DC=example,DC=local';$other='CN=Inconnu,OU=Postes,DC=example,DC=local'
+            Set-DomeniaMembershipList -Kind Members -Dns @($pc,$other) -ObjectDn $group;Pump $main
+            $types=@($tasks|Where-Object{$_.OperationId -eq 'LocalIndexRead'})
+            Expect (($types.Count -eq 1) -and ([string]$types[0].Payload.Action -eq 'ResolveNames') -and (@($types[0].Payload.Dns).Count -eq 2)) 'Lecture locale des types non demandee.'
+            Complete-DomeniaMembershipTypes -Result ([pscustomobject]@{Busy=$false;Missing=$false;Objects=@([pscustomobject]@{distinguished_name=$pc;object_type='Machine';name='PC-COMPTA-014'})}) -State $types[0].State;Pump $main
+            $members=$script:Ctrl['DgGroupMembers']
+            Expect (([string]$members.Items[0].Type -eq 'Machine') -and ([string]$members.Items[1].Type -eq 'Non lu')) 'Types des membres non appliques.'
+            $memberHeaders=@($members.ContextMenu.Items|Where-Object{$_ -is [Windows.Controls.MenuItem]}|ForEach-Object{[string]$_.Header})
+            Expect (-not ($memberHeaders -contains 'Pourquoi membre ?')) 'Les membres directs dʼun groupe nʼont pas besoin dʼexplication.'
+            Expect (@($tasks|Where-Object{$_.OperationId -notin @('GroupPathRead','LocalIndexRead')}).Count -eq 0) 'Une autre lecture a ete lancee.'
+            # A group without members shows no row (never one empty pseudo-row) and reads no type.
+            $before=$tasks.Count
+            Set-DomeniaMembershipList -Kind Members -Dns @() -ObjectDn $g3;Pump $main
+            Expect (($members.Items.Count -eq 0) -and ($tasks.Count -eq $before)) ('Groupe vide : '+$members.Items.Count+' ligne(s), '+($tasks.Count-$before)+' lecture(s).')
+            Clear-DomeniaMembershipLists;Pump $main
+            Expect (($null -eq $grid.ItemsSource) -and ($null -eq $members.ItemsSource) -and ($script:Ctrl['LblMembershipWhy'].Visibility -eq 'Collapsed')) 'Appartenances de lʼobjet precedent encore affichees.'
+            $script:SelectedObject=$null
+        }
+
         # X04 doubles, defined after the L08 cases: the guards of Invoke-ComputerTool, the sessions read, the stored
         # observation and the draft comparison. They only record.
         $script:X04=[pscustomobject]@{Sessions=0;Errors=New-Object 'System.Collections.ArrayList';DraftCompare=0}
@@ -1009,7 +1114,7 @@ try{
     $script:Tests.Add([pscustomobject]@{Name='Initialisation ou suite interrompue';Status='Failed';Detail=$_.Exception.ToString()})
 }
 
-$expected=25
+$expected=28
 $passed=@($script:Tests|Where-Object{$_.Status -eq 'Passed'}).Count
 $failed=@($script:Tests|Where-Object{$_.Status -eq 'Failed'}).Count
 $report=[ordered]@{

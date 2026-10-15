@@ -52,13 +52,18 @@ La page « Rechercher » lit l'annuaire à la demande ; elle ne sonde aucun po
 
 ## Recherche globale
 
-La barre du haut cherche dans tout le domaine, tous types d'objets, sans filtre d'OU, de présence ni de liste. Entrée ou le bouton « Rechercher » la lancent. Aucun poste n'est sondé avant une sélection.
+La barre du haut cherche dans tout le domaine, tous types d'objets, sans filtre de présence ni de liste. Deux puces sous la barre la précisent explicitement : « Partout » ou « Dans « Postes » » (l’OU choisie dans l’arbre, sous-OU incluses ; jamais la racine ni une OU d’un autre domaine), et « Tout », « Personnes », « Postes » ou « Groupes ». Le texte d’attente de la barre et le résumé au-dessus des résultats reprennent ces choix ; en recherche globale, les filtres propres à la liste d’une OU (type, présence) sont masqués. Entrée ou le bouton « Rechercher » la lancent ; changer une puce ne lit rien. Aucun poste n'est sondé avant une sélection.
 
-- Minimum de caractères : Browser.GlobalSearchMinChars (2). En dessous, Domenia affiche « Saisis au moins » suivi du minimum et de « caracteres, ou * pour un apercu. ».
-- Limite : celle du champ « Limite » (100 par défaut), retenue d'une session à l'autre dans la préférence SearchLimit. « Charger la suite » relit la même recherche avec une limite doublée, jusqu'à 20 000 lignes.
+- Minimum de caractères : Browser.GlobalSearchMinChars (2), étoiles non comptées. En dessous, Domenia affiche « Saisissez au moins 2 caractères » et nʼenvoie rien. Une saisie faite seulement dʼétoiles est refusée dans la barre du haut (« Saisissez au moins un caractère en plus de * ») ; dans une OU, elle liste lʼOU comme un simple parcours. Plusieurs étoiles consécutives sont fusionnées en une seule avant lʼenvoi du filtre LDAP.
+- Limite : celle du champ « lignes max » (100 par défaut), retenue d'une session à l'autre dans la préférence SearchLimit. « Charger la suite » lit seulement les lignes suivantes de la même recherche (la liste double, jusqu'à 20 000 lignes) : l'annuaire reprend après le dernier nom lu, trié par nom, et les lignes déjà chargées ne sont ni relues ni affichées deux fois. « Charger jusqu'à 1 000 » (puis 5 000, puis 20 000) porte la liste à ce palier en un seul geste.
 - Recherche globale : 120 s sans nouvel objet AD, 900 s au total ; annulation possible. Délais LDAP : 60/90 s, pages de 250 objets. Réglages et bornes au chapitre 17.
+- Recherche « contient » : après une recherche globale complète de texte simple qui renvoie 5 noms ou moins, la puce « Chercher aussi les noms qui contiennent… » relance, au clic seulement, la même recherche avec le filtre *mot* sur name, displayName, sAMAccountName et dNSHostName (chaque mot doit figurer, quatre mots au plus). Ce filtre n’utilise pas d’index : l’annuaire parcourt tous les noms du périmètre, avec la même limite.
 - Recherche à la frappe : désactivée par défaut (Browser.LiveGlobalSearch et Browser.AllowLiveGlobalSearch à faux).
 - Pendant une écriture, la recherche attend : « Recherche différée : écriture active ou à vérifier. ».
+
+La liste tient dans une seule carte : en tête, le chemin cliquable de l’OU (ou « Recherche dans l’annuaire » après la barre du haut) et le nombre de lignes affichées ; puis les filtres, les requêtes, le filtre de la liste et les résultats. « Actualiser » et « Exporter CSV » sont dans le menu « ⋯ » ; l’état de la sélection et celui de la liste partagent une seule ligne sous les actions.
+
+Colonnes de la liste : six par défaut (Type, Nom, Utilisateur connecté, Association mémorisée, Présence réseau, État). L’association, sa qualification et sa source (en infobulle) tiennent dans une seule colonne ; l’export CSV garde la valeur de l’association. Le choix fait par « Colonnes… » (clic droit sur un en-tête ou menu « ⋯ ») est une préférence du poste, Search.ResultColumnsJson (clés de colonnes seulement) ; largeur et position restent celles de la disposition enregistrée (GridLayoutsJson). Une préférence absente ou illisible revient aux six colonnes. Les colonnes propres aux postes, aux associations et aux comptes restent masquées quand la liste ne contient pas d’objet concerné.
 - Classement : Features.SearchRanking (vrai) ordonne les résultats d'une recherche globale ; sans lui, ils restent dans l'ordre d'arrivée.
 
 Le badge orange « Dernière requête AD : délai dépassé » signale une requête trop longue, sans établir une panne réseau. Affinez la recherche et consultez le journal. « AD injoignable » en rouge correspond à une erreur réseau. La prochaine lecture AD réussie rétablit le badge normal.
@@ -78,12 +83,12 @@ L'arbre « Parcourir les OU » affiche le contenu d'une OU. Le menu « ⋯ » 
 
 | Filtre | Valeurs | Remarque |
 |---|---|---|
-| Type d'objet | Tous, Utilisateurs, Machines, Groupes, OU et conteneurs | Grisé pendant une recherche globale. |
-| Présence réseau | Tous, En ligne, Sans réponse au ping, Non vérifié, Erreur de ping | Filtre les observations mémorisées ; aucun ping collectif. |
-| Limite | 100 par défaut | 20 000 lignes au plus. |
+| Type d'objet | Tous les types, Utilisateurs, Machines, Groupes, OU et conteneurs | Propre à la liste d’une OU. |
+| Présence réseau | Toute présence, En ligne, Sans réponse au ping, Non vérifié, Erreur de ping | Filtre les observations mémorisées ; aucun ping collectif ; repart sur « Toute présence » à chaque lancement. |
+| lignes max | 100 par défaut | 20 000 lignes au plus. |
 | Requêtes | Vues Annuaire, modèles locaux et recettes personnelles | Choisissez une OU, vérifiez la source, puis cliquez sur « Exécuter » ; voir la section Requêtes Annuaire et données locales. |
 
-« Dans les résultats » filtre les objets déjà chargés, sans appel AD ni changement de limite LDAP. Le compteur rapporte les lignes visibles aux objets chargés, pas au total du domaine. « Liste partielle » signale une lecture incomplète ou en erreur : même 746/746 ne certifie pas son exhaustivité.
+« Filtrer la liste » filtre les objets déjà chargés, y compris après une recherche globale, sans appel AD ni changement de limite LDAP ; chaque nouvelle recherche le remet à zéro. Le compteur rapporte les lignes visibles aux objets chargés, pas au total du domaine. « Liste partielle » signale une lecture incomplète ou en erreur : même 746/746 ne certifie pas son exhaustivité.
 
 > [!NOTE] « Sans réponse au ping » ne prouve pas qu'un poste est éteint : l'ICMP peut être filtré. Une liste vide ne prouve pas non plus une absence dans AD.
 
@@ -129,7 +134,7 @@ Sous l’arbre de Rechercher, « Données de l’OU » reprend l’unité choisi
 
 Dans une petite fenêtre, le panneau sous l’arbre se compacte : le titre « Données de l’OU » se masque et « Postes (ping/WMI) » devient « Ping/WMI ». Les commandes gardent le même périmètre et le même effet.
 
-« Vérifier la liste » garde sa cible propre : les postes affichés après filtrage. « Actualiser » dans les résultats relance leur lecture ; cette commande ne remplace pas une mise à jour de la base ou un relevé WMI de toute l’OU.
+« Vérifier la liste » garde sa cible propre : les postes affichés après filtrage. « Actualiser », dans le menu « ⋯ » de la liste, relance leur lecture ; cette commande ne remplace pas une mise à jour de la base ou un relevé WMI de toute l’OU.
 
 ## Requêtes Annuaire et données locales
 
@@ -164,7 +169,7 @@ Dans une fenêtre étroite ou basse, la barre peut se replier : « Options de re
 
 ## Export et menu clic droit
 
-« Exporter CSV » enregistre les lignes affichées, ou seulement les lignes sélectionnées. Le menu clic droit d'une ligne regroupe l'ouverture de la fiche, les outils du poste (sous-menus « Poste distant » et « Collecte »), « Analyser », « Copier », « Exporter la liste en CSV » et « Modifier ». Les entrées de « Modifier » sont des écritures : elles restent bloquées tant que la lecture seule est active (chapitre 14).
+« Exporter CSV », dans le menu « ⋯ » de la liste (à droite de « Effacer »), enregistre les lignes affichées, ou seulement les lignes sélectionnées. Le menu clic droit d'une ligne est court et n'écrit rien : « Ouvrir la fiche », pour un poste « Assistance poste », « Revérifier ce poste » et « Rechercher l'utilisateur associé » (pour un utilisateur, « Rechercher le poste associé »), « Ouvrir l'OU parente », « Copier » (dont « Pour un ticket ») et « Exporter la liste en CSV ». Les écritures, les outils distants et les collectes restent dans la fiche et dans Assistance poste, chacun avec sa confirmation. Un clic droit sur l'en-tête d'une colonne ouvre « Colonnes… ».
 
 # 4 Fiches des objets
 
@@ -181,6 +186,12 @@ La fiche d'un objet se prépare en arrière-plan dès le clic, et s'ouvre au dou
 | Poste | La page « Poste » montre ce poste (chapitre 5). |
 
 L'onglet « Resume » donne le type, le nom, la classe, le GUID, les dates de création et de modification, le chemin complet et la présence. Pour un utilisateur, la présence est celle du poste qui lui est associé.
+
+## Appartenances et membres
+
+L’onglet « Appartenances » et la liste des membres d’un groupe sont des tableaux lisibles : Nom, Type et OU (chemin « domaine / OU / sous-OU ») ; le DN complet est dans l’infobulle de la ligne. Un filtre local (« nom, OU… (sans requête AD) ») réduit la liste affichée et le compteur dit combien de lignes il garde. Pour les membres d’un groupe, le type vient de la copie locale (lecture SQLite en arrière-plan) ; un membre absent de la copie reste « Non lu », jamais deviné.
+
+« Groupes imbriqués » lit, au clic seulement (opération GroupPathRead, lecture seule), les groupes dont les groupes de l’objet sont membres : 2 000 groupes, 16 niveaux et 10 secondes au plus, un groupe à la fois, jamais tout le domaine. Ils s’ajoutent au tableau avec l’appartenance « Imbriquée » et le groupe direct par lequel ils passent. Les groupes non lus sont comptés avec leur raison (refus, introuvable, autre domaine). Le clic droit « Pourquoi membre ? » explique une ligne : appartenance directe, ou chemin « Jean Dupont → GG-Lyon → GG-Compta ». Une lecture bornée ou incomplète ne conclut jamais à une absence ; le groupe principal (primaryGroupID) n’apparaît pas dans memberOf.
 
 ## Lecture et estimation des droits
 
