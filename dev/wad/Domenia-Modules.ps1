@@ -242,7 +242,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Test-DomeniaTransportFallbackAllowed',
             'Test-DomeniaTransportCodeSafety'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Search.Model.ps1'); File='Domenia-Directory.Model.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Search.Model.ps1','Domenia-Relations.Model.ps1'); File='Domenia-Directory.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaAttr',
             'Get-DomeniaAttrAll',
             'ConvertTo-DomeniaAdInt64',
