@@ -28,11 +28,35 @@ Test-Case 'P57' 'Bibliotheque de vues : aller-retour JSON avec plusieurs vues, a
 }
 Test-Case 'P57' 'Bibliotheque de vues : entree illisible comptee, jamais reparee ni perdue' {
     $good=ConvertTo-DomeniaSearchWorkspaceStoreText -Items @((Add-DomeniaSearchWorkspaceRecord -Items @() -Candidate (New-WsCandidate) -DomainDn $script:WsDomain).Items)
-    $text='[[],'+$good.Substring(1,$good.Length-2)+',{"Version":1,"Id":"x","Name":"Cassee","DomainDn":"DC=example,DC=invalid"}]'
+    $text='['+$good.Substring(1,$good.Length-2)+',{"Version":1,"Id":"x","Name":"Cassee","DomainDn":"DC=example,DC=invalid"},{"Note":"sans version"},"texte"]'
     $store=ConvertFrom-DomeniaSearchWorkspaceStore -Text $text -DomainDn $script:WsDomain
-    Assert-Equal 1 @($store.Views).Count;Assert-Equal 2 $store.Rejected;Assert-Equal 2 @($store.All).Count 'L entree cassee de ce domaine reste stockee'
+    Assert-Equal 1 @($store.Views).Count;Assert-Equal 3 $store.Rejected;Assert-Equal 4 @($store.All).Count 'Chaque entree illisible reste stockee'
+    # The next write keeps every unreadable entry as it was.
+    $added=Add-DomeniaSearchWorkspaceRecord -Items $store.All -Candidate (New-WsCandidate 'Autre') -DomainDn $script:WsDomain
+    $again=ConvertFrom-DomeniaSearchWorkspaceStore -Text (ConvertTo-DomeniaSearchWorkspaceStoreText -Items $added.Items) -DomainDn $script:WsDomain
+    Assert-Equal 2 @($again.Views).Count;Assert-Equal 3 $again.Rejected;Assert-Equal 5 @($again.All).Count 'Une ecriture a efface une entree illisible'
+    Assert-True (@($again.All|Where-Object{$_ -is [string]}) -ccontains 'texte') 'La valeur scalaire n est plus stockee telle quelle'
+    Assert-Equal 'sans version' ([string]@($again.All|Where-Object{($_ -isnot [string]) -and ($null -ne $_.PSObject.Properties['Note'])})[0].Note)
     Assert-Throws {ConvertFrom-DomeniaSearchWorkspaceStore -Text ('['+((1..101|ForEach-Object{'{}'}) -join ',')+']') -DomainDn $script:WsDomain} 'Plus de cent vues acceptees'
     Assert-True ((Get-DomeniaSearchWorkspaceLabel $store.Views[0]) -ceq 'Postes Lyon · Postes et sous-OU · Machines')
+}
+Test-Case 'P57' 'Bibliotheque de vues : le format imbrique des anciennes versions est relu sans perte' {
+    # Former builds wrapped the stored array at each save: '[[],{v1}]', then '[[[],{v1}],{v2}]'.
+    $v1=ConvertTo-DomeniaSearchWorkspaceStoreText -Items @((Add-DomeniaSearchWorkspaceRecord -Items @() -Candidate (New-WsCandidate 'Premiere') -DomainDn $script:WsDomain).Items)
+    $v2=ConvertTo-DomeniaSearchWorkspaceStoreText -Items @((Add-DomeniaSearchWorkspaceRecord -Items @() -Candidate (New-WsCandidate 'Seconde') -DomainDn $script:WsDomain).Items)
+    $one=ConvertFrom-DomeniaSearchWorkspaceStore -Text ('[[],'+$v1.Substring(1,$v1.Length-2)+']') -DomainDn $script:WsDomain
+    Assert-Equal 1 @($one.Views).Count;Assert-Equal 0 $one.Rejected 'Le tableau vide de l ancien format n est pas une vue illisible';Assert-Equal 1 @($one.All).Count
+    $text='[[[],'+$v1.Substring(1,$v1.Length-2)+'],'+$v2.Substring(1,$v2.Length-2)+']'
+    $store=ConvertFrom-DomeniaSearchWorkspaceStore -Text $text -DomainDn $script:WsDomain
+    Assert-Equal 2 @($store.Views).Count 'Une vue imbriquee n est pas relue';Assert-Equal 0 $store.Rejected;Assert-Equal 2 @($store.All).Count
+    Assert-Equal 'Premiere' $store.Views[0].Name;Assert-Equal 2 @($store.Views[0].Columns).Count 'Colonnes de la vue imbriquee perdues'
+    # A save then a removal write both views back flat: the first one is never lost.
+    $added=Add-DomeniaSearchWorkspaceRecord -Items $store.All -Candidate (New-WsCandidate 'Troisieme') -DomainDn $script:WsDomain
+    $saved=ConvertFrom-DomeniaSearchWorkspaceStore -Text (ConvertTo-DomeniaSearchWorkspaceStoreText -Items $added.Items) -DomainDn $script:WsDomain
+    $second=@($saved.Views|Where-Object{$_.Name -eq 'Seconde'})[0]
+    $removed=Remove-DomeniaSearchWorkspaceRecord -Items $saved.All -Id $second.Id -DomainDn $script:WsDomain
+    $final=ConvertFrom-DomeniaSearchWorkspaceStore -Text (ConvertTo-DomeniaSearchWorkspaceStoreText -Items $removed.Items) -DomainDn $script:WsDomain
+    Assert-Equal 'Premiere,Troisieme' ((@($final.Views)|ForEach-Object{$_.Name}) -join ',');Assert-Equal 0 $final.Rejected
 }
 Test-Case 'P56' 'Criteres visibles : portee, type, requete, presence et filtre local, avec leur lieu' {
     $m=Get-DomeniaSearchFilterChips -State ([pscustomobject]@{Mode='OU';OuDn='OU=Postes,OU=Lyon,DC=example,DC=invalid';Subtree=$false;TypeLabel='Machines';Presence='En ligne';LocalFilter='pc-0';QueryName='Disques pleins';QueryKind='Local';QuerySelection='Inconnus';Shown=3;Loaded=40})

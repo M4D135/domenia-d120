@@ -72,7 +72,7 @@ function New-DomeniaTimer {param([string]$Owner,[int]$IntervalMs,[scriptblock]$T
 function Show-DomeniaFormDialog {param($Title,$Message,$Fields,$AcceptText) return [pscustomobject]@{Name=[string]$script:FormName}}
 function Test-DomeniaLiveSearchActive {return $false}
 function Reset-DomeniaLiveIdentity { }
-function Apply-DomeniaPresenceFilter { }
+function Apply-DomeniaPresenceFilter { $script:PresenceFilters++ }
 function Update-DomeniaSearchMoreButton {param($Search)}
 function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$TimeoutSeconds,$SuccessHandler,$ErrorHandler,$TaskClass) $script:Tasks++;$script:UiTasks.Add([pscustomobject]@{OperationId=[string]$OperationId;Payload=$Payload;State=$CallbackState});return ('task-'+$script:Tasks)}
 function Request-UiTaskStop {param($Id,[switch]$Silent,[switch]$Force,[switch]$Superseded,$Reason)}
@@ -103,7 +103,7 @@ function New-FixtureRow {param([string]$Name,[string]$Type='Machine',[string]$Gu
 function New-TestControls {
     $c=@{}
     foreach($n in @('TxtGlobalSearch','TxtBranchSearch','TxtGlobalLimit','TxtSuiteResultFilter','TxtBranchDn','TxtOuFilter')){$c[$n]=[Windows.Controls.TextBox]::new()}
-    foreach($n in @('LblBranchCount','LblSearchScope','LblSearchHint','LblSearchQuery','LblOuScopeName','LblOuScopePath','LblTreeStatus','LblSearchFilterSummary','LblResultScope','LblSearchPreview')){$c[$n]=[Windows.Controls.TextBlock]::new()}
+    foreach($n in @('LblBranchCount','LblSearchScope','LblSearchHint','LblSearchQuery','LblOuScopeName','LblOuScopePath','LblTreeStatus','LblSearchFilterSummary','LblResultScope','LblSearchPreview','LblSuiteResultCount')){$c[$n]=[Windows.Controls.TextBlock]::new()}
     foreach($n in @('BtnNavBack','BtnNavForward','BtnOuFavouriteToggle','BtnSearchWorkspaceSave','BtnSearchWorkspaceOpen','BtnSearchWorkspaceRemove','BtnSearchWorkspaceUndo','BtnSearchCompare','BtnSearchPreview','BtnSearchPreviewClose')){$c[$n]=[Windows.Controls.Button]::new();$c[$n].Name=$n}
     $c.TxtGlobalLimit.Text='100'
     $c.ChkSubtree=[Windows.Controls.CheckBox]::new();$c.ChkSubtree.IsChecked=$true
@@ -138,7 +138,7 @@ function Reset-Fixture {
     $script:WriteBlocked=$false;$script:AsyncEngineClosing=$false;$script:RestoringSettings=$false;$script:SuppressBranchAutoLoad=$false;$script:SuppressGridSelectionEvents=$false
     $script:Settings=@{};$script:Saves=0;$script:SaveFails=$false;$script:LastStatus='';$script:LastStatusLevel='';$script:Hint=''
     $script:Searches=[Collections.Generic.List[object]]::new();$script:Reveals=[Collections.Generic.List[string]]::new();$script:Timers=[Collections.Generic.List[object]]::new()
-    $script:ScopeUpdates=0;$script:Invalidations=0;$script:Workspace=''
+    $script:ScopeUpdates=0;$script:Invalidations=0;$script:PresenceFilters=0;$script:Workspace=''
     $script:BranchObjects=@();$script:BranchCountLabel='';$script:Live=$null;$script:LiveSearchTimer=$null;$script:SearchQueryRun=$null;$script:DomeniaQueryState=$null
     $script:NavHistory=$null;$script:NavRestoring=$false;$script:NavSearchLaunching=$false;$script:NavHistoryRows=$null;$script:NavHistoryState=$null;$script:NavListShape=$null
     $script:OuTreeFilterWork=$null;$script:OuTreeFilterTimer=$null;$script:OuTreeFilterStatus='';$script:PendingFilterChange=$null;$script:FilterChangeTimer=$null
@@ -250,8 +250,34 @@ Case 'P55 Une branche mémorisée mais non lue nʼest jamais relue par lʼhistor
     $root=New-FixtureNode $base 'example.invalid' $true 'domainDNS';$gone=New-FixtureNode ('OU=Archives,'+$base) 'Archives' $false
     [void]$gone.Items.Add('Chargement...');[void]$root.Items.Add($gone);[void]$script:Ctrl.TvDirectory.Items.Add($root);$root.IsExpanded=$true
     $plan=Restore-DomeniaTreeNavState -Expanded @(('OU=Archives,'+$base),('OU=Absente,'+$base)) -SelectedDn ('OU=Absente,'+$base)
-    Expect (-not $gone.IsExpanded -and $plan.UnreadCount -eq 2) 'Une branche non lue a été dépliée ou nʼest pas comptée.'
+    Expect (-not $gone.IsExpanded -and $plan.UnreadCount -eq 1 -and [string]@($plan.Unread)[0] -eq ('OU=Archives,'+$base)) 'Une branche non lue a été dépliée ou nʼest pas comptée.'
+    # An OU absent from its read parent branch is not an unread branch: it is counted apart.
+    Expect ($plan.MissingCount -eq 1 -and [string]@($plan.Missing)[0] -eq ('OU=Absente,'+$base)) 'Une OU absente de sa branche lue est comptée comme non lue.'
     Expect ($null -eq $script:Ctrl.TvDirectory.SelectedItem -or -not ($script:Ctrl.TvDirectory.SelectedItem -is [Windows.Controls.TreeViewItem])) 'Lʼarbre montre une autre OU que la liste.'
+}
+# Unwired if the history only sees the first 600 tree items or the first 128 open branches: in a large directory a
+# read branch would be called unread, the OU of the step would not be selected and open branches would be folded.
+Case 'P55 Grand annuaire : toutes les branches ouvertes et lʼOU de lʼétape sont retrouvées, sans lecture' {
+    $base='DC=example,DC=invalid'
+    $root=New-FixtureNode $base 'example.invalid' $true 'domainDNS';[void]$script:Ctrl.TvDirectory.Items.Add($root);$root.IsExpanded=$true
+    $children=[Collections.Generic.List[object]]::new()
+    for($i=0;$i -lt 700;$i++){
+        $child=New-FixtureNode ('OU=Site'+$i.ToString('000')+','+$base) ('Site'+$i.ToString('000')) $true
+        [void]$child.Items.Add((New-FixtureNode ('OU=Postes,OU=Site'+$i.ToString('000')+','+$base) 'Postes' $true))
+        [void]$root.Items.Add($child);$children.Add($child)
+    }
+    # 150 open branches, the last ones beyond the first 600 items of the tree.
+    for($i=550;$i -lt 700;$i++){$children[$i].IsExpanded=$true}
+    $remembered=@(Get-DomeniaTreeExpandedDns)
+    Expect ($remembered.Count -eq 151 -and $remembered -contains ('OU=Site699,'+$base)) ('Branches ouvertes mémorisées : '+$remembered.Count)
+    # The operator folds everything, then goes back to that step.
+    foreach($child in $children){$child.IsExpanded=$false}
+    $target=('OU=Postes,OU=Site699,'+$base)
+    $plan=Restore-DomeniaTreeNavState -Expanded $remembered -SelectedDn $target
+    Expect ($plan.UnreadCount -eq 0 -and $plan.MissingCount -eq 0) ('Branches lues annoncées non lues : '+$plan.UnreadCount+' / absentes : '+$plan.MissingCount)
+    Expect ($children[699].IsExpanded -and $children[550].IsExpanded -and -not $children[549].IsExpanded) 'Une branche ouverte à cette étape reste repliée, ou une autre sʼouvre.'
+    Expect ($children[699].Items[0].IsSelected) 'LʼOU de lʼétape, au-delà des 600 premiers éléments, nʼest pas sélectionnée.'
+    Expect ($script:Searches.Count -eq 0) 'Le retour a lancé une lecture.'
 }
 
 # ---------------------------------------------------------------- Points 56 to 60: search workspace
@@ -294,6 +320,25 @@ Case 'P57 Vues personnelles : enregistrer, retrouver, ouvrir sans lecture, retir
     Expect (@($script:Ctrl.CmbSearchWorkspace.ItemsSource).Count -eq 2) 'Annuler ne restaure pas la vue.'
     $before=[string]$script:Settings['Search.WorkspacesJson'];$script:SaveFails=$true;$script:FormName='Gamma';Save-DomeniaSearchWorkspace
     Expect ([string]$script:Settings['Search.WorkspacesJson'] -ceq $before -and $script:LastStatusLevel -eq 'WARN') 'Un échec dʼécriture laisse une vue non enregistrée en mémoire.'
+}
+# Unwired if a failed write during Annuler discards the removed view (no retry possible), or if Annuler restores a
+# former text over views changed since the removal.
+Case 'P57 Annuler un retrait : un échec dʼécriture garde lʼannulation, un changement des vues la termine' {
+    Initialize-DomeniaSearchWorkspace
+    $script:SelectedBranchDn='OU=Postes,DC=example,DC=invalid'
+    $script:FormName='Parc';Save-DomeniaSearchWorkspace;$script:FormName='Autre';Save-DomeniaSearchWorkspace
+    $script:Ctrl.CmbSearchWorkspace.SelectedItem=@($script:Ctrl.CmbSearchWorkspace.ItemsSource)[0];Remove-DomeniaSearchWorkspace
+    $after=[string]$script:Settings['Search.WorkspacesJson']
+    $script:SaveFails=$true;Undo-DomeniaSearchWorkspace
+    Expect ($null -ne $script:SearchWorkspaceUndo -and $script:Ctrl.BtnSearchWorkspaceUndo.IsEnabled -and [string]$script:Settings['Search.WorkspacesJson'] -ceq $after) 'Un échec dʼécriture a perdu lʼannulation ou laissé un texte non enregistré.'
+    Expect ($script:LastStatusLevel -eq 'WARN' -and ([string]$script:LastStatus).Contains('Réessayez')) ('Statut : '+$script:LastStatus)
+    $script:SaveFails=$false;Undo-DomeniaSearchWorkspace
+    Expect ($null -eq $script:SearchWorkspaceUndo -and @($script:Ctrl.CmbSearchWorkspace.ItemsSource).Count -eq 2) 'Le nouvel essai dʼAnnuler ne restaure pas la vue.'
+    # Views changed since the removal: the undo ends without touching them.
+    $script:Ctrl.CmbSearchWorkspace.SelectedItem=@($script:Ctrl.CmbSearchWorkspace.ItemsSource)[0];Remove-DomeniaSearchWorkspace
+    $changed=[string]$script:Settings['Search.WorkspacesJson']+' ';$script:Settings['Search.WorkspacesJson']=$changed
+    Undo-DomeniaSearchWorkspace
+    Expect ($null -eq $script:SearchWorkspaceUndo -and [string]$script:Settings['Search.WorkspacesJson'] -ceq $changed -and $script:LastStatusLevel -eq 'WARN') 'Annuler a écrasé des vues changées depuis le retrait.'
 }
 # Unwired if a new session keeps listing the views of the former domain or the undo of a former removal, or if
 # Changer de session does not list the views again once the tree of the new domain is prepared.
@@ -349,6 +394,40 @@ Case 'P56 Critères visibles : chaque critère est une pastille, retirée par so
     $type.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
     Expect ($script:Ctrl.CmbGlobalType.SelectedIndex -eq 0 -and @($script:Ctrl.PnlSearchFilterChips.Children).Count -eq 1) 'Le type nʼest pas retiré par son contrôle.'
 }
+# Unwired if removing the workshop selection also erases the query list it refines, or reads anything.
+Case 'P56 Retirer la sélection de lʼatelier garde la liste de la requête et son critère' {
+    Initialize-DomeniaSearchWorkspace
+    Set-FixtureList @((New-FixtureRow 'PC-01' 'Machine' '11111111-1111-4111-8111-111111111111'),(New-FixtureRow 'PC-02' 'Machine' '22222222-2222-4222-8222-222222222222'))
+    $script:ActiveSearchViewId='local:fixture.disques';$script:SearchQueryRun=[pscustomobject]@{Id='local:fixture.disques';Name='Disques pleins';Selection='Match';Limit=100;Job='';Total=2L;Shown=2L}
+    $script:DomeniaQueryState=[pscustomobject]@{SearchRecipe=[pscustomobject]@{Name='Segment'};SearchRefinement=$null;SearchRecords=@{'11111111-1111-4111-8111-111111111111'=$true}}
+    Invoke-DomeniaSearchWorkspaceRefresh
+    $keys=@($script:Ctrl.PnlSearchFilterChips.Children|Where-Object{$_ -is [Windows.Controls.Button]}|ForEach-Object{[string]$_.Tag})
+    Expect (($keys -contains 'Query') -and ($keys -contains 'Segment')) ('Pastilles : '+($keys -join ','))
+    $segment=@($script:Ctrl.PnlSearchFilterChips.Children|Where-Object{$_ -is [Windows.Controls.Button] -and [string]$_.Tag -eq 'Segment'})[0]
+    $segment.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
+    Expect ($null -eq $script:DomeniaQueryState.SearchRecipe -and $script:DomeniaQueryState.SearchRecords.Count -eq 0 -and $script:PresenceFilters -eq 1) 'La sélection de lʼatelier nʼest pas retirée par son seul filtre.'
+    Expect ($script:Invalidations -eq 0 -and $script:ActiveSearchViewId -eq 'local:fixture.disques' -and $null -ne $script:SearchQueryRun -and @($script:Ctrl.DgObjects.ItemsSource).Count -eq 2) 'Retirer la sélection a effacé la liste de la requête.'
+    $keys=@($script:Ctrl.PnlSearchFilterChips.Children|Where-Object{$_ -is [Windows.Controls.Button]}|ForEach-Object{[string]$_.Tag})
+    Expect (($keys -contains 'Query') -and ($keys -notcontains 'Segment')) ('Pastilles après retrait : '+($keys -join ','))
+    Expect ($script:Searches.Count -eq 0 -and $script:StoreReads.Count -eq 0 -and $script:Tasks -eq 0) 'Retirer la sélection a lancé une lecture.'
+}
+# Unwired if a finished local query still names its criterion or its limit once another list is shown.
+Case 'P56 Une requête locale terminée ne décrit plus une autre liste' {
+    Initialize-DomeniaSearchWorkspace
+    Set-FixtureList @((New-FixtureRow 'PC-01'),(New-FixtureRow 'PC-02'))
+    $script:SearchQueryRun=[pscustomobject]@{Id='local:fixture.disques';Name='Disques pleins';Selection='Match';Limit=100;Job='';Total=120L;Shown=100L}
+    # An ordinary OU list read since then: the run no longer owns the list.
+    $script:ActiveSearchViewId=''
+    Invoke-DomeniaSearchWorkspaceRefresh
+    $keys=@($script:Ctrl.PnlSearchFilterChips.Children|Where-Object{$_ -is [Windows.Controls.Button]}|ForEach-Object{[string]$_.Tag})
+    Expect ($keys -notcontains 'Query' -and -not ([string]$script:Ctrl.LblSearchFilterSummary.Text).Contains('Disques pleins')) 'La requête précédente reste un critère dʼune autre liste.'
+    Expect ([string](Get-DomeniaSearchListCompleteness).State -ne 'Limited' -and -not ([string]$script:Ctrl.LblResultScope.Text).Contains('limitée')) ('Complétude dʼune autre liste : '+$script:Ctrl.LblResultScope.Text)
+    # The same run while its list is shown: named, and limited.
+    $script:ActiveSearchViewId='local:fixture.disques'
+    Invoke-DomeniaSearchWorkspaceRefresh
+    $keys=@($script:Ctrl.PnlSearchFilterChips.Children|Where-Object{$_ -is [Windows.Controls.Button]}|ForEach-Object{[string]$_.Tag})
+    Expect ($keys -contains 'Query' -and ([string]$script:Ctrl.LblResultScope.Text).Contains('liste limitée à 100 lignes')) ('Requête affichée : '+$script:Ctrl.LblResultScope.Text)
+}
 # Unwired if the export or a survey silently takes the selection or the list, or if the label hides what is excluded.
 Case 'P60 Portée collective : liste affichée ou lignes sélectionnées, choisie et annoncée avant lʼexport ou le relevé' {
     Initialize-DomeniaSearchWorkspace
@@ -373,6 +452,32 @@ Case 'P60 Portée collective : liste affichée ou lignes sélectionnées, choisi
     $script:ListSurveyBlocked=$false;$script:Ctrl.DgObjects.SelectedItems.Clear();Export-CurrentResults
     Expect ($script:Exports.Count -eq 2 -and ([string]$script:LastStatus).Contains('Aucune ligne')) 'Une sélection vide a exporté quelque chose.'
 }
+# Unwired if the scope line keeps 'lecture en cours' once a live read ends without any grid event, if it does not
+# follow a live filter pass (written to the result counter), or if a handler still runs for each appended row.
+Case 'P60 Liste progressive : la ligne de portée suit la fin de la lecture, sans gestionnaire par ligne' {
+    function Test-DomeniaLiveSearchActive {return ($null -ne $script:Live)}
+    Initialize-DomeniaSearchWorkspace
+    $rows=[Collections.ObjectModel.ObservableCollection[object]]::new()
+    foreach($name in @('PC-01','PC-02','PC-03')){$rows.Add((New-FixtureRow $name))}
+    $script:Live=[pscustomobject]@{Search=[pscustomobject]@{Rows=$rows;State=[pscustomobject]@{Limit=3};Error='';Finalized=$false;Final=$null}}
+    $script:Ctrl.DgObjects.ItemsSource=$rows
+    Invoke-DomeniaSearchWorkspaceRefresh
+    Expect (([string]$script:Ctrl.LblResultScope.Text).Contains('lecture en cours') -and [bool]$script:SearchWorkspaceTimer.IsEnabled) ('Pendant la lecture : '+$script:Ctrl.LblResultScope.Text)
+    # The read ends: rows already in place are updated, the collection does not change, no grid event is raised.
+    $script:Live.Search.Finalized=$true;$script:Live.Search.Final=[pscustomobject]@{LimitReached=$true}
+    & $script:SearchWorkspaceTimer.Tick
+    Expect (([string]$script:Ctrl.LblResultScope.Text).Contains('liste limitée à 3 lignes')) ('Après la lecture : '+$script:Ctrl.LblResultScope.Text)
+    Expect (-not [bool]$script:SearchWorkspaceTimer.IsEnabled) 'Le rafraîchissement continue après la fin de la lecture.'
+    $rows.Add((New-FixtureRow 'PC-04'))
+    Expect (-not [bool]$script:SearchWorkspaceTimer.IsEnabled) 'Une ligne ajoutée déclenche encore un gestionnaire par ligne.'
+    # A live filter pass after the read (a local filter, or presence results under a presence filter): the live list
+    # rewrites its counter, and the scope line follows the filtered list.
+    $script:Ctrl.DgObjects.Items.Filter=[Predicate[object]]{param($item) [string]$item.Name -ne 'PC-01'}
+    [void](Set-DomeniaControlText 'LblSuiteResultCount' 'Limite atteinte · 3 / 4 lignes visibles · filtre local')
+    Expect ([bool]$script:SearchWorkspaceTimer.IsEnabled) 'La ligne de portée ne suit pas un passage du filtre de la liste progressive.'
+    & $script:SearchWorkspaceTimer.Tick
+    Expect (([string]$script:Ctrl.LblResultScope.Text).Contains('Liste affichée : 3 ligne(s) · 1 ligne(s) chargée(s) masquée(s)') -and -not [bool]$script:SearchWorkspaceTimer.IsEnabled) ('Après le filtre : '+$script:Ctrl.LblResultScope.Text)
+}
 # Unwired if a survey button or the export still names the displayed results only, or if a screen reader, the tooltip
 # and the help of the page describe different scopes.
 Case 'P60 Export et relevés nomment la portée choisie : infobulle, aide dʼautomation et aide de la page identiques' {
@@ -393,6 +498,12 @@ Case 'P60 Export et relevés nomment la portée choisie : infobulle, aide dʼaut
         $node=@($xaml.SelectNodes('//*')|Where-Object{$_.GetAttribute('Name','http://schemas.microsoft.com/winfx/2006/xaml') -eq $name})[0]
         Expect (([string]$node.GetAttribute('AutomationProperties.Name')).Contains('portée choisie')) ($name+' : le nom lu par un lecteur dʼécran parle encore des seuls postes affichés.')
     }
+    # The export of the results menu names the scope it follows.
+    $tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'),[ref]$tokens,[ref]$errors)
+    $menu=@($ast.FindAll({param($n)($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq 'Build-DomeniaObjectsContextMenu')},$true))
+    Expect ($menu.Count -eq 1) 'Menu des résultats introuvable.'
+    $text=$menu[0].Extent.Text
+    Expect ($text.Contains('Get-DomeniaResultScopeMode') -and $text.Contains('Exporter les lignes sélectionnées en CSV') -and $text.Contains('Exporter la liste affichée en CSV') -and -not $text.Contains('"Exporter la liste en CSV"')) 'Le menu des résultats ne nomme pas la portée de lʼexport.'
 }
 # Unwired if the preview leaves the results, loses a multiple selection, or shows a late answer of another row.
 Case 'P59 Aperçu latéral : la ligne courante est lue dans la base locale, la sélection de travail reste' {
@@ -497,6 +608,23 @@ Case 'P54 Sélecteur dʼOU commun : favoris distincts, profondeur, confirmation 
     Expect ($null -ne $picked -and [string]$picked.Guid -eq '00000000-0000-4000-8000-000000000003' -and $picked.Subtree -eq $false) 'La profondeur confirmée nʼaccompagne pas lʼOU choisie.'
     Expect (@($script:UiTasks|Where-Object{([string]$_.Payload.Mode -eq 'Search') -and (-not [bool]$_.Payload.Verify)}).Count -eq 0 -and $script:UiTasks.Count -eq 3) ('Lectures du sélecteur : '+$script:UiTasks.Count)
     Expect ($null -eq $script:PickerOwner.Reveal) 'Une révélation reste en attente après le choix.'
+}
+# Unwired if the picker contradicts itself on its initial place: the domain root reported outside the domain, or a
+# container (CN=Computers) presented as a choice to confirm while Choisir stays disabled.
+Case 'P54 Ouverture du sélecteur : racine silencieuse, conteneur annoncé comme tel' {
+    $base='DC=example,DC=invalid'
+    $root=[Windows.Controls.TreeViewItem]::new();$root.Tag=[pscustomobject]@{DN=$base;Row=$null;Loaded=$true;Context=$false;Loading=$false}
+    $computers=[Windows.Controls.TreeViewItem]::new();$computers.Tag=[pscustomobject]@{DN=('CN=Computers,'+$base);Row=[pscustomobject]@{Type='Conteneur';Name='Computers';DN=('CN=Computers,'+$base);Guid='00000000-0000-4000-8000-0000000000c1'};Loaded=$true;Context=$false;Loading=$false}
+    $postes=[Windows.Controls.TreeViewItem]::new();$postes.Tag=[pscustomobject]@{DN=('OU=Postes,'+$base);Row=[pscustomobject]@{Type='OU';Name='Postes';DN=('OU=Postes,'+$base);Guid='00000000-0000-4000-8000-0000000000c2'};Loaded=$true;Context=$false;Loading=$false}
+    [void]$root.Items.Add($computers);[void]$root.Items.Add($postes)
+    $owner=[pscustomobject]@{Closed=$false;Mode='Navigation';Job='';RootNode=$root;Reveal=$null;BaseDn=$base;Status=[Windows.Controls.TextBlock]::new();Box=[Windows.Controls.TextBox]::new()}
+    Start-DomeniaOuPickerReveal -Owner $owner -Dn $base
+    Expect ([string]$owner.Status.Text -eq '' -and $null -eq $owner.Reveal) ('Racine du domaine : '+$owner.Status.Text)
+    Start-DomeniaOuPickerReveal -Owner $owner -Dn ('CN=Computers,'+$base)
+    Expect ($computers.IsSelected -and ([string]$owner.Status.Text).Contains('conteneur') -and -not ([string]$owner.Status.Text).Contains('Choisir')) ('Conteneur : '+$owner.Status.Text)
+    Start-DomeniaOuPickerReveal -Owner $owner -Dn ('OU=Postes,'+$base)
+    Expect ($postes.IsSelected -and ([string]$owner.Status.Text).Contains('Choisir')) ('OU : '+$owner.Status.Text)
+    Expect ($script:UiTasks.Count -eq 0) 'Une branche déjà lue a été relue.'
 }
 # Unwired if a page opens the OU picker without saying what the choice will do, or the dashboard drops the depth.
 Case 'P54 Chaque page passe par le sélecteur commun avec son effet et sa profondeur' {

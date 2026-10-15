@@ -1326,6 +1326,9 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaGridSort',
             'Set-DomeniaGridSort',
             'Select-DomeniaGridRowsByKey',
+            'Get-DomeniaOpenTreeNodes',
+            'Get-DomeniaRealizedTreeIndex',
+            'Find-DomeniaRealizedTreeNode',
             'Get-DomeniaTreeExpandedDns',
             'Select-DomeniaRealizedTreeNode',
             'Restore-DomeniaTreeNavState'

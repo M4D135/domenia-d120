@@ -14721,7 +14721,10 @@ function Build-DomeniaObjectsContextMenu {
     [void]$copy.Items.Add((New-DomeniaMenuItem -Header "La ou les lignes selectionnees" -Action { Copy-DomeniaGridSelection -Name "DgObjects" }))
     [void]$copy.Items.Add((New-DomeniaMenuItem -Header "Le resume complet" -Action { Copy-ObjectSummary }))
     [void]$Menu.Items.Add($copy)
-    [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Exporter la liste en CSV" -Action { Export-CurrentResults }))
+    # Point 60: the export follows the scope chosen beside the results; the menu names that scope.
+    $exportHeader = "Exporter la liste affichée en CSV"
+    try { if ((Get-DomeniaResultScopeMode) -eq 'Selected') { $exportHeader = "Exporter les lignes sélectionnées en CSV" } } catch { }
+    [void]$Menu.Items.Add((New-DomeniaMenuItem -Header $exportHeader -Action { Export-CurrentResults }))
 
     Add-DomeniaMenuSeparator -Menu $Menu
     $write = New-Object System.Windows.Controls.MenuItem

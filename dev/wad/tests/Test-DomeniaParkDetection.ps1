@@ -18,7 +18,7 @@ function Add-DomeniaUiLog {param($Area,$Text,$Level)}
 function Initialize-DomeniaWinSqliteNative {}
 function Get-DomeniaSetting {param($Name,$Default)return $Default}
 function New-DomeniaObservationReader {return [pscustomobject]@{Fixture=$true}}
-function Request-DomeniaInlineConfirmation {param($Title,$Target,$Message,$ConfirmText,$CancelText,$OnConfirm,$OnCancel)$script:Confirm=$OnConfirm;$script:Cancel=$OnCancel;$script:Message=$Message}
+function Request-DomeniaInlineConfirmation {param($Title,$Target,$Message,$ConfirmText,$CancelText,$OnConfirm,$OnCancel)$script:Confirm=$OnConfirm;$script:Cancel=$OnCancel;$script:Message=$Message;$script:ConfirmTitle=$Title;$script:ConfirmText=$ConfirmText}
 function Start-UiTask {
  param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,[switch]$NonCancellable,$TimeoutSeconds,$TaskClass)
  $id='job-'+$script:Calls.Count
@@ -124,6 +124,29 @@ Case 'WMI seul : aucune presence ICMP ni validation LDAP implicite' {
  Invoke-DomeniaParkRunTick;$payload=$script:Calls[1].Payload
  Assert (-not $payload.CollectPing -and -not $payload.ValidateConsoleIdentity -and $payload.Inventory -and $payload.ProbeUser)
 }
+# Point 60: explicit targets (the selected rows) are confirmed as chosen workstations, never as the displayed list;
+# the widget probes of a board keep their own title.
+Case 'Portee choisie : la confirmation nomme les postes choisis pour Pinger, Detecter et Analyser' {
+ $label='la sélection (1 poste(s) sur 2 ligne(s) sélectionnée(s))'
+ $target=[pscustomobject]@{name='PC-1';distinguished_name='cn=pc-1,dc=example,dc=invalid';object_guid='00000000-0000-0000-0000-000000000001'}
+ $probe=[pscustomobject]@{Id='fixture.bios';Namespace='root\cimv2';Class='Win32_BIOS';Properties=@('SerialNumber');Filter='';Mode='';Skip=$false}
+ $expected=@(
+  @{Run={Start-DomeniaOnlinePark -ScopeTargets @($target) -ScopeLabel $label -PingOnly};Title='Pinger les postes choisis';Confirm='Pinger'},
+  @{Run={Start-DomeniaOnlinePark -ScopeTargets @($target) -ScopeLabel $label};Title='Détecter sur les postes choisis';Confirm='Verifier les sessions'},
+  @{Run={Start-DomeniaOnlinePark -ScopeTargets @($target) -ScopeLabel $label -Inventory};Title='Analyser les postes choisis';Confirm='Analyser'},
+  @{Run={Start-DomeniaOnlinePark -ScopeTargets @($target) -ScopeLabel 'PC-1' -Probes @($probe)};Title='Sonder pour les widgets';Confirm='Verifier les sessions'},
+  @{Run={Add-DisplayedMachine;Start-DomeniaOnlinePark -DisplayedResults -PingOnly};Title='Pinger les postes affiches';Confirm='Pinger'}
+ )
+ foreach($case in $expected){
+  Reset-Fixture;$script:ConfirmTitle='';$script:Message=''
+  & $case.Run
+  Assert ($script:Calls.Count -eq 1) ('Lecture locale absente pour '+$case.Title)
+  Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@(New-Target 1);Busy=$false}) $script:Calls[0].State
+  Assert ($script:ConfirmTitle -ceq $case.Title -and $script:ConfirmText -ceq $case.Confirm) ('Titre : '+$script:ConfirmTitle+' / '+$script:ConfirmText+' ; attendu : '+$case.Title)
+  if($case.Title.EndsWith('choisis')){Assert (([string]$script:Message).Contains($label)) ('La confirmation ne nomme pas la portee : '+$script:Message)}
+  Assert ($null -eq $script:ParkRun.Timer -and $script:Calls.Count -eq 1) 'Un poste a ete contacte avant la confirmation.'
+ }
+}
 Case 'Ping et WMI exclusifs : demande ambigue refusee avant cible' {
  Reset-Fixture;Add-DisplayedMachine;Start-DomeniaOnlinePark -DisplayedResults -PingOnly -WmiOnly
  Assert ($script:Calls.Count -eq 0 -and $null -eq $script:ParkRun)
@@ -142,7 +165,7 @@ Case 'Interface : detection et analyse de la liste et leur arret cables ; aucun 
 }
 if($null -ne $script:ParkRun -and $null -ne $script:ParkRun.Timer){$script:ParkRun.Timer.Stop()}
 $failed=@($checks|Where-Object Status -eq 'Failed').Count
-$report=[ordered]@{Kind='ParkDetection';Expected=24;Complete=($checks.Count -eq 24 -and $failed -eq 0);NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
+$report=[ordered]@{Kind='ParkDetection';Expected=25;Complete=($checks.Count -eq 25 -and $failed -eq 0);NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path $env:TEMP 'domenia-park-tests.json'}
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
 Write-Host ($report.Passed.ToString()+' reussis, '+$failed+' echecs. '+$ReportPath)

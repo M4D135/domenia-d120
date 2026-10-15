@@ -346,7 +346,12 @@ Test-Case 'P55' 'Branches ouvertes : seules les branches lues se rouvrent, les a
     Assert-Equal 1 @($plan.Expand).Count;Assert-Equal $a $plan.Expand[0] 'La branche lue et fermee se rouvre'
     Assert-Equal 1 @($plan.Collapse).Count;Assert-Equal $b $plan.Collapse[0] 'La branche ouverte depuis se replie'
     Assert-Equal 2 $plan.UnreadCount 'Une branche non lue ou absente est comptee, jamais lue'
-    $none=Get-DomeniaNavTreePlan -Remembered @() -Nodes @();Assert-Equal 0 @($none.Expand).Count;Assert-Equal 0 $none.UnreadCount
+    $none=Get-DomeniaNavTreePlan -Remembered @() -Nodes @();Assert-Equal 0 @($none.Expand).Count;Assert-Equal 0 $none.UnreadCount;Assert-Equal 0 $none.MissingCount
+    # An OU absent from its read parent branch is counted apart, never as a branch left unread; a loaded item wins.
+    $split=Get-DomeniaNavTreePlan -Remembered @($a,$c,$d) -Nodes $nodes -Missing @($d.ToUpperInvariant(),$a)
+    Assert-Equal 1 $split.UnreadCount;Assert-Equal $c $split.Unread[0] 'Seule la branche non lue reste non lue'
+    Assert-Equal 1 $split.MissingCount;Assert-Equal $d $split.Missing[0] 'La branche absente de son parent lu est comptee a part'
+    Assert-Equal 1 @($split.Expand).Count 'Une branche presente et lue se rouvre meme si elle est dite absente'
 }
 Test-Case 'P54' 'Favoris proposes par le selecteur d OU : domaine de la session, sans la racine, libelles distincts' {
     $favs=@([pscustomobject]@{DN=('OU=Postes,OU=Lyon,'+$script:DomainDn);Name='Postes'},[pscustomobject]@{DN=$script:DomainDn;Name='Domaine'},

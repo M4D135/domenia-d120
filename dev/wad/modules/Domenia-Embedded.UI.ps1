@@ -614,6 +614,8 @@ function Start-DomeniaOuPickerReveal {
     # branch not read yet is read once, one level; the OU is then selected. Choosing it still verifies DN and GUID.
     param($Owner,[string]$Dn)
     if(($null -eq $Owner) -or $Owner.Closed){return}
+    # The tree already opens on the domain root: nothing to show, and nothing wrong to report.
+    if((-not $Dn) -or ($Dn -ieq [string]$Owner.BaseDn)){return}
     $path=Get-DomeniaTreeRevealPath -Dn $Dn -BaseDn ([string]$Owner.BaseDn)
     if($path.Count -lt 2){$Owner.Status.Text='Cette OU nʼappartient pas au domaine de la session.';return}
     # Leaving a search shows the navigation tree again (clearing the box navigates by itself).
@@ -650,7 +652,11 @@ function Continue-DomeniaOuPickerReveal {
     $Owner.Reveal=$null
     $node.IsSelected=$true
     try{$node.BringIntoView()}catch{}
-    $Owner.Status.Text=(Get-DomeniaOuDisplayPath ([string]$plan.Dn))+' : vérifiez le choix ci-dessous puis cliquez sur Choisir.'
+    # Only an OU with its GUID can be chosen (same rule as Update-DomeniaOuPickerSummary): the current place of an
+    # object is often a container (CN=Computers, CN=Users), shown for context only.
+    $row=$null;if($null -ne $node.Tag){$row=Get-DomeniaMember $node.Tag 'Row' $null}
+    if(($null -ne $row) -and ([string]$row.Type -eq 'OU') -and ([bool][string]$row.Guid)){$Owner.Status.Text=(Get-DomeniaOuDisplayPath ([string]$plan.Dn))+' : vérifiez le choix ci-dessous puis cliquez sur Choisir.'}
+    else{$Owner.Status.Text=(Get-DomeniaOuDisplayPath ([string]$plan.Dn))+' est un conteneur, pas une OU : il sert à naviguer. Choisissez une OU dans lʼarbre.'}
 }
 function Show-DomeniaOuTreePicker {
     # Point 54: the one OU picker of Dashboard, Atelier, Outils and the fiche: same tree, name search, favourites,

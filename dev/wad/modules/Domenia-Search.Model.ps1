@@ -859,8 +859,9 @@ function Get-DomeniaNavLimit {
 function Get-DomeniaNavTreePlan {
     # Point 55: the OU branches open at a history step are opened again only when they are already read; a branch
     # open since then is folded. A remembered branch that is no longer read is counted, never read again here.
-    # $Nodes: DN, Loaded, Expanded of the tree items realized now.
-    param([AllowEmptyCollection()][string[]]$Remembered,[AllowEmptyCollection()][object[]]$Nodes)
+    # $Nodes: DN, Loaded, Expanded of the tree items realized now. $Missing: remembered DNs absent from their read
+    # parent branch (moved or deleted since): counted in Missing, not as unread branches.
+    param([AllowEmptyCollection()][string[]]$Remembered,[AllowEmptyCollection()][object[]]$Nodes,[AllowEmptyCollection()][string[]]$Missing=@())
     $wanted = @{}
     foreach ($dn in @($Remembered)) { $text = ([string]$dn).Trim(); if ($text) { $wanted[$text.ToLowerInvariant()] = $text } }
     $expand = [Collections.Generic.List[string]]::new()
@@ -879,8 +880,11 @@ function Get-DomeniaNavTreePlan {
         if ($wanted.ContainsKey($key)) { if (($isLoaded) -and (-not $isExpanded)) { $expand.Add($dn) } }
         elseif ($isExpanded) { $collapse.Add($dn) }
     }
-    $unread = @($wanted.Keys | Where-Object { -not $loaded.ContainsKey($_) } | ForEach-Object { $wanted[$_] })
-    return [pscustomobject]@{Expand=$expand.ToArray();Collapse=$collapse.ToArray();Unread=$unread;UnreadCount=$unread.Count}
+    $absent = @{}
+    foreach ($dn in @($Missing)) { $text = ([string]$dn).Trim(); if ($text) { $absent[$text.ToLowerInvariant()] = $true } }
+    $unread = @($wanted.Keys | Where-Object { (-not $loaded.ContainsKey($_)) -and (-not $absent.ContainsKey($_)) } | ForEach-Object { $wanted[$_] })
+    $gone = @($wanted.Keys | Where-Object { (-not $loaded.ContainsKey($_)) -and ($absent.ContainsKey($_)) } | ForEach-Object { $wanted[$_] })
+    return [pscustomobject]@{Expand=$expand.ToArray();Collapse=$collapse.ToArray();Unread=$unread;UnreadCount=$unread.Count;Missing=$gone;MissingCount=$gone.Count}
 }
 
 function Get-DomeniaOuChoiceSummary {

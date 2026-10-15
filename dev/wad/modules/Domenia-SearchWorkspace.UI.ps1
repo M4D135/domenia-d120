@@ -113,11 +113,16 @@ function Remove-DomeniaSearchWorkspace {
 function Undo-DomeniaSearchWorkspace {
     $undo=$script:SearchWorkspaceUndo;if($null -eq $undo){return}
     try{
-        if([string](Get-DomeniaSetting 'Search.WorkspacesJson' '[]') -cne [string]$undo.After){throw 'Les vues ont changé depuis ce retrait.'}
+        # Views changed since the removal: restoring the former text would undo those changes too, so the undo ends.
+        if([string](Get-DomeniaSetting 'Search.WorkspacesJson' '[]') -cne [string]$undo.After){$script:SearchWorkspaceUndo=$null;throw 'Les vues ont changé depuis ce retrait.'}
         Set-DomeniaSetting 'Search.WorkspacesJson' ([string]$undo.Before)
+        # A failed write (disk busy or locked) keeps the undo: Annuler stays available and can be tried again.
         try{Save-DomeniaSettings -Immediate -ThrowOnFailure}catch{Set-DomeniaSetting 'Search.WorkspacesJson' ([string]$undo.After);throw}
         $script:SearchWorkspaceUndo=$null;Update-DomeniaSearchWorkspaces;Set-Status ('Vue « '+[string]$undo.Name+' » restaurée.')
-    }catch{$script:SearchWorkspaceUndo=$null;Update-DomeniaSearchWorkspaceButtons;Set-Status ('Annulation non appliquée : '+$_.Exception.Message) 'WARN'}
+    }catch{
+        $retry=$(if($null -ne $script:SearchWorkspaceUndo){' Réessayez Annuler.'}else{''})
+        Update-DomeniaSearchWorkspaceButtons;Set-Status ('Annulation non appliquée : '+$_.Exception.Message+$retry) 'WARN'
+    }
 }
 function Open-DomeniaSearchWorkspace {
     try{
@@ -158,7 +163,10 @@ function Get-DomeniaSearchFilterState {
     # The criteria of the list on screen, read from its visible controls and from the query that produced it.
     $type=Get-DomeniaControl 'CmbGlobalType';$presence=Get-DomeniaControl 'CmbPresenceFilter';$local=Get-DomeniaControl 'TxtSuiteResultFilter';$subtree=Get-DomeniaControl 'ChkSubtree';$grid=Get-DomeniaControl 'DgObjects'
     $queryName='';$queryKind='Local';$selection=''
+    # A local query run describes the list only while that list is the one shown (as in Get-DomeniaNavSnapshot):
+    # an OU list read since then, an AD query or an erased list carries no criterion of that former run.
     $run=$script:SearchQueryRun
+    if(($null -ne $run) -and ([string]$script:ActiveSearchViewId -cne [string]$run.Id)){$run=$null}
     if($null -ne $run){
         $queryName=[string]$run.Name
         $selection=switch([string]$run.Selection){'Unknown'{'Inconnus'};'NoMatch'{'Non correspondants'};default{'Correspondants'}}
@@ -228,6 +236,14 @@ function Remove-DomeniaSearchFilterChip {
         'Local'{$box=Get-DomeniaControl 'TxtSuiteResultFilter';if($null -ne $box){$box.Text=''}}
         'Presence'{$box=Get-DomeniaControl 'CmbPresenceFilter';if($null -ne $box){$box.SelectedIndex=0}}
         'Type'{$box=Get-DomeniaControl 'CmbGlobalType';if($null -ne $box){$box.SelectedIndex=0}}
+        'Segment'{
+            # Only the workshop selection goes: the list on screen, its query and its other criteria stay, and every
+            # loaded row is shown again without any read.
+            $q=$script:DomeniaQueryState
+            if($null -ne $q){$q.SearchRecipe=$null;$q.SearchRefinement=$null;$q.SearchRecords=@{}}
+            Apply-DomeniaPresenceFilter
+            [void](Set-DomeniaControlText 'LblSearchQuery' 'Sélection de lʼatelier retirée : toutes les lignes chargées sont réaffichées, sans lecture.')
+        }
         default{Clear-DomeniaSearchQuery}
     }
     Update-DomeniaSearchFilterChips
@@ -252,7 +268,9 @@ function Get-DomeniaSearchListCompleteness {
             if($null -ne $s.Final){return [pscustomobject]@{State='Complete';Limit=$limit}}
         }
     }
+    # A finished local query states its limit only while its list is still shown (see Get-DomeniaSearchFilterState).
     $run=$script:SearchQueryRun
+    if(($null -ne $run) -and ([string]$script:ActiveSearchViewId -cne [string]$run.Id)){$run=$null}
     if(($null -ne $run) -and (-not [string]$run.Job) -and ([long](Get-DomeniaMember $run 'Total' -1) -gt [long](Get-DomeniaMember $run 'Shown' -1)) -and ([long](Get-DomeniaMember $run 'Shown' -1) -ge 0)){
         return [pscustomobject]@{State='Limited';Limit=[int]$run.Limit}
     }
@@ -460,6 +478,9 @@ function Invoke-DomeniaSearchWorkspaceRefresh {
     try{Update-DomeniaResultScopeUi}catch{Write-AppLog ('Portée collective : '+$_.Exception.Message) 'WARN'}
     try{Update-DomeniaSearchWorkspaceButtons}catch{Write-AppLog ('Vues personnelles : '+$_.Exception.Message) 'WARN'}
     if($script:SearchPreviewPending){$script:SearchPreviewPending=$false;Request-DomeniaSearchPreview}
+    # The end of a live read raises no grid event: while the list loads, the refresh is armed again, so that the
+    # scope line states complete, limited or partial as soon as the read ends.
+    try{if([string](Get-DomeniaSearchListCompleteness).State -eq 'Loading'){Request-DomeniaSearchWorkspaceRefresh}}catch{Write-AppLog ('Portée collective : '+$_.Exception.Message) 'WARN'}
 }
 function Request-DomeniaSearchWorkspaceRefresh {
     # Chips, scope and preview follow the list at most every 200 ms: a list loading 20 000 rows refreshes them a few
@@ -521,10 +542,14 @@ function Initialize-DomeniaSearchWorkspace {
         $grid.Add_CurrentCellChanged({Request-DomeniaSearchWorkspaceRefresh -Preview})
         $descriptor=[ComponentModel.DependencyPropertyDescriptor]::FromProperty([Windows.Controls.ItemsControl]::ItemsSourceProperty,[Windows.Controls.DataGrid])
         if($null -ne $descriptor){$descriptor.AddValueChanged($grid,[EventHandler]{param($sender,$eventArgs) try{Invoke-DomeniaSearchWorkspaceListChanged}catch{}})}
-        # Rows appended to a live list, a local filter or a sort change the view without a new ItemsSource.
-        $changed=[Collections.Specialized.INotifyCollectionChanged].GetEvent('CollectionChanged')
-        # This event fires once per row appended to a live list: while the refresh is already armed it returns at once.
-        $changed.AddEventHandler($grid.Items,[Collections.Specialized.NotifyCollectionChangedEventHandler]{param($sender,$eventArgs) $timer=$script:SearchWorkspaceTimer;if(($null -ne $timer) -and ([bool]$timer.IsEnabled)){return};try{Request-DomeniaSearchWorkspaceRefresh}catch{}})
+    }
+    # No handler runs per row appended to a live list. The live list writes its counts and its state (loading, limit,
+    # partial) in this counter once per slice and once per filter pass, as does every other list shown: the chips and
+    # the scope line follow that text, and the refresh armed while a list loads catches the end of its read.
+    $counter=Get-DomeniaControl 'LblSuiteResultCount'
+    if($counter -is [Windows.Controls.TextBlock]){
+        $textDescriptor=[ComponentModel.DependencyPropertyDescriptor]::FromProperty([Windows.Controls.TextBlock]::TextProperty,[Windows.Controls.TextBlock])
+        if($null -ne $textDescriptor){$textDescriptor.AddValueChanged($counter,[EventHandler]{param($sender,$eventArgs) try{Request-DomeniaSearchWorkspaceRefresh}catch{}})}
     }
     # A reopened main window brings new controls: binding again must be possible then.
     if($script:Window -is [Windows.Window]){$script:Window.Add_Closed({$script:SearchWorkspaceBound=$false;$script:SearchPreviewToken='';$script:SearchWorkspacePendingSort=$null;if($null -ne $script:SearchWorkspaceTimer){$script:SearchWorkspaceTimer.Stop()}})}

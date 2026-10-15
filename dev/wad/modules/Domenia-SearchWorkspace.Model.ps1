@@ -32,18 +32,33 @@ function ConvertTo-DomeniaSearchWorkspace {
 function ConvertFrom-DomeniaSearchWorkspaceStore {
     # Point 57: decodes the stored views. Windows PowerShell 5.1 writes a decoded JSON array as one object: the
     # value is assigned before it is enumerated, so that several views are never read as one malformed entry.
-    # Entries of other domains are kept untouched; an unreadable entry is counted, never repaired silently.
+    # Former builds wrapped the stored array once more at each save ('[[],{v1}]', then '[[[],{v1}],{v2}]'): nested
+    # arrays are flattened in order, so that every view they hold is listed again; the empty arrays of that former
+    # format carry nothing and are the only entries dropped. Any other entry, of this domain or another one, readable
+    # or not, stays in All exactly as decoded: the next save writes it back, so nothing is ever lost or repaired
+    # silently. An unreadable entry is counted in Rejected.
     param([AllowEmptyString()][string]$Text,[AllowEmptyString()][string]$DomainDn)
     if(-not $Text){$Text='[]'}
     if([Text.Encoding]::UTF8.GetByteCount($Text) -gt 1048576){throw 'Bibliothèque de vues trop volumineuse.'}
     $decoded=ConvertFrom-Json -InputObject $Text -ErrorAction Stop
     $all=@($decoded|Where-Object{$null -ne $_})
+    # Each pass opens one level of nesting; the former writer nested once per save, 100 views at most.
+    for($level=0;$level -lt 128;$level++){
+        $nested=$false;$flat=[Collections.Generic.List[object]]::new()
+        foreach($item in $all){
+            if($item -is [Array]){$nested=$true;foreach($inner in $item){if($null -ne $inner){$flat.Add($inner)}};continue}
+            $flat.Add($item)
+        }
+        $all=$flat.ToArray()
+        if(-not $nested){break}
+    }
     if($all.Count -gt 100){throw 'Cent vues personnelles au maximum.'}
     $kept=[Collections.Generic.List[object]]::new();$views=[Collections.Generic.List[object]]::new();$ids=@{};$rejected=0
     foreach($item in $all){
-        if($null -eq $item.PSObject.Properties['Version']){$rejected++;continue}
         $kept.Add($item)
-        if((-not $DomainDn) -or ([string]$item.DomainDn -ine $DomainDn)){continue}
+        # Not a view of any known version (a scalar, an object without Version, an array nested too deep).
+        if(($item -isnot [Management.Automation.PSCustomObject]) -or ($null -eq $item.PSObject.Properties['Version'])){$rejected++;continue}
+        if((-not $DomainDn) -or ([string](Get-DomeniaMember $item 'DomainDn' '') -ine $DomainDn)){continue}
         $record=$null
         try{$record=ConvertTo-DomeniaSearchWorkspace $item $DomainDn}catch{$record=$null}
         if(($null -eq $record) -or $ids.ContainsKey($record.Id)){$rejected++;continue}
@@ -69,8 +84,9 @@ function Add-DomeniaSearchWorkspaceRecord {
     $record=ConvertTo-DomeniaSearchWorkspace $Candidate $DomainDn
     $list=@($Items|Where-Object{$null -ne $_})
     if($list.Count -ge 100){throw 'Cent vues sont déjà enregistrées. Retirez une vue devenue inutile.'}
+    # Unreadable entries kept as stored (a scalar, an object without these members) are compared without failing.
     foreach($item in $list){
-        if(([string]$item.DomainDn -ieq $DomainDn) -and (([string]$item.Name).Trim() -ieq $record.Name)){throw 'Une vue porte déjà ce nom dans ce domaine. Choisissez un autre nom ou retirez lʼancienne vue.'}
+        if(([string](Get-DomeniaMember $item 'DomainDn' '') -ieq $DomainDn) -and (([string](Get-DomeniaMember $item 'Name' '')).Trim() -ieq $record.Name)){throw 'Une vue porte déjà ce nom dans ce domaine. Choisissez un autre nom ou retirez lʼancienne vue.'}
     }
     return [pscustomobject]@{Items=@($list+@($record));Record=$record}
 }
@@ -79,7 +95,7 @@ function Remove-DomeniaSearchWorkspaceRecord {
     # Point 57: removes the view with this identifier in this domain only.
     param([AllowEmptyCollection()][object[]]$Items,[string]$Id,[string]$DomainDn)
     $list=@($Items|Where-Object{$null -ne $_})
-    $remaining=@($list|Where-Object{-not (([string]$_.Id -ceq $Id) -and ([string]$_.DomainDn -ieq $DomainDn))})
+    $remaining=@($list|Where-Object{-not (([string](Get-DomeniaMember $_ 'Id' '') -ceq $Id) -and ([string](Get-DomeniaMember $_ 'DomainDn' '') -ieq $DomainDn))})
     return [pscustomobject]@{Items=$remaining;Removed=($list.Count-$remaining.Count)}
 }
 

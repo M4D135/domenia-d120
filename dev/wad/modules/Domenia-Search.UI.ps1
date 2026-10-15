@@ -576,7 +576,10 @@ function Restore-DomeniaNavState {
             try {
                 $selectDn = if ([string]$State.Mode -eq 'Global') { '' } else { [string]$State.OuDn }
                 $treePlan = Restore-DomeniaTreeNavState -Expanded @($State.TreeExpanded) -SelectedDn $selectDn
-                if (($null -ne $treePlan) -and ([int]$treePlan.UnreadCount -gt 0)) { [void](Set-DomeniaControlText 'LblTreeStatus' ([string]$treePlan.UnreadCount + ' branche(s) ouverte(s) à cette étape ne sont plus lues : dépliez-les pour les relire.')) }
+                $treeNotes = [Collections.Generic.List[string]]::new()
+                if (($null -ne $treePlan) -and ([int]$treePlan.UnreadCount -gt 0)) { $treeNotes.Add([string]$treePlan.UnreadCount + ' branche(s) ouverte(s) à cette étape ne sont plus lues : dépliez-les pour les relire.') }
+                if (($null -ne $treePlan) -and ([int](Get-DomeniaMember $treePlan 'MissingCount' 0) -gt 0)) { $treeNotes.Add([string]$treePlan.MissingCount + ' branche(s) ouverte(s) à cette étape sont introuvables dans leur branche parente lue ; rien nʼest relu.') }
+                if ($treeNotes.Count) { [void](Set-DomeniaControlText 'LblTreeStatus' ($treeNotes.ToArray() -join ' ')) }
             } catch { }
         }
         $inner = ''
@@ -980,11 +983,70 @@ function Select-DomeniaGridRowsByKey {
     return $first
 }
 
+function Get-DomeniaOpenTreeNodes {
+    # Point 55: the tree items an operator sees open: the roots, then the children of every expanded item, however
+    # many branches are read. A folded branch hides its descendants, which keep their own state. 20 000 items at
+    # most. Returned as one array.
+    $tree = Get-DomeniaControl 'TvDirectory'; $out = [Collections.Generic.List[object]]::new()
+    if ($null -eq $tree) { return ,$out.ToArray() }
+    $queue = [Collections.Generic.Queue[object]]::new(); foreach ($n in $tree.Items) { $queue.Enqueue($n) }
+    while (($queue.Count -gt 0) -and ($out.Count -lt 20000)) {
+        $n = $queue.Dequeue(); if ($n -isnot [Windows.Controls.TreeViewItem]) { continue }; $out.Add($n)
+        if ($n.IsExpanded) { foreach ($c in $n.Items) { if ($c -is [Windows.Controls.TreeViewItem]) { $queue.Enqueue($c) } } }
+    }
+    return ,$out.ToArray()
+}
+
+function Get-DomeniaRealizedTreeIndex {
+    # Point 55: every tree item already created (read branches, folded or not), by lower-case DN, in one walk:
+    # the history finds each remembered branch in it, however large the tree. Nothing is read. 100 000 items at most.
+    $index = @{}
+    $tree = Get-DomeniaControl 'TvDirectory'
+    if ($null -eq $tree) { return $index }
+    $queue = [Collections.Generic.Queue[object]]::new(); foreach ($n in $tree.Items) { $queue.Enqueue($n) }
+    $visited = 0
+    while (($queue.Count -gt 0) -and ($visited -lt 100000)) {
+        $n = $queue.Dequeue(); if ($n -isnot [Windows.Controls.TreeViewItem]) { continue }; $visited++
+        $dn = ''; try { $dn = [string]$n.Tag.DN } catch { $dn = '' }
+        if ($dn) { $key = $dn.ToLowerInvariant(); if (-not $index.ContainsKey($key)) { $index[$key] = $n } }
+        foreach ($c in $n.Items) { if ($c -is [Windows.Controls.TreeViewItem]) { $queue.Enqueue($c) } }
+    }
+    return $index
+}
+
+function Find-DomeniaRealizedTreeNode {
+    # Point 55: the tree item of a DN when it already exists, found through its ancestors (RDN boundaries, the system
+    # containers group included), however many items the tree holds; $null otherwise. Nothing is read.
+    param([AllowEmptyString()][string]$Dn)
+    $tree = Get-DomeniaControl 'TvDirectory'
+    if (($null -eq $tree) -or (-not $Dn)) { return $null }
+    $path = Get-DomeniaTreeRevealPath -Dn $Dn -BaseDn ([string]$script:Conn.BaseDn)
+    if (-not $path.Count) { return $null }
+    # Keep the live collection: a pipeline-producing expression would enumerate an ItemCollection.
+    $items = $tree.Items; $node = $null
+    foreach ($step in $path) {
+        $next = $null
+        $levels = [Collections.Generic.Queue[object]]::new(); $levels.Enqueue($items)
+        while (($null -eq $next) -and ($levels.Count -gt 0)) {
+            foreach ($child in $levels.Dequeue()) {
+                if ($child -isnot [Windows.Controls.TreeViewItem]) { continue }
+                $tag = $child.Tag; if ($null -eq $tag) { continue }
+                # Tree item tags always carry Name, DN, Kind and Loaded (New-TreeItem, the system containers group).
+                if ([string]$tag.Kind -eq 'SystemGroup') { $levels.Enqueue($child.Items); continue }
+                if ([string]$tag.DN -ieq [string]$step) { $next = $child; break }
+            }
+        }
+        if ($null -eq $next) { return $null }
+        $node = $next; $items = $node.Items
+    }
+    return $node
+}
+
 function Get-DomeniaTreeExpandedDns {
-    # The OU branches open now among the realized tree items, 128 at most. Written to the pipeline.
+    # The OU branches open now among the tree items shown, 1 000 at most. Written to the pipeline.
     $count = 0
-    foreach ($node in (Get-DomeniaRealizedTreeNodes)) {
-        if ($count -ge 128) { break }
+    foreach ($node in (Get-DomeniaOpenTreeNodes)) {
+        if ($count -ge 1000) { break }
         $dn = ''
         try { $dn = [string]$node.Tag.DN } catch { $dn = '' }
         if (($dn) -and ($node.IsExpanded)) { $dn; $count++ }
@@ -999,7 +1061,7 @@ function Select-DomeniaRealizedTreeNode {
     if ($null -eq $tree) { return $false }
     $found = $null
     if ($Dn) {
-        try { foreach ($node in (Get-DomeniaRealizedTreeNodes)) { if ([string]$node.Tag.DN -ieq $Dn) { $found = $node; break } } } catch { $found = $null }
+        try { $found = Find-DomeniaRealizedTreeNode -Dn $Dn } catch { $found = $null }
     }
     $old = [bool]$script:SuppressBranchAutoLoad
     $script:SuppressBranchAutoLoad = $true
@@ -1017,17 +1079,27 @@ function Select-DomeniaRealizedTreeNode {
 
 function Restore-DomeniaTreeNavState {
     # Opens again the branches open at a history step when they are already read, folds the branches opened since,
-    # and selects the OU of the step when its item exists. Nothing is read: an unread branch is only counted.
+    # and selects the OU of the step when its item exists. Nothing is read: an unread branch is only counted, and an
+    # OU no longer found in its read parent branch is counted apart. The whole tree is indexed once, however large.
     param([AllowEmptyCollection()][string[]]$Expanded,[AllowEmptyString()][string]$SelectedDn='')
+    $index = Get-DomeniaRealizedTreeIndex
     $states = [Collections.Generic.List[object]]::new()
-    foreach ($node in (Get-DomeniaRealizedTreeNodes)) {
-        $dn = ''; $loaded = $false
-        try { $dn = [string]$node.Tag.DN; $loaded = [bool]$node.Tag.Loaded } catch { }
-        if ($dn) { $states.Add([pscustomobject]@{DN=$dn;Loaded=$loaded;Expanded=[bool]$node.IsExpanded;Node=$node}) }
+    foreach ($node in $index.Values) {
+        $loaded = $false; try { $loaded = [bool]$node.Tag.Loaded } catch { }
+        $states.Add([pscustomobject]@{DN=[string]$node.Tag.DN;Loaded=$loaded;Expanded=[bool]$node.IsExpanded;Node=$node})
     }
-    $plan = Get-DomeniaNavTreePlan -Remembered @($Expanded) -Nodes $states.ToArray()
-    $byDn = @{}
-    foreach ($state in $states) { $key = $state.DN.ToLowerInvariant(); if (-not $byDn.ContainsKey($key)) { $byDn[$key] = $state.Node } }
+    # A remembered branch without item: absent from its parent when that parent is read, otherwise left unread.
+    $missing = [Collections.Generic.List[string]]::new()
+    foreach ($remembered in @($Expanded)) {
+        $text = ([string]$remembered).Trim(); if ((-not $text) -or ($index.ContainsKey($text.ToLowerInvariant()))) { continue }
+        $parent = ''; try { $parent = [string](Get-DomeniaRawDnParent $text) } catch { $parent = '' }
+        if (($parent) -and ($index.ContainsKey($parent.ToLowerInvariant()))) {
+            $holder = $index[$parent.ToLowerInvariant()]; $read = $false; try { $read = [bool]$holder.Tag.Loaded } catch { }
+            if ($read) { $missing.Add($text) }
+        }
+    }
+    $plan = Get-DomeniaNavTreePlan -Remembered @($Expanded) -Nodes $states.ToArray() -Missing $missing.ToArray()
+    $byDn = $index
     $old = [bool]$script:SuppressBranchAutoLoad
     $script:SuppressBranchAutoLoad = $true
     try {
