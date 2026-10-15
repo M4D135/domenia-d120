@@ -288,6 +288,8 @@ function Initialize-DomeniaGuard {
         $now=[datetime]::UtcNow;$delay=[Math]::Round([double]$sender.LateMs,1);$script:Guard.Last=$now
         $script:Guard.Samples.Add($delay);if($script:Guard.Samples.Count -gt 240){$script:Guard.Samples.RemoveAt(0)}
         try{Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId 'Pulse' -DurationMs $delay}catch{}
+        # W13 (point 121): a late heartbeat is explained by the interface work that overlapped it, or said unattributed.
+        try{[void](Register-DomeniaDispatcherLateness -LateMs $delay)}catch{}
         if($script:Guard.Epoch -ne [long]$script:SessionEpoch){$script:Guard.Epoch=[long]$script:SessionEpoch;$script:ReceiptReady=$false;$script:ReceiptRefreshNeeded=$true;$script:ArtifactConsent=$null;$script:DraftState=$null}
         if(($script:ReceiptRefreshNeeded -or -not $script:ReceiptReady) -and $now -ge $script:Guard.NextReceipt){Start-DomeniaReceiptRefresh}
         $tab=Get-DomeniaControl 'TabGuard'

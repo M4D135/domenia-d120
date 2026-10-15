@@ -466,6 +466,31 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaSourceReadPlan',
             'ConvertFrom-DomeniaWaptHost'
         ) }
+        # W13 (points 118, 121, 123, 124): traces of the operations, explained slowness and redacted diagnostic.
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-Observability.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaTraceLimits',
+            'Get-DomeniaTracePhases',
+            'Get-DomeniaTraceOutcomes',
+            'Get-DomeniaTraceOutcome',
+            'Get-DomeniaTraceReference',
+            'Resolve-DomeniaTraceId',
+            'New-DomeniaOperationTrace',
+            'Add-DomeniaTraceJob',
+            'ConvertTo-DomeniaTraceJobRef',
+            'Add-DomeniaOperationTraceEvent',
+            'Complete-DomeniaTraceJob',
+            'Format-DomeniaDurationText',
+            'Format-DomeniaVolumeText',
+            'Get-DomeniaOperationTraceSummary',
+            'Test-DomeniaTraceListed',
+            'Select-DomeniaTraceEviction',
+            'Get-DomeniaOutputVolume',
+            'Get-DomeniaSlownessVerdict',
+            'Get-DomeniaStallAttribution',
+            'New-DomeniaRedactedDiagnostic',
+            'Get-DomeniaDiagnosticPreviewText',
+            'Get-DomeniaTraceAdvice'
+        ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Shell.Model.ps1'); File='Domenia-Selection.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaObjectReadIdentity',
             'Get-DomeniaRowSelectionIdentity',
@@ -1247,6 +1272,32 @@ function Get-DomeniaRuntimeModulePlan {
             'Format-DomeniaLockoutReport',
             'Complete-DomeniaLockoutEventRead',
             'Fail-DomeniaLockoutEventRead'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Observability.Model.ps1'); File='Domenia-Observability.UI.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaTraceNow',
+            'Get-DomeniaTraceRing',
+            'Register-DomeniaTrace',
+            'Get-DomeniaTraceContextHint',
+            'Start-DomeniaJobTrace',
+            'Add-DomeniaJobTraceEvent',
+            'Add-DomeniaRequestTraceEvent',
+            'Write-DomeniaRequestTraceLog',
+            'Get-DomeniaJobPhaseMeasures',
+            'Register-DomeniaUiWork',
+            'Add-DomeniaSlowEvent',
+            'Register-DomeniaJobPublication',
+            'Complete-DomeniaJobTrace',
+            'Write-DomeniaTraceSummaryLog',
+            'Register-DomeniaDispatcherLateness',
+            'Get-DomeniaSlowEventLines',
+            'Get-DomeniaRecentTraceRows',
+            'Get-DomeniaDiagnosticInputs',
+            'New-DomeniaSessionDiagnostic',
+            'Sync-DomeniaOperationsRecent',
+            'Update-DomeniaOperationsTraceDetail',
+            'Copy-DomeniaOperationsTrace',
+            'Open-DomeniaOperationsJournal',
+            'Start-DomeniaOperationsDiagnostic'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Demo.Model.ps1'); File='Domenia-Demo.UI.ps1'; DotSource=$true; Functions=@(
             'Initialize-DomeniaDemoMode',

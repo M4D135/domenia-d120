@@ -72,6 +72,11 @@ function Invoke-DomeniaDirectoryStoreTick {
             $s=$pipe.Search
             if($null -ne $s){$s.Final=$pipe.Final;$s.Ended=$true;$s.Error=$(if($pipe.Error){$pipe.Error}else{$pipe.DisplayError})}
             $pipe.Closed=$true
+            # W13 (point 123): publication of the request, then its summary line in Domenia.log.
+            try{
+                if($null -ne $pipe.Search){Add-DomeniaRequestTraceEvent -RequestId ([string]$pipe.Context.RequestId) -Phase 'Publish' -Detail 'lignes transmises à la liste' -Volume ([long]$pipe.Published) -Final}
+                else{Write-DomeniaRequestTraceLog -RequestId ([string]$pipe.Context.RequestId)}
+            }catch{}
             [void]$script:DomeniaDirectoryReads.Remove([string]$pipe.Context.RequestId)
             if($pipe.Error -and $pipe.ErrorHandler){& $pipe.ErrorHandler -Message $pipe.Error -State $pipe.CallbackState}
             elseif($pipe.CompleteHandler){& $pipe.CompleteHandler -Result $pipe.Final -State $pipe.CallbackState}
@@ -89,6 +94,16 @@ function Complete-DomeniaDirectoryStoreBatch {
     # Retrying the committed batch or retaining InFlight would block the remaining harvest.
     $pipe.Saved+=@($Result.Rows).Count
     $pipe.Batch=$null;$pipe.InFlight=$false;$pipe.Failure=''
+    # W13 (point 123): the SQLite commit and readback of this batch, on the trace of its request. The worker time of
+    # one LocalStore job is counted once per request, even when the job carried several of its batches.
+    try{
+        $storeMs=[double]-1;$storeJob=$script:AccessCurrentJob
+        if(($null -ne $storeJob) -and ($storeJob.Started -is [datetime])){
+            if([string](Get-DomeniaMember $pipe 'TraceStoreJob' '') -ceq [string]$storeJob.Id){$storeMs=[double]0}
+            else{$storeMs=((Get-Date)-[datetime]$storeJob.Started).TotalMilliseconds;$pipe|Add-Member -NotePropertyName TraceStoreJob -NotePropertyValue ([string]$storeJob.Id) -Force}
+        }
+        Add-DomeniaRequestTraceEvent -RequestId ([string]$pipe.Context.RequestId) -Phase 'StoreRead' -Detail 'SQLite : enregistrement puis relecture' -Volume ([long]@($Result.Rows).Count) -DurationMs $storeMs
+    }catch{}
     try{
         # Old contexts commit to their original database but never repaint a new selection.
         $publish=($null -ne $pipe.Ready -and $null -ne $pipe.Search -and -not $pipe.Search.Stopped -and (Test-DomeniaLiveSearchActive) -and [object]::ReferenceEquals($script:Live.Search,$pipe.Search))

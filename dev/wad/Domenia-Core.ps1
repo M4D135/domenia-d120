@@ -7023,7 +7023,7 @@ function Get-MainXaml {
 <WrapPanel><Button AutomationProperties.Name="Autoriser une intervention sur cette machine" AutomationProperties.HelpText="Autorisation de cinq minutes, pour la machine sélectionnée uniquement. Ne lance rien ; les droits restent obligatoires." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardRemote" Content="Autoriser une intervention sur cette machine" ToolTip="Autorisation de cinq minutes, pour la machine sélectionnée uniquement. Ne lance rien ; les droits restent obligatoires."/><Button AutomationProperties.Name="Lire ce poste par tache planifiee" AutomationProperties.HelpText="Une seule lecture, pour la machine selectionnee. Le repli PsExec ou tache ne se declenche jamais sans cette demande." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardReadFallback" Content="Lire ce poste par tâche planifiée" ToolTip="A demander quand CIM ne répond pas : autorise une seule lecture par PsExec ou tâche planifiée, pour la machine sélectionnée."/><Button AutomationProperties.Name="Retirer l'autorisation" AutomationProperties.HelpText="Les sondes déjà envoyées peuvent encore finir. Aucune nouvelle intervention avec dépôt ne sera autorisée." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardRemoteOff" Content="Retirer l'autorisation" ToolTip="Les sondes déjà envoyées peuvent encore finir. Aucune nouvelle intervention avec dépôt ne sera autorisée."/></WrapPanel>
 </StackPanel></Border>
 <Border Style="{StaticResource Card}" Margin="0,0,0,12"><StackPanel><TextBlock Text="Suite support et mesures" FontSize="18" FontWeight="SemiBold"/>
-<WrapPanel Margin="0,6,0,10"><Button x:Name="BtnGuardStoreResume" Content="Reprendre les sauvegardes" ToolTip="Relance les lots de cache interrompus apres correction du stockage." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Reprendre les sauvegardes" AutomationProperties.HelpText="Relance les lots de cache interrompus apres correction du stockage."/><Button x:Name="BtnGuardLegacyImport" Content="Reprendre les anciennes données" ToolTip="Simule la reprise des fichiers historiques dans Domenia, puis demande confirmation." AutomationProperties.Name="Reprendre les anciennes données" AutomationProperties.HelpText="Vérifie le domaine et les données, affiche la simulation puis demande confirmation avant sauvegarde et import."/><Button x:Name="BtnGuardExport" Content="Dossier technique" ToolTip="Affiche puis exporte les seuls compteurs techniques, sans logs bruts ni identifiants." AutomationProperties.Name="Dossier technique" AutomationProperties.HelpText="Affiche puis exporte les seuls compteurs techniques, sans logs bruts ni identifiants."/><Button x:Name="BtnGuardWhy" Content="Pourquoi une action est indisponible ?" ToolTip="Explique les protections et preconditions actuelles sans modifier de droit." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Pourquoi une action est indisponible ?" AutomationProperties.HelpText="Explique les protections et preconditions actuelles sans modifier de droit."/></WrapPanel><ScrollViewer Height="96" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8"><TextBlock x:Name="LblGuardMigration" Text="La simulation des anciennes données sera affichée ici avant confirmation." TextWrapping="Wrap" AutomationProperties.Name="Simulation de reprise des données"/></ScrollViewer><CheckBox x:Name="ChkGuardReconcile" Content="Reverifier le perimetre consulte en arriere-plan" IsChecked="True" Margin="0,0,0,8" ToolTip="Relit la dernière requête explicite, au plus toutes les trois minutes et dans sa limite de résultats. Aucun scan au démarrage." AutomationProperties.Name="Reverifier le perimetre consulte en arriere-plan" AutomationProperties.HelpText="Relit la derniere requete explicite, au plus toutes les trois minutes et dans sa limite de resultats. Aucun scan au demarrage."/><TextBlock x:Name="LblGuardMetrics" Text="Les mesures locales apparaîtront ici." TextWrapping="Wrap" Margin="0,8,0,12" Foreground="{DynamicResource MutedColor}"/>
+<WrapPanel Margin="0,6,0,10"><Button x:Name="BtnGuardStoreResume" Content="Reprendre les sauvegardes" ToolTip="Relance les lots de cache interrompus apres correction du stockage." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Reprendre les sauvegardes" AutomationProperties.HelpText="Relance les lots de cache interrompus apres correction du stockage."/><Button x:Name="BtnGuardLegacyImport" Content="Reprendre les anciennes données" ToolTip="Simule la reprise des fichiers historiques dans Domenia, puis demande confirmation." AutomationProperties.Name="Reprendre les anciennes données" AutomationProperties.HelpText="Vérifie le domaine et les données, affiche la simulation puis demande confirmation avant sauvegarde et import."/><Button x:Name="BtnGuardExport" Content="Diagnostic expurgé" ToolTip="Prépare le diagnostic expurgé (versions, mesures locales, codes dʼerreur, traces sans cible), le montre en entier, puis lʼenregistre dans un fichier local après confirmation. Aucun envoi." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Diagnostic expurgé" AutomationProperties.HelpText="Prépare le diagnostic expurgé (versions, mesures locales, codes dʼerreur, traces sans cible), le montre en entier, puis lʼenregistre dans un fichier local après confirmation. Aucun envoi."/><Button x:Name="BtnGuardWhy" Content="Pourquoi une action est indisponible ?" ToolTip="Explique les protections et preconditions actuelles sans modifier de droit." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Pourquoi une action est indisponible ?" AutomationProperties.HelpText="Explique les protections et preconditions actuelles sans modifier de droit."/></WrapPanel><ScrollViewer Height="96" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8"><TextBlock x:Name="LblGuardMigration" Text="La simulation des anciennes données sera affichée ici avant confirmation." TextWrapping="Wrap" AutomationProperties.Name="Simulation de reprise des données"/></ScrollViewer><CheckBox x:Name="ChkGuardReconcile" Content="Reverifier le perimetre consulte en arriere-plan" IsChecked="True" Margin="0,0,0,8" ToolTip="Relit la dernière requête explicite, au plus toutes les trois minutes et dans sa limite de résultats. Aucun scan au démarrage." AutomationProperties.Name="Reverifier le perimetre consulte en arriere-plan" AutomationProperties.HelpText="Relit la derniere requete explicite, au plus toutes les trois minutes et dans sa limite de resultats. Aucun scan au demarrage."/><TextBlock x:Name="LblGuardMetrics" Text="Les mesures locales apparaîtront ici." TextWrapping="Wrap" Margin="0,8,0,12" Foreground="{DynamicResource MutedColor}"/>
 <WrapPanel><Button AutomationProperties.Name="Ouvrir Pesto" AutomationProperties.HelpText="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardPesto" Content="Ouvrir Pesto" ToolTip="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis."/><Button AutomationProperties.Name="Ouvrir FilPro" AutomationProperties.HelpText="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardFilPro" Content="Ouvrir FilPro" ToolTip="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis."/></WrapPanel>
 </StackPanel></Border>
 </StackPanel></ScrollViewer></TabItem>
@@ -24170,6 +24170,8 @@ function Start-UiTask {
         [switch]$IsWrite,
         [switch]$NonCancellable,
         [string]$CorrelationId = "",
+        # W13 (point 123): identifier shared by every event of one request; empty = Resolve-DomeniaTraceId.
+        [string]$TraceId = "",
         $CallbackState = $null,
         # D015: the caller may state the class of its request (automatic work = Background).
         [ValidateSet('','Explicit','Selection','Background')][string]$TaskClass = "",
@@ -24288,6 +24290,8 @@ try {
         ExecutedOperationId=''; Demo=$false; Isolated=$false; DedupKey=$dedupKey; SchedulerManaged=[bool]$scheduler; CredentialIdentity=''
         Foreground=[bool]$foregroundValue; ErrorInfo=$null
     }
+    # W13 (point 123): the job joins the trace of its request before it is queued or dispatched.
+    try { [void](Start-DomeniaJobTrace -Job $job -RequestedTraceId $TraceId -Payload $Payload -CallbackState $CallbackState) } catch { }
     if ($admission -eq 'Queue') {
         # Nothing is sent yet: the pinned body is checked now, the worker starts when Complete-UiTasks promotes it.
         [void](Assert-DomeniaWorkerOperationCode -OperationId $OperationId -Code $Code)
@@ -24303,7 +24307,12 @@ try {
         return $id
     }
     # D015/C2/D016/D018/D019: the launch body lives in Invoke-DomeniaUiTaskDispatch (Domenia-Engine.UI.ps1).
-    [void](Invoke-DomeniaUiTaskDispatch -Job $job)
+    try { [void](Invoke-DomeniaUiTaskDispatch -Job $job) }
+    catch {
+        # W13 (point 123): a refusal before dispatch ends the trace of the job; the refusal itself still reaches the caller.
+        try { [void](Complete-DomeniaJobTrace -Job $job -Outcome 'Refused' -NotDispatched) } catch { }
+        throw
+    }
     $script:AsyncJobs[$id] = $job
     # CO-02: LatestTaskId follows the foreground tasks only; a local save never becomes the target of Annuler.
     if ($foregroundValue) { $script:LatestTaskId = $id }
@@ -24338,7 +24347,7 @@ function Request-UiTaskStop {
             }
             if (-not [string]::IsNullOrWhiteSpace($objectRequestId)) { Clear-DomeniaCurrentObjectRequest -RequestId $objectRequestId }
         }
-        Remove-DomeniaQueuedTask -Job $job -Silent:([bool]$Silent -or [bool]$Superseded)
+        Remove-DomeniaQueuedTask -Job $job -Silent:([bool]$Silent -or [bool]$Superseded) -TraceOutcome $(if ([bool]$Superseded) { 'Superseded' } else { 'Withdrawn' })
         Update-TaskUi -Force
         return
     }
@@ -24433,6 +24442,10 @@ function Detach-DomeniaReadUiTask {
     try { Set-ControlsBusy -Names $job.DisableControls -Busy $false } catch { }
     [void]$script:AsyncJobs.Remove($Id)
     if ([string]$script:LatestTaskId -eq $Id) { $script:LatestTaskId = "" }
+    # W13 (point 123): the trace ends here for the interface; the native call may still finish its cleanup.
+    $traceOutcome = 'Stopped'
+    if ([bool]$job.Superseded) { $traceOutcome = 'Superseded' } elseif ([bool]$job.TimeoutErrorDelivered) { $traceOutcome = 'TimedOut' }
+    try { [void](Complete-DomeniaJobTrace -Job $job -Outcome $traceOutcome -Detail 'lecture détachée de lʼinterface') } catch { }
     if ($null -eq $script:DetachedReadJobs) { $script:DetachedReadJobs = New-Object System.Collections.ArrayList }
     if ([string]$job.OperationId -eq 'ComputerLastUser') {
         Clear-DomeniaComputerUserProbeState -ProbeId ([string]$job.CallbackState.ProbeId) -Computer ([string]$job.CallbackState.Computer)
@@ -24536,6 +24549,12 @@ function Complete-UiTasks {
         $handled++
         $invokeCompleted = [bool]$entry.InvokeCompleted
         $stopCompleted = [bool]$entry.StopCompleted
+        # W13 (points 121, 123): end of the worker as seen by the poll, and start of the reception and validation.
+        $traceWorkerEnd = Get-Date
+        $traceMark = [Diagnostics.Stopwatch]::GetTimestamp()
+        $traceValidateMs = [double]-1
+        $traceSlowText = ''
+        $traceCallbackFailed = $false
 
         $errorMessage = ""
         $output = $null
@@ -24584,11 +24603,18 @@ function Complete-UiTasks {
                 try { $endText = Get-DomeniaCancelStatusText -Name ([string]$job.Name) -State 'Completed' } catch { }
                 Set-Status $endText "WARN"
             }
+            # A write stopped by its hard deadline has an unknown result; a read is stopped, replaced or out of time.
+            $traceOutcome = 'Stopped'
+            if ([bool]$job.IsWrite) { $traceOutcome = 'Unknown' } elseif ([bool]$job.TimeoutErrorDelivered) { $traceOutcome = 'TimedOut' } elseif ([bool]$job.Superseded) { $traceOutcome = 'Superseded' }
+            try { [void](Complete-DomeniaJobTrace -Job $job -Outcome $traceOutcome -WorkerEnd $traceWorkerEnd) } catch { }
             continue
         }
 
         if ([bool]$script:AsyncEngineClosing -or [bool]$job.Superseded -or [long]$job.SessionEpoch -ne [long]$script:SessionEpoch) {
             $output = $null
+            $traceOutcome = 'Superseded'
+            if ([bool]$job.IsWrite) { $traceOutcome = 'Unknown' }
+            try { [void](Complete-DomeniaJobTrace -Job $job -Outcome $traceOutcome -WorkerEnd $traceWorkerEnd) } catch { }
             continue
         }
         # CD-12: the error of a task is analysed once; the same object feeds the provider outcome, the anti-lockout
@@ -24596,6 +24622,7 @@ function Complete-UiTasks {
         $errorInfo = $null
         if (-not [string]::IsNullOrWhiteSpace($errorMessage)) { $errorInfo = ConvertTo-DomeniaTaskErrorInfo -Job $job -Message $errorMessage }
         try { [void](Register-DomeniaTaskOutcome -Job $job -ErrorMessage $errorMessage -ErrorInfo $errorInfo) } catch { }
+        $traceValidateMs = [double](([Diagnostics.Stopwatch]::GetTimestamp() - $traceMark) * 1000.0 / [Diagnostics.Stopwatch]::Frequency)
         if ([string]::IsNullOrWhiteSpace($errorMessage)) {
             $callbackWatch = [System.Diagnostics.Stopwatch]::StartNew()
             $modalBefore = [long]$script:ModalBlockedMs
@@ -24604,6 +24631,7 @@ function Complete-UiTasks {
                 $callbackMessage = [string]$_.Exception.Message
                 $callbackStack = [string]$_.ScriptStackTrace
                 $errorMessage = "Callback UI ($($job.Name)) : $callbackMessage"
+                $traceCallbackFailed = $true
                 Write-AppLog "[$($job.CorrelationId)] $errorMessage  pile=$callbackStack" "ERROR"
             }
             finally {
@@ -24613,8 +24641,14 @@ function Complete-UiTasks {
                 if ($effectiveMs -lt 0) { $effectiveMs = 0 }
                 # Keep UI completion costs distinct from worker/network duration in the local bounded metrics.
                 try { Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId ('Callback:' + [string]$job.OperationId) -DurationMs ([double]$effectiveMs) } catch { }
+                # W13 (point 121): the cost, the volume received and the handler are kept for the trace; a slow callback
+                # is explained by its operation, its phases, its volume and its handler.
+                $traceVolume = [long]-1
+                try { $traceVolume = [long](Get-DomeniaOutputVolume $output) } catch { }
+                try { $traceSlowText = [string](Register-DomeniaJobPublication -Job $job -PublishMs ([double]$effectiveMs) -Volume $traceVolume -ThresholdMs ([double]$callbackWarningMs) -ValidateMs $traceValidateMs -WorkerEnd $traceWorkerEnd) } catch { $traceSlowText = '' }
                 if ($effectiveMs -gt $callbackWarningMs) {
-                    Write-AppLog "[$($job.CorrelationId)] Callback UI lent : $($job.Name), $effectiveMs ms (hors $modalMs ms d'attente modale ; seuil $callbackWarningMs ms ; operation $($job.OperationId) ; traitement $($job.SuccessHandler))." "WARN"
+                    if (-not $traceSlowText) { $traceSlowText = "Callback UI lent : $($job.Name), $effectiveMs ms (seuil $callbackWarningMs ms ; operation $($job.OperationId) ; traitement $($job.SuccessHandler))." }
+                    Write-AppLog "[$($job.CorrelationId)] $traceSlowText Hors $modalMs ms d'attente modale." "WARN"
                 }
             }
             # D015: each subscriber of a shared read gets its own callback (access inspection ran once above).
@@ -24654,6 +24688,17 @@ function Complete-UiTasks {
             }
             Write-AppLog "[$($job.CorrelationId)] $($job.Name) : $errorMessage" "ERROR"
         }
+        # W13 (point 123): end of the trace of this job, with its error category (a code, never the message).
+        try {
+            if ([string]::IsNullOrWhiteSpace($errorMessage)) { [void](Complete-DomeniaJobTrace -Job $job -Outcome 'Succeeded' -ValidateMs $traceValidateMs -WorkerEnd $traceWorkerEnd) }
+            else {
+                $traceCategory = [string](Get-DomeniaMember $errorInfo 'Category' '')
+                if ($traceCallbackFailed) { $traceCategory = 'InterfaceCallback' }
+                $traceOutcome = 'Failed'
+                if ([bool]$job.IsWrite -and ([string]$script:WriteState -in @('Unknown','UnknownPending'))) { $traceOutcome = 'Unknown' }
+                [void](Complete-DomeniaJobTrace -Job $job -Outcome $traceOutcome -ValidateMs $traceValidateMs -Category $traceCategory -WorkerEnd $traceWorkerEnd)
+            }
+        } catch { }
     }
     # D015 / PF-04: queued entries start by priority while the admission and the tick budget allow; stale or expired
     # entries leave the queue.

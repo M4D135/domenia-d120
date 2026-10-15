@@ -3151,8 +3151,8 @@
   },
   {
     "Name": "BtnGuardExport",
-    "Title": "Dossier technique",
-    "Text": "Affiche puis exporte les seuls compteurs techniques, sans logs bruts ni identifiants.",
+    "Title": "Diagnostic expurgé",
+    "Text": "Prépare le diagnostic expurgé (versions, mesures locales, codes dʼerreur, traces sans cible), le montre en entier, puis lʼenregistre dans un fichier local après confirmation. Aucun envoi.",
     "Sensitive": false
   },
   {
@@ -3908,7 +3908,7 @@
   {
     "Name": "LblOperationsHealth",
     "Title": "Santé du moteur",
-    "Text": "Mesures locales de cette session : mémoire, réactivité de lʼinterface, dernière sauvegarde locale. Aucune sonde réseau.",
+    "Text": "Mesures locales de cette session : mémoire, réactivité de lʼinterface, lenteurs expliquées, dernière sauvegarde locale. Aucune sonde réseau.",
     "Kind": "TextBlock",
     "Source": "d120-L09"
   },
@@ -4065,5 +4065,40 @@
     "Source": "specific",
     "Title": "Dates des mesures et du calcul",
     "Text": "Le ping et l’inventaire WMI conservent leurs dates propres. N/M compte les mesures utilisables parmi les postes actifs ; du… au… décrit leur intervalle de dates. Vue recalculée indique seulement la préparation locale de l’affichage, sans nouvelle collecte."
+  },
+  {
+    "Name": "DgOperationsRecent",
+    "Title": "Dernières opérations",
+    "Text": "Opérations de cette session, la plus récente en haut : état, durée, étape la plus longue et référence à chercher dans Domenia.log. Gardées en mémoire seulement, 64 au plus.",
+    "Kind": "DataGrid",
+    "Source": "W13"
+  },
+  {
+    "Name": "LblOperationsTrace",
+    "Title": "Étapes de lʼopération choisie",
+    "Text": "Étapes mesurées de lʼopération choisie et ce qui peut être fait ensuite. Aucune relance automatique.",
+    "Kind": "TextBlock",
+    "Source": "W13"
+  },
+  {
+    "Name": "BtnOperationsCopyTrace",
+    "Title": "Copier le détail de lʼopération",
+    "Text": "Copie le détail de lʼopération choisie : étapes, durées et référence. Le nom de la cible peut y figurer : relisez avant envoi.",
+    "Kind": "Button",
+    "Source": "W13"
+  },
+  {
+    "Name": "BtnOperationsJournal",
+    "Title": "Ouvrir le journal",
+    "Text": "Ferme ce panneau et ouvre le journal de session. Les références des opérations figurent aussi dans Domenia.log.",
+    "Kind": "Button",
+    "Source": "W13"
+  },
+  {
+    "Name": "BtnOperationsDiagnostic",
+    "Title": "Diagnostic expurgé",
+    "Text": "Prépare le diagnostic expurgé (versions, mesures locales, codes dʼerreur, traces sans cible), le montre en entier, puis lʼenregistre dans un fichier local après confirmation. Aucun envoi.",
+    "Kind": "Button",
+    "Source": "W13"
   }
 ]

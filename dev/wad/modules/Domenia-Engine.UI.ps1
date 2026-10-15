@@ -532,6 +532,7 @@ function Invoke-DomeniaTimerTick {
     if ([bool]$Timer.SessionBound -and [long]$Timer.Epoch -ne [long]$script:SessionEpoch) { Stop-DomeniaTimer -Timer $Timer; return }
     if ($null -eq $Timer.Tick) { return }
     $Timer.InTick = $true
+    $tickStart = [Diagnostics.Stopwatch]::GetTimestamp()
     try {
         $Timer.Runs = [long]$Timer.Runs + 1
         & $Timer.Tick $Timer ([EventArgs]::Empty)
@@ -548,7 +549,14 @@ function Invoke-DomeniaTimerTick {
             try { Write-AppLog ('Minuteur ' + [string]$Timer.Owner + ' arrêté après ' + [int]$Timer.Failures + ' erreurs consécutives ; aucun nouvel essai automatique.') 'ERROR' } catch { }
         }
     }
-    finally { $Timer.InTick = $false }
+    finally {
+        $Timer.InTick = $false
+        # W13 (point 121): a tick of 50 ms or more is kept to explain a late heartbeat (Register-DomeniaDispatcherLateness).
+        $tickMs = ([Diagnostics.Stopwatch]::GetTimestamp() - $tickStart) * 1000.0 / [Diagnostics.Stopwatch]::Frequency
+        if ($tickMs -ge 50) {
+            try { $tickEnd = Get-DomeniaTraceNow; Register-DomeniaUiWork -Name ('Minuteur ' + [string]$Timer.Owner) -Handler (([string]$Timer.Owner) -replace '[^A-Za-z0-9:-]','') -StartMs ($tickEnd - $tickMs) -EndMs $tickEnd } catch { }
+        }
+    }
 }
 
 function Invoke-DomeniaPulse {
@@ -682,6 +690,7 @@ function Add-DomeniaTaskSubscriber {
         [void]$job.Subscribers.Add([pscustomobject]@{SuccessHandler=$SuccessHandler;ErrorHandler=$ErrorHandler;OnSuccess=$OnSuccess;OnError=$OnError;CallbackState=$CallbackState})
         # UX-04: engine detail, Domenia.log only.
         Write-DomeniaTrace ('Lecture identique partagée : ' + [string]$job.Name + ' (' + [string]$job.OperationId + '), aucun second appel.')
+        try { Add-DomeniaJobTraceEvent -Job $job -Phase 'Shared' -Detail 'demande identique rattachée, aucun second appel' } catch { }
         return [string]$job.Id
     }
     return ''
@@ -708,10 +717,14 @@ function Invoke-DomeniaTaskSubscribers {
 
 function Remove-DomeniaQueuedTask {
     # Withdraws an entry that was never sent: no call was made, so nothing has to be cleaned on the network side.
-    param($Job,[switch]$Silent)
+    # W13 (point 123): -TraceOutcome names the end written on the trace of the request (never a dispatch).
+    param($Job,[switch]$Silent,[ValidateSet('Withdrawn','Superseded','TimedOut','Refused')][string]$TraceOutcome='Withdrawn')
     if ($null -eq $Job) { return }
     $id = [string]$Job.Id
     if ($script:AsyncJobs.Contains($id)) { [void]$script:AsyncJobs.Remove($id) }
+    $traceDetail = ''
+    if ($TraceOutcome -eq 'TimedOut') { $traceDetail = 'attente trop longue dans la file' }
+    try { [void](Complete-DomeniaJobTrace -Job $Job -Outcome $TraceOutcome -Detail $traceDetail -NotDispatched) } catch { }
     if ([bool]$Job.BusyApplied) { try { Set-ControlsBusy -Names $Job.DisableControls -Busy $false } catch { }; $Job.BusyApplied = $false }
     if ([string]$script:LatestTaskId -eq $id) { $script:LatestTaskId = '' }
     $Job.State = 'Withdrawn'
@@ -731,10 +744,10 @@ function Invoke-DomeniaQueuedTaskPromotion {
     foreach ($job in @($script:AsyncJobs.Values)) {
         if ($null -eq $job -or [string]$job.State -ne 'Queued') { continue }
         if ([bool]$script:AsyncEngineClosing -or [long]$job.SessionEpoch -ne [long]$script:SessionEpoch) {
-            Remove-DomeniaQueuedTask -Job $job -Silent; $changed = $true; continue
+            Remove-DomeniaQueuedTask -Job $job -Silent -TraceOutcome 'Superseded'; $changed = $true; continue
         }
         if (Test-DomeniaQueuedTaskExpired -QueuedAt $job.QueuedAt -MaxWaitSeconds $limits.MaxQueueWaitSeconds) {
-            Remove-DomeniaQueuedTask -Job $job -Silent
+            Remove-DomeniaQueuedTask -Job $job -Silent -TraceOutcome 'TimedOut'
             $message = 'Lecture non envoyee : attente trop longue (' + $limits.MaxQueueWaitSeconds + ' s). Aucun appel n a ete fait.'
             try { Invoke-DomeniaJobErrorUi -Job $job -Message $message } catch { try { Set-Status $message 'WARN' } catch { } }
             Invoke-DomeniaTaskSubscribers -Job $job -Output $null -ErrorMessage $message
@@ -758,7 +771,7 @@ function Invoke-DomeniaQueuedTaskPromotion {
         }
         catch {
             $message = [string]$_.Exception.Message
-            Remove-DomeniaQueuedTask -Job $next -Silent
+            Remove-DomeniaQueuedTask -Job $next -Silent -TraceOutcome 'Refused'
             try { Invoke-DomeniaJobErrorUi -Job $next -Message $message } catch { try { Set-Status ([string]$next.Name + ' : ' + $message) 'ERROR' } catch { } }
             Invoke-DomeniaTaskSubscribers -Job $next -Output $null -ErrorMessage $message
         }

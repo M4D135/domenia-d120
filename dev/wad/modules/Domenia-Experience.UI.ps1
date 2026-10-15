@@ -62,6 +62,11 @@ function Initialize-DomeniaOperationsPanel {
     })
     $grid.Add_KeyDown({param($sender,$eventArgs) if($eventArgs.Key -eq [Windows.Input.Key]::Delete){$eventArgs.Handled=$true;Stop-DomeniaExperienceSelectedRead}})
     $view.FindName('BtnOperationsClose').Add_Click({Hide-DomeniaOperationsPanel})
+    # W13 (points 118, 123, 124): last operations with their steps, the journal and the redacted diagnostic.
+    $recent=$view.FindName('DgOperationsRecent');if($null -ne $recent){$recent.Add_SelectionChanged({Update-DomeniaOperationsTraceDetail})}
+    $copy=$view.FindName('BtnOperationsCopyTrace');if($null -ne $copy){$copy.Add_Click({Copy-DomeniaOperationsTrace})}
+    $journal=$view.FindName('BtnOperationsJournal');if($null -ne $journal){$journal.Add_Click({Open-DomeniaOperationsJournal})}
+    $diagnostic=$view.FindName('BtnOperationsDiagnostic');if($null -ne $diagnostic){$diagnostic.Add_Click({Start-DomeniaOperationsDiagnostic})}
     $view.Add_PreviewKeyDown({param($sender,$eventArgs) if($eventArgs.Key -eq [Windows.Input.Key]::Escape){$eventArgs.Handled=$true;Hide-DomeniaOperationsPanel}})
     # A click beside the panel (on the transparent layer itself) closes it, like a drop-down list.
     $layer.Add_MouseLeftButtonDown({param($sender,$eventArgs) if([object]::ReferenceEquals($eventArgs.OriginalSource,$sender) -and $null -ne $script:OperationsPanel -and $script:OperationsPanel.Open){$eventArgs.Handled=$true;Hide-DomeniaOperationsPanel}})
@@ -197,6 +202,10 @@ function Get-DomeniaOperationsHealthText {
     else{$lines.Add('Réactivité de lʼinterface : pas encore mesurée.')}
     $callbacks=$null;try{$callbacks=Get-DomeniaRuntimeMetricSummary -Provenance 'Dispatcher' -Prefix 'Callback:'}catch{$callbacks=$null}
     if($null -ne $callbacks -and [int]$callbacks.Count -gt 0){$lines.Add('Traitement des résultats dans lʼinterface : médiane '+[Math]::Round([double]$callbacks.P50)+' ms ; 95 % sous '+[Math]::Round([double]$callbacks.P95)+' ms ; maximum '+[Math]::Round([double]$callbacks.Max)+' ms.')}
+    # W13 (point 121): the latest slowness, each explained by its operation, phase, volume and handler.
+    $slow=@();try{$slow=@(Get-DomeniaSlowEventLines -Maximum 3)}catch{$slow=@()}
+    if($slow.Count -gt 0){$lines.Add('Lenteurs expliquées, la plus récente en premier :');foreach($line in $slow){$lines.Add([string][char]0x2022+' '+[string]$line)}}
+    else{$lines.Add('Aucune lenteur relevée au-delà des seuils suivis (interface, opération complète, retard de lʼinterface).')}
     $saved=$null;try{if($null -ne $script:Persistence){$saved=$script:Persistence.LastSavedAt}}catch{$saved=$null}
     $save=if($null -ne $saved){'Dernière sauvegarde locale à '+([datetime]$saved).ToString('HH:mm:ss')+'.'}else{'Aucune sauvegarde locale dans cette session.'}
     try{$state=Get-DomeniaPersistenceState;if([string]$state.Label){$save+=' '+[string]$state.Label}}catch{}
@@ -246,6 +255,7 @@ function Update-DomeniaExperienceActivity {
         if($null -ne $row){$rows.Add($row)}
     }
     Sync-DomeniaOperationRows -Projections $rows.ToArray()
+    try{Sync-DomeniaOperationsRecent}catch{}
     $state=[string]$script:WriteState
     $message=if($active+$detached+$queued -eq 0){'Aucune opération active. Les résultats précédents restent dans le journal.'}else{"$active opération(s) active(s) · $queued en attente · $detached lecture(s) en nettoyage."}
     if($state -in @('Unknown','UnknownPending')){$message+=' Écriture à vérifier : ne relancez pas lʼaction avant relecture de lʼobjet.'}

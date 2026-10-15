@@ -2,12 +2,18 @@
         x:Name="OperationsPanel" Width="620" MaxHeight="560" HorizontalAlignment="Left" VerticalAlignment="Top" Padding="14,12"
         CornerRadius="12" BorderThickness="1" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderColor}"
         KeyboardNavigation.TabNavigation="Cycle" AutomationProperties.Name="Opérations"
-        AutomationProperties.HelpText="Opérations en cours et en attente de cette session, leur durée et la santé du moteur. Échap ou un clic à côté ferme le panneau ; les opérations continuent.">
+        AutomationProperties.HelpText="Opérations en cours et en attente de cette session, leur durée, les dernières opérations avec leurs étapes et la santé du moteur. Échap ou un clic à côté ferme le panneau ; les opérations continuent.">
+  <!-- W13 (point 113): the panel scrolls as a whole when the window is short (RDP, zoom): no button leaves the screen. -->
+  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
   <Grid>
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
-      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
     <Grid>
@@ -20,7 +26,7 @@
               ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Fermer le panneau des opérations"
               AutomationProperties.HelpText="Ferme ce panneau. Les opérations continuent et restent comptées sur le bouton Opérations."/>
     </Grid>
-    <TextBlock x:Name="LblSuiteActivityState" Grid.Row="1" Text="" TextWrapping="Wrap" Margin="0,8,0,8" Foreground="{DynamicResource MutedColor}"/>
+    <TextBlock x:Name="LblSuiteActivityState" Grid.Row="1" Text="" TextWrapping="Wrap" Margin="0,8,0,8" Foreground="{DynamicResource MutedColor}" AutomationProperties.LiveSetting="Polite"/>
     <DataGrid x:Name="DgSuiteActivity" Grid.Row="2" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" SelectionUnit="FullRow" HeadersVisibility="Column"
               MinRowHeight="32" MinHeight="96" MaxHeight="300" CanUserAddRows="False" CanUserDeleteRows="False"
               ToolTip="Opérations de cette session : en cours, en attente, arrêt demandé, à vérifier ou nettoyage. Une ligne qui disparaît ne prouve pas un résultat ; consultez le journal."
@@ -47,12 +53,55 @@
         </DataGridTemplateColumn>
       </DataGrid.Columns>
     </DataGrid>
-    <Border Grid.Row="3" Background="{DynamicResource TileBg}" CornerRadius="10" Padding="12,8" Margin="0,10,0,0">
+    <!-- W13 (points 118, 123): the last operations of the session, their measured steps and what can be done next. -->
+    <TextBlock Grid.Row="3" Text="Dernières opérations" FontWeight="SemiBold" Margin="0,12,0,4" Foreground="{DynamicResource TextColor}"/>
+    <DataGrid x:Name="DgOperationsRecent" Grid.Row="4" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" SelectionUnit="FullRow" HeadersVisibility="Column"
+              MinRowHeight="28" MinHeight="64" MaxHeight="220" CanUserAddRows="False" CanUserDeleteRows="False"
+              ToolTip="Opérations de cette session, la plus récente en haut : état, durée, étape la plus longue et référence à chercher dans Domenia.log. Gardées en mémoire seulement, 64 au plus."
+              ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Dernières opérations"
+              AutomationProperties.HelpText="Opérations de cette session, la plus récente en haut : état, durée, étape la plus longue et référence à chercher dans Domenia.log. Gardées en mémoire seulement, 64 au plus.">
+      <DataGrid.RowStyle>
+        <Style TargetType="DataGridRow">
+          <Setter Property="ToolTip" Value="{Binding Detail}"/>
+          <Setter Property="AutomationProperties.Name" Value="{Binding Detail}"/>
+        </Style>
+      </DataGrid.RowStyle>
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="État" Binding="{Binding State}" Width="150"/>
+        <DataGridTextColumn Header="Opération" Binding="{Binding Name}" Width="2*"/>
+        <DataGridTextColumn Header="Durée" Binding="{Binding Duration}" Width="70"/>
+        <DataGridTextColumn Header="Surtout" Binding="{Binding Phase}" Width="120"/>
+        <DataGridTextColumn Header="Réf." Binding="{Binding Reference}" Width="76"/>
+      </DataGrid.Columns>
+    </DataGrid>
+    <TextBlock x:Name="LblOperationsTrace" Grid.Row="5" TextWrapping="Wrap" Margin="0,6,0,0" Foreground="{DynamicResource MutedColor}" AutomationProperties.LiveSetting="Polite"
+               Text="Sélectionnez une opération pour lire ses étapes : demande, file dʼattente, collecte, validation, lecture locale et publication."
+               ToolTip="Étapes mesurées de lʼopération choisie et ce qui peut être fait ensuite. Aucune relance automatique."
+               AutomationProperties.Name="Étapes de lʼopération choisie"
+               AutomationProperties.HelpText="Étapes mesurées de lʼopération choisie et ce qui peut être fait ensuite. Aucune relance automatique."/>
+    <WrapPanel Grid.Row="6" Margin="0,6,0,0">
+      <Button x:Name="BtnOperationsCopyTrace" Content="Copier le détail" MinHeight="28" Padding="10,2" Margin="0,0,6,0" IsEnabled="False"
+              ToolTip="Copie le détail de lʼopération choisie : étapes, durées et référence. Le nom de la cible peut y figurer : relisez avant envoi."
+              ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier le détail de lʼopération"
+              AutomationProperties.HelpText="Copie le détail de lʼopération choisie : étapes, durées et référence. Le nom de la cible peut y figurer : relisez avant envoi."/>
+      <Button x:Name="BtnOperationsJournal" Content="Ouvrir le journal" MinHeight="28" Padding="10,2" Margin="0,0,6,0"
+              ToolTip="Ferme ce panneau et ouvre le journal de session. Les références des opérations figurent aussi dans Domenia.log."
+              ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir le journal"
+              AutomationProperties.HelpText="Ferme ce panneau et ouvre le journal de session. Les références des opérations figurent aussi dans Domenia.log."/>
+      <Button x:Name="BtnOperationsDiagnostic" Content="Diagnostic expurgé…" MinHeight="28" Padding="10,2"
+              ToolTip="Prépare le diagnostic expurgé (versions, mesures locales, codes dʼerreur, traces sans cible), le montre en entier, puis lʼenregistre dans un fichier local après confirmation. Aucun envoi."
+              ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Diagnostic expurgé"
+              AutomationProperties.HelpText="Prépare le diagnostic expurgé (versions, mesures locales, codes dʼerreur, traces sans cible), le montre en entier, puis lʼenregistre dans un fichier local après confirmation. Aucun envoi."/>
+    </WrapPanel>
+    <Border Grid.Row="7" Background="{DynamicResource TileBg}" CornerRadius="10" Padding="12,8" Margin="0,10,0,0">
       <StackPanel>
         <TextBlock Text="Santé" FontWeight="SemiBold" Foreground="{DynamicResource TextColor}"/>
         <TextBlock x:Name="LblOperationsHealth" Text="" TextWrapping="Wrap" Margin="0,4,0,0" Foreground="{DynamicResource MutedColor}"
-                   ToolTip="Mesures locales de cette session : mémoire, réactivité de lʼinterface, dernière sauvegarde locale. Aucune sonde réseau."/>
+                   ToolTip="Mesures locales de cette session : mémoire, réactivité de lʼinterface, lenteurs expliquées, dernière sauvegarde locale. Aucune sonde réseau."
+                   AutomationProperties.Name="Santé du moteur"
+                   AutomationProperties.HelpText="Mesures locales de cette session : mémoire, réactivité de lʼinterface, lenteurs expliquées, dernière sauvegarde locale. Aucune sonde réseau."/>
       </StackPanel>
     </Border>
   </Grid>
+  </ScrollViewer>
 </Border>
