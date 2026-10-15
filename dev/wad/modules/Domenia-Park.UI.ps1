@@ -12,7 +12,7 @@ function Update-DomeniaParkRunStatus {
     $text+=' '+$r.CachedMeasurements+' mesures encore fraîches réutilisées ; '+$r.Pending.Count+'/'+$r.Concurrency+' lectures en parallèle.'
     $save=Get-DomeniaPersistenceState
     if($save.Pending -gt 0){$text+=' Enregistrement local en attente.'}
-    if($save.Suspended -or $save.Conflicts -gt 0){$text+=' Stockage a verifier dans Fiabilite.'}
+    if($save.Suspended -or $save.Conflicts -gt 0){$text+=' Stockage local à vérifier : Base autonome, onglet Stockage.'}
     $r.StatusText=$text
     # A finished run that read workstations changed the observations: the selected workstation board is redrawn at
     # once, the home overview now or when Accueil is shown again.

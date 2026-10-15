@@ -832,7 +832,7 @@ function Save-DomeniaRelationConfirmations {
     if($stored){
         if(-not (Save-UserMachineLinks)){
             $script:UserMachineLinks=$before;$r.Observations.Clear();foreach($o in $beforeObservations){$r.Observations.Add($o)};Rebuild-UserMachineLinkIndex
-            Set-Status 'Consoles observées, mais associations non enregistrées. Voir le stockage dans Fiabilité.' 'WARN';return
+            [void](Show-DomeniaRouteNotice -Kind Warning -Text 'Consoles observées, mais associations non enregistrées dans la base locale.' -RouteText 'Voir le stockage' -Route 'StorageResume' -Key 'links-not-saved');return
         }
         Write-AppLog ($stored.ToString()+' association(s) de console confirmée(s) en mémoire ; sauvegarde demandée en arrière-plan.') 'INFO'
     }

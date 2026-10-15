@@ -34,6 +34,8 @@ function Complete-DomeniaReceiptRefresh {
         $script:WriteState='Idle';$script:UnknownWriteTargetDn=''
         Write-AppLog 'Incertitude levee uniquement apres verification ou revue explicite des recus durables.' 'WARN'
     }
+    # UX-19 (X04): the header pill « opérations à vérifier » follows the receipts just read.
+    try{Update-DomeniaPendingOperationsPill}catch{}
     Apply-CurrentPermissionUi
 }
 function Fail-DomeniaReceiptRefresh {
@@ -85,8 +87,10 @@ function Keep-DomeniaDraftOnResult {
     param($Result,[string]$DN,[string]$Type)
     if($null -eq $script:DraftState -or $script:DraftState.DN -ine $DN -or -not @(Get-DomeniaDirtyFields).Count){return $false}
     $script:DraftState.Pending=$Result;$script:DraftState.PendingType=$Type
-    [void](Set-DomeniaControlText 'LblGuardDraft' 'Une relecture est arrivee. Vos saisies sont conservees. Comparez dans Outils > Fiabilite avant de recharger.')
-    Set-Status 'Fiche plus recente disponible : saisies conservees, aucune valeur remplacee. Outils > Fiabilite > Comparer les saisies.' 'WARN'
+    [void](Set-DomeniaControlText 'LblGuardDraft' 'Une relecture est arrivée. Vos saisies sont conservées ; comparez-les avant de recharger.')
+    # UX-19 (X04): the comparison is offered by a button of the message, not by a path to a hidden tab.
+    $text='Fiche plus récente disponible : vos saisies sont conservées, aucune valeur remplacée.'
+    [void](Show-DomeniaRouteNotice -Kind Warning -Text $text -RouteText 'Comparer les saisies' -Route 'DraftCompare' -Key 'draft-newer-read')
     return $true
 }
 function Show-DomeniaDraftComparison {

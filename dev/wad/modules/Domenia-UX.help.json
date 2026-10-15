@@ -3146,8 +3146,10 @@
   {
     "Name": "BtnGuardStoreResume",
     "Title": "Reprendre les sauvegardes",
-    "Text": "Relance les lots de cache interrompus apres correction du stockage.",
-    "Sensitive": false
+    "Text": "Relance lʼenregistrement des lots restés en mémoire après un échec du stockage local. Aucune écriture dans lʼannuaire.",
+    "Kind": "Button",
+    "Sensitive": false,
+    "Source": "X04"
   },
   {
     "Name": "BtnGuardExport",
@@ -3537,9 +3539,9 @@
   {
     "Name": "BtnGuardLegacyImport",
     "Title": "Reprendre les anciennes données",
-    "Text": "Simule la reprise dans Domenia. Les quatre tables de cache doivent être vides. Les associations existantes sont conservées ; celles importées sont protégées. Une sauvegarde précède la reprise confirmée. Aucun import au démarrage.",
+    "Text": "Vérifie le domaine et les anciens fichiers, affiche la simulation dans la page, puis demande confirmation avant sauvegarde et import.",
     "Kind": "Button",
-    "Source": "d120-cache"
+    "Source": "X04"
   },
   {
     "Name": "BtnStorageUsage",
@@ -4065,5 +4067,12 @@
     "Source": "specific",
     "Title": "Dates des mesures et du calcul",
     "Text": "Le ping et l’inventaire WMI conservent leurs dates propres. N/M compte les mesures utilisables parmi les postes actifs ; du… au… décrit leur intervalle de dates. Vue recalculée indique seulement la préparation locale de l’affichage, sans nouvelle collecte."
+  },
+  {
+    "Name": "BtnPendingOperations",
+    "Title": "Opérations à vérifier",
+    "Text": "Une écriture envoyée attend une vérification ou une revue : les nouvelles écritures restent bloquées. Ouvre la liste des reçus ; rien nʼest rejoué.",
+    "Kind": "Button",
+    "Source": "X04"
   }
 ]

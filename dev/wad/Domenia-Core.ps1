@@ -774,6 +774,7 @@ $script:GuiElementPolicy = [ordered]@{
     "TxtCompGroupTarget" = "Default"
     "BtnCompAddGroup" = "Default"
     "BtnCompRemoveGroup" = "Default"
+    "BtnPendingOperations" = "Default"
     "TabGroup" = "Default"
     "TxtGroupName" = "Default"
     "TxtGroupDescription" = "Default"
@@ -4967,6 +4968,8 @@ function Get-MainXaml {
                       </Button>
                     </StackPanel>
                   </Border>
+                  <!-- UX-19 (X04): « Opérations à vérifier » is a header pill, shown only while a durable receipt waits. -->
+                  <Button x:Name="BtnPendingOperations" Visibility="Collapsed" Content="1 opération à vérifier" Margin="8,0,0,0" MinHeight="24" Height="24" Padding="10,0" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" Background="{DynamicResource InfoBg}" BorderBrush="{DynamicResource StatusWarning}" Foreground="{DynamicResource InfoFg}" ToolTip="Une écriture envoyée attend une vérification ou une revue : les nouvelles écritures restent bloquées. Ouvre la liste des reçus ; rien nʼest rejoué." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Opérations à vérifier" AutomationProperties.HelpText="Une écriture envoyée attend une vérification ou une revue : les nouvelles écritures restent bloquées. Ouvre la liste des reçus ; rien nʼest rejoué."/>
                 </StackPanel>
               </StackPanel>
               <!-- The activity strip always exists. Busy/idle only changes visibility inside its fixed slots (Hidden, never Collapsed). -->
@@ -7023,7 +7026,7 @@ function Get-MainXaml {
 <WrapPanel><Button AutomationProperties.Name="Autoriser une intervention sur cette machine" AutomationProperties.HelpText="Autorisation de cinq minutes, pour la machine sélectionnée uniquement. Ne lance rien ; les droits restent obligatoires." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardRemote" Content="Autoriser une intervention sur cette machine" ToolTip="Autorisation de cinq minutes, pour la machine sélectionnée uniquement. Ne lance rien ; les droits restent obligatoires."/><Button AutomationProperties.Name="Lire ce poste par tache planifiee" AutomationProperties.HelpText="Une seule lecture, pour la machine selectionnee. Le repli PsExec ou tache ne se declenche jamais sans cette demande." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardReadFallback" Content="Lire ce poste par tâche planifiée" ToolTip="A demander quand CIM ne répond pas : autorise une seule lecture par PsExec ou tâche planifiée, pour la machine sélectionnée."/><Button AutomationProperties.Name="Retirer l'autorisation" AutomationProperties.HelpText="Les sondes déjà envoyées peuvent encore finir. Aucune nouvelle intervention avec dépôt ne sera autorisée." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardRemoteOff" Content="Retirer l'autorisation" ToolTip="Les sondes déjà envoyées peuvent encore finir. Aucune nouvelle intervention avec dépôt ne sera autorisée."/></WrapPanel>
 </StackPanel></Border>
 <Border Style="{StaticResource Card}" Margin="0,0,0,12"><StackPanel><TextBlock Text="Suite support et mesures" FontSize="18" FontWeight="SemiBold"/>
-<WrapPanel Margin="0,6,0,10"><Button x:Name="BtnGuardStoreResume" Content="Reprendre les sauvegardes" ToolTip="Relance les lots de cache interrompus apres correction du stockage." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Reprendre les sauvegardes" AutomationProperties.HelpText="Relance les lots de cache interrompus apres correction du stockage."/><Button x:Name="BtnGuardLegacyImport" Content="Reprendre les anciennes données" ToolTip="Simule la reprise des fichiers historiques dans Domenia, puis demande confirmation." AutomationProperties.Name="Reprendre les anciennes données" AutomationProperties.HelpText="Vérifie le domaine et les données, affiche la simulation puis demande confirmation avant sauvegarde et import."/><Button x:Name="BtnGuardExport" Content="Dossier technique" ToolTip="Affiche puis exporte les seuls compteurs techniques, sans logs bruts ni identifiants." AutomationProperties.Name="Dossier technique" AutomationProperties.HelpText="Affiche puis exporte les seuls compteurs techniques, sans logs bruts ni identifiants."/><Button x:Name="BtnGuardWhy" Content="Pourquoi une action est indisponible ?" ToolTip="Explique les protections et preconditions actuelles sans modifier de droit." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Pourquoi une action est indisponible ?" AutomationProperties.HelpText="Explique les protections et preconditions actuelles sans modifier de droit."/></WrapPanel><ScrollViewer Height="96" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8"><TextBlock x:Name="LblGuardMigration" Text="La simulation des anciennes données sera affichée ici avant confirmation." TextWrapping="Wrap" AutomationProperties.Name="Simulation de reprise des données"/></ScrollViewer><CheckBox x:Name="ChkGuardReconcile" Content="Reverifier le perimetre consulte en arriere-plan" IsChecked="True" Margin="0,0,0,8" ToolTip="Relit la dernière requête explicite, au plus toutes les trois minutes et dans sa limite de résultats. Aucun scan au démarrage." AutomationProperties.Name="Reverifier le perimetre consulte en arriere-plan" AutomationProperties.HelpText="Relit la derniere requete explicite, au plus toutes les trois minutes et dans sa limite de resultats. Aucun scan au demarrage."/><TextBlock x:Name="LblGuardMetrics" Text="Les mesures locales apparaîtront ici." TextWrapping="Wrap" Margin="0,8,0,12" Foreground="{DynamicResource MutedColor}"/>
+<WrapPanel Margin="0,6,0,10"><Button x:Name="BtnGuardExport" Content="Dossier technique" ToolTip="Affiche puis exporte les seuls compteurs techniques, sans logs bruts ni identifiants." AutomationProperties.Name="Dossier technique" AutomationProperties.HelpText="Affiche puis exporte les seuls compteurs techniques, sans logs bruts ni identifiants."/><Button x:Name="BtnGuardWhy" Content="Pourquoi une action est indisponible ?" ToolTip="Explique les protections et preconditions actuelles sans modifier de droit." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Pourquoi une action est indisponible ?" AutomationProperties.HelpText="Explique les protections et preconditions actuelles sans modifier de droit."/></WrapPanel><CheckBox x:Name="ChkGuardReconcile" Content="Reverifier le perimetre consulte en arriere-plan" IsChecked="True" Margin="0,0,0,8" ToolTip="Relit la dernière requête explicite, au plus toutes les trois minutes et dans sa limite de résultats. Aucun scan au démarrage." AutomationProperties.Name="Reverifier le perimetre consulte en arriere-plan" AutomationProperties.HelpText="Relit la derniere requete explicite, au plus toutes les trois minutes et dans sa limite de resultats. Aucun scan au demarrage."/><TextBlock x:Name="LblGuardMetrics" Text="Les mesures locales apparaîtront ici." TextWrapping="Wrap" Margin="0,8,0,12" Foreground="{DynamicResource MutedColor}"/>
 <WrapPanel><Button AutomationProperties.Name="Ouvrir Pesto" AutomationProperties.HelpText="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardPesto" Content="Ouvrir Pesto" ToolTip="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis."/><Button AutomationProperties.Name="Ouvrir FilPro" AutomationProperties.HelpText="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardFilPro" Content="Ouvrir FilPro" ToolTip="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis."/></WrapPanel>
 </StackPanel></Border>
 </StackPanel></ScrollViewer></TabItem>
@@ -7172,6 +7175,19 @@ function Get-MainXaml {
                 </WrapPanel>
                 <TextBlock x:Name="LblStorageMaintenance" Text="La base active reste sur un disque local. Chaque déplacement ou restauration conserve le fichier original." TextWrapping="Wrap" Margin="0,0,0,8" Foreground="{DynamicResource MutedColor}"/>
                 <TextBlock x:Name="LblIndexBackupStatus" Text="" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,6,0,0" />
+              </StackPanel>
+            </Expander>
+            <!-- UX-19 (X04): the resumptions of the local storage, formerly in the hidden Fiabilité tab, beside the storage. -->
+            <Expander Header="Reprises" IsExpanded="True" Margin="0,8,0,0" Padding="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" AutomationProperties.Name="Reprises du stockage local">
+              <StackPanel>
+                <TextBlock Text="Après un échec dʼenregistrement, relancez les lots restés en mémoire. La reprise des anciennes données affiche dʼabord ce quʼelle importerait." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,0,0,8"/>
+                <WrapPanel>
+                  <Button x:Name="BtnGuardStoreResume" Content="Reprendre les sauvegardes" Margin="0,0,8,6" ToolTip="Relance lʼenregistrement des lots restés en mémoire après un échec du stockage local. Aucune écriture dans lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Relance lʼenregistrement des lots restés en mémoire après un échec du stockage local. Aucune écriture dans lʼannuaire." AutomationProperties.Name="Reprendre les sauvegardes"/>
+                  <Button x:Name="BtnGuardLegacyImport" Content="Reprendre les anciennes données" Margin="0,0,8,6" ToolTip="Vérifie le domaine et les anciens fichiers, affiche la simulation dans la page, puis demande confirmation avant sauvegarde et import." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Vérifie le domaine et les anciens fichiers, affiche la simulation dans la page, puis demande confirmation avant sauvegarde et import." AutomationProperties.Name="Reprendre les anciennes données"/>
+                </WrapPanel>
+                <ScrollViewer MaxHeight="120" VerticalScrollBarVisibility="Auto" Margin="0,4,0,0">
+                  <TextBlock x:Name="LblGuardMigration" Text="La simulation des anciennes données sera affichée ici avant confirmation." TextWrapping="Wrap" AutomationProperties.Name="Simulation de reprise des données"/>
+                </ScrollViewer>
               </StackPanel>
             </Expander>
             <Expander Header="Sauvegardes automatiques et conservation" IsExpanded="False" Margin="0,8,0,12" Padding="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
@@ -10169,7 +10185,7 @@ function Assert-WRemoteArtifactPermission {
     param($Context,[string]$Computer)
     $allowed=@([string]$Context.ArtifactTarget)+@($Context.ArtifactAliases)
     if(-not [bool]$Context.AllowRemoteArtifacts -or -not $Computer -or $allowed -notcontains $Computer){
-        throw 'Transport avec depot/service/tache non autorise pour cette cible (desactive par defaut). Autorisez-le explicitement dans Outils > Fiabilite, puis relancez votre action.'
+        throw 'Transport avec dépôt, service ou tâche non autorisé pour ce poste (désactivé par défaut). Accordez lʼautorisation dʼintervention de 5 minutes pour ce poste, puis relancez votre action.'
     }
 }
 function Assert-DomeniaReadFallbackPermission {
@@ -10178,7 +10194,7 @@ function Assert-DomeniaReadFallbackPermission {
     # sienne, demandee pour elle-meme et consommee par une seule lecture.
     param($Context,[string]$Computer)
     if(-not [bool]$Context.AllowReadFallback){
-        throw 'Repli vers PsExec ou une tache planifiee refuse pour cette lecture : une lecture ne bascule jamais sans demande. Autorisez « Lire ce poste par tache planifiee » dans Outils > Fiabilite, puis relancez la lecture.'
+        throw 'Repli vers PsExec ou une tâche planifiée refusé pour cette lecture : une lecture ne bascule jamais sans demande. Autorisez « Lire ce poste par tâche planifiée » pour ce poste, puis relancez la lecture.'
     }
     $allowed=@([string]$Context.ReadFallbackTarget)+@($Context.ReadFallbackAliases)
     if(-not $Computer -or $allowed -notcontains $Computer){
