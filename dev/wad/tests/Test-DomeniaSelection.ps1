@@ -31,6 +31,9 @@ foreach($name in @('Get-MainXaml','Get-DomeniaControl','Get-DomeniaSelectedGridR
 . (Join-Path $wad 'modules\Domenia-Live.UI.ps1')
 . (Join-Path $wad 'modules\Domenia-Continuity.Model.ps1')
 . (Join-Path $wad 'modules\Domenia-Continuity.UI.ps1')
+# Point 60 (W08) / FO-18: the bar of a multiple selection and its surveys use the scope rules of the search workspace.
+. (Join-Path $wad 'modules\Domenia-Search.Model.ps1')
+. (Join-Path $wad 'modules\Domenia-SearchWorkspace.Model.ps1')
 function Get-DomeniaLiveIdentitySignal {return [pscustomobject]@{Signal=$script:Live.Identity}}
 function Test-DomeniaSearchStateCurrent {param($State);return $State.Generation -eq $script:GlobalSearchGeneration}
 function Test-DomeniaAccessBusyWrite {return ($script:WriteState -in @('Unknown','UnknownPending') -or [bool]$script:ActiveWriteTaskId)}
@@ -260,7 +263,8 @@ if($env:OS -eq 'Windows_NT' -and -not $SkipWpf){
         foreach($name in @('LblSelectionBar','LblSelectionReadState')){$script:Ctrl[$name]=[Windows.Controls.TextBlock]::new()}
         foreach($name in @('BtnSelectionPing','BtnSelectionConsole')){$script:Ctrl[$name]=[Windows.Controls.Button]::new()}
     }
-    function Select-FixtureRows {param([object[]]$Rows) $script:Ctrl.DgObjects.SelectedItems=@($Rows);$script:Ctrl.DgObjects.SelectedItem=$(if(@($Rows).Count){@($Rows)[0]}else{$null})}
+    # The selected rows are shown (Items): the surveys of the selection keep the selected rows still displayed (point 60).
+    function Select-FixtureRows {param([object[]]$Rows,[object[]]$Shown=$null) $script:Ctrl.DgObjects.SelectedItems=@($Rows);$script:Ctrl.DgObjects.SelectedItem=$(if(@($Rows).Count){@($Rows)[0]}else{$null});$script:Ctrl.DgObjects|Add-Member -NotePropertyName Items -NotePropertyValue $(if($null -ne $Shown){@($Shown)}else{@($Rows)}) -Force}
     function New-SelectedRow {param([int]$Number,[string]$Kind='Machine',[switch]$NoGuid) [pscustomobject]@{Type=$Kind;Name=('PC'+$Number);DN=('CN=PC'+$Number+',OU=Test,DC=example,DC=invalid');Guid=$(if($NoGuid){''}else{'00000000-0000-0000-0000-'+$Number.ToString('000000000000')})}}
     Case 'FO-18 The selection bar appears from two rows and names what is selected' {
         Add-SelectionBarControls
@@ -295,6 +299,10 @@ if($env:OS -eq 'Windows_NT' -and -not $SkipWpf){
         Expect ((@($first.Targets|ForEach-Object{[string]$_.name}) -join ',') -eq 'PC1,PC4' -and [string]$first.Targets[1].distinguished_name -eq 'CN=PC4,OU=Test,DC=example,DC=invalid' -and [string]$first.Targets[1].object_guid -eq '00000000-0000-0000-0000-000000000004') 'AD identity of the selected workstations.'
         Select-FixtureRows @((New-SelectedRow 3 'Utilisateur'));Start-DomeniaParkSelectionSurvey -Mode Ping
         Expect ($script:SurveyCalls.Count -eq 2 -and $script:SurveyStatus -eq 'Aucun poste dans la sélection.') $script:SurveyStatus
+        # Point 60 (W08): a selected row no longer shown (hidden by a filter) is not surveyed (same plan as the export).
+        $shown=New-SelectedRow 1;$hidden=New-SelectedRow 4
+        Select-FixtureRows @($shown,$hidden) -Shown @($shown);Start-DomeniaParkSelectionSurvey -Mode Ping
+        Expect ($script:SurveyCalls.Count -eq 3 -and (@($script:SurveyCalls[2].Targets|ForEach-Object{[string]$_.name}) -join ',') -eq 'PC1') 'Selected row hidden by a filter surveyed.'
     }
 }else{$script:Checks.Add([pscustomobject]@{Name='Native WPF headers';Status='Skipped';Error='Windows WPF required.'})}
 $passed=@($script:Checks|Where-Object{$_.Status -eq 'Passed'}).Count

@@ -503,7 +503,7 @@
   {
     "Name": "BtnExportResults",
     "Title": "Exporter CSV",
-    "Text": "Exporte les résultats affichés, ou uniquement les lignes sélectionnées, au format CSV.",
+    "Text": "Exporte au format CSV la portée choisie à côté des résultats : la liste affichée après les filtres, ou seulement les lignes sélectionnées. Le message final dit ce qui est exclu.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -3241,7 +3241,7 @@
   {
     "Name": "BtnParkVerify",
     "Title": "Vérifier la liste",
-    "Text": "Vérifie les seuls postes affichés, après vos filtres. Sans choix dans cette session, ouvre les trois vérifications ; ensuite, relance la dernière choisie. Confirmation avec le nombre de postes avant tout envoi, plafond réglable (500 postes par défaut). Pendant un relevé, ce bouton lʼarrête.",
+    "Text": "Vérifie les postes de la portée choisie à côté des résultats : la liste affichée après vos filtres, ou seulement les lignes sélectionnées. Sans choix dans cette session, ouvre les trois vérifications ; ensuite, relance la dernière choisie. Confirmation avec le nombre de postes avant tout envoi, plafond réglable (500 postes par défaut). Pendant un relevé, ce bouton lʼarrête.",
     "Kind": "Button",
     "Source": "X01",
     "Shortcut": ""
@@ -4447,6 +4447,125 @@
     "Text": "Lit, pour ce poste seulement, la date exacte de dernière connexion de son compte ordinateur (lastLogon) sur chaque contrôleur du domaine, avec la liste des contrôleurs lus et non lus. Lecture seule ; aucun contrôleur nʼest plus interrogé après 75 secondes.",
     "Kind": "Button",
     "Source": "P27"
+  },
+  {
+    "Name": "CmbSearchWorkspace",
+    "Title": "Vue personnelle",
+    "Text": "Vues personnelles de ce domaine : OU, profondeur, type, présence, filtre local, limite, colonnes et tri. Choisir une vue ne lance rien ; Ouvrir lʼapplique sans appel réseau.",
+    "Kind": "ComboBox",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "BtnSearchWorkspaceSave",
+    "Title": "Enregistrer la vue",
+    "Text": "Mémorise sous un nom lʼOU, la profondeur, les filtres, les colonnes (ordre et largeur) et le tri. Les résultats et les mots de passe ne sont pas enregistrés.",
+    "Kind": "Button",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "BtnSearchWorkspaceOpen",
+    "Title": "Ouvrir la vue",
+    "Text": "Applique la vue choisie sans appel réseau. La liste reste vide jusquʼà une lecture que vous lancez.",
+    "Kind": "Button",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "BtnSearchWorkspaceRemove",
+    "Title": "Retirer la vue",
+    "Text": "Retire la vue choisie de ce domaine. Annuler la restaure tant que les vues ne changent pas.",
+    "Kind": "Button",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "BtnSearchWorkspaceUndo",
+    "Title": "Annuler le retrait de vue",
+    "Text": "Annule le dernier retrait de vue personnelle.",
+    "Kind": "Button",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "CmbResultScope",
+    "Title": "Portée de lʼexport et des relevés",
+    "Text": "Portée de lʼexport CSV et de « Vérifier la liste » : la liste affichée après les filtres, ou seulement les lignes sélectionnées. La barre dʼune sélection multiple agit toujours sur les lignes sélectionnées.",
+    "Kind": "ComboBox",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "BtnSearchCompare",
+    "Title": "Comparer les postes",
+    "Text": "Compare côte à côte deux à huit postes sélectionnés, depuis la base locale. Chaque valeur garde sa date ; aucune collecte.",
+    "Kind": "Button",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "BtnSearchPreview",
+    "Title": "Aperçu local",
+    "Text": "Affiche ou masque lʼaperçu latéral de la ligne courante, lu dans la base locale. La sélection de travail est conservée ; aucune collecte.",
+    "Kind": "Button",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "PnlSearchFilterChips",
+    "Title": "Critères de la liste",
+    "Text": "Critères qui forment la liste. × retire un critère : le type relit lʼOU, les critères de la liste chargée nʼappellent pas le réseau.",
+    "Kind": "WrapPanel",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "LblSearchFilterSummary",
+    "Title": "Combinaison des critères",
+    "Text": "Combinaison des critères et nombre de lignes affichées. Les critères de la liste chargée ne lisent rien au-delà des lignes déjà chargées.",
+    "Kind": "TextBlock",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "LblResultScope",
+    "Title": "Lignes traitées par lʼexport et les relevés",
+    "Text": "Lignes que lʼexport et les relevés vont traiter, avec ce qui est exclu et ce que lʼon sait de la complétude de la liste.",
+    "Kind": "TextBlock",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "SearchPreviewSplitter",
+    "Title": "Largeur de lʼaperçu",
+    "Text": "Faites glisser pour ajuster la largeur de lʼaperçu latéral.",
+    "Kind": "GridSplitter",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "PnlSearchPreview",
+    "Title": "Aperçu local de la fiche",
+    "Text": "Aperçu de la fiche enregistrée dans la base locale, avec la date de chaque valeur. Aucune lecture de lʼannuaire ni du poste.",
+    "Kind": "Grid",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "LblSearchPreview",
+    "Title": "Objet consulté dans lʼaperçu",
+    "Text": "Objet consulté et révision de la base locale lue.",
+    "Kind": "TextBlock",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "BtnSearchPreviewClose",
+    "Title": "Fermer lʼaperçu",
+    "Text": "Ferme lʼaperçu. La sélection et la liste sont conservées.",
+    "Kind": "Button",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "DgSearchPreview",
+    "Title": "Valeurs enregistrées de lʼobjet",
+    "Text": "Valeurs enregistrées de lʼobjet consulté, chacune avec sa date. « Non lu » signifie que la base locale ne contient pas cette information.",
+    "Kind": "DataGrid",
+    "Source": "W08-navigation"
+  },
+  {
+    "Name": "PnlOuBreadcrumb",
+    "Title": "Chemin de la branche choisie",
+    "Text": "Chemin de lʼOU choisie. Un niveau intermédiaire remonte à cette OU ; Copier le chemin copie son DN exact.",
+    "Kind": "WrapPanel",
+    "Source": "W08-navigation"
   },
   {
     "Name": "LblGuardReceiptSelection",

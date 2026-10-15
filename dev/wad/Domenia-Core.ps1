@@ -1135,6 +1135,24 @@ $script:GuiElementPolicy = [ordered]@{
     "UxAboutPanel" = "Default"
     "ObjectEmptyState" = "Default"
     "ComputerEmptyState" = "Default"
+    # W08 (points 52 to 60): breadcrumb, saved views, filter chips, collective scope, side preview.
+    "CmbSearchWorkspace" = "Default"
+    "BtnSearchWorkspaceSave" = "Default"
+    "BtnSearchWorkspaceOpen" = "Default"
+    "BtnSearchWorkspaceRemove" = "Default"
+    "BtnSearchWorkspaceUndo" = "Default"
+    "CmbResultScope" = "Default"
+    "BtnSearchCompare" = "Default"
+    "BtnSearchPreview" = "Default"
+    "PnlSearchFilterChips" = "Default"
+    "LblSearchFilterSummary" = "Default"
+    "LblResultScope" = "Default"
+    "SearchPreviewSplitter" = "Default"
+    "PnlSearchPreview" = "Default"
+    "LblSearchPreview" = "Default"
+    "BtnSearchPreviewClose" = "Default"
+    "DgSearchPreview" = "Default"
+    "PnlOuBreadcrumb" = "Default"
     # X01 (SP-15): check on click and its user sub-option in Rechercher.
     "ChkLiveVerifyOnClick" = "Default"
     "ChkLiveUsersOnClick" = "Default"
@@ -5508,7 +5526,7 @@ function Get-MainXaml {
                           </TextBlock>
                           <Grid>
                             <TextBlock Text="Recherche dans lʼannuaire" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
-                            <WrapPanel x:Name="PnlOuBreadcrumb" VerticalAlignment="Center" AutomationProperties.Name="Chemin de la branche choisie"><WrapPanel.Style><Style TargetType="WrapPanel"><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></WrapPanel.Style></WrapPanel>
+                            <WrapPanel x:Name="PnlOuBreadcrumb" ToolTip="Chemin de lʼOU choisie. Un niveau intermédiaire remonte à cette OU ; Copier le chemin copie son DN exact." ToolTipService.ShowOnDisabled="True" VerticalAlignment="Center" AutomationProperties.HelpText="Chemin de lʼOU choisie. Un niveau intermédiaire remonte à cette OU ; Copier le chemin copie son DN exact." AutomationProperties.Name="Chemin de la branche choisie"><WrapPanel.Style><Style TargetType="WrapPanel"><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></WrapPanel.Style></WrapPanel>
                           </Grid>
                         </DockPanel>
                         <Grid x:Name="UxSearchScopeInfo"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -5601,7 +5619,7 @@ function Get-MainXaml {
                                  the GuiElementPolicy, inside a collapsed holder: a policy that shows or greys a button never brings it back here. -->
                             <Grid Visibility="Collapsed">
                               <Button MinHeight="30" Padding="10,2" Margin="0,0,8,0" Visibility="Collapsed" x:Name="BtnLoadBranch" Content="Actualiser" ToolTip="Actualise le mode affiché : recherche globale sans filtres, ou contenu de l’OU avec ses filtres." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser les résultats" AutomationProperties.HelpText="Actualise le mode affiché : recherche globale sans filtres, ou contenu de l’OU avec ses filtres."/>
-                              <Button MinHeight="30" Padding="10,2" Margin="0" Visibility="Collapsed" x:Name="BtnExportResults" Content="Exporter CSV" ToolTip="Exporte les résultats affichés, ou uniquement les lignes sélectionnées, au format CSV." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Exporter CSV" AutomationProperties.HelpText="Exporte les resultats affiches, ou uniquement les lignes selectionnees, au format CSV."/>
+                              <Button MinHeight="30" Padding="10,2" Margin="0" Visibility="Collapsed" x:Name="BtnExportResults" Content="Exporter CSV" ToolTip="Exporte au format CSV la portée choisie à côté des résultats : la liste affichée après les filtres, ou seulement les lignes sélectionnées. Le message final dit ce qui est exclu." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Exporter CSV" AutomationProperties.HelpText="Exporte au format CSV la portée choisie à côté des résultats : la liste affichée après les filtres, ou seulement les lignes sélectionnées. Le message final dit ce qui est exclu."/>
                             </Grid>
                             <Button MinHeight="30" Padding="10,2" Margin="0,0,8,0" x:Name="BtnGlobalClear" Content="Effacer" ToolTip="Efface le texte et les résultats sans modifier l’OU sélectionnée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer la recherche" AutomationProperties.HelpText="Efface le texte et les résultats sans modifier l’OU sélectionnée."/>
                             <Button x:Name="BtnSearchResultMenu" Content="⋯" MinHeight="30" MinWidth="38" Padding="8,0" Margin="0" FontSize="16" FontWeight="SemiBold" ToolTip="Autres actions de la liste : actualiser, exporter en CSV et choisir les colonnes affichées. Aucune lecture ne part à lʼouverture du menu." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Autres actions de la liste" AutomationProperties.HelpText="Autres actions de la liste : actualiser, exporter en CSV et choisir les colonnes affichées. Aucune lecture ne part à lʼouverture du menu."/>
@@ -5635,7 +5653,7 @@ function Get-MainXaml {
                               <Button x:Name="BtnLiveRecheck" IsEnabled="False" Content="Revérifier ce poste" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" ToolTip="Poste sélectionné seulement : relance un ping unique et la lecture utilisateur. Grisé pour un autre type d objet ou une sélection multiple. Si le compte est refusé ou CIM désactivé, seul le ping reste disponible. Aucun balayage." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Revérifier ce poste" AutomationProperties.HelpText="Relance la vérification du compte console d’une seule machine sélectionnée."/>
                               <!-- UI-23: one secondary « Vérifier la liste ▾ » (Rechercher stays the only main button); its main part runs the reading chosen last in this session or stops the running survey (UX-12). -->
                               <StackPanel Orientation="Horizontal" Margin="0,0,8,4">
-                                <Button x:Name="BtnParkVerify" Content="Vérifier la liste" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0" IsEnabled="False" ToolTip="Vérifie les seuls postes affichés, après vos filtres. Sans choix dans cette session, ouvre les trois vérifications ; ensuite, relance la dernière choisie. Confirmation avec le nombre de postes avant tout envoi, plafond réglable (500 postes par défaut). Pendant un relevé, ce bouton lʼarrête." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Vérifie les seuls postes affichés, après vos filtres. Sans choix dans cette session, ouvre les trois vérifications ; ensuite, relance la dernière choisie. Confirmation avec le nombre de postes avant tout envoi, plafond réglable (500 postes par défaut). Pendant un relevé, ce bouton lʼarrête." AutomationProperties.Name="Vérifier la liste"/>
+                                <Button x:Name="BtnParkVerify" Content="Vérifier la liste" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0" IsEnabled="False" ToolTip="Vérifie les postes de la portée choisie à côté des résultats : la liste affichée après vos filtres, ou seulement les lignes sélectionnées. Sans choix dans cette session, ouvre les trois vérifications ; ensuite, relance la dernière choisie. Confirmation avec le nombre de postes avant tout envoi, plafond réglable (500 postes par défaut). Pendant un relevé, ce bouton lʼarrête." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Vérifie les postes de la portée choisie à côté des résultats : la liste affichée après vos filtres, ou seulement les lignes sélectionnées. Sans choix dans cette session, ouvre les trois vérifications ; ensuite, relance la dernière choisie. Confirmation avec le nombre de postes avant tout envoi, plafond réglable (500 postes par défaut). Pendant un relevé, ce bouton lʼarrête." AutomationProperties.Name="Vérifier la liste"/>
                                 <Button x:Name="BtnParkVerifyMenu" Content="&#xE70D;" FontFamily="Segoe MDL2 Assets" FontSize="10" Style="{StaticResource SecondaryButton}" MinHeight="30" MinWidth="0" Width="28" Padding="0" Margin="1,0,0,0" IsEnabled="False" ToolTip="Choisir la vérification de la liste : Qui répond ? (ping), Qui est connecté ? (ping et utilisateur console) ou Matériel et widgets (relevé WMI léger). Le dernier choix devient lʼaction du bouton pour cette session." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Choisir la vérification de la liste : Qui répond ? (ping), Qui est connecté ? (ping et utilisateur console) ou Matériel et widgets (relevé WMI léger). Le dernier choix devient lʼaction du bouton pour cette session." AutomationProperties.Name="Choisir la vérification de la liste"/>
                               </StackPanel>
                               <StackPanel x:Name="UxListRevalidation" Orientation="Horizontal" Visibility="Collapsed" VerticalAlignment="Center" Margin="0,0,8,4">
@@ -5666,27 +5684,31 @@ function Get-MainXaml {
                                 </StackPanel>
                               </StackPanel></Grid>
                           </Grid></StackPanel>
-                          <Grid Grid.Row="1" Height="30" Margin="0,0,0,4">
-                            <Grid.ColumnDefinitions>
-                              <ColumnDefinition Width="Auto"/>
-                              <ColumnDefinition Width="*"/>
-                              <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                              <ComboBox x:Name="CmbSearchWorkspace" MinWidth="140" MinHeight="30" Margin="0,0,4,0" VerticalAlignment="Center" ToolTip="Choisit une vue mémorisée. Ouvrir une vue n'applique aucun appel réseau." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vue mémorisée"/>
-                              <Button x:Name="BtnSearchWorkspaceSave" Content="Enregistrer" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="8,2" Margin="0,0,4,0" ToolTip="Mémorise l'OU, les filtres et la présentation. Les résultats et les mots de passe ne sont pas enregistrés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Enregistrer la vue"/>
-                              <Button x:Name="BtnSearchWorkspaceOpen" Content="Ouvrir" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="8,2" Margin="0,0,4,0" ToolTip="Applique la vue sélectionnée sans collecte. La liste reste vide tant qu'une lecture n'est pas relancée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir la vue"/>
-                              <Button x:Name="BtnSearchWorkspaceRemove" Content="Retirer" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="8,2" Margin="0,0,4,0" ToolTip="Retire la vue mémorisée sélectionnée de ce domaine." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Retirer la vue"/>
-                              <Button x:Name="BtnSearchWorkspaceUndo" Content="Annuler" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="8,2" Margin="0" ToolTip="Annule la dernière suppression de vue." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Annuler la suppression de vue"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
-                              <Button x:Name="BtnSearchCompare" Content="Comparer" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="8,2" Margin="0,0,4,0" ToolTip="Compare deux à huit postes sélectionnés à partir des données SQLite déjà enregistrées. Aucune collecte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Comparer les postes"/>
-                              <Button x:Name="BtnSearchPreview" Content="Aperçu" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="8,2" Margin="0" ToolTip="Affiche l'aperçu local de la ligne sélectionnée. Lecture SQLite uniquement." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Aperçu local"/>
-                            </StackPanel>
-                            <StackPanel x:Name="PnlSearchFilterChips" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,0,0"/>
-                          </Grid>
+                          <StackPanel Grid.Row="1" Margin="0,0,0,4">
+                            <WrapPanel>
+                              <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,4">
+                                <ComboBox x:Name="CmbSearchWorkspace" MinWidth="160" MaxWidth="320" MinHeight="30" Margin="0,0,4,0" VerticalAlignment="Center" ToolTip="Vues personnelles de ce domaine : OU, profondeur, type, présence, filtre local, limite, colonnes et tri. Choisir une vue ne lance rien ; Ouvrir lʼapplique sans appel réseau." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vue personnelle" AutomationProperties.HelpText="Vues personnelles de ce domaine : OU, profondeur, type, présence, filtre local, limite, colonnes et tri. Choisir une vue ne lance rien ; Ouvrir lʼapplique sans appel réseau."/>
+                                <Button x:Name="BtnSearchWorkspaceSave" Content="Enregistrer" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="8,2" Margin="0,0,4,0" ToolTip="Mémorise sous un nom lʼOU, la profondeur, les filtres, les colonnes (ordre et largeur) et le tri. Les résultats et les mots de passe ne sont pas enregistrés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Enregistrer la vue" AutomationProperties.HelpText="Mémorise sous un nom lʼOU, la profondeur, les filtres, les colonnes (ordre et largeur) et le tri. Les résultats et les mots de passe ne sont pas enregistrés."/>
+                                <Button x:Name="BtnSearchWorkspaceOpen" Content="Ouvrir" IsEnabled="False" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="8,2" Margin="0,0,4,0" ToolTip="Applique la vue choisie sans appel réseau. La liste reste vide jusquʼà une lecture que vous lancez." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir la vue" AutomationProperties.HelpText="Applique la vue choisie sans appel réseau. La liste reste vide jusquʼà une lecture que vous lancez."/>
+                                <Button x:Name="BtnSearchWorkspaceRemove" Content="Retirer" IsEnabled="False" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="8,2" Margin="0,0,4,0" ToolTip="Retire la vue choisie de ce domaine. Annuler la restaure tant que les vues ne changent pas." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Retirer la vue" AutomationProperties.HelpText="Retire la vue choisie de ce domaine. Annuler la restaure tant que les vues ne changent pas."/>
+                                <Button x:Name="BtnSearchWorkspaceUndo" Content="Annuler" IsEnabled="False" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="8,2" Margin="0" ToolTip="Annule le dernier retrait de vue personnelle." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Annuler le retrait de vue" AutomationProperties.HelpText="Annule le dernier retrait de vue personnelle."/>
+                              </StackPanel>
+                              <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,4">
+                                <TextBlock Text="Portée" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="12" FontWeight="SemiBold"/>
+                                <ComboBox x:Name="CmbResultScope" MinWidth="170" MinHeight="30" SelectedIndex="0" Margin="0,0,8,0" VerticalAlignment="Center" ToolTip="Portée de lʼexport CSV et de « Vérifier la liste » : la liste affichée après les filtres, ou seulement les lignes sélectionnées. La barre dʼune sélection multiple agit toujours sur les lignes sélectionnées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Portée de lʼexport et des relevés" AutomationProperties.HelpText="Portée de lʼexport CSV et de « Vérifier la liste » : la liste affichée après les filtres, ou seulement les lignes sélectionnées. La barre dʼune sélection multiple agit toujours sur les lignes sélectionnées.">
+                                  <ComboBoxItem Tag="Visible" Content="Liste affichée"/>
+                                  <ComboBoxItem Tag="Selected" Content="Lignes sélectionnées"/>
+                                </ComboBox>
+                                <Button x:Name="BtnSearchCompare" Content="Comparer" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="8,2" Margin="0,0,4,0" ToolTip="Compare côte à côte deux à huit postes sélectionnés, depuis la base locale. Chaque valeur garde sa date ; aucune collecte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Comparer les postes" AutomationProperties.HelpText="Compare côte à côte deux à huit postes sélectionnés, depuis la base locale. Chaque valeur garde sa date ; aucune collecte."/>
+                                <Button x:Name="BtnSearchPreview" Content="Aperçu" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="8,2" Margin="0" ToolTip="Affiche ou masque lʼaperçu latéral de la ligne courante, lu dans la base locale. La sélection de travail est conservée ; aucune collecte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Aperçu local" AutomationProperties.HelpText="Affiche ou masque lʼaperçu latéral de la ligne courante, lu dans la base locale. La sélection de travail est conservée ; aucune collecte."/>
+                              </StackPanel>
+                            </WrapPanel>
+                            <WrapPanel x:Name="PnlSearchFilterChips" Margin="0,2,0,0" ToolTip="Critères qui forment la liste. × retire un critère : le type relit lʼOU, les critères de la liste chargée nʼappellent pas le réseau." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Critères de la liste" AutomationProperties.HelpText="Critères qui forment la liste. × retire un critère : le type relit lʼOU, les critères de la liste chargée nʼappellent pas le réseau."/>
+                            <TextBlock x:Name="LblSearchFilterSummary" Text="" TextWrapping="Wrap" MaxHeight="36" TextTrimming="CharacterEllipsis" FontSize="11.5" Foreground="{DynamicResource MutedColor}" Margin="0,2,0,0" ToolTip="Combinaison des critères et nombre de lignes affichées. Les critères de la liste chargée ne lisent rien au-delà des lignes déjà chargées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Combinaison des critères" AutomationProperties.HelpText="Combinaison des critères et nombre de lignes affichées. Les critères de la liste chargée ne lisent rien au-delà des lignes déjà chargées."/>
+                            <TextBlock x:Name="LblResultScope" Text="" TextWrapping="Wrap" MaxHeight="36" TextTrimming="CharacterEllipsis" FontSize="11.5" Foreground="{DynamicResource MutedColor}" Margin="0,2,0,0" ToolTip="Lignes que lʼexport et les relevés vont traiter, avec ce qui est exclu et ce que lʼon sait de la complétude de la liste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lignes traitées par lʼexport et les relevés" AutomationProperties.HelpText="Lignes que lʼexport et les relevés vont traiter, avec ce qui est exclu et ce que lʼon sait de la complétude de la liste."/>
+                          </StackPanel>
                           <Grid Grid.Row="2">
-                          
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="240"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                           <DataGrid x:Name="DgObjects" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended" SelectionUnit="FullRow" CanUserSortColumns="True" CanUserResizeColumns="True" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" HeadersVisibility="Column" ToolTip="Un clic précharge la fiche AD sans changer de page ; pour un poste, un ping seulement si Vérifier au clic est coché. Double-clic ou Entrée ouvre la fiche en réutilisant sa lecture. Clic droit : actions de la ligne, sans écriture. Aucun scan collectif." RowHeight="34" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Résultats : sélection et ouverture explicite" AutomationProperties.HelpText="Un clic précharge la fiche AD sans changer de page ; pour un poste, un ping seulement si Vérifier au clic est coché. Double-clic ou Entrée ouvre la fiche en réutilisant sa lecture. Clic droit : actions de la ligne, sans écriture. Aucun scan collectif.">
                             <DataGrid.RowStyle>
                               <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
@@ -5776,23 +5798,25 @@ function Get-MainXaml {
                               <TextBlock x:Name="LblSearchFilteredDetail" Text="" TextAlignment="Center" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,8,0,12" ToolTip="Filtres de la liste appliqués aux lignes déjà chargées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtre de la liste" AutomationProperties.HelpText="Filtres de la liste appliqués aux lignes déjà chargées."/>
                               <Button x:Name="BtnSearchFilteredClear" Content="Effacer le filtre" HorizontalAlignment="Center" MinHeight="32" Padding="12,2" ToolTip="Vide le texte du filtre et remet la présence sur « Toute présence ». Les lignes déjà chargées réapparaissent, sans requête AD." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer le filtre de la liste" AutomationProperties.HelpText="Vide le texte du filtre et remet la présence sur « Toute présence ». Les lignes déjà chargées réapparaissent, sans requête AD."/>
                             </StackPanel>
-                          </Border></Grid>
-                          <Grid x:Name="PnlSearchPreview" Grid.Row="3" Visibility="Collapsed" MaxHeight="120" Margin="0,4,0,0" Background="{DynamicResource BgReadonly}">
+                          </Border>
+                          <GridSplitter x:Name="SearchPreviewSplitter" Grid.Column="1" Width="6" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Stretch" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" ShowsPreview="True" Background="{DynamicResource SplitterBg}" Cursor="SizeWE" ToolTip="Faites glisser pour ajuster la largeur de lʼaperçu latéral." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Largeur de lʼaperçu" AutomationProperties.HelpText="Faites glisser pour ajuster la largeur de lʼaperçu latéral."/>
+                          <Grid x:Name="PnlSearchPreview" Grid.Column="2" MinWidth="280" Visibility="Collapsed" Margin="2,0,0,0" Background="{DynamicResource BgReadonly}" ToolTip="Aperçu de la fiche enregistrée dans la base locale, avec la date de chaque valeur. Aucune lecture de lʼannuaire ni du poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Aperçu local de la fiche" AutomationProperties.HelpText="Aperçu de la fiche enregistrée dans la base locale, avec la date de chaque valeur. Aucune lecture de lʼannuaire ni du poste.">
                             <Grid.RowDefinitions>
                               <RowDefinition Height="Auto"/>
                               <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            <DockPanel Grid.Row="0" LastChildFill="False" Margin="4,2,4,2">
-                              <TextBlock x:Name="LblSearchPreview" Text="Aperçu local" DockPanel.Dock="Left" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                              <Button x:Name="BtnSearchPreviewClose" Content="Fermer" DockPanel.Dock="Right" Style="{StaticResource SecondaryButton}" MinHeight="24" Padding="8,2" Margin="4,0,0,0" ToolTip="Ferme l'aperçu. Aucune collecte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Fermer l'aperçu"/>
+                            <DockPanel Grid.Row="0" LastChildFill="True" Margin="6,4,6,4">
+                              <Button x:Name="BtnSearchPreviewClose" Content="Fermer" DockPanel.Dock="Right" Style="{StaticResource SecondaryButton}" MinHeight="26" Padding="8,2" Margin="6,0,0,0" ToolTip="Ferme lʼaperçu. La sélection et la liste sont conservées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Fermer lʼaperçu" AutomationProperties.HelpText="Ferme lʼaperçu. La sélection et la liste sont conservées."/>
+                              <TextBlock x:Name="LblSearchPreview" Text="Aperçu local" TextWrapping="Wrap" MaxHeight="54" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" FontWeight="SemiBold" ToolTip="Objet consulté et révision de la base locale lue." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Objet consulté dans lʼaperçu" AutomationProperties.HelpText="Objet consulté et révision de la base locale lue."/>
                             </DockPanel>
-                            <DataGrid x:Name="DgSearchPreview" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" EnableRowVirtualization="True" EnableColumnVirtualization="True" HeadersVisibility="Column" Margin="4,0,4,4">
+                            <DataGrid x:Name="DgSearchPreview" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" EnableRowVirtualization="True" EnableColumnVirtualization="True" HeadersVisibility="Column" Margin="4,0,4,4" ToolTip="Valeurs enregistrées de lʼobjet consulté, chacune avec sa date. « Non lu » signifie que la base locale ne contient pas cette information." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Valeurs enregistrées de lʼobjet" AutomationProperties.HelpText="Valeurs enregistrées de lʼobjet consulté, chacune avec sa date. « Non lu » signifie que la base locale ne contient pas cette information.">
                               <DataGrid.Columns>
-                                <DataGridTextColumn Header="Propriété" Binding="{Binding Propriété}" Width="180"/>
-                                <DataGridTextColumn Header="Valeur" Binding="{Binding Valeur}" Width="*"/>
-                                <DataGridTextColumn Header="Date" Binding="{Binding Date}" Width="180"/>
+                                <DataGridTextColumn Header="Propriété" Binding="{Binding Property}" Width="140"/>
+                                <DataGridTextColumn Header="Valeur" Binding="{Binding Value}" Width="*" MinWidth="120"><DataGridTextColumn.ElementStyle><Style TargetType="TextBlock"><Setter Property="TextWrapping" Value="Wrap"/></Style></DataGridTextColumn.ElementStyle></DataGridTextColumn>
+                                <DataGridTextColumn Header="Date" Binding="{Binding Date}" Width="125"/>
                               </DataGrid.Columns>
                             </DataGrid>
+                          </Grid>
                           </Grid>
                       </Grid>
                     </Border>
@@ -9742,9 +9766,10 @@ function Search-DomeniaOuPickerObjects {
 }
 
 function Show-DomeniaOuPicker {
+    # Point 54: the shared OU picker opens on the current OU of the object; the move itself is confirmed later.
     param([string]$ObjectName,[string]$CurrentParentDn,[string]$ObjectLabel='Poste')
     return (Show-DomeniaInlinePicker -Kind OU -Title 'Choisir la nouvelle OU' -Prompt (
-        $ObjectLabel+' : '+$ObjectName+"`r`nOU actuelle : "+$CurrentParentDn+"`r`nRecherchez une OU puis confirmez. Le déplacement n'est pas lancé par cette sélection."))
+        $ObjectLabel+' : '+$ObjectName+"`r`nOU actuelle : "+$CurrentParentDn+"`r`nRecherchez une OU puis confirmez. Le déplacement n'est pas lancé par cette sélection.") -Purpose 'Effet : aucun déplacement ici ; il sera confirmé séparément.' -InitialDn $CurrentParentDn)
 }
 
 function Move-DomeniaSelectedComputerWithOuPicker {
@@ -13050,17 +13075,19 @@ function Copy-SelfCheckReport {
 
 
 function Export-CurrentResults {
+    param([ValidateSet('Visible','Selected')][string]$Mode)
     try {
         $grid=Get-DomeniaControl 'DgObjects'
         if($null -eq $grid){return}
-        $visible = @(Get-DomeniaExperienceVisibleRows)
-        # UX-02: the selection is exported from two rows only; one clicked row exports the whole list.
-        $rows = @(Get-DomeniaExperienceExportRows -VisibleRows $visible -SelectedRows @($grid.SelectedItems))
-        if ($rows.Count -eq 0) { Set-Status "Aucun resultat a exporter." "WARN"; return }
-        $scope = if ($rows.Count -lt $visible.Count) { 'sélection' } else { 'toute la liste' }
+        # Point 60: one scope for the export: the one chosen beside the results (the list as shown, or the selected rows
+        # only), or -Mode Selected from the bar of a multiple selection (FO-18). The confirmation repeats what was
+        # excluded and what is known of the completeness of the list.
+        $plan = if ($Mode) { Get-DomeniaResultScopePlan -Mode $Mode } else { Get-DomeniaResultScopePlan }
+        if ([int]$plan.Count -eq 0) { Set-Status ('Aucune ligne à exporter : ' + [string]$plan.Label) "WARN"; return }
+        $scope = if ([string]$plan.Mode -eq 'Selected') { 'lignes sélectionnées' } else { 'liste affichée' }
         # DS-20: the merged association cell still exports its source and its qualification as their own columns.
         $columns = @(Expand-DomeniaResultExportColumns -Columns @(Get-DomeniaGridExportColumns -Grid $grid))
-        Show-DomeniaExportResult -Result (Export-DomeniaCsv -Rows $rows -Columns $columns -Grid $grid -Subject (Get-DomeniaSearchExportSubject)) -Scope $scope
+        Show-DomeniaExportResult -Result (Export-DomeniaCsv -Rows @($plan.Rows) -Columns $columns -Grid $grid -Subject (Get-DomeniaSearchExportSubject)) -Scope $scope -Also ([string]$plan.Label + '.')
     } catch { Show-ErrorBox "Erreur export : $($_.Exception.Message)" }
 }
 
@@ -15561,7 +15588,11 @@ function Build-DomeniaObjectsContextMenu {
     [void]$copy.Items.Add((New-DomeniaMenuItem -Header "Les lignes, toutes les valeurs" -ToolTip "Toutes les valeurs des lignes sélectionnées, séparées par des tabulations, pour un tableur." -Action { Copy-DomeniaGridSelection -Name "DgObjects" }))
     [void]$copy.Items.Add((New-DomeniaMenuItem -Header "Le résumé de la fiche ouverte" -Enabled ($null -ne $script:SelectedObject) -Action { Copy-ObjectSummary }))
     [void]$Menu.Items.Add($copy)
-    [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Exporter la liste en CSV" -ToolTip "Exporte les résultats affichés, ou seulement les lignes sélectionnées." -Action { Export-CurrentResults }))
+    # Point 60: the export follows the scope chosen beside the results; the menu names that scope.
+    $exportHeader = "Exporter la liste affichée en CSV"
+    $exportTip = "Exporte la liste affichée, après ses filtres. La portée se choisit à côté des résultats."
+    if ((Get-DomeniaResultScopeMode) -eq 'Selected') { $exportHeader = "Exporter les lignes sélectionnées en CSV"; $exportTip = "Exporte seulement les lignes sélectionnées encore affichées. La portée se choisit à côté des résultats." }
+    [void]$Menu.Items.Add((New-DomeniaMenuItem -Header $exportHeader -ToolTip $exportTip -Action { Export-CurrentResults }))
 }
 
 function New-DomeniaTreeContextMenu {
@@ -18336,7 +18367,7 @@ function Start-DomeniaSelectedIndexScopeBuild {
     # The primary action never silently expands a missing OU to the domain.
     $scope=Get-DomeniaIndexScope
     if($null -eq $scope -or [bool]$scope.IsDomain){
-        $picked=Show-DomeniaInlinePicker -Kind OU -Title 'Choisir lʼOU à relire' -Prompt 'Choisissez lʼOU à relire avec ses sous-OU.'
+        $picked=Show-DomeniaInlinePicker -Kind OU -Title 'Choisir lʼOU à relire' -Prompt 'Choisissez lʼOU à relire avec ses sous-OU.' -DepthMode Subtree -Purpose 'Effet : la lecture AD de cette OU et de ses sous-OU démarre après ce choix.'
         if($null -eq $picked){return}
         $candidate=([string]$picked.DN).Trim()
         $previous=$script:IndexScopeDn;$script:IndexScopeDn=$candidate
@@ -22789,6 +22820,8 @@ function Start-DomeniaAccountRelogin {
         }
         Update-DomeniaIndexStats
         Load-TreeRoot
+        # Point 57: the personal views listed are those of the domain of the new session.
+        try { Reset-DomeniaSearchWorkspaceSession } catch { Write-AppLog ("Vues personnelles : " + $_.Exception.Message) "WARN" }
         Initialize-DomeniaAccountPanel
         Update-DomeniaAccountUi
         Apply-CurrentPermissionUi
@@ -23109,7 +23142,7 @@ function Wire-Events {
     $script:Ctrl["BtnRunComputerDiag"].Add_Click({ Start-ComputerDiagnostics })
     if ($script:Ctrl.ContainsKey("BtnUserSaveContact")) { $script:Ctrl["BtnUserSaveContact"].Add_Click({ Save-DomeniaUserContact }) }
     if ($script:Ctrl.ContainsKey("BtnIndexScopePick")) { $script:Ctrl["BtnIndexScopePick"].Add_Click({
-        $picked = Show-DomeniaInlinePicker -Kind OU -Title ('Choisir lʼunité organisationnelle de la base') -Prompt ('Choisissez une OU : la lecture couvrira cette branche et ses sous-OU.')
+        $picked = Show-DomeniaInlinePicker -Kind OU -Title ('Choisir lʼunité organisationnelle de la base') -Prompt ('Choisissez une OU : la lecture couvrira cette branche et ses sous-OU.') -DepthMode Subtree -Purpose 'Effet : cette OU devient la portée de la base locale, relue sur ce poste ; aucune lecture AD avant « Mettre à jour lʼOU choisie ».' -InitialDn ([string]$script:IndexScopeDn)
         if ($null -eq $picked) { return }
         $pickedDn = ([string]$picked.DN).Trim()
         if (-not $pickedDn) { return }
@@ -23148,17 +23181,19 @@ function Wire-Events {
     $age=Get-DomeniaControl 'TxtStorageHistoryDays';if($age){$age.Add_TextChanged({Reset-DomeniaStoragePurgePreview})}
     if ($script:Ctrl.ContainsKey("BtnParkHarvest")) { $script:Ctrl["BtnParkHarvest"].Add_Click({ Start-DomeniaLogonHarvest }) }
     # UI-23: « Vérifier la liste ▾ » (main part: last reading of the session, or Arrêter while it runs; arrow: choices).
+    # Point 60: it reads the scope chosen beside the results (the list as shown, or the selected rows).
     if ($script:Ctrl.ContainsKey("BtnParkVerify")) { $script:Ctrl["BtnParkVerify"].Add_Click({ param($sender,$eventArgs) Invoke-DomeniaParkVerify -Anchor $sender }) }
     if ($script:Ctrl.ContainsKey("BtnParkVerifyMenu")) { $script:Ctrl["BtnParkVerifyMenu"].Add_Click({ param($sender,$eventArgs) Open-DomeniaParkVerifyMenu -Anchor $sender }) }
     # CO-19: the outcome pills of the last ping of the list filter it by presence (local filter only).
     if ($script:Ctrl.ContainsKey("BtnParkOutcomeOnline")) { $script:Ctrl["BtnParkOutcomeOnline"].Add_Click({ Set-DomeniaParkOutcomeFilter -Outcome Online }) }
     if ($script:Ctrl.ContainsKey("BtnParkOutcomeNoReply")) { $script:Ctrl["BtnParkOutcomeNoReply"].Add_Click({ Set-DomeniaParkOutcomeFilter -Outcome NoReply }) }
     if ($script:Ctrl.ContainsKey("BtnParkOutcomeError")) { $script:Ctrl["BtnParkOutcomeError"].Add_Click({ Set-DomeniaParkOutcomeFilter -Outcome Error }) }
-    # FO-18: actions of a multiple selection of the list (same confirmation and ceiling as the list).
+    # FO-18: actions of a multiple selection of the list (same confirmation and ceiling as the list). They always act on
+    # the selected rows, whatever the scope chosen beside the results (point 60).
     if ($script:Ctrl.ContainsKey("BtnSelectionPing")) { $script:Ctrl["BtnSelectionPing"].Add_Click({ Start-DomeniaParkSelectionSurvey -Mode Ping }) }
     if ($script:Ctrl.ContainsKey("BtnSelectionConsole")) { $script:Ctrl["BtnSelectionConsole"].Add_Click({ Start-DomeniaParkSelectionSurvey -Mode Console }) }
     if ($script:Ctrl.ContainsKey("BtnSelectionCopy")) { $script:Ctrl["BtnSelectionCopy"].Add_Click({ Copy-DomeniaSelectedRowsForTicket }) }
-    if ($script:Ctrl.ContainsKey("BtnSelectionExport")) { $script:Ctrl["BtnSelectionExport"].Add_Click({ Export-CurrentResults }) }
+    if ($script:Ctrl.ContainsKey("BtnSelectionExport")) { $script:Ctrl["BtnSelectionExport"].Add_Click({ Export-CurrentResults -Mode Selected }) }
     # FI-18: the survey of the open workstation is stopped beside its board.
     if ($script:Ctrl.ContainsKey("BtnComputerParkStop")) { $script:Ctrl["BtnComputerParkStop"].Add_Click({ Stop-DomeniaOnlinePark -Slot Computer }) }
     if ($script:Ctrl.ContainsKey("BtnParkReset")) {
