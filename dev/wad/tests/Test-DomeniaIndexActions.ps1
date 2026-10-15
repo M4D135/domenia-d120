@@ -109,6 +109,22 @@ Complete-DomeniaIndexBuildUi -Result $build -State ([pscustomobject]@{UpdateLink
 Expect (-not ($script:Texts['LblIndexStatus'] -match '48213') -and -not ($script:LastStatus -match '48213') -and -not ($script:Texts['Progress'] -match '48213')) ('DS-09: milliseconds on screen: '+$script:Texts['LblIndexStatus'])
 Expect ($script:Texts['LblIndexStatus'] -match '2 objet\(s\), dont 1 compte\(s\) et 1 poste\(s\)') ('DS-09 summary: '+$script:Texts['LblIndexStatus'])
 Expect (@($script:Logs|Where-Object{$_ -match '48213 ms'}).Count -eq 1) 'DS-09: the duration goes to the journal'
+# DS-09: Score and Correspondance explain the ranking of the local search; the real profile rule keeps them in Expert.
+Add-Type -AssemblyName WindowsBase
+$uxAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'modules/Domenia-UX.UI.ps1'),[ref]$t,[ref]$e)
+$f=@($uxAst.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Update-DomeniaUxProfileVisibility'},$true))
+if($f.Count -ne 1){throw 'Function ambiguous: Update-DomeniaUxProfileVisibility'}
+. ([scriptblock]::Create($f[0].Extent.Text))
+$script:IndexGridDouble=[pscustomobject]@{Columns=@(foreach($header in @('Type','Nom','Association','Score','Correspondance','Détail')){[pscustomobject]@{Header=$header;Visibility=[Windows.Visibility]::Visible}})}
+function Get-DomeniaControl {param($Name);if($Name -eq 'DgIndex'){return $script:IndexGridDouble};return $null}
+$script:Ctrl=@{};$script:UxProfileUpdating=$false
+foreach($profile in @('Tech','Admin','Tech')){
+    $script:CurrentUiProfile=$profile
+    Update-DomeniaUxProfileVisibility -ObjectType ''
+    $hidden=@($script:IndexGridDouble.Columns|Where-Object{$_.Visibility -ne [Windows.Visibility]::Visible}|ForEach-Object{[string]$_.Header})
+    if($profile -eq 'Admin'){Expect ($hidden.Count -eq 0) ('DS-09: Expert sees every column of the local grid, hidden: '+($hidden -join ','))}
+    else{Expect (($hidden -join ',') -ceq 'Score,Correspondance') ('DS-09: Score and Correspondance stay in Expert, hidden: '+($hidden -join ','))}
+}
 $report=[ordered]@{Kind='IndexActions';Passed=$script:Checks;Failed=0;NativeWindowsPowerShell51=($env:OS -eq 'Windows_NT' -and $PSVersionTable.PSVersion.Major -eq 5);WpfExecuted=$false;NetworkAccessed=$false}
 if($ReportPath){[IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json),(New-Object Text.UTF8Encoding($false)))}
 Write-Output ('PASS Index actions: '+$script:Checks+' assertions; no directory or VM transport.')
