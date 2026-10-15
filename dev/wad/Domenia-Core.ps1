@@ -493,7 +493,7 @@ function Restart-DomeniaSecretLifetime {
     $script:SecretLifetimeTimer = New-DomeniaTimer -Owner 'Timer:SecretLifetime' -IntervalMs ($seconds * 1000) -Start -Tick {
         param($sender,$eventArgs)
         try { $sender.Stop() } catch { }
-        try { Clear-Secrets; Set-Status 'Secrets retires de la vue et references effacees apres expiration.' }
+        try { Clear-Secrets; Set-Status 'Secrets retirés de la vue et références effacées après expiration.' }
         catch { Write-AppLog 'Expiration des secrets : echec du nettoyage.' 'WARN' }
     }
 }
@@ -2405,7 +2405,7 @@ function Show-DomeniaDialog {
         $detailsBox.Padding = '10'
         $detailsBox.Background = $brush.ConvertFromInvariantString([string]$palette.Input)
         $detailsBox.Foreground = $window.Foreground
-        $detailsBox.ToolTip='Details du message. Selectionnez le texte pour le copier.'
+        $detailsBox.ToolTip='Détails du message. Sélectionnez le texte pour le copier.'
         $detailsBox.BorderBrush = $brush.ConvertFromInvariantString([string]$palette.Border)
         [System.Windows.Controls.Grid]::SetRow($detailsBox,1)
         [void]$root.Children.Add($detailsBox)
@@ -2518,7 +2518,7 @@ function Show-DomeniaFormDialog {
         $result=[ordered]@{}
         foreach($key in $controls.Keys){
             $value=[string]$controls[$key].Text
-            if([string]::IsNullOrWhiteSpace($value)){$error.Text="Tous les champs obligatoires doivent etre renseignes.";return}
+            if([string]::IsNullOrWhiteSpace($value)){$error.Text="Tous les champs obligatoires doivent être renseignés.";return}
             $result[$key]=$value.Trim()
         }
         $script:__DomeniaFormResult=$result
@@ -6049,7 +6049,7 @@ function Get-MainXaml {
                               </DataGridTemplateColumn>
                               <DataGridTextColumn Header="Etat" Binding="{Binding State}" Width="120"/>
                               <DataGridTextColumn Header="OS" Binding="{Binding OS}" Width="180"/>
-                              <DataGridTemplateColumn Header="Derniere connexion" SortMemberPath="LastLogonSort" ClipboardContentBinding="{Binding LastLogon}" Width="145"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding LastLogonShort}" ToolTip="{Binding LastLogon}" VerticalAlignment="Center"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+                              <DataGridTemplateColumn Header="Dernière connexion" SortMemberPath="LastLogonSort" ClipboardContentBinding="{Binding LastLogon}" Width="145"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding LastLogonShort}" ToolTip="{Binding LastLogon}" VerticalAlignment="Center"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                               <DataGridTextColumn Header="Mail" Binding="{Binding Mail}" Width="220"/>
                               <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="250"/>
                               <DataGridTemplateColumn Header="Modifie" SortMemberPath="ChangedSort" ClipboardContentBinding="{Binding Changed}" Width="145"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding ChangedShort}" ToolTip="{Binding Changed}" VerticalAlignment="Center"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
@@ -6107,7 +6107,7 @@ function Get-MainXaml {
                       </StackPanel>
                     </Border>
                   </ScrollViewer>
-                </Border><Grid Margin="4,0,4,6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions><TextBlock Text="Sélectionnez un objet dans Rechercher." VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeSmall}" x:Name="LblObjectReadStatus"/><Button Content="Reessayer la lecture" Visibility="Hidden" Height="30" MinHeight="30" Padding="10,3" Margin="8,0,0,0" Grid.Column="1" AutomationProperties.Name="Reessayer la lecture AD" x:Name="BtnObjectReadRetry"/></Grid><Grid Visibility="Collapsed" IsEnabled="False" Grid.Row="1" x:Name="ObjectReadContent"><TabControl x:Name="DetailTabs" Margin="0,4,0,0" AutomationProperties.Name="Vues de la fiche">
+                </Border><Grid Margin="4,0,4,6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions><TextBlock Text="Sélectionnez un objet dans Rechercher." VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeSmall}" x:Name="LblObjectReadStatus"/><Button Content="Réessayer la lecture" Visibility="Hidden" Height="30" MinHeight="30" Padding="10,3" Margin="8,0,0,0" Grid.Column="1" AutomationProperties.Name="Réessayer la lecture AD" x:Name="BtnObjectReadRetry"/></Grid><Grid Visibility="Collapsed" IsEnabled="False" Grid.Row="1" x:Name="ObjectReadContent"><TabControl x:Name="DetailTabs" Margin="0,4,0,0" AutomationProperties.Name="Vues de la fiche">
                   <TabItem x:Name="TabGeneric" Header="Resume" AutomationProperties.Name="Resume">
                     <Border Style="{StaticResource Card}" Margin="4">
                       <Grid>
@@ -6135,7 +6135,7 @@ function Get-MainXaml {
                         <TextBox Grid.Row="2" Grid.Column="1" x:Name="TxtObjClass" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" AutomationProperties.Name="Classe Active Directory"/>
                         <Label x:Name="LblObjGuid" Grid.Row="2" Grid.Column="2" Content="GUID"/>
                         <TextBox Grid.Row="2" Grid.Column="3" x:Name="TxtObjGuid" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" AutomationProperties.Name="Identifiant unique"/>
-                        <Label Grid.Row="3" Grid.Column="0" Content="Cree"/>
+                        <Label Grid.Row="3" Grid.Column="0" Content="Créé"/>
                         <TextBox Grid.Row="3" Grid.Column="1" x:Name="TxtObjCreated" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" AutomationProperties.Name="Date de création"/>
                         <Label Grid.Row="3" Grid.Column="2" Content="Modifie"/>
                         <TextBox Grid.Row="3" Grid.Column="3" x:Name="TxtObjChanged" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" AutomationProperties.Name="Dernière modification"/>
@@ -6235,7 +6235,7 @@ function Get-MainXaml {
                           <TextBox Grid.Row="8" Grid.Column="1" x:Name="TxtUserPresence" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" AutomationProperties.Name="Présence du poste associé"/>
                           <Label Grid.Row="8" Grid.Column="2" Content="Etat"/>
                           <TextBox Grid.Row="8" Grid.Column="3" x:Name="TxtUserState" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" AutomationProperties.Name="État du compte"/>
-                          <Label Grid.Row="9" Grid.Column="0" Content="Derniere connexion"/>
+                          <Label Grid.Row="9" Grid.Column="0" Content="Dernière connexion"/>
                           <TextBox Grid.Row="9" Grid.Column="1" x:Name="TxtUserLastLogon" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" AutomationProperties.Name="Dernière connexion connue"/>
                           <Label Grid.Row="9" Grid.Column="2" Content="Mot de passe changé le"/>
                           <TextBox Grid.Row="9" Grid.Column="3" x:Name="TxtUserPwdLastSet" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" AutomationProperties.Name="Date du dernier changement du mot de passe"/>
@@ -6243,7 +6243,7 @@ function Get-MainXaml {
                           <TextBox Grid.Row="10" Grid.Column="1" x:Name="TxtUserExpires" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" AutomationProperties.Name="Expiration du compte"/>
                           <Label Grid.Row="10" Grid.Column="2" Content="Options du compte"/>
                           <TextBox Grid.Row="10" Grid.Column="3" x:Name="TxtUserUac" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" AutomationProperties.Name="Options du compte AD"/>
-                          <Label Grid.Row="11" Grid.Column="0" Content="Postes associes"/>
+                          <Label Grid.Row="11" Grid.Column="0" Content="Postes associés"/>
                           <ComboBox Grid.Row="11" Grid.Column="1" Grid.ColumnSpan="2" x:Name="TxtUserLinkedComputers" Margin="0,0,14,8" IsEditable="False" AutomationProperties.Name="Postes associés"/>
                           <Button Grid.Row="11" Grid.Column="3" x:Name="BtnOpenLinkedComputer" Content="Ouvrir le poste" Margin="0,0,0,8" AutomationProperties.Name="Ouvrir le poste"/>
                           <TextBlock Grid.Row="12" Grid.ColumnSpan="4" x:Name="LblUserLinkSummary" Text="Aucun poste associé." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,0,0,8"/>
@@ -6371,7 +6371,7 @@ function Get-MainXaml {
                           <TextBlock Text="Options de compte" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold" Margin="0,4,0,8"/>
                           <WrapPanel Margin="0,0,0,12">
                             <CheckBox x:Name="ChkPwdNeverExpires" Content="Mot de passe sans expiration" Margin="0,0,18,8" AutomationProperties.Name="Mot de passe"/>
-                            <CheckBox x:Name="ChkSmartcardRequired" Content="Carte a puce" Margin="0,0,18,8" AutomationProperties.Name="Carte a puce"/>
+                            <CheckBox x:Name="ChkSmartcardRequired" Content="Carte à puce" Margin="0,0,18,8" AutomationProperties.Name="Carte à puce"/>
                             <CheckBox x:Name="ChkAccountNotDelegated" Content="Non delegable" Margin="0,0,18,8" AutomationProperties.Name="Non delegable"/>
                             <Button x:Name="BtnApplyAccountOptions" Content="Appliquer" Style="{StaticResource RunButton}" AutomationProperties.Name="Appliquer"/>
                           </WrapPanel>
@@ -6444,7 +6444,7 @@ function Get-MainXaml {
                           </Grid>
                           <WrapPanel Margin="0,0,0,8">
                             <Button x:Name="BtnGroupSave" Content="Enregistrer" Style="{StaticResource RunButton}" AutomationProperties.Name="Enregistrer"/>
-                            <TextBox x:Name="TxtGroupMemberTarget" Width="520" AutomationProperties.Name="DN du membre a ajouter ou retirer"/>
+                            <TextBox x:Name="TxtGroupMemberTarget" Width="520" AutomationProperties.Name="DN du membre à ajouter ou retirer"/>
                             <Button x:Name="BtnGroupAddMember" Content="Ajouter membre" AutomationProperties.Name="Ajouter membre"/>
                             <Button x:Name="BtnGroupRemoveMember" Content="Retirer membre" AutomationProperties.Name="Retirer membre"/>
                           </WrapPanel>
@@ -6465,7 +6465,7 @@ function Get-MainXaml {
                       </DockPanel>
                     </Border>
                   </TabItem>
-                  <TabItem x:Name="TabContainer" Header="Unite d organisation" AutomationProperties.Name="Unite d organisation">
+                  <TabItem x:Name="TabContainer" Header="Unité dʼorganisation" AutomationProperties.Name="Unité dʼorganisation">
                     <Border Style="{StaticResource Card}" Margin="4">
                       <StackPanel>
                         <TextBlock Text="Unité dʼorganisation" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold" Margin="0,0,0,12"/>
@@ -6523,7 +6523,7 @@ function Get-MainXaml {
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
                           </Grid.ColumnDefinitions>
-                          <TextBox Grid.Column="0" x:Name="TxtRawAttrName" AutomationProperties.Name="Nom de l attribut Active Directory, par exemple description"/>
+                          <TextBox Grid.Column="0" x:Name="TxtRawAttrName" AutomationProperties.Name="Nom de lʼattribut Active Directory, par exemple description"/>
                           <TextBox Grid.Column="1" x:Name="TxtRawAttrValue" Margin="8,0" AutomationProperties.Name="Nouvelle valeur"/>
                           <Button Grid.Column="2" x:Name="BtnRawSet" Content="Appliquer" AutomationProperties.Name="Appliquer"/>
                           <StackPanel Grid.Column="3" Orientation="Horizontal">
@@ -6531,7 +6531,7 @@ function Get-MainXaml {
                             <Button x:Name="BtnRawClear" Content="Effacer" Style="{StaticResource DangerButton}" Margin="0" AutomationProperties.Name="Effacer"/>
                           </StackPanel>
                         </Grid>
-                        <DataGrid x:Name="DgRawAttrs" AutoGenerateColumns="False" IsReadOnly="True" CanUserSortColumns="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" RowHeight="31" AutomationProperties.Name="Attributs de l objet">
+                        <DataGrid x:Name="DgRawAttrs" AutoGenerateColumns="False" IsReadOnly="True" CanUserSortColumns="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" RowHeight="31" AutomationProperties.Name="Attributs de lʼobjet">
                           <DataGrid.Columns>
                             <DataGridTextColumn Header="Attribut" Binding="{Binding Attribute}" Width="240"/>
                             <DataGridTextColumn Header="Valeur" Binding="{Binding Value}" Width="*"/>
@@ -6544,13 +6544,13 @@ function Get-MainXaml {
                     <Border Style="{StaticResource Card}" Margin="4">
                       <DockPanel>
                         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                          <TextBlock Text="Droits de ton compte sur cet objet" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"/>
-                          <TextBlock Text="Estime ce que ton compte peut modifier sur cet objet. Les actions manifestement interdites sont grisees ; les autres restent verifiees au moment de l execution." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
+                          <TextBlock Text="Droits de votre compte sur cet objet" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"/>
+                          <TextBlock Text="Estime ce que votre compte peut modifier sur cet objet. Les actions manifestement interdites sont grisées ; les autres restent vérifiées au moment de lʼexécution." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
                           <WrapPanel>
                             <Button x:Name="BtnPermissionRefresh" Content="Analyser" Style="{StaticResource RunButton}" AutomationProperties.Name="Analyser"/>
                             <Button x:Name="BtnPermissionCopy" Content="Copier le rapport" AutomationProperties.Name="Copier le rapport"/>
                           </WrapPanel>
-                          <TextBlock x:Name="LblPermissionSummary" Text="Selectionne un objet." Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                          <TextBlock x:Name="LblPermissionSummary" Text="Sélectionnez un objet." Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0" TextWrapping="Wrap"/>
                         </StackPanel>
                         <DataGrid x:Name="DgPermissions" AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="31" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Estimation par action">
                           <DataGrid.Columns>
@@ -7050,7 +7050,7 @@ function Get-MainXaml {
                       </StackPanel>
                     </Border>
                   </ScrollViewer>
-                </Border><Grid Margin="4,0,4,6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions><TextBlock Text="Sélectionnez un objet dans Rechercher." VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeSmall}" x:Name="LblComputerReadStatus"/><Button Content="Reessayer la lecture" Visibility="Hidden" Height="30" MinHeight="30" Padding="10,3" Margin="8,0,0,0" Grid.Column="1" AutomationProperties.Name="Reessayer la lecture AD" x:Name="BtnComputerReadRetry"/></Grid><Grid Visibility="Collapsed" IsEnabled="False" Grid.Row="1" x:Name="ComputerReadContent"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                </Border><Grid Margin="4,0,4,6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions><TextBlock Text="Sélectionnez un objet dans Rechercher." VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeSmall}" x:Name="LblComputerReadStatus"/><Button Content="Réessayer la lecture" Visibility="Hidden" Height="30" MinHeight="30" Padding="10,3" Margin="8,0,0,0" Grid.Column="1" AutomationProperties.Name="Réessayer la lecture AD" x:Name="BtnComputerReadRetry"/></Grid><Grid Visibility="Collapsed" IsEnabled="False" Grid.Row="1" x:Name="ComputerReadContent"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                 <!-- DS-08 (X04): fixed header of the workstation, the same above the five views: name, system, presence pill,
                      associated user (a link to its fiche), age of the last inventory and three quick actions, each on a click. -->
                 <Border x:Name="UxComputerHeader" Grid.Row="0" Margin="4,0,4,2" Padding="14,10" CornerRadius="12" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" AutomationProperties.Name="En-tête du poste">
@@ -7141,7 +7141,7 @@ function Get-MainXaml {
                           </Grid>
                           <Label Grid.Row="5" Grid.Column="0" Content="Etat"/>
                           <TextBox Grid.Row="5" Grid.Column="1" x:Name="TxtCompState" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" AutomationProperties.Name="État du compte ordinateur"/>
-                          <Label Grid.Row="5" Grid.Column="2" Content="Derniere connexion"/>
+                          <Label Grid.Row="5" Grid.Column="2" Content="Dernière connexion"/>
                           <TextBox Grid.Row="5" Grid.Column="3" x:Name="TxtCompLastLogon" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" AutomationProperties.Name="Dernière connexion connue"/>
                           <Label Grid.Row="6" Grid.Column="0" Content="Options du compte"/>
                           <TextBox Grid.Row="6" Grid.Column="1" x:Name="TxtCompUac" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" AutomationProperties.Name="Options du compte ordinateur"/>
@@ -7368,14 +7368,14 @@ function Get-MainXaml {
                               <ColumnDefinition Width="240"/>
                               <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <Label Grid.Column="0" Content="Categorie"/>
-                            <ComboBox Grid.Column="1" x:Name="CmbInventoryCategory" SelectedIndex="0" AutomationProperties.Name="Categorie">
+                            <Label Grid.Column="0" Content="Catégorie"/>
+                            <ComboBox Grid.Column="1" x:Name="CmbInventoryCategory" SelectedIndex="0" AutomationProperties.Name="Catégorie">
                               <ComboBoxItem Content="Toutes"/>
                             </ComboBox>
-                            <TextBlock Grid.Column="2" x:Name="LblInventoryStatus" Text="Selectionne un poste, puis lance l inventaire." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="12,0,0,0" TextWrapping="Wrap"/>
+                            <TextBlock Grid.Column="2" x:Name="LblInventoryStatus" Text="Sélectionnez un poste, puis lancez lʼinventaire." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="12,0,0,0" TextWrapping="Wrap"/>
                           </Grid>
                           <StackPanel x:Name="TxtInventoryAge" Orientation="Horizontal" Visibility="Collapsed" Margin="0,4,0,0">
-                            <TextBlock x:Name="LblInventoryAge" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Age de l inventaire" AutomationProperties.HelpText="Heure de la derniere lecture du poste gardee pour cette session."/>
+                            <TextBlock x:Name="LblInventoryAge" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Âge de lʼinventaire" AutomationProperties.HelpText="Heure de la dernière lecture du poste gardée pour cette session."/>
                             <TextBlock Margin="6,0,0,0" VerticalAlignment="Center"><Hyperlink x:Name="LnkInventoryRefresh">Actualiser</Hyperlink></TextBlock>
                           </StackPanel>
                         </StackPanel>
@@ -7385,10 +7385,10 @@ function Get-MainXaml {
                             <RowDefinition Height="6"/>
                             <RowDefinition Height="190" MinHeight="90"/>
                           </Grid.RowDefinitions>
-                          <DataGrid Grid.Row="0" x:Name="DgInventory" AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="28" CanUserSortColumns="True" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Elements collectes">
+                          <DataGrid Grid.Row="0" x:Name="DgInventory" AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="28" CanUserSortColumns="True" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Éléments collectés">
                             <DataGrid.Columns>
-                              <DataGridTextColumn Header="Categorie" Binding="{Binding Category}" Width="190"/>
-                              <DataGridTextColumn Header="Element" Binding="{Binding Item}" Width="260"/>
+                              <DataGridTextColumn Header="Catégorie" Binding="{Binding Category}" Width="190"/>
+                              <DataGridTextColumn Header="Élément" Binding="{Binding Item}" Width="260"/>
                               <DataGridTemplateColumn Header="Valeur" Width="*" ClipboardContentBinding="{Binding Value}">
                                 <DataGridTemplateColumn.CellTemplate>
                                   <DataTemplate>
@@ -7401,12 +7401,12 @@ function Get-MainXaml {
                           </DataGrid>
                           <GridSplitter Grid.Row="1" Height="6" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="{DynamicResource SplitterBg}" ShowsPreview="True" ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" Cursor="SizeNS" x:Name="UxSplitter0" AutomationProperties.Name="Faites glisser pour redimensionner les panneaux"/>
                           <DockPanel Grid.Row="2">
-                            <TextBlock DockPanel.Dock="Top" Text="Detail par source" FontWeight="SemiBold" Margin="0,4,0,6"/>
-                            <DataGrid x:Name="DgInventoryAccess" AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="28" CanUserSortColumns="True" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Detail par source">
+                            <TextBlock DockPanel.Dock="Top" Text="Détail par source" FontWeight="SemiBold" Margin="0,4,0,6"/>
+                            <DataGrid x:Name="DgInventoryAccess" AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="28" CanUserSortColumns="True" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Détail par source">
                               <DataGrid.Columns>
-                                <DataGridTextColumn Header="Categorie" Binding="{Binding Category}" Width="190"/>
-                                <DataGridTextColumn Header="Acces" Binding="{Binding Status}" Width="130"/>
-                                <DataGridTextColumn Header="Elements" Binding="{Binding Items}" Width="90"/>
+                                <DataGridTextColumn Header="Catégorie" Binding="{Binding Category}" Width="190"/>
+                                <DataGridTextColumn Header="Accès" Binding="{Binding Status}" Width="130"/>
+                                <DataGridTextColumn Header="Éléments" Binding="{Binding Items}" Width="90"/>
                                 <DataGridTextColumn Header="Duree ms" Binding="{Binding DurationMs}" Width="90"/>
                                 <DataGridTemplateColumn Header="Detail" Width="*">
                                   <DataGridTemplateColumn.CellTemplate>
@@ -7432,7 +7432,7 @@ function Get-MainXaml {
                             <Button x:Name="BtnLoadSoftware" Content="Charger les logiciels" Style="{StaticResource RunButton}" AutomationProperties.Name="Charger les logiciels"/>
                             <CheckBox x:Name="ChkSoftwarePerUser" Content="Par utilisateur" IsChecked="True" VerticalAlignment="Center" Margin="4,0,14,0" AutomationProperties.Name="Par utilisateur"/>
                             <CheckBox x:Name="ChkSoftwareStore" Content="Applications Store" VerticalAlignment="Center" Margin="0,0,14,0" AutomationProperties.Name="Applications Store"/>
-                            <CheckBox x:Name="ChkSoftwareUpdates" Content="Mises a jour" VerticalAlignment="Center" Margin="0,0,14,0" AutomationProperties.Name="Mises a jour"/>
+                            <CheckBox x:Name="ChkSoftwareUpdates" Content="Mises à jour" VerticalAlignment="Center" Margin="0,0,14,0" AutomationProperties.Name="Mises à jour"/>
                             <Button x:Name="BtnCopySoftware" Content="Copier" AutomationProperties.Name="Copier"/>
                             <Button x:Name="BtnExportSoftware" Content="Exporter CSV" AutomationProperties.Name="Exporter CSV"/>
                             <ToggleButton x:Name="BtnSoftwareColumns" Content="Colonnes" VerticalAlignment="Center" Margin="0,0,14,0" AutomationProperties.Name="Colonnes"/>
@@ -7445,7 +7445,7 @@ function Get-MainXaml {
                             </ComboBox>
                           </StackPanel>
                           <StackPanel x:Name="PnlSoftwareSynthese" Visibility="Collapsed" Margin="0,6,0,0">
-                            <TextBlock x:Name="LblSoftwareDashboard" Text="Chargez les logiciels pour afficher la synthese." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="LblSoftwareDashboard" Text="Chargez les logiciels pour afficher la synthèse." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
                             <Border Background="{DynamicResource WindowBg}" CornerRadius="12" Padding="4" Margin="0,8,0,0">
                               <StackPanel x:Name="PnlSoftwareDashboard"/>
                             </Border>
@@ -7467,7 +7467,7 @@ function Get-MainXaml {
                               <ComboBoxItem Content="Utilisateur"/>
                               <ComboBoxItem Content="Store"/>
                             </ComboBox>
-                            <TextBlock Grid.Column="4" x:Name="LblSoftwareStatus" Text="Selectionne un poste, puis charge la liste." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                            <TextBlock Grid.Column="4" x:Name="LblSoftwareStatus" Text="Sélectionnez un poste, puis chargez la liste." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" TextWrapping="Wrap"/>
                           </Grid>
                           <Border x:Name="UxSoftwareFilterChip" Visibility="Collapsed" HorizontalAlignment="Left" Margin="0,6,0,0" Padding="8,2" CornerRadius="10" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" ToolTip="Filtre appliqué à la liste par un clic sur un graphique." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtre appliqué à la liste" AutomationProperties.HelpText="Nom du filtre appliqué à la liste des logiciels par un clic sur un graphique ; le retirer avec le bouton Fermer.">
                             <StackPanel Orientation="Horizontal">
@@ -7482,7 +7482,7 @@ function Get-MainXaml {
                               <RowDefinition Height="Auto"/>
                               <RowDefinition Height="Auto"/>
                           </Grid.RowDefinitions>
-                          <DataGrid Grid.Row="0" x:Name="DgSoftware" AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="28" CanUserSortColumns="True" SelectionMode="Extended" ScrollViewer.HorizontalScrollBarVisibility="Auto" AutomationProperties.Name="Logiciels detectes">
+                          <DataGrid Grid.Row="0" x:Name="DgSoftware" AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="28" CanUserSortColumns="True" SelectionMode="Extended" ScrollViewer.HorizontalScrollBarVisibility="Auto" AutomationProperties.Name="Logiciels détectés">
                             <DataGrid.Columns>
                               <DataGridTextColumn Header="Nom" Binding="{Binding Name}" Width="330"/>
                               <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="130"/>
@@ -7497,15 +7497,15 @@ function Get-MainXaml {
                               <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="190"/>
                             </DataGrid.Columns>
                           </DataGrid>
-                          <TextBlock Grid.Row="1" x:Name="LblSoftwareAccessSummary" Text="Aucune portée lue." Foreground="{DynamicResource MutedColor}" Margin="0,6,0,2" TextWrapping="Wrap" ToolTip="Ce qui a pu être lu pour chaque portée, en une ligne." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Resume du detail par portee" AutomationProperties.HelpText="Une ligne pour dire ce qui a été lu pour chaque portée ; ouvrir le détail pour le voir ligne par ligne."/>
-                          <Expander Grid.Row="2" x:Name="ExpSoftwareAccess" Header="Détail par portée" IsExpanded="False" Margin="0,2,0,0" AutomationProperties.Name="Detail par portee">
+                          <TextBlock Grid.Row="1" x:Name="LblSoftwareAccessSummary" Text="Aucune portée lue." Foreground="{DynamicResource MutedColor}" Margin="0,6,0,2" TextWrapping="Wrap" ToolTip="Ce qui a pu être lu pour chaque portée, en une ligne." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Résumé du détail par portée" AutomationProperties.HelpText="Une ligne pour dire ce qui a été lu pour chaque portée ; ouvrir le détail pour le voir ligne par ligne."/>
+                          <Expander Grid.Row="2" x:Name="ExpSoftwareAccess" Header="Détail par portée" IsExpanded="False" Margin="0,2,0,0" AutomationProperties.Name="Détail par portée">
                             <StackPanel>
-                            <DataGrid x:Name="DgSoftwareAccess" AutoGenerateColumns="False" IsReadOnly="True" MaxHeight="180" MinRowHeight="28" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Detail par portee">
+                            <DataGrid x:Name="DgSoftwareAccess" AutoGenerateColumns="False" IsReadOnly="True" MaxHeight="180" MinRowHeight="28" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Détail par portée">
                               <DataGrid.Columns>
                                 <DataGridTextColumn Header="Portee" Binding="{Binding Category}" Width="170"/>
-                                <DataGridTextColumn Header="Acces" Binding="{Binding Status}" Width="110"/>
+                                <DataGridTextColumn Header="Accès" Binding="{Binding Status}" Width="110"/>
                                 <DataGridTextColumn Header="Methode" Binding="{Binding Method}" Width="150"/>
-                                <DataGridTextColumn Header="Elements" Binding="{Binding Items}" Width="90"/>
+                                <DataGridTextColumn Header="Éléments" Binding="{Binding Items}" Width="90"/>
                                 <DataGridTextColumn Header="Duree ms" Binding="{Binding DurationMs}" Width="90"/>
                                 <DataGridTemplateColumn Header="Detail" Width="*">
                                   <DataGridTemplateColumn.CellTemplate>
@@ -7538,9 +7538,9 @@ function Get-MainXaml {
                           </WrapPanel>
                           <TextBlock x:Name="LblComputerDiag" Text="Pret." Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0" TextWrapping="Wrap"/>
                         </StackPanel>
-                        <DataGrid x:Name="DgComputerDiag" AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="31" ScrollViewer.HorizontalScrollBarVisibility="Disabled" CanUserResizeRows="False" AutomationProperties.Name="Resultat de chaque controle">
+                        <DataGrid x:Name="DgComputerDiag" AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="31" ScrollViewer.HorizontalScrollBarVisibility="Disabled" CanUserResizeRows="False" AutomationProperties.Name="Résultat de chaque contrôle">
                           <DataGrid.Columns>
-                            <DataGridTextColumn Header="Controle" Binding="{Binding Check}" Width="210"/>
+                            <DataGridTextColumn Header="Contrôle" Binding="{Binding Check}" Width="210"/>
                             <!-- UX-17 : l etat se lit en mots francais, la couleur porte le degre, pas la decorative.
                                  L infobulle garde le code brut du worker (OK, REFUSE, INJOIGNABLE...), comme la colonne
                                  Valeur de l inventaire garde le code CIM (UX-37). -->
@@ -7591,7 +7591,7 @@ function Get-MainXaml {
                       <DockPanel>
                         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
                           <TextBlock Text="Explorateur WMI" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"/>
-                          <TextBlock Text="Explore les donnees WMI du poste : espaces de noms, classes, proprietes et valeurs. Consultation uniquement, aucune modification possible." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
+                          <TextBlock Text="Explore les données WMI du poste : espaces de noms, classes, propriétés et valeurs. Consultation uniquement, aucune modification possible." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
                           <WrapPanel>
                             <Button x:Name="BtnWmiNamespaces" Content="Charger" Style="{StaticResource SecondaryButton}" AutomationProperties.Name="Charger"/>
                             <Button x:Name="BtnWmiClasses" Content="Classes" AutomationProperties.Name="Classes"/>
@@ -7611,7 +7611,7 @@ function Get-MainXaml {
                             <TextBox Grid.Column="1" x:Name="TxtWmiWhere" Margin="0,0,10,0" AutomationProperties.Name="Filtre"/>
                             <Label Grid.Column="2" Content="Limite"/>
                             <TextBox Grid.Column="3" x:Name="TxtWmiLimit" Text="25" Margin="0,0,10,0" AutomationProperties.Name="Limite"/>
-                            <TextBlock Grid.Column="4" x:Name="LblWmiStatus" Text="Selectionne un poste, puis charge les espaces de noms." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                            <TextBlock Grid.Column="4" x:Name="LblWmiStatus" Text="Sélectionnez un poste, puis chargez les espaces de noms." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" TextWrapping="Wrap"/>
                           </Grid>
                         </StackPanel>
                         <Grid>
@@ -7642,12 +7642,12 @@ function Get-MainXaml {
                               <RowDefinition Height="*" MinHeight="120"/>
                             </Grid.RowDefinitions>
                             <DockPanel Grid.Row="0">
-                              <TextBlock DockPanel.Dock="Top" Text="Proprietes de la classe" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                              <DataGrid x:Name="DgWmiSchema" AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="26" CanUserSortColumns="True" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Proprietes de la classe">
+                              <TextBlock DockPanel.Dock="Top" Text="Propriétés de la classe" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                              <DataGrid x:Name="DgWmiSchema" AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="26" CanUserSortColumns="True" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Propriétés de la classe">
                                 <DataGrid.Columns>
-                                  <DataGridTextColumn Header="Propriete" Binding="{Binding Property}" Width="240"/>
+                                  <DataGridTextColumn Header="Propriété" Binding="{Binding Property}" Width="240"/>
                                   <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="140"/>
-                                  <DataGridTextColumn Header="Cle" Binding="{Binding IsKey}" Width="60"/>
+                                  <DataGridTextColumn Header="Clé" Binding="{Binding IsKey}" Width="60"/>
                                   <DataGridTemplateColumn Header="Qualificateurs" Width="*">
                                     <DataGridTemplateColumn.CellTemplate>
                                       <DataTemplate>
@@ -7664,7 +7664,7 @@ function Get-MainXaml {
                               <DataGrid x:Name="DgWmiInstances" AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="26" CanUserSortColumns="True" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Instances">
                                 <DataGrid.Columns>
                                   <DataGridTextColumn Header="Instance" Binding="{Binding Instance}" Width="80"/>
-                                  <DataGridTextColumn Header="Propriete" Binding="{Binding Property}" Width="240"/>
+                                  <DataGridTextColumn Header="Propriété" Binding="{Binding Property}" Width="240"/>
                                   <DataGridTemplateColumn Header="Valeur" Width="*">
                                     <DataGridTemplateColumn.CellTemplate>
                                       <DataTemplate>
@@ -7701,7 +7701,7 @@ function Get-MainXaml {
                           <WrapPanel Margin="0,10,0,0">
                             <StackPanel Width="300" Margin="0,0,12,0">
                               <TextBlock Text="Identifiant de récupération BitLocker" Margin="0,0,0,4" FontSize="{DynamicResource FontSizeSmall}" FontWeight="SemiBold"/>
-                              <TextBox x:Name="TxtBitLockerRecoveryId" MaxLength="40" IsEnabled="False" AutomationProperties.Name="Identifiant de recuperation BitLocker"/>
+                              <TextBox x:Name="TxtBitLockerRecoveryId" MaxLength="40" IsEnabled="False" AutomationProperties.Name="Identifiant de récupération BitLocker"/>
                             </StackPanel>
                             <TextBlock x:Name="LblBitLockerRecoveryHint" Text="« Lister les clés BitLocker » affiche les métadonnées, sans aucune clé. Une seule clé est lue, à votre demande." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Bottom" MaxWidth="520" TextWrapping="Wrap"/>
                           </WrapPanel>
@@ -7798,11 +7798,11 @@ function Get-MainXaml {
 <WrapPanel><Button AutomationProperties.Name="Autoriser une intervention sur cette machine" x:Name="BtnGuardRemote" Content="Autoriser une intervention sur cette machine"/><Button AutomationProperties.Name="Lire ce poste par tache planifiee" x:Name="BtnGuardReadFallback" Content="Lire ce poste par tâche planifiée"/><Button AutomationProperties.Name="Retirer l'autorisation" x:Name="BtnGuardRemoteOff" Content="Retirer l'autorisation"/></WrapPanel>
 </StackPanel></Border>
 <Border Style="{StaticResource Card}" Margin="0,0,0,12"><StackPanel><TextBlock Text="Suite support et mesures" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"/>
-<WrapPanel Margin="0,6,0,10"><Button x:Name="BtnGuardExport" Content="Diagnostic expurgé" AutomationProperties.Name="Diagnostic expurgé"/><Button x:Name="BtnGuardWhy" Content="Pourquoi une action est indisponible ?" AutomationProperties.Name="Pourquoi une action est indisponible ?"/></WrapPanel><CheckBox x:Name="ChkGuardReconcile" Content="Reverifier le perimetre consulte en arriere-plan" IsChecked="True" Margin="0,0,0,8" AutomationProperties.Name="Reverifier le perimetre consulte en arriere-plan"/><TextBlock x:Name="LblGuardMetrics" Text="Les mesures locales apparaîtront ici." TextWrapping="Wrap" Margin="0,8,0,12" Foreground="{DynamicResource MutedColor}"/>
+<WrapPanel Margin="0,6,0,10"><Button x:Name="BtnGuardExport" Content="Diagnostic expurgé" AutomationProperties.Name="Diagnostic expurgé"/><Button x:Name="BtnGuardWhy" Content="Pourquoi une action est indisponible ?" AutomationProperties.Name="Pourquoi une action est indisponible ?"/></WrapPanel><CheckBox x:Name="ChkGuardReconcile" Content="Revérifier le périmètre consulté en arrière-plan" IsChecked="True" Margin="0,0,0,8" AutomationProperties.Name="Revérifier le périmètre consulté en arrière-plan"/><TextBlock x:Name="LblGuardMetrics" Text="Les mesures locales apparaîtront ici." TextWrapping="Wrap" Margin="0,8,0,12" Foreground="{DynamicResource MutedColor}"/>
 <WrapPanel><Button AutomationProperties.Name="Ouvrir Pesto" x:Name="BtnGuardPesto" Content="Ouvrir Pesto"/><Button AutomationProperties.Name="Ouvrir FilPro" x:Name="BtnGuardFilPro" Content="Ouvrir FilPro"/></WrapPanel>
 </StackPanel></Border>
 </StackPanel></ScrollViewer></TabItem>
-<TabItem x:Name="TabSelfCheck" IsSelected="True" Header="Verification" AutomationProperties.Name="Verification">
+<TabItem x:Name="TabSelfCheck" IsSelected="True" Header="Vérification" AutomationProperties.Name="Vérification">
                         <Grid Margin="8">
                           <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
@@ -7810,18 +7810,18 @@ function Get-MainXaml {
                           </Grid.RowDefinitions>
                           <StackPanel Grid.Row="0" Margin="0,0,0,10">
                             <TextBlock Text="Vérification de lʼapplication" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"/>
-                            <TextBlock Text="Verifie que la connexion, les lectures et les composants de l application fonctionnent. Aucune modification d Active Directory." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
+                            <TextBlock Text="Vérifie que la connexion, les lectures et les composants de lʼapplication fonctionnent. Aucune modification dʼActive Directory." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
                             <WrapPanel>
-                              <Button x:Name="BtnSelfCheckQuick" Content="Verification rapide" Style="{StaticResource RunButton}" AutomationProperties.Name="Verification rapide"/>
-                              <Button x:Name="BtnSelfCheckFull" Content="Verification complete" AutomationProperties.Name="Verification complete"/>
+                              <Button x:Name="BtnSelfCheckQuick" Content="Vérification rapide" Style="{StaticResource RunButton}" AutomationProperties.Name="Vérification rapide"/>
+                              <Button x:Name="BtnSelfCheckFull" Content="Vérification complète" AutomationProperties.Name="Vérification complète"/>
                               <Button x:Name="BtnSelfCheckCopy" Content="Copier le rapport" AutomationProperties.Name="Copier le rapport"/>
                               <Button x:Name="BtnSelfCheckExport" Content="Exporter le diagnostic" AutomationProperties.Name="Exporter le diagnostic"/>
                             </WrapPanel>
                             <TextBlock x:Name="LblSelfCheckStatus" Text="Check rapide automatique en attente." Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0" TextWrapping="Wrap"/>
                           </StackPanel>
-                          <DataGrid Grid.Row="1" x:Name="DgSelfCheck" AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="31" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Resultat de chaque controle">
+                          <DataGrid Grid.Row="1" x:Name="DgSelfCheck" AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="31" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Résultat de chaque contrôle">
                             <DataGrid.Columns>
-                              <DataGridTextColumn Header="Categorie" Binding="{Binding Category}" Width="150"/>
+                              <DataGridTextColumn Header="Catégorie" Binding="{Binding Category}" Width="150"/>
                               <DataGridTextColumn Header="Test" Binding="{Binding Test}" Width="250"/>
                               <DataGridTextColumn Header="Etat" Binding="{Binding Status}" Width="100"/>
                               <DataGridTextColumn Header="Duree ms" Binding="{Binding DurationMs}" Width="90"/>
@@ -7903,7 +7903,7 @@ function Get-MainXaml {
               <StackPanel>
                 <TextBlock Text="Le journal du contrôleur donne des milliers de couples utilisateur et poste en une requête, sans contacter aucune machine. La sonde poste par poste ne sert quʼà compléter." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,2,0,8" />
                 <WrapPanel>
-                  <CheckBox x:Name="ChkParkSweepEnabled" Content="Releve manuel uniquement" IsEnabled="False" Visibility="Collapsed" VerticalAlignment="Center" Margin="0,0,14,8" AutomationProperties.Name="Relever au lancement" />
+                  <CheckBox x:Name="ChkParkSweepEnabled" Content="Relevé manuel uniquement" IsEnabled="False" Visibility="Collapsed" VerticalAlignment="Center" Margin="0,0,14,8" AutomationProperties.Name="Relever au lancement" />
                   <Button x:Name="BtnParkHarvest" Content="Lire le journal du controleur" Style="{StaticResource RunButton}" MinWidth="220" Margin="0,0,8,8" AutomationProperties.Name="Lire le journal du controleur" />
                   <Button x:Name="BtnParkReset" Content="Oublier les relevés" MinWidth="170" Margin="0,0,0,8" AutomationProperties.Name="Oublier les relevés" />
                 </WrapPanel>
@@ -7931,11 +7931,11 @@ function Get-MainXaml {
               <Button x:Name="BtnIndexPrevious" Content="Page précédente" IsEnabled="False" Margin="0,0,8,0" />
               <Button x:Name="BtnIndexNext" Content="Page suivante" IsEnabled="False" Margin="0,0,8,0" />
               <Button x:Name="BtnIndexResetSort" Content="Tri par pertinence" />
-              <Button x:Name="BtnIndexOpen" Content="Ouvrir l objet" AutomationProperties.Name="Ouvrir l objet" />
+              <Button x:Name="BtnIndexOpen" Content="Ouvrir lʼobjet" AutomationProperties.Name="Ouvrir lʼobjet" />
               <Button x:Name="BtnIndexExport" Content="Exporter CSV" AutomationProperties.Name="Exporter CSV" />
             </WrapPanel>
           </StackPanel>
-          <DataGrid x:Name="DgIndex" AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="28" CanUserSortColumns="True" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.HorizontalScrollBarVisibility="Auto" AutomationProperties.Name="Resultats de l index local">
+          <DataGrid x:Name="DgIndex" AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="28" CanUserSortColumns="True" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.HorizontalScrollBarVisibility="Auto" AutomationProperties.Name="Résultats de lʼindex local">
             <DataGrid.Columns>
               <DataGridTextColumn Header="Type" Binding="{Binding Type}" SortMemberPath="Type" Width="100" MinWidth="80" />
               <DataGridTextColumn Header="Nom" Binding="{Binding Name}" SortMemberPath="Name" Width="220" MinWidth="140" />
@@ -7968,7 +7968,7 @@ function Get-MainXaml {
                 <TextBlock x:Name="LblIndexBackupStatus" Text="" Visibility="Collapsed" Background="{DynamicResource InfoBg}" Foreground="{DynamicResource InfoFg}" Padding="10,6" TextWrapping="Wrap" Margin="0,4,0,6" />
                 <WrapPanel>
                   <Button x:Name="BtnIndexCopyPath" Content="Copier le chemin" Margin="0,0,8,0" AutomationProperties.Name="Copier le chemin de la base" />
-                  <Button x:Name="BtnIndexOpenFolder" Content="Ouvrir l emplacement" Margin="0,0,8,0" AutomationProperties.Name="Ouvrir l emplacement de la base" />
+                  <Button x:Name="BtnIndexOpenFolder" Content="Ouvrir lʼemplacement" Margin="0,0,8,0" AutomationProperties.Name="Ouvrir lʼemplacement de la base" />
                   <Button x:Name="BtnIndexBackup" Content="Sauvegarder maintenant" Margin="0,0,8,0" AutomationProperties.Name="Sauvegarder la base maintenant" />
                   <Button x:Name="BtnIndexBackupTo" Content="Copier une sauvegarde vers..." Margin="0,0,8,0" AutomationProperties.Name="Copier une sauvegarde de la base" />
                 </WrapPanel>
@@ -8083,15 +8083,15 @@ function Get-MainXaml {
                           </StackPanel>
                           <DataGrid x:Name="DgOperationStats" AutoGenerateColumns="False" IsReadOnly="True" CanUserSortColumns="True" MinRowHeight="30" ScrollViewer.HorizontalScrollBarVisibility="Auto" AutomationProperties.Name="Statistiques des opérations">
                             <DataGrid.Columns>
-                              <DataGridTextColumn Header="Operation" Binding="{Binding Operation}" Width="180"/>
+                              <DataGridTextColumn Header="Opération" Binding="{Binding Operation}" Width="180"/>
                               <DataGridTextColumn Header="Mesures" Binding="{Binding Samples}" Width="75"/>
-                              <DataGridTextColumn Header="Moy. / element" Binding="{Binding AvgPerItem}" Width="120"/>
-                              <DataGridTextColumn Header="Duree moy." Binding="{Binding AvgDuration}" Width="110"/>
-                              <DataGridTextColumn Header="Reseau moy." Binding="{Binding AvgNetwork}" Width="110"/>
+                              <DataGridTextColumn Header="Moy. / élément" Binding="{Binding AvgPerItem}" Width="120"/>
+                              <DataGridTextColumn Header="Durée moy." Binding="{Binding AvgDuration}" Width="110"/>
+                              <DataGridTextColumn Header="Réseau moy." Binding="{Binding AvgNetwork}" Width="110"/>
                               <DataGridTextColumn Header="Debit moy." Binding="{Binding AvgBandwidth}" Width="105"/>
                               <DataGridTextColumn Header="Fallback" Binding="{Binding FallbackPct}" Width="85"/>
                               <DataGridTextColumn Header="Reussite" Binding="{Binding SuccessPct}" Width="85"/>
-                              <DataGridTextColumn Header="Derniere mesure" Binding="{Binding LastRun}" Width="155"/>
+                              <DataGridTextColumn Header="Dernière mesure" Binding="{Binding LastRun}" Width="155"/>
                             </DataGrid.Columns>
                           </DataGrid>
                         </DockPanel>
@@ -8116,10 +8116,10 @@ function Get-MainXaml {
                             <TextBlock x:Name="LblDomainLocalTotals" Text="Totaux du domaine : affichés depuis la copie locale à lʼanalyse." Margin="0,8,0,0" TextWrapping="Wrap" AutomationProperties.Name="Totaux de la copie locale"/>
                             <TextBlock x:Name="LblDomainStatus" Text="Pret." Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0" TextWrapping="Wrap"/>
                           </StackPanel>
-                          <DataGrid x:Name="DgDomain" AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="28" CanUserSortColumns="True" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Informations relevees">
+                          <DataGrid x:Name="DgDomain" AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="28" CanUserSortColumns="True" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Informations relevées">
                             <DataGrid.Columns>
                               <DataGridTextColumn Header="Section" Binding="{Binding Category}" Width="200"/>
-                              <DataGridTextColumn Header="Element" Binding="{Binding Item}" Width="250"/>
+                              <DataGridTextColumn Header="Élément" Binding="{Binding Item}" Width="250"/>
                               <DataGridTemplateColumn Header="Valeur" Width="*">
                                 <DataGridTemplateColumn.CellTemplate>
                                   <DataTemplate>
@@ -8140,7 +8140,7 @@ function Get-MainXaml {
                           </Grid.RowDefinitions>
                           <StackPanel Grid.Row="0" Margin="0,0,0,10">
                             <TextBlock Text="Commandes Active Directory et LAPS" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"/>
-                            <TextBlock Text="Commandes Active Directory et LAPS disponibles sur ce poste. Selectionne-en une pour voir sa syntaxe, ses parametres et ses exemples." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
+                            <TextBlock Text="Commandes Active Directory et LAPS disponibles sur ce poste. Sélectionnez-en une pour voir sa syntaxe, ses paramètres et ses exemples." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
                             <Grid>
                               <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -8150,8 +8150,8 @@ function Get-MainXaml {
                                 <ColumnDefinition Width="Auto"/>
                               </Grid.ColumnDefinitions>
                               <Button Grid.Column="0" x:Name="BtnLoadCmdlets" Content="Charger les commandes" Style="{StaticResource RunButton}" Margin="0,0,8,0" AutomationProperties.Name="Charger les commandes"/>
-                              <TextBox Grid.Column="1" x:Name="TxtCmdletFilter" Margin="0,0,8,0" AutomationProperties.Name="Cherche par nom de commande, module ou parametre"/>
-                              <ComboBox Grid.Column="2" x:Name="CmbCmdletModule" SelectedIndex="0" Margin="0,0,8,0" AutomationProperties.Name="N affiche que les commandes d un module">
+                              <TextBox Grid.Column="1" x:Name="TxtCmdletFilter" Margin="0,0,8,0" AutomationProperties.Name="Cherche par nom de commande, module ou paramètre"/>
+                              <ComboBox Grid.Column="2" x:Name="CmbCmdletModule" SelectedIndex="0" Margin="0,0,8,0" AutomationProperties.Name="Nʼaffiche que les commandes dʼun module">
                                 <ComboBoxItem Content="Tous les modules"/>
                                 <ComboBoxItem Content="ActiveDirectory"/>
                                 <ComboBoxItem Content="LAPS"/>
@@ -8173,7 +8173,7 @@ function Get-MainXaml {
                                 <DataGridTextColumn Header="Type" Binding="{Binding CommandType}" Width="95"/>
                                 <DataGridTextColumn Header="Credential" Binding="{Binding HasCredential}" Width="90"/>
                                 <DataGridTextColumn Header="Nb params" Binding="{Binding ParameterCount}" Width="80"/>
-                                <DataGridTextColumn Header="Parametres" Binding="{Binding Parameters}" Width="240"/>
+                                <DataGridTextColumn Header="Paramètres" Binding="{Binding Parameters}" Width="240"/>
                                 <DataGridTemplateColumn Header="Resume / description" Width="*">
                                   <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
@@ -8189,9 +8189,9 @@ function Get-MainXaml {
                                 <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
                                   <Button x:Name="BtnCopyCmdlet" Content="Copier la commande" AutomationProperties.Name="Copier la commande"/>
                                   <Button x:Name="BtnCopyCmdletSyntax" Content="Copier la syntaxe" AutomationProperties.Name="Copier la syntaxe"/>
-                                  <Button x:Name="BtnCopyCmdletHelp" Content="Copier l aide" AutomationProperties.Name="Copier l aide"/>
+                                  <Button x:Name="BtnCopyCmdletHelp" Content="Copier lʼaide" AutomationProperties.Name="Copier lʼaide"/>
                                 </WrapPanel>
-                                <TextBox x:Name="TxtCmdletHelp" Style="{StaticResource WrappedHelpText}" Text="Charge les cmdlets puis selectionne une commande." AutomationProperties.Name="Description, syntaxe, parametres et exemples de la commande selectionnee"/>
+                                <TextBox x:Name="TxtCmdletHelp" Style="{StaticResource WrappedHelpText}" Text="Chargez les cmdlets puis sélectionnez une commande." AutomationProperties.Name="Description, syntaxe, paramètres et exemples de la commande sélectionnée"/>
                               </DockPanel>
                             </Border>
                           </Grid>
@@ -8943,7 +8943,7 @@ function Load-TreeRoot {
                     Load-TreeChildren -Node $existingRoot -PreserveExisting -Force
                     $existingRoot.IsExpanded = $true
                     [void](Set-DomeniaControlText -Name "LblTreeStatus" -Text "Actualisation de l arborescence en arriere-plan...")
-                    Set-Status "Actualisation de l arborescence en cours. L arbre actuel reste affiche tant que la nouvelle lecture n est pas validee."
+                    Set-Status "Actualisation de lʼarborescence en cours. Lʼarbre actuel reste affiché tant que la nouvelle lecture nʼest pas validée."
                     return
                 }
             }
@@ -9425,7 +9425,7 @@ function Reset-DomeniaSelectionBoundViews {
             Set-Status "Ancienne fiche videe. Chargement de $objectLabel..."
         }
         else {
-            Set-Status "Aucun objet selectionne."
+            Set-Status "Aucun objet sélectionné."
         }
     }
     catch {
@@ -9714,7 +9714,7 @@ function Fill-ComputerObject {
             $script:Ctrl["TxtCompLinkSource"].Text = "$($link.Source)$confidenceText  $whenText$identityText"
         } else {
             $script:Ctrl["TxtCompLinkedUser"].Text = "Non detecte"
-            $script:Ctrl["TxtCompLinkSource"].Text = "Detection manuelle disponible"
+            $script:Ctrl["TxtCompLinkSource"].Text = "Détection manuelle disponible"
         }
     } catch {
         $script:Ctrl["TxtCompLinkedUser"].Text = "Indisponible"
@@ -9941,7 +9941,7 @@ function Complete-LinkProbeJobs {
                 else {
                     $details = "Aucun dernier utilisateur fiable trouve pour $key"
                     if ($null -ne $result) { $details = [string]$result.Details }
-                    Set-Status "Detection terminee : aucun utilisateur suffisamment fiable pour $key." "INFO"
+                    Set-Status "Détection terminée : aucun utilisateur suffisamment fiable pour $key." "INFO"
                     try { $script:Ctrl["LblLinkProbeStatus"].Text = "Aucun lien ajoute pour $key. $details" } catch { }
                     Write-AppLog "Detection user-machine sans resultat fiable pour $key : $details" "INFO"
                 }
@@ -10305,7 +10305,7 @@ function Start-SelectedCmdletHelp {
         if ($null -eq $row -or [string]::IsNullOrWhiteSpace([string]$row.Name)) { return }
         $name = [string]$row.Name
         $module = [string]$row.Module
-        $script:Ctrl["TxtCmdletHelp"].Text = "Chargement de l aide de $name..."
+        $script:Ctrl["TxtCmdletHelp"].Text = "Chargement de lʼaide de $name..."
         $code = @'
 function Join-HelpText {
     param($Value)
@@ -12331,10 +12331,10 @@ function Complete-DomeniaGlobalSearchUi {
         }
         catch { }
         $filterNote = if ($typeLabel -eq "Tous") { "" } else { " Filtre actif : $typeLabel." }
-        Set-Status "Aucun resultat dans $($State.BaseDn) pour '$query'.$filterNote" "WARN"
+        Set-Status "Aucun résultat dans $($State.BaseDn) pour « $query ».$filterNote" "WARN"
     }
     else {
-        Set-Status "Recherche terminee : $($rows.Count) resultat(s) en $durationMs ms sur $serverLabel."
+        Set-Status "Recherche terminée : $($rows.Count) résultat(s) en $durationMs ms sur $serverLabel."
     }
 
     $filterSummary = (@($filtersUsed) -join " || ")
@@ -13242,16 +13242,16 @@ $owner = try { [string]$security.GetOwner([System.Security.Principal.SecurityIde
             else {
                 $reason = "ACL non disponible"
                 try { if (-not [string]::IsNullOrWhiteSpace([string]$result.Reason)) { $reason = [string]$result.Reason } } catch { }
-                $script:Ctrl["LblPermissionSummary"].Text = "Analyse ACL indisponible : $reason. Les actions restent soumises au controle du DC et au preflight Domenia."
+                $script:Ctrl["LblPermissionSummary"].Text = "Analyse ACL indisponible : $reason. Les actions restent soumises au contrôle du DC et au preflight Domenia."
                 Apply-CurrentPermissionUi
                 Write-AppLog "Analyse ACL non disponible pour $dn : $reason" "WARN"
-                Set-Status "Objet charge. Les droits n ont pas pu etre pre-evalues ; le DC verifiera chaque action." "WARN"
+                Set-Status "Objet chargé. Les droits nʼont pas pu être pré-évalués ; le DC vérifiera chaque action." "WARN"
             }
         } -OnError {
             param($message,$state)
             if ($null -eq $script:SelectedObject -or [string]$script:SelectedObject.DN -ine [string]$state.DN -or [int64]$script:SelectedObjectGeneration -ne [int64]$state.Generation) { return }
             $script:CurrentCapabilities = @{}
-            $script:Ctrl["LblPermissionSummary"].Text = "Analyse impossible : $message. Les actions restent disponibles et seront verifiees par AD a l execution."
+            $script:Ctrl["LblPermissionSummary"].Text = "Analyse impossible : $message. Les actions restent disponibles et seront vérifiées par AD à lʼexécution."
             Apply-CurrentPermissionUi
             $noPopup = -not [bool]$state.UserInitiated
             [void](Show-DomeniaOperationError -Operation "Estimation des droits Active Directory" -ErrorRecordOrException ([string]$message) -NoPopup:$noPopup)
@@ -13394,7 +13394,7 @@ if ([int]$Payload.Iterations -gt 1) {
             $err = @($script:SelfCheckRows | Where-Object { $_.Status -ne "OK" }).Count
             $totalMs = [int](($script:SelfCheckRows | Measure-Object DurationMs -Sum).Sum)
             $script:LastSelfCheckSummary = "$ok OK  $err erreur(s)  $totalMs ms"
-            $script:Ctrl["LblSelfCheckStatus"].Text = "$($script:LastSelfCheckSummary). Aucune ecriture AD effectuee."
+            $script:Ctrl["LblSelfCheckStatus"].Text = "$($script:LastSelfCheckSummary). Aucune écriture AD effectuée."
             Update-Dashboard
             Set-Status "Self-check termine : $($script:LastSelfCheckSummary)."
         } -OnError {
@@ -13577,14 +13577,14 @@ function Complete-DomeniaSecretLoadUi {
     $extra = ""
     if ($effective.Mode -eq "LAPS" -and $null -ne $effective.PSObject.Properties["ModuleState"]) { $extra = " Module : $([string]$effective.ModuleState)  $([string]$effective.ModuleDetail)" }
     if ($effective.Mode -eq "BitLocker" -and $null -ne $effective.PSObject.Properties["RecoveryObjectsFound"] -and [int]$effective.RecoveryObjectsFound -eq 0) {
-        $script:Ctrl["LblSecretsStatus"].Text = "Aucun objet de recuperation visible avec ce compte. L absence de resultat ne prouve pas l absence de cle."
-        Set-Status "BitLocker : aucun objet de recuperation visible avec ce compte." "WARN"
+        $script:Ctrl["LblSecretsStatus"].Text = "Aucun objet de récupération visible avec ce compte. Lʼabsence de résultat ne prouve pas lʼabsence de clé."
+        Set-Status "BitLocker : aucun objet de récupération visible avec ce compte." "WARN"
         [void](Request-DomeniaAccessRecovery -Operation 'Lecture BitLocker' -ErrorValue 'Aucune cle visible.' -OperationId 'ReadBitLocker' -DN ([string]$State.DN) -Possible -Interactive:([int]$State.RetryAttempt -eq 0))
         try { [void](Save-DomeniaSecretIndexEntry -Computer (Get-CurrentSelectedComputerName) -BitLockerKeys 0 -Verdict "aucune cle visible avec ce compte") } catch { }
         return
     }
     $lapsSuffix = if ($lapsFacts) { " " + $lapsFacts + "." } else { "" }
-    $script:Ctrl["LblSecretsStatus"].Text = "$count valeur(s) $($effective.Mode) chargee(s). Valeurs masquees et uniquement en memoire.$extra$lapsSuffix"
+    $script:Ctrl["LblSecretsStatus"].Text = "$count valeur(s) $($effective.Mode) chargée(s). Valeurs masquées et uniquement en mémoire.$extra$lapsSuffix"
     try {
         $verdict = "lisible par ton compte"
         if ($count -eq 0) { $verdict = "present mais non lisible par ton compte" }
@@ -13630,7 +13630,7 @@ function Fail-DomeniaSecretLoadUi {
 function Start-LoadComputerSecrets {
     param([ValidateSet("BitLocker","LAPS")][string]$Mode,[ValidateRange(0,1)][int]$RetryAttempt=0)
     try {
-        if ($null -eq $script:SelectedObject -or $script:SelectedObject.Type -ne "Machine") { Set-Status "Selectionne une machine." "WARN"; return }
+        if ($null -eq $script:SelectedObject -or $script:SelectedObject.Type -ne "Machine") { Set-Status "Sélectionnez une machine." "WARN"; return }
         $opScope=if($Mode -eq 'LAPS'){'ReadLaps'}else{'ReadBitLocker'}
         # D055: the current Windows token, or the account already chosen for this resource, is used without any
         # prompt. Another account is asked only after a refusal for this resource (Get-DomeniaOperationAuthNeed).
@@ -13834,11 +13834,11 @@ function Copy-SelectedSecret {
         $clipboardLimit = [string](Get-DomeniaSecretExposurePolicy).ClipboardLimit
         if ($null -ne $row -and [string]::IsNullOrWhiteSpace([string]$row.Value) -and [bool](Get-DomeniaMember $row 'Metadata' $false)) {
             # D058: a BitLocker line holding metadata only. The chosen key is read, then copied, after this confirmation.
-            if (-not (Confirm-Action ("Lire puis copier temporairement la cle BitLocker " + [string]$row.Account + " ? Seule cette cle est lue. " + $clipboardLimit))) { return }
+            if (-not (Confirm-Action ("Lire puis copier temporairement la clé BitLocker " + [string]$row.Account + " ? Seule cette clé est lue. " + $clipboardLimit))) { return }
             [void](Request-DomeniaBitLockerKey -Trigger 'ExplicitCopy')
             return
         }
-        if ($null -eq $row -or [string]::IsNullOrWhiteSpace([string]$row.Value)) { Set-Status "Aucun secret selectionne." "WARN"; return }
+        if ($null -eq $row -or [string]::IsNullOrWhiteSpace([string]$row.Value)) { Set-Status "Aucun secret sélectionné." "WARN"; return }
         if (-not (Confirm-Action ("Copier temporairement ce secret dans le presse-papiers ? " + $clipboardLimit))) { return }
         Set-DomeniaProtectedClipboard -Value ([string]$row.Value) -MaxLength 1024
         Start-SecretClipboardAutoClear ([string]$row.Value)
@@ -15247,7 +15247,7 @@ function Start-DomeniaComputerInventory {
     param([switch]$Deep)
     try {
         if ($null -eq $script:SelectedObject -or $script:SelectedObject.Type -ne "Machine") {
-            Set-Status "Selectionne une machine avant de lancer l inventaire." "WARN"
+            Set-Status "Sélectionnez une machine avant de lancer lʼinventaire." "WARN"
             return
         }
         $computer = Assert-DomeniaComputerTarget -Computer (Get-CurrentSelectedComputerName)
@@ -15765,7 +15765,7 @@ function Copy-DomeniaGridSelection {
     if ($null -eq $grid) { return }
     $rows = @($grid.SelectedItems)
     if ($rows.Count -eq 0 -and $null -ne $grid.SelectedItem) { $rows = @($grid.SelectedItem) }
-    if ($rows.Count -eq 0) { Set-Status "Aucune ligne selectionnee." "WARN"; return }
+    if ($rows.Count -eq 0) { Set-Status "Aucune ligne sélectionnée." "WARN"; return }
     $lines = New-Object System.Collections.Generic.List[string]
     foreach ($r in $rows) { [void]$lines.Add((Get-DomeniaRowText $r)) }
     Set-ClipboardSafe ([string]::Join([Environment]::NewLine,$lines.ToArray()))
@@ -15808,7 +15808,7 @@ function Start-DomeniaSearchAssociated {
     # Depuis une machine, recherche son utilisateur ; depuis un utilisateur,
     # recherche son poste. C est le trajet le plus frequent en support.
     param($Row)
-    if ($null -eq $Row) { Set-Status "Aucune ligne selectionnee." "WARN"; return }
+    if ($null -eq $Row) { Set-Status "Aucune ligne sélectionnée." "WARN"; return }
     $association = ""
     try { $association = [string]$Row.Association } catch { }
     if ([string]::IsNullOrWhiteSpace($association) -or $association -match "(?i)^(aucun|non detect|inconnu)") {
@@ -15858,25 +15858,25 @@ function Get-DomeniaSelectedMachineRows {
 
 function Copy-DomeniaSelectedObjectNames {
     $rows = @(Get-DomeniaSelectedGridRows)
-    if ($rows.Count -eq 0) { Set-Status "Aucune ligne selectionnee." "WARN"; return }
+    if ($rows.Count -eq 0) { Set-Status "Aucune ligne sélectionnée." "WARN"; return }
     $values = @($rows | ForEach-Object {
         $v = [string]$_.Name
         if ([string]::IsNullOrWhiteSpace($v)) { $v = [string]$_.Login }
         if (-not [string]::IsNullOrWhiteSpace($v)) { $v }
     })
-    if ($values.Count -eq 0) { Set-Status "Aucun nom exploitable dans la selection." "WARN"; return }
+    if ($values.Count -eq 0) { Set-Status "Aucun nom exploitable dans la sélection." "WARN"; return }
     Set-ClipboardSafe (($values -join [Environment]::NewLine))
     Set-Status ("{0} objet(s) copie(s)." -f $values.Count)
 }
 
 function Copy-DomeniaSelectedObjectDns {
     $rows = @(Get-DomeniaSelectedGridRows)
-    if ($rows.Count -eq 0) { Set-Status "Aucune ligne selectionnee." "WARN"; return }
+    if ($rows.Count -eq 0) { Set-Status "Aucune ligne sélectionnée." "WARN"; return }
     $values = @($rows | ForEach-Object {
         $v = [string]$_.DN
         if (-not [string]::IsNullOrWhiteSpace($v)) { $v }
     })
-    if ($values.Count -eq 0) { Set-Status "Aucun DN exploitable dans la selection." "WARN"; return }
+    if ($values.Count -eq 0) { Set-Status "Aucun DN exploitable dans la sélection." "WARN"; return }
     Set-ClipboardSafe (($values -join [Environment]::NewLine))
     Set-Status ("{0} DN copie(s)." -f $values.Count)
 }
@@ -15887,7 +15887,7 @@ function Show-DomeniaBatchNetworkReport {
     # An empty selection is a normal answer (status line), never a binding error in the palette handler.
     param([Parameter(Mandatory=$true)][AllowEmptyCollection()][AllowNull()]$Rows,[ValidateRange(1,200)][int]$Limit=50)
     $items = @($Rows | Where-Object { $null -ne $_ })
-    if ($items.Count -eq 0) { Set-Status "Aucun poste selectionne." "WARN"; return }
+    if ($items.Count -eq 0) { Set-Status "Aucun poste sélectionné." "WARN"; return }
 
     $code = @'
 $results = New-Object Collections.ArrayList
@@ -15956,21 +15956,21 @@ function Complete-DomeniaBatchNetworkReportUi {
     try {
         $effective=Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @("Rows","Count")
         $rows=@($effective.Rows)
-        if($rows.Count -eq 0){Set-Status "Aucun resultat de diagnostic." "WARN";return}
+        if($rows.Count -eq 0){Set-Status "Aucun résultat de diagnostic." "WARN";return}
         $okPing=@($rows|Where-Object{$_.Ping -eq "OK"}).Count
         $ok445=@($rows|Where-Object{$_.SMB445 -eq "OK"}).Count
         $okWinrm=@($rows|Where-Object{$_.WinRM5985 -eq "OK" -or $_.WinRM5986 -eq "OK"}).Count
         $report = ($rows | Format-Table -AutoSize | Out-String -Width 240).Trim()
         Set-ClipboardSafe $report
         Set-Status ("Diagnostic termine : {0} poste(s), ping {1}/{0}, SMB {2}/{0}, WinRM {3}/{0}. Rapport copie." -f $rows.Count,$okPing,$ok445,$okWinrm)
-        Show-DomeniaDialog -Title "Diagnostic reseau groupe" -Message ("$($rows.Count) poste(s) testes.`r`n`r`nPing : $okPing/$($rows.Count)`r`nSMB 445 : $ok445/$($rows.Count)`r`nWinRM : $okWinrm/$($rows.Count)`r`n`r`nLe rapport complet a ete copie dans le presse-papiers.")
+        Show-DomeniaDialog -Title "Diagnostic réseau groupé" -Message ("$($rows.Count) poste(s) testés.`r`n`r`nPing : $okPing/$($rows.Count)`r`nSMB 445 : $ok445/$($rows.Count)`r`nWinRM : $okWinrm/$($rows.Count)`r`n`r`nLe rapport complet a été copié dans le presse-papiers.")
         Add-DomeniaUiLog -Area "Diagnostic groupe" -Level "INFO" -Text ("$($rows.Count) poste(s) testes ; ping=$okPing ; SMB=$ok445 ; WinRM=$okWinrm.")
     } catch { Show-DomeniaOperationError -Operation "Affichage du diagnostic reseau groupe" -ErrorRecordOrException $_ }
 }
 
 function Fail-DomeniaBatchNetworkReportUi {
     param($Message,$State)
-    Set-Status ("Diagnostic reseau groupe en echec : " + [string]$Message) "ERROR"
+    Set-Status ("Diagnostic réseau groupé en échec : " + [string]$Message) "ERROR"
 }
 
 function Copy-DomeniaSelectedRowsForTicket {
@@ -16864,7 +16864,7 @@ function Show-DomeniaSoftwareFromInventory {
 function Start-DomeniaSoftwareInventory {
     try {
         if ($null -eq $script:SelectedObject -or $script:SelectedObject.Type -ne "Machine") {
-            Set-Status "Selectionne une machine avant de charger les logiciels." "WARN"
+            Set-Status "Sélectionnez une machine avant de charger les logiciels." "WARN"
             return
         }
         $computer = Assert-DomeniaComputerTarget -Computer (Get-CurrentSelectedComputerName)
@@ -16994,7 +16994,7 @@ foreach($DomeniaCollectedItem in @($DomeniaCollectedResult)){if($null -ne $Domen
 
 function Get-DomeniaWmiComputer {
     if ($null -eq $script:SelectedObject -or $script:SelectedObject.Type -ne "Machine") {
-        Set-Status "Selectionne une machine avant d utiliser l explorateur WMI." "WARN"
+        Set-Status "Sélectionnez une machine avant dʼutiliser lʼexplorateur WMI." "WARN"
         return ""
     }
     return (Assert-DomeniaComputerTarget -Computer (Get-CurrentSelectedComputerName))
@@ -17161,7 +17161,7 @@ function Start-DomeniaWmiQuery {
         $computer = Get-DomeniaWmiComputer
         if ([string]::IsNullOrWhiteSpace($computer)) { return }
         $className = Get-DomeniaWmiSelectedClass
-        if ([string]::IsNullOrWhiteSpace($className)) { Set-Status "Selectionne d abord une classe." "WARN"; return }
+        if ([string]::IsNullOrWhiteSpace($className)) { Set-Status "Sélectionnez dʼabord une classe." "WARN"; return }
         $namespace = Get-DomeniaWmiSelectedNamespace
         $where = ""
         $limit = 25
@@ -17801,7 +17801,7 @@ function Start-DomeniaIndexRefresh {
             return
         }
         if ($dbCount -eq 0) {
-            if (-not $Silent) { Set-Status "Aucune base autonome : utilise  Mettre a jour tout  d abord." "WARN" }
+            if (-not $Silent) { Set-Status "Aucune base autonome : utilisez  Mettre à jour tout  dʼabord." "WARN" }
             return
         }
         # Point 21: the checkpoint is reused only on its controller and instance, with the data it describes;
@@ -18373,7 +18373,7 @@ function Start-DomeniaParkSweep {
     param([switch]$Silent)
     # Decision David 2026-10-05: no whole-park detection any more (too wide, it disturbed the associations).
     # Detection runs only on the rows displayed in Rechercher, after the user's filters.
-    if(-not $Silent){Set-Status 'Detection sur tout le parc retiree : filtrez la liste dans Rechercher puis Detecter la liste.' 'WARN'}
+    if(-not $Silent){Set-Status 'Détection sur tout le parc retirée : filtrez la liste dans Rechercher puis Détecter la liste.' 'WARN'}
 }
 
 function Request-DomeniaParkSweepAtStartup {
@@ -19041,7 +19041,7 @@ function Search-DomeniaIndexUi {
 function Open-DomeniaIndexSelection {
     try {
         $grid = Get-DomeniaControl -Name "DgIndex"
-        if ($null -eq $grid -or $null -eq $grid.SelectedItem) { Set-Status "Selectionne une ligne." "WARN"; return }
+        if ($null -eq $grid -or $null -eq $grid.SelectedItem) { Set-Status "Sélectionnez une ligne." "WARN"; return }
         $row=$grid.SelectedItem
         if (-not [string]$row.DN) { return }
         Open-AdObject -Dn ([string]$row.DN) -Type ([string]$row.Type) -ObjectGuid ([string]$row.Guid) -SuppressRemoteProbes
@@ -19707,7 +19707,7 @@ function Register-DomeniaShortcuts {
 
 function Start-ComputerDiagnostics {
     try {
-        if ($null -eq $script:SelectedObject -or $script:SelectedObject.Type -ne "Machine") { Set-Status "Selectionne un poste." "WARN"; return }
+        if ($null -eq $script:SelectedObject -or $script:SelectedObject.Type -ne "Machine") { Set-Status "Sélectionnez un poste." "WARN"; return }
         $computer = Assert-DomeniaComputerTarget -Computer (Get-CurrentSelectedComputerName)
         $diagnosticState = New-DomeniaClassicCollectionState -Computer $computer -ResultKind 'ComputerDiagnostics' -RequestKey 'diagnostics-v1' -PublishHandler 'Publish-DomeniaComputerDiagnostics' -PublishErrorHandler 'Fail-DomeniaComputerDiagnostics'
         [void](Set-DomeniaControlText -Name "LblComputerDiag" -Text ("Diagnostic de " + $computer + " en cours..."))
@@ -20228,7 +20228,7 @@ function Fail-DomeniaComputerUserProbeUi {
     try { if ($script:LinkProbeDone.ContainsKey($computer)) { [void]$script:LinkProbeDone.Remove($computer) } } catch { }
     if ([string]$script:ActiveLinkProbeId -eq $probeId) { $script:ActiveLinkProbeId=""; $script:ActiveLinkProbeComputer="" }
     [void](Set-DomeniaControlText -Name "LblLinkProbeStatus" -Text "Echec pour $computer : $detail")
-    Set-Status "Detection du dernier utilisateur de $computer : $detail" "ERROR"
+    Set-Status "Détection du dernier utilisateur de $computer : $detail" "ERROR"
     Write-AppLog "Detection du dernier utilisateur de $computer : $detail" "ERROR"
     try { Refresh-AssociationContext -SkipResultRefresh } catch { }
 }
@@ -20562,7 +20562,7 @@ catch {
 
 function Start-ProbeForSelectedComputer {
     param([switch]$Force)
-    if ($null -eq $script:SelectedObject -or $script:SelectedObject.Type -ne "Machine") { Set-Status "Selectionne une machine." "WARN"; return }
+    if ($null -eq $script:SelectedObject -or $script:SelectedObject.Type -ne "Machine") { Set-Status "Sélectionnez une machine." "WARN"; return }
     $computer=Get-CurrentSelectedComputerName
     if (-not [string]::IsNullOrWhiteSpace($computer)) { Start-ComputerUserLinkProbe -Computer $computer -Force:$Force }
 }
@@ -20644,7 +20644,7 @@ foreach($module in @($modules)){
             $script:CmdletReferenceRows = @($result.Rows)
             $script:CurrentCmdletHelp = ""
             $script:CurrentCmdletSyntax = ""
-            $script:Ctrl["TxtCmdletHelp"].Text = if($result.Loaded){"Selectionne une commande pour charger son aide detaillee."}else{"Aucune cmdlet ActiveDirectory ou LAPS n est disponible sur ce poste."}
+            $script:Ctrl["TxtCmdletHelp"].Text = if($result.Loaded){"Sélectionnez une commande pour charger son aide détaillée."}else{"Aucune cmdlet ActiveDirectory ou LAPS nʼest disponible sur ce poste."}
             Filter-AdCmdletReference
             if ($result.Loaded) { Set-Status ([string]$result.Detail) } else { Set-Status ([string]$result.Detail) "WARN" }
         } -OnError { param($message) Set-Status "Cmdlets : $message" "ERROR" } | Out-Null
@@ -21352,7 +21352,7 @@ function Open-DomeniaAuditLog {
         if (-not (Test-Path -LiteralPath $script:AuditPath)) { [System.IO.File]::WriteAllText($script:AuditPath,"",(New-Object System.Text.UTF8Encoding($false))) }
         Start-Process notepad.exe -ArgumentList @($script:AuditPath)
     }
-    catch { Show-ErrorBox "Impossible d ouvrir le journal local : $($_.Exception.Message)" }
+    catch { Show-ErrorBox "Impossible dʼouvrir le journal local : $($_.Exception.Message)" }
 }
 
 
@@ -22315,7 +22315,7 @@ $rows=foreach($l in @($Payload.Links)) {
             Show-DomeniaOrphanLinks -Result $result
         } -OnError { param($message) Set-Status "Contrôle des associations : $message" "ERROR" } | Out-Null
     }
-    catch { Show-ErrorBox "Erreur controle des liens : $($_.Exception.Message)" }
+    catch { Show-ErrorBox "Erreur contrôle des liens : $($_.Exception.Message)" }
 }
 
 
@@ -22818,7 +22818,7 @@ function Refresh-AssociationContext {
         if ($script:Ctrl.ContainsKey("TxtCompLinkConfidence")) { $script:Ctrl["TxtCompLinkConfidence"].Text = "" }
         if ($script:Ctrl.ContainsKey("TxtCompLinkWhen")) { $script:Ctrl["TxtCompLinkWhen"].Text = "" }
         if ($script:Ctrl.ContainsKey("TxtUserLinkedComputers")) { $script:Ctrl["TxtUserLinkedComputers"].ItemsSource = $null }
-        if ($script:Ctrl.ContainsKey("LblUserLinkSummary")) { $script:Ctrl["LblUserLinkSummary"].Text = "Aucun poste associe." }
+        if ($script:Ctrl.ContainsKey("LblUserLinkSummary")) { $script:Ctrl["LblUserLinkSummary"].Text = "Aucun poste associé." }
         # Point 9: identity of the displayed object (GUID, and whenCreated once its AD fiche was read); the associations of
         # a former holder of the same name stay out of this context.
         $selectedGuid = ConvertTo-DomeniaGuidText (Get-DomeniaMember $script:SelectedObject 'Guid' '')
@@ -22841,8 +22841,8 @@ function Refresh-AssociationContext {
             }
             else {
                 $activeProbe = Get-DomeniaRunningComputerUserProbe -Computer $computer
-                $script:Ctrl["TxtCompLinkedUser"].Text = if ($null -ne $activeProbe) { 'Detection en cours...' } else { 'Non determine' }
-                $script:Ctrl["TxtCompLinkSource"].Text = if ($null -ne $activeProbe) { 'Interrogation distante en cours' } else { 'Aucune association en cache ; detection disponible' }
+                $script:Ctrl["TxtCompLinkedUser"].Text = if ($null -ne $activeProbe) { 'Détection en cours...' } else { 'Non determine' }
+                $script:Ctrl["TxtCompLinkSource"].Text = if ($null -ne $activeProbe) { 'Interrogation distante en cours' } else { 'Aucune association en cache ; détection disponible' }
             }
         }
         elseif ($null -ne $script:SelectedObject -and [string]$script:SelectedObject.Type -eq "Utilisateur") {
@@ -22854,7 +22854,7 @@ function Refresh-AssociationContext {
                 if ($computers.Count -gt 0) { $script:Ctrl["TxtUserLinkedComputers"].SelectedIndex = 0 }
             }
             if ($script:Ctrl.ContainsKey("LblUserLinkSummary")) {
-                $script:Ctrl["LblUserLinkSummary"].Text = if ($computers.Count -gt 0) { "$($computers.Count) poste(s) associe(s) : $($computers -join ', ')" } else { "Aucun poste associe." }
+                $script:Ctrl["LblUserLinkSummary"].Text = if ($computers.Count -gt 0) { "$($computers.Count) poste(s) associe(s) : $($computers -join ', ')" } else { "Aucun poste associé." }
             }
         }
         Refresh-LinkGrid
@@ -22885,7 +22885,7 @@ function Refresh-AssociationContext {
 function Start-OpenLinkedObject {
     param([ValidateSet("Utilisateur","Machine")][string]$Type,[string]$Identity)
     try {
-        if ([string]::IsNullOrWhiteSpace($Identity)) { Set-Status "Aucune association selectionnee." "WARN"; return }
+        if ([string]::IsNullOrWhiteSpace($Identity)) { Set-Status "Aucune association sélectionnée." "WARN"; return }
         $escaped = Escape-LdapValue $Identity
         $filter = if ($Type -eq "Utilisateur") { "(&(objectCategory=person)(objectClass=user)(sAMAccountName=$escaped))" } else { "(&(objectCategory=computer)(|(name=$escaped)(sAMAccountName=$escaped`$)(dNSHostName=$escaped)))" }
         $code = @'
@@ -22949,7 +22949,7 @@ function Copy-DashboardSummary {
             "Objet : $($script:Ctrl["TxtDashSelected"].Text)"
         ) -join [Environment]::NewLine
         Set-ClipboardSafe $txt
-        Set-Status "Etat dashboard copie."
+        Set-Status "État dashboard copié."
     } catch { Show-ErrorBox "Erreur copie dashboard : $($_.Exception.Message)" }
 }
 
@@ -23673,7 +23673,7 @@ function Wire-Events {
         $script:Ctrl["BtnIndexExport"].Add_Click({
             try {
                 $grid = Get-DomeniaControl -Name "DgIndex"
-                if ($null -eq $grid -or $null -eq $grid.ItemsSource) { Set-Status "Aucun resultat a exporter." "WARN"; return }
+                if ($null -eq $grid -or $null -eq $grid.ItemsSource) { Set-Status "Aucun résultat à exporter." "WARN"; return }
                 Show-DomeniaExportResult -Result (Export-DomeniaCsv -Rows @($grid.ItemsSource) -Grid $grid -Subject 'index')
             }
             catch { [void](Show-DomeniaOperationError -Operation "Export de l index" -ErrorRecordOrException $_) }
@@ -23777,7 +23777,7 @@ function Wire-Events {
     if ($script:Ctrl.ContainsKey("BtnRunInventoryDeep")) { $script:Ctrl["BtnRunInventoryDeep"].Add_Click({ Start-DomeniaComputerInventory -Deep }) }
     # Home overview (decision David 2026-10-08): it follows the OU of Rechercher and only displays; the analyses
     # stay in Rechercher on the displayed list. It is recomputed when Accueil is shown and its OU or data changed.
-    if ($script:Ctrl.ContainsKey("BtnFleetDashboardRefresh")) { $script:Ctrl["BtnFleetDashboardRefresh"].Add_Click({ try { Start-DomeniaFleetDashboard } catch { Set-Status ('Vue d ensemble non calculee : ' + $_.Exception.Message) 'WARN' } }) }
+    if ($script:Ctrl.ContainsKey("BtnFleetDashboardRefresh")) { $script:Ctrl["BtnFleetDashboardRefresh"].Add_Click({ try { Start-DomeniaFleetDashboard } catch { Set-Status ('Vue dʼensemble non calculée : ' + $_.Exception.Message) 'WARN' } }) }
     if ($script:Ctrl.ContainsKey("BtnFleetScope")) { $script:Ctrl["BtnFleetScope"].Add_Click({ try { Show-DomeniaFleetScopeSource } catch { Set-Status ('Sélecteur dʼOU indisponible : ' + $_.Exception.Message) 'WARN' } }) }
     if ($script:Ctrl.ContainsKey("BtnFleetScopeReset")) { $script:Ctrl["BtnFleetScopeReset"].Add_Click({ $script:FleetScopeDn = ''; $script:FleetStale = $true; Request-DomeniaFleetRefresh; Set-Status 'Tableau de bord : tout le domaine depuis la base locale.' }) }
     Initialize-DomeniaUiZoom
@@ -25740,7 +25740,7 @@ try {
         Set-ControlsBusy -Names $DisableControls -Busy $true
         $job.BusyApplied = $true
         $script:AsyncJobs[$id] = $job
-        if ($foregroundValue) { Set-Status ("En attente : $Name. Aucune lecture envoyee pour l instant.") }
+        if ($foregroundValue) { Set-Status ("En attente : $Name. Aucune lecture envoyée pour lʼinstant.") }
         if ($foregroundValue) { $script:LatestTaskId = $id }
         try { Resume-DomeniaAsyncPoll } catch { }
         Update-TaskUi -Force
@@ -25772,7 +25772,7 @@ function Request-UiTaskStop {
     if ([string]$job.State -eq 'Queued') {
         # D017: an entry never sent is withdrawn at once; no call to stop, no cleanup to wait for.
         if ([bool]$job.NonCancellable -and -not $Force) {
-            if (-not $Silent) { Set-Status "Cette demande protegee reste en file : elle partira des qu une place se libere." "WARN" }
+            if (-not $Silent) { Set-Status "Cette demande protégée reste en file : elle partira dès quʼune place se libère." "WARN" }
             return
         }
         Stop-DomeniaLiveJob -Job $job
@@ -27039,7 +27039,7 @@ function Apply-CurrentPermissionUi {
             elseif ($actualDenied) { $script:Ctrl[$name].ToolTip = "Desactive apres un refus d'acces reel du controleur de domaine pour l'identite connectee. Recharge l'objet apres correction des droits." }
             elseif ($denied) { $script:Ctrl[$name].ToolTip = "Desactive par la politique locale a partir de l'estimation ACL." }
             elseif ($state -eq "Refuse") { $script:Ctrl[$name].ToolTip = "Estimation ACL defavorable, non bloquante par defaut. Le preflight et le controleur de domaine restent l'autorite finale." }
-            elseif ($state -eq "Indetermine") { $script:Ctrl[$name].ToolTip = "Droit indetermine localement : le DC verifiera a l execution et le preflight reste obligatoire." }
+            elseif ($state -eq "Indetermine") { $script:Ctrl[$name].ToolTip = "Droit indéterminé localement : le DC vérifiera à lʼexécution et le preflight reste obligatoire." }
         }
     }
     foreach ($name in @("BtnCompGpUpdate","BtnCompRestart","BtnCompRimotte")) {
@@ -27326,11 +27326,11 @@ function Complete-DomeniaWriteTaskUi {
             if ($partial) {
                 Write-AppLog "[$correlation] PARTIEL $name via $backend : $message" "WARN"
                 Set-Status "$message (Partiel)" "WARN"
-                Show-InfoBox "$name a ete accepte en partie par le controleur de domaine.`r`n`r`n$message`r`n`r`nVerifie les etapes signalees en echec avant toute nouvelle tentative."
+                Show-InfoBox "$name a été accepté en partie par le contrôleur de domaine.`r`n`r`n$message`r`n`r`nVérifiez les étapes signalées en échec avant toute nouvelle tentative."
             }
             else {
                 Write-AppLog "[$correlation] SUCCES $name via $backend : $message" "INFO"
-                Set-Status "$message (Verifie)"
+                Set-Status "$message (Vérifié)"
             }
         }
         elseif ($postStatus -eq "Partiel" -or $postStatus -eq "A verifier") {
@@ -27344,7 +27344,7 @@ function Complete-DomeniaWriteTaskUi {
         elseif ($partial) {
             Write-AppLog "[$correlation] PARTIEL $name via $backend : $message" "WARN"
             Set-Status $message "WARN"
-            Show-InfoBox "$name a ete accepte en partie par le controleur de domaine.`r`n`r`n$message`r`n`r`nVerifie les etapes signalees en echec avant toute nouvelle tentative."
+            Show-InfoBox "$name a été accepté en partie par le contrôleur de domaine.`r`n`r`n$message`r`n`r`nVérifiez les étapes signalées en échec avant toute nouvelle tentative."
         }
         else {
             Write-AppLog "[$correlation] SUCCES $name via $backend : $message" "INFO"
@@ -27362,7 +27362,7 @@ function Complete-DomeniaWriteTaskUi {
             $detail = "L'ecriture a ete verifiee par le DC, mais le rafraichissement de l'interface a echoue : $($_.Exception.Message)"
             Write-AppLog "[$correlation] $name : ecriture verifiee ; erreur UI  $($_.Exception.ToString())" "WARN"
             Set-Status $detail "WARN"
-            Show-InfoBox "$name : $detail`r`n`r`nRecharge manuellement l'objet ; ne rejoue pas l'ecriture."
+            Show-InfoBox "$name : $detail`r`n`r`nRechargez manuellement lʼobjet ; ne rejouez pas lʼécriture."
         }
         else {
             $script:WriteState = "Unknown"
@@ -27419,7 +27419,7 @@ function Fail-DomeniaWriteTaskUi {
         } catch { }
         Show-InfoBox $info
     }
-    else { Show-ErrorBox "$($errorInfo.Friendly)`r`n`r`nLe detail technique a ete enregistre dans le journal Domenia." }
+    else { Show-ErrorBox "$($errorInfo.Friendly)`r`n`r`nLe détail technique a été enregistré dans le journal Domenia." }
 }
 
 function Get-DomeniaWriteRoute {
@@ -27598,9 +27598,9 @@ function Start-DomeniaWriteTask {
         # confirmation doit etre encore la branche selectionnee et le parent du payload.
         $branchNow = ([string]$script:SelectedBranchDn).Trim()
         $branchPlanned = ([string]$BranchDn).Trim()
-        if (($OperationId -cne 'WriteCreateOu') -or (-not $branchPlanned)) { Show-ErrorBox 'Aucun plan confirme pour cette ecriture : rien n est envoye.'; return }
+        if (($OperationId -cne 'WriteCreateOu') -or (-not $branchPlanned)) { Show-ErrorBox 'Aucun plan confirmé pour cette écriture : rien nʼest envoyé.'; return }
         if (($branchNow -ine $branchPlanned) -or (([string](Get-DomeniaMember $Payload 'ParentDn' '')).Trim() -ine $branchPlanned)) {
-            Show-ErrorBox 'La branche cible a change depuis la confirmation : rien n est envoye.'
+            Show-ErrorBox 'La branche cible a changé depuis la confirmation : rien nʼest envoyé.'
             Write-AppLog "PLAN INVALIDE $Name : branche $branchPlanned devenue $branchNow" "WARN"
             return
         }
@@ -27974,7 +27974,7 @@ function Start-DomeniaAttributeWrite {
         [AllowEmptyString()][string]$TypedConfirmation = ''
     )
     $raw = @($Changes | Where-Object { $null -ne $_ })
-    if ($raw.Count -eq 0) { Set-Status "Aucune modification detectee. Aucun appel d ecriture AD."; return }
+    if ($raw.Count -eq 0) { Set-Status "Aucune modification détectée. Aucun appel dʼécriture AD."; return }
     $cleanList = New-Object Collections.ArrayList
     $conditionalNames = New-Object Collections.ArrayList
     $checkedNames = New-Object Collections.ArrayList
@@ -28413,7 +28413,7 @@ $ReadUtc=[DateTime]::UtcNow.ToString('o')
         $who=[string]$plan.Target.Name
         if($Disabled){[void](Request-DomeniaWriteConfirmation -Plan $plan -Title 'Désactiver le compte' -Message ('« '+$who+' » ne pourra plus ouvrir de session tant que le compte reste désactivé.') -ConfirmText 'Désactiver' -Risk Danger -Send $send -State $state)}
         else{[void](Request-DomeniaWriteConfirmation -Plan $plan -Title 'Activer le compte' -Message ('« '+$who+' » pourra de nouveau ouvrir une session.') -ConfirmText 'Activer' -Send $send -State $state)}
-    } catch { Show-ErrorBox "Erreur etat du compte : $($_.Exception.Message)" }
+    } catch { Show-ErrorBox "Erreur état du compte : $($_.Exception.Message)" }
 }
 
 function Unlock-UserAccount {
@@ -28612,7 +28612,7 @@ function Apply-UserAccountOptions {
         $masks=[ordered]@{PasswordNeverExpires=65536;PasswordNotRequired=32;AllowReversiblePasswordEncryption=128;SmartcardLogonRequired=262144;AccountNotDelegated=1048576;DoesNotRequirePreAuth=4194304;UseDESKeyOnly=2097152;TrustedForDelegation=524288;TrustedToAuthForDelegation=16777216}
         $target=$oldUac;$changed=New-Object Collections.ArrayList;$planChanges=New-Object Collections.ArrayList;$highRisk=$false
         foreach($k in $options.Keys){$old=(($oldUac -band [int]$masks[$k]) -ne 0);$new=[bool]$options[$k];if($old -ne $new){[void]$changed.Add("$k : $old -> $new");[void]$planChanges.Add([pscustomobject]@{ Attribute=$k; Kind="Replace"; Before=[string]$old; After=[string]$new });if($k -in @("PasswordNotRequired","AllowReversiblePasswordEncryption","DoesNotRequirePreAuth","UseDESKeyOnly","TrustedForDelegation","TrustedToAuthForDelegation")){$highRisk=$true}};if($new){$target=$target -bor [int]$masks[$k]}else{$target=$target -band (-bnot [int]$masks[$k])}}
-        if($changed.Count -eq 0){Set-Status "Aucune option UAC modifiee. Aucun appel AD.";return}
+        if($changed.Count -eq 0){Set-Status "Aucune option UAC modifiée. Aucun appel AD.";return}
         $changes=@($planChanges)
         try { $plan = New-DomeniaSelectionWritePlan -OperationId "WriteAccountOptions" -Changes $changes -Effects @() } catch { Show-ErrorBox $_.Exception.Message; return }
         try { $safety = Get-DomeniaSafetyDescriptor } catch { Show-ErrorBox $_.Exception.Message; return }
@@ -28783,7 +28783,7 @@ function Move-SelectedObject {
         $targetCheck = Test-DomeniaWriteTargetDn -Dn $target -BaseDn ([string]$script:Conn.BaseDn)
         if (-not [bool]$targetCheck.Valid) { Show-ErrorBox ([string]$targetCheck.Reason) -Details $target; return }
         $identity = Get-DomeniaCurrentSelectionIdentity
-        if ($null -eq $identity) { Show-ErrorBox 'Selection sans identite exacte (domaine et GUID) : relire l objet avant toute ecriture.'; return }
+        if ($null -eq $identity) { Show-ErrorBox 'Sélection sans identité exacte (domaine et GUID) : relire lʼobjet avant toute écriture.'; return }
         $oldDn = [string]$identity.DN
         $parts = @()
         try { $parts = @(Split-DomeniaDn $oldDn) } catch { $parts = @($oldDn -split ',') }
@@ -28948,7 +28948,7 @@ function Rename-ComputerObject {
         $newName=($script:Ctrl["TxtCompNewName"].Text+"").Trim();if([string]::IsNullOrWhiteSpace($newName)){throw "Nouveau nom vide."}
         if($newName -notmatch "^[A-Za-z0-9][A-Za-z0-9-]{0,62}$"){throw "Nom ordinateur invalide."}
         $identity = Get-DomeniaCurrentSelectionIdentity
-        if ($null -eq $identity) { Show-ErrorBox 'Selection sans identite exacte (domaine et GUID) : relire l objet avant toute ecriture.'; return }
+        if ($null -eq $identity) { Show-ErrorBox 'Sélection sans identité exacte (domaine et GUID) : relire lʼobjet avant toute écriture.'; return }
         $oldName = [string]$identity.Name
         if ([string]::IsNullOrWhiteSpace($oldName)) { $oldName = [string](Get-DomeniaOriginalValue "name") }
         $changes = @([pscustomobject]@{ Attribute="name"; Kind="Move"; Before=$oldName; After=$newName })
@@ -29064,8 +29064,8 @@ function Set-OrClearRawAttribute {
         if (-not [bool]$rule.Allowed) { throw ([string]$rule.Reason) }
         $value = [string]$script:Ctrl["TxtRawAttrValue"].Text
         $old = Get-DomeniaOriginalValue $attr
-        if ($Clear -and [string]::IsNullOrWhiteSpace($old)) { Set-Status "Attribut deja vide. Aucune ecriture AD."; return }
-        if ((-not $Clear) -and ([string]$old -ceq $value)) { Set-Status "Valeur deja conforme. Aucune ecriture AD."; return }
+        if ($Clear -and [string]::IsNullOrWhiteSpace($old)) { Set-Status "Attribut déjà vide. Aucune écriture AD."; return }
+        if ((-not $Clear) -and ([string]$old -ceq $value)) { Set-Status "Valeur déjà conforme. Aucune écriture AD."; return }
         $change = [pscustomobject]@{ Name=$attr; Old=[string]$old; New=$value; Clear=$Clear }
         Start-DomeniaAttributeWrite -OperationName "Attribut brut $attr" -Changes @($change) -Capability "Edit" -DisableControls @("BtnRawSet","BtnRawClear") -RawEdit -TypedConfirmation "MODIFIER"
     }
@@ -29077,9 +29077,9 @@ function Delete-SelectedObject {
         if ($null -eq $script:SelectedObject) { return }
         Assert-DomeniaCapability "Delete"
         $identity = Get-DomeniaCurrentSelectionIdentity
-        if ($null -eq $identity) { Show-ErrorBox 'Selection sans identite exacte (domaine et GUID) : relire l objet avant toute ecriture.'; return }
+        if ($null -eq $identity) { Show-ErrorBox 'Sélection sans identité exacte (domaine et GUID) : relire lʼobjet avant toute écriture.'; return }
         $dn = [string]$identity.DN
-        if ([string]::IsNullOrWhiteSpace($dn)) { Show-ErrorBox 'La selection courante n a pas de DN exact : relire l objet avant suppression.'; return }
+        if ([string]::IsNullOrWhiteSpace($dn)) { Show-ErrorBox 'La sélection courante nʼa pas de DN exact : relire lʼobjet avant suppression.'; return }
         $type = [string]$script:SelectedObject.Type
         $name = [string]$script:SelectedObject.Name
         if ([string]::IsNullOrWhiteSpace($name)) { $name = [string]$script:Ctrl["TxtObjName"].Text }
@@ -29275,7 +29275,7 @@ function Update-Dashboard {
         $script:Ctrl["TxtDashDomain"].Text=[string]$script:Conn.Domain
         $script:Ctrl["TxtDashServer"].Text=[string]$script:Conn.Server
         $script:Ctrl["TxtDashUser"].Text=[string]$script:Conn.BindUser
-        $script:Ctrl["TxtDashMode"].Text=if($script:ReadOnlyMode){"Lecture seule (securite par defaut)"}else{"Ecriture autorisee sous controles"}
+        $script:Ctrl["TxtDashMode"].Text=if($script:ReadOnlyMode){"Lecture seule (sécurité par défaut)"}else{"Écriture autorisée sous contrôles"}
         $script:Ctrl["TxtDashBaseDn"].Text=[string]$script:Conn.BaseDn
         $script:Ctrl["TxtDashBranch"].Text=[string]$script:SelectedBranchDn
         $script:Ctrl["TxtDashRows"].Text=[string]$rows.Count
@@ -29284,11 +29284,11 @@ function Update-Dashboard {
         # Demonstration: Get-Command on an AD cmdlet auto-imports ActiveDirectory, whose AD: drive binds to a domain controller.
         if($adCheckDue -and [bool]$script:DemoMode){$script:DashboardAdModuleLoaded=$false;$script:DashboardAdModuleCheckedAt=Get-Date;$adCheckDue=$false}
         if($adCheckDue){$script:DashboardAdModuleLoaded=[bool](Test-DomeniaAdCommandsAvailable);$script:DashboardAdModuleCheckedAt=Get-Date}
-        $script:Ctrl["TxtDashModule"].Text=if([bool]$script:DashboardAdModuleLoaded){"ActiveDirectory charge"}else{"A la demande : RSAT/DLL verifies/LDAP"}
+        $script:Ctrl["TxtDashModule"].Text=if([bool]$script:DashboardAdModuleLoaded){"ActiveDirectory charge"}else{"À la demande : RSAT/DLL vérifiés/LDAP"}
         $script:Ctrl["TxtDashStats"].Text=[string]$stats
         $script:Ctrl["TxtDashSelected"].Text=if($null -ne $script:SelectedObject){"$($script:SelectedObject.Type)  $($script:SelectedObject.Name)"}else{"Aucun"}
-        if($script:Ctrl.ContainsKey("TxtDashRights")){$script:Ctrl["TxtDashRights"].Text=if($script:CurrentCapabilities.Count -gt 0){($script:CurrentCapabilities.GetEnumerator()|ForEach-Object{"$($_.Key)=$($_.Value)"}) -join "  "}else{"Analyse a l ouverture de l objet"}}
-        if($script:Ctrl.ContainsKey("TxtDashTasks")){$script:Ctrl["TxtDashTasks"].Text="$(@($script:AsyncJobs.Keys).Count) tache(s)  ecriture=$($script:WriteState)"}
+        if($script:Ctrl.ContainsKey("TxtDashRights")){$script:Ctrl["TxtDashRights"].Text=if($script:CurrentCapabilities.Count -gt 0){($script:CurrentCapabilities.GetEnumerator()|ForEach-Object{"$($_.Key)=$($_.Value)"}) -join "  "}else{"Analyse à lʼouverture de lʼobjet"}}
+        if($script:Ctrl.ContainsKey("TxtDashTasks")){$script:Ctrl["TxtDashTasks"].Text="$(@($script:AsyncJobs.Keys).Count) tâche(s)  écriture=$($script:WriteState)"}
         if($script:Ctrl.ContainsKey("TxtDashCache")){
             $limit=[Math]::Max(1,[Math]::Min(100000,[int](Get-CfgValue 'Cache' 'MaxEntries' 500)))
             $ttl=[Math]::Max(1,[Math]::Min(86400,[int](Get-CfgValue 'Cache' 'TtlSeconds' 90)))

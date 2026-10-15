@@ -41,7 +41,7 @@ Quand : avant toute intervention, vous devez retrouver un poste, un utilisateur 
 
 1. **Rechercher l'utilisateur.** Tapez son nom ou son identifiant dans la barre du haut. Sur sa ligne, « Association mémorisée » indique déjà le poste lié, s'il est connu.
 2. **Ouvrir sa fiche.** Double-cliquez sur la ligne, puis cliquez sur l'onglet « Utilisateur ».
-3. **Lire ses postes.** « Postes associes » liste les postes liés à ce compte. Sélectionnez-en un et cliquez sur « Ouvrir le poste ».
+3. **Lire ses postes.** « Postes associés » liste les postes liés à ce compte. Sélectionnez-en un et cliquez sur « Ouvrir le poste ».
 
 > [!ASTUCE] Plus court : clic droit sur la ligne de l'utilisateur dans les résultats, puis « Rechercher le poste associé ».
 
@@ -169,7 +169,7 @@ Quand : vous avez besoin du matériel, du système, des disques ou de la configu
 2. **Choisir l'inventaire.** Cliquez sur « Inventaire rapide (≈1 min) » (matériel, système, disques, réseau, sécurité, logiciels, services) ou sur « Inventaire complet (≈3 min) », plus long, qui ajoute les processus, les tâches planifiées, les certificats et les erreurs récentes.
 3. **Attendre la fin.** Sur la ligne de « Categorie », un résumé donne ensuite le nombre d'éléments lus et le nombre de sources accessibles ou refusées.
 4. **Lire le résultat.** Chaque ligne donne la « Categorie », l'« Element », la « Valeur » et la « Source ». Choisissez une catégorie dans « Categorie » pour n'afficher qu'elle.
-5. **Transmettre.** Cliquez sur « Copier » ou sur « Exporter CSV » pour joindre l'inventaire au ticket. « Exporter CSV » enregistre le fichier sans rien demander : un bandeau de la page annonce « … lignes exportées » avec le nom du fichier et propose « Ouvrir le dossier » ; la barre d'état donne le chemin complet. Le volet « Detail par source » indique ce qui a été lu ou refusé.
+5. **Transmettre.** Cliquez sur « Copier » ou sur « Exporter CSV » pour joindre l'inventaire au ticket. « Exporter CSV » enregistre le fichier sans rien demander : un bandeau de la page annonce « … lignes exportées » avec le nom du fichier et propose « Ouvrir le dossier » ; la barre d'état donne le chemin complet. Le volet « Détail par source » indique ce qui a été lu ou refusé.
 
 > [!RESULTAT] L'inventaire est affiché, le tableau de bord de « Vue d'ensemble » se remplit avec les mêmes données (chapitre 3) et l'en-tête du poste en donne l'âge.
 
@@ -515,7 +515,7 @@ Quand : vous devez savoir si un logiciel est installé sur un poste, dans quelle
 
 | Vous voyez | Que faire |
 |---|---|
-| « Selectionne un poste, puis charge la liste. » | Sélectionnez un poste dans « Rechercher », puis cliquez sur « Charger les logiciels ». |
+| « Sélectionnez un poste, puis chargez la liste. » | Sélectionnez un poste dans « Rechercher », puis cliquez sur « Charger les logiciels ». |
 | « Lecture impossible : » suivi d'un motif | Vérifiez le poste avec « Tester la réponse ». S'il répond, prévenez l'administrateur. |
 | Un logiciel attendu n'apparaît pas | Videz « Filtre », remettez « Portee » sur « Toutes ». Cochez « Par utilisateur » ou « Applications Store », puis rechargez. |
 | « Chargez les logiciels pour afficher la synthese. » | Cliquez sur « Charger les logiciels ». |

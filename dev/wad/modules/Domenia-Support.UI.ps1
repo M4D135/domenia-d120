@@ -210,7 +210,7 @@ function New-DomeniaSupportUiReport {
 
 function Export-DomeniaSupportHtml {
     $report=New-DomeniaSupportUiReport
-    if (-not (Confirm-Action 'Le dossier contient des identifiants et metadonnees internes du parc. Il ne contient pas les champs secrets dedies. Enregistrer ce dossier localement ?')) { return }
+    if (-not (Confirm-Action 'Le dossier contient des identifiants et métadonnées internes du parc. Il ne contient pas les champs secrets dédiés. Enregistrer ce dossier localement ?')) { return }
     $dialog=New-DomeniaFileRequest -Mode Save
     $dialog.Title='DOMENIA : enregistrer le dossier support'
     $dialog.Filter='Dossier HTML (*.html)|*.html'; $dialog.DefaultExt='.html';$dialog.AddExtension=$true;$dialog.OverwritePrompt=$true
@@ -275,7 +275,7 @@ function Initialize-DomeniaSupportUi {
     (Get-DomeniaControl 'BtnSupportRemovePin').Add_Click({$row=(Get-DomeniaControl 'DgSupportPins').SelectedItem;if ($null -ne $row){[void]$script:SupportState.Pins.Remove($row);[void](Set-DomeniaItemsSource 'DgSupportPins' $script:SupportState.Pins.ToArray())}})
     (Get-DomeniaControl 'TxtSupportIncidentFilter').Add_TextChanged({Update-DomeniaSupportIncidents})
     (Get-DomeniaControl 'BtnSupportClearIncidents').Add_Click({$script:SupportState.Incidents.Clear();$script:SupportState.Revision++;Update-DomeniaSupportIncidents;[void](Set-DomeniaControlText 'TxtSupportIncidentDetail' '')})
-    (Get-DomeniaControl 'BtnSupportClearSession').Add_Click({if (Confirm-Action 'Vider les captures, reperes et incidents de l atelier ? Aucune donnee de la base DOMENIA ni d AD ne sera supprimee.') {Reset-DomeniaSupportSession;Update-DomeniaSupportView -Force}})
+    (Get-DomeniaControl 'BtnSupportClearSession').Add_Click({if (Confirm-Action 'Vider les captures, repères et incidents de lʼatelier ? Aucune donnée de la base DOMENIA ni dʼAD ne sera supprimée.') {Reset-DomeniaSupportSession;Update-DomeniaSupportView -Force}})
     (Get-DomeniaControl 'DgSupportFindings').Add_SelectionChanged({
         $row=(Get-DomeniaControl 'DgSupportFindings').SelectedItem
         $text='Selectionne un constat.'

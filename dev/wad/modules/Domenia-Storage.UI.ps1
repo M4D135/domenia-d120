@@ -27,7 +27,7 @@ function Add-DomeniaIndexPersistence {
     if($null -eq $script:Persistence){Initialize-DomeniaPersistence}
     if(-not $script:DatabaseScopedPath){return $false}
     $key='Index|'+[string]$script:DatabaseScopedPath+'|'+[string]$Row.Guid+'|'+[string]$Row.DN
-    if($script:Persistence.Pending.Count -ge 256 -and -not $script:Persistence.Pending.Contains($key)){Set-Status 'Cache en attente sature. Les donnees restent visibles mais non enregistrees.' 'WARN';return $false}
+    if($script:Persistence.Pending.Count -ge 256 -and -not $script:Persistence.Pending.Contains($key)){Set-Status 'Cache en attente saturé. Les données restent visibles mais non enregistrées.' 'WARN';return $false}
     $script:Persistence.Pending[$key]=[pscustomobject]@{QueueKey=$key;Kind='Index';Path=[string]$script:DatabaseScopedPath;Row=$Row;Server=[string]$script:Conn.Server;At=[datetime]::UtcNow.ToString('o');Epoch=[long]$script:SessionEpoch}
     Request-DomeniaStorageWork
     return $true
@@ -80,7 +80,7 @@ function Queue-DomeniaLinkChanges {
         return $true
     }
     if($script:Persistence.LinkBusy){
-        if(-not $Quiet){Set-Status 'Enregistrement des liens encore actif. Attendez son resultat avant une nouvelle modification.' 'WARN'}
+        if(-not $Quiet){Set-Status 'Enregistrement des liens encore actif. Attendez son résultat avant une nouvelle modification.' 'WARN'}
         return $false
     }
     $valid=@(ConvertTo-DomeniaCanonicalLinks -Links $script:UserMachineLinks);$current=@{};$items=[Collections.Generic.List[object]]::new()
@@ -119,7 +119,7 @@ function Queue-DomeniaLinkChanges {
     if(($MaxItems -gt 0) -and ($items.Count -gt $queued)){$script:Persistence.LinkPersistenceMore=$true}
     $script:Persistence.LinkBusy=($queued -gt 0)
     $script:UserMachineLinks=[object[]]$valid;Rebuild-UserMachineLinkIndex;Refresh-LinkGrid;Refresh-AssociationContext -SkipResultRefresh
-    if((-not $Quiet) -and $queued){Set-Status ($queued.ToString()+' lien(s) en memoire, enregistrement en arriere-plan en attente.')}
+    if((-not $Quiet) -and $queued){Set-Status ($queued.ToString()+' lien(s) en mémoire, enregistrement en arrière-plan en attente.')}
     if($queued){Request-DomeniaStorageWork}
     return $true
 }
@@ -160,7 +160,7 @@ function Start-DomeniaStorageWork {
         }
         if($script:Persistence.LegacyImportJob){
             $script:Persistence.LegacyImportJob=''
-            Set-Status 'Resultat reprise des anciennes donnees non recu. Verifiez le stockage puis refaites la simulation avant toute nouvelle demande.' 'WARN'
+            Set-Status 'Résultat reprise des anciennes données non reçu. Vérifiez le stockage puis refaites la simulation avant toute nouvelle demande.' 'WARN'
             Add-DomeniaUiLog -Area 'Import' -Text 'Resultat reprise des anciennes donnees non recu ; aucun rejeu automatique.' -Level 'WARN'
         }
         $script:Persistence.Job=''
@@ -197,7 +197,7 @@ function Start-DomeniaStorageWork {
         if(-not $path){
             [void]$script:Persistence.Pending.Remove($item.QueueKey)
             $script:Persistence.Fault='Base du contexte non disponible.'
-            Set-Status 'Reprise des anciennes donnees impossible : base du contexte non disponible.' 'ERROR'
+            Set-Status 'Reprise des anciennes données impossible : base du contexte non disponible.' 'ERROR'
             Add-DomeniaUiLog -Area 'Import' -Text 'Reprise des anciennes donnees impossible : base du contexte non disponible.' -Level 'ERROR'
             $hasLinkWork=$false
             if($script:Persistence.LegacyImportJob){$hasLinkWork=$true}
@@ -218,7 +218,7 @@ function Start-DomeniaStorageWork {
             [void]$script:Persistence.Pending.Remove($item.QueueKey)
             $script:Persistence.LegacyImportJob=''
             $script:Persistence.Fault=$_.Exception.Message
-            Set-Status ('Reprise des anciennes donnees impossible au depart : '+$_.Exception.Message) 'ERROR'
+            Set-Status ('Reprise des anciennes données impossible au départ : '+$_.Exception.Message) 'ERROR'
             Add-DomeniaUiLog -Area 'Import' -Text ('Depart reprise des anciennes donnees impossible : '+$_.Exception.Message) -Level 'ERROR'
             $hasLinkWork=$false
             if($script:Persistence.LegacyImportJob){$hasLinkWork=$true}
@@ -310,7 +310,7 @@ function Complete-DomeniaStorageWork {
                 continue
             }
             if([bool]$r.Already){
-                Set-Status 'Reprise des anciennes donnees deja applique : rien a reprendre.'
+                Set-Status 'Reprise des anciennes données déjà appliquée : rien à reprendre.'
                 Add-DomeniaUiLog -Area 'Import' -Text 'Reprise des anciennes donnees deja applique (marqueur identique).'
                 continue
             }
@@ -354,7 +354,7 @@ function Complete-DomeniaStorageWork {
         }
         if($i.Kind -ne 'Link'){continue}
         if($i.Epoch -ne [long]$script:SessionEpoch){continue}
-        if(@($r.Conflicts) -contains $i.Key){$script:Persistence.Conflicts[[string]$i.Key]=$true;Set-Status ('Association modifiee ailleurs : '+$i.Key+'. Votre version n a pas ecrase celle du disque. Rechargez les associations : Comptes > Changer de compte, ou redemarrage.') 'WARN';continue}
+        if(@($r.Conflicts) -contains $i.Key){$script:Persistence.Conflicts[[string]$i.Key]=$true;Set-Status ('Association modifiée ailleurs : '+$i.Key+'. Votre version nʼa pas écrasé celle du disque. Rechargez les associations : Comptes > Changer de compte, ou redémarrage.') 'WARN';continue}
         [void]$script:Persistence.Conflicts.Remove([string]$i.Key)
         if($i.Remove){[void]$script:LinkBaseline.Remove($i.Key)}else{$script:LinkBaseline[$i.Key]=$i.Row}
     }
@@ -419,7 +419,7 @@ function Fail-DomeniaStorageWork {
         $script:Persistence.LegacyImportJob=''
         foreach($i in $items){if($script:Persistence.Pending.Contains($i.QueueKey)){[void]$script:Persistence.Pending.Remove($i.QueueKey)}}
         $script:Persistence.Fault=[string]$Message
-        Set-Status ('Reprise des anciennes donnees echoue, sans rejeu automatique. Refaites la simulation avant une nouvelle demande : '+[string]$Message) 'ERROR'
+        Set-Status ('Reprise des anciennes données échouée, sans rejeu automatique. Refaites la simulation avant une nouvelle demande : '+[string]$Message) 'ERROR'
         Add-DomeniaUiLog -Area 'Import' -Text ('Reprise des anciennes donnees echoue : '+[string]$Message) -Level 'ERROR'
         $hasLinkWork=$false
         if($script:Persistence.LegacyImportJob){$hasLinkWork=$true}
@@ -454,28 +454,28 @@ function Fail-DomeniaStorageWork {
     if($script:Persistence.Failures -ge 3){
         if($null -ne $script:IndexWalk){Complete-DomeniaIndexWalkUi -Aborted -Detail 'Stockage suspendu après trois échecs. Reprenez les sauvegardes avant de relancer les lectures.'}
         [void](Show-DomeniaRouteNotice -Kind Warning -Text 'Cache non enregistré après trois échecs : les données restent en mémoire. Corrigez le stockage, puis reprenez les sauvegardes.' -RouteText 'Reprendre les sauvegardes' -Route 'StorageResume' -Key 'storage-suspended');return}
-    Set-Status 'Cache non enregistre sur disque. Les observations sont encore en memoire ; une nouvelle tentative bornee sera faite.' 'WARN'
+    Set-Status 'Cache non enregistré sur disque. Les observations sont encore en mémoire ; une nouvelle tentative bornée sera faite.' 'WARN'
 }
 function Queue-DomeniaMetadata {
     param([ValidateSet('Presence','UserScan','Park','ParkSession','ParkReset','SecretMeta','Sample','IndexBulk','LegacyImport','FleetSnapshot','DirectoryAbsence','DirectorySnapshot')][string]$Kind,$Row,[string]$Key='')
     if($null -eq $script:Persistence){Initialize-DomeniaPersistence}
     if(-not $script:DatabaseScopedPath){return $false}
     if($Kind -eq 'LegacyImport'){
-        if($null -eq $Row){Set-Status 'Reprise des anciennes donnees impossible : donnees absentes.' 'WARN';return $false}
+        if($null -eq $Row){Set-Status 'Reprise des anciennes données impossible : données absentes.' 'WARN';return $false}
         $marker=[string]$Row.Marker
         $baseDn=[string]$Row.BaseDn
-        if([string]::IsNullOrWhiteSpace($marker)){Set-Status 'Reprise des anciennes donnees impossible : marqueur absent.' 'WARN';return $false}
-        if([string]::IsNullOrWhiteSpace($baseDn) -or $baseDn -notmatch '(?i)DC='){Set-Status 'Reprise des anciennes donnees impossible : domaine absent.' 'WARN';return $false}
-        if($script:Persistence.LinkBusy){Set-Status 'Reprise des anciennes donnees impossible : enregistrement des liens en cours.' 'WARN';return $false}
-        if($script:Persistence.LegacyImportJob){Set-Status 'Reprise des anciennes donnees deja en cours.' 'WARN';return $false}
+        if([string]::IsNullOrWhiteSpace($marker)){Set-Status 'Reprise des anciennes données impossible : marqueur absent.' 'WARN';return $false}
+        if([string]::IsNullOrWhiteSpace($baseDn) -or $baseDn -notmatch '(?i)DC='){Set-Status 'Reprise des anciennes données impossible : domaine absent.' 'WARN';return $false}
+        if($script:Persistence.LinkBusy){Set-Status 'Reprise des anciennes données impossible : enregistrement des liens en cours.' 'WARN';return $false}
+        if($script:Persistence.LegacyImportJob){Set-Status 'Reprise des anciennes données déjà en cours.' 'WARN';return $false}
         # Points 32 and 34: an explicit import is refused under a maintenance lock rather than queued for a base that
         # the switch would leave (collected observations still wait in the queue; the switch accounts for them).
         $refusal=Get-DomeniaStorageInputRefusal -Maintenance $script:StorageMaintenance
         if($refusal){Set-Status ('Reprise des anciennes données : '+$refusal) 'WARN';return $false}
-        foreach($v in @($script:Persistence.Pending.Values)){if($v.Kind -eq 'Link' -or $v.Kind -eq 'LegacyImport'){Set-Status 'Reprise des anciennes donnees impossible : modifications de liens en attente.' 'WARN';return $false}}
+        foreach($v in @($script:Persistence.Pending.Values)){if($v.Kind -eq 'Link' -or $v.Kind -eq 'LegacyImport'){Set-Status 'Reprise des anciennes données impossible : modifications de liens en attente.' 'WARN';return $false}}
         if(-not $Key){$Key=$marker}
         $queueKey='LegacyImport|'+[string]$script:DatabaseScopedPath+'|'+$Key
-        if($script:Persistence.Pending.Count -ge 256 -and -not $script:Persistence.Pending.Contains($queueKey)){Set-Status 'File locale pleine : reprise des anciennes donnees non enregistre.' 'WARN';return $false}
+        if($script:Persistence.Pending.Count -ge 256 -and -not $script:Persistence.Pending.Contains($queueKey)){Set-Status 'File locale pleine : reprise des anciennes données non enregistrée.' 'WARN';return $false}
         $script:Persistence.Pending[$queueKey]=[pscustomobject]@{QueueKey=$queueKey;Kind=$Kind;Path=[string]$script:DatabaseScopedPath;Row=$Row;Epoch=[long]$script:SessionEpoch}
         $script:Persistence.LinkBusy=$true
         Request-DomeniaStorageWork
@@ -484,7 +484,7 @@ function Queue-DomeniaMetadata {
     if(-not $Key){$Key=[guid]::NewGuid().ToString('N')}
     if($Kind -eq 'SecretMeta' -and $null -eq $Row.PSObject.Properties['Rows']){$Key+='|'+$(if([string]$Row.LapsScheme){'LAPS'}else{'BitLocker'})}
     $queueKey=$Kind+'|'+[string]$script:DatabaseScopedPath+'|'+$Key
-    if($script:Persistence.Pending.Count -ge 256 -and -not $script:Persistence.Pending.Contains($queueKey)){Set-Status 'File locale pleine : les dernieres informations sont en memoire, pas encore enregistrees.' 'WARN';return $false}
+    if($script:Persistence.Pending.Count -ge 256 -and -not $script:Persistence.Pending.Contains($queueKey)){Set-Status 'File locale pleine : les dernières informations sont en mémoire, pas encore enregistrées.' 'WARN';return $false}
     $script:Persistence.Pending[$queueKey]=[pscustomobject]@{QueueKey=$queueKey;Kind=$Kind;Path=[string]$script:DatabaseScopedPath;Row=$Row;Epoch=[long]$script:SessionEpoch}
     Request-DomeniaStorageWork
     return $true
@@ -884,7 +884,7 @@ function Complete-DomeniaStoragePurge {
             $script:StoragePurgePreview=[pscustomobject]@{Id=$State.Id;State=$State;Result=$result}
             $button=Get-DomeniaControl 'BtnStoragePurge';if($button){$button.IsEnabled=$true}
             [void](Set-DomeniaControlText 'LblStoragePurge' ('Simulation ; aucune suppression.'+[Environment]::NewLine+$text))
-            Set-Status 'Simulation terminee. Verifiez les nombres avant de confirmer.'
+            Set-Status 'Simulation terminée. Vérifiez les nombres avant de confirmer.'
         }else{
             Reset-DomeniaStoragePurgePreview
             if($State.Selection -contains 'Index'){
@@ -980,7 +980,7 @@ function Set-DomeniaIndexTiles {
 }
 function Open-DomeniaIndexLocation {
     $path=[string](Get-DomeniaDatabasePath)
-    if(-not $path -or -not [IO.File]::Exists($path)){Set-Status 'Aucune base active a afficher.' 'WARN';return}
+    if(-not $path -or -not [IO.File]::Exists($path)){Set-Status 'Aucune base active à afficher.' 'WARN';return}
     Start-Process -FilePath 'explorer.exe' -ArgumentList @('/select,"'+$path+'"')
 }
 function Assert-DomeniaBackupDestination {
@@ -1021,7 +1021,7 @@ function Complete-DomeniaIndexBackupUi {
     # Point 33 and FI-13: one verification rule for every copy; an unverified receipt is a failure, never a success.
     if(-not (Test-DomeniaBackupReceiptVerified $packet)){Fail-DomeniaIndexBackupUi 'Sauvegarde non vérifiée : contrôle SQLite ou empreinte SHA-256 absents.' $State;return}
     if([string]$packet.CopiedTo){Set-Status ('Sauvegarde de la base copiee : '+[string]$packet.CopiedTo)}
-    else{Set-Status ('Sauvegarde de la base enregistree : '+[string]$packet.Backup)}
+    else{Set-Status ('Sauvegarde de la base enregistrée : '+[string]$packet.Backup)}
     $origin='Manual';if([bool]$State.Automatic){$origin='Scheduled'}
     Register-DomeniaVerifiedBackup -Packet $packet -Path ([string]$State.Path) -Origin $origin
     Update-DomeniaIndexLocation;Update-DomeniaStorageBackupScheduleUi

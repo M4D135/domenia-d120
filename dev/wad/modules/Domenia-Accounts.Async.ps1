@@ -28,7 +28,7 @@ function Complete-DomeniaAccountValidation {
     if($v.Epoch -ne [long]$script:SessionEpoch -or $v.Base -ine [string]$script:Conn.BaseDn -or $script:AsyncEngineClosing){$v.Abandoned=$true}
     if(-not [bool]$v.Session.Cleaned -and -not $v.Session.AsyncResult.IsCompleted){
         if(-not $v.Abandoned -and ([datetime]::UtcNow-$v.Started).TotalSeconds -ge $v.Timeout){
-            $v.Abandoned=$true;Set-Status 'Validation trop longue. Compte precedent conserve ; nettoyage en cours.' 'WARN'
+            $v.Abandoned=$true;Set-Status 'Validation trop longue. Compte précédent conservé ; nettoyage en cours.' 'WARN'
         }
         if($v.Abandoned -and -not $v.Session.CancelRequested){Stop-DomeniaLoginAuthRunspace -Session $v.Session -Terminate}
         return

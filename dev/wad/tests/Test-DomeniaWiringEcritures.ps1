@@ -769,7 +769,7 @@ if ($infrastructure) {
         $payload=[pscustomobject]@{DN='CN=Demo User,OU=Users,DC=example,DC=invalid'}
         [void](Start-DomeniaWriteTask -Name 'Test' -OperationId 'WriteTest' -Code 'x' -Payload $payload -DisableControls @('BtnTestWrite'))
         Assert-True ($script:StartUiTaskCalls -eq 0) ('Appels Start-UiTask : '+$script:StartUiTaskCalls)
-        Assert-True (@($script:Dialogs | Where-Object { $_.Contains('Aucun plan confirme') }).Count -ge 1) 'Refus sans plan absent.'
+        Assert-True (@($script:Dialogs | Where-Object { $_.Contains('Aucun plan confirmé') }).Count -ge 1) 'Refus sans plan absent.'
     }
     Test-Case 'D091 plan valide envoye une fois avec son empreinte' {
         Reset-WiringFixture
@@ -1011,7 +1011,7 @@ if ($infrastructure) {
         $payload=[pscustomobject]@{ParentDn=$branch;Name='TestOu';DN=$branch}
         [void](Start-DomeniaWriteTask -Name 'Creation OU' -OperationId 'WriteCreateOu' -Code 'x' -Payload $payload -BranchDn $branch -Capability 'Create' -DisableControls @('BtnCreateOu') -AfterSuccessAction 'CreateOu')
         Assert-True ($script:StartUiTaskCalls -eq 0) ('Appels branche changee : '+$script:StartUiTaskCalls)
-        Assert-True (@($script:Dialogs | Where-Object { $_.Contains('La branche cible a change') }).Count -ge 1) 'Refus branche changee absent.'
+        Assert-True (@($script:Dialogs | Where-Object { $_.Contains('La branche cible a changé') }).Count -ge 1) 'Refus branche changee absent.'
         Reset-WiringFixture
         $script:UseDoubleStartUiTask=$true
         $script:SelectedBranchDn=$branch
@@ -1160,7 +1160,7 @@ if ($infrastructure) {
                 }
             }
             Complete-DomeniaWriteTaskUi -Result $result -State $state
-            $statusCount=@($script:StatusLines | Where-Object { $_.Contains('(Verifie)') }).Count
+            $statusCount=@($script:StatusLines | Where-Object { $_.Contains('(Vérifié)') }).Count
             Assert-True ($statusCount -ge 1) 'Statut (Verifie) absent.'
             Assert-True ($script:InfoBoxes.Count -eq 0) ('Boites : '+$script:InfoBoxes.Count)
             Assert-True ($script:WriteState -eq 'Idle') ('WriteState : '+[string]$script:WriteState)
