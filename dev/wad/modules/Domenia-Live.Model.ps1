@@ -120,8 +120,24 @@ function Get-DomeniaLiveObservationView {
     if($Pending){$state='Vérification en cours'}
     $checked=Get-DomeniaLiveField $Observation 'UserCheckedUtc' (Get-DomeniaLiveField $Observation 'CheckedUtc')
     $seen=Get-DomeniaLiveField $Observation 'ObservedUtc'
-    $detail="État : $state`r`nDernier compte observé : $last`r`nObservation UTC : $seen`r`nDernière tentative UTC : $checked`r`nSource : $(Get-DomeniaLiveField $Observation 'Source')`r`n$(Get-DomeniaLiveField $Observation 'Detail')`r`nConsole Windows uniquement : ne recense pas toutes les sessions RDP."
+    # Point 5: the committed projection keeps the last successful read (UserCheckedUtc) apart from the last attempt
+    # (ConsoleAttemptUtc) and its error. A newer failure is shown; it never replaces the observed account or its date.
+    $attempt=Get-DomeniaLiveField $Observation 'ConsoleAttemptUtc' $checked
+    $failure=Get-DomeniaLiveField $Observation 'ConsoleError'
+    $attemptLine="Dernière tentative UTC : $attempt"
+    if(Test-DomeniaLiveAttemptAfter -Attempt $attempt -Success $checked -ErrorText $failure){$attemptLine+=", non confirmée : $failure`r`nDernière lecture réussie UTC : $(if($checked){$checked}else{'aucune'}), conservée"}
+    $detail="État : $state`r`nDernier compte observé : $last`r`nObservation UTC : $seen`r`n$attemptLine`r`nSource : $(Get-DomeniaLiveField $Observation 'Source')`r`n$(Get-DomeniaLiveField $Observation 'Detail')`r`nConsole Windows uniquement : ne recense pas toutes les sessions RDP."
     [pscustomobject]@{Display=$display;State=$state;Detail=$detail;Checked=$checked;Observed=$seen;Source=Get-DomeniaLiveField $Observation 'Source'}
+}
+function Test-DomeniaLiveAttemptAfter {
+    # True when a failed attempt is newer than the last success (or no success exists). Unreadable dates are not newer.
+    param([AllowEmptyString()][string]$Attempt,[AllowEmptyString()][string]$Success,[AllowEmptyString()][string]$ErrorText)
+    if((-not $ErrorText) -or (-not $Attempt)){return $false}
+    $styles=[Globalization.DateTimeStyles]::AssumeUniversal;$culture=[Globalization.CultureInfo]::InvariantCulture
+    $attemptAt=[datetimeoffset]::MinValue;$successAt=[datetimeoffset]::MinValue
+    if(-not [datetimeoffset]::TryParse($Attempt,$culture,$styles,[ref]$attemptAt)){return $false}
+    if((-not $Success) -or (-not [datetimeoffset]::TryParse($Success,$culture,$styles,[ref]$successAt))){return $true}
+    return ($attemptAt -gt $successAt)
 }
 function Test-DomeniaLiveIdentity {
     param($State,[long]$SessionEpoch,[string]$Identity)
@@ -185,8 +201,11 @@ function Get-DomeniaLivePresenceView {
     if($key -eq 'NoReply'){$message+=' Pas de réponse ICMP : poste indisponible ou ICMP filtré, sans preuve quʼil est éteint.'}
     $historical=([bool]$Cached -and [bool]$at -and $key -ne 'Unknown')
     $age=if($at){Get-DomeniaLiveAgeText -CheckedUtc $at -NowUtc $NowUtc}else{''}
-    $detail=$message+"`r`nVérification réseau UTC : "+$at
-    if($age){$detail+=' ('+$age+')'}
+    $checkLine="`r`nVérification réseau UTC : "+$at+$(if($age){' ('+$age+')'}else{''})
+    # Point 5: a newer failed ping keeps its error beside the last valid check, which keeps its own date and age.
+    $attempt=Get-DomeniaLiveField $Observation 'PresenceAttemptUtc';$failure=Get-DomeniaLiveField $Observation 'PresenceError'
+    if(($key -ne 'Unknown') -and (Test-DomeniaLiveAttemptAfter -Attempt $attempt -Success $at -ErrorText $failure)){$checkLine="`r`nDernière tentative UTC : "+$attempt+', non confirmée : '+$failure+"`r`nDernière vérification réussie UTC : "+$(if($at){$at+$(if($age){' ('+$age+')'}else{''})+', conservée'}else{'aucune'})}
+    $detail=$message+$checkLine
     if($historical){$detail+="`r`nObservation historique, pas un état actuel confirmé."}
     [pscustomobject]@{Display=$state;State=$state;PresenceState=$key;IsCached=$historical;ObservedUtc=$at;Age=$age;Checked=$at;Detail=$detail}
 }

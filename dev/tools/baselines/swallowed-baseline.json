@@ -1,12 +1,12 @@
 {
  "Schema": "DomeniaSwallowedBaseline/1",
  "Source": "reference initiale",
- "Total": 1249,
+ "Total": 1251,
  "Kinds": {
-  "empty": 1249
+  "empty": 1251
  },
  "Places": {
-  "code": 1028,
+  "code": 1030,
   "here-string": 221
  },
  "Findings": {
@@ -70,6 +70,7 @@
   "Complete-DomeniaLogonHarvestUi": 2,
   "Complete-DomeniaMembershipTypes": 1,
   "Complete-DomeniaOperationStatsUi": 1,
+  "Complete-DomeniaOuRefreshRunsStored": 1,
   "Complete-DomeniaParkSharedSyncUi": 1,
   "Complete-DomeniaParkSweepUi": 4,
   "Complete-DomeniaReceiptRefresh": 1,
@@ -393,6 +394,7 @@
   "Start-DomeniaAppLogFlushTimer": 6,
   "Start-DomeniaFastLoginAttempt": 1,
   "Start-DomeniaIndexRefresh": 4,
+  "Start-DomeniaIndexScopeBuild": 1,
   "Start-DomeniaLoginAuthRunspace": 2,
   "Start-DomeniaRemoteCredentialSession": 2,
   "Start-DomeniaResultPresenceScan": 3,
