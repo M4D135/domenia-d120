@@ -623,7 +623,7 @@ function Get-DomeniaReceiptView {
         ObjectName=$object;DN=$dn;DnToolTip=$dnTip
         Identity=[string](Get-DomeniaMember $Receipt 'Identity' '');Server=[string](Get-DomeniaMember $Receipt 'Server' '')
         UpdatedUtc=$updatedText;UpdatedLabel=$updatedLabel;Review=[string](Get-DomeniaMember $Receipt 'Review' '')
-        CanTryVerify=([bool]$stageView.Pending -and ($operation -ceq 'WriteAttributes'))
+        CanTryVerify=(([bool]$stageView.Pending) -and ($operation -ceq 'WriteAttributes'))
     }
 }
 
@@ -668,7 +668,10 @@ function Get-DomeniaReceiptActionView {
     if (-not [bool](Get-DomeniaMember $View 'Pending' $false)) {
         $text = $head + ' Ce reçu est résolu : il ne bloque plus aucune écriture.'
         $review = ([string](Get-DomeniaMember $View 'Review' '')).Trim()
-        if ($review) { $text += ' Motif consigné : « ' + (ConvertTo-DomeniaFlatText $review 240) + ' ».' }
+        # The motive of a manual review is the operator's own words; any other note is written by the receipt store.
+        $noteLabel = 'Note du reçu'
+        if ([string](Get-DomeniaMember $View 'Stage' '') -ceq 'Reviewed') { $noteLabel = 'Motif consigné' }
+        if ($review) { $text += ' ' + $noteLabel + ' : « ' + (ConvertTo-DomeniaFlatText $review 240) + ' ».' }
         return (& $answer $text $false 'Ce reçu est déjà résolu.' $false 'Ce reçu est déjà résolu.' $false)
     }
     if ($Busy) {

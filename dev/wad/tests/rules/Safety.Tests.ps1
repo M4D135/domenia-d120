@@ -610,5 +610,9 @@ Test-Case 'UI-18' 'Revue dans la page : motif de 12 a 240 caracteres sans secret
     $done=Get-DomeniaReceiptView ([pscustomobject]@{Id=('c'*32);Operation='WriteUnlock';DN=$script:SfDnA;Stage='Reviewed';Review='Constate dans ADUC le 02/03'})
     $d=Get-DomeniaReceiptActionView -View $done -Reason 'Compte deverrouille constate dans ADUC'
     Assert-False ($d.CanVerify -or $d.CanReview -or $d.ReasonEnabled) 'Action proposee sur un recu resolu'
-    Assert-True ($d.Selection -match 'ne bloque plus' -and $d.Selection -match 'Constate dans ADUC le 02/03') $d.Selection
+    Assert-True (($d.Selection -match 'ne bloque plus') -and ($d.Selection -match 'Motif consigné : « Constate dans ADUC le 02/03 »')) $d.Selection
+    # A note written by the receipt store (verification by re-reading) is not presented as the operator's motive.
+    $verified=Get-DomeniaReceiptView ([pscustomobject]@{Id=('e'*32);Operation='WriteAttributes';DN=$script:SfDnA;Stage='Verified';Review='Postconditions relues sur le controleur initial.'})
+    $n=Get-DomeniaReceiptActionView -View $verified
+    Assert-True (($n.Selection -match 'Note du reçu : « Postconditions relues') -and ($n.Selection -notmatch 'Motif consigné')) $n.Selection
 }

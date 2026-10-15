@@ -796,6 +796,43 @@ Test-Case 'UI-18 Relecture proposee pour une modification de fiche, annulable, r
     Assert-True ([string]$script:Ctrl.LblGuardReceipts.Text -match '^Vérification non aboutie' -and [string]$script:Ctrl.LblGuardReceipts.Text -match 'aucune commande') ([string]$script:Ctrl.LblGuardReceipts.Text)
     Assert-True ((-not $script:ReceiptReady) -and $script:Guard.ReceiptJob -eq '') 'Recus consideres confirmes apres un refus'
 }
+Test-Case 'UI-18 Une demande remplacee par une autre ne lance ni n efface la nouvelle : un seul envoi, pour le dernier recu choisi' {
+    Initialize-ReceiptFixture
+    Complete-DomeniaReceiptRefresh ([pscustomobject]@{Rows=@((New-ReceiptRow ('d'*32) 'WriteAttributes' 'Unknown' '2026-09-29T08:00:00.0000000Z'),(New-ReceiptRow ('e'*32) 'WriteAttributes' 'Sent' '2026-09-28T08:00:00.0000000Z'));Pending=2}) (Get-ListState)
+    $grid=$script:Ctrl.DgGuardReceipts
+    $before=$script:Tasks.Count
+    $grid.SelectedItem=@($grid.Items|Where-Object{$_.Id -eq ('d'*32)})[0]
+    Invoke-TestClick $script:Ctrl.BtnGuardReceiptVerify
+    $grid.SelectedItem=@($grid.Items|Where-Object{$_.Id -eq ('e'*32)})[0]
+    Invoke-TestClick $script:Ctrl.BtnGuardReceiptVerify
+    # The safe answer of the replaced request runs (Domenia-Inline.UI) but belongs to the former token.
+    Assert-True ($script:Tasks.Count -eq $before) 'Relecture lancee avant la reponse'
+    Assert-True ([string]$script:Guard.PendingChoice.Id -eq ('e'*32)) 'Choix remplace efface par la demande precedente'
+    Assert-True (@($script:StatusLines|Where-Object{$_ -match 'annulée'}).Count -eq 0) 'Remplacement annonce comme une annulation'
+    Invoke-TestClick (Get-DomeniaControl 'BtnInlineRequestConfirm')
+    $task=$script:Tasks[$script:Tasks.Count-1]
+    Assert-True (($script:Tasks.Count -eq ($before+1)) -and ($task.Payload.Action -eq 'Verify') -and ($task.Payload.Id -eq ('e'*32))) 'Relecture non lancee pour le dernier recu choisi'
+    Assert-True ($null -eq $script:Guard.PendingChoice) 'Choix conserve apres envoi'
+    # A continuation that does not carry the token of the pending choice starts nothing.
+    $script:Guard.ReceiptJob='';$script:Guard.PendingChoice=[pscustomobject]@{Action='Verify';Id=('d'*32);Reason='';Epoch=[long]$script:SessionEpoch;Token='jeton-courant'}
+    Complete-DomeniaReceiptChoice -Token 'jeton-ancien'
+    Assert-True (($script:Tasks.Count -eq ($before+1)) -and ([string]$script:Guard.PendingChoice.Token -eq 'jeton-courant')) 'Suite d une ancienne demande executee'
+    Cancel-DomeniaReceiptChoice -Token 'jeton-ancien'
+    Assert-True ([string]$script:Guard.PendingChoice.Token -eq 'jeton-courant') 'Ancienne demande annulant la nouvelle'
+}
+Test-Case 'UI-18 Aucune fenetre ni boite dans le parcours des recus (code livre)' {
+    # Static proof on the shipped module, alongside the runtime counters of the cases above.
+    $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'modules\Domenia-Guard.UI.ps1'),[ref]$null,[ref]$null)
+    $modals=@('Show-DomeniaFormDialog','Confirm-Action','Confirm-TextAction','Show-InfoBox','Show-ErrorBox','Show-DomeniaDialog','Show-DomeniaEmbeddedWindow')
+    foreach($name in @('Start-DomeniaReceiptRefresh','Complete-DomeniaReceiptRefresh','Fail-DomeniaReceiptRefresh','Update-DomeniaReceiptActionUi','Invoke-DomeniaReceiptChoice','Complete-DomeniaReceiptChoice','Cancel-DomeniaReceiptChoice')){
+        $fn=@($ast.FindAll({param($n)($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq $name)},$true))
+        Assert-True ($fn.Count -eq 1) ('Fonction absente : '+$name)
+        $calls=@($fn[0].FindAll({param($n)$n -is [Management.Automation.Language.CommandAst]},$true)|ForEach-Object{[string]$_.GetCommandName()})
+        $found=@($calls|Where-Object{$modals -contains $_})
+        Assert-True ($found.Count -eq 0) ($name+' ouvre une boite : '+($found -join ','))
+        Assert-True ($fn[0].Extent.Text -notmatch '(?i)\.ShowDialog\(|New-Object\s+(System\.)?Windows\.Window') ($name+' ouvre une fenetre')
+    }
+}
 
 if($null -ne $script:SecretRevealTimer){try{$script:SecretRevealTimer.Stop()}catch{}}
 if($null -ne $script:SecretCountdownTimer){try{$script:SecretCountdownTimer.Stop()}catch{}}

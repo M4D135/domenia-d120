@@ -33,15 +33,15 @@ function Complete-DomeniaReceiptRefresh {
     $views=@($views|Sort-Object @{Expression={[bool]$_.Pending};Descending=$true},@{Expression={[string]$_.UpdatedUtc};Descending=$true})
     $grid=Get-DomeniaControl 'DgGuardReceipts'
     $keep=[string]$State.Id
-    if(-not $keep -and $null -ne $grid -and $null -ne $grid.SelectedItem){$keep=[string](Get-DomeniaMember $grid.SelectedItem 'Id' '')}
+    if((-not $keep) -and ($null -ne $grid) -and ($null -ne $grid.SelectedItem)){$keep=[string](Get-DomeniaMember $grid.SelectedItem 'Id' '')}
     [void](Set-DomeniaItemsSource 'DgGuardReceipts' $views)
-    if($keep -and $null -ne $grid){foreach($item in @($grid.Items)){if([string](Get-DomeniaMember $item 'Id' '') -ceq $keep){$grid.SelectedItem=$item;break}}}
+    if(($keep) -and ($null -ne $grid)){foreach($item in @($grid.Items)){if([string](Get-DomeniaMember $item 'Id' '') -ceq $keep){$grid.SelectedItem=$item;break}}}
     [void](Set-DomeniaControlText 'LblGuardReceipts' (Get-DomeniaReceiptSummary -Total $views.Count -Pending ([int]$r.Pending)))
     if([string]$State.Action -in @('Verify','Review')){
         # The outcome is read on the receipt itself: a receipt left as it was is never reported as reviewed.
         $after=@($views|Where-Object{[string]$_.Id -ceq [string]$State.Id}|Select-Object -First 1)
         $wanted=if([string]$State.Action -eq 'Review'){'Reviewed'}else{'Verified'}
-        if($after.Count -eq 1 -and [string]$after[0].Stage -eq $wanted){
+        if(($after.Count -eq 1) -and ([string]$after[0].Stage -eq $wanted)){
             if($wanted -eq 'Reviewed'){
                 $box=Get-DomeniaControl 'TxtGuardReceiptReason';if($null -ne $box){$box.Text=''}
                 Set-Status 'Revue consignée : le reçu est conservé comme « Revue manuelle », pas comme un succès automatique.'
@@ -58,7 +58,7 @@ function Complete-DomeniaReceiptRefresh {
 function Fail-DomeniaReceiptRefresh {
     param($Message,$State)
     $script:Guard.ReceiptJob='';$script:ReceiptReady=$false;$script:Guard.NextReceipt=[datetime]::UtcNow.AddSeconds(30)
-    if($null -ne $State -and [string]$State.Action -in @('Verify','Review')){
+    if(($null -ne $State) -and ([string]$State.Action -in @('Verify','Review'))){
         # The store refused the verification or the review: the receipt stays to verify, nothing was sent again.
         $what=if([string]$State.Action -eq 'Review'){'Revue non consignée'}else{'Vérification non aboutie'}
         [void](Set-DomeniaControlText 'LblGuardReceipts' ($what+' : '+[string]$Message+' Le reçu reste à vérifier ; aucune commande nʼa été renvoyée. Les reçus sont relus dans un instant.'))
@@ -72,15 +72,16 @@ function Fail-DomeniaReceiptRefresh {
 function Get-DomeniaSelectedReceiptView {
     # UI-18: the selected row of DgGuardReceipts, a Get-DomeniaReceiptView projection, or $null.
     $grid=Get-DomeniaControl 'DgGuardReceipts'
-    if($null -eq $grid -or $null -eq $grid.SelectedItem){return $null}
+    if(($null -eq $grid) -or ($null -eq $grid.SelectedItem)){return $null}
     if($null -eq $grid.SelectedItem.PSObject.Properties['Pending']){return $null}
     return $grid.SelectedItem
 }
 function Test-DomeniaReceiptStoreBusy {
-    # UI-18: the conditions under which Start-DomeniaReceiptRefresh starts nothing (a receipt job or a write in flight).
-    if($null -eq $script:Guard -or $script:AsyncEngineClosing){return $true}
+    # UI-18: the conditions under which Start-DomeniaReceiptRefresh starts nothing: a receipt job not answered yet
+    # (fail closed: its handler clears it) or a write in flight.
+    if(($null -eq $script:Guard) -or $script:AsyncEngineClosing){return $true}
     if($script:Guard.ReceiptJob){return $true}
-    if($null -ne $script:AsyncJobs -and @($script:AsyncJobs.Values|Where-Object{$_.IsWrite -or $_.OperationId -eq 'ReceiptStore'}).Count){return $true}
+    if(($null -ne $script:AsyncJobs) -and (@($script:AsyncJobs.Values|Where-Object{($_.IsWrite) -or ($_.OperationId -eq 'ReceiptStore')}).Count -gt 0)){return $true}
     return $false
 }
 function Update-DomeniaReceiptActionUi {
@@ -102,7 +103,7 @@ function Invoke-DomeniaReceiptChoice {
     $a=Update-DomeniaReceiptActionUi
     $view=Get-DomeniaSelectedReceiptView
     $allowed=if($Action -eq 'Verify'){[bool]$a.CanVerify}else{[bool]$a.CanReview}
-    if(-not $allowed -or $null -eq $view){
+    if((-not $allowed) -or ($null -eq $view)){
         $why=if($Action -eq 'Verify'){[string]$a.VerifyWhy}else{[string]$a.ReviewWhy}
         if(-not $why){$why=[string]$a.Selection}
         Set-Status $why 'WARN';return
@@ -111,18 +112,29 @@ function Invoke-DomeniaReceiptChoice {
     $nl=[Environment]::NewLine
     $details='Reçu : '+$id+$nl+'Opération : '+[string]$view.Operation+$nl+[string]$view.DnToolTip+$nl+'Contrôleur : '+[string]$view.Server+$nl+'Compte : '+[string]$view.Identity
     $subject='« '+[string]$view.ObjectName+' » ('+[string]$view.OperationLabel+')'
-    $script:Guard.PendingChoice=[pscustomobject]@{Action=$Action;Id=$id;Reason=$(if($Action -eq 'Review'){[string]$a.Reason}else{''});Epoch=[long]$script:SessionEpoch}
+    # Each request carries its own token: when a newer request replaces this one, the safe answer of the older one
+    # (OnCancel) neither clears nor starts the newer choice. GetNewClosure binds the continuations to a module linked
+    # to the global scope only: the functions they call are captured here (same rule as Domenia-Embedded.UI).
+    $token=[guid]::NewGuid().ToString('N')
+    $script:Guard.PendingChoice=[pscustomobject]@{Action=$Action;Id=$id;Reason=$(if($Action -eq 'Review'){[string]$a.Reason}else{''});Epoch=[long]$script:SessionEpoch;Token=$token}
+    $completeChoice=${function:Complete-DomeniaReceiptChoice};$cancelChoice=${function:Cancel-DomeniaReceiptChoice}
+    $onConfirm={& $completeChoice -Token $token}.GetNewClosure()
+    $onCancel={& $cancelChoice -Token $token}.GetNewClosure()
     if($Action -eq 'Verify'){
-        [void](Request-DomeniaInlineConfirmation -Title 'Vérifier par relecture' -Message ('Relire sur le contrôleur initial les valeurs attendues pour '+$subject+' ? Seule une lecture part : aucune commande nʼest renvoyée.') -Target ('receipt:'+$id) -ConfirmText 'Relire maintenant' -CancelText 'Annuler' -Details $details -DetailsExpertOnly -OnConfirm {Complete-DomeniaReceiptChoice} -OnCancel {Cancel-DomeniaReceiptChoice})
+        [void](Request-DomeniaInlineConfirmation -Title 'Vérifier par relecture' -Message ('Relire sur le contrôleur initial les valeurs attendues pour '+$subject+' ? Seule une lecture part : aucune commande nʼest renvoyée.') -Target ('receipt:'+$id) -ConfirmText 'Relire maintenant' -CancelText 'Annuler' -Details $details -DetailsExpertOnly -OnConfirm $onConfirm -OnCancel $onCancel)
         return
     }
-    [void](Request-DomeniaInlineConfirmation -Title 'Consigner la revue' -Message ('Consigner votre contrôle de '+$subject+' ? Le reçu sera conservé comme « Revue manuelle », pas transformé en succès automatique.') -Target ('receipt:'+$id) -ConfirmText 'Consigner la revue' -CancelText 'Annuler' -Changes @('Motif : « '+[string]$a.Reason+' »') -Details $details -DetailsExpertOnly -OnConfirm {Complete-DomeniaReceiptChoice} -OnCancel {Cancel-DomeniaReceiptChoice})
+    [void](Request-DomeniaInlineConfirmation -Title 'Consigner la revue' -Message ('Consigner votre contrôle de '+$subject+' ? Le reçu sera conservé comme « Revue manuelle », pas transformé en succès automatique.') -Target ('receipt:'+$id) -ConfirmText 'Consigner la revue' -CancelText 'Annuler' -Changes @('Motif : « '+[string]$a.Reason+' »') -Details $details -DetailsExpertOnly -OnConfirm $onConfirm -OnCancel $onCancel)
 }
 function Complete-DomeniaReceiptChoice {
-    # UI-18: continuation of the confirmation in the page, run once. A choice of a former session is dropped.
+    # UI-18: continuation of the confirmation in the page, run once, for the request that carries $Token only. A choice
+    # of a former session is dropped; a newer pending choice is left as it is.
+    param([AllowEmptyString()][string]$Token='')
     if($null -eq $script:Guard){return}
-    $choice=$script:Guard.PendingChoice;$script:Guard.PendingChoice=$null
-    if($null -eq $choice -or [long]$choice.Epoch -ne [long]$script:SessionEpoch){Set-Status 'Demande retirée : la session a changé. Le reçu est inchangé.' 'WARN';return}
+    $choice=$script:Guard.PendingChoice
+    if(($null -eq $choice) -or ([string]$choice.Token -cne $Token)){Set-Status 'Demande retirée : elle a été remplacée par une autre. Le reçu est inchangé.' 'WARN';return}
+    $script:Guard.PendingChoice=$null
+    if([long]$choice.Epoch -ne [long]$script:SessionEpoch){Set-Status 'Demande retirée : la session a changé. Le reçu est inchangé.' 'WARN';return}
     if(Test-DomeniaReceiptStoreBusy){Set-Status 'Reçus occupés par une lecture ou une écriture : réessayez dans un instant. Le reçu est inchangé.' 'WARN';[void](Update-DomeniaReceiptActionUi);return}
     Start-DomeniaReceiptRefresh -Action ([string]$choice.Action) -Id ([string]$choice.Id) -Reason ([string]$choice.Reason)
     if($script:Guard.ReceiptJob){
@@ -132,7 +144,12 @@ function Complete-DomeniaReceiptChoice {
     [void](Update-DomeniaReceiptActionUi)
 }
 function Cancel-DomeniaReceiptChoice {
-    if($null -ne $script:Guard){$script:Guard.PendingChoice=$null}
+    # UI-18: safe answer of the request that carries $Token. A request replaced by a newer one ends silently: the
+    # newer choice stays pending.
+    param([AllowEmptyString()][string]$Token='')
+    if(($null -eq $script:Guard) -or ($null -eq $script:Guard.PendingChoice)){return}
+    if([string]$script:Guard.PendingChoice.Token -cne $Token){return}
+    $script:Guard.PendingChoice=$null
     Set-Status 'Vérification ou revue annulée : le reçu est inchangé.'
 }
 function Save-DomeniaDraftBaseline {
