@@ -444,7 +444,7 @@ function Start-DomeniaAdAuditMachineIdentity {
     $target=Get-DomeniaAdAuditCheckedTarget 'MachineIdentity' 'LblAdAuditMachineIdentity'
     if($null -eq $target){return}
     [void](Set-DomeniaControlText 'LblAdAuditMachineIdentity' 'Résolution DNS et lecture de lʼidentité renvoyée par le poste…')
-    Invoke-DomeniaAdAuditStart 'LblAdAuditMachineIdentity' {Start-UiTask -Name ('Audit AD : identité de '+[string]$target.Name) -OperationId 'MachineIdentityRead' -Code (Get-DomeniaMachineIdentityReadWorkerCode) -Payload ([pscustomobject]@{Name=[string]$target.Name;DnsHostName=[string]$target.DnsHostName}) -CallbackState (New-DomeniaAdAuditState $target 'MachineIdentity') -ReplaceKey 'adaudit-machine' -DisableControls @('BtnAdAuditMachineIdentity') -TimeoutSeconds 60 -SuccessHandler 'Complete-DomeniaAdAuditMachineIdentity' -ErrorHandler 'Fail-DomeniaAdAuditMachineIdentity' -TaskClass 'Explicit'}
+    Invoke-DomeniaAdAuditStart 'LblAdAuditMachineIdentity' {Start-UiTask -Name ('Audit AD : identité de '+[string]$target.Name) -OperationId 'MachineIdentityRead' -Code (Get-DomeniaMachineIdentityReadWorkerCode) -Payload ([pscustomobject]@{Name=[string]$target.Name;DnsHostName=[string]$target.DnsHostName;Computer=$(if([string]$target.DnsHostName){[string]$target.DnsHostName}else{[string]$target.Name})}) -CallbackState (New-DomeniaAdAuditState $target 'MachineIdentity') -ReplaceKey 'adaudit-machine' -DisableControls @('BtnAdAuditMachineIdentity') -TimeoutSeconds 60 -SuccessHandler 'Complete-DomeniaAdAuditMachineIdentity' -ErrorHandler 'Fail-DomeniaAdAuditMachineIdentity' -TaskClass 'Explicit'}
 }
 
 function Complete-DomeniaAdAuditMachineIdentity {
