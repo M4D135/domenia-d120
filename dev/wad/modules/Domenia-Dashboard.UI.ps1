@@ -179,7 +179,9 @@ function Start-DomeniaFleetDashboard {
     $partialText=if([string]$scope.Dn){if($coverage.Partial){'dernière lecture du périmètre incomplète le '+$coverage.AttemptAt.ToLocalTime().ToString('dd/MM/yyyy HH:mm')}else{''}}else{Get-DomeniaIndexPartialText}
     $families=@('Presence','Console','Inventory')+@(Get-DomeniaBoardProbeIds|ForEach-Object{'Probe:'+$_})
     # Clocks of the explicit OU collections: the exact scope and its enclosing subtrees, read in the same snapshot.
-    $runKeys=@(Get-DomeniaCollectionRunKeys -ScopeDn ([string]$scope.Dn) -DomainDn ([string]$script:Conn.BaseDn) -Subtree ([bool]$scope.Subtree))
+    # A scope whose keys cannot be built sends none ($null): its clocks stay unknown, never "aucun relevé".
+    $runKeys=$null
+    try { $runKeys=@(Get-DomeniaCollectionRunKeys -ScopeDn ([string]$scope.Dn) -DomainDn ([string]$script:Conn.BaseDn) -Subtree ([bool]$scope.Subtree)) } catch { $runKeys=$null }
     $job = $null
     try {
         [void](Initialize-DomeniaWinSqliteNative)
