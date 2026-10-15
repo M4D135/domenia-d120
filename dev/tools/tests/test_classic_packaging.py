@@ -126,11 +126,16 @@ class ClassicProductionTests(unittest.TestCase):
         core = (self.output / 'wad/Domenia-Core.ps1').read_text('utf-8-sig')
         hashes = dict(re.findall(r'(\w+)\s*=\s*"([0-9A-F]{64})"',
                                  function_body(core, 'Get-DomeniaWorkerOperationHashes')))
-        computed = {}
-        for item in items:
-            text = (self.output / item['File']).read_text('utf-8-sig')
-            literals = re.findall(r'@([\'"])\n(.*?)\n^\1@', function_body(text, item['Function']), re.M | re.S)
-            computed[item['Operation']] = sha(literals[item['LiteralIndex']][1].encode())
+        # P-CD-08: the pin is the hash of the body the generator returns at run time, layer and lease of a composed
+        # operation included: the reviewed mirror (composed_body) reads the prepared package, never the sources.
+        spec = importlib.util.spec_from_file_location('contracts_test', TOOLS / 'update_worker_contracts.py')
+        mirror = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mirror)
+        mirror.ROOT = self.output
+        computed = {item['Operation']: sha(mirror.composed_body(item).encode()) for item in items}
+        composed = [item['Operation'] for item in items if mirror.composed_body(item) != mirror.literal_bodies(
+            function_body((self.output / item['File']).read_text('utf-8-sig'), item['Function']))[item['LiteralIndex']]]
+        self.assertTrue({'LocalIndexRead', 'RelationHistoryRead', 'LegacyMigration', 'LocalStore'} <= set(composed), composed)
         self.assertEqual(hashes, computed)
         fingerprint = sha('\n'.join(k + '=' + computed[k] for k in sorted(computed)).encode())
         self.assertIn('$expectedFingerprint="' + fingerprint + '"',

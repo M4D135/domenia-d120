@@ -570,3 +570,193 @@ Test-Case 'P122' 'Percentiles : texte honnete, aucune mesure ne devient 0 ms' {
     Assert-Equal 'Recherche locale : médiane 7 ms ; maximum 7 ms (1 mesure, trop peu pour un 95e centile).' (Format-DomeniaLatencySummaryText 'Recherche locale' (Get-DomeniaLatencySummary -Samples ([double[]]@(7))))
     Assert-Equal 'Recherche locale : médiane 10 ms ; 95 % sous 19 ms ; maximum 20 ms (20 mesures).' (Format-DomeniaLatencySummaryText 'Recherche locale' (Get-DomeniaLatencySummary -Samples ([double[]](1..20))))
 }
+
+# ---------------------------------------------------------------- P-CD-07 one declarative table of the operations
+Test-Case 'P-CD-07' 'Table des opérations : une ligne par opération épinglée du registre, et réciproquement' {
+    $parsed = [IO.File]::ReadAllText((Join-Path (Split-Path -Parent $wad) 'tools/operation-contracts.json'),[Text.Encoding]::UTF8) | ConvertFrom-Json
+    $contracts = @(@($parsed) | ForEach-Object { [string]$_.Operation })
+    Assert-True ($contracts.Count -gt 50) ('Contrat des opérations illisible : ' + $contracts.Count)
+    $rows = @((Get-DomeniaOperationTable).Values)
+    foreach ($operation in $contracts) {
+        $mine = @($rows | Where-Object { [string]$_.OperationId -ceq $operation })
+        Assert-Equal 1 $mine.Count ('Ligne de la table pour ' + $operation)
+        Assert-True ([bool]$mine[0].Pinned) ($operation + ' est épinglée mais déclarée Unpinned')
+    }
+    foreach ($row in $rows) {
+        $id = [string]$row.OperationId
+        if ([bool]$row.Pinned) { Assert-True ($contracts -ccontains $id) ($id + ' déclarée Pinned sans corps épinglé') }
+        else { Assert-False ($contracts -contains $id) ($id + ' déclarée Unpinned alors quʼelle est épinglée') }
+        # A directory write is recognised by its name only (Get-DomeniaOperationEffect): the table never contradicts it.
+        Assert-Equal ($id -cmatch '^Write[A-Za-z0-9]{2,59}$') ([string]$row.Effect -ceq 'DirectoryWrite') ('Effet DirectoryWrite de ' + $id)
+        Assert-True (Test-DomeniaContractValue -Family 'Domenia.Provider' -Value ([string]$row.Provider)) ('Fournisseur non déclaré pour ' + $id)
+    }
+    Assert-Equal $contracts.Count @($rows | Where-Object { [bool]$_.Pinned }).Count 'Nombre de lignes épinglées'
+}
+Test-Case 'P-CD-07' 'Table des opérations : lue une fois, sans distinction de casse, inconnue = aucune ligne' {
+    Assert-True ([object]::ReferenceEquals((Get-DomeniaOperationTable),(Get-DomeniaOperationTable))) 'Table reconstruite à chaque appel'
+    Assert-Equal 'ComputerPing' ([string](Get-DomeniaOperationRow 'computerping').OperationId)
+    Assert-True ($null -eq (Get-DomeniaOperationRow 'OperationInconnue'))
+    Assert-True ($null -eq (Get-DomeniaOperationRow ''))
+    Assert-True ($null -eq (Get-DomeniaOperationRow ' ReadLaps ')) 'Espaces : aucun rapprochement implicite'
+    # Only the effect rule trims the identifier, as before the table.
+    Assert-Equal 'Read' (Get-DomeniaOperationEffect ' ReadLaps ')
+    Assert-Equal 'Directory' (Get-DomeniaOperationProvider ' ReadLaps ')
+    Assert-Equal 'Unknown' (Get-DomeniaOperationEffect '')
+    # SessionsList: remote and machine account; it is no longer listed as local too (that listing changed no answer).
+    $sessions = Get-DomeniaOperationRow 'SessionsList'
+    Assert-Equal 'Remote,Machine' ((@($sessions.Accounts)) -join ',')
+}
+Test-Case 'P-CD-07' 'Table des opérations : chaque règle répond comme les anciennes listes pour chaque identifiant' {
+    # Reference captured before P-CD-07 (commit b00c409) from the former lists of Get-DomeniaOperationProvider,
+    # Get-DomeniaOperationCredentialNeeds, Get-DomeniaTaskClass, Get-DomeniaTaskDedupKey, Get-DomeniaIsolationDecision,
+    # New-DomeniaWorkerRunspace (pool), Get-DomeniaOperationEffect and Get-DomeniaOperationResource: every pinned
+    # operation, every identifier those lists named, unknown identifiers and case variants (the lists ignored case,
+    # the name rule of the directory writes does not). Columns: identifier, provider, effect, class, class for the
+    # replace key 'object', shared, isolable, pooled, access resource, then the credential needs: directory, directory
+    # account, remote, machine, remote admin, secrets, non directory, directory breaker, resource.
+    $reference = @'
+AccountAliasRead|Directory|Read|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+AdConsistencyScan|Directory|Read|Explicit|Explicit|1|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+AdHealthRead|Directory|Read|Explicit|Explicit|1|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+AdSchemaRead|Directory|Read|Explicit|Explicit|1|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+BatchNetworkDiag|Cim|Read|Explicit|Explicit|0|0|0|Remote|0|0|1|0|1|0|1|0|Remote
+BitLockerPresence|Directory|Unknown|Explicit|Explicit|0|0|0|BitLocker|1|1|0|0|0|1|0|1|BitLocker
+CmdletHelp|Local|Read|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Local
+CmdletInventory|Local|Read|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Local
+ComputerAdminShare|Network|Read|Explicit|Explicit|0|0|0|Network|0|0|1|1|1|0|1|0|Remote
+ComputerDiagnostics|Cim|Read|Explicit|Explicit|0|1|0|Remote|0|0|1|1|1|0|1|0|Remote
+ComputerEventsRead|Cim|Read|Explicit|Explicit|1|0|0|Remote|1|1|0|0|0|0|0|1|Directory
+ComputerGpUpdate|Cim|RemoteMutation|Explicit|Explicit|0|0|0|Remote|0|0|1|1|1|0|1|0|Remote
+ComputerInventory|Cim|Read|Explicit|Explicit|0|1|0|Remote|0|0|1|1|1|0|1|0|Remote
+ComputerLastUser|Cim|Read|Explicit|Explicit|0|0|0|Remote|1|1|1|1|1|0|1|0|Remote
+ComputerPing|Network|Read|Explicit|Explicit|0|1|1|Network|0|0|1|0|1|0|1|0|Remote
+ComputerQuickDiag|Cim|Read|Explicit|Explicit|1|0|0|Remote|1|1|0|0|0|0|0|1|Directory
+ComputerRestart|Cim|RemoteMutation|Explicit|Explicit|0|0|0|Remote|0|0|1|1|1|0|1|0|Remote
+ComputerServiceControl|Cim|RemoteMutation|Explicit|Explicit|0|0|0|Remote|0|0|1|1|1|0|1|0|Remote
+ConnectorRead|Network|Read|Explicit|Explicit|0|0|0|Network|1|1|0|0|0|0|0|1|Network
+DcCompareRead|Directory|Read|Explicit|Explicit|1|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+DcServicesRead|Cim|Read|Explicit|Explicit|1|0|0|Remote|0|0|1|1|1|0|1|0|Remote
+DelegationRead|Directory|Read|Explicit|Explicit|1|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+DemoDirectory|Local|Read|Explicit|Explicit|0|0|1|Local|0|0|0|0|0|0|1|0|Local
+DirectoryAbsenceCheck|Directory|Read|Explicit|Explicit|1|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+DocumentStore|Storage|LocalWrite|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Local
+DomainOverview|Directory|Read|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+EmbeddedDirectoryLookup|Directory|Read|Explicit|Explicit|1|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+EmbeddedPathBrowse|Local|Read|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Local
+EngineSelfTest|Local|Read|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Local
+GlobalSearch|Directory|Read|Explicit|Explicit|0|0|1|Directory|1|1|0|0|0|0|0|1|Directory
+GpoAppliedRead|Cim|Read|Explicit|Explicit|1|0|0|Remote|0|0|1|1|1|0|1|0|Remote
+GpoLinksRead|Directory|Read|Explicit|Explicit|1|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+GroupPathRead|Directory|Read|Explicit|Explicit|1|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+IndexBuild|Directory|LocalWrite|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+IndexOuList|Directory|Unknown|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+IndexRefresh|Directory|LocalWrite|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+IsolatedRead|Local|Unknown|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Local
+JoinStateRead|Cim|Read|Explicit|Explicit|1|0|0|Remote|1|1|0|0|0|0|0|1|Directory
+LegacyMigration|Storage|Unknown|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Local
+LinkHistoryStore|Storage|LocalWrite|Explicit|Explicit|0|0|0|Local|1|1|0|0|0|0|0|1|Directory
+LiveCache|Storage|LocalWrite|Background|Background|0|0|1|Local|0|0|0|0|0|0|1|0|Local
+LiveConsole|Cim|Read|Selection|Selection|0|0|1|Remote|1|1|1|1|1|0|1|0|Remote
+LiveDirectoryCheck|Directory|Read|Background|Background|0|0|1|Directory|1|1|0|0|0|0|0|1|Directory
+LiveSelectedPing|Network|Read|Selection|Selection|0|0|1|Network|0|0|0|0|0|0|1|0|Network
+LocalAssistant|Local|Unknown|Explicit|Explicit|0|0|0|Local|1|1|0|0|0|0|0|1|Directory
+LocalIndexRead|Storage|Unknown|Explicit|Explicit|0|0|1|Local|0|0|0|0|0|0|1|0|Local
+LocalQuery|Storage|Unknown|Explicit|Explicit|0|0|1|Local|0|0|0|0|0|0|1|0|Local
+LocalStore|Storage|LocalWrite|Background|Background|0|0|1|Local|0|0|0|0|0|0|1|0|Local
+LockoutDiagnosis|Directory|Read|Explicit|Explicit|1|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+LogonByDcRead|Directory|Read|Explicit|Explicit|1|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+LogonHarvest|Directory|Read|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+MachineIdentityRead|Cim|Read|Explicit|Explicit|1|0|0|Remote|0|0|1|1|1|0|1|0|Remote
+ObjectChanges|Directory|Read|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+OfflineDossier|Local|LocalWrite|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Local
+OpenAdObject|Directory|Read|Explicit|Selection|1|0|1|Directory|1|1|0|0|0|0|0|1|Directory
+OpenLinkedObject|Directory|Read|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+ParkPing|Network|Read|Explicit|Explicit|0|0|0|Network|0|0|0|0|0|0|1|0|Network
+ParkSharedSync|Network|Unknown|Background|Background|0|0|0|Network|0|0|0|0|0|0|1|0|Network
+ParkSweep|Cim|Read|Explicit|Explicit|0|0|0|Remote|0|0|1|1|1|0|1|0|Remote
+PasswordPolicyRead|Directory|Read|Explicit|Explicit|1|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+PermissionAnalysis|Directory|Read|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+PresenceScan|Network|Read|Background|Background|0|0|0|Network|1|1|0|0|0|0|0|1|Network
+PruneLinks|Directory|Read|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+QueryExport|Storage|Unknown|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Local
+QueryLibrary|Storage|Unknown|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Local
+QuerySchema|Cim|Read|Explicit|Explicit|0|0|0|Remote|0|0|1|1|1|0|1|0|Remote
+QueryTransfer|Storage|Unknown|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Local
+ReadBitLocker|Directory|Read|Explicit|Explicit|0|0|0|BitLocker|1|1|0|0|0|1|0|1|BitLocker
+ReadBitLockerKey|Directory|Read|Explicit|Explicit|0|0|0|BitLocker|1|1|0|0|0|1|0|1|BitLocker
+ReadBitLockerList|Directory|Unknown|Explicit|Explicit|0|0|0|BitLocker|1|1|0|0|0|1|0|1|BitLocker
+ReadLaps|Directory|Read|Explicit|Explicit|0|0|0|Laps|1|1|0|0|0|1|0|1|Laps
+ReceiptStore|Storage|LocalWrite|Background|Background|0|0|0|Local|0|1|0|0|0|0|1|0|Local
+ReconcileScope|Directory|Read|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+RelationHistoryRead|Storage|Read|Explicit|Explicit|1|0|0|Local|0|0|0|0|0|0|1|0|Local
+RemoteCredentialCheck|Cim|Read|Explicit|Explicit|0|0|0|Remote|1|1|0|0|0|0|0|1|Remote
+RimotteRun|Cim|RemoteMutation|Explicit|Explicit|0|0|0|Remote|0|0|1|1|1|0|1|0|Remote
+ScopeReconcile|Directory|Read|Background|Background|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+SelectedPresence|Network|Read|Selection|Selection|0|0|1|Network|1|1|0|0|0|0|0|1|Network
+SelfCheck|Directory|Read|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+SessionsList|Wts|Read|Explicit|Explicit|1|0|0|Remote|0|0|1|1|1|0|1|0|Remote
+SoftwareInventory|Cim|Read|Explicit|Explicit|0|1|0|Remote|0|0|1|1|1|0|1|0|Remote
+StartupWarmCache|Directory|Read|Background|Background|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+StartupWarmup|Directory|Read|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+StorageBackup|Storage|LocalWrite|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Local
+StorageIntegrity|Storage|Read|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Local
+StorageMaintenance|Storage|LocalWrite|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Local
+StoragePurge|Storage|LocalWrite|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Local
+StorageRetention|Storage|LocalWrite|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Local
+StorageUsage|Storage|Read|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Local
+TreeChildren|Directory|Read|Explicit|Explicit|0|1|1|Directory|1|1|0|0|0|0|0|1|Directory
+UpdateStateRead|Cim|Read|Explicit|Explicit|1|0|0|Remote|1|1|0|0|0|0|0|1|Directory
+UserComputerProbe|Cim|Read|Explicit|Explicit|0|0|0|Remote|1|1|0|1|1|0|0|1|Remote
+WakeOnLanSend|Network|RemoteMutation|Explicit|Explicit|0|0|0|Network|1|1|0|0|0|0|0|1|Network
+WmiClasses|Cim|Read|Explicit|Explicit|0|1|0|Remote|0|0|1|1|1|0|1|0|Remote
+WmiNamespaces|Cim|Read|Explicit|Explicit|0|1|0|Remote|0|0|1|1|1|0|1|0|Remote
+WmiQuery|Cim|Read|Explicit|Explicit|0|1|0|Remote|0|0|1|1|1|0|1|0|Remote
+WriteAccountDisabled|Directory|DirectoryWrite|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+WriteAccountOptions|Directory|DirectoryWrite|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+WriteAttributes|Directory|DirectoryWrite|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+WriteCreateOu|Directory|DirectoryWrite|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+WriteDeleteObject|Directory|DirectoryWrite|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+WriteExpiration|Directory|DirectoryWrite|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+WriteExpirePassword|Directory|DirectoryWrite|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+WriteGroupMember|Directory|DirectoryWrite|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+WriteMoveObject|Directory|DirectoryWrite|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+WriteObjectGroup|Directory|DirectoryWrite|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+WriteRenameComputer|Directory|DirectoryWrite|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+WriteResetPassword|Directory|DirectoryWrite|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+WriteUnlock|Directory|DirectoryWrite|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+UnknownOperation|Directory|Unknown|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+WriteSomethingNew|Directory|DirectoryWrite|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+computerping|Network|Read|Explicit|Explicit|0|1|1|Network|0|0|1|0|1|0|1|0|Remote
+READLAPS|Directory|Read|Explicit|Explicit|0|0|0|Laps|1|1|0|0|0|1|0|1|Laps
+openAdObject|Directory|Read|Explicit|Selection|1|0|1|Directory|1|1|0|0|0|0|0|1|Directory
+writeAttributes|Directory|Unknown|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+livecache|Storage|LocalWrite|Background|Background|0|0|1|Local|0|0|0|0|0|0|1|0|Local
+Writeattributes|Directory|DirectoryWrite|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+'@
+    $count = 0
+    foreach ($line in ($reference -split "`n")) {
+        $line = $line.Trim()
+        if (-not $line) { continue }
+        $c = $line.Split('|')
+        Assert-Equal 18 $c.Count ('Référence illisible : ' + $line)
+        $id = $c[0]; $count++
+        $flag = @{ '1' = $true; '0' = $false }
+        Assert-Equal $c[1] (Get-DomeniaOperationProvider $id) ($id + ' : fournisseur')
+        Assert-Equal $c[2] (Get-DomeniaOperationEffect $id) ($id + ' : effet')
+        Assert-Equal $c[3] (Get-DomeniaTaskClass -OperationId $id) ($id + ' : classe')
+        Assert-Equal $c[4] (Get-DomeniaTaskClass -OperationId $id -ReplaceKey 'object') ($id + ' : classe de l objet sélectionné')
+        Assert-Equal $flag[$c[5]] ([bool](Get-DomeniaTaskDedupKey -OperationId $id -ReaderIdentity 'r' -Payload ([pscustomobject]@{Dn='x'}))) ($id + ' : partage')
+        Assert-Equal $flag[$c[6]] ([bool](Get-DomeniaIsolationDecision -OperationId $id -Enabled $true -PayloadDigest 'd').Isolate) ($id + ' : isolement')
+        $row = Get-DomeniaOperationRow $id
+        Assert-Equal $flag[$c[7]] (($null -ne $row) -and ([bool]$row.Pooled)) ($id + ' : pool')
+        Assert-Equal $c[8] (Get-DomeniaOperationResource $id) ($id + ' : ressource dʼaccès')
+        $needs = Get-DomeniaOperationCredentialNeeds $id
+        $i = 9
+        foreach ($name in @('Directory','DirectoryCredential','Remote','Machine','RemoteAdmin','Secrets','NonDirectory','DirectoryBreaker')) {
+            Assert-Equal $flag[$c[$i]] ([bool]$needs.$name) ($id + ' : ' + $name); $i++
+        }
+        Assert-Equal $c[17] ([string]$needs.Resource) ($id + ' : ressource du compte')
+        Assert-Equal $c[1] ([string]$needs.Provider) ($id + ' : fournisseur des besoins')
+    }
+    Assert-True ($count -ge 117) ('Référence incomplète : ' + $count)
+}

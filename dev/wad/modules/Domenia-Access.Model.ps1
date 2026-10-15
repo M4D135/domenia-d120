@@ -7,14 +7,14 @@
 function Get-DomeniaOperationResource {
     # Which protected resource an operation talks to. LAPS and BitLocker are distinct from the directory.
     param([Parameter(Mandatory=$true)][string]$OperationId)
-    if ($OperationId -eq 'ReadLaps') { return 'Laps' }
-    # BitLockerPresence (lot L01) reads the recovery objects of an OU: same account and refusals as the other BitLocker reads.
-    if ($OperationId -in @('ReadBitLocker','ReadBitLockerList','ReadBitLockerKey','BitLockerPresence')) { return 'BitLocker' }
+    # P-CD-07: LAPS and BitLocker keep the resource of the operation table (Get-DomeniaOperationTable): every BitLocker
+    # read (BitLockerPresence included) shares the BitLocker account and its refusals. The others follow their provider.
+    $row = Get-DomeniaOperationRow $OperationId
+    if (($null -ne $row) -and ([string]$row.Resource -in @('Laps','BitLocker'))) { return [string]$row.Resource }
     $provider = Get-DomeniaOperationProvider $OperationId
     if ($provider -in @('Cim','Wts')) { return 'Remote' }
-    if ($provider -eq 'Storage' -or $provider -eq 'Local') { return 'Local' }
+    if (($provider -eq 'Storage') -or ($provider -eq 'Local')) { return 'Local' }
     if ($provider -eq 'Network') { return 'Network' }
-    if ($OperationId -in @('ComputerGpUpdate','ComputerRestart','RimotteRun','ComputerServiceControl','UserComputerProbe','WakeOnLanSend')) { return 'Remote' }
     return 'Directory'
 }
 

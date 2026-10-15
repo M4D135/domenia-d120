@@ -113,17 +113,20 @@ function Test-DomeniaIdentityCurrent {
 
 # ---------------------------------------------------------------- D015 scheduler
 function Get-DomeniaTaskClass {
-    # Real operation identifiers of the closed worker registry. A caller that knows better passes -Hint
-    # (for example IndexBuild started automatically at startup is Background, the same read started by a
-    # button stays Explicit).
+    # Class of the operation in the table (Get-DomeniaOperationTable); an unknown identifier is Explicit. A caller
+    # that knows better passes -Hint (for example IndexBuild started automatically at startup is Background, the same
+    # read started by a button stays Explicit).
     param([Parameter(Mandatory=$true)][string]$OperationId,[bool]$IsWrite=$false,[string]$ReplaceKey='',[string]$Hint='')
     if ($IsWrite) { return 'Write' }
     if ($Hint -in @('Explicit','Selection','Background')) { return $Hint }
-    $background = @('LiveCache','LiveDirectoryCheck','PresenceScan','ScopeReconcile','StartupWarmCache','LocalStore','ReceiptStore','ParkSharedSync')
-    if ($background -contains $OperationId) { return 'Background' }
-    # LiveConsole and LiveSelectedPing run the same pinned body, chosen by a check box after a selection.
-    if ($OperationId -in @('SelectedPresence','LiveSelectedPing','LiveConsole') -or ($OperationId -eq 'OpenAdObject' -and $ReplaceKey -eq 'object')) { return 'Selection' }
-    return 'Explicit'
+    $row = Get-DomeniaOperationRow $OperationId
+    if ($null -eq $row) { return 'Explicit' }
+    $class = [string]$row.Class
+    if ($class.StartsWith('Selection:')) {
+        if ($ReplaceKey -eq $class.Substring(10)) { return 'Selection' }
+        return 'Explicit'
+    }
+    return $class
 }
 
 function Get-DomeniaTaskPriority {
@@ -194,9 +197,10 @@ function Get-DomeniaTaskDedupKey {
     # and request (payload), account (reader identity), context (session, generation) and requirements.
     param([Parameter(Mandatory=$true)][string]$OperationId,[string]$ReaderIdentity='',[long]$Epoch=0,[long]$Generation=0,$Payload=$null,[bool]$IsWrite=$false,[string[]]$Shareable=@(),[string]$Requirements='')
     if ($IsWrite) { return '' }
-    # Points 101-109: the Audit AD reads are shareable too (DelegationRead to RelationHistoryRead).
-    $allowed = @('OpenAdObject','EmbeddedDirectoryLookup','SessionsList','ComputerQuickDiag','PasswordPolicyRead','LockoutDiagnosis','GroupPathRead','JoinStateRead','UpdateStateRead','GpoLinksRead','GpoAppliedRead','DcCompareRead','ComputerEventsRead','MachineIdentityRead','AdSchemaRead','DirectoryAbsenceCheck','LogonByDcRead','DelegationRead','AdHealthRead','DcServicesRead','AdConsistencyScan','RelationHistoryRead') + @($Shareable)
-    if ($allowed -notcontains $OperationId) { return '' }
+    # Shareable reads carry the flag Shared in the operation table (Get-DomeniaOperationTable); a caller may add its own.
+    $row = Get-DomeniaOperationRow $OperationId
+    $shared = (($null -ne $row) -and ([bool]$row.Shareable))
+    if ((-not $shared) -and (@($Shareable) -notcontains $OperationId)) { return '' }
     $digest = Get-DomeniaPayloadDigest $Payload
     if (-not $digest) { return '' }
     return (Get-DomeniaTextHash ($OperationId + '|' + $ReaderIdentity + '|' + $Epoch + '|' + $Generation + '|' + $digest + '|' + $Requirements))
@@ -403,64 +407,234 @@ function Get-DomeniaCancelStatusText {
     }
 }
 
+# ---------------------------------------------------------------- P-CD-07 one declarative table of the operations
+function Get-DomeniaOperationTable {
+    # P-CD-07: the single classification of the operation identifiers, read once per session (cache). One line per
+    # identifier, OperationId|Worker|Provider|Effect|Class|Accounts|Resource|Flags; # starts a comment.
+    #   Worker   Pinned: body pinned in the closed worker registry (tools/operation-contracts.json, one line each);
+    #            Unpinned: named by the access, safety, storage or assistance rules without a pinned body of its own.
+    #   Provider budget of the scheduler (D018): Directory, Cim, Wts, Storage, Local or Network.
+    #   Effect   Read, LocalWrite, DirectoryWrite (every Write<Name>, granted by the name only), RemoteMutation, or
+    #            Unknown: never treated as a read (fail closed).
+    #   Class    scheduling class without a hint (D015): Explicit, Selection or Background; Selection:<key> is Selection
+    #            for that replace key only, Explicit otherwise.
+    #   Accounts what the worker receives (C3): Directory (directory channel and account), Remote (remote target and
+    #            its account), Machine (workstation account), Bind (directory account without the channel); - none.
+    #   Resource protected resource of its account (D051): Directory, Laps, BitLocker, Remote, Network or Local.
+    #   Flags    Shared (an identical read joins the running one, point 12), Pool (prepared runspace pool, PF-05),
+    #            Isolable (may run in the bounded helper process, D016); - none.
+    # Get-DomeniaOperationProvider, Get-DomeniaOperationCredentialNeeds, Get-DomeniaTaskClass, Get-DomeniaTaskDedupKey,
+    # Get-DomeniaIsolationDecision, Get-DomeniaOperationEffect (Safety.Model), Get-DomeniaOperationResource
+    # (Access.Model) and the runspace pools of the core read it; tests/rules/Engine.Tests.ps1 keeps it equal to the
+    # registry and to the answers of the former lists. A new operation is declared here, on one line.
+    $cached = Get-Variable -Name DomeniaOperationTable -Scope Script -ErrorAction SilentlyContinue
+    if (($null -ne $cached) -and ($null -ne $cached.Value)) { return $cached.Value }
+    $text = @'
+# Pinned operations of the closed worker registry (tools/operation-contracts.json), one line each.
+AccountAliasRead       |Pinned  |Directory|Read          |Explicit        |Directory               |Directory|-
+AdConsistencyScan      |Pinned  |Directory|Read          |Explicit        |Directory               |Directory|Shared
+AdHealthRead           |Pinned  |Directory|Read          |Explicit        |Directory               |Directory|Shared
+AdSchemaRead           |Pinned  |Directory|Read          |Explicit        |Directory               |Directory|Shared
+# BatchNetworkDiag: remote actions are budgeted per target with the CIM provider: an outage never slows the directory.
+BatchNetworkDiag       |Pinned  |Cim      |Read          |Explicit        |Remote                  |Remote   |-
+# BitLockerPresence: lot L01: recovery objects of one OU, Secrets account, refusals kept on the BitLocker resource.
+BitLockerPresence      |Pinned  |Directory|Unknown       |Explicit        |Directory               |BitLocker|-
+CmdletHelp             |Pinned  |Local    |Read          |Explicit        |-                       |Local    |-
+CmdletInventory        |Pinned  |Local    |Read          |Explicit        |-                       |Local    |-
+ComputerAdminShare     |Pinned  |Network  |Read          |Explicit        |Remote,Machine          |Remote   |-
+ComputerDiagnostics    |Pinned  |Cim      |Read          |Explicit        |Remote,Machine          |Remote   |Isolable
+ComputerGpUpdate       |Pinned  |Cim      |RemoteMutation|Explicit        |Remote,Machine          |Remote   |-
+ComputerInventory      |Pinned  |Cim      |Read          |Explicit        |Remote,Machine          |Remote   |Isolable
+# ComputerLastUser: a CIM read that also queries LDAP (so does LiveConsole): a provider is not a credential rule.
+ComputerLastUser       |Pinned  |Cim      |Read          |Explicit        |Directory,Remote,Machine|Remote   |-
+ComputerPing           |Pinned  |Network  |Read          |Explicit        |Remote                  |Remote   |Pool,Isolable
+ComputerRestart        |Pinned  |Cim      |RemoteMutation|Explicit        |Remote,Machine          |Remote   |-
+# ComputerServiceControl: UX-38 (X04): starts or restarts one service of the selected workstation through CIM.
+ComputerServiceControl |Pinned  |Cim      |RemoteMutation|Explicit        |Remote,Machine          |Remote   |-
+# DcServicesRead: points 105, 108 and 109 (also GpoAppliedRead, MachineIdentityRead): a computer read by CIM only.
+DcServicesRead         |Pinned  |Cim      |Read          |Explicit        |Remote,Machine          |Remote   |Shared
+DelegationRead         |Pinned  |Directory|Read          |Explicit        |Directory               |Directory|Shared
+# DemoDirectory: answers every read in demonstration (in-memory directory, no network): pooled like the reads.
+DemoDirectory          |Pinned  |Local    |Read          |Explicit        |-                       |Local    |Pool
+DirectoryAbsenceCheck  |Pinned  |Directory|Read          |Explicit        |Directory               |Directory|Shared
+DocumentStore          |Pinned  |Storage  |LocalWrite    |Explicit        |-                       |Local    |-
+DomainOverview         |Pinned  |Directory|Read          |Explicit        |Directory               |Directory|-
+EmbeddedDirectoryLookup|Pinned  |Directory|Read          |Explicit        |Directory               |Directory|Shared
+EmbeddedPathBrowse     |Pinned  |Local    |Read          |Explicit        |-                       |Local    |-
+EngineSelfTest         |Pinned  |Local    |Read          |Explicit        |-                       |Local    |-
+GlobalSearch           |Pinned  |Directory|Read          |Explicit        |Directory               |Directory|Pool
+GpoAppliedRead         |Pinned  |Cim      |Read          |Explicit        |Remote,Machine          |Remote   |Shared
+GpoLinksRead           |Pinned  |Directory|Read          |Explicit        |Directory               |Directory|Shared
+GroupPathRead          |Pinned  |Directory|Read          |Explicit        |Directory               |Directory|Shared
+IndexBuild             |Pinned  |Directory|LocalWrite    |Explicit        |Directory               |Directory|-
+IndexOuList            |Pinned  |Directory|Unknown       |Explicit        |Directory               |Directory|-
+IsolatedRead           |Pinned  |Local    |Unknown       |Explicit        |-                       |Local    |-
+LegacyMigration        |Pinned  |Storage  |Unknown       |Explicit        |-                       |Local    |-
+LiveCache              |Pinned  |Storage  |LocalWrite    |Background      |-                       |Local    |Pool
+# LiveConsole: same pinned body as LiveSelectedPing, chosen by a check box after a selection.
+LiveConsole            |Pinned  |Cim      |Read          |Selection       |Directory,Remote,Machine|Remote   |Pool
+LiveDirectoryCheck     |Pinned  |Directory|Read          |Background      |Directory               |Directory|Pool
+LiveSelectedPing       |Pinned  |Network  |Read          |Selection       |-                       |Network  |Pool
+LocalIndexRead         |Pinned  |Storage  |Unknown       |Explicit        |-                       |Local    |Pool
+LocalQuery             |Pinned  |Storage  |Unknown       |Explicit        |-                       |Local    |Pool
+LocalStore             |Pinned  |Storage  |LocalWrite    |Background      |-                       |Local    |Pool
+LockoutDiagnosis       |Pinned  |Directory|Read          |Explicit        |Directory               |Directory|Shared
+LogonByDcRead          |Pinned  |Directory|Read          |Explicit        |Directory               |Directory|Shared
+LogonHarvest           |Pinned  |Directory|Read          |Explicit        |Directory               |Directory|-
+MachineIdentityRead    |Pinned  |Cim      |Read          |Explicit        |Remote,Machine          |Remote   |Shared
+# OfflineDossier: point 139: reads the base read-only and writes in Exports; it never holds the storage lane.
+OfflineDossier         |Pinned  |Local    |LocalWrite    |Explicit        |-                       |Local    |-
+# OpenAdObject: Selection for the replace key of the selected object only, Explicit otherwise.
+OpenAdObject           |Pinned  |Directory|Read          |Selection:object|Directory               |Directory|Shared,Pool
+OpenLinkedObject       |Pinned  |Directory|Read          |Explicit        |Directory               |Directory|-
+# ParkPing: MO-08: ICMP echoes of a list in parallel batches, network only, no credential.
+ParkPing               |Pinned  |Network  |Read          |Explicit        |-                       |Network  |-
+# ParkSharedSync: reads and writes a shared file, possibly on a UNC path: network I/O, not the local base.
+ParkSharedSync         |Pinned  |Network  |Unknown       |Background      |-                       |Network  |-
+ParkSweep              |Pinned  |Cim      |Read          |Explicit        |Remote,Machine          |Remote   |-
+PasswordPolicyRead     |Pinned  |Directory|Read          |Explicit        |Directory               |Directory|Shared
+PermissionAnalysis     |Pinned  |Directory|Read          |Explicit        |Directory               |Directory|-
+PresenceScan           |Pinned  |Network  |Read          |Background      |Directory               |Network  |-
+PruneLinks             |Pinned  |Directory|Read          |Explicit        |Directory               |Directory|-
+QueryExport            |Pinned  |Storage  |Unknown       |Explicit        |-                       |Local    |-
+QueryLibrary           |Pinned  |Storage  |Unknown       |Explicit        |-                       |Local    |-
+QueryTransfer          |Pinned  |Storage  |Unknown       |Explicit        |-                       |Local    |-
+ReadBitLocker          |Pinned  |Directory|Read          |Explicit        |Directory               |BitLocker|-
+ReadBitLockerKey       |Pinned  |Directory|Read          |Explicit        |Directory               |BitLocker|-
+# ReadBitLockerList: D058: ReadBitLockerList and ReadBitLockerKey read BitLocker exactly like ReadBitLocker.
+ReadBitLockerList      |Pinned  |Directory|Unknown       |Explicit        |Directory               |BitLocker|-
+ReadLaps               |Pinned  |Directory|Read          |Explicit        |Directory               |Laps     |-
+# ReceiptStore: records the bind identity of a write: the directory account, without the directory channel.
+ReceiptStore           |Pinned  |Storage  |LocalWrite    |Background      |Bind                    |Local    |-
+# RelationHistoryRead: point 107: stored history of the relations, read from the local base only.
+RelationHistoryRead    |Pinned  |Storage  |Read          |Explicit        |-                       |Local    |Shared
+RemoteCredentialCheck  |Pinned  |Cim      |Read          |Explicit        |Directory               |Remote   |-
+RimotteRun             |Pinned  |Cim      |RemoteMutation|Explicit        |Remote,Machine          |Remote   |-
+ScopeReconcile         |Pinned  |Directory|Read          |Background      |Directory               |Directory|-
+SelectedPresence       |Pinned  |Network  |Read          |Selection       |Directory               |Network  |Pool
+SelfCheck              |Pinned  |Directory|Read          |Explicit        |Directory               |Directory|-
+# SessionsList: remote and machine account (formerly also listed as local, which changed no answer).
+SessionsList           |Pinned  |Wts      |Read          |Explicit        |Remote,Machine          |Remote   |Shared
+SoftwareInventory      |Pinned  |Cim      |Read          |Explicit        |Remote,Machine          |Remote   |Isolable
+StartupWarmCache       |Pinned  |Directory|Read          |Background      |Directory               |Directory|-
+StorageBackup          |Pinned  |Storage  |LocalWrite    |Explicit        |-                       |Local    |-
+StorageIntegrity       |Pinned  |Storage  |Read          |Explicit        |-                       |Local    |-
+StorageMaintenance     |Pinned  |Storage  |LocalWrite    |Explicit        |-                       |Local    |-
+StoragePurge           |Pinned  |Storage  |LocalWrite    |Explicit        |-                       |Local    |-
+StorageUsage           |Pinned  |Storage  |Read          |Explicit        |-                       |Local    |-
+TreeChildren           |Pinned  |Directory|Read          |Explicit        |Directory               |Directory|Pool,Isolable
+UserComputerProbe      |Pinned  |Cim      |Read          |Explicit        |Directory,Machine       |Remote   |-
+WmiClasses             |Pinned  |Cim      |Read          |Explicit        |Remote,Machine          |Remote   |Isolable
+WmiNamespaces          |Pinned  |Cim      |Read          |Explicit        |Remote,Machine          |Remote   |Isolable
+WmiQuery               |Pinned  |Cim      |Read          |Explicit        |Remote,Machine          |Remote   |Isolable
+WriteAccountDisabled   |Pinned  |Directory|DirectoryWrite|Explicit        |Directory               |Directory|-
+WriteAccountOptions    |Pinned  |Directory|DirectoryWrite|Explicit        |Directory               |Directory|-
+WriteAttributes        |Pinned  |Directory|DirectoryWrite|Explicit        |Directory               |Directory|-
+WriteCreateOu          |Pinned  |Directory|DirectoryWrite|Explicit        |Directory               |Directory|-
+WriteDeleteObject      |Pinned  |Directory|DirectoryWrite|Explicit        |Directory               |Directory|-
+WriteExpiration        |Pinned  |Directory|DirectoryWrite|Explicit        |Directory               |Directory|-
+WriteExpirePassword    |Pinned  |Directory|DirectoryWrite|Explicit        |Directory               |Directory|-
+WriteGroupMember       |Pinned  |Directory|DirectoryWrite|Explicit        |Directory               |Directory|-
+WriteMoveObject        |Pinned  |Directory|DirectoryWrite|Explicit        |Directory               |Directory|-
+WriteObjectGroup       |Pinned  |Directory|DirectoryWrite|Explicit        |Directory               |Directory|-
+WriteRenameComputer    |Pinned  |Directory|DirectoryWrite|Explicit        |Directory               |Directory|-
+WriteResetPassword     |Pinned  |Directory|DirectoryWrite|Explicit        |Directory               |Directory|-
+WriteUnlock            |Pinned  |Directory|DirectoryWrite|Explicit        |Directory               |Directory|-
+# Identifiers without a pinned body of their own, named by the access, safety, storage or assistance rules.
+ComputerEventsRead     |Unpinned|Cim      |Read          |Explicit        |Directory               |Directory|Shared
+ComputerQuickDiag      |Unpinned|Cim      |Read          |Explicit        |Directory               |Directory|Shared
+ConnectorRead          |Unpinned|Network  |Read          |Explicit        |Directory               |Network  |-
+DcCompareRead          |Unpinned|Directory|Read          |Explicit        |Directory               |Directory|Shared
+IndexRefresh           |Unpinned|Directory|LocalWrite    |Explicit        |Directory               |Directory|-
+JoinStateRead          |Unpinned|Cim      |Read          |Explicit        |Directory               |Directory|Shared
+LinkHistoryStore       |Unpinned|Storage  |LocalWrite    |Explicit        |Directory               |Directory|-
+LocalAssistant         |Unpinned|Local    |Unknown       |Explicit        |Directory               |Directory|-
+ObjectChanges          |Unpinned|Directory|Read          |Explicit        |Directory               |Directory|-
+# QuerySchema: launched by the query editor, not pinned yet (known debt, PendingPins of Test-DomeniaCollectCircuit).
+QuerySchema            |Unpinned|Cim      |Read          |Explicit        |Remote,Machine          |Remote   |-
+ReconcileScope         |Unpinned|Directory|Read          |Explicit        |Directory               |Directory|-
+StartupWarmup          |Unpinned|Directory|Read          |Explicit        |Directory               |Directory|-
+# StorageRetention: launched by the storage assistant, not pinned yet (known debt, PendingPins of Test-DomeniaCollectCircuit).
+StorageRetention       |Unpinned|Storage  |LocalWrite    |Explicit        |-                       |Local    |-
+UpdateStateRead        |Unpinned|Cim      |Read          |Explicit        |Directory               |Directory|Shared
+WakeOnLanSend          |Unpinned|Network  |RemoteMutation|Explicit        |Directory               |Network  |-
+'@
+    $table = @{}
+    foreach ($raw in ($text -split "`n")) {
+        $line = $raw
+        $comment = $line.IndexOf('#')
+        if ($comment -ge 0) { $line = $line.Substring(0,$comment) }
+        $line = $line.Trim()
+        if (-not $line) { continue }
+        $cells = @($line.Split('|') | ForEach-Object { $_.Trim() })
+        if ($cells.Count -ne 8) { throw ('Table des opérations : ligne illisible <' + $line + '>.') }
+        $id = $cells[0]
+        if ($id -cnotmatch '^[A-Za-z][A-Za-z0-9]{2,63}$') { throw ('Table des opérations : identifiant invalide <' + $id + '>.') }
+        if ($table.ContainsKey($id)) { throw ('Table des opérations : ' + $id + ' déclarée deux fois.') }
+        $accounts = @(); if ($cells[5] -cne '-') { $accounts = @($cells[5].Split(',')) }
+        $flags = @(); if ($cells[7] -cne '-') { $flags = @($cells[7].Split(',')) }
+        $valid = (($cells[1] -cin @('Pinned','Unpinned')) -and ($cells[2] -cin @('Directory','Cim','Wts','Storage','Local','Network')) -and
+            ($cells[3] -cin @('Read','LocalWrite','DirectoryWrite','RemoteMutation','Unknown')) -and ($cells[4] -cmatch '^(Explicit|Selection|Background|Selection:[A-Za-z]+)$') -and
+            ($cells[6] -cin @('Directory','Laps','BitLocker','Remote','Network','Local')) -and
+            (@($accounts | Where-Object { $_ -cnotin @('Directory','Remote','Machine','Bind') }).Count -eq 0) -and
+            (@($flags | Where-Object { $_ -cnotin @('Shared','Pool','Isolable') }).Count -eq 0))
+        if (-not $valid) { throw ('Table des opérations : valeur inconnue pour ' + $id + '.') }
+        $table[$id] = [pscustomobject]@{
+            OperationId=$id; Pinned=($cells[1] -ceq 'Pinned'); Provider=$cells[2]; Effect=$cells[3]; Class=$cells[4]
+            Accounts=[string[]]$accounts; Resource=$cells[6]
+            Shareable=($flags -ccontains 'Shared'); Pooled=($flags -ccontains 'Pool'); Isolable=($flags -ccontains 'Isolable')
+        }
+    }
+    $script:DomeniaOperationTable = $table
+    return $table
+}
+
+function Get-DomeniaOperationRow {
+    # The table row of one identifier, matched without regard to case like the former lists; $null when it is unknown.
+    param([AllowEmptyString()][AllowNull()][string]$OperationId)
+    $table = Get-DomeniaOperationTable
+    $id = [string]$OperationId
+    if ($table.ContainsKey($id)) { return $table[$id] }
+    return $null
+}
+
 # ---------------------------------------------------------------- D018 provider budgets
 function Get-DomeniaOperationProvider {
+    # Provider budget of the operation in the table (Get-DomeniaOperationTable); an unknown identifier is a directory read.
     param([Parameter(Mandatory=$true)][string]$OperationId)
-    # Remote actions on a workstation (GPUpdate, restart, Rimotte, user probe, credential check) are budgeted
-    # per target with the CIM provider: an outage there must never slow the directory.
-    # UX-38 (X04): ComputerServiceControl starts or restarts one service of the selected workstation through CIM.
-    $cim = @('ComputerDiagnostics','ComputerInventory','SoftwareInventory','WmiNamespaces','WmiClasses','WmiQuery','LiveConsole','ComputerLastUser','ComputerQuickDiag','JoinStateRead','UpdateStateRead','GpoAppliedRead','ComputerEventsRead','MachineIdentityRead','DcServicesRead','ParkSweep','BatchNetworkDiag','ComputerGpUpdate','ComputerRestart','RimotteRun','ComputerServiceControl','UserComputerProbe','RemoteCredentialCheck','QuerySchema')
-    $wts = @('SessionsList')
-    $storage = @('LegacyMigration','LocalStore','LiveCache','ReceiptStore','DocumentStore','StorageUsage','StoragePurge','StorageBackup','StorageMaintenance','StorageRetention','StorageIntegrity','LinkHistoryStore','LocalIndexRead','LocalQuery','QueryExport','QueryLibrary','QueryTransfer','RelationHistoryRead')
-    # OfflineDossier (point 139) only reads the base read-only and writes in Exports: it never holds the single storage lane.
-    $local = @('CmdletHelp','CmdletInventory','EngineSelfTest','EmbeddedPathBrowse','LocalAssistant','DemoDirectory','IsolatedRead','OfflineDossier')
-    # ParkSharedSync reads and writes a shared file, possibly on a UNC path: network I/O, not the local base.
-    # ParkPing (MO-08) sends the ICMP echoes of a list in parallel batches: network only, no credential.
-    $network = @('LiveSelectedPing','ComputerPing','ComputerAdminShare','SelectedPresence','PresenceScan','WakeOnLanSend','ConnectorRead','ParkSharedSync','ParkPing')
-    if ($cim -contains $OperationId) { return 'Cim' }
-    if ($wts -contains $OperationId) { return 'Wts' }
-    if ($storage -contains $OperationId) { return 'Storage' }
-    if ($local -contains $OperationId) { return 'Local' }
-    if ($network -contains $OperationId) { return 'Network' }
-    return 'Directory'
+    $row = Get-DomeniaOperationRow $OperationId
+    if ($null -eq $row) { return 'Directory' }
+    return [string]$row.Provider
 }
 
 function Get-DomeniaOperationCredentialNeeds {
     # C3. Credential semantics of one operation, identical to the historical lists of Get-WorkerContext:
     # which account the worker receives, and whether a rejected logon may suspend the directory channel.
     # A provider is not a credential rule: ComputerLastUser and LiveConsole are CIM reads that also query LDAP.
+    # P-CD-07: the accounts and the resource come from the operation table (Get-DomeniaOperationTable); an unknown
+    # identifier is a directory read with the directory account.
     param([string]$OperationId)
-    # Points 105, 108 and 109: GpoAppliedRead, DcServicesRead and MachineIdentityRead read a computer by CIM only.
-    $remote = @('SessionsList','ComputerDiagnostics','ComputerLastUser','LiveConsole','ComputerPing','ComputerAdminShare','ComputerGpUpdate','ComputerRestart','ComputerInventory','SoftwareInventory','ParkSweep','BatchNetworkDiag','WmiNamespaces','WmiClasses','WmiQuery','RimotteRun','ComputerServiceControl','QuerySchema','GpoAppliedRead','DcServicesRead','MachineIdentityRead')
-    $machine = @('SessionsList','ComputerAdminShare','ComputerDiagnostics','ComputerInventory','SoftwareInventory','ParkSweep','WmiNamespaces','WmiClasses','WmiQuery','ComputerLastUser','LiveConsole','ComputerGpUpdate','ComputerRestart','UserComputerProbe','RimotteRun','ComputerServiceControl','QuerySchema','GpoAppliedRead','DcServicesRead','MachineIdentityRead')
-    # Local or storage operations that never bind to the directory. New D120 operations are classified here.
-    $local = @('StorageUsage','StoragePurge','StorageBackup','StorageMaintenance','StorageRetention','StorageIntegrity','LegacyMigration','CmdletHelp','CmdletInventory','EngineSelfTest','LiveCache','LiveSelectedPing','ParkPing','LocalStore','ReceiptStore','SessionsList','DocumentStore','EmbeddedPathBrowse','DemoDirectory','LocalIndexRead','LocalQuery','QueryExport','QueryLibrary','ParkSharedSync','IsolatedRead','QueryTransfer','RelationHistoryRead','OfflineDossier')
     $id = [string]$OperationId
-    $isRemote = ($remote -contains $id)
-    $nonDirectory = (($local -contains $id) -or $isRemote)
-    $directory = (($id -in @('ComputerLastUser','LiveConsole')) -or -not $nonDirectory)
-    # ReadBitLockerList and ReadBitLockerKey (lot acces, D058) read BitLocker exactly like ReadBitLocker, and so does
-    # BitLockerPresence (lot L01: recovery objects of one OU, Secrets account, refusals kept on the BitLocker resource).
-    $secrets = ($id -in @('ReadBitLocker','ReadBitLockerList','ReadBitLockerKey','ReadLaps','BitLockerPresence'))
-    $resource = 'Directory'
-    if ($id -eq 'ReadLaps') { $resource = 'Laps' }
-    elseif ($id -in @('ReadBitLocker','ReadBitLockerList','ReadBitLockerKey','BitLockerPresence')) { $resource = 'BitLocker' }
-    elseif ($isRemote -or ($machine -contains $id) -or $id -eq 'RemoteCredentialCheck') { $resource = 'Remote' }
-    elseif ($id -in @('LiveSelectedPing','ParkPing','ComputerPing','SelectedPresence','PresenceScan','WakeOnLanSend','ConnectorRead','ParkSharedSync')) { $resource = 'Network' }
-    elseif ($nonDirectory) { $resource = 'Local' }
+    $accounts = @('Directory'); $resource = 'Directory'
+    $row = Get-DomeniaOperationRow $id
+    if ($null -ne $row) { $accounts = @($row.Accounts); $resource = [string]$row.Resource }
+    $directory = ($accounts -contains 'Directory')
+    $isRemote = ($accounts -contains 'Remote')
+    $machine = ($accounts -contains 'Machine')
     return [pscustomobject]@{
         OperationId=$id
         # The worker needs the directory channel (circuit breaker and AD account apply).
         Directory=$directory
-        # The worker receives the AD account (ReceiptStore records the bind identity of a write).
-        DirectoryCredential=($directory -or $id -eq 'ReceiptStore')
+        # The worker receives the AD account (ReceiptStore records the bind identity of a write: Bind).
+        DirectoryCredential=($directory -or ($accounts -contains 'Bind'))
         Remote=$isRemote
-        Machine=($machine -contains $id)
-        RemoteAdmin=($isRemote -or ($machine -contains $id))
-        Secrets=$secrets
-        NonDirectory=$nonDirectory
+        Machine=$machine
+        RemoteAdmin=($isRemote -or $machine)
+        Secrets=($resource -in @('Laps','BitLocker'))
+        # A remote read never binds to the directory, unless it also reads it (ComputerLastUser, LiveConsole).
+        NonDirectory=($isRemote -or (-not $directory))
         # A rejected logon suspends the AD channel only when the rejected account can be the AD account.
-        DirectoryBreaker=($directory -and -not $isRemote)
+        DirectoryBreaker=($directory -and (-not $isRemote))
         Provider=(Get-DomeniaOperationProvider $id)
         Resource=$resource
     }
@@ -487,13 +661,14 @@ function Test-DomeniaQueuedTaskExpired {
 function Get-DomeniaIsolationDecision {
     # D016. A read may run in a bounded helper process only when the switch is on, it is not a write, its
     # payload is plain data, no credential object would have to cross the process boundary and the operation
-    # is on the reviewed list. Stopping the helper can therefore never touch a write or the GUI.
+    # is reviewed for it (flag Isolable). Stopping the helper can therefore never touch a write or the GUI.
     param([string]$OperationId,[bool]$Enabled=$false,[bool]$IsWrite=$false,[bool]$HasCredential=$false,[string]$PayloadDigest='',[bool]$DemoMode=$false)
-    $eligible = @('ComputerPing','ComputerDiagnostics','ComputerInventory','SoftwareInventory','WmiNamespaces','WmiClasses','WmiQuery','TreeChildren')
     if (-not $Enabled) { return [pscustomobject]@{Isolate=$false;Reason='Lectures isolees desactivees (Features.IsolatedReads).'} }
     if ($IsWrite) { return [pscustomobject]@{Isolate=$false;Reason='Une ecriture n est jamais confiee au processus auxiliaire.'} }
     if ($DemoMode) { return [pscustomobject]@{Isolate=$false;Reason='Demonstration : aucun processus auxiliaire.'} }
-    if ($eligible -notcontains [string]$OperationId) { return [pscustomobject]@{Isolate=$false;Reason='Operation non retenue pour l isolement.'} }
+    # The reviewed list is the flag Isolable of the operation table (Get-DomeniaOperationTable).
+    $row = Get-DomeniaOperationRow ([string]$OperationId)
+    if (($null -eq $row) -or (-not [bool]$row.Isolable)) { return [pscustomobject]@{Isolate=$false;Reason='Operation non retenue pour l isolement.'} }
     if ($HasCredential) { return [pscustomobject]@{Isolate=$false;Reason='Un compte explicite ne traverse jamais la frontiere du processus.'} }
     if (-not $PayloadDigest) { return [pscustomobject]@{Isolate=$false;Reason='Charge utile vivante : lecture conservee dans le moteur.'} }
     return [pscustomobject]@{Isolate=$true;Reason='Lecture isolee dans un processus auxiliaire borne.'}

@@ -69,7 +69,8 @@ def typographic_quotes(text,rel,first_line=1,where=''):
     return errors
 
 def pinned_worker_functions():
-    """Worker factories whose single-quoted here-strings are compiled verbatim: pinned operations and *WorkerCode."""
+    """Worker factories whose single-quoted here-strings are compiled verbatim: pinned operations, *WorkerCode and the
+    shared worker text composed in front of them (*WorkerCommon, P-CD-08)."""
     pinned={}
     contracts=ROOT/'tools/operation-contracts.json'
     if contracts.is_file():
@@ -81,7 +82,7 @@ def worker_body_errors(path:Path,text:str):
     """Lexical checks of every worker body: [scriptblock]::Create parses it as code, not as a here-string."""
     rel=path.relative_to(ROOT);errors=[];names=PINNED_WORKERS.get(rel.as_posix(),set())
     for name,spans in functions(text).items():
-        if name not in names and not name.endswith('WorkerCode'): continue
+        if name not in names and not name.endswith(('WorkerCode','WorkerCommon')): continue
         for a,b in spans:
             for m in HERE_STRING.finditer(text,a,b):
                 body=m.group(1);first=text.count('\n',0,m.start(1))+1;where=f' (worker body of {name})'

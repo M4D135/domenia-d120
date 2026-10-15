@@ -141,6 +141,9 @@ $script:QueueOriginal = (Get-Item function:Queue-DomeniaLinkChanges).ScriptBlock
 $script:RequestOriginal = (Get-Item function:Request-DomeniaLinkPersistence).ScriptBlock
 . ([scriptblock]::Create((Get-FunctionTextFromFile $liveUi 'Merge-DomeniaLiveLinkMemory')))
 . ([scriptblock]::Create((Get-FunctionTextFromFile $liveModel 'Get-DomeniaLiveCacheCode')))
+# The LiveCache and LegacyMigration bodies compose the lease code and the shared SQLite layer of the workers (P-CD-08):
+# the whole storage worker module, so that Get-DomeniaStorageLeaseWorkerCode reads the lease module beside it.
+. (Join-Path $modules 'Domenia-Storage.Worker.ps1')
 . ([scriptblock]::Create((Get-FunctionTextFromFile $selectionUi 'Get-DomeniaObjectCacheKey')))
 . ([scriptblock]::Create((Get-FunctionTextFromFile $continuityUi 'Invoke-DomeniaObjectChanges')))
 # L03 (FI-21): the GUID invalidation is shared with 'Relire l objet' (Refresh-SelectedObject).

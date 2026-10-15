@@ -569,11 +569,11 @@
     "Save-UserMachineLinks": "BE795AF61C61794DFBB29B10146A8B867A5DCB4C22143448126BD067DC9256DE",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "FDEDF050862F254A9244340D0B918C48A6F016E3260B7CA844CE613CD53B1923",
-    "Assert-DomeniaWorkerRegistry": "1AFF330AAF8FE06922D3A84C96FFB63B1A958F62A64AC5EF553E24527B657495",
+    "Get-DomeniaWorkerOperationHashes": "C6D2B6CF31AD80A474343BA4B7C6EA8AC58D6F2578E0D3A26C541D315DC0B40B",
+    "Assert-DomeniaWorkerRegistry": "C479DD630A0027EBA5CF8FB6B78EA63BAEA91FDBC3DC0145D157B21E466923E8",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
-    "New-DomeniaWorkerRunspace": "363EB2DB818E4A92C00F0008DA3B9FC54FD41DE12ECDFBC7F8A1F4141B1A22BA",
+    "New-DomeniaWorkerRunspace": "96B98B81FFA6E316DC13E5CDE4BBF8315CC20E4DDADB5E312834797FB853DE44",
     "Register-DomeniaAsyncEngineFault": "CBD61F3E87843AEE34A3CD5B5ECE85523F99DCE4FD0D6033CB1A78D3C937065D",
     "Initialize-AsyncEngine": "4FADB29B184C53CC7E72B23C121F41FCB8FA06F83A146AEAEC40A0CFCC00CF01",
     "Get-AllWriteControlNames": "9DA88E1B41144E58C2815AF7DE66BF04CE0398971D76A1C816011D142654BB37",
@@ -4584,6 +4584,19 @@
       "ChangedCoreFunctions": [
         "Assert-DomeniaWorkerRegistry",
         "Get-DomeniaWorkerOperationHashes"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": ".",
+      "Source": ".",
+      "Decision": "Lot Z09 (pistes CD-08, CD-07) : une seule couche SQLite des workers (Get-DomeniaSqliteWorkerCommon, composee dans dix operations epinglees, sept copies supprimees, check_sqlite_layer.py en garde) ; une table declarative unique des operations (Get-DomeniaOperationTable, 0 ecart sur 117 identifiants par rapport aux anciennes listes). Constructeur PROD aligne sur composed_body. Dix workers re-epingles apres relecture.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes",
+        "New-DomeniaWorkerRunspace"
       ],
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],

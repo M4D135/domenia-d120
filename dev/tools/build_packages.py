@@ -272,6 +272,8 @@ def build(out,manifest_only=False,windows_report=None,require_windows=False,evid
     selection_check=subprocess.run([sys.executable,str(ROOT/'tools/audit_preload.py')],capture_output=True,text=True)
     if selection_check.returncode:raise ValueError('Selection integration audit failed:\n'+selection_check.stdout+selection_check.stderr)
     gate('tools/update_migration_worker.py','Migration worker sources')
+    # P-CD-08: one SQLite layer for every worker of the local base, composed, never copied.
+    gate('tools/check_sqlite_layer.py','Shared SQLite layer of the workers')
     # Verify every operation body AND the startup registry fingerprint before packaging.
     result=subprocess.run([sys.executable,str(ROOT/'tools/update_worker_contracts.py')],capture_output=True,text=True)
     if result.returncode:raise ValueError('Worker contracts not verified: '+result.stdout+result.stderr)

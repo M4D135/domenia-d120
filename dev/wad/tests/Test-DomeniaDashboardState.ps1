@@ -6,7 +6,7 @@ $ErrorActionPreference='Stop';Set-StrictMode -Version 2
 # the trace itself is tested in rules/Common.Tests.ps1 and Test-DomeniaFaults.ps1).
 function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) }
 $modules=Join-Path (Split-Path -Parent $PSScriptRoot) 'modules'
-foreach($name in @('Common.Model','HealthRules.Model','Boards.Model','BoardFleet.Model','HealthRules.UI','Dashboard.UI','Engine.Worker')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+foreach($name in @('Common.Model','HealthRules.Model','Boards.Model','BoardFleet.Model','HealthRules.UI','Dashboard.UI','Storage.Worker','Engine.Worker')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 $checks=[Collections.Generic.List[object]]::new()
 function Expect($ok,$why){if(-not $ok){throw $why}}
 function Case($name,[scriptblock]$body){try{&$body;$checks.Add([pscustomobject]@{Name=$name;Passed=$true;Error=''})}catch{$checks.Add([pscustomobject]@{Name=$name;Passed=$false;Error=($_.Exception.Message+' '+$_.ScriptStackTrace)})}}

@@ -13,7 +13,8 @@ $wad=Split-Path -Parent $PSScriptRoot;$modules=Join-Path $wad 'modules'
 # Collection.Model/UI: freshness profile, budgets, windows and suspensions of the collection engine (points 11-21).
 # Store.Model and Collection.Model: the scope clocks recorded by a finished refresh (points 4, 5 and 10).
 # Point 48: Safety.Model provides the exact preview of the collective read (New-DomeniaCollectivePreview).
-foreach($name in @('Common.Model','Cache.Model','Live.Model','Store.Model','Collection.Model','Collection.UI','Park.Model','Boards.Model','Safety.Model','Storage.UI','Park.UI','Refresh.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+# P-CD-07: Engine.Model holds the operation table that the effect of the preview reads (Get-DomeniaOperationRow).
+foreach($name in @('Common.Model','Engine.Model','Cache.Model','Live.Model','Store.Model','Collection.Model','Collection.UI','Park.Model','Boards.Model','Safety.Model','Storage.UI','Park.UI','Refresh.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 $tokens=$null;$parseErrors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'),[ref]$tokens,[ref]$parseErrors)
 if($parseErrors.Count){throw 'Core parse failure'}
 foreach($name in @('Test-DomeniaIndexWriteReady','Start-DomeniaIndexScopeBuild','Update-DomeniaIndexDatabaseRows','Complete-DomeniaIndexScopeUi','Fail-DomeniaIndexBuildUi')){

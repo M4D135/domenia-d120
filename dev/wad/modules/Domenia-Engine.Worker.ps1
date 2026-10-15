@@ -3,8 +3,9 @@
 
 function Get-DomeniaLocalIndexReadWorkerCode {
     # LocalIndexRead: read-only SQLite access with a bounded busy timeout (FI-12). A locked base returns Busy=$true,
-    # never an empty answer presented as a result.
-    return @'
+    # never an empty answer presented as a result. The SQLite layer is the shared one of the workers (P-CD-08,
+    # Get-DomeniaSqliteWorkerCommon of Domenia-Storage.Worker.ps1); this body only keeps its measured read.
+    return (Get-DomeniaSqliteWorkerCommon)+[Environment]::NewLine+@'
 $action = [string]$Payload.Action
 if ($action -notin @('Search','ParkState','ParkTargets','FleetStats','ResolveNames','StoreRead','IndexMetadata','UserMachineLinks','SecretIndexEntry','OperationStats','DirectorySync','SnapshotCompare')) { throw 'Lecture locale non autorisee.' }
 $path = [IO.Path]::GetFullPath([string]$Payload.Path)
@@ -22,22 +23,6 @@ $busyMs = [Math]::Max(10,[Math]::Min(5000,$busyMs))
 $IdxWStats = [pscustomobject]@{ Prepared = 0; Reused = 0; Executed = 0; Rows = 0L; SqlMs = [double]0 }
 $IdxWStatements = @{}
 $IdxWColumns = @{}
-function New-IdxWUtf8 {
-    param([AllowEmptyString()][string]$Text)
-    $bytes = [Text.Encoding]::UTF8.GetBytes(([string]$Text) + [char]0)
-    $ptr = [Runtime.InteropServices.Marshal]::AllocHGlobal($bytes.Length)
-    [Runtime.InteropServices.Marshal]::Copy($bytes,0,$ptr,$bytes.Length)
-    return $ptr
-}
-function ConvertFrom-IdxWUtf8 {
-    param([IntPtr]$Pointer,[int]$Length = -1)
-    if ($Pointer -eq [IntPtr]::Zero) { return '' }
-    if ($Length -lt 0) { $Length = 0; while ([Runtime.InteropServices.Marshal]::ReadByte($Pointer,$Length) -ne 0) { $Length++ } }
-    if ($Length -le 0) { return '' }
-    $bytes = New-Object byte[] $Length
-    [Runtime.InteropServices.Marshal]::Copy($Pointer,$bytes,0,$Length)
-    return [Text.Encoding]::UTF8.GetString($bytes)
-}
 function Get-IdxWLiteral {
     param($Value)
     if ($null -eq $Value) { return 'NULL' }
@@ -63,79 +48,13 @@ function Get-IdxWDnScopeSql {
     if (-not $Subtree) { return $children+" AND instr($separators,',')=length($Column)-$length+1)" }
     return "($Column=$scopeLit COLLATE NOCASE OR "+$children+'))'
 }
-function Set-IdxWBindings {
-    # Values bind in order to ?1..?N with the single binding rule of the local store, shared with the prepared writes of
-    # the LocalStore worker (Set-StoreWStatementValues, PF-07) and the same native declarations: $null as NULL, booleans
-    # and integral numbers as int64, other numbers as REAL, anything else as UTF-16 text of exact length, copied by
-    # SQLite during the call (SQLITE_TRANSIENT).
-    param([IntPtr]$Statement,[object[]]$Values)
-    if ($null -eq $Values) { return }
-    $transient = [IntPtr]::new(-1)
-    for ($index = 1; $index -le $Values.Count; $index++) {
-        $value = $Values[$index - 1]
-        if ($null -eq $value) { $rc = [Domenia.WinSqliteNative]::sqlite3_bind_null($Statement,$index) }
-        elseif ($value -is [bool]) { $rc = [Domenia.WinSqliteNative]::sqlite3_bind_int64($Statement,$index,[long]$(if ($value) { 1 } else { 0 })) }
-        elseif (($value -is [byte]) -or ($value -is [int16]) -or ($value -is [int32]) -or ($value -is [int64])) { $rc = [Domenia.WinSqliteNative]::sqlite3_bind_int64($Statement,$index,[long]$value) }
-        elseif (($value -is [double]) -or ($value -is [decimal])) {
-            $number = [double]$value
-            if (([Math]::Floor($number) -eq $number) -and ([Math]::Abs($number) -lt 9.0e18)) { $rc = [Domenia.WinSqliteNative]::sqlite3_bind_int64($Statement,$index,[long]$number) }
-            else { $rc = [Domenia.WinSqliteNative]::sqlite3_bind_double($Statement,$index,$number) }
-        }
-        else { $text = [string]$value; $rc = [Domenia.WinSqliteNative]::sqlite3_bind_text16($Statement,$index,$text,(2 * $text.Length),$transient) }
-        if ($rc -ne 0) { throw ('SQLite bind code ' + $rc + ' (parametre ' + $index + ').') }
-    }
-}
 function Invoke-IdxWQuery {
     # -Parameters binds values to ?1..?N; their number must match the statement exactly. -Cached keeps the prepared
-    # statement for this run (fixed-shape SQL only), reset and unbound after each use.
+    # statement for this run (fixed-shape SQL only), reset and unbound after each use. SQLITE_BUSY becomes the marker
+    # that the run answers with Busy=$true; every statement is counted and timed in $IdxWStats.
     param([IntPtr]$Db,[string]$Sql,[object[]]$Parameters = $null,[switch]$Cached)
-    $stmt = [IntPtr]::Zero; $owned = $true
-    $rows = New-Object 'System.Collections.Generic.List[object]'
-    $watch = [Diagnostics.Stopwatch]::StartNew()
-    try {
-        if ($Cached -and $IdxWStatements.ContainsKey($Sql)) { $stmt = [IntPtr]$IdxWStatements[$Sql]; $owned = $false; $IdxWStats.Reused++ }
-        else {
-            $sqlPtr = New-IdxWUtf8 $Sql
-            try { $rc = [Domenia.WinSqliteNative]::sqlite3_prepare_v2($Db,$sqlPtr,-1,[ref]$stmt,[IntPtr]::Zero) }
-            finally { [Runtime.InteropServices.Marshal]::FreeHGlobal($sqlPtr) }
-            if ($rc -eq 5 -or $rc -eq 6) { throw 'SQLITE_BUSY' }
-            if ($rc -ne 0) { throw ('SQLite prepare code ' + $rc + ' : ' + (ConvertFrom-IdxWUtf8 ([Domenia.WinSqliteNative]::sqlite3_errmsg($Db)))) }
-            $IdxWStats.Prepared++
-            if ($Cached) { $IdxWStatements[$Sql] = $stmt; $owned = $false }
-        }
-        $given = 0; if ($null -ne $Parameters) { $given = $Parameters.Count }
-        $expected = [Domenia.WinSqliteNative]::sqlite3_bind_parameter_count($stmt)
-        if ($expected -ne $given) { throw ('Parametres SQL incoherents : ' + $given + ' fourni(s), ' + $expected + ' attendu(s).') }
-        if ($given -gt 0) { Set-IdxWBindings $stmt $Parameters }
-        $count = [Domenia.WinSqliteNative]::sqlite3_column_count($stmt)
-        # Column names are read once per statement, not once per cell (thousands of rows for the overview).
-        $names = New-Object 'string[]' ([Math]::Max(0,$count))
-        for ($i = 0; $i -lt $count; $i++) { $names[$i] = ConvertFrom-IdxWUtf8 ([Domenia.WinSqliteNative]::sqlite3_column_name($stmt,$i)) }
-        while (($step = [Domenia.WinSqliteNative]::sqlite3_step($stmt)) -eq 100) {
-            $o = [ordered]@{}
-            for ($i = 0; $i -lt $count; $i++) {
-                $name = $names[$i]
-                $type = [Domenia.WinSqliteNative]::sqlite3_column_type($stmt,$i)
-                $value = $null
-                if ($type -eq 1) { $value = [long][Domenia.WinSqliteNative]::sqlite3_column_int64($stmt,$i) }
-                elseif ($type -eq 2) { $value = [double][Domenia.WinSqliteNative]::sqlite3_column_double($stmt,$i) }
-                elseif ($type -ne 5) { $p = [Domenia.WinSqliteNative]::sqlite3_column_text($stmt,$i); $n = [Domenia.WinSqliteNative]::sqlite3_column_bytes($stmt,$i); $value = ConvertFrom-IdxWUtf8 $p $n }
-                $o[$name] = $value
-            }
-            $rows.Add([pscustomobject]$o)
-        }
-        if ($step -eq 5 -or $step -eq 6) { throw 'SQLITE_BUSY' }
-        if ($step -ne 101) { throw ('SQLite step code ' + $step + ' : ' + (ConvertFrom-IdxWUtf8 ([Domenia.WinSqliteNative]::sqlite3_errmsg($Db)))) }
-        $IdxWStats.Executed++; $IdxWStats.Rows += $rows.Count
-        return $rows.ToArray()
-    }
-    finally {
-        if ($stmt -ne [IntPtr]::Zero) {
-            if ($owned) { try { [void][Domenia.WinSqliteNative]::sqlite3_finalize($stmt) } catch { } }
-            else { try { [void][Domenia.WinSqliteNative]::sqlite3_reset($stmt); [void][Domenia.WinSqliteNative]::sqlite3_clear_bindings($stmt) } catch { } }
-        }
-        $watch.Stop(); $IdxWStats.SqlMs += $watch.Elapsed.TotalMilliseconds
-    }
+    $cache = $null; if ($Cached) { $cache = $IdxWStatements }
+    Invoke-DomeniaSqliteRead -Db $Db -Sql $Sql -Parameters $Parameters -Cache $cache -Stats $IdxWStats -CheckParameters -ReportBusy
 }
 function Get-IdxWColumns {
     # Column list of a constant table name, read once per run (the read transaction keeps the schema stable).
@@ -159,8 +78,6 @@ function Get-IdxWGuidSlots {
 function Get-IdxWStatsSnapshot {
     return [pscustomobject]@{ Prepared = [int]$IdxWStats.Prepared; Reused = [int]$IdxWStats.Reused; Executed = [int]$IdxWStats.Executed; Rows = [long]$IdxWStats.Rows; SqlMs = [Math]::Round([double]$IdxWStats.SqlMs,1) }
 }
-function ConvertTo-DomeniaSqlLiteral { param($Value); return Get-IdxWLiteral $Value }
-function Invoke-DomeniaDbQuery { param([string]$Sql,[IntPtr]$DatabaseHandle); return Invoke-IdxWQuery $DatabaseHandle $Sql }
 function Get-StoreWMap {
     param($Value)
     $map=[ordered]@{};if($Value -is [Collections.IDictionary]){foreach($key in $Value.Keys){$map[$key]=$Value[$key]}}elseif($null -ne $Value){foreach($p in $Value.PSObject.Properties){$map[$p.Name]=$p.Value}};return ,$map
@@ -386,11 +303,7 @@ function Read-IdxWCanonicalObservations {
 
 $db = [IntPtr]::Zero
 try {
-    $pathPtr = New-IdxWUtf8 $path
-    try { $rc = [Domenia.WinSqliteNative]::sqlite3_open_v2($pathPtr,[ref]$db,(1 -bor 65536),[IntPtr]::Zero) }
-    finally { [Runtime.InteropServices.Marshal]::FreeHGlobal($pathPtr) }
-    if ($rc -ne 0 -or $db -eq [IntPtr]::Zero) { throw ('Ouverture SQLite en lecture impossible (code ' + $rc + ').') }
-    [void][Domenia.WinSqliteNative]::sqlite3_busy_timeout($db,$busyMs)
+    $db = Open-DomeniaDatabase -Path $path -ReadOnly -BusyTimeoutMs $busyMs
     if ($action -eq 'DirectorySync') {
         # Points 22, 24 and 30: census gaps still missing, objects not seen by a complete read and saved snapshots of this
         # domain, in one read snapshot.
@@ -558,7 +471,7 @@ try {
     if ($action -eq 'ParkTargets') {
         [void](Invoke-IdxWQuery $db 'BEGIN;')
         $schema=@(Invoke-IdxWQuery $db "SELECT key,value FROM schema_info WHERE key IN ('schema_version','domenia_schema');")
-        if(@($schema|Where-Object{$_.key -eq 'schema_version' -and $_.value -ceq '11'}).Count -ne 1 -or @($schema|Where-Object{$_.key -eq 'domenia_schema' -and $_.value -ceq '1'}).Count -ne 1){throw 'Schema du parc incompatible.'}
+        if(-not (Test-DomeniaSqliteSchemaRows $schema)){throw 'Schema du parc incompatible.'}
         $source=if([string]$Payload.Scope -eq 'Results'){@($Payload.Targets)}else{@(Invoke-IdxWQuery $db "SELECT name,distinguished_name,object_guid FROM ad_objects WHERE object_type='Machine' AND state='Actif' ORDER BY name COLLATE NOCASE;")}
         $cacheSql='SELECT object_key,payload FROM park_session_cache'
         $usersSql="SELECT object_guid,usn_changed,distinguished_name,login FROM ad_objects WHERE object_type='Utilisateur'"

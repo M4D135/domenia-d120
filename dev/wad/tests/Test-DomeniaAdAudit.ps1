@@ -64,7 +64,7 @@ try{
         throw 'Windows PowerShell 5.1 x64 -STA requis ; une execution sous un autre moteur ne vaut pas preuve.'
     }
     Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
-    foreach($file in @($script:AuditFiles+@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Search.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Directory.Model.ps1','Domenia-Workstation.Model.ps1','Domenia-Safety.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Engine.Worker.ps1','Domenia-Access.Model.ps1','Domenia-Membership.Worker.ps1','Domenia-Assist.Model.ps1'))){
+    foreach($file in @($script:AuditFiles+@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Search.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Directory.Model.ps1','Domenia-Workstation.Model.ps1','Domenia-Safety.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Storage.Worker.ps1','Domenia-Engine.Worker.ps1','Domenia-Access.Model.ps1','Domenia-Membership.Worker.ps1','Domenia-Assist.Model.ps1'))){
         [void](Read-SourceAst (Join-Path $modules $file))
         . (Join-Path $modules $file)
     }

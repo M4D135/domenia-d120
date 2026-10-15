@@ -222,7 +222,9 @@ try {
     . (Join-Path $wad 'modules\Domenia-InventoryImport.Model.ps1')
     . (Join-Path $wad 'modules\Domenia-Embedded.UI.ps1')
     . (Join-Path $wad 'modules\Domenia-Relations.UI.ps1')
-    # The pinned LocalIndexRead body (ResolveNames) is the code submitted by the import preview.
+    # The pinned LocalIndexRead body (ResolveNames) is the code submitted by the import preview; it composes the shared
+    # SQLite layer of the workers (Domenia-Storage.Worker.ps1, P-CD-08).
+    . (Join-Path $wad 'modules\Domenia-Storage.Worker.ps1')
     . (Join-Path $wad 'modules\Domenia-Engine.Worker.ps1')
     $coreText=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1'))
     $commonMatch=[regex]::Match($coreText,"(?ms)^\`$script:WorkerCommon\s*=\s*@'\r?\n(.*?)\r?\n'@")
