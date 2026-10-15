@@ -67,6 +67,14 @@ Test-Case 'P34' 'Une base active illisible est annoncée intacte, sans marque' {
     $text=(Get-DomeniaStorageMaintenancePreview -Mode Restore -Inspection (New-StorageTestInspection -Active $active)).Text
     Assert-True ($text -like '*Base active illisible*') 'illisible'
     Assert-True ($text -like '*file is not a database*') 'raison'
+    Assert-False ($text -like '*Revenir à la base précédente*') 'aucun retour promis vers une base illisible'
+}
+Test-Case 'P31' 'Le retour arrière annoncé est celui que lʼassistant offre après la bascule' {
+    $move=(Get-DomeniaStorageMaintenancePreview -Mode Move -Inspection (New-StorageTestInspection)).Text
+    Assert-True ($move -like '*après la bascule, « Revenir à la base précédente »*aucune écriture*') 'déplacement'
+    $active=[pscustomobject]@{Readable=$true;Problem='';Info=[pscustomobject]@{Revision=12;Counts=[pscustomobject]@{ad_objects=120;domenia_observations=40;user_machine_links=3}}}
+    $restore=(Get-DomeniaStorageMaintenancePreview -Mode Restore -Inspection (New-StorageTestInspection -Active $active)).Text
+    Assert-True ($restore -like '*Retour arrière : après la bascule*base restaurée*') 'restauration sur base lisible'
 }
 Test-Case 'P31' 'Lʼaperçu exige une destination testée et une source intègre' {
     Assert-Throws {Get-DomeniaStorageMaintenancePreview -Mode Move -Inspection (New-StorageTestInspection -Writable $false)} 'écriture non testée'
@@ -88,6 +96,17 @@ Test-Case 'P32' 'Les boutons de lʼassistant suivent lʼétat de la maintenance'
     Assert-False ($s.Move -or $s.Restore -or $s.Resume -or $s.Rollback) 'vidage de la file'
     $s=Get-DomeniaStorageMaintenanceControlState -Maintenance ([pscustomobject]@{Id='x';Locked=$true;TargetPath='D:\b.db';Job='job-1'})
     Assert-False ($s.Move -or $s.Restore -or $s.Resume -or $s.Rollback) 'étape en cours'
+}
+Test-Case 'P31' 'Une bascule terminée reste annulable tant que rien ne tourne' {
+    $done=[pscustomobject]@{Id='x';Locked=$false;Hold=$false;TargetPath='D:\b.db';Job='';Draining=$false}
+    $s=Get-DomeniaStorageMaintenanceControlState -Maintenance $done -CanUndo $true
+    Assert-True ($s.Rollback -and $s.Move -and $s.Restore) 'retour offert au repos'
+    Assert-False $s.Resume 'rien à reprendre'
+    Assert-True ($s.Text -like '*aucune écriture*') 'condition dite'
+    Assert-False (Get-DomeniaStorageMaintenanceControlState -Maintenance $done).Rollback 'sans bascule annulable'
+    $running=[pscustomobject]@{Id='x';Locked=$true;TargetPath='D:\b.db';Job='job-2';Draining=$false}
+    Assert-False (Get-DomeniaStorageMaintenanceControlState -Maintenance $running -CanUndo $true).Rollback 'étape en cours'
+    Assert-False (Get-DomeniaStorageMaintenanceControlState -Maintenance $done -CanUndo $true -DemoMode $true).Rollback 'démonstration'
 }
 Test-Case 'P34' 'Une base illisible au démarrage nʼaccepte quʼune restauration puis sa reprise' {
     $s=Get-DomeniaStorageMaintenanceControlState -Maintenance ([pscustomobject]@{Id='recovery-unreadable';Locked=$true;Recovery=$true;TargetPath='';Receipt=$null})
@@ -119,6 +138,16 @@ Test-Case 'P33' 'Le dernier succès vérifié donne la prochaine échéance et s
     Assert-Equal ($script:StorageNow.AddHours(22)) ([datetime]::Parse($r.NextUtc,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind).ToUniversalTime()) 'échéance'
     Assert-True ($r.Text -like '*2 Ko*') 'taille'
     Assert-True ($r.Text -like '*0123456789ab*') 'empreinte'
+}
+Test-Case 'P33' 'Juste après un succès, la prochaine échéance nʼest pas présentée comme un nouvel essai' {
+    $attempt=$script:StorageNow.AddMinutes(-5);$success=$script:StorageNow.AddMinutes(-3)
+    $r=Get-DomeniaStorageBackupSchedule -Policy ([pscustomobject]@{AutomaticBackup=$true;BackupHours=24}) -LastSuccessUtc $success.ToString('o') -LastAttemptUtc $attempt.ToString('o') -NowUtc $script:StorageNow
+    Assert-Equal 'RetryCooldown' $r.Reason 'délai de la règle'
+    Assert-False ($r.Text -like '*Nouvel essai*') 'pas un échec'
+    Assert-Equal ($success.AddHours(24)) ([datetime]::Parse($r.NextUtc,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind).ToUniversalTime()) 'échéance de la fréquence'
+    $failed=Get-DomeniaStorageBackupSchedule -Policy ([pscustomobject]@{AutomaticBackup=$true;BackupHours=24}) -LastSuccessUtc ($script:StorageNow.AddDays(-2).ToString('o')) -LastAttemptUtc $attempt.ToString('o') -NowUtc $script:StorageNow
+    Assert-True ($failed.Text -like '*Nouvel essai au plus tôt*') 'essai échoué'
+    Assert-Equal ($attempt.AddMinutes(15)) ([datetime]::Parse($failed.NextUtc,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind).ToUniversalTime()) 'quinze minutes'
 }
 Test-Case 'P33' 'Un échec de la session est affiché sans double point' {
     $r=Get-DomeniaStorageBackupSchedule -Policy ([pscustomobject]@{AutomaticBackup=$true}) -LastFailure ([pscustomobject]@{AtUtc=$script:StorageNow.ToString('o');Message='disque plein.'}) -NowUtc $script:StorageNow
@@ -197,6 +226,7 @@ Test-Case 'P40' 'Les limites sont explicites et ne promettent pas un stockage in
     Assert-True (@($lines|Where-Object{$_ -like '*nʼest pas illimité*'}).Count -eq 1) 'pas dʼinfini'
     Assert-True (@($lines|Where-Object{$_ -like '*non mesurée*'}).Count -eq 1) 'taille non mesurée dite'
     Assert-True (@($lines|Where-Object{$_ -like '*4 096 changements*'}).Count -eq 1) 'file bornée'
+    Assert-True (@($lines|Where-Object{$_ -like 'Conservation :*cache de recherche : 20 requêtes par périmètre*'}).Count -eq 1) 'cache de recherche sur disque, borné'
 }
 Test-Case 'P40' 'Les collections les plus volumineuses viennent de la dernière mesure' {
     $usage=[pscustomobject]@{MeasuredUtc=$script:StorageNow.ToString('o');DatabaseBytes=1048576;WalBytes=0;DbstatAvailable=$true;Categories=@([pscustomobject]@{Category='Observations';Bytes=3000;Rows=10},[pscustomobject]@{Category='Index';Bytes=5000;Rows=20},[pscustomobject]@{Category='History';Bytes=10;Rows=1},[pscustomobject]@{Category='Snapshots';Bytes=1;Rows=1})}

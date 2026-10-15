@@ -4,7 +4,7 @@
 $ErrorActionPreference='Stop'
 $wad=Split-Path -Parent $PSScriptRoot
 $modules=Join-Path $wad 'modules'
-foreach($name in @('Common.Model','Probes.Model','Live.Model','Live.UI','Storage.UI','Engine.UI','Park.Model','Park.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+foreach($name in @('Common.Model','Store.Model','Probes.Model','Live.Model','Live.UI','Storage.UI','Engine.UI','Park.Model','Park.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 if(-not ('Domenia.Native.ProbeResult' -as [type])){Add-Type -Path (Join-Path $modules 'Domenia.Native.dll')}
 $checks=[Collections.Generic.List[object]]::new()
 function Assert {param($Value,[string]$Why='Assertion fausse')if(-not $Value){throw $Why}}
@@ -353,6 +353,80 @@ Case 'Park partial measurements count as failed while complete observations are 
   Assert ($null -ne $script:QueuedObservation -and $script:QueuedObservation.Probes.fixture.Rows[0][0] -eq 'raw') ('full persisted observation '+$kind)
   if($kind -eq 'InventoryError'){Assert ($script:QueuedObservation.InventoryError -eq 'denied' -and $script:QueuedObservation.InventoryAttemptUtc)}
  }
+}
+# Points 31, 32 and 34: storage assistant state, synthetic only (no worker body runs, no file is opened).
+function Reset-StorageFixture {
+ Reset-Fixture;$script:ParkRun=$null;$script:StorageMaintenance=$null;$script:StorageLastSwitch=$null;$script:DomeniaDirectoryReads=$null
+ $script:Conn=[pscustomobject]@{Server='example.invalid';BaseDn='dc=example,dc=invalid'}
+}
+Case 'Storage switch drops only the queue of the other base and tells its callers' {
+ Reset-StorageFixture;$script:Told=[Collections.Generic.List[object]]::new()
+ function Fail-FixtureBatch {param($Message,$State)$script:Told.Add([pscustomobject]@{State=$State;Message=[string]$Message})}
+ $script:Persistence.Pending['old-1']=[pscustomobject]@{QueueKey='old-1';Kind='StoreBatch';Path='/synthetic/old.db';ErrorHandler='Fail-FixtureBatch';CallbackState='s1'}
+ $script:Persistence.Pending['old-2']=[pscustomobject]@{QueueKey='old-2';Kind='Link';Path='/synthetic/old.db'}
+ $script:Persistence.Pending['new-1']=[pscustomobject]@{QueueKey='new-1';Kind='StoreBatch';Path='/synthetic/new.db';ErrorHandler='Fail-FixtureBatch';CallbackState='s2'}
+ $script:Persistence.LinkBusy=$true
+ Assert ((Clear-DomeniaStoragePendingForOtherBase -ActivePath '/synthetic/new.db') -eq 2) 'two items of the old base'
+ Assert ((@($script:Persistence.Pending.Keys) -join ',') -ceq 'new-1') 'the new base keeps its queue'
+ Assert (($script:Told.Count -eq 1) -and ($script:Told[0].State -ceq 's1') -and ($script:Told[0].Message -like '*non enregistré*')) 'the batch caller is told'
+ Assert (-not $script:Persistence.LinkBusy) 'no link work left'
+}
+Case 'The single writer leaves its queue untouched while a maintenance holds the base' {
+ Reset-StorageFixture;$script:Admission='job-store'
+ $script:Persistence.Pending['k']=[pscustomobject]@{QueueKey='k';Kind='StoreBatch';Path=$script:DatabaseScopedPath;Bytes=10L;ChangeCount=1L}
+ $script:StorageMaintenance=[pscustomobject]@{Id='m';Locked=$true;Job='';Draining=$false}
+ Start-DomeniaStorageWork
+ Assert ($null -eq $script:Dispatched) 'no admission attempted';Assert ($script:Persistence.Pending.Count -eq 1) 'queue kept';Assert (-not [string]$script:Persistence.Fault) 'no fault'
+ $script:StorageMaintenance=$null
+}
+Case 'A move refused before publication releases the lock; an ambiguous failure keeps it' {
+ Reset-StorageFixture
+ $state=[pscustomobject]@{Id='m1';Mode='Move';Epoch=7L;Path=$script:DatabaseScopedPath;DomainDn='dc=example,dc=invalid';Locked=$true;Hold=$true;Recovery=$false;Job='j';Draining=$false;TargetPath='/synthetic/new.db';Receipt=$null}
+ $script:StorageMaintenance=$state
+ Fail-DomeniaStorageMaintenance 'StorageNothingPublished : La source a change : refaire la previsualisation.' $state
+ Assert ((-not $state.Locked) -and (-not $state.Hold)) 'released'
+ Assert (($script:Texts['LblStorageMaintenance'] -like '*non effectuée*source a change*') -and ($script:Texts['LblStorageMaintenance'] -notlike '*StorageNothingPublished*')) $script:Texts['LblStorageMaintenance']
+ $state.Locked=$true;$state.Hold=$true;$state.Job='j'
+ Fail-DomeniaStorageMaintenance 'Délai dépassé.' $state
+ Assert ($state.Locked -and $state.Hold) 'an ambiguous failure stays locked'
+ $recovery=[pscustomobject]@{Id='m2';Mode='Restore';Epoch=7L;Path=$script:DatabaseScopedPath;DomainDn='dc=example,dc=invalid';Locked=$true;Hold=$true;Recovery=$true;Job='j';Draining=$false;TargetPath='/synthetic/new.db';Receipt=$null}
+ $script:StorageMaintenance=$recovery
+ Fail-DomeniaStorageMaintenance 'StorageNothingPublished : Integrite SQLite non confirmee.' $recovery
+ Assert ($recovery.Locked -and $recovery.Hold) 'an unreadable base stays behind the lock'
+ $script:StorageMaintenance=$null
+}
+Case 'Undo is offered only for the completed switch of this epoch and base' {
+ Reset-StorageFixture
+ $script:StorageLastSwitch=[pscustomobject]@{OperationId='op';OriginalPath='/synthetic/old.db';TargetPath=$script:DatabaseScopedPath;DomainDn='dc=example,dc=invalid';Epoch=7L}
+ Assert ($null -ne (Get-DomeniaStorageMaintenanceUndo)) 'same epoch and base'
+ $script:SessionEpoch=8L;Assert ($null -eq (Get-DomeniaStorageMaintenanceUndo)) 'other epoch'
+ $script:SessionEpoch=7L;$script:DatabaseScopedPath='/synthetic/other.db';Assert ($null -eq (Get-DomeniaStorageMaintenanceUndo)) 'other base'
+ $script:StorageLastSwitch=$null
+}
+Case 'Undo names the original as marker holder and refuses instead of draining pending data' {
+ function Get-DomeniaStorageMaintenanceWorkerCode {return 'throw "Synthetic worker must never execute"'}
+ Reset-StorageFixture;$script:Admission='job-undo'
+ $script:StorageLastSwitch=[pscustomobject]@{OperationId='11111111-1111-1111-1111-111111111111';OriginalPath='/synthetic/old.db';TargetPath=$script:DatabaseScopedPath;DomainDn='dc=example,dc=invalid';Epoch=7L}
+ Start-DomeniaStorageMaintenanceUndo -Undo $script:StorageLastSwitch
+ Assert (($script:Dispatched.Operation -eq 'StorageMaintenance') -and ($script:Dispatched.Payload.Action -eq 'Rollback') -and ($script:Dispatched.Payload.ActivePath -eq '/synthetic/old.db') -and ($script:Dispatched.Payload.OperationId -eq '11111111-1111-1111-1111-111111111111')) 'rollback sent to the original'
+ Assert ($script:StorageMaintenance.Locked -and ($script:StorageMaintenance.Mode -eq 'Undo')) 'collections wait behind the lock'
+ Reset-StorageFixture;$script:Admission='job-undo'
+ $script:StorageLastSwitch=[pscustomobject]@{OperationId='11111111-1111-1111-1111-111111111111';OriginalPath='/synthetic/old.db';TargetPath=$script:DatabaseScopedPath;DomainDn='dc=example,dc=invalid';Epoch=7L}
+ $script:Persistence.Pending['k']=[pscustomobject]@{QueueKey='k';Kind='StoreBatch';Path=$script:DatabaseScopedPath;Bytes=10L;ChangeCount=1L}
+ Start-DomeniaStorageMaintenanceUndo -Undo $script:StorageLastSwitch
+ Assert ($null -eq $script:Dispatched) 'pending data is never drained into the new base'
+ Assert ((-not $script:StorageMaintenance.Locked) -and (-not $script:StorageMaintenance.Hold) -and (-not $script:StorageMaintenance.Draining)) 'nothing held'
+ $script:StorageMaintenance=$null;$script:StorageLastSwitch=$null
+}
+Case 'A failed undo leaves the current base in service and ends the offer' {
+ Reset-StorageFixture
+ $script:StorageLastSwitch=[pscustomobject]@{OperationId='op';OriginalPath='/synthetic/old.db';TargetPath=$script:DatabaseScopedPath;DomainDn='dc=example,dc=invalid';Epoch=7L}
+ $state=[pscustomobject]@{Id='op';Mode='Undo';Epoch=7L;Path=$script:DatabaseScopedPath;MarkerPath='/synthetic/old.db';DomainDn='dc=example,dc=invalid';Locked=$true;Hold=$true;Recovery=$false;Job='j';Draining=$false;TargetPath=$script:DatabaseScopedPath;Receipt=$null}
+ $script:StorageMaintenance=$state
+ Fail-DomeniaStorageMaintenance 'La nouvelle base a change. Retour automatique refuse ; les deux fichiers sont conserves.' $state
+ Assert ((-not $state.Locked) -and (-not $state.Hold) -and ($null -eq $script:StorageLastSwitch)) 'released, offer ended'
+ Assert ($script:Texts['LblStorageMaintenance'] -like '*reste en service*') $script:Texts['LblStorageMaintenance']
+ $script:StorageMaintenance=$null
 }
 $failed=@($checks|Where-Object{-not $_.Passed}).Count
 $report=[ordered]@{Kind='EngineResilience';Passed=$checks.Count-$failed;Failed=$failed;NativeWindowsPowerShell51=($env:OS -eq 'Windows_NT' -and $PSVersionTable.PSVersion.Major -eq 5);WpfExecuted=$false;NetworkAccessed=$false;Tests=$checks.ToArray()}

@@ -127,6 +127,28 @@ try{
   Refused {Run-Maintenance Inspect $p $p} 'nouveau fichier'
   Refused {Run-Maintenance Inspect $p (Join-Path (Join-Path $folder 'missing') 'x.db')} 'doit exister'
  }
+ Case 'Point 32: a move refused before publication says so and leaves the active base without marker' {
+  $p=New-Database 'unpublished';$taken=Join-Path $folder 'unpublished-taken.db';[IO.File]::WriteAllBytes($taken,[byte[]]@(1));$before=Get-TestHash $p
+  $preview=Run-Maintenance Inspect $p
+  $message='';try{[void](Run-Maintenance Move $p $taken ([guid]::NewGuid().ToString('D')) $preview.Source.Fingerprint)}catch{$message=[string]$_.Exception.Message}
+  Expect ($message -like 'StorageNothingPublished : *nouveau fichier*') ('pre-publication refusal stated: '+$message)
+  $message='';try{[void](Run-Maintenance Move $p (Join-Path $folder 'unpublished-new.db') ([guid]::NewGuid().ToString('D')) ('0'*64))}catch{$message=[string]$_.Exception.Message}
+  Expect ($message -like 'StorageNothingPublished : *source a change*') ('changed source stated: '+$message)
+  Expect ((Get-TestHash $p) -ceq $before) 'active base byte for byte unchanged'
+  Expect ($null -eq (Run-Maintenance ReadRedirect $p).Redirect) 'no marker'
+  Expect (@(Get-ChildItem -LiteralPath $folder -Filter '.domenia-*.partial.db*' -Force).Count -eq 0) 'no temporary copy left'
+  Expect (-not [IO.File]::Exists((Join-Path $folder 'unpublished-new.db'))) 'nothing published'
+ }
+ Case 'Point 31: a completed move is undone only through the marker of its original' {
+  $p=New-Database 'undo' 30;$dest=Join-Path $folder 'undo-new.db';$id=[guid]::NewGuid().ToString('D')
+  $preview=Run-Maintenance Inspect $p;$moved=Run-Maintenance Move $p $dest $id $preview.Source.Fingerprint
+  Expect ($moved.RedirectWritten -and $moved.Revision -eq 31) 'switch completed with marker'
+  # The session now runs on the copy; the undo names the original, which holds the marker, as the worker's base.
+  $back=Run-Maintenance Rollback $p $dest $id
+  Expect (($back.TargetPath -ceq $p) -and ($back.StoreId -ceq (Get-DomeniaStoreId $p $domain)) -and ($back.Revision -eq 30) -and (-not $back.RedirectWritten)) 'original returned with its identity'
+  Expect ($null -eq (Run-Maintenance ReadRedirect $p).Redirect) 'marker removed'
+  Expect ([IO.File]::Exists($dest)) 'copy kept'
+ }
  Case 'Point 32: a base without canonical write can be moved, then rolled back to' {
   $p=New-Database 'fresh' -NoState;$dest=Join-Path $folder 'fresh-moved.db';$id=[guid]::NewGuid().ToString('D')
   $preview=Run-Maintenance Inspect $p $dest;Expect ($preview.Source.StoreId -ceq '' -and $preview.Source.Revision -eq 0) 'stateless source accepted for the active base'

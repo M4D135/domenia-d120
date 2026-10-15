@@ -89,7 +89,8 @@ function Set-DomeniaLiveRowValue {
 
 # Real rule modules.
 # FI-05 / PF-06: Engine.UI holds the protected timer factory used by the persistence and the progressive search.
-foreach ($file in @('Domenia-Common.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Engine.UI.ps1')) {
+# Store.Model: storage rules read by the save callbacks and the schema check of Initialize-DomeniaDatabase (points 35, 36).
+foreach ($file in @('Domenia-Common.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Store.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Engine.UI.ps1')) {
     $path = Join-Path $modules $file
     if (-not [IO.File]::Exists($path)) { throw ('Module absent : ' + $file) }
     . $path
@@ -1452,7 +1453,7 @@ Test-Case 'D022 : Complete-DomeniaReconcile n met en file que les lignes modifie
 $guardUi = Join-Path $modules 'Domenia-Guard.UI.ps1'
 $guardModel = Join-Path $modules 'Domenia-Guard.Model.ps1'
 foreach ($path in @($guardUi,$guardModel)) { if (-not [IO.File]::Exists($path)) { throw ('Fichier absent : ' + $path) } }
-foreach ($name in @('Get-DomeniaPersistenceState','Start-DomeniaStorageWork','Complete-DomeniaStorageWork','Fail-DomeniaStorageWork','Reset-DomeniaLinkBaseline')) {
+foreach ($name in @('Get-DomeniaPersistenceState','Get-DomeniaCurrentStorageSpace','Update-DomeniaStorageSpace','Update-DomeniaStorageSpaceUi','Start-DomeniaStorageWork','Complete-DomeniaStorageWork','Fail-DomeniaStorageWork','Reset-DomeniaLinkBaseline')) {
     . ([scriptblock]::Create((Get-FunctionTextFromFile $storageUi $name)))
 }
 # The persistence timer of other cases must keep calling the empty double: the real writer is enabled per case only.
@@ -2790,7 +2791,7 @@ Test-Case 'D118 : source verrouillee, erreur tracee et aucune copie annoncee' {
 # D029 L2: the pinned read-only worker runs against native SQLite, and the UI uses real WPF controls.
 . ([scriptblock]::Create((Get-FunctionTextFromFile $storageWorker 'Get-DomeniaStorageUsageWorkerCode')))
 $script:UsageControlDefinitions=@(foreach($name in @('Get-DomeniaControl','Set-DomeniaControlText')){Get-FunctionTextFromFile $core $name}) -join "`n"
-$script:UsageUiDefinitions=@(foreach($name in @('Format-DomeniaStorageUsage','Start-DomeniaStorageUsage','Complete-DomeniaStorageUsage','Fail-DomeniaStorageUsage')){Get-FunctionTextFromFile $storageUi $name}) -join "`n"
+$script:UsageUiDefinitions=@(foreach($name in @('Format-DomeniaStorageUsage','Start-DomeniaStorageUsage','Complete-DomeniaStorageUsage','Fail-DomeniaStorageUsage','Get-DomeniaCurrentStoragePolicy','Update-DomeniaStorageLimitsUi')){Get-FunctionTextFromFile $storageUi $name}) -join "`n"
 function Invoke-UsageWorker {
     param([string]$Path=$script:TestDbPath)
     $Payload=[pscustomobject]@{Path=$Path}
