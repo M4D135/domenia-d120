@@ -377,12 +377,26 @@ function Get-DomeniaWorkViews {
     # Ready-made read-only views. Each one is a filter and a type: no account, no right and no write mode.
     # UX-33: every view applies to the OU chosen in the tree (NeedsOu); the whole domain is a secondary,
     # explicit choice decided by Get-DomeniaWorkViewPlan.
+    # Points 101 and 102: each account review is its own criterion (expiry, disablement, lockout, inactivity,
+    # password age or option). Nothing is merged into a score, no password is read and no account is called
+    # compromised: a view lists accounts to look at, with the limit of the attribute it reads.
     param([datetime]$NowUtc=[datetime]::UtcNow)
     $in30 = $NowUtc.AddDays(30).ToFileTimeUtc(); $now = $NowUtc.ToFileTimeUtc()
     $inactive = $NowUtc.AddDays(-90).ToFileTimeUtc()
+    $pwdOld = $NowUtc.AddDays(-365).ToFileTimeUtc()
+    $person = '(objectCategory=person)(objectClass=user)'
+    $enabled = '(!(userAccountControl:1.2.840.113556.1.4.803:=2))'
     return @(
         [pscustomobject]@{Id='expiring';Name='Comptes expirant sous 30 jours';Type='Utilisateur';NeedsOu=$true;Filter=('(&(objectCategory=person)(objectClass=user)(accountExpires>=' + $now + ')(accountExpires<=' + $in30 + '))');Note='Date d expiration du compte, pas du mot de passe.'}
         [pscustomobject]@{Id='disabled';Name='Comptes desactives';Type='Utilisateur';NeedsOu=$true;Filter='(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=2))';Note=''}
+        [pscustomobject]@{Id='expiredaccounts';Name='Comptes à la date dʼexpiration dépassée';Type='Utilisateur';NeedsOu=$true;Filter=('(&' + $person + '(accountExpires>=1)(accountExpires<=' + $now + '))');Note='Date dʼexpiration du compte (accountExpires) passée. « Nʼexpire jamais » (0 ou valeur maximale) est exclu. Lʼexpiration bloque lʼouverture de session sans désactiver le compte.'}
+        [pscustomobject]@{Id='lockedusers';Name='Comptes avec un verrouillage enregistré';Type='Utilisateur';NeedsOu=$true;Filter=('(&' + $person + '(lockoutTime>=1))');Note='lockoutTime non nul. Il nʼest remis à zéro quʼau déverrouillage ou à la prochaine ouverture de session réussie : un verrouillage échu peut encore figurer. Lʼétat actuel se confirme sur la fiche (état calculé par le contrôleur).'}
+        [pscustomobject]@{Id='inactiveusers';Name='Comptes actifs sans connexion depuis 90 jours';Type='Utilisateur';NeedsOu=$true;Filter=('(&' + $person + $enabled + '(lastLogonTimestamp<=' + $inactive + '))');Note='Comptes activés dont la dernière connexion répliquée (lastLogonTimestamp, à 14 jours près) date dʼau moins 90 jours. Les comptes jamais connectés sont dans une vue distincte. Aucun compte nʼest déclaré supprimable.'}
+        [pscustomobject]@{Id='neverloggedusers';Name='Comptes actifs jamais connectés';Type='Utilisateur';NeedsOu=$true;Filter=('(&' + $person + $enabled + '(!(lastLogonTimestamp=*)))');Note='Comptes activés sans aucune date de connexion répliquée (lastLogonTimestamp absent) : compte neuf, compte de service ou compte oublié. Aucune conclusion sans vérification.'}
+        [pscustomobject]@{Id='pwdneverexpires';Name='Mots de passe sans expiration (option du compte)';Type='Utilisateur';NeedsOu=$true;Filter=('(&' + $person + '(userAccountControl:1.2.840.113556.1.4.803:=65536))');Note='Option « Le mot de passe nʼexpire jamais » lue dans userAccountControl. Aucun mot de passe nʼest lu ; une option à revoir, pas une compromission.'}
+        [pscustomobject]@{Id='pwdnotrequired';Name='Comptes sans mot de passe exigé (option du compte)';Type='Utilisateur';NeedsOu=$true;Filter=('(&' + $person + '(userAccountControl:1.2.840.113556.1.4.803:=32))');Note='Option PASSWD_NOTREQD lue dans userAccountControl : lʼexigence est levée, le compte peut avoir un mot de passe. Aucun mot de passe nʼest lu.'}
+        [pscustomobject]@{Id='pwdold';Name='Mots de passe inchangés depuis un an';Type='Utilisateur';NeedsOu=$true;Filter=('(&' + $person + $enabled + '(pwdLastSet>=1)(pwdLastSet<=' + $pwdOld + '))');Note='Comptes activés dont le dernier changement de mot de passe (pwdLastSet) date dʼau moins 365 jours. Lʼâge seul ne dit ni la robustesse ni une compromission ; la stratégie applicable se lit dans Audit AD.'}
+        [pscustomobject]@{Id='pwdmustchange';Name='Changement de mot de passe demandé';Type='Utilisateur';NeedsOu=$true;Filter=('(&' + $person + '(pwdLastSet=0))');Note='pwdLastSet à zéro : changement imposé à la prochaine ouverture de session (compte neuf ou mot de passe réinitialisé). Listé à part des mots de passe anciens.'}
         [pscustomobject]@{Id='recent';Name='Objets modifies depuis 7 jours';Type='';NeedsOu=$true;Filter=('(whenChanged>=' + (ConvertTo-DomeniaLdapTime $NowUtc.AddDays(-7)) + ')');Note='whenChanged est propre a chaque controleur.'}
         [pscustomobject]@{Id='oucomputers';Name='Postes de cette OU';Type='Machine';NeedsOu=$true;Filter='(objectCategory=computer)';Note='Perimetre : OU selectionnee.'}
         # CO-20: a workstation that never logged on has no lastLogonTimestamp: it is listed too (shown 'Jamais').
