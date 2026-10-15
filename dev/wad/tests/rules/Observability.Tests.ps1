@@ -143,7 +143,7 @@ Test-Case 'P121' 'Retard de l interface attribue au travail qui le recouvre, sin
 Test-Case 'P124' 'Diagnostic expurge : liste blanche, aucun secret, aucun nom, aucun message' {
     $sentinels=@('SECRET_SENTINEL_P124A','SECRET_SENTINEL_P124B','PC-PARIS-SENTINEL','alex.sentinel','10.77.0.99','CN=Sentinel')
     $versions=[pscustomobject]@{Domenia='1.0';Build='2026.10.13-DOMENIA-1.0-RC1.17.7-D120';PowerShell='5.1.26100.9549';Os='10.0.26100.0';Bitness='64';UiProfile='password=SECRET_SENTINEL_P124A';Theme='Dark'}
-    $counters=[pscustomobject]@{Tasks=2;MemoryMb=312.4;ReadOnly=$true;Secret='SECRET_SENTINEL_P124B';DispatcherP95Ms='PC-PARIS-SENTINEL'}
+    $counters=[pscustomobject]@{Tasks=2;MemoryMb=312.4;ReadOnly=$true;TraceFaults=1;Secret='SECRET_SENTINEL_P124B';DispatcherP95Ms='PC-PARIS-SENTINEL'}
     $metrics=@([pscustomobject]@{Provenance='Ldap';OperationId='GlobalSearch';Count=12;P50=850.2;P95=2300.7;Max=4000},[pscustomobject]@{Provenance='Dispatcher';OperationId='Callback:GlobalSearch';Count=3;P50=40;P95=90;Max=91},[pscustomobject]@{Provenance='Ldap';OperationId='PC-PARIS-SENTINEL';Count=1;P50=1;P95=1;Max=1})
     $errors=@([pscustomobject]@{Code='INC-7F3A';Count=3;Type='System.UnauthorizedAccessException';Where='Domenia-Core.ps1:2345';Message='Acces refuse a CN=Sentinel'},[pscustomobject]@{Code='INC-0000';Count=1;Type='alex.sentinel n a pas';Where='C:\Users\alex.sentinel\x.ps1:12'},[pscustomobject]@{Code='pas un code';Count=1})
     $traces=@([pscustomobject]@{Reference='0123abcd';OperationId='GlobalSearch';Name='Recherche PC-PARIS-SENTINEL';Kind='Lecture';Outcome='Succeeded';Category='';Open=$false;TotalMs=2400;Text='alex.sentinel';Phases=@([pscustomobject]@{Phase='Collect';DurationMs=2300;Volume=-1;Batches=1;Label='PC-PARIS-SENTINEL'},[pscustomobject]@{Phase='Inventee';DurationMs=1;Volume=1;Batches=1})},[pscustomobject]@{Reference='PC-PARIS';OperationId='GlobalSearch';Phases=@()})
@@ -153,7 +153,7 @@ Test-Case 'P124' 'Diagnostic expurge : liste blanche, aucun secret, aucun nom, a
     foreach($sentinel in $sentinels){Assert-False ($json.Contains($sentinel)) ('Fuite : '+$sentinel)}
     Assert-False $d.ContainsSecrets;Assert-False $d.ContainsNames;Assert-False $d.ContainsMessages
     Assert-Equal '5.1.26100.9549' $d.Versions.PowerShell;Assert-True ($null -eq $d.Versions.PSObject.Properties['UiProfile']) 'Valeur hors forme ecartee'
-    Assert-Equal 2 ([int]$d.Counters.Tasks);Assert-True $d.Counters.ReadOnly;Assert-True ($null -eq $d.Counters.PSObject.Properties['Secret']);Assert-True ($null -eq $d.Counters.PSObject.Properties['DispatcherP95Ms'])
+    Assert-Equal 2 ([int]$d.Counters.Tasks);Assert-True $d.Counters.ReadOnly;Assert-Equal 1 ([int]$d.Counters.TraceFaults);Assert-True ($null -eq $d.Counters.PSObject.Properties['Secret']);Assert-True ($null -eq $d.Counters.PSObject.Properties['DispatcherP95Ms'])
     Assert-Equal 2 @($d.Metrics).Count;Assert-Equal 'Callback:GlobalSearch' ([string]@($d.Metrics)[1].OperationId)
     Assert-Equal 2 @($d.Errors).Count 'Un code incident invalide est ecarte';Assert-Equal 'Domenia-Core.ps1:2345' ([string]@($d.Errors)[0].Where);Assert-Equal '' ([string]@($d.Errors)[1].Type);Assert-Equal '' ([string]@($d.Errors)[1].Where)
     Assert-Equal 1 @($d.Traces).Count;Assert-Equal 1 @(@($d.Traces)[0].Phases).Count 'Phase hors catalogue ecartee'

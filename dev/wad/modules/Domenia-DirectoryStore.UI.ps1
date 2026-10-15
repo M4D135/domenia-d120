@@ -76,7 +76,7 @@ function Invoke-DomeniaDirectoryStoreTick {
             try{
                 if($null -ne $pipe.Search){Add-DomeniaRequestTraceEvent -RequestId ([string]$pipe.Context.RequestId) -Phase 'Publish' -Detail 'lignes transmises à la liste' -Volume ([long]$pipe.Published) -Final}
                 else{Write-DomeniaRequestTraceLog -RequestId ([string]$pipe.Context.RequestId)}
-            }catch{}
+            }catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
             [void]$script:DomeniaDirectoryReads.Remove([string]$pipe.Context.RequestId)
             if($pipe.Error -and $pipe.ErrorHandler){& $pipe.ErrorHandler -Message $pipe.Error -State $pipe.CallbackState}
             elseif($pipe.CompleteHandler){& $pipe.CompleteHandler -Result $pipe.Final -State $pipe.CallbackState}
@@ -103,7 +103,7 @@ function Complete-DomeniaDirectoryStoreBatch {
             else{$storeMs=((Get-Date)-[datetime]$storeJob.Started).TotalMilliseconds;$pipe|Add-Member -NotePropertyName TraceStoreJob -NotePropertyValue ([string]$storeJob.Id) -Force}
         }
         Add-DomeniaRequestTraceEvent -RequestId ([string]$pipe.Context.RequestId) -Phase 'StoreRead' -Detail 'SQLite : enregistrement puis relecture' -Volume ([long]@($Result.Rows).Count) -DurationMs $storeMs
-    }catch{}
+    }catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
     try{
         # Old contexts commit to their original database but never repaint a new selection.
         $publish=($null -ne $pipe.Ready -and $null -ne $pipe.Search -and -not $pipe.Search.Stopped -and (Test-DomeniaLiveSearchActive) -and [object]::ReferenceEquals($script:Live.Search,$pipe.Search))

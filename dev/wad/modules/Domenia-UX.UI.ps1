@@ -1704,7 +1704,7 @@ function Initialize-DomeniaUiZoom {
     (Get-DomeniaControl 'RootScroll').Add_ScrollChanged({param($s,$e)if([object]::ReferenceEquals($s,$e.OriginalSource) -and ($e.ViewportWidthChange -ne 0 -or $e.ViewportHeightChange -ne 0)){Set-DomeniaUiZoom -Percent $script:DomeniaUiZoomPercent}})
     # W13 (point 114): a DPI change while open (window moved to another screen, display scale changed) fits the zoomed
     # page again on the new pixel grid. Layout only: the typed text, the selection and the focus are not touched.
-    try{if(($null -ne $script:Window) -and ($null -ne $script:Window.GetType().GetEvent('DpiChanged'))){$script:Window.Add_DpiChanged({try{Set-DomeniaUiZoom -Percent $script:DomeniaUiZoomPercent}catch{}})}}catch{}
+    try{if(($null -ne $script:Window) -and ($null -ne $script:Window.GetType().GetEvent('DpiChanged'))){$script:Window.Add_DpiChanged({try{Set-DomeniaUiZoom -Percent $script:DomeniaUiZoomPercent}catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }})}}catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
     $percent=100
     try{$percent=[int](Get-DomeniaSetting 'Ui.ZoomPercent' '100')}catch{$percent=100}
     Set-DomeniaUiZoom -Percent $percent

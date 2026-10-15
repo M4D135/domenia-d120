@@ -7,6 +7,8 @@ $script:DomeniaPaletteFocusTarget=$null
 $script:DomeniaPresentationHistory=$null
 $script:DomeniaPresentationApplying=$false
 $script:DomeniaPresentationTimer=$null
+# Faults of best-effort interface steps (focus, deferred layout): counted for the diagnostic, never shown as an error.
+$script:DomeniaInterfaceFaults=0
 
 # ---------------------------------------------------------------- reach of a control of the page
 function Get-DomeniaControlReach {
@@ -49,9 +51,9 @@ function Show-DomeniaControlInPage {
             try {
                 $target = $script:DomeniaPaletteFocusTarget; $script:DomeniaPaletteFocusTarget = $null
                 if ($null -ne $target) { $target.BringIntoView(); [void]$target.Focus() }
-            } catch { }
+            } catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
         })
-    } catch { }
+    } catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
     return $true
 }
 
@@ -134,7 +136,7 @@ function Set-DomeniaCommandPalettePosition {
             $top = [Math]::Min($top,[Math]::Max(8.0,$layerHeight * 0.08))
             $palette.View.MaxHeight = [Math]::Max(200.0,$layerHeight - $top - 16)
         }
-    } catch { }
+    } catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
     $palette.View.Width = $width
     $palette.View.Margin = [Windows.Thickness]::new($left,$top,0,0)
 }
@@ -145,7 +147,7 @@ function Show-DomeniaCommandPaletteView {
     try { $ready = Initialize-DomeniaCommandPalette } catch { Write-AppLog ('Palette de commandes indisponible : ' + $_.Exception.Message) 'WARN'; $ready = $false }
     if (-not $ready) { return $false }
     if (($null -ne $script:DomeniaSurfaceState) -and (-not $script:DomeniaSurfaceState.Done)) { return $false }
-    try { if (Test-DomeniaOperationsPanelOpen) { Hide-DomeniaOperationsPanel } } catch { }
+    try { if (Test-DomeniaOperationsPanelOpen) { Hide-DomeniaOperationsPanel } } catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
     $palette = $script:CommandPalette; $layer = $palette.Layer
     # The keyboard focus, or the logical focus of the window when it is not active, comes back on closing.
     $focused = [Windows.Input.Keyboard]::FocusedElement
@@ -160,7 +162,7 @@ function Show-DomeniaCommandPaletteView {
     $palette.Open = $true
     $search = Get-DomeniaControl 'TxtPaletteSearch'
     if ([string]$search.Text) { $search.Text = '' } else { Update-DomeniaCommandPaletteList }
-    try { [void]$script:Window.Dispatcher.BeginInvoke([Windows.Threading.DispatcherPriority]::Input,[Action]{ try { $box = Get-DomeniaControl 'TxtPaletteSearch'; if ($null -ne $box) { [void]$box.Focus() } } catch { } }) } catch { }
+    try { [void]$script:Window.Dispatcher.BeginInvoke([Windows.Threading.DispatcherPriority]::Input,[Action]{ try { $box = Get-DomeniaControl 'TxtPaletteSearch'; if ($null -ne $box) { [void]$box.Focus() } } catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 } }) } catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
     return $true
 }
 
@@ -178,7 +180,7 @@ function Hide-DomeniaCommandPalette {
     try {
         if (($back -is [Windows.UIElement]) -and $back.IsVisible) { [void]$back.Focus() }
         else { $button = Get-DomeniaControl 'BtnCommandPalette'; if ($null -ne $button) { [void]$button.Focus() } }
-    } catch { }
+    } catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
 }
 
 function Test-DomeniaCommandPaletteOpen {
@@ -360,7 +362,7 @@ function Request-DomeniaPresentationStep {
     param([switch]$Soon)
     if ([bool]$script:DomeniaPresentationApplying -or ($null -eq $script:DomeniaPresentationHistory)) { return }
     if ($Soon) {
-        try { [void]$script:Window.Dispatcher.BeginInvoke([Windows.Threading.DispatcherPriority]::Background,[Action]{ Save-DomeniaPresentationStep }) } catch { }
+        try { [void]$script:Window.Dispatcher.BeginInvoke([Windows.Threading.DispatcherPriority]::Background,[Action]{ Save-DomeniaPresentationStep }) } catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
         return
     }
     if ($null -ne $script:DomeniaPresentationTimer) { $script:DomeniaPresentationTimer.Stop(); $script:DomeniaPresentationTimer.Start() }
@@ -371,9 +373,9 @@ function Request-DomeniaPresentationRebase {
     if ($null -eq $script:DomeniaPresentationHistory) { return }
     try {
         [void]$script:Window.Dispatcher.BeginInvoke([Windows.Threading.DispatcherPriority]::ApplicationIdle,[Action]{
-            try { if (-not [bool]$script:DomeniaPresentationApplying) { Reset-DomeniaPresentationCurrent -History $script:DomeniaPresentationHistory -State (Get-DomeniaCurrentPresentation) } } catch { }
+            try { if (-not [bool]$script:DomeniaPresentationApplying) { Reset-DomeniaPresentationCurrent -History $script:DomeniaPresentationHistory -State (Get-DomeniaCurrentPresentation) } } catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
         })
-    } catch { }
+    } catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
 }
 
 function Save-DomeniaPresentationStep {
@@ -407,7 +409,7 @@ function Undo-DomeniaResultPresentation {
         }
         # The saved column layout follows the list, as after a drag of the operator.
         $grid = Get-DomeniaControl 'DgObjects'
-        if ($null -ne $grid) { try { Save-DomeniaGridLayout $grid } catch { } }
+        if ($null -ne $grid) { try { Save-DomeniaGridLayout $grid } catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 } }
     }
     finally { $script:DomeniaPresentationApplying = $false }
     Update-DomeniaSearchFilterChips

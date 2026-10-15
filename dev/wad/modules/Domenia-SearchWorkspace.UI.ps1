@@ -111,7 +111,7 @@ function Update-DomeniaSearchFilterChips {
     $presence=[string](Get-DomeniaControl 'CmbPresenceFilter').SelectedItem.Content;if($presence -and $presence -ne 'Tous'){$chips.Add(@('Presence','Ping mémorisé : '+$presence))}
     foreach($chip in $chips){$button=[Windows.Controls.Button]::new();$button.Content=$chip[1]+' ×';$button.Tag=$chip[0];$button.Margin='0,0,6,4';$button.Padding='8,2';$button.ToolTip='Retirer ce filtre local ; aucun appel au réseau';$button.Add_Click({param($sender,$args)if([string]$sender.Tag -eq 'Local'){(Get-DomeniaControl 'TxtSuiteResultFilter').Text=''}else{(Get-DomeniaControl 'CmbPresenceFilter').SelectedIndex=0};Update-DomeniaSearchFilterChips});[void]$panel.Children.Add($button)}
     # W13 (point 120): the last presentation change of the list (columns, sort, filters) is undone from here or by Ctrl+Z.
-    try{$undo=New-DomeniaPresentationUndoChip;if($null -ne $undo){[void]$panel.Children.Add($undo)}}catch{}
+    try{$undo=New-DomeniaPresentationUndoChip;if($null -ne $undo){[void]$panel.Children.Add($undo)}}catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
 }
 function Request-DomeniaSearchInspection {
     param([switch]$Compare)

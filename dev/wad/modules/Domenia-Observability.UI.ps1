@@ -5,6 +5,9 @@ $script:DomeniaTraceRing=$null
 $script:DomeniaSlowEvents=$null
 $script:DomeniaUiWork=$null
 $script:DomeniaLastStall=$null
+# Faults of the observability itself (a trace that could not be written): counted, shown in Santé and in the diagnostic,
+# never raised into the operation they follow.
+$script:DomeniaTraceFaults=0
 
 function Get-DomeniaTraceNow {
     # One monotonic clock for every trace, UI work and heartbeat measure (milliseconds).
@@ -212,7 +215,7 @@ function Write-DomeniaTraceSummaryLog {
         $jobs = ''
         if ($Trace.JobRefs.Count -gt 0) { $jobs = ' tâches ' + ($Trace.JobRefs.ToArray() -join ', ') + ' :' }
         Write-DomeniaTrace -Area 'Opération' -Text ('[trace ' + [string]$summary.Reference + ']' + $jobs + ' ' + [string]$summary.OperationId + ' ' + [string]$summary.Text + ' ; total ' + [string]$summary.TotalText + '.')
-    } catch { }
+    } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
 }
 
 function Register-DomeniaDispatcherLateness {
@@ -274,8 +277,8 @@ function Get-DomeniaRecentTraceRows {
 function Get-DomeniaDiagnosticInputs {
     # Inputs of New-DomeniaRedactedDiagnostic, read from this session only (no network, no disk).
     $versions = [ordered]@{Domenia=[string]$script:Version;Build=[string]$script:MasterBuild;PowerShell=[string]$PSVersionTable.PSVersion;Bitness=$(if ([Environment]::Is64BitProcess) { '64' } else { '32' });UiProfile=[string]$script:CurrentUiProfile}
-    try { $versions['Clr'] = [string][Environment]::Version } catch { }
-    try { $versions['Os'] = [string][Environment]::OSVersion.Version } catch { }
+    try { $versions['Clr'] = [string][Environment]::Version } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
+    try { $versions['Os'] = [string][Environment]::OSVersion.Version } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
     $counters = [ordered]@{Tasks=0;QueuedTasks=0;DetachedReads=0;ReadOnly=[bool]$script:ReadOnlyMode;DemoMode=[bool]$script:DemoMode;WriteStateUnknown=([string]$script:WriteState -in @('Unknown','UnknownPending'))}
     if ($null -ne $script:AsyncJobs) {
         foreach ($job in @($script:AsyncJobs.Values)) {
@@ -284,10 +287,10 @@ function Get-DomeniaDiagnosticInputs {
         }
     }
     if ($null -ne $script:DetachedReadJobs) { $counters['DetachedReads'] = @($script:DetachedReadJobs).Count }
-    try { $counters['ReceiptPending'] = [int]$script:ReceiptPending } catch { }
-    if ($null -ne $script:Persistence) { try { $counters['PendingLocalWrites'] = [int]$script:Persistence.Pending.Count; $counters['LocalWriteFailures'] = [int]$script:Persistence.Failures } catch { } }
-    try { $process = [Diagnostics.Process]::GetCurrentProcess(); try { $counters['MemoryMb'] = [Math]::Round($process.PrivateMemorySize64 / 1MB) } finally { $process.Dispose() } } catch { }
-    try { $pulse = Get-DomeniaRuntimeMetricSummary -Provenance 'Dispatcher' -Prefix 'Pulse'; if ([int]$pulse.Count -gt 0) { $counters['DispatcherP50Ms'] = [double]$pulse.P50; $counters['DispatcherP95Ms'] = [double]$pulse.P95 } } catch { }
+    try { $counters['ReceiptPending'] = [int]$script:ReceiptPending } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
+    if ($null -ne $script:Persistence) { try { $counters['PendingLocalWrites'] = [int]$script:Persistence.Pending.Count; $counters['LocalWriteFailures'] = [int]$script:Persistence.Failures } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 } }
+    try { $process = [Diagnostics.Process]::GetCurrentProcess(); try { $counters['MemoryMb'] = [Math]::Round($process.PrivateMemorySize64 / 1MB) } finally { $process.Dispose() } } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
+    try { $pulse = Get-DomeniaRuntimeMetricSummary -Provenance 'Dispatcher' -Prefix 'Pulse'; if ([int]$pulse.Count -gt 0) { $counters['DispatcherP50Ms'] = [double]$pulse.P50; $counters['DispatcherP95Ms'] = [double]$pulse.P95 } } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
     $metrics = New-Object 'System.Collections.Generic.List[object]'
     if ($null -ne $script:DomeniaRuntimeMetrics) {
         foreach ($key in @($script:DomeniaRuntimeMetrics.Keys | Sort-Object)) {
@@ -314,6 +317,8 @@ function Get-DomeniaDiagnosticInputs {
     $counters['ErrorsDistinct'] = $errors.Count
     $ring = Get-DomeniaTraceRing
     $counters['TracesKept'] = $ring.Count
+    $counters['TraceFaults'] = [int]$script:DomeniaTraceFaults
+    $counters['InterfaceFaults'] = [int]$script:DomeniaInterfaceFaults
     $now = Get-DomeniaTraceNow
     $traces = @($ring.Values | ForEach-Object { Get-DomeniaOperationTraceSummary -Trace $_ -NowMs $now })
     $slow = @()

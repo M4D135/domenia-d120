@@ -408,7 +408,7 @@ function New-DomeniaRedactedDiagnostic {
         $value = [string](Get-DomeniaMember $Versions $key '')
         if ($value -match '^[A-Za-z0-9 ._()+-]{1,64}$') { $versionsOut[$key] = $value }
     }
-    $counterKeys = @('Tasks','QueuedTasks','DetachedReads','ReceiptPending','PendingLocalWrites','LocalWriteFailures','MemoryMb','DispatcherP50Ms','DispatcherP95Ms','ErrorsDistinct','TracesKept','ReadOnly','DemoMode','WriteStateUnknown')
+    $counterKeys = @('Tasks','QueuedTasks','DetachedReads','ReceiptPending','PendingLocalWrites','LocalWriteFailures','MemoryMb','DispatcherP50Ms','DispatcherP95Ms','ErrorsDistinct','TracesKept','TraceFaults','InterfaceFaults','ReadOnly','DemoMode','WriteStateUnknown')
     $countersOut = [ordered]@{}
     foreach ($key in $counterKeys) {
         $value = Get-DomeniaMember $Counters $key $null

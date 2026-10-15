@@ -206,6 +206,8 @@ function Get-DomeniaOperationsHealthText {
     $slow=@();try{$slow=@(Get-DomeniaSlowEventLines -Maximum 3)}catch{$slow=@()}
     if($slow.Count -gt 0){$lines.Add('Lenteurs expliquées, la plus récente en premier :');foreach($line in $slow){$lines.Add([string][char]0x2022+' '+[string]$line)}}
     else{$lines.Add('Aucune lenteur relevée au-delà des seuils suivis (interface, opération complète, retard de lʼinterface).')}
+    $traceFaults=[int]$script:DomeniaTraceFaults
+    if($traceFaults -gt 0){$lines.Add('Suivi des opérations : '+$traceFaults+' incident(s) de trace, sans effet sur les opérations elles-mêmes.')}
     $saved=$null;try{if($null -ne $script:Persistence){$saved=$script:Persistence.LastSavedAt}}catch{$saved=$null}
     $save=if($null -ne $saved){'Dernière sauvegarde locale à '+([datetime]$saved).ToString('HH:mm:ss')+'.'}else{'Aucune sauvegarde locale dans cette session.'}
     try{$state=Get-DomeniaPersistenceState;if([string]$state.Label){$save+=' '+[string]$state.Label}}catch{}
@@ -255,7 +257,7 @@ function Update-DomeniaExperienceActivity {
         if($null -ne $row){$rows.Add($row)}
     }
     Sync-DomeniaOperationRows -Projections $rows.ToArray()
-    try{Sync-DomeniaOperationsRecent}catch{}
+    try{Sync-DomeniaOperationsRecent}catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
     $state=[string]$script:WriteState
     $message=if($active+$detached+$queued -eq 0){'Aucune opération active. Les résultats précédents restent dans le journal.'}else{"$active opération(s) active(s) · $queued en attente · $detached lecture(s) en nettoyage."}
     if($state -in @('Unknown','UnknownPending')){$message+=' Écriture à vérifier : ne relancez pas lʼaction avant relecture de lʼobjet.'}

@@ -18318,11 +18318,11 @@ function Register-DomeniaShortcuts {
         @{ Key="Escape"; Modifiers="None"; Action={
             # W13 (point 115): Échap closes the open layer (palette, operations panel) or clears the text typed in the
             # search bar. It never empties a result list: the list stays until the next search.
-            try { if (Test-DomeniaCommandPaletteOpen) { Hide-DomeniaCommandPalette; return } } catch { }
-            try { if (Test-DomeniaOperationsPanelOpen) { Hide-DomeniaOperationsPanel; return } } catch { }
+            try { if (Test-DomeniaCommandPaletteOpen) { Hide-DomeniaCommandPalette; return } } catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
+            try { if (Test-DomeniaOperationsPanelOpen) { Hide-DomeniaOperationsPanel; return } } catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
             $box = Get-DomeniaControl -Name "TxtGlobalSearch"
             if ($null -ne $box -and $box.IsKeyboardFocusWithin -and -not [string]::IsNullOrEmpty([string]$box.Text)) {
-                try { $box.Text = "" } catch { }
+                try { $box.Text = "" } catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
             }
         } }
     )
@@ -24203,7 +24203,7 @@ try {
         Foreground=[bool]$foregroundValue; ErrorInfo=$null
     }
     # W13 (point 123): the job joins the trace of its request before it is queued or dispatched.
-    try { [void](Start-DomeniaJobTrace -Job $job -RequestedTraceId $TraceId -Payload $Payload -CallbackState $CallbackState) } catch { }
+    try { [void](Start-DomeniaJobTrace -Job $job -RequestedTraceId $TraceId -Payload $Payload -CallbackState $CallbackState) } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
     if ($admission -eq 'Queue') {
         # Nothing is sent yet: the pinned body is checked now, the worker starts when Complete-UiTasks promotes it.
         [void](Assert-DomeniaWorkerOperationCode -OperationId $OperationId -Code $Code)
@@ -24222,7 +24222,7 @@ try {
     try { [void](Invoke-DomeniaUiTaskDispatch -Job $job) }
     catch {
         # W13 (point 123): a refusal before dispatch ends the trace of the job; the refusal itself still reaches the caller.
-        try { [void](Complete-DomeniaJobTrace -Job $job -Outcome 'Refused' -NotDispatched) } catch { }
+        try { [void](Complete-DomeniaJobTrace -Job $job -Outcome 'Refused' -NotDispatched) } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
         throw
     }
     $script:AsyncJobs[$id] = $job
@@ -24357,7 +24357,7 @@ function Detach-DomeniaReadUiTask {
     # W13 (point 123): the trace ends here for the interface; the native call may still finish its cleanup.
     $traceOutcome = 'Stopped'
     if ([bool]$job.Superseded) { $traceOutcome = 'Superseded' } elseif ([bool]$job.TimeoutErrorDelivered) { $traceOutcome = 'TimedOut' }
-    try { [void](Complete-DomeniaJobTrace -Job $job -Outcome $traceOutcome -Detail 'lecture détachée de lʼinterface') } catch { }
+    try { [void](Complete-DomeniaJobTrace -Job $job -Outcome $traceOutcome -Detail 'lecture détachée de lʼinterface') } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
     if ($null -eq $script:DetachedReadJobs) { $script:DetachedReadJobs = New-Object System.Collections.ArrayList }
     if ([string]$job.OperationId -eq 'ComputerLastUser') {
         Clear-DomeniaComputerUserProbeState -ProbeId ([string]$job.CallbackState.ProbeId) -Computer ([string]$job.CallbackState.Computer)
@@ -24518,7 +24518,7 @@ function Complete-UiTasks {
             # A write stopped by its hard deadline has an unknown result; a read is stopped, replaced or out of time.
             $traceOutcome = 'Stopped'
             if ([bool]$job.IsWrite) { $traceOutcome = 'Unknown' } elseif ([bool]$job.TimeoutErrorDelivered) { $traceOutcome = 'TimedOut' } elseif ([bool]$job.Superseded) { $traceOutcome = 'Superseded' }
-            try { [void](Complete-DomeniaJobTrace -Job $job -Outcome $traceOutcome -WorkerEnd $traceWorkerEnd) } catch { }
+            try { [void](Complete-DomeniaJobTrace -Job $job -Outcome $traceOutcome -WorkerEnd $traceWorkerEnd) } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
             continue
         }
 
@@ -24526,7 +24526,7 @@ function Complete-UiTasks {
             $output = $null
             $traceOutcome = 'Superseded'
             if ([bool]$job.IsWrite) { $traceOutcome = 'Unknown' }
-            try { [void](Complete-DomeniaJobTrace -Job $job -Outcome $traceOutcome -WorkerEnd $traceWorkerEnd) } catch { }
+            try { [void](Complete-DomeniaJobTrace -Job $job -Outcome $traceOutcome -WorkerEnd $traceWorkerEnd) } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
             continue
         }
         # CD-12: the error of a task is analysed once; the same object feeds the provider outcome, the anti-lockout
@@ -24556,7 +24556,7 @@ function Complete-UiTasks {
                 # W13 (point 121): the cost, the volume received and the handler are kept for the trace; a slow callback
                 # is explained by its operation, its phases, its volume and its handler.
                 $traceVolume = [long]-1
-                try { $traceVolume = [long](Get-DomeniaOutputVolume $output) } catch { }
+                try { $traceVolume = [long](Get-DomeniaOutputVolume $output) } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
                 try { $traceSlowText = [string](Register-DomeniaJobPublication -Job $job -PublishMs ([double]$effectiveMs) -Volume $traceVolume -ThresholdMs ([double]$callbackWarningMs) -ValidateMs $traceValidateMs -WorkerEnd $traceWorkerEnd) } catch { $traceSlowText = '' }
                 if ($effectiveMs -gt $callbackWarningMs) {
                     if (-not $traceSlowText) { $traceSlowText = "Callback UI lent : $($job.Name), $effectiveMs ms (seuil $callbackWarningMs ms ; operation $($job.OperationId) ; traitement $($job.SuccessHandler))." }
@@ -24610,7 +24610,7 @@ function Complete-UiTasks {
                 if ([bool]$job.IsWrite -and ([string]$script:WriteState -in @('Unknown','UnknownPending'))) { $traceOutcome = 'Unknown' }
                 [void](Complete-DomeniaJobTrace -Job $job -Outcome $traceOutcome -ValidateMs $traceValidateMs -Category $traceCategory -WorkerEnd $traceWorkerEnd)
             }
-        } catch { }
+        } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
     }
     # D015 / PF-04: queued entries start by priority while the admission and the tick budget allow; stale or expired
     # entries leave the queue.

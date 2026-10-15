@@ -554,7 +554,7 @@ function Invoke-DomeniaTimerTick {
         # W13 (point 121): a tick of 50 ms or more is kept to explain a late heartbeat (Register-DomeniaDispatcherLateness).
         $tickMs = ([Diagnostics.Stopwatch]::GetTimestamp() - $tickStart) * 1000.0 / [Diagnostics.Stopwatch]::Frequency
         if ($tickMs -ge 50) {
-            try { $tickEnd = Get-DomeniaTraceNow; Register-DomeniaUiWork -Name ('Minuteur ' + [string]$Timer.Owner) -Handler (([string]$Timer.Owner) -replace '[^A-Za-z0-9:-]','') -StartMs ($tickEnd - $tickMs) -EndMs $tickEnd } catch { }
+            try { $tickEnd = Get-DomeniaTraceNow; Register-DomeniaUiWork -Name ('Minuteur ' + [string]$Timer.Owner) -Handler (([string]$Timer.Owner) -replace '[^A-Za-z0-9:-]','') -StartMs ($tickEnd - $tickMs) -EndMs $tickEnd } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
         }
     }
 }
@@ -690,7 +690,7 @@ function Add-DomeniaTaskSubscriber {
         [void]$job.Subscribers.Add([pscustomobject]@{SuccessHandler=$SuccessHandler;ErrorHandler=$ErrorHandler;OnSuccess=$OnSuccess;OnError=$OnError;CallbackState=$CallbackState})
         # UX-04: engine detail, Domenia.log only.
         Write-DomeniaTrace ('Lecture identique partagée : ' + [string]$job.Name + ' (' + [string]$job.OperationId + '), aucun second appel.')
-        try { Add-DomeniaJobTraceEvent -Job $job -Phase 'Shared' -Detail 'demande identique rattachée, aucun second appel' } catch { }
+        try { Add-DomeniaJobTraceEvent -Job $job -Phase 'Shared' -Detail 'demande identique rattachée, aucun second appel' } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
         return [string]$job.Id
     }
     return ''
@@ -724,7 +724,7 @@ function Remove-DomeniaQueuedTask {
     if ($script:AsyncJobs.Contains($id)) { [void]$script:AsyncJobs.Remove($id) }
     $traceDetail = ''
     if ($TraceOutcome -eq 'TimedOut') { $traceDetail = 'attente trop longue dans la file' }
-    try { [void](Complete-DomeniaJobTrace -Job $Job -Outcome $TraceOutcome -Detail $traceDetail -NotDispatched) } catch { }
+    try { [void](Complete-DomeniaJobTrace -Job $Job -Outcome $TraceOutcome -Detail $traceDetail -NotDispatched) } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
     if ([bool]$Job.BusyApplied) { try { Set-ControlsBusy -Names $Job.DisableControls -Busy $false } catch { }; $Job.BusyApplied = $false }
     if ([string]$script:LatestTaskId -eq $id) { $script:LatestTaskId = '' }
     $Job.State = 'Withdrawn'
