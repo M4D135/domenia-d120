@@ -364,6 +364,7 @@ Quand on sélectionne un autre objet, les tableaux du poste et des logiciels son
 - Verdict : au moins un point critique donne « Critique » ; sinon 85 et plus « Bon etat », 60 et plus « A surveiller », en dessous « Degrade ».
 - Exemples : un point à surveiller donne 90 « Bon etat » ; un point critique donne 75 « Critique ».
 - Le score et la liste portent sur toutes les vérifications, que leur widget soit affiché ou non. La liste est triée : critiques, à surveiller, puis informations.
+- Parc : le score est la part des postes évalués sans point détecté. Les postes incomplets sont comptés à part, jamais comme sains. Dès qu’un poste n’est pas évalué, la couverture s’affiche à côté du score, par exemple « couverture 90 % (18 évalué(s) sur 20) ». Sous 50 % des comptes activés évalués, aucun score n’est affiché : « Couverture insuffisante », ou « Critique » si un point critique est établi.
 
 ## Règles du poste
 
@@ -624,9 +625,19 @@ L'annulation n'a qu'un niveau. Elle est perdue quand de nouvelles données arriv
 ![Tableau du poste en mode Personnaliser : boutons Modifier et Retirer sur chaque widget, tuiles Ajouter ici en fin de section, boutons Par defaut et Terminer](fig:personnaliser)
 
 - En personnalisation, chaque section se termine par une tuile en pointillés « Ajouter ici », qui ouvre l'éditeur avec la section choisie. Les boutons ronds de modification et de retrait restent visibles ; hors personnalisation, ils apparaissent au survol ou au clavier.
-- Les widgets sans donnée restent visibles en personnalisation (« Aucune donnee pour le moment »). Hors personnalisation, un widget intégré sans donnée est masqué.
+- Un widget sans chiffre dit pourquoi, avec le bouton qui agit : « Pas encore collecté pour ce tableau. » (« Collecter »), « Absent du dernier relevé du … » (« Relire »), « Lu par l’inventaire complet seulement » (« Inventaire complet »). Il garde une place compacte dès que le tableau du poste a une lecture ; avant toute lecture, seuls les widgets suspendus ou en collecte sont affichés. En personnalisation, tous les widgets restent visibles à leur taille.
 - Le menu clic droit d'un widget, toujours disponible, propose « Modifier... », « Représentation », « Taille » (« Compacte », « Moyenne », « Large »), « Déplacer » et « Retirer du tableau de bord ». Les déplacements du menu restent dans la section.
 - Le glisser-déposer est actif en mode « Personnaliser ». Lâché sur un autre widget, le widget prend sa place et sa section ; lâché dans une section hors d'un widget, il va à la fin de cette section. La page défile près des bords.
+
+## Un widget à la fois
+
+- **Actualiser.** Le bouton rond d’actualisation, l’entrée « Actualiser ce widget » du menu ou la touche F5 sur le widget relisent seulement ce que ce widget affiche, pour le périmètre de son tableau : le poste sélectionné, ou les postes actifs de l’OU affichée sur l’Accueil, jamais tout le domaine. Une requête WMI relit ses seules sondes, sans console ni ping ; un widget du poste relance l’inventaire rapide ou complet qui le remplit ; un widget de l’annuaire relit les objets AD de l’OU ; un widget calculé est recalculé localement. Une relecture des postes demande la confirmation de leur nombre, comme « Vérifier la liste » (« Collecter N postes »).
+- **Ajouter.** Ajouter un widget, depuis l’éditeur ou l’Atelier, est le geste explicite : la collecte de ce qui lui manque part aussitôt. Seuls les postes sans mesure exploitable de moins de 30 jours (durée de conservation) sont contactés ; un poste déjà mesuré n’est pas interrogé. Avant toute lecture, le relevé vérifie les mesures enregistrées de chaque poste (« Recherche des mesures manquantes ») ; une requête non applicable au système, sur un contrôleur de domaine par exemple, compte comme une réponse. Jusqu’à 200 postes à lire, la collecte démarre sans confirmation ; au-delà, le nombre de postes à lire est confirmé dans la page (« Collecter N postes »), en trois lignes : postes visés et postes déjà à jour, ce qui sera lu, durée estimée. Le plafond d’un relevé (Park.MaxTargets, 500 postes par défaut) s’applique aux postes à lire : au-delà, rien n’est lu et la barre d’état le dit. Les budgets et le parallélisme du moteur s’appliquent.
+- **Suivre.** Pendant la collecte, le widget affiche « Collecte en cours · 3/40 poste(s) », avec les postes déjà à jour et les lectures non confirmées. Le chiffre reste le dernier enregistré jusqu’à la fin. Un widget de l’Accueil est relevé dans la portée de la liste : « Vérifier la liste » affiche son avancement (« Relevé de … ») et devient son « Arrêter ». Un widget du poste est relevé dans la portée du poste ouvert, à côté d’un relevé de la liste. Un relevé déjà en cours dans la même portée met le widget « En file » ; il démarre à la fin de ce relevé, une fois le recalcul de l’OU affiché sur l’Accueil (« En file : en attente du recalcul de l’OU. »), 20 widgets au plus en attente. Si le poste sélectionné ou l’OU affichée change entre-temps, la collecte en file est abandonnée et la barre d’état le dit : elle ne part jamais sur une autre population. La progression d’une collecte ne s’affiche que sur le tableau de son poste ou de son OU.
+- **Suspendre la mesure.** Le bouton rond pause ou l’entrée du menu suspend le widget : il garde sa place, sa taille et son titre et affiche « Mesure suspendue ». Il est exclu de toutes les collectes : son actualisation, celle du tableau, « Analyser la liste » et l’actualisation WMI de l’OU. Un relevé lancé pour lui seul est arrêté. Les lectures communes restent faites par leurs propres actions (inventaire du poste, ping et relevé WMI léger utilisés par la santé) ; le texte du widget le précise. « Reprendre la mesure » collecte ce qui lui manque, après confirmation du nombre de postes à lire. L’état est enregistré avec la disposition et s’annule comme elle.
+- **Comprendre ce chiffre.** Le bouton rond d’information ou l’entrée du menu ouvre, dans la page, la valeur affichée, la formule, le périmètre, les critères, les exclusions, la couverture, les dates et le nombre de postes du total. « Afficher les postes » ouvre la liste exacte des GUID du calcul affiché, nommée avec son compte et sa date ; pour une requête WMI ou une requête enregistrée, aucune liste figée n’est conservée et la liste est recalculée depuis le calcul affiché, sans nouvelle lecture. Sur le tableau du poste, le chiffre porte sur le poste sélectionné. Si la vue a été recalculée entre-temps, même pendant que le panneau est ouvert, le détail est refusé et le tableau redessiné. Rien n’est relu pour expliquer un chiffre.
+- **Clavier.** Tab place le focus sur un widget ; Maj+F10 ouvre son menu ; F5 l’actualise. En personnalisation, Alt+flèches et Alt+Début/Fin le déplacent, Alt+Maj+flèches changent sa taille d’un cran, Suppr le retire (annulable).
+- **Haute résolution.** Un widget plus large que la page (affichage à 150 ou 200 %, fenêtre étroite) est réduit proportionnellement, jamais sous 60 %, au lieu d’être coupé ; il reprend sa taille quand la page s’élargit.
 
 ## Éditeur de widget
 
@@ -636,7 +647,7 @@ L'annulation n'a qu'un niveau. Elle est perdue quand de nouvelles données arriv
 - La recherche ignore accents et casse ; tous les mots tapés doivent se trouver dans le nom, la description ou la section (pour une requête : le nom, la catégorie ou la classe).
 - À droite : « Titre », « Représentation », « Taille », « Section » et l'aperçu. La liste « Section » propose les sections du tableau, puis « + Nouvelle section... », qui affiche un champ pour taper son nom ; laissé vide, ce nom devient « Mes widgets ».
 - L'aperçu montre les vraies données si le tableau en a, sinon un exemple de même nature.
-- Un widget ajouté va à la fin de sa section. Sans donnée encore lue : « Widget enregistre : il s affichera des que ses donnees seront lues. ».
+- Un widget ajouté va à la fin de sa section et la collecte de ses données manquantes part aussitôt (voir « Un widget à la fois »). Sans poste ni OU utilisable, la barre affiche « Widget enregistre : il s affichera des que ses donnees seront lues. ».
 
 ## Natures représentations et tailles
 
@@ -1397,7 +1408,7 @@ Une clé absente, nulle ou vide prend la valeur par défaut du code. Une section
 | Streaming.RevalidateListedObjects | true | Relecture périodique des objets affichés. |
 | Streaming.RevalidateIntervalSeconds | 60 | Intervalle de cette relecture (30 à 600 s). |
 | Streaming.ReconcileSeconds | 180 | Relecture de fond du périmètre d'une liste de 500 lignes au plus (120 à 900 s). |
-| Park.MaxTargets | 500 | Plafond d'un relevé de la liste ou de sa sélection : « Vérifier la liste » et la barre de la sélection refusent au-delà (5 000 au plus). |
+| Park.MaxTargets | 500 | Plafond d'un relevé de la liste ou de sa sélection : « Vérifier la liste » et la barre de la sélection refusent au-delà (5 000 au plus). La collecte d'un widget le respecte aussi, comptée sur les postes à lire. |
 | Browser.GlobalSearchLimit | 100 | Valeur initiale du champ « Limite », aussitôt remplacée par la préférence SearchLimit (100 par défaut) ; ne sert que si ce champ n'est pas un nombre. |
 | Browser.GlobalSearchMinChars | 2 | Caractères minimum. |
 | Browser.MaxPageSize | 300 | Taille de page LDAP. |

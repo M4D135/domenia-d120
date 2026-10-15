@@ -567,8 +567,8 @@
     "Save-UserMachineLinks": "BE795AF61C61794DFBB29B10146A8B867A5DCB4C22143448126BD067DC9256DE",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "0410EFCE81670EA52EE198D5AC1843A3AE4BA7BA3F465C6AC15E47F57E0B775A",
-    "Assert-DomeniaWorkerRegistry": "96A0B04940598BB01EF3398C7BE8D7B2ACA57BE2C4A1A1EEDF765757CB1BF1C5",
+    "Get-DomeniaWorkerOperationHashes": "D256EB80226AA495D0F742257CF4DA57353BE1849BDFEBDA3C872F9D5219E219",
+    "Assert-DomeniaWorkerRegistry": "726E8373CE64DDD2EE9636AEA02AF9C265BCBEA4756F46C109CD8F0FC5232362",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "C39E92B423D3B448B91B25EE502B6AD3D8C382E6AB63F231965C20B2AC3D5775",
@@ -3826,6 +3826,18 @@
         "wad/modules/Domenia-Live.UI.ps1",
         "wad/modules/Domenia-Relations.UI.ps1"
       ]
+    },
+    {
+      "Previous": ".",
+      "Source": ".",
+      "Decision": "Lot W01 (demandes de David et points 6, 73, 74, 80) : actualisation de chaque widget limitee a la population du tableau, collecte du manquant des l ajout d un widget (plus de Non lu par cet inventaire), Suspendre la mesure (widget garde au tableau, exclu de toute collecte), panneau Comprendre ce chiffre, detail d un chiffre lie a son calcul, couverture a cote de la sante, clavier et DPI des widgets. Synchronise avec X01 : collecte des widgets dans les releves par portee, plafond Park.MaxTargets, preapprobation seulement a l ajout jusqu a 200 postes. LocalStore re-epingle apres relecture (charge composee de Boards.Model).",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
     }
   ]
 }

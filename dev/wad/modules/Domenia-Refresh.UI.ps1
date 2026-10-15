@@ -70,8 +70,9 @@ function Complete-DomeniaOuRefreshCommit {
 function Get-DomeniaOuRefreshProbePlan {
     # The workshop is lazy: read its validated saved library locally when no view has been opened.
     # Do not initialize that view, change its scope, or silently omit a configured query widget.
+    # Paused widgets are left out of the WMI refresh of the OU (decision David 2026-10-14).
     $ids=@(Get-DomeniaBoardProbeIds)
-    $widgets=@(foreach($board in @('Fleet','Computer')){Get-DomeniaBoardLayout -Board $board|Where-Object{[string]$_.Source -eq 'Query'}})
+    $widgets=@(foreach($board in @('Fleet','Computer')){Select-DomeniaActiveBoardItems -Layout @(Get-DomeniaBoardLayout -Board $board)|Where-Object{[string]$_.Source -eq 'Query'}})
     if($widgets.Count){
         if($null -eq $script:DomeniaQueryState){$saved=@(ConvertFrom-DomeniaQueryLibrary ([string](Get-DomeniaSetting 'Query.Library' '')))}
         else{

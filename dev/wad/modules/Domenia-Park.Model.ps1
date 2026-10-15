@@ -58,17 +58,58 @@ function Test-DomeniaParkLinkChanged {
     return ([string]$Existing.UserLogin -ine [string]$Observation.LinkUser -or [string]$Existing.UserGuid -ine [string]$Observation.UserGuid -or [string]$Existing.ComputerGuid -ine [string]$Observation.Guid)
 }
 
+function Test-DomeniaProbeNotApplicable {
+    # A probe skipped as not applicable to the system (a domain controller, for instance). In memory it carries
+    # Skipped; once stored, ConvertTo-DomeniaRemoteObservationChanges turns it into an error with the text below and
+    # no success date. SummaryUnavailable marks a stored measurement whose summary was too large, never a skip.
+    param($Value)
+    if($null -eq $Value){return $false}
+    $errorText=[string](Get-DomeniaMember $Value 'Error' '')
+    if($errorText){return ($errorText -ceq 'Sonde non applicable au systeme.')}
+    $skipped=[string](Get-DomeniaMember $Value 'Skipped' '')
+    return (([bool]$skipped) -and ($skipped -cne 'SummaryUnavailable'))
+}
+function Get-DomeniaProbeAnswerUtc {
+    # Date at which a stored probe result answers its workstation, '' when it does not: a success by its CheckedUtc,
+    # a probe not applicable to the system by its attempt (its success date stays empty once stored). Any other
+    # error and a partial read never answer.
+    param($Value)
+    if(($null -eq $Value) -or ([bool](Get-DomeniaMember $Value 'Truncated' $false))){return ''}
+    if(Test-DomeniaProbeNotApplicable -Value $Value){
+        $attempt=[string](Get-DomeniaMember $Value 'AttemptedUtc' '')
+        if($attempt){return $attempt}
+        return [string](Get-DomeniaMember $Value 'CheckedUtc' '')
+    }
+    if([string](Get-DomeniaMember $Value 'Error' '')){return ''}
+    return [string](Get-DomeniaMember $Value 'CheckedUtc' '')
+}
 function New-DomeniaCollectionPlan {
     # Reuse only measurements of this object identity, each with its own timestamp. Errors are always retried.
-    param($Previous,[string]$Guid,[string]$Key,[object[]]$Probes=@(),[bool]$Inventory=$false,[int]$CacheMinutes=15,[datetime]$NowUtc=[datetime]::UtcNow)
+    # -ReuseMaxAgeDays (widget collections, decision David 2026-10-14): collect only what is missing, i.e. also reuse a
+    # usable measurement younger than that many days whatever the cache minutes; a probe stored as not applicable to
+    # the system is an answer there, dated by its attempt (Get-DomeniaProbeAnswerUtc). 0 keeps the cache-minute rule
+    # alone; a forced refresh passes CacheMinutes 0 and no reuse age.
+    param($Previous,[string]$Guid,[string]$Key,[object[]]$Probes=@(),[bool]$Inventory=$false,[int]$CacheMinutes=15,[datetime]$NowUtc=[datetime]::UtcNow,[int]$ReuseMaxAgeDays=0)
     $valid=($null -ne $Previous -and $Guid -and [string]$Previous.Guid -ieq $Guid -and [string]$Previous.Key -ieq $Key)
     $minutes=[Math]::Max(0,[Math]::Min(1440,$CacheMinutes));$reuse=0;$readInventory=$Inventory
+    $reuseDays=[Math]::Max(0,[Math]::Min(3650,$ReuseMaxAgeDays))
     $fresh={param($Value,[int]$Seconds)
         if($null -eq $Value -or $Seconds -le 0 -or [string](Get-DomeniaMember $Value 'Error') -or [string](Get-DomeniaMember $Value 'Skipped') -or [bool](Get-DomeniaMember $Value 'Truncated' $false)){return $false}
         $at=ConvertFrom-DomeniaUtcText ([string](Get-DomeniaMember $Value 'CheckedUtc'))
         return ($null -ne $at -and $at -le $NowUtc.AddMinutes(1) -and ($NowUtc-$at).TotalSeconds -lt $Seconds)
     }
-    if($valid -and $Inventory -and -not [string](Get-DomeniaMemberValue $Previous 'InventoryError') -and (& $fresh (Get-DomeniaMemberValue $Previous 'Inventory') ([Math]::Min(300,$minutes*60)))){$readInventory=$false;$reuse++}
+    $usable={param($Value,[bool]$IsProbe)
+        if(($reuseDays -le 0) -or ($null -eq $Value)){return $false}
+        $stamp=''
+        if($IsProbe){$stamp=Get-DomeniaProbeAnswerUtc -Value $Value}
+        elseif((-not [string](Get-DomeniaMember $Value 'Error')) -and (-not [bool](Get-DomeniaMember $Value 'Truncated' $false))){$stamp=[string](Get-DomeniaMember $Value 'CheckedUtc')}
+        $at=ConvertFrom-DomeniaUtcText $stamp
+        return (($null -ne $at) -and ($at -le $NowUtc.AddMinutes(1)) -and (($NowUtc-$at).TotalDays -lt $reuseDays))
+    }
+    if(($valid) -and ($Inventory) -and (-not [string](Get-DomeniaMemberValue $Previous 'InventoryError'))){
+        $previousInventory=Get-DomeniaMemberValue $Previous 'Inventory'
+        if((& $fresh $previousInventory ([Math]::Min(300,$minutes*60))) -or (& $usable $previousInventory $false)){$readInventory=$false;$reuse++}
+    }
     $planned=[Collections.Generic.List[object]]::new();$seen=@{}
     foreach($probe in @($Probes)){
         if($null -eq $probe -or -not [string]$probe.Id -or $seen.ContainsKey([string]$probe.Id)){continue};$seen[[string]$probe.Id]=$true
@@ -76,10 +117,39 @@ function New-DomeniaCollectionPlan {
         # CPU, battery, memory, services, network and events vary quickly. Static inventory can live longer.
         if([string]$probe.Id -match '^(evt\.|svc\.|net\.)|load|battery|free|users|stopped|process'){$seconds=[Math]::Min(60,$seconds)}
         $previousProbe=if($valid){Get-DomeniaMemberValue (Get-DomeniaMemberValue $Previous 'Probes') ([string]$probe.Id)}else{$null}
-        if([string](Get-DomeniaMemberValue $probe 'DefinitionHash') -and [string](Get-DomeniaMemberValue $previousProbe 'DefinitionHash') -ceq [string](Get-DomeniaMemberValue $probe 'DefinitionHash') -and (& $fresh $previousProbe $seconds)){$reuse++;continue}
+        $hash=[string](Get-DomeniaMemberValue $probe 'DefinitionHash');$previousHash=[string](Get-DomeniaMemberValue $previousProbe 'DefinitionHash')
+        $sameDefinition=(([bool]$hash) -and ($previousHash -ceq $hash))
+        # A probe that never succeeded is stored without its definition hash: its not-applicable answer is then dated
+        # by the attempt alone (widget collections only; a forced refresh reads it again).
+        $notApplicable=((-not $previousHash) -and (Test-DomeniaProbeNotApplicable -Value $previousProbe) -and (& $usable $previousProbe $true))
+        if((($sameDefinition) -and ((& $fresh $previousProbe $seconds) -or (& $usable $previousProbe $true))) -or ($notApplicable)){$reuse++;continue}
         $planned.Add($probe)
     }
     return [pscustomobject]@{Inventory=$readInventory;Probes=$planned.ToArray();Reused=$reuse;Requested=($seen.Count+$(if($Inventory){1}else{0}));CacheMinutes=$minutes}
+}
+function Test-DomeniaParkTargetAnswered {
+    # Widget collections (decision David 2026-10-14, collect only what is missing): the stored observation of this
+    # identity already answers everything the run would read from the workstation, so it is not contacted at all.
+    # Plan: New-DomeniaCollectionPlan of the target (nothing left for the light inventory nor the probes). -Ping and
+    # -Console: the run also reads the presence or the console user, answered by a successful check younger than
+    # ReuseMaxAgeDays of this identity. Never true without a reuse age (refresh, Analyser la liste).
+    param($Previous,[string]$Guid,[string]$Key,$Plan,[bool]$Ping=$false,[bool]$Console=$false,[int]$ReuseMaxAgeDays=0,[datetime]$NowUtc=[datetime]::UtcNow)
+    if(($ReuseMaxAgeDays -le 0) -or ($null -eq $Plan)){return $false}
+    if(([bool]$Plan.Inventory) -or (@($Plan.Probes).Count -gt 0)){return $false}
+    if((-not $Ping) -and (-not $Console)){return $true}
+    $valid=(($null -ne $Previous) -and ([bool]$Guid) -and ([string]$Previous.Guid -ieq $Guid) -and ([string]$Previous.Key -ieq $Key))
+    if(-not $valid){return $false}
+    $days=[Math]::Min(3650,$ReuseMaxAgeDays)
+    $recent={param([string]$Text)
+        $at=ConvertFrom-DomeniaUtcText $Text
+        return (($null -ne $at) -and ($at -le $NowUtc.AddMinutes(1)) -and (($NowUtc-$at).TotalDays -lt $days))
+    }
+    if(($Ping) -and (-not (& $recent ([string](Get-DomeniaMember $Previous 'PresenceCheckedUtc' ''))))){return $false}
+    if($Console){
+        $at='';foreach($name in @('UserCheckedUtc','ConsoleCheckedUtc','ObservedUtc')){$at=[string](Get-DomeniaMember $Previous $name '');if($at){break}}
+        if(-not (& $recent $at)){return $false}
+    }
+    return $true
 }
 
 function ConvertTo-DomeniaRemoteObservationChanges {
@@ -256,10 +326,15 @@ function New-DomeniaParkConfirmationText {
     # UX-24: three short lines: which workstations (and why the count differs from the list), what is read, how
     # long. The target names the list, the selection or the OU, never the domain. The confirm button carries the
     # count ('Pinger 48 postes').
+    # Widget collections (decision David 2026-10-14): -Widget names the collection of one widget ('Collecter 12
+    # postes'), -NoConsole leaves the console user out of what is read, -ReuseMaxAgeDays says that only missing,
+    # failed or older measurements are read, -AlreadyFresh counts the workstations set aside before any read and
+    # -DirectLimit says why an added widget asks for its count above its direct limit.
     param(
         [int]$Count,[int]$Skipped=0,[int]$Ignored=0,[ValidateSet('Results','Selection','Scope')][string]$ScopeKind='Results',
         [AllowEmptyString()][string]$ScopeLabel='',[bool]$Subtree=$false,[int]$ListLimit=0,
-        [bool]$PingOnly=$false,[bool]$WmiOnly=$false,[bool]$Inventory=$false,[int]$ProbeCount=0,[int]$Concurrency=4,[int]$CacheMinutes=15
+        [bool]$PingOnly=$false,[bool]$WmiOnly=$false,[bool]$Inventory=$false,[int]$ProbeCount=0,[int]$Concurrency=4,[int]$CacheMinutes=15,
+        [bool]$NoConsole=$false,[int]$ReuseMaxAgeDays=0,[int]$AlreadyFresh=0,[bool]$Widget=$false,[int]$DirectLimit=0
     )
     $postes = [string]$Count + ' ' + (Get-DomeniaParkPlural $Count 'poste' 'postes')
     switch ($ScopeKind) {
@@ -273,23 +348,31 @@ function New-DomeniaParkConfirmationText {
     if ($Skipped -gt 0) { $line1 += ' · ' + [string]$Skipped + ' ' + (Get-DomeniaParkPlural $Skipped 'ligne sans identifiant AD ignorée' 'lignes sans identifiant AD ignorées') }
     if ($Ignored -gt 0) { $line1 += ' · ' + [string]$Ignored + ' ' + (Get-DomeniaParkPlural $Ignored 'poste au nom inutilisable ou en double ignoré' 'postes au nom inutilisable ou en double ignorés') }
     if ($ListLimit -gt 0) { $line1 += ' · liste limitée à ' + [string]$ListLimit + ' lignes : les autres postes ne sont pas concernés' }
+    if ($AlreadyFresh -gt 0) { $line1 += ' · ' + [string]$AlreadyFresh + ' ' + (Get-DomeniaParkPlural $AlreadyFresh 'poste déjà à jour, non contacté' 'postes déjà à jour, non contactés') }
+    if (($DirectLimit -gt 0) -and ($Count -gt $DirectLimit)) { $line1 += ' · plus de ' + [string]$DirectLimit + ' postes à lire : nombre confirmé avant toute lecture' }
     $read = New-Object 'System.Collections.Generic.List[string]'
     if (-not $WmiOnly) { $read.Add('présence') }
-    if (-not $PingOnly) { $read.Add('utilisateur connecté') }
+    if ((-not $PingOnly) -and (-not $NoConsole)) { $read.Add('utilisateur connecté') }
     if ($Inventory -and (-not $PingOnly)) { $read.Add('matériel') }
-    if (($ProbeCount -gt 0) -and (-not $PingOnly)) { $read.Add([string]$ProbeCount + ' ' + (Get-DomeniaParkPlural $ProbeCount 'requête des widgets' 'requêtes des widgets')) }
+    if (($ProbeCount -gt 0) -and (-not $PingOnly)) {
+        if ($Widget) { $read.Add([string]$ProbeCount + ' ' + (Get-DomeniaParkPlural $ProbeCount 'requête du widget' 'requêtes du widget')) }
+        else { $read.Add([string]$ProbeCount + ' ' + (Get-DomeniaParkPlural $ProbeCount 'requête des widgets' 'requêtes des widgets')) }
+    }
     $line2 = 'Ce qui sera lu : ' + ($read.ToArray() -join ' · ') + ', en lecture seule.'
     $parallel = [Math]::Max(1,[Math]::Min(8,$Concurrency))
-    $seconds = Get-DomeniaParkDurationEstimate -Count $Count -PingOnly $PingOnly -WmiOnly $WmiOnly -Inventory $Inventory -ProbeCount $ProbeCount -Concurrency $parallel
+    $seconds = Get-DomeniaParkDurationEstimate -Count $Count -PingOnly $PingOnly -WmiOnly ($WmiOnly -or $NoConsole) -Inventory $Inventory -ProbeCount $ProbeCount -Concurrency $parallel
     $line3 = 'Durée estimée : ' + (Format-DomeniaParkDuration $seconds)
     if ($PingOnly) { $line3 += ', échos envoyés par lots de 32' } else { $line3 += ', ' + [string]$parallel + ' ' + (Get-DomeniaParkPlural $parallel 'poste' 'postes') + ' à la fois' }
     $line3 += ' ; arrêt possible à tout moment.'
-    if ((-not $PingOnly) -and ($CacheMinutes -gt 0)) { $line3 += ' Mesures de moins de ' + [string]$CacheMinutes + ' min réutilisées.' }
+    if ($ReuseMaxAgeDays -gt 0) { $line3 += ' Seules les mesures absentes, en erreur ou de plus de ' + [string]$ReuseMaxAgeDays + ' jours sont relues.' }
+    elseif ((-not $PingOnly) -and ($CacheMinutes -gt 0)) { $line3 += ' Mesures de moins de ' + [string]$CacheMinutes + ' min réutilisées.' }
     $verb = 'Vérifier'; $mode = 'qui est connecté ?'
     if ($PingOnly) { $verb = 'Pinger'; $mode = 'qui répond ?' }
     elseif ($Inventory -or ($ProbeCount -gt 0)) { $verb = 'Analyser'; $mode = 'matériel et widgets' }
     elseif ($WmiOnly) { $verb = 'Lire'; $mode = 'lecture WMI' }
     $title = switch ($ScopeKind) { 'Selection' { 'Vérifier la sélection : ' + $mode } 'Scope' { 'Relevé des postes : ' + $mode } default { 'Vérifier la liste : ' + $mode } }
+    # The collection of one widget reads only what that widget shows: its own title and button.
+    if ($Widget) { $verb = 'Collecter'; $title = 'Collecter pour le widget' }
     $target = 'les résultats affichés'
     if ($ScopeKind -eq 'Selection') { $target = 'la sélection' } elseif ($ScopeLabel) { $target = $ScopeLabel }
     return [pscustomobject]@{Title=$title;Target=$target;Lines=@($line1,$line2,$line3);Message=($line1 + "`r`n" + $line2 + "`r`n" + $line3);ConfirmText=($verb + ' ' + $postes);EstimateSeconds=$seconds}
