@@ -65,7 +65,8 @@ function Get-DomeniaQueryExportWorkerCode {
     # evaluation, never the current editable draft or a later database revision.
     return @'
 $root=[string]$Payload.ModuleRoot
-foreach($file in @('Domenia-Common.Model.ps1','Domenia-HealthRules.Model.ps1','Domenia-Boards.Model.ps1','Domenia-Probes.Model.ps1','Domenia-QuerySchema.Model.ps1','Domenia-Workstation.Model.ps1','Domenia-Query.Model.ps1')){. (Join-Path $root $file)}
+# Domenia-Access.Model.ps1 brings the shared masking rule of the journal (Protect-DomeniaSecretText, point 50).
+foreach($file in @('Domenia-Common.Model.ps1','Domenia-HealthRules.Model.ps1','Domenia-Boards.Model.ps1','Domenia-Probes.Model.ps1','Domenia-QuerySchema.Model.ps1','Domenia-Workstation.Model.ps1','Domenia-Query.Model.ps1','Domenia-Access.Model.ps1')){. (Join-Path $root $file)}
 $request=$Payload.Request
 if($null -eq $request -or -not [string]$request.SnapshotKey){throw 'Instantané de lʼaperçu absent : relancez la requête.'}
 $path=[IO.Path]::GetFullPath([string]$Payload.Path)
@@ -97,6 +98,11 @@ $columns=[ordered]@{GUID='Id';Nom='name';'Compte AD'='StateLabel';'Présence pin
 $temporary=Join-Path $folder ('.domenia-query-'+[guid]::NewGuid().ToString('N')+'.tmp')
 $metadataTemporary=$temporary+'.metadata.json';$writer=$null;$stream=$null;$publishedMetadata=$false;$publishedCsv=$false
 $count=0L;$pages=0
+# Point 50: no secret leaves in an export. A cell that may carry one (probe values included) goes through the masking
+# rule of the journal: recovery passwords, key=value secrets, authorization headers, password switches. The cheap
+# hint below covers every form of that rule, so most cells are never rewritten; the masked cells are counted.
+$secretHint='(?i)\d{6}-\d{6}|bearer|basic|pass|pwd|secret|token|authori|api[_-]?key|"\s*:|(?:^|\s)[-/]r?p'
+$masked=0L
 try{
     $stream=[IO.FileStream]::new($temporary,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
     $writer=[IO.StreamWriter]::new($stream,[Text.UTF8Encoding]::new($true),65536)
@@ -107,6 +113,7 @@ try{
         foreach($row in (ConvertTo-DomeniaQueryGridRows -Rows $page -Fields $fields)){
             $cells=@(foreach($property in $columns.Values){
                 $value=[string]$row.$property
+                if($value -match $secretHint){$clean=Protect-DomeniaSecretText $value;if($clean -cne $value){$masked++;$value=$clean}}
                 # CSV data is literal even when Excel opens it. Neutralise formulas after leading whitespace.
                 if($value -match '^[\s\p{Cf}]*[=+@\-\uFF1D\uFF0B\uFF0D\uFF20]' -or $value -match '^[\t\r\n]'){$value="'"+$value}
                 '"'+$value.Replace('"','""')+'"'
@@ -117,11 +124,11 @@ try{
     $writer.Flush();$stream.Flush($true);$writer.Dispose();$writer=$null;$stream=$null
     $hash=[Security.Cryptography.SHA256]::Create();$csvInput=[IO.File]::OpenRead($temporary)
     try{$sha=[BitConverter]::ToString($hash.ComputeHash($csvInput)).Replace('-','').ToLowerInvariant()}finally{$csvInput.Dispose();$hash.Dispose()}
-    $metadata=[pscustomobject]@{Format='Domenia.QueryExport/1';RowCount=$count;Pages=$pages;PageSize=200;CsvSHA256=$sha;CreatedUtc=[datetime]::UtcNow.ToString('o');SnapshotKey=[string]$request.SnapshotKey;EvaluatedAtUtc=[string]$request.EvaluatedAtUtc;ScopeDn=[string]$request.ScopeDn;Subtree=[bool]$request.Subtree;Selection=[string]$request.Selection;TextFilter=$text;StateFilter=$state;SortField=$options.SortField;Descending=$options.Descending;Recipe=$recipe;Total=$snapshot.Total;Matched=$snapshot.Matched;Unknown=$snapshot.Unknown;NotMatched=$snapshot.NotMatched}
+    $metadata=[pscustomobject]@{Format='Domenia.QueryExport/1';RowCount=$count;Pages=$pages;PageSize=200;CsvSHA256=$sha;CreatedUtc=[datetime]::UtcNow.ToString('o');SnapshotKey=[string]$request.SnapshotKey;EvaluatedAtUtc=[string]$request.EvaluatedAtUtc;ScopeDn=[string]$request.ScopeDn;Subtree=[bool]$request.Subtree;Selection=[string]$request.Selection;TextFilter=$text;StateFilter=$state;SortField=$options.SortField;Descending=$options.Descending;Recipe=$recipe;Total=$snapshot.Total;Matched=$snapshot.Matched;Unknown=$snapshot.Unknown;NotMatched=$snapshot.NotMatched;MaskedValues=$masked}
     [IO.File]::WriteAllText($metadataTemporary,($metadata|ConvertTo-Json -Depth 16),[Text.UTF8Encoding]::new($true))
     [IO.File]::Move($metadataTemporary,$path+'.metadata.json');$publishedMetadata=$true
     [IO.File]::Move($temporary,$path);$publishedCsv=$true
-    [pscustomobject]@{Path=$path;MetadataPath=($path+'.metadata.json');RowCount=$count;Pages=$pages;SHA256=$sha;SnapshotKey=[string]$request.SnapshotKey;Complete=$true}
+    [pscustomobject]@{Path=$path;MetadataPath=($path+'.metadata.json');RowCount=$count;Pages=$pages;SHA256=$sha;SnapshotKey=[string]$request.SnapshotKey;Masked=$masked;Complete=$true}
 }finally{
     if($null -ne $writer){$writer.Dispose()}elseif($null -ne $stream){$stream.Dispose()}
     if([IO.File]::Exists($temporary)){[IO.File]::Delete($temporary)}

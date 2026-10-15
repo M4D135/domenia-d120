@@ -49,6 +49,12 @@ try{
     $Payload.Records=@([M4D.Admin.Common.Query.QueryRecord]::new('literal',$unsafe));$request.RecipeJson=(New-DomeniaQueryRecipe|ConvertTo-Json -Depth 16 -Compress);$request.Selection='Match';$request.ExpectedRows=1;$Payload.Path=Join-Path $folder 'literal.csv'
     $result=& $code;$csv=@(Import-Csv -LiteralPath $result.Path -Delimiter ';')
     Expect ($csv.Count -eq 1 -and $csv[0].Nom.StartsWith("'  =") -and $csv[0].'Chemin AD' -ceq "CN=line1`nline2") 'formula neutralized and embedded newline roundtrips'
+    # Point 50: a value that looks like a secret is masked in the export and counted; the marker exists only in this run.
+    $marker=[guid]::NewGuid().ToString('N');$secretRecord=[Collections.Generic.Dictionary[string,object]]::new();$secretRecord.Add('name',('pwd='+$marker));$secretRecord.Add('dn','CN=PC-SECRET,OU=Fixture,DC=example,DC=test');$secretRecord.Add('active',$true)
+    $Payload.Records=@([M4D.Admin.Common.Query.QueryRecord]::new('masked',$secretRecord));$request.RecipeJson=(New-DomeniaQueryRecipe -Name 'Masque' -GroupBy 'name'|ConvertTo-Json -Depth 16 -Compress);$request.Selection='Match';$request.ExpectedRows=1;$request.SnapshotKey='fixture-masked';$Payload.Path=Join-Path $folder 'masked.csv'
+    $result=& $code;$text=[IO.File]::ReadAllText($result.Path);$metadata=Get-Content -Raw -LiteralPath $result.MetadataPath|ConvertFrom-Json
+    Expect (-not $text.Contains($marker) -and -not ([IO.File]::ReadAllText($result.MetadataPath)).Contains($marker)) 'secret-looking value never written to the export or its metadata'
+    Expect ($text.Contains('pwd=***') -and [int]$result.Masked -eq 2 -and [int]$metadata.MaskedValues -eq 2) ('masked cells counted in result and metadata: '+[string]$result.Masked)
     Expect (@(Get-ChildItem -LiteralPath $folder -Filter '*.tmp*' -Force).Count -eq 0) 'owned temporary files cleaned on every tested path'
     $many=@(for($i=0;$i -lt 125;$i++){New-DomeniaQueryRecipe -Name ('Personal '+$i)})
     $roundtrip=@(ConvertFrom-DomeniaQueryLibrary (ConvertTo-DomeniaQueryLibraryJson $many))
