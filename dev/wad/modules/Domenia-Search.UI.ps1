@@ -372,7 +372,7 @@ function Update-DomeniaWorkViewList {
     $templates=@(Get-DomeniaPreparedQueryTemplates)
     $script:SearchQueryCatalog=@(Get-DomeniaSearchQueryCatalog -Saved $saved -Favorites @(Get-DomeniaSearchQueryFavorites) -Templates $templates -Categories $categories)
     Update-DomeniaSearchQueryList
-    try{Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId 'SearchQueryCatalog' -DurationMs ([double]$clock.Elapsed.TotalMilliseconds)}catch{}
+    try{Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId 'SearchQueryCatalog' -DurationMs ([double]$clock.Elapsed.TotalMilliseconds)}catch{Write-DomeniaSwallowed 'Search' 'Update-DomeniaWorkViewList' $_}
 }
 
 function Get-DomeniaSearchQueryFavorites {
@@ -482,7 +482,7 @@ function Open-DomeniaSearchQueryWorkshop {
 function Get-DomeniaWorkViewScopeChoice {
     # UX-33: 'OU' (the OU chosen in the tree, default) or 'Domain' (explicit secondary choice of the chip).
     $combo = Get-DomeniaControl 'CmbWorkViewScope'
-    try { if ($null -ne $combo -and $null -ne $combo.SelectedItem -and [string]$combo.SelectedItem.Tag -eq 'Domain') { return 'Domain' } } catch { }
+    try { if ($null -ne $combo -and $null -ne $combo.SelectedItem -and [string]$combo.SelectedItem.Tag -eq 'Domain') { return 'Domain' } } catch { Write-DomeniaSwallowed 'Search' 'Get-DomeniaWorkViewScopeChoice' $_ }
     return 'OU'
 }
 
@@ -493,7 +493,7 @@ function Update-DomeniaOuScopeChoices {
     if ($null -eq $Scope) { return }
     $name = 'OU choisie'
     if ([bool]$Scope.IsDomain) { $name = 'tout le domaine' }
-    else { try { $name = [string](Get-DomeniaUxOuDisplay -DistinguishedName ([string]$Scope.BaseDn)).Name } catch { } }
+    else { try { $name = [string](Get-DomeniaUxOuDisplay -DistinguishedName ([string]$Scope.BaseDn)).Name } catch { Write-DomeniaSwallowed 'Search' 'Update-DomeniaOuScopeChoices' $_ } }
     $combo = Get-DomeniaControl 'CmbWorkViewScope'
     if ($null -ne $combo -and $combo.Items.Count -gt 0) {
         $first = $combo.Items[0]
@@ -655,13 +655,13 @@ function Get-DomeniaNavSnapshot {
     param([string]$Page='')
     if (-not $Page) {
         $tabs = Get-DomeniaControl 'WorkspaceTabs'
-        try { if ($null -ne $tabs -and $null -ne $tabs.SelectedItem) { $Page = [string]$tabs.SelectedItem.Name } } catch { }
+        try { if ($null -ne $tabs -and $null -ne $tabs.SelectedItem) { $Page = [string]$tabs.SelectedItem.Name } } catch { Write-DomeniaSwallowed 'Search' 'Get-DomeniaNavSnapshot' $_ }
     }
     $grid = Get-DomeniaControl 'DgObjects'
     $selected = $null; $rows = $null; $scroll = -1.0; $hScroll = -1.0; $sort = @(); $selectionKeys = @()
     if ($null -ne $grid) {
-        try { $selected = $grid.SelectedItem; $rows = $grid.ItemsSource } catch { }
-        try { $viewer = Get-DomeniaGridScrollViewer $grid; if ($null -ne $viewer) { $scroll = [double]$viewer.VerticalOffset; $hScroll = [double]$viewer.HorizontalOffset } } catch { }
+        try { $selected = $grid.SelectedItem; $rows = $grid.ItemsSource } catch { Write-DomeniaSwallowed 'Search' 'Get-DomeniaNavSnapshot' $_ }
+        try { $viewer = Get-DomeniaGridScrollViewer $grid; if ($null -ne $viewer) { $scroll = [double]$viewer.VerticalOffset; $hScroll = [double]$viewer.HorizontalOffset } } catch { Write-DomeniaSwallowed 'Search' 'Get-DomeniaNavSnapshot' $_ }
         # Point 55: the sort and every selected row (by identity, 500 at most) come back with the list.
         try { $sort = @(Get-DomeniaGridSort $grid) } catch { $sort = @() }
         try {
@@ -687,7 +687,7 @@ function Get-DomeniaNavSnapshot {
     # being launched (a type change or a favourite changes it before Enter-DomeniaNavSearch).
     $typeLabel = ''
     $typeBox = Get-DomeniaControl 'CmbGlobalType'
-    try { if ($null -ne $typeBox -and $null -ne $typeBox.SelectedItem) { $typeLabel = [string]$typeBox.SelectedItem.Content } } catch { }
+    try { if ($null -ne $typeBox -and $null -ne $typeBox.SelectedItem) { $typeLabel = [string]$typeBox.SelectedItem.Content } } catch { Write-DomeniaSwallowed 'Search' 'Get-DomeniaNavSnapshot' $_ }
     # FO-05: the chip and the type of the bar that produced a global list.
     $barScope = [string]$script:SearchBarScope
     $barType = [string]$script:SearchBarType
@@ -745,14 +745,14 @@ function Get-DomeniaNavSnapshot {
     $inner = '';$innerControl=''
     if ($Page -eq 'WsObject') {
         $detail = Get-DomeniaControl 'DetailTabs'
-        try { if ($null -ne $detail -and $null -ne $detail.SelectedItem) { $inner = [string]$detail.SelectedItem.Name;$innerControl='DetailTabs' } } catch { }
+        try { if ($null -ne $detail -and $null -ne $detail.SelectedItem) { $inner = [string]$detail.SelectedItem.Name;$innerControl='DetailTabs' } } catch { Write-DomeniaSwallowed 'Search' 'Get-DomeniaNavSnapshot' $_ }
     }
     if($Page -eq 'TabApplicationTools'){$detail=Get-DomeniaControl 'ApplicationToolTabs';if($null -ne $detail -and $null -ne $detail.SelectedItem){$inner=[string]$detail.SelectedItem.Name;$innerControl='ApplicationToolTabs'}}
     $count = Get-DomeniaControl 'LblBranchCount'
     $selectionGuid = ''; $selectionDn = ''
     if ($null -ne $selected) {
-        try { $selectionDn = [string]$selected.DN } catch { }
-        try { if ($null -ne $selected.PSObject.Properties['Guid']) { $selectionGuid = [string]$selected.Guid } } catch { }
+        try { $selectionDn = [string]$selected.DN } catch { Write-DomeniaSwallowed 'Search' 'Get-DomeniaNavSnapshot' $_ }
+        try { if ($null -ne $selected.PSObject.Properties['Guid']) { $selectionGuid = [string]$selected.Guid } } catch { Write-DomeniaSwallowed 'Search' 'Get-DomeniaNavSnapshot' $_ }
     }
     $objectDn = ''
     if ($null -ne $script:SelectedObject) { $objectDn = [string]$script:SelectedObject.DN }
@@ -796,7 +796,7 @@ function Get-DomeniaTypeLabelOfFilter {
 
 function Get-DomeniaVisiblePageName {
     $tabs = Get-DomeniaControl 'WorkspaceTabs'
-    try { if ($null -ne $tabs -and $null -ne $tabs.SelectedItem) { return [string]$tabs.SelectedItem.Name } } catch { }
+    try { if ($null -ne $tabs -and $null -ne $tabs.SelectedItem) { return [string]$tabs.SelectedItem.Name } } catch { Write-DomeniaSwallowed 'Search' 'Get-DomeniaVisiblePageName' $_ }
     return ''
 }
 
@@ -859,7 +859,7 @@ function Restore-DomeniaNavState {
         [void](Set-DomeniaControlText -Name 'TxtGlobalSearch' -Text ([string]$State.Text))
         # CO-21: no hidden term. A term of the remembered OU list is shown in the visible local filter instead.
         [void](Set-DomeniaControlText -Name 'TxtBranchSearch' -Text '')
-        try { if ($null -ne $script:LiveSearchTimer) { $script:LiveSearchTimer.Stop() } } catch { }
+        try { if ($null -ne $script:LiveSearchTimer) { $script:LiveSearchTimer.Stop() } } catch { Write-DomeniaSwallowed 'Search' 'Restore-DomeniaNavState' $_ }
         $script:SelectedBranchDn = [string]$State.OuDn
         $check = Get-DomeniaControl 'ChkSubtree'
         if ($null -ne $check) { $check.IsChecked = [bool]$State.Subtree }
@@ -904,10 +904,10 @@ function Restore-DomeniaNavState {
             $script:SuppressGridSelectionEvents = $true
             try {
                 $grid.ItemsSource = $State.Rows
-                try { Update-DomeniaLoginColumnFromRows $State.Rows } catch { }
+                try { Update-DomeniaLoginColumnFromRows $State.Rows } catch { Write-DomeniaSwallowed 'Search' 'Restore-DomeniaNavState' $_ }
                 $script:BranchObjects = $State.Rows
                 # Point 55: a new ItemsSource drops the sort of the grid; the remembered one is applied again.
-                try { Set-DomeniaGridSort -Grid $grid -Sort @(Get-DomeniaMember $State 'Sort' @()) } catch { }
+                try { Set-DomeniaGridSort -Grid $grid -Sort @(Get-DomeniaMember $State 'Sort' @()) } catch { Write-DomeniaSwallowed 'Search' 'Restore-DomeniaNavState' $_ }
                 $grid.SelectedItem = $null
                 $match = $null
                 $keys = @(Get-DomeniaMember $State 'SelectionKeys' @())
@@ -923,7 +923,7 @@ function Restore-DomeniaNavState {
                     elseif ($null -ne $match) { $grid.ScrollIntoView($match) }
                     $horizontal = [double](Get-DomeniaMember $State 'HScroll' -1)
                     if (($null -ne $viewer) -and ($horizontal -ge 0)) { $viewer.ScrollToHorizontalOffset($horizontal) }
-                } catch { }
+                } catch { Write-DomeniaSwallowed 'Search' 'Restore-DomeniaNavState' $_ }
             }
             finally { $script:SuppressGridSelectionEvents = $suppressed }
             # The freshness of the remembered list is kept and stated as history.
@@ -947,7 +947,7 @@ function Restore-DomeniaNavState {
                 if (($null -ne $treePlan) -and ([int]$treePlan.UnreadCount -gt 0)) { $treeNotes.Add([string]$treePlan.UnreadCount + ' branche(s) ouverte(s) à cette étape ne sont plus lues : dépliez-les pour les relire.') }
                 if (($null -ne $treePlan) -and ([int](Get-DomeniaMember $treePlan 'MissingCount' 0) -gt 0)) { $treeNotes.Add([string]$treePlan.MissingCount + ' branche(s) ouverte(s) à cette étape sont introuvables dans leur branche parente lue ; rien nʼest relu.') }
                 if ($treeNotes.Count) { [void](Set-DomeniaControlText 'LblTreeStatus' ($treeNotes.ToArray() -join ' ')) }
-            } catch { }
+            } catch { Write-DomeniaSwallowed 'Search' 'Restore-DomeniaNavState' $_ }
         }
         $inner = ''
         if ([string]$State.Tab) { $inner = [string](Get-DomeniaMember $State 'InnerControl' 'DetailTabs');if(-not $inner){$inner='DetailTabs'} }
@@ -1030,7 +1030,7 @@ function Get-DomeniaTreeSelectionSource {
 
 function Stop-DomeniaPendingFilterChange {
     $script:PendingFilterChange = $null
-    try { if ($null -ne $script:FilterChangeTimer) { $script:FilterChangeTimer.Stop() } } catch { }
+    try { if ($null -ne $script:FilterChangeTimer) { $script:FilterChangeTimer.Stop() } } catch { Write-DomeniaSwallowed 'Search' 'Stop-DomeniaPendingFilterChange' $_ }
 }
 
 function Request-DomeniaSearchFilterChanged {
@@ -1052,7 +1052,7 @@ function Request-DomeniaSearchFilterChanged {
 
 function Invoke-DomeniaPendingFilterChange {
     # The OU still chosen after the pause is read once. Another OU, or a search started meanwhile, wins.
-    try { if ($null -ne $script:FilterChangeTimer) { $script:FilterChangeTimer.Stop() } } catch { }
+    try { if ($null -ne $script:FilterChangeTimer) { $script:FilterChangeTimer.Stop() } } catch { Write-DomeniaSwallowed 'Search' 'Invoke-DomeniaPendingFilterChange' $_ }
     $pending = $script:PendingFilterChange
     $script:PendingFilterChange = $null
     if ($null -eq $pending) { return }
@@ -1064,7 +1064,7 @@ function Get-DomeniaOuTreeNodeName {
     # Branch name without its 'OU' / 'CN' prefix, as the operator reads it.
     param($Node)
     $text = ''
-    try { $text = [string]$Node.Header } catch { }
+    try { $text = [string]$Node.Header } catch { Write-DomeniaSwallowed 'Search' 'Get-DomeniaOuTreeNodeName' $_ }
     $cut = $text.IndexOf('  ')
     if ($cut -ge 0 -and $cut -le 3) { $text = $text.Substring($cut + 2) }
     return $text
@@ -1084,7 +1084,7 @@ function Set-DomeniaOuTreeNodeFilter {
     $wanted = if ($visible) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed }
     if ($Node.Visibility -ne $wanted) { $Node.Visibility = $wanted }
     $loaded = $false
-    try { $loaded = [bool]$Node.Tag.Loaded } catch { }
+    try { $loaded = [bool]$Node.Tag.Loaded } catch { Write-DomeniaSwallowed 'Search' 'Set-DomeniaOuTreeNodeFilter' $_ }
     if ($Filter -and $childMatch -and $loaded -and -not $Node.IsExpanded) { $Node.IsExpanded = $true }
     return ($self -or $childMatch)
 }
@@ -1173,7 +1173,7 @@ function Initialize-DomeniaSearchUi {
     if ($grid -is [Windows.Controls.DataGrid]) {
         # UX-25: the history banner follows the rows actually shown, whatever replaced them.
         $descriptor = [ComponentModel.DependencyPropertyDescriptor]::FromProperty([Windows.Controls.ItemsControl]::ItemsSourceProperty,[Windows.Controls.DataGrid])
-        if ($null -ne $descriptor) { $descriptor.AddValueChanged($grid,[EventHandler]{ param($sender,$eventArgs) try { Update-DomeniaHistoryBanner } catch { } }) }
+        if ($null -ne $descriptor) { $descriptor.AddValueChanged($grid,[EventHandler]{ param($sender,$eventArgs) try { Update-DomeniaHistoryBanner } catch { Write-DomeniaSwallowed 'Search' 'Initialize-DomeniaSearchUi' $_ } }) }
     }
     $more = Get-DomeniaControl 'BtnSearchMore'
     if ($more -is [Windows.Controls.Primitives.ButtonBase]) { $more.Add_Click({ try { Invoke-DomeniaSearchMore } catch { Write-AppLog ('Charger la suite : '+$_.Exception.Message) 'ERROR'; Set-Status ('Suite non chargée : '+$_.Exception.Message) 'ERROR' } }) }
@@ -1191,7 +1191,7 @@ function Initialize-DomeniaSearchUi {
     $forward = Get-DomeniaControl 'BtnNavForward'
     if ($forward -is [Windows.Controls.Primitives.ButtonBase]) { $forward.Add_Click({ try { [void](Invoke-DomeniaNavStep -Direction Forward) } catch { Write-AppLog ('Navigation suivante : '+$_.Exception.Message) 'WARN' } }) }
     $box = Get-DomeniaControl 'TxtGlobalSearch'
-    if ($box -is [Windows.Controls.TextBox]) { $box.Add_TextChanged({ try { Update-DomeniaSearchHint } catch { } }) }
+    if ($box -is [Windows.Controls.TextBox]) { $box.Add_TextChanged({ try { Update-DomeniaSearchHint } catch { Write-DomeniaSwallowed 'Search' 'Initialize-DomeniaSearchUi' $_ } }) }
     # FO-05: the chip and the type of the bar are explicit choices; they never start a read.
     $barScope = Get-DomeniaControl 'LstSearchBarScope'
     if ($barScope -is [Windows.Controls.ListBox]) { $barScope.Add_SelectionChanged({ param($sender,$eventArgs) $item = $sender.SelectedItem; if ($null -ne $item) { try { Set-DomeniaSearchBarChoice -Kind Scope -Value ([string]$item.Tag) } catch { Write-AppLog ('Puce de la recherche : '+$_.Exception.Message) 'WARN' } } }) }
@@ -1204,8 +1204,8 @@ function Initialize-DomeniaSearchUi {
             param($sender,$eventArgs)
             if ($sender -ne $eventArgs.OriginalSource) { return }
             $from = ''; $to = ''
-            try { if (@($eventArgs.RemovedItems).Count -gt 0) { $from = [string]@($eventArgs.RemovedItems)[0].Name } } catch { }
-            try { if (@($eventArgs.AddedItems).Count -gt 0) { $to = [string]@($eventArgs.AddedItems)[0].Name } } catch { }
+            try { if (@($eventArgs.RemovedItems).Count -gt 0) { $from = [string]@($eventArgs.RemovedItems)[0].Name } } catch { Write-DomeniaSwallowed 'Search' 'Initialize-DomeniaSearchUi' $_ }
+            try { if (@($eventArgs.AddedItems).Count -gt 0) { $to = [string]@($eventArgs.AddedItems)[0].Name } } catch { Write-DomeniaSwallowed 'Search' 'Initialize-DomeniaSearchUi' $_ }
             try { Register-DomeniaNavLocation -From $from -To $to } catch { Write-AppLog ('Historique de navigation : '+$_.Exception.Message) 'WARN' }
         })
         [void](Push-DomeniaNavState $script:NavHistory (Get-DomeniaNavSnapshot))
@@ -1307,7 +1307,7 @@ function Invoke-DomeniaOuTreeFilterSlice {
         $state.Stack.RemoveAt($state.Stack.Count-1)
         if($null -eq $frame.Node){$state.Matched=[bool]$frame.ChildMatch;continue}
         # Point 53: the 'Conteneurs système' group is shown only for a matching container, never for its own label.
-        $group=$false;try{$group=([string]$frame.Node.Tag.Kind -eq 'SystemGroup')}catch{}
+        $group=$false;try{$group=([string]$frame.Node.Tag.Kind -eq 'SystemGroup')}catch{Write-DomeniaSwallowed 'Search' 'Invoke-DomeniaOuTreeFilterSlice' $_}
         $self=((-not $group) -and (Test-DomeniaOuTreeMatch -Name (Get-DomeniaOuTreeNodeName $frame.Node) -Filter $state.Filter))
         if($self -and $state.Filter){$state.MatchCount++}
         $match=($self -or $frame.ChildMatch)
@@ -1455,7 +1455,7 @@ function Select-DomeniaRealizedTreeNode {
     try {
         if ($null -ne $found) {
             if (-not $found.IsSelected) { $found.IsSelected = $true }
-            try { $found.BringIntoView() } catch { }
+            try { $found.BringIntoView() } catch { Write-DomeniaSwallowed 'Search' 'Select-DomeniaRealizedTreeNode' $_ }
             return $true
         }
         $current = $tree.SelectedItem
@@ -1472,7 +1472,7 @@ function Restore-DomeniaTreeNavState {
     $index = Get-DomeniaRealizedTreeIndex
     $states = [Collections.Generic.List[object]]::new()
     foreach ($node in $index.Values) {
-        $loaded = $false; try { $loaded = [bool]$node.Tag.Loaded } catch { }
+        $loaded = $false; try { $loaded = [bool]$node.Tag.Loaded } catch { Write-DomeniaSwallowed 'Search' 'Restore-DomeniaTreeNavState' $_ }
         $states.Add([pscustomobject]@{DN=[string]$node.Tag.DN;Loaded=$loaded;Expanded=[bool]$node.IsExpanded;Node=$node})
     }
     # A remembered branch without item: absent from its parent when that parent is read, otherwise left unread.
@@ -1481,7 +1481,7 @@ function Restore-DomeniaTreeNavState {
         $text = ([string]$remembered).Trim(); if ((-not $text) -or ($index.ContainsKey($text.ToLowerInvariant()))) { continue }
         $parent = ''; try { $parent = [string](Get-DomeniaRawDnParent $text) } catch { $parent = '' }
         if (($parent) -and ($index.ContainsKey($parent.ToLowerInvariant()))) {
-            $holder = $index[$parent.ToLowerInvariant()]; $read = $false; try { $read = [bool]$holder.Tag.Loaded } catch { }
+            $holder = $index[$parent.ToLowerInvariant()]; $read = $false; try { $read = [bool]$holder.Tag.Loaded } catch { Write-DomeniaSwallowed 'Search' 'Restore-DomeniaTreeNavState' $_ }
             if ($read) { $missing.Add($text) }
         }
     }

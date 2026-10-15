@@ -12,7 +12,9 @@ $core=Join-Path $PSScriptRoot '..\Domenia-Core.ps1'
 $tokens=$null;$errors=$null
 $ast=[Management.Automation.Language.Parser]::ParseFile($core,[ref]$tokens,[ref]$errors)
 if(@($errors).Count -gt 0){throw 'Le coeur DOMENIA ne passe pas le parseur PowerShell.'}
-$wanted=@('Initialize-DomeniaWinSqliteNative','New-DomeniaUtf8Ptr','ConvertFrom-DomeniaUtf8Ptr','Open-DomeniaDatabase','Close-DomeniaDatabase','Invoke-DomeniaDbQuery','Get-DomeniaStoreBackupDirectory','Backup-DomeniaDatabase')
+# P-CD-09: the SQLite reader traces a swallowed error with Write-DomeniaSwallowed (core script scope): the core's own
+# trace is loaded with it. It never throws; without journal nor ring in this script, the error stays silent as before.
+$wanted=@('Write-DomeniaSwallowed','Initialize-DomeniaWinSqliteNative','New-DomeniaUtf8Ptr','ConvertFrom-DomeniaUtf8Ptr','Open-DomeniaDatabase','Close-DomeniaDatabase','Invoke-DomeniaDbQuery','Get-DomeniaStoreBackupDirectory','Backup-DomeniaDatabase')
 $defs=New-Object 'System.Collections.Generic.List[string]'
 $nodes=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst]},$true))
 foreach($name in $wanted){$matches=@($nodes|Where-Object{$_.Name -eq $name});if($matches.Count -ne 1){throw "Fonction invalide : $name"};$defs.Add($matches[0].Extent.Text)}

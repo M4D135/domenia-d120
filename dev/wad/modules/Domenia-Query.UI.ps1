@@ -292,7 +292,7 @@ function Complete-DomeniaQueryTemplatePreparation {
     if($null -eq $result){$script:DomeniaQueryTemplateStatus='Modèles livrés non préparés : résultat incomplet. Ouvrez la liste pour réessayer.';return}
     $clock=[Diagnostics.Stopwatch]::StartNew()
     Set-DomeniaPreparedQueryTemplateRows -Rows @($result.Rows)
-    try{Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId 'QueryTemplates:Publish' -DurationMs ([double]$clock.Elapsed.TotalMilliseconds)}catch{}
+    try{Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId 'QueryTemplates:Publish' -DurationMs ([double]$clock.Elapsed.TotalMilliseconds)}catch{Write-DomeniaSwallowed 'Query' 'Complete-DomeniaQueryTemplatePreparation' $_}
 }
 function Fail-DomeniaQueryTemplatePreparation {
     param($Message,$State)
@@ -330,7 +330,7 @@ function Complete-DomeniaQueryLibraryLoad {
         foreach($entry in $category.ItemsSource){if($entry.Id -eq $selectedCategory){$category.SelectedItem=$entry;break}}
     }finally{$script:DomeniaQueryLibraryRefreshing=$false}
     Update-DomeniaQueryLibrary
-    try{Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId 'QueryLibrary:Publish' -DurationMs ([double]$clock.Elapsed.TotalMilliseconds)}catch{}
+    try{Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId 'QueryLibrary:Publish' -DurationMs ([double]$clock.Elapsed.TotalMilliseconds)}catch{Write-DomeniaSwallowed 'Query' 'Complete-DomeniaQueryLibraryLoad' $_}
     Set-DomeniaPreparedQueryTemplateRows -Rows @($result.Rows)
 }
 function Fail-DomeniaQueryLibraryLoad {

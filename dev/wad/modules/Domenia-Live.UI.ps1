@@ -106,7 +106,7 @@ function Reset-DomeniaLiveIdentity {
 function Stop-DomeniaLiveSearch {
     if($null -eq $script:Live -or $null -eq $script:Live.Search){return}
     $s=$script:Live.Search;$s.Stopped=$true
-    try{$s.Stop.Cancel()}catch{}
+    try{$s.Stop.Cancel()}catch{Write-DomeniaSwallowed 'Live' 'Stop-DomeniaLiveSearch' $_}
     if($null -ne $s.PSObject.Properties['DirectoryPipe']){Complete-DomeniaDirectoryReadPipe -Pipe $s.DirectoryPipe -Error 'Lecture interrompue : les objets deja recoltes sont conserves.'}
     $script:Live.Search=$null
     Clear-DomeniaLiveProbeIntent
@@ -172,7 +172,7 @@ function Set-DomeniaResultColumns {
         if($null -eq $column){continue}
         # Persisted key of the column (as Get-DomeniaGridColumnKey): its sort member, else its binding path.
         $key=[string]$column.SortMemberPath
-        if(-not $key){try{if($null -ne $column.Binding){$key=[string]$column.Binding.Path.Path}}catch{}}
+        if(-not $key){try{if($null -ne $column.Binding){$key=[string]$column.Binding.Path.Path}}catch{Write-DomeniaSwallowed 'Live' 'Set-DomeniaResultColumns' $_}}
         # Compte follows the accounts of the listed rows (Set-DomeniaLoginColumnVisible).
         if($key -ceq 'Login'){continue}
         $show=Test-DomeniaResultColumnShown -Key $key -Visible $script:ResultColumnChoice -HasMachine $machine -HasLinkable $linkable -HasAccount ([bool]$script:SearchListHasAccount)
@@ -235,7 +235,7 @@ function Begin-DomeniaLiveSearch {
     $script:Live.Search=$s;$script:BranchObjects=$rows;$script:BranchCountLabel='Chargement progressif…'
     # PF-06: the first rows are shown at the normal pace, not after the rest interval. A new search (explicit gesture)
     # also restarts a timer stopped after three consecutive errors (FI-05).
-    try{if($null -ne $script:Live.Timer -and -not [bool]$script:Live.Timer.IsEnabled){$script:Live.Timer.Start()};Invoke-DomeniaTimerSoon -Owner 'Timer:Live'}catch{}
+    try{if($null -ne $script:Live.Timer -and -not [bool]$script:Live.Timer.IsEnabled){$script:Live.Timer.Start()};Invoke-DomeniaTimerSoon -Owner 'Timer:Live'}catch{Write-DomeniaSwallowed 'Live' 'Begin-DomeniaLiveSearch' $_}
     $grid=Get-DomeniaControl 'DgObjects'
     $suppressed=$script:SuppressGridSelectionEvents;$script:SuppressGridSelectionEvents=$true
     try{$grid.ItemsSource=$rows;$grid.SelectedIndex=-1}finally{$script:SuppressGridSelectionEvents=$suppressed}
@@ -277,7 +277,7 @@ function Resume-DomeniaLiveSearch {
     Add-Member -InputObject $Payload -NotePropertyName DirectoryReadState -NotePropertyValue $directoryPipe.Collector -Force
     Add-Member -InputObject $Payload -NotePropertyName StopToken -NotePropertyValue $stop.Token -Force
     Add-Member -InputObject $Payload -NotePropertyName StreamPageSize -NotePropertyValue ([Math]::Max(100,[Math]::Min(1000,[int](Get-DomeniaMember $Payload 'StreamPageSize' 250)))) -Force
-    try{if($null -ne $script:Live.Timer -and -not [bool]$script:Live.Timer.IsEnabled){$script:Live.Timer.Start()};Invoke-DomeniaTimerSoon -Owner 'Timer:Live'}catch{}
+    try{if($null -ne $script:Live.Timer -and -not [bool]$script:Live.Timer.IsEnabled){$script:Live.Timer.Start()};Invoke-DomeniaTimerSoon -Owner 'Timer:Live'}catch{Write-DomeniaSwallowed 'Live' 'Resume-DomeniaLiveSearch' $_}
     Update-DomeniaSearchMoreButton -Search $s
     return $s
 }
@@ -304,7 +304,7 @@ function Fail-DomeniaLiveSearch {
     param([string]$Message,$State)
     $s=$State.LiveState
     if($null -eq $s){return}
-    try{$s.Stop.Cancel()}catch{}
+    try{$s.Stop.Cancel()}catch{Write-DomeniaSwallowed 'Live' 'Fail-DomeniaLiveSearch' $_}
     Complete-DomeniaDirectoryReadPipe -Pipe $s.DirectoryPipe -Error $Message
     Write-AppLog ('Recherche incomplète : '+$Message) 'WARN'
 }
@@ -313,7 +313,7 @@ function Stop-DomeniaLiveJob {
     if($null -eq $Job){return}
     if($Job.OperationId -in @('OpenAdObject','TreeChildren','LiveDirectoryCheck') -and $null -ne $Job.CallbackState -and $null -ne $Job.CallbackState.PSObject.Properties['DirectoryPipe']){
         $pipe=$Job.CallbackState.DirectoryPipe
-        try{$pipe.Stop.Cancel()}catch{}
+        try{$pipe.Stop.Cancel()}catch{Write-DomeniaSwallowed 'Live' 'Stop-DomeniaLiveJob' $_}
         Complete-DomeniaDirectoryReadPipe -Pipe $pipe -Error 'Lecture arretee : les informations deja recoltees sont conservees.'
     }
     if($null -eq $script:Live){return}
@@ -328,7 +328,7 @@ function Stop-DomeniaLiveJob {
     }
     if($Job.OperationId -eq 'GlobalSearch' -and $null -ne $Job.CallbackState.LiveState){
         $s=$Job.CallbackState.LiveState
-        try{$s.Stop.Cancel()}catch{}
+        try{$s.Stop.Cancel()}catch{Write-DomeniaSwallowed 'Live' 'Stop-DomeniaLiveJob' $_}
         Complete-DomeniaDirectoryReadPipe -Pipe $s.DirectoryPipe -Error 'Lecture interrompue : objets recoltes conserves, couverture incomplete.'
     }
 }
@@ -427,7 +427,7 @@ function Add-DomeniaLiveRow {
     if($snapshot.Type -notin @('Utilisateur','Machine','Groupe','OU','Conteneur')){if($fresh){$s.Error='Type LDAP inattendu : résultat partiel.'};return}
     # A row outside the scope of this search (another OU, from the cache or a late result) is never displayed.
     if(-not (Test-DomeniaLiveRowInScope -Dn ([string]$snapshot.DN) -BaseDn ([string]$s.State.BaseDn) -Scope ([string]$s.State.Scope))){
-        try{if(-not [bool]$s.PSObject.Properties['OutOfScopeLogged']){Write-AppLog ('Ligne hors perimetre ecartee ('+$(if($fresh){'AD'}else{'cache'})+') : '+[string]$snapshot.DN+' ; perimetre '+[string]$s.State.BaseDn) 'WARN';$s|Add-Member -NotePropertyName OutOfScopeLogged -NotePropertyValue $true -Force}}catch{}
+        try{if(-not [bool]$s.PSObject.Properties['OutOfScopeLogged']){Write-AppLog ('Ligne hors perimetre ecartee ('+$(if($fresh){'AD'}else{'cache'})+') : '+[string]$snapshot.DN+' ; perimetre '+[string]$s.State.BaseDn) 'WARN';$s|Add-Member -NotePropertyName OutOfScopeLogged -NotePropertyValue $true -Force}}catch{Write-DomeniaSwallowed 'Live' 'Add-DomeniaLiveRow' $_}
         return
     }
     if([string]$snapshot.Type -eq 'Machine' -and -not $script:SearchListHasMachine){$script:SearchListHasMachine=$true;Update-DomeniaSearchActionStates;Set-DomeniaResultColumns -RevealOnly}
@@ -578,7 +578,7 @@ function Select-DomeniaLiveResult {
         Generation=[int]$script:GlobalSearchGeneration;RequestId=[guid]::NewGuid().ToString('N')
         Requested=$false;Manual=[bool]$Manual;ReadyAfter=[datetime]::UtcNow.AddMilliseconds(180)
     }
-    try{Invoke-DomeniaTimerSoon -Owner 'Timer:Live'}catch{}
+    try{Invoke-DomeniaTimerSoon -Owner 'Timer:Live'}catch{Write-DomeniaSwallowed 'Live' 'Select-DomeniaLiveResult' $_}
     Request-DomeniaLiveProbe -Row $row
 }
 function Request-DomeniaLiveProbe {
@@ -677,7 +677,7 @@ function Complete-DomeniaLiveStored {
             if($failureKind){[void](Register-DomeniaFailure $script:Live.NegativeCache $target 'Cim' $failureKind)}
             elseif(([string]$result.Outcome -ieq 'Observed') -or ([string]$result.Outcome -ieq 'NoConsole')){Clear-DomeniaFailure $script:Live.NegativeCache $target 'Cim'}
             # Point 15: the address seen by this ping places later reads of the workstation in its presumed subnet.
-            try{[void](Register-DomeniaTargetAddress -Computer $target -Text ([string]$result.PresenceDetail))}catch{}
+            try{[void](Register-DomeniaTargetAddress -Computer $target -Text ([string]$result.PresenceDetail))}catch{Write-DomeniaSwallowed 'Live' 'Complete-DomeniaLiveStored' $_}
         }
     }
     if($observation.Outcome -eq 'AuthRejected'){
@@ -697,7 +697,7 @@ function Complete-DomeniaLiveStored {
                     Set-DomeniaPresenceText 'TxtCompPresence' ([string]$row.Presence) -PresenceState $rowState
                     Update-DomeniaObjectPresence -State ([string]$row.Presence) -Target ([string]$State.Computer) -PresenceState $rowState
                     # DS-08 (X04): the header pill takes the time of this observation (a remembered state shows none).
-                    try{Set-DomeniaComputerHeaderPresenceTime -Observation $observation}catch{}
+                    try{Set-DomeniaComputerHeaderPresenceTime -Observation $observation}catch{Write-DomeniaSwallowed 'Live' 'Complete-DomeniaLiveStored' $_}
                 }
                 [void](Set-RowAssociationMetadata -Rows @($row));$s.RefreshNeeded=$true
                 if([string]$row.Association){Set-DomeniaLoginColumnVisible $true}

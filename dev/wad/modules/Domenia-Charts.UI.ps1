@@ -55,7 +55,7 @@ function ConvertTo-DomeniaChartBrush {
         $b = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color][System.Windows.Media.ColorConverter]::ConvertFromString($color))
         if ($Opacity -lt 1) { $b.Opacity = $Opacity }
         $b.Freeze()
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'Charts' 'ConvertTo-DomeniaChartBrush' $_ }
     return $b
 }
 function Format-DomeniaChartNumber {

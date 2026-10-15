@@ -4,6 +4,10 @@ param([string]$ReportPath='')
 # Actual GlobalSearch body and dispatch, with inert directory/UI adapters. The 5,000-row
 # fixture exercises conversion/streaming only: it is not a Windows or live AD benchmark.
 $ErrorActionPreference='Stop'
+# P-CD-09: the catch blocks of the core and of the UI modules trace an ignored error with Write-DomeniaSwallowed, defined
+# in the script scope of Domenia-Core.ps1. Functions loaded one by one stay silent here, as before the sweep (no-op double;
+# the trace itself is tested in rules/Common.Tests.ps1 and Test-DomeniaFaults.ps1).
+function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) }
 $root=Split-Path -Parent $PSScriptRoot
 $corePath=Join-Path $root 'Domenia-Core.ps1'
 $enginePath=Join-Path $root 'modules/Domenia-Engine.UI.ps1'

@@ -4,6 +4,10 @@ param([string]$ReportPath='')
 # Inert UI ports only. Execute the actual counter expressions and live-search completion/error
 # callbacks extracted from the module. No WPF, LDAP, cache database, network or timer is started.
 $ErrorActionPreference='Stop'
+# P-CD-09: the catch blocks of the core and of the UI modules trace an ignored error with Write-DomeniaSwallowed, defined
+# in the script scope of Domenia-Core.ps1. Functions loaded one by one stay silent here, as before the sweep (no-op double;
+# the trace itself is tested in rules/Common.Tests.ps1 and Test-DomeniaFaults.ps1).
+function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) }
 $source=Join-Path (Split-Path -Parent $PSScriptRoot) 'modules/Domenia-Live.UI.ps1'
 $tokens=$null;$errors=$null
 $ast=[Management.Automation.Language.Parser]::ParseFile($source,[ref]$tokens,[ref]$errors)

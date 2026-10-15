@@ -3,7 +3,7 @@ function ConvertTo-DomeniaStateMap {
     param([string]$Text)
     $out=@{}
     if(-not $Text -or $Text.Length -gt 524288){return $out}
-    try{$obj=$Text|ConvertFrom-Json -ErrorAction Stop;foreach($p in $obj.PSObject.Properties){if($out.Count -ge 80){break};$out[$p.Name]=$p.Value}}catch{}
+    try{$obj=$Text|ConvertFrom-Json -ErrorAction Stop;foreach($p in $obj.PSObject.Properties){if($out.Count -ge 80){break};$out[$p.Name]=$p.Value}}catch{if (${function:Write-DomeniaRuleSwallowed}) { Write-DomeniaRuleSwallowed 'Continuity' 'ConvertTo-DomeniaStateMap' $_ }}
     return $out
 }
 function ConvertTo-DomeniaColumnLayout {

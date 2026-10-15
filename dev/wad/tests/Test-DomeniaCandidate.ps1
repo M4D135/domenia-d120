@@ -2,6 +2,10 @@
 [CmdletBinding()]
 param([string]$ReportPath='', [switch]$Quiet, [switch]$Wpf)
 $ErrorActionPreference='Stop'
+# P-CD-09: the catch blocks of the core and of the UI modules trace an ignored error with Write-DomeniaSwallowed, defined
+# in the script scope of Domenia-Core.ps1. Functions loaded one by one stay silent here, as before the sweep (no-op double;
+# the trace itself is tested in rules/Common.Tests.ps1 and Test-DomeniaFaults.ps1).
+function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) }
 if($PSVersionTable.PSEdition -ne 'Desktop' -or $PSVersionTable.PSVersion.Major -ne 5){throw 'Windows PowerShell 5.1 requis, pas pwsh.'}
 $root=Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $wad=Join-Path $root 'wad';$core=Join-Path $wad 'Domenia-Core.ps1'

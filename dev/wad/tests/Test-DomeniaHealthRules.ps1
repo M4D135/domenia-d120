@@ -1,6 +1,10 @@
 ﻿#requires -Version 5.1
 [CmdletBinding()]param([string]$ReportPath='')
 $ErrorActionPreference='Stop';Set-StrictMode -Version 2
+# P-CD-09: the catch blocks of the core and of the UI modules trace an ignored error with Write-DomeniaSwallowed, defined
+# in the script scope of Domenia-Core.ps1. Functions loaded one by one stay silent here, as before the sweep (no-op double;
+# the trace itself is tested in rules/Common.Tests.ps1 and Test-DomeniaFaults.ps1).
+function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) }
 $modules=Join-Path (Split-Path -Parent $PSScriptRoot) 'modules'
 foreach($name in @('Common.Model','HealthRules.Model','Boards.Model','BoardFleet.Model','BoardComputer.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 $checks=[Collections.Generic.List[object]]::new();$now=[datetime]'2026-10-13T12:00:00Z';$scope='OU=Test,DC=example,DC=invalid'

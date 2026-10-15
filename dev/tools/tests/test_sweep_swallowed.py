@@ -1,0 +1,317 @@
+"""Offline checks of tools/sweep_swallowed.py (P-CD-09): rewriting of the empty catch blocks into a trace (guarded in the
+pure rules), blocks left as they are (worker code, copied functions, closures, remote scriptblocks, bootstrap), encoding and
+idempotence. Fictitious trees in temporary folders, plus read-only checks of this repository; nothing is executed."""
+import contextlib
+import io
+import json
+from pathlib import Path
+import re
+import shutil
+import sys
+import tempfile
+import unittest
+
+DEV = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(DEV / 'tools'))
+import audit_swallowed as audit  # noqa: E402
+import sweep_swallowed as sweep  # noqa: E402
+from ps_sources import FUNCTION_RX, mask_ps, read_ps, strip_comments, top_level_functions  # noqa: E402
+
+CORE = """param([string]$Server)
+try { Early } catch { }
+function Write-DomeniaSwallowed {
+    try { X } catch { $null = $_ }
+}
+function Get-Plain {
+    try { A } catch { }
+    try{B}catch{}
+    try { C } catch {}
+    try { D } catch [System.IO.IOException] { }
+    try { E } catch {
+    }
+    try { F } catch { # kept: a comment says why
+    }
+    try { G } catch { $fallback = $true }
+    $text = 'try { H } catch { }'
+}
+function Start-Remote {
+    Invoke-Command -Session $s -ScriptBlock { try { I } catch { } }
+    $ps.AddScript({ try { J } catch { } })
+}
+function Get-Closure {
+    $handler = { try { K } catch { } }.GetNewClosure()
+    $plain = { try { L } catch { } }
+}
+function Get-WorkerCode {
+    return @'
+try { Remote } catch { }
+'@
+}
+function Invoke-DomeniaCopiedProbe {
+    try { M } catch { }
+}
+function Start-CopiedRunspace {
+    $definition = (Get-Command -Name Invoke-DomeniaCopiedProbe -CommandType Function).Definition
+    foreach ($helper in @('Get-DomeniaCopiedHelper')) { $d = (Get-Command $helper -CommandType Function).Definition }
+}
+function Get-DomeniaCopiedHelper {
+    try { N } catch { }
+}
+try { Main } catch { }
+"""
+
+UI = "function Show-Panel {\n    try { A } catch { }\n}\n"
+MODEL = "function Get-Rule {\n    try { A } catch { }\n}\n"
+WORKER = "function Get-W {\n    try { A } catch { }\n}\n"
+START = "try { Check } catch { }\n"
+
+
+def write(root, rel, text, bom=True):
+    path = root / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes((b'\xef\xbb\xbf' if bom else b'') + text.encode('utf-8'))
+    return path
+
+
+def run(argv):
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        code = sweep.main(argv)
+    text = out.getvalue()
+    return code, json.loads(text[text.index('{'):]), text
+
+
+class HelpersTests(unittest.TestCase):
+    def test_category_from_module(self):
+        self.assertEqual(sweep.category('wad/Domenia-Core.ps1'), 'Core')
+        self.assertEqual(sweep.category('wad/modules/Domenia-Storage.UI.ps1'), 'Storage')
+        self.assertEqual(sweep.category('wad/modules/Domenia-Accounts.Async.ps1'), 'Accounts')
+        self.assertEqual(sweep.category('wad/modules/Domenia-DirectoryStore.Store.UI.ps1'), 'DirectoryStore')
+        self.assertEqual(sweep.category('wad/modules/Fixture.UI.ps1'), 'Fixture.UI')
+
+    def test_file_reasons(self):
+        self.assertEqual(sweep.file_reason('wad/Domenia-Start.ps1'), 'bootstrap')
+        self.assertEqual(sweep.file_reason('wad/Domenia-Modules.ps1'), 'bootstrap')
+        self.assertEqual(sweep.file_reason('wad/modules/Domenia-Park.Worker.ps1'), 'worker-file')
+        self.assertIsNone(sweep.file_reason('wad/modules/Domenia-Park.Model.ps1'))
+        self.assertTrue(sweep.is_rule('wad/modules/Domenia-Park.Model.ps1'))
+        self.assertFalse(sweep.is_rule('wad/modules/Domenia-Park.UI.ps1'))
+        self.assertIsNone(sweep.file_reason('wad/modules/Domenia-Park.UI.ps1'))
+        self.assertIsNone(sweep.file_reason('wad/Domenia-Core.ps1'))
+
+    def test_rule_trace_is_guarded(self):
+        self.assertEqual(sweep.trace_call('Probes', 'Get-X', rule=True),
+                         "if (${function:Write-DomeniaRuleSwallowed}) { Write-DomeniaRuleSwallowed 'Probes' 'Get-X' $_ }")
+        self.assertEqual(sweep.trace_call('Core', 'Get-X'), "Write-DomeniaSwallowed 'Core' 'Get-X' $_")
+
+    def test_new_body_keeps_spacing(self):
+        call = "Write-DomeniaSwallowed 'Core' 'F' $_"
+        self.assertEqual(sweep.new_body('catch{}', 0, '', call), call)
+        self.assertEqual(sweep.new_body('catch {}', 0, '', call), ' ' + call + ' ')
+        self.assertEqual(sweep.new_body('catch { }', 0, ' ', call), ' ' + call + ' ')
+        text = '    try { A } catch {\n    }'
+        keyword = text.index('catch')
+        self.assertEqual(sweep.new_body(text, keyword, '\n    ', call), '\n        ' + call + '\n    ')
+
+
+class SweepTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix='sweep-swallowed-'))
+        self.core = write(self.tmp, 'wad/Domenia-Core.ps1', CORE)
+        self.ui = write(self.tmp, 'wad/modules/Domenia-Panel.UI.ps1', UI.replace('\n', '\r\n'), bom=True)
+        self.model = write(self.tmp, 'wad/modules/Domenia-Panel.Model.ps1', MODEL)
+        self.worker = write(self.tmp, 'wad/modules/Domenia-Panel.Worker.ps1', WORKER)
+        self.start = write(self.tmp, 'wad/Domenia-Start.ps1', START)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def core_text(self):
+        return self.core.read_bytes().decode('utf-8-sig')
+
+    def test_plan_writes_nothing(self):
+        before = {p: p.read_bytes() for p in (self.core, self.ui, self.model, self.worker, self.start)}
+        code, report, _ = run(['--root', str(self.tmp)])
+        self.assertEqual((code, report['Status']), (0, 'PLAN'))
+        self.assertEqual(report['Rewritten'], 9)
+        for path, data in before.items():
+            self.assertEqual(path.read_bytes(), data, path.name)
+
+    def test_apply_rewrites_only_core_scope_blocks(self):
+        code, report, _ = run(['--root', str(self.tmp), '--apply'])
+        self.assertEqual((code, report['Status'], report['Rewritten']), (0, 'APPLIED', 9))
+        self.assertEqual(report['Files'], {'wad/Domenia-Core.ps1': 7, 'wad/modules/Domenia-Panel.Model.ps1': 1,
+                                           'wad/modules/Domenia-Panel.UI.ps1': 1})
+        self.assertEqual(report['LeftByReason'], {'here-string': 1, 'worker-file': 1, 'bootstrap': 1,
+                                                  'copied': 2, 'closure': 1, 'remote': 2, 'early': 1})
+        rule = self.model.read_bytes().decode('utf-8-sig')
+        self.assertIn("try { A } catch { if (${function:Write-DomeniaRuleSwallowed}) "
+                      "{ Write-DomeniaRuleSwallowed 'Panel' 'Get-Rule' $_ } }", rule, 'A pure rule gets the guarded trace')
+        self.assertEqual(report['CopiedFunctions'], ['Get-DomeniaCopiedHelper', 'Invoke-DomeniaCopiedProbe'])
+        text = self.core_text()
+        self.assertIn("try { A } catch { Write-DomeniaSwallowed 'Core' 'Get-Plain' $_ }", text)
+        self.assertIn("try{B}catch{Write-DomeniaSwallowed 'Core' 'Get-Plain' $_}", text)
+        self.assertIn("try { C } catch { Write-DomeniaSwallowed 'Core' 'Get-Plain' $_ }", text)
+        self.assertIn("catch [System.IO.IOException] { Write-DomeniaSwallowed 'Core' 'Get-Plain' $_ }", text)
+        self.assertIn("try { E } catch {\n        Write-DomeniaSwallowed 'Core' 'Get-Plain' $_\n    }", text)
+        self.assertIn("try { F } catch { # kept: a comment says why\n    }", text, 'A commented block is never rewritten')
+        self.assertIn('$fallback = $true', text)
+        self.assertIn("$text = 'try { H } catch { }'", text, 'A string is never rewritten')
+        self.assertIn("$plain = { try { L } catch { Write-DomeniaSwallowed 'Core' 'Get-Closure' $_ } }", text)
+        self.assertIn('$handler = { try { K } catch { } }.GetNewClosure()', text)
+        self.assertIn('-ScriptBlock { try { I } catch { } }', text)
+        self.assertIn('$ps.AddScript({ try { J } catch { } })', text)
+        self.assertIn("try { Remote } catch { }\n'@", text, 'Worker code is never rewritten')
+        self.assertIn('try { M } catch { }', text)
+        self.assertIn('try { N } catch { }', text)
+        self.assertIn("try { Early } catch { }", text, 'Script code above the definition cannot call it')
+        self.assertIn("try { Main } catch { Write-DomeniaSwallowed 'Core' 'Domenia-Core.ps1' $_ }", text)
+        self.assertIn('try { X } catch { $null = $_ }', text)
+
+    def test_encoding_line_endings_and_untouched_files(self):
+        worker, start = self.worker.read_bytes(), self.start.read_bytes()
+        run(['--root', str(self.tmp), '--apply'])
+        self.assertTrue(self.core.read_bytes().startswith(b'\xef\xbb\xbf'), 'BOM kept')
+        ui = self.ui.read_bytes()
+        self.assertTrue(ui.startswith(b'\xef\xbb\xbf'))
+        self.assertEqual(ui.decode('utf-8-sig'),
+                         "function Show-Panel {\r\n    try { A } catch { Write-DomeniaSwallowed 'Panel' 'Show-Panel' $_ }\r\n}\r\n",
+                         'CRLF kept where the file has it')
+        self.assertEqual(self.core_text().count('\n'), CORE.count('\n') + 1, 'Only the block spread over two lines grows')
+        self.assertNotIn('\r', self.core_text(), 'LF kept')
+        self.assertTrue(self.model.read_bytes().startswith(b'\xef\xbb\xbf'))
+        self.assertEqual((self.worker.read_bytes(), self.start.read_bytes()), (worker, start))
+
+    def test_file_without_bom_stays_without_bom(self):
+        write(self.tmp, 'wad/modules/Domenia-Plain.UI.ps1', UI, bom=False)
+        run(['--root', str(self.tmp), '--apply'])
+        data = (self.tmp / 'wad/modules/Domenia-Plain.UI.ps1').read_bytes()
+        self.assertFalse(data.startswith(b'\xef\xbb\xbf'))
+        self.assertIn(b"Write-DomeniaSwallowed 'Plain' 'Show-Panel' $_", data)
+
+    def test_idempotent(self):
+        run(['--root', str(self.tmp), '--apply'])
+        first = {p: p.read_bytes() for p in (self.core, self.ui, self.model)}
+        code, report, _ = run(['--root', str(self.tmp), '--apply'])
+        self.assertEqual((code, report['Rewritten']), (0, 0))
+        for path, data in first.items():
+            self.assertEqual(path.read_bytes(), data, path.name)
+
+    def test_list_names_each_block_left(self):
+        _, _, text = run(['--root', str(self.tmp), '--list'])
+        self.assertIn('wad/Domenia-Core.ps1:2 [early] <script>', text)
+        self.assertIn('wad/Domenia-Core.ps1:23 [closure] Get-Closure', text)
+        self.assertIn('wad/Domenia-Core.ps1:19 [remote] Start-Remote', text)
+        self.assertIn('wad/Domenia-Core.ps1:28 [here-string] Get-WorkerCode', text)
+        self.assertIn('wad/Domenia-Core.ps1:32 [copied] Invoke-DomeniaCopiedProbe', text)
+        self.assertIn('wad/modules/Domenia-Panel.Worker.ps1:2 [worker-file] Get-W', text)
+        self.assertNotIn('Domenia-Panel.Model.ps1:', text, 'A pure rule is traced, not left')
+
+    def test_copied_functions_are_stable_over_the_sweep(self):
+        # A copier traces its own catch blocks with its own name as the operation: once swept, that quoted name must not
+        # make the copier read as copied (its next empty catch would be left untraced).
+        core = (CORE + "function Start-SelfCopier {\n"
+                "    $d = (Get-Command -Name Invoke-DomeniaCopiedProbe -CommandType Function).Definition\n"
+                "    try { P } catch { }\n}\n")
+        model = ("function Get-RuleCopier {\n    $d = (Get-Command 'Get-DomeniaCopiedHelper').Definition\n"
+                 "    try { Q } catch { }\n}\n")
+        core_path = write(self.tmp, 'wad/Domenia-Core.ps1', core)
+        model_path = write(self.tmp, 'wad/modules/Domenia-Panel.Model.ps1', model)
+        before = sweep.copied_functions({core_path: core, model_path: model})
+        self.assertEqual(before, {'Invoke-DomeniaCopiedProbe', 'Get-DomeniaCopiedHelper'})
+        run(['--root', str(self.tmp), '--apply'])
+        swept = {core_path: read_ps(core_path), model_path: read_ps(model_path)}
+        self.assertIn("try { P } catch { Write-DomeniaSwallowed 'Core' 'Start-SelfCopier' $_ }", swept[core_path])
+        self.assertIn("Write-DomeniaRuleSwallowed 'Panel' 'Get-RuleCopier' $_", swept[model_path])
+        self.assertEqual(sweep.copied_functions(swept), before, 'The copiers are not read as copied once swept')
+        _, report, _ = run(['--root', str(self.tmp)])
+        self.assertEqual(report['Rewritten'], 0)
+        self.assertNotIn('Start-SelfCopier', report['CopiedFunctions'])
+
+    def test_audit_drops_after_apply(self):
+        before = audit.counts(audit.findings(self.tmp))
+        run(['--root', str(self.tmp), '--apply'])
+        after = audit.counts(audit.findings(self.tmp))
+        self.assertEqual(sum(before.values()) - sum(after.values()), 9)
+        self.assertEqual(after.get('Get-Plain'), 1, 'Only the commented block stays reported')
+        self.assertNotIn('Show-Panel', after)
+
+
+class RepositoryTests(unittest.TestCase):
+    def test_trace_is_defined_before_any_script_code_of_the_core(self):
+        # Every catch of the core may call the trace: no script statement runs before its definition.
+        text = (DEV / 'wad/Domenia-Core.ps1').read_bytes().decode('utf-8-sig')
+        masked = mask_ps(text)[0]
+        spans = top_level_functions(text, masked)
+        definition = [start for name, start, _ in spans if name == sweep.TRACE]
+        self.assertEqual(len(definition), 1)
+        code, cursor = [], 0
+        for _, start, end in spans:
+            if start >= definition[0]:
+                break
+            code.append(masked[cursor:start])
+            cursor = end
+        script = re.sub(r'(?is)^\s*\[CmdletBinding\(\)\]\s*param\s*\(.*?\n\)', '', ''.join(code), count=1)
+        self.assertEqual(script.strip(), '', 'Script code before Write-DomeniaSwallowed')
+
+    def test_repository_is_swept(self):
+        result = sweep.sweep(DEV, apply=False)
+        self.assertEqual(result['Rewritten'], [], 'Run tools/sweep_swallowed.py --apply')
+        reasons = {r['Reason'] for r in result['Left']}
+        self.assertLessEqual(reasons, {'here-string', 'bootstrap', 'copied', 'worker-file', 'closure', 'remote'})
+        self.assertIn('Invoke-DomeniaInProcessAuthProbe', result['Copied'])
+        self.assertIn('Get-DomeniaStructuredError', result['Copied'])
+        # The copiers run in the core script scope: their own trace calls do not make them copied.
+        for copier in ('Start-DomeniaLoginAuthRunspace', 'New-DomeniaWorkerRunspace'):
+            self.assertNotIn(copier, result['Copied'])
+
+    def test_scripts_running_core_code_load_the_trace(self):
+        # Scripts outside the core script scope (offline previews, cache backup, automation interface) run swept code:
+        # core functions extracted from its syntax tree, or UI modules dot-sourced. Their catch blocks call
+        # Write-DomeniaSwallowed, which exists only in the core script scope; without it a swallowed error throws
+        # CommandNotFoundException from inside its catch. Each such script loads the core's trace or defines one.
+        # A script dot-sourced by another one (Preview-DomeniaProgress.ps1) is covered by the script that loads it.
+        call_rx = re.compile(r'\b' + re.escape(sweep.TRACE) + r'\b')
+        core_text = read_ps(DEV / 'wad/Domenia-Core.ps1')
+        core_masked = mask_ps(core_text)[0]
+        core_functions = {name for name, _, _ in top_level_functions(core_text, core_masked)}
+        traced = {name for name, start, end in top_level_functions(core_text, core_masked)
+                  if name != sweep.TRACE and call_rx.search(core_masked[start:end])}
+        ui_traced = {path.name for path in (DEV / 'wad/modules').glob('*.UI.ps1')
+                     if call_rx.search(mask_ps(read_ps(path))[0])}
+        skipped = ('wad/tests/', 'wad/modules/', 'vendor/')
+        own = {'wad/Domenia-Core.ps1', 'wad/Domenia-Start.ps1', 'wad/Domenia-Modules.ps1'}
+        needs, provides, includes = {}, {}, {}
+        for path in sorted(DEV.rglob('*.ps1')):
+            rel = path.relative_to(DEV).as_posix()
+            if rel in own or rel.startswith(skipped):
+                continue
+            text = read_ps(path)
+            masked = mask_ps(text)[0]
+            view = strip_comments(text)
+            reasons = []
+            extracts = ('Domenia-Core.ps1' in view and '.Extent.Text' in masked
+                        and re.search(r'(?i)Invoke-Expression\s+\$|\[scriptblock\]::Create\(', masked))
+            names = set(sweep.QUOTED_NAME_RX.findall(view)) & core_functions
+            if extracts:
+                reasons.extend(sorted(names & traced))
+            reasons.extend(sorted(set(re.findall(r'(Domenia-[A-Za-z0-9]+\.UI\.ps1)', view)) & ui_traced))
+            if reasons:
+                needs[rel] = reasons
+            defined = any(m.group(1) == sweep.TRACE for m in FUNCTION_RX.finditer(masked))
+            provides[rel] = defined or (bool(extracts) and sweep.TRACE in names)
+            for included in re.findall(r'\.\s*\(\s*Join-Path\s+\S+\s+[\'"]([\w.-]+\.ps1)[\'"]', view):
+                includes.setdefault(included, set()).add(rel)
+        self.assertLessEqual({'wad/maintenance/Preview-DomeniaUi.ps1', 'wad/maintenance/Preview-DomeniaLogin.ps1',
+                              'wad/maintenance/Sauvegarder-Cache.ps1', 'wad/Domenia-Automate.ps1'}, set(needs),
+                             'The detection no longer sees the scripts that run core code')
+        missing = []
+        for rel, reasons in sorted(needs.items()):
+            covered = provides[rel] or any(provides.get(parent) for parent in includes.get(Path(rel).name, ()))
+            if not covered:
+                missing.append('%s (%s)' % (rel, ', '.join(reasons[:4])))
+        self.assertEqual(missing, [], 'Load Write-DomeniaSwallowed from the core (or define it) in these scripts')
+
+
+if __name__ == '__main__':
+    unittest.main()

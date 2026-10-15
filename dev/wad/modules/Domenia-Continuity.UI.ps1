@@ -89,7 +89,7 @@ function Invoke-DomeniaFavouriteTreeReveal {
 function Get-DomeniaGridColumnKey {
     param($Column,[int]$Index)
     $key=[string]$Column.SortMemberPath
-    try{if(-not $key -and $null -ne $Column.Binding){$key=[string]$Column.Binding.Path.Path}}catch{}
+    try{if(-not $key -and $null -ne $Column.Binding){$key=[string]$Column.Binding.Path.Path}}catch{Write-DomeniaSwallowed 'Continuity' 'Get-DomeniaGridColumnKey' $_}
     if(-not $key){
         if($Column.Header -is [string]){$key=[string]$Column.Header}
         elseif($Column.Header -is [Windows.Controls.TextBlock]){$key=[string]$Column.Header.Text}
@@ -255,7 +255,7 @@ function Complete-DomeniaObjectChanges {
 function Fail-DomeniaObjectChanges {
     param($Message,$State)
     if($null -ne $State -and $null -ne $State.PSObject.Properties['DirectoryPipe'] -and -not $State.DirectoryPipe.Completed){
-        try{$State.DirectoryPipe.Stop.Cancel()}catch{}
+        try{$State.DirectoryPipe.Stop.Cancel()}catch{Write-DomeniaSwallowed 'Continuity' 'Fail-DomeniaObjectChanges' $_}
         Complete-DomeniaDirectoryReadPipe -Pipe $State.DirectoryPipe -Error ([string]$Message)
     }
     if($null -eq $script:Continuity){return}
@@ -323,7 +323,7 @@ function Invoke-DomeniaObjectChanges {
     if(-not [object]::ReferenceEquals($c.ChangeSearch,$s)){
         $c.ChangeSearch=$s;$c.ChangeQueue.Clear();$c.ChangeEvents.Clear();$c.Stamps=@{};$c.ChangeNext=[datetime]::UtcNow.AddSeconds(8);$c.CacheDirty=$false
         # SE-13: a new list has not been checked yet.
-        if($null -ne $c.PSObject.Properties['CheckedAt']){$c.CheckedAt=$null;try{Update-DomeniaListRevalidationUi}catch{}}
+        if($null -ne $c.PSObject.Properties['CheckedAt']){$c.CheckedAt=$null;try{Update-DomeniaListRevalidationUi}catch{Write-DomeniaSwallowed 'Continuity' 'Invoke-DomeniaObjectChanges' $_}}
     }
     $count=0;$watch=[Diagnostics.Stopwatch]::StartNew()
     while($c.ChangeEvents.Count -gt 0 -and $count -lt 8 -and $watch.ElapsedMilliseconds -lt 5){
@@ -448,10 +448,10 @@ function Initialize-DomeniaContinuity {
     $revalidate=Get-DomeniaControl 'ChkListRevalidation'
     if($revalidate -is [Windows.Controls.CheckBox]){
         $revalidate.IsChecked=$true
-        $revalidate.Add_Checked({$script:ListRevalidationPaused=$false;try{Update-DomeniaListRevalidationUi}catch{}})
-        $revalidate.Add_Unchecked({$script:ListRevalidationPaused=$true;try{Update-DomeniaListRevalidationUi}catch{}})
+        $revalidate.Add_Checked({$script:ListRevalidationPaused=$false;try{Update-DomeniaListRevalidationUi}catch{Write-DomeniaSwallowed 'Continuity' 'Initialize-DomeniaContinuity' $_}})
+        $revalidate.Add_Unchecked({$script:ListRevalidationPaused=$true;try{Update-DomeniaListRevalidationUi}catch{Write-DomeniaSwallowed 'Continuity' 'Initialize-DomeniaContinuity' $_}})
     }
-    try{Update-DomeniaListRevalidationUi}catch{}
+    try{Update-DomeniaListRevalidationUi}catch{Write-DomeniaSwallowed 'Continuity' 'Initialize-DomeniaContinuity' $_}
     foreach($control in @($script:Ctrl.Values)){if($control -is [Windows.Controls.DataGrid]){Register-DomeniaGridLayout $control}}
     $retry=Get-DomeniaControl 'BtnOuRestoreRetry';if($null -ne $retry){$retry.Add_Click({try{Invoke-DomeniaOuRestoreRetry}catch{Write-AppLog ('Relecture de lʼOU mémorisée : '+$_.Exception.Message) 'WARN'}})}
     $dismiss=Get-DomeniaControl 'BtnOuRestoreDismiss';if($null -ne $dismiss){$dismiss.Add_Click({Hide-DomeniaOuRestoreNotice;$tree=Get-DomeniaControl 'TvDirectory';if($null -ne $tree){[void]$tree.Focus()}})}
@@ -470,7 +470,7 @@ function Initialize-DomeniaContinuity {
             if($script:Continuity.RestoreToken -cne ([string]$script:SessionEpoch+'|'+(Get-DomeniaTreeContextKey))){Start-DomeniaTreeBookmarkRestore}
             Invoke-DomeniaTreeBookmarkRestore
             # The home overview waited for the remembered OU: computed once the restore ended, found or not.
-            if([bool]$script:FleetAwaitingRestore -and -not ([bool]$script:Continuity.Restoring -and -not [bool]$script:Continuity.SelectedRestored)){$script:FleetAwaitingRestore=$false;try{Request-DomeniaFleetRefresh}catch{}}
+            if([bool]$script:FleetAwaitingRestore -and -not ([bool]$script:Continuity.Restoring -and -not [bool]$script:Continuity.SelectedRestored)){$script:FleetAwaitingRestore=$false;try{Request-DomeniaFleetRefresh}catch{Write-DomeniaSwallowed 'Continuity' 'Initialize-DomeniaContinuity' $_}}
             Invoke-DomeniaRestoredOuSearch
             if($script:Continuity.Dirty -and -not $script:Continuity.Restoring){Save-DomeniaTreeBookmark;$script:Continuity.Dirty=$false}
             if($script:Continuity.ChangeJob -and -not $script:AsyncJobs.Contains($script:Continuity.ChangeJob)){

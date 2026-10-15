@@ -180,7 +180,7 @@ function Request-DomeniaAccessRecovery {
         if($candidateTarget.Length -le 253 -and $candidateTarget -match '^[A-Za-z0-9][A-Za-z0-9._-]*$'){$resourceTarget=$candidateTarget}
     }
     if(-not $DN -and $null -ne $job){
-        try{$DN=[string]$job.CallbackState.DN;if(-not $DN){$DN=[string]$job.CallbackState.TargetDn}}catch{}
+        try{$DN=[string]$job.CallbackState.DN;if(-not $DN){$DN=[string]$job.CallbackState.TargetDn}}catch{Write-DomeniaSwallowed 'Access' 'Request-DomeniaAccessRecovery' $_}
     }
     if(-not $DN -and $OperationId -ne 'LiveConsole' -and $null -ne $script:SelectedObject){$DN=[string]$script:SelectedObject.DN}
     if($OperationId -in @('LiveConsole','LiveCache','LiveDirectoryCheck','ScopeReconcile','TreeChildren','PresenceScan','SelectedPresence','ParkSweep','ParkPing','IndexBuild','AccountAliasRead')){$Interactive=$false}
@@ -482,28 +482,37 @@ function Invoke-DomeniaCapabilityRoute {
         $control=Get-DomeniaControl $target.Focus
         # A control of a tab just selected is laid out later (StorageResume, LegacyImport): when it cannot take the
         # focus yet, it is given once the page is loaded.
-        if($null -ne $control){try{if(-not [bool]$control.Focus()){[void]$control.Dispatcher.BeginInvoke([Action]({[void]$control.Focus()}.GetNewClosure()),[Windows.Threading.DispatcherPriority]::Loaded)}}catch{}}
+        if($null -ne $control){try{if(-not [bool]$control.Focus()){[void]$control.Dispatcher.BeginInvoke([Action]({[void]$control.Focus()}.GetNewClosure()),[Windows.Threading.DispatcherPriority]::Loaded)}}catch{Write-DomeniaSwallowed 'Access' 'Invoke-DomeniaCapabilityRoute' $_}}
     }
     return $true
 }
 function Get-DomeniaControlCapabilityExplanation {
     # D056: why a write control is greyed, with the same session facts as Apply-CurrentPermissionUi, and a safe
     # route when one exists. A protection chosen by configuration has no route: it is stated as such.
+    # P-CD-09: the read-only switch and the selection are read through the same fail-closed rules as the button
+    # (Get-DomeniaReadOnlyState, Get-DomeniaWriteGuardSubject in Safety.Model): a read that failed is said as such,
+    # never explained as a refusal it is not.
     param([Parameter(Mandatory=$true)][string]$Name)
     $control=Get-DomeniaControl $Name
     $label=$Name
-    try{$entry=Get-DomeniaUxHelpEntry -Control $control -Name $Name;if($null -ne $entry -and [string]$entry.Title){$label=[string]$entry.Title}}catch{}
-    $readOnly=[bool]$script:ReadOnlyMode
+    try{$entry=Get-DomeniaUxHelpEntry -Control $control -Name $Name;if($null -ne $entry -and [string]$entry.Title){$label=[string]$entry.Title}}catch{Write-DomeniaSwallowed 'Access' 'Get-DomeniaControlCapabilityExplanation' $_}
+    $readOnlyState=Get-DomeniaReadOnlyState -Controls $script:Ctrl -Fallback ([bool]$script:ReadOnlyMode)
+    if([bool]$readOnlyState.Unreadable){Write-DomeniaSwallowed 'Access' 'Get-DomeniaControlCapabilityExplanation' $readOnlyState.Error}
+    $readOnly=[bool]$readOnlyState.ReadOnly
     $writeActive=((-not [string]::IsNullOrWhiteSpace([string]$script:ActiveWriteTaskId)) -or ($script:WriteState -in @('Unknown','UnknownPending')))
-    $busy=$false;try{$busy=($script:ControlBusyRef.ContainsKey($Name) -and [int]$script:ControlBusyRef[$Name] -gt 0)}catch{}
+    $busy=$false;try{$busy=($script:ControlBusyRef.ContainsKey($Name) -and [int]$script:ControlBusyRef[$Name] -gt 0)}catch{Write-DomeniaSwallowed 'Access' 'Get-DomeniaControlCapabilityExplanation' $_}
     $capability='';$state='Indetermine'
-    try{$map=Get-WriteControlMap;foreach($cap in @($map.Keys)){if(@($map[$cap]) -contains $Name){$capability=[string]$cap}}}catch{}
+    try{$map=Get-WriteControlMap;foreach($cap in @($map.Keys)){if(@($map[$cap]) -contains $Name){$capability=[string]$cap}}}catch{Write-DomeniaSwallowed 'Access' 'Get-DomeniaControlCapabilityExplanation' $_}
     $lookup=if($capability -eq 'Raw'){'Edit'}else{$capability}
-    try{if($lookup -and $script:CurrentCapabilities.ContainsKey($lookup)){$state=[string]$script:CurrentCapabilities[$lookup]}}catch{}
-    $currentDn='';try{$currentDn=[string]$script:SelectedObject.DN}catch{}
-    $actualDenied=$false;try{if($lookup){$actualDenied=[bool](Test-DomeniaActualCapabilityDenied -Dn $currentDn -Capability $lookup)}}catch{}
-    $protected=$false;try{$protected=([string]$script:SelectedObject.Safety.AdminCount -eq '1') -or [bool]$script:SelectedObject.Safety.Critical}catch{}
+    try{if($lookup -and $script:CurrentCapabilities.ContainsKey($lookup)){$state=[string]$script:CurrentCapabilities[$lookup]}}catch{Write-DomeniaSwallowed 'Access' 'Get-DomeniaControlCapabilityExplanation' $_}
+    $subject=Get-DomeniaWriteGuardSubject -Selected $script:SelectedObject
+    foreach($fault in @($subject.Errors)){Write-DomeniaSwallowed 'Access' 'Get-DomeniaControlCapabilityExplanation' $fault}
+    $currentDn=[string]$subject.Dn
+    $actualDenied=$false;try{if($lookup){$actualDenied=[bool](Test-DomeniaActualCapabilityDenied -Dn $currentDn -Capability $lookup)}}catch{Write-DomeniaSwallowed 'Access' 'Get-DomeniaControlCapabilityExplanation' $_}
+    # Same condition as the button: a protected object blocks these writes unless the security configuration allows them.
+    $protected=([bool]$subject.Protected -and [bool](Get-CfgValue 'Security' 'BlockProtectedObjects' $true) -and -not [bool](Get-CfgValue 'Security' 'AllowProtectedObjectWrites' $false))
     if($null -eq $script:SelectedObject -and $capability){return (Get-DomeniaCapabilityExplanation -Action $label -State NoSelection)}
+    if([bool]$readOnlyState.Unreadable){return [pscustomobject]@{Action=$label;State='ReadOnly';Text=($label+' : lʼétat du mode lecture seule nʼa pas pu être lu ; aucune écriture tant quʼil nʼest pas relu.');Definitive=$false;Route='ChkReadOnlyMode'}}
     if($readOnly){return (Get-DomeniaCapabilityExplanation -Action $label -State ReadOnly)}
     if($writeActive){return (Get-DomeniaCapabilityExplanation -Action $label -State Busy)}
     if($busy){return [pscustomobject]@{Action=$label;State='Busy';Text=($label+' : action en cours.');Definitive=$false;Route=''}}
@@ -513,8 +522,11 @@ function Get-DomeniaControlCapabilityExplanation {
         $help=Get-DomeniaDisabledHelp -Action $label -Reason $reason
         return [pscustomobject]@{Action=$label;State=$reason;Text=$help.ToolTip;Definitive=$false;Route=$help.Route}
     }
-    if($protected -and $capability -in @('Edit','Raw','Account','Password','Group','Move','Delete')){return [pscustomobject]@{Action=$label;State='Refused';Text=($label+' : objet protege (adminCount ou objet critique), ecriture bloquee par la configuration de securite. Protection voulue : aucune route.');Definitive=$true;Route=''}}
+    $dangerous=($capability -in @('Edit','Raw','Account','Password','Group','Move','Delete'))
+    if($protected -and $dangerous -and [bool]$subject.ProtectionUnreadable){return [pscustomobject]@{Action=$label;State='Refused';Text=($label+' : la protection de lʼobjet (adminCount, isCriticalSystemObject) nʼa pas pu être lue ; écriture bloquée par prudence. Rechargez lʼobjet.');Definitive=$false;Route='BtnObjectReadRetry'}}
+    if($protected -and $dangerous){return [pscustomobject]@{Action=$label;State='Refused';Text=($label+' : objet protege (adminCount ou objet critique), ecriture bloquee par la configuration de securite. Protection voulue : aucune route.');Definitive=$true;Route=''}}
     if($capability -eq 'Raw' -and -not [bool](Get-CfgValue 'Security' 'AllowRawAttributeWrite' $false)){return [pscustomobject]@{Action=$label;State='Refused';Text=($label+' : ecriture brute desactivee par la configuration de securite. Protection voulue : aucune route.');Definitive=$true;Route=''}}
+    if([bool]$subject.DnUnreadable -and $capability){return [pscustomobject]@{Action=$label;State='Refused';Text=($label+' : lʼobjet sélectionné nʼa pas pu être relu (nom distinctif illisible). Rechargez-le avant toute modification.');Definitive=$false;Route='BtnObjectReadRetry'}}
     if($actualDenied){return (Get-DomeniaCapabilityExplanation -Action $label -State Refused -Detail 'Refus reel du controleur de domaine pour l identite connectee.')}
     if($state -eq 'Refuse'){return (Get-DomeniaCapabilityExplanation -Action $label -State Estimated -Route 'TabPermissions')}
     return (Get-DomeniaCapabilityExplanation -Action $label -State Unknown)
@@ -628,7 +640,7 @@ function Initialize-DomeniaAccess {
             $sessionIdentity=[string]$script:Conn.BindUser
             if($sessionIdentity){[void](Request-DomeniaAccountAliasRead -UserName $sessionIdentity)}
         }
-        try{$policy=Get-DomeniaControl 'DgTransportPolicy';if($null -ne $policy -and $policy.IsVisible){[void](Update-DomeniaTransportPolicyView)}}catch{}
+        try{$policy=Get-DomeniaControl 'DgTransportPolicy';if($null -ne $policy -and $policy.IsVisible){[void](Update-DomeniaTransportPolicyView)}}catch{Write-DomeniaSwallowed 'Access' 'Initialize-DomeniaAccess' $_}
         if($null -ne $script:DomeniaSurfaceState -and -not $script:DomeniaSurfaceState.Done){return}
         if(-not (Test-DomeniaAccessBusyWrite) -and $script:Window.IsActive){
             $next=@($script:AccessState.Pending.Values|Where-Object{$_.Interactive}|Sort-Object At|Select-Object -First 1)

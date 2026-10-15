@@ -123,15 +123,15 @@ function Complete-DomeniaDirectoryStoreBatch {
         Write-AppLog $pipe.DisplayError 'ERROR'
     }
     if($null -ne $script:DomeniaDirectoryStoreTimer){$script:DomeniaDirectoryStoreTimer.Start()}
-    try{Invoke-DomeniaTimerSoon -Owner 'Timer:Live'}catch{}
+    try{Invoke-DomeniaTimerSoon -Owner 'Timer:Live'}catch{Write-DomeniaSwallowed 'DirectoryStore' 'Complete-DomeniaDirectoryStoreBatch' $_}
 }
 function Fail-DomeniaDirectoryStoreBatch {
     param([string]$Message,$State)
     if($null -eq $State){return}
     $State.Failure=$Message;$State.InFlight=$false
-    try{$State.Stop.Cancel()}catch{}
+    try{$State.Stop.Cancel()}catch{Write-DomeniaSwallowed 'DirectoryStore' 'Fail-DomeniaDirectoryStoreBatch' $_}
     if($null -ne $State.Search){
-        try{$State.Search.Stop.Cancel()}catch{}
+        try{$State.Search.Stop.Cancel()}catch{Write-DomeniaSwallowed 'DirectoryStore' 'Fail-DomeniaDirectoryStoreBatch' $_}
         $State.Search.Error='Enregistrement local non confirme : '+$Message;$State.Search.Ended=$true
     }
     # W13 (point 123): a failed pipe stays for diagnosis but is never closed by the tick: its step of the trace ends here.
@@ -230,5 +230,5 @@ function Complete-DomeniaDirectoryChangesRead {
     }
     $script:Continuity.ChangeJob=''
     $script:Continuity|Add-Member NoteProperty CheckedAt ([datetime]::Now) -Force
-    try{Update-DomeniaListRevalidationUi}catch{}
+    try{Update-DomeniaListRevalidationUi}catch{Write-DomeniaSwallowed 'DirectoryStore' 'Complete-DomeniaDirectoryChangesRead' $_}
 }

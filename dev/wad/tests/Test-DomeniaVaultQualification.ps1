@@ -7,6 +7,10 @@
 # an isolated fictional domain and every entry written is removed again.
 [CmdletBinding()]param([string]$ReportPath='',[switch]$NativeWindows)
 $ErrorActionPreference='Stop'
+# P-CD-09: the catch blocks of the core and of the UI modules trace an ignored error with Write-DomeniaSwallowed, defined
+# in the script scope of Domenia-Core.ps1. Functions loaded one by one stay silent here, as before the sweep (no-op double;
+# the trace itself is tested in rules/Common.Tests.ps1 and Test-DomeniaFaults.ps1).
+function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) }
 $wad=Split-Path -Parent $PSScriptRoot
 foreach($name in @('Common.Model','Relations.Model','Guard.Model','Safety.Model','Access.Model','Accounts.Model','Store.Model','CredentialVault.Model','Accounts.Store.UI','Accounts.Vault.UI')){. (Join-Path $wad ('modules/Domenia-'+$name+'.ps1'))}
 $checks=[Collections.Generic.List[object]]::new()

@@ -156,7 +156,7 @@ function Open-DomeniaSearchWorkspace {
 # ---------------------------------------------------------------- Point 56: visible filter chips
 function Get-DomeniaSearchLoadedCount {
     # Rows loaded for the list on screen, before the local filters.
-    if(($null -ne $script:Live) -and ($null -ne $script:Live.Search) -and (Test-DomeniaLiveSearchActive)){try{return [int]$script:Live.Search.Rows.Count}catch{}}
+    if(($null -ne $script:Live) -and ($null -ne $script:Live.Search) -and (Test-DomeniaLiveSearchActive)){try{return [int]$script:Live.Search.Rows.Count}catch{Write-DomeniaSwallowed 'SearchWorkspace' 'Get-DomeniaSearchLoadedCount' $_}}
     return [int]@($script:BranchObjects).Count
 }
 function Get-DomeniaSearchFilterState {
@@ -235,7 +235,7 @@ function Update-DomeniaSearchFilterChips {
         if($chip.Removable){
             $button=[Windows.Controls.Button]::new();$button.Content=$text;$button.Tag=[string]$chip.Key
             $button.Margin=[Windows.Thickness]::new(0,0,6,4);$button.Padding=[Windows.Thickness]::new(8,1,8,1);$button.MinHeight=26;$button.MinWidth=0
-            try{$button.SetResourceReference([Windows.FrameworkElement]::StyleProperty,'SecondaryButton')}catch{}
+            try{$button.SetResourceReference([Windows.FrameworkElement]::StyleProperty,'SecondaryButton')}catch{Write-DomeniaSwallowed 'SearchWorkspace' 'Update-DomeniaSearchFilterChips' $_}
             $button.ToolTip=[string]$chip.Effect
             [Windows.Automation.AutomationProperties]::SetName($button,'Retirer le critère '+[string]$chip.Label)
             [Windows.Automation.AutomationProperties]::SetHelpText($button,[string]$chip.Effect)
@@ -244,7 +244,7 @@ function Update-DomeniaSearchFilterChips {
         }else{
             $border=[Windows.Controls.Border]::new();$border.Child=$text
             $border.Margin=[Windows.Thickness]::new(0,0,6,4);$border.Padding=[Windows.Thickness]::new(8,3,8,3);$border.CornerRadius=[Windows.CornerRadius]::new(10);$border.BorderThickness=[Windows.Thickness]::new(1)
-            try{$border.SetResourceReference([Windows.Controls.Border]::BorderBrushProperty,'BorderColor');$border.SetResourceReference([Windows.Controls.Border]::BackgroundProperty,'BgReadonly')}catch{}
+            try{$border.SetResourceReference([Windows.Controls.Border]::BorderBrushProperty,'BorderColor');$border.SetResourceReference([Windows.Controls.Border]::BackgroundProperty,'BgReadonly')}catch{Write-DomeniaSwallowed 'SearchWorkspace' 'Update-DomeniaSearchFilterChips' $_}
             $border.ToolTip=[string]$chip.Effect
             [Windows.Automation.AutomationProperties]::SetName($border,[string]$chip.Label)
             [Windows.Automation.AutomationProperties]::SetHelpText($border,[string]$chip.Effect)
@@ -431,7 +431,7 @@ function Show-DomeniaSearchComparison {
         [void]$root.Children.Add($top)
         $table=[Windows.Controls.DataGrid]::new();$table.ToolTip='Valeurs enregistrées de chaque poste, chacune avec sa date. Rien nʼest relu ici.';$table.IsReadOnly=$true;$table.AutoGenerateColumns=$false;$table.CanUserAddRows=$false;$table.EnableRowVirtualization=$true;$table.EnableColumnVirtualization=$true;$table.HeadersVisibility='Column';$table.MaxHeight=560
         [Windows.Controls.ScrollViewer]::SetHorizontalScrollBarVisibility($table,'Auto');[Windows.Controls.ScrollViewer]::SetVerticalScrollBarVisibility($table,'Auto')
-        try{$table.RowStyle=Get-DomeniaComparisonRowStyle}catch{}
+        try{$table.RowStyle=Get-DomeniaComparisonRowStyle}catch{Write-DomeniaSwallowed 'SearchWorkspace' 'Show-DomeniaSearchComparison' $_}
         foreach($spec in @(@('Propriété','Property',190),@('Comparaison','Comparison',170))){$column=[Windows.Controls.DataGridTextColumn]::new();$column.Header=$spec[0];$column.Binding=[Windows.Data.Binding]::new($spec[1]);$column.Width=[double]$spec[2];[void]$table.Columns.Add($column)}
         for($i=0;$i -lt $guids.Count;$i++){
             foreach($part in @(@('V','valeur',200),@('T','date UTC',150))){$column=[Windows.Controls.DataGridTextColumn]::new();$column.Header=$names[$i]+' · '+$part[1];$column.Binding=[Windows.Data.Binding]::new($part[0]+$i);$column.Width=[double]$part[2];[void]$table.Columns.Add($column)}
@@ -507,7 +507,7 @@ function Invoke-DomeniaSearchWorkspaceListChanged {
             # An emptied grid is not the next list: the sort waits for rows or for a live list that will receive them.
             $source=$grid.ItemsSource;$live=($source -is [Collections.Specialized.INotifyCollectionChanged]);$filled=$false
             if((-not $live) -and ($null -ne $source)){foreach($item in $source){$filled=$true;break}}
-            if($live -or $filled){$script:SearchWorkspacePendingSort=$null;try{Set-DomeniaGridSort -Grid $grid -Sort @($pending.Sort)}catch{}}
+            if($live -or $filled){$script:SearchWorkspacePendingSort=$null;try{Set-DomeniaGridSort -Grid $grid -Sort @($pending.Sort)}catch{Write-DomeniaSwallowed 'SearchWorkspace' 'Invoke-DomeniaSearchWorkspaceListChanged' $_}}
         }
     }
     Request-DomeniaSearchWorkspaceRefresh -Preview
@@ -549,7 +549,7 @@ function Initialize-DomeniaSearchWorkspace {
         $grid.Add_SelectionChanged({Request-DomeniaSearchWorkspaceRefresh -Preview})
         $grid.Add_CurrentCellChanged({Request-DomeniaSearchWorkspaceRefresh -Preview})
         $descriptor=[ComponentModel.DependencyPropertyDescriptor]::FromProperty([Windows.Controls.ItemsControl]::ItemsSourceProperty,[Windows.Controls.DataGrid])
-        if($null -ne $descriptor){$descriptor.AddValueChanged($grid,[EventHandler]{param($sender,$eventArgs) try{Invoke-DomeniaSearchWorkspaceListChanged}catch{}})}
+        if($null -ne $descriptor){$descriptor.AddValueChanged($grid,[EventHandler]{param($sender,$eventArgs) try{Invoke-DomeniaSearchWorkspaceListChanged}catch{Write-DomeniaSwallowed 'SearchWorkspace' 'Initialize-DomeniaSearchWorkspace' $_}})}
     }
     # No handler runs per row appended to a live list. The live list writes its counts and its state (loading, limit,
     # partial) in this counter once per slice and once per filter pass, as does every other list shown: the chips and
@@ -557,7 +557,7 @@ function Initialize-DomeniaSearchWorkspace {
     $counter=Get-DomeniaControl 'LblSuiteResultCount'
     if($counter -is [Windows.Controls.TextBlock]){
         $textDescriptor=[ComponentModel.DependencyPropertyDescriptor]::FromProperty([Windows.Controls.TextBlock]::TextProperty,[Windows.Controls.TextBlock])
-        if($null -ne $textDescriptor){$textDescriptor.AddValueChanged($counter,[EventHandler]{param($sender,$eventArgs) try{Request-DomeniaSearchWorkspaceRefresh}catch{}})}
+        if($null -ne $textDescriptor){$textDescriptor.AddValueChanged($counter,[EventHandler]{param($sender,$eventArgs) try{Request-DomeniaSearchWorkspaceRefresh}catch{Write-DomeniaSwallowed 'SearchWorkspace' 'Initialize-DomeniaSearchWorkspace' $_}})}
     }
     # A reopened main window brings new controls: binding again must be possible then.
     if($script:Window -is [Windows.Window]){$script:Window.Add_Closed({$script:SearchWorkspaceBound=$false;$script:SearchPreviewToken='';$script:SearchWorkspacePendingSort=$null;if($null -ne $script:SearchWorkspaceTimer){$script:SearchWorkspaceTimer.Stop()}})}

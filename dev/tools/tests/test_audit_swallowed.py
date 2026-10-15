@@ -169,7 +169,8 @@ class RepositoryTests(unittest.TestCase):
         exempt = [r for r in rows if r['Exempt']]
         self.assertEqual({(r['File'], r['Function']) for r in exempt},
                          {('wad/Domenia-Core.ps1', 'Write-DomeniaSwallowed'),
-                          ('wad/modules/Domenia-Common.Model.ps1', 'Add-DomeniaSwallowedEntry')})
+                          ('wad/modules/Domenia-Common.Model.ps1', 'Add-DomeniaSwallowedEntry'),
+                          ('wad/modules/Domenia-Common.Model.ps1', 'Write-DomeniaRuleSwallowed')})
         data = audit.load(DEV / audit.BASELINE)
         self.assertEqual(data['Total'], sum(data['Findings'].values()))
 

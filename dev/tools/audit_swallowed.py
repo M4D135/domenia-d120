@@ -14,8 +14,9 @@ changes nothing. The reference tools/baselines/swallowed-baseline.json is a ratc
 makes the audit fail (the report lists every catch of that key under New, since the added one cannot be told apart);
 --update rewrites the reference after corrections and refuses any increase.
 Not audited: catch blocks inside ordinary one-line strings, trap statements, and scripts outside the runtime above.
-Write-DomeniaSwallowed (core) and its pure part Add-DomeniaSwallowedEntry (Domenia-Common.Model.ps1) are exempt (EXEMPT
-below): the trace of a swallowed error cannot trace its own failure.
+Write-DomeniaSwallowed (core), its pure part Add-DomeniaSwallowedEntry and the trace of the pure rules
+Write-DomeniaRuleSwallowed (Domenia-Common.Model.ps1) are exempt (EXEMPT below): the trace of a swallowed error cannot
+trace its own failure.
 """
 from pathlib import Path
 import argparse
@@ -32,7 +33,8 @@ BASELINE = Path('tools/baselines/swallowed-baseline.json')
 SCHEMA = 'DomeniaSwallowedBaseline/1'
 HERE = ' [here-string]'
 EXEMPT = {'Write-DomeniaSwallowed': 'Trace d une erreur ignoree : elle ne peut pas tracer son propre echec et ne leve jamais.',
-          'Add-DomeniaSwallowedEntry': 'Partie pure de la trace d une erreur ignoree : meme raison, jamais d exception.'}
+          'Add-DomeniaSwallowedEntry': 'Partie pure de la trace d une erreur ignoree : meme raison, jamais d exception.',
+          'Write-DomeniaRuleSwallowed': 'Trace des regles pures (coeur ou anneau) : meme raison, jamais d exception.'}
 CATCH_RX = re.compile(r'(?i)(?<![\w$.:-])catch(?:\s*\[[^\]\r\n]*\](?:\s*,\s*\[[^\]\r\n]*\])*)?\s*\{')
 DISCARD_RX = re.compile(r'(?i)^(?:\$null|\$null\s*=\s*\$_|\[void\]\s*\$_|\$_\s*\|\s*Out-Null)$')
 

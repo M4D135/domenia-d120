@@ -17,8 +17,8 @@ function Initialize-DomeniaPersistence {
     }
     $script:Window.Add_Closed({
         if($null -ne $script:Persistence){
-            try{$script:Persistence.Timer.Stop()}catch{}
-            if($null -ne $script:Persistence.LinkRequestTimer){try{$script:Persistence.LinkRequestTimer.Stop()}catch{}}
+            try{$script:Persistence.Timer.Stop()}catch{Write-DomeniaSwallowed 'Storage' 'Initialize-DomeniaPersistence' $_}
+            if($null -ne $script:Persistence.LinkRequestTimer){try{$script:Persistence.LinkRequestTimer.Stop()}catch{Write-DomeniaSwallowed 'Storage' 'Initialize-DomeniaPersistence' $_}}
         }
     })
 }
@@ -47,7 +47,7 @@ function Request-DomeniaStorageWork {
         if([int]$script:Persistence.Timer.IntervalMs -ne $interval){Set-DomeniaTimerInterval -Timer $script:Persistence.Timer -Interval ([timespan]::FromMilliseconds($interval))}
         if(-not [bool]$script:Persistence.Timer.IsEnabled){$script:Persistence.Timer.Start()}
         if($interval -eq 20){Invoke-DomeniaTimerSoon -Owner 'Timer:Storage'}
-    }catch{}
+    }catch{Write-DomeniaSwallowed 'Storage' 'Request-DomeniaStorageWork' $_}
 }
 function Test-DomeniaStorageWorkPending {
     # MO-03: the save timer keeps running while an item waits or a batch is being written, unless the writer is
@@ -176,7 +176,7 @@ function Start-DomeniaStorageWork {
     # untouched: no refused admission, no fault, no dropped import. The switch decides what happens to it. The timer
     # goes back to its idle poll, which resumes the queue within a second of the release.
     if(($null -ne $script:StorageMaintenance) -and [bool]$script:StorageMaintenance.Locked){
-        if(($null -ne $script:Persistence.Timer) -and ([int]$script:Persistence.Timer.IntervalMs -ne 1000)){try{Set-DomeniaTimerInterval -Timer $script:Persistence.Timer -Interval ([timespan]::FromMilliseconds(1000))}catch{}}
+        if(($null -ne $script:Persistence.Timer) -and ([int]$script:Persistence.Timer.IntervalMs -ne 1000)){try{Set-DomeniaTimerInterval -Timer $script:Persistence.Timer -Interval ([timespan]::FromMilliseconds(1000))}catch{Write-DomeniaSwallowed 'Storage' 'Start-DomeniaStorageWork' $_}}
         return
     }
     $import=@($script:Persistence.Pending.Values|Where-Object{$_.Kind -eq 'LegacyImport'}|Select-Object -First 1)
@@ -256,7 +256,7 @@ function Start-DomeniaStorageWork {
         $script:Persistence.Job=Start-UiTask -Name 'Enregistrement cache et liens' -OperationId 'LocalStore' -Code (Get-DomeniaStorageWorkerCode) -Payload ([pscustomobject]@{Path=$path;Items=$items}) -CallbackState $state -SuccessHandler 'Complete-DomeniaStorageWork' -ErrorHandler 'Fail-DomeniaStorageWork' -NonCancellable -TimeoutSeconds $storageTimeout
         if([string]::IsNullOrWhiteSpace([string]$script:Persistence.Job)){throw 'Admission du stockage non confirmee : lot conserve en attente.'}
         # Return to the idle poll interval while the worker owns the queue; its receipt re-arms the next batch promptly.
-        if($null -ne $script:Persistence.Timer){try{Set-DomeniaTimerInterval -Timer $script:Persistence.Timer -Interval ([timespan]::FromMilliseconds(1000))}catch{}}
+        if($null -ne $script:Persistence.Timer){try{Set-DomeniaTimerInterval -Timer $script:Persistence.Timer -Interval ([timespan]::FromMilliseconds(1000))}catch{Write-DomeniaSwallowed 'Storage' 'Start-DomeniaStorageWork' $_}}
         foreach($i in $items){[void]$script:Persistence.Pending.Remove($i.QueueKey)}
         # D028: the batch left Pending but is not on disk yet; the label keeps counting it until the callback.
         $script:Persistence.InFlight=@($items).Count
@@ -346,7 +346,7 @@ function Complete-DomeniaStorageWork {
             Rebuild-UserMachineLinkIndex
             Refresh-LinkGrid
             Refresh-AssociationContext -SkipResultRefresh
-            try{Request-DomeniaIndexMetadata}catch{}
+            try{Request-DomeniaIndexMetadata}catch{Write-DomeniaSwallowed 'Storage' 'Complete-DomeniaStorageWork' $_}
             $summary='Reprise des anciennes donnees applique : '+[int]$r.Imported.Objects+' objet(s), '+[int]$r.Imported.Park+' poste(s), '+[int]$r.Imported.UserScans+' recherche(s), '+[int]$r.Imported.Secrets+' metadonnee(s), '+$links.Count+' lien(s), '+$conflicts.Count+' association(s) existante(s) conservee(s).'
             Set-Status $summary $(if($conflicts.Count){'WARN'}else{'INFO'})
             Add-DomeniaUiLog -Area 'Import' -Text $summary
@@ -374,11 +374,11 @@ function Complete-DomeniaStorageWork {
           if($null -ne $saved.Row.PSObject.Properties['RefreshOperationId'] -and [string]$saved.Row.RefreshOperationId){Complete-DomeniaOuRefreshCommit -Item $saved}
         }
         # FI-19: read again by the LocalIndexRead worker; Complete-DomeniaIndexMetadataUi updates the page.
-        try{Request-DomeniaIndexMetadata}catch{}
+        try{Request-DomeniaIndexMetadata}catch{Write-DomeniaSwallowed 'Storage' 'Complete-DomeniaStorageWork' $_}
         # PF-07: the storage time of the lot measured by the worker (prepared statements) is kept beside the IndexBuild
         # samples of the AD read, so that Statistiques des opérations shows the cost of the write per object.
         $writtenRows=[long](Get-DomeniaMember $r 'IndexRows' 0)
-        if($writtenRows -gt 0){try{Register-DomeniaOperationSample -Operation 'IndexStore' -Mode 'SQLite prepare' -ItemCount ([int][Math]::Min([long][int]::MaxValue,$writtenRows)) -DurationMs ([long](Get-DomeniaMember $r 'IndexWriteMs' 0)) -SuccessCount ([int][Math]::Min([long][int]::MaxValue,$writtenRows))}catch{}}
+        if($writtenRows -gt 0){try{Register-DomeniaOperationSample -Operation 'IndexStore' -Mode 'SQLite prepare' -ItemCount ([int][Math]::Min([long][int]::MaxValue,$writtenRows)) -DurationMs ([long](Get-DomeniaMember $r 'IndexWriteMs' 0)) -SuccessCount ([int][Math]::Min([long][int]::MaxValue,$writtenRows))}catch{Write-DomeniaSwallowed 'Storage' 'Complete-DomeniaStorageWork' $_}}
         $walkSaved=@($indexItems|Where-Object{$null -ne $_.Row.PSObject.Properties['WalkStep'] -and [bool]$_.Row.WalkStep})
         if($walkSaved.Count -and $null -ne $script:IndexWalk){
           $script:IndexWalk.Saved += $walkSaved.Count
@@ -392,7 +392,7 @@ function Complete-DomeniaStorageWork {
           Set-DomeniaIndexProgress -Mode $(if($partial){'Error'}else{'Complete'}) -Message $summary
         }
       }
-      try{Request-DomeniaFleetRefresh -Force}catch{}}
+      try{Request-DomeniaFleetRefresh -Force}catch{Write-DomeniaSwallowed 'Storage' 'Complete-DomeniaStorageWork' $_}}
     elseif(@($items|Where-Object{$_.Kind -in @('Index','ParkSession','SecretMeta')}).Count){$script:FleetStale=$true}
     $hasLinkWork=$false
     if($script:Persistence.LegacyImportJob){$hasLinkWork=$true}
@@ -903,7 +903,7 @@ function Complete-DomeniaStoragePurge {
             }
             if($State.Selection -contains 'Snapshots' -and $null -ne $script:Live){$script:Live.MemoryQueries=@{};$script:Live.QueryToSave=$null}
             # History holds the daily snapshots of the overview (FO-10): purged, the curve is computed again.
-            if(@($State.Selection|Where-Object{$_ -in @('Observations','Index','History')}).Count){try{Request-DomeniaFleetRefresh -Force}catch{}}
+            if(@($State.Selection|Where-Object{$_ -in @('Observations','Index','History')}).Count){try{Request-DomeniaFleetRefresh -Force}catch{Write-DomeniaSwallowed 'Storage' 'Complete-DomeniaStoragePurge' $_}}
             if(@($State.Selection|Where-Object{$_ -in @('Snapshots','Observations','Index')}).Count){
                 # Invalidate the displayed search producer too: no old stream may repopulate the purged cache.
                 Stop-DomeniaLiveSearch
@@ -945,7 +945,7 @@ function Update-DomeniaIndexLocation {
             $folder=Join-Path ([IO.Path]::GetDirectoryName($path)) 'Backups'
             $newest=@(foreach($pattern in @('Domenia-*.db','Geste-*.db')){Get-ChildItem -LiteralPath $folder -Filter $pattern -File -ErrorAction SilentlyContinue})|Sort-Object LastWriteTimeUtc -Descending|Select-Object -First 1
             if(($null -ne $newest) -and (($null -eq $last) -or ($newest.LastWriteTimeUtc -gt $last))){$last=$newest.LastWriteTimeUtc}
-        }catch{}
+        }catch{Write-DomeniaSwallowed 'Storage' 'Update-DomeniaIndexLocation' $_}
     }
     $domain=[string]$script:Conn.Domain
     if(-not $domain){$domain=(@(([string]$script:Conn.BaseDn) -split ','|Where-Object{$_ -match '^\s*DC='}|ForEach-Object{($_ -replace '^\s*DC=','').Trim()}) -join '.')}
@@ -1128,7 +1128,7 @@ function Complete-DomeniaGestureBackup {
     if(-not (Test-DomeniaBackupReceiptVerified $packet)){Show-DomeniaGestureBackupFailure -State $State -Message 'résultat de sauvegarde non confirmé';return}
     try{Register-DomeniaVerifiedBackup -Packet $packet -Path ([string]$State.Path) -Origin 'Gesture'}catch{Write-AppLog ('Date de sauvegarde non mémorisée : '+$_.Exception.Message) 'WARN'}
     Add-DomeniaUiLog -Area 'Stockage' -Text ('Sauvegarde vérifiée avant '+[string]$State.Label+' : '+[string]$packet.Backup)
-    try{Update-DomeniaIndexLocation}catch{}
+    try{Update-DomeniaIndexLocation}catch{Write-AppLog ('Emplacement et date de sauvegarde de la base non actualisés : '+$_.Exception.Message) 'WARN'}
     try{Update-DomeniaStorageBackupScheduleUi}catch{Write-AppLog ('État des sauvegardes non actualisé : '+$_.Exception.Message) 'WARN'}
     try{[void](& $State.Then)}
     catch{$text='Sauvegarde vérifiée, mais '+[string]$State.Label+' nʼa pas pu démarrer : '+$_.Exception.Message;Set-Status $text 'WARN';Write-AppLog $text 'WARN'}

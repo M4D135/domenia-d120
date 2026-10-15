@@ -67,7 +67,7 @@ function Get-DomeniaCurrentSelectionIdentity {
     $page = $Workspace
     if (-not $page) {
         $tabs = Get-DomeniaControl 'WorkspaceTabs'
-        try { if ($null -ne $tabs -and $null -ne $tabs.SelectedItem) { $page = [string]$tabs.SelectedItem.Name } } catch { }
+        try { if ($null -ne $tabs -and $null -ne $tabs.SelectedItem) { $page = [string]$tabs.SelectedItem.Name } } catch { Write-DomeniaSwallowed 'Selection' 'Get-DomeniaCurrentSelectionIdentity' $_ }
     }
     if (-not $page -or $page -eq 'WsSearch') {
         $context = Get-DomeniaSelectionContext
@@ -81,7 +81,7 @@ function Get-DomeniaCurrentSelectionIdentity {
         $captured = $load.SelectionIdentity
         if ([string]$captured.DN -ieq [string]$loaded.DN -and $load.Phase -in @('Ready','Cached')) {
             $loadedGuid = ''
-            try { $loadedGuid = ConvertTo-DomeniaGuidText $loaded.Safety.Guid } catch { }
+            try { $loadedGuid = ConvertTo-DomeniaGuidText $loaded.Safety.Guid } catch { Write-DomeniaSwallowed 'Selection' 'Get-DomeniaCurrentSelectionIdentity' $_ }
             if ($loadedGuid -and $loadedGuid -ine [string]$captured.Guid) { return $null }
             if ($captured.Epoch -ne [long]$script:SessionEpoch -or $captured.Reader -cne (Get-DomeniaObjectReadIdentity)) { return $null }
             return $captured
@@ -89,9 +89,9 @@ function Get-DomeniaCurrentSelectionIdentity {
     }
     # Fiche opened outside the result grid: identity of the object as read, never of an edited field.
     $row = [pscustomobject]@{Guid='';Type=[string]$loaded.Type;DN=[string]$loaded.DN;Name=[string]$loaded.Name;Login='';Sid=''}
-    try { $row.Guid = [string]$loaded.Safety.Guid } catch { }
+    try { $row.Guid = [string]$loaded.Safety.Guid } catch { Write-DomeniaSwallowed 'Selection' 'Get-DomeniaCurrentSelectionIdentity' $_ }
     if ($null -ne (Get-Command Get-DomeniaEntryFirstString -CommandType Function -ErrorAction SilentlyContinue)) {
-        try { $row.Login = [string](Get-DomeniaEntryFirstString $loaded.Entry 'sAMAccountName'); $row.Sid = [string](Get-DomeniaEntryFirstString $loaded.Entry 'objectSid') } catch { }
+        try { $row.Login = [string](Get-DomeniaEntryFirstString $loaded.Entry 'sAMAccountName'); $row.Sid = [string](Get-DomeniaEntryFirstString $loaded.Entry 'objectSid') } catch { Write-DomeniaSwallowed 'Selection' 'Get-DomeniaCurrentSelectionIdentity' $_ }
     }
     return (Get-DomeniaRowSelectionIdentity -Row $row -Generation ([long]$script:SelectedObjectGeneration))
 }
@@ -262,9 +262,9 @@ function Clear-DomeniaPreloadSelection {
 function Clear-DomeniaSelectionEverywhere {
     # Field report 2026-10-05: once the list no longer holds the selected row (list reset, new search, empty
     # selection), nothing of the former object stays displayed: search line, object card, Assistance poste, Relations.
-    try{Clear-DomeniaLiveProbeIntent}catch{}
+    try{Clear-DomeniaLiveProbeIntent}catch{Write-DomeniaSwallowed 'Selection' 'Clear-DomeniaSelectionEverywhere' $_}
     Clear-DomeniaPreloadSelection
-    try{Reset-DomeniaSelectionBoundViews}catch{}
+    try{Reset-DomeniaSelectionBoundViews}catch{Write-DomeniaSwallowed 'Selection' 'Clear-DomeniaSelectionEverywhere' $_}
     $script:SelectedObject=$null
     $text='Aucun objet sélectionné : choisissez une ligne dans Rechercher.'
     foreach($kind in @('Object','Computer')){
@@ -273,8 +273,8 @@ function Clear-DomeniaSelectionEverywhere {
         $retry=Get-DomeniaControl ('Btn'+$kind+'ReadRetry');if($null -ne $retry){$retry.Visibility='Hidden'}
     }
     [void](Set-DomeniaControlText 'LblLinkContext' 'Aucune sélection.')
-    try{Clear-DomeniaRelationsSelection}catch{}
-    try{Update-DomeniaSearchActionStates}catch{}
+    try{Clear-DomeniaRelationsSelection}catch{Write-DomeniaSwallowed 'Selection' 'Clear-DomeniaSelectionEverywhere' $_}
+    try{Update-DomeniaSearchActionStates}catch{Write-DomeniaSwallowed 'Selection' 'Clear-DomeniaSelectionEverywhere' $_}
 }
 
 function Enter-DomeniaSelectionContext {
@@ -303,7 +303,7 @@ function Enter-DomeniaSelectionContext {
     # FO-07 : la vue vient d'etre videe pour le nouvel objet (D085). Si ce poste a deja ete inventorie dans
     # cette session, sa derniere lecture est reprise ici, avec son age : les lignes rendues appartiennent
     # au nouvel objet, jamais au precedent.
-    if (([string]$Context.Type) -eq 'Machine') { try { [void](Show-DomeniaCachedInventory -Computer ([string]$Context.Name)) } catch { } }
+    if (([string]$Context.Type) -eq 'Machine') { try { [void](Show-DomeniaCachedInventory -Computer ([string]$Context.Name)) } catch { Write-DomeniaSwallowed 'Selection' 'Enter-DomeniaSelectionContext' $_ } }
     # D012: the fiche keeps the immutable identity captured at selection time.
     $captured = $null
     if ($null -ne $Context.PSObject.Properties['SelectionIdentity']) { $captured = $Context.SelectionIdentity }

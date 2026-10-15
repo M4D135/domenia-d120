@@ -102,7 +102,7 @@ function Show-DomeniaEmbeddedWindow {
     if($null -ne $parent -and -not $parent.Done){
         # An asynchronous warning must not open another sheet over a pending decision.
         $parent.Status.Text='Une autre demande attend. Terminez ou annulez ce panneau avant de la relancer.'
-        try{Write-AppLog ('Demande intégrée reportée : '+[string]$Window.Title) 'WARN'}catch{}
+        try{Write-AppLog ('Demande intégrée reportée : '+[string]$Window.Title) 'WARN'}catch{Write-DomeniaSwallowed 'Embedded' 'Show-DomeniaEmbeddedWindow' $_}
         $Window.Close();[void]$script:DomeniaSurfaceRecords.Remove($Window);return $false
     }
     $main=$script:Window;$root=$main.Content
@@ -371,10 +371,10 @@ function Close-DomeniaBanner {
     param($Record)
     if(($null -eq $Record) -or [bool]$Record.Closed){return}
     $Record.Closed=$true
-    if($null -ne $Record.Timer){try{$Record.Timer.Stop()}catch{}}
+    if($null -ne $Record.Timer){try{$Record.Timer.Stop()}catch{Write-DomeniaSwallowed 'Embedded' 'Close-DomeniaBanner' $_}}
     $hostPanel=$Record.Panel
     if($null -ne $hostPanel){
-        try{[void]$hostPanel.Children.Remove($Record.Border)}catch{}
+        try{[void]$hostPanel.Children.Remove($Record.Border)}catch{Write-DomeniaSwallowed 'Embedded' 'Close-DomeniaBanner' $_}
         if($hostPanel.Children.Count -eq 0){$hostPanel.Visibility='Collapsed'}
     }
     if($null -ne $script:DomeniaBanners){[void]$script:DomeniaBanners.Remove($Record)}
@@ -390,7 +390,7 @@ function Get-DomeniaBannerSupportText {
     if([string]$Record.Details){$lines.Add('Détail :');$lines.Add([string]$Record.Details)}
     if([string]$script:AuditPath){$lines.Add('Journal : '+[string]$script:AuditPath+' (rechercher le code)')}
     $text=[string]::Join("`r`n",$lines.ToArray())
-    try{$text=Protect-DomeniaLogText $text}catch{}
+    try{$text=Protect-DomeniaLogText $text}catch{Write-DomeniaSwallowed 'Embedded' 'Get-DomeniaBannerSupportText' $_}
     return $text
 }
 function Invoke-DomeniaBannerCommand {
@@ -681,7 +681,7 @@ function Continue-DomeniaOuPickerReveal {
     }
     $Owner.Reveal=$null
     $node.IsSelected=$true
-    try{$node.BringIntoView()}catch{}
+    try{$node.BringIntoView()}catch{Write-DomeniaSwallowed 'Embedded' 'Continue-DomeniaOuPickerReveal' $_}
     # Only an OU with its GUID can be chosen (same rule as Update-DomeniaOuPickerSummary): the current place of an
     # object is often a container (CN=Computers, CN=Users), shown for context only.
     $row=$null;if($null -ne $node.Tag){$row=Get-DomeniaMember $node.Tag 'Row' $null}

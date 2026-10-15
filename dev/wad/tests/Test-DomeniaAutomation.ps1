@@ -4,6 +4,10 @@
 # paquet minimal recopie avec son manifeste : aucune donnee reelle, aucun reseau, aucun annuaire.
 [CmdletBinding()]param([string]$ReportPath='')
 $ErrorActionPreference='Stop';Set-StrictMode -Version 2
+# P-CD-09: the catch blocks of the core and of the UI modules trace an ignored error with Write-DomeniaSwallowed, defined
+# in the script scope of Domenia-Core.ps1. Functions loaded one by one stay silent here, as before the sweep (no-op double;
+# the trace itself is tested in rules/Common.Tests.ps1 and Test-DomeniaFaults.ps1).
+function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) }
 $wad=Split-Path -Parent $PSScriptRoot
 $modules=Join-Path $wad 'modules'
 $checks=[Collections.Generic.List[object]]::new()

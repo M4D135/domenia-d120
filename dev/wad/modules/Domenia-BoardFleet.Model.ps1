@@ -541,7 +541,7 @@ function Get-DomeniaFleetBoardData {
             if ($gb -gt 0) { $ram[$k] = 1 + [int]$ram[$k];$inventoryKeys.Add('fleet.ram');$inventoryKeys.Add('fleet.ram|'+$k) }
             $size = 0.0; try { $size = [double](& $member $inventory 'DiskSize' 0) } catch { $size = 0.0 }
             $freeValue=& $member $inventory 'DiskFree' $null
-            $freeBytes=-1.0;try{if($null -ne $freeValue){$freeBytes=[double]$freeValue}}catch{}
+            $freeBytes=-1.0;try{if($null -ne $freeValue){$freeBytes=[double]$freeValue}}catch{if (${function:Write-DomeniaRuleSwallowed}) { Write-DomeniaRuleSwallowed 'BoardFleet' 'Get-DomeniaFleetBoardData' $_ }}
             if ($size -gt 0 -and $freeBytes -ge 0 -and $freeBytes -le $size) {
                 $free = 100.0 * $freeBytes / $size;$diskPercent=$free;$knownInventory.Disk=$true;$knownInventory.DiskPercent=$free
                 $diskState = Get-DomeniaThresholdState -Measure DiskFree -Percent $free -Policy $data.HealthPolicy
@@ -564,7 +564,7 @@ function Get-DomeniaFleetBoardData {
                 $bootSeen++;$uptimeDays=($nowUtc-$bootUtc).TotalDays;$knownInventory.Boot=$true;$knownInventory.UptimeDays=$uptimeDays
                 if ($uptimeDays -gt $limits.UptimeDays) { $longUptime++; [void]$uptimeMachines.Add($pair.Target); $observedProblem[[string]$pair.Target.distinguished_name] = $pair.Target }
                 }
-            } catch { }
+            } catch { if (${function:Write-DomeniaRuleSwallowed}) { Write-DomeniaRuleSwallowed 'BoardFleet' 'Get-DomeniaFleetBoardData' $_ } }
             $healthInventoryKnown[[string]$pair.Target.object_guid]=$knownInventory
             $customMeasures.Add([pscustomobject]@{Target=$pair.Target;DiskFree=$diskPercent;UptimeDays=$uptimeDays})
         }

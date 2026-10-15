@@ -2,6 +2,10 @@
 # Synthetic callbacks and a genuine canonical batch validator. No credentials, WPF or network.
 [CmdletBinding()]param([string]$ReportPath='')
 $ErrorActionPreference='Stop';$wad=Split-Path -Parent $PSScriptRoot
+# P-CD-09: the catch blocks of the core and of the UI modules trace an ignored error with Write-DomeniaSwallowed, defined
+# in the script scope of Domenia-Core.ps1. Functions loaded one by one stay silent here, as before the sweep (no-op double;
+# the trace itself is tested in rules/Common.Tests.ps1 and Test-DomeniaFaults.ps1).
+function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) }
 foreach($name in @('Common.Model','Store.Model','Accounts.Store.UI')){. (Join-Path $wad ('modules/Domenia-'+$name+'.ps1'))}
 $cases=[Collections.Generic.List[object]]::new()
 function Assert {param($Value,[string]$Why='Assertion failed')if(-not $Value){throw $Why}}

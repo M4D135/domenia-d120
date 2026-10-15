@@ -164,8 +164,8 @@ function Get-DomeniaProbeValues {
             '^MB$' { $n = ConvertTo-DomeniaProbeNumber $value; if ($null -ne $n) { [Math]::Round($n / 1MB) }; break }
             '^Mbps$' { $n = ConvertTo-DomeniaProbeNumber $value; if ($null -ne $n) { [Math]::Round($n / 1000000) }; break }
             '^Number$' { $n = ConvertTo-DomeniaProbeNumber $value; if ($null -ne $n) { $n }; break }
-            '^DaysSince$' { try { [Math]::Round(([datetime]::UtcNow - [datetime]::Parse([string]$value,$invariant).ToUniversalTime()).TotalDays) } catch { }; break }
-            '^Year$' { try { [string]([datetime]::Parse([string]$value,$invariant).Year) } catch { }; break }
+            '^DaysSince$' { try { [Math]::Round(([datetime]::UtcNow - [datetime]::Parse([string]$value,$invariant).ToUniversalTime()).TotalDays) } catch { if (${function:Write-DomeniaRuleSwallowed}) { Write-DomeniaRuleSwallowed 'Probes' 'Get-DomeniaProbeValues' $_ } }; break }
+            '^Year$' { try { [string]([datetime]::Parse([string]$value,$invariant).Year) } catch { if (${function:Write-DomeniaRuleSwallowed}) { Write-DomeniaRuleSwallowed 'Probes' 'Get-DomeniaProbeValues' $_ } }; break }
             '^PercentFree$' { $cells = @($rows[0]); if ($cells.Count -ge 2) { $free = ConvertTo-DomeniaProbeNumber $cells[0]; $size = ConvertTo-DomeniaProbeNumber $cells[1]; if (($null -ne $free) -and ($null -ne $size) -and ($size -gt 0)) { [Math]::Round(100.0 * $free / $size) } }; break }
             # ProductType 2 or 3 = domain controller or server: same builds as Windows 11, other release names.
             '^Release$' { $cells = @($rows[0]); $kind = if ($cells.Count -ge 2 -and [string]$cells[1] -notin @('','1')) { 'Server' } else { '' }; $name = (Get-DomeniaWindowsRelease -Build ([string]$value) -Caption $kind).Name; if ($name) { $name } else { 'Build ' + $value }; break }

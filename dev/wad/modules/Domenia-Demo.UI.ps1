@@ -18,7 +18,7 @@ function Initialize-DomeniaDemoMode {
 
 function Get-DomeniaDemoConfiguredIdentity {
     $identity = 'DEMO\demo.operateur'
-    try { $identity = ([string](Get-CfgValue 'Demo' 'Identity' $identity)).Trim() } catch { }
+    try { $identity = ([string](Get-CfgValue 'Demo' 'Identity' $identity)).Trim() } catch { Write-DomeniaSwallowed 'Demo' 'Get-DomeniaDemoConfiguredIdentity' $_ }
     if (-not (Test-DomeniaDemoIdentity $identity)) { $identity = 'DEMO\demo.operateur' }
     return $identity
 }
@@ -28,17 +28,17 @@ function Initialize-DomeniaDemoLoginPresentation {
     # remembered in HKCU. The production handlers stay attached; Start-DomeniaFastLoginAttempt branches on DemoMode.
     param([Parameter(Mandatory=$true)]$Ui)
     $banner = Get-DomeniaDemoBannerText
-    try { $Ui.Window.Title = 'Domenia · ' + $banner } catch { }
-    try { $Ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind 'Warning') } catch { }
+    try { $Ui.Window.Title = 'Domenia · ' + $banner } catch { Write-DomeniaSwallowed 'Demo' 'Initialize-DomeniaDemoLoginPresentation' $_ }
+    try { $Ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind 'Warning') } catch { Write-DomeniaSwallowed 'Demo' 'Initialize-DomeniaDemoLoginPresentation' $_ }
     $Ui.Error.Text = $banner + '. Identité de démonstration attendue (DEMO\nom), sans mot de passe.'
-    try { [Windows.Automation.AutomationProperties]::SetName($Ui.Error,$banner) } catch { }
+    try { [Windows.Automation.AutomationProperties]::SetName($Ui.Error,$banner) } catch { Write-DomeniaSwallowed 'Demo' 'Initialize-DomeniaDemoLoginPresentation' $_ }
     $Ui.Login.Text = Get-DomeniaDemoConfiguredIdentity
     # SE-16: the read-only reveal overlay only opens from Reveal; with Reveal disabled it stays closed.
-    foreach ($name in @('Password','Reveal')) { try { $Ui[$name].IsEnabled = $false } catch { } }
-    try { $Ui.Password.ToolTip = 'Aucun mot de passe en démonstration.' } catch { }
-    try { $Ui.Remember.IsChecked = $false; $Ui.Remember.IsEnabled = $false } catch { }
-    try { $Ui.Windows.Visibility = [Windows.Visibility]::Collapsed; $Ui.Windows.IsEnabled = $false } catch { }
-    try { $Ui.Connect.Content = 'Entrer en démonstration' } catch { }
+    foreach ($name in @('Password','Reveal')) { try { $Ui[$name].IsEnabled = $false } catch { Write-DomeniaSwallowed 'Demo' 'Initialize-DomeniaDemoLoginPresentation' $_ } }
+    try { $Ui.Password.ToolTip = 'Aucun mot de passe en démonstration.' } catch { Write-DomeniaSwallowed 'Demo' 'Initialize-DomeniaDemoLoginPresentation' $_ }
+    try { $Ui.Remember.IsChecked = $false; $Ui.Remember.IsEnabled = $false } catch { Write-DomeniaSwallowed 'Demo' 'Initialize-DomeniaDemoLoginPresentation' $_ }
+    try { $Ui.Windows.Visibility = [Windows.Visibility]::Collapsed; $Ui.Windows.IsEnabled = $false } catch { Write-DomeniaSwallowed 'Demo' 'Initialize-DomeniaDemoLoginPresentation' $_ }
+    try { $Ui.Connect.Content = 'Entrer en démonstration' } catch { Write-DomeniaSwallowed 'Demo' 'Initialize-DomeniaDemoLoginPresentation' $_ }
 }
 
 function Set-DomeniaDemoShellPresentation {
@@ -46,13 +46,13 @@ function Set-DomeniaDemoShellPresentation {
     $banner = Get-DomeniaDemoBannerText
     if ($null -ne $script:Window) {
         $script:BaseWindowTitle = 'Domenia 1.0 · ' + $banner
-        try { $script:Window.Title = $script:BaseWindowTitle } catch { }
+        try { $script:Window.Title = $script:BaseWindowTitle } catch { Write-DomeniaSwallowed 'Demo' 'Set-DomeniaDemoShellPresentation' $_ }
     }
     $label = Get-DomeniaControl -Name 'LblUxDomain'
     if ($null -ne $label) {
         $label.Text = $banner
-        try { [Windows.Automation.AutomationProperties]::SetName($label,$banner) } catch { }
-        try { $label.Foreground = (Get-DomeniaBootStatusColor -Kind 'Warning') } catch { }
+        try { [Windows.Automation.AutomationProperties]::SetName($label,$banner) } catch { Write-DomeniaSwallowed 'Demo' 'Set-DomeniaDemoShellPresentation' $_ }
+        try { $label.Foreground = (Get-DomeniaBootStatusColor -Kind 'Warning') } catch { Write-DomeniaSwallowed 'Demo' 'Set-DomeniaDemoShellPresentation' $_ }
     }
     $script:ReadOnlyMode = $true
     $readOnly = Get-DomeniaControl -Name 'ChkReadOnlyMode'

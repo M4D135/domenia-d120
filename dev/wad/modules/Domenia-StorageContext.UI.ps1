@@ -67,7 +67,7 @@ function Resume-DomeniaDatabaseViews {
         if($ReloadLocalState){
             Request-DomeniaIndexMetadata
             Request-DomeniaUserMachineLinks
-            try{Update-DomeniaIndexStats}catch{}
+            try{Update-DomeniaIndexStats}catch{Write-DomeniaSwallowed 'StorageContext' 'Resume-DomeniaDatabaseViews' $_}
         }
         [void](Initialize-DomeniaQueryLibraryStore -Force)
         Request-DomeniaFleetRefresh -Force
@@ -78,7 +78,7 @@ function Resume-DomeniaDatabaseViews {
         # Only the opening of the new base decides what Base locale says; a later step keeps the reads it started.
         if($ReloadLocalState -and -not $opened){
             $script:IndexMetadataError=$detail
-            try{Update-DomeniaIndexStats}catch{}
+            try{Update-DomeniaIndexStats}catch{Write-DomeniaSwallowed 'StorageContext' 'Resume-DomeniaDatabaseViews' $_}
         }
         Set-Status ('Base sélectionnée, relecture locale à reprendre : '+$detail) 'WARN'
     }

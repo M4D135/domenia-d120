@@ -880,14 +880,14 @@ function Get-DomeniaReadTimeoutState {
     try {
         $configured = [double](Get-DomeniaMember $Job 'TimeoutSeconds' $timeout)
         if (-not [double]::IsNaN($configured) -and -not [double]::IsInfinity($configured) -and $configured -gt 0) { $timeout = $configured }
-    } catch { }
+    } catch { if (${function:Write-DomeniaRuleSwallowed}) { Write-DomeniaRuleSwallowed 'Engine' 'Get-DomeniaReadTimeoutState' $_ } }
     $hardTimeout = 900.0
     if (-not $isSearch) { $hardTimeout = $timeout }
     if ($tracked) {
         try {
             $configured = [double](Get-DomeniaMember $Job 'HardTimeoutSeconds' $hardTimeout)
             if (-not [double]::IsNaN($configured) -and -not [double]::IsInfinity($configured) -and $configured -gt 0) { $hardTimeout = $configured }
-        } catch { }
+        } catch { if (${function:Write-DomeniaRuleSwallowed}) { Write-DomeniaRuleSwallowed 'Engine' 'Get-DomeniaReadTimeoutState' $_ } }
         if ($hardTimeout -lt $timeout) { $hardTimeout = $timeout }
     }
 

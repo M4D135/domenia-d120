@@ -43,7 +43,7 @@ function Get-DomeniaUxHelpEntry {
     param($Control,[string]$Name='')
     Import-DomeniaUxHelpCatalogue
     if ([string]::IsNullOrWhiteSpace($Name) -and $null -ne $Control) {
-        try { $Name = [string]$Control.Name } catch { }
+        try { $Name = [string]$Control.Name } catch { Write-DomeniaSwallowed 'UX' 'Get-DomeniaUxHelpEntry' $_ }
     }
     if ($script:UxHelpCatalogue.ContainsKey($Name)) { return $script:UxHelpCatalogue[$Name] }
     # Unknown dynamic controls receive a neutral description; no value reflection.
@@ -65,7 +65,7 @@ function Get-DomeniaUxControlHelpText {
             ($statusTip -match '^(D.sactiv|Droit ind.termin|Estimation ACL|.criture brute|Action distante|Fonction d.sactiv|Aucune valeur|Aucun secret|S.lectionne une ligne|S.lectionnez une ligne|S.lectionnez d.abord une ligne|Lancez d.abord|Charge d.abord)')) {
             return $description + "`r`n`r`n" + [string]$statusTip
         }
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'UX' 'Get-DomeniaUxControlHelpText' $_ }
     return $description
 }
 
@@ -77,7 +77,7 @@ function Show-DomeniaUxControlHelp {
         if ([Windows.Window]::GetWindow($Control) -ne $script:Window) { return }
         $entry = Get-DomeniaUxHelpEntry -Control $Control
         Set-DomeniaContextHint -Title ([string]$entry.Title) -Text (Get-DomeniaUxControlHelpText -Control $Control)
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'UX' 'Show-DomeniaUxControlHelp' $_ }
 }
 
 function Get-DomeniaUxHelpRole {
@@ -197,7 +197,7 @@ function Sync-DomeniaUxNavigation {
     if ($null -eq $script:Ctrl) { return }
     $workspaces = Get-DomeniaControl 'WorkspaceTabs'
     if ($null -eq $workspaces) { return }
-    $current = '';try { $current = [string]$workspaces.SelectedItem.Name } catch { }
+    $current = '';try { $current = [string]$workspaces.SelectedItem.Name } catch { Write-DomeniaSwallowed 'UX' 'Sync-DomeniaUxNavigation' $_ }
     foreach ($entry in @(Get-DomeniaUxNavButtons)) {
         $button = $entry.Button
         $route = [string]$entry.Route
@@ -397,7 +397,7 @@ function Set-DomeniaSearchQueryOptionsLayout {
             }
             if($null -ne $restoreFocus){
                 $restored=$false
-                try{$restored=[bool]$restoreFocus.Focus()}catch{}
+                try{$restored=[bool]$restoreFocus.Focus()}catch{Write-DomeniaSwallowed 'UX' 'Set-DomeniaSearchQueryOptionsLayout' $_}
                 if(-not $restored){[void](Get-DomeniaControl 'CmbWorkView').Focus()}
             }
         }
@@ -834,7 +834,7 @@ function Initialize-DomeniaUxShell {
     $script:UxHelpCompactOpen=ConvertTo-DomeniaUxFlag (Get-DomeniaSetting -Name 'UxHelpCompactOpen' -Default $false)
     $script:UxNavCollapsed=ConvertTo-DomeniaUxFlag (Get-DomeniaSetting -Name 'UxNavCollapsed' -Default $false)
     $script:UxNavLayoutSignature=''
-    try { Update-DomeniaSearchScopeUi } catch { }
+    try { Update-DomeniaSearchScopeUi } catch { Write-DomeniaSwallowed 'UX' 'Initialize-DomeniaUxShell' $_ }
     $script:Window.Add_SizeChanged({Update-DomeniaUxLayout})
     $script:Window.Add_ContentRendered({Sync-DomeniaUxNavigation;Update-DomeniaUxLayout})
     $script:Window.Add_Closed({$script:UxShellInitialized=$false;$script:UxLayoutSignature='';$script:UxHelpCompactOpen=$false;$script:UxNavLayoutSignature='';$script:UxShortScreen=$false;$script:UxShortHelpOpen=$false;$script:UxShortLogHeld=$false;$script:UxShortLogReleased=$false;$script:UxShortNavFold=$false;$script:UxShortNavReleased=$false;$script:UxNavButtonCache=$null;Stop-DomeniaReadOnlyReturnTimer})
@@ -1083,7 +1083,7 @@ function Update-DomeniaUxOuScope {
         # D032: browsing always reads 'Dans cette OU', the upper bar always 'Domaine entier'.
         # Point 52: an OU below another one is named with its parent, so that two OU of the same name stay distinct.
         $ouName=[string]$display.Name
-        if(-not [bool]$Scope.IsDomain){try{$names=@(Get-DomeniaOuPathNames ([string]$Scope.BaseDn));if($names.Count -ge 2){$ouName+=' (dans '+[string]$names[1]+')'}}catch{}}
+        if(-not [bool]$Scope.IsDomain){try{$names=@(Get-DomeniaOuPathNames ([string]$Scope.BaseDn));if($names.Count -ge 2){$ouName+=' (dans '+[string]$names[1]+')'}}catch{Write-DomeniaSwallowed 'UX' 'Update-DomeniaUxOuScope' $_}}
         $label='Dans : '+$ouName+'  ·  '+$depth
         if($null -ne (Get-Command Get-DomeniaScopeLabel -CommandType Function -ErrorAction SilentlyContinue)){
             $label=Get-DomeniaScopeLabel -Mode Browse -OuName $ouName -Subtree ($Scope.Scope -eq 'Subtree')
@@ -1155,7 +1155,7 @@ function Send-DomeniaUxLiveChange {
         if (-not [Windows.Automation.Peers.AutomationPeer]::ListenerExists($liveEvent)) { return }
         $peer = [Windows.Automation.Peers.UIElementAutomationPeer]::CreatePeerForElement($Control)
         if ($null -ne $peer) { $peer.RaiseAutomationEvent($liveEvent) }
-    } catch { }
+    } catch { Write-DomeniaSwallowed 'UX' 'Send-DomeniaUxLiveChange' $_ }
 }
 
 function Set-DomeniaLiveText {
@@ -1174,10 +1174,10 @@ function Get-DomeniaUxSubject {
     # The current subject: the loaded object, otherwise the object being read; never a former object.
     $name = ''; $type = ''
     if ($null -ne $script:SelectedObject) {
-        try { $name = [string]$script:SelectedObject.Name; $type = [string]$script:SelectedObject.Type } catch { }
+        try { $name = [string]$script:SelectedObject.Name; $type = [string]$script:SelectedObject.Type } catch { Write-DomeniaSwallowed 'UX' 'Get-DomeniaUxSubject' $_ }
     }
     elseif ($null -ne $script:SelectionLoad) {
-        try { $name = [string]$script:SelectionLoad.Context.Name; $type = [string]$script:SelectionLoad.Context.Type } catch { }
+        try { $name = [string]$script:SelectionLoad.Context.Name; $type = [string]$script:SelectionLoad.Context.Type } catch { Write-DomeniaSwallowed 'UX' 'Get-DomeniaUxSubject' $_ }
     }
     return [pscustomobject]@{Name=$name;Type=$type}
 }
@@ -1201,7 +1201,7 @@ function Update-DomeniaUxPageTitle {
         if ([string]$label.Text -cne $text) { $label.Text = $text; Send-DomeniaUxLiveChange -Control $label }
     }
     if ($null -ne $script:Window) {
-        try { if ([string]$script:Window.Title -cne [string]$title.WindowTitle) { $script:Window.Title = [string]$title.WindowTitle } } catch { }
+        try { if ([string]$script:Window.Title -cne [string]$title.WindowTitle) { $script:Window.Title = [string]$title.WindowTitle } } catch { Write-DomeniaSwallowed 'UX' 'Update-DomeniaUxPageTitle' $_ }
     }
     $chipValue = ''
     if (-not [string]::IsNullOrWhiteSpace($subject.Name)) { $chipValue = [string](Get-DomeniaPageTitle -Page 'WsObject' -TargetName $subject.Name -TargetType $subject.Type).Chip }
@@ -1515,7 +1515,7 @@ function Request-DomeniaUxLocalSuggestions {
     if ($null -eq $script:UxSuggestTimer) {
         # FI-05: protected timer of the engine factory; one shot restarted on each keystroke (300 ms debounce).
         $script:UxSuggestTimer = New-DomeniaTimer -Owner 'Timer:SearchSuggest' -IntervalMs 300 -Priority Normal -Standalone -Tick {
-            try { $script:UxSuggestTimer.Stop() } catch { }
+            try { $script:UxSuggestTimer.Stop() } catch { Write-DomeniaSwallowed 'UX' 'Request-DomeniaUxLocalSuggestions' $_ }
             Start-DomeniaUxLocalSuggestions -Text ([string]$script:UxSuggestTerm)
         }
     }
@@ -1871,7 +1871,7 @@ function Enable-DomeniaWriteMode {
     Apply-CurrentPermissionUi
     Start-DomeniaReadOnlyReturnTimer
     Set-Status ('Écriture active : les garde-fous restent actifs et chaque action sensible demande confirmation. Retour en lecture seule après ' + [string](Get-DomeniaUxReadOnlyDelay) + ' min sans écriture.') 'WARN'
-    try { Add-DomeniaUiLog -Area 'Securite' -Level 'WARN' -Text 'Écriture active, confirmée dans la page.' } catch { }
+    try { Add-DomeniaUiLog -Area 'Securite' -Level 'WARN' -Text 'Écriture active, confirmée dans la page.' } catch { Write-DomeniaSwallowed 'UX' 'Enable-DomeniaWriteMode' $_ }
 }
 
 function Enter-DomeniaReadOnlyMode {
@@ -1886,7 +1886,7 @@ function Enter-DomeniaReadOnlyMode {
     if ($reason -eq 'Automatic') {
         $text = 'Retour automatique en lecture seule après ' + [string](Get-DomeniaUxReadOnlyDelay) + ' min sans écriture.'
         Set-Status $text 'INFO'
-        try { Add-DomeniaUiLog -Area 'Securite' -Level 'INFO' -Text $text } catch { }
+        try { Add-DomeniaUiLog -Area 'Securite' -Level 'INFO' -Text $text } catch { Write-DomeniaSwallowed 'UX' 'Enter-DomeniaReadOnlyMode' $_ }
     }
     else { Set-Status 'Lecture seule active : écritures AD, GPUpdate et redémarrage distant bloqués.' 'INFO' }
 }
@@ -1949,7 +1949,7 @@ function Start-DomeniaReadOnlyReturnTimer {
 }
 
 function Stop-DomeniaReadOnlyReturnTimer {
-    if ($null -ne $script:UxReadOnlyTimer) { try { $script:UxReadOnlyTimer.Stop() } catch { } }
+    if ($null -ne $script:UxReadOnlyTimer) { try { $script:UxReadOnlyTimer.Stop() } catch { Write-DomeniaSwallowed 'UX' 'Stop-DomeniaReadOnlyReturnTimer' $_ } }
 }
 
 function Get-DomeniaUiZoomLayoutSize {
@@ -1976,7 +1976,7 @@ function Set-DomeniaUiZoom {
     # Keep the fitted dimensions on the WPF layout pixel grid. The minimum-size overflow
     # still scrolls normally; fitting a viewport must not manufacture a fractional overflow.
     $dpiX=1.0;$dpiY=1.0
-    try{$dpi=[Windows.Media.VisualTreeHelper]::GetDpi($shell);$dpiX=$dpi.DpiScaleX;$dpiY=$dpi.DpiScaleY}catch{}
+    try{$dpi=[Windows.Media.VisualTreeHelper]::GetDpi($shell);$dpiX=$dpi.DpiScaleX;$dpiY=$dpi.DpiScaleY}catch{Write-DomeniaSwallowed 'UX' 'Set-DomeniaUiZoom' $_}
     $size=Get-DomeniaUiZoomLayoutSize -ViewportWidth $scroll.ViewportWidth -ViewportHeight $scroll.ViewportHeight -Percent $percent -DpiScaleX $dpiX -DpiScaleY $dpiY
     if($scroll.ViewportWidth -gt 0 -and $shell.Width -ne $size.Width){$shell.Width=$size.Width}
     if($scroll.ViewportHeight -gt 0 -and $shell.Height -ne $size.Height){$shell.Height=$size.Height}

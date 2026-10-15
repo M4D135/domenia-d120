@@ -8,6 +8,10 @@
 [CmdletBinding()]
 param([string]$ReportPath = '', [switch]$Quiet)
 $ErrorActionPreference = 'Stop'
+# P-CD-09: the catch blocks of the core and of the UI modules trace an ignored error with Write-DomeniaSwallowed, defined
+# in the script scope of Domenia-Core.ps1. Functions loaded one by one stay silent here, as before the sweep (no-op double;
+# the trace itself is tested in rules/Common.Tests.ps1 and Test-DomeniaFaults.ps1).
+function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) }
 $wad = Split-Path -Parent $PSScriptRoot
 $dev = Split-Path -Parent $wad
 $modules = Join-Path $wad 'modules'
@@ -650,6 +654,48 @@ Test-Case 'D002 : commutateur strict et fixe une fois apres la configuration' {
     Assert-True (Initialize-DomeniaDemoMode) 'Le mode a change pendant la session'
     Assert-True ($null -ne $script:DemoDirectory -and [string]$script:DemoDirectory.Format -eq 'DomeniaDemoDirectory/1') 'Annuaire de demonstration absent'
     Remove-Item -LiteralPath $script:CfgPath -Force -ErrorAction SilentlyContinue
+}
+Test-Case 'P-CD-09 : configuration illisible dite au demarrage, valeurs par defaut appliquees' {
+    $script:RegPath = 'HKCU:\Software\DOMENIA-Wiring-' + [guid]::NewGuid().ToString('N')
+    $script:CfgPath = Join-Path ([IO.Path]::GetTempPath()) ('domenia-cfg-' + [guid]::NewGuid().ToString('N') + '.json')
+    try {
+        [IO.File]::WriteAllText($script:CfgPath,'{"Auth":{"DemoProvider":false}}')
+        [void](Load-AppConfig)
+        Assert-True (@($script:ConfigLoadIssues).Count -eq 0) 'Configuration lisible signalee comme illisible'
+        [IO.File]::WriteAllText($script:CfgPath,'{"Auth":{"DemoProvider":false},')
+        $config = Load-AppConfig
+        $issues = @($script:ConfigLoadIssues)
+        Assert-True (($issues.Count -eq 1) -and ([string]$issues[0].Source -eq 'Fichier') -and [bool]$issues[0].Warning) ('Configuration illisible non signalee : ' + $issues.Count)
+        Assert-True (([string]$issues[0].Text).Contains($script:CfgPath)) 'Le fichier en cause n est pas nomme'
+        Assert-True ([string]$issues[0].Text -match 'valeurs par d.faut') 'Les valeurs appliquees ne sont pas dites'
+        $defaults = New-DefaultConfig
+        Assert-True (($null -ne $config) -and ([object]::ReferenceEquals($config,$script:Config))) 'Configuration de session absente'
+        Assert-True (@($config.Keys).Count -eq @($defaults.Keys).Count) 'La session ne repart pas des valeurs par defaut'
+    }
+    finally { Remove-Item -LiteralPath $script:CfgPath -Force -ErrorAction SilentlyContinue }
+}
+Test-Case 'P-CD-09 : echec au milieu de la fusion, aucune valeur deja fusionnee ne reste en session' {
+    $script:RegPath = 'HKCU:\Software\DOMENIA-Wiring-' + [guid]::NewGuid().ToString('N')
+    $script:CfgPath = Join-Path ([IO.Path]::GetTempPath()) ('domenia-cfg-' + [guid]::NewGuid().ToString('N') + '.json')
+    try {
+        [IO.File]::WriteAllText($script:CfgPath,'{"Security":{"BlockProtectedObjects":false},"Auth":{"LoginTimeoutSeconds":5}}')
+        # A JSON text is either refused by ConvertFrom-Json, before any merge, or merged whole. The parser is replaced
+        # here (this case only) to fail in the middle of the merge: the first section is merged (the opposite of the
+        # default), then a value of the second section cannot be read after one of its values was merged.
+        $auth = [pscustomobject]@{LoginTimeoutSeconds=5}
+        $auth | Add-Member -MemberType ScriptProperty -Name LastLogin -Value { throw 'valeur illisible (simulation)' }
+        $parsed = [pscustomobject]@{Security=[pscustomobject]@{BlockProtectedObjects=$false};Auth=$auth}
+        function ConvertFrom-Json { $input | Out-Null; return $parsed }
+        $defaults = New-DefaultConfig
+        Assert-True ([bool]$defaults.Security.BlockProtectedObjects) 'Valeur par defaut de depart inattendue'
+        Assert-True ([int]$defaults.Auth.LoginTimeoutSeconds -ne 5) 'Valeur par defaut de depart inattendue'
+        $config = Load-AppConfig
+        $issues = @($script:ConfigLoadIssues | Where-Object { [string]$_.Source -eq 'Fichier' })
+        Assert-True (($issues.Count -eq 1) -and [bool]$issues[0].Warning) ('Echec de fusion non signale : ' + $issues.Count)
+        Assert-True ([bool]$config.Security.BlockProtectedObjects -eq [bool]$defaults.Security.BlockProtectedObjects) 'Une valeur de securite fusionnee avant l echec reste en session'
+        Assert-True ([int]$config.Auth.LoginTimeoutSeconds -eq [int]$defaults.Auth.LoginTimeoutSeconds) 'Une valeur fusionnee juste avant l echec reste en session'
+    }
+    finally { Remove-Item -LiteralPath $script:CfgPath -Force -ErrorAction SilentlyContinue }
 }
 Test-Case 'D002 : arbre reel (Load-TreeChildren) servi par DemoDirectory' {
     Enable-WiringDemo

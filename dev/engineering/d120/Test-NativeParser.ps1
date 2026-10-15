@@ -91,7 +91,9 @@ if ($workersRequested) {
         $tokens = $null; $errors = $null
         $coreAst = [Management.Automation.Language.Parser]::ParseFile($coreFile,[ref]$tokens,[ref]$errors)
         if (@($errors).Count -gt 0) { throw 'Coeur illisible par le parseur natif.' }
-        # The real assembly function of the core, dot-sourced at script scope; nothing else of the core is loaded.
+        # The real assembly function of the core, dot-sourced at script scope; nothing else of the core is loaded but the
+        # trace its catch blocks call (P-CD-09: Write-DomeniaSwallowed, defined in the core script scope; it never throws).
+        . ([scriptblock]::Create((Get-NativeFunctionText $coreAst 'Write-DomeniaSwallowed')))
         . ([scriptblock]::Create((Get-NativeFunctionText $coreAst 'New-DomeniaWorkerRunspace')))
         $moduleAsts = @{}
         foreach ($module in @(Get-ChildItem -LiteralPath (Join-Path $root 'wad\modules') -Filter '*.ps1' -File)) {

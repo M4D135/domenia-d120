@@ -111,7 +111,7 @@ function Complete-DomeniaMembershipTypes {
     }
     if ($changed) {
         $grid = Get-DomeniaControl 'DgGroupMembers'
-        if ($null -ne $grid) { try { $grid.Items.Refresh() } catch { } }
+        if ($null -ne $grid) { try { $grid.Items.Refresh() } catch { Write-DomeniaSwallowed 'Membership' 'Complete-DomeniaMembershipTypes' $_ } }
     }
 }
 
@@ -262,8 +262,8 @@ function Register-DomeniaMembershipUi {
         if (-not [bool]$script:MembershipUiBound) {
             $box = Get-DomeniaControl $names.Filter
             if ($box -is [Windows.Controls.TextBox]) {
-                if ($kind -eq 'MemberOf') { $box.Add_TextChanged({ try { Update-DomeniaMembershipFilter -Kind MemberOf } catch { } }) }
-                else { $box.Add_TextChanged({ try { Update-DomeniaMembershipFilter -Kind Members } catch { } }) }
+                if ($kind -eq 'MemberOf') { $box.Add_TextChanged({ try { Update-DomeniaMembershipFilter -Kind MemberOf } catch { Write-DomeniaSwallowed 'Membership' 'Register-DomeniaMembershipUi' $_ } }) }
+                else { $box.Add_TextChanged({ try { Update-DomeniaMembershipFilter -Kind Members } catch { Write-DomeniaSwallowed 'Membership' 'Register-DomeniaMembershipUi' $_ } }) }
             }
         }
     }

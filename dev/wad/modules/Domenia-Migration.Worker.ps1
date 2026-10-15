@@ -245,7 +245,7 @@ function ConvertTo-DomeniaUtcDate {
         if ($AssumeLocal) { $assumed = [Globalization.DateTimeStyles]::AssumeLocal }
         $styles = $assumed -bor [Globalization.DateTimeStyles]::AdjustToUniversal
         if ([datetime]::TryParse($text,[Globalization.CultureInfo]::InvariantCulture,$styles,[ref]$parsed)) { return $parsed }
-    } catch { }
+    } catch { if (${function:Write-DomeniaRuleSwallowed}) { Write-DomeniaRuleSwallowed 'Common' 'ConvertTo-DomeniaUtcDate' $_ } }
     return $null
 }
 

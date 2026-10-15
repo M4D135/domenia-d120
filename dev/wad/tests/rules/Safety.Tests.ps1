@@ -763,3 +763,47 @@ Test-Case 'UI-18' 'Revue dans la page : motif de 12 a 240 caracteres sans secret
     $atWrite=Get-DomeniaReceiptActionView -View (Get-DomeniaReceiptView ([pscustomobject]@{Id=('e'*32);Operation='WriteAttributes';DN=$script:SfDnA;Stage='Verified';Review=''}))
     Assert-True ($atWrite.Selection -cmatch 'ne bloque plus aucune écriture\.$') $atWrite.Selection
 }
+
+# P-CD-09 : les gardes d ecriture se ferment sur une lecture impossible (interrupteur, DN, marques de protection).
+$script:SfThrowing={ param([string]$Name) $o=[pscustomobject]@{Name='Objet'}; $o | Add-Member -MemberType ScriptProperty -Name $Name -Value { throw 'lecture impossible (simulation)' }; $o }
+Test-Case 'P-CD-09' 'Interrupteur de lecture seule : choix de l operateur, repli connu, lecture impossible = lecture seule' {
+    $none=Get-DomeniaReadOnlyState -Controls @{} -Fallback $false
+    Assert-True ((-not $none.ReadOnly) -and (-not $none.Unreadable) -and ($null -eq $none.Error)) 'Sans case, le dernier mode connu s applique'
+    Assert-True (Get-DomeniaReadOnlyState -Controls $null -Fallback $true).ReadOnly 'Sans fenetre : repli lecture seule'
+    Assert-True (Get-DomeniaReadOnlyState -Controls $null).ReadOnly 'Sans repli donne : lecture seule'
+    Assert-True (Get-DomeniaReadOnlyState -Controls @{ChkReadOnlyMode=[pscustomobject]@{IsChecked=$true}} -Fallback $false).ReadOnly 'Case cochee'
+    $off=Get-DomeniaReadOnlyState -Controls @{ChkReadOnlyMode=[pscustomobject]@{IsChecked=$false}} -Fallback $true
+    Assert-True ((-not $off.ReadOnly) -and (-not $off.Unreadable)) 'La case decochee prime sur le dernier mode connu'
+    # A generic dictionary of controls (IDictionary.Contains is explicit there) is read like the hashtable of the core.
+    $generic=New-Object 'System.Collections.Generic.Dictionary[string,object]'
+    $generic['ChkReadOnlyMode']=[pscustomobject]@{IsChecked=$false}
+    $typed=Get-DomeniaReadOnlyState -Controls $generic -Fallback $true
+    Assert-True ((-not $typed.ReadOnly) -and (-not $typed.Unreadable)) 'Dictionnaire generique lu comme une lecture impossible'
+    $odd=Get-DomeniaReadOnlyState -Controls @{ChkReadOnlyMode=[pscustomobject]@{IsChecked=$null}} -Fallback $false
+    Assert-True ($odd.ReadOnly -and (-not $odd.Unreadable)) 'Case ni cochee ni decochee : lecture seule'
+    $fail=Get-DomeniaReadOnlyState -Controls @{ChkReadOnlyMode=(& $script:SfThrowing 'IsChecked')} -Fallback $false
+    Assert-True ($fail.ReadOnly -and $fail.Unreadable) 'Case illisible : lecture seule, jamais le dernier mode connu'
+    Assert-True ($fail.Error -is [Management.Automation.ErrorRecord]) 'L erreur est rendue pour la trace de l appelant'
+}
+Test-Case 'P-CD-09' 'Objet selectionne : DN illisible bloque, protection illisible = objet protege, membre absent sans effet' {
+    $none=Get-DomeniaWriteGuardSubject -Selected $null
+    Assert-True (($none.Dn -eq '') -and (-not $none.DnUnreadable) -and (-not $none.Protected) -and (@($none.Errors).Count -eq 0)) 'Sans selection : rien a bloquer'
+    $plain=Get-DomeniaWriteGuardSubject -Selected ([pscustomobject]@{DN=$script:SfDnA;Safety=[pscustomobject]@{AdminCount='0';Critical=$false}})
+    Assert-Equal $script:SfDnA $plain.Dn
+    Assert-True ((-not $plain.Protected) -and (-not $plain.DnUnreadable) -and (@($plain.Errors).Count -eq 0)) 'Objet ordinaire'
+    Assert-True (Get-DomeniaWriteGuardSubject -Selected ([pscustomobject]@{DN=$script:SfDnA;Safety=[pscustomobject]@{AdminCount='1';Critical=$false}})).Protected 'adminCount=1 protege'
+    Assert-True (Get-DomeniaWriteGuardSubject -Selected ([pscustomobject]@{DN=$script:SfDnA;Safety=[pscustomobject]@{AdminCount='';Critical=$true}})).Protected 'isCriticalSystemObject protege'
+    Assert-True (Get-DomeniaWriteGuardSubject -Selected @{DN=$script:SfDnA;Safety=@{AdminCount='1'}}).Protected 'Table de hachage lue comme un objet'
+    $partial=Get-DomeniaWriteGuardSubject -Selected ([pscustomobject]@{Name='Sans DN ni marques'})
+    Assert-True (($partial.Dn -eq '') -and (-not $partial.DnUnreadable) -and (-not $partial.Protected) -and (@($partial.Errors).Count -eq 0)) 'Un membre absent n est pas une lecture impossible'
+    $dnFail=Get-DomeniaWriteGuardSubject -Selected (& $script:SfThrowing 'DN')
+    Assert-True ($dnFail.DnUnreadable -and ($dnFail.Dn -eq '') -and (-not $dnFail.ProtectionUnreadable)) 'DN illisible signale'
+    Assert-Equal 1 @($dnFail.Errors).Count
+    Assert-True (@($dnFail.Errors)[0] -is [Management.Automation.ErrorRecord]) 'Erreur rendue pour la trace'
+    $safetyFail=Get-DomeniaWriteGuardSubject -Selected (& $script:SfThrowing 'Safety')
+    Assert-True ($safetyFail.Protected -and $safetyFail.ProtectionUnreadable -and (-not $safetyFail.DnUnreadable)) 'Protection illisible : objet protege'
+    $markFail=[pscustomobject]@{DN=$script:SfDnA;Safety=(& $script:SfThrowing 'AdminCount')}
+    $mark=Get-DomeniaWriteGuardSubject -Selected $markFail
+    Assert-True ($mark.Protected -and $mark.ProtectionUnreadable) 'Marque adminCount illisible : objet protege'
+    Assert-Equal $script:SfDnA $mark.Dn
+}

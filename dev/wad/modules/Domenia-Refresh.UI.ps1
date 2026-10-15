@@ -37,7 +37,7 @@ function Stop-DomeniaOuRefresh {
     if($null -eq $r -or $r.Completed -or ($Source -and $r.Source -ne $Source) -or ($OperationId -and $r.Id -cne $OperationId)){return}
     $r.Cancelled=$true;$r.Completed=$true;$r.Phase='Cancelled';$r.Status=$Message
     if($null -ne $r.Timer){$r.Timer.Stop()}
-    foreach($id in @($r.DirectoryJob,$r.TargetJob)){if($id){try{Stop-UiTask -Id $id -Silent}catch{}}}
+    foreach($id in @($r.DirectoryJob,$r.TargetJob)){if($id){try{Stop-UiTask -Id $id -Silent}catch{Write-DomeniaSwallowed 'Refresh' 'Stop-DomeniaOuRefresh' $_}}}
     if($r.ParkRunId){Stop-DomeniaOnlinePark -RunId $r.ParkRunId}
     if(($null -ne $r.PSObject.Properties['Outcome']) -and (-not [string]$r.Outcome)){$r.Outcome='Cancelled'}
     Submit-DomeniaOuRefreshRuns -Refresh $r
@@ -252,7 +252,7 @@ function Complete-DomeniaOuRefreshRunsStored {
         Set-Status 'Dates du relevé de lʼOU : reçu SQLite incomplet. La vue garde les dates déjà relues.' 'WARN';return
     }
     # The page shows these clocks only after reading them back from the committed snapshot.
-    try{Request-DomeniaFleetRefresh -Force}catch{}
+    try{Request-DomeniaFleetRefresh -Force}catch{Write-DomeniaSwallowed 'Refresh' 'Complete-DomeniaOuRefreshRunsStored' $_}
 }
 function Fail-DomeniaOuRefreshRunsStored {
     param([string]$Message,$State)

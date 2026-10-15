@@ -97,7 +97,7 @@ function ConvertTo-DomeniaGuidText {
         }
         $parsed = [guid]::Empty
         if ([guid]::TryParse([string]$Value,[ref]$parsed) -and $parsed -ne [guid]::Empty) { return $parsed.ToString('D') }
-    } catch { }
+    } catch { if (${function:Write-DomeniaRuleSwallowed}) { Write-DomeniaRuleSwallowed 'Common' 'ConvertTo-DomeniaGuidText' $_ } }
     return ''
 }
 
@@ -125,7 +125,7 @@ function ConvertTo-DomeniaSidText {
         }
         $text = ([string]$Value).Trim()
         if ($text -match '^S-1-\d+(-\d+){1,14}$') { return $text.ToUpperInvariant() }
-    } catch { }
+    } catch { if (${function:Write-DomeniaRuleSwallowed}) { Write-DomeniaRuleSwallowed 'Common' 'ConvertTo-DomeniaSidText' $_ } }
     return ''
 }
 
@@ -177,7 +177,7 @@ function ConvertTo-DomeniaUtcDate {
         if ($AssumeLocal) { $assumed = [Globalization.DateTimeStyles]::AssumeLocal }
         $styles = $assumed -bor [Globalization.DateTimeStyles]::AdjustToUniversal
         if ([datetime]::TryParse($text,[Globalization.CultureInfo]::InvariantCulture,$styles,[ref]$parsed)) { return $parsed }
-    } catch { }
+    } catch { if (${function:Write-DomeniaRuleSwallowed}) { Write-DomeniaRuleSwallowed 'Common' 'ConvertTo-DomeniaUtcDate' $_ } }
     return $null
 }
 
@@ -312,12 +312,13 @@ function Get-DomeniaDnSite {
 # ---------------------------------------------------------------- P-CD-09 swallowed errors
 function Add-DomeniaSwallowedEntry {
     # P-CD-09: pure part of the trace of an error that a catch block deliberately does not rethrow. The core wrapper
-    # Write-DomeniaSwallowed (Domenia-Core.ps1, next to Write-AppLog) calls it and writes the returned line to the
-    # technical journal; worker code that embeds this module may call it directly and keep the ring only.
+    # Write-DomeniaSwallowed (Domenia-Core.ps1, defined before any script code) calls it and writes the returned line to
+    # the technical journal; worker code that embeds this module may call it directly and keep the ring only.
     # Every call adds an entry to a bounded in-memory ring (Get-DomeniaSwallowedEntries, oldest first). At most once a
     # minute per category and operation, the call returns the journal line due, with the number of occurrences folded
     # in since the previous line: [pscustomobject]@{Line;Entry}. Nothing is returned when the line is sampled out or for
     # a reentry. Entry.Journal is Unavailable until the caller records the outcome (Logged), or Sampled, or Reentry.
+    # A sampled-out entry keeps the category, operation and exception type, not the message (masked once per line due).
     # Texts are masked by -Mask (the core passes Protect-DomeniaLogText) or else Protect-DomeniaSecretText
     # (Access.Model, resolved at call time); with neither rule the exception message is not kept. Bounded: 200 entries,
     # 300 characters per message, 512 sampling keys. No journal, no WPF, no disk; never throws.
@@ -352,46 +353,57 @@ function Add-DomeniaSwallowedEntry {
             elseif ($ErrorRecord -is [Exception]) { $exception = $ErrorRecord }
             if ($null -ne $exception) { $type = $exception.GetType().FullName; $text = [string]$exception.Message }
             elseif ($null -ne $ErrorRecord) { $text = [string]$ErrorRecord }
-            $values = @([string]$Category,[string]$Operation,$text)
-            if ($nested) { $values[2] = '' }
-            else {
-                for ($i = 0; $i -lt $values.Count; $i++) {
-                    if ([string]::IsNullOrEmpty($values[$i])) { continue }
-                    $masked = $null
-                    if ($null -ne $Mask) { try { $masked = [string](& $Mask $values[$i]) } catch { $masked = $null } }
-                    if ($null -eq $masked) { try { $masked = [string](Protect-DomeniaSecretText $values[$i]) } catch { $masked = $null } }
-                    if ($null -eq $masked) {
-                        # Category and operation are identifiers chosen by the caller; only the message is dropped.
-                        if ($i -eq 2) { $masked = '[message non conservé : aucune règle de masquage chargée]' } else { $masked = $values[$i] }
-                    }
-                    $values[$i] = $masked
-                }
+            # The sampling decision comes first: a repetition sampled out within the minute is not masked again (in a
+            # loop that fails on every row, masking each occurrence would cost more than the trace is worth). The key
+            # is the category and operation as given (identifiers chosen by the caller), kept in memory only; the entry
+            # of a sampled-out call takes the masked category and operation of the line due and keeps no message.
+            $key = [string]$Category + '|' + [string]$Operation
+            $last = $null
+            $sampled = $false
+            if ((-not $nested) -and $state.Sampling.ContainsKey($key)) {
+                $last = $state.Sampling[$key]
+                $elapsed = ($when - [datetime]$last.Time).TotalSeconds
+                $sampled = (($elapsed -ge 0) -and ($elapsed -lt [int]$state.SamplingSeconds))
             }
-            $flatCategory = ConvertTo-DomeniaFlatText $values[0] 80
-            $flatOperation = ConvertTo-DomeniaFlatText $values[1] 120
-            $message = ConvertTo-DomeniaFlatText $values[2] ([int]$state.MessageLength)
+            if ($sampled) {
+                $flatCategory = [string]$last.Category; $flatOperation = [string]$last.Operation; $message = ''
+            }
+            else {
+                $values = @([string]$Category,[string]$Operation,$text)
+                if ($nested) { $values[2] = '' }
+                else {
+                    for ($i = 0; $i -lt $values.Count; $i++) {
+                        if ([string]::IsNullOrEmpty($values[$i])) { continue }
+                        $masked = $null
+                        if ($null -ne $Mask) { try { $masked = [string](& $Mask $values[$i]) } catch { $masked = $null } }
+                        if ($null -eq $masked) { try { $masked = [string](Protect-DomeniaSecretText $values[$i]) } catch { $masked = $null } }
+                        if ($null -eq $masked) {
+                            # Category and operation are identifiers chosen by the caller; only the message is dropped.
+                            if ($i -eq 2) { $masked = '[message non conservé : aucune règle de masquage chargée]' } else { $masked = $values[$i] }
+                        }
+                        $values[$i] = $masked
+                    }
+                }
+                $flatCategory = ConvertTo-DomeniaFlatText $values[0] 80
+                $flatOperation = ConvertTo-DomeniaFlatText $values[1] 120
+                $message = ConvertTo-DomeniaFlatText $values[2] ([int]$state.MessageLength)
+            }
             $journal = 'Unavailable'
             if ($nested) { $journal = 'Reentry' }
+            elseif ($sampled) { $journal = 'Sampled' }
             $entry = [pscustomobject]@{Time=$when;Category=$flatCategory;Operation=$flatOperation;Type=$type;Message=$message;Journal=$journal}
             $state.Entries.Enqueue($entry)
             while ($state.Entries.Count -gt [int]$state.Capacity) { [void]$state.Entries.Dequeue() }
             $state.Total = [long]$state.Total + 1
             if ($nested) { return }
-            $key = $flatCategory + '|' + $flatOperation
-            $last = $null
-            if ($state.Sampling.ContainsKey($key)) { $last = $state.Sampling[$key] }
-            if ($null -ne $last) {
-                $elapsed = ($when - [datetime]$last.Time).TotalSeconds
-                if (($elapsed -ge 0) -and ($elapsed -lt [int]$state.SamplingSeconds)) {
-                    $last.Folded = [int]$last.Folded + 1
-                    $entry.Journal = 'Sampled'
-                    return
-                }
+            if ($sampled) {
+                $last.Folded = [int]$last.Folded + 1
+                return
             }
             $folded = 0
             if ($null -ne $last) { $folded = [int]$last.Folded }
             elseif ($state.Sampling.Count -ge [int]$state.SamplingKeys) { $state.Sampling.Clear() }
-            $state.Sampling[$key] = [pscustomobject]@{Time=$when;Folded=0}
+            $state.Sampling[$key] = [pscustomobject]@{Time=$when;Folded=0;Category=$flatCategory;Operation=$flatOperation}
             $line = 'Erreur ignorée [' + $flatCategory + '] ' + $flatOperation
             if ($type) { $line += ' : ' + $type }
             if ($message) { $line += ' : ' + $message }
@@ -414,6 +426,28 @@ function Get-DomeniaSwallowedEntries {
     try { $state = $script:DomeniaSwallowedState } catch { $state = $null }
     if ($null -eq $state) { return }
     return $state.Entries.ToArray()
+}
+
+function Write-DomeniaRuleSwallowed {
+    # P-CD-09: trace of an error swallowed by a pure rule (*.Model.ps1). A rule also runs in worker runspaces and in
+    # test benches that do not load the core: the trace of the core (Write-DomeniaSwallowed: journal and ring) is used
+    # when it is reachable, otherwise the ring of Add-DomeniaSwallowedEntry only. The rule itself stays free of journal
+    # and disk code; its catch block calls this function through a guard, since a bench may load a rule without this
+    # module:  catch { if (${function:Write-DomeniaRuleSwallowed}) { Write-DomeniaRuleSwallowed 'Probes' 'Get-X' $_ } }
+    # Never throws and writes nothing to the pipeline.
+    param(
+        [AllowNull()][AllowEmptyString()][string]$Category='',
+        [AllowNull()][AllowEmptyString()][string]$Operation='',
+        [AllowNull()]$ErrorRecord=$null
+    )
+    try {
+        if (${function:Write-DomeniaSwallowed}) { Write-DomeniaSwallowed $Category $Operation $ErrorRecord; return }
+        [void](Add-DomeniaSwallowedEntry -Category $Category -Operation $Operation -ErrorRecord $ErrorRecord)
+    }
+    catch {
+        # Exempt from tools/audit_swallowed.py: the trace of a swallowed error cannot trace its own failure.
+        [void]$_
+    }
 }
 
 # ---------------------------------------------------------------- point 133: versioned contracts between modules

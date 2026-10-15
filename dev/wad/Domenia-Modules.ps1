@@ -34,6 +34,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaDnSite',
             'Add-DomeniaSwallowedEntry',
             'Get-DomeniaSwallowedEntries',
+            'Write-DomeniaRuleSwallowed',
             'Get-DomeniaContractCatalog',
             'Get-DomeniaContract',
             'ConvertFrom-DomeniaContractFormat',
@@ -635,6 +636,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Test-DomeniaOperationAllowed',
             'Get-DomeniaCompensation',
             'Test-DomeniaRawAttributeAllowed',
+            'Get-DomeniaReadOnlyState',
+            'Get-DomeniaWriteGuardSubject',
             'ConvertTo-DomeniaDnDisplayName',
             'Test-DomeniaWriteTargetDn',
             'Get-DomeniaPlanChangeText'
@@ -1233,7 +1236,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Complete-DomeniaLiveObservationRead',
             'Fail-DomeniaLiveObservationRead'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Access.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Shell.Model.ps1'); File='Domenia-Access.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Access.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Safety.Model.ps1'); File='Domenia-Access.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaAccessFailureKind',
             'Get-DomeniaAccessScope',
             'Get-DomeniaAccessNow',

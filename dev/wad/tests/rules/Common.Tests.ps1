@@ -52,6 +52,36 @@ Test-Case 'P-CD-09' 'Ligne due : une par categorie et operation et par minute, l
     Assert-True ($lines[2].EndsWith('(+2 occurrence(s) depuis la ligne précédente)',[StringComparison]::Ordinal)) $lines[2]
     Assert-False ($lines[3].Contains('occurrence(s)')) 'Le compteur repart a zero apres chaque ligne'
 }
+Test-Case 'P-CD-09' 'Repetition echantillonnee : ni masquage ni message, categorie et operation de la ligne due' {
+    # A catch in a loop that fails on every row: only the line due of each minute pays for the masking.
+    $script:DomeniaSwallowedState=$null
+    $script:SwMaskCalls=0
+    $mask={ param([string]$Text) $script:SwMaskCalls++; return $Text.Replace('MARQUEUR-SECRET-0009','[SECRET MASQUE]') }
+    $err=[InvalidOperationException]::new('lecture de MARQUEUR-SECRET-0009 refusee')
+    $first=@(Add-DomeniaSwallowedEntry 'Grille' 'Show-ObjectRows' $err -Now $script:Sw0 -Mask $mask)
+    Assert-Equal 1 $first.Count 'La premiere occurrence rend sa ligne'
+    Assert-Equal 3 ([int]$script:SwMaskCalls) 'Categorie, operation et message masques pour la ligne due'
+    for($i=1;$i -le 50;$i++){
+        $out=@(Add-DomeniaSwallowedEntry 'Grille' 'Show-ObjectRows' $err -Now ($script:Sw0.AddMilliseconds($i*100)) -Mask $mask)
+        Assert-Equal 0 $out.Count 'Aucune ligne pour une repetition dans la minute'
+    }
+    Assert-Equal 3 ([int]$script:SwMaskCalls) 'Aucun masquage pour une repetition echantillonnee'
+    $entries=@(Get-DomeniaSwallowedEntries)
+    Assert-Equal 51 $entries.Count 'Chaque appel garde son entree'
+    Assert-Equal 'lecture de [SECRET MASQUE] refusee' $entries[0].Message
+    $sampled=@($entries|Where-Object{$_.Journal -eq 'Sampled'})
+    Assert-Equal 50 $sampled.Count
+    foreach($e in $sampled){
+        Assert-Equal '' $e.Message 'Une repetition ne garde pas de message';Assert-Equal 'System.InvalidOperationException' $e.Type
+        Assert-Equal 'Grille' $e.Category;Assert-Equal 'Show-ObjectRows' $e.Operation
+    }
+    $next=@(Add-DomeniaSwallowedEntry 'Grille' 'Show-ObjectRows' $err -Now ($script:Sw0.AddSeconds(60)) -Mask $mask)
+    Assert-Equal 1 $next.Count 'Une ligne de nouveau apres la minute'
+    Assert-True (([string]$next[0].Line).EndsWith('(+50 occurrence(s) depuis la ligne précédente)',[StringComparison]::Ordinal)) ([string]$next[0].Line)
+    Assert-False (([string]$next[0].Line).Contains('MARQUEUR-SECRET-0009')) 'La ligne due suivante est masquee'
+    Assert-Equal 6 ([int]$script:SwMaskCalls) 'La ligne due suivante est masquee de nouveau'
+    $script:DomeniaSwallowedState=$null
+}
 Test-Case 'P-CD-09' 'Anneau borne a 200 entrees, les plus anciennes sortent en premier' {
     $script:DomeniaSwallowedState=$null
     for($i=0;$i -lt 250;$i++){ $null=Add-DomeniaSwallowedEntry 'Charge' ('op-'+$i) ([InvalidOperationException]::new('echec')) -Now $script:Sw0 }
@@ -106,4 +136,45 @@ Test-Case 'P-CD-09' 'Reentree : la trace emise pendant une trace ne garde que ca
     $after=@(Add-DomeniaSwallowedEntry 'Theme' 'Apres' 'texte' -Now $script:Sw0)
     Assert-Equal 1 $after.Count;Assert-Equal 'Unavailable' $after[0].Entry.Journal 'Les appels suivants ne sont plus des reentrees'
     $script:DomeniaSwallowedState=$null
+}
+
+Test-Case 'P-CD-09' 'Regle pure : trace du coeur quand elle est chargee, jamais d exception' {
+    # The bench defines a silent Write-DomeniaSwallowed; this case replaces it in its own scope by a recorder.
+    $script:SwRuleCalls=New-Object 'System.Collections.Generic.List[object]'
+    function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) $script:SwRuleCalls.Add([pscustomobject]@{Category=$Category;Operation=$Operation;Error=$ErrorRecord}) }
+    $script:DomeniaSwallowedState=$null
+    $err=try{ throw 'conversion impossible' }catch{ $_ }
+    $out=@(Write-DomeniaRuleSwallowed 'Probes' 'Get-DomeniaProbeValues' $err)
+    Assert-Equal 0 $out.Count 'Rien sur le pipeline'
+    Assert-Equal 1 $script:SwRuleCalls.Count 'La trace du coeur recoit l erreur'
+    Assert-Equal 'Probes' $script:SwRuleCalls[0].Category;Assert-Equal 'Get-DomeniaProbeValues' $script:SwRuleCalls[0].Operation
+    Assert-True ([object]::ReferenceEquals($err,$script:SwRuleCalls[0].Error)) 'L enregistrement d erreur est transmis tel quel'
+    Assert-Equal 0 (@(Get-DomeniaSwallowedEntries)).Count 'Le coeur tient l anneau lui-meme : pas de double entree'
+    function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) throw 'journal indisponible' }
+    $out=@(Write-DomeniaRuleSwallowed 'Probes' 'Get-DomeniaProbeValues' $err)
+    Assert-Equal 0 $out.Count 'Une trace en echec ne remonte pas'
+}
+Test-Case 'P-CD-09' 'Regle pure hors du coeur : anneau seul dans un worker, garde sans Common.Model' {
+    # A fresh runspace stands for a worker: neither the core nor the bench double is there.
+    $ps=[PowerShell]::Create([Management.Automation.RunspaceMode]::NewRunspace)
+    try {
+        [void]$ps.AddScript(@'
+param($Common)
+function Get-Rule { try { throw 'valeur illisible' } catch { if (${function:Write-DomeniaRuleSwallowed}) { Write-DomeniaRuleSwallowed 'Regle' 'Get-Rule' $_ } }; 'repli' }
+$before=Get-Rule
+. $Common
+$after=Get-Rule
+$entries=@(Get-DomeniaSwallowedEntries)
+[pscustomobject]@{Before=$before;After=$after;Count=$entries.Count;Category=[string]$entries[0].Category;Operation=[string]$entries[0].Operation;Type=[string]$entries[0].Type;Message=[string]$entries[0].Message}
+'@).AddArgument((Join-Path $modules 'Domenia-Common.Model.ps1'))
+        $out=@($ps.Invoke())
+        Assert-Equal 0 $ps.Streams.Error.Count ('Erreurs : '+(@($ps.Streams.Error|ForEach-Object{[string]$_}) -join ' | '))
+        Assert-Equal 1 $out.Count
+        Assert-Equal 'repli' $out[0].Before 'Sans Common.Model, la garde laisse la regle rendre son repli'
+        Assert-Equal 'repli' $out[0].After
+        Assert-Equal 1 ([int]$out[0].Count) 'Dans un worker, l erreur entre dans l anneau'
+        Assert-Equal 'Regle' $out[0].Category;Assert-Equal 'Get-Rule' $out[0].Operation
+        Assert-Equal 'System.Management.Automation.RuntimeException' $out[0].Type
+        Assert-Equal '[message non conservé : aucune règle de masquage chargée]' $out[0].Message 'Sans regle de masquage le message n est pas garde'
+    } finally { $ps.Dispose() }
 }

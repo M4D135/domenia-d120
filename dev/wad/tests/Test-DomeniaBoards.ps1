@@ -7,6 +7,10 @@
 [CmdletBinding()]
 param([string]$ReportPath='',[switch]$Quiet)
 $ErrorActionPreference='Stop'
+# P-CD-09: the catch blocks of the core and of the UI modules trace an ignored error with Write-DomeniaSwallowed, defined
+# in the script scope of Domenia-Core.ps1. Functions loaded one by one stay silent here, as before the sweep (no-op double;
+# the trace itself is tested in rules/Common.Tests.ps1 and Test-DomeniaFaults.ps1).
+function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) }
 $wad=Split-Path -Parent $PSScriptRoot
 $script:RenderTimings=[Collections.Generic.List[object]]::new()
 $script:Results=[Collections.Generic.List[object]]::new();$script:Finished=$false;$script:Window=$null
@@ -629,6 +633,34 @@ try{
         $observations=@{'cn=pc-1,ou=postes,dc=example,dc=invalid'=[pscustomobject]@{CheckedUtc='2026-10-08T10:00:00.0000000Z';Presence='En ligne'}}
         $merged=Merge-DomeniaFleetObservations -Stored @{'cn=pc-1,ou=postes,dc=example,dc=invalid'=[pscustomobject]@{CheckedUtc='2026-10-08T09:00:00.0000000Z';Presence='Sans reponse'}} -Current $observations
         Expect ([string]$merged['cn=pc-1,ou=postes,dc=example,dc=invalid'].Presence -eq 'En ligne') 'Observation recente remplacee par la base'
+        $tabs.SelectedItem=Get-DomeniaControl 'WsSearch'
+        $script:DatabaseScopedPath='';$script:FleetPendingKey='';$script:FleetJobId=''
+    }
+    Case 'P-CD-09 : Accueil non recalculable, la vue le dit et ne se presente pas comme a jour' {
+        $script:DatabaseScopedPath='C:\fictif\domenia.db';$script:StartCalls.Clear();$script:AsyncJobs=@{}
+        $script:FleetComputedKey='';$script:FleetPendingKey='';$script:FleetJobId='';$script:FleetStale=$true
+        $script:FleetScopeDn='OU=Postes,DC=example,DC=invalid'
+        $tabs=Get-DomeniaControl 'WorkspaceTabs'
+        $tabs.SelectedItem=Get-DomeniaControl 'TabDashboard'
+        # Preparation of the request in failure (local doubles of this case only).
+        function Get-DomeniaFleetQueryPlan { throw 'plan de lecture impossible (simulation)' }
+        # The automatic request does not rethrow: its failure must still reach the technical trace.
+        $traces=New-Object 'System.Collections.Generic.List[object]'
+        function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) $traces.Add([pscustomobject]@{Category=[string]$Category;Operation=[string]$Operation;Error=$ErrorRecord}) }
+        Request-DomeniaFleetRefresh
+        $label=[string](Get-DomeniaControl 'LblFleetDashboard').Text
+        Expect ($script:StartCalls.Count -eq 0) 'Calcul lance malgre une preparation en echec'
+        Expect ($label -like 'Vue dʼensemble non calculée : plan de lecture impossible*') ('Libelle : '+$label)
+        $startTraces=@($traces|Where-Object{($_.Category -eq 'Dashboard') -and ($_.Operation -eq 'Start-DomeniaFleetDashboard')})
+        Expect ($startTraces.Count -eq 1) ('Echec automatique non trace : '+$traces.Count+' trace(s)')
+        Expect ([string]$startTraces[0].Error.Exception.Message -match 'plan de lecture impossible') 'La trace ne porte pas l erreur de preparation'
+        # Failure before the calculation is chosen: the caller still receives the error, the view says it is not current.
+        function Get-DomeniaFleetScope { throw 'perimetre illisible (simulation)' }
+        $raised='';try{Request-DomeniaFleetRefresh -Force}catch{$raised=$_.Exception.Message}
+        $label=[string](Get-DomeniaControl 'LblFleetDashboard').Text
+        Expect ($raised -match 'perimetre illisible') 'L erreur n est plus rendue a l appelant'
+        Expect ($label -like 'Vue dʼensemble non actualisée : perimetre illisible*') ('Libelle : '+$label)
+        Expect ([bool]$script:FleetStale) 'La vue n est pas marquee a recalculer'
         $tabs.SelectedItem=Get-DomeniaControl 'WsSearch'
         $script:DatabaseScopedPath='';$script:FleetPendingKey='';$script:FleetJobId=''
     }

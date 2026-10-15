@@ -145,11 +145,11 @@ function Update-DomeniaParkRunStatus {
     if($r.Completed -and [bool]$r.FleetRefresh -and -not [bool]$r.FleetRefreshed){
         $r|Add-Member -NotePropertyName FleetRefreshed -NotePropertyValue $true -Force
         if($r.Approved -and $r.Done -gt 0){
-            if($null -ne $script:SelectedObject){try{Show-DomeniaBoard -Board Computer -Quiet}catch{}}
-            try{Request-DomeniaFleetRefresh -Force}catch{}
+            if($null -ne $script:SelectedObject){try{Show-DomeniaBoard -Board Computer -Quiet}catch{Write-DomeniaSwallowed 'Park' 'Update-DomeniaParkRunStatus' $_}}
+            try{Request-DomeniaFleetRefresh -Force}catch{Write-DomeniaSwallowed 'Park' 'Update-DomeniaParkRunStatus' $_}
         }
     }
-    if($r.Completed -and $r.Approved -and -not [bool]$r.Logged){$r.Logged=$true;try{Write-AppLog ('Relevé des postes ('+$(if($r.Slot -eq 'Computer'){'poste'}else{'liste'})+') : '+$text) 'INFO'}catch{}}
+    if($r.Completed -and $r.Approved -and -not [bool]$r.Logged){$r.Logged=$true;try{Write-AppLog ('Relevé des postes ('+$(if($r.Slot -eq 'Computer'){'poste'}else{'liste'})+') : '+$text) 'INFO'}catch{Write-DomeniaSwallowed 'Park' 'Update-DomeniaParkRunStatus' $_}}
     Update-DomeniaParkControls
     foreach($label in @('LblParkStatus','LblParkDetectionStatus')){[void](Set-DomeniaControlText $label $text)}
     # A run started by a widget shows its progress on that widget; at the end of any run the next queued widget
@@ -190,7 +190,7 @@ function Get-DomeniaParkRunDetailText {
         if($avoided -gt 0){$parts.Add('Requêtes WMI : '+[string]$executed+' envoyées, '+[string]$avoided+' évitées par regroupement.')}
         $note=[string](Get-DomeniaMember $Run 'CampaignNote' '')
         if($note){$parts.Add($note)}
-    }catch{try{Write-AppLog ('Détail du relevé non calculé : '+$_.Exception.Message) 'WARN'}catch{}}
+    }catch{try{Write-AppLog ('Détail du relevé non calculé : '+$_.Exception.Message) 'WARN'}catch{Write-DomeniaSwallowed 'Park' 'Get-DomeniaParkRunDetailText' $_}}
     return ($parts.ToArray() -join ' ')
 }
 function Get-DomeniaParkVerifyButtonText {
@@ -279,13 +279,13 @@ function Update-DomeniaParkControls {
         }
         $stop=Get-DomeniaControl 'BtnComputerParkStop'
         if($null -ne $stop){$stop.IsEnabled=($null -ne $computer -and -not [bool]$computer.Completed -and -not [bool]$computer.Stopping)}
-    }catch{try{Write-AppLog ('Commandes du relevé non actualisées : '+$_.Exception.Message) 'WARN'}catch{}}
+    }catch{try{Write-AppLog ('Commandes du relevé non actualisées : '+$_.Exception.Message) 'WARN'}catch{Write-DomeniaSwallowed 'Park' 'Update-DomeniaParkControls' $_}}
     # Point 20: when the survey of the lists starts or ends, the resume area of the collection settings follows (the
     # plan file is read on these transitions only), whatever happened to the controls above.
     try{
         $listActive=Test-DomeniaParkRunActive -Slot 'List'
         if($listActive -ne [bool]$script:DomeniaParkRunningShown){$script:DomeniaParkRunningShown=$listActive;Update-DomeniaCampaignResumeUi}
-    }catch{try{Write-AppLog ('Zone de reprise du relevé non actualisée : '+$_.Exception.Message) 'WARN'}catch{}}
+    }catch{try{Write-AppLog ('Zone de reprise du relevé non actualisée : '+$_.Exception.Message) 'WARN'}catch{Write-DomeniaSwallowed 'Park' 'Update-DomeniaParkControls' $_}}
 }
 function Test-DomeniaParkRunOnOpenComputer {
     # FI-18: the survey of the Computer scope reads the workstation open in Poste (same DN, same GUID when both are known).
@@ -690,7 +690,7 @@ function Stop-DomeniaOnlinePark {
         $requestId=[string]$r.InlineRequestId;$r.InlineRequestId=''
         $pending=$null;try{$pending=Get-DomeniaInlinePendingRequest}catch{$pending=$null}
         if($null -ne $pending -and [string](Get-DomeniaMemberValue $pending 'Id') -ceq $requestId){
-            try{Complete-DomeniaInlineRequest -Dismiss -Reason 'Relevé annulé avant sa confirmation.'}catch{try{Write-AppLog ('Demande du relevé non retirée : '+$_.Exception.Message) 'WARN'}catch{}}
+            try{Complete-DomeniaInlineRequest -Dismiss -Reason 'Relevé annulé avant sa confirmation.'}catch{try{Write-AppLog ('Demande du relevé non retirée : '+$_.Exception.Message) 'WARN'}catch{Write-DomeniaSwallowed 'Park' 'Stop-DomeniaOnlinePark' $_}}
             if([bool]$r.Completed){return}
         }
     }
@@ -710,7 +710,7 @@ function Close-DomeniaParkCampaign {
     # Point 20: end of a survey for its durable plan: a complete plan disappears, the others keep their remaining
     # workstations for a resume. A failure there never prevents the survey itself from ending.
     param($Run)
-    try{Complete-DomeniaCampaignPlan $Run}catch{try{Write-AppLog ('Plan de reprise non mis à jour : '+$_.Exception.Message) 'WARN'}catch{}}
+    try{Complete-DomeniaCampaignPlan $Run}catch{try{Write-AppLog ('Plan de reprise non mis à jour : '+$_.Exception.Message) 'WARN'}catch{Write-DomeniaSwallowed 'Park' 'Close-DomeniaParkCampaign' $_}}
 }
 function Set-DomeniaParkStopReason {
     # Point 20: why a survey stopped, for its durable plan. -KeepFirst keeps a reason already given.
@@ -834,7 +834,7 @@ function Select-DomeniaParkPingBatch {
 function Stop-DomeniaParkPingWorker {
     # MO-08: the batch ping is a single worker: it is asked to stop; echoes already reported are kept.
     param($Run)
-    if($null -ne $Run -and [string]$Run.PingJob -and $script:AsyncJobs.Contains([string]$Run.PingJob)){try{Request-UiTaskStop -Id ([string]$Run.PingJob) -Silent -Reason 'Relevé arrêté'}catch{}}
+    if($null -ne $Run -and [string]$Run.PingJob -and $script:AsyncJobs.Contains([string]$Run.PingJob)){try{Request-UiTaskStop -Id ([string]$Run.PingJob) -Silent -Reason 'Relevé arrêté'}catch{Write-DomeniaSwallowed 'Park' 'Stop-DomeniaParkPingWorker' $_}}
 }
 function Test-DomeniaRemoteStoreBlocked {
     # A batch the storage refused stays at the head of the remote store queue (a measure is never dropped): nothing
@@ -1064,7 +1064,7 @@ function Register-DomeniaParkPingOutcome {
         $latency=[double]-1
         if(([string]$Result.Presence -eq 'En ligne') -and ([string]$Result.PresenceDetail -match '(\d+)\s*ms')){$latency=[double]$Matches[1]}
         [void](Register-DomeniaSourceOutcome -Health $Run.Sources.Health -Key $source -Outcome ([string]$failure.Health) -LatencyMs $latency -Policy (Get-DomeniaCampaignSourcePolicy $Run.Sources $source) -NowUtc ([datetime]::UtcNow))
-    }catch{try{Write-AppLog ('Budget du ping non mis à jour : '+$_.Exception.Message) 'WARN'}catch{}}
+    }catch{try{Write-AppLog ('Budget du ping non mis à jour : '+$_.Exception.Message) 'WARN'}catch{Write-DomeniaSwallowed 'Park' 'Register-DomeniaParkPingOutcome' $_}}
 }
 function Test-DomeniaParkPingBuffered {
     # True while echoes reported by the batch ping still wait to be stored.
@@ -1270,7 +1270,7 @@ function Register-DomeniaParkMeasurement {
             $script:DomeniaCimQueriesExecuted=[long]$script:DomeniaCimQueriesExecuted+[long](Get-DomeniaMember $queries 'Executed' 0)
             $script:DomeniaCimQueriesAvoided=[long]$script:DomeniaCimQueriesAvoided+[long](Get-DomeniaMember $queries 'Avoided' 0)
         }
-    }catch{try{Write-AppLog ('Budget de collecte non mis à jour : '+$_.Exception.Message) 'WARN'}catch{}}
+    }catch{try{Write-AppLog ('Budget de collecte non mis à jour : '+$_.Exception.Message) 'WARN'}catch{Write-DomeniaSwallowed 'Park' 'Register-DomeniaParkMeasurement' $_}}
 }
 
 function Complete-DomeniaParkStored {
@@ -1418,7 +1418,7 @@ function Sync-DomeniaParkGrid {
     $Run.GridStale=$false
     if($Run.Generation -ne [long]$script:GlobalSearchGeneration){return}
     $grid=Get-DomeniaControl 'DgObjects'
-    if($null -ne $grid -and $null -ne $grid.ItemsSource){try{$grid.Items.Refresh()}catch{try{Write-AppLog ('Liste non actualisée après le relevé : '+$_.Exception.Message) 'WARN'}catch{}}}
+    if($null -ne $grid -and $null -ne $grid.ItemsSource){try{$grid.Items.Refresh()}catch{try{Write-AppLog ('Liste non actualisée après le relevé : '+$_.Exception.Message) 'WARN'}catch{Write-DomeniaSwallowed 'Park' 'Sync-DomeniaParkGrid' $_}}}
 }
 
 function Initialize-DomeniaRemoteStoreState {
@@ -1546,7 +1546,7 @@ function Publish-DomeniaCommittedPresence {
     Update-DomeniaObjectPresence -State $label -Target $State.Computer -PresenceState ([string]$view.PresenceState)
     # DS-08 (X04): the header pill of the workstation takes the time of this observation, even when the answer is the
     # same as the previous test (same text, no TextChanged).
-    if($State.DisplayKind -ne 'Utilisateur'){try{Set-DomeniaComputerHeaderPresenceTime -Observation $observation}catch{}}
+    if($State.DisplayKind -ne 'Utilisateur'){try{Set-DomeniaComputerHeaderPresenceTime -Observation $observation}catch{Write-DomeniaSwallowed 'Park' 'Publish-DomeniaCommittedPresence' $_}}
     if($State.Explicit){Set-Status ($State.Computer+' : '+$view.Display+' · '+$view.Detail)}
 }
 function Fail-DomeniaCommittedPresenceStore {

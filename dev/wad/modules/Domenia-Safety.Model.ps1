@@ -1502,6 +1502,45 @@ function Test-DomeniaRawAttributeAllowed {
     return (& $answer $true '')
 }
 
+# ---------------------------------------------------------------- P-CD-09 write guards that fail closed
+function Get-DomeniaReadOnlyState {
+    # The read-only switch as the write guards read it (Assert-WriteAllowed, Assert-DomeniaRemoteWriteAllowed and
+    # Apply-CurrentPermissionUi in the core). The check box ChkReadOnlyMode of $Controls is the choice of the operator;
+    # without that box (before the main window) the last known mode $Fallback applies. A box that cannot be read, or
+    # that is neither checked nor unchecked, counts as read-only: a write guard never opens on a failure.
+    # Returns ReadOnly, Unreadable and Error (the error record of the failed read, for the trace of the caller).
+    param($Controls,[bool]$Fallback=$true)
+    try {
+        $control = $null
+        if (($Controls -is [Collections.IDictionary]) -and (Test-DomeniaDictionaryKey $Controls 'ChkReadOnlyMode')) { $control = $Controls['ChkReadOnlyMode'] }
+        if ($null -eq $control) { return [pscustomobject]@{ReadOnly=[bool]$Fallback;Unreadable=$false;Error=$null} }
+        $checked = $control.IsChecked
+        return [pscustomobject]@{ReadOnly=(($null -eq $checked) -or [bool]$checked);Unreadable=$false;Error=$null}
+    }
+    catch { return [pscustomobject]@{ReadOnly=$true;Unreadable=$true;Error=$_} }
+}
+
+function Get-DomeniaWriteGuardSubject {
+    # What the write guards read from the selected object (Assert-DomeniaCapability, Apply-CurrentPermissionUi), failing
+    # closed. A DN that cannot be read leaves no recorded refusal to check against: DnUnreadable blocks every write on
+    # it. Protection markers (adminCount, isCriticalSystemObject) that cannot be read count as protected. No selection is
+    # not a failure: empty DN, not protected. Errors holds the error records of the failed reads, for the caller to trace.
+    param($Selected)
+    $errors = New-Object 'System.Collections.Generic.List[object]'
+    $dn = ''; $dnUnreadable = $false; $protected = $false; $protectionUnreadable = $false
+    if ($null -ne $Selected) {
+        # Get-DomeniaMemberValue: a missing member is not a failure (same answer with or without Set-StrictMode); a member
+        # whose value cannot be read throws, and that is the failure this rule closes on.
+        try { $dn = [string](Get-DomeniaMemberValue $Selected 'DN' '') } catch { $dn = ''; $dnUnreadable = $true; $errors.Add($_) }
+        try {
+            $safety = Get-DomeniaMemberValue $Selected 'Safety' $null
+            if ($null -ne $safety) { $protected = (([string](Get-DomeniaMemberValue $safety 'AdminCount' '') -eq '1') -or [bool](Get-DomeniaMemberValue $safety 'Critical' $false)) }
+        }
+        catch { $protected = $true; $protectionUnreadable = $true; $errors.Add($_) }
+    }
+    return [pscustomobject]@{Dn=$dn;DnUnreadable=$dnUnreadable;Protected=$protected;ProtectionUnreadable=$protectionUnreadable;Errors=$errors.ToArray()}
+}
+
 function ConvertTo-DomeniaDnDisplayName {
     # Readable name of a DN for the operator: the value of its first relative name, or the dotted domain name when
     # the DN only has DC= parts. A text that is not a DN is returned flattened, as typed.
