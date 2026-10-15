@@ -272,7 +272,11 @@ Test-Case 'D029' 'Liste de tables fermee et historique des associations declaree
     $targets=@(foreach($category in @('Observations','Snapshots','History','Index')){Get-DomeniaPurgeTargets $category})
     # Lot L01: ad_computer_facts (Index) and fleet_snapshots (History) join the closed list; secret_state never does.
     # Point 4: the scope clocks (domenia_domain_metadata) go with the measures (Presence, Inventory) and the index (Directory).
-    Assert-Equal 15 $targets.Count
+    # Points 22, 24 and 30: census gaps, absences and directory snapshots (rows and manifests) join the Index category.
+    # Real count of the closed list: 7 Observations, 1 Snapshots, 4 History, 10 Index (domenia_observations,
+    # domenia_details and domenia_directory_data were never counted by the former figure).
+    Assert-Equal 22 $targets.Count
+    foreach($table in @('ad_absences','ad_census_gaps','ad_snapshot_rows','ad_snapshots')){Assert-Equal 'Index' (@(foreach($category in @('Observations','Snapshots','History','Index')){foreach($t in @(Get-DomeniaPurgeTargets $category)){if($t.Table -eq $table){$category}}})[0]) $table}
     $clocks=@($targets | Where-Object {$_.Table -eq 'domenia_domain_metadata'})
     Assert-Equal 'WorkstationRuns|DirectoryRuns' (@($clocks | ForEach-Object {$_.Filter}) -join '|')
     Assert-Equal 'Index' (@(foreach($category in @('Index')){foreach($t in @(Get-DomeniaPurgeTargets $category)){if($t.Table -eq 'ad_computer_facts'){$category}}})[0])
@@ -287,19 +291,22 @@ Test-Case 'D029' 'Liste de tables fermee et historique des associations declaree
     $plan=Get-DomeniaPurgePlan -Selection @('Observations','Snapshots','History','Index')
     Assert-True $plan.KeepsManualLinks;Assert-True $plan.KeepsConfiguration;Assert-True $plan.KeepsUnresolvedReceipts
 }
-Test-Case 'D029' 'Point 137 : la purge epinglee protege exactement les sources declarees et importees' {
-    # The History purge of the pinned StoragePurge worker carries its own SQL list: it must stay the list of
-    # Test-DomeniaProtectedAssociationSource, or an imported association (GLPI, osquery) would lose its history.
+Test-Case 'D029' 'Point 137 : la purge et la conservation epinglees protegent exactement les sources declarees et importees' {
+    # The History purge of the pinned StoragePurge worker and the link history compaction of the pinned StorageRetention
+    # worker (point 37) each carry their own SQL list: both must stay the list of Test-DomeniaProtectedAssociationSource,
+    # or an imported association (GLPI, osquery) would lose its history.
     $sources=@(Get-DomeniaProtectedAssociationSources)
     foreach($source in @('Manual','Saisie manuelle','Import CSV','Import GLPI','Import osquery')){Assert-True ($sources -ccontains $source) ('source non protegee : '+$source)}
     foreach($source in $sources){Assert-True (Test-DomeniaProtectedAssociationSource (' '+$source.ToUpperInvariant()+' ')) ('comparaison de source : '+$source)}
     Assert-False (Test-DomeniaProtectedAssociationSource 'Journal du controleur') 'source automatique protegee'
     $worker=[IO.File]::ReadAllText((Join-Path $modules 'Domenia-Storage.Worker.ps1'),[Text.Encoding]::UTF8)
     $found=@([regex]::Matches($worker,'\$sources="\(([^)]*)\)"'))
-    Assert-Equal 1 $found.Count 'liste SQL des sources protegees de la purge'
-    $sql=@([regex]::Matches($found[0].Groups[1].Value,"'([^']*)'")|ForEach-Object{$_.Groups[1].Value})
+    Assert-Equal 2 $found.Count 'listes SQL des sources protegees (purge Historique et conservation de l historique des associations)'
     $expected=@($sources|ForEach-Object{$_.ToLowerInvariant()}|Sort-Object)
-    Assert-Equal ($expected -join '|') (@($sql|Sort-Object) -join '|') 'purge et regle de protection divergentes'
+    foreach($match in $found){
+        $sql=@([regex]::Matches($match.Groups[1].Value,"'([^']*)'")|ForEach-Object{$_.Groups[1].Value})
+        Assert-Equal ($expected -join '|') (@($sql|Sort-Object) -join '|') 'purge ou conservation et regle de protection divergentes'
+    }
 }
 Test-Case 'D029' 'Index reinitialise seulement le suivi annuaire, marqueur import conserve' {
     $sync=@(Get-DomeniaPurgeTargets Index | Where-Object {$_.Table -eq 'sync_state'})[0]
@@ -437,6 +444,14 @@ Test-Case 'FI-19' 'Metadonnees : repere du domaine, identifiant d invocation et 
     Assert-Equal '' $noInv.Info.InvocationId 'Un identifiant mal forme ne devient pas un repere'
     $noDirectory=ConvertTo-DomeniaIndexMetadataState -Result ([pscustomobject]@{Rows=@();Busy=$false;Missing=$false;MachineCount=0;SyncStates=@($sync[1]);Counts=$counts})
     Assert-True ($null -eq $noDirectory.Info) 'Une OU seule ne fournit pas le repere du domaine'
+}
+Test-Case 'P22' 'Metadonnees : identites du recensement encore absentes de la copie locale' {
+    $sync=@([pscustomobject]@{scope='directory';server='dc1.example.invalid';base_dn='DC=example,DC=invalid';highest_usn=10L;last_sync='2026-10-01T08:00:00Z';item_count=3L;details='inv=AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE;gap=2'})
+    $counts=[pscustomobject]@{Total=3L;Users=1L;Computers=2L;MachinesActive=2L;MachinesDisabled=0L}
+    $state=ConvertTo-DomeniaIndexMetadataState -Result ([pscustomobject]@{Rows=@();Busy=$false;Missing=$false;MachineCount=2;SyncStates=$sync;Counts=$counts;CensusGap=2L})
+    Assert-Equal 2 $state.Info.CensusGap 'Le nombre compte dans la base est garde'
+    $older=ConvertTo-DomeniaIndexMetadataState -Result ([pscustomobject]@{Rows=@();Busy=$false;Missing=$false;MachineCount=2;SyncStates=$sync;Counts=$counts})
+    Assert-Equal 0 $older.Info.CensusGap 'Sans comptage, aucun manque n est deduit du repere'
 }
 Test-Case 'FI-19' 'Resume des secrets : nombre de cles, LAPS, verdict et age, sans aucune valeur' {
     $now=[datetime]'2026-01-04T10:00:00Z'

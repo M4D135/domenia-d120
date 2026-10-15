@@ -14,6 +14,8 @@ function Get-DomeniaExperienceVisibleRows {
 }
 
 function Get-DomeniaExperienceExportRows {
+    # Former implicit rule (UX-02), kept for the maintenance preview only. Since point 60 the Rechercher export and
+    # surveys use the scope chosen beside the results (Get-DomeniaSearchSelectionPlan, Domenia-SearchWorkspace).
     param($VisibleRows,$SelectedRows)
     $visible=@($VisibleRows|Where-Object{$null -ne $_})
     $selected=@($SelectedRows|Where-Object{$null -ne $_})
