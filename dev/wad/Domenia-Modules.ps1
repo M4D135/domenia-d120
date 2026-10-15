@@ -32,7 +32,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaRawDnParent',
             'ConvertFrom-DomeniaDnLabel',
             'Get-DomeniaDnSite',
-            'Write-DomeniaSwallowed',
+            'Add-DomeniaSwallowedEntry',
             'Get-DomeniaSwallowedEntries'
         ) }
         [pscustomobject]@{ Phase='Bootstrap'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-Engine.Model.ps1'; DotSource=$true; Functions=@(

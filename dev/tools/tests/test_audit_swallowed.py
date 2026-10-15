@@ -40,6 +40,9 @@ try { Read-Remote } catch { }
 function Write-DomeniaSwallowed {
     try { X } catch { $null = $_ }
 }
+function Add-DomeniaSwallowedEntry {
+    try { Y } catch { $null = $_ }
+}
 try { Start-App } catch { }
 """
 
@@ -106,8 +109,10 @@ class FindingsTests(unittest.TestCase):
 
     def test_write_domenia_swallowed_is_exempt(self):
         exempt = [r for r in self.rows if r['Exempt']]
-        self.assertEqual([r['Function'] for r in exempt], ['Write-DomeniaSwallowed'])
-        self.assertNotIn('Write-DomeniaSwallowed', audit.counts(self.rows))
+        self.assertEqual([r['Function'] for r in exempt], ['Write-DomeniaSwallowed', 'Add-DomeniaSwallowedEntry'])
+        counts = audit.counts(self.rows)
+        self.assertNotIn('Write-DomeniaSwallowed', counts)
+        self.assertNotIn('Add-DomeniaSwallowedEntry', counts)
 
 
 class RatchetTests(unittest.TestCase):
@@ -127,7 +132,7 @@ class RatchetTests(unittest.TestCase):
 
     def test_init_pass_increase_move_and_update(self):
         code, report = run(self.args + ['--init', '--source', 'fixture'])
-        self.assertEqual((code, report['Status'], report['Total'], report['Exempt']), (0, 'INIT', 9, 1))
+        self.assertEqual((code, report['Status'], report['Total'], report['Exempt']), (0, 'INIT', 9, 2))
         saved = json.loads(self.baseline.read_text(encoding='utf-8'))
         self.assertEqual(saved['Schema'], audit.SCHEMA)
         self.assertEqual(saved['Kinds'], {'comment': 1, 'empty': 6, 'null': 2})
@@ -162,7 +167,9 @@ class RepositoryTests(unittest.TestCase):
         rows = audit.findings(DEV)
         self.assertGreater(len(rows), 0)
         exempt = [r for r in rows if r['Exempt']]
-        self.assertEqual({r['File'] for r in exempt}, {'wad/modules/Domenia-Common.Model.ps1'})
+        self.assertEqual({(r['File'], r['Function']) for r in exempt},
+                         {('wad/Domenia-Core.ps1', 'Write-DomeniaSwallowed'),
+                          ('wad/modules/Domenia-Common.Model.ps1', 'Add-DomeniaSwallowedEntry')})
         data = audit.load(DEV / audit.BASELINE)
         self.assertEqual(data['Total'], sum(data['Findings'].values()))
 
