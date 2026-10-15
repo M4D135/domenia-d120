@@ -1,19 +1,33 @@
 ﻿function Start-DomeniaQueryDetailRead {
-    param($Payload,$State)
+    # Saved WMI SELECT summaries and collection verdicts are read before the local computation, for the workshop and
+    # for a Search run alike: a nested or collection condition keeps the same meaning in both places.
+    param($Payload,$State,[ValidateSet('Workshop','Search')][string]$Owner='Workshop')
     $definitions=@{};foreach($recipe in @($Payload.Recipe)+@($Payload.Saved)){$definition=Get-DomeniaMemberValue $recipe 'ReadDefinition';if($null -ne $definition){$definitions[[string]$definition.RequestKey]=$definition}}
     $collections=@{};foreach($recipe in @($Payload.Recipe)+@($Payload.Saved)){foreach($node in @(Get-DomeniaQueryCollectionNodes $recipe)){$collections[$node.ProjectionKey]=$node}}
     $requests=[Collections.Generic.List[object]]::new()
     foreach($definition in @($definitions.Values|Sort-Object RequestKey)){$requests.Add([pscustomobject]@{Kind='Detail';RequestKey=$definition.RequestKey;Nodes=@()})}
     foreach($group in @($collections.Values|Group-Object ProbeId)){$requests.Add([pscustomobject]@{Kind='Observation';RequestKey=[string]$group.Name;Nodes=@($group.Group)})}
-    if(-not $requests.Count){$Payload|Add-Member NoteProperty DetailRows @() -Force;$Payload|Add-Member NoteProperty CollectionProjections @() -Force;Start-DomeniaQueryCompute -Payload $Payload -State $State;return}
-    if($definitions.Count -gt 64 -or $collections.Count -gt 64){throw 'Un aperçu accepte au maximum 64 définitions WMI distinctes.'}
-    $context=New-DomeniaStoreContext -RequestId ([guid]::NewGuid().ToString('D')) -Generation ([long]$State.Generation) -ScopeDn ([string]$State.ExportRequest.ScopeDn) -Subtree ([bool]$State.ExportRequest.Subtree)
-    $read=[pscustomobject]@{Context=$context;Payload=$Payload;State=$State;Definitions=$requests.ToArray();DefinitionIndex=0;Offset=0;Revision=-1L;Restarts=0;Rows=[Collections.Generic.List[object]]::new();Seen=@{};Bytes=0L;Projections=[Collections.Generic.List[object]]::new()}
-    $script:DomeniaQueryState|Add-Member NoteProperty DetailRead $read -Force
+    if(-not $requests.Count){$Payload|Add-Member NoteProperty DetailRows @() -Force;$Payload|Add-Member NoteProperty CollectionProjections @() -Force;Start-DomeniaQueryDetailCompute -Payload $Payload -State $State -Owner $Owner;return}
+    if(($definitions.Count -gt 64) -or ($collections.Count -gt 64)){throw 'Un aperçu accepte au maximum 64 définitions WMI distinctes.'}
+    if($Owner -eq 'Search'){$scopeDn=[string]$State.BaseDn;$subtree=([string]$State.Scope -eq 'Subtree')}else{$scopeDn=[string]$State.ExportRequest.ScopeDn;$subtree=[bool]$State.ExportRequest.Subtree}
+    $context=New-DomeniaStoreContext -RequestId ([guid]::NewGuid().ToString('D')) -Generation ([long]$State.Generation) -ScopeDn $scopeDn -Subtree $subtree
+    $read=[pscustomobject]@{Owner=$Owner;Context=$context;Payload=$Payload;State=$State;Definitions=$requests.ToArray();DefinitionIndex=0;Offset=0;Revision=-1L;Restarts=0;Rows=[Collections.Generic.List[object]]::new();Seen=@{};Bytes=0L;Projections=[Collections.Generic.List[object]]::new()}
+    if($Owner -eq 'Search'){$State|Add-Member NoteProperty DetailRead $read -Force}else{$script:DomeniaQueryState|Add-Member NoteProperty DetailRead $read -Force}
     Request-DomeniaQueryDetailPage -Read $read
+}
+function Start-DomeniaQueryDetailCompute {
+    param($Payload,$State,[string]$Owner='Workshop')
+    if($Owner -eq 'Search'){Start-DomeniaSearchLocalCompute -Payload $Payload -State $State}else{Start-DomeniaQueryCompute -Payload $Payload -State $State}
+}
+function Clear-DomeniaQueryDetailRead {
+    param($Read)
+    if([string](Get-DomeniaMember $Read 'Owner' 'Workshop') -eq 'Search'){$Read.State.DetailRead=$null}else{$script:DomeniaQueryState.DetailRead=$null}
 }
 function Test-DomeniaQueryDetailReadCurrent {
     param($Read)
+    if([string](Get-DomeniaMember $Read 'Owner' 'Workshop') -eq 'Search'){
+        return ($null -ne $Read -and [object]::ReferenceEquals((Get-DomeniaMemberValue $Read.State 'DetailRead'),$Read) -and (Test-DomeniaSearchLocalQueryCurrent $Read.State) -and [string]$Read.Context.Path -ceq [string]$script:DatabaseScopedPath)
+    }
     $q=$script:DomeniaQueryState
     return ($null -ne $q -and [object]::ReferenceEquals((Get-DomeniaMemberValue $q 'DetailRead'),$Read) -and [long]$Read.State.Epoch -eq [long]$script:SessionEpoch -and [long]$Read.State.Generation -eq [long]$q.Generation -and [string]$Read.State.SnapshotKey -ceq [string]$script:FleetQuerySnapshotKey -and [string]$Read.Context.Path -ceq [string]$script:DatabaseScopedPath -and [string]$Read.State.ScopeKey -ceq [string](Get-DomeniaFleetScope).Key)
 }
@@ -45,7 +59,7 @@ function Complete-DomeniaQueryDetailPage {
             $payload=[pscustomobject]@{ModuleRoot=$script:DomeniaQueryModuleRoot;ProjectCollections=$true;ObservationRows=$observations;CollectionNodes=$definition.Nodes;MaxAgeDays=(Get-DomeniaObservationMaxAgeDays)}
             $page=[pscustomobject]@{Read=$read;Count=@($Result.Rows).Count;Total=[long]$Result.Total}
             $job=Start-UiTask -Name 'Atelier : interpréter une page de collections locales' -OperationId 'LocalQuery' -Code (Get-DomeniaQueryWorkerCode) -Payload $payload -CallbackState $page -SuccessHandler 'Complete-DomeniaQueryCollectionPage' -ErrorHandler 'Fail-DomeniaQueryCollectionPage' -TimeoutSeconds 60 -TaskClass Explicit
-            if(-not $job){throw 'Interprétation de la collection non admise.'};$script:DomeniaQueryState.Job=$job;return
+            if(-not $job){throw 'Interprétation de la collection non admise.'};if($read.Owner -eq 'Search'){$read.State.Job=$job}else{$script:DomeniaQueryState.Job=$job};return
         }
         $details=@($Result.Details)
         foreach($detail in $details){
@@ -62,7 +76,8 @@ function Complete-DomeniaQueryDetailPage {
 function Fail-DomeniaQueryDetailPage {
     param($Message,$State)
     if(-not (Test-DomeniaQueryDetailReadCurrent $State)){return}
-    $script:DomeniaQueryState.DetailRead=$null
+    Clear-DomeniaQueryDetailRead $State
+    if($State.Owner -eq 'Search'){Fail-DomeniaSearchLocalQuery -Message ([string]$Message) -State $State.State;return}
     Fail-DomeniaQueryEvaluation -Message ([string]$Message) -State $State.State
 }
 function Start-DomeniaQueryCompute {
@@ -82,9 +97,9 @@ function Move-DomeniaQueryDetailPage {
     if($Read.DefinitionIndex -lt $Read.Definitions.Count){Request-DomeniaQueryDetailPage $Read;return}
     $Read.Payload|Add-Member NoteProperty DetailRows ($Read.Rows.ToArray()) -Force
     $Read.Payload|Add-Member NoteProperty CollectionProjections ($Read.Projections.ToArray()) -Force
-    $Read.State.ExportRequest|Add-Member NoteProperty DetailSnapshotRevision $Read.Revision -Force
-    $script:DomeniaQueryState.DetailRead=$null
-    Start-DomeniaQueryCompute -Payload $Read.Payload -State $Read.State
+    if($Read.Owner -ne 'Search'){$Read.State.ExportRequest|Add-Member NoteProperty DetailSnapshotRevision $Read.Revision -Force}
+    Clear-DomeniaQueryDetailRead $Read
+    Start-DomeniaQueryDetailCompute -Payload $Read.Payload -State $Read.State -Owner $Read.Owner
 }
 function Complete-DomeniaQueryCollectionPage {
     param($Result,$State)

@@ -730,3 +730,40 @@ Test-Case 'UX-37' 'Inventaire du poste : les codes CIM rendent un libelle, une v
     Assert-Equal 'Gadget' (Get-DomeniaInventoryValueText 'Divers' 'Note' 'Gadget') 'Un element sans table ressort brut'
     Assert-Equal '' (Get-DomeniaInventoryValueText 'Systeme' 'Role dans le domaine' $null) 'Une valeur vide rend vide'
 }
+Test-Case 'D090' 'Point 90 : diagnostic par couche, premiere etape bloquante, ping filtre sur un poste joignable' {
+    $row = { param([string]$Check,[string]$Status,[string]$Detail = '') [pscustomobject]@{ Check = $Check; Status = $Status; Method = 'Classique'; DurationMs = 5; Detail = $Detail } }
+    $filtered = @((& $row 'Resolution DNS' 'OK' '10.0.0.7'), (& $row 'Ping' 'ERREUR' 'TimedOut'), (& $row 'TCP 135 RPC / DCOM' 'OK' 'Ouvert'), (& $row 'TCP 445 Partage de fichiers SMB' 'INJOIGNABLE' 'Ferme ou filtre'), (& $row 'Session CIM' 'OK' 'Session ouverte.'))
+    $layers = Get-DomeniaNetworkLayerDiagnosis -Rows $filtered
+    Assert-True $layers.Reachable 'poste joignable en TCP'
+    Assert-Equal 0 ([int]$layers.BlockingStep) 'ICMP seul ne bloque pas'
+    Assert-Equal 4 @($layers.Layers).Count
+    Assert-Equal 'ports ouverts : 135' ([string]@($layers.Layers)[2].Detail)
+    Assert-True ([string]$layers.Sentence -like 'Pas de réponse au ping*ICMP est probablement filtré*') ([string]$layers.Sentence)
+    $verdict = ConvertTo-DomeniaDiagVerdict -Rows $filtered -Computer 'PC-01'
+    Assert-True ($verdict.Verdict -like 'PC-01 répond sans ping (ICMP filtré) : WMI lu.*') $verdict.Verdict
+    Assert-True ($verdict.Verdict -notlike '*ne répond pas*') 'poste joignable annonce eteint'
+    Assert-Equal 0 ([int]$verdict.BlockingStep)
+    Assert-Equal 1 ([int](Get-DomeniaNetworkLayerDiagnosis -Rows @(& $row 'Resolution DNS' 'ERREUR' 'Hote inconnu')).BlockingStep) 'nom non resolu'
+    $closed = Get-DomeniaNetworkLayerDiagnosis -Rows @((& $row 'Resolution DNS' 'OK'), (& $row 'Ping' 'OK'), (& $row 'TCP 135 RPC / DCOM' 'INJOIGNABLE'), (& $row 'TCP 445 Partage de fichiers SMB' 'INJOIGNABLE'))
+    Assert-Equal 3 ([int]$closed.BlockingStep)
+    Assert-True ([string]$closed.Sentence -like '*pare-feu probable*') ([string]$closed.Sentence)
+    $refused = Get-DomeniaNetworkLayerDiagnosis -Rows @((& $row 'Resolution DNS' 'OK'), (& $row 'TCP 135 RPC / DCOM' 'OK'), (& $row 'Session CIM' 'REFUSE' 'Acces refuse'))
+    Assert-Equal 4 ([int]$refused.BlockingStep)
+    Assert-True ([string]$refused.Sentence -like '*refusée au compte*') ([string]$refused.Sentence)
+    $rpc = Get-DomeniaNetworkLayerDiagnosis -Rows @((& $row 'Resolution DNS' 'OK'), (& $row 'TCP 135 RPC / DCOM' 'OK'), (& $row 'Session CIM' 'INJOIGNABLE' 'RPC server is unavailable'))
+    Assert-True ([string]$rpc.Sentence -like '*RPC dynamiques*') ([string]$rpc.Sentence)
+    $quiet = Get-DomeniaNetworkLayerDiagnosis -Rows @(& $row 'Ping' 'ERREUR' 'TimedOut')
+    Assert-False $quiet.Reachable
+    Assert-True ([string]$quiet.Sentence -like 'Étape bloquante inconnue*') ([string]$quiet.Sentence)
+}
+Test-Case 'D096' 'Point 96 : resultat de tache lu, etats du planificateur distincts d un echec' {
+    $e=[string][char]0x00E9
+    Assert-Equal ('succ'+[char]0x00E8+'s') ([string](ConvertFrom-DomeniaTaskResultCode '0x0').Text)
+    Assert-False (ConvertFrom-DomeniaTaskResultCode '0x41303').Failure 'jamais executee : etat du planificateur'
+    Assert-Equal ('jamais ex'+$e+'cut'+$e+'e') ([string](ConvertFrom-DomeniaTaskResultCode '0x41303').Text)
+    Assert-True (ConvertFrom-DomeniaTaskResultCode '0x80070005').Failure 'code d erreur a verifier'
+    Assert-True ($null -eq (ConvertFrom-DomeniaTaskResultCode 'non lu').Failure) 'code non lu : ni succes ni echec'
+    $value = Get-DomeniaInventoryValueText 'Taches planifiees' 'Sauvegarde' '\Contoso\ etat Ready ; auteur CONTOSO\admin ; derniere execution 14/10/2026 08:00 ; resultat 0x1'
+    Assert-Equal ('\Contoso\ etat Ready ; auteur CONTOSO\admin ; derniere execution 14/10/2026 08:00 ; r'+$e+'sultat 0x1 (code de sortie ou erreur '+[char]0x00E0+' v'+$e+'rifier)') $value
+    Assert-Equal '\Contoso\ etat Ready' (Get-DomeniaInventoryValueText 'Taches planifiees' 'Ancien' '\Contoso\ etat Ready') 'ancien inventaire sans resultat'
+}

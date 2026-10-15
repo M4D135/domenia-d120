@@ -103,8 +103,8 @@ Test-Case 'DLV-007' 'Choix saisis en minuscules : meme effet que leur orthograph
 Test-Case 'DPO-001' 'Chaque donnee gardee sur le poste a son contenu, son emplacement, sa conservation, son export et sa suppression' {
     $view = Get-DomeniaLocalDataPolicy -DataRoot 'C:\Users\agent\AppData\Local\Domenia\Data' -ReceiptRoot 'C:\Users\agent\AppData\Local\Domenia\Receipts'
     $rows = @($view.Rows)
-    Assert-Equal 15 $rows.Count
-    Assert-Equal 15 @($rows | ForEach-Object { $_.Category } | Sort-Object -Unique).Count 'categories en double'
+    Assert-Equal 20 $rows.Count
+    Assert-Equal 20 @($rows | ForEach-Object { $_.Category } | Sort-Object -Unique).Count 'categories en double'
     foreach ($row in $rows) { foreach ($field in @('Label','Content','Location','Retention','Export','Deletion')) { Assert-True ([string]$row.$field) ($row.Category + ' : ' + $field + ' vide') } }
     Assert-True ($view.Statement -like 'Domenia nʼenvoie aucune donnée hors de ce poste*') $view.Statement
     Assert-Equal 'C:\Users\agent\AppData\Local\Domenia\Data\Logs' @($rows | Where-Object { $_.Category -eq 'Log' })[0].Location
@@ -118,7 +118,8 @@ Test-Case 'DPO-002' 'La conservation affichee vient des reglages enregistres : 0
     $byCategory = @{}; foreach ($row in $rows) { $byCategory[$row.Category] = $row }
     Assert-Equal 'Sans limite de durée.' $byCategory['Presence'].Retention
     Assert-True ($byCategory['Inventory'].Retention -like '200 jours, appliqués après prévisualisation et confirmation*') $byCategory['Inventory'].Retention
-    Assert-True ($byCategory['Backup'].Retention -like 'Toutes les 12 h pendant que Domenia est ouvert, 5 copies conservées.*hors rotation.') $byCategory['Backup'].Retention
+    Assert-True ($byCategory['Backup'].Retention -like 'Toutes les 12 h pendant que Domenia est ouvert, 5 copies conservées.*hors rotation. Copies avant un geste : série à part, 5 copies conservées, sans retirer les autres.') $byCategory['Backup'].Retention
+    Assert-True ($byCategory['Association'].Retention -like 'Historique conservé en entier.*jamais purgés.') $byCategory['Association'].Retention
     $manual = @((Get-DomeniaLocalDataPolicy).Rows | Where-Object { $_.Category -eq 'Backup' })[0]
     Assert-True ($manual.Retention -like 'Sauvegarde automatique désactivée*') $manual.Retention
 }
@@ -138,6 +139,7 @@ Test-Case 'DPO-004' 'Reglages illisibles : conservation inconnue, jamais une val
     foreach ($category in @('Presence','Console','Inventory','Probe','Detail')) {
         Assert-Equal 'Réglages de conservation illisibles : durée inconnue.' @($rows | Where-Object { $_.Category -eq $category })[0].Retention $category
     }
+    Assert-True (@($rows | Where-Object { $_.Category -eq 'Association' })[0].Retention -like 'Réglages de conservation illisibles : durée inconnue.*') 'historique des associations'
     Assert-True (@($rows | Where-Object { $_.Category -eq 'Backup' })[0].Retention -like 'Réglages de sauvegarde illisibles*')
     Assert-Throws { Get-DomeniaLocalDataPolicy -Policy ([pscustomobject]@{ Version = 1; BackupHours = 0 }) } 'reglage hors limites accepte'
 }
@@ -156,6 +158,26 @@ Test-Case 'DPO-005' 'Chaque zone du stockage local a sa ligne, a lʼemplacement 
     foreach ($category in @('Export','Diagnostic','Legacy')) { Assert-True ($byCategory[$category].Retention -like '*jamais supprim*') ($category + ' : ' + $byCategory[$category].Retention) }
     Assert-True ($byCategory['Probe'].Export -like '*dossier des exports*') 'export des mesures sans dossier'
     Assert-True ($byCategory['Receipt'].Deletion -like '*reçu reste à vérifier*') $byCategory['Receipt'].Deletion
+}
+
+Test-Case 'DPO-006' 'Donnees des autres lots : associations et lots dʼimport, releves, horloges, bibliotheque, dossiers hors ligne, copies avant geste' {
+    $policy = [pscustomobject]@{ Version = 1; AutomaticBackup = $false; BackupHours = 24; BackupKeep = 4; PresenceDays = 30; ConsoleDays = 90; InventoryDays = 180; ProbeDays = 90; DetailDays = 30; LinkHistoryDays = 60 }
+    $rows = @((Get-DomeniaLocalDataPolicy -Policy $policy -DataRoot 'D:\Domenia\Data' -DatabasePath 'D:\Bases\cnamts\Domenia.db').Rows)
+    $byCategory = @{}; foreach ($row in $rows) { $byCategory[$row.Category] = $row }
+    # Kept inside the base of the domain (W05 snapshots, W03 clocks, W06 association history, W15 batches, W09 library).
+    foreach ($category in @('DirectorySnapshot','CollectionClock','Association','QueryLibrary')) { Assert-Equal 'D:\Bases\cnamts\Domenia.db' $byCategory[$category].Location $category }
+    Assert-True ($byCategory['Association'].Retention -like 'Historique : au-delà de 60 jours, les observations identiques répétées sont résumées*chaque changement dʼutilisateur est gardé*') $byCategory['Association'].Retention
+    Assert-True ($byCategory['Association'].Content -like '*lot de retour arrière*.relations-journal.jsonl*') $byCategory['Association'].Content
+    Assert-True ($byCategory['Association'].Deletion -like '*« Annuler lʼimport » (dernier lot importé, même après un redémarrage)*') $byCategory['Association'].Deletion
+    Assert-True ($byCategory['DirectorySnapshot'].Deletion -like '*« Supprimer le relevé choisi… »*purge de lʼindex local*') $byCategory['DirectorySnapshot'].Deletion
+    Assert-True ($byCategory['QueryLibrary'].Content -like '*.query-imports.jsonl*') $byCategory['QueryLibrary'].Content
+    Assert-Equal 'D:\Domenia\Data\Exports' $byCategory['OfflineDossier'].Location
+    Assert-True ($byCategory['OfflineDossier'].Content -like '*Mots de passe, clés BitLocker, LAPS et journaux bruts exclus*') $byCategory['OfflineDossier'].Content
+    # X06: copies taken before a gesture rotate apart from the scheduled and manual copies.
+    Assert-True ($byCategory['Backup'].Content -like '*(Domenia-*.db)*(Geste-*.db)*') $byCategory['Backup'].Content
+    Assert-True ($byCategory['Backup'].Retention -like '*Copies avant un geste : série à part, 4 copies conservées, sans retirer les autres.') $byCategory['Backup'].Retention
+    Assert-True ($byCategory['Receipt'].Retention -like '*sous-dossier archive, où ils restent.') $byCategory['Receipt'].Retention
+    Assert-True ($byCategory['Preference'].Content -like '*plan de reprise du dernier relevé*') $byCategory['Preference'].Content
 }
 
 # Point 148 : premiers pas (Domenia-FirstRun.Model).

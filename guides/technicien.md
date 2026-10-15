@@ -5,13 +5,13 @@ Quand : avant toute intervention, vous devez retrouver un poste, un utilisateur 
 ## Ouvrir Domenia
 
 1. **Lancer Domenia.** Double-cliquez sur Domenia.exe. La fenêtre « Connexion à Domenia » s'ouvre.
-2. **Saisir le compte.** Dans « Compte Windows », tapez votre compte du domaine (DOMAINE\identifiant ou identifiant@domaine), puis le « Mot de passe ».
-3. **Se connecter.** Cliquez sur « Se connecter » ou appuyez sur Entrée. Si votre session Windows est ouverte avec votre compte du domaine, cliquez plutôt sur « Utiliser mon compte Windows ».
+2. **Session Windows du domaine.** Si votre session Windows est ouverte avec votre compte du domaine, la fenêtre propose d'abord « Continuer en tant que DOMAINE\votre-compte » : cliquez dessus ou appuyez sur Entrée, sans mot de passe.
+3. **Autre compte.** Sinon, ou pour vous connecter avec un autre compte, cliquez sur « Utiliser un autre compte ». Dans « Compte Windows », tapez le compte du domaine (DOMAINE\identifiant ou identifiant@domaine), puis le « Mot de passe », et cliquez sur « Se connecter » ou appuyez sur Entrée. « Afficher » montre le mot de passe saisi pendant 5 secondes.
 4. **Attendre l'ouverture.** « Vérification du compte… » s'affiche, puis la fenêtre principale s'ouvre. Sous le titre de la page, le badge « Connecté à … » donne le nom du domaine ; le pied du menu rappelle le compte et le domaine utilisés.
 
-![Fenêtre « Connexion à Domenia » : compte, mot de passe, « Se connecter » et « Utiliser mon compte Windows »](fig:connexion)
+![Fenêtre « Connexion à Domenia » : compte, mot de passe, « Se connecter » et « Continuer en tant que … »](fig:connexion)
 
-> [!NOTE] Cochez « Mémoriser uniquement l’identifiant » pour retrouver votre identifiant la fois suivante. Le mot de passe n'est jamais enregistré.
+> [!NOTE] Cochez « Se souvenir de mon identifiant » pour retrouver votre identifiant la fois suivante. La case est décochée au départ ; le mot de passe n'est jamais enregistré par elle.
 
 > [!RESULTAT] Domenia est ouvert avec l'interrupteur sur « Lecture seule » : vous consultez sans rien modifier.
 
@@ -19,17 +19,19 @@ Quand : avant toute intervention, vous devez retrouver un poste, un utilisateur 
 
 1. **Placer le curseur.** Cliquez dans la barre du haut « Personne, poste ou groupe, dans tout le domaine… », ou appuyez sur Ctrl+F. Vos dernières recherches et fiches s'affichent sous la barre ; pendant la frappe, des suggestions viennent de la base locale. La saisie seule n'interroge pas l'annuaire.
 2. **Taper le nom.** Saisissez au moins deux caractères : nom, identifiant, adresse mail ou nom de poste. Appuyez sur Entrée ou cliquez sur « Rechercher ». La page « Rechercher » affiche la liste « Résultats ».
-3. **Lire la liste.** Le compteur indique les lignes visibles parmi les objets chargés, pas le total du domaine. « Liste partielle » signale une lecture incomplète : même 746/746 ne garantit pas que tout a été reçu.
-4. **Affiner sans relancer.** Tapez quelques lettres dans « Dans les résultats » : seules les lignes qui les contiennent restent. « Effacer le filtre » réaffiche tout.
-5. **Vérifier un poste.** Cliquez une fois sur la ligne d'un poste. Domenia le pingue et lit l'utilisateur ouvert sur son écran : « Présence réseau » et « Utilisateur connecté (console) » se mettent à jour.
-6. **Ouvrir la fiche.** Double-cliquez sur la ligne, ou appuyez sur Entrée. La page « Fiche » s'ouvre sur l'onglet « Resume ».
+3. **Choisir où et quoi chercher.** Sous la barre, la puce « Partout » cherche dans tout le domaine ; « Dans « Postes » » limite la recherche à l’OU choisie dans l’arbre de Rechercher, sous-OU incluses. Les choix « Tout », « Personnes », « Postes » et « Groupes » restreignent le type. Le texte gris de la barre rappelle ces choix ; changer une puce ne lance rien avant Entrée.
+4. **Lire la liste.** Le compteur indique les lignes visibles parmi les objets chargés, pas le total du domaine. La barre cherche les noms qui **commencent** par votre texte : si elle trouve peu de noms ou aucun, la puce « Chercher aussi les noms qui contiennent « compta » » apparaît sous le compteur. Un clic relance la même recherche (même périmètre, même type, même limite) sur les noms qui contiennent ce texte, par exemple « PC-COMPTA-014 » ; cette lecture est plus longue. « Liste partielle » signale une lecture incomplète : même 746/746 ne garantit pas que tout a été reçu.
+5. **Affiner sans relancer.** Tapez quelques lettres dans « Filtrer la liste » : seules les lignes chargées qui les contiennent restent, aussi après une recherche globale, sans requête AD. « Effacer le filtre » réaffiche tout. Une nouvelle recherche repart avec un filtre vide.
+6. **Choisir les colonnes.** La liste montre six colonnes : Type, Nom, Utilisateur connecté, Association mémorisée, Présence réseau et État. L’association affiche l’utilisateur ou les postes liés suivis de la qualification du lien (par exemple « Camille Martin · Observé ») ; son infobulle donne la source. Clic droit sur un en-tête de colonne, ou menu « ⋯ » puis « Colonnes… » : cochez ou décochez une colonne ; « Colonnes par défaut » revient aux six colonnes. Le choix est gardé d’une session à l’autre ; les colonnes propres aux postes n’apparaissent que si la liste contient un poste.
+7. **Vérifier un poste.** Cliquez une fois sur la ligne d'un poste. Domenia le pingue et lit l'utilisateur ouvert sur son écran : « Présence réseau » et « Utilisateur connecté (console) » se mettent à jour.
+8. **Ouvrir la fiche.** Double-cliquez sur la ligne, ou appuyez sur Entrée. La page « Fiche » s'ouvre sur l'onglet « Resume ».
 
 | Zone de Rechercher | Utilisation |
 |---|---|
 | Arbre des OU | Choisissez la branche à parcourir et relisez son chemin. |
 | Données de l’OU, sous l’arbre | Objets AD, Ping et WMI actualisent toute l’OU choisie et ses sous-OU ; Arrêter interrompt l’actualisation en cours. |
 | Périmètre et Requêtes | Choisissez une source, des filtres ou une recette, puis lancez la recherche. |
-| Résultats | Triez, filtrez et ouvrez les objets affichés. Les actions de liste concernent cette liste. |
+| Résultats | Triez, filtrez et ouvrez les objets affichés. Les actions de liste concernent cette liste. « Actualiser » et « Exporter CSV » sont dans le menu « ⋯ ». |
 
 > [!ASTUCE] Pour ne chercher qu'un type d'objet, commencez par un préfixe : utilisateur: (ou u:), poste: (ou pc:), groupe: (ou g:), mail:. Exemple : poste:compta.
 
@@ -41,7 +43,7 @@ Quand : avant toute intervention, vous devez retrouver un poste, un utilisateur 
 2. **Ouvrir sa fiche.** Double-cliquez sur la ligne, puis cliquez sur l'onglet « Utilisateur ».
 3. **Lire ses postes.** « Postes associes » liste les postes liés à ce compte. Sélectionnez-en un et cliquez sur « Ouvrir le poste ».
 
-> [!ASTUCE] Plus court : clic droit sur la ligne de l'utilisateur dans les résultats, puis « Rechercher le poste associe ».
+> [!ASTUCE] Plus court : clic droit sur la ligne de l'utilisateur dans les résultats, puis « Rechercher le poste associé ».
 
 > [!RESULTAT] La fiche du poste de l'utilisateur est ouverte.
 
@@ -51,8 +53,8 @@ Quand : vous voulez voir tous les postes ou tous les utilisateurs d'un site ou d
 
 1. **Choisir l'OU.** À gauche de la page « Rechercher », dans « Parcourir les OU », dépliez l'arbre et cliquez sur une OU. Son contenu s'affiche dans la liste.
 2. **Régler la portée.** Ouvrez le menu « ⋯ » près de « Parcourir les OU ». Décochez « Inclure les sous-OU » pour ne voir que le premier niveau.
-3. **Filtrer.** Dans « Type d’objet », choisissez par exemple « Machines ». Dans « Présence réseau », choisissez « En ligne » ou « Sans réponse au ping ».
-4. **Compléter la liste.** Si le compteur indique une liste limitée, cliquez sur « Charger la suite ».
+3. **Filtrer.** Dans la liste « Tous les types », choisissez par exemple « Machines ». Dans « Toute présence », choisissez « En ligne » ou « Sans réponse au ping ». « N lignes max » (100 par défaut) borne la lecture de la liste. La présence repart sur « Toute présence » à chaque lancement de Domenia : au démarrage, aucun poste nʼest encore vérifié. Si le filtre masque toutes les lignes chargées, la liste lʼindique (« Le filtre masque N lignes ») avec un bouton « Effacer le filtre ».
+4. **Compléter la liste.** Si le compteur indique une liste limitée, cliquez sur « Charger la suite » : seules les lignes suivantes sont lues, celles déjà affichées restent en place avec votre sélection. Pour aller plus vite, « Charger jusqu’à 1 000 » complète la liste jusqu’à ce palier en un clic (puis 5 000, puis 20 000).
 5. **Changer de périmètre.** Choisissez une autre OU dans l’arbre. Pour chercher un objet par son nom dans le domaine, utilisez la barre du haut.
 
 > [!RESULTAT] La liste montre les objets de l'OU choisie.
@@ -89,7 +91,8 @@ La recherche globale peut continuer tant que de nouveaux objets AD arrivent, pen
 
 | Vous voyez | Que faire |
 |---|---|
-| « Saisis au moins … caracteres, ou * pour un apercu. » | Tapez au moins deux caractères. |
+| « Saisissez au moins N caractères… » | Tapez au moins N caractères (2 par défaut) ; les étoiles ne comptent pas. |
+| « Saisissez au moins un caractère en plus de * » | Une étoile seule listerait tout le domaine : ajoutez une partie du nom, par exemple « compta* ». |
 | « Aucun résultat affiché » | Vérifiez l’orthographe, l’OU et les filtres, ou cherchez le nom dans la barre du haut. Une liste vide ne prouve pas l'absence de l'objet. |
 | « La liste affichée nʼest plus la recherche courante : relancez la recherche. » | Relancez la recherche, puis cliquez de nouveau sur « Charger la suite ». |
 | « Fiche » est grisé dans le menu | Sélectionnez d'abord une ligne dans les résultats. |
@@ -101,16 +104,18 @@ Quand : un utilisateur signale un problème sur son poste et vous devez l'examin
 Avant de commencer :
 
 - Le poste est trouvé dans « Rechercher » (chapitre 1).
-- Pour C$ et les consoles, le compte utilisé a des droits d'administration sur le poste.
+- Pour le disque C et les consoles, le compte utilisé a des droits d'administration sur le poste.
 
 ## Ouvrir la fiche du poste
 
 1. **Ouvrir le poste.** Double-cliquez sur le poste dans les résultats. La page « Fiche » s'ouvre.
 2. **Passer à l'assistance.** Cliquez sur « Poste » dans le menu de gauche. Sans poste sélectionné, la page « Aucun poste ouvert » propose un champ de recherche et les derniers postes consultés.
-3. **Lire la fiche.** L'onglet « Machine » affiche la carte « Fiche du poste » : « Nom », « DNS », « Presence », « OS », « Etat », « Derniere connexion » et « Utilisateur associe ».
-4. **Trouver l'utilisateur.** Cliquez sur « Detecter l utilisateur » pour chercher le dernier utilisateur connu du poste, puis sur « Ouvrir l utilisateur » pour ouvrir sa fiche.
+3. **Lire l'en-tête.** L'en-tête du poste reste en haut de la page, quelle que soit la vue : nom, système, pastille de présence (« Répond au ping », « Ne répond pas au ping » ou « Présence non vérifiée », avec l'heure du dernier test), utilisateur associé et âge du dernier inventaire. Ses boutons « Bureau à distance », « Ouvrir le disque C » et « Tester la réponse » agissent au clic.
+4. **Choisir la vue.** Cinq vues se partagent la page : « Vue d'ensemble » (fiche et tableau de bord), « Intervenir » (actions, sessions et services), « Détails » (inventaire et logiciels), « Diagnostic » et « Secrets ».
+5. **Lire la fiche.** « Vue d'ensemble » affiche la carte « Fiche du poste » : « Nom », « DNS », « Presence », « OS », « Etat » et « Derniere connexion ».
+6. **Trouver l'utilisateur.** La ligne « Utilisateur associé » donne le badge de l'association et une phrase comme « Camille Martin · console observée le 08/10 à 08:15 ». « Ouvrir la fiche » ouvre sa fiche ; « Détecter à nouveau » interroge le poste. Le nom de l'utilisateur, dans l'en-tête, ouvre aussi sa fiche.
 
-![Onglet « Machine » de PC-COMPTA-014 : système, présence en ligne et utilisateur associé Camille Martin](fig:fiche-poste)
+![Vue « Vue d'ensemble » de PC-COMPTA-014 : en-tête avec le système, la pastille de présence et l'utilisateur associé Camille Martin, puis la fiche du poste](fig:fiche-poste)
 
 > [!RESULTAT] La fiche du poste est affichée dans « Poste ». Le titre de la page et la puce « Poste · nom » à côté du badge rappellent le poste ; ✕ le désélectionne.
 
@@ -118,58 +123,72 @@ Avant de commencer :
 
 Quand : vous voulez tester le poste, ouvrir son disque, une console d'administration ou une session à distance.
 
-1. **Ouvrir l'onglet.** Cliquez sur l'onglet « Actions ». La carte « Actions sur le poste » regroupe les outils.
-2. **Tester le réseau.** Cliquez sur « Ping ». Le résultat (état, temps de réponse, adresse) s'inscrit dans le « Journal de session », en bas de la fenêtre.
-3. **Ouvrir le disque.** Cliquez sur « Ouvrir C$ ». L'Explorateur Windows s'ouvre sur le disque C du poste. Si vous vous êtes connecté avec un mot de passe, ou si vous avez saisi un compte pour les postes, le « Journal de session » indique le compte utilisé : « C$ de … ouvert avec … ».
-4. **Ouvrir une console.** Cliquez sur « Gestion de l ordinateur » ou sur « Journaux » : la console Windows s'ouvre sur ce poste. Si « Services » montre votre propre ordinateur, connectez la console au poste par son menu Action.
+1. **Ouvrir la vue.** Cliquez sur « Intervenir ». Quatre cartes regroupent les outils : « Se connecter », « Vérifier », « Intervenir » et « Compte AD ».
+2. **Tester la réponse.** Cliquez sur « Tester la réponse ». La pastille de présence de l'en-tête se met à jour, avec l'heure du test.
+3. **Ouvrir le disque.** Cliquez sur « Ouvrir le disque C ». L'Explorateur Windows s'ouvre sur le disque C du poste (partage C$). Sous les boutons de la carte « Se connecter », la ligne « Opérations poste : … » indique, avant le clic, le compte utilisé.
+4. **Ouvrir une console.** Cliquez sur « Gestion de lʼordinateur » ou sur « Observateur dʼévénements » : la console Windows s'ouvre sur ce poste.
 5. **Prendre la main.** Cliquez sur « Bureau à distance ». La connexion Bureau à distance de Windows s'ouvre vers ce poste ; saisissez votre compte si Windows le demande.
-6. **Préparer PowerShell.** « Commande PowerShell » copie la commande de connexion à distance : collez-la dans votre console PowerShell.
+6. **Préparer PowerShell.** « Copier la commande PowerShell » copie la commande de connexion à distance et l'annonce dans la page. Si un compte est saisi pour les postes, la commande le nomme : Windows demandera son mot de passe, qui n'est jamais copié.
+7. **Lire les sessions et les services.** Plus bas dans « Intervenir », « Lire les sessions » liste les sessions ouvertes et « Lire les services » liste les services du poste. « Automatiques arrêtés seulement » ne garde que les services qui devraient tourner.
 
-![Actions du poste : état du compte, Ping, Bureau à distance, Ouvrir C$, consoles, journaux et services ; données fictives](fig:actions-poste)
+![Vue « Intervenir » : cartes « Se connecter » (Bureau à distance, Ouvrir le disque C, consoles), « Vérifier » (Tester la réponse, diagnostic), « Intervenir » et « Compte AD » ; données fictives](fig:actions-poste)
 
-![Autres actions : commande PowerShell, programme, stratégies et redémarrage ; données fictives](fig:actions-poste-avancees)
+![Vue « Intervenir » : « Copier la commande PowerShell », « Actualiser les stratégies », « Exécuter un programme… » et « Redémarrer… » ; données fictives](fig:actions-poste-avancees)
 
 > [!RESULTAT] L'outil choisi est ouvert sur le poste, sans rien modifier sur le poste ni dans l'annuaire.
 
-> [!ATTENTION] Les actions qui modifient le poste ou l'annuaire, comme « Redemarrer » ou « Renommer dans AD », restent bloquées en « Lecture seule ». Si votre intervention en a besoin, prévenez l'administrateur.
+> [!ATTENTION] Les actions qui modifient le poste ou l'annuaire, comme « Redémarrer… », « Démarrer… » un service ou « Renommer dans AD », restent bloquées en « Lecture seule ». Si votre intervention en a besoin, prévenez l'administrateur.
+
+## Redémarrer un poste en prévenant l'utilisateur
+
+Quand : un redémarrage est nécessaire et l'utilisateur travaille peut-être encore sur le poste.
+
+1. **Préparer.** Dans « Intervenir », cliquez sur « Redémarrer… ». Le panneau du redémarrage s'ouvre dans la page et lit d'abord les sessions ouvertes du poste.
+2. **Lire les sessions.** Le panneau indique qui est connecté. Si la lecture est refusée, il le dit : une session peut quand même être ouverte.
+3. **Choisir.** « Dans 5 min avec message à lʼutilisateur » est proposé par défaut ; modifiez le message si besoin. « Maintenant, sans délai ni message » fait perdre le travail non enregistré.
+4. **Confirmer.** Cliquez sur « Redémarrer dans 5 min… », relisez la demande dans la page, puis confirmez. La demande part une seule fois.
+
+> [!RESULTAT] L'utilisateur voit le message et dispose du délai pour enregistrer son travail. Si le poste refuse la commande à distance, Domenia l'indique (« Non envoyé : le poste nʼaccepte pas la commande à distance ») et rien n'est relancé.
 
 ## Utiliser le compte fourni pour les postes
 
-Quand : l'administrateur vous a donné un compte réservé aux postes, ou « Ouvrir C$ » est refusé avec votre compte habituel.
+Quand : l'administrateur vous a donné un compte réservé aux postes, ou « Ouvrir le disque C » est refusé avec votre compte habituel.
 
-1. **Saisir le compte.** Dans l'onglet « Diagnostic », carte « Diagnostic du poste », remplissez « Compte poste » et « Mot de passe ».
-2. **Valider.** Cliquez sur « Utiliser ce compte ». La ligne sous les champs commence par « Operations poste : compte saisi ».
-3. **Relancer l'outil.** Revenez à l'onglet « Actions » et cliquez de nouveau sur l'outil voulu.
+1. **Ouvrir le panneau.** Dans l'en-tête d'Assistance poste, au-dessus de « Bureau à distance », cliquez sur la pastille « Compte poste : … ▾ ». Elle reste visible dans les cinq vues. Un panneau s'ouvre sur le côté de la page.
+2. **Saisir le compte.** Remplissez « Identifiant » et « Mot de passe ».
+3. **Valider.** Cliquez sur « Utiliser ce compte » ou appuyez sur Entrée. La pastille affiche le compte et le panneau indique « compte poste saisi, en mémoire seulement ».
+4. **Relancer l'outil.** Fermez le panneau et cliquez de nouveau sur l'outil voulu.
 
-> [!RESULTAT] « Ouvrir C$ » et les consoles utilisent ce compte, jamais enregistré sur le disque. « Compte de connexion » revient au compte de départ.
+> [!RESULTAT] « Ouvrir le disque C », les consoles, l'inventaire, le diagnostic et les sessions utilisent ce compte, jamais enregistré sur le disque. « Revenir au compte de connexion » revient au compte de départ.
 
 ## Lancer un inventaire
 
 Quand : vous avez besoin du matériel, du système, des disques ou de la configuration du poste.
 
-1. **Ouvrir l'onglet.** Cliquez sur l'onglet « Inventaire ». La carte « Inventaire du poste » s'affiche.
+1. **Ouvrir la vue.** Cliquez sur « Détails », puis sur l'onglet « Inventaire ». La carte « Inventaire du poste » s'affiche.
 2. **Choisir l'inventaire.** Cliquez sur « Inventaire rapide (≈1 min) » (matériel, système, disques, réseau, sécurité, logiciels, services) ou sur « Inventaire complet (≈3 min) », plus long, qui ajoute les processus, les tâches planifiées, les certificats et les erreurs récentes.
 3. **Attendre la fin.** Sur la ligne de « Categorie », un résumé donne ensuite le nombre d'éléments lus et le nombre de sources accessibles ou refusées.
 4. **Lire le résultat.** Chaque ligne donne la « Categorie », l'« Element », la « Valeur » et la « Source ». Choisissez une catégorie dans « Categorie » pour n'afficher qu'elle.
 5. **Transmettre.** Cliquez sur « Copier » ou sur « Exporter CSV » pour joindre l'inventaire au ticket. « Exporter CSV » enregistre le fichier sans rien demander : son chemin s'affiche dans une fenêtre et dans le « Journal de session » (« Inventaire exporte : … »). Le volet « Detail par source » indique ce qui a été lu ou refusé.
 
-> [!RESULTAT] L'inventaire est affiché, et l'onglet « Tableau de bord » se remplit avec les mêmes données (chapitre 3).
+> [!RESULTAT] L'inventaire est affiché, le tableau de bord de « Vue d'ensemble » se remplit avec les mêmes données (chapitre 3) et l'en-tête du poste en donne l'âge.
 
 ## Si ça ne se passe pas comme prévu
 
 | Vous voyez | Que faire |
 |---|---|
 | « Poste » affiche « Aucun poste ouvert » | L'objet sélectionné n'est pas un poste. Sélectionnez un poste dans « Rechercher » ou dans « Derniers postes consultés ». |
-| Une erreur qui commence par « Ouvrir C$ de » | Lisez le motif. Poste injoignable : vérifiez-le avec « Ping ». Accès refusé : utilisez le compte fourni pour les postes. Sinon, prévenez l'administrateur. |
+| Une erreur qui commence par « Ouvrir le disque C de » | Lisez le motif. Poste injoignable : vérifiez-le avec « Tester la réponse ». Accès refusé : utilisez le compte fourni pour les postes. Sinon, prévenez l'administrateur. |
 | « Console ouverte avec la session Windows : » suivi d'un motif | La console utilise votre session Windows et peut être refusée par le poste. Saisissez le compte fourni pour les postes, puis rouvrez la console. |
-| « Inventaire impossible : » suivi d'un motif | Lancez « Ping ». Si le poste répond, prévenez l'administrateur (chapitre 8). |
+| « Non envoyé : le poste nʼaccepte pas la commande à distance » | Rien n'est parti vers le poste. Vérifiez qu'il répond, puis prévenez l'administrateur : la commande à distance n'est pas ouverte sur ce poste. |
+| « Inventaire impossible : » suivi d'un motif | Lancez « Tester la réponse ». Si le poste répond, prévenez l'administrateur (chapitre 8). |
 
 # 3 Lire le tableau de bord du poste
 
 Quand : vous voulez voir d'un coup d'œil l'état d'un poste et ses points à vérifier.
 
-1. **Ouvrir l'onglet.** Dans « Poste », cliquez sur l'onglet « Tableau de bord ». La carte « Tableau de bord du poste » s'affiche.
-2. **Remplir le tableau.** Cliquez sur « Inventaire rapide ». Pour les processus les plus gourmands et les erreurs du journal Système, cliquez sur « Inventaire complet », plus long. Un inventaire de l'onglet « Inventaire » remplit aussi ce tableau.
+1. **Ouvrir la vue.** Dans « Poste », cliquez sur « Vue d'ensemble » : la carte « Tableau de bord du poste » suit la fiche du poste.
+2. **Remplir le tableau.** Cliquez sur « Inventaire rapide ». Pour les processus les plus gourmands et les erreurs du journal Système, cliquez sur « Inventaire complet », plus long. Un inventaire lancé dans « Détails », onglet « Inventaire », remplit aussi ce tableau.
 3. **Lire l'état général.** En haut, « Etat general » donne un score sur 100 et un verdict : « Bon état », « À surveiller », « Dégradé » ou « Critique ».
 4. **Lire les points d'attention.** « Points d attention » liste les problèmes trouvés, du plus grave au moins grave. « Rien a signaler » : aucun point à vérifier.
 5. **Parcourir les sections.** Descendez dans la page pour lire chaque section.
@@ -190,8 +209,8 @@ Quand : vous voulez voir d'un coup d'œil l'état d'un poste et ses points à v�
 
 | Point d'attention | Que faire |
 |---|---|
-| Pas de redémarrage depuis plus de 30 jours, ou redémarrage en attente | Convenez d'un redémarrage avec l'utilisateur. |
-| Disque système presque plein | Libérez de la place avec l'utilisateur (« Ouvrir C$ », chapitre 2). Sinon, prévenez l'administrateur. |
+| Pas de redémarrage depuis plus de 30 jours, ou redémarrage en attente | Convenez d'un redémarrage avec l'utilisateur, puis utilisez « Redémarrer… » avec un message (chapitre 2). |
+| Disque système presque plein | Libérez de la place avec l'utilisateur (« Ouvrir le disque C », chapitre 2). Sinon, prévenez l'administrateur. |
 | Horloge décalée, mot de passe machine ancien, compte ordinateur désactivé | Prévenez l'administrateur. |
 | Version de Windows signalée | Faites vérifier l’édition, son cycle de support et les dispositions de maintenance du parc par l’administrateur. |
 
@@ -204,25 +223,24 @@ Quand : vous voulez voir d'un coup d'œil l'état d'un poste et ses points à v�
 | « Pas encore de donnees » | Cliquez sur « Inventaire rapide ». |
 | Une section indique « Inventaire complet requis : » | Cliquez sur « Inventaire complet ». |
 | Un widget affiche « Non lu » | L'information n'a pas pu être lue. Relancez l'inventaire. Si elle reste absente, prévenez l'administrateur. |
-| Le tableau se vide quand vous choisissez un autre objet | Le tableau suit le poste sélectionné. Un ancien inventaire peut réapparaître dans l’onglet « Inventaire » avec sa date ; relancez l’inventaire pour remplir le tableau du poste. |
+| Le tableau se vide quand vous choisissez un autre objet | Le tableau suit le poste sélectionné. Un ancien inventaire peut réapparaître dans « Détails », onglet « Inventaire », avec sa date ; relancez l’inventaire pour remplir le tableau du poste. |
 
 # 4 Savoir qui est connecté sur une liste de postes
 
 Quand : vous cherchez sur quel poste travaille un utilisateur, ou quels postes d'un service sont allumés.
 
-1. **Préparer la liste.** Affichez les postes voulus dans « Rechercher » : OU, recherche ou « Dans les résultats » (chapitre 1). Seuls les postes affichés sont interrogés : une liste courte va plus vite.
-2. **Pinger la liste.** Pour savoir seulement quels postes répondent, cliquez sur « Pinger la liste ». La demande « Pinger les postes affiches » donne le nombre de postes. Cliquez sur « Pinger ».
-3. **Ou détecter les utilisateurs.** Pour savoir aussi qui est connecté, cliquez sur « Détecter la liste ». La demande « Detecter sur les resultats affiches » donne le nombre de postes. Cliquez sur « Verifier les sessions ».
-4. **Ou analyser les postes.** Pour connaître aussi leur matériel, cliquez sur « Analyser la liste ». La demande « Analyser les postes affiches » donne le nombre de postes. Cliquez sur « Analyser ». En plus de l'utilisateur, Domenia lit le modèle, la mémoire, le disque C:, la version de Windows et la date de démarrage de chaque poste.
-5. **Suivre l'avancement.** La ligne sous les boutons suit l'avancement, avec 1 à 8 postes en parallèle selon le réglage, jusqu'à « Ping termine » ou « Releve termine ».
-6. **Lire le résultat.** Après « Pinger la liste », seule « Présence réseau » est mise à jour ; après « Détecter la liste » ou « Analyser la liste », « Utilisateur connecté (console) » et « Vérification utilisateur » le sont aussi. Le matériel lu par « Analyser la liste » s'affiche dans la vue d'ensemble de l'Accueil (chapitre 5).
-7. **Arrêter si besoin.** Cliquez sur « Arrêter » : aucune nouvelle lecture ne démarre et les résultats déjà obtenus restent affichés.
+1. **Préparer la liste.** Affichez les postes voulus dans « Rechercher » : OU, recherche ou « Filtrer la liste » (chapitre 1). Seuls les postes affichés sont interrogés : une liste courte va plus vite.
+2. **Choisir la vérification.** Cliquez sur la flèche de « Vérifier la liste » : « Qui répond ? » pour savoir seulement quels postes répondent, « Qui est connecté ? » pour savoir aussi qui est connecté, « Matériel et widgets » pour connaître aussi leur matériel (modèle, mémoire, disque C:, version de Windows et date de démarrage). Le bouton garde ensuite ce choix jusqu'à la fermeture de Domenia : un clic suffit pour recommencer.
+3. **Confirmer.** La demande donne en trois lignes les postes visés, ce qui sera lu et la durée estimée. Cliquez sur « Pinger N postes », « Vérifier N postes » ou « Analyser N postes » (N est le nombre de postes de votre liste).
+4. **Suivre l'avancement.** Le bouton devient « Arrêter (N/M) » (N postes lus sur M), une barre fine avance sous les boutons et chaque poste encore à lire affiche « relevé en cours… ».
+5. **Lire le résultat.** Après « Qui répond ? », seule « Présence réseau » est mise à jour et trois pastilles comptent les postes en ligne, sans réponse et en erreur : cliquez sur l'une d'elles pour ne garder que ces postes, cliquez de nouveau pour tout réafficher. Après « Qui est connecté ? » ou « Matériel et widgets », « Utilisateur connecté (console) » et « Vérification utilisateur » sont aussi mis à jour. Le matériel s'affiche dans la vue d'ensemble de l'Accueil (chapitre 5).
+6. **Arrêter si besoin.** Cliquez sur « Arrêter (N/M) » : aucune nouvelle lecture ne démarre et les résultats déjà obtenus restent affichés.
 
-![Ligne d'actions sous les résultats : « Utilisateur au clic », « Revérifier ce poste », « Pinger la liste », « Détecter la liste », « Analyser la liste » et « Arrêter »](fig:recherche-actions)
+![Ligne d'actions sous les résultats : « Vérifier au clic », « + utilisateur connecté », « Revérifier ce poste » et « Vérifier la liste » avec sa flèche](fig:recherche-actions)
 
-> [!ASTUCE] Pour un seul poste, cliquez sur sa ligne, ou sur « Revérifier ce poste » pour recommencer. Décochez « Utilisateur au clic » pour un ping seul.
+> [!ASTUCE] Pour un seul poste, cliquez sur « Revérifier ce poste », ou cochez « Vérifier au clic » pour qu'un clic sur une ligne envoie un ping ; décochez « + utilisateur connecté » pour un ping seul. Pour quelques postes, sélectionnez-les avec Ctrl ou Maj : la barre de la sélection propose « Pinger » et « Qui est connecté ? ».
 
-> [!NOTE] Les sessions Bureau à distance ne sont pas recensées : utilisez l'onglet « Sessions Windows » de « Poste », bouton « Lire les sessions ».
+> [!NOTE] Les sessions Bureau à distance ne sont pas recensées : dans « Poste », vue « Intervenir », utilisez « Lire les sessions ».
 
 > [!RESULTAT] Pour chaque poste affiché, vous savez s'il répond et qui est connecté sur son écran.
 
@@ -230,10 +248,12 @@ Quand : vous cherchez sur quel poste travaille un utilisateur, ou quels postes d
 
 | Vous voyez | Que faire |
 |---|---|
-| « Pinger la liste », « Détecter la liste » et « Analyser la liste » sont grisés | La liste ne contient aucun poste. Affichez des postes, par exemple avec « Type d’objet » sur « Machines ». |
-| « Releve impossible : Un releve est deja en cours. » | Attendez la fin du relevé en cours, ou cliquez sur « Arrêter ». |
-| « Releve impossible : Attendez la confirmation des enregistrements locaux avant un nouveau releve. » | Attendez quelques secondes, puis relancez. |
-| « Releve impossible : Aucune base autonome active. » | Prévenez l'administrateur. |
+| « Vérifier la liste » est grisé | La liste ne contient aucun poste, ou c'est une vue sur tout le domaine. Affichez des postes d'une OU, par exemple avec « Type d’objet » sur « Machines ». Si le compteur indique « Actualisation de … », attendez sa fin ou arrêtez-la avec les boutons d'actualisation de l'OU. |
+| « Relevé impossible : 812 postes affichés : plafond 500. Filtrez la liste. » | Réduisez la liste (sous-OU, recherche, « Filtrer la liste ») ou sélectionnez les postes voulus. L'administrateur règle ce plafond. |
+| « Relevé impossible : Recherche globale sans terme… » ou « …racine du domaine sans autre filtre… » | Saisissez un nom ou choisissez une OU, puis relancez. Si le message commence par « Toute la liste est sélectionnée », sélectionnez seulement les postes voulus. |
+| « Relevé impossible : Un relevé de la liste est déjà en cours : arrêtez-le ou attendez sa fin. » | Attendez la fin du relevé en cours, ou cliquez sur « Arrêter (N/M) ». |
+| « Relevé impossible : Attendez la confirmation des enregistrements locaux avant un nouveau relevé. » | Attendez quelques secondes, puis relancez. |
+| « Relevé impossible : Aucune base autonome active. » | Prévenez l'administrateur. |
 | « Aucun compte console » | Personne n'est connecté sur l'écran du poste. |
 | « Accès refusé » ou « Compte distant refusé » | Le compte n'a pas les droits sur ce poste. Utilisez le compte fourni pour les postes (chapitre 2). Sinon, prévenez l'administrateur. |
 | « Délai dépassé » | Le poste a répondu trop lentement. Revérifiez-le plus tard avec « Revérifier ce poste ». |
@@ -421,7 +441,7 @@ L’onglet « Stockage » rassemble le chemin de la base et les sauvegardes. La 
 | Un widget compte plus de postes que Rechercher | Vérifiez l'OU, les sous-OU, les comptes désactivés, le filtre et la limite de Rechercher. Ouvrez sa petite icône de détail pour consulter la liste exacte. |
 | Une mesure est inconnue ou ancienne | Pour la présence de l’OU, utilisez « Ping » ; pour la console et l’inventaire léger, « WMI ». Pour une sonde précise, collectez depuis l’Atelier. Un ping récent ne rafraîchit pas un ancien inventaire. |
 | Le calcul est récent mais la base ou les mesures sont anciennes | Le calcul prépare l’affichage. Choisissez « Objets AD », « Ping » ou « WMI » selon la source à relire. |
-| Une actualisation vise plus de postes que la liste n’en montre | Les commandes « Données de l’OU » couvrent toute l’OU et ses sous-OU. Pinger, Détecter et Analyser la liste restent limités aux lignes affichées. |
+| Une actualisation vise plus de postes que la liste n’en montre | Les commandes « Données de l’OU » couvrent toute l’OU et ses sous-OU. « Vérifier la liste » reste limité aux lignes affichées. |
 | Un inventaire échoue mais des valeurs restent affichées | Ce sont les dernières valeurs réussies, avec leur date. Consultez l’erreur et relancez une collecte adaptée ; leur présence ne signifie pas que le dernier essai a réussi. |
 | La base est partielle | Relancez la mise à jour selon le message affiché. Ne concluez pas à une suppression à partir d'une passe incomplète. |
 | La base est occupée | Attendez la fin de l'enregistrement, puis actualisez. |
@@ -437,7 +457,7 @@ Quand : vous voulez garder sous les yeux les informations utiles. Chaque tuile o
 2. **Chercher l'information.** Tapez un mot dans la recherche (disque, utilisateur, BitLocker…) : la liste des informations se réduit. Le badge « affiche » signale une information déjà sur le tableau.
 3. **Choisir.** Cliquez sur une ligne. L'« Apercu » montre le widget.
 4. **Régler.** Modifiez au besoin le « Titre », la « Représentation » (« Chiffre cle », « Jauge », « Anneau », « Barres »…), la « Taille » et la « Section ». Pour une nouvelle section, choisissez « + Nouvelle section... » et tapez son nom dans le champ qui apparaît.
-5. **Ajouter.** Cliquez sur « Ajouter » : le widget apparaît à la fin de sa section. Hors personnalisation, un widget encore sans données reste masqué et la barre affiche « Widget enregistre : il s affichera des que ses donnees seront lues. ». « Annuler » ne change rien.
+5. **Ajouter.** Cliquez sur « Ajouter » : le widget apparaît à la fin de sa section et la collecte de ses données manquantes part aussitôt, pour le poste sélectionné ou les postes actifs de l’OU affichée. Le widget affiche « Recherche des mesures manquantes » : les postes déjà mesurés ne sont pas contactés, puis « Collecte en cours » et son chiffre. Au-delà de 200 postes à lire, leur nombre est confirmé dans la page ; au-delà du plafond d’un relevé (500 postes par défaut), rien n’est lu. « Annuler » ne change rien.
 
 ![Panneau « Ajouter un widget » : recherche, liste des informations, réglages à droite et aperçu du widget « Disque systeme »](fig:editeur-widget)
 
@@ -478,7 +498,7 @@ Quand : vous voulez garder sous les yeux les informations utiles. Chaque tuile o
 
 Quand : vous devez savoir si un logiciel est installé sur un poste, dans quelle version et pour qui.
 
-1. **Ouvrir l'onglet.** Dans « Poste », cliquez sur l'onglet « Logiciels ». La carte « Logiciels installes » s'affiche.
+1. **Ouvrir l'onglet.** Dans « Poste », cliquez sur « Détails », puis sur l'onglet « Logiciels ». La carte « Logiciels installes » s'affiche.
 2. **Choisir l'étendue.** « Par utilisateur », cochée par défaut, ajoute les logiciels de chaque profil. Cochez « Applications Store » pour le Microsoft Store (plus long), « Mises a jour » pour les correctifs et composants système.
 3. **Charger.** Cliquez sur « Charger les logiciels ». Chaque ligne donne le « Nom », la « Version », l'« Editeur », « Installe le », la « Taille » et la « Portee ».
 4. **Chercher un logiciel.** Tapez une partie du nom, de l'éditeur ou de la version dans « Filtre ». « Portee » limite la liste à « Machine », « Utilisateur » ou « Store ».
@@ -494,7 +514,7 @@ Quand : vous devez savoir si un logiciel est installé sur un poste, dans quelle
 | Vous voyez | Que faire |
 |---|---|
 | « Selectionne un poste, puis charge la liste. » | Sélectionnez un poste dans « Rechercher », puis cliquez sur « Charger les logiciels ». |
-| « Lecture impossible : » suivi d'un motif | Vérifiez le poste avec « Ping ». S'il répond, prévenez l'administrateur. |
+| « Lecture impossible : » suivi d'un motif | Vérifiez le poste avec « Tester la réponse ». S'il répond, prévenez l'administrateur. |
 | Un logiciel attendu n'apparaît pas | Videz « Filtre », remettez « Portee » sur « Toutes ». Cochez « Par utilisateur » ou « Applications Store », puis rechargez. |
 | « Chargez les logiciels pour afficher la synthese. » | Cliquez sur « Charger les logiciels ». |
 
@@ -511,8 +531,8 @@ Quand une opération échoue, Domenia écrit un message dans le « Journal de s
 | « Le mot de passe de ce compte a expire. » | Changez-le (Ctrl+Alt+Suppr, Modifier un mot de passe), puis reconnectez-vous. |
 | Un message qui se termine par « le compte utilise ne possede pas les droits necessaires. » | Prévenez l'administrateur. |
 | « les identifiants ont ete refuses. » | Vérifiez le compte utilisé pour les postes (chapitre 2). Sinon, prévenez l'administrateur. |
-| « le controleur de domaine ou le poste distant est indisponible. » | Vérifiez avec « Ping » que le poste est allumé et sur le réseau. |
-| « En memoire uniquement : » sur la ligne d'état, sous « Pinger la liste » et « Détecter la liste » | Les observations ne sont plus enregistrées. Prévenez l'administrateur. |
+| « le controleur de domaine ou le poste distant est indisponible. » | Vérifiez avec « Tester la réponse » que le poste est allumé et sur le réseau. |
+| « En memoire uniquement : » ou « En mémoire uniquement : » sur la ligne d'état, sous « Vérifier la liste » | Les observations ne sont plus enregistrées. Après des échecs d'enregistrement, « Reprendre les sauvegardes » (Base autonome, onglet Stockage) relance l'enregistrement ; sinon prévenez l'administrateur. |
 | Un bouton grisé | Survolez-le : l'infobulle dit ce qui manque, par exemple « Desactive : mode lecture seule actif. ». |
 
 ## Lire l’état du moteur
@@ -529,7 +549,7 @@ Donnez-lui ces éléments :
 
 - le message exact, copié avec « Copier » dans le « Journal de session » ;
 - pour un problème de connexion, le texte obtenu avec « Copier le diagnostic » dans la fenêtre de connexion ;
-- pour un poste, le rapport de l'onglet « Diagnostic » : « Lancer le diagnostic », puis « Copier le rapport » ;
+- pour un poste, le rapport de la vue « Diagnostic » : « Lancer le diagnostic », puis « Copier le rapport » ;
 - le nom du poste ou de l'utilisateur, l'heure et ce que vous avez fait juste avant.
 
 > [!ATTENTION] Ne relancez pas en boucle une action qui échoue. Ne collez jamais de mot de passe dans un ticket, et relisez le texte copié : il contient les noms des postes et des comptes.
@@ -563,7 +583,7 @@ Donnez-lui ces éléments :
 
 - Notez le nom du poste, l'utilisateur concerné et la référence du ticket.
 - Vérifiez le badge « Connecté à … » : c'est le bon domaine.
-- Vérifiez que le poste répond (« Ping ») avant d'ouvrir C$ ou une console.
+- Vérifiez que le poste répond (« Tester la réponse ») avant d'ouvrir le disque C ou une console.
 - Prévenez l'utilisateur avant de prendre la main en Bureau à distance.
 
 # 10 Mots à connaître

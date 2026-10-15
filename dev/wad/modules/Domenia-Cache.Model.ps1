@@ -89,19 +89,29 @@ function Add-DomeniaPageRows {
 function Get-DomeniaDataNatures { return @('Identity','Attributes','Presence','Console','History') }
 
 function Get-DomeniaFreshnessPolicy {
-    param([Parameter(Mandatory=$true)][ValidateSet('Identity','Attributes','Presence','Console','History')][string]$Nature)
-    switch ($Nature) {
-        'Identity'   { return [pscustomobject]@{Nature=$Nature;FreshSeconds=86400;Label='Identite AD'} }
-        'Attributes' { return [pscustomobject]@{Nature=$Nature;FreshSeconds=900;Label='Attributs AD'} }
-        'Presence'   { return [pscustomobject]@{Nature=$Nature;FreshSeconds=120;Label='Presence reseau'} }
-        'Console'    { return [pscustomobject]@{Nature=$Nature;FreshSeconds=300;Label='Session console'} }
-        default      { return [pscustomobject]@{Nature=$Nature;FreshSeconds=0;Label='Historique'} }
+    # Point 11: $Table is the resolved table of the usage profile (Resolve-DomeniaFreshnessTable): its Seconds, or a
+    # plain family -> seconds dictionary, replace the default of the nature. History never expires.
+    param([Parameter(Mandatory=$true)][ValidateSet('Identity','Attributes','Presence','Console','History')][string]$Nature,$Table=$null)
+    $policy = switch ($Nature) {
+        'Identity'   { [pscustomobject]@{Nature=$Nature;FreshSeconds=86400;Label='Identite AD'} }
+        'Attributes' { [pscustomobject]@{Nature=$Nature;FreshSeconds=900;Label='Attributs AD'} }
+        'Presence'   { [pscustomobject]@{Nature=$Nature;FreshSeconds=120;Label='Presence reseau'} }
+        'Console'    { [pscustomobject]@{Nature=$Nature;FreshSeconds=300;Label='Session console'} }
+        default      { [pscustomobject]@{Nature=$Nature;FreshSeconds=0;Label='Historique'} }
     }
+    if (($Nature -ne 'History') -and ($null -ne $Table)) {
+        $seconds = Get-DomeniaMember $Table 'Seconds' $Table
+        if (($seconds -is [Collections.IDictionary]) -and $seconds.Contains($Nature)) {
+            $value = 0L
+            if ([long]::TryParse([string]$seconds[$Nature],[ref]$value) -and ($value -ge 0)) { $policy.FreshSeconds = [long]$value }
+        }
+    }
+    return $policy
 }
 
 function Get-DomeniaFreshness {
-    param([Parameter(Mandatory=$true)][string]$Nature,$ObservedUtc=$null,$LastAttemptUtc=$null,[datetime]$NowUtc=[datetime]::UtcNow)
-    $policy = Get-DomeniaFreshnessPolicy $Nature
+    param([Parameter(Mandatory=$true)][string]$Nature,$ObservedUtc=$null,$LastAttemptUtc=$null,[datetime]$NowUtc=[datetime]::UtcNow,$Table=$null)
+    $policy = Get-DomeniaFreshnessPolicy $Nature $Table
     $observed = ConvertTo-DomeniaUtcDate $ObservedUtc
     $attempt = ConvertTo-DomeniaUtcDate $LastAttemptUtc
     if ($null -eq $observed) {
@@ -173,9 +183,9 @@ function Set-DomeniaObservationTime {
 }
 
 function Get-DomeniaRecordFreshness {
-    param($Record,[Parameter(Mandatory=$true)][string]$Nature,[datetime]$NowUtc=[datetime]::UtcNow)
+    param($Record,[Parameter(Mandatory=$true)][string]$Nature,[datetime]$NowUtc=[datetime]::UtcNow,$Table=$null)
     $entry=Get-DomeniaMember (Get-DomeniaObservationTimes $Record) $Nature $null
-    return (Get-DomeniaFreshness $Nature (Get-DomeniaMember $entry 'ObservedUtc' $null) (Get-DomeniaMember $entry 'LastAttemptUtc' $null) $NowUtc)
+    return (Get-DomeniaFreshness $Nature (Get-DomeniaMember $entry 'ObservedUtc' $null) (Get-DomeniaMember $entry 'LastAttemptUtc' $null) $NowUtc $Table)
 }
 
 # ---------------------------------------------------------------- D025 keys with identity and provenance
@@ -258,6 +268,36 @@ function Resolve-DomeniaIncrementalSync {
     # ScopeVerified: the whole scope was read on the instance of the checkpoint, so the local copy may mirror it
     # (rows absent from the answer may leave a local cache). It is never an AD deletion.
     return [pscustomobject]@{Mode=$mode;Upserts=$rows;Moves=$moves.ToArray();NotSeen=$deletions;DeletionsAsserted=@();CheckpointNext=$next;CheckpointAdvanced=$advance;ScopeVerified=$canAssertAbsence;Partial=$partial;SaveTogether=$true;Notes=$notes.ToArray()}
+}
+
+function Test-DomeniaSyncCheckpoint {
+    # Point 21: a directory checkpoint is reused only when it still describes the data of this base on this very
+    # instance: same controller, an invocationID, a USN that the instance has really committed, the domain scope, a
+    # local base that still holds what the checkpoint counted, and a date that is not in the future. Any doubt gives a
+    # complete read; a USN is never carried over to another controller or instance.
+    param($Checkpoint,[AllowEmptyString()][string]$Server='',[AllowEmptyString()][string]$DomainDn='',[long]$ObjectCount=-1,
+        [long]$HighestCommittedUsn=0,[datetime]$NowUtc=[datetime]::UtcNow)
+    $result = { param([string]$Code,[string]$Reason) [pscustomobject]@{Usable=($Code -eq 'Usable');Code=$Code;Reason=$Reason} }
+    if ($null -eq $Checkpoint) { return (& $result 'Missing' 'Aucun repère de synchronisation : lecture complète.') }
+    $usn = 0L
+    [void][long]::TryParse([string](Get-DomeniaMember $Checkpoint 'Usn' '0'),[ref]$usn)
+    $checkpointServer = ([string](Get-DomeniaMember $Checkpoint 'Server' '')).Trim()
+    $invocation = [string](Get-DomeniaMember $Checkpoint 'InvocationId' '')
+    if ($usn -le 0) { return (& $result 'NoUsn' 'Repère sans USN : lecture complète.') }
+    if (-not (Test-DomeniaGuidText $invocation)) { return (& $result 'NoInstance' 'Repère sans identifiant dʼinstance du contrôleur (invocationID) : lecture complète.') }
+    if (-not $checkpointServer) { return (& $result 'NoServer' 'Repère sans contrôleur : lecture complète.') }
+    if (([string]$Server).Trim() -and ($checkpointServer -ine ([string]$Server).Trim())) {
+        return (& $result 'OtherController' ('Repère pris sur ' + $checkpointServer + ', connexion actuelle sur ' + ([string]$Server).Trim() + ' : lecture complète, aucun USN reporté dʼun contrôleur à lʼautre.'))
+    }
+    $scope = ([string](Get-DomeniaMember $Checkpoint 'BaseDn' '')).Trim()
+    if (([string]$DomainDn).Trim() -and $scope -and ($scope -ine ([string]$DomainDn).Trim())) { return (& $result 'OtherScope' 'Repère dʼun autre périmètre que le domaine : lecture complète.') }
+    if (($HighestCommittedUsn -gt 0) -and ($usn -gt $HighestCommittedUsn)) { return (& $result 'UsnAhead' 'Repère au-delà du dernier USN validé par ce contrôleur (restauration ou retour arrière) : lecture complète.') }
+    $count = [long](Get-DomeniaMember $Checkpoint 'Count' -1)
+    if ($ObjectCount -eq 0) { return (& $result 'EmptyBase' 'Base locale vide malgré un repère : lecture complète.') }
+    if (($ObjectCount -gt 0) -and ($count -ge 100) -and (($ObjectCount * 2) -lt $count)) { return (& $result 'BaseShrunk' ('Base locale réduite depuis le repère (' + [string]$ObjectCount + ' objets pour ' + [string]$count + ' comptés) : lecture complète.')) }
+    $date = ConvertTo-DomeniaUtcDate (Get-DomeniaMember $Checkpoint 'Date' $null)
+    if (($null -ne $date) -and ($date -gt $NowUtc.AddMinutes(5))) { return (& $result 'FutureDate' 'Repère daté dans le futur : lecture complète.') }
+    return (& $result 'Usable' '')
 }
 
 # ---------------------------------------------------------------- D027 temporary failure cache
@@ -354,10 +394,10 @@ function Get-DomeniaPersistenceLabel {
     # unavailable, suspended, conflicts (an association changed by another console, kept on disk, ours only in memory
     # until the associations are reloaded), failures, pending, saved. Positional order of the first three is kept.
     # The conflict text names the gesture that really reloads them today (Comptes > Changer de compte, which calls
-    # Load-UserMachineLinks, or a restart): no dedicated reload button exists.
+    # Request-DomeniaUserMachineLinks, or a restart): no dedicated reload button exists.
     param([int]$Pending=0,[int]$Failed=0,[bool]$Suspended=$false,[bool]$Unavailable=$false,[int]$Conflicts=0)
     if ($Unavailable) { return 'En memoire uniquement : stockage local indisponible, rien n est enregistre.' }
-    if ($Suspended) { return 'En memoire uniquement : enregistrement suspendu apres des echecs. Reprise dans Fiabilite.' }
+    if ($Suspended) { return 'En mémoire uniquement : enregistrement suspendu après des échecs. Reprise : « Reprendre les sauvegardes », Base autonome, onglet Stockage.' }
     if ($Conflicts -gt 0) { return ('En memoire : ' + $Conflicts + ' association(s) modifiee(s) ailleurs, non enregistree(s). Rechargez les associations : Comptes > Changer de compte, ou redemarrage.') }
     if ($Failed -gt 0) { return ('En memoire : ' + $Failed + ' enregistrement(s) en echec, nouvel essai prevu.') }
     if ($Pending -gt 0) { return ('En memoire : ' + $Pending + ' modification(s) a enregistrer.') }
@@ -402,6 +442,8 @@ function Get-DomeniaPurgeTargets {
             [pscustomobject]@{Table='park_session_cache';TimeColumn='checked_utc';Filter='All';Action='Delete'}
             [pscustomobject]@{Table='domenia_observations';TimeColumn='attempt_at';Filter='All';Action='Delete'}
             [pscustomobject]@{Table='domenia_details';TimeColumn='attempt_at';Filter='All';Action='Delete'}
+            # Scope clocks of the ping and WMI campaigns (families Presence and Inventory), purged with their measures.
+            [pscustomobject]@{Table='domenia_domain_metadata';TimeColumn='attempt_at';Filter='WorkstationRuns';Action='Delete'}
         }
         'Snapshots' {[pscustomobject]@{Table='adcc_live_queries';TimeColumn='observed_utc';Filter='All';Action='Delete'}}
         'History' {
@@ -417,6 +459,14 @@ function Get-DomeniaPurgeTargets {
             # Computer facts read with the index; secret_state (BitLocker and LAPS metadata) is never an index target.
             [pscustomobject]@{Table='ad_computer_facts';TimeColumn='';Filter='All';Action='Delete'}
             [pscustomobject]@{Table='domenia_directory_data';TimeColumn='';Filter='All';Action='Delete'}
+            # Points 22, 24 and 30: census gaps, objects not seen again and directory snapshots copy directory rows; they
+            # leave with the index (snapshot rows and their manifests in the same transaction).
+            [pscustomobject]@{Table='ad_absences';TimeColumn='';Filter='All';Action='Delete'}
+            [pscustomobject]@{Table='ad_census_gaps';TimeColumn='';Filter='All';Action='Delete'}
+            [pscustomobject]@{Table='ad_snapshot_rows';TimeColumn='';Filter='All';Action='Delete'}
+            [pscustomobject]@{Table='ad_snapshots';TimeColumn='';Filter='All';Action='Delete'}
+            # Scope clock of the AD reads (family Directory), purged with the index it dated.
+            [pscustomobject]@{Table='domenia_domain_metadata';TimeColumn='';Filter='DirectoryRuns';Action='Delete'}
             # Preserve other scopes, including the idempotence marker of an old-data import.
             [pscustomobject]@{Table='sync_state';TimeColumn='';Filter='DirectoryScope';Action='Reset'}
         }
@@ -522,7 +572,256 @@ function Get-DomeniaCacheCatalogRows {
     }
 }
 
+function Get-DomeniaProtectedAssociationSources {
+    # Declared and imported association sources. The History purge of the pinned StoragePurge worker and the link history
+    # compaction of the pinned StorageRetention worker keep the same list in lower case (Get-DomeniaStoragePurgeWorkerCode,
+    # Get-DomeniaStorageRetentionWorkerCode); a rules test compares them.
+    return @('Manual','Saisie manuelle','Import CSV','Import GLPI','Import osquery')
+}
+
 function Test-DomeniaProtectedAssociationSource {
+    # Declared and imported associations are never removed by an automatic check (orphans) nor replaced by a detection.
+    # Point 137: the GLPI and osquery imports carry their own imposed source and are protected the same way.
     param([AllowNull()][string]$Source)
-    return (([string]$Source).Trim() -in @('Manual','Saisie manuelle','Import CSV'))
+    return (([string]$Source).Trim() -in @(Get-DomeniaProtectedAssociationSources))
+}
+
+# ---------------------------------------------------------------- FI-12, FI-13, UI-19 : base locale (lot X06)
+function Get-DomeniaSqliteBusyTimeoutMs {
+    # FI-12: lock wait of SQLite (LocalStore.DatabaseBusyTimeoutMs), clamped to 100..5000 ms like every connection.
+    # An absent or unreadable value keeps the documented default of 2 500 ms (Get-WorkerContext applies the same rule).
+    param($Value=$null)
+    $number = 0
+    if (($null -eq $Value) -or (-not [int]::TryParse(([string]$Value).Trim(),[ref]$number))) { return 2500 }
+    return [int][Math]::Max(100,[Math]::Min(5000,$number))
+}
+
+function Test-DomeniaSqliteBusyText {
+    # FI-12: a SQLite lock wait that ran out (SQLITE_BUSY 5, SQLITE_LOCKED 6), as worded by the workers
+    # ('SQLite code 5', 'SQLite step code 5', 'SQLite prepare code 6'), the read worker ('SQLITE_BUSY') or SQLite itself.
+    # The cross-process write lease ('StorageBusy') is another wait and is not counted here.
+    param([AllowNull()][AllowEmptyString()][string]$Text)
+    if ([string]::IsNullOrWhiteSpace($Text)) { return $false }
+    return [bool]($Text -match '(?i)\bSQLITE_(?:BUSY|LOCKED)\b|SQLite (?:prepare |step )?code [56](?!\d)|database (?:table )?is locked')
+}
+
+function Format-DomeniaSqliteBusySummary {
+    # FI-12: one line for the Operations panel; session counters only, nothing is replayed from here.
+    param([int]$Count=0,$LastUtc=$null,$TimeoutMs=2500)
+    $timeout = [string](Get-DomeniaSqliteBusyTimeoutMs $TimeoutMs)
+    if ($Count -le 0) { return ('Base locale : aucune attente de verrou SQLite dépassée dans cette session (délai ' + $timeout + ' ms).') }
+    $text = 'Base locale occupée : ' + [string]$Count + ' attente(s) de verrou SQLite dépassée(s) dans cette session'
+    if ($LastUtc -is [datetime]) { $text += ', la dernière à ' + $LastUtc.ToLocalTime().ToString('HH:mm:ss',[Globalization.CultureInfo]::InvariantCulture) }
+    return ($text + ' (délai ' + $timeout + ' ms, réglage LocalStore.DatabaseBusyTimeoutMs).')
+}
+
+function Get-DomeniaGestureBackupLabel {
+    # FI-13: the gestures that change the local base and are preceded by a verified backup: the AD read that rewrites
+    # an OU (Index, Fleet and Search pages), the CSV import, the removal of orphan associations and the park reset.
+    param([Parameter(Mandatory=$true)][ValidateSet('IndexUpdate','LinkImport','LinkPrune','ParkReset')][string]$Gesture)
+    switch ($Gesture) {
+        'IndexUpdate' { return 'la mise à jour de lʼOU choisie' }
+        'LinkImport' { return 'lʼimport CSV des associations' }
+        'LinkPrune' { return 'le retrait des associations orphelines' }
+        default { return 'lʼoubli des relevés du parc' }
+    }
+}
+
+function Get-DomeniaGestureBackupDecision {
+    # FI-13: a verified backup of this base younger than ReuseMinutes is already the point of return of the gesture;
+    # otherwise a new copy is due before it (StorageBackup worker, rotation of the backup policy). Pure rule.
+    param([AllowEmptyString()][string]$LastSuccessUtc='',[datetime]$NowUtc=[datetime]::UtcNow,[int]$ReuseMinutes=30)
+    $minutes = [Math]::Max(0,$ReuseMinutes)
+    $now = $NowUtc.ToUniversalTime();$last = $null
+    if (-not [string]::IsNullOrWhiteSpace($LastSuccessUtc)) {
+        $parsed = [datetime]::MinValue
+        if ([datetime]::TryParse($LastSuccessUtc,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind,[ref]$parsed)) { $last = $parsed.ToUniversalTime() }
+    }
+    if ($null -eq $last) { return [pscustomobject]@{Due=$true;Reason='NoBackup';LastUtc=$null;ReuseMinutes=$minutes} }
+    # A date in the future cannot prove a recent copy: a new one is taken.
+    if ($last -gt $now.AddMinutes(2)) { return [pscustomobject]@{Due=$true;Reason='InvalidClock';LastUtc=$last;ReuseMinutes=$minutes} }
+    if ($last -ge $now.AddMinutes(-$minutes)) { return [pscustomobject]@{Due=$false;Reason='Recent';LastUtc=$last;ReuseMinutes=$minutes} }
+    return [pscustomobject]@{Due=$true;Reason='Stale';LastUtc=$last;ReuseMinutes=$minutes}
+}
+
+function Get-DomeniaGestureBackupNotice {
+    # FI-13: the sentence of the confirmation, true to what the gesture will do.
+    param($Decision=$null)
+    $due = $true;$last = $null;$minutes = 30
+    if ($null -ne $Decision) { $due = [bool](Get-DomeniaMember $Decision 'Due' $true);$last = Get-DomeniaMember $Decision 'LastUtc' $null;$minutes = [int](Get-DomeniaMember $Decision 'ReuseMinutes' 30) }
+    if ((-not $due) -and ($last -is [datetime])) { return ('Point de retour : la sauvegarde vérifiée de ' + $last.ToLocalTime().ToString('HH:mm',[Globalization.CultureInfo]::InvariantCulture) + ' a moins de ' + [string]$minutes + ' min ; aucune nouvelle copie.') }
+    return 'Une sauvegarde vérifiée de la base sera faite avant.'
+}
+
+function Get-DomeniaElapsedText {
+    # 'à lʼinstant', 'il y a 5 min', 'il y a 2 h', 'il y a 3 j' between two UTC times; a future date is named as such.
+    param([datetime]$FromUtc,[datetime]$NowUtc=[datetime]::UtcNow)
+    $span = $NowUtc.ToUniversalTime() - $FromUtc.ToUniversalTime()
+    if ($span.TotalMinutes -lt -5) { return 'à une date future (horloge à vérifier)' }
+    if ($span.TotalMinutes -lt 1) { return 'à lʼinstant' }
+    if ($span.TotalHours -lt 1) { return ('il y a ' + [string][int][Math]::Floor($span.TotalMinutes) + ' min') }
+    if ($span.TotalDays -lt 1) { return ('il y a ' + [string][int][Math]::Floor($span.TotalHours) + ' h') }
+    return ('il y a ' + [string][int][Math]::Floor($span.TotalDays) + ' j')
+}
+
+function Get-DomeniaDatabaseLocationSummary {
+    # UI-19: « Base du domaine example.local · 4,2 Mo · sauvegardée il y a 2 h » instead of the file path, which stays
+    # in the tooltip and the copy button. No backup, or one older than StaleDays, gives a soft alert. Pure rule.
+    param([AllowEmptyString()][string]$Domain='',[long]$Bytes=-1,$LastBackupUtc=$null,[datetime]$NowUtc=[datetime]::UtcNow,[int]$StaleDays=7,[switch]$Demo,[switch]$Missing)
+    if ($Missing) { return [pscustomobject]@{Text='Aucune base locale pour ce domaine pour lʼinstant.';Alert=$false;AlertText=''} }
+    $name = ([string]$Domain).Trim()
+    $head = if ($Demo) { 'Base de démonstration' } elseif ($name) { 'Base du domaine ' + $name } else { 'Base locale' }
+    $size = if ($Bytes -ge 0) { Format-DomeniaSize $Bytes } else { 'taille inconnue' }
+    $alert = $false;$alertText = ''
+    if ($LastBackupUtc -is [datetime]) {
+        $saved = 'sauvegardée ' + (Get-DomeniaElapsedText -FromUtc $LastBackupUtc -NowUtc $NowUtc)
+        if (($NowUtc.ToUniversalTime() - $LastBackupUtc.ToUniversalTime()).TotalDays -gt [Math]::Max(1,$StaleDays)) {
+            $alert = $true;$alertText = 'Dernière sauvegarde il y a plus de ' + [string][Math]::Max(1,$StaleDays) + ' jours : pensez à « Sauvegarder maintenant ».'
+        }
+    }
+    else { $saved = 'jamais sauvegardée';$alert = (-not $Demo);if ($alert) { $alertText = 'Aucune sauvegarde de cette base : pensez à « Sauvegarder maintenant ».' } }
+    return [pscustomobject]@{Text=($head + ' · ' + $size + ' · ' + $saved);Alert=$alert;AlertText=$alertText}
+}
+
+function Get-DomeniaIndexTiles {
+    # DS-09: the four figures of the local base as tiles (accounts, workstations, associations, last update of the
+    # chosen perimeter). The USN, the memory use and the durations stay in the journal. Pure rule, fr-FR figures.
+    param([long]$Users=0,[long]$Computers=0,[long]$Active=0,[long]$Disabled=0,[long]$Links=0,$LastUtc=$null,[datetime]$NowUtc=[datetime]::UtcNow,[switch]$Unreadable)
+    $fr = [Globalization.CultureInfo]::GetCultureInfo('fr-FR')
+    if ($Unreadable) {
+        return @(
+            [pscustomobject]@{Key='Accounts';Caption='Comptes';Value='—';Detail='base illisible'}
+            [pscustomobject]@{Key='Computers';Caption='Postes';Value='—';Detail='base illisible'}
+            [pscustomobject]@{Key='Links';Caption='Associations';Value='—';Detail='base illisible'}
+            [pscustomobject]@{Key='Updated';Caption='Dernière mise à jour';Value='—';Detail='base illisible'}
+        )
+    }
+    $users = [Math]::Max(0L,$Users);$computers = [Math]::Max(0L,$Computers);$links = [Math]::Max(0L,$Links)
+    $active = [Math]::Max(0L,$Active);$disabled = [Math]::Max(0L,$Disabled)
+    $updatedValue = 'Jamais';$updatedDetail = 'aucune lecture complète de ce périmètre'
+    if ($LastUtc -is [datetime]) {
+        $updatedValue = Get-DomeniaElapsedText -FromUtc $LastUtc -NowUtc $NowUtc
+        $updatedDetail = 'le ' + $LastUtc.ToLocalTime().ToString('dd/MM/yyyy HH:mm',[Globalization.CultureInfo]::InvariantCulture)
+    }
+    return @(
+        [pscustomobject]@{Key='Accounts';Caption='Comptes';Value=$users.ToString('N0',$fr);Detail='comptes utilisateurs'}
+        [pscustomobject]@{Key='Computers';Caption='Postes';Value=$computers.ToString('N0',$fr);Detail=($active.ToString('N0',$fr) + ' actifs · ' + $disabled.ToString('N0',$fr) + ' désactivés')}
+        [pscustomobject]@{Key='Links';Caption='Associations';Value=$links.ToString('N0',$fr);Detail='liens utilisateur-poste'}
+        [pscustomobject]@{Key='Updated';Caption='Dernière mise à jour';Value=$updatedValue;Detail=$updatedDetail}
+    )
+}
+
+# ---------------------------------------------------------------- FI-19 local reads answered off the Dispatcher
+# The LocalIndexRead worker answers the reads that used to run on the WPF thread; these rules turn its answer into the
+# state the interface keeps. A missing base is an empty base, a refused or unreadable answer is never presented empty.
+function ConvertTo-DomeniaIndexMetadataState {
+    # IndexMetadata answer -> sync rows by scope, the directory checkpoint (InvocationId read from 'inv=' in details)
+    # and the counters of the Outils page.
+    param($Result)
+    if ($null -eq $Result) { throw 'Réponse de la base locale absente.' }
+    $missing = [bool](Get-DomeniaMember $Result 'Missing' $false)
+    $syncStates = @{}
+    $counts = [pscustomobject]@{ Total=0; Users=0; Computers=0; MachinesActive=0; MachinesDisabled=0 }
+    if (-not $missing) {
+        if (($null -eq $Result.PSObject.Properties['SyncStates']) -or ($null -eq $Result.PSObject.Properties['Counts'])) { throw 'Réponse de la base locale incomplète.' }
+        foreach ($row in @(Get-DomeniaMember $Result 'SyncStates' @())) {
+            if ($null -eq $row) { continue }
+            $scope = [string](Get-DomeniaMember $row 'scope' '')
+            if ($scope) { $syncStates[$scope] = $row }
+        }
+        $c = Get-DomeniaMemberValue $Result 'Counts'
+        $counts = [pscustomobject]@{
+            Total=[int](Get-DomeniaMember $c 'Total' 0); Users=[int](Get-DomeniaMember $c 'Users' 0); Computers=[int](Get-DomeniaMember $c 'Computers' 0)
+            MachinesActive=[int](Get-DomeniaMember $c 'MachinesActive' 0); MachinesDisabled=[int](Get-DomeniaMember $c 'MachinesDisabled' 0)
+        }
+    }
+    $info = $null
+    if ($syncStates.ContainsKey('directory')) {
+        $d = $syncStates['directory']
+        $inv = ''
+        $m = [regex]::Match([string](Get-DomeniaMember $d 'details' ''),'(?i)inv=([0-9a-f-]{36})')
+        if ($m.Success) { $inv = $m.Groups[1].Value }
+        $info = [pscustomobject]@{
+            Server=[string](Get-DomeniaMember $d 'server' ''); BaseDn=[string](Get-DomeniaMember $d 'base_dn' ''); Date=[string](Get-DomeniaMember $d 'last_sync' '')
+            Count=[int](Get-DomeniaMember $d 'item_count' 0); Usn=[long](Get-DomeniaMember $d 'highest_usn' 0); InvocationId=$inv
+            # Point 22: census identities still missing from the local copy (0 for a base without census).
+            CensusGap=[long](Get-DomeniaMember $Result 'CensusGap' 0)
+        }
+    }
+    return [pscustomobject]@{ SyncStates=$syncStates; Info=$info; Counts=$counts; Missing=$missing }
+}
+
+function Format-DomeniaSecretIndexSummary {
+    # One sentence from the non-secret metadata of a workstation (SecretIndexEntry row): key count and date, LAPS
+    # scheme and expiration, access verdict. '' when nothing was recorded. A value is never part of it.
+    param($Entry,[datetime]$Now=(Get-Date))
+    if ($null -eq $Entry) { return '' }
+    $parts = New-Object 'System.Collections.Generic.List[string]'
+    $keys = [int](Get-DomeniaMember $Entry 'bitlocker_keys' -1)
+    $last = [string](Get-DomeniaMember $Entry 'bitlocker_last' '')
+    if ($keys -gt 0) {
+        $text = '{0} clé(s) BitLocker' -f $keys
+        if (-not [string]::IsNullOrWhiteSpace($last)) { $text += ', la plus récente du ' + $last }
+        $parts.Add($text)
+    }
+    elseif ($keys -eq 0) { $parts.Add('aucune clé BitLocker') }
+    $scheme = [string](Get-DomeniaMember $Entry 'laps_scheme' '')
+    if (-not [string]::IsNullOrWhiteSpace($scheme)) {
+        $text = $scheme
+        $expiry = [string](Get-DomeniaMember $Entry 'laps_expiry' '')
+        if (-not [string]::IsNullOrWhiteSpace($expiry)) { $text += ', expiration ' + $expiry }
+        $parts.Add($text)
+    }
+    if ($parts.Count -eq 0) { return '' }
+    $checked = [string](Get-DomeniaMember $Entry 'checked_at' '')
+    $age = 'le ' + $checked
+    try {
+        $span = $Now - [datetime]$checked
+        if ([int]$span.TotalDays -ge 1) { $age = 'il y a ' + [int]$span.TotalDays + ' jour(s)' }
+        else { $age = 'il y a ' + [int]$span.TotalHours + ' heure(s)' }
+    }
+    catch { $age = 'le ' + $checked }
+    $verdict = [string](Get-DomeniaMember $Entry 'verdict' '')
+    if (-not [string]::IsNullOrWhiteSpace($verdict)) { $verdict = ' ' + $verdict + '.' } else { $verdict = '' }
+    return ('Relevé {0} : {1}.{2} Les valeurs ne sont jamais conservées : il faut les recharger.' -f $age,($parts.ToArray() -join ', '),$verdict)
+}
+
+function ConvertTo-DomeniaOperationHistoryModels {
+    # OperationStats rows -> history model per operation for the impact estimates (samples with a duration only).
+    param([object[]]$Rows=@())
+    $models = @{}
+    foreach ($row in @($Rows)) {
+        if ($null -eq $row) { continue }
+        $name = [string](Get-DomeniaMember $row 'operation' '')
+        if (-not $name) { continue }
+        $models[$name] = [pscustomobject]@{
+            n=[int](Get-DomeniaMember $row 'n' 0)
+            ms_per_item=(Get-DomeniaMember $row 'ms_per_item' $null); min_ms_per_item=(Get-DomeniaMember $row 'min_ms_per_item' $null); max_ms_per_item=(Get-DomeniaMember $row 'max_ms_per_item' $null)
+            bytes_per_item=(Get-DomeniaMember $row 'bytes_per_item' $null); fallback_ratio=(Get-DomeniaMember $row 'fallback_ratio' $null); success_ratio=(Get-DomeniaMember $row 'success_ratio' $null)
+        }
+    }
+    return $models
+}
+
+function Get-DomeniaParkCoverageFigures {
+    # Coverage of the stored park survey. The workstation count comes from the in-memory index when it is loaded,
+    # otherwise from the count read with the stored survey (LocalIndexRead ParkState); -1 means not read yet.
+    param([Collections.IDictionary]$State,[object[]]$IndexRows=@(),[int]$KnownMachineCount=-1,[int]$Dormants=0)
+    $machines = $KnownMachineCount
+    $rows = @($IndexRows | Where-Object { $null -ne $_ })
+    if ($rows.Count -gt 0) { $machines = @($rows | Where-Object { ([string]$_.Type -eq 'Machine') -and ([string]$_.State -ne 'Desactive') }).Count }
+    $surveyed = 0; $withSession = 0; $latest = ''; $latestAt = $null
+    if ($null -ne $State) {
+        foreach ($key in @($State.Keys)) {
+            $entry = $State[$key]
+            $surveyed++
+            if ([string](Get-DomeniaMember $entry 'Status' '') -eq 'Session') { $withSession++ }
+            $text = [string](Get-DomeniaMember $entry 'LastProbe' '')
+            $at = $null
+            try { if ($text) { $at = [datetime]$text } } catch { $at = $null }
+            if ($null -ne $at) { if (($null -eq $latestAt) -or ($at -gt $latestAt)) { $latestAt = $at; $latest = $text } }
+            elseif (-not $latest) { $latest = $text }
+        }
+    }
+    return [pscustomobject]@{ Machines=$machines; Releves=$surveyed; AvecSession=$withSession; Dernier=$latest; Dormants=$Dormants }
 }

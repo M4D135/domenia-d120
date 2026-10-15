@@ -14,7 +14,7 @@ function Get-DomeniaAccessFailureKind {
 function Get-DomeniaAccessScope {
     param([string]$OperationId)
     if($OperationId -eq 'UserComputerProbe'){return 'AD:UserComputerProbe'}
-    if($OperationId -eq 'LiveSelectedPing'){return 'Presence'}
+    if($OperationId -in @('LiveSelectedPing','ParkPing')){return 'Presence'}
     if($OperationId -eq 'EmbeddedPathBrowse'){return 'LocalFile'}
     if($OperationId -in @('LiveDirectoryCheck','ScopeReconcile')){return 'AD:GlobalSearch'}
     if($OperationId){
@@ -24,7 +24,8 @@ function Get-DomeniaAccessScope {
         if($resource -eq 'Laps'){return 'ReadLaps'}
         if($resource -eq 'BitLocker'){return 'ReadBitLocker'}
     }
-    if($OperationId -in @('SessionsList','LiveConsole','ComputerDiagnostics','ComputerLastUser','ComputerInventory','SoftwareInventory','WmiNamespaces','WmiClasses','WmiQuery','ComputerGpUpdate','ComputerRestart','RimotteRun','UserComputerProbe','BatchNetworkDiag','ParkSweep')){return 'Remote'}
+    # Points 105, 108 and 109: the CIM reads of the Audit AD keep the replacement account on the machine channel.
+    if($OperationId -in @('SessionsList','LiveConsole','ComputerDiagnostics','ComputerLastUser','ComputerInventory','SoftwareInventory','WmiNamespaces','WmiClasses','WmiQuery','ComputerGpUpdate','ComputerRestart','RimotteRun','ComputerServiceControl','UserComputerProbe','BatchNetworkDiag','ParkSweep','GpoAppliedRead','DcServicesRead','MachineIdentityRead')){return 'Remote'}
     if($OperationId){return 'AD:'+ $OperationId}
     return 'Directory'
 }
@@ -69,7 +70,7 @@ function Remove-DomeniaAccessCredential {
 }
 function Get-DomeniaRetryCredential {
     param([string]$OperationId)
-    if($OperationId -in @('LiveSelectedPing','EmbeddedPathBrowse')){return $null}
+    if($OperationId -in @('LiveSelectedPing','ParkPing','EmbeddedPathBrowse')){return $null}
     if($null -eq $script:AccessState){return $null}
     if($script:AccessState.Epoch -ne [long]$script:SessionEpoch -or $script:AccessState.BaseDn -ine [string]$script:Conn.BaseDn){return $null}
     $scope=Get-DomeniaRetryScopeKey $OperationId
@@ -182,7 +183,7 @@ function Request-DomeniaAccessRecovery {
         try{$DN=[string]$job.CallbackState.DN;if(-not $DN){$DN=[string]$job.CallbackState.TargetDn}}catch{}
     }
     if(-not $DN -and $OperationId -ne 'LiveConsole' -and $null -ne $script:SelectedObject){$DN=[string]$script:SelectedObject.DN}
-    if($OperationId -in @('LiveConsole','LiveCache','LiveDirectoryCheck','ScopeReconcile','TreeChildren','PresenceScan','SelectedPresence','ParkSweep','IndexBuild')){$Interactive=$false}
+    if($OperationId -in @('LiveConsole','LiveCache','LiveDirectoryCheck','ScopeReconcile','TreeChildren','PresenceScan','SelectedPresence','ParkSweep','ParkPing','IndexBuild')){$Interactive=$false}
     $scope=if([string]$ErrorValue -match '(?i)Canal Active Directory suspendu'){'Directory'}else{Get-DomeniaAccessScope $OperationId}
     $key=$scope+'|'+$DN
     $record=[pscustomobject]@{Key=$key;Scope=$scope;OperationId=$OperationId;Operation=$Operation;DN=$DN;Target=$resourceTarget;Kind=$kind;Epoch=[long]$script:SessionEpoch;Generation=[long]$script:SelectedObjectGeneration;IsWrite=([bool]$IsWrite -or ($null -ne $job -and [bool]$job.IsWrite));Interactive=[bool]$Interactive;At=[datetime]::UtcNow}
@@ -444,7 +445,14 @@ function Resolve-DomeniaCapabilityRoute {
         'WsSearch'           { return [pscustomobject]@{Route=$Route;Workspace='WsSearch';Inner='';Tab='';Focus='TxtGlobalSearch';Label='Rechercher'} }
         'TabAccounts'        { return [pscustomobject]@{Route=$Route;Workspace='TabAccounts';Inner='';Tab='';Focus='';Label='Comptes'} }
         'TabPermissions'     { return [pscustomobject]@{Route=$Route;Workspace='WsObject';Inner='DetailTabs';Tab='TabPermissions';Focus='';Label='Fiche > Permissions'} }
-        'TabGuard'           { return [pscustomobject]@{Route=$Route;Workspace='TabApplicationTools';Inner='ApplicationToolTabs';Tab='TabGuard';Focus='';Label='Outils > Fiabilite'} }
+        # UX-19 (X04): the hidden Fiabilité tab is the destination of the receipts only, named by what it shows.
+        'TabGuard'           { return [pscustomobject]@{Route=$Route;Workspace='TabApplicationTools';Inner='ApplicationToolTabs';Tab='TabGuard';Focus='';Label='Opérations à vérifier'} }
+        'StorageResume'      { return [pscustomobject]@{Route=$Route;Workspace='TabApplicationTools';Inner='ApplicationToolTabs';Tab='TabIndex';Focus='BtnGuardStoreResume';Label='Base autonome > Stockage';Inner2='IndexWorkspaceTabs';Tab2='TabIndexStorage'} }
+        'LegacyImport'       { return [pscustomobject]@{Route=$Route;Workspace='TabApplicationTools';Inner='ApplicationToolTabs';Tab='TabIndex';Focus='BtnGuardLegacyImport';Label='Base autonome > Stockage';Inner2='IndexWorkspaceTabs';Tab2='TabIndexStorage'} }
+        'DraftCompare'       { return [pscustomobject]@{Route=$Route;Workspace='';Inner='';Tab='';Focus='';Label='Comparer les saisies';Panel='DraftCompare'} }
+        # UX-16 (X03): the one authorisation control of the open workstation (intervention and one-read consent), at the top of
+        # the Intervenir view of Assistance poste (X04).
+        'TabComputerAdmin'   { return [pscustomobject]@{Route=$Route;Workspace='WsComputer';Inner='ComputerTabs';Tab='TabComputerAdmin';Focus='BtnCompInterventionGrant';Label='Assistance poste > Intervenir'} }
         'ChkReadOnlyMode'    { return [pscustomobject]@{Route=$Route;Workspace='';Inner='';Tab='';Focus='ChkReadOnlyMode';Label='Protection lecture seule'} }
         'BtnObjectReadRetry' { return [pscustomobject]@{Route=$Route;Workspace='WsObject';Inner='';Tab='';Focus='BtnObjectReadRetry';Label='Fiche > Relire'} }
         # UX-32: the operations panel under the Opérations button (TabExperience no longer exists).
@@ -458,8 +466,16 @@ function Invoke-DomeniaCapabilityRoute {
     $target=Resolve-DomeniaCapabilityRoute -Route $Route
     if($null -eq $target){return $false}
     if([string](Get-DomeniaMember $target 'Panel' '') -eq 'Operations'){return [bool](Show-DomeniaOperationsPanel)}
+    if([string](Get-DomeniaMember $target 'Panel' '') -eq 'DraftCompare'){Show-DomeniaDraftComparison;return $true}
     if($target.Workspace){Select-DomeniaWorkspace -Workspace $target.Workspace -Inner $target.Inner -Tab $target.Tab}
-    if($target.Focus){$control=Get-DomeniaControl $target.Focus;if($null -ne $control){try{[void]$control.Focus()}catch{}}}
+    $inner2=[string](Get-DomeniaMember $target 'Inner2' '');$tab2=[string](Get-DomeniaMember $target 'Tab2' '')
+    if(($inner2) -and ($tab2)){$tabs=Get-DomeniaControl $inner2;$page=Get-DomeniaControl $tab2;if(($null -ne $tabs) -and ($null -ne $page)){$tabs.SelectedItem=$page}}
+    if($target.Focus){
+        $control=Get-DomeniaControl $target.Focus
+        # A control of a tab just selected is laid out later (StorageResume, LegacyImport): when it cannot take the
+        # focus yet, it is given once the page is loaded.
+        if($null -ne $control){try{if(-not [bool]$control.Focus()){[void]$control.Dispatcher.BeginInvoke([Action]({[void]$control.Focus()}.GetNewClosure()),[Windows.Threading.DispatcherPriority]::Loaded)}}catch{}}
+    }
     return $true
 }
 function Get-DomeniaControlCapabilityExplanation {
@@ -565,7 +581,7 @@ function Update-DomeniaTransportPolicyView {
     if(-not $Force -and $signature -ceq $previous -and $null -ne $grid.ItemsSource){return $false}
     [void](Set-DomeniaItemsSource -Name 'DgTransportPolicy' -Rows $rows)
     $target='';if($null -ne $script:ArtifactConsent -and $script:ArtifactConsent.Expires -gt [datetime]::UtcNow){$target=[string]$script:ArtifactConsent.Target}
-    $note=if($target){'Autorisation explicite en cours pour '+$target+' (5 min au plus). Aucun autre poste n en beneficie.'}else{'Aucun transport intrusif sans autorisation explicite et ciblee (Outils > Fiabilite). Aucun reglage Windows n est modifie par Domenia.'}
+    $note=if($target){'Autorisation explicite en cours pour '+$target+' (5 min au plus). Aucun autre poste nʼen bénéficie.'}else{'Aucun transport intrusif sans autorisation explicite, accordée pour un seul poste et pour 5 minutes (Assistance poste > Intervenir). Aucun réglage Windows nʼest modifié par Domenia.'}
     [void](Set-DomeniaControlText 'LblTransportPolicy' $note)
     if($null -ne $script:AccessState){$script:AccessState|Add-Member -NotePropertyName PolicySignature -NotePropertyValue $signature -Force}
     return $true

@@ -61,7 +61,7 @@ function Clear-Secrets {$script:SecretsCleared++}
 function Reset-DomeniaSelectionBoundViews {param($Dn,$Type,$Name) $script:BoundViewsReset++}
 function Clear-DomeniaLiveProbeIntent {$script:RemoteIntent=''}
 function Update-DomeniaSearchActionStates { }
-function Select-DomeniaLiveResult {param([switch]$Force,[switch]$Manual)
+function Select-DomeniaLiveResult {param([switch]$Force,[switch]$Manual,[switch]$Explicit)
     $r=Get-DomeniaSelectedGridRow
     if($null -ne $r -and $r.Type -eq 'Machine'){$script:RemoteIntent=[string]$r.DN}else{$script:RemoteIntent=''}
 }
@@ -239,7 +239,7 @@ if(-not $SkipWpf){
                 $bc=[Windows.Media.BrushConverter]::new()
                 foreach($k in $palette.Keys){$window.Resources[$k]=$bc.ConvertFromInvariantString($palette[$k])}
                 $window.Measure([Windows.Size]::new(1280,800));$window.Arrange([Windows.Rect]::new(0,0,1280,800));$window.UpdateLayout()
-                Assert-True ($window.FindName('DgObjects').Columns.Count -ge 18)
+                Assert-True ($window.FindName('DgObjects').Columns.Count -ge 16)
                 # Exercise the real presentation helpers against real controls.
                 $savedControls=$script:Ctrl;$script:Ctrl=@{}
                 foreach($match in [regex]::Matches($xml,'x:Name="([^"]+)"')){

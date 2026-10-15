@@ -56,6 +56,16 @@ function Fail-DomeniaComputerUserProbeUi {param($Message,$State);$script:ProbeFa
 function Get-DomeniaRunningComputerUserProbe {param($Computer);return $null}
 function Clear-DomeniaComputerUserProbeState {param($ProbeId,$Computer);$script:ActiveLinkProbeId='';$script:ActiveLinkProbeComputer=''}
 function Get-DomeniaLocalDatabasePathForRead {return [string]$script:DatabaseScopedPath}
+# FI-13 (lot X06): before an import or an orphan removal the application takes a verified backup through the StorageBackup
+# worker (proved in Test-DomeniaWiringCache.ps1). The double records the gesture and runs the continuation at once, or
+# keeps it for the case to release (HoldGestureBackup), as the success callback of the worker would.
+function Get-DomeniaGestureBackupState {return [pscustomobject]@{Due=$true;Reason='NoBackup';LastUtc=$null;ReuseMinutes=30}}
+function Invoke-DomeniaGestureBackup {param([string]$Gesture,[scriptblock]$Then)
+    if($null -eq $script:GestureBackups){$script:GestureBackups=[Collections.Generic.List[string]]::new()}
+    $script:GestureBackups.Add($Gesture)
+    if($script:HoldGestureBackup){$script:HeldGesture=$Then;return 'Started'}
+    [void](& $Then);return 'Recent'
+}
 function Pump {param($Window);$Window.UpdateLayout();$Window.Dispatcher.Invoke([Action]{},[Windows.Threading.DispatcherPriority]::ApplicationIdle);$Window.UpdateLayout()}
 function Reset-Fixture {
     $script:Messages=@{};$script:Retry=@{};$script:Log=[Collections.Generic.List[string]]::new();$script:Stops=[Collections.Generic.List[string]]::new()
@@ -64,6 +74,7 @@ function Reset-Fixture {
     $script:Conn=[pscustomobject]@{BaseDn='DC=example,DC=invalid';Server='dc.example.invalid';Domain='example.invalid';Netbios='EXAMPLE';BindUser='EXAMPLE\reader';Credential=$null}
     $script:MachineCredential=$null;$script:RemoteAdminCredential=$null;$script:AsyncJobs=@{};$script:AsyncEngineClosing=$false
     $script:SaveCount=0;$script:SaveAccepted=$true;$script:UseRealQueue=$false;$script:ConfirmCount=0;$script:ConfirmAccepted=$true;$script:Opened=''
+    $script:GestureBackups=[Collections.Generic.List[string]]::new();$script:HoldGestureBackup=$false;$script:HeldGesture=$null
     $script:Features=@{};$script:DomeniaLinkStoreMultiRelation=$false;$script:LinkBaseline=@{}
     $script:SelectedBranchDn='OU=Test,DC=example,DC=invalid';$script:BranchObjects=@()
     $script:LinkByComputer=$null;$script:LinksByUser=$null;$script:LinkIndexCount=0;$script:LinkIndexGeneration=0
@@ -189,7 +200,7 @@ try {
     [void][IO.Directory]::CreateDirectory($script:TempRoot)
     $core=Parse-Source (Join-Path $wad 'Domenia-Core.ps1')
     $definitions=[Collections.Generic.List[string]]::new()
-    foreach($name in @('Get-MainXaml','Normalize-LinkComputer','Normalize-LinkUser','Rebuild-UserMachineLinkIndex','Ensure-UserMachineLinkIndex','Get-LinksForComputer','Get-LinksForUser','Get-ExistingLinkForComputer','Find-DomeniaCachedUserRow','Find-DomeniaCachedComputerRow','Add-UserMachineLinkIfMissing','ConvertTo-DomeniaCanonicalLinks','Remove-SelectedLink','Start-ComputerUserLinkProbe','Import-LinksCsv','Get-DomeniaCsvDelimiter','Start-PruneOrphanLinks','Get-AssociationSummaryForObject','Get-SelectedAssociationSummary')){$definitions.Add((Get-SourceFunctionText $core $name))}
+    foreach($name in @('Get-MainXaml','Normalize-LinkComputer','Normalize-LinkUser','Rebuild-UserMachineLinkIndex','Ensure-UserMachineLinkIndex','Get-LinksForComputer','Get-LinksForUser','Get-ExistingLinkForComputer','Find-DomeniaCachedUserRow','Find-DomeniaCachedComputerRow','Add-UserMachineLinkIfMissing','ConvertTo-DomeniaCanonicalLinks','Remove-SelectedLink','Start-ComputerUserLinkProbe','Import-LinksCsv','Get-DomeniaCsvDelimiter','Start-PruneOrphanLinks','Get-AssociationSummaryForObject','Get-SelectedAssociationSummary','Sync-DomeniaLinksAgainstIndex','Get-AssociationForRow','Get-DomeniaIndexAssociationText')){$definitions.Add((Get-SourceFunctionText $core $name))}
     foreach($pair in @(@('modules\Domenia-Live.UI.ps1','Merge-DomeniaLiveLinkMemory'),@('modules\Domenia-Storage.UI.ps1','Queue-DomeniaLinkChanges'),@('modules\Domenia-Storage.UI.ps1','Reset-DomeniaLinkBaseline'),@('modules\Domenia-Storage.UI.ps1','Request-DomeniaStorageWork'),@('modules\Domenia-Guard.Model.ps1','ConvertTo-DomeniaLinkRecord'),@('modules\Domenia-Guard.Model.ps1','Get-DomeniaLinkFingerprint'),@('modules\Domenia-Live.Model.ps1','Get-DomeniaLiveHash'))){
         $definitions.Add((Get-SourceFunctionText (Parse-Source (Join-Path $wad $pair[0])) $pair[1]))
     }
@@ -202,6 +213,7 @@ try {
     if($null -eq ('Domenia.SelectionIdentity' -as [type])){Add-Type -Path (Join-Path $wad 'modules\Domenia-Identity.Types.cs')}
     . (Join-Path $wad 'modules\Domenia-Selection.UI.ps1')
     . (Join-Path $wad 'modules\Domenia-Relations.Model.ps1')
+    . (Join-Path $wad 'modules\Domenia-InventoryImport.Model.ps1')
     . (Join-Path $wad 'modules\Domenia-Embedded.UI.ps1')
     . (Join-Path $wad 'modules\Domenia-Relations.UI.ps1')
     # The pinned LocalIndexRead body (ResolveNames) is the code submitted by the import preview.
@@ -234,6 +246,40 @@ try {
 
     # ------------------------------------------------------------ non-visual cases
     $script:Ctrl=@{}
+    Case 'Point 9 : un nom reattribue ne reprend ni l association ni le GUID d un autre objet' {
+        Reset-Fixture
+        $old='11111111-aaaa-aaaa-aaaa-111111111111';$new='22222222-bbbb-bbbb-bbbb-222222222222';$user='33333333-cccc-cccc-cccc-333333333333'
+        $script:UserMachineLinks=@([pscustomobject]@{UserLogin='alice';Computer='PC-R';Source='Saisie manuelle';Confidence=100;VerifiedInAD=$true;When='2026-01-01T08:00:00.0000000Z';Details='';UserGuid=$user;ComputerGuid=$old;UserDn='';ComputerDn=''})
+        Rebuild-UserMachineLinkIndex
+        Expect (@(Get-LinksForComputer 'PC-R').Count -eq 1) 'Lecture par nom sans GUID modifiee'
+        Expect (@(Get-LinksForComputer 'PC-R' -Guid $new).Count -eq 0) 'Nom reattribue : ancienne association reprise'
+        Expect (@(Get-LinksForComputer 'PC-R' -Guid $old).Count -eq 1) 'Meme GUID : association perdue'
+        Expect (@(Get-LinksForUser 'alice' -Guid '44444444-dddd-dddd-dddd-444444444444').Count -eq 0) 'Compte recree : ancienne association reprise'
+        Expect ((Get-AssociationForRow ([pscustomobject]@{Type='Machine';Name='PC-R';Guid=$new})) -eq 'Non detecte') 'Colonne association heritee par le nouveau poste'
+        Expect ((Get-DomeniaIndexAssociationText ([pscustomobject]@{Type='Machine';Name='PC-R';Guid=$old})) -eq 'alice') 'Association du meme objet perdue'
+        # The old computer has left the index; its namesake with another GUID must not adopt the association.
+        $script:IndexRows=@([pscustomobject]@{Type='Machine';Name='PC-R';Login='PC-R$';Upn='';Guid=$new;DN='CN=PC-R,OU=Test,DC=example,DC=invalid'},[pscustomobject]@{Type='Utilisateur';Name='Alice';Login='alice';Upn='';Guid=$user;DN='CN=Alice,OU=Test,DC=example,DC=invalid'})
+        $script:IndexComputersByGuid=@{$new=$script:IndexRows[0]};$script:IndexComputersByName=@{'PC-R'=$script:IndexRows[0]};$script:IndexUsersByGuid=@{$user=$script:IndexRows[1]};$script:IndexUsersByLogin=@{'alice'=$script:IndexRows[1]}
+        [void](Sync-DomeniaLinksAgainstIndex -Full)
+        $l=$script:UserMachineLinks[0]
+        Expect (([string]$l.ComputerGuid -eq $old) -and (-not [bool]$l.VerifiedInAD)) ('GUID adopte ou lien encore verifie : '+[string]$l.ComputerGuid)
+        # Fiche and local-first lookups: an explicit GUID, or the selected workstation of that name, skip the former holder.
+        Expect ($null -eq (Get-ExistingLinkForComputer -Computer 'PC-R' -Guid $new)) 'Fiche : association de l ancien titulaire affichee'
+        Expect ([string](Get-ExistingLinkForComputer -Computer 'PC-R' -Guid $old).UserLogin -eq 'alice') 'Fiche : association du meme objet perdue'
+        $script:SelectedObject=[pscustomobject]@{Type='Machine';Name='PC-R';Guid=$new}
+        Expect ($null -eq (Get-ExistingLinkForComputer 'PC-R')) 'Poste selectionne : ancien titulaire repris sans GUID explicite'
+        Expect ([string](Get-ExistingLinkForComputer 'PC-X').UserLogin -eq '') 'Autre poste : resultat invente'
+        $script:SelectedObject=$null
+        Expect ([string](Get-ExistingLinkForComputer 'PC-R').UserLogin -eq 'alice') 'Lecture par nom sans selection modifiee'
+        # A legacy link without GUID recorded before the current object was created belongs to a former holder.
+        $script:UserMachineLinks=@([pscustomobject]@{UserLogin='bob';Computer='PC-L';Source='Import CSV';Confidence=0;VerifiedInAD=$false;When='2025-01-01T08:00:00.0000000Z';Details='';UserGuid='';ComputerGuid='';UserDn='';ComputerDn=''})
+        Rebuild-UserMachineLinkIndex
+        Expect (@(Get-LinksForComputer 'PC-L' -Guid $new -CreatedUtc '2026-01-01T00:00:00Z').Count -eq 0) 'Lien historique anterieur a la creation repris'
+        Expect (@(Get-LinksForComputer 'PC-L' -Guid $new -CreatedUtc '2024-01-01T00:00:00Z').Count -eq 1) 'Lien historique posterieur a la creation perdu'
+        Expect (@(Get-LinksForComputer 'PC-L' -Guid $new).Count -eq 1) 'Lien historique sans date de creation juge'
+        Expect (@(Get-LinksForUser 'bob' -Guid $user -CreatedUtc '2026-01-01T00:00:00Z').Count -eq 0) 'Compte recree : lien historique anterieur repris'
+        Expect ($null -eq (Get-ExistingLinkForComputer -Computer 'PC-L' -Guid $new -CreatedUtc ([datetime]::SpecifyKind([datetime]'2026-01-01T00:00:00',[DateTimeKind]::Utc)))) 'Fiche : lien historique anterieur a la creation affiche'
+    }
     Case 'D042 Console d un autre compte : l affectation declaree reste, les deux relations restent visibles' {
         Reset-Fixture;$state=Begin-FakeQuery
         $r=New-WorkerResult -Candidates @([pscustomobject]@{Computer='PC-B';Guid='bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';DN='CN=PC-B,DC=example,DC=invalid';Confirmed=$true;ObservedUtc='2026-03-01T08:00:00Z';Source='Console CIM/DCOM';Detail='Console observee'})
@@ -509,6 +555,63 @@ try {
             Expect ((Get-DomeniaRelationRestoreLabel (Get-DomeniaRelationsRestoreCandidate)) -eq 'Restaurer carol → PC-NEW') 'Annulation non restaurable'
         }finally{Remove-Item -LiteralPath 'Function:\New-DomeniaFileRequest' -ErrorAction SilentlyContinue}
     }
+    Case 'FI-13 : import CSV et retrait des orphelines attendent la sauvegarde verifiee de la base' {
+        Reset-Fixture;$script:HoldGestureBackup=$true
+        $csv=Join-Path $script:TempRoot ('liens-'+[guid]::NewGuid().ToString('N')+'.csv')
+        [IO.File]::WriteAllLines($csv,[string[]]@('UserLogin,Computer','carol,PC-NEW'),[Text.UTF8Encoding]::new($true))
+        Show-DomeniaLinkImportPreview -Path $csv
+        Complete-DomeniaLinkImportIndexCheck -Result ([pscustomobject]@{Rows=@();Busy=$false;Missing=$false;IndexCount=0;Users=@();Computers=@()}) -State $script:Submission.State
+        Expect ([string]$script:Messages['LblLinkImportSummary'] -match 'sauvegarde vérifiée de la base sera faite avant') ('Sauvegarde non annoncee : '+[string]$script:Messages['LblLinkImportSummary'])
+        Confirm-DomeniaLinkImport
+        Expect (((@($script:GestureBackups) -join ',') -eq 'LinkImport') -and ($script:SaveCount -eq 0) -and (@(Get-LinksForComputer 'PC-NEW').Count -eq 0) -and ($null -ne $script:Relations.ImportPlan)) 'Import enregistre avant la fin de la sauvegarde'
+        & $script:HeldGesture
+        Expect (($script:SaveCount -eq 1) -and (@(Get-LinksForComputer 'PC-NEW').Count -eq 1) -and ($null -eq $script:Relations.ImportPlan)) 'Import non enregistre apres la sauvegarde'
+        # Orphans: the confirmation stays open while the backup runs; « Annuler » meanwhile removes nothing.
+        $script:GestureBackups.Clear();$saves=$script:SaveCount
+        $script:UserMachineLinks=@([pscustomobject]@{UserLogin='old1';Computer='PC-O1';Source='Console CIM/DCOM';Confidence=0;VerifiedInAD=$true;When='2026-01-01T08:00:00.0000000Z';Details=''});Rebuild-UserMachineLinkIndex
+        Show-DomeniaOrphanLinks -Result ([pscustomobject]@{Checked=1;Rows=@([pscustomobject]@{UserLogin='old1';Computer='PC-O1';When='2026-01-01T08:00:00.0000000Z';UserExists=$false;ComputerExists=$true})})
+        Request-DomeniaOrphanRemoval
+        Expect ([string]$script:Messages['LblLinkOrphanConfirm'] -match 'sauvegarde vérifiée de la base sera faite avant') ('Sauvegarde non annoncee : '+[string]$script:Messages['LblLinkOrphanConfirm'])
+        Complete-DomeniaOrphanRemoval
+        Expect (((@($script:GestureBackups) -join ',') -eq 'LinkPrune') -and ($script:SaveCount -eq $saves) -and (@(Get-LinksForComputer 'PC-O1').Count -eq 1)) 'Retrait fait avant la fin de la sauvegarde'
+        Cancel-DomeniaOrphanRemoval
+        & $script:HeldGesture
+        Expect (($script:SaveCount -eq $saves) -and (@(Get-LinksForComputer 'PC-O1').Count -eq 1)) 'Retrait fait malgre l annulation pendant la sauvegarde'
+        Request-DomeniaOrphanRemoval;Complete-DomeniaOrphanRemoval
+        & $script:HeldGesture
+        Expect (($script:SaveCount -eq ($saves+1)) -and (@(Get-LinksForComputer 'PC-O1').Count -eq 0)) 'Retrait non fait apres la sauvegarde'
+    }
+    Case 'FI-13 : un autre apercu ou d autres cases choisis pendant la sauvegarde ne sont jamais enregistres sans leur clic' {
+        Reset-Fixture;$script:HoldGestureBackup=$true
+        $first=Join-Path $script:TempRoot ('liens-'+[guid]::NewGuid().ToString('N')+'.csv');$second=Join-Path $script:TempRoot ('liens-'+[guid]::NewGuid().ToString('N')+'.csv')
+        [IO.File]::WriteAllLines($first,[string[]]@('UserLogin,Computer','carol,PC-NEW'),[Text.UTF8Encoding]::new($true))
+        [IO.File]::WriteAllLines($second,[string[]]@('UserLogin,Computer','dan,PC-DAN'),[Text.UTF8Encoding]::new($true))
+        $empty=[pscustomobject]@{Rows=@();Busy=$false;Missing=$false;IndexCount=0;Users=@();Computers=@()}
+        Show-DomeniaLinkImportPreview -Path $first;Complete-DomeniaLinkImportIndexCheck -Result $empty -State $script:Submission.State
+        Expect (-not ($script:Submission.Payload.PSObject.Properties.Name -contains 'BusyTimeoutMs')) 'Attente SQLite figee dans la verification de l import'
+        Confirm-DomeniaLinkImport;$held=$script:HeldGesture
+        # Another file previewed while the copy runs: the receipt saves neither file.
+        Show-DomeniaLinkImportPreview -Path $second;Complete-DomeniaLinkImportIndexCheck -Result $empty -State $script:Submission.State
+        & $held
+        Expect (($script:SaveCount -eq 0) -and (@(Get-LinksForComputer 'PC-NEW').Count -eq 0) -and (@(Get-LinksForComputer 'PC-DAN').Count -eq 0)) 'Apercu non confirme importe apres la sauvegarde'
+        Expect (($null -ne $script:Relations.ImportPlan) -and ([string]$script:Relations.ImportPlan.FileName -eq [IO.Path]::GetFileName($second)) -and ([string]$script:Messages['Status'] -match 'a changé pendant la sauvegarde')) ('Apercu ferme ou motif absent : '+[string]$script:Messages['Status'])
+        Confirm-DomeniaLinkImport;& $script:HeldGesture
+        Expect (($script:SaveCount -eq 1) -and (@(Get-LinksForComputer 'PC-DAN').Count -eq 1) -and (@(Get-LinksForComputer 'PC-NEW').Count -eq 0)) 'Apercu confirme non importe'
+        # Orphans: boxes changed during the copy change nothing; exactly the confirmed rows are removed.
+        $saves=$script:SaveCount
+        $script:UserMachineLinks=@(
+            [pscustomobject]@{UserLogin='old1';Computer='PC-O1';Source='Console CIM/DCOM';Confidence=0;VerifiedInAD=$true;When='2026-01-01T08:00:00.0000000Z';Details=''},
+            [pscustomobject]@{UserLogin='old2';Computer='PC-O2';Source='Console CIM/DCOM';Confidence=0;VerifiedInAD=$true;When='2026-01-02T08:00:00.0000000Z';Details=''}
+        );Rebuild-UserMachineLinkIndex
+        Show-DomeniaOrphanLinks -Result ([pscustomobject]@{Checked=2;Rows=@([pscustomobject]@{UserLogin='old1';Computer='PC-O1';When='2026-01-01T08:00:00.0000000Z';UserExists=$false;ComputerExists=$true},[pscustomobject]@{UserLogin='old2';Computer='PC-O2';When='2026-01-02T08:00:00.0000000Z';UserExists=$false;ComputerExists=$true})})
+        $rows=@($script:Relations.Orphans);Expect ($rows.Count -eq 2) 'Orphelines non listees'
+        foreach($row in $rows){$row.Selected=([string]$row.Computer -eq 'PC-O1')}
+        Request-DomeniaOrphanRemoval;Complete-DomeniaOrphanRemoval
+        foreach($row in $rows){$row.Selected=([string]$row.Computer -eq 'PC-O2')}
+        & $script:HeldGesture
+        Expect (($script:SaveCount -eq ($saves+1)) -and (@(Get-LinksForComputer 'PC-O1').Count -eq 0) -and (@(Get-LinksForComputer 'PC-O2').Count -eq 1)) 'Retrait different de la confirmation'
+        Expect ((@($script:Relations.Orphans).Count -eq 1) -and ([string]@($script:Relations.Orphans)[0].Computer -eq 'PC-O2')) 'Liste des orphelines restantes'
+    }
     Case 'CO-08 Index local vide ou illisible : presence non verifiee, motif exact' {
         Reset-Fixture
         $csv=Join-Path $script:TempRoot ('liens-'+[guid]::NewGuid().ToString('N')+'.csv')
@@ -528,6 +631,56 @@ try {
         Expect ($script:Relations.ImportPlan.IndexState -eq 'Pending') 'Reponse d un apercu precedent appliquee'
         Complete-DomeniaLinkImportIndexCheck -Result ([pscustomobject]@{Rows=@();Busy=$true;Missing=$false}) -State $sub.State
         Expect ($script:Relations.ImportPlan.Rows[0].Reason -match 'base locale occupée') 'Base occupee non signalee'
+    }
+    Case 'Points 137-138 : export GLPI et osquery, conflits et rejets avant application, lot annulable apres redemarrage' {
+        Reset-Fixture
+        $glpi=Join-Path $script:TempRoot ('glpi-'+[guid]::NewGuid().ToString('N')+'.csv')
+        $lines=@('Nom;Usager;Utilisateur;Dernière modification;Numéro de série','PC-G1;carol;;2026-10-14 09:30;SN1','PC-G1;dave;;2026-10-14 09:30;SN1','PC-G2;OTHER\eve;;2026-10-14 09:30;SN2','PC-A;zoe;;2026-10-14 10:00;SN3','PC-G3;frank;;2026-10-13 08:00;SN4','PC-G4;;Durand Paul;2026-10-13 08:00;SN5','PC-G5.other.invalid;gina;;2026-10-13 08:00;SN6')
+        [IO.File]::WriteAllLines($glpi,[string[]]$lines,[Text.UTF8Encoding]::new($true))
+        Show-DomeniaLinkImportPreview -Path $glpi -Adapter Glpi
+        $sub=$script:Submission
+        Expect ($null -ne $sub -and $sub.Operation -eq 'LocalIndexRead' -and (@($sub.Payload.Users) -join ',') -eq 'carol,dave,zoe,frank') ('Noms demandes a l index : '+(@($sub.Payload.Users) -join ','))
+        Complete-DomeniaLinkImportIndexCheck -Result ([pscustomobject]@{Rows=@();Busy=$false;Missing=$false;IndexCount=0;Users=@();Computers=@()}) -State $sub.State
+        $p=$script:Relations.ImportPlan
+        Expect ($p.Adapter -eq 'Glpi' -and $p.Source -eq 'Import GLPI' -and $p.Ready -eq 1 -and $p.Conflicts -eq 3 -and $p.Rejected -eq 3 -and @($p.Rows).Count -eq 7) ('Apercu GLPI : '+$p.Ready+' valide(s), '+$p.Conflicts+' conflit(s), '+$p.Rejected+' rejet(s)')
+        $byRecord=@{};foreach($row in @($p.Rows)){$byRecord[[int]$row.Record]=$row}
+        Expect ($byRecord[1].Category -eq 'Conflit' -and $byRecord[2].Category -eq 'Conflit' -and $byRecord[1].Reason -match 'même date') 'Conflit du fichier non signale'
+        Expect ($byRecord[3].Category -eq 'Rejet' -and $byRecord[3].Reason -match 'autre domaine') 'Compte d un autre domaine importe'
+        Expect ($byRecord[4].Category -eq 'Conflit' -and $byRecord[4].Reason -match 'associé à alice') 'Poste deja associe remplace'
+        Expect ($byRecord[6].Category -eq 'Rejet' -and $byRecord[6].Reason -match 'Nom affiché') 'Nom affiche GLPI pris pour un identifiant'
+        Expect ($byRecord[7].Category -eq 'Rejet' -and $byRecord[7].Reason -match 'autre domaine DNS') 'Poste d un autre domaine importe'
+        Expect ($byRecord[5].Category -eq 'Valide' -and $byRecord[5].Relation.Source -eq 'Import GLPI') 'Ligne valide GLPI'
+        Expect ($script:Messages['LblLinkImportSummary'] -match 'Export GLPI' -and $script:Messages['LblLinkImportSummary'] -match '3 conflit\(s\), 3 rejet\(s\)' -and $script:Messages['LblLinkImportSummary'] -match ('Lot de retour arrière : '+[regex]::Escape([string]$p.BatchId))) ('Resume : '+$script:Messages['LblLinkImportSummary'])
+        Confirm-DomeniaLinkImport
+        $l=@(Get-LinksForComputer 'PC-G3')
+        Expect ($l.Count -eq 1 -and $l[0].Source -eq 'Import GLPI' -and (Get-DomeniaImportBatchToken ([string]$l[0].Details)) -eq [string]$p.BatchId -and @(Get-LinksForComputer 'PC-A')[0].UserLogin -eq 'alice') 'Import GLPI absent, sans lot ou poste deja associe remplace'
+        Expect (Test-DomeniaProtectedAssociationSource ([string]$l[0].Source)) 'Association GLPI non protegee des retraits automatiques'
+        # A restart forgets the import of the session: the batch is found again in the stored associations.
+        $script:Relations.LastImport=$null
+        $batch=Get-DomeniaRelationsLatestImportBatch
+        Expect ($null -ne $batch -and $batch.Id -eq [string]$p.BatchId -and @($batch.Relations).Count -eq 1) 'Lot introuvable apres redemarrage'
+        $script:ConfirmAccepted=$true;Request-DomeniaLinkImportUndo
+        Expect (@(Get-LinksForComputer 'PC-G3').Count -eq 0 -and @(Get-LinksForComputer 'PC-A').Count -eq 1 -and $null -eq $script:Relations.LastImport -and $null -eq (Get-DomeniaRelationsLatestImportBatch)) 'Lot non annule apres redemarrage'
+        # osquery: the most recent session of each workstation decides; the end of a session is not an association.
+        $log=Join-Path $script:TempRoot ('osquery-'+[guid]::NewGuid().ToString('N')+'.log')
+        $events=@(
+            '{"name":"sessions","hostIdentifier":"PC-Q1.example.invalid","unixTime":1760400000,"action":"added","columns":{"user":"henri","type":"user","time":"1760400000"}}',
+            '{"name":"sessions","hostIdentifier":"PC-Q1.example.invalid","unixTime":1760500000,"action":"added","columns":{"user":"ines","type":"user","time":"1760500000"}}',
+            '{"name":"sessions","hostIdentifier":"PC-Q1.example.invalid","unixTime":1760503600,"action":"removed","columns":{"user":"ines","type":"user","time":"1760500000"}}'
+        )
+        [IO.File]::WriteAllLines($log,[string[]]$events,[Text.UTF8Encoding]::new($false))
+        Show-DomeniaLinkImportPreview -Path $log -Adapter Osquery
+        Complete-DomeniaLinkImportIndexCheck -Result ([pscustomobject]@{Rows=@();Busy=$false;Missing=$false;IndexCount=0;Users=@();Computers=@()}) -State $script:Submission.State
+        $q=$script:Relations.ImportPlan
+        Expect ($q.Source -eq 'Import osquery' -and $q.Ready -eq 1 -and @($q.Rows).Count -eq 1 -and $q.Rows[0].User -eq 'ines' -and $q.Rows[0].Computer -eq 'PC-Q1') ('Apercu osquery : '+@($q.Rows|ForEach-Object{$_.User+'@'+$_.Computer}) -join ',')
+        Expect ($q.ParseNote -match '1 fin\(s\) de session' -and $q.ParseNote -match '1 relevé\(s\) plus ancien\(s\)') ('Note osquery : '+$q.ParseNote)
+        Expect ([string]$q.Rows[0].Relation.When -eq '2025-10-15T03:46:40.0000000Z') ('Date osquery : '+[string]$q.Rows[0].Relation.When)
+        Cancel-DomeniaLinkImportPreview
+        # The size of a file read on the interface thread is bounded before reading.
+        $big=Join-Path $script:TempRoot ('osquery-big-'+[guid]::NewGuid().ToString('N')+'.json')
+        $stream=[IO.File]::Open($big,[IO.FileMode]::CreateNew);try{$stream.SetLength(2097153)}finally{$stream.Dispose()}
+        $refused=$false;try{Show-DomeniaLinkImportPreview -Path $big -Adapter Osquery}catch{$refused=($_.Exception.Message -match 'trop volumineux')}
+        Expect ($refused -and $null -eq $script:Relations.ImportPlan) 'Fichier osquery trop volumineux lu'
     }
     Case 'Revue L04 : 64 associations au plus par enregistrement, file occupee nommee, rien a moitie applique' {
         Reset-Fixture;$script:UseRealQueue=$true

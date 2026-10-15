@@ -93,10 +93,11 @@ Case 'P145 matrice absente : compatibilite inconnue, jamais compatible par defau
 function Get-DeliveryThrown {param([scriptblock]$Body) try{& $Body|Out-Null;return ''}catch{return [string]$_.Exception.Message}}
 Case 'P133 pack de recettes dʼune version plus recente : refuse avec sa version, rien nʼest prepare' {
     $context=[pscustomobject]@{Version=1;StoreId='store-test';DomainDn='DC=example,DC=invalid';Path=(Join-Path ([IO.Path]::GetTempPath()) 'Domenia-test.db')}
-    $message=Get-DeliveryThrown {New-DomeniaQueryPackImportPlan -Context $context -Json '{"Format":"Domenia.QueryPack/2","Origin":"test","Recipes":[]}'}
-    Assert-Delivery ($message -like 'Pack de recettes : format Domenia.QueryPack/2 produit par une version plus récente de Domenia*') $message
+    $message=Get-DeliveryThrown {New-DomeniaQueryPackImportPlan -Context $context -Json '{"Format":"Domenia.QueryPack/3","Origin":"test","Recipes":[]}'}
+    Assert-Delivery ($message -like 'Pack de recettes : format Domenia.QueryPack/3 produit par une version plus récente de Domenia*') $message
+    # W09: version 1 (no identity, no fingerprint) stays readable as a subset of version 2.
     $current=New-DomeniaQueryPackImportPlan -Context $context -Json '{"Format":"Domenia.QueryPack/1","Origin":"test","Recipes":[]}'
-    Assert-Delivery (([string]$current.Format -ceq 'Domenia.QueryImportPlan/1') -and (@($current.Items).Count -eq 0)) 'Pack courant non lu'
+    Assert-Delivery (([string]$current.Format -ceq 'Domenia.QueryImportPlan/2') -and ([string]$current.PackFormat -ceq 'Domenia.QueryPack/1') -and (-not [bool]$current.Verified) -and (@($current.Items).Count -eq 0)) 'Pack de version 1 non lu'
 }
 Case 'P133 recette, bibliotheque et lecture WMI dʼun format futur refusees avant toute evaluation' {
     $recipe=Get-DeliveryThrown {ConvertTo-DomeniaCompiledQuery -Recipe ([pscustomobject]@{Format='Domenia.Query/3';Id='q';Name='Futur'})}
@@ -170,7 +171,7 @@ function Get-DataPolicyRow {param([string]$Category) return @(@($script:Ctrl.DgS
 Case 'P147 Stockage : politique des donnees avec les reglages enregistres et les dossiers de la disposition' {
     Reset-DataPolicyFixture '{"Version":1,"AutomaticBackup":false,"BackupHours":24,"BackupKeep":7,"PresenceDays":45,"ConsoleDays":90,"InventoryDays":0,"ProbeDays":90,"DetailDays":30}'
     Update-DomeniaDataPolicyView
-    Assert-Delivery (@($script:Ctrl.DgStorageDataPolicy.ItemsSource).Count -eq 15) 'Quinze categories attendues'
+    Assert-Delivery (@($script:Ctrl.DgStorageDataPolicy.ItemsSource).Count -eq 20) 'Vingt categories attendues'
     foreach($pair in @(@('Export','Exports'),@('Diagnostic','Diagnostics'),@('Legacy','Legacy'),@('Log','Logs'))){
         Assert-Delivery ([string](Get-DataPolicyRow $pair[0]).Location -ceq ('C:\Users\agent\AppData\Local\Domenia\Data\'+$pair[1])) ($pair[0]+' : '+[string](Get-DataPolicyRow $pair[0]).Location)
     }

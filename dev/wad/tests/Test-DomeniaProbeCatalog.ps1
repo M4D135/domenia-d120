@@ -8,7 +8,7 @@ function Expect($ok,$why){if(-not $ok){throw $why}}
 function Case($name,[scriptblock]$body){try{&$body;$checks.Add([pscustomobject]@{Name=$name;Passed=$true;Error=''})}catch{$checks.Add([pscustomobject]@{Name=$name;Passed=$false;Error=($_.Exception.Message+' '+$_.ScriptStackTrace)})}}
 Case 'Every detailed probe has a unique safe class and complete source metadata' {
  $all=@(Get-DomeniaProbeCatalog);$extended=@(Get-DomeniaExtendedProbeCatalog)
- Expect ($extended.Count -eq 23) 'Expected 23 documented detailed probes'
+ Expect ($extended.Count -eq 32) 'Expected 32 documented detailed probes'
  Expect (@($all.Id|Sort-Object -Unique).Count -eq $all.Count) 'Duplicate ID'
  foreach($p in $extended){Expect ($p.Description -and $p.Rights -and $p.Compatibility -and $p.UnknownMeaning -and $p.Limitations -and $p.SourceUrls.Count) ('Metadata missing '+$p.Id);Expect ($p.ProviderQualification -eq 'À qualifier sous Windows') ('False Windows qualification '+$p.Id);foreach($url in $p.SourceUrls){Expect ($url -match '^https://(learn\.microsoft\.com/|github\.com/(microsoft|MicrosoftDocs)/)') ('Non-primary source '+$p.Id)}}
 }
@@ -40,6 +40,19 @@ Case 'Battery zero QFE coverage process sample and task limitations are explicit
  Expect ((Get-DomeniaProbe 'soft.processdetails').Limitations -like '*échantillon unique*') 'Single sample CPU invented'
  $task=Get-DomeniaProbe 'soft.scheduledtasks';Expect ($task.Properties -notcontains 'LastRunTime' -and $task.Properties -notcontains 'LastTaskResult') 'Nonexistent task properties'
 }
+Case 'Points 81 to 98: added probes state what they cannot prove' {
+ $usage=Get-DomeniaProbe 'hw.memoryusage';Expect (@($usage.Fields|Where-Object{$_.Unit -eq 'Ko'}).Count -eq 4 -and $usage.Mode -eq 'First') 'Memory usage units or mode wrong'
+ Expect ($usage.Limitations -like '*instantan*' -and $usage.Limitations -like '*barrettes*') 'Instant memory measure presented as capacity'
+ Expect ((Get-DomeniaProbe 'hw.computersystem').Limitations -like '*ne prouve pas une machine virtuelle*') 'Hypervisor flag treated as a virtual machine'
+ Expect ((Get-DomeniaProbe 'hw.batterycycles').Limitations -like '*z*ro*non renseign*') 'Zero cycle count treated as a new battery'
+ foreach($id in @('hw.batterystatic','hw.batteryfullcharge','hw.batterycycles')){$b=Get-DomeniaProbe $id;Expect ($b.Namespace -eq 'root\wmi' -and $b.Properties -contains 'InstanceName') ('Battery driver class without a join key '+$id)}
+ Expect ((Get-DomeniaProbe 'hw.monitorconnections').Limitations -like '*station d*accueil*') 'Docking station identification claimed'
+ $profiles=Get-DomeniaProbe 'net.connectionprofiles';Expect ($profiles.Transform -like 'Map:*2=Domaine*' -and $profiles.Properties[0] -eq 'NetworkCategory') 'Network category not mapped'
+ Expect ((Get-DomeniaProbe 'sec.avproducts').Limitations -like '*pas document*') 'Undocumented productState decoding presented as fact'
+ Expect ((Get-DomeniaProbe 'os.freeram').Limitations -like '*instantan*') 'Covered historical probe lost the documented limitation'
+ Expect ((Get-DomeniaProbe 'os.caption').Limitations -notlike '*instantan*') 'Unrelated limitation inherited from another projection of the class'
+ Expect (@((Get-DomeniaProbe 'os.caption').SourceUrls).Count -eq 1) 'Class documentation not inherited'
+}
 Case 'Detailed probes are read only projection payloads and retain one identity per instance' {
  $ids=@('disk.volumes','disk.physical','net.configurations','soft.servicedetails','sec.bitlockervolumes')
  $payload=@(ConvertTo-DomeniaProbePayload -Ids ($ids+$ids))
@@ -55,6 +68,21 @@ Case 'Catalogue modules parse and do not invoke providers while loading' {
  foreach($name in @('ProbeCatalog.Model','Probes.Model')){$tokens=$null;$errors=$null;[void][Management.Automation.Language.Parser]::ParseFile((Join-Path $modules ('Domenia-'+$name+'.ps1')),[ref]$tokens,[ref]$errors);Expect (@($errors).Count -eq 0) ($name+' '+($errors|Out-String))}
  $source=[IO.File]::ReadAllText((Join-Path $modules 'Domenia-ProbeCatalog.Model.ps1'))
  Expect ($source -notmatch '(?i)\b(Get-CimInstance|Get-WmiObject|Invoke-CimMethod|Invoke-WmiMethod|Invoke-Command)\b') 'Provider invoked by catalog'
+}
+Case 'Points 135-136 : contrat de chaque sonde affiche dans le selecteur et les details, sonde refusee jamais proposee' {
+ . (Join-Path $modules 'Domenia-ProbeContract.Model.ps1')
+ $script:DomeniaProbeContracts=$null
+ $entry=Get-DomeniaProbeContract 'sec.bitlocker'
+ Expect ($null -ne $entry -and $entry.Check.Valid -and $entry.Contract.Privilege.Level -eq 'AdministrateurLocal') 'Contrat de sonde absent ou refuse'
+ Expect ((Get-DomeniaProbeContractSummary $entry.Contract) -match '^Droits : administrateur local du poste\. Coût : ') 'Resume du contrat'
+ Expect ([object]::ReferenceEquals($entry,(Get-DomeniaProbeContract 'sec.bitlocker'))) 'Contrat recalcule a chaque lecture'
+ Expect ($null -eq (Get-DomeniaProbeContract 'sonde.inconnue')) 'Contrat invente pour une sonde absente'
+ $widgets=[IO.File]::ReadAllText((Join-Path $modules 'Domenia-Widgets.UI.ps1'))
+ $sources=$widgets.Substring($widgets.IndexOf('function Get-DomeniaBoardSources'))
+ $sources=$sources.Substring(0,$sources.IndexOf('function Get-DomeniaBoardPreviewEntry'))
+ Expect ($sources.Contains('Get-DomeniaProbeContract ([string]$probe.Id)') -and $sources.Contains('-not [bool]$contractEntry.Check.Valid') -and $sources.Contains('Get-DomeniaProbeContractSummary $contractEntry.Contract')) 'Selecteur de widgets non raccorde au contrat'
+ $details=[IO.File]::ReadAllText((Join-Path $modules 'Domenia-ProbeDetails.UI.ps1'))
+ Expect ($details.Contains('Get-DomeniaProbeContractLines') -and $details.Contains('Get-DomeniaProbeIsolationPlan') -and $details.Contains("Header='Contrat de la sonde'")) 'Details de la sonde sans contrat'
 }
 $failed=@($checks|Where-Object{-not $_.Passed}).Count
 $report=[pscustomobject]@{Suite='ProbeCatalog';Passed=($failed -eq 0);Total=$checks.Count;Failed=$failed;ProviderExecuted=$false;NetworkUsed=$false;Checks=$checks.ToArray()}

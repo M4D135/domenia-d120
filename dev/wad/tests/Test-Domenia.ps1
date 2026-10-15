@@ -53,7 +53,7 @@ $wanted=@('Write-DomeniaAtomicText','Read-DomeniaPreference','Write-DomeniaPrefe
     'Invoke-DomeniaAppLogRotation','Flush-DomeniaAppLog','Invoke-DomeniaAppLogFlush','Set-DomeniaAppLogAvailability','Set-Status',
     'Get-DomeniaGridExportColumns','ConvertTo-DomeniaExportRows','Get-DomeniaExportFileName','Export-DomeniaCsv','Get-DomeniaCsvDelimiter',
     # CO-03 : cles de tri des colonnes datees, et le XAML ou elles sont designees.
-    'Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys','Get-DomeniaInventoryAgeLabel','Get-DomeniaInventorySummaryText','Get-DomeniaSoftwareWorkerCode','Get-MainXaml',
+    'Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys','Get-DomeniaInventoryAgeLabel','Get-DomeniaInventorySummaryText','Get-DomeniaSoftwareWorkerCode','Get-DomeniaInventoryWorkerCode','Get-MainXaml',
     # CO-22 : decodage des options du compte affiche dans la fiche.
     'Get-UacFlagsLabel','Convert-FileTimeLabel','Convert-ADLargeIntegerToInt64',
     # UX-27 : vue d atterrissage de la fiche selon le type d objet.
@@ -760,7 +760,7 @@ try {
         # Le Resume etait le seul point de chute, quel que soit l objet : un utilisateur y ouvrait Type, Classe,
         # GUID et DN avant de montrer son compte. Il reste la vue des objets que l application ne sait pas nommer.
         foreach ($attendu in @(@('Utilisateur','WsObject','DetailTabs','TabUser'),
-                               @('Machine','WsComputer','ComputerTabs','TabComputerDashboard'),
+                               @('Machine','WsComputer','ComputerTabs','TabComputer'),
                                @('Groupe','WsObject','DetailTabs','TabGroup'),
                                @('OU','WsObject','DetailTabs','TabContainer'),
                                @('Conteneur','WsObject','DetailTabs','TabContainer'),
@@ -775,7 +775,7 @@ try {
         # demande ne se selectionne pas, et Select-DomeniaWorkspace passe alors sans rien signaler.
         $xaml = [xml](Get-MainXaml)
         $XNS = 'http://schemas.microsoft.com/winfx/2006/xaml'
-        foreach ($destination in @(@('WsObject','DetailTabs','TabUser'),@('WsComputer','ComputerTabs','TabComputerDashboard'),
+        foreach ($destination in @(@('WsObject','DetailTabs','TabUser'),@('WsComputer','ComputerTabs','TabComputer'),
                                    @('WsObject','DetailTabs','TabGroup'),@('WsObject','DetailTabs','TabContainer'),
                                    @('WsObject','DetailTabs','TabGeneric'))) {
             $espace = @($xaml.SelectNodes('//*[local-name()="TabItem"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq $destination[0] })
@@ -1406,6 +1406,67 @@ try {
         $xaml = Get-MainXaml
         Assert-True ($xaml.Contains('ToolTip="Ajoute les logiciels installés dans le profil des utilisateurs connectés."')) 'L infobulle promet toujours le profil de chaque utilisateur'
         Assert-True (-not ($xaml.Contains('dans le profil de chaque utilisateur'))) 'L infobulle promet encore tous les utilisateurs'
+    }
+
+    Test-Case 'Points 91 a 100 : les workers d inventaire lisent registre et CIM sans effet de bord' {
+        $software = [string](Get-DomeniaSoftwareWorkerCode)
+        # Point 91 : architecture et profil utilisateur font partie de la cle ; un doublon reste une ligne.
+        Assert-True ($software.Contains("`$key = (`$Scope + '|' + `$ownerKey + '|' + `$archKey + '|' + `$clean + '|' + [string]`$Version)")) 'Les doublons par architecture ou profil sont encore fusionnes'
+        # Revue du point 91 : les vraies fonctions du worker, sans reseau. Une ligne SCCM sans architecture et la meme
+        # entree relue ensuite par la tache locale (x64 ou x86) ne font qu une ligne ; un profil nomme par son compte
+        # ou par son SID reste le meme profil ; un vrai doublon 32/64 bits ou multi-profils reste visible.
+        $softwareTokens = $null; $softwareErrors = $null
+        $softwareAst = [Management.Automation.Language.Parser]::ParseInput($software,[ref]$softwareTokens,[ref]$softwareErrors)
+        Assert-True (@($softwareErrors).Count -eq 0) 'Worker logiciel illisible'
+        $definitions = @(foreach ($name in @('Format-Size','Convert-InstallDate','Add-Software')) {
+            $nodes = @($softwareAst.FindAll({ param($n) ($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq $name) }, $true))
+            Assert-True ($nodes.Count -eq 1) ('Fonction du worker logiciel absente : ' + $name)
+            $nodes[0].Extent.Text
+        })
+        $runSoftware = {
+            param([string[]]$Definitions,[scriptblock]$Body)
+            $rows = New-Object Collections.ArrayList; $seen = @{}; $seenProducts = @{}
+            foreach ($definition in $Definitions) { . ([scriptblock]::Create($definition)) }
+            . $Body
+            return ,@($rows)
+        }
+        $merged = & $runSoftware $definitions {
+            Add-Software -Name 'Contoso Agent' -Version '5.1' -Publisher 'Contoso' -InstallDate '' -SizeKb 0 -Location '' -Architecture '' -Scope 'Machine' -Kind 'Application' -UninstallString '' -Source 'Win32Reg_AddRemovePrograms'
+            Add-Software -Name 'Contoso Agent' -Version '5.1' -Publisher 'Contoso' -InstallDate '' -SizeKb 0 -Location '' -Architecture 'x86' -Scope 'Machine' -Kind 'Application' -UninstallString '' -Source 'TaskScheduler local SYSTEM / Registre local'
+            Add-Software -Name 'Fabrikam Viewer' -Version '2.0' -Publisher 'Fabrikam' -InstallDate '' -SizeKb 0 -Location '' -Architecture 'x64' -Scope 'Machine' -Kind 'Application' -UninstallString '' -Source 'Registre via WinRM'
+            Add-Software -Name 'Fabrikam Viewer' -Version '2.0' -Publisher 'Fabrikam' -InstallDate '' -SizeKb 0 -Location '' -Architecture '' -Scope 'Machine' -Kind 'Application' -UninstallString '' -Source 'Win32Reg_AddRemovePrograms'
+            Add-Software -Name 'Notes' -Version '1.0' -Publisher '' -InstallDate '' -SizeKb 0 -Location '' -Architecture '' -Scope 'Utilisateur' -Kind 'S-1-5-21-1-2-3-1104' -UninstallString '' -Source 'HKU via StdRegProv' -Owner 'S-1-5-21-1-2-3-1104'
+            Add-Software -Name 'Notes' -Version '1.0' -Publisher '' -InstallDate '' -SizeKb 0 -Location '' -Architecture '' -Scope 'Utilisateur' -Kind 'CONTOSO\alex' -UninstallString '' -Source 'TaskScheduler local SYSTEM / HKEY_USERS local' -Owner 'S-1-5-21-1-2-3-1104'
+        }
+        Assert-True (@($merged).Count -eq 3) ('Meme entree listee deux fois selon la source : ' + (@($merged | ForEach-Object { [string]$_.Name + '/' + [string]$_.Architecture + '/' + [string]$_.Source }) -join ' ; '))
+        $kept = & $runSoftware $definitions {
+            Add-Software -Name 'Contoso Agent' -Version '5.1' -Publisher 'Contoso' -InstallDate '' -SizeKb 0 -Location '' -Architecture 'x64' -Scope 'Machine' -Kind 'Application' -UninstallString '' -Source 'Registre via WinRM'
+            Add-Software -Name 'Contoso Agent' -Version '5.1' -Publisher 'Contoso' -InstallDate '' -SizeKb 0 -Location '' -Architecture 'x86' -Scope 'Machine' -Kind 'Application' -UninstallString '' -Source 'Registre via WinRM'
+            Add-Software -Name 'Notes' -Version '1.0' -Publisher '' -InstallDate '' -SizeKb 0 -Location '' -Architecture '' -Scope 'Utilisateur' -Kind 'CONTOSO\alex' -UninstallString '' -Source 'HKU via StdRegProv' -Owner 'S-1-5-21-1-2-3-1104'
+            Add-Software -Name 'Notes' -Version '1.0' -Publisher '' -InstallDate '' -SizeKb 0 -Location '' -Architecture '' -Scope 'Utilisateur' -Kind 'CONTOSO\sam' -UninstallString '' -Source 'HKU via StdRegProv' -Owner 'S-1-5-21-1-2-3-1105'
+        }
+        Assert-True (@($kept).Count -eq 4) 'Un vrai doublon 32/64 bits ou multi-profils a ete fusionne'
+        Assert-True ($software.Contains('-Source ''HKU via StdRegProv'' -Owner ([string]$sid)')) 'La portee utilisateur ne transmet pas le SID du profil'
+        $code = [string](Get-DomeniaInventoryWorkerCode)
+        [void]([scriptblock]::Create($code))
+        # Point 93 : REG_MULTI_SZ lu comme tel ; chaque indice ecrit avec sa source.
+        Assert-True ($code.Contains("Get-RegMultiString `$HKLM 'SYSTEM\CurrentControlSet\Control\Session Manager' 'PendingFileRenameOperations'")) 'PendingFileRenameOperations lu comme une chaine simple'
+        Assert-True ($code.Contains("'obligation confirmee'") -and $code.Contains("'indice partiel'")) 'Obligation confirmee et indice partiel confondus'
+        # Point 99 : UEFISecureBootEnabled est un DWORD ; le chiffrement est lu a cote de la protection.
+        Assert-True ($code.Contains("Get-RegDword `$HKLM 'SYSTEM\CurrentControlSet\Control\SecureBoot\State' 'UEFISecureBootEnabled'")) 'Secure Boot encore lu comme une chaine'
+        Assert-True ($code.Contains("(`$label + ' chiffrement')")) 'Chiffrement BitLocker non distingue de la protection'
+        # Point 83 : un etat de sante absent ou inconnu ne devient jamais Sain.
+        Assert-True (-not $code.Contains("`$health = 'Sain'`n")) 'Sante du disque initialisee a Sain'
+        # Point 100 : magasin Personnel lu dans le registre, propriete 32 seulement, aucune cle privee.
+        Assert-True ($code.Contains("'SOFTWARE\Microsoft\SystemCertificates\MY\Certificates'") -and $code.Contains('$propertyId -eq 32')) 'Certificats machine non lus dans le registre'
+        Assert-True (-not ($code -match '(?i)PrivateKey|Export\(|ExportCspBlob')) 'Une cle privee peut etre lue ou exportee'
+        # Point 95 : deux lectures bornees pour la charge, sans ligne de commande.
+        Assert-True ($code.Contains('Start-Sleep -Milliseconds $intervalMs') -and $code.Contains('[Math]::Min(5000,')) 'Intervalle de mesure non borne'
+        Assert-True (-not $code.Contains('CommandLine')) 'Ligne de commande collectee'
+        # Point 96 : derniere execution et resultat, jamais les actions ni le principal.
+        Assert-True ($code.Contains('Get-ScheduledTaskInfo') -and -not ($code -match '\.Actions\b|\.Principal\b')) 'Taches : execution non lue ou parametres exposes'
+        # Point 94 : dependances lues, aucune action sur les services.
+        Assert-True ($code.Contains("'DependOnService'") -and -not ($code -match '(?i)Start-Service|Stop-Service|StartService|StopService')) 'Dependances absentes ou action sur un service'
     }
 
     Test-Case 'PF-22 : l onglet Logiciels reprend la liste deja lue par l inventaire' {

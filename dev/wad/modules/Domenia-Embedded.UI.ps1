@@ -239,7 +239,9 @@ function New-DomeniaBannerButton {
 }
 function Show-DomeniaBanner {
     # Returns $false when the page cannot host a banner (no main window yet): the caller keeps its modal box.
-    param([ValidateSet('Info','Success','Warning','Error')][string]$Kind='Info',[AllowEmptyString()][string]$Message='',[AllowEmptyString()][string]$Details='',[string]$Key='',[string]$ActionText='',[string]$ActionPath='')
+    # UX-19 (X04): -RouteText/-Route add a button that opens the place of the action (Invoke-DomeniaCapabilityRoute)
+    # instead of a written path; the route only navigates, nothing is read or written by it.
+    param([ValidateSet('Info','Success','Warning','Error')][string]$Kind='Info',[AllowEmptyString()][string]$Message='',[AllowEmptyString()][string]$Details='',[string]$Key='',[string]$ActionText='',[string]$ActionPath='',[string]$RouteText='',[string]$Route='')
     if(-not (Test-DomeniaEmbeddedHost)){return $false}
     $hostPanel=$script:Window.FindName('DomeniaBannerHost')
     if(($null -eq $hostPanel) -or (-not $hostPanel.Dispatcher.CheckAccess())){return $false}
@@ -253,7 +255,7 @@ function Show-DomeniaBanner {
             return $true
         }
     }
-    $record=[pscustomobject]@{Key=$Key;Kind=$Kind;Message=([string]$Message).Trim();Details=[string]$Details;Code=$plan.Code;Occurrences=1;At=(Get-Date);ActionPath=$ActionPath;Closed=$false;Pinned=$false;Border=$null;Counter=$null;DetailBox=$null;DetailButton=$null;Actions=$null;Stack=$null;Timer=$null;Panel=$hostPanel}
+    $record=[pscustomobject]@{Key=$Key;Kind=$Kind;Message=([string]$Message).Trim();Details=[string]$Details;Code=$plan.Code;Occurrences=1;At=(Get-Date);ActionPath=$ActionPath;Route=$Route;Closed=$false;Pinned=$false;Border=$null;Counter=$null;DetailBox=$null;DetailButton=$null;Actions=$null;Stack=$null;Timer=$null;Panel=$hostPanel}
     $border=[Windows.Controls.Border]::new();$border.CornerRadius='12';$border.BorderThickness=[Windows.Thickness]::new(4,1,1,1);$border.Padding='12,10,8,10';$border.Margin='0,0,0,8';$border.MinWidth=380.0
     $accent=switch($Kind){'Error'{'DangerColor'}'Warning'{'StatusWarning'}'Success'{'StatusSuccess'}default{'AccentColor'}}
     $border.SetResourceReference([Windows.Controls.Border]::BackgroundProperty,'BgCard')
@@ -294,6 +296,15 @@ function Show-DomeniaBanner {
         [void]$actions.Children.Add($record.DetailButton)
     }
     if($ActionText -and $ActionPath){[void]$actions.Children.Add((New-DomeniaBannerButton -Text $ActionText -Command 'Folder' -Record $record -Help ('Ouvre lʼExplorateur sur '+$ActionPath)))}
+    # UX-19 (X04): the caller names the place of the action (-RouteText/-Route). UX-16 (X03): otherwise a refusal that
+    # names the place of an authorisation gets its route from its text. Navigation only, always the first button.
+    if(($RouteText) -and ($Route)){[void]$actions.Children.Insert(0,(New-DomeniaBannerButton -Text $RouteText -Command 'Route' -Record $record -Help ('Ouvre lʼendroit de lʼaction : '+$RouteText+'. Rien nʼest lancé par ce clic.')))}
+    else{
+        $routeTarget=$null
+        try{$record.Route=[string](Get-DomeniaMessageRoute -Text ([string]$Message));if($record.Route){$routeTarget=Resolve-DomeniaCapabilityRoute -Route $record.Route}}catch{$routeTarget=$null}
+        if($null -ne $routeTarget){[void]$actions.Children.Insert(0,(New-DomeniaBannerButton -Text ('Aller à '+[string]$routeTarget.Label) -Command 'Route' -Record $record -Help ('Ouvre '+[string]$routeTarget.Label+'. Rien nʼest autorisé ni lancé sans votre clic.')))}
+        else{$record.Route=''}
+    }
     $record.Actions=$actions;$record.Stack=$stack
     if($actions.Children.Count){[void]$stack.Children.Add($actions)}
     [void]$grid.Children.Add($stack)
@@ -314,6 +325,16 @@ function Show-DomeniaBanner {
         $timer.Start()
     }
     return $true
+}
+function Show-DomeniaRouteNotice {
+    # UX-19 (X04): a status message whose place is a button (route of Invoke-DomeniaCapabilityRoute), never a
+    # written path to a page. Without the main window, the status line alone carries the message and the action name.
+    param([ValidateSet('Info','Warning','Error')][string]$Kind='Warning',[Parameter(Mandatory=$true)][string]$Text,[Parameter(Mandatory=$true)][string]$RouteText,[Parameter(Mandatory=$true)][string]$Route,[string]$Key='')
+    $level=switch($Kind){'Error'{'ERROR'}'Warning'{'WARN'}default{'INFO'}}
+    $shown=$false
+    try{$shown=[bool](Show-DomeniaBanner -Kind $Kind -Message $Text -Key $Key -RouteText $RouteText -Route $Route)}catch{$shown=$false}
+    if($shown){Set-Status $Text $level}else{Set-Status ($Text+' Action : « '+$RouteText+' ».') $level}
+    return $shown
 }
 function Update-DomeniaBannerOccurrence {
     # FI-02: a repeated message keeps one banner. Errors and warnings count their occurrences; an information
@@ -386,6 +407,11 @@ function Invoke-DomeniaBannerCommand {
             Set-Status ('Incident '+$(if($record.Code){[string]$record.Code}else{'sans code'})+' copié pour le support.')
         }
         'Journal'{Open-DomeniaExperienceJournal}
+        'Route'{
+            # UX-19 (X04): navigation only; the banner closes once its place is open.
+            if([bool](Invoke-DomeniaCapabilityRoute -Route ([string]$record.Route))){Close-DomeniaBanner -Record $record}
+            else{Set-Status ('Destination indisponible : '+[string]$record.Route) 'WARN'}
+        }
         'Folder'{
             $path=[string]$record.ActionPath
             if([IO.File]::Exists($path)){Start-Process -FilePath 'explorer.exe' -ArgumentList @('/select,"'+$path+'"')}
@@ -490,6 +516,7 @@ function Stop-DomeniaOuPickerRead {
     # Invalidate first: a completed callback racing cancellation cannot repopulate the tree.
     $Owner.RequestId=[guid]::NewGuid().ToString('N')
     $job=[string]$Owner.Job;$Owner.Job=''
+    if($null -ne $Owner.PSObject.Properties['Reveal']){$Owner.Reveal=$null}
     if($null -ne $Owner.ActiveNode){$Owner.ActiveNode.Tag.Loading=$false;if(-not $Owner.ActiveNode.Tag.Loaded){$Owner.ActiveNode.IsExpanded=$false};$Owner.ActiveNode=$null}
     if($job){Request-UiTaskStop -Id $job -Silent -Force -Superseded -Reason 'Périmètre du sélecteur modifié'|Out-Null}
     $Owner.Busy.Visibility='Hidden';$Owner.Tree.IsEnabled=$true;$Owner.Go.IsEnabled=$true;$Owner.Accept.IsEnabled=$false
@@ -552,6 +579,8 @@ function Complete-DomeniaOuPickerRead {
         if(-not $node.Items.Count){$r.Status.Text='Aucune sous-branche lisible. Une OU déjà sélectionnée peut être choisie.'}
         $selected=$r.Tree.SelectedItem
         $r.Accept.IsEnabled=($null -ne $selected -and $null -ne $selected.Tag.Row -and [string]$selected.Tag.Row.Type -eq 'OU' -and [bool][string]$selected.Tag.Row.Guid)
+        # Point 54: a favourite or the current OU of the page being revealed continues with the next level.
+        if($null -ne $r.Reveal){Continue-DomeniaOuPickerReveal $r}
     }else{
         # Ancestors provide context only. Only an actual OU search result has the GUID needed to choose it.
         $r.Tree.Items.Clear();$nodes=@{};$matched=0
@@ -587,16 +616,85 @@ function Fail-DomeniaOuPickerRead {
     if($r.Closed -or $r.RequestId -cne $State.RequestId -or $State.Epoch -ne [long]$script:SessionEpoch -or $State.BaseDn -ine [string]$script:Conn.BaseDn){return}
     $r.Job='';$r.ActiveNode=$null;$r.Go.IsEnabled=$true;$r.Tree.IsEnabled=$true;$r.Accept.IsEnabled=$false;$r.Busy.Visibility='Hidden'
     if($null -ne $State.Node){$State.Node.Tag.Loading=$false;$State.Node.Tag.Loaded=$false;$State.Node.Items.Clear();[void]$State.Node.Items.Add('Lecture non confirmée ; repliez puis développez pour réessayer.')}
+    if($null -ne $r.PSObject.Properties['Reveal']){$r.Reveal=$null}
     $r.Status.Text='Lecture non confirmée : '+[string]$Message
 }
+function Get-DomeniaOuPickerFavourites {
+    # Point 54: the OU favourites pinned in Rechercher, offered by every OU picker of the session domain.
+    param([string]$BaseDn)
+    $items=@()
+    try{$items=@(Get-DomeniaFavouriteSearches)}catch{$items=@()}
+    return @(Get-DomeniaOuFavouriteChoices -Favourites $items -DomainDn $BaseDn)
+}
+function Update-DomeniaOuPickerSummary {
+    # Point 54: the confirmation line of the shared picker: path, depth and effect of the page, before Choisir.
+    param($Owner)
+    if(($null -eq $Owner) -or ($null -eq $Owner.Summary)){return}
+    $item=$Owner.Tree.SelectedItem;$dn=''
+    if(($item -is [Windows.Controls.TreeViewItem]) -and ($null -ne $item.Tag) -and ($null -ne $item.Tag.Row) -and ([string]$item.Tag.Row.Type -eq 'OU') -and ([bool][string]$item.Tag.Row.Guid)){$dn=[string]$item.Tag.DN}
+    $subtree=$true;if($null -ne $Owner.DepthBox){$subtree=[bool]$Owner.DepthBox.IsChecked}
+    $Owner.Summary.Text=Get-DomeniaOuChoiceSummary -Dn $dn -DomainDn ([string]$Owner.BaseDn) -DepthMode ([string]$Owner.DepthMode) -Subtree $subtree -Purpose ([string]$Owner.Purpose)
+}
+function Start-DomeniaOuPickerReveal {
+    # Point 54: shows an OU (a favourite, or the current choice of the page) in the same picker tree. Each parent
+    # branch not read yet is read once, one level; the OU is then selected. Choosing it still verifies DN and GUID.
+    param($Owner,[string]$Dn)
+    if(($null -eq $Owner) -or $Owner.Closed){return}
+    # The tree already opens on the domain root: nothing to show, and nothing wrong to report.
+    if((-not $Dn) -or ($Dn -ieq [string]$Owner.BaseDn)){return}
+    $path=Get-DomeniaTreeRevealPath -Dn $Dn -BaseDn ([string]$Owner.BaseDn)
+    if($path.Count -lt 2){$Owner.Status.Text='Cette OU nʼappartient pas au domaine de la session.';return}
+    # Leaving a search shows the navigation tree again (clearing the box navigates by itself).
+    if(([string]$Owner.Box.Text).Length){$Owner.Box.Text=''}
+    if($Owner.Mode -ne 'Navigation'){Show-DomeniaOuPickerNavigation $Owner}
+    $Owner.Reveal=[pscustomobject]@{Dn=$Dn;Path=$path}
+    $Owner.Status.Text='Recherche de '+(Get-DomeniaOuDisplayPath $Dn)+' dans lʼarbre…'
+    Continue-DomeniaOuPickerReveal $Owner
+}
+function Continue-DomeniaOuPickerReveal {
+    param($Owner)
+    $plan=$Owner.Reveal
+    if(($null -eq $plan) -or $Owner.Closed -or ($Owner.Mode -ne 'Navigation')){$Owner.Reveal=$null;return}
+    # A read in progress continues the walk when it completes.
+    if($Owner.Job){return}
+    $node=$Owner.RootNode
+    for($level=1;$level -lt $plan.Path.Count;$level++){
+        if(-not [bool]$node.Tag.Loaded){
+            Start-DomeniaOuPickerRead -Owner $Owner -Mode Children -Node $node
+            if(-not $node.IsExpanded){$node.IsExpanded=$true}
+            if(-not $Owner.Job){$Owner.Reveal=$null}
+            return
+        }
+        if(-not $node.IsExpanded){$node.IsExpanded=$true}
+        $next=$null
+        foreach($child in $node.Items){if(($child -is [Windows.Controls.TreeViewItem]) -and ([string]$child.Tag.DN -ieq [string]$plan.Path[$level])){$next=$child;break}}
+        if($null -eq $next){
+            $Owner.Reveal=$null
+            $Owner.Status.Text=(Get-DomeniaOuDisplayPath ([string]$plan.Dn))+' ne figure pas sous sa branche parente relue : vérifiez son emplacement ou vos droits. Aucune autre OU nʼest choisie.'
+            return
+        }
+        $node=$next
+    }
+    $Owner.Reveal=$null
+    $node.IsSelected=$true
+    try{$node.BringIntoView()}catch{}
+    # Only an OU with its GUID can be chosen (same rule as Update-DomeniaOuPickerSummary): the current place of an
+    # object is often a container (CN=Computers, CN=Users), shown for context only.
+    $row=$null;if($null -ne $node.Tag){$row=Get-DomeniaMember $node.Tag 'Row' $null}
+    if(($null -ne $row) -and ([string]$row.Type -eq 'OU') -and ([bool][string]$row.Guid)){$Owner.Status.Text=(Get-DomeniaOuDisplayPath ([string]$plan.Dn))+' : vérifiez le choix ci-dessous puis cliquez sur Choisir.'}
+    else{$Owner.Status.Text=(Get-DomeniaOuDisplayPath ([string]$plan.Dn))+' est un conteneur, pas une OU : il sert à naviguer. Choisissez une OU dans lʼarbre.'}
+}
 function Show-DomeniaOuTreePicker {
-    param([string]$Title,[string]$Prompt,[string]$InitialTerm='')
+    # Point 54: the one OU picker of Dashboard, Atelier, Outils and the fiche: same tree, name search, favourites,
+    # depth (-DepthMode None, Subtree imposed or Choice) and a confirmation line naming the effect (-Purpose).
+    # -InitialDn opens the tree on the current choice of the page. The result carries Subtree unless DepthMode None.
+    param([string]$Title,[string]$Prompt,[string]$InitialTerm='',[ValidateSet('None','Subtree','Choice')][string]$DepthMode='None',[bool]$Subtree=$true,[string]$Purpose='',[string]$InitialDn='')
     if(-not (Test-DomeniaEmbeddedHost)){throw 'Ouvrez la fenêtre principale avant de sélectionner une OU.'}
     $ctx=Get-DomeniaEmbeddedContext
     if(-not $ctx.BaseDn -or $ctx.Closing){throw 'Connectez-vous avant de sélectionner une OU.'}
     $w=[Windows.Window]::new();$w.Title=$Title;$w.Width=820;$w.Height=640
     $root=[Windows.Controls.Grid]::new();$root.Name='IntegratedObjectPicker'
-    foreach($height in @('Auto','Auto','*','Auto','Auto','Auto')){$rd=[Windows.Controls.RowDefinition]::new();$rd.Height=[Windows.GridLengthConverter]::new().ConvertFromInvariantString($height);[void]$root.RowDefinitions.Add($rd)}
+    foreach($height in @('Auto','Auto','Auto','*','Auto','Auto','Auto','Auto','Auto')){$rd=[Windows.Controls.RowDefinition]::new();$rd.Height=[Windows.GridLengthConverter]::new().ConvertFromInvariantString($height);[void]$root.RowDefinitions.Add($rd)}
     $hint=[Windows.Controls.TextBlock]::new();$hint.Text=$Prompt;$hint.TextWrapping='Wrap';$hint.Margin='0,0,0,12';[void]$root.Children.Add($hint)
     $search=[Windows.Controls.Grid]::new()
     foreach($width in @('*','Auto','Auto')){$col=[Windows.Controls.ColumnDefinition]::new();$col.Width=[Windows.GridLengthConverter]::new().ConvertFromInvariantString($width);[void]$search.ColumnDefinitions.Add($col)}
@@ -607,18 +705,48 @@ function Show-DomeniaOuTreePicker {
     $tree=[Windows.Controls.TreeView]::new();$tree.Name='EmbeddedObjectResults';$tree.MinHeight=180;$tree.MaxHeight=520;$tree.ToolTip='Développez les branches. Seules les OU peuvent être choisies ; les conteneurs servent à naviguer.'
     [Windows.Controls.ScrollViewer]::SetVerticalScrollBarVisibility($tree,'Visible');[Windows.Controls.ScrollViewer]::SetHorizontalScrollBarVisibility($tree,'Auto');[Windows.Controls.ScrollViewer]::SetCanContentScroll($tree,$true)
     [Windows.Controls.VirtualizingPanel]::SetIsVirtualizing($tree,$true);[Windows.Controls.VirtualizingPanel]::SetVirtualizationMode($tree,'Recycling')
-    [Windows.Controls.Grid]::SetRow($tree,2);[void]$root.Children.Add($tree)
-    $path=[Windows.Controls.TextBox]::new();$path.Name='EmbeddedOuPath';$path.IsReadOnly=$true;$path.MinHeight=30;$path.Margin='0,8,0,0';$path.ToolTip='Chemin AD complet de la branche sélectionnée ; copiable.';[Windows.Controls.Grid]::SetRow($path,3);[void]$root.Children.Add($path)
-    $status=[Windows.Controls.TextBlock]::new();$status.Name='EmbeddedObjectStatus';$status.TextWrapping='Wrap';$status.MaxHeight=68;$status.Margin='0,8,0,8';[Windows.Controls.Grid]::SetRow($status,4);[void]$root.Children.Add($status)
+    [Windows.Controls.Grid]::SetRow($tree,3);[void]$root.Children.Add($tree)
+    $path=[Windows.Controls.TextBox]::new();$path.Name='EmbeddedOuPath';$path.IsReadOnly=$true;$path.MinHeight=30;$path.Margin='0,8,0,0';$path.ToolTip='Chemin AD complet de la branche sélectionnée ; copiable.';[Windows.Controls.Grid]::SetRow($path,4);[void]$root.Children.Add($path)
+    # Depth: imposed by the page, or chosen here; never hidden when it matters.
+    $depthBox=$null
+    if($DepthMode -eq 'Choice'){
+        $depthBox=[Windows.Controls.CheckBox]::new();$depthBox.Name='EmbeddedOuSubtree';$depthBox.Content='Inclure les sous-OU';$depthBox.IsChecked=$Subtree;$depthBox.Margin='0,8,0,0'
+        $depthBox.ToolTip='Coché : cette OU et ses sous-OU. Décoché : seulement les objets placés directement dans cette OU.'
+        [Windows.Controls.Grid]::SetRow($depthBox,5);[void]$root.Children.Add($depthBox)
+    }elseif($DepthMode -eq 'Subtree'){
+        $depthText=[Windows.Controls.TextBlock]::new();$depthText.Text='Portée : cette OU et toutes ses sous-OU (imposée par cette page).';$depthText.TextWrapping='Wrap';$depthText.Margin='0,8,0,0'
+        [Windows.Controls.Grid]::SetRow($depthText,5);[void]$root.Children.Add($depthText)
+    }
+    $summary=[Windows.Controls.TextBlock]::new();$summary.Name='EmbeddedOuSummary';$summary.TextWrapping='Wrap';$summary.FontWeight='SemiBold';$summary.Margin='0,8,0,0';$summary.MaxHeight=72
+    [Windows.Automation.AutomationProperties]::SetLiveSetting($summary,'Polite')
+    [Windows.Controls.Grid]::SetRow($summary,6);[void]$root.Children.Add($summary)
+    $status=[Windows.Controls.TextBlock]::new();$status.Name='EmbeddedObjectStatus';$status.TextWrapping='Wrap';$status.MaxHeight=68;$status.Margin='0,8,0,8';[Windows.Controls.Grid]::SetRow($status,7);[void]$root.Children.Add($status)
     $foot=[Windows.Controls.Grid]::new();[void]$foot.ColumnDefinitions.Add([Windows.Controls.ColumnDefinition]::new());$col=[Windows.Controls.ColumnDefinition]::new();$col.Width='Auto';[void]$foot.ColumnDefinitions.Add($col)
     $busy=[Windows.Controls.ProgressBar]::new();$busy.IsIndeterminate=$true;$busy.Width=120;$busy.Height=4;$busy.Visibility='Hidden';$busy.HorizontalAlignment='Left';[void]$foot.Children.Add($busy)
     $buttons=[Windows.Controls.StackPanel]::new();$buttons.Orientation='Horizontal';[Windows.Controls.Grid]::SetColumn($buttons,1);[void]$foot.Children.Add($buttons)
     $cancel=[Windows.Controls.Button]::new();$cancel.Name='EmbeddedObjectCancel';$cancel.Content='Annuler';$cancel.Width=108;$cancel.Height=40;$cancel.IsCancel=$true;$cancel.ToolTip='Fermer sans choisir dʼOU.';[void]$buttons.Children.Add($cancel)
     $accept=[Windows.Controls.Button]::new();$accept.Name='EmbeddedObjectAccept';$accept.Content='Choisir';$accept.Width=130;$accept.Height=40;$accept.Margin='0';$accept.IsEnabled=$false;$accept.IsDefault=$true;$accept.ToolTip='Revérifier le DN et le GUID de cette OU avant de la choisir.';[void]$buttons.Children.Add($accept)
-    [Windows.Controls.Grid]::SetRow($foot,5);[void]$root.Children.Add($foot);$w.Content=$root
-    $r=[pscustomobject]@{Window=$w;Kind='OU';Tree=$tree;Grid=$tree;Box=$box;Go=$go;Accept=$accept;Busy=$busy;Path=$path;Status=$status;RequestId='';Closed=$false;Job='';Selected=$null;RootNode=$null;ActiveNode=$null;Mode='Navigation';Epoch=$ctx.Epoch;BaseDn=$ctx.BaseDn}
+    [Windows.Controls.Grid]::SetRow($foot,8);[void]$root.Children.Add($foot);$w.Content=$root
+    $r=[pscustomobject]@{Window=$w;Kind='OU';Tree=$tree;Grid=$tree;Box=$box;Go=$go;Accept=$accept;Busy=$busy;Path=$path;Status=$status;RequestId='';Closed=$false;Job='';Selected=$null;RootNode=$null;ActiveNode=$null;Mode='Navigation';Epoch=$ctx.Epoch;BaseDn=$ctx.BaseDn;Reveal=$null;DepthMode=$DepthMode;DepthBox=$depthBox;Summary=$summary;Purpose=$Purpose}
     $r.RootNode=New-DomeniaOuPickerNode -Owner $r -Dn $ctx.BaseDn -Name $ctx.BaseDn
     $read=${function:Start-DomeniaOuPickerRead};$navigate=${function:Show-DomeniaOuPickerNavigation};$stop=${function:Stop-DomeniaOuPickerRead}
+    $reveal=${function:Start-DomeniaOuPickerReveal};$summarize=${function:Update-DomeniaOuPickerSummary}
+    # Point 54: the favourites of Rechercher, labelled so that two OU of the same name stay distinct.
+    $favouriteItems=@(Get-DomeniaOuPickerFavourites -BaseDn $ctx.BaseDn)
+    if($favouriteItems.Count){
+        $strip=[Windows.Controls.WrapPanel]::new();$strip.Name='EmbeddedOuFavourites'
+        $caption=[Windows.Controls.TextBlock]::new();$caption.Text='Favoris :';$caption.VerticalAlignment='Center';$caption.Margin='0,0,8,4';[void]$strip.Children.Add($caption)
+        foreach($favourite in $favouriteItems){
+            $chip=[Windows.Controls.Button]::new();$chip.Content=[string][char]0x2605+' '+[string]$favourite.Label;$chip.Tag=[string]$favourite.DN;$chip.MinHeight=30;$chip.Padding='8,2';$chip.Margin='0,0,6,4'
+            $chip.ToolTip='Afficher '+[string]$favourite.FullPath+' dans lʼarbre ; les branches parentes non lues sont lues une à une. Choisir reste nécessaire.'
+            [Windows.Automation.AutomationProperties]::SetName($chip,'Favori '+[string]$favourite.Label)
+            $chip.Add_Click({param($sender,$eventArgs) if(-not $r.Job){& $reveal -Owner $r -Dn ([string]$sender.Tag)}}.GetNewClosure())
+            [void]$strip.Children.Add($chip)
+        }
+        $scroll=[Windows.Controls.ScrollViewer]::new();$scroll.Content=$strip;$scroll.MaxHeight=76;$scroll.Margin='0,0,0,8';$scroll.VerticalScrollBarVisibility='Auto';$scroll.HorizontalScrollBarVisibility='Disabled'
+        [Windows.Controls.Grid]::SetRow($scroll,2);[void]$root.Children.Add($scroll)
+    }
+    if($null -ne $depthBox){$depthBox.Add_Checked({& $summarize $r}.GetNewClosure());$depthBox.Add_Unchecked({& $summarize $r}.GetNewClosure())}
     $go.Add_Click({if(-not $r.Job){if(([string]$box.Text).Trim()){& $read -Owner $r -Mode Search}else{& $navigate $r}}}.GetNewClosure())
     $accept.Add_Click({& $read -Owner $r -Mode Verify}.GetNewClosure())
     $clear.Add_Click({if([string]$box.Text){$box.Text=''}else{& $navigate $r}}.GetNewClosure())
@@ -631,14 +759,22 @@ function Show-DomeniaOuTreePicker {
         $item=$eventArgs.NewValue;$r.Path.Text=$(if($null -ne $item -and $null -ne $item.Tag){[string]$item.Tag.DN}else{''})
         $r.Accept.IsEnabled=($null -ne $item -and $null -ne $item.Tag.Row -and [string]$item.Tag.Row.Type -eq 'OU' -and [bool][string]$item.Tag.Row.Guid -and -not $r.Job -and $r.Mode -ne 'Draft')
         if($null -ne $item -and $r.Mode -eq 'Search' -and $null -eq $item.Tag.Row){$r.Status.Text='Branche de contexte : choisissez une OU en gras, ou effacez la recherche pour naviguer dans cette branche.'}
+        & $summarize $r
     }.GetNewClosure())
-    Register-DomeniaSurfaceReady $w ({[void]$box.Focus();if(([string]$box.Text).Trim()){& $read -Owner $r -Mode Search}else{& $navigate $r}}.GetNewClosure())
-    try{[void](Show-DomeniaEmbeddedWindow $w);return $r.Selected}
+    & $summarize $r
+    $initialDn=([string]$InitialDn).Trim()
+    Register-DomeniaSurfaceReady $w ({[void]$box.Focus();if(([string]$box.Text).Trim()){& $read -Owner $r -Mode Search}else{& $navigate $r;if($initialDn){& $reveal -Owner $r -Dn $initialDn}}}.GetNewClosure())
+    try{
+        [void](Show-DomeniaEmbeddedWindow $w)
+        # The depth goes back with the verified OU, so that the page applies exactly what was confirmed.
+        if(($null -ne $r.Selected) -and ($DepthMode -ne 'None')){$r.Selected|Add-Member -NotePropertyName Subtree -NotePropertyValue $(if($DepthMode -eq 'Choice'){[bool]$depthBox.IsChecked}else{$true}) -Force}
+        return $r.Selected
+    }
     finally{$r.Closed=$true;Stop-DomeniaOuPickerRead $r;$tree.Items.Clear();$w.Close()}
 }
 function Show-DomeniaInlinePicker {
-    param([ValidateSet('Machine','Utilisateur','OU')][string]$Kind,[string]$Title,[string]$Prompt,[string]$InitialTerm='')
-    if($Kind -eq 'OU'){return (Show-DomeniaOuTreePicker -Title $Title -Prompt $Prompt -InitialTerm $InitialTerm)}
+    param([ValidateSet('Machine','Utilisateur','OU')][string]$Kind,[string]$Title,[string]$Prompt,[string]$InitialTerm='',[ValidateSet('None','Subtree','Choice')][string]$DepthMode='None',[bool]$Subtree=$true,[string]$Purpose='',[string]$InitialDn='')
+    if($Kind -eq 'OU'){return (Show-DomeniaOuTreePicker -Title $Title -Prompt $Prompt -InitialTerm $InitialTerm -DepthMode $DepthMode -Subtree $Subtree -Purpose $Purpose -InitialDn $InitialDn)}
     if(-not (Test-DomeniaEmbeddedHost)){throw 'Ouvrez la fenêtre principale avant de sélectionner un objet.'}
     $w=[Windows.Window]::new();$w.Title=$Title;$w.Width=820;$w.Height=600
     $root=[Windows.Controls.Grid]::new();$root.Name='IntegratedObjectPicker'

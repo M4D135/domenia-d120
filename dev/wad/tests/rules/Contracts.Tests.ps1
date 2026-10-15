@@ -28,15 +28,18 @@ Test-Case 'CTR-003' 'Decision : version courante lue, version 1 migree, version 
     Assert-True $current.Accepted; Assert-Equal 'Lire' $current.Decision; Assert-Equal '' $current.Message
     $old = Resolve-DomeniaContractFormat -Format 'Domenia.Query/1' -Family 'Domenia.Query'
     Assert-True $old.Accepted; Assert-Equal 'Migrer' $old.Decision; Assert-Equal 1 @($old.Steps).Count; Assert-Equal 'Subset' @($old.Steps)[0].Mode
-    $future = Resolve-DomeniaContractFormat -Format 'Domenia.QueryPack/2' -Family 'Domenia.QueryPack'
+    # W09: a version 1 pack (no identity, no fingerprint) is a subset of version 2.
+    $pack = Resolve-DomeniaContractFormat -Format 'Domenia.QueryPack/1' -Family 'Domenia.QueryPack'
+    Assert-True $pack.Accepted; Assert-Equal 'Migrer' $pack.Decision
+    $future = Resolve-DomeniaContractFormat -Format 'Domenia.QueryPack/3' -Family 'Domenia.QueryPack'
     Assert-False $future.Accepted; Assert-Equal 'PlusRecent' $future.Reason
-    Assert-True ($future.Message -like 'Pack de recettes : format Domenia.QueryPack/2 produit par une version plus récente de Domenia ; cette version lit jusquʼà la version 1. Rien nʼest lu ni modifié*') $future.Message
+    Assert-True ($future.Message -like 'Pack de recettes : format Domenia.QueryPack/3 produit par une version plus récente de Domenia ; cette version lit jusquʼà la version 2. Rien nʼest lu ni modifié*') $future.Message
 }
 
 Test-Case 'CTR-004' 'Refus : autre famille, famille inconnue, format illisible ; aucun nʼest lu' {
     $other = Resolve-DomeniaContractFormat -Format 'Domenia.QueryLibrary/1' -Family 'Domenia.QueryPack'
     Assert-Equal 'Inattendu' $other.Reason; Assert-False $other.Accepted
-    Assert-Equal 'Pack de recettes : format Domenia.QueryLibrary/1 inattendu (Domenia.QueryPack/1 attendu). Rien nʼest lu.' $other.Message
+    Assert-Equal 'Pack de recettes : format Domenia.QueryLibrary/1 inattendu (Domenia.QueryPack/2 attendu). Rien nʼest lu.' $other.Message
     $dotted = Resolve-DomeniaContractFormat -Format 'Domenia.Capture/1' -Family 'Domenia.Capture'
     Assert-Equal 'Inattendu' $dotted.Reason 'separateur different de celui du contrat'
     $unknown = Resolve-DomeniaContractFormat -Format 'Domenia.Rien/1' -Family 'Domenia.Rien'
@@ -86,7 +89,11 @@ Test-Case 'CTR-007' 'Chaque format versionne ecrit par les modules livres est de
         $value = [string](Get-DomeniaMember $data 'Format' (Get-DomeniaMember $data 'Schema' ''))
         $found[$value] = $json
     }
-    Assert-True ($found.Count -ge 12) ('formats trouves : ' + [string]$found.Count)
+    Assert-True ($found.Count -ge 20) ('formats trouves : ' + [string]$found.Count)
+    # Formats added by the other lots of waves 1 to 3 are declared too (W03, W04, W09, W15 points 136 and 139).
+    foreach ($format in @('Domenia.CollectionRun/1','DomeniaCampaignPlan/1','DomeniaCampaignProgress/1','Domenia.QueryImportJournal/1','Domenia.ProbeContract/1','Domenia.Automation/1','Domenia.OfflineDossier/1')) {
+        Assert-True ($found.ContainsKey($format)) ('format absent des modules : ' + $format)
+    }
     foreach ($format in @($found.Keys)) {
         $parsed = ConvertFrom-DomeniaContractFormat $format
         Assert-True ($null -ne $parsed) ('illisible : ' + $format + ' dans ' + $found[$format])
@@ -124,4 +131,17 @@ Test-Case 'CTR-009' 'Le catalogue est construit une fois par runspace ; un catal
     $own = @(New-CtrContract -Family 'Domenia.Query' -Current 3 -Readable @(3))
     Assert-Equal 3 ([int](Get-DomeniaContract -Family 'Domenia.Query' -Catalog $own).Current)
     Assert-Equal 2 ([int](Get-DomeniaContract -Family 'Domenia.Query').Current) 'catalogue fourni retenu par le cache'
+}
+
+Test-Case 'CTR-010' 'Plan et avancement de releve (W04) dʼune version plus recente : refuses avec leur version, rien nʼest repris' {
+    . (Join-Path $modules 'Domenia-Collection.Model.ps1')
+    $thrown = ''
+    try { [void](ConvertFrom-DomeniaCampaignPlanText '{"Schema":"DomeniaCampaignPlan/2","Kind":"Ping"}') } catch { $thrown = $_.Exception.Message }
+    Assert-True ($thrown -like 'Plan de relevé : format DomeniaCampaignPlan/2 produit par une version plus récente de Domenia*') $thrown
+    $thrown = ''
+    try { [void](ConvertFrom-DomeniaCampaignProgressText '{"Schema":"DomeniaCampaignProgress/9","PlanId":"0123456789abcdef0123456789abcdef"}') } catch { $thrown = $_.Exception.Message }
+    Assert-True ($thrown -like 'Avancement du relevé : format DomeniaCampaignProgress/9 produit par une version plus récente*') $thrown
+    $thrown = ''
+    try { [void](ConvertFrom-DomeniaCampaignPlanText '{"Kind":"Ping"}') } catch { $thrown = $_.Exception.Message }
+    Assert-True ($thrown -like 'Plan de relevé : format illisible*') $thrown
 }

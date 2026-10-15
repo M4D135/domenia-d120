@@ -19,7 +19,9 @@ $records=$Payload.Records
 if($null -eq $records){$records=ConvertTo-DomeniaQueryRecords -Fleet $Payload.Fleet -Observations $Payload.Observations -MaxAgeDays ([int]$Payload.MaxAgeDays) -Lifecycle $Payload.Lifecycle}
 $records=Add-DomeniaQueryCollectionProjectionRecords -Records $records -Projections @(Get-DomeniaMember $Payload 'CollectionProjections' @())
 $records=Add-DomeniaQueryDetailRecords -Records $records -Details @(Get-DomeniaMember $Payload 'DetailRows' @()) -MaxAgeDays ([int]$Payload.MaxAgeDays)
-if([bool](Get-DomeniaMember $Payload 'PlanCollection' $false)){[pscustomobject]@{Records=$records;CollectionPlan=(New-DomeniaQueryMissingCollectionPlan -Records $records -Recipe $Payload.Recipe -CacheMinutes ([int]$Payload.CacheMinutes))};return}
+# Collect only what is missing: same reuse age as the survey that checks each workstation before reading it; the
+# forced re-read of the collection settings (cache 0) keeps no stored measurement.
+if([bool](Get-DomeniaMember $Payload 'PlanCollection' $false)){[pscustomobject]@{Records=$records;CollectionPlan=(New-DomeniaQueryMissingCollectionPlan -Records $records -Recipe $Payload.Recipe -CacheMinutes ([int]$Payload.CacheMinutes) -ReuseMaxAgeDays $(if([int]$Payload.CacheMinutes -gt 0){[int]$Payload.MaxAgeDays}else{0}))};return}
 if([bool](Get-DomeniaMember $Payload 'CoverageOnly' $false)){[pscustomobject]@{Records=$records;Coverage=(Measure-DomeniaQueryCoverage -Records $records -Recipe $Payload.Recipe)};return}
 $eligible=Select-DomeniaQueryPopulation $records $Payload.Recipe
 $text=([string]$Payload.TextFilter).Trim();$state=[string]$Payload.StateFilter
@@ -47,6 +49,12 @@ if($searchOutput){
 }
 $fields=@(Get-DomeniaQueryRequestedFields $Payload.Recipe)
 $rows=@(ConvertTo-DomeniaQueryGridRows -Rows $result.Rows -Fields $fields)
+# Complete distribution of the draft, computed like its widget on the whole scope (display filters excluded).
+$groups=$null
+if([string](Get-DomeniaMember $Payload.Recipe 'GroupBy')){
+    try{$groups=Get-DomeniaQueryGroupSummary -Records $records -Recipe $Payload.Recipe}
+    catch{$groups=[pscustomobject]@{Field=[string]$Payload.Recipe.GroupBy;Error=$_.Exception.Message}}
+}
 $widgets=$null;if($null -ne $Payload.PSObject.Properties['CachedWidgets']){$widgets=$Payload.CachedWidgets}
 if($null -eq $widgets){
 $widgets=@{}
@@ -57,7 +65,7 @@ foreach($recipe in @($Payload.Saved)){
 }
 $probeWidgets=$null;if($null -ne $Payload.PSObject.Properties['CachedProbeWidgets']){$probeWidgets=$Payload.CachedProbeWidgets}
 if($null -eq $probeWidgets){$requests=@();if($null -ne $Payload.PSObject.Properties['ProbeRequests']){$requests=@($Payload.ProbeRequests)};$probeWidgets=Measure-DomeniaFleetProbeEntries -Fleet $Payload.Fleet -Observations $Payload.Observations -Requests $requests -MaxAgeDays ([int]$Payload.MaxAgeDays)}
-[pscustomobject]@{Rows=$rows;Records=$records;Widgets=$widgets;ProbeWidgets=$probeWidgets;Total=$result.Total;Matched=$result.Matched;Unknown=$result.Unknown;NotMatched=$result.NotMatched;ScopeTotal=$records.Count;Offset=$options.Offset;Selection=[string]$options.Selection}
+[pscustomobject]@{Rows=$rows;Records=$records;Widgets=$widgets;ProbeWidgets=$probeWidgets;Groups=$groups;Total=$result.Total;Matched=$result.Matched;Unknown=$result.Unknown;NotMatched=$result.NotMatched;ScopeTotal=$records.Count;Offset=$options.Offset;Selection=[string]$options.Selection}
 '@
 }
 function Get-DomeniaQueryExportWorkerCode {
@@ -117,7 +125,11 @@ try{
     $writer.Flush();$stream.Flush($true);$writer.Dispose();$writer=$null;$stream=$null
     $hash=[Security.Cryptography.SHA256]::Create();$csvInput=[IO.File]::OpenRead($temporary)
     try{$sha=[BitConverter]::ToString($hash.ComputeHash($csvInput)).Replace('-','').ToLowerInvariant()}finally{$csvInput.Dispose();$hash.Dispose()}
-    $metadata=[pscustomobject]@{Format='Domenia.QueryExport/1';RowCount=$count;Pages=$pages;PageSize=200;CsvSHA256=$sha;CreatedUtc=[datetime]::UtcNow.ToString('o');SnapshotKey=[string]$request.SnapshotKey;EvaluatedAtUtc=[string]$request.EvaluatedAtUtc;ScopeDn=[string]$request.ScopeDn;Subtree=[bool]$request.Subtree;Selection=[string]$request.Selection;TextFilter=$text;StateFilter=$state;SortField=$options.SortField;Descending=$options.Descending;Recipe=$recipe;Total=$snapshot.Total;Matched=$snapshot.Matched;Unknown=$snapshot.Unknown;NotMatched=$snapshot.NotMatched}
+    $metadata=[pscustomobject]@{Format='Domenia.QueryExport/1';RowCount=$count;Pages=$pages;PageSize=200;CsvSHA256=$sha;CreatedUtc=[datetime]::UtcNow.ToString('o');SnapshotKey=[string]$request.SnapshotKey;EvaluatedAtUtc=[string]$request.EvaluatedAtUtc;ScopeDn=[string]$request.ScopeDn;Subtree=[bool]$request.Subtree;Selection=[string]$request.Selection;TextFilter=$text;StateFilter=$state;SortField=$options.SortField;Descending=$options.Descending;Recipe=$recipe;Definition=(Get-DomeniaMemberValue $request 'Definition');Total=$snapshot.Total;Matched=$snapshot.Matched;Unknown=$snapshot.Unknown;NotMatched=$snapshot.NotMatched}
+    # Point 2: exact population of the preview (domain, OU, depth, types, criteria, snapshot) and the clocks of its
+    # data, captured with the request; absent fields stay absent, never guessed by the worker.
+    $metadata|Add-Member -NotePropertyName Population -NotePropertyValue $request.Population
+    $metadata|Add-Member -NotePropertyName DataClocks -NotePropertyValue $request.DataClocks
     [IO.File]::WriteAllText($metadataTemporary,($metadata|ConvertTo-Json -Depth 16),[Text.UTF8Encoding]::new($true))
     [IO.File]::Move($metadataTemporary,$path+'.metadata.json');$publishedMetadata=$true
     [IO.File]::Move($temporary,$path);$publishedCsv=$true
@@ -132,17 +144,33 @@ try{
 }
 
 function Get-DomeniaQueryLibraryWorkerCode {
-    # QueryLibrary builds local descriptions only when the user visits the library.
+    # QueryLibrary builds local descriptions off the UI thread: delivered models, saved recipes in their stored
+    # category, and archived definitions (parsed and checked here, listed only under Archives).
     return @'
 $root=[string]$Payload.ModuleRoot
 foreach($file in @('Domenia-Common.Model.ps1','Domenia-HealthRules.Model.ps1','Domenia-Boards.Model.ps1','Domenia-Probes.Model.ps1','Domenia-QuerySchema.Model.ps1','Domenia-Workstation.Model.ps1','Domenia-Query.Model.ps1')){. (Join-Path $root $file)}
-$rows=@(foreach($recipe in @(@(Get-DomeniaQueryTemplates)+@($Payload.Saved))){
-    $template=([string]$recipe.Id -like 'template.*');$plan=Get-DomeniaQueryCollectionRequirements -Recipes @($recipe)
-    $group=if($template){[string](Get-DomeniaMember $recipe 'Category' 'Modèles')}else{'Mes requêtes'}
-    $description=[string](Get-DomeniaMember $recipe 'Description' 'Requête enregistrée : consultez et adaptez ses conditions dans le compositeur.')
+$categories=Get-DomeniaMemberValue $Payload 'Categories'
+$describe={param($Recipe,[string]$SourceId,[string]$Group,[string]$Description)
+    $plan=Get-DomeniaQueryCollectionRequirements -Recipes @($Recipe)
     $source=if(-not $plan.Remote){'Base AD locale'}elseif($plan.ProbeIds.Count){'Relevé + '+$plan.ProbeIds.Count+' sonde(s)'}elseif($plan.Inventory){'Inventaire du poste'}else{'Présence et console'}
-    [pscustomobject]@{Id=$recipe.Id;Name=$recipe.Name;Category=$group;Description=$description;DataSource=$source;SourceId=$(if($template){'Template'}else{'Saved'});Plan=$plan;Recipe=$recipe;SearchText=($recipe.Name+' '+$group+' '+$description+' '+$source)}
+    [pscustomobject]@{Id=$Recipe.Id;Name=$Recipe.Name;Category=$Group;Description=$Description;DataSource=$source;SourceId=$SourceId;Plan=$plan;Recipe=$Recipe;SearchText=($Recipe.Name+' '+$Group+' '+$Description+' '+$source)}
+}
+$rows=@(foreach($recipe in @(@(Get-DomeniaQueryTemplates)+@($Payload.Saved))){
+    $template=([string]$recipe.Id -like 'template.*')
+    $stored=if($template){''}else{[string](Get-DomeniaMember $categories ([string]$recipe.Id) '')}
+    $group=if($template){[string](Get-DomeniaMember $recipe 'Category' 'Modèles')}elseif($stored){$stored}else{'Mes requêtes'}
+    $description=[string](Get-DomeniaMember $recipe 'Description' 'Requête enregistrée : consultez et adaptez ses conditions dans le compositeur.')
+    & $describe $recipe $(if($template){'Template'}else{'Saved'}) $group $description
 })
-[pscustomobject]@{Rows=$rows}
+$rejected=0
+$archived=@(foreach($row in @(Get-DomeniaMember $Payload 'Archived' @())){
+    $recipe=$null
+    try{$recipe=ConvertFrom-Json -InputObject ([string]$row.DefinitionJson) -ErrorAction Stop;[void](ConvertTo-DomeniaCompiledQuery $recipe)}catch{$recipe=$null}
+    if($null -eq $recipe -or [string]$recipe.Id -cne [string]$row.Id){$rejected++;continue}
+    $at=ConvertFrom-DomeniaUtcText ([string]$row.UpdatedUtc)
+    $description='Requête archivée'+$(if($null -ne $at){' le '+$at.ToLocalTime().ToString('dd/MM/yyyy HH:mm')}else{''})+' (révision '+[string]$row.Revision+'). Restaurez-la pour lʼutiliser ; ses révisions et les données collectées sont conservées.'
+    & $describe $recipe 'Archived' ([string]$row.Category) $description
+})
+[pscustomobject]@{Rows=@($rows)+@($archived);ArchivedRejected=$rejected}
 '@
 }

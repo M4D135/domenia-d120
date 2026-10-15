@@ -151,3 +151,75 @@ Test-Case 'D070' 'Differences datees par controleur, USN non compares, controleu
     Assert-True ($c.Note -match 'USN sont locaux')
     Assert-False (Compare-DomeniaDcReadings @($readings[0]) @('description')).Comparable
 }
+Test-Case 'MO-04' 'Totaux du domaine lus dans la copie locale, avec leur date, sans denombrer l annuaire' {
+    $now=[datetime]::SpecifyKind([datetime]'2026-10-14T12:00:00',[DateTimeKind]::Utc)
+    $types=@([pscustomobject]@{t='Utilisateur';s='Actif';n=120},[pscustomobject]@{t='Utilisateur';s='Desactive';n=3},[pscustomobject]@{t='Machine';s='Actif';n=1},[pscustomobject]@{t='Groupe';s='Inconnu';n=40},[pscustomobject]@{t='OU';s='Inconnu';n=0})
+    $r=Get-DomeniaLocalTotalsSummary -Types $types -LastSyncUtc '2026-10-14T06:15:00.0000000Z' -NowUtc $now
+    $when=Format-DomeniaRelationWhen '2026-10-14T06:15:00.0000000Z' $now
+    Assert-True $r.Known;Assert-Equal 164 $r.Total
+    Assert-Equal ('Totaux de la copie locale au '+$when+' : 123 utilisateurs (dont 3 désactivés) · 1 poste · 40 groupes.') $r.Text
+    $big=Get-DomeniaLocalTotalsSummary -Types @([pscustomobject]@{t='Machine';s='Actif';n=1234}) -LastSyncUtc '2026-10-14T06:15:00Z' -NowUtc $now
+    Assert-True ($big.Text -match ' : 1\D234 postes\.$') ('Separateur de milliers : '+$big.Text)
+    $unknown=Get-DomeniaLocalTotalsSummary -Types @([pscustomobject]@{t='Machine';s='Actif';n=2}) -LastSyncUtc ''
+    Assert-False $unknown.Known;Assert-True ($unknown.Text.StartsWith('Totaux de la copie locale, date de synchronisation inconnue : 2 postes'))
+    $empty=Get-DomeniaLocalTotalsSummary -Types @() -LastSyncUtc ''
+    Assert-False $empty.Known;Assert-Equal 0 $empty.Total;Assert-True ($empty.Text.Contains('aucun dénombrement'))
+}
+Test-Case 'UI-06' 'Appartenances lisibles : nom, type, OU, DN conserve' {
+    Assert-Equal 'Dupont, Jean' (Get-DomeniaDnDisplayName 'CN=Dupont\, Jean,OU=RH,DC=example,DC=invalid')
+    Assert-Equal 'Équipe' (Get-DomeniaDnDisplayName 'CN=\C3\89quipe,DC=example,DC=invalid')
+    $groups=ConvertTo-DomeniaMembershipRows @('CN=GG-Compta,OU=Groupes,OU=Lyon,DC=example,DC=invalid','cn=gg-compta,ou=groupes,ou=lyon,dc=example,dc=invalid','') MemberOf
+    Assert-Equal 1 @($groups).Count 'Doublon ecarte sans tenir compte de la casse'
+    Assert-Equal 'GG-Compta' $groups[0].Name;Assert-Equal 'Groupe' $groups[0].Type;Assert-Equal 'example.invalid / Lyon / Groupes' $groups[0].Ou
+    Assert-Equal 'CN=GG-Compta,OU=Groupes,OU=Lyon,DC=example,DC=invalid' $groups[0].Dn;Assert-Equal 'Directe' $groups[0].Membership
+    $types=@{'CN=PC-01,OU=Postes,DC=example,DC=invalid'='Machine'}
+    $members=ConvertTo-DomeniaMembershipRows @('cn=pc-01,ou=postes,dc=example,dc=invalid','CN=Inconnu,OU=Postes,DC=example,DC=invalid') Members $types
+    Assert-Equal 'Machine' $members[0].Type 'Type lu dans la copie locale'
+    Assert-Equal 'Non lu' $members[1].Type 'Type jamais devine depuis le nom'
+    Assert-Equal 2 (ConvertTo-DomeniaMembershipRows @(1..5|ForEach-Object{'CN=M'+$_+',DC=x'}) Members $null 2).Count 'Borne du nombre de lignes'
+    # The rows come back as one array: a caller iterates the assigned value (an @() around the call would nest it).
+    $none=ConvertTo-DomeniaMembershipRows @() MemberOf
+    Assert-Equal 0 $none.Count 'Aucun DN : aucune ligne'
+    $iterated=0;foreach($row in $members){$iterated++};Assert-Equal 2 $iterated 'Une ligne par DN a lʼitération'
+    Assert-True (Test-DomeniaMembershipRow $groups[0] 'compta lyon');Assert-False (Test-DomeniaMembershipRow $groups[0] 'compta paris')
+    Assert-True (Test-DomeniaMembershipRow $groups[0] '  ') 'Filtre vide'
+}
+Test-Case 'UI-06' 'Groupes imbriques et « Pourquoi membre ? » depuis les appartenances lues' {
+    $u='CN=Jean Dupont,OU=RH,DC=example,DC=invalid';$g1='CN=GG-Lyon,DC=example,DC=invalid';$g2='CN=GG-RH,DC=example,DC=invalid';$g3='CN=GG-Compta,DC=example,DC=invalid';$g4='CN=GU-Tous,DC=example,DC=invalid'
+    $json=[pscustomobject]@{}
+    foreach($pair in @(@($u,@($g1,$g2)),@($g1,@($g3)),@($g2,@($g3)),@($g3,$g4),@($g4,@($g1)))){Add-Member -InputObject $json -NotePropertyName $pair[0] -NotePropertyValue $pair[1]}
+    $edges=ConvertTo-DomeniaMembershipEdges $json
+    Assert-Equal 1 @($edges[$g3]).Count 'Un parent unique reste un DN';Assert-Equal $g4 @($edges[$g3])[0]
+    Assert-Equal 2 @((ConvertTo-DomeniaMembershipEdges @{$u=@($g1,$g2)})[$u]).Count 'Dictionnaire accepte'
+    $nested=Get-DomeniaNestedMembershipRows $edges $u
+    Assert-Equal 2 $nested.Count 'Seuls les groupes atteints par imbrication, cycle G4-G1 sans boucle'
+    Assert-Equal 'GG-Compta' $nested[0].Name;Assert-Equal 2 $nested[0].Depth;Assert-Equal 'GG-Lyon' $nested[0].Via;Assert-Equal 'Imbriquée' $nested[0].Membership
+    Assert-Equal 'GU-Tous' $nested[1].Name;Assert-Equal 3 $nested[1].Depth
+    $direct=Get-DomeniaMembershipWhy -ObjectDn $u -GroupDn $g1 -Direct $true
+    Assert-True $direct.Member;Assert-False $direct.NeedsRead;Assert-True ($direct.Text.Contains('membre direct de « GG-Lyon »'))
+    Assert-True (Get-DomeniaMembershipWhy -ObjectDn $u -GroupDn $g4).NeedsRead 'Lecture au clic seulement'
+    $path=Get-DomeniaMembershipWhy -Edges $edges -ObjectDn $u -GroupDn $g4 -Read $true -ServerAnswer $true
+    Assert-True $path.Member;Assert-Equal 'Jean Dupont,GG-Lyon,GG-Compta,GU-Tous' ($path.Path -join ',')
+    Assert-True ($path.Text.Contains('Jean Dupont → GG-Lyon → GG-Compta → GU-Tous (3 niveaux)') -and $path.Text.Contains('Le contrôleur confirme')) $path.Text
+    $cut=Get-DomeniaMembershipWhy -Edges @{$u=@($g1)} -ObjectDn $u -GroupDn $g4 -Read $true -Truncated $true
+    Assert-True ($null -eq $cut.Member);Assert-True ($cut.Text.Contains('indéterminée')) 'Une lecture bornee ne conclut pas a une absence'
+    $no=Get-DomeniaMembershipWhy -Edges @{$u=@($g1)} -ObjectDn $u -GroupDn $g4 -Read $true -ServerAnswer $false
+    Assert-False $no.Member;Assert-True ($no.Text.Contains('nʼest pas membre'))
+    $unknown=Get-DomeniaMembershipWhy -Edges @{$u=@($g1)} -ObjectDn $u -GroupDn $g4 -Read $true
+    Assert-False $unknown.Known;Assert-True ($unknown.Text.Contains('groupe principal'))
+}
+Test-Case 'UI-06' 'Reponse GroupPathRead partagee avec l audit AD : aretes de l objet et des groupes lus' {
+    $u='CN=Jean Dupont,OU=RH,DC=example,DC=invalid';$g1='CN=GG-Lyon,DC=example,DC=invalid';$g2='CN=GG-RH,DC=example,DC=invalid';$g3='CN=GG-Compta,DC=example,DC=invalid'
+    # Answer of the pinned body (point 103 shape): StartParents for the object, Parents for each group read.
+    $read=[pscustomobject]@{Dn=$u;StartParents=@($g1,$g2);Nodes=@([pscustomobject]@{Dn=$g1;Parents=@($g3)},[pscustomobject]@{Dn=$g2;Parents=$g3},[pscustomobject]@{Dn=$g3;Parents=@()});Unread=@()}
+    $edges=ConvertTo-DomeniaGroupPathEdges $read
+    Assert-Equal 4 $edges.Count 'Objet et trois groupes lus'
+    Assert-Equal 2 @($edges[$u]).Count;Assert-Equal $g3 @($edges[$g2])[0] 'Un parent unique reste un DN'
+    Assert-Equal 0 @($edges[$g3]).Count 'Groupe lu sans parent'
+    $nested=Get-DomeniaNestedMembershipRows $edges $u
+    Assert-Equal 1 $nested.Count;Assert-Equal 'GG-Compta' $nested[0].Name 'Casse des DN conservee pour les noms'
+    # A group that could not be read has no edge: its parents stay unknown, never an empty list.
+    $partial=ConvertTo-DomeniaGroupPathEdges ([pscustomobject]@{Dn=$u;StartParents=@($g1);Nodes=@();Unread=@([pscustomobject]@{Dn=$g1;Reason='Introuvable ou non lisible avec ce compte'})})
+    Assert-Equal 1 $partial.Count;Assert-False $partial.ContainsKey($g1)
+    Assert-Equal 0 (ConvertTo-DomeniaGroupPathEdges $null).Count 'Aucune reponse : aucune arete'
+}

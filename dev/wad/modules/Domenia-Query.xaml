@@ -6,6 +6,7 @@
     </Grid.RowDefinitions>
     <DockPanel x:Name="UxQueryScopeBar" Margin="0,0,0,8">
       <Button x:Name="BtnQueryBack" DockPanel.Dock="Left" Content="Retour" MinHeight="32" Margin="0,0,12,0" AutomationProperties.Name="Revenir à la vue précédente" />
+      <Button x:Name="BtnQueryScope" DockPanel.Dock="Right" Content="Choisir une OU" MinHeight="32" Margin="12,0,0,0" Padding="10,2" ToolTip="Choisit lʼOU du tableau de bord et de lʼatelier avec le sélecteur commun : arbre, recherche, favoris, profondeur et confirmation. Aucune collecte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Choisir lʼOU de lʼatelier" AutomationProperties.HelpText="Choisit lʼOU du tableau de bord et de lʼatelier avec le sélecteur commun : arbre, recherche, favoris, profondeur et confirmation. Aucune collecte." />
       <TextBlock x:Name="LblQueryScope" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" />
     </DockPanel>
     <Border x:Name="UxQueryCard" Style="{DynamicResource Card}" Grid.Row="1">
@@ -75,6 +76,25 @@
                   </DataGrid>
                 </StackPanel>
               </Expander>
+              <Expander x:Name="ExpQueryGroups" DockPanel.Dock="Bottom" Header="Répartition complète · toutes les valeurs" IsExpanded="False" Visibility="Collapsed" Margin="0,10,0,0">
+                <StackPanel>
+                  <TextBlock x:Name="LblQueryGroups" TextWrapping="Wrap" Margin="0,4,0,6" AutomationProperties.LiveSetting="Polite" />
+                  <WrapPanel Margin="0,0,0,6">
+                    <TextBox x:Name="TxtQueryGroupFilter" Width="220" MinHeight="30" MaxLength="256" Margin="0,0,8,0" ToolTip="Filtrer les valeurs de la répartition. Calcul local, sans collecte." AutomationProperties.Name="Filtrer les valeurs de la répartition" />
+                    <Button x:Name="BtnQueryGroupsPrevious" Content="Valeurs précédentes" IsEnabled="False" MinHeight="30" Margin="0,0,6,0" />
+                    <Button x:Name="BtnQueryGroupsNext" Content="Valeurs suivantes" IsEnabled="False" MinHeight="30" Margin="0,0,6,0" />
+                    <Button x:Name="BtnQueryGroupsShow" Content="Afficher ces postes" IsEnabled="False" MinHeight="30" ToolTip="Ajoute la valeur choisie comme segment et recalcule lʼaperçu local. Aucune collecte." />
+                  </WrapPanel>
+                  <DataGrid x:Name="DgQueryGroups" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" SelectionMode="Single" MaxHeight="260" EnableRowVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling" AutomationProperties.Name="Valeurs de la répartition et nombre de postes">
+                    <DataGrid.Columns>
+                      <DataGridTextColumn Header="Rang" Binding="{Binding Rank}" Width="60" />
+                      <DataGridTextColumn Header="Valeur" Binding="{Binding Label}" Width="*" />
+                      <DataGridTextColumn Header="Postes" Binding="{Binding Count}" Width="90" />
+                      <DataGridTextColumn Header="Part" Binding="{Binding Share}" Width="80" />
+                    </DataGrid.Columns>
+                  </DataGrid>
+                </StackPanel>
+              </Expander>
               <DataGrid x:Name="DgFleetMachines" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" AutomationProperties.Name="Postes du périmètre depuis la base locale" MinHeight="100" ScrollViewer.VerticalScrollBarVisibility="Auto">
                 <DataGrid.Columns>
                   <DataGridTemplateColumn Header="Présence" Width="100" SortMemberPath="PresenceLabel">
@@ -117,6 +137,7 @@
                   <Button x:Name="BtnQueryAddCondition" Content="Ajouter" MinHeight="32" />
                   <Button x:Name="BtnQueryBrowseCatalog" Content="Parcourir le catalogue…" MinHeight="32" Margin="6,0,0,0" ToolTip="Rechercher une information et comprendre sa source avant de préparer une condition." />
                 </WrapPanel>
+                <TextBlock x:Name="LblQueryValueConversion" TextWrapping="Wrap" Margin="0,0,0,2" AutomationProperties.Name="Contrôle de la valeur saisie" AutomationProperties.LiveSetting="Polite" />
                 <TextBlock x:Name="LblQueryFieldHelp" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,4,0,14" />
                 <TextBlock Text="Vos critères" FontWeight="SemiBold" Margin="0,0,0,6" />
                 <DataGrid x:Name="DgQueryConditions" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MaxHeight="170" MinHeight="65" SelectionMode="Single" AutomationProperties.Name="Conditions de la requête">
@@ -130,6 +151,9 @@
                   <Button x:Name="BtnQueryRemoveCondition" Content="Retirer la condition" MinHeight="32" Margin="0,0,6,0" />
                   <Button x:Name="BtnQueryCollect" Content="Collecter les données requises…" MinHeight="32" Margin="0,0,6,0" ToolTip="Prépare une collecte confirmée sur les postes actifs du périmètre. Ne lance jamais toutes les sondes du catalogue." />
                 </WrapPanel>
+                <Expander x:Name="ExpQueryCollectionPlan" Header="Plan de collecte des informations manquantes" Visibility="Collapsed" Margin="0,-8,0,14">
+                  <TextBlock x:Name="LblQueryCollectionPlan" TextWrapping="Wrap" Margin="0,6,0,6" AutomationProperties.Name="Plan de collecte et coût avant confirmation" AutomationProperties.LiveSetting="Polite" />
+                </Expander>
                 <Button x:Name="BtnQueryCoverage" Content="Vérifier les informations disponibles" MinHeight="32" Margin="0,0,8,0" ToolTip="Compter les champs disponibles, expirés ou non lus avant dʼappliquer les conditions. Aucun accès réseau." />
                     <Button x:Name="BtnQueryPreview" Content="Voir l’aperçu local →" Style="{DynamicResource RunButton}" MinHeight="36" HorizontalAlignment="Left" Margin="0,2,0,12" />
                 <Expander x:Name="ExpQueryAdvanced" Header="Conditions avancées et paramètres" Margin="0,6,0,6">
@@ -163,19 +187,28 @@
                       <Button x:Name="BtnQueryInstanceAdd" Content="+ Critère d’instance" MinHeight="32" />
                     </WrapPanel>
                     <TextBlock Text="Paramètres réutilisables" FontWeight="SemiBold" Margin="0,8,0,4" />
-                    <TextBlock Text="Sélectionnez un critère simple puis donnez un nom à son paramètre. La valeur peut ensuite être changée sans recréer la requête." TextWrapping="Wrap" Margin="0,0,0,6" />
+                    <TextBlock Text="Sélectionnez un critère simple puis donnez un nom à son paramètre. La valeur se change ensuite dans le formulaire ci-dessous, contrôlée selon le type de lʼinformation, sans recréer la requête." TextWrapping="Wrap" Margin="0,0,0,6" />
                     <WrapPanel Margin="0,0,0,6">
                       <TextBox x:Name="TxtQueryParameterName" Width="220" MaxLength="64" MinHeight="32" ToolTip="Nom technique : lettre puis lettres, chiffres ou tiret bas." AutomationProperties.Name="Nom du paramètre" Margin="0,0,6,0" />
                       <Button x:Name="BtnQueryParameterAdd" Content="Paramétrer le critère sélectionné" Margin="0,0,6,0" />
                       <Button x:Name="BtnQueryParameterFreeze" Content="Fixer les valeurs actuelles" />
                     </WrapPanel>
-                    <DataGrid x:Name="DgQueryParameters" AutoGenerateColumns="False" CanUserAddRows="False" MaxHeight="180" AutomationProperties.Name="Valeurs des paramètres">
+                    <DataGrid x:Name="DgQueryParameters" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" SelectionMode="Single" MaxHeight="180" AutomationProperties.Name="Paramètres de la requête">
                       <DataGrid.Columns>
-                        <DataGridTextColumn Header="Paramètre" Binding="{Binding Name}" IsReadOnly="True" Width="*" />
-                        <DataGridTextColumn Header="Information" Binding="{Binding FieldName}" IsReadOnly="True" Width="2*" />
-                        <DataGridTextColumn Header="Valeur" Binding="{Binding Value, UpdateSourceTrigger=PropertyChanged}" Width="*" />
+                        <DataGridTextColumn Header="Paramètre" Binding="{Binding Label}" Width="*" />
+                        <DataGridTextColumn Header="Information" Binding="{Binding FieldName}" Width="2*" />
+                        <DataGridTextColumn Header="Valeur" Binding="{Binding ValueLabel}" Width="*" />
+                        <DataGridTextColumn Header="Saisie attendue" Binding="{Binding Hint}" Width="2*" />
                       </DataGrid.Columns>
                     </DataGrid>
+                    <WrapPanel Margin="0,6,0,0">
+                      <TextBlock x:Name="LblQueryParameterEdit" Text="Sélectionnez un paramètre pour saisir sa valeur." TextWrapping="Wrap" MaxWidth="320" VerticalAlignment="Center" Margin="0,0,8,0" />
+                      <TextBox x:Name="TxtQueryParameterValue" Width="200" MaxLength="4096" MinHeight="32" Margin="0,0,6,0" IsEnabled="False" AutomationProperties.Name="Valeur du paramètre sélectionné" />
+                      <ComboBox x:Name="CmbQueryParameterChoice" Width="200" MinHeight="32" Margin="0,0,6,0" Visibility="Collapsed" DisplayMemberPath="Name" AutomationProperties.Name="Choisir la valeur du paramètre sélectionné" />
+                      <Button x:Name="BtnQueryParameterScope" Content="OU du tableau de bord" MinHeight="32" Margin="0,0,6,0" Visibility="Collapsed" ToolTip="Reprend lʼOU suivie par le tableau de bord, sans lecture AD." />
+                      <Button x:Name="BtnQueryParameterApply" Content="Appliquer la valeur" MinHeight="32" IsEnabled="False" />
+                    </WrapPanel>
+                    <TextBlock x:Name="LblQueryParameterCheck" TextWrapping="Wrap" Margin="0,4,0,0" AutomationProperties.Name="Contrôle de la valeur du paramètre" AutomationProperties.LiveSetting="Polite" />
                     <WrapPanel Margin="0,10,0,0">
                       <TextBlock Text="Écart maximal entre les dates sources (heures)" VerticalAlignment="Center" Margin="0,0,8,0" />
                       <TextBox x:Name="TxtQueryCoherenceHours" Width="100" MaxLength="12" MinHeight="32" AutomationProperties.Name="Fenêtre de cohérence temporelle en heures" />
@@ -184,12 +217,44 @@
                   </StackPanel>
                 </Expander>
                 <Expander Header="Réglages de collecte" Margin="0,6,0,6">
-                  <WrapPanel Margin="0,6,0,6">
-                    <TextBlock Text="Postes en parallèle" VerticalAlignment="Center" Margin="0,0,8,0" />
-                    <ComboBox x:Name="CmbCollectionConcurrency" Width="80" MinHeight="32" Margin="0,0,18,0" AutomationProperties.Name="Nombre maximal de postes collectés en parallèle" />
-                    <TextBlock Text="Réutiliser les mesures fraîches" VerticalAlignment="Center" Margin="0,0,8,0" />
-                    <ComboBox x:Name="CmbCollectionCache" Width="210" MinHeight="32" AutomationProperties.Name="Durée de réutilisation des mesures" ToolTip="Les sondes volatiles sont relues après une minute, lʼinventaire après cinq minutes. Forcer relit toutes les mesures demandées." />
-                  </WrapPanel>
+                  <StackPanel Margin="0,6,0,6">
+                    <WrapPanel>
+                      <TextBlock Text="Postes en parallèle" VerticalAlignment="Center" Margin="0,0,8,0" />
+                      <ComboBox x:Name="CmbCollectionConcurrency" Width="80" MinHeight="32" Margin="0,0,18,0" AutomationProperties.Name="Nombre maximal de postes collectés en parallèle" ToolTip="Plafond choisi. Un sous-réseau dont les réponses ralentissent ou échouent descend sous ce plafond, puis y remonte progressivement." />
+                      <TextBlock Text="Réutiliser les mesures fraîches" VerticalAlignment="Center" Margin="0,0,8,0" />
+                      <ComboBox x:Name="CmbCollectionCache" Width="210" MinHeight="32" AutomationProperties.Name="Durée de réutilisation des mesures" ToolTip="Plafond des durées de réutilisation de lʼinventaire et des sondes WMI dʼun relevé ; le ping et la console sont toujours relus. Forcer relit toutes les mesures demandées." />
+                    </WrapPanel>
+                    <WrapPanel Margin="0,12,0,0">
+                      <TextBlock Text="Profil dʼusage" VerticalAlignment="Center" Margin="0,0,8,0" />
+                      <ComboBox x:Name="CmbCollectionProfile" Width="250" MinHeight="32" AutomationProperties.Name="Profil dʼusage de la collecte" ToolTip="Durées de réutilisation par famille de données et fenêtre de collecte adaptées au réseau." />
+                    </WrapPanel>
+                    <TextBlock x:Name="LblCollectionProfile" TextWrapping="Wrap" Margin="0,6,0,0" Foreground="{DynamicResource MutedColor}" />
+                    <DataGrid x:Name="DgCollectionFreshness" IsReadOnly="True" AutoGenerateColumns="False" CanUserAddRows="False" SelectionMode="Single" MaxHeight="240" Margin="0,8,0,0" AutomationProperties.Name="Durées de fraîcheur par famille de données">
+                      <DataGrid.Columns>
+                        <DataGridTextColumn Header="Famille" Binding="{Binding Label}" Width="2*" />
+                        <DataGridTextColumn Header="Durée retenue" Binding="{Binding Duration}" Width="*" />
+                        <DataGridTextColumn Header="Origine" Binding="{Binding Source}" Width="*" />
+                        <DataGridTextColumn Header="Effet" Binding="{Binding Effect}" Width="4*" />
+                      </DataGrid.Columns>
+                    </DataGrid>
+                    <WrapPanel Margin="0,8,0,0">
+                      <TextBlock Text="Durée de la famille choisie" VerticalAlignment="Center" Margin="0,0,8,0" />
+                      <ComboBox x:Name="CmbCollectionFreshnessValue" Width="200" MinHeight="32" IsEnabled="False" AutomationProperties.Name="Durée de fraîcheur de la famille choisie" ToolTip="Choisissez une famille dans le tableau, puis sa durée. Le choix est enregistré pour ce profil." />
+                      <Button x:Name="BtnCollectionFreshnessReset" Content="Revenir aux durées du profil" Margin="10,0,0,0" MinHeight="32" AutomationProperties.Name="Revenir aux durées du profil" ToolTip="Supprime les durées personnalisées de ce profil." />
+                    </WrapPanel>
+                    <TextBlock Text="Fenêtre des travaux de fond (exemple : lun-ven 12:00-14:00 18:00-24:00; sam-dim). Vide : à tout moment ; « jamais » : aucun. Une action que vous lancez reste toujours possible." TextWrapping="Wrap" Margin="0,12,0,4" />
+                    <WrapPanel>
+                      <TextBox x:Name="TxtCollectionWindow" Width="380" MinHeight="32" MaxLength="400" AutomationProperties.Name="Fenêtre de collecte du profil" ToolTip="Jours (lun à dim, plages lun-ven) suivis dʼheures HH:MM-HH:MM ; clauses séparées par un point-virgule." />
+                      <Button x:Name="BtnCollectionWindowApply" Content="Appliquer la fenêtre" Margin="10,0,0,0" MinHeight="32" AutomationProperties.Name="Appliquer la fenêtre de collecte" ToolTip="Vérifie puis enregistre la fenêtre pour ce profil." />
+                    </WrapPanel>
+                    <TextBlock x:Name="LblCollectionWindow" TextWrapping="Wrap" Margin="0,6,0,0" AutomationProperties.LiveSetting="Polite" />
+                    <TextBlock Text="Relevé interrompu" FontWeight="SemiBold" Margin="0,14,0,4" />
+                    <TextBlock x:Name="LblCollectionResume" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" />
+                    <WrapPanel Margin="0,6,0,0">
+                      <Button x:Name="BtnCollectionResume" Content="Reprendre le relevé" MinHeight="32" IsEnabled="False" AutomationProperties.Name="Reprendre le relevé interrompu" ToolTip="Prépare les postes non validés ; leur nombre et le périmètre sont confirmés avant toute lecture." />
+                      <Button x:Name="BtnCollectionResumeDiscard" Content="Abandonner ce plan" Margin="10,0,0,0" MinHeight="32" IsEnabled="False" AutomationProperties.Name="Abandonner le plan de reprise" ToolTip="Supprime le plan de reprise. Les mesures déjà validées restent dans la base locale." />
+                    </WrapPanel>
+                  </StackPanel>
                 </Expander>
                 <Expander x:Name="ExpQueryCoverage" Header="Couverture et dates des informations" Margin="0,10,0,0">
                   <StackPanel>
@@ -204,6 +269,20 @@
                         <DataGridTextColumn Header="Non lue" Binding="{Binding Unread}" Width="75" />
                       </DataGrid.Columns>
                     </DataGrid>
+                    <TextBlock Text="Dates des sources" FontWeight="SemiBold" Margin="0,10,0,4" />
+                    <TextBlock Text="Chaque source garde sa propre date : lʼannuaire, le ping, lʼinventaire et chaque sonde ne décrivent pas forcément la même période." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,0,0,6" />
+                    <DataGrid x:Name="DgQueryCoherenceSources" IsReadOnly="True" AutoGenerateColumns="False" CanUserAddRows="False" MaxHeight="170" EnableRowVirtualization="True" AutomationProperties.Name="Dates de relevé de chaque source de la requête">
+                      <DataGrid.Columns>
+                        <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="170" />
+                        <DataGridTextColumn Header="Informations" Binding="{Binding Informations}" Width="2*" />
+                        <DataGridTextColumn Header="Postes datés" Binding="{Binding Dated}" Width="95" />
+                        <DataGridTextColumn Header="Sans date" Binding="{Binding Missing}" Width="80" />
+                        <DataGridTextColumn Header="Plus ancienne" Binding="{Binding Oldest}" Width="125" />
+                        <DataGridTextColumn Header="Plus récente" Binding="{Binding Newest}" Width="125" />
+                      </DataGrid.Columns>
+                    </DataGrid>
+                    <TextBlock x:Name="LblQueryCoherenceProposal" TextWrapping="Wrap" Margin="0,6,0,6" AutomationProperties.LiveSetting="Polite" />
+                    <Button x:Name="BtnQueryApplyCoherence" Content="Appliquer la fenêtre proposée au brouillon" IsEnabled="False" HorizontalAlignment="Left" MinHeight="32" ToolTip="Renseigne lʼécart maximal entre les dates sources du brouillon. Rien nʼest enregistré ni collecté." />
                   </StackPanel>
                 </Expander>
               </StackPanel>
@@ -211,44 +290,99 @@
           </TabItem>
           <TabItem x:Name="TabQueryWmi" Header="WMI avancé">
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel Margin="14">
-              <TextBlock Text="Explorer le schéma puis préparer un SELECT sur le poste dont la fiche est ouverte. Chaque lecture est explicite, utilise le compte distant configuré et conserve ses résultats dans la base avant affichage." TextWrapping="Wrap" Margin="0,0,0,10" />
-              <WrapPanel Margin="0,0,0,8">
-                <TextBox x:Name="TxtQueryWmiNamespace" Text="root\cimv2" Width="200" MinHeight="32" AutomationProperties.Name="Espace de noms WMI" Margin="0,0,6,0" />
-                <TextBox x:Name="TxtQueryWmiClass" Text="Win32_OperatingSystem" Width="260" MinHeight="32" AutomationProperties.Name="Classe WMI" Margin="0,0,6,0" />
-                <Button x:Name="BtnQuerySchemaRead" Content="Lire le schéma sur le poste…" MinHeight="32" />
+              <TextBlock Text="Explorer les métadonnées puis préparer un SELECT sur le poste dont la fiche est ouverte. Chaque lecture distante est explicite, utilise le compte distant configuré et conserve ses résultats dans la base avant affichage. Les métadonnées déjà lues pour ce poste sont reprises de la base, sans nouvelle lecture ; rien nʼest exploré sur le reste du parc." TextWrapping="Wrap" Margin="0,0,0,10" />
+              <TextBlock Text="1. Explorer les métadonnées du poste" FontWeight="SemiBold" Margin="0,0,0,6" />
+              <WrapPanel Margin="0,0,0,6">
+                <TextBox x:Name="TxtQueryWmiNamespace" Text="root\cimv2" Width="230" MinHeight="32" AutomationProperties.Name="Espace de noms WMI" Margin="0,0,6,0" />
+                <Button x:Name="BtnQueryWmiNamespaces" Content="Espaces enfants…" MinHeight="32" Margin="0,0,6,0" ToolTip="Liste les espaces de noms directement sous celui-ci, sur un seul niveau. Aucun parcours récursif." />
+                <CheckBox x:Name="ChkQueryWmiForceRead" Content="Relire sur le poste plutôt que la base" VerticalAlignment="Center" Margin="6,0,0,0" ToolTip="Sans cette case, les métadonnées déjà enregistrées pour ce poste sont réutilisées sans lecture distante." />
               </WrapPanel>
-              <DataGrid x:Name="DgQuerySchema" AutoGenerateColumns="False" CanUserAddRows="False" Height="170" EnableRowVirtualization="True" AutomationProperties.Name="Propriétés du schéma WMI enregistré">
-                <DataGrid.Columns><DataGridCheckBoxColumn Header="Inclure" Binding="{Binding Selected, UpdateSourceTrigger=PropertyChanged}" Width="70" /><DataGridTextColumn Header="Propriété" Binding="{Binding Property}" IsReadOnly="True" Width="*" /><DataGridTextColumn Header="Type CIM" Binding="{Binding Type}" IsReadOnly="True" Width="150" /><DataGridCheckBoxColumn Header="Clé" Binding="{Binding IsKey}" IsReadOnly="True" Width="70" /></DataGrid.Columns>
+              <ListBox x:Name="LstQueryWmiNamespaces" DisplayMemberPath="Namespace" Height="90" Margin="0,0,0,8" ScrollViewer.VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Espaces de noms enfants" />
+              <WrapPanel Margin="0,0,0,6">
+                <TextBox x:Name="TxtQueryWmiClassFilter" Width="230" MinHeight="32" MaxLength="128" Margin="0,0,6,0" ToolTip="Nom de classe, éventuellement terminé par * (par exemple Win32_*). Vide : toutes les classes de lʼespace." AutomationProperties.Name="Filtre des classes WMI" />
+                <Button x:Name="BtnQueryWmiClasses" Content="Classes de lʼespace…" MinHeight="32" ToolTip="Liste les classes de cet espace de noms : propriétés, clés et nature. Aucune instance nʼest lue." />
+              </WrapPanel>
+              <DataGrid x:Name="DgQueryWmiClasses" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" SelectionMode="Single" Height="160" Margin="0,0,0,8" EnableRowVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling" AutomationProperties.Name="Classes WMI de lʼespace de noms">
+                <DataGrid.Columns><DataGridTextColumn Header="Classe" Binding="{Binding Class}" Width="*" /><DataGridTextColumn Header="Propriétés" Binding="{Binding Properties}" Width="85" /><DataGridTextColumn Header="Clés" Binding="{Binding Keys}" Width="55" /><DataGridTextColumn Header="Remarque" Binding="{Binding Note}" Width="250" /></DataGrid.Columns>
               </DataGrid>
-              <Button x:Name="BtnQueryWqlBuild" Content="Préparer le SELECT avec les propriétés cochées" HorizontalAlignment="Left" MinHeight="32" Margin="0,6,0,8" />
+              <WrapPanel Margin="0,0,0,6">
+                <TextBox x:Name="TxtQueryWmiClass" Text="Win32_OperatingSystem" Width="260" MinHeight="32" AutomationProperties.Name="Classe WMI" Margin="0,0,6,0" />
+                <Button x:Name="BtnQuerySchemaRead" Content="Lire le schéma…" MinHeight="32" ToolTip="Propriétés, types, clés, unités et descriptions de la classe. Reprend le schéma enregistré pour ce poste quand il existe." />
+              </WrapPanel>
+              <TextBlock x:Name="LblQueryWmiClassDescription" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,0,0,6" />
+              <DataGrid x:Name="DgQuerySchema" AutoGenerateColumns="False" CanUserAddRows="False" Height="190" EnableRowVirtualization="True" AutomationProperties.Name="Propriétés du schéma WMI enregistré">
+                <DataGrid.Columns><DataGridCheckBoxColumn Header="Inclure" Binding="{Binding Selected, UpdateSourceTrigger=PropertyChanged}" Width="70" /><DataGridTextColumn Header="Propriété" Binding="{Binding Property}" IsReadOnly="True" Width="190" /><DataGridTextColumn Header="Type CIM" Binding="{Binding Type}" IsReadOnly="True" Width="120" /><DataGridCheckBoxColumn Header="Clé" Binding="{Binding IsKey}" IsReadOnly="True" Width="50" /><DataGridTextColumn Header="Unité" Binding="{Binding Unit}" IsReadOnly="True" Width="90" /><DataGridTextColumn Header="Description" Binding="{Binding Description}" IsReadOnly="True" Width="*" /></DataGrid.Columns>
+              </DataGrid>
+              <TextBlock Text="2. Préparer, analyser et tester un SELECT" FontWeight="SemiBold" Margin="0,12,0,6" />
+              <Button x:Name="BtnQueryWqlBuild" Content="Préparer le SELECT avec les propriétés cochées" HorizontalAlignment="Left" MinHeight="32" Margin="0,0,0,8" />
               <TextBox x:Name="TxtQueryWql" Text="SELECT Caption, Version FROM Win32_OperatingSystem" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MaxLength="8192" Height="95" AutomationProperties.Name="Instruction WQL SELECT" />
-              <TextBlock Text="Propriétés explicites ; conditions =, &lt;&gt;, &lt;, &gt;, LIKE, IS NULL, ET/OU avec AND/OR/NOT. Pas de méthode ni de fournisseur MSI. Une recette n’effectue aucune lecture distante automatiquement." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,6,0,8" />
-              <WrapPanel Margin="0,0,0,8"><TextBlock Text="Limite d’instances" VerticalAlignment="Center" Margin="0,0,8,0" /><TextBox x:Name="TxtQueryWmiLimit" Text="100" MaxLength="4" Width="75" MinHeight="32" Margin="0,0,8,0" /><Button x:Name="BtnQueryWqlRun" Content="Exécuter sur le poste…" MinHeight="32" Margin="0,0,8,0" /><Button x:Name="BtnQueryWqlRecipe" Content="Préparer une recette locale" IsEnabled="False" MinHeight="32" /></WrapPanel>
+              <TextBlock Text="Propriétés explicites ; conditions =, &lt;&gt;, &lt;, &gt;, LIKE, IS NULL, ET/OU avec AND/OR/NOT. Pas de méthode ni de fournisseur MSI. Une recette nʼeffectue aucune lecture distante automatiquement." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,6,0,8" />
+              <Border BorderThickness="1" BorderBrush="{DynamicResource MutedColor}" Padding="8" Margin="0,0,0,8">
+                <TextBlock x:Name="LblQueryWqlPlan" TextWrapping="Wrap" AutomationProperties.Name="Analyse locale de la requête WQL" AutomationProperties.LiveSetting="Polite" />
+              </Border>
+              <WrapPanel Margin="0,0,0,8"><TextBlock Text="Limite dʼinstances" VerticalAlignment="Center" Margin="0,0,8,0" /><TextBox x:Name="TxtQueryWmiLimit" Text="100" MaxLength="4" Width="75" MinHeight="32" Margin="0,0,8,0" /><Button x:Name="BtnQueryWqlRun" Content="Exécuter sur le poste…" MinHeight="32" Margin="0,0,8,0" /><Button x:Name="BtnQueryWqlRecipe" Content="Préparer une recette locale" IsEnabled="False" MinHeight="32" ToolTip="Possible seulement après un test réussi de cette même requête sur le poste choisi." /></WrapPanel>
               <TextBlock x:Name="LblQueryWmiStatus" Text="Aucune lecture WMI avancée lancée." TextWrapping="Wrap" Margin="0,0,0,8" AutomationProperties.LiveSetting="Polite" />
+              <Button x:Name="BtnQueryWmiRemoteRead" Content="Lire sur le poste…" Visibility="Collapsed" HorizontalAlignment="Left" MinHeight="32" Margin="0,0,0,8" ToolTip="Lecture explicite sur le poste choisi, après confirmation. Rien nʼest lu sur les autres postes." />
               <DataGrid x:Name="DgQueryWmiRows" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" Height="220" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling" AutomationProperties.Name="Instances WMI relues dans la base"><DataGrid.Columns><DataGridTextColumn Header="Identité du fournisseur" Binding="{Binding Id}" Width="250" /><DataGridTextColumn Header="Valeurs" Binding="{Binding ValueText}" Width="*" /><DataGridTextColumn Header="Couverture" Binding="{Binding Completeness}" Width="200" /></DataGrid.Columns></DataGrid>
-              <Expander Header="Associations de l’instance sélectionnée" Margin="0,8,0,0"><StackPanel><TextBlock Text="Choisissez une instance enregistrée, indiquez une classe d’association et une classe résultat. La relation est lue sur ce seul poste ; aucune méthode n’est exécutée." TextWrapping="Wrap" Margin="0,6,0,6" /><WrapPanel><TextBox x:Name="TxtQueryAssociationClass" Width="260" MinHeight="32" AutomationProperties.Name="Classe d’association" Margin="0,0,6,0" /><TextBox x:Name="TxtQueryAssociationResult" Width="260" MinHeight="32" AutomationProperties.Name="Classe résultat de l’association" Margin="0,0,6,0" /><Button x:Name="BtnQueryAssociations" Content="Lire cette relation…" MinHeight="32" /></WrapPanel></StackPanel></Expander>
+              <Expander Header="Relations de lʼinstance sélectionnée" Margin="0,8,0,0"><StackPanel>
+                <TextBlock Text="Choisissez une instance enregistrée puis une relation prévue pour sa classe, ou saisissez une classe dʼassociation et une classe résultat. La relation est lue sur ce seul poste à partir de lʼidentité de lʼinstance (ses clés), jamais par rapprochement de noms ; aucune méthode nʼest exécutée." TextWrapping="Wrap" Margin="0,6,0,6" />
+                <ComboBox x:Name="CmbQueryAssociationPreset" DisplayMemberPath="Label" Width="530" HorizontalAlignment="Left" MinHeight="32" Margin="0,0,0,6" AutomationProperties.Name="Relation prévue pour la classe de lʼinstance" />
+                <WrapPanel><TextBox x:Name="TxtQueryAssociationClass" Width="260" MinHeight="32" AutomationProperties.Name="Classe dʼassociation" Margin="0,0,6,0" /><TextBox x:Name="TxtQueryAssociationResult" Width="260" MinHeight="32" AutomationProperties.Name="Classe résultat de lʼassociation" Margin="0,0,6,0" /><Button x:Name="BtnQueryAssociations" Content="Lire cette relation…" MinHeight="32" /></WrapPanel>
+              </StackPanel></Expander>
             </StackPanel></ScrollViewer>
           </TabItem>
           <TabItem x:Name="TabQueryPublish" Header="3. Enregistrer">
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
               <StackPanel Margin="14">
-                <Expander Header="Partager ou importer des recettes" Margin="0,0,0,12"><StackPanel>
-                  <WrapPanel Margin="0,8,0,8"><Button x:Name="BtnQueryPackExport" Content="Exporter ma bibliothèque (JSON)…" MinHeight="32" Margin="0,0,6,0" /><Button x:Name="BtnQueryScriptExport" Content="Exporter cette requête (PowerShell)…" MinHeight="32" Margin="0,0,6,0" /><Button x:Name="BtnQueryPackImport" Content="Examiner un pack…" MinHeight="32" /></WrapPanel>
-                  <TextBlock x:Name="LblQueryImportStatus" Text="L’import affiche les différences avant toute écriture. Les recettes ne lancent jamais de collecte implicitement." TextWrapping="Wrap" Margin="0,0,0,8" />
-                  <DataGrid x:Name="DgQueryImport" AutoGenerateColumns="False" CanUserAddRows="False" MaxHeight="220" EnableRowVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling"><DataGrid.Columns>
-                    <DataGridTextColumn Header="Requête" Binding="{Binding Name}" IsReadOnly="True" Width="*" /><DataGridTextColumn Header="Différence" Binding="{Binding Status}" IsReadOnly="True" Width="150" />
+                <Expander x:Name="ExpQueryTransfer" Header="Partager ou importer des recettes" Margin="0,0,0,12"><StackPanel>
+                  <WrapPanel Margin="0,8,0,4">
+                    <TextBlock Text="Pack exporté" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <TextBox x:Name="TxtQueryPackName" Text="Bibliothèque Domenia" Width="230" MaxLength="80" MinHeight="32" Margin="0,0,6,0" AutomationProperties.Name="Nom du pack exporté" ToolTip="Nom stable du pack : toutes ses versions partagent ce nom et son identité." />
+                    <TextBlock Text="version" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <TextBox x:Name="TxtQueryPackVersion" Text="1" Width="80" MaxLength="7" MinHeight="32" Margin="0,0,6,0" AutomationProperties.Name="Version du pack exporté" ToolTip="Nombre entier de 1 à 1 000 000, à augmenter à chaque nouvelle diffusion du même pack." />
+                  </WrapPanel>
+                  <WrapPanel Margin="0,4,0,8"><Button x:Name="BtnQueryPackExport" Content="Exporter ma bibliothèque (JSON)…" MinHeight="32" Margin="0,0,6,0" /><Button x:Name="BtnQueryScriptExport" Content="Exporter cette requête (PowerShell)…" MinHeight="32" Margin="0,0,6,0" /><Button x:Name="BtnQueryPackImport" Content="Examiner un pack…" MinHeight="32" /></WrapPanel>
+                  <TextBlock x:Name="LblQueryImportStatus" Text="L’import affiche les différences avant toute écriture. Les recettes ne lancent jamais de collecte implicitement." TextWrapping="Wrap" Margin="0,0,0,4" AutomationProperties.LiveSetting="Polite" />
+                  <TextBlock x:Name="LblQueryImportPack" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,0,0,8" />
+                  <DataGrid x:Name="DgQueryImport" AutoGenerateColumns="False" CanUserAddRows="False" SelectionMode="Single" MaxHeight="220" EnableRowVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling" AutomationProperties.Name="Recettes du pack examiné"><DataGrid.Columns>
+                    <DataGridTextColumn Header="Requête" Binding="{Binding Name}" IsReadOnly="True" Width="*" /><DataGridTextColumn Header="État" Binding="{Binding Status}" IsReadOnly="True" Width="140" /><DataGridTextColumn Header="Changements" Binding="{Binding ChangeSummary}" IsReadOnly="True" Width="220" />
                     <DataGridTemplateColumn Header="Choix" Width="230"><DataGridTemplateColumn.CellTemplate><DataTemplate><ComboBox ItemsSource="{Binding AllowedActions}" SelectedItem="{Binding Action, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" /></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                   </DataGrid.Columns></DataGrid>
-                  <WrapPanel Margin="0,8,0,0"><Button x:Name="BtnQueryImportNew" Content="Choisir les nouvelles" Margin="0,0,6,0" /><Button x:Name="BtnQueryImportApply" Content="Appliquer mes choix…" Margin="0,0,6,0" /><Button x:Name="BtnQueryImportRollback" Content="Restaurer avant cet import…" /></WrapPanel>
+                  <DataGrid x:Name="DgQueryImportChanges" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MaxHeight="160" Margin="0,6,0,0" EnableRowVirtualization="True" AutomationProperties.Name="Différences de la recette sélectionnée"><DataGrid.Columns>
+                    <DataGridTextColumn Header="Élément" Binding="{Binding Element}" Width="160" /><DataGridTextColumn Header="Avant (base locale)" Binding="{Binding Before}" Width="*" /><DataGridTextColumn Header="Après (pack)" Binding="{Binding After}" Width="*" />
+                  </DataGrid.Columns></DataGrid>
+                  <WrapPanel Margin="0,8,0,0"><Button x:Name="BtnQueryImportNew" Content="Choisir les nouvelles" Margin="0,0,6,0" /><Button x:Name="BtnQueryImportApply" Content="Appliquer mes choix…" Margin="0,0,6,0" /></WrapPanel>
+                  <TextBlock Text="Imports précédents" FontWeight="SemiBold" Margin="0,12,0,4" />
+                  <WrapPanel><ComboBox x:Name="CmbQueryImportHistory" Width="430" MinHeight="32" Margin="0,0,6,0" DisplayMemberPath="DisplayName" AutomationProperties.Name="Imports précédents de cette base" ToolTip="Imports confirmés de cette base, conservés dans un journal local à côté de la base. Un import déjà annulé nʼapparaît plus." /><Button x:Name="BtnQueryImportRollback" Content="Restaurer avant cet import…" IsEnabled="False" MinHeight="32" /></WrapPanel>
                 </StackPanel></Expander>
                 <TextBlock x:Name="LblQueryPublishSummary" Text="Consultez l’aperçu pour vérifier les postes correspondants et les informations inconnues." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,0,0,12" />
                 <TextBlock Text="Gardez cette requête à portée de main" FontWeight="SemiBold" FontSize="15" Margin="0,2,0,10" />
                 <WrapPanel Margin="0,0,0,6">
                   <TextBox x:Name="TxtFleetQueryName" Width="330" MaxLength="120" MinHeight="32" Margin="0,0,6,0" AutomationProperties.Name="Nom de la requête" />
+                  <ComboBox x:Name="CmbQuerySaveCategory" IsEditable="True" Width="210" MinHeight="32" Margin="0,0,6,0" AutomationProperties.Name="Catégorie de rangement de la requête" ToolTip="Catégorie de rangement dans la bibliothèque : choisissez-en une ou saisissez un nouveau nom (80 caractères)." />
                   <Button x:Name="BtnQuerySave" Content="Enregistrer" MinHeight="32" Margin="0,0,6,0" />
                   <Button x:Name="BtnQueryWidget" Content="Créer une sonde dashboard" MinHeight="32" ToolTip="Enregistre la requête et ajoute sa visualisation au tableau de bord choisi. La petite icône près du crayon ouvre les postes correspondants dans lʼatelier." />
                   <Button x:Name="BtnQueryDelete" Content="Archiver la requête" MinHeight="32" ToolTip="Archive cette requête dans la base après vérification de ses widgets liés. Les données collectées sont conservées." Margin="6,0,0,0" />
                 </WrapPanel>
+                <Border x:Name="PnlQueryImpact" Visibility="Collapsed" BorderThickness="1" BorderBrush="{DynamicResource MutedColor}" Padding="10" Margin="0,4,0,10">
+                  <StackPanel>
+                    <TextBlock Text="Éléments qui utilisent cette requête" FontWeight="SemiBold" Margin="0,0,0,4" />
+                    <TextBlock x:Name="LblQueryImpact" TextWrapping="Wrap" Margin="0,0,0,6" AutomationProperties.LiveSetting="Polite" />
+                    <DataGrid x:Name="DgQueryImpact" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MaxHeight="200" EnableRowVirtualization="True" AutomationProperties.Name="Widgets, liens et vues qui dépendent de la requête">
+                      <DataGrid.Columns>
+                        <DataGridTextColumn Header="Élément" Binding="{Binding Element}" Width="190" />
+                        <DataGridTextColumn Header="Nom" Binding="{Binding Name}" Width="*" />
+                        <DataGridTextColumn Header="Lien" Binding="{Binding Link}" Width="2*" />
+                      </DataGrid.Columns>
+                    </DataGrid>
+                    <WrapPanel Margin="0,8,0,0">
+                      <Button x:Name="BtnQueryImpactMigrate" Content="Mettre à jour les éléments liés" MinHeight="32" Margin="0,0,6,0" ToolTip="Enregistre la nouvelle définition ; les éléments listés lʼutilisent ensuite. Les anciennes révisions restent dans la base." />
+                      <Button x:Name="BtnQueryImpactKeep" Content="Garder lʼancienne version, enregistrer une copie" MinHeight="32" Margin="0,0,6,0" ToolTip="La requête enregistrée et ses éléments liés restent inchangés ; la modification devient une nouvelle requête." />
+                      <Button x:Name="BtnQueryImpactArchive" Content="Archiver et retirer les widgets" MinHeight="32" Margin="0,0,6,0" ToolTip="Archive la requête, détache ses liens et retire ses widgets. Les révisions et les données collectées sont conservées." />
+                      <Button x:Name="BtnQueryImpactCancel" Content="Annuler" MinHeight="32" ToolTip="Ne rien enregistrer : la requête et ses éléments liés restent inchangés." />
+                    </WrapPanel>
+                  </StackPanel>
+                </Border>
                 <WrapPanel Margin="0,0,0,6">
                   <TextBlock Text="Visualisation" VerticalAlignment="Center" Margin="0,0,8,0" />
                   <ComboBox x:Name="CmbQueryGroupField" Width="330" MinHeight="32" AutomationProperties.Name="Champ de répartition du widget" ToolTip="Compteur, ou répartition des postes correspondants par une information. Le graphique se personnalise ensuite dans le dashboard." />
@@ -290,6 +424,7 @@
                     <ComboBoxItem Content="Toutes les requêtes" Tag="" />
                     <ComboBoxItem Content="Modèles livrés" Tag="Template" />
                     <ComboBoxItem Content="Mes requêtes" Tag="Saved" />
+                    <ComboBoxItem Content="Archives" Tag="Archived" />
                   </ComboBox>
                   <TextBlock x:Name="LblQueryLibraryCount" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" />
                 </WrapPanel>
@@ -298,7 +433,10 @@
                 <WrapPanel Margin="0,0,0,8"><Button x:Name="BtnQueryLibraryPrevious" Content="Page précédente" IsEnabled="False" MinHeight="30" Margin="0,0,6,0" /><Button x:Name="BtnQueryLibraryNext" Content="Page suivante" IsEnabled="False" MinHeight="30" /></WrapPanel>
                 <TextBlock x:Name="LblQueryLibraryDescription" Text="Sélectionnez une requête pour consulter son usage." TextWrapping="Wrap" MaxHeight="76" />
                 <TextBlock x:Name="LblQueryLibraryCollection" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,5,0,8" />
-                <Button x:Name="BtnQueryLibraryUse" Content="Utiliser cette requête" IsEnabled="False" MinHeight="32" HorizontalAlignment="Left" AutomationProperties.Name="Charger la requête sélectionnée dans le compositeur" />
+                <WrapPanel>
+                  <Button x:Name="BtnQueryLibraryUse" Content="Utiliser cette requête" IsEnabled="False" MinHeight="32" Margin="0,0,6,0" AutomationProperties.Name="Charger la requête sélectionnée dans le compositeur" />
+                  <Button x:Name="BtnQueryLibraryRestore" Content="Restaurer la requête" IsEnabled="False" Visibility="Collapsed" MinHeight="32" AutomationProperties.Name="Restaurer la requête archivée sélectionnée" ToolTip="Réactive cette définition dans la base locale avec une nouvelle révision. Aucune exécution ni collecte." />
+                </WrapPanel>
               </StackPanel>
               <DataGrid x:Name="DgQueryLibrary" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Single" MinHeight="100" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Bibliothèque de requêtes pour le parc et les postes">
                 <DataGrid.Columns>

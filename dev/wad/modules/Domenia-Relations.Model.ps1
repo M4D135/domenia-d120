@@ -299,7 +299,8 @@ function Get-DomeniaEvidenceKind {
         'Affectation' { return 'Declare' }
         'Console' { return 'Observe' }
         'SessionRdp' { return 'Observe' }
-        'Historique' { return 'Observe' }
+        # Point 107: an old logon read in a journal or a profile is history, kept apart from a current observation.
+        'Historique' { return 'Historique' }
         'Importe' { return 'Importe' }
         'Indice' { return 'Indice' }
         default { return 'Source a verifier' }
@@ -312,6 +313,7 @@ function Get-DomeniaEvidenceLabel {
     switch ([string]$Badge) {
         'Declare'           { return 'Déclaré' }
         'Observe'           { return 'Observé' }
+        'Historique'        { return 'Historique' }
         'Importe'           { return 'Importé' }
         'Indice'            { return 'Indice' }
         'Contradictoire'    { return 'Contradictoire' }
@@ -333,7 +335,7 @@ function Get-DomeniaEvidenceBadge {
         'Affectation' { $badge = 'Declare'; $rule = 'Association déclarée par un opérateur dans Domenia.' }
         'Console'     { $badge = 'Observe'; $rule = 'Session console lue sur le poste à la date indiquée. Une observation ne vaut pas affectation.' }
         'SessionRdp'  { $badge = 'Observe'; $rule = 'Session distante lue sur le poste à la date indiquée. Une observation ne vaut pas affectation.' }
-        'Historique'  { $badge = 'Observe'; $rule = 'Ouverture de session ancienne relevée dans un journal. Historique, pas présence actuelle.' }
+        'Historique'  { $badge = 'Historique'; $rule = 'Ouverture de session ancienne relevée dans un journal ou un profil. Historique, pas présence actuelle.' }
         'Importe'     { $badge = 'Importe'; $rule = 'Ligne reprise dʼun fichier importé. Exactitude dépendante du fichier source.' }
         'Indice'      { $badge = 'Indice'; $rule = 'Attribut AD ou inventaire qui suggère un lien, sans observation de session.' }
     }
@@ -345,6 +347,57 @@ function Get-DomeniaEvidenceBadge {
         $provenance = ($source + ' · ' + $whenText).Trim(' ','·')
     }
     return [pscustomobject]@{Badge=$badge;Label=(Get-DomeniaEvidenceLabel $badge);Rule=$rule;Provenance=$provenance;Kind=$kind}
+}
+
+function Get-DomeniaLinkSummaryText {
+    # UI-17: the association of a workstation on one line, with its badge: « Camille Martin · console observée le
+    # 08/10 à 08:15 ». The name comes from the DN kept with the link, else the login. The date is local, its year
+    # shown only when it is not the current one. No link reads « Aucun utilisateur associé » (or the running probe).
+    # -IdentityUnproven (point 9): a legacy link without GUID that does not predate the displayed object is kept, but
+    # the line says that its identity cannot be checked (Test-DomeniaLinkIdentity gave Unknown).
+    param($Link,$NowUtc=$null,[switch]$Probing,[switch]$IdentityUnproven)
+    if ($null -eq $Link) {
+        $empty = 'Aucun utilisateur associé'
+        $help = 'Aucune association en mémoire locale pour ce poste. « Détecter à nouveau » interroge le poste.'
+        if ($Probing) { $empty = 'Détection de lʼutilisateur en cours…'; $help = 'Le poste est interrogé ; la ligne se remplit à la réponse.' }
+        return [pscustomobject]@{HasLink=$false;Badge='';BadgeLabel='';BadgeRule='';User='';Login='';Text=$empty;Detail=$help}
+    }
+    $login = ([string](Get-DomeniaMember $Link 'UserLogin' '')).Trim()
+    $display = ''
+    $dn = [string](Get-DomeniaMember $Link 'UserDn' '')
+    if ($dn) {
+        $first = [string](@(Split-DomeniaRawDn $dn) | Select-Object -First 1)
+        if ($first -match '^(?i:cn)=(.+)$') { $display = (ConvertFrom-DomeniaDnLabel $Matches[1]).Trim() }
+    }
+    if (-not $display) { $display = $login }
+    if (-not $display) { $display = 'Compte non nommé' }
+    $badge = Get-DomeniaEvidenceBadge $Link
+    $phrase = 'origine à vérifier'
+    switch ([string]$badge.Kind) {
+        'Affectation' { $phrase = 'affectation déclarée' }
+        'Console'     { $phrase = 'console observée' }
+        'SessionRdp'  { $phrase = 'session à distance observée' }
+        'Historique'  { $phrase = 'ouverture de session relevée' }
+        'Importe'     { $phrase = 'association importée' }
+        'Indice'      { $phrase = 'indice relevé' }
+    }
+    $utc = ConvertTo-DomeniaRelationUtcDate (Get-DomeniaMember $Link 'When' $null)
+    if ($null -ne $utc) {
+        $now = $null
+        if ($null -ne $NowUtc) { $now = ConvertTo-DomeniaUtcDate $NowUtc }
+        if ($null -eq $now) { $now = [datetime]::UtcNow }
+        $local = $utc.ToLocalTime()
+        $day = $local.ToString('dd/MM',[Globalization.CultureInfo]::InvariantCulture)
+        if ($local.Year -ne $now.ToLocalTime().Year) { $day = $local.ToString('dd/MM/yyyy',[Globalization.CultureInfo]::InvariantCulture) }
+        $phrase += ' le ' + $day + ' à ' + $local.ToString('HH:mm',[Globalization.CultureInfo]::InvariantCulture)
+    }
+    $source = ConvertTo-DomeniaFlatText ([string](Get-DomeniaMember $Link 'Source' '')) 80
+    $detail = [string]$badge.Rule
+    if ($login) { $detail = 'Compte ' + $login + '. ' + $detail }
+    if ($source) { $detail += ' Source : ' + $source + '.' }
+    $text = $display + ' · ' + $phrase
+    if ($IdentityUnproven) { $text += ' · identité non vérifiable'; $detail += ' Association sans GUID enregistré : identité non vérifiable.' }
+    return [pscustomobject]@{HasLink=$true;Badge=[string]$badge.Badge;BadgeLabel=[string]$badge.Label;BadgeRule=[string]$badge.Rule;User=$display;Login=$login;Text=$text;Detail=$detail}
 }
 
 # ---------------------------------------------------------------- D045 in-page association
@@ -582,6 +635,53 @@ function Test-DomeniaAccountIdentityMatch {
     return [pscustomobject]@{Match=$true;Certain=$false;Reason='Domaine et identifiant identiques ; SID non compare.'}
 }
 
+# ---------------------------------------------------------------- point 9: identity across renames and recycled names
+function Test-DomeniaLinkIdentity {
+    # An association recorded with a GUID belongs to that object only. The same name met on another GUID is a recreated
+    # or recycled object: its history is never given to the new object. Without a stored GUID the link is ambiguous
+    # (Unknown) unless it predates the creation of the object ($CreatedUtc), which proves another holder of the name.
+    param($Link,[Parameter(Mandatory=$true)][ValidateSet('Computer','User')][string]$Kind,[AllowEmptyString()][AllowNull()][string]$Guid='',$CreatedUtc=$null)
+    $field = if ($Kind -eq 'Computer') { 'ComputerGuid' } else { 'UserGuid' }
+    $expected = ConvertTo-DomeniaGuidText $Guid
+    $stored = ConvertTo-DomeniaGuidText (Get-DomeniaMember $Link $field '')
+    if (($expected) -and ($stored)) {
+        if ($expected -eq $stored) { return [pscustomobject]@{Match='Same';Reason='GUID identique : même objet, même après renommage ou déplacement.'} }
+        return [pscustomobject]@{Match='Different';Reason='Même nom, autre GUID : objet recréé ou nom réattribué, historique non repris.'}
+    }
+    $created = ConvertTo-DomeniaUtcDate $CreatedUtc
+    $when = ConvertTo-DomeniaRelationUtcDate ([string](Get-DomeniaMember $Link 'When' ''))
+    if (($null -ne $created) -and ($null -ne $when) -and ($when -lt $created)) { return [pscustomobject]@{Match='Different';Reason='Association antérieure à la création de cet objet : nom réattribué, historique non repris.'} }
+    return [pscustomobject]@{Match='Unknown';Reason='Association sans GUID enregistré : identité non vérifiable.'}
+}
+
+function Select-DomeniaLinksForIdentity {
+    # Links of a name that may belong to the object of $Guid: those of another proven object are left out.
+    param([object[]]$Links=@(),[Parameter(Mandatory=$true)][ValidateSet('Computer','User')][string]$Kind,[AllowEmptyString()][AllowNull()][string]$Guid='',$CreatedUtc=$null)
+    foreach ($link in @($Links)) {
+        if ($null -eq $link) { continue }
+        if ((Test-DomeniaLinkIdentity -Link $link -Kind $Kind -Guid $Guid -CreatedUtc $CreatedUtc).Match -ne 'Different') { $link }
+    }
+}
+
+function Test-DomeniaRecordPredatesObject {
+    # A local record keyed by name (BitLocker or LAPS metadata, legacy rows) that was written before the current object
+    # of that name was created describes a previous holder of the name. Unknown dates prove nothing ($false).
+    param($RecordedUtc,$CreatedUtc)
+    $recorded = ConvertTo-DomeniaUtcDate $RecordedUtc
+    $created = ConvertTo-DomeniaUtcDate $CreatedUtc
+    return (($null -ne $recorded) -and ($null -ne $created) -and ($recorded -lt $created))
+}
+
+function Get-DomeniaLinkLookupName {
+    # Name used to look an association up in the local index: none when the link carries a GUID, so that a namesake
+    # never inherits it once its object is gone; the stored name otherwise (legacy row).
+    param($Link,[Parameter(Mandatory=$true)][ValidateSet('Computer','User')][string]$Kind)
+    $guidField = if ($Kind -eq 'Computer') { 'ComputerGuid' } else { 'UserGuid' }
+    $nameField = if ($Kind -eq 'Computer') { 'Computer' } else { 'UserLogin' }
+    if (ConvertTo-DomeniaGuidText (Get-DomeniaMember $Link $guidField '')) { return '' }
+    return [string](Get-DomeniaMember $Link $nameField '')
+}
+
 # ---------------------------------------------------------------- D050 history and conflicts
 function New-DomeniaLinkHistoryEntry {
     # Local journal only: nothing here reads or writes Active Directory.
@@ -619,6 +719,7 @@ function Get-DomeniaLinkConflicts {
     foreach ($computer in @($byComputer.Keys | Sort-Object)) {
         $items = $byComputer[$computer]
         $declared = @($items | Where-Object { (Get-DomeniaEvidenceKind ([string](Get-DomeniaMember $_ 'Source' ''))) -eq 'Declare' })
+        # Point 107: an old logon (history) is not a current observation and never contradicts an assignment.
         $observed = @($items | Where-Object { (Get-DomeniaEvidenceKind ([string](Get-DomeniaMember $_ 'Source' ''))) -eq 'Observe' })
         if (-not $declared.Count -or -not $observed.Count) { continue }
         $owners = @($declared | ForEach-Object { ([string](Get-DomeniaMember $_ 'UserLogin' '')).ToLowerInvariant() } | Select-Object -Unique)
@@ -694,48 +795,118 @@ function Get-DomeniaLinkImportStatus {
     # -Unverified says why the presence in Active Directory is not checked (index empty, unreadable or being read).
     # -ReadyBefore: rows already retained above; the storage takes 64 changes per request (Queue-DomeniaLinkChanges),
     # so the rows beyond -BatchLimit are left for a second import of the same file.
-    param([AllowEmptyString()][string]$User='',[AllowEmptyString()][string]$Computer='',[AllowEmptyString()][string]$StoredLogin='',[bool]$DuplicateInFile=$false,[bool]$IndexAvailable=$false,[bool]$UserKnown=$false,[bool]$ComputerKnown=$false,[AllowEmptyString()][string]$Unverified='',[int]$ReadyBefore=0,[int]$BatchLimit=64)
-    if (-not $User -or -not $Computer) { return [pscustomobject]@{Status='Ignorée';Import=$false;Verified=$false;Reason='Utilisateur ou poste manquant ou illisible.'} }
-    if ($DuplicateInFile) { return [pscustomobject]@{Status='Ignorée';Import=$false;Verified=$false;Reason='Poste déjà présent plus haut dans le fichier.'} }
+    # Point 138: every row also gets a Category for the preview: Valide, Conflit, Rejet, Doublon, Déjà connue, Inconnue
+    # or Reportée. -Rejected is the identity refusal of the adapter, -FileConflict and -FileSuperseded the decision of
+    # the source priority inside the file (Resolve-DomeniaInventoryPriority).
+    param([AllowEmptyString()][string]$User='',[AllowEmptyString()][string]$Computer='',[AllowEmptyString()][string]$StoredLogin='',[bool]$DuplicateInFile=$false,[bool]$IndexAvailable=$false,[bool]$UserKnown=$false,[bool]$ComputerKnown=$false,[AllowEmptyString()][string]$Unverified='',[int]$ReadyBefore=0,[int]$BatchLimit=64,[AllowEmptyString()][string]$Rejected='',[AllowEmptyString()][string]$FileConflict='',[AllowEmptyString()][string]$FileSuperseded='')
+    $out = { param($Status,$Category,$Reason,$Import=$false,$Verified=$false) [pscustomobject]@{Status=$Status;Category=$Category;Import=[bool]$Import;Verified=[bool]$Verified;Reason=$Reason} }
+    if ($Rejected) { return (& $out 'Rejetée' 'Rejet' $Rejected) }
+    if ((-not $User) -or (-not $Computer)) { return (& $out 'Ignorée' 'Rejet' 'Utilisateur ou poste manquant ou illisible.') }
+    if ($FileConflict) { return (& $out 'Conflit' 'Conflit' $FileConflict) }
+    if ($FileSuperseded) { return (& $out 'Ignorée' 'Doublon' $FileSuperseded) }
+    if ($DuplicateInFile) { return (& $out 'Ignorée' 'Doublon' 'Poste déjà présent plus haut dans le fichier.') }
     if ($StoredLogin) {
-        if ((ConvertTo-DomeniaRelationLoginKey $StoredLogin) -eq (ConvertTo-DomeniaRelationLoginKey $User)) { return [pscustomobject]@{Status='Ignorée';Import=$false;Verified=$false;Reason='Association déjà connue.'} }
-        return [pscustomobject]@{Status='Ignorée';Import=$false;Verified=$false;Reason=('Poste déjà associé à ' + $StoredLogin + ' : aucune association remplacée.')}
+        if ((ConvertTo-DomeniaRelationLoginKey $StoredLogin) -eq (ConvertTo-DomeniaRelationLoginKey $User)) { return (& $out 'Ignorée' 'Déjà connue' 'Association déjà connue.') }
+        return (& $out 'Conflit' 'Conflit' ('Poste déjà associé à ' + $StoredLogin + ' : aucune association remplacée.'))
     }
-    if ($IndexAvailable -and (-not $UserKnown -or -not $ComputerKnown)) {
+    if ($IndexAvailable -and ((-not $UserKnown) -or (-not $ComputerKnown))) {
         $missing = 'poste absent'
-        if (-not $UserKnown -and -not $ComputerKnown) { $missing = 'compte et poste absents' } elseif (-not $UserKnown) { $missing = 'compte absent' }
-        return [pscustomobject]@{Status='Inconnue';Import=$false;Verified=$false;Reason=('Inconnue dans lʼannuaire : ' + $missing + ' de lʼindex local. Ligne non importée.')}
+        if ((-not $UserKnown) -and (-not $ComputerKnown)) { $missing = 'compte et poste absents' } elseif (-not $UserKnown) { $missing = 'compte absent' }
+        return (& $out 'Inconnue' 'Inconnue' ('Inconnue dans lʼannuaire : ' + $missing + ' de lʼindex local. Ligne non importée.'))
     }
-    if ($BatchLimit -gt 0 -and $ReadyBefore -ge $BatchLimit) {
-        return [pscustomobject]@{Status='Ignorée';Import=$false;Verified=$false;Reason=('Au-delà de ' + $BatchLimit + ' associations par import : importez à nouveau le même fichier ensuite, les lignes déjà importées seront reconnues.')}
+    if (($BatchLimit -gt 0) -and ($ReadyBefore -ge $BatchLimit)) {
+        return (& $out 'Ignorée' 'Reportée' ('Au-delà de ' + $BatchLimit + ' associations par import : importez à nouveau le même fichier ensuite, les lignes déjà importées seront reconnues.'))
     }
     if (-not $IndexAvailable) {
         $why = ([string]$Unverified).Trim()
         if (-not $why) { $why = 'index local non lu' }
-        return [pscustomobject]@{Status='À importer';Import=$true;Verified=$false;Reason=('Présence dans Active Directory non vérifiée : ' + $why + '.')}
+        return (& $out 'À importer' 'Valide' ('Présence dans Active Directory non vérifiée : ' + $why + '.') $true $false)
     }
-    return [pscustomobject]@{Status='À importer';Import=$true;Verified=$true;Reason='Compte et poste connus de lʼindex local.'}
+    return (& $out 'À importer' 'Valide' 'Compte et poste connus de lʼindex local.' $true $true)
 }
 
 function New-DomeniaImportedRelation {
-    # CO-08: an imported relation always carries Source "Import CSV" (badge Importé), no score and a UTC date.
+    # CO-08: an imported relation carries the Source of the adapter chosen by the operator (Import CSV, Import GLPI or
+    # Import osquery, badge Importé), never the source written in the file, no score and a UTC date.
     # Only an ISO date (yyyy-MM-dd...) of the file is kept: "08/10/2026" is ambiguous and the import date is used.
-    param([string]$User,[string]$Computer,[AllowEmptyString()][string]$FileName='',[int]$Line=0,[AllowEmptyString()][string]$FileSource='',[AllowEmptyString()][string]$FileDetails='',[AllowEmptyString()][string]$When='',[bool]$Verified=$false,[string]$UserGuid='',[string]$ComputerGuid='',[string]$UserDn='',[string]$ComputerDn='',$NowUtc=$null)
+    # Point 138: -BatchId starts the details ("Lot dʼimport <id>.") so the batch can be undone after a restart.
+    param([string]$User,[string]$Computer,[AllowEmptyString()][string]$FileName='',[int]$Line=0,[AllowEmptyString()][string]$FileSource='',[AllowEmptyString()][string]$FileDetails='',[AllowEmptyString()][string]$When='',[bool]$Verified=$false,[string]$UserGuid='',[string]$ComputerGuid='',[string]$UserDn='',[string]$ComputerDn='',$NowUtc=$null,[ValidateSet('Import CSV','Import GLPI','Import osquery')][string]$Source='Import CSV',[AllowEmptyString()][string]$BatchId='',[AllowEmptyString()][string]$WhenNote='')
     $whenText = ''
     $note = ''
     if ($When -match '^\s*\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2}(\.\d+)?)?)?(Z|[+-]\d{2}:?\d{2})?\s*$') { $whenText = ConvertTo-DomeniaRelationWhenText $When }
     elseif ($When) { $note = ' Date du fichier non reconnue (' + $When + ') : date de lʼimport retenue.' }
+    if ($WhenNote) { $note += ' ' + $WhenNote }
     if (-not $whenText) {
         $now = ConvertTo-DomeniaUtcDate $NowUtc
         if ($null -eq $now) { $now = [datetime]::UtcNow }
         $whenText = $now.ToString('o',[Globalization.CultureInfo]::InvariantCulture)
     }
     # Import-Csv skips blank lines and joins quoted multi-line fields: the number is the record of the file, not its line.
-    $details = 'Importé depuis ' + $FileName
+    $details = ''
+    if ($BatchId) { $details = 'Lot dʼimport ' + $BatchId + '. ' }
+    $details += 'Importé depuis ' + $FileName
     if ($Line -gt 0) { $details += ', enregistrement ' + $Line }
     $details += '.' + $note
     if ($FileSource) { $details += ' Source indiquée dans le fichier : ' + $FileSource + ' (non reprise).' }
     if ($FileDetails) { $details += ' ' + $FileDetails }
     if ($details.Length -gt 400) { $details = $details.Substring(0,399) + [string][char]0x2026 }
-    return [pscustomobject]@{UserLogin=$User;Computer=$Computer;Source='Import CSV';Confidence=0;VerifiedInAD=$Verified;When=$whenText;Details=$details;UserGuid=$UserGuid;ComputerGuid=$ComputerGuid;UserDn=$UserDn;ComputerDn=$ComputerDn;Kind='Importe'}
+    return [pscustomobject]@{UserLogin=$User;Computer=$Computer;Source=$Source;Confidence=0;VerifiedInAD=$Verified;When=$whenText;Details=$details;UserGuid=$UserGuid;ComputerGuid=$ComputerGuid;UserDn=$UserDn;ComputerDn=$ComputerDn;Kind='Importe'}
+}
+
+# ---------------------------------------------------------------- point 107 : declared, last observed, history
+function Get-DomeniaRelationOverview {
+    # Three separate statements for one user or one workstation, each with its origin and date: the declared
+    # assignment, the last session observed and the history (older logons read in journals or profiles). An
+    # observation never becomes an assignment, and a missing statement is said as such.
+    param([object[]]$Relations=@(),[ValidateSet('Utilisateur','Machine')][string]$SubjectType='Utilisateur',$NowUtc=$null)
+    $declared = New-Object 'System.Collections.Generic.List[object]'
+    $observed = New-Object 'System.Collections.Generic.List[object]'
+    $history = New-Object 'System.Collections.Generic.List[object]'
+    $clues = 0
+    foreach ($relation in @($Relations)) {
+        if ($null -eq $relation) { continue }
+        $kind = [string](Get-DomeniaMember $relation 'Kind' '')
+        if (-not $kind) { $kind = Get-DomeniaRelationKind ([string](Get-DomeniaMember $relation 'Source' '')) }
+        if ($kind -eq 'Affectation') { $declared.Add($relation) }
+        elseif ($kind -in @('Console','SessionRdp')) { $observed.Add($relation) }
+        elseif ($kind -eq 'Historique') { $history.Add($relation) }
+        else { $clues++ }
+    }
+    $describe = {
+        param($Relation)
+        $party = [string](Get-DomeniaMember $Relation 'Computer' '')
+        if ($SubjectType -eq 'Machine') { $party = [string](Get-DomeniaMember $Relation 'UserLogin' '') }
+        if (-not $party) { $party = 'non renseigné' }
+        $when = Format-DomeniaRelationWhen (Get-DomeniaMember $Relation 'When' $null) $NowUtc
+        if (-not $when) { $when = 'date inconnue' }
+        $source = ConvertTo-DomeniaFlatText ([string](Get-DomeniaMember $Relation 'Source' '')) 60
+        $text = $party + ' · ' + $when
+        if ($source) { $text += ' · source : ' + $source }
+        return $text
+    }
+    $latest = {
+        param($List)
+        $best = $null; $bestWhen = $null
+        foreach ($item in $List) {
+            $when = ConvertTo-DomeniaRelationUtcDate (Get-DomeniaMember $item 'When' $null)
+            if (($null -eq $best) -or (($null -ne $when) -and (($null -eq $bestWhen) -or ($when -gt $bestWhen)))) { $best = $item; $bestWhen = $when }
+        }
+        return $best
+    }
+    $lines = New-Object 'System.Collections.Generic.List[object]'
+    if ($declared.Count -eq 0) { $declaredText = 'Aucune affectation déclarée' }
+    else {
+        $declaredText = & $describe (& $latest $declared)
+        if ($declared.Count -gt 1) { $declaredText += ' (' + [string]$declared.Count + ' affectations déclarées)' }
+    }
+    $lines.Add([pscustomobject]@{Fait='Affectation déclarée';Valeur=$declaredText;Badge='Declare'})
+    if ($observed.Count -eq 0) { $observedText = 'Aucune session observée en mémoire' }
+    else { $observedText = & $describe (& $latest $observed) }
+    $lines.Add([pscustomobject]@{Fait='Dernière session observée';Valeur=$observedText;Badge='Observe'})
+    if ($history.Count -eq 0) { $historyText = 'Aucune ouverture de session ancienne relevée' }
+    else { $historyText = [string]$history.Count + ' relevé(s), le plus récent : ' + (& $describe (& $latest $history)) }
+    $lines.Add([pscustomobject]@{Fait='Historique';Valeur=$historyText;Badge='Historique'})
+    if ($clues -gt 0) { $lines.Add([pscustomobject]@{Fait='Autres indices';Valeur=([string]$clues + ' indice(s) ou ligne(s) importée(s), à confirmer');Badge='Indice'}) }
+    $text = (@($lines.ToArray() | ForEach-Object { $_.Fait + ' : ' + $_.Valeur }) -join [Environment]::NewLine)
+    return [pscustomobject]@{Lines=$lines.ToArray();Text=$text;Declared=$declared.Count;Observed=$observed.Count;History=$history.Count}
 }

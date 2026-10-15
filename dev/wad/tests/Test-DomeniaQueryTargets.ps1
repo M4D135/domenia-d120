@@ -7,7 +7,7 @@ $ErrorActionPreference='Stop'
 $wad=Split-Path -Parent $PSScriptRoot;$modules=Join-Path $wad 'modules'
 Add-Type -Path (Join-Path $modules 'M4D.Admin.Common.Query.dll')
 Add-Type -Path (Join-Path $modules 'Domenia.Native.dll')
-foreach($name in @('Common.Model','Boards.Model','BoardFleet.Model','Probes.Model','Query.Model','Query.UI','QueryTargets.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+foreach($name in @('Common.Model','HealthRules.Model','Boards.Model','BoardFleet.Model','Probes.Model','QuerySchema.Model','Workstation.Model','Query.Model','Query.UI','QueryTargets.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 $script:Checks=[Collections.Generic.List[object]]::new()
 function Case([string]$Name,[scriptblock]$Body){
     try{& $Body;$script:Checks.Add([pscustomobject]@{Name=$Name;Pass=$true;Error=''})}
@@ -25,7 +25,7 @@ function Select-FixtureComputer([hashtable]$Attributes=@{}){
 }
 function Reset-Fixture {
     $script:FleetLast=$null;$script:FleetObservations=@{};$script:SelectedObject=$null;$script:DomeniaComputerQueryRecords=$null
-    $script:Settings=@{};$script:SavedSettings='';$script:UiError='';$script:Starts=0;$script:BoardWrites=0
+    $script:Settings=@{};$script:SavedSettings='';$script:UiError='';$script:Starts=0;$script:BoardWrites=0;$script:WidgetCollects=[Collections.Generic.List[string]]::new()
     $script:Layouts=@{Fleet=@();Computer=@()}
     $script:Controls=@{
         CmbQueryWidgetDestination=[pscustomobject]@{SelectedItem=[pscustomobject]@{Tag='Computer'}}
@@ -54,6 +54,8 @@ function Set-DomeniaBoardLayout {
     $script:BoardWrites++
 }
 function Start-DomeniaQueryEvaluation {$script:Starts++}
+# A widget just added collects what it misses (decision David 2026-10-14): recorded here, run by the boards suite.
+function Start-DomeniaWidgetRefresh {param($Board,$Id,$Reason);$script:WidgetCollects.Add([string]$Board+'|'+[string]$Id+'|'+[string]$Reason);return $true}
 function Set-FixtureInventory([string]$Guid=$script:FixtureGuid,[int]$AgeDays=0){
     $at=[datetime]::UtcNow.AddDays(-$AgeDays).ToString('o')
     $script:FleetObservations[$script:FixtureDn.ToLowerInvariant()]=[pscustomobject]@{Guid=$Guid;CheckedUtc=$at;Inventory=[pscustomobject]@{CheckedUtc=$at;RamBytes=4GB;Model='Modèle test';DiskSize=100GB;DiskFree=10GB}}
@@ -133,6 +135,8 @@ Case 'Adding a Computer widget twice is idempotent and keeps visual' {
     Add-DomeniaWorkshopWidget
     Expect ($script:Layouts.Computer.Count -eq 1 -and $script:Layouts.Computer[0].Id -eq $id -and $script:Layouts.Computer[0].Visual -eq 'Pie')
     Expect ($script:Starts -eq 0 -and $script:BoardWrites -eq 2 -and $script:DomeniaQueryState.Saved.Count -eq 1)
+    Expect (($script:WidgetCollects.Count -eq 1) -and ($script:WidgetCollects[0] -eq ('Computer|'+$id+'|Add'))) ('Collecte du widget ajoute : '+($script:WidgetCollects -join ','))
+    Expect ($script:Controls.LblQueryStatus.Text -like '*Aucune collecte lancée*') 'Une mise a jour du widget existant ne collecte rien'
     $loaded=@(ConvertFrom-DomeniaQueryLibrary $script:SavedSettings);Expect ($loaded.Count -eq 1 -and $loaded[0].Id -eq 'fixture.shared')
 }
 Case 'Same recipe is usable on Fleet and Computer without duplicate recipe' {
