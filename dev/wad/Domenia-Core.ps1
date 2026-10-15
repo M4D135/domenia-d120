@@ -9574,15 +9574,18 @@ $script:IndexSyncStates = @{}
 $script:IndexMetadataError = ''
 # FI-19: state of the local reads answered by the LocalIndexRead worker (Domenia-Engine.UI.ps1).
 $script:IndexMetadataGeneration = [long]0
+$script:IndexMetadataPending = $false
 $script:IndexMetadataStartupChecks = $false
 $script:LinkLoad = $null
 $script:LinkLoadGeneration = [long]0
 $script:SecretIndexSummaryGeneration = [long]0
 $script:OperationStatsGeneration = [long]0
 $script:OperationStatsExportPending = $false
+$script:OperationStatsLabelPending = $false
 $script:OperationHistoryModels = $null
 $script:OperationHistoryModelsEpoch = [long]-1
 $script:ParkMachineCount = $null
+$script:ParkCoverageWaitingText = ''
 $script:IndexUsersByLogin = @{}
 $script:IndexUsersByGuid = @{}
 $script:IndexComputersByName = @{}
@@ -16829,7 +16832,9 @@ function Get-DomeniaParkPriority {
     param([int]$Limit = 150)
     $rows = @($script:IndexRows | Where-Object { [string]$_.Type -eq "Machine" -and [string]$_.State -ne "Desactive" })
     if (@($rows).Count -eq 0) { return @() }
-    if ($null -eq $script:ParkState) { [void](Load-DomeniaParkState) }
+    # FI-19: the stored survey is read off the Dispatcher (LocalIndexRead ParkState). Until it is in memory no priority
+    # is computed: a queue built without the stored probes would ask again the workstations already surveyed.
+    if ($null -eq $script:ParkState) { Request-DomeniaParkStateReload; return @() }
 
     $refreshDays = [int](Get-CfgValue "ParkSweep" "RefreshDays" 14)
     $retryDays = [int](Get-CfgValue "ParkSweep" "RetryDays" 2)
@@ -16881,15 +16886,15 @@ function Get-DomeniaParkPriority {
 }
 
 function Get-DomeniaParkCoverage {
-    # FI-19: no SQLite read here. The stored survey and its active workstation count are read by the LocalIndexRead
-    # worker (Request-DomeniaParkStateReload); until then the survey in memory and the in-memory index are what is known.
+    # FI-19: no SQLite read here. The stored survey is read by the LocalIndexRead worker (Request-DomeniaParkStateReload);
+    # the active workstation count comes from the in-memory index, the figures of the base (IndexMetadata) or that survey.
     if ($null -eq $script:ParkState) { Request-DomeniaParkStateReload }
     return (Get-DomeniaParkCoverageFigures -State $script:ParkState -IndexRows @($script:IndexRows) -KnownMachineCount (Get-DomeniaParkMachineCount) -Dormants ([int]$script:ParkDormants))
 }
 
 function Get-DomeniaParkCoverageText {
     $c = Get-DomeniaParkCoverage
-    if ([int]$c.Machines -lt 0) { return ([string][int]$c.Releves + ' poste(s) relevé(s) en mémoire. Lecture du relevé enregistré en arrière-plan : la couverture du parc sʼaffiche ensuite.') }
+    if ([int]$c.Machines -lt 0) { return (Get-DomeniaParkCoverageWaitingText -Surveyed ([int]$c.Releves)) }
     if ([int]$c.Machines -eq 0) { return 'Aucun poste indexé : construisez dʼabord lʼindex.' }
     $pct = [Math]::Round(100.0 * [int]$c.Releves / [int]$c.Machines,0)
     $age = ""
@@ -21737,7 +21742,7 @@ function Start-DomeniaAccountRelogin {
         # The base of the new session is opened as at startup: schema created or migrated here (Initialize-DomeniaDatabase).
         # Its content is read by the LocalIndexRead worker (FI-19): the figures and the associations complete the views
         # when they arrive; the associations reloaded from the base also end a conflict state (D028).
-        $script:IndexDbCount = -1; $script:IndexMetadataError = ''
+        Reset-DomeniaIndexMetadataState
         # No reference of the previous base survives the change of session (D028): the associations are empty here.
         $script:LinkLoad = $null
         Reset-DomeniaLinkBaseline
@@ -22176,6 +22181,10 @@ function Wire-Events {
                 if ($null -ne $e -and $e.OriginalSource -ne $sender) { return }
                 if ($sender.SelectedItem -eq $script:Ctrl["TabOperationStats"]) {
                     Request-DomeniaOperationStats
+                }
+                elseif (($script:Ctrl.ContainsKey('TabIndex')) -and ($sender.SelectedItem -eq $script:Ctrl['TabIndex'])) {
+                    # FI-19: figures not read yet, or last reading failed (base busy): read again off the Dispatcher.
+                    Request-DomeniaIndexMetadataIfNeeded
                 }
                 elseif ($sender.SelectedItem -eq $script:Ctrl['WsQueryWorkshop']) {
                     # A manual tool-tab change remembers the previous tool; programmatic routes retain their origin.

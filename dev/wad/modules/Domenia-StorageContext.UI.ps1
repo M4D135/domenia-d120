@@ -50,8 +50,19 @@ function Switch-DomeniaDatabaseContext {
     return $true
 }
 function Resume-DomeniaDatabaseViews {
+    # -ReloadLocalState: another base is now in service (switch confirmed by Switch-DomeniaDatabaseContext). Its figures
+    # and its user-workstation associations are read by the LocalIndexRead worker (FI-19), as after a change of account;
+    # nothing read from the previous base stays on screen, and the associations of the new base become the reference.
+    param([switch]$ReloadLocalState)
     try{
         [void](Initialize-DomeniaDatabase)
+        if($ReloadLocalState){
+            Reset-DomeniaIndexMetadataState
+            $script:LinkLoad=$null
+            Request-DomeniaIndexMetadata
+            Request-DomeniaUserMachineLinks
+            try{Update-DomeniaIndexStats}catch{}
+        }
         [void](Initialize-DomeniaQueryLibraryStore -Force)
         Request-DomeniaFleetRefresh -Force
         Update-DomeniaIndexLocation

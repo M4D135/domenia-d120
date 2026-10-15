@@ -725,7 +725,7 @@ function Complete-DomeniaStoragePurge {
             if($State.Selection -contains 'Index'){
                 # The committed transaction already confirms an empty index; no synchronous disk reread. A metadata reading
                 # still running from before the purge is discarded (FI-19, Complete-DomeniaIndexMetadataUi).
-                $script:IndexMetadataGeneration=[long]$script:IndexMetadataGeneration+1
+                $script:IndexMetadataGeneration=[long]$script:IndexMetadataGeneration+1;$script:IndexMetadataPending=$false
                 $script:IndexRows=@();$script:IndexInfo=$null;$script:IndexSyncStates=@{};$script:IndexMetadataError=''
                 $script:IndexDbCount=0;$script:IndexDbUsers=0;$script:IndexDbComputers=0;$script:IndexDbMachinesActive=0;$script:IndexDbMachinesDisabled=0
                 Rebuild-DomeniaIndexLookup
@@ -933,7 +933,7 @@ function Complete-DomeniaStorageMaintenanceApply {
     # The switch has advanced the epoch. A presentation failure must never relock its obsolete context.
     $State.Locked=$false
     $text='Base verifiee en service : '+$r.TargetPath+'. Original conserve : '+$State.Path
-    try{[void](Set-DomeniaControlText 'LblStorageMaintenance' $text);Set-Status $text;Resume-DomeniaDatabaseViews}catch{Write-AppLog ('Base basculee ; relecture des vues differee : '+$_.Exception.Message) 'WARN'}
+    try{[void](Set-DomeniaControlText 'LblStorageMaintenance' $text);Set-Status $text;Resume-DomeniaDatabaseViews -ReloadLocalState}catch{Write-AppLog ('Base basculee ; relecture des vues differee : '+$_.Exception.Message) 'WARN'}
 }
 function Fail-DomeniaStorageMaintenance {
     param($Message,$State)

@@ -3548,15 +3548,23 @@ Test-Case 'FI-19 : associations lues pendant une modification : reference de la 
 }
 Test-Case 'FI-19 : plus aucune lecture SQLite synchrone dans les chemins de l interface' {
     $coreText=[IO.File]::ReadAllText($core)
-    foreach($removed in @('Load-DomeniaIndexMetadata','Load-UserMachineLinks','Get-DomeniaSecretIndexEntry','Get-DomeniaSecretIndexSummary','Refresh-DomeniaOperationStatsUi')){
+    foreach($removed in @('Load-DomeniaIndexMetadata','Load-UserMachineLinks','Get-DomeniaSecretIndexEntry','Get-DomeniaSecretIndexSummary','Refresh-DomeniaOperationStatsUi','Load-DomeniaParkState')){
         Assert-False ([regex]::IsMatch($coreText,'(?m)^function '+[regex]::Escape($removed)+'\b')) ('Lecteur synchrone encore defini : '+$removed)
     }
-    foreach($name in @('Get-DomeniaDatabaseObjectCount','Update-DomeniaIndexStats','Get-DomeniaParkCoverage','Get-DomeniaParkCoverageText','Get-DomeniaOperationHistoryModel','Export-DomeniaOperationStatsCsv','Reset-DomeniaSelectionBoundViews','Complete-DomeniaIndexBuildUi','Complete-DomeniaIndexRefreshUi','Complete-DomeniaIndexWalkUi','Initialize-DomeniaPresentation')){
+    # No product source still calls a removed reader (a dangling call fails only when its path runs).
+    $removedReaders=@('Load-DomeniaIndexMetadata','Load-UserMachineLinks','Get-DomeniaSecretIndexEntry','Get-DomeniaSecretIndexSummary','Refresh-DomeniaOperationStatsUi','Load-DomeniaParkState','Invoke-DomeniaUiPump')
+    foreach($source in @(@($core)+@(Get-ChildItem -LiteralPath $modules -Filter '*.ps1' -File|ForEach-Object{$_.FullName}))){
+        $tokens=$null;$errors=$null
+        $ast=[Management.Automation.Language.Parser]::ParseFile($source,[ref]$tokens,[ref]$errors)
+        $calls=@($ast.FindAll({param($n)($n -is [Management.Automation.Language.CommandAst])},$true)|ForEach-Object{[string]$_.GetCommandName()}|Where-Object{$removedReaders -contains $_})
+        Assert-Equal 0 $calls.Count ('Appel a un lecteur retire dans '+[IO.Path]::GetFileName($source)+' : '+($calls -join ', '))
+    }
+    foreach($name in @('Get-DomeniaDatabaseObjectCount','Update-DomeniaIndexStats','Get-DomeniaParkCoverage','Get-DomeniaParkCoverageText','Get-DomeniaParkPriority','Get-DomeniaOperationHistoryModel','Export-DomeniaOperationStatsCsv','Reset-DomeniaSelectionBoundViews','Complete-DomeniaIndexBuildUi','Complete-DomeniaIndexRefreshUi','Complete-DomeniaIndexWalkUi','Initialize-DomeniaPresentation')){
         $text=Get-FunctionTextFromFile $core $name
         foreach($call in @('Invoke-DomeniaDbQuery','Invoke-DomeniaDbExec','Open-DomeniaDatabase','Initialize-DomeniaDatabase')){Assert-False ($text.Contains($call)) ($name+' appelle encore '+$call)}
     }
     $engineUi=Join-Path $modules 'Domenia-Engine.UI.ps1'
-    foreach($name in @('Request-DomeniaIndexMetadata','Complete-DomeniaIndexMetadataUi','Request-DomeniaUserMachineLinks','Complete-DomeniaUserMachineLinksUi','Request-DomeniaSecretIndexSummary','Complete-DomeniaSecretIndexSummaryUi','Request-DomeniaOperationStats','Complete-DomeniaOperationStatsUi')){
+    foreach($name in @('Reset-DomeniaIndexMetadataState','Request-DomeniaIndexMetadataIfNeeded','Get-DomeniaParkMachineCount','Get-DomeniaParkCoverageWaitingText','Update-DomeniaParkCoverageAfterCount','Request-DomeniaIndexMetadata','Complete-DomeniaIndexMetadataUi','Request-DomeniaUserMachineLinks','Complete-DomeniaUserMachineLinksUi','Request-DomeniaSecretIndexSummary','Complete-DomeniaSecretIndexSummaryUi','Request-DomeniaOperationStats','Complete-DomeniaOperationStatsUi')){
         $text=Get-FunctionTextFromFile $engineUi $name
         foreach($call in @('Invoke-DomeniaDbQuery','Invoke-DomeniaDbExec','Open-DomeniaDatabase','Initialize-DomeniaDatabase')){Assert-False ($text.Contains($call)) ($name+' appelle '+$call)}
     }
@@ -3566,6 +3574,150 @@ Test-Case 'FI-19 : plus aucune lecture SQLite synchrone dans les chemins de l in
     Assert-True (($relogin.Contains('Request-DomeniaIndexMetadata')) -and ($relogin.Contains('Request-DomeniaUserMachineLinks'))) 'Changer de compte ne relit plus la base locale.'
     $window=Get-FunctionTextFromFile $core 'Initialize-Window'
     Assert-True (($window.Contains('Request-DomeniaUserMachineLinks')) -and ($window.Contains('Request-DomeniaIndexMetadata -StartupChecks'))) 'Le demarrage ne lit plus la base hors du Dispatcher.'
+}
+Test-Case 'FI-19 : etat de la base remis a zero par session, relu a l ouverture de Base locale seulement s il manque' {
+    $script:Fi19Starts=[Collections.Generic.List[object]]::new()
+    function Start-UiTask { param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,$ReplaceKey,$TimeoutSeconds,$TaskClass,[switch]$NonCancellable) $script:Fi19Starts.Add([pscustomobject]@{OperationId=$OperationId;Payload=$Payload;State=$CallbackState}); return ('fi19-'+$script:Fi19Starts.Count) }
+    function Get-DomeniaLocalIndexReadWorkerCode { return 'corps epingle' }
+    function Update-DomeniaIndexStats { }
+    function Update-DomeniaFirstSteps { $script:Fi19FirstSteps++ }
+    $script:Fi19FirstSteps=0;$script:IndexMetadataStartupChecks=$false
+    $script:IndexDbCount=12;$script:IndexDbUsers=5;$script:IndexDbComputers=7;$script:IndexDbMachinesActive=6;$script:IndexDbMachinesDisabled=1
+    $script:IndexInfo=[pscustomobject]@{Server='ancien'};$script:IndexSyncStates=@{directory=$true};$script:IndexMetadataError='ancienne erreur'
+    $generation=[long]$script:IndexMetadataGeneration
+    Reset-DomeniaIndexMetadataState
+    Assert-True ([long]$script:IndexMetadataGeneration -gt $generation) 'Une lecture de la base precedente resterait applicable.'
+    foreach($name in @('IndexDbCount','IndexDbUsers','IndexDbComputers','IndexDbMachinesActive','IndexDbMachinesDisabled')){Assert-Equal (-1) ([int](Get-Variable -Scope Script -Name $name -ValueOnly)) ($name+' garde un chiffre de la base precedente.')}
+    Assert-True (($null -eq $script:IndexInfo) -and ($script:IndexSyncStates.Count -eq 0) -and (-not $script:IndexMetadataError) -and (-not $script:IndexMetadataPending)) 'Etat de la base precedente conserve.'
+    Request-DomeniaIndexMetadataIfNeeded
+    Assert-Equal 1 $script:Fi19Starts.Count 'Chiffres inconnus : une lecture est attendue.'
+    Assert-True ([bool]$script:IndexMetadataPending) 'Lecture en cours non notee.'
+    Request-DomeniaIndexMetadataIfNeeded
+    Assert-Equal 1 $script:Fi19Starts.Count 'Une seconde lecture part alors que la premiere court.'
+    $answer=[pscustomobject]@{Rows=@();Busy=$false;Missing=$false;MachineCount=3;SyncStates=@();Counts=[pscustomobject]@{Total=9;Users=4;Computers=5;MachinesActive=3;MachinesDisabled=2}}
+    Complete-DomeniaIndexMetadataUi -Result $answer -State $script:Fi19Starts[0].State
+    Assert-False ([bool]$script:IndexMetadataPending) 'Lecture toujours notee en cours apres sa reponse.'
+    Assert-Equal 9 ([int]$script:IndexDbCount);Assert-Equal 1 $script:Fi19FirstSteps 'Les premiers pas d Accueil ne suivent pas les chiffres lus.'
+    Request-DomeniaIndexMetadataIfNeeded
+    Assert-Equal 1 $script:Fi19Starts.Count 'Une page qui montre des chiffres est relue par un simple affichage.'
+    Request-DomeniaIndexMetadata
+    Fail-DomeniaIndexMetadataUi -Message 'Base locale occupée.' -State $script:Fi19Starts[1].State
+    Assert-False ([bool]$script:IndexMetadataPending) 'Lecture toujours notee en cours apres son echec.'
+    Assert-Equal 9 ([int]$script:IndexDbCount) 'Les derniers chiffres lus sont effaces par un echec.'
+    Request-DomeniaIndexMetadataIfNeeded
+    Assert-Equal 3 $script:Fi19Starts.Count 'Apres un echec, l ouverture de Base locale ne relit pas la base.'
+    Reset-DomeniaIndexMetadataState
+    Complete-DomeniaIndexMetadataUi -Result $answer -State $script:Fi19Starts[2].State
+    Assert-Equal (-1) ([int]$script:IndexDbCount) 'Une reponse de la base precedente a ete appliquee apres la remise a zero.'
+    $wire=Get-FunctionTextFromFile $core 'Wire-Events'
+    Assert-True ([regex]::IsMatch($wire,"\`$script:Ctrl\['TabIndex'\]\)\)\s*\{\s*(#[^\n]*\n\s*)?Request-DomeniaIndexMetadataIfNeeded")) 'L ouverture de l onglet Base locale ne relit pas un etat manquant.'
+    $relogin=Get-FunctionTextFromFile $core 'Start-DomeniaAccountRelogin'
+    Assert-True ($relogin.IndexOf('Reset-DomeniaIndexMetadataState') -ge 0) 'Changer de compte garde les chiffres de la base precedente.'
+    Assert-True ($relogin.IndexOf('Reset-DomeniaIndexMetadataState') -lt $relogin.IndexOf('Request-DomeniaIndexMetadata')) 'Remise a zero apres la demande de lecture.'
+}
+Test-Case 'FI-19 : base mise en service par une bascule : chiffres et associations relus hors du Dispatcher' {
+    $script:Fi19Starts=[Collections.Generic.List[object]]::new()
+    function Start-UiTask { param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,$ReplaceKey,$TimeoutSeconds,$TaskClass,[switch]$NonCancellable) $script:Fi19Starts.Add([pscustomobject]@{OperationId=$OperationId;Action=[string]$Payload.Action;State=$CallbackState}); return ('fi19-'+$script:Fi19Starts.Count) }
+    function Get-DomeniaLocalIndexReadWorkerCode { return 'corps epingle' }
+    function Initialize-DomeniaDatabase { if($script:Fi19InitFails){throw 'schema illisible'}; $script:Fi19Inits++; return $true }
+    function Initialize-DomeniaQueryLibraryStore { param([switch]$Force) }
+    function Request-DomeniaFleetRefresh { param([switch]$Force) }
+    function Update-DomeniaIndexLocation { }
+    function Update-DomeniaIndexStats { $script:Fi19Stats++ }
+    . ([scriptblock]::Create((Get-FunctionTextFromFile (Join-Path $modules 'Domenia-StorageContext.UI.ps1') 'Resume-DomeniaDatabaseViews')))
+    $script:Fi19Inits=0;$script:Fi19Stats=0;$script:Fi19InitFails=$false;$script:LinkLoad=$null
+    $script:IndexDbCount=40;$script:IndexDbMachinesActive=20;$script:IndexMetadataError=''
+    Resume-DomeniaDatabaseViews
+    Assert-Equal 0 $script:Fi19Starts.Count 'Une retention relit les associations : les saisies en memoire seraient prises pour des nouveautes.'
+    Assert-Equal 40 ([int]$script:IndexDbCount)
+    Resume-DomeniaDatabaseViews -ReloadLocalState
+    Assert-Equal 'IndexMetadata,UserMachineLinks' ((@($script:Fi19Starts)|ForEach-Object{$_.Action}) -join ',') 'Lectures de la nouvelle base'
+    Assert-True (@($script:Fi19Starts|Where-Object{$_.OperationId -ne 'LocalIndexRead'}).Count -eq 0) 'Lecture hors LocalIndexRead.'
+    Assert-Equal (-1) ([int]$script:IndexDbMachinesActive) 'Les chiffres de la base precedente restent affiches.'
+    Assert-True (($null -ne $script:LinkLoad) -and ([bool]$script:LinkLoad.Pending)) 'Les associations de la nouvelle base ne sont pas attendues.'
+    Assert-True ($script:Fi19Stats -ge 1) 'La page Base locale ne dit pas que la base est en lecture.'
+    $script:Fi19Starts.Clear();$script:LinkLoad=$null;$script:Fi19InitFails=$true
+    Resume-DomeniaDatabaseViews -ReloadLocalState
+    Assert-Equal 0 $script:Fi19Starts.Count 'Lecture d une base dont le schema n a pas pu etre ouvert.'
+    Assert-True (@($script:Statuses|Where-Object{$_ -match 'relecture locale'}).Count -ge 1) 'Echec de l ouverture non signale.'
+    $apply=Get-FunctionTextFromFile $storageUi 'Complete-DomeniaStorageMaintenanceApply'
+    Assert-True ($apply.Contains('Resume-DomeniaDatabaseViews -ReloadLocalState')) 'La bascule ne relit pas l etat de la nouvelle base.'
+    $script:LinkLoad=$null
+}
+Test-Case 'FI-19 : couverture du parc par les chiffres de la base, texte d attente complete par leur reponse' {
+    $script:Fi19Label=[pscustomobject]@{Text=''}
+    function Get-DomeniaControl { param([string]$Name) if($Name -eq 'LblParkStatus'){return $script:Fi19Label};return $null }
+    function Set-DomeniaControlText { param($Name,$Text) if($Name -eq 'LblParkStatus'){$script:Fi19Label.Text=[string]$Text};return $true }
+    function Request-DomeniaIndexMetadataIfNeeded { $script:Fi19MetadataAsks++ }
+    function Request-DomeniaParkStateReload { $script:Fi19ParkReloads++ }
+    . ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Get-DomeniaParkCoverage')))
+    . ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Get-DomeniaParkCoverageText')))
+    . ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Get-DomeniaParkPriority')))
+    $script:Fi19MetadataAsks=0;$script:Fi19ParkReloads=0;$script:ParkDormants=0;$script:IndexRows=@();$script:ParkCoverageWaitingText=''
+    $script:IndexDbMachinesActive=-1;$script:ParkMachineCount=$null
+    $script:ParkState=@{'PC-1'=[pscustomobject]@{Computer='PC-1';LastProbe=(Get-Date).AddHours(-2).ToString('s');Status='Session';User='alice';Attempts=1}}
+    Assert-Equal (-1) (Get-DomeniaParkMachineCount) 'Compte inconnu'
+    $script:ParkMachineCount=[pscustomobject]@{Epoch=[long]$script:SessionEpoch;Count=7}
+    Assert-Equal 7 (Get-DomeniaParkMachineCount) 'Compte du releve enregistre de la session'
+    $script:IndexDbMachinesActive=3
+    Assert-Equal 3 (Get-DomeniaParkMachineCount) 'Les chiffres de la base, actualises apres chaque enregistrement, priment.'
+    $script:IndexDbMachinesActive=-1;$script:ParkMachineCount=[pscustomobject]@{Epoch=([long]$script:SessionEpoch - 1);Count=7}
+    Assert-Equal (-1) (Get-DomeniaParkMachineCount) 'Compte d une autre session'
+    $waiting=Get-DomeniaParkStatusTextSafe
+    Assert-True ($waiting.StartsWith('1 poste(s) relevé(s) en mémoire.')) $waiting
+    Assert-True ($waiting.Contains('dès que lʼétat de la base locale est lu')) $waiting
+    Assert-Equal 1 $script:Fi19MetadataAsks 'Le texte d attente promet une lecture qui n est pas demandee.'
+    Assert-Equal $waiting (Get-DomeniaParkCoverageText) 'Les deux chemins du texte divergent.'
+    $script:Fi19Label.Text=$waiting
+    Update-DomeniaParkCoverageAfterCount
+    Assert-Equal $waiting $script:Fi19Label.Text 'Compte toujours inconnu : le texte d attente doit rester.'
+    $script:IndexDbMachinesActive=4
+    Update-DomeniaParkCoverageAfterCount
+    Assert-True ($script:Fi19Label.Text.StartsWith('4 poste(s) actif(s), 1 relevé(s) soit 25 pour cent, 1 avec un utilisateur connu')) $script:Fi19Label.Text
+    Assert-Equal '' ([string]$script:ParkCoverageWaitingText) 'Texte d attente non oublie.'
+    # A survey in progress keeps its own text: the answer of the figures never overwrites it.
+    $script:IndexDbMachinesActive=-1
+    $script:Fi19Label.Text=(Get-DomeniaParkStatusTextSafe)
+    $script:Fi19Label.Text='Relevé en cours : 3 poste(s) sur 10.'
+    $script:IndexDbMachinesActive=4
+    Update-DomeniaParkCoverageAfterCount
+    Assert-Equal 'Relevé en cours : 3 poste(s) sur 10.' $script:Fi19Label.Text 'Un texte de progression a ete remplace.'
+    # Priority queue without the stored survey: asked off the Dispatcher, nothing computed on a guess, no error.
+    $script:ParkState=$null;$script:IndexRows=@([pscustomobject]@{Type='Machine';State='Actif';Name='PC-9'})
+    Assert-Equal 0 @(Get-DomeniaParkPriority).Count 'File de priorite calculee sans le releve enregistre.'
+    Assert-Equal 1 $script:Fi19ParkReloads 'Releve enregistre non demande.'
+    $script:IndexRows=@();$script:ParkState=$null;$script:IndexDbMachinesActive=-1
+}
+Test-Case 'FI-19 : libelle des statistiques, echec silencieux du resume des secrets, saisie differee d une autre session' {
+    $script:Fi19Starts=[Collections.Generic.List[object]]::new();$script:Fi19Labels=@{};$script:Fi19Traces=[Collections.Generic.List[string]]::new()
+    function Start-UiTask { param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,$ReplaceKey,$TimeoutSeconds,$TaskClass,[switch]$NonCancellable) $script:Fi19Starts.Add([pscustomobject]@{Action=[string]$Payload.Action;State=$CallbackState}); return ('fi19-'+$script:Fi19Starts.Count) }
+    function Get-DomeniaLocalIndexReadWorkerCode { return 'corps epingle' }
+    function Set-DomeniaControlText { param($Name,$Text) $script:Fi19Labels[[string]$Name]=[string]$Text;return $true }
+    function Write-DomeniaTrace { param([string]$Text,[string]$Area='Tache') $script:Fi19Traces.Add($Text) }
+    $script:OperationStatsExportPending=$false;$script:OperationStatsLabelPending=$false
+    Request-DomeniaOperationStats
+    Assert-Equal 'Lecture des mesures dans la base locale…' $script:Fi19Labels['LblOperationStats']
+    Request-DomeniaOperationStats -Quiet
+    Fail-DomeniaOperationStatsUi -Message 'Base locale occupée.' -State $script:Fi19Starts[1].State
+    Assert-Equal 'Statistiques non relues : Base locale occupée.' $script:Fi19Labels['LblOperationStats'] 'Le libelle reste sur la lecture remplacee.'
+    $script:Fi19Labels['LblOperationStats']='12 mesure(s) sur 2 type(s) dʼopération.'
+    Request-DomeniaOperationStats -Quiet
+    Fail-DomeniaOperationStatsUi -Message 'Base locale occupée.' -State $script:Fi19Starts[2].State
+    Assert-Equal '12 mesure(s) sur 2 type(s) dʼopération.' $script:Fi19Labels['LblOperationStats'] 'Une lecture discrete (estimation) a remplace le libelle.'
+    # Secret summary of a selection: a failure goes to the trace, never once per click into the session journal.
+    $script:SecretIndexSummaryGeneration=[long]41
+    $logs=$script:Logs.Count
+    Fail-DomeniaSecretIndexSummaryUi -Message 'Maintenance de la base en cours.' -State ([pscustomobject]@{Generation=[long]41;Epoch=[long]$script:SessionEpoch;Computer='PC-1';Hint=''})
+    Assert-Equal $logs $script:Logs.Count 'Echec du resume ecrit dans le journal de session.'
+    Assert-True (($script:Fi19Traces.Count -eq 1) -and ($script:Fi19Traces[0].Contains('PC-1'))) 'Echec du resume absent de la trace.'
+    # A change deferred while a reading of the previous session ran is not owed to the new session.
+    $script:LinkLoad=[pscustomobject]@{Pending=$true;Generation=[long]7;Epoch=([long]$script:SessionEpoch - 1);Deferred=$true}
+    Request-DomeniaUserMachineLinks
+    Assert-False ([bool]$script:LinkLoad.Deferred) 'Saisie differee d une autre session reportee sur la nouvelle.'
+    $script:LinkLoad.Deferred=$true
+    Request-DomeniaUserMachineLinks -Attempt 1
+    Assert-True ([bool]$script:LinkLoad.Deferred) 'Saisie differee de la session perdue par un nouvel essai.'
+    $script:LinkLoad=$null
 }
 
 Test-Case 'Parc : cache durable fait partie de la mesure et de la purge explicite' {

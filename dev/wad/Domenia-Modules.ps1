@@ -1235,7 +1235,9 @@ function Get-DomeniaRuntimeModulePlan {
             'Fail-DomeniaIndexSearchUi',
             'Start-DomeniaLocalRead',
             'Test-DomeniaLocalReadCurrent',
+            'Reset-DomeniaIndexMetadataState',
             'Request-DomeniaIndexMetadata',
+            'Request-DomeniaIndexMetadataIfNeeded',
             'Complete-DomeniaIndexMetadataUi',
             'Fail-DomeniaIndexMetadataUi',
             'Request-DomeniaUserMachineLinks',
@@ -1254,6 +1256,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Fail-DomeniaParkStateReloadUi',
             'Get-DomeniaParkStatusTextSafe',
             'Get-DomeniaParkMachineCount',
+            'Get-DomeniaParkCoverageWaitingText',
+            'Update-DomeniaParkCoverageAfterCount',
             'Start-DomeniaParkSharedSync',
             'Complete-DomeniaParkSharedSyncUi',
             'Fail-DomeniaParkSharedSyncUi'

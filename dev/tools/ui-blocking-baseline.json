@@ -116,6 +116,22 @@
       "Chain": "wad\\Domenia-Core.ps1 $script:Ctrl[\"BtnAccountAdRelogin\"].Add_Click > Start-DomeniaAccountRelogin"
     },
     {
+      "Function": "Resume-DomeniaDatabaseViews",
+      "Pattern": "Initialize-DomeniaDatabase",
+      "Status": "AFaire",
+      "Owner": "cache (D028)",
+      "Reason": "Ouverture du schema de la base mise en service par une bascule confirmee (creation ou migration : ecriture, pas lecture), comme au changement de compte. Son contenu (chiffres, associations) est lu par LocalIndexRead (FI-19). A confier a un worker avec l ouverture du demarrage.",
+      "Chain": "callback Complete-DomeniaStorageMaintenanceApply > Complete-DomeniaStorageMaintenanceApply > Resume-DomeniaDatabaseViews"
+    },
+    {
+      "Function": "Switch-DomeniaDatabaseContext",
+      "Pattern": "Invoke-DomeniaDbQuery",
+      "Status": "Justifie",
+      "Owner": "cache (D028)",
+      "Reason": "Decision de David (lot X07, lectures SQLite hors interface) : lecture d une seule ligne (domenia_store_state, id=1) de la base cible, sous le verrou exclusif de maintenance, pour confirmer le recu de la bascule avant d enregistrer la preference. Exception conservee sur le Dispatcher.",
+      "Chain": "callback Complete-DomeniaStorageMaintenanceApply > Complete-DomeniaStorageMaintenanceApply > Switch-DomeniaDatabaseContext"
+    },
+    {
       "Function": "Get-SuiteDesign",
       "Pattern": ".ReadAllText",
       "Status": "Justifie",
