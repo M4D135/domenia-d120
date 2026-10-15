@@ -475,6 +475,49 @@ function New-DomeniaContinuation {
     return [pscustomobject]@{Filter=$filter;SortAttribute='name';PageSize=[Math]::Max(10,[Math]::Min(1000,$PageSize));Reader=$Reader;Generation=$Generation;BaseDn=$BaseDn;AfterName=$LastName}
 }
 
+# ---------------------------------------------------------------- FO-01 « contains » search on an explicit gesture
+function New-DomeniaContainsFilter {
+    # FO-01: the names that CONTAIN the typed words, without any syntax to learn: each word must appear inside the name,
+    # the display name, the account name or the DNS name (AND between words, OR between attributes). Up to 4 words of
+    # 2 characters at least; the words are RFC 4515 literals (a typed '*' is a character here, never a wildcard).
+    # Valid=$false: nothing is sent and Reason says why.
+    param([AllowEmptyString()][AllowNull()][string]$Text,[Parameter(Mandatory=$true)][string]$TypeFilter)
+    $words = @(Split-DomeniaSearchWords $Text | Select-Object -Unique)
+    $result = [pscustomobject]@{Valid=$false;Filter='';Words=@();Reason=''}
+    if (($words.Count -eq 0) -or ($words.Count -gt 4)) { $result.Reason = 'Saisissez de un à quatre mots pour chercher les noms qui les contiennent.'; return $result }
+    $blocks = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($word in $words) {
+        if (([string]$word).Replace('*','').Length -lt 2) { $result.Reason = 'Chaque mot doit compter au moins 2 caractères pour chercher les noms qui le contiennent.'; return $result }
+        $literal = ConvertTo-DomeniaLdapLiteral ([string]$word)
+        $parts = @('name','displayName','sAMAccountName','dNSHostName' | ForEach-Object { '(' + $_ + '=*' + $literal + '*)' })
+        $blocks.Add('(|' + ($parts -join '') + ')')
+    }
+    $inner = $blocks[0]
+    if ($blocks.Count -gt 1) { $inner = '(&' + ($blocks.ToArray() -join '') + ')' }
+    $result.Valid = $true
+    $result.Filter = '(&' + $TypeFilter + $inner + ')'
+    $result.Words = $words
+    return $result
+}
+
+function Get-DomeniaContainsSearchOffer {
+    # FO-01: when the upper bar finds few names or none, the list offers « Chercher aussi les noms qui contiennent
+    # « compta » ». Only for a finished, complete global search of plain text (no explicit token, pasted identifier or
+    # wildcard), not already a « contains » search, and with at most $Threshold rows. The offer only shows a chip: the
+    # read starts on its click, with the same limit and the same perimeter.
+    param([AllowEmptyString()][AllowNull()][string]$Text,[string]$Mode='Global',[string]$PlanKind='Default',[string]$MatchMode='',
+        [int]$Loaded=0,[bool]$Finalized=$false,[bool]$HasError=$false,[bool]$LimitReached=$false,[string]$ViewId='',[int]$Threshold=5)
+    $value = ([string]$Text).Trim()
+    $hidden = [pscustomobject]@{Show=$false;Term='';Label='';Tip=''}
+    if (($Mode -ne 'Global') -or $ViewId -or (-not $Finalized) -or $HasError -or $LimitReached) { return $hidden }
+    if (($MatchMode -eq 'Contains') -or ($PlanKind -notin @('','Default')) -or (-not $value) -or $value.Contains('*')) { return $hidden }
+    if ($Loaded -gt [Math]::Max(0,$Threshold)) { return $hidden }
+    if (-not [bool](New-DomeniaContainsFilter -Text $value -TypeFilter '(objectClass=*)').Valid) { return $hidden }
+    $label = 'Chercher aussi les noms qui contiennent « ' + $value + ' »'
+    $tip = 'Relance la même recherche (même périmètre, même type, même limite) sur les noms, noms affichés, comptes et noms DNS qui contiennent ce texte, pas seulement ceux qui commencent par lui. Plus lent : lʼannuaire parcourt tous les noms du périmètre. Rien nʼest lu avant le clic.'
+    return [pscustomobject]@{Show=$true;Term=$value;Label=$label;Tip=$tip}
+}
+
 function New-DomeniaContinuationRequest {
     # MO-07: what « Charger la suite » sends to the search worker. The filter that produced the list ($FilterUsed) is
     # read again from the last name of the previous continuation ($Cursor, '' the first time: the rows of a first,
@@ -719,7 +762,8 @@ function Get-DomeniaNavStateKey {
     param($State)
     if ($null -eq $State) { return '' }
     # FO-05: the same text searched « Partout » and « Dans « Postes » », or for another type, is another place.
-    return (@('Page','Tab','Mode','Text','OuDn','SelectionGuid','ViewId','QuerySelection','BarScope','BarType') | ForEach-Object { [string](Get-DomeniaMember $State $_ '') }) -join '|'
+    # FO-01: so is the « contains » list of a text.
+    return (@('Page','Tab','Mode','Text','OuDn','SelectionGuid','ViewId','QuerySelection','BarScope','BarType','MatchMode') | ForEach-Object { [string](Get-DomeniaMember $State $_ '') }) -join '|'
 }
 
 function Push-DomeniaNavState {

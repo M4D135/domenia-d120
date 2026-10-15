@@ -521,6 +521,32 @@ Case 'D037 Complete list says so and offers nothing more' {
     Expect ($script:Ctrl.LblBranchCount.Text -match 'liste complète') ('Compteur : '+$script:Ctrl.LblBranchCount.Text)
     Expect (-not $script:Ctrl.BtnSearchMore.IsEnabled)
 }
+# FO-01: unwired if the finished short list does not show the chip, if the chip reads before its click, or if its
+# click does not search the names that contain the text with the same perimeter and limit.
+Case 'FO-01 Une liste globale vide propose « contient », lu seulement au clic' {
+    $script:Ctrl.BtnSearchContains=[Windows.Controls.Button]::new();$script:Ctrl.BtnSearchContains.Visibility='Collapsed'
+    $script:Ctrl.TxtGlobalLimit.Text='50'
+    $t=Search-Global 'compta'
+    Expect ($null -ne $t) ('Recherche non lancee : '+($script:OperationErrors -join ' | '))
+    Expect ($script:Ctrl.BtnSearchContains.Visibility -eq 'Collapsed') 'La puce est visible pendant la lecture.'
+    Finish-Live $t $false
+    $chip=$script:Ctrl.BtnSearchContains
+    Expect (($chip.Visibility -eq 'Visible') -and ([string]$chip.Content -ceq 'Chercher aussi les noms qui contiennent « compta »')) ('Puce : '+[string]$chip.Content)
+    Expect ((Get-TaskCount 'GlobalSearch') -eq 1) 'La puce a lance une lecture sans clic.'
+    # The click of the chip is wired by Initialize-DomeniaSearchUi to Invoke-DomeniaSearchContains (checked in its text).
+    $init=Import-AstFunctions (Join-Path $modules 'Domenia-Search.UI.ps1') @('Initialize-DomeniaSearchUi')
+    Expect ($init -match "Get-DomeniaControl 'BtnSearchContains'" -and $init -match 'Invoke-DomeniaSearchContains') 'Clic de la puce non raccorde.'
+    Invoke-DomeniaSearchContains
+    $c=Get-LastTask 'GlobalSearch'
+    $expected=[string](New-DomeniaContainsFilter -Text 'compta' -TypeFilter (Get-GlobalSelectedTypeFilter -Mode Global)).Filter
+    Expect (((Get-TaskCount 'GlobalSearch') -eq 2) -and ($c.Payload.BroadFilter -ceq $expected) -and (-not $c.Payload.PrefixFilter) -and (-not $c.Payload.ExactFilter) -and (-not $c.Payload.AnrFilter)) ('Filtre contient : '+[string]$c.Payload.BroadFilter)
+    Expect (([string]$c.CallbackState.MatchMode -eq 'Contains') -and ([int]$c.Payload.Limit -eq 50) -and ([string]$c.Payload.BaseDn -eq [string]$t.Payload.BaseDn) -and ([string]$c.CallbackState.Search -ceq 'compta')) 'Perimetre, limite ou texte modifies.'
+    Expect ($script:Ctrl.LblSearchHint.Text.Contains('Noms qui contiennent « compta »')) ('Aide : '+$script:Ctrl.LblSearchHint.Text)
+    Expect ($chip.Visibility -eq 'Collapsed') 'La puce reste affichee pendant la recherche « contient ».'
+    Finish-Live $c $false
+    Expect ($chip.Visibility -eq 'Collapsed') 'Une liste « contient » propose encore « contient ».'
+    Expect ((Get-TaskCount 'OpenAdObject') -eq 0) 'Une fiche a ete ouverte.'
+}
 # MO-07: unwired if Invoke-DomeniaSearchMore reads the whole list again (new generation, doubled limit, no continuation)
 # or if the second continuation does not start after the last name read with the filter of the first read.
 Case 'MO-07 Charger la suite lit seulement les lignes suivantes de la meme liste' {

@@ -3493,6 +3493,13 @@
     "Source": "X02"
   },
   {
+    "Name": "BtnSearchContains",
+    "Title": "Chercher aussi les noms qui contiennent ce texte",
+    "Text": "Proposé quand la barre du haut trouve peu de noms ou aucun : relance la même recherche (même périmètre, même type, même limite) sur les noms qui contiennent le texte, pas seulement ceux qui commencent par lui. Plus lent ; rien nʼest lu avant le clic.",
+    "Kind": "Button",
+    "Source": "X02"
+  },
+  {
     "Name": "CmbWorkView",
     "Title": "Requête à exécuter",
     "Text": "Choisir une requête Annuaire ou Données locales, puis Exécuter. La source, le type dʼobjet et lʼOU sont indiqués sous la liste. Le choix seul ne lance rien.",

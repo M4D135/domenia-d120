@@ -376,3 +376,37 @@ Test-Case 'MO-07' 'La demande de suite reprend le filtre de la liste apres le de
     Assert-False (New-DomeniaContinuationRequest 'objectCategory=computer' '' $dns 2 4).Valid 'Filtre non parenthese refuse'
     Assert-False (New-DomeniaContinuationRequest '(objectCategory=computer)' '' $dns 4 4).Valid 'Aucune ligne demandee'
 }
+Test-Case 'FO-01' 'Filtre « contient » : chaque mot dans le nom, sans syntaxe ni joker saisi' {
+    $type='(objectCategory=computer)'
+    $one=New-DomeniaContainsFilter 'compta' $type
+    Assert-True $one.Valid
+    Assert-Equal '(&(objectCategory=computer)(|(name=*compta*)(displayName=*compta*)(sAMAccountName=*compta*)(dNSHostName=*compta*)))' $one.Filter
+    $two=New-DomeniaContainsFilter 'jean  dupont' $type
+    Assert-Equal ('(&'+$type+'(&(|(name=*jean*)(displayName=*jean*)(sAMAccountName=*jean*)(dNSHostName=*jean*))(|(name=*dupont*)(displayName=*dupont*)(sAMAccountName=*dupont*)(dNSHostName=*dupont*))))') $two.Filter 'Tous les mots doivent figurer'
+    Assert-True ((New-DomeniaContainsFilter 'pc(1)' $type).Filter.Contains('(name=*pc\281\29*)')) 'Parentheses echappees'
+    Assert-True ((New-DomeniaContainsFilter 'a*b' $type).Filter.Contains('(name=*a\2ab*)')) 'Une etoile saisie reste un caractere'
+    Assert-False (New-DomeniaContainsFilter 'a' $type).Valid 'Un mot d un seul caractere est refuse'
+    Assert-False (New-DomeniaContainsFilter 'un deux trois quatre cinq' $type).Valid 'Au plus quatre mots'
+    Assert-False (New-DomeniaContainsFilter '  ' $type).Valid
+}
+Test-Case 'FO-01' 'La puce « contient » apparait seulement apres une recherche globale courte et complete' {
+    $offer=Get-DomeniaContainsSearchOffer -Text 'compta' -Mode Global -PlanKind Default -Loaded 0 -Finalized $true
+    Assert-True $offer.Show;Assert-Equal 'compta' $offer.Term
+    Assert-Equal 'Chercher aussi les noms qui contiennent « compta »' $offer.Label
+    Assert-True ($offer.Tip.Contains('Rien nʼest lu avant le clic'))
+    Assert-True (Get-DomeniaContainsSearchOffer -Text 'compta' -Loaded 5 -Finalized $true).Show 'Peu de resultats : proposee'
+    Assert-False (Get-DomeniaContainsSearchOffer -Text 'compta' -Loaded 6 -Finalized $true).Show 'Assez de resultats : rien'
+    Assert-False (Get-DomeniaContainsSearchOffer -Text 'compta' -Loaded 0 -Finalized $false).Show 'Lecture en cours'
+    Assert-False (Get-DomeniaContainsSearchOffer -Text 'compta' -Loaded 0 -Finalized $true -HasError $true).Show 'Liste partielle'
+    Assert-False (Get-DomeniaContainsSearchOffer -Text 'compta' -Loaded 0 -Finalized $true -LimitReached $true).Show 'Liste limitee'
+    Assert-False (Get-DomeniaContainsSearchOffer -Text 'compta' -Mode OU -Loaded 0 -Finalized $true).Show 'Liste d OU'
+    Assert-False (Get-DomeniaContainsSearchOffer -Text 'poste:pc' -PlanKind Syntax -Loaded 0 -Finalized $true).Show 'Jetons explicites'
+    Assert-False (Get-DomeniaContainsSearchOffer -Text 'S-1-5-21-1-2-3-4' -PlanKind Identifier -Loaded 0 -Finalized $true).Show 'Identifiant colle'
+    Assert-False (Get-DomeniaContainsSearchOffer -Text '*compta*' -Loaded 0 -Finalized $true).Show 'Joker deja saisi'
+    Assert-False (Get-DomeniaContainsSearchOffer -Text 'compta' -MatchMode Contains -Loaded 0 -Finalized $true).Show 'Deja une recherche contient'
+    Assert-False (Get-DomeniaContainsSearchOffer -Text 'compta' -ViewId 'disabled' -Loaded 0 -Finalized $true).Show 'Requete enregistree'
+    Assert-False (Get-DomeniaContainsSearchOffer -Text 'a' -Loaded 0 -Finalized $true).Show 'Texte trop court pour contient'
+    $k1=Get-DomeniaNavStateKey ([pscustomobject]@{Page='WsSearch';Mode='Global';Text='compta'})
+    $k2=Get-DomeniaNavStateKey ([pscustomobject]@{Page='WsSearch';Mode='Global';Text='compta';MatchMode='Contains'})
+    Assert-True ($k1 -cne $k2) 'La liste « contient » est un autre lieu de l historique'
+}

@@ -183,6 +183,8 @@ function Begin-DomeniaLiveSearch {
     $keyText='search-v214|'+[string]$State.SearchMode+'|'+$script:Live.Scope+'|'+[string]$State.BaseDn+'|'+[string]$State.Scope+'|'+[string]$State.TypeFilter+'|'+[string]$State.Search+'|'+[string]$State.Limit
     $viewId='';if($null -ne $State.PSObject.Properties['ViewId']){$viewId=[string]$State.ViewId}
     if($viewId){$keyText+='|view:'+$viewId}
+    # FO-01: a « contains » list is another query than the prefix list of the same text.
+    if([string](Get-DomeniaMember $State 'MatchMode' '') -eq 'Contains'){$keyText+='|contains'}
     $key=Get-DomeniaLiveHash $keyText
     $rows=[Collections.ObjectModel.ObservableCollection[object]]::new()
     # D034/D037: the search rules are resolved once per search; without them the arrival order and the former counter remain.
@@ -191,12 +193,15 @@ function Begin-DomeniaLiveSearch {
     if($ranking -and $null -ne (Get-Command Get-DomeniaFeatureFlag -CommandType Function -ErrorAction SilentlyContinue)){$ranking=[bool](Get-DomeniaFeatureFlag -Name 'SearchRanking' -Default $true)}
     # UX-03: resolved once per search, never in the tick (PF-10): the empty list explains a filter that hides every row.
     $emptyState=($null -ne (Get-Command Update-DomeniaFilteredEmptyState -CommandType Function -ErrorAction SilentlyContinue))
+    # FO-01: resolved once per search as well; a new search hides the « contains » chip of the previous one.
+    $containsOffer=($null -ne (Get-Command Update-DomeniaSearchContainsOffer -CommandType Function -ErrorAction SilentlyContinue))
+    if($containsOffer){Update-DomeniaSearchContainsOffer -Search $null}
     $s=[pscustomobject]@{
         Identity=$script:Live.Identity;Epoch=[long]$script:SessionEpoch;State=$State;QueryKey=$key
         Rows=$rows;Map=@{};Fresh=@{};FreshOrder=[Collections.Generic.List[object]]::new();CacheKeys=[Collections.Generic.Queue[string]]::new();Progress=$queue;CacheProgress=$cacheQueue;Stop=$stop
         Stopped=$false;SelectionRestored=$false;Ended=$false;Final=$null;Error='';Finalized=$false;Prune=$null;CacheRequested=$true
         Started=[Diagnostics.Stopwatch]::StartNew();FirstMs=-1L;CacheUtc='';RefreshNeeded=$false;FilterPending=$false
-        Ranking=[bool]$ranking;SearchRules=[bool]$rules;EmptyState=[bool]$emptyState
+        Ranking=[bool]$ranking;SearchRules=[bool]$rules;EmptyState=[bool]$emptyState;ContainsOffer=[bool]$containsOffer
     }
     $script:Live.Search=$s;$script:BranchObjects=$rows;$script:BranchCountLabel='Chargement progressif…'
     # PF-06: the first rows are shown at the normal pace, not after the rest interval. A new search (explicit gesture)
@@ -844,6 +849,8 @@ function Invoke-DomeniaLiveTick {
                         if($s.SearchRules -and -not $s.Error){$label=Get-DomeniaResultCounterText -Loaded $s.Fresh.Count -Limit ([int]$s.State.Limit) -Complete (-not $limited) -Visible ([int]$grid.Items.Count)}
                         $script:BranchCountLabel=$label
                         Set-Status $label $(if($s.Error){'WARN'}else{'INFO'})
+                        # FO-01: few names or none: offer the « contains » search (a chip, read on click only).
+                        if([bool]$s.ContainsOffer){Update-DomeniaSearchContainsOffer -Search $s}
                         Write-AppLog ("Chargement progressif : premier affichage=$($s.FirstMs) ms ; AD=$($s.Fresh.Count) ; total=$($s.Started.ElapsedMilliseconds) ms ; complet=$(-not [bool]$s.Error).") 'INFO'
                     }
                 }
@@ -946,13 +953,15 @@ function Invoke-DomeniaSearchMore {
     $loadedDns=[Collections.Generic.List[string]]::new()
     foreach($row in @($s.Rows)){if($null -ne $row -and [string]$row.DN){$loadedDns.Add([string]$row.DN)}}
     $request=New-DomeniaContinuationRequest -FilterUsed $baseFilter -Cursor ([string](Get-DomeniaMember $s 'ContinuationCursor' '')) -LoadedDns $loadedDns.ToArray() -Loaded ([int]$s.Fresh.Count) -Target $target -PageSize ([int](Get-CfgValue 'Browser' 'SearchPageSize' 250)) -Reader ([string]$script:Live.Identity) -Generation ([long]$script:GlobalSearchGeneration) -BaseDn ([string]$s.State.BaseDn)
+    # FO-01: the next rows of a « contains » list are still the names that contain the text.
+    $contains=([string](Get-DomeniaMember $s.State 'MatchMode' '') -eq 'Contains')
     if(-not [bool]$request.Valid){
         # A list without a known filter (an older result) is read again with the larger bound, as before MO-07.
         Write-AppLog ('Charger la suite : '+[string]$request.Reason) 'WARN'
-        Invoke-GlobalSearch -SearchMode $mode -PreserveSelection -SilentError -ViewId $viewId -LimitOverride $target -ViewScope $viewScope -ExpectBaseDn ([string]$s.State.BaseDn) -ExpectScope ([string]$s.State.Scope)
+        Invoke-GlobalSearch -SearchMode $mode -PreserveSelection -SilentError -ViewId $viewId -LimitOverride $target -ViewScope $viewScope -ExpectBaseDn ([string]$s.State.BaseDn) -ExpectScope ([string]$s.State.Scope) -Contains:$contains
         return
     }
-    Invoke-GlobalSearch -SearchMode $mode -PreserveSelection -SilentError -ViewId $viewId -ViewScope $viewScope -ExpectBaseDn ([string]$s.State.BaseDn) -ExpectScope ([string]$s.State.Scope) -Continuation $request
+    Invoke-GlobalSearch -SearchMode $mode -PreserveSelection -SilentError -ViewId $viewId -ViewScope $viewScope -ExpectBaseDn ([string]$s.State.BaseDn) -ExpectScope ([string]$s.State.Scope) -Continuation $request -Contains:$contains
 }
 
 function Complete-DomeniaLiveObservationRead {

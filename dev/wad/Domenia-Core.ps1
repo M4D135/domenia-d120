@@ -625,6 +625,7 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnGlobalClear" = "Default"
     "BtnExportResults" = "Default"
     "BtnSearchMoreJump" = "Default"
+    "BtnSearchContains" = "Default"
     "LblBranchCount" = "Default"
     "TxtBranchSearch" = "Default"
     "CmbObjectFilter" = "Default"
@@ -5493,6 +5494,8 @@ function Get-MainXaml {
                             </Border>
                           </StackPanel>
                         </DockPanel>
+                        <!-- FO-01: few names or none in a global list: the « contains » search is offered as a chip and read on click only. -->
+                        <Button x:Name="BtnSearchContains" Visibility="Collapsed" HorizontalAlignment="Right" Margin="0,0,0,8" MinHeight="28" Padding="12,2" Style="{StaticResource SecondaryButton}" Content="Chercher aussi les noms qui contiennent ce texte" ToolTip="Proposé quand la barre du haut trouve peu de noms ou aucun : relance la même recherche (même périmètre, même type, même limite) sur les noms qui contiennent le texte, pas seulement ceux qui commencent par lui. Plus lent ; rien nʼest lu avant le clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Chercher aussi les noms qui contiennent ce texte" AutomationProperties.HelpText="Proposé quand la barre du haut trouve peu de noms ou aucun : relance la même recherche (même périmètre, même type, même limite) sur les noms qui contiennent le texte, pas seulement ceux qui commencent par lui. Plus lent ; rien nʼest lu avant le clic."/>
                         <!-- CO-05 / SP-14: the filter of the list works on any loaded list, global search included; no request. -->
                         <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
 <StackPanel Width="112" VerticalAlignment="Center" Margin="0,0,10,0"><TextBlock Text="Filtrer la liste" FontSize="11" Foreground="{DynamicResource MutedColor}"/><TextBlock x:Name="LblSuiteResultCount" Text="Filtre local : affine seulement les lignes déjà chargées." FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Height="18" Margin="0" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/></StackPanel>
@@ -11534,11 +11537,12 @@ function Invoke-GlobalSearch {
     # CO-05: -KeepLocalFilter keeps the filter of the list for a gesture that brings its own (favourite, history list).
     # MO-07: -Continuation (New-DomeniaContinuationRequest) adds only the next rows to the list on screen: same search,
     # same generation, no new history entry, the rows already loaded stay where they are.
+    # FO-01: -Contains reads the names that contain the typed words (explicit chip, upper bar only), same limit and perimeter.
     param([switch]$SilentError,[switch]$AllowEmpty,[switch]$PreserveSelection,
         [ValidateSet('Global','OU')][string]$SearchMode = 'Global',
         [string]$ViewId = '',[int]$LimitOverride = 0,
         [ValidateSet('','OU','Domain')][string]$ViewScope = '',[string]$ExpectBaseDn = '',[string]$ExpectScope = '',
-        [switch]$KeepLocalFilter,$Continuation = $null)
+        [switch]$KeepLocalFilter,$Continuation = $null,[switch]$Contains)
 
     if(Test-DomeniaAccessBusyWrite){Set-Status 'Recherche différée : écriture active ou à vérifier.' 'WARN';return}
     if(-not (Test-DomeniaDraftNavigation -DN "")){return}
@@ -11606,6 +11610,17 @@ function Invoke-GlobalSearch {
                 Set-Status ([string]$searchPlan.Reason) 'WARN'
                 return
             }
+        }
+        # FO-01: the « contains » chip asks for the names that contain the words; nothing else changes (limit, perimeter).
+        $containsPlan = $null
+        if ($Contains -and ($SearchMode -eq 'Global') -and ($null -eq $view) -and (-not $isBrowse)) {
+            $containsPlan = New-DomeniaContainsFilter -Text $textValue -TypeFilter (Get-GlobalSelectedTypeFilter -Mode Global)
+            if (-not [bool]$containsPlan.Valid) {
+                [void](Set-DomeniaControlText -Name 'LblSearchHint' -Text ([string]$containsPlan.Reason))
+                Set-Status ([string]$containsPlan.Reason) 'WARN'
+                return
+            }
+            $searchHint = 'Noms qui contiennent « ' + $textValue.Trim() + ' » : lecture plus longue, lʼannuaire parcourt tous les noms du périmètre.'
         }
 
         $preserveDn = ''
@@ -11797,11 +11812,17 @@ function Invoke-GlobalSearch {
                 $broadFilter = [string]$searchPlan.MultiWordFilter
             }
         }
+        if ($null -ne $containsPlan) {
+            # FO-01: one filter only, the names that contain every word; no prefix, exact or ANR pass first.
+            $prefixFilter = ''; $fastFilter = ''; $exactFilter = ''; $anrFilter = ''
+            $broadFilter = [string]$containsPlan.Filter
+        }
 
         $serverKey = ([string]$script:Conn.Server).ToLowerInvariant()
         $baseKey = ([string]$scope.BaseDn).ToLowerInvariant()
         $cacheKey = "scope-v214|$SearchMode|$serverKey|$baseKey|$($scope.Scope)|$typeFilter|$textValue|$limit"
         if ($null -ne $view) { $cacheKey += '|view:' + [string]$view.Id }
+        if ($null -ne $containsPlan) { $cacheKey += '|contains' }
         # Cache previews are read in a worker; the WPF thread performs no SQLite query here.
 
         # D021: the list projection is the single source of truth; heavy attributes are refused before the worker.
@@ -12057,6 +12078,9 @@ $final
             # FO-05: the chip and the type of the bar that produced a global list (history, continuation).
             BarScope = $(if (($SearchMode -eq 'Global') -and ($null -ne $scope.PSObject.Properties['Explicit']) -and [bool]$scope.Explicit) { 'Ou' } else { 'Everywhere' })
             BarType = $(if ($SearchMode -eq 'Global') { $barTypeKey } else { '' })
+            # FO-01: a « contains » list and the kind of plain-text plan that may offer it.
+            MatchMode = $(if ($null -ne $containsPlan) { 'Contains' } else { '' })
+            PlanKind = $(if ($null -ne $searchPlan) { [string]$searchPlan.Kind } else { '' })
             StoreContext = (New-DomeniaStoreContext -RequestId ([guid]::NewGuid().ToString('D')) -Generation $generation -ScopeDn ([string]$scope.BaseDn) -Subtree ([string]$scope.Scope -eq 'Subtree'))
         }
 

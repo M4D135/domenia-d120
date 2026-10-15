@@ -121,6 +121,55 @@ function Set-DomeniaSearchBarChoice {
     [void](Set-DomeniaControlText -Name 'LblSearchHint' -Text ('Recherche de la barre : ' + $state.Chip + ' · ' + $state.TypeLabel + '. Entrée lance la recherche ; rien nʼest lu avant.'))
 }
 
+# ---------------------------------------------------------------- FO-01 « contains » chip of a short global list
+function Update-DomeniaSearchContainsOffer {
+    # FO-01: under the counter, a finished global list with few names or none offers « Chercher aussi les noms qui
+    # contiennent « compta » » (Get-DomeniaContainsSearchOffer). $null hides the chip (a new search starts). Display only.
+    param($Search)
+    $chip = Get-DomeniaControl 'BtnSearchContains'
+    if ($null -eq $chip) { return }
+    $offer = $null
+    if ($null -ne $Search) {
+        $state = $Search.State
+        $offer = Get-DomeniaContainsSearchOffer -Text ([string]$state.Search) -Mode ([string]$state.SearchMode) -PlanKind ([string](Get-DomeniaMember $state 'PlanKind' '')) `
+            -MatchMode ([string](Get-DomeniaMember $state 'MatchMode' '')) -Loaded ([int]$Search.Fresh.Count) -Finalized ([bool]$Search.Finalized) `
+            -HasError (-not [string]::IsNullOrEmpty([string]$Search.Error)) -LimitReached (($null -ne $Search.Final) -and [bool](Get-DomeniaMember $Search.Final 'LimitReached' $false)) `
+            -ViewId ([string](Get-DomeniaMember $state 'ViewId' ''))
+    }
+    $show = (($null -ne $offer) -and [bool]$offer.Show)
+    if ($show) {
+        $chip.Content = [string]$offer.Label
+        $chip.ToolTip = [string]$offer.Tip
+        [Windows.Automation.AutomationProperties]::SetName($chip,[string]$offer.Label)
+        [Windows.Automation.AutomationProperties]::SetHelpText($chip,[string]$offer.Tip)
+        $chip.Tag = [pscustomobject]@{Term=[string]$offer.Term;Generation=[long]$Search.State.Generation;Epoch=[long]$script:SessionEpoch}
+    }
+    else { $chip.Tag = $null }
+    $wanted = if ($show) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed }
+    if ($chip.Visibility -ne $wanted) { $chip.Visibility = $wanted }
+}
+
+function Invoke-DomeniaSearchContains {
+    # FO-01: explicit gesture of the chip. The search of the list on screen is read again for the names that contain
+    # its text, with the same perimeter, type and limit. A chip left from another search reads nothing.
+    $chip = Get-DomeniaControl 'BtnSearchContains'
+    $offer = $null
+    if ($null -ne $chip) { $offer = $chip.Tag }
+    $current = (Test-DomeniaLiveSearchActive)
+    if ($current) {
+        $state = $script:Live.Search.State
+        $current = (($null -ne $offer) -and ([long]$offer.Epoch -eq [long]$script:SessionEpoch) -and ([long]$offer.Generation -eq [long]$script:GlobalSearchGeneration) -and
+            ([string]$state.SearchMode -eq 'Global') -and ([string]$state.Search -ceq [string]$offer.Term))
+    }
+    if (-not $current) {
+        Update-DomeniaSearchContainsOffer -Search $null
+        Set-Status 'La liste affichée nʼest plus la recherche courante : relancez la recherche avant de chercher les noms qui contiennent ce texte.' 'WARN'
+        return
+    }
+    Update-DomeniaSearchContainsOffer -Search $null
+    Invoke-GlobalSearch -SearchMode Global -Contains
+}
+
 function Update-DomeniaWorkViewList {
     $combo = Get-DomeniaControl 'CmbWorkView'
     if ($null -eq $combo) { return }
@@ -416,6 +465,8 @@ function Get-DomeniaNavSnapshot {
     # FO-05: the chip and the type of the bar that produced a global list.
     $barScope = [string]$script:SearchBarScope
     $barType = [string]$script:SearchBarType
+    # FO-01: a « contains » list is another place than the prefix list of the same text.
+    $matchMode = ''
     $listState = $null
     if ($null -ne $script:Live -and $null -ne $script:Live.Search) {
         # A live list stays the same list while its local filter or presence repaints the grid ($script:BranchObjects).
@@ -435,6 +486,7 @@ function Get-DomeniaNavSnapshot {
         $stateType = [string](Get-DomeniaMember $listState 'TypeLabel' '')
         if (-not $stateType -and $mode -eq 'OU') { $stateType = Get-DomeniaTypeLabelOfFilter ([string]$listState.TypeFilter) }
         if ($stateType) { $typeLabel = $stateType }
+        $matchMode = [string](Get-DomeniaMember $listState 'MatchMode' '')
         if ($mode -eq 'Global') {
             $barScope = [string](Get-DomeniaMember $listState 'BarScope' $barScope)
             $barType = [string](Get-DomeniaMember $listState 'BarType' $barType)
@@ -452,6 +504,7 @@ function Get-DomeniaNavSnapshot {
         if ($stateType) { $typeLabel = $stateType }
         $barScope = [string](Get-DomeniaMember $historyState 'BarScope' $barScope)
         $barType = [string](Get-DomeniaMember $historyState 'BarType' $barType)
+        $matchMode = [string](Get-DomeniaMember $historyState 'MatchMode' '')
     }
     if (-not $viewChoice) { $viewChoice = $(if ($viewId -and $mode -eq 'Global') { 'Domain' } else { 'OU' }) }
     $inner = '';$innerControl=''
@@ -490,7 +543,7 @@ function Get-DomeniaNavSnapshot {
         SelectionGuid=$selectionGuid;SelectionDn=$selectionDn;Rows=$rows;Scroll=$scroll
         CountLabel=$(if ($null -ne $count) { [string]$count.Text } else { '' })
         Generation=[int]$script:GlobalSearchGeneration;ViewId=$viewId
-        TypeLabel=$typeLabel;Presence=$presence;LocalFilter=$localFilter;BarScope=$barScope;BarType=$barType
+        TypeLabel=$typeLabel;Presence=$presence;LocalFilter=$localFilter;BarScope=$barScope;BarType=$barType;MatchMode=$matchMode
         SurveyBlocked=$surveyBlocked;ViewChoice=$viewChoice
         LocalQuery=$localQuery;QuerySelection=[string](Get-DomeniaMember $localQuery 'Selection');QueryLabel=[string](Get-DomeniaControl 'LblSearchQuery').Text
         ObjectDn=$objectDn;At=[datetime]::UtcNow
@@ -705,7 +758,9 @@ function Invoke-DomeniaHistoryRefresh {
         return
     }
     # CO-05: the history list is read again with the filter of the list that came back with it.
-    Invoke-GlobalSearch -SearchMode (Get-DomeniaSearchMode) -AllowEmpty -SilentError -KeepLocalFilter
+    # FO-01: a « contains » list is read again as a « contains » list.
+    $containsList = ([string](Get-DomeniaMember $script:NavHistoryState 'MatchMode' '') -eq 'Contains')
+    Invoke-GlobalSearch -SearchMode (Get-DomeniaSearchMode) -AllowEmpty -SilentError -KeepLocalFilter -Contains:$containsList
 }
 
 function Get-DomeniaTreeSelectionSource {
@@ -861,6 +916,9 @@ function Initialize-DomeniaSearchUi {
     }
     $more = Get-DomeniaControl 'BtnSearchMore'
     if ($more -is [Windows.Controls.Primitives.ButtonBase]) { $more.Add_Click({ try { Invoke-DomeniaSearchMore } catch { Write-AppLog ('Charger la suite : '+$_.Exception.Message) 'ERROR'; Set-Status ('Suite non chargée : '+$_.Exception.Message) 'ERROR' } }) }
+    # FO-01: the « contains » chip starts its read on click only.
+    $containsChip = Get-DomeniaControl 'BtnSearchContains'
+    if ($containsChip -is [Windows.Controls.Primitives.ButtonBase]) { $containsChip.Add_Click({ try { Invoke-DomeniaSearchContains } catch { Write-AppLog ('Recherche « contient » : '+$_.Exception.Message) 'ERROR'; Set-Status ('Recherche non lancée : '+$_.Exception.Message) 'ERROR' } }) }
     # MO-07: « Charger jusquʼà 1 000 » reads the missing rows in one explicit gesture.
     $jump = Get-DomeniaControl 'BtnSearchMoreJump'
     if ($jump -is [Windows.Controls.Primitives.ButtonBase]) { $jump.Add_Click({ try { Invoke-DomeniaSearchMore -Step Jump } catch { Write-AppLog ('Charger jusquʼà : '+$_.Exception.Message) 'ERROR'; Set-Status ('Suite non chargée : '+$_.Exception.Message) 'ERROR' } }) }
