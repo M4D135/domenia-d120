@@ -818,6 +818,16 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnCopySecret" = "Default"
     "BtnCopyAllSecrets" = "Default"
     "BtnClearSecrets" = "Default"
+    "LblGuardReceiptSelection" = "Default"
+    "TxtGuardReceiptReason" = "Default"
+    "LblGuardReceiptReasonCount" = "Default"
+    "BitLockerKeyCard" = "Default"
+    "LblBitLockerKeyCardId" = "Default"
+    "BitLockerKeyBlocks" = "Default"
+    "BitLockerKeyRing" = "Default"
+    "LblBitLockerKeyCountdown" = "Default"
+    "BtnBitLockerKeyExtend" = "Default"
+    "BtnBitLockerKeyHide" = "Default"
     "LblSecretsStatus" = "Default"
     "DgSecrets" = "Default"
     "TabComputerHealth" = "Default"
@@ -6957,34 +6967,66 @@ function Get-MainXaml {
                       <DockPanel>
                         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
                           <TextBlock Text="Secrets du poste" FontSize="18" FontWeight="SemiBold"/>
-                          <TextBlock Text="Cles de recuperation BitLocker et mot de passe administrateur local. Les valeurs sont masquees tant que tu ne demandes pas a les afficher." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
+                          <TextBlock Text="Clés de récupération BitLocker et mot de passe administrateur local. Les valeurs restent masquées tant que vous ne demandez pas à les afficher." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
                           <WrapPanel>
-                            <Button x:Name="BtnLoadBitLocker" Content="BitLocker" Style="{StaticResource RunButton}" ToolTip="Recupere les cles de recuperation BitLocker enregistrees pour ce poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="BitLocker" AutomationProperties.HelpText="Recupere les cles de recuperation BitLocker enregistrees pour ce poste."/>
-                            <Button x:Name="BtnLoadLaps" Content="LAPS" Style="{StaticResource RunButton}" ToolTip="Recupere le mot de passe administrateur local gere par LAPS." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="LAPS" AutomationProperties.HelpText="Recupere le mot de passe administrateur local gere par LAPS."/>
-                            <Button x:Name="BtnToggleSecrets" Content="Afficher" ToolTip="Affiche ou masque les valeurs. Elles ne sont jamais conservees apres la fermeture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Afficher" AutomationProperties.HelpText="Affiche ou masque les valeurs. Elles ne sont jamais conservees apres la fermeture."/>
+                            <Button x:Name="BtnLoadBitLocker" Content="Lister les clés BitLocker" Style="{StaticResource RunButton}" ToolTip="Liste les clés de récupération BitLocker de ce poste. Aucune clé nʼest affichée sans votre demande." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lister les clés BitLocker" AutomationProperties.HelpText="Liste les clés de récupération BitLocker de ce poste. Aucune clé nʼest affichée sans votre demande."/>
+                            <Button x:Name="BtnLoadLaps" Content="Lire le mot de passe LAPS" Style="{StaticResource RunButton}" ToolTip="Lit le mot de passe administrateur local géré par LAPS. Il reste masqué jusquʼà votre demande." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lire le mot de passe LAPS" AutomationProperties.HelpText="Lit le mot de passe administrateur local géré par LAPS. Il reste masqué jusquʼà votre demande."/>
+                            <Button x:Name="BtnToggleSecrets" Content="Afficher la valeur choisie" IsEnabled="False" ToolTip="Affiche uniquement la valeur sélectionnée, brièvement. Les autres restent masquées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Afficher la valeur choisie" AutomationProperties.HelpText="Affiche uniquement la valeur sélectionnée, brièvement. Les autres restent masquées."/>
                             <Button x:Name="BtnCopySecret" Content="Copier" ToolTip="Copie la valeur selectionnee. Le presse-papiers est efface automatiquement apres quelques instants." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier" AutomationProperties.HelpText="Copie la valeur selectionnee. Le presse-papiers est efface automatiquement apres quelques instants."/>
-                            <Button x:Name="BtnCopyAllSecrets" ToolTip="Copie toutes les valeurs affichees." Content="Copier tout" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier tout" AutomationProperties.HelpText="Copie toutes les valeurs affichees."/>
-                            <Button x:Name="BtnClearSecrets" ToolTip="Efface les valeurs affichees." Content="Vider" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vider" AutomationProperties.HelpText="Efface les valeurs affichees."/>
+                            <Button x:Name="BtnCopyAllSecrets" Visibility="Collapsed" IsEnabled="False" ToolTip="Copie groupée désactivée : une valeur à la fois." Content="Copier tout" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier tout" AutomationProperties.HelpText="Copie groupée désactivée : une valeur à la fois."/>
+                            <Button x:Name="BtnClearSecrets" ToolTip="Efface les valeurs lues, conservées en mémoire." Content="Vider" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vider" AutomationProperties.HelpText="Efface les valeurs lues, conservées en mémoire."/>
                           </WrapPanel>
-                          <TextBlock x:Name="LblSecretsStatus" Text="Selectionne un poste, puis charge BitLocker ou LAPS." Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                          <TextBlock x:Name="LblSecretsStatus" Text="Sélectionnez un poste, puis listez les clés BitLocker ou lisez le mot de passe LAPS." Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0" TextWrapping="Wrap"/>
                           <Button x:Name="BtnSecretsPrerequisite" Content="Ouvrir le prerequis" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,8,0,0" Visibility="Collapsed" ToolTip="Ouvre la page du prerequis manquant. Navigation seule : aucun droit ni reglage modifie." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir le prerequis" AutomationProperties.HelpText="Ouvre la page du prerequis manquant. Navigation seule : aucun droit ni reglage modifie."/>
                           <WrapPanel Margin="0,10,0,0">
                             <StackPanel Width="300" Margin="0,0,12,0">
                               <TextBlock Text="Identifiant de récupération BitLocker" Margin="0,0,0,4" FontSize="12" FontWeight="SemiBold"/>
                               <TextBox x:Name="TxtBitLockerRecoveryId" MaxLength="40" IsEnabled="False" ToolTip="Saisissez les premiers caractères de lʼidentifiant affiché par le poste. Filtre local : aucune clé nʼest lue ni révélée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Identifiant de recuperation BitLocker" AutomationProperties.HelpText="Saisissez les premiers caracteres de l identifiant affiche par le poste. Filtre local : aucune cle n est lue ni revelee."/>
                             </StackPanel>
-                            <TextBlock x:Name="LblBitLockerRecoveryHint" Text="Chargez BitLocker : les métadonnées sont listées sans aucune clé. Une seule clé est lue, à votre demande." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Bottom" MaxWidth="520" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="LblBitLockerRecoveryHint" Text="« Lister les clés BitLocker » affiche les métadonnées, sans aucune clé. Une seule clé est lue, à votre demande." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Bottom" MaxWidth="520" TextWrapping="Wrap"/>
                           </WrapPanel>
                           <TextBlock x:Name="LblSecretsExposure" Text="Une valeur à la fois, affichée brièvement, jamais journalisée ni mise en cache." Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                          <!-- UX-18 : cle BitLocker revelee seule, en huit blocs numerotes a dicter, avec son identifiant et un compte a rebours. -->
+                          <Border x:Name="BitLockerKeyCard" Visibility="Collapsed" Margin="0,12,0,0" Padding="16,12" CornerRadius="8" Background="{DynamicResource InfoBg}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1" ToolTip="Clé de récupération affichée à votre demande, par blocs numérotés. Elle disparaît à lʼéchéance ; rien nʼest copié ni journalisé." ToolTipService.Placement="Top" AutomationProperties.Name="Clé de récupération BitLocker affichée" AutomationProperties.HelpText="Clé de récupération affichée à votre demande, par blocs numérotés. Elle disparaît à lʼéchéance ; rien nʼest copié ni journalisé.">
+                            <Grid>
+                              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                              <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="Clé de récupération BitLocker" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource InfoFg}"/>
+                                <TextBlock x:Name="LblBitLockerKeyCardId" Text="" Margin="0,4,0,10" TextWrapping="Wrap" Foreground="{DynamicResource InfoFg}" ToolTip="Comparez cet identifiant à celui affiché par lʼécran de récupération du poste avant de dicter la clé." ToolTipService.Placement="Top" AutomationProperties.Name="Identifiant de récupération de la clé affichée" AutomationProperties.HelpText="Comparez cet identifiant à celui affiché par lʼécran de récupération du poste avant de dicter la clé."/>
+                                <ItemsControl x:Name="BitLockerKeyBlocks" Focusable="False" ToolTip="Les huit blocs de six chiffres, dans lʼordre où le poste les demande." ToolTipService.Placement="Bottom" AutomationProperties.Name="Blocs de la clé de récupération" AutomationProperties.HelpText="Les huit blocs de six chiffres, dans lʼordre où le poste les demande.">
+                                  <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                  <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                      <Border Margin="0,0,10,8" Padding="10,4" CornerRadius="6" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1">
+                                        <StackPanel>
+                                          <TextBlock Text="{Binding Label}" FontSize="11" Foreground="{DynamicResource MutedColor}"/>
+                                          <TextBlock Text="{Binding Digits}" FontFamily="Consolas, Cascadia Mono, Courier New" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextColor}"/>
+                                        </StackPanel>
+                                      </Border>
+                                    </DataTemplate>
+                                  </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                              </StackPanel>
+                              <StackPanel Grid.Column="1" VerticalAlignment="Top" HorizontalAlignment="Center">
+                                <Grid Width="56" Height="56" HorizontalAlignment="Center">
+                                  <Ellipse Width="56" Height="56" Stroke="{DynamicResource BorderColor}" StrokeThickness="6"/>
+                                  <Ellipse x:Name="BitLockerKeyRing" Width="56" Height="56" Stroke="{DynamicResource AccentColor}" StrokeThickness="6" RenderTransformOrigin="0.5,0.5" ToolTip="Temps restant avant que la clé soit masquée." AutomationProperties.Name="Temps restant" AutomationProperties.HelpText="Temps restant avant que la clé soit masquée."><Ellipse.RenderTransform><RotateTransform Angle="-90"/></Ellipse.RenderTransform></Ellipse>
+                                  <TextBlock x:Name="LblBitLockerKeyCountdown" Text="" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold" ToolTip="Secondes restantes avant que la clé soit masquée." AutomationProperties.Name="Secondes restantes" AutomationProperties.HelpText="Secondes restantes avant que la clé soit masquée."/>
+                                </Grid>
+                                <Button x:Name="BtnBitLockerKeyExtend" Content="Prolonger 30 s" Style="{StaticResource SecondaryButton}" Margin="0,10,0,0" ToolTip="Prolonge une seule fois lʼaffichage de la clé de 30 secondes. Rien nʼest relu ni copié." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Prolonger 30 s" AutomationProperties.HelpText="Prolonge une seule fois lʼaffichage de la clé de 30 secondes. Rien nʼest relu ni copié."/>
+                                <Button x:Name="BtnBitLockerKeyHide" Content="Masquer maintenant" Style="{StaticResource SecondaryButton}" Margin="0,6,0,0" ToolTip="Masque la clé tout de suite. Elle reste lisible à nouveau sur votre demande." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Masquer maintenant" AutomationProperties.HelpText="Masque la clé tout de suite. Elle reste lisible à nouveau sur votre demande."/>
+                              </StackPanel>
+                            </Grid>
+                          </Border>
                         </StackPanel>
-                        <DataGrid x:Name="DgSecrets" ToolTip="Clés et mots de passe récupérés. Clic droit pour copier." AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" MinRowHeight="31" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Cles et mots de passe recuperes" AutomationProperties.HelpText="Cles et mots de passe recuperes. Clic droit pour copier.">
+                        <DataGrid x:Name="DgSecrets" ToolTip="Clés et mots de passe lus pour ce poste, masqués par défaut. Choisissez une ligne, puis affichez-la ou copiez-la avec les boutons ci-dessus : une valeur à la fois." AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" MinRowHeight="31" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Clés et mots de passe récupérés" AutomationProperties.HelpText="Clés et mots de passe lus pour ce poste, masqués par défaut. Choisissez une ligne, puis affichez-la ou copiez-la avec les boutons ci-dessus : une valeur à la fois.">
                           <DataGrid.Columns>
                             <DataGridTextColumn Header="Type" Binding="{Binding Kind}" Width="150"/>
-                            <DataGridTextColumn Header="Compte" Binding="{Binding Account}" Width="190"/>
+                            <DataGridTextColumn Header="Compte ou identifiant" Binding="{Binding Account}" Width="190"/>
                             <DataGridTextColumn Header="Valeur" Binding="{Binding DisplayValue}" Width="260"/>
                             <DataGridTextColumn Header="Date / expiration" Binding="{Binding Timestamp}" Width="170"/>
                             <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="190"/>
-                            <DataGridTemplateColumn Header="Detail" Width="*">
+                            <DataGridTemplateColumn Header="Détail" Width="*">
                               <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                   <TextBlock Text="{Binding Detail}" Style="{StaticResource WrappedCellText}" ToolTip="{Binding Detail}"/>
@@ -7009,12 +7051,25 @@ function Get-MainXaml {
 <TextBlock x:Name="LblGuardReceipts" Text="Lecture des reçus locaux en attente. Les écritures restent protégées." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,8,0,12"/>
 <WrapPanel Margin="0,0,0,12">
 <Button AutomationProperties.Name="Actualiser les reçus" AutomationProperties.HelpText="Lit les reçus locaux sans rejouer aucune opération." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardReceiptRefresh" Content="Actualiser les reçus" ToolTip="Lit les reçus locaux sans rejouer aucune opération."/>
-<Button AutomationProperties.Name="Vérifier la postcondition" AutomationProperties.HelpText="Relit la valeur attendue sur le contrôleur initial lorsque cette opération permet une vérification sûre." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardReceiptVerify" Content="Vérifier la postcondition" ToolTip="Relit la valeur attendue sur le contrôleur initial lorsque cette opération permet une vérification sûre."/>
-<Button AutomationProperties.Name="Consigner une revue externe" AutomationProperties.HelpText="Après contrôle manuel réel, consigne une justification. Ne transforme pas l'action en succès automatique." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardReceiptReview" Content="Consigner une revue externe" ToolTip="Après contrôle manuel réel, consigne une justification. Ne transforme pas l'action en succès automatique."/>
 </WrapPanel>
-<DataGrid AutomationProperties.Name="DgGuardReceipts" AutomationProperties.HelpText="Intentions et résultats durables. Une absence de confirmation reste à vérifier." ToolTipService.ShowOnDisabled="True" x:Name="DgGuardReceipts" IsReadOnly="True" AutoGenerateColumns="False" Height="200" SelectionMode="Single" ToolTip="Intentions et résultats durables. Une absence de confirmation reste à vérifier."><DataGrid.Columns>
-<DataGridTextColumn Header="Opération" Binding="{Binding Operation}" Width="150"/><DataGridTextColumn Header="État" Binding="{Binding Stage}" Width="100"/><DataGridTextColumn Header="Cible" Binding="{Binding DN}" Width="*"/><DataGridTextColumn Header="Compte" Binding="{Binding Identity}" Width="170"/><DataGridTextColumn Header="Contrôleur" Binding="{Binding Server}" Width="170"/>
-</DataGrid.Columns></DataGrid></StackPanel></Border>
+<!-- UI-18 : etat en mots francais dans une puce, operation et objet par leur nom, nom distinctif en infobulle. -->
+<DataGrid AutomationProperties.Name="Reçus des opérations" AutomationProperties.HelpText="Reçus des écritures envoyées par Domenia, ceux à vérifier en premier. Survolez lʼobjet pour lire son nom distinctif." ToolTipService.ShowOnDisabled="True" x:Name="DgGuardReceipts" IsReadOnly="True" AutoGenerateColumns="False" Height="200" SelectionMode="Single" ToolTip="Reçus des écritures envoyées par Domenia, ceux à vérifier en premier. Survolez lʼobjet pour lire son nom distinctif."><DataGrid.Columns>
+<DataGridTemplateColumn Header="État" Width="200" SortMemberPath="StageLabel"><DataGridTemplateColumn.CellTemplate><DataTemplate>
+<Border CornerRadius="9" Padding="8,1" Margin="0,2" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTip="{Binding Explanation}"><Border.Style><Style TargetType="Border"><Setter Property="Background" Value="#E5E7EB"/><Style.Triggers><DataTrigger Binding="{Binding Tone}" Value="Pending"><Setter Property="Background" Value="#FEF3C7"/></DataTrigger><DataTrigger Binding="{Binding Tone}" Value="Verified"><Setter Property="Background" Value="#DCFCE7"/></DataTrigger><DataTrigger Binding="{Binding Tone}" Value="Reviewed"><Setter Property="Background" Value="#DBEAFE"/></DataTrigger><DataTrigger Binding="{Binding Tone}" Value="Delivered"><Setter Property="Background" Value="#E0F2FE"/></DataTrigger></Style.Triggers></Style></Border.Style>
+<TextBlock Text="{Binding StageLabel}" FontSize="12" FontWeight="SemiBold"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Foreground" Value="#374151"/><Style.Triggers><DataTrigger Binding="{Binding Tone}" Value="Pending"><Setter Property="Foreground" Value="#92400E"/></DataTrigger><DataTrigger Binding="{Binding Tone}" Value="Verified"><Setter Property="Foreground" Value="#166534"/></DataTrigger><DataTrigger Binding="{Binding Tone}" Value="Reviewed"><Setter Property="Foreground" Value="#1E3A8A"/></DataTrigger><DataTrigger Binding="{Binding Tone}" Value="Delivered"><Setter Property="Foreground" Value="#075985"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+</Border></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+<DataGridTextColumn Header="Opération" Binding="{Binding OperationLabel}" Width="210"/>
+<DataGridTemplateColumn Header="Objet" Width="*" MinWidth="160" SortMemberPath="ObjectName"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding ObjectName}" ToolTip="{Binding DnToolTip}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+<DataGridTextColumn Header="Mis à jour" Binding="{Binding UpdatedLabel}" SortMemberPath="UpdatedUtc" Width="130"/><DataGridTextColumn Header="Compte" Binding="{Binding Identity}" Width="160"/><DataGridTextColumn Header="Contrôleur" Binding="{Binding Server}" Width="160"/>
+</DataGrid.Columns></DataGrid>
+<TextBlock x:Name="LblGuardReceiptSelection" Text="Sélectionnez un reçu dans la liste pour le vérifier ou consigner une revue." TextWrapping="Wrap" Margin="0,12,0,8" ToolTip="Ce que dit le reçu sélectionné et ce que vous pouvez en faire." AutomationProperties.Name="Reçu sélectionné" AutomationProperties.HelpText="Ce que dit le reçu sélectionné et ce que vous pouvez en faire."/>
+<TextBlock Text="Motif de la revue, après votre contrôle réel (sans secret)" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+<TextBox x:Name="TxtGuardReceiptReason" MaxLength="240" TextWrapping="Wrap" AcceptsReturn="False" MinHeight="56" IsEnabled="False" ToolTip="Décrivez le contrôle réalisé avec un autre outil, en 12 à 240 caractères. Le motif est enregistré dans le reçu : nʼy saisissez ni mot de passe ni clé." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Motif de la revue" AutomationProperties.HelpText="Décrivez le contrôle réalisé avec un autre outil, en 12 à 240 caractères. Le motif est enregistré dans le reçu : nʼy saisissez ni mot de passe ni clé."/>
+<TextBlock x:Name="LblGuardReceiptReasonCount" Text="Saisissez le contrôle réalisé : 12 à 240 caractères." Foreground="{DynamicResource MutedColor}" Margin="0,4,0,10" TextWrapping="Wrap" ToolTip="Longueur du motif saisi : 12 caractères au minimum, 240 au maximum." AutomationProperties.Name="Longueur du motif" AutomationProperties.HelpText="Longueur du motif saisi : 12 caractères au minimum, 240 au maximum."/>
+<WrapPanel>
+<Button AutomationProperties.Name="Vérifier par relecture" AutomationProperties.HelpText="Relit sur le contrôleur initial les valeurs attendues dʼune modification de fiche. Aucune commande nʼest renvoyée." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardReceiptVerify" Content="Vérifier par relecture" IsEnabled="False" ToolTip="Relit sur le contrôleur initial les valeurs attendues dʼune modification de fiche. Aucune commande nʼest renvoyée."/>
+<Button AutomationProperties.Name="Consigner la revue" AutomationProperties.HelpText="Enregistre dans le reçu le motif saisi, après votre contrôle réel. Le reçu devient « Revue manuelle », pas un succès automatique." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardReceiptReview" Content="Consigner la revue" IsEnabled="False" ToolTip="Enregistre dans le reçu le motif saisi, après votre contrôle réel. Le reçu devient « Revue manuelle », pas un succès automatique."/>
+</WrapPanel></StackPanel></Border>
 <Border Style="{StaticResource Card}" Margin="0,0,0,12"><StackPanel><TextBlock Text="Saisies et accès distants" FontSize="18" FontWeight="SemiBold"/>
 <TextBlock x:Name="LblGuardDraft" Text="Aucune modification de formulaire en attente." TextWrapping="Wrap" Margin="0,8,0,10"/>
 <Button AutomationProperties.Name="Comparer les saisies" AutomationProperties.HelpText="Compare les champs modifiés avec la première lecture et une éventuelle réponse plus récente. Aucun remplacement automatique." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardDraft" Content="Comparer les saisies" HorizontalAlignment="Left" ToolTip="Compare les champs modifiés avec la première lecture et une éventuelle réponse plus récente. Aucun remplacement automatique."/>
@@ -12403,9 +12458,12 @@ function Clear-Secrets {
     $script:SecretRows = @()
     $script:SecretsVisible = $false
     $script:RevealedSecretIndex = -1
+    $script:SecretReveal = $null
     $script:BitLockerKeyList = @()
     $script:BitLockerKeyContext = $null
-    try { $script:Ctrl["DgSecrets"].ItemsSource = $null; $script:Ctrl["BtnToggleSecrets"].Content = "Afficher les secrets"; $script:Ctrl["LblSecretsStatus"].Text = "Aucun secret conserve en memoire." } catch { }
+    try { $script:Ctrl["DgSecrets"].ItemsSource = $null; $script:Ctrl["LblSecretsStatus"].Text = "Aucun secret conservé en mémoire." } catch { }
+    # UX-18: the BitLocker key card is emptied and hidden with the grid.
+    try { Update-DomeniaSecretsView } catch { }
     try { Update-DomeniaSecretActionUi } catch { }
 }
 
@@ -12416,16 +12474,22 @@ function Update-SecretsGrid {
     # -1 keeps the previous whole-grid reveal (Features.SecretSingleCopy = false).
     $revealedIndex = -1
     if ($null -ne $script:RevealedSecretIndex) { $revealedIndex = [int]$script:RevealedSecretIndex }
+    # UX-18: a BitLocker key revealed alone is read in its card, by blocks, not in the narrow cell of the grid.
+    $cardIndex = -1
+    try { $cardKey = Get-DomeniaRevealedBitLockerKey; if ($null -ne $cardKey) { $cardIndex = [int]$cardKey.Index } } catch { $cardIndex = -1 }
     foreach ($r in @($script:SecretRows)) {
         $hasValue = -not [string]::IsNullOrWhiteSpace([string]$r.Value)
         $shown = ($script:SecretsVisible -and ($revealedIndex -lt 0 -or $revealedIndex -eq $index))
-        $display = if (-not $hasValue) { '' } elseif ($shown) { [string]$r.Value } else { '********' }
-        $rows.Add([pscustomobject]@{ Kind=$r.Kind; Account=$r.Account; DisplayValue=$display; Timestamp=$r.Timestamp; Source=$r.Source; Detail=$r.Detail; SecretIndex=$index; HasValue=$hasValue })
+        $display = if (-not $hasValue) { '' } elseif (($shown) -and ($index -eq $cardIndex)) { 'Affichée dans la carte ci-dessus' } elseif ($shown) { [string]$r.Value } else { '********' }
+        # UX-18: the DN of a recovery object is not a detail for the operator; its identifier is.
+        $detail = [string]$r.Detail
+        if (([string]$r.Kind -match '(?i)BitLocker') -and ($detail -match '^(?i)(CN|OU|DC)=')) { $detail = '' }
+        $rows.Add([pscustomobject]@{ Kind=$r.Kind; Account=$r.Account; DisplayValue=$display; Timestamp=$r.Timestamp; Source=$r.Source; Detail=$detail; SecretIndex=$index; HasValue=$hasValue })
         $index++
     }
     [void](Set-DomeniaItemsSource -Name 'DgSecrets' -Rows $rows.ToArray())
-    $toggle = Get-DomeniaControl -Name 'BtnToggleSecrets'
-    if ($null -ne $toggle) { $toggle.Content = if ($script:SecretsVisible) { 'Masquer les secrets' } else { 'Afficher les secrets' } }
+    try { Update-DomeniaSecretsView } catch { try { Write-AppLog ('Carte de la clé BitLocker : ' + $_.Exception.Message) 'WARN' } catch { } }
+    # UI-31: the reveal button gets its label from Update-DomeniaSecretActionUi only.
     try { Update-DomeniaSecretActionUi } catch { }
 }
 
@@ -14662,8 +14726,8 @@ function Build-DomeniaObjectsContextMenu {
         [void]$collect.Items.Add((New-DomeniaMenuItem -Header "Diagnostic distant" -Action { Select-DomeniaWorkspace -Workspace "WsComputer" -Inner "ComputerTabs" -Tab "TabComputerHealth"; Start-ComputerDiagnostics }))
         [void]$collect.Items.Add((New-DomeniaMenuItem -Header "Detecter le dernier utilisateur" -Action { Start-ProbeForSelectedComputer -Force }))
         [void]$collect.Items.Add((New-Object System.Windows.Controls.Separator))
-        [void]$collect.Items.Add((New-DomeniaMenuItem -Header "Charger BitLocker" -Action { Select-DomeniaWorkspace -Workspace "WsComputer" -Inner "ComputerTabs" -Tab "TabSecurity"; Start-LoadComputerSecrets -Mode "BitLocker" }))
-        [void]$collect.Items.Add((New-DomeniaMenuItem -Header "Charger LAPS" -Action { Select-DomeniaWorkspace -Workspace "WsComputer" -Inner "ComputerTabs" -Tab "TabSecurity"; Start-LoadComputerSecrets -Mode "LAPS" }))
+        [void]$collect.Items.Add((New-DomeniaMenuItem -Header "Lister les clés BitLocker" -Action { Select-DomeniaWorkspace -Workspace "WsComputer" -Inner "ComputerTabs" -Tab "TabSecurity"; Start-LoadComputerSecrets -Mode "BitLocker" }))
+        [void]$collect.Items.Add((New-DomeniaMenuItem -Header "Lire le mot de passe LAPS" -Action { Select-DomeniaWorkspace -Workspace "WsComputer" -Inner "ComputerTabs" -Tab "TabSecurity"; Start-LoadComputerSecrets -Mode "LAPS" }))
         [void]$Menu.Items.Add($collect)
     }
 
@@ -23845,7 +23909,7 @@ function Get-DomeniaWorkerOperationHashes {
         LiveDirectoryCheck    = "3F2FC63D6095DB5F81F03C392279FCABC849676BF71040794FE2FF6CA98ED5BD"
         SessionsList         = "DD09187778C09CF31B0BDA41EAC88FF898D9484756AFDF2F3EE643E6B5318BF6"
         RemoteCredentialCheck = "9070C7A5D9460D0FD129FD67CD5070595DE4DED7CA7EE7573C65AF102B0E515B"
-        ReceiptStore         = "B4332EE256364515B6037EDA97CACB93F8D7C58723BC957200C58E25E8CE644C"
+        ReceiptStore         = "AF37C7660D4E06A857209CD4E171F215A24A8E7BC3126F11DD532D4AFF49449F"
         ScopeReconcile       = "5917B0E2AB92BA626EF3621CCCE7B9A4988B318E62834EFD02FD6AFEF5C0B650"
         DocumentStore        = "BFD83587CB1BA62BC141E5F0742C6C6453A561617ED157045F3B4E7AB11A14E7"
         LocalStore           = "367323BD4DB55DB33FF67526485920454A2F3725D99D78C493CFFA1C9BDF0662"
@@ -23865,7 +23929,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "80C8F9B326D7659FF132D3A2BBDCDA7EF031F85513279794632BD5C0211FFC7F"
+    $expectedFingerprint = "147A78AD2DC6E8463AD8696E39DD48145FB2329586F056092B720C146539B9CB"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -25364,7 +25428,7 @@ function Update-DomeniaSecretActionUi {
             $explanation = Get-DomeniaSecretButtonExplanation -Name $name -Busy $busy
             $control.IsEnabled = [bool]$explanation.Enabled
             $tip = [string]$explanation.ToolTip
-            if ($actualDenied -and $tip -notmatch 'autre compte') { $tip += ' Lecture refusee avec ce compte : cliquez pour proposer un autre compte.' }
+            if (($actualDenied) -and ($tip -notmatch 'autre compte')) { $tip += ' Lecture refusée avec ce compte : cliquez pour proposer un autre compte.' }
             $control.ToolTip = $tip
             try { [Windows.Automation.AutomationProperties]::SetHelpText($control,$tip) } catch { }
             if (-not [bool]$explanation.Enabled -and [string]$explanation.Route -and -not $prerequisiteRoute) { $prerequisiteRoute = [string]$explanation.Route; $prerequisiteReason = $tip }
@@ -25381,59 +25445,37 @@ function Update-DomeniaSecretActionUi {
         $canCopySelected = ($null -ne $selectedSecret -and (-not [string]::IsNullOrWhiteSpace([string]$selectedSecret.Value) -or $selectedMetadata))
         $exposure = Get-DomeniaSecretExposurePolicy
 
+        # UI-31: the label of the reveal button and the presence of "copy all" come from one rule only.
+        $selectedKind = ""
+        try { if ($null -ne $selectedSecret) { $selectedKind = [string]$selectedSecret.Kind } } catch { }
+        $view = Get-DomeniaSecretActionView -Single $single -Visible ([bool]$script:SecretsVisible) -HasRows $hasRows -HasReadableValue $hasReadableValue -CanUseSelected $canCopySelected -SelectedMetadata $selectedMetadata -RevealSeconds ([int]$exposure.RevealSeconds) -SelectedKind $selectedKind -ClipboardLimit ([string]$exposure.ClipboardLimit)
         $toggle = Get-DomeniaControl -Name "BtnToggleSecrets"
         if ($null -ne $toggle) {
-            if ($single) {
-                $toggle.IsEnabled = ([bool]$script:SecretsVisible -or $canCopySelected)
-                if ([bool]$script:SecretsVisible) { $toggle.Content = 'Masquer' } elseif ($selectedMetadata) { $toggle.Content = 'Lire et afficher cette cle' } else { $toggle.Content = 'Afficher la valeur choisie' }
-                $toggle.ToolTip = if ($toggle.IsEnabled) { "Affiche uniquement la valeur selectionnee pendant " + [string]$exposure.RevealSeconds + " s. Les autres restent masquees." } elseif ($hasRows) { "Selectionnez d abord une ligne : une seule valeur est revelee a la fois." } else { "Charge d'abord BitLocker ou LAPS." }
-            }
-            else {
-                $toggle.IsEnabled = $hasRows
-                $toggle.ToolTip = if ($hasRows) { "Affiche ou masque temporairement les valeurs gardees uniquement en memoire." } else { "Charge d'abord BitLocker ou LAPS." }
-            }
+            $toggle.Content = [string]$view.ToggleText
+            $toggle.IsEnabled = [bool]$view.ToggleEnabled
+            $toggle.ToolTip = [string]$view.ToggleToolTip
+            try { [Windows.Automation.AutomationProperties]::SetName($toggle,[string]$view.ToggleText); [Windows.Automation.AutomationProperties]::SetHelpText($toggle,[string]$view.ToggleToolTip) } catch { }
         }
 
         $copyAll = Get-DomeniaControl -Name "BtnCopyAllSecrets"
         if ($null -ne $copyAll) {
-            if ($single) {
-                $copyAll.IsEnabled = $false
-                $copyAll.ToolTip = "Copie groupee desactivee (une valeur a la fois). " + [string]$exposure.ClipboardLimit
-            }
-            else {
-                $copyAll.IsEnabled = $hasReadableValue
-                $copyAll.ToolTip = if ($hasReadableValue) { "Copie les valeurs chargees puis programme l'effacement automatique du presse-papiers." } else { "Aucune valeur dechiffree a copier." }
-            }
+            $copyAll.Visibility = if ([bool]$view.CopyAllVisible) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
+            $copyAll.IsEnabled = [bool]$view.CopyAllEnabled
+            $copyAll.ToolTip = [string]$view.CopyAllToolTip
+            try { [Windows.Automation.AutomationProperties]::SetHelpText($copyAll,[string]$view.CopyAllToolTip) } catch { }
         }
 
         $clear = Get-DomeniaControl -Name "BtnClearSecrets"
         if ($null -ne $clear) {
             $clear.IsEnabled = $hasRows
-            $clear.ToolTip = if ($hasRows) { "Efface immediatement les secrets conserves en memoire par Domenia." } else { "Aucun secret n'est conserve en memoire." }
+            $clear.ToolTip = if ($hasRows) { "Efface immédiatement les secrets conservés en mémoire par Domenia." } else { "Aucun secret nʼest conservé en mémoire." }
         }
 
         $copySelected = Get-DomeniaControl -Name "BtnCopySecret"
         if ($null -ne $copySelected) {
-            $copySelected.IsEnabled = $canCopySelected
-
-            $kind = ""
-            try { $kind = [string]$selectedSecret.Kind } catch { }
-            if ($kind -match "(?i)BitLocker|Recovery") {
-                $copySelected.Content = "Copier la cle BitLocker"
-            }
-            elseif ($kind -match "(?i)LAPS") {
-                $copySelected.Content = "Copier le mot de passe LAPS"
-            }
-            else {
-                $copySelected.Content = "Copier la valeur"
-            }
-
-            $copySelected.ToolTip = if ($canCopySelected) {
-                "Copie uniquement la valeur selectionnee puis programme l'effacement automatique du presse-papiers. " + [string]$exposure.ClipboardLimit
-            }
-            else {
-                "Selectionne une ligne contenant une cle BitLocker ou un mot de passe LAPS lisible."
-            }
+            $copySelected.IsEnabled = [bool]$view.CopyEnabled
+            $copySelected.Content = [string]$view.CopyText
+            $copySelected.ToolTip = [string]$view.CopyToolTip
         }
 
         $recoveryBox = Get-DomeniaControl -Name "TxtBitLockerRecoveryId"

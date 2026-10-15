@@ -1,5 +1,5 @@
 ﻿#requires -Version 5.1
-# D051-D060 (lot acces) : preuves de raccordement. Chaque cas exerce le vrai code livre et echoue si la regle pure
+# D051-D060 (lot acces), UI-18, UI-31 et UX-18 (recus et secrets) : preuves de raccordement. Chaque cas exerce le vrai code livre et echoue si la regle pure
 # n'est plus appelee par l'application. Methode du projet : le vrai chargeur ferme Domenia-Modules.ps1 est
 # dot-source, les fonctions du coeur sont extraites par AST, seules les frontieres reseau (Start-UiTask, validation
 # de compte, recherche LDAP) et modales (Confirm-Action, Show-DomeniaDialog) sont doublees, les controles WPF sont
@@ -55,7 +55,7 @@ function Get-CoreFunctionText {param([string]$Name)
 }
 $coreNames=@('Protect-DomeniaLogText','ConvertTo-DomeniaErrorInfo','Show-DomeniaOperationError','Write-AppLog','Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','Set-DomeniaItemsSource','Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys','Get-DomeniaEffectiveWorkerResult',
     'Update-SecretsGrid','Get-DomeniaSelectedSecretSource','Test-DomeniaSecretCallbackCurrent','Clear-DomeniaSecretResultValues','Complete-DomeniaSecretLoadUi','Fail-DomeniaSecretLoadUi','Start-LoadComputerSecrets',
-    'Toggle-SecretsVisibility','Copy-SelectedSecret','Copy-AllSecrets','Update-DomeniaSecretActionUi','Test-DomeniaControlIsBusy',
+    'Toggle-SecretsVisibility','Copy-SelectedSecret','Copy-AllSecrets','Update-DomeniaSecretActionUi','Test-DomeniaControlIsBusy','Clear-Secrets',
     'New-DomeniaWorkerRunspace','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerCodeHash','Get-DomeniaWorkerOperationHashes','Assert-DomeniaWorkerOperationCode',
     'Get-DomeniaBootThemePalette','Get-DomeniaBootThemeResources','Convert-DomeniaXamlToBootTheme',
     # L02: incident code of Show-DomeniaOperationError and queued Domenia.log writer of Write-AppLog.
@@ -105,8 +105,9 @@ function Test-DomeniaActualCapabilityDenied {param($Dn,$Capability) return $fals
 function Get-WriteControlMap {return @{Edit=@('BtnUserSave');Raw=@('BtnRawSet')}}
 function Set-DomeniaProtectedClipboard {param([string]$Value,[int]$MaxLength=8192) $script:Clipboard.Add($Value)}
 function Start-SecretClipboardAutoClear {param([string]$Value) $script:ClipboardTimers++}
+function Clear-DomeniaSecretClipboard {param([switch]$Silent) $script:ClipboardClears++}
 function Start-UiTask {
-    param($Name,$OperationId,$Code,$Payload,$OnSuccess,$OnError,$SuccessHandler,$ErrorHandler,$DisableControls,$ReplaceKey,$TimeoutSeconds,$HardTimeoutSeconds,$StatusText,[switch]$IsWrite,[switch]$NonCancellable,$CorrelationId,$CallbackState)
+    param($Name,$OperationId,$Code,$Payload,$OnSuccess,$OnError,$SuccessHandler,$ErrorHandler,$DisableControls,$ReplaceKey,$TimeoutSeconds,$HardTimeoutSeconds,$StatusText,[switch]$IsWrite,[switch]$NonCancellable,$CorrelationId,$CallbackState,$TaskClass)
     $script:Tasks.Add([pscustomobject]@{Name=$Name;OperationId=$OperationId;Code=[string]$Code;Payload=$Payload;State=$CallbackState;SuccessHandler=$SuccessHandler;ErrorHandler=$ErrorHandler;StatusText=[string]$StatusText})
     return ('task-'+$script:Tasks.Count)
 }
@@ -154,6 +155,9 @@ function Reset-Fixture {
     $script:CurrentCapabilities=@{};$script:ControlBusyRef=@{};$script:ArtifactConsent=$null;$script:Live=$null;$script:DomeniaSurfaceState=$null
     $script:SecretRows=@();$script:SecretsVisible=$false;$script:RevealedSecretIndex=-1;$script:BitLockerKeyList=@();$script:BitLockerKeyContext=$null;$script:ActiveSecretRequestId=''
     if($null -ne $script:SecretRevealTimer){try{$script:SecretRevealTimer.Stop()}catch{}};$script:SecretRevealTimer=$null
+    # UX-18: no countdown nor card left over from a previous case.
+    if($null -ne $script:SecretCountdownTimer){try{$script:SecretCountdownTimer.Stop()}catch{}};$script:SecretReveal=$null
+    $script:Ctrl=$script:MainControls;$script:Ctrl.BitLockerKeyCard.Visibility='Collapsed';$script:Ctrl.BitLockerKeyBlocks.ItemsSource=$null
     $script:AccessCurrentJob=$null;$script:DirectoryCredentialFaulted=$false
     $script:Ctrl=$script:MainControls
     $script:Window=$null;$script:CurrentTheme='Light'
@@ -397,7 +401,7 @@ Test-Case 'D056 Chaque route des explications se resout vers un controle reel du
         foreach($n in @($target.Workspace,$target.Inner,$target.Tab,$target.Focus)){if($n){Assert-True ($null -ne $script:MainWindow.FindName($n)) ('Controle absent : '+$n)}}
     }
     $script:SelectedObject=$null;Update-DomeniaSecretActionUi;$lines=Get-DomeniaUnavailableReasonLines
-    Assert-True (@($lines.Lines|Where-Object{$_ -match 'Lire LAPS' -and $_ -match 'Aller a : Rechercher'}).Count -eq 1) 'Bilan sans motif ni route pour LAPS'
+    Assert-True (@($lines.Lines|Where-Object{($_ -match 'Lire le mot de passe LAPS') -and ($_ -match 'Aller a : Rechercher')}).Count -eq 1) 'Bilan sans motif ni route pour LAPS'
     Assert-True (@($lines.Routes) -contains 'WsSearch')
 }
 Test-Case 'D056 Une estimation ACL ne bloque pas et ne se presente pas comme un droit definitif' {
@@ -458,7 +462,9 @@ Test-Case 'D058 Recherche par identifiant de recuperation puis lecture d une seu
     $value=(1..8|ForEach-Object{Get-Random -Minimum 100000 -Maximum 999999}) -join '-'
     Complete-DomeniaBitLockerKeyUi ([pscustomobject]@{Mode='BitLockerKey';Success=$true;Rows=@([pscustomobject]@{Kind='BitLocker';Account='A1B2C3D4-1111-2222-3333-444455556666';Value=$value;Timestamp='';Source='x';Detail=$k1});KeyDn=$k1;KeyGuid='A1B2C3D4-1111-2222-3333-444455556666';ErrorKind='';ErrorMessage=''}) $script:Tasks[0].State
     $bound=@($script:Ctrl.DgSecrets.ItemsSource)
-    Assert-True ($bound[0].DisplayValue -ceq $value -and [string]$bound[1].DisplayValue -eq '') 'Seule la cle choisie doit etre lue et affichee'
+    # UX-18: the key read is shown in its card, by blocks; the narrow cell of the grid only points to it.
+    Assert-True ($bound[0].DisplayValue -ceq 'Affichée dans la carte ci-dessus' -and [string]$bound[1].DisplayValue -eq '') 'Seule la cle choisie doit etre lue et affichee'
+    Assert-True ((@($script:Ctrl.BitLockerKeyBlocks.ItemsSource|ForEach-Object{$_.Digits}) -join '-') -ceq $value) 'Cle absente de la carte'
     Assert-True ($script:SecretRevealTimer.Interval.TotalSeconds -eq 30)
 }
 Test-Case 'D058 Vrais workers : liste sans attribut de cle, cle unique controlee' {
@@ -526,7 +532,7 @@ Test-Case 'D059 Une seule valeur revelee, 30 s, copie groupee desactivee et limi
     Assert-True ($bound[0].DisplayValue -ceq '********' -and $bound[1].DisplayValue -ceq $b) 'Plusieurs valeurs revelees'
     Assert-True ($script:SecretRevealTimer.Interval.TotalSeconds -eq 30) 'Duree de revelation'
     Update-DomeniaSecretActionUi
-    Assert-True (-not $script:Ctrl.BtnCopyAllSecrets.IsEnabled) 'Copie groupee active'
+    Assert-True ((-not $script:Ctrl.BtnCopyAllSecrets.IsEnabled) -and ($script:Ctrl.BtnCopyAllSecrets.Visibility -eq [Windows.Visibility]::Collapsed)) 'Copie groupee proposee'
     Copy-AllSecrets
     Assert-True ($script:Clipboard.Count -eq 0) 'Copie groupee executee'
     Copy-SelectedSecret
@@ -552,11 +558,326 @@ Test-Case 'D060 Bilan des indisponibilites : transports et absence de reglage Wi
     Assert-True (@($lines|Where-Object{$_ -match 'aucun reglage Windows modifie'}).Count -eq 1)
 }
 
+# ================================================================ UI-31 secrets buttons
+Test-Case 'UI-31 Copier tout absent en mode valeur unique, libelles poses par une seule fonction, boutons renommes' {
+    $a=[guid]::NewGuid().ToString('N')
+    $script:SecretRows=@([pscustomobject]@{Kind='Windows LAPS';Account='Administrateur';Value=$a;Timestamp='';Source='s';Detail=''})
+    Update-SecretsGrid
+    $toggle=$script:Ctrl.BtnToggleSecrets;$copyAll=$script:Ctrl.BtnCopyAllSecrets;$copy=$script:Ctrl.BtnCopySecret
+    Assert-True ($copyAll.Visibility -eq [Windows.Visibility]::Collapsed -and -not $copyAll.IsEnabled) 'Copier tout visible en mode valeur unique'
+    Assert-True ([string]$toggle.Content -eq 'Afficher la valeur choisie' -and -not $toggle.IsEnabled) ('Avant selection : '+[string]$toggle.Content)
+    $script:Ctrl.DgSecrets.SelectedItem=@($script:Ctrl.DgSecrets.Items)[0];Update-DomeniaSecretActionUi
+    Assert-True ($toggle.IsEnabled -and [string]$copy.Content -eq 'Copier le mot de passe LAPS' -and $copy.IsEnabled) 'Boutons apres selection'
+    Toggle-SecretsVisibility
+    Assert-True ([string]$toggle.Content -eq 'Masquer la valeur' -and [string][Windows.Automation.AutomationProperties]::GetName($toggle) -eq 'Masquer la valeur') ('Pendant l affichage : '+[string]$toggle.Content)
+    Toggle-SecretsVisibility
+    Assert-True ([string]$toggle.Content -eq 'Afficher la valeur choisie') ('Apres masquage : '+[string]$toggle.Content)
+    Assert-True ($script:Clipboard.Count -eq 0) 'Copie implicite'
+    Clear-Secrets
+    Assert-True ([string]$toggle.Content -eq 'Afficher la valeur choisie' -and -not $toggle.IsEnabled -and $copyAll.Visibility -eq [Windows.Visibility]::Collapsed) 'Etat apres Vider'
+    Assert-True ([string]$script:Ctrl.LblSecretsStatus.Text -eq 'Aucun secret conservé en mémoire.') ([string]$script:Ctrl.LblSecretsStatus.Text)
+    # Previous behaviour, Features.SecretSingleCopy off: "copy all" is shown and active once a value is read.
+    $script:Config['Features.SecretSingleCopy']=$false;$script:DomeniaFeatureFlagCache=$null
+    $script:SecretRows=@([pscustomobject]@{Kind='Windows LAPS';Account='Administrateur';Value=$a;Timestamp='';Source='s';Detail=''})
+    Update-SecretsGrid
+    Assert-True ($copyAll.Visibility -eq [Windows.Visibility]::Visible -and $copyAll.IsEnabled -and [string]$toggle.Content -eq 'Afficher les secrets') 'Copier tout absent hors mode valeur unique'
+    $script:Config['Features.SecretSingleCopy']=$true;$script:DomeniaFeatureFlagCache=$null;$script:SecretRows=@();Update-SecretsGrid
+    # The label of the reveal button is written in one function only, in the core and in the secrets module.
+    $writers=[Collections.Generic.List[string]]::new()
+    $moduleAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'modules\Domenia-Secrets.UI.ps1'),[ref]$null,[ref]$null)
+    foreach($tree in @($script:CoreAst,$moduleAst)){
+        foreach($assign in @($tree.FindAll({param($n)$n -is [Management.Automation.Language.AssignmentStatementAst] -and $n.Left.Extent.Text -match '(?i)(\$toggle|BtnToggleSecrets.*)\.Content$'},$true))){
+            $owner=$assign.Parent;while($null -ne $owner -and $owner -isnot [Management.Automation.Language.FunctionDefinitionAst]){$owner=$owner.Parent}
+            $writers.Add($(if($null -ne $owner){$owner.Name}else{'<hors fonction>'}))
+        }
+    }
+    Assert-True ((@($writers|Sort-Object -Unique) -join ',') -eq 'Update-DomeniaSecretActionUi') ('Libelle pose par : '+(@($writers|Sort-Object -Unique) -join ','))
+    $xaml=[xml](Get-MainXaml);$x='http://schemas.microsoft.com/winfx/2006/xaml'
+    $bl=@($xaml.SelectNodes('//*')|Where-Object{$_.GetAttribute('Name',$x) -eq 'BtnLoadBitLocker'})[0];$lp=@($xaml.SelectNodes('//*')|Where-Object{$_.GetAttribute('Name',$x) -eq 'BtnLoadLaps'})[0]
+    Assert-True ($bl.GetAttribute('Content') -eq 'Lister les clés BitLocker' -and $lp.GetAttribute('Content') -eq 'Lire le mot de passe LAPS') 'Boutons non renommes'
+    $help=@(Get-Content -LiteralPath (Join-Path $wad 'modules\Domenia-UX.help.json') -Raw -Encoding UTF8|ConvertFrom-Json)
+    foreach($node in @($bl,$lp)){
+        $entry=@($help|ForEach-Object{$_}|Where-Object{$_.Name -eq $node.GetAttribute('Name',$x)})
+        Assert-True ($entry.Count -eq 1 -and [string]$entry[0].Title -ceq $node.GetAttribute('AutomationProperties.Name') -and [string]$entry[0].Text -ceq $node.GetAttribute('ToolTip')) ('Aide divergente : '+$node.GetAttribute('Name',$x))
+    }
+    $script:SelectedObject=$null;Update-DomeniaSecretActionUi
+    Assert-True ([string]$script:Ctrl.BtnLoadLaps.ToolTip -match '^Lire le mot de passe LAPS : ') ([string]$script:Ctrl.BtnLoadLaps.ToolTip)
+    Assert-True ([string]$script:Ctrl.BtnLoadBitLocker.ToolTip -match '^Lister les clés BitLocker : ') ([string]$script:Ctrl.BtnLoadBitLocker.ToolTip)
+}
+Test-Case 'UI-31 Aide contextuelle d un bouton grise : description du catalogue suivie de son motif (D056)' {
+    $script:SecretRows=@();Update-SecretsGrid
+    $copy=$script:Ctrl.BtnCopySecret;$toggle=$script:Ctrl.BtnToggleSecrets
+    foreach($button in @($copy,$toggle)){
+        $tip=[string]$button.ToolTip
+        Assert-True ((-not $button.IsEnabled) -and ($tip -match '^(Sélectionnez|Lancez dʼabord)')) ($button.Name+' : '+$tip)
+        $entry=Get-DomeniaUxHelpEntry -Control $button
+        $hint=Get-DomeniaUxControlHelpText -Control $button
+        Assert-True (($hint.StartsWith([string]$entry.Text)) -and ($hint.Contains($tip))) ($button.Name+' : motif absent de l aide contextuelle : '+$hint)
+    }
+    # Once the reason is gone, the hint is the catalogue description alone: no value is reflected.
+    $a=[guid]::NewGuid().ToString('N')
+    $script:SecretRows=@([pscustomobject]@{Kind='Windows LAPS';Account='Administrateur';Value=$a;Timestamp='';Source='s';Detail=''})
+    Update-SecretsGrid
+    $script:Ctrl.DgSecrets.SelectedItem=@($script:Ctrl.DgSecrets.Items)[0];Update-DomeniaSecretActionUi
+    $hint=Get-DomeniaUxControlHelpText -Control $copy
+    Assert-True ($copy.IsEnabled -and ($hint -ceq [string](Get-DomeniaUxHelpEntry -Control $copy).Text) -and (-not $hint.Contains($a))) ('Aide contextuelle d un bouton actif : '+$hint)
+}
+
+# ================================================================ UX-18 BitLocker key card
+function New-TestRecoveryPassword {return ((1..8|ForEach-Object{'{0:D6}' -f (Get-Random -Minimum 0 -Maximum 999999)}) -join '-')}
+function Show-TestBitLockerKey {param([string]$Value)
+    # Real path: metadata list, choice of the line, explicit reveal, answer of the key worker.
+    $state=New-SecretState 'BitLocker'
+    $k1='CN=2025-03-01T10:22:33-00:00{A1B2C3D4-1111-2222-3333-444455556666},'+$script:Dn
+    $k2='CN=2025-06-01T08:00:00-00:00{B1B2FFFF-1111-2222-3333-444455556666},'+$script:Dn
+    Complete-DomeniaBitLockerListUi ([pscustomobject]@{Mode='BitLockerList';Success=$true;Entries=@([pscustomobject]@{Name=($k1.Split(',')[0].Substring(3));DN=$k1;RecoveryGuid='a1b2c3d4-1111-2222-3333-444455556666';WhenCreated=$null},[pscustomobject]@{Name=($k2.Split(',')[0].Substring(3));DN=$k2;RecoveryGuid='b1b2ffff-1111-2222-3333-444455556666';WhenCreated=$null});RecoveryObjectsFound=2;ErrorKind='';ErrorMessage='';Reader='EXAMPLE\lecteur'}) $state
+    $script:Ctrl.DgSecrets.SelectedItem=@($script:Ctrl.DgSecrets.Items)[0]
+    Toggle-SecretsVisibility
+    $task=@($script:Tasks|Where-Object{$_.OperationId -eq 'ReadBitLockerKey'})[-1]
+    Complete-DomeniaBitLockerKeyUi ([pscustomobject]@{Mode='BitLockerKey';Success=$true;Rows=@([pscustomobject]@{Kind='BitLocker';Account='A1B2C3D4-1111-2222-3333-444455556666';Value=$Value;Timestamp='';Source='x';Detail=$k1});KeyDn=$k1;KeyGuid='A1B2C3D4-1111-2222-3333-444455556666';ErrorKind='';ErrorMessage=''}) $task.State
+}
+Test-Case 'UX-18 Cle BitLocker en carte : huit blocs numerotes, identifiant rappele, compte a rebours, DN retire, aucune copie ni trace' {
+    $value=New-TestRecoveryPassword
+    Show-TestBitLockerKey $value
+    $card=$script:Ctrl.BitLockerKeyCard
+    Assert-True ($card.Visibility -eq [Windows.Visibility]::Visible) 'Carte absente'
+    $blocks=@($script:Ctrl.BitLockerKeyBlocks.ItemsSource)
+    Assert-True ($blocks.Count -eq 8 -and (@($blocks|ForEach-Object{$_.Digits}) -join '-') -ceq $value -and $blocks[0].Label -eq 'Bloc 1' -and $blocks[7].Label -eq 'Bloc 8') 'Huit blocs attendus dans l ordre'
+    $id=[string]$script:Ctrl.LblBitLockerKeyCardId.Text
+    Assert-True ($id -match 'A1B2C3D4' -and $id -match 'A1B2C3D4-1111-2222-3333-444455556666' -and $id -match 'Vérifiez') ('Identifiant : '+$id)
+    Assert-True ([string]$script:Ctrl.LblBitLockerKeyCountdown.Text -match '^(29|30) s$') ('Compte a rebours : '+[string]$script:Ctrl.LblBitLockerKeyCountdown.Text)
+    $dash=@($script:Ctrl.BitLockerKeyRing.StrokeDashArray)
+    Assert-True ($dash.Count -eq 2 -and [double]$dash[0] -gt 0) 'Anneau non dessine'
+    Assert-True ($null -ne $script:SecretCountdownTimer -and $script:SecretCountdownTimer.IsEnabled -and $script:SecretCountdownTimer.Interval.TotalSeconds -eq 1) 'Compte a rebours arrete'
+    Assert-True ($script:Ctrl.BtnBitLockerKeyExtend.IsEnabled -and [string]$script:Ctrl.BtnBitLockerKeyExtend.Content -eq 'Prolonger 30 s') 'Prolongation non proposee'
+    # The grid keeps the identifier, never the DN, and its cell points to the card instead of a truncated key.
+    $column=@($script:Ctrl.DgSecrets.Columns|Where-Object{$_ -is [Windows.Controls.DataGridBoundColumn] -and [string]$_.Binding.Path.Path -eq 'Account'})[0]
+    Assert-True ([string]$column.Header -eq 'Identifiant de récupération') ('Colonne : '+[string]$column.Header)
+    $bound=@($script:Ctrl.DgSecrets.ItemsSource)
+    Assert-True (@($bound|Where-Object{(($_|ConvertTo-Json -Depth 3) -match 'CN=')}).Count -eq 0) 'Un DN reste affiche dans la grille'
+    Assert-True ([string]$bound[1].Detail -eq 'Identifiant complet : B1B2FFFF-1111-2222-3333-444455556666') ('Detail : '+[string]$bound[1].Detail)
+    Assert-True (@($bound|Where-Object{[string]$_.DisplayValue -ceq $value}).Count -eq 0) 'Cle affichee dans la cellule etroite'
+    Assert-True ($script:Clipboard.Count -eq 0 -and $script:ClipboardTimers -eq 0) 'Copie implicite'
+    $journal='';if([IO.File]::Exists($script:AuditPath)){$journal=[IO.File]::ReadAllText($script:AuditPath)}
+    Assert-True (-not (Test-DomeniaTextHasSecret ($journal+"`n"+($script:UiLog -join "`n")+"`n"+($script:StatusLines -join "`n")+"`n"+[string]$script:Ctrl.TxtLog.Text+"`n"+[string]$script:Ctrl.LblSecretsStatus.Text) @($value))) 'Cle presente dans un journal ou un statut'
+}
+Test-Case 'UX-18 Prolongation unique de 30 s, puis carte videe et cle masquee a l echeance' {
+    $value=New-TestRecoveryPassword
+    Show-TestBitLockerKey $value
+    Assert-True ($script:SecretRevealTimer.Interval.TotalSeconds -eq 30) 'Duree initiale'
+    $script:Ctrl.BtnBitLockerKeyExtend.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+    $first=$script:SecretRevealTimer.Interval.TotalSeconds
+    Assert-True ($first -gt 58 -and $first -le 60.01 -and [bool]$script:SecretReveal.Extended) ('Echeance prolongee : '+$first)
+    Assert-True ((-not $script:Ctrl.BtnBitLockerKeyExtend.IsEnabled) -and [string]$script:Ctrl.BtnBitLockerKeyExtend.Content -eq 'Prolongation utilisée') 'Seconde prolongation proposee'
+    Assert-True (-not (Invoke-DomeniaSecretRevealExtension)) 'Seconde prolongation acceptee'
+    Assert-True ($script:SecretRevealTimer.Interval.TotalSeconds -eq $first -and @($script:StatusLines|Where-Object{$_ -match 'déjà utilisée'}).Count -eq 1) 'Seconde prolongation appliquee'
+    # Expiry: the protected timer of the reveal runs its tick; the card is emptied and the value masked.
+    Invoke-DomeniaTimerTick -Timer $script:SecretRevealTimer
+    Assert-True ([long]$script:SecretRevealTimer.Errors -eq 0) ('Tick en erreur : '+[string]$script:SecretRevealTimer.LastError)
+    Assert-True ($script:Ctrl.BitLockerKeyCard.Visibility -eq [Windows.Visibility]::Collapsed -and $null -eq $script:Ctrl.BitLockerKeyBlocks.ItemsSource -and [string]$script:Ctrl.LblBitLockerKeyCardId.Text -eq '') 'Carte encore remplie apres l echeance'
+    Assert-True ((-not $script:SecretsVisible) -and (-not $script:SecretCountdownTimer.IsEnabled)) 'Revelation ou compte a rebours actifs apres l echeance'
+    Assert-True ([string]@($script:Ctrl.DgSecrets.ItemsSource)[0].DisplayValue -ceq '********') 'Valeur visible apres l echeance'
+    Assert-True ([int]$script:Ctrl.DgSecrets.SelectedItem.SecretIndex -eq 0) 'Ligne choisie perdue a l echeance'
+    # The countdown hides the key as well when it finds the deadline past (expiry timer delayed).
+    Toggle-SecretsVisibility
+    Assert-True ($script:Ctrl.BitLockerKeyCard.Visibility -eq [Windows.Visibility]::Visible) 'Nouvelle revelation absente'
+    $script:SecretReveal.DeadlineUtc=[datetime]::UtcNow.AddSeconds(-1)
+    Invoke-DomeniaTimerTick -Timer $script:SecretCountdownTimer
+    Assert-True ($script:Ctrl.BitLockerKeyCard.Visibility -eq [Windows.Visibility]::Collapsed -and -not $script:SecretsVisible) 'Echeance depassee sans masquage'
+    # Masquer maintenant and Vider empty the card too; nothing was copied on the way.
+    Toggle-SecretsVisibility
+    $script:Ctrl.BtnBitLockerKeyHide.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+    Assert-True ($script:Ctrl.BitLockerKeyCard.Visibility -eq [Windows.Visibility]::Collapsed -and -not $script:SecretsVisible) 'Masquer maintenant sans effet'
+    Toggle-SecretsVisibility
+    Clear-Secrets
+    Assert-True ($script:Ctrl.BitLockerKeyCard.Visibility -eq [Windows.Visibility]::Collapsed -and $null -eq $script:Ctrl.BitLockerKeyBlocks.ItemsSource) 'Vider laisse la carte remplie'
+    Assert-True ($script:Clipboard.Count -eq 0 -and $script:ClipboardTimers -eq 0) 'Copie implicite'
+}
+Test-Case 'UX-18 Une valeur LAPS ou une cle au format inattendu ne passe jamais par la carte' {
+    $odd='12345-'+((1..7|ForEach-Object{'123456'}) -join '-')
+    $script:SecretRows=@([pscustomobject]@{Kind='BitLocker';Account='C1C2C3C4-1111-2222-3333-444455556666';Value=$odd;Timestamp='';Source='s';Detail=('CN=K,'+$script:Dn)},[pscustomobject]@{Kind='Windows LAPS';Account='Administrateur';Value=[guid]::NewGuid().ToString('N');Timestamp='';Source='s';Detail=''})
+    Update-SecretsGrid
+    Assert-True ([string]@($script:Ctrl.DgSecrets.ItemsSource)[0].Detail -eq '') 'DN affiche en detail'
+    $column=@($script:Ctrl.DgSecrets.Columns|Where-Object{$_ -is [Windows.Controls.DataGridBoundColumn] -and [string]$_.Binding.Path.Path -eq 'Account'})[0]
+    Assert-True ([string]$column.Header -eq 'Compte ou identifiant') ('Colonne : '+[string]$column.Header)
+    foreach($index in 0,1){
+        $script:Ctrl.DgSecrets.SelectedItem=@($script:Ctrl.DgSecrets.Items)[$index]
+        Toggle-SecretsVisibility
+        Assert-True ($script:Ctrl.BitLockerKeyCard.Visibility -eq [Windows.Visibility]::Collapsed) ('Carte affichee pour la ligne '+$index)
+        Assert-True ([string]@($script:Ctrl.DgSecrets.ItemsSource)[$index].DisplayValue -ceq [string]$script:SecretRows[$index].Value) 'Valeur hors carte non affichee'
+        Toggle-SecretsVisibility
+    }
+    $script:SecretRows=@([pscustomobject]@{Kind='Windows LAPS';Account='Administrateur';Value='x';Timestamp='';Source='s';Detail=''});Update-SecretsGrid
+    Assert-True ([string]$column.Header -eq 'Compte') ('Colonne LAPS : '+[string]$column.Header)
+}
+
+# ================================================================ UI-18 receipts in plain words, review in the page
+# These cases run last: they give the real main window to the in-page confirmation (Domenia-Inline.UI.ps1), which
+# then stays laid over its content grid for the rest of the run.
+function Invoke-TestClick {param($Button) $Button.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Primitives.ButtonBase]::ClickEvent))}
+function New-ReceiptRow {param([string]$Id,[string]$Operation,[string]$Stage,[string]$Updated,[string]$Review='',[bool]$KeptAll=$true)
+    # Same shape as a row of the receipt store worker (Get-DomeniaReceiptWorkerCode). CanVerify is its own test: an
+    # attribute change whose expected values were all kept ($KeptAll false: a secret or excluded attribute).
+    return [pscustomobject]@{Id=$Id;PlanFingerprint='';Operation=$Operation;DN='CN=Jean Dupont,OU=Utilisateurs,DC=example,DC=invalid';Identity='EXAMPLE\adm';Server='dc1.example.invalid';Stage=$Stage;UpdatedUtc=$Updated;Review=$Review;CanVerify=(($Operation -eq 'WriteAttributes') -and ($KeptAll))}
+}
+function Initialize-ReceiptFixture {
+    # The real Guard initialisation wires the receipts view on the real controls; its heartbeat timer is stopped.
+    $script:Window=$script:MainWindow;$script:AsyncJobs=@{}
+    if($null -eq $script:Guard){Initialize-DomeniaGuard}
+    if($null -ne $script:Guard.Timer){try{$script:Guard.Timer.Stop()}catch{}}
+    $script:Guard.ReceiptJob='';$script:Guard.PendingChoice=$null
+    $script:Ctrl.TxtGuardReceiptReason.Text=''
+}
+function Get-ListState {return [pscustomobject]@{Epoch=[long]$script:SessionEpoch;Action='List';Id=''}}
+Test-Case 'UI-18 Recus en clair dans la vraie grille : etat, operation, objet, DN en infobulle, a verifier en premier' {
+    Initialize-ReceiptFixture
+    Start-DomeniaReceiptRefresh
+    $task=@($script:Tasks|Where-Object{$_.OperationId -eq 'ReceiptStore'})[-1]
+    Assert-True ($null -ne $task -and $task.Payload.Action -eq 'List' -and $task.SuccessHandler -eq 'Complete-DomeniaReceiptRefresh') 'Lecture des recus non lancee'
+    $rows=@((New-ReceiptRow ('a'*32) 'WriteAttributes' 'Verified' '2026-10-01T08:00:00.0000000Z'),(New-ReceiptRow ('b'*32) 'WriteUnlock' 'Sent' '2026-09-30T08:00:00.0000000Z'),(New-ReceiptRow ('c'*32) 'WriteExpiration' 'Delivered' '2026-10-02T08:00:00.0000000Z'))
+    Complete-DomeniaReceiptRefresh ([pscustomobject]@{Rows=$rows;Pending=1}) $task.State
+    $bound=@($script:Ctrl.DgGuardReceipts.ItemsSource)
+    Assert-True ($bound.Count -eq 3 -and $script:ReceiptReady -and $script:ReceiptPending -eq 1) 'Lignes ou etat des recus'
+    Assert-True ($bound[0].Id -eq ('b'*32) -and $bound[0].Tone -eq 'Pending' -and $bound[1].Id -eq ('c'*32) -and $bound[2].Id -eq ('a'*32)) 'Ordre : a verifier, puis du plus recent au plus ancien'
+    Assert-True ($bound[0].StageLabel -eq 'Envoyée, à vérifier' -and $bound[1].StageLabel -eq 'Livrée' -and $bound[2].StageLabel -eq 'Vérifiée') 'Etat brut affiche'
+    Assert-True ($bound[0].OperationLabel -eq 'Déverrouillage du compte' -and $bound[0].ObjectName -eq 'Jean Dupont' -and $bound[0].DnToolTip -match 'CN=Jean Dupont,OU=Utilisateurs') 'Operation, objet ou infobulle'
+    Assert-True ([string]$script:Ctrl.LblGuardReceipts.Text -match '^Une opération reste à vérifier') ([string]$script:Ctrl.LblGuardReceipts.Text)
+    $columns=@($script:Ctrl.DgGuardReceipts.Columns)
+    Assert-True ((@($columns|ForEach-Object{[string]$_.Header}) -join '|') -eq 'État|Opération|Objet|Mis à jour|Compte|Contrôleur') 'Colonnes'
+    $paths=@($columns|Where-Object{$_ -is [Windows.Controls.DataGridBoundColumn]}|ForEach-Object{[string]$_.Binding.Path.Path})
+    Assert-True (($paths -notcontains 'Stage') -and ($paths -notcontains 'DN') -and ($paths -notcontains 'Operation')) ('Colonne brute : '+($paths -join ','))
+    # The chip of the real template: the stage in words on a pastel background chosen by its tone.
+    $chip=$columns[0].CellTemplate.LoadContent();$chip.DataContext=$bound[0]
+    $chip.Measure([Windows.Size]::new(300,40));[Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([Action]{},[Windows.Threading.DispatcherPriority]::DataBind)
+    Assert-True ($chip -is [Windows.Controls.Border] -and [string]$chip.Child.Text -eq 'Envoyée, à vérifier') 'Puce sans libelle'
+    Assert-True ([string]$chip.Background.Color -eq '#FFFEF3C7') ('Couleur de la puce a verifier : '+[string]$chip.Background.Color)
+    Assert-True ([string]$chip.ToolTip -match 'bloquées') 'Infobulle de la puce sans explication'
+}
+Test-Case 'UI-18 Revue dans la page : motif controle, confirmation dans la page, aucune fenetre, motif fige, un seul envoi' {
+    Initialize-ReceiptFixture
+    Complete-DomeniaReceiptRefresh ([pscustomobject]@{Rows=@((New-ReceiptRow ('b'*32) 'WriteUnlock' 'Sent' '2026-09-30T08:00:00.0000000Z'),(New-ReceiptRow ('d'*32) 'WriteAttributes' 'Unknown' '2026-09-29T08:00:00.0000000Z'));Pending=2}) (Get-ListState)
+    $grid=$script:Ctrl.DgGuardReceipts;$box=$script:Ctrl.TxtGuardReceiptReason
+    $grid.SelectedItem=@($grid.Items|Where-Object{$_.Id -eq ('b'*32)})[0]
+    Assert-True ([string]$script:Ctrl.LblGuardReceiptSelection.Text -match 'Vérification automatique indisponible') ([string]$script:Ctrl.LblGuardReceiptSelection.Text)
+    Assert-True ((-not $script:Ctrl.BtnGuardReceiptVerify.IsEnabled) -and (-not $script:Ctrl.BtnGuardReceiptReview.IsEnabled) -and $box.IsEnabled) 'Etat initial de la zone de revue'
+    $box.Text='trop court'
+    Assert-True ((-not $script:Ctrl.BtnGuardReceiptReview.IsEnabled) -and ([string]$script:Ctrl.LblGuardReceiptReasonCount.Text -match '12 au minimum')) 'Motif trop court accepte'
+    $box.Text='Verifie avec password=Azerty123456'
+    Assert-True ((-not $script:Ctrl.BtnGuardReceiptReview.IsEnabled) -and ([string]$script:Ctrl.LblGuardReceiptReasonCount.Text -match 'secret')) 'Secret accepte dans le motif'
+    $box.Text='  Compte deverrouille constate dans la console ADUC  '
+    Assert-True ($script:Ctrl.BtnGuardReceiptReview.IsEnabled) 'Motif valide refuse'
+    $before=$script:Tasks.Count
+    Invoke-TestClick $script:Ctrl.BtnGuardReceiptReview
+    $panel=Get-DomeniaControl 'InlineRequestPanel'
+    Assert-True ($null -ne $panel -and $panel.Visibility -eq [Windows.Visibility]::Visible) 'Confirmation absente de la page'
+    Assert-True ($script:ConfirmCalls.Count -eq 0 -and $script:Dialogs.Count -eq 0 -and $script:Popups.Count -eq 0 -and $script:MainWindow.OwnedWindows.Count -eq 0) 'Une fenetre ou une boite a ete ouverte'
+    Assert-True ($script:Tasks.Count -eq $before) 'Revue envoyee avant la reponse'
+    Assert-True ([string](Get-DomeniaControl 'LblInlineRequestChanges').Text -match 'Compte deverrouille constate dans la console ADUC') 'Motif absent de la confirmation'
+    $box.Text='Autre texte saisi apres la demande, ignore'
+    Invoke-TestClick (Get-DomeniaControl 'BtnInlineRequestConfirm')
+    $task=$script:Tasks[$script:Tasks.Count-1]
+    Assert-True ($script:Tasks.Count -eq ($before+1) -and $task.OperationId -eq 'ReceiptStore' -and $task.Payload.Action -eq 'Review' -and $task.Payload.Id -eq ('b'*32)) 'Revue non lancee'
+    Assert-True ([string]$task.Payload.Reason -ceq 'Compte deverrouille constate dans la console ADUC') ('Motif envoye : '+[string]$task.Payload.Reason)
+    Assert-True (-not $script:Ctrl.BtnGuardReceiptReview.IsEnabled) 'Revue relancable pendant son enregistrement'
+    Invoke-TestClick (Get-DomeniaControl 'BtnInlineRequestConfirm')
+    Assert-True ($script:Tasks.Count -eq ($before+1)) 'Revue envoyee deux fois'
+    $done=@((New-ReceiptRow ('b'*32) 'WriteUnlock' 'Reviewed' '2026-10-02T09:00:00.0000000Z' 'Compte deverrouille constate dans la console ADUC'),(New-ReceiptRow ('d'*32) 'WriteAttributes' 'Unknown' '2026-09-29T08:00:00.0000000Z'))
+    Complete-DomeniaReceiptRefresh ([pscustomobject]@{Rows=$done;Pending=1}) $task.State
+    Assert-True (@($script:StatusLines|Where-Object{$_ -match 'Revue consignée'}).Count -eq 1) 'Issue de la revue non annoncee'
+    Assert-True ([string]$box.Text -eq '') 'Motif conserve apres la revue'
+    Assert-True ([string]$grid.SelectedItem.Id -eq ('b'*32) -and [string]$grid.SelectedItem.StageLabel -eq 'Revue manuelle') 'Selection perdue ou etat brut'
+    Assert-True ([string]$script:Ctrl.LblGuardReceiptSelection.Text -match 'Motif consigné') ([string]$script:Ctrl.LblGuardReceiptSelection.Text)
+    # A receipt left as it was is never reported as reviewed.
+    Complete-DomeniaReceiptRefresh ([pscustomobject]@{Rows=@((New-ReceiptRow ('d'*32) 'WriteAttributes' 'Unknown' '2026-09-29T08:00:00.0000000Z'));Pending=1}) ([pscustomobject]@{Epoch=[long]$script:SessionEpoch;Action='Review';Id=('d'*32)})
+    Assert-True (@($script:StatusLines|Where-Object{$_ -match 'nʼa pas changé'}).Count -eq 1) 'Revue annoncee sans changement du recu'
+}
+Test-Case 'UI-18 Relecture proposee pour une modification de fiche, annulable, retiree au changement de session, refus explique' {
+    Initialize-ReceiptFixture
+    Complete-DomeniaReceiptRefresh ([pscustomobject]@{Rows=@((New-ReceiptRow ('d'*32) 'WriteAttributes' 'Unknown' '2026-09-29T08:00:00.0000000Z'));Pending=1}) (Get-ListState)
+    $grid=$script:Ctrl.DgGuardReceipts
+    $grid.SelectedItem=@($grid.Items)[0]
+    Assert-True ($script:Ctrl.BtnGuardReceiptVerify.IsEnabled -and (-not $script:Ctrl.BtnGuardReceiptReview.IsEnabled)) 'Relecture non proposee'
+    $before=$script:Tasks.Count
+    Invoke-TestClick $script:Ctrl.BtnGuardReceiptVerify
+    Assert-True ((Get-DomeniaControl 'InlineRequestPanel').Visibility -eq [Windows.Visibility]::Visible -and $script:ConfirmCalls.Count -eq 0) 'Confirmation hors de la page'
+    Invoke-TestClick (Get-DomeniaControl 'BtnInlineRequestCancel')
+    Assert-True ($script:Tasks.Count -eq $before -and $null -eq $script:Guard.PendingChoice) 'Annulation avec effet'
+    Assert-True (@($script:StatusLines|Where-Object{$_ -match 'annulée'}).Count -eq 1) 'Annulation non annoncee'
+    Invoke-TestClick $script:Ctrl.BtnGuardReceiptVerify
+    $script:SessionEpoch=8L
+    Invoke-TestClick (Get-DomeniaControl 'BtnInlineRequestConfirm')
+    Assert-True ($script:Tasks.Count -eq $before) 'Relecture lancee apres un changement de session'
+    $script:SessionEpoch=7L
+    Invoke-TestClick $script:Ctrl.BtnGuardReceiptVerify
+    Invoke-TestClick (Get-DomeniaControl 'BtnInlineRequestConfirm')
+    $task=$script:Tasks[$script:Tasks.Count-1]
+    Assert-True ($script:Tasks.Count -eq ($before+1) -and $task.Payload.Action -eq 'Verify' -and $task.Payload.Id -eq ('d'*32) -and [string]$task.Payload.Reason -eq '') 'Relecture non lancee'
+    Fail-DomeniaReceiptRefresh 'Valeur attendue non confirmee. Aucun rejeu.' $task.State
+    Assert-True ([string]$script:Ctrl.LblGuardReceipts.Text -match '^Vérification non aboutie' -and [string]$script:Ctrl.LblGuardReceipts.Text -match 'aucune commande') ([string]$script:Ctrl.LblGuardReceipts.Text)
+    Assert-True ((-not $script:ReceiptReady) -and $script:Guard.ReceiptJob -eq '') 'Recus consideres confirmes apres un refus'
+}
+Test-Case 'UI-18 Relecture jamais promise quand le magasin la refuserait : valeurs non conservees, rien envoye' {
+    Initialize-ReceiptFixture
+    $rows=@((New-ReceiptRow ('f'*32) 'WriteAttributes' 'Sent' '2026-09-29T08:00:00.0000000Z' '' $false),(New-ReceiptRow ('g'*32) 'WriteAttributes' 'Prepared' '2026-09-28T08:00:00.0000000Z'))
+    Complete-DomeniaReceiptRefresh ([pscustomobject]@{Rows=$rows;Pending=2}) (Get-ListState)
+    $grid=$script:Ctrl.DgGuardReceipts
+    $before=$script:Tasks.Count
+    foreach($case in @(@{Id=('f'*32);Why='toutes les valeurs attendues'},@{Id=('g'*32);Why='Rien nʼa été envoyé'})){
+        $grid.SelectedItem=@($grid.Items|Where-Object{$_.Id -eq $case.Id})[0]
+        Assert-True (-not $script:Ctrl.BtnGuardReceiptVerify.IsEnabled) ('Relecture proposee : '+$case.Why)
+        $label=[string]$script:Ctrl.LblGuardReceiptSelection.Text
+        Assert-True (($label -match $case.Why) -and ($label -notmatch 'Relecture possible')) $label
+        # Even when the handler of the greyed button runs, it starts nothing and keeps no pending choice.
+        Invoke-DomeniaReceiptChoice -Action Verify
+        Assert-True (($script:Tasks.Count -eq $before) -and ($null -eq $script:Guard.PendingChoice)) ('Relecture lancee : '+$case.Why)
+    }
+    Assert-True (@($script:StatusLines|Where-Object{$_ -match 'consignez votre revue'}).Count -eq 2) 'Motif du refus non annonce'
+}
+Test-Case 'UI-18 Une demande remplacee par une autre ne lance ni n efface la nouvelle : un seul envoi, pour le dernier recu choisi' {
+    Initialize-ReceiptFixture
+    Complete-DomeniaReceiptRefresh ([pscustomobject]@{Rows=@((New-ReceiptRow ('d'*32) 'WriteAttributes' 'Unknown' '2026-09-29T08:00:00.0000000Z'),(New-ReceiptRow ('e'*32) 'WriteAttributes' 'Sent' '2026-09-28T08:00:00.0000000Z'));Pending=2}) (Get-ListState)
+    $grid=$script:Ctrl.DgGuardReceipts
+    $before=$script:Tasks.Count
+    $grid.SelectedItem=@($grid.Items|Where-Object{$_.Id -eq ('d'*32)})[0]
+    Invoke-TestClick $script:Ctrl.BtnGuardReceiptVerify
+    $grid.SelectedItem=@($grid.Items|Where-Object{$_.Id -eq ('e'*32)})[0]
+    Invoke-TestClick $script:Ctrl.BtnGuardReceiptVerify
+    # The safe answer of the replaced request runs (Domenia-Inline.UI) but belongs to the former token.
+    Assert-True ($script:Tasks.Count -eq $before) 'Relecture lancee avant la reponse'
+    Assert-True ([string]$script:Guard.PendingChoice.Id -eq ('e'*32)) 'Choix remplace efface par la demande precedente'
+    Assert-True (@($script:StatusLines|Where-Object{$_ -match 'annulée'}).Count -eq 0) 'Remplacement annonce comme une annulation'
+    Invoke-TestClick (Get-DomeniaControl 'BtnInlineRequestConfirm')
+    $task=$script:Tasks[$script:Tasks.Count-1]
+    Assert-True (($script:Tasks.Count -eq ($before+1)) -and ($task.Payload.Action -eq 'Verify') -and ($task.Payload.Id -eq ('e'*32))) 'Relecture non lancee pour le dernier recu choisi'
+    Assert-True ($null -eq $script:Guard.PendingChoice) 'Choix conserve apres envoi'
+    # A continuation that does not carry the token of the pending choice starts nothing.
+    $script:Guard.ReceiptJob='';$script:Guard.PendingChoice=[pscustomobject]@{Action='Verify';Id=('d'*32);Reason='';Epoch=[long]$script:SessionEpoch;Token='jeton-courant'}
+    Complete-DomeniaReceiptChoice -Token 'jeton-ancien'
+    Assert-True (($script:Tasks.Count -eq ($before+1)) -and ([string]$script:Guard.PendingChoice.Token -eq 'jeton-courant')) 'Suite d une ancienne demande executee'
+    Cancel-DomeniaReceiptChoice -Token 'jeton-ancien'
+    Assert-True ([string]$script:Guard.PendingChoice.Token -eq 'jeton-courant') 'Ancienne demande annulant la nouvelle'
+}
+Test-Case 'UI-18 Aucune fenetre ni boite dans le parcours des recus (code livre)' {
+    # Static proof on the shipped module, alongside the runtime counters of the cases above.
+    $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'modules\Domenia-Guard.UI.ps1'),[ref]$null,[ref]$null)
+    $modals=@('Show-DomeniaFormDialog','Confirm-Action','Confirm-TextAction','Show-InfoBox','Show-ErrorBox','Show-DomeniaDialog','Show-DomeniaEmbeddedWindow')
+    foreach($name in @('Start-DomeniaReceiptRefresh','Complete-DomeniaReceiptRefresh','Fail-DomeniaReceiptRefresh','Update-DomeniaReceiptActionUi','Invoke-DomeniaReceiptChoice','Complete-DomeniaReceiptChoice','Cancel-DomeniaReceiptChoice')){
+        $fn=@($ast.FindAll({param($n)($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq $name)},$true))
+        Assert-True ($fn.Count -eq 1) ('Fonction absente : '+$name)
+        $calls=@($fn[0].FindAll({param($n)$n -is [Management.Automation.Language.CommandAst]},$true)|ForEach-Object{[string]$_.GetCommandName()})
+        $found=@($calls|Where-Object{$modals -contains $_})
+        Assert-True ($found.Count -eq 0) ($name+' ouvre une boite : '+($found -join ','))
+        Assert-True ($fn[0].Extent.Text -notmatch '(?i)\.ShowDialog\(|New-Object\s+(System\.)?Windows\.Window') ($name+' ouvre une fenetre')
+    }
+}
+
 if($null -ne $script:SecretRevealTimer){try{$script:SecretRevealTimer.Stop()}catch{}}
+if($null -ne $script:SecretCountdownTimer){try{$script:SecretCountdownTimer.Stop()}catch{}}
+if($null -ne $script:Guard -and $null -ne $script:Guard.Timer){try{$script:Guard.Timer.Stop()}catch{}}
 if($null -ne $script:MainWindow){try{$script:MainWindow.Close()}catch{}}
 $passed=@($script:Checks|Where-Object{$_.Status -eq 'Passed'}).Count;$failed=@($script:Checks|Where-Object{$_.Status -eq 'Failed'}).Count
 if(-not $ReportPath){$ReportPath=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-wiring-acces-'+[guid]::NewGuid().ToString('N')+'.json')}
-$report=[ordered]@{Suite='Test-DomeniaWiringAcces';Lot='acces';Points=@('D051','D052','D053','D054','D055','D056','D057','D058','D059','D060');Host=$PSVersionTable.PSVersion.ToString();NativeWindowsPowerShell=$native;Wpf=$true;MockedNetwork=$true;LiveAD=$false;LiveCIM=$false;Passed=$passed;Failed=$failed;Complete=($failed -eq 0 -and $passed -gt 0);Tests=$script:Checks.ToArray()}
+$report=[ordered]@{Suite='Test-DomeniaWiringAcces';Lot='acces';Points=@('D051','D052','D053','D054','D055','D056','D057','D058','D059','D060','UI-18','UI-31','UX-18');Host=$PSVersionTable.PSVersion.ToString();NativeWindowsPowerShell=$native;Wpf=$true;MockedNetwork=$true;LiveAD=$false;LiveCIM=$false;Passed=$passed;Failed=$failed;Complete=($failed -eq 0 -and $passed -gt 0);Tests=$script:Checks.ToArray()}
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
 if(-not $Quiet){Write-Host ("$passed reussis, $failed en echec. Rapport : "+$ReportPath);$script:Checks|Where-Object{$_.Status -eq 'Failed'}|ForEach-Object{Write-Host ('  ECHEC '+$_.Name+' : '+$_.Detail)}}
 if(-not $report.Complete){exit 1}

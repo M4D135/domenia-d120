@@ -2205,22 +2205,22 @@
   },
   {
     "Name": "BtnLoadBitLocker",
-    "Title": "BitLocker",
-    "Text": "Recupere les cles de recuperation BitLocker enregistrees pour ce poste.",
+    "Title": "Lister les clés BitLocker",
+    "Text": "Liste les clés de récupération BitLocker de ce poste. Aucune clé nʼest affichée sans votre demande.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnLoadLaps",
-    "Title": "LAPS",
-    "Text": "Recupere le mot de passe administrateur local gere par LAPS.",
+    "Title": "Lire le mot de passe LAPS",
+    "Text": "Lit le mot de passe administrateur local géré par LAPS. Il reste masqué jusquʼà votre demande.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnToggleSecrets",
-    "Title": "Afficher",
-    "Text": "Affiche ou masque les valeurs. Elles ne sont jamais conservees apres la fermeture.",
+    "Title": "Afficher la valeur choisie",
+    "Text": "Affiche uniquement la valeur sélectionnée, brièvement. Les autres restent masquées.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -2234,21 +2234,21 @@
   {
     "Name": "BtnCopyAllSecrets",
     "Title": "Copier tout",
-    "Text": "Copie toutes les valeurs affichees.",
+    "Text": "Copie groupée désactivée : une valeur à la fois.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnClearSecrets",
     "Title": "Vider",
-    "Text": "Efface les valeurs affichees.",
+    "Text": "Efface les valeurs lues, conservées en mémoire.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "DgSecrets",
     "Title": "Clés et mots de passe récupérés",
-    "Text": "Clés et mots de passe récupérés. Clic droit pour copier.",
+    "Text": "Clés et mots de passe lus pour ce poste, masqués par défaut. Choisissez une ligne, puis affichez-la ou copiez-la avec les boutons ci-dessus : une valeur à la fois.",
     "Kind": "DataGrid",
     "Source": "existing-help"
   },
@@ -3109,20 +3109,20 @@
   },
   {
     "Name": "BtnGuardReceiptVerify",
-    "Title": "Vérifier la postcondition",
-    "Text": "Relit la valeur attendue sur le contrôleur initial lorsque cette opération permet une vérification sûre.",
+    "Title": "Vérifier par relecture",
+    "Text": "Relit sur le contrôleur initial les valeurs attendues dʼune modification de fiche. Aucune commande nʼest renvoyée.",
     "Sensitive": false
   },
   {
     "Name": "BtnGuardReceiptReview",
-    "Title": "Consigner une revue externe",
-    "Text": "Après contrôle manuel réel, consigne une justification. Ne transforme pas l'action en succès automatique.",
+    "Title": "Consigner la revue",
+    "Text": "Enregistre dans le reçu le motif saisi, après votre contrôle réel. Le reçu devient « Revue manuelle », pas un succès automatique.",
     "Sensitive": false
   },
   {
     "Name": "DgGuardReceipts",
-    "Title": "DgGuardReceipts",
-    "Text": "Intentions et résultats durables. Une absence de confirmation reste à vérifier.",
+    "Title": "Reçus des opérations",
+    "Text": "Reçus des écritures envoyées par Domenia, ceux à vérifier en premier. Survolez lʼobjet pour lire son nom distinctif.",
     "Sensitive": false
   },
   {
@@ -4065,5 +4065,75 @@
     "Source": "specific",
     "Title": "Dates des mesures et du calcul",
     "Text": "Le ping et l’inventaire WMI conservent leurs dates propres. N/M compte les mesures utilisables parmi les postes actifs ; du… au… décrit leur intervalle de dates. Vue recalculée indique seulement la préparation locale de l’affichage, sans nouvelle collecte."
+  },
+  {
+    "Name": "LblGuardReceiptSelection",
+    "Title": "Reçu sélectionné",
+    "Text": "Ce que dit le reçu sélectionné et ce que vous pouvez en faire.",
+    "Kind": "TextBlock",
+    "Source": "X05"
+  },
+  {
+    "Name": "TxtGuardReceiptReason",
+    "Title": "Motif de la revue",
+    "Text": "Décrivez le contrôle réalisé avec un autre outil, en 12 à 240 caractères. Le motif est enregistré dans le reçu : nʼy saisissez ni mot de passe ni clé.",
+    "Kind": "TextBox",
+    "Source": "X05"
+  },
+  {
+    "Name": "LblGuardReceiptReasonCount",
+    "Title": "Longueur du motif",
+    "Text": "Longueur du motif saisi : 12 caractères au minimum, 240 au maximum.",
+    "Kind": "TextBlock",
+    "Source": "X05"
+  },
+  {
+    "Name": "BitLockerKeyCard",
+    "Title": "Clé de récupération BitLocker affichée",
+    "Text": "Clé de récupération affichée à votre demande, par blocs numérotés. Elle disparaît à lʼéchéance ; rien nʼest copié ni journalisé.",
+    "Kind": "Border",
+    "Source": "X05"
+  },
+  {
+    "Name": "LblBitLockerKeyCardId",
+    "Title": "Identifiant de récupération de la clé affichée",
+    "Text": "Comparez cet identifiant à celui affiché par lʼécran de récupération du poste avant de dicter la clé.",
+    "Kind": "TextBlock",
+    "Source": "X05"
+  },
+  {
+    "Name": "BitLockerKeyBlocks",
+    "Title": "Blocs de la clé de récupération",
+    "Text": "Les huit blocs de six chiffres, dans lʼordre où le poste les demande.",
+    "Kind": "Control",
+    "Source": "X05"
+  },
+  {
+    "Name": "BitLockerKeyRing",
+    "Title": "Temps restant",
+    "Text": "Temps restant avant que la clé soit masquée.",
+    "Kind": "Control",
+    "Source": "X05"
+  },
+  {
+    "Name": "LblBitLockerKeyCountdown",
+    "Title": "Secondes restantes",
+    "Text": "Secondes restantes avant que la clé soit masquée.",
+    "Kind": "TextBlock",
+    "Source": "X05"
+  },
+  {
+    "Name": "BtnBitLockerKeyExtend",
+    "Title": "Prolonger 30 s",
+    "Text": "Prolonge une seule fois lʼaffichage de la clé de 30 secondes. Rien nʼest relu ni copié.",
+    "Kind": "Button",
+    "Source": "X05"
+  },
+  {
+    "Name": "BtnBitLockerKeyHide",
+    "Title": "Masquer maintenant",
+    "Text": "Masque la clé tout de suite. Elle reste lisible à nouveau sur votre demande.",
+    "Kind": "Button",
+    "Source": "X05"
   }
 ]

@@ -354,7 +354,7 @@
     "File": "wad/modules/Domenia-Receipts.Worker.ps1",
     "Function": "Get-DomeniaReceiptWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "B4332EE256364515B6037EDA97CACB93F8D7C58723BC957200C58E25E8CE644C"
+    "Sha256": "AF37C7660D4E06A857209CD4E171F215A24A8E7BC3126F11DD532D4AFF49449F"
   },
   {
     "Operation": "LocalStore",

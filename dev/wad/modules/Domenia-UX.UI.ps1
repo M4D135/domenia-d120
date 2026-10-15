@@ -51,12 +51,13 @@ function Get-DomeniaUxControlHelpText {
     param($Control)
     $entry = Get-DomeniaUxHelpEntry -Control $Control
     $description = [string]$entry.Text
-    # Preserve status reasons supplied by the existing security UI.
+    # Preserve status reasons supplied by the existing security UI, written with or without accents (the dot stands
+    # for an accented letter or an apostrophe, so this file stays ASCII-safe).
     # Do not reflect Text, Password, SelectedItem, DataContext, Content or Tag.
     try {
         $statusTip = $Control.ToolTip
-        if ($statusTip -is [string] -and $statusTip -ne $description -and
-            $statusTip -match '^(Desactive|Droit indetermine|Estimation ACL|Ecriture brute|Action distante|Fonction desactivee|Aucune valeur|Aucun secret|Selectionne une ligne|Charge d.abord)') {
+        if (($statusTip -is [string]) -and ($statusTip -ne $description) -and
+            ($statusTip -match '^(D.sactiv|Droit ind.termin|Estimation ACL|.criture brute|Action distante|Fonction d.sactiv|Aucune valeur|Aucun secret|S.lectionne une ligne|S.lectionnez une ligne|S.lectionnez d.abord une ligne|Lancez d.abord|Charge d.abord)')) {
             return $description + "`r`n`r`n" + [string]$statusTip
         }
     } catch { }
