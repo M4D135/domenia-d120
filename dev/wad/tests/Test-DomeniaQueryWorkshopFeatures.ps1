@@ -220,6 +220,21 @@ $script:DomeniaQueryLibraryStoreState=[pscustomobject]@{Loaded=$false;Rows=@{}}
 Expect ((Get-DomeniaQueryRecipeBinding $bindingRecipe).State -ceq 'Unknown') 'while the library is read a saved recipe is never called an unsaved draft'
 $script:DomeniaQueryLibraryStoreState=[pscustomobject]@{Loaded=$true;Rows=@{'personal.binding'=$bindingRow}}
 Expect ((Get-DomeniaQueryRecipeBinding (ConvertFrom-Json -InputObject $bindingRow.DefinitionJson)).State -ceq 'Saved' -and (Get-DomeniaQueryRecipeBinding (New-DomeniaQueryRecipe -Id 'personal.unsaved' -Name 'Nouvelle')).State -ceq 'Unsaved') 'a confirmed library read distinguishes saved and unsaved recipes'
+# Point 70: a dashboard widget names the stored revision it evaluated (its QueryDependency on this board and widget);
+# a link left behind the stored revision turns the widget to its warning state instead of passing for the bound one.
+. (Join-Path $modules 'Domenia-QueryTargets.UI.ps1')
+$widgetRecipe=ConvertFrom-Json -InputObject $bindingRow.DefinitionJson
+$script:FleetQuerySnapshotKey='snapshot-70'
+$script:DomeniaQueryState=[pscustomobject]@{Saved=@($widgetRecipe);Widgets=@{'personal.binding'=[pscustomobject]@{Matched=2;Unknown=0;NotMatched=5;Total=7;Error=''}};SnapshotKey='snapshot-70'}
+$script:DomeniaQueryLibraryStoreState=[pscustomobject]@{Loaded=$true;Rows=@{'personal.binding'=$bindingRow};Dependencies=@([pscustomobject]@{RecipeId='personal.binding';ConsumerKind='Fleet';ConsumerId='widget-70';BoundRevision=[long]$bindingRow.Revision})}
+$widgetEntry=Get-DomeniaQueryBoardEntry -Id 'personal.binding' -ConsumerId 'widget-70'
+Expect ([string]$widgetEntry.Value -ceq '2' -and [string]$widgetEntry.Detail -like ('*Révision '+[string]$bindingRow.Revision+' évaluée') -and [string]$widgetEntry.State -cne 'Warn') 'a fleet widget names the stored revision it evaluated'
+$script:DomeniaQueryLibraryStoreState.Dependencies[0].BoundRevision=[long]$bindingRow.Revision-1
+$laggingEntry=Get-DomeniaQueryBoardEntry -Id 'personal.binding' -ConsumerId 'widget-70'
+Expect ([string]$laggingEntry.State -ceq 'Warn' -and [string]$laggingEntry.Detail -like ('*widget lié à la révision '+[string]([long]$bindingRow.Revision-1)+' :*')) 'a widget whose link lags behind the stored revision says so'
+$script:DomeniaQueryLibraryStoreState.Loaded=$false
+Expect ([string](Get-DomeniaQueryBoardEntry -Id 'personal.binding' -ConsumerId 'widget-70').Detail -like '*Révision non déterminée : bibliothèque locale non lue') 'an unread library never names a revision'
+$script:DomeniaQueryState=$null
 $script:DomeniaQueryLibraryStoreState=$null
 $paramStored=Copy-DomeniaQueryRecipe (@(Get-DomeniaQueryTemplates|Where-Object{$_.Id -ceq 'template.param.diskfree'})[0]) -Id 'personal.param';$paramStored.ParameterValues=[pscustomobject]@{Seuil=15}
 $paramRow=New-DomeniaQueryLibraryRecord -Context $context -Recipe $paramStored -ExpectedRevision 0

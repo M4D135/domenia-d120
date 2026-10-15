@@ -52,11 +52,14 @@ function Get-DomeniaComputerQueryRecords {
     return ,$records
 }
 function ConvertTo-DomeniaQueryCountEntry {
-    param([string]$Id,[string]$Title,$Count,[string]$Visual='Kpi',[string]$Context='')
+    param([string]$Id,[string]$Title,$Count,[string]$Visual='Kpi',[string]$Context='',$Revision=$null)
     $detail=$Context+' · '+('{0} correspondant(s), {1} inconnu(s), {2} non correspondant(s)' -f $Count.Matched,$Count.Unknown,$Count.NotMatched)
+    # Point 70: the evaluated revision of the recipe (Format-DomeniaQueryWidgetRevision) closes the detail.
+    $revisionText=[string](Get-DomeniaMember $Revision 'Text' '')
     $categories=[long](Get-DomeniaMember $Count 'CategoryCount' 0)
     if([string]$Count.GroupBy -and $categories -gt 10){$detail+=' · '+$categories+' valeurs distinctes : les dix principales sont affichées, les autres sont regroupées avec leur total exact. La liste complète est dans lʼatelier.'}
-    $state=if($Count.Unknown){'Warn'}else{''}
+    if($revisionText){$detail+=' · '+$revisionText}
+    $state=if(([bool]$Count.Unknown) -or ([bool](Get-DomeniaMember $Revision 'Warn' $false))){'Warn'}else{''}
     if([string]$Count.GroupBy -or $Visual -in @('Bar','Pie','Column')){
         $items=if([string]$Count.GroupBy){@($Count.Items)}else{@([pscustomobject]@{Label='Correspondants';Value=[double]$Count.Matched},[pscustomobject]@{Label='Inconnus';Value=[double]$Count.Unknown},[pscustomobject]@{Label='Non correspondants';Value=[double]$Count.NotMatched})}
         $represented=if([string]$Count.GroupBy){$Count.Matched}else{$Count.Total}
@@ -65,7 +68,7 @@ function ConvertTo-DomeniaQueryCountEntry {
     return (New-DomeniaBoardEntry -Key $Id -Title $Title -Kind Number -Value ([string]$Count.Matched) -Number $Count.Matched -Detail $detail -State $state)
 }
 function Get-DomeniaComputerQueryBoardEntry {
-    param([string]$Id,[string]$Visual='Kpi')
+    param([string]$Id,[string]$Visual='Kpi',[string]$ConsumerId='')
     $q=$script:DomeniaQueryState
     $recipe=@(if($null -ne $q){$q.Saved|Where-Object{$_.Id -eq $Id}|Select-Object -First 1})
     if(-not $recipe.Count){return (New-DomeniaBoardEntry -Key $Id -Kind Number -Value 'Requête absente' -Detail 'Enregistrez une requête dans lʼatelier.' -State Off)}
@@ -74,7 +77,7 @@ function Get-DomeniaComputerQueryBoardEntry {
         $records=Get-DomeniaComputerQueryRecords
         if(-not $records.Count){return (New-DomeniaBoardEntry -Key $Id -Title $recipe[0].Name -Kind Number -Value 'Choisir un poste' -Detail 'Ouvrez une fiche de poste pour évaluer cette requête.' -State Off)}
         $count=Measure-DomeniaQueryWidget -Records $records -Recipe $recipe[0]
-        return (ConvertTo-DomeniaQueryCountEntry -Id $Id -Title $recipe[0].Name -Count $count -Visual $Visual -Context ([string]$script:SelectedObject.Name+' · données locales'))
+        return (ConvertTo-DomeniaQueryCountEntry -Id $Id -Title $recipe[0].Name -Count $count -Visual $Visual -Context ([string]$script:SelectedObject.Name+' · données locales') -Revision (Get-DomeniaQueryWidgetRevision -Recipe $recipe[0] -Board Computer -ConsumerId $ConsumerId))
     }catch{return (New-DomeniaBoardEntry -Key $Id -Title $recipe[0].Name -Kind Number -Value 'Calcul indisponible' -Detail $_.Exception.Message -State Warn)}
 }
 function Show-DomeniaWorkshopComputerPreview {

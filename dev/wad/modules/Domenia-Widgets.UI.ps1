@@ -611,7 +611,7 @@ function Resolve-DomeniaBoardEntry {
         if ($null -ne $catalog) { $kind = [string]$catalog.Kind; $name = [string]$catalog.Title }
         if ($null -ne $State.Data -and $null -ne $State.Data.Entries -and $State.Data.Entries.ContainsKey([string]$Item.Key)) { $entry = $State.Data.Entries[[string]$Item.Key] }
     } elseif([string]$Item.Source -eq 'Query' -and $Board -in @('Fleet','Computer')) {
-        $entry=if($Board -eq 'Computer'){Get-DomeniaComputerQueryBoardEntry -Id ([string]$Item.Key) -Visual ([string]$Item.Visual)}else{Get-DomeniaQueryBoardEntry -Id ([string]$Item.Key) -Visual ([string]$Item.Visual)};$kind=[string]$entry.Kind;$name=[string]$entry.Title
+        $entry=if($Board -eq 'Computer'){Get-DomeniaComputerQueryBoardEntry -Id ([string]$Item.Key) -Visual ([string]$Item.Visual) -ConsumerId ([string](Get-DomeniaMember $Item 'Id' ''))}else{Get-DomeniaQueryBoardEntry -Id ([string]$Item.Key) -Visual ([string]$Item.Visual) -ConsumerId ([string](Get-DomeniaMember $Item 'Id' ''))};$kind=[string]$entry.Kind;$name=[string]$entry.Title
     } else {
         $probe = Get-DomeniaProbe -Id ([string]$Item.Key)
         $kind = Get-DomeniaProbeKind -Probe $probe -Board $Board

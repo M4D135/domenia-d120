@@ -161,3 +161,26 @@ Test-Case -Id 'P157' -Name 'Export PowerShell : commentaires sur une ligne et li
     Assert-Equal 'Non' (ConvertTo-DomeniaQueryValueText $false)
     Assert-Equal '7.5' (ConvertTo-DomeniaQueryValueText ([decimal]7.5))
 }
+Test-Case -Id 'P70' -Name 'Widget de requête : la révision évaluée est nommée, un lien en retard ou une révision archivée le signalent' -Body {
+    $saved = [pscustomobject]@{ RecipeId = 'personal.disk'; Revision = 4L; DefinitionSHA256 = ('a' * 64); State = 'Saved'; Label = 'révision 4 enregistrée' }
+    $current = Format-DomeniaQueryWidgetRevision -Binding $saved -Dependency ([pscustomobject]@{ RecipeId = 'personal.disk'; ConsumerKind = 'Fleet'; ConsumerId = 'w1'; BoundRevision = 4L })
+    Assert-Equal 'Révision 4 évaluée' $current.Text
+    Assert-False $current.Warn 'lien à jour sans avertissement'
+    $late = Format-DomeniaQueryWidgetRevision -Binding $saved -Dependency ([pscustomobject]@{ RecipeId = 'personal.disk'; ConsumerKind = 'Fleet'; ConsumerId = 'w1'; BoundRevision = 2L })
+    Assert-True $late.Warn 'lien en retard signalé'
+    Assert-True ($late.Text -like 'Révision 4 évaluée · widget lié à la révision 2 : *') $late.Text
+    Assert-Equal 2L $late.BoundRevision
+    $ahead = Format-DomeniaQueryWidgetRevision -Binding $saved -Dependency ([pscustomobject]@{ BoundRevision = 6L })
+    Assert-True ($ahead.Warn -and $ahead.Text -like '*révision 6, plus récente que la bibliothèque lue*') $ahead.Text
+    $unlinked = Format-DomeniaQueryWidgetRevision -Binding $saved
+    Assert-False $unlinked.Warn 'widget sans lien : il suit la révision courante'
+    Assert-True ($unlinked.Text -like 'Révision 4 évaluée · widget sans lien enregistré*') $unlinked.Text
+    $archived = Format-DomeniaQueryWidgetRevision -Binding ([pscustomobject]@{ Revision = 3L; State = 'Archived'; Label = 'révision 3 archivée' })
+    Assert-True ($archived.Warn -and $archived.Text -like 'Révision 3 archivée évaluée*') $archived.Text
+    $unknown = Format-DomeniaQueryWidgetRevision -Binding ([pscustomobject]@{ Revision = 0L; State = 'Unknown'; Label = 'révision non déterminée : bibliothèque locale non lue' })
+    Assert-Equal 'Révision non déterminée : bibliothèque locale non lue' $unknown.Text
+    Assert-False $unknown.Warn 'une bibliothèque non lue nʼinvente pas dʼécart'
+    Assert-True (Format-DomeniaQueryWidgetRevision -Binding ([pscustomobject]@{ Revision = 4L; State = 'Modified'; Label = 'brouillon modifié' })).Warn 'définition différente signalée'
+    Assert-True (Format-DomeniaQueryWidgetRevision -Binding ([pscustomobject]@{ State = 'Unsaved' })).Warn 'requête absente signalée'
+    Assert-Equal 'Révision non déterminée' (Format-DomeniaQueryWidgetRevision -Binding $null).Text
+}
