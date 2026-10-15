@@ -6,7 +6,7 @@ function Get-DomeniaLocalIndexReadWorkerCode {
     # never an empty answer presented as a result.
     return @'
 $action = [string]$Payload.Action
-if ($action -notin @('Search','ParkState','ParkTargets','FleetStats','ResolveNames','StoreRead','IndexMetadata','UserMachineLinks','SecretIndexEntry','OperationStats')) { throw 'Lecture locale non autorisee.' }
+if ($action -notin @('Search','ParkState','ParkTargets','FleetStats','ResolveNames','StoreRead','IndexMetadata','UserMachineLinks','SecretIndexEntry','OperationStats','DirectorySync','SnapshotCompare')) { throw 'Lecture locale non autorisee.' }
 $path = [IO.Path]::GetFullPath([string]$Payload.Path)
 if ($path.StartsWith('\\')) { throw 'Base locale reseau non prise en charge.' }
 if (-not [IO.File]::Exists($path)) { return [pscustomobject]@{ Rows=@(); Busy=$false; Missing=$true; MachineCount=0 } }
@@ -316,6 +316,63 @@ try {
     finally { [Runtime.InteropServices.Marshal]::FreeHGlobal($pathPtr) }
     if ($rc -ne 0 -or $db -eq [IntPtr]::Zero) { throw ('Ouverture SQLite en lecture impossible (code ' + $rc + ').') }
     [void][Domenia.WinSqliteNative]::sqlite3_busy_timeout($db,$busyMs)
+    if ($action -eq 'DirectorySync') {
+        # Points 22, 24 and 30: census gaps still missing, objects not seen by a complete read and saved snapshots of this
+        # domain, in one read snapshot.
+        [void](Invoke-IdxWQuery $db 'BEGIN;')
+        $tables=@(Invoke-IdxWQuery $db "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('ad_absences','ad_snapshots','ad_census_gaps');"|ForEach-Object{[string]$_.name})
+        $absences=@();$absenceCounts=@();$absenceTotal=0L;$snapshots=@();$gaps=@();$gapTotal=0L
+        if($tables -contains 'ad_census_gaps'){
+            # An identity brought since by any read (an OU, an opened object) is no longer missing.
+            $missing='FROM ad_census_gaps g WHERE NOT EXISTS(SELECT 1 FROM ad_objects a WHERE a.object_key=g.object_guid)'
+            $gaps=@(Invoke-IdxWQuery $db ("SELECT g.object_guid,g.dn,g.usn,g.noticed_at,g.server $missing ORDER BY g.noticed_at,g.object_guid LIMIT 200;"))
+            $gapTotal=[long](@(Invoke-IdxWQuery $db ("SELECT count(*) AS n $missing;"))[0].n)
+        }
+        if($tables -contains 'ad_absences'){
+            $absences=@(Invoke-IdxWQuery $db 'SELECT object_guid,object_type,name,last_dn,scope_dn,last_synced_at,noticed_at,server,status,checked_at,found_dn,detail FROM ad_absences ORDER BY noticed_at DESC,object_guid LIMIT 500;')
+            $absenceCounts=@(Invoke-IdxWQuery $db 'SELECT status,count(*) AS n FROM ad_absences GROUP BY status ORDER BY status;')
+            $absenceTotal=[long](@(Invoke-IdxWQuery $db 'SELECT count(*) AS n FROM ad_absences;')[0].n)
+        }
+        if($tables -contains 'ad_snapshots'){
+            $snapshots=@(Invoke-IdxWQuery $db ('SELECT snapshot_id,label,domain_dn,scope_dn,subtree,captured_at,object_count,coverage_state,coverage_at,coverage_source,coverage_text,rows_sha256 FROM ad_snapshots WHERE domain_dn='+(Get-IdxWLiteral ([string]$Payload.DomainDn))+' COLLATE NOCASE ORDER BY captured_at DESC LIMIT 100;'))
+        }
+        [void](Invoke-IdxWQuery $db 'COMMIT;')
+        return [pscustomobject]@{DataSource='SQLite';Busy=$false;Missing=$false;Rows=@();Absences=$absences;AbsenceCounts=$absenceCounts;AbsenceTotal=$absenceTotal;Snapshots=$snapshots;Gaps=$gaps;GapTotal=$gapTotal}
+    }
+    if ($action -eq 'SnapshotCompare') {
+        # Point 30: two snapshots of the same scope compared in one read snapshot. Totals are exact; rows are bounded.
+        $before=[string]$Payload.Before;$after=[string]$Payload.After
+        if(($before -cnotmatch '^[a-f0-9]{32}$') -or ($after -cnotmatch '^[a-f0-9]{32}$') -or ($before -ceq $after)){throw 'Relevés à comparer invalides.'}
+        $limit=[Math]::Max(1,[Math]::Min(2000,[int]$Payload.Limit))
+        [void](Invoke-IdxWQuery $db 'BEGIN;')
+        $tables=@(Invoke-IdxWQuery $db "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('ad_snapshots','ad_snapshot_rows');")
+        if($tables.Count -lt 2){[void](Invoke-IdxWQuery $db 'COMMIT;');return [pscustomobject]@{DataSource='SQLite';Busy=$false;Missing=$false;Found=$false;Rows=@()}}
+        $a=Get-IdxWLiteral $before;$b=Get-IdxWLiteral $after
+        $manifests=@(Invoke-IdxWQuery $db ("SELECT snapshot_id,domain_dn,scope_dn,subtree FROM ad_snapshots WHERE snapshot_id IN ($a,$b);"))
+        if($manifests.Count -ne 2){[void](Invoke-IdxWQuery $db 'COMMIT;');return [pscustomobject]@{DataSource='SQLite';Busy=$false;Missing=$false;Found=$false;Rows=@()}}
+        if(([string]$manifests[0].domain_dn -ine [string]$manifests[1].domain_dn) -or ([string]$manifests[0].scope_dn -ine [string]$manifests[1].scope_dn) -or ([long]$manifests[0].subtree -ne [long]$manifests[1].subtree)){throw 'Relevés de périmètres différents : comparaison refusée.'}
+        $columns=@('object_guid','object_type','name','login','upn','display_name','description','extra','state','distinguished_name','when_changed','last_logon')
+        $plain=$columns -join ','
+        $onlyAfter="FROM ad_snapshot_rows b WHERE b.snapshot_id=$b AND NOT EXISTS(SELECT 1 FROM ad_snapshot_rows a WHERE a.snapshot_id=$a AND a.object_guid=b.object_guid)"
+        $onlyBefore="FROM ad_snapshot_rows a WHERE a.snapshot_id=$a AND NOT EXISTS(SELECT 1 FROM ad_snapshot_rows b WHERE b.snapshot_id=$b AND b.object_guid=a.object_guid)"
+        $common="FROM ad_snapshot_rows a JOIN ad_snapshot_rows b ON b.snapshot_id=$b AND b.object_guid=a.object_guid WHERE a.snapshot_id=$a"
+        $differs="(lower(a.distinguished_name) IS NOT lower(b.distinguished_name) OR a.object_type IS NOT b.object_type OR a.name IS NOT b.name OR a.login IS NOT b.login OR a.upn IS NOT b.upn OR a.display_name IS NOT b.display_name OR a.description IS NOT b.description OR a.extra IS NOT b.extra OR a.state IS NOT b.state)"
+        $addedCount=[long](@(Invoke-IdxWQuery $db ("SELECT count(*) AS n $onlyAfter;"))[0].n)
+        $goneCount=[long](@(Invoke-IdxWQuery $db ("SELECT count(*) AS n $onlyBefore;"))[0].n)
+        $commonCount=[long](@(Invoke-IdxWQuery $db ("SELECT count(*) AS n $common;"))[0].n)
+        $differingCount=[long](@(Invoke-IdxWQuery $db ("SELECT count(*) AS n $common AND $differs;"))[0].n)
+        $added=@(Invoke-IdxWQuery $db ("SELECT $plain $onlyAfter ORDER BY name COLLATE NOCASE,object_guid LIMIT $limit;"))
+        $gone=@(Invoke-IdxWQuery $db ("SELECT $plain $onlyBefore ORDER BY name COLLATE NOCASE,object_guid LIMIT $limit;"))
+        $select=(@($columns|ForEach-Object{'a.'+$_+' AS a_'+$_})+@($columns|ForEach-Object{'b.'+$_+' AS b_'+$_})) -join ','
+        $pairs=New-Object 'System.Collections.Generic.List[object]'
+        foreach($row in @(Invoke-IdxWQuery $db ("SELECT $select $common AND $differs ORDER BY b.name COLLATE NOCASE,b.object_guid LIMIT $limit;"))){
+            $old=[ordered]@{};$new=[ordered]@{}
+            foreach($column in $columns){$old[$column]=$row.('a_'+$column);$new[$column]=$row.('b_'+$column)}
+            $pairs.Add([pscustomobject]@{Before=[pscustomobject]$old;After=[pscustomobject]$new})
+        }
+        [void](Invoke-IdxWQuery $db 'COMMIT;')
+        return [pscustomobject]@{DataSource='SQLite';Busy=$false;Missing=$false;Found=$true;Rows=@();Counts=[pscustomobject]@{Added=$addedCount;Disappeared=$goneCount;Common=$commonCount;Differing=$differingCount};Added=$added;Disappeared=$gone;Pairs=$pairs.ToArray();Limit=$limit}
+    }
     if ($action -eq 'StoreRead') {
         $query=$Payload.Query;$kind=[string]$query.Kind
         $sqliteVersion=[string](@(Invoke-IdxWQuery $db 'SELECT sqlite_version() AS v;')[0].v)
@@ -667,8 +724,17 @@ try {
                 $c=@(Invoke-IdxWQuery $db "SELECT count(*) AS total,sum(CASE WHEN object_type='Utilisateur' THEN 1 ELSE 0 END) AS users,sum(CASE WHEN object_type='Machine' THEN 1 ELSE 0 END) AS computers,sum(CASE WHEN object_type='Machine' AND (state IS NULL OR state<>'Desactive') THEN 1 ELSE 0 END) AS machines_active,sum(CASE WHEN object_type='Machine' AND state='Desactive' THEN 1 ELSE 0 END) AS machines_disabled FROM ad_objects;")
                 if($c.Count){$counts=[pscustomobject]@{ Total=[long]$c[0].total; Users=[long]$c[0].users; Computers=[long]$c[0].computers; MachinesActive=[long]$c[0].machines_active; MachinesDisabled=[long]$c[0].machines_disabled }}
             }
+            # Point 22: identities of the last domain census that the local copy still does not know. Counted in the base,
+            # not taken from the checkpoint: a read of the OU, a complete read or a read by GUID may have brought them since.
+            $censusGap=0L
+            if($tables.ContainsKey('ad_census_gaps')){
+                $gapSql='SELECT count(*) AS n FROM ad_census_gaps g'
+                if($tables.ContainsKey('ad_objects')){$gapSql+=' WHERE NOT EXISTS(SELECT 1 FROM ad_objects a WHERE a.object_key=g.object_guid)'}
+                $censusGap=[long](@(Invoke-IdxWQuery $db ($gapSql+';'))[0].n)
+            }
             $answer|Add-Member -NotePropertyName SyncStates -NotePropertyValue $sync
             $answer|Add-Member -NotePropertyName Counts -NotePropertyValue $counts
+            $answer|Add-Member -NotePropertyName CensusGap -NotePropertyValue $censusGap
             $answer.MachineCount=[int]$counts.MachinesActive
         }
         elseif ($action -eq 'UserMachineLinks') {

@@ -551,12 +551,19 @@ function Close-StoreWStatements {
 }
 function Get-StoreWAdditiveTables {
     # PF-26: tables added to schema 11/1 without a version change. The schema script of Initialize-DomeniaDatabase
-    # creates them; a base never opened by that script (an older copy, a fixture) gets them once per worker session.
+    # creates the first four; a base never opened by that script (an older copy, a fixture) gets them once per worker
+    # session. The directory copies of points 22, 24 and 30 are created by this session check only.
     return [ordered]@{
         park_session_cache='CREATE TABLE IF NOT EXISTS park_session_cache(object_key TEXT PRIMARY KEY,checked_utc TEXT NOT NULL,payload TEXT NOT NULL);'
         domenia_legacy_observation_imports='CREATE TABLE IF NOT EXISTS domenia_legacy_observation_imports(object_guid TEXT PRIMARY KEY,payload_hash TEXT NOT NULL,imported_at TEXT NOT NULL);'
         ad_computer_facts='CREATE TABLE IF NOT EXISTS ad_computer_facts(object_guid TEXT PRIMARY KEY,object_key TEXT,os_version TEXT,when_created TEXT,pwd_last_set TEXT,laps_kind TEXT,laps_expiry TEXT,read_at TEXT);'
         fleet_snapshots='CREATE TABLE IF NOT EXISTS fleet_snapshots(scope_key TEXT NOT NULL,snapshot_day TEXT NOT NULL,taken_at TEXT,scope_dn TEXT,machines INTEGER DEFAULT 0,figures TEXT,PRIMARY KEY(scope_key,snapshot_day));'
+        # Points 24, 22 and 30: objects a complete read did not return, census identities the local copy lacks (rebuilt by
+        # each complete census, emptied as reads bring them) and dated snapshots of a scope. Created only here.
+        ad_absences='CREATE TABLE IF NOT EXISTS ad_absences(object_key TEXT PRIMARY KEY,object_guid TEXT,object_type TEXT,name TEXT,last_dn TEXT,scope_dn TEXT,last_synced_at TEXT,noticed_at TEXT,server TEXT,status TEXT NOT NULL,checked_at TEXT,found_dn TEXT,detail TEXT);'
+        ad_census_gaps='CREATE TABLE IF NOT EXISTS ad_census_gaps(object_guid TEXT PRIMARY KEY,dn TEXT NOT NULL,usn INTEGER NOT NULL DEFAULT 0,noticed_at TEXT,server TEXT);'
+        ad_snapshots='CREATE TABLE IF NOT EXISTS ad_snapshots(snapshot_id TEXT PRIMARY KEY,label TEXT NOT NULL,domain_dn TEXT NOT NULL,scope_dn TEXT NOT NULL,subtree INTEGER NOT NULL,captured_at TEXT NOT NULL,object_count INTEGER NOT NULL,coverage_state TEXT,coverage_at TEXT,coverage_source TEXT,coverage_text TEXT,rows_sha256 TEXT);'
+        ad_snapshot_rows='CREATE TABLE IF NOT EXISTS ad_snapshot_rows(snapshot_id TEXT NOT NULL,object_guid TEXT NOT NULL,object_type TEXT,name TEXT,login TEXT,upn TEXT,display_name TEXT,description TEXT,extra TEXT,state TEXT,distinguished_name TEXT,when_changed TEXT,last_logon TEXT,source_dc TEXT,synced_at TEXT,PRIMARY KEY(snapshot_id,object_guid));'
     }
 }
 function Assert-StoreWSession {
@@ -908,6 +915,7 @@ $db=[IntPtr]::Zero;$transaction=$false;$conflicts=[Collections.Generic.List[stri
 # PF-07: statements of a previous session of this pooled runspace were finalized by its finally block.
 $script:StoreWStatements=[Collections.Generic.List[object]]::new()
 $indexStatement=$null;$secretRead=$null;$secretWrite=$null;$indexWatch=$null;$indexRows=0L
+$absenceUpdate=$null;$absenceFacts=$null;$gapDelete=$null
 try {
  $availableBytes=-1L
  try{$drive=[IO.DriveInfo]::new([IO.Path]::GetPathRoot($path));if($drive.IsReady){$availableBytes=[long]$drive.AvailableFreeSpace}}catch{}
@@ -1017,12 +1025,154 @@ try {
       'Sample' {$sampleCount++;$verb='INSERT';$table='operation_runs';$columns='operation,mode,item_count,duration_ms,bytes_estimated,ad_queries,remote_attempts,fallback_tasks,success_count,failure_count,started_at,finished_at,notes';$values=@([string]$r.Operation,[string]$r.Mode,[int]$r.ItemCount,[long]$r.DurationMs,[long]$r.BytesEstimated,[int]$r.AdQueries,[int]$r.RemoteAttempts,[int]$r.FallbackTasks,[int]$r.SuccessCount,[int]$r.FailureCount,[string]$r.StartedAt,[string]$r.Finished,'')}
     }
     [void](Invoke-DomeniaDbExec ($verb+' INTO '+$table+'('+$columns+') VALUES('+(($values|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');') $db)
+  }elseif($i.Kind -eq 'DirectoryAbsence'){
+    # Point 24: verification results of objects that a complete read did not return. A deletion is kept only with its
+    # proof; an object found again (point 23) takes its new location in the local copy under the same GUID.
+    # Point 22: the same read by GUID fills in the census gaps (results marked Gap): an identity found is added, an
+    # identity the domain read no longer returns leaves the list; nothing else is concluded about it.
+    $r=$i.Row
+    $results=@($r.Results)
+    if(($results.Count -lt 1) -or ($results.Count -gt 500)){throw 'Lot de vérification invalide.'}
+    # PF-07: prepared statements shared by every result of the lot (tables from Assert-StoreWSession, PF-26).
+    if($null -eq $absenceUpdate){
+      $absenceUpdate=New-StoreWStatement $db 'UPDATE ad_absences SET status=?1,checked_at=?2,found_dn=?3,detail=?4 WHERE object_key=?5'
+      $absenceFacts=New-StoreWStatement $db 'INSERT OR REPLACE INTO ad_computer_facts(object_guid,object_key,os_version,when_created,pwd_last_set,laps_kind,laps_expiry,read_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)'
+    }
+    if($null -eq $indexStatement){$indexStatement=New-StoreWStatement $db 'INSERT OR REPLACE INTO ad_objects(object_key,object_guid,object_type,name,login,upn,display_name,description,extra,state,distinguished_name,when_changed,usn_changed,last_logon,search_key,source_dc,synced_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)'}
+    if($null -eq $gapDelete){$gapDelete=New-StoreWStatement $db 'DELETE FROM ad_census_gaps WHERE object_guid=?1'}
+    foreach($x in $results){
+      $g=[guid]::Empty
+      if(($null -eq $x) -or (-not [guid]::TryParse([string]$x.Guid,[ref]$g)) -or ($g -eq [guid]::Empty)){throw 'Résultat de vérification sans GUID.'}
+      $key=$g.ToString('D').ToLowerInvariant()
+      $status=[string]$x.Status
+      if($status -notin @('Visible','Deplace','Supprime','Introuvable','NonVisible','NonConfirme')){throw 'Statut de vérification inconnu.'}
+      $isGap=(($null -ne $x.PSObject.Properties['Gap']) -and [bool]$x.Gap)
+      if($isGap -and ($status -notin @('Visible','Deplace','Introuvable','NonConfirme'))){throw 'Statut de lecture dʼun objet manquant inconnu.'}
+      $detail=[string]$x.Detail;if($detail.Length -gt 1000){$detail=$detail.Substring(0,1000)}
+      $foundDn=[string]$x.FoundDn;if($foundDn.Length -gt 4096){throw 'Emplacement relu trop long.'}
+      if(-not $isGap){Invoke-StoreWStatement $absenceUpdate @($status,[string]$x.CheckedAt,$foundDn,$detail,$key)}
+      $record=$x.Record
+      if(($null -ne $record) -and ($status -in @('Visible','Deplace'))){
+        if(([string]$record.Type -notin @('Machine','Utilisateur')) -or ([string]$record.Guid -ine $key) -or (-not [string]$record.DN) -or (-not [string]$record.Name) -or ([string]$record.DN -ine $foundDn)){throw 'Fiche relue incohérente : rien nʼest enregistré.'}
+        # Same columns and search key as an index row: the object keeps its GUID key and takes its new DN.
+        $search=([string]$record.Name+' '+[string]$record.Login+' '+[string]$record.Upn+' '+[string]$record.Display+' '+[string]$record.Description+' '+[string]$record.Extra).ToLowerInvariant()
+        $values=@($key,$key,[string]$record.Type,[string]$record.Name,[string]$record.Login,[string]$record.Upn,[string]$record.Display,[string]$record.Description,[string]$record.Extra,[string]$record.State,[string]$record.DN,[string]$record.WhenChanged,[long]$record.Usn,[string]$record.LastLogon,$search,[string]$r.Server,[string]$x.CheckedAt)
+        Invoke-StoreWStatement $indexStatement $values
+        # The facts a complete read had removed with the row come back with it, read at the same time (same columns as
+        # the index read). A record without facts leaves the existing ones as they are.
+        if(([string]$record.Type -eq 'Machine') -and ($null -ne $record.PSObject.Properties['Facts']) -and [bool]$record.Facts){
+          $facts=@($key,$key,[string]$record.OsVersion,[string]$record.WhenCreated,[string]$record.PwdLastSet,[string]$record.LapsKind,[string]$record.LapsExpiry,[string]$x.CheckedAt)
+          Invoke-StoreWStatement $absenceFacts $facts
+        }
+        Invoke-StoreWStatement $gapDelete @($key)
+      }elseif($isGap -and ($status -eq 'Introuvable')){
+        Invoke-StoreWStatement $gapDelete @($key)
+      }
+    }
+  }elseif($i.Kind -eq 'DirectorySnapshot'){
+    # Point 30: dated copy of the local rows of one scope, with the proof of its coverage. Not a backup of the directory:
+    # no password, right or membership is copied, and nothing can be written back from it.
+    $r=$i.Row
+    $id=[string]$r.SnapshotId
+    if($id -cnotmatch '^[a-f0-9]{32}$'){throw 'Identifiant de relevé invalide.'}
+    $idSql=ConvertTo-DomeniaSqlLiteral $id
+    if([string]$r.Action -eq 'Delete'){
+      [void](Invoke-DomeniaDbExec ('DELETE FROM ad_snapshot_rows WHERE snapshot_id='+$idSql+';DELETE FROM ad_snapshots WHERE snapshot_id='+$idSql+';') $db)
+    }elseif([string]$r.Action -eq 'Capture'){
+      function Get-SnapWParentDn {
+        param([string]$Dn)
+        $escaped=$false
+        for($n=0;$n -lt $Dn.Length;$n++){
+          $ch=$Dn[$n]
+          if($escaped){$escaped=$false;continue}
+          if($ch -eq [char]92){$escaped=$true;continue}
+          if($ch -eq ','){return $Dn.Substring($n+1).Trim()}
+        }
+        return ''
+      }
+      function Test-SnapWDnInScope {
+        param([string]$Dn,[string]$ScopeDn,[bool]$Subtree)
+        if(-not $Subtree){return ((Get-SnapWParentDn $Dn) -ieq $ScopeDn)}
+        $part=$Dn
+        for($k=0;($k -lt 512) -and $part;$k++){if($part -ieq $ScopeDn){return $true};$part=Get-SnapWParentDn $part}
+        return $false
+      }
+      function Get-SnapWRowsSha256 {
+        # SHA-256 of the single text column of $Sql, row after row, read straight from the UTF-8 buffer of SQLite.
+        param([IntPtr]$Db,[string]$Sql)
+        $stmt=[IntPtr]::Zero;$sqlPtr=[IntPtr]::Zero;$buffer=New-Object byte[] 65536
+        $sha=[Security.Cryptography.SHA256]::Create()
+        try{
+          $sqlPtr=New-DomeniaUtf8Ptr $Sql
+          $rc=[Domenia.WinSqliteNative]::sqlite3_prepare_v2($Db,$sqlPtr,-1,[ref]$stmt,[IntPtr]::Zero)
+          if($rc -ne 0){throw ('SQLite prepare code '+$rc+' : '+(ConvertFrom-DomeniaUtf8Ptr ([Domenia.WinSqliteNative]::sqlite3_errmsg($Db))))}
+          while(($step=[Domenia.WinSqliteNative]::sqlite3_step($stmt)) -eq 100){
+            $text=[Domenia.WinSqliteNative]::sqlite3_column_text($stmt,0);$length=[Domenia.WinSqliteNative]::sqlite3_column_bytes($stmt,0)
+            if(($text -eq [IntPtr]::Zero) -or ($length -le 0)){throw 'Ligne de relevé illisible : empreinte non calculée.'}
+            if($length -gt $buffer.Length){$buffer=New-Object byte[] ([Math]::Max($length,2*$buffer.Length))}
+            [Runtime.InteropServices.Marshal]::Copy($text,$buffer,0,$length)
+            [void]$sha.TransformBlock($buffer,0,$length,$null,0)
+          }
+          if($step -ne 101){throw ('SQLite step code '+$step+' : '+(ConvertFrom-DomeniaUtf8Ptr ([Domenia.WinSqliteNative]::sqlite3_errmsg($Db))))}
+          [void]$sha.TransformFinalBlock((New-Object byte[] 0),0,0)
+          return [BitConverter]::ToString($sha.Hash).Replace('-','')
+        }finally{
+          if($stmt -ne [IntPtr]::Zero){[void][Domenia.WinSqliteNative]::sqlite3_finalize($stmt)}
+          if($sqlPtr -ne [IntPtr]::Zero){[Runtime.InteropServices.Marshal]::FreeHGlobal($sqlPtr)}
+          $sha.Dispose()
+        }
+      }
+      $domain=([string]$r.DomainDn).Trim();$scope=([string]$r.ScopeDn).Trim();$subtree=[bool]$r.Subtree
+      $label=[string]$r.Label
+      if((-not $label) -or ($label.Length -gt 120)){throw 'Nom de relevé invalide.'}
+      if((-not [string]$r.CapturedUtc) -or (([string]$r.CapturedUtc).Length -gt 40)){throw 'Date de relevé invalide.'}
+      if([string]$r.CoverageState -notin @('Complete','Partial','Unknown','Missing')){throw 'Couverture de relevé invalide.'}
+      $coverageText=[string]$r.CoverageText;if($coverageText.Length -gt 1000){$coverageText=$coverageText.Substring(0,1000)}
+      if((-not $domain) -or (-not $scope) -or (-not (Test-SnapWDnInScope $scope $domain $true))){throw 'Périmètre de relevé hors du domaine.'}
+      $storeState=@(Invoke-DomeniaDbQuery 'SELECT domain_dn FROM domenia_store_state WHERE id=1;' $db)
+      if($storeState.Count -and ([string]$storeState[0].domain_dn -ine $domain)){throw 'Relevé demandé pour un autre domaine que celui de la base.'}
+      # Limits are states of the base, not invalid requests: the snapshot is not taken and the batch still commits
+      # (a throw would hold every other local save). The interface finds it absent and says why.
+      # A retried batch finds its own snapshot already saved and does not copy it twice.
+      $existing=[long](@(Invoke-DomeniaDbQuery ('SELECT count(*) AS n FROM ad_snapshots WHERE domain_dn='+(ConvertTo-DomeniaSqlLiteral $domain)+' COLLATE NOCASE;') $db)[0].n)
+      if($existing -ge 50){continue}
+      if(@(Invoke-DomeniaDbQuery ('SELECT snapshot_id FROM ad_snapshots WHERE snapshot_id='+$idSql+';') $db).Count){continue}
+      # The copy is done by SQLite in one statement: no row of the scope goes through a PowerShell object, so a
+      # domain-wide snapshot stays within the time of its own storage batch. SQL narrows the rows by DN suffix; the
+      # part of the DN before that suffix (relative part) tells which rows PowerShell must still check on RDN boundaries.
+      $scopeSql=ConvertTo-DomeniaSqlLiteral $scope;$suffix=ConvertTo-DomeniaSqlLiteral (','+$scope)
+      $below='substr(distinguished_name,-length('+$suffix+'))='+$suffix+' COLLATE NOCASE'
+      $relative='substr(distinguished_name,1,length(distinguished_name)-length('+$suffix+'))'
+      # A direct child has no comma in its relative part, unless that comma is escaped (the part then holds a backslash).
+      $where='COALESCE(object_guid,'''')<>'''' AND '+$(if($subtree){'(distinguished_name='+$scopeSql+' COLLATE NOCASE OR '+$below+')'}else{'('+$below+' AND (instr('+$relative+','','')=0 OR instr('+$relative+',char(92))>0))'})
+      if([long](@(Invoke-DomeniaDbQuery ('SELECT count(*) AS n FROM ad_objects WHERE '+$where+';') $db)[0].n) -gt 300000){continue}
+      $columns=@('object_type','name','login','upn','display_name','description','extra','state','distinguished_name','when_changed','last_logon','source_dc','synced_at')
+      $copied='lower(object_guid),'+((@($columns|ForEach-Object{'COALESCE('+$_+','''')'})) -join ',')
+      [void](Invoke-DomeniaDbExec ('INSERT OR IGNORE INTO ad_snapshot_rows(snapshot_id,object_guid,'+($columns -join ',')+') SELECT '+$idSql+','+$copied+' FROM ad_objects WHERE '+$where+';') $db)
+      # An escaped comma or backslash before the suffix can fake an RDN boundary: those rare rows are checked here.
+      $outside=$null
+      foreach($suspect in @(Invoke-DomeniaDbQuery ('SELECT object_guid,distinguished_name FROM ad_snapshot_rows WHERE snapshot_id='+$idSql+' AND instr('+$relative+',char(92))>0;') $db)){
+        if(Test-SnapWDnInScope ([string]$suspect.distinguished_name) $scope $subtree){continue}
+        if($null -eq $outside){$outside=New-StoreWStatement $db 'DELETE FROM ad_snapshot_rows WHERE snapshot_id=?1 AND object_guid=?2'}
+        Invoke-StoreWStatement $outside @($id,[string]$suspect.object_guid)
+      }
+      $kept=[long](@(Invoke-DomeniaDbQuery ('SELECT count(*) AS n FROM ad_snapshot_rows WHERE snapshot_id='+$idSql+';') $db)[0].n)
+      # The fingerprint covers the copied values in GUID order (fields separated by char 31, one line per object): a later
+      # change of the snapshot is detectable. One streamed read hashes the native text of each line, without row objects.
+      $line=((@(@('object_guid')+$columns|ForEach-Object{'ifnull('+$_+','''')'})) -join '||char(31)||')+'||char(10)'
+      $digest=Get-SnapWRowsSha256 $db ('SELECT '+$line+' FROM ad_snapshot_rows WHERE snapshot_id='+$idSql+' ORDER BY object_guid;')
+      $manifest=@($id,$label,$domain,$scope,$(if($subtree){1}else{0}),[string]$r.CapturedUtc,$kept,[string]$r.CoverageState,[string]$r.CoverageAtUtc,[string]$r.CoverageSource,$coverageText,$digest)
+      [void](Invoke-DomeniaDbExec ('INSERT INTO ad_snapshots(snapshot_id,label,domain_dn,scope_dn,subtree,captured_at,object_count,coverage_state,coverage_at,coverage_source,coverage_text,rows_sha256) VALUES('+(($manifest|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');') $db)
+    }else{throw 'Action de relevé inconnue.'}
   }elseif($i.Kind -eq 'IndexBulk'){
     # PF-07: storage time of the lot (validation, prepared inserts, reconciliation and COMMIT), returned to the
     # interface as an IndexStore sample beside the IndexBuild samples of the AD read.
     if($null -eq $indexWatch){$indexWatch=[Diagnostics.Stopwatch]::StartNew()}
     $bulk=$i.Row
     $reader=$null;$stream=$null;$hashAlgorithm=$null;$enumerator=$null;$readCount=0L;$identityCount=0L
+    # Points 22 and 24: objects absent from a complete read (recorded, never declared deleted) and census identities
+    # that the local copy does not know (kept in ad_census_gaps for an explicit read by GUID; the delta goes on).
+    $absentCount=0L;$censusGap=0L
     $transfer=$null;if($null -ne $bulk.PSObject.Properties['Transfer']){$transfer=$bulk.Transfer}
     $progress=$null;if($null -ne $transfer -and $null -ne $transfer.PSObject.Properties['Progress']){$progress=$transfer.Progress}
     if($null -ne $progress){$progress.Phase='Validation';$progress.Count=0L;$progress.Total=[long]$transfer.RowCount}
@@ -1064,7 +1214,7 @@ try {
       }
       if(($bulk.ReplaceAll -and ($reconcile.Mode -ne 'Rows' -or $reconcile.SearchScope -ne 'Subtree')) -or ($reconcile.Mode -eq 'Census' -and (-not $isDirectoryScope -or $reconcile.SearchScope -ne 'Subtree' -or -not [string]$reconcile.InvocationId))){throw 'Perimetre du recensement invalide.'}
       if(-not $isDirectoryScope -and $syncScope -ine ('ou:'+([string]$reconcile.ScopeDn).ToLowerInvariant())){throw 'Couverture OU incoherente.'}
-      [void](Invoke-DomeniaDbExec 'DROP TABLE IF EXISTS temp.index_seen; DROP TABLE IF EXISTS temp.index_batch; CREATE TEMP TABLE index_seen(guid TEXT PRIMARY KEY,dn TEXT NOT NULL); CREATE TEMP TABLE index_batch(object_key TEXT PRIMARY KEY);' $db)
+      [void](Invoke-DomeniaDbExec 'DROP TABLE IF EXISTS temp.index_seen; DROP TABLE IF EXISTS temp.index_batch; CREATE TEMP TABLE index_seen(guid TEXT PRIMARY KEY,dn TEXT NOT NULL,usn INTEGER NOT NULL DEFAULT 0); CREATE TEMP TABLE index_batch(object_key TEXT PRIMARY KEY);' $db)
     }
     if($null -ne $transfer){
       $folder=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetDirectoryName([IO.Path]::GetFullPath([string]$Payload.Path))) 'index-spool'))
@@ -1092,7 +1242,7 @@ try {
       # A row made newer than this read (another console, a later single update) is never overwritten by the lot.
       $objectSql+=' WHERE ?1 IN (SELECT object_key FROM temp.index_batch)';$factSql+=' WHERE ?2 IN (SELECT object_key FROM temp.index_batch)'
       $cutoffText=$started.ToUniversalTime().ToString('o')
-      $seenStatement=New-StoreWStatement $db 'INSERT INTO temp.index_seen(guid,dn) VALUES(?1,?2)'
+      $seenStatement=New-StoreWStatement $db 'INSERT INTO temp.index_seen(guid,dn,usn) VALUES(?1,?2,?3)'
       $batchStatement=New-StoreWStatement $db 'INSERT INTO temp.index_batch(object_key) SELECT ?1 WHERE NOT EXISTS(SELECT 1 FROM ad_objects WHERE object_key=?1 AND julianday(synced_at)>julianday(?2))'
     }
     $objectStatement=New-StoreWStatement $db $objectSql
@@ -1123,7 +1273,9 @@ try {
         $r.Guid=$guid.ToString('D').ToLowerInvariant()
         if($isIdentity -or $reconcile.Mode -eq 'Rows'){
           if(-not $seenIdentities.Add([string]$r.Guid)){throw 'GUID duplique dans le recensement.'}
-          Invoke-StoreWStatement $seenStatement @([string]$r.Guid,[string]$r.DN)
+          # Point 22: uSNChanged read with the identity (0 when the reader did not provide it) bounds the census gap.
+          $seenUsn=0L;if($null -ne $r.PSObject.Properties['Usn']){try{$seenUsn=[long]$r.Usn}catch{$seenUsn=0L}}
+          Invoke-StoreWStatement $seenStatement @([string]$r.Guid,[string]$r.DN,[long]$seenUsn)
         }
         if($isIdentity){
           $identityCount++
@@ -1158,7 +1310,7 @@ try {
         if($isDirectoryScope -and -not $bulk.ReplaceAll -and $expected -eq 0 -and [long](@(Invoke-DomeniaDbQuery 'SELECT count(*) AS n FROM ad_objects;' $db)[0].n) -gt 0){throw 'Recensement vide : reconstruction complete explicite requise.'}
         $cutoff=ConvertTo-DomeniaSqlLiteral ($started.ToUniversalTime().ToString('o'))
         $candidates=@(Invoke-DomeniaDbQuery ('SELECT a.object_key,a.object_guid,a.distinguished_name,s.dn AS current_dn FROM ad_objects a LEFT JOIN temp.index_seen s ON lower(a.object_guid)=s.guid WHERE COALESCE(a.synced_at,'''')='''' OR julianday(a.synced_at)<=julianday('+$cutoff+') OR a.object_key IN (SELECT object_key FROM temp.index_batch);') $db)
-        $moveStatement=$null;$dropFactStatement=$null;$dropObjectStatement=$null
+        $moveStatement=$null;$dropFactStatement=$null;$dropObjectStatement=$null;$absenceStatement=$null
         foreach($candidate in $candidates){
           $candidateKey=[string]$candidate.object_key
           if([string]$candidate.current_dn){
@@ -1167,13 +1319,47 @@ try {
               Invoke-StoreWStatement $moveStatement @([string]$candidate.current_dn,$candidateKey)
             }
           }elseif(Test-IndexDnInScope ([string]$candidate.distinguished_name) ([string]$reconcile.ScopeDn) ([string]$reconcile.SearchScope)){
-            if($null -eq $dropObjectStatement){$dropFactStatement=New-StoreWStatement $db 'DELETE FROM ad_computer_facts WHERE object_key=?1';$dropObjectStatement=New-StoreWStatement $db 'DELETE FROM ad_objects WHERE object_key=?1'}
+            # Point 24: the object leaves the local copy but is recorded as not seen, never as deleted. Only a read of the
+            # deleted objects by GUID can prove a deletion; a loss of rights or a move gives the same absence here.
+            if($null -eq $dropObjectStatement){
+              $absenceStatement=New-StoreWStatement $db 'INSERT OR REPLACE INTO ad_absences(object_key,object_guid,object_type,name,last_dn,scope_dn,last_synced_at,noticed_at,server,status,checked_at,found_dn,detail) SELECT object_key,object_guid,object_type,name,distinguished_name,?2,synced_at,?3,?4,''NonVu'','''','''','''' FROM ad_objects WHERE object_key=?1'
+              $dropFactStatement=New-StoreWStatement $db 'DELETE FROM ad_computer_facts WHERE object_key=?1';$dropObjectStatement=New-StoreWStatement $db 'DELETE FROM ad_objects WHERE object_key=?1'
+            }
+            Invoke-StoreWStatement $absenceStatement @($candidateKey,[string]$reconcile.ScopeDn,[string]$bulk.At,[string]$bulk.Server)
             Invoke-StoreWStatement $dropFactStatement @($candidateKey)
             Invoke-StoreWStatement $dropObjectStatement @($candidateKey)
+            $absentCount++
+          }
+        }
+        # Point 22: a census identity unknown to the local copy was missed by the differential read (an object that
+        # became visible without being modified, for instance). Identities changed after the USN captured before this
+        # pass are not counted: created or changed during the pass, the next delta returns them. The others are kept
+        # (50 000 at most, the count stays exact) for an explicit read by GUID; the delta itself goes on.
+        if($reconcile.Mode -eq 'Census'){
+          $highest=[long]$bulk.HighestUsn
+          $gapWhere='NOT EXISTS(SELECT 1 FROM ad_objects a WHERE a.object_key=s.guid)'
+          if($highest -gt 0){$gapWhere+=' AND (s.usn<='+(ConvertTo-DomeniaSqlLiteral $highest)+' OR s.usn<=0)'}
+          [void](Invoke-DomeniaDbExec ('DELETE FROM ad_census_gaps;INSERT INTO ad_census_gaps(object_guid,dn,usn,noticed_at,server) SELECT s.guid,s.dn,s.usn,'+(ConvertTo-DomeniaSqlLiteral ([string]$bulk.At))+','+(ConvertTo-DomeniaSqlLiteral ([string]$bulk.Server))+' FROM temp.index_seen s WHERE '+$gapWhere+' ORDER BY s.guid LIMIT 50000;') $db)
+          $censusGap=[long](@(Invoke-DomeniaDbQuery ('SELECT count(*) AS n FROM temp.index_seen s WHERE '+$gapWhere+';') $db)[0].n)
+        }elseif($reconcile.Mode -eq 'Rows'){
+          # A complete read of a scope returned every identity visible in it: a gap of that scope it did not bring is
+          # no longer visible there. The next census decides again.
+          $gapSuffix=ConvertTo-DomeniaSqlLiteral (','+[string]$reconcile.ScopeDn)
+          foreach($gapRow in @(Invoke-DomeniaDbQuery ('SELECT object_guid,dn FROM ad_census_gaps WHERE dn='+(ConvertTo-DomeniaSqlLiteral ([string]$reconcile.ScopeDn))+' COLLATE NOCASE OR substr(dn,-length('+$gapSuffix+'))='+$gapSuffix+' COLLATE NOCASE;') $db)){
+            if(-not (Test-IndexDnInScope ([string]$gapRow.dn) ([string]$reconcile.ScopeDn) ([string]$reconcile.SearchScope))){continue}
+            if($null -eq $gapDelete){$gapDelete=New-StoreWStatement $db 'DELETE FROM ad_census_gaps WHERE object_guid=?1'}
+            Invoke-StoreWStatement $gapDelete @([string]$gapRow.object_guid)
           }
         }
       }
+      # Seen again by this read, even a partial one: no longer absent, whatever its earlier verification said.
+      [void](Invoke-DomeniaDbExec 'DELETE FROM ad_absences WHERE lower(object_guid) IN (SELECT guid FROM temp.index_seen);' $db)
+      # Bounded list: the 50 000 most recent absences are kept; an older one leaves the list, never the directory.
+      if($absentCount -gt 0){[void](Invoke-DomeniaDbExec 'DELETE FROM ad_absences WHERE rowid IN (SELECT rowid FROM ad_absences ORDER BY noticed_at DESC,object_key LIMIT -1 OFFSET 50000);' $db)}
     }elseif($null -ne $transfer -and $null -ne $transfer.PSObject.Properties['CensusRowCount'] -and [long]$transfer.CensusRowCount -ne 0){throw 'Recensement sans perimetre : transaction annulee.'}
+    # Point 22: whatever read brought a missing identity, it is no longer missing. A legacy complete replacement (no
+    # reconciliation receipt) read the whole domain: the list is emptied and the next census rebuilds it.
+    [void](Invoke-DomeniaDbExec $(if($bulk.ReplaceAll -and ($null -eq $reconcile)){'DELETE FROM ad_census_gaps;'}else{'DELETE FROM ad_census_gaps WHERE EXISTS(SELECT 1 FROM ad_objects a WHERE a.object_key=ad_census_gaps.object_guid);'}) $db)
     # Only a complete domain delta can certify unchanged facts. An OU or interrupted pass cannot do so.
     if(-not $bulk.ReplaceAll -and $complete -and $isDirectoryScope -and $previousSync.Count -and [string]$previousSync[0].v){[void](Invoke-DomeniaDbExec ('UPDATE ad_computer_facts SET read_at='+(ConvertTo-DomeniaSqlLiteral ([string]$bulk.At))+' WHERE COALESCE(read_at,'''')>='+(ConvertTo-DomeniaSqlLiteral ([string]$previousSync[0].v))+' AND julianday(read_at)<=julianday('+(ConvertTo-DomeniaSqlLiteral ([string]$bulk.At))+');') $db)}
     $total=[long](@(Invoke-DomeniaDbQuery 'SELECT count(*) AS n FROM ad_objects;' $db)[0].n)
@@ -1182,6 +1368,8 @@ try {
     # Search depth belongs to the committed checkpoint. A direct-children walk must not overwrite a Subtree success.
     $depth=if($null -ne $reconcile){[string]$reconcile.SearchScope}elseif($isDirectoryScope){'Subtree'}else{'Unknown'}
     $details+=';depth='+$depth
+    if($censusGap -gt 0){$details+=';gap='+$censusGap}
+    if($absentCount -gt 0){$details+=';absent='+$absentCount}
     $checkpointScope=if(-not $isDirectoryScope -and $depth -eq 'OneLevel'){'ou:onelevel:'+([string]$bulk.BaseDn).ToLowerInvariant()}else{$syncScope}
     # Attempts are separate from successful coverage and its checkpoint. A failed attempt never rejuvenates it.
     $attemptDetails=$(if($complete){'complete'}else{'partial'})+';depth='+$depth
@@ -1378,7 +1566,8 @@ try {
         Observations=@('adcc_live_observations','presence_cache','park_state','park_session_cache','domenia_observations','domenia_details')
         Snapshots=@('adcc_live_queries')
         History=@('user_machine_history','user_scan_history','operation_runs','fleet_snapshots')
-        Index=@('ad_objects','domenia_provenance','sync_state','ad_computer_facts','domenia_directory_data')
+        # Points 22, 24 and 30: census gaps, objects not seen again and directory snapshots are local directory data too.
+        Index=@('ad_objects','domenia_provenance','sync_state','ad_computer_facts','domenia_directory_data','ad_absences','ad_census_gaps','ad_snapshots','ad_snapshot_rows')
         ManualLinks=@('user_machine_links')
         Secrets=@('secret_state')
     }
@@ -1401,7 +1590,7 @@ try {
         $tables=New-Object 'System.Collections.Generic.List[object]';$totalRows=0L;$totalBytes=0L
         foreach($table in $categories[$category]){
             $rows=-1L;$bytes=-1L;$state='Absent'
-            if($table -in @('park_session_cache','ad_computer_facts','fleet_snapshots','domenia_observations','domenia_details','domenia_directory_data') -and -not $existing.ContainsKey($table)){$rows=0L;$bytes=0L}
+            if($table -in @('park_session_cache','ad_computer_facts','fleet_snapshots','domenia_observations','domenia_details','domenia_directory_data','ad_absences','ad_census_gaps','ad_snapshots','ad_snapshot_rows') -and -not $existing.ContainsKey($table)){$rows=0L;$bytes=0L}
             if($existing.ContainsKey($table)){
                 $rows=[long](@(Invoke-DomeniaDbQuery ('SELECT count(*) AS n FROM '+$table+';') $db)[0].n)
                 $state='Mesure'
@@ -1629,7 +1818,8 @@ try {
                 $targets.Add([pscustomobject]@{Category=$category;Table='fleet_snapshots';Action='Delete';Where=("julianday(snapshot_day) IS NOT NULL AND julianday(snapshot_day)<julianday($literal)")})
             }
             Index {
-                foreach($table in @('ad_objects','domenia_provenance','ad_computer_facts','domenia_directory_data')){$targets.Add([pscustomobject]@{Category=$category;Table=$table;Action='Delete';Where='1=1'})}
+                # Points 22, 24 and 30: the copies of directory rows go with the index (snapshot rows and their manifests together).
+                foreach($table in @('ad_objects','domenia_provenance','ad_computer_facts','domenia_directory_data','ad_absences','ad_census_gaps','ad_snapshot_rows','ad_snapshots')){$targets.Add([pscustomobject]@{Category=$category;Table=$table;Action='Delete';Where='1=1'})}
                 # The scope clock of the AD reads goes with the index it dated.
                 $targets.Add([pscustomobject]@{Category=$category;Table='domenia_domain_metadata';Action='Delete';Where="family='Directory'"})
                 $targets.Add([pscustomobject]@{Category=$category;Table='sync_state';Action='Reset';Where="scope='directory' OR scope LIKE 'ou:%' OR scope LIKE 'attempt:%'"})
@@ -1640,7 +1830,7 @@ try {
     foreach($target in $targets){
         $n=0L;$exists=$tables.ContainsKey($target.Table)
         if($exists){$n=[long](@(Invoke-DomeniaDbQuery ('SELECT count(*) AS n FROM '+$target.Table+' WHERE '+$target.Where+';') $db)[0].n)}
-        elseif($target.Table -notin @('adcc_live_observations','adcc_live_queries','park_session_cache','ad_computer_facts','fleet_snapshots','domenia_observations','domenia_details','domenia_directory_data','domenia_domain_metadata')){throw ('Table locale requise absente : '+$target.Table)}
+        elseif($target.Table -notin @('adcc_live_observations','adcc_live_queries','park_session_cache','ad_computer_facts','fleet_snapshots','domenia_observations','domenia_details','domenia_directory_data','ad_absences','ad_census_gaps','ad_snapshot_rows','ad_snapshots','domenia_domain_metadata')){throw ('Table locale requise absente : '+$target.Table)}
         $counts.Add([pscustomobject]@{Category=$target.Category;Table=$target.Table;Action=$target.Action;Rows=$n;Exists=$exists})
     }
     # Bind confirmation to the categories, fixed cutoff, path and freshly recounted rows.

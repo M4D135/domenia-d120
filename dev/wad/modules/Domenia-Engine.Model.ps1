@@ -176,7 +176,7 @@ function Get-DomeniaTaskDedupKey {
     # Two reads may share one worker only when everything that decides their result is identical.
     param([Parameter(Mandatory=$true)][string]$OperationId,[string]$ReaderIdentity='',[long]$Epoch=0,[long]$Generation=0,$Payload=$null,[bool]$IsWrite=$false,[string[]]$Shareable=@())
     if ($IsWrite) { return '' }
-    $allowed = @('OpenAdObject','EmbeddedDirectoryLookup','SessionsList','ComputerQuickDiag','PasswordPolicyRead','LockoutDiagnosis','GroupPathRead','JoinStateRead','UpdateStateRead','GpoLinksRead','GpoAppliedRead','DcCompareRead','ComputerEventsRead','MachineIdentityRead') + @($Shareable)
+    $allowed = @('OpenAdObject','EmbeddedDirectoryLookup','SessionsList','ComputerQuickDiag','PasswordPolicyRead','LockoutDiagnosis','GroupPathRead','JoinStateRead','UpdateStateRead','GpoLinksRead','GpoAppliedRead','DcCompareRead','ComputerEventsRead','MachineIdentityRead','AdSchemaRead','DirectoryAbsenceCheck','LogonByDcRead') + @($Shareable)
     if ($allowed -notcontains $OperationId) { return '' }
     $digest = Get-DomeniaPayloadDigest $Payload
     if (-not $digest) { return '' }
@@ -737,7 +737,7 @@ function Get-DomeniaRuntimeMetricOperationKey {
     $id = [string]$OperationId
     if ($id -ceq 'LocalIndexRead') {
         $action = [string](Get-DomeniaMember $Payload 'Action' '')
-        if ($action -cin @('Search','FleetStats','ParkTargets','ParkState','StoreRead','ResolveNames','IndexMetadata','UserMachineLinks','SecretIndexEntry','OperationStats')) { return ($id + ':' + $action) }
+        if ($action -cin @('Search','FleetStats','ParkTargets','ParkState','StoreRead','ResolveNames','IndexMetadata','UserMachineLinks','SecretIndexEntry','OperationStats','DirectorySync','SnapshotCompare')) { return ($id + ':' + $action) }
         return $id
     }
     if ($id -ceq 'LocalQuery') {
