@@ -82,7 +82,7 @@ def main() -> int:
     check('Pas de definition principale en double', 'StaticStructure', lambda: require(all(len(spans) == 1 for spans in fs.values())))
     observations['MainFunctionCount'] = len(fs)
     observations['OriginalFunctionCount'] = len(baseline['OriginalFunctions'])
-    for name in ['Get-LoginXamlLegacy', 'Get-MainXaml', 'Get-DomeniaStandardLoginXaml', 'Get-DomeniaDebugLoginXaml', 'Get-DomeniaStartupXaml']:
+    for name in ['Get-MainXaml', 'Get-DomeniaStandardLoginXaml', 'Get-DomeniaStartupXaml']:
         def validate_xml(name=name):
             matches = list(re.finditer(r'@([\'\"])\n(.*?)^\1@', function_text(source, name), re.S | re.M))
             require(matches, f'No literal XML for {name}')

@@ -55,6 +55,9 @@ try{
     # Only definition-only UI modules are imported. The application entrypoint is not executed.
     . (Join-Path $wad 'modules\Domenia-Embedded.UI.ps1')
     . (Join-Path $wad 'modules\Domenia-UX.UI.ps1')
+    # UX-28 (lot X03): choice and presentation of the sign-in mode.
+    . (Join-Path $wad 'modules\Domenia-Accounts.Model.ps1')
+    . (Join-Path $wad 'modules\Domenia-Accounts.UI.ps1')
     # FI-05 / PF-06: the real initializer takes its poll timer from the protected factory of the engine heartbeat.
     foreach($engineModule in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Engine.UI.ps1')){. (Join-Path $wad ('modules\'+$engineModule))}
     $script:TestTheme='Light';$script:Traces=[Collections.Generic.List[object]]::new();$script:PollTicks=0
@@ -173,12 +176,29 @@ try{
                 foreach($n in @('BtnCancel','BtnLogin','BtnWindowsLogin')){$c=$window.FindName($n);$p=$c.TranslatePoint([Windows.Point]::new(0,0),$window);Expect ($c.IsVisible -and $p.Y -ge 0 -and ($p.Y+$c.ActualHeight) -le ($window.ActualHeight+1))}
             }
             Case ($theme+' : memorisation et theme accessibles au clavier') {Expect ($window.FindName('ChkRemember').IsTabStop -and $window.FindName('BtnSuiteLoginTheme').IsTabStop)}
+            Case ($theme+' : UX-28 session de domaine, Continuer en tant que en action principale') {
+                $window.MaxHeight=800;$window.SizeToContent='Height';$window.UpdateLayout()
+                $ui=@{Window=$window;Windows=$window.FindName('BtnWindowsLogin');Connect=$window.FindName('BtnLogin');OtherAccount=$window.FindName('BtnLoginOtherAccount')}
+                Set-DomeniaLoginChoicePresentation -Ui $ui -Choice (Get-DomeniaLoginChoice -WindowsIdentity 'EXAMPLE\jdupont');$window.UpdateLayout()
+                Expect ([string]$ui.Windows.Content -eq 'Continuer en tant que EXAMPLE\jdupont' -and $ui.Windows.IsDefault -and $ui.Windows.IsEnabled -and [Windows.Controls.Grid]::GetRow($ui.Windows) -eq 0) 'Bouton Windows non principal'
+                Expect ((-not $window.FindName('LoginFormScroll').IsVisible) -and (-not $ui.Connect.IsVisible) -and (-not $ui.Connect.IsDefault) -and $ui.OtherAccount.IsVisible) 'Formulaire non replie'
+                Expect ([Windows.Automation.AutomationProperties]::GetName($ui.Windows) -eq 'Continuer en tant que EXAMPLE\jdupont') 'Nom accessible non mis a jour'
+                Expect ([string]$window.FindName('ChkRemember').Content.Text -eq 'Se souvenir de mon identifiant' -and -not $window.FindName('ChkRemember').IsChecked) 'Case de memorisation'
+            }
+            Case ($theme+' : UX-28 Utiliser un autre compte deplie le formulaire sans rien valider') {
+                $ui=@{Window=$window;Windows=$window.FindName('BtnWindowsLogin');Connect=$window.FindName('BtnLogin');OtherAccount=$window.FindName('BtnLoginOtherAccount')}
+                Set-DomeniaLoginWindowsFirst -Ui $ui -WindowsFirst $false;$window.UpdateLayout()
+                Expect ($window.FindName('LoginFormScroll').IsVisible -and $ui.Connect.IsVisible -and $ui.Connect.IsDefault -and (-not $ui.OtherAccount.IsVisible)) 'Formulaire non deplie'
+                Expect ((-not $ui.Windows.IsDefault) -and [Windows.Controls.Grid]::GetRow($ui.Windows) -eq 2 -and $ui.Windows.IsVisible) 'Bouton Windows non replace sous le formulaire'
+                $show=(Find-FunctionAst $core 'Show-LoginWindow').Extent.Text
+                Expect ($show.Contains('$ui.OtherAccount.Add_Click') -and $show.Contains('Set-DomeniaLoginWindowsFirst -Ui $script:FastLoginUi -WindowsFirst $false') -and $show.Contains('Get-DomeniaLoginChoice')) 'Choix non raccorde a la vraie fenetre'
+            }
         }finally{if($null -ne $window){$window.Close()}}
     }
 }catch{$script:Checks.Add([pscustomobject]@{Name='Infrastructure native requise';Passed=$false;Detail=$_.Exception.ToString()})}
 finally{Stop-FixtureEngine}
 $failed=@($script:Checks|Where-Object{-not $_.Passed})
-$expectedCases=44
+$expectedCases=48
 $report=[ordered]@{Build='2026.10.01-DOMENIA-1.0-RC1.6-BOOTLOGIN';Environment='Windows PowerShell 5.1 x64 STA';Passed=$script:Checks.Count-$failed.Count;Failed=$failed.Count;Skipped=0;Complete=($script:Checks.Count -eq $expectedCases -and $failed.Count -eq 0);Expected=$expectedCases;NoADAccess=$true;NoProductionData=$true;Tests=$script:Checks.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-RC1.6-tests-'+[guid]::NewGuid().ToString('N')+'.json')}
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 8),[Text.UTF8Encoding]::new($false))

@@ -72,7 +72,8 @@ function Request-DomeniaDirectorySyncRead {
     if(-not $path){[void](Set-DomeniaControlText 'LblSyncAbsences' 'Base locale non ouverte : connectez-vous à un domaine.');return}
     $s.ReadGeneration=[long]$s.ReadGeneration+1
     $state=[pscustomobject]@{Generation=[long]$s.ReadGeneration;Epoch=[long]$script:SessionEpoch;Path=$path}
-    $payload=[pscustomobject]@{Action='DirectorySync';Path=$path;BusyTimeoutMs=500;DomainDn=[string]$script:Conn.BaseDn}
+    # FI-12: no fixed wait, the worker follows LocalStore.DatabaseBusyTimeoutMs from its context.
+    $payload=[pscustomobject]@{Action='DirectorySync';Path=$path;DomainDn=[string]$script:Conn.BaseDn}
     try{
         $job=Start-UiTask -Name 'Contrôles de la base locale' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload $payload -CallbackState $state -SuccessHandler 'Complete-DomeniaDirectorySyncRead' -ErrorHandler 'Fail-DomeniaDirectorySyncRead' -ReplaceKey 'directory-sync-read' -TimeoutSeconds 60 -TaskClass 'Explicit'
         if(-not $job){throw 'Lecture locale non admise par le moteur.'}
@@ -309,8 +310,9 @@ function Complete-DomeniaDirectorySyncStorage {
     }
     foreach($item in @($absences|Where-Object{[string](Get-DomeniaMember $_.Row 'Source' '') -eq 'CensusGap'})){[void](Set-DomeniaControlText 'LblSyncGaps' 'Enregistrement local confirmé : la liste des objets manquants est relue dans la base…')}
     if($absences.Count){
-        # Objects found again took their place in the local copy: counters and dashboards are read again.
-        try{[void](Load-DomeniaIndexMetadata);Update-DomeniaIndexStats}catch{Write-AppLog ('Base locale relue partiellement : '+$_.Exception.Message) 'WARN'}
+        # Objects found again took their place in the local copy: counters and dashboards are read again, by the
+        # LocalIndexRead worker (FI-19: no SQLite read on the Dispatcher); its answer refreshes the Base locale page.
+        try{Request-DomeniaIndexMetadata}catch{Write-AppLog ('Base locale non relue : '+$_.Exception.Message) 'WARN'}
         $script:FleetStale=$true
     }
     if(($mine.Count -gt 0) -or (Test-DomeniaDirectorySyncVisible)){Request-DomeniaDirectorySyncRead}
@@ -394,7 +396,7 @@ function Start-DomeniaSnapshotCompare {
     if(-not $path){[void](Set-DomeniaControlText 'LblSnapshotCompare' 'Base locale non ouverte.');return}
     $s.CompareGeneration=[long]$s.CompareGeneration+1
     $state=[pscustomobject]@{Generation=[long]$s.CompareGeneration;Epoch=[long]$script:SessionEpoch;Path=$path;Before=$before;After=$after}
-    $payload=[pscustomobject]@{Action='SnapshotCompare';Path=$path;BusyTimeoutMs=1000;DomainDn=[string]$script:Conn.BaseDn;Before=[string]$before.SnapshotId;After=[string]$after.SnapshotId;Limit=500}
+    $payload=[pscustomobject]@{Action='SnapshotCompare';Path=$path;DomainDn=[string]$script:Conn.BaseDn;Before=[string]$before.SnapshotId;After=[string]$after.SnapshotId;Limit=500}
     try{
         $job=Start-UiTask -Name 'Comparaison de relevés' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload $payload -CallbackState $state -SuccessHandler 'Complete-DomeniaSnapshotCompare' -ErrorHandler 'Fail-DomeniaSnapshotCompare' -DisableControls @('BtnSnapshotCompare') -ReplaceKey 'snapshot-compare' -TimeoutSeconds 180 -TaskClass 'Explicit'
         if(-not $job){throw 'Comparaison non admise par le moteur.'}

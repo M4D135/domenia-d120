@@ -4,25 +4,99 @@ This does NOT claim equivalence to the native parser. It rejects constructs that
 RC1.10.x startup failures and checks lexical/delimiter integrity on every shipped PS1.
 """
 from pathlib import Path
-import re, sys
+import json, re, sys
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'wad/tests'))
 from powershell_lex import mask_ps, functions
-BAD_QUOTES={'\u2018','\u2019','\u201c','\u201d'}
+# PowerShell treats these characters as quote delimiters: a typographic single quote closes a single-quoted string
+# and a typographic double quote closes a double-quoted string, exactly like their ASCII counterparts.
+SINGLE_QUOTES={'\u2018','\u2019','\u201a','\u201b'}
+DOUBLE_QUOTES={'\u201c','\u201d','\u201e'}
 PAIR={')':'(',']':'[','}':'{'}
 OPEN=set(PAIR.values())
+HERE_STRING=re.compile(r"@'\n(.*?)\n^'@",re.M|re.S)
+
+def literal_states(s):
+    """Lexical state of every character with ASCII delimiters, mirroring mask_ps: code, comment, single, double, here."""
+    states=['code']*len(s);i=0;n=len(s);state='code';depth=0
+    while i<n:
+        c=s[i];d=s[i:i+2]
+        if state=='line':
+            if c=='\n': state='code'
+            else: states[i]='comment'
+            i+=1;continue
+        if state=='block':
+            states[i]='comment'
+            if d=='<#':depth+=1;states[i:i+2]=['comment']*len(d);i+=2;continue
+            if d=='#>':
+                depth-=1;states[i:i+2]=['comment']*len(d);i+=2
+                if not depth:state='code'
+                continue
+            i+=1;continue
+        if state in ('h_single','h_double'):
+            end="'@" if state=='h_single' else '"@'
+            if (i==0 or s[i-1]=='\n') and s.startswith(end,i):i+=2;state='code';continue
+            states[i]='here';i+=1;continue
+        if state in ('single','double'):
+            q="'" if state=='single' else '"'
+            if c=='`' and state=='double':
+                states[i]=state;i+=1
+                if i<n:states[i]=state
+                i+=1;continue
+            if c==q:
+                if i+1<n and s[i+1]==q:states[i:i+2]=[state,state];i+=2;continue
+                state='code';i+=1;continue
+            states[i]=state;i+=1;continue
+        if d=='<#':state='block';depth=1;states[i:i+2]=['comment']*len(d);i+=2;continue
+        if c=='#':state='line';states[i]='comment';i+=1;continue
+        if d in ("@'",'@"') and re.match(r'@[\'\"][ \t]*\r?\n',s[i:]):state='h_single' if d=="@'" else 'h_double';i+=2;continue
+        if c in "'\"":state='single' if c=="'" else 'double';i+=1;continue
+        if c=='`':i+=2;continue
+        i+=1
+    return states
+
+def typographic_quotes(text,rel,first_line=1,where=''):
+    """Typographic quotes that PowerShell would read as a delimiter: in code, or closing a literal of the same family."""
+    errors=[];states=literal_states(text)
+    for pos,ch in enumerate(text):
+        if ch not in SINGLE_QUOTES and ch not in DOUBLE_QUOTES: continue
+        state=states[pos];line=first_line+text.count('\n',0,pos)
+        if state=='code':
+            errors.append(f'{rel}:{line}: typographic quote U+{ord(ch):04X} in executable PowerShell{where}')
+        elif (state=='single' and ch in SINGLE_QUOTES) or (state=='double' and ch in DOUBLE_QUOTES):
+            kind='single' if state=='single' else 'double'
+            errors.append(f'{rel}:{line}: typographic quote U+{ord(ch):04X} closes this {kind}-quoted string in PowerShell{where}; write U+02BC for an apostrophe')
+    return errors
+
+def pinned_worker_functions():
+    """Worker factories whose single-quoted here-strings are compiled verbatim: pinned operations and *WorkerCode."""
+    pinned={}
+    contracts=ROOT/'tools/operation-contracts.json'
+    if contracts.is_file():
+        for item in json.loads(contracts.read_text(encoding='utf-8')):pinned.setdefault(item['File'],set()).add(item['Function'])
+    return pinned
+PINNED_WORKERS=pinned_worker_functions()
+
+def worker_body_errors(path:Path,text:str):
+    """Lexical checks of every worker body: [scriptblock]::Create parses it as code, not as a here-string."""
+    rel=path.relative_to(ROOT);errors=[];names=PINNED_WORKERS.get(rel.as_posix(),set())
+    for name,spans in functions(text).items():
+        if name not in names and not name.endswith('WorkerCode'): continue
+        for a,b in spans:
+            for m in HERE_STRING.finditer(text,a,b):
+                body=m.group(1);first=text.count('\n',0,m.start(1))+1;where=f' (worker body of {name})'
+                errors.extend(typographic_quotes(body,rel,first,where))
+                for issue,line in mask_ps(body)[1]:errors.append(f'{rel}:{first+line-1}: {issue}{where}')
+    return errors
 
 def validate(path:Path):
     text=path.read_text(encoding='utf-8-sig')
     masked,issues=mask_ps(text)
     errors=[]
-    for issue,line in issues: errors.append(f'{path.relative_to(ROOT)}:{line}: {issue}')
-    # Reject typographic quotes in executable code. mask_ps uses ASCII delimiters, so
-    # inspect each original line after masking comments/ASCII literals approximately.
-    for lineno,(orig,code) in enumerate(zip(text.splitlines(),masked.splitlines()),1):
-        for idx,ch in enumerate(orig):
-            if ch in BAD_QUOTES and idx < len(code) and code[idx] != ' ':
-                errors.append(f'{path.relative_to(ROOT)}:{lineno}: typographic quote U+{ord(ch):04X} in executable PowerShell')
+    rel=path.relative_to(ROOT)
+    for issue,line in issues: errors.append(f'{rel}:{line}: {issue}')
+    errors.extend(typographic_quotes(text,rel))
+    errors.extend(worker_body_errors(path,text))
     stack=[]
     for pos,ch in enumerate(masked):
         if ch in OPEN: stack.append((ch,pos))
@@ -101,7 +175,7 @@ def main():
     errors.extend(check_timers())
     if errors:
         print('\n'.join(errors)); print(f'FAIL: {len(errors)} issue(s) in {len(files)} PowerShell files'); return 1
-    print(f'PASS: {len(files)} PowerShell files; lexical state, delimiters, typographic executable quotes and boolean-command hazards checked.')
+    print(f'PASS: {len(files)} PowerShell files; lexical state, delimiters, typographic quote delimiters (code, literals and worker bodies) and boolean-command hazards checked.')
     print('PASS: Dispatcher timers only from New-DomeniaTimer (FI-05); no Get-Command in timer ticks or heartbeat handlers (PF-10).')
     print('NOTE: native Windows PowerShell parser was not executed on this host.')
     return 0

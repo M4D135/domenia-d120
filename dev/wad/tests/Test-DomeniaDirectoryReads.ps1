@@ -273,6 +273,9 @@ try{
         Expect ($r.SchemaNc -eq 'CN=Schema,CN=Configuration,DC=example,DC=invalid' -and -not $r.Truncated -and $r.Server -eq 'dc1.example.invalid') 'Schema context and controller'
         Expect (@($r.Attributes).Count -eq 2 -and @($r.Classes).Count -eq 2) 'Invalid names left out'
         Expect (@($script:Searches|Where-Object{($_.BaseDn -ne 'CN=Schema,CN=Configuration,DC=example,DC=invalid') -or ($_.Scope -ne 'OneLevel')}).Count -eq 0) 'Only the schema container is read, one level'
+        # PF-02 (X02): each read is bounded by the server at its limit + 1, the extra definition proving the cut.
+        $attributeSearch=@($script:Searches|Where-Object{$_.Filter -eq '(objectClass=attributeSchema)'});$classSearch=@($script:Searches|Where-Object{$_.Filter -eq '(objectClass=classSchema)'})
+        Expect (($attributeSearch.Count -eq 1) -and ([int]$attributeSearch[0].Limit -eq 8001) -and ($classSearch.Count -eq 1) -and ([int]$classSearch[0].Limit -eq 3001)) 'Schema reads bounded at their limit + 1'
         $catalog=ConvertTo-DomeniaAdSchemaCatalog -Attributes @($r.Attributes) -Classes @($r.Classes) -Server $r.Server -ObservedUtc $r.ObservedUtc -DomainDn $domain
         Expect ((Get-DomeniaAdSchemaAttribute $catalog 'sAMAccountName').Indexed -and -not (Get-DomeniaAdSchemaAttribute $catalog 'description').Indexed) 'Index flags read from searchFlags'
         Expect (@((Get-DomeniaAdClassAttributes -Catalog $catalog -ClassName 'user').Rows|ForEach-Object{$_.Attribut}) -contains 'description') 'Inherited attributes listed'

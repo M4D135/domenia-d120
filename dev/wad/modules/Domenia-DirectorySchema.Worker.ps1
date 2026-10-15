@@ -52,7 +52,8 @@ function Read-SchemaEntries {
     $rows=[Collections.Generic.List[object]]::new();$cut=$false
     $searcher=$null;$searchRoot=$null;$results=$null
     try{
-        $searcher=New-WSearcher $Context $schemaNc $Filter $Properties 'OneLevel' 0
+        # PF-02: the limit + 1 at most; the extra definition proves the limit and the read is marked truncated.
+        $searcher=New-WSearcher $Context $schemaNc $Filter $Properties 'OneLevel' ($Limit+1)
         $searchRoot=$searcher.SearchRoot;$searcher.PageSize=500;$searcher.CacheResults=$false
         $searcher.ServerTimeLimit=[TimeSpan]::FromSeconds(60);$searcher.ClientTimeout=[TimeSpan]::FromSeconds(75)
         $results=$searcher.FindAll()

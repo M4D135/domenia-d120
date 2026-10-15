@@ -33,7 +33,8 @@ function Initialize-DomeniaDemoLoginPresentation {
     $Ui.Error.Text = $banner + '. Identité de démonstration attendue (DEMO\nom), sans mot de passe.'
     try { [Windows.Automation.AutomationProperties]::SetName($Ui.Error,$banner) } catch { }
     $Ui.Login.Text = Get-DomeniaDemoConfiguredIdentity
-    foreach ($name in @('Password','PasswordVisible','Reveal')) { try { $Ui[$name].IsEnabled = $false } catch { } }
+    # SE-16: the read-only reveal overlay only opens from Reveal; with Reveal disabled it stays closed.
+    foreach ($name in @('Password','Reveal')) { try { $Ui[$name].IsEnabled = $false } catch { } }
     try { $Ui.Password.ToolTip = 'Aucun mot de passe en démonstration.' } catch { }
     try { $Ui.Remember.IsChecked = $false; $Ui.Remember.IsEnabled = $false } catch { }
     try { $Ui.Windows.Visibility = [Windows.Visibility]::Collapsed; $Ui.Windows.IsEnabled = $false } catch { }
@@ -60,7 +61,7 @@ function Set-DomeniaDemoShellPresentation {
         $readOnly.IsEnabled = $false
         $readOnly.ToolTip = 'Écritures désactivées en démonstration.'
     }
-    foreach($name in @('BtnParkResults','BtnParkPing','BtnParkAnalyze','BtnParkResultsStop')){$button=Get-DomeniaControl $name;if($button){$button.IsEnabled=$false;$button.ToolTip='Releve des postes indisponible en demonstration.'}}
+    foreach($name in @('BtnParkVerify','BtnParkVerifyMenu','BtnSelectionPing','BtnSelectionConsole')){$button=Get-DomeniaControl $name;if($button){$button.IsEnabled=$false;$button.ToolTip='Relevé des postes indisponible en démonstration.'}}
     foreach($name in @('BtnStorageUsage','BtnStoragePurgePreview','BtnStoragePurge')){$button=Get-DomeniaControl $name;if($button){$button.IsEnabled=$false;$button.ToolTip='Entretien du stockage indisponible en demonstration.'}}
     Set-Status ($banner + ' : données fictives dans une base locale de démonstration séparée ; actions AD et outils poste désactivés.') 'WARN'
 }

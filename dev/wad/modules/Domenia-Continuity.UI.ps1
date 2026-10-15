@@ -332,7 +332,8 @@ function Invoke-DomeniaObjectChanges {
         $r=$event.Row;$key=([string]$r.OldDN).ToLowerInvariant()
         if(-not $s.Map.ContainsKey($key)){continue};$row=$s.Map[$key]
         if([string]$row.Guid -ine [string]$r.Guid){continue}
-        if($r.Status -eq 'Unconfirmed'){$row.DirectoryState='A reverifier : deplace, filtre ou acces';continue}
+        # DS-15 / FI-16: DirectoryFresh carries the key of the freshness icon; the wording stays in DirectoryState.
+        if($r.Status -eq 'Unconfirmed'){$row.DirectoryState='A reverifier : deplace, filtre ou acces';Set-DomeniaLiveRowValue $row 'DirectoryFresh' 'Warning';continue}
         if($r.DN -ine $row.DN){
             # Point 23: moved or renamed inside the scope of this list (the check reads that scope only). The row keeps
             # its GUID and takes its new DN under a new key: no second row, no stale path in the fiche.
@@ -345,8 +346,8 @@ function Invoke-DomeniaObjectChanges {
                 else{Set-DomeniaLiveRowValue $row 'DN' ([string]$r.DN)}
                 [void](Clear-DomeniaVisitCacheForObject -Guid ([string]$row.Guid) -Dn $oldDn)
                 $row.DirectoryState=if(${function:Get-DomeniaMoveStateText}){Get-DomeniaMoveStateText (Get-DomeniaDirectoryMove -OldDn $oldDn -NewDn ([string]$r.DN) -ScopeDn ([string]$s.State.BaseDn) -Scope $(if([string]$s.State.Scope -ieq 'OneLevel'){'OneLevel'}else{'Subtree'}))}else{'Déplacé ou renommé'}
-                $s.RefreshNeeded=$true
-            }else{$row.DirectoryState='Objet déplacé : relancer la recherche'}
+                Set-DomeniaLiveRowValue $row 'DirectoryFresh' 'Verified';$s.RefreshNeeded=$true
+            }else{$row.DirectoryState='Objet déplacé : relancer la recherche';Set-DomeniaLiveRowValue $row 'DirectoryFresh' 'Warning'}
             $row.DirectoryChecked=$event.At;$c.Stamps[[string]$r.Guid]=[string]$r.Stamp;$c.CacheDirty=$true
             continue
         }
@@ -358,6 +359,7 @@ function Invoke-DomeniaObjectChanges {
             [void](Clear-DomeniaVisitCacheForObject -Guid ([string]$row.Guid) -Dn ([string]$row.DN))
             $row.DirectoryState='AD mis a jour'
         }else{$row.DirectoryState='AD revalide'}
+        Set-DomeniaLiveRowValue $row 'DirectoryFresh' 'Verified'
         $row.DirectoryChecked=$event.At;$c.Stamps[[string]$r.Guid]=[string]$r.Stamp
     }
     if($c.CacheDirty -and $c.ChangeEvents.Count -eq 0){

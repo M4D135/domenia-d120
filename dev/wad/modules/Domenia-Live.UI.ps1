@@ -41,15 +41,24 @@ function Initialize-DomeniaLive {
             Pending=[Collections.Generic.Queue[object]]::new();PendingKeys=@{};Busy=@{};Done=@{}
             ObservationsLoaded=$false;Refresh=[Collections.Generic.Queue[object]]::new()
             SaveQueue=@{};QueryToSave=$null;SaveJob='';SaveAfter=[datetime]::MinValue;SaveFault='';SaveInFlight=0;SaveBatch=$null
-            PresenceEvents=[Collections.Concurrent.ConcurrentQueue[object]]::new();PresenceSeen=@{};RemoteFaulted=$false;NextStart=[datetime]::MinValue;Timer=$null;InTick=$false;AutoDetect=$true;ProbeSelection=$null;LastFilter=[datetime]::MinValue;NegativeCache=(New-DomeniaNegativeCache)
+            PresenceEvents=[Collections.Concurrent.ConcurrentQueue[object]]::new();PresenceSeen=@{};RemoteFaulted=$false;NextStart=[datetime]::MinValue;Timer=$null;InTick=$false;AutoDetect=$true;VerifyOnClick=$false;ProbeSelection=$null;LastFilter=[datetime]::MinValue;NegativeCache=(New-DomeniaNegativeCache)
         }
         Reset-DomeniaLiveIdentity
-        $check=Get-DomeniaControl 'ChkLiveUsers'
-        if($null -ne $check){
-            $check.IsChecked=ConvertTo-SuiteFlag (Get-CfgValue 'Streaming' 'VerifyUserOnSelection' $true) -Default $true
-            $script:Live.AutoDetect=[bool]$check.IsChecked
-            $check.Add_Checked({if($null -ne $script:Live){$script:Live.AutoDetect=$true;Select-DomeniaLiveResult}})
-            $check.Add_Unchecked({if($null -ne $script:Live){$script:Live.AutoDetect=$false}})
+        # SP-15: a click only preloads the AD fiche unless « Vérifier au clic » is checked (saved preference, unchecked
+        # by default). The user read is its sub-option; until chosen it follows Streaming.VerifyUserOnSelection.
+        $userDefault=ConvertTo-SuiteFlag (Get-CfgValue 'Streaming' 'VerifyUserOnSelection' $true) -Default $true
+        # The core provides the saved preferences; an isolated host without them keeps the defaults (no ping on click).
+        $verifyStored=$false;$userStored=''
+        try{$verifyStored=Get-DomeniaSetting 'LiveVerifyOnClick' $false;$userStored=Get-DomeniaSetting 'LiveUserOnClick' ''}catch{$verifyStored=$false;$userStored=''}
+        $script:Live.VerifyOnClick=ConvertTo-SuiteFlag $verifyStored -Default $false
+        $script:Live.AutoDetect=ConvertTo-SuiteFlag $userStored -Default $userDefault
+        # The values are shown before the handlers are attached: restoring them never rewrites the preferences.
+        foreach($pair in @(@('ChkLiveVerifyOnClick',[bool]$script:Live.VerifyOnClick),@('ChkLiveUsersOnClick',[bool]$script:Live.AutoDetect))){
+            $check=Get-DomeniaControl $pair[0]
+            if($null -eq $check){continue}
+            $check.IsChecked=[bool]$pair[1]
+            $check.Add_Checked({Set-DomeniaLiveClickOptions})
+            $check.Add_Unchecked({Set-DomeniaLiveClickOptions})
         }
         $button=Get-DomeniaControl 'BtnLiveRecheck'
         if($null -ne $button){$button.Add_Click({Request-DomeniaLiveRecheck})}
@@ -58,6 +67,19 @@ function Initialize-DomeniaLive {
         $script:Live.Timer=New-DomeniaTimer -Owner 'Timer:Live' -IntervalMs 80 -IdleIntervalMs 1000 -Busy {Test-DomeniaLiveTickNeeded} -Start -Tick {Invoke-DomeniaLiveTick}
         $script:Window.Add_Closed({Stop-DomeniaLive -Closing})
     }catch{Write-AppLog ('Initialisation progressive impossible : '+$_.Exception.Message) 'ERROR';$script:Live=$null}
+}
+function Set-DomeniaLiveClickOptions {
+    # SP-15: reads both check boxes and keeps them in the saved preferences. Turning the check on click off drops an
+    # unsent click intent; an explicit Revérifier ce poste already asked is kept. Nothing is sent to the network.
+    if($null -eq $script:Live){return}
+    $verify=Get-DomeniaControl 'ChkLiveVerifyOnClick';$users=Get-DomeniaControl 'ChkLiveUsersOnClick'
+    if($null -ne $verify){$script:Live.VerifyOnClick=[bool]$verify.IsChecked}
+    if($null -ne $users){$script:Live.AutoDetect=[bool]$users.IsChecked}
+    if(-not $script:Live.VerifyOnClick -and $null -ne $script:Live.ProbeSelection -and -not [bool]$script:Live.ProbeSelection.Manual){Clear-DomeniaLiveProbeIntent}
+    try{
+        Set-DomeniaSetting -Name 'LiveVerifyOnClick' -Value ([bool]$script:Live.VerifyOnClick)
+        Set-DomeniaSetting -Name 'LiveUserOnClick' -Value ([bool]$script:Live.AutoDetect)
+    }catch{Write-AppLog ('Préférence « Vérifier au clic » non enregistrée : '+$_.Exception.Message) 'WARN'}
 }
 function Reset-DomeniaLiveIdentity {
     if($null -eq $script:Live){return}
@@ -116,10 +138,12 @@ function Test-DomeniaLiveSearchActive {
 }
 function Set-DomeniaLoginColumnVisible {
     # Decision David 2026-10-05: the 'Compte' column (user login, linked account of a workstation, group account name)
-    # is shown only when at least one listed row has such an account.
+    # is shown only when at least one listed row has such an account. DS-20: and only when the operator chose it.
     param([bool]$Visible)
+    $script:SearchListHasAccount=$Visible
     $grid=Get-DomeniaControl 'DgObjects';if($null -eq $grid){return}
-    $wanted=if($Visible){'Visible'}else{'Collapsed'}
+    $show=($Visible -and (($null -eq $script:ResultColumnChoice) -or (@($script:ResultColumnChoice) -contains 'Login')))
+    $wanted=if($show){'Visible'}else{'Collapsed'}
     foreach($column in @($grid.Columns)){if([string]$column.Header -ceq 'Compte' -and [string]$column.Visibility -ne $wanted){$column.Visibility=$wanted}}
 }
 function Update-DomeniaLoginColumnFromRows {
@@ -141,14 +165,18 @@ function Set-DomeniaResultColumns {
     param([switch]$RevealOnly)
     # Decision David 2026-10-07: one table for every object type. Workstation columns appear only when the list
     # holds a workstation; association and logon columns only when it holds users or workstations.
+    # DS-20 / SP-02: a column is shown only when the operator chose it too ($script:ResultColumnChoice; « Colonnes… »).
     $grid=Get-DomeniaControl 'DgObjects';if($null -eq $grid){return}
     $machine=[bool]$script:SearchListHasMachine;$linkable=($machine -or [bool]$script:SearchListHasUser)
     foreach($column in @($grid.Columns)){
-        $header=[string]$column.Header
-        $show=$null
-        if($header -in @('Utilisateur connecté (console)','Vérification utilisateur','Présence réseau','OS')){$show=$machine}
-        elseif($header -in @('Association mémorisée','Source lien','Qualification','Derniere connexion')){$show=$linkable}
-        if($null -eq $show -or ($RevealOnly -and -not $show)){continue}
+        if($null -eq $column){continue}
+        # Persisted key of the column (as Get-DomeniaGridColumnKey): its sort member, else its binding path.
+        $key=[string]$column.SortMemberPath
+        if(-not $key){try{if($null -ne $column.Binding){$key=[string]$column.Binding.Path.Path}}catch{}}
+        # Compte follows the accounts of the listed rows (Set-DomeniaLoginColumnVisible).
+        if($key -ceq 'Login'){continue}
+        $show=Test-DomeniaResultColumnShown -Key $key -Visible $script:ResultColumnChoice -HasMachine $machine -HasLinkable $linkable -HasAccount ([bool]$script:SearchListHasAccount)
+        if($RevealOnly -and (-not $show)){continue}
         $wanted=if($show){'Visible'}else{'Collapsed'}
         if([string]$column.Visibility -ne $wanted){$column.Visibility=$wanted}
     }
@@ -161,8 +189,9 @@ function Update-DomeniaSearchActionStates {
     $selected=@($grid.SelectedItems)
     $recheck=Get-DomeniaControl 'BtnLiveRecheck'
     if($null -ne $recheck){$recheck.IsEnabled=($ready -and $selected.Count -eq 1 -and [string]$selected[0].Type -eq 'Machine')}
-    # UX-33: a work view listed over the whole domain never offers a survey of its workstations.
-    foreach($name in @('BtnParkResults','BtnParkPing','BtnParkAnalyze')){$button=Get-DomeniaControl $name;if($null -ne $button -and -not $script:DemoMode){$button.IsEnabled=($ready -and [bool]$script:SearchListHasMachine -and -not [bool]$script:ListSurveyBlocked)}}
+    # UI-23 / FO-18 / UX-33: « Vérifier la liste ▾ », its stop state and the bar of a multiple selection follow the list
+    # and its surveys; a work view listed over the whole domain never offers a survey of its workstations.
+    Update-DomeniaParkControls
 }
 function Test-DomeniaRowHasAccount {
     # User or group: its own account name. Workstation: the login of its linked account (decision David 2026-10-05).
@@ -183,18 +212,25 @@ function Begin-DomeniaLiveSearch {
     $keyText='search-v214|'+[string]$State.SearchMode+'|'+$script:Live.Scope+'|'+[string]$State.BaseDn+'|'+[string]$State.Scope+'|'+[string]$State.TypeFilter+'|'+[string]$State.Search+'|'+[string]$State.Limit
     $viewId='';if($null -ne $State.PSObject.Properties['ViewId']){$viewId=[string]$State.ViewId}
     if($viewId){$keyText+='|view:'+$viewId}
+    # FO-01: a « contains » list is another query than the prefix list of the same text.
+    if([string](Get-DomeniaMember $State 'MatchMode' '') -eq 'Contains'){$keyText+='|contains'}
     $key=Get-DomeniaLiveHash $keyText
     $rows=[Collections.ObjectModel.ObservableCollection[object]]::new()
     # D034/D037: the search rules are resolved once per search; without them the arrival order and the former counter remain.
     $rules=($null -ne (Get-Command Get-DomeniaSearchRank -CommandType Function -ErrorAction SilentlyContinue))
     $ranking=($rules -and [string]$State.SearchMode -eq 'Global' -and -not [string]::IsNullOrWhiteSpace([string]$State.Search) -and -not $viewId)
     if($ranking -and $null -ne (Get-Command Get-DomeniaFeatureFlag -CommandType Function -ErrorAction SilentlyContinue)){$ranking=[bool](Get-DomeniaFeatureFlag -Name 'SearchRanking' -Default $true)}
+    # UX-03: resolved once per search, never in the tick (PF-10): the empty list explains a filter that hides every row.
+    $emptyState=($null -ne (Get-Command Update-DomeniaFilteredEmptyState -CommandType Function -ErrorAction SilentlyContinue))
+    # FO-01: resolved once per search as well; a new search hides the « contains » chip of the previous one.
+    $containsOffer=($null -ne (Get-Command Update-DomeniaSearchContainsOffer -CommandType Function -ErrorAction SilentlyContinue))
+    if($containsOffer){Update-DomeniaSearchContainsOffer -Search $null}
     $s=[pscustomobject]@{
         Identity=$script:Live.Identity;Epoch=[long]$script:SessionEpoch;State=$State;QueryKey=$key
         Rows=$rows;Map=@{};Fresh=@{};FreshOrder=[Collections.Generic.List[object]]::new();CacheKeys=[Collections.Generic.Queue[string]]::new();Progress=$queue;CacheProgress=$cacheQueue;Stop=$stop
         Stopped=$false;SelectionRestored=$false;Ended=$false;Final=$null;Error='';Finalized=$false;Prune=$null;CacheRequested=$true
         Started=[Diagnostics.Stopwatch]::StartNew();FirstMs=-1L;CacheUtc='';RefreshNeeded=$false;FilterPending=$false
-        Ranking=[bool]$ranking;SearchRules=[bool]$rules
+        Ranking=[bool]$ranking;SearchRules=[bool]$rules;EmptyState=[bool]$emptyState;ContainsOffer=[bool]$containsOffer
     }
     $script:Live.Search=$s;$script:BranchObjects=$rows;$script:BranchCountLabel='Chargement progressif…'
     # PF-06: the first rows are shown at the normal pace, not after the rest interval. A new search (explicit gesture)
@@ -223,12 +259,39 @@ function Begin-DomeniaLiveSearch {
     # Only canonical SQL readbacks enter Progress. Legacy query snapshots are no longer a data source.
     return $s
 }
+function Resume-DomeniaLiveSearch {
+    # MO-07: « Charger la suite » adds the next rows to the list on screen instead of reading it again. The same search
+    # object keeps its rows, its identity map, its selection and its generation; a new SQLite pipe (new request id)
+    # publishes the new rows only, and the list is finalized again when they are committed.
+    param($State,$Payload)
+    $s=$null;if($null -ne $script:Live){$s=$script:Live.Search}
+    if(($null -eq $s) -or (-not (Test-DomeniaLiveSearchActive))){throw 'Liste courante introuvable : relancez la recherche.'}
+    $stop=[Threading.CancellationTokenSource]::new()
+    $s.Stop=$stop;$s.Ended=$false;$s.Finalized=$false;$s.Final=$null;$s.Error='';$s.Prune=$null;$s.RefreshNeeded=$true
+    $s.State=$State
+    $script:BranchCountLabel='Chargement de la suite…'
+    Add-Member -InputObject $State -NotePropertyName LiveState -NotePropertyValue $s -Force
+    $directoryPipe=New-DomeniaDirectoryReadPipe -Context $State.StoreContext -ReadyQueue $s.Progress -Search $s
+    Add-Member -InputObject $s -NotePropertyName DirectoryPipe -NotePropertyValue $directoryPipe -Force
+    Add-Member -InputObject $Payload -NotePropertyName Progress -NotePropertyValue $directoryPipe.Input -Force
+    Add-Member -InputObject $Payload -NotePropertyName DirectoryReadState -NotePropertyValue $directoryPipe.Collector -Force
+    Add-Member -InputObject $Payload -NotePropertyName StopToken -NotePropertyValue $stop.Token -Force
+    Add-Member -InputObject $Payload -NotePropertyName StreamPageSize -NotePropertyValue ([Math]::Max(100,[Math]::Min(1000,[int](Get-DomeniaMember $Payload 'StreamPageSize' 250)))) -Force
+    try{if($null -ne $script:Live.Timer -and -not [bool]$script:Live.Timer.IsEnabled){$script:Live.Timer.Start()};Invoke-DomeniaTimerSoon -Owner 'Timer:Live'}catch{}
+    Update-DomeniaSearchMoreButton -Search $s
+    return $s
+}
 function Complete-DomeniaLiveSearch {
     param($Result,$State)
     $s=$State.LiveState
     if($null -eq $s){return}
     $effective=Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @('Rows','BaseDn','Scope')
     if($null -eq $effective -or [string]$effective.BaseDn -ine [string]$State.BaseDn -or [string]$effective.Scope -ne [string]$State.Scope){throw 'Résultat de recherche sans périmètre valide.'}
+    # MO-07: a complete continuation moves the cursor of the next one to the last name it added.
+    $continued=$effective.PSObject.Properties['Continuation'];$partialRead=$effective.PSObject.Properties['Partial'];$lastRead=$effective.PSObject.Properties['LastName']
+    if(($null -ne $continued) -and [bool]$continued.Value -and (($null -eq $partialRead) -or -not [bool]$partialRead.Value) -and ($null -ne $lastRead) -and [string]$lastRead.Value){
+        Add-Member -InputObject $s -NotePropertyName ContinuationCursor -NotePropertyValue ([string]$lastRead.Value) -Force
+    }
     $errorText=''
     # Once AD completed, old cache rows can no longer contribute to the list. Detach the queue
     # even if a cache reader still owns it, so idle ticks cannot retain/revisit thousands of stale rows.
@@ -279,7 +342,14 @@ function Update-DomeniaLiveFilter {
     $filter=Get-DomeniaControl 'TxtSuiteResultFilter'
     $query=if($null -ne $filter){[string]$filter.Text}else{''}
     $presence=[string]$script:CurrentPresenceFilter
-    if((Get-DomeniaSearchMode) -eq 'Global'){$query='';$presence='Tous'}
+    # CO-05: the filter of the list narrows a global list too (no request); the presence filter belongs to OU lists.
+    if((Get-DomeniaSearchMode) -eq 'Global'){$presence='Tous'}
+    # FI-16: the filter compares state keys. The key of the choice and the text-to-key table of rows built before the
+    # key existed are resolved here: core functions are not visible inside the closure below.
+    $wantedState=if(-not $presence -or $presence -eq 'Tous'){''}else{ConvertTo-DomeniaPresenceStateKey $presence}
+    $stateKeys=@(Get-DomeniaPresenceStateKeys)
+    $legacyStates=@{}
+    foreach($label in @('En ligne','Sans réponse au ping','Hors ligne','Erreur de ping','Non vérifié','Inconnu','Vérification en cours','Sans objet','')){$legacyStates[$label]=ConvertTo-DomeniaPresenceStateKey $label}
     # Capture values, not controls; filtering performs no network or database I/O.
     if($query.Length -gt 120){$query=$query.Substring(0,120)}
     $terms=@($query.Trim() -split '\s+'|Where-Object {$_})
@@ -297,14 +367,15 @@ function Update-DomeniaLiveFilter {
             if(-not $guid -or $null -eq $queryRecords -or -not $queryRecords.ContainsKey($guid)){return $false}
         }
         # Ordinary searches and GUID-only selections do not need per-row text allocations.
-        if($terms.Count -eq 0 -and (-not $presence -or $presence -eq 'Tous')){return $true}
-        $network=([string]$row.Presence -replace ' \(cache\)$','').Trim()
-        if($network -in @('','Inconnu')){$network='Non vérifié'}
-        $wanted=$presence
-        if($wanted -eq 'Inconnu'){$wanted='Non vérifié'}
-        if($wanted -eq 'Hors ligne'){$wanted='Sans réponse au ping'}
-        if($network -eq 'Hors ligne'){$network='Sans réponse au ping'}
-        if($wanted -and $wanted -ne 'Tous' -and $network -ne $wanted){return $false}
+        if($terms.Count -eq 0 -and -not $wantedState){return $true}
+        if($wantedState){
+            $network=[string]$row.PresenceState
+            if($stateKeys -notcontains $network){
+                $label=([string]$row.Presence -replace ' \(cache\)$','').Trim()
+                $network=if($legacyStates.ContainsKey($label)){[string]$legacyStates[$label]}else{'Unknown'}
+            }
+            if($network -cne $wantedState){return $false}
+        }
         if($terms.Count -eq 0){return $true}
         $parts=[Collections.Generic.List[string]]::new()
         foreach($name in @('Type','Name','Login','UPN','Association','Presence','SessionDisplay','SessionState')){
@@ -318,7 +389,9 @@ function Update-DomeniaLiveFilter {
     try{$view.Filter=[Predicate[object]]$predicate;$view.Refresh()}finally{$script:SuppressGridSelectionEvents=$old}
     # The fraction counts displayed/loaded rows, never the total AD population. Keep an incomplete
     # read visible beside that fraction even when the branch counter is outside the current viewport.
-    [void](Set-DomeniaControlText 'LblSuiteResultCount' ($(if($s.Error){'Liste partielle · '}elseif(-not $s.Finalized){'Chargement… · '}elseif($null -ne $s.Final -and [bool]$s.Final.LimitReached){'Limite atteinte · '}else{''})+"$($grid.Items.Count) / $($s.Rows.Count) lignes visibles"+$(if((Get-DomeniaSearchMode) -eq 'Global'){' · recherche globale sans filtre local'}else{' · filtre local'})))
+    [void](Set-DomeniaControlText 'LblSuiteResultCount' ($(if($s.Error){'Liste partielle · '}elseif(-not $s.Finalized){'Chargement… · '}elseif(($null -ne $s.Final) -and ([bool]$s.Final.LimitReached)){'Limite atteinte · '}else{''})+"$($grid.Items.Count) / $($s.Rows.Count) lignes visibles · filtre de la liste"))
+    # UX-03: every loaded row hidden by the filter of the list: the empty list says how many and offers to clear it.
+    if([bool]$s.EmptyState){Update-DomeniaFilteredEmptyState -Loaded $s.Rows.Count -Visible $grid.Items.Count}
     $script:Live.LastFilter=[datetime]::UtcNow;$s.RefreshNeeded=$false;$s.FilterPending=$false
 }
 function Set-DomeniaLiveObservationOnRow {
@@ -334,6 +407,10 @@ function Set-DomeniaLiveObservationOnRow {
     if($null -ne $script:Live -and $null -ne $script:Live.PresenceSeen -and $script:Live.PresenceSeen.ContainsKey($key)){$historical=$false}
     $network=Get-DomeniaLivePresenceView $Observation -Cached:$historical
     $Row.Presence=$network.Display;Set-DomeniaLiveRowValue $Row 'PresenceDetail' ($network.Detail+"`r`n"+(Get-DomeniaRecordFreshness $Observation 'Presence').Label)
+    # FI-16 / DS-15: the pill reads the state key; the age replaces the former '(cache)' suffix.
+    Set-DomeniaLiveRowValue $Row 'PresenceState' ([string]$network.PresenceState)
+    Set-DomeniaLiveRowValue $Row 'PresenceAge' ([string]$network.Age)
+    Set-DomeniaLiveRowValue $Row 'PresenceCached' $(if([bool]$network.IsCached){'1'}else{''})
 }
 function Add-DomeniaLiveRow {
     param($Event)
@@ -399,12 +476,14 @@ function Add-DomeniaLiveRow {
     $row.DirectoryState=if($fresh){'AD vérifié'}else{'Cache · à vérifier'}
     if($null -ne $moved){$row.DirectoryState=[string]$moved}
     if($guidKey){$s.ByGuid[$guidKey]=$row}
+    Set-DomeniaLiveRowValue $row 'DirectoryFresh' $(if($fresh){'Verified'}else{'Cached'})
     $row.DirectoryChecked=[string]$Event.ObservedUtc
     if($fresh){if(-not $s.Fresh.ContainsKey($key)){[void]$s.FreshOrder.Add($snapshot)};$s.Fresh[$key]=$snapshot}
     if($isNew){
         [void](Set-RowAssociationMetadata -Rows @($row))
         if([string]$row.Type -eq 'Machine' -and [string]$row.Association -and -not [bool]$s.PSObject.Properties['LoginShown']){Set-DomeniaLoginColumnVisible $true;$s|Add-Member -NotePropertyName LoginShown -NotePropertyValue $true -Force}
         $row.Presence=$(if($row.Type -eq 'Machine'){'Non vérifié'}else{'Sans objet'})
+        Set-DomeniaLiveRowValue $row 'PresenceState' $(if($row.Type -eq 'Machine'){'Unknown'}else{'None'})
         if(-not $fresh){$s.CacheKeys.Enqueue($key)}
         $observation=$null
         [void]$script:Live.Observations.TryGetValue($key,[ref]$observation)
@@ -442,7 +521,7 @@ function Clear-DomeniaLiveProbeIntent {
     # Only an unsent request is discarded. Never pretend a native in-flight call stopped.
     foreach($item in @($script:Live.PendingKeys.Values)){
         if($null -eq $item.Row -or $script:Live.Busy.ContainsKey([string]$item.Key)){continue}
-        if([string]$item.Row.SessionState -eq 'En attente de vérification' -or [string]$item.Row.Presence -eq 'Vérification en cours'){
+        if([string]$item.Row.SessionState -eq 'En attente de vérification' -or (Get-DomeniaRowPresenceState $item.Row) -eq 'Pending'){
             $known=$null;[void]$script:Live.Observations.TryGetValue([string]$item.Key,[ref]$known)
             Set-DomeniaLiveObservationOnRow $item.Row $known -Cached
         }
@@ -460,8 +539,10 @@ function Test-DomeniaLiveProbeIntent {
     return $true
 }
 function Select-DomeniaLiveResult {
+    # SP-15: -Manual is Revérifier ce poste (ping and user), -Explicit a fiche rendered with its probes (ping, user
+    # when the sub-option is checked). A simple click sends a ping only when « Vérifier au clic » is checked.
     [CmdletBinding()]
-    param([switch]$Force,[switch]$Manual)
+    param([switch]$Force,[switch]$Manual,[switch]$Explicit)
     if($script:SuppressGridSelectionEvents -or (Test-DomeniaAccessBusyWrite)){return}
     if(-not (Test-DomeniaLiveSearchActive)){
         # UX-25: a list shown from the history is not followed: say so instead of a silent click.
@@ -479,6 +560,11 @@ function Select-DomeniaLiveResult {
     if(-not $key -or -not $script:Live.Search.Map.ContainsKey($key)){Clear-DomeniaLiveProbeIntent;return}
     $previous=$script:Live.ProbeSelection
     $same=($null -ne $previous -and [string]$previous.Key -ceq $key -and [string]$previous.Guid -ieq [string]$row.Guid -and $previous.Generation -eq $script:GlobalSearchGeneration -and (Test-DomeniaLiveIdentity $previous ([long]$script:SessionEpoch) $script:Live.Identity))
+    if(-not $Manual -and -not $Explicit -and -not [bool]$script:Live.VerifyOnClick){
+        # The AD fiche is preloaded by the selection itself; no ping. A click elsewhere drops an intent left unsent.
+        if(-not $same){Clear-DomeniaLiveProbeIntent}
+        return
+    }
     if($same -and -not $Force){Request-DomeniaLiveProbe -Row $row;return}
     Clear-DomeniaLiveProbeIntent
     # A mouse/keyboard selection is the only source of an automatic intent.
@@ -523,7 +609,8 @@ function Request-DomeniaLiveSelectedProbe {
     if(-not (Test-DomeniaLiveSearchActive)){return $false}
     $row=Get-DomeniaSelectedGridRow
     if($null -eq $row -or $row.Type -ne 'Machine' -or (Normalize-LinkComputer $row.Name) -ne (Normalize-LinkComputer $Computer)){return $false}
-    Select-DomeniaLiveResult
+    # SP-15: the fiche of this workstation was rendered with its probes: an explicit opening, not a click.
+    Select-DomeniaLiveResult -Explicit
     [void](Set-DomeniaControlText 'LblLinkProbeStatus' -Text 'Vérification du poste sélectionné ; les observations précédentes restent datées en cache.')
     # The selection path owns this machine even while disabled or waiting for AD.
     # Do not fall back to a second, heavier probe when opening the same fiche.
@@ -600,8 +687,11 @@ function Complete-DomeniaLiveStored {
             if(-not $row.Guid -or -not $observation.Guid -or $row.Guid -ieq $observation.Guid){
                 Set-DomeniaLiveObservationOnRow $row $observation -Cached:([string]$result.Outcome -eq 'PresenceOnly')
                 if($null -ne $script:SelectedObject -and [string]$script:SelectedObject.DN -ieq [string]$row.DN){
-                    Set-DomeniaPresenceText 'TxtCompPresence' ([string]$row.Presence)
-                    Update-DomeniaObjectPresence -State ([string]$row.Presence) -Target ([string]$State.Computer)
+                    $rowState=Get-DomeniaRowPresenceState $row
+                    Set-DomeniaPresenceText 'TxtCompPresence' ([string]$row.Presence) -PresenceState $rowState
+                    Update-DomeniaObjectPresence -State ([string]$row.Presence) -Target ([string]$State.Computer) -PresenceState $rowState
+                    # DS-08 (X04): the header pill takes the time of this observation (a remembered state shows none).
+                    try{Set-DomeniaComputerHeaderPresenceTime -Observation $observation}catch{}
                 }
                 [void](Set-RowAssociationMetadata -Rows @($row));$s.RefreshNeeded=$true
                 if([string]$row.Association){Set-DomeniaLoginColumnVisible $true}
@@ -830,12 +920,14 @@ function Invoke-DomeniaLiveTick {
                         # The selection kept for this search is no longer in the list: clear it everywhere.
                         if($null -ne $grid -and @($grid.SelectedItems).Count -eq 0 -and ($null -ne $script:SelectionLoad -or $null -ne $script:SelectedObject)){Clear-DomeniaSelectionEverywhere}
                         $label=if($s.Error){'Liste partielle · '+$s.Fresh.Count+' résultat(s) AD · vérification incomplète'}else{"$($s.Fresh.Count) résultat(s) AD vérifiés"}
-                        $limited=($null -ne $s.Final -and [bool]$s.Final.LimitReached)
+                        $limited=(($null -ne $s.Final) -and ([bool]$s.Final.LimitReached))
                         if($limited){$label+=' · limite atteinte, affiner'}
                         # D037: the counter states complete or limited; the former wording stays only without the search rules.
                         if($s.SearchRules -and -not $s.Error){$label=Get-DomeniaResultCounterText -Loaded $s.Fresh.Count -Limit ([int]$s.State.Limit) -Complete (-not $limited) -Visible ([int]$grid.Items.Count)}
                         $script:BranchCountLabel=$label
                         Set-Status $label $(if($s.Error){'WARN'}else{'INFO'})
+                        # FO-01: few names or none: offer the « contains » search (a chip, read on click only).
+                        if([bool]$s.ContainsOffer){Update-DomeniaSearchContainsOffer -Search $s}
                         Write-AppLog ("Chargement progressif : premier affichage=$($s.FirstMs) ms ; AD=$($s.Fresh.Count) ; total=$($s.Started.ElapsedMilliseconds) ms ; complet=$(-not [bool]$s.Error).") 'INFO'
                     }
                 }
@@ -845,19 +937,21 @@ function Invoke-DomeniaLiveTick {
                 }
                 [void](Set-DomeniaControlText 'LblBranchCount' $script:BranchCountLabel)
                 $filterBox=Get-DomeniaControl 'TxtSuiteResultFilter'
-                $hasFilter=((Get-DomeniaSearchMode) -ne 'Global' -and ($script:CurrentPresenceFilter -ne 'Tous' -or ($null -ne $filterBox -and -not [string]::IsNullOrWhiteSpace([string]$filterBox.Text))))
+                # CO-05: the text of the list filters every list; the presence only the OU lists.
+                $hasText=(($null -ne $filterBox) -and (-not [string]::IsNullOrWhiteSpace([string]$filterBox.Text)))
+                $hasFilter=($hasText -or (((Get-DomeniaSearchMode) -ne 'Global') -and ($script:CurrentPresenceFilter -ne 'Tous')))
                 if(($s.FilterPending -or (($hasFilter -or -not $script:Live.Notifying) -and $s.RefreshNeeded)) -and ([datetime]::UtcNow-$script:Live.LastFilter).TotalMilliseconds -ge 400){Update-DomeniaLiveFilter}
-                [void](Set-DomeniaControlText 'LblSuiteResultCount' ($(if($s.Error){'Liste partielle · '}elseif(-not $s.Finalized){'Chargement… · '}elseif($null -ne $s.Final -and [bool]$s.Final.LimitReached){'Limite atteinte · '}else{''})+"$($grid.Items.Count) / $($s.Rows.Count) lignes visibles"+$(if((Get-DomeniaSearchMode) -eq 'Global'){' · recherche globale sans filtre local'}else{' · filtre local'})))
+                [void](Set-DomeniaControlText 'LblSuiteResultCount' ($(if($s.Error){'Liste partielle · '}elseif(-not $s.Finalized){'Chargement… · '}elseif(($null -ne $s.Final) -and ([bool]$s.Final.LimitReached)){'Limite atteinte · '}else{''})+"$($grid.Items.Count) / $($s.Rows.Count) lignes visibles · filtre de la liste"))
             }
         }
         Update-DomeniaSearchMoreButton -Search $(if($activeSearch){$script:Live.Search}else{$null})
         try{Start-DomeniaLiveBackgroundWork}catch{$script:Live.NextStart=[datetime]::UtcNow.AddSeconds(2);Write-AppLog ('Travail différé : '+$_.Exception.Message) 'WARN'}
         # D028: the save state is the rule label shared with Fiabilite (Get-DomeniaPersistenceState, Storage.UI).
         $save=(Get-DomeniaPersistenceState).Label
-        $probe=if($script:DirectoryCredentialFaulted){'validation AD suspendue · revoir la connexion'}elseif($script:Live.RemoteFaulted){'compte distant refusé · détection suspendue'}elseif(-not $script:Live.AutoDetect){'ping à la sélection · utilisateur désactivé'}elseif($script:Live.PendingKeys.Count -or $script:Live.Busy.Count){"poste sélectionné : $($script:Live.PendingKeys.Count) en attente, $($script:Live.Busy.Count) en cours"}else{'Sélection : un ping + utilisateur si activé · double-clic : fiche · aucun contrôle collectif'}
-        $stateText=$probe+' · '+$save
-        if($null -ne $script:ParkRun -and $script:ParkRun.Scope -eq 'Results' -and $script:ParkRun.StatusText -and $script:ParkRun.Epoch -eq [long]$script:SessionEpoch -and $script:ParkRun.Generation -eq [long]$script:GlobalSearchGeneration){$stateText=$script:ParkRun.StatusText}
-        [void](Set-DomeniaControlText 'LblLiveState' $stateText)
+        $probe=if($script:DirectoryCredentialFaulted){'validation AD suspendue · revoir la connexion'}elseif($script:Live.RemoteFaulted){'compte distant refusé · détection suspendue'}elseif($script:Live.PendingKeys.Count -or $script:Live.Busy.Count){"poste sélectionné : $($script:Live.PendingKeys.Count) en attente, $($script:Live.Busy.Count) en cours"}elseif(-not $script:Live.VerifyOnClick){'Clic : fiche AD seulement, sans ping · Revérifier ce poste : un ping'}elseif(-not $script:Live.AutoDetect){'Clic : un ping du poste, utilisateur non lu · aucun contrôle collectif'}else{'Clic : un ping et lʼutilisateur connecté · aucun contrôle collectif'}
+        # UX-12: a survey of the list shows its own short count and bar (Update-DomeniaParkControls); this line keeps
+        # the state of the click verification and of the local saves.
+        [void](Set-DomeniaControlText 'LblLiveState' ($probe+' · '+$save))
     }finally{$script:Live.InTick=$false}
 }
 function Test-DomeniaLiveBackgroundAllowed {
@@ -886,31 +980,65 @@ function Test-DomeniaLiveTickNeeded {
 }
 function Update-DomeniaSearchMoreButton {
     # D037: 'Charger la suite' is enabled only for the current, finished and limited list, below 20 000 lines.
+    # MO-07: « Charger jusquʼà 1 000 » (then 5 000, then 20 000) brings the list to that size in one gesture.
     param($Search)
     $button=Get-DomeniaControl 'BtnSearchMore'
     if($null -eq $button){return}
     $decision=$null
     # SearchRules is resolved once per search by Begin-DomeniaLiveSearch: no command lookup on each tick.
     if($null -ne $Search -and [bool]$Search.SearchRules){
-        $decision=Get-DomeniaContinuationDecision -Finalized ([bool]$Search.Finalized) -HasError (-not [string]::IsNullOrEmpty([string]$Search.Error)) -LimitReached ($null -ne $Search.Final -and [bool]$Search.Final.LimitReached) -Limit ([int]$Search.State.Limit)
+        $decision=Get-DomeniaContinuationDecision -Finalized ([bool]$Search.Finalized) -HasError (-not [string]::IsNullOrEmpty([string]$Search.Error)) -LimitReached (($null -ne $Search.Final) -and ([bool]$Search.Final.LimitReached)) -Limit ([int]$Search.State.Limit) -Loaded ([int]$Search.Fresh.Count)
     }
     $enabled=($null -ne $decision -and [bool]$decision.Allowed -and -not (Test-DomeniaAccessBusyWrite))
     $tip=if($null -ne $decision){[string]$decision.Reason}else{'Aucune liste courante à prolonger : lancez une recherche.'}
     if([bool]$button.IsEnabled -ne $enabled){$button.IsEnabled=$enabled}
     if([string]$button.ToolTip -cne $tip){$button.ToolTip=$tip}
+    $jump=Get-DomeniaControl 'BtnSearchMoreJump'
+    if($null -eq $jump){return}
+    $offer=($enabled -and ([int]$decision.JumpLimit -gt 0))
+    $wanted=if($offer){[Windows.Visibility]::Visible}else{[Windows.Visibility]::Collapsed}
+    if($jump.Visibility -ne $wanted){$jump.Visibility=$wanted}
+    if($offer){
+        $text=[string]$decision.JumpText
+        $jumpTip=$text+' : lit les '+([int]$decision.JumpPage).ToString('N0',[Globalization.CultureInfo]::GetCultureInfo('fr-FR'))+' lignes suivantes en une fois, sans relire les lignes déjà chargées. Plafond de sécurité : 20 000 lignes.'
+        if([string]$jump.Content -cne $text){$jump.Content=$text}
+        if([string]$jump.ToolTip -cne $jumpTip){$jump.ToolTip=$jumpTip;[Windows.Automation.AutomationProperties]::SetName($jump,$text);[Windows.Automation.AutomationProperties]::SetHelpText($jump,$jumpTip)}
+    }
+    if([bool]$jump.IsEnabled -ne $offer){$jump.IsEnabled=$offer}
 }
 function Invoke-DomeniaSearchMore {
-    # D037: explicit continuation. The same query, mode and view are read again with a doubled bound (20 000 at most).
-    # Rows are deduplicated by directory identity and the older generation is discarded; nothing is replayed automatically.
+    # D037 / MO-07: explicit continuation. Only the next rows of the same query, mode, view and perimeter are read,
+    # sorted by name after the last name already read; the rows on screen stay and are never read or published again.
+    # -Step Jump brings the list to the next milestone (« Charger jusquʼà 1 000 »). Nothing is replayed automatically.
+    param([ValidateSet('Next','Jump')][string]$Step='Next')
     if(-not (Test-DomeniaLiveSearchActive)){Set-Status 'La liste affichée nʼest plus la recherche courante : relancez la recherche.' 'WARN';Update-DomeniaSearchMoreButton -Search $null;return}
     $s=$script:Live.Search
-    $decision=Get-DomeniaContinuationDecision -Finalized ([bool]$s.Finalized) -HasError (-not [string]::IsNullOrEmpty([string]$s.Error)) -LimitReached ($null -ne $s.Final -and [bool]$s.Final.LimitReached) -Limit ([int]$s.State.Limit)
+    $decision=Get-DomeniaContinuationDecision -Finalized ([bool]$s.Finalized) -HasError (-not [string]::IsNullOrEmpty([string]$s.Error)) -LimitReached (($null -ne $s.Final) -and ([bool]$s.Final.LimitReached)) -Limit ([int]$s.State.Limit) -Loaded ([int]$s.Fresh.Count)
     if(-not [bool]$decision.Allowed){Set-Status ([string]$decision.Reason) 'WARN';Update-DomeniaSearchMoreButton -Search $s;return}
+    $target=[int]$decision.NextLimit
+    if($Step -eq 'Jump'){
+        if([int]$decision.JumpLimit -le 0){Set-Status 'Aucun palier supérieur : utilisez « Charger la suite ».' 'WARN';return}
+        $target=[int]$decision.JumpLimit
+    }
     $mode=if([string]$s.State.SearchMode -eq 'Global'){'Global'}else{'OU'}
     $viewId='';if($null -ne $s.State.PSObject.Properties['ViewId']){$viewId=[string]$s.State.ViewId}
     # D037 / UX-33: the same perimeter as the list (view chip choice, base, depth), not the one the chip or the tree show now.
     $viewScope='';if($viewId -and $null -ne $s.State.PSObject.Properties['ViewChoice'] -and [string]$s.State.ViewChoice -in @('OU','Domain')){$viewScope=[string]$s.State.ViewChoice}
-    Invoke-GlobalSearch -SearchMode $mode -PreserveSelection -SilentError -ViewId $viewId -LimitOverride ([int]$decision.NextLimit) -ViewScope $viewScope -ExpectBaseDn ([string]$s.State.BaseDn) -ExpectScope ([string]$s.State.Scope)
+    # MO-07: the filter that produced the list is kept from its first read; later continuations reuse it with their cursor.
+    $baseFilter=[string](Get-DomeniaMember $s 'ContinuationBaseFilter' '')
+    if(-not $baseFilter){$baseFilter=[string](Get-DomeniaMember $s.Final 'FilterUsed' '');if($baseFilter){Add-Member -InputObject $s -NotePropertyName ContinuationBaseFilter -NotePropertyValue $baseFilter -Force}}
+    $loadedDns=[Collections.Generic.List[string]]::new()
+    foreach($row in @($s.Rows)){if(($null -ne $row) -and [string]$row.DN){$loadedDns.Add([string]$row.DN)}}
+    $request=New-DomeniaContinuationRequest -FilterUsed $baseFilter -Cursor ([string](Get-DomeniaMember $s 'ContinuationCursor' '')) -LoadedDns $loadedDns.ToArray() -Loaded ([int]$s.Fresh.Count) -Target $target -PageSize ([int](Get-CfgValue 'Browser' 'SearchPageSize' 250)) -Reader ([string]$script:Live.Identity) -Generation ([long]$script:GlobalSearchGeneration) -BaseDn ([string]$s.State.BaseDn)
+    # FO-01: the next rows of a « contains » list are still the names that contain the text.
+    $contains=([string](Get-DomeniaMember $s.State 'MatchMode' '') -eq 'Contains')
+    if(-not [bool]$request.Valid){
+        # A list without a known filter (an older result) is read again with the larger bound, as before MO-07.
+        Write-AppLog ('Charger la suite : '+[string]$request.Reason) 'WARN'
+        Invoke-GlobalSearch -SearchMode $mode -PreserveSelection -SilentError -ViewId $viewId -LimitOverride $target -ViewScope $viewScope -ExpectBaseDn ([string]$s.State.BaseDn) -ExpectScope ([string]$s.State.Scope) -Contains:$contains
+        return
+    }
+    Invoke-GlobalSearch -SearchMode $mode -PreserveSelection -SilentError -ViewId $viewId -ViewScope $viewScope -ExpectBaseDn ([string]$s.State.BaseDn) -ExpectScope ([string]$s.State.Scope) -Continuation $request -Contains:$contains
 }
 
 function Complete-DomeniaLiveObservationRead {

@@ -46,7 +46,7 @@ foreach($current in $themes){
         if(-not $Verify -and -not $CaptureDirectory){
             # Interactive demonstration of the real presentation controls, no authentication.
             $script:FastLoginUi=@{Window=$window}
-            foreach($pair in @(@('Login','TxtLogin'),@('Password','PwdLogin'),@('PasswordVisible','TxtLoginPasswordVisible'),@('Reveal','BtnRevealLogin'),@('Remember','ChkRemember'),@('Connect','BtnLogin'),@('Windows','BtnWindowsLogin'),@('Cancel','BtnCancel'),@('Progress','PbLogin'),@('Technical','TxtLoginTechnical'))){$script:FastLoginUi[$pair[0]]=$window.FindName($pair[1])}
+            foreach($pair in @(@('Login','TxtLogin'),@('Password','PwdLogin'),@('PasswordPeek','LoginPasswordPeek'),@('PasswordPeekText','LblLoginPasswordPeek'),@('Reveal','BtnRevealLogin'),@('Remember','ChkRemember'),@('Connect','BtnLogin'),@('Windows','BtnWindowsLogin'),@('Cancel','BtnCancel'),@('Progress','PbLogin'),@('Technical','TxtLoginTechnical'))){$script:FastLoginUi[$pair[0]]=$window.FindName($pair[1])}
             $window.FindName('BtnLogin').Content='Simuler une connexion';$window.FindName('BtnLogin').IsEnabled=$true
             $window.FindName('BtnLogin').Add_Click({
                 $script:FastLoginUi.Window.FindName('LblLoginError').Text='';Set-DomeniaFastLoginBusy $true
