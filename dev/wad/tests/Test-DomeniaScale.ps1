@@ -16,7 +16,8 @@ if($PSVersionTable.PSEdition -eq 'Core'){
 . ([scriptblock]::Create($native));[void](Initialize-DomeniaWinSqliteNative)
 Add-Type -Path (Join-Path $modules 'M4D.Admin.Common.Query.dll')
 Add-Type -Path (Join-Path $modules 'Domenia.Native.dll')
-foreach($name in @('Common.Model','Boards.Model','BoardFleet.Model','Probes.Model','Park.Model','Query.Model','Query.Worker','Storage.Worker','Engine.Worker')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+# HealthRules.Model: Get-DomeniaFleetQueryPlan and the board rules read the health policy (ConvertTo-DomeniaHealthPolicy).
+foreach($name in @('Common.Model','HealthRules.Model','Boards.Model','BoardFleet.Model','Probes.Model','Park.Model','Query.Model','Query.Worker','Storage.Worker','Engine.Worker')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 $storage=Get-DomeniaStorageWorkerCode;$reader=[scriptblock]::Create((Get-DomeniaLocalIndexReadWorkerCode))
 $ast=[Management.Automation.Language.Parser]::ParseInput($storage,[ref]$tokens,[ref]$errors)
 foreach($fn in @($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst]},$true))){. ([scriptblock]::Create($fn.Extent.Text))}
