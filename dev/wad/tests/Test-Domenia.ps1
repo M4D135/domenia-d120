@@ -52,6 +52,8 @@ $wanted=@('Write-DomeniaAtomicText','Read-DomeniaPreference','Write-DomeniaPrefe
     'ConvertTo-DomeniaLogFileLines','Get-DomeniaAppLogFallbackPaths','Write-DomeniaAppLogFile','Start-DomeniaAppLogFlushTimer','Stop-DomeniaAppLogQueue',
     'Invoke-DomeniaAppLogRotation','Flush-DomeniaAppLog','Invoke-DomeniaAppLogFlush','Set-DomeniaAppLogAvailability','Set-Status',
     'Get-DomeniaGridExportColumns','ConvertTo-DomeniaExportRows','Get-DomeniaExportFileName','Export-DomeniaCsv','Get-DomeniaCsvDelimiter',
+    # Point 50: the inventory export writes two files and announces what each one kept out.
+    'Export-DomeniaInventory',
     # CO-03 : cles de tri des colonnes datees, et le XAML ou elles sont designees.
     'Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys','Get-DomeniaInventoryAgeLabel','Get-DomeniaInventorySummaryText','Get-DomeniaSoftwareWorkerCode','Get-MainXaml',
     # CO-22 : decodage des options du compte affiche dans la fiche.
@@ -333,6 +335,22 @@ try {
         Assert-True (-not $text.Contains($key)) 'Cle de recuperation exportee'
         Assert-True ($text.Contains('PC-01') -and $text.Contains('12')) 'Valeur ordinaire perdue'
         Assert-True ([int]$result.Masked -eq 3 -and @($result.Withheld) -contains 'ms-Mcs-AdmPwd') ('Masquees : '+[string]$result.Masked)
+    }
+    Test-Case 'CSV point 50 : export d inventaire, valeurs masquees du fichier des acces annoncees aussi' {
+        $script:InventoryRows=@([pscustomobject]@{Propriete='Modele';Valeur='Fixture'})
+        $script:InventoryAccess=@([pscustomobject]@{Compte='EXAMPLE\lecteur';Droit='Administrateur local'})
+        $script:ExportAlso=$null;$script:ExportShown=$null
+        # Files are not written here: the two results of Export-DomeniaCsv are given, only the announcement is checked.
+        function Get-DomeniaExportComputerName {param([string]$Computer='') return 'PC-P50'}
+        function Export-DomeniaCsv {param($Rows,$Grid,[string]$Subject)
+            if($Subject -like '*-acces'){return [pscustomobject]@{Path='C:\fixture\Domenia-PC-P50-acces.csv';RowCount=1;Masked=2}}
+            return [pscustomobject]@{Path='C:\fixture\Domenia-PC-P50-inventaire.csv';RowCount=1;Masked=0}
+        }
+        function Show-DomeniaExportResult {param($Result,[string]$Scope='',[string]$Also='') $script:ExportShown=$Result;$script:ExportAlso=$Also}
+        Export-DomeniaInventory
+        Assert-True ($null -ne $script:ExportShown) 'Resultat de l export non annonce'
+        Assert-True ([string]$script:ExportAlso -match 'Domenia-PC-P50-acces\.csv') ([string]$script:ExportAlso)
+        Assert-True ([string]$script:ExportAlso -match '2 valeurs ressemblant à un secret y ont été masquées') ('Masquage du fichier des acces tu : '+[string]$script:ExportAlso)
     }
     Test-Case 'CSV UX-02 : nom Domenia-<OU ou poste>-AAAAMMJJ-HHmm, jamais d ecrasement' {
         $name=Get-DomeniaExportFileName -Subject 'Postes / Paris' -Time ([datetime]'2026-10-08T14:30:59')

@@ -345,6 +345,47 @@ Test-Case 'P45' 'Une validation posterieure au refus d un alias l emporte ; un r
     [void](Register-WCredentialFailure (& $script:P45Context $g 'jdupont@corp.example' '' 6) 'data 52e' Directory)
     Assert-Throws {Assert-WCredentialAllowed (& $script:P45Context $g '' 'jean.dupont@corp.example.com' 6) Remote} 'Un refus posterieur a la validation ne suspend pas l alias'
 }
+Test-Case 'P44' 'Une ecriture partie avant la correction garde son compte jusqu a sa fin, sans renvoyer un mot de passe refuse depuis' {
+    $g=& $script:P45Guard
+    [void](Clear-DomeniaCredentialGuardFault $g @('jdupont@corp.example') 7)
+    $write=& $script:P45Context $g '' 'jdupont@corp.example' 6 'RimotteRun'
+    $write|Add-Member -NotePropertyName CredentialWrite -NotePropertyValue $true
+    # Its next step (the removal of its own scheduled task, say) still takes the lease of its account.
+    $lease=Enter-WCredentialAttempt $write Remote 1
+    Exit-WCredentialAttempt $lease
+    Assert-Throws {Assert-WCredentialAllowed (& $script:P45Context $g '' 'jdupont@corp.example' 6 'ComputerInventory') Remote} 'Une lecture partie avant la correction renvoie l ancien mot de passe'
+    Assert-True (Register-WCredentialFailure $write ([ComponentModel.Win32Exception]::new(1326)) Remote) 'Le refus reste un echec pour l ecriture'
+    Assert-False $g.Faults.ContainsKey('jdupont@corp.example') 'Le refus de l ancien mot de passe suspend le compte corrige'
+    Assert-Throws {Assert-WCredentialAllowed $write Remote} 'L ecriture renvoie un mot de passe refuse depuis la correction'
+    Assert-WCredentialAllowed (& $script:P45Context $g '' 'jdupont@corp.example' 7 'ComputerInventory') Remote
+    # A write refused before the correction recorded the pause itself; once the account is released, it still never
+    # sends the password refused to it.
+    $g2=& $script:P45Guard
+    $early=& $script:P45Context $g2 '' 'jdupont@corp.example' 6 'RimotteRun'
+    $early|Add-Member -NotePropertyName CredentialWrite -NotePropertyValue $true
+    Assert-True (Register-WCredentialFailure $early ([ComponentModel.Win32Exception]::new(1326)) Remote)
+    Assert-True $g2.Faults.ContainsKey('jdupont@corp.example') 'Refus de l ecriture non enregistre'
+    [void](Clear-DomeniaCredentialGuardFault $g2 @('jdupont@corp.example') 7)
+    Assert-Throws {Assert-WCredentialAllowed $early Remote} 'L ecriture renvoie le mot de passe qui lui a ete refuse'
+    Assert-Equal 'jdupont@corp.example' (@($early.CredentialRefusedKeys) -join ',')
+}
+Test-Case 'P44' 'Anti-verrouillage : la pause reste tant qu une autre copie du mot de passe refuse envoie le compte' {
+    $h={param([string]$Use,[string]$Key,[long]$Generation)[pscustomobject]@{Use=$Use;Key=$Key;Generation=$Generation}}
+    $keys=@('jdupont@corp.example','jean.dupont@corp.example.com')
+    Assert-True (Get-DomeniaAccountReleaseDecision @((& $h 'Directory' 'jdupont@corp.example' (-1))) $keys (-1)).Release 'Rien en pause : rien a proteger'
+    # Validated as the workstation account; the connection account still holds the refused password.
+    $d=Get-DomeniaAccountReleaseDecision @((& $h 'Directory' 'jdupont@corp.example' (-1)),(& $h 'Remote' 'jdupont@corp.example' 8),(& $h 'Secrets' 'reader@corp.example' (-1))) $keys 5
+    Assert-False $d.Release 'Pause levee alors que le compte de connexion envoie encore l ancien mot de passe'
+    Assert-Equal 'Directory' (@($d.Stale) -join ',')
+    Assert-True ($d.Text -match 'compte de connexion') $d.Text;Assert-True ($d.Text -match 'Corriger le mot de passe') $d.Text;Assert-True ($d.Text -match 'lʼenvoie encore') $d.Text
+    # Another confirmed name of the same account, held by a temporary account, counts as well.
+    $d=Get-DomeniaAccountReleaseDecision @((& $h 'Remote' 'jdupont@corp.example' 8),(& $h 'Temporary' 'Jean.Dupont@corp.example.com' 4),(& $h 'Session' 'jdupont@corp.example' (-1))) $keys 5
+    Assert-Equal 'Session,Temporary' ((@($d.Stale)|Sort-Object) -join ',');Assert-True ($d.Text -match 'lʼenvoient encore') $d.Text
+    # Every copy validated after the refusal: released. A refusal of the validated password itself keeps the pause.
+    Assert-True (Get-DomeniaAccountReleaseDecision @((& $h 'Directory' 'jdupont@corp.example' 9),(& $h 'Remote' 'jdupont@corp.example' 8)) $keys 5).Release
+    Assert-False (Get-DomeniaAccountReleaseDecision @((& $h 'Remote' 'jdupont@corp.example' 8)) $keys 8).Release
+    Assert-True (Get-DomeniaAccountReleaseDecision @((& $h 'Directory' 'reader@corp.example' (-1))) $keys 5).Release 'Un autre compte bloque la liberation'
+}
 Test-Case 'P44' 'Plan de correction : lectures anciennes arretees, ecritures et autres comptes intacts' {
     $job={param($Id,[bool]$Write,[string]$State,[string]$Key,[long]$Generation,[bool]$Protected=$false)[pscustomobject]@{Id=$Id;IsWrite=$Write;NonCancellable=$Protected;State=$State;Keys=@($Key);Generation=$Generation}}
     $jobs=@((& $job 'read-old' $false 'Running' 'jdupont@corp.example' 3),(& $job 'read-alias' $false 'Running' 'jean.dupont@corp.example.com' 3),(& $job 'write' $true 'Running' 'jdupont@corp.example' 3),

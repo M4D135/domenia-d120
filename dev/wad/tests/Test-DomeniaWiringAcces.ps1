@@ -600,7 +600,7 @@ Test-Case 'P44 Correction sans reconnexion : generation, pause levee pour ce seu
             'write'=[pscustomobject]@{Id='write';IsWrite=$true;NonCancellable=$false;State='Running';CredentialGuardContext=(& $ctx 'postes@example.invalid' 10)}
             'other'=[pscustomobject]@{Id='other';IsWrite=$false;NonCancellable=$false;State='Running';CredentialGuardContext=(& $ctx 'autre@example.invalid' 10)}
         }
-        $text=Complete-DomeniaAccountCorrection -UserName 'EXAMPLE\postes' -Scopes @('Remote')
+        $text=[string](Complete-DomeniaAccountCorrection -UserName 'EXAMPLE\postes' -Scopes @('Remote')).Text
         Assert-True ([long]$script:DomeniaAccountGeneration -eq 11) 'Generation inchangee'
         Assert-True (-not $guard.Faults.ContainsKey('postes@example.invalid')) 'Pause du compte corrige conservee'
         Assert-True ($guard.Faults.ContainsKey('autre@example.invalid')) 'Pause d un autre compte levee'
@@ -654,6 +654,19 @@ Test-Case 'P44 Correction du compte de connexion : meme identite seulement, une 
         $script:Ctrl.PwdAccountAdCorrection.Clear()
     }
 }
+Test-Case 'P44 Anti-verrouillage : le compte de connexion saisi pour LAPS ne leve pas la pause tant qu il garde l ancien mot de passe' {
+    $script:Conn.UseCredential=$true;$script:Conn.AuthMode='Explicit';$script:Conn.Credential=New-TestCredential 'EXAMPLE\lecteur'
+    $script:DomeniaAccountGeneration=30L;$guard=New-P44Guard
+    $guard.Faults['lecteur@example.invalid']=[pscustomobject]@{Kind='LogonFailure';Code='0x8007052E';AtUtc=[datetime]::UtcNow;Generation=29L}
+    $script:NextCredential=New-TestCredential 'EXAMPLE\lecteur'
+    Invoke-DomeniaAccessRecovery (New-AccessRecord 'ReadLaps')
+    Assert-True ([object]::ReferenceEquals($script:AccessState.Credentials['ReadLaps'],$script:NextCredential)) 'Compte LAPS non memorise'
+    Assert-True ($guard.Faults.ContainsKey('lecteur@example.invalid')) 'Pause levee : le compte de connexion renverrait le mot de passe refuse'
+    Assert-True (-not (($guard.ContainsKey('Released')) -and ($guard.Released.ContainsKey('lecteur@example.invalid')))) 'Compte libere pour les operations anciennes'
+    Assert-True (@($script:StatusLines|Where-Object{($_ -match 'Pause maintenue') -and ($_ -match 'Corriger le mot de passe')}).Count -ge 1) ('Statut : '+($script:StatusLines -join ' | '))
+    Assert-True (@($script:Tasks|Where-Object{$_.OperationId -eq 'AccountAliasRead'}).Count -eq 0) 'Noms relus avec un compte en pause'
+    Assert-True (@($script:Tasks|Where-Object{$_.OperationId -eq 'ReadLaps'}).Count -eq 0) 'Lecture LAPS rejouee alors que le compte reste en pause'
+}
 Test-Case 'P45 Vrai worker : SID et noms d un seul compte, aucune association si plusieurs comptes' {
     $sid=[Security.Principal.SecurityIdentifier]::new('S-1-5-21-1-2-3-1104');$bytes=[byte[]]::new($sid.BinaryLength);$sid.GetBinaryForm($bytes,0)
     $directory=@{};$directory['DC=example,DC=invalid']=@(@{objectsid=@(,$bytes);samaccountname=@('jdupont');userprincipalname=@('jean.dupont@corp.example.com');distinguishedname=@('CN=Jean Dupont,OU=U,DC=example,DC=invalid')})
@@ -678,6 +691,8 @@ Test-Case 'P45 Resultat du worker : alias enregistres et pause etendue, compte a
     Assert-True ($guard.Faults.ContainsKey('jean.dupont@corp.example.com')) 'Pause non etendue a l UPN'
     Assert-True ($script:SyncCalls -eq 1) 'Lectures en file de l alias non retirees'
     Assert-True ((@(Get-DomeniaAccountAliasSummary) -join ' ') -match 'jdupont@example.invalid = jean.dupont@corp.example.com') 'Rapprochement non visible'
+    Assert-True (@(Get-DomeniaAccountAliasSummary).Count -eq 1) 'Une ligne par compte rapproche attendue'
+    Assert-True ([string]$script:Ctrl.LblAccountRule.Text -match 'Noms confirmés par lʼannuaire : jdupont@example\.invalid = jean\.dupont@corp\.example\.com \(même SID\)\.') ([string]$script:Ctrl.LblAccountRule.Text)
     $other=[pscustomobject]@{State='Ambiguous';Count=2;Sid='';Sam='';Upn='';Dn='';RequestSam='x';RequestUpn='';ObservedUtc=''}
     Complete-DomeniaAccountAliasRead $other ([pscustomobject]@{Epoch=[long]$script:SessionEpoch;BaseDn='DC=example,DC=invalid';UserName='EXAMPLE\x';Key='x@example.invalid'})
     Assert-True (-not $guard.Aliases.ContainsKey('x@example.invalid')) 'Association supposee sans compte unique'
@@ -693,6 +708,7 @@ Test-Case 'P42 Comptes : chaque usage nomme son compte et sa provenance, la corr
     Assert-True ($text.Contains('Annuaire : EXAMPLE\lecteur (compte de connexion).')) $text
     Assert-True ($text.Contains('Postes : EXAMPLE\postes (compte poste). En pause')) $text
     Assert-True ($text.Contains('LAPS : EXAMPLE\lecteur (compte de connexion (aucun compte spécifique))')) $text
+    Assert-True (-not $text.Contains('Noms confirmés')) ('Ligne des noms confirmes sans aucun nom : '+$text)
     Assert-True ([bool]$script:Ctrl.BtnAccountAdCorrect.IsEnabled) 'Correction indisponible pour une connexion explicite'
     $script:Conn.UseCredential=$false;$script:Conn.AuthMode='Windows';$script:Conn.Credential=$null
     Update-DomeniaAccountUi

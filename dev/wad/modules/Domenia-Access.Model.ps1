@@ -249,6 +249,45 @@ function Get-DomeniaAccountCorrectionPlan {
     return [pscustomobject]@{Stop=$stop.ToArray();Writes=$writes;AlreadyCurrent=$current;Text=($lines.ToArray() -join ' ')}
 }
 
+function Get-DomeniaAccountReleaseDecision {
+    # Point 44 (anti-lockout): a corrected account leaves the protection only when every stored credential that sends it
+    # was validated after the refusal that paused it. Otherwise a copy of the refused password kept elsewhere (connection
+    # account, workstation or secrets account, temporary account, account typed for the workstations, Windows session)
+    # would be sent again by the next read. $Holders: {Use, Key, Generation}, Generation = account generation of the
+    # in-place validation of that credential, -1 when it was never validated in place. $FaultGeneration: latest pause
+    # recorded on $Keys (the account and its confirmed names), -1 when nothing is paused: nothing to protect then.
+    param([object[]]$Holders=@(),[string[]]$Keys=@(),[long]$FaultGeneration=-1)
+    $wanted=@{}
+    foreach($key in @($Keys)){if(-not [string]::IsNullOrWhiteSpace([string]$key)){$wanted[([string]$key).Trim().ToLowerInvariant()]=$true}}
+    $labels=[ordered]@{
+        Directory='le compte de connexion (Comptes, Corriger le mot de passe)'
+        Session='la session Windows (Se connecter)'
+        Remote='le compte poste (Comptes, section Postes)'
+        Secrets='le compte secrets (Comptes, section Secrets)'
+        Machine='le compte poste saisi pour les interventions (à effacer ou à ressaisir)'
+        Temporary='un compte temporaire dʼune ressource (redemandé après un refus)'
+    }
+    $stale=New-Object 'System.Collections.Generic.List[string]'
+    if($FaultGeneration -ge 0){
+        foreach($holder in @($Holders)){
+            if($null -eq $holder){continue}
+            $key=([string](Get-DomeniaMember $holder 'Key' '')).Trim().ToLowerInvariant()
+            if((-not $key) -or (-not $wanted.ContainsKey($key))){continue}
+            if([long](Get-DomeniaMember $holder 'Generation' (-1)) -gt $FaultGeneration){continue}
+            $use=[string](Get-DomeniaMember $holder 'Use' '')
+            if(-not $labels.Contains($use)){$use='Temporary'}
+            if(-not $stale.Contains($use)){$stale.Add($use)}
+        }
+    }
+    $text=''
+    if($stale.Count -gt 0){
+        $names=@(foreach($use in @($labels.Keys)){if($stale.Contains([string]$use)){[string]$labels[$use]}})
+        $verb=' lʼenvoient';if($names.Count -eq 1){$verb=' lʼenvoie'}
+        $text='Pause maintenue pour ce compte : '+($names -join ' ; ')+$verb+' encore avec un mot de passe non revalidé. Revalidez-le aussi, ou reconnectez-vous ; aucun essai nʼest fait entre-temps.'
+    }
+    return [pscustomobject]@{Release=($stale.Count -eq 0);Stale=$stale.ToArray();Text=$text}
+}
+
 # ---------------------------------------------------------------- Point 42 visible use of each account
 function Get-DomeniaAccountUsageRows {
     # Point 42: which account each use takes now, where it comes from, and what the protection recorded. The
@@ -266,7 +305,7 @@ function Get-DomeniaAccountUsageRows {
         param([string]$User)
         if(-not $User){return 'Aucun compte'}
         $key=Get-DomeniaCredentialAccountKey $User $Domain $Netbios
-        if($key -and $paused.ContainsKey($key)){return 'En pause après un refus : corrigez-le ici ou reconnectez-vous.'}
+        if(($key) -and ($paused.ContainsKey($key))){return 'En pause après un refus : corrigez-le ici ou reconnectez-vous.'}
         return 'Aucun refus enregistré.'
     }
     $connectionSource=switch($ConnectionMode){'Explicit'{'compte de connexion'}'Windows'{'session Windows'}default{'aucune connexion'}}
@@ -288,7 +327,7 @@ function Get-DomeniaAccountUsageRows {
         elseif($scope.StartsWith('AD:')){$usage='Annuaire ('+$scope.Substring(3)+')'}
         $rows.Add([pscustomobject]@{Usage=$usage;Account=$user;Source='compte temporaire, oublié après inactivité';State=(& $state $user)})
     }
-    return ,$rows.ToArray()
+    return $rows.ToArray()
 }
 
 function Format-DomeniaAccountUsageText {
@@ -644,7 +683,7 @@ function Protect-DomeniaExportRows {
                 $safe[$name]='[valeur secrète non exportée]'
                 continue
             }
-            if(($value -is [string]) -and $hint.IsMatch($value)){
+            if(($value -is [string]) -and ($hint.IsMatch($value))){
                 $clean=Protect-DomeniaSecretText $value
                 if($clean -cne $value){$masked++}
                 $safe[$name]=$clean

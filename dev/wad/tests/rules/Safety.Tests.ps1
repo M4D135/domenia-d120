@@ -607,6 +607,21 @@ Test-Case 'P48' 'Liste exacte : type attendu, identite complete, doublon et limi
     Assert-True ((@($p.Lines) -join ' ') -match 'PC-2 : ping ICMP')
     Assert-True ($p.Details.Contains('CN=PC-5,DC=example,DC=test') -and $p.Details.Contains('PC-6 — Au-delà')) $p.Details
 }
+Test-Case 'P48' 'Au-dela de la limite : premieres lignes nommees, les autres comptees ; chaque cible garde sa position' {
+    $c={param([int]$n)[pscustomobject]@{Name=('PC-'+$n);DN=('CN=PC-'+$n+',DC=example,DC=test');Guid=('00000000-0000-0000-0000-'+$n.ToString('d12'));Type='Machine'}}
+    $candidates=@((& $c 1),(& $c 1))+@(for($i=2;$i -le 12;$i++){& $c $i})
+    $p=New-DomeniaCollectivePreview -OperationId 'BatchNetworkDiag' -Candidates $candidates -ExpectedType 'Machine' -Change 'ping' -Limit 3 -NamedBeyond 2 -ImpactFor {param($n) 'Environ '+$n+' poste(s)'}
+    Assert-Equal 'PC-1,PC-2,PC-3' ((@($p.Targets)|ForEach-Object{$_.Name}) -join ',')
+    Assert-Equal '0,2,3' ((@($p.Targets)|ForEach-Object{[string]$_.Index}) -join ',')
+    Assert-Equal 10 ([int]$p.ExcludedCount);Assert-Equal 3 @($p.Excluded).Count;Assert-Equal 7 ([int]$p.Uncounted)
+    $lines=(@($p.Lines) -join ' | ')
+    Assert-True ($lines -match '10 exclue\(s\) : Au-delà de la limite de 3 cibles \(9\) ; Doublon') $lines
+    Assert-True ($lines -match 'Impact : Environ 3 poste\(s\)') 'Impact non calcule sur le nombre exact de cibles'
+    Assert-True ($p.Details.Contains('PC-5 — Au-delà de la limite de 3 cibles')) $p.Details
+    Assert-True ($p.Details.Contains('… et 7 autre(s), non détaillée(s) — Au-delà de la limite de 3 cibles')) $p.Details
+    Assert-False ($p.Details.Contains('PC-6')) 'Ligne au-dela du nombre nomme detaillee'
+    Assert-Equal 10 @($p.Details -split "`n").Count
+}
 Test-Case 'P48' 'Avant et apres par cible, liste bornee a l ecran mais complete dans le detail' {
     $many=@(for($i=1;$i -le 30;$i++){[pscustomobject]@{Name=('U'+$i);DN=('CN=U'+$i+',DC=example,DC=test');Guid=([guid]::NewGuid().ToString());Type='Utilisateur';Before='Actif';After='Désactivé'}})
     $p=New-DomeniaCollectivePreview -OperationId 'WriteAccountDisabled' -Candidates $many -ExpectedType 'Utilisateur' -ShownLines 5

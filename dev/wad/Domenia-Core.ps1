@@ -11747,20 +11747,11 @@ if ($filters.Count -eq 0) { throw "Aucun filtre LDAP valide n'a ete construit." 
 $contexts = New-Object Collections.ArrayList
 [void]$contexts.Add($Context)
 if (-not [string]::IsNullOrWhiteSpace([string]$Context.Server)) {
-    [void]$contexts.Add([pscustomobject]@{
-        Server=""
-        BaseDn=[string]$Context.BaseDn
-        Domain=[string]$Context.Domain
-        Netbios=[string]$Context.Netbios
-        BindUser=[string]$Context.BindUser
-        Credential=$Context.Credential
-        UseCredential=[bool]$Context.UseCredential
-        PageSize=[int]$Context.PageSize
-        CredentialGuard=$Context.CredentialGuard
-        DirectoryAuthKey=$Context.DirectoryAuthKey
-        RemoteAuthKey=$Context.RemoteAuthKey
-        RemoteAdminAuthKey=$Context.RemoteAdminAuthKey
-    })
+    # Serverless retry: a copy of the whole context (account, account generation, operation, guard keys), only the
+    # server differs. A partial copy read as generation 0 would be refused after any in-place correction (point 44).
+    $serverless = $Context.PSObject.Copy()
+    $serverless.Server = ""
+    [void]$contexts.Add($serverless)
 }
 
 $rows = New-Object Collections.ArrayList
@@ -13988,7 +13979,12 @@ function Export-DomeniaInventory {
         $inventory = Export-DomeniaCsv -Rows @($script:InventoryRows) -Grid (Get-DomeniaControl -Name 'DgInventory') -Subject ($computer + '-inventaire')
         $access = Export-DomeniaCsv -Rows @($script:InventoryAccess) -Grid (Get-DomeniaControl -Name 'DgInventoryAccess') -Subject ($computer + '-acces')
         Add-DomeniaUiLog -Area "Inventaire" -Text ("Export CSV : " + [string]$inventory.Path + " et " + [string]$access.Path)
-        Show-DomeniaExportResult -Result $inventory -Also ('Accès : ' + [string]$access.RowCount + ' ligne(s) dans ' + [IO.Path]::GetFileName([string]$access.Path) + '.')
+        # Point 50: what the second file kept out is said too, never only the first file's total.
+        $also = 'Accès : ' + [string]$access.RowCount + ' ligne(s) dans ' + [IO.Path]::GetFileName([string]$access.Path) + '.'
+        $accessMasked = [int](Get-DomeniaMember $access 'Masked' 0)
+        if ($accessMasked -eq 1) { $also += ' 1 valeur ressemblant à un secret y a été masquée.' }
+        elseif ($accessMasked -gt 1) { $also += ' ' + $accessMasked + ' valeurs ressemblant à un secret y ont été masquées.' }
+        Show-DomeniaExportResult -Result $inventory -Also $also
     }
     catch { [void](Show-DomeniaOperationError -Operation "Export de l inventaire" -ErrorRecordOrException $_) }
 }
@@ -14609,15 +14605,23 @@ foreach($row in @($Payload.Rows)){
 '@
 
     # Every selected row is a candidate. A machine without a usable host name is left out first, with its reason; the
-    # preview then keeps the exact targets (machine, DN and GUID, no duplicate, explicit limit).
+    # preview then keeps the exact targets (machine, DN and GUID, no duplicate, explicit limit) from the rows
+    # themselves. A select-all of the grid runs on the interface thread: direct property reads, no function call nor
+    # copy per row; past the limit the preview only counts the rows.
     $candidates=New-Object 'System.Collections.Generic.List[object]';$excluded=New-Object 'System.Collections.Generic.List[object]'
     foreach($row in $items){
-        $name=([string](Get-DomeniaMember $row 'Name' '')).Trim();$dn=[string](Get-DomeniaMember $row 'DN' '');$type=[string](Get-DomeniaMember $row 'Type' '')
-        if(($type -eq 'Machine') -and ($name -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,252}$')){
-            $label=$name;if(-not $label){$label=$dn}
+        $name='';$type=''
+        if($row -is [Collections.IDictionary]){$name=[string](Get-DomeniaMember $row 'Name' '');$type=[string](Get-DomeniaMember $row 'Type' '')}
+        else{
+            $property=$row.PSObject.Properties['Name'];if($null -ne $property){$name=[string]$property.Value}
+            $property=$row.PSObject.Properties['Type'];if($null -ne $property){$type=[string]$property.Value}
+        }
+        if(($type -eq 'Machine') -and ($name.Trim() -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,252}$')){
+            $dn=[string](Get-DomeniaMember $row 'DN' '')
+            $label=$name.Trim();if(-not $label){$label=$dn}
             $excluded.Add([pscustomobject]@{Name=$label;DN=$dn;Reason='Nom de poste absent ou non valide'});continue
         }
-        $candidates.Add([pscustomobject]@{Name=$name;DN=$dn;Guid=[string](Get-DomeniaMember $row 'Guid' '');Type=$type})
+        $candidates.Add($row)
     }
     $timeoutSeconds=[Math]::Max(20,[int](Get-CfgValue "Async" "ComputerTimeoutSeconds" 90))
     $impact='un poste après lʼautre ; la tâche sʼarrête au bout de '+$timeoutSeconds+' s, sans résultat partiel.'
@@ -21836,7 +21840,7 @@ function Update-DomeniaAccountUi {
                 $temporary = @()
                 if ($null -ne $script:AccessState) { $temporary = @($script:AccessState.Credentials.Keys | Sort-Object | ForEach-Object { [pscustomobject]@{ Scope = [string]$_; UserName = [string]$script:AccessState.Credentials[$_].UserName } }) }
                 $mode = if (-not [bool]$script:Conn.Connected) { 'None' } elseif ([bool]$script:Conn.UseCredential) { 'Explicit' } else { 'Windows' }
-                $usage = Get-DomeniaAccountUsageRows -ConnectionUser $currentAd -ConnectionMode $mode -RemoteUser $remoteName -SecretsUser $secretName -Temporary $temporary -Faults @(Get-DomeniaCredentialGuardFailures $script:DomeniaCredentialGuard) -Domain ([string]$script:Conn.Domain) -Netbios ([string]$script:Conn.Netbios)
+                $usage = @(Get-DomeniaAccountUsageRows -ConnectionUser $currentAd -ConnectionMode $mode -RemoteUser $remoteName -SecretsUser $secretName -Temporary $temporary -Faults @(Get-DomeniaCredentialGuardFailures $script:DomeniaCredentialGuard) -Domain ([string]$script:Conn.Domain) -Netbios ([string]$script:Conn.Netbios))
                 $text = Format-DomeniaAccountUsageText -Rows $usage
                 $aliases = @(Get-DomeniaAccountAliasSummary)
                 if ($aliases.Count -gt 0) { $text += [Environment]::NewLine + 'Noms confirmés par lʼannuaire : ' + ($aliases -join ' ; ') + '.' }

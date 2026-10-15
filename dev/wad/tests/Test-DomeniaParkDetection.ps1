@@ -94,6 +94,24 @@ Case 'Point 48 : apercu exact des cibles, exclusions motivees, confirmation prop
  Assert ($p.Typed -eq '') 'Saisie exigee pour une lecture de 1 poste'
  & $script:Cancel
 }
+Case 'Point 48 : un GUID present sous deux DN de la base, une seule cible interrogee et comptee' {
+ Reset-Fixture
+ Add-DisplayedMachine;Start-DomeniaOnlinePark -DisplayedResults;$call=$script:Calls[0]
+ # The local base can keep two active rows of one object (old and new DN): the preview lists it once, the run follows.
+ $old=New-Target 1;$old.Key='cn=pc-1-ancien,ou=anciens,dc=example,dc=invalid'
+ Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@((New-Target 1),$old,(New-Target 2));Busy=$false}) $call.State
+ [void]$script:AsyncJobs.Remove($call.Id)
+ $lines=(@($script:Preview.Changes) -join ' ')
+ Assert ($lines -match '2 cibles exactes') $lines
+ Assert ($script:Preview.Details -match 'Doublon') $script:Preview.Details
+ Assert (@($script:ParkRun.Targets).Count -eq 2) ('Cibles du releve : '+@($script:ParkRun.Targets).Count)
+ Assert ((@($script:ParkRun.Targets|ForEach-Object{[string]$_.Key}) -join '|') -eq 'cn=pc-1,dc=example,dc=invalid|cn=pc-2,dc=example,dc=invalid') 'Ancien DN garde dans le releve'
+ Assert ($script:Message -match '^2 postes') $script:Message
+ & $script:Confirm
+ foreach($i in 1..6){Invoke-DomeniaParkRunTick}
+ $probed=@($script:Calls|Select-Object -Skip 1)
+ Assert ($probed.Count -eq 2) ('Postes contactes : '+$probed.Count)
+}
 Case 'Point 48 : au-dela de 200 postes, la lecture demande de saisir le nombre de cibles' {
  Reset-Fixture;Ready-Run 201
  Assert ($script:Preview.Typed -eq '201') ('Saisie : '+$script:Preview.Typed)

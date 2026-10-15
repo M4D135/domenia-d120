@@ -351,6 +351,49 @@ Case 'Point 41: a refusal withdraws the queued reads of that account only, never
     Assert $blocked 'Une lecture deja partie peut encore envoyer le compte refuse'
 }
 
+# ---------------------------------------------------------------- Point 44 in-place correction, as the workers see it
+Case 'Point 44: the serverless retry of the global search keeps the account generation, so a correction never suspends the AD channel' {
+    # The real worker block of Invoke-GlobalSearch builds its contexts; after a correction released at generation 5, a
+    # search dispatched at 5 whose preferred controller fails must still reach the serverless context.
+    $text=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1'))
+    $worker=[regex]::Match($text,"(?ms)^function Invoke-GlobalSearch \{.*?^'@").Value
+    Assert ($worker) 'Worker de recherche introuvable'
+    $block=[regex]::Match($worker,'(?ms)^\$contexts = New-Object Collections\.ArrayList\r?\n.*?(?=^\$rows = New-Object Collections\.ArrayList)').Value
+    Assert ($block) 'Construction des contextes de recherche introuvable'
+    $guard=[hashtable]::Synchronized(@{Epoch=14L;Faults=@{};Revision=0L;NotifiedRevision=0L})
+    $guard.Faults['reader@example.invalid']=[pscustomobject]@{Kind='LogonFailure';Code='0x8007052E';AtUtc=[datetime]::UtcNow;Generation=4L}
+    [void](Clear-DomeniaCredentialGuardFault -Guard $guard -Keys @('reader@example.invalid') -Generation 5)
+    $Context=[pscustomobject]@{Server='dc1.example.invalid';BaseDn='DC=example,DC=invalid';Domain='example.invalid';Netbios='EXAMPLE';BindUser='EXAMPLE\reader';Credential=$null;UseCredential=$false;PageSize=300;ProcessIdentity='EXAMPLE\reader';OperationId='GlobalSearch';CredentialGuard=$guard;DirectoryAuthKey='reader@example.invalid';RemoteAuthKey='';RemoteAdminAuthKey='';ActiveRemoteAuthKey='';LastAuthChannel='';CredentialGeneration=5L;CredentialWrite=$false}
+    . ([scriptblock]::Create($block))
+    Assert ($contexts.Count -eq 2) ('Contextes : '+$contexts.Count)
+    $serverless=$contexts[1]
+    Assert ([string]$serverless.Server -eq '') 'Le second contexte vise encore le controleur prefere'
+    Assert ([string]$Context.Server -eq 'dc1.example.invalid') 'Le contexte du worker a ete modifie'
+    Assert (([long]$serverless.CredentialGeneration -eq 5) -and ([string]$serverless.OperationId -eq 'GlobalSearch') -and ([string]$serverless.ProcessIdentity -eq 'EXAMPLE\reader')) 'Copie partielle du contexte'
+    Assert-WCredentialAllowed $serverless Directory
+    $lease=Enter-WCredentialAttempt -Context $serverless -Channel Directory -WaitSeconds 1;Exit-WCredentialAttempt $lease
+}
+Case 'Point 44: every dispatched job says whether it is a write; a write keeps its account after a correction' {
+    $script:SessionEpoch=15L;$script:DomeniaCredentialGuard=$null;$script:DomeniaAccountGeneration=3L
+    $make={param([string]$Op,[bool]$Write)
+        $ctx=[pscustomobject]@{Domain='example.invalid';Netbios='EXAMPLE';ProcessIdentity='EXAMPLE\admin';Credential=$null;MachineCredential=$null;RemoteAdminCredential=$null}
+        Set-DomeniaCredentialGuardContext -Context $ctx -OperationId $Op -IsWrite $Write}
+    $write=& $make 'ComputerRestart' $true
+    $read=& $make 'ComputerInventory' $false
+    Assert ([bool]$write.CredentialWrite -and (-not [bool]$read.CredentialWrite)) 'Nature du travail absente du contexte'
+    Assert ((@(Get-WCredentialGuardKeys $write Remote) -join ',') -eq 'admin@example.invalid') ('Cle : '+(@(Get-WCredentialGuardKeys $write Remote) -join ','))
+    $script:DomeniaAccountGeneration=4L
+    [void](Clear-DomeniaCredentialGuardFault -Guard $script:DomeniaCredentialGuard -Keys @('admin@example.invalid') -Generation 4)
+    $lease=Enter-WCredentialAttempt -Context $write -Channel Remote -WaitSeconds 1;Exit-WCredentialAttempt $lease
+    $blocked=$false;try{Assert-WCredentialAllowed $read Remote}catch{$blocked=$true}
+    Assert $blocked 'Une lecture partie avant la correction renvoie l ancien mot de passe'
+    # The dispatcher hands the nature of the job to the guard and keeps it on the job projection.
+    $engine=[IO.File]::ReadAllText((Join-Path $wad 'modules\Domenia-Engine.UI.ps1'))
+    $dispatch=[regex]::Match($engine,'(?ms)^function Invoke-DomeniaUiTaskDispatch \{.*?^\}').Value
+    Assert ($dispatch.Contains('Set-DomeniaCredentialGuardContext -Context $context -OperationId $requested -IsWrite $isWrite')) 'Nature du travail non transmise a la protection'
+    Assert ($dispatch.Contains('CredentialWrite=[bool]$isWrite')) 'Nature du travail absente du travail en file'
+}
+
 $report=[pscustomobject]@{Suite='CredentialGuard';Synthetic=$true;NetworkCalls=0;Passed=(@($checks|Where-Object{-not $_.Passed}).Count -eq 0);Cases=$checks.ToArray();PowerShell=[string]$PSVersionTable.PSVersion}
 if($ReportPath){[IO.File]::WriteAllText($ReportPath,($report|ConvertTo-Json -Depth 7),[Text.UTF8Encoding]::new($false))}
 $report|ConvertTo-Json -Depth 7

@@ -418,7 +418,7 @@ function Invoke-DomeniaAccessRecovery {
         $script:AccessState.Credentials[$credentialKey]=$credential
         [void](Save-DomeniaAccountPreference -Scope ([string]$Record.Scope) -UserName ([string]$credential.UserName) -Target $target)
         # Point 44: the same correction path as the Comptes tab: generation, protection of this account only, old reads.
-        $correction=Complete-DomeniaAccountCorrection -UserName ([string]$credential.UserName) -Scopes @([string]$Record.Scope) -Target $target
+        $correction=Complete-DomeniaAccountCorrection -UserName ([string]$credential.UserName) -Scopes @([string]$Record.Scope) -Target $target -Credential $credential
         # D054: sliding inactivity lease, measured from the last worker departure, and bound to this session.
         $leases=Get-DomeniaMember $script:AccessState 'Leases' $null
         if($null -eq $leases){$leases=@{};$script:AccessState|Add-Member -NotePropertyName Leases -NotePropertyValue $leases -Force}
@@ -435,10 +435,14 @@ function Invoke-DomeniaAccessRecovery {
         Write-AppLog ('Autre compte valide pour '+$Record.Scope+' : '+$credential.UserName+'. Aucun secret persiste.') 'INFO'
         # One read may be replayed once after acceptance (Get-DomeniaReauthPlan). A write never is.
         $plan=Get-DomeniaReauthPlan -Category (ConvertTo-DomeniaAccessCategory ([string]$Record.Kind)) -IsWrite ([bool]$Record.IsWrite) -Attempt 0
-        if($plan.RetryOnce -and $Record.Scope -in @('ReadLaps','ReadBitLocker') -and $null -ne $script:SelectedObject -and $Record.DN -ieq [string]$script:SelectedObject.DN -and $Record.Generation -eq [long]$script:SelectedObjectGeneration){
+        # Point 44: while the account stays paused (another stored copy of its refused password), nothing is replayed.
+        if(([bool]$correction.Released) -and ([bool]$plan.RetryOnce) -and ($Record.Scope -in @('ReadLaps','ReadBitLocker')) -and ($null -ne $script:SelectedObject) -and ($Record.DN -ieq [string]$script:SelectedObject.DN) -and ($Record.Generation -eq [long]$script:SelectedObjectGeneration)){
             $mode=if($Record.Scope -eq 'ReadLaps'){'LAPS'}else{'BitLocker'}
             Start-LoadComputerSecrets -Mode $mode -RetryAttempt 1
-        }else{Set-Status ('Compte valide et memorise pour cette ressource. Relancez volontairement l action ; ses controles et confirmations restent obligatoires. '+[string]$correction)}
+        }else{
+            $level='INFO';if(-not [bool]$correction.Released){$level='WARN'}
+            Set-Status ('Compte valide et memorise pour cette ressource. Relancez volontairement l action ; ses controles et confirmations restent obligatoires. '+[string]$correction.Text) $level
+        }
     }finally{$script:AccessState.Showing=$false;Update-DomeniaAccessButton}
 }
 function Resolve-DomeniaCapabilityRoute {

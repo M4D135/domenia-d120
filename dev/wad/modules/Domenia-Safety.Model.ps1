@@ -502,6 +502,9 @@ function New-DomeniaCollectivePreview {
     # operator chose; nothing is read or sent here. $Candidates: {Name, DN, Guid, Type, Before, After};
     # $Excluded: exclusions decided upstream, {Name, DN, Reason}. A write, a remote action or an unknown operation on
     # two targets or more asks for the number of targets to be typed; a read does so above $TypedThreshold targets.
+    # Each target keeps the position (Index) of its candidate, so that the caller runs on these targets only. Past the
+    # limit, the first $NamedBeyond candidates are named and the others only counted. $ImpactFor, when given, gives the
+    # impact sentence for the exact number of targets (known once duplicates and exclusions are removed).
     param(
         [Parameter(Mandatory=$true)][string]$OperationId,
         [object[]]$Candidates=@(),
@@ -511,7 +514,9 @@ function New-DomeniaCollectivePreview {
         [AllowEmptyString()][string]$Impact='',
         [ValidateRange(1,100000)][int]$Limit=20000,
         [ValidateRange(1,100000)][int]$TypedThreshold=200,
-        [ValidateRange(1,200)][int]$ShownLines=12
+        [ValidateRange(1,200)][int]$ShownLines=12,
+        [ValidateRange(0,100000)][int]$NamedBeyond=100,
+        [scriptblock]$ImpactFor=$null
     )
     $targets = New-Object 'System.Collections.Generic.List[object]'
     $left = New-Object 'System.Collections.Generic.List[object]'
@@ -520,9 +525,21 @@ function New-DomeniaCollectivePreview {
         if ($null -eq $item) { continue }
         $left.Add([pscustomobject]@{Name=[string](Get-DomeniaMember $item 'Name' '');DN=[string](Get-DomeniaMember $item 'DN' '');Reason=[string](Get-DomeniaMember $item 'Reason' 'Exclu')})
     }
+    $beyondReason = 'Au-delà de la limite de ' + $Limit + ' cibles'
+    $examinedBeyond = 0; $uncounted = 0
+    $list = @($Candidates)
     # Up to 20 000 rows on the interface thread: direct property reads, no function call per field.
-    foreach ($candidate in @($Candidates)) {
+    for ($index = 0; $index -lt $list.Count; $index++) {
+        $candidate = $list[$index]
         if ($null -eq $candidate) { continue }
+        if ($targets.Count -ge $Limit) {
+            # Past the limit, the rows are counted once enough of them are named: no object nor line for each one.
+            if ($examinedBeyond -ge $NamedBeyond) {
+                for ($rest = $index; $rest -lt $list.Count; $rest++) { if ($null -ne $list[$rest]) { $uncounted++ } }
+                break
+            }
+            $examinedBeyond++
+        }
         $name = ''; $dn = ''; $guid = ''; $type = ''; $before = ''; $after = ''
         if ($candidate -is [Collections.IDictionary]) {
             $name = [string](Get-DomeniaMember $candidate 'Name' ''); $dn = [string](Get-DomeniaMember $candidate 'DN' ''); $guid = [string](Get-DomeniaMember $candidate 'Guid' '')
@@ -544,12 +561,12 @@ function New-DomeniaCollectivePreview {
         if (($ExpectedType) -and ($type) -and ($type -ne $ExpectedType)) { $reason = 'Type ' + $type + ' hors du périmètre de lʼopération' }
         elseif ((-not $dn) -or (-not $guid)) { $reason = 'Identité incomplète (DN ou GUID absent) : relisez la fiche' }
         elseif ($seen.ContainsKey($guid.ToLowerInvariant())) { $reason = 'Doublon dʼun objet déjà listé' }
-        elseif ($targets.Count -ge $Limit) { $reason = 'Au-delà de la limite de ' + $Limit + ' cibles' }
+        elseif ($targets.Count -ge $Limit) { $reason = $beyondReason }
         if ($reason) { $left.Add([pscustomobject]@{Name=$label;DN=$dn;Reason=$reason}); continue }
         $seen[$guid.ToLowerInvariant()] = $true
         $text = $Change
-        if ($before -or $after) { $text = $before + ' → ' + $after }
-        $targets.Add([pscustomobject]@{Name=$label;DN=$dn;Guid=$guid;Type=$type;Change=$text})
+        if (($before) -or ($after)) { $text = $before + ' → ' + $after }
+        $targets.Add([pscustomobject]@{Name=$label;DN=$dn;Guid=$guid;Type=$type;Change=$text;Index=$index})
     }
     $effect = Get-DomeniaOperationEffect $OperationId
     $risk = 'Normal'; $level = 'Simple'; $typed = ''
@@ -568,10 +585,15 @@ function New-DomeniaCollectivePreview {
         $lines.Add($line)
     }
     if ($count -gt $shown) { $lines.Add('… et ' + ($count - $shown) + ' autre(s).') }
-    if ($left.Count -gt 0) {
-        $groups = @($left | Group-Object -Property Reason | Sort-Object -Property @{Expression='Count';Descending=$true},Name)
-        $lines.Add([string]$left.Count + ' exclue(s) : ' + ((@($groups | ForEach-Object { [string]$_.Name + ' (' + $_.Count + ')' })) -join ' ; ') + '.')
+    $excludedCount = $left.Count + $uncounted
+    if ($excludedCount -gt 0) {
+        $byReason = @{}; $reasons = New-Object 'System.Collections.Generic.List[string]'
+        foreach ($item in $left) { $why = [string]$item.Reason; if (-not $byReason.ContainsKey($why)) { $byReason[$why] = 0; $reasons.Add($why) }; $byReason[$why] = [int]$byReason[$why] + 1 }
+        if ($uncounted -gt 0) { if (-not $byReason.ContainsKey($beyondReason)) { $byReason[$beyondReason] = 0; $reasons.Add($beyondReason) }; $byReason[$beyondReason] = [int]$byReason[$beyondReason] + $uncounted }
+        $groups = @($reasons | Sort-Object -Property @{Expression={[int]$byReason[$_]};Descending=$true},@{Expression={$_}})
+        $lines.Add([string]$excludedCount + ' exclue(s) : ' + ((@($groups | ForEach-Object { $_ + ' (' + $byReason[$_] + ')' })) -join ' ; ') + '.')
     }
+    if (($null -ne $ImpactFor) -and (-not $Impact)) { try { $Impact = [string](& $ImpactFor $count) } catch { $Impact = '' } }
     if ($Impact) { $lines.Add('Impact : ' + $Impact) }
     if ($level -eq 'Typed') { $lines.Add('Confirmation renforcée : saisissez le nombre de cibles (' + $typed + ').') }
     $details = New-Object 'System.Collections.Generic.List[string]'
@@ -582,14 +604,15 @@ function New-DomeniaCollectivePreview {
         if ([string]$target.Change) { $entry += ' — ' + [string]$target.Change }
         $details.Add($entry)
     }
-    if ($left.Count -gt 0) {
+    if ($excludedCount -gt 0) {
         $details.Add('')
-        $details.Add('Exclues (' + $left.Count + ') :')
+        $details.Add('Exclues (' + $excludedCount + ') :')
         foreach ($item in $left) { $details.Add([string]$item.Name + ' — ' + [string]$item.Reason) }
+        if ($uncounted -gt 0) { $details.Add('… et ' + $uncounted + ' autre(s), non détaillée(s) — ' + $beyondReason) }
     }
     return [pscustomobject]@{
-        OperationId=$OperationId;Effect=$effect;Targets=$targets.ToArray();Excluded=$left.ToArray();Count=$count;ExcludedCount=$left.Count
-        Lines=$lines.ToArray();Details=($details.ToArray() -join "`n");Risk=$risk;Level=$level;TypedText=$typed
+        OperationId=$OperationId;Effect=$effect;Targets=$targets.ToArray();Excluded=$left.ToArray();Count=$count;ExcludedCount=$excludedCount
+        Uncounted=$uncounted;Lines=$lines.ToArray();Details=($details.ToArray() -join "`n");Risk=$risk;Level=$level;TypedText=$typed
     }
 }
 
@@ -698,12 +721,12 @@ function Resolve-DomeniaReceiptCheck {
             $value = 0L
             # The unlock wrote 0: an attribute absent from the answer is unread, never an unlocked account.
             if (-not $raw) { return [pscustomobject]@{Verified=$false;Reason='lockoutTime non relu.'} }
-            if ([long]::TryParse($raw,[ref]$value) -and ($value -eq 0)) { return [pscustomobject]@{Verified=$true;Reason='lockoutTime relu à 0 : compte déverrouillé.'} }
+            if (([long]::TryParse($raw,[ref]$value)) -and ($value -eq 0)) { return [pscustomobject]@{Verified=$true;Reason='lockoutTime relu à 0 : compte déverrouillé.'} }
             return [pscustomobject]@{Verified=$false;Reason='lockoutTime relu non nul : déverrouillage non constaté (compte encore ou de nouveau verrouillé).'}
         }
         'PwdLastSetZero' {
             $value = -1L
-            if ([long]::TryParse([string](Get-DomeniaMember $Observed 'PwdLastSet' ''),[ref]$value) -and ($value -eq 0)) { return [pscustomobject]@{Verified=$true;Reason='pwdLastSet relu à 0 : changement imposé à la prochaine ouverture.'} }
+            if (([long]::TryParse([string](Get-DomeniaMember $Observed 'PwdLastSet' ''),[ref]$value)) -and ($value -eq 0)) { return [pscustomobject]@{Verified=$true;Reason='pwdLastSet relu à 0 : changement imposé à la prochaine ouverture.'} }
             return [pscustomobject]@{Verified=$false;Reason='pwdLastSet relu différent de 0.'}
         }
         'PasswordChangedAfterSend' {
@@ -749,7 +772,7 @@ function Resolve-DomeniaReceiptCheck {
         }
         'Existence' {
             $exists = Get-DomeniaMember $Observed 'Exists' $null
-            if (($exists -is [bool]) -and $exists) { return [pscustomobject]@{Verified=$true;Reason='OU relue sous son parent.'} }
+            if (($exists -is [bool]) -and ($exists)) { return [pscustomobject]@{Verified=$true;Reason='OU relue sous son parent.'} }
             return [pscustomobject]@{Verified=$false;Reason='OU non constatée sous son parent.'}
         }
         'Absence' {

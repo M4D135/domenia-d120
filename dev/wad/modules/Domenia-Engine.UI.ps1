@@ -141,7 +141,7 @@ function Initialize-DomeniaCredentialGuard {
 function Set-DomeniaCredentialGuardContext {
     # One shared breaker for every use of the same account, independent of target/provider/scheduler.
     # A new login session gets a new map; a successful unrelated read never clears an existing refusal.
-    param($Context,[string]$OperationId)
+    param($Context,[string]$OperationId,[bool]$IsWrite=$false)
     [void](Initialize-DomeniaCredentialGuard)
     $needs=Get-DomeniaOperationCredentialNeeds $OperationId
     $local=([string]$needs.Provider -in @('Storage','Local') -or $OperationId -in @('LiveSelectedPing','ComputerPing','SelectedPresence','PresenceScan','WakeOnLanSend','ParkSharedSync','ConnectorRead'))
@@ -164,9 +164,11 @@ function Set-DomeniaCredentialGuardContext {
     $Context | Add-Member -NotePropertyName RemoteAdminAuthKey -NotePropertyValue $remoteAdmin -Force
     $Context | Add-Member -NotePropertyName ActiveRemoteAuthKey -NotePropertyValue $remote -Force
     $Context | Add-Member -NotePropertyName LastAuthChannel -NotePropertyValue '' -Force
-    # Point 44: the account generation at dispatch. A job that left before a correction of its account keeps the
+    # Point 44: the account generation at dispatch. A read that left before a correction of its account keeps the
     # previous password: the guard refuses its next attempt and ignores its refusal.
     $Context | Add-Member -NotePropertyName CredentialGeneration -NotePropertyValue ([long]$script:DomeniaAccountGeneration) -Force
+    # A write keeps that account until its end, even after a correction (Assert-WCredentialAllowed).
+    $Context | Add-Member -NotePropertyName CredentialWrite -NotePropertyValue ([bool]$IsWrite) -Force
     return $Context
 }
 
@@ -230,7 +232,7 @@ function Invoke-DomeniaUiTaskDispatch {
     # The production guards (circuit breaker, refused scopes, alternate accounts) run on the requested operation.
     $context = Set-DomeniaTargetCredentialContext -Context (Get-WorkerContext -OperationId $requested -Payload $Job.Payload) -Payload $Job.Payload
     $context | Add-Member -NotePropertyName CredentialTarget -NotePropertyValue ([string](Get-DomeniaMember $Job.Payload 'Computer' '')) -Force
-    $context = Set-DomeniaCredentialGuardContext -Context $context -OperationId $requested
+    $context = Set-DomeniaCredentialGuardContext -Context $context -OperationId $requested -IsWrite $isWrite
     if($requested -eq 'LiveConsole' -and -not [bool](Get-DomeniaMember $Job.Payload 'ValidateConsoleIdentity' $true)){$context.DirectoryAuthKey=''}
     if($requested -eq 'LiveConsole' -and -not [bool](Get-DomeniaMember $Job.Payload 'ProbeUser' $true) -and -not [bool](Get-DomeniaMember $Job.Payload 'Inventory' $false) -and @((Get-DomeniaMember $Job.Payload 'Probes' @())).Count -eq 0){
         $context.DirectoryAuthKey='';$context.RemoteAuthKey='';$context.RemoteAdminAuthKey='';$context.ActiveRemoteAuthKey=''
@@ -241,7 +243,7 @@ function Invoke-DomeniaUiTaskDispatch {
     }
     if(-not [bool]$script:DemoMode){Assert-WCredentialAllowed -Context $context}
     # Keep only the map and account keys on the job, never a second reference to its credentials.
-    $Job | Add-Member -NotePropertyName CredentialGuardContext -NotePropertyValue ([pscustomobject]@{CredentialGuard=$context.CredentialGuard;DirectoryAuthKey=$context.DirectoryAuthKey;RemoteAuthKey=$context.RemoteAuthKey;RemoteAdminAuthKey=$context.RemoteAdminAuthKey;ActiveRemoteAuthKey=$context.ActiveRemoteAuthKey;OperationId=$requested;CredentialGeneration=[long]$context.CredentialGeneration}) -Force
+    $Job | Add-Member -NotePropertyName CredentialGuardContext -NotePropertyValue ([pscustomobject]@{CredentialGuard=$context.CredentialGuard;DirectoryAuthKey=$context.DirectoryAuthKey;RemoteAuthKey=$context.RemoteAuthKey;RemoteAdminAuthKey=$context.RemoteAdminAuthKey;ActiveRemoteAuthKey=$context.ActiveRemoteAuthKey;OperationId=$requested;CredentialGeneration=[long]$context.CredentialGeneration;CredentialWrite=[bool]$isWrite}) -Force
     $provider = [string]$Job.Provider
     if (-not $provider) { $provider = Get-DomeniaOperationProvider $requested }
     $Job.CredentialIdentity = Get-DomeniaContextCredentialIdentity -Context $context -Provider $provider
