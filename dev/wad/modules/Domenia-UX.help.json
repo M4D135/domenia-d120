@@ -4100,5 +4100,40 @@
     "Text": "Prépare le diagnostic expurgé (versions, mesures locales, codes dʼerreur, traces sans cible), le montre en entier, puis lʼenregistre dans un fichier local après confirmation. Aucun envoi.",
     "Kind": "Button",
     "Source": "W13"
+  },
+  {
+    "Name": "BtnPaletteClose",
+    "Title": "Fermer la palette",
+    "Text": "Ferme la palette sans rien lancer. Échap fait de même.",
+    "Kind": "Button",
+    "Source": "W13"
+  },
+  {
+    "Name": "TxtPaletteSearch",
+    "Title": "Rechercher une action",
+    "Text": "Tapez quelques lettres : accents et majuscules sont ignorés. Flèches pour choisir, Entrée pour exécuter, Échap pour fermer.",
+    "Kind": "TextBox",
+    "Source": "W13"
+  },
+  {
+    "Name": "LstPaletteCommands",
+    "Title": "Actions",
+    "Text": "Actions de la palette : les disponibles dʼabord, avec leur raccourci. Une action indisponible dit pourquoi.",
+    "Kind": "ListBox",
+    "Source": "W13"
+  },
+  {
+    "Name": "LblPaletteDetail",
+    "Title": "Détail de lʼaction choisie",
+    "Text": "Ce que fait lʼaction choisie, ou pourquoi elle est indisponible.",
+    "Kind": "TextBlock",
+    "Source": "W13"
+  },
+  {
+    "Name": "LblPaletteStatus",
+    "Title": "État de la palette",
+    "Text": "Nombre dʼactions affichées et touches utiles : Entrée exécute, Échap ferme, Ctrl+K rouvre la palette.",
+    "Kind": "TextBlock",
+    "Source": "W13"
   }
 ]

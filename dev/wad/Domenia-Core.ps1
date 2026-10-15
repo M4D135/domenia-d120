@@ -18312,16 +18312,13 @@ function Register-DomeniaShortcuts {
         @{ Key="I"; Modifiers="Control"; Action={ Select-DomeniaWorkspace -Workspace "TabApplicationTools" -Inner "ApplicationToolTabs" -Tab "TabIndex" } },
         @{ Key="T"; Modifiers="Control"; Action={ Toggle-DomeniaTheme } },
         @{ Key="Escape"; Modifiers="None"; Action={
+            # W13 (point 115): Échap closes the open layer (palette, operations panel) or clears the text typed in the
+            # search bar. It never empties a result list: the list stays until the next search.
+            try { if (Test-DomeniaCommandPaletteOpen) { Hide-DomeniaCommandPalette; return } } catch { }
+            try { if (Test-DomeniaOperationsPanelOpen) { Hide-DomeniaOperationsPanel; return } } catch { }
             $box = Get-DomeniaControl -Name "TxtGlobalSearch"
-            if ($null -ne $box -and $box.IsKeyboardFocusWithin) {
-                try {
-                    $box.Text = ""
-                    $script:BranchObjects = @()
-                    [void](Set-DomeniaItemsSource -Name "DgObjects" -Rows @())
-                    [void](Set-DomeniaControlText -Name "LblBranchCount" -Text "0 objet")
-                    Update-Dashboard
-                }
-                catch { }
+            if ($null -ne $box -and $box.IsKeyboardFocusWithin -and -not [string]::IsNullOrEmpty([string]$box.Text)) {
+                try { $box.Text = "" } catch { }
             }
         } }
     )
@@ -18363,7 +18360,7 @@ function Register-DomeniaShortcuts {
         }
     }
 
-    Add-DomeniaUiLog -Area "Interface" -Text ("{0} raccourci(s) clavier actifs : F5 arbre, Ctrl+K raccourcis, Ctrl+Shift+C résumé, F1 outils, Ctrl+F rechercher, Ctrl+D accueil, Ctrl+L journal de session, Ctrl+I index, Ctrl+T thème, Échap effacer." -f $poses)
+    Add-DomeniaUiLog -Area "Interface" -Text ("{0} raccourci(s) clavier actifs : F5 arbre, Ctrl+K palette, Ctrl+Maj+C résumé, F1 outils, Ctrl+F rechercher, Ctrl+D accueil, Ctrl+L journal de session, Ctrl+I index, Ctrl+T thème, Échap fermer ou effacer la saisie. Liste complète : palette, Afficher les raccourcis clavier." -f $poses)
     return $poses
 }
 
@@ -21531,102 +21528,13 @@ function Remove-SelectedLink {
 
 
 function Show-DomeniaCommandPalette {
-    $window = New-Object System.Windows.Window
-    $window.Title = "DOMENIA  Actions rapides"
-    $window.Width = 620
-    $window.Height = 520
-    $window.MinWidth = 520
-    $window.MinHeight = 420
-    $window.WindowStartupLocation = [System.Windows.WindowStartupLocation]::CenterOwner
-    $window.ResizeMode = [System.Windows.ResizeMode]::CanResize
-    $window.Background = [System.Windows.Media.Brushes]::White
-    try { $owner=Get-DomeniaDialogOwner; if($null -ne $owner){$window.Owner=$owner} } catch {}
-    $root=New-Object System.Windows.Controls.Grid
-    $root.Margin="18"
-    [void]$root.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition -Property @{Height="Auto"}))
-    [void]$root.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition -Property @{Height="Auto"}))
-    [void]$root.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition -Property @{Height="*"}))
-    [void]$root.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition -Property @{Height="Auto"}))
-    $title=New-Object System.Windows.Controls.TextBlock
-    $title.Text="Actions rapides"
-    $title.FontSize=20
-    $title.FontWeight=[System.Windows.FontWeights]::SemiBold
-    [void]$root.Children.Add($title)
-    $search=New-Object System.Windows.Controls.TextBox
-    $search.Margin="0,12,0,12"
-    $search.Height=34
-    $search.VerticalContentAlignment="Center"
-    $search.ToolTip="Tape quelques lettres pour filtrer les actions."
-    [System.Windows.Controls.Grid]::SetRow($search,1)
-    [void]$root.Children.Add($search)
-    $list=New-Object System.Windows.Controls.ListBox
-    [System.Windows.Controls.Grid]::SetRow($list,2)
-    [void]$root.Children.Add($list)
-    $items=@(
-        [pscustomobject]@{Name="Rechercher dans Active Directory";Key="search"},
-        [pscustomobject]@{Name="Actualiser l'arborescence";Key="refresh"},
-        [pscustomobject]@{Name="Copier le resume de l'objet";Key="summary"},
-        [pscustomobject]@{Name="Ouvrir le conteneur parent";Key="parent"},
-        [pscustomobject]@{Name="Diagnostic reseau de la selection";Key="batch"},
-        [pscustomobject]@{Name="Lancer l'auto-verification DOMENIA";Key="selfcheck"},
-        [pscustomobject]@{Name="Ouvrir la gestion des comptes";Key="accounts"},
-        [pscustomobject]@{Name="Ouvrir les relations utilisateur / poste";Key="relations"},
-        [pscustomobject]@{Name="Ouvrir le journal detaille";Key="log"},
-        [pscustomobject]@{Name="Outils : atelier de requêtes";Key="queries"}
-    )
-    foreach($i in $items){[void]$list.Items.Add($i)}
-    $list.DisplayMemberPath="Name"
-    $footer=New-Object System.Windows.Controls.TextBlock
-    $footer.Text="Entree : executer      Echap : fermer      Ctrl+F : recherche      F5 : arborescence"
-    $footer.Foreground=[System.Windows.Media.Brushes]::Gray
-    $footer.Margin="0,12,0,0"
-    [System.Windows.Controls.Grid]::SetRow($footer,3)
-    [void]$root.Children.Add($footer)
-    $refresh={
-        $term=([string]$search.Text).Trim()
-        $list.Items.Clear()
-        foreach($i in $items){
-            if([string]::IsNullOrWhiteSpace($term) -or ([string]$i.Name).IndexOf($term,[StringComparison]::OrdinalIgnoreCase) -ge 0){[void]$list.Items.Add($i)}
-        }
-        if($list.Items.Count -gt 0){$list.SelectedIndex=0}
+    # W13 (point 117): the palette is a view of the page (Domenia-Commands.UI.ps1, Domenia-CommandPalette.xaml): it
+    # follows the selection and the rights, and a write only brings its own button forward. A second Ctrl+K closes it.
+    try {
+        if (Test-DomeniaCommandPaletteOpen) { Hide-DomeniaCommandPalette; return }
+        if (-not (Show-DomeniaCommandPaletteView)) { Set-Status 'Palette indisponible : une demande attend votre réponse dans la page, ou la vue nʼa pas pu se charger (voir le journal).' 'WARN' }
     }
-    $search.Add_TextChanged($refresh)
-    $run={
-        $item=$list.SelectedItem
-        if($null -eq $item){return}
-        Set-DomeniaSurfaceResult $window $true
-        switch([string]$item.Key){
-            "search" { $c=Get-DomeniaControl -Name "TxtGlobalSearch"; if($null -ne $c){$c.Focus();$c.SelectAll()} }
-            "refresh" { Load-TreeRoot -ForceRefresh }
-            "summary" { Copy-ObjectSummary }
-            "parent" { Open-SelectedParentBranch }
-            "batch" { Show-DomeniaBatchNetworkReport -Rows (Get-DomeniaSelectedMachineRows) }
-            "selfcheck" { Start-SelfCheck }
-            "accounts" { Select-DomeniaWorkspace -Workspace "TabAccounts"; Update-DomeniaAccountUi }
-            "relations" { Select-DomeniaWorkspace -Workspace "TabRelations"; Refresh-LinkGrid }
-            "log" { Select-DomeniaWorkspace -Workspace "TabApplicationTools" -Inner "ApplicationToolTabs" -Tab "TabLog" }
-            "queries" { Show-DomeniaQueryWorkshop }
-            "support" { Invoke-DomeniaSafeUiAction -Operation "Atelier" -Action { Select-DomeniaWorkspace -Workspace "TabSupport" -Inner "SupportTabs" -Tab "SupportAnalysisTab"; Update-DomeniaSupportView -Force } }
-            "supportdiff" { Select-DomeniaWorkspace -Workspace "TabSupport" -Inner "SupportTabs" -Tab "SupportCompareTab" }
-        }
-    }
-    $list.Add_MouseDoubleClick({&$run})
-    $search.Add_KeyDown({param($s,$e) if($e.Key -eq "Enter"){&$run;$e.Handled=$true}elseif($e.Key -eq "Down"){ $list.Focus(); if($list.Items.Count -gt 0){$list.SelectedIndex=0};$e.Handled=$true }elseif($e.Key -eq "Escape"){$window.Close();$e.Handled=$true}})
-    $list.Add_KeyDown({param($s,$e) if($e.Key -eq "Enter"){&$run;$e.Handled=$true}elseif($e.Key -eq "Escape"){$window.Close();$e.Handled=$true}})
-    # Copy the host resources for this owned window; native styles preserve selection contrast.
-    if ($null -ne $script:Window) {
-        foreach ($key in $script:Window.Resources.Keys) { $window.Resources[$key]=$script:Window.Resources[$key] }
-        $window.SetResourceReference([System.Windows.Controls.Control]::BackgroundProperty,'WindowBg')
-        $window.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty,'TextColor')
-        $search.SetResourceReference([System.Windows.Controls.Control]::BackgroundProperty,'BgInput')
-        $search.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty,'TextColor')
-        $list.SetResourceReference([System.Windows.Controls.Control]::BackgroundProperty,'BgCard')
-        $list.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty,'TextColor')
-        $footer.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty,'MutedColor')
-    }
-    $window.Content=$root
-    Register-DomeniaSurfaceReady $window ({$search.Focus();$list.SelectedIndex=0})
-    [void](Invoke-DomeniaHostWindow -Window $window)
+    catch { [void](Show-DomeniaOperationError -Operation 'Palette de commandes' -ErrorRecordOrException $_ -NoPopup) }
 }
 
 

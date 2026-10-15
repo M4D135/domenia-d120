@@ -346,6 +346,14 @@
       "Chain": "wad\\Domenia-Core.ps1:2602 Start-UiTask > Apply-DomeniaPresenceFilter > Set-DomeniaGridRows > Queue-DomeniaSelectedObjectOpen > Set-DomeniaRelationsGridSelection > Set-DomeniaRelationsSelection > Refresh-DomeniaRelationViews > Update-DomeniaRelationsActions > Test-DomeniaRelationsRestoreAvailable > Get-DomeniaRelationsRestorableEntry"
     },
     {
+      "Function": "Initialize-DomeniaCommandPalette",
+      "Pattern": ".ReadAllText",
+      "Status": "Justifie",
+      "Owner": "interface",
+      "Reason": "W13 (point 117) : chargement paresseux, une seule fois par session, du fichier XAML local du paquet (Domenia-CommandPalette.xaml), meme modele que Initialize-DomeniaOperationsPanel et Initialize-DomeniaInlineUi ; jamais un chemin reseau.",
+      "Chain": "Show-DomeniaCommandPalette > Show-DomeniaCommandPaletteView > Initialize-DomeniaCommandPalette"
+    },
+    {
       "Function": "Initialize-DomeniaInlineUi",
       "Pattern": ".ReadAllText",
       "Status": "Justifie",
