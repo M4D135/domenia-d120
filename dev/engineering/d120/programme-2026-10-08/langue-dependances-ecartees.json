@@ -1,0 +1,272 @@
+[
+ {
+  "Text": "Detail",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "$Progress[\"Detail\"] = $Detail",
+  "Reason": "Clé « Detail » de la table de progression de la connexion, pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Detail",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "try { $detail = [string]$session.Progress[\"Detail\"] } catch { }",
+  "Reason": "Clé « Detail » de la table de progression de la connexion, pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Detail",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "if (@(\"debug\",\"diagnostic\",\"diag\",\"verbose\",\"detail\",\"detailed\",\"true\",\"1\",\"on\",\"oui\") -contains $normalizedCfg) { return \"Debug\" }",
+  "Reason": "Valeur de configuration du mode de diagnostic (« detail »), pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Detail",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "if (@(\"debug\",\"diagnostic\",\"diag\",\"verbose\",\"detail\",\"detailed\",\"true\",\"1\",\"on\",\"oui\") -contains $normalized) { return \"Debug\" }",
+  "Reason": "Valeur de configuration du mode de diagnostic (« detail »), pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Detail",
+  "File": "wad/modules/Domenia-Embedded.UI.ps1",
+  "Code": "'Detail'{",
+  "Reason": "Commande « Detail » portée par le Tag du bandeau, pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Detail",
+  "File": "wad/modules/Domenia-Engine.Worker.ps1",
+  "Code": "if($field.Name -in @('Outcome','Detail','PresenceDetail','InventoryError','ConsoleError','Error','ErrorKind','Status','DirectoryAuthRejected')){$p[$field.Name]=$field.Value}",
+  "Reason": "Nom de champ du résultat dʼun worker, pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Detail",
+  "File": "wad/modules/Domenia-Engine.Worker.ps1",
+  "Code": "if($kind -notin @('Directory','Observation','Detail','AccountPreference','QueryLibrary')){throw 'Lecture canonique inconnue.'}",
+  "Reason": "Type de lecture « Detail » de lʼindex local (Kind), pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Detail",
+  "File": "wad/modules/Domenia-Engine.Worker.ps1",
+  "Code": "if($kind -eq 'Detail' -and [string]$query.ResultKind){$conditions.Add('result_kind='+(Get-IdxWLiteral ([string]$query.ResultKind)))}",
+  "Reason": "Type de lecture « Detail » de lʼindex local (Kind), pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Detail",
+  "File": "wad/modules/Domenia-Engine.Worker.ps1",
+  "Code": "if($kind -eq 'Detail' -and [string]$query.RequestKey){$conditions.Add('request_key='+(Get-IdxWLiteral ([string]$query.RequestKey)))}",
+  "Reason": "Type de lecture « Detail » de lʼindex local (Kind), pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Detail",
+  "File": "wad/modules/Domenia-Engine.Worker.ps1",
+  "Code": "$detailWhere='1=1';if($kind -eq 'Detail'){if([string]$query.ResultKind){$detailWhere+=' AND result_kind='+(Get-IdxWLiteral ([string]$query.ResultKind))};if([string]$query.RequestKey){$detailWhere+=' AND request_key='+(Get-IdxWLiteral ([string]$query.RequestKey))}}",
+  "Reason": "Type de lecture « Detail » de lʼindex local (Kind), pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Detail",
+  "File": "wad/modules/Domenia-Engine.Worker.ps1",
+  "Code": "$readArgs=@{Db=$db;Guids=@($page|ForEach-Object{[string]$_.object_guid});IncludeDirectoryDetails=([string]$query.Projection -ne 'List');IncludeObservations=($kind -eq 'Observation' -or [bool]$query.IncludeObservations);IncludeDetails=($kind -eq 'Detail');DetailWhere=$detailWhere}",
+  "Reason": "Type de lecture « Detail » de lʼindex local (Kind), pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Detail",
+  "File": "wad/modules/Domenia-Engine.Worker.ps1",
+  "Code": "if($kind -eq 'Detail' -and $null -ne $query.PSObject.Properties['DetailProjection'] -and [string]$query.DetailProjection){$readArgs.DetailProjection=[string]$query.DetailProjection}",
+  "Reason": "Type de lecture « Detail » de lʼindex local (Kind), pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Detail",
+  "File": "wad/modules/Domenia-Engine.Worker.ps1",
+  "Code": "if($kind -eq 'Detail'){$read.Details=@($read.Details|Where-Object{(-not [string]$query.ResultKind -or [string]$_.ResultKind -ceq [string]$query.ResultKind) -and (-not [string]$query.RequestKey -or [string]$_.RequestKey -ceq [string]$query.RequestKey)})}",
+  "Reason": "Type de lecture « Detail » de lʼindex local (Kind), pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Detail",
+  "File": "wad/modules/Domenia-QueryDetails.UI.ps1",
+  "Code": "$query=if($definition.Kind -eq 'Detail'){[pscustomobject]@{Kind='Detail';ResultKind='WmiQuery';RequestKey=$definition.RequestKey;ScopeDn=$Read.Context.ScopeDn;Subtree=$Read.Context.Subtree;Offset=$Read.Offset;Limit=250;Projection='List';DetailProjection='QuerySummary'}}else{[pscustomobject]@{Kind='Observation';Family=('Probe:'+$definition.RequestKey);ScopeDn=$Read.Context.ScopeDn;Subtree=$Read.Context.Subtree;Offset=$Read.Offset;Limit=25;Projection='List'}}",
+  "Reason": "Type de lecture « Detail » de lʼindex local (Kind), pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Detail",
+  "File": "wad/modules/Domenia-Storage.UI.ps1",
+  "Code": "if($family -notin @('Presence','Console','Inventory','Probe','Detail') -or $seen.ContainsKey($family) -or -not [string]$State.Cutoffs.$family -or [string]$row.CutoffUtc -cne [string]$State.Cutoffs.$family -or -not [long]::TryParse([string]$row.Rows,[ref]$n) -or $n -lt 0){throw 'Comptage par famille non conforme.'}",
+  "Reason": "Famille dʼobservations « Detail » de la base locale, pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Detail",
+  "File": "wad/modules/Domenia-Storage.Worker.ps1",
+  "Code": "if($field.Name -in @('Outcome','Detail','PresenceDetail','InventoryError','ConsoleError','Error','ErrorKind','Status','DirectoryAuthRejected')){$p[$field.Name]=$field.Value}",
+  "Reason": "Nom de champ du résultat dʼun worker, pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Detail",
+  "File": "wad/modules/Domenia-Storage.Worker.ps1",
+  "Code": "$literal=ConvertTo-DomeniaSqlLiteral $date.ToString('o');$table=if($family -eq 'Detail'){'domenia_details'}else{'domenia_observations'}",
+  "Reason": "Famille dʼobservations « Detail » de la base locale, pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Detail",
+  "File": "wad/modules/Domenia-Storage.Worker.ps1",
+  "Code": "if($family -ne 'Detail'){$where+=' AND '+$(if($family -eq 'Probe'){\"family LIKE 'Probe:%'\"}else{'family='+(ConvertTo-DomeniaSqlLiteral $family)});$where+=' AND object_guid IN (SELECT object_guid FROM domenia_legacy_observation_imports)'}",
+  "Reason": "Famille dʼobservations « Detail » de la base locale, pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Operation",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "if (($null -ne $entry) -and ($null -eq $entry.PSObject.Properties['Operation'])) { $entry | Add-Member -NotePropertyName Operation -NotePropertyValue $OperationId }",
+  "Reason": "Nom de propriété « Operation » ajouté au reçu, pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Parametres",
+  "File": "wad/modules/Domenia-Release.Model.ps1",
+  "Code": "elseif ($endpoint.Problem -ceq 'Parametres') { $state = 'Indisponible'; $visible = $true; $reason = 'Adresse du serveur avec parametres ou fragment (jeton possible) : refusee. Indiquer seulement https://serveur[:port].' }",
+  "Reason": "Code de problème interne de lʼadresse du serveur (Problem), pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Etat",
+  "File": "wad/modules/Domenia-BoardComputer.UI.ps1",
+  "Code": "$bitlocker = @($rows | Where-Object { ([string]$_.Category -eq 'BitLocker') -and (-not ([string]$_.Item).EndsWith(' methode')) -and ([string]$_.Item -ne 'Etat') })",
+  "Reason": "Compare lʼélément « Etat » des lignes dʼinventaire (Add-Item, hors passe de langue), pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Etat",
+  "File": "wad/modules/Domenia-Dashboard.UI.ps1",
+  "Code": "$items = @($Rows | Where-Object { [string]$_.Category -eq $Category -and [string]$_.Item -ne 'Etat' })",
+  "Reason": "Compare lʼélément « Etat » des lignes dʼinventaire (Add-Item, hors passe de langue), pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Etat",
+  "File": "wad/modules/Domenia-Dashboard.UI.ps1",
+  "Code": "$state = @($Rows | Where-Object { [string]$_.Category -eq $Category -and [string]$_.Item -eq 'Etat' } | Select-Object -First 1)",
+  "Reason": "Compare lʼélément « Etat » des lignes dʼinventaire (Add-Item, hors passe de langue), pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Delai depasse. Aucun compte remplace. Fermez ce panneau et attendez le nettoyage avant un nouvel essai.",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "elseif ($message -match \"(?i)timed?\\s*out|timeout|delai.*depass\") {",
+  "Reason": "Classe un message dʼexception (délai dépassé) ; ce texte dʼinterface nʼest jamais reclassé."
+ },
+ {
+  "Text": "Delai depasse. Aucun compte remplace. Fermez ce panneau et attendez le nettoyage avant un nouvel essai.",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "if ($Message -match '(?i)timeout|delai|expire|RPC server is unavailable|serveur RPC|WinRM cannot complete') { return 'INJOIGNABLE' }",
+  "Reason": "Classe un message dʼexception (délai dépassé) ; ce texte dʼinterface nʼest jamais reclassé."
+ },
+ {
+  "Text": "Delai depasse. Aucun compte remplace. Fermez ce panneau et attendez le nettoyage avant un nouvel essai.",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "if ($Message -match '(?i)timeout|delai|expire|RPC server is unavailable|serveur RPC|WinRM cannot') { return 'INJOIGNABLE' }",
+  "Reason": "Classe un message dʼexception (délai dépassé) ; ce texte dʼinterface nʼest jamais reclassé."
+ },
+ {
+  "Text": "Delai depasse. Aucun compte remplace. Fermez ce panneau et attendez le nettoyage avant un nouvel essai.",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "elseif ($detail -match '(?i)timeout|delai|expire|RPC server is unavailable|serveur RPC') { $status = 'INJOIGNABLE' }",
+  "Reason": "Classe un message dʼexception (délai dépassé) ; ce texte dʼinterface nʼest jamais reclassé."
+ },
+ {
+  "Text": "Delai depasse. Aucun compte remplace. Fermez ce panneau et attendez le nettoyage avant un nouvel essai.",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "elseif($m -match '(?i)timeout|delai|RPC|network path|chemin reseau|injoignable'){$s='INJOIGNABLE'}",
+  "Reason": "Classe un message dʼexception (délai dépassé) ; ce texte dʼinterface nʼest jamais reclassé."
+ },
+ {
+  "Text": "Delai depasse. Aucun compte remplace. Fermez ce panneau et attendez le nettoyage avant un nouvel essai.",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "elseif($m -match '(?i)timeout|delai|1722|RPC|53|injoignable'){$s='INJOIGNABLE'}",
+  "Reason": "Classe un message dʼexception (délai dépassé) ; ce texte dʼinterface nʼest jamais reclassé."
+ },
+ {
+  "Text": "Delai depasse. Aucun compte remplace. Fermez ce panneau et attendez le nettoyage avant un nouvel essai.",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "if ($deep -is [System.TimeoutException] -or $Detail -match '(?i)timeout|delai depasse') { return 'Timeout' }",
+  "Reason": "Classe un message dʼexception (délai dépassé) ; ce texte dʼinterface nʼest jamais reclassé."
+ },
+ {
+  "Text": "Delai depasse. Aucun compte remplace. Fermez ce panneau et attendez le nettoyage avant un nouvel essai.",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "if ($code -eq 85 -or $messageText -match \"(?i)time.?out|delai|delai|operation.*expir\") { return \"Timeout LDAP sur $ServerName.\" }",
+  "Reason": "Classe un message dʼexception (délai dépassé) ; ce texte dʼinterface nʼest jamais reclassé."
+ },
+ {
+  "Text": "Delai depasse. La validation a ete arretee sans bloquer l interface.",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "elseif ($message -match \"(?i)timed?\\s*out|timeout|delai.*depass\") {",
+  "Reason": "Classe un message dʼexception (délai dépassé) ; ce texte dʼinterface nʼest jamais reclassé."
+ },
+ {
+  "Text": "Delai depasse. La validation a ete arretee sans bloquer l interface.",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "if ($Message -match '(?i)timeout|delai|expire|RPC server is unavailable|serveur RPC|WinRM cannot complete') { return 'INJOIGNABLE' }",
+  "Reason": "Classe un message dʼexception (délai dépassé) ; ce texte dʼinterface nʼest jamais reclassé."
+ },
+ {
+  "Text": "Delai depasse. La validation a ete arretee sans bloquer l interface.",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "if ($Message -match '(?i)timeout|delai|expire|RPC server is unavailable|serveur RPC|WinRM cannot') { return 'INJOIGNABLE' }",
+  "Reason": "Classe un message dʼexception (délai dépassé) ; ce texte dʼinterface nʼest jamais reclassé."
+ },
+ {
+  "Text": "Delai depasse. La validation a ete arretee sans bloquer l interface.",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "elseif ($detail -match '(?i)timeout|delai|expire|RPC server is unavailable|serveur RPC') { $status = 'INJOIGNABLE' }",
+  "Reason": "Classe un message dʼexception (délai dépassé) ; ce texte dʼinterface nʼest jamais reclassé."
+ },
+ {
+  "Text": "Delai depasse. La validation a ete arretee sans bloquer l interface.",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "elseif($m -match '(?i)timeout|delai|RPC|network path|chemin reseau|injoignable'){$s='INJOIGNABLE'}",
+  "Reason": "Classe un message dʼexception (délai dépassé) ; ce texte dʼinterface nʼest jamais reclassé."
+ },
+ {
+  "Text": "Delai depasse. La validation a ete arretee sans bloquer l interface.",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "elseif($m -match '(?i)timeout|delai|1722|RPC|53|injoignable'){$s='INJOIGNABLE'}",
+  "Reason": "Classe un message dʼexception (délai dépassé) ; ce texte dʼinterface nʼest jamais reclassé."
+ },
+ {
+  "Text": "Delai depasse. La validation a ete arretee sans bloquer l interface.",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "if ($deep -is [System.TimeoutException] -or $Detail -match '(?i)timeout|delai depasse') { return 'Timeout' }",
+  "Reason": "Classe un message dʼexception (délai dépassé) ; ce texte dʼinterface nʼest jamais reclassé."
+ },
+ {
+  "Text": "Delai depasse. La validation a ete arretee sans bloquer l interface.",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "if ($code -eq 85 -or $messageText -match \"(?i)time.?out|delai|delai|operation.*expir\") { return \"Timeout LDAP sur $ServerName.\" }",
+  "Reason": "Classe un message dʼexception (délai dépassé) ; ce texte dʼinterface nʼest jamais reclassé."
+ },
+ {
+  "Text": "Chemin reseau du profil itinerant. Vide : profil local.",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "elseif($m -match '(?i)timeout|delai|RPC|network path|chemin reseau|injoignable'){$s='INJOIGNABLE'}",
+  "Reason": "Classe un message dʼexception (chemin réseau) ; cette aide nʼest jamais reclassée."
+ },
+ {
+  "Text": "Diagnostic reseau groupe en echec :",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "[pscustomobject]@{Verified=$true;Backend=$backend;Message=(\"Reset accepte par le DC ; \"+($steps -join \" ; \"));Before=$before;After=$after;Partial=(@($steps|Where-Object{$_ -match \"echec\"}).Count -gt 0);Postcondition=[pscustomobject]@{SentUtc=$SentUtc;Expected=[pscustomobject]@{Server=[string]$Context.Server;PreviousUtc=$PreviousUtc};Observed=[pscustomobject]@{ReadStatus=$PwdReadStatus;Server=[string]$Context.Server;ReadUtc=$ReadUtc;PwdLastSetUtc=$PwdLastSetUtc}}}",
+  "Reason": "Compte les étapes en échec du worker de réinitialisation ; ce message dʼétat nʼen fait jamais partie."
+ },
+ {
+  "Text": "Cache non enregistre : trois echecs. Les donnees restent en memoire ; corrigez le stockage puis Reprendre les sauvegardes dans Fiabilite.",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "[pscustomobject]@{Verified=$true;Backend=$backend;Message=(\"Reset accepte par le DC ; \"+($steps -join \" ; \"));Before=$before;After=$after;Partial=(@($steps|Where-Object{$_ -match \"echec\"}).Count -gt 0);Postcondition=[pscustomobject]@{SentUtc=$SentUtc;Expected=[pscustomobject]@{Server=[string]$Context.Server;PreviousUtc=$PreviousUtc};Observed=[pscustomobject]@{ReadStatus=$PwdReadStatus;Server=[string]$Context.Server;ReadUtc=$ReadUtc;PwdLastSetUtc=$PwdLastSetUtc}}}",
+  "Reason": "Compte les étapes en échec du worker de réinitialisation ; ce message dʼétat nʼen fait jamais partie."
+ },
+ {
+  "Text": "Enregistrer cette capture historique ? Elle contient des noms et appartenances internes, pas les champs secrets dedies. Choisissez un dossier protege.",
+  "File": "wad/modules/Domenia-BoardComputer.UI.ps1",
+  "Code": "$protected = (($bitlockerText -match '(?i)\\bactive\\b|\\bprotege\\b') -and ($bitlockerText -notmatch '(?i)desactiv|non protege|inconnu|\\boff\\b'))",
+  "Reason": "Lit lʼétat BitLocker affiché (protégé ou non) ; cette confirmation nʼen fait pas partie."
+ },
+ {
+  "Text": "Verifie que la connexion, les lectures et les composants de l application fonctionnent. Aucune modification d Active Directory.",
+  "File": "wad/modules/Domenia-BoardComputer.UI.ps1",
+  "Code": "$protected = (($bitlockerText -match '(?i)\\bactive\\b|\\bprotege\\b') -and ($bitlockerText -notmatch '(?i)desactiv|non protege|inconnu|\\boff\\b'))",
+  "Reason": "Lit lʼétat BitLocker affiché (« active ») ; cette description du panneau nʼen fait pas partie."
+ },
+ {
+  "Text": "$name a ete accepte en partie par le controleur de domaine.rnrn$messagernrnVerifie les etapes signalees en echec avant toute nouvelle tentative.",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "[pscustomobject]@{Verified=$true;Backend=$backend;Message=(\"Reset accepte par le DC ; \"+($steps -join \" ; \"));Before=$before;After=$after;Partial=(@($steps|Where-Object{$_ -match \"echec\"}).Count -gt 0);Postcondition=[pscustomobject]@{SentUtc=$SentUtc;Expected=[pscustomobject]@{Server=[string]$Context.Server;PreviousUtc=$PreviousUtc};Observed=[pscustomobject]@{ReadStatus=$PwdReadStatus;Server=[string]$Context.Server;ReadUtc=$ReadUtc;PwdLastSetUtc=$PwdLastSetUtc}}}",
+  "Reason": "Compte les étapes en échec du worker de réinitialisation ; ce message dʼétat nʼen fait jamais partie."
+ }
+]
