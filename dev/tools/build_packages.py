@@ -12,6 +12,9 @@ audited source once its Authenticode block is removed, and Domenia.exe is never 
 SP-09: --stage-dir writes that copy (runtime files and tools/prod-manifest.json, outside the source tree) so that the
 signature is applied to the copy, never to the audited source; nothing is signed or published by this tool.
 SE-15: the lab tools (engineering/d120/lab) and the historical documents (wad/docs/history) stay out of the DEV archive.
+Point 146: tools/licence-inventory.json must cover every binary, asset and vendored source (tools/licence_inventory.py);
+a delivered component whose redistribution is not established keeps the delivery unpublishable (build-report Licences).
+Point 141: SHA256SUMS lists the SHA-256 of both archives and of the build report, in the format of sha256sum -c.
 """
 from pathlib import Path
 import argparse,hashlib,json,platform,re,stat,struct,subprocess,sys,zipfile,zlib
@@ -197,6 +200,12 @@ def component_inventory(runtime,read):
                      'Bound':bool(item) and str(item.get('Sha256','')).upper()==digest(data)})
     return rows
 
+def write_checksums(out,names):
+    """Point 141: SHA256SUMS beside the archives (sha256sum -c / shasum -a 256 -c format), LF, sorted by name."""
+    lines=[digest((Path(out)/name).read_bytes()).lower()+'  '+name for name in sorted(names)]
+    with open(Path(out)/'SHA256SUMS','w',encoding='utf-8',newline='\n') as handle:handle.write('\n'.join(lines)+'\n')
+    return lines
+
 def gate(script,label,*args):
     run=subprocess.run([sys.executable,str(ROOT/script),*args],capture_output=True,text=True)
     if run.returncode:raise ValueError(label+' failed:\n'+run.stdout+run.stderr)
@@ -227,6 +236,8 @@ def build(out,manifest_only=False,windows_report=None,require_windows=False,evid
     gate('tools/release_contract.py','Release contract','--check')
     # D011: one definition per function name and a complete closed loader list.
     gate('tools/audit_function_names.py','Closed loader function names')
+    # Point 146: every binary, asset and vendored source has a licence entry bound to the reviewed file.
+    gate('tools/licence_inventory.py','Licence inventory','--check')
     # TE-01: the interface wording reference is a ratchet; a delivery never adds an unaccented, unelided or tutoyed text.
     gate('tools/audit_wording.py','Interface wording ratchet')
     # Mandatory static preflight over every PowerShell source shipped in DEV.
@@ -306,8 +317,16 @@ def build(out,manifest_only=False,windows_report=None,require_windows=False,evid
     result['Components']=component_inventory(runtime,read)
     result['SignedStage']=str(stage) if stage is not None else ''
     if stage_dir is not None:result['StageDir']=staged['StageDir']
-    result['PublicationRule']='Publiable uniquement avec un rapport Windows PowerShell 5.1 lie au SHA-256 des deux ZIP (release_guard.py --require-windows).'
+    # Point 146: a delivered component whose redistribution is not established keeps the delivery unpublishable.
+    import licence_inventory
+    licences=licence_inventory.summary(ROOT)
+    result['Licences']={'ReviewedOn':licences['ReviewedOn'],'Publishable':licences['Publishable'],'Blocking':licences['Blocking'],
+                        'Inventory':'tools/licence-inventory.json'}
+    result['Publishable']=bool(result['Publishable'] and licences['Publishable'])
+    result['PublicationRule']=('Publiable uniquement avec un rapport Windows PowerShell 5.1 lie au SHA-256 des deux ZIP (release_guard.py --require-windows) '
+                               'et sans composant livre dont la redistribution reste non etablie ou refusee (tools/licence-inventory.json).')
     writejson(out/'build-report.json',result)
+    write_checksums(out,[result['prod']['Archive'],result['dev']['Archive'],'build-report.json'])
     return result
 
 if __name__=='__main__':
