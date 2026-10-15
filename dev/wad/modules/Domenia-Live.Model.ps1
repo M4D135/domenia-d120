@@ -247,6 +247,11 @@ if(-not $probeUser -and -not $collectInventory -and -not $collectProbes){
 # difference is the number of queries avoided by grouping; it is returned with the measurement.
 $cimStats=[pscustomobject]@{Consumers=0;Executed=0}
 $preRead=@{};$sharedProbeProps=@{};$productType=$null;$productTypeRead=$false
+function Get-WCimGroupKey([string]$Namespace,[string]$ClassName,[string]$Filter){
+    # Same rule as Get-DomeniaCimGroupKey (Domenia-Collection.Model.ps1), kept in this pinned body: namespace and class
+    # names are case-insensitive, the filter is compared byte for byte (two literals never share a result).
+    return ($Namespace.ToUpperInvariant()+'|'+$ClassName.ToUpperInvariant()+'|'+$Filter)
+}
 function Test-WInvalidCimQuery($ErrorValue){
     $ex=$ErrorValue.Exception
     for($n=0;$n -lt 8 -and $null -ne $ex;$n++){
@@ -283,14 +288,14 @@ if($collectProbes){
     foreach($probe in @($Payload.Probes)){
         if($null -eq $probe -or [string]$probe.Skip -eq 'DomainController'){continue}
         if($sharedClasses -notcontains [string]$probe.Class -or [string]$probe.Class -notmatch '^[A-Za-z0-9_]+$' -or [string]$probe.Namespace -notmatch '^[A-Za-z0-9_\\]+$'){continue}
-        $sharedKey=Get-DomeniaCimGroupKey ([string]$probe.Namespace) ([string]$probe.Class) ([string]$probe.Filter)
+        $sharedKey=Get-WCimGroupKey ([string]$probe.Namespace) ([string]$probe.Class) ([string]$probe.Filter)
         if(-not $sharedProbeProps.ContainsKey($sharedKey)){$sharedProbeProps[$sharedKey]=[Collections.Generic.List[string]]::new()}
         foreach($sharedProperty in @(@($probe.Properties)|Where-Object{[string]$_ -match '^[A-Za-z0-9_]+$'})){if(-not $sharedProbeProps[$sharedKey].Contains([string]$sharedProperty)){$sharedProbeProps[$sharedKey].Add([string]$sharedProperty)}}
     }
 }
-$csKey=Get-DomeniaCimGroupKey 'root\cimv2' 'Win32_ComputerSystem' ''
-$osKey=Get-DomeniaCimGroupKey 'root\cimv2' 'Win32_OperatingSystem' ''
-$diskKey=Get-DomeniaCimGroupKey 'root\cimv2' 'Win32_LogicalDisk' "DeviceID='C:'"
+$csKey=Get-WCimGroupKey 'root\cimv2' 'Win32_ComputerSystem' ''
+$osKey=Get-WCimGroupKey 'root\cimv2' 'Win32_OperatingSystem' ''
+$diskKey=Get-WCimGroupKey 'root\cimv2' 'Win32_LogicalDisk' "DeviceID='C:'"
 $needProductType=($collectProbes -and @(@($Payload.Probes)|Where-Object{$null -ne $_ -and [string]$_.Skip -eq 'DomainController'}).Count -gt 0)
 try{
     # Missing ICMP reply does not block a separately requested CIM read.
@@ -368,7 +373,7 @@ try{
                     if($productType -eq 2){$entry.Skipped='DomainController';$probeResults[[string]$probe.Id]=[pscustomobject]$entry;continue}
                 }
                 $filter=[string]$probe.Filter;foreach($token in $since.Keys){$filter=$filter.Replace($token,$since[$token])}
-                $cacheKey=Get-DomeniaCimGroupKey ([string]$probe.Namespace) ([string]$probe.Class) $filter
+                $cacheKey=Get-WCimGroupKey ([string]$probe.Namespace) ([string]$probe.Class) $filter
                 $cimStats.Consumers++
                 if(-not $groups.ContainsKey($cacheKey)){
                     $groups[$cacheKey]=[pscustomobject]@{Namespace=[string]$probe.Namespace;Class=[string]$probe.Class;Filter=$filter;Properties=[Collections.Generic.List[string]]::new();PropertyNames=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase);Read=$false;Items=@();Count=0L;EnumerationComplete=$false;Error='';At=''}
@@ -382,7 +387,7 @@ try{
         foreach($plan in $planned){
             $probe=$plan.Probe;$properties=$plan.Properties;$cached=$plan.Group;$entry=$plan.Entry
             # A singleton already read for the console or the inventory serves the probes whose properties it holds.
-            $shared=$null;$sharedKeyOf=Get-DomeniaCimGroupKey ([string]$cached.Namespace) ([string]$cached.Class) ([string]$cached.Filter)
+            $shared=$null;$sharedKeyOf=Get-WCimGroupKey ([string]$cached.Namespace) ([string]$cached.Class) ([string]$cached.Filter)
             if(-not $cached.Read -and $preRead.ContainsKey($sharedKeyOf)){$shared=$preRead[$sharedKeyOf];foreach($needed in $cached.Properties){if(@($shared.Properties) -notcontains $needed){$shared=$null;break}}}
             if($null -ne $shared){
                 $cached.Read=$true
@@ -480,10 +485,7 @@ if($answer.Outcome -eq 'Observed' -and ($null -eq $Payload.PSObject.Properties['
 $answer.AttemptedAtUtc=[datetime]::UtcNow.ToString('o')
 [pscustomobject]$answer
 '@
-    # Point 13: the grouping key of the CIM reads is the rule of Domenia-Collection.Model.ps1, carried into the worker.
-    # Built once per session (PF-10: the campaign tick calls this function, never a command lookup per tick).
-    if(-not $script:DomeniaCimGroupKeyPrelude){$script:DomeniaCimGroupKeyPrelude='function Get-DomeniaCimGroupKey {'+[Environment]::NewLine+(Get-Command Get-DomeniaCimGroupKey -CommandType Function).Definition+[Environment]::NewLine+'}'}
-    return (Get-DomeniaProbeDetailWorkerPrelude)+[Environment]::NewLine+$script:DomeniaCimGroupKeyPrelude+[Environment]::NewLine+$body
+    return (Get-DomeniaProbeDetailWorkerPrelude)+[Environment]::NewLine+$body
 }
 
 function Get-DomeniaLiveCacheCode {

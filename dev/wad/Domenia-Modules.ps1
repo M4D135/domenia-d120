@@ -881,7 +881,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Stop-DomeniaSupportUi',
             'Initialize-DomeniaSupportUi'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Collection.Model.ps1'); File='Domenia-Live.Model.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ File='Domenia-Live.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaLiveHash',
             'Get-DomeniaLiveField',
             'Set-DomeniaLiveRowValue',

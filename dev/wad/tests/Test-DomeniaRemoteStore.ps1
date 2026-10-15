@@ -106,6 +106,21 @@ Check 'Each finished CIM query advances the progress channel of a campaign' {
  Assert ([long]$progress.RowsRead -eq 3 -and [long]$progress.LastRowTimestamp -gt 0) ('Steps '+$progress.RowsRead)
 }
 
+Check 'The pinned body carries the CIM grouping rule itself, with no prelude added at run time' {
+ # The worker hash covers the composed code: a function copied from the session at run time would make the reviewed
+ # contract (update_worker_contracts.py mirrors the ProbeDetails prelude only) differ from the code really sent.
+ $code=Get-DomeniaLiveProbeCode
+ Assert ($code.StartsWith((Get-DomeniaProbeDetailWorkerPrelude)+[Environment]::NewLine,[StringComparison]::Ordinal)) 'Unexpected prelude'
+ Assert (-not $code.Contains('function Get-DomeniaCimGroupKey')) 'Model function copied at run time'
+ $tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseInput($code,[ref]$tokens,[ref]$errors)
+ $fn=$ast.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Get-WCimGroupKey'},$true)
+ Assert ($null -ne $fn) 'Grouping rule absent from the pinned body'
+ . ([scriptblock]::Create($fn.Extent.Text))
+ foreach($case in @(@('root\cimv2','Win32_LogicalDisk',"DeviceID='C:'"),@('ROOT\CIMV2','win32_service',"Name='a'"),@('root\Microsoft\Windows\Defender','MSFT_MpComputerStatus',''))){
+  Assert ((Get-WCimGroupKey $case[0] $case[1] $case[2]) -ceq (Get-DomeniaCimGroupKey $case[0] $case[1] $case[2])) ('Worker and model rules differ for '+$case[1])
+ }
+}
+
 Check 'Authentication refusal stops remaining CIM calls on the same host' {
  Reset-Fixture;$script:FailAuth=$true;$r=Invoke-Fixture (New-Payload)
  Assert ($script:Paused -and $r.Outcome -eq 'AuthRejected') 'Authentication circuit did not trip'
