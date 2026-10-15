@@ -1005,6 +1005,12 @@ $script:GuiElementPolicy = [ordered]@{
     "ExpStorageDataPolicy" = "Default"
     "LblStorageDataPolicy" = "Default"
     "DgStorageDataPolicy" = "Default"
+    # Point 148: first steps (connection, working OU, first read, dashboard).
+    "BtnFirstStepConnection" = "Default"
+    "BtnFirstStepOu" = "Default"
+    "BtnFirstStepBase" = "Default"
+    "BtnFirstStepDashboard" = "Default"
+    "LblFirstStepsDeferred" = "Default"
     "ObjectEmptyState" = "Default"
     "ComputerEmptyState" = "Default"
 
@@ -3446,6 +3452,8 @@ function Get-DomeniaDefaultSettings {
         'Collection.CacheMinutes' = '15'
         # The last update of this domain stopped at its limit: '<BaseDn>|<date>|<objects read>' (Accueil warning).
         'Index.Partial'    = ''
+        # Point 148: UTC date of the first overview computed with workstations while Accueil was shown; '' until then.
+        'Home.DashboardSeen' = ''
         # Lot L01: the "Premiers pas" card of Accueil stays hidden once its four steps were done.
         'Home.FirstStepsDone' = $false
     }
@@ -5114,23 +5122,24 @@ function Get-MainXaml {
                     <Border x:Name="CardFirstSteps" Style="{StaticResource Card}" Margin="0,0,0,12" Visibility="Collapsed" AutomationProperties.Name="Premiers pas">
                       <StackPanel>
                         <TextBlock Text="Premiers pas" FontSize="18" FontWeight="SemiBold"/>
-                        <TextBlock Text="Quatre étapes pour une vue du parc complète. Le périmètre du tableau de bord est indépendant de Rechercher. Chaque bouton ouvre lʼécran concerné, sans rien lancer." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,4,0,10"/>
+                        <TextBlock Text="Quatre étapes pour démarrer : connexion, OU de travail, première lecture, tableau de bord. Chaque bouton ouvre lʼécran concerné, sans rien lancer." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,4,0,10"/>
                         <Grid>
                           <Grid.ColumnDefinitions><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                           <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                          <TextBlock x:Name="LblFirstStepOuMark" Grid.Row="0" Grid.Column="0" Text="1" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
-                          <TextBlock x:Name="LblFirstStepOu" Grid.Row="0" Grid.Column="1" Text="Choisir le périmètre local du tableau de bord." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                          <Button x:Name="BtnFirstStepOu" Grid.Row="0" Grid.Column="2" Content="Choisir une OU" MinHeight="30" Padding="12,3" Margin="0,0,0,6" ToolTip="Choisit le périmètre du tableau de bord, sans changer Rechercher ni lancer de lecture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Premiers pas : choisir lʼOU du tableau de bord"/>
-                          <TextBlock x:Name="LblFirstStepBaseMark" Grid.Row="1" Grid.Column="0" Text="2" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
-                          <TextBlock x:Name="LblFirstStepBase" Grid.Row="1" Grid.Column="1" Text="Construire la base locale : choisissez une OU dans Outils, puis relisez-la." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                          <Button x:Name="BtnFirstStepBase" Grid.Row="1" Grid.Column="2" Content="Ouvrir la base autonome" MinHeight="30" Padding="12,3" Margin="0,0,0,6" ToolTip="Ouvre Outils, Base autonome. La lecture ne part quʼà votre demande ; privilégiez lʼOU choisie." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Premiers pas : ouvrir la base autonome"/>
-                          <TextBlock x:Name="LblFirstStepAccountMark" Grid.Row="2" Grid.Column="0" Text="3" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
-                          <TextBlock x:Name="LblFirstStepAccount" Grid.Row="2" Grid.Column="1" Text="Enregistrer le compte des postes pour les analyses : Comptes et accès." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                          <Button x:Name="BtnFirstStepAccount" Grid.Row="2" Grid.Column="2" Content="Ouvrir Comptes et accès" MinHeight="30" Padding="12,3" Margin="0,0,0,6" ToolTip="Ouvre Comptes et accès. Aucun compte nʼest demandé ni vérifié par ce bouton." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Premiers pas : ouvrir Comptes et accès"/>
-                          <TextBlock x:Name="LblFirstStepBackupMark" Grid.Row="3" Grid.Column="0" Text="4" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
-                          <TextBlock x:Name="LblFirstStepBackup" Grid.Row="3" Grid.Column="1" Text="Faire une première sauvegarde de la base locale." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                          <Button x:Name="BtnFirstStepBackup" Grid.Row="3" Grid.Column="2" Content="Ouvrir la sauvegarde" MinHeight="30" Padding="12,3" ToolTip="Ouvre Outils, Base autonome. La sauvegarde ne part quʼà votre clic sur Sauvegarder maintenant." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Premiers pas : ouvrir la sauvegarde"/>
+                          <TextBlock x:Name="LblFirstStepConnectionMark" Grid.Row="0" Grid.Column="0" Text="1" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
+                          <TextBlock x:Name="LblFirstStepConnection" Grid.Row="0" Grid.Column="1" Text="Se connecter à lʼannuaire avec son compte habituel." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                          <Button x:Name="BtnFirstStepConnection" Grid.Row="0" Grid.Column="2" Content="Voir le compte" MinHeight="30" Padding="12,3" Margin="0,0,0,6" ToolTip="Ouvre Comptes et accès : compte utilisé pour lʼannuaire et changement de compte. Aucun compte nʼest demandé ni vérifié par ce bouton." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Premiers pas : connexion à lʼannuaire" AutomationProperties.HelpText="Ouvre Comptes et accès : compte utilisé pour lʼannuaire et changement de compte. Aucun compte nʼest demandé ni vérifié par ce bouton."/>
+                          <TextBlock x:Name="LblFirstStepOuMark" Grid.Row="1" Grid.Column="0" Text="2" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
+                          <TextBlock x:Name="LblFirstStepOu" Grid.Row="1" Grid.Column="1" Text="Choisir lʼOU de travail du tableau de bord ; Rechercher reste indépendant." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                          <Button x:Name="BtnFirstStepOu" Grid.Row="1" Grid.Column="2" Content="Choisir une OU" MinHeight="30" Padding="12,3" Margin="0,0,0,6" ToolTip="Choisit lʼOU de travail du tableau de bord, sans changer Rechercher ni lancer de lecture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Premiers pas : choisir lʼOU de travail" AutomationProperties.HelpText="Choisit lʼOU de travail du tableau de bord, sans changer Rechercher ni lancer de lecture."/>
+                          <TextBlock x:Name="LblFirstStepBaseMark" Grid.Row="2" Grid.Column="0" Text="3" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
+                          <TextBlock x:Name="LblFirstStepBase" Grid.Row="2" Grid.Column="1" Text="Faire la première lecture de cette OU dans la base locale (Outils, Base autonome)." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                          <Button x:Name="BtnFirstStepBase" Grid.Row="2" Grid.Column="2" Content="Ouvrir la base autonome" MinHeight="30" Padding="12,3" Margin="0,0,0,6" ToolTip="Ouvre Outils, Base autonome. La première lecture ne part quʼà votre clic ; privilégiez lʼOU de travail." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Premiers pas : première lecture de lʼOU" AutomationProperties.HelpText="Ouvre Outils, Base autonome. La première lecture ne part quʼà votre clic ; privilégiez lʼOU de travail."/>
+                          <TextBlock x:Name="LblFirstStepDashboardMark" Grid.Row="3" Grid.Column="0" Text="4" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
+                          <TextBlock x:Name="LblFirstStepDashboard" Grid.Row="3" Grid.Column="1" Text="Découvrir le tableau de bord : la vue dʼensemble de lʼOU se calcule depuis la base locale." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                          <Button x:Name="BtnFirstStepDashboard" Grid.Row="3" Grid.Column="2" Content="Voir le tableau de bord" MinHeight="30" Padding="12,3" ToolTip="Affiche la vue dʼensemble de lʼaccueil, calculée depuis la base locale. Ce bouton ne lance aucune lecture de lʼannuaire ni des postes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Premiers pas : découvrir le tableau de bord" AutomationProperties.HelpText="Affiche la vue dʼensemble de lʼaccueil, calculée depuis la base locale. Ce bouton ne lance aucune lecture de lʼannuaire ni des postes."/>
                         </Grid>
+                        <TextBlock x:Name="LblFirstStepsDeferred" Text="Plus tard, au moment où ils servent : le compte pour les postes (Comptes et accès) et les sauvegardes de la base (Outils, Base autonome, Stockage)." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,10,0,0" AutomationProperties.Name="Options réglées plus tard"/>
                       </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Card}" Margin="0,0,0,12" Padding="18,12">
@@ -22401,7 +22410,7 @@ function Wire-Events {
     Update-DomeniaOuRefreshUi
     if ($script:Ctrl.ContainsKey("BtnFleetOpenSearch")) { $script:Ctrl["BtnFleetOpenSearch"].Add_Click({ try { Show-DomeniaFleetAnalyzeSource } catch { Set-Status ('Rechercher indisponible : ' + $_.Exception.Message) 'WARN' } }) }
     # First steps (UX-20): each step opens its screen and starts nothing.
-    foreach ($firstStep in @('Ou','Base','Account','Backup')) {
+    foreach ($firstStep in @('Connection','Ou','Base','Dashboard')) {
         $firstStepName = 'BtnFirstStep' + $firstStep
         if ($script:Ctrl.ContainsKey($firstStepName)) { $script:Ctrl[$firstStepName].Tag = $firstStep; $script:Ctrl[$firstStepName].Add_Click({ param($sender,$eventArgs) try { Open-DomeniaFirstStep -Step ([string]$sender.Tag) } catch { Set-Status ('Étape non ouverte : ' + $_.Exception.Message) 'WARN' } }) }
     }

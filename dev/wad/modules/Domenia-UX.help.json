@@ -3598,32 +3598,32 @@
     "Text": "Affiche dans Rechercher les postes actifs de lʼOU de lʼaccueil, depuis la base locale et sans requête. Pinger, détecter ou analyser se lancent ensuite depuis la liste, à votre clic."
   },
   {
+    "Name": "BtnFirstStepConnection",
+    "Title": "Premiers pas : connexion à lʼannuaire",
+    "Text": "Ouvre Comptes et accès : compte utilisé pour lʼannuaire et changement de compte. Aucun compte nʼest demandé ni vérifié par ce bouton.",
+    "Kind": "Button",
+    "Source": "point-148"
+  },
+  {
     "Name": "BtnFirstStepOu",
     "Kind": "Button",
     "Source": "lot-L01",
-    "Title": "Premiers pas : choisir mon OU",
-    "Text": "Ouvre lʼarbre des OU de Rechercher. Lʼaccueil suit lʼOU choisie ; aucune lecture nʼest lancée."
+    "Title": "Premiers pas : OU de travail",
+    "Text": "Choisit lʼOU de travail du tableau de bord, sans changer Rechercher ni lancer de lecture."
   },
   {
     "Name": "BtnFirstStepBase",
     "Kind": "Button",
     "Source": "lot-L01",
-    "Title": "Premiers pas : base autonome",
-    "Text": "Ouvre Outils, Base autonome. La mise à jour ne part quʼà votre clic sur Mettre à jour tout."
+    "Title": "Premiers pas : première lecture",
+    "Text": "Ouvre Outils, Base autonome. La première lecture ne part quʼà votre clic ; privilégiez lʼOU de travail."
   },
   {
-    "Name": "BtnFirstStepAccount",
+    "Name": "BtnFirstStepDashboard",
+    "Title": "Premiers pas : tableau de bord",
+    "Text": "Affiche la vue dʼensemble de lʼaccueil, calculée depuis la base locale. Ce bouton ne lance aucune lecture de lʼannuaire ni des postes.",
     "Kind": "Button",
-    "Source": "lot-L01",
-    "Title": "Premiers pas : compte des postes",
-    "Text": "Ouvre Comptes et accès pour enregistrer le compte utilisé sur les postes. Aucun compte nʼest demandé par ce bouton."
-  },
-  {
-    "Name": "BtnFirstStepBackup",
-    "Kind": "Button",
-    "Source": "lot-L01",
-    "Title": "Premiers pas : première sauvegarde",
-    "Text": "Ouvre Outils, Base autonome. La sauvegarde ne part quʼà votre clic sur Sauvegarder maintenant."
+    "Source": "point-148"
   },
   {
     "Name": "BtnFleetDashboardRefresh",

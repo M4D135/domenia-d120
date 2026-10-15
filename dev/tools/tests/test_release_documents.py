@@ -76,7 +76,17 @@ class CompatibilityMatrixTests(unittest.TestCase):
 class MainXamlControlTests(unittest.TestCase):
     """Named controls added by the release-engineering lot: policy entry, accessible name, tooltip equal to the help
     text and to the help catalogue entry (rules of the team, checked on the real main XAML)."""
-    CONTROLS = ('LblUxAboutCompatibility', 'ExpStorageDataPolicy', 'LblStorageDataPolicy', 'DgStorageDataPolicy')
+    CONTROLS = ('LblUxAboutCompatibility', 'ExpStorageDataPolicy', 'LblStorageDataPolicy', 'DgStorageDataPolicy',
+                'BtnFirstStepConnection', 'BtnFirstStepOu', 'BtnFirstStepBase', 'BtnFirstStepDashboard', 'LblFirstStepsDeferred')
+
+    def test_first_steps_keep_four_steps_and_drop_the_rare_options(self):
+        for step in ('Connection', 'Ou', 'Base', 'Dashboard'):
+            for prefix in ('LblFirstStep', 'BtnFirstStep'):
+                self.find(prefix + step)
+            self.find('LblFirstStep' + step + 'Mark')
+        for gone in ('BtnFirstStepAccount', 'BtnFirstStepBackup', 'LblFirstStepAccount', 'LblFirstStepBackup'):
+            self.assertFalse([e for e in self.root.iter() if e.get(self.xname) == gone], gone)
+            self.assertNotIn(gone, self.help)
 
     @classmethod
     def setUpClass(cls):

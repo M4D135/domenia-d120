@@ -1600,7 +1600,10 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaFleetCollectionContext',
             'Start-DomeniaWidgetProbe'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Charts.UI.ps1'); File='Domenia-Dashboard.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-FirstRun.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaFirstRunPlan'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Charts.UI.ps1','Domenia-FirstRun.Model.ps1'); File='Domenia-Dashboard.UI.ps1'; DotSource=$true; Functions=@(
             'Clear-DomeniaDashboards',
             'Get-DomeniaInventoryValue',
             'Get-DomeniaCategorySummary',

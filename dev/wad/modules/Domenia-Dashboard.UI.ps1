@@ -457,6 +457,12 @@ function Complete-DomeniaFleetDashboard {
     $summary=Format-DomeniaOuFreshnessSummary -IndexFreshness (Get-DomeniaMemberValue $freshness 'Index') -Observations (Get-DomeniaMemberValue $freshness 'Observations') -ComputedAtUtc (Get-DomeniaMemberValue $freshness 'ComputedAtUtc')
     [void](Set-DomeniaControlText 'LblFleetDashboard' ($summary.ObservationsText+"`n"+$summary.ComputedText))
     [void](Save-DomeniaFleetSnapshot -Scope $scope -Board $board)
+    # Point 148: the dashboard is discovered once an overview with workstations was computed while Accueil is shown.
+    try {
+        if (($count -gt 0) -and (Test-DomeniaFleetDashboardShown) -and (-not [bool][string](Get-DomeniaSetting -Name 'Home.DashboardSeen' -Default ''))) {
+            Set-DomeniaSetting -Name 'Home.DashboardSeen' -Value ([datetime]::UtcNow.ToString('o'))
+        }
+    } catch { Write-AppLog ('Premiers pas : préférence non enregistrée. ' + $_.Exception.Message) 'WARN' }
     try { Update-DomeniaFirstSteps } catch { }
     # Data changed while computing (analysis or base saved meanwhile): computed again while Accueil is shown.
     if ([bool]$script:FleetStale) { try { Request-DomeniaFleetRefresh } catch { } }
@@ -554,50 +560,60 @@ function Fail-DomeniaFleetBitLockerPresence {
     Set-Status ('Présence BitLocker non lue : ' + [string]$Message) 'WARN'
 }
 function Get-DomeniaFirstStepsState {
-    # The four first steps (UX-20) from what the session already knows: no request, no scan.
-    $ouDone = $false
-    try { $scope = Get-DomeniaFleetScope; $ouDone = (($null -ne $scope) -and [bool][string]$scope.Dn) } catch { $ouDone = $false }
-    $baseDone = $false
-    try { $baseDone = ([int]$script:IndexDbCount -gt 0) } catch { $baseDone = $false }
-    $accountDone = $false
-    try { $accountDone = (($null -ne $script:RemoteAdminCredential) -or [bool][string](Get-DomeniaSetting -Name 'RemoteCredentialUser' -Default '')) } catch { $accountDone = $false }
-    $backupDone = $false
-    try {
-        $folder = Join-Path ([IO.Path]::GetDirectoryName((Get-DomeniaDatabasePath))) 'Backups'
-        if ([IO.Directory]::Exists($folder)) { $backupDone = (@([IO.Directory]::GetFiles($folder,'Domenia-*.db')).Count -gt 0) }
-    } catch { $backupDone = $false }
-    return [pscustomobject]@{ Ou = $ouDone; Base = $baseDone; Account = $accountDone; Backup = $backupDone; Done = ($ouDone -and $baseDone -and $accountDone -and $backupDone) }
+    # Point 148: the four first steps (connection, working OU, first read, dashboard) from what the session already
+    # knows, through the pure rule Get-DomeniaFirstRunPlan: no request, no scan.
+    $domain = ''; $account = ''; $connected = $false
+    try { $connected = [bool]$script:Conn.Connected; $domain = [string]$script:Conn.Domain; $account = [string]$script:Conn.BindUser } catch { $connected = $false }
+    if (-not $connected) { $domain = '' }
+    $scopeDn = ''; $scopeName = ''
+    try { $scope = Get-DomeniaFleetScope; if ($null -ne $scope) { $scopeDn = [string]$scope.Dn; $scopeName = [string]$scope.Name } } catch { $scopeDn = '' }
+    $indexed = 0L
+    try { $indexed = [long]$script:IndexDbCount } catch { $indexed = 0L }
+    $seen = $false
+    try { $seen = [bool][string](Get-DomeniaSetting -Name 'Home.DashboardSeen' -Default '') } catch { $seen = $false }
+    return Get-DomeniaFirstRunPlan -Domain $domain -Account $account -ScopeDn $scopeDn -ScopeName $scopeName -IndexedObjects $indexed -DashboardSeen $seen
 }
 function Update-DomeniaFirstSteps {
-    # Card shown until the four steps are done once, then hidden for good (local preference).
+    # Card shown until the four steps are done once, then hidden for good (local preference). The account used on the
+    # workstations and the backups are not steps: the card says where they are set when they are needed.
     $card = Get-DomeniaControl 'CardFirstSteps'
     if ($null -eq $card) { return }
     if ([bool](Get-DomeniaSetting -Name 'Home.FirstStepsDone' -Default $false)) { $card.Visibility = [System.Windows.Visibility]::Collapsed; return }
-    $steps = Get-DomeniaFirstStepsState
-    if ([bool]$steps.Done) {
+    $plan = Get-DomeniaFirstStepsState
+    if ([bool]$plan.Done) {
         Set-DomeniaSetting -Name 'Home.FirstStepsDone' -Value $true
         $card.Visibility = [System.Windows.Visibility]::Collapsed
         return
     }
     $card.Visibility = [System.Windows.Visibility]::Visible
-    $number = 0
-    foreach ($name in @('Ou','Base','Account','Backup')) {
-        $number++
-        $done = [bool]$steps.$name
+    foreach ($step in @($plan.Steps)) {
+        $name = [string]$step.Name
         $mark = Get-DomeniaControl ('LblFirstStep' + $name + 'Mark')
-        if ($null -ne $mark) { $mark.Text = $(if ($done) { [string][char]0x2713 } else { [string]$number }) }
+        if ($null -ne $mark) { $mark.Text = $(if ([bool]$step.Done) { [string][char]0x2713 } else { [string]$step.Number }) }
         $label = Get-DomeniaControl ('LblFirstStep' + $name)
-        if ($null -ne $label) { $label.Opacity = $(if ($done) { 0.6 } else { 1.0 }) }
+        if ($null -ne $label) {
+            $label.Text = [string]$step.Text
+            $label.Opacity = $(if ([bool]$step.Done) { 0.6 } else { 1.0 })
+            $label.FontWeight = $(if ($name -ceq [string]$plan.Next) { [System.Windows.FontWeights]::SemiBold } else { [System.Windows.FontWeights]::Normal })
+        }
+        $button = Get-DomeniaControl ('BtnFirstStep' + $name)
+        if ($null -ne $button) { $button.IsEnabled = [bool]$step.Enabled }
     }
+    [void](Set-DomeniaControlText 'LblFirstStepsDeferred' ([string]$plan.Deferred))
 }
 function Open-DomeniaFirstStep {
     # Each step opens the screen concerned and starts nothing (decision David 2026-10-08, UX-20).
-    param([ValidateSet('Ou','Base','Account','Backup')][string]$Step)
+    param([ValidateSet('Connection','Ou','Base','Dashboard')][string]$Step)
     switch ($Step) {
+        'Connection' { Invoke-DomeniaUxRoute -Route 'TabAccounts'; Set-Status 'Comptes et accès : compte utilisé pour lʼannuaire ; changer de compte reste possible à tout moment.' }
         'Ou' { Show-DomeniaFleetScopeSource }
         'Base' { Select-DomeniaWorkspace -Workspace 'TabApplicationTools' -Inner 'ApplicationToolTabs' -Tab 'TabIndex'; $tabs=Get-DomeniaControl 'IndexWorkspaceTabs'; if($null -ne $tabs){$tabs.SelectedItem=Get-DomeniaControl 'TabIndexUpdate'}; Set-Status 'Choisissez une OU, puis mettez-la à jour. La lecture couvre cette OU et ses sous-OU.' }
-        'Account' { Invoke-DomeniaUxRoute -Route 'TabAccounts'; Set-Status 'Comptes et accès : enregistrez le compte utilisé pour les postes.' }
-        'Backup' { Select-DomeniaWorkspace -Workspace 'TabApplicationTools' -Inner 'ApplicationToolTabs' -Tab 'TabIndex'; $tabs=Get-DomeniaControl 'IndexWorkspaceTabs'; if($null -ne $tabs){$tabs.SelectedItem=Get-DomeniaControl 'TabIndexStorage'}; Set-Status 'Stockage : Sauvegarder maintenant copie la base locale, à votre clic.' }
+        'Dashboard' {
+            Invoke-DomeniaUxRoute -Route 'TabDashboard'
+            $summary = Get-DomeniaControl 'LblFleetDashboard'
+            if ($null -ne $summary) { try { $summary.BringIntoView() } catch { } }
+            Set-Status 'Tableau de bord : vue dʼensemble de lʼOU, calculée depuis la base locale à lʼaffichage de lʼaccueil. Une tuile ouvre la liste exacte de ses postes.'
+        }
     }
 }
 function Get-DomeniaBoardRouteTarget {

@@ -157,7 +157,7 @@ try{
     $parkAst=Parse-Text ([IO.File]::ReadAllText((Join-Path $wad 'modules\Domenia-Park.UI.ps1')));Import-Function $parkAst 'Start-DomeniaParkAnalysis'
     $script:FleetScopeDn=''
     # FI-05 / PF-06: Engine.UI holds the protected timer factory (banners, counters, park run).
-    foreach($m in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Embedded.UI.ps1','Domenia-Workstation.Model.ps1','Domenia-HealthRules.Model.ps1','Domenia-HealthRules.UI.ps1','Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-BoardSoftware.Model.ps1','Domenia-BoardComputer.UI.ps1','Domenia-Widgets.UI.ps1','Domenia-Dashboard.UI.ps1','Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-Query.UI.ps1','Domenia-QueryTargets.UI.ps1')){. (Join-Path $wad ('modules\'+$m))}
+    foreach($m in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Embedded.UI.ps1','Domenia-Workstation.Model.ps1','Domenia-HealthRules.Model.ps1','Domenia-HealthRules.UI.ps1','Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-BoardSoftware.Model.ps1','Domenia-BoardComputer.UI.ps1','Domenia-Widgets.UI.ps1','Domenia-FirstRun.Model.ps1','Domenia-Dashboard.UI.ps1','Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-Query.UI.ps1','Domenia-QueryTargets.UI.ps1')){. (Join-Path $wad ('modules\'+$m))}
     $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml));try{$w=[Windows.Markup.XamlReader]::Load($reader)}finally{$reader.Close()}
     $w.Width=1400;$w.Height=900;$w.ShowInTaskbar=$false
     $palette=(Get-Content -LiteralPath (Join-Path $wad 'modules\SupportSuite.UI.json') -Raw|ConvertFrom-Json).Palettes.Light
@@ -332,7 +332,11 @@ try{
     Case 'Parc : tableau calcule sur le perimetre et serveurs reconnus' {
         (Get-DomeniaControl 'WorkspaceTabs').SelectedItem=Get-DomeniaControl 'TabDashboard';$w.UpdateLayout()
         $script:FleetScopeDn=''
+        $script:TestSettings['Home.DashboardSeen']=''
         Complete-DomeniaFleetDashboard -Result (New-FleetResult) -State $null
+        # Point 148: an overview with workstations computed while Accueil is shown completes the dashboard step.
+        Expect ([string]$script:TestSettings['Home.DashboardSeen'] -match '^\d{4}-\d{2}-\d{2}T') 'Decouverte du tableau de bord non enregistree'
+        $script:TestSettings.Remove('Home.DashboardSeen')
         $data=(Get-DomeniaBoardState 'Fleet').Data
         Expect ($data.Entries.ContainsKey('fleet.os') -and $data.Entries.ContainsKey('fleet.health')) 'Entrees du parc'
         Expect (@($script:FleetLast.Targets).Count -eq 3) 'Cibles du perimetre'
@@ -621,16 +625,21 @@ try{
         Expect ($script:StatsCalls -eq 1 -and [string]$script:Ctrl['TxtDashStats'].Text -eq 'stats fictives') 'Details non mis a jour a l ouverture'
         $expander.IsExpanded=$false;$script:Ctrl=$savedControls
     }
-    Case 'Premiers pas : quatre etapes qui ouvrent un ecran sans rien lancer, carte masquee une fois faites' {
+    Case 'Premiers pas : connexion, OU, premiere lecture et tableau de bord ; ecrans ouverts sans rien lancer, carte masquee une fois faits' {
         $script:FleetScopeDn='';$script:IndexDbCount=0;$script:RemoteAdminCredential=$null
         $script:DatabaseScopedPath='';$script:FleetJobId='';$script:FleetPendingKey='';$script:FleetStale=$false
         if($null -ne $script:DomeniaQueryState.Timer){$script:DomeniaQueryState.Timer.Stop()}
-        $script:TestSettings['Home.FirstStepsDone']=$false
-        $db=Join-Path ([IO.Path]::GetTempPath()) ('domenia-firststeps-'+[guid]::NewGuid().ToString('N')+'\Domenia.db')
-        Set-Item function:script:Get-DomeniaDatabasePath ([scriptblock]::Create("return '"+$db+"'"))
+        $savedConn=$script:Conn
+        $script:Conn=[pscustomobject]@{BaseDn='DC=example,DC=invalid';Server='dc.example.invalid';Domain='example.invalid';Netbios='EXAMPLE';Connected=$true;BindUser='EXAMPLE\agent'}
+        $script:TestSettings['Home.FirstStepsDone']=$false;$script:TestSettings['Home.DashboardSeen']=''
         Update-DomeniaFirstSteps
         $card=Get-DomeniaControl 'CardFirstSteps'
         Expect ($card.Visibility -eq [Windows.Visibility]::Visible) 'Carte Premiers pas masquee au premier lancement'
+        Expect ([string](Get-DomeniaControl 'LblFirstStepConnectionMark').Text -eq [string][char]0x2713) 'Connexion de la session non reconnue'
+        Expect ([string](Get-DomeniaControl 'LblFirstStepConnection').Text -ceq ('Connecté à example.invalid avec EXAMPLE\agent.')) ([string](Get-DomeniaControl 'LblFirstStepConnection').Text)
+        Expect (-not (Get-DomeniaControl 'BtnFirstStepDashboard').IsEnabled) 'Tableau de bord propose avant la premiere lecture'
+        Expect ([string](Get-DomeniaControl 'LblFirstStepsDeferred').Text -like 'Plus tard*Comptes et accès*Stockage*') 'Options rares non reportees a leur usage'
+        foreach($gone in @('BtnFirstStepAccount','BtnFirstStepBackup')){Expect ($null -eq (Get-DomeniaControl $gone)) ('Etape rare encore dans la carte : '+$gone)}
         $before=$script:StartCalls.Count;$parks=$script:ParkCalls.Count;$script:Workspaces.Clear()
         $script:SelectedBranchDn='OU=Recherche,DC=example,DC=invalid';$searchBefore=$script:SelectedBranchDn
         $trial=Invoke-EditorTrial -Open {Open-DomeniaFirstStep -Step 'Ou'} -Act {
@@ -651,16 +660,19 @@ try{
         }
         Expect $trial.Trial.Done 'Selecteur non termine'
         Expect ($script:FleetScopeDn -eq 'OU=Postes,DC=example,DC=invalid' -and $script:SelectedBranchDn -eq $searchBefore) 'La selection OU modifie Rechercher'
-        foreach($step in @('Base','Account','Backup')){Open-DomeniaFirstStep -Step $step}
+        foreach($step in @('Base','Connection','Dashboard')){Open-DomeniaFirstStep -Step $step}
         Expect ($script:StartCalls.Count -eq $before+2 -and $script:ParkCalls.Count -eq $parks) ('Une etape a lance une tache autre que la selection OU explicite : '+(@($script:StartCalls|Select-Object -Skip $before|ForEach-Object{$_.OperationId}) -join ','))
-        Expect (($script:Workspaces -join ',') -eq 'TabApplicationTools/TabIndex,route:TabAccounts,TabApplicationTools/TabIndex') ('Ecrans ouverts : '+($script:Workspaces -join ','))
-        $script:FleetScopeDn='OU=Postes,DC=example,DC=invalid';$script:IndexDbCount=12;$script:TestSettings['RemoteCredentialUser']='EXAMPLE\poste'
-        $folder=Join-Path ([IO.Path]::GetDirectoryName($db)) 'Backups';[void][IO.Directory]::CreateDirectory($folder);[IO.File]::WriteAllText((Join-Path $folder 'Domenia-20261008.db'),'x')
+        Expect (($script:Workspaces -join ',') -eq 'TabApplicationTools/TabIndex,route:TabAccounts,route:TabDashboard') ('Ecrans ouverts : '+($script:Workspaces -join ','))
+        $script:IndexDbCount=12
+        Update-DomeniaFirstSteps
+        Expect ((Get-DomeniaControl 'BtnFirstStepDashboard').IsEnabled) 'Tableau de bord non propose apres la premiere lecture'
+        Expect ([string](Get-DomeniaControl 'LblFirstStepBase').Text -like 'Première lecture faite : 12 objet(s)*') ([string](Get-DomeniaControl 'LblFirstStepBase').Text)
+        Expect ($card.Visibility -eq [Windows.Visibility]::Visible) 'Carte masquee avant la decouverte du tableau de bord'
+        $script:TestSettings['Home.DashboardSeen']='2026-10-15T08:00:00.0000000Z'
         Update-DomeniaFirstSteps
         Expect ($card.Visibility -eq [Windows.Visibility]::Collapsed) 'Carte encore affichee apres les quatre etapes'
         Expect ([bool]$script:TestSettings['Home.FirstStepsDone']) 'Preference locale non enregistree'
-        Remove-Item -LiteralPath ([IO.Path]::GetDirectoryName($db)) -Recurse -Force -ErrorAction SilentlyContinue
-        $script:FleetScopeDn='';$script:TestSettings.Remove('RemoteCredentialUser')
+        $script:FleetScopeDn='';$script:IndexDbCount=0;$script:Conn=$savedConn;$script:TestSettings.Remove('Home.DashboardSeen')
     }
     Case 'Anciens widgets repris une fois dans la disposition' {
         $script:TestSettings.Remove('Dashboard.Computer.Layout')

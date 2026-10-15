@@ -131,3 +131,39 @@ Test-Case 'DPO-004' 'Reglages illisibles : conservation inconnue, jamais une val
     Assert-True (@($rows | Where-Object { $_.Category -eq 'Backup' })[0].Retention -like 'Réglages de sauvegarde illisibles*')
     Assert-Throws { Get-DomeniaLocalDataPolicy -Policy ([pscustomobject]@{ Version = 1; BackupHours = 0 }) } 'reglage hors limites accepte'
 }
+
+# Point 148 : premiers pas (Domenia-FirstRun.Model).
+. (Join-Path $modules 'Domenia-FirstRun.Model.ps1')
+
+Test-Case 'FRN-001' 'Quatre etapes dans lʼordre : connexion, OU de travail, premiere lecture, tableau de bord' {
+    $plan = Get-DomeniaFirstRunPlan
+    Assert-Equal 'Connection,Ou,Base,Dashboard' ([string]::Join(',',[string[]]@($plan.Steps | ForEach-Object { $_.Name })))
+    Assert-Equal 'Connection' $plan.Next
+    Assert-False $plan.Done
+    foreach ($step in @($plan.Steps)) { Assert-False $step.Done $step.Name }
+    Assert-False @($plan.Steps)[1].Enabled 'OU proposee sans connexion'
+    Assert-False @($plan.Steps)[3].Enabled 'tableau de bord propose sans premiere lecture'
+    Assert-True ($plan.Deferred -like 'Plus tard, au moment où ils servent*Comptes et accès*Stockage*') $plan.Deferred
+}
+
+Test-Case 'FRN-002' 'Progression : chaque etape est lue dans la session, la suivante est mise en avant' {
+    $plan = Get-DomeniaFirstRunPlan -Domain 'example.invalid' -Account 'EXAMPLE\agent'
+    Assert-Equal 'Ou' $plan.Next
+    Assert-Equal 'Connecté à example.invalid avec EXAMPLE\agent.' @($plan.Steps)[0].Text
+    $plan = Get-DomeniaFirstRunPlan -Domain 'example.invalid' -ScopeDn 'OU=Postes,DC=example,DC=invalid' -ScopeName 'Postes'
+    Assert-Equal 'Base' $plan.Next
+    Assert-Equal 'OU de travail : Postes.' @($plan.Steps)[1].Text
+    $plan = Get-DomeniaFirstRunPlan -Domain 'example.invalid' -ScopeDn 'OU=Postes,DC=example,DC=invalid' -IndexedObjects 1200
+    Assert-Equal 'Dashboard' $plan.Next
+    Assert-True @($plan.Steps)[3].Enabled
+    Assert-Equal 'Première lecture faite : 1200 objet(s) dans la base locale.' @($plan.Steps)[2].Text
+    $plan = Get-DomeniaFirstRunPlan -Domain 'example.invalid' -ScopeDn 'OU=Postes,DC=example,DC=invalid' -IndexedObjects 1200 -DashboardSeen $true
+    Assert-True $plan.Done; Assert-Equal '' $plan.Next
+}
+
+Test-Case 'FRN-003' 'Un tableau de bord vu sans base lue nʼest pas une etape faite ; une OU sans nom affiche son DN' {
+    $plan = Get-DomeniaFirstRunPlan -Domain 'example.invalid' -ScopeDn 'OU=Postes,DC=example,DC=invalid' -DashboardSeen $true
+    Assert-False @($plan.Steps)[3].Done
+    Assert-Equal 'OU de travail : OU=Postes,DC=example,DC=invalid.' @($plan.Steps)[1].Text
+    Assert-Equal 'Connecté à example.invalid.' @((Get-DomeniaFirstRunPlan -Domain 'example.invalid').Steps)[0].Text
+}
