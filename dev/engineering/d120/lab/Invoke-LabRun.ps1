@@ -14,6 +14,8 @@ $dev=$ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($De
 if(-not [IO.Directory]::Exists($out)){[void][IO.Directory]::CreateDirectory($out)}
 $shell=Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
 $extra=@{'Test-Domenia.ps1'=@('-WpfSmoke');'Test-DomeniaCandidate.ps1'=@('-Wpf','-Quiet');'Test-DomeniaSupport.ps1'=@('-Wpf','-Quiet');'Test-DomeniaTheme.ps1'=@('-Wpf')}
+# Long benches get their own limit (point 125: 10 000 generated computers, repeated cycles, cold starts).
+$longSuites=@{'Test-DomeniaLoadStability.ps1'=3600;'Test-DomeniaStorageFaults.ps1'=1200}
 $rows=New-Object 'System.Collections.Generic.List[object]'
 $suites=@(Get-ChildItem -LiteralPath (Join-Path $dev 'wad\tests') -Filter 'Test-*.ps1' -File | Sort-Object Name)
 if($Filter){$suites=@($suites|Where-Object{$_.Name -like ('*'+$Filter+'*')})}
@@ -30,7 +32,8 @@ foreach($suite in $suites){
     $process=Start-Process -FilePath $shell -ArgumentList $arguments -PassThru -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr
     # Windows PowerShell 5.1 only exposes ExitCode when the process handle was read before the exit.
     $null=$process.Handle
-    if(-not $process.WaitForExit($TimeoutSeconds*1000)){$timedOut=$true;try{$process.Kill()}catch{}}else{$process.WaitForExit();$code=$process.ExitCode}
+    $limit=$TimeoutSeconds;if($longSuites.ContainsKey($suite.Name)){$limit=[Math]::Max($TimeoutSeconds,[int]$longSuites[$suite.Name])}
+    if(-not $process.WaitForExit($limit*1000)){$timedOut=$true;try{$process.Kill()}catch{}}else{$process.WaitForExit();$code=$process.ExitCode}
     $watch.Stop()
     $wrote=(-not $bindsReport) -or [IO.File]::Exists($report)
     $rows.Add([pscustomobject]@{Suite=$suite.Name;ExitCode=$code;TimedOut=$timedOut;DurationMs=$watch.ElapsedMilliseconds;ReportWritten=$wrote})
