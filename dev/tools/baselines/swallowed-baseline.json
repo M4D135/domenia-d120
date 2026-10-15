@@ -1,12 +1,12 @@
 {
  "Schema": "DomeniaSwallowedBaseline/1",
- "Source": "Z02 P-CD-09 : reference initiale (master 56cfb7f + Write-DomeniaSwallowed)",
- "Total": 1177,
+ "Source": "reference initiale",
+ "Total": 1185,
  "Kinds": {
-  "empty": 1177
+  "empty": 1185
  },
  "Places": {
-  "code": 968,
+  "code": 976,
   "here-string": 209
  },
  "Findings": {
@@ -43,7 +43,7 @@
   "Clear-DomeniaUiLog": 3,
   "Clear-MachineCredential": 1,
   "Clear-ObjectDetails": 7,
-  "Clear-Secrets": 5,
+  "Clear-Secrets": 6,
   "Close-DomeniaBanner": 2,
   "Close-DomeniaStartupWindow": 2,
   "Complete-DomeniaAdminShareOpen": 1,
@@ -204,6 +204,7 @@
   "Get-SelectedAssociationSummary": 2,
   "Get-SelectedObjectFilter": 1,
   "Hide-DomeniaOperationsPanel": 2,
+  "Hide-DomeniaRevealedSecret": 2,
   "Initialize-AsyncEngine": 1,
   "Initialize-DomeniaAccess": 1,
   "Initialize-DomeniaContinuity": 4,
@@ -373,7 +374,8 @@
   "Start-DomeniaResultPresenceScan": 3,
   "Start-DomeniaResultPresenceScan [here-string]": 3,
   "Start-DomeniaSearchAssociated": 2,
-  "Start-DomeniaSecretReveal": 2,
+  "Start-DomeniaSecretReveal": 1,
+  "Start-DomeniaSecretRevealExpiry": 1,
   "Start-DomeniaSoftwareInventory": 3,
   "Start-DomeniaStorageWork": 1,
   "Start-DomeniaTimer": 1,
@@ -426,14 +428,16 @@
   "Update-DomeniaParkRunStatus": 2,
   "Update-DomeniaPulseSchedule": 1,
   "Update-DomeniaSearchScopeUi": 3,
-  "Update-DomeniaSecretActionUi": 4,
+  "Update-DomeniaSecretActionUi": 6,
   "Update-DomeniaSecretIndexFromRows": 1,
+  "Update-DomeniaSecretRevealCountdown": 1,
+  "Update-DomeniaSecretsView": 1,
   "Update-DomeniaSelectedUserPresence": 2,
   "Update-DomeniaSoftwareColumnVisibility": 1,
   "Update-DomeniaSoftwareSyntheseVisibility": 1,
   "Update-DomeniaUserSupportBand": 1,
   "Update-DomeniaUxPageTitle": 1,
-  "Update-SecretsGrid": 1,
+  "Update-SecretsGrid": 2,
   "Update-SelectedAssociationFields": 3,
   "Update-TaskUi": 2,
   "wad/Domenia-Core.ps1|<script>": 23,
