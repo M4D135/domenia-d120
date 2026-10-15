@@ -658,7 +658,7 @@ function Open-DomeniaFirstStep {
         'Dashboard' {
             Invoke-DomeniaUxRoute -Route 'TabDashboard'
             $summary = Get-DomeniaControl 'LblFleetDashboard'
-            if ($null -ne $summary) { try { $summary.BringIntoView() } catch { } }
+            if ($null -ne $summary) { try { $summary.BringIntoView() } catch { Write-DomeniaSwallowed 'Premiers pas' 'Open-DomeniaFirstStep' $_ } }
             Set-Status 'Tableau de bord : vue dʼensemble de lʼOU, calculée depuis la base locale à lʼaffichage de lʼaccueil. Une tuile ouvre la liste exacte de ses postes.'
         }
     }

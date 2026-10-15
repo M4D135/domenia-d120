@@ -57,9 +57,10 @@ namespace Domenia.Live {
         public string DirectoryFresh { get { return Read("DirectoryFresh"); } set { Set("DirectoryFresh", value); } }
     }
     // UX-32 / PF-12: one row of the operations panel, updated in place (state, duration) instead of rebuilding the grid,
-    // so that the selection, the scroll position and the focus stay where the operator left them.
+    // so that the selection, the scroll position and the focus stay where the operator left them. W13 (point 118): the
+    // rows of the "last operations" grid use it too, with their dominant step (Phase) and their trace reference.
     public sealed class OperationRow : INotifyPropertyChanged {
-        private string id = String.Empty, name = String.Empty, kind = String.Empty, state = String.Empty, duration = String.Empty, detail = String.Empty;
+        private string id = String.Empty, name = String.Empty, kind = String.Empty, state = String.Empty, duration = String.Empty, detail = String.Empty, phase = String.Empty, reference = String.Empty;
         private bool canCancel, detached;
         public event PropertyChangedEventHandler PropertyChanged;
         private void Raise(string property) { var handler = PropertyChanged; if (handler != null) handler(this, new PropertyChangedEventArgs(property)); }
@@ -74,6 +75,8 @@ namespace Domenia.Live {
         public string State { get { return state; } set { Change(ref state, value, "State"); } }
         public string Duration { get { return duration; } set { Change(ref duration, value, "Duration"); } }
         public string Detail { get { return detail; } set { Change(ref detail, value, "Detail"); } }
+        public string Phase { get { return phase; } set { Change(ref phase, value, "Phase"); } }
+        public string Reference { get { return reference; } set { Change(ref reference, value, "Reference"); } }
         public bool CanCancel { get { return canCancel; } set { if (canCancel == value) return; canCancel = value; Raise("CanCancel"); } }
         public bool Detached { get { return detached; } set { if (detached == value) return; detached = value; Raise("Detached"); } }
     }

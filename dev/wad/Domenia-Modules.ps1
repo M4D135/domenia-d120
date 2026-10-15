@@ -403,8 +403,13 @@ function Get-DomeniaRuntimeModulePlan {
             'Test-DomeniaCredentialLease',
             'Use-DomeniaCredentialLease',
             'Clear-DomeniaCredentialLease',
+            'Get-DomeniaAccountCorrectionPlan',
+            'Get-DomeniaAccountReleaseDecision',
             'Get-DomeniaOperationAuthNeed',
             'Get-DomeniaCapabilityExplanation',
+            'Get-DomeniaOperationRequirement',
+            'Get-DomeniaFailureFamily',
+            'Get-DomeniaOperationFailureGuidance',
             'ConvertTo-DomeniaLapsView',
             'ConvertTo-DomeniaBitLockerKeyList',
             'Find-DomeniaBitLockerKey',
@@ -417,6 +422,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaSecretActionView',
             'Protect-DomeniaSecretText',
             'Test-DomeniaTextHasSecret',
+            'Get-DomeniaSecretTextHint',
+            'Protect-DomeniaExportRows',
             'Select-DomeniaAllowedFields',
             'Get-DomeniaTransportPolicy',
             'Test-DomeniaTransportFallbackAllowed',
@@ -599,6 +606,9 @@ function Get-DomeniaRuntimeModulePlan {
             'Test-DomeniaPlanStillValid',
             'Get-DomeniaPostconditionRule',
             'Resolve-DomeniaPostcondition',
+            'New-DomeniaCollectivePreview',
+            'Get-DomeniaReceiptExpectation',
+            'Resolve-DomeniaReceiptCheck',
             'Get-DomeniaReceiptRequirement',
             'Get-DomeniaReceiptResumeState',
             'Get-DomeniaOperationDisplayName',
@@ -698,6 +708,50 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaLocalCompatibility',
             'Update-DomeniaAboutCompatibility',
             'Get-DomeniaCompatibilitySupportFields'
+        ) }
+        # W13 (points 115, 117, 120): command palette, keyboard shortcuts and presentation undo of the result list.
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-Commands.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaKeyboardShortcuts',
+            'Test-DomeniaPresentationUndoKey',
+            'Get-DomeniaCommandCatalogue',
+            'Get-DomeniaShortcutListText',
+            'Get-DomeniaCommandEffectText',
+            'ConvertTo-DomeniaCommandSearchKey',
+            'Get-DomeniaPaletteEntries',
+            'Select-DomeniaPaletteEntries',
+            'Get-DomeniaPaletteDecision',
+            'ConvertTo-DomeniaPresentationKey',
+            'Get-DomeniaPresentationChangeText',
+            'New-DomeniaPresentationHistory',
+            'Add-DomeniaPresentationState',
+            'Get-DomeniaPresentationUndoText',
+            'Reset-DomeniaPresentationCurrent',
+            'Undo-DomeniaPresentationState'
+        ) }
+        # W13 (points 118, 121, 123, 124): traces of the operations, explained slowness and redacted diagnostic.
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-Observability.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaTraceLimits',
+            'Get-DomeniaTracePhases',
+            'Get-DomeniaTraceOutcomes',
+            'Get-DomeniaTraceOutcome',
+            'Get-DomeniaTraceReference',
+            'Resolve-DomeniaTraceId',
+            'New-DomeniaOperationTrace',
+            'Add-DomeniaTraceJob',
+            'ConvertTo-DomeniaTraceJobRef',
+            'Add-DomeniaOperationTraceEvent',
+            'Complete-DomeniaTraceJob',
+            'Format-DomeniaDurationText',
+            'Format-DomeniaVolumeText',
+            'Get-DomeniaOperationTraceSummary',
+            'Test-DomeniaTraceListed',
+            'Select-DomeniaTraceEviction',
+            'Get-DomeniaOutputVolume',
+            'Get-DomeniaSlownessVerdict',
+            'Get-DomeniaStallAttribution',
+            'New-DomeniaRedactedDiagnostic',
+            'Get-DomeniaDiagnosticPreviewText',
+            'Get-DomeniaTraceAdvice'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Shell.Model.ps1'); File='Domenia-Selection.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaObjectReadIdentity',
@@ -915,6 +969,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Initialize-DomeniaUxLoginPresentation',
             'Test-DomeniaUxExpertAllowed',
             'Send-DomeniaUxLiveChange',
+            'Set-DomeniaLiveText',
             'Get-DomeniaUxSubject',
             'Update-DomeniaUxPageTitle',
             'Update-DomeniaUxSessionBadge',
@@ -944,6 +999,10 @@ function Get-DomeniaRuntimeModulePlan {
             'Initialize-DomeniaUxEmptyStates',
             'Update-DomeniaUxEmptyStates',
             'Invoke-DomeniaUxEmptySearch',
+            'Get-DomeniaSearchEmptyInputs',
+            'Update-DomeniaSearchEmptyState',
+            'Invoke-DomeniaSearchEmptyAction',
+            'Initialize-DomeniaSearchEmptyState',
             'Get-DomeniaUxReadOnlyDelay',
             'Request-DomeniaWriteMode',
             'Enable-DomeniaWriteMode',
@@ -956,6 +1015,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Stop-DomeniaReadOnlyReturnTimer',
             'Get-DomeniaUiZoomLayoutSize',
             'Set-DomeniaUiZoom',
+            'Update-DomeniaUiZoomForDpi',
             'Initialize-DomeniaUiZoom'
         ) }
         [pscustomobject]@{ File='Domenia-Experience.Model.ps1'; DotSource=$false; Functions=@(
@@ -1224,6 +1284,11 @@ function Get-DomeniaRuntimeModulePlan {
             'Enter-WCredentialAttempt',
             'Exit-WCredentialAttempt',
             'Register-WCredentialFailure',
+            'Clear-DomeniaCredentialGuardFault',
+            'Get-DomeniaCredentialGroupKeys',
+            'ConvertTo-DomeniaAccountLookup',
+            'Get-DomeniaCredentialAliasKeys',
+            'Register-DomeniaCredentialAliases',
             'Get-DomeniaLinkFingerprint',
             'ConvertTo-DomeniaLinkRecord',
             'Get-DomeniaDraftFieldMap',
@@ -1254,10 +1319,21 @@ function Get-DomeniaRuntimeModulePlan {
         [pscustomobject]@{ File='Domenia-Accounts.Async.ps1'; DotSource=$true; Functions=@(
             'Start-DomeniaAccountValidation',
             'Complete-DomeniaAccountValidation',
-            'Stop-DomeniaAccountValidation'
+            'Stop-DomeniaAccountValidation',
+            'Start-DomeniaDirectoryCorrection',
+            'Show-DomeniaDirectoryCorrection',
+            'Get-DomeniaAccountCorrectionJobs',
+            'Register-DomeniaCredentialValidation',
+            'Get-DomeniaAccountCredentialHolders',
+            'Complete-DomeniaAccountCorrection',
+            'Request-DomeniaAccountAliasRead',
+            'Invoke-DomeniaAccountAliasQueue',
+            'Complete-DomeniaAccountAliasRead',
+            'Fail-DomeniaAccountAliasRead',
+            'Get-DomeniaAccountAliasSummary'
         ) }
         # X03: pure sign-in and accounts presentation rules (no WPF, no network, no credential object).
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Access.Model.ps1'); File='Domenia-Accounts.Model.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Access.Model.ps1','Domenia-Guard.Model.ps1'); File='Domenia-Accounts.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaLoginFailureText',
             'Get-DomeniaLoginChoice',
             'Get-DomeniaDirectoryAccountText',
@@ -1503,6 +1579,9 @@ function Get-DomeniaRuntimeModulePlan {
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Lockout.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaLockoutEventWorkerCode'
         ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Accounts.Worker.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaAccountAliasWorkerCode'
+        ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Receipts.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaReceiptsCommon',
             'Get-DomeniaReceiptWorkerCode'
@@ -1607,6 +1686,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaCredentialGuardFailures',
             'Add-DomeniaCredentialFailureHistory',
             'Get-DomeniaCredentialFailureHistory',
+            'Initialize-DomeniaCredentialGuard',
             'Set-DomeniaCredentialGuardContext',
             'Sync-DomeniaCredentialGuardUi',
             'Save-DomeniaSupersededCollection',
@@ -1690,6 +1770,58 @@ function Get-DomeniaRuntimeModulePlan {
             'Format-DomeniaLockoutReport',
             'Complete-DomeniaLockoutEventRead',
             'Fail-DomeniaLockoutEventRead'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Commands.Model.ps1','Domenia-UX.UI.ps1'); File='Domenia-Commands.UI.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaControlReach',
+            'Show-DomeniaControlInPage',
+            'Get-DomeniaPaletteContext',
+            'Initialize-DomeniaCommandPalette',
+            'Set-DomeniaCommandPalettePosition',
+            'Show-DomeniaCommandPaletteView',
+            'Hide-DomeniaCommandPalette',
+            'Test-DomeniaCommandPaletteOpen',
+            'Get-DomeniaPaletteGlyph',
+            'Update-DomeniaCommandPaletteList',
+            'Update-DomeniaCommandPaletteDetail',
+            'Invoke-DomeniaCommandPaletteKey',
+            'Invoke-DomeniaCommandPaletteEntry',
+            'Invoke-DomeniaPaletteDecision',
+            'Invoke-DomeniaPaletteCommand',
+            'Get-DomeniaCurrentPresentation',
+            'Initialize-DomeniaPresentationUndo',
+            'Request-DomeniaPresentationStep',
+            'Invoke-DomeniaPresentationUndoKey',
+            'Request-DomeniaPresentationRebase',
+            'Save-DomeniaPresentationStep',
+            'Undo-DomeniaResultPresentation',
+            'New-DomeniaPresentationUndoChip'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Observability.Model.ps1','Domenia-UX.UI.ps1','Domenia-Compatibility.UI.ps1'); File='Domenia-Observability.UI.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaTraceNow',
+            'Get-DomeniaTraceRing',
+            'Register-DomeniaTrace',
+            'Get-DomeniaTraceContextHint',
+            'Start-DomeniaJobTrace',
+            'Add-DomeniaJobTraceEvent',
+            'Add-DomeniaRequestTraceEvent',
+            'Join-DomeniaPipeTrace',
+            'Complete-DomeniaRequestTrace',
+            'Get-DomeniaJobPhaseMeasures',
+            'Register-DomeniaUiWork',
+            'Add-DomeniaSlowEvent',
+            'Register-DomeniaJobPublication',
+            'Complete-DomeniaJobTrace',
+            'Write-DomeniaTraceSummaryLog',
+            'Register-DomeniaDispatcherLateness',
+            'Get-DomeniaSlowEventLines',
+            'Get-DomeniaRecentTraceRows',
+            'Get-DomeniaDiagnosticInputs',
+            'New-DomeniaSessionDiagnostic',
+            'Sync-DomeniaOperationsRecent',
+            'Update-DomeniaOperationsTraceDetail',
+            'Copy-DomeniaOperationsTrace',
+            'Open-DomeniaOperationsJournal',
+            'Start-DomeniaOperationsDiagnostic'
         ) }
         # X04 (programme 08/10): Assistance poste - five views, fixed header, restart, run, services, pending operations.
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-Assist.Model.ps1'; DotSource=$true; Functions=@(

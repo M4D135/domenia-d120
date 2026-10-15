@@ -1497,6 +1497,20 @@
     "Source": "existing-help"
   },
   {
+    "Name": "PwdAccountAdCorrection",
+    "Title": "Mot de passe actuel du compte de connexion",
+    "Text": "Mot de passe actuel du compte de connexion, après son changement dans lʼannuaire. Validé une seule fois à votre demande, jamais enregistré dans Domenia.",
+    "Kind": "PasswordBox",
+    "Source": "specific"
+  },
+  {
+    "Name": "BtnAccountAdCorrect",
+    "Title": "Corriger le mot de passe",
+    "Text": "Valide ce mot de passe pour le même compte, une seule fois, puis lʼapplique sans reconnecter Domenia. Les lectures parties avec lʼancien mot de passe sont arrêtées ; aucune écriture nʼest rejouée.",
+    "Kind": "Button",
+    "Source": "specific"
+  },
+  {
     "Name": "BtnAccountRemoteClear",
     "Title": "Effacer",
     "Text": "Supprime le compte distant de la mémoire. DOMENIA réutilisera alors le compte AD courant.",
@@ -3196,34 +3210,6 @@
     "Kind": "Experience"
   },
   {
-    "Name": "UxSearchFilteredEmpty",
-    "Title": "Lignes masquées par le filtre",
-    "Text": "Toutes les lignes chargées sont masquées par le filtre de la liste (texte ou présence). Aucune requête AD nʼest relancée.",
-    "Kind": "Border",
-    "Source": "X02"
-  },
-  {
-    "Name": "LblSearchFilteredEmpty",
-    "Title": "Lignes masquées",
-    "Text": "Nombre de lignes chargées que le filtre de la liste masque. La recherche et sa limite restent inchangées.",
-    "Kind": "TextBlock",
-    "Source": "X02"
-  },
-  {
-    "Name": "LblSearchFilteredDetail",
-    "Title": "Filtre de la liste",
-    "Text": "Filtres de la liste appliqués aux lignes déjà chargées.",
-    "Kind": "TextBlock",
-    "Source": "X02"
-  },
-  {
-    "Name": "BtnSearchFilteredClear",
-    "Title": "Effacer le filtre de la liste",
-    "Text": "Vide le texte du filtre et remet la présence sur « Toute présence ». Les lignes déjà chargées réapparaissent, sans requête AD.",
-    "Kind": "Button",
-    "Source": "X02"
-  },
-  {
     "Name": "UxSuiteIdentities",
     "Title": "Comptes utilisés",
     "Text": "Affiche seulement les noms des identités configurées. Une identité active ne confirme pas ses droits sur une cible.",
@@ -3519,8 +3505,8 @@
   },
   {
     "Name": "BtnGuardExport",
-    "Title": "Dossier technique",
-    "Text": "Affiche puis exporte les seuls compteurs techniques, sans logs bruts ni identifiants.",
+    "Title": "Diagnostic expurgé",
+    "Text": "Prépare le diagnostic expurgé (versions, mesures locales, codes dʼerreur, traces sans cible), le montre en entier, puis lʼenregistre dans un fichier local après confirmation. Aucun envoi.",
     "Sensitive": false
   },
   {
@@ -3898,7 +3884,7 @@
   {
     "Name": "DgAccountsInUse",
     "Title": "Comptes utilisés en ce moment",
-    "Text": "Compte que chaque ressource prendra pour sa prochaine opération : annuaire, postes, LAPS et BitLocker, avec son origine. Lecture seule ; aucun mot de passe nʼest affiché.",
+    "Text": "Compte que chaque ressource prendra pour sa prochaine opération : annuaire, postes, LAPS et BitLocker, avec son origine et son état (refus enregistré, endroit où le corriger, autres noms confirmés par lʼannuaire). Lecture seule ; aucun mot de passe nʼest affiché.",
     "Kind": "DataGrid",
     "Source": "X03"
   },
@@ -3912,7 +3898,7 @@
   {
     "Name": "DgAccountsInMemory",
     "Title": "Liste des comptes gardés en mémoire",
-    "Text": "Comptes gardés en mémoire, avec leur durée restante. « Oublier » retire le compte de la ligne ; une opération déjà envoyée garde sa copie et se termine.",
+    "Text": "Comptes gardés en mémoire, avec leur durée restante et leur état. « Oublier » retire le compte de la ligne ; une opération déjà envoyée garde sa copie et se termine.",
     "Kind": "DataGrid",
     "Source": "X03"
   },
@@ -4318,7 +4304,7 @@
   {
     "Name": "LblOperationsHealth",
     "Title": "Santé du moteur",
-    "Text": "Mesures locales de cette session : mémoire, réactivité de lʼinterface, temps de réponse par catégorie (recherche locale, interface, base locale, annuaire, postes, écritures et actions : médiane, 95e centile à partir de 20 mesures, maximum), dernière sauvegarde locale. Aucune sonde réseau.",
+    "Text": "Mesures locales de cette session : mémoire, réactivité de lʼinterface, temps de réponse par catégorie (recherche locale, interface, base locale, annuaire, postes, écritures et actions : médiane, 95e centile à partir de 20 mesures, maximum), lenteurs expliquées par opération et par étape, dernière sauvegarde locale. Aucune sonde réseau.",
     "Kind": "TextBlock",
     "Source": "d120-L09"
   },
@@ -5490,5 +5476,103 @@
     "Text": "Limites explicites de mémoire, de disque et de conservation du stockage local.",
     "Kind": "TextBlock",
     "Source": "W06-storage"
+  },
+  {
+    "Name": "DgOperationsRecent",
+    "Title": "Dernières opérations",
+    "Text": "Opérations de cette session, la plus récente en haut : état, durée, étape la plus longue et référence à chercher dans Domenia.log. Gardées en mémoire seulement, 64 au plus.",
+    "Kind": "DataGrid",
+    "Source": "W13"
+  },
+  {
+    "Name": "LblOperationsTrace",
+    "Title": "Étapes de lʼopération choisie",
+    "Text": "Étapes mesurées de lʼopération choisie et ce qui peut être fait ensuite. Aucune relance automatique.",
+    "Kind": "TextBlock",
+    "Source": "W13"
+  },
+  {
+    "Name": "BtnOperationsCopyTrace",
+    "Title": "Copier le détail de lʼopération",
+    "Text": "Copie le détail de lʼopération choisie : étapes, durées et référence. Le nom de la cible peut y figurer : relisez avant envoi.",
+    "Kind": "Button",
+    "Source": "W13"
+  },
+  {
+    "Name": "BtnOperationsJournal",
+    "Title": "Ouvrir le journal",
+    "Text": "Ferme ce panneau et ouvre le journal de session. Les références des opérations figurent aussi dans Domenia.log.",
+    "Kind": "Button",
+    "Source": "W13"
+  },
+  {
+    "Name": "BtnOperationsDiagnostic",
+    "Title": "Diagnostic expurgé",
+    "Text": "Prépare le diagnostic expurgé (versions, mesures locales, codes dʼerreur, traces sans cible), le montre en entier, puis lʼenregistre dans un fichier local après confirmation. Aucun envoi.",
+    "Kind": "Button",
+    "Source": "W13"
+  },
+  {
+    "Name": "BtnPaletteClose",
+    "Title": "Fermer la palette",
+    "Text": "Ferme la palette sans rien lancer. Échap fait de même.",
+    "Kind": "Button",
+    "Source": "W13"
+  },
+  {
+    "Name": "TxtPaletteSearch",
+    "Title": "Rechercher une action",
+    "Text": "Tapez quelques lettres : accents et majuscules sont ignorés. Flèches pour choisir, Entrée pour exécuter, Échap pour fermer.",
+    "Kind": "TextBox",
+    "Source": "W13"
+  },
+  {
+    "Name": "LstPaletteCommands",
+    "Title": "Actions",
+    "Text": "Actions de la palette : les disponibles dʼabord, avec leur raccourci. Une action indisponible dit pourquoi.",
+    "Kind": "ListBox",
+    "Source": "W13"
+  },
+  {
+    "Name": "LblPaletteDetail",
+    "Title": "Détail de lʼaction choisie",
+    "Text": "Ce que fait lʼaction choisie, ou pourquoi elle est indisponible.",
+    "Kind": "TextBlock",
+    "Source": "W13"
+  },
+  {
+    "Name": "LblPaletteStatus",
+    "Title": "État de la palette",
+    "Text": "Nombre dʼactions affichées et touches utiles : Entrée exécute, Échap ferme, Ctrl+K rouvre la palette.",
+    "Kind": "TextBlock",
+    "Source": "W13"
+  },
+  {
+    "Name": "LblSearchEmptyTitle",
+    "Title": "État de la liste de résultats",
+    "Text": "Pourquoi la liste est vide : rien interrogé, lecture en cours, aucun résultat, filtre local, lecture refusée, partielle ou sans source. Jamais une preuve dʼabsence dans lʼannuaire.",
+    "Kind": "TextBlock",
+    "Source": "W13"
+  },
+  {
+    "Name": "LblSearchEmptyText",
+    "Title": "Explication de la liste vide",
+    "Text": "Ce qui a été lu, dans quel périmètre, et ce que la liste vide ne permet pas de conclure.",
+    "Kind": "TextBlock",
+    "Source": "W13"
+  },
+  {
+    "Name": "BtnSearchEmptyNext",
+    "Title": "Prochaine action proposée",
+    "Text": "Prochaine action proposée pour cette liste vide. Rien ne part tout seul : une lecture ne commence quʼavec ce clic.",
+    "Kind": "Button",
+    "Source": "W13"
+  },
+  {
+    "Name": "BtnOperationsReceipts",
+    "Title": "Opérations à vérifier",
+    "Text": "Écritures envoyées qui attendent une vérification ou une revue, comptées comme sur la pastille de lʼen-tête : les nouvelles écritures restent bloquées. Ferme ce panneau et ouvre la liste des reçus ; rien nʼest rejoué.",
+    "Kind": "Button",
+    "Source": "W13"
   }
 ]

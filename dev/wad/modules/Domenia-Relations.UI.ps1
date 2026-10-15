@@ -1945,7 +1945,10 @@ if([bool]$Payload.UseSecurityLog -and -not $script:RelationDirectoryBlocked -and
         $xpath="*[System[EventID=4768 and TimeCreated[timediff(@SystemTime) <= $ms]]] and *[EventData[Data[@Name='TargetSid']='$userSid' and Data[@Name='Status']='0x0']]"
         $par=@{ComputerName=[string]$Context.Server;LogName='Security';FilterXPath=$xpath;MaxEvents=100;ErrorAction='Stop'}
         $adCredential=Get-WAdCredential $Context;if($null -ne $adCredential){$par.Credential=$adCredential}
-        $events=@(Get-WinEvent @par);$seen=@{}
+        # Point 41: an explicit account goes out under its authentication lease, like every bind of the session.
+        $eventLease=Enter-WCredentialAttempt -Context $Context -Channel Directory
+        try{$events=@(Get-WinEvent @par)}finally{Exit-WCredentialAttempt $eventLease}
+        $seen=@{}
         foreach($ev in $events){
             $x=[xml]$ev.ToXml();$d=@{};foreach($v in @($x.Event.EventData.Data)){$d[[string]$v.Name]=[string]$v.'#text'}
             if([string]$d.TargetSid -ine $userSid){continue}
@@ -1958,6 +1961,8 @@ if([bool]$Payload.UseSecurityLog -and -not $script:RelationDirectoryBlocked -and
         Add-RelationAttempt 'Journal du contrôleur' $(if($events.Count){'OK'}else{'VIDE'}) ([string]$Context.Server) ($events.Count.ToString()+' événement(s) ciblés sur le SID, sur ce contrôleur uniquement. Les IP ne sont pas associées automatiquement.')
     }catch{
         $noEvents=([string]$_.FullyQualifiedErrorId -like 'NoMatchingEventsFound*')
+        # A rejected account is shared at once with every job that uses it; this worker stops its directory reads.
+        if((-not $noEvents) -and (Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Directory)){$script:RelationDirectoryBlocked=$true}
         if(-not $noEvents){$partial=$true}
         Add-RelationAttempt 'Journal du contrôleur' $(if($noEvents){'VIDE'}else{Get-RelationFailure $_}) ([string]$Context.Server) ([string]$_.Exception.Message) 'Directory' ([long]$_.Exception.HResult)
     }
@@ -2008,8 +2013,13 @@ if([bool]$Payload.ScanPark -and (Test-RelationBudget)){
                 # One credential, one protocol, no ICMP gate, no fallback task or registry history.
                 $params=@{ComputerName=$target;SessionOption=(New-CimSessionOption -Protocol Dcom -ErrorAction Stop);OperationTimeoutSec=4;ErrorAction='Stop'}
                 if($null -ne $credential){$params.Credential=$credential}
-                $session=New-CimSession @params
-                $cs=Get-CimInstance -CimSession $session -ClassName Win32_ComputerSystem -Property UserName,Name -OperationTimeoutSec 4 -ErrorAction Stop
+                # Point 41: DCOM opens lazily, so the lease covers the session and its first authenticated query.
+                Set-WCredentialAttemptIdentity -Context $Context -Credential $credential -Channel Remote -Target $target
+                $consoleLease=Enter-WCredentialAttempt -Context $Context -Channel Remote
+                try{
+                    $session=New-CimSession @params
+                    $cs=Get-CimInstance -CimSession $session -ClassName Win32_ComputerSystem -Property UserName,Name -OperationTimeoutSec 4 -ErrorAction Stop
+                }finally{Exit-WCredentialAttempt $consoleLease}
                 if($null -eq $cs){throw 'Le poste ne renvoie pas de résultat CIM.'}
                 if([string]$cs.Name -and [string]$cs.Name -ine $c.Computer){throw 'Nom du poste reçu différent de la cible AD ; résultat non attribué.'}
                 $current=([string]$cs.UserName).Trim();$c.CurrentUser=$current;$c.ObservedUtc=[datetime]::UtcNow.ToString('o')
@@ -2020,6 +2030,8 @@ if([bool]$Payload.ScanPark -and (Test-RelationBudget)){
                 Add-RelationAttempt 'Console CIM/DCOM' $(if($same){'CONFIRME'}else{'LU'}) $c.Computer ($c.Status+'. '+$c.Detail) 'Remote'
             }catch{
                 $kind=Get-RelationFailure $_;$partial=$true
+                # The shared guard records the refused account for every job; a paused account stops this loop too.
+                if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){$remoteStopped=$true}
                 $c.Status=switch($kind){'AUTH_REJETEE'{'Identifiants rejetés'}'REFUSE'{'Lecture refusée'}'DELAI'{'Délai dépassé'}default{'Lecture non confirmée'}}
                 $c.Detail=[string]$_.Exception.Message
                 if($kind -in @('AUTH_REJETEE','REFUSE')){$denied++}

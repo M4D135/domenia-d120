@@ -136,15 +136,26 @@ function Get-DomeniaCredentialFailureHistory {
     foreach($f in @(Get-DomeniaCredentialGuardFailures $script:DomeniaCredentialGuard)){if($null -ne $f){$rows.Add($f)}}
     return ,$rows.ToArray()
 }
-function Set-DomeniaCredentialGuardContext {
-    # One shared breaker for every use of the same account, independent of target/provider/scheduler.
-    # A new login session gets a new map; a successful unrelated read never clears an existing refusal.
-    param($Context,[string]$OperationId)
+function Initialize-DomeniaCredentialGuard {
+    # One shared breaker per login session. A new session gets a new map; the aliases confirmed by the directory
+    # (point 45) stay true for the same domain and are applied again, without any authentication.
     if($null -eq $script:DomeniaCredentialGuard -or [long]$script:DomeniaCredentialGuard.Epoch -ne [long]$script:SessionEpoch){
         # Point 47: the refusals of the closing session stay available to the lockout diagnosis.
         if($null -ne $script:DomeniaCredentialGuard){Add-DomeniaCredentialFailureHistory @(Get-DomeniaCredentialGuardFailures $script:DomeniaCredentialGuard)}
         $script:DomeniaCredentialGuard=[hashtable]::Synchronized(@{Epoch=[long]$script:SessionEpoch;Faults=@{};Revision=0L;NotifiedRevision=0L})
+        if($null -ne $script:DomeniaCredentialAliasBook){
+            foreach($entry in @($script:DomeniaCredentialAliasBook.Values)){
+                if(($null -ne $entry) -and ([string]$entry.BaseDn -ieq [string]$script:Conn.BaseDn)){[void](Register-DomeniaCredentialAliases -Guard $script:DomeniaCredentialGuard -Sid ([string]$entry.Sid) -Keys @($entry.Keys))}
+            }
+        }
     }
+    return $script:DomeniaCredentialGuard
+}
+function Set-DomeniaCredentialGuardContext {
+    # One shared breaker for every use of the same account, independent of target/provider/scheduler.
+    # A new login session gets a new map; a successful unrelated read never clears an existing refusal.
+    param($Context,[string]$OperationId,[bool]$IsWrite=$false)
+    [void](Initialize-DomeniaCredentialGuard)
     $needs=Get-DomeniaOperationCredentialNeeds $OperationId
     $local=([string]$needs.Provider -in @('Storage','Local') -or $OperationId -in @('LiveSelectedPing','ParkPing','ComputerPing','SelectedPresence','PresenceScan','WakeOnLanSend','ParkSharedSync','ConnectorRead'))
     $directory='';$remote='';$remoteAdmin=''
@@ -166,6 +177,11 @@ function Set-DomeniaCredentialGuardContext {
     $Context | Add-Member -NotePropertyName RemoteAdminAuthKey -NotePropertyValue $remoteAdmin -Force
     $Context | Add-Member -NotePropertyName ActiveRemoteAuthKey -NotePropertyValue $remote -Force
     $Context | Add-Member -NotePropertyName LastAuthChannel -NotePropertyValue '' -Force
+    # Point 44: the account generation at dispatch. A read that left before a correction of its account keeps the
+    # previous password: the guard refuses its next attempt and ignores its refusal.
+    $Context | Add-Member -NotePropertyName CredentialGeneration -NotePropertyValue ([long]$script:DomeniaAccountGeneration) -Force
+    # A write keeps that account until its end, even after a correction (Assert-WCredentialAllowed).
+    $Context | Add-Member -NotePropertyName CredentialWrite -NotePropertyValue ([bool]$IsWrite) -Force
     return $Context
 }
 
@@ -188,8 +204,10 @@ function Sync-DomeniaCredentialGuardUi {
         if($affected -and -not [bool]$job.CancelRequested){Request-UiTaskStop -Id ([string]$job.Id) -Silent -Reason 'Protection du compte apres refus d authentification'}
     }
     if($ambiguous.Count){Set-Status 'Origine du refus d''authentification indeterminee : opération suspendue, sans declarer les autres comptes invalides. Reconnectez-vous pour reprendre.' 'WARN'}
-    else{Set-Status 'Compte protege : collectes suspendues après un refus d''authentification. Reconnectez-vous ; la base locale reste consultable.' 'WARN'}
+    else{Set-Status 'Compte protégé : collectes suspendues après un refus dʼauthentification. Corrigez ce compte dans Comptes ou reconnectez-vous ; la base locale reste consultable.' 'WARN'}
     Write-AppLog 'Protection du compte activee : aucun nouvel essai automatique avec les comptes refuses. Les appels deja transmis ne peuvent pas etre rappeles.' 'WARN'
+    # Point 42: the Comptes tab shows at once which use is paused.
+    try{Update-DomeniaAccountUi}catch{}
 }
 
 function Save-DomeniaSupersededCollection {
@@ -227,7 +245,7 @@ function Invoke-DomeniaUiTaskDispatch {
     # The production guards (circuit breaker, refused scopes, alternate accounts) run on the requested operation.
     $context = Set-DomeniaTargetCredentialContext -Context (Get-WorkerContext -OperationId $requested -Payload $Job.Payload) -Payload $Job.Payload
     $context | Add-Member -NotePropertyName CredentialTarget -NotePropertyValue ([string](Get-DomeniaMember $Job.Payload 'Computer' '')) -Force
-    $context = Set-DomeniaCredentialGuardContext -Context $context -OperationId $requested
+    $context = Set-DomeniaCredentialGuardContext -Context $context -OperationId $requested -IsWrite $isWrite
     if($requested -eq 'LiveConsole' -and -not [bool](Get-DomeniaMember $Job.Payload 'ValidateConsoleIdentity' $true)){$context.DirectoryAuthKey=''}
     if($requested -eq 'LiveConsole' -and -not [bool](Get-DomeniaMember $Job.Payload 'ProbeUser' $true) -and -not [bool](Get-DomeniaMember $Job.Payload 'Inventory' $false) -and @((Get-DomeniaMember $Job.Payload 'Probes' @())).Count -eq 0){
         $context.DirectoryAuthKey='';$context.RemoteAuthKey='';$context.RemoteAdminAuthKey='';$context.ActiveRemoteAuthKey=''
@@ -238,7 +256,7 @@ function Invoke-DomeniaUiTaskDispatch {
     }
     if(-not [bool]$script:DemoMode){Assert-WCredentialAllowed -Context $context}
     # Keep only the map and account keys on the job, never a second reference to its credentials.
-    $Job | Add-Member -NotePropertyName CredentialGuardContext -NotePropertyValue ([pscustomobject]@{CredentialGuard=$context.CredentialGuard;DirectoryAuthKey=$context.DirectoryAuthKey;RemoteAuthKey=$context.RemoteAuthKey;RemoteAdminAuthKey=$context.RemoteAdminAuthKey;ActiveRemoteAuthKey=$context.ActiveRemoteAuthKey;OperationId=$requested}) -Force
+    $Job | Add-Member -NotePropertyName CredentialGuardContext -NotePropertyValue ([pscustomobject]@{CredentialGuard=$context.CredentialGuard;DirectoryAuthKey=$context.DirectoryAuthKey;RemoteAuthKey=$context.RemoteAuthKey;RemoteAdminAuthKey=$context.RemoteAdminAuthKey;ActiveRemoteAuthKey=$context.ActiveRemoteAuthKey;OperationId=$requested;CredentialGeneration=[long]$context.CredentialGeneration;CredentialWrite=[bool]$isWrite}) -Force
     $provider = [string]$Job.Provider
     if (-not $provider) { $provider = Get-DomeniaOperationProvider $requested }
     $Job.CredentialIdentity = Get-DomeniaContextCredentialIdentity -Context $context -Provider $provider
@@ -571,6 +589,7 @@ function Invoke-DomeniaTimerTick {
     if ([bool]$Timer.SessionBound -and [long]$Timer.Epoch -ne [long]$script:SessionEpoch) { Stop-DomeniaTimer -Timer $Timer; return }
     if ($null -eq $Timer.Tick) { return }
     $Timer.InTick = $true
+    $tickStart = [Diagnostics.Stopwatch]::GetTimestamp()
     try {
         $Timer.Runs = [long]$Timer.Runs + 1
         & $Timer.Tick $Timer ([EventArgs]::Empty)
@@ -587,7 +606,14 @@ function Invoke-DomeniaTimerTick {
             try { Write-AppLog ('Minuteur ' + [string]$Timer.Owner + ' arrêté après ' + [int]$Timer.Failures + ' erreurs consécutives ; aucun nouvel essai automatique.') 'ERROR' } catch { }
         }
     }
-    finally { $Timer.InTick = $false }
+    finally {
+        $Timer.InTick = $false
+        # W13 (point 121): a tick of 50 ms or more is kept to explain a late heartbeat (Register-DomeniaDispatcherLateness).
+        $tickMs = ([Diagnostics.Stopwatch]::GetTimestamp() - $tickStart) * 1000.0 / [Diagnostics.Stopwatch]::Frequency
+        if ($tickMs -ge 50) {
+            try { $tickEnd = Get-DomeniaTraceNow; Register-DomeniaUiWork -Name ('Minuteur ' + [string]$Timer.Owner) -Handler (([string]$Timer.Owner) -replace '[^A-Za-z0-9:-]','') -StartMs ($tickEnd - $tickMs) -EndMs $tickEnd } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
+        }
+    }
 }
 
 function Invoke-DomeniaPulse {
@@ -774,6 +800,7 @@ function Add-DomeniaTaskSubscriber {
         $script:DomeniaSharedReadCount = [int]$script:DomeniaSharedReadCount + 1
         # UX-04: engine detail, Domenia.log only.
         Write-DomeniaTrace ('Lecture identique partagée : ' + [string]$job.Name + ' (' + [string]$job.OperationId + '), aucun second appel.')
+        try { Add-DomeniaJobTraceEvent -Job $job -Phase 'Shared' -Detail 'demande identique rattachée, aucun second appel' } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
         return [string]$job.Id
     }
     return ''
@@ -800,10 +827,14 @@ function Invoke-DomeniaTaskSubscribers {
 
 function Remove-DomeniaQueuedTask {
     # Withdraws an entry that was never sent: no call was made, so nothing has to be cleaned on the network side.
-    param($Job,[switch]$Silent)
+    # W13 (point 123): -TraceOutcome names the end written on the trace of the request (never a dispatch).
+    param($Job,[switch]$Silent,[ValidateSet('Withdrawn','Superseded','TimedOut','Refused')][string]$TraceOutcome='Withdrawn')
     if ($null -eq $Job) { return }
     $id = [string]$Job.Id
     if ($script:AsyncJobs.Contains($id)) { [void]$script:AsyncJobs.Remove($id) }
+    $traceDetail = ''
+    if ($TraceOutcome -eq 'TimedOut') { $traceDetail = 'attente trop longue dans la file' }
+    try { [void](Complete-DomeniaJobTrace -Job $Job -Outcome $TraceOutcome -Detail $traceDetail -NotDispatched) } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
     if ([bool]$Job.BusyApplied) { try { Set-ControlsBusy -Names $Job.DisableControls -Busy $false } catch { }; $Job.BusyApplied = $false }
     if ([string]$script:LatestTaskId -eq $id) { $script:LatestTaskId = '' }
     $Job.State = 'Withdrawn'
@@ -823,10 +854,10 @@ function Invoke-DomeniaQueuedTaskPromotion {
     foreach ($job in @($script:AsyncJobs.Values)) {
         if ($null -eq $job -or [string]$job.State -ne 'Queued') { continue }
         if ([bool]$script:AsyncEngineClosing -or [long]$job.SessionEpoch -ne [long]$script:SessionEpoch) {
-            Remove-DomeniaQueuedTask -Job $job -Silent; $changed = $true; continue
+            Remove-DomeniaQueuedTask -Job $job -Silent -TraceOutcome 'Superseded'; $changed = $true; continue
         }
         if (Test-DomeniaQueuedTaskExpired -QueuedAt $job.QueuedAt -MaxWaitSeconds $limits.MaxQueueWaitSeconds) {
-            Remove-DomeniaQueuedTask -Job $job -Silent
+            Remove-DomeniaQueuedTask -Job $job -Silent -TraceOutcome 'TimedOut'
             $message = 'Lecture non envoyee : attente trop longue (' + $limits.MaxQueueWaitSeconds + ' s). Aucun appel n a ete fait.'
             try { Invoke-DomeniaJobErrorUi -Job $job -Message $message } catch { try { Set-Status $message 'WARN' } catch { } }
             Invoke-DomeniaTaskSubscribers -Job $job -Output $null -ErrorMessage $message
@@ -853,12 +884,20 @@ function Invoke-DomeniaQueuedTaskPromotion {
             [void](Invoke-DomeniaUiTaskDispatch -Job $next)
             # CO-02: Annuler and the progress label follow the foreground task, never a local save or a background read.
             if ([bool](Get-DomeniaMember $next 'Foreground' $true)) { $script:LatestTaskId = [string]$next.Id }
-            if ($null -ne $next.QueuedAt) { try { Add-DomeniaRuntimeMetric -Provenance 'Queue' -OperationId ('Wait:' + [string]$next.Class) -DurationMs ([double]((Get-Date) - [datetime]$next.QueuedAt).TotalMilliseconds) } catch { } }
+            # W13/W14 (points 121, 122): the queue wait is read from the job's own dates (admission to dispatch), the very
+            # measure of the Queue phase of its trace (Get-DomeniaJobPhaseMeasures).
+            if ($null -ne $next.QueuedAt) {
+                try {
+                    $waitEnd = Get-Date
+                    if (($next.Started -is [datetime]) -and ([datetime]$next.Started -ge [datetime]$next.QueuedAt)) { $waitEnd = [datetime]$next.Started }
+                    Add-DomeniaRuntimeMetric -Provenance 'Queue' -OperationId ('Wait:' + [string]$next.Class) -DurationMs ([double]($waitEnd - [datetime]$next.QueuedAt).TotalMilliseconds)
+                } catch { }
+            }
             Write-DomeniaTrace ('Demande sortie de la file : ' + [string]$next.Name + ' (' + [string]$next.Class + ').')
         }
         catch {
             $message = [string]$_.Exception.Message
-            Remove-DomeniaQueuedTask -Job $next -Silent
+            Remove-DomeniaQueuedTask -Job $next -Silent -TraceOutcome 'Refused'
             try { Invoke-DomeniaJobErrorUi -Job $next -Message $message } catch { try { Set-Status ([string]$next.Name + ' : ' + $message) 'ERROR' } catch { } }
             Invoke-DomeniaTaskSubscribers -Job $next -Output $null -ErrorMessage $message
         }
@@ -924,10 +963,14 @@ function ConvertTo-DomeniaTaskErrorInfo {
 
 function Add-DomeniaTaskRuntimeMetric {
     # C7: Add-DomeniaRuntimeMetric keeps a bounded series per provider and operation (no command lookup, PF-10).
-    param($Job)
+    # W13/W14 (points 121, 122): Complete-UiTasks passes the Collect phase of the job's trace (Get-DomeniaJobPhaseMeasures,
+    # dispatch to the end seen by the poll), so the percentiles and the explained slowness read the same measure. Without
+    # it (-1), the duration runs from the dispatch to now.
+    param($Job,[double]$DurationMs=-1)
     if ($null -eq $Job) { return }
     try {
-        $duration = ((Get-Date) - [datetime]$Job.Started).TotalMilliseconds
+        $duration = [double]$DurationMs
+        if (($duration -lt 0) -or [double]::IsNaN($duration) -or [double]::IsInfinity($duration)) { $duration = ((Get-Date) - [datetime]$Job.Started).TotalMilliseconds }
         $provenance = 'Ldap'
         switch ([string]$Job.Provider) { 'Cim' { $provenance = 'Cim' } 'Wts' { $provenance = 'Cim' } 'Storage' { $provenance = 'Sqlite' } 'Local' { $provenance = 'Queue' } 'Network' { $provenance = 'Cim' } }
         if ([bool]$Job.Demo) { $provenance = 'Cache' }

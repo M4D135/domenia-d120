@@ -81,10 +81,24 @@ function Get-DomeniaParkListContext {
 function Get-DomeniaParkDisplayedTargets {
     # The workstations of the displayed list (after its filters), with their AD identity; a row without DN or GUID is
     # counted, never sent.
+    # Point 48: every other displayed row is named in the exact preview with the reason it stays out (another type, or
+    # a workstation without identity); only the workstations without identity count as skipped (UX-24).
     $grid=Get-DomeniaControl 'DgObjects'
-    $machines=@();if($null -ne $grid){$machines=@(foreach($row in @($grid.Items)){if($null -ne $row -and [string]$row.Type -eq 'Machine'){$row}})}
-    $targets=@(foreach($row in $machines){if($row.DN -and $row.Guid){[pscustomobject]@{name=[string]$row.Name;distinguished_name=[string]$row.DN;object_guid=[string]$row.Guid}}})
-    return [pscustomobject]@{Machines=$machines;Targets=$targets;Skipped=($machines.Count-$targets.Count)}
+    $machines=New-Object 'System.Collections.Generic.List[object]';$targets=New-Object 'System.Collections.Generic.List[object]';$excluded=New-Object 'System.Collections.Generic.List[object]';$skipped=0
+    if($null -ne $grid){
+        foreach($row in @($grid.Items)){
+            if($null -eq $row){continue}
+            $type=[string]$row.Type
+            if($type -ne 'Machine'){
+                $kind=if($type){'Type '+$type}else{'Type non renseigné'}
+                $excluded.Add([pscustomobject]@{Name=[string]$row.Name;DN=[string]$row.DN;Reason=($kind+' hors du périmètre de lʼopération')});continue
+            }
+            $machines.Add($row)
+            if($row.DN -and $row.Guid){$targets.Add([pscustomobject]@{name=[string]$row.Name;distinguished_name=[string]$row.DN;object_guid=[string]$row.Guid})}
+            else{$skipped++;$excluded.Add([pscustomobject]@{Name=[string]$row.Name;DN=[string]$row.DN;Reason='Identité incomplète (DN ou GUID absent) : relisez la fiche'})}
+        }
+    }
+    return [pscustomobject]@{Machines=$machines.ToArray();Targets=$targets.ToArray();Excluded=$excluded.ToArray();Skipped=$skipped}
 }
 function Test-DomeniaParkListStoppable {
     # FI-18 / UI-23: a survey of the scope of the lists stops from « Vérifier la liste » (the list, its selection, the
@@ -426,11 +440,13 @@ function Start-DomeniaOnlinePark {
         # Points 32 and 35: no new collection during a base maintenance, a suspended writer or a nearly full disk.
         $storageRefusal=Get-DomeniaStorageCollectionRefusal;if($storageRefusal){throw $storageRefusal}
         [void](Initialize-DomeniaWinSqliteNative)
-        $targets=@();$skipped=[Math]::Max(0,$SkippedTargets);$scopeKind='Scope';$label=[string]$ScopeLabel;$subtree=$false;$listLimit=0
+        $targets=@();$excluded=@();$skipped=[Math]::Max(0,$SkippedTargets);$scopeKind='Scope';$label=[string]$ScopeLabel;$subtree=$false;$listLimit=0
         if($null -ne $ScopeTargets){
             $all=@($ScopeTargets|Where-Object{$null -ne $_})
             $targets=@($all|Where-Object{$_.distinguished_name -and $_.object_guid})
             $skipped+=($all.Count-$targets.Count)
+            # Point 48: the exact preview names each row left out, with its reason.
+            $excluded=@(foreach($row in $all){if(-not ($row.distinguished_name -and $row.object_guid)){[pscustomobject]@{Name=[string]$row.name;DN=[string]$row.distinguished_name;Reason='Identité incomplète (DN ou GUID absent) : relisez la fiche'}}})
             if($Selection){
                 $scopeKind='Selection';$label='la sélection'
                 if((-not $targets.Count) -and ($skipped -gt 0)){throw 'Postes sélectionnés sans identifiant AD connu : relancez la recherche puis sélectionnez-les à nouveau.'}
@@ -448,8 +464,10 @@ function Start-DomeniaOnlinePark {
         elseif($DisplayedResults){
             $displayed=Get-DomeniaParkDisplayedTargets
             $targets=@($displayed.Targets)
-            # UX-24: workstations without an AD identity are left out and the confirmation says so.
+            # UX-24: workstations without an AD identity are left out and the confirmation says so; point 48: the exact
+            # preview names each of them with its reason.
             $skipped+=[int]$displayed.Skipped
+            $excluded=@($displayed.Excluded)
             # SE-05: ceiling, domain root without any other filter, global search without a term.
             $context=Get-DomeniaParkListContext
             $admission=Test-DomeniaParkTargetAdmission -Count $targets.Count -Maximum (Get-DomeniaParkMaxTargets) -ScopeDn $context.ScopeDn -BaseDn $context.BaseDn -HasFilter ([bool]$context.HasFilter) -Global ([bool]$context.Global) -HasSearchTerm ([bool]$context.HasSearchTerm)
@@ -481,6 +499,9 @@ function Start-DomeniaOnlinePark {
         $runs=Get-DomeniaParkRuns;$runs[$slotName]=$r
         $started=$true
         if($ForceRefresh){$r.CacheMinutes=0}
+        # Point 48: what was asked and what was left out before the local read, for the exact preview.
+        $r|Add-Member -NotePropertyName RequestedTargets -NotePropertyValue @($targets)
+        $r|Add-Member -NotePropertyName PreviewExcluded -NotePropertyValue @($excluded)
         $state=[pscustomobject]@{RunId=$r.Id;Slot=$r.Slot;Epoch=$r.Epoch;Path=$r.Path}
         # Read only the observation families used by this collection mode. No WMI payload is parsed for a ping refresh.
         $families=$null
@@ -517,8 +538,23 @@ function Complete-DomeniaParkTargets {
         $packet=Get-DomeniaEffectiveWorkerResult $Result @('Rows','Busy')
         if($null -eq $packet -or $packet.Busy){throw 'Base occupée : aucun poste interrogé.'}
         $r.Loading=$false;$r.Targets=@($packet.Rows|Where-Object{$null -ne $_})
-        Set-DomeniaParkTargetIndex -Run $r
         if($r.Stopping -or -not $r.Targets.Count){$r.Completed=$true;Update-DomeniaParkRunStatus -Run $r;return}
+        # Point 48: only the exact targets are contacted. A row the local base set aside, a GUID listed twice (an old
+        # and a new DN in the local base) or a row past the limit is never probed; the preview names each of them.
+        $requested=@{};foreach($asked in @(Get-DomeniaMember $r 'RequestedTargets' @())){$requested[([string]$asked.distinguished_name).ToLowerInvariant()]=$asked}
+        $returned=@{};foreach($target in @($r.Targets)){$returned[([string]$target.Key).ToLowerInvariant()]=$true}
+        $excluded=@(Get-DomeniaMember $r 'PreviewExcluded' @())
+        foreach($key in @($requested.Keys)){if(-not $returned.ContainsKey([string]$key)){$asked=$requested[$key];$excluded+=@([pscustomobject]@{Name=[string]$asked.name;DN=[string]$asked.distinguished_name;Reason='Écarté par la base locale : nom de poste non valide ou DN en double'})}}
+        $candidates=@(foreach($target in @($r.Targets)){$dn=[string]$target.Key;$lower=$dn.ToLowerInvariant();if($requested.ContainsKey($lower)){$dn=[string]$requested[$lower].distinguished_name};[pscustomobject]@{Name=[string]$target.Computer;DN=$dn;Guid=[string]$target.Guid;Type='Machine'}})
+        $exact=New-DomeniaCollectivePreview -OperationId 'ParkSweep' -Candidates $candidates -Excluded $excluded -ExpectedType 'Machine'
+        $all=@($r.Targets);$keptIndex=@{};foreach($target in @($exact.Targets)){$keptIndex[[int]$target.Index]=$true}
+        $kept=New-Object 'System.Collections.Generic.List[object]';$dropped=New-Object 'System.Collections.Generic.List[object]'
+        for($i=0;$i -lt $all.Count;$i++){if($keptIndex.ContainsKey($i)){$kept.Add($all[$i])}else{$dropped.Add($all[$i])}}
+        $r.Targets=$kept.ToArray();Clear-DomeniaParkTargetBuffers $dropped.ToArray()
+        $r|Add-Member -NotePropertyName PreviewExcluded -NotePropertyValue @($exact.Excluded) -Force
+        if(-not $r.Targets.Count){throw ('aucun poste exploitable. '+(@($exact.Lines|Where-Object{([string]$_) -match '^\d+ exclue'}) -join ' '))}
+        # The index (batch ping, place of each workstation in the durable plan, point 20) follows the exact targets.
+        Set-DomeniaParkTargetIndex -Run $r
         # A collection that reads only what is missing (a widget, or the workshop for a recipe) first checks the
         # stored measurements of each workstation, without any network read; its admission then counts the
         # workstations left to read.
@@ -591,10 +627,16 @@ function Request-DomeniaParkAdmission {
     $message=[string]$text.Message
     if($notes.Count){$message+="`r`n"+($notes.ToArray() -join ' ')}
     if($direct){Set-Status ('Collecte du widget lancée : '+[string]$text.Lines[0]+'. '+[string]$text.Lines[1]);& $start $runId;return}
+    # Point 48: the exact list of the workstations to read (the ones set aside as already answered are not in it), each
+    # row left out with its reason, and a confirmation in proportion: past the threshold the count must be typed.
+    $change=if([bool]$r.PingOnly){'ping ICMP'}elseif([bool]$r.WmiOnly){'lecture WMI'}elseif([bool]$r.Inventory){'ping, utilisateur console et relevé WMI léger'}elseif(@($r.Probes).Count){'requêtes WMI des widgets, ping et utilisateur console'}else{'ping puis utilisateur console'}
+    $requested=@{};foreach($asked in @(Get-DomeniaMember $r 'RequestedTargets' @())){$requested[([string]$asked.distinguished_name).ToLowerInvariant()]=[string]$asked.distinguished_name}
+    $candidates=@(foreach($target in @($r.Targets)){$dn=[string]$target.Key;$lower=$dn.ToLowerInvariant();if($requested.ContainsKey($lower)){$dn=[string]$requested[$lower]};[pscustomobject]@{Name=[string]$target.Computer;DN=$dn;Guid=[string]$target.Guid;Type='Machine'}})
+    $preview=New-DomeniaCollectivePreview -OperationId 'ParkSweep' -Candidates $candidates -Excluded @(Get-DomeniaMember $r 'PreviewExcluded' @()) -ExpectedType 'Machine' -Change $change
     # Nothing ticks while the operator decides; the confirmation starts the run timer again.
     if($null -ne $r.Timer){$r.Timer.Stop()}
     Update-DomeniaParkRunStatus -Run $r
-    $answers=@(Request-DomeniaInlineConfirmation -Title ([string]$text.Title) -Target ([string]$text.Target) -Message $message -ConfirmText ([string]$text.ConfirmText) -CancelText 'Annuler' -OnConfirm ({& $start $runId}.GetNewClosure()) -OnCancel ({& $stop -RunId $runId}.GetNewClosure()))
+    $answers=@(Request-DomeniaInlineConfirmation -Title ([string]$text.Title) -Target ([string]$text.Target) -Message $message -ConfirmText ([string]$text.ConfirmText) -CancelText 'Annuler' -OnConfirm ({& $start $runId}.GetNewClosure()) -OnCancel ({& $stop -RunId $runId}.GetNewClosure()) -Changes @($preview.Lines) -Details ([string]$preview.Details) -DetailsTitle 'Liste exacte des cibles et des exclusions' -TypedConfirmation ([string]$preview.TypedText))
     # UX-12: a request still shown in the page belongs to this survey: stopping the survey withdraws it.
     $request=$null;foreach($answer in $answers){if($null -ne $answer -and $null -ne $answer.PSObject.Properties['Presentation']){$request=$answer}}
     if($null -ne $request -and -not [bool]$request.Answered -and [string]$request.Id){$r.InlineRequestId=[string]$request.Id}

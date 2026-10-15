@@ -182,12 +182,16 @@ function Get-DomeniaLeaseRemainingText {
 }
 
 function Get-DomeniaAccountsInUseRows {
-    # UI-27: « En ce moment » of the Comptes page. Now: the account each resource takes for its next operation
-    # (directory, each directory operation holding its own temporary account, workstations, LAPS, BitLocker).
-    # Memory: what can be forgotten (account typed for the workstations, temporary accounts accepted after a
-    # refusal) with the remaining time. The UI layer passes names and leases only: no credential, no secret, no
-    # clock read here. $Machine is a Get-DomeniaMachineAccountLabel object;
-    # $Temporary holds the usable temporary accounts as @{Key;UserName;Lease}.
+    # UI-27 / point 42: « En ce moment » of the Comptes page, the single view of the accounts in use. Now: the account
+    # each resource takes for its next operation (directory, each directory operation holding its own temporary
+    # account, workstations, LAPS, BitLocker), where it comes from, and what the shared protection recorded for it.
+    # Memory: what can be forgotten (account typed for the workstations, temporary accounts accepted after a refusal)
+    # with the remaining time and the same state. The UI layer passes names, leases, guard keys and the names the
+    # directory confirmed for one account (point 45): no credential, no secret, no clock read here. Nothing is tested
+    # here either: an account without a recorded refusal is not declared valid, only « Aucun refus enregistré ». A
+    # paused account names the one place where it is fixed (point 44).
+    # $Machine is a Get-DomeniaMachineAccountLabel object; $Temporary holds the usable temporary accounts as
+    # @{Key;UserName;Lease}; $Faults the guard pauses as @{Key}; $AliasGroups one array of guard keys per account.
     param(
         [AllowNull()][AllowEmptyString()][string]$DirectoryAccount='',
         [AllowNull()][AllowEmptyString()][string]$DirectoryMode='',
@@ -196,37 +200,82 @@ function Get-DomeniaAccountsInUseRows {
         [AllowNull()][AllowEmptyString()][string]$TypedMachineAccount='',
         [object[]]$Temporary=@(),
         [long]$Epoch=0,
-        [datetime]$NowUtc=[datetime]::UtcNow
+        [datetime]$NowUtc=[datetime]::UtcNow,
+        [object[]]$Faults=@(),
+        [object[]]$AliasGroups=@(),
+        [AllowNull()][AllowEmptyString()][string]$Domain='',
+        [AllowNull()][AllowEmptyString()][string]$Netbios=''
     )
     $temporaryOrigin='compte temporaire accepté après un refus'
     $byKey=@{}
     foreach($item in @($Temporary)){if($null -ne $item){$byKey[[string]$item.Key]=$item}}
     $directory=([string]$DirectoryAccount).Trim()
-    $directoryOrigin=switch(([string]$DirectoryMode).Trim()){'Windows'{'session Windows'}'Demo'{'démonstration, annuaire fictif'}''{'aucune connexion'}default{'compte de connexion'}}
+    $mode=([string]$DirectoryMode).Trim()
+    $directoryOrigin=switch($mode){'Windows'{'session Windows'}'Demo'{'démonstration, annuaire fictif'}''{'aucune connexion'}default{'compte de connexion'}}
     if(-not $directory){$directoryOrigin='aucune connexion'}
+    # Point 42: the protection state of one account, with the single place where it is fixed when it is paused.
+    $paused=@{}
+    foreach($fault in @($Faults)){if($null -eq $fault){continue};$faultKey=([string]$fault.Key).Trim().ToLowerInvariant();if($faultKey){$paused[$faultKey]=$true}}
+    $others=@{}
+    foreach($group in @($AliasGroups)){
+        $names=@(@($group)|Where-Object{-not [string]::IsNullOrWhiteSpace([string]$_)}|ForEach-Object{([string]$_).Trim().ToLowerInvariant()}|Select-Object -Unique)
+        if($names.Count -lt 2){continue}
+        foreach($name in $names){$others[$name]=@($names|Where-Object{$_ -cne $name})}
+    }
+    $fixes=@{
+        'compte de connexion'='« Corriger le mot de passe » dans la carte Annuaire, ou « Changer de compte »'
+        'session Windows'='corrigez le mot de passe dans Windows, puis « Changer de compte »'
+        'compte Postes de la page Comptes'='ressaisissez son mot de passe puis « Activer » dans Comptes secondaires'
+        'compte Secrets de la page Comptes'='ressaisissez son mot de passe puis « Activer » dans Comptes secondaires'
+        'compte poste saisi, en mémoire seulement'='« Oublier » ce compte, puis validez-le dans Comptes secondaires (« Activer »)'
+        'compte temporaire accepté après un refus'='relancez lʼaction pour ressaisir son mot de passe, ou « Oublier » ce compte'
+        'compte local temporaire de ce poste'='relancez lʼaction pour ressaisir son mot de passe, ou « Oublier » ce compte'
+    }
+    $stateOf={
+        param([string]$Account,[string]$Origin,[string]$Target)
+        $name=([string]$Account).Trim()
+        if((-not $name) -or ($name -ceq 'Aucune identité active')){return 'Aucun compte'}
+        $key=Get-DomeniaCredentialAccountKey $name ([string]$Domain) ([string]$Netbios) ([string]$Target)
+        $text='Aucun refus enregistré.'
+        if(($key) -and ($paused.ContainsKey($key))){
+            # « même compte que lʼannuaire » is fixed where the directory account is.
+            $where=$Origin;if($where -ceq 'même compte que lʼannuaire'){$where=$directoryOrigin}
+            $fix='corrigez-le dans cette page ou « Changer de compte »';if($fixes.ContainsKey($where)){$fix=[string]$fixes[$where]}
+            $text='En pause après un refus : '+$fix+'.'
+        }
+        if(($key) -and ($others.ContainsKey($key))){$text+=' Même compte que '+(@($others[$key]) -join ', ')+' (SID confirmé par lʼannuaire).'}
+        return $text
+    }
     $now=[Collections.Generic.List[object]]::new()
-    $now.Add([pscustomobject]@{Resource='Annuaire';Account=$(if($directory){$directory}else{'Aucune identité active'});Origin=$directoryOrigin})
+    $directoryShown=$(if($directory){$directory}else{'Aucune identité active'})
+    $now.Add([pscustomobject]@{Resource='Annuaire';Account=$directoryShown;Origin=$directoryOrigin;State=[string](& $stateOf $directory $directoryOrigin '')})
     # A directory operation that received its own temporary account (key AD:<operation>, Get-DomeniaRetryCredential)
     # takes it instead of the connection account: one line per operation, right under the directory.
     foreach($key in @($byKey.Keys|Where-Object{([string]$_).StartsWith('AD:',[StringComparison]::Ordinal)}|Sort-Object)){
-        $now.Add([pscustomobject]@{Resource=(Get-DomeniaAccessScopeLabel $key);Account=[string]$byKey[$key].UserName;Origin=$temporaryOrigin})
+        $user=[string]$byKey[$key].UserName
+        $now.Add([pscustomobject]@{Resource=(Get-DomeniaAccessScopeLabel $key);Account=$user;Origin=$temporaryOrigin;State=[string](& $stateOf $user $temporaryOrigin '')})
     }
     if($null -ne $Machine){
         $machineAccount=[string]$Machine.Account;if(-not $machineAccount){$machineAccount=[string]$Machine.Short}
-        $now.Add([pscustomobject]@{Resource='Postes (WMI, C$, consoles)';Account=$machineAccount;Origin=[string]$Machine.Origin})
+        $machineState=[string](& $stateOf ([string]$Machine.Account) ([string]$Machine.Origin) '')
+        if(-not ([string]$Machine.Account).Trim()){$machineState='Aucun refus enregistré.'}
+        $now.Add([pscustomobject]@{Resource='Postes (WMI, C$, consoles)';Account=$machineAccount;Origin=[string]$Machine.Origin;State=$machineState})
     }
     $secrets=([string]$SecretsAccount).Trim()
     foreach($pair in @(@('Secrets : LAPS','ReadLaps'),@('Secrets : BitLocker','ReadBitLocker'))){
-        if($byKey.ContainsKey($pair[1])){$now.Add([pscustomobject]@{Resource=$pair[0];Account=[string]$byKey[$pair[1]].UserName;Origin=$temporaryOrigin})}
-        elseif($secrets){$now.Add([pscustomobject]@{Resource=$pair[0];Account=$secrets;Origin='compte Secrets de la page Comptes'})}
-        else{$now.Add([pscustomobject]@{Resource=$pair[0];Account=$(if($directory){$directory}else{'Aucune identité active'});Origin='même compte que lʼannuaire'})}
+        if($byKey.ContainsKey($pair[1])){$user=[string]$byKey[$pair[1]].UserName;$origin=$temporaryOrigin}
+        elseif($secrets){$user=$secrets;$origin='compte Secrets de la page Comptes'}
+        else{$user=$directoryShown;$origin='même compte que lʼannuaire'}
+        $now.Add([pscustomobject]@{Resource=$pair[0];Account=$user;Origin=$origin;State=[string](& $stateOf $user $origin '')})
     }
     $memory=[Collections.Generic.List[object]]::new()
     $typed=([string]$TypedMachineAccount).Trim()
-    if($typed){$memory.Add([pscustomobject]@{Key='Typed:Machine';Resource='Compte poste saisi';Account=$typed;Remaining='jusquʼà « Revenir au compte de connexion » ou la fin de la session'})}
+    if($typed){$memory.Add([pscustomobject]@{Key='Typed:Machine';Resource='Compte poste saisi';Account=$typed;Remaining='jusquʼà « Revenir au compte de connexion » ou la fin de la session';State=[string](& $stateOf $typed 'compte poste saisi, en mémoire seulement' '')})}
     foreach($key in @($byKey.Keys|Sort-Object)){
         $item=$byKey[$key]
-        $memory.Add([pscustomobject]@{Key=[string]$key;Resource=(Get-DomeniaAccessScopeLabel $key);Account=[string]$item.UserName;Remaining=[string](Get-DomeniaLeaseRemainingText -Lease $item.Lease -Epoch $Epoch -NowUtc $NowUtc).Text})
+        $target='';$origin=$temporaryOrigin
+        if(([string]$key).StartsWith('RemoteLocal|',[StringComparison]::Ordinal)){$target=([string]$key).Substring(12);$origin='compte local temporaire de ce poste'}
+        $memory.Add([pscustomobject]@{Key=[string]$key;Resource=(Get-DomeniaAccessScopeLabel $key);Account=[string]$item.UserName;Remaining=[string](Get-DomeniaLeaseRemainingText -Lease $item.Lease -Epoch $Epoch -NowUtc $NowUtc).Text;State=[string](& $stateOf ([string]$item.UserName) $origin $target)})
     }
     return [pscustomobject]@{Now=$now.ToArray();Memory=$memory.ToArray()}
 }

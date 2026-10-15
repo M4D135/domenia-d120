@@ -280,9 +280,10 @@ function Get-DomeniaUsableTemporaryAccounts {
 }
 
 function Update-DomeniaAccountsInUse {
-    # UI-27: fills « En ce moment » of the Comptes page from the session facts (Get-DomeniaAccountsInUseRows). While
-    # the page is hidden nothing is built; the grids change only when a text changes (account generation, a lease
-    # minute, a session change), so the timer never reloads them for nothing.
+    # UI-27 / point 42: fills « En ce moment » of the Comptes page from the session facts (Get-DomeniaAccountsInUseRows):
+    # the account of each resource, its origin and what the shared protection recorded for it (pause after a refusal,
+    # names confirmed by the directory). While the page is hidden nothing is built; the grids change only when a text
+    # changes (account generation, a lease minute, a pause, a session change), so the timer never reloads them for nothing.
     param([switch]$Force)
     $now=Get-DomeniaControl 'DgAccountsInUse';$memory=Get-DomeniaControl 'DgAccountsInMemory'
     if(($null -eq $now) -or ($null -eq $memory)){return}
@@ -291,8 +292,11 @@ function Update-DomeniaAccountsInUse {
     if([string]::IsNullOrWhiteSpace($directory)){$directory=[string]$script:Conn.User}
     $typed='';if($null -ne $script:MachineCredential){$typed=[string]$script:MachineCredential.UserName}
     $secrets='';if($null -ne $script:SecretsCredential){$secrets=[string]$script:SecretsCredential.UserName}
-    $rows=Get-DomeniaAccountsInUseRows -DirectoryAccount $directory -DirectoryMode $(if($directory){[string]$script:Conn.AuthMode}else{''}) -Machine (Get-DomeniaMachineAccountInUse) -SecretsAccount $secrets -TypedMachineAccount $typed -Temporary @(Get-DomeniaUsableTemporaryAccounts) -Epoch ([long]$script:SessionEpoch) -NowUtc (Get-DomeniaAccessNow)
-    $signature=((@($rows.Now)|ForEach-Object{$_.Resource+'|'+$_.Account+'|'+$_.Origin}) -join "`n")+"`n--`n"+((@($rows.Memory)|ForEach-Object{$_.Key+'|'+$_.Account+'|'+$_.Remaining}) -join "`n")
+    # Guard keys and confirmed names only, read under the guard lock: never a credential.
+    $faults=@(Get-DomeniaCredentialGuardFailures $script:DomeniaCredentialGuard)
+    $aliases=@(foreach($group in @(Get-DomeniaAccountAliasSummary)){,@($group.Names)})
+    $rows=Get-DomeniaAccountsInUseRows -DirectoryAccount $directory -DirectoryMode $(if($directory){[string]$script:Conn.AuthMode}else{''}) -Machine (Get-DomeniaMachineAccountInUse) -SecretsAccount $secrets -TypedMachineAccount $typed -Temporary @(Get-DomeniaUsableTemporaryAccounts) -Epoch ([long]$script:SessionEpoch) -NowUtc (Get-DomeniaAccessNow) -Faults $faults -AliasGroups $aliases -Domain ([string]$script:Conn.Domain) -Netbios ([string]$script:Conn.Netbios)
+    $signature=((@($rows.Now)|ForEach-Object{$_.Resource+'|'+$_.Account+'|'+$_.Origin+'|'+$_.State}) -join "`n")+"`n--`n"+((@($rows.Memory)|ForEach-Object{$_.Key+'|'+$_.Account+'|'+$_.Remaining+'|'+$_.State}) -join "`n")
     $state=$script:DomeniaAccountsUi
     if((-not $Force) -and ($null -ne $state) -and ([string]$state.InUseSignature -ceq $signature)){return}
     if($null -ne $state){$state.InUseSignature=$signature}

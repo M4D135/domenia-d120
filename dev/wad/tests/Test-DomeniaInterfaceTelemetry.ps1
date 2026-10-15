@@ -138,6 +138,20 @@ Case 'Response-time summaries are recomputed only when one of their series moved
     $after=@(Get-DomeniaResponseTimeSummaries|Where-Object{$_.Id -eq 'Computers'})[0]
     Expect (([int]$full.Summary.Max -eq 1) -and ([int]$after.Summary.Max -eq 9000) -and ([int]$after.Summary.Count -eq 512)) 'A saturated series was served from a stale summary'
 }
+Case 'W13/W14: the percentiles and the explained slowness read one measure of the worker' {
+    $script:DomeniaRuntimeMetrics=@{};$script:DomeniaResponseTimeCache=$null
+    # The Collect phase of the trace is passed by Complete-UiTasks: it is the value kept, not a second clock read later.
+    Add-DomeniaTaskRuntimeMetric -Job ([pscustomobject]@{Started=(Get-Date).AddSeconds(-30);Provider='Cim';Demo=$false;IsWrite=$false;OperationId='ComputerInventory';MetricKey='ComputerInventory'}) -DurationMs 1234
+    Expect ((Get-DomeniaRuntimeMetricSummary Cim 'ComputerInventory').Max -eq 1234) 'The worker duration does not come from the trace measure'
+    # Without a measure (-1), the former clock is kept: from the dispatch to now.
+    Add-DomeniaTaskRuntimeMetric -Job ([pscustomobject]@{Started=(Get-Date).AddMilliseconds(-40);Provider='Cim';Demo=$false;IsWrite=$false;OperationId='ComputerInventory';MetricKey='ComputerInventory'}) -DurationMs -1
+    Expect ((Get-DomeniaRuntimeMetricSummary Cim 'ComputerInventory').Count -eq 2) 'A job without trace measure lost its duration'
+    # The real completion passes the Collect phase computed from the same end of worker as the trace.
+    $complete=@($core.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Complete-UiTasks'},$true))
+    Expect ($complete.Count -eq 1) 'Complete-UiTasks missing or ambiguous'
+    $text=$complete[0].Extent.Text
+    Expect ($text.Contains('(Get-DomeniaJobPhaseMeasures -Job $job -WorkerEnd $traceWorkerEnd).CollectMs') -and $text.Contains('Add-DomeniaTaskRuntimeMetric -Job $job -DurationMs $traceCollectMs')) 'Complete-UiTasks does not share the Collect measure with the percentiles'
+}
 $failed=@($script:Results|Where-Object{-not $_.Pass}).Count
 $report=[pscustomobject]@{Passed=($script:Results.Count-$failed);Failed=$failed;Assertions=$script:Assertions;PowerShell=$PSVersionTable.PSVersion.ToString();Data='Controlled clock, actual Core finally block and real in-memory metric functions; no AD/WPF';Cases=$script:Results.ToArray()}
 if($ReportPath){[IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 8),[Text.UTF8Encoding]::new($false))}

@@ -19,7 +19,7 @@ function Get-DomeniaCompatibilityMatrix {
         $info = [IO.FileInfo]::new($path)
         if ((-not $info.Exists) -or ($info.Length -gt 1MB)) { Write-AppLog 'Matrice de compatibilité absente ou trop volumineuse : compatibilité inconnue.' 'WARN'; return $null }
         $script:DomeniaCompatibilityMatrix = [IO.File]::ReadAllText($path,[Text.Encoding]::UTF8) | ConvertFrom-Json
-    } catch { try { Write-AppLog ('Matrice de compatibilité illisible : ' + $_.Exception.Message) 'WARN' } catch { } }
+    } catch { try { Write-AppLog ('Matrice de compatibilité illisible : ' + $_.Exception.Message) 'WARN' } catch { Write-DomeniaSwallowed 'Compatibilité' 'Get-DomeniaCompatibilityMatrix' $_ } }
     return $script:DomeniaCompatibilityMatrix
 }
 
@@ -88,7 +88,7 @@ function Update-DomeniaAboutCompatibility {
         $label.Text = 'Compatibilité de ce poste : non évaluée (' + $_.Exception.Message + ').'
     }
     if ($tip) { $label.ToolTip = $tip } else { $label.ToolTip = $null }
-    try { [Windows.Automation.AutomationProperties]::SetHelpText($label,$tip) } catch { }
+    try { [Windows.Automation.AutomationProperties]::SetHelpText($label,$tip) } catch { Write-DomeniaSwallowed 'Compatibilité' 'Update-DomeniaAboutCompatibility' $_ }
 }
 
 function Get-DomeniaCompatibilitySupportFields {

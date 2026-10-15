@@ -764,15 +764,18 @@ function Test-DomeniaNoAbsenceClaim {
     # True when a text makes no claim that an object, an account or a session does not exist.
     # Covers "n existe pas/plus", "inexistant", "introuvable", "il n y a pas", "absent", "n est pas dans/present",
     # "inconnu dans/de l annuaire", "ne figure pas", "supprime" and their English forms, whatever the apostrophe.
+    # W13 (point 119): accents are folded first, so « supprimé » or « présent » are caught like their bare forms.
     param([AllowEmptyString()][AllowNull()][string]$Text)
     if ([string]::IsNullOrEmpty($Text)) { return $true }
+    $folded = [regex]::Replace(([string]$Text).Normalize([Text.NormalizationForm]::FormD),'\p{Mn}','')
     $pattern = '(?i)\bn[^a-z0-9]{0,2}existe(nt)?\s+(pas|plus)\b|\binexistant|\bintrouvable|\bn[^a-z0-9]{0,2}y\s+a\s+(pas|plus|aucun)|\babsente?s?\b|\bn[^a-z0-9]{0,2}(est|sont)\s+(pas|plus)\s+(dans|present|presente|presents|presentes|connu|connue|connus|enregistre|enregistree|repertorie)\b|\binconnue?s?\s+(dans|de|du|des|au)\b|\bne\s+figuren?t?\s+(pas|plus)\b|\bsupprime(e|s|es)?\b|\bdoes\s+not\s+exist|\bno\s+longer\s+exists?\b|\bnot\s+found\b|\bmissing\b'
-    return (-not [regex]::IsMatch($Text,$pattern))
+    return (-not [regex]::IsMatch($folded,$pattern))
 }
 
 function Get-DomeniaEmptyState {
     # Distinguishes an empty answer from an empty display. Each state names what was (not) read and proposes
     # one next action that is never started by itself. No state claims that an object or a session does not exist.
+    # W13 (point 119): French wording with its accents; the next action of a list without query says what to do.
     param(
         [Parameter(Mandatory=$true)][ValidateSet('NoResult','LocalFilterEmpty','NoSource','NothingQueried','Refused','Partial')][string]$Kind,
         [ValidateSet('Objet','Session')][string]$Subject='Objet',
@@ -791,54 +794,59 @@ function Get-DomeniaEmptyState {
         'NoResult' {
             $etat = 'Constate'
             if ($Subject -eq 'Session') {
-                $title = 'Aucune session renvoyee'
-                $text = 'La source interrogee' + $scopePart + ' n a renvoye aucune session. Une session RDP ou deconnectee peut ne pas figurer dans cette lecture.'
+                $title = 'Aucune session renvoyée'
+                $text = 'La source interrogée' + $scopePart + ' nʼa renvoyé aucune session. Une session RDP ou déconnectée peut ne pas figurer dans cette lecture.'
                 $next = @('Lire les sessions RDP de ce poste','ReadRdpSessions','TabSessions')
             } else {
-                $title = 'Aucun resultat'
-                $text = 'Aucun resultat dans le perimetre interroge' + $scopePart
-                if ($queryText) { $text = 'Aucun resultat pour « ' + $queryText + ' » dans le perimetre interroge' + $scopePart }
-                $text += '. Un objet hors de ce perimetre, ou masque pour ce compte, ne peut pas apparaitre ici.'
-                $next = @('Elargir le perimetre ou corriger la saisie','WidenScope','WsSearch')
+                $title = 'Aucun résultat'
+                $text = 'Aucun résultat dans le périmètre interrogé' + $scopePart
+                if ($queryText) { $text = 'Aucun résultat pour « ' + $queryText + ' » dans le périmètre interrogé' + $scopePart }
+                $text += '. Un objet hors de ce périmètre, ou masqué pour ce compte, ne peut pas apparaître ici.'
+                $next = @('Élargir le périmètre ou corriger la saisie','WidenScope','WsSearch')
             }
         }
         'LocalFilterEmpty' {
+            # UX-03: same title and action as the filter state of the list (Get-DomeniaFilteredEmptyState).
             $etat = 'Constate'
             $title = 'Filtre local sans correspondance'
-            $text = 'Les resultats lus sont tous masques par le filtre local'
-            if ($Total -gt 0) { $text = [string]$Total + ' resultat(s) lu(s), tous masques par le filtre local' }
+            if ($Total -gt 0) { $title = 'Le filtre masque ' + $Total.ToString('N0',[Globalization.CultureInfo]::GetCultureInfo('fr-FR')) + $(if ($Total -gt 1) { ' lignes' } else { ' ligne' }) }
+            $text = 'Les résultats lus sont tous masqués par le filtre local'
+            if ($Total -gt 0) { $text = [string]$Total + ' résultat(s) lu(s), tous masqués par le filtre local' }
             $filterText = ConvertTo-DomeniaFlatText $LocalFilter 60
             if ($filterText) { $text += ' « ' + $filterText + ' »' }
-            $text += '. Aucune nouvelle lecture n a ete faite.'
-            $next = @('Effacer le filtre local','ClearLocalFilter','WsSearch')
+            $text += '. Aucune nouvelle lecture nʼa été faite.'
+            $next = @('Effacer le filtre','ClearLocalFilter','WsSearch')
         }
         'NoSource' {
             $etat = 'Indisponible'
             $title = 'Aucune source disponible'
-            $text = 'Aucune source n est configuree ou joignable pour cette vue : rien n a pu etre lu, l etat reel est inconnu.'
-            $next = @('Choisir ou configurer une source','ChooseSource','TabApplicationTools')
+            $text = 'Aucune source nʼa répondu pour cette vue' + $scopePart + ' : rien nʼa pu être lu, lʼétat réel est inconnu.'
+            $next = @('Vérifier la connexion et la source','ChooseSource','TabAccounts')
         }
         'NothingQueried' {
             $etat = 'Inconnu'
-            $title = 'Rien n a encore ete interroge'
-            $text = 'Aucun poste ni aucune source n a encore ete interroge pour cette vue : l affichage vide ne renseigne pas sur l etat reel.'
-            if ($Subject -eq 'Session') { $text = 'Ce poste n a pas encore ete interroge : l affichage vide ne renseigne pas sur ses sessions.' }
-            $next = @('Lancer la lecture','StartRead','')
+            $title = 'Rien nʼa encore été interrogé'
+            $text = 'Aucun poste ni aucune source nʼa encore été interrogé pour cette vue : lʼaffichage vide ne renseigne pas sur lʼétat réel.'
+            $next = @('Rechercher un nom ou choisir une OU','StartRead','WsSearch')
+            if ($Subject -eq 'Session') {
+                $text = 'Ce poste nʼa pas encore été interrogé : lʼaffichage vide ne renseigne pas sur ses sessions.'
+                $next = @('Lancer la lecture','StartRead','')
+            }
         }
         'Refused' {
             $etat = 'Refuse'
-            $title = 'Lecture refusee'
-            $text = 'La lecture a ete refusee pour ce compte' + $scopePart + ' : le contenu reel est inconnu.'
-            if ($Subject -eq 'Session') { $text = 'La lecture des sessions a ete refusee pour ce compte' + $scopePart + ' : les sessions reelles sont inconnues.' }
+            $title = 'Lecture refusée'
+            $text = 'La lecture a été refusée pour ce compte' + $scopePart + ' : le contenu réel est inconnu.'
+            if ($Subject -eq 'Session') { $text = 'La lecture des sessions a été refusée pour ce compte' + $scopePart + ' : les sessions réelles sont inconnues.' }
             $next = @('Utiliser un autre compte pour cette ressource','ChangeAccount','TabAccounts')
         }
         'Partial' {
             $etat = 'Inconnu'
-            $title = 'Resultats partiels'
-            $text = 'Une partie seulement des sources a repondu'
-            if ($Total -gt 0) { $text = [string]$Answered + ' source(s) sur ' + [string]$Total + ' ont repondu' }
-            $text += '. Un element present dans une source sans reponse peut manquer ici.'
-            $next = @('Relire les sources sans reponse','RetryMissing','')
+            $title = 'Résultats partiels'
+            $text = 'Une partie seulement des sources a répondu'
+            if ($Total -gt 0) { $text = [string]$Answered + ' source(s) sur ' + [string]$Total + ' ont répondu' }
+            $text += '. Un élément présent dans une source sans réponse peut manquer ici.'
+            $next = @('Relire les sources sans réponse','RetryMissing','')
         }
     }
     return [pscustomobject]@{
@@ -861,7 +869,7 @@ function Resolve-DomeniaSearchEmptyKind {
         [bool]$Partial=$false
     )
     if ($Displayed -gt 0) { return '' }
-    if ([string]$ErrorKind -in @('AccessDenied','LogonFailure')) { return 'Refused' }
+    if ([string]$ErrorKind -in @('AccessDenied','LogonFailure','AccountState')) { return 'Refused' }
     if ($Loaded -gt 0) { return 'LocalFilterEmpty' }
     if ($InFlight) { return '' }
     if ($Partial) { return 'Partial' }

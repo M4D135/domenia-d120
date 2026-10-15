@@ -452,7 +452,9 @@ function Get-DomeniaContractCatalog {
         [pscustomobject]@{ Family = 'Domenia.Automation'; Label = 'Interface automatisable'; Kind = 'Format'; Separator = '/'; Current = 1; Readable = @(1); Migrations = @(); Values = @(); Owner = 'Domenia-Automation.Model.ps1' }
         [pscustomobject]@{ Family = 'Domenia.OfflineDossier'; Label = 'Dossier de diagnostic hors ligne'; Kind = 'Format'; Separator = '/'; Current = 1; Readable = @(1); Migrations = @(); Values = @(); Owner = 'Domenia-Automation.Model.ps1' }
         [pscustomobject]@{ Family = 'Domenia.Capture'; Label = 'Capture historique'; Kind = 'Format'; Separator = '.'; Current = 1; Readable = @(1); Migrations = @(); Values = @(); Owner = 'Domenia-Dossier.UI.ps1' }
-        [pscustomobject]@{ Family = 'Domenia.Support'; Label = 'Dossier technique'; Kind = 'Format'; Separator = '.'; Current = 1; Readable = @(1); Migrations = @(); Values = @(); Owner = 'Domenia-Dossier.UI.ps1' }
+        # W13 (point 124): the redacted diagnostic replaces the technical dossier (Domenia.Support.1, never read back by
+        # Domenia); it carries the compatibility of the workstation (point 145).
+        [pscustomobject]@{ Family = 'Domenia.Diagnostic'; Label = 'Diagnostic expurgé'; Kind = 'Format'; Separator = '.'; Current = 2; Readable = @(2); Migrations = @(); Values = @(); Owner = 'Domenia-Observability.Model.ps1' }
         [pscustomobject]@{ Family = 'DomeniaTicket'; Label = 'Ticket de support'; Kind = 'Format'; Separator = '/'; Current = 1; Readable = @(1); Migrations = @(); Values = @(); Owner = 'Domenia-Insight.Model.ps1' }
         [pscustomobject]@{ Family = 'DomeniaSuiteContract'; Label = 'Contrat de la suite'; Kind = 'Format'; Separator = '/'; Current = 1; Readable = @(1); Migrations = @(); Values = @(); Owner = 'Domenia-Workstation.Model.ps1' }
         [pscustomobject]@{ Family = 'DomeniaDemoDirectory'; Label = 'Annuaire de démonstration'; Kind = 'Format'; Separator = '/'; Current = 1; Readable = @(1); Migrations = @(); Values = @(); Owner = 'Domenia-Demo.Model.ps1' }
@@ -492,7 +494,7 @@ function Get-DomeniaContract {
 }
 
 function ConvertFrom-DomeniaContractFormat {
-    # 'Domenia.Query/2' or the older dotted form 'Domenia.Support.1' -> Family, Separator, Version. $null when the
+    # 'Domenia.Query/2' or the dotted form 'Domenia.Diagnostic.2' -> Family, Separator, Version. $null when the
     # text is not a versioned format (no version, version 0, more than four digits, unexpected characters).
     param([AllowEmptyString()][string]$Format)
     $found = [regex]::Match(([string]$Format),'^([A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z][A-Za-z0-9]*)*)([/.])([1-9][0-9]{0,3})$')

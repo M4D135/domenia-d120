@@ -93,7 +93,7 @@ La recherche globale peut continuer tant que de nouveaux objets AD arrivent, pen
 |---|---|
 | « Saisissez au moins N caractères… » | Tapez au moins N caractères (2 par défaut) ; les étoiles ne comptent pas. |
 | « Saisissez au moins un caractère en plus de * » | Une étoile seule listerait tout le domaine : ajoutez une partie du nom, par exemple « compta* ». |
-| « Aucun résultat affiché » | Vérifiez l’orthographe, l’OU et les filtres, ou cherchez le nom dans la barre du haut. Une liste vide ne prouve pas l'absence de l'objet. |
+| « Aucun résultat » | Vérifiez l’orthographe, l’OU et les filtres, ou cherchez le nom dans la barre du haut. Une liste vide ne prouve pas l'absence de l'objet. |
 | « La liste affichée nʼest plus la recherche courante : relancez la recherche. » | Relancez la recherche, puis cliquez de nouveau sur « Charger la suite ». |
 | « Fiche » est grisé dans le menu | Sélectionnez d'abord une ligne dans les résultats. |
 

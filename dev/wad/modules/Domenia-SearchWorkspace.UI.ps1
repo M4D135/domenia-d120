@@ -220,8 +220,12 @@ function Update-DomeniaSearchFilterChips {
     $model=Get-DomeniaSearchFilterChips -State (Get-DomeniaSearchFilterState)
     # The chips are rebuilt only when a criterion changes: a list that loads keeps its chips, their keyboard focus
     # and their tooltips, and only the counts of the summary follow it. The panel keeps the signature it shows.
-    $signature=(@($model.Chips|ForEach-Object{[string]$_.Key+'|'+[string]$_.Scope+'|'+[string]$_.Label+'|'+[string]$_.Removable+'|'+[string]$_.Effect}) -join "`n")
-    if(([string]$panel.Tag -ceq $signature) -and ($panel.Children.Count -eq @($model.Chips).Count)){[void](Set-DomeniaControlText 'LblSearchFilterSummary' ([string]$model.Summary));return}
+    # W13 (point 120): the « Annuler » chip of the last presentation change (columns, sort, filters; Ctrl+Z does the
+    # same) closes the row. What it gives back belongs to the signature, so the row follows each new step.
+    $undoText='';try{$undoText=[string](Get-DomeniaPresentationUndoText $script:DomeniaPresentationHistory)}catch{$undoText=''}
+    $expected=@($model.Chips).Count;if($undoText){$expected++}
+    $signature=(@($model.Chips|ForEach-Object{[string]$_.Key+'|'+[string]$_.Scope+'|'+[string]$_.Label+'|'+[string]$_.Removable+'|'+[string]$_.Effect}) -join "`n")+"`nundo|"+$undoText
+    if(([string]$panel.Tag -ceq $signature) -and ($panel.Children.Count -eq $expected)){[void](Set-DomeniaControlText 'LblSearchFilterSummary' ([string]$model.Summary));return}
     $panel.Tag=$signature
     $panel.Children.Clear()
     foreach($chip in @($model.Chips)){
@@ -247,6 +251,7 @@ function Update-DomeniaSearchFilterChips {
             [void]$panel.Children.Add($border)
         }
     }
+    if($undoText){try{$undo=New-DomeniaPresentationUndoChip;if($null -ne $undo){[void]$panel.Children.Add($undo)}}catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }}
     [void](Set-DomeniaControlText 'LblSearchFilterSummary' ([string]$model.Summary))
 }
 function Remove-DomeniaSearchFilterChip {
@@ -556,6 +561,9 @@ function Initialize-DomeniaSearchWorkspace {
     }
     # A reopened main window brings new controls: binding again must be possible then.
     if($script:Window -is [Windows.Window]){$script:Window.Add_Closed({$script:SearchWorkspaceBound=$false;$script:SearchPreviewToken='';$script:SearchWorkspacePendingSort=$null;if($null -ne $script:SearchWorkspaceTimer){$script:SearchWorkspaceTimer.Stop()}})}
+    # W13 (points 119, 120): presentation undo of the list (Ctrl+Z, « Annuler » chip) and its one empty state.
+    try{Initialize-DomeniaPresentationUndo}catch{Write-AppLog ('Annulation de présentation indisponible : '+$_.Exception.Message) 'WARN'}
+    try{Initialize-DomeniaSearchEmptyState}catch{Write-AppLog ('État de la liste vide indisponible : '+$_.Exception.Message) 'WARN'}
     Update-DomeniaSearchWorkspaces
     Invoke-DomeniaSearchWorkspaceRefresh
 }

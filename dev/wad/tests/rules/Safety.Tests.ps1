@@ -539,6 +539,111 @@ Test-Case 'UX-08' 'Avant et apres en clair : ni DN ni GUID, aucun secret' {
     Assert-False ($all -match 'MARQUEUR') 'Secret visible'
     Assert-False ($all -match '(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}') 'Un GUID apparait hors des details techniques'
 }
+# Point 49 : relecture ulterieure d une ecriture incertaine. Etat attendu sans secret, decision par la seule relecture.
+Test-Case 'P49' 'Etat attendu garde par le recu pour chaque ecriture, jamais un secret' {
+    $marker=[guid]::NewGuid().ToString('N')
+    $secure=New-Object Security.SecureString;foreach($c in $marker.ToCharArray()){$secure.AppendChar($c)}
+    $reset=Get-DomeniaReceiptExpectation 'WriteResetPassword' ([pscustomobject]@{DN=$script:SfDnA;SecurePassword=$secure;MustChange=$false;Unlock=$false})
+    Assert-Equal 'PasswordChangedAfterSend' $reset.Kind
+    Assert-False (($reset|ConvertTo-Json -Depth 4 -Compress).Contains($marker)) 'Le mot de passe entre dans le recu'
+    Assert-Equal 'PwdLastSetZero' (Get-DomeniaReceiptExpectation 'WriteResetPassword' ([pscustomobject]@{SecurePassword=$secure;MustChange=$true})).Kind
+    $disabled=Get-DomeniaReceiptExpectation 'WriteAccountDisabled' ([pscustomobject]@{Disabled=$true})
+    Assert-Equal 'UacFlags' $disabled.Kind;Assert-Equal 2 ([int]$disabled.Flags[0].Mask);Assert-True ([bool]$disabled.Flags[0].Set)
+    $options=Get-DomeniaReceiptExpectation 'WriteAccountOptions' ([pscustomobject]@{TargetUac=66048;Masks=[pscustomobject]@{PasswordNeverExpires=65536;PasswordNotRequired=32}})
+    Assert-Equal 2 @($options.Flags).Count;Assert-True ([bool]($options.Flags|Where-Object{$_.Name -eq 'PasswordNeverExpires'}).Set);Assert-False ([bool]($options.Flags|Where-Object{$_.Name -eq 'PasswordNotRequired'}).Set)
+    Assert-Equal '2026-11-01' (Get-DomeniaReceiptExpectation 'WriteExpiration' ([pscustomobject]@{Never=$false;Date='2026-11-01T00:00:00.0000000'})).Day
+    Assert-Equal 'Jamais' (Get-DomeniaReceiptExpectation 'WriteExpiration' ([pscustomobject]@{Never=$true;Date=''})).Day
+    Assert-Equal 'Parent' (Get-DomeniaReceiptExpectation 'WriteMoveObject' ([pscustomobject]@{TargetDn='OU=Anciens,DC=example,DC=test'})).Kind
+    Assert-Equal 'Name' (Get-DomeniaReceiptExpectation 'WriteRenameComputer' ([pscustomobject]@{NewName='PC-02'})).Kind
+    $member=Get-DomeniaReceiptExpectation 'WriteGroupMember' ([pscustomobject]@{GroupDn='CN=G,DC=example,DC=test';ObjectValue='jdupont';Add=$true})
+    Assert-Equal 'Membership' $member.Kind;Assert-True ([bool]$member.Member);Assert-Equal 'jdupont' $member.MemberValue
+    Assert-Equal 'Existence' (Get-DomeniaReceiptExpectation 'WriteCreateOu' ([pscustomobject]@{ParentDn='DC=example,DC=test';Name='Paie'})).Kind
+    Assert-Equal 'Absence' (Get-DomeniaReceiptExpectation 'WriteDeleteObject' ([pscustomobject]@{DN=$script:SfDnA})).Kind
+    Assert-True ($null -eq (Get-DomeniaReceiptExpectation 'RimotteRun' ([pscustomobject]@{}))) 'Regle inventee pour une action distante'
+    Assert-True ($null -eq (Get-DomeniaReceiptExpectation 'WriteMoveObject' ([pscustomobject]@{TargetDn=''}))) 'Cible absente acceptee'
+}
+Test-Case 'P49' 'Decision par la relecture seule : conforme, contraire, refusee ou incomplete' {
+    $ok=[pscustomobject]@{ReadStatus='OK'}
+    $flag=[pscustomobject]@{Kind='UacFlags';Flags=@([pscustomobject]@{Name='ACCOUNTDISABLE';Mask=2;Set=$true})}
+    Assert-True (Resolve-DomeniaReceiptCheck $flag ([pscustomobject]@{ReadStatus='OK';Uac='514'})).Verified
+    Assert-False (Resolve-DomeniaReceiptCheck $flag ([pscustomobject]@{ReadStatus='OK';Uac='512'})).Verified
+    Assert-False (Resolve-DomeniaReceiptCheck $flag ([pscustomobject]@{ReadStatus='Refused';Uac='514'})).Verified 'Un refus de lecture devient une preuve'
+    Assert-False (Resolve-DomeniaReceiptCheck $flag ([pscustomobject]@{ReadStatus='OK';Uac=''})).Verified 'Valeur non relue acceptee'
+    Assert-True (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='Unlocked'}) ([pscustomobject]@{ReadStatus='OK';Lockout='0'})).Verified
+    Assert-False (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='Unlocked'}) ([pscustomobject]@{ReadStatus='OK';Lockout='133000000000000000'})).Verified
+    Assert-False (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='Unlocked'}) ([pscustomobject]@{ReadStatus='OK';Lockout=''})).Verified 'lockoutTime non relu pris pour un deverrouillage'
+    Assert-True (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='PwdLastSetZero'}) ([pscustomobject]@{ReadStatus='OK';PwdLastSet='0'})).Verified
+    Assert-False (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='PwdLastSetZero'}) ([pscustomobject]@{ReadStatus='OK';PwdLastSet=''})).Verified 'pwdLastSet non relu pris pour 0'
+    $sent=$script:SfNow.ToString('o')
+    $after=[string]$script:SfNow.AddMinutes(1).ToFileTimeUtc();$before=[string]$script:SfNow.AddHours(-2).ToFileTimeUtc()
+    $change=[pscustomobject]@{Kind='PasswordChangedAfterSend'}
+    Assert-True (Resolve-DomeniaReceiptCheck $change ([pscustomobject]@{ReadStatus='OK';PwdLastSet=$after}) $sent).Verified
+    Assert-False (Resolve-DomeniaReceiptCheck $change ([pscustomobject]@{ReadStatus='OK';PwdLastSet=$before}) $sent).Verified
+    Assert-False (Resolve-DomeniaReceiptCheck $change ([pscustomobject]@{ReadStatus='OK';PwdLastSet=$after}) '').Verified 'Heure d envoi absente acceptee'
+    Assert-True (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='AccountExpires';Day='2026-11-01'}) ([pscustomobject]@{ReadStatus='OK';AccountExpiresDay='2026-11-01'})).Verified
+    Assert-False (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='AccountExpires';Day='Jamais'}) ([pscustomobject]@{ReadStatus='OK';AccountExpiresDay='2026-11-01'})).Verified
+    Assert-True (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='Parent';ParentDn='OU=Anciens,DC=example,DC=test'}) ([pscustomobject]@{ReadStatus='OK';ParentDn='ou=anciens,dc=example,dc=test'})).Verified
+    Assert-False (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='Parent';ParentDn='OU=Anciens,DC=example,DC=test'}) ([pscustomobject]@{ReadStatus='OK';ParentDn=''})).Verified
+    Assert-True (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='Membership';Member=$false}) ([pscustomobject]@{ReadStatus='OK';Member=$false})).Verified
+    Assert-False (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='Membership';Member=$true}) ([pscustomobject]@{ReadStatus='OK';Member=$null})).Verified 'Appartenance non relue acceptee'
+    Assert-True (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='Absence'}) ([pscustomobject]@{ReadStatus='OK';Exists=$false})).Verified
+    Assert-False (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='Absence'}) ([pscustomobject]@{ReadStatus='OK';Exists=$null})).Verified 'Absence supposee sans reponse'
+    Assert-False (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='Absence'}) ([pscustomobject]@{ReadStatus='Refused';Exists=$false})).Verified 'Refus pris pour une absence'
+    Assert-True (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='Existence'}) ([pscustomobject]@{ReadStatus='OK';Exists=$true})).Verified
+    Assert-False (Resolve-DomeniaReceiptCheck $null $ok).Verified 'Operation sans regle verifiee'
+}
+# Point 48 : apercu d une operation collective. Liste exacte, exclusions motivees, impact, confirmation proportionnee.
+Test-Case 'P48' 'Liste exacte : type attendu, identite complete, doublon et limite exclus avec leur motif' {
+    $c={param($n,$type='Machine',$guid='')
+        if(-not $guid){$guid=('00000000-0000-0000-0000-'+([int]$n).ToString('d12'))}
+        [pscustomobject]@{Name=('PC-'+$n);DN=('CN=PC-'+$n+',DC=example,DC=test');Guid=$guid;Type=$type}}
+    $candidates=@((& $c 1),(& $c 2),(& $c 3 'Utilisateur'),([pscustomobject]@{Name='PC-4';DN='';Guid='x';Type='Machine'}),(& $c 1),(& $c 5),(& $c 6))
+    $p=New-DomeniaCollectivePreview -OperationId 'ParkSweep' -Candidates $candidates -ExpectedType 'Machine' -Change 'ping ICMP' -Limit 3 -Excluded @([pscustomobject]@{Name='PC-9';DN='CN=PC-9,DC=example,DC=test';Reason='Écarté en amont'})
+    Assert-Equal 'PC-1,PC-2,PC-5' ((@($p.Targets)|ForEach-Object{$_.Name}) -join ',')
+    Assert-Equal 5 ([int]$p.ExcludedCount)
+    $reasons=(@($p.Excluded)|ForEach-Object{$_.Name+'='+$_.Reason}) -join '|'
+    Assert-True ($reasons -match 'PC-3=Type Utilisateur') $reasons;Assert-True ($reasons -match 'PC-4=Identité incomplète') $reasons
+    Assert-True ($reasons -match 'PC-1=Doublon') $reasons;Assert-True ($reasons -match 'PC-6=Au-delà de la limite de 3') $reasons;Assert-True ($reasons -match 'PC-9=Écarté en amont') $reasons
+    Assert-True ((@($p.Lines) -join ' ') -match 'PC-2 : ping ICMP')
+    Assert-True ($p.Details.Contains('CN=PC-5,DC=example,DC=test') -and $p.Details.Contains('PC-6 — Au-delà')) $p.Details
+}
+Test-Case 'P48' 'Au-dela de la limite : premieres lignes nommees, les autres comptees ; chaque cible garde sa position' {
+    $c={param([int]$n)[pscustomobject]@{Name=('PC-'+$n);DN=('CN=PC-'+$n+',DC=example,DC=test');Guid=('00000000-0000-0000-0000-'+$n.ToString('d12'));Type='Machine'}}
+    $candidates=@((& $c 1),(& $c 1))+@(for($i=2;$i -le 12;$i++){& $c $i})
+    $p=New-DomeniaCollectivePreview -OperationId 'BatchNetworkDiag' -Candidates $candidates -ExpectedType 'Machine' -Change 'ping' -Limit 3 -NamedBeyond 2 -ImpactFor {param($n) 'Environ '+$n+' poste(s)'}
+    Assert-Equal 'PC-1,PC-2,PC-3' ((@($p.Targets)|ForEach-Object{$_.Name}) -join ',')
+    Assert-Equal '0,2,3' ((@($p.Targets)|ForEach-Object{[string]$_.Index}) -join ',')
+    Assert-Equal 10 ([int]$p.ExcludedCount);Assert-Equal 3 @($p.Excluded).Count;Assert-Equal 7 ([int]$p.Uncounted)
+    $lines=(@($p.Lines) -join ' | ')
+    Assert-True ($lines -match '10 exclue\(s\) : Au-delà de la limite de 3 cibles \(9\) ; Doublon') $lines
+    Assert-True ($lines -match 'Impact : Environ 3 poste\(s\)') 'Impact non calcule sur le nombre exact de cibles'
+    Assert-True ($p.Details.Contains('PC-5 — Au-delà de la limite de 3 cibles')) $p.Details
+    Assert-True ($p.Details.Contains('… et 7 autre(s), non détaillée(s) — Au-delà de la limite de 3 cibles')) $p.Details
+    Assert-False ($p.Details.Contains('PC-6')) 'Ligne au-dela du nombre nomme detaillee'
+    Assert-Equal 10 @($p.Details -split "`n").Count
+}
+Test-Case 'P48' 'Avant et apres par cible, liste bornee a l ecran mais complete dans le detail' {
+    $many=@(for($i=1;$i -le 30;$i++){[pscustomobject]@{Name=('U'+$i);DN=('CN=U'+$i+',DC=example,DC=test');Guid=([guid]::NewGuid().ToString());Type='Utilisateur';Before='Actif';After='Désactivé'}})
+    $p=New-DomeniaCollectivePreview -OperationId 'WriteAccountDisabled' -Candidates $many -ExpectedType 'Utilisateur' -ShownLines 5
+    Assert-True ((@($p.Lines) -join ' ') -match 'U1 : Actif → Désactivé')
+    Assert-True ((@($p.Lines) -join ' ') -match '… et 25 autre') 'Reste non annonce'
+    Assert-Equal 30 (@($p.Details -split "`n" | Where-Object{$_ -match 'Actif → Désactivé'})).Count
+}
+Test-Case 'P48' 'Confirmation proportionnee : ecriture collective saisie, lecture saisie au-dela du seuil, cible unique simple' {
+    $two=@(for($i=1;$i -le 2;$i++){[pscustomobject]@{Name=('U'+$i);DN=('CN=U'+$i+',DC=example,DC=test');Guid=([guid]::NewGuid().ToString());Type='Utilisateur'}})
+    $w=New-DomeniaCollectivePreview -OperationId 'WriteAccountDisabled' -Candidates $two
+    Assert-Equal 'Typed' $w.Level;Assert-Equal '2' $w.TypedText;Assert-Equal 'Danger' $w.Risk
+    $one=New-DomeniaCollectivePreview -OperationId 'WriteAccountDisabled' -Candidates @($two[0])
+    Assert-Equal 'Simple' $one.Level;Assert-Equal 'Danger' $one.Risk
+    $read=New-DomeniaCollectivePreview -OperationId 'ParkSweep' -Candidates $two -TypedThreshold 1
+    Assert-Equal 'Typed' $read.Level;Assert-Equal 'Normal' $read.Risk
+    Assert-Equal 'Simple' (New-DomeniaCollectivePreview -OperationId 'ParkSweep' -Candidates $two).Level
+    Assert-Equal 'Typed' (New-DomeniaCollectivePreview -OperationId 'OperationInconnue' -Candidates $two).Level
+    $none=New-DomeniaCollectivePreview -OperationId 'ParkSweep' -Candidates @()
+    Assert-Equal 'None' $none.Level;Assert-Equal 0 ([int]$none.Count)
+    $impact=New-DomeniaCollectivePreview -OperationId 'ParkSweep' -Candidates $two -Impact 'Environ 2 min · 2 poste(s) contacté(s)'
+    Assert-True ((@($impact.Lines) -join ' ') -match 'Impact : Environ 2 min') 'Impact absent'
+}
 Test-Case 'UI-18' 'Recus : etats en mots francais, puce par etat, attente identique au magasin de recus' {
     $expected=@{Prepared=@('Interrompue avant lʼenvoi, à vérifier','Pending',$true);Sent=@('Envoyée, à vérifier','Pending',$true);Unknown=@('Envoyée, à vérifier','Pending',$true)
         Verified=@('Vérifiée','Verified',$false);Delivered=@('Livrée','Delivered',$false);NotSent=@('Non envoyée','NotSent',$false);Reviewed=@('Revue manuelle','Reviewed',$false)}

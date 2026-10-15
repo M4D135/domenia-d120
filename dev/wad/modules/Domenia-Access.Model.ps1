@@ -222,6 +222,74 @@ function Clear-DomeniaCredentialLease {
     return $Lease
 }
 
+# ---------------------------------------------------------------- Point 44 correct an account without reconnecting
+function Get-DomeniaAccountCorrectionPlan {
+    # Point 44: what the correction of one account does to the work in progress. Reads that left with that account
+    # before the correction are stopped (a call already sent cannot be recalled); queued reads take the validated
+    # account when they leave, since their context is built at dispatch; a write is never stopped nor replayed; the
+    # work of the other accounts is untouched. $Jobs: projections {Id, IsWrite, NonCancellable, State, Keys, Generation}.
+    param([object[]]$Jobs=@(),[string[]]$Keys=@(),[long]$Generation=0)
+    $wanted=@{}
+    foreach($key in @($Keys)){if(-not [string]::IsNullOrWhiteSpace([string]$key)){$wanted[([string]$key).Trim().ToLowerInvariant()]=$true}}
+    $stop=New-Object 'System.Collections.Generic.List[string]';$writes=0;$current=0
+    foreach($job in @($Jobs)){
+        if($null -eq $job){continue}
+        $match=$false
+        foreach($key in @(Get-DomeniaMember $job 'Keys' @())){if($wanted.ContainsKey(([string]$key).Trim().ToLowerInvariant())){$match=$true;break}}
+        if(-not $match){continue}
+        if([bool](Get-DomeniaMember $job 'IsWrite' $false)){$writes++;continue}
+        if([string](Get-DomeniaMember $job 'State' '') -eq 'Queued'){continue}
+        if([long](Get-DomeniaMember $job 'Generation' 0) -ge $Generation){$current++;continue}
+        if([bool](Get-DomeniaMember $job 'NonCancellable' $false)){continue}
+        $stop.Add([string](Get-DomeniaMember $job 'Id' ''))
+    }
+    $lines=New-Object 'System.Collections.Generic.List[string]'
+    if($stop.Count -eq 1){$lines.Add('1 lecture partie avec lʼancien mot de passe est arrêtée : relancez-la.')}
+    elseif($stop.Count -gt 1){$lines.Add([string]$stop.Count+' lectures parties avec lʼancien mot de passe sont arrêtées : relancez-les.')}
+    if($writes -gt 0){$lines.Add('Une écriture en cours garde son compte : elle nʼest ni interrompue ni rejouée.')}
+    $lines.Add('Les opérations en attente partiront avec le compte validé.')
+    return [pscustomobject]@{Stop=$stop.ToArray();Writes=$writes;AlreadyCurrent=$current;Text=($lines.ToArray() -join ' ')}
+}
+
+function Get-DomeniaAccountReleaseDecision {
+    # Point 44 (anti-lockout): a corrected account leaves the protection only when every stored credential that sends it
+    # was validated after the refusal that paused it. Otherwise a copy of the refused password kept elsewhere (connection
+    # account, workstation or secrets account, temporary account, account typed for the workstations, Windows session)
+    # would be sent again by the next read. $Holders: {Use, Key, Generation}, Generation = account generation of the
+    # in-place validation of that credential, -1 when it was never validated in place. $FaultGeneration: latest pause
+    # recorded on $Keys (the account and its confirmed names), -1 when nothing is paused: nothing to protect then.
+    param([object[]]$Holders=@(),[string[]]$Keys=@(),[long]$FaultGeneration=-1)
+    $wanted=@{}
+    foreach($key in @($Keys)){if(-not [string]::IsNullOrWhiteSpace([string]$key)){$wanted[([string]$key).Trim().ToLowerInvariant()]=$true}}
+    $labels=[ordered]@{
+        Directory='le compte de connexion (Comptes, Corriger le mot de passe)'
+        Session='la session Windows (Changer de compte)'
+        Remote='le compte poste (Comptes, section Postes)'
+        Secrets='le compte secrets (Comptes, section Secrets)'
+        Machine='le compte poste saisi dans Assistance poste (« Oublier » dans Comptes, En ce moment)'
+        Temporary='un compte temporaire dʼune ressource (redemandé après un refus)'
+    }
+    $stale=New-Object 'System.Collections.Generic.List[string]'
+    if($FaultGeneration -ge 0){
+        foreach($holder in @($Holders)){
+            if($null -eq $holder){continue}
+            $key=([string](Get-DomeniaMember $holder 'Key' '')).Trim().ToLowerInvariant()
+            if((-not $key) -or (-not $wanted.ContainsKey($key))){continue}
+            if([long](Get-DomeniaMember $holder 'Generation' (-1)) -gt $FaultGeneration){continue}
+            $use=[string](Get-DomeniaMember $holder 'Use' '')
+            if(-not $labels.Contains($use)){$use='Temporary'}
+            if(-not $stale.Contains($use)){$stale.Add($use)}
+        }
+    }
+    $text=''
+    if($stale.Count -gt 0){
+        $names=@(foreach($use in @($labels.Keys)){if($stale.Contains([string]$use)){[string]$labels[$use]}})
+        $verb=' lʼenvoient';if($names.Count -eq 1){$verb=' lʼenvoie'}
+        $text='Pause maintenue pour ce compte : '+($names -join ' ; ')+$verb+' encore avec un mot de passe non revalidé. Revalidez-le aussi, ou reconnectez-vous ; aucun essai nʼest fait entre-temps.'
+    }
+    return [pscustomobject]@{Release=($stale.Count -eq 0);Stale=$stale.ToArray();Text=$text}
+}
+
 # ---------------------------------------------------------------- D055 Windows sign-in without elevation
 function Get-DomeniaOperationAuthNeed {
     # Reads use the current Windows token when it is accepted. Another account is requested only after a
@@ -254,6 +322,129 @@ function Get-DomeniaCapabilityExplanation {
     $text = $Action + ' : ' + $label
     if ($Detail) { $text += ' ' + $Detail }
     return [pscustomobject]@{Action=$Action;State=$State;Text=$text;Definitive=$definitive;Route=$defaultRoute}
+}
+
+# ---------------------------------------------------------------- Point 46 required right of each operation
+function Get-DomeniaOperationRequirement {
+    # Point 46: the account, the right and the network access an operation needs, stated before any call and quoted
+    # after a failure. Derived from the reviewed classification (Get-DomeniaOperationProvider, Get-DomeniaOperationEffect);
+    # an operation outside it says that its right is not documented, it is never given a guessed one.
+    param([Parameter(Mandatory=$true)][AllowEmptyString()][string]$OperationId)
+    $id = ([string]$OperationId).Trim()
+    $ldap = 'LDAP 389/TCP vers le contrôleur de domaine (signature et scellement).'
+    $cim = 'CIM/DCOM : 135/TCP puis ports RPC dynamiques du poste ; WSMan 5985/5986 seulement sʼil est déjà en service.'
+    $eventLog = 'Journal dʼévénements à distance : 135/TCP puis ports RPC dynamiques du contrôleur.'
+    $connection = 'Compte de connexion'
+    $machine = 'Compte poste, sinon compte de connexion'
+    $secrets = 'Compte secrets, sinon compte de connexion'
+    $directoryRead = 'Lecture de lʼannuaire : tout compte authentifié du domaine lit les attributs ordinaires ; un attribut confidentiel exige un droit délégué.'
+    $workstationRead = 'Administrateur local du poste, ou droits WMI délégués (activation DCOM à distance et lecture de root\cimv2).'
+    # Resource, account, right, access. One row per operation whose right differs from its family.
+    $specific = @{
+        'PermissionAnalysis'    = @('Directory',$connection,'Lecture du descripteur de sécurité de lʼobjet (Lire les autorisations).',$ldap)
+        'LogonHarvest'          = @('Directory',$connection,'Lecture du journal Sécurité du contrôleur : membre du groupe Lecteurs des journaux dʼévénements du contrôleur, ou administrateur du domaine.',$eventLog)
+        'LockoutDiagnosis'      = @('Directory',$connection,'Lecture du journal Sécurité de lʼémulateur PDC : membre du groupe Lecteurs des journaux dʼévénements du contrôleur, ou administrateur du domaine.',$eventLog)
+        'ReadLaps'              = @('Laps',$secrets,'Lecture de lʼattribut du mot de passe LAPS de lʼordinateur (ms-LAPS-Password ou ms-Mcs-AdmPwd) ; pour Windows LAPS chiffré, membre des déchiffreurs autorisés.',$ldap)
+        'ReadBitLocker'         = @('BitLocker',$secrets,'Lecture des objets de récupération BitLocker sous lʼordinateur (droit délégué ; réservé par défaut aux administrateurs du domaine).',$ldap)
+        'ReadBitLockerList'     = @('BitLocker',$secrets,'Lecture des objets de récupération BitLocker sous lʼordinateur (droit délégué ; réservé par défaut aux administrateurs du domaine).',$ldap)
+        'BitLockerPresence'     = @('BitLocker',$secrets,'Lecture des objets de récupération BitLocker de lʼOU (droit délégué ; réservé par défaut aux administrateurs du domaine).',$ldap)
+        'ReadBitLockerKey'      = @('BitLocker',$secrets,'Lecture de lʼattribut confidentiel msFVE-RecoveryPassword de la clé choisie (droit de contrôle dʼaccès étendu).',$ldap)
+        'UserComputerProbe'     = @('Remote',$machine,'Annuaire lu avec le compte de connexion ; consoles des postes : administrateur local ou droits WMI délégués ; journal Sécurité du contrôleur, sur demande : Lecteurs des journaux dʼévénements.',$cim)
+        'RemoteCredentialCheck' = @('Remote','Compte proposé','Ouverture dʼune session CIM/DCOM sur le poste avec le compte proposé : administrateur local ou droits WMI délégués.',$cim)
+        'SessionsList'          = @('Remote',$machine,'Énumération des sessions Windows du poste : administrateur local.','RPC et SMB 445/TCP vers le poste.')
+        'ComputerAdminShare'    = @('Remote',$machine,'Accès au partage administratif du poste : administrateur local.','SMB 445/TCP vers le poste.')
+        'ComputerGpUpdate'      = @('Remote',$machine,'Exécution distante sur le poste : administrateur local, WinRM déjà en service sur le poste.','WinRM 5985/TCP ou 5986/TCP vers le poste.')
+        'ComputerRestart'       = @('Remote',$machine,'Redémarrage à distance : administrateur local du poste (privilège Forcer lʼarrêt à partir dʼun système distant).',$cim)
+        'ComputerServiceControl'= @('Remote',$machine,'Démarrage ou redémarrage dʼun service du poste par CIM (Win32_Service) : administrateur local du poste, droit de contrôle du service.',$cim)
+        'RimotteRun'            = @('Remote',$machine,'Intervention scriptée : administrateur local du poste et autorisation explicite et temporaire dans Domenia (Assistance poste > Intervenir).','SMB 445/TCP (ADMIN$) et Planificateur de tâches par RPC.')
+        'BatchNetworkDiag'      = @('Network','Aucun compte','Aucun droit : écho ICMP puis tentative de connexion TCP sur les ports 445, 135, 5985 et 5986 ; le pare-feu du poste doit les laisser passer.','ICMP écho et TCP 445, 135, 5985, 5986 vers chaque poste.')
+        'WakeOnLanSend'         = @('Network','Aucun compte','Aucun droit : paquet de réveil diffusé sur le réseau local ; la carte réseau du poste doit accepter le réveil.','Diffusion UDP sur le réseau local.')
+        'ParkSharedSync'        = @('Network','Session Windows','Lecture et écriture du fichier partagé configuré (droits NTFS et de partage de votre session Windows).','SMB 445/TCP vers le partage, ou disque local.')
+        'ConnectorRead'         = @('Network','Session Windows','Lecture du connecteur configuré avec votre session Windows.','Selon le connecteur configuré.')
+        'ReceiptStore'          = @('Local','Aucun compte distant','Reçus locaux dʼécriture dans votre profil Windows : aucun droit dans lʼannuaire ni sur les postes.','Aucun accès réseau.')
+        'WriteAttributes'       = @('Directory',$connection,'Écriture de chaque attribut modifié sur lʼobjet (Écrire la propriété, délégué ou hérité).',$ldap)
+        'WriteResetPassword'    = @('Directory',$connection,'Droit étendu Réinitialiser le mot de passe sur lʼobjet ; écriture de pwdLastSet quand le changement est imposé.',$ldap)
+        'WriteUnlock'           = @('Directory',$connection,'Écriture de lockoutTime sur le compte (droit délégué de déverrouillage).',$ldap)
+        'WriteAccountDisabled'  = @('Directory',$connection,'Écriture de userAccountControl sur le compte.',$ldap)
+        'WriteAccountOptions'   = @('Directory',$connection,'Écriture de userAccountControl sur le compte.',$ldap)
+        'WriteExpiration'       = @('Directory',$connection,'Écriture de accountExpires sur le compte.',$ldap)
+        'WriteExpirePassword'   = @('Directory',$connection,'Écriture de pwdLastSet sur le compte.',$ldap)
+        'WriteGroupMember'      = @('Directory',$connection,'Écriture de lʼattribut member du groupe (Écrire les membres).',$ldap)
+        'WriteObjectGroup'      = @('Directory',$connection,'Écriture de lʼattribut member de chaque groupe modifié (Écrire les membres).',$ldap)
+        'WriteMoveObject'       = @('Directory',$connection,'Supprimer lʼobjet dans son OU dʼorigine et créer ce type dʼobjet dans lʼOU cible.',$ldap)
+        'WriteRenameComputer'   = @('Directory',$connection,'Renommer lʼobjet ordinateur (écriture de son nom) dans son OU.',$ldap)
+        'WriteCreateOu'         = @('Directory',$connection,'Créer des objets unité dʼorganisation dans lʼOU parente.',$ldap)
+        'WriteDeleteObject'     = @('Directory',$connection,'Supprimer lʼobjet (droit Supprimer sur lʼobjet, ou Supprimer lʼenfant sur lʼOU parente).',$ldap)
+    }
+    $directoryReads = @('GlobalSearch','TreeChildren','OpenAdObject','OpenLinkedObject','LiveDirectoryCheck','ScopeReconcile','ReconcileScope','IndexBuild','IndexRefresh','IndexOuList','DomainOverview','SelfCheck','EmbeddedDirectoryLookup','StartupWarmCache','StartupWarmup','PruneLinks','ObjectChanges','PasswordPolicyRead','GroupPathRead','GpoLinksRead','DcCompareRead','AdConsistencyScan','AccountAliasRead')
+    $row = $null
+    if (-not $id) { $row = $null }
+    elseif ($specific.ContainsKey($id)) { $row = $specific[$id] }
+    elseif ($directoryReads -contains $id) { $row = @('Directory',$connection,$directoryRead,$ldap) }
+    else {
+        $provider = Get-DomeniaOperationProvider $id
+        $effect = Get-DomeniaOperationEffect $id
+        if ($provider -in @('Cim','Wts')) { $row = @('Remote',$machine,$workstationRead,$cim) }
+        elseif ($provider -eq 'Network') { $row = @('Network','Aucun compte','Aucun droit : écho ICMP vers le poste ; son pare-feu doit le laisser passer.','ICMP écho vers le poste.') }
+        elseif ($provider -in @('Storage','Local')) { $row = @('Local','Aucun compte distant','Fichiers locaux de votre profil Windows : aucun droit dans lʼannuaire ni sur les postes.','Aucun accès réseau.') }
+        elseif ($effect -eq 'Read') { $row = @('Directory',$connection,$directoryRead,$ldap) }
+        elseif ($effect -eq 'DirectoryWrite') { $row = @('Directory',$connection,'Écriture sur lʼobjet : droit délégué correspondant à chaque attribut modifié.',$ldap) }
+    }
+    if ($null -eq $row) {
+        return [pscustomobject]@{OperationId=$id;Known=$false;Resource='';Account='';Right='Droit non documenté pour cette opération : lisez le code dʼerreur natif.';Access=''}
+    }
+    return [pscustomobject]@{OperationId=$id;Known=$true;Resource=[string]$row[0];Account=[string]$row[1];Right=[string]$row[2];Access=[string]$row[3]}
+}
+
+function Get-DomeniaFailureFamily {
+    # Point 46: three causes never confused. Refused access: the account was accepted, the right is missing. Rejected
+    # account: the identity itself was refused, or is locked, disabled or expired. Unavailable resource: no usable
+    # answer, so neither the account nor the right is in question yet. The other categories keep their own wording.
+    param([AllowEmptyString()][string]$Category='')
+    switch ([string]$Category) {
+        'AccessDenied'        { return [pscustomobject]@{Family='AccessDenied';Label='Refus dʼaccès';Meaning='Le compte a été accepté, mais il nʼa pas le droit demandé sur cette ressource.'} }
+        'DecryptionDenied'    { return [pscustomobject]@{Family='AccessDenied';Label='Refus dʼaccès';Meaning='La lecture est permise, le déchiffrement est refusé à ce compte.'} }
+        'Unconfirmed'         { return [pscustomobject]@{Family='Unconfirmed';Label='Accès non confirmé';Meaning='Aucune valeur visible : publication absente ou droit de lecture manquant, indiscernables ici.'} }
+        'CredentialsRejected' { return [pscustomobject]@{Family='AccountRejected';Label='Compte rejeté';Meaning='Lʼidentifiant ou le mot de passe a été refusé : ce nʼest pas un manque de droit.'} }
+        'AccountState'        { return [pscustomobject]@{Family='AccountRejected';Label='Compte rejeté';Meaning='Le compte est verrouillé, désactivé ou expiré : ce nʼest pas un manque de droit.'} }
+        'Network'             { return [pscustomobject]@{Family='Unavailable';Label='Ressource indisponible';Meaning='La ressource ne répond pas : ni le compte ni le droit ne sont en cause à ce stade.'} }
+        'Timeout'             { return [pscustomobject]@{Family='Unavailable';Label='Ressource indisponible';Meaning='Aucune réponse dans le délai : ni le compte ni le droit ne sont en cause à ce stade.'} }
+        'Prerequisite'        { return [pscustomobject]@{Family='Prerequisite';Label='Prérequis absent';Meaning='Un composant manque sur ce poste ou sur la cible.'} }
+        'Uncertain'           { return [pscustomobject]@{Family='Uncertain';Label='Issue inconnue';Meaning='La demande est partie sans résultat confirmé : à vérifier avant toute nouvelle action.'} }
+    }
+    return [pscustomobject]@{Family='Unknown';Label='Erreur non classée';Meaning='La cause nʼest pas déterminée par le code renvoyé.'}
+}
+
+function Get-DomeniaOperationFailureGuidance {
+    # Point 46: one sentence added to an error: the family of the failure and what the operation needed. The right is
+    # quoted for a refusal, the account for a rejection, the network access for an unavailable resource; an
+    # unclassified failure adds nothing, so that no cause is suggested without a code.
+    param([AllowEmptyString()][string]$OperationId='',[AllowEmptyString()][string]$Category='')
+    $family = Get-DomeniaFailureFamily $Category
+    $need = $null
+    if (([string]$OperationId).Trim()) { $need = Get-DomeniaOperationRequirement $OperationId }
+    $text = ''
+    switch ([string]$family.Family) {
+        'AccessDenied' {
+            $text = $family.Label + ' : ' + $family.Meaning
+            if (($null -ne $need) -and ([bool]$need.Known)) { $text += ' Droit requis : ' + $need.Right }
+        }
+        'Unconfirmed' {
+            $text = $family.Label + ' : ' + $family.Meaning
+            if (($null -ne $need) -and ([bool]$need.Known)) { $text += ' Droit requis : ' + $need.Right }
+        }
+        'AccountRejected' {
+            $text = $family.Label + ' : ' + $family.Meaning
+            if (($null -ne $need) -and ([bool]$need.Known) -and ([string]$need.Account)) { $text += ' Compte concerné : ' + $need.Account + '.' }
+        }
+        'Unavailable' {
+            $text = $family.Label + ' : ' + $family.Meaning
+            if (($null -ne $need) -and ([bool]$need.Known) -and ([string]$need.Access)) { $text += ' Accès réseau nécessaire : ' + $need.Access }
+        }
+        'Prerequisite' { $text = $family.Label + ' : ' + $family.Meaning }
+    }
+    $right = ''; if ($null -ne $need) { $right = [string]$need.Right }
+    return [pscustomobject]@{Family=[string]$family.Family;Label=[string]$family.Label;Text=$text;Right=$right}
 }
 
 # ---------------------------------------------------------------- D057 LAPS: read and decryption are distinct
@@ -476,6 +667,49 @@ function Test-DomeniaTextHasSecret {
     if ([string]::IsNullOrEmpty($Text)) { return $false }
     foreach ($marker in @($Markers)) { if ($marker -and $Text.IndexOf($marker,[StringComparison]::Ordinal) -ge 0) { return $true } }
     return $false
+}
+
+function Get-DomeniaSecretTextHint {
+    # Point 50: one cheap test that every form masked by Protect-DomeniaSecretText satisfies (recovery password,
+    # Bearer/Basic, JSON member, key=value or key: value, password switch), so that a bulk export runs the full rule
+    # only on the few texts that may carry a secret. Keep it in step with Protect-DomeniaSecretText (rule P50 tests).
+    return '(?i)\d{6}-\d{6}|bearer|basic|pass|pwd|secret|token|authori|api[_-]?key|"\s*:|(?:^|\s)[-/]r?p'
+}
+
+function Protect-DomeniaExportRows {
+    # Point 50: an export never carries a secret. A column named after a secret attribute, or bound to one
+    # ($SecretColumns: titles of grid columns whose property is a secret attribute), is withheld whatever it holds;
+    # every text cell goes through the masking rule of the journal (recovery passwords, key=value secrets,
+    # authorization headers). Numbers, dates and booleans are kept as they are. Returns the rows and what was masked.
+    # Up to hundreds of thousands of cells on the interface thread: the column decision is taken once per name and
+    # the full rule runs only on texts that pass the cheap hint.
+    param([object[]]$Rows=@(),[string[]]$SecretColumns=@())
+    $masked=0;$withheld=New-Object 'System.Collections.Generic.List[string]';$out=New-Object 'System.Collections.Generic.List[object]'
+    $hint=New-Object System.Text.RegularExpressions.Regex -ArgumentList @((Get-DomeniaSecretTextHint))
+    $secretColumn=@{}
+    foreach($column in @($SecretColumns)){if(-not [string]::IsNullOrWhiteSpace([string]$column)){$secretColumn[[string]$column]=$true}}
+    foreach($row in @($Rows)){
+        if($null -eq $row){continue}
+        $safe=[ordered]@{}
+        foreach($property in $row.PSObject.Properties){
+            if($property.MemberType -notin @('NoteProperty','Property','AliasProperty','ScriptProperty')){continue}
+            $name=[string]$property.Name;$value=$property.Value
+            if(-not $secretColumn.ContainsKey($name)){$secretColumn[$name]=[bool](Test-DomeniaSecretAttribute $name)}
+            if([bool]$secretColumn[$name]){
+                if(($null -ne $value) -and ([string]$value)){$masked++}
+                if(-not $withheld.Contains($name)){$withheld.Add($name)}
+                $safe[$name]='[valeur secrète non exportée]'
+                continue
+            }
+            if(($value -is [string]) -and ($hint.IsMatch($value))){
+                $clean=Protect-DomeniaSecretText $value
+                if($clean -cne $value){$masked++}
+                $safe[$name]=$clean
+            }else{$safe[$name]=$value}
+        }
+        $out.Add([pscustomobject]$safe)
+    }
+    return [pscustomobject]@{Rows=$out.ToArray();Masked=$masked;Withheld=$withheld.ToArray()}
 }
 
 function Select-DomeniaAllowedFields {

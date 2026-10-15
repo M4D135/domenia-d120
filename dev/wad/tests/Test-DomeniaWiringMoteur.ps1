@@ -44,7 +44,9 @@ foreach ($file in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domen
     'Domenia-Startup.UI.ps1','Domenia-Isolation.Worker.ps1','Domenia-Receipts.Worker.ps1',
     'Domenia-Cache.Model.ps1','Domenia-Store.Model.ps1','Domenia-Live.Model.ps1','Domenia-Release.Model.ps1','Domenia-Storage.Worker.ps1','Domenia-Storage.UI.ps1',
     # UI-20 (lot X03): wording of a refused sign-in, read by Update-DomeniaFastLoginAttempt.
-    'Domenia-Accounts.Model.ps1')) {
+    'Domenia-Accounts.Model.ps1',
+    # W13 (point 123): the traces of the operations, so the real engine path writes them in these cases.
+    'Domenia-Observability.Model.ps1','Domenia-Observability.UI.ps1')) {
     $path = Join-Path $modules $file
     if (-not [IO.File]::Exists($path)) { throw ('Module absent : ' + $file) }
     . $path
@@ -70,6 +72,15 @@ $script:CoreFunctions = @('Start-UiTask','Complete-UiTasks','Request-UiTaskStop'
 $coreSource = New-Object 'System.Collections.Generic.List[string]'
 foreach ($name in $script:CoreFunctions) { $coreSource.Add((Get-CoreFunctionAst $name).Extent.Text) }
 . ([scriptblock]::Create(($coreSource.ToArray() -join "`n")))
+# W13 (point 116): the live region helpers of Domenia-UX.UI.ps1 used by the operations panel (the rest of that module,
+# which dot-sources the whole experience layer, is not loaded here).
+$uxTokens = $null; $uxErrors = $null
+$uxAst = [Management.Automation.Language.Parser]::ParseFile((Join-Path $modules 'Domenia-UX.UI.ps1'),[ref]$uxTokens,[ref]$uxErrors)
+foreach ($uxName in @('Send-DomeniaUxLiveChange','Set-DomeniaLiveText')) {
+    $uxNode = @($uxAst.FindAll({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $uxName },$true))
+    if ($uxNode.Count -ne 1) { throw ('Fonction UX introuvable : ' + $uxName) }
+    . ([scriptblock]::Create($uxNode[0].Extent.Text))
+}
 # Worker helpers injected in every runspace: the three top-level here-strings of the core plus the receipts part.
 $script:WorkerCommon = ''
 foreach ($m in [regex]::Matches($script:CoreText,'(?ms)^\$script:WorkerCommon (?:=|\+=) @''\r?\n(.*?)\r?\n''@')) { $script:WorkerCommon += "`r`n" + $m.Groups[1].Value }
@@ -1405,6 +1416,98 @@ Test-Case 'MO-08 : ParkPing lecture reseau sans compte, jamais partagee, epingle
     Assert-True ((Get-DomeniaPayloadDigest ([pscustomobject]@{Targets=@();BatchSize=32;Progress=[Collections.Concurrent.ConcurrentQueue[object]]::new()})) -eq '') 'Une demande portant une file de progression serait partagee.'
     Assert-True ($script:RealRegistry.Contains('ParkPing')) 'ParkPing absent du registre epingle : update_worker_contracts.py --add ParkPing Get-DomeniaParkPingWorkerCode'
     Assert-True ([string]$script:RealRegistry['ParkPing'] -ceq (Get-DomeniaWorkerCodeHash -Code (Get-DomeniaParkPingWorkerCode))) 'Empreinte de ParkPing differente du corps relu.'
+}
+Test-Case 'W13 (point 118) : dernieres operations mises a jour sur place, selection et ligne gardees' {
+    if ($null -eq ('Domenia.Live.OperationRow' -as [type])) { Add-Type -Path (Join-Path $modules 'Domenia-Live.Types.cs') -ErrorAction Stop }
+    $script:ExperienceInitialized = $true; $script:OperationsPanel = $null
+    $script:DomeniaTraceRing = $null; $script:DomeniaOperationsRecentRows = $null; $script:AccessCurrentJob = $null
+    $faults = [int]$script:DomeniaTraceFaults
+    $layer = $script:Main.Window.FindName('DomeniaDialogLayer')
+    try {
+        $gate = New-WiringGate
+        [void](Start-WiringTask -Name 'Lecture suivie W13' -Gate $gate.Name)
+        Assert-True (Show-DomeniaOperationsPanel) 'Panneau non ouvert'
+        $grid = Get-DomeniaControl 'DgOperationsRecent'
+        $source = $grid.ItemsSource
+        Assert-True (@($grid.Items).Count -eq 1) ('Lignes : ' + @($grid.Items).Count)
+        $row = @($grid.Items)[0]
+        Assert-True (($row -is [Domenia.Live.OperationRow]) -and (([string]$row.Reference).Length -eq 8) -and ([string]$row.State -match 'En cours')) ('Ligne : ' + [string]$row.State)
+        $grid.SelectedItem = $row
+        $trace = (Get-DomeniaTraceRing)[[string]$row.Id]
+        $trace.StartedMs = [double]$trace.StartedMs - 75000
+        Update-DomeniaExperienceActivity
+        Assert-True ([object]::ReferenceEquals($source,$grid.ItemsSource) -and [object]::ReferenceEquals($row,@($grid.Items)[0])) 'Grille remplacee au lieu d une mise a jour sur place'
+        Assert-True ([string]$row.Duration -like '1 min*') ('Duree non mise a jour sur place : ' + [string]$row.Duration)
+        Assert-True ([object]::ReferenceEquals($grid.SelectedItem,$row)) 'Selection perdue'
+        Assert-True ([string](Get-DomeniaControl 'LblOperationsTrace').Text -ceq [string]$row.Detail) 'Detail de l operation choisie absent'
+        [void]$gate.Handle.Set()
+        Assert-True (Wait-WiringCondition -Complete { $script:AsyncJobs.Count -eq 0 }) 'Lecture non terminee'
+        Update-DomeniaExperienceActivity
+        Assert-True ([object]::ReferenceEquals($row,@($grid.Items)[0]) -and ([string]$row.State -match 'Terminée')) ('Fin non reportee sur place : ' + [string]$row.State)
+        Assert-True ([object]::ReferenceEquals($grid.SelectedItem,$row)) 'Selection perdue a la fin'
+        Assert-True ([int]$script:DomeniaTraceFaults -eq $faults) ('Incidents de trace : ' + ([int]$script:DomeniaTraceFaults - $faults))
+    } finally {
+        if ($null -ne $script:OperationsPanel) { try { Hide-DomeniaOperationsPanel } catch { }; try { $script:OperationsPanel.Timer.Stop() } catch { } }
+        $script:OperationsPanel = $null; $script:ExperienceInitialized = $false; $script:DomeniaOperationsRecentRows = $null
+        $layer.Children.Clear(); $layer.Visibility = 'Collapsed'
+    }
+}
+Test-Case 'W13 (point 123) : une lecture terminee laisse sa trace, de la demande a la publication' {
+    $script:DomeniaTraceRing = $null; $script:DomeniaSlowEvents = $null; $script:AccessCurrentJob = $null
+    [void](Start-WiringTask -Name 'Lecture tracee W13')
+    Assert-True (Wait-WiringCondition -Complete { $script:AsyncJobs.Count -eq 0 }) 'Lecture non terminee'
+    $trace = @(@((Get-DomeniaTraceRing).Values) | Where-Object { [string]$_.Name -eq 'Lecture tracee W13' })[0]
+    Assert-True ($null -ne $trace) 'Aucune trace pour la lecture'
+    $phases = @($trace.Events | ForEach-Object { [string]$_.Phase })
+    foreach ($phase in @('Request','Collect','Validate','Publish','End')) { Assert-True ($phases -contains $phase) ('Phase absente : ' + $phase + ' (' + ($phases -join ',') + ')') }
+    Assert-True ([string]$trace.Outcome -eq 'Succeeded') ('Fin : ' + [string]$trace.Outcome)
+    Assert-True ($trace.OpenJobs.Count -eq 0) 'Trace encore ouverte'
+    $publish = @($trace.Events | Where-Object { [string]$_.Phase -eq 'Publish' })[0]
+    Assert-True (([long]$publish.Volume -eq 0) -and ([string]$publish.Detail -eq 'Complete-WiringTestUi')) ('Publication : volume ' + [string]$publish.Volume + ', traitement ' + [string]$publish.Detail)
+    $script:CaseDetail = (Get-DomeniaOperationTraceSummary -Trace $trace).Text
+}
+Test-Case 'W13 (point 123) : un echec ferme la trace avec sa categorie, jamais avec son message' {
+    $script:DomeniaTraceRing = $null; $script:AccessCurrentJob = $null
+    [void](Start-WiringTask -Name 'Lecture en echec W13' -Fail 'Acces refuse SECRET_SENTINEL_W13')
+    Assert-True (Wait-WiringCondition -Complete { $script:AsyncJobs.Count -eq 0 }) 'Lecture non terminee'
+    $trace = @(@((Get-DomeniaTraceRing).Values) | Where-Object { [string]$_.Name -eq 'Lecture en echec W13' })[0]
+    Assert-True ($null -ne $trace) 'Aucune trace pour l echec'
+    Assert-True ([string]$trace.Outcome -eq 'Failed') ('Fin : ' + [string]$trace.Outcome)
+    $json = ($trace | ConvertTo-Json -Depth 6)
+    Assert-True (-not $json.Contains('SECRET_SENTINEL_W13')) 'Le message d erreur est entre dans la trace'
+    $diagnostic = New-DomeniaRedactedDiagnostic -Traces @(Get-DomeniaOperationTraceSummary -Trace $trace)
+    Assert-True (@($diagnostic.Traces).Count -eq 1) 'Trace absente du diagnostic'
+}
+Test-Case 'W13 (point 123) : une tache lancee pendant le rappel d une autre rejoint sa trace' {
+    $script:DomeniaTraceRing = $null
+    $first = Start-WiringTask -Name 'Etape 1 W13'
+    Assert-True (Wait-WiringCondition -Complete { $script:AsyncJobs.Count -eq 0 }) 'Etape 1 non terminee'
+    $parent = @(@((Get-DomeniaTraceRing).Values) | Where-Object { [string]$_.Name -eq 'Etape 1 W13' })[0]
+    $script:AccessCurrentJob = [pscustomobject]@{TraceId=[string]$parent.TraceId}
+    try { [void](Start-WiringTask -Name 'Etape 2 W13') } finally { $script:AccessCurrentJob = $null }
+    Assert-True (Wait-WiringCondition -Complete { $script:AsyncJobs.Count -eq 0 }) 'Etape 2 non terminee'
+    Assert-True ((Get-DomeniaTraceRing).Count -eq 1) ('Traces : ' + (Get-DomeniaTraceRing).Count)
+    Assert-True ($parent.JobRefs.Count -eq 2) ('Taches reliees : ' + $parent.JobRefs.Count)
+}
+Test-Case 'W13 (point 123) : un corps refuse avant la mise en file ferme la trace, jamais laissee en cours' {
+    $script:DomeniaTraceRing = $null; $script:AccessCurrentJob = $null
+    $script:Config.Async.MaxThreads = 1
+    $gate = New-WiringGate
+    [void](Start-WiringTask -Name 'Lecture occupee W13' -Gate $gate.Name)
+    Assert-True (Wait-WiringCondition { (Get-WiringCalls).Count -eq 1 }) 'La premiere lecture n a pas demarre'
+    # Same operation, body different from its pin: admitted to the queue, then refused by the integrity check.
+    $payload = [pscustomobject]@{Name='Corps altere W13';Gate='';SleepMs=0;Fail='';Computer=''}
+    $refused = ''
+    try { [void](Start-UiTask -Name 'Corps altere W13' -OperationId 'TreeChildren' -Code ($script:TestBody + "`n# corps modifie apres epinglage") -Payload $payload -CallbackState ([pscustomobject]@{Tag='altere'}) -SuccessHandler 'Complete-WiringTestUi' -ErrorHandler 'Fail-WiringTestUi') }
+    catch { $refused = [string]$_.Exception.Message }
+    Assert-True ($refused -match 'Integrite worker refusee') ('Corps non conforme accepte : ' + $refused)
+    Assert-True (@($script:AsyncJobs.Values | Where-Object { [string]$_.Name -eq 'Corps altere W13' }).Count -eq 0) 'Corps non conforme place en file'
+    $trace = @(@((Get-DomeniaTraceRing).Values) | Where-Object { [string]$_.Name -eq 'Corps altere W13' })[0]
+    Assert-True ($null -ne $trace) 'Aucune trace pour le refus'
+    Assert-True (([string]$trace.Outcome -eq 'Refused') -and ($trace.OpenJobs.Count -eq 0) -and ([double]$trace.EndedMs -ge 0)) ('Fin : ' + [string]$trace.Outcome + ', taches ouvertes ' + $trace.OpenJobs.Count)
+    Assert-True (@($trace.Events | Where-Object { [string]$_.Phase -eq 'Collect' }).Count -eq 0) 'Une collecte est attribuee a une tache jamais envoyee'
+    [void]$gate.Handle.Set()
+    Assert-True (Wait-WiringCondition -Complete { $script:AsyncJobs.Count -eq 0 }) 'La lecture occupee ne s est pas terminee'
 }
 # ---------------------------------------------------------------- report
 try { Stop-WiringJobs } catch { }

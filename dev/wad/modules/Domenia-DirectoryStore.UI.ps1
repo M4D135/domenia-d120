@@ -72,9 +72,16 @@ function Invoke-DomeniaDirectoryStoreTick {
             $s=$pipe.Search
             if($null -ne $s){$s.Final=$pipe.Final;$s.Ended=$true;$s.Error=$(if($pipe.Error){$pipe.Error}else{$pipe.DisplayError})}
             $pipe.Closed=$true
+            # W13 (point 123): publication of the request on its trace. The step of the pipe ends after the handlers,
+            # so a read they start for the same request (tree snapshot) keeps the trace open: one summary line.
+            try{if($null -ne $pipe.Search){Add-DomeniaRequestTraceEvent -RequestId ([string]$pipe.Context.RequestId) -Phase 'Publish' -Detail 'lignes transmises à la liste' -Volume ([long]$pipe.Published)}}catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
             [void]$script:DomeniaDirectoryReads.Remove([string]$pipe.Context.RequestId)
-            if($pipe.Error -and $pipe.ErrorHandler){& $pipe.ErrorHandler -Message $pipe.Error -State $pipe.CallbackState}
-            elseif($pipe.CompleteHandler){& $pipe.CompleteHandler -Result $pipe.Final -State $pipe.CallbackState}
+            $traceOutcome=$(if($pipe.DisplayError){'Failed'}else{'Succeeded'})
+            try{
+                if($pipe.Error -and $pipe.ErrorHandler){& $pipe.ErrorHandler -Message $pipe.Error -State $pipe.CallbackState}
+                elseif($pipe.CompleteHandler){& $pipe.CompleteHandler -Result $pipe.Final -State $pipe.CallbackState}
+            }catch{$traceOutcome='Failed';throw}
+            finally{try{[void](Complete-DomeniaRequestTrace -Pipe $pipe -Outcome $traceOutcome)}catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }}
         }
     }
     # Failed batches remain available for diagnosis/retry; no spinning timer while blocked.
@@ -89,6 +96,16 @@ function Complete-DomeniaDirectoryStoreBatch {
     # Retrying the committed batch or retaining InFlight would block the remaining harvest.
     $pipe.Saved+=@($Result.Rows).Count
     $pipe.Batch=$null;$pipe.InFlight=$false;$pipe.Failure=''
+    # W13 (point 123): the SQLite commit and readback of this batch, on the trace of its request. The worker time of
+    # one LocalStore job is counted once per request, even when the job carried several of its batches.
+    try{
+        $storeMs=[double]-1;$storeJob=$script:AccessCurrentJob
+        if(($null -ne $storeJob) -and ($storeJob.Started -is [datetime])){
+            if([string](Get-DomeniaMember $pipe 'TraceStoreJob' '') -ceq [string]$storeJob.Id){$storeMs=[double]0}
+            else{$storeMs=((Get-Date)-[datetime]$storeJob.Started).TotalMilliseconds;$pipe|Add-Member -NotePropertyName TraceStoreJob -NotePropertyValue ([string]$storeJob.Id) -Force}
+        }
+        Add-DomeniaRequestTraceEvent -RequestId ([string]$pipe.Context.RequestId) -Phase 'StoreRead' -Detail 'SQLite : enregistrement puis relecture' -Volume ([long]@($Result.Rows).Count) -DurationMs $storeMs
+    }catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
     try{
         # Old contexts commit to their original database but never repaint a new selection.
         $publish=($null -ne $pipe.Ready -and $null -ne $pipe.Search -and -not $pipe.Search.Stopped -and (Test-DomeniaLiveSearchActive) -and [object]::ReferenceEquals($script:Live.Search,$pipe.Search))
@@ -117,8 +134,12 @@ function Fail-DomeniaDirectoryStoreBatch {
         try{$State.Search.Stop.Cancel()}catch{}
         $State.Search.Error='Enregistrement local non confirme : '+$Message;$State.Search.Ended=$true
     }
-    if($State.ErrorHandler){& $State.ErrorHandler -Message $Message -State $State.CallbackState}
-    Write-AppLog ('AD : donnees non publiees, ecriture locale non confirmee. '+$Message) 'ERROR'
+    # W13 (point 123): a failed pipe stays for diagnosis but is never closed by the tick: its step of the trace ends here.
+    try{
+        if($State.ErrorHandler){& $State.ErrorHandler -Message $Message -State $State.CallbackState}
+        Write-AppLog ('AD : donnees non publiees, ecriture locale non confirmee. '+$Message) 'ERROR'
+    }
+    finally{try{[void](Complete-DomeniaRequestTrace -Pipe $State -Outcome 'Failed' -Detail 'enregistrement local non confirmé')}catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }}
 }
 function Submit-DomeniaDirectoryObjectRead {
     param($Result,$State)

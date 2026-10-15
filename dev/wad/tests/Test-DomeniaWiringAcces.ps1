@@ -53,7 +53,7 @@ function Get-CoreFunctionText {param([string]$Name)
     if($nodes.Count -ne 1){throw ('Fonction du coeur absente ou ambigue : '+$Name)}
     return $nodes[0].Extent.Text
 }
-$coreNames=@('Protect-DomeniaLogText','ConvertTo-DomeniaErrorInfo','Show-DomeniaOperationError','Write-AppLog','Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','Set-DomeniaItemsSource','Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys','Get-DomeniaEffectiveWorkerResult',
+$coreNames=@('Update-DomeniaAccountUi','Get-DomeniaCredentialUserName','Protect-DomeniaLogText','ConvertTo-DomeniaErrorInfo','Show-DomeniaOperationError','Write-AppLog','Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','Set-DomeniaItemsSource','Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys','Get-DomeniaEffectiveWorkerResult',
     'Update-SecretsGrid','Get-DomeniaSelectedSecretSource','Test-DomeniaSecretCallbackCurrent','Clear-DomeniaSecretResultValues','Complete-DomeniaSecretLoadUi','Fail-DomeniaSecretLoadUi','Start-LoadComputerSecrets',
     'Toggle-SecretsVisibility','Copy-SelectedSecret','Copy-AllSecrets','Update-DomeniaSecretActionUi','Test-DomeniaControlIsBusy','Clear-Secrets',
     'New-DomeniaWorkerRunspace','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerCodeHash','Get-DomeniaWorkerOperationHashes','Assert-DomeniaWorkerOperationCode',
@@ -161,6 +161,8 @@ function Reset-Fixture {
     if($null -ne $script:SecretCountdownTimer){try{$script:SecretCountdownTimer.Stop()}catch{}};$script:SecretReveal=$null
     $script:Ctrl=$script:MainControls;$script:Ctrl.BitLockerKeyCard.Visibility='Collapsed';$script:Ctrl.BitLockerKeyBlocks.ItemsSource=$null
     $script:AccessCurrentJob=$null;$script:DirectoryCredentialFaulted=$false
+    # Points 42 to 45: no pause, alias or validation left over from a previous case in « En ce moment ».
+    $script:DomeniaCredentialGuard=$null;$script:DomeniaAccountAlias=$null;$script:DomeniaCredentialAliasBook=$null;$script:DomeniaCredentialValidations=$null
     $script:Ctrl=$script:MainControls
     $script:Window=$null;$script:CurrentTheme='Light'
     $script:Ctrl.DgSecrets.ItemsSource=$null;$script:Ctrl.LblSecretsStatus.Text='';$script:Ctrl.TxtBitLockerRecoveryId.Text='';$script:Ctrl.BtnSecretsPrerequisite.Visibility='Collapsed'
@@ -334,7 +336,9 @@ Test-Case 'D053 Validation : une seule relance de lecture, jamais d ecriture' {
     Reset-Fixture
     $script:NextCredential=New-TestCredential 'EXAMPLE\helper'
     Invoke-DomeniaAccessRecovery (New-AccessRecord 'WriteRename' -Write)
-    Assert-True ($script:Tasks.Count -eq 0 -and $script:AccessState.Credentials.ContainsKey('AD:WriteRename')) 'Ecriture rejouee'
+    # Point 45: the validated account may have its other names read (one directory read); no write ever leaves again.
+    Assert-True (@($script:Tasks|Where-Object{$_.OperationId -ne 'AccountAliasRead'}).Count -eq 0 -and $script:AccessState.Credentials.ContainsKey('AD:WriteRename')) 'Ecriture rejouee'
+    Assert-True (@($script:Tasks|Where-Object{$_.OperationId -eq 'AccountAliasRead'}).Count -le 1) 'Lecture des noms du compte repetee'
 }
 
 # ================================================================ D054 identity lifetime
@@ -558,6 +562,200 @@ Test-Case 'D060 Bilan des indisponibilites : transports et absence de reglage Wi
     $lines=@((Get-DomeniaUnavailableReasonLines).Lines)
     Assert-True (@($lines|Where-Object{$_ -match 'WinRM n est jamais active'}).Count -eq 1)
     Assert-True (@($lines|Where-Object{$_ -match 'aucun reglage Windows modifie'}).Count -eq 1)
+}
+
+# ================================================================ Point 46 required right and three distinct causes
+Test-Case 'P46 Erreur affichee : refus d acces cite le droit, compte rejete et indisponibilite ne le citent pas' {
+    $previous=$script:AccessCurrentJob
+    try{
+        $script:AccessCurrentJob=[pscustomobject]@{OperationId='ReadLaps';SessionEpoch=[long]$script:SessionEpoch;IsWrite=$false;CallbackState=$null}
+        $denied=Show-DomeniaOperationError -Operation 'Lecture LAPS' -ErrorRecordOrException ([ComponentModel.Win32Exception]::new(5)) -NoPopup
+        Assert-True ([string]$denied.FailureFamily -eq 'AccessDenied') ('Famille : '+[string]$denied.FailureFamily)
+        Assert-True ([string]$denied.Friendly -match 'Droit requis') 'Le refus ne cite pas le droit requis'
+        Assert-True ([string]$denied.Friendly -match 'LAPS') 'Le droit cite n est pas celui de LAPS'
+        $rejected=Show-DomeniaOperationError -Operation 'Lecture LAPS' -ErrorRecordOrException ([ComponentModel.Win32Exception]::new(1326)) -NoPopup
+        Assert-True ([string]$rejected.FailureFamily -eq 'AccountRejected') ('Famille : '+[string]$rejected.FailureFamily)
+        Assert-True ([string]$rejected.Friendly -notmatch 'Droit requis') 'Un compte rejete est presente comme un droit manquant'
+        $script:AccessCurrentJob=$null
+        $network=Show-DomeniaOperationError -Operation 'Inventaire poste' -OperationId 'ComputerInventory' -ErrorRecordOrException ([ComponentModel.Win32Exception]::new(1722)) -NoPopup
+        Assert-True ([string]$network.FailureFamily -eq 'Unavailable') ('Famille : '+[string]$network.FailureFamily)
+        Assert-True ([string]$network.Friendly -match '135/TCP') 'L acces reseau necessaire n est pas cite'
+        Assert-True ([string]$network.Friendly -notmatch 'Droit requis')
+    }finally{$script:AccessCurrentJob=$previous}
+}
+Test-Case 'P46 Panneau des operations : chaque ligne annonce l acces requis' {
+    $job=[pscustomobject]@{Id='p46';Name='Inventaire';OperationId='ComputerInventory';IsWrite=$false;NonCancellable=$false;CancelRequested=$false;SessionEpoch=[long]$script:SessionEpoch;State='Running';Started=(Get-Date);TimeoutNotified=$false;TimeoutErrorDelivered=$false}
+    if($null -eq (Get-Command Get-DomeniaExperienceTaskRow -ErrorAction SilentlyContinue)){. (Join-Path (Join-Path $wad 'modules') 'Domenia-Experience.Model.ps1')}
+    $row=Get-DomeniaExperienceTaskRow $job -SessionEpoch ([long]$script:SessionEpoch)
+    Assert-True ([string]$row.Detail -match 'Accès requis : Administrateur local') ('Detail : '+[string]$row.Detail)
+}
+
+# ================================================================ Points 42, 44, 45 accounts without reconnecting
+function New-P44Guard {
+    $script:DomeniaCredentialGuard=$null;$script:DomeniaAccountAlias=$null;$script:DomeniaCredentialAliasBook=$null
+    return (Initialize-DomeniaCredentialGuard)
+}
+Test-Case 'P44 Correction sans reconnexion : generation, pause levee pour ce seul compte, lectures anciennes arretees' {
+    $script:Stops=[Collections.Generic.List[string]]::new()
+    function Request-UiTaskStop {param([string]$Id,[switch]$Silent,[switch]$Force,[switch]$Superseded,[string]$Reason) $script:Stops.Add($Id)}
+    $script:DomeniaAccountGeneration=10L
+    $guard=New-P44Guard
+    $guard.Faults['postes@example.invalid']=[pscustomobject]@{Kind='LogonFailure';Code='0x8007052E';AtUtc=[datetime]::UtcNow}
+    $guard.Faults['autre@example.invalid']=[pscustomobject]@{Kind='LogonFailure';Code='0x8007052E';AtUtc=[datetime]::UtcNow}
+    $ctx={param([string]$Key,[long]$Generation)[pscustomobject]@{CredentialGuard=$guard;DirectoryAuthKey='';RemoteAuthKey=$Key;RemoteAdminAuthKey=$Key;ActiveRemoteAuthKey=$Key;OperationId='ComputerInventory';CredentialGeneration=$Generation}}
+    $previousJobs=$script:AsyncJobs
+    try{
+        $script:AsyncJobs=[ordered]@{
+            'old'=[pscustomobject]@{Id='old';IsWrite=$false;NonCancellable=$false;State='Running';CredentialGuardContext=(& $ctx 'postes@example.invalid' 10)}
+            'write'=[pscustomobject]@{Id='write';IsWrite=$true;NonCancellable=$false;State='Running';CredentialGuardContext=(& $ctx 'postes@example.invalid' 10)}
+            'other'=[pscustomobject]@{Id='other';IsWrite=$false;NonCancellable=$false;State='Running';CredentialGuardContext=(& $ctx 'autre@example.invalid' 10)}
+        }
+        $text=[string](Complete-DomeniaAccountCorrection -UserName 'EXAMPLE\postes' -Scopes @('Remote')).Text
+        Assert-True ([long]$script:DomeniaAccountGeneration -eq 11) 'Generation inchangee'
+        Assert-True (-not $guard.Faults.ContainsKey('postes@example.invalid')) 'Pause du compte corrige conservee'
+        Assert-True ($guard.Faults.ContainsKey('autre@example.invalid')) 'Pause d un autre compte levee'
+        Assert-True (($script:Stops -join ',') -eq 'old') ('Arrets : '+($script:Stops -join ','))
+        Assert-True ($text -match 'Protection levée pour ce compte seulement') $text
+        $blocked=$false;try{Assert-WCredentialAllowed $script:AsyncJobs['old'].CredentialGuardContext Remote}catch{$blocked=$true}
+        Assert-True $blocked 'Un travail parti avant la correction peut encore envoyer l ancien mot de passe'
+        Assert-WCredentialAllowed (& $ctx 'postes@example.invalid' 11) Remote
+        Assert-True (@($script:Tasks|Where-Object{$_.OperationId -eq 'AccountAliasRead'}).Count -eq 1) 'Noms du compte non relus apres validation'
+    }finally{$script:AsyncJobs=$previousJobs}
+}
+Test-Case 'P44 Compte de connexion refuse : correction proposee dans Comptes, sans reconnexion ; session Windows : connexion' {
+    $script:Conn.UseCredential=$true;$script:Conn.AuthMode='Explicit';$script:Conn.Credential=New-TestCredential 'EXAMPLE\lecteur'
+    $record=[pscustomobject]@{Key='Directory|';Scope='Directory';OperationId='GlobalSearch';Operation='Recherche';DN='';Target='';Kind='LogonFailure';Epoch=[long]$script:SessionEpoch;Generation=[long]$script:SelectedObjectGeneration;IsWrite=$false;Interactive=$true;At=$script:Clock}
+    Invoke-DomeniaAccessRecovery $record
+    Assert-True ($script:Relogins -eq 0) 'Reconnexion imposee alors que le compte se corrige sur place'
+    Assert-True (@($script:Routes|Where-Object{$_ -like 'TabAccounts*'}).Count -eq 1) 'Pas de route vers Comptes'
+    Assert-True (@($script:StatusLines|Where-Object{$_ -match 'Corriger le mot de passe'}).Count -ge 1) 'Geste de correction non indique'
+    $script:Conn.UseCredential=$false;$script:Conn.AuthMode='Windows';$script:Conn.Credential=$null
+    Invoke-DomeniaAccessRecovery $record
+    Assert-True ($script:Relogins -eq 1) 'Session Windows sans fenetre de connexion'
+}
+Test-Case 'P44 Correction du compte de connexion : identite de la session seulement, une validation, mot de passe remplace en place' {
+    $script:Conn.UseCredential=$true;$script:Conn.AuthMode='Explicit';$script:Conn.Credential=New-TestCredential 'EXAMPLE\lecteur'
+    # CO-31 x point 44: the Annuaire card has no identity field; the correction always validates the session identity.
+    Assert-True (-not $script:Ctrl.ContainsKey('TxtAccountAdUser')) 'Champ d identifiant encore dans la carte Annuaire'
+    $failed=$false;try{Start-DomeniaDirectoryCorrection}catch{$failed=([string]$_.Exception.Message -match 'mot de passe actuel')}
+    Assert-True $failed 'Correction lancee sans mot de passe'
+    Assert-True ($script:DirectoryValidations.Count -eq 0) 'Un essai est parti sans mot de passe'
+    # Runtime-generated throw-away value typed in the real PasswordBox: nothing secret is stored in the repository.
+    $script:Ctrl.PwdAccountAdCorrection.Password=[guid]::NewGuid().ToString('N')
+    $previousCredential=$script:Conn.Credential
+    $script:DomeniaAccountGeneration=20L;$guard=New-P44Guard
+    $guard.Faults['lecteur@example.invalid']=[pscustomobject]@{Kind='LogonFailure';Code='0x8007052E';AtUtc=[datetime]::UtcNow}
+    $script:DirectoryCredentialFaulted=$true
+    function Set-ControlsBusy {param([string[]]$Names,[bool]$Busy)}
+    function Read-DomeniaAuthRunspaceResult {param($Session) return [pscustomobject]@{Success=$true;AuthMode='Explicit';BindUser='EXAMPLE\lecteur';BaseDn='DC=example,DC=invalid';Error=''}}
+    try{
+        Start-DomeniaDirectoryCorrection
+        Assert-True ($script:DirectoryValidations.Count -eq 1 -and $script:DirectoryValidations[0] -eq 'EXAMPLE\lecteur') ('Validations : '+($script:DirectoryValidations -join ','))
+        $script:AccountValidation.Session.AsyncResult.IsCompleted=$true
+        Complete-DomeniaAccountValidation
+        Assert-True (-not [object]::ReferenceEquals($script:Conn.Credential,$previousCredential)) 'Mot de passe de session non remplace'
+        Assert-True ([string]$script:Conn.Credential.UserName -eq 'EXAMPLE\lecteur') 'Identite de session changee'
+        Assert-True (-not [bool]$script:DirectoryCredentialFaulted) 'Canal AD toujours suspendu'
+        Assert-True (-not $guard.Faults.ContainsKey('lecteur@example.invalid')) 'Pause du compte de connexion conservee'
+        Assert-True ($script:Ctrl.PwdAccountAdCorrection.SecurePassword.Length -eq 0) 'Champ du mot de passe non vide'
+        Assert-True (@($script:StatusLines|Where-Object{$_ -match 'sans reconnecter'}).Count -ge 1) 'Correction non annoncee'
+    }finally{
+        if($null -ne $script:AccountValidation){try{$script:AccountValidation.Timer.Stop()}catch{};$script:AccountValidation=$null}
+        $script:Ctrl.PwdAccountAdCorrection.Clear()
+    }
+}
+Test-Case 'P44 Correction du compte de connexion : une validation qui revient pour une autre identite ne remplace rien' {
+    $script:Conn.UseCredential=$true;$script:Conn.AuthMode='Explicit';$script:Conn.Credential=New-TestCredential 'EXAMPLE\lecteur'
+    $previousCredential=$script:Conn.Credential
+    $script:Ctrl.PwdAccountAdCorrection.Password=[guid]::NewGuid().ToString('N')
+    function Set-ControlsBusy {param([string[]]$Names,[bool]$Busy)}
+    function Read-DomeniaAuthRunspaceResult {param($Session) return [pscustomobject]@{Success=$true;AuthMode='Explicit';BindUser='EXAMPLE\autre';BaseDn='DC=example,DC=invalid';Error=''}}
+    try{
+        Start-DomeniaDirectoryCorrection
+        Assert-True ($script:DirectoryValidations.Count -eq 1 -and $script:DirectoryValidations[0] -eq 'EXAMPLE\lecteur') ('Validations : '+($script:DirectoryValidations -join ','))
+        $script:AccountValidation.Session.AsyncResult.IsCompleted=$true
+        Complete-DomeniaAccountValidation
+        Assert-True ([object]::ReferenceEquals($script:Conn.Credential,$previousCredential)) 'Mot de passe de session remplace par celui d une autre identite'
+        Assert-True (@($script:StatusLines|Where-Object{$_ -match 'sans reconnecter'}).Count -eq 0) 'Correction annoncee pour une autre identite'
+    }finally{
+        if($null -ne $script:AccountValidation){try{$script:AccountValidation.Timer.Stop()}catch{};$script:AccountValidation=$null}
+        $script:Ctrl.PwdAccountAdCorrection.Clear()
+    }
+}
+Test-Case 'P44 Anti-verrouillage : le compte de connexion saisi pour LAPS ne leve pas la pause tant qu il garde l ancien mot de passe' {
+    $script:Conn.UseCredential=$true;$script:Conn.AuthMode='Explicit';$script:Conn.Credential=New-TestCredential 'EXAMPLE\lecteur'
+    $script:DomeniaAccountGeneration=30L;$guard=New-P44Guard
+    $guard.Faults['lecteur@example.invalid']=[pscustomobject]@{Kind='LogonFailure';Code='0x8007052E';AtUtc=[datetime]::UtcNow;Generation=29L}
+    $script:NextCredential=New-TestCredential 'EXAMPLE\lecteur'
+    Invoke-DomeniaAccessRecovery (New-AccessRecord 'ReadLaps')
+    Assert-True ([object]::ReferenceEquals($script:AccessState.Credentials['ReadLaps'],$script:NextCredential)) 'Compte LAPS non memorise'
+    Assert-True ($guard.Faults.ContainsKey('lecteur@example.invalid')) 'Pause levee : le compte de connexion renverrait le mot de passe refuse'
+    Assert-True (-not (($guard.ContainsKey('Released')) -and ($guard.Released.ContainsKey('lecteur@example.invalid')))) 'Compte libere pour les operations anciennes'
+    Assert-True (@($script:StatusLines|Where-Object{($_ -match 'Pause maintenue') -and ($_ -match 'Corriger le mot de passe')}).Count -ge 1) ('Statut : '+($script:StatusLines -join ' | '))
+    Assert-True (@($script:Tasks|Where-Object{$_.OperationId -eq 'AccountAliasRead'}).Count -eq 0) 'Noms relus avec un compte en pause'
+    Assert-True (@($script:Tasks|Where-Object{$_.OperationId -eq 'ReadLaps'}).Count -eq 0) 'Lecture LAPS rejouee alors que le compte reste en pause'
+}
+Test-Case 'P45 Vrai worker : SID et noms d un seul compte, aucune association si plusieurs comptes' {
+    $sid=[Security.Principal.SecurityIdentifier]::new('S-1-5-21-1-2-3-1104');$bytes=[byte[]]::new($sid.BinaryLength);$sid.GetBinaryForm($bytes,0)
+    $directory=@{};$directory['DC=example,DC=invalid']=@(@{objectsid=@(,$bytes);samaccountname=@('jdupont');userprincipalname=@('jean.dupont@corp.example.com');distinguishedname=@('CN=Jean Dupont,OU=U,DC=example,DC=invalid')})
+    $context=[pscustomobject]@{OperationId='AccountAliasRead';BaseDn='DC=example,DC=invalid';Server='dc1.example.invalid';BindUser='EXAMPLE\lecteur';ProcessIdentity='EXAMPLE\lecteur';PageSize=100;FakeDirectory=$directory;ForbiddenAttribute='unicodePwd';SearchMustNotRun=$false}
+    $run=Invoke-TestWorker -OperationId 'AccountAliasRead' -Code (Get-DomeniaAccountAliasWorkerCode) -Context $context -Payload ([pscustomobject]@{Sam='jdupont';Upn=''})
+    Assert-True ($null -eq $run.Failure) ([string]$run.Failure)
+    $r=@($run.Output)[-1]
+    Assert-True ($r.State -eq 'Resolved' -and $r.Sid -eq 'S-1-5-21-1-2-3-1104' -and $r.Upn -eq 'jean.dupont@corp.example.com') ('Etat : '+[string]$r.State)
+    $directory['DC=example,DC=invalid']+=@(@{objectsid=@(,$bytes);samaccountname=@('jdupont2');userprincipalname=@('x@corp.example.com');distinguishedname=@('CN=X,DC=example,DC=invalid')})
+    $two=@((Invoke-TestWorker -OperationId 'AccountAliasRead' -Code (Get-DomeniaAccountAliasWorkerCode) -Context $context -Payload ([pscustomobject]@{Sam='jdupont';Upn=''})).Output)[-1]
+    Assert-True ($two.State -eq 'Ambiguous' -and -not $two.Sid) 'Deux comptes : un SID est associe quand meme'
+}
+Test-Case 'P45 Resultat du worker : alias enregistres et pause etendue, compte autre jamais touche' {
+    $guard=New-P44Guard
+    $guard.Faults['jdupont@example.invalid']=[pscustomobject]@{Kind='LogonFailure';Code='0x8007052E';AtUtc=[datetime]::UtcNow}
+    $script:SyncCalls=0
+    function Sync-DomeniaCredentialGuardUi {$script:SyncCalls++}
+    $state=[pscustomobject]@{Epoch=[long]$script:SessionEpoch;BaseDn='DC=example,DC=invalid';UserName='EXAMPLE\jdupont';Key='jdupont@example.invalid'}
+    $result=[pscustomobject]@{State='Resolved';Count=1;Sid='S-1-5-21-1-2-3-1104';Sam='jdupont';Upn='jean.dupont@corp.example.com';Dn='CN=Jean Dupont,DC=example,DC=invalid';RequestSam='jdupont';RequestUpn='';ObservedUtc=''}
+    Complete-DomeniaAccountAliasRead $result $state
+    Assert-True ([string]$guard.Aliases['jean.dupont@corp.example.com'] -eq 'sid:S-1-5-21-1-2-3-1104') 'UPN non rapproche'
+    Assert-True ($guard.Faults.ContainsKey('jean.dupont@corp.example.com')) 'Pause non etendue a l UPN'
+    Assert-True ($script:SyncCalls -eq 1) 'Lectures en file de l alias non retirees'
+    Assert-True ((@(Get-DomeniaAccountAliasSummary|ForEach-Object{$_.Text}) -join ' ') -match 'jdupont@example.invalid = jean.dupont@corp.example.com') 'Rapprochement non visible'
+    Assert-True (@(Get-DomeniaAccountAliasSummary).Count -eq 1) 'Une entree par compte rapproche attendue'
+    # Point 45 in « En ce moment »: the row of the account names its other confirmed names, with its pause.
+    $script:Conn.BindUser='EXAMPLE\jdupont'
+    Update-DomeniaAccountsInUse -Force
+    $directory=@(@($script:Ctrl.DgAccountsInUse.ItemsSource)|Where-Object{$_.Resource -eq 'Annuaire'})[0]
+    Assert-True ([string]$directory.State -match '^En pause après un refus') ([string]$directory.State)
+    Assert-True ([string]$directory.State -match 'Même compte que jean\.dupont@corp\.example\.com \(SID confirmé par lʼannuaire\)\.') ([string]$directory.State)
+    $other=[pscustomobject]@{State='Ambiguous';Count=2;Sid='';Sam='';Upn='';Dn='';RequestSam='x';RequestUpn='';ObservedUtc=''}
+    Complete-DomeniaAccountAliasRead $other ([pscustomobject]@{Epoch=[long]$script:SessionEpoch;BaseDn='DC=example,DC=invalid';UserName='EXAMPLE\x';Key='x@example.invalid'})
+    Assert-True (-not $guard.Aliases.ContainsKey('x@example.invalid')) 'Association supposee sans compte unique'
+}
+Test-Case 'P42 Comptes : une seule vue En ce moment, chaque ressource nomme son compte, sa provenance et son etat ; correction pour une connexion explicite seulement' {
+    $script:Conn.UseCredential=$true;$script:Conn.AuthMode='Explicit';$script:Conn.Credential=New-TestCredential 'EXAMPLE\lecteur'
+    $script:Conn|Add-Member -NotePropertyName Connected -NotePropertyValue $true -Force
+    $script:RemoteAdminCredential=New-TestCredential 'EXAMPLE\postes'
+    $guard=New-P44Guard
+    $guard.Faults['postes@example.invalid']=[pscustomobject]@{Kind='LogonFailure';Code='0x8007052E';AtUtc=[datetime]::UtcNow}
+    Update-DomeniaAccountUi
+    Update-DomeniaAccountsInUse -Force
+    $rows=@($script:Ctrl.DgAccountsInUse.ItemsSource)
+    $line={param([string]$Resource) $r=@($rows|Where-Object{$_.Resource -eq $Resource})[0];if($null -eq $r){return ''};return ([string]$r.Account+'|'+[string]$r.Origin+'|'+[string]$r.State)}
+    Assert-True ((& $line 'Annuaire') -ceq 'EXAMPLE\lecteur|compte de connexion|Aucun refus enregistré.') (& $line 'Annuaire')
+    Assert-True ((& $line 'Postes (WMI, C$, consoles)') -match '^EXAMPLE\\postes\|compte Postes de la page Comptes\|En pause après un refus : ressaisissez son mot de passe puis « Activer »') (& $line 'Postes (WMI, C$, consoles)')
+    Assert-True ((& $line 'Secrets : LAPS') -ceq 'EXAMPLE\lecteur|même compte que lʼannuaire|Aucun refus enregistré.') (& $line 'Secrets : LAPS')
+    $states=(@($rows|ForEach-Object{[string]$_.State}) -join ' ')
+    Assert-True ($states -notmatch 'Même compte que') ('Noms confirmes annonces sans aucun rapprochement : '+$states)
+    Assert-True ($states -notmatch '(?i)\bvalid') 'Un compte non teste est presente comme valide'
+    # The rule panel keeps its fixed text: the accounts in use live in « En ce moment » only.
+    Assert-True ([string]$script:Ctrl.LblAccountRule.Text -match '^Annuaire : compte de connexion\. Postes :') ([string]$script:Ctrl.LblAccountRule.Text)
+    Assert-True ([bool]$script:Ctrl.BtnAccountAdCorrect.IsEnabled) 'Correction indisponible pour une connexion explicite'
+    Assert-True ($script:Ctrl.BtnAccountAdCorrect.Parent.Visibility -eq [Windows.Visibility]::Visible) 'Correction masquee pour une connexion explicite'
+    $script:Conn.UseCredential=$false;$script:Conn.AuthMode='Windows';$script:Conn.Credential=$null
+    Update-DomeniaAccountUi
+    Assert-True (-not [bool]$script:Ctrl.BtnAccountAdCorrect.IsEnabled) 'Correction proposee pour une session Windows'
+    Assert-True ($script:Ctrl.BtnAccountAdCorrect.Parent.Visibility -eq [Windows.Visibility]::Collapsed) 'Carte Annuaire : correction visible en session Windows'
+    Update-DomeniaAccountsInUse -Force
+    Assert-True ([string](@(@($script:Ctrl.DgAccountsInUse.ItemsSource)|Where-Object{$_.Resource -eq 'Annuaire'})[0]).Origin -eq 'session Windows') 'Origine du compte de session absente'
 }
 
 # ================================================================ UI-31 secrets buttons
@@ -1133,7 +1331,7 @@ if($null -ne $script:Guard -and $null -ne $script:Guard.Timer){try{$script:Guard
 if($null -ne $script:MainWindow){try{$script:MainWindow.Close()}catch{}}
 $passed=@($script:Checks|Where-Object{$_.Status -eq 'Passed'}).Count;$failed=@($script:Checks|Where-Object{$_.Status -eq 'Failed'}).Count
 if(-not $ReportPath){$ReportPath=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-wiring-acces-'+[guid]::NewGuid().ToString('N')+'.json')}
-$report=[ordered]@{Suite='Test-DomeniaWiringAcces';Lot='acces';Points=@('D051','D052','D053','D054','D055','D056','D057','D058','D059','D060','UI-18','UI-31','UX-18');Host=$PSVersionTable.PSVersion.ToString();NativeWindowsPowerShell=$native;Wpf=$true;MockedNetwork=$true;LiveAD=$false;LiveCIM=$false;Passed=$passed;Failed=$failed;Complete=($failed -eq 0 -and $passed -gt 0);Tests=$script:Checks.ToArray()}
+$report=[ordered]@{Suite='Test-DomeniaWiringAcces';Lot='acces';Points=@('D051','D052','D053','D054','D055','D056','D057','D058','D059','D060','P46','P42','P44','P45','UI-18','UI-31','UX-18');Host=$PSVersionTable.PSVersion.ToString();NativeWindowsPowerShell=$native;Wpf=$true;MockedNetwork=$true;LiveAD=$false;LiveCIM=$false;Passed=$passed;Failed=$failed;Complete=($failed -eq 0 -and $passed -gt 0);Tests=$script:Checks.ToArray()}
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
 if(-not $Quiet){Write-Host ("$passed reussis, $failed en echec. Rapport : "+$ReportPath);$script:Checks|Where-Object{$_.Status -eq 'Failed'}|ForEach-Object{Write-Host ('  ECHEC '+$_.Name+' : '+$_.Detail)}}
 if(-not $report.Complete){exit 1}

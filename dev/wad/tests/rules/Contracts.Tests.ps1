@@ -16,8 +16,8 @@ Test-Case 'CTR-001' 'Le catalogue livre est coherent : familles uniques, version
 Test-Case 'CTR-002' 'Lecture des formats : barre oblique, ancienne forme pointee, refus des textes non versionnes' {
     $query = ConvertFrom-DomeniaContractFormat 'Domenia.Query/2'
     Assert-Equal 'Domenia.Query' $query.Family; Assert-Equal 2 $query.Version; Assert-Equal '/' $query.Separator
-    $support = ConvertFrom-DomeniaContractFormat 'Domenia.Support.1'
-    Assert-Equal 'Domenia.Support' $support.Family; Assert-Equal 1 $support.Version; Assert-Equal '.' $support.Separator
+    $support = ConvertFrom-DomeniaContractFormat 'Domenia.Diagnostic.2'
+    Assert-Equal 'Domenia.Diagnostic' $support.Family; Assert-Equal 2 $support.Version; Assert-Equal '.' $support.Separator
     foreach ($bad in @('','Domenia.Query','Domenia.Query/0','Domenia.Query/12345','Domenia.Query/2 ','../Domenia/1','Domenia Query/1','Domenia.Query/-1')) {
         Assert-True ($null -eq (ConvertFrom-DomeniaContractFormat $bad)) ('accepte : ' + $bad)
     }
