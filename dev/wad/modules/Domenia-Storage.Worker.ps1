@@ -850,7 +850,7 @@ while($null -ne $probe){if($probe.Exists -and ($probe.Attributes -band [IO.FileA
 $db=[IntPtr]::Zero;$transaction=$false;$conflicts=[Collections.Generic.List[string]]::new()
 # PF-07: statements of a previous session of this pooled runspace were finalized by its finally block.
 $script:StoreWStatements=[Collections.Generic.List[object]]::new()
-$indexStatement=$null;$indexWatch=$null;$indexRows=0L
+$indexStatement=$null;$secretRead=$null;$secretWrite=$null;$indexWatch=$null;$indexRows=0L
 try {
  $availableBytes=-1L
  try{$drive=[IO.DriveInfo]::new([IO.Path]::GetPathRoot($path));if($drive.IsReady){$availableBytes=[long]$drive.AvailableFreeSpace}}catch{}
@@ -917,9 +917,12 @@ try {
     # One computer, or the BitLocker presence of a whole OU (Rows): metadata only, never a key or a password.
     $secretRows=if($null -ne $i.Row.PSObject.Properties['Rows']){@($i.Row.Rows)}else{@($i.Row)}
     if($secretRows.Count -gt 50000){throw 'Lot de metadonnees de secrets trop grand.'}
-    # PF-07: the BitLocker presence of an OU may hold 50 000 rows: one prepared read and one prepared write.
-    $secretRead=New-StoreWStatement $db 'SELECT * FROM secret_state WHERE computer_key=?1'
-    $secretWrite=New-StoreWStatement $db 'INSERT OR REPLACE INTO secret_state(computer_key,computer,checked_at,bitlocker_keys,bitlocker_last,laps_scheme,laps_expiry,verdict,detail) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9)'
+    # PF-07: the BitLocker presence of an OU may hold 50 000 rows: one prepared read and one prepared write, shared by
+    # every SecretMeta item of the lot.
+    if($null -eq $secretRead){
+      $secretRead=New-StoreWStatement $db 'SELECT * FROM secret_state WHERE computer_key=?1'
+      $secretWrite=New-StoreWStatement $db 'INSERT OR REPLACE INTO secret_state(computer_key,computer,checked_at,bitlocker_keys,bitlocker_last,laps_scheme,laps_expiry,verdict,detail) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9)'
+    }
     foreach($r in $secretRows){
         if($null -eq $r -or -not ([string]$r.Computer).Trim()){continue}
         $prev=Read-StoreWStatementRow $secretRead @(([string]$r.Computer).ToUpperInvariant())
