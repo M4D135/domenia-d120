@@ -1017,6 +1017,118 @@ function Resolve-DomeniaInstallInterruption {
 }
 
 # ---------------------------------------------------------------- D115 data compatibility and version return
+function Get-DomeniaDataSchemaTransition {
+    # Point 143: data schema of the active code and of the prepared one, as the installer reads them in each
+    # wad\Domenia.release.json (DataSchemaVersion). The installer never touches the base: the application migrates it at
+    # its first start, after a verified migration backup (Initialize-DomeniaDatabase), and an older version refuses a
+    # newer base without changing it (Test-DomeniaSchemaCompatibility). UpdateNotice is shown before the operator's
+    # answer; RestoreNotice is kept in the transaction journal and shown when the previous code is restored.
+    param([AllowEmptyString()][string]$ActiveSchema = '',[AllowEmptyString()][string]$TargetSchema = '')
+    $read = {
+        param([string]$Text)
+        $value = 0
+        if ([int]::TryParse(([string]$Text).Trim(),[ref]$value) -and ($value -ge 1) -and ($value -le 100000)) { return $value }
+        return 0
+    }
+    $active = & $read $ActiveSchema
+    $target = & $read $TargetSchema
+    $restoreWay = 'restaurez alors dans Domenia la sauvegarde de la base faite avant la migration (Outils, Base autonome, onglet Stockage : Restaurer une sauvegarde).'
+    if (($active -eq 0) -or ($target -eq 0)) {
+        return [pscustomobject]@{
+            Direction = 'Inconnu'; ActiveSchema = $active; TargetSchema = $target; RestoreReadsBase = $false
+            UpdateNotice = 'Base locale : schéma de données de la version active ou préparée non déclaré ; aucune migration nʼest annoncée. Au démarrage, Domenia contrôle la base et refuse, sans la modifier, une base quʼil ne sait pas lire.'
+            RestoreNotice = ('Base locale : schéma de données non relevé lors de la mise à jour. Si la version restaurée refuse la base, ' + $restoreWay)
+        }
+    }
+    if ($target -eq $active) {
+        return [pscustomobject]@{
+            Direction = 'Identique'; ActiveSchema = $active; TargetSchema = $target; RestoreReadsBase = $true
+            UpdateNotice = ('Base locale : même schéma de données (' + [string]$target + ') ; aucune migration.')
+            RestoreNotice = ('Base locale : même schéma de données (' + [string]$active + ') que la version restaurée ; elle reste lisible.')
+        }
+    }
+    if ($target -gt $active) {
+        return [pscustomobject]@{
+            Direction = 'Migration'; ActiveSchema = $active; TargetSchema = $target; RestoreReadsBase = $false
+            UpdateNotice = ('Base locale : migration du schéma ' + [string]$active + ' vers ' + [string]$target + ' au premier démarrage, après une sauvegarde vérifiée de la base. Ensuite, la version actuelle (schéma ' + [string]$active + ') ne pourra plus ouvrir la base sans restaurer cette sauvegarde.')
+            RestoreNotice = ('Base locale : la version installée (schéma ' + [string]$target + ') a pu migrer la base. La version restaurée lit le schéma ' + [string]$active + ' et refusera une base migrée, sans la modifier : ' + $restoreWay)
+        }
+    }
+    return [pscustomobject]@{
+        Direction = 'Retour'; ActiveSchema = $active; TargetSchema = $target; RestoreReadsBase = $true
+        UpdateNotice = ('Base locale : la version préparée lit le schéma ' + [string]$target + ', plus ancien que celui de la version active (' + [string]$active + '). Elle refusera une base déjà migrée, sans la modifier ; une sauvegarde compatible devra alors être restaurée.')
+        RestoreNotice = ('Base locale : la version restaurée lit le schéma ' + [string]$active + ', celui de la base avant cette installation ; elle reste lisible.')
+    }
+}
+
+function Get-DomeniaUninstallPlan {
+    # Point 144: removal plan of an installed copy, from that copy's manifest and the hashes read by the caller
+    # ($Observed: manifest path -> SHA-256; missing or '' when the file is absent). A code file carrying its manifest
+    # hash is removed; one changed since installation is kept and named, and the folder then stays. Preferences,
+    # wad\data and the code backups go only on the explicit choice LocalData='Supprimer'; the profile data shared by every
+    # copy of Domenia of this Windows account only on ProfileData='Supprimer'. A DEV tree (sources, tools, suites) or an
+    # unfinished update is never removed. The lifecycle lock is removed last, after the manifest.
+    param(
+        $Manifest,
+        [Collections.IDictionary]$Observed = $null,
+        [ValidateSet('Conserver','Supprimer')][string]$LocalData = 'Conserver',
+        [ValidateSet('Conserver','Supprimer')][string]$ProfileData = 'Conserver',
+        [bool]$DevTree = $false,
+        [bool]$PendingInstall = $false
+    )
+    $blockers = New-Object 'System.Collections.Generic.List[string]'
+    $remove = New-Object 'System.Collections.Generic.List[string]'
+    $modified = New-Object 'System.Collections.Generic.List[string]'
+    $absent = New-Object 'System.Collections.Generic.List[string]'
+    $settings = New-Object 'System.Collections.Generic.List[string]'
+    $build = [string](Get-DomeniaMember $Manifest 'Build' '')
+    $files = @(Get-DomeniaMember $Manifest 'Files' @())
+    $lock = 'wad/Support/.lifecycle.lock'
+    $hasLock = $false
+    if (-not $build) { $blockers.Add('Manifeste sans Build : copie non identifiée, rien nʼest supprimé.') }
+    if ($files.Count -eq 0) { $blockers.Add('Manifeste sans fichier : rien nʼest supprimé.') }
+    if ($DevTree) { $blockers.Add('Copie DEV (sources, outils ou suites présents) : la désinstallation ne supprime pas un arbre de développement.') }
+    if ($PendingInstall) { $blockers.Add('Mise à jour inachevée : restaurez dʼabord la version précédente (-RestoreLatest), puis désinstallez.') }
+    foreach ($file in $files) {
+        $path = [string](Get-DomeniaMember $file 'Path' '')
+        $expected = ConvertTo-DomeniaSha256Text ([string](Get-DomeniaMember $file 'Sha256' ''))
+        if ((-not (Test-DomeniaReleaseRelativePath $path)) -or (-not $expected) -or ($path -match '^(?i:wad/data|wad/maintenance/backups)(/|$)') -or ($path -ceq 'wad/package-manifest.json')) { $blockers.Add('Entrée de manifeste invalide : <' + $path + '>. Rien nʼest supprimé.'); continue }
+        if ([bool](Get-DomeniaMember $file 'PreserveExisting' $false)) { $settings.Add($path); continue }
+        if ($path -ceq $lock) { $hasLock = $true; continue }
+        $actual = ''
+        if (Test-DomeniaReleaseMapKey $Observed $path) { $actual = ConvertTo-DomeniaSha256Text ([string]$Observed[$path]) }
+        if (-not $actual) { $absent.Add($path) }
+        elseif ($actual -ceq $expected) { $remove.Add($path) }
+        else { $modified.Add($path) }
+    }
+    # The manifest, then the lock: a launcher never sees a partial copy as a complete version.
+    $remove.Add('wad/package-manifest.json')
+    if ($hasLock) { $remove.Add($lock) }
+    $localFolders = @('wad/data','wad/maintenance/backups')
+    $profileFolders = @('Domenia\Data','Domenia\Receipts')
+    $lines = New-Object 'System.Collections.Generic.List[string]'
+    $lines.Add('Code de Domenia ' + $build + ' : ' + [string]$remove.Count + ' fichier(s) supprimé(s) ; raccourcis Domenia.lnk qui visent cette copie retirés.')
+    if ($modified.Count -gt 0) { $lines.Add([string]$modified.Count + ' fichier(s) de code modifié(s) depuis lʼinstallation : conservé(s), le dossier reste en place (' + [string]::Join(', ',$modified.ToArray()) + ').') }
+    if ($LocalData -ceq 'Supprimer') { $lines.Add('Données de ce dossier supprimées : préférences (' + [string]$settings.Count + ' fichier(s)), wad\data et sauvegardes du code.') }
+    else { $lines.Add('Données de ce dossier conservées : préférences, wad\data et sauvegardes du code.') }
+    if ($ProfileData -ceq 'Supprimer') { $lines.Add('Données Domenia du profil Windows supprimées : base locale, journaux, sauvegardes de la base et reçus (partagés par toutes les copies de Domenia de ce compte).') }
+    else { $lines.Add('Données Domenia du profil Windows conservées : base locale, journaux, sauvegardes de la base et reçus.') }
+    $lines.Add('Comptes mémorisés dans le Gestionnaire dʼidentification Windows : jamais supprimés par la désinstallation ; retirez-les dans Domenia (Comptes et accès) ou dans le Gestionnaire dʼidentification.')
+    $lines.Add('Une base déplacée hors du profil par Outils, Base autonome nʼest pas supprimée.')
+    # Arrays held in variables keep their type in the result (an empty subexpression would give $null).
+    $localRemoved = @(); $settingsRemoved = @(); $profileRemoved = @()
+    if ($LocalData -ceq 'Supprimer') { $localRemoved = $localFolders; $settingsRemoved = $settings.ToArray() }
+    if ($ProfileData -ceq 'Supprimer') { $profileRemoved = $profileFolders }
+    return [pscustomobject]@{
+        Allowed = ($blockers.Count -eq 0); Blockers = $blockers.ToArray(); Build = $build
+        RemoveCode = $remove.ToArray(); KeepModified = $modified.ToArray(); Absent = $absent.ToArray(); Settings = $settings.ToArray()
+        LocalData = $LocalData; ProfileData = $ProfileData
+        LocalFolders = $localRemoved; RemoveSettings = $settingsRemoved; ProfileFolders = $profileRemoved
+        RemovesFolder = (($modified.Count -eq 0) -and ($LocalData -ceq 'Supprimer'))
+        Lines = $lines.ToArray()
+    }
+}
+
 function ConvertFrom-DomeniaSchemaLabel {
     # Reads a schema position 'version/revision' (revision 0 when absent, as on an ADCC base). $null when unreadable.
     param([AllowNull()][AllowEmptyString()][string]$Label)

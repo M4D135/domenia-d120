@@ -101,6 +101,26 @@ function Set-ReleaseLimit {
  ($active.Files|Where-Object Path -eq 'wad/Domenia.release.json').Sha256=Hash $path
  Save (Join-Path $Fixture.Target 'wad\package-manifest.json') ($active|ConvertTo-Json -Depth 8)
 }
+function Set-ReleaseSchema {
+ # Point 143: DataSchemaVersion of the active copy (as an older version would declare it) and its manifest hash.
+ param($Fixture,[int]$Schema)
+ $path=Join-Path $Fixture.Target 'wad\Domenia.release.json'
+ $text=[IO.File]::ReadAllText($path) -replace '"DataSchemaVersion":\s*\d+',('"DataSchemaVersion": '+$Schema)
+ [IO.File]::WriteAllText($path,$text,[Text.UTF8Encoding]::new($false))
+ $active=[IO.File]::ReadAllText((Join-Path $Fixture.Target 'wad\package-manifest.json'))|ConvertFrom-Json
+ ($active.Files|Where-Object Path -eq 'wad/Domenia.release.json').Sha256=Hash $path
+ Save (Join-Path $Fixture.Target 'wad\package-manifest.json') ($active|ConvertTo-Json -Depth 8)
+}
+function New-InstalledCopy {
+ # Point 144: a copy installed by the real installer (-Install) from a PROD fixture, into the fixture folder.
+ param([string]$Name,[ValidateSet('Non','Oui')][string]$Shortcuts='Non')
+ $f=New-Fixture -Prod;$path=Join-Path $f.Dir $Name
+ $r=Install $f -Arguments ('-Install -Destination '''+$path+''' -Confirm:$false -Shortcuts '+$Shortcuts)
+ if($r.Code -ne 0){throw ('Installation de la copie de test en echec : '+$r.Output)}
+ return [pscustomobject]@{Fixture=$f;Path=$path}
+}
+$script:Schema=[int](([IO.File]::ReadAllText((Join-Path $dev 'wad\Domenia.release.json'))|ConvertFrom-Json).DataSchemaVersion)
+$script:ElevatedSession=([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 function New-QualifiedPackage {
  # Test double of a delivered PROD ZIP (every runtime file and its manifest, or the manifest alone with -ManifestOnly)
  # and of a release_guard report bound to it. -Edit changes the report before it is written. Temporary test data only:
@@ -326,13 +346,114 @@ try{
   Set-ReleaseLimit $f 250;$r=Start-Check $f
   Assert ($r.Code -eq 0) $r.Output;Assert ($r.Output -match 'plafond 250') $r.Output
  }
+
+ # ---------------------------------------------------------------- point 143 : schema de donnees et retour arriere
+ Case 'P143 migration du schema annoncee avant la reponse, consignee au journal et rappelee au retour arriere' {
+  $f=New-Fixture;Set-ReleaseSchema $f 10
+  $r=Install $f -Arguments '-Destination (Join-Path $PSScriptRoot ''active'') -WhatIf'
+  Assert ($r.Code -eq 0) $r.Output
+  # Child output is read back in the console code page: the patterns avoid accented characters.
+  Assert ($r.Output -match ('migration du sch\S+ 10 vers '+$script:Schema)) $r.Output
+  Assert ((Hash (Join-Path $f.Target 'wad\Domenia-Core.ps1')) -eq $f.OldHash) 'WhatIf a modifie le code.'
+  $r=Install $f;Assert ($r.Code -eq 0) $r.Output
+  Assert ($r.Output -match 'Avant un retour arri') $r.Output
+  $journal=[IO.File]::ReadAllText((Join-Path (Backup $f) 'transaction.json'))|ConvertFrom-Json
+  Assert (([int]$journal.DataSchema.Before -eq 10) -and ([int]$journal.DataSchema.After -eq $script:Schema) -and ([string]$journal.DataSchema.Direction -eq 'Migration')) ($journal.DataSchema|ConvertTo-Json -Compress)
+  Assert ([string]$journal.RestoreNotice -match 'refusera une base migrée') ([string]$journal.RestoreNotice)
+  $r=Restore $f (Backup $f);Assert ($r.Code -eq 0) $r.Output
+  Assert ($r.Output -match 'refusera une base migr') $r.Output
+  Assert ((Hash (Join-Path $f.Target 'wad\Domenia-Core.ps1')) -eq $f.OldHash)
+ }
+ Case 'P143 meme schema : aucune migration annoncee ni avertissement de retour arriere' {
+  $f=New-Fixture;$r=Install $f;Assert ($r.Code -eq 0) $r.Output
+  Assert ($r.Output -match ('donn\S+ \('+$script:Schema+'\) ; aucune migration')) $r.Output
+  Assert ($r.Output -notmatch 'Avant un retour arri') $r.Output
+  $journal=[IO.File]::ReadAllText((Join-Path (Backup $f) 'transaction.json'))|ConvertFrom-Json
+  Assert ([string]$journal.DataSchema.Direction -eq 'Identique') ([string]$journal.DataSchema.Direction)
+ }
+ # ---------------------------------------------------------------- point 144 : desinstallation
+ Case 'P144 desinstallation sans reponse : rien nʼest supprime, code 2' {
+  $u=New-InstalledCopy 'fresh-noanswer'
+  $r=Install $u.Fixture -Arguments ('-Uninstall -Destination '''+$u.Path+'''')
+  Assert ($r.Code -eq 2) ('Code '+$r.Code+' : '+$r.Output);Assert ($r.Output -match 'annul') $r.Output
+  foreach($entry in $manifest.Files){Assert ([IO.File]::Exists((Join-Path $u.Path $entry.Path))) ('Fichier retire sans reponse : '+$entry.Path)}
+ }
+ Case 'P144 -Confirm:$false : code, manifeste et verrou retires ; donnees du dossier conservees sans choix explicite' {
+  $u=New-InstalledCopy 'fresh-keep'
+  Save (Join-Path $u.Path 'wad\data\preserve-me.txt') 'test-data'
+  $r=Install $u.Fixture -Arguments ('-Uninstall -Destination '''+$u.Path+''' -ProfileData Conserver -Confirm:$false')
+  Assert ($r.Code -eq 0) $r.Output;Assert ($r.Output -match 'question non pos') $r.Output
+  foreach($rel in @('Domenia.exe','wad\Domenia-Core.ps1','wad\modules\Domenia-Common.Model.ps1','wad\package-manifest.json','wad\Support\.lifecycle.lock','wad\Support\INSTALLER-MISE-A-JOUR.ps1')){Assert (-not [IO.File]::Exists((Join-Path $u.Path $rel))) ('Code conserve : '+$rel)}
+  Assert ([IO.File]::ReadAllText((Join-Path $u.Path 'wad\data\preserve-me.txt')) -eq 'test-data') 'Donnees supprimees sans choix.'
+  Assert ([IO.File]::Exists((Join-Path $u.Path 'wad\Domenia.config.json'))) 'Preferences supprimees sans choix.'
+ }
+ Case 'P144 choix explicite -LocalData Supprimer : le dossier installe disparait entierement' {
+  $u=New-InstalledCopy 'fresh-remove'
+  Save (Join-Path $u.Path 'wad\data\a\b.txt') 'test-data';Save (Join-Path $u.Path 'wad\maintenance\backups\20200101-000000-00000001\transaction.json') '{}'
+  $r=Install $u.Fixture -Arguments ('-Uninstall -Destination '''+$u.Path+''' -LocalData Supprimer -ProfileData Conserver -Confirm:$false')
+  Assert ($r.Code -eq 0) $r.Output
+  Assert (-not (Test-Path -LiteralPath $u.Path)) ('Dossier restant : '+(@(Get-ChildItem -LiteralPath $u.Path -Recurse -Force|ForEach-Object FullName) -join ', '))
+ }
+ Case 'P144 fichier de code modifie conserve et nomme, jonction dans les donnees refusee avant toute suppression' {
+  $u=New-InstalledCopy 'fresh-changed'
+  [IO.File]::AppendAllText((Join-Path $u.Path 'wad\modules\Domenia-Common.Model.ps1'),"`n# Local change`n",$utf8)
+  $r=Install $u.Fixture -Arguments ('-Uninstall -Destination '''+$u.Path+''' -LocalData Supprimer -ProfileData Conserver -Confirm:$false')
+  Assert ($r.Code -eq 0) $r.Output;Assert ($r.Output -match 'Domenia-Common\.Model\.ps1') $r.Output
+  Assert ([IO.File]::Exists((Join-Path $u.Path 'wad\modules\Domenia-Common.Model.ps1'))) 'Fichier modifie supprime.'
+  Assert (-not [IO.File]::Exists((Join-Path $u.Path 'Domenia.exe'))) 'Code intact conserve.'
+  $j=New-InstalledCopy 'fresh-junction'
+  $outside=Join-Path $j.Fixture.Dir 'outside';Save (Join-Path $outside 'precious.txt') 'outside-data'
+  [void][IO.Directory]::CreateDirectory((Join-Path $j.Path 'wad\data'))
+  cmd /c mklink /J (Join-Path $j.Path 'wad\data\link') $outside | Out-Null
+  $r=Install $j.Fixture -Arguments ('-Uninstall -Destination '''+$j.Path+''' -LocalData Supprimer -ProfileData Conserver -Confirm:$false')
+  Assert ($r.Code -ne 0) $r.Output;Assert ($r.Output -match 'jonction') $r.Output
+  Assert ([IO.File]::ReadAllText((Join-Path $outside 'precious.txt')) -eq 'outside-data') 'Cible de la jonction touchee.'
+  Assert ([IO.File]::Exists((Join-Path $j.Path 'Domenia.exe'))) 'Code supprime malgre le refus.'
+  [IO.Directory]::Delete((Join-Path $j.Path 'wad\data\link'))
+ }
+ Case 'P144 copie DEV et mise a jour inachevee refusees : rien nʼest supprime' {
+  $u=New-InstalledCopy 'fresh-refused'
+  [void][IO.Directory]::CreateDirectory((Join-Path $u.Path 'tools'))
+  $r=Install $u.Fixture -Arguments ('-Uninstall -Destination '''+$u.Path+''' -Confirm:$false')
+  Assert ($r.Code -ne 0) $r.Output;Assert ($r.Output -match 'Copie DEV') $r.Output
+  [IO.Directory]::Delete((Join-Path $u.Path 'tools'))
+  Save (Join-Path $u.Path 'wad\Support\.update.pending') '{"Backup":"x","Status":"Installing"}'
+  $r=Install $u.Fixture -Arguments ('-Uninstall -Destination '''+$u.Path+''' -Confirm:$false')
+  Assert ($r.Code -ne 0) $r.Output;Assert ($r.Output -match 'inachev') $r.Output
+  foreach($entry in $manifest.Files){Assert ([IO.File]::Exists((Join-Path $u.Path $entry.Path))) ('Fichier retire malgre le refus : '+$entry.Path)}
+ }
+ Case 'P144 reponses reelles : O desinstalle, N conserve les donnees, raccourcis de cette copie retires' {
+  $desktop=Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'Domenia.lnk';$programs=Join-Path ([Environment]::GetFolderPath('Programs')) 'Domenia.lnk'
+  $hadDesktop=[IO.File]::Exists($desktop);$hadPrograms=[IO.File]::Exists($programs)
+  $u=New-InstalledCopy 'fresh-links' 'Oui'
+  try{
+   Save (Join-Path $u.Path 'wad\data\keep.txt') 'test-data'
+   $r=Install $u.Fixture -Arguments ('-Uninstall -Destination '''+$u.Path+''' -ProfileData Conserver') -Answers @('O','N')
+   Assert ($r.Code -eq 0) ('Code '+$r.Code+' : '+$r.Output)
+   Assert ([IO.File]::Exists($desktop) -eq $hadDesktop) 'Raccourci Bureau : etat inattendu apres desinstallation.'
+   Assert ([IO.File]::Exists($programs) -eq $hadPrograms) 'Raccourci Demarrer : etat inattendu apres desinstallation.'
+   Assert ([IO.File]::Exists((Join-Path $u.Path 'wad\data\keep.txt'))) 'Donnees supprimees malgre la reponse N.'
+   Assert (-not [IO.File]::Exists((Join-Path $u.Path 'Domenia.exe'))) 'Code conserve malgre la reponse O.'
+  }finally{
+   foreach($pair in @(@($desktop,$hadDesktop),@($programs,$hadPrograms))){if((-not $pair[1]) -and [IO.File]::Exists($pair[0])){[IO.File]::Delete($pair[0])}}
+  }
+ }
+ Case 'P144 droits standards : aucun recours a lʼelevation dans lʼinstallateur' {
+  $source=[IO.File]::ReadAllText($script:InstallerPath)
+  Assert ($source -notmatch '(?i)#requires\s+-RunAsAdministrator') 'Elevation exigee.'
+  Assert ($source -notmatch '(?i)-Verb\s+RunAs') 'Elevation demandee.'
+  # The other cases install and uninstall under %TEMP% with the session account; the report says whether that account
+  # was elevated, so a run as administrator is never presented as a standard-user proof.
+  Assert ($null -ne $script:ElevatedSession) 'Elevation de la session non relevee.'
+ }
 }finally{
  # All processes are bounded; the temporary fixtures contain no real installation or AD data.
  Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
 }
 $passed=@($checks|Where-Object Status -eq 'Passed').Count;$failed=@($checks|Where-Object Status -eq 'Failed').Count
-$expected=if($RestoreOnly){2}else{15}
-$report=[ordered]@{Suite='Test-DomeniaInstaller';Passed=$passed;Failed=$failed;Skipped=0;Expected=$expected;Complete=($checks.Count -eq $expected);NativeWindowsPowerShell51=$true;PSVersion=$PSVersionTable.PSVersion.ToString();Checks=$checks.ToArray()}
+$expected=if($RestoreOnly){2}else{24}
+# ElevatedSession: install and uninstall ran with this account; true means they do not prove standard-user rights.
+$report=[ordered]@{Suite='Test-DomeniaInstaller';Passed=$passed;Failed=$failed;Skipped=0;Expected=$expected;Complete=($checks.Count -eq $expected);NativeWindowsPowerShell51=$true;PSVersion=$PSVersionTable.PSVersion.ToString();ElevatedSession=[bool]$script:ElevatedSession;ProfileDataDeletionExecuted=$false;Checks=$checks.ToArray()}
 if($ReportPath){Save $ReportPath ($report|ConvertTo-Json -Depth 7)}
 Write-Host ('Installer : '+$passed+' reussis, '+$failed+' echecs')
 if($failed -gt 0 -or $checks.Count -ne $expected){exit 1};exit 0

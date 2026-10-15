@@ -455,6 +455,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaInstallTimeline',
             'Test-DomeniaLaunchSet',
             'Resolve-DomeniaInstallInterruption',
+            'Get-DomeniaDataSchemaTransition',
+            'Get-DomeniaUninstallPlan',
             'ConvertFrom-DomeniaSchemaLabel',
             'Test-DomeniaSchemaStepSafety',
             'Test-DomeniaSchemaCompatibility',
