@@ -1,4 +1,4 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 # Build-time functions only. Product scripts are parsed, never dot-sourced or executed.
 function Read-DomeniaBuildText {
     param([string]$Path)
@@ -180,7 +180,7 @@ function Get-DomeniaBuildWorkerBody {
     $literal=Get-DomeniaBuildLiteral (Get-DomeniaBuildSourceFunction $WadRoot $Matches[1] ([string]$Item.Function) $Cache) ([int]$Item.LiteralIndex) $op
     $sqliteWithLease=@('StorageUsage','StoragePurge','StorageBackup','StorageMaintenance','LiveCache','LegacyMigration')
     $sqliteReadOnly=@('LocalIndexRead','RelationHistoryRead')
-    $localStoreModules=@('Common.Model','HealthRules.Model','Boards.Model','Probes.Model','Query.Model','QueryLibrary.Model')
+    $localStoreModules=@('Common.Model','HealthRules.Model','Boards.Model','ProbeCatalog.Model','Probes.Model','QuerySchema.Model','Workstation.Model','Query.Model','QueryLibrary.Model')
     $probeDetailFunctions=@('ConvertTo-DomeniaProbeDetailValue','ConvertTo-DomeniaProbeDetailInstance','New-DomeniaProbeDetailProjection')
     # W06: storage operations that reuse the pinned helpers of another storage worker, up to the marker of their body.
     $through=$null
@@ -203,10 +203,13 @@ function Get-DomeniaBuildWorkerBody {
         foreach($name in $localStoreModules){
             $relative='modules/Domenia-'+$name+'.ps1'
             if(-not $Cache.ContainsKey($relative)){$Cache[$relative]=Get-DomeniaBuildAst (Read-DomeniaBuildText (Get-DomeniaBuildChildPath $WadRoot $relative)) $relative}
-            # Like powershell_lex.functions: every 'function Name {' written at the start of a line, in file order.
-            $found=@($Cache[$relative].FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst]},$true)|Where-Object{($_.Extent.StartColumnNumber -eq 1) -and ($_.Extent.Text -match '\Afunction\s+[\w-]+\s*\{')}|Sort-Object {$_.Extent.StartOffset})
+            # Exactly like the runtime validator: top-level function statements only, in source order.
+            $found=@($Cache[$relative].EndBlock.Statements|Where-Object{$_ -is [Management.Automation.Language.FunctionDefinitionAst]})
             foreach($fn in $found){$definitions.Add($fn.Extent.Text)}
         }
+        $catalogJson=Read-DomeniaBuildText (Get-DomeniaBuildChildPath $WadRoot 'modules/Domenia-ProbeCatalog.json')
+        $catalogBase64=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($catalogJson))
+        $definitions.Add("`$script:DomeniaExtendedProbeCatalog=@((ConvertFrom-Json -InputObject ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('$catalogBase64')))).Probes)")
         $definitions.Add((Get-DomeniaBuildLiteral (Get-DomeniaBuildSourceFunction $WadRoot 'modules/Domenia-QueryLibrary.Model.ps1' 'Get-DomeniaQueryLibraryDefinitionValidationCode' $Cache) 0 'Get-DomeniaQueryLibraryDefinitionValidationCode'))
         return ($lease+"`n"+$sqlite+"`n"+($definitions.ToArray() -join "`n")+"`n"+$literal)
     }

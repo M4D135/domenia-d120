@@ -371,8 +371,8 @@
     },
     {
       "Path": "engineering/d120/programme-2026-10-08/langue-dependances-ecartees.json",
-      "Sha256": "EBE1CCCD6A1465EABBB4F93AF63CE4216A1606136F7833537416A590E0E6A947",
-      "Bytes": 18098,
+      "Sha256": "55EA55785B9BD0CB171B3FDA3EBC5EFCB53B3FB8A437A9B150352D604E2894CF",
+      "Bytes": 4513,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -590,6 +590,13 @@
       "Path": "engineering/d120/programme-2026-10-13/PASSATION-CODEX-2026-10-14.md",
       "Sha256": "DA126FA8EF80B04E7416E603064FCBD3EDDE5BAC20A97BDAE11291B540787E08",
       "Bytes": 11590,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-13/RELAIS-CODEX-2026-10-16.md",
+      "Sha256": "05AF8F9B37474AD41D52CF761B41EAB86EA638313785CF779A1E0713A2439737",
+      "Bytes": 9737,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -966,8 +973,8 @@
     },
     {
       "Path": "tools/Production.Source.ps1",
-      "Sha256": "EF5B68A3370B98B7D731D733E31E21597710AFC43A553BEB5FABBEC893A350A0",
-      "Bytes": 24464,
+      "Sha256": "947DAFD9E5ABD65E8CAF178384B4FC56A8F991BBD4C53FFB3BD41DE0B579B700",
+      "Bytes": 24779,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1225,15 +1232,15 @@
     },
     {
       "Path": "tools/operation-contracts.json",
-      "Sha256": "E4D26AFC0719C48E3C81825AC44453E908C1944F3C9CBC5FF8DA0FA0C3B94CF3",
+      "Sha256": "4C2ADA466B11657213BA9663FCF8681AD39ED707ED32216F87AE54D4F7251B85",
       "Bytes": 22769,
       "Runtime": false,
       "PreserveExisting": false
     },
     {
       "Path": "tools/preload-baseline.json",
-      "Sha256": "B869F388D11BB5FE3CCF821E7077EC420C60DC0781508192E6D3D2F6A486A108",
-      "Bytes": 277694,
+      "Sha256": "CD19F4FC43BC5E3C6C455A4844C5538E19F16A85DC735DE1C7A4940296A65BD8",
+      "Bytes": 278192,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1246,7 +1253,7 @@
     },
     {
       "Path": "tools/prod-manifest.json",
-      "Sha256": "C2C3E8727AAA5623AABA8F1EF333E46A11C5E1B471BFA89C0173AEACA3E2CB5C",
+      "Sha256": "418A4EC223E0F33A580FF8173D67776578AD71D04CCF1E1036AE81DA60C0CFED",
       "Bytes": 38969,
       "Runtime": false,
       "PreserveExisting": false
@@ -1386,8 +1393,8 @@
     },
     {
       "Path": "tools/tests/test_sqlite_layer.py",
-      "Sha256": "38D45AA6E3C61C2284FE8259FF8FF9E08F712EF541D91C3891A9BB39F1A03CAA",
-      "Bytes": 6954,
+      "Sha256": "8CC326D2948BD2FB1DDC0AE61F652A470010355269D13F91B7864E90DC326C10",
+      "Bytes": 7078,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1435,8 +1442,8 @@
     },
     {
       "Path": "tools/update_worker_contracts.py",
-      "Sha256": "CA2C6DF5B9C27B07E07024AB151A648833109C7AC5088A3F920FDFA7462FF20F",
-      "Bytes": 11551,
+      "Sha256": "A474FE371E2E30E63CA07F4D1BF241723F41284F8B6FF4ADDBF236EEFF769E9A",
+      "Bytes": 12112,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1519,7 +1526,7 @@
     },
     {
       "Path": "wad/Domenia-Core.ps1",
-      "Sha256": "F68F8ABEF7A940A20557E28719CCA7A21824AABD4007DD945D39BBC11D5F7334",
+      "Sha256": "AE1C0BBE394EB382E3FF6BCB942E9D651C96F844B10A38FB1B10403018A45C2F",
       "Bytes": 2193691,
       "Runtime": true,
       "PreserveExisting": false
@@ -2807,8 +2814,8 @@
     },
     {
       "Path": "wad/modules/Domenia-QueryLibrary.Model.ps1",
-      "Sha256": "77A606809B97711C3F3746C51B77D916E9DCEBD9DBA1332A19560F69656A0605",
-      "Bytes": 41493,
+      "Sha256": "00F427FFE5E80773B8406DE0EC4DBBA8D8901F44145661C2B6C469AF7FD3D9B8",
+      "Bytes": 41822,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -3115,8 +3122,8 @@
     },
     {
       "Path": "wad/tests/Test-Domenia.ps1",
-      "Sha256": "F15F8AC95CD5E699353F774D96709AA2A92F980F15699CC902553814CB48FDB8",
-      "Bytes": 159712,
+      "Sha256": "E3F29BA4F7B96AFBBA6431268503F623BA4D1C0A142B29FEC79F243F8A94A599",
+      "Bytes": 158588,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -3731,8 +3738,8 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaStartupLogin.ps1",
-      "Sha256": "EEF07632CEEC4ED29FB4AF51AB833EF9FD9AE715506BE01381F2BC0E78ED2B5D",
-      "Bytes": 19444,
+      "Sha256": "FF6EF74281A837A8B300857880B30EC2595EB2FDDC2482E05E1D31EF3CFB0C7B",
+      "Bytes": 18990,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -4004,8 +4011,8 @@
     },
     {
       "Path": "wad/tests/powershell_lex.py",
-      "Sha256": "DABA5E6A2AACC357677CAE55D2668AB9164C9FADD5A5DFD5E9BFC42E4F92EFC5",
-      "Bytes": 3375,
+      "Sha256": "29B43F1233E929E526DD627741A615DB9885ADBA3D4BDCD16632EB06CC64EE1F",
+      "Bytes": 4657,
       "Runtime": false,
       "PreserveExisting": false
     },

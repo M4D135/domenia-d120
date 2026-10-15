@@ -9,10 +9,10 @@ P-CD-07: every pinned operation is also classified on one line of Get-DomeniaOpe
 Worker column Pinned), and only those: the report lists any difference under OperationTable and the exit code is 1.
 """
 from pathlib import Path
-import argparse, difflib, functools, hashlib, json, re, sys
+import argparse, base64, difflib, functools, hashlib, json, re, sys
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'wad/tests'))
-from powershell_lex import functions as raw_functions
+from powershell_lex import functions as raw_functions, top_level_functions
 functions=functools.lru_cache(64)(raw_functions)
 OPERATION=re.compile(r'[A-Za-z][A-Za-z0-9]{2,63}')
 def function(source,name):
@@ -27,7 +27,7 @@ def literal_bodies(fn):
 SQLITE_WITH_LEASE=('StorageUsage','StoragePurge','StorageBackup','StorageMaintenance','LiveCache','LegacyMigration')
 SQLITE_READ_ONLY=('LocalIndexRead','RelationHistoryRead')
 # LocalStore: every function of these model modules, in file order, before the query validation and the body.
-LOCAL_STORE_MODULES=('Common.Model','HealthRules.Model','Boards.Model','Probes.Model','Query.Model','QueryLibrary.Model')
+LOCAL_STORE_MODULES=('Common.Model','HealthRules.Model','Boards.Model','ProbeCatalog.Model','Probes.Model','QuerySchema.Model','Workstation.Model','Query.Model','QueryLibrary.Model')
 # Live probes (Get-DomeniaLiveProbeCode): the detail projection functions written in front of the body.
 PROBE_DETAIL_FUNCTIONS=('ConvertTo-DomeniaProbeDetailValue','ConvertTo-DomeniaProbeDetailInstance','New-DomeniaProbeDetailProjection')
 # W06: storage operations that reuse the pinned helpers of another storage worker, up to the marker where its own
@@ -51,8 +51,12 @@ def composed_body(item):
         definitions=[]
         for name in LOCAL_STORE_MODULES:
             text=(ROOT/('wad/modules/Domenia-'+name+'.ps1')).read_text('utf-8-sig')
-            spans=sorted(span for group in functions(text).values() for span in group)
+            spans=sorted(span for group in top_level_functions(text).values() for span in group)
             definitions.extend(text[a:b] for a,b in spans)
+        # Pin the trusted catalog's normalized UTF-8 spelling, independent of PowerShell JSON serializer versions.
+        catalog=(ROOT/'wad/modules/Domenia-ProbeCatalog.json').read_text('utf-8-sig')
+        encoded=base64.b64encode(catalog.encode('utf-8')).decode('ascii')
+        definitions.append("$script:DomeniaExtendedProbeCatalog=@((ConvertFrom-Json -InputObject ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('"+encoded+"')))).Probes)")
         model=(ROOT/'wad/modules/Domenia-QueryLibrary.Model.ps1').read_text('utf-8-sig')
         definitions.append(literal_bodies(function(model,'Get-DomeniaQueryLibraryDefinitionValidationCode'))[0])
         return lease+'\n'+sqlite+'\n'+'\n'.join(definitions)+'\n'+literal

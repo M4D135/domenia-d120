@@ -232,9 +232,12 @@ function Get-DomeniaQueryLibraryDefinitionValidationCode {
         if($errors.Count){throw ('Module de validation invalide : '+$name)}
         foreach($function in $ast.EndBlock.Statements){if($function -is [Management.Automation.Language.FunctionDefinitionAst]){$definitions.Add($function.Extent.Text)}}
     }
-    $catalogJson=ConvertTo-Json -InputObject @(Get-DomeniaExtendedProbeCatalog) -Depth 16 -Compress
+    # Validate the trusted catalog, then embed its source spelling. ConvertTo-Json differs between 5.1 and 7:
+    # serializing objects here made the worker hash depend on the host. Only line endings are canonicalized.
+    [void](Get-DomeniaExtendedProbeCatalog)
+    $catalogJson=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'Domenia-ProbeCatalog.json'),[Text.Encoding]::UTF8).Replace("`r`n","`n").Replace("`r","`n")
     $catalogBase64=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($catalogJson))
-    $definitions.Add("`$script:DomeniaExtendedProbeCatalog=@(ConvertFrom-Json -InputObject ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('$catalogBase64'))))")
+    $definitions.Add("`$script:DomeniaExtendedProbeCatalog=@((ConvertFrom-Json -InputObject ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('$catalogBase64')))).Probes)")
     $definitions.Add(@'
 function Assert-WQueryLibraryDefinition {
     param([string]$DefinitionJson,[int]$DefinitionVersion,[string]$RecipeId)

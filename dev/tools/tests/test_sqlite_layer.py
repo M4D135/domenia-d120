@@ -25,6 +25,7 @@ class SqliteLayerTest(unittest.TestCase):
         shutil.copyfile(DEV / 'wad/Domenia-Core.ps1', self.root / 'wad/Domenia-Core.ps1')
         for path in (DEV / 'wad/modules').glob('*.ps1'):
             shutil.copyfile(path, self.root / 'wad/modules' / path.name)
+        shutil.copyfile(DEV / 'wad/modules/Domenia-ProbeCatalog.json', self.root / 'wad/modules/Domenia-ProbeCatalog.json')
         shutil.copyfile(DEV / 'tools/operation-contracts.json', self.root / 'tools/operation-contracts.json')
         shutil.copyfile(DEV / 'tools/Production.Source.ps1', self.root / 'tools/Production.Source.ps1')
         self.saved = (layer.ROOT, contracts.ROOT)

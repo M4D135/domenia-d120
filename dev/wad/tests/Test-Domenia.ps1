@@ -457,28 +457,14 @@ try {
         $c=[IO.File]::ReadAllText((Join-Path $root 'tools\operation-contracts.json'))|ConvertFrom-Json
         $contracts=@($c)
         Assert-True ((Assert-DomeniaWorkerRegistry) -eq $contracts.Count) ('Registre / contrat : '+$hashes.Count+' / '+$contracts.Count)
-        # Search the operation bodies in every file the contract names (core and modules), not only core + Live.Model.
-        $literalNodes=@()
-        foreach($contractFile in @($contracts|ForEach-Object{[string]$_.File}|Sort-Object -Unique)) {
-            $fileTokens=$null;$fileErrors=$null
-            $fileAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root $contractFile),[ref]$fileTokens,[ref]$fileErrors)
-            Assert-True (@($fileErrors).Count -eq 0) ('Analyse impossible : '+$contractFile)
-            $literalNodes+=@($fileAst.FindAll({param($n)$n -is [Management.Automation.Language.StringConstantExpressionAst] -and $n.StringConstantType -eq [Management.Automation.Language.StringConstantType]::SingleQuotedHereString},$true))
+        . (Join-Path $root 'tools\Production.Source.ps1')
+        $cache=@{}
+        foreach($item in $contracts){
+            $body=Get-DomeniaBuildWorkerBody (Join-Path $root 'wad') $item $cache
+            $hash=Assert-DomeniaWorkerOperationCode -OperationId $item.Operation -Code $body
+            Assert-True ($hash -ceq $item.Sha256) ('Corps compose : '+$item.Operation)
+            Assert-Throws {Assert-DomeniaWorkerOperationCode -OperationId $item.Operation -Code ($body+"`n# altered")}
         }
-        $sha=[Security.Cryptography.SHA256]::Create()
-        try {
-            foreach($id in $hashes.Keys) {
-                $matches=0;$matchedCode=''
-                foreach($literal in $literalNodes) {
-                    $canonical=ConvertTo-DomeniaCanonicalWorkerCode ([string]$literal.Value)
-                    $h=[BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($canonical))).Replace('-','')
-                    if($h -ceq $hashes[$id]) {$matches++;$matchedCode=$canonical}
-                }
-                Assert-True ($matches -ge 1) ('Corps introuvable : '+$id)
-                Assert-DomeniaWorkerOperationCode -OperationId $id -Code $matchedCode
-                Assert-Throws {Assert-DomeniaWorkerOperationCode -OperationId $id -Code ($matchedCode+"`n# altered")}
-            }
-        } finally {$sha.Dispose()}
     }
     Test-Case 'Nettoyage reel : runspace local annule et detache' {
         $script:DetachedReadJobs=New-Object Collections.ArrayList

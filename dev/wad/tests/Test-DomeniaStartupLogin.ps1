@@ -91,15 +91,11 @@ try{
     Case 'Une empreinte en minuscules est refusee' {$r=Clone-Registry;$r['ReadLaps']=$r['ReadLaps'].ToLowerInvariant();Expect-Failure {Assert-DomeniaWorkerRegistry $r} 'Empreinte'}
     Case 'Un identifiant avec caracteres interdits est refuse' {$r=Clone-Registry;$r.Add('Bad-Operation',('A'*64));Expect-Failure {Assert-DomeniaWorkerRegistry $r} 'Identifiant'}
     Case 'Le corps de chaque operation correspond a son empreinte sans execution' {
-        $asts=@{}
+        . (Join-Path (Split-Path -Parent $wad) 'tools\Production.Source.ps1')
+        $cache=@{}
         foreach($item in $expected){
-            $path=Join-Path (Split-Path -Parent $wad) $item.File
-            if(-not $asts.ContainsKey($path)){$asts[$path]=Read-Ast $path}
-            $fn=Find-FunctionAst $asts[$path] $item.Function
-            $here=@($fn.FindAll({param($n) ($n -is [Management.Automation.Language.StringConstantExpressionAst] -or $n -is [Management.Automation.Language.ExpandableStringExpressionAst]) -and $n.Extent.Text.StartsWith('@')},$true)|Sort-Object {$_.Extent.StartOffset})
-            $raw=$here[[int]$item.LiteralIndex].Extent.Text -replace "`r`n","`n"
-            # Parse the literal spelling; never evaluate an operation to obtain its body.
-            $body=$raw.Substring(3,$raw.Length-6)
+            # Reconstruct trusted source; never invoke an operation or contact the directory.
+            $body=Get-DomeniaBuildWorkerBody $wad $item $cache
             $hash=Assert-DomeniaWorkerOperationCode -OperationId $item.Operation -Code $body
             Expect ($hash -ceq $item.Sha256) $item.Operation
         }

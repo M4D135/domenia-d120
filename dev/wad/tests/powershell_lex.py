@@ -81,3 +81,33 @@ def replacefunc(s,name,body):
     if len(pos)!=1:raise ValueError((name,'count',len(pos)))
     a,b=pos[0];return s[:a]+body.rstrip()+s[b:]
 
+
+
+def top_level_functions(source):
+    """Closed model-module subset: direct function statements, matching EndBlock.Statements.
+    Nested functions, script blocks and functions quoted in workers are excluded. Reject malformed delimiters;
+    Microsoft's AST remains the authority (Test-DomeniaWorkerComposition compares both parsers).
+    """
+    masked, issues = mask_ps(source)
+    if issues:
+        raise ValueError('Malformed model source: '+str(issues))
+    starts = {m.start(1): m for m in re.finditer(r'^[ \t]*(function\s+([\w-]+)\s*\{)', masked, re.M | re.I)}
+    stack = []
+    found = {}
+    active = None
+    pairs = {'}': '{', ')': '(', ']': '['}
+    for i, char in enumerate(masked):
+        if i in starts and not stack:
+            active = (starts[i].group(2), i)
+        if char in '{([':
+            stack.append(char)
+        elif char in '})]':
+            if not stack or stack.pop() != pairs[char]:
+                raise ValueError('Malformed model delimiter at '+str(i))
+            if not stack and active is not None:
+                name, start = active
+                found.setdefault(name, []).append((start, i+1))
+                active = None
+    if stack or active is not None:
+        raise ValueError('Unclosed model delimiter')
+    return found
