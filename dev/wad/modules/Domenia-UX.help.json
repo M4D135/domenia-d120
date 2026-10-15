@@ -14,16 +14,16 @@
     "Source": "specific-sensitive"
   },
   {
-    "Name": "TxtLoginPasswordVisible",
-    "Title": "Mot de passe",
-    "Text": "Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ.",
-    "Kind": "TextBox",
-    "Source": "specific-sensitive"
+    "Name": "LblLoginPasswordPeek",
+    "Title": "Mot de passe affiché",
+    "Text": "Mot de passe affiché pendant 5 secondes, en lecture seule, sans copie possible.",
+    "Kind": "TextBlock",
+    "Source": "X03"
   },
   {
     "Name": "BtnRevealLogin",
-    "Title": "Afficher ou masquer temporairement le mot de passe",
-    "Text": "Afficher ou masquer temporairement le mot de passe.",
+    "Title": "Afficher le mot de passe pendant 5 secondes",
+    "Text": "Affiche le mot de passe saisi pendant 5 secondes, en lecture seule. Rien nʼest copié ni enregistré.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -36,8 +36,8 @@
   },
   {
     "Name": "ChkRemember",
-    "Title": "Mémoriser uniquement l’identifiant",
-    "Text": "Conserve uniquement le nom de connexion pour la prochaine ouverture, jamais le mot de passe.",
+    "Title": "Se souvenir de mon identifiant",
+    "Text": "Après une connexion réussie, propose cet identifiant à la prochaine connexion. Le mot de passe nʼest jamais mémorisé par cette case.",
     "Kind": "CheckBox",
     "Source": "specific"
   },
@@ -61,6 +61,13 @@
     "Text": "Valide une fois le compte et le mot de passe saisis avec le moteur de connexion Domenia.",
     "Kind": "Button",
     "Source": "specific"
+  },
+  {
+    "Name": "BtnLoginOtherAccount",
+    "Title": "Utiliser un autre compte",
+    "Text": "Affiche le formulaire pour se connecter avec un autre compte et son mot de passe. Rien nʼest validé avant « Se connecter ».",
+    "Kind": "Button",
+    "Source": "X03"
   },
   {
     "Name": "BtnUxNavHome",
@@ -128,18 +135,53 @@
   {
     "Name": "TxtGlobalSearch",
     "Title": "Rechercher",
-    "Text": "Personne, poste ou groupe, dans tout le domaine : lʼOU et les filtres de la liste sont ignorés. Au clic, les recherches et fiches récentes ; pendant la frappe, des suggestions de la base locale. Seule Entrée interroge lʼannuaire.",
+    "Text": "Recherche de la barre : personne, compte, mail ou poste, dans le périmètre de la puce (Partout : tout le domaine ; Dans : lʼOU choisie et ses sous-OU) et pour le type choisi. Au clic, les recherches et fiches récentes ; pendant la frappe, des suggestions de la base locale. Seule Entrée interroge lʼannuaire, sans filtre de présence ni de liste.",
     "Kind": "TextBox",
     "Source": "specific",
     "Shortcut": ""
   },
   {
     "Name": "BtnGlobalSearch",
-    "Title": "Rechercher dans tout le domaine",
-    "Text": "Recherche dans tout le domaine, tous types, sans filtre OU, de présence ou de liste. Aucun poste sondé avant sélection.",
+    "Title": "Rechercher",
+    "Text": "Lance la recherche de la barre dans le périmètre et pour le type choisis par ses puces, sans filtre de présence ni de liste. Aucun poste sondé avant sélection.",
     "Kind": "Button",
     "Source": "specific",
     "Shortcut": ""
+  },
+  {
+    "Name": "UxSearchBarScope",
+    "Title": "Périmètre de la recherche",
+    "Text": "Périmètre et type de la recherche de la barre. Changer une puce ne lance rien : Entrée ou Rechercher interroge lʼannuaire.",
+    "Kind": "StackPanel",
+    "Source": "X02"
+  },
+  {
+    "Name": "LstSearchBarScope",
+    "Title": "Où chercher",
+    "Text": "Partout : tout le domaine. Dans : lʼOU choisie dans lʼarbre de Rechercher, sous-OU incluses. Le choix ne lance aucune lecture.",
+    "Kind": "ListBox",
+    "Source": "X02"
+  },
+  {
+    "Name": "ItmSearchBarScopeOu",
+    "Title": "Dans lʼOU choisie",
+    "Text": "Recherche limitée à lʼOU choisie dans lʼarbre de Rechercher et à ses sous-OU. Indisponible tant quʼaucune OU nʼest choisie.",
+    "Kind": "ListBoxItem",
+    "Source": "X02"
+  },
+  {
+    "Name": "LblSearchBarScopeOu",
+    "Title": "OU de la recherche",
+    "Text": "Recherche limitée à lʼOU choisie dans lʼarbre de Rechercher et à ses sous-OU. Indisponible tant quʼaucune OU nʼest choisie.",
+    "Kind": "TextBlock",
+    "Source": "X02"
+  },
+  {
+    "Name": "LstSearchBarType",
+    "Title": "Type cherché",
+    "Text": "Type cherché par la barre : tout, personnes, postes ou groupes. Le choix ne lance aucune lecture.",
+    "Kind": "ListBox",
+    "Source": "X02"
   },
   {
     "Name": "BtnCommandPalette",
@@ -192,8 +234,8 @@
   },
   {
     "Name": "BtnAccountsHeader",
-    "Title": "Identites",
-    "Text": "Choisit les identites utilisees par l application pour l annuaire, les postes et les secrets.",
+    "Title": "Identités de connexion",
+    "Text": "Ouvre les identités de connexion utilisées par Domenia pour lʼannuaire, les postes et les secrets.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -234,8 +276,8 @@
   },
   {
     "Name": "BtnUxHomeAccounts",
-    "Title": "Gérer les comptes",
-    "Text": "Annuaire, accès aux postes et secrets",
+    "Title": "Identités de connexion",
+    "Text": "Comptes utilisés par Domenia : annuaire, postes, secrets",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -425,24 +467,31 @@
   {
     "Name": "CmbGlobalType",
     "Title": "Type d’objet",
-    "Text": "Filtre la requête AD dans l’OU sélectionnée : tous, utilisateurs, machines, groupes, ou OU et conteneurs.",
+    "Text": "Type dʼobjet lu dans lʼOU choisie : tous les types, utilisateurs, machines, groupes, ou OU et conteneurs. Le filtre fait partie de la requête AD.",
     "Kind": "ComboBox",
     "Source": "existing-help"
   },
   {
     "Name": "CmbPresenceFilter",
     "Title": "Présence réseau",
-    "Text": "Filtre les observations réseau mémorisées en mode OU. Sans réponse au ping ne prouve pas que Windows est éteint. Aucun ping collectif.",
+    "Text": "Présence réseau mémorisée des postes de la liste : « Toute présence » les montre tous. « Sans réponse au ping » ne prouve pas quʼun poste est éteint. Aucun ping collectif ; le choix nʼest pas gardé dʼune session à lʼautre.",
     "Kind": "ComboBox",
     "Source": "existing-help",
     "Shortcut": ""
   },
   {
     "Name": "TxtGlobalLimit",
-    "Title": "Maximum de résultats",
-    "Text": "Nombre maximum de résultats affichés.",
+    "Title": "Lignes max",
+    "Text": "Nombre maximum de lignes lues dans lʼannuaire pour cette liste, 20 000 au plus. « Charger la suite » lit les lignes suivantes sans changer ce nombre.",
     "Kind": "TextBox",
     "Source": "existing-help"
+  },
+  {
+    "Name": "LblGlobalLimitUnit",
+    "Title": "Unité de la limite",
+    "Text": "La limite de la liste est un nombre de lignes lues dans lʼannuaire.",
+    "Kind": "TextBlock",
+    "Source": "X02"
   },
   {
     "Name": "BtnGlobalClear",
@@ -460,22 +509,22 @@
   },
   {
     "Name": "TxtBranchSearch",
-    "Title": "Saisissez ou consultez cette information",
-    "Text": "Saisissez ou consultez cette information. Le champ seul ne lance pas une action de modification.",
+    "Title": "Terme masqué de lʼOU",
+    "Text": "Champ masqué conservé pour compatibilité ; il reste vide. Pour réduire la liste affichée, utilisez « Filtrer la liste », sans requête AD.",
     "Kind": "TextBox",
     "Source": "label-help"
   },
   {
     "Name": "CmbObjectFilter",
-    "Title": "Choisissez une option dans la liste déroulante",
-    "Text": "Choisissez une option dans la liste déroulante.",
+    "Title": "Ancien filtre de type",
+    "Text": "Ancien filtre de type, masqué : le type se choisit dans la liste « Tous les types » au-dessus des résultats.",
     "Kind": "ComboBox",
     "Source": "label-help"
   },
   {
     "Name": "TxtBranchLimit",
-    "Title": "Saisissez ou consultez cette information",
-    "Text": "Saisissez ou consultez cette information. Le champ seul ne lance pas une action de modification.",
+    "Title": "Ancienne limite de branche",
+    "Text": "Ancienne limite de branche, masquée : la limite se règle dans « lignes max » au-dessus des résultats.",
     "Kind": "TextBox",
     "Source": "label-help"
   },
@@ -496,15 +545,15 @@
   },
   {
     "Name": "BtnClearBranch",
-    "Title": "Vider",
-    "Text": "Lance l’action indiquée sur le bouton.",
+    "Title": "Vider la recherche (commande masquée)",
+    "Text": "Commande masquée, remplacée par « Effacer la recherche » : vide le texte et les résultats sans modifier lʼOU choisie.",
     "Kind": "Button",
     "Source": "label-help"
   },
   {
     "Name": "DgObjects",
     "Title": "Résultats : sélection et ouverture explicite",
-    "Text": "Un clic precharge la fiche AD sans changer de page. Pour un poste : un ping et la lecture utilisateur si activee. Double-clic ou Entree ouvre la fiche en reutilisant sa lecture. Aucun scan collectif.",
+    "Text": "Un clic précharge la fiche AD sans changer de page ; pour un poste, un ping seulement si Vérifier au clic est coché. Double-clic ou Entrée ouvre la fiche en réutilisant sa lecture. Clic droit : actions de la ligne, sans écriture. Aucun scan collectif.",
     "Kind": "DataGrid",
     "Source": "existing-help",
     "Shortcut": ""
@@ -1280,11 +1329,18 @@
     "Source": "existing-help"
   },
   {
-    "Name": "LstGroupMembers",
+    "Name": "DgGroupMembers",
     "Title": "Membres directs du groupe",
-    "Text": "Membres directs du groupe. Clic droit pour rechercher ou copier.",
-    "Kind": "ListBox",
-    "Source": "existing-help"
+    "Text": "Membres directs du groupe : nom, type (connu de la copie locale) et OU ; le DN complet est dans lʼinfobulle de la ligne. Clic droit pour rechercher lʼobjet ou copier son DN.",
+    "Kind": "DataGrid",
+    "Source": "X02"
+  },
+  {
+    "Name": "TxtGroupMembersFilter",
+    "Title": "Filtrer les membres",
+    "Text": "Filtre les membres affichés par nom, type, OU ou DN. Aucune requête AD : seuls les membres déjà lus sont filtrés.",
+    "Kind": "TextBox",
+    "Source": "X02"
   },
   {
     "Name": "TabContainer",
@@ -1322,11 +1378,32 @@
     "Source": "existing-help"
   },
   {
-    "Name": "LstMemberOf",
-    "Title": "Groupes",
-    "Text": "Groupes dont cet objet est membre. Clic droit pour rechercher ou copier.",
-    "Kind": "ListBox",
-    "Source": "existing-help"
+    "Name": "DgMemberOf",
+    "Title": "Groupes de lʼobjet",
+    "Text": "Groupes dont cet objet est membre : nom, OU et appartenance (directe, ou imbriquée après « Groupes imbriqués ») ; le DN complet est dans lʼinfobulle de la ligne. Clic droit : rechercher, copier le DN, « Pourquoi membre ? ».",
+    "Kind": "DataGrid",
+    "Source": "X02"
+  },
+  {
+    "Name": "TxtMemberOfFilter",
+    "Title": "Filtrer les groupes",
+    "Text": "Filtre les groupes affichés par nom, OU, appartenance ou DN. Aucune requête AD : seuls les groupes déjà lus sont filtrés.",
+    "Kind": "TextBox",
+    "Source": "X02"
+  },
+  {
+    "Name": "BtnMemberOfNested",
+    "Title": "Lire les groupes imbriqués",
+    "Text": "Lit, à la demande, les groupes dont ces groupes sont membres (2 000 groupes, 16 niveaux et 10 secondes au plus) et les ajoute à la liste comme appartenances imbriquées. Lecture seule ; aucun parcours du domaine.",
+    "Kind": "Button",
+    "Source": "X02"
+  },
+  {
+    "Name": "LblMembershipWhy",
+    "Title": "Pourquoi membre",
+    "Text": "Réponse de « Pourquoi membre ? » : appartenance directe, chemin des groupes imbriqués lus, ou lecture incomplète. Le groupe principal nʼest pas compris dans memberOf.",
+    "Kind": "TextBlock",
+    "Source": "X02"
   },
   {
     "Name": "TabRaw",
@@ -1408,35 +1485,14 @@
   {
     "Name": "TabAccounts",
     "Title": "Comptes",
-    "Text": "Gestion des identités utilisées par Domenia. Les mots de passe ne sont jamais écrits dans Domenia.db ni dans les préférences.",
+    "Text": "Identités de connexion utilisées par Domenia : annuaire, postes et secrets. Les mots de passe ne sont jamais écrits dans Domenia.db ni dans les préférences.",
     "Kind": "TabItem",
     "Source": "existing-help"
   },
   {
     "Name": "BtnAccountAdRelogin",
     "Title": "Changer de compte",
-    "Text": "Ouvre la fenetre de connexion DOMENIA sans fermer le logiciel.",
-    "Kind": "Button",
-    "Source": "existing-help"
-  },
-  {
-    "Name": "TxtAccountAdUser",
-    "Title": "Compte annuaire",
-    "Text": "Identifiant utilisé pour l’annuaire. Se connecter demande le mot de passe dans la fenêtre de connexion ; modifier ce champ seul ne change pas la session.",
-    "Kind": "TextBox",
-    "Source": "specific"
-  },
-  {
-    "Name": "BtnAccountAdTest",
-    "Title": "Tester le compte annuaire",
-    "Text": "Vérifie l’identité selon le même moteur ADSI que la connexion. Pour changer d’identifiant, utilisez Se connecter.",
-    "Kind": "Button",
-    "Source": "specific"
-  },
-  {
-    "Name": "BtnAccountAdUse",
-    "Title": "Se connecter",
-    "Text": "Relance la connexion avec cet identifiant. Le mot de passe est demande dans la fenetre de connexion.",
+    "Text": "Ouvre la connexion sans fermer Domenia, préremplie avec le compte actuel : formulaire dʼabord, session Windows proposée dessous. Annuler conserve la session en cours.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -1462,18 +1518,25 @@
     "Source": "specific"
   },
   {
-    "Name": "BtnAccountRemoteTest",
-    "Title": "Tester",
-    "Text": "Teste lʼauthentification du compte contre le domaine.",
-    "Kind": "Button",
-    "Source": "existing-help"
-  },
-  {
     "Name": "BtnAccountRemoteSave",
     "Title": "Activer",
     "Text": "Charge ce compte en mémoire pour les opérations distantes.",
     "Kind": "Button",
     "Source": "existing-help"
+  },
+  {
+    "Name": "BtnAccountRemoteTry",
+    "Title": "Essayer sur le poste sélectionné",
+    "Text": "Lit une seule fois le système du poste ouvert dans Assistance poste (WMI, Win32_OperatingSystem), avec le compte utilisé pour les postes, pour vérifier le droit administrateur. Un seul poste, aucun relevé, aucun repli intrusif.",
+    "Kind": "Button",
+    "Source": "X03"
+  },
+  {
+    "Name": "LblAccountRemoteTry",
+    "Title": "Résultat de lʼessai du compte poste",
+    "Text": "Résultat du dernier essai du compte poste : accès administrateur, accès refusé ou poste injoignable. Rien nʼest enregistré.",
+    "Kind": "TextBlock",
+    "Source": "X03"
   },
   {
     "Name": "BtnAccountSecretsClear",
@@ -1582,17 +1645,17 @@
   },
   {
     "Name": "ComputerTabs",
-    "Title": "Vues d’assistance poste",
-    "Text": "Choisissez les informations AD, les actions, le diagnostic, l’inventaire, les logiciels ou les secrets du poste.",
+    "Title": "Vues dʼassistance poste",
+    "Text": "Cinq vues du poste : vue dʼensemble, intervenir, détails, diagnostic et secrets. Lʼen-tête reste visible dans chacune.",
     "Kind": "TabControl",
-    "Source": "specific"
+    "Source": "X04"
   },
   {
     "Name": "TabComputer",
-    "Title": "Machine",
-    "Text": "Nom, système, état du compte et utilisateur associé.",
+    "Title": "Vue dʼensemble",
+    "Text": "Fiche AD du poste et tableau de bord de son dernier inventaire. Aucune requête à lʼouverture.",
     "Kind": "TabItem",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "TxtCompName",
@@ -1722,17 +1785,17 @@
   },
   {
     "Name": "BtnRefreshMachineLink",
-    "Title": "Détecter lʼutilisateur",
-    "Text": "Recherche le dernier utilisateur connu du poste. Un lien déjà enregistré nʼest pas remplacé.",
+    "Title": "Détecter à nouveau lʼutilisateur",
+    "Text": "Interroge ce poste pour connaître lʼutilisateur connecté. Une association déjà enregistrée nʼest pas remplacée.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnOpenLinkedUser",
-    "Title": "Ouvrir lʼutilisateur",
-    "Text": "Ouvre la fiche de lʼutilisateur associé.",
+    "Title": "Ouvrir la fiche de lʼutilisateur associé",
+    "Text": "Ouvre la fiche de lʼutilisateur associé à ce poste. Aucune écriture, aucune sonde du poste.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnCompSave",
@@ -1743,94 +1806,136 @@
   },
   {
     "Name": "TabComputerAdmin",
-    "Title": "Actions",
-    "Text": "Activation, renommage, déplacement, groupes et actions à distance.",
+    "Title": "Intervenir",
+    "Text": "Se connecter au poste, le vérifier, intervenir, gérer son compte AD, lire ses sessions et ses services. Chaque action part sur un clic.",
     "Kind": "TabItem",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnCompEnable",
-    "Title": "Activer",
-    "Text": "Reactive le compte du poste dans le domaine.",
+    "Title": "Activer le compte du poste",
+    "Text": "Réactive le compte du poste dans le domaine. Le changement se confirme dans la page avant lʼenvoi.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnCompDisable",
-    "Title": "Desactiver",
-    "Text": "Désactive le compte du poste. Il ne pourra plus sʼauthentifier.",
+    "Title": "Désactiver le compte du poste",
+    "Text": "Désactive le compte du poste dans le domaine : il ne pourra plus sʼauthentifier. Le changement se confirme dans la page avant lʼenvoi.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnCompPing",
-    "Title": "Ping",
-    "Text": "Teste si le poste répond sur le réseau.",
+    "Title": "Tester la réponse",
+    "Text": "Envoie un ping à ce poste et met à jour sa présence. Aucune autre sonde.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnCompRdp",
     "Title": "Bureau à distance",
-    "Text": "Ouvre une connexion Bureau à distance vers ce poste.",
+    "Text": "Ouvre une connexion Bureau à distance vers ce poste avec le client Windows (mstsc).",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnCompC",
-    "Title": "Ouvrir C$",
-    "Text": "Ouvre le partage administratif C du poste dans lʼexplorateur.",
+    "Title": "Ouvrir le disque C (C$)",
+    "Text": "Ouvre le partage administratif C$ du poste dans lʼExplorateur, avec le compte des opérations poste.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnCompManage",
-    "Title": "Gestion de l ordinateur",
-    "Text": "Ouvre la console Gestion de lʼordinateur sur ce poste.",
+    "Title": "Gestion de lʼordinateur",
+    "Text": "Ouvre la console Gestion de lʼordinateur sur ce poste : services, journaux, disques et utilisateurs locaux.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnCompEvents",
-    "Title": "Journaux",
+    "Title": "Observateur dʼévénements",
     "Text": "Ouvre lʼObservateur dʼévénements sur ce poste.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnCompServices",
-    "Title": "Services",
-    "Text": "Ouvre la console Services. Utilise Action puis Se connecter pour cibler ce poste.",
+    "Title": "Ouvrir les services dans la console",
+    "Text": "Ouvre Gestion de lʼordinateur sur ce poste : ses services y sont listés pour une action avancée.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnCompPSRemote",
-    "Title": "Commande PowerShell",
-    "Text": "Copie une commande de connexion PowerShell distante dans le presse-papiers.",
+    "Title": "Copier la commande PowerShell",
+    "Text": "Copie une commande Enter-PSSession pour ce poste. Avec un compte poste, elle le nomme : Windows demandera son mot de passe, jamais copié.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnCompRimotte",
     "Title": "Exécuter un programme",
-    "Text": "Lance un programme sur ce poste via une tache planifiee RunOnce unique et auto-supprimee.",
+    "Text": "Prépare dans la page le lancement dʼun programme sur ce poste : en arrière-plan sous le compte système, ou dans la session dʼun utilisateur. Rien ne part avant « Lancer » et sa confirmation.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnCompGpUpdate",
     "Title": "Actualiser les stratégies",
-    "Text": "Force la mise à jour des stratégies de groupe sur le poste. Demande confirmation.",
+    "Text": "Demande au poste dʼappliquer de nouveau les stratégies de groupe (gpupdate /force), après une confirmation dans la page.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnCompRestart",
-    "Title": "Redémarrer",
-    "Text": "Redémarre le poste. Demande confirmation.",
+    "Title": "Redémarrer le poste",
+    "Text": "Lit dʼabord les sessions ouvertes du poste, puis propose un redémarrage différé avec message à lʼutilisateur ou immédiat. Rien ne part avant votre confirmation.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnCompInterventionGrant",
+    "Title": "Autoriser une intervention sur ce poste pendant 5 minutes",
+    "Text": "Autorise pendant 5 minutes, pour ce poste seulement, les transports qui déposent un script, un service ou une tâche : « Exécuter un programme », replis PsExec ou tâche planifiée. Ne lance rien ; les droits restent obligatoires.",
+    "Kind": "Button",
+    "Source": "X03"
+  },
+  {
+    "Name": "UxCompInterventionPill",
+    "Title": "Intervention autorisée sur ce poste",
+    "Text": "Autorisation dʼintervention en cours sur ce poste, avec le temps restant. Elle ne vaut que pour ce poste et pour vos actions volontaires.",
+    "Kind": "Border",
+    "Source": "X03"
+  },
+  {
+    "Name": "LblCompIntervention",
+    "Title": "Temps restant de lʼintervention",
+    "Text": "Temps restant de lʼautorisation dʼintervention sur ce poste.",
+    "Kind": "TextBlock",
+    "Source": "X03"
+  },
+  {
+    "Name": "BtnCompInterventionRevoke",
+    "Title": "Retirer lʼautorisation dʼintervention",
+    "Text": "Retire lʼautorisation maintenant. Les sondes déjà envoyées peuvent finir ; aucune nouvelle intervention avec dépôt ne sera autorisée.",
+    "Kind": "Button",
+    "Source": "X03"
+  },
+  {
+    "Name": "BtnCompReadFallback",
+    "Title": "Lire ce poste par tâche planifiée",
+    "Text": "À demander quand CIM ne répond pas : autorise une seule lecture de ce poste par PsExec ou tâche planifiée. Autorisation distincte de lʼintervention, retirée après cette lecture.",
+    "Kind": "Button",
+    "Source": "X03"
+  },
+  {
+    "Name": "LblCompInterventionState",
+    "Title": "État des autorisations du poste",
+    "Text": "État des autorisations de ce poste : intervention de 5 minutes et lecture par tâche planifiée. Rien nʼest autorisé sans votre clic.",
+    "Kind": "TextBlock",
+    "Source": "X03"
   },
   {
     "Name": "TxtCompNewName",
@@ -1842,9 +1947,9 @@
   {
     "Name": "BtnCompRename",
     "Title": "Renommer dans Active Directory",
-    "Text": "Renomme le compte d’ordinateur dans l’annuaire. Cette action ne renomme pas Windows sur le poste.",
+    "Text": "Renomme le compte dʼordinateur dans lʼannuaire. Cette action ne renomme pas Windows sur le poste.",
     "Kind": "Button",
-    "Source": "specific"
+    "Source": "X04"
   },
   {
     "Name": "TxtCompGroupTarget",
@@ -1855,66 +1960,80 @@
   },
   {
     "Name": "BtnCompAddGroup",
-    "Title": "Ajouter",
-    "Text": "Ajoute ce poste au groupe indique.",
+    "Title": "Ajouter au groupe",
+    "Text": "Ajoute ce poste au groupe indiqué.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "BtnCompRemoveGroup",
-    "Title": "Retirer",
-    "Text": "Retire ce poste du groupe indique.",
+    "Title": "Retirer du groupe",
+    "Text": "Retire ce poste du groupe indiqué.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "TabComputerHealth",
     "Title": "Diagnostic",
-    "Text": "Vérifie que le poste répond et que les services dʼadministration sont joignables.",
+    "Text": "Contrôles de joignabilité et dʼadministration du poste ; explorateur WMI en profil Expert.",
     "Kind": "TabItem",
-    "Source": "existing-help"
+    "Source": "X04"
   },
   {
     "Name": "TxtMachineAdminUser",
     "Title": "Compte poste",
-    "Text": "Compte disposant de droits d administration sur les postes. Vide : ta session Windows est utilisee.",
+    "Text": "Compte administrateur des postes, sous la forme DOMAINE\\nom ou POSTE\\nom. Vide, Domenia garde le compte en service affiché au-dessus.",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
   {
     "Name": "PwdMachineAdmin",
-    "Title": "Mot de passe",
-    "Text": "Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ.",
+    "Title": "Mot de passe du compte poste",
+    "Text": "Saisie protégée : lʼaide contextuelle ne lit jamais la valeur de ce champ.",
     "Kind": "PasswordBox",
     "Source": "specific-sensitive"
   },
   {
-    "Name": "TxtMachineAdminVisible",
-    "Title": "Mot de passe",
-    "Text": "Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ.",
-    "Kind": "TextBox",
-    "Source": "specific-sensitive"
+    "Name": "LblMachineAdminPeek",
+    "Title": "Mot de passe affiché",
+    "Text": "Mot de passe affiché pendant 5 secondes, en lecture seule, sans copie possible.",
+    "Kind": "TextBlock",
+    "Source": "X03"
   },
   {
     "Name": "BtnRevealMachineAdmin",
-    "Title": "Afficher ou masquer le mot de passe du compte poste",
-    "Text": "Afficher ou masquer le mot de passe du compte poste.",
+    "Title": "Afficher le mot de passe du compte poste pendant 5 secondes",
+    "Text": "Affiche le mot de passe du compte poste pendant 5 secondes, en lecture seule. Rien nʼest copié ni enregistré.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
+    "Name": "LblMachineCredential",
+    "Title": "Compte utilisé pour les postes",
+    "Text": "Compte réellement utilisé pour la prochaine opération sur ce poste, et son origine. Aucun mot de passe nʼest affiché.",
+    "Kind": "TextBlock",
+    "Source": "X03"
+  },
+  {
     "Name": "BtnSetMachineCredential",
-    "Title": "Utiliser ce compte",
-    "Text": "Utilise ce compte pour interroger les postes. Il n est jamais enregistre sur le disque.",
+    "Title": "Utiliser ce compte pour les postes",
+    "Text": "Utilise ce compte pour les opérations sur les postes, en mémoire seulement. Il nʼest jamais enregistré sur le disque.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnClearMachineCredential",
-    "Title": "Ma session Windows",
-    "Text": "Revient a ta session Windows pour interroger les postes.",
+    "Title": "Revenir au compte de connexion",
+    "Text": "Oublie le compte saisi : les postes sont interrogés avec le compte Postes de la page Comptes sʼil existe, sinon avec le compte de connexion ou votre session Windows.",
     "Kind": "Button",
     "Source": "existing-help"
+  },
+  {
+    "Name": "BtnMachineAccountClose",
+    "Title": "Fermer le panneau du compte poste",
+    "Text": "Ferme ce panneau sans changer le compte utilisé pour les postes.",
+    "Kind": "Button",
+    "Source": "X03"
   },
   {
     "Name": "BtnRunComputerDiag",
@@ -2205,22 +2324,22 @@
   },
   {
     "Name": "BtnLoadBitLocker",
-    "Title": "BitLocker",
-    "Text": "Recupere les cles de recuperation BitLocker enregistrees pour ce poste.",
+    "Title": "Lister les clés BitLocker",
+    "Text": "Liste les clés de récupération BitLocker de ce poste. Aucune clé nʼest affichée sans votre demande.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnLoadLaps",
-    "Title": "LAPS",
-    "Text": "Recupere le mot de passe administrateur local gere par LAPS.",
+    "Title": "Lire le mot de passe LAPS",
+    "Text": "Lit le mot de passe administrateur local géré par LAPS. Il reste masqué jusquʼà votre demande.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnToggleSecrets",
-    "Title": "Afficher",
-    "Text": "Affiche ou masque les valeurs. Elles ne sont jamais conservees apres la fermeture.",
+    "Title": "Afficher la valeur choisie",
+    "Text": "Affiche uniquement la valeur sélectionnée, brièvement. Les autres restent masquées.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -2234,21 +2353,21 @@
   {
     "Name": "BtnCopyAllSecrets",
     "Title": "Copier tout",
-    "Text": "Copie toutes les valeurs affichees.",
+    "Text": "Copie groupée désactivée : une valeur à la fois.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnClearSecrets",
     "Title": "Vider",
-    "Text": "Efface les valeurs affichees.",
+    "Text": "Efface les valeurs lues, conservées en mémoire.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "DgSecrets",
     "Title": "Clés et mots de passe récupérés",
-    "Text": "Clés et mots de passe récupérés. Clic droit pour copier.",
+    "Text": "Clés et mots de passe lus pour ce poste, masqués par défaut. Choisissez une ligne, puis affichez-la ou copiez-la avec les boutons ci-dessus : une valeur à la fois.",
     "Kind": "DataGrid",
     "Source": "existing-help"
   },
@@ -2360,9 +2479,86 @@
   {
     "Name": "BtnParkReset",
     "Title": "Oublier les relevés",
-    "Text": "Efface lʼétat du parc. Le prochain relevé repartira de zéro.",
+    "Text": "Efface lʼétat du parc dans la base locale, après confirmation et une sauvegarde vérifiée. Le prochain relevé repartira de zéro ; les associations sont conservées.",
     "Kind": "Button",
     "Source": "existing-help"
+  },
+  {
+    "Name": "BtnIndexScopeUpdate",
+    "Title": "Tout relire dans lʼOU choisie",
+    "Text": "Action recommandée : relit tous les utilisateurs et postes de lʼOU choisie et de ses sous-OU. Demande une sélection si aucune OU nʼest choisie. Les autres branches sont conservées. Une sauvegarde vérifiée de la base précède la lecture.",
+    "Kind": "Button",
+    "Source": "X06-storage"
+  },
+  {
+    "Name": "LblIndexTileAccounts",
+    "Title": "Comptes de la base locale",
+    "Text": "Comptes utilisateurs enregistrés dans la base locale de ce domaine.",
+    "Kind": "TextBlock",
+    "Source": "X06-storage"
+  },
+  {
+    "Name": "LblIndexTileAccountsDetail",
+    "Title": "Précision sur les comptes",
+    "Text": "Nature des objets comptés dans la tuile Comptes.",
+    "Kind": "TextBlock",
+    "Source": "X06-storage"
+  },
+  {
+    "Name": "LblIndexTileComputers",
+    "Title": "Postes de la base locale",
+    "Text": "Postes (objets ordinateur) enregistrés dans la base locale de ce domaine.",
+    "Kind": "TextBlock",
+    "Source": "X06-storage"
+  },
+  {
+    "Name": "LblIndexTileComputersDetail",
+    "Title": "Postes actifs et désactivés",
+    "Text": "Postes actifs et désactivés dans Active Directory, selon la dernière lecture enregistrée.",
+    "Kind": "TextBlock",
+    "Source": "X06-storage"
+  },
+  {
+    "Name": "LblIndexTileLinks",
+    "Title": "Associations de la base locale",
+    "Text": "Associations utilisateur-poste conservées dans la base locale.",
+    "Kind": "TextBlock",
+    "Source": "X06-storage"
+  },
+  {
+    "Name": "LblIndexTileLinksDetail",
+    "Title": "Précision sur les associations",
+    "Text": "Nature des liens comptés dans la tuile Associations.",
+    "Kind": "TextBlock",
+    "Source": "X06-storage"
+  },
+  {
+    "Name": "LblIndexTileUpdated",
+    "Title": "Âge de la dernière mise à jour",
+    "Text": "Âge de la dernière lecture complète couvrant le périmètre choisi.",
+    "Kind": "TextBlock",
+    "Source": "X06-storage"
+  },
+  {
+    "Name": "LblIndexTileUpdatedDetail",
+    "Title": "Date de la dernière mise à jour",
+    "Text": "Date et heure de la dernière lecture complète couvrant le périmètre choisi.",
+    "Kind": "TextBlock",
+    "Source": "X06-storage"
+  },
+  {
+    "Name": "LblIndexLocation",
+    "Title": "Emplacement de la base",
+    "Text": "Base autonome de ce domaine : taille et dernière sauvegarde. Le chemin complet du fichier sʼaffiche dans cette infobulle dès que la base est ouverte.",
+    "Kind": "TextBlock",
+    "Source": "X06-storage"
+  },
+  {
+    "Name": "BtnIndexCopyPath",
+    "Title": "Copier le chemin de la base",
+    "Text": "Copie le chemin complet du fichier de la base dans le presse-papiers.",
+    "Kind": "Button",
+    "Source": "X06-storage"
   },
   {
     "Name": "TxtIndexSearch",
@@ -2421,11 +2617,11 @@
     "Source": "existing-help"
   },
   {
-    "Name": "BtnCountDomain",
-    "Title": "Analyser et denombrer",
-    "Text": "Compte en plus les utilisateurs, machines, groupes et unités dʼorganisation. Plus long sur un grand annuaire.",
-    "Kind": "Button",
-    "Source": "existing-help"
+    "Name": "LblDomainLocalTotals",
+    "Title": "Totaux de la copie locale",
+    "Text": "Totaux de la copie locale (base autonome) et date de sa dernière synchronisation. Aucun dénombrement nʼest lancé sur lʼannuaire.",
+    "Kind": "TextBlock",
+    "Source": "specific"
   },
   {
     "Name": "BtnCopyDomain",
@@ -2610,62 +2806,6 @@
     "Source": "specific"
   },
   {
-    "Name": "TxtRTarget",
-    "Title": "Poste cible",
-    "Text": "Machine visée par cette exécution distante. Vérifiez soigneusement cette cible avant de lancer.",
-    "Kind": "TextBox",
-    "Source": "specific"
-  },
-  {
-    "Name": "CmbRMode",
-    "Title": "Mode d’exécution",
-    "Text": "Choisissez le contexte d’exécution proposé. Le mode interactif demande le compte de la session visée.",
-    "Kind": "ComboBox",
-    "Source": "specific"
-  },
-  {
-    "Name": "TxtRUser",
-    "Title": "Utilisateur interactif",
-    "Text": "Utilise uniquement en mode interactif. Le compte doit avoir une session ouverte sur la cible.",
-    "Kind": "TextBox",
-    "Source": "existing-help"
-  },
-  {
-    "Name": "TxtRExe",
-    "Title": "Programme cote cible",
-    "Text": "Chemin executable tel qu il existe sur le poste cible, par exemple %SystemRoot%\\System32\\notepad.exe.",
-    "Kind": "TextBox",
-    "Source": "existing-help"
-  },
-  {
-    "Name": "TxtRArgs",
-    "Title": "Arguments du programme",
-    "Text": "Paramètres transmis au programme distant. Ne placez pas de mot de passe ou de secret dans une ligne de commande.",
-    "Kind": "TextBox",
-    "Source": "specific"
-  },
-  {
-    "Name": "ChkRElevated",
-    "Title": "Exécution avec élévation",
-    "Text": "Demande le niveau d’exécution le plus élevé autorisé pour la tâche. Cela n’accorde pas de nouveaux droits au compte.",
-    "Kind": "CheckBox",
-    "Source": "specific"
-  },
-  {
-    "Name": "BtnRCancel",
-    "Title": "Annuler l’exécution",
-    "Text": "Ferme cette préparation sans lancer le programme distant.",
-    "Kind": "Button",
-    "Source": "specific"
-  },
-  {
-    "Name": "BtnRRun",
-    "Title": "Lancer le programme",
-    "Text": "Valide la cible et les paramètres de la tâche distante. Vérifiez la commande avant de confirmer.",
-    "Kind": "Button",
-    "Source": "specific"
-  },
-  {
     "Name": "TxtStartupDetail",
     "Title": "Étape de chargement",
     "Text": "Détail de l’étape actuelle de démarrage. Ce champ est uniquement informatif.",
@@ -2688,8 +2828,8 @@
   },
   {
     "Name": "BtnWindowsLogin",
-    "Title": "Utiliser mon compte Windows",
-    "Text": "Utilise la session Windows courante si cette option est autorisée. Cela ne demande pas le mot de passe du champ et n’ajoute aucun droit.",
+    "Title": "Continuer avec la session Windows",
+    "Text": "En session de domaine, « Continuer en tant que DOMAINE\\nom » ouvre Domenia avec votre session Windows, sans mot de passe. Aucun droit nʼest ajouté.",
     "Kind": "Button",
     "Source": "specific"
   },
@@ -2996,8 +3136,8 @@
   },
   {
     "Name": "TxtSuiteResultFilter",
-    "Title": "Filtrer les lignes chargées",
-    "Text": "Filtre local littéral dans le nom, login, type, présence et association. Plusieurs mots se combinent. Aucun appel AD. La limite LDAP reste inchangée.",
+    "Title": "Filtrer la liste",
+    "Text": "Filtre de la liste : garde les lignes déjà chargées dont le nom, le login, le type, la présence ou lʼassociation contient le texte. Plusieurs mots se combinent. Aucune requête AD ; une nouvelle recherche le remet à zéro.",
     "Kind": "Experience"
   },
   {
@@ -3005,6 +3145,34 @@
     "Title": "Effacer le filtre local",
     "Text": "Réaffiche les lignes déjà chargées, en conservant le filtre OU, la présence et le texte de recherche AD.",
     "Kind": "Experience"
+  },
+  {
+    "Name": "UxSearchFilteredEmpty",
+    "Title": "Lignes masquées par le filtre",
+    "Text": "Toutes les lignes chargées sont masquées par le filtre de la liste (texte ou présence). Aucune requête AD nʼest relancée.",
+    "Kind": "Border",
+    "Source": "X02"
+  },
+  {
+    "Name": "LblSearchFilteredEmpty",
+    "Title": "Lignes masquées",
+    "Text": "Nombre de lignes chargées que le filtre de la liste masque. La recherche et sa limite restent inchangées.",
+    "Kind": "TextBlock",
+    "Source": "X02"
+  },
+  {
+    "Name": "LblSearchFilteredDetail",
+    "Title": "Filtre de la liste",
+    "Text": "Filtres de la liste appliqués aux lignes déjà chargées.",
+    "Kind": "TextBlock",
+    "Source": "X02"
+  },
+  {
+    "Name": "BtnSearchFilteredClear",
+    "Title": "Effacer le filtre de la liste",
+    "Text": "Vide le texte du filtre et remet la présence sur « Toute présence ». Les lignes déjà chargées réapparaissent, sans requête AD.",
+    "Kind": "Button",
+    "Source": "X02"
   },
   {
     "Name": "UxSuiteIdentities",
@@ -3055,11 +3223,163 @@
     "Kind": "Experience"
   },
   {
-    "Name": "ChkLiveUsers",
-    "Title": "Vérification sur sélection",
-    "Text": "Un clic lance un ping unique sur le poste. Cochée : lit aussi son utilisateur console. Décochée : ping seulement. Jamais de sondage collectif.",
+    "Name": "ChkLiveVerifyOnClick",
+    "Title": "Vérifier au clic",
+    "Text": "Décochée : un clic sur un poste précharge seulement sa fiche AD, sans aucun appel au poste. Cochée : le clic envoie aussi un seul ping au poste sélectionné. Revérifier ce poste reste le geste manuel. Jamais de sondage collectif.",
     "Kind": "CheckBox",
-    "Source": "R1.12-static",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "ChkLiveUsersOnClick",
+    "Title": "Vérifier aussi lʼutilisateur connecté",
+    "Text": "Avec Vérifier au clic : lit aussi lʼutilisateur connecté à la console du poste cliqué (CIM). Revérifier ce poste le lit toujours. Les sessions RDP ne sont pas recensées.",
+    "Kind": "CheckBox",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "BtnParkVerify",
+    "Title": "Vérifier la liste",
+    "Text": "Vérifie les postes de la portée choisie à côté des résultats : la liste affichée après vos filtres, ou seulement les lignes sélectionnées. Sans choix dans cette session, ouvre les trois vérifications ; ensuite, relance la dernière choisie. Confirmation avec le nombre de postes avant tout envoi, plafond réglable (500 postes par défaut). Pendant un relevé, ce bouton lʼarrête.",
+    "Kind": "Button",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "BtnParkVerifyMenu",
+    "Title": "Choisir la vérification de la liste",
+    "Text": "Choisir la vérification de la liste : Qui répond ? (ping), Qui est connecté ? (ping et utilisateur console) ou Matériel et widgets (relevé WMI léger). Le dernier choix devient lʼaction du bouton pour cette session.",
+    "Kind": "Button",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "PbParkProgress",
+    "Title": "Avancement du relevé de la liste",
+    "Text": "Avancement du relevé de la liste en cours.",
+    "Kind": "ProgressBar",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "UxSelectionBar",
+    "Title": "Actions sur la sélection",
+    "Text": "Actions sur les lignes sélectionnées : ping ou utilisateur connecté des seuls postes sélectionnés, avec la même confirmation et le même plafond que la liste ; copie et export de la sélection.",
+    "Kind": "StackPanel",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "LblSelectionBar",
+    "Title": "Lignes sélectionnées",
+    "Text": "Nombre de lignes sélectionnées. Ctrl ou Maj et clic pour composer la sélection.",
+    "Kind": "TextBlock",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "BtnSelectionPing",
+    "Title": "Pinger les postes sélectionnés",
+    "Text": "Pinge les seuls postes sélectionnés, après confirmation avec leur nombre. Aucune lecture de session.",
+    "Kind": "Button",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "BtnSelectionConsole",
+    "Title": "Utilisateur connecté des postes sélectionnés",
+    "Text": "Ping puis utilisateur connecté à la console des seuls postes sélectionnés, après confirmation avec leur nombre.",
+    "Kind": "Button",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "BtnSelectionCopy",
+    "Title": "Copier la sélection pour un ticket",
+    "Text": "Copie une ligne lisible par objet sélectionné pour un ticket : type, nom, compte, présence, utilisateur console et OU. Sans GUID ni champ interne.",
+    "Kind": "Button",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "BtnSelectionExport",
+    "Title": "Exporter la sélection",
+    "Text": "Exporte les lignes sélectionnées au format CSV, avec les colonnes visibles.",
+    "Kind": "Button",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "UxParkProgress",
+    "Title": "Relevé de la liste",
+    "Text": "Avancement du relevé de la liste : postes traités, joignables, puis en ligne, sans réponse et en erreur. Le détail complet est écrit dans le journal.",
+    "Kind": "StackPanel",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "LblParkProgress",
+    "Title": "Avancement du relevé",
+    "Text": "Avancement du relevé de la liste : postes traités, joignables, puis en ligne, sans réponse et en erreur. Le détail complet est écrit dans le journal.",
+    "Kind": "TextBlock",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "PnlParkOutcome",
+    "Title": "Résultat du ping de la liste",
+    "Text": "Résultat du dernier ping de la liste. Chaque pastille filtre la liste par présence ; un second clic retire le filtre.",
+    "Kind": "StackPanel",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "BtnParkOutcomeOnline",
+    "Title": "Afficher les postes en ligne",
+    "Text": "Affiche seulement les postes qui ont répondu au ping. Un second clic retire le filtre. Filtre local, sans appel réseau.",
+    "Kind": "Button",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "BtnParkOutcomeNoReply",
+    "Title": "Afficher les postes sans réponse",
+    "Text": "Affiche seulement les postes sans réponse au ping : éteint, hors réseau ou ICMP filtré, sans preuve dʼarrêt. Un second clic retire le filtre.",
+    "Kind": "Button",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "BtnParkOutcomeError",
+    "Title": "Afficher les postes en erreur de ping",
+    "Text": "Affiche seulement les postes dont le ping nʼa pas abouti (résolution DNS, erreur réseau ou lecture interrompue). Un second clic retire le filtre.",
+    "Kind": "Button",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "UxComputerParkRun",
+    "Title": "Relevé de ce poste",
+    "Text": "Relevé en cours des requêtes des widgets de ce poste, indépendant du relevé de la liste de Rechercher.",
+    "Kind": "StackPanel",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "LblComputerParkStatus",
+    "Title": "Avancement du relevé de ce poste",
+    "Text": "Avancement du relevé de ce poste. Le détail complet est écrit dans le journal.",
+    "Kind": "TextBlock",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "BtnComputerParkStop",
+    "Title": "Arrêter le relevé de ce poste",
+    "Text": "Arrête le relevé de ce poste. Les mesures déjà reçues sont conservées ; rien nʼest relancé.",
+    "Kind": "Button",
+    "Source": "X01",
     "Shortcut": ""
   },
   {
@@ -3078,22 +3398,19 @@
     "Source": "R1.13"
   },
   {
-    "Name": "TabSessions",
-    "Title": "Sessions Windows",
-    "Text": "Lecture à la demande des sessions console et RDP. Aucune fermeture de session.",
-    "Sensitive": false
-  },
-  {
     "Name": "BtnSessionsRead",
     "Title": "Lire les sessions Windows",
     "Text": "Interroge WTS sur la machine sélectionnée. Utilise le compte poste indiqué ; aucune déconnexion ni écriture distante.",
+    "Kind": "Button",
     "Sensitive": false
   },
   {
     "Name": "DgSessions",
     "Title": "Sessions Windows",
-    "Text": "Sessions observées avec leur état. Certains comptes peuvent rester non lisibles faute de droits.",
-    "Sensitive": false
+    "Text": "Sessions avec un compte. Les lignes sans compte (services, écran de connexion, écouteur RDP) sont masquées et comptées dans lʼétat. Double-clic sur une ligne : ouvrir la fiche du compte.",
+    "Kind": "DataGrid",
+    "Sensitive": false,
+    "Source": "X04"
   },
   {
     "Name": "TabGuard",
@@ -3109,20 +3426,20 @@
   },
   {
     "Name": "BtnGuardReceiptVerify",
-    "Title": "Vérifier la postcondition",
-    "Text": "Relit la valeur attendue sur le contrôleur initial lorsque cette opération permet une vérification sûre.",
+    "Title": "Vérifier par relecture",
+    "Text": "Relit sur le contrôleur initial les valeurs attendues dʼune modification de fiche. Aucune commande nʼest renvoyée.",
     "Sensitive": false
   },
   {
     "Name": "BtnGuardReceiptReview",
-    "Title": "Consigner une revue externe",
-    "Text": "Après contrôle manuel réel, consigne une justification. Ne transforme pas l'action en succès automatique.",
+    "Title": "Consigner la revue",
+    "Text": "Enregistre dans le reçu le motif saisi, après votre contrôle réel. Le reçu devient « Revue manuelle », pas un succès automatique.",
     "Sensitive": false
   },
   {
     "Name": "DgGuardReceipts",
-    "Title": "DgGuardReceipts",
-    "Text": "Intentions et résultats durables. Une absence de confirmation reste à vérifier.",
+    "Title": "Reçus des opérations",
+    "Text": "Reçus des écritures envoyées par Domenia, ceux à vérifier en premier. Survolez lʼobjet pour lire son nom distinctif.",
     "Sensitive": false
   },
   {
@@ -3146,8 +3463,10 @@
   {
     "Name": "BtnGuardStoreResume",
     "Title": "Reprendre les sauvegardes",
-    "Text": "Relance les lots de cache interrompus apres correction du stockage.",
-    "Sensitive": false
+    "Text": "Relance lʼenregistrement des lots restés en mémoire après un échec du stockage local. Aucune écriture dans lʼannuaire.",
+    "Kind": "Button",
+    "Sensitive": false,
+    "Source": "X04"
   },
   {
     "Name": "BtnGuardExport",
@@ -3360,6 +3679,13 @@
     "Kind": "Button"
   },
   {
+    "Name": "BtnCompAccountPill",
+    "Title": "Compte poste",
+    "Text": "Compte utilisé pour les opérations sur ce poste : C$, consoles, inventaire, diagnostic et sessions. Ouvre un panneau pour saisir un autre compte ou revenir au compte de connexion.",
+    "Kind": "Button",
+    "Source": "X03"
+  },
+  {
     "Name": "BtnRestoreLink",
     "Title": "Restaurer une association",
     "Text": "Nomme et remet l’association supprimée localement le plus récemment, depuis le journal des relations. Inactif quand il n’y a rien à restaurer. Aucun objet Active Directory nʼest lu ni modifié.",
@@ -3411,9 +3737,37 @@
   {
     "Name": "BtnSearchMore",
     "Title": "Charger la suite",
-    "Text": "Disponible quand la liste est limitée : relit la même recherche avec une limite doublée, jusquʼà 500 lignes, sans doublon ni ancien contexte. La limite saisie nʼest pas modifiée.",
+    "Text": "Disponible quand la liste est limitée : lit seulement les lignes suivantes de la même recherche, triées par nom, sans relire les lignes déjà chargées. Plafond de sécurité : 20 000 lignes.",
     "Kind": "Button",
     "Source": "d120-recherche"
+  },
+  {
+    "Name": "BtnSearchMoreJump",
+    "Title": "Charger jusquʼà 1 000",
+    "Text": "Porte la liste à 1 000 lignes en une fois (puis 5 000, puis 20 000) : lit seulement les lignes manquantes, sans relire celles déjà chargées.",
+    "Kind": "Button",
+    "Source": "X02"
+  },
+  {
+    "Name": "BtnSearchContains",
+    "Title": "Chercher aussi les noms qui contiennent ce texte",
+    "Text": "Proposé quand la barre du haut trouve peu de noms ou aucun : relance la même recherche (même périmètre, même type, même limite) sur les noms qui contiennent le texte, pas seulement ceux qui commencent par lui. Plus lent ; rien nʼest lu avant le clic.",
+    "Kind": "Button",
+    "Source": "X02"
+  },
+  {
+    "Name": "BtnSearchResultMenu",
+    "Title": "Autres actions de la liste",
+    "Text": "Autres actions de la liste : actualiser, exporter en CSV et choisir les colonnes affichées. Aucune lecture ne part à lʼouverture du menu.",
+    "Kind": "Button",
+    "Source": "X02"
+  },
+  {
+    "Name": "LblSearchCardCount",
+    "Title": "Lignes affichées",
+    "Text": "Nombre de lignes affichées dans la liste, après le filtre de la liste. Le compteur détaillé, au-dessus des résultats, indique les lignes chargées et la limite.",
+    "Kind": "TextBlock",
+    "Source": "X02"
   },
   {
     "Name": "CmbWorkView",
@@ -3493,6 +3847,27 @@
     "Source": "d120-acces"
   },
   {
+    "Name": "DgAccountsInUse",
+    "Title": "Comptes utilisés en ce moment",
+    "Text": "Compte que chaque ressource prendra pour sa prochaine opération : annuaire, postes, LAPS et BitLocker, avec son origine. Lecture seule ; aucun mot de passe nʼest affiché.",
+    "Kind": "DataGrid",
+    "Source": "X03"
+  },
+  {
+    "Name": "LblAccountsInMemory",
+    "Title": "Comptes gardés en mémoire",
+    "Text": "Comptes gardés en mémoire pour cette session : compte poste saisi et comptes temporaires acceptés après un refus. Rien nʼest enregistré sur le disque.",
+    "Kind": "TextBlock",
+    "Source": "X03"
+  },
+  {
+    "Name": "DgAccountsInMemory",
+    "Title": "Liste des comptes gardés en mémoire",
+    "Text": "Comptes gardés en mémoire, avec leur durée restante. « Oublier » retire le compte de la ligne ; une opération déjà envoyée garde sa copie et se termine.",
+    "Kind": "DataGrid",
+    "Source": "X03"
+  },
+  {
     "Name": "InlineRequestPanel",
     "Title": "Demande dans la page",
     "Text": "Confirmation intégrée à la page : aucune fenêtre, la navigation et les lectures restent disponibles. Échap choisit la réponse sûre.",
@@ -3537,9 +3912,9 @@
   {
     "Name": "BtnGuardLegacyImport",
     "Title": "Reprendre les anciennes données",
-    "Text": "Simule la reprise dans Domenia. Les quatre tables de cache doivent être vides. Les associations existantes sont conservées ; celles importées sont protégées. Une sauvegarde précède la reprise confirmée. Aucun import au démarrage.",
+    "Text": "Vérifie le domaine et les anciens fichiers, affiche la simulation dans la page, puis demande confirmation avant sauvegarde et import.",
     "Kind": "Button",
-    "Source": "d120-cache"
+    "Source": "X04"
   },
   {
     "Name": "BtnStorageUsage",
@@ -3563,39 +3938,11 @@
     "Source": "d120-cache"
   },
   {
-    "Name": "BtnParkPing",
-    "Kind": "Button",
-    "Source": "park-detection",
-    "Title": "Pinger les postes de la portée choisie",
-    "Text": "Grisé si la liste ne contient aucun poste. Ping seul des postes de la portée choisie à côté des résultats (liste affichée après vos filtres, ou lignes sélectionnées) : met à jour la présence réseau, sans lecture de session ni association. Confirmation avant envoi."
-  },
-  {
-    "Name": "BtnParkResults",
-    "Kind": "Button",
-    "Source": "park-detection",
-    "Title": "Détecter sur les postes de la portée choisie",
-    "Text": "Grisé si la liste ne contient aucun poste. Ping puis lecture de la console des seuls postes de la portée choisie (liste affichée après vos filtres, ou lignes sélectionnées). Confirmation avec le nombre de postes avant toute lecture. Cache et associations conservés."
-  },
-  {
-    "Name": "BtnParkAnalyze",
-    "Kind": "Button",
-    "Source": "park-detection",
-    "Title": "Analyser les postes de la portée choisie",
-    "Text": "Grisé si la liste ne contient aucun poste. Ping, utilisateur console et relevé WMI léger (modèle, mémoire, disque C:, build, démarrage) des seuls postes de la portée choisie (liste affichée ou lignes sélectionnées), plus les requêtes WMI des widgets des tableaux de bord. Lecture seule sur les postes, confirmation avec le nombre de postes avant envoi. Associations actualisées si lʼutilisateur change ; résultats conservés pour les tableaux de bord."
-  },
-  {
     "Name": "BtnParkSweepStop",
     "Kind": "Button",
     "Source": "park-detection",
     "Title": "Arreter le releve",
     "Text": "Arrete les nouvelles lectures. Les lectures deja lancees se terminent et leurs resultats sont conserves."
-  },
-  {
-    "Name": "BtnParkResultsStop",
-    "Kind": "Button",
-    "Source": "park-detection",
-    "Title": "Arreter la detection",
-    "Text": "Arrete les nouvelles lectures des resultats. Les associations et les observations obtenues restent conservees."
   },
   {
     "Name": "BtnFleetOpenSearch",
@@ -3987,7 +4334,7 @@
     "Kind": "Button",
     "Source": "specific",
     "Title": "Mettre à jour la base locale de l’OU",
-    "Text": "Relit Active Directory pour l’OU choisie du tableau de bord et ses sous-OU, puis enregistre la copie locale. Aucun ping ni WMI ; aucun objet AD modifié. Les filtres et la limite des résultats ne réduisent pas cette cible."
+    "Text": "Relit Active Directory pour l’OU choisie du tableau de bord et ses sous-OU, puis enregistre la copie locale, après une sauvegarde vérifiée de la base. Aucun ping ni WMI ; aucun objet AD modifié. Les filtres et la limite des résultats ne réduisent pas cette cible."
   },
   {
     "Name": "BtnFleetRefreshPostes",
@@ -4015,7 +4362,7 @@
     "Kind": "Button",
     "Source": "specific",
     "Title": "Mettre à jour la base locale de l’OU",
-    "Text": "Relit Active Directory pour l’OU choisie dans l’arbre de Rechercher et toutes ses sous-OU, y compris pendant une recherche globale, puis enregistre la copie locale. Aucun ping ni WMI ; aucun objet AD modifié. Les filtres et la limite des résultats ne réduisent pas cette cible."
+    "Text": "Relit Active Directory pour l’OU choisie dans l’arbre de Rechercher et toutes ses sous-OU, y compris pendant une recherche globale, puis enregistre la copie locale, après une sauvegarde vérifiée de la base. Aucun ping ni WMI ; aucun objet AD modifié. Les filtres et la limite des résultats ne réduisent pas cette cible."
   },
   {
     "Name": "BtnSearchRefreshPostes",
@@ -4111,7 +4458,7 @@
   {
     "Name": "CmbResultScope",
     "Title": "Portée de lʼexport et des relevés",
-    "Text": "Portée de lʼexport CSV et des relevés Pinger, Détecter et Analyser : la liste affichée après les filtres, ou seulement les lignes sélectionnées.",
+    "Text": "Portée de lʼexport CSV et de « Vérifier la liste » : la liste affichée après les filtres, ou seulement les lignes sélectionnées. La barre dʼune sélection multiple agit toujours sur les lignes sélectionnées.",
     "Kind": "ComboBox",
     "Source": "W08-navigation"
   },
@@ -4191,5 +4538,292 @@
     "Text": "Chemin de lʼOU choisie. Un niveau intermédiaire remonte à cette OU ; Copier le chemin copie son DN exact.",
     "Kind": "WrapPanel",
     "Source": "W08-navigation"
+  },
+  {
+    "Name": "LblGuardReceiptSelection",
+    "Title": "Reçu sélectionné",
+    "Text": "Ce que dit le reçu sélectionné et ce que vous pouvez en faire.",
+    "Kind": "TextBlock",
+    "Source": "X05"
+  },
+  {
+    "Name": "TxtGuardReceiptReason",
+    "Title": "Motif de la revue",
+    "Text": "Décrivez le contrôle réalisé avec un autre outil, en 12 à 240 caractères. Le motif est enregistré dans le reçu : nʼy saisissez ni mot de passe ni clé.",
+    "Kind": "TextBox",
+    "Source": "X05"
+  },
+  {
+    "Name": "LblGuardReceiptReasonCount",
+    "Title": "Longueur du motif",
+    "Text": "Longueur du motif saisi : 12 caractères au minimum, 240 au maximum.",
+    "Kind": "TextBlock",
+    "Source": "X05"
+  },
+  {
+    "Name": "BitLockerKeyCard",
+    "Title": "Clé de récupération BitLocker affichée",
+    "Text": "Clé de récupération affichée à votre demande, par blocs numérotés. Elle disparaît à lʼéchéance ; rien nʼest copié ni journalisé.",
+    "Kind": "Border",
+    "Source": "X05"
+  },
+  {
+    "Name": "LblBitLockerKeyCardId",
+    "Title": "Identifiant de récupération de la clé affichée",
+    "Text": "Comparez cet identifiant à celui affiché par lʼécran de récupération du poste avant de dicter la clé.",
+    "Kind": "TextBlock",
+    "Source": "X05"
+  },
+  {
+    "Name": "BitLockerKeyBlocks",
+    "Title": "Blocs de la clé de récupération",
+    "Text": "Les huit blocs de six chiffres, dans lʼordre où le poste les demande.",
+    "Kind": "Control",
+    "Source": "X05"
+  },
+  {
+    "Name": "BitLockerKeyRing",
+    "Title": "Temps restant",
+    "Text": "Temps restant avant que la clé soit masquée.",
+    "Kind": "Control",
+    "Source": "X05"
+  },
+  {
+    "Name": "LblBitLockerKeyCountdown",
+    "Title": "Secondes restantes",
+    "Text": "Secondes restantes avant que la clé soit masquée.",
+    "Kind": "TextBlock",
+    "Source": "X05"
+  },
+  {
+    "Name": "BtnBitLockerKeyExtend",
+    "Title": "Prolonger 30 s",
+    "Text": "Prolonge une seule fois lʼaffichage de la clé de 30 secondes. Rien nʼest relu ni copié.",
+    "Kind": "Button",
+    "Source": "X05"
+  },
+  {
+    "Name": "BtnBitLockerKeyHide",
+    "Title": "Masquer maintenant",
+    "Text": "Masque la clé tout de suite. Elle reste lisible à nouveau sur votre demande.",
+    "Kind": "Button",
+    "Source": "X05"
+  },
+  {
+    "Name": "BtnPendingOperations",
+    "Title": "Opérations à vérifier",
+    "Text": "Une écriture envoyée attend une vérification ou une revue : les nouvelles écritures restent bloquées. Ouvre la liste des reçus ; rien nʼest rejoué.",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnCompHeaderUser",
+    "Title": "Ouvrir la fiche de lʼutilisateur associé",
+    "Text": "Ouvre la fiche de lʼutilisateur associé à ce poste. Aucune écriture, aucune sonde du poste.",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnCompHeaderRdp",
+    "Title": "Bureau à distance",
+    "Text": "Ouvre une connexion Bureau à distance vers ce poste avec le client Windows (mstsc).",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnCompHeaderC",
+    "Title": "Ouvrir le disque C (C$)",
+    "Text": "Ouvre le partage administratif C$ du poste dans lʼExplorateur, avec le compte des opérations poste.",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnCompHeaderPing",
+    "Title": "Tester la réponse",
+    "Text": "Envoie un ping à ce poste et met à jour la pastille de présence. Aucune autre sonde.",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnDashboardInventory",
+    "Title": "Inventaire rapide pour le tableau de bord",
+    "Text": "Lit lʼinventaire du poste (CIM) en environ 1 minute puis remplit ce tableau de bord.",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnDashboardInventoryDeep",
+    "Title": "Inventaire complet pour le tableau de bord",
+    "Text": "Inventaire complet, plus long (environ 3 minutes) : ajoute les processus, les erreurs système, les tâches planifiées, les certificats et les connexions réseau.",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnCompOpenDiag",
+    "Title": "Lancer le diagnostic",
+    "Text": "Ouvre la vue Diagnostic et lance ses contrôles en lecture seule : DNS, ports, partage, WinRM, WMI, espace disque et session.",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "RbCompRestartDelayed",
+    "Title": "Redémarrer après un délai, avec message",
+    "Text": "Redémarrage différé : lʼutilisateur voit le message et peut enregistrer son travail avant lʼéchéance. Choix par défaut.",
+    "Kind": "RadioButton",
+    "Source": "X04"
+  },
+  {
+    "Name": "TxtCompRestartMessage",
+    "Title": "Message à lʼutilisateur",
+    "Text": "Message affiché à lʼutilisateur du poste, sur une ligne de 400 caractères au plus. Vide : message par défaut.",
+    "Kind": "TextBox",
+    "Source": "X04"
+  },
+  {
+    "Name": "RbCompRestartNow",
+    "Title": "Redémarrer maintenant",
+    "Text": "Redémarrage immédiat et forcé : le travail non enregistré sur le poste est perdu.",
+    "Kind": "RadioButton",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnCompRestartSend",
+    "Title": "Confirmer le redémarrage",
+    "Text": "Demande la confirmation dans la page, puis envoie le redémarrage au poste une seule fois. Jamais rejoué.",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnCompRestartCancel",
+    "Title": "Fermer le panneau de redémarrage",
+    "Text": "Ferme ce panneau sans rien envoyer au poste.",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "RbCompRunSystem",
+    "Title": "En arrière-plan (compte système)",
+    "Text": "Le programme tourne sous le compte système du poste, sans fenêtre visible. Pour un outil technique non interactif.",
+    "Kind": "RadioButton",
+    "Source": "X04"
+  },
+  {
+    "Name": "RbCompRunUser",
+    "Title": "Dans la session de lʼutilisateur",
+    "Text": "Le programme sʼouvre dans la session déjà ouverte du compte indiqué ; il ne démarre pas si ce compte nʼa pas de session.",
+    "Kind": "RadioButton",
+    "Source": "X04"
+  },
+  {
+    "Name": "TxtCompRunUser",
+    "Title": "Compte de la session",
+    "Text": "Compte de la session ouverte sur le poste : DOMAINE\\identifiant. Prérempli avec lʼutilisateur associé.",
+    "Kind": "TextBox",
+    "Source": "X04"
+  },
+  {
+    "Name": "TxtCompRunCommand",
+    "Title": "Programme à lancer",
+    "Text": "Chemin du programme tel quʼil existe sur le poste, par exemple %SystemRoot%\\System32\\notepad.exe.",
+    "Kind": "TextBox",
+    "Source": "X04"
+  },
+  {
+    "Name": "TxtCompRunArguments",
+    "Title": "Arguments du programme",
+    "Text": "Arguments passés au programme, sur une ligne. Nʼy saisissez aucun mot de passe : ils restent lisibles dans la tâche.",
+    "Kind": "TextBox",
+    "Source": "X04"
+  },
+  {
+    "Name": "ChkCompRunElevated",
+    "Title": "Niveau dʼexécution le plus élevé",
+    "Text": "Lance le programme avec les droits les plus élevés du compte choisi.",
+    "Kind": "CheckBox",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnCompRunStart",
+    "Title": "Lancer le programme",
+    "Text": "Vérifie les champs puis demande la confirmation dans la page ; la tâche unique part une seule fois.",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnCompRunCancel",
+    "Title": "Fermer le panneau dʼexécution",
+    "Text": "Ferme ce panneau sans rien lancer.",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnCompServicesRead",
+    "Title": "Lire les services du poste",
+    "Text": "Lit la liste des services de ce poste (Win32_Service) en lecture seule, sur ce clic uniquement.",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "ChkCompServicesAutoStopped",
+    "Title": "Automatiques arrêtés seulement",
+    "Text": "Nʼaffiche que les services en démarrage automatique qui sont arrêtés. Filtre local, sans nouvelle lecture.",
+    "Kind": "CheckBox",
+    "Source": "X04"
+  },
+  {
+    "Name": "TxtCompServicesFilter",
+    "Title": "Filtrer les services",
+    "Text": "Filtre local sur le nom ou le libellé du service, sans nouvelle lecture.",
+    "Kind": "TextBox",
+    "Source": "X04"
+  },
+  {
+    "Name": "DgCompServices",
+    "Title": "Services du poste",
+    "Text": "Services lus sur le poste, automatiques arrêtés en tête. Sélectionnez une ligne pour la démarrer ou la redémarrer.",
+    "Kind": "DataGrid",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnCompServiceStart",
+    "Title": "Démarrer le service sélectionné",
+    "Text": "Démarre le service sélectionné après une confirmation dans la page. Un service désactivé est refusé.",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "BtnCompServiceRestart",
+    "Title": "Redémarrer le service sélectionné",
+    "Text": "Arrête puis redémarre le service sélectionné après une confirmation dans la page. Ce quʼil sert est interrompu un instant.",
+    "Kind": "Button",
+    "Source": "X04"
+  },
+  {
+    "Name": "TabComputerDetails",
+    "Title": "Détails",
+    "Text": "Inventaire matériel et système, et logiciels installés du poste.",
+    "Kind": "TabItem",
+    "Source": "X04"
+  },
+  {
+    "Name": "ComputerDetailTabs",
+    "Title": "Vues de détail du poste",
+    "Text": "Inventaire du poste ou logiciels installés.",
+    "Kind": "TabControl",
+    "Source": "X04"
+  },
+  {
+    "Name": "ComputerDiagTabs",
+    "Title": "Vues de diagnostic du poste",
+    "Text": "Contrôles du poste ou, en profil Expert, explorateur WMI.",
+    "Kind": "TabControl",
+    "Source": "X04"
+  },
+  {
+    "Name": "TabComputerChecks",
+    "Title": "Contrôles",
+    "Text": "Vérifie que le poste répond et que les services dʼadministration sont joignables.",
+    "Kind": "TabItem",
+    "Source": "X04"
   }
 ]

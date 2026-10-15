@@ -67,8 +67,17 @@ Test-Case 'P56' 'Criteres visibles : portee, type, requete, presence et filtre l
     Assert-True ($m.Summary.Contains(' ET ') -and $m.Summary.Contains('3 ligne(s) affichée(s) sur 40 chargée(s)') -and $m.Summary.Contains('ne lisent rien au-delà')) $m.Summary
 }
 Test-Case 'P56' 'Criteres visibles : la recherche globale ignore les filtres de l OU, une requete annuaire est nommee' {
+    # FO-05 / CO-05 (X02): the chip and the type of the upper bar, and the filter of the list, describe a global list;
+    # the type and the presence of the OU list do not. The bar criteria change in the bar only (no x here).
     $g=Get-DomeniaSearchFilterChips -State ([pscustomobject]@{Mode='Global';GlobalText='dupont';TypeLabel='Machines';Presence='En ligne';LocalFilter='x';Shown=5;Loaded=5})
-    Assert-Equal 1 @($g.Chips).Count 'En mode global seuls le domaine et le texte comptent';Assert-True ($g.Chips[0].Label.Contains('dupont'))
+    Assert-Equal 'Scope,Local' ((@($g.Chips)|ForEach-Object{$_.Key}) -join ',') 'Type et presence de la liste d OU ignores, filtre de la liste garde'
+    Assert-True ($g.Chips[0].Label.StartsWith('Partout') -and $g.Chips[0].Label.Contains('dupont')) $g.Chips[0].Label
+    $b=Get-DomeniaSearchFilterChips -State ([pscustomobject]@{Mode='Global';GlobalText='dupont';BarScope='Ou';BarOuDn='OU=Postes,OU=Lyon,DC=example,DC=invalid';BarType='Machines';TypeLabel='Utilisateurs';Presence='En ligne';LocalFilter='';Shown=2;Loaded=2})
+    Assert-Equal 'Scope,BarType' ((@($b.Chips)|ForEach-Object{$_.Key}) -join ',')
+    Assert-True ($b.Chips[0].Label.StartsWith('Dans « Postes » · sous-OU incluses') -and $b.Chips[0].Effect.Contains('puce de la barre')) $b.Chips[0].Label
+    Assert-Equal 'Type : Postes' $b.Chips[1].Label;Assert-False $b.Chips[1].Removable 'Le type de la barre ne se retire pas depuis la liste'
+    $o=Get-DomeniaSearchFilterChips -State ([pscustomobject]@{Mode='Global';GlobalText='';BarScope='Ou';BarOuDn='';BarType='Inconnu'})
+    Assert-Equal 1 @($o.Chips).Count 'Puce sans OU ou type inconnu : rien d invente';Assert-True ($o.Chips[0].Label.StartsWith('Partout'))
     $d=Get-DomeniaSearchFilterChips -State ([pscustomobject]@{Mode='OU';OuDn='OU=A,DC=example,DC=invalid';Subtree=$true;TypeLabel='Tous';Presence='Tous';LocalFilter='';QueryName='Comptes desactives';QueryKind='Directory';SegmentName='12 poste(s) retenu(s)'})
     Assert-Equal 'Scope,Query,Segment' ((@($d.Chips)|ForEach-Object{$_.Key}) -join ',');Assert-Equal 'Annuaire' $d.Chips[1].Scope;Assert-True ($d.Chips[2].Label.Contains('12 poste'))
 }
@@ -80,11 +89,23 @@ Test-Case 'P60' 'Portee collective : liste affichee, selection, lignes masquees 
     Assert-True ($all.Label.Contains('1 ligne(s) chargée(s) masquée(s)') -and $all.Label.Contains('limitée à 5')) $all.Label
     $sel=Get-DomeniaSearchSelectionPlan -VisibleRows $visible -SelectedRows @($rows[2],$rows[0],$rows[3]) -Mode Selected -LoadedCount 5 -Completeness Complete
     Assert-Equal 2 $sel.Count 'La ligne selectionnee mais masquee est exclue';Assert-Equal 'PC-1' $sel.Rows[0].Name 'Ordre affiche conserve';Assert-Equal 1 $sel.SelectedHidden
-    Assert-True ($sel.Label.Contains('2 sur 4') -and $sel.Label.Contains('exclue')) $sel.Label
+    Assert-True ($sel.Label.Contains('2 postes sélectionnés sur 4') -and $sel.Label.Contains('exclue')) $sel.Label
+    Assert-Equal '2 postes sélectionnés' $sel.Short 'Meme enonce que la barre de selection';Assert-Equal 2 $sel.SelectedMachines
     $none=Get-DomeniaSearchSelectionPlan -VisibleRows $visible -SelectedRows @() -Mode Selected
     Assert-Equal 0 $none.Count;Assert-True ($none.Label.StartsWith('Aucune ligne sélectionnée'))
     $withSel=Get-DomeniaSearchSelectionPlan -VisibleRows $visible -SelectedRows @($rows[1]) -Mode Visible
     Assert-Equal 4 $withSel.Count 'La liste affichee reste complete';Assert-True ($withSel.Label.Contains('sélection de 1 ligne(s) non utilisée') -and $withSel.Label.Contains('non déterminée'))
+}
+Test-Case 'P60' 'Enonce de la selection : le meme pour la barre de selection multiple et la portee annoncee' {
+    Assert-Equal '3 postes sélectionnés' (Get-DomeniaSearchSelectionText -SelectedCount 3 -MachineCount 3)
+    Assert-Equal '3 lignes sélectionnées dont 1 poste' (Get-DomeniaSearchSelectionText -SelectedCount 3 -MachineCount 1)
+    Assert-Equal '4 lignes sélectionnées dont 2 postes' (Get-DomeniaSearchSelectionText -SelectedCount 4 -MachineCount 2)
+    Assert-Equal '2 lignes sélectionnées' (Get-DomeniaSearchSelectionText -SelectedCount 2 -MachineCount 0)
+    Assert-Equal '1 poste sélectionné' (Get-DomeniaSearchSelectionText -SelectedCount 1 -MachineCount 1)
+    Assert-Equal '1 ligne sélectionnée' (Get-DomeniaSearchSelectionText -SelectedCount 1)
+    Assert-Equal 'Aucune ligne sélectionnée' (Get-DomeniaSearchSelectionText -SelectedCount 0 -MachineCount 0)
+    $summary=Get-DomeniaSearchScopeSummary -Mode Selected -VisibleCount 10 -SelectedCount 3 -SelectedMachines 1
+    Assert-Equal 'Lignes sélectionnées : 3 lignes sélectionnées dont 1 poste sur 10 affichée(s)' $summary.Label;Assert-Equal '3 lignes sélectionnées dont 1 poste' $summary.Short
 }
 Test-Case 'P58' 'Comparaison : dates propres a chaque valeur, inconnu jamais identique, attributs par leur date' {
     $g1='11111111-1111-4111-8111-111111111111';$g2='22222222-2222-4222-8222-222222222222'

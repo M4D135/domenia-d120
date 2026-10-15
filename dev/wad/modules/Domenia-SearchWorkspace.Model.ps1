@@ -115,14 +115,26 @@ function Get-DomeniaSearchWorkspaceLabel {
 function Get-DomeniaSearchFilterChips {
     # Point 56: every criterion that shapes the list, with the place where it applies. A list-level chip is removed
     # without any network call; removing the type chip reads the OU again and says so; the scope has no ×.
-    # $State: Mode, OuDn, Subtree, GlobalText, TypeLabel, Presence, LocalFilter, QueryName, QueryKind, QuerySelection,
-    # SegmentName, Shown, Loaded.
+    # $State: Mode, OuDn, Subtree, GlobalText, BarScope, BarOuDn, BarType, TypeLabel, Presence, LocalFilter, QueryName,
+    # QueryKind, QuerySelection, SegmentName, Shown, Loaded.
     param($State)
     $chips=[Collections.Generic.List[object]]::new()
     $mode=[string](Get-DomeniaMember $State 'Mode' 'OU')
     if($mode -eq 'Global'){
+        # FO-05 (X02): the perimeter chip and the type of the upper bar that produced the list are criteria of this
+        # list too, shown here with the others; they change in the bar only, never from this row.
         $text=ConvertTo-DomeniaFlatText ([string](Get-DomeniaMember $State 'GlobalText' '')) 60
-        $chips.Add([pscustomobject]@{Key='Scope';Scope='Annuaire';Label=('Domaine entier'+$(if($text){' : '+$text}else{''}));Removable=$false;Effect='Recherche de la barre du haut dans tout le domaine. Les filtres de lʼOU, du type, de la présence et du filtre local ne sʼappliquent pas à cette liste.'})
+        $barOu=([string](Get-DomeniaMember $State 'BarOuDn' '')).Trim()
+        if(([string](Get-DomeniaMember $State 'BarScope' 'Everywhere') -eq 'Ou') -and $barOu){
+            $names=@(Get-DomeniaOuPathNames $barOu)
+            $leaf=if($names.Count){[string]$names[0]}else{Get-DomeniaOuDisplayPath $barOu}
+            $chips.Add([pscustomobject]@{Key='Scope';Scope='Annuaire';Label=('Dans « '+$leaf+' » · sous-OU incluses'+$(if($text){' : '+$text}else{''}));Removable=$false;Effect=('Recherche de la barre du haut dans '+(Get-DomeniaOuDisplayPath $barOu)+' et ses sous-OU. Changez le périmètre avec la puce de la barre, puis Rechercher.')})
+        }else{
+            $chips.Add([pscustomobject]@{Key='Scope';Scope='Annuaire';Label=('Partout · domaine entier'+$(if($text){' : '+$text}else{''}));Removable=$false;Effect='Recherche de la barre du haut dans tout le domaine. Changez le périmètre avec la puce de la barre, puis Rechercher ; lʼOU, le type et la présence de la liste dʼOU ne sʼappliquent pas.'})
+        }
+        $barType=[string](Get-DomeniaMember $State 'BarType' 'Tous')
+        $typeEntry=@(Get-DomeniaSearchBarTypes|Where-Object{[string]$_.Key -eq $barType})
+        if(($typeEntry.Count) -and ($barType -ne 'Tous')){$chips.Add([pscustomobject]@{Key='BarType';Scope='Annuaire';Label=('Type : '+[string]$typeEntry[0].Label);Removable=$false;Effect='Type cherché par la barre du haut. Changez-le avec ses puces, puis Rechercher : cette pastille ne relance rien.'})}
     }else{
         $dn=([string](Get-DomeniaMember $State 'OuDn' '')).Trim()
         $names=@(Get-DomeniaOuPathNames $dn)
@@ -141,12 +153,14 @@ function Get-DomeniaSearchFilterChips {
     }
     $segment=ConvertTo-DomeniaFlatText ([string](Get-DomeniaMember $State 'SegmentName' '')) 60
     if($segment){$chips.Add([pscustomobject]@{Key='Segment';Scope='Base locale';Label=('Sélection de lʼatelier : '+$segment);Removable=$true;Effect='Retirer cette sélection réaffiche toutes les lignes chargées ; aucune lecture réseau.'})}
+    # The presence filter applies to an OU list only; « Filtrer la liste » to any loaded list, a global one included
+    # (CO-05 / SP-14, X02).
     if($mode -ne 'Global'){
         $presence=[string](Get-DomeniaMember $State 'Presence' 'Tous')
         if(($presence) -and ($presence -ne 'Tous')){$chips.Add([pscustomobject]@{Key='Presence';Scope='Liste chargée';Label=('Ping mémorisé : '+$presence);Removable=$true;Effect='Filtre local sur la dernière présence mémorisée ; retirer ce critère nʼenvoie aucun ping. Sans réponse ne prouve pas quʼun poste est éteint.'})}
-        $local=ConvertTo-DomeniaFlatText ([string](Get-DomeniaMember $State 'LocalFilter' '')) 60
-        if($local){$chips.Add([pscustomobject]@{Key='Local';Scope='Liste chargée';Label=('Contient : '+$local);Removable=$true;Effect='Filtre local sur les lignes déjà chargées ; retirer ce critère nʼappelle pas lʼannuaire.'})}
     }
+    $local=ConvertTo-DomeniaFlatText ([string](Get-DomeniaMember $State 'LocalFilter' '')) 60
+    if($local){$chips.Add([pscustomobject]@{Key='Local';Scope='Liste chargée';Label=('Contient : '+$local);Removable=$true;Effect='Filtre local sur les lignes déjà chargées ; retirer ce critère nʼappelle pas lʼannuaire.'})}
     $summary='Combinaison : '+(@($chips|ForEach-Object{'['+$_.Scope+'] '+$_.Label}) -join ' ET ')
     $shown=[int](Get-DomeniaMember $State 'Shown' -1);$loaded=[int](Get-DomeniaMember $State 'Loaded' -1)
     if($shown -ge 0){
@@ -157,10 +171,23 @@ function Get-DomeniaSearchFilterChips {
     return [pscustomobject]@{Chips=$chips.ToArray();Summary=$summary}
 }
 
+function Get-DomeniaSearchSelectionText {
+    # Point 60 / FO-18 (X01): the short statement of the selected rows, the same in the bar of a multiple selection and
+    # in the scope announced before an export or a survey: « 3 postes sélectionnés », « 3 lignes sélectionnées dont
+    # 1 poste ». -MachineCount -1: the number of workstations is not known.
+    param([int]$SelectedCount=0,[int]$MachineCount=-1)
+    if($SelectedCount -le 0){return 'Aucune ligne sélectionnée'}
+    if($MachineCount -eq $SelectedCount){return ([string]$SelectedCount+' '+$(if($SelectedCount -gt 1){'postes sélectionnés'}else{'poste sélectionné'}))}
+    $text=[string]$SelectedCount+' '+$(if($SelectedCount -gt 1){'lignes sélectionnées'}else{'ligne sélectionnée'})
+    if($MachineCount -gt 0){$text+=' dont '+[string]$MachineCount+' '+$(if($MachineCount -gt 1){'postes'}else{'poste'})}
+    return $text
+}
+
 function Get-DomeniaSearchScopeSummary {
     # Point 60: the sentence that states what an export or a survey will process, from counts only, so that the
-    # label beside the results stays cheap on 20 000 rows. Completeness: what is known, never more.
-    param([ValidateSet('Visible','Selected')][string]$Mode='Visible',[int]$VisibleCount=0,[int]$SelectedCount=0,[int]$SelectedHidden=0,[int]$LoadedCount=-1,[ValidateSet('Complete','Limited','Partial','Loading','Unknown')][string]$Completeness='Unknown',[int]$Limit=0)
+    # label beside the results stays cheap on 20 000 rows. Completeness: what is known, never more. Short: the
+    # statement of the selection (Get-DomeniaSearchSelectionText), also shown by the bar of a multiple selection.
+    param([ValidateSet('Visible','Selected')][string]$Mode='Visible',[int]$VisibleCount=0,[int]$SelectedCount=0,[int]$SelectedHidden=0,[int]$LoadedCount=-1,[ValidateSet('Complete','Limited','Partial','Loading','Unknown')][string]$Completeness='Unknown',[int]$Limit=0,[int]$SelectedMachines=-1)
     $hidden=if($LoadedCount -gt $VisibleCount){$LoadedCount-$VisibleCount}else{0}
     $note=switch($Completeness){
         'Complete'{'liste complète'}
@@ -169,23 +196,25 @@ function Get-DomeniaSearchScopeSummary {
         'Loading'{'lecture en cours : la liste peut encore changer'}
         default{'complétude de la liste non déterminée'}
     }
+    $short=Get-DomeniaSearchSelectionText -SelectedCount $SelectedCount -MachineCount $SelectedMachines
     if($Mode -eq 'Selected'){
         if($SelectedCount -le 0){$label='Aucune ligne sélectionnée parmi les lignes affichées : sélectionnez des lignes (Ctrl ou Maj + clic) ou choisissez la liste affichée.'}
-        else{$label='Lignes sélectionnées : '+$SelectedCount+' sur '+$VisibleCount+' affichée(s)'}
+        else{$label='Lignes sélectionnées : '+$short+' sur '+$VisibleCount+' affichée(s)'}
         if($SelectedHidden -gt 0){$label+=' · '+$SelectedHidden+' ligne(s) sélectionnée(s) masquée(s) par un filtre, exclue(s)'}
     }else{
         $label='Liste affichée : '+$VisibleCount+' ligne(s)'
         if($hidden -gt 0){$label+=' · '+$hidden+' ligne(s) chargée(s) masquée(s) par les filtres, exclue(s)'}
-        if($SelectedCount -gt 0){$label+=' · sélection de '+$SelectedCount+' ligne(s) non utilisée'}
+        if($SelectedCount -gt 0){$label+=' · sélection de '+$SelectedCount+' ligne(s) non utilisée (la barre de sélection agit sur elle)'}
         $label+=' · '+$note
     }
-    return [pscustomobject]@{Label=$label;HiddenByLocalFilter=$hidden}
+    return [pscustomobject]@{Label=$label;Short=$short;HiddenByLocalFilter=$hidden}
 }
 
 function Get-DomeniaSearchSelectionPlan {
     # Point 60: the collective scope of an export or of a survey, stated before it runs. 'Visible': the rows of
     # the list as shown after the local filters, in the displayed order. 'Selected': the selected rows still shown,
     # in the same order. Rows beyond the loaded limit are never implied; an unknown completeness stays unknown.
+    # The bar of a multiple selection (FO-18, X01) and its surveys use the 'Selected' plan: one rule, one statement.
     param([AllowEmptyCollection()][object[]]$VisibleRows,[AllowEmptyCollection()][object[]]$SelectedRows,[ValidateSet('Visible','Selected')][string]$Mode='Visible',[int]$LoadedCount=-1,[ValidateSet('Complete','Limited','Partial','Loading','Unknown')][string]$Completeness='Unknown',[int]$Limit=0)
     $visible=@($VisibleRows|Where-Object{$null -ne $_})
     $selectedKeys=@{}
@@ -194,14 +223,15 @@ function Get-DomeniaSearchSelectionPlan {
     # Without selection, the visible list is taken as shown: no identity is computed per row.
     if(($Mode -eq 'Visible') -and (-not $selectedKeys.Count)){
         $summary=Get-DomeniaSearchScopeSummary -Mode Visible -VisibleCount $visible.Count -LoadedCount $LoadedCount -Completeness $Completeness -Limit $Limit
-        return [pscustomobject]@{Rows=$visible;Count=$visible.Count;Mode=$Mode;VisibleCount=$visible.Count;SelectedCount=0;SelectedHidden=0;HiddenByLocalFilter=$summary.HiddenByLocalFilter;Machines=@($visible|Where-Object{[string]$_.Type -eq 'Machine'}).Count;Completeness=$Completeness;Label=$summary.Label}
+        return [pscustomobject]@{Rows=$visible;Count=$visible.Count;Mode=$Mode;VisibleCount=$visible.Count;SelectedCount=0;SelectedMachines=0;SelectedHidden=0;HiddenByLocalFilter=$summary.HiddenByLocalFilter;Machines=@($visible|Where-Object{[string]$_.Type -eq 'Machine'}).Count;Completeness=$Completeness;Label=$summary.Label;Short=$summary.Short}
     }
+    $selectedMachines=0
     foreach($row in $visible){
         # Same identity as Get-DomeniaNavRowKey, computed inline for long lists.
         $key='';$guid=[guid]::Empty
         if(([guid]::TryParse([string]$row.Guid,[ref]$guid)) -and ($guid -ne [guid]::Empty)){$key='g:'+$guid.ToString('D')}elseif([string]$row.DN){$key='d:'+([string]$row.DN).ToLowerInvariant()}
         $isSelected=(([bool]$key) -and ($selectedKeys.ContainsKey($key)))
-        if($isSelected){$shownSelected[$key]=$true}
+        if(($isSelected) -and (-not $shownSelected.ContainsKey($key))){$shownSelected[$key]=$true;if([string]$row.Type -eq 'Machine'){$selectedMachines++}}
         if(($Mode -eq 'Selected') -and (-not $isSelected)){continue}
         if($key){if($seen.ContainsKey($key)){continue};$seen[$key]=$true}
         $rows.Add($row)
@@ -209,8 +239,8 @@ function Get-DomeniaSearchSelectionPlan {
     $selectedCount=$shownSelected.Count
     $selectedHidden=[Math]::Max(0,$selectedKeys.Count-$selectedCount)
     $machines=@($rows|Where-Object{[string]$_.Type -eq 'Machine'}).Count
-    $summary=Get-DomeniaSearchScopeSummary -Mode $Mode -VisibleCount $visible.Count -SelectedCount $selectedCount -SelectedHidden $selectedHidden -LoadedCount $LoadedCount -Completeness $Completeness -Limit $Limit
-    return [pscustomobject]@{Rows=$rows.ToArray();Count=$rows.Count;Mode=$Mode;VisibleCount=$visible.Count;SelectedCount=$selectedCount;SelectedHidden=$selectedHidden;HiddenByLocalFilter=$summary.HiddenByLocalFilter;Machines=$machines;Completeness=$Completeness;Label=$summary.Label}
+    $summary=Get-DomeniaSearchScopeSummary -Mode $Mode -VisibleCount $visible.Count -SelectedCount $selectedCount -SelectedHidden $selectedHidden -LoadedCount $LoadedCount -Completeness $Completeness -Limit $Limit -SelectedMachines $selectedMachines
+    return [pscustomobject]@{Rows=$rows.ToArray();Count=$rows.Count;Mode=$Mode;VisibleCount=$visible.Count;SelectedCount=$selectedCount;SelectedMachines=$selectedMachines;SelectedHidden=$selectedHidden;HiddenByLocalFilter=$summary.HiddenByLocalFilter;Machines=$machines;Completeness=$Completeness;Label=$summary.Label;Short=$summary.Short}
 }
 
 function Get-DomeniaFileTimeAttributeNames {

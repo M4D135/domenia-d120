@@ -184,7 +184,7 @@ function Start-DomeniaFleetDashboard {
     $job = $null
     try {
         [void](Initialize-DomeniaWinSqliteNative)
-        $job = Start-UiTask -Name 'Vue d ensemble du parc' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload ([pscustomobject]@{ Action='FleetStats'; ObservationFamilies=$families; DomainDn=[string]$script:Conn.BaseDn; Path=$path; BusyTimeoutMs=250; Scope=[string]$scope.Dn; Subtree=[bool]$scope.Subtree; Plan=$plan; Keys=$keys; ScopeKey=[string]$scope.Key; ComputeBoard=$true; ModuleRoot=$script:DashboardModuleRoot; Lifecycle=(Get-DomeniaWindowsLifecycleTable); ObservationMaxAgeDays=(Get-DomeniaObservationMaxAgeDays); IndexPartial=$partialText; HealthPolicy=$policy;HealthPolicyBook=$policyBook }) -CallbackState $state -ReplaceKey 'fleet:stats' -SuccessHandler 'Complete-DomeniaFleetDashboard' -ErrorHandler 'Fail-DomeniaFleetDashboard' -TimeoutSeconds 120 -TaskClass $(if ($Quiet) { 'Background' } else { 'Explicit' })
+        $job = Start-UiTask -Name 'Vue d ensemble du parc' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload ([pscustomobject]@{ Action='FleetStats'; ObservationFamilies=$families; DomainDn=[string]$script:Conn.BaseDn; Path=$path; Scope=[string]$scope.Dn; Subtree=[bool]$scope.Subtree; Plan=$plan; Keys=$keys; ScopeKey=[string]$scope.Key; ComputeBoard=$true; ModuleRoot=$script:DashboardModuleRoot; Lifecycle=(Get-DomeniaWindowsLifecycleTable); ObservationMaxAgeDays=(Get-DomeniaObservationMaxAgeDays); IndexPartial=$partialText; HealthPolicy=$policy;HealthPolicyBook=$policyBook }) -CallbackState $state -ReplaceKey 'fleet:stats' -SuccessHandler 'Complete-DomeniaFleetDashboard' -ErrorHandler 'Fail-DomeniaFleetDashboard' -TimeoutSeconds 120 -TaskClass $(if ($Quiet) { 'Background' } else { 'Explicit' })
     } catch {
         $script:FleetPendingKey = ''; $script:FleetJobId = ''
         [void](Set-DomeniaControlText 'LblFleetDashboard' ('Vue dʼensemble non calculée : ' + $_.Exception.Message))
@@ -620,8 +620,8 @@ function Get-DomeniaBoardRouteTarget {
     }
 }
 function Invoke-DomeniaBoardRoute {
-    # Link of a point of attention: opens the tab of the useful action (Redémarrer and Ouvrir C$ in Actions, the keys
-    # and LAPS in Secrets) and runs nothing (decision David 2026-10-08, UX-10).
+    # Link of a point of attention: opens the view of the useful action (Redémarrer and Ouvrir le disque C in
+    # Intervenir, the keys and LAPS in Secrets) and runs nothing (decision David 2026-10-08, UX-10).
     param([Parameter(Mandatory=$true)][string]$Route)
     $target = Get-DomeniaBoardRouteTarget -Route $Route
     if ($null -eq $target) { Invoke-DomeniaUxRoute -Route $Route; return }
@@ -629,7 +629,7 @@ function Invoke-DomeniaBoardRoute {
     $inner = Get-DomeniaControl $target.Inner
     $opened = $false
     try { $opened = (($null -ne $inner) -and ($null -ne $inner.SelectedItem) -and ([string]$inner.SelectedItem.Name -eq [string]$target.Tab)) } catch { $opened = $false }
-    if (-not $opened) { Set-Status 'Sélectionnez dʼabord le poste dans Rechercher : lʼonglet sʼouvrira sur sa fiche.' 'WARN' }
+    if (-not $opened) { Set-Status 'Sélectionnez dʼabord le poste dans Rechercher : la vue sʼouvrira sur sa fiche.' 'WARN' }
 }
 function Update-DomeniaComputerDashboard {
     param($Result)
@@ -650,4 +650,53 @@ function Update-DomeniaSoftwareDashboard {
     $board = Get-DomeniaSoftwareBoardData -Rows $items
     Show-DomeniaBoard -Board Software -Data $board
     [void](Set-DomeniaControlText 'LblSoftwareDashboard' $(if ($board.Summary) { [string]$board.Summary } else { [string]$items.Count + ' logiciels lus. Synthese calculee sur la liste chargee.' }))
+}
+# ---------------------------------------------------------------- MO-04 domain totals from the local copy
+$script:DomainTotalsState = $null
+function Start-DomeniaDomainLocalTotals {
+    # MO-04: the Domaine tab shows the totals of the local copy with its date, never a count of the whole directory.
+    # Read-only LocalIndexRead (FleetStats) in the background, on the explicit gesture « Analyser le domaine ». Only the
+    # type totals and the directory synchronisation date are used: the workstation part of the answer is limited to
+    # the objects placed directly under the domain root (one level), so that nothing else is aggregated for nothing.
+    $path = [string]$script:DatabaseScopedPath
+    $domainDn = ''
+    if ($null -ne $script:Conn) { $domainDn = [string]$script:Conn.BaseDn }
+    if ((-not $path) -or (-not $domainDn)) {
+        $script:DomainTotalsState = $null
+        [void](Set-DomeniaControlText 'LblDomainLocalTotals' 'Totaux du domaine : aucune base autonome active ; aucun dénombrement nʼest lancé sur lʼannuaire.')
+        return
+    }
+    $state = [pscustomobject]@{ Epoch = [long]$script:SessionEpoch; DomainDn = $domainDn; Path = $path; Job = '' }
+    $script:DomainTotalsState = $state
+    $job = $null
+    try {
+        [void](Initialize-DomeniaWinSqliteNative)
+        $payload = [pscustomobject]@{ Action = 'FleetStats'; Path = $path; BusyTimeoutMs = 250; DomainDn = $domainDn; Scope = $domainDn; Subtree = $false; Plan = (Get-DomeniaFleetQueryPlan -ObservationMaxAgeDays (Get-DomeniaObservationMaxAgeDays)); Keys = @(); ScopeKey = ''; ComputeBoard = $false; ModuleRoot = $script:DashboardModuleRoot }
+        $job = Start-UiTask -Name 'Totaux de la copie locale' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload $payload -CallbackState $state -ReplaceKey 'domain:totals' -SuccessHandler 'Complete-DomeniaDomainLocalTotals' -ErrorHandler 'Fail-DomeniaDomainLocalTotals' -TimeoutSeconds 60 -TaskClass Explicit
+    } catch { Fail-DomeniaDomainLocalTotals -Message $_.Exception.Message -State $state; return }
+    if (-not $job) { Fail-DomeniaDomainLocalTotals -Message 'lecture locale non admise pour lʼinstant, relancez lʼanalyse.' -State $state; return }
+    $state.Job = [string]$job
+    [void](Set-DomeniaControlText 'LblDomainLocalTotals' 'Totaux du domaine : lecture de la copie locale…')
+}
+function Test-DomeniaDomainLocalTotalsCurrent {
+    param($State)
+    return (($null -ne $State) -and [object]::ReferenceEquals($State,$script:DomainTotalsState) -and ([long]$State.Epoch -eq [long]$script:SessionEpoch))
+}
+function Complete-DomeniaDomainLocalTotals {
+    param($Result,$State)
+    if (-not (Test-DomeniaDomainLocalTotalsCurrent $State)) { return }
+    $data = Get-DomeniaEffectiveWorkerResult $Result @('Busy','Missing')
+    if ($null -eq $data) { Fail-DomeniaDomainLocalTotals -Message 'réponse locale incomplète.' -State $State; return }
+    if ([bool]$data.Busy) { Fail-DomeniaDomainLocalTotals -Message 'base occupée, relancez lʼanalyse dans un instant.' -State $State; return }
+    if ([bool]$data.Missing) { [void](Set-DomeniaControlText 'LblDomainLocalTotals' 'Totaux du domaine : aucune base autonome sur ce poste ; aucun dénombrement nʼest lancé sur lʼannuaire.'); return }
+    $last = ''
+    $sync = Get-DomeniaMember $data 'SyncStates' $null
+    if (($sync -is [Collections.IDictionary]) -and $sync.Contains('directory')) { $last = [string](Get-DomeniaMember $sync['directory'] 'last_sync' '') }
+    $summary = Get-DomeniaLocalTotalsSummary -Types @(Get-DomeniaMember $data 'Types' @()) -LastSyncUtc $last
+    [void](Set-DomeniaControlText 'LblDomainLocalTotals' ([string]$summary.Text))
+}
+function Fail-DomeniaDomainLocalTotals {
+    param([string]$Message,$State)
+    if (-not (Test-DomeniaDomainLocalTotalsCurrent $State)) { return }
+    [void](Set-DomeniaControlText 'LblDomainLocalTotals' ('Totaux de la copie locale non lus : ' + $Message))
 }

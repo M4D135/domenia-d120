@@ -47,7 +47,8 @@ function Case {param([string]$Name,[scriptblock]$Body)
 }
 function Check-Counters {param([string]$Prefix,[int]$Visible=746,[int]$Loaded=746)
     $script:grid.Items.Count=$Visible;$script:s.Rows.Count=$Loaded
-    $expected=$Prefix+"$Visible / $Loaded lignes visibles"+$(if($script:Mode -eq 'Global'){' · recherche globale sans filtre local'}else{' · filtre local'})
+    # CO-05: one wording for every list, the filter of the list applies to global searches too.
+    $expected=$Prefix+"$Visible / $Loaded lignes visibles · filtre de la liste"
     foreach($entry in $script:Sites.GetEnumerator()){
         $script:Label='';[void](& $entry.Value)
         Expect ($script:Label -ceq $expected) ($entry.Key+' produced: '+$script:Label+'; expected: '+$expected)
@@ -94,7 +95,7 @@ Case 'A successful finalized full list keeps the ordinary visible fraction' {
 Case 'The result limit has its own marker and is never labelled a timeout' {
     Complete-Fixture -Limited $true;$script:s.Finalized=$true;Check-Counters 'Limite atteinte · ' 10000 10000
 }
-Case 'Global search retains its scope explanation beside the partial marker' {
+Case 'Global search counter keeps the partial marker and reads like any filtered list (CO-05)' {
     $script:Mode='Global';Fail-DomeniaLiveSearch 'Timeout apres 45s' $script:State
     $script:s.Finalized=$true;Check-Counters 'Liste partielle · '
 }

@@ -186,9 +186,29 @@ function Get-DomeniaSearchFilterState {
         $count=0;try{$count=[int]$script:DomeniaQueryState.SearchRecords.Count}catch{$count=0}
         $segment=[string]$count+' poste(s) retenu(s)'
     }
+    # FO-05 (X02): a global list is described by the chip and the type of the bar that produced it (its live search,
+    # or its remembered state when it comes back from the history), not by a chip changed since without a search.
+    $mode=Get-DomeniaSearchMode
+    $barScope='Everywhere';$barOu='';$barType='Tous'
+    if($mode -eq 'Global'){
+        if([string]$script:SearchBarScope -eq 'Ou'){$barScope='Ou';$barOu=[string]$script:SelectedBranchDn}
+        if([string]$script:SearchBarType){$barType=[string]$script:SearchBarType}
+        $produced=$null
+        if(($null -ne $script:Live) -and ($null -ne $script:Live.Search)){
+            $liveRows=$script:Live.Search.Rows
+            if((($null -ne $grid) -and ([object]::ReferenceEquals($grid.ItemsSource,$liveRows))) -or ([object]::ReferenceEquals($script:BranchObjects,$liveRows))){$produced=$script:Live.Search.State}
+        }
+        if($null -ne $produced){
+            $barScope=[string](Get-DomeniaMember $produced 'BarScope' $barScope);$barType=[string](Get-DomeniaMember $produced 'BarType' $barType)
+            $barOu=$(if($barScope -eq 'Ou'){[string](Get-DomeniaMember $produced 'BaseDn' '')}else{''})
+        }elseif(($null -ne $script:NavHistoryState) -and (Test-DomeniaHistoryListShown)){
+            $barScope=[string](Get-DomeniaMember $script:NavHistoryState 'BarScope' $barScope);$barType=[string](Get-DomeniaMember $script:NavHistoryState 'BarType' $barType)
+            $barOu=$(if($barScope -eq 'Ou'){[string](Get-DomeniaMember $script:NavHistoryState 'OuDn' '')}else{''})
+        }
+    }
     return [pscustomobject]@{
-        Mode=(Get-DomeniaSearchMode);OuDn=[string]$script:SelectedBranchDn;Subtree=(($null -eq $subtree) -or ([bool]$subtree.IsChecked))
-        GlobalText=(Get-DomeniaSearchText -Mode Global)
+        Mode=$mode;OuDn=[string]$script:SelectedBranchDn;Subtree=(($null -eq $subtree) -or ([bool]$subtree.IsChecked))
+        GlobalText=(Get-DomeniaSearchText -Mode Global);BarScope=$barScope;BarOuDn=$barOu;BarType=$barType
         TypeLabel=$(if(($null -ne $type) -and ($null -ne $type.SelectedItem)){[string]$type.SelectedItem.Content}else{'Tous'})
         Presence=$(if(($null -ne $presence) -and ($null -ne $presence.SelectedItem)){[string]$presence.SelectedItem.Content}else{[string]$script:CurrentPresenceFilter});LocalFilter=$(if($null -ne $local){[string]$local.Text}else{''})
         QueryName=$queryName;QueryKind=$queryKind;QuerySelection=$selection;SegmentName=$segment
@@ -251,6 +271,7 @@ function Remove-DomeniaSearchFilterChip {
 
 # ---------------------------------------------------------------- Point 60: explicit collective scope
 function Get-DomeniaResultScopeMode {
+    # The scope chosen beside the results for the export and « Vérifier la liste ▾ » (X01): 'Visible' or 'Selected'.
     $combo=Get-DomeniaControl 'CmbResultScope'
     if(($null -ne $combo) -and ($null -ne $combo.SelectedItem) -and ([string]$combo.SelectedItem.Tag -eq 'Selected')){return 'Selected'}
     return 'Visible'
@@ -277,42 +298,23 @@ function Get-DomeniaSearchListCompleteness {
     return [pscustomobject]@{State='Unknown';Limit=0}
 }
 function Update-DomeniaResultScopeUi {
-    # Counts only: this label is refreshed while long lists load.
+    # Counts only: this label is refreshed while long lists load. The selected rows are walked once (not the list) to
+    # count their workstations, so that the label says the selection as the bar of a multiple selection does (X01).
     $grid=Get-DomeniaControl 'DgObjects';if($null -eq $grid){return}
     $state=Get-DomeniaSearchListCompleteness
-    $summary=Get-DomeniaSearchScopeSummary -Mode (Get-DomeniaResultScopeMode) -VisibleCount ([int]$grid.Items.Count) -SelectedCount ([int]$grid.SelectedItems.Count) -LoadedCount (Get-DomeniaSearchLoadedCount) -Completeness $state.State -Limit $state.Limit
+    $machines=0;foreach($row in $grid.SelectedItems){if(($null -ne $row) -and ([string]$row.Type -eq 'Machine')){$machines++}}
+    $summary=Get-DomeniaSearchScopeSummary -Mode (Get-DomeniaResultScopeMode) -VisibleCount ([int]$grid.Items.Count) -SelectedCount ([int]$grid.SelectedItems.Count) -SelectedMachines $machines -LoadedCount (Get-DomeniaSearchLoadedCount) -Completeness $state.State -Limit $state.Limit
     [void](Set-DomeniaControlText 'LblResultScope' ('Export et relevés : '+[string]$summary.Label))
 }
 function Get-DomeniaResultScopePlan {
+    # One plan for every collective action of the list: the export, « Vérifier la liste ▾ » and the bar of a multiple
+    # selection (FO-18, X01). -Mode: 'Visible' or 'Selected'; empty, the scope chosen beside the results.
+    param([ValidateSet('Visible','Selected')][string]$Mode)
+    if(-not $Mode){$Mode=Get-DomeniaResultScopeMode}
     $grid=Get-DomeniaControl 'DgObjects';$visible=@();$selected=@()
     if($null -ne $grid){$visible=@($grid.Items);$selected=@($grid.SelectedItems)}
     $state=Get-DomeniaSearchListCompleteness
-    return (Get-DomeniaSearchSelectionPlan -VisibleRows $visible -SelectedRows $selected -Mode (Get-DomeniaResultScopeMode) -LoadedCount (Get-DomeniaSearchLoadedCount) -Completeness $state.State -Limit $state.Limit)
-}
-function Start-DomeniaResultSurvey {
-    # Pinger, Détecter and Analyser la liste act on the scope chosen beside the results: the list as shown, or the
-    # selected rows only. The number of workstations and the scope are confirmed before any read.
-    param([ValidateSet('Ping','Detect','Analyze')][string]$Kind)
-    try{
-        if((Get-DomeniaResultScopeMode) -eq 'Selected'){
-            if([bool]$script:ListSurveyBlocked){throw 'vue sur tout le domaine : aucun relevé des postes. Choisissez une OU puis relancez la vue.'}
-            $plan=Get-DomeniaResultScopePlan
-            $targets=@(foreach($row in @($plan.Rows)){if(([string]$row.Type -eq 'Machine') -and ([bool][string]$row.DN) -and ([bool][string]$row.Guid)){[pscustomobject]@{name=[string]$row.Name;distinguished_name=[string]$row.DN;object_guid=[string]$row.Guid}}})
-            if(-not $targets.Count){throw $(if($plan.Count){'aucun poste identifié parmi les lignes sélectionnées.'}else{[string]$plan.Label})}
-            $label='la sélection ('+$targets.Count+' poste(s) sur '+$plan.Count+' ligne(s) sélectionnée(s))'
-            switch($Kind){
-                'Ping'{Start-DomeniaOnlinePark -ScopeTargets $targets -ScopeLabel $label -PingOnly}
-                'Detect'{Start-DomeniaOnlinePark -ScopeTargets $targets -ScopeLabel $label}
-                default{Start-DomeniaParkAnalysis -ScopeTargets $targets -ScopeLabel $label}
-            }
-            return
-        }
-        switch($Kind){
-            'Ping'{Start-DomeniaOnlinePark -DisplayedResults -PingOnly}
-            'Detect'{Start-DomeniaOnlinePark -DisplayedResults}
-            default{Start-DomeniaParkAnalysis}
-        }
-    }catch{Set-Status ('Relevé non lancé : '+$_.Exception.Message) 'WARN'}
+    return (Get-DomeniaSearchSelectionPlan -VisibleRows $visible -SelectedRows $selected -Mode $Mode -LoadedCount (Get-DomeniaSearchLoadedCount) -Completeness $state.State -Limit $state.Limit)
 }
 
 # ---------------------------------------------------------------- Points 58 and 59: local preview and comparison
@@ -531,7 +533,8 @@ function Initialize-DomeniaSearchWorkspace {
         }})
     }
     $combo=Get-DomeniaControl 'CmbSearchWorkspace';if($null -ne $combo){$combo.Add_SelectionChanged({Update-DomeniaSearchWorkspaceButtons})}
-    $scope=Get-DomeniaControl 'CmbResultScope';if($null -ne $scope){$scope.Add_SelectionChanged({Request-DomeniaSearchWorkspaceRefresh})}
+    # The chosen scope is also named by « Vérifier la liste ▾ » (X01): its label follows the choice at once.
+    $scope=Get-DomeniaControl 'CmbResultScope';if($null -ne $scope){$scope.Add_SelectionChanged({Request-DomeniaSearchWorkspaceRefresh;try{Update-DomeniaParkControls}catch{Write-AppLog ('Vérifier la liste : '+$_.Exception.Message) 'WARN'}})}
     # These controls belong to the existing results area. A test window without them must not fail startup.
     $filter=Get-DomeniaControl 'TxtSuiteResultFilter';if($null -ne $filter){$filter.Add_TextChanged({Request-DomeniaSearchWorkspaceRefresh})}
     foreach($name in @('CmbPresenceFilter','CmbGlobalType')){$box=Get-DomeniaControl $name;if($null -ne $box){$box.Add_SelectionChanged({Request-DomeniaSearchWorkspaceRefresh})}}

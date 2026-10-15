@@ -191,7 +191,7 @@ def main():
     test('Help overlay has opaque theme background',controls['UxHelpPanel'].get('Background')=='{DynamicResource WindowBg}')
     test('Journal reduce/expand does not clear or stop logs','UxLogRow' in mf('Switch-DomeniaUxLog') and not re.search(r'Clear\(|Stop-|\.Text\s*=',mf('Switch-DomeniaUxLog')))
     test('Theme resource hook runs without touching theme storage','Set-DomeniaUxPalette -Window $window -Theme $Theme' in f('Apply-DomeniaTheme'))
-    for n in ('Load-DomeniaTheme','Save-DomeniaTheme','Get-DomeniaStoredTheme','Get-DomeniaBootThemePalette','Get-DomeniaStandardLoginXaml','Get-DomeniaDebugLoginXaml','Get-DomeniaStartupXaml'):
+    for n in ('Load-DomeniaTheme','Save-DomeniaTheme','Get-DomeniaStoredTheme','Get-DomeniaBootThemePalette','Get-DomeniaStandardLoginXaml','Get-DomeniaStartupXaml'):
         test('Unchanged startup/theme function: '+n,sha(f(n))==baseline['Functions'][n])
     palettes=[]
     palettebody=mf('Set-DomeniaUxPalette')

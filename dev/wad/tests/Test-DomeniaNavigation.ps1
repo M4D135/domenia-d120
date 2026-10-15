@@ -35,12 +35,16 @@ function Import-AstFunctions {param([string]$Path,[string[]]$Names)
 if($null -eq ('Domenia.Live.ResultRow' -as [type])){Add-Type -Path (Join-Path $modules 'Domenia-Live.Types.cs') -ErrorAction Stop}
 
 # Real application code.
-$coreNames=@('Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaSearchMode','Set-DomeniaSearchMode','Get-DomeniaSearchText','Export-CurrentResults','Get-DomeniaEffectiveWorkerResult')
+$coreNames=@('Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaSearchMode','Set-DomeniaSearchMode','Get-DomeniaSearchText','Export-CurrentResults','Get-DomeniaGridExportColumns','Get-DomeniaSelectedGridRows','Get-DomeniaEffectiveWorkerResult')
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $wad 'Domenia-Core.ps1') $coreNames)))
 foreach($file in @('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Continuity.Model.ps1','Domenia-SearchWorkspace.Model.ps1','Domenia-Continuity.UI.ps1','Domenia-Search.UI.ps1','Domenia-SearchWorkspace.UI.ps1','Domenia-Embedded.UI.ps1')){
     . (Join-Path $modules $file)
 }
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-UX.UI.ps1') @('Get-DomeniaUxOuDisplay','Update-DomeniaUxOuScope','Copy-DomeniaUxOuPath'))))
+# X01 (UI-23, FO-18) with point 60: « Vérifier la liste ▾ », the surveys of the selection and the export columns (DS-20).
+. ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Park.UI.ps1') @('Invoke-DomeniaParkVerify','Start-DomeniaParkSelectionSurvey','Get-DomeniaParkSelectionTargets','Start-DomeniaParkAnalysis','Test-DomeniaParkListStoppable','Get-DomeniaParkVerifyButtonText'))))
+. ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Park.Model.ps1') @('Get-DomeniaParkVerifyModes'))))
+. ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Shell.Model.ps1') @('Expand-DomeniaResultExportColumns'))))
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Guard.UI.ps1') @('Read-DomeniaOuFavouriteStore','Write-DomeniaOuFavouriteStore','Import-DomeniaFavouriteSearchesOnce','Get-DomeniaFavouriteSearches','Update-DomeniaOuFavouritesUi'))))
 
 # Explicit doubles: none reaches a directory, a workstation, the network, the database, the clipboard or a window.
@@ -80,11 +84,14 @@ function Test-DomeniaEmbeddedHost {return $true}
 function New-DomeniaStoreContext {param([string]$RequestId) return [pscustomobject]@{RequestId=$RequestId;StoreId='store-fixture';Path=[string]$script:DatabaseScopedPath;DomainDn='DC=example,DC=invalid'}}
 function Request-DomeniaStoreRead {param($Context,$Query,$SuccessHandler,$ErrorHandler,$CallbackState) $script:StoreReads.Add([pscustomobject]@{Context=$Context;Query=$Query;SuccessHandler=$SuccessHandler;CallbackState=$CallbackState});return ('read-'+$script:StoreReads.Count)}
 function Show-DomeniaEmbeddedWindow {param($Window) $script:Embedded++;if($null -ne $script:OnEmbedded){return (& $script:OnEmbedded $Window)};return $true}
-function Start-DomeniaOnlinePark {param([switch]$DisplayedResults,[switch]$PingOnly,[switch]$WmiOnly,[switch]$Inventory,[object[]]$ScopeTargets=$null,[string]$ScopeLabel='',[object[]]$Probes=$null)
-    $script:ParkCalls.Add([pscustomobject]@{Kind=$(if($Inventory){'Analyze'}elseif($PingOnly){'Ping'}else{'Detect'});Displayed=[bool]$DisplayedResults;PingOnly=[bool]$PingOnly;Targets=$ScopeTargets;Label=$ScopeLabel})
+function Start-DomeniaOnlinePark {param([switch]$DisplayedResults,[switch]$Selection,[switch]$PingOnly,[switch]$WmiOnly,[switch]$Inventory,[object[]]$ScopeTargets=$null,[string]$ScopeLabel='',[object[]]$Probes=$null,[int]$SkippedTargets=0)
+    $script:ParkCalls.Add([pscustomobject]@{Kind=$(if($Inventory){'Analyse'}elseif($PingOnly){'Ping'}else{'Console'});Displayed=[bool]$DisplayedResults;Selection=[bool]$Selection;PingOnly=[bool]$PingOnly;Targets=$ScopeTargets;Skipped=$SkippedTargets})
 }
-function Start-DomeniaParkAnalysis {param([object[]]$ScopeTargets=$null,[string]$ScopeLabel='') Start-DomeniaOnlinePark -DisplayedResults:($null -eq $ScopeTargets) -Inventory -ScopeTargets $ScopeTargets -ScopeLabel $ScopeLabel}
-function Export-DomeniaCsv {param($Rows,$Grid,$Subject) $script:PendingExport=@($Rows);return [pscustomobject]@{RowCount=@($Rows).Count;Path='C:\DomeniaFixture\export.csv'}}
+function Get-DomeniaParkRun {param([string]$Slot='List') return $null}
+function Update-DomeniaParkControls { $script:ParkControlUpdates++ }
+function Open-DomeniaParkVerifyMenu {param($Anchor) $script:ParkMenus++}
+function Get-DomeniaBoardProbeIds {return @()}
+function Export-DomeniaCsv {param($Rows,$Columns,$Grid,$Subject) $script:PendingExport=@($Rows);$script:PendingColumns=@($Columns);return [pscustomobject]@{RowCount=@($Rows).Count;Path='C:\DomeniaFixture\export.csv'}}
 function Show-DomeniaExportResult {param($Result,[string]$Scope='',[string]$Also='') $script:Exports.Add([pscustomobject]@{Rows=$script:PendingExport;Scope=$Scope;Also=$Also})}
 function Get-DomeniaSearchExportSubject {return 'fixture'}
 function Show-ErrorBox {param($Text) throw ('Fenêtre dʼerreur : '+[string]$Text)}
@@ -145,6 +152,7 @@ function Reset-Fixture {
     $script:OuFavouriteKeys=$null;$script:Continuity=$null;$script:ExperienceRestoring=$false;$script:SearchQueryCatalog=@();$script:ListSurveyBlocked=$false
     $script:SearchWorkspaceBound=$false;$script:SearchWorkspaceUndo=$null;$script:SearchWorkspaceTimer=$null;$script:SearchWorkspacePendingSort=$null;$script:SearchPreviewToken='';$script:SearchPreviewPending=$false
     $script:Exports=[Collections.Generic.List[object]]::new();$script:ParkCalls=[Collections.Generic.List[object]]::new();$script:StoreReads=[Collections.Generic.List[object]]::new()
+    $script:ParkControlUpdates=0;$script:ParkMenus=0;$script:ParkDefaultMode=$null;$script:PendingColumns=@();$script:SearchBarScope='Everywhere';$script:SearchBarType='Tous'
     $script:Embedded=0;$script:OnEmbedded=$null;$script:FormName='';$script:DatabaseScopedPath='';$script:Tasks=0;$script:PendingExport=@();$script:UiTasks=[Collections.Generic.List[object]]::new();$script:DomeniaSurfaceRecords=@{};$script:DomeniaSurfaceState=$null
     $script:Ctrl=New-TestControls
 }
@@ -428,7 +436,8 @@ Case 'P56 Une requête locale terminée ne décrit plus une autre liste' {
     $keys=@($script:Ctrl.PnlSearchFilterChips.Children|Where-Object{$_ -is [Windows.Controls.Button]}|ForEach-Object{[string]$_.Tag})
     Expect ($keys -contains 'Query' -and ([string]$script:Ctrl.LblResultScope.Text).Contains('liste limitée à 100 lignes')) ('Requête affichée : '+$script:Ctrl.LblResultScope.Text)
 }
-# Unwired if the export or a survey silently takes the selection or the list, or if the label hides what is excluded.
+# Unwired if the export or « Vérifier la liste ▾ » silently takes the selection or the list, if the bar of a multiple
+# selection (X01) exports anything but the selected rows, or if the label hides what is excluded.
 Case 'P60 Portée collective : liste affichée ou lignes sélectionnées, choisie et annoncée avant lʼexport ou le relevé' {
     Initialize-DomeniaSearchWorkspace
     $rows=@((New-FixtureRow 'PC-01' 'Machine' '11111111-1111-4111-8111-111111111111'),(New-FixtureRow 'PC-02' 'Machine' '22222222-2222-4222-8222-222222222222'),(New-FixtureRow 'PC-03' 'Machine' '33333333-3333-4333-8333-333333333333'),(New-FixtureRow 'Jean' 'Utilisateur' '44444444-4444-4444-8444-444444444444'))
@@ -439,18 +448,29 @@ Case 'P60 Portée collective : liste affichée ou lignes sélectionnées, choisi
     Expect (([string]$script:Ctrl.LblResultScope.Text).Contains('Liste affichée : 3 ligne(s)') -and ([string]$script:Ctrl.LblResultScope.Text).Contains('1 ligne(s) chargée(s) masquée(s)') -and ([string]$script:Ctrl.LblResultScope.Text).Contains('sélection de 2')) ('Portée : '+$script:Ctrl.LblResultScope.Text)
     Export-CurrentResults
     Expect (@($script:Exports[0].Rows).Count -eq 3 -and [string]$script:Exports[0].Scope -eq 'liste affichée' -and ([string]$script:Exports[0].Also).Contains('Liste affichée : 3')) 'La liste affichée nʼest pas exportée telle quelle.'
-    Start-DomeniaResultSurvey -Kind Ping
-    Expect ($script:ParkCalls.Count -eq 1 -and $script:ParkCalls[0].Displayed -and $script:ParkCalls[0].PingOnly) 'Pinger la liste ne vise pas la liste affichée.'
+    Expect (((@($script:PendingColumns)|ForEach-Object{[string]$_.Property}) -join ',') -eq 'Type,Name,State,DN') 'Les colonnes visibles ne sont plus exportées.'
+    Invoke-DomeniaParkVerify -Mode Ping
+    Expect ($script:ParkCalls.Count -eq 1 -and $script:ParkCalls[0].Displayed -and $script:ParkCalls[0].PingOnly -and -not $script:ParkCalls[0].Selection) 'Vérifier la liste ne vise pas la liste affichée.'
     $script:Ctrl.CmbResultScope.SelectedIndex=1
+    Invoke-DomeniaSearchWorkspaceRefresh
+    Expect (([string]$script:Ctrl.LblResultScope.Text).Contains('Lignes sélectionnées : 2 lignes sélectionnées dont 1 poste sur 3 affichée(s)')) ('Portée choisie : '+$script:Ctrl.LblResultScope.Text)
+    Expect ((Get-DomeniaParkVerifyButtonText) -eq 'Vérifier la sélection : Qui répond ?') (Get-DomeniaParkVerifyButtonText)
     Export-CurrentResults
     Expect (@($script:Exports[1].Rows).Count -eq 2 -and [string]$script:Exports[1].Scope -eq 'lignes sélectionnées' -and [object]::ReferenceEquals(@($script:Exports[1].Rows)[0],$rows[0])) 'La sélection nʼest pas exportée seule.'
-    Start-DomeniaResultSurvey -Kind Analyze
+    Invoke-DomeniaParkVerify -Mode Analyse
     $call=$script:ParkCalls[1]
-    Expect ($call.Kind -eq 'Analyze' -and @($call.Targets).Count -eq 1 -and [string]$call.Targets[0].object_guid -eq '11111111-1111-4111-8111-111111111111' -and ([string]$call.Label).Contains('sélection')) 'Analyser ne vise pas les seuls postes sélectionnés.'
-    $script:ListSurveyBlocked=$true;Start-DomeniaResultSurvey -Kind Detect
-    Expect ($script:ParkCalls.Count -eq 2 -and $script:LastStatusLevel -eq 'WARN') 'Une liste du domaine entier a été relevée.'
-    $script:ListSurveyBlocked=$false;$script:Ctrl.DgObjects.SelectedItems.Clear();Export-CurrentResults
-    Expect ($script:Exports.Count -eq 2 -and ([string]$script:LastStatus).Contains('Aucune ligne')) 'Une sélection vide a exporté quelque chose.'
+    Expect ($call.Kind -eq 'Analyse' -and $call.Selection -and -not $call.Displayed -and @($call.Targets).Count -eq 1 -and [string]$call.Targets[0].object_guid -eq '11111111-1111-4111-8111-111111111111') 'Analyser ne vise pas les seuls postes sélectionnés, par le relevé de la sélection.'
+    # The bar of a multiple selection always acts on the selected rows, whatever the scope chosen beside the results,
+    # and states them as the scope line does.
+    $script:Ctrl.CmbResultScope.SelectedIndex=0
+    Export-CurrentResults -Mode Selected
+    Expect (@($script:Exports[2].Rows).Count -eq 2 -and [string]$script:Exports[2].Scope -eq 'lignes sélectionnées' -and ([string]$script:Exports[2].Also).Contains('2 lignes sélectionnées dont 1 poste')) ('Export de la barre de sélection : '+[string]$script:Exports[2].Also)
+    Start-DomeniaParkSelectionSurvey -Mode Console
+    Expect ($script:ParkCalls.Count -eq 3 -and $script:ParkCalls[2].Selection -and $script:ParkCalls[2].Kind -eq 'Console' -and @($script:ParkCalls[2].Targets).Count -eq 1) 'Le relevé de la barre de sélection ne vise pas la sélection.'
+    $script:Ctrl.CmbResultScope.SelectedIndex=1;$script:Ctrl.DgObjects.SelectedItems.Clear();Export-CurrentResults
+    Expect ($script:Exports.Count -eq 3 -and ([string]$script:LastStatus).Contains('Aucune ligne')) 'Une sélection vide a exporté quelque chose.'
+    Invoke-DomeniaParkVerify -Mode Ping
+    Expect ($script:ParkCalls.Count -eq 3 -and ([string]$script:LastStatus).StartsWith('Aucune ligne sélectionnée')) ('Sélection vide relevée : '+$script:LastStatus)
 }
 # Unwired if the scope line keeps 'lecture en cours' once a live read ends without any grid event, if it does not
 # follow a live filter pass (written to the result counter), or if a handler still runs for each appended row.
@@ -478,32 +498,37 @@ Case 'P60 Liste progressive : la ligne de portée suit la fin de la lecture, san
     & $script:SearchWorkspaceTimer.Tick
     Expect (([string]$script:Ctrl.LblResultScope.Text).Contains('Liste affichée : 3 ligne(s) · 1 ligne(s) chargée(s) masquée(s)') -and -not [bool]$script:SearchWorkspaceTimer.IsEnabled) ('Après le filtre : '+$script:Ctrl.LblResultScope.Text)
 }
-# Unwired if a survey button or the export still names the displayed results only, or if a screen reader, the tooltip
-# and the help of the page describe different scopes.
+# Unwired if « Vérifier la liste ▾ » or the export still names the displayed results only, if the bar of a multiple
+# selection exports the chosen scope instead of the selection, or if a screen reader, the tooltip and the help of the
+# page describe different scopes.
 Case 'P60 Export et relevés nomment la portée choisie : infobulle, aide dʼautomation et aide de la page identiques' {
     . ([scriptblock]::Create((Import-AstFunctions (Join-Path $wad 'Domenia-Core.ps1') @('Get-MainXaml'))))
     [xml]$xaml=Get-MainXaml
     $aideBrutee=[IO.File]::ReadAllText((Join-Path $modules 'Domenia-UX.help.json'),[Text.Encoding]::UTF8)|ConvertFrom-Json
     $aide=@($aideBrutee)
-    foreach($name in @('BtnParkPing','BtnParkResults','BtnParkAnalyze','BtnExportResults','CmbResultScope')){
+    foreach($name in @('BtnParkVerify','BtnExportResults','CmbResultScope','PnlOuBreadcrumb')){
         $node=@($xaml.SelectNodes('//*')|Where-Object{$_.GetAttribute('Name','http://schemas.microsoft.com/winfx/2006/xaml') -eq $name})
         Expect ($node.Count -eq 1) ($name+' : '+$node.Count+' occurrence(s)')
         $tip=[string]$node[0].GetAttribute('ToolTip');$label=[string]$node[0].GetAttribute('AutomationProperties.Name')
-        Expect ($tip.Contains('portée choisie') -or $tip.Contains('Portée de lʼexport')) ($name+' ne nomme pas la portée choisie.')
+        if($name -ne 'PnlOuBreadcrumb'){Expect ($tip.Contains('portée choisie') -or $tip.Contains('Portée de lʼexport')) ($name+' ne nomme pas la portée choisie.')}
         Expect ($tip -ceq [string]$node[0].GetAttribute('AutomationProperties.HelpText')) ($name+' : infobulle et aide dʼautomation divergent.')
         $entry=@($aide|Where-Object{[string]$_.Name -ceq $name})
         Expect ($entry.Count -eq 1 -and [string]$entry[0].Text -ceq $tip -and [string]$entry[0].Title -ceq $label) ($name+' : aide de la page absente ou différente.')
     }
-    foreach($name in @('BtnParkPing','BtnParkResults','BtnParkAnalyze')){
-        $node=@($xaml.SelectNodes('//*')|Where-Object{$_.GetAttribute('Name','http://schemas.microsoft.com/winfx/2006/xaml') -eq $name})[0]
-        Expect (([string]$node.GetAttribute('AutomationProperties.Name')).Contains('portée choisie')) ($name+' : le nom lu par un lecteur dʼécran parle encore des seuls postes affichés.')
+    # One breadcrumb, in the header of the card (X02, DS-06); the three former survey buttons are gone (X01, UI-23).
+    $header=@($xaml.SelectNodes('//*')|Where-Object{$_.GetAttribute('Name','http://schemas.microsoft.com/winfx/2006/xaml') -eq 'UxSearchCardHeader'})
+    Expect ($header.Count -eq 1 -and @($header[0].SelectNodes('.//*')|Where-Object{$_.GetAttribute('Name','http://schemas.microsoft.com/winfx/2006/xaml') -eq 'PnlOuBreadcrumb'}).Count -eq 1) 'Le fil dʼAriane nʼest pas dans lʼen-tête de la carte.'
+    foreach($name in @('BtnParkPing','BtnParkResults','BtnParkAnalyze','BtnParkResultsStop')){
+        Expect (@($xaml.SelectNodes('//*')|Where-Object{$_.GetAttribute('Name','http://schemas.microsoft.com/winfx/2006/xaml') -eq $name}).Count -eq 0) ($name+' est revenu.')
     }
-    # The export of the results menu names the scope it follows.
+    # The export of the results menu names the scope it follows; the bar of a multiple selection exports the selection.
     $tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'),[ref]$tokens,[ref]$errors)
     $menu=@($ast.FindAll({param($n)($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq 'Build-DomeniaObjectsContextMenu')},$true))
     Expect ($menu.Count -eq 1) 'Menu des résultats introuvable.'
     $text=$menu[0].Extent.Text
     Expect ($text.Contains('Get-DomeniaResultScopeMode') -and $text.Contains('Exporter les lignes sélectionnées en CSV') -and $text.Contains('Exporter la liste affichée en CSV') -and -not $text.Contains('"Exporter la liste en CSV"')) 'Le menu des résultats ne nomme pas la portée de lʼexport.'
+    $wire=@($ast.FindAll({param($n)($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq 'Wire-Events')},$true))
+    Expect ($wire.Count -eq 1 -and $wire[0].Extent.Text.Contains('$script:Ctrl["BtnSelectionExport"].Add_Click({ Export-CurrentResults -Mode Selected })')) 'Lʼexport de la barre de sélection ne vise pas la sélection.'
 }
 # Unwired if the preview leaves the results, loses a multiple selection, or shows a late answer of another row.
 Case 'P59 Aperçu latéral : la ligne courante est lue dans la base locale, la sélection de travail reste' {

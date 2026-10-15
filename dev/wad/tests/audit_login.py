@@ -74,7 +74,7 @@ def main():
         return True
     test('Standard login XML parses',x.tag.endswith('Window'))
     test('Open log and copy diagnostics buttons visible',all(visible_ancestry(named[n]) for n in ('BtnLoginLog','BtnCopyLoginDiag')))
-    test('Secret reveal helper remains hidden',not visible_ancestry(named['TxtLoginPasswordVisible']))
+    test('Secret reveal overlay hidden until requested',not visible_ancestry(named['LoginPasswordPeek']) and 'TxtLoginPasswordVisible' not in named)
     test('Error and stage wrap instead of being truncated',all(named[n].get('TextWrapping')=='Wrap' and not named[n].get('TextTrimming') for n in ('LblLoginError','LblLoginStage')))
     test('Native tests run before copying code',install.index('-File $loginTests')<install.index('$backupParent='))
     test('Installer stops if native tests fail',"if($LASTEXITCODE -ne 0){throw ('Tests du login en echec." in install)
