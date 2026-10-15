@@ -97,7 +97,7 @@ function ConvertTo-DomeniaGuidText {
         }
         $parsed = [guid]::Empty
         if ([guid]::TryParse([string]$Value,[ref]$parsed) -and $parsed -ne [guid]::Empty) { return $parsed.ToString('D') }
-    } catch { }
+    } catch { if (${function:Write-DomeniaRuleSwallowed}) { Write-DomeniaRuleSwallowed 'Common' 'ConvertTo-DomeniaGuidText' $_ } }
     return ''
 }
 
@@ -125,7 +125,7 @@ function ConvertTo-DomeniaSidText {
         }
         $text = ([string]$Value).Trim()
         if ($text -match '^S-1-\d+(-\d+){1,14}$') { return $text.ToUpperInvariant() }
-    } catch { }
+    } catch { if (${function:Write-DomeniaRuleSwallowed}) { Write-DomeniaRuleSwallowed 'Common' 'ConvertTo-DomeniaSidText' $_ } }
     return ''
 }
 
@@ -177,7 +177,7 @@ function ConvertTo-DomeniaUtcDate {
         if ($AssumeLocal) { $assumed = [Globalization.DateTimeStyles]::AssumeLocal }
         $styles = $assumed -bor [Globalization.DateTimeStyles]::AdjustToUniversal
         if ([datetime]::TryParse($text,[Globalization.CultureInfo]::InvariantCulture,$styles,[ref]$parsed)) { return $parsed }
-    } catch { }
+    } catch { if (${function:Write-DomeniaRuleSwallowed}) { Write-DomeniaRuleSwallowed 'Common' 'ConvertTo-DomeniaUtcDate' $_ } }
     return $null
 }
 
@@ -426,6 +426,28 @@ function Get-DomeniaSwallowedEntries {
     try { $state = $script:DomeniaSwallowedState } catch { $state = $null }
     if ($null -eq $state) { return }
     return $state.Entries.ToArray()
+}
+
+function Write-DomeniaRuleSwallowed {
+    # P-CD-09: trace of an error swallowed by a pure rule (*.Model.ps1). A rule also runs in worker runspaces and in
+    # test benches that do not load the core: the trace of the core (Write-DomeniaSwallowed: journal and ring) is used
+    # when it is reachable, otherwise the ring of Add-DomeniaSwallowedEntry only. The rule itself stays free of journal
+    # and disk code; its catch block calls this function through a guard, since a bench may load a rule without this
+    # module:  catch { if (${function:Write-DomeniaRuleSwallowed}) { Write-DomeniaRuleSwallowed 'Probes' 'Get-X' $_ } }
+    # Never throws and writes nothing to the pipeline.
+    param(
+        [AllowNull()][AllowEmptyString()][string]$Category='',
+        [AllowNull()][AllowEmptyString()][string]$Operation='',
+        [AllowNull()]$ErrorRecord=$null
+    )
+    try {
+        if (${function:Write-DomeniaSwallowed}) { Write-DomeniaSwallowed $Category $Operation $ErrorRecord; return }
+        [void](Add-DomeniaSwallowedEntry -Category $Category -Operation $Operation -ErrorRecord $ErrorRecord)
+    }
+    catch {
+        # Exempt from tools/audit_swallowed.py: the trace of a swallowed error cannot trace its own failure.
+        [void]$_
+    }
 }
 
 # ---------------------------------------------------------------- point 133: versioned contracts between modules

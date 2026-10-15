@@ -3,6 +3,12 @@
 
     catch { }   becomes   catch { Write-DomeniaSwallowed '<Category>' '<Function>' $_ }
 
+and, in a pure rule (*.Model.ps1), which also runs in worker runspaces and in benches without the core:
+
+    catch { }   becomes   catch { if (${function:Write-DomeniaRuleSwallowed}) { Write-DomeniaRuleSwallowed '<Category>' '<Function>' $_ } }
+
+(Domenia-Common.Model.ps1: the trace of the core when it is reachable, else the in-memory ring; the guard keeps a bench
+that loads a rule without Common.Model as it was).
 Category is the module of the file (Domenia-Core.ps1 gives Core, Domenia-Storage.UI.ps1 gives Storage), Function the
 top-level function that contains the catch (the file name for script code). The spacing of the block is kept
 (catch{} gives catch{Write-DomeniaSwallowed ...}); a block written on one line stays on its line, so line numbers do not
@@ -16,13 +22,12 @@ Write-DomeniaSwallowed exists only in the script scope of Domenia-Core.ps1. A ca
 CommandNotFoundException from inside the catch, so these blocks are left as they are and listed (--list) with a reason:
   here-string  worker code (here-string bodies, pinned by SHA-256), run in a runspace without the core;
   worker-file  *.Worker.ps1 (worker operations);
-  model        *.Model.ps1 pure rules, also dot-sourced into worker runspaces (handled one by one);
   bootstrap    Domenia-Start.ps1 and Domenia-Modules.ps1 (before or while the core loads);
   copied       a function whose definition is copied as text into another runspace (Get-Command ... .Definition);
   closure      a scriptblock bound by .GetNewClosure(): its dynamic module does not see the core script scope;
   remote       a scriptblock given to -ScriptBlock, -InitializationScript, AddScript(, Start-Job or Invoke-Command;
   early        script code of the core placed before the definition of Write-DomeniaSwallowed;
-  exempt       Write-DomeniaSwallowed and Add-DomeniaSwallowedEntry themselves (tools/audit_swallowed.py EXEMPT).
+  exempt       the trace functions themselves (tools/audit_swallowed.py EXEMPT).
 """
 from pathlib import Path
 import argparse
@@ -36,6 +41,7 @@ from ps_sources import Enclosing, LineIndex, mask_ps, matching_brace, strip_comm
 
 ROOT = Path(__file__).resolve().parents[1]
 TRACE = 'Write-DomeniaSwallowed'
+RULE_TRACE = 'Write-DomeniaRuleSwallowed'
 BOM = b'\xef\xbb\xbf'
 BOOTSTRAP = ('Domenia-Start.ps1', 'Domenia-Modules.ps1')
 CLOSURE_RX = re.compile(r'\s*\.GetNewClosure\s*\(')
@@ -44,7 +50,7 @@ COPY_NAME_RX = re.compile(r'(?i)Get-Command\s+(?:-Name\s+)?([A-Za-z][\w]*-[\w-]+
 QUOTED_NAME_RX = re.compile(r'[\'"]([A-Za-z][\w]*-[\w-]+)[\'"]')
 DEFINITION_RX = re.compile(r'\.Definition\b')
 MODULE_RX = re.compile(r'^Domenia-([A-Za-z0-9]+)\.')
-REASONS = ('here-string', 'worker-file', 'model', 'bootstrap', 'copied', 'closure', 'remote', 'early', 'exempt')
+REASONS = ('here-string', 'worker-file', 'bootstrap', 'copied', 'closure', 'remote', 'early', 'exempt')
 
 
 def category(path):
@@ -57,15 +63,18 @@ def category(path):
 
 
 def file_reason(path):
-    """Reason to leave every catch of a file untouched, or None when its catches run in the core script scope."""
+    """Reason to leave every catch of a file untouched, or None when its catches can be traced."""
     name = Path(path).name
     if name in BOOTSTRAP:
         return 'bootstrap'
     if name.endswith('.Worker.ps1'):
         return 'worker-file'
-    if name.endswith('.Model.ps1'):
-        return 'model'
     return None
+
+
+def is_rule(path):
+    """A pure rule file (*.Model.ps1): its trace goes through the guarded Write-DomeniaRuleSwallowed."""
+    return Path(path).name.endswith('.Model.ps1')
 
 
 def read_source(path):
@@ -124,7 +133,9 @@ def context_reason(masked, opens):
     return None
 
 
-def trace_call(cat, operation):
+def trace_call(cat, operation, rule=False):
+    if rule:
+        return "if (${function:%s}) { %s '%s' '%s' $_ }" % (RULE_TRACE, RULE_TRACE, cat, operation)
     return "%s '%s' '%s' $_" % (TRACE, cat, operation)
 
 
@@ -176,7 +187,7 @@ def plan_file(path, root, text, copied):
             continue
         operation = owner or Path(path).name
         body = text[open_index + 1:close - 1]
-        edits.append((open_index + 1, close - 1, new_body(text, keyword, body, trace_call(cat, operation))))
+        edits.append((open_index + 1, close - 1, new_body(text, keyword, body, trace_call(cat, operation, is_rule(path)))))
         row['Category'] = cat
         rewritten.append(row)
     out = text

@@ -34,6 +34,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaDnSite',
             'Add-DomeniaSwallowedEntry',
             'Get-DomeniaSwallowedEntries',
+            'Write-DomeniaRuleSwallowed',
             'Get-DomeniaContractCatalog',
             'Get-DomeniaContract',
             'ConvertFrom-DomeniaContractFormat',

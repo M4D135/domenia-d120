@@ -8,7 +8,7 @@
  {
   "Text": "Detail",
   "File": "wad/Domenia-Core.ps1",
-  "Code": "try { $detail = [string]$session.Progress[\"Detail\"] } catch { }",
+  "Code": "try { $detail = [string]$session.Progress[\"Detail\"] } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaFastLoginAttempt' $_ }",
   "Reason": "Clé « Detail » de la table de progression de la connexion, pas lʼen-tête de colonne."
  },
  {

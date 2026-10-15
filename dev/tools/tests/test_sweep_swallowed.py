@@ -1,5 +1,5 @@
-"""Offline checks of tools/sweep_swallowed.py (P-CD-09): rewriting of the empty catch blocks into a trace, blocks left as
-they are (worker code, pure rules, copied functions, closures, remote scriptblocks, bootstrap), encoding and
+"""Offline checks of tools/sweep_swallowed.py (P-CD-09): rewriting of the empty catch blocks into a trace (guarded in the
+pure rules), blocks left as they are (worker code, copied functions, closures, remote scriptblocks, bootstrap), encoding and
 idempotence. Fictitious trees in temporary folders, plus read-only checks of this repository; nothing is executed."""
 import contextlib
 import io
@@ -93,9 +93,16 @@ class HelpersTests(unittest.TestCase):
         self.assertEqual(sweep.file_reason('wad/Domenia-Start.ps1'), 'bootstrap')
         self.assertEqual(sweep.file_reason('wad/Domenia-Modules.ps1'), 'bootstrap')
         self.assertEqual(sweep.file_reason('wad/modules/Domenia-Park.Worker.ps1'), 'worker-file')
-        self.assertEqual(sweep.file_reason('wad/modules/Domenia-Park.Model.ps1'), 'model')
+        self.assertIsNone(sweep.file_reason('wad/modules/Domenia-Park.Model.ps1'))
+        self.assertTrue(sweep.is_rule('wad/modules/Domenia-Park.Model.ps1'))
+        self.assertFalse(sweep.is_rule('wad/modules/Domenia-Park.UI.ps1'))
         self.assertIsNone(sweep.file_reason('wad/modules/Domenia-Park.UI.ps1'))
         self.assertIsNone(sweep.file_reason('wad/Domenia-Core.ps1'))
+
+    def test_rule_trace_is_guarded(self):
+        self.assertEqual(sweep.trace_call('Probes', 'Get-X', rule=True),
+                         "if (${function:Write-DomeniaRuleSwallowed}) { Write-DomeniaRuleSwallowed 'Probes' 'Get-X' $_ }")
+        self.assertEqual(sweep.trace_call('Core', 'Get-X'), "Write-DomeniaSwallowed 'Core' 'Get-X' $_")
 
     def test_new_body_keeps_spacing(self):
         call = "Write-DomeniaSwallowed 'Core' 'F' $_"
@@ -126,16 +133,20 @@ class SweepTests(unittest.TestCase):
         before = {p: p.read_bytes() for p in (self.core, self.ui, self.model, self.worker, self.start)}
         code, report, _ = run(['--root', str(self.tmp)])
         self.assertEqual((code, report['Status']), (0, 'PLAN'))
-        self.assertEqual(report['Rewritten'], 8)
+        self.assertEqual(report['Rewritten'], 9)
         for path, data in before.items():
             self.assertEqual(path.read_bytes(), data, path.name)
 
     def test_apply_rewrites_only_core_scope_blocks(self):
         code, report, _ = run(['--root', str(self.tmp), '--apply'])
-        self.assertEqual((code, report['Status'], report['Rewritten']), (0, 'APPLIED', 8))
-        self.assertEqual(report['Files'], {'wad/Domenia-Core.ps1': 7, 'wad/modules/Domenia-Panel.UI.ps1': 1})
-        self.assertEqual(report['LeftByReason'], {'here-string': 1, 'worker-file': 1, 'model': 1, 'bootstrap': 1,
+        self.assertEqual((code, report['Status'], report['Rewritten']), (0, 'APPLIED', 9))
+        self.assertEqual(report['Files'], {'wad/Domenia-Core.ps1': 7, 'wad/modules/Domenia-Panel.Model.ps1': 1,
+                                           'wad/modules/Domenia-Panel.UI.ps1': 1})
+        self.assertEqual(report['LeftByReason'], {'here-string': 1, 'worker-file': 1, 'bootstrap': 1,
                                                   'copied': 2, 'closure': 1, 'remote': 2, 'early': 1})
+        rule = self.model.read_bytes().decode('utf-8-sig')
+        self.assertIn("try { A } catch { if (${function:Write-DomeniaRuleSwallowed}) "
+                      "{ Write-DomeniaRuleSwallowed 'Panel' 'Get-Rule' $_ } }", rule, 'A pure rule gets the guarded trace')
         self.assertEqual(report['CopiedFunctions'], ['Get-DomeniaCopiedHelper', 'Invoke-DomeniaCopiedProbe'])
         text = self.core_text()
         self.assertIn("try { A } catch { Write-DomeniaSwallowed 'Core' 'Get-Plain' $_ }", text)
@@ -158,7 +169,7 @@ class SweepTests(unittest.TestCase):
         self.assertIn('try { X } catch { $null = $_ }', text)
 
     def test_encoding_line_endings_and_untouched_files(self):
-        model, worker, start = self.model.read_bytes(), self.worker.read_bytes(), self.start.read_bytes()
+        worker, start = self.worker.read_bytes(), self.start.read_bytes()
         run(['--root', str(self.tmp), '--apply'])
         self.assertTrue(self.core.read_bytes().startswith(b'\xef\xbb\xbf'), 'BOM kept')
         ui = self.ui.read_bytes()
@@ -168,7 +179,8 @@ class SweepTests(unittest.TestCase):
                          'CRLF kept where the file has it')
         self.assertEqual(self.core_text().count('\n'), CORE.count('\n') + 1, 'Only the block spread over two lines grows')
         self.assertNotIn('\r', self.core_text(), 'LF kept')
-        self.assertEqual((self.model.read_bytes(), self.worker.read_bytes(), self.start.read_bytes()), (model, worker, start))
+        self.assertTrue(self.model.read_bytes().startswith(b'\xef\xbb\xbf'))
+        self.assertEqual((self.worker.read_bytes(), self.start.read_bytes()), (worker, start))
 
     def test_file_without_bom_stays_without_bom(self):
         write(self.tmp, 'wad/modules/Domenia-Plain.UI.ps1', UI, bom=False)
@@ -179,7 +191,7 @@ class SweepTests(unittest.TestCase):
 
     def test_idempotent(self):
         run(['--root', str(self.tmp), '--apply'])
-        first = {p: p.read_bytes() for p in (self.core, self.ui)}
+        first = {p: p.read_bytes() for p in (self.core, self.ui, self.model)}
         code, report, _ = run(['--root', str(self.tmp), '--apply'])
         self.assertEqual((code, report['Rewritten']), (0, 0))
         for path, data in first.items():
@@ -192,13 +204,14 @@ class SweepTests(unittest.TestCase):
         self.assertIn('wad/Domenia-Core.ps1:19 [remote] Start-Remote', text)
         self.assertIn('wad/Domenia-Core.ps1:28 [here-string] Get-WorkerCode', text)
         self.assertIn('wad/Domenia-Core.ps1:32 [copied] Invoke-DomeniaCopiedProbe', text)
-        self.assertIn('wad/modules/Domenia-Panel.Model.ps1:2 [model] Get-Rule', text)
+        self.assertIn('wad/modules/Domenia-Panel.Worker.ps1:2 [worker-file] Get-W', text)
+        self.assertNotIn('Domenia-Panel.Model.ps1:', text, 'A pure rule is traced, not left')
 
     def test_audit_drops_after_apply(self):
         before = audit.counts(audit.findings(self.tmp))
         run(['--root', str(self.tmp), '--apply'])
         after = audit.counts(audit.findings(self.tmp))
-        self.assertEqual(sum(before.values()) - sum(after.values()), 8)
+        self.assertEqual(sum(before.values()) - sum(after.values()), 9)
         self.assertEqual(after.get('Get-Plain'), 1, 'Only the commented block stays reported')
         self.assertNotIn('Show-Panel', after)
 
@@ -224,7 +237,7 @@ class RepositoryTests(unittest.TestCase):
         result = sweep.sweep(DEV, apply=False)
         self.assertEqual(result['Rewritten'], [], 'Run tools/sweep_swallowed.py --apply')
         reasons = {r['Reason'] for r in result['Left']}
-        self.assertLessEqual(reasons, {'here-string', 'model', 'bootstrap', 'copied', 'worker-file', 'closure', 'remote'})
+        self.assertLessEqual(reasons, {'here-string', 'bootstrap', 'copied', 'worker-file', 'closure', 'remote'})
         self.assertIn('Invoke-DomeniaInProcessAuthProbe', result['Copied'])
         self.assertIn('Get-DomeniaStructuredError', result['Copied'])
 

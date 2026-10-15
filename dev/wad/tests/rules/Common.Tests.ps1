@@ -137,3 +137,44 @@ Test-Case 'P-CD-09' 'Reentree : la trace emise pendant une trace ne garde que ca
     Assert-Equal 1 $after.Count;Assert-Equal 'Unavailable' $after[0].Entry.Journal 'Les appels suivants ne sont plus des reentrees'
     $script:DomeniaSwallowedState=$null
 }
+
+Test-Case 'P-CD-09' 'Regle pure : trace du coeur quand elle est chargee, jamais d exception' {
+    # The bench defines a silent Write-DomeniaSwallowed; this case replaces it in its own scope by a recorder.
+    $script:SwRuleCalls=New-Object 'System.Collections.Generic.List[object]'
+    function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) $script:SwRuleCalls.Add([pscustomobject]@{Category=$Category;Operation=$Operation;Error=$ErrorRecord}) }
+    $script:DomeniaSwallowedState=$null
+    $err=try{ throw 'conversion impossible' }catch{ $_ }
+    $out=@(Write-DomeniaRuleSwallowed 'Probes' 'Get-DomeniaProbeValues' $err)
+    Assert-Equal 0 $out.Count 'Rien sur le pipeline'
+    Assert-Equal 1 $script:SwRuleCalls.Count 'La trace du coeur recoit l erreur'
+    Assert-Equal 'Probes' $script:SwRuleCalls[0].Category;Assert-Equal 'Get-DomeniaProbeValues' $script:SwRuleCalls[0].Operation
+    Assert-True ([object]::ReferenceEquals($err,$script:SwRuleCalls[0].Error)) 'L enregistrement d erreur est transmis tel quel'
+    Assert-Equal 0 (@(Get-DomeniaSwallowedEntries)).Count 'Le coeur tient l anneau lui-meme : pas de double entree'
+    function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) throw 'journal indisponible' }
+    $out=@(Write-DomeniaRuleSwallowed 'Probes' 'Get-DomeniaProbeValues' $err)
+    Assert-Equal 0 $out.Count 'Une trace en echec ne remonte pas'
+}
+Test-Case 'P-CD-09' 'Regle pure hors du coeur : anneau seul dans un worker, garde sans Common.Model' {
+    # A fresh runspace stands for a worker: neither the core nor the bench double is there.
+    $ps=[PowerShell]::Create([Management.Automation.RunspaceMode]::NewRunspace)
+    try {
+        [void]$ps.AddScript(@'
+param($Common)
+function Get-Rule { try { throw 'valeur illisible' } catch { if (${function:Write-DomeniaRuleSwallowed}) { Write-DomeniaRuleSwallowed 'Regle' 'Get-Rule' $_ } }; 'repli' }
+$before=Get-Rule
+. $Common
+$after=Get-Rule
+$entries=@(Get-DomeniaSwallowedEntries)
+[pscustomobject]@{Before=$before;After=$after;Count=$entries.Count;Category=[string]$entries[0].Category;Operation=[string]$entries[0].Operation;Type=[string]$entries[0].Type;Message=[string]$entries[0].Message}
+'@).AddArgument((Join-Path $modules 'Domenia-Common.Model.ps1'))
+        $out=@($ps.Invoke())
+        Assert-Equal 0 $ps.Streams.Error.Count ('Erreurs : '+(@($ps.Streams.Error|ForEach-Object{[string]$_}) -join ' | '))
+        Assert-Equal 1 $out.Count
+        Assert-Equal 'repli' $out[0].Before 'Sans Common.Model, la garde laisse la regle rendre son repli'
+        Assert-Equal 'repli' $out[0].After
+        Assert-Equal 1 ([int]$out[0].Count) 'Dans un worker, l erreur entre dans l anneau'
+        Assert-Equal 'Regle' $out[0].Category;Assert-Equal 'Get-Rule' $out[0].Operation
+        Assert-Equal 'System.Management.Automation.RuntimeException' $out[0].Type
+        Assert-Equal '[message non conservé : aucune règle de masquage chargée]' $out[0].Message 'Sans regle de masquage le message n est pas garde'
+    } finally { $ps.Dispose() }
+}

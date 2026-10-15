@@ -1,21 +1,16 @@
 {
  "Schema": "DomeniaSwallowedBaseline/1",
- "Source": "P-CD-09 balayage : catch vides tracés par Write-DomeniaSwallowed (tools/sweep_swallowed.py)",
- "Total": 288,
+ "Source": "P-CD-09 balayage : catch vides tracés (cœur, interface, règles pures) ; restent le code des workers, lʼamorce et les fonctions recopiées dans un runspace",
+ "Total": 274,
  "Kinds": {
-  "empty": 287,
+  "empty": 273,
   "null": 1
  },
  "Places": {
-  "code": 45,
+  "code": 31,
   "here-string": 243
  },
  "Findings": {
-  "ConvertTo-DomeniaGuidText": 1,
-  "ConvertTo-DomeniaSidText": 1,
-  "ConvertTo-DomeniaSoftwareFromInventory": 1,
-  "ConvertTo-DomeniaStateMap": 1,
-  "ConvertTo-DomeniaUtcDate": 1,
   "Delete-SelectedObject [here-string]": 2,
   "Get-DomeniaAdConsistencyScanWorkerCode [here-string]": 1,
   "Get-DomeniaAdHealthReadWorkerCode [here-string]": 1,
@@ -25,8 +20,6 @@
   "Get-DomeniaDelegationReadWorkerCode [here-string]": 1,
   "Get-DomeniaDemoDirectoryWorkerCode [here-string]": 1,
   "Get-DomeniaDomainWorkerCode [here-string]": 6,
-  "Get-DomeniaExperienceTaskRow": 2,
-  "Get-DomeniaFleetBoardData": 2,
   "Get-DomeniaGpoLinksReadWorkerCode [here-string]": 1,
   "Get-DomeniaGroupPathWorkerCode [here-string]": 3,
   "Get-DomeniaIndexOuListWorkerCode [here-string]": 3,
@@ -41,8 +34,6 @@
   "Get-DomeniaParkSharedSyncWorkerCode [here-string]": 2,
   "Get-DomeniaParkSweepWorkerCode [here-string]": 6,
   "Get-DomeniaPasswordPolicyReadWorkerCode [here-string]": 1,
-  "Get-DomeniaProbeValues": 2,
-  "Get-DomeniaReadTimeoutState": 2,
   "Get-DomeniaReceiptsCommon [here-string]": 2,
   "Get-DomeniaRelationHistoryReadWorkerCode [here-string]": 2,
   "Get-DomeniaRimotteWorkerCode [here-string]": 2,
@@ -67,7 +58,6 @@
   "Start-LoadComputerSecrets [here-string]": 5,
   "Start-PermissionAnalysis [here-string]": 1,
   "Start-SelectedCmdletHelp [here-string]": 7,
-  "Test-DomeniaExperienceRow": 1,
   "wad/Domenia-Core.ps1|<script> [here-string]": 38,
   "wad/Domenia-Start.ps1|<script>": 2
  }

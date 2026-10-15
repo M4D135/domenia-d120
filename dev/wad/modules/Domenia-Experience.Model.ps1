@@ -293,7 +293,7 @@ function Test-DomeniaExperienceRow {
     # A literal filter over known result fields only. No regex/wildcards, no secrets.
     $parts=New-Object 'System.Collections.Generic.List[string]'
     foreach($name in @('Type','Name','Login','UPN','Association','Presence','SessionDisplay','SessionState')){
-        $value='';try{$value=[string]$Row.$name}catch{}
+        $value='';try{$value=[string]$Row.$name}catch{if (${function:Write-DomeniaRuleSwallowed}) { Write-DomeniaRuleSwallowed 'Experience' 'Test-DomeniaExperienceRow' $_ }}
         if($value.Length -gt 2048){$value=$value.Substring(0,2048)}
         $parts.Add($value)
     }
@@ -348,8 +348,8 @@ function Get-DomeniaExperienceTaskRow {
     elseif([bool]$Job.TimeoutNotified -or [bool]$Job.TimeoutErrorDelivered){$state='À vérifier';$detail='Délai dépassé. Ne pas déduire une réussite ou relancer une écriture.'}
     # Point 46: the right this operation needs, so that a refusal reads against it. Resolved at call time
     # (Domenia-Access.Model.ps1); without that rule the row keeps its state sentence only.
-    try{$need=Get-DomeniaOperationRequirement ([string]$Job.OperationId);if([bool]$need.Known){$detail+=' Accès requis : '+[string]$need.Right}}catch{}
-    $seconds=0.0;try{$seconds=[Math]::Max(0,($Now-[datetime]$Job.Started).TotalSeconds)}catch{}
+    try{$need=Get-DomeniaOperationRequirement ([string]$Job.OperationId);if([bool]$need.Known){$detail+=' Accès requis : '+[string]$need.Right}}catch{if (${function:Write-DomeniaRuleSwallowed}) { Write-DomeniaRuleSwallowed 'Experience' 'Get-DomeniaExperienceTaskRow' $_ }}
+    $seconds=0.0;try{$seconds=[Math]::Max(0,($Now-[datetime]$Job.Started).TotalSeconds)}catch{if (${function:Write-DomeniaRuleSwallowed}) { Write-DomeniaRuleSwallowed 'Experience' 'Get-DomeniaExperienceTaskRow' $_ }}
     $duration=[TimeSpan]::FromSeconds([Math]::Min($seconds,315360000))
     $durationLabel=if($duration.TotalHours -ge 1){'{0:0} h {1:00} min' -f [Math]::Floor($duration.TotalHours),$duration.Minutes}else{'{0:00}:{1:00}' -f [Math]::Floor($duration.TotalMinutes),$duration.Seconds}
     # Do not copy CallbackState, Payload, output, credential or script source.

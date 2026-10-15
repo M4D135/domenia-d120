@@ -335,7 +335,7 @@ function ConvertTo-DomeniaSoftwareFromInventory {
     }
     $rowsOut = @($rows.ToArray())
     $heure = ''
-    if ($null -ne $CompletedAt) { try { $heure = ([datetime]$CompletedAt).ToString('HH:mm') } catch { } }
+    if ($null -ne $CompletedAt) { try { $heure = ([datetime]$CompletedAt).ToString('HH:mm') } catch { if (${function:Write-DomeniaRuleSwallowed}) { Write-DomeniaRuleSwallowed 'Workstation' 'ConvertTo-DomeniaSoftwareFromInventory' $_ } } }
     $de = ''
     if ($heure -ne '') { $de = ' de ' + $heure }
     return [pscustomobject]@{
