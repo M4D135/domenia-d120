@@ -2477,6 +2477,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaBiosReading',
             'Get-DomeniaVirtualPlatform',
             'Get-DomeniaProcessorReading',
+            'Get-DomeniaDockHintFacts',
             'Get-DomeniaVideoOutputText',
             'Get-DomeniaDisplayReading',
             'Test-DomeniaVirtualAdapterName',

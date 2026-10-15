@@ -14,7 +14,7 @@ storage|Santé du stockage|disk.physical,disk.reliability|disk.media,disk.health
 battery|Batteries|hw.batteries,hw.batterystatic,hw.batteryfullcharge,hw.batterycycles|hw.batterylevel,hw.battery
 bios|BIOS et micrologiciel|hw.biosdetails,hw.computersystem|hw.bios,hw.biosyear,hw.serialmissing,hw.maker,hw.model
 processor|Processeurs et virtualisation|hw.processors,hw.computersystem|hw.cpu,hw.cpuload,hw.cpumhz,hw.virtualization,hw.slat,hw.cores,hw.threads,hw.chassis
-displays|Écrans et raccordements|hw.monitors,hw.monitorconnections|hw.screens,hw.gpu
+displays|Écrans, raccordements et stations dʼaccueil|hw.monitors,hw.monitorconnections,hw.dockhints|hw.screens,hw.gpu
 network|Interfaces réseau|net.interfaces,net.configurations|net.adapter,net.speed,net.dhcp,net.dns,net.gateway,net.wifi
 devices|Imprimantes et périphériques en erreur|soft.printerdetails,hw.deviceerrors|soft.printers,soft.defaultprinter,soft.spooler
 services|Services et profil attendu|soft.servicedetails|soft.stoppedauto,soft.running,soft.wuauserv,soft.winrm,soft.bits,soft.w32time,soft.rdp,soft.dnsclient
@@ -663,6 +663,39 @@ function Get-DomeniaProcessorReading {
 }
 
 # ---------------------------------------------------------------- point 87: screens and docking
+function Get-DomeniaDockHintFacts {
+    # Point 87: what can honestly be said about a docking station. No standard Windows class identifies one: the Plug
+    # and Play devices of the Dock class, or whose name mentions a dock, Thunderbolt, USB4 or DisplayLink, are hints
+    # (Estime), each named with its class and maker; their absence proves nothing (Inconnu), and a missing read is said.
+    param($Docks)
+    $facts = New-Object System.Collections.Generic.List[object]
+    $limit = 'Indice seulement : aucune classe Windows normalisée nʼidentifie une station dʼaccueil ; une station USB-C ou Thunderbolt peut nʼapparaître que comme concentrateur USB, carte réseau ou carte audio, et un contrôleur intégré au portable nʼest pas une station.'
+    if (($null -eq $Docks) -or ([string]$Docks.State -ne 'Read')) {
+        if ($null -ne $Docks) { Add-DomeniaReadingSourceFact $facts $Docks 'Indices de station dʼaccueil' 'Win32_PnPEntity' }
+        Add-DomeniaReadingFact $facts 'Station dʼaccueil' 'Non identifiable par une classe Windows normalisée' 'Inconnu' 'Aucune' 'Seuls les écrans et leur raccordement sont décrits ; un écran externe peut passer par une station dʼaccueil.'
+        return $facts.ToArray()
+    }
+    $rows = @($Docks.Rows)
+    if (-not $rows.Count) {
+        Add-DomeniaReadingFact $facts 'Station dʼaccueil' 'Aucun indice parmi les périphériques présents' 'Inconnu' 'Win32_PnPEntity' (Join-DomeniaReadingText @('Lʼabsence dʼindice ne prouve pas lʼabsence de station.',(Get-DomeniaReadingPartialText $Docks)) ' ') '' $Docks.CheckedUtc
+        return $facts.ToArray()
+    }
+    $index = 0
+    foreach ($row in @($rows | Select-Object -First 8)) {
+        $index++
+        $class = Get-DomeniaReadingText $row 'PNPClass'
+        $maker = Get-DomeniaReadingText $row 'Manufacturer'
+        $value = Join-DomeniaReadingText @((Get-DomeniaReadingText $row 'Name'),$(if ($class) { 'classe ' + $class } else { '' }),$(if ($maker) { 'fabricant ' + $maker } else { '' }))
+        if (-not $value) { $value = 'Périphérique sans nom déclaré' }
+        $kind = if ($class -ieq 'Dock') { 'Station dʼaccueil déclarée par Windows (classe Dock)' } else { 'Indice par le nom du périphérique' }
+        Add-DomeniaReadingFact $facts ('Indice de station dʼaccueil ' + [string]$index) $value 'Estime' 'Win32_PnPEntity' $limit $kind $Docks.CheckedUtc
+    }
+    if ($rows.Count -gt 8) { Add-DomeniaReadingFact $facts 'Autres indices' ([string]($rows.Count - 8) + ' autre(s) périphérique(s) évocateur(s)') 'Estime' 'Win32_PnPEntity' $limit '' $Docks.CheckedUtc }
+    $partial = Get-DomeniaReadingPartialText $Docks
+    if ($partial) { Add-DomeniaReadingFact $facts 'Lecture des indices' $partial 'Inconnu' 'Win32_PnPEntity' '' '' $Docks.CheckedUtc }
+    return $facts.ToArray()
+}
+
 function Get-DomeniaVideoOutputText {
     # D3DKMDT_VIDEO_OUTPUT_TECHNOLOGY of WmiMonitorConnectionParams, with the internal flag 0x80000000.
     param($Code)
@@ -676,8 +709,9 @@ function Get-DomeniaVideoOutputText {
 
 function Get-DomeniaDisplayReading {
     # Screens identified by their EDID when it is readable, their connection, and the changes between the stored
-    # readings of this workstation. A docking station itself is never claimed: no standard Windows class names it.
-    param($Monitors,$Connections)
+    # readings of this workstation. A docking station itself is never claimed: no standard Windows class names it;
+    # the Plug and Play devices whose class or name hint at one (hw.dockhints) are listed as hints, never as proof.
+    param($Monitors,$Connections,$Docks=$null)
     $facts = New-Object System.Collections.Generic.List[object]
     $links = @{}
     if ($Connections.State -eq 'Read') { foreach ($row in @($Connections.Rows)) { $key = Get-DomeniaReadingText $row 'InstanceName'; if ($key) { $links[$key.ToLowerInvariant()] = $row } } }
@@ -700,7 +734,7 @@ function Get-DomeniaDisplayReading {
         Add-DomeniaReadingFact $facts 'Raccordements' ([string]$internalCount + ' interne(s), ' + [string]$externalCount + ' externe(s), ' + [string]$unknownCount + ' non déterminé(s)') $(if ($unknownCount) { 'Estime' } else { 'Constate' }) 'WmiMonitorConnectionParams' (Join-DomeniaReadingText @('Type de sortie vu par la carte graphique.',(Get-DomeniaReadingPartialText $Monitors)) ' ') '' $Monitors.CheckedUtc
     }
     if (($Connections.State -ne 'Read') -and ($Monitors.State -eq 'Read')) { Add-DomeniaReadingSourceFact $facts $Connections 'Type de raccordement' 'WmiMonitorConnectionParams' }
-    Add-DomeniaReadingFact $facts 'Station dʼaccueil' 'Non identifiable par une classe Windows normalisée' 'Inconnu' 'Aucune' 'Seuls les écrans et leur raccordement sont décrits ; un écran externe peut passer par une station dʼaccueil.'
+    foreach ($fact in @(Get-DomeniaDockHintFacts $Docks)) { $facts.Add($fact) }
     # Changes between the stored readings: each sample is the sorted set of identified screens.
     $history = @($Monitors.History)
     if ($history.Count -lt 2) { Add-DomeniaReadingFact $facts 'Changements dʼécrans' ('Aucun changement comparable : ' + [string]$history.Count + ' ensemble(s) dʼécrans enregistré(s)') 'Inconnu' 'Historique des relevés' 'Un changement se constate entre deux relevés enregistrés de ce poste.' }
@@ -1105,7 +1139,7 @@ function Invoke-DomeniaReading {
         'battery' { $facts = Get-DomeniaBatteryReading (& $source 'hw.batteries') (& $source 'hw.batterystatic') (& $source 'hw.batteryfullcharge') (& $source 'hw.batterycycles') }
         'bios' { $result = Get-DomeniaBiosReading (& $source 'hw.biosdetails') (& $source 'hw.computersystem') (Get-DomeniaMemberValue $Options 'BiosReferences'); $facts = $result.Facts; $context = $result.Context }
         'processor' { $facts = Get-DomeniaProcessorReading (& $source 'hw.processors') (& $source 'hw.computersystem') }
-        'displays' { $facts = Get-DomeniaDisplayReading (& $source 'hw.monitors') (& $source 'hw.monitorconnections') }
+        'displays' { $facts = Get-DomeniaDisplayReading (& $source 'hw.monitors') (& $source 'hw.monitorconnections') (& $source 'hw.dockhints') }
         'network' { $facts = Get-DomeniaNetworkReading (& $source 'net.interfaces') (& $source 'net.configurations') }
         'devices' { $facts = Get-DomeniaDeviceReading (& $source 'soft.printerdetails') (& $source 'hw.deviceerrors') }
         'services' { $facts = Get-DomeniaServiceReading (& $source 'soft.servicedetails') (Get-DomeniaMemberValue $Options 'ServiceProfile') }

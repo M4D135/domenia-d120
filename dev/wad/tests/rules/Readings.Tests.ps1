@@ -219,6 +219,29 @@ Test-Case -Id 'RDG-087' -Name 'Point 87 : identite EDID, raccordement interne ou
     Assert-Equal 1 $history.Count
     Assert-Equal 'X · fabricant AAA · produit 1 · n° 9' ([string]@($history[0].Items)[0])
 }
+Test-Case -Id 'RDG-087B' -Name 'Point 87 : indices de station d accueil nommes comme indices, absence sans conclusion, lecture manquante dite' -Body {
+    $docks = New-RdgSource 'hw.dockhints' @(
+        [pscustomobject]@{ Name = 'Dell WD19 Dock'; PNPClass = 'USB'; Manufacturer = 'Dell Inc.'; DeviceID = 'USB\VID_413C&PID_B06E\1'; Status = 'OK' },
+        [pscustomobject]@{ Name = 'Station dʼaccueil'; PNPClass = 'Dock'; Manufacturer = '(Standard system devices)'; DeviceID = 'ACPI\PNP0C15\1'; Status = 'OK' })
+    $facts = @(Get-DomeniaDockHintFacts $docks)
+    $first = Get-RdgFact $facts 'Indice de station dʼaccueil 1'
+    Assert-Equal 'Estime' ([string]$first.Etat) 'un nom de peripherique reste un indice'
+    Assert-Equal 'Dell WD19 Dock · classe USB · fabricant Dell Inc.' ([string]$first.Valeur)
+    Assert-True ([string]$first.Limite -like 'Indice seulement : aucune classe Windows normalisée*') ([string]$first.Limite)
+    $second = Get-RdgFact $facts 'Indice de station dʼaccueil 2'
+    Assert-Equal 'Estime' ([string]$second.Etat)
+    Assert-True ([string]$second.Hypothese -like '*classe Dock*') ([string]$second.Hypothese)
+    Assert-False (@($facts | Where-Object { [string]$_.Etat -eq 'Constate' }).Count) 'aucune station revendiquee comme constatee'
+    $none = @(Get-DomeniaDockHintFacts (New-RdgSource 'hw.dockhints' @()))
+    Assert-Equal 'Inconnu' ([string](Get-RdgFact $none 'Station dʼaccueil').Etat) 'absence d indice : aucune conclusion'
+    Assert-True ([string](Get-RdgFact $none 'Station dʼaccueil').Limite -like '*ne prouve pas lʼabsence*') 'absence non expliquee'
+    $unread = @(Get-DomeniaDockHintFacts (ConvertTo-DomeniaReadingSource -ProbeId 'hw.dockhints' -Entry $null))
+    Assert-Equal 'Non relevé' ([string](Get-RdgFact $unread 'Indices de station dʼaccueil').Valeur)
+    Assert-Equal 'Inconnu' ([string](Get-RdgFact $unread 'Station dʼaccueil').Etat)
+    Assert-Equal 'displays' ([string](Get-DomeniaReadingForProbe 'hw.dockhints').Id) 'indices lus avec les ecrans'
+    $reading = Invoke-DomeniaReading -Id 'displays' -Sources @{ 'hw.dockhints' = $docks }
+    Assert-Equal 1 @($reading.Facts | Where-Object { [string]$_.Fait -ceq 'Indice de station dʼaccueil 1' }).Count 'lecture des ecrans sans les indices'
+}
 Test-Case -Id 'RDG-088' -Name 'Point 88 : carte physique avec configuration jointe, cartes virtuelles a part, vitesse declaree' -Body {
     $interfaces = New-RdgSource 'net.interfaces' @(
         [pscustomobject]@{ Name = 'Intel Ethernet'; DeviceID = '1'; NetConnectionID = 'Ethernet'; NetConnectionStatus = 2; PhysicalAdapter = $true; MACAddress = '00-11-22-33-44-55'; Speed = 1000000000; PNPDeviceID = 'PCI\VEN_8086' },
