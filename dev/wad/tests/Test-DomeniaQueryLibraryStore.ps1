@@ -13,7 +13,7 @@ if($PSVersionTable.PSEdition -eq 'Core'){
 . ([scriptblock]::Create($native));[void](Initialize-DomeniaWinSqliteNative)
 Add-Type -Path (Join-Path $wad 'modules/M4D.Admin.Common.Query.dll')
 Add-Type -Path (Join-Path $wad 'modules/Domenia.Native.dll')
-foreach($name in @('Common.Model','Boards.Model','Probes.Model','Query.Model','QueryLibrary.Model')){. (Join-Path $wad ('modules/Domenia-'+$name+'.ps1'))}
+foreach($name in @('Common.Model','HealthRules.Model','Boards.Model','Probes.Model','QuerySchema.Model','Workstation.Model','Query.Model','QueryLibrary.Model')){. (Join-Path $wad ('modules/Domenia-'+$name+'.ps1'))}
 . (Join-Path $wad 'modules/Domenia-Store.Model.ps1')
 . (Join-Path $wad 'modules/Domenia-Cache.Model.ps1')
 . (Join-Path $wad 'modules/Domenia-Storage.Worker.ps1')

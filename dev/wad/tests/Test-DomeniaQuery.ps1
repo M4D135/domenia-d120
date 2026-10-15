@@ -6,7 +6,7 @@ $ErrorActionPreference='Stop'
 $wad=Split-Path -Parent $PSScriptRoot;$modules=Join-Path $wad 'modules'
 if($QuerySource){Add-Type -Path (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'vendor/m4d-admin-common/src/Query/QueryEngine.cs')}else{Add-Type -Path (Join-Path $modules 'M4D.Admin.Common.Query.dll')}
 Add-Type -Path (Join-Path $modules 'Domenia.Native.dll')
-foreach($name in @('Common.Model','Boards.Model','Probes.Model','Query.Model','Query.Worker')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+foreach($name in @('Common.Model','HealthRules.Model','Boards.Model','Probes.Model','QuerySchema.Model','Workstation.Model','Query.Model','Query.Worker')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 $script:checks=0
 function Expect {param([bool]$Good,[string]$Name);$script:checks++;if(-not $Good){throw $Name}}
 $now=[datetime]::Parse('2026-10-12T14:00:00Z').ToUniversalTime()

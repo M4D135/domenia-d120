@@ -6,7 +6,7 @@ $ErrorActionPreference='Stop'
 $wad=Split-Path -Parent $PSScriptRoot;$modules=Join-Path $wad 'modules'
 Add-Type -Path (Join-Path $modules 'M4D.Admin.Common.Query.dll')
 Add-Type -Path (Join-Path $modules 'Domenia.Native.dll')
-foreach($name in @('Common.Model','Boards.Model','BoardFleet.Model','Probes.Model','Query.Model','Query.Worker','Search.Model','Search.UI','Query.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+foreach($name in @('Common.Model','HealthRules.Model','Boards.Model','BoardFleet.Model','Probes.Model','QuerySchema.Model','Workstation.Model','Query.Model','Query.Worker','Search.Model','Search.UI','Query.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 $script:Checks=[Collections.Generic.List[object]]::new()
 function Case([string]$Name,[scriptblock]$Body){try{& $Body;$script:Checks.Add([pscustomobject]@{Name=$Name;Pass=$true;Error=''})}catch{$script:Checks.Add([pscustomobject]@{Name=$Name;Pass=$false;Error=$_.Exception.Message})}}
 function Expect([bool]$Ok,[string]$Message='Assertion failed'){if(-not $Ok){throw $Message}}
