@@ -1052,7 +1052,8 @@ function Start-DomeniaLocalRead {
         [int]$TimeoutSeconds=30,
         [ValidateSet('Explicit','Selection')][string]$TaskClass='Explicit'
     )
-    $payload = [ordered]@{Action=$Action;Path=(Get-DomeniaLocalDatabasePathForRead);BusyTimeoutMs=250}
+    # FI-12: no fixed wait here, the worker follows LocalStore.DatabaseBusyTimeoutMs from its context.
+    $payload = [ordered]@{Action=$Action;Path=(Get-DomeniaLocalDatabasePathForRead)}
     foreach ($key in @($Fields.Keys)) { $payload[[string]$key] = $Fields[$key] }
     $id = Start-UiTask -Name $Name -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload ([pscustomobject]$payload) -CallbackState $State -ReplaceKey $ReplaceKey -TimeoutSeconds $TimeoutSeconds -SuccessHandler $SuccessHandler -ErrorHandler $ErrorHandler -TaskClass $TaskClass -NonCancellable
     if (-not [string]$id) { throw 'Lecture locale non admise par le moteur.' }

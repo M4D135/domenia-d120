@@ -364,8 +364,8 @@
     },
     {
       "Path": "wad/modules/Domenia-Engine.UI.ps1",
-      "Sha256": "2FF08EC2E6D71EFDDFAF768FEB5795242A0D39F419CF197D497B8B831E0768BF",
-      "Bytes": 101793,
+      "Sha256": "0C9E0436EBB060A6AC4D7CD3FB99EA880795114549F6EF52E80975AEA3DFA554",
+      "Bytes": 101878,
       "Runtime": true,
       "PreserveExisting": false
     },

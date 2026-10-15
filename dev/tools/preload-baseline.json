@@ -3838,6 +3838,15 @@
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],
       "ChangedPayloads": []
+    },
+    {
+      "Previous": ".",
+      "Source": ".",
+      "Decision": "Correctif d integration X06/X07 : la lecture locale hors fil d interface (X07) imposait encore BusyTimeoutMs=250 ; elle suit desormais le delai du contexte (FI-12, X06). Seule la saisie au clavier garde son attente courte de 50 ms.",
+      "ChangedCoreFunctions": [],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
     }
   ]
 }
