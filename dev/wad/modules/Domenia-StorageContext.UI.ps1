@@ -50,11 +50,36 @@ function Switch-DomeniaDatabaseContext {
     return $true
 }
 function Resume-DomeniaDatabaseViews {
+    # -ReloadLocalState: another base is now in service (switch confirmed by Switch-DomeniaDatabaseContext). Its figures
+    # and its user-workstation associations are read by the LocalIndexRead worker (FI-19), as after a change of account;
+    # nothing read from the previous base stays on screen, and the associations of the new base become the reference.
+    # The figures of the previous base are forgotten before its schema is opened: a failed opening leaves the page
+    # saying that the base could not be read, never the counters of the base that was replaced.
+    param([switch]$ReloadLocalState)
+    if($ReloadLocalState){
+        Reset-DomeniaIndexMetadataState
+        $script:LinkLoad=$null
+    }
+    $opened=$false
     try{
         [void](Initialize-DomeniaDatabase)
+        $opened=$true
+        if($ReloadLocalState){
+            Request-DomeniaIndexMetadata
+            Request-DomeniaUserMachineLinks
+            try{Update-DomeniaIndexStats}catch{}
+        }
         [void](Initialize-DomeniaQueryLibraryStore -Force)
         Request-DomeniaFleetRefresh -Force
         Update-DomeniaIndexLocation
         Set-Status 'Base locale prête. Le dashboard relit les données enregistrées ; les collectes AD, ping et WMI restent explicites.'
-    }catch{Set-Status ('Base sélectionnée, relecture locale à reprendre : '+$_.Exception.Message) 'WARN'}
+    }catch{
+        $detail=[string]$_.Exception.Message
+        # Only the opening of the new base decides what Base locale says; a later step keeps the reads it started.
+        if($ReloadLocalState -and -not $opened){
+            $script:IndexMetadataError=$detail
+            try{Update-DomeniaIndexStats}catch{}
+        }
+        Set-Status ('Base sélectionnée, relecture locale à reprendre : '+$detail) 'WARN'
+    }
 }

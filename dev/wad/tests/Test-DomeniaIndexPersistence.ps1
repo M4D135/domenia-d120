@@ -405,6 +405,49 @@ try{
     }
     [IO.Directory]::Delete($spool)
 
+    # PF-07 (lot X06): the prepared statements write exactly the values of the former text SQL (quotes, Unicode, empty
+    # text, 64-bit numbers), keep the search key formula, and the reconciliation keeps a row made newer than the read.
+    $parityPath=Join-Path $folder 'parity.sqlite'
+    $db=Open-DomeniaDatabase -Path $parityPath;try{[void](Invoke-DomeniaDbExec $schema[0].Value $db)}finally{Close-DomeniaDatabase $db}
+    function Read-ParityDb {param([string]$Sql);$db=Open-DomeniaDatabase -Path $parityPath;try{return @(Invoke-DomeniaDbQuery $Sql $db)}finally{Close-DomeniaDatabase $db}}
+    function Write-ParityItem {param($Item);$Payload=[pscustomobject]@{Path=$parityPath;Items=@($Item)};return & ([scriptblock]::Create($worker))}
+    try{
+        $g1='11111111-1111-1111-1111-111111111111';$g2='22222222-2222-2222-2222-222222222222';$g3='33333333-3333-3333-3333-333333333333'
+        $tricky=[pscustomobject]@{Guid=$g1;Type='Utilisateur';Name="O'Brien ; DROP TABLE ad_objects; --";Login="o'brien";Upn="éléonore.o'brien@exemple.test";Display=('Élodie '+[char]0x00AB+'Σ'+[char]0x00BB+' '+[char]::ConvertFromUtf32(0x1F642));Description='';Extra=('ligne'+[char]10+'suivante');State='Actif';DN='CN=O\,Brien,OU=A,DC=test';WhenChanged='2026-10-01T00:00:00Z';Usn=9007199254740993;LastLogon=''}
+        $machine=[pscustomobject]@{Guid=$g2;Type='Machine';Name='PC-2';Login='PC-2$';DN='CN=PC-2,OU=A,DC=test';State='Desactive';Usn=7;Facts=$true;OsVersion='26100';WhenCreated='2026-01-01T00:00:00Z';PwdLastSet='';LapsKind="Windows LAPS 'chiffré'";LapsExpiry=''}
+        $answer=Write-ParityItem ([pscustomobject]@{Kind='IndexBulk';Row=[pscustomobject]@{Rows=@($tricky,$machine);At='2026-10-10T00:00:00Z';Server='dc.test';BaseDn='DC=test';SyncScope='directory';Complete=$true;ReplaceAll=$false;HighestUsn=11;InvocationId='instance-1'}})
+        Expect ([bool]$answer.Saved -and [long]$answer.IndexRows -eq 2 -and [long]$answer.IndexWriteMs -ge 0) 'PF-07 receipt counts the rows and the write time'
+        $row=@(Read-ParityDb ("SELECT * FROM ad_objects WHERE object_guid='$g1';"))[0]
+        foreach($pair in @(@('name',$tricky.Name),@('login',$tricky.Login),@('upn',$tricky.Upn),@('display_name',$tricky.Display),@('description',''),@('extra',$tricky.Extra),@('distinguished_name',$tricky.DN),@('source_dc','dc.test'),@('synced_at','2026-10-10T00:00:00Z'))){
+            Expect ([string]$row.($pair[0]) -ceq [string]$pair[1]) ('PF-07 exact text: '+$pair[0])
+        }
+        Expect ($row.usn_changed -is [long] -and $row.usn_changed -eq 9007199254740993) 'PF-07 64-bit number kept as INTEGER'
+        Expect ([string]$row.search_key -ceq ($tricky.Name+' '+$tricky.Login+' '+$tricky.Upn+' '+$tricky.Display+' '+' '+$tricky.Extra).ToLowerInvariant()) 'PF-07 search key formula unchanged'
+        Expect ((Read-ParityDb "SELECT typeof(description) AS t FROM ad_objects WHERE object_guid='$g1';")[0].t -eq 'text') 'PF-07 empty text stays TEXT, never NULL'
+        $facts=@(Read-ParityDb "SELECT * FROM ad_computer_facts WHERE object_guid='$g2';")[0]
+        Expect ([string]$facts.laps_kind -ceq $machine.LapsKind -and [string]$facts.object_key -ceq $g2 -and [string]$facts.read_at -ceq '2026-10-10T00:00:00Z') 'PF-07 facts row written through its statement'
+        # Reconciliation (Rows) with guarded prepared statements: the row absent from the read is deleted in the scope,
+        # a row written after the read started keeps its newer value, the other rows take the read.
+        [void](Write-ParityItem ([pscustomobject]@{Kind='IndexBulk';Row=[pscustomobject]@{Rows=@([pscustomobject]@{Guid=$g3;Type='Machine';Name='PC-3';DN='CN=PC-3,OU=A,DC=test';State='Actif';Usn=8});At='2026-10-11T00:00:00Z';Server='dc.test';BaseDn='DC=test';SyncScope='directory';Complete=$true;ReplaceAll=$false;HighestUsn=12;InvocationId='instance-1'}}))
+        $reconcile=[pscustomobject]@{Mode='Rows';SearchScope='Subtree';ScopeDn='OU=A,DC=test';Server='dc.test';InvocationId='instance-1';Complete=$true;ExpectedCount=2;StartedUtc='2026-10-10T12:00:00Z'}
+        $rows=@([pscustomobject]@{Guid=$g1;Type='Utilisateur';Name='OBrien-lu';DN=$tricky.DN;State='Actif';Usn=20},[pscustomobject]@{Guid=$g3;Type='Machine';Name='PC-3-ancien';DN='CN=PC-3,OU=A,DC=test';State='Actif';Usn=8})
+        $answer=Write-ParityItem ([pscustomobject]@{Kind='IndexBulk';Row=[pscustomobject]@{Rows=$rows;At='2026-10-12T00:00:00Z';Server='dc.test';BaseDn='OU=A,DC=test';SyncScope='ou:ou=a,dc=test';Complete=$true;ReplaceAll=$false;HighestUsn=21;InvocationId='instance-1';Reconcile=$reconcile}})
+        Expect ([bool]$answer.Saved) 'PF-07 reconciliation committed'
+        Expect ((Read-ParityDb "SELECT name FROM ad_objects WHERE object_guid='$g1';")[0].name -ceq 'OBrien-lu') 'PF-07 reconciled row updated'
+        Expect ((Read-ParityDb "SELECT name FROM ad_objects WHERE object_guid='$g3';")[0].name -ceq 'PC-3') 'PF-07 newer row kept against an older read'
+        Expect ((Read-ParityDb "SELECT count(*) AS n FROM ad_objects WHERE object_guid='$g2';")[0].n -eq 0) 'PF-07 row absent from the read deleted in its scope'
+        Expect ((Read-ParityDb "SELECT count(*) AS n FROM ad_computer_facts WHERE object_guid='$g2';")[0].n -eq 0) 'PF-07 facts of the deleted row removed'
+        # BitLocker presence of an OU: prepared read and write; a known key count survives a read that saw nothing.
+        $secretRows=@([pscustomobject]@{Computer='pc-2';At='2026-10-12T00:00:00Z';BitLockerKeys=2;BitLockerLast='2026-10-01';LapsScheme='';LapsExpiry='';Verdict='OK'},[pscustomobject]@{Computer='PC-2';At='2026-10-13T00:00:00Z';BitLockerKeys=0;BitLockerLast='';LapsScheme='';LapsExpiry='';Verdict='Aucune cle';KeepKnown=$true},[pscustomobject]@{Computer="PC-'quote";At='2026-10-13T00:00:00Z';BitLockerKeys=-1;BitLockerLast='';LapsScheme='Windows LAPS';LapsExpiry='2026-11-01';Verdict='LAPS'})
+        $answer=Write-ParityItem ([pscustomobject]@{Kind='SecretMeta';Row=[pscustomobject]@{Rows=$secretRows}})
+        $secret=@(Read-ParityDb 'SELECT * FROM secret_state ORDER BY computer_key;')
+        Expect ([bool]$answer.Saved -and $secret.Count -eq 2) 'PF-07 one secret row per workstation'
+        $pc2=@($secret|Where-Object{$_.computer_key -ceq 'PC-2'})[0]
+        Expect ([long]$pc2.bitlocker_keys -eq 2 -and [string]$pc2.verdict -ceq 'OK') 'PF-07 known BitLocker count kept by the prepared read'
+        $quoted=@($secret|Where-Object{$_.computer_key -ceq "PC-'QUOTE"})[0]
+        Expect ([long]$quoted.bitlocker_keys -eq -1 -and [string]$quoted.laps_scheme -ceq 'Windows LAPS') 'PF-07 unknown BitLocker count stays -1 for a first row'
+    }finally{foreach($suffix in @('','-wal','-shm')){if([IO.File]::Exists($parityPath+$suffix)){[IO.File]::Delete($parityPath+$suffix)}}}
+
     Write-Output ('PASS Index persistence and cache: '+$script:checks+' assertions; native local SQLite, no AD or VM')
 }finally{
     foreach($file in @('test.sqlite','test.sqlite-wal','test.sqlite-shm')){$candidate=Join-Path $folder $file;if([IO.File]::Exists($candidate)){[IO.File]::Delete($candidate)}}

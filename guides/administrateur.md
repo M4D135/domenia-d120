@@ -89,7 +89,7 @@ L'arbre « Parcourir les OU » affiche le contenu d'une OU. Le menu « ⋯ » 
 
 ## Vérification au clic
 
-Un clic sur un poste lance un ping unique et, si « Utilisateur au clic » est cochée, la lecture de l'utilisateur console. L'état initial de la case vient de Streaming.VerifyUserOnSelection (vrai dans la configuration livrée). Deux lectures au plus tournent en même temps (Streaming.MaxUserProbes, borné de 1 à 3). « Revérifier ce poste » relance la même vérification sur le seul poste sélectionné.
+Un clic sur une ligne précharge sa fiche AD sans contacter le poste tant que « Vérifier au clic » est décochée, ce qui est l'état livré. Cochée, un clic sur un poste envoie aussi un ping unique et, si « + utilisateur connecté » est cochée, lit l'utilisateur console. Les deux choix restent dans les préférences ; tant que « + utilisateur connecté » n'a jamais été changée, elle suit Streaming.VerifyUserOnSelection (vrai dans la configuration livrée). Deux lectures au plus tournent en même temps (Streaming.MaxUserProbes, borné de 1 à 3). « Revérifier ce poste » reste le geste manuel : ping et utilisateur console du seul poste sélectionné, case cochée ou non.
 
 La lecture de la console passe par CIM en DCOM, avec le compte des opérations poste (chapitre 5). Si Remote.UseCim est faux, Domenia se limite au ping : « Contrôle réseau uniquement. Aucune lecture du compte console. ». Les sessions RDP ne sont pas recensées.
 
@@ -97,22 +97,29 @@ La lecture de la console passe par CIM en DCOM, avec le compte des opérations p
 |---|---|
 | Utilisateur connecté (console) | Le compte, Aucun compte console, Non déterminé, ou le compte suivi de (cache) pour une observation ancienne. |
 | Vérification utilisateur | Console observée, Lecture réussie, Accès refusé, Compte distant refusé, Délai dépassé, Non confirmé, Utilisateur non vérifié, Vérification en cours, À vérifier. |
-| Présence réseau | En ligne, Sans réponse au ping, Non vérifié, Erreur de ping, Vérification en cours, avec (cache) pour une observation ancienne. |
+| Présence réseau | Pastille et libellé court : En ligne, Sans réponse au ping, Non vérifié, Erreur de ping, Vérification en cours ; l'âge de la mesure s'affiche à côté (« il y a 2 h »). « relevé en cours… » marque un poste qu'un relevé de la liste doit encore lire. |
 
-## Pinger Détecter et Analyser la liste
+## Vérifier la liste
 
-Ces trois boutons agissent sur les seuls postes affichés, après tous les filtres : OU, recherche, présence et filtre local. Ils sont grisés si la liste ne contient aucun poste. L’Atelier de requêtes, ouvert par son icône depuis l’Accueil, propose également une collecte sur un périmètre explicite (chapitre 8).
+« Vérifier la liste » agit sur les seuls postes affichés, après tous les filtres : OU, recherche, présence et filtre local. Le bouton est grisé si la liste ne contient aucun poste, et pour une vue de travail sur tout le domaine. Sa flèche ouvre trois vérifications graduées ; la dernière choisie devient l'action du bouton pour la session, sans être enregistrée. « Rechercher » reste le seul bouton principal de la page. L’Atelier de requêtes, ouvert par son icône depuis l’Accueil, propose également une collecte sur un périmètre explicite (chapitre 8).
 
-![Barre d'actions des résultats : case Utilisateur au clic, Revérifier ce poste, Pinger la liste, Détecter la liste, Analyser la liste et Arrêter](fig:recherche-actions)
+![Barre d'actions des résultats : Vérifier au clic, + utilisateur connecté, Revérifier ce poste et Vérifier la liste avec sa flèche](fig:recherche-actions)
 
-| Bouton | Ce qui part | Confirmation |
+| Vérification | Ce qui part | Confirmation |
 |---|---|---|
-| « Pinger la liste » | Ping ICMP seul, de 1 à 8 postes en parallèle selon le réglage. Met à jour la présence réseau, sans lecture de session ni association. | Nombre de postes, puis « Pinger » ou « Annuler ». |
-| « Détecter la liste » | Ping puis lecture légère de la console Windows (CIM/DCOM), de 1 à 8 postes en parallèle selon le réglage. L’identité AD du compte peut être réutilisée pendant cinq minutes au plus ; un compte changé, absent de la base ou une relecture forcée exige une vérification. Associations protégées conservées. | Nombre de postes, puis « Verifier les sessions » ou « Annuler ». |
-| « Analyser la liste » | Comme « Détecter la liste », plus le relevé WMI léger (modèle, mémoire, disque C:, build, démarrage) et les requêtes WMI des widgets placés sur les tableaux du poste et du parc. Les résultats remplissent les tableaux de bord. | « Analyser les postes affiches », nombre de postes et de requêtes, puis « Analyser » ou « Annuler ». |
-| « Arrêter » | Arrête les nouvelles lectures ; les résultats déjà obtenus restent. | Aucune. |
+| « Qui répond ? » | Ping seul, échos envoyés en parallèle par lots de 32, une seconde d'attente par écho. Met à jour la présence réseau, sans lecture de session ni association. | Trois lignes : postes visés, ce qui sera lu, durée estimée ; bouton « Pinger N postes ». |
+| « Qui est connecté ? » | Ping puis lecture légère de la console Windows (CIM/DCOM), de 1 à 8 postes en parallèle selon le réglage. L’identité AD du compte peut être réutilisée pendant cinq minutes au plus ; un compte changé, absent de la base ou une relecture forcée exige une vérification. Associations protégées conservées. | Mêmes trois lignes ; bouton « Vérifier N postes ». |
+| « Matériel et widgets » | Comme « Qui est connecté ? », plus le relevé WMI léger (modèle, mémoire, disque C:, build, démarrage) et les requêtes WMI des widgets placés sur les tableaux du poste et du parc. Les résultats remplissent les tableaux de bord. | Mêmes trois lignes, avec le nombre de requêtes ; bouton « Analyser N postes ». |
 
-Les confirmations s'affichent dans la page, sans nouvelle fenêtre ; Échap choisit la réponse sûre. Un relevé s'arrête de lui-même sur des identifiants rejetés, après trois échecs d'enregistrement local, sur un conflit d'enregistrement, ou si une lecture est annulée ou ne correspond pas au poste attendu. Une lecture de poste en échec ne l'arrête pas : elle compte dans les « lectures non confirmees ». Il se met en pause tant que 64 enregistrements locaux attendent.
+La confirmation nomme la liste visée (« OU Postes, sous-OU », « recherche « PC » » ou « la sélection »), jamais le domaine : une liste filtrée de la racine du domaine reste « les résultats affichés ». Elle signale les lignes sans identifiant AD ignorées et, quand la liste a atteint sa limite de lignes, que les autres postes ne sont pas concernés. Un relevé est refusé au-delà de Park.MaxTargets postes (500 par défaut, 5 000 au plus), pour une liste de la racine du domaine sans autre filtre et pour une recherche globale sans terme : filtrez la liste ou choisissez une OU.
+
+Pendant le relevé, le bouton devient « Arrêter (12/48) » ; une barre fine et un compteur court (« 12/48 · 9 joignables ») suivent l'avancement, et chaque poste encore à lire affiche « relevé en cours… » dans « Présence réseau ». Le détail complet part dans le journal à la fin du relevé. Après un ping, trois pastilles comptent à part « en ligne », « sans réponse » et « erreurs » (nom introuvable dans le DNS, échec réseau ou lecture interrompue) ; dans une liste d'OU, chaque pastille filtre la liste par présence et un second clic retire le filtre.
+
+À partir de deux lignes sélectionnées, la ligne d'état devient une barre d'actions : « Pinger » et « Qui est connecté ? » visent les seuls postes sélectionnés, avec la même confirmation et le même plafond ; une sélection de toute la liste (Ctrl+A) suit les règles de la liste, donc la racine du domaine sans filtre et la recherche globale sans terme restent refusées ; « Copier » copie une ligne lisible par objet pour un ticket ; « Exporter » enregistre la sélection en CSV.
+
+Le relevé de la liste et celui du poste ouvert dans « Poste » (« Actualiser les requetes » de son tableau) sont indépendants : chacun garde son état et son « Arrêter » à côté du bouton qui l'a lancé. Le bilan d'un relevé du poste ne s'affiche qu'à côté du tableau de ce poste. Un relevé lancé depuis le tableau du parc ou l'atelier de requêtes partage la portée de la liste : « Vérifier la liste » affiche son avancement (« Relevé de … ») et devient son « Arrêter » ; une actualisation d'OU s'arrête depuis ses propres boutons d'actualisation, et le compteur le rappelle.
+
+Les confirmations s'affichent dans la page, sans nouvelle fenêtre ; Échap choisit la réponse sûre. Un relevé s'arrête de lui-même sur des identifiants rejetés, après trois échecs d'enregistrement local, sur un conflit d'enregistrement, ou si une lecture est annulée ou ne correspond pas au poste attendu. Les échos déjà reçus que le stockage n'accepte plus comptent alors dans les « lectures non confirmées » et le relevé se termine ; les lots déjà confiés au stockage suspendu attendent la reprise dans « Fiabilité ». Une lecture de poste en échec ne l'arrête pas : elle compte dans les « lectures non confirmées ». Il se met en pause tant que 64 enregistrements locaux attendent.
 
 > [!ATTENTION] Préparez un périmètre explicite et relisez le nombre de cibles avant chaque collecte.
 
@@ -122,7 +129,7 @@ Sous l’arbre de Rechercher, « Données de l’OU » reprend l’unité choisi
 
 Dans une petite fenêtre, le panneau sous l’arbre se compacte : le titre « Données de l’OU » se masque et « Postes (ping/WMI) » devient « Ping/WMI ». Les commandes gardent le même périmètre et le même effet.
 
-Pinger, Détecter et Analyser la liste gardent leur cible propre : les postes affichés après filtrage. « Actualiser » dans les résultats relance leur lecture ; cette commande ne remplace pas une mise à jour de la base ou un relevé WMI de toute l’OU.
+« Vérifier la liste » garde sa cible propre : les postes affichés après filtrage. « Actualiser » dans les résultats relance leur lecture ; cette commande ne remplace pas une mise à jour de la base ou un relevé WMI de toute l’OU.
 
 ## Requêtes Annuaire et données locales
 
@@ -224,9 +231,9 @@ Vues, dans l'ordre : « Vue d'ensemble » (fiche du poste et tableau de bord),
 | Compte AD : « Activer le compte » ou « Désactiver le compte » | Un seul bouton, selon userAccountControl lu avec la fiche ; aucun quand cet attribut n'est pas lu. | Grisé. |
 | Compte AD : « Ajouter », « Retirer », « Renommer dans AD » | Groupes du poste et nom du compte ordinateur dans l'annuaire (pas Windows sur le poste). | Grisés. |
 
-Sous la carte « Se connecter », la ligne « Opérations poste : … » dit avant le clic quel compte servira au disque C et aux consoles.
+Dans l'en-tête d'Assistance poste, la pastille « Compte poste : … ▾ » dit avant le clic quel compte servira au disque C et aux consoles ; la ligne « Opérations poste : … » sous la carte « Se connecter » reprend le même texte.
 
-> [!NOTE] « Exécuter un programme » exige aussi, pour ce poste, l'autorisation d'intervention de 5 minutes. Le panneau la propose (« Autoriser 5 min… ») et dit jusqu'à quelle heure elle vaut. Sans elle, aucune tâche n'est créée : « Transport avec dépôt, service ou tâche non autorisé pour ce poste (désactivé par défaut). Accordez lʼautorisation dʼintervention de 5 minutes pour ce poste, puis relancez votre action. ».
+> [!NOTE] « Exécuter un programme » exige aussi, pour ce poste, l'autorisation de 5 minutes donnée en tête de la vue « Intervenir » : « Autoriser une intervention (5 min) ». C'est la seule commande d'autorisation : le panneau « Exécuter un programme » dit seulement si elle est active et jusqu'à quelle heure. Pendant l'autorisation, la pastille « Intervention autorisée 4:59 · Retirer » compte le temps restant ; elle ne vaut que pour le poste ouvert, et « Retirer » la reprend aussitôt. Sans elle, aucune tâche n'est créée et Domenia refuse : « Transport avec dépôt de script, service ou tâche non autorisé pour ce poste (désactivé par défaut). Autorisez une intervention dans Assistance poste > Intervenir, « Autoriser une intervention (5 min) », puis relancez votre action. » ; le bandeau d'erreur propose « Aller à Assistance poste > Intervenir ».
 
 ## Redémarrage avec les sessions lues d'abord
 
@@ -256,18 +263,22 @@ Le contrôle du port 445 et l'ouverture SMB se font dans le worker ComputerAdmin
 
 Pour les consoles, si l'ouverture préalable échoue, la console s'ouvre quand même avec la session Windows : « Console ouverte avec la session Windows : » suivi du motif. Si le technicien s'est connecté avec « Utiliser mon compte Windows », sans mot de passe, il n'y a pas d'ouverture préalable.
 
+> [!NOTE] Le compte en service est toujours affiché dans la pastille « Compte poste » de l'en-tête d'Assistance poste (section suivante). Le bureau à distance passe par Windows.
+
 ## Compte des opérations poste
 
-C'est le compte qui interroge les postes : WMI et CIM, C$, consoles, inventaire, détection et requêtes des widgets. Il peut différer du compte de connexion et n'est jamais enregistré sur le disque. Il se règle dans la vue « Diagnostic » : « Compte poste », « Mot de passe », « Utiliser ce compte » et « Compte de connexion » (oublie le compte saisi).
+C'est le compte qui interroge les postes : WMI et CIM, C$, consoles, inventaire, détection et requêtes des widgets. Il peut différer du compte de connexion et n'est jamais enregistré sur le disque. La pastille « Compte poste : … ▾ », dans l'en-tête d'Assistance poste au-dessus de « Bureau à distance » et visible dans les cinq vues, nomme le compte en service. Un clic ouvre un panneau latéral dans la page : « Identifiant », « Mot de passe », « Utiliser ce compte » et « Revenir au compte de connexion » (oublie le compte saisi). Fermer le panneau, par « Fermer », Échap ou un clic à côté, ne change pas le compte et efface un mot de passe tapé sans « Utiliser ce compte ».
 
 Ordre de choix pour une opération sur un poste :
 
-1. **Compte poste saisi.** Celui de la vue « Diagnostic », en mémoire seulement.
-2. **Compte distant.** Celui de la zone « POSTES / WMI / DISTANT » de la page « Comptes » (chapitre 13).
-3. **Compte de connexion.** Le compte saisi dans la fenêtre de connexion de Domenia.
-4. **Session Windows.** La session qui exécute Domenia.
+1. **Compte local temporaire.** Un compte local de ce poste accepté après un refus, pour ce poste seulement.
+2. **Compte temporaire.** Un compte accepté après un refus pour les postes, oublié après une période sans utilisation.
+3. **Compte poste saisi.** Celui du panneau « Compte poste », en mémoire seulement.
+4. **Compte Postes.** Celui de la zone « POSTES / WMI / DISTANT » de la page « Comptes » (chapitre 13).
+5. **Compte de connexion.** Le compte saisi dans la fenêtre de connexion de Domenia.
+6. **Session Windows.** La session qui exécute Domenia.
 
-Le libellé sous les champs et la ligne de la carte « Se connecter » disent le compte en service : « Opérations poste : compte saisi », « Opérations poste : compte dʼadministration distante », « Opérations poste : compte de connexion Domenia » ou « Opérations poste : session Windows ».
+Le panneau dit le compte en service et son origine, par exemple « Opérations poste : DOMAINE\adm-poste (compte poste saisi, en mémoire seulement). » ou « Opérations poste : session Windows (DOMAINE\technicien). ». La ligne « Opérations poste : … » de la carte « Se connecter » (vue « Intervenir ») reprend le même texte.
 
 ## Diagnostic, sessions et secrets
 
@@ -289,7 +300,7 @@ La page « Comptes » affiche ce tableau sous « TRANSPORTS UTILISES ». Dom
 | Planificateur (COM) | Exécution ponctuelle d'une intervention | RPC | Autorisation explicite ; désactivable par Remote.UseTaskFallback. |
 | PsExec | Exécution ponctuelle d'une intervention | 445/TCP | Autorisation explicite ; désactivable par Remote.UsePsExecFallback. |
 
-> [!ATTENTION] Les transports intrusifs (ADMIN$, Planificateur, PsExec) restent inactifs sans autorisation explicite pour le poste. L'autorisation d'intervention (« Autoriser 5 min… » du panneau « Exécuter un programme ») vaut 5 minutes pour la machine sélectionnée et ne couvre que les interventions : une lecture n'y bascule jamais seule. Quand CIM échoue, l'inventaire, la lecture des logiciels, l'explorateur WMI, le diagnostic et « Détecter à nouveau » rendent un « non lu » et nomment la demande à faire, pour cette seule lecture de ce poste : « Lire ce poste par tâche planifiée ». Ce n'est qu'après cette demande que PsExec puis la tâche planifiée interviennent (Remote.UsePsExecFallback, Remote.UseTaskFallback). PsExec.exe est un composant tiers : faites revoir sa licence avant diffusion.
+> [!ATTENTION] Les transports intrusifs (ADMIN$, Planificateur, PsExec) restent inactifs sans autorisation explicite pour le poste. « Autoriser une intervention (5 min) » (en tête de la vue « Intervenir » d'Assistance poste) vaut 5 minutes pour le poste ouvert et ne couvre que les interventions : une lecture n'y bascule jamais seule. Quand CIM échoue, l'inventaire, la lecture des logiciels, l'explorateur WMI, le diagnostic et « Détecter à nouveau » rendent un « non lu » et nomment la demande à faire, pour cette lecture seule : « Lire ce poste par tâche planifiée » (même endroit, autorisation distincte retirée après cette lecture). Ce n'est qu'après cette demande que PsExec puis la tâche planifiée interviennent (Remote.UsePsExecFallback, Remote.UseTaskFallback). PsExec.exe est un composant tiers : faites revoir sa licence avant diffusion.
 
 # 6 Inventaire du poste
 
@@ -315,7 +326,7 @@ L'onglet « Tableau de bord » propose les mêmes lectures avec « Inventaire
 | « Selectionne une machine avant de lancer l inventaire. » | Choisir un poste dans « Rechercher ». |
 | « Inventaire impossible : » suivi d'un détail | Vérifier la présence réseau et le compte des opérations poste, puis relancer une fois. |
 | Beaucoup de sources refusées | Vérifier que le compte des opérations poste est administrateur des postes (chapitre 13). |
-| Sur l'onglet « Tableau de bord » : « Mesures chiffrees indisponibles (inventaire par tache distante) : seules les tuiles sont remplies. » | L'inventaire a été lu par le repli PsExec ou tâche planifiée, possible seulement après « Autoriser une intervention sur cette machine » (chapitre 5) ; jauges et graphiques restent vides. Vérifier CIM/DCOM sur le poste. |
+| Sur l'onglet « Tableau de bord » : « Mesures chiffrees indisponibles (inventaire par tache distante) : seules les tuiles sont remplies. » | L'inventaire a été lu par le repli PsExec ou tâche planifiée, possible seulement après « Autoriser une intervention (5 min) » (chapitre 5) ; jauges et graphiques restent vides. Vérifier CIM/DCOM sur le poste. |
 
 # 7 Tableau de bord du poste
 
@@ -586,7 +597,7 @@ Les trois tableaux de bord sont faits de widgets : chaque tuile ou graphique se 
 
 | Bouton | Quand | Effet |
 |---|---|---|
-| « Actualiser les requetes » | Tableau du poste, si au moins un widget de requête est présent. | Prépare les lectures requises par les widgets pour le poste sélectionné, en lecture seule et après confirmation. Une recette fondée uniquement sur AD renvoie vers la mise à jour de la base. Sur le parc, ouvrez le détail de la sonde puis collectez depuis l’Atelier, ou utilisez Analyser la liste. |
+| « Actualiser les requetes » | Tableau du poste, si au moins un widget de requête est présent. | Prépare les lectures requises par les widgets pour le poste sélectionné, en lecture seule et après confirmation. Une recette fondée uniquement sur AD renvoie vers la mise à jour de la base. Sur le parc, ouvrez le détail de la sonde puis collectez depuis l’Atelier, ou utilisez « Matériel et widgets » de « Vérifier la liste ». |
 | « Recalculer la vue » | Tableau du parc. | Relit les données locales et recalcule les widgets ; aucune nouvelle lecture AD, ping ou WMI. |
 | « Base locale », « Postes (ping/WMI) », « Les deux » | Tableau du parc ou Données de l’OU dans Rechercher. | Actualisent la source choisie pour l’OU et ses sous-OU, selon le parcours du chapitre 8. |
 | « Ajouter un widget » | Toujours. | Ouvre l'éditeur. |
@@ -754,7 +765,7 @@ Le catalogue contient 29 widgets de parc. Les requêtes personnelles et les 78 s
 
 # 10 Requêtes WMI du catalogue
 
-Le catalogue propose 78 sondes WMI en lecture seule, en 8 catégories. On les ajoute comme widgets aux tableaux du poste et du parc depuis l'éditeur. Elles partent après confirmation sur le périmètre annoncé : « Actualiser les requetes » sur le tableau du poste interroge le poste sélectionné ; « Analyser la liste » dans « Rechercher » interroge les postes affichés avec les requêtes des tableaux du poste et du parc.
+Le catalogue propose 78 sondes WMI en lecture seule, en 8 catégories. On les ajoute comme widgets aux tableaux du poste et du parc depuis l'éditeur. Elles partent après confirmation sur le périmètre annoncé : « Actualiser les requetes » sur le tableau du poste interroge le poste sélectionné ; « Matériel et widgets » de « Vérifier la liste », dans « Rechercher », interroge les postes affichés avec les requêtes des tableaux du poste et du parc.
 
 ## Protection des requêtes
 
@@ -766,7 +777,7 @@ Le catalogue propose 78 sondes WMI en lecture seule, en 8 catégories. On les aj
 
 ## Exécution
 
-1. **Lancer.** Poste : cliquez « Actualiser les requetes » sur son tableau ; il faut un poste sélectionné. Parc : préparez les postes dans l’Atelier et lancez la collecte, ou utilisez Analyser la liste dans Rechercher. Les requêtes des widgets présents sont regroupées, sans doublon.
+1. **Lancer.** Poste : cliquez « Actualiser les requetes » sur son tableau ; il faut un poste sélectionné. Parc : préparez les postes dans l’Atelier et lancez la collecte, ou utilisez « Matériel et widgets » de « Vérifier la liste » dans Rechercher. Les requêtes des widgets présents sont regroupées, sans doublon.
 2. **Confirmer.** Poste : confirmation « Sonder pour les widgets », bouton « Verifier les sessions ». Parc : confirmation « Analyser les postes affiches », bouton « Analyser ». Les deux donnent le nombre de postes et de requêtes ; « Annuler » ne lance rien.
 3. **Suivre.** De 1 à 8 postes en parallèle selon le réglage. Délai par poste : 20 s plus 8 s par requête, plafonné à 150 s.
 4. **Lire.** En fin de relevé, les widgets se remplissent et la vue du parc se recalcule.
@@ -937,7 +948,7 @@ La page « Utilisateurs et postes » a deux zones dans l'onglet « Associations 
 | Source | Comment elle arrive |
 |---|---|
 | Lien manuel | Panneau « Ajouter une association », « Rechercher », « Associer ce poste », puis « Associer » dans « Confirmer l'association ». |
-| Console observée | « Détecter la liste » et « Analyser la liste » lisent l'utilisateur console ; l'association est actualisée si elle change. |
+| Console observée | « Qui est connecté ? » et « Matériel et widgets » de « Vérifier la liste » lisent l'utilisateur console ; l'association est actualisée si elle change. |
 | Détection ciblée | Panneau « Ajouter une association », « Détecter » : « Détecter les postes » propose des postes ; « Associer ce poste » prépare le lien, puis « Associer » dans « Confirmer l'association » l'enregistre. |
 | Import CSV | « Toutes les associations », « Importer » : aperçu dans la page, puis « Importer ». La source est toujours « Import CSV » (Importé). |
 
@@ -959,7 +970,7 @@ Rien ne part avant la confirmation « Périmètre à confirmer avant toute lectu
 - Période : ParkSweep.HarvestDays (7 jours, borné de 1 à 30).
 - Volume : ParkSweep.HarvestMaxEvents (5 000 événements, borné de 200 à 20 000).
 - Le compte AD doit pouvoir lire le journal Sécurité du contrôleur ; sinon : « Lecture du journal de securite du controleur refusee. ».
-- « Oublier les releves » efface l'état du parc : le prochain relevé repart de zéro.
+- « Oublier les relevés » efface l'état du parc (dernier passage, statut, tentatives), en mémoire et dans la base locale, après une confirmation dans la page et une sauvegarde vérifiée de la base. Les associations sont conservées ; le prochain relevé repart de zéro.
 
 > [!NOTE] La case « Releve manuel uniquement » existe dans le code mais reste masquée. Aucun relevé n'est lancé au démarrage : si l'ancienne préférence ParkSweepEnabled est vraie, Domenia l'écrit seulement dans le journal.
 
@@ -1005,38 +1016,51 @@ Domenia peut utiliser trois identités indépendantes : l'annuaire, les postes e
 
 ## Connexion
 
-![Fenêtre de connexion : Compte Windows, Mot de passe, Mémoriser uniquement l'identifiant, Se connecter et Utiliser mon compte Windows](fig:connexion)
+![Fenêtre de connexion : Compte Windows, Mot de passe, Se souvenir de mon identifiant, Se connecter et Continuer en tant que …](fig:connexion)
+
+- En session Windows de domaine, l'action principale est « Continuer en tant que DOMAINE\nom » (bouton par défaut, Entrée) et le formulaire est replié sous « Utiliser un autre compte ». Ailleurs, ou après « Changer de compte » dans la page « Comptes », le formulaire s'affiche d'abord et la session Windows reste proposée dessous.
 
 - Le champ « Compte Windows » accepte DOMAINE\identifiant, identifiant@domaine ou le format habituel. Un identifiant nu est complété par Conf.NETBIOS ou Conf.DOMAINE s'ils sont renseignés.
 - Un compte ordinateur est refusé comme identité interactive.
-- « Mémoriser uniquement l’identifiant » garde l'identifiant dans HKCU:\Software\DOMENIA (valeurs RememberLogin et LastLogin). Le mot de passe n'est jamais mémorisé.
-- « Utiliser mon compte Windows » s'appuie sur la session Windows courante, sans mot de passe. Il n'apparaît que si Auth.AllowWindowsSession est vrai (défaut), et reste grisé hors d'une session de domaine.
+- « Afficher », à droite du mot de passe, le montre pendant 5 secondes dans une zone en lecture seule, sans copie possible ; il se masque aussi au second clic ou dès que la saisie change.
+- « Se souvenir de mon identifiant », décochée par défaut, garde l'identifiant dans HKCU:\Software\DOMENIA (valeurs RememberLogin et LastLogin) après une connexion réussie. Le mot de passe n'est jamais mémorisé par cette case.
+- « Continuer en tant que DOMAINE\nom » s'appuie sur la session Windows courante, sans mot de passe. Il n'apparaît que si Auth.AllowWindowsSession est vrai (défaut) ; hors session de domaine (SYSTEM, compte local ou compte d'ordinateur), il devient « Utiliser mon compte Windows », grisé.
 - Découverte : avec Conf.AutoDiscover vrai (défaut), domaine et contrôleur sont découverts ; avec faux, Conf.DOMAINE, Conf.NETBIOS, Conf.SearchBase et Conf.Server s'appliquent.
 - Délais : Auth.LoginTimeoutSeconds (30 s, borné de 8 à 45), Auth.PerServerTimeoutSeconds (6 s par contrôleur), Auth.MaxServerCandidates (4 contrôleurs essayés).
 
-| Vous voyez | Ce que cela veut dire | Que faire |
+Chaque refus s'affiche en une phrase suivie de l'action à mener. Le code Active Directory (52e, 775, 0x80070775…) ne s'affiche pas : il figure dans le texte de « Copier le diagnostic » et dans le journal de connexion.
+
+| Vous voyez | Ce que cela veut dire | Code AD dans le diagnostic |
 |---|---|---|
-| « Identifiant ou mot de passe incorrect. » | Refus d'authentification. | Vérifier les identifiants avant tout nouvel essai. |
-| « Ce compte est verrouille. » ou « Ce compte est desactive. » | Restriction AD. | Lever la restriction ; ne pas multiplier les tentatives. |
-| « Le mot de passe de ce compte a expire. » | Mot de passe expiré. | Le changer par Ctrl+Alt+Suppr, puis réessayer. |
-| « Acces refuse par AD. Consulte le diagnostic. » | Droits ou restrictions du compte. | Lire le journal de connexion. |
-| « Delai depasse. La validation a ete arretee sans bloquer l interface. » | Contrôleur injoignable ou lent. | Vérifier réseau, DNS ou VPN. |
-| « Erreur interne pendant la connexion. Consulte le diagnostic. » | Défaut de Domenia, pas un mauvais mot de passe. | « Copier le diagnostic » et le journal de connexion. |
+| « Identifiant ou mot de passe refusé. Vérifiez la saisie avant un nouvel essai. » | Refus d'authentification. | 52e, 0x8007052E |
+| « Compte inconnu de lʼannuaire. … » | Identifiant ou domaine erroné. | 525 |
+| « Compte verrouillé. Demandez son déverrouillage puis réessayez. » | Compte verrouillé dans AD. | 775, 0x80070775 |
+| « Compte désactivé. Demandez sa réactivation puis réessayez. » | Compte désactivé. | 533 |
+| « Mot de passe expiré. Changez-le (Ctrl+Alt+Suppr, Modifier un mot de passe) puis réessayez. » | Mot de passe expiré. | 532 |
+| « Mot de passe à changer avant la connexion. … » | Changement imposé à la prochaine ouverture de session. | 773 |
+| « Connexion refusée par une restriction du compte. … » | Le plus souvent un mot de passe expiré ; sinon postes ou horaires autorisés. | 52f |
+| « Connexion interdite à cette heure pour ce compte. … » ou « Connexion interdite depuis ce poste pour ce compte. … » | Horaires ou postes autorisés du compte. | 530, 531 |
+| « Compte expiré. … » | Date d'expiration du compte dépassée. | 701 |
+| « Accès refusé par lʼannuaire pendant la connexion. … » | Droits ou restrictions du compte pendant la lecture du domaine. | 0x80070005 |
+| « Contrôleur de domaine injoignable. … » ou « Délai dépassé pendant la connexion. … » | Réseau, DNS ou VPN. | — |
+| « Erreur interne pendant la connexion. Elle ne prouve pas un mauvais mot de passe. … » | Défaut de Domenia. | — |
 
 Les boutons « Ouvrir le journal » et « Copier le diagnostic » de la fenêtre donnent la trace de connexion (chapitre 20).
 
 ## Les trois identités
 
-La page « Comptes » applique la règle affichée sous « Regle d execution » : « Annuaire : compte AD courant. Postes : compte distant s il existe, sinon compte AD. Secrets : compte secrets s il existe, sinon compte AD. Les trois scopes sont independants. ».
+La page « Comptes : identités de connexion » s'ouvre par le menu « Comptes » ou par la carte « Identités de connexion » de l'accueil. Elle applique la règle affichée sous « Règle dʼexécution » : « Annuaire : compte de connexion. Postes : compte poste saisi dans Assistance poste sʼil existe, sinon compte Postes, sinon compte de connexion. Secrets : compte Secrets sʼil existe, sinon compte de connexion. Les trois ressources sont indépendantes. ».
 
 | Zone | Usage | Boutons |
 |---|---|---|
-| « ANNUAIRE AD » | Utilisateurs, groupes, OU, attributs, recherche et écritures AD. | « Changer de compte », « Tester la connexion », « Se connecter ». |
-| « POSTES / WMI / DISTANT » | WMI, WinRM, SMB, inventaire, diagnostics et actions distantes. | « Tester », « Activer », « Effacer ». |
+| « ANNUAIRE AD » | Utilisateurs, groupes, OU, attributs, recherche et écritures AD. Carte en lecture seule : compte réellement lié, mode de connexion (session Windows ou compte saisi), contrôleur et domaine. | « Changer de compte » : connexion préremplie avec le compte saisi pour la session, formulaire d'abord ; « Annuler » garde la session en cours. Rien n'est écrit dans les préférences. |
+| « EN CE MOMENT » | Compte réellement utilisé par chaque ressource (annuaire, opération d'annuaire qui a reçu son propre compte temporaire, postes, LAPS, BitLocker) et son origine, puis les comptes gardés en mémoire avec leur durée restante. Aucun mot de passe n'est affiché. | « Oublier » sur chaque compte gardé en mémoire. |
+| « POSTES / WMI / DISTANT » | WMI, WinRM, SMB, inventaire, diagnostics et actions distantes. | « Activer », « Essayer sur le poste sélectionné », « Effacer ». |
 | « SECRETS AD » | Lecture LAPS et BitLocker. | « Tester », « Activer », « Effacer ». |
 
-- Le compte des opérations poste saisi dans l'onglet « Diagnostic » d'un poste passe avant le compte « POSTES / WMI / DISTANT » (chapitre 5).
-- Un compte temporaire accepté après un refus ne sert qu'à sa ressource et à son poste. Il est oublié après Security.AlternateCredentialIdleMinutes (30 min) sans usage, à la fin de la session ou sur demande.
+- Le compte poste saisi dans le panneau « Compte poste » d'Assistance poste passe avant le compte « POSTES / WMI / DISTANT » (chapitre 5).
+- « Essayer sur le poste sélectionné », grisé sans poste ouvert dans Assistance poste, fait au clic une seule lecture WMI légère (Win32_OperatingSystem) du poste ouvert avec le compte utilisé pour les postes. Réponses : « Accès administrateur OK sur … », « Accès refusé sur … : droit administrateur requis sur ce poste. », « Identifiants refusés par … », « Poste … injoignable (réseau, nom ou service WMI) ». Aucun relevé, aucun autre poste, aucun repli intrusif.
+- Un compte temporaire accepté après un refus passe avant, pour sa seule ressource et son poste. Il est oublié après Security.AlternateCredentialIdleMinutes (30 min) sans usage, à la fin de la session, par la fenêtre du bouton d'accès ou par « Oublier » dans « En ce moment ». « Oublier » efface aussi le refus enregistré pour cette ressource : le compte configuré reprend la main dès l'opération suivante. Il est refusé tant qu'une écriture reste active ou à vérifier ; une opération déjà envoyée garde sa copie du compte.
 - Si le périmètre AD change, les comptes secondaires sont retirés de la mémoire, pour ne pas les envoyer dans un autre domaine.
 
 ## Droits à prévoir
@@ -1106,7 +1130,7 @@ La démonstration montre l'interface sans aucune connexion AD, avec des données
 
 ## Fenêtre de connexion Debug
 
-Le mode Debug affiche une trace technique de la connexion en direct (titre « Domenia 1.0  Connexion », bandeau « MODE DEBUG  diagnostic de connexion en direct »). Domenia choisit le mode dans cet ordre :
+Le mode Debug est la fenêtre de connexion standard à laquelle s'ajoute, sous le formulaire, le volet « Diagnostic de connexion » : l'étape en cours et la trace technique, en direct (titre « Domenia · Connexion · diagnostic »). Le reste de la fenêtre est identique ; la trace est celle que copie « Copier le diagnostic ». Domenia choisit le mode dans cet ordre :
 
 1. **Marqueur.** Un fichier wad\Domenia.login.debug présent impose Debug.
 2. **Fichier de mode.** wad\Domenia.login-mode.cfg contient Standard ou Debug.
@@ -1329,10 +1353,10 @@ Une clé absente, nulle ou vide prend la valeur par défaut du code. Une section
 | Conf.DOMAINE, Conf.NETBIOS | vide | Nom DNS et NetBIOS du domaine ; complètent aussi un identifiant nu. |
 | Conf.SearchBase, Conf.Server | vide | Base DN et contrôleur imposés. |
 | Conf.ADM | vide | Identifiant proposé si aucun n'est mémorisé. |
-| Auth.RememberLogin | true | État initial de « Mémoriser uniquement l’identifiant ». Valeur du fichier remplacée par RememberLogin de HKCU:\Software\DOMENIA dès que celle-ci existe. |
+| Auth.RememberLogin | false | État initial de « Se souvenir de mon identifiant ». Valeur du fichier remplacée par RememberLogin de HKCU:\Software\DOMENIA dès que celle-ci existe. |
 | Auth.LastLogin | vide | Identifiant proposé à l'ouverture. Valeur du fichier remplacée par LastLogin de HKCU:\Software\DOMENIA dès que celle-ci existe. |
 | Auth.LoginWindowMode | Standard | Mode de la fenêtre de connexion. |
-| Auth.AllowWindowsSession | true | Affiche « Utiliser mon compte Windows ». |
+| Auth.AllowWindowsSession | true | Propose la session Windows : « Continuer en tant que DOMAINE\nom » en action principale dans une session de domaine. |
 | Auth.LoginTimeoutSeconds | 30 | Délai total de connexion (8 à 45 s). |
 | Auth.PerServerTimeoutSeconds | 6 | Délai par contrôleur. |
 | Auth.MaxServerCandidates | 4 | Contrôleurs essayés. |
@@ -1357,11 +1381,12 @@ Une clé absente, nulle ou vide prend la valeur par défaut du code. Une section
 
 | Clé | Défaut | Rôle |
 |---|---|---|
-| Streaming.VerifyUserOnSelection | true | État initial de « Utilisateur au clic ». |
+| Streaming.VerifyUserOnSelection | true | État de « + utilisateur connecté » tant que l'opérateur ne l'a pas changée. |
 | Streaming.MaxUserProbes | 2 | Vérifications au clic simultanées (1 à 3). |
 | Streaming.RevalidateListedObjects | true | Relecture périodique des objets affichés. |
 | Streaming.RevalidateIntervalSeconds | 60 | Intervalle de cette relecture (30 à 600 s). |
 | Streaming.ReconcileSeconds | 180 | Relecture de fond du périmètre d'une liste de 500 lignes au plus (120 à 900 s). |
+| Park.MaxTargets | 500 | Plafond d'un relevé de la liste ou de sa sélection : « Vérifier la liste » et la barre de la sélection refusent au-delà (5 000 au plus). |
 | Browser.GlobalSearchLimit | 100 | Valeur initiale du champ « Limite », aussitôt remplacée par la préférence SearchLimit (100 par défaut) ; ne sert que si ce champ n'est pas un nombre. |
 | Browser.GlobalSearchMinChars | 2 | Caractères minimum. |
 | Browser.MaxPageSize | 300 | Taille de page LDAP. |
@@ -1434,7 +1459,7 @@ Pour la recherche globale, seuls les nouveaux objets reçus d’AD relancent le 
 | LocalStore.DatabaseFile | Domenia.db | Nom du fichier, sans chemin. |
 | LocalStore.DatabaseBackupCount | 7 | Sauvegardes gardées (2 à 30). |
 | LocalStore.BackupTimeoutSeconds | 30 | Budget d'une sauvegarde (5 à 120 s). |
-| LocalStore.DatabaseBusyTimeoutMs, MutexTimeoutMilliseconds | 2500, 350 | Attente d'une base occupée. |
+| LocalStore.DatabaseBusyTimeoutMs, MutexTimeoutMilliseconds | 2500, 350 | Attente d'une base occupée. DatabaseBusyTimeoutMs (borné de 100 à 5000 ms) vaut pour l'interface et pour tous les workers ; les attentes dépassées sont comptées dans le panneau Opérations. |
 | Index.StartupDeltaMaxAgeMinutes | 5 | Âge au-delà duquel le journal recommande une mise à jour. |
 | Index.MaxObjects, BudgetMs, ComputerFirst | 0, 1200000, true | 0 désactive le quota d’objets de l’index ; le budget par passe reste de 20 minutes. Une limite positive ou un budget atteint rend la passe partielle : elle ne remplace pas une base complète et ne déplace pas le repère de suivi. La lecture est acheminée vers SQLite par lots de 256 objets. |
 
@@ -1477,7 +1502,7 @@ La base autonome est une copie locale des utilisateurs et des postes, suivie par
 - La base doit être locale, sans repli silencieux. Chemin réseau : « Une base active SQLite doit etre locale. Choisissez UserLocal ; les sources existantes seront conservees. ». Dossier redirigé : « Stockage redirige par un lien : choisissez un dossier local non redirige. ». Dossier non inscriptible : « Stockage non inscriptible : » suivi du chemin et de « Aucun repli silencieux. Configurez UserLocal. ».
 - Une ancienne base à la racine du dossier n'est adoptée que si sa base DN correspond ; elle n'est jamais déplacée ni fusionnée.
 
-Dans l’onglet « Stockage », dépliez « Emplacement et sauvegarde » pour afficher le chemin exact et les commandes de sauvegarde. « Ouvrir l emplacement » ouvre l’Explorateur sur le fichier.
+Dans l’onglet « Stockage », dépliez « Emplacement et sauvegarde » : une ligne résume la base (« Base du domaine example.local · 4,2 Mo · sauvegardée il y a 2 h »). Le chemin exact s’affiche dans son infobulle et « Copier le chemin » le place dans le presse-papiers. Une alerte s’affiche quand la base n’a jamais été sauvegardée ou que sa dernière sauvegarde a plus de 7 jours. « Ouvrir l emplacement » ouvre l’Explorateur sur le fichier.
 
 ## Mettre à jour la base
 
@@ -1495,18 +1520,18 @@ La mise à jour n’est jamais automatique. Si la base est plus ancienne que Ind
 
 ![Base autonome : onglet Données et navigateur local ; données fictives](fig:base-autonome)
 
-Dans « Mise à jour », dépliez « Détails du stockage et de la synchronisation » pour relire le fichier local, le contrôleur et le repère de suivi.
+Dans « Mise à jour », quatre tuiles résument la copie locale : « Comptes », « Postes » (actifs et désactivés), « Associations » et « Dernière mise à jour » du périmètre choisi. Dépliez « Détails du stockage et de la synchronisation » pour relire le contrôleur de la dernière lecture et les totaux. Le repère de suivi (USN) et la durée des lectures AD sont écrits dans le journal.
 
 | Information de la base locale | Ce qu’il faut vérifier |
 |---|---|
 | Nombre d’objets | Utilisateurs et postes recensés dans le périmètre annoncé, y compris les comptes désactivés. |
 | Lecture complète AD | Date d’une lecture réussie couvrant l’OU et ses sous-OU. Une date d’OU parente peut couvrir ce périmètre. |
 | Tentative incomplète | L’avertissement reste distinct de la dernière date complète. Relisez le bilan avant de relancer. |
-| Détails du stockage | Fichier local et contrôleur utilisés ; ces repères ne décrivent pas l’âge des mesures des postes. |
+| Détails du stockage | Contrôleur utilisé et totaux ; ces repères ne décrivent pas l’âge des mesures des postes. Le chemin du fichier se lit dans « Stockage ». |
 
 ## Suivre la progression et la fraîcheur
 
-L’onglet « Mise à jour » regroupe la commande, « État de la copie locale », les dates et la progression. L’onglet « Données » réserve la place aux résultats, avec ses filtres et boutons de pagination. Les sauvegardes et la maintenance sont accessibles dans « Stockage ».
+L’onglet « Mise à jour » regroupe la commande, « État de la copie locale » et ses tuiles, les dates et la progression. L’onglet « Données » réserve la place aux résultats, avec ses filtres et boutons de pagination. Les sauvegardes et la maintenance sont accessibles dans « Stockage ».
 
 La lecture de l’annuaire et l’enregistrement dans SQLite sont deux phases distinctes. Les compteurs affichent les objets lus, les lots écrits et les éventuels refus ou délais dépassés. La fraîcheur AD du périmètre repose sur sa dernière lecture complète ou celle d’une OU parente qui le couvre ; le chemin couvert reste indiqué. Une tentative partielle ne remplace pas cette date et demeure signalée. Attendez la confirmation finale du stockage avant de considérer la base à jour. Cette date ne décrit ni le ping ni WMI ; « Les deux » attend précisément ce stockage avant de préparer le relevé des postes.
 
@@ -1547,17 +1572,30 @@ Pour un parc de 5 000 postes ou plus, gardez les listes paginées, commencez ave
 3. **Contrôle.** La copie est vérifiée (PRAGMA quick_check) dans le budget LocalStore.BackupTimeoutSeconds (30 s). Une copie partielle est supprimée.
 4. **Rotation.** Le fichier va dans le dossier Backups de la base, nommé Domenia-DATE-HEURE-ID.db. Seules les LocalStore.DatabaseBackupCount (7) plus récentes sont gardées.
 
-> [!RESULTAT] « Sauvegarde de la base enregistree : » suivi du chemin. Sous l'encadré : « Sauvegardes : » avec le dossier et la date de la dernière.
+> [!RESULTAT] « Sauvegarde de la base enregistree : » suivi du chemin. Le résumé de l'encadré passe à « sauvegardée à lʼinstant ».
 
 « Copier une sauvegarde vers... » fait la même sauvegarde puis la copie vers le fichier choisi (clé USB, partage), nom proposé Domenia-DATE-HEURE.db : « Sauvegarde de la base copiee : » suivi du chemin. La base active et ses journaux ne peuvent pas servir de destination. Un fichier temporaire précède le remplacement de l’export choisi pour préserver l’export existant si la copie échoue. Échec : « Sauvegarde de la base impossible : » suivi du motif.
 
-> [!ATTENTION] Il n'existe pas de sauvegarde périodique automatique. Seule une migration de schéma déclenche une sauvegarde d'elle-même, dans Backups\migrations, hors rotation. Planifiez une sauvegarde manuelle régulière et gardez-en une copie hors du poste.
+> [!ATTENTION] La sauvegarde périodique se règle dans « Sauvegardes automatiques et conservation » ; elle est désactivée par défaut. En dehors d'elle, Domenia sauvegarde la base de lui-même avant une migration de schéma (dans Backups\migrations, hors rotation) et avant les gestes qui la modifient (ci-dessous). Gardez une copie hors du poste.
 
 Hors de l'application, le paquet DEV fournit wad\maintenance\Sauvegarder-Cache.ps1 : sauvegarde cohérente d'un fichier .db, de préférence Domenia fermé, 7 copies au plus dans Backups, avec le chemin et l'empreinte SHA-256. Il refuse PowerShell 7 et les processus 32 bits.
 
 ~~~
 powershell -NoProfile -STA -File wad\maintenance\Sauvegarder-Cache.ps1 -DatabasePath "C:\CHEMIN\Domenia.db"
 ~~~
+
+### Sauvegarde avant les gestes qui modifient la base
+
+Quatre gestes passent d'abord par une sauvegarde vérifiée de la base, faite par le worker StorageBackup dans le dossier Backups sous le nom Geste-DATE.db. Ces copies tournent à part : les plus récentes sont gardées, autant que le nombre de copies réglé dans la conservation (7 par défaut), et elles ne retirent jamais les copies automatiques ou manuelles (Domenia-DATE.db) :
+
+- la relecture AD d'une OU (« Mettre à jour lʼOU choisie » dans Base autonome, « Objets AD » depuis Accueil ou Rechercher) ;
+- l'import CSV des associations ;
+- le retrait des associations orphelines ;
+- « Oublier les relevés ».
+
+La confirmation de l'import, du retrait et de l'oubli des relevés l'annonce : « Une sauvegarde vérifiée de la base sera faite avant. ». Une sauvegarde vérifiée de moins de 30 minutes sert de point de retour : aucune nouvelle copie n'est faite et la confirmation le dit. Le geste ne démarre qu'après le reçu de la sauvegarde. Si elle échoue, rien n'est lancé : la page propose « Ne pas lancer » ou « Continuer sans sauvegarde », et ce second choix est écrit dans le journal. La base de démonstration et un domaine sans base encore créée ne sont pas sauvegardés.
+
+Le geste porte sur ce qui a été confirmé au clic. Si une autre OU ou un autre aperçu CSV est choisi pendant la sauvegarde, rien n'est lu ni importé : « Actualisation non lancée : lʼOU, la base ou la session a changé pendant la sauvegarde ; aucune lecture AD. Cliquez à nouveau pour lʼOU affichée. » ou « Lʼaperçu a changé pendant la sauvegarde : rien nʼest importé. Vérifiez lʼaperçu affiché puis cliquez « Importer ». ». Le retrait des orphelines porte sur les lignes cochées au moment de la confirmation, même si les cases changent pendant la sauvegarde. « Annuler » pendant la sauvegarde arrête la copie, et le geste n'est pas lancé.
 
 ## Restaurer une sauvegarde
 
@@ -1582,7 +1620,7 @@ Dans Outils → Base autonome → Stockage, « Mesurer » compte les lignes et l
 
 La purge conserve toujours les associations et leurs traces protégées, les secrets, la configuration, les préférences, les journaux et les reçus. Elle ne compacte pas le fichier SQLite. Purger l’index impose une nouvelle mise à jour explicite des OU utiles pour retrouver leurs objets locaux.
 
-Après un échec du stockage local, « Reprendre les sauvegardes » relance l'enregistrement des lots restés en mémoire, et « Reprendre les anciennes données » affiche la simulation de la reprise des anciens fichiers avant toute confirmation : les deux sont dans Stockage, section « Reprises ». Les messages de Domenia qui en parlent portent un bouton qui ouvre cet endroit. Les reçus d’écriture s'ouvrent par la pastille « opérations à vérifier » de l'en-tête de page.
+Après un échec du stockage local, « Reprendre les sauvegardes » relance l'enregistrement des lots restés en mémoire, et « Reprendre les anciennes données » affiche la simulation de la reprise des anciens fichiers avant toute confirmation : les deux sont dans Stockage, section « Reprises ». Les messages de Domenia qui en parlent portent un bouton qui ouvre cet endroit. Les reçus d’écriture s'ouvrent par la pastille « opérations à vérifier » de l'en-tête de page ; les autorisations d’intervention se donnent en tête de la vue « Intervenir » d’Assistance poste.
 
 ![Stockage : sauvegardes et préparation d’une purge locale ; données fictives](fig:base-stockage)
 
@@ -1595,7 +1633,7 @@ Domenia lit par défaut, n'envoie rien sur le réseau sans geste explicite et ne
 | Lecture par défaut | Démarrage toujours en lecture seule ; passage en écriture confirmé et signalé en rouge (chapitre 14). |
 | Aucune sonde sans geste | Pas de mise à jour de la base ni de relevé au démarrage. Un relevé exige un périmètre explicite et une confirmation du nombre de cibles ; il lit de 1 à 8 postes en parallèle selon le réglage. Dans l’Atelier, le périmètre est l’OU affichée avec ses sous-OU. |
 | Pas de rejeu | Une écriture n'est jamais rejouée automatiquement ; les reçus servent à vérifier. |
-| Secrets en mémoire | Mots de passe jamais enregistrés, effacés à la fermeture ; seul l'identifiant peut être mémorisé. LAPS et BitLocker : une valeur à la fois, jamais journalisée ni mise en cache, presse-papiers vidé après 30 s. |
+| Secrets en mémoire | Mots de passe jamais enregistrés, effacés à la fermeture ; seul l'identifiant peut être mémorisé. Un mot de passe saisi est lu en SecureString et n'est jamais recopié dans un champ modifiable ; « Afficher » le montre 5 s en lecture seule. LAPS et BitLocker : une valeur à la fois, jamais journalisée ni mise en cache, presse-papiers vidé après 30 s. |
 | Windows intact | Aucun certificat accepté à l'aveugle ; WinRM, pare-feu, antivirus et stratégies jamais modifiés. Le déblocage du paquet ne change aucune stratégie. |
 | Transports intrusifs | ADMIN$, Planificateur et PsExec inactifs sans l'autorisation de 5 minutes pour le poste ; avec elle, ils servent aussi de repli à certaines lectures quand CIM échoue (chapitre 5). |
 | Intégrité | Manifeste vérifié à chaque démarrage, chargeur fermé, registre des workers épinglé. |
@@ -1605,6 +1643,8 @@ Domenia lit par défaut, n'envoie rien sur le réseau sans geste explicite et ne
 > [!ATTENTION] Le manifeste n'est pas une signature. Domenia.exe et le runtime livrés ne sont pas signés. Pour une diffusion qui exige une signature : tools\Signer-Distribution.ps1 signe les scripts de la copie préparée (build_packages.py --stage-dir) avec un certificat de signature de code approuvé, puis, après la construction, le catalogue du manifeste livré (-ManifestCatalog). Domenia.exe et les composants tiers ne sont pas re-signés : tools\Test-DomeniaSignature.ps1 les accepte pour leur empreinte épinglée dans tools\release-contract.json. Ce contrôle est hors ligne et rend séparément l'intégrité et l'éditeur ; -RequireSignature exige les scripts signés et les binaires épinglés, -RequireSignedManifest exige aussi le catalogue signé, seul à couvrir les fichiers non signables (.json, .xaml, .cs, .cmd, .ico, verrou).
 
 > [!NOTE] Données réelles. Les journaux, exports et diagnostics contiennent des noms de comptes, de postes, de domaines et des chemins internes : ils ne sont pas anonymisés. Relisez-les avant tout partage.
+
+> [!NOTE] Limite de Windows PowerShell 5.1. L'API DirectoryEntry n'accepte le mot de passe que sous forme de chaîne. Au moment de chaque liaison à l'annuaire, Domenia en tire une copie depuis la SecureString et la remet aussitôt à Windows, sans la conserver, la journaliser ni l'afficher. Cette copie est immuable : aucune instruction ne peut l'effacer, elle disparaît quand le ramasse-miettes .NET libère la mémoire. Les variables vidées dans le code ne constituent donc pas un effacement.
 
 # 20 Journaux et diagnostic
 

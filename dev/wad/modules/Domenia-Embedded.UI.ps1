@@ -296,7 +296,15 @@ function Show-DomeniaBanner {
         [void]$actions.Children.Add($record.DetailButton)
     }
     if($ActionText -and $ActionPath){[void]$actions.Children.Add((New-DomeniaBannerButton -Text $ActionText -Command 'Folder' -Record $record -Help ('Ouvre lʼExplorateur sur '+$ActionPath)))}
+    # UX-19 (X04): the caller names the place of the action (-RouteText/-Route). UX-16 (X03): otherwise a refusal that
+    # names the place of an authorisation gets its route from its text. Navigation only, always the first button.
     if(($RouteText) -and ($Route)){[void]$actions.Children.Insert(0,(New-DomeniaBannerButton -Text $RouteText -Command 'Route' -Record $record -Help ('Ouvre lʼendroit de lʼaction : '+$RouteText+'. Rien nʼest lancé par ce clic.')))}
+    else{
+        $routeTarget=$null
+        try{$record.Route=[string](Get-DomeniaMessageRoute -Text ([string]$Message));if($record.Route){$routeTarget=Resolve-DomeniaCapabilityRoute -Route $record.Route}}catch{$routeTarget=$null}
+        if($null -ne $routeTarget){[void]$actions.Children.Insert(0,(New-DomeniaBannerButton -Text ('Aller à '+[string]$routeTarget.Label) -Command 'Route' -Record $record -Help ('Ouvre '+[string]$routeTarget.Label+'. Rien nʼest autorisé ni lancé sans votre clic.')))}
+        else{$record.Route=''}
+    }
     $record.Actions=$actions;$record.Stack=$stack
     if($actions.Children.Count){[void]$stack.Children.Add($actions)}
     [void]$grid.Children.Add($stack)

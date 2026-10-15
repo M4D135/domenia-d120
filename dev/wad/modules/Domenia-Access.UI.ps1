@@ -14,7 +14,7 @@ function Get-DomeniaAccessFailureKind {
 function Get-DomeniaAccessScope {
     param([string]$OperationId)
     if($OperationId -eq 'UserComputerProbe'){return 'AD:UserComputerProbe'}
-    if($OperationId -eq 'LiveSelectedPing'){return 'Presence'}
+    if($OperationId -in @('LiveSelectedPing','ParkPing')){return 'Presence'}
     if($OperationId -eq 'EmbeddedPathBrowse'){return 'LocalFile'}
     if($OperationId -in @('LiveDirectoryCheck','ScopeReconcile')){return 'AD:GlobalSearch'}
     if($OperationId){
@@ -69,7 +69,7 @@ function Remove-DomeniaAccessCredential {
 }
 function Get-DomeniaRetryCredential {
     param([string]$OperationId)
-    if($OperationId -in @('LiveSelectedPing','EmbeddedPathBrowse')){return $null}
+    if($OperationId -in @('LiveSelectedPing','ParkPing','EmbeddedPathBrowse')){return $null}
     if($null -eq $script:AccessState){return $null}
     if($script:AccessState.Epoch -ne [long]$script:SessionEpoch -or $script:AccessState.BaseDn -ine [string]$script:Conn.BaseDn){return $null}
     $scope=Get-DomeniaRetryScopeKey $OperationId
@@ -182,7 +182,7 @@ function Request-DomeniaAccessRecovery {
         try{$DN=[string]$job.CallbackState.DN;if(-not $DN){$DN=[string]$job.CallbackState.TargetDn}}catch{}
     }
     if(-not $DN -and $OperationId -ne 'LiveConsole' -and $null -ne $script:SelectedObject){$DN=[string]$script:SelectedObject.DN}
-    if($OperationId -in @('LiveConsole','LiveCache','LiveDirectoryCheck','ScopeReconcile','TreeChildren','PresenceScan','SelectedPresence','ParkSweep','IndexBuild')){$Interactive=$false}
+    if($OperationId -in @('LiveConsole','LiveCache','LiveDirectoryCheck','ScopeReconcile','TreeChildren','PresenceScan','SelectedPresence','ParkSweep','ParkPing','IndexBuild')){$Interactive=$false}
     $scope=if([string]$ErrorValue -match '(?i)Canal Active Directory suspendu'){'Directory'}else{Get-DomeniaAccessScope $OperationId}
     $key=$scope+'|'+$DN
     $record=[pscustomobject]@{Key=$key;Scope=$scope;OperationId=$OperationId;Operation=$Operation;DN=$DN;Target=$resourceTarget;Kind=$kind;Epoch=[long]$script:SessionEpoch;Generation=[long]$script:SelectedObjectGeneration;IsWrite=([bool]$IsWrite -or ($null -ne $job -and [bool]$job.IsWrite));Interactive=[bool]$Interactive;At=[datetime]::UtcNow}
@@ -449,6 +449,9 @@ function Resolve-DomeniaCapabilityRoute {
         'StorageResume'      { return [pscustomobject]@{Route=$Route;Workspace='TabApplicationTools';Inner='ApplicationToolTabs';Tab='TabIndex';Focus='BtnGuardStoreResume';Label='Base autonome > Stockage';Inner2='IndexWorkspaceTabs';Tab2='TabIndexStorage'} }
         'LegacyImport'       { return [pscustomobject]@{Route=$Route;Workspace='TabApplicationTools';Inner='ApplicationToolTabs';Tab='TabIndex';Focus='BtnGuardLegacyImport';Label='Base autonome > Stockage';Inner2='IndexWorkspaceTabs';Tab2='TabIndexStorage'} }
         'DraftCompare'       { return [pscustomobject]@{Route=$Route;Workspace='';Inner='';Tab='';Focus='';Label='Comparer les saisies';Panel='DraftCompare'} }
+        # UX-16 (X03): the one authorisation control of the open workstation (intervention and one-read consent), at the top of
+        # the Intervenir view of Assistance poste (X04).
+        'TabComputerAdmin'   { return [pscustomobject]@{Route=$Route;Workspace='WsComputer';Inner='ComputerTabs';Tab='TabComputerAdmin';Focus='BtnCompInterventionGrant';Label='Assistance poste > Intervenir'} }
         'ChkReadOnlyMode'    { return [pscustomobject]@{Route=$Route;Workspace='';Inner='';Tab='';Focus='ChkReadOnlyMode';Label='Protection lecture seule'} }
         'BtnObjectReadRetry' { return [pscustomobject]@{Route=$Route;Workspace='WsObject';Inner='';Tab='';Focus='BtnObjectReadRetry';Label='Fiche > Relire'} }
         # UX-32: the operations panel under the Opérations button (TabExperience no longer exists).
@@ -577,7 +580,7 @@ function Update-DomeniaTransportPolicyView {
     if(-not $Force -and $signature -ceq $previous -and $null -ne $grid.ItemsSource){return $false}
     [void](Set-DomeniaItemsSource -Name 'DgTransportPolicy' -Rows $rows)
     $target='';if($null -ne $script:ArtifactConsent -and $script:ArtifactConsent.Expires -gt [datetime]::UtcNow){$target=[string]$script:ArtifactConsent.Target}
-    $note=if($target){'Autorisation explicite en cours pour '+$target+' (5 min au plus). Aucun autre poste nʼen bénéficie.'}else{'Aucun transport intrusif sans autorisation explicite, accordée pour un seul poste et pour 5 minutes. Aucun réglage Windows nʼest modifié par Domenia.'}
+    $note=if($target){'Autorisation explicite en cours pour '+$target+' (5 min au plus). Aucun autre poste nʼen bénéficie.'}else{'Aucun transport intrusif sans autorisation explicite, accordée pour un seul poste et pour 5 minutes (Assistance poste > Intervenir). Aucun réglage Windows nʼest modifié par Domenia.'}
     [void](Set-DomeniaControlText 'LblTransportPolicy' $note)
     if($null -ne $script:AccessState){$script:AccessState|Add-Member -NotePropertyName PolicySignature -NotePropertyValue $signature -Force}
     return $true

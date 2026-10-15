@@ -52,7 +52,9 @@ $coreNames=@('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','Get-D
     'Get-DomeniaTreeHeaderTemplate','New-DomeniaTreeLoadingItem','Add-DomeniaTreeRowsToNode','Queue-DomeniaTreeRowsToNode','Stop-DomeniaTreeRenderForNode',
     'Initialize-DomeniaTreeRenderTimer','Load-TreeChildren',
     # UX-25: the local filter and the presence repaint the grid with a filtered copy of the list.
-    'Apply-DomeniaPresenceFilter','Set-DomeniaGridRows')
+    'Apply-DomeniaPresenceFilter','Set-DomeniaGridRows',
+    # UX-26 / CO-35 / SP-05: the context menu of the list and its read-only helpers.
+    'Build-DomeniaObjectsContextMenu','New-DomeniaMenuItem','Add-DomeniaMenuSeparator','Copy-DomeniaSelectedRowsForTicket','Open-DomeniaResultRowSupport','Open-DomeniaResultRowParentOu')
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $wad 'Domenia-Core.ps1') $coreNames)))
 # PF-14 / UX-25: the real handler of the object type, as Wire-Events attaches it (no copy of its text in this file).
 function Get-WireEventsHandler {param([string]$Control,[string]$Event)
@@ -68,7 +70,8 @@ $script:TypeWiring=Get-WireEventsHandler 'CmbGlobalType' 'Add_SelectionChanged'
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-UX.UI.ps1') @('Get-DomeniaUxOuDisplay','Update-DomeniaUxOuScope'))))
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Guard.UI.ps1') @('Read-DomeniaOuFavouriteStore','Write-DomeniaOuFavouriteStore','Import-DomeniaFavouriteSearchesOnce','Get-DomeniaFavouriteSearches','Test-DomeniaOuFavourite','Save-DomeniaFavouriteSearch','Load-DomeniaFavouriteSearch','Update-DomeniaOuFavouritesUi','Remove-DomeniaFavouriteSearch'))))
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Guard.Model.ps1') @('ConvertTo-DomeniaSavedSearch'))))
-. ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Park.UI.ps1') @('Start-DomeniaOnlinePark'))))
+# UI-23 / FO-18 / SE-05: the real survey commands of the list and their rules (Park.Model is dot-sourced below).
+. ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Park.UI.ps1') @('Start-DomeniaOnlinePark','Get-DomeniaParkRuns','Get-DomeniaParkRun','Test-DomeniaParkRunActive','Get-DomeniaParkMaxTargets','Get-DomeniaParkListContext','Get-DomeniaParkDisplayedTargets','Test-DomeniaParkListStoppable','Test-DomeniaParkRunOnOpenComputer','Update-DomeniaParkControls','Set-DomeniaParkControlVisible','Get-DomeniaParkVerifyButtonText','Update-DomeniaParkOutcomePills','Update-DomeniaParkSelectionBar'))))
 # Worker helpers live in the WorkerCommon text of the core: the row builder of the list is read from it, not copied.
 $coreText=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1'))
 $workerCommon=[regex]::Match($coreText,'(?ms)^\$script:WorkerCommon = @''\r?\n(.*?)\r?\n''@').Groups[1].Value
@@ -79,7 +82,7 @@ foreach($name in @('Convert-WLargeInteger','Convert-WFileTime')){
     if($node.Count -ne 1){throw ('Fonction worker absente : '+$name)}
     . ([scriptblock]::Create($node[0].Extent.Text))
 }
-foreach($file in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-Query.Model.ps1','Domenia-Search.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Live.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Live.UI.ps1','Domenia-Continuity.Model.ps1','Domenia-Continuity.UI.ps1','Domenia-Selection.UI.ps1','Domenia-Search.UI.ps1')){
+foreach($file in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-Query.Model.ps1','Domenia-Search.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Live.Model.ps1','Domenia-Park.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Live.UI.ps1','Domenia-Continuity.Model.ps1','Domenia-Continuity.UI.ps1','Domenia-Selection.UI.ps1','Domenia-Search.UI.ps1')){
     . (Join-Path $modules $file)
 }
 
@@ -106,7 +109,6 @@ function Update-Dashboard { }
 function Request-DomeniaDashboardRefresh { }
 # L03: the home overview reads the OU of Rechercher; the double records the OU it is asked to follow.
 function Request-DomeniaFleetRefresh {param([switch]$Force) if($null -ne $script:FleetScopes){$script:FleetScopes.Add([string]$script:SelectedBranchDn)}}
-function Update-DomeniaParkControls { }
 function Apply-DomeniaUiProfile {param($Profile)}
 function Request-UiTaskStop {param($Id,[switch]$Silent,[switch]$Force,[switch]$Superseded,$Reason) $script:Stops++}
 function Set-RowAssociationMetadata {param($Rows) return $Rows}
@@ -142,6 +144,8 @@ function New-TestControls {
     foreach($n in @('BtnSearchMore','BtnNavBack','BtnNavForward','BtnWorkView','BtnOuRestoreRetry','BtnOuRestoreDismiss')){$c[$n]=[Windows.Controls.Button]::new()}
     $c.TxtGlobalLimit.Text='100'
     $c.ChkSubtree=[Windows.Controls.CheckBox]::new();$c.ChkSubtree.IsChecked=$false
+    # SP-15: « Vérifier au clic » and its user sub-option, read and saved by Initialize-DomeniaLive.
+    foreach($n in @('ChkLiveVerifyOnClick','ChkLiveUsersOnClick')){$c[$n]=[Windows.Controls.CheckBox]::new()}
     $c.CmbGlobalType=[Windows.Controls.ComboBox]::new()
     foreach($t in @('Tous','Utilisateurs','Machines','Groupes','OU et conteneurs')){$i=[Windows.Controls.ComboBoxItem]::new();$i.Content=$t;[void]$c.CmbGlobalType.Items.Add($i)}
     $c.CmbGlobalType.SelectedIndex=2
@@ -160,7 +164,8 @@ function New-TestControls {
     $c.TvDirectory=[Windows.Controls.TreeView]::new()
     # L03 controls (OU menu, filter and favourites, view chip, history banner, revalidation switch, survey buttons).
     $c.TxtOuFilter=[Windows.Controls.TextBox]::new()
-    foreach($n in @('BtnOuMenu','BtnOuFavouriteToggle','BtnHistoryRefresh','BtnParkResults','BtnParkPing','BtnParkAnalyze')){$c[$n]=[Windows.Controls.Button]::new()}
+    foreach($n in @('BtnOuMenu','BtnOuFavouriteToggle','BtnHistoryRefresh','BtnParkVerify','BtnParkVerifyMenu','BtnSelectionPing','BtnSelectionConsole')){$c[$n]=[Windows.Controls.Button]::new()}
+    $c.UxSelectionBar=[Windows.Controls.StackPanel]::new();$c.UxSelectionBar.Visibility='Collapsed';$c.LblSelectionBar=[Windows.Controls.TextBlock]::new()
     foreach($n in @('UxOuMenuPanel','UxOuFavourites','UxHistoryBanner')){$c[$n]=[Windows.Controls.Border]::new();$c[$n].Visibility='Collapsed'}
     $c.PnlOuFavourites=[Windows.Controls.StackPanel]::new()
     $c.UxListRevalidation=[Windows.Controls.StackPanel]::new();$c.UxListRevalidation.Visibility='Collapsed'
@@ -192,7 +197,7 @@ function Reset-Fixture {
     $script:NavHistoryRows=$null;$script:NavHistoryState=$null;$script:NavListShape=$null;$script:OuTreeFilterStatus='';$script:TreeSelectionSource='Mouse';$script:WorkViewScopeOu='';$script:ListSurveyBlocked=$false;$script:ListRevalidationPaused=$false
     if($null -ne $script:FilterChangeTimer){$script:FilterChangeTimer.Stop()};$script:FilterChangeTimer=$null;$script:PendingFilterChange=$null
     if($null -ne $script:TreeRenderTimer){$script:TreeRenderTimer.Stop()};$script:TreeRenderTimer=$null;$script:TreeRenderJobs=@{}
-    $script:OuFavouriteKeys=$null;$script:FleetScopes=[Collections.Generic.List[string]]::new();$script:SearchListHasMachine=$false;$script:ParkRun=$null
+    $script:OuFavouriteKeys=$null;$script:FleetScopes=[Collections.Generic.List[string]]::new();$script:SearchListHasMachine=$false;$script:ParkRuns=$null;$script:ParkDefaultMode=$null
     $script:Ctrl=New-TestControls
     $script:Window=[Windows.Window]::new()
     Initialize-DomeniaLive
@@ -687,16 +692,83 @@ Case 'UX-33 Requete dans lʼOU et profondeur choisies, releve refuse a la racine
     Expect (-not [bool]$domain.CallbackState.SurveyAllowed -and $script:ListSurveyBlocked -and $script:Ctrl.LblSearchHint.Text.Contains('aucun relev')) 'Le releve nʼest pas refuse sur la racine recursive.'
     $script:SearchListHasMachine=$true
     Update-DomeniaSearchActionStates
-    foreach($n in @('BtnParkResults','BtnParkPing','BtnParkAnalyze')){Expect (-not $script:Ctrl[$n].IsEnabled) ('Releve propose : '+$n)}
+    foreach($n in @('BtnParkVerify','BtnParkVerifyMenu')){Expect (-not $script:Ctrl[$n].IsEnabled) ('Releve propose : '+$n)}
     $before=$script:Tasks.Count
     Start-DomeniaOnlinePark -DisplayedResults
-    Expect ($script:Tasks.Count -eq $before -and $null -eq $script:ParkRun -and $script:LastStatus -match 'tout le domaine') ('Releve lance : '+$script:LastStatus)
+    Expect ($script:Tasks.Count -eq $before -and $null -eq (Get-DomeniaParkRun -Slot 'List') -and $script:LastStatus -match 'tout le domaine') ('Releve lance : '+$script:LastStatus)
     Set-SelectedBranch ([pscustomobject]@{Tag=[pscustomobject]@{DN='OU=Lyon,DC=example,DC=invalid'}})
     Expect ($script:Ctrl.CmbWorkViewScope.SelectedIndex -eq 0 -and [string]$script:Ctrl.CmbWorkViewScope.Items[0].Content -eq 'Requêtes · Lyon' -and -not $script:ListSurveyBlocked) 'La puce ne suit pas lʼOU choisie.'
     $script:SearchListHasMachine=$true
     Update-DomeniaSearchActionStates
-    Expect ($script:Ctrl.BtnParkResults.IsEnabled) 'Le releve reste refuse sur une liste dʼOU.'
+    Expect ($script:Ctrl.BtnParkVerify.IsEnabled -and $script:Ctrl.BtnParkVerifyMenu.IsEnabled) 'Le releve reste refuse sur une liste dʼOU.'
     Expect ($script:Ctrl.CmbWorkViewScope.Items.Count -eq 1) 'Une seconde portee a ete ajoutee implicitement.'
+}
+# Unwired if the menu of the list offers a write, a remote tool or a collection again, if Revérifier ce poste goes
+# back to opening the fiche (CO-35), or if Pour un ticket copies GUID, DN or internal fields (SP-05).
+Case 'UX-26 / CO-35 / SP-05 Menu de la liste court et sans ecriture, Reverifier reste dans Rechercher, copie pour un ticket' {
+    $machine=New-ResultRow -Name 'PC-0042' -Login 'PC-0042' -Type 'Machine' -Ou 'OU=Postes,OU=Lyon'
+    foreach($pair in @(@('Association','jdupont'),@('Presence','En ligne'),@('PresenceState','Online'),@('PresenceAge','il y a 5 min'),@('SessionDisplay','EXAMPLE\jdupont'))){$machine|Add-Member -NotePropertyName $pair[0] -NotePropertyValue $pair[1] -Force}
+    $user=New-ResultRow -Name 'Jean Dupont' -Login 'jdupont'
+    $grid=$script:Ctrl.DgObjects;$grid.ItemsSource=@($machine,$user);$grid.SelectedItem=$machine
+    $menu=[Windows.Controls.ContextMenu]::new();Build-DomeniaObjectsContextMenu -Menu $menu
+    $top=@($menu.Items)
+    Expect ($top.Count -le 8) ('Menu trop long : '+$top.Count+' entrees.')
+    $headers=@($top|Where-Object{$_ -is [Windows.Controls.MenuItem]}|ForEach-Object{[string]$_.Header})
+    foreach($h in @('Ouvrir la fiche de PC-0042','Assistance poste','Revérifier ce poste','Rechercher lʼutilisateur associé','Ouvrir lʼOU parente','Copier','Exporter la liste en CSV')){Expect ($headers -contains $h) ('Entree absente : '+$h)}
+    # Every action of the menu, submenus included, and the helpers it calls stay read-only.
+    $all=[Collections.Generic.List[object]]::new();$queue=[Collections.Generic.Queue[object]]::new();foreach($i in $top){$queue.Enqueue($i)}
+    while($queue.Count){$i=$queue.Dequeue();if($i -isnot [Windows.Controls.MenuItem]){continue};$all.Add($i);foreach($child in @($i.Items)){$queue.Enqueue($child)}}
+    $texts=@($all|Where-Object{$_.Tag -is [scriptblock]}|ForEach-Object{[string]$_.Tag})+@([string]${function:Open-DomeniaResultRowSupport},[string]${function:Open-DomeniaResultRowParentOu},[string]${function:Copy-DomeniaSelectedRowsForTicket})
+    $forbidden='(?i)Delete-SelectedObject|Set-AccountDisabled|Unlock-UserAccount|Expire-UserPasswordNow|Move-Domenia|Invoke-ComputerTool|Add-SelectedLink|Start-DomeniaUserComputerProbe|Start-DomeniaComputerInventory|Start-DomeniaSoftwareInventory|Start-ComputerDiagnostics|Start-LoadComputerSecrets|Start-ProbeForSelectedComputer|Start-PermissionAnalysis|Invoke-\w*Write|Restart|Remove-|Set-ADAccount|Start-UiTask'
+    foreach($text in $texts){Expect ($text -notmatch $forbidden) ('Action interdite dans le menu : '+$text)}
+    foreach($i in $all){Expect ([string]$i.Header -notmatch '(?i)supprim|red.marr|d.sactiv|^activer|d.verrouill|d.plac|forcer|associer un|mot de passe|bitlocker|laps|wmi|inventaire|collecte|poste distant') ('Entree dʼecriture ou de collecte : '+[string]$i.Header)}
+    # CO-35: the recheck calls the live recheck of the selected workstation and stays in Rechercher.
+    $script:Ctrl.WorkspaceTabs.SelectedItem=$script:Ctrl.WsSearch
+    $recheck=@($all|Where-Object{[string]$_.Header -eq 'Revérifier ce poste'})[0]
+    Expect ([string]$recheck.Tag -match 'Request-DomeniaLiveRecheck' -and [string]$recheck.Tag -notmatch 'Queue-DomeniaSelectedObjectOpen') ('Action de Reverifier : '+[string]$recheck.Tag)
+    $script:Rechecks=0
+    function Request-DomeniaLiveRecheck {$script:Rechecks++}
+    & $recheck.Tag
+    Expect ($script:Rechecks -eq 1 -and [object]::ReferenceEquals($script:Ctrl.WorkspaceTabs.SelectedItem,$script:Ctrl.WsSearch)) 'Reverifier ce poste a quitte la liste.'
+    # SP-05: one readable line per selected row, without GUID nor DN.
+    $script:Clip=''
+    function Set-ClipboardSafe {param([string]$Text) $script:Clip=$Text}
+    [void]$grid.SelectedItems.Add($user)
+    $ticket=@($all|Where-Object{[string]$_.Header -eq 'Pour un ticket'})[0]
+    & $ticket.Tag
+    $lines=@($script:Clip -split "`r`n")
+    Expect ($lines.Count -eq 2) ('Lignes copiees : '+$lines.Count)
+    Expect ($lines[0] -eq 'Poste · PC-0042 · Compte : jdupont · Présence : En ligne (il y a 5 min) · Utilisateur console : EXAMPLE\jdupont · OU : Lyon / Postes') ('Ligne poste : '+$lines[0])
+    Expect ($script:Clip -notmatch [regex]::Escape([string]$machine.Guid) -and $script:Clip -notmatch 'DC=example') 'GUID ou DN copie pour un ticket.'
+    # Several selected rows: the single-row entries are greyed, copy and export stay available.
+    $menu=[Windows.Controls.ContextMenu]::new();Build-DomeniaObjectsContextMenu -Menu $menu
+    $open=@($menu.Items|Where-Object{$_ -is [Windows.Controls.MenuItem] -and [string]$_.Header -like 'Ouvrir la fiche de *'})[0]
+    $copy=@($menu.Items|Where-Object{$_ -is [Windows.Controls.MenuItem] -and [string]$_.Header -eq 'Copier'})[0]
+    Expect (-not $open.IsEnabled -and $copy.IsEnabled) 'Selection multiple : ouverture non grisee ou copie indisponible.'
+}
+# Unwired if a simple click on a workstation sends a ping again while « Vérifier au clic » is unchecked (SP-15), if
+# Revérifier ce poste stops being the manual gesture, or if the check box is not read and saved.
+Case 'SP-15 Clic sans ping quand Verifier au clic est decoche ; Reverifier reste le geste manuel ; choix enregistre' {
+    Expect (-not [bool]$script:Live.VerifyOnClick -and -not [bool]$script:Ctrl.ChkLiveVerifyOnClick.IsChecked) 'Verifier au clic coche par defaut.'
+    $task=Search-Global 'pc-0042'
+    $pc=New-ResultRow -Name 'PC-0042' -Login 'PC-0042' -Type 'Machine' -Guid '33333333-3333-4333-8333-333333333333'
+    Feed-Live $pc;Pump-Live 10
+    $row=$script:Live.Search.Map[([string]$pc.DN).ToLowerInvariant()]
+    Expect ($null -ne $row) 'Ligne du poste absente.'
+    $grid=$script:Ctrl.DgObjects;$grid.SelectedItem=$row
+    Select-DomeniaLiveResult
+    Pump-Live 5
+    Expect ($null -eq $script:Live.ProbeSelection -and $script:Live.PendingKeys.Count -eq 0) 'Un clic simple a prepare un ping.'
+    Expect ((Get-TaskCount @('LiveConsole','LiveSelectedPing')) -eq 0) 'Un ping est parti sans geste.'
+    Request-DomeniaLiveRecheck
+    Expect ($null -ne $script:Live.ProbeSelection -and [bool]$script:Live.ProbeSelection.Manual) 'Reverifier ce poste nʼa pas prepare la verification.'
+    Clear-DomeniaLiveProbeIntent
+    $script:Ctrl.ChkLiveVerifyOnClick.IsChecked=$true
+    Expect ([bool]$script:Live.VerifyOnClick -and $script:Settings['LiveVerifyOnClick'] -eq $true) 'Le choix nʼest ni lu ni enregistre.'
+    Select-DomeniaLiveResult
+    Expect ($null -ne $script:Live.ProbeSelection -and -not [bool]$script:Live.ProbeSelection.Manual) 'Le clic coche ne prepare pas le ping.'
+    $script:Ctrl.ChkLiveVerifyOnClick.IsChecked=$false
+    Expect ($null -eq $script:Live.ProbeSelection -and $script:Settings['LiveVerifyOnClick'] -eq $false) 'Decocher garde une intention non envoyee.'
 }
 # Unwired if Set-SelectedBranch reads the OU at each arrow key (one request per node walked), if the tree no longer
 # records whether the keyboard or the mouse drives it, or if Wire-Events sends a change of type without the pause.
@@ -884,7 +956,7 @@ Case 'UX-25 Liste de lʼhistorique : bandeau, Actualiser, type, presence et filt
     Invoke-DomeniaHistoryRefresh
     $again=Get-LastTask 'GlobalSearch'
     Expect ((Get-TaskCount 'GlobalSearch') -eq ($searches+1) -and $again.CallbackState.SearchMode -eq 'OU' -and $again.Payload.BaseDn -eq 'OU=Postes,DC=example,DC=invalid' -and [string]$again.CallbackState.TypeFilter -ceq (Get-TypeLdapFilter 'Machines')) 'Actualiser ne relit pas la meme liste.'
-    Expect ((Get-TaskCount @('ComputerPing','LiveSelectedPing','LiveConsole','PresenceScan','ParkSweep')) -eq 0) 'Actualiser a lance un ping ou un releve.'
+    Expect ((Get-TaskCount @('ComputerPing','LiveSelectedPing','LiveConsole','PresenceScan','ParkSweep','ParkPing')) -eq 0) 'Actualiser a lance un ping ou un releve.'
     Expect ($script:Ctrl.UxHistoryBanner.Visibility -eq 'Collapsed') 'Bandeau toujours affiche apres Actualiser.'
 }
 
@@ -939,7 +1011,7 @@ $passed=@($script:Checks|Where-Object{$_.Status -eq 'Passed'}).Count
 $failed=@($script:Checks|Where-Object{$_.Status -eq 'Failed'}).Count
 if(-not $ReportPath){$ReportPath=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-wiring-recherche-'+[guid]::NewGuid().ToString('N')+'.json')}
 $report=[ordered]@{
-    Kind='Wiring';Lot='recherche';Points=@('D012','D031','D032','D033','D034','D035','D036','D037','D038','D039','D040','CO-20','CO-21','DS-07','FI-21','FO-04','PF-14','SE-13','UI-16','UX-25','UX-33')
+    Kind='Wiring';Lot='recherche';Points=@('D012','D031','D032','D033','D034','D035','D036','D037','D038','D039','D040','CO-20','CO-21','DS-07','FI-21','FO-04','PF-14','SE-13','UI-16','UX-25','UX-33','UX-26','CO-35','SP-05','SP-15')
     Host=$PSVersionTable.PSVersion.ToString();NativeWindowsPowerShell51=$native;Wpf=$true;LiveAD=$false;LiveCIM=$false;LivePing=$false
     Passed=$passed;Failed=$failed;Complete=($failed -eq 0 -and $passed -gt 0)
     Limitation='Raccordement prouve par les vraies fonctions et de vrais controles WPF, reseau double. Ne prouve pas un acces a un domaine reel.'

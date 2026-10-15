@@ -14,12 +14,12 @@ function Start-DomeniaReceiptRefresh {
     if($null -ne $script:Guard -and $script:Guard.ReceiptJob -and $null -ne $script:AsyncJobs -and -not $script:AsyncJobs.Contains([string]$script:Guard.ReceiptJob)){$script:Guard.ReceiptJob=''}
     if($null -eq $script:Guard -or $script:Guard.ReceiptJob -or $script:AsyncEngineClosing){return}
     if(@($script:AsyncJobs.Values|Where-Object{$_.IsWrite -or $_.OperationId -eq 'ReceiptStore'}).Count){return}
-    if($Action -ne 'List' -and [string]$Id -notmatch '^[a-f0-9]{32}$'){throw 'Selectionnez un recu valide.'}
+    if(($Action -ne 'List') -and ([string]$Id -notmatch '^[a-f0-9]{32}$')){throw 'Sélectionnez un reçu valide.'}
     $script:ReceiptReady=$false
     try{
-        $script:Guard.ReceiptJob=Start-UiTask -Name 'Verifier les recus locaux' -OperationId 'ReceiptStore' -Code (Get-DomeniaReceiptWorkerCode) -Payload ([pscustomobject]@{Action=$Action;Id=$Id;Reason=$Reason}) -CallbackState ([pscustomobject]@{Epoch=[long]$script:SessionEpoch;Action=$Action}) -SuccessHandler 'Complete-DomeniaReceiptRefresh' -ErrorHandler 'Fail-DomeniaReceiptRefresh' -NonCancellable -TimeoutSeconds 25 -TaskClass 'Explicit'
+        $script:Guard.ReceiptJob=Start-UiTask -Name 'Verifier les recus locaux' -OperationId 'ReceiptStore' -Code (Get-DomeniaReceiptWorkerCode) -Payload ([pscustomobject]@{Action=$Action;Id=$Id;Reason=$Reason}) -CallbackState ([pscustomobject]@{Epoch=[long]$script:SessionEpoch;Action=$Action;Id=$Id}) -SuccessHandler 'Complete-DomeniaReceiptRefresh' -ErrorHandler 'Fail-DomeniaReceiptRefresh' -NonCancellable -TimeoutSeconds 25 -TaskClass 'Explicit'
         $script:ReceiptRefreshNeeded=$false;$script:Guard.NextReceipt=[datetime]::UtcNow.AddSeconds(15)
-    }catch{$script:Guard.ReceiptJob='';$script:Guard.NextReceipt=[datetime]::UtcNow.AddSeconds(15);[void](Set-DomeniaControlText 'LblGuardReceipts' 'Recus non lus. Les ecritures restent protegees. Actualisez cette vue.');Write-AppLog ('Lecture des recus : '+$_.Exception.Message) 'WARN'}
+    }catch{$script:Guard.ReceiptJob='';$script:Guard.NextReceipt=[datetime]::UtcNow.AddSeconds(15);[void](Set-DomeniaControlText 'LblGuardReceipts' 'Reçus non lus : les écritures restent protégées. Actualisez cette vue.');Write-AppLog ('Lecture des recus : '+$_.Exception.Message) 'WARN'}
 }
 function Complete-DomeniaReceiptRefresh {
     param($Result,$State)
@@ -28,37 +28,131 @@ function Complete-DomeniaReceiptRefresh {
     $r=Get-DomeniaEffectiveWorkerResult $Result @('Rows','Pending')
     if($null -eq $r){Fail-DomeniaReceiptRefresh 'Aucun etat confirme.' $State;return}
     $script:ReceiptPending=[int]$r.Pending;$script:ReceiptReady=$true
-    [void](Set-DomeniaItemsSource 'DgGuardReceipts' @($r.Rows|Sort-Object UpdatedUtc -Descending))
-    [void](Set-DomeniaControlText 'LblGuardReceipts' ('Recus lus : '+@($r.Rows).Count+' ; a verifier : '+$r.Pending+'. Aucun rejeu automatique.'))
+    # UI-18: rows in plain words (Get-DomeniaReceiptView), the receipts still to verify first, then the most recent.
+    $views=@(foreach($row in @($r.Rows)){if($null -ne $row){Get-DomeniaReceiptView $row}})
+    $views=@($views|Sort-Object @{Expression={[bool]$_.Pending};Descending=$true},@{Expression={[string]$_.UpdatedUtc};Descending=$true})
+    $grid=Get-DomeniaControl 'DgGuardReceipts'
+    $keep=[string]$State.Id
+    if((-not $keep) -and ($null -ne $grid) -and ($null -ne $grid.SelectedItem)){$keep=[string](Get-DomeniaMember $grid.SelectedItem 'Id' '')}
+    [void](Set-DomeniaItemsSource 'DgGuardReceipts' $views)
+    if(($keep) -and ($null -ne $grid)){foreach($item in @($grid.Items)){if([string](Get-DomeniaMember $item 'Id' '') -ceq $keep){$grid.SelectedItem=$item;break}}}
+    [void](Set-DomeniaControlText 'LblGuardReceipts' (Get-DomeniaReceiptSummary -Total $views.Count -Pending ([int]$r.Pending)))
+    if([string]$State.Action -in @('Verify','Review')){
+        # The outcome is read on the receipt itself: a receipt left as it was is never reported as reviewed.
+        $after=@($views|Where-Object{[string]$_.Id -ceq [string]$State.Id}|Select-Object -First 1)
+        $wanted=if([string]$State.Action -eq 'Review'){'Reviewed'}else{'Verified'}
+        if(($after.Count -eq 1) -and ([string]$after[0].Stage -eq $wanted)){
+            if($wanted -eq 'Reviewed'){
+                $box=Get-DomeniaControl 'TxtGuardReceiptReason';if($null -ne $box){$box.Text=''}
+                Set-Status 'Revue consignée : le reçu est conservé comme « Revue manuelle », pas comme un succès automatique.'
+            }else{Set-Status 'Valeurs attendues relues sur le contrôleur initial : reçu vérifié. Aucune commande nʼa été renvoyée.'}
+        }else{Set-Status 'Le reçu nʼa pas changé : il reste à vérifier ou nʼest plus dans la liste. Actualisez les reçus.' 'WARN'}
+    }
     if($script:ReceiptPending -eq 0 -and -not $script:ActiveWriteTaskId -and $script:WriteState -in @('Unknown','UnknownPending')){
         $script:WriteState='Idle';$script:UnknownWriteTargetDn=''
         Write-AppLog 'Incertitude levee uniquement apres verification ou revue explicite des recus durables.' 'WARN'
     }
     # UX-19 (X04): the header pill « opérations à vérifier » follows the receipts just read.
     try{Update-DomeniaPendingOperationsPill}catch{}
+    [void](Update-DomeniaReceiptActionUi)
     Apply-CurrentPermissionUi
 }
 function Fail-DomeniaReceiptRefresh {
     param($Message,$State)
     $script:Guard.ReceiptJob='';$script:ReceiptReady=$false;$script:Guard.NextReceipt=[datetime]::UtcNow.AddSeconds(30)
-    [void](Set-DomeniaControlText 'LblGuardReceipts' 'Recus non confirmes : aucune nouvelle ecriture autorisee. Consultez le journal puis Actualiser.')
+    if(($null -ne $State) -and ([string]$State.Action -in @('Verify','Review'))){
+        # The store refused the verification or the review: the receipt stays to verify, nothing was sent again.
+        $what=if([string]$State.Action -eq 'Review'){'Revue non consignée'}else{'Vérification non aboutie'}
+        [void](Set-DomeniaControlText 'LblGuardReceipts' ($what+' : '+[string]$Message+' Le reçu reste à vérifier ; aucune commande nʼa été renvoyée. Les reçus sont relus dans un instant.'))
+        Set-Status ($what+' : le reçu reste à vérifier.') 'WARN'
+    }else{
+        [void](Set-DomeniaControlText 'LblGuardReceipts' 'Reçus non confirmés : aucune nouvelle écriture nʼest autorisée. Consultez le journal puis actualisez.')
+    }
     Write-AppLog ('Recus non confirmes : '+[string]$Message) 'WARN'
+    [void](Update-DomeniaReceiptActionUi)
+}
+function Get-DomeniaSelectedReceiptView {
+    # UI-18: the selected row of DgGuardReceipts, a Get-DomeniaReceiptView projection, or $null.
+    $grid=Get-DomeniaControl 'DgGuardReceipts'
+    if(($null -eq $grid) -or ($null -eq $grid.SelectedItem)){return $null}
+    if($null -eq $grid.SelectedItem.PSObject.Properties['Pending']){return $null}
+    return $grid.SelectedItem
+}
+function Test-DomeniaReceiptStoreBusy {
+    # UI-18: the conditions under which Start-DomeniaReceiptRefresh starts nothing: a receipt job not answered yet
+    # (fail closed: its handler clears it) or a write in flight.
+    if(($null -eq $script:Guard) -or ($script:AsyncEngineClosing)){return $true}
+    if($script:Guard.ReceiptJob){return $true}
+    if(($null -ne $script:AsyncJobs) -and (@($script:AsyncJobs.Values|Where-Object{($_.IsWrite) -or ($_.OperationId -eq 'ReceiptStore')}).Count -gt 0)){return $true}
+    return $false
+}
+function Update-DomeniaReceiptActionUi {
+    # UI-18: the review area under the receipts, from the rule Get-DomeniaReceiptActionView.
+    $box=Get-DomeniaControl 'TxtGuardReceiptReason';$reason='';if($null -ne $box){$reason=[string]$box.Text}
+    $a=Get-DomeniaReceiptActionView -View (Get-DomeniaSelectedReceiptView) -Reason $reason -Busy (Test-DomeniaReceiptStoreBusy)
+    [void](Set-DomeniaControlText 'LblGuardReceiptSelection' ([string]$a.Selection))
+    [void](Set-DomeniaControlText 'LblGuardReceiptReasonCount' ([string]$a.ReasonMessage))
+    $verify=Get-DomeniaControl 'BtnGuardReceiptVerify';if($null -ne $verify){$verify.IsEnabled=[bool]$a.CanVerify}
+    $review=Get-DomeniaControl 'BtnGuardReceiptReview';if($null -ne $review){$review.IsEnabled=[bool]$a.CanReview}
+    if($null -ne $box){$box.IsEnabled=[bool]$a.ReasonEnabled}
+    return $a
 }
 function Invoke-DomeniaReceiptChoice {
+    # UI-18: verify or review the selected receipt from the page. The motive comes from the field under the list and
+    # is checked by the rule; the request is confirmed in the page (Request-DomeniaInlineConfirmation), never in a
+    # window. The receipt and the motive are frozen when the request is shown: nothing leaves before the answer.
     param([ValidateSet('Verify','Review')][string]$Action)
-    $grid=Get-DomeniaControl 'DgGuardReceipts';$row=$grid.SelectedItem
-    if($null -eq $row){Show-InfoBox 'Selectionnez un recu.';return}
-    if($row.Stage -in @('Verified','NotSent','Reviewed')){Show-InfoBox 'Ce recu ne bloque plus de nouvelle operation.';return}
+    $a=Update-DomeniaReceiptActionUi
+    $view=Get-DomeniaSelectedReceiptView
+    $allowed=if($Action -eq 'Verify'){[bool]$a.CanVerify}else{[bool]$a.CanReview}
+    if((-not $allowed) -or ($null -eq $view)){
+        $why=if($Action -eq 'Verify'){[string]$a.VerifyWhy}else{[string]$a.ReviewWhy}
+        if(-not $why){$why=[string]$a.Selection}
+        Set-Status $why 'WARN';return
+    }
+    $id=[string]$view.Id
+    $nl=[Environment]::NewLine
+    $details='Reçu : '+$id+$nl+'Opération : '+[string]$view.Operation+$nl+[string]$view.DnToolTip+$nl+'Contrôleur : '+[string]$view.Server+$nl+'Compte : '+[string]$view.Identity
+    $subject='« '+[string]$view.ObjectName+' » ('+[string]$view.OperationLabel+')'
+    # Each request carries its own token: when a newer request replaces this one, the safe answer of the older one
+    # (OnCancel) neither clears nor starts the newer choice. GetNewClosure binds the continuations to a module linked
+    # to the global scope only: the functions they call are captured here (same rule as Domenia-Embedded.UI).
+    $token=[guid]::NewGuid().ToString('N')
+    $script:Guard.PendingChoice=[pscustomobject]@{Action=$Action;Id=$id;Reason=$(if($Action -eq 'Review'){[string]$a.Reason}else{''});Epoch=[long]$script:SessionEpoch;Token=$token}
+    $completeChoice=${function:Complete-DomeniaReceiptChoice};$cancelChoice=${function:Cancel-DomeniaReceiptChoice}
+    $onConfirm={& $completeChoice -Token $token}.GetNewClosure()
+    $onCancel={& $cancelChoice -Token $token}.GetNewClosure()
     if($Action -eq 'Verify'){
-        if(-not (Confirm-Action -Message ('Relire les postconditions sur le controleur initial ? Aucune commande ne sera rejouee. Cible : '+$row.DN) -Title 'Verifier, sans reexecuter')){return}
-        Start-DomeniaReceiptRefresh -Action Verify -Id $row.Id;return
+        [void](Request-DomeniaInlineConfirmation -Title 'Vérifier par relecture' -Message ('Relire sur le contrôleur initial les valeurs attendues pour '+$subject+' ? Seule une lecture part : aucune commande nʼest renvoyée.') -Target ('receipt:'+$id) -ConfirmText 'Relire maintenant' -CancelText 'Annuler' -Details $details -DetailsExpertOnly -OnConfirm $onConfirm -OnCancel $onCancel)
+        return
     }
-    $form=Show-DomeniaFormDialog -Title 'Revue externe du resultat' -Message 'A utiliser apres un controle reel avec un autre outil. Cette declaration ne constitue pas une verification automatique. Ne saisissez aucun secret.' -Fields @(@{Name='Reason';Label='Verification realisee (12 a 240 caracteres)';Value=''}) -AcceptText 'Continuer'
-    if($null -eq $form){return};$reason=[string]$form.Reason
-    if($reason.Length -lt 12 -or $reason.Length -gt 240){Show-InfoBox 'Le motif doit contenir entre 12 et 240 caracteres.';return}
-    if(Confirm-Action -Message ('Confirmer votre revue du recu '+$row.Id+' ? Le recu sera conserve comme Revise, pas transforme en succes automatique.') -Title 'Revue du recu'){
-        Start-DomeniaReceiptRefresh -Action Review -Id $row.Id -Reason $reason
-    }
+    [void](Request-DomeniaInlineConfirmation -Title 'Consigner la revue' -Message ('Consigner votre contrôle de '+$subject+' ? Le reçu sera conservé comme « Revue manuelle », pas transformé en succès automatique.') -Target ('receipt:'+$id) -ConfirmText 'Consigner la revue' -CancelText 'Annuler' -Changes @('Motif : « '+[string]$a.Reason+' »') -Details $details -DetailsExpertOnly -OnConfirm $onConfirm -OnCancel $onCancel)
+}
+function Complete-DomeniaReceiptChoice {
+    # UI-18: continuation of the confirmation in the page, run once, for the request that carries $Token only. A choice
+    # of a former session is dropped; a newer pending choice is left as it is.
+    param([AllowEmptyString()][string]$Token='')
+    if($null -eq $script:Guard){return}
+    $choice=$script:Guard.PendingChoice
+    if(($null -eq $choice) -or ([string]$choice.Token -cne $Token)){Set-Status 'Demande retirée : elle a été remplacée par une autre. Le reçu est inchangé.' 'WARN';return}
+    $script:Guard.PendingChoice=$null
+    if([long]$choice.Epoch -ne [long]$script:SessionEpoch){Set-Status 'Demande retirée : la session a changé. Le reçu est inchangé.' 'WARN';return}
+    if(Test-DomeniaReceiptStoreBusy){Set-Status 'Reçus occupés par une lecture ou une écriture : réessayez dans un instant. Le reçu est inchangé.' 'WARN';[void](Update-DomeniaReceiptActionUi);return}
+    Start-DomeniaReceiptRefresh -Action ([string]$choice.Action) -Id ([string]$choice.Id) -Reason ([string]$choice.Reason)
+    if($script:Guard.ReceiptJob){
+        if([string]$choice.Action -eq 'Verify'){Set-Status 'Relecture du reçu sur le contrôleur initial. Aucune commande nʼest renvoyée.'}
+        else{Set-Status 'Revue en cours dʼenregistrement dans le reçu.'}
+    }else{Set-Status 'Demande non lancée : les reçus nʼont pas pu être relus. Consultez le journal puis actualisez.' 'WARN'}
+    [void](Update-DomeniaReceiptActionUi)
+}
+function Cancel-DomeniaReceiptChoice {
+    # UI-18: safe answer of the request that carries $Token. A request replaced by a newer one ends silently: the
+    # newer choice stays pending.
+    param([AllowEmptyString()][string]$Token='')
+    if(($null -eq $script:Guard) -or ($null -eq $script:Guard.PendingChoice)){return}
+    if([string]$script:Guard.PendingChoice.Token -cne $Token){return}
+    $script:Guard.PendingChoice=$null
+    Set-Status 'Vérification ou revue annulée : le reçu est inchangé.'
 }
 function Save-DomeniaDraftBaseline {
     param([string]$DN)
@@ -106,13 +200,58 @@ function Show-DomeniaDraftComparison {
     Show-DomeniaDialog -Title 'Comparer les saisies' -Message 'Aucune saisie ne sera remplacee automatiquement. Rechargez volontairement pour repartir de la lecture AD, puis reappliquez seulement les changements voulus.' -Details ($lines -join "`r`n") -Kind Info | Out-Null
 }
 function Set-DomeniaArtifactConsent {
-    if(Test-DomeniaAccessBusyWrite){Show-InfoBox 'Terminez la verification de l ecriture avant de modifier une autorisation.';return}
+    if(Test-DomeniaAccessBusyWrite){Show-InfoBox 'Terminez la vérification de lʼécriture avant de modifier une autorisation.';return}
     $target='';try{if($script:SelectedObject.Type -eq 'Machine'){$target=[string](Get-DomeniaEntryFirstString $script:SelectedObject.Entry 'dNSHostName');if(-not $target){$target=[string](Get-DomeniaEntryFirstString $script:SelectedObject.Entry 'name')}}}catch{}
-    if(-not $target){Show-InfoBox 'Selectionnez une machine dans la recherche.';return}
-    if(-not (Confirm-Action -Message ('Autoriser pendant 5 minutes les transports avec creation de script, service ou tache sur '+$target+' ? Ils ne seront utilises que lors de votre prochaine action volontaire. Le Planificateur utilise une API ; PsExec exige une session Windows integree autorisee. Aucun secret ne sera transmis dans les arguments.') -Title 'Intervention distante avec traces')){return}
+    if(-not $target){Show-InfoBox 'Ouvrez dʼabord un poste dans Assistance poste.';return}
+    if(-not (Confirm-Action -Message ('Autoriser pendant 5 minutes, sur '+$target+' seulement, les transports qui déposent un script, un service ou une tâche ? Ils ne serviront que lors de vos prochaines actions volontaires sur ce poste. Le Planificateur utilise une API ; PsExec exige une session Windows intégrée autorisée. Aucun secret nʼest transmis dans les arguments.') -Title 'Intervention distante avec traces')){return}
     $aliases=@($target);$short=[string](Get-DomeniaEntryFirstString $script:SelectedObject.Entry 'name');if($short -and $short -notmatch '[\\/]'){$aliases+=@($short)}
     $script:ArtifactConsent=[pscustomobject]@{Target=$target;Aliases=$aliases;Epoch=[long]$script:SessionEpoch;Expires=[datetime]::UtcNow.AddMinutes(5)}
     [void](Set-DomeniaControlText 'LblGuardRemote' ('Autorisation temporaire : '+$target+'. Relancez volontairement votre diagnostic.'))
+    Update-DomeniaInterventionPill -Force
+}
+function Clear-DomeniaArtifactConsent {
+    # UX-16: « Retirer » of the Intervenir view (pill) and of Fiabilité. Sondes already sent may finish; no new intervention
+    # with a deposit is authorised. The one-read consent (SE-07) is a separate request and is left as it is.
+    $had=($null -ne $script:ArtifactConsent)
+    $script:ArtifactConsent=$null
+    [void](Set-DomeniaControlText 'LblGuardRemote' 'Depots et services non autorises par defaut.')
+    Update-DomeniaInterventionPill -Force
+    if($had){Set-Status 'Autorisation dʼintervention retirée. Aucune nouvelle intervention avec dépôt ne sera lancée.'}
+}
+function Get-DomeniaOpenMachineConsentTarget {
+    # UX-16: names of the open workstation, built as Set-DomeniaArtifactConsent builds the consent (dNSHostName, else
+    # name, plus the short name as an alias). Empty when no workstation is open.
+    $target='';$short=''
+    try{if(($null -ne $script:SelectedObject) -and ([string]$script:SelectedObject.Type -eq 'Machine')){$target=[string](Get-DomeniaEntryFirstString $script:SelectedObject.Entry 'dNSHostName');$short=[string](Get-DomeniaEntryFirstString $script:SelectedObject.Entry 'name');if(-not $target){$target=$short}}}catch{$target='';$short=''}
+    return [pscustomobject]@{Target=$target;Short=$short}
+}
+function Update-DomeniaInterventionPill {
+    # UX-16: the one authorisation control of an intervention, at the top of the Intervenir view of Assistance poste
+    # (X04): pill « Intervention autorisée m:ss · Retirer » for the open workstation only, grant button otherwise, and
+    # the state of the separate one-read consent; the run panel repeats its state. Called each second by Timer:Guard;
+    # a control changes only with its value.
+    param([switch]$Force)
+    $pill=Get-DomeniaControl 'UxCompInterventionPill'
+    if($null -eq $pill){return}
+    $open=Get-DomeniaOpenMachineConsentTarget
+    $state=Get-DomeniaInterventionPillState -ArtifactConsent $script:ArtifactConsent -ReadConsent $script:ReadFallbackConsent -Target ([string]$open.Target) -Short ([string]$open.Short) -Epoch ([long]$script:SessionEpoch) -NowUtc ([datetime]::UtcNow)
+    $visibility=if([bool]$state.Active){[Windows.Visibility]::Visible}else{[Windows.Visibility]::Collapsed}
+    if(([bool]$Force) -or ($pill.Visibility -ne $visibility)){$pill.Visibility=$visibility}
+    $label=Get-DomeniaControl 'LblCompIntervention'
+    if(($null -ne $label) -and (([bool]$Force) -or ([string]$label.Text -cne [string]$state.PillText))){$label.Text=[string]$state.PillText}
+    $grant=Get-DomeniaControl 'BtnCompInterventionGrant'
+    if($null -ne $grant){
+        $grantVisibility=if([bool]$state.Active){[Windows.Visibility]::Collapsed}else{[Windows.Visibility]::Visible}
+        if(([bool]$Force) -or ($grant.Visibility -ne $grantVisibility)){$grant.Visibility=$grantVisibility}
+        if(([bool]$Force) -or ([bool]$grant.IsEnabled -ne [bool]$state.CanGrant)){$grant.IsEnabled=[bool]$state.CanGrant}
+    }
+    $read=Get-DomeniaControl 'BtnCompReadFallback'
+    $canRead=[bool]$open.Target
+    if(($null -ne $read) -and (([bool]$Force) -or ([bool]$read.IsEnabled -ne $canRead))){$read.IsEnabled=$canRead}
+    $line=Get-DomeniaControl 'LblCompInterventionState'
+    if(($null -ne $line) -and (([bool]$Force) -or ([string]$line.Text -cne [string]$state.StateText))){$line.Text=[string]$state.StateText}
+    # X04: the panel « Exécuter un programme », when open, states the same authorisation (it never grants it).
+    if(($null -ne $script:DomeniaAssist) -and ($null -ne $script:DomeniaAssist.Run)){Update-DomeniaRunProgramConsent}
 }
 function Set-DomeniaReadFallbackConsent {
     # SE-07 : demande propre a une lecture. L'autorisation d'intervention ne dit rien d'une
@@ -124,6 +263,7 @@ function Set-DomeniaReadFallbackConsent {
     $aliases=@($target);$short=[string](Get-DomeniaEntryFirstString $script:SelectedObject.Entry 'name');if($short -and $short -notmatch '[\/]'){$aliases+=@($short)}
     $script:ReadFallbackConsent=[pscustomobject]@{Target=$target;Aliases=$aliases;Epoch=[long]$script:SessionEpoch;Expires=[datetime]::UtcNow.AddMinutes(5)}
     [void](Set-DomeniaControlText 'LblGuardReadFallback' ('Autorisation de lecture accordée pour '+$target+'. Lancez la lecture : cette autorisation ne servira quʼà cette lecture.'))
+    Update-DomeniaInterventionPill -Force
 }
 function Read-DomeniaOuFavouriteStore {
     # FO-04: every OU favourite kept locally (all domains), as validated perimeters. Never a result or an account.
@@ -273,17 +413,24 @@ function Open-DomeniaSuiteTool {
 }
 function Initialize-DomeniaGuard {
     if($null -ne $script:Guard){return}
-    $script:Guard=[pscustomobject]@{ReceiptJob='';NextReceipt=[datetime]::MinValue;Samples=[Collections.Generic.List[double]]::new();Last=[datetime]::UtcNow;Epoch=[long]$script:SessionEpoch;Timer=$null}
+    $script:Guard=[pscustomobject]@{ReceiptJob='';NextReceipt=[datetime]::MinValue;Samples=[Collections.Generic.List[double]]::new();Last=[datetime]::UtcNow;Epoch=[long]$script:SessionEpoch;Timer=$null;PendingChoice=$null;PillFault=$false}
     $actions=@{
         BtnGuardOpen={Show-DomeniaGuard};BtnGuardReceiptRefresh={Start-DomeniaReceiptRefresh};BtnGuardReceiptVerify={Invoke-DomeniaReceiptChoice Verify};BtnGuardReceiptReview={Invoke-DomeniaReceiptChoice Review}
-        BtnGuardDraft={Show-DomeniaDraftComparison};BtnGuardRemote={Set-DomeniaArtifactConsent};BtnGuardRemoteOff={$script:ArtifactConsent=$null;[void](Set-DomeniaControlText 'LblGuardRemote' 'Depots et services non autorises par defaut.')};BtnGuardReadFallback={Set-DomeniaReadFallbackConsent}
+        BtnGuardDraft={Show-DomeniaDraftComparison};BtnGuardRemote={Set-DomeniaArtifactConsent};BtnGuardRemoteOff={Clear-DomeniaArtifactConsent};BtnGuardReadFallback={Set-DomeniaReadFallbackConsent}
+        # UX-16: the same consents from the top of the Intervenir view of Assistance poste, always on an explicit click.
+        BtnCompInterventionGrant={Set-DomeniaArtifactConsent};BtnCompInterventionRevoke={Clear-DomeniaArtifactConsent};BtnCompReadFallback={Set-DomeniaReadFallbackConsent}
         BtnGuardStoreResume={Resume-DomeniaStorage};BtnGuardLegacyImport={Request-DomeniaLegacyImport};BtnGuardWhy={Show-DomeniaUnavailableReasons};BtnGuardExport={Export-DomeniaTechnicalDossier}
         BtnGuardPesto={Open-DomeniaSuiteTool Pesto};BtnGuardFilPro={Open-DomeniaSuiteTool FilPro}
         # FO-04: the former saved searches block is gone; OU favourites are pinned above the tree (Rechercher).
         BtnOuFavouriteToggle={try{[void](Save-DomeniaFavouriteSearch -Toggle)}catch{Write-AppLog ('Favori : '+$_.Exception.Message) 'WARN'}}
     }
     foreach($n in $actions.Keys){$c=Get-DomeniaControl $n;if($null -ne $c){$body=$actions[$n];$c.Add_Click($body)}}
+    # UI-18: the review area follows the selected receipt and the motive typed in the page.
+    $receipts=Get-DomeniaControl 'DgGuardReceipts';if($null -ne $receipts){$receipts.Add_SelectionChanged({try{[void](Update-DomeniaReceiptActionUi)}catch{Write-AppLog ('Recus : '+$_.Exception.Message) 'WARN'}})}
+    $reasonBox=Get-DomeniaControl 'TxtGuardReceiptReason';if($null -ne $reasonBox){$reasonBox.Add_TextChanged({try{[void](Update-DomeniaReceiptActionUi)}catch{Write-AppLog ('Recus : '+$_.Exception.Message) 'WARN'}})}
+    try{[void](Update-DomeniaReceiptActionUi)}catch{Write-AppLog ('Recus : '+$_.Exception.Message) 'WARN'}
     try{Update-DomeniaOuFavouritesUi}catch{Write-AppLog ('Favoris dʼOU : '+$_.Exception.Message) 'WARN'}
+    try{Update-DomeniaInterventionPill -Force}catch{Write-AppLog ('Pastille dʼintervention : '+$_.Exception.Message) 'WARN'}
     # FI-05 / PF-06: protected heartbeat timer, owned and registered by the factory, once per second and aligned on the
     # other subscribers at rest. The Dispatcher delay is the lateness measured by the heartbeat itself.
     $script:Guard.Timer=New-DomeniaTimer -Owner 'Timer:Guard' -IntervalMs 1000 -IdleIntervalMs 1000 -Tick {
@@ -294,6 +441,8 @@ function Initialize-DomeniaGuard {
         try{Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId 'Pulse' -DurationMs $delay}catch{}
         if($script:Guard.Epoch -ne [long]$script:SessionEpoch){$script:Guard.Epoch=[long]$script:SessionEpoch;$script:ReceiptReady=$false;$script:ReceiptRefreshNeeded=$true;$script:ArtifactConsent=$null;$script:DraftState=$null}
         if(($script:ReceiptRefreshNeeded -or -not $script:ReceiptReady) -and $now -ge $script:Guard.NextReceipt){Start-DomeniaReceiptRefresh}
+        # UX-16: countdown of the intervention pill; a display fault is journalled once and never stops the receipts.
+        try{Update-DomeniaInterventionPill}catch{if(-not [bool]$script:Guard.PillFault){$script:Guard.PillFault=$true;Write-AppLog ('Pastille dʼintervention : '+$_.Exception.Message) 'WARN'}}
         $tab=Get-DomeniaControl 'TabGuard'
         if($null -ne $tab -and $tab.IsSelected){
             $p95=Get-DomeniaPercentile $script:Guard.Samples.ToArray() 95;$p50=Get-DomeniaPercentile $script:Guard.Samples.ToArray() 50

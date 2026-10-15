@@ -7,7 +7,7 @@ $wad=Split-Path -Parent $PSScriptRoot
 $tokens=$null;$errors=$null
 $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'),[ref]$tokens,[ref]$errors)
 if(@($errors).Count){throw $errors[0].Message}
-foreach($name in @('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaSearchMode','Set-DomeniaSearchMode','Get-DomeniaSearchText','Get-DomeniaSearchScope','Get-GlobalSelectedTypeFilter','Get-TypeLdapFilter','Test-DomeniaSearchStateCurrent','Invoke-GlobalSearch','Escape-LdapValue','Normalize-LinkComputer','Get-DomeniaEffectiveWorkerResult','Set-DomeniaItemsSource','Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys')){
+foreach($name in @('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaPresenceColor','Get-DomeniaSearchMode','Set-DomeniaSearchMode','Get-DomeniaSearchText','Get-DomeniaSearchScope','Get-GlobalSelectedTypeFilter','Get-TypeLdapFilter','Test-DomeniaSearchStateCurrent','Invoke-GlobalSearch','Escape-LdapValue','Normalize-LinkComputer','Get-DomeniaEffectiveWorkerResult','Set-DomeniaItemsSource','Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys')){
     $nodes=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true))
     if($nodes.Count -ne 1){throw ('Definition ambiguous: '+$name)}
     Invoke-Expression $nodes[0].Extent.Text
@@ -25,6 +25,8 @@ foreach($name in @('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText',
 . (Join-Path $wad 'modules\Domenia-Live.UI.ps1')
 # Explicit dependencies; none can issue a network call, launch a process or read the real database.
 function Get-CfgValue {param($Section,$Name,$Default);return $Default}
+# UI-23 / FO-18: the survey buttons of the list belong to Park.UI, not loaded here (inert boundary).
+function Update-DomeniaParkControls {}
 function Test-DomeniaAccessBusyWrite {return $script:WriteBlocked}
 function Test-DomeniaDraftNavigation {param($DN);return (-not $script:DraftBlocked)}
 function Invalidate-DomeniaSearchResults {$script:GlobalSearchGeneration++;$script:Invalidations++}
@@ -162,8 +164,17 @@ Case 'Empty console is not a statement about RDP sessions' {$script:CimUser='';$
 Case 'Invalid target produces no network call' {$thrown=$false;try{Probe -Target 'PC;evil'}catch{$thrown=$true};Expect ($thrown -and $script:PingCalls -eq 0 -and $script:CimCalls -eq 0)}
 Case 'Early event contains network fields only' {$r=Probe -User $false;$p=$null;[void]$script:ProbeEvents.TryDequeue([ref]$p);Expect ($p.Result.Outcome -eq 'PresenceOnly' -and $null -eq $p.Result.PSObject.Properties['Credential'] -and $null -eq $p.State.PSObject.Properties['Row'])}
 Case 'No observation starts as Non verified' {$v=Get-DomeniaLivePresenceView $null;Expect ($v.State -eq 'Non vérifié' -and $v.Display -eq 'Non vérifié')}
-Case 'Historic presence stays visibly cached' {$v=Get-DomeniaLivePresenceView (Previous-Observation) -Cached;Expect ($v.Display -eq 'En ligne (cache)' -and $v.Detail.Contains('2026-09-01'))}
-Case 'Legacy offline wording becomes no ping response' {$o=Previous-Observation;$o.Presence='Hors ligne';Expect ((Get-DomeniaLivePresenceView $o -Cached).Display -eq 'Sans réponse au ping (cache)')}
+# DS-15: an earlier measure is marked by its key (IsCached) and its age, no longer by a '(cache)' suffix in the label.
+Case 'Historic presence stays visibly cached' {$v=Get-DomeniaLivePresenceView (Previous-Observation) -Cached;Expect ($v.Display -eq 'En ligne' -and $v.IsCached -and $v.PresenceState -eq 'Online' -and $v.Age -like 'il y a *' -and $v.Detail.Contains('2026-09-01') -and $v.Detail.Contains('Observation historique'))}
+Case 'Legacy offline wording becomes no ping response' {$o=Previous-Observation;$o.Presence='Hors ligne';$v=Get-DomeniaLivePresenceView $o -Cached;Expect ($v.Display -eq 'Sans réponse au ping' -and $v.PresenceState -eq 'NoReply')}
+# FI-16: the colour follows the state key, whatever the label says.
+Case 'FI-16 presence colour reads the state key, not the label' {
+    $script:CurrentTheme='Light'
+    Expect ((Get-DomeniaPresenceColor -State 'Libellé reformulé' -PresenceState 'Online') -eq (Get-DomeniaPresenceColor -State 'En ligne')) 'Couleur en ligne dependante du libelle.'
+    Expect ((Get-DomeniaPresenceColor -State 'Pas de réponse' -PresenceState 'NoReply') -eq (Get-DomeniaPresenceColor -State 'Sans réponse au ping')) 'Couleur sans reponse dependante du libelle.'
+    Expect ((Get-DomeniaPresenceColor -State 'Sans réponse au ping' -PresenceState 'NoReply') -ne (Get-DomeniaPresenceColor -State 'Erreur de ping' -PresenceState 'Error')) 'Erreur et sans reponse confondues.'
+    Expect ((Get-DomeniaPresenceColor -State 'En ligne' -PresenceState 'Online' -Cached) -eq (Get-DomeniaPresenceColor -State 'Non vérifié')) 'Une mesure ancienne reste grise.'
+}
 Case 'Presence filtering accepts historical online' {Expect (Test-DomeniaPresenceMatch 'En ligne (cache)' 'En ligne')}
 Case 'Presence filtering separates network error from no reply' {Expect (-not (Test-DomeniaPresenceMatch 'Erreur de ping' 'Sans réponse au ping'))}
 Case 'Ping update does not erase known console user' {$v=ConvertTo-DomeniaLiveObservation (Ping-Observation) (Previous-Observation);Expect ($v.CurrentUser -eq 'DOMAIN\old' -and $v.LastUser -eq 'DOMAIN\old')}

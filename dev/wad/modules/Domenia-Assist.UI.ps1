@@ -1,7 +1,8 @@
 ﻿# Workstation assistance (programme of 8 October 2026, lot X04): the five views of Assistance poste and the former tab
 # names they absorb, the fixed header, the association line, the AD account card, the restart prepared in the page
 # with the open sessions read first, the program run panel, the in-page confirmation of GPUpdate, the services of the
-# workstation and the « opérations à vérifier » pill. Presentation and coordination only: the decisions are the rules
+# workstation and the « opérations à vérifier » pill. The authorisation of an intervention is the one control of X03
+# (UX-16, Guard.UI) at the top of Intervenir; the run panel only states it. Presentation and coordination only: the decisions are the rules
 # of Domenia-Assist.Model.ps1; network work runs in pinned workers started on an explicit click, and every answer is
 # checked against the session epoch and the selection that asked for it. Nothing here reads or sends by itself.
 
@@ -21,7 +22,6 @@ function Initialize-DomeniaAssist {
         BtnCompRestartCancel={Close-DomeniaComputerRestartPanel;Set-Status 'Redémarrage abandonné : rien nʼa été envoyé au poste.' 'INFO'}
         BtnCompRunStart={Submit-DomeniaRunProgram}
         BtnCompRunCancel={Close-DomeniaRunProgramPanel}
-        BtnCompRunConsent={Set-DomeniaArtifactConsent;Update-DomeniaRunProgramConsent}
         BtnCompServicesRead={Start-DomeniaComputerServicesRead}
         BtnCompServiceStart={Request-DomeniaComputerServiceControl -Action 'Start'}
         BtnCompServiceRestart={Request-DomeniaComputerServiceControl -Action 'Restart'}
@@ -163,7 +163,14 @@ function Update-DomeniaComputerHeader {
     }
     $summary=Get-DomeniaLinkSummaryText -Link $link
     $name=Get-DomeniaAssistText 'TxtCompName';if(-not $name){$name=$computer}
-    $view=Get-DomeniaComputerHeaderView -Name $name -OperatingSystem (Get-DomeniaAssistText 'TxtCompOs') -Version (Get-DomeniaAssistText 'TxtCompOsVersion') -Presence (Get-DomeniaAssistText 'TxtCompPresence') -PresenceCheckedAt ([string]$script:DomeniaAssist.PresenceAt) -UserDisplay ([string]$summary.User) -UserLogin ([string]$summary.Login) -InventoryLabel $inventory
+    $presence=Get-DomeniaAssistText 'TxtCompPresence'
+    # FI-16 / DS-15: a state taken from the result list no longer ends with « (cache) »; its row says it is remembered
+    # (PresenceCached), and the pill keeps saying « (mémoire) » for it, never a time.
+    if(($presence) -and (-not $presence.EndsWith('(cache)')) -and (-not [string]$script:DomeniaAssist.PresenceAt) -and ($machine)){
+        $row=$null;try{$row=Get-DomeniaSelectedGridRow}catch{$row=$null}
+        if(($null -ne $row) -and ([string]$row.DN -ieq [string]$script:SelectedObject.DN) -and ([string]$row.PresenceCached -eq '1')){$presence+=' (cache)'}
+    }
+    $view=Get-DomeniaComputerHeaderView -Name $name -OperatingSystem (Get-DomeniaAssistText 'TxtCompOs') -Version (Get-DomeniaAssistText 'TxtCompOsVersion') -Presence $presence -PresenceCheckedAt ([string]$script:DomeniaAssist.PresenceAt) -UserDisplay ([string]$summary.User) -UserLogin ([string]$summary.Login) -InventoryLabel $inventory
     [void](Set-DomeniaControlText 'LblCompHeaderName' ([string]$view.Name))
     [void](Set-DomeniaControlText 'LblCompHeaderSystem' ([string]$view.SystemText))
     [void](Set-DomeniaControlText 'LblCompHeaderPresence' ([string]$view.Presence.Label))
@@ -227,8 +234,10 @@ function Update-DomeniaComputerAccountCard {
 }
 
 function Update-DomeniaComputerOperationAccount {
-    # SP-16: the account used by Ouvrir le disque C and the consoles is said before the click.
-    try{[void](Set-DomeniaControlText 'LblCompOperationAccount' (Get-DomeniaMachineOperationAccountText))}catch{}
+    # SP-16: the account used by Ouvrir le disque C and the consoles is said before the click, in the same words as the
+    # « Compte poste » pill of the header (UX-15, Get-DomeniaMachineAccountInUse for the open workstation).
+    $computer='';try{$open=Get-DomeniaOpenWorkstationTarget;if($null -ne $open){$computer=[string]$open.Computer}}catch{$computer=''}
+    try{[void](Set-DomeniaControlText 'LblCompOperationAccount' (Get-DomeniaMachineOperationAccountText -Target $computer))}catch{}
 }
 
 function Update-DomeniaComputerAssistPermissions {
@@ -441,13 +450,14 @@ function Test-DomeniaRunProgramConsent {
 }
 
 function Update-DomeniaRunProgramConsent {
+    # The state of the one authorisation control (UX-16, top of Intervenir), said in the panel: the panel never grants
+    # it itself. Called when the panel opens and by Update-DomeniaInterventionPill (grant, Retirer, countdown).
     $request=$null;if($null -ne $script:DomeniaAssist){$request=$script:DomeniaAssist.Run}
     if($null -eq $request){return}
     $granted=Test-DomeniaRunProgramConsent -Computer ([string]$request.Computer)
-    $text='Ce lancement crée une tâche sur le poste : il exige une autorisation dʼintervention de 5 minutes pour ce poste.'
-    if($granted){$text='Autorisation dʼintervention active pour ce poste jusquʼà ' + ([datetime]$script:ArtifactConsent.Expires).ToLocalTime().ToString('HH:mm',[Globalization.CultureInfo]::InvariantCulture) + '.'}
+    $text='Ce lancement crée une tâche sur le poste : il exige lʼautorisation dʼintervention de 5 minutes pour ce poste, donnée en haut de la vue Intervenir par « Autoriser une intervention (5 min) ».'
+    if($granted){$text='Autorisation dʼintervention active pour ce poste jusquʼà ' + ([datetime]$script:ArtifactConsent.Expires).ToLocalTime().ToString('HH:mm',[Globalization.CultureInfo]::InvariantCulture) + '. « Retirer », en haut de la vue Intervenir, la reprend.'}
     [void](Set-DomeniaControlText 'LblCompRunConsent' $text)
-    Set-DomeniaAssistVisible 'BtnCompRunConsent' (-not $granted)
 }
 
 function Submit-DomeniaRunProgram {
@@ -463,7 +473,12 @@ function Submit-DomeniaRunProgram {
         $plan=Get-DomeniaRunProgramPlan -Computer ([string]$request.Computer) -Mode $mode -Command (Get-DomeniaAssistText 'TxtCompRunCommand') -Arguments (Get-DomeniaAssistText 'TxtCompRunArguments') -RunUser (Get-DomeniaAssistText 'TxtCompRunUser') -Elevated $elevated
         if(-not [bool]$plan.Valid){[void](Set-DomeniaControlText 'LblCompRunState' ([string]$plan.Reason));Set-DomeniaAssistVisible 'LblCompRunState' $true;return}
         Update-DomeniaRunProgramConsent
-        if(-not (Test-DomeniaRunProgramConsent -Computer ([string]$request.Computer))){[void](Set-DomeniaControlText 'LblCompRunState' 'Accordez dʼabord lʼautorisation dʼintervention de 5 minutes pour ce poste : sans elle, aucune tâche nʼest créée.');Set-DomeniaAssistVisible 'LblCompRunState' $true;return}
+        if(-not (Test-DomeniaRunProgramConsent -Computer ([string]$request.Computer))){
+            # The one authorisation control is brought into sight; nothing is granted from here.
+            [void](Set-DomeniaControlText 'LblCompRunState' 'Accordez dʼabord lʼautorisation dʼintervention de 5 minutes pour ce poste, en haut de la vue Intervenir (« Autoriser une intervention (5 min) ») : sans elle, aucune tâche nʼest créée.');Set-DomeniaAssistVisible 'LblCompRunState' $true
+            Show-DomeniaAssistSection -Name 'BtnCompInterventionGrant'
+            return
+        }
         Set-DomeniaAssistVisible 'LblCompRunState' $false
         $request.Plan=$plan
         [void](Request-DomeniaInlineConfirmation -Title ([string]$plan.Title) -Message ([string]$plan.Summary) -Target ('poste:' + ([string]$request.Computer).ToLowerInvariant()) -ConfirmText 'Lancer' -CancelText 'Annuler' -OnConfirm {Confirm-DomeniaRunProgram} -OnCancel {Set-Status 'Lancement annulé : aucune tâche créée sur le poste.' 'INFO'} -Risk 'Danger')

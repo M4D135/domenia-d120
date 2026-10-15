@@ -51,12 +51,13 @@ function Get-DomeniaUxControlHelpText {
     param($Control)
     $entry = Get-DomeniaUxHelpEntry -Control $Control
     $description = [string]$entry.Text
-    # Preserve status reasons supplied by the existing security UI.
+    # Preserve status reasons supplied by the existing security UI, written with or without accents (the dot stands
+    # for an accented letter or an apostrophe, so this file stays ASCII-safe).
     # Do not reflect Text, Password, SelectedItem, DataContext, Content or Tag.
     try {
         $statusTip = $Control.ToolTip
-        if ($statusTip -is [string] -and $statusTip -ne $description -and
-            $statusTip -match '^(Desactive|Droit indetermine|Estimation ACL|Ecriture brute|Action distante|Fonction desactivee|Aucune valeur|Aucun secret|Selectionne une ligne|Charge d.abord)') {
+        if (($statusTip -is [string]) -and ($statusTip -ne $description) -and
+            ($statusTip -match '^(D.sactiv|Droit ind.termin|Estimation ACL|.criture brute|Action distante|Fonction d.sactiv|Aucune valeur|Aucun secret|S.lectionne une ligne|S.lectionnez une ligne|S.lectionnez d.abord une ligne|Lancez d.abord|Charge d.abord)')) {
             return $description + "`r`n`r`n" + [string]$statusTip
         }
     } catch { }
@@ -240,6 +241,14 @@ function Update-DomeniaUxProfileVisibility {
         if ($null -ne $gridDiag) {
             foreach ($column in @($gridDiag.Columns)) {
                 if (([string]$column.Header) -eq 'Methode' -or ([string]$column.Header) -eq 'Duree ms') { $column.Visibility = if ($expert) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed } }
+            }
+        }
+        # DS-09: Score and Correspondance explain the ranking of the local search; they stay in Expert so that the grid
+        # of Base autonome keeps its width for the columns the operator reads.
+        $gridIndex = Get-DomeniaControl 'DgIndex'
+        if ($null -ne $gridIndex) {
+            foreach ($column in @($gridIndex.Columns)) {
+                if ((([string]$column.Header) -eq 'Score') -or (([string]$column.Header) -eq 'Correspondance')) { $column.Visibility = if ($expert) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed } }
             }
         }
         # Never leave a hidden detail page selected. No AD read is performed.
@@ -481,21 +490,24 @@ function Set-DomeniaUxShortLayout {
     }
     $results=Get-DomeniaControl 'UxResultsCard';if($results){$results.Padding=if($compact){[Windows.Thickness]::new(6)}else{[Windows.Thickness]::new(12)}}
     $actions=Get-DomeniaControl 'UxResultActionsRow';if($actions){$actions.Margin=if($compact){[Windows.Thickness]::new(0,0,0,4)}else{[Windows.Thickness]::new(0,0,0,8)}}
-    $consoleCheck=Get-DomeniaControl 'ChkLiveUsers';if($consoleCheck){$consoleCheck.Content=if($compact){'Console au clic'}else{'Utilisateur au clic'}}
+    # SP-15: check on click and its user sub-option keep a short wording in compact mode.
+    $consoleCheck=Get-DomeniaControl 'ChkLiveVerifyOnClick';if($consoleCheck){$consoleCheck.Content=if($compact){'Au clic'}else{'Vérifier au clic'}}
+    $userCheck=Get-DomeniaControl 'ChkLiveUsersOnClick';if($userCheck){$userCheck.Content=if($compact){'+ utilisateur'}else{'+ utilisateur connecté'}}
     $recheck=Get-DomeniaControl 'BtnLiveRecheck';if($recheck){$recheck.Content=if($compact){'Revérifier'}else{'Revérifier ce poste'}}
-    # Ping and detection of the list (lot 2026-10-07) keep the action row on one line in compact mode: short labels
-    # and tighter buttons; every action stays in view (Arreter included).
-    $parkPing=Get-DomeniaControl 'BtnParkPing';if($parkPing){$parkPing.Content=if($compact){'Pinger'}else{'Pinger la liste'}}
-    $parkRun=Get-DomeniaControl 'BtnParkResults';if($parkRun){$parkRun.Content=if($compact){'Détecter'}else{'Détecter la liste'}}
-    $parkAnalyze=Get-DomeniaControl 'BtnParkAnalyze';if($parkAnalyze){$parkAnalyze.Content=if($compact){'Analyser'}else{'Analyser la liste'}}
-    foreach($name in @('BtnLiveRecheck','BtnParkPing','BtnParkResults','BtnParkAnalyze','BtnParkResultsStop')){
+    # UI-23: « Vérifier la liste ▾ » keeps its own label (the reading of the session, or Arrêter during a survey);
+    # compact mode only tightens the buttons so that the action row stays on one line. The two parts of the split
+    # button stay joined: the spacing of the row goes on the panel that holds them, never between them.
+    foreach($name in @('BtnLiveRecheck','BtnParkVerify')){
         $button=Get-DomeniaControl $name
         if($button){
             $button.Padding=if($compact){[Windows.Thickness]::new(6,4,6,4)}else{[Windows.Thickness]::new(10,4,10,4)}
-            $button.Margin=if($compact){[Windows.Thickness]::new(0,0,4,4)}else{[Windows.Thickness]::new(0,0,8,4)}
+            $spaced=$button
+            if($name -eq 'BtnParkVerify'){$spaced=$button.Parent}
+            if($spaced -is [Windows.FrameworkElement]){$spaced.Margin=if($compact){[Windows.Thickness]::new(0,0,4,4)}else{[Windows.Thickness]::new(0,0,8,4)}}
         }
     }
-    if($consoleCheck){$consoleCheck.Margin=if($compact){[Windows.Thickness]::new(0,0,8,4)}else{[Windows.Thickness]::new(0,0,14,4)}}
+    if($consoleCheck){$consoleCheck.Margin=if($compact){[Windows.Thickness]::new(0,0,4,4)}else{[Windows.Thickness]::new(0,0,8,4)}}
+    if($userCheck){$userCheck.Margin=if($compact){[Windows.Thickness]::new(0,0,8,4)}else{[Windows.Thickness]::new(0,0,14,4)}}
     $statuses=Get-DomeniaControl 'UxResultLiveStatuses'
     if($live -and $statuses){
         $live.ColumnDefinitions[0].Width=if($compact){[Windows.GridLength]::new(470)}else{[Windows.GridLength]::new(1,[Windows.GridUnitType]::Star)}

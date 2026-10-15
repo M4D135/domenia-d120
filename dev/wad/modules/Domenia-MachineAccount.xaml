@@ -1,0 +1,72 @@
+<Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Name="MachineAccountPanel" Width="460" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,64,16,16" Padding="16,14"
+        CornerRadius="12" BorderThickness="1" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderColor}"
+        KeyboardNavigation.TabNavigation="Cycle" AutomationProperties.Name="Compte poste"
+        AutomationProperties.HelpText="Compte utilisé pour les opérations sur les postes : C$, consoles, inventaire, diagnostic et sessions. Échap ou un clic à côté ferme le panneau sans rien changer.">
+  <!-- UX-15 (lot X03): side panel of Assistance poste, opened by the « Compte poste » pill. The account is kept in
+       memory only; the PasswordBox is the only source of the secret (read through SecurePassword, SE-16). -->
+  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <StackPanel>
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <TextBlock Text="Compte poste" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource TextColor}"/>
+        <Button x:Name="BtnMachineAccountClose" Grid.Column="1" Content="Fermer" MinHeight="30" Padding="10,2"
+                ToolTip="Ferme ce panneau sans changer le compte utilisé pour les postes."
+                ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Fermer le panneau du compte poste"
+                AutomationProperties.HelpText="Ferme ce panneau sans changer le compte utilisé pour les postes."/>
+      </Grid>
+      <TextBlock Text="Sert à C$, aux consoles, à lʼinventaire, au diagnostic et aux sessions des postes. Il peut différer du compte de connexion et nʼest jamais enregistré sur le disque."
+                 TextWrapping="Wrap" Margin="0,6,0,10" Foreground="{DynamicResource MutedColor}"/>
+      <Border Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="10" Padding="12,8" Margin="0,0,0,12">
+        <TextBlock x:Name="LblMachineCredential" Text="Opérations poste : session Windows." TextWrapping="Wrap" Foreground="{DynamicResource TextColor}"
+                   ToolTip="Compte réellement utilisé pour la prochaine opération sur ce poste, et son origine. Aucun mot de passe nʼest affiché."
+                   ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Compte utilisé pour les postes" AutomationProperties.LiveSetting="Polite"
+                   AutomationProperties.HelpText="Compte réellement utilisé pour la prochaine opération sur ce poste, et son origine. Aucun mot de passe nʼest affiché."/>
+      </Border>
+      <TextBlock Text="Identifiant" Foreground="{DynamicResource MutedColor}" FontSize="11" Margin="1,0,0,5"/>
+      <TextBox x:Name="TxtMachineAdminUser" Height="34" VerticalContentAlignment="Center" Margin="0,0,0,10"
+               ToolTip="Compte administrateur des postes, sous la forme DOMAINE\nom ou POSTE\nom. Vide, Domenia garde le compte en service affiché au-dessus."
+               ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Compte poste"
+               AutomationProperties.HelpText="Compte administrateur des postes, sous la forme DOMAINE\nom ou POSTE\nom. Vide, Domenia garde le compte en service affiché au-dessus."/>
+      <TextBlock Text="Mot de passe" Foreground="{DynamicResource MutedColor}" FontSize="11" Margin="1,0,0,5"/>
+      <Grid Margin="0,0,0,12">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="8"/>
+          <ColumnDefinition Width="Auto" MinWidth="64"/>
+        </Grid.ColumnDefinitions>
+        <Grid Grid.Column="0">
+          <PasswordBox x:Name="PwdMachineAdmin" Height="34" VerticalContentAlignment="Center"
+                       ToolTip="Saisie protégée : lʼaide contextuelle ne lit jamais la valeur de ce champ."
+                       ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mot de passe du compte poste"
+                       AutomationProperties.HelpText="Saisie protégée : lʼaide contextuelle ne lit jamais la valeur de ce champ."/>
+          <!-- SE-16: read-only overlay shown 5 s on request; the PasswordBox stays the only source of the secret. -->
+          <Border x:Name="MachineAdminPeek" Margin="1" CornerRadius="6" Background="{DynamicResource BgInput}" Visibility="Collapsed" IsHitTestVisible="False" Focusable="False">
+            <TextBlock x:Name="LblMachineAdminPeek" Text="" Margin="9,0" VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" FontFamily="Consolas"
+                       Foreground="{DynamicResource TextColor}" Focusable="False"
+                       ToolTip="Mot de passe affiché pendant 5 secondes, en lecture seule, sans copie possible."
+                       ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mot de passe affiché"
+                       AutomationProperties.HelpText="Mot de passe affiché pendant 5 secondes, en lecture seule, sans copie possible."/>
+          </Border>
+        </Grid>
+        <Button Grid.Column="2" x:Name="BtnRevealMachineAdmin" Content="👁" Style="{DynamicResource EyeButton}" Height="34" MinHeight="34" Margin="0"
+                ToolTip="Affiche le mot de passe du compte poste pendant 5 secondes, en lecture seule. Rien nʼest copié ni enregistré."
+                ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Afficher le mot de passe du compte poste pendant 5 secondes"
+                AutomationProperties.HelpText="Affiche le mot de passe du compte poste pendant 5 secondes, en lecture seule. Rien nʼest copié ni enregistré."/>
+      </Grid>
+      <WrapPanel>
+        <Button x:Name="BtnSetMachineCredential" Content="Utiliser ce compte" Style="{DynamicResource RunButton}" Height="34" MinHeight="34" Margin="0,0,8,0"
+                ToolTip="Utilise ce compte pour les opérations sur les postes, en mémoire seulement. Il nʼest jamais enregistré sur le disque."
+                ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Utiliser ce compte pour les postes"
+                AutomationProperties.HelpText="Utilise ce compte pour les opérations sur les postes, en mémoire seulement. Il nʼest jamais enregistré sur le disque."/>
+        <Button x:Name="BtnClearMachineCredential" Content="Revenir au compte de connexion" Height="34" MinHeight="34" Margin="0"
+                ToolTip="Oublie le compte saisi : les postes sont interrogés avec le compte Postes de la page Comptes sʼil existe, sinon avec le compte de connexion ou votre session Windows."
+                ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Revenir au compte de connexion"
+                AutomationProperties.HelpText="Oublie le compte saisi : les postes sont interrogés avec le compte Postes de la page Comptes sʼil existe, sinon avec le compte de connexion ou votre session Windows."/>
+      </WrapPanel>
+    </StackPanel>
+  </ScrollViewer>
+</Border>
