@@ -896,9 +896,12 @@ function Update-DomeniaUxOuScope {
     if($null -ne $summary){
         $depth=if($Scope.Scope -eq 'Subtree'){'Sous-OU incluses'}else{'Enfants directs'}
         # D032: browsing always reads 'Dans cette OU', the upper bar always 'Domaine entier'.
-        $label='Dans : '+$display.Name+'  ·  '+$depth
+        # Point 52: an OU below another one is named with its parent, so that two OU of the same name stay distinct.
+        $ouName=[string]$display.Name
+        if(-not [bool]$Scope.IsDomain){try{$names=@(Get-DomeniaOuPathNames ([string]$Scope.BaseDn));if($names.Count -ge 2){$ouName+=' (dans '+[string]$names[1]+')'}}catch{}}
+        $label='Dans : '+$ouName+'  ·  '+$depth
         if($null -ne (Get-Command Get-DomeniaScopeLabel -CommandType Function -ErrorAction SilentlyContinue)){
-            $label=Get-DomeniaScopeLabel -Mode Browse -OuName ([string]$display.Name) -Subtree ($Scope.Scope -eq 'Subtree')
+            $label=Get-DomeniaScopeLabel -Mode Browse -OuName $ouName -Subtree ($Scope.Scope -eq 'Subtree')
         }
         $summary.Text=$label
         $summary.ToolTip='Racine LDAP : '+[string]$Scope.BaseDn+"`r`n"+$depth+"`r`nLe texte de la barre du haut ne filtre pas cette OU."
@@ -906,10 +909,13 @@ function Update-DomeniaUxOuScope {
 }
 
 function Copy-DomeniaUxOuPath {
-    $box=Get-DomeniaControl 'TxtBranchDn'
-    if($null -eq $box -or [string]::IsNullOrWhiteSpace([string]$box.Text)){return}
+    # -Dn: the exact DN of the breadcrumb that was clicked (point 52); without it, the DN of the menu box.
+    param([AllowEmptyString()][string]$Dn='')
+    $text=([string]$Dn).Trim()
+    if(-not $text){$box=Get-DomeniaControl 'TxtBranchDn';if($null -ne $box){$text=([string]$box.Text).Trim()}}
+    if([string]::IsNullOrWhiteSpace($text)){return}
     try{
-        [Windows.Clipboard]::SetText([string]$box.Text)
+        [Windows.Clipboard]::SetText($text)
         Set-DomeniaContextHint -Title 'Chemin LDAP copié' -Text 'Le DN de la branche sélectionnée est dans le presse-papiers. Le filtre et les résultats restent inchangés.'
     }catch{
         Set-DomeniaContextHint -Title 'Copie indisponible' -Text 'Le presse-papiers est occupé. Dépliez le chemin LDAP pour le sélectionner et le copier manuellement.'

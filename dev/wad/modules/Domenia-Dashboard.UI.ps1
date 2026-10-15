@@ -60,7 +60,10 @@ function Get-DomeniaFleetScope {
     if ($dn -and $dn -ine $base -and -not $dn.EndsWith(',' + $base,[StringComparison]::OrdinalIgnoreCase)) { $dn = '' }
     $whole = (-not $dn -or $dn -ieq $base)
     if ($whole) { $dn = '' }
+    # Point 54: the depth chosen in the shared OU picker. The whole domain is always read with its sub-OU, and an
+    # unset value keeps the former behaviour (sub-OU included).
     $subtree = $true
+    if ((-not $whole) -and ($script:FleetScopeSubtree -is [bool]) -and (-not $script:FleetScopeSubtree)) { $subtree = $false }
     $name = if ($whole) { 'Tout le domaine' } else { ((($dn -split '(?<!\\),')[0] -replace '^(OU|CN)=','') -replace '\\(.)','$1') }
     return [pscustomobject]@{
         Dn = $dn
@@ -273,18 +276,24 @@ function Update-DomeniaFleetScopeText {
     }
 }
 function Show-DomeniaFleetScopeSource {
-    $picked = Show-DomeniaInlinePicker -Kind OU -Title 'Périmètre du tableau de bord' -Prompt 'Choisissez une OU dans le domaine courant. Le tableau de bord lira sa base locale; la recherche et ses filtres restent indépendants.'
+    # Point 54: the shared OU picker (same tree, search, favourites, depth and confirmation as the other pages).
+    # The tableau de bord and the Atelier read the local base of this OU; Rechercher keeps its own OU.
+    $current = Get-DomeniaFleetScope
+    $initial = ''; $subtree = $true
+    if ($null -ne $current) { $initial = [string]$current.Dn; $subtree = [bool]$current.Subtree }
+    $picked = Show-DomeniaInlinePicker -Kind OU -Title 'Périmètre du tableau de bord' -Prompt 'Choisissez une OU dans le domaine courant. Le tableau de bord et lʼatelier liront sa base locale ; la recherche et ses filtres restent indépendants.' -DepthMode Choice -Subtree $subtree -Purpose 'Effet : le tableau de bord et lʼatelier recalculent depuis la base locale, sans collecte ; les actualisations AD, ping et WMI couvrent toujours les sous-OU.' -InitialDn $initial
     if ($null -eq $picked -or -not [string]$picked.DN) { return }
     $dn = ([string]$picked.DN).Trim()
     $base = [string]$script:Conn.BaseDn
     if (-not $dn.EndsWith(',' + $base,[StringComparison]::OrdinalIgnoreCase)) { Set-Status 'Cette OU nʼappartient pas au domaine courant.' 'WARN'; return }
     $script:FleetScopeDn = $dn
+    $script:FleetScopeSubtree = [bool](Get-DomeniaMember $picked 'Subtree' $true)
     $script:FleetStale = $true
     Request-DomeniaFleetRefresh
-    Set-Status ('Périmètre du tableau de bord : ' + $dn + '. Recherche reste inchangée.')
+    Set-Status ('Périmètre du tableau de bord : ' + $dn + $(if ($script:FleetScopeSubtree) { ' et ses sous-OU' } else { ', sans ses sous-OU' }) + '. Recherche reste inchangée.')
 }
 function Select-DomeniaFleetScopeOu {
-    # Breadcrumb navigation stays inside the autonomous dashboard scope.
+    # Breadcrumb navigation stays inside the autonomous dashboard scope, with the depth already chosen.
     param([string]$Dn)
     $script:FleetScopeDn = ([string]$Dn).Trim()
     $script:FleetStale = $true
