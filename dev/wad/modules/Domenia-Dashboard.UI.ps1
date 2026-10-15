@@ -496,7 +496,10 @@ function Show-DomeniaFleetTargetsInSearch {
     $filter=Get-DomeniaControl 'TxtSuiteResultFilter';if($null -ne $filter){$filter.Text=''}
     if($null -ne $script:DomeniaQueryState){$script:DomeniaQueryState.SearchRecipe=$null;$script:DomeniaQueryState.SearchRefinement=$null;$script:DomeniaQueryState.SearchRecords=@{}}
     [void](Set-DomeniaControlText 'LblSearchQuery' 'Aucune requête enregistrée appliquée aux résultats.')
-    $text = [string]$rows.Count + ' poste(s) de lʼaccueil' + $(if ($Label) { ' : ' + $Label } else { '' }) + ' (base locale, sans requête)'
+    # Point 2: the list is the population of the Accueil figures; the local revision that produced them is named.
+    $population = Get-DomeniaMemberValue $script:FleetLast 'Population'
+    $revision = [long](Get-DomeniaMember $population 'SnapshotRevision' -1)
+    $text = [string]$rows.Count + ' poste(s) de lʼaccueil' + $(if ($Label) { ' : ' + $Label } else { '' }) + ' (base locale' + $(if ($revision -ge 0) { ', révision ' + [string]$revision } else { '' }) + ', sans requête)'
     Show-ObjectRows -Rows $rows -Label $text -SkipPresenceScan -NoAutoOpen
     Select-DomeniaWorkspace -Workspace 'WsSearch'
     Set-Status ($text + '.')
