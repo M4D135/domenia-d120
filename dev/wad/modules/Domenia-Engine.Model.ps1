@@ -176,7 +176,7 @@ function Get-DomeniaTaskDedupKey {
     # Two reads may share one worker only when everything that decides their result is identical.
     param([Parameter(Mandatory=$true)][string]$OperationId,[string]$ReaderIdentity='',[long]$Epoch=0,[long]$Generation=0,$Payload=$null,[bool]$IsWrite=$false,[string[]]$Shareable=@())
     if ($IsWrite) { return '' }
-    $allowed = @('OpenAdObject','EmbeddedDirectoryLookup','SessionsList','ComputerQuickDiag','PasswordPolicyRead','LockoutDiagnosis','GroupPathRead','JoinStateRead','UpdateStateRead','GpoLinksRead','GpoAppliedRead','DcCompareRead','ComputerEventsRead','MachineIdentityRead','DirectoryAbsenceCheck') + @($Shareable)
+    $allowed = @('OpenAdObject','EmbeddedDirectoryLookup','SessionsList','ComputerQuickDiag','PasswordPolicyRead','LockoutDiagnosis','GroupPathRead','JoinStateRead','UpdateStateRead','GpoLinksRead','GpoAppliedRead','DcCompareRead','ComputerEventsRead','MachineIdentityRead','DirectoryAbsenceCheck','LogonByDcRead') + @($Shareable)
     if ($allowed -notcontains $OperationId) { return '' }
     $digest = Get-DomeniaPayloadDigest $Payload
     if (-not $digest) { return '' }

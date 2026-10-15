@@ -682,6 +682,8 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnUserManagerClear" = "Default"
     "TxtUserState" = "Default"
     "TxtUserLastLogon" = "Default"
+    "BtnUserLogonByDc" = "Default"
+    "TxtUserLogonByDc" = "Default"
     "TxtUserPwdLastSet" = "Default"
     "TxtUserExpires" = "Default"
     "TxtUserUac" = "Default"
@@ -748,6 +750,8 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnCompManagedByClear" = "Default"
     "TxtCompState" = "Default"
     "TxtCompLastLogon" = "Default"
+    "BtnCompLogonByDc" = "Default"
+    "TxtCompLogonByDc" = "Default"
     "TxtCompUac" = "Default"
     "TxtCompLinkedUser" = "Default"
     "TxtCompLinkSource" = "Default"
@@ -5674,6 +5678,7 @@ function Get-MainXaml {
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                           </Grid.RowDefinitions>
                           <TextBlock Grid.Row="0" Grid.ColumnSpan="4" Text="Fiche utilisateur" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
                           <Label Grid.Row="1" Grid.Column="0" Content="Prenom"/>
@@ -5733,6 +5738,13 @@ function Get-MainXaml {
                             <Button Grid.Row="13" Grid.Column="2" x:Name="BtnUserEdit" Content="Modifier" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,0,0,8" ToolTip="Déverrouille les champs de la fiche pour les modifier. Le crayon nʼécrit rien : il ouvre seulement la saisie, et « Enregistrer » reste seul à décider de ce qui part dans lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Modifier la fiche" AutomationProperties.HelpText="Déverrouille les champs de la fiche pour les modifier. Le crayon nʼécrit rien : il ouvre seulement la saisie, et « Enregistrer » reste seul à décider de ce qui part dans lʼannuaire."/>
                             <Button Grid.Row="13" Grid.Column="3" x:Name="BtnUserCancelEdit" Content="Annuler" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,0,0,8" Visibility="Collapsed" ToolTip="Rejette les modifications non enregistrées : chaque champ reprend la valeur lue dans lʼannuaire et la fiche se verrouille de nouveau." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Annuler les modifications" AutomationProperties.HelpText="Rejette les modifications non enregistrées : chaque champ reprend la valeur lue dans lʼannuaire et la fiche se verrouille de nouveau."/>
                             <TextBlock Grid.Row="14" Grid.ColumnSpan="4" x:Name="LblUserEditState" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,0,0,8" Visibility="Collapsed" AutomationProperties.Name="État des modifications de la fiche" AutomationProperties.HelpText="Dit ce que la fiche a en modification, et le signale quand une valeur non enregistrée a été abandonnée en changeant dʼobjet. Rien nʼest parti sans que la page le dise."/>
+                          <Border Grid.Row="15" Grid.ColumnSpan="4" Margin="0,6,0,8" Padding="10" CornerRadius="8" Background="{DynamicResource BgReadonly}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
+                            <StackPanel>
+                              <TextBlock Text="Activité de connexion" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                              <TextBlock x:Name="TxtUserLogonByDc" TextWrapping="Wrap" Margin="0,0,0,6" ToolTip="Activité de connexion de lʼobjet : date approximative répliquée (lastLogonTimestamp) et, après lecture, la date exacte connue de chaque contrôleur avec sa couverture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Activité de connexion du compte" AutomationProperties.HelpText="Activité de connexion de lʼobjet : date approximative répliquée (lastLogonTimestamp) et, après lecture, la date exacte connue de chaque contrôleur avec sa couverture." AutomationProperties.LiveSetting="Polite"/>
+                              <Button x:Name="BtnUserLogonByDc" Content="Lire la connexion sur chaque contrôleur" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="10,4" HorizontalAlignment="Left" IsEnabled="False" ToolTip="Lit, pour cet objet seulement, la date exacte de dernière connexion (lastLogon) sur chaque contrôleur du domaine, avec la liste des contrôleurs lus et non lus. Lecture seule ; aucun contrôleur nʼest plus interrogé après 75 secondes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lire la dernière connexion sur chaque contrôleur" AutomationProperties.HelpText="Lit, pour cet objet seulement, la date exacte de dernière connexion (lastLogon) sur chaque contrôleur du domaine, avec la liste des contrôleurs lus et non lus. Lecture seule ; aucun contrôleur nʼest plus interrogé après 75 secondes."/>
+                            </StackPanel>
+                          </Border>
                         </Grid>
                         </StackPanel>
                       </ScrollViewer>
@@ -6453,6 +6465,7 @@ function Get-MainXaml {
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                           </Grid.RowDefinitions>
                           <TextBlock Grid.Row="0" Grid.ColumnSpan="4" Text="Fiche du poste" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
                           <Label Grid.Row="1" Grid.Column="0" Content="Nom"/>
@@ -6513,6 +6526,13 @@ function Get-MainXaml {
                             </Grid>
                           </Border>
                           <TextBlock Grid.Row="11" Grid.ColumnSpan="4" x:Name="LblCompEditState" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="Collapsed" AutomationProperties.Name="État des modifications de la fiche" AutomationProperties.HelpText="Dit ce que la fiche a en modification, et le signale quand une valeur non enregistrée a été abandonnée en changeant dʼobjet. Rien nʼest parti sans que la page le dise."/>
+                          <Border Grid.Row="12" Grid.ColumnSpan="4" Margin="0,10,0,8" Padding="10" CornerRadius="8" Background="{DynamicResource BgReadonly}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
+                            <StackPanel>
+                              <TextBlock Text="Activité de connexion" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                              <TextBlock x:Name="TxtCompLogonByDc" TextWrapping="Wrap" Margin="0,0,0,6" ToolTip="Activité de connexion du compte ordinateur : date approximative répliquée (lastLogonTimestamp) et, après lecture, la date exacte connue de chaque contrôleur avec sa couverture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Activité de connexion du poste" AutomationProperties.HelpText="Activité de connexion du compte ordinateur : date approximative répliquée (lastLogonTimestamp) et, après lecture, la date exacte connue de chaque contrôleur avec sa couverture." AutomationProperties.LiveSetting="Polite"/>
+                              <Button x:Name="BtnCompLogonByDc" Content="Lire la connexion sur chaque contrôleur" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="10,4" HorizontalAlignment="Left" IsEnabled="False" ToolTip="Lit, pour ce poste seulement, la date exacte de dernière connexion de son compte ordinateur (lastLogon) sur chaque contrôleur du domaine, avec la liste des contrôleurs lus et non lus. Lecture seule ; aucun contrôleur nʼest plus interrogé après 75 secondes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lire la dernière connexion du poste sur chaque contrôleur" AutomationProperties.HelpText="Lit, pour ce poste seulement, la date exacte de dernière connexion de son compte ordinateur (lastLogon) sur chaque contrôleur du domaine, avec la liste des contrôleurs lus et non lus. Lecture seule ; aucun contrôleur nʼest plus interrogé après 75 secondes."/>
+                            </StackPanel>
+                          </Border>
                         </Grid>
                       </ScrollViewer>
                     </Border>
@@ -8396,9 +8416,10 @@ function Clear-ObjectDetails {
         "TxtUserStreet","TxtUserCity","TxtUserState2","TxtUserPostalCode","TxtUserCountry",
         "TxtUserHomePhone","TxtUserMobile","TxtUserFax","TxtUserIpPhone","TxtUserWebPage",
         "TxtUserEmployeeId","TxtUserProfilePath","TxtUserScriptPath","TxtUserHomeDirectory",
-        "TxtUserHomeDrive","TxtUserWorkstations","TxtCompName","TxtCompDns","TxtCompOs","TxtCompOsVersion","TxtCompDescription","TxtCompLocation","TxtCompManagedBy","TxtCompState","TxtCompLastLogon","TxtCompUac","TxtCompLinkedUser","TxtCompLinkSource","TxtGroupName","TxtGroupDescription")) {
+        "TxtUserHomeDrive","TxtUserWorkstations","TxtCompName","TxtCompDns","TxtCompOs","TxtCompOsVersion","TxtCompDescription","TxtCompLocation","TxtCompManagedBy","TxtCompState","TxtCompLastLogon","TxtCompUac","TxtCompLinkedUser","TxtCompLinkSource","TxtGroupName","TxtGroupDescription","TxtUserLogonByDc","TxtCompLogonByDc")) {
         try { $script:Ctrl[$name].Text = "" } catch { }
     }
+    foreach ($name in @("BtnUserLogonByDc","BtnCompLogonByDc")) { try { $script:Ctrl[$name].IsEnabled = $false } catch { } }
     Update-DomeniaUserSupportBand -Entry $null
     Set-DomeniaManagerField -Target 'Utilisateur' -Dn ''
     Set-DomeniaManagerField -Target 'Machine' -Dn ''
@@ -8684,6 +8705,8 @@ function Fill-UserObject {
     Set-DomeniaManagerField -Target 'Utilisateur' -Dn ([string](Get-DeProp $Entry "manager" ""))
     $script:Ctrl["TxtUserState"].Text = Get-UacStatusLabel $uac $lockout (Get-DeProp $entry "msDS-User-Account-Control-Computed" $null)
     $script:Ctrl["TxtUserLastLogon"].Text = Convert-FileTimeLabel (Get-DeProp $Entry "lastLogonTimestamp" 0)
+    # Point 27: what this approximate date means, and an explicit per-controller read of lastLogon.
+    if (${function:Update-DomeniaLogonActivityPanel}) { Update-DomeniaLogonActivityPanel -Kind User -Entry $Entry }
     $script:Ctrl["TxtUserPwdLastSet"].Text = Convert-FileTimeLabel (Get-DeProp $Entry "pwdLastSet" 0)
     $script:Ctrl["TxtUserExpires"].Text = Convert-FileTimeLabel (Get-DeProp $Entry "accountExpires" 0)
     $script:Ctrl["TxtUserUac"].Text = Get-UacFlagsLabel $uac
@@ -8792,6 +8815,7 @@ function Fill-ComputerObject {
     Set-DomeniaManagerField -Target 'Machine' -Dn ([string](Get-DeProp $Entry "managedBy" ""))
     $script:Ctrl["TxtCompState"].Text = Get-UacStatusLabel $uac 0
     $script:Ctrl["TxtCompLastLogon"].Text = Convert-FileTimeLabel (Get-DeProp $Entry "lastLogonTimestamp" 0)
+    if (${function:Update-DomeniaLogonActivityPanel}) { Update-DomeniaLogonActivityPanel -Kind Computer -Entry $Entry }
     $script:Ctrl["TxtCompUac"].Text = Get-UacFlagsLabel $uac
     $script:Ctrl["TxtCompNewName"].Text = [string](Get-DeProp $Entry "name" "")
     try {
@@ -22132,6 +22156,8 @@ function Wire-Events {
     $script:Ctrl["BtnUserGenPassword"].Add_Click({ Show-DomeniaGeneratedPassword })
     $script:Ctrl["BtnUserSupportUnlock"].Add_Click({ Unlock-UserAccount })
     $script:Ctrl["BtnUserSupportLockouts"].Add_Click({ Start-DomeniaLockoutEventRead })
+    $script:Ctrl["BtnUserLogonByDc"].Add_Click({ Start-DomeniaLogonByDcRead -Kind User })
+    $script:Ctrl["BtnCompLogonByDc"].Add_Click({ Start-DomeniaLogonByDcRead -Kind Computer })
     $script:Ctrl["BtnUserResetPwd"].Add_Click({ Reset-UserPassword })
     $script:Ctrl["BtnApplyAccountOptions"].Add_Click({ Apply-UserAccountOptions })
     $script:Ctrl["BtnSetExpiration"].Add_Click({ Set-UserExpiration $false })

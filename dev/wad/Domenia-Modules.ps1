@@ -1878,6 +1878,24 @@ function Get-DomeniaRuntimeModulePlan {
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-DirectorySync.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaAbsenceCheckWorkerCode'
         ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-LogonActivity.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaLogonSyncInterval',
+            'Get-DomeniaLogonLagText',
+            'Get-DomeniaLogonActivitySummary',
+            'Merge-DomeniaLogonReadings',
+            'Format-DomeniaLogonReadingsText'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-LogonActivity.Worker.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaLogonByDcWorkerCode'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-LogonActivity.Model.ps1','Domenia-LogonActivity.Worker.ps1','Domenia-Engine.UI.ps1'); File='Domenia-LogonActivity.UI.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaLogonPanelNames',
+            'Update-DomeniaLogonActivityPanel',
+            'Test-DomeniaLogonTargetCurrent',
+            'Start-DomeniaLogonByDcRead',
+            'Complete-DomeniaLogonByDcRead',
+            'Fail-DomeniaLogonByDcRead'
+        ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-DirectorySync.Model.ps1','Domenia-DirectorySync.Worker.ps1','Domenia-BoardFleet.Model.ps1','Domenia-Engine.Worker.ps1','Domenia-Storage.UI.ps1','Domenia-Inline.UI.ps1'); File='Domenia-DirectorySync.UI.ps1'; DotSource=$true; Functions=@(
             'Initialize-DomeniaDirectorySyncUi',
             'Test-DomeniaDirectorySyncVisible',

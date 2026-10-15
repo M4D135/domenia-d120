@@ -4065,5 +4065,33 @@
     "Source": "specific",
     "Title": "Dates des mesures et du calcul",
     "Text": "Le ping et l’inventaire WMI conservent leurs dates propres. N/M compte les mesures utilisables parmi les postes actifs ; du… au… décrit leur intervalle de dates. Vue recalculée indique seulement la préparation locale de l’affichage, sans nouvelle collecte."
+  },
+  {
+    "Name": "TxtUserLogonByDc",
+    "Title": "Activité de connexion du compte",
+    "Text": "Activité de connexion de lʼobjet : date approximative répliquée (lastLogonTimestamp) et, après lecture, la date exacte connue de chaque contrôleur avec sa couverture.",
+    "Kind": "TextBlock",
+    "Source": "P27"
+  },
+  {
+    "Name": "BtnUserLogonByDc",
+    "Title": "Lire la dernière connexion sur chaque contrôleur",
+    "Text": "Lit, pour cet objet seulement, la date exacte de dernière connexion (lastLogon) sur chaque contrôleur du domaine, avec la liste des contrôleurs lus et non lus. Lecture seule ; aucun contrôleur nʼest plus interrogé après 75 secondes.",
+    "Kind": "Button",
+    "Source": "P27"
+  },
+  {
+    "Name": "TxtCompLogonByDc",
+    "Title": "Activité de connexion du poste",
+    "Text": "Activité de connexion du compte ordinateur : date approximative répliquée (lastLogonTimestamp) et, après lecture, la date exacte connue de chaque contrôleur avec sa couverture.",
+    "Kind": "TextBlock",
+    "Source": "P27"
+  },
+  {
+    "Name": "BtnCompLogonByDc",
+    "Title": "Lire la dernière connexion du poste sur chaque contrôleur",
+    "Text": "Lit, pour ce poste seulement, la date exacte de dernière connexion de son compte ordinateur (lastLogon) sur chaque contrôleur du domaine, avec la liste des contrôleurs lus et non lus. Lecture seule ; aucun contrôleur nʼest plus interrogé après 75 secondes.",
+    "Kind": "Button",
+    "Source": "P27"
   }
 ]
