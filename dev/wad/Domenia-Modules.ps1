@@ -272,7 +272,13 @@ function Get-DomeniaRuntimeModulePlan {
             'Find-DomeniaDirectoryInconsistencies',
             'ConvertFrom-DomeniaReplMetadata',
             'Compare-DomeniaDcReadings',
-            'Get-DomeniaLocalTotalsSummary'
+            'Get-DomeniaLocalTotalsSummary',
+            'Get-DomeniaDnDisplayName',
+            'ConvertTo-DomeniaMembershipRows',
+            'Test-DomeniaMembershipRow',
+            'ConvertTo-DomeniaMembershipEdges',
+            'Get-DomeniaNestedMembershipRows',
+            'Get-DomeniaMembershipWhy'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1'); File='Domenia-Workstation.Model.ps1'; DotSource=$true; Functions=@(
             'ConvertTo-DomeniaWorkstationFactState',
@@ -1266,6 +1272,28 @@ function Get-DomeniaRuntimeModulePlan {
             'Format-DomeniaLockoutReport',
             'Complete-DomeniaLockoutEventRead',
             'Fail-DomeniaLockoutEventRead'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Membership.Worker.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaGroupPathWorkerCode'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Directory.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Engine.Worker.ps1','Domenia-Membership.Worker.ps1'); File='Domenia-Membership.UI.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaMembershipControlNames',
+            'Set-DomeniaMembershipList',
+            'Clear-DomeniaMembershipLists',
+            'Update-DomeniaMembershipFilter',
+            'Start-DomeniaMembershipTypes',
+            'Complete-DomeniaMembershipTypes',
+            'Fail-DomeniaMembershipTypes',
+            'Show-DomeniaMembershipWhy',
+            'Get-DomeniaSelectedMembershipRow',
+            'Invoke-DomeniaMembershipWhy',
+            'Start-DomeniaMembershipPathRead',
+            'Test-DomeniaMembershipPathCurrent',
+            'Complete-DomeniaMembershipPathRead',
+            'Fail-DomeniaMembershipPathRead',
+            'Add-DomeniaNestedMembershipRows',
+            'Format-DomeniaNestedMembershipSummary',
+            'Register-DomeniaMembershipUi'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Demo.Model.ps1'); File='Domenia-Demo.UI.ps1'; DotSource=$true; Functions=@(
             'Initialize-DomeniaDemoMode',

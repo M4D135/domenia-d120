@@ -1322,11 +1322,18 @@
     "Source": "existing-help"
   },
   {
-    "Name": "LstGroupMembers",
+    "Name": "DgGroupMembers",
     "Title": "Membres directs du groupe",
-    "Text": "Membres directs du groupe. Clic droit pour rechercher ou copier.",
-    "Kind": "ListBox",
-    "Source": "existing-help"
+    "Text": "Membres directs du groupe : nom, type (connu de la copie locale) et OU ; le DN complet est dans lʼinfobulle de la ligne. Clic droit pour rechercher lʼobjet ou copier son DN.",
+    "Kind": "DataGrid",
+    "Source": "X02"
+  },
+  {
+    "Name": "TxtGroupMembersFilter",
+    "Title": "Filtrer les membres",
+    "Text": "Filtre les membres affichés par nom, type, OU ou DN. Aucune requête AD : seuls les membres déjà lus sont filtrés.",
+    "Kind": "TextBox",
+    "Source": "X02"
   },
   {
     "Name": "TabContainer",
@@ -1364,11 +1371,32 @@
     "Source": "existing-help"
   },
   {
-    "Name": "LstMemberOf",
-    "Title": "Groupes",
-    "Text": "Groupes dont cet objet est membre. Clic droit pour rechercher ou copier.",
-    "Kind": "ListBox",
-    "Source": "existing-help"
+    "Name": "DgMemberOf",
+    "Title": "Groupes de lʼobjet",
+    "Text": "Groupes dont cet objet est membre : nom, OU et appartenance (directe, ou imbriquée après « Groupes imbriqués ») ; le DN complet est dans lʼinfobulle de la ligne. Clic droit : rechercher, copier le DN, « Pourquoi membre ? ».",
+    "Kind": "DataGrid",
+    "Source": "X02"
+  },
+  {
+    "Name": "TxtMemberOfFilter",
+    "Title": "Filtrer les groupes",
+    "Text": "Filtre les groupes affichés par nom, OU, appartenance ou DN. Aucune requête AD : seuls les groupes déjà lus sont filtrés.",
+    "Kind": "TextBox",
+    "Source": "X02"
+  },
+  {
+    "Name": "BtnMemberOfNested",
+    "Title": "Lire les groupes imbriqués",
+    "Text": "Lit, à la demande, les groupes dont ces groupes sont membres (2 000 groupes, 16 niveaux et 10 secondes au plus) et les ajoute à la liste comme appartenances imbriquées. Lecture seule ; aucun parcours du domaine.",
+    "Kind": "Button",
+    "Source": "X02"
+  },
+  {
+    "Name": "LblMembershipWhy",
+    "Title": "Pourquoi membre",
+    "Text": "Réponse de « Pourquoi membre ? » : appartenance directe, chemin des groupes imbriqués lus, ou lecture incomplète. Le groupe principal nʼest pas compris dans memberOf.",
+    "Kind": "TextBlock",
+    "Source": "X02"
   },
   {
     "Name": "TabRaw",

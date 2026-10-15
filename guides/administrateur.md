@@ -180,6 +180,12 @@ La fiche d'un objet se prépare en arrière-plan dès le clic, et s'ouvre au dou
 
 L'onglet « Resume » donne le type, le nom, la classe, le GUID, les dates de création et de modification, le chemin complet et la présence. Pour un utilisateur, la présence est celle du poste qui lui est associé.
 
+## Appartenances et membres
+
+L’onglet « Appartenances » et la liste des membres d’un groupe sont des tableaux lisibles : Nom, Type et OU (chemin « domaine / OU / sous-OU ») ; le DN complet est dans l’infobulle de la ligne. Un filtre local (« nom, OU… (sans requête AD) ») réduit la liste affichée et le compteur dit combien de lignes il garde. Pour les membres d’un groupe, le type vient de la copie locale (lecture SQLite en arrière-plan) ; un membre absent de la copie reste « Non lu », jamais deviné.
+
+« Groupes imbriqués » lit, au clic seulement (opération GroupPathRead, lecture seule), les groupes dont les groupes de l’objet sont membres : 2 000 groupes, 16 niveaux et 10 secondes au plus, un groupe à la fois, jamais tout le domaine. Ils s’ajoutent au tableau avec l’appartenance « Imbriquée » et le groupe direct par lequel ils passent. Les groupes non lus sont comptés avec leur raison (refus, introuvable, autre domaine). Le clic droit « Pourquoi membre ? » explique une ligne : appartenance directe, ou chemin « Jean Dupont → GG-Lyon → GG-Compta ». Une lecture bornée ou incomplète ne conclut jamais à une absence ; le groupe principal (primaryGroupID) n’apparaît pas dans memberOf.
+
 ## Lecture et estimation des droits
 
 À l'ouverture d'un objet, Domenia estime les droits du compte sur cet objet (Security.EvaluateRightsOnObjectOpen, vrai). Cette estimation ne bloque rien par défaut (Security.BlockOnAclEstimate et Security.DisableIndeterminateControls à faux) : Windows et AD décident au moment de l'écriture. L'onglet « Droits effectifs », en profil Expert, analyse les droits sur l'objet.

@@ -165,3 +165,42 @@ Test-Case 'MO-04' 'Totaux du domaine lus dans la copie locale, avec leur date, s
     $empty=Get-DomeniaLocalTotalsSummary -Types @() -LastSyncUtc ''
     Assert-False $empty.Known;Assert-Equal 0 $empty.Total;Assert-True ($empty.Text.Contains('aucun dénombrement'))
 }
+Test-Case 'UI-06' 'Appartenances lisibles : nom, type, OU, DN conserve' {
+    Assert-Equal 'Dupont, Jean' (Get-DomeniaDnDisplayName 'CN=Dupont\, Jean,OU=RH,DC=example,DC=invalid')
+    Assert-Equal 'Équipe' (Get-DomeniaDnDisplayName 'CN=\C3\89quipe,DC=example,DC=invalid')
+    $groups=ConvertTo-DomeniaMembershipRows @('CN=GG-Compta,OU=Groupes,OU=Lyon,DC=example,DC=invalid','cn=gg-compta,ou=groupes,ou=lyon,dc=example,dc=invalid','') MemberOf
+    Assert-Equal 1 @($groups).Count 'Doublon ecarte sans tenir compte de la casse'
+    Assert-Equal 'GG-Compta' $groups[0].Name;Assert-Equal 'Groupe' $groups[0].Type;Assert-Equal 'example.invalid / Lyon / Groupes' $groups[0].Ou
+    Assert-Equal 'CN=GG-Compta,OU=Groupes,OU=Lyon,DC=example,DC=invalid' $groups[0].Dn;Assert-Equal 'Directe' $groups[0].Membership
+    $types=@{'CN=PC-01,OU=Postes,DC=example,DC=invalid'='Machine'}
+    $members=ConvertTo-DomeniaMembershipRows @('cn=pc-01,ou=postes,dc=example,dc=invalid','CN=Inconnu,OU=Postes,DC=example,DC=invalid') Members $types
+    Assert-Equal 'Machine' $members[0].Type 'Type lu dans la copie locale'
+    Assert-Equal 'Non lu' $members[1].Type 'Type jamais devine depuis le nom'
+    Assert-Equal 2 @(ConvertTo-DomeniaMembershipRows @(1..5|ForEach-Object{'CN=M'+$_+',DC=x'}) Members $null 2).Count 'Borne du nombre de lignes'
+    Assert-True (Test-DomeniaMembershipRow $groups[0] 'compta lyon');Assert-False (Test-DomeniaMembershipRow $groups[0] 'compta paris')
+    Assert-True (Test-DomeniaMembershipRow $groups[0] '  ') 'Filtre vide'
+}
+Test-Case 'UI-06' 'Groupes imbriques et « Pourquoi membre ? » depuis les appartenances lues' {
+    $u='CN=Jean Dupont,OU=RH,DC=example,DC=invalid';$g1='CN=GG-Lyon,DC=example,DC=invalid';$g2='CN=GG-RH,DC=example,DC=invalid';$g3='CN=GG-Compta,DC=example,DC=invalid';$g4='CN=GU-Tous,DC=example,DC=invalid'
+    $json=[pscustomobject]@{}
+    foreach($pair in @(@($u,@($g1,$g2)),@($g1,@($g3)),@($g2,@($g3)),@($g3,$g4),@($g4,@($g1)))){Add-Member -InputObject $json -NotePropertyName $pair[0] -NotePropertyValue $pair[1]}
+    $edges=ConvertTo-DomeniaMembershipEdges $json
+    Assert-Equal 1 @($edges[$g3]).Count 'Un parent unique reste un DN';Assert-Equal $g4 @($edges[$g3])[0]
+    Assert-Equal 2 @((ConvertTo-DomeniaMembershipEdges @{$u=@($g1,$g2)})[$u]).Count 'Dictionnaire accepte'
+    $nested=@(Get-DomeniaNestedMembershipRows $edges $u)
+    Assert-Equal 2 $nested.Count 'Seuls les groupes atteints par imbrication, cycle G4-G1 sans boucle'
+    Assert-Equal 'GG-Compta' $nested[0].Name;Assert-Equal 2 $nested[0].Depth;Assert-Equal 'GG-Lyon' $nested[0].Via;Assert-Equal 'Imbriquée' $nested[0].Membership
+    Assert-Equal 'GU-Tous' $nested[1].Name;Assert-Equal 3 $nested[1].Depth
+    $direct=Get-DomeniaMembershipWhy -ObjectDn $u -GroupDn $g1 -Direct $true
+    Assert-True $direct.Member;Assert-False $direct.NeedsRead;Assert-True ($direct.Text.Contains('membre direct de « GG-Lyon »'))
+    Assert-True (Get-DomeniaMembershipWhy -ObjectDn $u -GroupDn $g4).NeedsRead 'Lecture au clic seulement'
+    $path=Get-DomeniaMembershipWhy -Edges $edges -ObjectDn $u -GroupDn $g4 -Read $true -ServerAnswer $true
+    Assert-True $path.Member;Assert-Equal 'Jean Dupont,GG-Lyon,GG-Compta,GU-Tous' ($path.Path -join ',')
+    Assert-True ($path.Text.Contains('Jean Dupont → GG-Lyon → GG-Compta → GU-Tous (3 niveaux)') -and $path.Text.Contains('Le contrôleur confirme')) $path.Text
+    $cut=Get-DomeniaMembershipWhy -Edges @{$u=@($g1)} -ObjectDn $u -GroupDn $g4 -Read $true -Truncated $true
+    Assert-True ($null -eq $cut.Member);Assert-True ($cut.Text.Contains('indéterminée')) 'Une lecture bornee ne conclut pas a une absence'
+    $no=Get-DomeniaMembershipWhy -Edges @{$u=@($g1)} -ObjectDn $u -GroupDn $g4 -Read $true -ServerAnswer $false
+    Assert-False $no.Member;Assert-True ($no.Text.Contains('nʼest pas membre'))
+    $unknown=Get-DomeniaMembershipWhy -Edges @{$u=@($g1)} -ObjectDn $u -GroupDn $g4 -Read $true
+    Assert-False $unknown.Known;Assert-True ($unknown.Text.Contains('groupe principal'))
+}

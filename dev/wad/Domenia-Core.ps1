@@ -796,14 +796,18 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnGroupAddMember" = "Default"
     "BtnGroupRemoveMember" = "Default"
     "LblGroupMembers" = "Default"
-    "LstGroupMembers" = "Default"
+    "DgGroupMembers" = "Default"
+    "TxtGroupMembersFilter" = "Default"
     "TabContainer" = "Default"
     "TxtNewOuParent" = "Default"
     "TxtNewOuName" = "Default"
     "BtnCreateOu" = "Default"
     "TabMemberOf" = "Default"
     "LblMemberOf" = "Default"
-    "LstMemberOf" = "Default"
+    "DgMemberOf" = "Default"
+    "TxtMemberOfFilter" = "Default"
+    "BtnMemberOfNested" = "Default"
+    "LblMembershipWhy" = "Default"
     "TabRaw" = "Default"
     "TxtRawAttrName" = "Default"
     "TxtRawAttrValue" = "Default"
@@ -5987,9 +5991,20 @@ function Get-MainXaml {
                             <Button x:Name="BtnGroupAddMember" ToolTip="Ajoute le membre indique au groupe." Content="Ajouter membre" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ajouter membre" AutomationProperties.HelpText="Ajoute le membre indique au groupe."/>
                             <Button x:Name="BtnGroupRemoveMember" ToolTip="Retire le membre indique du groupe." Content="Retirer membre" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Retirer membre" AutomationProperties.HelpText="Retire le membre indique du groupe."/>
                           </WrapPanel>
-                          <TextBlock x:Name="LblGroupMembers" Text="Membres" Foreground="{DynamicResource MutedColor}"/>
+                          <!-- UI-06: readable members (Nom, Type, OU; DN in the tooltip of the row) with a local filter and a counter. -->
+                          <DockPanel LastChildFill="True">
+                            <Grid DockPanel.Dock="Right" Width="220" Margin="8,0,0,0"><TextBox x:Name="TxtGroupMembersFilter" MinHeight="30" MaxLength="120" VerticalContentAlignment="Center" ToolTip="Filtre les membres affichés par nom, type, OU ou DN. Aucune requête AD : seuls les membres déjà lus sont filtrés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtrer les membres" AutomationProperties.HelpText="Filtre les membres affichés par nom, type, OU ou DN. Aucune requête AD : seuls les membres déjà lus sont filtrés."/><TextBlock Text="nom, type, OU… (sans requête AD)" Margin="8,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" FontSize="12" Foreground="{DynamicResource MutedColor}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=TxtGroupMembersFilter}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></Grid>
+                            <TextBlock x:Name="LblGroupMembers" Text="Membres" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                          </DockPanel>
                         </StackPanel>
-                        <ListBox x:Name="LstGroupMembers" ToolTip="Membres directs du groupe. Clic droit pour rechercher ou copier." FontFamily="Consolas" FontSize="12" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Membres directs du groupe" AutomationProperties.HelpText="Membres directs du groupe. Clic droit pour rechercher ou copier."/>
+                        <DataGrid x:Name="DgGroupMembers" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" CanUserSortColumns="True" EnableRowVirtualization="True" MinRowHeight="28" HeadersVisibility="Column" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTip="Membres directs du groupe : nom, type (connu de la copie locale) et OU ; le DN complet est dans lʼinfobulle de la ligne. Clic droit pour rechercher lʼobjet ou copier son DN." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Membres directs du groupe" AutomationProperties.HelpText="Membres directs du groupe : nom, type (connu de la copie locale) et OU ; le DN complet est dans lʼinfobulle de la ligne. Clic droit pour rechercher lʼobjet ou copier son DN.">
+                          <DataGrid.RowStyle><Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}"><Setter Property="ToolTip" Value="{Binding Dn}"/></Style></DataGrid.RowStyle>
+                          <DataGrid.Columns>
+                            <DataGridTextColumn Header="Nom" Binding="{Binding Name}" Width="260"/>
+                            <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="110"/>
+                            <DataGridTextColumn Header="OU" Binding="{Binding Ou}" Width="*" MinWidth="220"/>
+                          </DataGrid.Columns>
+                        </DataGrid>
                       </DockPanel>
                     </Border>
                   </TabItem>
@@ -6020,8 +6035,24 @@ function Get-MainXaml {
                   <TabItem x:Name="TabMemberOf" ToolTip="Groupes dont cet objet est membre." Header="Appartenances" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Appartenances" AutomationProperties.HelpText="Groupes dont cet objet est membre.">
                     <Border Style="{StaticResource Card}" Margin="4">
                       <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" x:Name="LblMemberOf" Text="Groupes" Foreground="{DynamicResource MutedColor}" Margin="0,0,0,8"/>
-                        <ListBox x:Name="LstMemberOf" ToolTip="Groupes dont cet objet est membre. Clic droit pour rechercher ou copier." FontFamily="Consolas" FontSize="12" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Groupes" AutomationProperties.HelpText="Groupes dont cet objet est membre. Clic droit pour rechercher ou copier."/>
+                        <!-- UI-06: readable groups (Nom, Type, OU; DN in the tooltip of the row), local filter, counter, nested groups read on
+                             demand and « Pourquoi membre ? » (context menu). -->
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8" LastChildFill="True">
+                          <Button x:Name="BtnMemberOfNested" DockPanel.Dock="Right" Content="Groupes imbriqués" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,2" Margin="8,0,0,0" ToolTip="Lit, à la demande, les groupes dont ces groupes sont membres (2 000 groupes, 16 niveaux et 10 secondes au plus) et les ajoute à la liste comme appartenances imbriquées. Lecture seule ; aucun parcours du domaine." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lire les groupes imbriqués" AutomationProperties.HelpText="Lit, à la demande, les groupes dont ces groupes sont membres (2 000 groupes, 16 niveaux et 10 secondes au plus) et les ajoute à la liste comme appartenances imbriquées. Lecture seule ; aucun parcours du domaine."/>
+                          <Grid DockPanel.Dock="Right" Width="220" Margin="8,0,0,0"><TextBox x:Name="TxtMemberOfFilter" MinHeight="30" MaxLength="120" VerticalContentAlignment="Center" ToolTip="Filtre les groupes affichés par nom, OU, appartenance ou DN. Aucune requête AD : seuls les groupes déjà lus sont filtrés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtrer les groupes" AutomationProperties.HelpText="Filtre les groupes affichés par nom, OU, appartenance ou DN. Aucune requête AD : seuls les groupes déjà lus sont filtrés."/><TextBlock Text="nom, OU… (sans requête AD)" Margin="8,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" FontSize="12" Foreground="{DynamicResource MutedColor}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=TxtMemberOfFilter}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></Grid>
+                          <TextBlock x:Name="LblMemberOf" Text="Groupes" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                        </DockPanel>
+                        <TextBlock x:Name="LblMembershipWhy" DockPanel.Dock="Bottom" Visibility="Collapsed" TextWrapping="Wrap" Margin="0,8,0,0" ToolTip="Réponse de « Pourquoi membre ? » : appartenance directe, chemin des groupes imbriqués lus, ou lecture incomplète. Le groupe principal nʼest pas compris dans memberOf." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Pourquoi membre" AutomationProperties.HelpText="Réponse de « Pourquoi membre ? » : appartenance directe, chemin des groupes imbriqués lus, ou lecture incomplète. Le groupe principal nʼest pas compris dans memberOf."/>
+                        <DataGrid x:Name="DgMemberOf" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" CanUserSortColumns="True" EnableRowVirtualization="True" MinRowHeight="28" HeadersVisibility="Column" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTip="Groupes dont cet objet est membre : nom, OU et appartenance (directe, ou imbriquée après « Groupes imbriqués ») ; le DN complet est dans lʼinfobulle de la ligne. Clic droit : rechercher, copier le DN, « Pourquoi membre ? »." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Groupes de lʼobjet" AutomationProperties.HelpText="Groupes dont cet objet est membre : nom, OU et appartenance (directe, ou imbriquée après « Groupes imbriqués ») ; le DN complet est dans lʼinfobulle de la ligne. Clic droit : rechercher, copier le DN, « Pourquoi membre ? ».">
+                          <DataGrid.RowStyle><Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}"><Setter Property="ToolTip" Value="{Binding Dn}"/></Style></DataGrid.RowStyle>
+                          <DataGrid.Columns>
+                            <DataGridTextColumn Header="Nom" Binding="{Binding Name}" Width="240"/>
+                            <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="90"/>
+                            <DataGridTextColumn Header="OU" Binding="{Binding Ou}" Width="*" MinWidth="200"/>
+                            <DataGridTextColumn Header="Appartenance" Binding="{Binding Membership}" Width="110"/>
+                            <DataGridTextColumn Header="Via" Binding="{Binding Via}" Width="180"/>
+                          </DataGrid.Columns>
+                        </DataGrid>
                       </DockPanel>
                     </Border>
                   </TabItem>
@@ -8486,8 +8517,8 @@ function Clear-ObjectDetails {
     Set-DomeniaManagerField -Target 'Utilisateur' -Dn ''
     Set-DomeniaManagerField -Target 'Machine' -Dn ''
     try { [void](Set-DomeniaItemsSource -Name "TxtUserLinkedComputers" -Rows @()) } catch { }
-    try { $script:Ctrl["LstMemberOf"].ItemsSource=$null; $script:Ctrl["LstMemberOf"].Items.Clear() } catch { }
-    try { $script:Ctrl["LstGroupMembers"].ItemsSource=$null; $script:Ctrl["LstGroupMembers"].Items.Clear() } catch { }
+    # UI-06: the membership grids of the previous object are emptied (Membership.UI).
+    try { Clear-DomeniaMembershipLists } catch { }
     try { $script:Ctrl["DgRawAttrs"].ItemsSource = $null } catch { }
 }
 
@@ -8577,9 +8608,7 @@ function Reset-DomeniaSelectionBoundViews {
             }
         }
 
-        foreach ($listName in @("LstMemberOf","LstGroupMembers")) {
-            try { $script:Ctrl[$listName].Items.Clear() } catch { }
-        }
+        try { Clear-DomeniaMembershipLists } catch { }
         foreach ($listName in @($script:Ctrl.Keys)) {
             if ($listName -like "LstWmi*") {
                 try { $script:Ctrl[$listName].Items.Clear() } catch { }
@@ -8804,9 +8833,8 @@ function Fill-UserObject {
     # Rendering is read-only. In particular, a cached fiche must never refresh the
     # persistent observation time or replace a newer committed directory record.
     Sync-DomeniaResultRowFromEntry -Entry $Entry -Type "Utilisateur"
-    $script:Ctrl["LstMemberOf"].Items.Clear()
-    foreach ($g in (Get-DePropAll $Entry "memberOf")) { [void]$script:Ctrl["LstMemberOf"].Items.Add([string]$g) }
-    $script:Ctrl["LblMemberOf"].Text = "$($script:Ctrl["LstMemberOf"].Items.Count) groupe(s)"
+    # UI-06: groups as a readable grid (Membership.UI).
+    Set-DomeniaMembershipList -Kind MemberOf -Dns @(Get-DePropAll $Entry "memberOf") -ObjectDn ([string](Get-DeProp $Entry "distinguishedName" "")) -Complete ([bool](Get-DeProp $Entry '__memberOfComplete' $true)) -Note ([string](Get-DeProp $Entry '__memberOfNote' ''))
 }
 
 function Fill-DomeniaUserContact {
@@ -8892,9 +8920,8 @@ function Fill-ComputerObject {
         Set-DomeniaPresenceText -Name "TxtCompPresence" -State "Inconnu"
         Update-DomeniaObjectPresence -State "Inconnu" -Target ""
     }
-    $script:Ctrl["LstMemberOf"].Items.Clear()
-    foreach ($g in (Get-DePropAll $Entry "memberOf")) { [void]$script:Ctrl["LstMemberOf"].Items.Add([string]$g) }
-    $script:Ctrl["LblMemberOf"].Text = "$($script:Ctrl["LstMemberOf"].Items.Count) groupe(s)"
+    # UI-06: groups as a readable grid (Membership.UI).
+    Set-DomeniaMembershipList -Kind MemberOf -Dns @(Get-DePropAll $Entry "memberOf") -ObjectDn ([string](Get-DeProp $Entry "distinguishedName" "")) -Complete ([bool](Get-DeProp $Entry '__memberOfComplete' $true)) -Note ([string](Get-DeProp $Entry '__memberOfNote' ''))
     try {
         $computerForLink = Normalize-LinkComputer ([string](Get-DeProp $Entry "name" ""))
         $link = Get-ExistingLinkForComputer -Computer $computerForLink
@@ -8941,12 +8968,10 @@ function Fill-GroupObject {
     $script:Ctrl["TxtGroupDescription"].Text = [string](Get-DeProp $Entry "description" "")
     # Point 25: the members are read by ranges (up to 50 000); the list shows 2 000 of them and says how many exist,
     # and why a reading stayed partial.
-    $members=@(Get-DePropAll $Entry "member")
-    $script:Ctrl["LstGroupMembers"].ItemsSource=[string[]]@($members|Select-Object -First 2000)
-    $script:Ctrl["LblGroupMembers"].Text = Get-DomeniaMembershipLabel -Shown $script:Ctrl["LstGroupMembers"].Items.Count -Total $members.Count -Complete ([bool](Get-DeProp $Entry '__memberComplete' $false)) -Note ([string](Get-DeProp $Entry '__memberNote' '')) -Noun 'membre(s) direct(s)'
-    $memberOf=@(Get-DePropAll $Entry "memberOf")
-    $script:Ctrl["LstMemberOf"].ItemsSource=[string[]]@($memberOf|Select-Object -First 2000)
-    $script:Ctrl["LblMemberOf"].Text = Get-DomeniaMembershipLabel -Shown $script:Ctrl["LstMemberOf"].Items.Count -Total $memberOf.Count -Complete ([bool](Get-DeProp $Entry '__memberOfComplete' $true)) -Note ([string](Get-DeProp $Entry '__memberOfNote' '')) -Noun 'groupe(s) direct(s)'
+    # UI-06: members and groups as readable grids with their counter (Membership.UI, Get-DomeniaMembershipLabel).
+    $groupDn = [string](Get-DeProp $Entry "distinguishedName" "")
+    Set-DomeniaMembershipList -Kind Members -Dns @(Get-DePropAll $Entry "member") -ObjectDn $groupDn -Complete ([bool](Get-DeProp $Entry '__memberComplete' $false)) -Note ([string](Get-DeProp $Entry '__memberNote' ''))
+    Set-DomeniaMembershipList -Kind MemberOf -Dns @(Get-DePropAll $Entry "memberOf") -ObjectDn $groupDn -Complete ([bool](Get-DeProp $Entry '__memberOfComplete' $true)) -Note ([string](Get-DeProp $Entry '__memberOfNote' ''))
 }
 
 function Fill-ContainerObject {
@@ -15011,21 +15036,9 @@ function Register-DomeniaContextMenus {
         catch { }
     }
 
-    # Les listes de groupes offrent la recherche directe du membre clique.
-    foreach ($listName in @("LstMemberOf","LstGroupMembers")) {
-        try {
-            $list = Get-DomeniaControl -Name $listName
-            if ($null -eq $list) { continue }
-            $menu = New-Object System.Windows.Controls.ContextMenu
-            [void]$menu.Items.Add((New-DomeniaMenuItem -Header "Rechercher cet objet" `
-                -Action ([scriptblock]::Create('$l = Get-DomeniaControl -Name "' + $listName + '"; if ($null -ne $l -and $null -ne $l.SelectedItem) { Start-DomeniaSearchFor -Term ([string]$l.SelectedItem) }'))))
-            [void]$menu.Items.Add((New-DomeniaMenuItem -Header "Copier le DN" `
-                -Action ([scriptblock]::Create('$l = Get-DomeniaControl -Name "' + $listName + '"; if ($null -ne $l -and $null -ne $l.SelectedItem) { Set-ClipboardSafe ([string]$l.SelectedItem); Set-Status "DN copie." }'))))
-            $list.ContextMenu = $menu
-            $applied++
-        }
-        catch { }
-    }
+    # UI-06: the membership grids offer the search of the clicked object, the copy of its DN and, for the groups of the
+    # fiche, « Pourquoi membre ? » and the nested groups (Membership.UI).
+    try { $applied += [int](Register-DomeniaMembershipUi) } catch { }
 
     Add-DomeniaUiLog -Area "Interface" -Text ("Menus contextuels actifs sur {0} controle(s)." -f $applied)
     return $applied

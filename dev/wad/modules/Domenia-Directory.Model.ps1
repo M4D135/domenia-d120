@@ -726,3 +726,140 @@ function Get-DomeniaLocalTotalsSummary {
     if (-not $when) { $head = 'Totaux de la copie locale, date de synchronisation inconnue' }
     return [pscustomobject]@{Known=[bool]$when;Total=$total;When=$when;Text=($head + ' : ' + ($parts.ToArray() -join ' · ') + '.')}
 }
+
+# ---------------------------------------------------------------- UI-06 readable memberships and « Pourquoi membre ? »
+function Get-DomeniaDnDisplayName {
+    # Display name of a DN: the value of its first RDN, escapes decoded ('CN=Dupont\, Jean,OU=X' -> 'Dupont, Jean').
+    param([AllowEmptyString()][AllowNull()][string]$Dn)
+    $text = ([string]$Dn).Trim()
+    $parts = @(Split-DomeniaDn $text)
+    if (-not $parts.Count) { return $text }
+    $first = [string]$parts[0]
+    $equals = $first.IndexOf('=')
+    if ($equals -lt 1) { return $first }
+    return (ConvertFrom-DomeniaDnValue ($first.Substring($equals + 1)))
+}
+
+function ConvertTo-DomeniaMembershipRows {
+    # UI-06: the members of a group, or the groups of an object, as readable rows: Name (first RDN), Type, Ou (readable
+    # path of the parent, same separator as the OU explorer) and Dn (tooltip, copy, actions). -Kind MemberOf: every row
+    # is a group (memberOf only lists groups). Members: the type comes from the local copy ($Types: DN -> type, a
+    # case-insensitive dictionary such as @{}) and is
+    # 'Non lu' when the copy does not know the DN; it is never guessed from a name. Duplicates are dropped, $Max rows kept.
+    param([string[]]$Dns=@(),[ValidateSet('Members','MemberOf')][string]$Kind='Members',$Types=$null,[int]$Max=2000)
+    $rows = New-Object 'System.Collections.Generic.List[object]'
+    $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    foreach ($dn in @($Dns)) {
+        $text = ([string]$dn).Trim()
+        if ((-not $text) -or (-not $seen.Add($text))) { continue }
+        if ($rows.Count -ge [Math]::Max(1,$Max)) { break }
+        $type = 'Non lu'
+        if ($Kind -eq 'MemberOf') { $type = 'Groupe' }
+        elseif (($Types -is [Collections.IDictionary]) -and $Types.Contains($text)) {
+            $known = [string]$Types[$text]
+            if ($known) { $type = $known }
+        }
+        $rows.Add([pscustomobject]@{Name=(Get-DomeniaDnDisplayName $text);Type=$type;Ou=(Get-DomeniaOuDisplayPath (Get-DomeniaDnParent $text));Dn=$text;Membership='Directe';Depth=1;Via=''})
+    }
+    return ,$rows.ToArray()
+}
+
+function Test-DomeniaMembershipRow {
+    # UI-06: local filter of the membership grids. Every word must appear in the name, type, OU, DN or path (no request).
+    param($Row,[AllowEmptyString()][AllowNull()][string]$Text)
+    if ($null -eq $Row) { return $false }
+    $words = @(([string]$Text).Trim() -split '\s+' | Where-Object { $_ })
+    if (-not $words.Count) { return $true }
+    $haystack = (@('Name','Type','Ou','Dn','Membership','Via') | ForEach-Object { [string](Get-DomeniaMember $Row $_ '') }) -join ' '
+    foreach ($word in $words) { if ($haystack.IndexOf([string]$word,[StringComparison]::OrdinalIgnoreCase) -lt 0) { return $false } }
+    return $true
+}
+
+function ConvertTo-DomeniaMembershipEdges {
+    # UI-06: memberOf edges of a GroupPathRead answer (DN -> parent DNs) as a dictionary, whether they arrive as a
+    # hashtable or as an object (isolated read, JSON). A single parent stays one DN, never a list of characters.
+    param($Value)
+    $edges = @{}
+    if ($null -eq $Value) { return $edges }
+    $pairs = @()
+    if ($Value -is [Collections.IDictionary]) { $pairs = @($Value.Keys | ForEach-Object { [pscustomobject]@{Name=[string]$_;Value=$Value[$_]} }) }
+    else { $pairs = @($Value.PSObject.Properties | ForEach-Object { [pscustomobject]@{Name=[string]$_.Name;Value=$_.Value} }) }
+    foreach ($pair in $pairs) {
+        if (-not $pair.Name) { continue }
+        $parents = New-Object 'System.Collections.Generic.List[string]'
+        if ($pair.Value -is [string]) { if ($pair.Value) { $parents.Add([string]$pair.Value) } }
+        elseif ($pair.Value -is [Collections.IEnumerable]) { foreach ($item in $pair.Value) { if ($item) { $parents.Add([string]$item) } } }
+        $edges[$pair.Name] = $parents.ToArray()
+    }
+    return $edges
+}
+
+function Get-DomeniaNestedMembershipRows {
+    # UI-06: the groups reached only through other groups (depth 2 or more), from one breadth-first walk of the edges:
+    # Via names the direct group the shortest path goes through, Depth counts the levels. Direct groups are not repeated.
+    param([Collections.IDictionary]$Edges,[Parameter(Mandatory=$true)][string]$ObjectDn,[ValidateRange(1,64)][int]$MaxDepth=16,[int]$Max=2000)
+    $rows = New-Object 'System.Collections.Generic.List[object]'
+    if ($null -eq $Edges) { return ,$rows.ToArray() }
+    $comparer = [StringComparer]::OrdinalIgnoreCase
+    $lookup = New-Object 'System.Collections.Generic.Dictionary[string,object]' $comparer
+    foreach ($key in @($Edges.Keys)) { $lookup[[string]$key] = $Edges[$key] }
+    $depth = New-Object 'System.Collections.Generic.Dictionary[string,int]' $comparer
+    $via = New-Object 'System.Collections.Generic.Dictionary[string,string]' $comparer
+    $queue = New-Object 'System.Collections.Generic.Queue[string]'
+    $depth[$ObjectDn] = 0; $queue.Enqueue($ObjectDn)
+    while ($queue.Count -gt 0) {
+        $node = $queue.Dequeue()
+        if ($depth[$node] -ge $MaxDepth) { continue }
+        if (-not $lookup.ContainsKey($node)) { continue }
+        $value = $lookup[$node]
+        $parents = New-Object 'System.Collections.Generic.List[string]'
+        if ($value -is [string]) { $parents.Add($value) } elseif ($value -is [Collections.IEnumerable]) { foreach ($item in $value) { if ($item) { $parents.Add([string]$item) } } }
+        foreach ($parent in $parents) {
+            if ($depth.ContainsKey($parent)) { continue }
+            $depth[$parent] = $depth[$node] + 1
+            $via[$parent] = $(if ($depth[$node] -eq 0) { $parent } else { $via[$node] })
+            $queue.Enqueue($parent)
+            if ($depth[$parent] -ge 2) {
+                if ($rows.Count -ge [Math]::Max(1,$Max)) { break }
+                $rows.Add([pscustomobject]@{Name=(Get-DomeniaDnDisplayName $parent);Type='Groupe';Ou=(Get-DomeniaOuDisplayPath (Get-DomeniaDnParent $parent));Dn=$parent;Membership='Imbriquée';Depth=$depth[$parent];Via=(Get-DomeniaDnDisplayName $via[$parent])})
+            }
+        }
+    }
+    return ,$rows.ToArray()
+}
+
+function Get-DomeniaMembershipWhy {
+    # UI-06 / D064: « Pourquoi membre ? » for one group of an object. A direct group needs no reading; otherwise the path
+    # comes from the memberOf edges read on demand (Find-DomeniaMembershipPath) and, when it was asked, from the
+    # controller's transitive answer. A truncated or partial walk never concludes that the object is not a member.
+    param([Collections.IDictionary]$Edges=$null,[Parameter(Mandatory=$true)][string]$ObjectDn,[Parameter(Mandatory=$true)][string]$GroupDn,
+        [bool]$Direct=$false,[bool]$Read=$false,[bool]$Truncated=$false,[int]$Unread=0,$ServerAnswer=$null)
+    $object = Get-DomeniaDnDisplayName $ObjectDn
+    $group = Get-DomeniaDnDisplayName $GroupDn
+    if ($Direct) {
+        return [pscustomobject]@{Known=$true;NeedsRead=$false;Member=$true;Path=@($object,$group);Text=('« ' + $object + ' » est membre direct de « ' + $group + ' » : lʼattribut member du groupe le nomme.')}
+    }
+    if (-not $Read) {
+        return [pscustomobject]@{Known=$false;NeedsRead=$true;Member=$null;Path=@();Text=('Lecture des groupes imbriqués nécessaire pour expliquer lʼappartenance à « ' + $group + ' ».')}
+    }
+    $found = $null
+    if ($null -ne $Edges) { $found = Find-DomeniaMembershipPath -Edges $Edges -Start $ObjectDn -Target $GroupDn }
+    $answer = Resolve-DomeniaMembershipAnswer -ServerAnswer $ServerAnswer -LocalPath $found -ListTruncated ($Truncated -or ($Unread -gt 0))
+    $server = ''
+    if ($ServerAnswer -eq $true) { $server = ' Le contrôleur confirme lʼappartenance (directe ou imbriquée).' }
+    elseif ($ServerAnswer -eq $false) { $server = ' Le contrôleur indique que ce compte nʼen est pas membre.' }
+    if (($null -ne $found) -and [bool]$found.Found) {
+        $names = @($found.Path | ForEach-Object { Get-DomeniaDnDisplayName $_ })
+        $levels = $names.Count - 1
+        $text = '« ' + $object + ' » est membre de « ' + $group + ' » par imbrication : ' + ($names -join ' → ') + ' (' + $levels + ' niveaux).' + $server
+        return [pscustomobject]@{Known=$true;NeedsRead=$false;Member=$true;Path=$names;Text=$text}
+    }
+    if ($answer.Member -eq $true) { return [pscustomobject]@{Known=$true;NeedsRead=$false;Member=$true;Path=@();Text=('« ' + $object + ' » est membre de « ' + $group + ' », mais aucun chemin nʼa été trouvé dans les groupes lus (groupe principal, autre domaine ou groupe non lisible).' + $server)} }
+    if ($null -eq $answer.Member) {
+        $missing = ''
+        if ($Unread -gt 0) { $missing = ' ' + $Unread + ' groupe(s) non lu(s).' }
+        return [pscustomobject]@{Known=$false;NeedsRead=$false;Member=$null;Path=@();Text=('Appartenance à « ' + $group + ' » indéterminée : la lecture des groupes imbriqués est incomplète.' + $missing + $server)}
+    }
+    if ($ServerAnswer -eq $false) { return [pscustomobject]@{Known=$true;NeedsRead=$false;Member=$false;Path=@();Text=('« ' + $object + ' » nʼest pas membre de « ' + $group + ' » pour ce compte de lecture.')} }
+    return [pscustomobject]@{Known=$false;NeedsRead=$false;Member=$false;Path=@();Text=('Aucun chemin vers « ' + $group + ' » dans les groupes lus ; le groupe principal et les groupes dʼautres domaines ne sont pas couverts.')}
+}
