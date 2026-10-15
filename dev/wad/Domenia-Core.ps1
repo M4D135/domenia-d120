@@ -27919,13 +27919,13 @@ function Initialize-Window {
                     $script:StorageMaintenance=[pscustomobject]@{Id='recovery-unreadable';Mode='Restore';Recovery=$true;Locked=$true;Hold=$true;Draining=$false;DrainNext='';DrainUntil=[datetime]::MinValue;Epoch=[long]$script:SessionEpoch;Path=[string]$script:DatabaseScopedPath;DomainDn=[string]$script:Conn.BaseDn;SourcePath='';TargetPath='';Fingerprint='';Job='';Receipt=$null}
                     [void](Set-DomeniaControlText 'LblStorageMaintenance' ('Base locale illisible, laissée intacte : '+[string]$script:DatabaseScopedPath+'. Restaurez une sauvegarde vérifiée avec « Restaurer une sauvegarde… ». Détail : '+$bootError))
                     Write-AppLog ('Base locale illisible au démarrage, mode restauration : '+$bootError) 'ERROR'
-                    Set-DomeniaStartupStage -Stage 'Base locale illisible' -Detail 'Restaurez une sauvegarde vérifiée dans Outils, Base locale, Stockage.'
+                    Set-DomeniaStartupStage -Stage 'Base locale illisible' -Detail 'Restaurez une sauvegarde vérifiée dans Outils, Base autonome, Stockage.'
                     return
                 }
                 # Keep the UI reachable for recovery. Never silently write to an old copy after a move.
                 $script:StorageMaintenance=[pscustomobject]@{Id='recovery-pending';Locked=$true;Hold=$true;Draining=$false;Recovery=$false;Epoch=[long]$script:SessionEpoch;Path=[string]$script:DatabaseScopedPath;Job='';Receipt=$null}
                 [void](Request-DomeniaStorageRecovery -Path ([string]$script:DatabaseScopedPath) -DomainDn ([string]$script:Conn.BaseDn))
-                Set-DomeniaStartupStage -Stage 'Base locale en attente' -Detail 'Une bascule doit être reprise dans Outils, Base locale, Stockage.'
+                Set-DomeniaStartupStage -Stage 'Base locale en attente' -Detail 'Une bascule doit être reprise dans Outils, Base autonome, Stockage.'
                 return
             }
             Set-DomeniaStartupStage -Stage "Base autonome DOMENIA" -Detail ("SQLite pret en " + $dbBoot.ElapsedMilliseconds + " ms")
@@ -27958,8 +27958,8 @@ function Initialize-Window {
         Invoke-DomeniaStartupStage "Prechargement cache AD" { Invoke-DomeniaStartupCacheWarmup } | Out-Null
         Invoke-DomeniaStartupStage "Preparation arbre AD" {
             if($null -ne $script:StorageMaintenance -and $script:StorageMaintenance.Locked){
-                if([string]$script:StorageMaintenance.Id -ceq 'recovery-unreadable'){Set-Status 'Base locale illisible : restaurez une sauvegarde vérifiée dans Outils > Base locale > Stockage. Les collectes sont suspendues.' 'WARN'}
-                else{Set-Status 'Bascule locale à reprendre dans Outils > Base locale > Stockage. Les collectes sont suspendues.' 'WARN'}
+                if([string]$script:StorageMaintenance.Id -ceq 'recovery-unreadable'){Set-Status 'Base locale illisible : restaurez une sauvegarde vérifiée dans Outils > Base autonome > Stockage. Les collectes sont suspendues.' 'WARN'}
+                else{Set-Status 'Bascule locale à reprendre dans Outils > Base autonome > Stockage. Les collectes sont suspendues.' 'WARN'}
             }else{Load-TreeRoot;Update-Dashboard}
         } | Out-Null
         Invoke-DomeniaStartupStage "Barriere de disponibilite" { Assert-DomeniaStartupReadiness } | Out-Null

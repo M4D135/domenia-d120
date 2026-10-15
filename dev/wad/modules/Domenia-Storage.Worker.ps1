@@ -1896,6 +1896,10 @@ try{
     return [pscustomobject]@{Kind='StorageMaintenance';Action=$action;Committed=$true;OperationId=$operation.ToString('D');ActivePath=$active;TargetPath=$target;StoreId=$newId;DomainDn=$domain;Revision=$newRevision;Integrity='ok';OriginalPreserved=$true;Counts=$verified.Counts;ActiveReadable=$activeReadable;ActiveProblem=$activeProblem;RedirectWritten=$redirectWritten}
 }catch{
     if($published){throw ('Copie verifiee conservee dans '+$target+'. Bascule a verifier, original conserve. '+$_.Exception.Message)}
+    # A move or restore writes the active base only after the atomic publication of the verified copy: before it, the
+    # active base is untouched, no marker exists and the temporary copy is removed below. The UI releases its lock only
+    # on this statement.
+    if($action -in @('Move','Restore')){throw ('StorageNothingPublished : '+$_.Exception.Message)}
     throw
 }finally{
     if($backup -ne [IntPtr]::Zero){[void][Domenia.WinSqliteNative]::sqlite3_backup_finish($backup)}

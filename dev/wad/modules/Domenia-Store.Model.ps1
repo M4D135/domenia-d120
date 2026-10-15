@@ -276,15 +276,21 @@ function Get-DomeniaStorageMaintenancePreview {
     $freeText=if($free -ge 0){Format-DomeniaSize $free}else{'inconnu (volume non prêt)'}
     $lines.Add('Destination : '+[string](Get-DomeniaMember $target 'Path' '')+'. Espace libre : '+$freeText+' ; réserve exigée : '+(Format-DomeniaSize $required)+' (deux copies et 32 Mo de marge). Écriture testée dans le dossier.')
     $lines.Add('Étapes : 1. vérification (faite) ; 2. suspension des nouvelles collectes, enregistrement de la file, copie puis contrôle ; 3. bascule vers la copie vérifiée.')
-    if($Mode -eq 'Move'){$lines.Add('Retour arrière : le fichier dʼorigine est conservé en lecture seule ; « Revenir à la base précédente » reste possible tant que la nouvelle base nʼa reçu aucune écriture.')}
-    else{$lines.Add('La sauvegarde choisie nʼest jamais modifiée et la base active nʼest jamais écrasée : la base restaurée est un nouveau fichier.')}
+    if($Mode -eq 'Move'){$lines.Add('Retour arrière : le fichier dʼorigine est conservé en lecture seule ; après la bascule, « Revenir à la base précédente » reste possible tant que la nouvelle base nʼa reçu aucune écriture.')}
+    else{
+        $lines.Add('La sauvegarde choisie nʼest jamais modifiée et la base active nʼest jamais écrasée : la base restaurée est un nouveau fichier.')
+        $active=Get-DomeniaMember $Inspection 'Active'
+        if(($null -eq $active) -or [bool](Get-DomeniaMember $active 'Readable' $false)){$lines.Add('Retour arrière : après la bascule, « Revenir à la base précédente » reste possible tant que la base restaurée nʼa reçu aucune écriture.')}
+    }
     $title=if($Mode -eq 'Restore'){'Restaurer cette sauvegarde'}else{'Déplacer la base locale'}
     return [pscustomobject]@{Title=$title;ConfirmText='Copier, vérifier puis utiliser la nouvelle base';Lines=$lines.ToArray();Text=($lines -join [Environment]::NewLine)}
 }
 function Get-DomeniaStorageMaintenanceControlState {
     # Point 32. Which assistant buttons may act now. A drain or a running step blocks everything; a pending switch only
     # offers resume or rollback; a base declared unreadable at startup only accepts a restore (then a resume).
-    param($Maintenance=$null,[bool]$DemoMode=$false,[bool]$HasDatabase=$true)
+    # -CanUndo: the active base comes from a completed move or restore of this session whose original kept its marker;
+    # the worker still refuses the rollback once the new base has received a write.
+    param($Maintenance=$null,[bool]$DemoMode=$false,[bool]$HasDatabase=$true,[bool]$CanUndo=$false)
     $locked=[bool](Get-DomeniaMember $Maintenance 'Locked' $false)
     $draining=[bool](Get-DomeniaMember $Maintenance 'Draining' $false)
     $job=-not [string]::IsNullOrEmpty([string](Get-DomeniaMember $Maintenance 'Job' ''))
@@ -302,11 +308,12 @@ function Get-DomeniaStorageMaintenanceControlState {
     elseif($recovery -and (-not $receipt)){$text='Base locale illisible : restaurez une sauvegarde vérifiée. Les collectes restent suspendues.'}
     elseif($locked -and $discovering){$text='Lecture de la bascule interrompue en cours.'}
     elseif($locked){$text='Bascule à terminer : reprenez-la ou revenez à la base précédente. Aucun fichier ne sera supprimé.'}
+    elseif($CanUndo){$text='Base basculée dans cette session : « Revenir à la base précédente » reste possible tant que la nouvelle base nʼa reçu aucune écriture. Aucun fichier ne sera supprimé.'}
     return [pscustomobject]@{
         Move=($idle -and (-not $locked))
         Restore=($idle -and ((-not $locked) -or ($recovery -and (-not $receipt))))
         Resume=($idle -and $locked -and $target -and (-not $discovering) -and ((-not $recovery) -or $receipt))
-        Rollback=($idle -and $locked -and $target -and (-not $discovering) -and (-not $recovery))
+        Rollback=($idle -and (($locked -and $target -and (-not $discovering) -and (-not $recovery)) -or ((-not $locked) -and $CanUndo)))
         Text=$text
     }
 }
@@ -330,7 +337,14 @@ function Get-DomeniaStorageBackupSchedule {
     switch([string]$decision.Reason){
         'Scheduled' {$lines.Add('Prochaine sauvegarde : à la prochaine vérification (une par minute), dès quʼaucune opération locale nʼest en cours.')}
         'Busy' {$lines.Add('Prochaine sauvegarde : différée tant quʼune opération ou un enregistrement local est en cours.')}
-        'RetryCooldown' {$next=(ConvertFrom-DomeniaStorageUtc $LastAttemptUtc).AddMinutes(15);$lines.Add('Nouvel essai au plus tôt le '+(Format-DomeniaStorageDate $next.ToString('o'))+'.')}
+        'RetryCooldown' {
+            # The attempt date is taken when a backup starts: a success at or after it is not a failure to retry.
+            $attempt=ConvertFrom-DomeniaStorageUtc $LastAttemptUtc;$next=$attempt.AddMinutes(15)
+            if(($null -ne $last) -and ($last -ge $attempt)){
+                $due=$last.AddHours($policy.BackupHours);if($due -gt $next){$next=$due}
+                $lines.Add('Prochaine sauvegarde : au plus tôt le '+(Format-DomeniaStorageDate $next.ToString('o'))+', si Domenia est ouvert.')
+            }else{$lines.Add('Nouvel essai au plus tôt le '+(Format-DomeniaStorageDate $next.ToString('o'))+'.')}
+        }
         'Recent' {$next=$last.AddHours($policy.BackupHours);$lines.Add('Prochaine sauvegarde : au plus tôt le '+(Format-DomeniaStorageDate $next.ToString('o'))+', si Domenia est ouvert.')}
         'InvalidClock' {$lines.Add('Dernière sauvegarde datée après lʼhorloge du poste : planification arrêtée, vérifiez la date du poste.')}
     }
@@ -452,7 +466,7 @@ function Get-DomeniaStorageLimitLines {
     $policy=ConvertTo-DomeniaStoragePolicy $Policy
     $lines=New-Object 'System.Collections.Generic.List[string]'
     $lines.Add('Le stockage local nʼest pas illimité : chaque file, cache et série a une limite, et la base grandit avec ce qui est conservé.')
-    $lines.Add('Mémoire : file dʼécriture de 4 096 changements ou 32 Mo au plus (lots de 250 changements ou 4 Mo), 256 éléments en attente ; recherches et vues de 20 000 lignes au plus ; cache de recherche de 20 requêtes, chacune de 20 000 lignes et 32 Mo au plus.')
+    $lines.Add('Mémoire : file dʼécriture de 4 096 changements ou 32 Mo au plus (lots de 250 changements ou 4 Mo), 256 éléments en attente ; recherches de 20 000 lignes au plus.')
     if($null -ne $Engine){$lines.Add('Moteur : '+[string](Get-DomeniaMember $Engine 'MaxConcurrent' '?')+' tâches simultanées et '+[string](Get-DomeniaMember $Engine 'MaxQueued' '?')+' en attente au plus.')}
     $measured=Format-DomeniaStorageDate ([string](Get-DomeniaMember $Usage 'MeasuredUtc' ''))
     if($measured){$lines.Add('Disque : base de '+(Format-DomeniaSize ([long](Get-DomeniaMember $Usage 'DatabaseBytes' -1)))+', journal SQLite de '+(Format-DomeniaSize ([long](Get-DomeniaMember $Usage 'WalBytes' -1)))+', mesurés le '+$measured+'.')}
@@ -461,7 +475,7 @@ function Get-DomeniaStorageLimitLines {
     $lines.Add('Espace disque : nouvelles collectes suspendues sous '+(Format-DomeniaSize $suspend)+' libres, écritures refusées sous '+(Format-DomeniaSize $write)+' (seuils relevés de quatre fois la file en attente).')
     $retention=New-Object 'System.Collections.Generic.List[string]'
     foreach($family in @(Get-DomeniaStorageRetentionFamilies)){$days=[int]$policy.([string]$family.PolicyKey);$retention.Add([string]$family.Label+' '+$(if($days -gt 0){[string]$days+' j'}else{'sans limite'}))}
-    $lines.Add('Conservation : '+($retention -join ', ')+'. Mesures de performance : 10 000 dernières ; instantanés du parc : 400 jours ; sauvegardes : '+$policy.BackupKeep+' copies. Reçus gardés sans limite, détail compacté après chaque lot.')
+    $lines.Add('Conservation : '+($retention -join ', ')+'. Mesures de performance : 10 000 dernières ; instantanés du parc : 400 jours ; cache de recherche : 20 requêtes par périmètre, chacune de 20 000 lignes et 32 Mo au plus ; sauvegardes : '+$policy.BackupKeep+' copies. Reçus gardés sans limite, détail compacté après chaque lot.')
     $categories=@(Get-DomeniaMember $Usage 'Categories' @()|Where-Object{$null -ne $_})
     if($categories.Count){
         $byBytes=[bool](Get-DomeniaMember $Usage 'DbstatAvailable' $false)

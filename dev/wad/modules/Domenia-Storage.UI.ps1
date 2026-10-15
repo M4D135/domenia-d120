@@ -154,6 +154,9 @@ function Start-DomeniaStorageWork {
         $script:Persistence.LinkBusy=$hasLinkWork
     }
     if($null -eq $script:Persistence -or $script:AsyncEngineClosing -or $script:Persistence.Job -or -not $script:Persistence.Pending.Count){return}
+    # Points 32 and 34: while a maintenance step holds the base (copy, switch to finish, unreadable base) the queue waits
+    # untouched: no refused admission, no fault, no dropped import. The switch decides what happens to it.
+    if(($null -ne $script:StorageMaintenance) -and [bool]$script:StorageMaintenance.Locked){return}
     $import=@($script:Persistence.Pending.Values|Where-Object{$_.Kind -eq 'LegacyImport'}|Select-Object -First 1)
     $canStartImport=($import.Count -gt 0 -and -not $script:Persistence.LegacyImportJob)
     if(-not $canStartImport){
@@ -705,17 +708,22 @@ function Reset-DomeniaStoragePurgePreview {
     if($hadPreview){[void](Set-DomeniaControlText 'LblStoragePurge' 'Selection modifiee : refaites la simulation.')}
 }
 function Assert-DomeniaStoragePurgeReady {
+    # -AllowQueued (points 32 and 34): an interrupted switch holds the maintenance lock, so data already queued in memory
+    # cannot be written until it is resumed or rolled back. Only running work refuses then; the queue is kept for the
+    # rollback base and dropped, counted, after a switch to another base (Clear-DomeniaStoragePendingForOtherBase).
+    param([switch]$AllowQueued)
     if([bool]$script:DemoMode){throw 'Purge locale indisponible en demonstration.'}
     if([string]::IsNullOrWhiteSpace([string]$script:DatabaseScopedPath)){throw 'Aucune base locale active.'}
     if($script:AsyncEngineClosing){throw 'Fermeture en cours.'}
-    if($null -ne $script:DomeniaDirectoryReads){foreach($read in $script:DomeniaDirectoryReads.Values){if($null -ne $read -and (($null -ne $read.Input -and $read.Input.Count -gt 0) -or ($null -ne $read.BuildChanges -and $read.BuildChanges.Count -gt 0) -or $null -ne $read.Batch -or $read.InFlight -or ($null -ne $read.Collector -and -not $read.Collector.Done))){throw 'Des lectures annuaire attendent leur enregistrement. Attendez leur fin.'}}}
-    if($null -ne $script:Live -and $null -ne $script:Live.SavePending -and $script:Live.SavePending.Count -gt 0){throw 'Des mesures attendent encore leur enregistrement.'}
+    if($null -ne $script:DomeniaDirectoryReads){foreach($read in $script:DomeniaDirectoryReads.Values){if(($null -ne $read) -and ($read.InFlight -or (($null -ne $read.Collector) -and (-not $read.Collector.Done)) -or ((-not $AllowQueued) -and ((($null -ne $read.Input) -and ($read.Input.Count -gt 0)) -or (($null -ne $read.BuildChanges) -and ($read.BuildChanges.Count -gt 0)) -or ($null -ne $read.Batch))))){throw 'Des lectures annuaire attendent leur enregistrement. Attendez leur fin.'}}}
+    if((-not $AllowQueued) -and ($null -ne $script:Live) -and ($null -ne $script:Live.SavePending) -and ($script:Live.SavePending.Count -gt 0)){throw 'Des mesures attendent encore leur enregistrement.'}
     if($null -ne $script:ParkRun -and -not $script:ParkRun.Completed){throw 'Arretez le releve du parc avant la maintenance locale.'}
     # Every outstanding producer must finish; a late AD or workstation result can also refill the cache.
     if(@($script:AsyncJobs.Values|Where-Object{$null -ne $_}).Count -or @($script:DetachedReadJobs|Where-Object{$null -ne $_}).Count -or $script:ActiveWriteTaskId -or $script:WriteState -in @('Unknown','UnknownPending')){throw 'Une operation est encore active ou a verifier. Attendez sa fin puis refaites la simulation.'}
     if($null -ne $script:Live -and ($script:Live.SaveJob -or [int]$script:Live.SaveInFlight -gt 0)){throw 'Un enregistrement des observations est encore en cours.'}
     if($null -ne $script:Persistence){
-        if($script:Persistence.Job -or $script:Persistence.LinkBusy -or $script:Persistence.Pending.Count -or ($null -ne $script:Persistence.LinkRequestTimer -and $script:Persistence.LinkRequestTimer.IsEnabled)){throw 'Des modifications locales attendent leur enregistrement. Refaites la simulation apres cet enregistrement.'}
+        if($script:Persistence.Job -or $script:Persistence.LegacyImportJob){throw 'Un enregistrement local est encore en cours. Attendez sa confirmation.'}
+        if((-not $AllowQueued) -and ($script:Persistence.LinkBusy -or $script:Persistence.Pending.Count -or (($null -ne $script:Persistence.LinkRequestTimer) -and $script:Persistence.LinkRequestTimer.IsEnabled))){throw 'Des modifications locales attendent leur enregistrement. Refaites la simulation apres cet enregistrement.'}
     }
 }
 function Format-DomeniaStoragePurge {
@@ -956,9 +964,17 @@ function Get-DomeniaLocalDatabasePath {
     foreach($suffix in @('-wal','-shm','-journal')){if([IO.File]::Exists($full+$suffix) -and ([IO.File]::GetAttributes($full+$suffix) -band [IO.FileAttributes]::ReparsePoint)){throw 'Annexe SQLite redirigee refusee.'}}
     return $full
 }
+function Get-DomeniaStorageMaintenanceUndo {
+    # Point 31: the completed move, restore or resumed switch of this session that may still be undone: same epoch,
+    # same active base, original kept with its marker. The worker refuses once the new base has received a write.
+    $undo=$script:StorageLastSwitch
+    if($null -eq $undo){return $null}
+    if(([long]$undo.Epoch -ne [long]$script:SessionEpoch) -or ([string]$undo.TargetPath -cne [string]$script:DatabaseScopedPath)){return $null}
+    return $undo
+}
 function Update-DomeniaStorageMaintenanceControls {
     # Point 32: the four assistant buttons follow the maintenance state; the explanation line follows it too when idle.
-    $state=Get-DomeniaStorageMaintenanceControlState -Maintenance $script:StorageMaintenance -DemoMode ([bool]$script:DemoMode) -HasDatabase (-not [string]::IsNullOrWhiteSpace([string]$script:DatabaseScopedPath))
+    $state=Get-DomeniaStorageMaintenanceControlState -Maintenance $script:StorageMaintenance -DemoMode ([bool]$script:DemoMode) -HasDatabase (-not [string]::IsNullOrWhiteSpace([string]$script:DatabaseScopedPath)) -CanUndo ($null -ne (Get-DomeniaStorageMaintenanceUndo))
     foreach($pair in @(@('BtnStorageMove','Move'),@('BtnStorageRestore','Restore'),@('BtnStorageResume','Resume'),@('BtnStorageRollback','Rollback'))){
         $button=Get-DomeniaControl ([string]$pair[0]);if($null -ne $button){$button.IsEnabled=[bool]$state.([string]$pair[1])}
     }
@@ -978,7 +994,7 @@ function Get-DomeniaStorageCollectionRefusal {
     # Points 32 and 35: one admission rule for the explicit collections that fill the base (directory passes and
     # workstation reads). '' when a new collection may start; otherwise the sentence to show. Already collected data
     # keeps being written: only new collections wait.
-    if(Test-DomeniaStorageMaintenanceHold){return 'Maintenance de la base locale en cours : nouvelles collectes suspendues jusquʼà la fin de lʼassistant (Outils > Base locale > Stockage).'}
+    if(Test-DomeniaStorageMaintenanceHold){return 'Maintenance de la base locale en cours : nouvelles collectes suspendues jusquʼà la fin de lʼassistant (Outils > Base autonome > Stockage).'}
     if(($null -ne $script:Persistence) -and ([int]$script:Persistence.Failures -ge 3)){return 'Enregistrement local suspendu après des échecs : nouvelles collectes suspendues. Reprenez les sauvegardes dans Fiabilité.'}
     $space=Get-DomeniaCurrentStorageSpace
     if([bool]$space.BlocksCollections){return [string]$space.Text}
@@ -1090,7 +1106,7 @@ function Start-DomeniaStorageMaintenanceApply {
     $wasLocked=$false;if($null -ne $State){$wasLocked=[bool]$State.Locked}
     try{
         if(($null -eq $State) -or ($null -eq $script:StorageMaintenance) -or ($State.Id -cne $script:StorageMaintenance.Id) -or ($State.Epoch -ne [long]$script:SessionEpoch) -or ([string]$State.Path -cne [string]$script:DatabaseScopedPath)){throw 'Contexte de maintenance modifié.'}
-        $ready=$true;$why='';try{Assert-DomeniaStoragePurgeReady}catch{$ready=$false;$why=[string]$_.Exception.Message}
+        $ready=$true;$why='';try{Assert-DomeniaStoragePurgeReady -AllowQueued:([bool]$Recovery -and $wasLocked)}catch{$ready=$false;$why=[string]$_.Exception.Message}
         if(-not $ready){
             if($Recovery){throw $why}
             # Writes reached the queue after the inspection: drain them first. The copy re-checks the fingerprint and
@@ -1098,7 +1114,8 @@ function Start-DomeniaStorageMaintenanceApply {
             Start-DomeniaStorageMaintenanceDrain -State $State -Next 'Apply';return
         }
         $State.Locked=$true;$State.Hold=$true
-        $payload=[pscustomobject]@{Action=$(if($Recovery){$Recovery}else{$State.Mode});OperationId=$State.Id;ActivePath=$State.Path;SourcePath=$State.SourcePath;TargetPath=$State.TargetPath;DomainDn=$State.DomainDn;ExpectedFingerprint=$State.Fingerprint;BudgetSeconds=600}
+        # An undo names the original (marker holder) as the worker's active base; the session itself is on the copy.
+        $payload=[pscustomobject]@{Action=$(if($Recovery){$Recovery}else{$State.Mode});OperationId=$State.Id;ActivePath=(Get-DomeniaStorageMaintenanceMarkerPath $State);SourcePath=$State.SourcePath;TargetPath=$State.TargetPath;DomainDn=$State.DomainDn;ExpectedFingerprint=$State.Fingerprint;BudgetSeconds=600}
         $State.Job=Start-UiTask -Name 'Copier et vérifier la base locale' -OperationId 'StorageMaintenance' -Code (Get-DomeniaStorageMaintenanceWorkerCode) -Payload $payload -SuccessHandler 'Complete-DomeniaStorageMaintenanceApply' -ErrorHandler 'Fail-DomeniaStorageMaintenance' -CallbackState $State -TimeoutSeconds 660 -NonCancellable -TaskClass 'Explicit'
         if(-not $State.Job){$State.Locked=$wasLocked;throw 'Admission de maintenance non confirmée.'}
         [void](Set-DomeniaControlText 'LblStorageMaintenance' $(if($Recovery -eq 'Rollback'){'Retour à la base précédente : vérification en cours.'}elseif($Recovery){'Reprise de la bascule : vérification de la copie en cours.'}else{'Étape 2 sur 3 : copie puis contrôle de la base ; nouvelles collectes et écritures suspendues.'}))
@@ -1108,6 +1125,36 @@ function Start-DomeniaStorageMaintenanceApply {
     }
     [void](Update-DomeniaStorageMaintenanceControls)
 }
+function Get-DomeniaStorageMaintenanceMarkerPath {
+    # Base that holds (or will hold) the switch marker: the active base, except for the undo of a completed switch.
+    param($State)
+    $marker=[string](Get-DomeniaMember $State 'MarkerPath' '')
+    if($marker){return $marker}
+    return [string]$State.Path
+}
+function Clear-DomeniaStoragePendingForOtherBase {
+    # Points 32 and 34: after a switch, what was queued for another base can no longer be written there (a marker
+    # keeps it read-only, or the session left it) and was never part of the verified copy. Those items are dropped
+    # and counted, never replayed into the new base; their callers are told, as for a refused batch.
+    param([string]$ActivePath)
+    if(($null -eq $script:Persistence) -or (-not $ActivePath)){return 0}
+    $message='Base locale changée par la maintenance : lot collecté pour lʼancienne base non enregistré.'
+    $dropped=0
+    foreach($key in @($script:Persistence.Pending.Keys)){
+        $item=$script:Persistence.Pending[$key]
+        if(($null -eq $item) -or ([string]$item.Path -ceq $ActivePath)){continue}
+        [void]$script:Persistence.Pending.Remove($key);$dropped++
+        try{
+            if(($item.Kind -eq 'StoreBatch') -and [string]$item.ErrorHandler){& ([string]$item.ErrorHandler) -Message $message -State $item.CallbackState}
+            elseif(($item.Kind -eq 'IndexBulk') -and ($null -ne $item.Row) -and ($null -ne $item.Row.PSObject.Properties['RefreshOperationId']) -and [string]$item.Row.RefreshOperationId){Fail-DomeniaOuRefresh -OperationId ([string]$item.Row.RefreshOperationId) -Message $message}
+        }catch{Write-AppLog ('Notification stockage : '+$_.Exception.Message) 'WARN'}
+    }
+    $hasLinkWork=[bool]$script:Persistence.LegacyImportJob
+    foreach($value in @($script:Persistence.Pending.Values)){if(($value.Kind -eq 'Link') -or ($value.Kind -eq 'LegacyImport')){$hasLinkWork=$true;break}}
+    $script:Persistence.LinkBusy=$hasLinkWork
+    if($dropped -gt 0){Write-AppLog ([string]$dropped+' élément(s) en file pour lʼancienne base non enregistré(s) après la bascule.') 'WARN'}
+    return $dropped
+}
 function Invoke-DomeniaStorageMaintenanceSwitch {
     # Switches the session to the verified copy named by a receipt. Shared by the worker completion and by the local
     # retry of a restore that wrote no marker (unreadable previous base).
@@ -1115,6 +1162,8 @@ function Invoke-DomeniaStorageMaintenanceSwitch {
     try{
         Switch-DomeniaDatabaseContext -Path ([string]$Receipt.TargetPath) -ExpectedPath $State.Path -ExpectedEpoch $State.Epoch -StoreId ([string]$Receipt.StoreId) -Revision ([long]$Receipt.Revision)
     }catch{
+        # An undo that could not switch back leaves the session on the current base, which stays valid.
+        if([string]$State.Mode -eq 'Undo'){Fail-DomeniaStorageMaintenance ('bascule vers la base précédente non confirmée : '+$_.Exception.Message) $State;return}
         $State.Locked=$true;$State.Hold=$true
         $offer='« Reprendre la bascule »';if([bool]$Receipt.RedirectWritten){$offer+=' ou « Revenir à la base précédente »'}
         $text='Copie locale conservée, bascule non confirmée : '+$_.Exception.Message+'. Utilisez '+$offer+' ; aucun fichier nʼest supprimé.'
@@ -1122,10 +1171,17 @@ function Invoke-DomeniaStorageMaintenanceSwitch {
     }
     # The switch has advanced the epoch. A presentation failure must never relock its obsolete context.
     $State.Locked=$false;$State.Hold=$false;$State.Recovery=$false
-    $kept='Original conservé : '+$State.Path
-    if([bool]$Receipt.RedirectWritten){$kept='Original conservé en lecture seule : '+$State.Path}
-    elseif(-not [bool]$Receipt.ActiveReadable){$kept='Ancienne base illisible laissée intacte : '+$State.Path}
-    if([string]$Receipt.Action -eq 'Rollback'){$text='Base précédente rétablie : '+[string]$Receipt.TargetPath+'.'}else{$text='Étape 3 sur 3 : base vérifiée en service : '+[string]$Receipt.TargetPath+'. '+$kept+'.'}
+    $original=Get-DomeniaStorageMaintenanceMarkerPath $State
+    # Point 31: a switch that left a marker on its original stays undoable until the new base receives a write.
+    if(([string]$Receipt.Action -in @('Move','Restore','Resume')) -and [bool]$Receipt.RedirectWritten){
+        $script:StorageLastSwitch=[pscustomobject]@{OperationId=[string]$State.Id;OriginalPath=$original;TargetPath=[string]$Receipt.TargetPath;DomainDn=[string]$State.DomainDn;Epoch=[long]$script:SessionEpoch}
+    }else{$script:StorageLastSwitch=$null}
+    $dropped=0;try{$dropped=Clear-DomeniaStoragePendingForOtherBase -ActivePath ([string]$Receipt.TargetPath)}catch{Write-AppLog ('File locale après bascule non vérifiée : '+$_.Exception.Message) 'WARN'}
+    $kept='Original conservé : '+$original
+    if([bool]$Receipt.RedirectWritten){$kept='Original conservé en lecture seule : '+$original+' ; « Revenir à la base précédente » reste possible tant que la nouvelle base nʼa reçu aucune écriture'}
+    elseif(-not [bool]$Receipt.ActiveReadable){$kept='Ancienne base illisible laissée intacte : '+$original}
+    if([string]$Receipt.Action -eq 'Rollback'){$text='Base précédente rétablie : '+[string]$Receipt.TargetPath+'. Lʼautre fichier est conservé.'}else{$text='Étape 3 sur 3 : base vérifiée en service : '+[string]$Receipt.TargetPath+'. '+$kept+'.'}
+    if($dropped -gt 0){$text+=' '+[string]$dropped+' élément(s) collecté(s) pendant la maintenance pour lʼautre base nʼont pas été enregistrés ; relisez-les si besoin.'}
     try{[void](Set-DomeniaControlText 'LblStorageMaintenance' $text);Set-Status $text;Resume-DomeniaDatabaseViews -Reload}catch{Write-AppLog ('Base basculée ; relecture des vues différée : '+$_.Exception.Message) 'WARN'}
     [void](Update-DomeniaStorageMaintenanceControls)
 }
@@ -1134,12 +1190,13 @@ function Complete-DomeniaStorageMaintenanceApply {
     if(($null -eq $State) -or ($State.Epoch -ne [long]$script:SessionEpoch) -or ([string]$State.Path -cne [string]$script:DatabaseScopedPath)){return}
     try{
         $State.Job='';$r=Get-DomeniaEffectiveWorkerResult $Result @('Kind','Committed','OperationId','TargetPath')
-        if(($null -eq $r) -or ($r.Kind -cne 'StorageMaintenance') -or (-not $r.Committed) -or ($r.OperationId -cne $State.Id) -or ($r.ActivePath -cne $State.Path) -or ($r.DomainDn -ine $State.DomainDn) -or ($r.Integrity -cne 'ok') -or (-not $r.OriginalPreserved)){throw 'Copie ou bascule non confirmée. Conservez les deux fichiers.'}
+        if(($null -eq $r) -or ($r.Kind -cne 'StorageMaintenance') -or (-not $r.Committed) -or ($r.OperationId -cne $State.Id) -or ([string]$r.ActivePath -cne (Get-DomeniaStorageMaintenanceMarkerPath $State)) -or ($r.DomainDn -ine $State.DomainDn) -or ($r.Integrity -cne 'ok') -or (-not $r.OriginalPreserved)){throw 'Copie ou bascule non confirmée. Conservez les deux fichiers.'}
         # A worker that wrote no marker (unreadable previous base) is retried locally; a marker always names this target.
         if($null -eq $r.PSObject.Properties['RedirectWritten']){$r|Add-Member -NotePropertyName RedirectWritten -NotePropertyValue $true}
         if($null -eq $r.PSObject.Properties['ActiveReadable']){$r|Add-Member -NotePropertyName ActiveReadable -NotePropertyValue $true}
         $State.Receipt=$r
     }catch{
+        if([string]$State.Mode -eq 'Undo'){Fail-DomeniaStorageMaintenance $_.Exception.Message $State;return}
         $State.Locked=$true;$State.Hold=$true;$text='Copie locale conservée, bascule non confirmée : '+$_.Exception.Message+'. Utilisez « Reprendre la bascule » ou « Revenir à la base précédente ».'
         [void](Set-DomeniaControlText 'LblStorageMaintenance' $text);Set-Status $text 'WARN';[void](Update-DomeniaStorageMaintenanceControls);return
     }
@@ -1149,11 +1206,24 @@ function Fail-DomeniaStorageMaintenance {
     param($Message,$State)
     if(($null -eq $State) -or ($State.Epoch -ne [long]$script:SessionEpoch) -or ([string]$State.Path -cne [string]$script:DatabaseScopedPath)){return}
     $State.Job=''
-    # A failed copy or receipt can be ambiguous: a step that had locked the base stays locked until an explicit
-    # resume or rollback. A failed inspection changed nothing and releases the collections.
+    $reason=([string]$Message).Trim()
+    if([string]$State.Mode -eq 'Undo'){
+        # The undo writes nothing but the removal of the marker of the original, after its own checks: the session stays
+        # on the current base, which remains valid whatever happened. The offer ends; both files are kept.
+        $State.Locked=$false;$State.Hold=$false;$script:StorageLastSwitch=$null
+        $text='Retour à la base précédente non effectué : '+$reason.TrimEnd('.')+'. La base actuelle reste en service ; les deux fichiers sont conservés.'
+        [void](Set-DomeniaControlText 'LblStorageMaintenance' $text);Set-Status $text 'WARN';[void](Update-DomeniaStorageMaintenanceControls);return
+    }
+    # The worker states when a move or restore refused before publishing anything: active base untouched, no marker,
+    # temporary copy removed. Only that statement releases the lock; any other failure of a locked step (timeout,
+    # lost completion, refusal after the copy) can be ambiguous and stays locked until an explicit resume or rollback.
+    $nothingPublished=($reason -match 'StorageNothingPublished : ')
+    if($nothingPublished){$reason=($reason -replace '^.*?StorageNothingPublished : ','');$State.Locked=[bool]$State.Recovery}
+    # A failed inspection changed nothing and releases the collections.
     if(-not [bool]$State.Locked){$State.Hold=[bool]$State.Recovery}
-    $text='Maintenance locale interrompue : '+([string]$Message).TrimEnd('.')+'. Aucun original supprimé.'
-    if([bool]$State.Locked -and (-not [bool]$State.Recovery)){$text+=' Utilisez « Revenir à la base précédente » pour rétablir les collectes, ou « Reprendre la bascule ».'}
+    $text='Maintenance locale interrompue : '+$reason.TrimEnd('.')+'. Aucun original supprimé.'
+    if($nothingPublished -and (-not [bool]$State.Recovery)){$text='Maintenance locale non effectuée : '+$reason.TrimEnd('.')+'. Aucune copie publiée ; base actuelle conservée et collectes rétablies.'}
+    elseif([bool]$State.Locked -and (-not [bool]$State.Recovery)){$text+=' Utilisez « Revenir à la base précédente » pour rétablir les collectes, ou « Reprendre la bascule ».'}
     elseif([bool]$State.Recovery){$text+=' La base illisible reste en place ; choisissez une autre sauvegarde vérifiée.'}
     [void](Set-DomeniaControlText 'LblStorageMaintenance' $text);Set-Status $text 'WARN'
     [void](Update-DomeniaStorageMaintenanceControls)
@@ -1161,6 +1231,14 @@ function Fail-DomeniaStorageMaintenance {
 function Resume-DomeniaStorageMaintenance {
     param([switch]$Rollback)
     $state=$script:StorageMaintenance
+    if($Rollback -and (($null -eq $state) -or (-not [bool]$state.Locked))){
+        # Point 31: back to the original of a completed switch of this session, only while the new base is unchanged.
+        $undo=Get-DomeniaStorageMaintenanceUndo
+        if($null -eq $undo){Set-Status 'Aucune bascule à annuler pour la base active.';return}
+        $start=${function:Start-DomeniaStorageMaintenanceUndo}
+        Request-DomeniaInlineConfirmation -Title 'Revenir à la base précédente' -Target ([string]$undo.OriginalPath) -Message ('Revenir au fichier dʼorigine '+[string]$undo.OriginalPath+' uniquement si la base actuelle nʼa reçu aucune écriture depuis la bascule. Les deux fichiers sont conservés.') -ConfirmText 'Vérifier et revenir' -CancelText 'Garder la base actuelle' -OnConfirm ({& $start -Undo $undo}.GetNewClosure()) -OnCancel {Set-Status 'Base actuelle conservée.'}
+        return
+    }
     if(($null -eq $state) -or (-not [bool]$state.Locked) -or $state.Job -or [bool]$state.Draining){Set-Status 'Aucune bascule interrompue à reprendre.';return}
     if(($null -ne $state.Receipt) -and (-not [bool]$state.Receipt.RedirectWritten)){
         if($Rollback){Set-Status 'Aucun marqueur de bascule : la base précédente, illisible, nʼa pas été modifiée. Reprenez la bascule ou restaurez une autre sauvegarde.' 'WARN';return}
@@ -1172,6 +1250,23 @@ function Resume-DomeniaStorageMaintenance {
     $start=${function:Start-DomeniaStorageMaintenanceApply};$mode=if($Rollback){'Rollback'}else{'Resume'}
     $text=if($Rollback){'Revenir au fichier dʼorigine uniquement si la copie nʼa reçu aucune nouvelle écriture. Les deux fichiers sont conservés.'}else{'Vérifier la copie et reprendre la bascule interrompue. Les deux fichiers sont conservés.'}
     Request-DomeniaInlineConfirmation -Title 'Reprendre la maintenance locale' -Target $state.TargetPath -Message $text -ConfirmText 'Vérifier et continuer' -CancelText 'Conserver en attente' -OnConfirm ({& $start -State $state -Recovery $mode}.GetNewClosure()) -OnCancel {Set-Status 'Reprise différée.'}
+}
+function Start-DomeniaStorageMaintenanceUndo {
+    # Point 31: undo of a completed switch. Nothing may be pending or running (a write would close the undo window);
+    # the worker removes the marker of the original only if the current base is unchanged since the switch, then the
+    # session switches back. Collections wait behind the lock meanwhile.
+    param($Undo)
+    try{
+        $current=Get-DomeniaStorageMaintenanceUndo
+        if(($null -eq $Undo) -or ($null -eq $current) -or ([string]$Undo.OperationId -cne [string]$current.OperationId)){throw 'bascule à annuler modifiée.'}
+        $busy=$script:StorageMaintenance
+        if(($null -ne $busy) -and ([bool]$busy.Locked -or [bool]$busy.Draining -or [string]$busy.Job)){throw 'une étape de maintenance est déjà en cours.'}
+        $state=[pscustomobject]@{Id=[string]$current.OperationId;Mode='Undo';Epoch=[long]$script:SessionEpoch;Path=[string]$script:DatabaseScopedPath;MarkerPath=[string]$current.OriginalPath;DomainDn=[string]$current.DomainDn;SourcePath=[string]$current.OriginalPath;TargetPath=[string]$current.TargetPath;Fingerprint='';Job='';Locked=$false;Recovery=$false;Hold=$true;HoldUntil=[datetime]::UtcNow.AddMinutes(10);Draining=$false;DrainNext='';DrainUntil=[datetime]::MinValue;Receipt=$null}
+        $script:StorageMaintenance=$state
+        Start-DomeniaStorageMaintenanceApply -State $state -Recovery 'Rollback'
+        if(-not [string]$state.Job){$state.Locked=$false;$state.Hold=$false}
+    }catch{Set-Status ('Retour à la base précédente impossible : '+$_.Exception.Message) 'WARN'}
+    [void](Update-DomeniaStorageMaintenanceControls)
 }
 
 function Get-DomeniaCurrentStoragePolicy {
@@ -1309,6 +1404,8 @@ function Start-DomeniaStorageRetention {
         $state.Job=Start-UiTask -Name $(if($Apply){'Sauvegarder puis appliquer la conservation'}else{'Prévisualiser la conservation par famille'}) -OperationId 'StorageRetention' -Code (Get-DomeniaStorageRetentionWorkerCode) -Payload $payload -CallbackState $state -SuccessHandler 'Complete-DomeniaStorageRetention' -ErrorHandler 'Fail-DomeniaStorageRetention' -TimeoutSeconds 300 -NonCancellable -TaskClass 'Explicit'
         if(-not $state.Job){$state.Locked=$false;throw 'Operation de conservation non admise.'}
     }catch{Set-Status ('Conservation non lancee : '+$_.Exception.Message) 'WARN'}
+    # Point 32: an applied retention holds the base like the assistant; its buttons wait for the end.
+    [void](Update-DomeniaStorageMaintenanceControls)
 }
 function Request-DomeniaStorageRetention {
     try{
@@ -1346,6 +1443,7 @@ function Complete-DomeniaStorageRetention {
             Reset-DomeniaStorageObservationViews -Revision ([long]$r.Revision)
         }
     }catch{Fail-DomeniaStorageRetention $_.Exception.Message $State}
+    [void](Update-DomeniaStorageMaintenanceControls)
 }
 function Fail-DomeniaStorageRetention {
     param($Message,$State)
@@ -1354,6 +1452,7 @@ function Fail-DomeniaStorageRetention {
     $text='Conservation non confirmee : '+[string]$Message+'. Aucun rejeu automatique ; refaites la previsualisation.'
     [void](Set-DomeniaControlText 'LblStorageRetention' $text);Set-Status $text 'WARN'
     if(-not $State.DryRun){try{Reset-DomeniaStorageObservationViews}catch{Write-AppLog ('Relecture apres conservation differee : '+$_.Exception.Message) 'WARN'}}
+    [void](Update-DomeniaStorageMaintenanceControls)
 }
 function Reset-DomeniaStorageObservationViews {
     param([long]$Revision=0)

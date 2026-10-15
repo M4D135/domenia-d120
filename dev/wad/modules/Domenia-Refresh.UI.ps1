@@ -100,6 +100,8 @@ function Invoke-DomeniaOuRefresh {
         if(@($script:AsyncJobs.Values|Where-Object{$_.OperationId -in @('IndexBuild','StoragePurge','LegacyMigration')}).Count){throw 'Attendez la fin de la lecture AD ou de la maintenance locale.'}
         $save=Get-DomeniaPersistenceState
         if($save.Pending -gt 0 -or $save.Suspended -or $save.Conflicts -gt 0){throw 'Attendez ou rétablissez la confirmation des écritures locales.'}
+        # Points 32 and 35: no new collection during a base maintenance or on a nearly full disk.
+        $storageRefusal=Get-DomeniaStorageCollectionRefusal;if($storageRefusal){throw $storageRefusal}
         # Snapshot the selected dashboard probe plan now, before AD work or a later confirmation can change it.
         $probes=@()
         if($Mode -in @('Wmi','Postes','Both')){$probes=@(Get-DomeniaOuRefreshProbePlan)}
