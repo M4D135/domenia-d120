@@ -352,6 +352,30 @@ function Find-DomeniaBitLockerKey {
     return [pscustomobject]@{Matches=$found;Unique=($found.Count -eq 1);Message=$message}
 }
 
+function ConvertTo-DomeniaBitLockerKeyBlocks {
+    # UX-18: a recovery password split into its eight numbered blocks of six digits, read aloud block by block. Any
+    # other shape (truncated, other characters) gives no block: a doubtful key is never presented as ready to
+    # dictate. The value is only split here: it is neither kept nor written anywhere.
+    param([AllowEmptyString()][AllowNull()][string]$Value)
+    $text = ([string]$Value).Trim()
+    if ($text -cnotmatch '^[0-9]{6}(-[0-9]{6}){7}$') { return @() }
+    $parts = $text.Split('-')
+    $blocks = New-Object 'System.Collections.Generic.List[object]'
+    for ($i = 0; $i -lt $parts.Count; $i++) { $blocks.Add([pscustomobject]@{Index=($i + 1);Label=('Bloc ' + ($i + 1));Digits=$parts[$i]}) }
+    return $blocks.ToArray()
+}
+
+function Get-DomeniaSecretColumnHeader {
+    # UX-18: the header of the identity column of the secrets grid. A BitLocker row carries the recovery identifier,
+    # a LAPS row the managed account; a mixed or empty grid keeps both words.
+    param([AllowEmptyCollection()][string[]]$Kinds=@())
+    $kinds = @(@($Kinds) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+    if ($kinds.Count -eq 0) { return 'Compte ou identifiant' }
+    if (@($kinds | Where-Object { [string]$_ -notmatch '(?i)BitLocker' }).Count -eq 0) { return 'Identifiant de récupération' }
+    if (@($kinds | Where-Object { [string]$_ -notmatch '(?i)LAPS' }).Count -eq 0) { return 'Compte' }
+    return 'Compte ou identifiant'
+}
+
 function Test-DomeniaDirectChildDn {
     # True when $ChildDn is exactly one RDN below $ParentDn (escaped commas allowed in that RDN).
     # A recovery key is only requested for an object directly under the selected computer.
@@ -376,8 +400,54 @@ function Get-DomeniaSecretExposurePolicy {
     return [pscustomobject]@{
         InProcessArguments=$false;InLogs=$false;InCache=$false;InSnapshots=$false;InAutomaticExports=$false;InReceipts=$false
         RevealSeconds=30;CopyOneAtATime=$true
+        # UX-18: one explicit extension of a BitLocker key shown in its card, never more.
+        RevealExtensionSeconds=30;RevealExtensions=1
         ClipboardLimit='Les gestionnaires de presse-papiers tiers et l historique Windows peuvent conserver une copie hors de Domenia.'
     }
+}
+
+function Get-DomeniaSecretRevealCountdown {
+    # UX-18: what the countdown of a revealed value shows: whole seconds left (rounded up, never negative), the share
+    # of the ring still drawn and whether the single extension is still offered. "Now" is a parameter: pure.
+    param($DeadlineUtc,$NowUtc,[int]$TotalSeconds=30,[bool]$Extended=$false)
+    $policy = Get-DomeniaSecretExposurePolicy
+    $deadline = ConvertTo-DomeniaUtcDate $DeadlineUtc
+    $now = ConvertTo-DomeniaUtcDate $NowUtc
+    $remaining = 0
+    if (($null -ne $deadline) -and ($null -ne $now)) { $remaining = [int][Math]::Ceiling(($deadline - $now).TotalSeconds) }
+    if ($remaining -lt 0) { $remaining = 0 }
+    $fraction = [Math]::Min(1.0,[double]$remaining / [double]([Math]::Max(1,$TotalSeconds)))
+    $canExtend = ((-not $Extended) -and ($remaining -gt 0) -and ([int]$policy.RevealExtensions -gt 0))
+    return [pscustomobject]@{Remaining=$remaining;Fraction=$fraction;Expired=($remaining -le 0);Text=([string]$remaining + ' s');CanExtend=$canExtend;ExtensionSeconds=[int]$policy.RevealExtensionSeconds}
+}
+
+function Get-DomeniaSecretActionView {
+    # UI-31: labels, availability and tooltips of the reveal and copy buttons, and whether "copy all" is offered,
+    # decided in this one place. With one value at a time (Features.SecretSingleCopy, the default) "copy all" is not
+    # shown at all: a button greyed for good only says no. Only the kind of the selected row is read, never a value.
+    param([bool]$Single=$true,[bool]$Visible=$false,[bool]$HasRows=$false,[bool]$HasReadableValue=$false,[bool]$CanUseSelected=$false,[bool]$SelectedMetadata=$false,[int]$RevealSeconds=30,[AllowEmptyString()][string]$SelectedKind='',[AllowEmptyString()][string]$ClipboardLimit='')
+    $loadFirst = 'Lancez dʼabord « Lister les clés BitLocker » ou « Lire le mot de passe LAPS ».'
+    $copyText = 'Copier la valeur'
+    if ($SelectedKind -match '(?i)BitLocker|Recovery') { $copyText = 'Copier la clé BitLocker' } elseif ($SelectedKind -match '(?i)LAPS') { $copyText = 'Copier le mot de passe LAPS' }
+    $copyTip = 'Sélectionnez une ligne contenant une clé BitLocker ou un mot de passe LAPS lisible.'
+    if (($CanUseSelected) -and ($SelectedMetadata)) { $copyTip = ('Lit la seule clé sélectionnée, la copie puis programme lʼeffacement automatique du presse-papiers. ' + $ClipboardLimit).Trim() }
+    elseif ($CanUseSelected) { $copyTip = ('Copie uniquement la valeur sélectionnée puis programme lʼeffacement automatique du presse-papiers. ' + $ClipboardLimit).Trim() }
+    if ($Single) {
+        $enabled = (($Visible) -or ($CanUseSelected))
+        if ($Visible) { $text = 'Masquer la valeur'; $tip = 'Masque tout de suite la valeur affichée.' }
+        elseif ($SelectedMetadata) { $text = 'Lire et afficher cette clé'; $tip = 'Lit la seule clé sélectionnée puis lʼaffiche pendant ' + [string]$RevealSeconds + ' s. Les autres clés ne sont pas lues.' }
+        else { $text = 'Afficher la valeur choisie'; $tip = 'Affiche uniquement la valeur sélectionnée pendant ' + [string]$RevealSeconds + ' s. Les autres restent masquées.' }
+        if (-not $enabled) {
+            if ($HasRows) { $tip = 'Sélectionnez dʼabord une ligne : une seule valeur est révélée à la fois.' } else { $tip = $loadFirst }
+        }
+        return [pscustomobject]@{ToggleText=$text;ToggleEnabled=$enabled;ToggleToolTip=$tip;CopyText=$copyText;CopyEnabled=$CanUseSelected;CopyToolTip=$copyTip;CopyAllVisible=$false;CopyAllEnabled=$false;CopyAllToolTip='Copie groupée désactivée : une valeur à la fois.'}
+    }
+    if ($Visible) { $text = 'Masquer les secrets' } else { $text = 'Afficher les secrets' }
+    $tip = $loadFirst
+    if ($HasRows) { $tip = 'Affiche ou masque temporairement les valeurs gardées uniquement en mémoire.' }
+    $copyAllTip = 'Aucune valeur lue à copier.'
+    if ($HasReadableValue) { $copyAllTip = 'Copie les valeurs lues puis programme lʼeffacement automatique du presse-papiers.' }
+    return [pscustomobject]@{ToggleText=$text;ToggleEnabled=$HasRows;ToggleToolTip=$tip;CopyText=$copyText;CopyEnabled=$CanUseSelected;CopyToolTip=$copyTip;CopyAllVisible=$true;CopyAllEnabled=$HasReadableValue;CopyAllToolTip=$copyAllTip}
 }
 
 function Protect-DomeniaSecretText {

@@ -253,7 +253,7 @@ function Show-DomeniaBanner {
             return $true
         }
     }
-    $record=[pscustomobject]@{Key=$Key;Kind=$Kind;Message=([string]$Message).Trim();Details=[string]$Details;Code=$plan.Code;Occurrences=1;At=(Get-Date);ActionPath=$ActionPath;Closed=$false;Pinned=$false;Border=$null;Counter=$null;DetailBox=$null;DetailButton=$null;Actions=$null;Stack=$null;Timer=$null;Panel=$hostPanel}
+    $record=[pscustomobject]@{Key=$Key;Kind=$Kind;Message=([string]$Message).Trim();Details=[string]$Details;Code=$plan.Code;Occurrences=1;At=(Get-Date);ActionPath=$ActionPath;Route='';Closed=$false;Pinned=$false;Border=$null;Counter=$null;DetailBox=$null;DetailButton=$null;Actions=$null;Stack=$null;Timer=$null;Panel=$hostPanel}
     $border=[Windows.Controls.Border]::new();$border.CornerRadius='12';$border.BorderThickness=[Windows.Thickness]::new(4,1,1,1);$border.Padding='12,10,8,10';$border.Margin='0,0,0,8';$border.MinWidth=380.0
     $accent=switch($Kind){'Error'{'DangerColor'}'Warning'{'StatusWarning'}'Success'{'StatusSuccess'}default{'AccentColor'}}
     $border.SetResourceReference([Windows.Controls.Border]::BackgroundProperty,'BgCard')
@@ -294,6 +294,10 @@ function Show-DomeniaBanner {
         [void]$actions.Children.Add($record.DetailButton)
     }
     if($ActionText -and $ActionPath){[void]$actions.Children.Add((New-DomeniaBannerButton -Text $ActionText -Command 'Folder' -Record $record -Help ('Ouvre lʼExplorateur sur '+$ActionPath)))}
+    # UX-16: a refusal that names the place of an authorisation opens it in one click (navigation only).
+    $routeTarget=$null
+    try{$record.Route=[string](Get-DomeniaMessageRoute -Text ([string]$Message));if($record.Route){$routeTarget=Resolve-DomeniaCapabilityRoute -Route $record.Route}}catch{$routeTarget=$null}
+    if($null -ne $routeTarget){[void]$actions.Children.Add((New-DomeniaBannerButton -Text ('Aller à '+[string]$routeTarget.Label) -Command 'Route' -Record $record -Help ('Ouvre '+[string]$routeTarget.Label+'. Rien nʼest autorisé ni lancé sans votre clic.')))}
     $record.Actions=$actions;$record.Stack=$stack
     if($actions.Children.Count){[void]$stack.Children.Add($actions)}
     [void]$grid.Children.Add($stack)
@@ -386,6 +390,7 @@ function Invoke-DomeniaBannerCommand {
             Set-Status ('Incident '+$(if($record.Code){[string]$record.Code}else{'sans code'})+' copié pour le support.')
         }
         'Journal'{Open-DomeniaExperienceJournal}
+        'Route'{[void](Invoke-DomeniaCapabilityRoute -Route ([string]$record.Route))}
         'Folder'{
             $path=[string]$record.ActionPath
             if([IO.File]::Exists($path)){Start-Process -FilePath 'explorer.exe' -ArgumentList @('/select,"'+$path+'"')}

@@ -180,7 +180,7 @@ $configurations=@(
 )
 # DS-06: Actualiser and Exporter CSV are reached through the « ⋯ » menu of the result card (BtnSearchResultMenu).
 $essentials=@('TxtGlobalSearch','BtnGlobalSearch','DgObjects','BtnAccessRecovery','TxtSuiteResultFilter','BtnGlobalClear','BtnSearchResultMenu')
-$resultButtons=@('BtnGlobalClear','BtnSearchResultMenu','BtnSuiteResultClear','BtnLiveRecheck','TxtSuiteResultFilter','CmbGlobalType','CmbPresenceFilter','ChkLiveUsers')
+$resultButtons=@('BtnGlobalClear','BtnSearchResultMenu','BtnSuiteResultClear','BtnLiveRecheck','TxtSuiteResultFilter','CmbGlobalType','CmbPresenceFilter','ChkLiveVerifyOnClick')
 
 if($infrastructure){
     foreach($configuration in $configurations){
@@ -274,7 +274,7 @@ if($infrastructure){
                     Assert-True (($script:GeometrySurface.ActualHeight+$script:GeometryChromeHeight) -le $height+0.5) 'Surface plus haute que la surface demandee.'
                     Assert-True ($window.FindName('DgObjects').ActualHeight -ge 120) ('Resultats trop petits : '+$window.FindName('DgObjects').ActualHeight)
                     Assert-OuNavigationLayout $window
-                    foreach($name in @('CmbGlobalType','CmbPresenceFilter','TxtGlobalLimit','CmbWorkView','BtnWorkView','ChkLiveUsers','BtnLiveRecheck','TxtSuiteResultFilter','BtnSuiteResultClear','BtnGlobalClear','BtnSearchResultMenu','BtnCancelTask','LblUxDomain','TvDirectory','LblSearchScope','LblSearchHint','LblSelectionReadState','LblLiveState')){
+                    foreach($name in @('CmbGlobalType','CmbPresenceFilter','TxtGlobalLimit','CmbWorkView','BtnWorkView','ChkLiveVerifyOnClick','BtnLiveRecheck','TxtSuiteResultFilter','BtnSuiteResultClear','BtnGlobalClear','BtnSearchResultMenu','BtnCancelTask','LblUxDomain','TvDirectory','LblSearchScope','LblSearchHint','LblSelectionReadState','LblLiveState')){
                         $r=Get-ClientRect $window $name
                         Assert-True ($r.Visible -and $r.W -ge 8 -and $r.H -ge 8 -and $r.X -ge 0 -and $r.Y -ge 0 -and $r.X+$r.W -le $script:GeometrySurface.ActualWidth+0.5 -and $r.Y+$r.H -le $script:GeometrySurface.ActualHeight+0.5) ($name+' inaccessible apres redimensionnement a '+$height)
                     }
@@ -330,7 +330,8 @@ if($infrastructure){
             Test-Case ($theme+' : detection des resultats accessible a 960x516') {
                 foreach($page in @('WsSearch')){
                     $window.FindName('WorkspaceTabs').SelectedItem=$window.FindName($page);Invoke-GeometryPump $window
-                    $names=@('BtnParkResults','BtnParkAnalyze','BtnParkResultsStop')
+                    # UI-23: one « Vérifier la liste » button and its choice arrow; it becomes « Arrêter » during a survey.
+                    $names=@('BtnParkVerify','BtnParkVerifyMenu')
                     foreach($name in $names){$a=Get-ClientRect $window $name;Assert-True ($a.Visible -and $a.W -gt 20 -and $a.H -ge 25 -and $a.X -ge 0 -and $a.Y -ge 0 -and $a.X+$a.W -le $script:GeometrySurface.ActualWidth+0.5 -and $a.Y+$a.H -le $script:GeometrySurface.ActualHeight+0.5) ($name+' hors vue')}
                 }
             }
@@ -381,6 +382,10 @@ if($infrastructure){
             Assert-True (($searchUi -match "Get-DomeniaControl 'BtnSearchResultMenu'") -and ($searchUi -match 'Open-DomeniaSearchResultMenu -Anchor')) 'Bouton « ⋯ » non raccordé.'
             $selection=$window.FindName('LblSelectionReadState');$live=$window.FindName('LblLiveState')
             Assert-True (([Windows.Controls.Grid]::GetRow($selection) -eq [Windows.Controls.Grid]::GetRow($live)) -and ([Windows.Controls.Grid]::GetColumn($live) -eq 1)) 'Les deux lignes dʼétat ne partagent pas une seule ligne.'
+            # UX-12 / FO-18: the survey count takes the slot of the list state, the selection bar the slot of the selection state.
+            $parkState=$window.FindName('UxParkProgress');$selectionBar=$window.FindName('UxSelectionBar')
+            Assert-True (([Windows.Controls.Grid]::GetRow($parkState) -eq [Windows.Controls.Grid]::GetRow($live)) -and ([Windows.Controls.Grid]::GetColumn($parkState) -eq 1)) 'Le relevé de la liste ne prend pas la place de lʼétat de la liste.'
+            Assert-True (([Windows.Controls.Grid]::GetRow($selectionBar) -eq [Windows.Controls.Grid]::GetRow($selection)) -and ([Windows.Controls.Grid]::GetColumn($selectionBar) -eq 0)) 'La barre de sélection ne prend pas la place de lʼétat de la sélection.'
             $a=Get-ClientRect $window 'LblSelectionReadState';$b=Get-ClientRect $window 'LblLiveState'
             Assert-True ([Math]::Abs($a.Y-$b.Y) -le 0.5 -and $a.W -ge 100 -and $b.W -ge 100) ('États sur deux lignes : '+$a.Y+' / '+$b.Y)
             # A GuiElementPolicy that greys or shows the two actions never brings their buttons back beside « ⋯ »: the menu

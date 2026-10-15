@@ -41,15 +41,24 @@ function Initialize-DomeniaLive {
             Pending=[Collections.Generic.Queue[object]]::new();PendingKeys=@{};Busy=@{};Done=@{}
             ObservationsLoaded=$false;Refresh=[Collections.Generic.Queue[object]]::new()
             SaveQueue=@{};QueryToSave=$null;SaveJob='';SaveAfter=[datetime]::MinValue;SaveFault='';SaveInFlight=0;SaveBatch=$null
-            PresenceEvents=[Collections.Concurrent.ConcurrentQueue[object]]::new();PresenceSeen=@{};RemoteFaulted=$false;NextStart=[datetime]::MinValue;Timer=$null;InTick=$false;AutoDetect=$true;ProbeSelection=$null;LastFilter=[datetime]::MinValue;NegativeCache=(New-DomeniaNegativeCache)
+            PresenceEvents=[Collections.Concurrent.ConcurrentQueue[object]]::new();PresenceSeen=@{};RemoteFaulted=$false;NextStart=[datetime]::MinValue;Timer=$null;InTick=$false;AutoDetect=$true;VerifyOnClick=$false;ProbeSelection=$null;LastFilter=[datetime]::MinValue;NegativeCache=(New-DomeniaNegativeCache)
         }
         Reset-DomeniaLiveIdentity
-        $check=Get-DomeniaControl 'ChkLiveUsers'
-        if($null -ne $check){
-            $check.IsChecked=ConvertTo-SuiteFlag (Get-CfgValue 'Streaming' 'VerifyUserOnSelection' $true) -Default $true
-            $script:Live.AutoDetect=[bool]$check.IsChecked
-            $check.Add_Checked({if($null -ne $script:Live){$script:Live.AutoDetect=$true;Select-DomeniaLiveResult}})
-            $check.Add_Unchecked({if($null -ne $script:Live){$script:Live.AutoDetect=$false}})
+        # SP-15: a click only preloads the AD fiche unless « Vérifier au clic » is checked (saved preference, unchecked
+        # by default). The user read is its sub-option; until chosen it follows Streaming.VerifyUserOnSelection.
+        $userDefault=ConvertTo-SuiteFlag (Get-CfgValue 'Streaming' 'VerifyUserOnSelection' $true) -Default $true
+        # The core provides the saved preferences; an isolated host without them keeps the defaults (no ping on click).
+        $verifyStored=$false;$userStored=''
+        try{$verifyStored=Get-DomeniaSetting 'LiveVerifyOnClick' $false;$userStored=Get-DomeniaSetting 'LiveUserOnClick' ''}catch{$verifyStored=$false;$userStored=''}
+        $script:Live.VerifyOnClick=ConvertTo-SuiteFlag $verifyStored -Default $false
+        $script:Live.AutoDetect=ConvertTo-SuiteFlag $userStored -Default $userDefault
+        # The values are shown before the handlers are attached: restoring them never rewrites the preferences.
+        foreach($pair in @(@('ChkLiveVerifyOnClick',[bool]$script:Live.VerifyOnClick),@('ChkLiveUsersOnClick',[bool]$script:Live.AutoDetect))){
+            $check=Get-DomeniaControl $pair[0]
+            if($null -eq $check){continue}
+            $check.IsChecked=[bool]$pair[1]
+            $check.Add_Checked({Set-DomeniaLiveClickOptions})
+            $check.Add_Unchecked({Set-DomeniaLiveClickOptions})
         }
         $button=Get-DomeniaControl 'BtnLiveRecheck'
         if($null -ne $button){$button.Add_Click({Request-DomeniaLiveRecheck})}
@@ -58,6 +67,19 @@ function Initialize-DomeniaLive {
         $script:Live.Timer=New-DomeniaTimer -Owner 'Timer:Live' -IntervalMs 80 -IdleIntervalMs 1000 -Busy {Test-DomeniaLiveTickNeeded} -Start -Tick {Invoke-DomeniaLiveTick}
         $script:Window.Add_Closed({Stop-DomeniaLive -Closing})
     }catch{Write-AppLog ('Initialisation progressive impossible : '+$_.Exception.Message) 'ERROR';$script:Live=$null}
+}
+function Set-DomeniaLiveClickOptions {
+    # SP-15: reads both check boxes and keeps them in the saved preferences. Turning the check on click off drops an
+    # unsent click intent; an explicit Revérifier ce poste already asked is kept. Nothing is sent to the network.
+    if($null -eq $script:Live){return}
+    $verify=Get-DomeniaControl 'ChkLiveVerifyOnClick';$users=Get-DomeniaControl 'ChkLiveUsersOnClick'
+    if($null -ne $verify){$script:Live.VerifyOnClick=[bool]$verify.IsChecked}
+    if($null -ne $users){$script:Live.AutoDetect=[bool]$users.IsChecked}
+    if(-not $script:Live.VerifyOnClick -and $null -ne $script:Live.ProbeSelection -and -not [bool]$script:Live.ProbeSelection.Manual){Clear-DomeniaLiveProbeIntent}
+    try{
+        Set-DomeniaSetting -Name 'LiveVerifyOnClick' -Value ([bool]$script:Live.VerifyOnClick)
+        Set-DomeniaSetting -Name 'LiveUserOnClick' -Value ([bool]$script:Live.AutoDetect)
+    }catch{Write-AppLog ('Préférence « Vérifier au clic » non enregistrée : '+$_.Exception.Message) 'WARN'}
 }
 function Reset-DomeniaLiveIdentity {
     if($null -eq $script:Live){return}
@@ -167,8 +189,9 @@ function Update-DomeniaSearchActionStates {
     $selected=@($grid.SelectedItems)
     $recheck=Get-DomeniaControl 'BtnLiveRecheck'
     if($null -ne $recheck){$recheck.IsEnabled=($ready -and $selected.Count -eq 1 -and [string]$selected[0].Type -eq 'Machine')}
-    # UX-33: a work view listed over the whole domain never offers a survey of its workstations.
-    foreach($name in @('BtnParkResults','BtnParkPing','BtnParkAnalyze')){$button=Get-DomeniaControl $name;if($null -ne $button -and -not $script:DemoMode){$button.IsEnabled=($ready -and [bool]$script:SearchListHasMachine -and -not [bool]$script:ListSurveyBlocked)}}
+    # UI-23 / FO-18 / UX-33: « Vérifier la liste ▾ », its stop state and the bar of a multiple selection follow the list
+    # and its surveys; a work view listed over the whole domain never offers a survey of its workstations.
+    Update-DomeniaParkControls
 }
 function Test-DomeniaRowHasAccount {
     # User or group: its own account name. Workstation: the login of its linked account (decision David 2026-10-05).
@@ -321,6 +344,12 @@ function Update-DomeniaLiveFilter {
     $presence=[string]$script:CurrentPresenceFilter
     # CO-05: the filter of the list narrows a global list too (no request); the presence filter belongs to OU lists.
     if((Get-DomeniaSearchMode) -eq 'Global'){$presence='Tous'}
+    # FI-16: the filter compares state keys. The key of the choice and the text-to-key table of rows built before the
+    # key existed are resolved here: core functions are not visible inside the closure below.
+    $wantedState=if(-not $presence -or $presence -eq 'Tous'){''}else{ConvertTo-DomeniaPresenceStateKey $presence}
+    $stateKeys=@(Get-DomeniaPresenceStateKeys)
+    $legacyStates=@{}
+    foreach($label in @('En ligne','Sans réponse au ping','Hors ligne','Erreur de ping','Non vérifié','Inconnu','Vérification en cours','Sans objet','')){$legacyStates[$label]=ConvertTo-DomeniaPresenceStateKey $label}
     # Capture values, not controls; filtering performs no network or database I/O.
     if($query.Length -gt 120){$query=$query.Substring(0,120)}
     $terms=@($query.Trim() -split '\s+'|Where-Object {$_})
@@ -338,14 +367,15 @@ function Update-DomeniaLiveFilter {
             if(-not $guid -or $null -eq $queryRecords -or -not $queryRecords.ContainsKey($guid)){return $false}
         }
         # Ordinary searches and GUID-only selections do not need per-row text allocations.
-        if($terms.Count -eq 0 -and (-not $presence -or $presence -eq 'Tous')){return $true}
-        $network=([string]$row.Presence -replace ' \(cache\)$','').Trim()
-        if($network -in @('','Inconnu')){$network='Non vérifié'}
-        $wanted=$presence
-        if($wanted -eq 'Inconnu'){$wanted='Non vérifié'}
-        if($wanted -eq 'Hors ligne'){$wanted='Sans réponse au ping'}
-        if($network -eq 'Hors ligne'){$network='Sans réponse au ping'}
-        if($wanted -and $wanted -ne 'Tous' -and $network -ne $wanted){return $false}
+        if($terms.Count -eq 0 -and -not $wantedState){return $true}
+        if($wantedState){
+            $network=[string]$row.PresenceState
+            if($stateKeys -notcontains $network){
+                $label=([string]$row.Presence -replace ' \(cache\)$','').Trim()
+                $network=if($legacyStates.ContainsKey($label)){[string]$legacyStates[$label]}else{'Unknown'}
+            }
+            if($network -cne $wantedState){return $false}
+        }
         if($terms.Count -eq 0){return $true}
         $parts=[Collections.Generic.List[string]]::new()
         foreach($name in @('Type','Name','Login','UPN','Association','Presence','SessionDisplay','SessionState')){
@@ -377,6 +407,10 @@ function Set-DomeniaLiveObservationOnRow {
     if($null -ne $script:Live -and $null -ne $script:Live.PresenceSeen -and $script:Live.PresenceSeen.ContainsKey($key)){$historical=$false}
     $network=Get-DomeniaLivePresenceView $Observation -Cached:$historical
     $Row.Presence=$network.Display;Set-DomeniaLiveRowValue $Row 'PresenceDetail' ($network.Detail+"`r`n"+(Get-DomeniaRecordFreshness $Observation 'Presence').Label)
+    # FI-16 / DS-15: the pill reads the state key; the age replaces the former '(cache)' suffix.
+    Set-DomeniaLiveRowValue $Row 'PresenceState' ([string]$network.PresenceState)
+    Set-DomeniaLiveRowValue $Row 'PresenceAge' ([string]$network.Age)
+    Set-DomeniaLiveRowValue $Row 'PresenceCached' $(if([bool]$network.IsCached){'1'}else{''})
 }
 function Add-DomeniaLiveRow {
     param($Event)
@@ -421,12 +455,14 @@ function Add-DomeniaLiveRow {
         if($adminRow){Set-DomeniaLiveRowValue $row 'Admin' 'Compte admin'}
     }
     $row.DirectoryState=if($fresh){'AD vérifié'}else{'Cache · à vérifier'}
+    Set-DomeniaLiveRowValue $row 'DirectoryFresh' $(if($fresh){'Verified'}else{'Cached'})
     $row.DirectoryChecked=[string]$Event.ObservedUtc
     if($fresh){if(-not $s.Fresh.ContainsKey($key)){[void]$s.FreshOrder.Add($snapshot)};$s.Fresh[$key]=$snapshot}
     if($isNew){
         [void](Set-RowAssociationMetadata -Rows @($row))
         if([string]$row.Type -eq 'Machine' -and [string]$row.Association -and -not [bool]$s.PSObject.Properties['LoginShown']){Set-DomeniaLoginColumnVisible $true;$s|Add-Member -NotePropertyName LoginShown -NotePropertyValue $true -Force}
         $row.Presence=$(if($row.Type -eq 'Machine'){'Non vérifié'}else{'Sans objet'})
+        Set-DomeniaLiveRowValue $row 'PresenceState' $(if($row.Type -eq 'Machine'){'Unknown'}else{'None'})
         if(-not $fresh){$s.CacheKeys.Enqueue($key)}
         $observation=$null
         [void]$script:Live.Observations.TryGetValue($key,[ref]$observation)
@@ -461,7 +497,7 @@ function Clear-DomeniaLiveProbeIntent {
     # Only an unsent request is discarded. Never pretend a native in-flight call stopped.
     foreach($item in @($script:Live.PendingKeys.Values)){
         if($null -eq $item.Row -or $script:Live.Busy.ContainsKey([string]$item.Key)){continue}
-        if([string]$item.Row.SessionState -eq 'En attente de vérification' -or [string]$item.Row.Presence -eq 'Vérification en cours'){
+        if([string]$item.Row.SessionState -eq 'En attente de vérification' -or (Get-DomeniaRowPresenceState $item.Row) -eq 'Pending'){
             $known=$null;[void]$script:Live.Observations.TryGetValue([string]$item.Key,[ref]$known)
             Set-DomeniaLiveObservationOnRow $item.Row $known -Cached
         }
@@ -479,8 +515,10 @@ function Test-DomeniaLiveProbeIntent {
     return $true
 }
 function Select-DomeniaLiveResult {
+    # SP-15: -Manual is Revérifier ce poste (ping and user), -Explicit a fiche rendered with its probes (ping, user
+    # when the sub-option is checked). A simple click sends a ping only when « Vérifier au clic » is checked.
     [CmdletBinding()]
-    param([switch]$Force,[switch]$Manual)
+    param([switch]$Force,[switch]$Manual,[switch]$Explicit)
     if($script:SuppressGridSelectionEvents -or (Test-DomeniaAccessBusyWrite)){return}
     if(-not (Test-DomeniaLiveSearchActive)){
         # UX-25: a list shown from the history is not followed: say so instead of a silent click.
@@ -498,6 +536,11 @@ function Select-DomeniaLiveResult {
     if(-not $key -or -not $script:Live.Search.Map.ContainsKey($key)){Clear-DomeniaLiveProbeIntent;return}
     $previous=$script:Live.ProbeSelection
     $same=($null -ne $previous -and [string]$previous.Key -ceq $key -and [string]$previous.Guid -ieq [string]$row.Guid -and $previous.Generation -eq $script:GlobalSearchGeneration -and (Test-DomeniaLiveIdentity $previous ([long]$script:SessionEpoch) $script:Live.Identity))
+    if(-not $Manual -and -not $Explicit -and -not [bool]$script:Live.VerifyOnClick){
+        # The AD fiche is preloaded by the selection itself; no ping. A click elsewhere drops an intent left unsent.
+        if(-not $same){Clear-DomeniaLiveProbeIntent}
+        return
+    }
     if($same -and -not $Force){Request-DomeniaLiveProbe -Row $row;return}
     Clear-DomeniaLiveProbeIntent
     # A mouse/keyboard selection is the only source of an automatic intent.
@@ -542,7 +585,8 @@ function Request-DomeniaLiveSelectedProbe {
     if(-not (Test-DomeniaLiveSearchActive)){return $false}
     $row=Get-DomeniaSelectedGridRow
     if($null -eq $row -or $row.Type -ne 'Machine' -or (Normalize-LinkComputer $row.Name) -ne (Normalize-LinkComputer $Computer)){return $false}
-    Select-DomeniaLiveResult
+    # SP-15: the fiche of this workstation was rendered with its probes: an explicit opening, not a click.
+    Select-DomeniaLiveResult -Explicit
     [void](Set-DomeniaControlText 'LblLinkProbeStatus' -Text 'Vérification du poste sélectionné ; les observations précédentes restent datées en cache.')
     # The selection path owns this machine even while disabled or waiting for AD.
     # Do not fall back to a second, heavier probe when opening the same fiche.
@@ -619,8 +663,9 @@ function Complete-DomeniaLiveStored {
             if(-not $row.Guid -or -not $observation.Guid -or $row.Guid -ieq $observation.Guid){
                 Set-DomeniaLiveObservationOnRow $row $observation -Cached:([string]$result.Outcome -eq 'PresenceOnly')
                 if($null -ne $script:SelectedObject -and [string]$script:SelectedObject.DN -ieq [string]$row.DN){
-                    Set-DomeniaPresenceText 'TxtCompPresence' ([string]$row.Presence)
-                    Update-DomeniaObjectPresence -State ([string]$row.Presence) -Target ([string]$State.Computer)
+                    $rowState=Get-DomeniaRowPresenceState $row
+                    Set-DomeniaPresenceText 'TxtCompPresence' ([string]$row.Presence) -PresenceState $rowState
+                    Update-DomeniaObjectPresence -State ([string]$row.Presence) -Target ([string]$State.Computer) -PresenceState $rowState
                 }
                 [void](Set-RowAssociationMetadata -Rows @($row));$s.RefreshNeeded=$true
                 if([string]$row.Association){Set-DomeniaLoginColumnVisible $true}
@@ -877,10 +922,10 @@ function Invoke-DomeniaLiveTick {
         try{Start-DomeniaLiveBackgroundWork}catch{$script:Live.NextStart=[datetime]::UtcNow.AddSeconds(2);Write-AppLog ('Travail différé : '+$_.Exception.Message) 'WARN'}
         # D028: the save state is the rule label shared with Fiabilite (Get-DomeniaPersistenceState, Storage.UI).
         $save=(Get-DomeniaPersistenceState).Label
-        $probe=if($script:DirectoryCredentialFaulted){'validation AD suspendue · revoir la connexion'}elseif($script:Live.RemoteFaulted){'compte distant refusé · détection suspendue'}elseif(-not $script:Live.AutoDetect){'ping à la sélection · utilisateur désactivé'}elseif($script:Live.PendingKeys.Count -or $script:Live.Busy.Count){"poste sélectionné : $($script:Live.PendingKeys.Count) en attente, $($script:Live.Busy.Count) en cours"}else{'Sélection : un ping + utilisateur si activé · double-clic : fiche · aucun contrôle collectif'}
-        $stateText=$probe+' · '+$save
-        if($null -ne $script:ParkRun -and $script:ParkRun.Scope -eq 'Results' -and $script:ParkRun.StatusText -and $script:ParkRun.Epoch -eq [long]$script:SessionEpoch -and $script:ParkRun.Generation -eq [long]$script:GlobalSearchGeneration){$stateText=$script:ParkRun.StatusText}
-        [void](Set-DomeniaControlText 'LblLiveState' $stateText)
+        $probe=if($script:DirectoryCredentialFaulted){'validation AD suspendue · revoir la connexion'}elseif($script:Live.RemoteFaulted){'compte distant refusé · détection suspendue'}elseif($script:Live.PendingKeys.Count -or $script:Live.Busy.Count){"poste sélectionné : $($script:Live.PendingKeys.Count) en attente, $($script:Live.Busy.Count) en cours"}elseif(-not $script:Live.VerifyOnClick){'Clic : fiche AD seulement, sans ping · Revérifier ce poste : un ping'}elseif(-not $script:Live.AutoDetect){'Clic : un ping du poste, utilisateur non lu · aucun contrôle collectif'}else{'Clic : un ping et lʼutilisateur connecté · aucun contrôle collectif'}
+        # UX-12: a survey of the list shows its own short count and bar (Update-DomeniaParkControls); this line keeps
+        # the state of the click verification and of the local saves.
+        [void](Set-DomeniaControlText 'LblLiveState' ($probe+' · '+$save))
     }finally{$script:Live.InTick=$false}
 }
 function Test-DomeniaLiveBackgroundAllowed {

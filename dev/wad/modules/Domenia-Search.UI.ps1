@@ -556,7 +556,7 @@ function Start-DomeniaSearchLocalQuery {
     [void](Set-DomeniaControlText 'LblSearchQuery' ('Lecture locale : '+$state.Name+' · '+$state.BaseDn+' · '+$state.Coverage))
     Update-DomeniaSearchMoreButton -Search $null
     [void](Initialize-DomeniaWinSqliteNative)
-    $payload=[pscustomobject]@{Action='FleetStats';Path=$path;BusyTimeoutMs=250;Scope=$state.BaseDn;Subtree=($state.Scope -eq 'Subtree');Plan=(Get-DomeniaFleetQueryPlan -ObservationMaxAgeDays (Get-DomeniaObservationMaxAgeDays));Keys=@();ScopeKey='';ComputeBoard=$false;ModuleRoot=$script:SearchQueryModuleRoot}
+    $payload=[pscustomobject]@{Action='FleetStats';Path=$path;Scope=$state.BaseDn;Subtree=($state.Scope -eq 'Subtree');Plan=(Get-DomeniaFleetQueryPlan -ObservationMaxAgeDays (Get-DomeniaObservationMaxAgeDays));Keys=@();ScopeKey='';ComputeBoard=$false;ModuleRoot=$script:SearchQueryModuleRoot}
     $state.Job=Start-UiTask -Name 'Requête : lecture de la base locale' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload $payload -CallbackState $state -ReplaceKey 'global' -SuccessHandler 'Complete-DomeniaSearchLocalRead' -ErrorHandler 'Fail-DomeniaSearchLocalQuery' -TimeoutSeconds 120 -TaskClass Explicit
     if(-not $state.Job){Fail-DomeniaSearchLocalQuery 'Lecture non admise, réessayez.' $state}
     }catch{Fail-DomeniaSearchLocalQuery $_.Exception.Message $state}

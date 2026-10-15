@@ -77,7 +77,7 @@ function Invoke-DomeniaPendingSelectionOpen {$script:PendingInvokes++}
 function Test-DomeniaDraftNavigation {param($DN,[switch]$Refresh);return $true}
 function Restore-DomeniaRefusedSelection {param($DN)}
 function Set-DomeniaRelationsGridSelection {}
-function Select-DomeniaLiveResult {param([switch]$Force,[switch]$Manual)}
+function Select-DomeniaLiveResult {param([switch]$Force,[switch]$Manual,[switch]$Explicit)}
 function Clear-DomeniaLiveProbeIntent {}
 function Select-DomeniaWorkspace {param($Workspace,$Inner,$Tab)}
 function Clear-Secrets {}

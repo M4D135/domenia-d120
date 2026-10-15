@@ -201,6 +201,21 @@ try {
    Expect (($grid.Items.Count -eq $s.Rows.Count) -and ($panel.Visibility -eq 'Collapsed') -and ($script:CurrentPresenceFilter -eq 'Tous') -and ($script:Ctrl.TxtSuiteResultFilter.Text -eq '')) 'Effacer le filtre did not show the loaded rows again'
    Expect-HealthyTimer;Snapshot-Fixture 'filtered-empty-state-cleared'
   }
+  Case 'DS-15 / FI-16 : la ligne porte la cle de presence et son age, le filtre lit la cle et non le libelle' {
+   $s=$script:Live.Search
+   $machine=@($s.Rows|Where-Object{$_.Type -eq 'Machine'})[0];$other=@($s.Rows|Where-Object{$_.Type -ne 'Machine'})[0]
+   Expect ([string]$machine.PresenceState -eq 'Unknown' -and [string]$other.PresenceState -eq 'None') ('Cles initiales : '+[string]$machine.PresenceState+' / '+[string]$other.PresenceState)
+   $observation=[pscustomobject]@{Key=([string]$machine.DN).ToLowerInvariant();Guid=[string]$machine.Guid;Computer=[string]$machine.Name;Outcome='NotRequested';Presence='En ligne';PresenceCheckedUtc=[datetime]::UtcNow.AddHours(-2).AddMinutes(-1).ToString('o');PresenceDetail='Reponse ICMP synthetique'}
+   Set-DomeniaLiveObservationOnRow $machine $observation -Cached
+   Expect ([string]$machine.Presence -eq 'En ligne' -and [string]$machine.PresenceState -eq 'Online' -and [string]$machine.PresenceAge -eq 'il y a 2 h' -and [string]$machine.PresenceCached -eq '1') ('Pastille : '+[string]$machine.Presence+' / '+[string]$machine.PresenceAge)
+   Expect (-not ([string]$machine.Presence).Contains('(cache)')) 'Le suffixe (cache) est revenu dans le libelle.'
+   # The label is reworded: the presence filter still finds the row by its key.
+   $machine.Presence='Joignable (libelle de test)'
+   $script:CurrentPresenceFilter='En ligne';Apply-DomeniaPresenceFilter
+   Expect ($grid.Items.Count -eq 1 -and [object]::ReferenceEquals($grid.Items[0],$machine)) ('Filtre par cle : '+$grid.Items.Count+' ligne(s)')
+   $script:CurrentPresenceFilter='Tous';Apply-DomeniaPresenceFilter
+   Expect ($grid.Items.Count -eq 5) 'Filtre de presence non retire.'
+  }
   Case 'Five thousand machines plus other object types remain complete and filterable' {
    $s=$script:Live.Search;$clock=[Diagnostics.Stopwatch]::StartNew()
    for($i=1;$i -le 4997;$i++){$id='55555555-5555-4555-8555-'+$i.ToString('D12');$s.Progress.Enqueue((New-FixtureEvent ('SCALE-'+$i.ToString('D5')) $id))}

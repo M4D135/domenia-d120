@@ -9,7 +9,7 @@ function Start-DomeniaAccountValidation {
     try {
         $request=New-DomeniaAccountAuthRequest -UserName $UserName -Password $copy -TimeoutSeconds $TimeoutSeconds
         $session=Start-DomeniaLoginAuthRunspace -Request $request
-        $script:AccountValidation=[pscustomobject]@{Session=$session;Started=[datetime]::UtcNow;Epoch=[long]$script:SessionEpoch;Base=[string]$script:Conn.BaseDn;Scope=$ActivateScope;Operation=$Operation;Password=$copy;Timeout=$TimeoutSeconds;Abandoned=$false;Timer=$null;Busy=@('BtnAccountAdTest','BtnAccountRemoteTest','BtnAccountRemoteSave','BtnAccountRemoteClear','BtnAccountSecretsTest','BtnAccountSecretsSave','BtnAccountSecretsClear','TxtAccountRemoteUser','PwdAccountRemote','TxtAccountSecretsUser','PwdAccountSecrets')}
+        $script:AccountValidation=[pscustomobject]@{Session=$session;Started=[datetime]::UtcNow;Epoch=[long]$script:SessionEpoch;Base=[string]$script:Conn.BaseDn;Scope=$ActivateScope;Operation=$Operation;Password=$copy;Timeout=$TimeoutSeconds;Abandoned=$false;Timer=$null;Busy=@('BtnAccountRemoteSave','BtnAccountRemoteClear','BtnAccountSecretsTest','BtnAccountSecretsSave','BtnAccountSecretsClear','TxtAccountRemoteUser','PwdAccountRemote','TxtAccountSecretsUser','PwdAccountSecrets')}
         $script:AccountValidation|Add-Member -NotePropertyName RememberSecret -NotePropertyValue ([bool]$RememberSecret)
         $script:AccountValidation.Busy+=@('ChkAccountRemoteRemember','ChkAccountSecretsRemember','BtnAccountRemoteVault','BtnAccountSecretsVault','BtnAccountRemoteForgetVault','BtnAccountSecretsForgetVault')
         Set-ControlsBusy -Names $script:AccountValidation.Busy -Busy $true
