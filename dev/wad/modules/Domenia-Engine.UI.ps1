@@ -515,10 +515,6 @@ function Get-DomeniaPulse {
     return $script:DomeniaPulse
 }
 
-function Get-DomeniaPulseNow {
-    return [double](Get-DomeniaPulse).Clock.Elapsed.TotalMilliseconds
-}
-
 function Start-DomeniaTimer {
     param($Timer)
     if ($null -eq $Timer -or [bool]$Timer.Enabled) { return }

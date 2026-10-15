@@ -7,17 +7,6 @@ function Get-DomeniaStartupPhases {
     return @('Bootstrap','Resources','Modules','Authentication','Interface')
 }
 
-function Get-DomeniaFunctionProviderMap {
-    param([object[]]$Modules)
-    $map = @{}
-    foreach ($module in @($Modules)) {
-        foreach ($name in @(Get-DomeniaMember $module 'Functions' @())) {
-            if (-not $map.ContainsKey([string]$name)) { $map[[string]$name] = [string](Get-DomeniaMember $module 'File' '') }
-        }
-    }
-    return $map
-}
-
 function Test-DomeniaStartupPlan {
     # Validates the declared module plan before the first import: phases, dependencies, cycles, duplicate providers.
     param([object[]]$Modules)

@@ -1441,9 +1441,6 @@ $script:Conn = [ordered]@{
 $script:SelectedBranchDn = ""
 $script:SelectedObject = $null
 $script:BranchObjects = @()
-$script:AdModuleLoaded = $false
-$script:AdModulePath = ""
-$script:AdModuleMessage = ""
 $script:UserMachineLinks = @()
 $script:LinkProbeJobs = @{}
 $script:LinkProbeDone = @{}
@@ -1451,24 +1448,6 @@ $script:LinkProbeTimer = $null
 $script:SuppressBranchAutoLoad = $false
 
 
-
-function Merge-ConfigObject {
-    param($Base, $Override)
-    if ($null -eq $Override) { return $Base }
-    foreach ($p in $Override.PSObject.Properties) {
-        if ($Base.PSObject.Properties.Name -contains $p.Name) {
-            if (($null -ne $p.Value) -and ($p.Value -is [pscustomobject]) -and ($Base.$($p.Name) -is [System.Collections.IDictionary])) {
-                foreach ($sp in $p.Value.PSObject.Properties) { $Base.$($p.Name)[$sp.Name] = $sp.Value }
-            }
-            elseif (($null -ne $p.Value) -and ($p.Value -is [pscustomobject]) -and ($Base.$($p.Name) -is [pscustomobject])) {
-                foreach ($sp in $p.Value.PSObject.Properties) { $Base.$($p.Name).$($sp.Name) = $sp.Value }
-            }
-            else { $Base[$p.Name] = $p.Value }
-        }
-        else { $Base[$p.Name] = $p.Value }
-    }
-    return $Base
-}
 
 function Load-AppConfig {
     $default = New-DefaultConfig
@@ -1561,17 +1540,6 @@ function Convert-DomainToDn {
     return (($parts | ForEach-Object { "DC=$($_)" }) -join ",")
 }
 
-function Normalize-AdLogin {
-    param([string]$Login)
-    $login = ($Login + "").Trim()
-    if ($login.Contains("\") -or $login.Contains("@")) { return $login }
-    $netbios = Get-CfgValue "Conf" "NETBIOS" ""
-    $domain = Get-CfgValue "Conf" "DOMAINE" ""
-    if (-not [string]::IsNullOrWhiteSpace($netbios)) { return "$netbios\$login" }
-    if (-not [string]::IsNullOrWhiteSpace($domain)) { return "$login@$domain" }
-    return $login
-}
-
 function Get-LdapPath {
     param([string]$Dn)
     $server = $script:Conn.Server
@@ -1655,16 +1623,6 @@ function ConvertTo-DomeniaSecureString {
     return $secure
 }
 
-function Get-AdCredential {
-    try {
-        if (-not [bool]$script:Conn.UseCredential -or $null -eq $script:Conn.Credential) { return $null }
-        $bindUser = Get-DomeniaDirectoryBindUser
-        if ([string]::IsNullOrWhiteSpace($bindUser) -or [string]$script:Conn.Credential.UserName -ieq $bindUser) { return $script:Conn.Credential }
-        return New-Object System.Management.Automation.PSCredential -ArgumentList @($bindUser,$script:Conn.Credential.Password)
-    }
-    catch { return $script:Conn.Credential }
-}
-
 function Get-DomeniaRequiredAdCommands {
     return @(
         "Add-ADGroupMember","Clear-ADAccountExpiration","Disable-ADAccount","Enable-ADAccount",
@@ -1697,13 +1655,6 @@ function Get-DomeniaAdTypeNames {
         "Microsoft.ActiveDirectory.Management.ADTrust","Microsoft.ActiveDirectory.Management.ADClaimTransformPolicy",
         "Microsoft.ActiveDirectory.Management.ADAuthenticationPolicy","Microsoft.ActiveDirectory.Management.ADAuthenticationPolicySilo"
     )
-}
-
-function Register-DomeniaAdTypeData {
-    $adapter = [Microsoft.ActiveDirectory.Management.ADEntityAdapter]
-    foreach ($typeName in (Get-DomeniaAdTypeNames)) {
-        Update-TypeData -TypeName $typeName -TypeAdapter $adapter -Force -ErrorAction Stop
-    }
 }
 
 function Add-DomeniaAdBinaryDirectoryCandidate {
@@ -1777,65 +1728,6 @@ function Assert-DomeniaAdBinarySource {
 function Test-DomeniaAdCommandsAvailable {
     $missing = @((Get-DomeniaRequiredAdCommands) | Where-Object { $null -eq (Get-Command -Name $_ -CommandType Cmdlet -ErrorAction SilentlyContinue) })
     return ($missing.Count -eq 0)
-}
-
-function Import-DomeniaAdModuleSource {
-    param($Source)
-    if ($null -eq $Source -or [string]::IsNullOrWhiteSpace([string]$Source.Path)) { return $false }
-    if ([string]$Source.Kind -eq "Binary") { Assert-DomeniaAdBinarySource -Source $Source }
-    Import-Module -Name ([string]$Source.Path) -Global -Cmdlet (Get-DomeniaRequiredAdCommands) -ErrorAction Stop -WarningAction SilentlyContinue
-    Register-DomeniaAdTypeData
-    if (-not (Test-DomeniaAdCommandsAvailable)) {
-        $missing = @((Get-DomeniaRequiredAdCommands) | Where-Object { $null -eq (Get-Command -Name $_ -CommandType Cmdlet -ErrorAction SilentlyContinue) })
-        throw "Cmdlets Active Directory manquantes apres import : $($missing -join ', ')"
-    }
-    $script:AdModuleLoaded = $true
-    $script:AdModulePath = [string]$Source.Path
-    $script:AdModuleMessage = "Module ActiveDirectory charge ($([string]$Source.Kind)) : $($script:AdModulePath)"
-    Write-AppLog $script:AdModuleMessage "INFO"
-    return $true
-}
-
-function Ensure-AdModule {
-    if ($script:AdModuleLoaded -and (Test-DomeniaAdCommandsAvailable)) { return $true }
-    if (-not [bool](Get-CfgValue "Modules" "AutoLoad" $true)) { return $false }
-
-    if (Test-DomeniaAdCommandsAvailable) {
-        Register-DomeniaAdTypeData
-        $command = Get-Command -Name "Get-ADObject" -CommandType Cmdlet -ErrorAction Stop
-        $script:AdModuleLoaded = $true
-        $script:AdModulePath = [string]$command.Module.Path
-        $script:AdModuleMessage = "Module ActiveDirectory deja disponible : $($script:AdModulePath)"
-        return $true
-    }
-
-    $errors = New-Object System.Collections.ArrayList
-    foreach ($source in (Get-DomeniaAdModuleSources)) {
-        try { if (Import-DomeniaAdModuleSource -Source $source) { return $true } }
-        catch { [void]$errors.Add("$([string]$source.Kind) : $($_.Exception.Message)") }
-    }
-
-    $script:AdModuleMessage = if ($errors.Count -gt 0) { "Module ActiveDirectory indisponible : $($errors -join ' | ')" } else { "RSAT absent et DLL Active Directory verifies introuvables a cote d'Domenia." }
-    Write-AppLog $script:AdModuleMessage "ERROR"
-    return $false
-}
-
-function Get-AdCmdletParams {
-    $p = @{}
-    if (-not [string]::IsNullOrWhiteSpace($script:Conn.Server)) { $p["Server"] = $script:Conn.Server }
-    if ([bool](Get-CfgValue "Modules" "UseCredential" $true)) {
-        $cred = Get-AdCredential
-        if ($null -ne $cred) { $p["Credential"] = $cred }
-    }
-    return $p
-}
-
-
-
-function Set-UacFlagValue {
-    param([int]$Value, [int]$Flag, [bool]$Enabled)
-    if ($Enabled) { return ($Value -bor $Flag) }
-    return ($Value -band (-bnot $Flag))
 }
 
 function Get-SelectedComputerTarget {
@@ -1975,18 +1867,6 @@ function Convert-GuidLabel {
         return [string]$Value
     }
     catch { return "" }
-}
-
-function Get-ObjectTypeFromProps {
-    param($Props)
-    $classes = @()
-    try { foreach ($c in $Props["objectclass"]) { $classes += ([string]$c).ToLowerInvariant() } } catch { Write-DomeniaSwallowed 'Core' 'Get-ObjectTypeFromProps' $_ }
-    if ($classes -contains "computer") { return "Machine" }
-    if ($classes -contains "user") { return "Utilisateur" }
-    if ($classes -contains "group") { return "Groupe" }
-    if ($classes -contains "organizationalunit") { return "OU" }
-    if ($classes -contains "container") { return "Conteneur" }
-    return "Objet"
 }
 
 function Get-UacStatusLabel {
@@ -3035,11 +2915,6 @@ function Clear-DomeniaUiLog {
     catch { Write-DomeniaSwallowed 'Core' 'Clear-DomeniaUiLog' $_ }
 }
 
-function Get-DomeniaProfilePath {
-    try { return ([string](Get-DomeniaPreferencePath -FileName "Domenia.ui-profile.cfg").User) }
-    catch { return "" }
-}
-
 function Load-DomeniaUiProfile {
     $value = [string](Get-DomeniaSetting "UiProfile" "Tech")
     if ($value -in @("Tech","Admin")) { $script:CurrentUiProfile = $value }
@@ -3072,31 +2947,6 @@ function Apply-DomeniaUiProfile {
     $profileLabel=if($Profile -eq 'Tech'){'Essentiel'}else{'Expert'}
     Add-DomeniaUiLog -Area 'Interface' -Text ('Profil interface : '+$profileLabel)
     Set-Status ('Profil '+$profileLabel+' affiché. Les droits ne sont pas modifiés.')
-}
-
-function Get-DomeniaPingState {
-    param(
-        [Parameter(Mandatory=$true)][string]$Target,
-        [int]$TimeoutMs = 900
-    )
-
-    if ([string]::IsNullOrWhiteSpace($Target)) { return "Inconnu" }
-
-    $ping = $null
-    try {
-        $ping = New-Object System.Net.NetworkInformation.Ping
-        $reply = $ping.Send($Target,$TimeoutMs)
-        if ($null -ne $reply -and $reply.Status -eq [System.Net.NetworkInformation.IPStatus]::Success) {
-            return "En ligne"
-        }
-        return "Hors ligne"
-    }
-    catch {
-        return "Hors ligne"
-    }
-    finally {
-        try { if ($null -ne $ping) { $ping.Dispose() } } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaPingState' $_ }
-    }
 }
 
 function Get-DomeniaPresenceColor {
@@ -4000,60 +3850,6 @@ function Get-DomeniaStoredTheme {
     return [string]$script:BootTheme
 }
 
-function Get-DomeniaBootThemeMap {
-    # Deux tables distinctes selon l attribut. Une seule table produirait
-    # du texte sombre sur un bouton d accent bleu, puisque le blanc d un
-    # fond de carte et le blanc d un libelle de bouton doivent devenir
-    # deux choses opposees.
-    param([ValidateSet("Background","Foreground","Border")][string]$Kind = "Background")
-    if ($Kind -eq "Foreground") {
-        return [ordered]@{
-            "#111827" = "#F8FAFC"
-            "#161922" = "#F8FAFC"
-            "#0F172A" = "#F8FAFC"
-            "#20232A" = "#E2E8F0"
-            "#475569" = "#CBD5E1"
-            "#516078" = "#CBD5E1"
-            "#64748B" = "#CBD5E1"
-            "#666C78" = "#CBD5E1"
-            "#7A8190" = "#94A3B8"
-            "#9499A5" = "#94A3B8"
-            "#1769E0" = "#60A5FA"
-            "#1687F8" = "#60A5FA"
-            "#2F6FED" = "#60A5FA"
-            "#1D4ED8" = "#60A5FA"
-            "#DC2626" = "#F87171"
-        }
-    }
-    if ($Kind -eq "Border") {
-        return [ordered]@{
-            "#D9DDE7" = "#334155"
-            "#D8E0EA" = "#334155"
-            "#D7DFEA" = "#334155"
-            "#D6DEEA" = "#334155"
-            "#E2E8F0" = "#334155"
-            "#ECECF2" = "#334155"
-            "#94A3B8" = "#475569"
-            "#1769E0" = "#3B82F6"
-            "#1687F8" = "#3B82F6"
-        }
-    }
-    return [ordered]@{
-        "#FFFFFF" = "#111827"
-        "#000000" = "#F8FAFC"
-        "#F8FAFC" = "#0F172A"
-        "#F5F5F7" = "#0F172A"
-        "#F4F5F9" = "#111827"
-        "#F3F6FB" = "#0F172A"
-        "#F2F5FA" = "#0F172A"
-        "#ECECF2" = "#1E293B"
-        "#E2E8F0" = "#1E293B"
-        "#D9DDE7" = "#334155"
-        "#D8E0EA" = "#334155"
-        "#D7DFEA" = "#334155"
-        "#D6DEEA" = "#334155"
-    }
-}
 function Get-DomeniaBootThemePalette {
     param([ValidateSet("Light","Dark")][string]$Theme = (Get-DomeniaStoredTheme))
     # CD-05: one palette. The login, the startup monitor and the fallback dialogs paint roles of SupportSuite.UI.json,
@@ -4180,10 +3976,6 @@ function Convert-DomeniaXamlToBootTheme {
     $resources = Get-DomeniaBootThemeResources -Theme $Theme
     return $Xaml.Replace($marker,($marker + "`r`n" + $resources))
 }
-function Get-DomeniaThemePath {
-    try { return ([string](Get-DomeniaPreferencePath -FileName "Domenia.theme.cfg").User) }
-    catch { return "" }
-}
 
 function Load-DomeniaTheme {
     # The setting holds the choice (Light, Dark or Auto); the session paints its resolution (FO-22).
@@ -4212,35 +4004,6 @@ function Save-DomeniaTheme {
     # Le choix doit survivre a une fermeture rapide, sans attendre le timer 1,5 s.
     Save-DomeniaSettings -Immediate -ThrowOnFailure
 }
-
-function Set-DomeniaResourceColor {
-    param(
-        [Parameter(Mandatory)][System.Windows.Window]$Window,
-        [Parameter(Mandatory)][string]$Key,
-        [Parameter(Mandatory)][string]$Color
-    )
-
-    try {
-        [System.Windows.Media.BrushConverter]$converter =
-            [System.Windows.Media.BrushConverter]::new()
-
-        [System.Windows.Media.Brush]$newBrush =
-            $converter.ConvertFromInvariantString($Color)
-
-        if ($null -eq $newBrush) {
-            throw "La couleur '$Color' n'a pas pu etre convertie en Brush."
-        }
-
-        $Window.Resources[$Key] = [System.Windows.Media.Brush]$newBrush
-    }
-    catch {
-        Write-AppLog (
-            "Ressource de theme impossible : cle={0}, couleur={1}, erreur={2}" -f
-            $Key,$Color,$_.Exception.Message
-        ) "WARN"
-    }
-}
-
 
 function Apply-DomeniaTheme {
     param(
@@ -9215,15 +8978,6 @@ function Reset-DomeniaSearchScope {
     if (-not $NoSearch) { Invoke-DomeniaSearchFilterChanged }
 }
 
-function Get-SelectedObjectFilter {
-    try {
-        $item = $script:Ctrl["CmbObjectFilter"].SelectedItem
-        if ($item -and $item.Content) { return [string]$item.Content }
-    }
-    catch { Write-DomeniaSwallowed 'Core' 'Get-SelectedObjectFilter' $_ }
-    return "Tous"
-}
-
 function Get-TypeLdapFilter {
     param([string]$Type)
     switch ($Type) {
@@ -9243,33 +8997,6 @@ function Get-SearchLdapFilter {
     if (-not $pattern.Contains("*")) { $pattern = "*$pattern*" }
     return "(|(name=$pattern)(displayName=$pattern)(sAMAccountName=$pattern)(userPrincipalName=$pattern)(mail=$pattern)(dNSHostName=$pattern)(description=$pattern))"
 }
-
-function Result-ToBranchRow {
-    param($Result)
-    $p = $Result.Properties
-    $type = Get-ObjectTypeFromProps $p
-    $name = [string](Get-PropFirst $p "name" "")
-    $dn = [string](Get-PropFirst $p "distinguishedname" "")
-    $login = [string](Get-PropFirst $p "samaccountname" "")
-    $upn = [string](Get-PropFirst $p "userprincipalname" "")
-    if ($type -eq "Machine") {
-        $upn = [string](Get-PropFirst $p "dnshostname" "")
-        # Le sAMAccountName d'un ordinateur se termine techniquement par "$".
-        # Ce suffixe AD n'apporte rien dans la grille et est masque a l'affichage.
-        $login = $login.TrimEnd([char]36)
-    }
-    [pscustomobject]@{
-        Type = $type
-        Name = $name
-        Login = $login
-        UPN = $upn
-        Mail = [string](Get-PropFirst $p "mail" "")
-        Description = [string](Get-PropFirst $p "description" "")
-        Changed = Convert-DateLabel (Get-PropFirst $p "whenchanged" "")
-        DN = $dn
-    }
-}
-
 
 function Get-GlobalSelectedTypeFilter {
     param([ValidateSet('Global','OU')][string]$Mode = (Get-DomeniaSearchMode))
@@ -9825,54 +9552,11 @@ function Fill-ContainerObject {
     Update-DomeniaNewOuParentUi
 }
 
-function Set-DeStringProperty {
-    param($Entry, [string]$Name, [string]$Value)
-    if ([string]::IsNullOrWhiteSpace($Value)) { $Entry.Properties[$Name].Clear() } else { $Entry.Properties[$Name].Value = $Value }
-}
-
-
-
-
-
-
-
-
-
 function Get-PasswordPair {
     $new = if ($script:__UserNewReveal) { $script:Ctrl["TxtUserNewVisible"].Text } else { $script:Ctrl["PwdUserNew"].Password }
     $confirm = if ($script:__UserConfirmReveal) { $script:Ctrl["TxtUserConfirmVisible"].Text } else { $script:Ctrl["PwdUserConfirm"].Password }
     return [pscustomobject]@{ New = $new; Confirm = $confirm }
 }
-
-
-
-
-
-
-
-
-
-function Find-GroupDn {
-    param([string]$Text)
-    $t = ($Text + "").Trim()
-    if ($t -like "CN=*" -or $t -like "OU=*") { return $t }
-    $e = Escape-LdapValue $t
-    $s = New-LdapSearcher -BaseDn $script:Conn.BaseDn -Filter "(&(objectCategory=group)(|(sAMAccountName=$e)(name=$e)))" -Properties @("distinguishedName") -Scope "Subtree" -Limit 1
-    $r = $s.FindOne()
-    if ($null -eq $r) { throw "Groupe introuvable : $Text" }
-    return [string](Get-PropFirst $r.Properties "distinguishedname" "")
-}
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -10596,7 +10280,6 @@ $script:DeferredRawDn = ""
 $script:DeferredPermissionsDn = ""
 $script:DeferredTargetDn = ""
 $script:IndexDirty = $false
-$script:IndexFlushTimer = $null
 $script:DomainRows = @()
 $script:WmiNamespaces = @()
 $script:WmiClasses = @()
@@ -10652,7 +10335,6 @@ $script:StartupWarmupDone = $false
 $script:StartupWarmupError = ""
 $script:StartupReady = $false
 $script:StartupWorkerReady = $false
-$script:StartupWorkerThreadId = 0
 $script:AsyncEngineClosing = $false
 $script:WorkerContextStatic = $null
 $script:LastTaskUiRefresh = [datetime]::MinValue
@@ -12279,14 +11961,6 @@ function Complete-DomeniaBranchObjectsUi {
     Set-VisitCacheValue -Key ([string]$State.CacheKey) -Value $rows
     Show-ObjectRows -Rows $rows -Label "$($rows.Count) objet(s)"
     Set-Status "Branche chargee : $($rows.Count) objet(s)."
-}
-
-function Fail-DomeniaBranchObjectsUi {
-    param($Message,$State)
-    if (-not (Test-DomeniaSearchStateCurrent -State $State)) { return }
-    $detail = ([string]$Message).Trim()
-    if ([string]::IsNullOrWhiteSpace($detail)) { $detail = "Erreur inconnue." }
-    Set-Status "Erreur branche : $detail" "ERROR"
 }
 
 function Load-BranchObjects {
@@ -15893,18 +15567,6 @@ function Start-DomeniaSearchAssociated {
     Start-DomeniaSearchFor -Term $association
 }
 
-function Get-DomeniaContextRow {
-    # Ligne reellement visee par le clic droit, sinon la selection courante.
-    param($Sender)
-    try {
-        $item = $Sender
-        if ($null -ne $item -and $null -ne $item.PlacementTarget) { $item = $item.PlacementTarget }
-        if ($null -ne $item -and $null -ne $item.SelectedItem) { return $item.SelectedItem }
-    }
-    catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaContextRow' $_ }
-    return $null
-}
-
 function New-DomeniaObjectsContextMenu {
     $menu = New-Object System.Windows.Controls.ContextMenu
     $menu.Add_Opened({
@@ -15924,31 +15586,6 @@ function Get-DomeniaSelectedGridRows {
 
 function Get-DomeniaSelectedMachineRows {
     return @(Get-DomeniaSelectedGridRows | Where-Object { [string]$_.Type -eq "Machine" -and -not [string]::IsNullOrWhiteSpace([string]$_.Name) })
-}
-
-function Copy-DomeniaSelectedObjectNames {
-    $rows = @(Get-DomeniaSelectedGridRows)
-    if ($rows.Count -eq 0) { Set-Status "Aucune ligne sélectionnée." "WARN"; return }
-    $values = @($rows | ForEach-Object {
-        $v = [string]$_.Name
-        if ([string]::IsNullOrWhiteSpace($v)) { $v = [string]$_.Login }
-        if (-not [string]::IsNullOrWhiteSpace($v)) { $v }
-    })
-    if ($values.Count -eq 0) { Set-Status "Aucun nom exploitable dans la sélection." "WARN"; return }
-    Set-ClipboardSafe (($values -join [Environment]::NewLine))
-    Set-Status ("{0} objet(s) copie(s)." -f $values.Count)
-}
-
-function Copy-DomeniaSelectedObjectDns {
-    $rows = @(Get-DomeniaSelectedGridRows)
-    if ($rows.Count -eq 0) { Set-Status "Aucune ligne sélectionnée." "WARN"; return }
-    $values = @($rows | ForEach-Object {
-        $v = [string]$_.DN
-        if (-not [string]::IsNullOrWhiteSpace($v)) { $v }
-    })
-    if ($values.Count -eq 0) { Set-Status "Aucun DN exploitable dans la sélection." "WARN"; return }
-    Set-ClipboardSafe (($values -join [Environment]::NewLine))
-    Set-Status ("{0} DN copie(s)." -f $values.Count)
 }
 
 function Show-DomeniaBatchNetworkReport {
@@ -17289,65 +16926,6 @@ function Export-DomeniaWmi {
 # l annuaire avant d etre propose.
 # =====================================================================
 
-# =====================================================================
-# Memoire des recherches par compte.
-# Un balayage complet ne doit se payer qu une fois. Ce qu il a trouve
-# est conserve, et les postes deja connus sont verifies en premier lors
-# de la recherche suivante.
-# =====================================================================
-function Get-DomeniaScanRecordPath {
-    # Compatibilite : l historique est desormais dans Domenia.db.
-    return (Get-DomeniaDatabasePath)
-}
-
-function Get-DomeniaUserScanRecord {
-    param([Parameter(Mandatory=$true)][AllowEmptyString()][string]$Login)
-    $key = ([string]$Login).Trim().ToLowerInvariant()
-    if ([string]::IsNullOrWhiteSpace($key)) { return $null }
-    try {
-        Initialize-DomeniaDatabase | Out-Null
-        $rows = @(Invoke-DomeniaDbQuery ("SELECT login,scanned_at,scanned,candidates,reachable,probed,found FROM user_scan_history WHERE login_key=" + (ConvertTo-DomeniaSqlLiteral $key) + " LIMIT 1;"))
-        if ($rows.Count -eq 0) { return $null }
-        $r = $rows[0]
-        return [pscustomobject]@{
-            Login = [string]$r.login; Date = [string]$r.scanned_at; Scanned = ([int]$r.scanned -ne 0)
-            Candidates = [int]$r.candidates; Reachable = [int]$r.reachable; Probed = [int]$r.probed; Found = [string]$r.found
-        }
-    }
-    catch { return $null }
-}
-
-function Save-DomeniaUserScanRecord {
-    param([Parameter(Mandatory=$true)][AllowEmptyString()][string]$Login,[bool]$Scanned=$false,[int]$Candidates=0,[int]$Reachable=0,[int]$Probed=0,[string[]]$Found=@())
-    if(-not $Login.Trim()){return $false}
-    return Queue-DomeniaMetadata -Kind UserScan -Key $Login.ToLowerInvariant() -Row ([pscustomobject]@{Login=$Login;Scanned=$Scanned;Candidates=$Candidates;Reachable=$Reachable;Probed=$Probed;Found=(@($Found) -join ', ');At=[datetime]::UtcNow.ToString('o')})
-}
-
-function Get-DomeniaUserScanSummary {
-    param([Parameter(Mandatory=$true)][AllowEmptyString()][string]$Login)
-    $record = Get-DomeniaUserScanRecord -Login $Login
-    if ($null -eq $record) { return "" }
-    $when = [string]$record.Date
-    $age = ""
-    try {
-        $span = (Get-Date) - [datetime]$when
-        if ([int]$span.TotalDays -ge 1) { $age = "il y a " + [int]$span.TotalDays + " jour(s)" }
-        elseif ([int]$span.TotalHours -ge 1) { $age = "il y a " + [int]$span.TotalHours + " heure(s)" }
-        else { $age = "il y a " + [int]$span.TotalMinutes + " minute(s)" }
-    }
-    catch { $age = "le " + $when }
-    if ([bool]$record.Scanned) {
-        return ("Derniere recherche {0} : {1} poste(s) joignable(s) sur {2}, {3} interroge(s). Trouve : {4}" -f `
-            $age,[int]$record.Reachable,[int]$record.Candidates,[int]$record.Probed,(&{ if ([string]::IsNullOrWhiteSpace([string]$record.Found)) { "aucun" } else { [string]$record.Found } }))
-    }
-    return ("Derniere recherche {0}, sans balayage. Trouve : {1}" -f `
-        $age,(&{ if ([string]::IsNullOrWhiteSpace([string]$record.Found)) { "aucun" } else { [string]$record.Found } }))
-}
-
-function Get-DomeniaUserComputersWorkerCode {
-    return (Get-DomeniaRelationsWorkerCode)
-}
-
 function Complete-DomeniaUserComputersUi {
     param($Result,$State)
     Complete-DomeniaRelationsSearch -Result $Result -State $State
@@ -17376,17 +16954,10 @@ function Rebuild-DomeniaIndexLookup {
     $usersByGuid = @{}
     $computersByName = @{}
     $computersByGuid = @{}
-    $positionByDn = @{}
-    $positionByGuid = @{}
-    $index = 0
     foreach ($r in @($script:IndexRows)) {
         if ($null -ne $r) {
             $guid = ""
-            $dn = ""
             try { $guid = ([string]$r.Guid).Trim().ToLowerInvariant() } catch { Write-DomeniaSwallowed 'Core' 'Rebuild-DomeniaIndexLookup' $_ }
-            try { $dn = ([string]$r.DN).Trim().ToLowerInvariant() } catch { Write-DomeniaSwallowed 'Core' 'Rebuild-DomeniaIndexLookup' $_ }
-            if (-not [string]::IsNullOrWhiteSpace($dn)) { $positionByDn[$dn] = $index }
-            if (-not [string]::IsNullOrWhiteSpace($guid)) { $positionByGuid[$guid] = $index }
             if ([string]$r.Type -eq "Utilisateur") {
                 $login = Normalize-LinkUser ([string]$r.Login)
                 if (-not [string]::IsNullOrWhiteSpace($login)) { $usersByLogin[$login.ToLowerInvariant()] = $r }
@@ -17400,76 +16971,12 @@ function Rebuild-DomeniaIndexLookup {
                 if (-not [string]::IsNullOrWhiteSpace($guid)) { $computersByGuid[$guid] = $r }
             }
         }
-        $index++
     }
     $script:IndexUsersByLogin = $usersByLogin
     $script:IndexUsersByGuid = $usersByGuid
     $script:IndexComputersByName = $computersByName
     $script:IndexComputersByGuid = $computersByGuid
-    $script:IndexPositionByDn = $positionByDn
-    $script:IndexPositionByGuid = $positionByGuid
 }
-
-function Update-DomeniaIndexLookupEntry {
-    param($Row,$PreviousRow=$null,[int]$Position=-1)
-    try {
-        if ($null -eq $script:IndexUsersByLogin -or $null -eq $script:IndexUsersByGuid -or $null -eq $script:IndexComputersByName -or $null -eq $script:IndexComputersByGuid -or $null -eq $script:IndexPositionByDn -or $null -eq $script:IndexPositionByGuid) {
-            Rebuild-DomeniaIndexLookup
-            return
-        }
-
-        # Retire seulement les anciennes cles de cette fiche.
-        if ($null -ne $PreviousRow) {
-            $oldGuid = ""
-            $oldDn = ""
-            try { $oldGuid = ([string]$PreviousRow.Guid).Trim().ToLowerInvariant() } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaIndexLookupEntry' $_ }
-            try { $oldDn = ([string]$PreviousRow.DN).Trim().ToLowerInvariant() } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaIndexLookupEntry' $_ }
-            if (-not [string]::IsNullOrWhiteSpace($oldDn)) { [void]$script:IndexPositionByDn.Remove($oldDn) }
-            if (-not [string]::IsNullOrWhiteSpace($oldGuid)) { [void]$script:IndexPositionByGuid.Remove($oldGuid) }
-            if ([string]$PreviousRow.Type -eq "Utilisateur") {
-                $oldLogin = Normalize-LinkUser ([string]$PreviousRow.Login)
-                if (-not [string]::IsNullOrWhiteSpace($oldLogin)) { [void]$script:IndexUsersByLogin.Remove($oldLogin.ToLowerInvariant()) }
-                if (-not [string]::IsNullOrWhiteSpace($oldGuid)) { [void]$script:IndexUsersByGuid.Remove($oldGuid) }
-            }
-            elseif ([string]$PreviousRow.Type -eq "Machine") {
-                foreach ($candidate in @([string]$PreviousRow.Name,[string]$PreviousRow.Login,[string]$PreviousRow.Upn)) {
-                    $oldKey = Normalize-LinkComputer $candidate
-                    if (-not [string]::IsNullOrWhiteSpace($oldKey)) { [void]$script:IndexComputersByName.Remove($oldKey) }
-                }
-                if (-not [string]::IsNullOrWhiteSpace($oldGuid)) { [void]$script:IndexComputersByGuid.Remove($oldGuid) }
-            }
-        }
-
-        if ($null -eq $Row) { return }
-        $guid = ""
-        $dn = ""
-        try { $guid = ([string]$Row.Guid).Trim().ToLowerInvariant() } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaIndexLookupEntry' $_ }
-        try { $dn = ([string]$Row.DN).Trim().ToLowerInvariant() } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaIndexLookupEntry' $_ }
-        if ($Position -ge 0) {
-            if (-not [string]::IsNullOrWhiteSpace($dn)) { $script:IndexPositionByDn[$dn] = $Position }
-            if (-not [string]::IsNullOrWhiteSpace($guid)) { $script:IndexPositionByGuid[$guid] = $Position }
-        }
-        if ([string]$Row.Type -eq "Utilisateur") {
-            $login = Normalize-LinkUser ([string]$Row.Login)
-            if (-not [string]::IsNullOrWhiteSpace($login)) { $script:IndexUsersByLogin[$login.ToLowerInvariant()] = $Row }
-            if (-not [string]::IsNullOrWhiteSpace($guid)) { $script:IndexUsersByGuid[$guid] = $Row }
-        }
-        elseif ([string]$Row.Type -eq "Machine") {
-            foreach ($candidate in @([string]$Row.Name,[string]$Row.Login,[string]$Row.Upn)) {
-                $key = Normalize-LinkComputer $candidate
-                if (-not [string]::IsNullOrWhiteSpace($key)) { $script:IndexComputersByName[$key] = $Row }
-            }
-            if (-not [string]::IsNullOrWhiteSpace($guid)) { $script:IndexComputersByGuid[$guid] = $Row }
-        }
-    }
-    catch {
-        # En cas de structure inattendue, une reconstruction complete reste un
-        # fallback de surete, mais ce n'est plus le chemin normal a chaque clic.
-        Rebuild-DomeniaIndexLookup
-    }
-}
-
-function Get-DomeniaIndexPath { return (Get-DomeniaDatabasePath) }
 
 function Save-DomeniaIndex {
     param([Parameter(Mandatory=$true)]$Rows,[string]$Server='', [string]$BaseDn='', [long]$HighestUsn=0,[int]$TotalCount=0,[string]$InvocationId='',[string]$SyncScope='directory',$Transfer=$null,$Reconcile=$null)
@@ -17489,24 +16996,6 @@ function Update-DomeniaIndexDatabaseRows {
     if (-not $queued) { throw 'Le lot nʼa pas été mis en file : stockage indisponible ou saturé. Relancez la mise à jour après résolution.' }
     return $true
 }
-
-function Load-DomeniaIndex {
-    try {
-        Initialize-DomeniaDatabase | Out-Null
-        $dbRows=@(Invoke-DomeniaDbQuery "SELECT object_type,name,login,upn,display_name,description,extra,state,distinguished_name,when_changed,usn_changed,last_logon,object_guid FROM ad_objects ORDER BY object_type,name COLLATE NOCASE;")
-        $rows=New-Object Collections.Generic.List[object]
-        foreach($r in $dbRows){
-            $name=[string]$r.name;$login=[string]$r.login;$upn=[string]$r.upn;$display=[string]$r.display_name;$desc=[string]$r.description;$extra=[string]$r.extra
-            $rows.Add([pscustomobject]@{Type=[string]$r.object_type;Name=$name;Login=$login;Upn=$upn;Display=$display;Description=$desc;Extra=$extra;State=[string]$r.state;DN=[string]$r.distinguished_name;WhenChanged=[string]$r.when_changed;Usn=[long]$r.usn_changed;LastLogon=[string]$r.last_logon;Guid=[string]$r.object_guid;Key=(($name+" "+$login+" "+$upn+" "+$display+" "+$desc+" "+$extra).ToLowerInvariant());NameKey=$name.ToLowerInvariant();LoginKey=$login.ToLowerInvariant()})
-        }
-        $script:IndexRows=$rows.ToArray()
-        $s=@(Invoke-DomeniaDbQuery "SELECT server,base_dn,highest_usn,last_sync,item_count FROM sync_state WHERE scope='directory' LIMIT 1;")
-        if($s.Count -gt 0){$script:IndexInfo=[pscustomobject]@{Server=[string]$s[0].server;BaseDn=[string]$s[0].base_dn;Date=[string]$s[0].last_sync;Count=[int]$s[0].item_count;Usn=[long]$s[0].highest_usn}}else{$script:IndexInfo=$null}
-        Rebuild-DomeniaIndexLookup
-        return $rows.Count
-    } catch {Write-AppLog "Base autonome illisible : $($_.Exception.Message)" "WARN";$script:IndexRows=@();$script:IndexInfo=$null;Rebuild-DomeniaIndexLookup;return 0}
-}
-
 
 function Get-DomeniaDatabaseObjectCount {
     # FI-19: objects of the local base as last read by Request-DomeniaIndexMetadata, never read here on the
@@ -17585,139 +17074,6 @@ LIMIT $Limit;
         return $results
     }
 }
-
-function Get-DomeniaEditDistance {
-    # Distance de Levenshtein bornee : au-dela du seuil on abandonne, ce
-    # qui evite de calculer une matrice complete pour des mots sans rapport.
-    param([string]$A,[string]$B,[int]$Max = 3)
-    $a = ([string]$A).ToLowerInvariant()
-    $b = ([string]$B).ToLowerInvariant()
-    $n = $a.Length
-    $m = $b.Length
-    if ($n -eq 0) { return $m }
-    if ($m -eq 0) { return $n }
-    if ([Math]::Abs($n - $m) -gt $Max) { return ($Max + 1) }
-    $previous = New-Object int[] ($m + 1)
-    $current = New-Object int[] ($m + 1)
-    for ($j = 0; $j -le $m; $j++) { $previous[$j] = $j }
-    for ($i = 1; $i -le $n; $i++) {
-        $current[0] = $i
-        $best = $i
-        for ($j = 1; $j -le $m; $j++) {
-            $cost = 1
-            if ($a[$i - 1] -eq $b[$j - 1]) { $cost = 0 }
-            $value = [Math]::Min([Math]::Min($current[$j - 1] + 1,$previous[$j] + 1),$previous[$j - 1] + $cost)
-            $current[$j] = $value
-            if ($value -lt $best) { $best = $value }
-        }
-        if ($best -gt $Max) { return ($Max + 1) }
-        $swap = $previous
-        $previous = $current
-        $current = $swap
-    }
-    return $previous[$m]
-}
-
-function Find-DomeniaIndexMatches {
-    # Quatre passes de qualite decroissante. La derniere, la distance
-    # d edition, n est tentee que si les precedentes n ont rien donne.
-    param(
-        [Parameter(Mandatory=$true)][AllowEmptyString()][string]$Term,
-        [int]$Limit = 50,
-        [switch]$FuzzyOnly
-    )
-    $results = New-Object System.Collections.Generic.List[object]
-    $clean = ([string]$Term).Trim()
-    if ($clean.Length -lt 2) { return $results }
-    if ($clean.Contains([string][char]92)) { $clean = $clean.Split([char]92)[-1] }
-    if ($clean.Contains("@")) { $clean = $clean.Split("@")[0] }
-    $clean = $clean.Trim().TrimEnd([char]36).ToLowerInvariant()
-    if ($clean.Length -lt 2) { return $results }
-
-    # Le chemin normal reste 100 % SQLite, meme si un index RAM existe.
-    # Cela evite de parcourir 60 000 objets PowerShell pour chaque recherche.
-    if (-not $FuzzyOnly) {
-        return @(Search-DomeniaDatabaseRows -Term $clean -Limit $Limit)
-    }
-
-    $rows = @($script:IndexRows)
-    if (@($rows).Count -eq 0) { return $results }
-
-    $seen = @{}
-    function Add-Match {
-        param($Row,[int]$Score,[string]$Reason)
-        $key = [string]$Row.DN
-        if ([string]::IsNullOrWhiteSpace($key)) { $key = [string]$Row.Type + "|" + [string]$Row.Name }
-        if ($seen.ContainsKey($key)) { return }
-        $seen[$key] = $true
-        $results.Add([pscustomobject]@{
-            Type = [string]$Row.Type; Name = [string]$Row.Name; Login = [string]$Row.Login
-            Upn = [string]$Row.Upn; Description = [string]$Row.Description; Extra = [string]$Row.Extra
-            State = [string]$Row.State; DN = [string]$Row.DN; Guid = [string]$Row.Guid; Association = (Get-DomeniaIndexAssociationText -Row $Row); Score = $Score; Reason = $Reason
-        })
-    }
-
-    if (-not $FuzzyOnly) {
-        foreach ($r in $rows) {
-            if ($results.Count -ge $Limit) { break }
-            if ($r.NameKey -eq $clean -or $r.LoginKey -eq $clean) { Add-Match $r 100 "Correspondance exacte" }
-        }
-        foreach ($r in $rows) {
-            if ($results.Count -ge $Limit) { break }
-            if ($r.NameKey.StartsWith($clean) -or $r.LoginKey.StartsWith($clean)) { Add-Match $r 90 "Debut du nom" }
-        }
-        foreach ($r in $rows) {
-            if ($results.Count -ge $Limit) { break }
-            if ($r.Key.Contains($clean)) { Add-Match $r 70 "Contenu dans la fiche" }
-        }
-    }
-
-    if ($results.Count -eq 0 -or $FuzzyOnly) {
-        $tolerance = 1
-        if ($clean.Length -ge 8) { $tolerance = 2 }
-        if ($clean.Length -ge 14) { $tolerance = 3 }
-
-        # La distance d edition est une aide, jamais une raison de bloquer WPF.
-        # Sur un index de plusieurs dizaines de milliers d objets, l ancienne
-        # boucle pouvait monopoliser le thread graphique pendant 30 secondes.
-        $fuzzyBudgetMs = 300
-        $fuzzyWatch = [System.Diagnostics.Stopwatch]::StartNew()
-        $candidates = New-Object System.Collections.Generic.List[object]
-        $iteration = 0
-        foreach ($r in $rows) {
-            $iteration++
-            if (($iteration % 128) -eq 0 -and $fuzzyWatch.ElapsedMilliseconds -ge $fuzzyBudgetMs) { break }
-
-            $nameKey = [string]$r.NameKey
-            $loginKey = [string]$r.LoginKey
-
-            # Ecarte d abord les longueurs impossibles sans calcul de Levenshtein.
-            if (-not [string]::IsNullOrWhiteSpace($nameKey) -and [Math]::Abs($clean.Length - $nameKey.Length) -le $tolerance) {
-                $d = Get-DomeniaEditDistance $clean $nameKey $tolerance
-                if ($d -le $tolerance) {
-                    $candidates.Add([pscustomobject]@{ Row=$r; Distance=$d })
-                    continue
-                }
-            }
-            if (-not [string]::IsNullOrWhiteSpace($loginKey) -and [Math]::Abs($clean.Length - $loginKey.Length) -le $tolerance) {
-                $d2 = Get-DomeniaEditDistance $clean $loginKey $tolerance
-                if ($d2 -le $tolerance) { $candidates.Add([pscustomobject]@{ Row=$r; Distance=$d2 }) }
-            }
-
-            # Inutile d accumuler des milliers de candidats pour en afficher 50.
-            if ($candidates.Count -ge [Math]::Max(200,($Limit * 8))) { break }
-        }
-        $fuzzyWatch.Stop()
-
-        foreach ($c in ($candidates.ToArray() | Sort-Object -Property Distance | Select-Object -First $Limit)) {
-            $score = 88 - (12 * [int]$c.Distance)
-            Add-Match $c.Row $score ("Orthographe voisine, " + [int]$c.Distance + " difference(s)")
-        }
-    }
-
-    return ($results.ToArray() | Sort-Object -Property Score -Descending | Select-Object -First $Limit)
-}
-
 
 function Merge-DomeniaIndexRows {
     # Le GUID est l identite stable d un objet. Un renommage ou un deplacement
@@ -17943,27 +17299,6 @@ function Request-DomeniaIndexAutoRefresh {
     } catch { Write-DomeniaSwallowed 'Core' 'Request-DomeniaIndexAutoRefresh' $_ }
 }
 
-function Upsert-DomeniaIndexEntryRow {
-    param([Parameter(Mandatory=$true)]$Row)
-    try {
-        Initialize-DomeniaDatabase | Out-Null
-        $db = Open-DomeniaDatabase
-        try {
-            $guid = ([string]$Row.Guid).Trim()
-            $dn = [string]$Row.DN
-            $key = if (-not [string]::IsNullOrWhiteSpace($guid)) { $guid.ToLowerInvariant() } else { (([string]$Row.Type) + "|" + $dn).ToLowerInvariant() }
-            $search = (([string]$Row.Name + " " + [string]$Row.Login + " " + [string]$Row.Upn + " " + [string]$Row.Display + " " + [string]$Row.Description + " " + [string]$Row.Extra).ToLowerInvariant())
-            $vals = @($key,$guid,[string]$Row.Type,[string]$Row.Name,[string]$Row.Login,[string]$Row.Upn,[string]$Row.Display,[string]$Row.Description,[string]$Row.Extra,[string]$Row.State,$dn,[string]$Row.WhenChanged,[long]$Row.Usn,[string]$Row.LastLogon,$search,[string]$script:IndexInfo.Server,(Get-Date).ToString("s")) | ForEach-Object { ConvertTo-DomeniaSqlLiteral $_ }
-            $sql = "INSERT OR REPLACE INTO ad_objects(object_key,object_guid,object_type,name,login,upn,display_name,description,extra,state,distinguished_name,when_changed,usn_changed,last_logon,search_key,source_dc,synced_at) VALUES(" + ($vals -join ",") + ");"
-            [void](Invoke-DomeniaDbExec $sql $db)
-            return $true
-        } finally { Close-DomeniaDatabase $db }
-    } catch {
-        Write-AppLog ("Mise a jour ciblee Domenia.db impossible : " + $_.Exception.Message) "WARN"
-        return $false
-    }
-}
-
 function Sync-DomeniaIndexEntry {
     # Compatibility entry point for a real AD read; never called by a renderer.
     param([Parameter(Mandatory=$true)]$Entry,[string]$Type='',
@@ -17974,28 +17309,8 @@ function Sync-DomeniaIndexEntry {
     return 'Lecture AD en attente de confirmation SQLite.'
 }
 
-function Request-DomeniaIndexFlush {
-    # Ecriture differee de dix secondes : une session de consultation ne
-    # provoque qu une seule reecriture du fichier.
-    if (-not $script:IndexDirty) { return }
-    try {
-        if ($null -eq $script:IndexFlushTimer) {
-            # FI-05: protected timer of the engine heartbeat; it also runs while the window is minimized.
-            $script:IndexFlushTimer = New-DomeniaTimer -Owner 'Timer:IndexFlush' -IntervalMs 10000 -RunWhenHidden -Tick {
-                param($sender,$eventArgs)
-                try { $sender.Stop() } catch { Write-DomeniaSwallowed 'Core' 'Request-DomeniaIndexFlush' $_ }
-                [void](Flush-DomeniaIndex)
-            }
-        }
-        $script:IndexFlushTimer.Stop()
-        $script:IndexFlushTimer.Start()
-    }
-    catch { [void](Flush-DomeniaIndex) }
-}
-
 function Flush-DomeniaIndex {
     if (-not $script:IndexDirty) { return $false }
-    try { $script:IndexFlushTimer.Stop() } catch { Write-DomeniaSwallowed 'Core' 'Flush-DomeniaIndex' $_ }
     $server = ""
     $baseDn = ""
     $usn = [long]0
@@ -18055,25 +17370,6 @@ function Get-DomeniaParkSharedPath {
     try { $configured = ([string](Get-CfgValue "ParkSweep" "SharedPath" "")).Trim() } catch { Write-DomeniaSwallowed 'Core' 'Get-DomeniaParkSharedPath' $_ }
     if ([string]::IsNullOrWhiteSpace($configured)) { return "" }
     return $configured
-}
-
-function Read-DomeniaParkFile {
-    param([Parameter(Mandatory=$true)][string]$Path)
-    $state = @{}
-    try {
-        if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $state }
-        foreach ($line in [System.IO.File]::ReadAllLines($Path,[System.Text.Encoding]::UTF8)) {
-            $f = ([string]$line).Split([char]9)
-            if ($f.Length -lt 5) { continue }
-            $by = ""
-            if ($f.Length -ge 6) { $by = $f[5] }
-            $state[$f[0].ToUpperInvariant()] = [pscustomobject]@{
-                Computer = $f[0]; LastProbe = $f[1]; Status = $f[2]; User = $f[3]; Attempts = [int]$f[4]; ProbedBy = $by
-            }
-        }
-    }
-    catch { Write-DomeniaSwallowed 'Core' 'Read-DomeniaParkFile' $_ }
-    return $state
 }
 
 function Merge-DomeniaParkState {
@@ -18289,8 +17585,6 @@ $watch.Stop()
 
 '@
 }
-
-function Get-DomeniaParkStatePath { return (Get-DomeniaDatabasePath) }
 
 function Save-DomeniaParkState {
     if($null -eq $script:ParkState){return $false}
@@ -18762,62 +18056,6 @@ function Complete-DomeniaIndexScopeUi {
 
 $script:IndexWalk = $null
 
-function Start-DomeniaIndexWalk {
-    # Reread top-level branches and the domain root in separate, bounded tasks.
-    # Complete branch reads reconcile that local scope; partial reads never prune.
-    # The domain checkpoint remains unchanged until a complete domain sync.
-    param([switch]$Confirmed)
-    if (-not (Test-DomeniaIndexWriteReady)) { return }
-    try {
-        if (-not $Confirmed) {
-            $run = { Start-DomeniaIndexWalk -Confirmed }
-            [void](Request-DomeniaInlineConfirmation -Title 'Relire le domaine par étapes' -Message 'Le domaine entier est relu, une branche à la fois (unités dʼorganisation et conteneurs). Les lectures complètes retirent du cache les objets qui ne sont plus visibles dans cette OU ; une lecture partielle ne retire rien. Aucune suppression dans AD, les associations et relevés restent conservés. Long : la limite porte sur une seule OU à la fois.' -Target 'base:tout-relire' -OnConfirm $run)
-            return
-        }
-        if ($null -ne $script:IndexWalk) { Set-Status 'La passe par OU est déjà en cours.' 'WARN'; return }
-        $script:IndexWalk = [pscustomobject]@{ Queue = (New-Object 'System.Collections.Generic.Queue[string]'); Total = 0; Done = 0; Saved = 0; Objects = 0; Limited = 0; Errors = 0; Started = (Get-Date) }
-        Set-DomeniaIndexProgress -Mode Busy -Message 'Inventaire des OU du domaine…'
-        $walkJob = Start-UiTask `
-            -Name 'Passe par OU : liste des OU' `
-            -OperationId 'IndexOuList' `
-            -Code (Get-DomeniaIndexOuListWorkerCode) `
-            -Payload ([pscustomobject]@{ SearchBase = '' }) `
-            -CallbackState ([pscustomobject]@{ Epoch = [long]$script:SessionEpoch }) `
-            -ReplaceKey "index" `
-            -DisableControls @("BtnIndexBuild","BtnIndexRefresh","BtnIndexWalk","BtnIndexScopeUpdate","BtnFleetIndexScope") `
-            -TimeoutSeconds 300 `
-            -StatusText 'Passe par OU : lecture de la liste des OU...' `
-            -SuccessHandler 'Complete-DomeniaIndexWalkPlanUi' `
-            -ErrorHandler 'Fail-DomeniaIndexWalkUi'
-        if(-not $walkJob){throw 'Lecture des OU non admise, relancez la passe.'}
-    }
-    catch { $script:IndexWalk=$null; Set-DomeniaIndexProgress -Mode Error -Message ('Passe par OU impossible : ' + $_.Exception.Message); [void](Show-DomeniaOperationError -Operation 'Passe par OU dans la base autonome' -ErrorRecordOrException $_) }
-}
-
-function Complete-DomeniaIndexWalkPlanUi {
-    param($Result,$State)
-    if ($null -ne $State -and [long]$State.Epoch -ne [long]$script:SessionEpoch) { return }
-    $walk = $script:IndexWalk
-    if ($null -eq $walk) { return }
-    $effective = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @("Rows")
-    if ($null -eq $effective) { Complete-DomeniaIndexWalkUi -Aborted -Detail 'Lecture des OU sans résultat exploitable.'; return }
-    $root = [string]$script:Conn.BaseDn
-    foreach ($row in @($effective.Rows)) {
-        $dn = [string]$row.DN
-        if ([string]::IsNullOrWhiteSpace($dn)) { continue }
-        if ($dn.Equals($root,[StringComparison]::OrdinalIgnoreCase)) { continue }
-        $walk.Queue.Enqueue($dn)
-    }
-    # Les objets poses directement sur la racine du domaine ne sont dans aucune OU : une passe OneLevel les relit.
-    $walk.Queue.Enqueue($root)
-    $walk.Total = $walk.Queue.Count
-    $summary = 'Passe par OU : ' + $walk.Total + ' lecture(s) à lancer.'
-    Set-DomeniaIndexProgress -Mode Walk -Current 0 -Total $walk.Total -Message $summary
-    [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text $summary)
-    Set-Status $summary
-    Start-DomeniaIndexWalkStep
-}
-
 function Start-DomeniaIndexWalkStep {
     $walk = $script:IndexWalk
     if ($null -eq $walk) { return }
@@ -19122,14 +18360,6 @@ function Open-DomeniaIndexSelection {
         Open-AdObject -Dn ([string]$row.DN) -Type ([string]$row.Type) -ObjectGuid ([string]$row.Guid) -SuppressRemoteProbes
     }
     catch { [void](Show-DomeniaOperationError -Operation "Ouverture de lʼobjet de la base locale" -ErrorRecordOrException $_ -NoPopup) }
-}
-
-function Get-DomeniaIndexSuggestionText {
-    # Desactive volontairement dans l interface principale.
-    # Les corrections floues appartiennent a l onglet Index et ne doivent jamais
-    # monopoliser le thread WPF apres une recherche Active Directory.
-    param([Parameter(Mandatory=$true)][AllowEmptyString()][string]$Term)
-    return ""
 }
 
 function Get-DomeniaIndexOuListWorkerCode {
@@ -19580,10 +18810,6 @@ $watch.Stop()
 # le verdict d acces. Cela suffit a savoir, sans aucun appel, si un poste
 # possede des cles et si le compte courant peut les lire.
 # =====================================================================
-function Get-DomeniaSecretIndexPath {
-    # Compatibilite : seules les metadonnees non secretes sont conservees dans Domenia.db.
-    return (Get-DomeniaDatabasePath)
-}
 
 function Save-DomeniaSecretIndexEntry {
     param([Parameter(Mandatory=$true)][AllowEmptyString()][string]$Computer,[int]$BitLockerKeys=-1,[string]$BitLockerLast='', [string]$LapsScheme='', [string]$LapsExpiry='', [string]$Verdict='', [string]$Detail='')
@@ -20640,15 +19866,6 @@ function Start-ProbeForSelectedComputer {
     if ($null -eq $script:SelectedObject -or $script:SelectedObject.Type -ne "Machine") { Set-Status "Sélectionnez une machine." "WARN"; return }
     $computer=Get-CurrentSelectedComputerName
     if (-not [string]::IsNullOrWhiteSpace($computer)) { Start-ComputerUserLinkProbe -Computer $computer -Force:$Force }
-}
-
-function Invoke-AdModuleAction {
-    param([string]$Action,[scriptblock]$ScriptBlock)
-    if ($script:ReadOnlyMode) { throw "Mode lecture seule actif : action bloquee avant toute ecriture AD." }
-    if (-not [bool](Get-CfgValue "Modules" "PreferActiveDirectoryModule" $true)) { return $false }
-    if (-not (Ensure-AdModule)) { return $false }
-    try { & $ScriptBlock; Write-AppLog "$Action via module ActiveDirectory."; return $true }
-    catch { Write-AppLog "$Action via module ActiveDirectory impossible : $($_.Exception.Message). Fallback LDAP/ADSI." "WARN"; return $false }
 }
 
 function Refresh-SelectedObject {
@@ -22301,11 +21518,6 @@ function Stop-DomeniaLoginAuthRunspace {
     else { Queue-DomeniaLoginAuthRunspaceCleanup -Session $Session }
 }
 
-function Clear-DomeniaLoginAuthReferences {
-    try { if ($null -ne $script:FastLoginTimer) { $script:FastLoginTimer.Stop() } } catch { Write-DomeniaSwallowed 'Core' 'Clear-DomeniaLoginAuthReferences' $_ }
-    $script:FastLoginTimer = $null
-}
-
 function Stop-DomeniaLoginAuth {
     param([switch]$Terminate)
     try {
@@ -22390,18 +21602,6 @@ function Get-AssociationForRow {
     catch { return "" }
 }
 
-function Add-AssociationsToRows {
-    param($Rows)
-    $output = New-Object System.Collections.ArrayList
-    foreach ($row in @($Rows)) {
-        if ($null -eq $row) { continue }
-        try { $row | Add-Member -NotePropertyName "Association" -NotePropertyValue (Get-AssociationForRow -Row $row) -Force }
-        catch { Write-DomeniaSwallowed 'Core' 'Add-AssociationsToRows' $_ }
-        [void]$output.Add($row)
-    }
-    return @($output)
-}
-
 function Get-SelectedAssociationSummary {
     if ($null -eq $script:SelectedObject) { return "Aucun objet selectionne" }
     try {
@@ -22433,43 +21633,6 @@ function Get-SelectedAssociationSummary {
     catch { return "Association indisponible" }
     return "Non applicable"
 }
-
-function Update-SelectedAssociationFields {
-    try {
-        if ($null -eq $script:SelectedObject) { return }
-        if ($script:SelectedObject.Type -eq "Machine") {
-            $computer = ""
-            try { $computer = [string]$script:Ctrl["TxtCompName"].Text } catch { Write-DomeniaSwallowed 'Core' 'Update-SelectedAssociationFields' $_ }
-            $links = @(Get-LinksForComputer -Computer $computer -Guid ([string](Get-DomeniaMember $script:SelectedObject 'Guid' '')))
-            if ($links.Count -gt 0) {
-                $l = $links[0]
-                $script:Ctrl["TxtCompLinkedUser"].Text = [string]$l.UserLogin
-                $confidence = $(if($null -ne (Get-Command Get-DomeniaLinkQualification -CommandType Function -ErrorAction SilentlyContinue)){(Get-DomeniaLinkQualification $l).Suffix}elseif($null -ne $l.PSObject.Properties['Confidence'] -and -not [string]::IsNullOrWhiteSpace([string]$l.Confidence)){'  confiance '+[string]$l.Confidence+'%'}else{''})
-                # CO-29: local time of the stored UTC date.
-                $whenText = ''
-                if ($null -ne (Get-Command Format-DomeniaRelationWhen -CommandType Function -ErrorAction SilentlyContinue)) { $whenText = Format-DomeniaRelationWhen ([string]$l.When) }
-                if (-not $whenText) { $whenText = [string]$l.When }
-                $script:Ctrl["TxtCompLinkSource"].Text = "$($l.Source)$confidence  $whenText"
-            }
-            else {
-                $script:Ctrl["TxtCompLinkedUser"].Text = "Non detecte"
-                $script:Ctrl["TxtCompLinkSource"].Text = "Aucun lien local"
-            }
-        }
-        elseif ($script:SelectedObject.Type -eq "Utilisateur") {
-            $user = ""
-            try { $user = [string]$script:Ctrl["TxtUserSam"].Text } catch { Write-DomeniaSwallowed 'Core' 'Update-SelectedAssociationFields' $_ }
-            $links = @(Get-LinksForUser -UserLogin $user -Guid ([string](Get-DomeniaMember $script:SelectedObject 'Guid' '')))
-            $computers = @($links | ForEach-Object { [string]$_.Computer } | Where-Object { $_ } | Sort-Object -Unique)
-            [void](Set-DomeniaItemsSource -Name "TxtUserLinkedComputers" -Rows $computers)
-            if ($computers.Count -gt 0) { $script:Ctrl["TxtUserLinkedComputers"].SelectedIndex = 0 }
-        }
-    }
-    catch { Write-DomeniaSwallowed 'Core' 'Update-SelectedAssociationFields' $_ }
-}
-
-
-
 
 # =====================================================================
 # DOMENIA MASTER LAST V1 - associations user-machine integrees a toutes les vues.
@@ -23664,7 +22827,6 @@ function Wire-Events {
         Start-DomeniaSelectedIndexScopeBuild
     }) }
     if ($script:Ctrl.ContainsKey("BtnIndexBuild")) { $script:Ctrl["BtnIndexBuild"].Add_Click({ Start-DomeniaIndexBuild -UpdateLinks }) }
-    if ($script:Ctrl.ContainsKey("BtnIndexWalk")) { $script:Ctrl["BtnIndexWalk"].Add_Click({ Start-DomeniaIndexWalk }) }
     foreach($name in @('BtnStorageMove','BtnStorageRestore','BtnStorageResume','BtnStorageRollback','BtnStoragePolicySave','BtnStorageRetentionPreview','BtnStorageRetentionApply','BtnStorageIntegrity')){
         $button=Get-DomeniaControl $name
         if($null -ne $button){$button.Add_Click({param($sender,$eventArgs)
@@ -23952,12 +23114,6 @@ $script:DashboardRefreshTimer = $null
 $script:ActiveLinkProbeId = ""
 $script:ActiveLinkProbeComputer = ""
 $script:LinkIndexGeneration = 0
-try {
-    $hashProvider = [System.Security.Cryptography.SHA256]::Create()
-    try { $rootHash = ([BitConverter]::ToString($hashProvider.ComputeHash([Text.Encoding]::UTF8.GetBytes(([string]$script:RootDir).ToLowerInvariant()))).Replace("-","")).Substring(0,20) }
-    finally { $hashProvider.Dispose() }
-} catch { $rootHash = [Math]::Abs(([string]$script:RootDir).ToLowerInvariant().GetHashCode()) }
-$script:DataMutexName = "Local\DOMENIA_Data_$rootHash"
 $script:RawAttributeBlockList = @(
     "objectGUID","objectSid","sIDHistory","nTSecurityDescriptor","unicodePwd","dBCSPwd",
     "supplementalCredentials","ntPwdHistory","lmPwdHistory","userPassword","unixUserPassword","clearTextPassword","currentValue","priorValue","pekList","trustAuthIncoming","trustAuthOutgoing","userAccountControl","adminCount",
@@ -24438,27 +23594,6 @@ function Invoke-DomeniaStartupStage {
         throw
     }
 }
-
-function Invoke-WithDOMENIADataLock {
-    param([scriptblock]$Action)
-    $mutex = $null
-    $locked = $false
-    try {
-        $mutex = [System.Threading.Mutex]::new($false,[string]$script:DataMutexName)
-        # Le mutex de stockage ne doit jamais figer le dispatcher WPF plusieurs secondes.
-        # Une autre instance active produit une erreur non modale et l'etat memoire est restaure.
-        $timeout = [Math]::Max(0,[Math]::Min(1000,[int](Get-CfgValue "LocalStore" "MutexTimeoutMilliseconds" 350)))
-        try { $locked = [bool]$mutex.WaitOne($timeout,$false) }
-        catch [System.Threading.AbandonedMutexException] { $locked = $true }
-        if (-not $locked) { throw "Le stockage local est deja utilise par une autre instance de l application." }
-        return (& $Action)
-    }
-    finally {
-        if ($locked) { try { $mutex.ReleaseMutex() } catch { Write-DomeniaSwallowed 'Core' 'Invoke-WithDOMENIADataLock' $_ } }
-        if ($null -ne $mutex) { try { $mutex.Dispose() } catch { Write-DomeniaSwallowed 'Core' 'Invoke-WithDOMENIADataLock' $_ } }
-    }
-}
-
 
 $script:DomeniaDatabaseReady = $false
 $script:DomeniaDatabaseRecoveryAttempted = $false
@@ -29379,36 +28514,6 @@ function Update-Dashboard {
         if($script:Ctrl.ContainsKey("TxtDashLinks")){$script:Ctrl["TxtDashLinks"].Text=(Get-AssociationStatsText)}
     }
     catch { Write-DomeniaSwallowed 'Core' 'Update-Dashboard' $_ }
-}
-
-function Complete-DomeniaStartupWarmupUi {
-    param($Result,$State)
-    try {
-        $effective = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @("BaseDn","TreeReady","ObjectsReady","TreeRows","ObjectRows","WorkerThreadId")
-        if ($null -eq $effective) { throw "Le worker de prechargement n'a retourne aucun resultat exploitable." }
-        if ([string]$effective.BaseDn -ine [string]$script:Conn.BaseDn) { throw "Le cache a ete construit pour une autre base AD." }
-        $script:StartupWarmCache = $effective
-        $script:StartupWorkerThreadId = [int]$effective.WorkerThreadId
-        $script:StartupWorkerReady = $true
-        $script:StartupWarmupError = ""
-        $script:StartupWarmupDone = $true
-        Set-DomeniaStartupStage -Stage "Cache initial pret" -Detail "Worker MTA $($script:StartupWorkerThreadId) : $(@($effective.TreeRows).Count) branche(s), $(@($effective.ObjectRows).Count) objet(s)."
-    }
-    catch {
-        $script:StartupWarmupError = $_.Exception.Message
-        $script:StartupWarmupDone = $true
-        Write-StartupTrace -Stage "Cache initial" -Status "ERROR" -Detail $_.Exception.ToString()
-    }
-}
-
-function Fail-DomeniaStartupWarmupUi {
-    param($Message,$State)
-    $detail = ([string]$Message).Trim()
-    if ([string]::IsNullOrWhiteSpace($detail)) { $detail = "Erreur inconnue du prechargement." }
-    $script:StartupWarmupError = $detail
-    $script:StartupWarmupDone = $true
-    $script:StartupWorkerReady = $false
-    Set-DomeniaStartupStage -Stage "Cache initial indisponible" -Detail $detail
 }
 
 function Invoke-DomeniaStartupCacheWarmup {

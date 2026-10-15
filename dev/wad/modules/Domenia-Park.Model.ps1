@@ -50,13 +50,6 @@ function ConvertTo-DomeniaParkSession {
     if($merged.Count){$record.Probes=[pscustomobject]$merged}
     return [pscustomobject]$record
 }
-function Test-DomeniaParkLinkChanged {
-    param($Observation,$Existing)
-    if($Observation.Outcome -ne 'Observed' -or -not $Observation.LinkUser -or -not $Observation.UserDn -or -not $Observation.UserGuid){return $false}
-    if($null -eq $Existing){return $true}
-    if(Test-DomeniaProtectedAssociationSource ([string]$Existing.Source)){return $false}
-    return ([string]$Existing.UserLogin -ine [string]$Observation.LinkUser -or [string]$Existing.UserGuid -ine [string]$Observation.UserGuid -or [string]$Existing.ComputerGuid -ine [string]$Observation.Guid)
-}
 
 function Test-DomeniaProbeNotApplicable {
     # A probe skipped as not applicable to the system (a domain controller, for instance). In memory it carries

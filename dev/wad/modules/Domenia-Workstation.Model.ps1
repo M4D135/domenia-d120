@@ -17,14 +17,6 @@ function ConvertTo-DomeniaWorkstationFactState {
     return 'Inconnu'
 }
 
-function Test-DomeniaWorkstationMember {
-    # True when the member exists, even when its value is an empty collection (which a function return would unroll).
-    param($InputObject,[string]$Name)
-    if ($null -eq $InputObject -or [string]::IsNullOrEmpty($Name)) { return $false }
-    if ($InputObject -is [Collections.IDictionary]) { return [bool]$InputObject.Contains($Name) }
-    return ($null -ne $InputObject.PSObject.Properties[$Name])
-}
-
 function Test-DomeniaWorkstationListMember {
     # True when the member holds a list the provider really returned: a collection (even empty) or one record.
     # $null is not a list: "Events = Get-WinEvent ... -ErrorAction SilentlyContinue" gives $null both for "no match"

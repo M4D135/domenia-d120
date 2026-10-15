@@ -46,11 +46,6 @@ function ConvertTo-DomeniaDemoWorkerContext {
     }
 }
 
-function Get-DomeniaDemoUnavailableText {
-    param([string]$OperationId)
-    return ('DOMENIA_DEMO_UNAVAILABLE : ' + $OperationId + ' non disponible en demonstration - aucune connexion AD.')
-}
-
 function New-DomeniaDemoGuidBytes {
     param([Parameter(Mandatory=$true)][string]$Guid)
     $bytes = ([guid]$Guid).ToByteArray()
