@@ -297,6 +297,8 @@ function Set-DomeniaQueryDraft {
     $q.Recipe=$Recipe;$q.Offset=0;$q.Generation++;$q.Result=$null;$q.Busy=$false
     $coverage=Get-DomeniaControl 'DgQueryCoverage';if($null -ne $coverage){$coverage.ItemsSource=@()}
     [void](Set-DomeniaControlText 'LblQueryCoverage' 'Vérifiez la couverture des informations avant lʼaperçu.')
+    # A collection plan belongs to the draft it was computed for.
+    $planExpander=Get-DomeniaControl 'ExpQueryCollectionPlan';if($null -ne $planExpander){$planExpander.Visibility='Collapsed'}
     Reset-DomeniaQueryResults
     $title=Get-DomeniaControl 'TxtFleetQueryName';if($null -ne $title){$title.Text=[string]$Recipe.Name}
     $junction=Get-DomeniaControl 'CmbQueryJunction';if($null -ne $junction){$junction.SelectedIndex=$(if($Recipe.Junction -eq 'Any'){1}else{0})}
@@ -484,11 +486,13 @@ function Complete-DomeniaQueryEvaluation {
         if($null -eq $read){Fail-DomeniaQueryEvaluation 'Plan de collecte local incomplet.' $State;return}
         $q.Busy=$false;$q.Job='';$q.Records=$read.Records;$q.At=[datetime]$State.RecordsAt;$q.SnapshotKey=[string]$State.SnapshotKey
         $plan=$read.CollectionPlan
-        if(-not @($plan.Targets).Count){[void](Set-DomeniaControlText 'LblQueryStatus' ('Aucun poste à relire : '+$plan.Reused+' à jour, '+$plan.Disabled+' désactivés et '+$plan.UnknownState+' avec état AD inconnu.'));return}
+        Show-DomeniaQueryCollectionPlan -Plan $plan
+        if(-not @($plan.Targets).Count){[void](Set-DomeniaControlText 'LblQueryStatus' ('Aucun poste à relire : '+$plan.Reused+' à jour, '+$plan.Disabled+' désactivés et '+$plan.UnknownState+' avec état AD inconnu.'+$(if([long](Get-DomeniaMember $plan 'NotCollectable' 0) -gt 0){' Les lectures WMI avancées se relancent depuis la fiche du poste.'}else{''})));return}
         $scope=Get-DomeniaFleetScope
         $label='Atelier : '+$scope.Name+' · '+@($plan.Targets).Count+' postes avec données manquantes ou anciennes, '+$plan.Reused+' déjà à jour'
-        Start-DomeniaOnlinePark -ScopeTargets @($plan.Targets) -ScopeLabel $label -PingOnly:([bool]$plan.Ping -and -not [bool]$plan.Wmi) -WmiOnly:([bool]$plan.Wmi -and -not [bool]$plan.Ping) -Inventory:([bool]$plan.Inventory) -Probes @(ConvertTo-DomeniaProbePayload $plan.ProbeIds)
-        [void](Set-DomeniaControlText 'LblQueryStatus' 'Plan préparé : seuls les postes incomplets ou trop anciens sont proposés. Le moteur vérifie à nouveau chaque mesure avant de la relire.')
+        $runId=Start-DomeniaOnlinePark -ScopeTargets @($plan.Targets) -ScopeLabel $label -PingOnly:([bool]$plan.Ping -and -not [bool]$plan.Wmi) -WmiOnly:([bool]$plan.Wmi -and -not [bool]$plan.Ping) -Inventory:([bool]$plan.Inventory) -Probes @(ConvertTo-DomeniaProbePayload $plan.ProbeIds) -PassThru
+        $status=if([string]$runId){'Plan affiché ci-dessous : seuls les postes incomplets ou trop anciens sont proposés. Confirmez le relevé pour le lancer ; le moteur vérifie à nouveau chaque mesure avant de la relire.'}else{'Plan affiché ci-dessous, mais le relevé nʼa pas pu être préparé : consultez la barre dʼétat. Aucune collecte lancée.'}
+        [void](Set-DomeniaControlText 'LblQueryStatus' $status)
         return
     }
     if([bool](Get-DomeniaMember $State 'CoverageOnly' $false)){
@@ -525,6 +529,15 @@ function Complete-DomeniaQueryEvaluation {
     $exportButton=Get-DomeniaControl 'BtnQueryExport';if($null -ne $exportButton){$exportButton.IsEnabled=($null -ne $exportRequest -and -not [bool](Get-DomeniaMember $q 'ExportBusy' $false))}
 
     if([bool](Get-DomeniaMember $State 'RefreshWidgets' $true)){Show-DomeniaBoard -Board Fleet -Quiet -DeferIfHidden}
+}
+function Show-DomeniaQueryCollectionPlan {
+    # Show the network-free plan and its counted cost before the park run asks for the explicit confirmation.
+    param($Plan)
+    $concurrency=[Math]::Max(1,[Math]::Min(8,[int](Get-DomeniaSetting 'Collection.Concurrency' '4')))
+    $text=Format-DomeniaQueryCollectionPlanText -Plan $Plan -Workload (Measure-DomeniaCollectionPlanWorkload $Plan) -Concurrency $concurrency
+    [void](Set-DomeniaControlText 'LblQueryCollectionPlan' $text)
+    $expander=Get-DomeniaControl 'ExpQueryCollectionPlan'
+    if($null -ne $expander){$expander.Visibility='Visible';$expander.IsExpanded=$true}
 }
 function Fail-DomeniaQueryEvaluation {
     param($Message,$State)

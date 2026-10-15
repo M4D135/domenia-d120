@@ -29,6 +29,37 @@ foreach($row in $coverage.Rows){Expect (($row.Available+$row.Expired+$row.Error+
 $Payload=[pscustomobject]@{ModuleRoot=$modules;Records=@($record);Recipe=$recipe;CoverageOnly=$true;Saved=@();MaxAgeDays=30}
 $actual=& ([scriptblock]::Create((Get-DomeniaQueryWorkerCode)))
 Expect ($actual.Coverage.Total -eq 1 -and $null -eq $actual.PSObject.Properties['Matched']) 'coverage worker stops before applying query conditions'
+# Point 64: collect only the missing or stale measurements, with a counted cost and no invented duration.
+$now=[datetime]::new(2026,10,15,12,0,0,[DateTimeKind]::Utc)
+function New-PlanRecord([string]$Id,[hashtable]$Data){$d=[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal);foreach($k in $Data.Keys){$d[$k]=$Data[$k]};return [M4D.Admin.Common.Query.QueryRecord]::new($Id,$d)}
+$freshAt=$now.AddMinutes(-2).ToString('o');$oldAt=$now.AddHours(-3).ToString('o');$probeAt=$now.AddSeconds(-20).ToString('o')
+$planRecords=[Collections.Generic.List[M4D.Admin.Common.Query.QueryRecord]]::new()
+$planRecords.Add((New-PlanRecord 'aaaaaaaa-0000-0000-0000-000000000001' @{'name'='FRESH';'dn'='CN=FRESH,DC=example,DC=test';'active'=$true;'ramGB'=8;'_at:inventory'=$freshAt;'probe:hw.cpuload'=10;'_at:probe:hw.cpuload'=$probeAt}))
+$planRecords.Add((New-PlanRecord 'aaaaaaaa-0000-0000-0000-000000000002' @{'name'='OLD';'dn'='CN=OLD,DC=example,DC=test';'active'=$true;'ramGB'=8;'_at:inventory'=$oldAt}))
+$planRecords.Add((New-PlanRecord 'aaaaaaaa-0000-0000-0000-000000000003' @{'name'='ERR';'dn'='CN=ERR,DC=example,DC=test';'active'=$true;'ramGB'=8;'_at:inventory'=$freshAt;'_quality:ramGB'='Erreur de lecture';'probe:hw.cpuload'=5;'_at:probe:hw.cpuload'=$probeAt}))
+$planRecords.Add((New-PlanRecord 'aaaaaaaa-0000-0000-0000-000000000004' @{'name'='OFF';'dn'='CN=OFF,DC=example,DC=test';'active'=$false}))
+$planRecords.Add((New-PlanRecord 'aaaaaaaa-0000-0000-0000-000000000005' @{'name'='UNKNOWN';'dn'='CN=UNKNOWN,DC=example,DC=test'}))
+$planRecipe=New-DomeniaQueryRecipe -Clauses @([pscustomobject]@{Field='ramGB';Operator='Less';Value=16},[pscustomobject]@{Field='probe:hw.cpuload';Operator='Greater';Value=80},[pscustomobject]@{Field='active';Operator='Equal';Value=$true})
+$plan=New-DomeniaQueryMissingCollectionPlan -Records $planRecords -Recipe $planRecipe -CacheMinutes 15 -NowUtc $now
+Expect ($plan.Total -eq 5 -and $plan.Reused -eq 1 -and $plan.Disabled -eq 1 -and $plan.UnknownState -eq 1 -and @($plan.Targets).Count -eq 2) 'plan proposes only active accounts with missing or stale measurements'
+$oldTarget=@($plan.Targets|Where-Object{$_.name -ceq 'OLD'})[0];$errorTarget=@($plan.Targets|Where-Object{$_.name -ceq 'ERR'})[0]
+Expect ((@($oldTarget.MissingFields) -join ',') -ceq 'probe:hw.cpuload,ramGB' -and (@($oldTarget.MissingProbeIds) -join ',') -ceq 'hw.cpuload') 'stale inventory and unread probe are both listed for one target'
+Expect ((@($errorTarget.MissingFields) -join ',') -ceq 'ramGB' -and -not @($errorTarget.MissingProbeIds).Count) 'a flagged value is missing even when recent while a fresh probe is reused'
+Expect ($plan.Inventory -and -not $plan.Ping -and $plan.Wmi -and (@($plan.ProbeIds) -join ',') -ceq 'hw.cpuload') 'only missing families and probes are planned'
+Expect ($plan.FieldCounts[0].Field -ceq 'ramGB' -and $plan.FieldCounts[0].Missing -eq 2) 'most missing information is ranked first'
+$forced=New-DomeniaQueryMissingCollectionPlan -Records $planRecords -Recipe $planRecipe -CacheMinutes 0 -NowUtc $now
+Expect (@($forced.Targets).Count -eq 3 -and $forced.Reused -eq 0) 'forced re-read proposes every active account and still excludes disabled or unknown accounts'
+$generic=New-DomeniaMissingCollectionPlan -Records $planRecords -Fields @('presence','name','presence') -CacheMinutes 15 -NowUtc $now
+Expect (@($generic.Targets).Count -eq 3 -and $generic.Ping -and -not $generic.Wmi -and @($generic.Fields).Count -eq 1) 'reusable field plan ignores local AD fields and duplicates'
+$selected=New-DomeniaQueryMissingCollectionPlan -Records $planRecords -Recipe (New-DomeniaQueryRecipe -Clauses @($planRecipe.Clauses) -ObjectIds @('aaaaaaaa-0000-0000-0000-000000000002')) -NowUtc $now
+Expect ($selected.Total -eq 1 -and @($selected.Targets).Count -eq 1) 'a frozen identity selection bounds the plan'
+$detailPlan=New-DomeniaMissingCollectionPlan -Records $planRecords -Fields @('detail:fixture:Caption') -NowUtc $now
+Expect (@($detailPlan.Targets).Count -eq 0 -and $detailPlan.NotCollectable -eq 3 -and $detailPlan.Reused -eq 0) 'advanced WMI detail fields are reported as not park-collectable, never reused'
+Reject {New-DomeniaMissingCollectionPlan -Records $planRecords -Fields @(for($i=0;$i -lt 300;$i++){'probe:fixture'+$i})} 'plan field budget is explicit'
+$workload=Measure-DomeniaCollectionPlanWorkload $plan
+Expect ($workload.Mode -ceq 'Wmi' -and $workload.Targets -eq 2 -and $workload.ProbeReads -eq 1 -and $workload.PingReads -eq 0 -and $workload.InventoryReads -eq 2 -and $workload.Level -ceq 'Faible') 'workload counts contacts, inventory and probe reads for the WMI-only mode'
+$text=Format-DomeniaQueryCollectionPlanText -Plan $plan -Workload $workload -Concurrency 4
+Expect ($text -like '*2 poste(s) à relire sur 5 examiné(s)*' -and $text -like '*Coût : Faible*' -and $text -like '*Durée non estimée*' -and $text -notlike '*ping ICMP*' -and $text -like '*Mémoire relevée en Go (2)*') 'plan text states targets, cost and missing information and never invents a duration'
 $Payload=[pscustomobject]@{ModuleRoot=$modules;Saved=@(for($i=0;$i -lt 125;$i++){New-DomeniaQueryRecipe -Name ('Personal '+$i)})}
 $actual=& ([scriptblock]::Create((Get-DomeniaQueryLibraryWorkerCode)))
 Expect ($actual.Rows.Count -eq 640 -and @($actual.Rows|Where-Object SourceId -eq 'Saved').Count -eq 125) 'actual lazy worker prepares full515models plus125personal definitions'

@@ -130,6 +130,9 @@
                   <Button x:Name="BtnQueryRemoveCondition" Content="Retirer la condition" MinHeight="32" Margin="0,0,6,0" />
                   <Button x:Name="BtnQueryCollect" Content="Collecter les données requises…" MinHeight="32" Margin="0,0,6,0" ToolTip="Prépare une collecte confirmée sur les postes actifs du périmètre. Ne lance jamais toutes les sondes du catalogue." />
                 </WrapPanel>
+                <Expander x:Name="ExpQueryCollectionPlan" Header="Plan de collecte des informations manquantes" Visibility="Collapsed" Margin="0,-8,0,14">
+                  <TextBlock x:Name="LblQueryCollectionPlan" TextWrapping="Wrap" Margin="0,6,0,6" AutomationProperties.Name="Plan de collecte et coût avant confirmation" AutomationProperties.LiveSetting="Polite" />
+                </Expander>
                 <Button x:Name="BtnQueryCoverage" Content="Vérifier les informations disponibles" MinHeight="32" Margin="0,0,8,0" ToolTip="Compter les champs disponibles, expirés ou non lus avant dʼappliquer les conditions. Aucun accès réseau." />
                     <Button x:Name="BtnQueryPreview" Content="Voir l’aperçu local →" Style="{DynamicResource RunButton}" MinHeight="36" HorizontalAlignment="Left" Margin="0,2,0,12" />
                 <Expander x:Name="ExpQueryAdvanced" Header="Conditions avancées et paramètres" Margin="0,6,0,6">

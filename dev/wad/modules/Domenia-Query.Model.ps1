@@ -975,32 +975,127 @@ function Edit-DomeniaQueryExpression {
     return $copy
 }
 
+function Get-DomeniaCollectionFieldFamily {
+    # Measurement family that a remote read refreshes for one query field. AD fields are computed locally;
+    # detail:* fields come from an explicit advanced WMI read on one workstation and are never park-collected.
+    param([string]$Field)
+    $key=Get-DomeniaQueryTimestampKey $Field
+    if($key -ceq '_at:presence'){return 'Presence'}
+    if($key -ceq '_at:console'){return 'Console'}
+    if($key -ceq '_at:inventory'){return 'Inventory'}
+    if($key.StartsWith('_at:probe:',[StringComparison]::Ordinal)){return 'Probe'}
+    if($key.StartsWith('_at:detail:',[StringComparison]::Ordinal)){return 'Detail'}
+    return 'Local'
+}
+function Get-DomeniaCollectionMaxAgeSeconds {
+    # Same reuse windows as the park run: volatile measures one minute, light inventory five minutes, 24 h at most.
+    param([string]$Field,[int]$CacheMinutes=15)
+    $seconds=[Math]::Max(0,[Math]::Min(1440,$CacheMinutes))*60
+    $key=Get-DomeniaQueryTimestampKey $Field
+    if($key -ceq '_at:inventory'){$seconds=[Math]::Min(300,$seconds)}
+    if(($key -in @('_at:presence','_at:console')) -or ($key -match '^_at:probe:(evt\.|svc\.|net\.)|load|battery|free|users|stopped|process')){$seconds=[Math]::Min(60,$seconds)}
+    return $seconds
+}
+function New-DomeniaMissingCollectionPlan {
+    # Reusable "collect only what is missing" plan, shared by workshop recipes and dashboard widgets. Pure: no network,
+    # no settings. Fields are query field ids ('presence', 'user', 'ramGB', 'probe:<id>', 'instance:<probe>:<property>').
+    # An active account is proposed only when a requested measurement is absent, flagged (expired, read error,
+    # incomplete), undated, dated in the future or older than its reuse window. Disabled accounts and accounts whose
+    # AD state is unknown are never targets. The park run revalidates every measurement again before reading it.
+    param($Records,[string[]]$Fields=@(),$Identities=$null,[int]$CacheMinutes=15,[datetime]$NowUtc=[datetime]::UtcNow)
+    $CacheMinutes=[Math]::Max(0,[Math]::Min(1440,$CacheMinutes))
+    $requested=[Collections.Generic.List[object]]::new();$seen=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach($field in @($Fields)){
+        $id=[string]$field;if(-not $id -or -not $seen.Add($id)){continue}
+        if($seen.Count -gt 256){throw 'Un plan de collecte accepte au plus 256 informations distinctes.'}
+        $family=Get-DomeniaCollectionFieldFamily $id
+        if($family -ceq 'Local'){continue}
+        $probeId='';if($id -like 'probe:*'){$probeId=$id.Substring(6)}elseif($id -like 'instance:*'){$probeId=($id.Split(':'))[1]}
+        $requested.Add([pscustomobject]@{Id=$id;Family=$family;ProbeId=$probeId;QualityId=$(if($id -like 'instance:*'){'probe:'+$probeId}else{$id});TimestampKey=(Get-DomeniaQueryTimestampKey $id);MaxAgeSeconds=(Get-DomeniaCollectionMaxAgeSeconds -Field $id -CacheMinutes $CacheMinutes);CollectionKey=$(if($id -like 'instance:*'){'_instances:probe:'+$probeId}else{''})})
+    }
+    $targets=[Collections.Generic.List[object]]::new();$fieldMissing=@{}
+    $families=[ordered]@{Presence=0L;Console=0L;Inventory=0L;Probe=0L}
+    $probes=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    $total=0L;$reused=0L;$disabled=0L;$unknownState=0L;$notCollectable=0L
+    foreach($record in $Records){
+        if($null -eq $record){continue}
+        if($null -ne $Identities -and -not $Identities.Contains($record.Id.Trim().Trim('{','}'))){continue}
+        $total++;$v=$record.Values
+        if(-not $v.ContainsKey('active')){$unknownState++;continue};if(-not [bool]$v['active']){$disabled++;continue}
+        $missing=[Collections.Generic.SortedSet[string]]::new([StringComparer]::Ordinal)
+        $missingProbes=[Collections.Generic.SortedSet[string]]::new([StringComparer]::Ordinal)
+        $targetFamilies=[Collections.Generic.SortedSet[string]]::new([StringComparer]::Ordinal);$detailMissing=$false
+        foreach($entry in $requested){
+            $known=$v.ContainsKey($entry.Id)
+            if($entry.CollectionKey){$known=($v.ContainsKey($entry.CollectionKey) -and [bool]$v[$entry.CollectionKey].Complete)}
+            $at=if($v.ContainsKey($entry.TimestampKey)){ConvertFrom-DomeniaUtcText ([string]$v[$entry.TimestampKey])}else{$null}
+            $fresh=($known -and -not $v.ContainsKey('_quality:'+$entry.QualityId) -and $null -ne $at -and $at -le $NowUtc.AddMinutes(1) -and ($NowUtc-$at).TotalSeconds -lt $entry.MaxAgeSeconds)
+            if($fresh){continue}
+            if($entry.Family -ceq 'Detail'){$detailMissing=$true;continue}
+            [void]$missing.Add($entry.QualityId);[void]$targetFamilies.Add($entry.Family)
+            if($entry.ProbeId){[void]$missingProbes.Add($entry.ProbeId)}
+        }
+        if($detailMissing){$notCollectable++}
+        if(-not $missing.Count){if(-not $detailMissing){$reused++};continue}
+        foreach($id in $missing){$fieldMissing[$id]=1L+[long]$fieldMissing[$id]}
+        foreach($family in $targetFamilies){$families[$family]=1L+[long]$families[$family]}
+        foreach($id in $missingProbes){[void]$probes.Add($id)}
+        $targets.Add([pscustomobject]@{name=[string]$v['name'];distinguished_name=[string]$v['dn'];object_guid=$record.Id;MissingFields=@($missing);MissingProbeIds=@($missingProbes);Families=@($targetFamilies)})
+    }
+    $counts=@(foreach($key in @($fieldMissing.Keys)){[pscustomobject]@{Field=[string]$key;Missing=[long]$fieldMissing[$key]}})
+    $counts=@($counts|Sort-Object -Property @{Expression='Missing';Descending=$true},@{Expression='Field';Descending=$false})
+    [pscustomobject]@{Targets=$targets.ToArray();Total=$total;Reused=$reused;Disabled=$disabled;UnknownState=$unknownState;NotCollectable=$notCollectable;Ping=($families['Presence'] -gt 0);Console=($families['Console'] -gt 0);Inventory=($families['Inventory'] -gt 0);Wmi=(($families['Console']+$families['Inventory']+$families['Probe']) -gt 0);ProbeIds=@($probes|Sort-Object);FamilyTargets=[pscustomobject]$families;FieldCounts=$counts;Fields=@($requested|ForEach-Object{$_.Id});PreparedAtUtc=$NowUtc.ToUniversalTime().ToString('o');CacheMinutes=$CacheMinutes}
+}
 function New-DomeniaQueryMissingCollectionPlan {
     # Plan only: no network. The run scheduler revalidates identity, freshness and definitions before collection.
     param($Records,$Recipe,[int]$CacheMinutes=15,[datetime]$NowUtc=[datetime]::UtcNow)
-    $requirements=Get-DomeniaQueryCollectionRequirements -Recipes @($Recipe)
-    $fields=@(Get-DomeniaQueryRequestedFields $Recipe);$identities=Get-DomeniaQueryIdentitySelection $Recipe
-    $targets=[Collections.Generic.List[object]]::new();$total=0L;$reused=0L;$disabled=0L;$unknownState=0L;$ping=$false;$wmi=$false
-    foreach($field in $fields){if($field -in @('presence','presenceBucket','checkedDays')){$ping=$true}elseif($field -like 'probe:*' -or $field -like 'instance:*' -or $field -in @('user','model','ramGB','diskFreePercent','uptimeDays','inventoryDays','observedRelease')){$wmi=$true}}
-    foreach($record in $Records){
-        if($null -ne $identities -and -not $identities.Contains($record.Id.Trim().Trim('{','}'))){continue}
-        $total++;$v=$record.Values
-        if(-not $v.ContainsKey('active')){$unknownState++;continue};if(-not [bool]$v['active']){$disabled++;continue}
-        $missing=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
-        foreach($field in $fields){
-            $key=Get-DomeniaQueryTimestampKey $field;if($key -like '_at:field:*'){continue}
-            $seconds=[Math]::Max(0,[Math]::Min(1440,$CacheMinutes))*60
-            if($key -eq '_at:inventory'){$seconds=[Math]::Min(300,$seconds)}
-            if($key -in @('_at:presence','_at:console') -or $key -match '^_at:probe:(evt\.|svc\.|net\.)|load|battery|free|users|stopped|process'){$seconds=[Math]::Min(60,$seconds)}
-            $qualityId=if($field -like 'instance:*'){'probe:'+($field.Split(':'))[1]}else{$field}
-            $known=$v.ContainsKey($field)
-            if($field -like 'instance:*'){$collectionKey='_instances:probe:'+($field.Split(':'))[1];$known=$v.ContainsKey($collectionKey) -and [bool]$v[$collectionKey].Complete}
-            $at=if($v.ContainsKey($key)){ConvertFrom-DomeniaUtcText ([string]$v[$key])}else{$null}
-            if(-not $known -or $v.ContainsKey('_quality:'+$qualityId) -or $null -eq $at -or $at -gt $NowUtc.AddMinutes(1) -or ($NowUtc-$at).TotalSeconds -ge $seconds){[void]$missing.Add($qualityId)}
+    return (New-DomeniaMissingCollectionPlan -Records $Records -Fields @(Get-DomeniaQueryRequestedFields $Recipe) -Identities (Get-DomeniaQueryIdentitySelection $Recipe) -CacheMinutes $CacheMinutes -NowUtc $NowUtc)
+}
+function Measure-DomeniaCollectionPlanWorkload {
+    # Remote work implied by a plan for the park-run mode it selects. Counts only: no duration is invented here.
+    param($Plan)
+    $targets=@($Plan.Targets)
+    $mode=if([bool]$Plan.Ping -and -not [bool]$Plan.Wmi){'Ping'}elseif([bool]$Plan.Wmi -and -not [bool]$Plan.Ping){'Wmi'}else{'PingWmi'}
+    $slow=@{};foreach($id in @($Plan.ProbeIds)){$probe=Get-DomeniaProbe ([string]$id);if($null -ne $probe -and [bool](Get-DomeniaMember $probe 'Slow' $false)){$slow[[string]$id]=[string]$probe.Name}}
+    $probeReads=0L;$slowReads=0L
+    foreach($target in $targets){foreach($id in @($target.MissingProbeIds)){$probeReads++;if($slow.ContainsKey([string]$id)){$slowReads++}}}
+    $contacts=[long]$targets.Count
+    # Same bands as the ParkSweep impact model (100 and 500 workstations); slow probes raise the level.
+    $level=if(($contacts -gt 500) -or ($slowReads -gt 100)){'Élevé'}elseif(($contacts -gt 100) -or ($slowReads -gt 0)){'Modéré'}else{'Faible'}
+    [pscustomobject]@{Mode=$mode;Targets=$contacts;PingReads=$(if($mode -ne 'Wmi'){$contacts}else{0L});ConsoleReads=$(if($mode -ne 'Ping'){$contacts}else{0L});InventoryReads=[long](Get-DomeniaMember $Plan.FamilyTargets 'Inventory' 0);ProbeReads=$probeReads;SlowProbeReads=$slowReads;SlowProbes=@($slow.Values|Sort-Object);Level=$level}
+}
+function Format-DomeniaQueryCollectionPlanText {
+    # Operator summary shown before the explicit launch. The cost is counted from the plan; no duration is
+    # displayed because the park run records no comparable timing history to calibrate one.
+    param($Plan,$Workload=$null,[int]$Concurrency=4)
+    if($null -eq $Workload){$Workload=Measure-DomeniaCollectionPlanWorkload $Plan}
+    $Concurrency=[Math]::Max(1,[Math]::Min(8,$Concurrency))
+    $names=@{};foreach($entry in @(@(Get-DomeniaQueryCatalog)+@(Get-DomeniaQueryInstanceFields))){$names[[string]$entry.Id]=[string]$entry.Name}
+    $lines=[Collections.Generic.List[string]]::new()
+    $at=ConvertFrom-DomeniaUtcText ([string]$Plan.PreparedAtUtc)
+    $reuse=if([int]$Plan.CacheMinutes -gt 0){'mesures réutilisées si elles datent de moins de '+[int]$Plan.CacheMinutes+' min (1 min pour les mesures volatiles, 5 min pour lʼinventaire)'}else{'relecture forcée de toutes les mesures demandées'}
+    $lines.Add('Plan préparé '+$(if($null -ne $at){'le '+$at.ToLocalTime().ToString('dd/MM HH:mm:ss')+' '}else{''})+'sur les données locales : '+$reuse+'.')
+    $lines.Add([string]@($Plan.Targets).Count+' poste(s) à relire sur '+[string]$Plan.Total+' examiné(s) : '+[string]$Plan.Reused+' déjà à jour ; '+[string]$Plan.Disabled+' désactivé(s) et '+[string]$Plan.UnknownState+' à lʼétat AD inconnu exclus.')
+    if(@($Plan.Targets).Count){
+        $reads=[Collections.Generic.List[string]]::new()
+        if($Workload.Mode -ne 'Wmi'){$reads.Add('ping ICMP')}
+        if($Workload.Mode -ne 'Ping'){$reads.Add('utilisateur console')}
+        if([bool]$Plan.Inventory){$reads.Add('inventaire léger sur '+[string]$Workload.InventoryReads+' poste(s)')}
+        $probeIds=@($Plan.ProbeIds)
+        if($probeIds.Count){
+            $probeNames=@($probeIds|Select-Object -First 5|ForEach-Object{$label=$names['probe:'+[string]$_];if($label){$label}else{[string]$_}})
+            $reads.Add([string]$probeIds.Count+' sonde(s) WMI ('+($probeNames -join ' ; ')+$(if($probeIds.Count -gt 5){' ; …'}else{''})+')')
         }
-        if($missing.Count){$targets.Add([pscustomobject]@{name=[string]$v['name'];distinguished_name=[string]$v['dn'];object_guid=$record.Id;MissingFields=@($missing|Sort-Object)})}else{$reused++}
+        $lines.Add('Lectures prévues : '+($reads.ToArray() -join ', ')+'. Lecture seule ; chaque poste ne relit que ses mesures manquantes ou anciennes.')
+        $top=@(@($Plan.FieldCounts)|Select-Object -First 5|ForEach-Object{$label=$names[[string]$_.Field];if(-not $label){$label=[string]$_.Field};$label+' ('+[string]$_.Missing+')'})
+        if($top.Count){$lines.Add('Informations les plus manquantes : '+($top -join ' ; ')+'.')}
+        $cost='Coût : '+[string]$Workload.Level+' · '+[string]$Workload.Targets+' poste(s) contacté(s)'
+        if([long]$Workload.ProbeReads -gt 0){$cost+=', au plus '+[string]$Workload.ProbeReads+' lecture(s) de sondes'}
+        if([long]$Workload.SlowProbeReads -gt 0){$cost+=' dont '+[string]$Workload.SlowProbeReads+' sur des sondes lentes ('+(@($Workload.SlowProbes) -join ' ; ')+')'}
+        $lines.Add($cost+' ; '+[string]$Concurrency+' poste(s) au maximum en parallèle. Durée non estimée : aucun relevé comparable nʼest chronométré.')
     }
-    [pscustomobject]@{Targets=$targets.ToArray();Total=$total;Reused=$reused;Disabled=$disabled;UnknownState=$unknownState;Inventory=$requirements.Inventory;ProbeIds=$requirements.ProbeIds;Ping=$ping;Wmi=$wmi;PreparedAtUtc=$NowUtc.ToUniversalTime().ToString('o');CacheMinutes=$CacheMinutes}
+    if([long]$Plan.NotCollectable -gt 0){$lines.Add([string]$Plan.NotCollectable+' poste(s) attendent aussi une lecture WMI avancée : elle se relance depuis la fiche du poste, pas dans cette collecte.')}
+    return ($lines.ToArray() -join "`r`n")
 }
 
 function Get-DomeniaQueryExpressionKey {
