@@ -626,6 +626,8 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnExportResults" = "Default"
     "BtnSearchMoreJump" = "Default"
     "BtnSearchContains" = "Default"
+    "BtnSearchResultMenu" = "Default"
+    "LblSearchCardCount" = "Default"
     "LblBranchCount" = "Default"
     "TxtBranchSearch" = "Default"
     "CmbObjectFilter" = "Default"
@@ -5381,21 +5383,31 @@ function Get-MainXaml {
                     </DockPanel>
                   </Border>
                   <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Center" VerticalAlignment="Stretch" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" ShowsPreview="True" Background="{DynamicResource SplitterBg}" Cursor="SizeWE" x:Name="SearchOuSplitter" ToolTip="Faites glisser pour ajuster la largeur de l’arbre et des résultats." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Largeur de l’arbre des OU" AutomationProperties.HelpText="Faites glisser pour ajuster la largeur de l’arbre et des résultats."/>
-                  <Grid Margin="0" Grid.Column="2">
+                  <!-- DS-06: one card before the list. Its header carries the clickable path of the OU and the number of rows shown;
+                       the filters and the results follow in the same card, separated by a rule (no second card, no gap). -->
+                  <Border x:Name="UxSearchCard" Style="{StaticResource Card}" Grid.Column="2" Padding="0">
+                  <Grid Margin="0">
                     <Grid.RowDefinitions>
                       <RowDefinition Height="Auto"/>
                       <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <Border x:Name="UxSearchFilterCard" Style="{StaticResource Card}" Grid.Row="0" Margin="0,0,0,12" Padding="16">
+                    <Border x:Name="UxSearchFilterCard" Grid.Row="0" Margin="0" Padding="16" BorderBrush="{DynamicResource BorderColor}" BorderThickness="0,0,0,1">
                       <StackPanel>
-                        <TextBlock x:Name="UxSearchScopeTitle" Text="Périmètre des résultats" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                        <DockPanel x:Name="UxSearchCardHeader" Margin="0,0,0,6" LastChildFill="True">
+                          <TextBlock x:Name="LblSearchCardCount" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" ToolTip="Nombre de lignes affichées dans la liste, après le filtre de la liste. Le compteur détaillé, au-dessus des résultats, indique les lignes chargées et la limite." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lignes affichées" AutomationProperties.HelpText="Nombre de lignes affichées dans la liste, après le filtre de la liste. Le compteur détaillé, au-dessus des résultats, indique les lignes chargées et la limite.">
+                            <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="{Binding Items.Count, ElementName=DgObjects, StringFormat='· {0} objets'}"/><Style.Triggers><DataTrigger Binding="{Binding Items.Count, ElementName=DgObjects}" Value="0"><Setter Property="Text" Value="· aucun objet"/></DataTrigger><DataTrigger Binding="{Binding Items.Count, ElementName=DgObjects}" Value="1"><Setter Property="Text" Value="· 1 objet"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                          </TextBlock>
+                          <Grid>
+                            <TextBlock Text="Recherche dans lʼannuaire" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                            <WrapPanel x:Name="PnlOuBreadcrumb" VerticalAlignment="Center" AutomationProperties.Name="Chemin de la branche choisie"><WrapPanel.Style><Style TargetType="WrapPanel"><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></WrapPanel.Style></WrapPanel>
+                          </Grid>
+                        </DockPanel>
                         <Grid x:Name="UxSearchScopeInfo"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                         <Button x:Name="BtnSearchQueryOptions" Grid.Column="2" Visibility="Collapsed" Content="Options de requête" MinHeight="28" Padding="6,1" Margin="6,0,0,2" FontSize="11" AutomationProperties.Name="Options de requête" ToolTip="Afficher ou replier les options : recherche de modèle, favoris, source et état des résultats."/>
                         <ComboBox x:Name="CmbWorkViewScope" Grid.Column="2" Grid.Row="0" VerticalAlignment="Top" SelectedIndex="0" MinWidth="0" MinHeight="0" Height="24" MaxWidth="210" Margin="8,0,0,2" Padding="6,0,4,0" FontSize="11.5" VerticalContentAlignment="Center" ToolTip="Périmètre des requêtes : lʼOU choisie dans lʼarbre. Les requêtes utilisent lʼOU choisie, sans ping, détection ni analyse des postes listés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Périmètre des requêtes" AutomationProperties.HelpText="Périmètre des requêtes : lʼOU choisie dans lʼarbre. Les requêtes utilisent lʼOU choisie, sans ping, détection ni analyse des postes listés.">
                           <ComboBoxItem Tag="OU" Content="Requêtes · OU choisie"/>
                         </ComboBox><TextBlock Text="Dans : tout le domaine | Sous-OU incluses" TextWrapping="NoWrap" Margin="0,0,0,4" Foreground="{DynamicResource AccentText}" FontSize="12" x:Name="LblSearchScope" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" TextTrimming="CharacterEllipsis"/>
                         <TextBlock x:Name="LblSearchHint" Grid.Row="1" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" Text="" Height="18" Margin="0,0,0,8" FontSize="11.5" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/></Grid>
-                        <WrapPanel x:Name="PnlOuBreadcrumb" Margin="0,0,0,10" AutomationProperties.Name="Chemin de la branche choisie"/>
                         <Grid x:Name="UxSearchFilterQueryLayout"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0"/></Grid.ColumnDefinitions>
                         <WrapPanel x:Name="UxSearchFilters">
                           <StackPanel Width="148" Margin="0,0,12,8"><StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>
@@ -5465,7 +5477,7 @@ function Get-MainXaml {
                         </Grid>
                       </StackPanel>
                     </Border>
-                    <Border x:Name="UxResultsCard" Style="{StaticResource Card}" Grid.Row="1" Padding="12">
+                    <Border x:Name="UxResultsCard" Grid.Row="1" Padding="12">
                       <Grid>
                         <Grid.RowDefinitions>
                           <RowDefinition Height="Auto"/>
@@ -5476,17 +5488,18 @@ function Get-MainXaml {
                         <StackPanel x:Name="UxResultBar" Margin="0,0,0,10"><DockPanel x:Name="UxResultActionsRow" Margin="0,0,0,8">
                           <!-- Result actions dock first on the right: a changing count only narrows the title, never moves them. -->
                           <StackPanel x:Name="UxResultActions" Orientation="Horizontal" DockPanel.Dock="Right" Margin="8,0,0,0">
-                            <Button MinHeight="30" Padding="10,2" Margin="0,0,8,0" x:Name="BtnLoadBranch" Content="Actualiser" ToolTip="Actualise le mode affiché : recherche globale sans filtres, ou contenu de l’OU avec ses filtres." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser les résultats" AutomationProperties.HelpText="Actualise le mode affiché : recherche globale sans filtres, ou contenu de l’OU avec ses filtres."/>
+                            <!-- DS-06: Actualiser and Exporter CSV live in the « ⋯ » menu; the buttons stay (hidden) for their wiring and states. -->
+                            <Button MinHeight="30" Padding="10,2" Margin="0,0,8,0" Visibility="Collapsed" x:Name="BtnLoadBranch" Content="Actualiser" ToolTip="Actualise le mode affiché : recherche globale sans filtres, ou contenu de l’OU avec ses filtres." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser les résultats" AutomationProperties.HelpText="Actualise le mode affiché : recherche globale sans filtres, ou contenu de l’OU avec ses filtres."/>
                             <Button MinHeight="30" Padding="10,2" Margin="0,0,8,0" x:Name="BtnGlobalClear" Content="Effacer" ToolTip="Efface le texte et les résultats sans modifier l’OU sélectionnée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer la recherche" AutomationProperties.HelpText="Efface le texte et les résultats sans modifier l’OU sélectionnée."/>
-                            <Button MinHeight="30" Padding="10,2" Margin="0" x:Name="BtnExportResults" Content="Exporter CSV" ToolTip="Exporte les résultats affichés, ou uniquement les lignes sélectionnées, au format CSV." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Exporter CSV" AutomationProperties.HelpText="Exporte les resultats affiches, ou uniquement les lignes selectionnees, au format CSV."/>
+                            <Button x:Name="BtnSearchResultMenu" Content="⋯" MinHeight="30" MinWidth="38" Padding="8,0" Margin="0" FontSize="16" FontWeight="SemiBold" ToolTip="Autres actions de la liste : actualiser, exporter en CSV et choisir les colonnes affichées. Aucune lecture ne part à lʼouverture du menu." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Autres actions de la liste" AutomationProperties.HelpText="Autres actions de la liste : actualiser, exporter en CSV et choisir les colonnes affichées. Aucune lecture ne part à lʼouverture du menu."/>
+                            <Button MinHeight="30" Padding="10,2" Margin="0" Visibility="Collapsed" x:Name="BtnExportResults" Content="Exporter CSV" ToolTip="Exporte les résultats affichés, ou uniquement les lignes sélectionnées, au format CSV." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Exporter CSV" AutomationProperties.HelpText="Exporte les resultats affiches, ou uniquement les lignes selectionnees, au format CSV."/>
                           </StackPanel>
                           <Button x:Name="BtnSearchMore" Content="Charger la suite" DockPanel.Dock="Right" IsEnabled="False" MinHeight="30" Padding="10,2" Margin="8,0,0,0" ToolTip="Disponible quand la liste est limitée : lit seulement les lignes suivantes de la même recherche, triées par nom, sans relire les lignes déjà chargées. Plafond de sécurité : 20 000 lignes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Charger la suite" AutomationProperties.HelpText="Disponible quand la liste est limitée : lit seulement les lignes suivantes de la même recherche, triées par nom, sans relire les lignes déjà chargées. Plafond de sécurité : 20 000 lignes."/>
                           <!-- MO-07: one gesture to bring a limited list to 1 000 rows (then 5 000, then 20 000), reading only the missing rows. -->
                           <Button x:Name="BtnSearchMoreJump" Content="Charger jusquʼà 1 000" DockPanel.Dock="Right" IsEnabled="False" Visibility="Collapsed" MinHeight="30" Padding="10,2" Margin="8,0,0,0" ToolTip="Porte la liste à 1 000 lignes en une fois (puis 5 000, puis 20 000) : lit seulement les lignes manquantes, sans relire celles déjà chargées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Charger jusquʼà 1 000" AutomationProperties.HelpText="Porte la liste à 1 000 lignes en une fois (puis 5 000, puis 20 000) : lit seulement les lignes manquantes, sans relire celles déjà chargées."/>
                           <TextBlock x:Name="LblBranchCount" Text="0 objet" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="12,0,0,0" DockPanel.Dock="Right" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" MaxWidth="320" FontSize="12" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                           <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="Résultats" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                            <Border x:Name="UxHistoryBanner" Visibility="Collapsed" Margin="10,0,0,0" Padding="8,0,2,0" CornerRadius="10" Background="{DynamicResource BgReadonly}" VerticalAlignment="Center" ToolTip="Liste remise depuis lʼhistorique (Précédent ou Suivant) : elle nʼest pas relue et un clic ne vérifie pas le poste. Actualiser relance la même recherche." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Liste de lʼhistorique" AutomationProperties.HelpText="Liste remise depuis lʼhistorique (Précédent ou Suivant) : elle nʼest pas relue et un clic ne vérifie pas le poste. Actualiser relance la même recherche.">
+                            <Border x:Name="UxHistoryBanner" Visibility="Collapsed" Margin="0" Padding="8,0,2,0" CornerRadius="10" Background="{DynamicResource BgReadonly}" VerticalAlignment="Center" ToolTip="Liste remise depuis lʼhistorique (Précédent ou Suivant) : elle nʼest pas relue et un clic ne vérifie pas le poste. Actualiser relance la même recherche." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Liste de lʼhistorique" AutomationProperties.HelpText="Liste remise depuis lʼhistorique (Précédent ou Suivant) : elle nʼest pas relue et un clic ne vérifie pas le poste. Actualiser relance la même recherche.">
                               <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="Liste de lʼhistorique ·" FontSize="11.5" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}"/>
                                 <Button x:Name="BtnHistoryRefresh" Content="Actualiser" MinHeight="0" Height="22" MinWidth="0" Padding="6,0" Margin="4,1,0,1" FontSize="11.5" ToolTip="Relance la recherche de cette liste dans lʼannuaire, avec son périmètre, sa vue et ses filtres. Aucun ping ni relevé des postes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser la liste de lʼhistorique" AutomationProperties.HelpText="Relance la recherche de cette liste dans lʼannuaire, avec son périmètre, sa vue et ses filtres. Aucun ping ni relevé des postes."/>
@@ -5515,7 +5528,8 @@ function Get-MainXaml {
                                 <TextBlock x:Name="LblListRevalidation" Text="" Margin="8,0,0,0" FontSize="11" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}"/>
                               </StackPanel>
                             </WrapPanel>
-                            <Grid x:Name="UxResultLiveStatuses" Grid.Row="1"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><TextBlock Text="Sélectionnez une ligne pour précharger sa fiche. Double-clic : ouvrir." Foreground="{DynamicResource MutedColor}" FontSize="11" Height="20" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" x:Name="LblSelectionReadState" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/><TextBlock x:Name="LblLiveState" Grid.Row="1" Text="Un clic : vérifier ce poste · Double-clic : ouvrir la fiche · Aucune sonde de liste" FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Height="18" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/></Grid>
+                            <!-- DS-06: the selection and list states share one line (two halves); in compact mode they stack beside the actions. -->
+                            <Grid x:Name="UxResultLiveStatuses" Grid.Row="1"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="Sélectionnez une ligne pour précharger sa fiche. Double-clic : ouvrir." Foreground="{DynamicResource MutedColor}" FontSize="11" Height="20" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" x:Name="LblSelectionReadState" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/><TextBlock x:Name="LblLiveState" Grid.Row="0" Grid.Column="1" Margin="12,0,0,0" Text="Un clic : vérifier ce poste · Double-clic : ouvrir la fiche · Aucune sonde de liste" FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Height="18" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/></Grid>
                           </Grid></StackPanel>
                           <Grid Grid.Row="1" Height="30" Margin="0,0,0,4">
                             <Grid.ColumnDefinitions>
@@ -5623,6 +5637,7 @@ function Get-MainXaml {
                       </Grid>
                     </Border>
                   </Grid>
+                  </Border>
                 </Grid>
               </TabItem>
               <TabItem x:Name="WsObject" Header="Fiche" ToolTip="Fiche complète de lʼobjet sélectionné." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Fiche" AutomationProperties.HelpText="Fiche complete de l objet selectionne.">

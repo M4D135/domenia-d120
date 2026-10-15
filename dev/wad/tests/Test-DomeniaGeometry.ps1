@@ -178,8 +178,9 @@ $configurations=@(
     @{Name='Portable 1366x768 125 %';W=1366;H=768;Scale=1.25},
     @{Name='Session RDP 1024x768';W=1024;H=768;Scale=1.0}
 )
-$essentials=@('TxtGlobalSearch','BtnGlobalSearch','DgObjects','BtnAccessRecovery','TxtSuiteResultFilter','BtnGlobalClear','BtnExportResults')
-$resultButtons=@('BtnLoadBranch','BtnGlobalClear','BtnExportResults','BtnSuiteResultClear','BtnLiveRecheck','TxtSuiteResultFilter','CmbGlobalType','CmbPresenceFilter','ChkLiveUsers')
+# DS-06: Actualiser and Exporter CSV are reached through the « ⋯ » menu of the result card (BtnSearchResultMenu).
+$essentials=@('TxtGlobalSearch','BtnGlobalSearch','DgObjects','BtnAccessRecovery','TxtSuiteResultFilter','BtnGlobalClear','BtnSearchResultMenu')
+$resultButtons=@('BtnGlobalClear','BtnSearchResultMenu','BtnSuiteResultClear','BtnLiveRecheck','TxtSuiteResultFilter','CmbGlobalType','CmbPresenceFilter','ChkLiveUsers')
 
 if($infrastructure){
     foreach($configuration in $configurations){
@@ -273,7 +274,7 @@ if($infrastructure){
                     Assert-True (($script:GeometrySurface.ActualHeight+$script:GeometryChromeHeight) -le $height+0.5) 'Surface plus haute que la surface demandee.'
                     Assert-True ($window.FindName('DgObjects').ActualHeight -ge 120) ('Resultats trop petits : '+$window.FindName('DgObjects').ActualHeight)
                     Assert-OuNavigationLayout $window
-                    foreach($name in @('CmbGlobalType','CmbPresenceFilter','TxtGlobalLimit','CmbWorkView','BtnWorkView','ChkLiveUsers','BtnLiveRecheck','TxtSuiteResultFilter','BtnSuiteResultClear','BtnGlobalClear','BtnExportResults','BtnCancelTask','LblUxDomain','TvDirectory','LblSearchScope','LblSearchHint','LblSelectionReadState','LblLiveState')){
+                    foreach($name in @('CmbGlobalType','CmbPresenceFilter','TxtGlobalLimit','CmbWorkView','BtnWorkView','ChkLiveUsers','BtnLiveRecheck','TxtSuiteResultFilter','BtnSuiteResultClear','BtnGlobalClear','BtnSearchResultMenu','BtnCancelTask','LblUxDomain','TvDirectory','LblSearchScope','LblSearchHint','LblSelectionReadState','LblLiveState')){
                         $r=Get-ClientRect $window $name
                         Assert-True ($r.Visible -and $r.W -ge 8 -and $r.H -ge 8 -and $r.X -ge 0 -and $r.Y -ge 0 -and $r.X+$r.W -le $script:GeometrySurface.ActualWidth+0.5 -and $r.Y+$r.H -le $script:GeometrySurface.ActualHeight+0.5) ($name+' inaccessible apres redimensionnement a '+$height)
                     }
@@ -336,6 +337,55 @@ if($infrastructure){
         }catch{$script:Checks.Add([pscustomobject]@{Name=($theme+' : preparation detection');Status='Failed';Detail=$_.Exception.ToString()})}
         finally{if($window){$window.Close()};if($null -ne $script:GeometrySurface){$script:GeometrySurface.Children.Clear();$script:GeometrySurface=$null};$script:Window=$null;$script:Ctrl=@{}}
     }
+}
+
+# DS-06: unwired if the search page goes back to two cards, a title row and a separate path row, toolbar buttons for
+# Actualiser and Exporter CSV, or two help rows under the list actions.
+if($infrastructure){
+    $window=$null
+    try{
+        $window=New-GeometryWindow 'Light' 1600 1000
+        Test-Case 'DS-06 : une seule carte avant la liste, chemin et nombre en tete, menu « ⋯ »' {
+            $card=$window.FindName('UxSearchCard');$filters=$window.FindName('UxSearchFilterCard');$results=$window.FindName('UxResultsCard')
+            Assert-True ($null -ne $card -and [object]::ReferenceEquals($card.Style,$window.FindResource('Card'))) 'Carte unique absente.'
+            foreach($inner in @($filters,$results)){
+                Assert-True ($null -eq $inner.Style) ('Seconde carte : '+$inner.Name)
+                $node=$inner;$inside=$false
+                while($null -ne $node){if([object]::ReferenceEquals($node,$card)){$inside=$true;break};$node=[Windows.Media.VisualTreeHelper]::GetParent($node)}
+                Assert-True $inside ($inner.Name+' hors de la carte unique.')
+            }
+            Assert-True ($null -eq $window.FindName('UxSearchScopeTitle')) 'Titre « Périmètre des résultats » revenu.'
+            $header=$window.FindName('UxSearchCardHeader')
+            foreach($name in @('PnlOuBreadcrumb','LblSearchCardCount')){
+                $node=$window.FindName($name);$inside=$false
+                while($null -ne $node){if([object]::ReferenceEquals($node,$header)){$inside=$true;break};$node=[Windows.Media.VisualTreeHelper]::GetParent($node)}
+                Assert-True $inside ($name+' hors de lʼen-tête de la carte.')
+            }
+            $count=$window.FindName('LblSearchCardCount')
+            Assert-True ($count.Text -eq '· 20 objets') ('Nombre en tête : '+$count.Text)
+            $window.FindName('DgObjects').ItemsSource=[Collections.ObjectModel.ObservableCollection[object]]::new();Invoke-GeometryPump $window
+            Assert-True ($count.Text -eq '· aucun objet') ('Liste vide : '+$count.Text)
+            foreach($name in @('BtnLoadBranch','BtnExportResults')){Assert-True ($window.FindName($name).Visibility -eq [Windows.Visibility]::Collapsed) ($name+' encore dans la barre.')}
+            $entries=@(Get-DomeniaSearchResultMenuEntries)
+            Assert-True (($entries.Count -eq 2) -and ($entries[0].Header -eq 'Actualiser') -and ($entries[1].Header -eq 'Exporter CSV') -and [object]::ReferenceEquals($entries[1].Button,$window.FindName('BtnExportResults'))) 'Menu « ⋯ » incomplet.'
+            $menuButton=Get-ClientRect $window 'BtnSearchResultMenu'
+            Assert-True ($menuButton.Visible -and $menuButton.W -ge 30) 'Bouton « ⋯ » invisible.'
+            # The entry raises the click of the original button (its handler and its disabled state stay the button's).
+            $window.FindName('BtnExportResults').Add_Click({$script:GeometryExportClicks++});$script:GeometryExportClicks=0
+            $menu=New-DomeniaSearchResultMenu
+            $item=@($menu.Items|Where-Object{$_ -is [Windows.Controls.MenuItem] -and [string]$_.Header -eq 'Exporter CSV'})[0]
+            Assert-True ($null -ne $item) 'Entrée Exporter CSV absente du menu.'
+            $item.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.MenuItem]::ClickEvent))
+            Assert-True ($script:GeometryExportClicks -eq 1) 'Lʼentrée du menu nʼactionne pas le bouton dʼorigine.'
+            $searchUi=[IO.File]::ReadAllText((Join-Path $wad 'modules\Domenia-Search.UI.ps1'))
+            Assert-True (($searchUi -match "Get-DomeniaControl 'BtnSearchResultMenu'") -and ($searchUi -match 'Open-DomeniaSearchResultMenu -Anchor')) 'Bouton « ⋯ » non raccordé.'
+            $selection=$window.FindName('LblSelectionReadState');$live=$window.FindName('LblLiveState')
+            Assert-True (([Windows.Controls.Grid]::GetRow($selection) -eq [Windows.Controls.Grid]::GetRow($live)) -and ([Windows.Controls.Grid]::GetColumn($live) -eq 1)) 'Les deux lignes dʼétat ne partagent pas une seule ligne.'
+            $a=Get-ClientRect $window 'LblSelectionReadState';$b=Get-ClientRect $window 'LblLiveState'
+            Assert-True ([Math]::Abs($a.Y-$b.Y) -le 0.5 -and $a.W -ge 100 -and $b.W -ge 100) ('États sur deux lignes : '+$a.Y+' / '+$b.Y)
+        }
+    }catch{$script:Checks.Add([pscustomobject]@{Name='DS-06 : preparation';Status='Failed';Detail=$_.Exception.ToString()})}
+    finally{if($window){$window.Close()};if($null -ne $script:GeometrySurface){$script:GeometrySurface.Children.Clear();$script:GeometrySurface=$null};$script:Window=$null;$script:Ctrl=@{}}
 }
 
 $failed=@($script:Checks|Where-Object{$_.Status -eq 'Failed'}).Count

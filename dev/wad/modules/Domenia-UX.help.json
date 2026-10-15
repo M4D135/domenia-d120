@@ -3500,6 +3500,20 @@
     "Source": "X02"
   },
   {
+    "Name": "BtnSearchResultMenu",
+    "Title": "Autres actions de la liste",
+    "Text": "Autres actions de la liste : actualiser, exporter en CSV et choisir les colonnes affichées. Aucune lecture ne part à lʼouverture du menu.",
+    "Kind": "Button",
+    "Source": "X02"
+  },
+  {
+    "Name": "LblSearchCardCount",
+    "Title": "Lignes affichées",
+    "Text": "Nombre de lignes affichées dans la liste, après le filtre de la liste. Le compteur détaillé, au-dessus des résultats, indique les lignes chargées et la limite.",
+    "Kind": "TextBlock",
+    "Source": "X02"
+  },
+  {
     "Name": "CmbWorkView",
     "Title": "Requête à exécuter",
     "Text": "Choisir une requête Annuaire ou Données locales, puis Exécuter. La source, le type dʼobjet et lʼOU sont indiqués sous la liste. Le choix seul ne lance rien.",

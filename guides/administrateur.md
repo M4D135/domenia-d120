@@ -60,6 +60,8 @@ La barre du haut cherche dans tout le domaine, tous types d'objets, sans filtre 
 - Recherche « contient » : après une recherche globale complète de texte simple qui renvoie 5 noms ou moins, la puce « Chercher aussi les noms qui contiennent… » relance, au clic seulement, la même recherche avec le filtre *mot* sur name, displayName, sAMAccountName et dNSHostName (chaque mot doit figurer, quatre mots au plus). Ce filtre n’utilise pas d’index : l’annuaire parcourt tous les noms du périmètre, avec la même limite.
 - Recherche à la frappe : désactivée par défaut (Browser.LiveGlobalSearch et Browser.AllowLiveGlobalSearch à faux).
 - Pendant une écriture, la recherche attend : « Recherche différée : écriture active ou à vérifier. ».
+
+La liste tient dans une seule carte : en tête, le chemin cliquable de l’OU (ou « Recherche dans l’annuaire » après la barre du haut) et le nombre de lignes affichées ; puis les filtres, les requêtes, le filtre de la liste et les résultats. « Actualiser » et « Exporter CSV » sont dans le menu « ⋯ » ; l’état de la sélection et celui de la liste partagent une seule ligne sous les actions.
 - Classement : Features.SearchRanking (vrai) ordonne les résultats d'une recherche globale ; sans lui, ils restent dans l'ordre d'arrivée.
 
 Le badge orange « Dernière requête AD : délai dépassé » signale une requête trop longue, sans établir une panne réseau. Affinez la recherche et consultez le journal. « AD injoignable » en rouge correspond à une erreur réseau. La prochaine lecture AD réussie rétablit le badge normal.
@@ -123,7 +125,7 @@ Sous l’arbre de Rechercher, « Données de l’OU » reprend l’unité choisi
 
 Dans une petite fenêtre, le panneau sous l’arbre se compacte : le titre « Données de l’OU » se masque et « Postes (ping/WMI) » devient « Ping/WMI ». Les commandes gardent le même périmètre et le même effet.
 
-Pinger, Détecter et Analyser la liste gardent leur cible propre : les postes affichés après filtrage. « Actualiser » dans les résultats relance leur lecture ; cette commande ne remplace pas une mise à jour de la base ou un relevé WMI de toute l’OU.
+Pinger, Détecter et Analyser la liste gardent leur cible propre : les postes affichés après filtrage. « Actualiser », dans le menu « ⋯ » de la liste, relance leur lecture ; cette commande ne remplace pas une mise à jour de la base ou un relevé WMI de toute l’OU.
 
 ## Requêtes Annuaire et données locales
 
@@ -158,7 +160,7 @@ Dans une fenêtre étroite ou basse, la barre peut se replier : « Options de re
 
 ## Export et menu clic droit
 
-« Exporter CSV » enregistre les lignes affichées, ou seulement les lignes sélectionnées. Le menu clic droit d'une ligne regroupe l'ouverture de la fiche, les outils du poste (sous-menus « Poste distant » et « Collecte »), « Analyser », « Copier », « Exporter la liste en CSV » et « Modifier ». Les entrées de « Modifier » sont des écritures : elles restent bloquées tant que la lecture seule est active (chapitre 14).
+« Exporter CSV », dans le menu « ⋯ » de la liste (à droite de « Effacer »), enregistre les lignes affichées, ou seulement les lignes sélectionnées. Le menu clic droit d'une ligne regroupe l'ouverture de la fiche, les outils du poste (sous-menus « Poste distant » et « Collecte »), « Analyser », « Copier », « Exporter la liste en CSV » et « Modifier ». Les entrées de « Modifier » sont des écritures : elles restent bloquées tant que la lecture seule est active (chapitre 14).
 
 # 4 Fiches des objets
 

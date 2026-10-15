@@ -511,6 +511,15 @@ function Set-DomeniaUxShortLayout {
         [Windows.Controls.Grid]::SetRow($statuses,$(if($compact){0}else{1}))
         [Windows.Controls.Grid]::SetColumn($statuses,$(if($compact){1}else{0}))
         $statuses.Margin=if($compact){[Windows.Thickness]::new(8,0,0,0)}else{[Windows.Thickness]::new(0)}
+        # DS-06: the selection and list states share one line of two halves in the normal layout (no help rows under
+        # the actions); in compact mode they stack in the column beside the actions.
+        $liveState=Get-DomeniaControl 'LblLiveState'
+        if($liveState -and $statuses.ColumnDefinitions.Count -ge 2){
+            $statuses.ColumnDefinitions[1].Width=if($compact){[Windows.GridLength]::new(0)}else{[Windows.GridLength]::new(1,[Windows.GridUnitType]::Star)}
+            [Windows.Controls.Grid]::SetRow($liveState,$(if($compact){1}else{0}))
+            [Windows.Controls.Grid]::SetColumn($liveState,$(if($compact){0}else{1}))
+            $liveState.Margin=if($compact){[Windows.Thickness]::new(0)}else{[Windows.Thickness]::new(12,0,0,0)}
+        }
     }
     $ouColumn=Get-DomeniaControl 'UxOuColumn'
     if($ouColumn){

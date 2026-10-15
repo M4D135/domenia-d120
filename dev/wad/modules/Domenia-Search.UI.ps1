@@ -170,6 +170,59 @@ function Invoke-DomeniaSearchContains {
     Invoke-GlobalSearch -SearchMode Global -Contains
 }
 
+# ---------------------------------------------------------------- DS-06 « ⋯ » menu of the result card
+function Get-DomeniaSearchResultMenuEntries {
+    # DS-06: Actualiser and Exporter CSV left the toolbar for the « ⋯ » menu. Each entry runs its original button, so
+    # the handlers, the disabled state during an operation and the GuiElementPolicy choices stay those of the button.
+    $entries = New-Object 'System.Collections.Generic.List[object]'
+    foreach ($entry in @(@{Name='BtnLoadBranch';Header='Actualiser'},@{Name='BtnExportResults';Header='Exporter CSV'})) {
+        $button = Get-DomeniaControl $entry.Name
+        if ($null -eq $button) { continue }
+        $mode = ''
+        if (($null -ne $script:GuiElementPolicy) -and $script:GuiElementPolicy.Contains($entry.Name)) { $mode = [string]$script:GuiElementPolicy[$entry.Name] }
+        # An action hidden by the administrator stays hidden in the menu too.
+        if ($mode.Trim() -match '^(?i:Hidden|Hide|Collapsed|Masque)$') { continue }
+        $entries.Add([pscustomobject]@{Name=[string]$entry.Name;Header=[string]$entry.Header;Button=$button;Enabled=[bool]$button.IsEnabled;ToolTip=[string]$button.ToolTip})
+    }
+    return ,$entries.ToArray()
+}
+
+function New-DomeniaSearchResultMenu {
+    # DS-06: builds the « ⋯ » menu of the result card. Building or opening it reads nothing; an entry acts only when clicked.
+    $menu = [Windows.Controls.ContextMenu]::new()
+    foreach ($entry in @(Get-DomeniaSearchResultMenuEntries)) {
+        $item = [Windows.Controls.MenuItem]::new()
+        $item.Header = $entry.Header
+        $item.ToolTip = $entry.ToolTip
+        $item.IsEnabled = [bool]$entry.Enabled
+        $item.Tag = $entry.Button
+        [Windows.Automation.AutomationProperties]::SetName($item,[string]$entry.Header)
+        [Windows.Automation.AutomationProperties]::SetHelpText($item,[string]$entry.ToolTip)
+        $item.Add_Click({ param($sender,$eventArgs) $target = $sender.Tag; if (($null -ne $target) -and [bool]$target.IsEnabled) { $target.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Primitives.ButtonBase]::ClickEvent)) } })
+        [void]$menu.Items.Add($item)
+    }
+    # DS-20: the column choice of the result grid, also reachable from the keyboard here.
+    if ($null -ne (Get-Command Add-DomeniaResultColumnMenuItems -CommandType Function -ErrorAction SilentlyContinue)) {
+        if ($menu.Items.Count -gt 0) { [void]$menu.Items.Add([Windows.Controls.Separator]::new()) }
+        $columns = [Windows.Controls.MenuItem]::new()
+        $columns.Header = 'Colonnes…'
+        [Windows.Automation.AutomationProperties]::SetName($columns,'Colonnes de la liste')
+        Add-DomeniaResultColumnMenuItems -Target $columns
+        [void]$menu.Items.Add($columns)
+    }
+    return $menu
+}
+
+function Open-DomeniaSearchResultMenu {
+    # DS-06: opens the « ⋯ » menu under its button.
+    param($Anchor)
+    $menu = New-DomeniaSearchResultMenu
+    if ($null -ne $Anchor) { $menu.PlacementTarget = $Anchor }
+    $menu.Placement = [Windows.Controls.Primitives.PlacementMode]::Bottom
+    $menu.IsOpen = $true
+    return $menu
+}
+
 function Update-DomeniaWorkViewList {
     $combo = Get-DomeniaControl 'CmbWorkView'
     if ($null -eq $combo) { return }
@@ -916,6 +969,9 @@ function Initialize-DomeniaSearchUi {
     }
     $more = Get-DomeniaControl 'BtnSearchMore'
     if ($more -is [Windows.Controls.Primitives.ButtonBase]) { $more.Add_Click({ try { Invoke-DomeniaSearchMore } catch { Write-AppLog ('Charger la suite : '+$_.Exception.Message) 'ERROR'; Set-Status ('Suite non chargée : '+$_.Exception.Message) 'ERROR' } }) }
+    # DS-06: the « ⋯ » menu of the result card (Actualiser, Exporter CSV, Colonnes…).
+    $resultMenu = Get-DomeniaControl 'BtnSearchResultMenu'
+    if ($resultMenu -is [Windows.Controls.Primitives.ButtonBase]) { $resultMenu.Add_Click({ param($sender,$eventArgs) try { [void](Open-DomeniaSearchResultMenu -Anchor $sender) } catch { Write-AppLog ('Menu de la liste : '+$_.Exception.Message) 'WARN' } }) }
     # FO-01: the « contains » chip starts its read on click only.
     $containsChip = Get-DomeniaControl 'BtnSearchContains'
     if ($containsChip -is [Windows.Controls.Primitives.ButtonBase]) { $containsChip.Add_Click({ try { Invoke-DomeniaSearchContains } catch { Write-AppLog ('Recherche « contient » : '+$_.Exception.Message) 'ERROR'; Set-Status ('Recherche non lancée : '+$_.Exception.Message) 'ERROR' } }) }

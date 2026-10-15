@@ -30,7 +30,7 @@ Quand : avant toute intervention, vous devez retrouver un poste, un utilisateur 
 | Arbre des OU | Choisissez la branche à parcourir et relisez son chemin. |
 | Données de l’OU, sous l’arbre | Base locale, Postes (ping/WMI) et Les deux actualisent toute l’OU choisie et ses sous-OU. |
 | Périmètre et Requêtes | Choisissez une source, des filtres ou une recette, puis lancez la recherche. |
-| Résultats | Triez, filtrez et ouvrez les objets affichés. Les actions de liste concernent cette liste. |
+| Résultats | Triez, filtrez et ouvrez les objets affichés. Les actions de liste concernent cette liste. « Actualiser » et « Exporter CSV » sont dans le menu « ⋯ ». |
 
 > [!ASTUCE] Pour ne chercher qu'un type d'objet, commencez par un préfixe : utilisateur: (ou u:), poste: (ou pc:), groupe: (ou g:), mail:. Exemple : poste:compta.
 
