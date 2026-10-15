@@ -489,7 +489,7 @@
   {
     "Name": "BtnLoadBranch",
     "Title": "Actualiser les résultats",
-    "Text": "Relance la lecture du mode affiché, avec son périmètre et ses filtres. Pour actualiser les données de toute l’OU, utilisez Base locale, Postes (ping/WMI) ou Les deux sous l’arbre ; ces commandes incluent toujours les sous-OU.",
+    "Text": "Relance la lecture du mode affiché, avec son périmètre et ses filtres. Pour actualiser les données de toute l’OU, utilisez Objets AD, Ping ou WMI sous l’arbre ; ces commandes incluent toujours les sous-OU.",
     "Kind": "Button",
     "Source": "label-help",
     "Shortcut": ""
@@ -4050,7 +4050,7 @@
     "Kind": "TextBlock",
     "Source": "specific",
     "Title": "Progression de l’actualisation du périmètre",
-    "Text": "Base locale relit AD ; Postes relit le ping, la console, l’inventaire léger et les sondes des widgets configurés ; Les deux attend le stockage de la base avant le relevé. La cible est l’OU du tableau de bord avec ses sous-OU."
+    "Text": "Objets AD relit l’annuaire ; Ping mesure seulement la présence ; WMI relit la console, l’inventaire léger et les sondes des widgets configurés. Trois collectes indépendantes, enregistrées automatiquement ; la cible est l’OU du tableau de bord avec ses sous-OU."
   },
   {
     "Name": "LblFleetScope",

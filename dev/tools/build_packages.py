@@ -15,6 +15,7 @@ SE-15: the lab tools (engineering/d120/lab) and the historical documents (wad/do
 Point 146: tools/licence-inventory.json must cover every binary, asset and vendored source (tools/licence_inventory.py);
 a delivered component whose redistribution is not established keeps the delivery unpublishable (build-report Licences).
 Point 141: SHA256SUMS lists the SHA-256 of both archives and of the build report, in the format of sha256sum -c.
+Point 149: tools/doc_sync.py checks that guides and contextual help quote only texts the pack displays.
 """
 from pathlib import Path
 import argparse,hashlib,json,platform,re,stat,struct,subprocess,sys,zipfile,zlib
@@ -238,6 +239,8 @@ def build(out,manifest_only=False,windows_report=None,require_windows=False,evid
     gate('tools/audit_function_names.py','Closed loader function names')
     # Point 146: every binary, asset and vendored source has a licence entry bound to the reviewed file.
     gate('tools/licence_inventory.py','Licence inventory','--check')
+    # Point 149: guides and contextual help quote only texts the pack displays (ratchet tools/baselines/doc-sync-baseline.json).
+    gate('tools/doc_sync.py','Documentation and help sync','--check')
     # TE-01: the interface wording reference is a ratchet; a delivery never adds an unaccented, unelided or tutoyed text.
     gate('tools/audit_wording.py','Interface wording ratchet')
     # Mandatory static preflight over every PowerShell source shipped in DEV.
