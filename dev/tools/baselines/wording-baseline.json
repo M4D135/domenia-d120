@@ -1,11 +1,11 @@
 {
  "Schema": "DomeniaWordingBaseline/1",
  "Source": "RC1.13.0 (2a98dd6) puis L05 : TE-01 etendu aux affectations de libelles et aux boites de message",
- "Total": 361,
+ "Total": 360,
  "Rules": {
   "accent": 275,
   "elision": 78,
-  "tutoiement": 8
+  "tutoiement": 7
  },
  "Findings": {
   "accent|$($errorInfo.Friendly)rnrnLe detail technique a ete enregistre dans le journal Domenia.": 1,
@@ -278,7 +278,6 @@
   "tutoiement|Ce que ton compte peut reellement modifier sur l objet selectionne.": 2,
   "tutoiement|Commandes Active Directory et LAPS disponibles sur ce poste. Selectionne-en une pour voir sa syntaxe, ses parametres et ses exemples.": 1,
   "tutoiement|Droits de ton compte sur cet objet": 1,
-  "tutoiement|Estime ce que ton compte peut modifier sur cet objet. Les actions manifestement interdites sont grisees ; les autres restent verifiees au moment de l execution.": 1,
-  "tutoiement|Saisis au moins $minChars caracteres, ou * pour un apercu.": 1
+  "tutoiement|Estime ce que ton compte peut modifier sur cet objet. Les actions manifestement interdites sont grisees ; les autres restent verifiees au moment de l execution.": 1
  }
 }

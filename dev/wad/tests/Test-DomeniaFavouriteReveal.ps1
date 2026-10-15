@@ -40,7 +40,7 @@ function Test-DomeniaAccessBusyWrite {return $script:Busy}
 function Test-DomeniaDraftNavigation {return $true}
 function Update-DomeniaSearchScopeUi {$script:ScopeUpdates++}
 function Select-DomeniaWorkspace {param($Workspace)}
-function Invoke-GlobalSearch {param($SearchMode)$script:Searches++;$script:GlobalSearchGeneration++}
+function Invoke-GlobalSearch {param($SearchMode,[switch]$KeepLocalFilter)$script:Searches++;$script:GlobalSearchGeneration++;$script:KeptLocalFilter=[bool]$KeepLocalFilter}
 function Load-TreeChildren {param($Node)$script:Reads.Add($Node);$Node.Tag.Loading=$true}
 function Get-DomeniaFavouriteSearches {return $script:Favs}
 function Start-Favourite {param($Dn)$script:Favs=@([pscustomobject]@{DN=$Dn;Name='Target';Subtree=$true;Type='Machines';Term=''});Load-DomeniaFavouriteSearch -Dn $Dn}
@@ -50,6 +50,8 @@ Case 'Deep loaded favourite expands each ancestor and searches only once' {
  [void]$script:Root.Items.Add($a);[void]$a.Items.Add($b);[void]$b.Items.Add($c)
  Start-Favourite $c.Tag.DN;Drain
  Assert ($script:Root.IsExpanded -and $a.IsExpanded -and $b.IsExpanded);Assert ($c.IsSelected -and $c.Brought);Assert ($script:Searches -eq 1);Assert ($script:Reads.Count -eq 0)
+ # CO-05: the term of a favourite is the filter of its list, kept by the search it launches.
+ Assert ([bool]$script:KeptLocalFilter) 'Le favori ne garde pas son filtre de liste'
  Assert (-not $script:Continuity.Restoring);Assert ($null -eq $script:Continuity.RestoreSearch);Assert (-not $script:FavouriteTreeRevealTimer.Running)
 }
 Case 'Unloaded ancestors wait for existing one-level readers without duplicate content searches' {

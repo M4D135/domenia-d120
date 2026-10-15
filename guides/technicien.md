@@ -19,17 +19,19 @@ Quand : avant toute intervention, vous devez retrouver un poste, un utilisateur 
 
 1. **Placer le curseur.** Cliquez dans la barre du haut « Personne, poste ou groupe, dans tout le domaine… », ou appuyez sur Ctrl+F. Vos dernières recherches et fiches s'affichent sous la barre ; pendant la frappe, des suggestions viennent de la base locale. La saisie seule n'interroge pas l'annuaire.
 2. **Taper le nom.** Saisissez au moins deux caractères : nom, identifiant, adresse mail ou nom de poste. Appuyez sur Entrée ou cliquez sur « Rechercher ». La page « Rechercher » affiche la liste « Résultats ».
-3. **Lire la liste.** Le compteur indique les lignes visibles parmi les objets chargés, pas le total du domaine. « Liste partielle » signale une lecture incomplète : même 746/746 ne garantit pas que tout a été reçu.
-4. **Affiner sans relancer.** Tapez quelques lettres dans « Dans les résultats » : seules les lignes qui les contiennent restent. « Effacer le filtre » réaffiche tout.
-5. **Vérifier un poste.** Cliquez une fois sur la ligne d'un poste. Domenia le pingue et lit l'utilisateur ouvert sur son écran : « Présence réseau » et « Utilisateur connecté (console) » se mettent à jour.
-6. **Ouvrir la fiche.** Double-cliquez sur la ligne, ou appuyez sur Entrée. La page « Fiche » s'ouvre sur l'onglet « Resume ».
+3. **Choisir où et quoi chercher.** Sous la barre, la puce « Partout » cherche dans tout le domaine ; « Dans « Postes » » limite la recherche à l’OU choisie dans l’arbre de Rechercher, sous-OU incluses. Les choix « Tout », « Personnes », « Postes » et « Groupes » restreignent le type. Le texte gris de la barre rappelle ces choix ; changer une puce ne lance rien avant Entrée.
+4. **Lire la liste.** Le compteur indique les lignes visibles parmi les objets chargés, pas le total du domaine. La barre cherche les noms qui **commencent** par votre texte : si elle trouve peu de noms ou aucun, la puce « Chercher aussi les noms qui contiennent « compta » » apparaît sous le compteur. Un clic relance la même recherche (même périmètre, même type, même limite) sur les noms qui contiennent ce texte, par exemple « PC-COMPTA-014 » ; cette lecture est plus longue. « Liste partielle » signale une lecture incomplète : même 746/746 ne garantit pas que tout a été reçu.
+5. **Affiner sans relancer.** Tapez quelques lettres dans « Filtrer la liste » : seules les lignes chargées qui les contiennent restent, aussi après une recherche globale, sans requête AD. « Effacer le filtre » réaffiche tout. Une nouvelle recherche repart avec un filtre vide.
+6. **Choisir les colonnes.** La liste montre six colonnes : Type, Nom, Utilisateur connecté, Association mémorisée, Présence réseau et État. L’association affiche l’utilisateur ou les postes liés suivis de la qualification du lien (par exemple « Camille Martin · Observé ») ; son infobulle donne la source. Clic droit sur un en-tête de colonne, ou menu « ⋯ » puis « Colonnes… » : cochez ou décochez une colonne ; « Colonnes par défaut » revient aux six colonnes. Le choix est gardé d’une session à l’autre ; les colonnes propres aux postes n’apparaissent que si la liste contient un poste.
+7. **Vérifier un poste.** Cliquez une fois sur la ligne d'un poste. Domenia le pingue et lit l'utilisateur ouvert sur son écran : « Présence réseau » et « Utilisateur connecté (console) » se mettent à jour.
+8. **Ouvrir la fiche.** Double-cliquez sur la ligne, ou appuyez sur Entrée. La page « Fiche » s'ouvre sur l'onglet « Resume ».
 
 | Zone de Rechercher | Utilisation |
 |---|---|
 | Arbre des OU | Choisissez la branche à parcourir et relisez son chemin. |
 | Données de l’OU, sous l’arbre | Base locale, Postes (ping/WMI) et Les deux actualisent toute l’OU choisie et ses sous-OU. |
 | Périmètre et Requêtes | Choisissez une source, des filtres ou une recette, puis lancez la recherche. |
-| Résultats | Triez, filtrez et ouvrez les objets affichés. Les actions de liste concernent cette liste. |
+| Résultats | Triez, filtrez et ouvrez les objets affichés. Les actions de liste concernent cette liste. « Actualiser » et « Exporter CSV » sont dans le menu « ⋯ ». |
 
 > [!ASTUCE] Pour ne chercher qu'un type d'objet, commencez par un préfixe : utilisateur: (ou u:), poste: (ou pc:), groupe: (ou g:), mail:. Exemple : poste:compta.
 
@@ -51,8 +53,8 @@ Quand : vous voulez voir tous les postes ou tous les utilisateurs d'un site ou d
 
 1. **Choisir l'OU.** À gauche de la page « Rechercher », dans « Parcourir les OU », dépliez l'arbre et cliquez sur une OU. Son contenu s'affiche dans la liste.
 2. **Régler la portée.** Ouvrez le menu « ⋯ » près de « Parcourir les OU ». Décochez « Inclure les sous-OU » pour ne voir que le premier niveau.
-3. **Filtrer.** Dans « Type d’objet », choisissez par exemple « Machines ». Dans « Présence réseau », choisissez « En ligne » ou « Sans réponse au ping ».
-4. **Compléter la liste.** Si le compteur indique une liste limitée, cliquez sur « Charger la suite ».
+3. **Filtrer.** Dans la liste « Tous les types », choisissez par exemple « Machines ». Dans « Toute présence », choisissez « En ligne » ou « Sans réponse au ping ». « 100 lignes max » borne la lecture de la liste. La présence repart sur « Toute présence » à chaque lancement de Domenia : au démarrage, aucun poste nʼest encore vérifié. Si le filtre masque toutes les lignes chargées, la liste lʼindique (« Le filtre masque 48 lignes ») avec un bouton « Effacer le filtre ».
+4. **Compléter la liste.** Si le compteur indique une liste limitée, cliquez sur « Charger la suite » : seules les lignes suivantes sont lues, celles déjà affichées restent en place avec votre sélection. Pour aller plus vite, « Charger jusqu’à 1 000 » complète la liste jusqu’à ce palier en un clic (puis 5 000, puis 20 000).
 5. **Changer de périmètre.** Choisissez une autre OU dans l’arbre. Pour chercher un objet par son nom dans le domaine, utilisez la barre du haut.
 
 > [!RESULTAT] La liste montre les objets de l'OU choisie.
@@ -89,7 +91,8 @@ La recherche globale peut continuer tant que de nouveaux objets AD arrivent, pen
 
 | Vous voyez | Que faire |
 |---|---|
-| « Saisis au moins … caracteres, ou * pour un apercu. » | Tapez au moins deux caractères. |
+| « Saisissez au moins 2 caractères… » | Tapez au moins deux caractères ; les étoiles ne comptent pas. |
+| « Saisissez au moins un caractère en plus de * » | Une étoile seule listerait tout le domaine : ajoutez une partie du nom, par exemple « compta* ». |
 | « Aucun résultat affiché » | Vérifiez l’orthographe, l’OU et les filtres, ou cherchez le nom dans la barre du haut. Une liste vide ne prouve pas l'absence de l'objet. |
 | « La liste affichée nʼest plus la recherche courante : relancez la recherche. » | Relancez la recherche, puis cliquez de nouveau sur « Charger la suite ». |
 | « Fiche » est grisé dans le menu | Sélectionnez d'abord une ligne dans les résultats. |
@@ -211,7 +214,7 @@ Quand : vous voulez voir d'un coup d'œil l'état d'un poste et ses points à v�
 
 Quand : vous cherchez sur quel poste travaille un utilisateur, ou quels postes d'un service sont allumés.
 
-1. **Préparer la liste.** Affichez les postes voulus dans « Rechercher » : OU, recherche ou « Dans les résultats » (chapitre 1). Seuls les postes affichés sont interrogés : une liste courte va plus vite.
+1. **Préparer la liste.** Affichez les postes voulus dans « Rechercher » : OU, recherche ou « Filtrer la liste » (chapitre 1). Seuls les postes affichés sont interrogés : une liste courte va plus vite.
 2. **Choisir la vérification.** Cliquez sur la flèche de « Vérifier la liste » : « Qui répond ? » pour savoir seulement quels postes répondent, « Qui est connecté ? » pour savoir aussi qui est connecté, « Matériel et widgets » pour connaître aussi leur matériel (modèle, mémoire, disque C:, version de Windows et date de démarrage). Le bouton garde ensuite ce choix jusqu'à la fermeture de Domenia : un clic suffit pour recommencer.
 3. **Confirmer.** La demande donne en trois lignes les postes visés, ce qui sera lu et la durée estimée. Cliquez sur « Pinger 48 postes », « Vérifier 48 postes » ou « Analyser 48 postes » (le nombre est celui de votre liste).
 4. **Suivre l'avancement.** Le bouton devient « Arrêter (12/48) », une barre fine avance sous les boutons et chaque poste encore à lire affiche « relevé en cours… ».
@@ -231,7 +234,7 @@ Quand : vous cherchez sur quel poste travaille un utilisateur, ou quels postes d
 | Vous voyez | Que faire |
 |---|---|
 | « Vérifier la liste » est grisé | La liste ne contient aucun poste, ou c'est une vue sur tout le domaine. Affichez des postes d'une OU, par exemple avec « Type d’objet » sur « Machines ». Si le compteur indique « Actualisation de … », attendez sa fin ou arrêtez-la avec les boutons d'actualisation de l'OU. |
-| « Relevé impossible : 812 postes affichés : plafond 500. Filtrez la liste. » | Réduisez la liste (sous-OU, recherche, « Dans les résultats ») ou sélectionnez les postes voulus. L'administrateur règle ce plafond. |
+| « Relevé impossible : 812 postes affichés : plafond 500. Filtrez la liste. » | Réduisez la liste (sous-OU, recherche, « Filtrer la liste ») ou sélectionnez les postes voulus. L'administrateur règle ce plafond. |
 | « Relevé impossible : Recherche globale sans terme… » ou « …racine du domaine sans autre filtre… » | Saisissez un nom ou choisissez une OU, puis relancez. Si le message commence par « Toute la liste est sélectionnée », sélectionnez seulement les postes voulus. |
 | « Relevé impossible : Un relevé de la liste est déjà en cours : arrêtez-le ou attendez sa fin. » | Attendez la fin du relevé en cours, ou cliquez sur « Arrêter (n/N) ». |
 | « Relevé impossible : Attendez la confirmation des enregistrements locaux avant un nouveau relevé. » | Attendez quelques secondes, puis relancez. |

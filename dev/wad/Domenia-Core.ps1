@@ -628,9 +628,19 @@ $script:GuiElementPolicy = [ordered]@{
     "TxtGlobalSearch" = "Default"
     "CmbGlobalType" = "Default"
     "TxtGlobalLimit" = "Default"
+    "LblGlobalLimitUnit" = "Default"
     "BtnGlobalSearch" = "Default"
+    "UxSearchBarScope" = "Default"
+    "LstSearchBarScope" = "Default"
+    "ItmSearchBarScopeOu" = "Default"
+    "LblSearchBarScopeOu" = "Default"
+    "LstSearchBarType" = "Default"
     "BtnGlobalClear" = "Default"
     "BtnExportResults" = "Default"
+    "BtnSearchMoreJump" = "Default"
+    "BtnSearchContains" = "Default"
+    "BtnSearchResultMenu" = "Default"
+    "LblSearchCardCount" = "Default"
     "LblBranchCount" = "Default"
     "TxtBranchSearch" = "Default"
     "CmbObjectFilter" = "Default"
@@ -639,6 +649,10 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnLoadBranch" = "Default"
     "BtnClearBranch" = "Default"
     "DgObjects" = "Default"
+    "UxSearchFilteredEmpty" = "Default"
+    "LblSearchFilteredEmpty" = "Default"
+    "LblSearchFilteredDetail" = "Default"
+    "BtnSearchFilteredClear" = "Default"
     "DetailTabs" = "Default"
     "TabDashboard" = "Default"
     "BtnDashRoot" = "Default"
@@ -795,14 +809,18 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnGroupAddMember" = "Default"
     "BtnGroupRemoveMember" = "Default"
     "LblGroupMembers" = "Default"
-    "LstGroupMembers" = "Default"
+    "DgGroupMembers" = "Default"
+    "TxtGroupMembersFilter" = "Default"
     "TabContainer" = "Default"
     "TxtNewOuParent" = "Default"
     "TxtNewOuName" = "Default"
     "BtnCreateOu" = "Default"
     "TabMemberOf" = "Default"
     "LblMemberOf" = "Default"
-    "LstMemberOf" = "Default"
+    "DgMemberOf" = "Default"
+    "TxtMemberOfFilter" = "Default"
+    "BtnMemberOfNested" = "Default"
+    "LblMembershipWhy" = "Default"
     "TabRaw" = "Default"
     "TxtRawAttrName" = "Default"
     "TxtRawAttrValue" = "Default"
@@ -912,7 +930,7 @@ $script:GuiElementPolicy = [ordered]@{
     "DgIndex" = "Default"
     "TabDomain" = "Default"
     "BtnLoadDomain" = "Default"
-    "BtnCountDomain" = "Default"
+    "LblDomainLocalTotals" = "Default"
     "BtnCopyDomain" = "Default"
     "LblDomainStatus" = "Default"
     "DgDomain" = "Default"
@@ -1364,6 +1382,8 @@ function Get-LdapPath {
     param([string]$Dn)
     $server = $script:Conn.Server
     if ([string]::IsNullOrWhiteSpace($Dn)) { $Dn = $script:Conn.BaseDn }
+    # CO-33: a '/' inside an RDN value ('OU=Compta/Paie') would split the ADsPath; it is written '\/' (Search.Model rule).
+    $Dn = ConvertTo-DomeniaAdsPathDn $Dn
     if ([string]::IsNullOrWhiteSpace($server)) { return "LDAP://$Dn" }
     return "LDAP://$server/$Dn"
 }
@@ -1700,20 +1720,10 @@ function Copy-RawAttributesToClipboard {
 }
 
 function Escape-LdapValue {
+    # CD-13: one RFC 4515 rule for the whole interface, ConvertTo-DomeniaLdapLiteral (Search.Model). With -KeepWildcard
+    # consecutive asterisks are merged (CO-34). The worker copy Escape-WLdap is generated from the same source.
     param([string]$Value, [switch]$KeepWildcard)
-    $sb = New-Object System.Text.StringBuilder
-    foreach ($ch in ($Value + "").ToCharArray()) {
-        # Numeric cases: under 5.1 a string case compares with the culture and U+00AD (soft hyphen) equals "`0".
-        switch ([int]$ch) {
-            92 { [void]$sb.Append("\5c") }
-            40 { [void]$sb.Append("\28") }
-            41 { [void]$sb.Append("\29") }
-            0 { [void]$sb.Append("\00") }
-            42 { if ($KeepWildcard) { [void]$sb.Append("*") } else { [void]$sb.Append("\2a") } }
-            default { [void]$sb.Append($ch) }
-        }
-    }
-    return $sb.ToString()
+    return (ConvertTo-DomeniaLdapLiteral -Value $Value -KeepWildcard:$KeepWildcard)
 }
 
 function Get-PropFirst {
@@ -1978,17 +1988,21 @@ function Set-DomeniaItemsSource {
     try {
         if ($Name -eq 'DgObjects') {
             $loaded=@($Rows | Where-Object { $null -ne $_ })
-            # D031: a global search never inherits the local list filter, on any repaint path.
-            $global=((Get-DomeniaSearchMode) -eq 'Global')
+            # CO-05: the filter of the list narrows any loaded list, global search included (no request). D031 still holds:
+            # a new search never inherits it, Invoke-GlobalSearch clears it before reading the directory.
             $filter=Get-DomeniaControl 'TxtSuiteResultFilter'
-            $query=if($global -or $null -eq $filter){''}else{[string]$filter.Text}
+            $query=if($null -eq $filter){''}else{[string]$filter.Text}
             $Rows=if([string]::IsNullOrWhiteSpace($query)){$loaded}else{@($loaded | Where-Object { Test-DomeniaExperienceRow $_ $query })}
             # CO-03 : calculee ici et non a la production de la ligne, parce que c est le seul chemin par
             # ou passent toutes les lignes affichees : recherche, cache, enrichissement de la fiche.
             foreach ($row in @($Rows | Where-Object { $null -ne $_ })) { [void](Add-DomeniaGridDateKeys -Row $row -Fields @('Changed','LastLogon')) }
             $visible=@($Rows | Where-Object { $null -ne $_ }).Count
-            $suffix=if($global){' · recherche globale sans filtre local'}else{' · filtre local, sans requête AD'}
-            [void](Set-DomeniaControlText 'LblSuiteResultCount' ("$visible ligne(s) visible(s)"+$suffix))
+            [void](Set-DomeniaControlText 'LblSuiteResultCount' ("$visible ligne(s) visible(s) · filtre de la liste, sans requête AD"))
+            # UX-03: a repainted copy (presence, history) counts against the whole list it was taken from.
+            if ($null -ne (Get-Command Update-DomeniaFilteredEmptyState -CommandType Function -ErrorAction SilentlyContinue)) {
+                $whole=[Math]::Max($loaded.Count,@($script:BranchObjects).Count)
+                Update-DomeniaFilteredEmptyState -Loaded $whole -Visible $visible
+            }
         }
         if ($Name -eq 'DgInventory') {
             # UX-37 : la grille affiche un libelle, pas le code CIM. Calculee ici, sur le seul chemin par ou
@@ -3386,6 +3400,8 @@ function Get-DomeniaDefaultSettings {
         OuFavouritesJson = '[]'
         OuFavouritesImported = $false
         GridLayoutsJson = '{}'
+        # DS-20: columns of the result grid chosen by the operator (JSON of column keys; empty: the six SP-02 columns).
+        'Search.ResultColumnsJson' = ''
         OuBookmarksJson = '{}'
         UxNavCollapsed   = $false
         UxHelpVisible    = $true
@@ -3400,7 +3416,8 @@ function Get-DomeniaDefaultSettings {
         Theme            = "Light"
         UiProfile        = "Tech"
         Workspace        = "TabDashboard"
-        PresenceFilter   = "Tous"
+        # UX-03: no PresenceFilter preference. At start-up every workstation is « Non vérifié »: a remembered
+        # « En ligne » would show an empty list. The presence filter belongs to the session only.
         SearchType       = "Tous"
         SearchLimit      = "100"
         IndexAutoBuild   = "Ask"
@@ -3476,7 +3493,8 @@ function Load-DomeniaSettings {
     $script:Settings = $settings
     $script:CurrentTheme = [string]$settings["Theme"]
     $script:CurrentUiProfile = [string]$settings["UiProfile"]
-    $script:CurrentPresenceFilter = [string]$settings["PresenceFilter"]
+    # UX-03: the presence filter always starts on « Toute présence », whatever an older settings file says.
+    $script:CurrentPresenceFilter = "Tous"
     return $settings
 }
 
@@ -3613,7 +3631,8 @@ function Restore-DomeniaUiSettings {
     # pour ne pas declencher de recherche ni de collecte.
     $script:RestoringSettings = $true
     try {
-        [void](Set-DomeniaComboByContent -Name "CmbPresenceFilter" -Content ([string](Get-DomeniaSetting "PresenceFilter" "Tous")))
+        # UX-03: the presence filter is never restored from a previous session.
+        [void](Set-DomeniaComboByContent -Name "CmbPresenceFilter" -Content "Tous")
         # Le filtre de type ne doit jamais rester coince sur une valeur d une session precedente.
         # Chaque lancement repart volontairement sur Tous ; l operateur peut ensuite filtrer pour la session courante.
         [void](Set-DomeniaComboByContent -Name "CmbGlobalType" -Content "Tous")
@@ -3633,7 +3652,7 @@ function Restore-DomeniaUiSettings {
         # Le reglage Security.ForcePasswordChangeOnReset laisse l operateur decider du contraire.
         $chkMustChange = Get-DomeniaControl -Name "ChkMustChangeAtLogon"
         if ($null -ne $chkMustChange) { $chkMustChange.IsChecked = [bool](Get-CfgValue "Security" "ForcePasswordChangeOnReset" $true) }
-        $script:CurrentPresenceFilter = [string](Get-DomeniaSetting "PresenceFilter" "Tous")
+        $script:CurrentPresenceFilter = "Tous"
         $script:SoftwareScope = [string](Get-DomeniaSetting "SoftwareScope" "Toutes")
     }
     catch { try { Write-AppLog "Restauration des reglages partielle : $($_.Exception.Message)" "WARN" } catch { } }
@@ -4849,15 +4868,20 @@ function Get-MainXaml {
                 <ColumnDefinition Width="*" MinWidth="280"/>
                 <ColumnDefinition Width="Auto"/>
               </Grid.ColumnDefinitions>
-              <Grid x:Name="UxSearchBox">
-                <TextBox x:Name="TxtGlobalSearch" ToolTip="Recherche globale dans tout le domaine : personne, compte, mail ou poste. L’OU et les filtres de la liste sont ignorés. La limite de résultats reste appliquée." Margin="0" MinHeight="42" Padding="34,8,92,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher" AutomationProperties.HelpText="Recherche globale dans tout le domaine : personne, compte, mail ou poste. L’OU et les filtres de la liste sont ignorés. La limite de résultats reste appliquée.">
+              <!-- FO-05: second row = perimeter chip and type selector of the bar; the suggestions of row 1 open above it. -->
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+              </Grid.RowDefinitions>
+              <Grid x:Name="UxSearchBox" Panel.ZIndex="1">
+                <TextBox x:Name="TxtGlobalSearch" Tag="Personne, poste ou groupe, dans tout le domaine…" ToolTip="Recherche de la barre : personne, compte, mail ou poste, dans le périmètre de la puce (Partout : tout le domaine ; Dans : lʼOU choisie et ses sous-OU) et pour le type choisi. Au clic, les recherches et fiches récentes ; pendant la frappe, des suggestions de la base locale. Seule Entrée interroge lʼannuaire, sans filtre de présence ni de liste." Margin="0" MinHeight="42" Padding="34,8,92,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher" AutomationProperties.HelpText="Recherche de la barre : personne, compte, mail ou poste, dans le périmètre de la puce (Partout : tout le domaine ; Dans : lʼOU choisie et ses sous-OU) et pour le type choisi. Au clic, les recherches et fiches récentes ; pendant la frappe, des suggestions de la base locale. Seule Entrée interroge lʼannuaire, sans filtre de présence ni de liste.">
                   <TextBox.Template>
                     <ControlTemplate TargetType="TextBox">
                       <Border x:Name="UxSearchBorder" CornerRadius="7" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
                         <Grid ClipToBounds="True">
                           <ScrollViewer x:Name="PART_ContentHost" Margin="0"/>
                           <Border Margin="{TemplateBinding Padding}" IsHitTestVisible="False">
-                            <TextBlock x:Name="UxSearchPlaceholder" Text="Personne, poste ou groupe, dans tout le domaine…" Visibility="Collapsed" Margin="{Binding Content.Margin, ElementName=PART_ContentHost}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" FontFamily="{TemplateBinding FontFamily}" FontSize="{TemplateBinding FontSize}" FontWeight="{TemplateBinding FontWeight}" FontStyle="{TemplateBinding FontStyle}" FontStretch="{TemplateBinding FontStretch}" TextAlignment="{TemplateBinding TextAlignment}" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" IsHitTestVisible="False"/>
+                            <TextBlock x:Name="UxSearchPlaceholder" Text="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Visibility="Collapsed" Margin="{Binding Content.Margin, ElementName=PART_ContentHost}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" FontFamily="{TemplateBinding FontFamily}" FontSize="{TemplateBinding FontSize}" FontWeight="{TemplateBinding FontWeight}" FontStyle="{TemplateBinding FontStyle}" FontStretch="{TemplateBinding FontStretch}" TextAlignment="{TemplateBinding TextAlignment}" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" IsHitTestVisible="False"/>
                           </Border>
                         </Grid>
                       </Border>
@@ -4901,11 +4925,28 @@ function Get-MainXaml {
                   </Border>
                 </Canvas>
               </Grid>
-              <Button x:Name="BtnGlobalSearch" Content="Rechercher" Style="{StaticResource RunButton}" Margin="8,0,0,0" ToolTip="Recherche dans tout le domaine, tous types, sans filtre OU, de présence ou de liste. Aucun poste sondé avant sélection." Grid.Column="1" Height="42" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher dans tout le domaine" AutomationProperties.HelpText="Recherche dans tout le domaine, tous types, sans filtre OU, de présence ou de liste. Aucun poste sondé avant sélection."/>
+              <Button x:Name="BtnGlobalSearch" Content="Rechercher" Style="{StaticResource RunButton}" Margin="8,0,0,0" ToolTip="Lance la recherche de la barre dans le périmètre et pour le type choisis par ses puces, sans filtre de présence ni de liste. Aucun poste sondé avant sélection." Grid.Column="1" Height="42" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher" AutomationProperties.HelpText="Lance la recherche de la barre dans le périmètre et pour le type choisis par ses puces, sans filtre de présence ni de liste. Aucun poste sondé avant sélection."/>
+              <!-- FO-05: explicit perimeter (« Partout | Dans « Postes » ») and type of the bar. A chip never starts a read. -->
+              <WrapPanel x:Name="UxSearchBarScope" Grid.Row="1" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="2,6,0,0" ToolTip="Périmètre et type de la recherche de la barre. Changer une puce ne lance rien : Entrée ou Rechercher interroge lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Périmètre de la recherche" AutomationProperties.HelpText="Périmètre et type de la recherche de la barre. Changer une puce ne lance rien : Entrée ou Rechercher interroge lʼannuaire.">
+                <ListBox x:Name="LstSearchBarScope" Style="{StaticResource UxSegment}" SelectedIndex="0" MinHeight="0" Margin="0,0,8,2" ToolTip="Partout : tout le domaine. Dans : lʼOU choisie dans lʼarbre de Rechercher, sous-OU incluses. Le choix ne lance aucune lecture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Où chercher" AutomationProperties.HelpText="Partout : tout le domaine. Dans : lʼOU choisie dans lʼarbre de Rechercher, sous-OU incluses. Le choix ne lance aucune lecture.">
+                  <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ListBox.ItemsPanel>
+                  <ListBoxItem Tag="Everywhere" Content="Partout" AutomationProperties.Name="Partout : tout le domaine"/>
+                  <ListBoxItem x:Name="ItmSearchBarScopeOu" Tag="Ou" IsEnabled="False" ToolTip="Recherche limitée à lʼOU choisie dans lʼarbre de Rechercher et à ses sous-OU. Indisponible tant quʼaucune OU nʼest choisie." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Dans lʼOU choisie" AutomationProperties.HelpText="Recherche limitée à lʼOU choisie dans lʼarbre de Rechercher et à ses sous-OU. Indisponible tant quʼaucune OU nʼest choisie.">
+                    <TextBlock x:Name="LblSearchBarScopeOu" Text="Dans lʼOU choisie" MaxWidth="140" TextTrimming="CharacterEllipsis" ToolTip="Recherche limitée à lʼOU choisie dans lʼarbre de Rechercher et à ses sous-OU. Indisponible tant quʼaucune OU nʼest choisie." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="OU de la recherche" AutomationProperties.HelpText="Recherche limitée à lʼOU choisie dans lʼarbre de Rechercher et à ses sous-OU. Indisponible tant quʼaucune OU nʼest choisie."/>
+                  </ListBoxItem>
+                </ListBox>
+                <ListBox x:Name="LstSearchBarType" Style="{StaticResource UxSegment}" SelectedIndex="0" MinHeight="0" Margin="0,0,0,2" ToolTip="Type cherché par la barre : tout, personnes, postes ou groupes. Le choix ne lance aucune lecture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Type cherché" AutomationProperties.HelpText="Type cherché par la barre : tout, personnes, postes ou groupes. Le choix ne lance aucune lecture.">
+                  <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ListBox.ItemsPanel>
+                  <ListBoxItem Tag="Tous" Content="Tout"/>
+                  <ListBoxItem Tag="Utilisateurs" Content="Personnes"/>
+                  <ListBoxItem Tag="Machines" Content="Postes"/>
+                  <ListBoxItem Tag="Groupes" Content="Groupes"/>
+                </ListBox>
+              </WrapPanel>
             </Grid>
             <!-- DS-01: fixed 40-unit icon buttons; a counter pill shows above zero only (Hidden, never Collapsed: D082).
                  SP-03: on a narrow window the read-only switch joins this row, before the icons (Set-DomeniaUxHeaderLayout). -->
-            <StackPanel x:Name="UxHeaderTools" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+            <StackPanel x:Name="UxHeaderTools" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,1,0,0">
               <Button x:Name="BtnAccessRecovery" Style="{StaticResource UxIconButton}" Width="40" MinWidth="40" MaxWidth="40" Height="40" MinHeight="40" MaxHeight="40" ToolTip="Accès : comptes temporaires et accès à revoir. Aucun changement de compte sans votre accord." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Accès" AutomationProperties.HelpText="Comptes temporaires et accès à revoir. Aucun changement de compte sans votre accord.">
                 <Grid Width="38" Height="38" IsHitTestVisible="False">
                   <Path Data="M13,8 A5,5 0 1 1 3,8 A5,5 0 1 1 13,8 M11.5,11.5 L21,21 M17,17 L19.5,14.5 M19,19 L21.5,16.5" Width="18" Height="18" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -5349,46 +5390,58 @@ function Get-MainXaml {
                     </DockPanel>
                   </Border>
                   <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Center" VerticalAlignment="Stretch" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" ShowsPreview="True" Background="{DynamicResource SplitterBg}" Cursor="SizeWE" x:Name="SearchOuSplitter" ToolTip="Faites glisser pour ajuster la largeur de l’arbre et des résultats." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Largeur de l’arbre des OU" AutomationProperties.HelpText="Faites glisser pour ajuster la largeur de l’arbre et des résultats."/>
-                  <Grid Margin="0" Grid.Column="2">
+                  <!-- DS-06: one card before the list. Its header carries the clickable path of the OU and the number of rows shown;
+                       the filters and the results follow in the same card, separated by a rule (no second card, no gap). -->
+                  <Border x:Name="UxSearchCard" Style="{StaticResource Card}" Grid.Column="2" Padding="0">
+                  <Grid Margin="0">
                     <Grid.RowDefinitions>
                       <RowDefinition Height="Auto"/>
                       <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <Border x:Name="UxSearchFilterCard" Style="{StaticResource Card}" Grid.Row="0" Margin="0,0,0,12" Padding="16">
+                    <Border x:Name="UxSearchFilterCard" Grid.Row="0" Margin="0" Padding="16" BorderBrush="{DynamicResource BorderColor}" BorderThickness="0,0,0,1">
                       <StackPanel>
-                        <TextBlock x:Name="UxSearchScopeTitle" Text="Périmètre des résultats" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                        <DockPanel x:Name="UxSearchCardHeader" Margin="0,0,0,6" LastChildFill="True">
+                          <TextBlock x:Name="LblSearchCardCount" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" ToolTip="Nombre de lignes affichées dans la liste, après le filtre de la liste. Le compteur détaillé, au-dessus des résultats, indique les lignes chargées et la limite." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lignes affichées" AutomationProperties.HelpText="Nombre de lignes affichées dans la liste, après le filtre de la liste. Le compteur détaillé, au-dessus des résultats, indique les lignes chargées et la limite.">
+                            <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="{Binding Items.Count, ElementName=DgObjects, StringFormat='· {0} objets'}"/><Style.Triggers><DataTrigger Binding="{Binding Items.Count, ElementName=DgObjects}" Value="0"><Setter Property="Text" Value="· aucun objet"/></DataTrigger><DataTrigger Binding="{Binding Items.Count, ElementName=DgObjects}" Value="1"><Setter Property="Text" Value="· 1 objet"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                          </TextBlock>
+                          <Grid>
+                            <TextBlock Text="Recherche dans lʼannuaire" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                            <WrapPanel x:Name="PnlOuBreadcrumb" VerticalAlignment="Center" AutomationProperties.Name="Chemin de la branche choisie"><WrapPanel.Style><Style TargetType="WrapPanel"><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></WrapPanel.Style></WrapPanel>
+                          </Grid>
+                        </DockPanel>
                         <Grid x:Name="UxSearchScopeInfo"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                         <Button x:Name="BtnSearchQueryOptions" Grid.Column="2" Visibility="Collapsed" Content="Options de requête" MinHeight="28" Padding="6,1" Margin="6,0,0,2" FontSize="11" AutomationProperties.Name="Options de requête" ToolTip="Afficher ou replier les options : recherche de modèle, favoris, source et état des résultats."/>
                         <ComboBox x:Name="CmbWorkViewScope" Grid.Column="2" Grid.Row="0" VerticalAlignment="Top" SelectedIndex="0" MinWidth="0" MinHeight="0" Height="24" MaxWidth="210" Margin="8,0,0,2" Padding="6,0,4,0" FontSize="11.5" VerticalContentAlignment="Center" ToolTip="Périmètre des requêtes : lʼOU choisie dans lʼarbre. Les requêtes utilisent lʼOU choisie, sans ping, détection ni analyse des postes listés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Périmètre des requêtes" AutomationProperties.HelpText="Périmètre des requêtes : lʼOU choisie dans lʼarbre. Les requêtes utilisent lʼOU choisie, sans ping, détection ni analyse des postes listés.">
                           <ComboBoxItem Tag="OU" Content="Requêtes · OU choisie"/>
                         </ComboBox><TextBlock Text="Dans : tout le domaine | Sous-OU incluses" TextWrapping="NoWrap" Margin="0,0,0,4" Foreground="{DynamicResource AccentText}" FontSize="12" x:Name="LblSearchScope" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" TextTrimming="CharacterEllipsis"/>
                         <TextBlock x:Name="LblSearchHint" Grid.Row="1" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" Text="" Height="18" Margin="0,0,0,8" FontSize="11.5" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/></Grid>
-                        <WrapPanel x:Name="PnlOuBreadcrumb" Margin="0,0,0,10" AutomationProperties.Name="Chemin de la branche choisie"/>
                         <Grid x:Name="UxSearchFilterQueryLayout"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0"/></Grid.ColumnDefinitions>
                         <WrapPanel x:Name="UxSearchFilters">
-                          <StackPanel Width="148" Margin="0,0,12,8"><StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="IsEnabled" Value="False"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>
-                            <TextBlock Text="Type d’objet" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold"/>
-                            <ComboBox x:Name="CmbGlobalType" Margin="0" SelectedIndex="0" ToolTip="Filtre la requête AD dans l’OU sélectionnée : tous, utilisateurs, machines, groupes, ou OU et conteneurs." MinWidth="0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Type d’objet" AutomationProperties.HelpText="Filtre la requête AD dans l’OU sélectionnée : tous, utilisateurs, machines, groupes, ou OU et conteneurs." MinHeight="36">
-                              <ComboBoxItem Content="Tous"/>
+                          <StackPanel Width="148" Margin="0,0,12,8"><StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>
+                            <ComboBox x:Name="CmbGlobalType" Margin="0" SelectedIndex="0" ToolTip="Type dʼobjet lu dans lʼOU choisie : tous les types, utilisateurs, machines, groupes, ou OU et conteneurs. Le filtre fait partie de la requête AD." MinWidth="0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Type d’objet" AutomationProperties.HelpText="Type dʼobjet lu dans lʼOU choisie : tous les types, utilisateurs, machines, groupes, ou OU et conteneurs. Le filtre fait partie de la requête AD." MinHeight="36">
+                              <!-- DS-03: the value stays « Tous » (rules, saved views, history); only its display says what it means. -->
+                              <ComboBoxItem Content="Tous" AutomationProperties.Name="Tous les types"><ComboBoxItem.ContentTemplate><DataTemplate><TextBlock Text="Tous les types"/></DataTemplate></ComboBoxItem.ContentTemplate></ComboBoxItem>
                               <ComboBoxItem Content="Utilisateurs"/>
                               <ComboBoxItem Content="Machines"/>
                               <ComboBoxItem Content="Groupes"/>
                               <ComboBoxItem Content="OU et conteneurs"/>
                             </ComboBox>
                           </StackPanel>
-                          <StackPanel Width="138" Margin="0,0,12,8"><StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="IsEnabled" Value="False"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>
-                            <TextBlock Text="Présence réseau" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold"/>
-                            <ComboBox x:Name="CmbPresenceFilter" Margin="0" SelectedIndex="0" ToolTip="Filtre les observations réseau mémorisées en mode OU. Sans réponse au ping ne prouve pas que Windows est éteint. Aucun ping collectif." MinWidth="0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Présence réseau" AutomationProperties.HelpText="Filtre les observations réseau mémorisées en mode OU. Sans réponse au ping ne prouve pas que Windows est éteint. Aucun ping collectif." MinHeight="36">
-                              <ComboBoxItem Content="Tous"/>
+                          <StackPanel Width="138" Margin="0,0,12,8"><StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>
+                            <ComboBox x:Name="CmbPresenceFilter" Margin="0" SelectedIndex="0" ToolTip="Présence réseau mémorisée des postes de la liste : « Toute présence » les montre tous. « Sans réponse au ping » ne prouve pas quʼun poste est éteint. Aucun ping collectif ; le choix nʼest pas gardé dʼune session à lʼautre." MinWidth="0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Présence réseau" AutomationProperties.HelpText="Présence réseau mémorisée des postes de la liste : « Toute présence » les montre tous. « Sans réponse au ping » ne prouve pas quʼun poste est éteint. Aucun ping collectif ; le choix nʼest pas gardé dʼune session à lʼautre." MinHeight="36">
+                              <ComboBoxItem Content="Tous" AutomationProperties.Name="Toute présence"><ComboBoxItem.ContentTemplate><DataTemplate><TextBlock Text="Toute présence"/></DataTemplate></ComboBoxItem.ContentTemplate></ComboBoxItem>
                               <ComboBoxItem Content="En ligne"/>
                               <ComboBoxItem Content="Sans réponse au ping"/>
                               <ComboBoxItem Content="Non vérifié"/>
                               <ComboBoxItem Content="Erreur de ping"/>
                             </ComboBox>
                           </StackPanel>
-                          <StackPanel Width="90" Margin="0,0,12,8">
-                            <TextBlock Text="Limite" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold" TextWrapping="NoWrap"/>
-                            <TextBox x:Name="TxtGlobalLimit" Text="100" ToolTip="Nombre maximum de résultats affichés (20 000 au plus)." Margin="0" MinWidth="0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Maximum de résultats" AutomationProperties.HelpText="Nombre maximum de resultats affiches." MinHeight="36"/>
+                          <!-- DS-03: « 100 lignes max » reads as a limit without the caption (kept short on a tiny screen, Set-DomeniaSearchQueryOptionsLayout). -->
+                          <StackPanel Width="128" Margin="0,0,12,8">
+                            <DockPanel LastChildFill="True">
+                              <TextBlock x:Name="LblGlobalLimitUnit" DockPanel.Dock="Right" Text="lignes max" Margin="6,0,0,0" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" ToolTip="La limite de la liste est un nombre de lignes lues dans lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Unité de la limite" AutomationProperties.HelpText="La limite de la liste est un nombre de lignes lues dans lʼannuaire."/>
+                              <TextBox x:Name="TxtGlobalLimit" Text="100" ToolTip="Nombre maximum de lignes lues dans lʼannuaire pour cette liste, 20 000 au plus. « Charger la suite » lit les lignes suivantes sans changer ce nombre." Margin="0" MinWidth="0" VerticalContentAlignment="Center" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lignes max" AutomationProperties.HelpText="Nombre maximum de lignes lues dans lʼannuaire pour cette liste, 20 000 au plus. « Charger la suite » lit les lignes suivantes sans changer ce nombre." MinHeight="36"/>
+                            </DockPanel>
                           </StackPanel>
                         </WrapPanel>
                         <Grid x:Name="UxSearchQueryBar" Grid.Row="1" Margin="0,6,0,0">
@@ -5401,6 +5454,7 @@ function Get-MainXaml {
                           <Grid x:Name="UxSearchQueryExecute" Grid.Row="1">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <ComboBox x:Name="CmbWorkView" MinWidth="0" MinHeight="34" DisplayMemberPath="DisplayName" MaxDropDownHeight="420" ScrollViewer.VerticalScrollBarVisibility="Auto" ToolTip="Choisir une requête Annuaire ou Données locales, puis Exécuter. Le choix seul ne lance rien." AutomationProperties.Name="Requête à exécuter"/>
+                            <TextBlock Text="Vues prêtes…" Margin="10,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" FontSize="12" Foreground="{DynamicResource MutedColor}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding SelectedItem, ElementName=CmbWorkView}" Value="{x:Null}"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
                             <Button x:Name="BtnWorkView" Grid.Column="1" Content="Exécuter" Margin="6,0,0,0" MinHeight="34" Padding="10,3" ToolTip="Exécuter la requête choisie dans lʼOU de Recherche et selon la profondeur affichée." AutomationProperties.Name="Exécuter la requête sélectionnée"/>
                             <Button x:Name="BtnSearchQueryFavorite" Grid.Column="2" Content="☆" Width="34" MinWidth="0" MinHeight="34" Padding="3" Margin="6,0,0,0" FontSize="18" ToolTip="Épingler ou retirer cette requête des favoris." AutomationProperties.Name="Épingler la requête"/>
                             <Button x:Name="BtnSearchQueryWorkshop" Grid.Column="3" Content="&#xE70F;" FontFamily="Segoe MDL2 Assets" Width="34" MinWidth="0" MinHeight="34" Padding="6" Margin="6,0,0,0" ToolTip="Créer ou modifier une requête dans Outils, Atelier de requêtes." AutomationProperties.Name="Modifier dans lʼatelier de requêtes"/>
@@ -5417,20 +5471,20 @@ function Get-MainXaml {
                         <ScrollViewer x:Name="UxSearchQueryOptionsScroll" Grid.Row="2" Grid.ColumnSpan="2" Visibility="Collapsed" MaxHeight="80" Margin="0,3,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" KeyboardNavigation.TabNavigation="Continue"><StackPanel x:Name="UxSearchQueryOptionsContent" Margin="0,0,4,0"/></ScrollViewer>
                         </Grid>
                         <Grid Grid.Row="1" Visibility="Collapsed" Height="0" Width="0">
-                          <TextBox x:Name="TxtBranchSearch" Text="" ToolTip="Saisissez ou consultez cette information. Le champ seul ne lance pas une action de modification." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Saisissez ou consultez cette information" AutomationProperties.HelpText="Saisissez ou consultez cette information. Le champ seul ne lance pas une action de modification."/>
-                          <ComboBox x:Name="CmbObjectFilter" SelectedIndex="0" ToolTip="Choisissez une option dans la liste déroulante." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Choisissez une option dans la liste déroulante" AutomationProperties.HelpText="Choisissez une option dans la liste déroulante.">
+                          <TextBox x:Name="TxtBranchSearch" Text="" ToolTip="Champ masqué conservé pour compatibilité ; il reste vide. Pour réduire la liste affichée, utilisez « Filtrer la liste », sans requête AD." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Terme masqué de lʼOU" AutomationProperties.HelpText="Champ masqué conservé pour compatibilité ; il reste vide. Pour réduire la liste affichée, utilisez « Filtrer la liste », sans requête AD."/>
+                          <ComboBox x:Name="CmbObjectFilter" SelectedIndex="0" ToolTip="Ancien filtre de type, masqué : le type se choisit dans la liste « Tous les types » au-dessus des résultats." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ancien filtre de type" AutomationProperties.HelpText="Ancien filtre de type, masqué : le type se choisit dans la liste « Tous les types » au-dessus des résultats.">
                             <ComboBoxItem Content="Tous"/>
                             <ComboBoxItem Content="Utilisateurs"/>
                             <ComboBoxItem Content="Machines"/>
                             <ComboBoxItem Content="Groupes"/>
                             <ComboBoxItem Content="OU et conteneurs"/>
                           </ComboBox>
-                          <TextBox x:Name="TxtBranchLimit" Text="100" ToolTip="Saisissez ou consultez cette information. Le champ seul ne lance pas une action de modification." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Saisissez ou consultez cette information" AutomationProperties.HelpText="Saisissez ou consultez cette information. Le champ seul ne lance pas une action de modification."/>
-                          <Button x:Name="BtnClearBranch" Content="Vider" ToolTip="Lance l’action indiquée sur le bouton." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vider" AutomationProperties.HelpText="Lance l’action indiquée sur le bouton."/>
+                          <TextBox x:Name="TxtBranchLimit" Text="100" ToolTip="Ancienne limite de branche, masquée : la limite se règle dans « lignes max » au-dessus des résultats." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ancienne limite de branche" AutomationProperties.HelpText="Ancienne limite de branche, masquée : la limite se règle dans « lignes max » au-dessus des résultats."/>
+                          <Button x:Name="BtnClearBranch" Content="Vider" ToolTip="Commande masquée, remplacée par « Effacer la recherche » : vide le texte et les résultats sans modifier lʼOU choisie." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vider la recherche (commande masquée)" AutomationProperties.HelpText="Commande masquée, remplacée par « Effacer la recherche » : vide le texte et les résultats sans modifier lʼOU choisie."/>
                         </Grid>
                       </StackPanel>
                     </Border>
-                    <Border x:Name="UxResultsCard" Style="{StaticResource Card}" Grid.Row="1" Padding="12">
+                    <Border x:Name="UxResultsCard" Grid.Row="1" Padding="12">
                       <Grid>
                         <Grid.RowDefinitions>
                           <RowDefinition Height="Auto"/>
@@ -5441,15 +5495,21 @@ function Get-MainXaml {
                         <StackPanel x:Name="UxResultBar" Margin="0,0,0,10"><DockPanel x:Name="UxResultActionsRow" Margin="0,0,0,8">
                           <!-- Result actions dock first on the right: a changing count only narrows the title, never moves them. -->
                           <StackPanel x:Name="UxResultActions" Orientation="Horizontal" DockPanel.Dock="Right" Margin="8,0,0,0">
-                            <Button MinHeight="30" Padding="10,2" Margin="0,0,8,0" x:Name="BtnLoadBranch" Content="Actualiser" ToolTip="Actualise le mode affiché : recherche globale sans filtres, ou contenu de l’OU avec ses filtres." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser les résultats" AutomationProperties.HelpText="Actualise le mode affiché : recherche globale sans filtres, ou contenu de l’OU avec ses filtres."/>
+                            <!-- DS-06: Actualiser and Exporter CSV live in the « ⋯ » menu. Their buttons stay for the wiring, the busy states and
+                                 the GuiElementPolicy, inside a collapsed holder: a policy that shows or greys a button never brings it back here. -->
+                            <Grid Visibility="Collapsed">
+                              <Button MinHeight="30" Padding="10,2" Margin="0,0,8,0" Visibility="Collapsed" x:Name="BtnLoadBranch" Content="Actualiser" ToolTip="Actualise le mode affiché : recherche globale sans filtres, ou contenu de l’OU avec ses filtres." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser les résultats" AutomationProperties.HelpText="Actualise le mode affiché : recherche globale sans filtres, ou contenu de l’OU avec ses filtres."/>
+                              <Button MinHeight="30" Padding="10,2" Margin="0" Visibility="Collapsed" x:Name="BtnExportResults" Content="Exporter CSV" ToolTip="Exporte les résultats affichés, ou uniquement les lignes sélectionnées, au format CSV." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Exporter CSV" AutomationProperties.HelpText="Exporte les resultats affiches, ou uniquement les lignes selectionnees, au format CSV."/>
+                            </Grid>
                             <Button MinHeight="30" Padding="10,2" Margin="0,0,8,0" x:Name="BtnGlobalClear" Content="Effacer" ToolTip="Efface le texte et les résultats sans modifier l’OU sélectionnée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer la recherche" AutomationProperties.HelpText="Efface le texte et les résultats sans modifier l’OU sélectionnée."/>
-                            <Button MinHeight="30" Padding="10,2" Margin="0" x:Name="BtnExportResults" Content="Exporter CSV" ToolTip="Exporte les résultats affichés, ou uniquement les lignes sélectionnées, au format CSV." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Exporter CSV" AutomationProperties.HelpText="Exporte les resultats affiches, ou uniquement les lignes selectionnees, au format CSV."/>
+                            <Button x:Name="BtnSearchResultMenu" Content="⋯" MinHeight="30" MinWidth="38" Padding="8,0" Margin="0" FontSize="16" FontWeight="SemiBold" ToolTip="Autres actions de la liste : actualiser, exporter en CSV et choisir les colonnes affichées. Aucune lecture ne part à lʼouverture du menu." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Autres actions de la liste" AutomationProperties.HelpText="Autres actions de la liste : actualiser, exporter en CSV et choisir les colonnes affichées. Aucune lecture ne part à lʼouverture du menu."/>
                           </StackPanel>
-                          <Button x:Name="BtnSearchMore" Content="Charger la suite" DockPanel.Dock="Right" IsEnabled="False" MinHeight="30" Padding="10,2" Margin="8,0,0,0" ToolTip="Disponible quand la liste est limitée : relit la même recherche avec une limite doublée, jusquʼà 20 000 lignes, sans doublon ni ancien contexte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Charger la suite" AutomationProperties.HelpText="Disponible quand la liste est limitée : relit la même recherche avec une limite doublée, jusquʼà 20 000 lignes, sans doublon ni ancien contexte."/>
+                          <Button x:Name="BtnSearchMore" Content="Charger la suite" DockPanel.Dock="Right" IsEnabled="False" MinHeight="30" Padding="10,2" Margin="8,0,0,0" ToolTip="Disponible quand la liste est limitée : lit seulement les lignes suivantes de la même recherche, triées par nom, sans relire les lignes déjà chargées. Plafond de sécurité : 20 000 lignes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Charger la suite" AutomationProperties.HelpText="Disponible quand la liste est limitée : lit seulement les lignes suivantes de la même recherche, triées par nom, sans relire les lignes déjà chargées. Plafond de sécurité : 20 000 lignes."/>
+                          <!-- MO-07: one gesture to bring a limited list to 1 000 rows (then 5 000, then 20 000), reading only the missing rows. -->
+                          <Button x:Name="BtnSearchMoreJump" Content="Charger jusquʼà 1 000" DockPanel.Dock="Right" IsEnabled="False" Visibility="Collapsed" MinHeight="30" Padding="10,2" Margin="8,0,0,0" ToolTip="Porte la liste à 1 000 lignes en une fois (puis 5 000, puis 20 000) : lit seulement les lignes manquantes, sans relire celles déjà chargées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Charger jusquʼà 1 000" AutomationProperties.HelpText="Porte la liste à 1 000 lignes en une fois (puis 5 000, puis 20 000) : lit seulement les lignes manquantes, sans relire celles déjà chargées."/>
                           <TextBlock x:Name="LblBranchCount" Text="0 objet" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="12,0,0,0" DockPanel.Dock="Right" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" MaxWidth="320" FontSize="12" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                           <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="Résultats" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                            <Border x:Name="UxHistoryBanner" Visibility="Collapsed" Margin="10,0,0,0" Padding="8,0,2,0" CornerRadius="10" Background="{DynamicResource BgReadonly}" VerticalAlignment="Center" ToolTip="Liste remise depuis lʼhistorique (Précédent ou Suivant) : elle nʼest pas relue et un clic ne vérifie pas le poste. Actualiser relance la même recherche." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Liste de lʼhistorique" AutomationProperties.HelpText="Liste remise depuis lʼhistorique (Précédent ou Suivant) : elle nʼest pas relue et un clic ne vérifie pas le poste. Actualiser relance la même recherche.">
+                            <Border x:Name="UxHistoryBanner" Visibility="Collapsed" Margin="0" Padding="8,0,2,0" CornerRadius="10" Background="{DynamicResource BgReadonly}" VerticalAlignment="Center" ToolTip="Liste remise depuis lʼhistorique (Précédent ou Suivant) : elle nʼest pas relue et un clic ne vérifie pas le poste. Actualiser relance la même recherche." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Liste de lʼhistorique" AutomationProperties.HelpText="Liste remise depuis lʼhistorique (Précédent ou Suivant) : elle nʼest pas relue et un clic ne vérifie pas le poste. Actualiser relance la même recherche.">
                               <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="Liste de lʼhistorique ·" FontSize="11.5" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}"/>
                                 <Button x:Name="BtnHistoryRefresh" Content="Actualiser" MinHeight="0" Height="22" MinWidth="0" Padding="6,0" Margin="4,1,0,1" FontSize="11.5" ToolTip="Relance la recherche de cette liste dans lʼannuaire, avec son périmètre, sa vue et ses filtres. Aucun ping ni relevé des postes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser la liste de lʼhistorique" AutomationProperties.HelpText="Relance la recherche de cette liste dans lʼannuaire, avec son périmètre, sa vue et ses filtres. Aucun ping ni relevé des postes."/>
@@ -5457,9 +5517,13 @@ function Get-MainXaml {
                             </Border>
                           </StackPanel>
                         </DockPanel>
-                        <Grid><Grid.Style><Style TargetType="Grid"><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="IsEnabled" Value="False"/></DataTrigger></Style.Triggers></Style></Grid.Style><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-<StackPanel Width="112" VerticalAlignment="Center" Margin="0,0,10,0"><TextBlock Text="Dans les résultats" FontSize="11" Foreground="{DynamicResource MutedColor}"/><TextBlock x:Name="LblSuiteResultCount" Text="Filtre local : affine seulement les lignes déjà chargées." FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Height="18" Margin="0" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/></StackPanel>
-<TextBox x:Name="TxtSuiteResultFilter" Grid.Column="1" MaxLength="120" MinHeight="32" ToolTip="Filtre local littéral dans le nom, login, type, présence et association. Plusieurs mots se combinent. Aucun appel AD. La limite LDAP reste inchangée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtrer les lignes chargées" AutomationProperties.HelpText="Filtre local littéral dans le nom, login, type, présence et association. Plusieurs mots se combinent. Aucun appel AD. La limite LDAP reste inchangée." IsEnabled="{Binding IsEnabled, ElementName=DgObjects}"/>
+                        <!-- FO-01: few names or none in a global list: the « contains » search is offered as a chip and read on click only. -->
+                        <Button x:Name="BtnSearchContains" Visibility="Collapsed" HorizontalAlignment="Right" Margin="0,0,0,8" MinHeight="28" Padding="12,2" Style="{StaticResource SecondaryButton}" Content="Chercher aussi les noms qui contiennent ce texte" ToolTip="Proposé quand la barre du haut trouve peu de noms ou aucun : relance la même recherche (même périmètre, même type, même limite) sur les noms qui contiennent le texte, pas seulement ceux qui commencent par lui. Plus lent ; rien nʼest lu avant le clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Chercher aussi les noms qui contiennent ce texte" AutomationProperties.HelpText="Proposé quand la barre du haut trouve peu de noms ou aucun : relance la même recherche (même périmètre, même type, même limite) sur les noms qui contiennent le texte, pas seulement ceux qui commencent par lui. Plus lent ; rien nʼest lu avant le clic."/>
+                        <!-- CO-05 / SP-14: the filter of the list works on any loaded list, global search included; no request. -->
+                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+<StackPanel Width="112" VerticalAlignment="Center" Margin="0,0,10,0"><TextBlock Text="Filtrer la liste" FontSize="11" Foreground="{DynamicResource MutedColor}"/><TextBlock x:Name="LblSuiteResultCount" Text="Filtre local : affine seulement les lignes déjà chargées." FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Height="18" Margin="0" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/></StackPanel>
+<Grid Grid.Column="1"><TextBox x:Name="TxtSuiteResultFilter" MaxLength="120" MinHeight="32" VerticalContentAlignment="Center" ToolTip="Filtre de la liste : garde les lignes déjà chargées dont le nom, le login, le type, la présence ou lʼassociation contient le texte. Plusieurs mots se combinent. Aucune requête AD ; une nouvelle recherche le remet à zéro." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtrer la liste" AutomationProperties.HelpText="Filtre de la liste : garde les lignes déjà chargées dont le nom, le login, le type, la présence ou lʼassociation contient le texte. Plusieurs mots se combinent. Aucune requête AD ; une nouvelle recherche le remet à zéro." IsEnabled="{Binding IsEnabled, ElementName=DgObjects}"/>
+<TextBlock Text="nom, login, poste… (sans requête AD)" Margin="10,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" FontSize="12" Foreground="{DynamicResource MutedColor}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=TxtSuiteResultFilter}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></Grid>
 <Button x:Name="BtnSuiteResultClear" Grid.Column="2" Content="Effacer le filtre" Margin="8,0,0,0" MinHeight="32" ToolTip="Réaffiche les lignes déjà chargées, en conservant le filtre OU, la présence et le texte de recherche AD." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer le filtre local" AutomationProperties.HelpText="Réaffiche les lignes déjà chargées, en conservant le filtre OU, la présence et le texte de recherche AD." IsEnabled="{Binding IsEnabled, ElementName=DgObjects}"/>
 </Grid><Grid x:Name="UxResultLive" Margin="0,10,0,0"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0"/></Grid.ColumnDefinitions>
                             <WrapPanel>
@@ -5479,7 +5543,8 @@ function Get-MainXaml {
                             </WrapPanel>
                             <!-- UX-12: thin bar of the survey of the list, in the bottom margin of the actions (no layout shift). -->
                             <ProgressBar x:Name="PbParkProgress" Height="3" VerticalAlignment="Bottom" Minimum="0" Maximum="100" Value="0" Visibility="Collapsed" IsHitTestVisible="False" ToolTip="Avancement du relevé de la liste en cours." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Avancement du relevé de la liste en cours." AutomationProperties.Name="Avancement du relevé de la liste"/>
-                            <Grid x:Name="UxResultLiveStatuses" Grid.Row="1"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><TextBlock Text="Sélectionnez une ligne pour précharger sa fiche. Double-clic : ouvrir." Foreground="{DynamicResource MutedColor}" FontSize="11" Height="20" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" x:Name="LblSelectionReadState" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                            <!-- DS-06: the selection and list states share one line (two halves); in compact mode they stack beside the actions. -->
+                            <Grid x:Name="UxResultLiveStatuses" Grid.Row="1"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="Sélectionnez une ligne pour précharger sa fiche. Double-clic : ouvrir." Foreground="{DynamicResource MutedColor}" FontSize="11" Height="20" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" x:Name="LblSelectionReadState" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                               <!-- FO-18: from two selected rows, the selection line becomes its actions (same height, no layout shift). -->
                               <StackPanel x:Name="UxSelectionBar" Orientation="Horizontal" Height="20" Visibility="Collapsed" VerticalAlignment="Center" ToolTip="Actions sur les lignes sélectionnées : ping ou utilisateur connecté des seuls postes sélectionnés, avec la même confirmation et le même plafond que la liste ; copie et export de la sélection." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Actions sur les lignes sélectionnées : ping ou utilisateur connecté des seuls postes sélectionnés, avec la même confirmation et le même plafond que la liste ; copie et export de la sélection." AutomationProperties.Name="Actions sur la sélection">
                                 <TextBlock x:Name="LblSelectionBar" Text="" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,6,0" ToolTip="Nombre de lignes sélectionnées. Ctrl ou Maj et clic pour composer la sélection." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Nombre de lignes sélectionnées. Ctrl ou Maj et clic pour composer la sélection." AutomationProperties.Name="Lignes sélectionnées"/>
@@ -5488,9 +5553,9 @@ function Get-MainXaml {
                                 <Button x:Name="BtnSelectionCopy" Content="Copier" MinHeight="0" Height="20" MinWidth="0" Padding="8,0" Margin="0,0,4,0" FontSize="11" ToolTip="Copie une ligne lisible par objet sélectionné pour un ticket : type, nom, compte, présence, utilisateur console et OU. Sans GUID ni champ interne." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Copie une ligne lisible par objet sélectionné pour un ticket : type, nom, compte, présence, utilisateur console et OU. Sans GUID ni champ interne." AutomationProperties.Name="Copier la sélection pour un ticket"/>
                                 <Button x:Name="BtnSelectionExport" Content="Exporter" MinHeight="0" Height="20" MinWidth="0" Padding="8,0" Margin="0" FontSize="11" ToolTip="Exporte les lignes sélectionnées au format CSV, avec les colonnes visibles." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Exporte les lignes sélectionnées au format CSV, avec les colonnes visibles." AutomationProperties.Name="Exporter la sélection"/>
                               </StackPanel>
-                              <TextBlock x:Name="LblLiveState" Grid.Row="1" Text="Un clic : fiche AD seulement, sans ping · Double-clic : ouvrir la fiche · Aucune sonde de liste" FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Height="18" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                              <TextBlock x:Name="LblLiveState" Grid.Row="0" Grid.Column="1" Margin="12,0,0,0" Text="Un clic : fiche AD seulement, sans ping · Double-clic : ouvrir la fiche · Aucune sonde de liste" FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Height="18" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                               <!-- UX-12 / CO-19: short count of the survey of the list, then three pills that filter by presence. -->
-                              <StackPanel x:Name="UxParkProgress" Grid.Row="1" Orientation="Horizontal" Height="18" Visibility="Collapsed" ToolTip="Avancement du relevé de la liste : postes traités, joignables, puis en ligne, sans réponse et en erreur. Le détail complet est écrit dans le journal." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Avancement du relevé de la liste : postes traités, joignables, puis en ligne, sans réponse et en erreur. Le détail complet est écrit dans le journal." AutomationProperties.Name="Relevé de la liste">
+                              <StackPanel x:Name="UxParkProgress" Grid.Row="0" Grid.Column="1" Margin="12,0,0,0" Orientation="Horizontal" Height="18" Visibility="Collapsed" ToolTip="Avancement du relevé de la liste : postes traités, joignables, puis en ligne, sans réponse et en erreur. Le détail complet est écrit dans le journal." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Avancement du relevé de la liste : postes traités, joignables, puis en ligne, sans réponse et en erreur. Le détail complet est écrit dans le journal." AutomationProperties.Name="Relevé de la liste">
                                 <TextBlock x:Name="LblParkProgress" Text="" FontSize="11" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" Margin="0,0,8,0" ToolTip="Avancement du relevé de la liste : postes traités, joignables, puis en ligne, sans réponse et en erreur. Le détail complet est écrit dans le journal." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Avancement du relevé de la liste : postes traités, joignables, puis en ligne, sans réponse et en erreur. Le détail complet est écrit dans le journal." AutomationProperties.Name="Avancement du relevé" AutomationProperties.LiveSetting="Polite"/>
                                 <StackPanel x:Name="PnlParkOutcome" Orientation="Horizontal" Visibility="Collapsed" VerticalAlignment="Center" ToolTip="Résultat du dernier ping de la liste. Chaque pastille filtre la liste par présence ; un second clic retire le filtre." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Résultat du dernier ping de la liste. Chaque pastille filtre la liste par présence ; un second clic retire le filtre." AutomationProperties.Name="Résultat du ping de la liste">
                                   <Button x:Name="BtnParkOutcomeOnline" MinHeight="0" Height="18" MinWidth="0" Padding="6,0" Margin="0,0,4,0" FontSize="11" VerticalAlignment="Center" ToolTip="Affiche seulement les postes qui ont répondu au ping. Un second clic retire le filtre. Filtre local, sans appel réseau." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Affiche seulement les postes qui ont répondu au ping. Un second clic retire le filtre. Filtre local, sans appel réseau." AutomationProperties.Name="Afficher les postes en ligne"><StackPanel Orientation="Horizontal"><Ellipse Width="7" Height="7" Margin="0,0,5,0" VerticalAlignment="Center" Fill="{DynamicResource StatusSuccess}"/><TextBlock Text="0 en ligne" VerticalAlignment="Center"/></StackPanel></Button>
@@ -5557,15 +5622,12 @@ function Get-MainXaml {
                                 <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock TextTrimming="CharacterEllipsis" VerticalAlignment="Center"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="{Binding Login}"/><Style.Triggers><DataTrigger Binding="{Binding Type}" Value="Machine"><Setter Property="Text" Value="{Binding Association}"/></DataTrigger><DataTrigger Binding="{Binding Type}" Value="OU"><Setter Property="Text" Value=""/></DataTrigger><DataTrigger Binding="{Binding Type}" Value="Conteneur"><Setter Property="Text" Value=""/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></DataTemplate></DataGridTemplateColumn.CellTemplate>
                               </DataGridTemplateColumn>
                               <DataGridTextColumn Header="UPN / DNS" Binding="{Binding UPN}" Width="235"/>
-                              <DataGridTextColumn Header="Association mémorisée" SortMemberPath="Association" Binding="{Binding Association}" Width="230">
-                                <DataGridTextColumn.HeaderStyle><Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}"><Setter Property="ToolTip" Value="Utilisateur associé au poste ou postes associés au compte. Cette information mémorisée ne prouve pas une session actuelle."/></Style></DataGridTextColumn.HeaderStyle>
-                              </DataGridTextColumn>
-                              <DataGridTextColumn Header="Source lien" SortMemberPath="LinkSource" Binding="{Binding LinkSource}" Width="155">
-                                <DataGridTextColumn.HeaderStyle><Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}"><Setter Property="ToolTip" Value="Origine de l’association mémorisée : console observée, import ou saisie manuelle."/></Style></DataGridTextColumn.HeaderStyle>
-                              </DataGridTextColumn>
-                              <DataGridTextColumn Header="Qualification" SortMemberPath="LinkConfidence" Binding="{Binding LinkConfidence}" Width="90">
-                                <DataGridTextColumn.HeaderStyle><Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}"><Setter Property="ToolTip" Value="Badge de la source du lien (Declare, Observe, Importe, Indice, Contradictoire) ; ce nʼest jamais une probabilité de connexion actuelle."/></Style></DataGridTextColumn.HeaderStyle>
-                              </DataGridTextColumn>
+                              <!-- DS-20: the association, its qualification and its source in one cell (« Camille Martin · Observé », source in the
+                                   tooltip); the former columns Source lien and Qualification are merged here. -->
+                              <DataGridTemplateColumn Header="Association mémorisée" SortMemberPath="Association" ClipboardContentBinding="{Binding Association}" Width="260">
+                                <DataGridTemplateColumn.HeaderStyle><Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}"><Setter Property="ToolTip" Value="Utilisateur associé au poste ou postes associés au compte, suivi de la qualification du lien (Observé, Déclaré, Importé, Indice, Contradictoire) ; lʼinfobulle de la cellule donne sa source. Cette information mémorisée ne prouve pas une session actuelle ; la qualification nʼest jamais une probabilité."/></Style></DataGridTemplateColumn.HeaderStyle>
+                                <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock TextTrimming="CharacterEllipsis" VerticalAlignment="Center"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="ToolTip" Value="{Binding LinkSource}"/><Style.Triggers><DataTrigger Binding="{Binding LinkSource}" Value=""><Setter Property="ToolTip" Value="{x:Null}"/></DataTrigger></Style.Triggers></Style></TextBlock.Style><Run Text="{Binding Association, Mode=OneWay}"/><Run Foreground="{DynamicResource MutedColor}"><Run.Style><Style TargetType="Run"><Setter Property="Text" Value="{Binding LinkConfidence, Mode=OneWay, StringFormat=' · {0}'}"/><Style.Triggers><DataTrigger Binding="{Binding LinkConfidence}" Value=""><Setter Property="Text" Value=""/></DataTrigger><DataTrigger Binding="{Binding Association}" Value=""><Setter Property="Text" Value=""/></DataTrigger></Style.Triggers></Style></Run.Style></Run></TextBlock></DataTemplate></DataGridTemplateColumn.CellTemplate>
+                              </DataGridTemplateColumn>
                               <!-- DS-15: presence as a pastel pill (dot from the state key PresenceState, FI-16), short label and discreet age; UX-12: ProbePending marks a row still to be read by the running survey. -->
                               <DataGridTemplateColumn Header="Présence réseau" SortMemberPath="Presence" ClipboardContentBinding="{Binding Presence}" Width="200">
                                 <DataGridTemplateColumn.CellTemplate><DataTemplate>
@@ -5604,7 +5666,15 @@ function Get-MainXaml {
                           </Border>
                         <Border Background="{DynamicResource BgCard}" Margin="2,36,18,18" IsHitTestVisible="False">
 <Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding HasItems, ElementName=DgObjects}" Value="False"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></Border.Style>
-<StackPanel VerticalAlignment="Center" Margin="24"><TextBlock Text="Aucune ligne à afficher" FontSize="18" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap"/><TextBlock Text="Lancez une recherche, choisissez une OU ou ajustez les filtres. Le filtre local ne parcourt pas le domaine." TextAlignment="Center" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0"/></StackPanel></Border></Grid>
+<StackPanel VerticalAlignment="Center" Margin="24"><TextBlock Text="Aucune ligne à afficher" FontSize="18" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap"/><TextBlock Text="Lancez une recherche, choisissez une OU ou ajustez les filtres. Le filtre local ne parcourt pas le domaine." TextAlignment="Center" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0"/></StackPanel></Border>
+                          <!-- UX-03: every loaded row hidden by the filter of the list (text or presence): say how many and offer to clear it. -->
+                          <Border x:Name="UxSearchFilteredEmpty" Visibility="Collapsed" Background="{DynamicResource BgCard}" Margin="2,36,18,18" ToolTip="Toutes les lignes chargées sont masquées par le filtre de la liste (texte ou présence). Aucune requête AD nʼest relancée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lignes masquées par le filtre" AutomationProperties.HelpText="Toutes les lignes chargées sont masquées par le filtre de la liste (texte ou présence). Aucune requête AD nʼest relancée.">
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="440" Margin="24">
+                              <TextBlock x:Name="LblSearchFilteredEmpty" Text="Le filtre masque toutes les lignes" FontSize="18" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap" ToolTip="Nombre de lignes chargées que le filtre de la liste masque. La recherche et sa limite restent inchangées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lignes masquées" AutomationProperties.HelpText="Nombre de lignes chargées que le filtre de la liste masque. La recherche et sa limite restent inchangées."/>
+                              <TextBlock x:Name="LblSearchFilteredDetail" Text="" TextAlignment="Center" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,8,0,12" ToolTip="Filtres de la liste appliqués aux lignes déjà chargées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtre de la liste" AutomationProperties.HelpText="Filtres de la liste appliqués aux lignes déjà chargées."/>
+                              <Button x:Name="BtnSearchFilteredClear" Content="Effacer le filtre" HorizontalAlignment="Center" MinHeight="32" Padding="12,2" ToolTip="Vide le texte du filtre et remet la présence sur « Toute présence ». Les lignes déjà chargées réapparaissent, sans requête AD." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer le filtre de la liste" AutomationProperties.HelpText="Vide le texte du filtre et remet la présence sur « Toute présence ». Les lignes déjà chargées réapparaissent, sans requête AD."/>
+                            </StackPanel>
+                          </Border></Grid>
                           <Grid x:Name="PnlSearchPreview" Grid.Row="3" Visibility="Collapsed" MaxHeight="120" Margin="0,4,0,0" Background="{DynamicResource BgReadonly}">
                             <Grid.RowDefinitions>
                               <RowDefinition Height="Auto"/>
@@ -5625,6 +5695,7 @@ function Get-MainXaml {
                       </Grid>
                     </Border>
                   </Grid>
+                  </Border>
                 </Grid>
               </TabItem>
               <TabItem x:Name="WsObject" Header="Fiche" ToolTip="Fiche complète de lʼobjet sélectionné." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Fiche" AutomationProperties.HelpText="Fiche complete de l objet selectionne.">
@@ -5975,9 +6046,20 @@ function Get-MainXaml {
                             <Button x:Name="BtnGroupAddMember" ToolTip="Ajoute le membre indique au groupe." Content="Ajouter membre" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ajouter membre" AutomationProperties.HelpText="Ajoute le membre indique au groupe."/>
                             <Button x:Name="BtnGroupRemoveMember" ToolTip="Retire le membre indique du groupe." Content="Retirer membre" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Retirer membre" AutomationProperties.HelpText="Retire le membre indique du groupe."/>
                           </WrapPanel>
-                          <TextBlock x:Name="LblGroupMembers" Text="Membres" Foreground="{DynamicResource MutedColor}"/>
+                          <!-- UI-06: readable members (Nom, Type, OU; DN in the tooltip of the row) with a local filter and a counter. -->
+                          <DockPanel LastChildFill="True">
+                            <Grid DockPanel.Dock="Right" Width="220" Margin="8,0,0,0"><TextBox x:Name="TxtGroupMembersFilter" MinHeight="30" MaxLength="120" VerticalContentAlignment="Center" ToolTip="Filtre les membres affichés par nom, type, OU ou DN. Aucune requête AD : seuls les membres déjà lus sont filtrés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtrer les membres" AutomationProperties.HelpText="Filtre les membres affichés par nom, type, OU ou DN. Aucune requête AD : seuls les membres déjà lus sont filtrés."/><TextBlock Text="nom, type, OU… (sans requête AD)" Margin="8,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" FontSize="12" Foreground="{DynamicResource MutedColor}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=TxtGroupMembersFilter}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></Grid>
+                            <TextBlock x:Name="LblGroupMembers" Text="Membres" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                          </DockPanel>
                         </StackPanel>
-                        <ListBox x:Name="LstGroupMembers" ToolTip="Membres directs du groupe. Clic droit pour rechercher ou copier." FontFamily="Consolas" FontSize="12" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Membres directs du groupe" AutomationProperties.HelpText="Membres directs du groupe. Clic droit pour rechercher ou copier."/>
+                        <DataGrid x:Name="DgGroupMembers" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" CanUserSortColumns="True" EnableRowVirtualization="True" MinRowHeight="28" HeadersVisibility="Column" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTip="Membres directs du groupe : nom, type (connu de la copie locale) et OU ; le DN complet est dans lʼinfobulle de la ligne. Clic droit pour rechercher lʼobjet ou copier son DN." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Membres directs du groupe" AutomationProperties.HelpText="Membres directs du groupe : nom, type (connu de la copie locale) et OU ; le DN complet est dans lʼinfobulle de la ligne. Clic droit pour rechercher lʼobjet ou copier son DN.">
+                          <DataGrid.RowStyle><Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}"><Setter Property="ToolTip" Value="{Binding Dn}"/></Style></DataGrid.RowStyle>
+                          <DataGrid.Columns>
+                            <DataGridTextColumn Header="Nom" Binding="{Binding Name}" Width="260"/>
+                            <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="110"/>
+                            <DataGridTextColumn Header="OU" Binding="{Binding Ou}" Width="*" MinWidth="220"/>
+                          </DataGrid.Columns>
+                        </DataGrid>
                       </DockPanel>
                     </Border>
                   </TabItem>
@@ -6008,8 +6090,24 @@ function Get-MainXaml {
                   <TabItem x:Name="TabMemberOf" ToolTip="Groupes dont cet objet est membre." Header="Appartenances" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Appartenances" AutomationProperties.HelpText="Groupes dont cet objet est membre.">
                     <Border Style="{StaticResource Card}" Margin="4">
                       <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" x:Name="LblMemberOf" Text="Groupes" Foreground="{DynamicResource MutedColor}" Margin="0,0,0,8"/>
-                        <ListBox x:Name="LstMemberOf" ToolTip="Groupes dont cet objet est membre. Clic droit pour rechercher ou copier." FontFamily="Consolas" FontSize="12" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Groupes" AutomationProperties.HelpText="Groupes dont cet objet est membre. Clic droit pour rechercher ou copier."/>
+                        <!-- UI-06: readable groups (Nom, Type, OU; DN in the tooltip of the row), local filter, counter, nested groups read on
+                             demand and « Pourquoi membre ? » (context menu). -->
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8" LastChildFill="True">
+                          <Button x:Name="BtnMemberOfNested" DockPanel.Dock="Right" Content="Groupes imbriqués" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,2" Margin="8,0,0,0" ToolTip="Lit, à la demande, les groupes dont ces groupes sont membres (2 000 groupes, 16 niveaux et 10 secondes au plus) et les ajoute à la liste comme appartenances imbriquées. Lecture seule ; aucun parcours du domaine." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lire les groupes imbriqués" AutomationProperties.HelpText="Lit, à la demande, les groupes dont ces groupes sont membres (2 000 groupes, 16 niveaux et 10 secondes au plus) et les ajoute à la liste comme appartenances imbriquées. Lecture seule ; aucun parcours du domaine."/>
+                          <Grid DockPanel.Dock="Right" Width="220" Margin="8,0,0,0"><TextBox x:Name="TxtMemberOfFilter" MinHeight="30" MaxLength="120" VerticalContentAlignment="Center" ToolTip="Filtre les groupes affichés par nom, OU, appartenance ou DN. Aucune requête AD : seuls les groupes déjà lus sont filtrés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtrer les groupes" AutomationProperties.HelpText="Filtre les groupes affichés par nom, OU, appartenance ou DN. Aucune requête AD : seuls les groupes déjà lus sont filtrés."/><TextBlock Text="nom, OU… (sans requête AD)" Margin="8,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" FontSize="12" Foreground="{DynamicResource MutedColor}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=TxtMemberOfFilter}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></Grid>
+                          <TextBlock x:Name="LblMemberOf" Text="Groupes" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                        </DockPanel>
+                        <TextBlock x:Name="LblMembershipWhy" DockPanel.Dock="Bottom" Visibility="Collapsed" TextWrapping="Wrap" Margin="0,8,0,0" ToolTip="Réponse de « Pourquoi membre ? » : appartenance directe, chemin des groupes imbriqués lus, ou lecture incomplète. Le groupe principal nʼest pas compris dans memberOf." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Pourquoi membre" AutomationProperties.HelpText="Réponse de « Pourquoi membre ? » : appartenance directe, chemin des groupes imbriqués lus, ou lecture incomplète. Le groupe principal nʼest pas compris dans memberOf."/>
+                        <DataGrid x:Name="DgMemberOf" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" CanUserSortColumns="True" EnableRowVirtualization="True" MinRowHeight="28" HeadersVisibility="Column" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTip="Groupes dont cet objet est membre : nom, OU et appartenance (directe, ou imbriquée après « Groupes imbriqués ») ; le DN complet est dans lʼinfobulle de la ligne. Clic droit : rechercher, copier le DN, « Pourquoi membre ? »." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Groupes de lʼobjet" AutomationProperties.HelpText="Groupes dont cet objet est membre : nom, OU et appartenance (directe, ou imbriquée après « Groupes imbriqués ») ; le DN complet est dans lʼinfobulle de la ligne. Clic droit : rechercher, copier le DN, « Pourquoi membre ? ».">
+                          <DataGrid.RowStyle><Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}"><Setter Property="ToolTip" Value="{Binding Dn}"/></Style></DataGrid.RowStyle>
+                          <DataGrid.Columns>
+                            <DataGridTextColumn Header="Nom" Binding="{Binding Name}" Width="240"/>
+                            <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="90"/>
+                            <DataGridTextColumn Header="OU" Binding="{Binding Ou}" Width="*" MinWidth="200"/>
+                            <DataGridTextColumn Header="Appartenance" Binding="{Binding Membership}" Width="110"/>
+                            <DataGridTextColumn Header="Via" Binding="{Binding Via}" Width="180"/>
+                          </DataGrid.Columns>
+                        </DataGrid>
                       </DockPanel>
                     </Border>
                   </TabItem>
@@ -7411,9 +7509,10 @@ function Get-MainXaml {
                             <TextBlock Text="État du domaine : rôles FSMO, niveaux fonctionnels, contrôleurs, sites, approbations, corbeille, stratégie de mot de passe et comptes à privilèges." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
                             <WrapPanel>
                               <Button x:Name="BtnLoadDomain" ToolTip="Lit lʼétat du domaine et de ses contrôleurs." Content="Analyser le domaine" Style="{StaticResource RunButton}" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Analyser le domaine" AutomationProperties.HelpText="Lit l etat du domaine et de ses controleurs."/>
-                              <Button x:Name="BtnCountDomain" Content="Analyser et denombrer" ToolTip="Compte en plus les utilisateurs, machines, groupes et unités dʼorganisation. Plus long sur un grand annuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Analyser et denombrer" AutomationProperties.HelpText="Compte en plus les utilisateurs, machines, groupes et unites d organisation. Plus long sur un grand annuaire."/>
                               <Button x:Name="BtnCopyDomain" ToolTip="Copie le rapport sur le domaine." Content="Copier le rapport" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier le rapport" AutomationProperties.HelpText="Copie le rapport sur le domaine."/>
                             </WrapPanel>
+                            <!-- MO-04: domain totals come from the local copy with its date; no count is sent to the directory. -->
+                            <TextBlock x:Name="LblDomainLocalTotals" Text="Totaux du domaine : affichés depuis la copie locale à lʼanalyse." Margin="0,8,0,0" TextWrapping="Wrap" ToolTip="Totaux de la copie locale (base autonome) et date de sa dernière synchronisation. Aucun dénombrement nʼest lancé sur lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Totaux de la copie locale" AutomationProperties.HelpText="Totaux de la copie locale (base autonome) et date de sa dernière synchronisation. Aucun dénombrement nʼest lancé sur lʼannuaire."/>
                             <TextBlock x:Name="LblDomainStatus" Text="Pret." Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0" TextWrapping="Wrap"/>
                           </StackPanel>
                           <DataGrid x:Name="DgDomain" ToolTip="Informations relevées. Clic droit pour copier." AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="28" CanUserSortColumns="True" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Informations relevees" AutomationProperties.HelpText="Informations relevees. Clic droit pour copier.">
@@ -8314,11 +8413,17 @@ function Set-DomeniaSearchMode {
 }
 
 function Get-DomeniaSearchScope {
-    param([ValidateSet('Global','OU')][string]$Mode = (Get-DomeniaSearchMode))
+    # -IgnoreBar: a work view reads the perimeter of its own « Dans : » chip; the chip of the upper bar never narrows it.
+    param([ValidateSet('Global','OU')][string]$Mode = (Get-DomeniaSearchMode),[switch]$IgnoreBar)
     $domainDn = ([string]$script:Conn.BaseDn).Trim()
     if ([string]::IsNullOrWhiteSpace($domainDn)) { throw 'Recherche impossible : aucune base AD de session.' }
     if ($Mode -eq 'Global') {
-        return [pscustomobject]@{ BaseDn=$domainDn; Scope='Subtree'; IsDomain=$true; Mode='Global' }
+        # FO-05: the chip of the upper bar may narrow the search, explicitly, to the OU chosen in the tree (sub-OU included).
+        if ((-not $IgnoreBar) -and ([string]$script:SearchBarScope -eq 'Ou')) {
+            $bar = Get-DomeniaSearchBarScope -Choice Ou -OuDn ([string]$script:SelectedBranchDn) -DomainDn $domainDn
+            if ([bool]$bar.Explicit) { return [pscustomobject]@{ BaseDn=[string]$bar.BaseDn; Scope='Subtree'; IsDomain=$false; Mode='Global'; Explicit=$true } }
+        }
+        return [pscustomobject]@{ BaseDn=$domainDn; Scope='Subtree'; IsDomain=$true; Mode='Global'; Explicit=$false }
     }
     $baseDn = ([string]$script:SelectedBranchDn).Trim()
     if ([string]::IsNullOrWhiteSpace($baseDn)) { $baseDn = $domainDn }
@@ -8345,6 +8450,10 @@ function Update-DomeniaSearchScopeUi {
     if ($null -ne (Get-Command Update-DomeniaOuScopeChoices -CommandType Function -ErrorAction SilentlyContinue)) {
         try { Update-DomeniaOuScopeChoices -Scope $ouScope } catch { }
     }
+    # FO-05: the chip « Dans « Postes » » of the upper bar and its waiting text follow the OU chosen in the tree.
+    if ($null -ne (Get-Command Update-DomeniaSearchBarUi -CommandType Function -ErrorAction SilentlyContinue)) {
+        try { Update-DomeniaSearchBarUi } catch { }
+    }
     Set-DomeniaSearchMode -Mode $mode
     try { Update-DomeniaOuRefreshUi } catch { }
     # The home overview follows this OU: recomputed now if Accueil is on screen, otherwise when it is shown.
@@ -8352,8 +8461,12 @@ function Update-DomeniaSearchScopeUi {
     $summary = Get-DomeniaControl -Name 'LblSearchScope'
     if ($null -eq $summary) { return }
     if ($mode -eq 'Global') {
-        $summary.Text = 'Recherche globale · Domaine entier · Tous les types · Aucun filtre de liste'
-        $summary.ToolTip = 'Racine LDAP : '+[string]$script:Conn.BaseDn+"`r`nL’OU sélectionnée, la présence et le filtre local ne restreignent pas cette recherche. La limite de résultats reste appliquée."
+        # FO-05: the perimeter and the type of the bar are those of its chip and selector, written in full.
+        $globalScope = Get-DomeniaSearchScope -Mode Global
+        $barText = $null
+        if ($null -ne (Get-Command Get-DomeniaSearchBarState -CommandType Function -ErrorAction SilentlyContinue)) { $barText = Get-DomeniaSearchBarState }
+        $summary.Text = if ($null -ne $barText) { [string]$barText.Summary } else { 'Recherche globale · Domaine entier · Tous les types · Aucun filtre de liste' }
+        $summary.ToolTip = 'Racine LDAP : '+[string]$globalScope.BaseDn+' (sous-OU incluses)'+"`r`nLa présence et le filtre de la liste ne restreignent pas cette recherche ; le filtre de la liste affine ensuite les lignes chargées. La limite de résultats reste appliquée."
     } else {
         $term = Get-DomeniaSearchText -Mode OU
         if ($term) { $summary.Text += ' · Terme de la recherche enregistrée : '+$term }
@@ -8392,7 +8505,9 @@ function Test-DomeniaSearchStateCurrent {
     if ($null -eq $State -or [int]$State.Generation -ne [int]$script:GlobalSearchGeneration) { return $false }
     $mode = Get-DomeniaSearchMode
     if ($null -ne $State.PSObject.Properties['SearchMode'] -and [string]$State.SearchMode -cne $mode) { return $false }
-    $scope = Get-DomeniaSearchScope -Mode $mode
+    # FO-05: a work view list was read without the chip of the upper bar; it is compared with the same perimeter.
+    $viewList = (($null -ne $State.PSObject.Properties['ViewId']) -and (-not [string]::IsNullOrEmpty([string]$State.ViewId)))
+    $scope = Get-DomeniaSearchScope -Mode $mode -IgnoreBar:$viewList
     if (-not [string]::Equals([string]$State.BaseDn,[string]$scope.BaseDn,[StringComparison]::OrdinalIgnoreCase)) { return $false }
     if ([string]$State.Scope -ne [string]$scope.Scope) { return $false }
     if ([string]$State.TypeFilter -ne [string](Get-GlobalSelectedTypeFilter -Mode $mode)) { return $false }
@@ -8484,7 +8599,12 @@ function Result-ToBranchRow {
 
 function Get-GlobalSelectedTypeFilter {
     param([ValidateSet('Global','OU')][string]$Mode = (Get-DomeniaSearchMode))
-    if ($Mode -eq 'Global') { return (Get-TypeLdapFilter -Type 'Tous') }
+    if ($Mode -eq 'Global') {
+        # FO-05: the type selector of the upper bar (Tout, Personnes, Postes, Groupes); never the type of the OU list.
+        $barType = [string]$script:SearchBarType
+        if ($barType -notin @('Tous','Utilisateurs','Machines','Groupes')) { $barType = 'Tous' }
+        return (Get-TypeLdapFilter -Type $barType)
+    }
     $label = 'Tous'
     $control = Get-DomeniaControl -Name 'CmbGlobalType'
     if ($null -ne $control -and $null -ne $control.SelectedItem) { $label = [string]$control.SelectedItem.Content }
@@ -8551,8 +8671,8 @@ function Clear-ObjectDetails {
     Set-DomeniaManagerField -Target 'Utilisateur' -Dn ''
     Set-DomeniaManagerField -Target 'Machine' -Dn ''
     try { [void](Set-DomeniaItemsSource -Name "TxtUserLinkedComputers" -Rows @()) } catch { }
-    try { $script:Ctrl["LstMemberOf"].ItemsSource=$null; $script:Ctrl["LstMemberOf"].Items.Clear() } catch { }
-    try { $script:Ctrl["LstGroupMembers"].ItemsSource=$null; $script:Ctrl["LstGroupMembers"].Items.Clear() } catch { }
+    # UI-06: the membership grids of the previous object are emptied (Membership.UI).
+    try { Clear-DomeniaMembershipLists } catch { }
     try { $script:Ctrl["DgRawAttrs"].ItemsSource = $null } catch { }
 }
 
@@ -8642,9 +8762,7 @@ function Reset-DomeniaSelectionBoundViews {
             }
         }
 
-        foreach ($listName in @("LstMemberOf","LstGroupMembers")) {
-            try { $script:Ctrl[$listName].Items.Clear() } catch { }
-        }
+        try { Clear-DomeniaMembershipLists } catch { }
         foreach ($listName in @($script:Ctrl.Keys)) {
             if ($listName -like "LstWmi*") {
                 try { $script:Ctrl[$listName].Items.Clear() } catch { }
@@ -8864,9 +8982,8 @@ function Fill-UserObject {
     # Rendering is read-only. In particular, a cached fiche must never refresh the
     # persistent observation time or replace a newer committed directory record.
     Sync-DomeniaResultRowFromEntry -Entry $Entry -Type "Utilisateur"
-    $script:Ctrl["LstMemberOf"].Items.Clear()
-    foreach ($g in (Get-DePropAll $Entry "memberOf")) { [void]$script:Ctrl["LstMemberOf"].Items.Add([string]$g) }
-    $script:Ctrl["LblMemberOf"].Text = "$($script:Ctrl["LstMemberOf"].Items.Count) groupe(s)"
+    # UI-06: groups as a readable grid (Membership.UI).
+    Set-DomeniaMembershipList -Kind MemberOf -Dns @(Get-DePropAll $Entry "memberOf") -ObjectDn ([string](Get-DeProp $Entry "distinguishedName" "")) -Complete ([bool](Get-DeProp $Entry '__memberOfComplete' $true)) -Note ([string](Get-DeProp $Entry '__memberOfNote' ''))
 }
 
 function Fill-DomeniaUserContact {
@@ -8953,9 +9070,8 @@ function Fill-ComputerObject {
         Set-DomeniaPresenceText -Name "TxtCompPresence" -State "Inconnu"
         Update-DomeniaObjectPresence -State "Inconnu" -Target ""
     }
-    $script:Ctrl["LstMemberOf"].Items.Clear()
-    foreach ($g in (Get-DePropAll $Entry "memberOf")) { [void]$script:Ctrl["LstMemberOf"].Items.Add([string]$g) }
-    $script:Ctrl["LblMemberOf"].Text = "$($script:Ctrl["LstMemberOf"].Items.Count) groupe(s)"
+    # UI-06: groups as a readable grid (Membership.UI).
+    Set-DomeniaMembershipList -Kind MemberOf -Dns @(Get-DePropAll $Entry "memberOf") -ObjectDn ([string](Get-DeProp $Entry "distinguishedName" "")) -Complete ([bool](Get-DeProp $Entry '__memberOfComplete' $true)) -Note ([string](Get-DeProp $Entry '__memberOfNote' ''))
     try {
         $computerForLink = Normalize-LinkComputer ([string](Get-DeProp $Entry "name" ""))
         $link = Get-ExistingLinkForComputer -Computer $computerForLink
@@ -9002,12 +9118,10 @@ function Fill-GroupObject {
     $script:Ctrl["TxtGroupDescription"].Text = [string](Get-DeProp $Entry "description" "")
     # Point 25: the members are read by ranges (up to 50 000); the list shows 2 000 of them and says how many exist,
     # and why a reading stayed partial.
-    $members=@(Get-DePropAll $Entry "member")
-    $script:Ctrl["LstGroupMembers"].ItemsSource=[string[]]@($members|Select-Object -First 2000)
-    $script:Ctrl["LblGroupMembers"].Text = Get-DomeniaMembershipLabel -Shown $script:Ctrl["LstGroupMembers"].Items.Count -Total $members.Count -Complete ([bool](Get-DeProp $Entry '__memberComplete' $false)) -Note ([string](Get-DeProp $Entry '__memberNote' '')) -Noun 'membre(s) direct(s)'
-    $memberOf=@(Get-DePropAll $Entry "memberOf")
-    $script:Ctrl["LstMemberOf"].ItemsSource=[string[]]@($memberOf|Select-Object -First 2000)
-    $script:Ctrl["LblMemberOf"].Text = Get-DomeniaMembershipLabel -Shown $script:Ctrl["LstMemberOf"].Items.Count -Total $memberOf.Count -Complete ([bool](Get-DeProp $Entry '__memberOfComplete' $true)) -Note ([string](Get-DeProp $Entry '__memberOfNote' '')) -Noun 'groupe(s) direct(s)'
+    # UI-06: members and groups as readable grids with their counter (Membership.UI, Get-DomeniaMembershipLabel).
+    $groupDn = [string](Get-DeProp $Entry "distinguishedName" "")
+    Set-DomeniaMembershipList -Kind Members -Dns @(Get-DePropAll $Entry "member") -ObjectDn $groupDn -Complete ([bool](Get-DeProp $Entry '__memberComplete' $false)) -Note ([string](Get-DeProp $Entry '__memberNote' ''))
+    Set-DomeniaMembershipList -Kind MemberOf -Dns @(Get-DePropAll $Entry "memberOf") -ObjectDn $groupDn -Complete ([bool](Get-DeProp $Entry '__memberOfComplete' $true)) -Note ([string](Get-DeProp $Entry '__memberOfNote' ''))
 }
 
 function Fill-ContainerObject {
@@ -9243,7 +9357,8 @@ function Search-DomeniaPickerObjects {
         try { $searcher.ServerTimeLimit = [TimeSpan]::FromSeconds(8) } catch { }
         try { $searcher.ClientTimeout = [TimeSpan]::FromSeconds(10) } catch { }
         $collection = $searcher.FindAll()
-        foreach ($r in @($collection)) {
+        # PF-02: the paged collection is enumerated as it arrives; @() would read every page before the first row.
+        foreach ($r in $collection) {
             $p = $r.Properties
             $name = ""
             $second = ""
@@ -9316,7 +9431,8 @@ function Search-DomeniaOuPickerObjects {
         try { $searcher.ServerTimeLimit = [TimeSpan]::FromSeconds(10) } catch { }
         try { $searcher.ClientTimeout = [TimeSpan]::FromSeconds(12) } catch { }
         $collection = $searcher.FindAll()
-        foreach ($r in @($collection)) {
+        # PF-02: direct enumeration of the paged collection, bounded by SizeLimit ($Limit).
+        foreach ($r in $collection) {
             $name = [string](Get-PropFirst $r.Properties "name" "")
             $dn = [string](Get-PropFirst $r.Properties "distinguishedname" "")
             if ([string]::IsNullOrWhiteSpace($dn)) { continue }
@@ -9834,9 +9950,49 @@ $script:BaseWindowTitle = "Domenia"
 
 
 $script:WorkerCommon = @'
+# BEGIN generated LDAP text rules: tools/sync_worker_ldap_rules.py from modules/Domenia-Search.Model.ps1. Do not edit here.
+function Escape-WLdap {
+    param([AllowEmptyString()][AllowNull()][string]$Value,[switch]$KeepWildcard)
+    $builder = [Text.StringBuilder]::new()
+    $previousWildcard = $false
+    foreach ($character in ([string]$Value).ToCharArray()) {
+        $wildcard = $false
+        switch ([int]$character) {
+            0  { [void]$builder.Append('\00') }
+            40 { [void]$builder.Append('\28') }
+            41 { [void]$builder.Append('\29') }
+            42 {
+                if ($KeepWildcard) { $wildcard = $true; if (-not $previousWildcard) { [void]$builder.Append('*') } }
+                else { [void]$builder.Append('\2a') }
+            }
+            92 { [void]$builder.Append('\5c') }
+            default { [void]$builder.Append($character) }
+        }
+        $previousWildcard = $wildcard
+    }
+    return $builder.ToString()
+}
+function ConvertTo-WAdsPathDn {
+    param([AllowEmptyString()][AllowNull()][string]$Dn)
+    $text = [string]$Dn
+    if ($text.IndexOf([char]47) -lt 0) { return $text }
+    $builder = [Text.StringBuilder]::new($text.Length + 8)
+    $i = 0
+    while ($i -lt $text.Length) {
+        $c = $text[$i]
+        if (($c -eq [char]92) -and (($i + 1) -lt $text.Length)) { [void]$builder.Append($c).Append($text[$i + 1]); $i += 2; continue }
+        if ($c -eq [char]47) { [void]$builder.Append([char]92) }
+        [void]$builder.Append($c)
+        $i++
+    }
+    return $builder.ToString()
+}
+# END generated LDAP text rules
 function Get-WLdapPath {
     param($Context, [string]$Dn)
     if ([string]::IsNullOrWhiteSpace($Dn)) { $Dn = [string]$Context.BaseDn }
+    # CO-33: a '/' inside an RDN value is written '\/' in the ADsPath (generated copy of the Search.Model rule).
+    $Dn = ConvertTo-WAdsPathDn $Dn
     if ([string]::IsNullOrWhiteSpace([string]$Context.Server)) { return "LDAP://$Dn" }
     return "LDAP://$($Context.Server)/$Dn"
 }
@@ -10006,22 +10162,6 @@ function Convert-WGuid {
 function Convert-WSid {
     param($Value)
     try { if ($Value -is [byte[]]) { return (New-Object System.Security.Principal.SecurityIdentifier -ArgumentList @($Value,0)).Value }; return [string]$Value } catch { return "" }
-}
-function Escape-WLdap {
-    param([string]$Value, [switch]$KeepWildcard)
-    $sb = New-Object System.Text.StringBuilder
-    foreach ($ch in ($Value + "").ToCharArray()) {
-        # Numeric cases: under 5.1 a string case compares with the culture and U+00AD (soft hyphen) equals "`0".
-        switch ([int]$ch) {
-            92 { [void]$sb.Append("\5c") }
-            40 { [void]$sb.Append("\28") }
-            41 { [void]$sb.Append("\29") }
-            0 { [void]$sb.Append("\00") }
-            42 { if ($KeepWildcard) { [void]$sb.Append("*") } else { [void]$sb.Append("\2a") } }
-            default { [void]$sb.Append($ch) }
-        }
-    }
-    return $sb.ToString()
 }
 function Get-WObjectType {
     param($Props)
@@ -11585,13 +11725,23 @@ function Clear-DomeniaGlobalSearch {
 function Invoke-GlobalSearch {
     # D037 / UX-33: -ViewScope, -ExpectBaseDn and -ExpectScope let 'Charger la suite' read the same perimeter again
     # (view chip choice, base and depth of the list), whatever the chip or the tree show now.
+    # CO-05: -KeepLocalFilter keeps the filter of the list for a gesture that brings its own (favourite, history list).
+    # MO-07: -Continuation (New-DomeniaContinuationRequest) adds only the next rows to the list on screen: same search,
+    # same generation, no new history entry, the rows already loaded stay where they are.
+    # FO-01: -Contains reads the names that contain the typed words (explicit chip, upper bar only), same limit and perimeter.
     param([switch]$SilentError,[switch]$AllowEmpty,[switch]$PreserveSelection,
         [ValidateSet('Global','OU')][string]$SearchMode = 'Global',
         [string]$ViewId = '',[int]$LimitOverride = 0,
-        [ValidateSet('','OU','Domain')][string]$ViewScope = '',[string]$ExpectBaseDn = '',[string]$ExpectScope = '')
+        [ValidateSet('','OU','Domain')][string]$ViewScope = '',[string]$ExpectBaseDn = '',[string]$ExpectScope = '',
+        [switch]$KeepLocalFilter,$Continuation = $null,[switch]$Contains)
 
     if(Test-DomeniaAccessBusyWrite){Set-Status 'Recherche différée : écriture active ou à vérifier.' 'WARN';return}
     if(-not (Test-DomeniaDraftNavigation -DN "")){return}
+    if (($null -ne $Continuation) -and ((-not [bool](Get-DomeniaMember $Continuation 'Valid' $false)) -or (-not (Test-DomeniaLiveSearchActive)) -or
+        (-not (Test-DomeniaContinuationCurrent -Continuation $Continuation -Reader ([string]$script:Live.Identity) -Generation ([long]$script:GlobalSearchGeneration) -BaseDn ([string]$script:Live.Search.State.BaseDn))))) {
+        Set-Status 'Suite non chargée : la liste affichée nʼest plus la recherche courante. Relancez la recherche.' 'WARN'
+        return
+    }
     $navHook = $null
     try {
         $searchBox = Get-DomeniaControl -Name "TxtGlobalSearch"
@@ -11620,18 +11770,24 @@ function Invoke-GlobalSearch {
         }
 
         $textValue = Get-DomeniaSearchText -Mode $SearchMode
-        $scope = Get-DomeniaSearchScope -Mode $SearchMode
+        # FO-05: the chip of the upper bar narrows the bar search only; a work view « Dans : tout le domaine » reads the
+        # domain root (its own chip), never the OU chosen for the bar.
+        $scope = Get-DomeniaSearchScope -Mode $SearchMode -IgnoreBar:($null -ne $view)
         # D037: a continuation reads the perimeter of its list or nothing.
         if (($ExpectBaseDn -and -not [string]::Equals([string]$scope.BaseDn,$ExpectBaseDn,[StringComparison]::OrdinalIgnoreCase)) -or ($ExpectScope -and [string]$scope.Scope -ne $ExpectScope)) {
             Set-Status 'Suite non chargée : le périmètre de la liste a changé. Relancez la recherche.' 'WARN'
             return
         }
-        $isBrowse = [string]::IsNullOrWhiteSpace($textValue)
         $minChars = [Math]::Max(1,[int](Get-CfgValue "Browser" "GlobalSearchMinChars" 2))
-        if (-not $isBrowse -and $textValue.Length -lt $minChars -and $textValue -ne "*") {
-            Set-Status "Saisis au moins $minChars caracteres, ou * pour un apercu." "WARN"
+        # CO-34: checked before any request and according to the mode. The upper bar refuses a text made only of
+        # asterisks (it would list the whole domain); in an OU such a text lists the OU, as browsing does.
+        $textCheck = Get-DomeniaSearchTextCheck -Text $textValue -Mode $SearchMode -MinimumLength $minChars
+        if (-not [bool]$textCheck.Valid) {
+            [void](Set-DomeniaControlText -Name 'LblSearchHint' -Text ([string]$textCheck.Reason))
+            Set-Status ([string]$textCheck.Reason) 'WARN'
             return
         }
+        $isBrowse = [bool]$textCheck.Browse
         # D033/D035/D036: optional explicit syntax, pasted identifiers and multi-word fallback (global bar only).
         $searchPlan = $null
         $searchHint = ''
@@ -11640,7 +11796,7 @@ function Invoke-GlobalSearch {
             if (-not [bool]$viewPlan.SurveyAllowed) { $searchHint += ' · ' + [string]$viewPlan.Reason }
         }
         elseif ($SearchMode -eq 'Global' -and -not $isBrowse) {
-            $searchPlan = Get-DomeniaGlobalSearchPlan -Text $textValue -TypeFilter (Get-TypeLdapFilter -Type 'Tous') -MinimumLength $minChars -SyntaxEnabled (Get-DomeniaFeatureFlag -Name 'SearchSyntax' -Default $true)
+            $searchPlan = Get-DomeniaGlobalSearchPlan -Text $textValue -TypeFilter (Get-GlobalSelectedTypeFilter -Mode Global) -MinimumLength $minChars -SyntaxEnabled (Get-DomeniaFeatureFlag -Name 'SearchSyntax' -Default $true)
             $searchHint = [string]$searchPlan.Hint
             if (-not [bool]$searchPlan.Valid) {
                 [void](Set-DomeniaControlText -Name 'LblSearchHint' -Text $searchHint)
@@ -11648,33 +11804,62 @@ function Invoke-GlobalSearch {
                 return
             }
         }
+        # FO-01: the « contains » chip asks for the names that contain the words; nothing else changes (limit, perimeter).
+        $containsPlan = $null
+        if ($Contains -and ($SearchMode -eq 'Global') -and ($null -eq $view) -and (-not $isBrowse)) {
+            $containsPlan = New-DomeniaContainsFilter -Text $textValue -TypeFilter (Get-GlobalSelectedTypeFilter -Mode Global)
+            if (-not [bool]$containsPlan.Valid) {
+                [void](Set-DomeniaControlText -Name 'LblSearchHint' -Text ([string]$containsPlan.Reason))
+                Set-Status ([string]$containsPlan.Reason) 'WARN'
+                return
+            }
+            $searchHint = 'Noms qui contiennent « ' + $textValue.Trim() + ' » : lecture plus longue, lʼannuaire parcourt tous les noms du périmètre.'
+        }
 
         $preserveDn = ''
         if ($PreserveSelection) {
             $selectedGrid = Get-DomeniaControl -Name 'DgObjects'
             if ($null -ne $selectedGrid -and $null -ne $selectedGrid.SelectedItem) { $preserveDn = [string]$selectedGrid.SelectedItem.DN }
         }
-        # D040: the place being left is saved before this search changes the list (no request involved).
-        $navHook = Get-Command Enter-DomeniaNavSearch -CommandType Function -ErrorAction SilentlyContinue
-        if ($null -ne $navHook) { Enter-DomeniaNavSearch }
-        Set-DomeniaSearchMode -Mode $SearchMode
-        Invalidate-DomeniaSearchResults -KeepSelection:([bool]$preserveDn)
+        # MO-07: a continuation adds rows to the list on screen; it is not a new place of the history.
+        $continuing = ($null -ne $Continuation)
+        if (-not $continuing) {
+            # D040: the place being left is saved before this search changes the list (no request involved).
+            $navHook = Get-Command Enter-DomeniaNavSearch -CommandType Function -ErrorAction SilentlyContinue
+            if ($null -ne $navHook) { Enter-DomeniaNavSearch }
+        }
+        # CO-05: a new search starts with an empty filter of the list, after the place being left was saved with it.
+        # A refresh, a continuation, a favourite or a history list keep the filter that goes with their list.
+        if ((-not $PreserveSelection) -and (-not $KeepLocalFilter) -and ($LimitOverride -le 0) -and (-not $continuing)) {
+            $localFilter = Get-DomeniaControl -Name 'TxtSuiteResultFilter'
+            if (($null -ne $localFilter) -and (-not [string]::IsNullOrEmpty([string]$localFilter.Text))) {
+                $oldExperience = [bool]$script:ExperienceRestoring
+                $script:ExperienceRestoring = $true
+                try { $localFilter.Text = '' } finally { $script:ExperienceRestoring = $oldExperience }
+            }
+        }
+        if (-not $continuing) {
+            Set-DomeniaSearchMode -Mode $SearchMode
+            Invalidate-DomeniaSearchResults -KeepSelection:([bool]$preserveDn)
+        }
         $generation = [int]$script:GlobalSearchGeneration
         $script:ActiveSearchViewId = $(if ($null -ne $view) { [string]$view.Id } else { '' })
         # UX-33: a work view listed over the whole domain refuses ping, detection and analysis of its rows.
         $script:ListSurveyBlocked = ($null -ne $view -and -not [bool]$viewPlan.SurveyAllowed)
         [void](Set-DomeniaControlText -Name 'LblSearchHint' -Text $searchHint)
-        Update-DomeniaSearchScopeUi
+        if (-not $continuing) { Update-DomeniaSearchScopeUi }
         if (-not $PreserveSelection) { Select-DomeniaWorkspace -Workspace 'WsSearch' }
 
         $limit = [int](Get-CfgValue "Browser" "GlobalSearchLimit" 100)
         try { $limit = [int]((Get-DomeniaControl -Name "TxtGlobalLimit").Text) } catch { }
         # D037: an explicit 'Charger la suite' raises the bound for this query only; the field keeps the operator value.
         if ($LimitOverride -gt 0) { $limit = $LimitOverride }
+        # MO-07: the list is brought to the target size of the continuation; only Target - Loaded rows are read.
+        if ($continuing) { $limit = [int](Get-DomeniaMember $Continuation 'Target' $limit) }
         if ($limit -le 0) { $limit = 100 }
         # Decision David 2026-10-05: at least 10 000 results must be displayable (former cap 500).
         if ($limit -gt 20000) { $limit = 20000 }
-        if ($LimitOverride -le 0) { [void](Set-DomeniaControlText -Name "TxtGlobalLimit" -Text ([string]$limit)) }
+        if (($LimitOverride -le 0) -and (-not $continuing)) { [void](Set-DomeniaControlText -Name "TxtGlobalLimit" -Text ([string]$limit)) }
 
         # Une nouvelle recherche repart toujours sans selection. DOMENIA affiche les
         # resultats mais ne choisit jamais une ligne a la place de l'operateur,
@@ -11702,6 +11887,9 @@ function Invoke-GlobalSearch {
         }
 
         $typeFilter = Get-GlobalSelectedTypeFilter -Mode $SearchMode
+        # FO-05: key of the type selector of the bar (same normalisation as Get-GlobalSelectedTypeFilter).
+        $barTypeKey = [string]$script:SearchBarType
+        if ($barTypeKey -notin @('Tous','Utilisateurs','Machines','Groupes')) { $barTypeKey = 'Tous' }
         # UX-25: the object type shown when this list is produced comes back with it from the history.
         $typeLabel = 'Tous'
         try { $typeItem = (Get-DomeniaControl -Name 'CmbGlobalType').SelectedItem; if ($null -ne $typeItem -and [string]$typeItem.Content) { $typeLabel = [string]$typeItem.Content } } catch { }
@@ -11711,7 +11899,7 @@ function Invoke-GlobalSearch {
         $anrFilter = ""
         $broadFilter = ""
 
-        if ($isBrowse -or $textValue -eq "*") {
+        if ($isBrowse) {
             $broadFilter = $typeFilter
         }
         elseif ($textValue.Contains("*")) {
@@ -11817,11 +12005,17 @@ function Invoke-GlobalSearch {
                 $broadFilter = [string]$searchPlan.MultiWordFilter
             }
         }
+        if ($null -ne $containsPlan) {
+            # FO-01: one filter only, the names that contain every word; no prefix, exact or ANR pass first.
+            $prefixFilter = ''; $fastFilter = ''; $exactFilter = ''; $anrFilter = ''
+            $broadFilter = [string]$containsPlan.Filter
+        }
 
         $serverKey = ([string]$script:Conn.Server).ToLowerInvariant()
         $baseKey = ([string]$scope.BaseDn).ToLowerInvariant()
         $cacheKey = "scope-v214|$SearchMode|$serverKey|$baseKey|$($scope.Scope)|$typeFilter|$textValue|$limit"
         if ($null -ne $view) { $cacheKey += '|view:' + [string]$view.Id }
+        if ($null -ne $containsPlan) { $cacheKey += '|contains' }
         # Cache previews are read in a worker; the WPF thread performs no SQLite query here.
 
         # D021: the list projection is the single source of truth; heavy attributes are refused before the worker.
@@ -11839,12 +12033,26 @@ if ([string]$Payload.Scope -notin @("Subtree","OneLevel")) { throw "Portee de re
 
 $filters = New-Object Collections.ArrayList
 $seenFilter = @{}
-foreach ($candidate in @([string]$Payload.PrefixFilter,[string]$Payload.FastFilter,[string]$Payload.ExactFilter,[string]$Payload.AnrFilter,[string]$Payload.BroadFilter)) {
-    $f = ([string]$candidate).Trim()
-    if ([string]::IsNullOrWhiteSpace($f)) { continue }
-    if (-not $seenFilter.ContainsKey($f)) {
-        $seenFilter[$f] = $true
-        [void]$filters.Add($f)
+# MO-07: 'Charger la suite' reads only the next rows of the filter that produced the list, sorted by name from the
+# last name read; the DNs already listed are skipped and never published twice.
+$continuation = $null
+$known = $null
+if (($null -ne $Payload.PSObject.Properties['Continuation']) -and ($null -ne $Payload.Continuation)) { $continuation = $Payload.Continuation }
+if ($null -ne $continuation) {
+    $f = ([string]$continuation.Filter).Trim()
+    if ((-not $f.StartsWith('(')) -or (-not $f.EndsWith(')')) -or ($f.Length -gt 16500)) { throw 'Filtre de suite invalide : aucune lecture.' }
+    [void]$filters.Add($f)
+    $known = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    foreach ($knownKey in @($continuation.KnownKeys)) { if (-not [string]::IsNullOrWhiteSpace([string]$knownKey)) { [void]$known.Add(([string]$knownKey).Trim()) } }
+}
+else {
+    foreach ($candidate in @([string]$Payload.PrefixFilter,[string]$Payload.FastFilter,[string]$Payload.ExactFilter,[string]$Payload.AnrFilter,[string]$Payload.BroadFilter)) {
+        $f = ([string]$candidate).Trim()
+        if ([string]::IsNullOrWhiteSpace($f)) { continue }
+        if (-not $seenFilter.ContainsKey($f)) {
+            $seenFilter[$f] = $true
+            [void]$filters.Add($f)
+        }
     }
 }
 if ($filters.Count -eq 0) { throw "Aucun filtre LDAP valide n'a ete construit." }
@@ -11878,6 +12086,7 @@ $limitReached = $false
 $partial = $false
 $failure = ""
 $filterUsed = ""
+$lastName = ""
 
 foreach ($ctx in @($contexts)) {
     $serverLabel = if ([string]::IsNullOrWhiteSpace([string]$ctx.Server)) { "auto" } else { [string]$ctx.Server }
@@ -11894,12 +12103,15 @@ foreach ($ctx in @($contexts)) {
             $resultLimit=[int]$Payload.Limit
             if($resultLimit -lt 1 -or $resultLimit -gt 20000){throw 'Budget de recherche invalide (1 a 20000 objets).'}
             $ldapLimit=$resultLimit+1
+            # MO-07: a continuation may meet the rows already listed again (same name, or a first unsorted list).
+            if ($null -ne $known) { $ldapLimit += $known.Count }
             $searcher = New-WSearcher $ctx ([string]$Payload.BaseDn) $filterText @($Payload.Properties) ([string]$Payload.Scope) $ldapLimit
             $searcher.ServerTimeLimit = [TimeSpan]::FromSeconds([Math]::Max(3,[int]$Payload.ServerTimeLimitSeconds))
             $searcher.ClientTimeout = [TimeSpan]::FromSeconds([Math]::Max(5,[int]$Payload.ClientTimeoutSeconds))
             $searcher.PageSize = [Math]::Max(100,[Math]::Min(1000,[int]$Payload.StreamPageSize))
             $searcher.CacheResults = $false
             $searcher.Asynchronous = $true
+            if (($null -ne $continuation) -and ([string]$continuation.SortAttribute -eq 'name')) { $searcher.Sort = New-Object System.DirectoryServices.SortOption('name',[System.DirectoryServices.SortDirection]::Ascending) }
             $rootEntry = $searcher.SearchRoot
             $collection = $searcher.FindAll()
             $serverUsed = $serverLabel
@@ -11932,10 +12144,11 @@ foreach ($ctx in @($contexts)) {
                 }
                 else { $dn.ToLowerInvariant() }
 
+                if (($null -ne $known) -and $known.Contains($key)) { continue }
                 if ($seenDn.ContainsKey($key)) { continue }
                 $seenDn[$key] = $true
                 $beyondDisplayLimit=($rows.Count -ge $resultLimit)
-                if(-not $beyondDisplayLimit){[void]$rows.Add($row);$filterAdded++}
+                if(-not $beyondDisplayLimit){[void]$rows.Add($row);$filterAdded++;$lastName=[string]$row.Name}
                 # Even the look-ahead observation is stored. The publication pipe enforces the requested display budget.
                 if ($null -ne $Payload.Progress) {
                     $observedUtc=[datetime]::UtcNow.ToString('o')
@@ -12001,6 +12214,8 @@ $final=[pscustomobject]@{
     LimitReached=[bool]$limitReached
     Filters=@($diagnostics)
     FilterUsed=[string]$filterUsed
+    Continuation=($null -ne $continuation)
+    LastName=[string]$lastName
 }
 if($null -ne $Payload.DirectoryReadState){$Payload.DirectoryReadState.Final=$final;if($partial){$Payload.DirectoryReadState.Error=$failure}}
 $final
@@ -12029,6 +12244,14 @@ $final
             StreamPageSize = [Math]::Max(100,[Math]::Min(1000,[int](Get-CfgValue 'Browser' 'SearchPageSize' 250)))
             SearchReadProgress = [hashtable]::Synchronized(@{StartedTimestamp=0L;LastRowTimestamp=0L;RowsRead=0L})
         }
+        if ($continuing) {
+            # MO-07: one filter (the one that produced the list), sorted by name, a budget of new rows only.
+            $payload.PrefixFilter = ''; $payload.FastFilter = ''; $payload.ExactFilter = ''; $payload.AnrFilter = ''; $payload.BroadFilter = ''
+            $payload.Limit = [Math]::Max(1,[Math]::Min(20000,[int]$Continuation.Page))
+            Add-Member -InputObject $payload -NotePropertyName Continuation -NotePropertyValue ([pscustomobject]@{
+                Filter=[string]$Continuation.Filter;SortAttribute=[string]$Continuation.SortAttribute;AfterName=[string]$Continuation.AfterName;KnownKeys=@($Continuation.KnownKeys)
+            })
+        }
         $callbackState = [pscustomobject]@{
             SearchMode = $SearchMode
             BaseDn = [string]$scope.BaseDn
@@ -12045,24 +12268,38 @@ $final
             SurveyAllowed = (-not [bool]$script:ListSurveyBlocked)
             ViewChoice = [string]$viewChoice
             TypeLabel = $typeLabel
+            # FO-05: the chip and the type of the bar that produced a global list (history, continuation).
+            BarScope = $(if (($SearchMode -eq 'Global') -and ($null -ne $scope.PSObject.Properties['Explicit']) -and [bool]$scope.Explicit) { 'Ou' } else { 'Everywhere' })
+            BarType = $(if ($SearchMode -eq 'Global') { $barTypeKey } else { '' })
+            # FO-01: a « contains » list and the kind of plain-text plan that may offer it.
+            MatchMode = $(if ($null -ne $containsPlan) { 'Contains' } else { '' })
+            PlanKind = $(if ($null -ne $searchPlan) { [string]$searchPlan.Kind } else { '' })
             StoreContext = (New-DomeniaStoreContext -RequestId ([guid]::NewGuid().ToString('D')) -Generation $generation -ScopeDn ([string]$scope.BaseDn) -Subtree ([string]$scope.Scope -eq 'Subtree'))
         }
 
-        # D031: the request actually sent by the upper bar is checked against the strict global contract.
+        # D031 / FO-05: the request actually sent by the upper bar is checked against the strict global contract. Only the
+        # chip of the bar may name an OU (explicit scope) and only its type selector may restrict the type.
         if ($SearchMode -eq 'Global') {
-            $contract = [pscustomobject]@{Mode='Global';BaseDn=[string]$payload.BaseDn;Scope=[string]$payload.Scope;PresenceFilter='';LocalFilter='';OuDn=''}
-            if (-not (Test-DomeniaGlobalSearchRequest $contract ([string]$script:Conn.BaseDn)) -or ($typeFilter -cne (Get-TypeLdapFilter -Type 'Tous'))) {
+            $explicitDn = ''
+            if (($null -ne $scope.PSObject.Properties['Explicit']) -and [bool]$scope.Explicit) { $explicitDn = [string]$scope.BaseDn }
+            $contract = [pscustomobject]@{Mode='Global';BaseDn=[string]$payload.BaseDn;Scope=[string]$payload.Scope;PresenceFilter='';LocalFilter='';OuDn='';ExplicitScopeDn=$explicitDn}
+            if ((-not (Test-DomeniaGlobalSearchRequest $contract ([string]$script:Conn.BaseDn))) -or ($typeFilter -cne (Get-TypeLdapFilter -Type $barTypeKey))) {
                 throw 'Contrat de recherche globale non respecte : perimetre herite refuse.'
             }
         }
 
-        [void](Begin-DomeniaLiveSearch -State $callbackState -Payload $payload)
+        if ($continuing) {
+            # MO-07: the list on screen receives the next rows; its rows, its selection and its filter stay.
+            Add-Member -InputObject $callbackState -NotePropertyName ContinuationPage -NotePropertyValue ([int]$payload.Limit) -Force
+            [void](Resume-DomeniaLiveSearch -State $callbackState -Payload $payload)
+        }
+        else { [void](Begin-DomeniaLiveSearch -State $callbackState -Payload $payload) }
 
-        Add-DomeniaUiLog -Area "Recherche" -Level "INFO" -Text "Recherche $SearchMode '$textValue' demandee, base=$($scope.BaseDn), portee=$($scope.Scope), limite=$limit."
+        Add-DomeniaUiLog -Area "Recherche" -Level "INFO" -Text ("Recherche $SearchMode '$textValue' demandee, base=$($scope.BaseDn), portee=$($scope.Scope), limite=$limit" + $(if ($continuing) { ", suite de $($payload.Limit) ligne(s) apres '$([string]$Continuation.AfterName)'." } else { '.' }))
         Write-DomeniaTrace -Area 'Recherche' -Text "Budgets : sans progression=$($searchIdleSeconds)s, maximum=$($searchMaxSeconds)s, LDAP serveur=$($searchServerSeconds)s/client=$($searchClientSeconds)s, page=$($payload.StreamPageSize)."
         if ($generation -ne [int]$script:GlobalSearchGeneration) { return }
         if (-not $PreserveSelection) { Select-DomeniaWorkspace -Workspace 'WsSearch' }
-        [void](Set-DomeniaControlText -Name 'LblBranchCount' -Text 'Recherche en cours...')
+        [void](Set-DomeniaControlText -Name 'LblBranchCount' -Text $(if ($continuing) { 'Chargement de la suite…' } else { 'Recherche en cours...' }))
         Start-UiTask -Name "Recherche dans l annuaire" -OperationId "GlobalSearch" -Code $code -Payload $payload -CallbackState $callbackState -ReplaceKey "global" -DisableControls @("BtnGlobalSearch") -TimeoutSeconds $searchIdleSeconds -HardTimeoutSeconds $searchMaxSeconds -StatusText "Recherche Active Directory en arriere-plan..." -SuccessHandler "Complete-DomeniaGlobalSearchUi" -ErrorHandler "Fail-DomeniaGlobalSearchUi" | Out-Null
     }
     catch {
@@ -12521,7 +12758,9 @@ function Export-CurrentResults {
         $rows = @(Get-DomeniaExperienceExportRows -VisibleRows $visible -SelectedRows @($grid.SelectedItems))
         if ($rows.Count -eq 0) { Set-Status "Aucun resultat a exporter." "WARN"; return }
         $scope = if ($rows.Count -lt $visible.Count) { 'sélection' } else { 'toute la liste' }
-        Show-DomeniaExportResult -Result (Export-DomeniaCsv -Rows $rows -Grid $grid -Subject (Get-DomeniaSearchExportSubject)) -Scope $scope
+        # DS-20: the merged association cell still exports its source and its qualification as their own columns.
+        $columns = @(Expand-DomeniaResultExportColumns -Columns @(Get-DomeniaGridExportColumns -Grid $grid))
+        Show-DomeniaExportResult -Result (Export-DomeniaCsv -Rows $rows -Columns $columns -Grid $grid -Subject (Get-DomeniaSearchExportSubject)) -Scope $scope
     } catch { Show-ErrorBox "Erreur export : $($_.Exception.Message)" }
 }
 
@@ -12749,13 +12988,22 @@ function Start-LoadComputerSecrets {
 $s = New-WSearcher $Context ([string]$Payload.DN) "(objectClass=msFVE-RecoveryInformation)" @("name","distinguishedName","msFVE-RecoveryPassword","msFVE-RecoveryGuid","whenCreated","whenChanged") "OneLevel" 0
 $rows = New-Object Collections.ArrayList
 $objectCount = 0
-foreach ($r in @($s.FindAll())) {
-    $objectCount++
-    $p = $r.Properties
-    $value = [string](Get-WPropFirst $p "msfve-recoverypassword" "")
-    $rid = Convert-WGuid (Get-WPropFirst $p "msfve-recoveryguid" "")
-    if ([string]::IsNullOrWhiteSpace($rid)) { $rid = [string](Get-WPropFirst $p "name" "") }
-    if (-not [string]::IsNullOrWhiteSpace($value)) { [void]$rows.Add([pscustomobject]@{ Kind="BitLocker"; Account=$rid; Value=$value; Timestamp=(Convert-WDate (Get-WPropFirst $p "whencreated" "")); Source="msFVE-RecoveryInformation"; Detail=[string](Get-WPropFirst $p "distinguishedname" "") }) }
+$collection = $null;$rootEntry = $s.SearchRoot
+try {
+    $collection = $s.FindAll()
+    foreach ($r in $collection) {
+        $objectCount++
+        $p = $r.Properties
+        $value = [string](Get-WPropFirst $p "msfve-recoverypassword" "")
+        $rid = Convert-WGuid (Get-WPropFirst $p "msfve-recoveryguid" "")
+        if ([string]::IsNullOrWhiteSpace($rid)) { $rid = [string](Get-WPropFirst $p "name" "") }
+        if (-not [string]::IsNullOrWhiteSpace($value)) { [void]$rows.Add([pscustomobject]@{ Kind="BitLocker"; Account=$rid; Value=$value; Timestamp=(Convert-WDate (Get-WPropFirst $p "whencreated" "")); Source="msFVE-RecoveryInformation"; Detail=[string](Get-WPropFirst $p "distinguishedname" "") }) }
+    }
+}
+finally {
+    if ($null -ne $collection) { try { $collection.Dispose() } catch { } }
+    try { $s.Dispose() } catch { }
+    if ($null -ne $rootEntry) { try { $rootEntry.Dispose() } catch { } }
 }
 $readableCount = @($rows).Count
 $success = ($objectCount -eq 0 -or $readableCount -gt 0)
@@ -14103,7 +14351,6 @@ function Get-DomeniaDomainWorkerCode {
     return @'
 $rows = New-Object Collections.ArrayList
 $watch = [System.Diagnostics.Stopwatch]::StartNew()
-$count = [bool]$Payload.Count
 $baseDn = [string]$Context.BaseDn
 if ([string]::IsNullOrWhiteSpace($baseDn)) { throw 'Base DN vide : analyse du domaine impossible.' }
 
@@ -14410,28 +14657,6 @@ Invoke-Section 'Comptes a surveiller' {
     catch { }
 }
 
-if ($count) {
-    Invoke-Section 'Denombrement' {
-        $definitions = @(
-            @{ Label='Utilisateurs'; Filter='(&(objectCategory=person)(objectClass=user))' },
-            @{ Label='Machines'; Filter='(objectCategory=computer)' },
-            @{ Label='Groupes'; Filter='(objectCategory=group)' },
-            @{ Label='Unites d organisation'; Filter='(objectCategory=organizationalUnit)' },
-            @{ Label='Contacts'; Filter='(objectCategory=contact)' }
-        )
-        foreach ($d in $definitions) {
-            $s = New-WSearcher $Context $baseDn ([string]$d.Filter) @('distinguishedName') 'Subtree' 0
-            $s.PageSize = 1000
-            $collection = $null
-            try {
-                $collection = $s.FindAll()
-                Add-Row 'Denombrement' ([string]$d.Label) (@($collection).Count)
-            }
-            finally { try { if ($null -ne $collection) { $collection.Dispose() } } catch { } }
-        }
-    }
-}
-
 $watch.Stop()
 [pscustomobject]@{
     Rows = @($rows)
@@ -14469,22 +14694,22 @@ function Fail-DomeniaDomainUi {
 }
 
 function Start-DomeniaDomainOverview {
-    param([switch]$WithCounts)
+    # MO-04: the directory is never counted as a whole. The overview reads the state of the domain; the totals come
+    # from the local copy with its date (Start-DomeniaDomainLocalTotals, local read in the background).
     try {
         $script:DomainRows = @()
         [void](Set-DomeniaItemsSource -Name "DgDomain" -Rows @())
         [void](Set-DomeniaControlText -Name "LblDomainStatus" -Text "Analyse du domaine en cours...")
-        $timeout = 90
-        if ($WithCounts) { $timeout = 240 }
+        Start-DomeniaDomainLocalTotals
         Start-UiTask `
             -Name "Analyse du domaine" `
             -OperationId "DomainOverview" `
             -Code (Get-DomeniaDomainWorkerCode) `
-            -Payload ([pscustomobject]@{ Count=[bool]$WithCounts }) `
-            -CallbackState ([pscustomobject]@{ WithCounts=[bool]$WithCounts }) `
+            -Payload ([pscustomobject]@{}) `
+            -CallbackState ([pscustomobject]@{}) `
             -ReplaceKey "domain" `
-            -DisableControls @("BtnLoadDomain","BtnCountDomain") `
-            -TimeoutSeconds $timeout `
+            -DisableControls @("BtnLoadDomain") `
+            -TimeoutSeconds 90 `
             -StatusText "Analyse du domaine en arriere-plan..." `
             -SuccessHandler "Complete-DomeniaDomainUi" `
             -ErrorHandler "Fail-DomeniaDomainUi" | Out-Null
@@ -14942,21 +15167,9 @@ function Register-DomeniaContextMenus {
         catch { }
     }
 
-    # Les listes de groupes offrent la recherche directe du membre clique.
-    foreach ($listName in @("LstMemberOf","LstGroupMembers")) {
-        try {
-            $list = Get-DomeniaControl -Name $listName
-            if ($null -eq $list) { continue }
-            $menu = New-Object System.Windows.Controls.ContextMenu
-            [void]$menu.Items.Add((New-DomeniaMenuItem -Header "Rechercher cet objet" `
-                -Action ([scriptblock]::Create('$l = Get-DomeniaControl -Name "' + $listName + '"; if ($null -ne $l -and $null -ne $l.SelectedItem) { Start-DomeniaSearchFor -Term ([string]$l.SelectedItem) }'))))
-            [void]$menu.Items.Add((New-DomeniaMenuItem -Header "Copier le DN" `
-                -Action ([scriptblock]::Create('$l = Get-DomeniaControl -Name "' + $listName + '"; if ($null -ne $l -and $null -ne $l.SelectedItem) { Set-ClipboardSafe ([string]$l.SelectedItem); Set-Status "DN copie." }'))))
-            $list.ContextMenu = $menu
-            $applied++
-        }
-        catch { }
-    }
+    # UI-06: the membership grids offer the search of the clicked object, the copy of its DN and, for the groups of the
+    # fiche, « Pourquoi membre ? » and the nested groups (Membership.UI).
+    try { $applied += [int](Register-DomeniaMembershipUi) } catch { }
 
     Add-DomeniaUiLog -Area "Interface" -Text ("Menus contextuels actifs sur {0} controle(s)." -f $applied)
     return $applied
@@ -17791,13 +18004,15 @@ if ($null -ne $scopeProperty -and -not [string]::IsNullOrWhiteSpace([string]$sco
 $rows = New-Object Collections.ArrayList
 $searcher = $null
 $collection = $null
+$rootEntry = $null
 try {
     $searcher = New-WSearcher $Context $searchBase '(|(objectClass=organizationalUnit)(objectClass=container))' @('name','distinguishedName') 'OneLevel' 0
+    $rootEntry = $searcher.SearchRoot
     $searcher.PageSize = 200
     $searcher.ServerTimeLimit = [TimeSpan]::FromSeconds(60)
     $searcher.ClientTimeout = [TimeSpan]::FromSeconds(90)
     $collection = $searcher.FindAll()
-    foreach ($r in @($collection)) {
+    foreach ($r in $collection) {
         $dn = [string](Get-WPropFirst $r.Properties 'distinguishedName' '')
         if ([string]::IsNullOrWhiteSpace($dn)) { continue }
         if ($dn.Equals($searchBase,[StringComparison]::OrdinalIgnoreCase)) { continue }
@@ -17807,6 +18022,7 @@ try {
 finally {
     if ($null -ne $collection) { try { $collection.Dispose() } catch { } }
     if ($null -ne $searcher) { try { $searcher.Dispose() } catch { } }
+    if ($null -ne $rootEntry) { try { $rootEntry.Dispose() } catch { } }
 }
 $sorted = @($rows | Sort-Object @{Expression = {[string]$_.DN}; Descending = $false })
 return [pscustomobject]@{ Success = $true; Rows = $sorted; SearchBase = $searchBase; BaseDn = $baseDn; DurationMs = [int]$watch.ElapsedMilliseconds }
@@ -17989,7 +18205,10 @@ foreach ($entry in $plan) {
     try {
         $filter = [string]$entry.Filter
         if ($incremental) { $filter = '(&' + $filter + $deltaClause + ')' }
-        $searcher = New-WSearcher $Context $searchBase $filter @($entry.Props) $searchScope 0
+        # PF-02: the directory stops at the remaining volume plus one (that extra result proves the cut).
+        $sizeLimit = 0
+        if ($maxObjects -gt 0) { $sizeLimit = [Math]::Max(1,$maxObjects - $rowCount) + 1 }
+        $searcher = New-WSearcher $Context $searchBase $filter @($entry.Props) $searchScope $sizeLimit
         $searcher.PageSize = 1000
         $searcher.CacheResults = $false
         $searcher.ServerTimeLimit = [TimeSpan]::FromSeconds($serverTimeLimitSeconds)
@@ -18110,7 +18329,9 @@ if($incremental -and -not $truncated){
         if($watch.ElapsedMilliseconds -ge $budgetMs){throw 'Budget du recensement des identites depasse.'}
         if($null -ne $progress){$progress.Phase='Recensement GUID';$progress.Count=0L}
         $filter='(|(&(objectCategory=person)(objectClass=user))(objectCategory=computer))'
-        $searcher=New-WSearcher $Context $searchBase $filter @('objectGUID','distinguishedName') $searchScope 0
+        # PF-02: MaxObjects + 1 at most; the extra identity proves the limit and the census is then refused.
+        $censusLimit=0;if($maxObjects -gt 0){$censusLimit=$maxObjects+1}
+        $searcher=New-WSearcher $Context $searchBase $filter @('objectGUID','distinguishedName') $searchScope $censusLimit
         $searcher.PageSize=1000;$searcher.CacheResults=$false
         $searcher.ServerTimeLimit=[TimeSpan]::FromSeconds($serverTimeLimitSeconds)
         $searcher.ClientTimeout=[TimeSpan]::FromSeconds($serverTimeLimitSeconds+30)
@@ -20922,13 +21143,17 @@ for($i=0;$i -lt $users.Count;$i+=40) {
     $slice=@($users[$i..([Math]::Min($i+39,$users.Count-1))])
     $parts=@($slice | ForEach-Object { "(sAMAccountName=$(Escape-WLdap $_))" })
     $s=New-WSearcher $Context ([string]$Context.BaseDn) "(&(objectCategory=person)(objectClass=user)(|$($parts -join '')))" @("sAMAccountName") "Subtree" 0
-    foreach($r in @($s.FindAll())) { [void]$foundUsers.Add([string](Get-WPropFirst $r.Properties "samaccountname" "")) }
+    $all=$null;$root=$s.SearchRoot
+    try { $all=$s.FindAll(); foreach($r in $all) { [void]$foundUsers.Add([string](Get-WPropFirst $r.Properties "samaccountname" "")) } }
+    finally { if($null -ne $all){$all.Dispose()};$s.Dispose();if($null -ne $root){$root.Dispose()} }
 }
 for($i=0;$i -lt $computers.Count;$i+=40) {
     $slice=@($computers[$i..([Math]::Min($i+39,$computers.Count-1))])
     $parts=@($slice | ForEach-Object { "(name=$(Escape-WLdap $_))" })
     $s=New-WSearcher $Context ([string]$Context.BaseDn) "(&(objectCategory=computer)(|$($parts -join '')))" @("name") "Subtree" 0
-    foreach($r in @($s.FindAll())) { [void]$foundComputers.Add([string](Get-WPropFirst $r.Properties "name" "")) }
+    $all=$null;$root=$s.SearchRoot
+    try { $all=$s.FindAll(); foreach($r in $all) { [void]$foundComputers.Add([string](Get-WPropFirst $r.Properties "name" "")) } }
+    finally { if($null -ne $all){$all.Dispose()};$s.Dispose();if($null -ne $root){$root.Dispose()} }
 }
 $rows=foreach($l in @($Payload.Links)) {
     $u=Normalize-WUser ([string]$l.UserLogin)
@@ -22044,7 +22269,7 @@ function Wire-Events {
             try {
                 $item = $script:Ctrl["CmbPresenceFilter"].SelectedItem
                 $script:CurrentPresenceFilter = if ($null -ne $item) { [string]$item.Content } else { "Tous" }
-                if (-not $script:RestoringSettings) { Set-DomeniaSetting -Name "PresenceFilter" -Value $script:CurrentPresenceFilter }
+                # UX-03: a session filter, never saved in the preferences.
                 Apply-DomeniaPresenceFilter
                 # Presence is only filtered from known data; no implicit scan on a filter change.
                 Add-DomeniaUiLog -Area "Filtre" -Text "Presence : $($script:CurrentPresenceFilter)"
@@ -22387,7 +22612,6 @@ function Wire-Events {
     if ($script:Ctrl.ContainsKey("DgIndex")) { $script:Ctrl["DgIndex"].Add_Sorting({param($sender,$eventArgs)Set-DomeniaIndexSearchSort -Grid $sender -EventArgs $eventArgs}) }
     if ($script:Ctrl.ContainsKey("BtnIndexResetSort")) { $script:Ctrl["BtnIndexResetSort"].Add_Click({Set-DomeniaIndexSearchSort -Reset}) }
     if ($script:Ctrl.ContainsKey("BtnLoadDomain")) { $script:Ctrl["BtnLoadDomain"].Add_Click({ Start-DomeniaDomainOverview }) }
-    if ($script:Ctrl.ContainsKey("BtnCountDomain")) { $script:Ctrl["BtnCountDomain"].Add_Click({ Start-DomeniaDomainOverview -WithCounts }) }
     if ($script:Ctrl.ContainsKey("BtnCopyDomain")) { $script:Ctrl["BtnCopyDomain"].Add_Click({ Copy-DomeniaDomainReport }) }
     if ($script:Ctrl.ContainsKey("BtnWmiNamespaces")) { $script:Ctrl["BtnWmiNamespaces"].Add_Click({ Start-DomeniaWmiNamespaces }) }
     if ($script:Ctrl.ContainsKey("BtnWmiClasses")) { $script:Ctrl["BtnWmiClasses"].Add_Click({ Start-DomeniaWmiClasses }) }
@@ -23838,17 +24062,17 @@ function Get-DomeniaWorkerOperationHashes {
         ReadBitLockerKey      = "8A98EBCDC48AD572404E1566826035C84F34ACB87564330A7AA511FAAC01EE6F"
         BitLockerPresence     = "F1A7C8FD83BA659E7826DE2DDBDD01EE13BC185819FD9330656B77A99ACD6764"
         DemoDirectory         = "FBE11A3ADE0630788C56DF30F9E883FEA8FF6033FE71D2E9B1E2BE92007268BF"
-        LocalIndexRead        = "10B663F2BB52180B56E290C53FA70D4F6AAA9E5F810B94C0D947AD26D79E5EA3"
+        LocalIndexRead        = "2B8F11C569107959BD6CC567FD1AA18A43EF7F1C348AA1CB2E6A78B17FA64871"
         ParkSharedSync        = "B3A64051813F12A24BD5E791D59CF7E2330FA84E965C9F44BD62366D4A81415E"
         IsolatedRead          = "4074D6ECAA620A9C80A5B6B535BB657E02DCE06A9DF97E35CA1EA47572D1060C"
         CmdletHelp            = "12505D0654AB0E97BD803A70B953BB0BBE2152836AAA1889744C1312EB215D62"
         TreeChildren          = "4187EB7520008EA02DDFB594B428FD1EBE53809D0C01C94B84BC331248A25CA5"
-        GlobalSearch          = "27CE75B5676CF33A2AD1CA535A47D5E501053388DDE0B57C9C980C054896D926"
+        GlobalSearch          = "89AF530156FDAF8726677C9AED74106BFFC5FA20F1892703C4CD7492C845D5C6"
         PermissionAnalysis    = "79F87877EC7512EC07088C0FEADD022181873112A71510AA8E90AF76791FC9BB"
         SelfCheck             = "C73BA6DA41221073BF1B56DA687BC8CF2A3250B5151F3D996C37EAFAA8E572B3"
-        ReadBitLocker         = "55F469517F1AD169F93E772DADFDAED51DDCCF12BCE2313194D667A8A69EA485"
+        ReadBitLocker         = "1051F9885858BAA1CB9B0944DA4C396B264C51763FBD108F1D9242796343BB47"
         ReadLaps              = "51B8A2DA023D46E85199FEF76EFBEC0C14E820322B7DF67B672E2556341C851A"
-        DomainOverview        = "3D330D03E7A2A8B99300962D033C29CB5934F60B2FD89311C2A10DD519736A28"
+        DomainOverview        = "B35538ADB3F50CF460A76845C883A76AC73206340C32CBE09E8C58431F1CF295"
         BatchNetworkDiag      = "C3043A5234A626DD8E83E9DE0791D55005C81C5716C7BA5FD559204C1BC87815"
         WmiNamespaces         = "C31716BC38A3C978E078E8D8EB403163E7315C98FC641F1FB8F6506709A7E878"
         WmiClasses            = "C9899F025E00FDD2D1A018719CC26EDA282250CCE0B6930A5778DB36DBFB7555"
@@ -23856,7 +24080,7 @@ function Get-DomeniaWorkerOperationHashes {
         SoftwareInventory     = "48FCB741DE94B062BC1884463B0FB25DCFE1B446479DA261A8BBD8153F295F6B"
         LogonHarvest          = "ACBA6332B7E314A170979C76B88BFEC11803F3A9CF0F773CE22EFF3DBA3E5A5A"
         ParkSweep             = "134ED776E45640FA67B7F51659711C33B37834105375CC4B083342469F2C26A9"
-        IndexBuild            = "98CC4F2C574C47C6F403E77E2B4BD45D07804B1A36CD62B3F06FB413090908EF"
+        IndexBuild            = "6E48BB9DECC36F341BF5D3FBB0EB927120703DE82E393E1FB020C6B230ED0F20"
         UserComputerProbe     = "EB7C36419C1B8B91AFB9ECE6B98D4E3FE663B87E4011F7D264D8AEDE7735E775"
         ComputerInventory     = "810FA1C5106CC6B8A0B86D24E879FC7627C99ADCA2D4D9F98643142933EC972E"
         ComputerDiagnostics   = "AE264F02A1AD7911106DFBCB657B41D84EE2A8A8737A824D8AC86E869ED0ED5F"
@@ -23866,7 +24090,7 @@ function Get-DomeniaWorkerOperationHashes {
         ComputerGpUpdate      = "AC0E30C53A5257A12378801A8B6831FFAAB183CBB0548CE9A768637B255AB1C0"
         ComputerRestart       = "7895BE660A73963FF297989D640D7F47BCFB6D81D6B8E1F2D7E357A7C1E24B3F"
         RimotteRun            = "337B18F3AB70EC32D626BB79E0E894138235B7F1676498ADC741FECFC4A57167"
-        PruneLinks            = "0CDDB662FA027ED979FC9A44A7A66662DB540D5B562F9D33CCDD3BA86FF0819F"
+        PruneLinks            = "BF226EDD5E94A974B918FAC3229A9316F5B50B9C804383DFDC3FD3544261196B"
         OpenLinkedObject      = "24863184FC8441FCE8F270A75B30736954AC066DBBC5A2DE99CDF1C5D7CAA6C2"
         OpenAdObject          = "8169588B8E775546A06A351515BC0F5C8BC7B0432F4B9B732068A27BE862324E"
         WriteAttributes       = "DF5B8DE7F499980D115BDBED7E71A03E8FF16EA5A038ECBB8B67363F32CDEB82"
@@ -23880,7 +24104,7 @@ function Get-DomeniaWorkerOperationHashes {
         WriteObjectGroup      = "DDC7E14A4A9FBBF8AB88646E196EFD09D8328ECC7BCB96DBE5DD158AA5B5D0A0"
         WriteGroupMember      = "2577510597E83ABBAC35A4790664DCE19601D371F4ECC4D49B138A09F8C8C716"
         WriteRenameComputer   = "8728C8F504BE466CA476E34E050F9037B6BD40090123C79EEA0572A3D99880EA"
-        WriteCreateOu         = "589036DA065F351E2F415986E398FD5C396276C20D9E25D9CE0D93056B0DA333"
+        WriteCreateOu         = "B832B50218C9845FDC739F91D6BF5A6BBBBE8F75E36F6F4F5D201DF2C4F966B9"
         WriteDeleteObject     = "DC025E66FB45A08FD6BB15DB7A1D4468A76F915819719D2D423AB01F99A9E6E5"
         PresenceScan          = "E7F81414C29C1C8F1E91453D9EC4BA48B6F92F0AA0E2674C9EBF5C88437F4486"
         SelectedPresence      = "4ECADF4F231390182A3BF091EF8636B3536D7B3F8A28EF3984DE1E2D524D5BFA"
@@ -23898,7 +24122,7 @@ function Get-DomeniaWorkerOperationHashes {
         EngineSelfTest        = "40E2C89F858E22E1D221AC48DC04DD5BF627F1ACBC836AB48036C43DB9F7E1D1"
             EmbeddedDirectoryLookup = "F43B3C78876A45E016E4B0ACBB7B30BA7DF114738BD8DCAB5249BC5B6E066689"
         EmbeddedPathBrowse = "B643D707E242EC4416AD63622847DD7C39E5B53ED47CF64FECD56E22B5A82271"
-        IndexOuList           = "242B26E610F11F6B45580B6D669F1B32C9442229DD89B334DB023FD5C5CB2DD2"
+        IndexOuList           = "DBBEAD7CED00124FFC5249F358D0FB7C6D32C6CCA0B4DB123607E1F50C3B928E"
         StorageMaintenance    = "0D0868D47DFAAA5FC3EE79607E500EE1FA314017053693D1764D26A0920DB844"
         QueryExport           = "33478747B91888D4ED0571AD805FBF09E289B992F28B6954D5C25DAB9A7F88AF"
         QueryLibrary          = "73B589ECA5FD4FE34B49113ECCB9AA43C0B0DF8635110F5DB124035A6AC4A08C"
@@ -23912,7 +24136,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "B4B29D316E01BF26E02FF7983A7EB863FEB3C418AB5070645B86044EF494DCBF"
+    $expectedFingerprint = "247317BE6B8EF8CFA28BBC2D427D717626F854C4481A0924E40B366C6FE24956"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -25014,6 +25238,8 @@ function Test-WDirectMembership {
     } finally { if($null -ne $s){$s.Dispose()};if($null -ne $root){$root.Dispose()} }
 }
 function Get-WChildCount {
+    # PF-02, kept on purpose: the delete refusal states the exact number of children, so the one-level collection is
+    # counted in full. It is read once, for the single object an operator asked to delete, and released at once.
     param($Context,[string]$Dn)
     $s=$null;$root=$null;$results=$null
     try {
@@ -26295,7 +26521,9 @@ function Resolve-WGroupDn {
     if($Value -match "(?i)^\s*(CN|OU|DC)\s*="){return (Resolve-WDirectoryIdentityDn $Context $Value)}
     $e=Escape-WLdap $Value
     $s=New-WSearcher $Context ([string]$Context.BaseDn) "(&(objectCategory=group)(|(sAMAccountName=$e)(name=$e)))" @("distinguishedName") "Subtree" 2
-    $all=@($s.FindAll())
+    # PF-02: at most two results (SizeLimit 2 proves an ambiguity); the collection and its root are released at once.
+    $collection=$null;$root=$s.SearchRoot
+    try{$collection=$s.FindAll();$all=@($collection)}finally{if($null -ne $collection){$collection.Dispose()};$s.Dispose();if($null -ne $root){$root.Dispose()}}
     if($all.Count -eq 0){throw "Groupe introuvable : $Value"}
     if($all.Count -gt 1){throw "Groupe ambigu : $Value. Utilise son DN complet."}
     return (Resolve-WDirectoryIdentityDn $Context ([string](Get-WPropFirst $all[0].Properties "distinguishedname" "")))
@@ -26305,7 +26533,9 @@ function Resolve-WObjectDn {
     if($Value -match "(?i)^\s*(CN|OU|DC)\s*="){return (Resolve-WDirectoryIdentityDn $Context $Value)}
     $e=Escape-WLdap $Value
     $s=New-WSearcher $Context ([string]$Context.BaseDn) "(|(sAMAccountName=$e)(name=$e)(dNSHostName=$e)(userPrincipalName=$e))" @("distinguishedName") "Subtree" 2
-    $all=@($s.FindAll())
+    # PF-02: at most two results (SizeLimit 2 proves an ambiguity); the collection and its root are released at once.
+    $collection=$null;$root=$s.SearchRoot
+    try{$collection=$s.FindAll();$all=@($collection)}finally{if($null -ne $collection){$collection.Dispose()};$s.Dispose();if($null -ne $root){$root.Dispose()}}
     if($all.Count -eq 0){throw "Objet introuvable : $Value"}
     if($all.Count -gt 1){throw "Objet ambigu : $Value. Utilise son DN complet."}
     return (Resolve-WDirectoryIdentityDn $Context ([string](Get-WPropFirst $all[0].Properties "distinguishedname" "")))
@@ -27549,8 +27779,10 @@ $parent=Get-WObjectSnapshot $Context ([string]$Payload.ParentDn)
 if(-not [bool]$parent.Exists){throw "Branche parente introuvable."}
 if(-not (@($parent.Classes) -contains "organizationalUnit") -and -not (@($parent.Classes) -contains "container") -and -not (@($parent.Classes) -contains "domainDNS")){throw "La cible n est pas une OU, un conteneur ou la racine du domaine."}
 $escaped=Escape-WLdap ([string]$Payload.Name)
-$check=New-WSearcher $Context ([string]$Payload.ParentDn) "(&(objectClass=organizationalUnit)(name=$escaped))" @("distinguishedName") "OneLevel" 2
-if(@($check.FindAll()).Count -gt 0){throw "Une OU portant deja ce nom existe sous la branche cible."}
+$check=New-WSearcher $Context ([string]$Payload.ParentDn) "(&(objectClass=organizationalUnit)(name=$escaped))" @("distinguishedName") "OneLevel" 1
+$checkRoot=$check.SearchRoot;$existing=$null
+try{$existing=$check.FindOne()}finally{$check.Dispose();if($null -ne $checkRoot){$checkRoot.Dispose()}}
+if($null -ne $existing){throw "Une OU portant deja ce nom existe sous la branche cible."}
 $backend=Get-WWriteBackend $Context @("New-ADOrganizationalUnit")
 $dn=""
 $SentUtc=""

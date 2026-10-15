@@ -22,6 +22,8 @@ foreach($name in @('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText',
 # FI-05 / PF-06: the progressive search takes its timer from the protected factory of the engine.
 . (Join-Path $wad 'modules\Domenia-Engine.Model.ps1')
 . (Join-Path $wad 'modules\Domenia-Engine.UI.ps1')
+# DS-20: the result columns follow the column rules of Shell.Model (choice of the operator, relevance).
+. (Join-Path $wad 'modules\Domenia-Shell.Model.ps1')
 . (Join-Path $wad 'modules\Domenia-Live.UI.ps1')
 # Explicit dependencies; none can issue a network call, launch a process or read the real database.
 function Get-CfgValue {param($Section,$Name,$Default);return $Default}
@@ -125,7 +127,14 @@ Case 'Upper text and OU text are independent' {$script:Ctrl.TxtBranchSearch.Text
 Case 'Missing domain is refused without default domain' {$script:Conn.BaseDn='';$thrown=$false;try{Get-DomeniaSearchScope -Mode Global}catch{$thrown=$true};Expect $thrown}
 Case 'Default entry point searches globally' {Invoke-GlobalSearch;Expect ($script:Tasks -eq 1 -and $script:LastState.SearchMode -eq 'Global' -and $script:LastPayload.BaseDn -eq $script:Conn.BaseDn)}
 Case 'Global request preserves OU selection and depth' {$before=$script:SelectedBranchDn;Invoke-GlobalSearch;Expect ($script:SelectedBranchDn -eq $before -and -not $script:Ctrl.ChkSubtree.IsChecked)}
-Case 'Global request leaves local controls values intact' {Invoke-GlobalSearch;Expect ($script:Ctrl.CmbGlobalType.SelectedItem.Content -eq 'Machines' -and $script:Ctrl.TxtSuiteResultFilter.Text -eq 'PC-ONLY')}
+Case 'Global request keeps the OU type and starts with an empty filter of the list (CO-05)' {Invoke-GlobalSearch;Expect (($script:Ctrl.CmbGlobalType.SelectedItem.Content -eq 'Machines') -and ($script:Ctrl.TxtSuiteResultFilter.Text -eq ''))}
+Case 'A refresh, a continuation or a favourite keep the filter of the list (CO-05)' {
+    Invoke-GlobalSearch -SearchMode OU -PreserveSelection;Expect ($script:Ctrl.TxtSuiteResultFilter.Text -eq 'PC-ONLY') 'Actualiser a vide le filtre'
+    Invoke-GlobalSearch -SearchMode OU -KeepLocalFilter;Expect ($script:Ctrl.TxtSuiteResultFilter.Text -eq 'PC-ONLY') 'Le favori a perdu son filtre'
+    Invoke-GlobalSearch -SearchMode OU -LimitOverride 200;Expect ($script:Ctrl.TxtSuiteResultFilter.Text -eq 'PC-ONLY') 'La suite a vide le filtre'
+    Invoke-GlobalSearch -SearchMode OU;Expect ($script:Ctrl.TxtSuiteResultFilter.Text -eq '') 'Une nouvelle recherche garde le filtre de la liste precedente'
+}
+Case 'A refused search keeps the filter of the list (CO-05)' {$script:Ctrl.TxtGlobalSearch.Text='a';Invoke-GlobalSearch;Expect (($script:Tasks -eq 0) -and ($script:Ctrl.TxtSuiteResultFilter.Text -eq 'PC-ONLY'))}
 Case 'Global request tags layout to disable local filters' {Invoke-GlobalSearch;Expect ($script:Ctrl.SearchBrowserLayout.Tag -eq 'Global')}
 Case 'OU request ignores header search and uses scope' {Invoke-GlobalSearch -SearchMode OU;Expect ($script:LastState.Search -eq '' -and $script:LastPayload.BaseDn -eq $script:SelectedBranchDn)}
 Case 'OU request retains selected object type' {Invoke-GlobalSearch -SearchMode OU;Expect ($script:LastState.TypeFilter -eq (Get-TypeLdapFilter 'Machines'))}
@@ -186,14 +195,14 @@ Case 'CIM timeout retains early positive ping' {$o=ConvertTo-DomeniaLiveObservat
 Case 'Older network packet cannot overwrite newer status' {$o=ConvertTo-DomeniaLiveObservation (Ping-Observation 'En ligne') $null;$v=ConvertTo-DomeniaLiveObservation (Ping-Observation 'Sans réponse au ping' '2026-09-01T10:00:00Z') $o;Expect ($v.Presence -eq 'En ligne')}
 Case 'Fractional UTC seconds are compared as dates, not strings' {$o=ConvertTo-DomeniaLiveObservation (Ping-Observation 'En ligne' '2026-10-01T10:00:00Z') $null;$v=ConvertTo-DomeniaLiveObservation (Ping-Observation 'Sans réponse au ping' '2026-10-01T10:00:00.5000000Z') $o;Expect ($v.Presence -eq 'Sans réponse au ping')}
 Case 'Recreated object cannot inherit old user' {$p=Ping-Observation;$p.Guid='new-guid';$v=ConvertTo-DomeniaLiveObservation $p (Previous-Observation);Expect (-not $v.LastUser -and -not $v.UserDn)}
-# D031: a non-progressive repaint (presence ping fallback, Show-ObjectRows) must not apply the local OU text in Global.
-Case 'Global repaint ignores local text filter' {
+# CO-05: a non-progressive repaint (presence ping fallback, Show-ObjectRows) applies the filter of the list in every mode.
+Case 'Global repaint applies the filter of the list too (CO-05)' {
     $script:Ctrl.DgObjects=[pscustomobject]@{ItemsSource=$null};$script:Ctrl.LblSuiteResultCount=[pscustomobject]@{Text=''}
     $a=[pscustomobject]@{Type='Utilisateur';Name='Alex';Login='alex';UPN='';Association='';Presence='Sans objet';SessionDisplay='';SessionState=''}
     $p=[pscustomobject]@{Type='Machine';Name='PC-ONLY';Login='pc';UPN='';Association='';Presence='';SessionDisplay='';SessionState=''}
     Set-DomeniaSearchMode Global;[void](Set-DomeniaItemsSource -Name DgObjects -Rows @($a,$p))
-    Expect (@($script:Ctrl.DgObjects.ItemsSource).Count -eq 2) 'Global user hidden on repaint'
-    Expect ($script:Ctrl.LblSuiteResultCount.Text.Contains('sans filtre local')) 'Global repaint label'
+    Expect ((@($script:Ctrl.DgObjects.ItemsSource).Count -eq 1) -and (@($script:Ctrl.DgObjects.ItemsSource)[0].Name -eq 'PC-ONLY')) 'Global list not narrowed by the filter of the list'
+    Expect ($script:Ctrl.LblSuiteResultCount.Text.Contains('filtre de la liste, sans requête AD')) 'Repaint label'
     Set-DomeniaSearchMode OU;[void](Set-DomeniaItemsSource -Name DgObjects -Rows @($a,$p))
     Expect (@($script:Ctrl.DgObjects.ItemsSource).Count -eq 1 -and @($script:Ctrl.DgObjects.ItemsSource)[0].Name -eq 'PC-ONLY') 'OU local filter must still apply'
 }
@@ -208,20 +217,44 @@ Case 'Global contract refuses an inherited OU perimeter' {
 Case 'Persistent observation round-trip retains separate times' {$v=ConvertTo-DomeniaLiveObservation (Ping-Observation) (Previous-Observation);$copy=$v|ConvertTo-Json -Depth 5|ConvertFrom-Json;Expect ($copy.UserCheckedUtc -eq $v.UserCheckedUtc -and $copy.PresenceCheckedUtc -eq $v.PresenceCheckedUtc)}
 
 if($env:OS -eq 'Windows_NT' -and -not $SkipWpf){
-    Case 'WPF global ancestor disables filters without disabling result grid' {
+    Case 'WPF global ancestor hides OU filters, keeps the filter of the list and the result grid (CO-05, FO-05)' {
         Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
         $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml));$window=$null
         try{
             $window=[Windows.Markup.XamlReader]::Load($reader);$window.ShowActivated=$false;$window.ShowInTaskbar=$false;$window.Show()
             $window.FindName('WorkspaceTabs').SelectedItem=$window.FindName('WsSearch');$layout=$window.FindName('SearchBrowserLayout')
             $layout.Tag='Global';$window.UpdateLayout()
-            foreach($name in @('CmbGlobalType','CmbPresenceFilter','TxtSuiteResultFilter')){Expect (-not $window.FindName($name).IsEnabled) ('Global filter still enabled: '+$name)}
+            # FO-05: hidden, not greyed: in a global search they say nothing about the list.
+            foreach($name in @('CmbGlobalType','CmbPresenceFilter')){Expect (-not $window.FindName($name).IsVisible) ('Global filter still shown: '+$name)}
+            Expect ($window.FindName('TxtSuiteResultFilter').IsEnabled) 'The filter of the list is greyed in global search'
             # L03 (DS-07): the OU is shown again by a click in the tree ('Afficher cette OU' is gone).
             Expect ($window.FindName('DgObjects').IsEnabled -and $window.FindName('TvDirectory').IsEnabled)
             $layout.Tag='OU';$window.UpdateLayout()
-            foreach($name in @('CmbGlobalType','CmbPresenceFilter','TxtSuiteResultFilter')){Expect ($window.FindName($name).IsEnabled) ('OU filter still disabled: '+$name)}
+            foreach($name in @('CmbGlobalType','CmbPresenceFilter','TxtSuiteResultFilter')){Expect ($window.FindName($name).IsEnabled -and $window.FindName($name).IsVisible) ('OU filter still hidden or disabled: '+$name)}
             $presence=@($window.FindName('DgObjects').Columns|Where-Object{$_.SortMemberPath -eq 'Presence'})
-            Expect ($presence.Count -eq 1 -and $presence[0].Header -eq 'Présence réseau' -and $window.FindName('DgObjects').Columns.Count -eq 18)
+            Expect ($presence.Count -eq 1 -and $presence[0].Header -eq 'Présence réseau' -and $window.FindName('DgObjects').Columns.Count -eq 16)
+        }finally{$reader.Close();if($null -ne $window){$window.Close()}}
+    }
+    # DS-03: unwired if a filter shows a bare « Tous » or « 100 » again, or if the display changes the value read by the rules.
+    Case 'DS-03 Les filtres disent leur sens : Tous les types, Toute presence, lignes max' {
+        Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
+        $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml));$window=$null
+        try{
+            $window=[Windows.Markup.XamlReader]::Load($reader);$window.ShowActivated=$false;$window.ShowInTaskbar=$false;$window.Show()
+            $window.FindName('WorkspaceTabs').SelectedItem=$window.FindName('WsSearch');$window.UpdateLayout()
+            foreach($pair in @(@('CmbGlobalType','Tous les types'),@('CmbPresenceFilter','Toute présence'))){
+                $combo=$window.FindName($pair[0]);$first=$combo.Items[0]
+                Expect ([string]$first.Content -ceq 'Tous') ($pair[0]+' : la valeur lue par les regles a change')
+                Expect ([string][Windows.Automation.AutomationProperties]::GetName($first) -ceq $pair[1]) ($pair[0]+' : nom accessible')
+                $combo.SelectedIndex=0;$window.UpdateLayout()
+                $shown=[Windows.Controls.TextBlock]$combo.SelectionBoxItemTemplate.LoadContent()
+                Expect ($shown.Text -ceq $pair[1]) ($pair[0]+' affiche '+$shown.Text)
+                $field=$combo.Parent;Expect (@($field.Children|Where-Object{$_ -is [Windows.Controls.TextBlock]}).Count -eq 0) ($pair[0]+' : intitule superflu')
+            }
+            $unit=$window.FindName('LblGlobalLimitUnit')
+            Expect (($unit.Text -ceq 'lignes max') -and ($unit.IsVisible) -and ([Windows.Controls.DockPanel]::GetDock($unit) -eq 'Right')) 'Unite de la limite absente'
+            Expect ([string][Windows.Automation.AutomationProperties]::GetName($window.FindName('TxtGlobalLimit')) -ceq 'Lignes max') 'Nom accessible de la limite'
+            Expect (-not ([string](Get-MainXaml)).Contains('Saisissez ou consultez cette information')) 'Aide generique restante dans la page Rechercher'
         }finally{$reader.Close();if($null -ne $window){$window.Close()}}
     }
     Case 'CO-03 DgObjects : la grille recoit des cles de tri, pas seulement du texte affiche' {

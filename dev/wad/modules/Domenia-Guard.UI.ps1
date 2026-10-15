@@ -340,7 +340,8 @@ function Load-DomeniaFavouriteSearch {
         } finally {$script:RestoringSettings=$oldRestore;$script:SuppressBranchAutoLoad=$oldSuppress}
         Update-DomeniaSearchScopeUi;Select-DomeniaWorkspace -Workspace 'WsSearch'
         $generation=[int]$script:GlobalSearchGeneration
-        Invoke-GlobalSearch -SearchMode OU
+        # CO-05: the term of the favourite is the filter of its list: the new search keeps it.
+        Invoke-GlobalSearch -SearchMode OU -KeepLocalFilter
         Start-DomeniaFavouriteTreeReveal -Dn ([string]$v.DN)
         # CO-21: the term of a favourite filters only the rows read (within the result limit), not the directory.
         if([string]$v.Term -and [int]$script:GlobalSearchGeneration -ne $generation){

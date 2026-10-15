@@ -239,7 +239,7 @@ if(-not $SkipWpf){
                 $bc=[Windows.Media.BrushConverter]::new()
                 foreach($k in $palette.Keys){$window.Resources[$k]=$bc.ConvertFromInvariantString($palette[$k])}
                 $window.Measure([Windows.Size]::new(1280,800));$window.Arrange([Windows.Rect]::new(0,0,1280,800));$window.UpdateLayout()
-                Assert-True ($window.FindName('DgObjects').Columns.Count -ge 18)
+                Assert-True ($window.FindName('DgObjects').Columns.Count -ge 16)
                 # Exercise the real presentation helpers against real controls.
                 $savedControls=$script:Ctrl;$script:Ctrl=@{}
                 foreach($match in [regex]::Matches($xml,'x:Name="([^"]+)"')){

@@ -135,18 +135,53 @@
   {
     "Name": "TxtGlobalSearch",
     "Title": "Rechercher",
-    "Text": "Personne, poste ou groupe, dans tout le domaine : lʼOU et les filtres de la liste sont ignorés. Au clic, les recherches et fiches récentes ; pendant la frappe, des suggestions de la base locale. Seule Entrée interroge lʼannuaire.",
+    "Text": "Recherche de la barre : personne, compte, mail ou poste, dans le périmètre de la puce (Partout : tout le domaine ; Dans : lʼOU choisie et ses sous-OU) et pour le type choisi. Au clic, les recherches et fiches récentes ; pendant la frappe, des suggestions de la base locale. Seule Entrée interroge lʼannuaire, sans filtre de présence ni de liste.",
     "Kind": "TextBox",
     "Source": "specific",
     "Shortcut": ""
   },
   {
     "Name": "BtnGlobalSearch",
-    "Title": "Rechercher dans tout le domaine",
-    "Text": "Recherche dans tout le domaine, tous types, sans filtre OU, de présence ou de liste. Aucun poste sondé avant sélection.",
+    "Title": "Rechercher",
+    "Text": "Lance la recherche de la barre dans le périmètre et pour le type choisis par ses puces, sans filtre de présence ni de liste. Aucun poste sondé avant sélection.",
     "Kind": "Button",
     "Source": "specific",
     "Shortcut": ""
+  },
+  {
+    "Name": "UxSearchBarScope",
+    "Title": "Périmètre de la recherche",
+    "Text": "Périmètre et type de la recherche de la barre. Changer une puce ne lance rien : Entrée ou Rechercher interroge lʼannuaire.",
+    "Kind": "StackPanel",
+    "Source": "X02"
+  },
+  {
+    "Name": "LstSearchBarScope",
+    "Title": "Où chercher",
+    "Text": "Partout : tout le domaine. Dans : lʼOU choisie dans lʼarbre de Rechercher, sous-OU incluses. Le choix ne lance aucune lecture.",
+    "Kind": "ListBox",
+    "Source": "X02"
+  },
+  {
+    "Name": "ItmSearchBarScopeOu",
+    "Title": "Dans lʼOU choisie",
+    "Text": "Recherche limitée à lʼOU choisie dans lʼarbre de Rechercher et à ses sous-OU. Indisponible tant quʼaucune OU nʼest choisie.",
+    "Kind": "ListBoxItem",
+    "Source": "X02"
+  },
+  {
+    "Name": "LblSearchBarScopeOu",
+    "Title": "OU de la recherche",
+    "Text": "Recherche limitée à lʼOU choisie dans lʼarbre de Rechercher et à ses sous-OU. Indisponible tant quʼaucune OU nʼest choisie.",
+    "Kind": "TextBlock",
+    "Source": "X02"
+  },
+  {
+    "Name": "LstSearchBarType",
+    "Title": "Type cherché",
+    "Text": "Type cherché par la barre : tout, personnes, postes ou groupes. Le choix ne lance aucune lecture.",
+    "Kind": "ListBox",
+    "Source": "X02"
   },
   {
     "Name": "BtnCommandPalette",
@@ -432,24 +467,31 @@
   {
     "Name": "CmbGlobalType",
     "Title": "Type d’objet",
-    "Text": "Filtre la requête AD dans l’OU sélectionnée : tous, utilisateurs, machines, groupes, ou OU et conteneurs.",
+    "Text": "Type dʼobjet lu dans lʼOU choisie : tous les types, utilisateurs, machines, groupes, ou OU et conteneurs. Le filtre fait partie de la requête AD.",
     "Kind": "ComboBox",
     "Source": "existing-help"
   },
   {
     "Name": "CmbPresenceFilter",
     "Title": "Présence réseau",
-    "Text": "Filtre les observations réseau mémorisées en mode OU. Sans réponse au ping ne prouve pas que Windows est éteint. Aucun ping collectif.",
+    "Text": "Présence réseau mémorisée des postes de la liste : « Toute présence » les montre tous. « Sans réponse au ping » ne prouve pas quʼun poste est éteint. Aucun ping collectif ; le choix nʼest pas gardé dʼune session à lʼautre.",
     "Kind": "ComboBox",
     "Source": "existing-help",
     "Shortcut": ""
   },
   {
     "Name": "TxtGlobalLimit",
-    "Title": "Maximum de résultats",
-    "Text": "Nombre maximum de résultats affichés.",
+    "Title": "Lignes max",
+    "Text": "Nombre maximum de lignes lues dans lʼannuaire pour cette liste, 20 000 au plus. « Charger la suite » lit les lignes suivantes sans changer ce nombre.",
     "Kind": "TextBox",
     "Source": "existing-help"
+  },
+  {
+    "Name": "LblGlobalLimitUnit",
+    "Title": "Unité de la limite",
+    "Text": "La limite de la liste est un nombre de lignes lues dans lʼannuaire.",
+    "Kind": "TextBlock",
+    "Source": "X02"
   },
   {
     "Name": "BtnGlobalClear",
@@ -467,22 +509,22 @@
   },
   {
     "Name": "TxtBranchSearch",
-    "Title": "Saisissez ou consultez cette information",
-    "Text": "Saisissez ou consultez cette information. Le champ seul ne lance pas une action de modification.",
+    "Title": "Terme masqué de lʼOU",
+    "Text": "Champ masqué conservé pour compatibilité ; il reste vide. Pour réduire la liste affichée, utilisez « Filtrer la liste », sans requête AD.",
     "Kind": "TextBox",
     "Source": "label-help"
   },
   {
     "Name": "CmbObjectFilter",
-    "Title": "Choisissez une option dans la liste déroulante",
-    "Text": "Choisissez une option dans la liste déroulante.",
+    "Title": "Ancien filtre de type",
+    "Text": "Ancien filtre de type, masqué : le type se choisit dans la liste « Tous les types » au-dessus des résultats.",
     "Kind": "ComboBox",
     "Source": "label-help"
   },
   {
     "Name": "TxtBranchLimit",
-    "Title": "Saisissez ou consultez cette information",
-    "Text": "Saisissez ou consultez cette information. Le champ seul ne lance pas une action de modification.",
+    "Title": "Ancienne limite de branche",
+    "Text": "Ancienne limite de branche, masquée : la limite se règle dans « lignes max » au-dessus des résultats.",
     "Kind": "TextBox",
     "Source": "label-help"
   },
@@ -503,8 +545,8 @@
   },
   {
     "Name": "BtnClearBranch",
-    "Title": "Vider",
-    "Text": "Lance l’action indiquée sur le bouton.",
+    "Title": "Vider la recherche (commande masquée)",
+    "Text": "Commande masquée, remplacée par « Effacer la recherche » : vide le texte et les résultats sans modifier lʼOU choisie.",
     "Kind": "Button",
     "Source": "label-help"
   },
@@ -1287,11 +1329,18 @@
     "Source": "existing-help"
   },
   {
-    "Name": "LstGroupMembers",
+    "Name": "DgGroupMembers",
     "Title": "Membres directs du groupe",
-    "Text": "Membres directs du groupe. Clic droit pour rechercher ou copier.",
-    "Kind": "ListBox",
-    "Source": "existing-help"
+    "Text": "Membres directs du groupe : nom, type (connu de la copie locale) et OU ; le DN complet est dans lʼinfobulle de la ligne. Clic droit pour rechercher lʼobjet ou copier son DN.",
+    "Kind": "DataGrid",
+    "Source": "X02"
+  },
+  {
+    "Name": "TxtGroupMembersFilter",
+    "Title": "Filtrer les membres",
+    "Text": "Filtre les membres affichés par nom, type, OU ou DN. Aucune requête AD : seuls les membres déjà lus sont filtrés.",
+    "Kind": "TextBox",
+    "Source": "X02"
   },
   {
     "Name": "TabContainer",
@@ -1329,11 +1378,32 @@
     "Source": "existing-help"
   },
   {
-    "Name": "LstMemberOf",
-    "Title": "Groupes",
-    "Text": "Groupes dont cet objet est membre. Clic droit pour rechercher ou copier.",
-    "Kind": "ListBox",
-    "Source": "existing-help"
+    "Name": "DgMemberOf",
+    "Title": "Groupes de lʼobjet",
+    "Text": "Groupes dont cet objet est membre : nom, OU et appartenance (directe, ou imbriquée après « Groupes imbriqués ») ; le DN complet est dans lʼinfobulle de la ligne. Clic droit : rechercher, copier le DN, « Pourquoi membre ? ».",
+    "Kind": "DataGrid",
+    "Source": "X02"
+  },
+  {
+    "Name": "TxtMemberOfFilter",
+    "Title": "Filtrer les groupes",
+    "Text": "Filtre les groupes affichés par nom, OU, appartenance ou DN. Aucune requête AD : seuls les groupes déjà lus sont filtrés.",
+    "Kind": "TextBox",
+    "Source": "X02"
+  },
+  {
+    "Name": "BtnMemberOfNested",
+    "Title": "Lire les groupes imbriqués",
+    "Text": "Lit, à la demande, les groupes dont ces groupes sont membres (2 000 groupes, 16 niveaux et 10 secondes au plus) et les ajoute à la liste comme appartenances imbriquées. Lecture seule ; aucun parcours du domaine.",
+    "Kind": "Button",
+    "Source": "X02"
+  },
+  {
+    "Name": "LblMembershipWhy",
+    "Title": "Pourquoi membre",
+    "Text": "Réponse de « Pourquoi membre ? » : appartenance directe, chemin des groupes imbriqués lus, ou lecture incomplète. Le groupe principal nʼest pas compris dans memberOf.",
+    "Kind": "TextBlock",
+    "Source": "X02"
   },
   {
     "Name": "TabRaw",
@@ -2547,11 +2617,11 @@
     "Source": "existing-help"
   },
   {
-    "Name": "BtnCountDomain",
-    "Title": "Analyser et denombrer",
-    "Text": "Compte en plus les utilisateurs, machines, groupes et unités dʼorganisation. Plus long sur un grand annuaire.",
-    "Kind": "Button",
-    "Source": "existing-help"
+    "Name": "LblDomainLocalTotals",
+    "Title": "Totaux de la copie locale",
+    "Text": "Totaux de la copie locale (base autonome) et date de sa dernière synchronisation. Aucun dénombrement nʼest lancé sur lʼannuaire.",
+    "Kind": "TextBlock",
+    "Source": "specific"
   },
   {
     "Name": "BtnCopyDomain",
@@ -3122,8 +3192,8 @@
   },
   {
     "Name": "TxtSuiteResultFilter",
-    "Title": "Filtrer les lignes chargées",
-    "Text": "Filtre local littéral dans le nom, login, type, présence et association. Plusieurs mots se combinent. Aucun appel AD. La limite LDAP reste inchangée.",
+    "Title": "Filtrer la liste",
+    "Text": "Filtre de la liste : garde les lignes déjà chargées dont le nom, le login, le type, la présence ou lʼassociation contient le texte. Plusieurs mots se combinent. Aucune requête AD ; une nouvelle recherche le remet à zéro.",
     "Kind": "Experience"
   },
   {
@@ -3131,6 +3201,34 @@
     "Title": "Effacer le filtre local",
     "Text": "Réaffiche les lignes déjà chargées, en conservant le filtre OU, la présence et le texte de recherche AD.",
     "Kind": "Experience"
+  },
+  {
+    "Name": "UxSearchFilteredEmpty",
+    "Title": "Lignes masquées par le filtre",
+    "Text": "Toutes les lignes chargées sont masquées par le filtre de la liste (texte ou présence). Aucune requête AD nʼest relancée.",
+    "Kind": "Border",
+    "Source": "X02"
+  },
+  {
+    "Name": "LblSearchFilteredEmpty",
+    "Title": "Lignes masquées",
+    "Text": "Nombre de lignes chargées que le filtre de la liste masque. La recherche et sa limite restent inchangées.",
+    "Kind": "TextBlock",
+    "Source": "X02"
+  },
+  {
+    "Name": "LblSearchFilteredDetail",
+    "Title": "Filtre de la liste",
+    "Text": "Filtres de la liste appliqués aux lignes déjà chargées.",
+    "Kind": "TextBlock",
+    "Source": "X02"
+  },
+  {
+    "Name": "BtnSearchFilteredClear",
+    "Title": "Effacer le filtre de la liste",
+    "Text": "Vide le texte du filtre et remet la présence sur « Toute présence ». Les lignes déjà chargées réapparaissent, sans requête AD.",
+    "Kind": "Button",
+    "Source": "X02"
   },
   {
     "Name": "UxSuiteIdentities",
@@ -3696,9 +3794,37 @@
   {
     "Name": "BtnSearchMore",
     "Title": "Charger la suite",
-    "Text": "Disponible quand la liste est limitée : relit la même recherche avec une limite doublée, jusquʼà 500 lignes, sans doublon ni ancien contexte. La limite saisie nʼest pas modifiée.",
+    "Text": "Disponible quand la liste est limitée : lit seulement les lignes suivantes de la même recherche, triées par nom, sans relire les lignes déjà chargées. Plafond de sécurité : 20 000 lignes.",
     "Kind": "Button",
     "Source": "d120-recherche"
+  },
+  {
+    "Name": "BtnSearchMoreJump",
+    "Title": "Charger jusquʼà 1 000",
+    "Text": "Porte la liste à 1 000 lignes en une fois (puis 5 000, puis 20 000) : lit seulement les lignes manquantes, sans relire celles déjà chargées.",
+    "Kind": "Button",
+    "Source": "X02"
+  },
+  {
+    "Name": "BtnSearchContains",
+    "Title": "Chercher aussi les noms qui contiennent ce texte",
+    "Text": "Proposé quand la barre du haut trouve peu de noms ou aucun : relance la même recherche (même périmètre, même type, même limite) sur les noms qui contiennent le texte, pas seulement ceux qui commencent par lui. Plus lent ; rien nʼest lu avant le clic.",
+    "Kind": "Button",
+    "Source": "X02"
+  },
+  {
+    "Name": "BtnSearchResultMenu",
+    "Title": "Autres actions de la liste",
+    "Text": "Autres actions de la liste : actualiser, exporter en CSV et choisir les colonnes affichées. Aucune lecture ne part à lʼouverture du menu.",
+    "Kind": "Button",
+    "Source": "X02"
+  },
+  {
+    "Name": "LblSearchCardCount",
+    "Title": "Lignes affichées",
+    "Text": "Nombre de lignes affichées dans la liste, après le filtre de la liste. Le compteur détaillé, au-dessus des résultats, indique les lignes chargées et la limite.",
+    "Kind": "TextBlock",
+    "Source": "X02"
   },
   {
     "Name": "CmbWorkView",

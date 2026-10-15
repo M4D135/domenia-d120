@@ -381,10 +381,15 @@ function Set-DomeniaSearchQueryOptionsLayout {
     foreach($name in $widths.Keys){
         $control=Get-DomeniaControl $name
         if($null -eq $control){continue}
+        # DS-03: the limit sits with its unit in a DockPanel; the field width is set on the filter host.
+        $field=$control.Parent;if($field -is [Windows.Controls.DockPanel]){$field=$field.Parent}
         $control.MinHeight=if($Compact){28.0}else{36.0}
-        if($Compact){$control.Parent.Width=$widths[$name];$control.Parent.Margin=[Windows.Thickness]::new(0,0,6,0);$control.Padding=[Windows.Thickness]::new(4,1,4,1)}
+        if($Compact){$field.Width=$widths[$name];$field.Margin=[Windows.Thickness]::new(0,0,6,0);$control.Padding=[Windows.Thickness]::new(4,1,4,1)}
         elseif($control -is [Windows.Controls.ComboBox]){$control.ClearValue([Windows.Controls.Control]::PaddingProperty)}
     }
+    # On the tiniest screens the unit gives way to the number; the tooltip and the accessible name keep its meaning.
+    $unit=Get-DomeniaControl 'LblGlobalLimitUnit'
+    if($null -ne $unit){$unit.Visibility=if($Compact){[Windows.Visibility]::Collapsed}else{[Windows.Visibility]::Visible}}
     $selector=Get-DomeniaControl 'CmbWorkView'
     if($null -ne $selector){if($Compact){$selector.Padding=[Windows.Thickness]::new(4,1,4,1)}else{$selector.ClearValue([Windows.Controls.Control]::PaddingProperty)}}
     & $state.Refresh
@@ -426,12 +431,10 @@ function Set-DomeniaUxShortLayout {
     $main=Get-DomeniaControl 'UxMainLayout';if($main){$main.Margin=if($compact){[Windows.Thickness]::new(18,6,16,6)}else{[Windows.Thickness]::new(18,12,16,12)}}
     $header=Get-DomeniaControl 'UxHeader';if($header){$header.Margin=if($compact){[Windows.Thickness]::new(0,0,0,4)}else{[Windows.Thickness]::new(0,0,0,10)}}
     $header=Get-DomeniaControl 'UxPageHeader';if($header){$header.Margin=if($compact){[Windows.Thickness]::new(2,0,0,6)}else{[Windows.Thickness]::new(2,0,0,12)}}
-    foreach($name in @('UxSearchScopeTitle','UxOuIntro','UxOuScopeCaption','UxOuScopeCard')){
+    foreach($name in @('UxOuIntro','UxOuScopeCaption','UxOuScopeCard')){
         $control=Get-DomeniaControl $name
         if($control){$control.Visibility=if($compact){[Windows.Visibility]::Collapsed}else{[Windows.Visibility]::Visible}}
     }
-    $scopeTitle=Get-DomeniaControl 'UxSearchScopeTitle'
-    if($scopeTitle){$scopeTitle.Margin=[Windows.Thickness]::new(0,0,0,4)}
     $scopeInfo=Get-DomeniaControl 'UxSearchScopeInfo';$hint=Get-DomeniaControl 'LblSearchHint'
     if($scopeInfo -and $hint){
         $scopeInfo.ColumnDefinitions[1].Width=if($compact){[Windows.GridLength]::new(1,[Windows.GridUnitType]::Star)}else{[Windows.GridLength]::new(0)}
@@ -439,12 +442,15 @@ function Set-DomeniaUxShortLayout {
         [Windows.Controls.Grid]::SetColumn($hint,$(if($compact){1}else{0}))
         $hint.Margin=if($compact){[Windows.Thickness]::new(6,0,0,2)}else{[Windows.Thickness]::new(0,0,0,8)}
     }
-    $widths=@{CmbGlobalType=148.0;CmbPresenceFilter=138.0;TxtGlobalLimit=90.0}
+    # DS-03: « 100 lignes max » needs its unit beside the number; the field host is the StackPanel of the filter.
+    $widths=@{CmbGlobalType=148.0;CmbPresenceFilter=138.0;TxtGlobalLimit=128.0}
     foreach($name in $widths.Keys){
         $control=Get-DomeniaControl $name
-        if($control -and $control.Parent -is [Windows.Controls.StackPanel]){
-            $control.Parent.Width=if($compact -and $name -eq 'TxtGlobalLimit'){70.0}else{$widths[$name]}
-            $control.Parent.Margin=if($compact){[Windows.Thickness]::new(0,0,6,0)}else{[Windows.Thickness]::new(0,0,12,8)}
+        $field=$null
+        if($control){$field=$control.Parent;if($field -is [Windows.Controls.DockPanel]){$field=$field.Parent}}
+        if($field -is [Windows.Controls.StackPanel]){
+            $field.Width=if($compact -and $name -eq 'TxtGlobalLimit'){120.0}else{$widths[$name]}
+            $field.Margin=if($compact){[Windows.Thickness]::new(0,0,6,0)}else{[Windows.Thickness]::new(0,0,12,8)}
         }
     }
     # Queries have their own fluid Grid. Compact only its vertical rhythm, never the width of an ancestor.
@@ -515,6 +521,19 @@ function Set-DomeniaUxShortLayout {
         [Windows.Controls.Grid]::SetRow($statuses,$(if($compact){0}else{1}))
         [Windows.Controls.Grid]::SetColumn($statuses,$(if($compact){1}else{0}))
         $statuses.Margin=if($compact){[Windows.Thickness]::new(8,0,0,0)}else{[Windows.Thickness]::new(0)}
+        # DS-06: the selection and list states share one line of two halves in the normal layout (no help rows under
+        # the actions); in compact mode they stack in the column beside the actions. The short count of the survey of
+        # the list (UX-12) takes the place of the list state, so it follows the same slot.
+        if($statuses.ColumnDefinitions.Count -ge 2){
+            $statuses.ColumnDefinitions[1].Width=if($compact){[Windows.GridLength]::new(0)}else{[Windows.GridLength]::new(1,[Windows.GridUnitType]::Star)}
+            foreach($name in @('LblLiveState','UxParkProgress')){
+                $liveState=Get-DomeniaControl $name
+                if($null -eq $liveState){continue}
+                [Windows.Controls.Grid]::SetRow($liveState,$(if($compact){1}else{0}))
+                [Windows.Controls.Grid]::SetColumn($liveState,$(if($compact){0}else{1}))
+                $liveState.Margin=if($compact){[Windows.Thickness]::new(0)}else{[Windows.Thickness]::new(12,0,0,0)}
+            }
+        }
     }
     $ouColumn=Get-DomeniaControl 'UxOuColumn'
     if($ouColumn){

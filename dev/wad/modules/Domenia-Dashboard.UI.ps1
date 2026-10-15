@@ -642,3 +642,52 @@ function Update-DomeniaSoftwareDashboard {
     Show-DomeniaBoard -Board Software -Data $board
     [void](Set-DomeniaControlText 'LblSoftwareDashboard' $(if ($board.Summary) { [string]$board.Summary } else { [string]$items.Count + ' logiciels lus. Synthese calculee sur la liste chargee.' }))
 }
+# ---------------------------------------------------------------- MO-04 domain totals from the local copy
+$script:DomainTotalsState = $null
+function Start-DomeniaDomainLocalTotals {
+    # MO-04: the Domaine tab shows the totals of the local copy with its date, never a count of the whole directory.
+    # Read-only LocalIndexRead (FleetStats) in the background, on the explicit gesture « Analyser le domaine ». Only the
+    # type totals and the directory synchronisation date are used: the workstation part of the answer is limited to
+    # the objects placed directly under the domain root (one level), so that nothing else is aggregated for nothing.
+    $path = [string]$script:DatabaseScopedPath
+    $domainDn = ''
+    if ($null -ne $script:Conn) { $domainDn = [string]$script:Conn.BaseDn }
+    if ((-not $path) -or (-not $domainDn)) {
+        $script:DomainTotalsState = $null
+        [void](Set-DomeniaControlText 'LblDomainLocalTotals' 'Totaux du domaine : aucune base autonome active ; aucun dénombrement nʼest lancé sur lʼannuaire.')
+        return
+    }
+    $state = [pscustomobject]@{ Epoch = [long]$script:SessionEpoch; DomainDn = $domainDn; Path = $path; Job = '' }
+    $script:DomainTotalsState = $state
+    $job = $null
+    try {
+        [void](Initialize-DomeniaWinSqliteNative)
+        $payload = [pscustomobject]@{ Action = 'FleetStats'; Path = $path; BusyTimeoutMs = 250; DomainDn = $domainDn; Scope = $domainDn; Subtree = $false; Plan = (Get-DomeniaFleetQueryPlan -ObservationMaxAgeDays (Get-DomeniaObservationMaxAgeDays)); Keys = @(); ScopeKey = ''; ComputeBoard = $false; ModuleRoot = $script:DashboardModuleRoot }
+        $job = Start-UiTask -Name 'Totaux de la copie locale' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload $payload -CallbackState $state -ReplaceKey 'domain:totals' -SuccessHandler 'Complete-DomeniaDomainLocalTotals' -ErrorHandler 'Fail-DomeniaDomainLocalTotals' -TimeoutSeconds 60 -TaskClass Explicit
+    } catch { Fail-DomeniaDomainLocalTotals -Message $_.Exception.Message -State $state; return }
+    if (-not $job) { Fail-DomeniaDomainLocalTotals -Message 'lecture locale non admise pour lʼinstant, relancez lʼanalyse.' -State $state; return }
+    $state.Job = [string]$job
+    [void](Set-DomeniaControlText 'LblDomainLocalTotals' 'Totaux du domaine : lecture de la copie locale…')
+}
+function Test-DomeniaDomainLocalTotalsCurrent {
+    param($State)
+    return (($null -ne $State) -and [object]::ReferenceEquals($State,$script:DomainTotalsState) -and ([long]$State.Epoch -eq [long]$script:SessionEpoch))
+}
+function Complete-DomeniaDomainLocalTotals {
+    param($Result,$State)
+    if (-not (Test-DomeniaDomainLocalTotalsCurrent $State)) { return }
+    $data = Get-DomeniaEffectiveWorkerResult $Result @('Busy','Missing')
+    if ($null -eq $data) { Fail-DomeniaDomainLocalTotals -Message 'réponse locale incomplète.' -State $State; return }
+    if ([bool]$data.Busy) { Fail-DomeniaDomainLocalTotals -Message 'base occupée, relancez lʼanalyse dans un instant.' -State $State; return }
+    if ([bool]$data.Missing) { [void](Set-DomeniaControlText 'LblDomainLocalTotals' 'Totaux du domaine : aucune base autonome sur ce poste ; aucun dénombrement nʼest lancé sur lʼannuaire.'); return }
+    $last = ''
+    $sync = Get-DomeniaMember $data 'SyncStates' $null
+    if (($sync -is [Collections.IDictionary]) -and $sync.Contains('directory')) { $last = [string](Get-DomeniaMember $sync['directory'] 'last_sync' '') }
+    $summary = Get-DomeniaLocalTotalsSummary -Types @(Get-DomeniaMember $data 'Types' @()) -LastSyncUtc $last
+    [void](Set-DomeniaControlText 'LblDomainLocalTotals' ([string]$summary.Text))
+}
+function Fail-DomeniaDomainLocalTotals {
+    param([string]$Message,$State)
+    if (-not (Test-DomeniaDomainLocalTotalsCurrent $State)) { return }
+    [void](Set-DomeniaControlText 'LblDomainLocalTotals' ('Totaux de la copie locale non lus : ' + $Message))
+}
