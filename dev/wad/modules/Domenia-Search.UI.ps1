@@ -409,8 +409,22 @@ function Update-DomeniaSearchQueryDetails {
     $perimeter=if($null -ne $scope){[string]$scope.BaseDn+$(if([string]$scope.Scope -eq 'Subtree'){' · sous-OU incluses'}else{' · niveau direct'})}else{'Connectez-vous puis choisissez une OU dans lʼarbre'}
     $text=if($null -ne $entry){$entry.Source+' · '+$entry.TypeLabel+' · '+$perimeter+'. '+$entry.Description}else{'Choisissez une requête ; la sélection seule ne lance rien. '+$perimeter+'.'}
     if($null -ne $scope -and $null -ne $entry -and $entry.SourceId -eq 'Local'){$text+=' '+(Get-DomeniaSearchQueryCoverageText -ScopeDn ([string]$scope.BaseDn))}
+    if(($null -ne $entry) -and ([string]$entry.SourceId -eq 'Ad')){$text+=Get-DomeniaSearchQueryLdapCostText -ViewId ([string]$entry.ViewId)}
     if($script:SearchQueryLibraryError){$text+=' '+$script:SearchQueryLibraryError}
     [void](Set-DomeniaControlText 'LblSearchQueryDetails' $text)
+}
+function Get-DomeniaSearchQueryLdapCostText {
+    # Point 29: cost of the filter this directory query will send (object types and view filter), judged against the
+    # schema read in this session. Local analysis only; without a schema read the index use stays unknown.
+    param([string]$ViewId)
+    if((-not $ViewId) -or (-not ${function:Get-DomeniaLdapFilterAnalysis})){return ''}
+    try{
+        $view=@(Get-DomeniaWorkViews|Where-Object{[string]$_.Id -ceq $ViewId}|Select-Object -First 1)
+        if(-not $view.Count){return ''}
+        $catalog=$null;if(${function:Get-DomeniaAdSchemaCatalogForAnalysis}){$catalog=Get-DomeniaAdSchemaCatalogForAnalysis}
+        $analysis=Get-DomeniaLdapFilterAnalysis -Filter ('(&'+(Get-TypeLdapFilter -Type 'Tous')+[string]$view[0].Filter+')') -Catalog $catalog
+        return (' '+[string]$analysis.Text)
+    }catch{return (' Coût LDAP non évalué : '+$_.Exception.Message)}
 }
 function Get-DomeniaSearchQueryCoverageText {
     param([string]$ScopeDn)

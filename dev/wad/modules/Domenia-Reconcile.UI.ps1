@@ -51,7 +51,8 @@ function Complete-DomeniaReconcile {
         $keyText=[string]$update.Key
         $source=$rowByKey[$keyText]
         if($null -ne $source){
-            $script:Reconcile.Events.Enqueue([pscustomobject]@{Kind='Row';Row=$source;ObservedUtc=$r.ObservedUtc;Search=$s;Identity=$State.Identity;Mutation=$State.Mutation})
+            # Point 23: a revalidated row may carry a new DN for a listed GUID; it moves that row instead of adding one.
+            $script:Reconcile.Events.Enqueue([pscustomobject]@{Kind='Row';Row=$source;ObservedUtc=$r.ObservedUtc;Search=$s;Identity=$State.Identity;Mutation=$State.Mutation;Revalidated=$true})
         }
     }
     foreach($insert in @($plan.Inserts)){

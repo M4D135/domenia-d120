@@ -3,7 +3,8 @@
 param([string]$ReportPath='')
 $ErrorActionPreference='Stop'
 $wad=Split-Path -Parent $PSScriptRoot;$modules=Join-Path $wad 'modules'
-# Cache.Model: verified backup before an AD read (FI-13). Park.Model: rules of a survey; Live.Model: presence keys.
+# Cache.Model: verified backup before an AD read (FI-13). Store.Model: storage refusals and free-space rules (points 32
+# and 35). Park.Model: rules of a survey; Live.Model: presence keys.
 # Boards.Model: paused widgets left out of the WMI refresh of the OU (decision David 2026-10-14).
 # Collection.Model/UI: freshness profile, budgets, windows and suspensions of the collection engine (points 11-21).
 # Store.Model and Collection.Model: the scope clocks recorded by a finished refresh (points 4, 5 and 10).
@@ -226,7 +227,7 @@ Case 'FI-13 : la relecture AD de l OU attend la sauvegarde verifiee de la base ;
         Invoke-DomeniaOuRefresh Index AD
         Expect ($script:Jobs.Count -eq 1 -and $script:Jobs[0].OperationId -eq 'StorageBackup' -and $script:Jobs[0].Payload.Database -ceq $file -and $script:DomeniaOuRefresh.Completed) 'La sauvegarde ne precede pas la lecture AD'
         $backup=$script:Jobs[0];[void]$script:AsyncJobs.Remove($backup.Id)
-        Complete-DomeniaGestureBackup -Result ([pscustomobject]@{Backup=(Join-Path ([IO.Path]::GetTempPath()) 'Domenia-fixture.db');CopiedTo='';Verified=$true;VerifiedAtUtc=[datetime]::UtcNow.ToString('o')}) -State $backup.State
+        Complete-DomeniaGestureBackup -Result ([pscustomobject]@{Backup=(Join-Path ([IO.Path]::GetTempPath()) 'Domenia-fixture.db');CopiedTo='';Verified=$true;VerifiedAtUtc=[datetime]::UtcNow.ToString('o');SHA256=('ab'*32);Bytes=4096}) -State $backup.State
         Expect ($script:Jobs.Count -eq 2 -and $script:Jobs[1].OperationId -eq 'IndexBuild' -and $script:Jobs[1].Payload.SearchBase -eq $script:IndexScopeDn -and $script:DomeniaOuRefresh.Source -eq 'Index' -and $script:DomeniaOuRefresh.Phase -eq 'Directory') 'Lecture AD non lancee apres la sauvegarde verifiee'
         # A failed backup starts nothing; the explicit choice to continue without a backup is offered in the page.
         Stop-DomeniaOuRefresh -Source Index;$script:AsyncJobs.Clear();$script:BackupSettings=@{}
@@ -248,7 +249,7 @@ Case 'FI-13 : une OU choisie pendant la sauvegarde n est jamais lue sans son pro
     [IO.File]::WriteAllBytes($file,[byte[]]@(0))
     try{
         $script:DatabaseScopedPath=$file;$clicked=$script:SelectedBranchDn
-        $receipt=[pscustomobject]@{Backup=(Join-Path ([IO.Path]::GetTempPath()) 'Domenia-fixture.db');CopiedTo='';Verified=$true;VerifiedAtUtc=[datetime]::UtcNow.ToString('o')}
+        $receipt=[pscustomobject]@{Backup=(Join-Path ([IO.Path]::GetTempPath()) 'Domenia-fixture.db');CopiedTo='';Verified=$true;VerifiedAtUtc=[datetime]::UtcNow.ToString('o');SHA256=('ab'*32);Bytes=4096}
         # Another OU picked in Rechercher while the copy runs: nothing is read, neither OU.
         Invoke-DomeniaOuRefresh Search AD
         $backup=$script:Jobs[0];Expect ($backup.OperationId -eq 'StorageBackup') 'Sauvegarde absente avant la lecture AD'

@@ -45,7 +45,9 @@ function Observation {param([string]$Family='Presence',[string]$At=$at,[string]$
 try{
  $schema=@($core.FindAll({param($n)$n -is [Management.Automation.Language.StringConstantExpressionAst] -or $n -is [Management.Automation.Language.ExpandableStringExpressionAst]},$true)|Where-Object{$_.Value -match '^PRAGMA journal_mode=WAL;' -and $_.Value -match 'CREATE TABLE IF NOT EXISTS schema_info'})
  if($schema.Count -ne 1){throw 'Schema count'}
- $db=Open-DomeniaDatabase $path;try{[void](Invoke-DomeniaDbExec $schema[0].Value $db);$script:sqliteVersion=[string](@(Invoke-DomeniaDbQuery 'SELECT sqlite_version() AS v;' $db)[0].v)}finally{Close-DomeniaDatabase $db}
+ # The AST keeps the here-string unexpanded: the query library tables are inserted exactly as the core does at run time.
+ $schemaSql=[string]$schema[0].Value;if($schemaSql.Contains('$(Get-DomeniaQueryLibrarySchema)')){$schemaSql=$schemaSql.Replace('$(Get-DomeniaQueryLibrarySchema)',(Get-DomeniaQueryLibrarySchema))}
+ $db=Open-DomeniaDatabase $path;try{[void](Invoke-DomeniaDbExec $schemaSql $db);$script:sqliteVersion=[string](@(Invoke-DomeniaDbQuery 'SELECT sqlite_version() AS v;' $db)[0].v)}finally{Close-DomeniaDatabase $db}
  Case 'Directory commit returns persisted canonical row and durable revision' {
   $r=Commit @((Directory));Expect ($r.Saved -and $r.DataSource -eq 'SQLite' -and $r.Rows.Count -eq 1) 'receipt/readback';Expect ($r.Revision -eq 1 -and $r.SnapshotRevision -eq 1) 'revision';Expect ($r.SQLiteVersion -eq $script:sqliteVersion) 'actual sqlite version';Expect ($r.Rows[0].Details.department -eq 'IT') 'attributes';Expect ((Read-TestDb 'SELECT count(*) n FROM domenia_store_batches;')[0].n -eq 1) 'durable receipt'
  }
@@ -344,6 +346,57 @@ try{
   foreach($name in @('domenia_observations','domenia_details','domenia_directory_data')){Expect ((Read-TestDb ('SELECT count(*) n FROM '+$name+';'))[0].n -eq 0) ('canonical table cleared '+$name)}
   Expect ((Read-TestDb 'SELECT count(*) n FROM domenia_store_batches;')[0].n -ge $before) 'receipts never purged'
   Expect ((Read-TestDb 'SELECT count(*) n FROM domenia_account_preferences;')[0].n -eq $prefs) 'account preferences never purged'
+ }
+ Case 'Point 39: operator text is bound, quotes and LIKE characters match literally' {
+  [void](Commit @((Directory '00000000-0000-0000-0000-000000000391' "PC-O'Brien"),(Directory '00000000-0000-0000-0000-000000000392' 'PC-100%'),(Directory '00000000-0000-0000-0000-000000000393' 'PC-1000')))
+  $r=Read-Store ([pscustomobject]@{Kind='Directory';Term="o'brien";Limit=50;Projection='List'})
+  Expect ($r.Total -eq 1 -and $r.Rows[0].Name -ceq "PC-O'Brien") 'quote bound as text'
+  $r=Read-Store ([pscustomobject]@{Kind='Directory';Term='100%';Limit=50;Projection='List'})
+  Expect ($r.Total -eq 1 -and $r.Rows[0].Name -ceq 'PC-100%') 'percent is not a wildcard'
+  Expect (($r.SqlStats.Executed -ge 3) -and ($r.SqlStats.Prepared -ge 1) -and ($r.SqlStats.SqlMs -ge 0)) 'reads are measured'
+  $r=Read-Store ([pscustomobject]@{Kind='Observation';Guids=@($guid);Family="Presence' OR '1'='1"})
+  Expect ($r.Observations.Count -eq 0) 'family is a value, never SQL'
+ }
+ Case 'Point 39: detail filters are bound after the GUID slots and keep only the requested result' {
+  $id='00000000-0000-0000-0000-000000000395'
+  $kinds=@(@('WmiExplorer',"win32_o'neil"),@('WmiExplorer','win32_bios'),@('Registry',"win32_o'neil"))
+  [void](Commit @(foreach($pair in $kinds){[pscustomobject]@{Kind='DetailResult';Guid=$id;DN='CN=PC-D,OU=Parc,DC=test';ResultKind=$pair[0];RequestKey=$pair[1];AttemptedAtUtc=$at;ObservedAtUtc=$at;Status='Success';Data=[pscustomobject]@{Key=$pair[1]}}}))
+  $both=Read-Store ([pscustomobject]@{Kind='Detail';Guids=@($id);ResultKind='WmiExplorer';RequestKey="win32_o'neil"})
+  Expect (($both.Total -eq 1) -and (@($both.Details).Count -eq 1) -and ($both.Details[0].ResultKind -ceq 'WmiExplorer') -and ($both.Details[0].RequestKey -ceq "win32_o'neil")) 'quote in a bound request key'
+  $kind=Read-Store ([pscustomobject]@{Kind='Detail';Guids=@($id);ResultKind='WmiExplorer'})
+  Expect ((@($kind.Details|ForEach-Object{$_.RequestKey}|Sort-Object) -join ',') -ceq "win32_bios,win32_o'neil") 'result kind alone'
+  $key=Read-Store ([pscustomobject]@{Kind='Detail';Guids=@($id);RequestKey="win32_o'neil"})
+  Expect ((@($key.Details|ForEach-Object{$_.ResultKind}|Sort-Object) -join ',') -ceq 'Registry,WmiExplorer') 'request key alone'
+  $none=Read-Store ([pscustomobject]@{Kind='Detail';Guids=@($id);ResultKind="WmiExplorer' OR '1'='1"})
+  Expect (($none.Total -eq 0) -and (@($none.Details).Count -eq 0)) 'a result kind is a value, never SQL'
+  $all=Read-Store ([pscustomobject]@{Kind='Detail';Guids=@($id)})
+  Expect (@($all.Details).Count -eq 3) 'no filter, every detail of the page'
+ }
+ Case 'Point 39: slices of up to 32 GUIDs reuse one prepared statement with the same rows as a literal page' {
+  $ids=@(1..40|ForEach-Object{'00000000-0000-0000-0000-0000000004'+$_.ToString('00')})
+  [void](Commit @($ids|ForEach-Object{Directory $_ ('SLOT-'+$_.Substring(34))}))
+  $all=Read-Store ([pscustomobject]@{Kind='Directory';Guids=$ids;Limit=100;Projection='List'})
+  $first=Read-Store ([pscustomobject]@{Kind='Directory';Guids=@($ids[0..19]);Limit=100;Projection='List'})
+  $second=Read-Store ([pscustomobject]@{Kind='Directory';Guids=@($ids[20..39]);Limit=100;Projection='List'})
+  Expect ($all.Rows.Count -eq 40) 'literal page of 40'
+  Expect (((@($first.Rows)+@($second.Rows)|ForEach-Object{$_.Guid}|Sort-Object) -join ',') -ceq ((@($all.Rows)|ForEach-Object{$_.Guid}|Sort-Object) -join ',')) 'bound slices return the same rows'
+  $Payload=[pscustomobject]@{Action='FleetStats';Path=$path;BusyTimeoutMs=1000}
+  $db=[IntPtr]::Zero;$ptr=New-DomeniaUtf8Ptr $path;try{[void][Domenia.WinSqliteNative]::sqlite3_open_v2($ptr,[ref]$db,1,[IntPtr]::Zero)}finally{[Runtime.InteropServices.Marshal]::FreeHGlobal($ptr)}
+  try{
+   $functions=[Management.Automation.Language.Parser]::ParseInput($reader,[ref]$t,[ref]$e)
+   foreach($fn in @($functions.FindAll({param($n)($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -in @('New-IdxWUtf8','ConvertFrom-IdxWUtf8','Get-IdxWLiteral','Set-IdxWBindings','Invoke-IdxWQuery','Get-IdxWGuidSlots','Get-IdxWStatsSnapshot'))},$true))){. ([scriptblock]::Create($fn.Extent.Text))}
+   $IdxWStats=[pscustomobject]@{Prepared=0;Reused=0;Executed=0;Rows=0L;SqlMs=[double]0};$IdxWStatements=@{};$IdxWColumns=@{}
+   foreach($slice in @(@($ids[0..31]),@($ids[32..39]))){$slots=Get-IdxWGuidSlots $slice;[void](Invoke-IdxWQuery $db ('SELECT object_guid FROM ad_objects WHERE object_guid IN ('+$slots.Sql+');') -Parameters $slots.Parameters -Cached:([bool]$slots.Cached))}
+   Expect (($IdxWStats.Prepared -eq 1) -and ($IdxWStats.Reused -eq 1) -and ($IdxWStats.Rows -eq 40)) 'one statement for both slices, NULL padding matches nothing'
+   $wrong=$false;try{[void](Invoke-IdxWQuery $db 'SELECT ?1 AS v;' -Parameters @('a','b'))}catch{$wrong=$true};Expect $wrong 'parameter count must match'
+   # One binding rule with the prepared writes of LocalStore (PF-07): UTF-16 text of exact length, booleans and integral
+   # numbers as INTEGER, other numbers as REAL, $null as NULL.
+   $text='Été ʼ'+[char]::ConvertFromUtf32(0x1D11E)+' x''y'
+   $echo=@(Invoke-IdxWQuery $db 'SELECT ?1 AS t,typeof(?1) AS tt,?2 AS b,typeof(?2) AS bt,?3 AS d,typeof(?3) AS dt,?4 AS i,typeof(?4) AS it,?5 AS w,typeof(?5) AS wt,typeof(?6) AS nt;' -Parameters @($text,$true,1.5,[long]42,[double]7,$null))
+   Expect (($echo.Count -eq 1) -and ([string]$echo[0].t -ceq $text) -and ([string]$echo[0].tt -ceq 'text')) 'text bound as exact UTF-16'
+   Expect (([long]$echo[0].b -eq 1) -and ([string]$echo[0].bt -ceq 'integer') -and ([double]$echo[0].d -eq 1.5) -and ([string]$echo[0].dt -ceq 'real')) 'boolean and real bound like LocalStore'
+   Expect (([long]$echo[0].i -eq 42) -and ([string]$echo[0].it -ceq 'integer') -and ([long]$echo[0].w -eq 7) -and ([string]$echo[0].wt -ceq 'integer') -and ([string]$echo[0].nt -ceq 'null')) 'integers and NULL bound like LocalStore'
+  }finally{foreach($cached in @($IdxWStatements.Values)){[void][Domenia.WinSqliteNative]::sqlite3_finalize([IntPtr]$cached)};[void][Domenia.WinSqliteNative]::sqlite3_close($db)}
  }
  # Points 4, 5 and 10: scope clocks of the explicit OU collections (domenia_domain_metadata).
  Case 'Scope clocks keep the last success beside a newer failed attempt and read back from SQLite' {

@@ -4,7 +4,7 @@
 $ErrorActionPreference='Stop'
 $wad=Split-Path -Parent $PSScriptRoot
 $modules=Join-Path $wad 'modules'
-foreach($name in @('Common.Model','Probes.Model','Live.Model','Live.UI','Storage.UI','Engine.UI','Park.Model','Park.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+foreach($name in @('Common.Model','Store.Model','Probes.Model','Live.Model','Live.UI','Storage.UI','Engine.UI','Park.Model','Park.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 if(-not ('Domenia.Native.ProbeResult' -as [type])){Add-Type -Path (Join-Path $modules 'Domenia.Native.dll')}
 $checks=[Collections.Generic.List[object]]::new()
 function Assert {param($Value,[string]$Why='Assertion fausse')if(-not $Value){throw $Why}}
@@ -353,6 +353,181 @@ Case 'Park partial measurements count as failed while complete observations are 
   Assert ($null -ne $script:QueuedObservation -and $script:QueuedObservation.Probes.fixture.Rows[0][0] -eq 'raw') ('full persisted observation '+$kind)
   if($kind -eq 'InventoryError'){Assert ($script:QueuedObservation.InventoryError -eq 'denied' -and $script:QueuedObservation.InventoryAttemptUtc)}
  }
+}
+# Points 31, 32 and 34: storage assistant state, synthetic only (no worker body runs, no file is opened).
+function Reset-StorageFixture {
+ Reset-Fixture;$script:ParkRuns=@{};$script:StorageMaintenance=$null;$script:StorageLastSwitch=$null;$script:DomeniaDirectoryReads=$null
+ $script:Conn=[pscustomobject]@{Server='example.invalid';BaseDn='dc=example,dc=invalid'}
+}
+Case 'Storage switch drops only the queue of the other base and tells its callers' {
+ Reset-StorageFixture;$script:Told=[Collections.Generic.List[object]]::new()
+ function Fail-FixtureBatch {param($Message,$State)$script:Told.Add([pscustomobject]@{State=$State;Message=[string]$Message})}
+ $script:Persistence.Pending['old-1']=[pscustomobject]@{QueueKey='old-1';Kind='StoreBatch';Path='/synthetic/old.db';ErrorHandler='Fail-FixtureBatch';CallbackState='s1'}
+ $script:Persistence.Pending['old-2']=[pscustomobject]@{QueueKey='old-2';Kind='Link';Path='/synthetic/old.db'}
+ $script:Persistence.Pending['new-1']=[pscustomobject]@{QueueKey='new-1';Kind='StoreBatch';Path='/synthetic/new.db';ErrorHandler='Fail-FixtureBatch';CallbackState='s2'}
+ $script:Persistence.LinkBusy=$true
+ Assert ((Clear-DomeniaStoragePendingForOtherBase -ActivePath '/synthetic/new.db') -eq 2) 'two items of the old base'
+ Assert ((@($script:Persistence.Pending.Keys) -join ',') -ceq 'new-1') 'the new base keeps its queue'
+ Assert (($script:Told.Count -eq 1) -and ($script:Told[0].State -ceq 's1') -and ($script:Told[0].Message -like '*non enregistré*')) 'the batch caller is told'
+ Assert (-not $script:Persistence.LinkBusy) 'no link work left'
+}
+Case 'The single writer leaves its queue untouched while a maintenance holds the base' {
+ Reset-StorageFixture;$script:Admission='job-store'
+ $script:Persistence.Pending['k']=[pscustomobject]@{QueueKey='k';Kind='StoreBatch';Path=$script:DatabaseScopedPath;Bytes=10L;ChangeCount=1L}
+ $script:StorageMaintenance=[pscustomobject]@{Id='m';Locked=$true;Job='';Draining=$false}
+ Start-DomeniaStorageWork
+ Assert ($null -eq $script:Dispatched) 'no admission attempted';Assert ($script:Persistence.Pending.Count -eq 1) 'queue kept';Assert (-not [string]$script:Persistence.Fault) 'no fault'
+ $script:StorageMaintenance=$null
+}
+Case 'A move refused before publication releases the lock; an ambiguous failure keeps it' {
+ Reset-StorageFixture
+ $state=[pscustomobject]@{Id='m1';Mode='Move';Epoch=7L;Path=$script:DatabaseScopedPath;DomainDn='dc=example,dc=invalid';Locked=$true;Hold=$true;Recovery=$false;Job='j';Draining=$false;TargetPath='/synthetic/new.db';Receipt=$null}
+ $script:StorageMaintenance=$state
+ Fail-DomeniaStorageMaintenance 'StorageNothingPublished : La source a change : refaire la previsualisation.' $state
+ Assert ((-not $state.Locked) -and (-not $state.Hold)) 'released'
+ Assert (($script:Texts['LblStorageMaintenance'] -like '*non effectuée*source a change*') -and ($script:Texts['LblStorageMaintenance'] -notlike '*StorageNothingPublished*')) $script:Texts['LblStorageMaintenance']
+ $state.Locked=$true;$state.Hold=$true;$state.Job='j'
+ Fail-DomeniaStorageMaintenance 'Délai dépassé.' $state
+ Assert ($state.Locked -and $state.Hold) 'an ambiguous failure stays locked'
+ $recovery=[pscustomobject]@{Id='m2';Mode='Restore';Epoch=7L;Path=$script:DatabaseScopedPath;DomainDn='dc=example,dc=invalid';Locked=$true;Hold=$true;Recovery=$true;Job='j';Draining=$false;TargetPath='/synthetic/new.db';Receipt=$null}
+ $script:StorageMaintenance=$recovery
+ Fail-DomeniaStorageMaintenance 'StorageNothingPublished : Integrite SQLite non confirmee.' $recovery
+ Assert ($recovery.Locked -and $recovery.Hold) 'an unreadable base stays behind the lock'
+ $script:StorageMaintenance=$null
+}
+Case 'Undo is offered only for the completed switch of this epoch and base' {
+ Reset-StorageFixture
+ $script:StorageLastSwitch=[pscustomobject]@{OperationId='op';OriginalPath='/synthetic/old.db';TargetPath=$script:DatabaseScopedPath;DomainDn='dc=example,dc=invalid';Epoch=7L}
+ Assert ($null -ne (Get-DomeniaStorageMaintenanceUndo)) 'same epoch and base'
+ $script:SessionEpoch=8L;Assert ($null -eq (Get-DomeniaStorageMaintenanceUndo)) 'other epoch'
+ $script:SessionEpoch=7L;$script:DatabaseScopedPath='/synthetic/other.db';Assert ($null -eq (Get-DomeniaStorageMaintenanceUndo)) 'other base'
+ $script:StorageLastSwitch=$null
+}
+Case 'Undo names the original as marker holder and refuses instead of draining pending data' {
+ function Get-DomeniaStorageMaintenanceWorkerCode {return 'throw "Synthetic worker must never execute"'}
+ Reset-StorageFixture;$script:Admission='job-undo'
+ $script:StorageLastSwitch=[pscustomobject]@{OperationId='11111111-1111-1111-1111-111111111111';OriginalPath='/synthetic/old.db';TargetPath=$script:DatabaseScopedPath;DomainDn='dc=example,dc=invalid';Epoch=7L}
+ Start-DomeniaStorageMaintenanceUndo -Undo $script:StorageLastSwitch
+ Assert (($script:Dispatched.Operation -eq 'StorageMaintenance') -and ($script:Dispatched.Payload.Action -eq 'Rollback') -and ($script:Dispatched.Payload.ActivePath -eq '/synthetic/old.db') -and ($script:Dispatched.Payload.OperationId -eq '11111111-1111-1111-1111-111111111111')) 'rollback sent to the original'
+ Assert ($script:StorageMaintenance.Locked -and ($script:StorageMaintenance.Mode -eq 'Undo')) 'collections wait behind the lock'
+ Reset-StorageFixture;$script:Admission='job-undo'
+ $script:StorageLastSwitch=[pscustomobject]@{OperationId='11111111-1111-1111-1111-111111111111';OriginalPath='/synthetic/old.db';TargetPath=$script:DatabaseScopedPath;DomainDn='dc=example,dc=invalid';Epoch=7L}
+ $script:Persistence.Pending['k']=[pscustomobject]@{QueueKey='k';Kind='StoreBatch';Path=$script:DatabaseScopedPath;Bytes=10L;ChangeCount=1L}
+ Start-DomeniaStorageMaintenanceUndo -Undo $script:StorageLastSwitch
+ Assert ($null -eq $script:Dispatched) 'pending data is never drained into the new base'
+ Assert ((-not $script:StorageMaintenance.Locked) -and (-not $script:StorageMaintenance.Hold) -and (-not $script:StorageMaintenance.Draining)) 'nothing held'
+ $script:StorageMaintenance=$null;$script:StorageLastSwitch=$null
+}
+Case 'A failed undo leaves the current base in service and ends the offer' {
+ Reset-StorageFixture
+ $script:StorageLastSwitch=[pscustomobject]@{OperationId='op';OriginalPath='/synthetic/old.db';TargetPath=$script:DatabaseScopedPath;DomainDn='dc=example,dc=invalid';Epoch=7L}
+ $state=[pscustomobject]@{Id='op';Mode='Undo';Epoch=7L;Path=$script:DatabaseScopedPath;MarkerPath='/synthetic/old.db';DomainDn='dc=example,dc=invalid';Locked=$true;Hold=$true;Recovery=$false;Job='j';Draining=$false;TargetPath=$script:DatabaseScopedPath;Receipt=$null}
+ $script:StorageMaintenance=$state
+ Fail-DomeniaStorageMaintenance 'La nouvelle base a change. Retour automatique refuse ; les deux fichiers sont conserves.' $state
+ Assert ((-not $state.Locked) -and (-not $state.Hold) -and ($null -eq $script:StorageLastSwitch)) 'released, offer ended'
+ Assert ($script:Texts['LblStorageMaintenance'] -like '*reste en service*') $script:Texts['LblStorageMaintenance']
+ $script:StorageMaintenance=$null
+}
+# Point 34 (review): a restore over an unreadable base never waits for a queue that its lock keeps unwritten.
+function New-UnreadableFixtureState {
+ return [pscustomobject]@{Id='recovery-unreadable';Mode='Restore';Recovery=$true;Locked=$true;Hold=$true;Draining=$false;DrainNext='';DrainUntil=[datetime]::MinValue;Epoch=7L;Path=$script:DatabaseScopedPath;DomainDn='dc=example,dc=invalid';SourcePath='';TargetPath='';Fingerprint='';Job='';Receipt=$null}
+}
+Case 'A restore over an unreadable base inspects at once although its queue holds collected data' {
+ function Get-DomeniaStorageMaintenanceWorkerCode {return 'throw "Synthetic worker must never execute"'}
+ Reset-StorageFixture;$script:Admission='job-inspect';$script:StorageDrainTimer=New-FixtureTimer
+ $script:StorageMaintenance=New-UnreadableFixtureState
+ $script:Persistence.Pending['b']=[pscustomobject]@{QueueKey='b';Kind='StoreBatch';Path=$script:DatabaseScopedPath;Bytes=10L;ChangeCount=1L}
+ $script:Persistence.Pending['s']=[pscustomobject]@{QueueKey='s';Kind='Sample';Path=$script:DatabaseScopedPath}
+ Request-DomeniaStorageMaintenance -Mode Restore -SourcePath '/synthetic/backup.db' -TargetPath '/synthetic/restored.db'
+ Assert (($null -ne $script:Dispatched) -and ($script:Dispatched.Operation -eq 'StorageMaintenance') -and ($script:Dispatched.Payload.Action -eq 'Inspect')) 'inspection dispatched without draining'
+ Assert ((-not $script:StorageMaintenance.Draining) -and $script:StorageMaintenance.Locked -and $script:StorageMaintenance.Recovery) 'the unreadable base stays behind the lock'
+ Assert ($script:Persistence.Pending.Count -eq 2) 'its queue is left for the switch to account for'
+ $script:StorageMaintenance=$null
+}
+Case 'A restore over an unreadable base waits only for running work, and its timeout keeps collections suspended' {
+ function Get-DomeniaStorageMaintenanceWorkerCode {return 'throw "Synthetic worker must never execute"'}
+ Reset-StorageFixture;$script:Admission='job-inspect';$script:StorageDrainTimer=New-FixtureTimer
+ $script:StorageMaintenance=New-UnreadableFixtureState
+ $script:Persistence.Pending['b']=[pscustomobject]@{QueueKey='b';Kind='StoreBatch';Path=$script:DatabaseScopedPath;Bytes=10L;ChangeCount=1L}
+ $script:AsyncJobs['read']=[pscustomobject]@{OperationId='GlobalSearch'}
+ Request-DomeniaStorageMaintenance -Mode Restore -SourcePath '/synthetic/backup.db' -TargetPath '/synthetic/restored.db'
+ Assert ($script:StorageMaintenance.Draining -and ($null -eq $script:Dispatched)) 'running work is awaited'
+ $script:AsyncJobs.Clear()
+ Invoke-DomeniaStorageMaintenanceDrainTick
+ Assert ((-not $script:StorageMaintenance.Draining) -and ($script:Dispatched.Payload.Action -eq 'Inspect')) 'the queue of the unreadable base never holds the restore'
+ Reset-StorageFixture;$script:Admission='job-inspect';$script:StorageDrainTimer=New-FixtureTimer
+ $script:StorageMaintenance=New-UnreadableFixtureState
+ $script:AsyncJobs['read']=[pscustomobject]@{OperationId='GlobalSearch'}
+ Request-DomeniaStorageMaintenance -Mode Restore -SourcePath '/synthetic/backup.db' -TargetPath '/synthetic/restored.db'
+ $script:StorageMaintenance.DrainUntil=[datetime]::UtcNow.AddSeconds(-1)
+ Invoke-DomeniaStorageMaintenanceDrainTick
+ Assert ((-not $script:StorageMaintenance.Draining) -and $script:StorageMaintenance.Locked -and $script:StorageMaintenance.Hold) 'still locked after the timeout'
+ Assert (($script:Texts['LblStorageMaintenance'] -like 'Restauration non lancée*restent suspendues*') -and ($script:Texts['LblStorageMaintenance'] -notlike '*rétablies*')) $script:Texts['LblStorageMaintenance']
+ $script:StorageMaintenance=$null
+}
+Case 'Under the lock an association, a saved query or an import is refused where it is made; collected data waits' {
+ Reset-StorageFixture
+ function ConvertTo-DomeniaCanonicalLinks {param($Links)return @($Links|Where-Object{$null -ne $_})}
+ function Normalize-LinkComputer {param($Name)return ([string]$Name).Trim()}
+ function ConvertTo-DomeniaLinkRecord {param($Link)return $Link}
+ function Get-DomeniaLinkFingerprint {param($Link)if($null -eq $Link){return ''};return ([string]$Link.Computer+'|'+[string]$Link.UserLogin)}
+ function Rebuild-UserMachineLinkIndex {}
+ function Refresh-LinkGrid {}
+ function Refresh-AssociationContext {param([switch]$SkipResultRefresh)}
+ $script:LinkBaseline=@{};$script:UserMachineLinks=@([pscustomobject]@{Computer='PC1';UserLogin='alice'})
+ $script:StorageMaintenance=[pscustomobject]@{Id='m';Mode='Move';Locked=$true;Hold=$true;Recovery=$false;Job='j';Draining=$false;Receipt=$null}
+ Assert (-not (Queue-DomeniaLinkChanges)) 'explicit association refused'
+ Assert (($script:Persistence.Pending.Count -eq 0) -and (-not $script:Persistence.LinkBusy)) 'nothing queued for the base being left'
+ Assert ($script:Status -like 'Maintenance de la base locale en cours : modification non enregistrée*') $script:Status
+ Assert (-not (Queue-DomeniaLinkChanges -Quiet)) 'the background save waits for the release'
+ Assert (-not (Queue-DomeniaMetadata -Kind LegacyImport -Row ([pscustomobject]@{Marker='m1';BaseDn='DC=example,DC=invalid'}))) 'legacy import refused'
+ $path=[IO.Path]::GetFullPath($script:DatabaseScopedPath);$domain='dc=example,dc=invalid'
+ $context=[pscustomobject]@{Version=1;Path=$path;DomainDn=$domain;StoreId=(Get-DomeniaStoreId $path $domain);SessionEpoch=7L;RequestId='r1';Generation=0;ScopeDn='';Subtree=$true}
+ $query=Submit-DomeniaStoreBatch -Context $context -BatchId ([guid]::NewGuid().ToString('D')) -Changes @([pscustomobject]@{Kind='QueryDependency';RecipeId='recipe-1';ConsumerKind='Fleet';ConsumerId='widget-1';BoundRevision=1L;Remove=$false}) -SuccessHandler 'Complete-Fixture' -ErrorHandler 'Fail-Fixture'
+ Assert ((-not $query.Accepted) -and (-not $query.Backpressure) -and ($query.Reason -ceq 'StorageMaintenance') -and ($script:Persistence.Pending.Count -eq 0)) 'saved query refused with its reason'
+ $data=Submit-DomeniaStoreBatch -Context $context -BatchId ([guid]::NewGuid().ToString('D')) -Changes @([pscustomobject]@{Kind='AccountPreference';Scope='Remote';UserName='EXAMPLE\reader';DomainDn=$domain;UpdatedAtUtc=[datetime]::UtcNow.ToString('o')}) -SuccessHandler 'Complete-Fixture' -ErrorHandler 'Fail-Fixture'
+ Assert ($data.Accepted -and ($script:Persistence.Pending.Count -eq 1)) 'other data still waits in the queue'
+ $script:StorageMaintenance.Locked=$false
+ Assert (Queue-DomeniaLinkChanges) 'accepted once the lock is released'
+ Assert ($script:Persistence.Pending.Count -eq 2) 'association queued'
+ $script:StorageMaintenance=$null
+}
+Case 'The save timer idles at one second while a maintenance holds the base' {
+ Reset-StorageFixture;$script:Soon=0
+ function Set-DomeniaTimerInterval {param($Timer,[timespan]$Interval)$Timer.IntervalMs=[int]$Interval.TotalMilliseconds}
+ function Invoke-DomeniaTimerSoon {param($Owner)$script:Soon++}
+ $script:Persistence.Timer|Add-Member -NotePropertyName IntervalMs -NotePropertyValue 20
+ $script:Persistence.Pending['k']=[pscustomobject]@{QueueKey='k';Kind='StoreBatch';Path=$script:DatabaseScopedPath;Bytes=10L;ChangeCount=1L}
+ $script:StorageMaintenance=[pscustomobject]@{Id='m';Locked=$true;Job='';Draining=$false}
+ Start-DomeniaStorageWork
+ Assert (($script:Persistence.Timer.IntervalMs -eq 1000) -and ($null -eq $script:Dispatched)) 'back to the idle poll, nothing written'
+ Request-DomeniaStorageWork
+ Assert (($script:Persistence.Timer.IntervalMs -eq 1000) -and ($script:Soon -eq 0)) 'no 20 ms batch interval under the lock'
+ $script:StorageMaintenance.Locked=$false
+ Request-DomeniaStorageWork
+ Assert (($script:Persistence.Timer.IntervalMs -eq 20) -and ($script:Soon -eq 1)) 'prompt batch interval once released'
+ $script:StorageMaintenance=$null
+}
+Case 'Writes queued after the preview are saved, then previewed again before any copy' {
+ function Get-DomeniaStorageMaintenanceWorkerCode {return 'throw "Synthetic worker must never execute"'}
+ function Get-DomeniaPersistenceLabel {param($Pending,$Failed,$Suspended,$Unavailable,$Conflicts)return ''}
+ function Format-DomeniaSize {param($Bytes)return ([string]$Bytes+' o')}
+ Reset-StorageFixture;$script:Admission='job-maintenance';$script:StorageDrainTimer=New-FixtureTimer
+ $state=[pscustomobject]@{Id='m3';Mode='Move';Epoch=7L;Path=$script:DatabaseScopedPath;DomainDn='dc=example,dc=invalid';SourcePath=$script:DatabaseScopedPath;TargetPath='/synthetic/new.db';Fingerprint=('a'*64);Job='';Locked=$false;Recovery=$false;Hold=$true;HoldUntil=[datetime]::UtcNow.AddMinutes(10);Draining=$false;DrainNext='';DrainUntil=[datetime]::MinValue;Receipt=$null}
+ $script:StorageMaintenance=$state
+ $script:Persistence.Pending['k']=[pscustomobject]@{QueueKey='k';Kind='StoreBatch';Path=$script:DatabaseScopedPath;Bytes=10L;ChangeCount=1L}
+ Start-DomeniaStorageMaintenanceApply -State $state
+ Assert (($null -eq $script:Dispatched) -and $state.Draining -and (-not $state.Locked)) 'nothing copied while writes wait'
+ $script:Persistence.Pending.Clear()
+ Invoke-DomeniaStorageMaintenanceDrainTick
+ Assert (($script:Dispatched.Payload.Action -eq 'Inspect') -and (-not $state.Locked) -and (-not $state.Draining)) 'a new preview, never a copy refused for the old fingerprint'
+ $script:StorageMaintenance=$null
+}
+Case 'The maintenance lock refuses the writers of the base, not the receipts journal or a chosen document' {
+ foreach($id in @('ReceiptStore','DocumentStore','StorageMaintenance','StorageRetention','StorageIntegrity')){Assert (-not (Test-DomeniaStorageLockedWriter -OperationId $id)) ('admitted: '+$id)}
+ foreach($id in @('LocalStore','LiveCache','IndexBuild','IndexRefresh','LinkHistoryStore','StoragePurge','StorageBackup')){Assert (Test-DomeniaStorageLockedWriter -OperationId $id) ('refused: '+$id)}
+ $core=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1'))
+ Assert ($core.Contains('[bool]$script:StorageMaintenance.Locked -and (Test-DomeniaStorageLockedWriter -OperationId $OperationId)')) 'Start-UiTask applies this rule'
 }
 $failed=@($checks|Where-Object{-not $_.Passed}).Count
 $report=[ordered]@{Kind='EngineResilience';Passed=$checks.Count-$failed;Failed=$failed;NativeWindowsPowerShell51=($env:OS -eq 'Windows_NT' -and $PSVersionTable.PSVersion.Major -eq 5);WpfExecuted=$false;NetworkAccessed=$false;Tests=$checks.ToArray()}

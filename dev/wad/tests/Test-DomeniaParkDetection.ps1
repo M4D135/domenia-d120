@@ -895,9 +895,26 @@ Case 'Moteur : dans la fenêtre, le widget ajouté part au geste, par le budget 
  Assert ((Run).SkippedTargets -eq 1 -and (Run).CapabilitySkipped -eq 1) ('Postes sans lecture : '+(Run).SkippedTargets)
  Assert (@($script:Calls|Select-Object -Skip 1|Where-Object{[string]$_.State.SourceKey -eq 'site:10.1.2.0/24'}).Count -eq 1) 'Budget du sous-réseau ignoré'
 }
+Case 'Moteur : base en maintenance, le ping de la liste nʼenvoie plus de lot et le plan garde le motif' {
+ # Points 32 and 35 (storage) for the batch ping as for the console reads: the echoes already reported are saved.
+ Reset-Fixture;Approve-Run 40 -PingOnly;$r=Run
+ Invoke-DomeniaParkRunTick;$first=$script:Calls[1]
+ Assert (@($first.Payload.Targets).Count -eq 32) ('Premier lot : '+@($first.Payload.Targets).Count)
+ $script:Persistence=[pscustomobject]@{Pending=@{};InFlight=0;Failures=0;Conflicts=@{};LinkBusy=$false;LinkRequestTimer=$null;LinkPersistenceMore=$false}
+ $script:StorageMaintenance=[pscustomobject]@{Locked=$true;Draining=$false;Hold=$false}
+ try{
+  Complete-PingJob $first
+  Invoke-DomeniaParkRunTick
+  Assert ($r.Stopping -and @($script:Calls|Where-Object{$_.OperationId -eq 'ParkPing'}).Count -eq 1 -and $script:Saves.Count -eq 1) 'Lot envoyé pendant la maintenance, ou échos reçus non enregistrés'
+  Commit-PingSaved 0;Invoke-DomeniaParkRunTick
+  $progress=ConvertFrom-DomeniaCampaignProgressText $script:Prefs['Domenia.campaign-progress.json']
+  Assert ($r.Completed -and $r.Done -eq 32 -and $r.Unchecked -eq 8) ('Fin : '+$r.Done+' validés, '+$r.Unchecked+' non vérifiés')
+  Assert ($progress.State -eq 'Incident' -and $progress.DoneCount -eq 32 -and $progress.Reason -match '^Maintenance de la base locale') ('Plan : '+$progress.State+' '+$progress.Reason)
+ }finally{$script:StorageMaintenance=$null}
+}
 if($null -ne $script:ParkRuns){foreach($old in @($script:ParkRuns.Values)){if($null -ne $old -and $null -ne $old.PSObject.Properties['Timer'] -and $null -ne $old.Timer){$old.Timer.Stop()}}}
 $failed=@($checks|Where-Object Status -eq 'Failed').Count
-$expected=71
+$expected=72
 $report=[ordered]@{Kind='ParkDetection';Expected=$expected;Complete=($checks.Count -eq $expected -and $failed -eq 0);NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path $env:TEMP 'domenia-park-tests.json'}
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
