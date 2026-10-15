@@ -23637,6 +23637,12 @@ function New-DefaultConfig {
             RefreshAfterEachAction = $true
             # Lot L01: observations older than this are left out of the overview (greyed past 7 days).
             ObservationMaxAgeDays = 30
+            # FO-17: team layout of each board, set by the administrator: the JSON list exported by « Exporter » (or the
+            # whole exported document, or its text). Empty: the delivered layout. Applied by « Par défaut » and to a board
+            # never customised; an unreadable value is ignored and the delivered layout stays.
+            DefaultLayoutComputer = ''
+            DefaultLayoutFleet = ''
+            DefaultLayoutSoftware = ''
         }
         UI = [ordered]@{
             WindowWidth = 1720
@@ -24891,7 +24897,7 @@ function Get-DomeniaWorkerOperationHashes {
         ReceiptStore         = "93A2008D0F26AFB193C5AA3E7B19E31F00A0A8D1AF348C721B9B6B0139122884"
         ScopeReconcile       = "5917B0E2AB92BA626EF3621CCCE7B9A4988B318E62834EFD02FD6AFEF5C0B650"
         DocumentStore        = "BFD83587CB1BA62BC141E5F0742C6C6453A561617ED157045F3B4E7AB11A14E7"
-        LocalStore           = "17D0DB4E7443FD87E8EDBAA869B68059A58D56CB3FA372E440A7D8714DDC0BBE"
+        LocalStore           = "8AFC87052F7DDF6FB5F6F45CC72349047CE7D88BCE394482C14B8CE7B5D48EC2"
         EngineSelfTest        = "40E2C89F858E22E1D221AC48DC04DD5BF627F1ACBC836AB48036C43DB9F7E1D1"
             EmbeddedDirectoryLookup = "F43B3C78876A45E016E4B0ACBB7B30BA7DF114738BD8DCAB5249BC5B6E066689"
         EmbeddedPathBrowse = "B643D707E242EC4416AD63622847DD7C39E5B53ED47CF64FECD56E22B5A82271"
@@ -24927,7 +24933,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "F0081D97EE3DBF30ACEC0CC56541507484CA89A1157476741D2D42410B3312F5"
+    $expectedFingerprint = "352B93C6656568DB59AE4891911EDF70CE454DDC7E8CEC48EE6845A8C0F20DFE"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }

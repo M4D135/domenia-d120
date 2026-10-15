@@ -27,15 +27,16 @@ function Get-DomeniaCategorySummary {
     return [pscustomobject]@{ Items = $items; Count = $items.Count; State = $(if ($state.Count) { [string]$state[0].Value } else { '' }); Read = ($items.Count -gt 0 -or $state.Count -gt 0) }
 }
 function New-DomeniaDashboardSection {
-    # Section title in the display face, aligned with the card edges; cards flow below it.
-    param($Host_,[string]$Title,[string]$Subtitle = '')
+    # Section title in the display face, aligned with the card edges; cards flow below it. -Grid: the cards are laid
+    # out in columns instead (DS-04, Set-DomeniaBoardSectionGrid); the grid is returned in place of the flow panel.
+    param($Host_,[string]$Title,[string]$Subtitle = '',[switch]$Grid)
     $section = New-Object System.Windows.Controls.StackPanel
     $section.Margin = [System.Windows.Thickness]::new(0,$(if ($Host_.Children.Count) { 18 } else { 6 }),0,0)
     $header = New-DomeniaChartText -Text $Title -Size 17 -Weight SemiBold -Key 'TextColor' -Display
     $header.Margin = [System.Windows.Thickness]::new(7,0,0,$(if ($Subtitle) { 0 } else { 4 }))
     [void]$section.Children.Add($header)
     if ($Subtitle) { $sub = New-DomeniaChartText -Text $Subtitle -Size 12 -Key 'MutedColor'; $sub.Margin = [System.Windows.Thickness]::new(7,1,0,4); [void]$section.Children.Add($sub) }
-    $wrap = New-Object System.Windows.Controls.WrapPanel
+    $wrap = if ($Grid) { New-Object System.Windows.Controls.Grid } else { New-Object System.Windows.Controls.WrapPanel }
     [void]$section.Children.Add($wrap)
     [void]$Host_.Children.Add($section)
     return $wrap

@@ -1,13 +1,13 @@
 {
  "Schema": "DomeniaSwallowedBaseline/1",
  "Source": "reference initiale",
- "Total": 1323,
+ "Total": 1322,
  "Kinds": {
-  "empty": 1322,
+  "empty": 1321,
   "null": 1
  },
  "Places": {
-  "code": 1080,
+  "code": 1079,
   "here-string": 243
  },
  "Findings": {
@@ -297,7 +297,6 @@
   "Load-TreeRoot": 1,
   "Load-XamlWindow": 3,
   "Merge-DomeniaIndexRows": 2,
-  "New-DomeniaAttentionCard": 1,
   "New-DomeniaObjectsContextMenu": 1,
   "New-DomeniaStartupWindow": 7,
   "New-DomeniaTemporaryPassword": 1,

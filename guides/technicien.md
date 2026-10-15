@@ -189,19 +189,21 @@ Quand : vous voulez voir d'un coup d'œil l'état d'un poste et ses points à v�
 
 1. **Ouvrir la vue.** Dans « Poste », cliquez sur « Vue d'ensemble » : la carte « Tableau de bord du poste » suit la fiche du poste.
 2. **Remplir le tableau.** Cliquez sur « Inventaire rapide ». Pour les processus les plus gourmands et les erreurs du journal Système, cliquez sur « Inventaire complet », plus long. Un inventaire lancé dans « Détails », onglet « Inventaire », remplit aussi ce tableau.
-3. **Lire l'état général.** En haut, « Etat general » donne un score sur 100 et un verdict : « Bon état », « À surveiller », « Dégradé » ou « Critique ».
-4. **Lire les points d'attention.** « Points d attention » liste les problèmes trouvés, du plus grave au moins grave. « Rien a signaler » : aucun point à vérifier.
+3. **Lire la santé du poste.** En haut, la carte « Santé du poste » donne à gauche un score sur 100 et un verdict : « Bon état », « À surveiller », « Dégradé » ou « Critique ».
+4. **Lire les points à vérifier.** À droite de la même carte, le titre compte les points (« 2 points à vérifier · 1 information ») et la liste les donne du plus grave au moins grave ; un lien ouvre la vue de l'action utile. « Rien à signaler », en vert : aucun point à vérifier.
 5. **Parcourir les sections.** Descendez dans la page pour lire chaque section.
 
 ![Tableau de bord de PC-COMPTA-014 après un inventaire : état général, points d'attention, identité du poste et ressources](fig:tableau-poste)
 
 | Section | Ce que vous y lisez |
 |---|---|
-| « Identite du poste » | Système, modèle, mémoire, démarrage, utilisateur connecté, adresse IP. |
-| « Compte machine dans Active Directory » | Mot de passe machine, dernière connexion au domaine, état du compte, LAPS. |
+| « Identité du poste » | Une fiche : système, modèle, processeur, mémoire, durée de fonctionnement, utilisateur connecté, adresse IP et domaine. |
+| « Compte machine dans Active Directory » | Une fiche : état du compte, OU, mot de passe machine, dernière connexion au domaine, LAPS, horloge. |
 | « Ressources » | Mémoire, processeur, batterie, espace disque. |
-| « Activite » | Services Windows ; avec l'inventaire complet, processus les plus gourmands et erreurs du journal Système sur 3 jours. |
-| « Securite et etat » | Antivirus, pare-feu, BitLocker, mises à jour, redémarrage en attente, administrateurs locaux. |
+| « Activité » | Services Windows ; avec l'inventaire complet, processus les plus gourmands et erreurs du journal Système sur 3 jours. |
+| « Sécurité et état » | « État de protection » coche BitLocker, démarrage sécurisé, pare-feu, antivirus, redémarrage en attente et dernier correctif (« Non lu » quand le contrôle n'a pas été lu) ; services automatiques arrêtés et périphériques en erreur. Les autres informations s'ajoutent depuis « Ajouter un widget ». |
+
+Pour un ticket, « Copier le résumé », dans la barre du tableau, copie le poste, la date de l'inventaire, le score, les points à vérifier et les fiches en texte. « Copier », dans le menu clic droit d'un widget (ou Ctrl+C sur le widget), copie ce seul widget.
 
 > [!NOTE] Vert : rien à signaler ; orange : à surveiller ; rouge : critique. Une section vide indique ce qu'il faut lancer pour la remplir.
 
@@ -456,12 +458,12 @@ Quand : vous voulez garder sous les yeux les informations utiles. Chaque tuile o
 1. **Ouvrir le panneau.** Cliquez sur « Ajouter un widget » dans la barre du tableau. Le panneau de réglage s’ouvre dans la fenêtre.
 2. **Chercher l'information.** Tapez un mot dans la recherche (disque, utilisateur, BitLocker…) : la liste des informations se réduit. Le badge « affiche » signale une information déjà sur le tableau.
 3. **Choisir.** Cliquez sur une ligne. L'« Apercu » montre le widget.
-4. **Régler.** Modifiez au besoin le « Titre », la « Représentation » (« Chiffre cle », « Jauge », « Anneau », « Barres »…), la « Taille » et la « Section ». Pour une nouvelle section, choisissez « + Nouvelle section... » et tapez son nom dans le champ qui apparaît.
+4. **Régler.** Modifiez au besoin le « Titre », la « Représentation » (« Chiffre clé », « Jauge », « Anneau », « Barres »…), la « Taille » et la « Section ». Pour une nouvelle section, choisissez « + Nouvelle section... » et tapez son nom dans le champ qui apparaît.
 5. **Ajouter.** Cliquez sur « Ajouter » : le widget apparaît à la fin de sa section et la collecte de ses données manquantes part aussitôt, pour le poste sélectionné ou les postes actifs de l’OU affichée. Le widget affiche « Recherche des mesures manquantes » : les postes déjà mesurés ne sont pas contactés, puis « Collecte en cours » et son chiffre. Au-delà de 200 postes à lire, leur nombre est confirmé dans la page ; au-delà du plafond d’un relevé (500 postes par défaut), rien n’est lu. « Annuler » ne change rien.
 
 ![Panneau « Ajouter un widget » : recherche, liste des informations, réglages à droite et aperçu du widget « Disque systeme »](fig:editeur-widget)
 
-> [!NOTE] Une ligne « Requetes WMI · » interroge les postes. Sur le tableau du poste, cliquez sur « Actualiser les requetes », puis sur « Verifier les sessions » : le widget se remplit. Sur l’Accueil, ouvrez le détail de la sonde, puis collectez ses données dans l’Atelier.
+> [!NOTE] Une ligne de la section « Lu sur …, à la demande · … » (le poste, ou les postes sur l’Accueil) interroge les postes. Sur le tableau du poste, cliquez sur « Actualiser les requetes », puis sur « Verifier les sessions » : le widget se remplit. Sur l’Accueil, ouvrez le détail de la sonde, puis collectez ses données dans l’Atelier.
 
 > [!RESULTAT] Le widget est enregistré sur le tableau, dans la section choisie.
 
@@ -480,7 +482,7 @@ Quand : vous voulez garder sous les yeux les informations utiles. Chaque tuile o
 ## Revenir en arrière
 
 1. **Annuler la dernière modification.** Après un changement, la barre du tableau le rappelle, par exemple « Widget retire », avec le bouton « Annuler ». Cliquez dessus : la disposition précédente revient.
-2. **Revenir à la disposition d'origine.** En personnalisation, cliquez sur « Par defaut ». Ce retour s'annule lui aussi avec « Annuler ».
+2. **Revenir à la disposition d'origine.** En personnalisation, cliquez sur « Par défaut ». Ce retour s'annule lui aussi avec « Annuler ».
 
 > [!ATTENTION] « Annuler » ne revient qu'une étape en arrière et disparaît dès que de nouvelles données arrivent ou que vous choisissez un autre objet. Vérifiez le tableau avant de passer à autre chose.
 
@@ -490,7 +492,7 @@ Quand : vous voulez garder sous les yeux les informations utiles. Chaque tuile o
 
 | Vous voyez | Que faire |
 |---|---|
-| « Aucun widget » | Tous les widgets ont été retirés. Cliquez sur « Ajouter un widget », ou sur « Personnaliser » puis « Par defaut ». |
+| « Aucun widget » | Tous les widgets ont été retirés. Cliquez sur « Ajouter un widget », ou sur « Personnaliser » puis « Par défaut ». |
 | Un widget affiche « En attente » | Sur le tableau du poste, cliquez sur « Actualiser les requetes ». Sur l’Accueil, ouvrez le détail de la sonde, puis collectez ses données dans l’Atelier. |
 | Un widget vide n'apparaît plus | Il réapparaît quand ses données sont lues ; « Personnaliser » le montre. |
 

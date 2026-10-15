@@ -2,14 +2,15 @@
 # Tableaux de bord en widgets (decision David 2026-10-07) : recette Windows dans la fenetre principale reelle.
 # Donnees fictives (example.invalid), aucun reseau, aucune lecture ni ecriture AD. Couvre l affichage, le retrait
 # et l annulation, la representation, la taille, le deplacement, le glisser-deposer, la personnalisation, l editeur
-# (ajout, recherche, modification), la garde du perimetre des requetes et l animation d entree.
+# (ajout, recherche, modification), la garde du perimetre des requetes et l animation d entree ; lot Z03 : grille
+# fluide, carte Sante, poste allege, copie pour un ticket, disposition d equipe, export et import, editeur sans jargon.
 [CmdletBinding()]
 param([string]$ReportPath='',[switch]$Quiet)
 $ErrorActionPreference='Stop'
 $wad=Split-Path -Parent $PSScriptRoot
 $script:RenderTimings=[Collections.Generic.List[object]]::new()
 $script:Results=[Collections.Generic.List[object]]::new();$script:Finished=$false;$script:Window=$null
-$script:ExpectedCases=52
+$script:ExpectedCases=58
 function Expect {param([bool]$Value,[string]$Why='Assertion non verifiee');if(-not $Value){throw $Why}}
 function Case {param([string]$Name,[scriptblock]$Body)
     if(-not $Quiet){Write-Host ('START '+$Name)}
@@ -171,7 +172,7 @@ try{
     $parkModelAst=Parse-Text ([IO.File]::ReadAllText((Join-Path $wad 'modules\Domenia-Park.Model.ps1')));foreach($n in @('Get-DomeniaParkPlural','Get-DomeniaParkProgressText')){Import-Function $parkModelAst $n}
     $script:FleetScopeDn=''
     # FI-05 / PF-06: Engine.UI holds the protected timer factory (banners, counters, park run).
-    foreach($m in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Collection.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Embedded.UI.ps1','Domenia-Workstation.Model.ps1','Domenia-HealthRules.Model.ps1','Domenia-HealthRules.UI.ps1','Domenia-Boards.Model.ps1','Domenia-WidgetCollect.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-ProbeContract.Model.ps1','Domenia-Readings.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-BoardSoftware.Model.ps1','Domenia-BoardComputer.UI.ps1','Domenia-Widgets.UI.ps1','Domenia-FirstRun.Model.ps1','Domenia-Dashboard.UI.ps1','Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-Query.UI.ps1','Domenia-QueryTargets.UI.ps1')){. (Join-Path $wad ('modules\'+$m))}
+    foreach($m in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Collection.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Embedded.UI.ps1','Domenia-Workstation.Model.ps1','Domenia-HealthRules.Model.ps1','Domenia-HealthRules.UI.ps1','Domenia-Access.Model.ps1','Domenia-Dossier.Model.ps1','Domenia-Boards.Model.ps1','Domenia-WidgetCollect.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-ProbeContract.Model.ps1','Domenia-Readings.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-BoardSoftware.Model.ps1','Domenia-BoardComputer.UI.ps1','Domenia-Widgets.UI.ps1','Domenia-FirstRun.Model.ps1','Domenia-Dashboard.UI.ps1','Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-Query.UI.ps1','Domenia-QueryTargets.UI.ps1')){. (Join-Path $wad ('modules\'+$m))}
     $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml));try{$w=[Windows.Markup.XamlReader]::Load($reader)}finally{$reader.Close()}
     $w.Width=1400;$w.Height=900;$w.ShowInTaskbar=$false
     $palette=(Get-Content -LiteralPath (Join-Path $wad 'modules\SupportSuite.UI.json') -Raw|ConvertFrom-Json).Palettes.Light
@@ -1363,6 +1364,266 @@ try{
             [void](Get-DomeniaWidgetRecipe -Id 't-un')
             Expect ($script:LibraryParses -eq 2) 'Bibliotheque modifiee non relue'
         }finally{$script:DomeniaQueryState=$q;$q.Saved=$oldSaved;if($hadLibrary){$script:TestSettings['Query.Library']=$oldLibrary}else{[void]$script:TestSettings.Remove('Query.Library')};$script:DomeniaWidgetRecipeCache=$null}
+    }
+    # Lot Z03 (15/10/2026): grille fluide (DS-04), carte Sante (DS-05), poste allege (UX-11), copie pour un ticket
+    # (FO-13), disposition d equipe (FO-17), editeur sans jargon, filtres et synonymes (UI-14, SP-07, SP-19).
+    function script:Get-DomeniaEntryFirstString {param($Entry,[string]$Name) if(($Entry -is [hashtable]) -and $Entry.ContainsKey($Name)){return [string]$Entry[$Name]};return ''}
+    function Get-Z03Object {return [pscustomobject]@{Type='Machine';Name='PC-A';DN='CN=PC-A,OU=Postes,DC=example,DC=invalid';Entry=@{userAccountControl='4096';whenCreated='2020-01-15T10:00:00Z'};Safety=[pscustomobject]@{Guid='00000000-0000-4000-8000-0000000000aa'}}}
+    Case 'Grille fluide : 4, 3 ou 2 colonnes selon la largeur, rangees pleines et hauteurs alignees (DS-04)' {
+        $tabs=Get-DomeniaControl 'WorkspaceTabs';$oldTab=$tabs.SelectedItem;$oldWidth=$w.Width;$saved=[string](Get-DomeniaSetting 'Dashboard.Fleet.Layout' '')
+        try{
+            $tabs.SelectedItem=Get-DomeniaControl 'TabDashboard'
+            [void]$script:TestSettings.Remove('Dashboard.Fleet.Layout')
+            $script:FleetScopeDn='OU=Postes,DC=example,DC=invalid';$script:FleetStale=$false;$script:FleetJobId=''
+            Complete-DomeniaFleetDashboard -Result (New-FleetResult -Scope $script:FleetScopeDn) -State $null
+            if($null -ne $script:DomeniaQueryState.Timer){$script:DomeniaQueryState.Timer.Stop()}
+            $panel=Get-DomeniaControl 'PnlFleetDashboard';$state=Get-DomeniaBoardState 'Fleet';$seen=@{};$stackedAt=@{}
+            foreach($width in @(1920,1280,960)){
+                $w.Width=$width;$w.UpdateLayout();Invoke-Pump 500;$w.UpdateLayout();$stacked=0
+                $columns=[int]$state.GridColumns;$seen[$width]=$columns
+                Expect ($columns -eq (Get-DomeniaBoardColumnCount -Width $panel.ActualWidth -Current $columns)) ('Colonnes incoherentes avec la largeur a '+$width)
+                Expect (-not (Test-DomeniaBoardRedrawNeeded -Columns $columns -BuiltColumns ([int]$state.GridBuiltColumns) -Cell ([double]$state.GridCell) -BuiltCell ([double]$state.GridBuiltCell))) ('Widgets non redessines a la nouvelle largeur : '+$width)
+                $grids=@(Get-DomeniaBoardSectionGrids $panel)
+                Expect ($grids.Count -ge 4) ('Sections en grille a '+$width+' : '+$grids.Count)
+                $cell=$panel.ActualWidth/$columns
+                foreach($grid in $grids){
+                    Expect ($grid.ColumnDefinitions.Count -eq $columns -and [int]$grid.Tag['Columns'] -eq $columns) ('Grille de '+$grid.ColumnDefinitions.Count+' colonnes au lieu de '+$columns)
+                    foreach($row in @($grid.Children|Group-Object {[Windows.Controls.Grid]::GetRow($_)})){
+                        $span=0;foreach($child in $row.Group){$span+=[Windows.Controls.Grid]::GetColumnSpan($child)}
+                        Expect ($span -eq $columns) ('Rangee incomplete a '+$width+' : '+$span+' sur '+$columns)
+                        # Two stacked compact tiles end on the bottom of their row, like the tall card beside them.
+                        $bottoms=@(foreach($child in $row.Group){
+                            $last=if(($child.Tag -is [hashtable]) -and ($child.Tag.ContainsKey('Chrome'))){$child}else{@(Get-Holders $child)|Select-Object -Last 1}
+                            if($null -ne $last){$last.TranslatePoint([Windows.Point]::new(0,$last.ActualHeight),$grid).Y}
+                        })
+                        if($bottoms.Count -gt 1){
+                            $sorted=@($bottoms|Sort-Object)
+                            Expect (($sorted[$sorted.Count-1]-$sorted[0]) -le 1.5) ('Bas des cartes non alignes a '+$width+' : '+($sorted -join ','))
+                        }
+                        foreach($stack in @($row.Group|Where-Object{($_.Tag -is [hashtable]) -and ($_.Tag.ContainsKey('Stacked'))})){
+                            $pair=@(Get-Holders $stack)
+                            Expect ($pair.Count -eq 2) ('Pile de '+$pair.Count+' tuiles a '+$width)
+                            $stacked++
+                            $expected=Get-DomeniaBoardCardWidth -Span ([Windows.Controls.Grid]::GetColumnSpan($stack)) -CellWidth $cell
+                            foreach($tile in $pair){Expect ([Math]::Abs([double]$tile.Children[0].Width-$expected) -le 1) ('Tuile empilee non etiree sur sa colonne : '+[Windows.Automation.AutomationProperties]::GetName($tile))}
+                        }
+                        $holders=@($row.Group|Where-Object{($_.Tag -is [hashtable]) -and ($_.Tag.ContainsKey('Chrome'))})
+                        if($holders.Count -gt 1){
+                            $heights=@($holders|ForEach-Object{[double]$_.ActualHeight}|Sort-Object)
+                            Expect (($heights[$heights.Count-1]-$heights[0]) -le 1.5) ('Hauteurs non alignees a '+$width+' : '+($heights -join ','))
+                        }
+                        foreach($holder in $holders){
+                            $expected=Get-DomeniaBoardCardWidth -Span ([Windows.Controls.Grid]::GetColumnSpan($holder)) -CellWidth $cell
+                            Expect ([Math]::Abs([double]$holder.Children[0].Width-$expected) -le 1) ('Carte non etiree sur ses colonnes : '+[Windows.Automation.AutomationProperties]::GetName($holder))
+                            $right=$holder.TranslatePoint([Windows.Point]::new($holder.ActualWidth,0),$panel).X
+                            Expect ($right -le $panel.ActualWidth+1) ('Widget hors de la page a '+$width)
+                        }
+                    }
+                }
+                $stackedAt[$width]=$stacked
+            }
+            Expect ([int]$seen[1920] -gt [int]$seen[960]) ('Colonnes : '+[int]$seen[1920]+' a 1920, '+[int]$seen[960]+' a 960')
+            Expect ([int]$stackedAt[1920] -gt 0) 'Aucune paire de tuiles empilees a 1920 : alignement des piles non verifie'
+        }finally{$w.Width=$oldWidth;$w.UpdateLayout();Invoke-Pump 450;$script:FleetScopeDn='';Set-DomeniaSetting 'Dashboard.Fleet.Layout' $saved;$tabs.SelectedItem=$oldTab}
+    }
+    Case 'Carte Sante : score et points a verifier dans une seule carte, ligne verte sans point (DS-05)' {
+        $oldSelected=$script:SelectedObject
+        try{
+            $script:SelectedObject=$null
+            Update-DomeniaComputerDashboard -Result (New-InventoryResult)
+            $panel=Get-DomeniaControl 'PnlComputerDashboard'
+            $holder=@(Get-Holders $panel|Where-Object{[string]$_.Tag.Item.Key -eq 'computer.health'})
+            Expect ($holder.Count -eq 1) 'Carte Sante absente'
+            Expect (@(Get-Holders $panel|Where-Object{[string]$_.Tag.Item.Key -eq 'computer.attention'}).Count -eq 0) 'Liste des points en double'
+            $entry=(Get-DomeniaBoardState 'Computer').Data.Entries['computer.health']
+            Expect (@($entry.Points).Count -ge 1) 'Points absents de l entree de sante'
+            $texts=@(Get-Texts $holder[0]|ForEach-Object{[string]$_.Text})
+            Expect ($texts -contains [string]$entry.PointsTitle) ('Titre des points : '+($texts -join ' | '))
+            Expect ($texts -contains [string]$entry.Value) 'Verdict absent de la carte'
+            foreach($point in @($entry.Points)){Expect ($texts -contains [string]$point.Text) ('Point absent de la carte : '+[string]$point.Text)}
+            Expect (@(Get-DomeniaLogicalControls $holder[0].Tag.Chrome|Where-Object{($_ -is [Windows.Controls.Button]) -and ($_.Tag -is [hashtable]) -and ([string]$_.Tag['Action'] -eq 'HealthExplanation')}).Count -eq 1) 'Comprendre le score absent'
+            # Nothing to check and an established score: one green line; a withheld score: no reassuring line.
+            $calm=New-DomeniaBoardData -Board Computer;[void](Complete-DomeniaBoardData -Data $calm)
+            $card=New-DomeniaWidgetVisual -Entry $calm.Entries['computer.health'] -Visual HealthSummary -Title 'Santé du poste' -Size (Get-DomeniaBoardSize -Visual HealthSummary -Size L) -Board Computer
+            $tw=Show-InTestWindow $card
+            try{
+                $green=@(Get-Texts $card|Where-Object{[string]$_.Text -eq 'Rien à signaler'})
+                Expect ($green.Count -eq 1) 'Ligne verte absente'
+                Expect ($green[0].Foreground.Color -eq $w.Resources['StatusSuccess'].Color) 'Ligne sans point non verte'
+                Expect ([double]::IsNaN([double]$card.Height)) ('Hauteur fixe au lieu du contenu : '+$card.Height)
+            }finally{$tw.Close()}
+            $thin=New-DomeniaBoardData -Board Fleet
+            Add-Member -InputObject $thin -MemberType NoteProperty -Name 'Population' -Value ([pscustomobject]@{Total=40;Healthy=3;Unassessed=36})
+            [void](Complete-DomeniaBoardData -Data $thin)
+            $withheld=New-DomeniaWidgetVisual -Entry $thin.Entries['fleet.health'] -Visual HealthSummary -Title 'Santé du parc' -Size (Get-DomeniaBoardSize -Visual HealthSummary -Size L) -Board Fleet
+            $withheldTexts=@(Get-Texts $withheld|ForEach-Object{[string]$_.Text})
+            Expect (($withheldTexts -contains 'Aucun problème établi') -and -not ($withheldTexts -contains 'Rien à signaler')) ('Score retenu presente comme rassurant : '+($withheldTexts -join ' | '))
+            Expect (@($withheldTexts|Where-Object{$_ -like '*couverture*'}).Count -ge 1) 'Couverture absente a cote de la sante'
+        }finally{$script:SelectedObject=$oldSelected}
+    }
+    Case 'Poste allege : 14 widgets livres, fiches Identite et Compte machine, liste d etat (UX-11)' {
+        $saved=[string](Get-DomeniaSetting 'Dashboard.Computer.Layout' '');$oldSelected=$script:SelectedObject
+        try{
+            [void]$script:TestSettings.Remove('Dashboard.Computer.Layout');[void]$script:TestSettings.Remove('Widgets.Computer')
+            Expect (@(Get-Layout Computer).Count -eq 14) ('Widgets livres : '+@(Get-Layout Computer).Count)
+            # The layout delivered before (the whole catalog, before and after the W11 tiles), saved unchanged, becomes the light one.
+            foreach($legacyText in @([string]$script:DomeniaComputerLegacyLayoutText,[string]$script:DomeniaComputerW11LayoutText)){
+                $old=@(foreach($line in ($legacyText -split "`n")){$value=$line.Trim();if($value){$c=$value -split '\|';[pscustomobject]@{Id=('b-'+$c[0]);Source='Builtin';Key=$c[0];Visual=$c[2];Title='';Size=$c[3];Group=$c[1]}}})
+                Set-DomeniaSetting 'Dashboard.Computer.Layout' (ConvertTo-Json -InputObject $old -Depth 3 -Compress)
+                Expect ((@(Get-Layout Computer|ForEach-Object{$_.Key}) -join ',') -eq (@(Get-DomeniaBoardDefaultLayout -Board Computer|ForEach-Object{$_.Key}) -join ',')) ('Ancienne disposition livree non allegee : '+$old.Count+' widgets')
+            }
+            [void]$script:TestSettings.Remove('Dashboard.Computer.Layout')
+            $script:SelectedObject=Get-Z03Object
+            $data=Get-DomeniaComputerBoardData -Result (New-InventoryResult) -Object $script:SelectedObject
+            Show-DomeniaBoard -Board Computer -Data $data -Quiet
+            $panel=Get-DomeniaControl 'PnlComputerDashboard'
+            $find={param([string]$Key) @(Get-Holders $panel|Where-Object{[string]$_.Tag.Item.Key -eq $Key})}
+            $identity=@(& $find 'computer.identity');$account=@(& $find 'computer.adaccount');$status=@(& $find 'computer.status')
+            Expect (($identity.Count -eq 1) -and ($account.Count -eq 1) -and ($status.Count -eq 1)) 'Fiches ou liste d etat absentes'
+            $identityTexts=@(Get-Texts $identity[0]|ForEach-Object{[string]$_.Text})
+            Expect (($identityTexts -contains 'Système') -and ($identityTexts -contains 'Windows 11 24H2') -and ($identityTexts -contains 'Latitude 7450')) ('Fiche Identite : '+($identityTexts -join ' | '))
+            Expect ((@(Get-Texts $account[0]|ForEach-Object{[string]$_.Text}) -contains 'Activé')) 'Fiche Compte machine sans l etat du compte'
+            $statusTexts=@(Get-Texts $status[0]|ForEach-Object{[string]$_.Text})
+            Expect (($statusTexts -contains 'Redémarrage en attente') -and ($statusTexts -contains 'Non lu') -and ($statusTexts -contains 'BitLocker') -and ($statusTexts -contains 'Démarrage sécurisé')) ('Liste d etat : '+($statusTexts -join ' | '))
+            foreach($key in @('computer.os','computer.model','computer.ad.account','computer.antivirus','computer.secureboot','computer.updates')){Expect (@(& $find $key).Count -eq 0) ('Tuile dessinee en plus de sa fiche : '+$key)}
+        }finally{$script:SelectedObject=$oldSelected;Set-DomeniaSetting 'Dashboard.Computer.Layout' $saved;Clear-DomeniaDashboards}
+    }
+    Case 'Copier un widget et le resume du tableau pour un ticket : texte brut, secret masque (FO-13)' {
+        $oldSelected=$script:SelectedObject;$oldInventory=$script:InventoryCompletedAt;$oldComputer=$script:InventoryComputer
+        try{
+            $script:Clipboard=$null
+            function script:Set-ClipboardSafe {param([string]$Text) $script:Clipboard=$Text}
+            $script:SelectedObject=Get-Z03Object;$script:InventoryComputer='PC-A';$script:InventoryCompletedAt=[datetime]::new(2026,10,15,8,0,0,[DateTimeKind]::Utc)
+            $data=Get-DomeniaComputerBoardData -Result (New-InventoryResult) -Object $script:SelectedObject
+            @($data.Entries['computer.identity'].Items)[0].Detail='mot de passe : Fictif-Secret-42'
+            Show-DomeniaBoard -Board Computer -Data $data -Quiet
+            $panel=Get-DomeniaControl 'PnlComputerDashboard'
+            $summary=@(Get-DomeniaLogicalControls $panel.Children[0]|Where-Object{($_ -is [Windows.Controls.Button]) -and ($_.Tag -is [hashtable]) -and ([string]$_.Tag['Action'] -eq 'CopySummary')})
+            Expect ($summary.Count -eq 1) 'Copier le resume absent de la barre'
+            $script:Trace.Clear()
+            $summary[0].RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
+            $text=[string]$script:Clipboard
+            Expect ($text -like ('Poste PC-A · inventaire du '+$script:InventoryCompletedAt.ToLocalTime().ToString('dd/MM/yyyy HH:mm',[Globalization.CultureInfo]::InvariantCulture)+"`r`n*")) ('Entete du resume : '+$text)
+            foreach($part in @('Santé : *','Identité du poste','Compte machine','État de protection','- Système : Windows 11 24H2*')){Expect (@($text -split "`r`n"|Where-Object{$_ -like $part}).Count -ge 1) ('Resume sans '+$part)}
+            Expect ($text -notlike '*Fictif-Secret-42*') 'Secret copie en clair'
+            Expect (@($script:Trace|Where-Object{$_ -like 'Résumé du tableau copié*'}).Count -eq 1) 'Copie non confirmee'
+            $disk=@(Get-Holders $panel|Where-Object{[string]$_.Tag.Item.Key -eq 'computer.disk.system'})[0]
+            Expect (@($disk.ContextMenu.Items|Where-Object{($_ -is [Windows.Controls.MenuItem]) -and ([string]$_.Header -eq 'Copier')}).Count -eq 1) 'Copier absent du menu du widget'
+            Expect ([Windows.Automation.AutomationProperties]::GetHelpText($disk) -like '*Ctrl+C*') 'Raccourci de copie non annonce'
+            Invoke-DomeniaBoardAction -Tag @{Board='Computer';Id=[string]$disk.Tag.Id;Action='Copy'}
+            Expect ([string]$script:Clipboard -like 'Disque C: (256 Go) : 8 % libre*Libre 20 Go (8 %)*') ('Widget copie : '+[string]$script:Clipboard)
+            $paused=New-DomeniaBoardMenu -Board Computer -Item ([pscustomobject]@{Id='p';Visual='Kpi';Size='S'}) -Kind Value -HasMaximum $false -Paused $true
+            Expect (@($paused.Items|Where-Object{($_ -is [Windows.Controls.MenuItem]) -and ([string]$_.Header -eq 'Copier')}).Count -eq 0) 'Copier propose sur un widget suspendu'
+            # The overview names the OU of the figures on screen, not the OU chosen since (calculation still running).
+            $oldFleet=$script:FleetLast;$oldScope=$script:FleetScopeDn
+            try{
+                $script:FleetLast=[pscustomobject]@{Scope='OU=Postes,DC=example,DC=invalid';Freshness=$null};$script:FleetScopeDn='OU=Autre,DC=example,DC=invalid'
+                Expect ([string](Get-DomeniaBoardDataMoment -Board Fleet).Subject -eq 'Postes') ('Objet du resume pris dans l OU choisie : '+[string](Get-DomeniaBoardDataMoment -Board Fleet).Subject)
+                $script:FleetLast=[pscustomobject]@{Scope='';Freshness=$null}
+                Expect ([string](Get-DomeniaBoardDataMoment -Board Fleet).Subject -eq 'Tout le domaine') 'Domaine entier non nomme'
+            }finally{$script:FleetLast=$oldFleet;$script:FleetScopeDn=$oldScope}
+        }finally{$script:SelectedObject=$oldSelected;$script:InventoryCompletedAt=$oldInventory;$script:InventoryComputer=$oldComputer;Clear-DomeniaDashboards}
+    }
+    Case 'Disposition d equipe de l administrateur, export et import JSON sans boite Windows (FO-17)' {
+        $savedLayout=[string](Get-DomeniaSetting 'Dashboard.Software.Layout' '');$oldCfg=${function:Get-CfgValue};$oldPicker=${function:Show-DomeniaInlineFilePicker}
+        $script:ExportFolder=Join-Path ([IO.Path]::GetTempPath()) ('domenia-z03-'+[guid]::NewGuid().ToString('N'));[void][IO.Directory]::CreateDirectory($script:ExportFolder)
+        $script:Banners=[Collections.Generic.List[object]]::new()
+        function script:Get-DomeniaExportDirectory {return $script:ExportFolder}
+        function script:Show-DomeniaPageBanner {param($Kind,$Message,$Details,$ActionText,$ActionPath);$script:Banners.Add([pscustomobject]@{Kind=$Kind;Message=$Message;ActionText=$ActionText;ActionPath=$ActionPath});return $true}
+        function script:Show-DomeniaInlineFilePicker {param($Request);$script:PickerRequest=$Request;$Request.FileName=$script:PickedPath;return $true}
+        try{
+            $script:TeamLayout='[{"Id":"t1","Source":"Builtin","Key":"software.largest","Visual":"Bar","Size":"L","Group":"Equipe"},{"Id":"t2","Source":"Builtin","Key":"software.count","Visual":"Kpi","Size":"S","Group":"Equipe"}]'
+            function script:Get-CfgValue {param($Section,$Key,$Default);if(($Section -eq 'Dashboard') -and ($Key -eq 'DefaultLayoutSoftware')){return $script:TeamLayout};return $Default}
+            [void]$script:TestSettings.Remove('Dashboard.Software.Layout')
+            Expect ((@(Get-Layout Software|ForEach-Object{$_.Key}) -join ',') -eq 'software.largest,software.count') 'Disposition d equipe non appliquee a un tableau jamais personnalise'
+            Update-DomeniaSoftwareDashboard -Rows (New-SoftwareRows)
+            Invoke-DomeniaBoardAction -Tag @{Board='Software';Action='Customize'}
+            # A team layout written by hand, without identifiers: the same identifiers on every reading, so Retirer and
+            # Copier find the widget that is drawn.
+            $withIds=$script:TeamLayout
+            $script:TeamLayout='[{"Source":"Builtin","Key":"software.largest","Visual":"Bar","Size":"L","Group":"Equipe"},{"Source":"Builtin","Key":"software.count","Visual":"Kpi","Size":"S","Group":"Equipe"}]'
+            $first=[string]@(Get-Layout Software)[0].Id
+            Expect (($first -ne '') -and ($first -eq [string]@(Get-Layout Software)[0].Id)) ('Identifiants de la disposition d equipe instables : '+$first)
+            Invoke-DomeniaBoardAction -Tag @{Board='Software';Id=$first;Action='Remove'}
+            Expect ((@(Get-Layout Software|ForEach-Object{$_.Key}) -join ',') -eq 'software.count') 'Retirer sans effet sur une disposition d equipe sans identifiants'
+            [void]$script:TestSettings.Remove('Dashboard.Software.Layout');$script:TeamLayout=$withIds
+            Invoke-DomeniaBoardAction -Tag @{Board='Software';Id=[string]@(Get-Layout Software)[0].Id;Action='Remove'}
+            Invoke-DomeniaBoardAction -Tag @{Board='Software';Action='Reset'}
+            Expect ((@(Get-Layout Software|ForEach-Object{$_.Key}) -join ',') -eq 'software.largest,software.count') 'Par defaut ne revient pas a la disposition d equipe'
+            Expect ([string](Get-DomeniaBoardState 'Software').UndoText -eq 'Disposition par défaut appliquée') 'Par defaut non annulable'
+            $script:TeamLayout='{ pas du json'
+            Invoke-DomeniaBoardAction -Tag @{Board='Software';Action='Reset'}
+            Expect ((@(Get-Layout Software|ForEach-Object{$_.Key}) -join ',') -eq (@(Get-DomeniaBoardCatalog -Board Software|ForEach-Object{$_.Key}) -join ',')) 'Valeur illisible : disposition du catalogue attendue'
+            # Export: the pinned DocumentStore worker writes the JSON in the export folder; the confirmation stays in the page.
+            $before=$script:StartCalls.Count
+            $export=@(Get-DomeniaLogicalControls (Get-DomeniaControl 'PnlSoftwareDashboard')|Where-Object{($_ -is [Windows.Controls.Button]) -and ($_.Tag -is [hashtable]) -and ([string]$_.Tag['Action'] -eq 'Export')})
+            Expect ($export.Count -eq 1) 'Exporter absent en personnalisation'
+            $export[0].RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
+            $call=$script:StartCalls[$script:StartCalls.Count-1]
+            Expect (($script:StartCalls.Count -eq $before+1) -and ($call.OperationId -eq 'DocumentStore') -and ([string]$call.Payload.Action -eq 'Write')) 'Export non confie au worker DocumentStore'
+            Expect (([IO.Path]::GetDirectoryName([string]$call.Payload.Path) -eq $script:ExportFolder) -and ([IO.Path]::GetFileName([string]$call.Payload.Path) -like 'Domenia-disposition-logiciels-*.json')) ('Fichier exporte : '+[string]$call.Payload.Path)
+            $exported=ConvertTo-DomeniaBoardLayoutJson -Layout (Get-Layout Software)
+            $Payload=$call.Payload;$written=& ([scriptblock]::Create([string]$call.Code))
+            Complete-DomeniaBoardDocument -Result $written -State $call.State
+            Expect ([IO.File]::Exists([string]$call.Payload.Path)) 'Fichier non ecrit'
+            Expect (($script:Banners.Count -eq 1) -and ([string]$script:Banners[0].Kind -eq 'Success') -and ([string]$script:Banners[0].ActionPath -eq [string]$call.Payload.Path) -and ([string]$script:Banners[0].Message -like '*Dashboard.DefaultLayoutSoftware*')) 'Confirmation de l export absente de la page'
+            # Import after a change: integrated picker, DocumentStore read, one undoable change.
+            Invoke-DomeniaBoardAction -Tag @{Board='Software';Id=[string]@(Get-Layout Software)[0].Id;Action='Remove'}
+            $script:PickedPath=[string]$call.Payload.Path;$script:PickerRequest=$null
+            Invoke-DomeniaBoardAction -Tag @{Board='Software';Action='Import'}
+            Expect (($null -ne $script:PickerRequest) -and ([string]$script:PickerRequest.Mode -eq 'Open') -and ([string]$script:PickerRequest.Filter -like '*.json*') -and ([string]$script:PickerRequest.InitialDirectory -eq $script:ExportFolder)) 'Selecteur integre non utilise'
+            $read=$script:StartCalls[$script:StartCalls.Count-1]
+            Expect (($read.OperationId -eq 'DocumentStore') -and ([string]$read.Payload.Action -eq 'Read') -and ([string]$read.Payload.Path -eq $script:PickedPath)) 'Lecture non confiee au worker'
+            $Payload=$read.Payload;$content=& ([scriptblock]::Create([string]$read.Code))
+            Complete-DomeniaBoardDocument -Result $content -State $read.State
+            Expect ((ConvertTo-DomeniaBoardLayoutJson -Layout (Get-Layout Software)) -eq $exported) 'Disposition importee differente de l export'
+            Expect ([string](Get-DomeniaBoardState 'Software').UndoText -eq 'Disposition importée') 'Import non annulable'
+            # A layout of another board is refused and said so; nothing changes.
+            $now=ConvertTo-DomeniaBoardLayoutJson -Layout (Get-Layout Software);$script:Trace.Clear()
+            Complete-DomeniaBoardDocument -Result ([pscustomobject]@{Saved=$false;Path='C:\fictif\accueil.json';Content=(ConvertTo-DomeniaBoardLayoutDocument -Board Fleet -Layout @(Get-DomeniaBoardDefaultLayout -Board Fleet))}) -State $read.State
+            Expect ((ConvertTo-DomeniaBoardLayoutJson -Layout (Get-Layout Software)) -eq $now) 'Disposition d un autre tableau appliquee'
+            Expect (@($script:Trace|Where-Object{$_ -like 'Disposition non importée : Disposition du tableau de lʼaccueil*'}).Count -ge 1) 'Refus non dit'
+        }finally{
+            Set-Item function:script:Get-CfgValue $oldCfg;Set-Item function:script:Show-DomeniaInlineFilePicker $oldPicker
+            if((Get-DomeniaBoardState 'Software').Editing){Invoke-DomeniaBoardAction -Tag @{Board='Software';Action='Customize'}}
+            Set-DomeniaSetting 'Dashboard.Software.Layout' $savedLayout
+            Remove-Item -LiteralPath $script:ExportFolder -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+    Case 'Editeur sans jargon WMI : Lu sur le poste, badges, vignettes, Annuler et Ajouter seulement, filtres et synonymes (UI-14, SP-07, SP-19)' {
+        $run=Invoke-EditorTrial {Show-DomeniaBoardEditor -Board Computer} {
+            param($c,$t)
+            $list=Find-Named $c 'Informations disponibles';$search=Find-Named $c 'Rechercher une information'
+            $rows=@($list.ItemsSource);$t.Seen['All']=$rows.Count
+            $t.Seen['Sections']=(@($rows|ForEach-Object{[string]$_.Section}|Select-Object -Unique) -join '|')
+            $probe=@($rows|Where-Object{[string]$_.Source -eq 'Probe'})[0]
+            $t.Seen['Reads']=[string]$probe.Reads;$t.Seen['Tip']=[string]$probe.Tip
+            $t.Seen['Badges']=(@($rows|ForEach-Object{[string]$_.Badge}|Where-Object{$_}|Select-Object -Unique) -join '|')
+            $t.Seen['Close']=[string]@($c|Where-Object{($_ -is [Windows.Controls.Button]) -and ($_.Name -eq 'EmbeddedClose')})[0].Visibility
+            $t.Seen['Buttons']=(@($c|Where-Object{($_ -is [Windows.Controls.Button]) -and ($_.IsVisible)}|ForEach-Object{[string]$_.Content}) -join '|')
+            $visual=Find-Named $c 'Représentation';$t.Seen['VisualType']=$visual.GetType().Name
+            $search.Text='RAM'
+            $t.Seen['Ram']=(@($list.ItemsSource|ForEach-Object{[string]$_.Name}) -join '|');$t.Seen['RamCount']=@($list.ItemsSource).Count
+            $search.Text=''
+            @($c|Where-Object{($_ -is [Windows.Controls.RadioButton]) -and ([string]$_.GroupName -eq 'BoardEditorOrigin') -and ([string]$_.Tag -eq 'Probe')})[0].IsChecked=$true
+            $t.Seen['ProbeOthers']=@(@($list.ItemsSource)|Where-Object{[string]$_.Source -ne 'Probe'}).Count;$t.Seen['ProbeCount']=@($list.ItemsSource).Count
+            $now=@(Get-DomeniaLogicalControls $script:Window.FindName('DomeniaDialogLayer'))
+            $chips=@($now|Where-Object{($_ -is [Windows.Controls.RadioButton]) -and ([string]$_.GroupName -eq 'BoardEditorCategory')})
+            $t.Seen['Chips']=(@($chips|ForEach-Object{[string]$_.Content}) -join '|')
+            @($chips|Where-Object{(ConvertTo-DomeniaSearchText ([string]$_.Tag)) -eq 'disques'})[0].IsChecked=$true
+            $t.Seen['DiskOthers']=@(@($list.ItemsSource)|Where-Object{(ConvertTo-DomeniaSearchText ([string]$_.Category)) -ne 'disques'}).Count;$t.Seen['DiskCount']=@($list.ItemsSource).Count
+            $script:DomeniaSurfaceState.Window.Close()
+        }
+        Expect (-not $run.Accepted) 'Editeur accepte sans Ajouter'
+        Expect (($run.Trial.Seen['Sections'] -like '*Lu sur le poste, à la demande · *') -and ($run.Trial.Seen['Sections'] -like '*Informations du tableau · *') -and ($run.Trial.Seen['Sections'] -notlike '*WMI*')) ('Sections : '+$run.Trial.Seen['Sections'])
+        Expect (($run.Trial.Seen['Reads'] -eq 'Interroge le poste') -and ($run.Trial.Seen['Tip'] -like '*Classe WMI : *')) ('Requete : '+$run.Trial.Seen['Reads']+' / '+$run.Trial.Seen['Tip'])
+        Expect ($run.Trial.Seen['Badges'] -eq 'Déjà affiché') ('Badges : '+$run.Trial.Seen['Badges'])
+        Expect (($run.Trial.Seen['Close'] -eq 'Collapsed') -and ($run.Trial.Seen['Buttons'] -like '*Annuler*') -and ($run.Trial.Seen['Buttons'] -like '*Ajouter*') -and ($run.Trial.Seen['Buttons'] -notlike '*Fermer*')) ('Boutons : '+$run.Trial.Seen['Buttons'])
+        Expect ($run.Trial.Seen['VisualType'] -eq 'ListBox') 'Representations non presentees en vignettes'
+        Expect (($run.Trial.Seen['Ram'] -like '*Memoire installee*') -and ([int]$run.Trial.Seen['RamCount'] -lt [int]$run.Trial.Seen['All'])) ('RAM : '+$run.Trial.Seen['Ram'])
+        Expect (([int]$run.Trial.Seen['ProbeOthers'] -eq 0) -and ([int]$run.Trial.Seen['ProbeCount'] -gt 0)) 'Filtre Lu sur le poste'
+        Expect (($run.Trial.Seen['Chips'] -like 'Toutes|*') -and ($run.Trial.Seen['Chips'] -like '*Matériel*')) ('Categories : '+$run.Trial.Seen['Chips'])
+        Expect (([int]$run.Trial.Seen['DiskOthers'] -eq 0) -and ([int]$run.Trial.Seen['DiskCount'] -gt 0)) 'Filtre de categorie'
     }
     $script:Finished=$true
 }catch{Case 'Suite interrompue' {throw $_}}

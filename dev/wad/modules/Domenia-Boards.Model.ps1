@@ -6,23 +6,25 @@
 $script:DomeniaBoardCatalogCache = @{}
 $script:DomeniaBoardCatalogText = @{
     Computer = @'
-computer.health|Vue d ensemble|Etat general|Health|Health|S|Score calcule a partir des points d attention
-computer.attention|Vue d ensemble|Points d attention|List|List|L|Problemes detectes, du plus grave au moins grave
-computer.os|Identite du poste|Systeme|Value|Kpi|S|Version commerciale de Windows et build
-computer.model|Identite du poste|Modele|Value|Kpi|S|Fabricant, modele et numero de serie
-computer.cpu|Identite du poste|Processeur|Value|Kpi|S|Modele, coeurs et threads
-computer.memory|Identite du poste|Memoire installee|Value|Kpi|S|Memoire physique et barrettes
-computer.uptime|Identite du poste|En service depuis|Value|Kpi|S|Duree depuis le dernier demarrage
-computer.user|Identite du poste|Utilisateur connecte|Value|Kpi|S|Session console au moment de l inventaire
-computer.ip|Identite du poste|Adresse IP|Value|Kpi|S|Adresse IPv4 et passerelle
-computer.domain|Identite du poste|Domaine|Value|Kpi|S|Domaine et role du poste
-computer.ad.password|Compte machine dans Active Directory|Mot de passe machine|Value|Kpi|S|Age du mot de passe du compte ordinateur
-computer.ad.lastlogon|Compte machine dans Active Directory|Derniere connexion au domaine|Value|Kpi|S|Attribut lastLogonTimestamp
-computer.ad.account|Compte machine dans Active Directory|Compte ordinateur|Value|Kpi|S|Actif ou desactive, date de creation
-computer.ad.ou|Compte machine dans Active Directory|Unite d organisation|Value|Kpi|S|OU qui contient le poste
-computer.ad.laps|Compte machine dans Active Directory|Mot de passe LAPS|Value|Kpi|S|Expiration du mot de passe administrateur local
-computer.ad.managedby|Compte machine dans Active Directory|Gere par|Value|Kpi|S|Attribut managedBy
-computer.ad.clock|Compte machine dans Active Directory|Horloge du poste|Value|Kpi|S|Écart avec la référence disponible : contrôleur ou poste dʼadministration
+computer.health|Vue d ensemble|Santé du poste|Health|HealthSummary|L|Score sur 100 et points à vérifier, du plus grave au moins grave
+computer.attention|Vue d ensemble|Points dʼattention|List|List|L|Problèmes détectés, du plus grave au moins grave|N
+computer.identity|Identite du poste|Identité du poste|Sheet|Sheet|M|Système, modèle, processeur, mémoire, durée de fonctionnement, session, adresse IP et domaine en une fiche
+computer.os|Identite du poste|Systeme|Value|Kpi|S|Version commerciale de Windows et build|N
+computer.model|Identite du poste|Modele|Value|Kpi|S|Fabricant, modele et numero de serie|N
+computer.cpu|Identite du poste|Processeur|Value|Kpi|S|Modele, coeurs et threads|N
+computer.memory|Identite du poste|Memoire installee|Value|Kpi|S|Memoire physique et barrettes|N
+computer.uptime|Identite du poste|En service depuis|Value|Kpi|S|Duree depuis le dernier demarrage|N
+computer.user|Identite du poste|Utilisateur connecte|Value|Kpi|S|Session console au moment de l inventaire|N
+computer.ip|Identite du poste|Adresse IP|Value|Kpi|S|Adresse IPv4 et passerelle|N
+computer.domain|Identite du poste|Domaine|Value|Kpi|S|Domaine et role du poste|N
+computer.adaccount|Compte machine dans Active Directory|Compte machine|Sheet|Sheet|M|État du compte, OU, mot de passe machine, LAPS, dernière connexion, responsable et horloge en une fiche
+computer.ad.password|Compte machine dans Active Directory|Mot de passe machine|Value|Kpi|S|Age du mot de passe du compte ordinateur|N
+computer.ad.lastlogon|Compte machine dans Active Directory|Derniere connexion au domaine|Value|Kpi|S|Attribut lastLogonTimestamp|N
+computer.ad.account|Compte machine dans Active Directory|Compte ordinateur|Value|Kpi|S|Actif ou desactive, date de creation|N
+computer.ad.ou|Compte machine dans Active Directory|Unite d organisation|Value|Kpi|S|OU qui contient le poste|N
+computer.ad.laps|Compte machine dans Active Directory|Mot de passe LAPS|Value|Kpi|S|Expiration du mot de passe administrateur local|N
+computer.ad.managedby|Compte machine dans Active Directory|Gere par|Value|Kpi|S|Attribut managedBy|N
+computer.ad.clock|Compte machine dans Active Directory|Horloge du poste|Value|Kpi|S|Écart avec la référence disponible : contrôleur ou poste dʼadministration|N
 computer.memory.usage|Ressources|Memoire utilisee|Number|Gauge|S|Memoire occupee au moment de l inventaire
 computer.cpu.load|Ressources|Charge du processeur|Number|Gauge|S|Charge du processeur au moment de l inventaire
 computer.battery|Ressources|Batterie|Number|Gauge|S|Charge restante des postes portables
@@ -31,29 +33,30 @@ computer.disk.volumes|Ressources|Autres volumes|Distribution|Bar|M|Espace libre 
 computer.services|Activite|Services Windows|Distribution|Pie|M|Services en cours, arretes et desactives
 computer.processes|Activite|Processus les plus gourmands|Distribution|Bar|L|Memoire utilisee par processus, en Mo
 computer.events|Activite|Erreurs systeme par source|Distribution|Bar|M|Journal Systeme des 3 derniers jours
-computer.antivirus|Securite et etat|Antivirus|Value|Kpi|S|Produit antivirus declare a Windows
-computer.firewall|Securite et etat|Pare-feu|Value|Kpi|S|Profils du pare-feu actifs
-computer.bitlocker|Securite et etat|BitLocker|Value|Kpi|S|Protection du volume systeme
-computer.secureboot|Securite et etat|Démarrage sécurisé|Value|Kpi|S|Secure Boot lu dans le registre du poste par lʼinventaire
-computer.updates|Securite et etat|Mises à jour|Value|Kpi|S|Build, révision et source des mises à jour, sans verdict de conformité
-computer.wsus|Securite et etat|Windows Update|Value|Kpi|S|Serveur WSUS configure
-computer.reboot|Securite et etat|Redemarrage en attente|Value|Kpi|S|Redemarrage demande par une installation
+computer.status|Securite et etat|État de protection|Checklist|Checklist|M|BitLocker, démarrage sécurisé, pare-feu, antivirus, redémarrage en attente et dernier correctif, contrôle par contrôle
+computer.antivirus|Securite et etat|Antivirus|Value|Kpi|S|Produit antivirus declare a Windows|N
+computer.firewall|Securite et etat|Pare-feu|Value|Kpi|S|Profils du pare-feu actifs|N
+computer.bitlocker|Securite et etat|BitLocker|Value|Kpi|S|Protection du volume systeme|N
+computer.secureboot|Securite et etat|Démarrage sécurisé|Value|Kpi|S|Secure Boot lu dans le registre du poste par lʼinventaire|N
+computer.updates|Securite et etat|Mises à jour|Value|Kpi|S|Build, révision et source des mises à jour, sans verdict de conformité|N
+computer.wsus|Securite et etat|Windows Update|Value|Kpi|S|Serveur WSUS configure|N
+computer.reboot|Securite et etat|Redemarrage en attente|Value|Kpi|S|Redemarrage demande par une installation|N
 computer.services.stopped|Securite et etat|Services automatiques arretes|Value|Kpi|S|Services automatiques a l arret
 computer.devices|Securite et etat|Peripheriques en erreur|Value|Kpi|S|Peripheriques signales en erreur
-computer.drivers|Securite et etat|Pilotes non signes|Value|Kpi|S|Pilotes sans signature numerique
-computer.admins|Securite et etat|Administrateurs locaux|Value|Kpi|S|Membres du groupe Administrateurs
-computer.sessions|Securite et etat|Sessions et comptes locaux|Value|Kpi|S|Comptes et sessions du poste
-computer.autostart|Securite et etat|Demarrage automatique|Value|Kpi|S|Programmes lances au demarrage
-computer.shares|Securite et etat|Partages|Value|Kpi|S|Dossiers partages par le poste
-computer.printers|Securite et etat|Imprimantes|Value|Kpi|S|Imprimantes installees
-computer.display|Securite et etat|Affichage|Value|Kpi|S|Carte graphique et resolution
-computer.physicaldisk|Securite et etat|Disque physique|Value|Kpi|S|Modele et interface du disque
-computer.certificates|Securite et etat|Certificats machine|Value|Kpi|S|Certificats du magasin ordinateur
-computer.hotfix|Securite et etat|Dernier correctif|Value|Kpi|S|Date du dernier correctif installe
+computer.drivers|Securite et etat|Pilotes non signes|Value|Kpi|S|Pilotes sans signature numerique|N
+computer.admins|Securite et etat|Administrateurs locaux|Value|Kpi|S|Membres du groupe Administrateurs|N
+computer.sessions|Securite et etat|Sessions et comptes locaux|Value|Kpi|S|Comptes et sessions du poste|N
+computer.autostart|Securite et etat|Demarrage automatique|Value|Kpi|S|Programmes lances au demarrage|N
+computer.shares|Securite et etat|Partages|Value|Kpi|S|Dossiers partages par le poste|N
+computer.printers|Securite et etat|Imprimantes|Value|Kpi|S|Imprimantes installees|N
+computer.display|Securite et etat|Affichage|Value|Kpi|S|Carte graphique et resolution|N
+computer.physicaldisk|Securite et etat|Disque physique|Value|Kpi|S|Modele et interface du disque|N
+computer.certificates|Securite et etat|Certificats machine|Value|Kpi|S|Certificats du magasin ordinateur|N
+computer.hotfix|Securite et etat|Dernier correctif|Value|Kpi|S|Date du dernier correctif installe|N
 '@
     Fleet = @'
-fleet.health|Santé|État du parc|Health|Health|S|Part des postes sans point critique ni à surveiller
-fleet.attention|Santé|Points dʼattention|List|List|L|Problèmes détectés sur le périmètre : un clic déplie les postes concernés
+fleet.health|Santé|Santé du parc|Health|HealthSummary|L|Part des postes sans point critique ni à surveiller, et les points à vérifier : un clic déplie les postes concernés
+fleet.attention|Santé|Points dʼattention|List|List|L|Problèmes détectés sur le périmètre : un clic déplie les postes concernés|N
 fleet.machines|Inventaire du périmètre|Comptes ordinateur|Value|Kpi|S|Tous les comptes AD : activés, désactivés et état inconnu
 fleet.enabled|Inventaire du périmètre|Comptes AD activés|Value|Kpi|S|État AD ; aucune déduction de présence réseau
 fleet.accountunknown|Inventaire du périmètre|État AD inconnu|Value|Kpi|S|userAccountControl non lu|N
@@ -124,6 +127,135 @@ fleet.diskfree|Releves WMI|Column|M
 fleet.lowdisk|Releves WMI|Kpi|S
 fleet.uptime|Releves WMI|Kpi|S
 '@
+# Layouts delivered before the lighter boards of 15/10/2026 (UX-11, DS-05), same format: the workstation board held
+# the whole catalog, the overview its score beside a separate list of points. Saved unchanged (Par défaut, a pause
+# undone), they are replaced by the current delivered layout; a layout changed by the operator is kept.
+$script:DomeniaComputerLegacyLayoutText = @'
+computer.health|Vue d ensemble|Health|S
+computer.attention|Vue d ensemble|List|L
+computer.os|Identite du poste|Kpi|S
+computer.model|Identite du poste|Kpi|S
+computer.cpu|Identite du poste|Kpi|S
+computer.memory|Identite du poste|Kpi|S
+computer.uptime|Identite du poste|Kpi|S
+computer.user|Identite du poste|Kpi|S
+computer.ip|Identite du poste|Kpi|S
+computer.domain|Identite du poste|Kpi|S
+computer.ad.password|Compte machine dans Active Directory|Kpi|S
+computer.ad.lastlogon|Compte machine dans Active Directory|Kpi|S
+computer.ad.account|Compte machine dans Active Directory|Kpi|S
+computer.ad.ou|Compte machine dans Active Directory|Kpi|S
+computer.ad.laps|Compte machine dans Active Directory|Kpi|S
+computer.ad.managedby|Compte machine dans Active Directory|Kpi|S
+computer.ad.clock|Compte machine dans Active Directory|Kpi|S
+computer.memory.usage|Ressources|Gauge|S
+computer.cpu.load|Ressources|Gauge|S
+computer.battery|Ressources|Gauge|S
+computer.disk.system|Ressources|Pie|M
+computer.disk.volumes|Ressources|Bar|M
+computer.services|Activite|Pie|M
+computer.processes|Activite|Bar|L
+computer.events|Activite|Bar|M
+computer.antivirus|Securite et etat|Kpi|S
+computer.firewall|Securite et etat|Kpi|S
+computer.bitlocker|Securite et etat|Kpi|S
+computer.wsus|Securite et etat|Kpi|S
+computer.reboot|Securite et etat|Kpi|S
+computer.services.stopped|Securite et etat|Kpi|S
+computer.devices|Securite et etat|Kpi|S
+computer.drivers|Securite et etat|Kpi|S
+computer.admins|Securite et etat|Kpi|S
+computer.sessions|Securite et etat|Kpi|S
+computer.autostart|Securite et etat|Kpi|S
+computer.shares|Securite et etat|Kpi|S
+computer.printers|Securite et etat|Kpi|S
+computer.display|Securite et etat|Kpi|S
+computer.physicaldisk|Securite et etat|Kpi|S
+computer.certificates|Securite et etat|Kpi|S
+computer.hotfix|Securite et etat|Kpi|S
+'@
+# The same catalog as delivered by the W11 inventory, which added the Secure Boot and update tiles after BitLocker.
+# Both texts stay: a workstation layout saved unchanged under either build is replaced. These two tiles are now catalog
+# only (eighth cell N) like the other single tiles of the section; Secure Boot is also a line of the protection checklist.
+$script:DomeniaComputerW11LayoutText = @'
+computer.health|Vue d ensemble|Health|S
+computer.attention|Vue d ensemble|List|L
+computer.os|Identite du poste|Kpi|S
+computer.model|Identite du poste|Kpi|S
+computer.cpu|Identite du poste|Kpi|S
+computer.memory|Identite du poste|Kpi|S
+computer.uptime|Identite du poste|Kpi|S
+computer.user|Identite du poste|Kpi|S
+computer.ip|Identite du poste|Kpi|S
+computer.domain|Identite du poste|Kpi|S
+computer.ad.password|Compte machine dans Active Directory|Kpi|S
+computer.ad.lastlogon|Compte machine dans Active Directory|Kpi|S
+computer.ad.account|Compte machine dans Active Directory|Kpi|S
+computer.ad.ou|Compte machine dans Active Directory|Kpi|S
+computer.ad.laps|Compte machine dans Active Directory|Kpi|S
+computer.ad.managedby|Compte machine dans Active Directory|Kpi|S
+computer.ad.clock|Compte machine dans Active Directory|Kpi|S
+computer.memory.usage|Ressources|Gauge|S
+computer.cpu.load|Ressources|Gauge|S
+computer.battery|Ressources|Gauge|S
+computer.disk.system|Ressources|Pie|M
+computer.disk.volumes|Ressources|Bar|M
+computer.services|Activite|Pie|M
+computer.processes|Activite|Bar|L
+computer.events|Activite|Bar|M
+computer.antivirus|Securite et etat|Kpi|S
+computer.firewall|Securite et etat|Kpi|S
+computer.bitlocker|Securite et etat|Kpi|S
+computer.secureboot|Securite et etat|Kpi|S
+computer.updates|Securite et etat|Kpi|S
+computer.wsus|Securite et etat|Kpi|S
+computer.reboot|Securite et etat|Kpi|S
+computer.services.stopped|Securite et etat|Kpi|S
+computer.devices|Securite et etat|Kpi|S
+computer.drivers|Securite et etat|Kpi|S
+computer.admins|Securite et etat|Kpi|S
+computer.sessions|Securite et etat|Kpi|S
+computer.autostart|Securite et etat|Kpi|S
+computer.shares|Securite et etat|Kpi|S
+computer.printers|Securite et etat|Kpi|S
+computer.display|Securite et etat|Kpi|S
+computer.physicaldisk|Securite et etat|Kpi|S
+computer.certificates|Securite et etat|Kpi|S
+computer.hotfix|Securite et etat|Kpi|S
+'@
+$script:DomeniaFleetPairLayoutText = @'
+fleet.health|Santé|Health|S
+fleet.attention|Santé|List|L
+fleet.machines|Inventaire du périmètre|Kpi|S
+fleet.enabled|Inventaire du périmètre|Kpi|S
+fleet.accountstatus|Inventaire du périmètre|Pie|M
+fleet.stale|Inventaire du périmètre|Kpi|S
+fleet.disabled|Inventaire du périmètre|Kpi|S
+fleet.created|Inventaire du périmètre|Kpi|S
+fleet.pwdold|Inventaire du périmètre|Kpi|S
+fleet.laps|Sécurité|Kpi|S
+fleet.bitlocker|Sécurité|Kpi|S
+fleet.versions|Versions de Windows|Pie|M
+fleet.eos|Versions de Windows|Kpi|S
+fleet.win10|Versions de Windows|Kpi|S
+fleet.os|Répartition|Pie|M
+fleet.lastlogon|Répartition|Column|M
+fleet.ou|Répartition|Bar|M
+'@
+# SP-19: words absent from the catalog that technicians type, each with the forms the catalog uses (lower case, no
+# accents). Local table, read only by the catalog search of the widget editor.
+$script:DomeniaBoardSearchSynonyms = @{
+    'ram' = @('memoire'); 'memory' = @('memoire'); 'ssd' = @('disque','stockage'); 'hdd' = @('disque'); 'stockage' = @('disque','volume')
+    'defender' = @('antivirus','defender'); 'av' = @('antivirus'); 'firewall' = @('pare-feu'); 'reboot' = @('redemarrage'); 'restart' = @('redemarrage')
+    'redemarrer' = @('redemarrage'); 'ip' = @('adresse ip','reseau'); 'uptime' = @('en service','demarrage'); 'maj' = @('mise a jour','correctif','windows update')
+    'update' = @('mise a jour','correctif','windows update'); 'patch' = @('correctif'); 'kb' = @('correctif'); 'cpu' = @('processeur'); 'gpu' = @('graphique','affichage')
+}
+# Group and category names written without accents in older catalogs, as shown to the operator.
+$script:DomeniaBoardCategoryLabels = @{
+    'Vue d ensemble' = 'Vue dʼensemble'; 'Identite du poste' = 'Identité du poste'; 'Activite' = 'Activité'; 'Securite et etat' = 'Sécurité et état'
+    'Synthese' = 'Synthèse'; 'Repartition' = 'Répartition'; 'Releves WMI' = 'Relevés WMI'; 'Inventaire du perimetre' = 'Inventaire du périmètre'
+    'Materiel' = 'Matériel'; 'Systeme' = 'Système'; 'Reseau' = 'Réseau'; 'Securite' = 'Sécurité'; 'Evenements' = 'Événements'; 'Requetes' = 'Requêtes'
+}
 
 function Get-DomeniaBoardCatalogCache {
     # Cache only immutable catalog text and its parsed index, never a user's layout or live data.
@@ -346,11 +478,13 @@ function New-DomeniaBoardEntry {
     # Value: one text. Number: a measure with an optional maximum (gauge). Distribution: parts of a whole.
     # Measure: numeric values gathered in buckets. Series: ordered buckets. List: Level/Text lines. Health: score.
     # Timeline: values by date (daily local snapshots), the only data drawn as a curve.
+    # Sheet: Label/Value lines of several readings of one object (UX-11). Checklist: the same lines, each one a check
+    # with its state (Ok, Warn, Alert, Off for not read).
     # Action: optional button of the widget {Id; Text; Tip} handled by the interface (never run by a rule).
     # Subtitle: line under the title of a chart ('19 postes'). Badge: short warning under a score (UX-23).
     param(
         [Parameter(Mandatory=$true)][string]$Key,
-        [Parameter(Mandatory=$true)][ValidateSet('Value','Number','Distribution','Measure','Series','List','Health','Timeline')][string]$Kind,
+        [Parameter(Mandatory=$true)][ValidateSet('Value','Number','Distribution','Measure','Series','List','Health','Timeline','Sheet','Checklist')][string]$Kind,
         [string]$Title = '',
         [string]$Value = '',
         [string]$Detail = '',
@@ -452,6 +586,8 @@ function Complete-DomeniaBoardData {
     # A provider that counts its workstations ($Data.Population = {Total; Healthy}) gets the proportional score.
     param([Parameter(Mandatory=$true)]$Data)
     $prefix = ([string]$Data.Board).ToLowerInvariant()
+    # UX-11: the workstation sheets and the protection checklist gather readings already made, never a new one.
+    if ([string]$Data.Board -eq 'Computer') { Add-DomeniaComputerSheetEntries -Data $Data }
     $scoped=[bool](Get-DomeniaHealthValue $Data 'ScopedHealthEvaluated' $false)
     $attention = @($Data.Attention | Where-Object {$scoped -or (Test-DomeniaHealthRuleEnabled $Data.HealthPolicy ([string]$_.Point))})
     if($Data.Board -eq 'Fleet' -and -not $scoped -and $null -ne $Data.PSObject.Properties['Last']){Update-DomeniaFleetHealthPopulation $Data $attention}
@@ -485,18 +621,87 @@ function Complete-DomeniaBoardData {
     }
     $coverageText=[string](Get-DomeniaHealthValue $Data 'HealthCoverage' '')
     if($coverageText){$badge=(@($badge,$coverageText)|Where-Object{$_}) -join ' · '}
-    Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key ($prefix + '.health') -Kind Health -Value $health.Verdict -Detail $healthDetail.Trim(' ','·') -State $health.State -Number $health.Score -Maximum 100 -Badge $badge -Action $badgeAction)
     $sorted = @(@($attention | Where-Object { $_.Level -eq 'Alert' }) + @($attention | Where-Object { $_.Level -eq 'Warn' }) + @($attention | Where-Object { $_.Level -notin @('Alert','Warn') }))
-    $title = if ($health.Alerts + $health.Warnings) { [string]($health.Alerts + $health.Warnings) + ' point(s) a verifier' } elseif($null -eq $health.Score -or $badge){'Aucun problème établi'} else { 'Rien a signaler' }
+    # DS-05: one title for the points, information lines counted apart ('4 points à vérifier · 1 information'); a score
+    # withheld or qualified by a badge never reads as reassuring.
+    $information = @($sorted | Where-Object { [string]$_.Level -notin @('Alert','Warn') }).Count
+    $title = Get-DomeniaHealthPointsTitle -Points ($health.Alerts + $health.Warnings) -Information $information -Reliable (($null -ne $health.Score) -and (-not $badge))
+    # The health entry carries the sorted points and their title: the Santé card draws the score beside its points.
+    $healthEntry = New-DomeniaBoardEntry -Key ($prefix + '.health') -Kind Health -Value $health.Verdict -Detail $healthDetail.Trim(' ','·') -State $health.State -Number $health.Score -Maximum 100 -Badge $badge -Action $badgeAction
+    $healthEntry | Add-Member -NotePropertyName Points -NotePropertyValue @($sorted)
+    $healthEntry | Add-Member -NotePropertyName PointsTitle -NotePropertyValue $title
+    Add-DomeniaBoardEntry $Data $healthEntry
     Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key ($prefix + '.attention') -Kind List -Title $title -Value $title -Detail $detail.Trim(' ','·') -State $health.State -Items $sorted)
     return $Data
 }
 
+function Get-DomeniaHealthPointsTitle {
+    # DS-05: title of the points of a board: '4 points à vérifier · 1 information'. Information lines are counted apart,
+    # never as points to check. Without any point, 'Rien à signaler' only when the score is established (-Reliable);
+    # a withheld or qualified score reads 'Aucun problème établi'.
+    param([int]$Points = 0,[int]$Information = 0,[bool]$Reliable = $true)
+    $plural = { param([int]$Count,[string]$One,[string]$Many) if ($Count -gt 1) { return ([string]$Count + ' ' + $Many) }; return ([string]$Count + ' ' + $One) }
+    $info = if ($Information -gt 0) { & $plural $Information 'information' 'informations' } else { '' }
+    $head = if ($Points -gt 0) { & $plural $Points 'point à vérifier' 'points à vérifier' } elseif (-not $Reliable) { 'Aucun problème établi' } elseif ($info) { 'Aucun point à vérifier' } else { 'Rien à signaler' }
+    return ((@($head, $info) | Where-Object { $_ }) -join ' · ')
+}
+function Get-DomeniaHealthLevelName {
+    # Name of the level of a point in a copied text.
+    param([string]$Level)
+    switch ($Level) { 'Alert' { return 'Critique' } 'Warn' { return 'À surveiller' } default { return 'Information' } }
+}
+function Get-DomeniaComputerSheetSources {
+    # UX-11: readings gathered by each workstation sheet, in reading order, with the label of their line.
+    return [ordered]@{
+        'computer.identity' = @(@('computer.os','Système'),@('computer.model','Modèle'),@('computer.cpu','Processeur'),@('computer.memory','Mémoire installée'),@('computer.uptime','En service depuis'),@('computer.user','Utilisateur connecté'),@('computer.ip','Adresse IP'),@('computer.domain','Domaine'))
+        'computer.adaccount' = @(@('computer.ad.account','Compte ordinateur'),@('computer.ad.ou','Unité dʼorganisation'),@('computer.ad.password','Mot de passe machine'),@('computer.ad.lastlogon','Dernière connexion'),@('computer.ad.laps','Mot de passe LAPS'),@('computer.ad.managedby','Géré par'),@('computer.ad.clock','Horloge'))
+        'computer.status' = @(@('computer.bitlocker','BitLocker'),@('computer.secureboot','Démarrage sécurisé'),@('computer.firewall','Pare-feu'),@('computer.antivirus','Antivirus'),@('computer.reboot','Redémarrage en attente'),@('computer.hotfix','Dernier correctif'))
+    }
+}
+function Add-DomeniaComputerSheetEntries {
+    # UX-11: the identity sheet, the computer account sheet and the protection checklist of a workstation, built from
+    # the entries already computed for the same reading (two cards instead of fifteen tiles). A sheet lists what was
+    # read; the checklist also lists each check that was not read ('Non lu', state Off), never counted as passed.
+    # Nothing is added when none of its readings exists.
+    param([Parameter(Mandatory=$true)]$Data)
+    $sources = Get-DomeniaComputerSheetSources
+    foreach ($key in @($sources.Keys)) {
+        $checklist = ([string]$key -eq 'computer.status')
+        $lines = New-Object System.Collections.ArrayList
+        $read = 0
+        foreach ($pair in @($sources[$key])) {
+            $sourceKey = [string]$pair[0]; $label = [string]$pair[1]
+            $entry = $null
+            if ($Data.Entries.ContainsKey($sourceKey)) { $entry = $Data.Entries[$sourceKey] }
+            if ($null -eq $entry) {
+                if ($checklist) { [void]$lines.Add([pscustomobject]@{ Key = $sourceKey; Label = $label; Value = 'Non lu'; Detail = ''; State = 'Off' }) }
+                continue
+            }
+            $read++
+            [void]$lines.Add([pscustomobject]@{ Key = $sourceKey; Label = $label; Value = [string]$entry.Value; Detail = [string]$entry.Detail; State = [string]$entry.State })
+        }
+        if (-not $read) { continue }
+        $alerts = @($lines | Where-Object { $_.State -eq 'Alert' }).Count
+        $warnings = @($lines | Where-Object { $_.State -eq 'Warn' }).Count
+        $unread = @($lines | Where-Object { $_.State -eq 'Off' }).Count
+        $state = if ($alerts) { 'Alert' } elseif ($warnings) { 'Warn' } else { '' }
+        $toCheck = $alerts + $warnings
+        if ($checklist) {
+            $value = if ($toCheck) { [string]$toCheck + ' à vérifier' } elseif ($unread) { 'Rien à signaler sur ce qui est lu' } else { 'Rien à signaler' }
+            $detail = [string]$read + ' contrôle' + $(if ($read -gt 1) { 's' } else { '' }) + ' lu' + $(if ($read -gt 1) { 's' } else { '' }) + ' sur ' + [string]$lines.Count
+            Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key $key -Kind Checklist -Value $value -Detail $detail -State $state -Items @($lines))
+        } else {
+            $value = [string]$read + ' information' + $(if ($read -gt 1) { 's' } else { '' })
+            $detail = if ($toCheck) { [string]$toCheck + ' à vérifier' } else { '' }
+            Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key $key -Kind Sheet -Value $value -Detail $detail -State $state -Items @($lines))
+        }
+    }
+}
 # ---------------------------------------------------------------------------
 # Representations and sizes
 # ---------------------------------------------------------------------------
 function Get-DomeniaBoardVisualNames {
-    return [ordered]@{ Kpi = 'Chiffre cle'; Gauge = 'Jauge'; Pie = 'Anneau'; Bar = 'Barres'; Column = 'Histogramme'; Line = 'Courbe'; Text = 'Liste'; List = 'Liste de points'; Health = 'Score' }
+    return [ordered]@{ Kpi = 'Chiffre clé'; Gauge = 'Jauge'; Pie = 'Anneau'; Bar = 'Barres'; Column = 'Histogramme'; Line = 'Courbe'; Text = 'Liste'; List = 'Liste de points'; HealthSummary = 'Score et points'; Health = 'Score'; Sheet = 'Fiche'; Checklist = 'Liste dʼétat' }
 }
 function Get-DomeniaBoardVisuals {
     # Representations that make sense for a kind of data (decision David 2026-10-07), preferred first. A curve
@@ -510,7 +715,10 @@ function Get-DomeniaBoardVisuals {
         'Series' { return @('Column','Bar','Text','Kpi') }
         'Timeline' { return @('Line','Column','Text') }
         'List' { return @('List') }
-        'Health' { return @('Health','Kpi') }
+        # DS-05: the Santé card (score beside its points) first; the score alone stays for a customised layout.
+        'Health' { return @('HealthSummary','Health','Kpi') }
+        'Sheet' { return @('Sheet','Text') }
+        'Checklist' { return @('Checklist','Sheet','Text') }
         default { return @('Kpi','Text') }
     }
 }
@@ -526,7 +734,8 @@ function Get-DomeniaBoardSizeNames {
 }
 function Get-DomeniaBoardSize {
     # Width, height (0 = fits its content) and minimum height. Tall cards share one height (250) and two
-    # compact tiles stacked (2 x 118 + margins) line up with them.
+    # compact tiles stacked (2 x 118 + margins) line up with them. On a board the width comes from the grid (DS-04:
+    # Get-DomeniaBoardSpan); this width is the one of the editor preview and of the minimum readable card.
     param([string]$Visual,[string]$Size = 'M')
     $table = @{
         Kpi = @{ S = @(230,118,0); M = @(345,118,0); L = @(475,118,0) }
@@ -538,6 +747,9 @@ function Get-DomeniaBoardSize {
         Gauge = @{ S = @(230,250,0); M = @(300,250,0); L = @(380,250,0) }
         List = @{ S = @(380,0,250); M = @(500,0,250); L = @(660,0,250) }
         Health = @{ S = @(230,250,0); M = @(300,250,0); L = @(380,250,0) }
+        HealthSummary = @{ S = @(300,0,0); M = @(560,0,0); L = @(760,0,0) }
+        Sheet = @{ S = @(300,0,0); M = @(420,0,0); L = @(560,0,0) }
+        Checklist = @{ S = @(300,0,0); M = @(420,0,0); L = @(560,0,0) }
     }
     $sizes = $table[$Visual]; if ($null -eq $sizes) { $sizes = $table['Kpi'] }
     $chosen = $sizes[$Size]; if ($null -eq $chosen) { $chosen = $sizes['M'] }
@@ -589,10 +801,14 @@ function Get-DomeniaBoardFitScale {
 }
 function Get-DomeniaBoardKeyGesture {
     # Keyboard of a focused widget (point 80): {Action; Value}, or $null when the key means nothing to the board.
-    # F5 refreshes the widget at any time; moving (Alt+arrows, Alt+Home/End), resizing (Alt+Shift+arrows) and removing
-    # (Delete) change the layout and are offered while customising only, like the mouse gestures.
+    # F5 refreshes the widget at any time and Ctrl+C copies it as text (FO-13); moving (Alt+arrows, Alt+Home/End),
+    # resizing (Alt+Shift+arrows) and removing (Delete) change the layout and are offered while customising only, like
+    # the mouse gestures.
     param([string]$Key,[bool]$Alt = $false,[bool]$Shift = $false,[bool]$Control = $false,[bool]$Editing = $false)
-    if ($Control) { return $null }
+    if ($Control) {
+        if ((-not $Alt) -and (-not $Shift) -and ($Key -eq 'C')) { return [pscustomobject]@{ Action = 'Copy'; Value = '' } }
+        return $null
+    }
     if ((-not $Alt) -and (-not $Shift) -and ($Key -eq 'F5')) { return [pscustomobject]@{ Action = 'Refresh'; Value = '' } }
     if (-not $Editing) { return $null }
     if ((-not $Alt) -and (-not $Shift) -and ($Key -eq 'Delete')) { return [pscustomobject]@{ Action = 'Remove'; Value = '' } }
@@ -607,60 +823,183 @@ function Get-DomeniaBoardKeyGesture {
     if ($value) { return [pscustomobject]@{ Action = 'Move'; Value = $value } }
     return $null
 }
-function Get-DomeniaBoardDefaultLayout {
-    # Delivered layout: the catalog in its order, without the widgets marked catalog only (eighth cell N).
+
+# ---------------------------------------------------------------------------
+# Grid of a board (DS-04): columns by width, spans by size, rows full and level
+# ---------------------------------------------------------------------------
+function Get-DomeniaBoardColumnCount {
+    # Columns of the board grid for its width in device-independent pixels: 4 from 1100, 3 from 780, 2 from 440, and a
+    # single column below (very high zoom), where two cards side by side would no longer be readable. -Current: the
+    # count in use, kept while the width stays within 24 px of the boundary it would cross, so that a scroll bar that
+    # appears or disappears never switches the layout back and forth.
+    param([double]$Width,[int]$Current = 0)
+    $bounds = @(@(4,1100),@(3,780),@(2,440))
+    $raw = 1
+    if (-not [double]::IsNaN($Width)) { foreach ($bound in $bounds) { if ($Width -ge [double]$bound[1]) { $raw = [int]$bound[0]; break } } }
+    if (($Current -ge 1) -and ($Current -le 4) -and ([Math]::Abs($Current - $raw) -eq 1)) {
+        $edge = 0.0
+        foreach ($bound in $bounds) { if ([int]$bound[0] -eq [Math]::Max($Current, $raw)) { $edge = [double]$bound[1] } }
+        if ([Math]::Abs($Width - $edge) -lt 24) { return $Current }
+    }
+    return $raw
+}
+function Test-DomeniaBoardRedrawNeeded {
+    # DS-04: whether the drawings inside the cards must be redrawn for the width now in use: another number of columns,
+    # or a card that moved by more than 20 px from the width it was drawn for. The drift is measured at card scale (a
+    # card spans up to $Columns columns), never on one column: a Large card would otherwise drift by 60 to 80 px.
+    param([int]$Columns,[int]$BuiltColumns,[double]$Cell,[double]$BuiltCell)
+    if ($Columns -ne $BuiltColumns) { return $true }
+    return (([double][Math]::Max(1, $Columns) * [Math]::Abs($Cell - $BuiltCell)) -gt 20)
+}
+function Get-DomeniaBoardSpan {
+    # Columns taken by a widget: Compacte 1, Moyenne 2, Large 3, never more than the grid has.
+    param([string]$Size = 'M',[int]$Columns = 4)
+    $span = switch ([string]$Size) { 'S' { 1 } 'L' { 3 } default { 2 } }
+    return [int][Math]::Max(1, [Math]::Min([Math]::Max(1, $Columns), $span))
+}
+function Test-DomeniaBoardShortWidget {
+    # A compact tile: a key figure, a single value written as a list, or the compact place of a widget without a figure
+    # (SP-18). Two of them stack in one column beside a tall card (chart, gauge, list, sheet).
+    param([string]$Visual,[string]$Kind = '',[bool]$Compact = $false)
+    if ($Compact) { return $true }
+    if ($Visual -eq 'Kpi') { return $true }
+    return (($Visual -eq 'Text') -and ($Kind -eq 'Value'))
+}
+function Get-DomeniaBoardGridPlacement {
+    # Places the widgets of one section in a grid of $Columns columns, in reading order. $Units: one {Span; Short} per
+    # widget. Rows fill from left to right; in a row that holds a tall card, compact tiles of the same span stack two by
+    # two in one cell so that heights line up; the columns a row leaves free are shared out, tall cells first, so that
+    # every row is full. Returns one cell per grid element: {Row; Column; Span; Items (indexes in $Units); Stacked}.
+    param([object[]]$Units = @(),[int]$Columns = 4)
+    $n = [int][Math]::Max(1, [Math]::Min(4, $Columns))
+    $list = @($Units)
+    $cells = New-Object System.Collections.ArrayList
+    $i = 0; $rowIndex = 0
+    while ($i -lt $list.Count) {
+        $row = New-Object System.Collections.ArrayList
+        $used = 0
+        while ($i -lt $list.Count) {
+            $span = [int][Math]::Max(1, [Math]::Min($n, [int](Get-DomeniaHealthValue $list[$i] 'Span' 1)))
+            $short = [bool](Get-DomeniaHealthValue $list[$i] 'Short' $false)
+            $hasTall = (@($row | Where-Object { -not $_.Short }).Count -gt 0)
+            if ($short -and $hasTall) {
+                $single = @($row | Where-Object { ($_.Short) -and ($_.Items.Count -eq 1) -and ($_.Span -eq $span) } | Select-Object -First 1)
+                if ($single.Count) { [void]$single[0].Items.Add($i); $single[0].Short = $false; $i++; continue }
+            }
+            if (($used + $span) -gt $n) { break }
+            $cell = @{ Items = (New-Object System.Collections.ArrayList); Span = $span; Short = $short }
+            [void]$cell.Items.Add($i)
+            [void]$row.Add($cell); $used += $span; $i++
+            if (-not $short) {
+                # A tall card joins the row: its single compact tiles pair up, freeing their columns for what follows.
+                $paired = $true
+                while ($paired) {
+                    $paired = $false
+                    $singles = @($row | Where-Object { ($_.Short) -and ($_.Items.Count -eq 1) })
+                    for ($a = 0; ($a -lt $singles.Count) -and (-not $paired); $a++) {
+                        for ($b = $a + 1; ($b -lt $singles.Count) -and (-not $paired); $b++) {
+                            if ($singles[$a].Span -ne $singles[$b].Span) { continue }
+                            [void]$singles[$a].Items.Add($singles[$b].Items[0]); $singles[$a].Short = $false
+                            $row.Remove($singles[$b]); $used -= $singles[$b].Span; $paired = $true
+                        }
+                    }
+                }
+            }
+        }
+        $left = $n - $used
+        # Free columns go to the tall cards first, then to the stacked pairs, then to the single compact tiles.
+        $order = @(@($row | Where-Object { (-not $_.Short) -and ($_.Items.Count -eq 1) }) + @($row | Where-Object { $_.Items.Count -gt 1 }) + @($row | Where-Object { ($_.Short) -and ($_.Items.Count -eq 1) }))
+        $k = 0
+        while (($left -gt 0) -and ($order.Count -gt 0)) { $target = $order[$k % $order.Count]; $target.Span = [int]$target.Span + 1; $left--; $k++ }
+        $column = 0
+        foreach ($cell in $row) {
+            [void]$cells.Add([pscustomobject]@{ Row = $rowIndex; Column = $column; Span = [int]$cell.Span; Items = @($cell.Items | ForEach-Object { [int]$_ }); Stacked = ($cell.Items.Count -gt 1) })
+            $column += [int]$cell.Span
+        }
+        $rowIndex++
+    }
+    return @($cells)
+}
+
+# ---------------------------------------------------------------------------
+# Delivered, legacy and team layouts (UX-11, DS-05, FO-17)
+# ---------------------------------------------------------------------------
+function Get-DomeniaBoardCatalogLayout {
+    # The catalog in its order, without the widgets marked catalog only (eighth cell N).
     param([Parameter(Mandatory=$true)][ValidateSet('Computer','Fleet','Software')][string]$Board)
     return @(Get-DomeniaBoardCatalog -Board $Board | Where-Object { [bool]$_.Default } | ForEach-Object { New-DomeniaBoardItem -Source Builtin -Key $_.Key -Visual $_.Visual -Size $_.Size -Group $_.Group -Id ('b-' + $_.Key) })
 }
-function Test-DomeniaFleetLegacyLayout {
-    # True when a saved Fleet layout is the layout delivered up to RC1.13.0, unchanged (identifiers aside): it is then
-    # replaced by the current delivered layout. A layout changed by the operator is never replaced.
-    param([object[]]$Items = @())
-    $legacy = New-Object System.Collections.ArrayList
-    foreach ($line in ([string]$script:DomeniaFleetLegacyLayoutText -split "`n")) { $text = $line.Trim(); if ($text) { [void]$legacy.Add(($text -split '\|')) } }
+function Get-DomeniaBoardDefaultLayout {
+    # Delivered layout. FO-17: the team layout set by the administrator (Dashboard.DefaultLayout<Board> of the deployed
+    # configuration, passed as -TeamJson: a rule never reads the configuration) when it holds at least one widget known
+    # to this board; otherwise the catalog layout. An unreadable or empty team layout never empties a board.
+    param([Parameter(Mandatory=$true)][ValidateSet('Computer','Fleet','Software')][string]$Board,[string]$TeamJson = '',[object[]]$ProbeCatalog = @())
+    if (-not [string]::IsNullOrWhiteSpace($TeamJson)) {
+        $team = Get-DomeniaBoardTeamLayout -Board $Board -Json $TeamJson -ProbeCatalog $ProbeCatalog
+        if ($team.Valid) { return @($team.Layout) }
+    }
+    return @(Get-DomeniaBoardCatalogLayout -Board $Board)
+}
+function Test-DomeniaBoardLayoutText {
+    # True when stored items are exactly the delivered layout described by $Text (key|section|representation|size per
+    # line), identifiers aside: built-in widgets only, no title of the operator, none paused.
+    param([object[]]$Items = @(),[string]$Text = '')
+    $expected = New-Object System.Collections.ArrayList
+    foreach ($line in ([string]$Text -split "`n")) { $value = $line.Trim(); if ($value) { [void]$expected.Add(($value -split '\|')) } }
     $stored = @($Items | Where-Object { $null -ne $_ })
-    if (($stored.Count -ne $legacy.Count) -or (-not $legacy.Count)) { return $false }
-    for ($i = 0; $i -lt $legacy.Count; $i++) {
+    if (($stored.Count -ne $expected.Count) -or (-not $expected.Count)) { return $false }
+    for ($i = 0; $i -lt $expected.Count; $i++) {
         $raw = $stored[$i]
-        $cells = @($legacy[$i])
+        $cells = @($expected[$i])
         $read = @{}
         foreach ($name in @('Source','Key','Group','Visual','Size','Title')) { $property = $raw.PSObject.Properties[$name]; $read[$name] = $(if (($null -ne $property) -and ($null -ne $property.Value)) { [string]$property.Value } else { '' }) }
         if (($read['Source'] -ne 'Builtin') -or ($read['Key'] -cne $cells[0]) -or ($read['Group'] -cne $cells[1]) -or ($read['Visual'] -cne $cells[2]) -or ($read['Size'] -cne $cells[3]) -or $read['Title']) { return $false }
+        if (Test-DomeniaBoardItemPaused -Item $raw) { return $false }
     }
     return $true
 }
-function ConvertTo-DomeniaBoardLayout {
-    # Stored text (JSON) to a clean layout: unknown widgets dropped, representations and sizes corrected, ids unique.
-    # The widgets of the first version (separate "Widgets" part) are kept, in a section named after their category.
+function Test-DomeniaBoardLegacyLayout {
+    # True when a saved layout is one of the layouts delivered before the current one, unchanged (identifiers aside):
+    # it is then replaced by the current delivered layout; a layout changed by the operator is never replaced. Fleet:
+    # the layout of RC1.13.0, then the score and the list of points side by side (DS-05). Workstation: the whole
+    # catalog (UX-11), before and after the Secure Boot and update tiles of the W11 inventory.
+    param([ValidateSet('Computer','Fleet','Software')][string]$Board,[object[]]$Items = @())
+    $texts = switch ($Board) {
+        'Computer' { @([string]$script:DomeniaComputerLegacyLayoutText, [string]$script:DomeniaComputerW11LayoutText) }
+        'Fleet' { @([string]$script:DomeniaFleetLegacyLayoutText, [string]$script:DomeniaFleetPairLayoutText) }
+        default { @() }
+    }
+    foreach ($text in @($texts)) { if (Test-DomeniaBoardLayoutText -Items $Items -Text $text) { return $true } }
+    return $false
+}
+function ConvertTo-DomeniaBoardCleanLayout {
+    # Items read from a stored, imported or team layout to clean widgets: unknown widgets dropped, representations and
+    # sizes corrected, identifiers unique. -NoQuery: saved queries of one operator are left out (team layout).
+    # A missing or repeated identifier becomes <IdPrefix>-<key>-<position in Items>: the same text always gives the
+    # same identifiers, so a layout rebuilt on every read (team layout of a board never customised, widgets of the first
+    # version) keeps the identifiers its drawn widgets carry and their menu, Copier and Actualiser find them again.
     param(
         [Parameter(Mandatory=$true)][ValidateSet('Computer','Fleet','Software')][string]$Board,
-        [string]$Json = '',
-        [object[]]$LegacyWidgets = @(),
-        [object[]]$ProbeCatalog = @()
+        [object[]]$Items = @(),
+        [object[]]$ProbeCatalog = @(),
+        [switch]$NoQuery,
+        [ValidatePattern('^[a-z]+$')][string]$IdPrefix = 'w'
     )
-    $stored = $null
-    # ConvertFrom-Json (5.1) emits a JSON array as a single object: assigned first, then wrapped.
-    if (-not [string]::IsNullOrWhiteSpace($Json)) { try { $parsed = ConvertFrom-Json -InputObject $Json; $stored = @($parsed) } catch { $stored = $null } }
-    # Nothing stored: the delivered layout. A stored empty list ('[]') is a board emptied on purpose and stays empty.
-    # The Fleet layout delivered up to RC1.13.0, saved unchanged, becomes the current delivered layout.
-    if (($null -ne $stored) -and ($Board -eq 'Fleet') -and (Test-DomeniaFleetLegacyLayout -Items $stored)) { $stored = $null }
-    $items = if ($null -eq $stored) { @(Get-DomeniaBoardDefaultLayout -Board $Board) } else { @($stored) }
-    foreach ($legacy in @($LegacyWidgets)) {
-        if ($null -eq $legacy -or $null -eq $legacy.PSObject.Properties['ProbeId']) { continue }
-        $category = 'Requetes'
-        foreach ($probe in @($ProbeCatalog)) { if ([string]$probe.Id -eq [string]$legacy.ProbeId) { $category = [string]$probe.Category } }
-        $title = if ($null -ne $legacy.PSObject.Properties['Title']) { [string]$legacy.Title } else { '' }
-        $id = if ($null -ne $legacy.PSObject.Properties['Id'] -and [string]$legacy.Id) { 'p-' + [string]$legacy.Id } else { '' }
-        $visual = if ($null -ne $legacy.PSObject.Properties['Visual']) { [string]$legacy.Visual } else { 'Kpi' }
-        $items += New-DomeniaBoardItem -Source Probe -Key ([string]$legacy.ProbeId) -Visual $visual -Group $category -Title $title -Id $id
-    }
     $catalog = @{}; foreach ($item in @(Get-DomeniaBoardCatalog -Board $Board)) { $catalog[$item.Key] = $item }
     $probes = @{}; foreach ($probe in @($ProbeCatalog)) { $probes[[string]$probe.Id] = $probe }
+    $given = @{}
+    foreach ($raw in @($Items)) {
+        if (($null -eq $raw) -or ($raw -is [string]) -or ($raw -is [ValueType])) { continue }
+        $property = $raw.PSObject.Properties['Id']
+        if (($null -ne $property) -and ($null -ne $property.Value) -and ([string]$property.Value)) { $given[[string]$property.Value] = $true }
+    }
     $seen = @{}
     $clean = New-Object System.Collections.ArrayList
-    foreach ($raw in $items) {
-        if ($null -eq $raw) { continue }
-        $get = { param([string]$Name) if ($null -ne $raw.PSObject.Properties[$Name] -and $null -ne $raw.$Name) { [string]$raw.$Name } else { '' } }
+    $position = -1
+    foreach ($raw in @($Items)) {
+        $position++
+        if (($null -eq $raw) -or ($raw -is [string]) -or ($raw -is [ValueType])) { continue }
+        $get = { param([string]$Name) if (($null -ne $raw.PSObject.Properties[$Name]) -and ($null -ne $raw.$Name)) { [string]$raw.$Name } else { '' } }
         $source = & $get 'Source'; $key = & $get 'Key'
         if ($source -eq 'Builtin') {
             if (-not $catalog.ContainsKey($key)) { continue }
@@ -668,14 +1007,20 @@ function ConvertTo-DomeniaBoardLayout {
             $group = & $get 'Group'; if (-not $group) { $group = [string]$catalog[$key].Group }
             $defaultSize = [string]$catalog[$key].Size
         } elseif ($source -eq 'Probe') {
-            if ($probes.Count -and -not $probes.ContainsKey($key)) { continue }
+            if (($probes.Count -gt 0) -and (-not $probes.ContainsKey($key))) { continue }
             $kind = Get-DomeniaProbeKind -Probe $probes[$key] -Board $Board
             $group = & $get 'Group'; if (-not $group) { $group = if ($probes.ContainsKey($key)) { [string]$probes[$key].Category } else { 'Requetes' } }
             $defaultSize = ''
-        } elseif ($source -eq 'Query' -and $Board -in @('Fleet','Computer')) {
+        } elseif (($source -eq 'Query') -and ($Board -in @('Fleet','Computer')) -and (-not $NoQuery)) {
             $kind=if((& $get 'Visual') -in @('Bar','Pie','Column')){'Distribution'}else{'Number'};$group=& $get 'Group';if(-not $group){$group='Mes sondes'};$defaultSize='M'
         } else { continue }
-        $id = & $get 'Id'; if (-not $id -or $seen.ContainsKey($id)) { $id = New-DomeniaBoardItemId }
+        $id = & $get 'Id'
+        if ((-not $id) -or ($seen.ContainsKey($id))) {
+            # Never the identifier that another widget of the same text carries, nor one already given here.
+            $base = $IdPrefix + '-' + $key + '-' + [string]$position
+            $id = $base; $suffix = 2
+            while (($seen.ContainsKey($id)) -or ($given.ContainsKey($id))) { $id = $base + '-' + [string]$suffix; $suffix++ }
+        }
         $seen[$id] = $true
         $visual = Resolve-DomeniaBoardVisual -Visual (& $get 'Visual') -Kind $kind -HasMaximum:($kind -in @('Number','Health'))
         $size = & $get 'Size'; if ($size -notin @('S','M','L')) { $size = if ($defaultSize) { $defaultSize } elseif ($visual -eq 'Kpi') { 'S' } else { 'M' } }
@@ -683,16 +1028,127 @@ function ConvertTo-DomeniaBoardLayout {
     }
     return @($clean)
 }
-function ConvertTo-DomeniaBoardLayoutJson {
+function ConvertTo-DomeniaBoardLayout {
+    # Stored text (JSON) to a clean layout: unknown widgets dropped, representations and sizes corrected, ids unique.
+    # The widgets of the first version (separate "Widgets" part) are kept, in a section named after their category.
+    # -TeamJson: team layout of the deployed configuration (FO-17), the delivered layout when it is valid.
+    param(
+        [Parameter(Mandatory=$true)][ValidateSet('Computer','Fleet','Software')][string]$Board,
+        [string]$Json = '',
+        [object[]]$LegacyWidgets = @(),
+        [object[]]$ProbeCatalog = @(),
+        [string]$TeamJson = ''
+    )
+    $stored = $null
+    # ConvertFrom-Json (5.1) emits a JSON array as a single object: assigned first, then wrapped.
+    if (-not [string]::IsNullOrWhiteSpace($Json)) { try { $parsed = ConvertFrom-Json -InputObject $Json; $stored = @($parsed) } catch { $stored = $null } }
+    # Nothing stored: the delivered layout. A stored empty list ('[]') is a board emptied on purpose and stays empty.
+    # A layout delivered before the current one, saved unchanged, becomes the current delivered layout.
+    if (($null -ne $stored) -and (Test-DomeniaBoardLegacyLayout -Board $Board -Items $stored)) { $stored = $null }
+    # A list, never an assignment from if/else: a delivered layout of one widget (team layout, FO-17) would be unrolled
+    # to a single object, which += then refuses.
+    $items = New-Object System.Collections.ArrayList
+    if ($null -eq $stored) { foreach ($item in @(Get-DomeniaBoardDefaultLayout -Board $Board -TeamJson $TeamJson -ProbeCatalog $ProbeCatalog)) { [void]$items.Add($item) } }
+    else { foreach ($item in @($stored)) { if ($null -ne $item) { [void]$items.Add($item) } } }
+    foreach ($legacy in @($LegacyWidgets)) {
+        if (($null -eq $legacy) -or ($null -eq $legacy.PSObject.Properties['ProbeId'])) { continue }
+        $category = 'Requetes'
+        foreach ($probe in @($ProbeCatalog)) { if ([string]$probe.Id -eq [string]$legacy.ProbeId) { $category = [string]$probe.Category } }
+        $title = if ($null -ne $legacy.PSObject.Properties['Title']) { [string]$legacy.Title } else { '' }
+        $id = if (($null -ne $legacy.PSObject.Properties['Id']) -and ([string]$legacy.Id)) { 'p-' + [string]$legacy.Id } else { '' }
+        $visual = if ($null -ne $legacy.PSObject.Properties['Visual']) { [string]$legacy.Visual } else { 'Kpi' }
+        # No identifier of its own: the cleaning gives one that stays the same from one reading to the next.
+        [void]$items.Add([pscustomobject]@{ Id = $id; Source = 'Probe'; Key = [string]$legacy.ProbeId; Visual = $visual; Title = $title; Size = ''; Group = $category })
+    }
+    return @(ConvertTo-DomeniaBoardCleanLayout -Board $Board -Items @($items) -ProbeCatalog $ProbeCatalog)
+}
+function Get-DomeniaBoardLayoutRows {
+    # Plain rows of a layout as they are written. Paused is written only for a paused widget: an active layout keeps
+    # the text it had before the pause existed.
     param([object[]]$Layout = @())
-    # Paused is written only for a paused widget: an active layout keeps the text it had before the pause existed.
-    $plain = @($Layout | Where-Object { $null -ne $_ } | ForEach-Object {
+    return @($Layout | Where-Object { $null -ne $_ } | ForEach-Object {
         $row = [ordered]@{ Id = [string]$_.Id; Source = [string]$_.Source; Key = [string]$_.Key; Visual = [string]$_.Visual; Title = [string]$_.Title; Size = [string]$_.Size; Group = [string]$_.Group }
         if (Test-DomeniaBoardItemPaused -Item $_) { $row['Paused'] = $true }
         [pscustomobject]$row
     })
+}
+function ConvertTo-DomeniaBoardLayoutJson {
+    param([object[]]$Layout = @())
+    $plain = @(Get-DomeniaBoardLayoutRows -Layout $Layout)
     if (-not $plain.Count) { return '[]' }
     return (ConvertTo-Json -InputObject $plain -Depth 3 -Compress)
+}
+function ConvertTo-DomeniaBoardLayoutDocument {
+    # FO-17: exported layout of one board, readable by Importer and usable as is (or its Layout list alone) in
+    # Dashboard.DefaultLayout<Board> of the deployed configuration.
+    param([Parameter(Mandatory=$true)][ValidateSet('Computer','Fleet','Software')][string]$Board,[object[]]$Layout = @(),[datetime]$AtUtc = [datetime]::UtcNow)
+    $document = [ordered]@{ Format = 'Domenia.BoardLayout.1'; Board = $Board; ExportedUtc = $AtUtc.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ', [Globalization.CultureInfo]::InvariantCulture); Layout = @(Get-DomeniaBoardLayoutRows -Layout $Layout) }
+    return (ConvertTo-Json -InputObject ([pscustomobject]$document) -Depth 4)
+}
+function ConvertFrom-DomeniaBoardLayoutDocument {
+    # Text of an imported file or of a team layout: an exported document (Format Domenia.BoardLayout.1, Layout list) or
+    # a plain JSON list of widgets. Returns {Valid; Items; Reason}; the items still go through the cleaning of
+    # ConvertTo-DomeniaBoardCleanLayout. A document of another board is refused, never mixed.
+    param([Parameter(Mandatory=$true)][ValidateSet('Computer','Fleet','Software')][string]$Board,[string]$Text = '')
+    $fail = { param([string]$Why) return [pscustomobject]@{ Valid = $false; Items = @(); Reason = $Why } }
+    if ([string]::IsNullOrWhiteSpace($Text)) { return (& $fail 'Fichier vide.') }
+    $parsed = $null
+    try { $parsed = ConvertFrom-Json -InputObject $Text -ErrorAction Stop } catch { return (& $fail 'Texte JSON illisible.') }
+    if ($null -eq $parsed) { return (& $fail 'Texte JSON vide.') }
+    $items = @($parsed)
+    if (($parsed -isnot [array]) -and ($null -ne $parsed.PSObject.Properties['Layout'])) {
+        $format = [string](Get-DomeniaHealthValue $parsed 'Format' '')
+        if ($format -and ($format -cne 'Domenia.BoardLayout.1')) { return (& $fail ('Format inconnu : ' + $format + '.')) }
+        $owner = [string](Get-DomeniaHealthValue $parsed 'Board' '')
+        if ($owner -and ($owner -ne $Board)) { return (& $fail ('Disposition du tableau ' + (Get-DomeniaBoardName -Board $owner) + ', pas de celui-ci.')) }
+        $items = @($parsed.Layout)
+    }
+    $items = @($items | Where-Object { ($null -ne $_) -and ($_ -isnot [string]) -and ($_ -isnot [ValueType]) })
+    if (-not $items.Count) { return (& $fail 'Aucun widget dans ce fichier.') }
+    return [pscustomobject]@{ Valid = $true; Items = $items; Reason = '' }
+}
+function Get-DomeniaBoardTeamLayout {
+    # FO-17: team layout of the deployed configuration, cleaned like a stored layout without the saved queries of one
+    # operator. Valid only with at least one widget known to this board. Returns {Valid; Layout; Reason}.
+    param([Parameter(Mandatory=$true)][ValidateSet('Computer','Fleet','Software')][string]$Board,[string]$Json = '',[object[]]$ProbeCatalog = @())
+    $document = ConvertFrom-DomeniaBoardLayoutDocument -Board $Board -Text $Json
+    if (-not $document.Valid) { return [pscustomobject]@{ Valid = $false; Layout = @(); Reason = [string]$document.Reason } }
+    $layout = @(ConvertTo-DomeniaBoardCleanLayout -Board $Board -Items @($document.Items) -ProbeCatalog $ProbeCatalog -NoQuery -IdPrefix 't')
+    if (-not $layout.Count) { return [pscustomobject]@{ Valid = $false; Layout = @(); Reason = 'Aucun widget connu de ce tableau.' } }
+    return [pscustomobject]@{ Valid = $true; Layout = $layout; Reason = '' }
+}
+function Get-DomeniaBoardName {
+    # Name of a board in a sentence.
+    param([string]$Board)
+    switch ($Board) { 'Computer' { return 'du poste' } 'Fleet' { return 'de lʼaccueil' } 'Software' { return 'des logiciels' } default { return [string]$Board } }
+}
+function Get-DomeniaBoardScopeName {
+    # FO-13: name of the scope that the data of the overview describes, from its distinguished name: the first relative
+    # name without its prefix, « Tout le domaine » for the whole domain (empty name or the domain root).
+    param([string]$Dn = '')
+    $value = ([string]$Dn).Trim()
+    if ((-not $value) -or ($value -match '^(?i:DC)=')) { return 'Tout le domaine' }
+    return (((($value -split '(?<!\\),')[0]) -replace '^(?i:OU|CN)=', '') -replace '\\(.)', '$1')
+}
+function Get-DomeniaBoardDocumentMessage {
+    # FO-17: a refusal of the DocumentStore worker (written for support captures) in the words of a layout file; any
+    # other message is kept as it is. The raw message stays in the journal only.
+    param([string]$Message = '')
+    $text = [string]$Message
+    $known = @(
+        @('*Capture absente ou trop volumineuse*', 'fichier absent ou trop volumineux (1 Mo maximum).'),
+        @('*Export invalide ou trop volumineux*', 'disposition trop volumineuse (1 Mo maximum).'),
+        @('*Document ou dossier redirige refuse*', 'chemin redirigé refusé.'),
+        @('*Chemin de document non pris en charge*', 'choisissez un fichier .json.')
+    )
+    foreach ($pair in $known) { if ($text -like [string]$pair[0]) { return [string]$pair[1] } }
+    return $text
+}
+function Get-DomeniaBoardLayoutFileName {
+    # Domenia-disposition-<poste|accueil|logiciels>-AAAAMMJJ-HHmm.json in the export folder.
+    param([ValidateSet('Computer','Fleet','Software')][string]$Board,[datetime]$Time = (Get-Date))
+    $name = switch ($Board) { 'Computer' { 'poste' } 'Fleet' { 'accueil' } default { 'logiciels' } }
+    return ('Domenia-disposition-' + $name + '-' + $Time.ToString('yyyyMMdd-HHmm', [Globalization.CultureInfo]::InvariantCulture) + '.json')
 }
 function Get-DomeniaBoardGroups {
     # Sections in the order of their first widget.
@@ -846,6 +1302,172 @@ function ConvertTo-DomeniaSearchText {
     foreach ($ch in $decomposed.ToCharArray()) { if ([Globalization.CharUnicodeInfo]::GetUnicodeCategory($ch) -ne [Globalization.UnicodeCategory]::NonSpacingMark) { [void]$builder.Append($ch) } }
     return $builder.ToString()
 }
+function Format-DomeniaBoardTextNumber {
+    # A figure of a copied text in French notation ('1 234', '3,5'), its own Display text when the item has one.
+    param($Item)
+    $display = [string](Get-DomeniaHealthValue $Item 'Display' '')
+    if ($display) { return $display }
+    $raw = Get-DomeniaHealthValue $Item 'Value' ''
+    $number = 0.0
+    if (($raw -is [ValueType]) -and [double]::TryParse([string]$raw, [Globalization.NumberStyles]::Float, [Globalization.CultureInfo]::InvariantCulture, [ref]$number)) { return $number.ToString('#,0.#', [Globalization.CultureInfo]::GetCultureInfo('fr-FR')) }
+    return [string]$raw
+}
+function ConvertTo-DomeniaBoardItemLines {
+    # Lines of a widget in a copied text: its points ('- Critique : ...'), the lines of a sheet or a checklist
+    # ('- BitLocker : Protection active (Volume C:)') or the parts of a chart. A part of a whole without unit says its
+    # share ('- Libre 8 Go (8 %)'), with its count when the parts are counts ('- En cours : 120 (66 %)'), never raw bytes.
+    # At most $Max lines.
+    param($Entry,[int]$Max = 20)
+    $lines = New-Object System.Collections.ArrayList
+    $kind = [string](Get-DomeniaHealthValue $Entry 'Kind' '')
+    $unit = [string](Get-DomeniaHealthValue $Entry 'Unit' '')
+    $items = @()
+    if ($kind -eq 'Health') { $items = @(Get-DomeniaHealthValue $Entry 'Points' @()) } else { $items = @(Get-DomeniaHealthValue $Entry 'Items' @()) }
+    $items = @($items | Where-Object { $null -ne $_ })
+    $invariant = [Globalization.CultureInfo]::InvariantCulture
+    $total = 0.0; $whole = $true
+    if (($kind -eq 'Distribution') -and (-not $unit)) {
+        foreach ($item in $items) {
+            $number = 0.0
+            if ([double]::TryParse([string](Get-DomeniaHealthValue $item 'Value' ''), [Globalization.NumberStyles]::Float, $invariant, [ref]$number)) { $total += $number; if ($number -ne [Math]::Floor($number)) { $whole = $false } }
+        }
+    }
+    foreach ($item in @($items | Select-Object -First ([Math]::Max(1, $Max)))) {
+        if (($kind -in @('Health','List')) -or ($null -ne (Get-DomeniaHealthValue $item 'Level'))) {
+            [void]$lines.Add('- ' + (Get-DomeniaHealthLevelName -Level ([string](Get-DomeniaHealthValue $item 'Level' ''))) + ' : ' + [string](Get-DomeniaHealthValue $item 'Text' ''))
+            continue
+        }
+        $label = [string](Get-DomeniaHealthValue $item 'Label' '')
+        # The values of one workstation are the labels themselves (a count of 1 beside each says nothing).
+        $value = if ($kind -eq 'Value') { '' } else { Format-DomeniaBoardTextNumber -Item $item }
+        if (($kind -eq 'Distribution') -and (-not $unit) -and (-not [string](Get-DomeniaHealthValue $item 'Display' '')) -and ($total -gt 0)) {
+            $number = 0.0
+            if ([double]::TryParse([string](Get-DomeniaHealthValue $item 'Value' ''), [Globalization.NumberStyles]::Float, $invariant, [ref]$number)) {
+                $share = [string][int][Math]::Round(100.0 * $number / $total) + ' %'
+                $value = if (($whole) -and ($total -le 100000)) { $value + ' (' + $share + ')' } else { '' }
+                if (-not $value) { $label = $label + ' (' + $share + ')' }
+            }
+        }
+        elseif (($kind -eq 'Distribution') -and ($unit) -and ($value -ne '') -and (-not [string](Get-DomeniaHealthValue $item 'Display' ''))) { $value = $value + ' ' + $unit }
+        $detail = [string](Get-DomeniaHealthValue $item 'Detail' '')
+        $mark = ''
+        if ($kind -eq 'Checklist') {
+            $mark = switch ([string](Get-DomeniaHealthValue $item 'State' '')) { 'Ok' { '[OK] ' } 'Warn' { '[À vérifier] ' } 'Alert' { '[Critique] ' } 'Off' { '[Non lu] ' } default { '[Information] ' } }
+        }
+        $text = '- ' + $mark + $label
+        if ($value -ne '') { $text += $(if ($label) { ' : ' } else { '' }) + $value }
+        if ($detail) { $text += ' (' + $detail + ')' }
+        [void]$lines.Add($text)
+    }
+    if ($items.Count -gt $Max) { [void]$lines.Add('- et ' + [string]($items.Count - $Max) + ' autre(s)') }
+    return @($lines)
+}
+function ConvertTo-DomeniaWidgetText {
+    # FO-13: one widget as plain text for a ticket: its title and value, its detail, its lines and the date of its data.
+    # Built from what the widget shows, never a new reading; the interface masks any secret before the clipboard.
+    param([string]$Title,$Entry,$AtUtc = $null)
+    $lines = New-Object System.Collections.ArrayList
+    $value = [string](Get-DomeniaHealthValue $Entry 'Value' '')
+    $kind = [string](Get-DomeniaHealthValue $Entry 'Kind' '')
+    $number = Get-DomeniaHealthValue $Entry 'Number'
+    if (($kind -eq 'Health') -and ($null -ne $number)) { $value = [string][int][Math]::Round([double]$number) + ' sur 100 · ' + $value }
+    [void]$lines.Add($(if ($value) { $Title + ' : ' + $value } else { $Title }))
+    foreach ($name in @('Subtitle','Detail','Badge','PointsTitle')) {
+        $text = [string](Get-DomeniaHealthValue $Entry $name '')
+        if ($text -and ($text -cne $value)) { [void]$lines.Add($text) }
+    }
+    foreach ($line in @(ConvertTo-DomeniaBoardItemLines -Entry $Entry)) { [void]$lines.Add([string]$line) }
+    if ($AtUtc -is [datetime]) { [void]$lines.Add('Données du ' + $AtUtc.ToLocalTime().ToString('dd/MM/yyyy HH:mm', [Globalization.CultureInfo]::InvariantCulture)) }
+    return (@($lines) -join "`r`n")
+}
+function ConvertTo-DomeniaBoardSummaryText {
+    # FO-13: summary of a board for a ticket: what it describes and the date of its data, the score with its verdict
+    # and coverage, the points to check, then the main facts (identity, computer account and protection of a
+    # workstation; inventory and security of an OU; synthesis of a software list). Entries absent are left out.
+    param([Parameter(Mandatory=$true)][ValidateSet('Computer','Fleet','Software')][string]$Board,$Data,[string]$Subject = '',$AtUtc = $null,[string]$AtLabel = '')
+    $lines = New-Object System.Collections.ArrayList
+    $head = switch ($Board) { 'Computer' { 'Poste' } 'Fleet' { 'Vue dʼensemble' } default { 'Logiciels' } }
+    if ($Subject) { $head += $(switch ($Board) { 'Software' { ' de ' } 'Fleet' { ' · ' } default { ' ' } }) + $Subject }
+    if ($AtUtc -is [datetime]) { $head += ' · ' + $(if ($AtLabel) { $AtLabel } else { 'données du' }) + ' ' + $AtUtc.ToLocalTime().ToString('dd/MM/yyyy HH:mm', [Globalization.CultureInfo]::InvariantCulture) }
+    [void]$lines.Add($head)
+    $entries = Get-DomeniaHealthValue $Data 'Entries'
+    $get = { param([string]$Key) if (($null -ne $entries) -and $entries.ContainsKey($Key)) { return $entries[$Key] }; return $null }
+    $prefix = $Board.ToLowerInvariant()
+    $health = & $get ($prefix + '.health')
+    if ($null -ne $health) {
+        $number = Get-DomeniaHealthValue $health 'Number'
+        $score = if ($null -ne $number) { [string][int][Math]::Round([double]$number) + ' sur 100 · ' } else { '' }
+        $line = 'Santé : ' + $score + [string]$health.Value
+        if ([string]$health.Detail) { $line += ' (' + [string]$health.Detail + ')' }
+        [void]$lines.Add($line)
+        if ([string](Get-DomeniaHealthValue $health 'Badge' '')) { [void]$lines.Add([string]$health.Badge) }
+        $title = [string](Get-DomeniaHealthValue $health 'PointsTitle' '')
+        if ($title) { [void]$lines.Add($title) }
+        foreach ($point in @(ConvertTo-DomeniaBoardItemLines -Entry $health)) { [void]$lines.Add([string]$point) }
+    }
+    $keys = switch ($Board) {
+        'Computer' { @('computer.identity','computer.adaccount','computer.status') }
+        'Fleet' { @('fleet.machines','fleet.enabled','fleet.stale','fleet.disabled','fleet.pwdold','fleet.eos','fleet.win10','fleet.laps','fleet.bitlocker') }
+        default { @('software.count','software.size','software.recent','software.multiversion','software.duplicates','software.nopublisher','software.runtime','software.browsers') }
+    }
+    $facts = New-Object System.Collections.ArrayList
+    foreach ($key in $keys) {
+        $entry = & $get $key
+        if ($null -eq $entry) { continue }
+        $catalog = Get-DomeniaBoardCatalogItem -Board $Board -Key $key
+        $name = if ([string](Get-DomeniaHealthValue $entry 'Title' '')) { [string]$entry.Title } elseif ($null -ne $catalog) { [string]$catalog.Title } else { $key }
+        if ([string]$entry.Kind -in @('Sheet','Checklist')) {
+            [void]$lines.Add($name)
+            foreach ($row in @(ConvertTo-DomeniaBoardItemLines -Entry $entry)) { [void]$lines.Add([string]$row) }
+            continue
+        }
+        $text = '- ' + $name + ' : ' + [string]$entry.Value
+        if ([string]$entry.Detail) { $text += ' (' + [string]$entry.Detail + ')' }
+        [void]$facts.Add($text)
+    }
+    if ($facts.Count) {
+        [void]$lines.Add($(switch ($Board) { 'Fleet' { 'Comptes et sécurité du périmètre' } 'Software' { 'Synthèse' } default { 'Informations' } }))
+        foreach ($fact in $facts) { [void]$lines.Add([string]$fact) }
+    }
+    return (@($lines) -join "`r`n")
+}
+function Get-DomeniaBoardSearchTerms {
+    # SP-19: words of a catalog search, each with its local synonyms ('ram' also finds 'memoire', 'reboot' the pending
+    # restart). Lower case without accents; every word must then match one of its forms.
+    param([string]$Text)
+    $terms = New-Object System.Collections.ArrayList
+    foreach ($word in @(((ConvertTo-DomeniaSearchText $Text) -split '\s+') | Where-Object { $_ })) {
+        $forms = New-Object System.Collections.ArrayList
+        [void]$forms.Add([string]$word)
+        if ($script:DomeniaBoardSearchSynonyms.ContainsKey([string]$word)) { foreach ($form in @($script:DomeniaBoardSearchSynonyms[[string]$word])) { if (-not $forms.Contains([string]$form)) { [void]$forms.Add([string]$form) } } }
+        [void]$terms.Add([pscustomobject]@{ Word = [string]$word; Forms = @($forms) })
+    }
+    return @($terms)
+}
+function Test-DomeniaBoardSourceMatch {
+    # Editor of a widget (SP-07, SP-19): an information of the catalog is listed when every searched word matches its
+    # search text through one of its forms, its origin is the one chosen (Builtin, Probe, Query; '' for all) and its
+    # category the one chosen ('' for all, compared without accents nor case).
+    param($Row,[object[]]$Terms = @(),[string]$Origin = '',[string]$Category = '')
+    if ($null -eq $Row) { return $false }
+    if ($Origin -and ([string](Get-DomeniaHealthValue $Row 'Source' '') -ne $Origin)) { return $false }
+    if ($Category -and ((ConvertTo-DomeniaSearchText ([string](Get-DomeniaHealthValue $Row 'Category' ''))) -ne (ConvertTo-DomeniaSearchText $Category))) { return $false }
+    $search = [string](Get-DomeniaHealthValue $Row 'Search' '')
+    foreach ($term in @($Terms)) {
+        if ($null -eq $term) { continue }
+        $found = $false
+        foreach ($form in @($term.Forms)) { if ($search.IndexOf([string]$form, [StringComparison]::Ordinal) -ge 0) { $found = $true; break } }
+        if (-not $found) { return $false }
+    }
+    return $true
+}
+function Get-DomeniaBoardCategoryLabel {
+    # A section or query category as shown to the operator, with its accents ('Securite et etat' -> 'Sécurité et état').
+    param([string]$Name)
+    $text = [string]$Name
+    if ($script:DomeniaBoardCategoryLabels.ContainsKey($text)) { return [string]$script:DomeniaBoardCategoryLabels[$text] }
+    return $text
+}
 function New-DomeniaBoardSample {
     # Example data for the live preview of a widget that has no result yet.
     param([string]$Key,[string]$Kind)
@@ -856,7 +1478,14 @@ function New-DomeniaBoardSample {
         'Measure' { return New-DomeniaBoardEntry -Key $Key -Kind Measure -Value '42' -Detail 'Moyenne · apercu' -Items $parts }
         'Series' { return New-DomeniaBoardEntry -Key $Key -Kind Series -Value '22' -Detail 'Apercu' -Items $parts }
         'List' { return New-DomeniaBoardEntry -Key $Key -Kind List -Value 'Apercu' -Items @([pscustomobject]@{ Level = 'Warn'; Text = 'Exemple de point a surveiller.' }, [pscustomobject]@{ Level = 'Info'; Text = 'Exemple d information.' }) }
-        'Health' { return New-DomeniaBoardEntry -Key $Key -Kind Health -Value 'Bon état' -Detail 'Apercu' -State Ok -Number 90 -Maximum 100 }
+        'Health' {
+            $sample = New-DomeniaBoardEntry -Key $Key -Kind Health -Value 'À surveiller' -Detail 'Aperçu' -State Warn -Number 90 -Maximum 100
+            $sample | Add-Member -NotePropertyName Points -NotePropertyValue @([pscustomobject]@{ Level = 'Warn'; Text = 'Exemple de point à surveiller.' }, [pscustomobject]@{ Level = 'Info'; Text = 'Exemple dʼinformation.' })
+            $sample | Add-Member -NotePropertyName PointsTitle -NotePropertyValue (Get-DomeniaHealthPointsTitle -Points 1 -Information 1)
+            return $sample
+        }
+        'Sheet' { return New-DomeniaBoardEntry -Key $Key -Kind Sheet -Value '3 informations' -Detail 'Aperçu' -Items @([pscustomobject]@{ Label = 'Système'; Value = 'Windows 11 24H2'; Detail = 'Build 26100'; State = '' }, [pscustomobject]@{ Label = 'Modèle'; Value = 'Exemple'; Detail = ''; State = '' }, [pscustomobject]@{ Label = 'Mémoire installée'; Value = '16 Go'; Detail = ''; State = '' }) }
+        'Checklist' { return New-DomeniaBoardEntry -Key $Key -Kind Checklist -Value '1 à vérifier' -Detail 'Aperçu' -State Warn -Items @([pscustomobject]@{ Label = 'BitLocker'; Value = 'Protection active'; Detail = ''; State = 'Ok' }, [pscustomobject]@{ Label = 'Redémarrage en attente'; Value = 'Oui'; Detail = ''; State = 'Warn' }, [pscustomobject]@{ Label = 'Antivirus'; Value = 'Non lu'; Detail = ''; State = 'Off' }) }
         'Timeline' { return New-DomeniaBoardEntry -Key $Key -Kind Timeline -Value '7' -Detail 'Aperçu' -Items @([pscustomobject]@{ Label = '01/07'; Value = 9 }, [pscustomobject]@{ Label = '01/08'; Value = 8 }, [pscustomobject]@{ Label = '01/09'; Value = 7 }) }
         default { return New-DomeniaBoardEntry -Key $Key -Kind Value -Value 'Exemple' -Detail 'Apercu : la valeur reelle apparait apres lecture' }
     }
