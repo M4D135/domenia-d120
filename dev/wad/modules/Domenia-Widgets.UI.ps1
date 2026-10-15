@@ -12,6 +12,9 @@ $script:DomeniaBoardPendingDrop = $null
 $script:DomeniaWidgetCollects = @{}
 $script:DomeniaWidgetCollectQueue = New-Object System.Collections.ArrayList
 $script:DomeniaWidgetCollectTimer = $null
+# Saved queries of the Query widgets by Id, built once per library (Get-DomeniaWidgetRecipe): a board redraw never
+# parses nor compiles the whole library again.
+$script:DomeniaWidgetRecipeCache = $null
 
 # ---------------------------------------------------------------------------
 # Storage
@@ -146,7 +149,7 @@ function Show-DomeniaBoard {
         $panel.Tag = @{ UndoKey = $true; Board = $Board }
         $panel.Add_PreviewKeyDown({ param($s,$e) if (($e.Key -eq [System.Windows.Input.Key]::Z) -and ([System.Windows.Input.Keyboard]::Modifiers -eq [System.Windows.Input.ModifierKeys]::Control) -and ($e.OriginalSource -isnot [System.Windows.Controls.Primitives.TextBoxBase])) { $board = [string]$s.Tag['Board']; if ((Get-DomeniaBoardState $board).UndoStack.Count) { Invoke-DomeniaBoardAction -Tag @{ Board = $board; Action = 'Undo' }; $e.Handled = $true } } })
     }
-    if (-not ($panel.Tag -is [hashtable] -and $panel.Tag.ContainsKey('FitKey'))) {
+    if (-not (($panel.Tag -is [hashtable]) -and ($panel.Tag.ContainsKey('FitKey')))) {
         # Point 80: crisp edges at fractional DPI (125, 150 %), and widgets refitted when the page width changes.
         $panel.Tag['FitKey'] = $true
         $panel.UseLayoutRounding = $true
@@ -193,7 +196,7 @@ function Show-DomeniaBoard {
         $block.Margin = [System.Windows.Thickness]::new(0, $(if ($panel.Children.Count -gt 1) { 20 } else { 8 }), 0, 0)
         [void]$panel.Children.Add($block)
     }
-    if (-not $live -and -not $state.Editing) {
+    if ((-not $live) -and (-not $state.Editing)) {
         $none = -not @($layout).Count
         $message = if ($none) { 'Tous les widgets ont ete retires. Ajoutez-en un, ou revenez a la disposition par defaut avec Personnaliser.' } elseif ($state.EmptyText) { $state.EmptyText } else { 'Les widgets se remplissent apres la premiere lecture.' }
         $empty = New-DomeniaChartEmpty -Width 520 -Height 200 -Title $(if ($none) { 'Aucun widget' } else { 'Pas encore de donnees' }) -Message $message
@@ -213,7 +216,7 @@ function Get-DomeniaBoardHolderList {
     param($Node)
     if ($Node -isnot [System.Windows.Controls.Panel]) { return }
     foreach ($child in @($Node.Children)) {
-        if (($child -is [System.Windows.FrameworkElement]) -and ($child.Tag -is [hashtable]) -and $child.Tag.ContainsKey('Chrome')) { Write-Output -NoEnumerate $child }
+        if (($child -is [System.Windows.FrameworkElement]) -and ($child.Tag -is [hashtable]) -and ($child.Tag.ContainsKey('Chrome'))) { Write-Output -NoEnumerate $child }
         else { Get-DomeniaBoardHolderList $child }
     }
 }
@@ -227,10 +230,10 @@ function Update-DomeniaBoardFit {
     foreach ($holder in @(Get-DomeniaBoardHolderList $Panel)) {
         if ($holder.Children.Count -lt 1) { continue }
         $card = $holder.Children[0]
-        if (($card -isnot [System.Windows.FrameworkElement]) -or [double]::IsNaN([double]$card.Width)) { continue }
+        if (($card -isnot [System.Windows.FrameworkElement]) -or ([double]::IsNaN([double]$card.Width))) { continue }
         $scale = Get-DomeniaBoardFitScale -Needed ([double]$card.Width + $card.Margin.Left + $card.Margin.Right) -Available $available
         if ($scale -lt 1.0) { $holder.LayoutTransform = New-Object System.Windows.Media.ScaleTransform ($scale, $scale) }
-        elseif ($null -ne $holder.LayoutTransform -and $holder.LayoutTransform -is [System.Windows.Media.ScaleTransform]) { $holder.LayoutTransform = [System.Windows.Media.Transform]::Identity }
+        elseif (($null -ne $holder.LayoutTransform) -and ($holder.LayoutTransform -is [System.Windows.Media.ScaleTransform])) { $holder.LayoutTransform = [System.Windows.Media.Transform]::Identity }
     }
 }
 function Find-DomeniaBoardHolder {
@@ -722,10 +725,10 @@ function New-DomeniaBoardWidget {
         $collected = ($null -ne $State.Data)
         $deepRead = $false; $collectedAt = ''
         if ($Board -eq 'Computer') { $deepRead = Test-DomeniaComputerInventoryDeep -Result $script:LastComputerDashboardResult }
-        if (($State.DataAtUtc -is [datetime]) -and $collected) { $collectedAt = $State.DataAtUtc.ToLocalTime().ToString('dd/MM HH:mm', [Globalization.CultureInfo]::InvariantCulture) }
+        if (($State.DataAtUtc -is [datetime]) -and ($collected)) { $collectedAt = $State.DataAtUtc.ToLocalTime().ToString('dd/MM HH:mm', [Globalization.CultureInfo]::InvariantCulture) }
         $info = Get-DomeniaWidgetPlaceholder -Need $need -Paused $paused -Progress $progress -Collected $collected -DeepRead $deepRead -CollectedAt $collectedAt
         # A paused widget, or any widget while customising, keeps its own size; otherwise a compact place (SP-18).
-        if ($paused -or $State.Editing) { $width = $size.Width; $height = $(if ($size.Height -gt 0) { $size.Height } elseif ($size.MinHeight -gt 0) { $size.MinHeight } else { 118 }) }
+        if (($paused) -or ($State.Editing)) { $width = $size.Width; $height = $(if ($size.Height -gt 0) { $size.Height } elseif ($size.MinHeight -gt 0) { $size.MinHeight } else { 118 }) }
         else { $compact = Get-DomeniaBoardSize -Visual Kpi -Size S; $width = $compact.Width; $height = $compact.Height }
         $stateCard = New-DomeniaWidgetStateCard -Width $width -Height $height -Title $resolved.Title -Info $info -Board $Board -Id ([string]$Item.Id)
         $card = $stateCard.Card
@@ -766,7 +769,7 @@ function New-DomeniaBoardWidget {
         [System.Windows.Controls.Grid]::SetRow($button, 1)
         [void]$holder.Children.Add($button)
     }
-    if ($progress -and ($null -eq $progressText)) {
+    if (($progress) -and ($null -eq $progressText)) {
         # The figure shown stays the last one stored; this line says that a collection is running for it.
         & $addRows
         $progressText = New-DomeniaChartText -Text $progress -Size 11.5 -Key 'AccentColor' -OneLine
@@ -793,14 +796,14 @@ function New-DomeniaBoardWidget {
     # Point 73: a fleet figure opens only the list of the calculation it was drawn from.
     $snapshot = if ($Board -eq 'Fleet') { [string]$script:FleetQuerySnapshotKey } else { '' }
     if(-not $paused){
-        if($Board -eq 'Fleet' -or ($Board -eq 'Computer' -and $Item.Source -eq 'Query')){
+        if(($Board -eq 'Fleet') -or (($Board -eq 'Computer') -and ($Item.Source -eq 'Query'))){
             [void]$chrome.Children.Add((New-DomeniaBoardChromeButton ([string][char]0xE8A1) ('Ouvrir dans lʼatelier : ' + $resolved.Title) @{ Board = $Board; Id = [string]$Item.Id; Action = 'Details'; Snapshot = $snapshot }))
         }
-        elseif($Board -eq 'Computer' -and $Item.Source -eq 'Probe'){
+        elseif(($Board -eq 'Computer') -and ($Item.Source -eq 'Probe')){
             [void]$chrome.Children.Add((New-DomeniaBoardChromeButton ([string][char]0xE8A5) ('Détails enregistrés : ' + $resolved.Title) @{Board=$Board;Id=[string]$Item.Id;Action='Details'}))
         }
         [void]$chrome.Children.Add((New-DomeniaBoardChromeButton ([string][char]0xE72C) ('Actualiser : ' + $resolved.Title) @{ Board = $Board; Id = [string]$Item.Id; Action = 'Refresh' }))
-        if($kind -eq 'Health' -and $Board -in @('Fleet','Computer')){[void]$chrome.Children.Add((New-DomeniaBoardChromeButton ([string][char]0xE946) 'Comprendre le score' @{Board=$Board;Action='HealthExplanation'}))}
+        if(($kind -eq 'Health') -and ($Board -in @('Fleet','Computer'))){[void]$chrome.Children.Add((New-DomeniaBoardChromeButton ([string][char]0xE946) 'Comprendre le score' @{Board=$Board;Action='HealthExplanation'}))}
         else{[void]$chrome.Children.Add((New-DomeniaBoardChromeButton ([string][char]0xE946) ('Comprendre ce chiffre : ' + $resolved.Title) @{ Board = $Board; Id = [string]$Item.Id; Action = 'Explain' }))}
     }
     if ($Board -in @('Fleet','Computer')) {
@@ -828,7 +831,7 @@ function New-DomeniaBoardWidget {
         $control = (($modifiers -band [System.Windows.Input.ModifierKeys]::Control) -eq [System.Windows.Input.ModifierKeys]::Control)
         $gesture = Get-DomeniaBoardKeyGesture -Key ([string]$key) -Alt $alt -Shift $shift -Control $control -Editing ([bool]$s.Tag.Editing)
         if ($null -eq $gesture) { return }
-        if (($gesture.Action -eq 'Refresh') -and [bool]$s.Tag.Paused) { return }
+        if (($gesture.Action -eq 'Refresh') -and ([bool]$s.Tag.Paused)) { return }
         Invoke-DomeniaBoardAction -Tag @{ Board = $s.Tag.Board; Id = $s.Tag.Id; Action = [string]$gesture.Action; Value = [string]$gesture.Value }
         $e.Handled = $true
     })
@@ -910,7 +913,7 @@ function Invoke-DomeniaBoardAction {
     $focused = [System.Windows.Input.Keyboard]::FocusedElement
     $keyboard = ($null -ne $panel -and $focused -is [System.Windows.DependencyObject] -and $panel.IsAncestorOf($focused))
     # A widget focused with the keyboard (point 80) gets the focus back after the redraw, not one of its buttons.
-    $holderFocused = ($keyboard -and ($focused -is [System.Windows.FrameworkElement]) -and ($focused.Tag -is [hashtable]) -and $focused.Tag.ContainsKey('Chrome'))
+    $holderFocused = (($keyboard) -and ($focused -is [System.Windows.FrameworkElement]) -and ($focused.Tag -is [hashtable]) -and ($focused.Tag.ContainsKey('Chrome')))
     $editFocus = if ($holderFocused) { 'Holder' } else { 'Edit' }
     switch ($action) {
         'FleetAnalysis' { Show-DomeniaFleetAnalysis;return }
@@ -928,7 +931,7 @@ function Invoke-DomeniaBoardAction {
             if($board -ne 'Fleet'){return}
             # Point 73: the list opened is the one of the calculation the figure was drawn from.
             $drawn=[string]$Tag['Snapshot']
-            if($drawn -and -not (Test-DomeniaWidgetSnapshotCurrent -Drawn $drawn -Current ([string]$script:FleetQuerySnapshotKey))){Set-Status 'Ce chiffre vient dʼun calcul remplacé depuis : le tableau est redessiné avec le calcul actuel, rouvrez son détail.' 'WARN';Show-DomeniaBoard -Board Fleet -Quiet;return}
+            if(($drawn) -and (-not (Test-DomeniaWidgetSnapshotCurrent -Drawn $drawn -Current ([string]$script:FleetQuerySnapshotKey)))){Set-Status 'Ce chiffre vient dʼun calcul remplacé depuis : le tableau est redessiné avec le calcul actuel, rouvrez son détail.' 'WARN';Show-DomeniaBoard -Board Fleet -Quiet;return}
             $item=@(Get-DomeniaBoardLayout -Board $board|Where-Object{[string]$_.Id -eq $id}|Select-Object -First 1)
             if($item.Count){Show-DomeniaFleetWidgetDetails -Item $item[0]}
             return
@@ -1431,7 +1434,7 @@ function Start-DomeniaWidgetProbe {
     param([string]$Board)
     $active = @(Select-DomeniaActiveBoardItems -Layout @(Get-DomeniaBoardLayout -Board $Board))
     $probeIds = @($active | Where-Object { [string]$_.Source -eq 'Probe' } | ForEach-Object { [string]$_.Key } | Select-Object -Unique)
-    $recipes=@(if($Board -in @('Fleet','Computer') -and $null -ne $script:DomeniaQueryState){foreach($item in @($active|Where-Object{$_.Source -eq 'Query'})){$script:DomeniaQueryState.Saved|Where-Object{$_.Id -eq $item.Key}}})
+    $recipes=@(if(($Board -in @('Fleet','Computer')) -and ($null -ne $script:DomeniaQueryState)){foreach($item in @($active|Where-Object{$_.Source -eq 'Query'})){$script:DomeniaQueryState.Saved|Where-Object{$_.Id -eq $item.Key}}})
     $plan=Get-DomeniaQueryCollectionRequirements -Recipes $recipes -ProbeIds $probeIds
     if(-not $plan.Remote){Set-Status 'Ces widgets utilisent uniquement la base locale. Actualisez lʼOU choisie dans Base de données pour relire leurs informations AD.' 'INFO';return}
     $probes = @(ConvertTo-DomeniaProbePayload -Ids $plan.ProbeIds)
@@ -1454,16 +1457,37 @@ function Start-DomeniaWidgetProbe {
 # workstation, the AD refresh of the OU, the BitLocker presence read and the local recalculation. The population
 # is the selected workstation or the active workstations of the OU shown on Accueil, never the whole domain.
 # ---------------------------------------------------------------------------
-function Get-DomeniaWidgetRecipe {
-    # Saved query of a Query widget: the workshop list or, when the workshop was never opened, the validated saved
-    # library. $null when it is absent or ambiguous.
-    param([string]$Id)
+function Get-DomeniaWidgetRecipeIndex {
+    # Id -> saved queries with that Id, from the workshop list or, when the workshop was never opened, from the
+    # validated saved library (parsed and compiled once per library text, not once per widget and redraw). The
+    # workshop always assigns a new list when its library changes, so the list itself is the key of the cache.
+    $source = $null
+    if ($null -ne $script:DomeniaQueryState) { $source = $script:DomeniaQueryState.Saved }
+    else { $source = [string](Get-DomeniaSetting 'Query.Library' '') }
+    $cache = $script:DomeniaWidgetRecipeCache
+    if ($null -ne $cache) {
+        if ([object]::ReferenceEquals($cache.Source, $source)) { return $cache.Index }
+        if (($source -is [string]) -and ($cache.Source -is [string]) -and ([string]::Equals([string]$cache.Source, [string]$source, [StringComparison]::Ordinal))) { return $cache.Index }
+    }
+    $index = [System.Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal)
     $saved = @()
-    if ($null -ne $script:DomeniaQueryState) { $saved = @($script:DomeniaQueryState.Saved) }
-    else { try { $saved = @(ConvertFrom-DomeniaQueryLibrary ([string](Get-DomeniaSetting 'Query.Library' ''))) } catch { $saved = @() } }
-    $found = @($saved | Where-Object { ($null -ne $_) -and ([string]$_.Id -ceq $Id) })
-    if ($found.Count -ne 1) { return $null }
-    return $found[0]
+    if ($source -is [string]) { try { $saved = @(ConvertFrom-DomeniaQueryLibrary $source) } catch { $saved = @() } }
+    else { $saved = @($source) }
+    foreach ($recipe in $saved) {
+        if ($null -eq $recipe) { continue }
+        $id = [string]$recipe.Id
+        if (-not $index.ContainsKey($id)) { $index[$id] = New-Object System.Collections.Generic.List[object] }
+        $index[$id].Add($recipe)
+    }
+    $script:DomeniaWidgetRecipeCache = [pscustomobject]@{ Source = $source; Index = $index }
+    return $index
+}
+function Get-DomeniaWidgetRecipe {
+    # Saved query of a Query widget, $null when it is absent or ambiguous (several saved queries with its Id).
+    param([string]$Id)
+    $index = Get-DomeniaWidgetRecipeIndex
+    if ((-not $index.ContainsKey($Id)) -or ($index[$Id].Count -ne 1)) { return $null }
+    return $index[$Id][0]
 }
 function Get-DomeniaWidgetNeed {
     # What refreshing this widget reads (Get-DomeniaWidgetCollectionNeed), with the fields of its saved query.
@@ -1495,11 +1519,36 @@ function Test-DomeniaWidgetOperationRunning {
     foreach ($job in @($script:AsyncJobs.Values)) { if (($null -ne $job) -and ([string](Get-DomeniaMember $job 'OperationId' '') -eq $OperationId)) { return $true } }
     return $false
 }
+function Get-DomeniaWidgetPopulationKey {
+    # Identity of the population a widget gesture was made for: the selected workstation (DN and GUID) on the
+    # workstation and software boards, the scope key of the OU shown on Accueil on the fleet board; '' when there is
+    # none. A collection is shown, kept in the queue or started only for the population of its gesture.
+    param([string]$Board)
+    if ($Board -eq 'Fleet') {
+        $scope = $null
+        try { $scope = Get-DomeniaFleetScope } catch { $scope = $null }
+        if ($null -eq $scope) { return '' }
+        return [string]$scope.Key
+    }
+    $so = $script:SelectedObject
+    if (($null -eq $so) -or ([string]$so.Type -ne 'Machine') -or (-not [string]$so.DN)) { return '' }
+    $guid = ''
+    try { $guid = [string]$so.Safety.Guid } catch { $guid = '' }
+    return (([string]$so.DN).ToLowerInvariant() + '|' + $guid.Trim().Trim('{','}').ToLowerInvariant())
+}
+function Test-DomeniaWidgetPopulationCurrent {
+    # True when a registered or queued activity belongs to the workstation or OU its board shows now.
+    param($Entry)
+    if ($null -eq $Entry) { return $false }
+    return ([string](Get-DomeniaMember $Entry 'PopulationKey' '') -ceq (Get-DomeniaWidgetPopulationKey -Board ([string]$Entry.Board)))
+}
 function Register-DomeniaWidgetCollect {
     # The widgets that show the progress of an activity their gesture started. The figure stays the last one read.
-    param([string]$Board,[string[]]$Ids = @(),[ValidateSet('Park','Inventory','Directory','BitLocker','Software','Local','Queued')][string]$Kind,[string]$RunId = '')
+    # -PopulationKey: the population of the gesture (default: the one shown now); another one never shows it.
+    param([string]$Board,[string[]]$Ids = @(),[ValidateSet('Park','Inventory','Directory','BitLocker','Software','Local','Queued')][string]$Kind,[string]$RunId = '',[string]$PopulationKey = '')
+    $population = if ($PSBoundParameters.ContainsKey('PopulationKey')) { $PopulationKey } else { Get-DomeniaWidgetPopulationKey -Board $Board }
     foreach ($id in @($Ids | Where-Object { $_ })) {
-        $script:DomeniaWidgetCollects[$Board + '|' + [string]$id] = [pscustomobject]@{ Board = $Board; Id = [string]$id; Kind = $Kind; RunId = $RunId; Epoch = [long]$script:SessionEpoch }
+        $script:DomeniaWidgetCollects[$Board + '|' + [string]$id] = [pscustomobject]@{ Board = $Board; Id = [string]$id; Kind = $Kind; RunId = $RunId; Epoch = [long]$script:SessionEpoch; PopulationKey = $population }
     }
     if ($script:DomeniaWidgetCollects.Count) {
         if ($null -eq $script:DomeniaWidgetCollectTimer) { $script:DomeniaWidgetCollectTimer = New-DomeniaTimer -Owner 'Timer:WidgetCollect' -IntervalMs 1000 -SessionBound -Tick { Update-DomeniaWidgetCollectProgress } }
@@ -1512,13 +1561,19 @@ function Get-DomeniaWidgetActivityText {
     if (($null -eq $Entry) -or ([long]$Entry.Epoch -ne [long]$script:SessionEpoch)) { return '' }
     switch ([string]$Entry.Kind) {
         'Queued' {
-            foreach ($queued in @($script:DomeniaWidgetCollectQueue)) { if (([string]$queued.Board -eq [string]$Entry.Board) -and ([string]$queued.Id -eq [string]$Entry.Id)) { return (Format-DomeniaWidgetCollectProgress -Phase Queued) } }
+            foreach ($queued in @($script:DomeniaWidgetCollectQueue)) {
+                if (([string]$queued.Board -ne [string]$Entry.Board) -or ([string]$queued.Id -ne [string]$Entry.Id)) { continue }
+                $running = (($null -ne $script:ParkRun) -and (-not [bool]$script:ParkRun.Completed))
+                if ((-not $running) -and ((Get-DomeniaQueuedWidgetState -Entry $queued) -eq 'Wait')) { return (Format-DomeniaWidgetCollectProgress -Phase Waiting) }
+                return (Format-DomeniaWidgetCollectProgress -Phase Queued)
+            }
             return ''
         }
         'Park' {
             $run = $script:ParkRun
-            if (($null -eq $run) -or ([string]$run.Id -cne [string]$Entry.RunId) -or [bool]$run.Completed) { return '' }
+            if (($null -eq $run) -or ([string]$run.Id -cne [string]$Entry.RunId) -or ([bool]$run.Completed)) { return '' }
             if ([bool]$run.Loading) { return (Format-DomeniaWidgetCollectProgress -Phase Preparing) }
+            if ([bool](Get-DomeniaMember $run 'Planning' $false)) { return (Format-DomeniaWidgetCollectProgress -Phase Planning -Done ([int](Get-DomeniaMember $run 'PlanNext' 0)) -Total @($run.Targets).Count -Fresh ([int](Get-DomeniaMember $run 'AlreadyFresh' 0))) }
             if (-not [bool]$run.Approved) { return (Format-DomeniaWidgetCollectProgress -Phase Confirming -Total @($run.Targets).Count) }
             return (Format-DomeniaWidgetCollectProgress -Phase Running -Done ([int]$run.Done) -Total @($run.Targets).Count -Fresh ([int](Get-DomeniaMember $run 'AlreadyFresh' 0)) -Failed ([int]$run.Failed))
         }
@@ -1529,20 +1584,23 @@ function Get-DomeniaWidgetActivityText {
         }
         'Local' {
             $job = [string]$script:FleetJobId
-            if ($job -and ($null -ne $script:AsyncJobs) -and $script:AsyncJobs.Contains($job)) { return (Format-DomeniaWidgetCollectProgress -Phase Local) }
+            if (($job) -and ($null -ne $script:AsyncJobs) -and ($script:AsyncJobs.Contains($job))) { return (Format-DomeniaWidgetCollectProgress -Phase Local) }
             return ''
         }
     }
     $operation = switch ([string]$Entry.Kind) { 'Inventory' { 'ComputerInventory' } 'BitLocker' { 'BitLockerPresence' } 'Software' { 'SoftwareInventory' } default { '' } }
-    if ($operation -and (Test-DomeniaWidgetOperationRunning -OperationId $operation)) { return (Format-DomeniaWidgetCollectProgress -Phase ([string]$Entry.Kind)) }
+    if (($operation) -and (Test-DomeniaWidgetOperationRunning -OperationId $operation)) { return (Format-DomeniaWidgetCollectProgress -Phase ([string]$Entry.Kind)) }
     return ''
 }
 function Get-DomeniaWidgetCollectProgress {
-    # Progress line of one widget, '' when nothing runs for it.
+    # Progress line of one widget, '' when nothing runs for it or when the activity belongs to another workstation
+    # or OU than the one its board shows now.
     param([string]$Board,[string]$Id)
     $key = $Board + '|' + $Id
     if (-not $script:DomeniaWidgetCollects.ContainsKey($key)) { return '' }
-    return (Get-DomeniaWidgetActivityText -Entry $script:DomeniaWidgetCollects[$key])
+    $entry = $script:DomeniaWidgetCollects[$key]
+    if (-not (Test-DomeniaWidgetPopulationCurrent -Entry $entry)) { return '' }
+    return (Get-DomeniaWidgetActivityText -Entry $entry)
 }
 function Update-DomeniaWidgetCollectProgress {
     # Called by the park run status and by the watch timer: updates the progress line of each collecting widget in
@@ -1553,6 +1611,8 @@ function Update-DomeniaWidgetCollectProgress {
         $entry = $script:DomeniaWidgetCollects[$key]
         $text = Get-DomeniaWidgetActivityText -Entry $entry
         if (-not $text) { [void]$script:DomeniaWidgetCollects.Remove($key); $ended[[string]$entry.Board] = $true; continue }
+        # Followed until it ends, shown only on the board of its own workstation or OU.
+        if (-not (Test-DomeniaWidgetPopulationCurrent -Entry $entry)) { continue }
         $panel = Get-DomeniaControl (Get-DomeniaBoardPanelName ([string]$entry.Board))
         if ($null -eq $panel) { continue }
         $holder = Find-DomeniaBoardHolder $panel ([string]$entry.Id)
@@ -1562,27 +1622,60 @@ function Update-DomeniaWidgetCollectProgress {
     Start-DomeniaQueuedWidgetCollect
     if ((-not $script:DomeniaWidgetCollects.Count) -and ($null -ne $script:DomeniaWidgetCollectTimer)) { $script:DomeniaWidgetCollectTimer.Stop() }
 }
+function Get-DomeniaQueuedWidgetState {
+    # State of a queued widget collection. Ready: it may start now. Wait: the OU it was queued for is being
+    # recalculated (a run just stored observations), and the collection context is refused until the new snapshot
+    # is drawn; it starts then. Moved: the selected workstation or the OU shown changed since the gesture. Expired:
+    # another session.
+    param($Entry)
+    if ([long]$Entry.Epoch -ne [long]$script:SessionEpoch) { return 'Expired' }
+    if (-not (Test-DomeniaWidgetPopulationCurrent -Entry $Entry)) { return 'Moved' }
+    if (([string]$Entry.Board -eq 'Fleet') -and (([bool]$script:FleetStale) -or ([bool][string]$script:FleetJobId))) { return 'Wait' }
+    return 'Ready'
+}
 function Start-DomeniaQueuedWidgetCollect {
     # One park run at a time: a widget added or refreshed while a run holds the engine waits here, then starts once
-    # the run ended and its local writes are confirmed. Its own checks (item, pause, population) run again then.
+    # the run ended, its local writes are confirmed and, on Accueil, the recalculation of its OU is drawn. Its own
+    # checks (item, pause, population) run again then. A collection queued for another workstation or OU than the
+    # one shown now is dropped and said so: it never starts on a population the operator did not ask for.
     if (-not $script:DomeniaWidgetCollectQueue.Count) { return }
     if (($null -ne $script:ParkRun) -and (-not [bool]$script:ParkRun.Completed)) { return }
     $save = $null
     try { $save = Get-DomeniaPersistenceState } catch { $save = $null }
     if (($null -ne $save) -and ([int]$save.Pending -gt 0)) { return }
-    $next = $script:DomeniaWidgetCollectQueue[0]
-    $script:DomeniaWidgetCollectQueue.RemoveAt(0)
-    [void]$script:DomeniaWidgetCollects.Remove([string]$next.Board + '|' + [string]$next.Id)
-    if ([long]$next.Epoch -ne [long]$script:SessionEpoch) { return }
-    [void](Start-DomeniaWidgetRefresh -Board ([string]$next.Board) -Id ([string]$next.Id) -Reason ([string]$next.Reason))
+    $index = 0
+    while ($index -lt $script:DomeniaWidgetCollectQueue.Count) {
+        $next = $script:DomeniaWidgetCollectQueue[$index]
+        $state = Get-DomeniaQueuedWidgetState -Entry $next
+        if ($state -eq 'Wait') { $index++; continue }
+        $script:DomeniaWidgetCollectQueue.RemoveAt($index)
+        [void]$script:DomeniaWidgetCollects.Remove([string]$next.Board + '|' + [string]$next.Id)
+        if ($state -eq 'Ready') {
+            # A refused start (population gone, widget removed or paused) said why; its queued line is redrawn away.
+            if (-not (Start-DomeniaWidgetRefresh -Board ([string]$next.Board) -Id ([string]$next.Id) -Reason ([string]$next.Reason))) { try { Show-DomeniaBoard -Board ([string]$next.Board) -Quiet -DeferIfHidden } catch { Write-AppLog ('Tableau de bord non redessiné après la file : ' + $_.Exception.Message) 'WARN' } }
+            return
+        }
+        if ($state -eq 'Moved') {
+            $found = @(Get-DomeniaBoardLayout -Board ([string]$next.Board) | Where-Object { [string]$_.Id -eq [string]$next.Id } | Select-Object -First 1)
+            $title = if ($found.Count) { [string](Get-DomeniaBoardItemIdentity -Board ([string]$next.Board) -Item $found[0]).Title } else { [string]$next.Id }
+            Set-Status ('Collecte en file abandonnée pour « ' + $title + ' » : ' + $(if ([string]$next.Board -eq 'Fleet') { 'lʼOU affichée' } else { 'le poste sélectionné' }) + ' a changé depuis la demande. Actualisez le widget pour collecter ce qui est affiché maintenant.') 'INFO'
+        }
+    }
 }
 function Add-DomeniaWidgetCollectQueue {
-    # At most 20 waiting widgets; the same widget is never queued twice.
-    param([string]$Board,[string]$Id,[string]$Reason)
-    foreach ($queued in @($script:DomeniaWidgetCollectQueue)) { if (([string]$queued.Board -eq $Board) -and ([string]$queued.Id -eq $Id)) { return $true } }
+    # At most 20 waiting widgets; the same widget is never queued twice: a new gesture on a queued widget replaces
+    # its reason and its population.
+    param([string]$Board,[string]$Id,[string]$Reason,[string]$PopulationKey)
+    foreach ($queued in @($script:DomeniaWidgetCollectQueue)) {
+        if (([string]$queued.Board -eq $Board) -and ([string]$queued.Id -eq $Id)) {
+            $queued.Reason = $Reason; $queued.PopulationKey = $PopulationKey
+            Register-DomeniaWidgetCollect -Board $Board -Ids @($Id) -Kind Queued -PopulationKey $PopulationKey
+            return $true
+        }
+    }
     if ($script:DomeniaWidgetCollectQueue.Count -ge 20) { Set-Status 'Trop de widgets en attente de collecte : relancez celui-ci à la fin du relevé en cours.' 'WARN'; return $false }
-    [void]$script:DomeniaWidgetCollectQueue.Add([pscustomobject]@{ Board = $Board; Id = $Id; Reason = $Reason; Epoch = [long]$script:SessionEpoch })
-    Register-DomeniaWidgetCollect -Board $Board -Ids @($Id) -Kind Queued
+    [void]$script:DomeniaWidgetCollectQueue.Add([pscustomobject]@{ Board = $Board; Id = $Id; Reason = $Reason; Epoch = [long]$script:SessionEpoch; PopulationKey = $PopulationKey })
+    Register-DomeniaWidgetCollect -Board $Board -Ids @($Id) -Kind Queued -PopulationKey $PopulationKey
     return $true
 }
 function Get-DomeniaWidgetPopulation {
@@ -1604,28 +1697,38 @@ function Get-DomeniaWidgetPopulation {
 }
 function Start-DomeniaWidgetRemoteCollect {
     # Endpoint reads of one widget through the existing park run: only its probes, light inventory, ping or console,
-    # for its population. Add and Resume read only what is missing (no usable measurement younger than the
-    # observation age); Refresh reads them again. The click is the gesture: no confirmation up to the limit of
-    # Get-DomeniaWidgetCollectAdmission (200 workstations), the count is confirmed above.
+    # for its population. Add and Resume read only what is missing: the run itself checks, before any network read
+    # and outside of this click, the measurements stored for each workstation with the families of this widget
+    # (Invoke-DomeniaParkPlanStep), then counts the workstations left to read. Refresh reads them again. The click is
+    # the gesture: no confirmation up to the limit of Get-DomeniaWidgetCollectAdmission (200 workstations to read).
     param([string]$Board,$Item,$Need,[string]$Reason)
     $id = [string]$Item.Id
-    if (($null -ne $script:ParkRun) -and (-not [bool]$script:ParkRun.Completed)) {
-        if (Add-DomeniaWidgetCollectQueue -Board $Board -Id $id -Reason $Reason) { Set-Status 'Un relevé est en cours : la collecte de ce widget démarrera à sa fin.' 'INFO'; Show-DomeniaBoard -Board $Board -Quiet; return $true }
-        return $false
+    $populationKey = Get-DomeniaWidgetPopulationKey -Board $Board
+    $running = (($null -ne $script:ParkRun) -and (-not [bool]$script:ParkRun.Completed))
+    # The OU shown is being recalculated (a run just stored observations, or the OU changed): its collection context
+    # is refused until the new snapshot is drawn, so the widget waits in the queue as it does behind a run.
+    $recalculating = (($Board -eq 'Fleet') -and (([bool]$script:FleetStale) -or ([bool][string]$script:FleetJobId)))
+    if (($running) -or ($recalculating)) {
+        # Queued for the population shown now; the whole domain is never a population.
+        if ((-not $populationKey) -or ($populationKey -eq '*')) { Set-Status $(if ($Board -eq 'Fleet') { 'Choisissez une OU dans le tableau de bord avant de préparer une collecte.' } else { 'Aucun poste sélectionné : ouvrez la fiche dʼun poste pour collecter ce widget.' }) 'WARN'; return $false }
+        if (-not (Add-DomeniaWidgetCollectQueue -Board $Board -Id $id -Reason $Reason -PopulationKey $populationKey)) { return $false }
+        if ($running) { Set-Status 'Un relevé est en cours : la collecte de ce widget démarrera à sa fin.' 'INFO' }
+        else {
+            Set-Status 'Recalcul de lʼOU en cours : la collecte de ce widget démarrera à sa fin.' 'INFO'
+            # The recalculation starts now if the OU is stale and Accueil is shown; it is never started twice.
+            try { Request-DomeniaFleetRefresh } catch { Write-AppLog ('Recalcul de lʼOU non demandé : ' + $_.Exception.Message) 'WARN' }
+        }
+        Show-DomeniaBoard -Board $Board -Quiet
+        return $true
     }
     $population = Get-DomeniaWidgetPopulation -Board $Board
     if ($null -eq $population) { return $false }
     $maxAge = 30
     try { $maxAge = Get-DomeniaObservationMaxAgeDays } catch { $maxAge = 30 }
     $targets = @($population.Targets)
-    if (($Reason -ne 'Refresh') -and ($Board -eq 'Fleet')) {
-        # Collect only what is missing: workstations whose stored observation already answers are not contacted.
-        $targets = @(Select-DomeniaWidgetMissingTargets -Targets $targets -Observations $script:FleetObservations -Need $Need -MaxAgeDays $maxAge)
-        if (-not $targets.Count) { Set-Status ('Widget à jour : chaque poste actif de ' + [string]$population.Label + ' a déjà une mesure exploitable de moins de ' + $maxAge + ' jours.') 'INFO'; return $false }
-    }
     $probes = @()
     if (@($Need.ProbeIds).Count) { $probes = @(ConvertTo-DomeniaProbePayload -Ids @($Need.ProbeIds)) }
-    $wmi = ([bool]$Need.Console -or [bool]$Need.Inventory -or ($probes.Count -gt 0))
+    $wmi = (([bool]$Need.Console) -or ([bool]$Need.Inventory) -or ($probes.Count -gt 0))
     # A query absent from the catalog leaves nothing to read: never announce a collection that reads nothing.
     if ((-not $wmi) -and (-not [bool]$Need.Ping)) { Set-Status 'Requête du widget absente du catalogue des sondes : rien à collecter.' 'WARN'; return $false }
     $arguments = @{ ScopeTargets = $targets; ScopeLabel = [string]$population.Label; Preapproved = $true; WidgetBoard = $Board; WidgetIds = @($id); PassThru = $true }
@@ -1639,7 +1742,7 @@ function Start-DomeniaWidgetRemoteCollect {
     if ($Reason -eq 'Refresh') { $arguments.ForceRefresh = $true } else { $arguments.ReuseMaxAgeDays = $maxAge }
     $runId = [string](Start-DomeniaOnlinePark @arguments)
     if (-not $runId) { return $false }
-    Register-DomeniaWidgetCollect -Board $Board -Ids @($id) -Kind Park -RunId $runId
+    Register-DomeniaWidgetCollect -Board $Board -Ids @($id) -Kind Park -RunId $runId -PopulationKey $populationKey
     Show-DomeniaBoard -Board $Board -Quiet
     return $true
 }
@@ -1656,7 +1759,7 @@ function Start-DomeniaWidgetRefresh {
     $state = Get-DomeniaBoardState $Board
     # A built-in widget is answered when its provider gave an entry; a query or probe widget is computed from the
     # local data on each display, so only its endpoint measurements can be missing (Remote).
-    $hasEntry = (([string]$item.Source -ne 'Builtin') -or (($null -ne $state.Data) -and ($null -ne $state.Data.Entries) -and $state.Data.Entries.ContainsKey([string]$item.Key)))
+    $hasEntry = (([string]$item.Source -ne 'Builtin') -or (($null -ne $state.Data) -and ($null -ne $state.Data.Entries) -and ($state.Data.Entries.ContainsKey([string]$item.Key))))
     $title = (Get-DomeniaBoardItemIdentity -Board $Board -Item $item).Title
     try {
         switch ([string]$need.Kind) {
@@ -1664,7 +1767,7 @@ function Start-DomeniaWidgetRefresh {
             'ComputerInventory' {
                 $deepRead = Test-DomeniaComputerInventoryDeep -Result $script:LastComputerDashboardResult
                 # An inventory of the needed depth already answered: running it again would read the same thing.
-                if (($Reason -ne 'Refresh') -and ($null -ne $state.Data) -and ($hasEntry -or (-not [bool]$need.Deep) -or $deepRead)) { Set-Status ('Widget ' + $title + ' : le dernier inventaire du poste est déjà lu ; Actualiser le relit.') 'INFO'; return $false }
+                if (($Reason -ne 'Refresh') -and ($null -ne $state.Data) -and (($hasEntry) -or (-not [bool]$need.Deep) -or ($deepRead))) { Set-Status ('Widget ' + $title + ' : le dernier inventaire du poste est déjà lu ; Actualiser le relit.') 'INFO'; return $false }
                 Invoke-DomeniaBoardEntryAction -Board Computer -Id $(if ([bool]$need.Deep) { 'InventoryFull' } else { 'InventoryQuick' })
                 if (Test-DomeniaWidgetOperationRunning -OperationId 'ComputerInventory') { Register-DomeniaWidgetCollect -Board $Board -Ids @($Id) -Kind Inventory; Show-DomeniaBoard -Board $Board -Quiet; return $true }
                 return $false
@@ -1683,21 +1786,24 @@ function Start-DomeniaWidgetRefresh {
                 return $true
             }
             'Directory' {
-                if (($Reason -ne 'Refresh') -and $hasEntry) { Set-Status ('Widget ' + $title + ' : calculé depuis la base locale de lʼOU, déjà à jour.') 'INFO'; return $false }
+                if (($Reason -ne 'Refresh') -and ($hasEntry)) { Set-Status ('Widget ' + $title + ' : calculé depuis la base locale de lʼOU, déjà à jour.') 'INFO'; return $false }
                 if ($Board -ne 'Fleet') { return $false }
+                # Only a new AD read started by this click is followed: a refused request (another refresh of the OU
+                # running, ping or WMI included) leaves the reason in the status bar and shows nothing on the widget.
+                $previousRefresh = if ($null -ne $script:DomeniaOuRefresh) { [string]$script:DomeniaOuRefresh.Id } else { '' }
                 Invoke-DomeniaOuRefresh -Source Fleet -Mode AD
                 $refresh = $script:DomeniaOuRefresh
-                if (($null -ne $refresh) -and (-not [bool]$refresh.Completed)) { Register-DomeniaWidgetCollect -Board $Board -Ids @($Id) -Kind Directory -RunId ([string]$refresh.Id); Show-DomeniaBoard -Board $Board -Quiet; return $true }
+                if (($null -ne $refresh) -and (-not [bool]$refresh.Completed) -and ([string]$refresh.Id -cne $previousRefresh)) { Register-DomeniaWidgetCollect -Board $Board -Ids @($Id) -Kind Directory -RunId ([string]$refresh.Id); Show-DomeniaBoard -Board $Board -Quiet; return $true }
                 return $false
             }
             'BitLocker' {
-                $read = ($hasEntry -and ($null -ne $state.Data) -and ([string]$state.Data.Entries[[string]$item.Key].Value -ne 'Non lu'))
-                if (($Reason -ne 'Refresh') -and $read) { return $false }
+                $read = (($hasEntry) -and ($null -ne $state.Data) -and ([string]$state.Data.Entries[[string]$item.Key].Value -ne 'Non lu'))
+                if (($Reason -ne 'Refresh') -and ($read)) { return $false }
                 if (Start-DomeniaFleetBitLockerPresence) { Register-DomeniaWidgetCollect -Board $Board -Ids @($Id) -Kind BitLocker; Show-DomeniaBoard -Board $Board -Quiet; return $true }
                 return $false
             }
             'Local' {
-                if (($Reason -ne 'Refresh') -and $hasEntry) { return $false }
+                if (($Reason -ne 'Refresh') -and ($hasEntry)) { return $false }
                 if ($Board -eq 'Fleet') {
                     Request-DomeniaFleetRefresh -Force
                     if ([string]$script:FleetJobId) { Register-DomeniaWidgetCollect -Board $Board -Ids @($Id) -Kind Local; Show-DomeniaBoard -Board $Board -Quiet; return $true }
@@ -1746,7 +1852,7 @@ function Get-DomeniaWidgetExplanationData {
     $need = Get-DomeniaWidgetNeed -Board $Board -Item $Item
     $maxAge = 30
     try { $maxAge = Get-DomeniaObservationMaxAgeDays } catch { $maxAge = 30 }
-    $scope = ''; $coverage = ''; $computed = $state.DataAtUtc; $count = -1; $formula = ''; $criteria = ''; $exclusions = ''
+    $scope = ''; $coverage = ''; $computed = $state.DataAtUtc; $count = -1; $members = 'None'; $formula = ''; $criteria = ''; $exclusions = ''
     $key = [string]$Item.Key
     if ($Board -eq 'Fleet') {
         $last = $script:FleetLast
@@ -1757,11 +1863,13 @@ function Get-DomeniaWidgetExplanationData {
             $at = Get-DomeniaMemberValue $freshness 'ComputedAtUtc'
             if ($at -is [datetime]) { $computed = $at }
             $targets = Get-DomeniaMemberValue $last 'WidgetTargets'
-            if (([string]$Item.Source -eq 'Builtin') -and ($targets -is [Collections.IDictionary]) -and (Test-DomeniaDictionaryKey $targets $key)) { $count = @($targets[$key]).Count }
+            if (([string]$Item.Source -eq 'Builtin') -and ($targets -is [Collections.IDictionary]) -and (Test-DomeniaDictionaryKey $targets $key)) { $count = @($targets[$key]).Count; $members = 'Exact' }
         }
+        # Probes and saved queries keep no frozen list: Afficher les postes evaluates them again from the snapshot shown.
+        if ([string]$Item.Source -in @('Probe','Query')) { $members = 'Recomputed' }
     } elseif ($null -ne $script:SelectedObject) {
         $scope = $(if ($Board -eq 'Software') { 'Logiciels du poste ' } else { 'Poste ' }) + [string]$script:SelectedObject.Name + ' (' + [string]$script:SelectedObject.DN + ').'
-        if ($Board -eq 'Computer') { $count = 1 }
+        $members = 'Selected'
     }
     if ([string]$Item.Source -eq 'Probe') {
         $probe = Get-DomeniaProbe -Id $key
@@ -1769,10 +1877,15 @@ function Get-DomeniaWidgetExplanationData {
             $formula = $(if ($Board -eq 'Fleet') { 'Répartition des postes analysés selon la valeur relevée par « ' + [string]$probe.Name + ' ».' } else { 'Valeur relevée par « ' + [string]$probe.Name + ' » sur ce poste.' })
             $criteria = 'Requête WMI en lecture seule : classe ' + [string]$probe.Class + ', propriété(s) ' + (@($probe.Properties) -join ', ') + '.'
             $exclusions = 'Postes sans relevé exploitable (non lu, en erreur ou expiré) ; comptes désactivés.'
-            $items = @(Get-DomeniaWidgetProbeObservations -Board $Board -ProbeId $key | Where-Object { $_.Usable })
-            $coverageInfo = Get-DomeniaWidgetCoverage -Board $Board -ProbeId $key
-            if ($null -ne $coverageInfo) { $coverage = [string]$coverageInfo.Text }
-            if ($Board -eq 'Fleet') { $count = $items.Count }
+            if ($Board -eq 'Fleet') {
+                # The coverage computed by the query worker with this very figure: the fleet is never aggregated
+                # again on the interface thread to explain it.
+                $coverage = [string](Get-DomeniaMember $resolved.Entry 'Subtitle' '')
+            } else {
+                # One workstation: its own stored observation only.
+                $coverageInfo = Get-DomeniaWidgetCoverage -Board $Board -ProbeId $key
+                if ($null -ne $coverageInfo) { $coverage = [string]$coverageInfo.Text }
+            }
         }
     } elseif ([string]$Item.Source -eq 'Query') {
         $recipe = Get-DomeniaWidgetRecipe -Id $key
@@ -1786,7 +1899,7 @@ function Get-DomeniaWidgetExplanationData {
         $coverage = [string](Get-DomeniaHealthValue $state.Data 'HealthCoverage' '')
     }
     if ((-not $coverage) -and ($null -ne $resolved.Entry) -and ([string]$need.Kind -eq 'Remote')) { $coverage = [string]$resolved.Entry.Detail }
-    return Get-DomeniaWidgetExplanation -Board $Board -Item $Item -Title ([string]$resolved.Title) -Entry $resolved.Entry -Need $need -Scope $scope -Coverage $coverage -ComputedAtUtc $computed -TargetCount $count -Formula $formula -Criteria $criteria -Exclusions $exclusions -MaxAgeDays $maxAge
+    return Get-DomeniaWidgetExplanation -Board $Board -Item $Item -Title ([string]$resolved.Title) -Entry $resolved.Entry -Need $need -Scope $scope -Coverage $coverage -ComputedAtUtc $computed -TargetCount $count -Members $members -Formula $formula -Criteria $criteria -Exclusions $exclusions -MaxAgeDays $maxAge
 }
 function Show-DomeniaWidgetExplanation {
     # Point 6: one panel in the page per figure: formula, perimeter, criteria, exclusions, coverage, dates and the
@@ -1795,6 +1908,9 @@ function Show-DomeniaWidgetExplanation {
     $weItem = @(Get-DomeniaBoardLayout -Board $Board | Where-Object { [string]$_.Id -eq $Id } | Select-Object -First 1)
     if (-not $weItem.Count) { return }
     $weItem = $weItem[0]
+    # Point 73: timers keep running while the panel is open; Afficher les postes opens only the calculation that
+    # this panel explains, a newer one is refused and the board redrawn.
+    $weSnapshot = if ($Board -eq 'Fleet') { [string]$script:FleetQuerySnapshotKey } else { '' }
     $weData = Get-DomeniaWidgetExplanationData -Board $Board -Item $weItem
     $weWindow = [Windows.Window]::new(); $weWindow.Title = 'Comprendre ce chiffre : ' + [string]$weData.Title; $weWindow.Width = 760; $weWindow.Height = 560
     $weRoot = [Windows.Controls.DockPanel]::new(); $weRoot.Margin = [Windows.Thickness]::new(12)
@@ -1810,7 +1926,8 @@ function Show-DomeniaWidgetExplanation {
         $button.Add_Click({ param($s,$e) $weResult.Action = [string]$s.Tag; Set-DomeniaSurfaceResult $weWindow $true })
         [void]$weButtons.Children.Add($button)
     }
-    if (($Board -eq 'Fleet') -and ([int]$weData.TargetCount -ge 0)) { & $weAdd 'Afficher les postes' 'Ouvre la liste exacte des postes de ce chiffre, sans nouvelle lecture.' 'Details' 'SecondaryButton' }
+    if (($Board -eq 'Fleet') -and ([string]$weData.Members -eq 'Exact')) { & $weAdd 'Afficher les postes' 'Ouvre la liste exacte des postes de ce chiffre, sans nouvelle lecture.' 'Details' 'SecondaryButton' }
+    elseif (($Board -eq 'Fleet') -and ([string]$weData.Members -eq 'Recomputed')) { & $weAdd 'Afficher les postes' 'Recalcule la liste des postes de ce chiffre depuis le calcul affiché, sans nouvelle lecture.' 'Details' 'SecondaryButton' }
     if (-not (Test-DomeniaBoardItemPaused -Item $weItem)) { & $weAdd 'Actualiser ce widget' 'Relit seulement ce que ce widget affiche, pour son périmètre.' 'Refresh' 'SecondaryButton' }
     & $weAdd 'Fermer' 'Ferme cette explication.' '' 'RunButton'
     [void]$weRoot.Children.Add($weButtons)
@@ -1825,7 +1942,7 @@ function Show-DomeniaWidgetExplanation {
     $weWindow.Content = $weRoot
     [void](Show-DomeniaEmbeddedWindow $weWindow)
     switch ([string]$weResult.Action) {
-        'Details' { Invoke-DomeniaBoardAction -Tag @{ Board = $Board; Id = $Id; Action = 'Details' } }
+        'Details' { Invoke-DomeniaBoardAction -Tag @{ Board = $Board; Id = $Id; Action = 'Details'; Snapshot = $weSnapshot } }
         'Refresh' { [void](Start-DomeniaWidgetRefresh -Board $Board -Id $Id -Reason Refresh) }
     }
 }

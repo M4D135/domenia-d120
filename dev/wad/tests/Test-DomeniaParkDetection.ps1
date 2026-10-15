@@ -18,7 +18,7 @@ function Add-DomeniaUiLog {param($Area,$Text,$Level)}
 function Initialize-DomeniaWinSqliteNative {}
 function Get-DomeniaSetting {param($Name,$Default)return $Default}
 function New-DomeniaObservationReader {return [pscustomobject]@{Fixture=$true}}
-function Request-DomeniaInlineConfirmation {param($Title,$Target,$Message,$ConfirmText,$CancelText,$OnConfirm,$OnCancel)$script:Confirm=$OnConfirm;$script:Cancel=$OnCancel;$script:Message=$Message}
+function Request-DomeniaInlineConfirmation {param($Title,$Target,$Message,$ConfirmText,$CancelText,$OnConfirm,$OnCancel)$script:Confirm=$OnConfirm;$script:Cancel=$OnCancel;$script:Message=$Message;$script:ConfirmText=$ConfirmText}
 function Start-UiTask {
  param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,[switch]$NonCancellable,$TimeoutSeconds,$TaskClass)
  $id='job-'+$script:Calls.Count
@@ -52,6 +52,13 @@ function Reset-Fixture {
  $script:Ctrl.DgObjects.CanUserAddRows=$false
 }
 function New-Target {param([int]$N=1) [pscustomobject]@{Computer=('PC-'+$N);Key=('cn=pc-'+$N+',dc=example,dc=invalid');Guid=('00000000-0000-0000-0000-'+$N.ToString('d12'));Previous=$null}}
+# Widget collections: a workstation whose stored probe (Park projection) is Days old, and a run of N workstations.
+function New-MeasuredTarget {param([int]$N,[string]$Hash,[int]$Days=3) $t=New-Target $N;$t.Previous=[pscustomobject]@{Guid=$t.Guid;Key=$t.Key;Probes=[pscustomobject]@{'disk.cfree'=[pscustomobject]@{CheckedUtc=[datetime]::UtcNow.AddDays(-$Days).ToString('o');Error='';DefinitionHash=$Hash;Succeeded=$true}}};return $t}
+function Start-WidgetFixtureRun {param([int]$Count)
+ $probe=[pscustomobject]@{Id='disk.cfree';Namespace='root\cimv2';Class='Win32_LogicalDisk';Properties=@('FreeSpace','Size');Filter="DeviceID='C:'";Mode='First';Skip=''}
+ $targets=@(for($i=1;$i -le $Count;$i++){[pscustomobject]@{name=('PC-'+$i);distinguished_name=('cn=pc-'+$i+',dc=example,dc=invalid');object_guid=(New-Target $i).Guid}})
+ return [string](Start-DomeniaOnlinePark -ScopeTargets $targets -ScopeLabel 'Postes' -WmiOnly -NoConsole -Probes @($probe) -ReuseMaxAgeDays 30 -Preapproved -WidgetBoard 'Fleet' -WidgetIds @('w1') -PassThru)
+}
 function Add-DisplayedMachine {[void]$script:Ctrl.DgObjects.Items.Add([pscustomobject]@{Type='Machine';Name='PC-SHOWN';DN='cn=pc-shown,dc=example,dc=invalid';Guid='00000000-0000-0000-0000-000000000999'})}
 function Ready-Run {param([int]$Count=10)
  Add-DisplayedMachine;Start-DomeniaOnlinePark -DisplayedResults;$call=$script:Calls[0]
@@ -126,19 +133,20 @@ Case 'WMI seul : aucune presence ICMP ni validation LDAP implicite' {
 }
 Case 'Widget : sondes seules, sans console ni ping, lancees au geste sous la limite ; poste deja mesure non contacte' {
  Reset-Fixture
- $probe=[pscustomobject]@{Id='disk.cfree';Namespace='root\cimv2';Class='Win32_LogicalDisk';Properties=@('FreeSpace','Size');Filter="DeviceID='C:'";Mode='First';Skip=''}
- $id=Start-DomeniaOnlinePark -ScopeTargets @([pscustomobject]@{name='PC-1';distinguished_name='cn=pc-1,dc=example,dc=invalid';object_guid='00000000-0000-0000-0000-000000000001'},[pscustomobject]@{name='PC-2';distinguished_name='cn=pc-2,dc=example,dc=invalid';object_guid='00000000-0000-0000-0000-000000000002'}) -ScopeLabel 'Postes' -WmiOnly -NoConsole -Probes @($probe) -ReuseMaxAgeDays 30 -Preapproved -WidgetBoard 'Fleet' -WidgetIds @('w1') -PassThru
+ $id=Start-WidgetFixtureRun 2
  Assert ([string]$id -and $script:ParkRun.NoConsole -and $script:ParkRun.Preapproved -and $script:ParkRun.ReuseMaxAgeDays -eq 30) 'Releve du widget mal prepare'
  Assert ((@($script:Calls[0].Payload.ObservationFamilies) -join ',') -eq 'Probe:disk.cfree') ('Familles relues : '+(@($script:Calls[0].Payload.ObservationFamilies) -join ','))
- $fresh=New-Target 1;$hash=[string]@($script:ParkRun.Probes)[0].DefinitionHash
- $fresh.Previous=[pscustomobject]@{Guid=$fresh.Guid;Key=$fresh.Key;Probes=[pscustomobject]@{'disk.cfree'=[pscustomobject]@{CheckedUtc=[datetime]::UtcNow.AddDays(-3).ToString('o');Error='';DefinitionHash=$hash}}}
- Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@($fresh,(New-Target 2));Busy=$false}) $script:Calls[0].State
+ $hash=[string]@($script:ParkRun.Probes)[0].DefinitionHash
+ Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@((New-MeasuredTarget 1 $hash),(New-Target 2));Busy=$false}) $script:Calls[0].State
  $script:AsyncJobs.Remove($script:Calls[0].Id)
- Assert ($script:ParkRun.Approved -and $null -eq $script:Confirm) 'Geste du widget redemande une confirmation sous la limite'
+ # The stored measurements are checked first, by the run timer, before any approval or read.
+ Assert (($script:ParkRun.Planning) -and (-not $script:ParkRun.Approved) -and ($null -ne $script:ParkRun.Timer) -and ($script:ParkRun.Timer.IsEnabled) -and ($null -eq $script:Confirm)) 'Mesures enregistrees non verifiees avant le releve'
  Invoke-DomeniaParkRunTick
- Assert ($script:Calls.Count -eq 1 -and $script:ParkRun.AlreadyFresh -eq 1 -and $script:ParkRun.Done -eq 1) 'Poste deja mesure contacte'
+ Assert ((-not $script:ParkRun.Planning) -and ($script:ParkRun.Approved) -and ($null -eq $script:Confirm)) 'Geste du widget redemande une confirmation sous la limite'
+ Assert (($script:Calls.Count -eq 1) -and ($script:ParkRun.AlreadyFresh -eq 1) -and ($script:ParkRun.Done -eq 0) -and ($script:ParkRun.Targets.Count -eq 1) -and ([string]$script:ParkRun.Targets[0].Computer -eq 'PC-2')) 'Poste deja mesure contacte'
  Invoke-DomeniaParkRunTick
  $payload=$script:Calls[1].Payload
+ Assert ([string]$payload.Computer -eq 'PC-2') ('Poste lu : '+[string]$payload.Computer)
  Assert (-not $payload.CollectPing -and -not $payload.ProbeUser -and -not $payload.Inventory -and @($payload.Probes).Count -eq 1) 'Lecture du widget : console, ping ou inventaire en trop'
  Fail-DomeniaParkSession 'delai fixture' $script:Calls[1].State
  Assert (@($script:Saves[0].Changes).Count -eq 1 -and [string]$script:Saves[0].Changes[0].Family -eq 'Probe:disk.cfree' -and [string]$script:Saves[0].Changes[0].Status -eq 'Error') 'Echec de sonde non date ou console inventee'
@@ -149,6 +157,57 @@ Case 'Widget : au-dela de la limite, le nombre de postes est confirme avant tout
  [void](Start-DomeniaOnlinePark -ScopeTargets $targets -ScopeLabel 'Postes' -PingOnly -Preapproved -WidgetBoard 'Fleet' -WidgetIds @('w2') -PassThru)
  Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@(for($i=1;$i -le 201;$i++){New-Target $i});Busy=$false}) $script:Calls[0].State
  Assert ($null -ne $script:Confirm -and -not $script:ParkRun.Approved -and [string]$script:Message -like '*Plus de 200 postes*') 'Grand perimetre lance sans confirmation'
+ # The button names the reads of the widget, never a console session it does not read.
+ Assert ([string]$script:ConfirmText -eq 'Collecter') ('Bouton de confirmation : '+[string]$script:ConfirmText)
+}
+Case 'Widget : postes deja mesures comptes avant l admission, par tranches bornees, sans aucune lecture' {
+ Reset-Fixture
+ [void](Start-WidgetFixtureRun 260)
+ $hash=[string]@($script:ParkRun.Probes)[0].DefinitionHash
+ # 250 workstations already measured, 10 never measured: 10 to read, under the limit, so no confirmation.
+ Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@(@(for($i=1;$i -le 250;$i++){New-MeasuredTarget $i $hash})+@(for($i=251;$i -le 260;$i++){New-Target $i}));Busy=$false}) $script:Calls[0].State
+ $script:AsyncJobs.Remove($script:Calls[0].Id)
+ Assert (($script:ParkRun.Planning) -and ($null -eq $script:Confirm)) 'Admission avant la verification des mesures'
+ # One slice is bounded in count (and in time by default): many workstations per tick, never the whole OU at once.
+ Invoke-DomeniaParkPlanStep -Run $script:ParkRun -MaxTargets 100 -BudgetMs 600000
+ Assert (($script:ParkRun.Planning) -and ([int]$script:ParkRun.PlanNext -eq 100) -and ([int]$script:ParkRun.AlreadyFresh -eq 100)) ('Tranche : '+$script:ParkRun.PlanNext)
+ Assert ([string]$script:Ctrl.LblParkStatus.Text -like 'Préparation de la collecte : 100/260*') ([string]$script:Ctrl.LblParkStatus.Text)
+ Invoke-DomeniaParkPlanStep -Run $script:ParkRun -BudgetMs 600000
+ Assert ((-not $script:ParkRun.Planning) -and ($script:ParkRun.Approved) -and ($null -eq $script:Confirm)) 'Reste sous la limite : confirmation demandee'
+ Assert (([int]$script:ParkRun.AlreadyFresh -eq 250) -and ($script:ParkRun.Targets.Count -eq 10) -and ([string]$script:ParkRun.Targets[0].Computer -eq 'PC-251')) ('A lire : '+$script:ParkRun.Targets.Count)
+ Assert ($script:Calls.Count -eq 1) 'Poste contacte pendant la verification'
+ # With the default budget the timer goes through every slice, never more ticks than workstations.
+ Reset-Fixture
+ [void](Start-WidgetFixtureRun 50)
+ $hash=[string]@($script:ParkRun.Probes)[0].DefinitionHash
+ Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@(for($i=1;$i -le 50;$i++){New-MeasuredTarget $i $hash});Busy=$false}) $script:Calls[0].State
+ $script:AsyncJobs.Remove($script:Calls[0].Id)
+ $ticks=0;while(($script:ParkRun.Planning) -and ($ticks -lt 50)){Invoke-DomeniaParkRunTick;$ticks++}
+ Assert ((-not $script:ParkRun.Planning) -and ($ticks -lt 50)) ('Verification non terminee en '+$ticks+' ticks')
+}
+Case 'Widget : chaque poste deja mesure, le releve se termine sans contact ni approbation ; au-dela de la limite apres verification, confirmation' {
+ Reset-Fixture
+ [void](Start-WidgetFixtureRun 3)
+ $hash=[string]@($script:ParkRun.Probes)[0].DefinitionHash
+ Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@(for($i=1;$i -le 3;$i++){New-MeasuredTarget $i $hash});Busy=$false}) $script:Calls[0].State
+ $script:AsyncJobs.Remove($script:Calls[0].Id)
+ Invoke-DomeniaParkRunTick
+ Assert (($script:ParkRun.Completed) -and (-not $script:ParkRun.Approved) -and ($script:ParkRun.AlreadyFresh -eq 3) -and ($script:Calls.Count -eq 1) -and (-not $script:ParkRun.Timer.IsEnabled)) 'Releve du widget a jour non termine'
+ Assert ([string]$script:Status -like 'Widget à jour : 3 poste(s) de Postes*aucun poste contacté.') ([string]$script:Status)
+ Assert ($null -eq $script:Confirm) 'Confirmation demandee sans lecture'
+ # 201 workstations left to read once the measured ones are set aside: the count to read is confirmed.
+ Reset-Fixture
+ [void](Start-WidgetFixtureRun 211)
+ $hash=[string]@($script:ParkRun.Probes)[0].DefinitionHash
+ Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@(@(for($i=1;$i -le 10;$i++){New-MeasuredTarget $i $hash})+@(for($i=11;$i -le 211;$i++){New-Target $i}));Busy=$false}) $script:Calls[0].State
+ $script:AsyncJobs.Remove($script:Calls[0].Id)
+ Invoke-DomeniaParkPlanStep -Run $script:ParkRun -BudgetMs 600000
+ Assert (($null -ne $script:Confirm) -and (-not $script:ParkRun.Approved) -and (-not $script:ParkRun.Timer.IsEnabled)) 'Plus de 200 postes a lire sans confirmation'
+ Assert (([string]$script:Message -like '201 poste(s) de Postes.*10 autre(s) poste(s) ont déjà une mesure exploitable*Plus de 200 postes à lire*') -and ([string]$script:ConfirmText -eq 'Collecter')) ([string]$script:Message)
+ & $script:Confirm
+ Assert (($script:ParkRun.Approved) -and ($script:ParkRun.Timer.IsEnabled)) 'Confirmation sans reprise du releve'
+ Invoke-DomeniaParkRunTick
+ Assert (($script:Calls.Count -eq 2) -and ([string]$script:Calls[1].Payload.Computer -eq 'PC-11')) 'Premier poste a lire'
 }
 Case 'Ping et WMI exclusifs : demande ambigue refusee avant cible' {
  Reset-Fixture;Add-DisplayedMachine;Start-DomeniaOnlinePark -DisplayedResults -PingOnly -WmiOnly
@@ -168,7 +227,7 @@ Case 'Interface : detection et analyse de la liste et leur arret cables ; aucun 
 }
 if($null -ne $script:ParkRun -and $null -ne $script:ParkRun.Timer){$script:ParkRun.Timer.Stop()}
 $failed=@($checks|Where-Object Status -eq 'Failed').Count
-$report=[ordered]@{Kind='ParkDetection';Expected=26;Complete=($checks.Count -eq 26 -and $failed -eq 0);NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
+$report=[ordered]@{Kind='ParkDetection';Expected=28;Complete=($checks.Count -eq 28 -and $failed -eq 0);NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path $env:TEMP 'domenia-park-tests.json'}
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
 Write-Host ($report.Passed.ToString()+' reussis, '+$failed+' echecs. '+$ReportPath)

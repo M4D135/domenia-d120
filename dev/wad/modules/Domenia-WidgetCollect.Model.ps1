@@ -161,7 +161,7 @@ function Get-DomeniaWidgetCollectionNeed {
     } elseif (($source -eq 'Query') -and (-not $RecipeMissing)) {
         $parts = Get-DomeniaWidgetFieldNeeds -Fields $Fields
         $need.ProbeIds = @($parts.ProbeIds); $need.Ping = [bool]$parts.Ping; $need.Console = [bool]$parts.Console; $need.Inventory = [bool]$parts.Inventory; $need.Workshop = [bool]$parts.Workshop; $need.Directory = [bool]$parts.Directory
-        if ($need.ProbeIds.Count -or $need.Ping -or $need.Console -or $need.Inventory) { $need.Kind = 'Remote' }
+        if ((@($need.ProbeIds).Count -gt 0) -or ($need.Ping) -or ($need.Console) -or ($need.Inventory)) { $need.Kind = 'Remote' }
         elseif ($parts.Directory) { $need.Kind = $(if ($Board -eq 'Computer') { 'Card' } else { 'Directory' }) }
         elseif (-not $parts.Workshop) { $need.Kind = 'Local' }
     } elseif ($source -eq 'Builtin') {
@@ -247,55 +247,21 @@ function Get-DomeniaWidgetCollectAdmission {
     $count = [Math]::Max(0, $TargetCount)
     return [pscustomobject]@{ Direct = (($count -ge 1) -and ($count -le $bounded)); Limit = $bounded; Count = $count }
 }
-function Test-DomeniaWidgetMeasureUsable {
-    # One stored measurement answers the widget: no error, not truncated, dated and younger than MaxAgeDays. A probe
-    # skipped as not applicable (domain controller) is an answer, not a missing value.
-    param($Value,[int]$MaxAgeDays = 30,[datetime]$NowUtc = [datetime]::UtcNow,[string]$DateName = 'CheckedUtc')
-    if ($null -eq $Value) { return $false }
-    if ([string](Get-DomeniaMember $Value 'Error' '')) { return $false }
-    if ([bool](Get-DomeniaMember $Value 'Truncated' $false)) { return $false }
-    return ((Test-DomeniaObservationAge -CheckedUtc ([string](Get-DomeniaMember $Value $DateName '')) -NowUtc $NowUtc -MaxDays $MaxAgeDays) -ne 'Expired')
-}
-function Select-DomeniaWidgetMissingTargets {
-    # Workstations of the board population that lack a usable measurement for this widget (collect only what is
-    # missing, decision David 2026-10-14). Observations: lower-case DN -> stored observation of the snapshot; an
-    # observation of another GUID (workstation recreated under the same DN) never counts. Only the families the
-    # widget reads are checked: probes, light inventory, ping, console. Bounded by the population given (never
-    # more than the OU shown or the selected workstation).
-    param([object[]]$Targets = @(),$Observations = $null,$Need,[int]$MaxAgeDays = 30,[datetime]$NowUtc = [datetime]::UtcNow)
-    $probeIds = @(Get-DomeniaMember $Need 'ProbeIds' @())
-    $inventory = [bool](Get-DomeniaMember $Need 'Inventory' $false)
-    $ping = [bool](Get-DomeniaMember $Need 'Ping' $false)
-    $console = [bool](Get-DomeniaMember $Need 'Console' $false)
-    $missing = New-Object System.Collections.Generic.List[object]
-    foreach ($target in @($Targets)) {
-        if ($null -eq $target) { continue }
-        $observation = $null
-        $dn = ([string](Get-DomeniaMember $target 'distinguished_name' '')).ToLowerInvariant()
-        if ($dn -and ($Observations -is [Collections.IDictionary]) -and (Test-DomeniaDictionaryKey $Observations $dn)) { $observation = $Observations[$dn] }
-        $guid = ([string](Get-DomeniaMember $observation 'Guid' '')).Trim().Trim('{','}')
-        $expected = ([string](Get-DomeniaMember $target 'object_guid' '')).Trim().Trim('{','}')
-        if (($null -eq $observation) -or ($guid -and $expected -and ($guid -ine $expected))) { $missing.Add($target); continue }
-        $complete = $true
-        $probes = Get-DomeniaMemberValue $observation 'Probes'
-        foreach ($id in $probeIds) { if (-not (Test-DomeniaWidgetMeasureUsable -Value (Get-DomeniaMemberValue $probes ([string]$id)) -MaxAgeDays $MaxAgeDays -NowUtc $NowUtc)) { $complete = $false; break } }
-        if ($complete -and $inventory) { $complete = Test-DomeniaWidgetMeasureUsable -Value (Get-DomeniaMemberValue $observation 'Inventory') -MaxAgeDays $MaxAgeDays -NowUtc $NowUtc }
-        if ($complete -and $ping) { $complete = ((Test-DomeniaObservationAge -CheckedUtc ([string](Get-DomeniaMember $observation 'PresenceCheckedUtc' '')) -NowUtc $NowUtc -MaxDays $MaxAgeDays) -ne 'Expired') }
-        if ($complete -and $console) {
-            $at = ''
-            foreach ($name in @('UserCheckedUtc','ConsoleCheckedUtc','ObservedUtc')) { $at = [string](Get-DomeniaMember $observation $name ''); if ($at) { break } }
-            $complete = ((Test-DomeniaObservationAge -CheckedUtc $at -NowUtc $NowUtc -MaxDays $MaxAgeDays) -ne 'Expired')
-        }
-        if (-not $complete) { $missing.Add($target) }
-    }
-    return @($missing.ToArray())
-}
 function Format-DomeniaWidgetCollectProgress {
     # Progress line of a widget whose data is being collected; the figure stays the last one actually read.
-    param([ValidateSet('Queued','Preparing','Confirming','Running','Inventory','Directory','BitLocker','Card','Software','Local')][string]$Phase,[int]$Done = 0,[int]$Total = 0,[int]$Fresh = 0,[int]$Failed = 0)
+    # Planning: the run checks the stored measurements of each workstation before any network read (Done of Total
+    # checked, Fresh already answered). Waiting: queued behind the recalculation of the OU that the previous run
+    # started; the collection context is refused until the new snapshot is drawn.
+    param([ValidateSet('Queued','Waiting','Preparing','Planning','Confirming','Running','Inventory','Directory','BitLocker','Card','Software','Local')][string]$Phase,[int]$Done = 0,[int]$Total = 0,[int]$Fresh = 0,[int]$Failed = 0)
     switch ($Phase) {
         'Queued' { return 'En file : démarre après le relevé en cours.' }
+        'Waiting' { return 'En file : en attente du recalcul de lʼOU.' }
         'Preparing' { return 'Préparation de la collecte…' }
+        'Planning' {
+            $text = 'Recherche des mesures manquantes · ' + [string]$Done + '/' + [string]$Total + ' poste(s)'
+            if ($Fresh -gt 0) { $text += ' · ' + [string]$Fresh + ' déjà à jour' }
+            return $text
+        }
         'Confirming' { return ('Collecte en attente de confirmation · ' + [string]$Total + ' poste(s)') }
         'Running' {
             $text = 'Collecte en cours · ' + [string]$Done + '/' + [string]$Total + ' poste(s)'
@@ -320,7 +286,7 @@ function Get-DomeniaWidgetPlaceholder {
     $kind = [string](Get-DomeniaMember $Need 'Kind' '')
     if ($Paused) { return [pscustomobject]@{ State = 'Paused'; Message = (Get-DomeniaWidgetPauseText -Need $Need); Action = 'Resume'; ActionText = 'Reprendre la mesure'; Glyph = [string][char]0xE769 } }
     if ($Progress) { return [pscustomobject]@{ State = 'Collecting'; Message = $Progress; Action = ''; ActionText = ''; Glyph = [string][char]0xE895 } }
-    if (($kind -eq 'ComputerInventory') -and $Collected -and [bool](Get-DomeniaMember $Need 'Deep' $false) -and (-not $DeepRead)) {
+    if (($kind -eq 'ComputerInventory') -and ($Collected) -and ([bool](Get-DomeniaMember $Need 'Deep' $false)) -and (-not $DeepRead)) {
         return [pscustomobject]@{ State = 'Deep'; Message = 'Lu par lʼinventaire complet seulement : le dernier inventaire était rapide.'; Action = 'Refresh'; ActionText = 'Inventaire complet'; Glyph = [string][char]0xE9D2 }
     }
     if ($kind -eq 'Unknown') { return [pscustomobject]@{ State = 'Unknown'; Message = (Get-DomeniaWidgetNeedText -Need $Need); Action = ''; ActionText = ''; Glyph = [string][char]0xE9CE } }
@@ -356,12 +322,15 @@ function Test-DomeniaWidgetSnapshotCurrent {
     # A widget opens its exact list only from the calculation it was drawn from (point 73): a newer calculation
     # may count other workstations under the same title.
     param([string]$Drawn,[string]$Current)
-    return ([bool]$Drawn -and ($Drawn -ceq $Current))
+    return (([bool]$Drawn) -and ($Drawn -ceq $Current))
 }
 function Get-DomeniaWidgetExplanation {
     # Point 6: what one figure means, from the data the board already holds; nothing is read to explain it.
     # Rows {Aspect; Text}: displayed value, formula, perimeter, criteria, exclusions, coverage, dates, workstations
-    # of the total and what refreshing this widget reads. TargetCount -1: no exact list is kept for this figure.
+    # of the total and what refreshing this widget reads. -Members says what Afficher les postes opens: Exact (the
+    # GUID list kept with the calculation, TargetCount workstations), Recomputed (no list is kept: it is evaluated
+    # again from the snapshot shown when the button is used), Selected (the selected workstation, no list button) or
+    # None. Without -Members: Exact when TargetCount is known, otherwise None.
     param(
         [string]$Board,
         $Item,
@@ -372,6 +341,7 @@ function Get-DomeniaWidgetExplanation {
         [string]$Coverage = '',
         $ComputedAtUtc = $null,
         [int]$TargetCount = -1,
+        [ValidateSet('','Exact','Recomputed','Selected','None')][string]$Members = '',
         [string]$Formula = '',
         [string]$Criteria = '',
         [string]$Exclusions = '',
@@ -390,10 +360,18 @@ function Get-DomeniaWidgetExplanation {
     if ($kind -eq 'Remote') { $Exclusions += ' Relevés de plus de ' + [string]([Math]::Max(1, $MaxAgeDays)) + ' jours ignorés.' }
     $value = [string](Get-DomeniaMember $Entry 'Value' '')
     $detail = [string](Get-DomeniaMember $Entry 'Detail' '')
-    $shown = if ($null -eq $Entry) { 'Aucune valeur : ce widget nʼa pas encore de donnée.' } elseif ($value -and $detail) { $value + ' · ' + $detail } elseif ($value) { $value } elseif ($detail) { $detail } else { 'Valeur vide.' }
+    $shown = if ($null -eq $Entry) { 'Aucune valeur : ce widget nʼa pas encore de donnée.' } elseif (($value) -and ($detail)) { $value + ' · ' + $detail } elseif ($value) { $value } elseif ($detail) { $detail } else { 'Valeur vide.' }
     $dates = if ($ComputedAtUtc -is [datetime]) { 'Calcul local du ' + $ComputedAtUtc.ToLocalTime().ToString('dd/MM/yyyy HH:mm', [Globalization.CultureInfo]::InvariantCulture) + '.' } else { 'Date de calcul non conservée.' }
     if ($kind -in @('Remote','ComputerInventory','Directory','Card','BitLocker','Software')) { $dates += ' Chaque mesure garde la date de sa collecte ; un recalcul ne la rajeunit pas.' }
-    $members = if ($TargetCount -ge 0) { [string]$TargetCount + ' poste(s) : liste exacte des GUID conservée avec ce calcul, ouverte par Afficher les postes.' } else { 'Liste nominative non conservée pour ce chiffre.' }
+    # $listMode, never $members: PowerShell names ignore case and -Members is a validated parameter.
+    $listMode = if ($Members) { $Members } elseif ($TargetCount -ge 0) { 'Exact' } else { 'None' }
+    if (($listMode -eq 'Exact') -and ($TargetCount -lt 0)) { $listMode = 'None' }
+    $memberText = switch ($listMode) {
+        'Exact' { [string]$TargetCount + ' poste(s) : liste exacte des GUID conservée avec ce calcul, ouverte par Afficher les postes.' }
+        'Recomputed' { 'Aucune liste figée nʼest conservée pour ce chiffre : Afficher les postes la recalcule depuis le calcul affiché, sans nouvelle lecture.' }
+        'Selected' { 'Le poste sélectionné seulement.' }
+        default { 'Liste nominative non conservée pour ce chiffre.' }
+    }
     $rows = New-Object System.Collections.Generic.List[object]
     foreach ($pair in @(
         @('Valeur affichée', $shown),
@@ -403,8 +381,8 @@ function Get-DomeniaWidgetExplanation {
         @('Exclusions', $Exclusions),
         @('Couverture', $(if ($Coverage) { $Coverage } else { 'Non mesurée pour ce chiffre.' })),
         @('Dates', $dates),
-        @('Postes du total', $members),
+        @('Postes du total', $memberText),
         @('Actualiser ce widget', $(if ($null -ne $Need) { [string](Get-DomeniaMember $Need 'Label' '') } else { 'Non disponible.' }))
     )) { $rows.Add([pscustomobject]@{ Aspect = [string]$pair[0]; Text = [string]$pair[1] }) }
-    return [pscustomobject]@{ Title = $(if ($Title) { $Title } else { $key }); Board = $Board; Key = $key; TargetCount = $TargetCount; Rows = $rows.ToArray() }
+    return [pscustomobject]@{ Title = $(if ($Title) { $Title } else { $key }); Board = $Board; Key = $key; TargetCount = $TargetCount; Members = $listMode; Rows = $rows.ToArray() }
 }

@@ -99,27 +99,43 @@ Test-Case 'WGC-004' 'Ajouter ou actualiser un widget part sans confirmation jusq
     Assert-Equal 1 (Get-DomeniaWidgetCollectAdmission -TargetCount 10 -Limit 0).Limit
     Assert-False (Get-DomeniaWidgetCollectAdmission -TargetCount 2 -Limit 1).Direct
 }
-Test-Case 'WGC-005' 'Collecter seulement le manquant : poste deja mesure ignore, erreur, expiration ou autre GUID relus' {
+Test-Case 'WGC-005' 'Collecter seulement le manquant : le releve juge chaque poste sur ses mesures enregistrees, sonde non applicable comprise' {
     $now = [datetime]::new(2026, 10, 14, 10, 0, 0, [DateTimeKind]::Utc)
     $fresh = $now.AddDays(-2).ToString('o'); $old = $now.AddDays(-40).ToString('o')
-    $t = { param([int]$N) [pscustomobject]@{ name = ('PC-' + $N); distinguished_name = ('CN=PC-' + $N + ',OU=P,DC=x,DC=y'); object_guid = ('00000000-0000-4000-8000-00000000000' + $N) } }
-    $targets = @(1..6 | ForEach-Object { & $t $_ })
-    $obs = @{}
-    $probe = { param($Result) [pscustomobject]@{ 'disk.free' = $Result } }
-    $obs['cn=pc-1,ou=p,dc=x,dc=y'] = [pscustomobject]@{ Guid = $targets[0].object_guid; Probes = (& $probe ([pscustomobject]@{ CheckedUtc = $fresh; Error = ''; Rows = @() })); Inventory = [pscustomobject]@{ CheckedUtc = $fresh }; PresenceCheckedUtc = $fresh }
-    $obs['cn=pc-2,ou=p,dc=x,dc=y'] = [pscustomobject]@{ Guid = $targets[1].object_guid; Probes = (& $probe ([pscustomobject]@{ CheckedUtc = $fresh; Error = 'Acces refuse' })) }
-    $obs['cn=pc-4,ou=p,dc=x,dc=y'] = [pscustomobject]@{ Guid = '00000000-0000-4000-8000-0000000000ff'; Probes = (& $probe ([pscustomobject]@{ CheckedUtc = $fresh; Error = '' })) }
-    $obs['cn=pc-5,ou=p,dc=x,dc=y'] = [pscustomobject]@{ Guid = $targets[4].object_guid; Probes = (& $probe ([pscustomobject]@{ CheckedUtc = $old; Error = '' })) }
-    $obs['cn=pc-6,ou=p,dc=x,dc=y'] = [pscustomobject]@{ Guid = $targets[5].object_guid; Probes = (& $probe ([pscustomobject]@{ CheckedUtc = $fresh; Error = ''; Skipped = 'DomainController' })) }
-    $need = Get-DomeniaWidgetCollectionNeed -Board Fleet -Item (New-DomeniaBoardItem -Source Probe -Key 'disk.free' -Visual Column -Id 'p')
-    $missing = @(Select-DomeniaWidgetMissingTargets -Targets $targets -Observations $obs -Need $need -MaxAgeDays 30 -NowUtc $now)
-    Assert-Equal 'PC-2,PC-3,PC-4,PC-5' (@($missing | ForEach-Object { $_.name }) -join ',') 'erreur, absent, autre GUID et expire'
-    $inventory = Get-DomeniaWidgetCollectionNeed -Board Fleet -Item (New-DomeniaBoardItem -Source Builtin -Key 'fleet.models' -Visual Bar -Id 'm')
-    Assert-Equal 'PC-2,PC-3,PC-4,PC-5,PC-6' (@(Select-DomeniaWidgetMissingTargets -Targets $targets -Observations $obs -Need $inventory -NowUtc $now | ForEach-Object { $_.name }) -join ',')
-    $ping = Get-DomeniaWidgetCollectionNeed -Board Fleet -Item (New-DomeniaBoardItem -Source Builtin -Key 'fleet.presence' -Visual Pie -Id 'r')
-    Assert-Equal 5 @(Select-DomeniaWidgetMissingTargets -Targets $targets -Observations $obs -Need $ping -NowUtc $now).Count 'seul PC-1 a un ping date'
-    Assert-Equal 6 @(Select-DomeniaWidgetMissingTargets -Targets $targets -Observations $null -Need $need -NowUtc $now).Count 'sans observations, tout manque'
-    Assert-Equal 0 @(Select-DomeniaWidgetMissingTargets -Targets @() -Observations $obs -Need $need -NowUtc $now).Count 'jamais au-dela de la population'
+    $guid = '00000000-0000-4000-8000-000000000001'; $key = 'cn=pc-1,ou=p,dc=x,dc=y'; $other = '00000000-0000-4000-8000-0000000000ff'
+    $probes = @([pscustomobject]@{ Id = 'disk.free'; DefinitionHash = 'H1' })
+    $answered = {
+        param($Previous,[bool]$Ping = $false,[bool]$Console = $false,[object[]]$Requested = $probes,[int]$Days = 30,[string]$Identity = $guid)
+        $plan = New-DomeniaCollectionPlan -Previous $Previous -Guid $Identity -Key $key -Probes $Requested -CacheMinutes 15 -NowUtc $now -ReuseMaxAgeDays $Days
+        Test-DomeniaParkTargetAnswered -Previous $Previous -Guid $Identity -Key $key -Plan $plan -Ping $Ping -Console $Console -ReuseMaxAgeDays $Days -NowUtc $now
+    }
+    $with = { param($Probe,[hashtable]$Extra = @{}) $p = [ordered]@{ Guid = $guid; Key = $key; Probes = [pscustomobject]@{ 'disk.free' = $Probe } }; foreach ($name in @($Extra.Keys)) { $p[$name] = $Extra[$name] }; [pscustomobject]$p }
+    # Shapes of the Park projection read by ParkTargets (Convert-IdxWParkObservationSummary): success, stored error,
+    # probe not applicable to the system (stored as an error, no success date and no definition hash).
+    $success = [pscustomobject]@{ CheckedUtc = $fresh; Error = ''; DefinitionHash = 'H1'; Succeeded = $true }
+    Assert-True (& $answered (& $with $success)) 'mesure de 2 jours : poste non contacte'
+    Assert-False (& $answered (& $with ([pscustomobject]@{ CheckedUtc = $old; Error = ''; DefinitionHash = 'H1'; Succeeded = $true }))) 'mesure expiree relue'
+    Assert-False (& $answered (& $with ([pscustomobject]@{ CheckedUtc = ''; AttemptedUtc = $fresh; Error = 'Acces refuse'; Succeeded = $false }))) 'erreur relue'
+    $notApplicable = [pscustomobject]@{ CheckedUtc = ''; AttemptedUtc = $fresh; Error = 'Sonde non applicable au systeme.'; Succeeded = $false }
+    Assert-True (& $answered (& $with $notApplicable)) 'sonde non applicable enregistree (controleur de domaine) : une reponse'
+    Assert-False (& $answered (& $with ([pscustomobject]@{ CheckedUtc = ''; AttemptedUtc = $old; Error = 'Sonde non applicable au systeme.'; Succeeded = $false }))) 'reponse non applicable expiree'
+    Assert-False (& $answered (& $with $success) -Identity $other) 'poste recree sous le meme DN'
+    Assert-False (& $answered $null) 'jamais mesure'
+    Assert-False (& $answered (& $with $success) -Days 0) 'actualisation forcee : jamais repondu'
+    # Ping and console are judged on their own dates, for the same identity.
+    Assert-True (& $answered (& $with $success @{ PresenceCheckedUtc = $fresh }) -Ping $true)
+    Assert-False (& $answered (& $with $success @{ PresenceCheckedUtc = $old }) -Ping $true) 'ping expire'
+    Assert-False (& $answered (& $with $success) -Ping $true) 'jamais pingue'
+    Assert-True (& $answered (& $with $success @{ UserCheckedUtc = $fresh }) -Console $true)
+    Assert-False (& $answered (& $with $success @{ ConsoleCheckedUtc = $old }) -Console $true) 'console expiree'
+    Assert-True (& $answered ([pscustomobject]@{ Guid = $guid; Key = $key; PresenceCheckedUtc = $fresh }) -Ping $true -Requested @()) 'ping seul'
+    Assert-False (& $answered ([pscustomobject]@{ Guid = $other; Key = $key; PresenceCheckedUtc = $fresh }) -Ping $true -Requested @()) 'ping d un autre GUID'
+    # Answer dates.
+    Assert-Equal $fresh (Get-DomeniaProbeAnswerUtc -Value $notApplicable) 'non applicable date par sa tentative'
+    Assert-Equal '' (Get-DomeniaProbeAnswerUtc -Value ([pscustomobject]@{ CheckedUtc = $fresh; Error = ''; Truncated = $true })) 'lecture partielle'
+    Assert-Equal $fresh (Get-DomeniaProbeAnswerUtc -Value ([pscustomobject]@{ CheckedUtc = $fresh; Error = ''; Skipped = 'SummaryUnavailable'; SummaryMissing = $true })) 'resume trop grand : mesure lue'
+    Assert-False (Test-DomeniaProbeNotApplicable -Value ([pscustomobject]@{ Error = ''; Skipped = 'SummaryUnavailable' }))
+    Assert-True (Test-DomeniaProbeNotApplicable -Value ([pscustomobject]@{ Error = ''; Skipped = 'DomainController'; CheckedUtc = $fresh })) 'en memoire avant enregistrement'
 }
 Test-Case 'WGC-006' 'Releve du widget : une mesure exploitable de moins de N jours est reutilisee, jamais une erreur ni une definition changee' {
     $now = [datetime]::new(2026, 10, 14, 10, 0, 0, [DateTimeKind]::Utc)
@@ -179,7 +195,9 @@ Test-Case 'WGC-009' 'Progression affichee sur le widget, chiffre garde jusquʼa 
     Assert-Equal 'Collecte en cours · 0/2 poste(s)' (Format-DomeniaWidgetCollectProgress -Phase Running -Total 2)
     Assert-Equal 'Collecte en attente de confirmation · 450 poste(s)' (Format-DomeniaWidgetCollectProgress -Phase Confirming -Total 450)
     Assert-True ((Format-DomeniaWidgetCollectProgress -Phase Queued) -like 'En file*')
-    foreach ($phase in @('Preparing','Inventory','Directory','BitLocker','Card','Software','Local')) { Assert-True (Format-DomeniaWidgetCollectProgress -Phase $phase) $phase }
+    Assert-Equal 'En file : en attente du recalcul de lʼOU.' (Format-DomeniaWidgetCollectProgress -Phase Waiting)
+    Assert-Equal 'Recherche des mesures manquantes · 120/450 poste(s) · 80 déjà à jour' (Format-DomeniaWidgetCollectProgress -Phase Planning -Done 120 -Total 450 -Fresh 80)
+    foreach ($phase in @('Preparing','Planning','Inventory','Directory','BitLocker','Card','Software','Local')) { Assert-True (Format-DomeniaWidgetCollectProgress -Phase $phase) $phase }
 }
 Test-Case 'WGC-010' 'Point 80 : clavier du widget, taille pas a pas et largeur tenue a haute resolution' {
     Assert-Equal 'L' (Get-DomeniaBoardNextSize -Size M -Step 1); Assert-Equal 'L' (Get-DomeniaBoardNextSize -Size L -Step 1)
@@ -221,6 +239,17 @@ Test-Case 'WGC-011' 'Point 6 : explication dʼun chiffre, formule, perimetre, cr
     Assert-True ([string]$p.Rows[4].Text -like '*Relevés de plus de 30 jours ignorés.') ([string]$p.Rows[4].Text)
     Assert-Equal 'Liste nominative non conservée pour ce chiffre.' ([string]$p.Rows[7].Text)
     Assert-Equal 'Non mesurée pour ce chiffre.' ([string]$p.Rows[5].Text) 'couverture inconnue dite inconnue'
+    Assert-Equal 'Exact' ([string]$e.Members)
+    # A probe or a saved query keeps no frozen list: the button recomputes it, and the text never promises GUIDs.
+    $again = Get-DomeniaWidgetExplanation -Board Fleet -Item $probe -Need (Get-DomeniaWidgetCollectionNeed -Board Fleet -Item $probe) -Coverage '19 postes analysés sur 26' -Members Recomputed
+    Assert-Equal 'Recomputed' ([string]$again.Members)
+    Assert-True ([string]$again.Rows[7].Text -like 'Aucune liste figée*Afficher les postes la recalcule*') ([string]$again.Rows[7].Text)
+    Assert-False ([string]$again.Rows[7].Text -like '*GUID*') 'liste exacte promise sans liste conservee'
+    Assert-Equal '19 postes analysés sur 26' ([string]$again.Rows[5].Text)
+    # The workstation board has no list button: its text does not mention one.
+    $computer = Get-DomeniaWidgetExplanation -Board Computer -Item (New-DomeniaBoardItem -Source Builtin -Key 'computer.os' -Visual Kpi -Id 'c') -TargetCount 1 -Members Selected
+    Assert-Equal 'Le poste sélectionné seulement.' ([string]$computer.Rows[7].Text)
+    Assert-Equal 'None' ([string](Get-DomeniaWidgetExplanation -Board Fleet -Item $item -Members Exact).Members) 'liste exacte sans compte : rien de promis'
 }
 Test-Case 'WGC-012' 'Point 73 : la liste ouverte porte le compte et le calcul du chiffre, jamais dʼun calcul remplace' {
     $label = Format-DomeniaWidgetDetailLabel -Title 'Sans connexion AD depuis 90 j' -Count 12 -ComputedAtUtc ([datetime]::new(2026, 10, 14, 8, 0, 0, [DateTimeKind]::Utc))

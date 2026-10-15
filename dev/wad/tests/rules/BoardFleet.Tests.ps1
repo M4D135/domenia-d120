@@ -241,7 +241,8 @@ Test-Case -Id 'BF-011' -Name 'Parc : score proportionnel aux postes, points du p
     $health = $board.Entries['fleet.health']
     Assert-Equal 'Critique' ([string]$health.Value)
     Assert-Equal 0 $health.Number '6 postes avec probleme etablis, 1 poste encore incomplet'
-    Assert-Equal '0 poste sur 6 évalués sans point détecté · 1 non évalué(s)' ([string]$health.Detail)
+    # Point 74: one workstation not evaluated, the share evaluated is shown beside the score (6 of 7, 85 %).
+    Assert-Equal '0 poste sur 6 évalués sans point détecté · 1 non évalué(s) · couverture 85 % (6 évalué(s) sur 7)' ([string]$health.Detail)
     $list = $board.Entries['fleet.attention']
     $levels = @(@($list.Items) | ForEach-Object { [string]$_.Level })
     Assert-Equal 'Alert' $levels[0]

@@ -427,7 +427,7 @@ function Get-DomeniaFleetHealth {
     $state = if ($alerts -or ($verdict -eq 'Dégradé')) { 'Alert' } elseif ($verdict -eq 'À surveiller') { 'Warn' } elseif($unassessed){'Off'} else { 'Ok' }
     $detail = if ($Total -gt 0) { [string]$healthy + ' poste' + $(if ($healthy -gt 1) { 's' } else { '' }) + ' sur ' + [string]$assessed + ' évalués sans point détecté · '+[string]$unassessed+' non évalué(s)' } else { 'Aucun poste dans le périmètre' }
     # The share evaluated is shown beside the score as soon as one workstation is missing (point 74).
-    if (($Total -gt 0) -and $unassessed) { $detail += ' · ' + $coverage.Text }
+    if (($Total -gt 0) -and ($unassessed -gt 0)) { $detail += ' · ' + $coverage.Text }
     return [pscustomobject]@{ Score = $score; Verdict = $verdict; State = $state; Alerts = $alerts; Warnings = $warnings; Detail = $detail; Healthy = $healthy; Total = $Total }
 }
 function Complete-DomeniaBoardData {
@@ -547,7 +547,7 @@ function Test-DomeniaBoardItemPaused {
     if ($null -eq $Item) { return $false }
     $property = $Item.PSObject.Properties['Paused']
     if ($null -eq $property) { return $false }
-    return (($property.Value -is [bool]) -and [bool]$property.Value)
+    return (($property.Value -is [bool]) -and ([bool]$property.Value))
 }
 function Select-DomeniaActiveBoardItems {
     # Widgets that take part in collections and local calculations: every widget except the paused ones.
