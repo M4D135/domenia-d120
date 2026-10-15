@@ -6,9 +6,10 @@ $wad=Split-Path -Parent $PSScriptRoot;$modules=Join-Path $wad 'modules'
 # Cache.Model: verified backup before an AD read (FI-13). Store.Model: storage refusals and free-space rules (points 32
 # and 35). Park.Model: rules of a survey; Live.Model: presence keys.
 # Boards.Model: paused widgets left out of the WMI refresh of the OU (decision David 2026-10-14).
+# Collection.Model/UI: freshness profile, budgets, windows and suspensions of the collection engine (points 11-21).
 # Store.Model and Collection.Model: the scope clocks recorded by a finished refresh (points 4, 5 and 10).
 # Point 48: Safety.Model provides the exact preview of the collective read (New-DomeniaCollectivePreview).
-foreach($name in @('Common.Model','Cache.Model','Live.Model','Store.Model','Collection.Model','Park.Model','Boards.Model','Safety.Model','Storage.UI','Park.UI','Refresh.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+foreach($name in @('Common.Model','Cache.Model','Live.Model','Store.Model','Collection.Model','Collection.UI','Park.Model','Boards.Model','Safety.Model','Storage.UI','Park.UI','Refresh.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 $tokens=$null;$parseErrors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'),[ref]$tokens,[ref]$parseErrors)
 if($parseErrors.Count){throw 'Core parse failure'}
 foreach($name in @('Test-DomeniaIndexWriteReady','Start-DomeniaIndexScopeBuild','Update-DomeniaIndexDatabaseRows','Complete-DomeniaIndexScopeUi','Fail-DomeniaIndexBuildUi')){
@@ -183,7 +184,7 @@ Case 'Scope clocks: partial AD read is recorded as partial, without ping or WMI'
 }
 Case 'Scope clocks: a declined confirmation records the AD run only' {
     Invoke-DomeniaOuRefresh Search Both;$item=Complete-Ad;Commit-Item $item;Invoke-DomeniaOuRefreshTick;Complete-Targets 1
-    Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@([pscustomobject]@{Computer='PC-0'});Busy=$false}) $script:Jobs[2].State
+    Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@(New-BaseTarget $script:Jobs[2]);Busy=$false}) $script:Jobs[2].State
     & $script:Confirmation.Cancel;Invoke-DomeniaOuRefreshTick
     Expect (($script:DomeniaOuRefresh.Completed) -and (((@(Get-RunChanges)|ForEach-Object{[string]$_.Family}) -join ',') -eq 'Directory')) 'declined collection recorded as an attempt'
 }

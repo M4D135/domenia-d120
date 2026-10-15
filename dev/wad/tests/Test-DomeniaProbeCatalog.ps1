@@ -69,6 +69,21 @@ Case 'Catalogue modules parse and do not invoke providers while loading' {
  $source=[IO.File]::ReadAllText((Join-Path $modules 'Domenia-ProbeCatalog.Model.ps1'))
  Expect ($source -notmatch '(?i)\b(Get-CimInstance|Get-WmiObject|Invoke-CimMethod|Invoke-WmiMethod|Invoke-Command)\b') 'Provider invoked by catalog'
 }
+Case 'Points 135-136 : contrat de chaque sonde affiche dans le selecteur et les details, sonde refusee jamais proposee' {
+ . (Join-Path $modules 'Domenia-ProbeContract.Model.ps1')
+ $script:DomeniaProbeContracts=$null
+ $entry=Get-DomeniaProbeContract 'sec.bitlocker'
+ Expect ($null -ne $entry -and $entry.Check.Valid -and $entry.Contract.Privilege.Level -eq 'AdministrateurLocal') 'Contrat de sonde absent ou refuse'
+ Expect ((Get-DomeniaProbeContractSummary $entry.Contract) -match '^Droits : administrateur local du poste\. Coût : ') 'Resume du contrat'
+ Expect ([object]::ReferenceEquals($entry,(Get-DomeniaProbeContract 'sec.bitlocker'))) 'Contrat recalcule a chaque lecture'
+ Expect ($null -eq (Get-DomeniaProbeContract 'sonde.inconnue')) 'Contrat invente pour une sonde absente'
+ $widgets=[IO.File]::ReadAllText((Join-Path $modules 'Domenia-Widgets.UI.ps1'))
+ $sources=$widgets.Substring($widgets.IndexOf('function Get-DomeniaBoardSources'))
+ $sources=$sources.Substring(0,$sources.IndexOf('function Get-DomeniaBoardPreviewEntry'))
+ Expect ($sources.Contains('Get-DomeniaProbeContract ([string]$probe.Id)') -and $sources.Contains('-not [bool]$contractEntry.Check.Valid') -and $sources.Contains('Get-DomeniaProbeContractSummary $contractEntry.Contract')) 'Selecteur de widgets non raccorde au contrat'
+ $details=[IO.File]::ReadAllText((Join-Path $modules 'Domenia-ProbeDetails.UI.ps1'))
+ Expect ($details.Contains('Get-DomeniaProbeContractLines') -and $details.Contains('Get-DomeniaProbeIsolationPlan') -and $details.Contains("Header='Contrat de la sonde'")) 'Details de la sonde sans contrat'
+}
 $failed=@($checks|Where-Object{-not $_.Passed}).Count
 $report=[pscustomobject]@{Suite='ProbeCatalog';Passed=($failed -eq 0);Total=$checks.Count;Failed=$failed;ProviderExecuted=$false;NetworkUsed=$false;Checks=$checks.ToArray()}
 if($ReportPath){[IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 8),[Text.UTF8Encoding]::new($false))}

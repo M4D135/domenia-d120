@@ -217,12 +217,44 @@
                   </StackPanel>
                 </Expander>
                 <Expander Header="Réglages de collecte" Margin="0,6,0,6">
-                  <WrapPanel Margin="0,6,0,6">
-                    <TextBlock Text="Postes en parallèle" VerticalAlignment="Center" Margin="0,0,8,0" />
-                    <ComboBox x:Name="CmbCollectionConcurrency" Width="80" MinHeight="32" Margin="0,0,18,0" AutomationProperties.Name="Nombre maximal de postes collectés en parallèle" />
-                    <TextBlock Text="Réutiliser les mesures fraîches" VerticalAlignment="Center" Margin="0,0,8,0" />
-                    <ComboBox x:Name="CmbCollectionCache" Width="210" MinHeight="32" AutomationProperties.Name="Durée de réutilisation des mesures" ToolTip="Les sondes volatiles sont relues après une minute, lʼinventaire après cinq minutes. Forcer relit toutes les mesures demandées." />
-                  </WrapPanel>
+                  <StackPanel Margin="0,6,0,6">
+                    <WrapPanel>
+                      <TextBlock Text="Postes en parallèle" VerticalAlignment="Center" Margin="0,0,8,0" />
+                      <ComboBox x:Name="CmbCollectionConcurrency" Width="80" MinHeight="32" Margin="0,0,18,0" AutomationProperties.Name="Nombre maximal de postes collectés en parallèle" ToolTip="Plafond choisi. Un sous-réseau dont les réponses ralentissent ou échouent descend sous ce plafond, puis y remonte progressivement." />
+                      <TextBlock Text="Réutiliser les mesures fraîches" VerticalAlignment="Center" Margin="0,0,8,0" />
+                      <ComboBox x:Name="CmbCollectionCache" Width="210" MinHeight="32" AutomationProperties.Name="Durée de réutilisation des mesures" ToolTip="Plafond des durées de réutilisation de lʼinventaire et des sondes WMI dʼun relevé ; le ping et la console sont toujours relus. Forcer relit toutes les mesures demandées." />
+                    </WrapPanel>
+                    <WrapPanel Margin="0,12,0,0">
+                      <TextBlock Text="Profil dʼusage" VerticalAlignment="Center" Margin="0,0,8,0" />
+                      <ComboBox x:Name="CmbCollectionProfile" Width="250" MinHeight="32" AutomationProperties.Name="Profil dʼusage de la collecte" ToolTip="Durées de réutilisation par famille de données et fenêtre de collecte adaptées au réseau." />
+                    </WrapPanel>
+                    <TextBlock x:Name="LblCollectionProfile" TextWrapping="Wrap" Margin="0,6,0,0" Foreground="{DynamicResource MutedColor}" />
+                    <DataGrid x:Name="DgCollectionFreshness" IsReadOnly="True" AutoGenerateColumns="False" CanUserAddRows="False" SelectionMode="Single" MaxHeight="240" Margin="0,8,0,0" AutomationProperties.Name="Durées de fraîcheur par famille de données">
+                      <DataGrid.Columns>
+                        <DataGridTextColumn Header="Famille" Binding="{Binding Label}" Width="2*" />
+                        <DataGridTextColumn Header="Durée retenue" Binding="{Binding Duration}" Width="*" />
+                        <DataGridTextColumn Header="Origine" Binding="{Binding Source}" Width="*" />
+                        <DataGridTextColumn Header="Effet" Binding="{Binding Effect}" Width="4*" />
+                      </DataGrid.Columns>
+                    </DataGrid>
+                    <WrapPanel Margin="0,8,0,0">
+                      <TextBlock Text="Durée de la famille choisie" VerticalAlignment="Center" Margin="0,0,8,0" />
+                      <ComboBox x:Name="CmbCollectionFreshnessValue" Width="200" MinHeight="32" IsEnabled="False" AutomationProperties.Name="Durée de fraîcheur de la famille choisie" ToolTip="Choisissez une famille dans le tableau, puis sa durée. Le choix est enregistré pour ce profil." />
+                      <Button x:Name="BtnCollectionFreshnessReset" Content="Revenir aux durées du profil" Margin="10,0,0,0" MinHeight="32" AutomationProperties.Name="Revenir aux durées du profil" ToolTip="Supprime les durées personnalisées de ce profil." />
+                    </WrapPanel>
+                    <TextBlock Text="Fenêtre des travaux de fond (exemple : lun-ven 12:00-14:00 18:00-24:00; sam-dim). Vide : à tout moment ; « jamais » : aucun. Une action que vous lancez reste toujours possible." TextWrapping="Wrap" Margin="0,12,0,4" />
+                    <WrapPanel>
+                      <TextBox x:Name="TxtCollectionWindow" Width="380" MinHeight="32" MaxLength="400" AutomationProperties.Name="Fenêtre de collecte du profil" ToolTip="Jours (lun à dim, plages lun-ven) suivis dʼheures HH:MM-HH:MM ; clauses séparées par un point-virgule." />
+                      <Button x:Name="BtnCollectionWindowApply" Content="Appliquer la fenêtre" Margin="10,0,0,0" MinHeight="32" AutomationProperties.Name="Appliquer la fenêtre de collecte" ToolTip="Vérifie puis enregistre la fenêtre pour ce profil." />
+                    </WrapPanel>
+                    <TextBlock x:Name="LblCollectionWindow" TextWrapping="Wrap" Margin="0,6,0,0" AutomationProperties.LiveSetting="Polite" />
+                    <TextBlock Text="Relevé interrompu" FontWeight="SemiBold" Margin="0,14,0,4" />
+                    <TextBlock x:Name="LblCollectionResume" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" />
+                    <WrapPanel Margin="0,6,0,0">
+                      <Button x:Name="BtnCollectionResume" Content="Reprendre le relevé" MinHeight="32" IsEnabled="False" AutomationProperties.Name="Reprendre le relevé interrompu" ToolTip="Prépare les postes non validés ; leur nombre et le périmètre sont confirmés avant toute lecture." />
+                      <Button x:Name="BtnCollectionResumeDiscard" Content="Abandonner ce plan" Margin="10,0,0,0" MinHeight="32" IsEnabled="False" AutomationProperties.Name="Abandonner le plan de reprise" ToolTip="Supprime le plan de reprise. Les mesures déjà validées restent dans la base locale." />
+                    </WrapPanel>
+                  </StackPanel>
                 </Expander>
                 <Expander x:Name="ExpQueryCoverage" Header="Couverture et dates des informations" Margin="0,10,0,0">
                   <StackPanel>

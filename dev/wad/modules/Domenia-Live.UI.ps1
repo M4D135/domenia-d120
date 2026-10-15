@@ -402,13 +402,15 @@ function Set-DomeniaLiveObservationOnRow {
     # GUID mismatch means a recreated AD object, not the same cached machine.
     if($null -ne $Observation -and $Row.Guid -and $Observation.Guid -and [string]$Row.Guid -ine [string]$Observation.Guid){$Observation=$null}
     $view=Get-DomeniaLiveObservationView $Observation -Cached:$Cached -Pending:$Pending
-    $Row.SessionDisplay=$view.Display;$Row.SessionState=$view.State;$Row.SessionDetail=$view.Detail+"`r`n"+(Get-DomeniaRecordFreshness $Observation 'Console').Label
+    # Point 11: the durations of the usage profile decide « récent » or « à relire » (cached table, two setting reads).
+    $freshnessTable=$null;try{$freshnessTable=Get-DomeniaActiveFreshnessTable}catch{$freshnessTable=$null}
+    $Row.SessionDisplay=$view.Display;$Row.SessionState=$view.State;$Row.SessionDetail=$view.Detail+"`r`n"+(Get-DomeniaRecordFreshness $Observation 'Console' -Table $freshnessTable).Label
     $Row.SessionChecked=$view.Checked;$Row.SessionObserved=$view.Observed;$Row.SessionSource=$view.Source
     $key=Get-DomeniaLiveObjectKey $Row
     $historical=[bool]$Cached
     if($null -ne $script:Live -and $null -ne $script:Live.PresenceSeen -and $script:Live.PresenceSeen.ContainsKey($key)){$historical=$false}
     $network=Get-DomeniaLivePresenceView $Observation -Cached:$historical
-    $Row.Presence=$network.Display;Set-DomeniaLiveRowValue $Row 'PresenceDetail' ($network.Detail+"`r`n"+(Get-DomeniaRecordFreshness $Observation 'Presence').Label)
+    $Row.Presence=$network.Display;Set-DomeniaLiveRowValue $Row 'PresenceDetail' ($network.Detail+"`r`n"+(Get-DomeniaRecordFreshness $Observation 'Presence' -Table $freshnessTable).Label)
     # FI-16 / DS-15: the pill reads the state key; the age replaces the former '(cache)' suffix.
     Set-DomeniaLiveRowValue $Row 'PresenceState' ([string]$network.PresenceState)
     Set-DomeniaLiveRowValue $Row 'PresenceAge' ([string]$network.Age)
@@ -674,6 +676,8 @@ function Complete-DomeniaLiveStored {
             elseif([string]$result.Outcome -ieq 'AuthRejected'){$failureKind='CredentialRejected'}
             if($failureKind){[void](Register-DomeniaFailure $script:Live.NegativeCache $target 'Cim' $failureKind)}
             elseif(([string]$result.Outcome -ieq 'Observed') -or ([string]$result.Outcome -ieq 'NoConsole')){Clear-DomeniaFailure $script:Live.NegativeCache $target 'Cim'}
+            # Point 15: the address seen by this ping places later reads of the workstation in its presumed subnet.
+            try{[void](Register-DomeniaTargetAddress -Computer $target -Text ([string]$result.PresenceDetail))}catch{}
         }
     }
     if($observation.Outcome -eq 'AuthRejected'){
@@ -702,7 +706,8 @@ function Complete-DomeniaLiveStored {
     }
     if([string]$result.Outcome -ne 'PresenceOnly' -and (Get-CurrentSelectedComputerName) -ieq (Normalize-LinkComputer ([string]$State.Computer))){
         $view=Get-DomeniaLiveObservationView $observation
-        [void](Set-DomeniaControlText 'LblLinkProbeStatus' -Text ($view.State+' : '+$view.Display+' · '+(Get-DomeniaRecordFreshness $observation 'Console').Label))
+        $freshnessTable=$null;try{$freshnessTable=Get-DomeniaActiveFreshnessTable}catch{$freshnessTable=$null}
+        [void](Set-DomeniaControlText 'LblLinkProbeStatus' -Text ($view.State+' : '+$view.Display+' · '+(Get-DomeniaRecordFreshness $observation 'Console' -Table $freshnessTable).Label))
         # Do not rebuild the complete associations grid for every background result.
         $link=Get-ExistingLinkForComputer ([string]$State.Computer)
         if($null -ne $link){

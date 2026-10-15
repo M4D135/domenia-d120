@@ -178,6 +178,7 @@ try {
     . (Join-Path $wad 'modules\Domenia-Relations.Model.ps1')
     # Point 41: the real guard helpers that every worker receives with its error contract.
     . (Join-Path $wad 'modules\Domenia-Guard.Model.ps1')
+    . (Join-Path $wad 'modules\Domenia-InventoryImport.Model.ps1')
     . (Join-Path $wad 'modules\Domenia-Embedded.UI.ps1')
     . (Join-Path $wad 'modules\Domenia-Relations.UI.ps1')
     $coreText=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1'))
