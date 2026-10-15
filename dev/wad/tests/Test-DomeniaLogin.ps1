@@ -546,7 +546,10 @@ Test-LoginCase 'SE-16 (W17) : mot de passe de session remis directement a Direct
         Assert-Login ($body.Contains('$Context.Credential.GetNetworkCredential().Password,[System.DirectoryServices.AuthenticationTypes]::Secure')) ('Mot de passe de session non remis directement : '+$name)
         Assert-Login (-not $body.Contains('plainPassword')) ('Mot de passe de session garde dans une variable : '+$name)
     }
-    Assert-Login ($source -notmatch "\`$(plainPassword|pass)\s*=\s*''") 'Pseudo-effacement par chaine vide encore present'
+    # Both quote forms: neither the session password nor a new password is "erased" by an empty string anywhere.
+    Assert-Login ($source -notmatch "\`$(plainPassword|pass)\s*=\s*(''|"""")") 'Pseudo-effacement par chaine vide encore present'
+    $reset=Get-TestDefinition 'Reset-UserPassword'
+    Assert-Login ($reset.Contains('finally { $plainPassword=$null }') -and $reset.Contains('no assignment erases it')) 'Reinitialisation : limite de la chaine du nouveau mot de passe non documentee'
     $probe=Get-TestDefinition 'Invoke-DomeniaInProcessAuthProbe'
     Assert-Login ($probe.Contains('$plainPassword = $null') -and $probe.Contains('no assignment erases it')) 'Limite de DirectoryEntry non documentee dans la connexion'
     Assert-Login ((Get-TestDefinition 'Get-LdapEntry').Contains('$script:Conn.Credential.GetNetworkCredential().Password,')) 'Liaison de l interface : mot de passe garde dans une variable'

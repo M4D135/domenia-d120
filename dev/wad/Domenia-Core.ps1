@@ -21658,7 +21658,7 @@ function Invoke-DomeniaInProcessAuthProbe {
                     # RootDSE en plusieurs tentatives d'authentification et donc en risque de lockout.
                     $discoveryRoot = $null
                     $baseAdsi = $null
-                    $plainPassword = ""
+                    $plainPassword = $null
                     $explicitBindAttempted = $false
                     try {
                         # RootDSE est une operation de decouverte. Sur un poste joint au domaine,
@@ -28329,7 +28329,10 @@ if($backend -eq "Module"){
     if([bool]$Payload.MustChange){try{$u=@{};foreach($k in $base.Keys){$u[$k]=$base[$k]};$u.ChangePasswordAtLogon=$true;Set-ADUser @u;[void]$steps.Add("changement impose au prochain logon")}catch{[void]$steps.Add("option prochain logon en echec : $($_.Exception.Message)")}}
 }else{
     $de=New-WEntry $Context ([string]$Payload.DN)
-    $plainPassword=""
+    # SE-16: the new password becomes a String only for the ADSI SetPassword call. That String is immutable and stays
+    # in memory until the garbage collector reclaims it; no assignment erases it, the finally block only drops this
+    # reference. It is never logged nor returned.
+    $plainPassword=$null
     try {
         $plainPassword=[System.Net.NetworkCredential]::new("",[System.Security.SecureString]$Payload.SecurePassword).Password
         $SentUtc=[DateTime]::UtcNow.ToString('o')
@@ -28342,7 +28345,7 @@ if($backend -eq "Module"){
             if($pwdTicks -gt 0){ try { $PwdLastSetUtc=[DateTime]::FromFileTimeUtc([int64]$pwdTicks).ToString('o') } catch { $PwdLastSetUtc=$null } }
         }
     }
-    finally { $plainPassword="" }
+    finally { $plainPassword=$null }
     if([bool]$Payload.Unlock){try{$de.Properties["lockoutTime"].Value=0;[void]$steps.Add("compte deverrouille")}catch{[void]$steps.Add("deverrouillage en echec : $($_.Exception.Message)")}}
     if([bool]$Payload.MustChange){try{$de.Properties["pwdLastSet"].Value=0;[void]$steps.Add("changement impose au prochain logon")}catch{[void]$steps.Add("option prochain logon en echec : $($_.Exception.Message)")}}
     $de.CommitChanges()

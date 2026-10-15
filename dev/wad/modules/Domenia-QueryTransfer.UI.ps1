@@ -43,7 +43,7 @@ function Start-DomeniaQueryTransferTask {
     # (local files only, no network, nothing executed). The callback is bound to this library store and generation.
     param([Parameter(Mandatory=$true)][ValidateSet('ExportPack','ExportPowerShell','ImportPreview')][string]$Action,[Parameter(Mandatory=$true)][string]$Path,[string]$PackName='',[long]$PackVersion=0)
     $store=$script:DomeniaQueryLibraryStoreState
-    if(($null -eq $store) -or -not [bool]$store.Loaded -or [bool]$store.Saving){throw 'Attendez la disponibilité de la bibliothèque locale.'}
+    if(($null -eq $store) -or (-not [bool]$store.Loaded) -or ([bool]$store.Saving)){throw 'Attendez la disponibilité de la bibliothèque locale.'}
     $q=$script:DomeniaQueryState
     $history=@(@(Get-DomeniaMember $q 'ImportHistory' @())|ForEach-Object{[pscustomobject]@{PackId=[string]$_.PackId;PackVersion=[long]$_.PackVersion}})
     $payload=[pscustomobject]@{ModuleRoot=$script:DomeniaQueryModuleRoot;Mode=$Action;Path=$Path;Context=$store.Context;ExistingRows=@($store.Rows.Values);Recipes=@($store.Recipes);Recipe=$(if($Action -eq 'ExportPowerShell'){Get-DomeniaQueryDraft}else{$null});PackName=$PackName;PackVersion=$PackVersion;History=$history}
