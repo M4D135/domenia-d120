@@ -448,12 +448,18 @@ Test-Case 'BRD-026' 'DS-04 : 4, 3 ou 2 colonnes selon la largeur, sans bascule a
     Assert-False (Test-DomeniaBoardShortWidget -Visual 'Text' -Kind 'Distribution') 'liste de repartition haute'
     Assert-False (Test-DomeniaBoardShortWidget -Visual 'HealthSummary' -Kind 'Health')
     Assert-True (Test-DomeniaBoardShortWidget -Visual 'Pie' -Compact $true) 'place compacte d un widget sans chiffre'
+    # Redraw measured at card scale: 6 px more per column moves a card of 4 columns by 24 px.
+    Assert-True (Test-DomeniaBoardRedrawNeeded -Columns 4 -BuiltColumns 4 -Cell 296 -BuiltCell 290) 'carte de 4 colonnes decalee de 24 px'
+    Assert-False (Test-DomeniaBoardRedrawNeeded -Columns 4 -BuiltColumns 4 -Cell 294 -BuiltCell 290) '16 px : pas de redessin'
+    Assert-False (Test-DomeniaBoardRedrawNeeded -Columns 1 -BuiltColumns 1 -Cell 515 -BuiltCell 500) 'une colonne : 15 px'
+    Assert-True (Test-DomeniaBoardRedrawNeeded -Columns 3 -BuiltColumns 4 -Cell 290 -BuiltCell 290) 'autre nombre de colonnes'
 }
 Test-Case 'BRD-027' 'DS-04 : rangées pleines, tuiles compactes empilées à côté dʼune carte haute, ordre de lecture gardé' {
     $k = New-BrdUnit 1 $true; $pie = New-BrdUnit 2 $false; $large = New-BrdUnit 3 $false; $gauge = New-BrdUnit 1 $false
     Assert-Equal '0:0:1:0+1 0:1:2:2 0:3:1:3+4 1:0:2:5 1:2:2:6' (Get-BrdCells @($k,$k,$pie,$k,$k,$k,$k) 4) 'inventaire du perimetre'
     Assert-Equal '0:0:4:0' (Get-BrdCells @($k) 4) 'une tuile seule remplit sa rangee'
     Assert-Equal '0:0:3:0 0:3:1:1+2' (Get-BrdCells @($pie,$k,$k) 4) 'deux tuiles empilees, la carte haute prend la colonne libre'
+    Assert-Equal '0:0:1:0+1 0:1:3:2' (Get-BrdCells @($k,$k,$pie) 4) 'paire en tete : la colonne libre va a la carte haute, pas a la paire'
     Assert-Equal '0:0:2:0 0:2:1:1 0:3:1:2 1:0:2:3 1:2:2:4' (Get-BrdCells @($gauge,$gauge,$gauge,$pie,$pie) 4) 'ressources'
     Assert-Equal '0:0:1:0 0:1:1:1 0:2:1:2 0:3:1:3 1:0:1:4 1:1:1:5 1:2:1:6 1:3:1:7' (Get-BrdCells @($k,$k,$k,$k,$k,$k,$k,$k) 4) 'tuiles seules : jamais empilees'
     Assert-Equal '0:0:1:0 0:1:1:1 1:0:2:2 2:0:2:3 3:0:2:4' (Get-BrdCells @($k,$k,$pie,$k,$large) 2) 'deux colonnes'
@@ -488,7 +494,7 @@ Test-Case 'BRD-028' 'DS-05 : une carte Santé, « 4 points à vérifier · 1 inf
     foreach ($board in @('Computer','Fleet')) {
         $prefix = $board.ToLowerInvariant()
         $delivered = @(Get-DomeniaBoardDefaultLayout -Board $board)
-        Assert-Equal 1 @($delivered | Where-Object { $_.Key -eq ($prefix + '.health') -and $_.Visual -eq 'HealthSummary' -and $_.Size -eq 'L' }).Count ('carte Sante livree : ' + $board)
+        Assert-Equal 1 @($delivered | Where-Object { ($_.Key -eq ($prefix + '.health')) -and ($_.Visual -eq 'HealthSummary') -and ($_.Size -eq 'L') }).Count ('carte Sante livree : ' + $board)
         Assert-Equal 0 @($delivered | Where-Object { $_.Key -eq ($prefix + '.attention') }).Count ('liste des points en double : ' + $board)
         Assert-True ($null -ne (Get-DomeniaBoardCatalogItem -Board $board -Key ($prefix + '.attention'))) ('liste des points toujours au catalogue : ' + $board)
     }
@@ -504,27 +510,40 @@ Test-Case 'BRD-028' 'DS-05 : une carte Santé, « 4 points à vérifier · 1 inf
 }
 Test-Case 'BRD-029' 'DS-05, UX-11 : anciennes dispositions livrées remplacées, dispositions personnalisées conservées' {
     $toItems = { param([string]$Text) @(foreach ($line in ($Text -split "`n")) { $value = $line.Trim(); if ($value) { $c = $value -split '\|'; [pscustomobject]@{ Id = ('b-' + $c[0]); Source = 'Builtin'; Key = $c[0]; Visual = $c[2]; Title = ''; Size = $c[3]; Group = $c[1] } } }) }
-    foreach ($case in @(@('Computer', [string]$script:DomeniaComputerLegacyLayoutText, 42), @('Fleet', [string]$script:DomeniaFleetPairLayoutText, 17))) {
+    # Widgets of a saved layout that this build knows: the W11 tiles count only once its catalog has them.
+    $known = { param([string]$Board,[object[]]$Items) @($Items | Where-Object { $null -ne (Get-DomeniaBoardCatalogItem -Board $Board -Key ([string]$_.Key)) }).Count }
+    $cases = @(
+        @('Computer', [string]$script:DomeniaComputerLegacyLayoutText, 42, 'Health'),
+        @('Computer', [string]$script:DomeniaComputerW11LayoutText, 44, 'Health'),
+        @('Fleet', [string]$script:DomeniaFleetPairLayoutText, 17, 'Health'),
+        @('Fleet', [string]$script:DomeniaFleetLegacyLayoutText, 17, 'Health')
+    )
+    foreach ($case in $cases) {
         $board = [string]$case[0]
         $old = @(& $toItems ([string]$case[1]))
         Assert-Equal ([int]$case[2]) $old.Count ('ancienne disposition : ' + $board)
+        Assert-True (Test-DomeniaBoardLegacyLayout -Board $board -Items $old) ('ancienne disposition reconnue : ' + $board + ' ' + $old.Count)
         $migrated = @(ConvertTo-DomeniaBoardLayout -Board $board -Json (ConvertTo-Json -InputObject $old -Depth 3 -Compress))
-        Assert-Equal (@(Get-DomeniaBoardDefaultLayout -Board $board | ForEach-Object { $_.Key }) -join ',') (@($migrated | ForEach-Object { $_.Key }) -join ',') ('ancienne disposition livree remplacee : ' + $board)
-        $fewer = @($old | Select-Object -Skip 1)
-        Assert-Equal ($old.Count - 1) @(ConvertTo-DomeniaBoardLayout -Board $board -Json (ConvertTo-Json -InputObject $fewer -Depth 3 -Compress)).Count ('widget retire : conservee ' + $board)
+        Assert-Equal (@(Get-DomeniaBoardDefaultLayout -Board $board | ForEach-Object { $_.Key }) -join ',') (@($migrated | ForEach-Object { $_.Key }) -join ',') ('ancienne disposition livree remplacee : ' + $board + ' ' + $old.Count)
+        # The last widget removed: a customised layout, kept as it is, its score card included.
+        $fewer = @($old | Select-Object -First ($old.Count - 1))
+        $kept = @(ConvertTo-DomeniaBoardLayout -Board $board -Json (ConvertTo-Json -InputObject $fewer -Depth 3 -Compress))
+        Assert-Equal (& $known $board $fewer) $kept.Count ('widget retire : conservee ' + $board + ' ' + $old.Count)
+        $health = @($kept | Where-Object { [string]$_.Key -eq ($board.ToLowerInvariant() + '.health') })
+        Assert-Equal 1 $health.Count ('score garde : ' + $board)
+        Assert-Equal ([string]$case[3]) ([string]$health[0].Visual) ('aucune carte remplacee dans une disposition personnalisee : ' + $board + ' ' + $old.Count)
         $paused = @($old | ForEach-Object { $_.PSObject.Copy() }); $paused[2] | Add-Member -NotePropertyName Paused -NotePropertyValue $true
         $kept = @(ConvertTo-DomeniaBoardLayout -Board $board -Json (ConvertTo-Json -InputObject $paused -Depth 3 -Compress))
-        Assert-Equal $old.Count $kept.Count ('mesure suspendue : conservee ' + $board)
-        Assert-True (Test-DomeniaBoardItemPaused -Item $kept[2]) 'pause gardee'
-        $kept = @(ConvertTo-DomeniaBoardLayout -Board $board -Json (ConvertTo-Json -InputObject $fewer -Depth 3 -Compress))
-        Assert-True (@($kept | Where-Object { $_.Visual -eq 'HealthSummary' }).Count -eq 0) 'aucune carte remplacee dans une disposition personnalisee'
+        Assert-Equal (& $known $board $paused) $kept.Count ('mesure suspendue : conservee ' + $board + ' ' + $old.Count)
+        Assert-True (Test-DomeniaBoardItemPaused -Item @($kept | Where-Object { [string]$_.Key -eq [string]$old[2].Key })[0]) 'pause gardee'
     }
     Assert-False (Test-DomeniaBoardLegacyLayout -Board Software -Items @(Get-DomeniaBoardDefaultLayout -Board Software)) 'logiciels : rien a migrer'
 }
 Test-Case 'BRD-030' 'UX-11 : poste livré avec 14 widgets, fiches Identité et Compte machine, liste dʼétat à coches' {
     $delivered = @(Get-DomeniaBoardDefaultLayout -Board Computer)
     Assert-Equal 'computer.health,computer.identity,computer.adaccount,computer.memory.usage,computer.cpu.load,computer.battery,computer.disk.system,computer.disk.volumes,computer.services,computer.processes,computer.events,computer.status,computer.services.stopped,computer.devices' (@($delivered | ForEach-Object { $_.Key }) -join ',')
-    Assert-Equal 45 @(Get-DomeniaBoardCatalog -Board Computer).Count 'le reste reste au catalogue'
+    # Every tile delivered before stays in the catalog, whatever this build adds to it.
+    foreach ($line in ([string]$script:DomeniaComputerLegacyLayoutText -split "`n")) { $key = ($line.Trim() -split '\|')[0]; if ($key) { Assert-True ($null -ne (Get-DomeniaBoardCatalogItem -Board Computer -Key $key)) ('tuile retiree du catalogue : ' + $key) } }
     Assert-Equal 'Sheet,Text' (@(Get-DomeniaBoardVisuals -Kind Sheet) -join ',')
     Assert-Equal 'Checklist,Sheet,Text' (@(Get-DomeniaBoardVisuals -Kind Checklist) -join ',')
     $object = [pscustomobject]@{ Entry = @{ userAccountControl = '4096'; whenCreated = '2020-01-15T10:00:00Z' }; DN = 'CN=PC-1,OU=Postes,DC=example,DC=test' }
@@ -587,6 +606,11 @@ Test-Case 'BRD-031' 'FO-13 : un widget et le résumé du tableau en texte brut p
     Assert-True ((ConvertTo-DomeniaBoardSummaryText -Board Software -Data (New-DomeniaBoardData -Board Software) -Subject 'PC-1' -AtUtc $at -AtLabel 'liste lue le') -like ('Logiciels de PC-1 · liste lue le ' + $at.ToLocalTime().ToString('dd/MM/yyyy HH:mm', [Globalization.CultureInfo]::InvariantCulture))) 'entete du resume des logiciels'
     Assert-True ($fleetText -like '*- À surveiller : Quatre postes inactifs.*') $fleetText
     Assert-True ($fleetText -like '*- Comptes ordinateur : 26 (24 activés)*') $fleetText
+    # The subject of the overview comes from the scope of its data, never from the OU chosen since.
+    Assert-Equal 'Postes' (Get-DomeniaBoardScopeName -Dn 'OU=Postes,OU=Siege,DC=example,DC=test')
+    Assert-Equal 'Postes, Siège' (Get-DomeniaBoardScopeName -Dn 'OU=Postes\, Siège,DC=example,DC=test') 'virgule echappee'
+    Assert-Equal 'Tout le domaine' (Get-DomeniaBoardScopeName -Dn '')
+    Assert-Equal 'Tout le domaine' (Get-DomeniaBoardScopeName -Dn 'DC=example,DC=test') 'racine du domaine'
 }
 Test-Case 'BRD-032' 'FO-17 : disposition dʼéquipe de la configuration, JSON invalide ou inconnu : disposition du catalogue' {
     $team = '[{"Id":"t1","Source":"Builtin","Key":"software.largest","Visual":"Bar","Size":"L","Group":"Equipe"},{"Id":"t2","Source":"Builtin","Key":"software.count","Visual":"Kpi","Size":"S","Group":"Equipe"},{"Id":"t3","Source":"Query","Key":"q1","Visual":"Kpi"}]'
@@ -614,6 +638,31 @@ Test-Case 'BRD-032' 'FO-17 : disposition dʼéquipe de la configuration, JSON in
     Assert-Equal 'Texte JSON illisible.' ([string](ConvertFrom-DomeniaBoardLayoutDocument -Board Software -Text '{').Reason)
     Assert-Equal 'Aucun widget dans ce fichier.' ([string](ConvertFrom-DomeniaBoardLayoutDocument -Board Software -Text '{"Layout":[]}').Reason)
     Assert-Equal 'Domenia-disposition-poste-20261015-0930.json' (Get-DomeniaBoardLayoutFileName -Board Computer -Time ([datetime]::new(2026, 10, 15, 9, 30, 0)))
+    # A team layout without identifiers, rebuilt on every reading: the same identifiers each time, unique.
+    $bare = '[{"Source":"Builtin","Key":"software.count"}]'
+    $once = @(ConvertTo-DomeniaBoardLayout -Board Software -Json '' -TeamJson $bare)
+    $twice = @(ConvertTo-DomeniaBoardLayout -Board Software -Json '' -TeamJson $bare)
+    Assert-Equal 1 $once.Count
+    Assert-Equal ([string]$once[0].Id) ([string]$twice[0].Id) 'identifiant stable d une lecture a l autre'
+    Assert-Equal 't-software.count-0' ([string]$once[0].Id)
+    $mixedIds = '[{"Id":"a","Source":"Builtin","Key":"software.count"},{"Id":"a","Source":"Builtin","Key":"software.size"},{"Source":"Builtin","Key":"software.largest"},{"Id":"t-software.largest-2","Source":"Builtin","Key":"software.recent"}]'
+    $repeated = @(Get-DomeniaBoardDefaultLayout -Board Software -TeamJson $mixedIds)
+    Assert-Equal 'a,t-software.size-1,t-software.largest-2-2,t-software.largest-2' (@($repeated | ForEach-Object { [string]$_.Id }) -join ',') 'identifiant repete ou absent remplace sans prendre celui d un autre widget'
+    Assert-Equal (@($repeated | ForEach-Object { [string]$_.Id }) -join ',') (@(Get-DomeniaBoardDefaultLayout -Board Software -TeamJson $mixedIds | ForEach-Object { [string]$_.Id }) -join ',') 'meme texte, memes identifiants'
+    # A team layout of one widget beside a widget of the first version: never unrolled to a single object.
+    $probes = @([pscustomobject]@{ Id = 'net.dns'; Category = 'Reseau'; Name = 'Serveur DNS'; Mode = 'Value'; Transform = 'Text'; Visual = 'Text' })
+    $legacy = @([pscustomobject]@{ ProbeId = 'net.dns'; Visual = 'Kpi'; Title = 'DNS' })
+    $oneTeam = '[{"Source":"Builtin","Key":"fleet.machines","Visual":"Kpi","Size":"S","Group":"Equipe"}]'
+    $mixed = @(ConvertTo-DomeniaBoardLayout -Board Fleet -Json '' -TeamJson $oneTeam -LegacyWidgets $legacy -ProbeCatalog $probes)
+    Assert-Equal 'fleet.machines,net.dns' (@($mixed | ForEach-Object { [string]$_.Key }) -join ',') 'disposition d equipe d un widget et widget de la premiere version'
+    $again = @(ConvertTo-DomeniaBoardLayout -Board Fleet -Json '' -TeamJson $oneTeam -LegacyWidgets $legacy -ProbeCatalog $probes)
+    Assert-Equal (@($mixed | ForEach-Object { [string]$_.Id }) -join ',') (@($again | ForEach-Object { [string]$_.Id }) -join ',') 'widget de la premiere version sans identifiant : stable aussi'
+    # Refusals of the DocumentStore worker in the words of a layout file; any other message unchanged.
+    Assert-Equal 'fichier absent ou trop volumineux (1 Mo maximum).' (Get-DomeniaBoardDocumentMessage -Message 'Capture absente ou trop volumineuse (1 Mo maximum).')
+    Assert-Equal 'chemin redirigé refusé.' (Get-DomeniaBoardDocumentMessage -Message 'Exception calling "Invoke": "Document ou dossier redirige refuse."')
+    Assert-Equal 'disposition trop volumineuse (1 Mo maximum).' (Get-DomeniaBoardDocumentMessage -Message 'Export invalide ou trop volumineux (1 Mo maximum).')
+    Assert-Equal 'choisissez un fichier .json.' (Get-DomeniaBoardDocumentMessage -Message 'Chemin de document non pris en charge.')
+    Assert-Equal 'Accès refusé.' (Get-DomeniaBoardDocumentMessage -Message 'Accès refusé.')
 }
 Test-Case 'BRD-033' 'SP-07, SP-19, UI-14 : synonymes du catalogue, filtres par origine et catégorie, catégories accentuées' {
     $memory = [pscustomobject]@{ Source = 'Builtin'; Category = 'Identite du poste'; Search = (ConvertTo-DomeniaSearchText 'Memoire installee Memoire physique et barrettes Identite du poste') }

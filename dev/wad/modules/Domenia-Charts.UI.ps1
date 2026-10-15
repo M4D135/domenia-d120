@@ -498,7 +498,7 @@ function Add-DomeniaAttentionRows {
                 [void]$hyperlink.Inlines.Add($routeText)
                 $hyperlink.ToolTip = 'Ouvre lʼécran de lʼaction utile, sans rien exécuter.'
                 $hyperlink.Tag = $route
-                $hyperlink.Add_Click({ param($s,$e) try { Invoke-DomeniaBoardRoute -Route ([string]$s.Tag) } catch { } })
+                $hyperlink.Add_Click({ param($s,$e) try { Invoke-DomeniaBoardRoute -Route ([string]$s.Tag) } catch { Write-AppLog ('Écran de lʼaction utile non ouvert : ' + $_.Exception.Message) 'WARN'; Set-Status 'Écran de lʼaction utile non ouvert : détail dans le journal.' 'WARN' } })
                 [void]$link.Inlines.Add($hyperlink)
                 [System.Windows.Controls.DockPanel]::SetDock($link, [System.Windows.Controls.Dock]::Right)
                 $row.Children.Insert(0, $link)

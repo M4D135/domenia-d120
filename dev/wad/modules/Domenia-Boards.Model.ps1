@@ -171,6 +171,55 @@ computer.physicaldisk|Securite et etat|Kpi|S
 computer.certificates|Securite et etat|Kpi|S
 computer.hotfix|Securite et etat|Kpi|S
 '@
+# The same catalog as delivered by the W11 inventory, which added the Secure Boot and update tiles after BitLocker.
+# Both texts stay: a workstation layout saved unchanged under either build is replaced. At the merge with master, these
+# two tiles become catalog only (eighth cell N) like the other single tiles of the section.
+$script:DomeniaComputerW11LayoutText = @'
+computer.health|Vue d ensemble|Health|S
+computer.attention|Vue d ensemble|List|L
+computer.os|Identite du poste|Kpi|S
+computer.model|Identite du poste|Kpi|S
+computer.cpu|Identite du poste|Kpi|S
+computer.memory|Identite du poste|Kpi|S
+computer.uptime|Identite du poste|Kpi|S
+computer.user|Identite du poste|Kpi|S
+computer.ip|Identite du poste|Kpi|S
+computer.domain|Identite du poste|Kpi|S
+computer.ad.password|Compte machine dans Active Directory|Kpi|S
+computer.ad.lastlogon|Compte machine dans Active Directory|Kpi|S
+computer.ad.account|Compte machine dans Active Directory|Kpi|S
+computer.ad.ou|Compte machine dans Active Directory|Kpi|S
+computer.ad.laps|Compte machine dans Active Directory|Kpi|S
+computer.ad.managedby|Compte machine dans Active Directory|Kpi|S
+computer.ad.clock|Compte machine dans Active Directory|Kpi|S
+computer.memory.usage|Ressources|Gauge|S
+computer.cpu.load|Ressources|Gauge|S
+computer.battery|Ressources|Gauge|S
+computer.disk.system|Ressources|Pie|M
+computer.disk.volumes|Ressources|Bar|M
+computer.services|Activite|Pie|M
+computer.processes|Activite|Bar|L
+computer.events|Activite|Bar|M
+computer.antivirus|Securite et etat|Kpi|S
+computer.firewall|Securite et etat|Kpi|S
+computer.bitlocker|Securite et etat|Kpi|S
+computer.secureboot|Securite et etat|Kpi|S
+computer.updates|Securite et etat|Kpi|S
+computer.wsus|Securite et etat|Kpi|S
+computer.reboot|Securite et etat|Kpi|S
+computer.services.stopped|Securite et etat|Kpi|S
+computer.devices|Securite et etat|Kpi|S
+computer.drivers|Securite et etat|Kpi|S
+computer.admins|Securite et etat|Kpi|S
+computer.sessions|Securite et etat|Kpi|S
+computer.autostart|Securite et etat|Kpi|S
+computer.shares|Securite et etat|Kpi|S
+computer.printers|Securite et etat|Kpi|S
+computer.display|Securite et etat|Kpi|S
+computer.physicaldisk|Securite et etat|Kpi|S
+computer.certificates|Securite et etat|Kpi|S
+computer.hotfix|Securite et etat|Kpi|S
+'@
 $script:DomeniaFleetPairLayoutText = @'
 fleet.health|Santé|Health|S
 fleet.attention|Santé|List|L
@@ -791,6 +840,14 @@ function Get-DomeniaBoardColumnCount {
     }
     return $raw
 }
+function Test-DomeniaBoardRedrawNeeded {
+    # DS-04: whether the drawings inside the cards must be redrawn for the width now in use: another number of columns,
+    # or a card that moved by more than 20 px from the width it was drawn for. The drift is measured at card scale (a
+    # card spans up to $Columns columns), never on one column: a Large card would otherwise drift by 60 to 80 px.
+    param([int]$Columns,[int]$BuiltColumns,[double]$Cell,[double]$BuiltCell)
+    if ($Columns -ne $BuiltColumns) { return $true }
+    return (([double][Math]::Max(1, $Columns) * [Math]::Abs($Cell - $BuiltCell)) -gt 20)
+}
 function Get-DomeniaBoardSpan {
     # Columns taken by a widget: Compacte 1, Moyenne 2, Large 3, never more than the grid has.
     param([string]$Size = 'M',[int]$Columns = 4)
@@ -847,7 +904,8 @@ function Get-DomeniaBoardGridPlacement {
             }
         }
         $left = $n - $used
-        $order = @(@($row | Where-Object { -not $_.Short }) + @($row | Where-Object { $_.Short }))
+        # Free columns go to the tall cards first, then to the stacked pairs, then to the single compact tiles.
+        $order = @(@($row | Where-Object { (-not $_.Short) -and ($_.Items.Count -eq 1) }) + @($row | Where-Object { $_.Items.Count -gt 1 }) + @($row | Where-Object { ($_.Short) -and ($_.Items.Count -eq 1) }))
         $k = 0
         while (($left -gt 0) -and ($order.Count -gt 0)) { $target = $order[$k % $order.Count]; $target.Span = [int]$target.Span + 1; $left--; $k++ }
         $column = 0
@@ -897,18 +955,14 @@ function Test-DomeniaBoardLayoutText {
     }
     return $true
 }
-function Test-DomeniaFleetLegacyLayout {
-    # True when a saved Fleet layout is the layout delivered up to RC1.13.0, unchanged (identifiers aside): it is then
-    # replaced by the current delivered layout. A layout changed by the operator is never replaced.
-    param([object[]]$Items = @())
-    return (Test-DomeniaBoardLayoutText -Items $Items -Text ([string]$script:DomeniaFleetLegacyLayoutText))
-}
 function Test-DomeniaBoardLegacyLayout {
-    # True when a saved layout is one of the layouts delivered before the current one, unchanged: the Fleet layout of
-    # RC1.13.0, then the score and the list of points side by side (DS-05); the whole workstation catalog (UX-11).
+    # True when a saved layout is one of the layouts delivered before the current one, unchanged (identifiers aside):
+    # it is then replaced by the current delivered layout; a layout changed by the operator is never replaced. Fleet:
+    # the layout of RC1.13.0, then the score and the list of points side by side (DS-05). Workstation: the whole
+    # catalog (UX-11), before and after the Secure Boot and update tiles of the W11 inventory.
     param([ValidateSet('Computer','Fleet','Software')][string]$Board,[object[]]$Items = @())
     $texts = switch ($Board) {
-        'Computer' { @([string]$script:DomeniaComputerLegacyLayoutText) }
+        'Computer' { @([string]$script:DomeniaComputerLegacyLayoutText, [string]$script:DomeniaComputerW11LayoutText) }
         'Fleet' { @([string]$script:DomeniaFleetLegacyLayoutText, [string]$script:DomeniaFleetPairLayoutText) }
         default { @() }
     }
@@ -918,19 +972,31 @@ function Test-DomeniaBoardLegacyLayout {
 function ConvertTo-DomeniaBoardCleanLayout {
     # Items read from a stored, imported or team layout to clean widgets: unknown widgets dropped, representations and
     # sizes corrected, identifiers unique. -NoQuery: saved queries of one operator are left out (team layout).
+    # A missing or repeated identifier becomes <IdPrefix>-<key>-<position in Items>: the same text always gives the
+    # same identifiers, so a layout rebuilt on every read (team layout of a board never customised, widgets of the first
+    # version) keeps the identifiers its drawn widgets carry and their menu, Copier and Actualiser find them again.
     param(
         [Parameter(Mandatory=$true)][ValidateSet('Computer','Fleet','Software')][string]$Board,
         [object[]]$Items = @(),
         [object[]]$ProbeCatalog = @(),
-        [switch]$NoQuery
+        [switch]$NoQuery,
+        [ValidatePattern('^[a-z]+$')][string]$IdPrefix = 'w'
     )
     $catalog = @{}; foreach ($item in @(Get-DomeniaBoardCatalog -Board $Board)) { $catalog[$item.Key] = $item }
     $probes = @{}; foreach ($probe in @($ProbeCatalog)) { $probes[[string]$probe.Id] = $probe }
-    $seen = @{}
-    $clean = New-Object System.Collections.ArrayList
+    $given = @{}
     foreach ($raw in @($Items)) {
         if (($null -eq $raw) -or ($raw -is [string]) -or ($raw -is [ValueType])) { continue }
-        $get = { param([string]$Name) if ($null -ne $raw.PSObject.Properties[$Name] -and $null -ne $raw.$Name) { [string]$raw.$Name } else { '' } }
+        $property = $raw.PSObject.Properties['Id']
+        if (($null -ne $property) -and ($null -ne $property.Value) -and ([string]$property.Value)) { $given[[string]$property.Value] = $true }
+    }
+    $seen = @{}
+    $clean = New-Object System.Collections.ArrayList
+    $position = -1
+    foreach ($raw in @($Items)) {
+        $position++
+        if (($null -eq $raw) -or ($raw -is [string]) -or ($raw -is [ValueType])) { continue }
+        $get = { param([string]$Name) if (($null -ne $raw.PSObject.Properties[$Name]) -and ($null -ne $raw.$Name)) { [string]$raw.$Name } else { '' } }
         $source = & $get 'Source'; $key = & $get 'Key'
         if ($source -eq 'Builtin') {
             if (-not $catalog.ContainsKey($key)) { continue }
@@ -938,14 +1004,20 @@ function ConvertTo-DomeniaBoardCleanLayout {
             $group = & $get 'Group'; if (-not $group) { $group = [string]$catalog[$key].Group }
             $defaultSize = [string]$catalog[$key].Size
         } elseif ($source -eq 'Probe') {
-            if ($probes.Count -and -not $probes.ContainsKey($key)) { continue }
+            if (($probes.Count -gt 0) -and (-not $probes.ContainsKey($key))) { continue }
             $kind = Get-DomeniaProbeKind -Probe $probes[$key] -Board $Board
             $group = & $get 'Group'; if (-not $group) { $group = if ($probes.ContainsKey($key)) { [string]$probes[$key].Category } else { 'Requetes' } }
             $defaultSize = ''
         } elseif (($source -eq 'Query') -and ($Board -in @('Fleet','Computer')) -and (-not $NoQuery)) {
             $kind=if((& $get 'Visual') -in @('Bar','Pie','Column')){'Distribution'}else{'Number'};$group=& $get 'Group';if(-not $group){$group='Mes sondes'};$defaultSize='M'
         } else { continue }
-        $id = & $get 'Id'; if (-not $id -or $seen.ContainsKey($id)) { $id = New-DomeniaBoardItemId }
+        $id = & $get 'Id'
+        if ((-not $id) -or ($seen.ContainsKey($id))) {
+            # Never the identifier that another widget of the same text carries, nor one already given here.
+            $base = $IdPrefix + '-' + $key + '-' + [string]$position
+            $id = $base; $suffix = 2
+            while (($seen.ContainsKey($id)) -or ($given.ContainsKey($id))) { $id = $base + '-' + [string]$suffix; $suffix++ }
+        }
         $seen[$id] = $true
         $visual = Resolve-DomeniaBoardVisual -Visual (& $get 'Visual') -Kind $kind -HasMaximum:($kind -in @('Number','Health'))
         $size = & $get 'Size'; if ($size -notin @('S','M','L')) { $size = if ($defaultSize) { $defaultSize } elseif ($visual -eq 'Kpi') { 'S' } else { 'M' } }
@@ -970,17 +1042,22 @@ function ConvertTo-DomeniaBoardLayout {
     # Nothing stored: the delivered layout. A stored empty list ('[]') is a board emptied on purpose and stays empty.
     # A layout delivered before the current one, saved unchanged, becomes the current delivered layout.
     if (($null -ne $stored) -and (Test-DomeniaBoardLegacyLayout -Board $Board -Items $stored)) { $stored = $null }
-    $items = if ($null -eq $stored) { @(Get-DomeniaBoardDefaultLayout -Board $Board -TeamJson $TeamJson -ProbeCatalog $ProbeCatalog) } else { @($stored) }
+    # A list, never an assignment from if/else: a delivered layout of one widget (team layout, FO-17) would be unrolled
+    # to a single object, which += then refuses.
+    $items = New-Object System.Collections.ArrayList
+    if ($null -eq $stored) { foreach ($item in @(Get-DomeniaBoardDefaultLayout -Board $Board -TeamJson $TeamJson -ProbeCatalog $ProbeCatalog)) { [void]$items.Add($item) } }
+    else { foreach ($item in @($stored)) { if ($null -ne $item) { [void]$items.Add($item) } } }
     foreach ($legacy in @($LegacyWidgets)) {
-        if ($null -eq $legacy -or $null -eq $legacy.PSObject.Properties['ProbeId']) { continue }
+        if (($null -eq $legacy) -or ($null -eq $legacy.PSObject.Properties['ProbeId'])) { continue }
         $category = 'Requetes'
         foreach ($probe in @($ProbeCatalog)) { if ([string]$probe.Id -eq [string]$legacy.ProbeId) { $category = [string]$probe.Category } }
         $title = if ($null -ne $legacy.PSObject.Properties['Title']) { [string]$legacy.Title } else { '' }
-        $id = if ($null -ne $legacy.PSObject.Properties['Id'] -and [string]$legacy.Id) { 'p-' + [string]$legacy.Id } else { '' }
+        $id = if (($null -ne $legacy.PSObject.Properties['Id']) -and ([string]$legacy.Id)) { 'p-' + [string]$legacy.Id } else { '' }
         $visual = if ($null -ne $legacy.PSObject.Properties['Visual']) { [string]$legacy.Visual } else { 'Kpi' }
-        $items += New-DomeniaBoardItem -Source Probe -Key ([string]$legacy.ProbeId) -Visual $visual -Group $category -Title $title -Id $id
+        # No identifier of its own: the cleaning gives one that stays the same from one reading to the next.
+        [void]$items.Add([pscustomobject]@{ Id = $id; Source = 'Probe'; Key = [string]$legacy.ProbeId; Visual = $visual; Title = $title; Size = ''; Group = $category })
     }
-    return @(ConvertTo-DomeniaBoardCleanLayout -Board $Board -Items $items -ProbeCatalog $ProbeCatalog)
+    return @(ConvertTo-DomeniaBoardCleanLayout -Board $Board -Items @($items) -ProbeCatalog $ProbeCatalog)
 }
 function Get-DomeniaBoardLayoutRows {
     # Plain rows of a layout as they are written. Paused is written only for a paused widget: an active layout keeps
@@ -1033,7 +1110,7 @@ function Get-DomeniaBoardTeamLayout {
     param([Parameter(Mandatory=$true)][ValidateSet('Computer','Fleet','Software')][string]$Board,[string]$Json = '',[object[]]$ProbeCatalog = @())
     $document = ConvertFrom-DomeniaBoardLayoutDocument -Board $Board -Text $Json
     if (-not $document.Valid) { return [pscustomobject]@{ Valid = $false; Layout = @(); Reason = [string]$document.Reason } }
-    $layout = @(ConvertTo-DomeniaBoardCleanLayout -Board $Board -Items @($document.Items) -ProbeCatalog $ProbeCatalog -NoQuery)
+    $layout = @(ConvertTo-DomeniaBoardCleanLayout -Board $Board -Items @($document.Items) -ProbeCatalog $ProbeCatalog -NoQuery -IdPrefix 't')
     if (-not $layout.Count) { return [pscustomobject]@{ Valid = $false; Layout = @(); Reason = 'Aucun widget connu de ce tableau.' } }
     return [pscustomobject]@{ Valid = $true; Layout = $layout; Reason = '' }
 }
@@ -1041,6 +1118,28 @@ function Get-DomeniaBoardName {
     # Name of a board in a sentence.
     param([string]$Board)
     switch ($Board) { 'Computer' { return 'du poste' } 'Fleet' { return 'de lʼaccueil' } 'Software' { return 'des logiciels' } default { return [string]$Board } }
+}
+function Get-DomeniaBoardScopeName {
+    # FO-13: name of the scope that the data of the overview describes, from its distinguished name: the first relative
+    # name without its prefix, « Tout le domaine » for the whole domain (empty name or the domain root).
+    param([string]$Dn = '')
+    $value = ([string]$Dn).Trim()
+    if ((-not $value) -or ($value -match '^(?i:DC)=')) { return 'Tout le domaine' }
+    return (((($value -split '(?<!\\),')[0]) -replace '^(?i:OU|CN)=', '') -replace '\\(.)', '$1')
+}
+function Get-DomeniaBoardDocumentMessage {
+    # FO-17: a refusal of the DocumentStore worker (written for support captures) in the words of a layout file; any
+    # other message is kept as it is. The raw message stays in the journal only.
+    param([string]$Message = '')
+    $text = [string]$Message
+    $known = @(
+        @('*Capture absente ou trop volumineuse*', 'fichier absent ou trop volumineux (1 Mo maximum).'),
+        @('*Export invalide ou trop volumineux*', 'disposition trop volumineuse (1 Mo maximum).'),
+        @('*Document ou dossier redirige refuse*', 'chemin redirigé refusé.'),
+        @('*Chemin de document non pris en charge*', 'choisissez un fichier .json.')
+    )
+    foreach ($pair in $known) { if ($text -like [string]$pair[0]) { return [string]$pair[1] } }
+    return $text
 }
 function Get-DomeniaBoardLayoutFileName {
     # Domenia-disposition-<poste|accueil|logiciels>-AAAAMMJJ-HHmm.json in the export folder.

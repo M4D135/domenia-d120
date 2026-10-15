@@ -1359,12 +1359,12 @@ try{
             $script:FleetScopeDn='OU=Postes,DC=example,DC=invalid';$script:FleetStale=$false;$script:FleetJobId=''
             Complete-DomeniaFleetDashboard -Result (New-FleetResult -Scope $script:FleetScopeDn) -State $null
             if($null -ne $script:DomeniaQueryState.Timer){$script:DomeniaQueryState.Timer.Stop()}
-            $panel=Get-DomeniaControl 'PnlFleetDashboard';$state=Get-DomeniaBoardState 'Fleet';$seen=@{}
+            $panel=Get-DomeniaControl 'PnlFleetDashboard';$state=Get-DomeniaBoardState 'Fleet';$seen=@{};$stackedAt=@{}
             foreach($width in @(1920,1280,960)){
-                $w.Width=$width;$w.UpdateLayout();Invoke-Pump 500;$w.UpdateLayout()
+                $w.Width=$width;$w.UpdateLayout();Invoke-Pump 500;$w.UpdateLayout();$stacked=0
                 $columns=[int]$state.GridColumns;$seen[$width]=$columns
                 Expect ($columns -eq (Get-DomeniaBoardColumnCount -Width $panel.ActualWidth -Current $columns)) ('Colonnes incoherentes avec la largeur a '+$width)
-                Expect (([int]$state.GridBuiltColumns -eq $columns) -and ([Math]::Abs([double]$state.GridBuiltCell-[double]$state.GridCell) -le 20)) ('Widgets non redessines a la nouvelle largeur : '+$width)
+                Expect (-not (Test-DomeniaBoardRedrawNeeded -Columns $columns -BuiltColumns ([int]$state.GridBuiltColumns) -Cell ([double]$state.GridCell) -BuiltCell ([double]$state.GridBuiltCell))) ('Widgets non redessines a la nouvelle largeur : '+$width)
                 $grids=@(Get-DomeniaBoardSectionGrids $panel)
                 Expect ($grids.Count -ge 4) ('Sections en grille a '+$width+' : '+$grids.Count)
                 $cell=$panel.ActualWidth/$columns
@@ -1373,7 +1373,23 @@ try{
                     foreach($row in @($grid.Children|Group-Object {[Windows.Controls.Grid]::GetRow($_)})){
                         $span=0;foreach($child in $row.Group){$span+=[Windows.Controls.Grid]::GetColumnSpan($child)}
                         Expect ($span -eq $columns) ('Rangee incomplete a '+$width+' : '+$span+' sur '+$columns)
-                        $holders=@($row.Group|Where-Object{$_.Tag -is [hashtable] -and $_.Tag.ContainsKey('Chrome')})
+                        # Two stacked compact tiles end on the bottom of their row, like the tall card beside them.
+                        $bottoms=@(foreach($child in $row.Group){
+                            $last=if(($child.Tag -is [hashtable]) -and ($child.Tag.ContainsKey('Chrome'))){$child}else{@(Get-Holders $child)|Select-Object -Last 1}
+                            if($null -ne $last){$last.TranslatePoint([Windows.Point]::new(0,$last.ActualHeight),$grid).Y}
+                        })
+                        if($bottoms.Count -gt 1){
+                            $sorted=@($bottoms|Sort-Object)
+                            Expect (($sorted[$sorted.Count-1]-$sorted[0]) -le 1.5) ('Bas des cartes non alignes a '+$width+' : '+($sorted -join ','))
+                        }
+                        foreach($stack in @($row.Group|Where-Object{($_.Tag -is [hashtable]) -and ($_.Tag.ContainsKey('Stacked'))})){
+                            $pair=@(Get-Holders $stack)
+                            Expect ($pair.Count -eq 2) ('Pile de '+$pair.Count+' tuiles a '+$width)
+                            $stacked++
+                            $expected=Get-DomeniaBoardCardWidth -Span ([Windows.Controls.Grid]::GetColumnSpan($stack)) -CellWidth $cell
+                            foreach($tile in $pair){Expect ([Math]::Abs([double]$tile.Children[0].Width-$expected) -le 1) ('Tuile empilee non etiree sur sa colonne : '+[Windows.Automation.AutomationProperties]::GetName($tile))}
+                        }
+                        $holders=@($row.Group|Where-Object{($_.Tag -is [hashtable]) -and ($_.Tag.ContainsKey('Chrome'))})
                         if($holders.Count -gt 1){
                             $heights=@($holders|ForEach-Object{[double]$_.ActualHeight}|Sort-Object)
                             Expect (($heights[$heights.Count-1]-$heights[0]) -le 1.5) ('Hauteurs non alignees a '+$width+' : '+($heights -join ','))
@@ -1386,8 +1402,10 @@ try{
                         }
                     }
                 }
+                $stackedAt[$width]=$stacked
             }
             Expect ([int]$seen[1920] -gt [int]$seen[960]) ('Colonnes : '+[int]$seen[1920]+' a 1920, '+[int]$seen[960]+' a 960')
+            Expect ([int]$stackedAt[1920] -gt 0) 'Aucune paire de tuiles empilees a 1920 : alignement des piles non verifie'
         }finally{$w.Width=$oldWidth;$w.UpdateLayout();Invoke-Pump 450;$script:FleetScopeDn='';Set-DomeniaSetting 'Dashboard.Fleet.Layout' $saved;$tabs.SelectedItem=$oldTab}
     }
     Case 'Carte Sante : score et points a verifier dans une seule carte, ligne verte sans point (DS-05)' {
@@ -1405,7 +1423,7 @@ try{
             Expect ($texts -contains [string]$entry.PointsTitle) ('Titre des points : '+($texts -join ' | '))
             Expect ($texts -contains [string]$entry.Value) 'Verdict absent de la carte'
             foreach($point in @($entry.Points)){Expect ($texts -contains [string]$point.Text) ('Point absent de la carte : '+[string]$point.Text)}
-            Expect (@(Get-DomeniaLogicalControls $holder[0].Tag.Chrome|Where-Object{$_ -is [Windows.Controls.Button] -and $_.Tag -is [hashtable] -and [string]$_.Tag['Action'] -eq 'HealthExplanation'}).Count -eq 1) 'Comprendre le score absent'
+            Expect (@(Get-DomeniaLogicalControls $holder[0].Tag.Chrome|Where-Object{($_ -is [Windows.Controls.Button]) -and ($_.Tag -is [hashtable]) -and ([string]$_.Tag['Action'] -eq 'HealthExplanation')}).Count -eq 1) 'Comprendre le score absent'
             # Nothing to check and an established score: one green line; a withheld score: no reassuring line.
             $calm=New-DomeniaBoardData -Board Computer;[void](Complete-DomeniaBoardData -Data $calm)
             $card=New-DomeniaWidgetVisual -Entry $calm.Entries['computer.health'] -Visual HealthSummary -Title 'Santé du poste' -Size (Get-DomeniaBoardSize -Visual HealthSummary -Size L) -Board Computer
@@ -1430,10 +1448,12 @@ try{
         try{
             [void]$script:TestSettings.Remove('Dashboard.Computer.Layout');[void]$script:TestSettings.Remove('Widgets.Computer')
             Expect (@(Get-Layout Computer).Count -eq 14) ('Widgets livres : '+@(Get-Layout Computer).Count)
-            # The layout delivered before (the whole catalog), saved unchanged, becomes the light one.
-            $old=@(foreach($line in ([string]$script:DomeniaComputerLegacyLayoutText -split "`n")){$value=$line.Trim();if($value){$c=$value -split '\|';[pscustomobject]@{Id=('b-'+$c[0]);Source='Builtin';Key=$c[0];Visual=$c[2];Title='';Size=$c[3];Group=$c[1]}}})
-            Set-DomeniaSetting 'Dashboard.Computer.Layout' (ConvertTo-Json -InputObject $old -Depth 3 -Compress)
-            Expect ((@(Get-Layout Computer|ForEach-Object{$_.Key}) -join ',') -eq (@(Get-DomeniaBoardDefaultLayout -Board Computer|ForEach-Object{$_.Key}) -join ',')) 'Ancienne disposition livree non allegee'
+            # The layout delivered before (the whole catalog, before and after the W11 tiles), saved unchanged, becomes the light one.
+            foreach($legacyText in @([string]$script:DomeniaComputerLegacyLayoutText,[string]$script:DomeniaComputerW11LayoutText)){
+                $old=@(foreach($line in ($legacyText -split "`n")){$value=$line.Trim();if($value){$c=$value -split '\|';[pscustomobject]@{Id=('b-'+$c[0]);Source='Builtin';Key=$c[0];Visual=$c[2];Title='';Size=$c[3];Group=$c[1]}}})
+                Set-DomeniaSetting 'Dashboard.Computer.Layout' (ConvertTo-Json -InputObject $old -Depth 3 -Compress)
+                Expect ((@(Get-Layout Computer|ForEach-Object{$_.Key}) -join ',') -eq (@(Get-DomeniaBoardDefaultLayout -Board Computer|ForEach-Object{$_.Key}) -join ',')) ('Ancienne disposition livree non allegee : '+$old.Count+' widgets')
+            }
             [void]$script:TestSettings.Remove('Dashboard.Computer.Layout')
             $script:SelectedObject=Get-Z03Object
             $data=Get-DomeniaComputerBoardData -Result (New-InventoryResult) -Object $script:SelectedObject
@@ -1441,7 +1461,7 @@ try{
             $panel=Get-DomeniaControl 'PnlComputerDashboard'
             $find={param([string]$Key) @(Get-Holders $panel|Where-Object{[string]$_.Tag.Item.Key -eq $Key})}
             $identity=@(& $find 'computer.identity');$account=@(& $find 'computer.adaccount');$status=@(& $find 'computer.status')
-            Expect ($identity.Count -eq 1 -and $account.Count -eq 1 -and $status.Count -eq 1) 'Fiches ou liste d etat absentes'
+            Expect (($identity.Count -eq 1) -and ($account.Count -eq 1) -and ($status.Count -eq 1)) 'Fiches ou liste d etat absentes'
             $identityTexts=@(Get-Texts $identity[0]|ForEach-Object{[string]$_.Text})
             Expect (($identityTexts -contains 'Système') -and ($identityTexts -contains 'Windows 11 24H2') -and ($identityTexts -contains 'Latitude 7450')) ('Fiche Identite : '+($identityTexts -join ' | '))
             Expect ((@(Get-Texts $account[0]|ForEach-Object{[string]$_.Text}) -contains 'Activé')) 'Fiche Compte machine sans l etat du compte'
@@ -1460,7 +1480,7 @@ try{
             @($data.Entries['computer.identity'].Items)[0].Detail='mot de passe : Fictif-Secret-42'
             Show-DomeniaBoard -Board Computer -Data $data -Quiet
             $panel=Get-DomeniaControl 'PnlComputerDashboard'
-            $summary=@(Get-DomeniaLogicalControls $panel.Children[0]|Where-Object{$_ -is [Windows.Controls.Button] -and $_.Tag -is [hashtable] -and [string]$_.Tag['Action'] -eq 'CopySummary'})
+            $summary=@(Get-DomeniaLogicalControls $panel.Children[0]|Where-Object{($_ -is [Windows.Controls.Button]) -and ($_.Tag -is [hashtable]) -and ([string]$_.Tag['Action'] -eq 'CopySummary')})
             Expect ($summary.Count -eq 1) 'Copier le resume absent de la barre'
             $script:Trace.Clear()
             $summary[0].RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
@@ -1470,12 +1490,20 @@ try{
             Expect ($text -notlike '*Fictif-Secret-42*') 'Secret copie en clair'
             Expect (@($script:Trace|Where-Object{$_ -like 'Résumé du tableau copié*'}).Count -eq 1) 'Copie non confirmee'
             $disk=@(Get-Holders $panel|Where-Object{[string]$_.Tag.Item.Key -eq 'computer.disk.system'})[0]
-            Expect (@($disk.ContextMenu.Items|Where-Object{$_ -is [Windows.Controls.MenuItem] -and [string]$_.Header -eq 'Copier'}).Count -eq 1) 'Copier absent du menu du widget'
+            Expect (@($disk.ContextMenu.Items|Where-Object{($_ -is [Windows.Controls.MenuItem]) -and ([string]$_.Header -eq 'Copier')}).Count -eq 1) 'Copier absent du menu du widget'
             Expect ([Windows.Automation.AutomationProperties]::GetHelpText($disk) -like '*Ctrl+C*') 'Raccourci de copie non annonce'
             Invoke-DomeniaBoardAction -Tag @{Board='Computer';Id=[string]$disk.Tag.Id;Action='Copy'}
             Expect ([string]$script:Clipboard -like 'Disque C: (256 Go) : 8 % libre*Libre 20 Go (8 %)*') ('Widget copie : '+[string]$script:Clipboard)
             $paused=New-DomeniaBoardMenu -Board Computer -Item ([pscustomobject]@{Id='p';Visual='Kpi';Size='S'}) -Kind Value -HasMaximum $false -Paused $true
-            Expect (@($paused.Items|Where-Object{$_ -is [Windows.Controls.MenuItem] -and [string]$_.Header -eq 'Copier'}).Count -eq 0) 'Copier propose sur un widget suspendu'
+            Expect (@($paused.Items|Where-Object{($_ -is [Windows.Controls.MenuItem]) -and ([string]$_.Header -eq 'Copier')}).Count -eq 0) 'Copier propose sur un widget suspendu'
+            # The overview names the OU of the figures on screen, not the OU chosen since (calculation still running).
+            $oldFleet=$script:FleetLast;$oldScope=$script:FleetScopeDn
+            try{
+                $script:FleetLast=[pscustomobject]@{Scope='OU=Postes,DC=example,DC=invalid';Freshness=$null};$script:FleetScopeDn='OU=Autre,DC=example,DC=invalid'
+                Expect ([string](Get-DomeniaBoardDataMoment -Board Fleet).Subject -eq 'Postes') ('Objet du resume pris dans l OU choisie : '+[string](Get-DomeniaBoardDataMoment -Board Fleet).Subject)
+                $script:FleetLast=[pscustomobject]@{Scope='';Freshness=$null}
+                Expect ([string](Get-DomeniaBoardDataMoment -Board Fleet).Subject -eq 'Tout le domaine') 'Domaine entier non nomme'
+            }finally{$script:FleetLast=$oldFleet;$script:FleetScopeDn=$oldScope}
         }finally{$script:SelectedObject=$oldSelected;$script:InventoryCompletedAt=$oldInventory;$script:InventoryComputer=$oldComputer;Clear-DomeniaDashboards}
     }
     Case 'Disposition d equipe de l administrateur, export et import JSON sans boite Windows (FO-17)' {
@@ -1492,6 +1520,15 @@ try{
             Expect ((@(Get-Layout Software|ForEach-Object{$_.Key}) -join ',') -eq 'software.largest,software.count') 'Disposition d equipe non appliquee a un tableau jamais personnalise'
             Update-DomeniaSoftwareDashboard -Rows (New-SoftwareRows)
             Invoke-DomeniaBoardAction -Tag @{Board='Software';Action='Customize'}
+            # A team layout written by hand, without identifiers: the same identifiers on every reading, so Retirer and
+            # Copier find the widget that is drawn.
+            $withIds=$script:TeamLayout
+            $script:TeamLayout='[{"Source":"Builtin","Key":"software.largest","Visual":"Bar","Size":"L","Group":"Equipe"},{"Source":"Builtin","Key":"software.count","Visual":"Kpi","Size":"S","Group":"Equipe"}]'
+            $first=[string]@(Get-Layout Software)[0].Id
+            Expect (($first -ne '') -and ($first -eq [string]@(Get-Layout Software)[0].Id)) ('Identifiants de la disposition d equipe instables : '+$first)
+            Invoke-DomeniaBoardAction -Tag @{Board='Software';Id=$first;Action='Remove'}
+            Expect ((@(Get-Layout Software|ForEach-Object{$_.Key}) -join ',') -eq 'software.count') 'Retirer sans effet sur une disposition d equipe sans identifiants'
+            [void]$script:TestSettings.Remove('Dashboard.Software.Layout');$script:TeamLayout=$withIds
             Invoke-DomeniaBoardAction -Tag @{Board='Software';Id=[string]@(Get-Layout Software)[0].Id;Action='Remove'}
             Invoke-DomeniaBoardAction -Tag @{Board='Software';Action='Reset'}
             Expect ((@(Get-Layout Software|ForEach-Object{$_.Key}) -join ',') -eq 'software.largest,software.count') 'Par defaut ne revient pas a la disposition d equipe'
@@ -1501,7 +1538,7 @@ try{
             Expect ((@(Get-Layout Software|ForEach-Object{$_.Key}) -join ',') -eq (@(Get-DomeniaBoardCatalog -Board Software|ForEach-Object{$_.Key}) -join ',')) 'Valeur illisible : disposition du catalogue attendue'
             # Export: the pinned DocumentStore worker writes the JSON in the export folder; the confirmation stays in the page.
             $before=$script:StartCalls.Count
-            $export=@(Get-DomeniaLogicalControls (Get-DomeniaControl 'PnlSoftwareDashboard')|Where-Object{$_ -is [Windows.Controls.Button] -and $_.Tag -is [hashtable] -and [string]$_.Tag['Action'] -eq 'Export'})
+            $export=@(Get-DomeniaLogicalControls (Get-DomeniaControl 'PnlSoftwareDashboard')|Where-Object{($_ -is [Windows.Controls.Button]) -and ($_.Tag -is [hashtable]) -and ([string]$_.Tag['Action'] -eq 'Export')})
             Expect ($export.Count -eq 1) 'Exporter absent en personnalisation'
             $export[0].RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
             $call=$script:StartCalls[$script:StartCalls.Count-1]
@@ -1544,16 +1581,16 @@ try{
             $probe=@($rows|Where-Object{[string]$_.Source -eq 'Probe'})[0]
             $t.Seen['Reads']=[string]$probe.Reads;$t.Seen['Tip']=[string]$probe.Tip
             $t.Seen['Badges']=(@($rows|ForEach-Object{[string]$_.Badge}|Where-Object{$_}|Select-Object -Unique) -join '|')
-            $t.Seen['Close']=[string]@($c|Where-Object{$_ -is [Windows.Controls.Button] -and $_.Name -eq 'EmbeddedClose'})[0].Visibility
-            $t.Seen['Buttons']=(@($c|Where-Object{$_ -is [Windows.Controls.Button] -and $_.IsVisible}|ForEach-Object{[string]$_.Content}) -join '|')
+            $t.Seen['Close']=[string]@($c|Where-Object{($_ -is [Windows.Controls.Button]) -and ($_.Name -eq 'EmbeddedClose')})[0].Visibility
+            $t.Seen['Buttons']=(@($c|Where-Object{($_ -is [Windows.Controls.Button]) -and ($_.IsVisible)}|ForEach-Object{[string]$_.Content}) -join '|')
             $visual=Find-Named $c 'Représentation';$t.Seen['VisualType']=$visual.GetType().Name
             $search.Text='RAM'
             $t.Seen['Ram']=(@($list.ItemsSource|ForEach-Object{[string]$_.Name}) -join '|');$t.Seen['RamCount']=@($list.ItemsSource).Count
             $search.Text=''
-            @($c|Where-Object{$_ -is [Windows.Controls.RadioButton] -and [string]$_.GroupName -eq 'BoardEditorOrigin' -and [string]$_.Tag -eq 'Probe'})[0].IsChecked=$true
+            @($c|Where-Object{($_ -is [Windows.Controls.RadioButton]) -and ([string]$_.GroupName -eq 'BoardEditorOrigin') -and ([string]$_.Tag -eq 'Probe')})[0].IsChecked=$true
             $t.Seen['ProbeOthers']=@(@($list.ItemsSource)|Where-Object{[string]$_.Source -ne 'Probe'}).Count;$t.Seen['ProbeCount']=@($list.ItemsSource).Count
             $now=@(Get-DomeniaLogicalControls $script:Window.FindName('DomeniaDialogLayer'))
-            $chips=@($now|Where-Object{$_ -is [Windows.Controls.RadioButton] -and [string]$_.GroupName -eq 'BoardEditorCategory'})
+            $chips=@($now|Where-Object{($_ -is [Windows.Controls.RadioButton]) -and ([string]$_.GroupName -eq 'BoardEditorCategory')})
             $t.Seen['Chips']=(@($chips|ForEach-Object{[string]$_.Content}) -join '|')
             @($chips|Where-Object{(ConvertTo-DomeniaSearchText ([string]$_.Tag)) -eq 'disques'})[0].IsChecked=$true
             $t.Seen['DiskOthers']=@(@($list.ItemsSource)|Where-Object{(ConvertTo-DomeniaSearchText ([string]$_.Category)) -ne 'disques'}).Count;$t.Seen['DiskCount']=@($list.ItemsSource).Count
