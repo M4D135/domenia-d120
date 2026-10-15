@@ -567,6 +567,14 @@ try{
     }
     . (Join-Path $wad 'modules\Domenia-UX.UI.ps1')
     . (Join-Path $wad 'modules\Domenia-Inline.UI.ps1')
+    # X04: the five views of Assistance poste, its fixed header and the pill of the operations to check run with their
+    # real rules and coordination; the capability routes come from Domenia-Access.UI.ps1.
+    . (Join-Path $wad 'modules\Domenia-Assist.Model.ps1')
+    . (Join-Path $wad 'modules\Domenia-Assist.UI.ps1')
+    $accessAst=[System.Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'modules\Domenia-Access.UI.ps1'),[ref]$parseTokens,[ref]$parseErrors)
+    foreach($fn in @($accessAst.FindAll({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst]},$true))){
+        if(@('Resolve-DomeniaCapabilityRoute','Invoke-DomeniaCapabilityRoute') -contains $fn.Name){. ([scriptblock]::Create($fn.Extent.Text))}
+    }
     $mainXaml=Get-MainXaml
     [xml]$mainDoc=$mainXaml
     $mainReader=New-Object Xml.XmlNodeReader $mainDoc
@@ -601,7 +609,8 @@ try{
             $script:SelectedObject=[pscustomobject]@{Type='Machine';Name='PC-COMPTA-014';DN='CN=PC-COMPTA-014,DC=example,DC=local'}
             Set-VisibleTabsForType -Type 'Machine' -PreserveWorkspace
             Select-DomeniaWorkspace -Workspace 'WsComputer' -Inner 'ComputerTabs' -Tab 'TabWmi';Pump $main
-            Expect ([string]$script:Ctrl['ComputerTabs'].SelectedItem.Name -eq 'TabWmi') 'Explorateur WMI non affiche'
+            # UX-21 (X04): the WMI explorer is the Expert tab of the Diagnostic view.
+            Expect (([string]$script:Ctrl['ComputerTabs'].SelectedItem.Name -eq 'TabComputerHealth') -and ([string]$script:Ctrl['ComputerDiagTabs'].SelectedItem.Name -eq 'TabWmi')) ('Explorateur WMI non affiche : '+[string]$script:Ctrl['ComputerTabs'].SelectedItem.Name)
             Select-DomeniaWorkspace -Workspace 'TabApplicationTools' -Inner 'ApplicationToolTabs' -Tab 'TabLog';Pump $main
             Expect ([string]$script:Ctrl['ApplicationToolTabs'].SelectedItem.Name -eq 'TabLog') 'Journal detaille de la palette non affiche'
             Expect ($script:CurrentUiProfile -eq 'Tech') ('Profil modifie : '+$script:CurrentUiProfile)
@@ -823,6 +832,65 @@ try{
                 $area.Child=$null;$main.Content=$null;$main.Content=$content;$script:Window=$realWindow;$script:UxLayoutSignature='';$script:UxNavLayoutSignature=''
             }
         }
+        Case 'X04 UX-21 / DS-08 : cinq vues, anciens noms d onglet resolus, en-tete du poste fixe hors des vues' {
+            $script:SelectedObject=[pscustomobject]@{Type='Machine';Name='PC-COMPTA-014';DN='CN=PC-COMPTA-014,DC=example,DC=local'}
+            Set-VisibleTabsForType -Type 'Machine' -PreserveWorkspace
+            $content=$script:Ctrl['ComputerReadContent'];$content.Visibility='Visible';$content.IsEnabled=$true
+            if($null -ne $script:Ctrl['ComputerEmptyState']){$script:Ctrl['ComputerEmptyState'].Visibility='Collapsed'}
+            $views=@($script:Ctrl['ComputerTabs'].Items|ForEach-Object{[string]$_.Name})
+            Expect (($views -join ',') -ceq ((Get-DomeniaComputerViewNames) -join ',')) ('Vues : '+($views -join ','))
+            Expect ([string][Windows.LogicalTreeHelper]::GetParent($script:Ctrl['TabInventory']).Name -eq 'ComputerDetailTabs') 'Inventaire hors de la vue Details'
+            Expect ([string][Windows.LogicalTreeHelper]::GetParent($script:Ctrl['TabWmi']).Name -eq 'ComputerDiagTabs') 'WMI hors de la vue Diagnostic'
+            $header=$script:Ctrl['UxComputerHeader'];$top=$null
+            foreach($old in @('TabComputer','TabComputerDashboard','TabComputerAdmin','TabSessions','TabInventory','TabSoftware','TabComputerHealth','TabSecurity')){
+                Select-DomeniaWorkspace -Workspace 'WsComputer' -Inner 'ComputerTabs' -Tab $old;Pump $main
+                $route=Resolve-DomeniaComputerViewRoute -Tab $old
+                Expect ([string]$script:Ctrl['ComputerTabs'].SelectedItem.Name -eq [string]$route.View) ($old+' ouvre '+[string]$script:Ctrl['ComputerTabs'].SelectedItem.Name)
+                if([string]$route.Sub){Expect ([string]$script:Ctrl[[string]$route.Inner].SelectedItem.Name -eq [string]$route.Sub) ($old+' : onglet interieur '+[string]$script:Ctrl[[string]$route.Inner].SelectedItem.Name)}
+                Expect ($header.IsVisible) ('En-tete du poste masque dans '+$old)
+                $y=$header.TranslatePoint([Windows.Point]::new(0,0),$content).Y
+                if($null -eq $top){$top=$y}
+                Expect ([Math]::Abs($y-$top) -lt 0.5) ('En-tete deplace dans '+$old+' : '+$y+' au lieu de '+$top)
+            }
+            $parent=[Windows.Media.VisualTreeHelper]::GetParent($header);$inside=$false
+            while($null -ne $parent){if([object]::ReferenceEquals($parent,$script:Ctrl['ComputerTabs'])){$inside=$true;break};$parent=[Windows.Media.VisualTreeHelper]::GetParent($parent)}
+            Expect (-not $inside) 'L en-tete du poste appartient a une vue'
+            foreach($name in @('BtnCompHeaderRdp','BtnCompHeaderC','BtnCompHeaderPing')){Expect ($script:Ctrl[$name].IsVisible) ($name+' masque')}
+            foreach($name in @('BtnCompHeaderC','BtnCompC')){
+                $button=$script:Ctrl[$name]
+                Expect (([string]$button.Content -eq 'Ouvrir le disque C') -and ([string]$button.ToolTip).Contains('C$') -and ([string][Windows.Automation.AutomationProperties]::GetName($button)).Contains('C$')) ($name+' : '+[string]$button.Content)
+            }
+            $script:SelectedObject=$null
+        }
+
+        Case 'X04 UX-19 : pastille des operations a verifier seulement s il en reste, aucun chemin ecrit vers Fiabilite' {
+            $script:SelectedObject=$null;$script:ReceiptPending=0;$script:DomeniaAssist=$null
+            Initialize-DomeniaAssist;Pump $main
+            $pill=$script:Ctrl['BtnPendingOperations']
+            Expect ($pill.Visibility -eq 'Collapsed') 'Pastille affichee sans operation a verifier'
+            $script:ReceiptPending=2;Update-DomeniaPendingOperationsPill;Pump $main
+            Expect (($pill.Visibility -eq 'Visible') -and ([string]$pill.Content -eq '2 opérations à vérifier')) ('Pastille : '+[string]$pill.Content)
+            Click $pill;Pump $main
+            Expect (([string]$script:Ctrl['WorkspaceTabs'].SelectedItem.Name -eq 'TabApplicationTools') -and ([string]$script:Ctrl['ApplicationToolTabs'].SelectedItem.Name -eq 'TabGuard')) 'La pastille n ouvre pas la liste des recus'
+            $script:ReceiptPending=0;Update-DomeniaPendingOperationsPill
+            Expect ($pill.Visibility -eq 'Collapsed') 'Pastille restee apres la verification'
+            Expect ([string](Resolve-DomeniaCapabilityRoute -Route 'TabGuard').Label -eq 'Opérations à vérifier') 'La route des recus parle encore de Fiabilite'
+            foreach($name in @('BtnGuardStoreResume','BtnGuardLegacyImport')){
+                $node=$script:Ctrl[$name];$owner=''
+                while($null -ne $node){if(([string]$node.Name) -in @('TabGuard','TabIndexStorage')){$owner=[string]$node.Name;break};$node=[Windows.LogicalTreeHelper]::GetParent($node)}
+                Expect ($owner -eq 'TabIndexStorage') ($name+' dans '+$owner+' au lieu de Base autonome, onglet Stockage')
+            }
+            # No string shown by the application names a path to the hidden tab.
+            $files=@(Join-Path $wad 'Domenia-Core.ps1')+@(Get-ChildItem -LiteralPath (Join-Path $wad 'modules') -Filter '*.ps1' -File|ForEach-Object{$_.FullName})
+            foreach($file in $files){
+                $fileTokens=$null;$fileErrors=$null
+                $fileAst=[System.Management.Automation.Language.Parser]::ParseFile($file,[ref]$fileTokens,[ref]$fileErrors)
+                foreach($node in @($fileAst.FindAll({param($n) ($n -is [System.Management.Automation.Language.StringConstantExpressionAst]) -or ($n -is [System.Management.Automation.Language.ExpandableStringExpressionAst])},$true))){
+                    $value=[string]$node.Extent.Text
+                    Expect (-not ($value -match '(?i)Outils\s*>\s*Fiabilit|dans Fiabilit')) ((Split-Path -Leaf $file)+' : '+$value.Substring(0,[Math]::Min(120,$value.Length)))
+                }
+            }
+        }
     }finally{
         Stop-DomeniaReadOnlyReturnTimer
         if($null -ne $script:UxSuggestTimer){$script:UxSuggestTimer.Stop()}
@@ -832,7 +900,7 @@ try{
     $script:Tests.Add([pscustomobject]@{Name='Initialisation ou suite interrompue';Status='Failed';Detail=$_.Exception.ToString()})
 }
 
-$expected=20
+$expected=23
 $passed=@($script:Tests|Where-Object{$_.Status -eq 'Passed'}).Count
 $failed=@($script:Tests|Where-Object{$_.Status -eq 'Failed'}).Count
 $report=[ordered]@{

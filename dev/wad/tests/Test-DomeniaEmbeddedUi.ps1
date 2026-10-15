@@ -186,6 +186,34 @@ namespace Domenia.EmbeddedTests {
     Expect $m.Success 'WorkerCommon introuvable.';$commonAst=Parse-Text $m.Groups[1].Value
     foreach($n in @('Get-WPropFirst','Convert-WGuid','Escape-WLdap')){Import-Function $commonAst $n}
     Case 'Parseur natif de tous les scripts runtime' {foreach($f in Get-ChildItem -LiteralPath $wad -Filter '*.ps1' -File -Recurse|Where-Object{$_.FullName -notlike '*\tests\*' -and $_.FullName -notlike '*\docs\*'}){Parse-Text ([IO.File]::ReadAllText($f.FullName))|Out-Null}}
+    Case 'UI-26 (X04) : Executer un programme dans la page, aux couleurs du theme, sans fenetre ni nom Rimotte affiche' {
+        Expect (@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Show-DomeniaRimotteDialog'},$true)).Count -eq 0) 'La fenetre Rimotte existe encore.'
+        Expect ($coreText.Contains('$script:Ctrl["BtnCompRimotte"].Add_Click({ Show-DomeniaRunProgramPanel })')) 'Le bouton n ouvre pas le panneau dans la page.'
+        $assistAst=Parse-Text ([IO.File]::ReadAllText((Join-Path $wad 'modules\Domenia-Assist.UI.ps1')))
+        foreach($fn in @('Show-DomeniaRunProgramPanel','Submit-DomeniaRunProgram','Confirm-DomeniaRunProgram','Close-DomeniaRunProgramPanel','Request-DomeniaComputerRestart','Submit-DomeniaComputerRestart','Request-DomeniaComputerToolConfirmation','Request-DomeniaComputerServiceControl')){
+            $found=@($assistAst.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $fn},$true))
+            Expect ($found.Count -eq 1) ('Fonction absente : '+$fn)
+            Expect (-not ($found[0].Extent.Text -match 'Windows\.Window|<Window|ShowDialog|Invoke-DomeniaHostWindow|ConvertFrom-DomeniaXaml|Confirm-Action|Show-InfoBox')) ($fn+' ouvre une fenetre.')
+        }
+        foreach($fn in @('Start-DomeniaRimotteRun','Complete-DomeniaRimotteUi','Fail-DomeniaRimotteUi','Get-DomeniaRimotteWorkerCode')){
+            $found=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $fn},$true))
+            Expect ($found.Count -eq 1) ('Fonction absente : '+$fn)
+            $shown=(($found[0].Extent.Text -replace 'RimotteRun','') -replace 'DomeniaRimotte','')
+            Expect (-not $shown.Contains('Rimotte')) ($fn+' affiche encore le nom Rimotte.')
+        }
+        Expect (([regex]::Matches((@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Start-DomeniaRimotteRun'},$true))[0].Extent.Text),'-OperationId "RimotteRun"')).Count -eq 1) 'L operation epinglee RimotteRun a change de nom.'
+        [xml]$main=Get-MainXaml
+        $x='http://schemas.microsoft.com/winfx/2006/xaml'
+        $panel=@($main.SelectNodes('//*') | Where-Object { $_.GetAttribute('Name',$x) -eq 'UxCompRunPanel' })
+        Expect ($panel.Count -eq 1) 'Panneau d execution absent du XAML principal.'
+        Expect (($panel[0].GetAttribute('Background') -like '{DynamicResource *}') -and ($panel[0].GetAttribute('BorderBrush') -like '{DynamicResource *}')) 'Couleurs du panneau ecrites en dur.'
+        Expect (@($panel[0].SelectNodes('.//*[local-name()="ComboBox"]')).Count -eq 0) 'Le choix abandonne du compte avec mot de passe reste propose.'
+        $modes=@($panel[0].SelectNodes('.//*[local-name()="RadioButton"]') | ForEach-Object { $_.GetAttribute('Content') })
+        Expect (($modes -join '|') -ceq 'En arrière-plan (compte système)|Dans la session de lʼutilisateur') ('Modes : '+($modes -join '|'))
+        $owner=$panel[0].ParentNode
+        while(($null -ne $owner) -and ($owner.GetAttribute('Name',$x) -ne 'TabComputerAdmin')){$owner=$owner.ParentNode;if($owner -is [Xml.XmlDocument]){$owner=$null}}
+        Expect ($null -ne $owner) 'Le panneau n est pas dans la vue Intervenir.'
+    }
     $g=[guid]'11223344-5566-7788-99aa-bbccddeeff00';$bytes=$g.ToByteArray()
     Case 'GUID binaire retourne comme byte array unique' {$p=@{objectguid=@(,$bytes)};$value=Get-WPropFirst $p 'objectguid' $null;Expect ($value -is [byte[]] -and $value.Length -eq 16)}
     Case 'GUID binaire converti au format D' {Expect ((Convert-WGuid $bytes) -ceq $g.ToString('D'))}

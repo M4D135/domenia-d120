@@ -410,19 +410,19 @@ try{
         Expect ($details.Visibility -eq [Windows.Visibility]::Collapsed) 'Second clic ne replie pas'
         $script:FleetScopeDn=''
     }
-    Case 'Points du poste : le lien ouvre l onglet de l action utile (Actions, Secrets) sans rien lancer' {
+    Case 'Points du poste : le lien ouvre la vue de l action utile (Intervenir, Secrets) sans rien lancer' {
         $data=New-DomeniaBoardData -Board Computer
-        Add-DomeniaBoardAttention -Data $data -Level Warn -Text 'Pas de redemarrage depuis 40 jours.' -Point 'restart' -Route 'ComputerActions' -RouteText 'Redémarrer : onglet Actions'
-        Add-DomeniaBoardAttention -Data $data -Level Alert -Text 'Disque C: presque plein : 4 % libre.' -Point 'disk.c' -Route 'ComputerActions' -RouteText 'Ouvrir C$ : onglet Actions'
-        Add-DomeniaBoardAttention -Data $data -Level Warn -Text 'BitLocker : Protection Desactive.' -Point 'secrets' -Route 'ComputerSecrets' -RouteText 'Onglet Secrets du poste'
+        Add-DomeniaBoardAttention -Data $data -Level Warn -Text 'Pas de redemarrage depuis 40 jours.' -Point 'restart' -Route 'ComputerActions' -RouteText 'Redémarrer : vue Intervenir'
+        Add-DomeniaBoardAttention -Data $data -Level Alert -Text 'Disque C: presque plein : 4 % libre.' -Point 'disk.c' -Route 'ComputerActions' -RouteText 'Ouvrir le disque C : vue Intervenir'
+        Add-DomeniaBoardAttention -Data $data -Level Warn -Text 'BitLocker : Protection Desactive.' -Point 'secrets' -Route 'ComputerSecrets' -RouteText 'Vue Secrets du poste'
         $card=New-DomeniaAttentionCard -Items @($data.Attention) -Board 'Computer'
         $links=@(Get-DomeniaLogicalControls $card|Where-Object{$_ -is [Windows.Documents.Hyperlink]})
         Expect ($links.Count -eq 3) ('Liens des points : '+$links.Count)
         $inner=Get-DomeniaControl 'ComputerTabs'
-        $inner.SelectedItem=Get-DomeniaControl 'TabComputerDashboard'
+        $inner.SelectedItem=Get-DomeniaControl 'TabComputer'
         $before=$script:StartCalls.Count;$parks=$script:ParkCalls.Count;$script:Workspaces.Clear()
-        $disk=@($links|Where-Object{(New-Object Windows.Documents.TextRange($_.ContentStart,$_.ContentEnd)).Text -eq 'Ouvrir C$ : onglet Actions'})[0]
-        Expect ($null -ne $disk) 'Lien Ouvrir C$ absent'
+        $disk=@($links|Where-Object{(New-Object Windows.Documents.TextRange($_.ContentStart,$_.ContentEnd)).Text -eq 'Ouvrir le disque C : vue Intervenir'})[0]
+        Expect ($null -ne $disk) 'Lien Ouvrir le disque C absent'
         $disk.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Documents.Hyperlink]::ClickEvent))
         Expect ([string]$inner.SelectedItem.Name -eq 'TabComputerAdmin') ('Onglet ouvert : '+[string]$inner.SelectedItem.Name)
         Expect ([string](Get-DomeniaControl 'WorkspaceTabs').SelectedItem.Name -eq 'WsComputer') 'Assistance poste non ouverte'
@@ -431,7 +431,7 @@ try{
         Expect ([string]$inner.SelectedItem.Name -eq 'TabSecurity') ('Onglet Secrets non ouvert : '+[string]$inner.SelectedItem.Name)
         Expect (($script:Workspaces -join ',') -eq 'WsComputer/TabComputerAdmin,WsComputer/TabSecurity') ('Ecrans ouverts : '+($script:Workspaces -join ','))
         Expect ($script:StartCalls.Count -eq $before -and $script:ParkCalls.Count -eq $parks) 'Un lien a lance une tache'
-        $inner.SelectedItem=Get-DomeniaControl 'TabComputerDashboard';(Get-DomeniaControl 'WorkspaceTabs').SelectedItem=Get-DomeniaControl 'WsSearch'
+        $inner.SelectedItem=Get-DomeniaControl 'TabComputer';(Get-DomeniaControl 'WorkspaceTabs').SelectedItem=Get-DomeniaControl 'WsSearch'
     }
     Case 'Poste hors de l OU : lecture canonique coalescée, invalidée après nouvelle vue' {
         $script:DatabaseScopedPath='C:\fictif\domenia.db';$script:FleetObservations=@{};$script:FleetSelectedReads=@{};$script:FleetScopeDn='';$script:StoreSnapshotRevision=10L
