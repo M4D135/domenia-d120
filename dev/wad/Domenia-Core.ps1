@@ -8967,15 +8967,20 @@ function Get-ExistingLinkForComputer {
     param([string]$Computer,[string]$Guid='',$CreatedUtc=$null)
     $cn = Normalize-LinkComputer $Computer
     if ([string]::IsNullOrWhiteSpace($cn)) { return $null }
-    if ((-not $Guid) -and ($null -ne $script:SelectedObject) -and ([string](Get-DomeniaMember $script:SelectedObject 'Type' '') -eq 'Machine') -and ((Normalize-LinkComputer ([string](Get-DomeniaMember $script:SelectedObject 'Name' ''))) -eq $cn)) {
-        $Guid = ConvertTo-DomeniaGuidText (Get-DomeniaMember $script:SelectedObject 'Guid' '')
-    }
+    $selectionChecked = [bool]$Guid
     foreach ($l in @($script:UserMachineLinks)) {
         # Called once per workstation of a list analysis: a cheap substring test skips the other computers first
         # (the normalised name is always a case-insensitive substring of the stored one).
         $stored = [string]$l.Computer
         if ($stored.IndexOf($cn,[StringComparison]::OrdinalIgnoreCase) -lt 0) { continue }
         if ((Normalize-LinkComputer $stored) -ne $cn) { continue }
+        if (-not $selectionChecked) {
+            # Only once a link of this name exists: the selection is read once per lookup, never per link.
+            $selectionChecked = $true
+            if (($null -ne $script:SelectedObject) -and ([string](Get-DomeniaMember $script:SelectedObject 'Type' '') -eq 'Machine') -and ((Normalize-LinkComputer ([string](Get-DomeniaMember $script:SelectedObject 'Name' ''))) -eq $cn)) {
+                $Guid = ConvertTo-DomeniaGuidText (Get-DomeniaMember $script:SelectedObject 'Guid' '')
+            }
+        }
         if ($Guid -and ((Test-DomeniaLinkIdentity -Link $l -Kind Computer -Guid $Guid -CreatedUtc $CreatedUtc).Match -eq 'Different')) { continue }
         return $l
     }
