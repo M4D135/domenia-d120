@@ -46,7 +46,7 @@ function Add-DomeniaComputerBoardAdEntries {
     if ($null -eq $laps) { $laps = Get-DomeniaEntryFileTimeUtc $entry 'ms-Mcs-AdmPwdExpirationTime' }
     if ($null -ne $laps) {
         $expired = ($laps -lt $now)
-        if ($expired) { Add-DomeniaBoardAttention -Data $Data -Level Warn -Text 'Mot de passe LAPS expire (rotation en attente).' -Point 'laps.expired' -Route 'ComputerSecrets' -RouteText 'Onglet Secrets du poste' }
+        if ($expired) { Add-DomeniaBoardAttention -Data $Data -Level Warn -Text 'Mot de passe LAPS expire (rotation en attente).' -Point 'laps.expired' -Route 'ComputerSecrets' -RouteText 'Vue Secrets du poste' }
         Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.ad.laps' -Kind Value -Value $(if ($expired) { 'Expire' } else { 'Valide' }) -Detail ('Expiration le ' + $laps.ToLocalTime().ToString('dd/MM/yyyy HH:mm', $invariant)) -State $(if ($expired) { 'Warn' } else { 'Ok' }))
     }
 
@@ -151,7 +151,7 @@ function Get-DomeniaComputerBoardData {
             $uptimeText = if ($uptimeDays -gt 0) { [string]$uptimeDays + ' j ' + $hours + ' h' } elseif ($hours -gt 0) { [string]$hours + ' h ' + $minutes.ToString('00') + ' min' } else { [string]$minutes + ' min' }
         }
         $longUptime = ($uptimeDays -gt $limits.UptimeDays)
-        if ($longUptime) { & $note 'Warn' ('Pas de redemarrage depuis ' + $uptimeDays + ' jours.') 'uptime' 'ComputerActions' 'Redémarrer : onglet Actions' }
+        if ($longUptime) { & $note 'Warn' ('Pas de redemarrage depuis ' + $uptimeDays + ' jours.') 'uptime' 'ComputerActions' 'Redémarrer : vue Intervenir' }
         $lastBoot = & $value 'Systeme d exploitation' 'Dernier demarrage'
         $uptimeDetail = if ($longUptime) { ('Plus de '+$limits.UptimeDays+' jours : redemarrage conseille') } elseif ($lastBoot) { 'Demarre le ' + $lastBoot } else { '' }
         Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.uptime' -Kind Value -Value $(if ($uptime) { $uptimeText } else { 'Non lu' }) -Detail $uptimeDetail -State $(if ($longUptime) { 'Warn' } elseif (-not $uptime) { 'Off' } else { '' }))
@@ -215,6 +215,11 @@ function Get-DomeniaComputerBoardData {
             if ($lowBattery) { & $note 'Warn' ('Batterie à ' + $battery.ToString('0', $fr) + ' %.') 'battery' }
             Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.battery' -Kind Number -Value ($battery.ToString('0', $fr) + ' %') -Detail $(if ($lowBattery) { 'Moins de ' + $batteryLimit + ' % : poste à brancher' } else { 'Charge restante' }) -State $(if ($lowBattery) { 'Warn' } else { '' }) -Number $battery -Maximum 100.0 -Unit '%' -LowIsBad)
         }
+        else {
+            # The inventory answered that there is no battery (decision David 2026-10-14): said in words, never a 0 %.
+            $batteryState = Get-DomeniaCategorySummary $rows 'Batterie'
+            if ((-not $batteryState.Count) -and ([string]$batteryState.State -match '^Aucune batterie')) { Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.battery' -Kind Value -Value 'Aucune batterie' -Detail 'Poste fixe ou alimentation secteur uniquement, selon lʼinventaire') }
+        }
 
         # One system disk on the fleet workstations (decision David 2026-10-07): C: (else the first volume) as a ring,
         # every other volume as one bar of free space.
@@ -228,7 +233,7 @@ function Get-DomeniaComputerBoardData {
             $percent = [Math]::Round(100.0 * $free / $size)
             $diskState = & $freeLevel $percent
             # CO-09: one colon only ('Peu dʼespace sur C: (13 % libre)', never 'Disque C: : 13 % libre').
-            if ($diskState -eq 'Alert') { & $note 'Alert' ($diskName + ' presque plein (' + $percent + ' % libre).') 'lowdisk' 'ComputerActions' 'Ouvrir C$ : onglet Actions' } elseif ($diskState -eq 'Warn') { & $note 'Warn' ('Peu dʼespace sur ' + $diskName + ' (' + $percent + ' % libre).') 'disk.tight' 'ComputerActions' 'Ouvrir C$ : onglet Actions' }
+            if ($diskState -eq 'Alert') { & $note 'Alert' ($diskName + ' presque plein (' + $percent + ' % libre).') 'lowdisk' 'ComputerActions' 'Ouvrir le disque C : vue Intervenir' } elseif ($diskState -eq 'Warn') { & $note 'Warn' ('Peu dʼespace sur ' + $diskName + ' (' + $percent + ' % libre).') 'disk.tight' 'ComputerActions' 'Ouvrir le disque C : vue Intervenir' }
             $ring = @(
                 [pscustomobject]@{ Label = ('Utilisé ' + (Format-DomeniaDashboardSize $used)); Value = $used; Color = (Get-DomeniaBoardColor 'Used') },
                 [pscustomobject]@{ Label = ('Libre ' + (Format-DomeniaDashboardSize $free)); Value = $free; Color = (Get-DomeniaBoardColor $diskState) }
@@ -248,6 +253,10 @@ function Get-DomeniaComputerBoardData {
                 }
                 $volumesDetail = if ($others.Count -eq 1) { (Format-DomeniaDashboardSize $worst.Free) + ' libres sur ' + (Format-DomeniaDashboardSize $worst.Size) } else { 'Le moins libre des ' + $others.Count + ' volumes' }
                 Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.disk.volumes' -Kind Distribution -Value ([string]$worst.Name + ' ' + $worstPercent + ' % libre') -Detail $volumesDetail -State $(if ($worstState -eq 'Ok') { '' } else { $worstState }) -Items @($volumeItems) -Maximum 100.0 -Unit '%')
+            }
+            else {
+                # The logical disks were read and only the system disk exists: an answer, not a missing value.
+                Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.disk.volumes' -Kind Value -Value 'Aucun autre volume' -Detail ('Seul ' + $diskName + ' est monté, selon lʼinventaire'))
             }
         }
     }
@@ -389,8 +398,8 @@ function Get-DomeniaComputerBoardData {
         $volumeState = Get-DomeniaBitLockerInventoryState $rows ([string]$bitlocker[0].Item)
         $bitlockerValue = $bitlockerText
         if ($volumeState.Read -and $volumeState.Encryption) { $bitlockerValue = [string]$volumeState.Text }
-        if ($volumeState.Suspended) { & $note 'Warn' ('BitLocker : protection suspendue sur ' + ([string]$bitlocker[0].Item -replace '^Volume ','') + ', volume chiffré.') 'bitlocker.suspended' 'ComputerSecrets' 'Onglet Secrets du poste' }
-        elseif (-not $protected) { & $note 'Warn' ('BitLocker : ' + $bitlockerText + '.') 'bitlocker.none' 'ComputerSecrets' 'Onglet Secrets du poste' }
+        if ($volumeState.Suspended) { & $note 'Warn' ('BitLocker : protection suspendue sur ' + ([string]$bitlocker[0].Item -replace '^Volume ','') + ', volume chiffré.') 'bitlocker.suspended' 'ComputerSecrets' 'Vue Secrets du poste' }
+        elseif (-not $protected) { & $note 'Warn' ('BitLocker : ' + $bitlockerText + '.') 'bitlocker.none' 'ComputerSecrets' 'Vue Secrets du poste' }
         Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.bitlocker' -Kind Value -Value $bitlockerValue -Detail ([string]$bitlocker[0].Item) -State $(if ($protected) { 'Ok' } else { 'Warn' }))
     }
 
@@ -412,7 +421,7 @@ function Get-DomeniaComputerBoardData {
     $reboot = Get-DomeniaPendingRebootReading $rows
     if ([string]$reboot.State -ne 'Unknown') {
         $pending = ([string]$reboot.State -eq 'Required')
-        if ($pending) { & $note 'Warn' ('Redémarrage en attente, confirmé par : ' + (@($reboot.Confirmed) -join ', ') + '.') 'reboot' 'ComputerActions' 'Redémarrer : onglet Actions' }
+        if ($pending) { & $note 'Warn' ('Redémarrage en attente, confirmé par : ' + (@($reboot.Confirmed) -join ', ') + '.') 'reboot' 'ComputerActions' 'Redémarrer : vue Intervenir' }
         $rebootValue = if ($pending) { 'Oui' } elseif ([string]$reboot.State -eq 'Partial') { 'Indices partiels' } else { 'Non' }
         Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.reboot' -Kind Value -Value $rebootValue -Detail ([string]$reboot.Detail) -State $(if ($pending) { 'Warn' } elseif ([string]$reboot.State -eq 'Partial') { '' } else { 'Ok' }))
     }

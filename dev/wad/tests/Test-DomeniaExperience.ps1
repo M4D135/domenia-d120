@@ -185,6 +185,24 @@ Check-Suite 'Bouton arret demande une seule lecture par clic' {
     $script:AsyncJobs=@{job1=(New-JobFixture)};$script:StopCalls=0
     Stop-DomeniaExperienceSelectedRead;$script:StopCalls -eq 1 -and $script:StoppedId -eq 'job1'
 }
+# UX-03: unwired if Load-DomeniaSettings restores a remembered presence filter again.
+Check-Suite 'UX-03 : le filtre de presence repart sur Toute presence a chaque demarrage' {
+    $script:FixtureJson='{"PresenceFilter":"En ligne","UiProfile":"Tech"}';$script:FixtureLegacy=''
+    $script:CurrentPresenceFilter='En ligne'
+    $v=Load-DomeniaSettings
+    ($script:CurrentPresenceFilter -eq 'Tous') -and (-not $v.Contains('PresenceFilter')) -and (-not (Get-DomeniaDefaultSettings).Contains('PresenceFilter'))
+}
+Check-Suite 'UX-03 : un filtre qui masque toutes les lignes le dit et propose de l effacer' {
+    $s=Get-DomeniaFilteredEmptyState -Loaded 48 -Visible 0 -LocalText 'compta' -Presence 'En ligne'
+    $s.Show -and ($s.Text -eq 'Le filtre masque 48 lignes') -and $s.Detail.Contains('texte « compta »') -and $s.Detail.Contains('présence : En ligne') -and $s.Detail.Contains('sans requête AD')
+}
+Check-Suite 'UX-03 : une ligne, ou aucune ligne masquee, ou pas de filtre' {
+    ((Get-DomeniaFilteredEmptyState -Loaded 1 -Visible 0 -LocalText 'x').Text -eq 'Le filtre masque 1 ligne') -and
+    (-not (Get-DomeniaFilteredEmptyState -Loaded 48 -Visible 3 -LocalText 'x').Show) -and
+    (-not (Get-DomeniaFilteredEmptyState -Loaded 0 -Visible 0 -LocalText 'x').Show) -and
+    (-not (Get-DomeniaFilteredEmptyState -Loaded 48 -Visible 0 -LocalText '  ' -Presence 'Tous').Show) -and
+    (-not (Get-DomeniaFilteredEmptyState -Loaded 48 -Visible 0 -Presence 'Toute présence').Show)
+}
 $failed=@($script:Checks|Where-Object{-not $_.Passed})
 $report=[ordered]@{Build='2026.09.30-R1.11-SUITE';Runtime=$PSVersionTable.PSVersion.ToString();Executed=(Get-Date).ToString('o');Passed=$script:Checks.Count-$failed.Count;Failed=$failed.Count;WpfExecuted=$false;NoADAccess=$true;Tests=$script:Checks.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-suite-'+[guid]::NewGuid().ToString('N')+'.json')}

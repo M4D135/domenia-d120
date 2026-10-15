@@ -97,11 +97,23 @@ try{
   }
   $watch.Stop();$script:readMs=$watch.ElapsedMilliseconds;$script:pageMs=$times.ToArray();Expect ($seen.Count -eq $Objects) 'complete paged coverage'
  }
+ Case 'PF-07 IndexBulk lot written through prepared statements, write time measured' {
+  # One prepared statement per table for the whole lot; the worker returns the storage time (IndexWriteMs) that the
+  # interface keeps as an IndexStore sample beside the IndexBuild samples.
+  $rows=[Collections.Generic.List[object]]::new()
+  for($n=1;$n -le $Objects;$n++){$rows.Add([pscustomobject]@{Guid=('20000000-0000-0000-0000-'+$n.ToString('000000000000'));Type='Machine';Name=('Idx-'+$n.ToString('00000'));Login=('IDX-'+$n+'$');DN=('CN=Idx-'+$n.ToString('00000')+',OU=Index,DC=test');State='Actif';Usn=[long]$n;Facts=$true;OsVersion='26100';WhenCreated=$stamp;PwdLastSet=$stamp;LapsKind='Windows LAPS';LapsExpiry=''})}
+  $Payload=[pscustomobject]@{Path=$path;Items=@([pscustomobject]@{Kind='IndexBulk';Row=[pscustomobject]@{Rows=$rows.ToArray();At=$fresh;Server='dc.test';BaseDn='OU=Index,DC=test';SyncScope='ou:ou=index,dc=test';Complete=$true;ReplaceAll=$false;HighestUsn=[long]$Objects;InvocationId='load-1'}})}
+  $watch=[Diagnostics.Stopwatch]::StartNew();$answer=& ([scriptblock]::Create($worker));$watch.Stop()
+  Expect ([bool]$answer.Saved -and [long]$answer.IndexRows -eq $Objects -and [long]$answer.IndexWriteMs -gt 0) 'every index row written and timed'
+  Expect ((Read-TestDb "SELECT count(*) n FROM ad_objects WHERE distinguished_name LIKE '%,OU=Index,DC=test';")[0].n -eq $Objects) 'exact committed index rows'
+  Expect ((Read-TestDb "SELECT count(*) n FROM ad_computer_facts WHERE object_key LIKE '20000000-%';")[0].n -eq $Objects) 'exact committed facts rows'
+  $script:indexWriteMs=[long]$answer.IndexWriteMs;$script:indexWorkerMs=[long]$watch.ElapsedMilliseconds
+ }
  $script:dbBytes=[IO.FileInfo]::new($path).Length;$script:workingSet=[Diagnostics.Process]::GetCurrentProcess().WorkingSet64
 }finally{if([IO.Directory]::Exists($folder)){[IO.Directory]::Delete($folder,$true)}}
 $failed=@($cases|Where-Object{-not $_.Passed}).Count
 $unchanged=$true;foreach($name in $sourceHashes.Keys){if((Get-FileHash (Join-Path $wad ('modules/'+$name)) -Algorithm SHA256).Hash -cne $sourceHashes[$name]){$unchanged=$false}}
-$report=[pscustomobject]@{Suite='DomeniaStoreLoad';Passed=($failed -eq 0);Total=$cases.Count;Failed=$failed;Assertions=$script:checks;Objects=$Objects;FamiliesPerObject=($ProbeCount+2);SQLiteVersion=$script:sqliteVersion;Platform=[Environment]::OSVersion.ToString();PowerShell=$PSVersionTable.PSVersion.ToString();WriteMs=$script:writeMs;ReadMs=$script:readMs;BatchMs=$script:batchMs;PageMs=$script:pageMs;DatabaseBytes=$script:dbBytes;ProcessWorkingSetSnapshotBytes=$script:workingSet;SourceHashes=$sourceHashes;ExecutedWorkerSHA256=$executedWorkerHash;ExecutedReaderSHA256=$executedReaderHash;CurrentSourcesUnchanged=$unchanged;Limitations='Disposable local SQLite; direct SQL seeds the starting fixture outside timed paths. Timed writes/reads execute real Store workers. No AD, network, WPF or Windows qualification. WorkingSet is a snapshot, not peak memory.';Cases=$cases.ToArray()}
+$report=[pscustomobject]@{Suite='DomeniaStoreLoad';Passed=($failed -eq 0);Total=$cases.Count;Failed=$failed;Assertions=$script:checks;Objects=$Objects;FamiliesPerObject=($ProbeCount+2);SQLiteVersion=$script:sqliteVersion;Platform=[Environment]::OSVersion.ToString();PowerShell=$PSVersionTable.PSVersion.ToString();WriteMs=$script:writeMs;ReadMs=$script:readMs;BatchMs=$script:batchMs;PageMs=$script:pageMs;IndexWriteMs=$script:indexWriteMs;IndexWorkerMs=$script:indexWorkerMs;DatabaseBytes=$script:dbBytes;ProcessWorkingSetSnapshotBytes=$script:workingSet;SourceHashes=$sourceHashes;ExecutedWorkerSHA256=$executedWorkerHash;ExecutedReaderSHA256=$executedReaderHash;CurrentSourcesUnchanged=$unchanged;Limitations='Disposable local SQLite; direct SQL seeds the starting fixture outside timed paths. Timed writes/reads execute real Store workers. No AD, network, WPF or Windows qualification. WorkingSet is a snapshot, not peak memory.';Cases=$cases.ToArray()}
 if($ReportPath){[IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 8),[Text.UTF8Encoding]::new($false))}
 Write-Output ('StoreLoad: '+($cases.Count-$failed)+'/'+$cases.Count+' cases, '+$script:checks+' assertions')
 if($failed){exit 1};exit 0

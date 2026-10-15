@@ -1615,6 +1615,69 @@
       "ProviderQualification": "À qualifier sous Windows"
     },
     {
+      "Id": "soft.installed",
+      "Name": "Applications installées : nom, éditeur et version",
+      "Category": "Logiciels et services",
+      "Namespace": "root\\cimv2",
+      "Class": "Win32_InstalledWin32Program",
+      "Properties": [
+        "ProgramId",
+        "Name",
+        "Vendor",
+        "Version"
+      ],
+      "Filter": "",
+      "Mode": "All",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": false,
+      "SkipOnDc": true,
+      "Description": "Une ligne par application de bureau recensée par lʼinventaire des applications de Windows, sans passer par Windows Installer.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Postes Windows 7 ou ultérieur ; la documentation ne couvre aucune version serveur : la classe peut être absente dʼun serveur, ce qui reste inconnu.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Inventaire du fournisseur Application and Device Inventory : il ne sollicite pas Windows Installer et ne déclenche aucune vérification MSI. Les applications du Store relèvent dʼune autre classe, aucune date dʼinstallation nʼest fournie et une installation propre à un profil peut ne pas y figurer.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/wmisdk/win32-installedwin32program"
+      ],
+      "Fields": [
+        {
+          "Name": "ProgramId",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Identifiant unique de lʼapplication pour le fournisseur"
+        },
+        {
+          "Name": "Name",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Nom de lʼapplication"
+        },
+        {
+          "Name": "Vendor",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Éditeur déclaré"
+        },
+        {
+          "Name": "Version",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Version déclarée"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-15",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
       "Id": "sec.defenderdetails",
       "Name": "Defender : protections et signatures rapportées",
       "Category": "Sécurité",

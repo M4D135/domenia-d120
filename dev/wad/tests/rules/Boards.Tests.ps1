@@ -440,8 +440,11 @@ Test-Case 'BRD-081B' 'Points 98 a 100 (revue) : BitLocker suspendu, Secure Boot 
     $store = [pscustomobject]@{ Source = 'Registre'; Items = @([pscustomobject]@{ Subject = 'CN=old'; Issuer = 'CN=CA'; NotAfterUtc = '2020-01-01T12:00:00Z'; Thumbprint = 'AA'; Usages = @(); KeyDeclared = $false }) }
     $raised = New-BrdInventory -Rows $rows
     $raised.Metrics | Add-Member -NotePropertyName Certificates -NotePropertyValue $store
-    $before = @(@((Get-DomeniaComputerBoardData -Result $raised).Attention) | ForEach-Object { [string]$_.Point })
+    $raisedData = Get-DomeniaComputerBoardData -Result $raised
+    $before = @(@($raisedData.Attention) | ForEach-Object { [string]$_.Point })
     foreach ($id in $ids) { Assert-True ($before -contains $id) ('point attendu : ' + $id + ' / ' + ($before -join ', ')) }
+    # Point 75 (W02): the workstation explanation reads each new rule from its own tile, never as a fleet-only control.
+    foreach ($id in $ids) { Assert-Equal 'Mesuré' ([string]@($raisedData.HealthExplanation.Rows | Where-Object { $_.Id -eq $id })[0].Eligible) ('regle du poste : ' + $id) }
     $policy = ConvertTo-DomeniaHealthPolicy @{ DisabledRules = $ids }
     Assert-Equal 3 @($policy.DisabledRules).Count 'regles ignorees par la politique'
     $quiet = New-BrdInventory -Rows $rows
@@ -461,4 +464,26 @@ Test-Case 'BRD-081C' 'Points 92 et 100 (revue) : adresse WSUS non appliquee et m
     Assert-Equal '1' ([string]$data.Entries['computer.certificates'].Value)
     Assert-Equal '' ([string]$data.Entries['computer.certificates'].State) 'lecture partielle affichee en bon etat'
     Assert-True ([string]$data.Entries['computer.certificates'].Detail -like '*lecture partielle : 1 lu(s) sur 73') ([string]$data.Entries['computer.certificates'].Detail)
+}
+Test-Case 'BRD-025' 'Point 74 : couverture a cote de la sante, aucune note rassurante pour un parc peu renseigne' {
+    $c = Get-DomeniaHealthCoverage -Total 26 -Assessed 12
+    Assert-Equal 46 ([int]$c.Percent); Assert-False $c.Sufficient
+    Assert-True (Get-DomeniaHealthCoverage -Total 26 -Assessed 13).Sufficient '50 % exactement'
+    Assert-Equal 49 ([int](Get-DomeniaHealthCoverage -Total 1000 -Assessed 499).Percent) 'arrondi vers le bas'
+    Assert-False (Get-DomeniaHealthCoverage -Total 0 -Assessed 0).Sufficient
+    $thin = Get-DomeniaFleetHealth -Total 100 -Healthy 5 -Unassessed 95
+    Assert-Equal $null $thin.Score 'aucun score sur 5 % du parc'
+    Assert-Equal 'Couverture insuffisante' ([string]$thin.Verdict); Assert-Equal 'Off' ([string]$thin.State)
+    Assert-True ([string]$thin.Detail -like '*couverture 5 % (5 évalué(s) sur 100)*') ([string]$thin.Detail)
+    $critical = Get-DomeniaFleetHealth -Total 100 -Healthy 4 -Unassessed 95 -Attention @([pscustomobject]@{ Level = 'Alert'; Text = 'x' })
+    Assert-Equal 'Critique' ([string]$critical.Verdict); Assert-Equal 'Alert' ([string]$critical.State); Assert-Equal $null $critical.Score
+    $partial = Get-DomeniaFleetHealth -Total 20 -Healthy 17 -Unassessed 2
+    Assert-Equal 94 ([int]$partial.Score); Assert-Equal 'Évaluation partielle' ([string]$partial.Verdict)
+    Assert-True ([string]$partial.Detail -like '*· couverture 90 % (18 évalué(s) sur 20)') ([string]$partial.Detail)
+    Assert-Equal '22 postes sur 26 évalués sans point détecté · 0 non évalué(s)' ([string](Get-DomeniaFleetHealth -Total 26 -Healthy 22).Detail) 'parc entierement evalue inchange'
+    $data = New-DomeniaBoardData -Board Fleet
+    Add-Member -InputObject $data -MemberType NoteProperty -Name 'Population' -Value ([pscustomobject]@{ Total = 40; Healthy = 3; Unassessed = 36 })
+    [void](Complete-DomeniaBoardData -Data $data)
+    Assert-Equal $null $data.Entries['fleet.health'].Number 'le widget ne montre aucun score'
+    Assert-Equal 'Couverture insuffisante' ([string]$data.Entries['fleet.health'].Value)
 }

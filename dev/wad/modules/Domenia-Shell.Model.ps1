@@ -409,13 +409,14 @@ function Get-DomeniaResultColumns {
     # A user list carries no workstation console column (SessionDisplay, SessionState, Presence) nor the operating
     # system; a workstation list carries no mail. The mixed view keeps every column. A view never removes a
     # column from the grid: the others are only hidden, with their width and position kept.
+    # DS-20: the association, its source and its qualification share one column (Association) since SP-02.
     # -Profile stays accepted as an alias.
     [CmdletBinding()]
     param([Parameter(Mandatory=$true)][Alias('Profile')][ValidateSet('Utilisateur','Machine','Mixte')][string]$ColumnProfile)
     switch ($ColumnProfile) {
-        'Utilisateur' { return @('Type','Name','DirectoryState','Login','UPN','Association','LinkSource','LinkConfidence','State','LastLogon','Mail','Description','Changed','DN') }
-        'Machine'     { return @('Type','Name','SessionDisplay','SessionState','DirectoryState','UPN','Association','LinkSource','LinkConfidence','Presence','State','OS','LastLogon','Description','Changed','DN') }
-        default       { return @('Type','Name','SessionDisplay','SessionState','DirectoryState','Login','UPN','Association','LinkSource','LinkConfidence','Presence','State','OS','LastLogon','Mail','Description','Changed','DN') }
+        'Utilisateur' { return @('Type','Name','DirectoryState','Login','UPN','Association','State','LastLogon','Mail','Description','Changed','DN') }
+        'Machine'     { return @('Type','Name','SessionDisplay','SessionState','DirectoryState','UPN','Association','Presence','State','OS','LastLogon','Description','Changed','DN') }
+        default       { return @('Type','Name','SessionDisplay','SessionState','DirectoryState','Login','UPN','Association','Presence','State','OS','LastLogon','Mail','Description','Changed','DN') }
     }
 }
 
@@ -429,7 +430,7 @@ function Resolve-DomeniaColumnPreferences {
     # never rewritten here: a column hidden by one view keeps its width and position for the next view showing it.
     # $Preferences: dictionary id -> {Width, Order}. $Sort: {Column, Direction}.
     param([Parameter(Mandatory=$true)][ValidateSet('Utilisateur','Machine','Mixte')][string]$ColumnProfile,$Preferences=$null,$Sort=$null)
-    $defaults = @{Type=105;Name=260;SessionDisplay=230;SessionState=175;DirectoryState=135;Login=150;UPN=235;Association=230;LinkSource=155;LinkConfidence=90;Presence=175;State=120;OS=180;LastLogon=145;Mail=220;Description=250;Changed=145;DN=520}
+    $defaults = @{Type=105;Name=260;SessionDisplay=230;SessionState=175;DirectoryState=72;Login=150;UPN=235;Association=260;Presence=200;State=120;OS=180;LastLogon=145;Mail=220;Description=250;Changed=145;DN=520}
     $ids = @(Get-DomeniaResultColumns -ColumnProfile $ColumnProfile)
     $rows = New-Object 'System.Collections.Generic.List[object]'
     for ($i = 0; $i -lt $ids.Count; $i++) {
@@ -472,6 +473,116 @@ function Test-DomeniaProfileChangeAllowed {
     if ($Typing) { return [pscustomobject]@{Allowed=$false;Deferred=$true;Reason='Saisie en cours : la vue changera a la fin de la saisie.'} }
     if ($BatchArriving) { return [pscustomobject]@{Allowed=$false;Deferred=$true;Reason='Resultats en cours d arrivee : la vue changera apres le dernier lot.'} }
     return [pscustomobject]@{Allowed=$true;Deferred=$false;Reason=''}
+}
+
+# ---------------------------------------------------------------- DS-20 / SP-02 columns chosen by the operator
+function Get-DomeniaResultColumnCatalog {
+    # DS-20: the columns of the result grid that the operator may show or hide, in grid order. Key is the persisted
+    # key of the column (Get-DomeniaGridColumnKey: sort member, else binding path). SP-02: six columns by default
+    # (Type, Nom, Utilisateur connecté, Association mémorisée, Présence réseau, État). Relevance: a workstation
+    # column appears only when the list holds a workstation, an association column only with users or workstations,
+    # Compte only when a row has an account (former automatic rule, kept under the choice). Nom cannot be hidden.
+    $rows = @(
+        @('Type','Type',$true,'All'),@('Name','Nom',$true,'All'),@('SessionDisplay','Utilisateur connecté (console)',$true,'Machine'),
+        @('SessionState','Vérification utilisateur',$false,'Machine'),@('DirectoryState','Fraîcheur AD',$false,'All'),@('Login','Compte',$false,'Account'),
+        @('UPN','UPN / DNS',$false,'All'),@('Association','Association mémorisée',$true,'Linkable'),@('Presence','Présence réseau',$true,'Machine'),
+        @('State','État',$true,'All'),@('OS','Système',$false,'Machine'),@('LastLogonSort','Dernière connexion',$false,'Linkable'),
+        @('Mail','Mail',$false,'All'),@('Description','Description',$false,'All'),@('ChangedSort','Modifié',$false,'All'),@('DN','Chemin complet',$false,'All')
+    )
+    return @($rows | ForEach-Object { [pscustomobject]@{Key=[string]$_[0];Label=[string]$_[1];Default=[bool]$_[2];Locked=([string]$_[0] -eq 'Name');Relevance=[string]$_[3]} })
+}
+
+function Resolve-DomeniaResultColumnChoice {
+    # DS-20: the columns chosen by the operator, from the stored preference (JSON {Version:1;Visible:[keys]}).
+    # Unknown keys are dropped, Nom is always kept; the columns merged by SP-02 (LinkSource, LinkConfidence) count as
+    # Association and the former keys LastLogon / Changed as their sort keys. No preference, or an unreadable one,
+    # gives the six SP-02 columns: earlier versions only stored width and order (kept by the grid layout).
+    param($Saved=$null)
+    $catalog = @(Get-DomeniaResultColumnCatalog)
+    $known = @{}; foreach ($entry in $catalog) { $known[[string]$entry.Key] = $true }
+    $aliases = @{LinkSource='Association';LinkConfidence='Association';LastLogon='LastLogonSort';Changed='ChangedSort'}
+    $value = $Saved
+    if ($value -is [string]) {
+        $text = ([string]$value).Trim()
+        $value = $null
+        if ($text -and ($text.Length -le 8192)) { try { $value = ConvertFrom-Json -InputObject $text -ErrorAction Stop } catch { $value = $null } }
+    }
+    $keys = $null
+    if ($null -ne $value) {
+        $version = 0
+        try { $version = [int](Get-DomeniaMember $value 'Version' 0) } catch { $version = 0 }
+        $listed = Get-DomeniaMember $value 'Visible' $null
+        if (($version -eq 1) -and ($null -ne $listed)) {
+            $keys = @{}
+            foreach ($item in @($listed)) {
+                $key = [string]$item
+                if ($aliases.ContainsKey($key)) { $key = [string]$aliases[$key] }
+                if ($known.ContainsKey($key)) { $keys[$key] = $true }
+            }
+        }
+    }
+    $source = 'Saved'
+    if ($null -eq $keys) {
+        $source = 'Default'
+        $keys = @{}; foreach ($entry in $catalog) { if ([bool]$entry.Default) { $keys[[string]$entry.Key] = $true } }
+    }
+    $keys['Name'] = $true
+    return [pscustomobject]@{Visible=@($catalog | Where-Object { $keys.ContainsKey([string]$_.Key) } | ForEach-Object { [string]$_.Key });Source=$source}
+}
+
+function Set-DomeniaResultColumnChoice {
+    # DS-20: shows or hides one column in the choice, in grid order. Nom stays shown; an unknown key changes nothing.
+    param([string[]]$Visible=@(),[Parameter(Mandatory=$true)][string]$Key,[bool]$Show=$true)
+    $catalog = @(Get-DomeniaResultColumnCatalog)
+    $keys = @{}; foreach ($item in @($Visible)) { $keys[[string]$item] = $true }
+    if (@($catalog | Where-Object { [string]$_.Key -ceq $Key }).Count -eq 1) {
+        if ($Show) { $keys[$Key] = $true } elseif ($Key -cne 'Name') { [void]$keys.Remove($Key) }
+    }
+    $keys['Name'] = $true
+    return @($catalog | Where-Object { $keys.ContainsKey([string]$_.Key) } | ForEach-Object { [string]$_.Key })
+}
+
+function ConvertTo-DomeniaResultColumnChoiceText {
+    # DS-20: the stored form of the choice (column keys only: no data, no account, no secret).
+    param([string[]]$Visible=@())
+    $keys = @(Set-DomeniaResultColumnChoice -Visible $Visible -Key 'Name' -Show $true)
+    return (ConvertTo-Json -InputObject ([pscustomobject]@{Version=1;Visible=$keys}) -Compress)
+}
+
+function Test-DomeniaResultColumnShown {
+    # DS-20: a column is shown when the operator chose it AND it applies to the list (Relevance of the catalog).
+    # $Visible = $null: no choice loaded yet, every managed column follows its relevance only (former behaviour).
+    # A column outside the catalog is not managed here: shown.
+    param([Parameter(Mandatory=$true)][string]$Key,$Visible=$null,[bool]$HasMachine=$false,[bool]$HasLinkable=$false,[bool]$HasAccount=$false)
+    $entry = @(Get-DomeniaResultColumnCatalog | Where-Object { [string]$_.Key -ceq $Key })
+    if ($entry.Count -ne 1) { return $true }
+    if (($null -ne $Visible) -and (@($Visible) -notcontains $Key)) { return $false }
+    switch ([string]$entry[0].Relevance) {
+        'Machine'  { return $HasMachine }
+        'Linkable' { return $HasLinkable }
+        'Account'  { return $HasAccount }
+    }
+    return $true
+}
+
+function Expand-DomeniaResultExportColumns {
+    # DS-20: the association cell shows the association, its qualification and its source (tooltip), but the CSV of
+    # the result list keeps the three columns it had before the merge: Source lien and Qualification follow
+    # Association mémorisée, which stays where the operator placed it. A list without the association column exports
+    # neither; a column already exported is never repeated. $Columns: {Property; Header} in export order.
+    param([object[]]$Columns=@())
+    $present = @{}
+    foreach ($column in @($Columns)) { if ($null -ne $column) { $present[[string]$column.Property] = $true } }
+    foreach ($column in @($Columns)) {
+        if ($null -eq $column) { continue }
+        $column
+        if ([string]$column.Property -cne 'Association') { continue }
+        foreach ($extra in @(@('LinkSource','Source lien'),@('LinkConfidence','Qualification'))) {
+            if ($present.ContainsKey($extra[0])) { continue }
+            $present[$extra[0]] = $true
+            [pscustomobject]@{ Property=$extra[0]; Header=$extra[1] }
+        }
+    }
 }
 
 # ---------------------------------------------------------------- D085 selection preview in Rechercher
@@ -1340,4 +1451,65 @@ function Get-DomeniaExpertTabDecision {
         return [pscustomobject]@{Tab=$Tab;Expert=$true;Show=$true;Temporary=$false;ChangesProfile=$false;Reason=''}
     }
     return [pscustomobject]@{Tab=$Tab;Expert=$true;Show=$true;Temporary=$true;ChangesProfile=$false;Reason='Vue Expert affichée pour cette consultation ; le profil Essentiel est conservé.'}
+}
+
+# ---------------------------------------------------------------- SP-05 copy of result rows for a ticket
+function ConvertTo-DomeniaTicketOuPath {
+    # Readable path of the container of an object, from the domain down ('Lyon / Postes'). Display only: never a
+    # search root. Escaped characters of the DN are decoded; the domain components are left out.
+    param([AllowEmptyString()][string]$Dn)
+    $parent = Get-DomeniaRawDnParent ([string]$Dn)
+    if (-not $parent) { return '' }
+    $names = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($part in @(Split-DomeniaRawDn $parent)) {
+        $equals = $part.IndexOf('=')
+        if ($equals -lt 1) { continue }
+        if ($part.Substring(0,$equals).Trim() -ieq 'DC') { continue }
+        $names.Insert(0,(ConvertFrom-DomeniaDnLabel ($part.Substring($equals + 1).Trim())))
+    }
+    return ($names.ToArray() -join ' / ')
+}
+
+function ConvertTo-DomeniaTicketLine {
+    # SP-05: one readable line per object for a ticket: Type · Nom · Compte · Présence · Utilisateur console · OU.
+    # Allow-list projection: no GUID, no DN, no internal field of the grid. A value never spans several lines.
+    param($Row)
+    if ($null -eq $Row) { return '' }
+    $flat = { param($Value,[int]$Max=120) ConvertTo-DomeniaFlatText ([string]$Value) $Max }
+    $type = [string](Get-DomeniaMember $Row 'Type' '')
+    $machine = ($type -eq 'Machine')
+    $parts = New-Object 'System.Collections.Generic.List[string]'
+    $typeLabel = switch ($type) { 'Machine' { 'Poste' } 'Utilisateur' { 'Utilisateur' } 'Groupe' { 'Groupe' } 'OU' { 'OU' } 'Conteneur' { 'Conteneur' } default { 'Objet' } }
+    $parts.Add($typeLabel)
+    $name = & $flat (Get-DomeniaMember $Row 'Name' '')
+    if ($name) { $parts.Add($name) }
+    # The account column of the grid: the linked user of a workstation, the account name of a user or a group.
+    $account = if ($machine) { & $flat (Get-DomeniaMember $Row 'Association' '') } elseif ($type -in @('Utilisateur','Groupe')) { & $flat (Get-DomeniaMember $Row 'Login' '') } else { '' }
+    if ($account) { $parts.Add('Compte : ' + $account) }
+    if ($machine) {
+        $presence = & $flat (Get-DomeniaMember $Row 'Presence' '') 60
+        if ($presence) {
+            $age = & $flat (Get-DomeniaMember $Row 'PresenceAge' '') 30
+            if ($age) { $presence += ' (' + $age + ')' }
+            $parts.Add('Présence : ' + $presence)
+        }
+        $console = & $flat (Get-DomeniaMember $Row 'SessionDisplay' '')
+        if ($console -and $console -notin @('Non déterminé','Non determine')) { $parts.Add('Utilisateur console : ' + $console) }
+    }
+    $ou = ConvertTo-DomeniaTicketOuPath ([string](Get-DomeniaMember $Row 'DN' ''))
+    if ($ou) { $parts.Add('OU : ' + (& $flat $ou 240)) }
+    return ($parts.ToArray() -join ' · ')
+}
+
+function ConvertTo-DomeniaTicketText {
+    # SP-05: the text copied for a ticket, one line per selected row, masked by the secret rule before it leaves
+    # Domenia (a description or an account name can carry a pasted secret).
+    param([object[]]$Rows)
+    $lines = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($row in @($Rows)) {
+        if ($null -eq $row) { continue }
+        $line = ConvertTo-DomeniaTicketLine $row
+        if ($line) { $lines.Add($line) }
+    }
+    return (Protect-DomeniaSecretText ($lines.ToArray() -join "`r`n"))
 }

@@ -48,7 +48,10 @@ function Open-DomeniaDatabase {
         $flags = if ($ReadOnly) { 1 -bor 65536 } else { 2 -bor 4 -bor 65536 }
         $rc = [Domenia.WinSqliteNative]::sqlite3_open_v2($pathPtr,[ref]$db,$flags,[IntPtr]::Zero)
         if ($rc -ne 0 -or $db -eq [IntPtr]::Zero) { throw "Ouverture SQLite impossible (code $rc)." }
-        [void][Domenia.WinSqliteNative]::sqlite3_busy_timeout($db,1000)
+        # FI-12: lock wait from the worker context (LocalStore.DatabaseBusyTimeoutMs), 2 500 ms without one.
+        $busyMs=2500;$workerContext=Get-Variable -Name Context -ValueOnly -ErrorAction SilentlyContinue
+        if(($null -ne $workerContext) -and ($null -ne $workerContext.PSObject.Properties['BusyTimeoutMs'])){$busyMs=[Math]::Max(100,[Math]::Min(5000,[int]$workerContext.BusyTimeoutMs))}
+        [void][Domenia.WinSqliteNative]::sqlite3_busy_timeout($db,$busyMs)
         if(-not $ReadOnly){Assert-StoreWDatabaseWritable $db;if($null -eq $script:StoreWHandleLeases){$script:StoreWHandleLeases=@{}};$script:StoreWHandleLeases[$db.ToInt64()]=$writeLease;$writeLease=$null}
         return $db
     }
@@ -280,11 +283,10 @@ function Import-StoreWLegacyObservations {
     param([IntPtr]$Db,[string[]]$Guids,[string]$DomainDn,[long]$Revision)
     # The marker and all imported families share the caller's write transaction.
     # No reader may retire the legacy fallback before this marker is committed.
-    [void](Invoke-DomeniaDbExec 'CREATE TABLE IF NOT EXISTS domenia_legacy_observation_imports(object_guid TEXT PRIMARY KEY,payload_hash TEXT NOT NULL,imported_at TEXT NOT NULL);' $Db)
+    # PF-26: both tables exist (schema script, or Assert-StoreWSession once per worker session).
     if(-not @($Guids).Count){return}
     $keys=@($Guids|Where-Object{$_}|Select-Object -Unique|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ','
     if(-not $keys){return}
-    [void](Invoke-DomeniaDbExec 'CREATE TABLE IF NOT EXISTS park_session_cache(object_key TEXT PRIMARY KEY,checked_utc TEXT NOT NULL,payload TEXT NOT NULL);' $Db)
     $candidates=@(Invoke-DomeniaDbQuery ("SELECT a.object_guid,a.distinguished_name,p.payload FROM ad_objects a LEFT JOIN park_session_cache p ON p.object_key=lower(a.distinguished_name) LEFT JOIN domenia_legacy_observation_imports m ON m.object_guid=a.object_guid WHERE a.object_guid IN ($keys) AND m.object_guid IS NULL;") $Db)
     $existing=@{}
     if($candidates.Count){
@@ -451,6 +453,108 @@ function Write-StoreWQueryChange {
         [void](Invoke-DomeniaDbExec ('INSERT OR IGNORE INTO domenia_query_migrations(source_hash,domain_dn,imported_at,revision) VALUES('+(@($v|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');') $Db);return
     }
     throw 'Changement de bibliotheque inconnu.'
+}
+
+function New-StoreWStatement {
+    # PF-07: one prepared statement per table, reused for every row of a bulk loop inside the caller's transaction.
+    # Values are bound (UTF-16 text, int64, double, NULL): the SQL text is parsed once, never rebuilt per row.
+    param([IntPtr]$Db,[string]$Sql)
+    $sqlPtr=New-DomeniaUtf8Ptr $Sql;$stmt=[IntPtr]::Zero
+    try{
+        $rc=[Domenia.WinSqliteNative]::sqlite3_prepare_v2($Db,$sqlPtr,-1,[ref]$stmt,[IntPtr]::Zero)
+        if(($rc -ne 0) -or ($stmt -eq [IntPtr]::Zero)){throw ('SQLite prepare code '+$rc+' : '+(ConvertFrom-DomeniaUtf8Ptr ([Domenia.WinSqliteNative]::sqlite3_errmsg($Db))))}
+    }finally{[Runtime.InteropServices.Marshal]::FreeHGlobal($sqlPtr)}
+    $statement=[pscustomobject]@{Handle=$stmt;Db=$Db;Parameters=[int][Domenia.WinSqliteNative]::sqlite3_bind_parameter_count($stmt);Rows=0L;Transient=[IntPtr]::new(-1)}
+    if($null -eq $script:StoreWStatements){$script:StoreWStatements=[Collections.Generic.List[object]]::new()}
+    $script:StoreWStatements.Add($statement)
+    return $statement
+}
+function Set-StoreWStatementValues {
+    # Binds ?1..?N in order with the value semantics of ConvertTo-DomeniaSqlLiteral: integral numbers as INTEGER,
+    # other numbers as REAL, $null as NULL, everything else as TEXT (exact UTF-16 length, copied by SQLite).
+    param($Statement,[object[]]$Values)
+    $stmt=$Statement.Handle
+    if($stmt -eq [IntPtr]::Zero){throw 'Requete preparee deja fermee.'}
+    if(@($Values).Count -ne [int]$Statement.Parameters){throw ('Requete preparee : '+[int]$Statement.Parameters+' valeur(s) attendue(s), '+@($Values).Count+' fournie(s).')}
+    for($n=0;$n -lt $Values.Count;$n++){
+        $value=$Values[$n];$index=$n+1
+        if($null -eq $value){$rc=[Domenia.WinSqliteNative]::sqlite3_bind_null($stmt,$index)}
+        elseif($value -is [bool]){$rc=[Domenia.WinSqliteNative]::sqlite3_bind_int64($stmt,$index,[long]$(if($value){1}else{0}))}
+        elseif(($value -is [byte]) -or ($value -is [int16]) -or ($value -is [int32]) -or ($value -is [int64])){$rc=[Domenia.WinSqliteNative]::sqlite3_bind_int64($stmt,$index,[long]$value)}
+        elseif(($value -is [double]) -or ($value -is [decimal])){
+            $number=[double]$value
+            if(([Math]::Floor($number) -eq $number) -and ([Math]::Abs($number) -lt 9.0e18)){$rc=[Domenia.WinSqliteNative]::sqlite3_bind_int64($stmt,$index,[long]$number)}
+            else{$rc=[Domenia.WinSqliteNative]::sqlite3_bind_double($stmt,$index,$number)}
+        }
+        else{$text=[string]$value;$rc=[Domenia.WinSqliteNative]::sqlite3_bind_text16($stmt,$index,$text,(2*$text.Length),$Statement.Transient)}
+        if($rc -ne 0){throw ('SQLite bind code '+$rc+' : '+(ConvertFrom-DomeniaUtf8Ptr ([Domenia.WinSqliteNative]::sqlite3_errmsg($Statement.Db))))}
+    }
+}
+function Invoke-StoreWStatement {
+    # One row: bind, run to SQLITE_DONE, reset for the next row (bindings are replaced at the next call).
+    param($Statement,[object[]]$Values)
+    Set-StoreWStatementValues $Statement $Values
+    $stmt=$Statement.Handle
+    $step=[Domenia.WinSqliteNative]::sqlite3_step($stmt)
+    $message='';if($step -ne 101){$message=ConvertFrom-DomeniaUtf8Ptr ([Domenia.WinSqliteNative]::sqlite3_errmsg($Statement.Db))}
+    [void][Domenia.WinSqliteNative]::sqlite3_reset($stmt)
+    if($step -ne 101){throw ('SQLite step code '+$step+' : '+$message)}
+    $Statement.Rows++
+}
+function Read-StoreWStatementRow {
+    # PF-07: first row of a prepared SELECT for these values, $null when there is none; the statement is reset.
+    param($Statement,[object[]]$Values)
+    Set-StoreWStatementValues $Statement $Values
+    $stmt=$Statement.Handle;$row=$null
+    try{
+        $step=[Domenia.WinSqliteNative]::sqlite3_step($stmt)
+        if($step -eq 100){
+            $map=[ordered]@{};$count=[Domenia.WinSqliteNative]::sqlite3_column_count($stmt)
+            for($c=0;$c -lt $count;$c++){
+                $name=ConvertFrom-DomeniaUtf8Ptr ([Domenia.WinSqliteNative]::sqlite3_column_name($stmt,$c))
+                $type=[Domenia.WinSqliteNative]::sqlite3_column_type($stmt,$c);$value=$null
+                if($type -eq 1){$value=[long][Domenia.WinSqliteNative]::sqlite3_column_int64($stmt,$c)}
+                elseif($type -eq 2){$value=[double][Domenia.WinSqliteNative]::sqlite3_column_double($stmt,$c)}
+                elseif($type -ne 5){$p=[Domenia.WinSqliteNative]::sqlite3_column_text($stmt,$c);$length=[Domenia.WinSqliteNative]::sqlite3_column_bytes($stmt,$c);$value=ConvertFrom-DomeniaUtf8Ptr $p $length}
+                $map[$name]=$value
+            }
+            $row=[pscustomobject]$map
+        }elseif($step -ne 101){throw ('SQLite step code '+$step+' : '+(ConvertFrom-DomeniaUtf8Ptr ([Domenia.WinSqliteNative]::sqlite3_errmsg($Statement.Db))))}
+    }finally{[void][Domenia.WinSqliteNative]::sqlite3_reset($stmt)}
+    return $row
+}
+function Close-StoreWStatements {
+    # Every prepared statement of this worker session is finalized before sqlite3_close: an unfinalized statement
+    # would make the close fail and keep the write lease.
+    if($null -eq $script:StoreWStatements){return}
+    foreach($statement in @($script:StoreWStatements)){
+        if(($null -ne $statement) -and ($statement.Handle -ne [IntPtr]::Zero)){[void][Domenia.WinSqliteNative]::sqlite3_finalize($statement.Handle);$statement.Handle=[IntPtr]::Zero}
+    }
+    $script:StoreWStatements.Clear()
+}
+function Get-StoreWAdditiveTables {
+    # PF-26: tables added to schema 11/1 without a version change. The schema script of Initialize-DomeniaDatabase
+    # creates them; a base never opened by that script (an older copy, a fixture) gets them once per worker session.
+    return [ordered]@{
+        park_session_cache='CREATE TABLE IF NOT EXISTS park_session_cache(object_key TEXT PRIMARY KEY,checked_utc TEXT NOT NULL,payload TEXT NOT NULL);'
+        domenia_legacy_observation_imports='CREATE TABLE IF NOT EXISTS domenia_legacy_observation_imports(object_guid TEXT PRIMARY KEY,payload_hash TEXT NOT NULL,imported_at TEXT NOT NULL);'
+        ad_computer_facts='CREATE TABLE IF NOT EXISTS ad_computer_facts(object_guid TEXT PRIMARY KEY,object_key TEXT,os_version TEXT,when_created TEXT,pwd_last_set TEXT,laps_kind TEXT,laps_expiry TEXT,read_at TEXT);'
+        fleet_snapshots='CREATE TABLE IF NOT EXISTS fleet_snapshots(scope_key TEXT NOT NULL,snapshot_day TEXT NOT NULL,taken_at TEXT,scope_dn TEXT,machines INTEGER DEFAULT 0,figures TEXT,PRIMARY KEY(scope_key,snapshot_day));'
+    }
+}
+function Assert-StoreWSession {
+    # PF-26: schema_info is read once per worker session, in ONE query, inside the write transaction of the caller:
+    # the check and the writes see the same schema. Missing additive tables are created here, never per batch item.
+    param([IntPtr]$Db)
+    $tables=Get-StoreWAdditiveTables
+    $presence=@(foreach($name in $tables.Keys){"(SELECT count(*) FROM sqlite_master WHERE type='table' AND name='"+$name+"') AS has_"+$name})
+    $row=@(Invoke-DomeniaDbQuery ("SELECT sqlite_version() AS sqlite_version,(SELECT count(*) FROM schema_info WHERE key='schema_version') AS version_rows,(SELECT value FROM schema_info WHERE key='schema_version') AS schema_version,(SELECT count(*) FROM schema_info WHERE key='domenia_schema') AS revision_rows,(SELECT value FROM schema_info WHERE key='domenia_schema') AS domenia_schema,"+($presence -join ',')+';') $Db)
+    if($row.Count -ne 1){throw 'Schema stockage incompatible.'}
+    if(([long]$row[0].version_rows -ne 1) -or ([string]$row[0].schema_version -ne '11')){throw 'Schema stockage incompatible.'}
+    if(([long]$row[0].revision_rows -ne 1) -or ([string]$row[0].domenia_schema -ne '1')){throw 'Version Domenia incompatible.'}
+    $missing=@(foreach($name in $tables.Keys){if([long]$row[0].('has_'+$name) -eq 0){$tables[$name]}})
+    if($missing.Count){[void](Invoke-DomeniaDbExec ($missing -join '') $Db)}
+    return [string]$row[0].sqlite_version
 }
 
 function Invoke-StoreWBatch {
@@ -697,6 +801,12 @@ function Import-DomeniaLegacy {
         [void](Invoke-DomeniaDbExec ('INSERT INTO sync_state(scope,server,base_dn,highest_usn,last_sync,item_count,details) VALUES('+(($values|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');') $DatabaseHandle)
     }
     $imported=0
+    # PF-07: up to 250 000 rows per table: one prepared statement per table instead of one parsed INSERT per row.
+    $objectStatement=$null;$parkStatement=$null;$scanStatement=$null;$secretStatement=$null
+    if($objects.Count){$objectStatement=New-StoreWStatement $DatabaseHandle 'INSERT INTO ad_objects(object_key,object_guid,object_type,name,login,upn,display_name,description,extra,state,distinguished_name,when_changed,usn_changed,last_logon,search_key,source_dc,synced_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)'}
+    if($park.Count){$parkStatement=New-StoreWStatement $DatabaseHandle 'INSERT INTO park_state(computer_key,computer,last_probe,status,user_login,attempts) VALUES(?1,?2,?3,?4,?5,?6)'}
+    if($userScans.Count){$scanStatement=New-StoreWStatement $DatabaseHandle 'INSERT INTO user_scan_history(login_key,login,scanned_at,scanned,candidates,reachable,probed,found) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)'}
+    if($secrets.Count){$secretStatement=New-StoreWStatement $DatabaseHandle 'INSERT INTO secret_state(computer_key,computer,checked_at,bitlocker_keys,bitlocker_last,laps_scheme,laps_expiry,verdict,detail) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9)'}
     foreach($r in $objects){
         if($null -eq $r -or [string]::IsNullOrWhiteSpace([string]$r.DN)){throw 'Objet legacy sans DN.'}
         if(-not ([string]$r.DN).EndsWith(','+$BaseDn,[StringComparison]::OrdinalIgnoreCase) -and [string]$r.DN -ine $BaseDn){throw 'Objet legacy dans un autre domaine.'}
@@ -704,7 +814,7 @@ function Import-DomeniaLegacy {
         if([string]::IsNullOrWhiteSpace($key)){throw 'Objet legacy sans cle.'}
         $search=(([string]$r.Name)+' '+([string]$r.Login)+' '+([string]$r.Upn)+' '+([string]$r.Display)+' '+([string]$r.Description)+' '+([string]$r.Extra)).ToLowerInvariant()
         $values=@($key,[string]$r.Guid,[string]$r.Type,[string]$r.Name,[string]$r.Login,[string]$r.Upn,[string]$r.Display,[string]$r.Description,[string]$r.Extra,[string]$r.State,[string]$r.DN,[string]$r.WhenChanged,[long]$r.Usn,[string]$r.LastLogon,$search,'legacy_import',$At)
-        [void](Invoke-DomeniaDbExec ('INSERT INTO ad_objects(object_key,object_guid,object_type,name,login,upn,display_name,description,extra,state,distinguished_name,when_changed,usn_changed,last_logon,search_key,source_dc,synced_at) VALUES('+(($values|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');') $DatabaseHandle)
+        Invoke-StoreWStatement $objectStatement $values
         $imported++
     }
     foreach($r in $park){
@@ -712,21 +822,21 @@ function Import-DomeniaLegacy {
         if([string]::IsNullOrWhiteSpace($key)){$key=Get-DomeniaLegacyComputerKey ([string]$r.Computer)}
         if([string]::IsNullOrWhiteSpace($key)){throw 'Ligne park legacy sans cle.'}
         $values=@($key,[string]$r.Computer,[string]$r.LastProbe,[string]$r.Status,[string]$r.User,[int]$r.Attempts)
-        [void](Invoke-DomeniaDbExec ('INSERT INTO park_state(computer_key,computer,last_probe,status,user_login,attempts) VALUES('+(($values|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');') $DatabaseHandle)
+        Invoke-StoreWStatement $parkStatement $values
     }
     foreach($r in $userScans){
         $login=[string]$r.Login
         if([string]::IsNullOrWhiteSpace($login)){throw 'Ligne scan legacy sans login.'}
         $loginKey=$login.ToLowerInvariant()
         $values=@($loginKey,$login,[string]$r.At,[int][bool]$r.Scanned,[int]$r.Candidates,[int]$r.Reachable,[int]$r.Probed,[string]$r.Found)
-        [void](Invoke-DomeniaDbExec ('INSERT INTO user_scan_history(login_key,login,scanned_at,scanned,candidates,reachable,probed,found) VALUES('+(($values|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');') $DatabaseHandle)
+        Invoke-StoreWStatement $scanStatement $values
     }
     foreach($r in $secrets){
         $computer=[string]$r.Computer
         if([string]::IsNullOrWhiteSpace($computer)){throw 'Ligne secret legacy sans ordinateur.'}
         $key=$computer.ToUpperInvariant()
         $values=@($key,$computer,[string]$r.At,[int]$r.BitLockerKeys,[string]$r.BitLockerLast,[string]$r.LapsScheme,[string]$r.LapsExpiry,[string]$r.Verdict,'Metadonnees sans secret')
-        [void](Invoke-DomeniaDbExec ('INSERT INTO secret_state(computer_key,computer,checked_at,bitlocker_keys,bitlocker_last,laps_scheme,laps_expiry,verdict,detail) VALUES('+(($values|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');') $DatabaseHandle)
+        Invoke-StoreWStatement $secretStatement $values
     }
     $conflicts=[Collections.Generic.List[string]]::new()
     $importedLinks=[Collections.Generic.List[object]]::new()
@@ -750,6 +860,9 @@ if($path.StartsWith('\\') -or [IO.DriveInfo]::new([IO.Path]::GetPathRoot($path))
 $probe=[IO.FileInfo]::new($path)
 while($null -ne $probe){if($probe.Exists -and ($probe.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'Base ou dossier redirige.'};$probe=if($probe -is [IO.FileInfo]){$probe.Directory}else{$probe.Parent}}
 $db=[IntPtr]::Zero;$transaction=$false;$conflicts=[Collections.Generic.List[string]]::new()
+# PF-07: statements of a previous session of this pooled runspace were finalized by its finally block.
+$script:StoreWStatements=[Collections.Generic.List[object]]::new()
+$indexStatement=$null;$secretRead=$null;$secretWrite=$null;$indexWatch=$null;$indexRows=0L
 try {
  $availableBytes=-1L
  try{$drive=[IO.DriveInfo]::new([IO.Path]::GetPathRoot($path));if($drive.IsReady){$availableBytes=[long]$drive.AvailableFreeSpace}}catch{}
@@ -758,12 +871,9 @@ try {
  if($availableBytes -ge 0 -and $availableBytes -lt $minimumBytes){throw ('StorageInsufficientSpace : espace libre '+$availableBytes+' octets, reserve minimale '+$minimumBytes+' octets. Le lot reste non enregistre.')}
  $db=Open-DomeniaDatabase -Path $path
  [void](Invoke-DomeniaDbExec 'PRAGMA synchronous=FULL;' $db)
- $sqliteVersion=[string](@(Invoke-DomeniaDbQuery 'SELECT sqlite_version() AS v;' $db)[0].v)
- $version=@(Invoke-DomeniaDbQuery "SELECT value FROM schema_info WHERE key='schema_version';" $db)
- if($version.Count -ne 1 -or [string]$version[0].value -ne '11'){throw 'Schema stockage incompatible.'}
- $future=@(Invoke-DomeniaDbQuery "SELECT value FROM schema_info WHERE key='domenia_schema';" $db)
- if($future.Count -ne 1 -or [string]$future[0].value -ne '1'){throw 'Version Domenia incompatible.'}
  [void](Invoke-DomeniaDbExec 'BEGIN IMMEDIATE;' $db);$transaction=$true
+ $sqliteVersion=Assert-StoreWSession $db
+ $sampleCount=0
  $storeItems=@($items|Where-Object{$_.Kind -eq 'StoreBatch'})
  if($storeItems.Count){
   if($items.Count -ne 1){throw 'Un lot canonique possede sa transaction.'}
@@ -795,8 +905,9 @@ try {
     # Same search_key formula as IndexBulk (CO-26): the extra field (system, location, service) stays searchable.
     $search=([string]$r.Name+' '+[string]$r.Login+' '+[string]$r.Upn+' '+[string]$r.Display+' '+[string]$r.Description+' '+[string]$r.Extra).ToLowerInvariant()
     $values=@($key,[string]$r.Guid,[string]$r.Type,[string]$r.Name,[string]$r.Login,[string]$r.Upn,[string]$r.Display,[string]$r.Description,[string]$r.Extra,[string]$r.State,[string]$r.DN,[string]$r.WhenChanged,[long]$r.Usn,[string]$r.LastLogon,$search,[string]$i.Server,[string]$i.At)
-    $sql='INSERT OR REPLACE INTO ad_objects(object_key,object_guid,object_type,name,login,upn,display_name,description,extra,state,distinguished_name,when_changed,usn_changed,last_logon,search_key,source_dc,synced_at) VALUES('+(($values|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');'
-    [void](Invoke-DomeniaDbExec $sql $db)
+    # PF-07: up to 64 rows per lot share one prepared statement.
+    if($null -eq $indexStatement){$indexStatement=New-StoreWStatement $db 'INSERT OR REPLACE INTO ad_objects(object_key,object_guid,object_type,name,login,upn,display_name,description,extra,state,distinguished_name,when_changed,usn_changed,last_logon,search_key,source_dc,synced_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)'}
+    Invoke-StoreWStatement $indexStatement $values
   } elseif($i.Kind -eq 'Link'){
     [void](Invoke-DomeniaLinkWrite -DatabaseHandle $db -Key ([string]$i.Key) -Expected ([string]$i.Expected) -Row $i.Row -Remove ([bool]$i.Remove) -Conflicts $conflicts -ImportMode $false)
   }elseif($i.Kind -eq 'ParkSession'){
@@ -805,7 +916,6 @@ try {
     # Widget probe results (2026-10-07) need a deeper and larger observation; still bounded.
     $json=$r|ConvertTo-Json -Depth 7 -Compress
     if([Text.Encoding]::UTF8.GetByteCount($json) -gt 262144){throw 'Observation du parc trop volumineuse.'}
-    [void](Invoke-DomeniaDbExec 'CREATE TABLE IF NOT EXISTS park_session_cache(object_key TEXT PRIMARY KEY,checked_utc TEXT NOT NULL,payload TEXT NOT NULL);' $db)
     $values=@([string]$r.Key,[string]$r.CheckedUtc,$json)
     [void](Invoke-DomeniaDbExec ('INSERT OR REPLACE INTO park_session_cache(object_key,checked_utc,payload) VALUES('+(($values|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');') $db)
     # Existing park coverage continues to display the latest attempt and the last known account.
@@ -819,11 +929,15 @@ try {
     # One computer, or the BitLocker presence of a whole OU (Rows): metadata only, never a key or a password.
     $secretRows=if($null -ne $i.Row.PSObject.Properties['Rows']){@($i.Row.Rows)}else{@($i.Row)}
     if($secretRows.Count -gt 50000){throw 'Lot de metadonnees de secrets trop grand.'}
+    # PF-07: the BitLocker presence of an OU may hold 50 000 rows: one prepared read and one prepared write, shared by
+    # every SecretMeta item of the lot.
+    if($null -eq $secretRead){
+      $secretRead=New-StoreWStatement $db 'SELECT * FROM secret_state WHERE computer_key=?1'
+      $secretWrite=New-StoreWStatement $db 'INSERT OR REPLACE INTO secret_state(computer_key,computer,checked_at,bitlocker_keys,bitlocker_last,laps_scheme,laps_expiry,verdict,detail) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9)'
+    }
     foreach($r in $secretRows){
         if($null -eq $r -or -not ([string]$r.Computer).Trim()){continue}
-        $key=ConvertTo-DomeniaSqlLiteral (([string]$r.Computer).ToUpperInvariant())
-        $old=@(Invoke-DomeniaDbQuery ("SELECT * FROM secret_state WHERE computer_key=$key;") $db)
-        $prev=if($old.Count){$old[0]}else{$null}
+        $prev=Read-StoreWStatementRow $secretRead @(([string]$r.Computer).ToUpperInvariant())
         # KeepKnown (BitLocker presence of an OU where nothing was visible): a key count already read for this computer
         # is never replaced by the zero of a read that saw nothing.
         if($null -ne $r.PSObject.Properties['KeepKnown'] -and [bool]$r.KeepKnown -and [int]$r.BitLockerKeys -eq 0 -and $null -ne $prev -and [int]$prev.bitlocker_keys -gt 0){continue}
@@ -833,15 +947,18 @@ try {
         $scheme=if([string]$r.LapsScheme){[string]$r.LapsScheme}else{[string]$prev.laps_scheme}
         $expiry=if([string]$r.LapsScheme){[string]$r.LapsExpiry}else{[string]$prev.laps_expiry}
         $values=@(([string]$r.Computer).ToUpperInvariant(),[string]$r.Computer,[string]$r.At,$keys,$last,$scheme,$expiry,[string]$r.Verdict,'Metadonnees sans secret')
-        [void](Invoke-DomeniaDbExec ('INSERT OR REPLACE INTO secret_state(computer_key,computer,checked_at,bitlocker_keys,bitlocker_last,laps_scheme,laps_expiry,verdict,detail) VALUES('+(($values|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');') $db)
+        Invoke-StoreWStatement $secretWrite $values
     }
+  }elseif($i.Kind -eq 'ParkReset'){
+    # FI-13: « Oublier les relevés » deletes the park sweep state (last probe, status, attempts) of this base, after the
+    # verified backup taken by the interface. Associations, observations and history are not touched.
+    [void](Invoke-DomeniaDbExec 'DELETE FROM park_state;' $db)
   }elseif($i.Kind -eq 'FleetSnapshot'){
     # Daily local snapshot of the directory figures of the displayed OU (FO-10): the first of the day is kept,
     # history older than 400 days is dropped. No network, no directory value beyond the counts.
     $r=$i.Row
     $scopeKey=[string]$r.ScopeKey;$day=[string]$r.Day;$figures=[string]$r.Figures
     if(-not $scopeKey -or $scopeKey.Length -gt 4096 -or $day -notmatch '^\d{4}-\d{2}-\d{2}$' -or $figures.Length -gt 4096){throw 'Instantane du parc invalide.'}
-    [void](Invoke-DomeniaDbExec 'CREATE TABLE IF NOT EXISTS fleet_snapshots(scope_key TEXT NOT NULL,snapshot_day TEXT NOT NULL,taken_at TEXT,scope_dn TEXT,machines INTEGER DEFAULT 0,figures TEXT,PRIMARY KEY(scope_key,snapshot_day));' $db)
     $values=@($scopeKey,$day,[string]$r.TakenAt,[string]$r.ScopeDn,[int]$r.Machines,$figures)
     [void](Invoke-DomeniaDbExec ('INSERT OR IGNORE INTO fleet_snapshots(scope_key,snapshot_day,taken_at,scope_dn,machines,figures) VALUES('+(($values|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');') $db)
     [void](Invoke-DomeniaDbExec "DELETE FROM fleet_snapshots WHERE snapshot_day < date('now','-400 days');" $db)
@@ -851,10 +968,13 @@ try {
       'Presence' {$table='presence_cache';$columns='object_key,state,target,checked_at';$values=@([string]$r.Key,[string]$r.State,[string]$r.Target,[string]$r.At)}
       'UserScan' {$table='user_scan_history';$columns='login_key,login,scanned_at,scanned,candidates,reachable,probed,found';$values=@(([string]$r.Login).ToLowerInvariant(),[string]$r.Login,[string]$r.At,[int][bool]$r.Scanned,[int]$r.Candidates,[int]$r.Reachable,[int]$r.Probed,[string]$r.Found)}
       'Park' {$table='park_state';$columns='computer_key,computer,last_probe,status,user_login,attempts';$values=@([string]$r.Key,[string]$r.Computer,[string]$r.LastProbe,[string]$r.Status,[string]$r.User,[int]$r.Attempts)}
-      'Sample' {$verb='INSERT';$table='operation_runs';$columns='operation,mode,item_count,duration_ms,bytes_estimated,ad_queries,remote_attempts,fallback_tasks,success_count,failure_count,started_at,finished_at,notes';$values=@([string]$r.Operation,[string]$r.Mode,[int]$r.ItemCount,[long]$r.DurationMs,[long]$r.BytesEstimated,[int]$r.AdQueries,[int]$r.RemoteAttempts,[int]$r.FallbackTasks,[int]$r.SuccessCount,[int]$r.FailureCount,[string]$r.StartedAt,[string]$r.Finished,'')}
+      'Sample' {$sampleCount++;$verb='INSERT';$table='operation_runs';$columns='operation,mode,item_count,duration_ms,bytes_estimated,ad_queries,remote_attempts,fallback_tasks,success_count,failure_count,started_at,finished_at,notes';$values=@([string]$r.Operation,[string]$r.Mode,[int]$r.ItemCount,[long]$r.DurationMs,[long]$r.BytesEstimated,[int]$r.AdQueries,[int]$r.RemoteAttempts,[int]$r.FallbackTasks,[int]$r.SuccessCount,[int]$r.FailureCount,[string]$r.StartedAt,[string]$r.Finished,'')}
     }
     [void](Invoke-DomeniaDbExec ($verb+' INTO '+$table+'('+$columns+') VALUES('+(($values|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');') $db)
   }elseif($i.Kind -eq 'IndexBulk'){
+    # PF-07: storage time of the lot (validation, prepared inserts, reconciliation and COMMIT), returned to the
+    # interface as an IndexStore sample beside the IndexBuild samples of the AD read.
+    if($null -eq $indexWatch){$indexWatch=[Diagnostics.Stopwatch]::StartNew()}
     $bulk=$i.Row
     $reader=$null;$stream=$null;$hashAlgorithm=$null;$enumerator=$null;$readCount=0L;$identityCount=0L
     $transfer=$null;if($null -ne $bulk.PSObject.Properties['Transfer']){$transfer=$bulk.Transfer}
@@ -918,10 +1038,21 @@ try {
       $enumerator=$records.GetEnumerator()
     }
     if($null -ne $progress){$progress.Phase='Enregistrement'}
-    $sqlBatch=[Text.StringBuilder]::new()
+    # PF-07: one prepared statement per table for the whole lot; the former text batches parsed every row again.
+    $objectSql='INSERT OR REPLACE INTO ad_objects(object_key,object_guid,object_type,name,login,upn,display_name,description,extra,state,distinguished_name,when_changed,usn_changed,last_logon,search_key,source_dc,synced_at) SELECT ?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17'
+    $factSql='INSERT OR REPLACE INTO ad_computer_facts(object_guid,object_key,os_version,when_created,pwd_last_set,laps_kind,laps_expiry,read_at) SELECT ?1,?2,?3,?4,?5,?6,?7,?8'
+    $seenStatement=$null;$batchStatement=$null;$cutoffText=''
+    if($null -ne $reconcile){
+      # A row made newer than this read (another console, a later single update) is never overwritten by the lot.
+      $objectSql+=' WHERE ?1 IN (SELECT object_key FROM temp.index_batch)';$factSql+=' WHERE ?2 IN (SELECT object_key FROM temp.index_batch)'
+      $cutoffText=$started.ToUniversalTime().ToString('o')
+      $seenStatement=New-StoreWStatement $db 'INSERT INTO temp.index_seen(guid,dn) VALUES(?1,?2)'
+      $batchStatement=New-StoreWStatement $db 'INSERT INTO temp.index_batch(object_key) SELECT ?1 WHERE NOT EXISTS(SELECT 1 FROM ad_objects WHERE object_key=?1 AND julianday(synced_at)>julianday(?2))'
+    }
+    $objectStatement=New-StoreWStatement $db $objectSql
+    $factStatement=New-StoreWStatement $db $factSql
 
     # Computer facts read with the index (decision David 2026-10-08): emptied with it, refilled in this transaction.
-    [void](Invoke-DomeniaDbExec 'CREATE TABLE IF NOT EXISTS ad_computer_facts(object_guid TEXT PRIMARY KEY,object_key TEXT,os_version TEXT,when_created TEXT,pwd_last_set TEXT,laps_kind TEXT,laps_expiry TEXT,read_at TEXT);' $db)
     if($bulk.ReplaceAll -and (-not $complete -or -not $isDirectoryScope)){throw 'Reconstruction refusee : lecture complete du domaine requise.'}
     $previousSync=@()
     if($isDirectoryScope){$previousSync=@(Invoke-DomeniaDbQuery "SELECT COALESCE(last_sync,'') AS v FROM sync_state WHERE scope='directory';" $db)}
@@ -946,35 +1077,28 @@ try {
         $r.Guid=$guid.ToString('D').ToLowerInvariant()
         if($isIdentity -or $reconcile.Mode -eq 'Rows'){
           if(-not $seenIdentities.Add([string]$r.Guid)){throw 'GUID duplique dans le recensement.'}
-          [void]$sqlBatch.Append(('INSERT INTO temp.index_seen(guid,dn) VALUES('+(ConvertTo-DomeniaSqlLiteral ([string]$r.Guid))+','+(ConvertTo-DomeniaSqlLiteral ([string]$r.DN))+');'))
+          Invoke-StoreWStatement $seenStatement @([string]$r.Guid,[string]$r.DN)
         }
         if($isIdentity){
           $identityCount++
-          if(($identityCount % 256) -eq 0){[void](Invoke-DomeniaDbExec $sqlBatch.ToString() $db);[void]$sqlBatch.Clear()}
           continue
         }
       }
       if($null -eq $r -or [string]$r.Type -notin @('Machine','Utilisateur') -or -not [string]$r.DN -or -not [string]$r.Name){throw 'Identite manquante dans un enregistrement index.'}
       $readCount++
       $key=([string]$r.Guid).ToLowerInvariant();if(-not $key){$key=([string]$r.Type+'|'+[string]$r.DN).ToLowerInvariant()}
-      $rowGuard=''
-      if($null -ne $reconcile){
-        $keySql=ConvertTo-DomeniaSqlLiteral $key
-        $cutoff=ConvertTo-DomeniaSqlLiteral ($started.ToUniversalTime().ToString('o'))
-        [void]$sqlBatch.Append(('INSERT INTO temp.index_batch(object_key) SELECT '+$keySql+' WHERE NOT EXISTS(SELECT 1 FROM ad_objects WHERE object_key='+$keySql+' AND julianday(synced_at)>julianday('+$cutoff+'));'))
-        $rowGuard=' WHERE '+$keySql+' IN (SELECT object_key FROM temp.index_batch)'
-      }
+      if($null -ne $reconcile){Invoke-StoreWStatement $batchStatement @($key,$cutoffText)}
       $search=([string]$r.Name+' '+[string]$r.Login+' '+[string]$r.Upn+' '+[string]$r.Display+' '+[string]$r.Description+' '+[string]$r.Extra).ToLowerInvariant()
       $values=@($key,[string]$r.Guid,[string]$r.Type,[string]$r.Name,[string]$r.Login,[string]$r.Upn,[string]$r.Display,[string]$r.Description,[string]$r.Extra,[string]$r.State,[string]$r.DN,[string]$r.WhenChanged,[long]$r.Usn,[string]$r.LastLogon,$search,[string]$bulk.Server,[string]$bulk.At)
-      [void]$sqlBatch.Append(('INSERT OR REPLACE INTO ad_objects(object_key,object_guid,object_type,name,login,upn,display_name,description,extra,state,distinguished_name,when_changed,usn_changed,last_logon,search_key,source_dc,synced_at) SELECT '+(($values|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+$rowGuard+';'))
+      Invoke-StoreWStatement $objectStatement $values
       if([string]$r.Type -eq 'Machine' -and [string]$r.Guid -and $null -ne $r.PSObject.Properties['Facts'] -and [bool]$r.Facts){
         $facts=@(([string]$r.Guid).ToLowerInvariant(),$key,[string]$r.OsVersion,[string]$r.WhenCreated,[string]$r.PwdLastSet,[string]$r.LapsKind,[string]$r.LapsExpiry,[string]$bulk.At)
-        [void]$sqlBatch.Append(('INSERT OR REPLACE INTO ad_computer_facts(object_guid,object_key,os_version,when_created,pwd_last_set,laps_kind,laps_expiry,read_at) SELECT '+(($facts|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+$rowGuard+';'))
+        Invoke-StoreWStatement $factStatement $facts
       }
-      if(($readCount % 256) -eq 0){[void](Invoke-DomeniaDbExec $sqlBatch.ToString() $db);[void]$sqlBatch.Clear();if($null -ne $progress){$progress.Count=$readCount}}
+      if((($readCount % 256) -eq 0) -and ($null -ne $progress)){$progress.Count=$readCount}
     }
-    if($sqlBatch.Length){[void](Invoke-DomeniaDbExec $sqlBatch.ToString() $db)}
     if($null -ne $transfer -and $readCount -ne [long]$transfer.RowCount){throw 'Nombre de lignes du lot index incoherent : transaction annulee.'}
+    $indexRows+=$readCount
     if($null -ne $reconcile){
       $expected=if($reconcile.Mode -eq 'Census'){$identityCount}else{$readCount}
       if($expected -ne [long]$reconcile.ExpectedCount){throw 'Nombre d identites incoherent : transaction annulee.'}
@@ -988,18 +1112,20 @@ try {
         if($isDirectoryScope -and -not $bulk.ReplaceAll -and $expected -eq 0 -and [long](@(Invoke-DomeniaDbQuery 'SELECT count(*) AS n FROM ad_objects;' $db)[0].n) -gt 0){throw 'Recensement vide : reconstruction complete explicite requise.'}
         $cutoff=ConvertTo-DomeniaSqlLiteral ($started.ToUniversalTime().ToString('o'))
         $candidates=@(Invoke-DomeniaDbQuery ('SELECT a.object_key,a.object_guid,a.distinguished_name,s.dn AS current_dn FROM ad_objects a LEFT JOIN temp.index_seen s ON lower(a.object_guid)=s.guid WHERE COALESCE(a.synced_at,'''')='''' OR julianday(a.synced_at)<=julianday('+$cutoff+') OR a.object_key IN (SELECT object_key FROM temp.index_batch);') $db)
-        [void]$sqlBatch.Clear();$reconciled=0
+        $moveStatement=$null;$dropFactStatement=$null;$dropObjectStatement=$null
         foreach($candidate in $candidates){
-          $keySql=ConvertTo-DomeniaSqlLiteral ([string]$candidate.object_key)
+          $candidateKey=[string]$candidate.object_key
           if([string]$candidate.current_dn){
-            if($reconcile.Mode -eq 'Census' -and [string]$candidate.distinguished_name -ine [string]$candidate.current_dn){[void]$sqlBatch.Append(('UPDATE ad_objects SET distinguished_name='+(ConvertTo-DomeniaSqlLiteral ([string]$candidate.current_dn))+' WHERE object_key='+$keySql+';'))}
+            if(($reconcile.Mode -eq 'Census') -and ([string]$candidate.distinguished_name -ine [string]$candidate.current_dn)){
+              if($null -eq $moveStatement){$moveStatement=New-StoreWStatement $db 'UPDATE ad_objects SET distinguished_name=?1 WHERE object_key=?2'}
+              Invoke-StoreWStatement $moveStatement @([string]$candidate.current_dn,$candidateKey)
+            }
           }elseif(Test-IndexDnInScope ([string]$candidate.distinguished_name) ([string]$reconcile.ScopeDn) ([string]$reconcile.SearchScope)){
-            [void]$sqlBatch.Append(('DELETE FROM ad_computer_facts WHERE object_key='+$keySql+';DELETE FROM ad_objects WHERE object_key='+$keySql+';'))
+            if($null -eq $dropObjectStatement){$dropFactStatement=New-StoreWStatement $db 'DELETE FROM ad_computer_facts WHERE object_key=?1';$dropObjectStatement=New-StoreWStatement $db 'DELETE FROM ad_objects WHERE object_key=?1'}
+            Invoke-StoreWStatement $dropFactStatement @($candidateKey)
+            Invoke-StoreWStatement $dropObjectStatement @($candidateKey)
           }
-          $reconciled++
-          if(($reconciled % 256) -eq 0 -and $sqlBatch.Length){[void](Invoke-DomeniaDbExec $sqlBatch.ToString() $db);[void]$sqlBatch.Clear()}
         }
-        if($sqlBatch.Length){[void](Invoke-DomeniaDbExec $sqlBatch.ToString() $db)}
       }
     }elseif($null -ne $transfer -and $null -ne $transfer.PSObject.Properties['CensusRowCount'] -and [long]$transfer.CensusRowCount -ne 0){throw 'Recensement sans perimetre : transaction annulee.'}
     # Only a complete domain delta can certify unchanged facts. An OU or interrupted pass cannot do so.
@@ -1026,11 +1152,18 @@ try {
     }
   }else{throw 'Type stockage non autorise.'}
  }
- [void](Invoke-DomeniaDbExec 'DELETE FROM operation_runs WHERE id NOT IN (SELECT id FROM operation_runs ORDER BY id DESC LIMIT 10000);' $db)
+ # PF-26: the bounded history of measures is trimmed only after a sample was inserted, and only past 11 000 rows,
+ # down to the newest 10 000: one count per batch of samples instead of a DELETE scan at every COMMIT.
+ if($sampleCount -gt 0){
+  $runs=[long](@(Invoke-DomeniaDbQuery 'SELECT count(*) AS n FROM operation_runs;' $db)[0].n)
+  if($runs -gt 11000){[void](Invoke-DomeniaDbExec 'DELETE FROM operation_runs WHERE id<(SELECT min(id) FROM (SELECT id FROM operation_runs ORDER BY id DESC LIMIT 10000));' $db)}
+ }
  # User request 2026-10-04: association history is retained; only explicit History purge removes it.
+ Close-StoreWStatements
  [void](Invoke-DomeniaDbExec 'UPDATE domenia_store_state SET revision=revision+1 WHERE id=1;COMMIT;' $db);$transaction=$false
- [pscustomobject]@{Saved=$true;Conflicts=$conflicts.ToArray();Count=@($Payload.Items).Count;Already=0;Imported=0;ImportedLinks=@()}
-} finally {if($transaction){try{[void](Invoke-DomeniaDbExec 'ROLLBACK;' $db)}catch{}};if($db -ne [IntPtr]::Zero){Close-DomeniaDatabase $db}}
+ $indexWriteMs=0L;if($null -ne $indexWatch){$indexWatch.Stop();$indexWriteMs=[long]$indexWatch.ElapsedMilliseconds}
+ [pscustomobject]@{Saved=$true;Conflicts=$conflicts.ToArray();Count=@($Payload.Items).Count;Already=0;Imported=0;ImportedLinks=@();IndexRows=[long]$indexRows;IndexWriteMs=$indexWriteMs}
+} finally {Close-StoreWStatements;if($transaction){try{[void](Invoke-DomeniaDbExec 'ROLLBACK;' $db)}catch{}};if($db -ne [IntPtr]::Zero){Close-DomeniaDatabase $db}}
 '@
     return (Get-DomeniaStorageLeaseWorkerCode) + [Environment]::NewLine + $script:DomeniaStoreQueryValidationCode + [Environment]::NewLine + $body
 }
@@ -1084,7 +1217,10 @@ function Open-DomeniaDatabase {
         $flags = if ($ReadOnly) { 1 -bor 65536 } else { 2 -bor 4 -bor 65536 }
         $rc = [Domenia.WinSqliteNative]::sqlite3_open_v2($pathPtr,[ref]$db,$flags,[IntPtr]::Zero)
         if ($rc -ne 0 -or $db -eq [IntPtr]::Zero) { throw "Ouverture SQLite impossible (code $rc)." }
-        [void][Domenia.WinSqliteNative]::sqlite3_busy_timeout($db,300)
+        # FI-12: lock wait from the worker context (LocalStore.DatabaseBusyTimeoutMs), 2 500 ms without one.
+        $busyMs=2500;$workerContext=Get-Variable -Name Context -ValueOnly -ErrorAction SilentlyContinue
+        if(($null -ne $workerContext) -and ($null -ne $workerContext.PSObject.Properties['BusyTimeoutMs'])){$busyMs=[Math]::Max(100,[Math]::Min(5000,[int]$workerContext.BusyTimeoutMs))}
+        [void][Domenia.WinSqliteNative]::sqlite3_busy_timeout($db,$busyMs)
         if(-not $ReadOnly){Assert-StoreWDatabaseWritable $db;if($null -eq $script:StoreWHandleLeases){$script:StoreWHandleLeases=@{}};$script:StoreWHandleLeases[$db.ToInt64()]=$writeLease;$writeLease=$null}
         return $db
     }
@@ -1305,7 +1441,10 @@ function Open-DomeniaDatabase {
         $flags = if ($ReadOnly) { 1 -bor 65536 } else { 2 -bor 65536 }
         $rc = [Domenia.WinSqliteNative]::sqlite3_open_v2($pathPtr,[ref]$db,$flags,[IntPtr]::Zero)
         if ($rc -ne 0 -or $db -eq [IntPtr]::Zero) { throw "Ouverture SQLite impossible (code $rc)." }
-        [void][Domenia.WinSqliteNative]::sqlite3_busy_timeout($db,300)
+        # FI-12: lock wait from the worker context (LocalStore.DatabaseBusyTimeoutMs), 2 500 ms without one.
+        $busyMs=2500;$workerContext=Get-Variable -Name Context -ValueOnly -ErrorAction SilentlyContinue
+        if(($null -ne $workerContext) -and ($null -ne $workerContext.PSObject.Properties['BusyTimeoutMs'])){$busyMs=[Math]::Max(100,[Math]::Min(5000,[int]$workerContext.BusyTimeoutMs))}
+        [void][Domenia.WinSqliteNative]::sqlite3_busy_timeout($db,$busyMs)
         if(-not $ReadOnly){Assert-StoreWDatabaseWritable $db;if($null -eq $script:StoreWHandleLeases){$script:StoreWHandleLeases=@{}};$script:StoreWHandleLeases[$db.ToInt64()]=$writeLease;$writeLease=$null}
         return $db
     }
@@ -1534,7 +1673,10 @@ function Open-DomeniaDatabase {
         $flags = if ($ReadOnly) { 1 -bor 65536 } else { 2 -bor 4 -bor 65536 }
         $rc = [Domenia.WinSqliteNative]::sqlite3_open_v2($pathPtr,[ref]$db,$flags,[IntPtr]::Zero)
         if ($rc -ne 0 -or $db -eq [IntPtr]::Zero) { throw "Ouverture SQLite impossible (code $rc)." }
-        [void][Domenia.WinSqliteNative]::sqlite3_busy_timeout($db,300)
+        # FI-12: lock wait from the worker context (LocalStore.DatabaseBusyTimeoutMs), 2 500 ms without one.
+        $busyMs=2500;$workerContext=Get-Variable -Name Context -ValueOnly -ErrorAction SilentlyContinue
+        if(($null -ne $workerContext) -and ($null -ne $workerContext.PSObject.Properties['BusyTimeoutMs'])){$busyMs=[Math]::Max(100,[Math]::Min(5000,[int]$workerContext.BusyTimeoutMs))}
+        [void][Domenia.WinSqliteNative]::sqlite3_busy_timeout($db,$busyMs)
         if(-not $ReadOnly){Assert-StoreWDatabaseWritable $db;if($null -eq $script:StoreWHandleLeases){$script:StoreWHandleLeases=@{}};$script:StoreWHandleLeases[$db.ToInt64()]=$writeLease;$writeLease=$null}
         return $db
     }
@@ -1613,6 +1755,12 @@ function Get-DomeniaDatabasePath {throw 'Chemin de base explicite requis pour la
 # The original is opened read-only and never modified; a partial copy is removed on failure.
 $dbPath=[string]$Payload.Database;$backupDir=[string]$Payload.BackupDirectory;$copyTo=[string]$Payload.CopyTo
 $budget=[Math]::Max(5,[Math]::Min(120,[int]$Payload.BudgetSeconds));$keep=[Math]::Max(2,[Math]::Min(30,[int]$Payload.Keep))
+# FI-13: the copies taken before a gesture form their own series (Geste-*.db), rotated apart from the scheduled and
+# manual copies (Domenia-*.db), so that frequent gestures never remove a deliberate copy. Any other value is refused.
+$series='';if($null -ne $Payload.PSObject.Properties['Series']){$series=[string]$Payload.Series}
+if(($series -cne '') -and ($series -cne 'Gesture')){throw 'Série de sauvegarde inconnue.'}
+if(($series -ceq 'Gesture') -and ([bool]$copyTo)){throw 'Une sauvegarde avant geste ne se copie pas vers un fichier choisi.'}
+$filePrefix=if($series -ceq 'Gesture'){'Geste-'}else{'Domenia-'}
 function Get-WBackupSafePath {
     param([string]$Path)
     if([string]::IsNullOrWhiteSpace($Path)){throw 'Chemin de sauvegarde vide.'}
@@ -1636,7 +1784,7 @@ if($copyTo){
 if(-not [IO.File]::Exists($dbPath)){throw 'aucune base active a sauvegarder.'}
 [void][IO.Directory]::CreateDirectory($backupDir)
 $stamp=(Get-Date -Format 'yyyyMMdd-HHmmss-fff')+'-'+[guid]::NewGuid().ToString('N').Substring(0,8)
-$dest=Join-Path $backupDir ('Domenia-'+$stamp+'.db');$temporary=$dest+'.partial'
+$dest=Join-Path $backupDir ($filePrefix+$stamp+'.db');$temporary=$dest+'.partial'
 $sourceDb=[IntPtr]::Zero;$targetDb=[IntPtr]::Zero;$backup=[IntPtr]::Zero;$mainPtr=[IntPtr]::Zero;$complete=$false;$exportTemporary=''
 try{
     $sourceDb=Open-DomeniaDatabase -Path $dbPath -ReadOnly
@@ -1659,7 +1807,7 @@ try{
     Close-DomeniaDatabase $targetDb;$targetDb=[IntPtr]::Zero
     Close-DomeniaDatabase $sourceDb;$sourceDb=[IntPtr]::Zero
     [IO.File]::Move($temporary,$dest);$complete=$true
-    Get-ChildItem -LiteralPath $backupDir -Filter 'Domenia-*.db' -File | Sort-Object LastWriteTime -Descending | Select-Object -Skip $keep | ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue }
+    Get-ChildItem -LiteralPath $backupDir -Filter ($filePrefix+'*.db') -File | Sort-Object LastWriteTime -Descending | Select-Object -Skip $keep | ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue }
     if($copyTo){
         try{
             # Publish a fully flushed sibling copy atomically. A failed export leaves the

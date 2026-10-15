@@ -75,6 +75,38 @@ Case 'Point 85: model x BIOS cross table reads the dated BIOS probe and keeps un
  Expect (@($pivot.Rows|Where-Object{$_.Column -eq '0.1'}).Count -eq 0) 'Expired BIOS reading used'
  Expect ((@($pivot.Rows|Where-Object{$_.Column -eq 'BIOS non relevé'})|Measure-Object -Property Count -Sum).Sum -eq 2) 'Unread BIOS silently removed'
 }
+Case 'Point 75: per-OU explanation lists masked workstations without scoring them' {
+ $book=New-PolicyBook;$p=Resolve-DomeniaHealthPolicy $book $beta;$p.Thresholds.DiskFreeAlert=20;$p.DisabledRules=@(@($p.DisabledRules)+'lowdisk');$book=Set-DomeniaHealthScopePolicy $book $beta $p;$board=Board $book
+ Expect (($board.Last.ProblemTargets.Count -eq 0) -and ($board.Last.HealthyTargets.Count -eq 2) -and ($board.Last.UnknownTargets.Count -eq 2)) 'Masked rule entered the score'
+ $row=@($board.HealthExplanation.Rows|Where-Object{$_.Id -eq 'lowdisk'})[0]
+ Expect (($row.Status -eq 'Selon lʼOU') -and ([int]$row.Machines -eq 0) -and ([int]$row.Masked -eq 2)) ('Masked OU count wrong: '+$row.Status+' '+$row.Masked)
+ $betaIds=@($board.Last.Targets|Where-Object{$_.distinguished_name.EndsWith(','+$beta)}|ForEach-Object{[string]$_.object_guid}|Sort-Object)
+ Expect ((@($row.MaskedGuids|Sort-Object) -join ',') -eq ($betaIds -join ',')) 'Masked GUIDs are not the OU workstations'
+ Expect (@($board.SuppressedAttention|Where-Object{($_.Point -eq 'lowdisk') -and ($_.Reason -eq 'Disabled')}).Count -eq 1) 'Parent-policy masked points not replaced by the OU evaluation'
+ Expect ([string]$row.Eligible -eq '4 / 4') ('Eligible population '+$row.Eligible)
+}
+Case 'Point 78: a daily comparison names a coverage improvement, not a fleet change' {
+ $book=New-PolicyBook;$partial=New-Source;$partial.Presence=@($partial.Presence[0..1])
+ $one=Get-DomeniaFleetBoardData $partial -Scope $scope -Now $now -HealthPolicy (Resolve-DomeniaHealthPolicy $book $scope) -HealthPolicyBook $book
+ $two=Board $book $now.AddDays(1)
+ $comparison=Compare-DomeniaHealthSnapshots ([pscustomobject]@{Label='Veille';Day='2026-10-13';Figures=$one.Snapshot.Figures}) ([pscustomobject]@{Label='Jour';Day='2026-10-14';Figures=$two.Snapshot.Figures})
+ Expect (($comparison.Category -eq 'Couverture') -and (-not $comparison.Comparable)) ('Coverage change read as '+$comparison.Category)
+ Expect ($comparison.Summary.StartsWith('Amélioration de la couverture')) $comparison.Summary
+ Expect (@($comparison.Factors|Where-Object{($_.Factor -eq 'Périmètre') -and ($_.Status -eq 'Inchangé')}).Count -eq 1) 'Same GUID population reported as changed'
+}
+Case 'Point 79: every fleet cross table opens as a matrix whose totals match its workstations' {
+ $board=Board (New-PolicyBook)
+ foreach($key in @('OuWindows','ModelRam','SiteCoverage','ModelBios')){
+  $m=ConvertTo-DomeniaPivotMatrix -Table $board.Pivots[$key];$rows=0;foreach($r in @($m.Rows)){$rows+=$r.Total};$cols=0;foreach($c in @($m.ColumnTotals)){$cols+=$c}
+  Expect (($m.GrandTotal -eq 4) -and ($rows -eq 4) -and ($cols -eq 4) -and ($m.Total -eq 4)) ('Incoherent totals '+$key)
+ }
+}
+Case 'Points 75 to 79: the dashboard dialogs call the tested rules' {
+ $ui=[IO.File]::ReadAllText((Join-Path $modules 'Domenia-HealthRules.UI.ps1'))
+ foreach($hook in @('Get-DomeniaHealthPolicyOrigins','Get-DomeniaHealthPolicyExceptions','Get-DomeniaHealthEditorScopes','New-DomeniaHealthEditorPolicy','ConvertTo-DomeniaEndedHealthSuspension','ConvertTo-DomeniaPivotMatrix','Compare-DomeniaHealthSnapshots','MaskedGuids','Show-DomeniaAttentionInWorkshop')){Expect ($ui.Contains($hook)) ('UI hook missing: '+$hook)}
+ $widgets=[IO.File]::ReadAllText((Join-Path $modules 'Domenia-Widgets.UI.ps1'))
+ foreach($action in @("'HealthExplanation'","'FleetAnalysis'","'HealthRules'")){Expect ($widgets.Contains($action)) ('Board action missing: '+$action)}
+}
 Case 'New GUI modules and worker body parse, keyboard and canonical hooks remain present' {
  foreach($n in @('HealthRules.Model','HealthRules.UI','Boards.Model','BoardFleet.Model','BoardComputer.UI','Charts.UI','Widgets.UI','Dashboard.UI','Engine.Worker','Refresh.UI')){$tokens=$null;$errors=$null;[void][Management.Automation.Language.Parser]::ParseFile((Join-Path $modules ('Domenia-'+$n+'.ps1')),[ref]$tokens,[ref]$errors);Expect (@($errors).Count -eq 0) ($n+' '+($errors|Out-String))}
  . (Join-Path $modules 'Domenia-Engine.Worker.ps1');$tokens=$null;$errors=$null;[void][Management.Automation.Language.Parser]::ParseInput((Get-DomeniaLocalIndexReadWorkerCode),[ref]$tokens,[ref]$errors);Expect (@($errors).Count -eq 0) ('Worker '+($errors|Out-String))

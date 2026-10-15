@@ -347,6 +347,53 @@ function Get-DomeniaEvidenceBadge {
     return [pscustomobject]@{Badge=$badge;Label=(Get-DomeniaEvidenceLabel $badge);Rule=$rule;Provenance=$provenance;Kind=$kind}
 }
 
+function Get-DomeniaLinkSummaryText {
+    # UI-17: the association of a workstation on one line, with its badge: « Camille Martin · console observée le
+    # 08/10 à 08:15 ». The name comes from the DN kept with the link, else the login. The date is local, its year
+    # shown only when it is not the current one. No link reads « Aucun utilisateur associé » (or the running probe).
+    param($Link,$NowUtc=$null,[switch]$Probing)
+    if ($null -eq $Link) {
+        $empty = 'Aucun utilisateur associé'
+        $help = 'Aucune association en mémoire locale pour ce poste. « Détecter à nouveau » interroge le poste.'
+        if ($Probing) { $empty = 'Détection de lʼutilisateur en cours…'; $help = 'Le poste est interrogé ; la ligne se remplit à la réponse.' }
+        return [pscustomobject]@{HasLink=$false;Badge='';BadgeLabel='';BadgeRule='';User='';Login='';Text=$empty;Detail=$help}
+    }
+    $login = ([string](Get-DomeniaMember $Link 'UserLogin' '')).Trim()
+    $display = ''
+    $dn = [string](Get-DomeniaMember $Link 'UserDn' '')
+    if ($dn) {
+        $first = [string](@(Split-DomeniaRawDn $dn) | Select-Object -First 1)
+        if ($first -match '^(?i:cn)=(.+)$') { $display = (ConvertFrom-DomeniaDnLabel $Matches[1]).Trim() }
+    }
+    if (-not $display) { $display = $login }
+    if (-not $display) { $display = 'Compte non nommé' }
+    $badge = Get-DomeniaEvidenceBadge $Link
+    $phrase = 'origine à vérifier'
+    switch ([string]$badge.Kind) {
+        'Affectation' { $phrase = 'affectation déclarée' }
+        'Console'     { $phrase = 'console observée' }
+        'SessionRdp'  { $phrase = 'session à distance observée' }
+        'Historique'  { $phrase = 'ouverture de session relevée' }
+        'Importe'     { $phrase = 'association importée' }
+        'Indice'      { $phrase = 'indice relevé' }
+    }
+    $utc = ConvertTo-DomeniaRelationUtcDate (Get-DomeniaMember $Link 'When' $null)
+    if ($null -ne $utc) {
+        $now = $null
+        if ($null -ne $NowUtc) { $now = ConvertTo-DomeniaUtcDate $NowUtc }
+        if ($null -eq $now) { $now = [datetime]::UtcNow }
+        $local = $utc.ToLocalTime()
+        $day = $local.ToString('dd/MM',[Globalization.CultureInfo]::InvariantCulture)
+        if ($local.Year -ne $now.ToLocalTime().Year) { $day = $local.ToString('dd/MM/yyyy',[Globalization.CultureInfo]::InvariantCulture) }
+        $phrase += ' le ' + $day + ' à ' + $local.ToString('HH:mm',[Globalization.CultureInfo]::InvariantCulture)
+    }
+    $source = ConvertTo-DomeniaFlatText ([string](Get-DomeniaMember $Link 'Source' '')) 80
+    $detail = [string]$badge.Rule
+    if ($login) { $detail = 'Compte ' + $login + '. ' + $detail }
+    if ($source) { $detail += ' Source : ' + $source + '.' }
+    return [pscustomobject]@{HasLink=$true;Badge=[string]$badge.Badge;BadgeLabel=[string]$badge.Label;BadgeRule=[string]$badge.Rule;User=$display;Login=$login;Text=($display + ' · ' + $phrase);Detail=$detail}
+}
+
 # ---------------------------------------------------------------- D045 in-page association
 function Step-DomeniaAssociationState {
     # Idle -> Searching -> Candidate -> Pending -> Verifying -> Saved. Every refusal is explicit; nothing is modal.

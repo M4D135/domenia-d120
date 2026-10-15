@@ -22,7 +22,7 @@ if (@($errors).Count -gt 0) { throw ('Syntaxe du coeur : '+$errors[0].Message) }
 # removed from the plan, the import fails with DOMENIA_MODULE_EXPORT and every case below fails.
 . (Join-Path $root 'wad\Domenia-Modules.ps1')
 $functionNodes=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst]},$true))
-$names=@('New-DomeniaAccountAuthRequest','Test-DomeniaCredentialBind','Test-DomeniaActiveDirectoryCredential','Save-DomeniaSecondaryCredential','Get-WorkerContext','Set-ControlsBusy')
+$names=@('New-DomeniaAccountAuthRequest','Test-DomeniaCredentialBind','Save-DomeniaSecondaryCredential','Get-WorkerContext','Set-ControlsBusy','Start-DomeniaAccountRelogin')
 $definitions=New-Object 'System.Collections.Generic.List[string]'
 foreach ($name in $names) {
     $found=@($functionNodes | Where-Object {$_.Name -eq $name})
@@ -179,6 +179,18 @@ function Complete-Fixture {
     Complete-DomeniaAccountValidation
 }
 function Get-FixtureLog { return ($script:Log.ToArray() -join "`n") }
+# CO-31: change of account. Only the sign-in window and the dirty-cache flush are doubles; nothing else is reached
+# when the operator cancels the sign-in.
+function Show-LoginWindow { param([switch]$PreferForm,[string]$PrefillLogin='') $script:LoginCalls.Add([pscustomobject]@{PreferForm=[bool]$PreferForm;PrefillLogin=[string]$PrefillLogin});return $false }
+function Show-InfoBox { param($Message,$Details) $script:InfoBoxes.Add([string]$Message) }
+function Complete-DomeniaDetachedReadJobs {}
+function Stop-DomeniaSelectionOpenTimer {}
+function Flush-DomeniaIndex { return $true }
+function Reset-ReloginFixture {
+    $script:LoginCalls=New-Object 'System.Collections.Generic.List[object]'
+    $script:InfoBoxes=New-Object 'System.Collections.Generic.List[string]'
+    $script:AsyncJobs=@{};$script:DetachedReadJobs=@();$script:IndexDirty=$false;$script:LiveSearchTimer=$null
+}
 
 Test-Case 'Requete : meme identite qualifiee et meme contexte que le login' {
     $p=New-TestPassword
@@ -333,20 +345,39 @@ Test-Case 'Activation en timeout : aucune modification meme apres retour tardif'
     Assert-Test ([object]::ReferenceEquals($oldRemote,$script:RemoteAdminCredential) -and $script:Settings.Count -eq 0)
     Assert-Test ($script:ReadCalls -eq 0 -and $script:Ctrl['PwdAccountRemote'].Password -eq 'form-not-cleared')
 }
-Test-Case 'Test compte AD : nom modifie refuse sans envoyer le mot de passe actif' {
-    Assert-Throws {Test-DomeniaActiveDirectoryCredential -UserName 'EXAMPLE\another-user'} 'champ identifiant AD a ete modifie'
-    Assert-Test ($script:StartCalls -eq 0)
+# CO-31 (lot X03) : la zone Annuaire est une carte en lecture seule ; « Changer de compte » preremplit la connexion.
+Test-Case 'CO-31 : changer de compte preremplit la connexion avec le compte saisi, sans ecrire LastLogin' {
+    Reset-ReloginFixture
+    Start-DomeniaAccountRelogin
+    Assert-Test ($script:LoginCalls.Count -eq 1) ('Connexion ouverte '+$script:LoginCalls.Count+' fois')
+    Assert-Test ($script:LoginCalls[0].PreferForm -and $script:LoginCalls[0].PrefillLogin -ceq 'EXAMPLE\ad-reader') ('Preremplissage : '+$script:LoginCalls[0].PrefillLogin)
+    Assert-Test ($script:Settings.Count -eq 0) ('Preference ecrite : '+(@($script:Settings.Keys) -join ','))
+    Assert-Test ((Get-FixtureLog) -match 'Changement de compte annulé') (Get-FixtureLog)
+    Assert-Test ($script:StartCalls -eq 0 -and $script:Conn.BindUser -eq 'EXAMPLE\ad-reader') 'Session modifiee par une annulation'
 }
-Test-Case 'Test compte AD : nom court du meme domaine accepte avec identite active exacte' {
-    $r=Test-DomeniaActiveDirectoryCredential -UserName 'AD-READER'
-    Assert-Test ($r.Pending -and $script:LastCredential.UserName -ceq 'EXAMPLE\ad-reader')
-    Complete-Fixture
-    Assert-Test ((Get-FixtureLog) -match 'Identite AD validee : EXAMPLE\\ad-reader') (Get-FixtureLog)
+Test-Case 'CO-31 : en session Windows, rien n est prerempli et aucun test AD n est lance' {
+    Reset-ReloginFixture
+    $script:Conn.AuthMode='Windows';$script:Conn.UseCredential=$false;$script:Conn.Credential=$null
+    Start-DomeniaAccountRelogin
+    Assert-Test ($script:LoginCalls.Count -eq 1 -and $script:LoginCalls[0].PreferForm -and $script:LoginCalls[0].PrefillLogin -eq '') ('Preremplissage : '+$script:LoginCalls[0].PrefillLogin)
+    Assert-Test ($script:Settings.Count -eq 0 -and $script:StartCalls -eq 0) 'Ecriture ou test AD en session Windows'
 }
-Test-Case 'Test compte AD : session Windows seule ne remplace pas le compte saisi' {
-    $script:Conn.Credential=$null
-    Assert-Throws {Test-DomeniaActiveDirectoryCredential -UserName 'EXAMPLE\ad-reader'} 'Aucun compte AD explicite'
-    Assert-Test ($script:StartCalls -eq 0)
+Test-Case 'CO-31 : changement refuse pendant une lecture, aucune connexion ouverte' {
+    Reset-ReloginFixture
+    $script:AsyncJobs['lecture-1']=[pscustomobject]@{Id='lecture-1'}
+    Start-DomeniaAccountRelogin
+    Assert-Test ($script:LoginCalls.Count -eq 0 -and $script:InfoBoxes.Count -eq 1) 'Connexion ouverte pendant une lecture'
+    Assert-Test ($script:InfoBoxes[0] -match 'Terminez ou annulez les lectures') $script:InfoBoxes[0]
+}
+Test-Case 'CO-31 : plus de champ Identifiant ni de Tester dans la zone Annuaire, plus d ecriture LastLogin' {
+    foreach($name in @('TxtAccountAdUser','BtnAccountAdTest','BtnAccountAdUse')){
+        Assert-Test (-not $source.Contains('x:Name="'+$name+'"')) ('Controle encore present : '+$name)
+        Assert-Test (-not $source.Contains('"'+$name+'"')) ('Reference encore presente : '+$name)
+    }
+    Assert-Test (@($functionNodes | Where-Object {$_.Name -eq 'Test-DomeniaActiveDirectoryCredential'}).Count -eq 0) 'Test AD de session encore present'
+    Assert-Test (-not ($source -match "Set-DomeniaSetting -Name ['""]LastLogin")) 'Settings.LastLogin encore ecrit'
+    $card=@($functionNodes | Where-Object {$_.Name -eq 'Update-DomeniaAccountUi'})[0].Extent.Text
+    Assert-Test ($card.Contains('Get-DomeniaDirectoryAccountText')) 'La carte Annuaire ne passe pas par la regle'
 }
 Test-Case 'Worker LAPS : nom et mot de passe du compte Secrets restent ensemble' {
     $ctx=Get-WorkerContext -OperationId 'ReadLaps'

@@ -73,12 +73,16 @@ function Complete-DomeniaSessionsRead {
     # comme un poste sans activite, ce qui est exactement le mensonge que D072 devait empecher.
     if(@($view.Rows).Count -eq 0 -and [string]$view.EmptyText){$texte=(([string]$view.EmptyText+' '+$texte).Trim())}
     [void](Set-DomeniaControlText 'LblSessionsState' $texte)
+    # SE-08 (X04): a restart being prepared for this workstation shows the sessions just read.
+    try{Update-DomeniaRestartSessions -View $view -State $State}catch{Write-AppLog ('Sessions avant redemarrage : '+$_.Exception.Message) 'WARN'}
 }
 function Fail-DomeniaSessionsRead {
     param($Message,$State)
     if(-not (Test-DomeniaClassicResultCurrent -Result $null -State $State -ContextOnly)){return}
     if($State.Epoch -ne $script:SessionEpoch -or $State.Generation -ne $script:SelectedObjectGeneration){return}
     [void](Set-DomeniaControlText 'LblSessionsState' 'Lecture non confirmee : absence de resultat ne signifie pas absence de sessions.')
+    # SE-08 (X04): a restart being prepared says that the sessions were not read, and still recommends the delay.
+    try{Update-DomeniaRestartSessions -Failure ([string]$Message) -State $State}catch{Write-AppLog ('Sessions avant redemarrage : '+$_.Exception.Message) 'WARN'}
     [void](Request-DomeniaAccessRecovery -Operation 'Lecture des sessions' -OperationId 'SessionsList' -ErrorValue $Message -DN $State.DN -Interactive)
     Write-AppLog ('WTS : '+[string]$Message) 'WARN'
 }
