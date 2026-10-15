@@ -6,6 +6,7 @@
     </Grid.RowDefinitions>
     <DockPanel x:Name="UxQueryScopeBar" Margin="0,0,0,8">
       <Button x:Name="BtnQueryBack" DockPanel.Dock="Left" Content="Retour" MinHeight="32" Margin="0,0,12,0" AutomationProperties.Name="Revenir à la vue précédente" />
+      <Button x:Name="BtnQueryScope" DockPanel.Dock="Right" Content="Choisir une OU" MinHeight="32" Margin="12,0,0,0" Padding="10,2" ToolTip="Choisit lʼOU du tableau de bord et de lʼatelier avec le sélecteur commun : arbre, recherche, favoris, profondeur et confirmation. Aucune collecte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Choisir lʼOU de lʼatelier" AutomationProperties.HelpText="Choisit lʼOU du tableau de bord et de lʼatelier avec le sélecteur commun : arbre, recherche, favoris, profondeur et confirmation. Aucune collecte." />
       <TextBlock x:Name="LblQueryScope" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" />
     </DockPanel>
     <Border x:Name="UxQueryCard" Style="{DynamicResource Card}" Grid.Row="1">

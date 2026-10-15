@@ -20,7 +20,7 @@ function Get-DomeniaSetting {param($Name,$Default)return $Default}
 # SE-05: the ceiling is read from the configuration (Park.MaxTargets).
 function Get-CfgValue {param($Section,$Name,$Default)$key=[string]$Section+'.'+[string]$Name;if($script:Cfg.ContainsKey($key)){return $script:Cfg[$key]};return $Default}
 function New-DomeniaObservationReader {return [pscustomobject]@{Fixture=$true}}
-function Request-DomeniaInlineConfirmation {param($Title,$Target,$Message,$ConfirmText,$CancelText,$OnConfirm,$OnCancel)$script:Confirm=$OnConfirm;$script:Cancel=$OnCancel;$script:Message=$Message;$script:ConfirmTitle=$Title;$script:ConfirmTarget=$Target;$script:ConfirmButton=$ConfirmText}
+function Request-DomeniaInlineConfirmation {param($Title,$Target,$Message,$ConfirmText,$CancelText,$OnConfirm,$OnCancel)$script:Confirm=$OnConfirm;$script:Cancel=$OnCancel;$script:Message=$Message;$script:ConfirmTitle=$Title;$script:ConfirmTarget=$Target;$script:ConfirmButton=$ConfirmText;$script:ConfirmText=$ConfirmText}
 function Start-UiTask {
  param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,[switch]$NonCancellable,$TimeoutSeconds,$TaskClass)
  $id='job-'+$script:Calls.Count
@@ -294,6 +294,40 @@ Case 'Widget : actualisation ou reprise, le nombre est toujours confirme ; le po
  Assert ($id -and (Run 'Computer').Id -eq $id -and -not (Run).Stopping -and $script:Calls.Count -eq 2 -and $script:Calls[1].State.Slot -eq 'Computer') 'Widget du poste bloque ou remplace par la liste'
  Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@(New-Target 77);Busy=$false}) $script:Calls[1].State
  Assert ($script:ConfirmButton -eq 'Collecter 1 poste' -and $script:ConfirmTarget -eq 'PC-77' -and -not (Run 'Computer').Planning) ($script:ConfirmButton+' | '+$script:ConfirmTarget)
+}
+# Point 60 (W08) with UI-23 / FO-18 (X01): « Vérifier la liste ▾ » reads the scope chosen beside the results. With
+# « Lignes sélectionnées », its three readings go through the survey of the selection (same ceiling, same three-line
+# confirmation naming the selection); nothing is contacted before the confirmation.
+Case 'Portee choisie : Verifier la liste lit les lignes selectionnees, avec la confirmation et le plafond de la selection' {
+ function Set-ResultScope {param([int]$Index)$box=[Windows.Controls.ComboBox]::new();foreach($tag in @('Visible','Selected')){$item=[Windows.Controls.ComboBoxItem]::new();$item.Tag=$tag;[void]$box.Items.Add($item)};$box.SelectedIndex=$Index;$script:Ctrl.CmbResultScope=$box}
+ $readings=@(
+  @{Mode='Ping';Title='Vérifier la sélection : qui répond ?';Button='Pinger 2 postes';Inventory=$false},
+  @{Mode='Console';Title='Vérifier la sélection : qui est connecté ?';Button='Vérifier 2 postes';Inventory=$false},
+  @{Mode='Analyse';Title='Vérifier la sélection : matériel et widgets';Button='Analyser 2 postes';Inventory=$true}
+ )
+ foreach($case in $readings){
+  Reset-Fixture;Add-SurveyControls;Add-DisplayedMachines 4;Set-ResultScope 1
+  $rows=@($script:Ctrl.DgObjects.Items)
+  [void]$script:Ctrl.DgObjects.SelectedItems.Add($rows[3]);[void]$script:Ctrl.DgObjects.SelectedItems.Add($rows[1])
+  $script:ConfirmTitle='';$script:ConfirmTarget='';$script:ConfirmButton=''
+  Invoke-DomeniaParkVerify -Mode $case.Mode
+  Assert ($script:Calls.Count -eq 1 -and [string](Run).ScopeKind -eq 'Selection' -and [bool](Run).Inventory -eq [bool]$case.Inventory) ('Releve de la selection absent pour '+$case.Mode)
+  $names=(@($script:Calls[0].Payload.Targets|ForEach-Object{[string]$_.name}) -join ',')
+  Assert ($names -eq 'PC-2,PC-4') ('Postes envoyes (ordre affiche attendu) : '+$names)
+  Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@((New-Target 2),(New-Target 4));Busy=$false}) $script:Calls[0].State
+  Assert ($script:ConfirmTitle -ceq $case.Title -and $script:ConfirmTarget -eq 'la sélection' -and $script:ConfirmButton -ceq $case.Button) ($script:ConfirmTitle+' | '+$script:ConfirmTarget+' | '+$script:ConfirmButton)
+  Assert ($null -eq (Run).Timer -and $script:Calls.Count -eq 1) 'Un poste a ete contacte avant la confirmation.'
+ }
+ Assert ((Get-DomeniaParkVerifyButtonText) -eq 'Vérifier la sélection : Matériel et widgets') (Get-DomeniaParkVerifyButtonText)
+ # Nothing selected: the statement of the scope says so and nothing is read.
+ Reset-Fixture;Add-SurveyControls;Add-DisplayedMachines 2;Set-ResultScope 1
+ Invoke-DomeniaParkVerify -Mode Ping
+ Assert ($script:Calls.Count -eq 0 -and [string]$script:Status -like 'Aucune ligne sélectionnée*') ([string]$script:Status)
+ # The list as shown stays the default scope.
+ Reset-Fixture;Add-SurveyControls;Add-DisplayedMachines 2;Set-ResultScope 0
+ [void]$script:Ctrl.DgObjects.SelectedItems.Add(@($script:Ctrl.DgObjects.Items)[0])
+ Invoke-DomeniaParkVerify -Mode Ping
+ Assert ($script:Calls.Count -eq 1 -and [string](Run).ScopeKind -eq 'Results' -and @($script:Calls[0].Payload.Targets).Count -eq 2) 'La liste affichee nʼest plus la portee par defaut.'
 }
 Case 'Ping et WMI exclusifs : demande ambigue refusee avant cible' {
  Reset-Fixture;Add-DisplayedMachine;Start-DomeniaOnlinePark -DisplayedResults -PingOnly -WmiOnly
@@ -622,7 +656,7 @@ Case 'Interface : un seul bouton Verifier la liste, ses choix, pastilles, select
   function Set-DomeniaParkOutcomeFilter {param($Outcome)$script:Clicks.Add('Pill:'+$Outcome)}
   function Start-DomeniaParkSelectionSurvey {param($Mode)$script:Clicks.Add('Selection:'+$Mode)}
   function Copy-DomeniaSelectedRowsForTicket {$script:Clicks.Add('Copy')}
-  function Export-CurrentResults {$script:Clicks.Add('Export')}
+  function Export-CurrentResults {param([string]$Mode='')$script:Clicks.Add('Export'+$(if($Mode){':'+$Mode}else{''}))}
   function Stop-DomeniaOnlinePark {param([string]$RunId='',[string]$Slot='List')$script:Clicks.Add('Stop:'+$Slot)}
   foreach($name in @('BtnParkSweep','BtnParkSweepStop','BtnParkResults','BtnParkPing','BtnParkAnalyze','BtnParkResultsStop')){Assert ($null -eq $window.FindName($name)) ($name+' encore present')}
   $names=@('BtnParkVerify','BtnParkVerifyMenu','BtnParkOutcomeOnline','BtnParkOutcomeNoReply','BtnParkOutcomeError','BtnSelectionPing','BtnSelectionConsole','BtnSelectionCopy','BtnSelectionExport','BtnComputerParkStop')
@@ -632,12 +666,12 @@ Case 'Interface : un seul bouton Verifier la liste, ses choix, pastilles, select
   $pattern='^\$script:Ctrl\["('+($names -join '|')+')"\]$'
   foreach($n in @($ast.FindAll({param($n)$n -is [Management.Automation.Language.InvokeMemberExpressionAst] -and $n.Member.Value -eq 'Add_Click'},$true))){if($n.Expression.Extent.Text -match $pattern){. ([scriptblock]::Create($n.Extent.Text))}}
   foreach($name in $names){$script:Ctrl[$name].IsEnabled=$true;$script:Ctrl[$name].RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))}
-  Assert (($script:Clicks -join ',') -eq 'Verify,Menu,Pill:Online,Pill:NoReply,Pill:Error,Selection:Ping,Selection:Console,Copy,Export,Stop:Computer') ($script:Clicks -join ',')
+  Assert (($script:Clicks -join ',') -eq 'Verify,Menu,Pill:Online,Pill:NoReply,Pill:Error,Selection:Ping,Selection:Console,Copy,Export:Selected,Stop:Computer') ($script:Clicks -join ',')
  }finally{$window.Close()}
 }
 if($null -ne $script:ParkRuns){foreach($old in @($script:ParkRuns.Values)){if($null -ne $old -and $null -ne $old.PSObject.Properties['Timer'] -and $null -ne $old.Timer){$old.Timer.Stop()}}}
 $failed=@($checks|Where-Object Status -eq 'Failed').Count
-$expected=50
+$expected=51
 $report=[ordered]@{Kind='ParkDetection';Expected=$expected;Complete=($checks.Count -eq $expected -and $failed -eq 0);NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path $env:TEMP 'domenia-park-tests.json'}
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))

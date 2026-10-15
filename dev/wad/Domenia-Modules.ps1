@@ -185,7 +185,16 @@ function Get-DomeniaRuntimeModulePlan {
             'ConvertTo-DomeniaOuFavourite',
             'Get-DomeniaDnDomainKey',
             'Import-DomeniaOuFavourites',
-            'Set-DomeniaOuFavouriteState'
+            'Set-DomeniaOuFavouriteState',
+            'Get-DomeniaOuPathNames',
+            'Get-DomeniaOuDistinctLabels',
+            'Get-DomeniaNavRowKey',
+            'Get-DomeniaNavSelectionKeys',
+            'Get-DomeniaNavSortState',
+            'Get-DomeniaNavLimit',
+            'Get-DomeniaNavTreePlan',
+            'Get-DomeniaOuChoiceSummary',
+            'Get-DomeniaOuFavouriteChoices'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1'); File='Domenia-Relations.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaRelationDirection',
@@ -574,6 +583,10 @@ function Get-DomeniaRuntimeModulePlan {
             'Show-DomeniaOuPickerNavigation',
             'Complete-DomeniaOuPickerRead',
             'Fail-DomeniaOuPickerRead',
+            'Get-DomeniaOuPickerFavourites',
+            'Update-DomeniaOuPickerSummary',
+            'Start-DomeniaOuPickerReveal',
+            'Continue-DomeniaOuPickerReveal',
             'Show-DomeniaOuTreePicker',
             'Show-DomeniaInlinePicker',
             'Select-DomeniaRelationsUser',
@@ -1632,7 +1645,16 @@ function Get-DomeniaRuntimeModulePlan {
             'Update-DomeniaOuBreadcrumb',
             'Open-DomeniaOuBreadcrumb',
             'Stop-DomeniaOuTreeFilter',
-            'Invoke-DomeniaOuTreeFilterSlice'
+            'Invoke-DomeniaOuTreeFilterSlice',
+            'Get-DomeniaGridSort',
+            'Set-DomeniaGridSort',
+            'Select-DomeniaGridRowsByKey',
+            'Get-DomeniaOpenTreeNodes',
+            'Get-DomeniaRealizedTreeIndex',
+            'Find-DomeniaRealizedTreeNode',
+            'Get-DomeniaTreeExpandedDns',
+            'Select-DomeniaRealizedTreeNode',
+            'Restore-DomeniaTreeNavState'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Secrets.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaBitLockerListWorkerCode',
@@ -2107,7 +2129,7 @@ function Get-DomeniaRuntimeModulePlan {
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Park.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaParkPingWorkerCode'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Park.Model.ps1','Domenia-Park.Worker.ps1','Domenia-Relations.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Inline.UI.ps1','Domenia-Engine.Worker.ps1','Domenia-WidgetCollect.Model.ps1'); File='Domenia-Park.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Park.Model.ps1','Domenia-Park.Worker.ps1','Domenia-Relations.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Inline.UI.ps1','Domenia-Engine.Worker.ps1','Domenia-WidgetCollect.Model.ps1','Domenia-SearchWorkspace.Model.ps1'); File='Domenia-Park.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaParkRuns',
             'Get-DomeniaParkRun',
             'Get-DomeniaParkRunById',
@@ -2482,27 +2504,60 @@ function Get-DomeniaRuntimeModulePlan {
             'Fail-DomeniaQueryImportItem',
             'Save-DomeniaQueryImportJournal'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Continuity.Model.ps1'); File='Domenia-SearchWorkspace.Model.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Continuity.Model.ps1','Domenia-Search.Model.ps1'); File='Domenia-SearchWorkspace.Model.ps1'; DotSource=$true; Functions=@(
             'ConvertTo-DomeniaSearchWorkspace',
+            'ConvertFrom-DomeniaSearchWorkspaceStore',
+            'ConvertTo-DomeniaSearchWorkspaceStoreText',
+            'Add-DomeniaSearchWorkspaceRecord',
+            'Remove-DomeniaSearchWorkspaceRecord',
+            'Get-DomeniaSearchWorkspaceLabel',
+            'Get-DomeniaSearchFilterChips',
+            'Get-DomeniaSearchSelectionText',
+            'Get-DomeniaSearchScopeSummary',
             'Get-DomeniaSearchSelectionPlan',
+            'Get-DomeniaFileTimeAttributeNames',
             'ConvertTo-DomeniaComparisonText',
-            'Get-DomeniaComputerComparison'
+            'Format-DomeniaComparisonDate',
+            'Get-DomeniaObservationFields',
+            'Get-DomeniaComputerComparison',
+            'Get-DomeniaSearchPreviewRows'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-SearchWorkspace.Model.ps1','Domenia-Search.UI.ps1','Domenia-Live.UI.ps1','Domenia-Storage.UI.ps1'); File='Domenia-SearchWorkspace.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaResultPresentation',
             'Restore-DomeniaResultPresentation',
+            'Get-DomeniaSearchWorkspaceStore',
             'Get-DomeniaSearchWorkspaces',
+            'Update-DomeniaSearchWorkspaceButtons',
             'Update-DomeniaSearchWorkspaces',
             'Save-DomeniaSearchWorkspace',
             'Remove-DomeniaSearchWorkspace',
             'Undo-DomeniaSearchWorkspace',
             'Open-DomeniaSearchWorkspace',
+            'Get-DomeniaSearchLoadedCount',
+            'Get-DomeniaSearchFilterState',
             'Update-DomeniaSearchFilterChips',
-            'Request-DomeniaSearchInspection',
-            'Test-DomeniaSearchInspectionCurrent',
-            'Complete-DomeniaSearchInspection',
-            'Fail-DomeniaSearchInspection',
+            'Remove-DomeniaSearchFilterChip',
+            'Get-DomeniaResultScopeMode',
+            'Get-DomeniaSearchListCompleteness',
+            'Update-DomeniaResultScopeUi',
+            'Get-DomeniaResultScopePlan',
+            'Assert-DomeniaSearchInspectionResult',
+            'Get-DomeniaSearchPreviewRow',
+            'Test-DomeniaSearchPreviewCurrent',
+            'Request-DomeniaSearchPreview',
+            'Complete-DomeniaSearchPreview',
+            'Fail-DomeniaSearchPreview',
             'Switch-DomeniaSearchPreview',
+            'Get-DomeniaComparisonRowStyle',
+            'Show-DomeniaSearchComparison',
+            'Test-DomeniaSearchComparisonCurrent',
+            'Update-DomeniaSearchComparisonRows',
+            'Complete-DomeniaSearchComparison',
+            'Fail-DomeniaSearchComparison',
+            'Invoke-DomeniaSearchWorkspaceRefresh',
+            'Request-DomeniaSearchWorkspaceRefresh',
+            'Invoke-DomeniaSearchWorkspaceListChanged',
+            'Reset-DomeniaSearchWorkspaceSession',
             'Initialize-DomeniaSearchWorkspace'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-DirectorySync.Model.ps1'; DotSource=$true; Functions=@(

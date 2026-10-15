@@ -28,6 +28,9 @@ function Initialize-DomeniaQueryView {
         if($queryView.IsVisible){& $refreshScope}
     }.GetNewClosure())
     $hostControl.Content=$view
+    # Point 54: the Atelier chooses its OU with the same shared picker as the tableau de bord (same scope).
+    $scopeButton=Get-DomeniaControl 'BtnQueryScope'
+    if($null -ne $scopeButton){$scopeButton.Add_Click({try{Show-DomeniaFleetScopeSource;Update-DomeniaQueryScopeLabel}catch{Set-Status ('Sélecteur dʼOU indisponible : '+$_.Exception.Message) 'WARN'}})}
     # Newly attached controls must receive the current compact/zoom layout even if the viewport did not change.
     $script:UxLayoutSignature=''
     if($null -ne (Get-Command Update-DomeniaUxLayout -CommandType Function -ErrorAction SilentlyContinue)){Update-DomeniaUxLayout}
@@ -42,7 +45,7 @@ function Initialize-DomeniaQueryView {
 function Update-DomeniaQueryScopeLabel {
     # The workshop evaluates Fleetʼs explicit scope, independently of the OU used by Search.
     $scope=Get-DomeniaFleetScope
-    $text=if($null -eq $scope){'Périmètre du tableau de bord : connectez-vous puis choisissez une OU.'}else{'Périmètre du tableau de bord : '+[string]$scope.Name+' · '+[string]$scope.Path}
+    $text=if($null -eq $scope){'Périmètre du tableau de bord : connectez-vous puis choisissez une OU.'}elseif(-not [string]$scope.Dn){'Périmètre du tableau de bord : tout le domaine indexé (consultation).'}else{'Périmètre du tableau de bord : '+[string]$scope.Name+' · '+[string]$scope.Path+$(if([bool]$scope.Subtree){' · sous-OU incluses'}else{' · sans les sous-OU'})}
     [void](Set-DomeniaControlText 'LblQueryScope' $text)
 }
 function Show-DomeniaQueryWorkshop {

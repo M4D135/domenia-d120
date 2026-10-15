@@ -137,9 +137,11 @@ function Update-DomeniaParkRunStatus {
 }
 function Get-DomeniaParkVerifyButtonText {
     # UI-23: the main part of the button names the reading it runs (the last one chosen in this session).
+    # Point 60 (W08): it also names the scope chosen beside the results when that scope is the selected rows.
+    $selected=((Get-DomeniaResultScopeMode) -eq 'Selected')
     $entry=@(Get-DomeniaParkVerifyModes|Where-Object{$_.Mode -eq [string]$script:ParkDefaultMode})
-    if($entry.Count){return 'Vérifier : '+[string]$entry[0].Label}
-    return 'Vérifier la liste'
+    if($entry.Count){return $(if($selected){'Vérifier la sélection : '}else{'Vérifier : '})+[string]$entry[0].Label}
+    return $(if($selected){'Vérifier la sélection'}else{'Vérifier la liste'})
 }
 function Set-DomeniaParkControlVisible {
     param([string]$Name,[bool]$Visible)
@@ -259,9 +261,14 @@ function Set-DomeniaParkOutcomeFilter {
 }
 function Get-DomeniaParkSelectionTargets {
     # FO-18: the selected workstations of the list, with their AD identity (DN and GUID); a row without them is counted.
-    $rows=@(Get-DomeniaSelectedGridRows|Where-Object{$null -ne $_ -and [string]$_.Type -eq 'Machine'})
-    $targets=@(foreach($row in $rows){if([string]$row.DN -and [string]$row.Guid){[pscustomobject]@{name=[string]$row.Name;distinguished_name=[string]$row.DN;object_guid=[string]$row.Guid}}})
-    return [pscustomobject]@{Rows=$rows;Targets=$targets;Skipped=($rows.Count-$targets.Count)}
+    # Point 60 (W08): the rows come from the 'Selected' plan of the list, the one the export of the selection uses:
+    # selected rows still shown, in the displayed order, each once. Plan: its statement for an empty selection.
+    $grid=Get-DomeniaControl 'DgObjects';$visible=@()
+    if($null -ne $grid){$visible=@($grid.Items)}
+    $plan=Get-DomeniaSearchSelectionPlan -VisibleRows $visible -SelectedRows @(Get-DomeniaSelectedGridRows) -Mode Selected
+    $rows=@($plan.Rows|Where-Object{($null -ne $_) -and ([string]$_.Type -eq 'Machine')})
+    $targets=@(foreach($row in $rows){if(([string]$row.DN) -and ([string]$row.Guid)){[pscustomobject]@{name=[string]$row.Name;distinguished_name=[string]$row.DN;object_guid=[string]$row.Guid}}})
+    return [pscustomobject]@{Rows=$rows;Targets=$targets;Skipped=($rows.Count-$targets.Count);Plan=$plan}
 }
 function Update-DomeniaParkSelectionBar {
     # FO-18: from two selected rows, a bar replaces the selection line: « 3 postes sélectionnés : Pinger · Qui est
@@ -273,19 +280,20 @@ function Update-DomeniaParkSelectionBar {
     Set-DomeniaParkControlVisible 'UxSelectionBar' $show
     Set-DomeniaParkControlVisible 'LblSelectionReadState' (-not $show)
     if(-not $show){return}
-    $machines=@($selected|Where-Object{[string]$_.Type -eq 'Machine'}).Count
-    $text=[string]$selected.Count+' lignes sélectionnées'
-    if($machines -eq $selected.Count){$text=[string]$machines+' postes sélectionnés'}
-    elseif($machines -gt 0){$text+=' dont '+[string]$machines+' '+$(if($machines -gt 1){'postes'}else{'poste'})}
-    [void](Set-DomeniaControlText 'LblSelectionBar' ($text+' :'))
+    $machines=0;foreach($row in $selected){if([string]$row.Type -eq 'Machine'){$machines++}}
+    # Point 60 (W08): the same statement of the selection as the scope announced before an export or a survey.
+    [void](Set-DomeniaControlText 'LblSelectionBar' ((Get-DomeniaSearchSelectionText -SelectedCount $selected.Count -MachineCount $machines)+' :'))
     $survey=(($machines -gt 0) -and (-not $ListRunning) -and [bool]$grid.IsEnabled -and (-not [bool]$script:ListSurveyBlocked) -and (-not [bool]$script:DemoMode))
     foreach($name in @('BtnSelectionPing','BtnSelectionConsole')){$button=Get-DomeniaControl $name;if($null -ne $button){$button.IsEnabled=$survey}}
 }
 function Start-DomeniaParkSelectionSurvey {
-    # FO-18: ping or console reading of the selected workstations only, with the confirmation and the ceiling of the list.
-    param([ValidateSet('Ping','Console')][string]$Mode)
+    # FO-18: ping, console reading or analysis of the selected workstations only, with the confirmation and the ceiling
+    # of the list. Point 60 (W08): « Vérifier la liste ▾ » runs it too when the scope chosen beside the results is the
+    # selected rows.
+    param([ValidateSet('Ping','Console','Analyse')][string]$Mode)
     $selection=Get-DomeniaParkSelectionTargets
-    if(-not $selection.Rows.Count){Set-Status 'Aucun poste dans la sélection.' 'WARN';return}
+    if(-not $selection.Rows.Count){Set-Status $(if([int]$selection.Plan.Count -gt 0){'Aucun poste dans la sélection.'}else{[string]$selection.Plan.Label}) 'WARN';return}
+    if($Mode -eq 'Analyse'){Start-DomeniaParkAnalysis -Selection -ScopeTargets @($selection.Targets) -SkippedTargets ([int]$selection.Skipped);return}
     Start-DomeniaOnlinePark -Selection -ScopeTargets @($selection.Targets) -SkippedTargets ([int]$selection.Skipped) -PingOnly:($Mode -eq 'Ping')
 }
 function Invoke-DomeniaParkVerify {
@@ -299,6 +307,9 @@ function Invoke-DomeniaParkVerify {
     if(-not $Mode){Open-DomeniaParkVerifyMenu -Anchor $Anchor;return}
     if($Mode -notin @('Ping','Console','Analyse')){Set-Status ('Vérification inconnue : '+$Mode) 'WARN';return}
     $script:ParkDefaultMode=$Mode
+    # Point 60 (W08): the scope chosen beside the results decides what is read: the list as shown after its filters,
+    # or the selected rows only (same confirmation and ceiling as the bar of a multiple selection).
+    if((Get-DomeniaResultScopeMode) -eq 'Selected'){Start-DomeniaParkSelectionSurvey -Mode $Mode;Update-DomeniaParkControls;return}
     switch($Mode){
         'Ping' {Start-DomeniaOnlinePark -DisplayedResults -PingOnly}
         'Console' {Start-DomeniaOnlinePark -DisplayedResults}
@@ -428,11 +439,15 @@ function Start-DomeniaOnlinePark {
 function Start-DomeniaParkAnalysis {
     # Analyser la liste (decision David 2026-10-08): ping, console user and light WMI reading of the displayed
     # workstations, plus the WMI queries of the dashboard widgets. Read only, confirmed with the count first.
+    # Point 60 / FO-18: -Selection analyses only the selected workstations given in -ScopeTargets, with the
+    # confirmation and the ceiling of a selection of the list.
+    param([switch]$Selection,[object[]]$ScopeTargets=$null,[int]$SkippedTargets=0)
     $probes=$null
     try{
         $ids=@(Get-DomeniaBoardProbeIds)
         if($ids.Count){$probes=@(ConvertTo-DomeniaProbePayload -Ids $ids)}
     }catch{Set-Status ('Requêtes des widgets ignorées : '+$_.Exception.Message) 'WARN';$probes=$null}
+    if($Selection){Start-DomeniaOnlinePark -Selection -ScopeTargets @($ScopeTargets) -SkippedTargets $SkippedTargets -Inventory -Probes $probes;return}
     Start-DomeniaOnlinePark -DisplayedResults -Inventory -Probes $probes
 }
 function Complete-DomeniaParkTargets {
