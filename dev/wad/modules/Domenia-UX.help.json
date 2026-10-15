@@ -84,13 +84,6 @@
     "Source": "existing-help"
   },
   {
-    "Name": "BtnUxNavDirectory",
-    "Title": "Annuaire",
-    "Text": "Ouvrir : Annuaire.",
-    "Kind": "Button",
-    "Source": "existing-help"
-  },
-  {
     "Name": "BtnUxNavObject",
     "Title": "Fiche",
     "Text": "Ouvre la fiche de lʼobjet sélectionné. Sans sélection, une page vide propose la recherche et les dernières fiches, sans rien lire sur le réseau.",
@@ -289,13 +282,6 @@
     "Source": "existing-help"
   },
   {
-    "Name": "BtnDashRoot",
-    "Title": "Racine du domaine",
-    "Text": "Revient à la racine du domaine.",
-    "Kind": "Button",
-    "Source": "existing-help"
-  },
-  {
     "Name": "BtnDashCopy",
     "Title": "Copier",
     "Text": "Copie le contenu du tableau de bord.",
@@ -426,13 +412,6 @@
     "Title": "Objet sélectionné",
     "Text": "Objet sélectionné : information issue de la session et des données déjà chargées. Cette consultation ne lance pas de lecture supplémentaire.",
     "Kind": "TextBox",
-    "Source": "specific"
-  },
-  {
-    "Name": "TabDirectory",
-    "Title": "Annuaire",
-    "Text": "Parcourez les OU et les conteneurs. Cliquez une branche pour charger son contenu avec les mécanismes habituels d’Domenia.",
-    "Kind": "TabItem",
     "Source": "specific"
   },
   {
@@ -2225,13 +2204,6 @@
     "Source": "existing-help"
   },
   {
-    "Name": "UxSplitter1",
-    "Title": "Faites glisser pour redimensionner les panneaux",
-    "Text": "Faites glisser pour redimensionner les panneaux.",
-    "Kind": "GridSplitter",
-    "Source": "existing-help"
-  },
-  {
     "Name": "DgSoftwareAccess",
     "Title": "Detail par portee",
     "Text": "Ce qui a pu être lu pour chaque portée.",
@@ -2467,20 +2439,6 @@
     "Title": "Base autonome",
     "Text": "Base autonome persistante : utilisateurs, postes, changements AD et associations user-machine.",
     "Kind": "TabItem",
-    "Source": "existing-help"
-  },
-  {
-    "Name": "BtnIndexBuild",
-    "Title": "Mettre à jour tout",
-    "Text": "Relit tous les utilisateurs et postes, reconstruit la base autonome et resynchronise les associations connues. Peut durer plusieurs minutes.",
-    "Kind": "Button",
-    "Source": "existing-help"
-  },
-  {
-    "Name": "BtnIndexRefresh",
-    "Title": "Mettre à jour les changements",
-    "Text": "Ne relit que les objets modifiés depuis la dernière passe grâce à uSNChanged/whenChanged. Beaucoup plus rapide.",
-    "Kind": "Button",
     "Source": "existing-help"
   },
   {
@@ -3161,13 +3119,6 @@
     "Text": "Analyse locale de la fiche, comparaison de captures et préparation d’un ticket. Aucun scan n’est lancé en ouvrant cet espace.",
     "Kind": "TabItem",
     "Source": "specific"
-  },
-  {
-    "Name": "BtnSearchAllDomain",
-    "Kind": "Button",
-    "Title": "Tout le domaine",
-    "Text": "Affiche le domaine dans le mode navigation OU. La recherche du bandeau reste indépendante.",
-    "Shortcut": ""
   },
   {
     "Name": "SearchOuSplitter",
@@ -3985,13 +3936,6 @@
     "Text": "Demande confirmation après simulation. Associations, historique protégé, secrets, configuration, journaux et reçus sont conservés. Aucun rejeu automatique.",
     "Kind": "Button",
     "Source": "d120-cache"
-  },
-  {
-    "Name": "BtnParkSweepStop",
-    "Kind": "Button",
-    "Source": "park-detection",
-    "Title": "Arreter le releve",
-    "Text": "Arrete les nouvelles lectures. Les lectures deja lancees se terminent et leurs resultats sont conserves."
   },
   {
     "Name": "BtnFleetOpenSearch",

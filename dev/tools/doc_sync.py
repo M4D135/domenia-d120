@@ -2,8 +2,9 @@
 """Documentation and help synchronised with the delivered pack (point 149). Offline, read-only.
 
 Checks, from the sources that build the pack:
-  1. every interface text quoted in the guides (« ... » in guides/*.md) is displayed by the pack: an XAML attribute or
-     a string literal of the runtime, the launcher, the installer and the support scripts. Templates use … (or N, M)
+  1. every interface text quoted in the guides (« ... » in guides/*.md) is displayed by the pack: an XAML attribute,
+     a string literal or a cell of a catalogue table (here-string lines Id|Group|Title|...) of the runtime, the
+     launcher, the installer and the support scripts. Templates use … (or N, M)
      for the variable parts; each fixed part must exist. Short quotes must be a whole label, not a word inside one;
   2. no help text, guide or interface text names a retired label (tools/doc-sync.json, RetiredLabels);
   3. every entry of the contextual help catalogue (wad/modules/Domenia-UX.help.json) names a control of the pack;
@@ -59,6 +60,21 @@ def ui_sources(dev=DEV):
 
 
 LITERAL = re.compile(r"'((?:[^'\n]|'')*)'|\"((?:[^\"\\\n`]|\\.|`.)*)\"")
+HERE_STRING = re.compile(r"@(['\"])\r?\n(.*?)\r?\n\1@", re.S)
+TABLE_MIN_CELLS = 4
+
+
+def table_cells(text):
+    """Cells of the catalogue tables written in here-strings (Id|Group|Title|...): titles of widgets, query templates
+    and readings that the interface shows. A line holding a variable is code, never a table row."""
+    for match in HERE_STRING.finditer(text):
+        for line in match.group(2).splitlines():
+            if line.count('|') < TABLE_MIN_CELLS - 1 or '$' in line:
+                continue
+            for cell in line.split('|'):
+                cell = cell.strip()
+                if re.search(r'[^\W\d_]', cell):
+                    yield cell
 
 
 def literals(dev=DEV):
@@ -77,6 +93,9 @@ def literals(dev=DEV):
         for match in re.finditer(r'\b(?:%s)="([^"]*)"' % '|'.join(re.escape(a) for a in ATTRIBUTES), text):
             if match.group(1).strip():
                 found.add(normalize(match.group(1)))
+        if path.suffix == '.ps1':
+            for cell in table_cells(text):
+                found.add(normalize(cell))
     return found
 
 

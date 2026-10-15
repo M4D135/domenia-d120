@@ -353,8 +353,8 @@ Le tableau du poste résume le dernier inventaire et les attributs du compte ord
 | Identite du poste | Inventaire rapide ou complet. | « Lancez un inventaire (rapide ou complet) pour remplir cette section. » |
 | Compte machine dans Active Directory | Attributs lus avec la fiche du poste. | « Ouvrez la fiche du poste dans l annuaire pour lire son compte machine. » |
 | Ressources | Mesures de l'inventaire par CIM. | « Lancez un inventaire pour mesurer la memoire, le processeur et les disques. » |
-| Activite | Inventaire complet. | « Inventaire complet requis : correctifs, processus et evenements. » |
-| Securite et etat | Inventaire complet. | « Inventaire complet requis : protection, correctifs et configuration. » |
+| Activite | Inventaire rapide ou complet ; le complet ajoute les processus et les erreurs système. | « Non lu pendant cet inventaire : voir le détail par source. Lʼinventaire complet ajoute les processus et les erreurs système. » |
+| Securite et etat | Inventaire rapide ou complet ; le complet ajoute les certificats machine. | « Non lu pendant cet inventaire : voir le détail par source. Lʼinventaire complet ajoute les certificats machine. » |
 
 Quand on sélectionne un autre objet, les tableaux du poste et des logiciels sont réinitialisés, ainsi que leur annulation. La liste de l'onglet Inventaire peut être reprise du cache de la session avec son âge ; cette reprise ne rejoue pas le tableau de bord et ne lance aucune lecture.
 
@@ -471,7 +471,7 @@ Pour le ping, la date affichée correspond au relevé de présence qui comprend 
 
 Chaque famille conserve sa propre date. Un ping réussi ne rend pas frais l'inventaire matériel ; une erreur de console ne remplace pas une mesure par zéro. Une absence confirmée de session efface l'utilisateur courant, tandis qu'un échec de lecture garde l'observation précédente avec son contexte.
 
-L'inactivité AD est approximative car lastLogonTimestamp est répliqué avec retard. Les classes sont 0 à 6 jours, 7 à 29, 30 à 89, 90 à 179, 180 et plus, puis non renseigné. « Sans connexion depuis 90 j » porte sur les comptes actifs ayant une date connue âgée d'au moins 90 jours. Une date absente ne prouve pas que le poste ne s'est jamais connecté.
+L'inactivité AD est approximative car lastLogonTimestamp est répliqué avec retard. Les classes sont 0 à 6 jours, 7 à 29, 30 à 89, 90 à 179, 180 et plus, puis non renseigné. « Sans connexion AD au-delà du seuil » porte sur les comptes actifs dont la date connue dépasse le seuil réglé dans les règles de santé (90 jours par défaut). Une date absente ne prouve pas que le poste ne s'est jamais connecté.
 
 ## Du widget à la liste exacte
 
@@ -522,13 +522,13 @@ L’onglet « Bibliothèque » propose 152 modèles livrés dans 14 catégories,
 
 Deux exemples : « Comptes désactivés » se calcule depuis la copie AD de l’OU ; « C: moins de 20 % libre » exige un inventaire léger exploitable. Le second seuil est modifiable dans Composer et n’assimile jamais une donnée absente à zéro.
 
-Le nombre de modèles est distinct des 105 champs du catalogue : un modèle combine des conditions sur ces champs. Les valeurs inconnues restent inconnues ; ouvrir ou exécuter un modèle calcule les données locales sans déclencher de collecte réseau. Nommez et enregistrez votre adaptation pour la conserver dans la bibliothèque personnelle.
+Le nombre de modèles est distinct des 138 champs du catalogue : un modèle combine des conditions sur ces champs. Les valeurs inconnues restent inconnues ; ouvrir ou exécuter un modèle calcule les données locales sans déclencher de collecte réseau. Nommez et enregistrez votre adaptation pour la conserver dans la bibliothèque personnelle.
 
 ![Bibliothèque de modèles : recherche locale, informations nécessaires et description de la sélection ; données fictives](fig:atelier-modeles)
 
 ## Onglet Informations
 
-Le catalogue contient les 105 champs acceptés par le moteur : 27 informations du parc et 78 sondes WMI. La recherche ignore les accents et la casse ; elle porte sur le nom, l’usage et les détails techniques, dont les classes et propriétés. Les filtres Source et Catégorie réduisent la liste.
+Le catalogue contient les 138 champs acceptés par le moteur : 27 informations du parc et 111 sondes WMI. La recherche ignore les accents et la casse ; elle porte sur le nom, l’usage et les détails techniques, dont les classes et propriétés. Les filtres Source et Catégorie réduisent la liste.
 
 La fiche précise l’usage, le type, l’unité, un exemple de valeur, la collecte nécessaire et les conditions de disponibilité. « Détails techniques » déplie les identifiants, classes et propriétés utiles au diagnostic. Une information présente au catalogue n’est pas une preuve de disponibilité sur tous les postes : les fournisseurs Windows et les droits peuvent varier.
 
@@ -746,7 +746,7 @@ Limites d'affichage : un anneau montre 8 parts au plus, les plus petites regroup
 
 ## Catalogue du tableau du parc
 
-Le catalogue contient 29 widgets de parc. Les requêtes personnelles et les 78 sondes peuvent s’y ajouter.
+Le catalogue contient 29 widgets de parc. Les requêtes personnelles et les 111 sondes peuvent s’y ajouter.
 
 | Groupe | Widget | Information |
 |---|---|---|
@@ -799,7 +799,7 @@ Le catalogue contient 29 widgets de parc. Les requêtes personnelles et les 78 s
 
 # 10 Requêtes WMI du catalogue
 
-Le catalogue propose 78 sondes WMI en lecture seule, en 8 catégories. On les ajoute comme widgets aux tableaux du poste et du parc depuis l'éditeur. Elles partent après confirmation sur le périmètre annoncé : « Actualiser les requetes » sur le tableau du poste interroge le poste sélectionné ; « Matériel et widgets » de « Vérifier la liste », dans « Rechercher », interroge les postes affichés avec les requêtes des tableaux du poste et du parc.
+Le catalogue propose 111 sondes WMI en lecture seule : les 78 sondes historiques listées plus bas et 33 sondes détaillées. On les ajoute comme widgets aux tableaux du poste et du parc depuis l'éditeur. Elles partent après confirmation sur le périmètre annoncé : « Actualiser les requetes » sur le tableau du poste interroge le poste sélectionné ; « Matériel et widgets » de « Vérifier la liste », dans « Rechercher », interroge les postes affichés avec les requêtes des tableaux du poste et du parc.
 
 ## Protection des requêtes
 
@@ -818,7 +818,7 @@ Le catalogue propose 78 sondes WMI en lecture seule, en 8 catégories. On les aj
 
 | Vous voyez | Que faire |
 |---|---|
-| « Aucune requete WMI sur ce tableau de bord : ajoutez un widget de requete. » | Ajouter un widget de requête avec « Ajouter un widget ». |
+| Pas de bouton « Actualiser les requetes » sur le tableau du poste | Le tableau ne contient aucun widget de requête : ajoutez-en un avec « Ajouter un widget ». |
 | « Aucun poste selectionne. » | Choisir un poste dans « Rechercher ». |
 
 ## Lecture des résultats
@@ -830,7 +830,7 @@ Le catalogue propose 78 sondes WMI en lecture seule, en 8 catégories. On les aj
 
 Modes : First lit la première instance, Count compte les instances, All lit toutes les instances. Transformations : Text, GB (octets en Go), GBfromKB (Ko en Go), MB, Mbps, Number, DaysSince (jours écoulés), Year, PercentFree (pourcentage libre), Release (build en nom de version) et Map (table de correspondance). Dans les filtres, {SINCE_24H} et {SINCE_7D} sont remplacés par la date UTC d'il y a 24 heures ou 7 jours.
 
-> [!NOTE] La requête « Contrôle de compte (EnableLUA) » figure dans le code du catalogue mais en est retirée à la lecture : elle n'est pas proposée. Le catalogue exploitable compte 78 sondes.
+> [!NOTE] Le catalogue exploitable compte 111 sondes : les 78 sondes historiques des tableaux ci-dessous et 33 sondes détaillées, dont chaque fiche (« Contrat de la sonde » dans ses détails) dit la classe, les droits, le coût et ce qu'elle ne prouve pas : par exemple l'identité EDID et le raccordement des écrans, ou les indices de station dʼaccueil, qui ne sont jamais une identification. L'ancienne requête sur le contrôle de compte (EnableLUA) a été retirée : elle ne mesurait pas l'état réel.
 
 ## Sondes matériel
 
@@ -1215,7 +1215,7 @@ Domenia-Start.ps1 exige Windows PowerShell 5.1 Desktop, 64 bits, en STA. Il lit 
 | « Composant manquant : » suivi du chemin | Fichier absent. |
 | « Manifeste incomplet : » suivi du chemin | Composant obligatoire absent du manifeste. |
 
-Avec --check, Domenia analyse aussi chaque script avec le vrai parseur, importe les modules dans une portée jetable, puis affiche le nombre de fichiers vérifiés et de modules chargés, avec « Aucun acces AD. ». Une erreur est écrite dans %TEMP%\Domenia-startup-error.log.
+Avec --check, Domenia analyse aussi chaque script avec le vrai parseur, importe les modules dans une portée jetable, puis affiche le nombre de fichiers vérifiés et de modules chargés, avec « Aucun accès AD. ». Une erreur est écrite dans %TEMP%\Domenia-startup-error.log.
 
 ## Chargeur fermé et modules
 
@@ -1290,7 +1290,7 @@ La destination doit être vide ou absente. L'installateur vérifie l'empreinte e
 4. **Configurer.** Relisez wad\Domenia.config.json (chapitre 17).
 5. **Lancer.** Lancez Domenia.exe et connectez-vous.
 
-> [!RESULTAT] « Runtime debloque. » puis « Aucune politique PowerShell, GPO, AppLocker/WDAC ou protection antivirus modifiee. Le manifeste ne vaut pas signature. ». En cas d'écart : « Aucun deblocage en masse effectue. ».
+> [!RESULTAT] « Runtime debloque. » puis « Aucune politique PowerShell, GPO, AppLocker/WDAC ou protection antivirus modifiee. Le manifeste ne vaut pas signature. ». En cas d'écart de contenu : « Empreinte invalide sur … fichier(s) du runtime. », suivi de la liste des fichiers en cause ; rien n'est débloqué.
 
 ## Mettre à jour
 
