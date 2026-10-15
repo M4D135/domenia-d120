@@ -794,14 +794,16 @@ function Update-DomeniaIndexLocation {
     $bytes=-1L;$last=$null
     if($exists){
         $bytes=0L;foreach($suffix in @('','-wal')){$file=[IO.FileInfo]::new($path+$suffix);if($file.Exists){$bytes+=[long]$file.Length}}
-        # Last verified backup: the receipt of the StorageBackup worker, or the newest copy of the Backups folder.
+        # Last verified backup: the receipt of the StorageBackup worker, or the newest copy of the Backups folder (scheduled
+        # and manual copies Domenia-*.db, copies taken before a gesture Geste-*.db).
         try{
             $key=Get-DomeniaStoreId $path ([string]$script:Conn.BaseDn);$text=[string](Get-DomeniaSetting ('Storage.Backup.Last.'+$key) '')
             $parsed=[datetime]::MinValue
             if(([bool]$text) -and ([datetime]::TryParse($text,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind,[ref]$parsed))){$last=$parsed.ToUniversalTime()}
         }catch{$last=$null}
         try{
-            $newest=Get-ChildItem -LiteralPath (Join-Path ([IO.Path]::GetDirectoryName($path)) 'Backups') -Filter 'Domenia-*.db' -File -ErrorAction SilentlyContinue|Sort-Object LastWriteTimeUtc -Descending|Select-Object -First 1
+            $folder=Join-Path ([IO.Path]::GetDirectoryName($path)) 'Backups'
+            $newest=@(foreach($pattern in @('Domenia-*.db','Geste-*.db')){Get-ChildItem -LiteralPath $folder -Filter $pattern -File -ErrorAction SilentlyContinue})|Sort-Object LastWriteTimeUtc -Descending|Select-Object -First 1
             if(($null -ne $newest) -and (($null -eq $last) -or ($newest.LastWriteTimeUtc -gt $last))){$last=$newest.LastWriteTimeUtc}
         }catch{}
     }
@@ -911,14 +913,29 @@ function Invoke-DomeniaGestureBackup {
         Add-DomeniaUiLog -Area 'Stockage' -Text ('Avant '+$label+' : '+(Get-DomeniaGestureBackupNotice $decision))
         [void](& $Then);return 'Recent'
     }
-    if($null -ne $script:StorageGestureBackup){Set-Status ('Sauvegarde avant '+[string]$script:StorageGestureBackup.Label+' déjà en cours : attendez sa fin.') 'WARN';return 'Busy'}
+    if($null -ne $script:StorageGestureBackup){
+        # Annuler, a withdrawal from the queue, a detach after the cancel grace and a session change end the backup
+        # without calling its handlers: the slot then frees itself (same liveness rule as Start-DomeniaStorageWork). A
+        # detached copy that still runs keeps it until it ends.
+        $slot=$script:StorageGestureBackup;$jobId=[string](Get-DomeniaMember $slot 'JobId' '');$alive=$false
+        if(([long]$slot.Epoch -eq [long]$script:SessionEpoch) -and ([bool]$jobId)){
+            if(($null -ne $script:AsyncJobs) -and $script:AsyncJobs.Contains($jobId)){$alive=$true}
+            else{foreach($detached in @($script:DetachedReadJobs)){if(($null -ne $detached) -and ([string]$detached.Id -ceq $jobId)){$alive=$true;break}}}
+        }
+        if($alive){Set-Status ('Sauvegarde avant '+[string]$slot.Label+' déjà en cours : attendez sa fin.') 'WARN';return 'Busy'}
+        $script:StorageGestureBackup=$null
+        Add-DomeniaUiLog -Area 'Stockage' -Level 'WARN' -Text ('Sauvegarde avant '+[string]$slot.Label+' arrêtée sans reçu (annulée, retirée de la file ou session changée) : ce geste nʼa pas été lancé.')
+    }
+    # Gesture copies form their own series (Geste-*.db) in the Backups folder: frequent gestures never rotate out the
+    # scheduled and manual copies (Domenia-*.db). Both series keep the BackupKeep newest copies of the storage policy.
     $keep=7;try{$keep=[int](Get-DomeniaCurrentStoragePolicy).BackupKeep}catch{$keep=7}
-    $payload=[pscustomobject]@{Database=$path;BackupDirectory=(Join-Path ([IO.Path]::GetDirectoryName($path)) 'Backups');BudgetSeconds=120;Keep=$keep;CopyTo=''}
-    $state=[pscustomobject]@{Id=[guid]::NewGuid().ToString('N');Gesture=$Gesture;Label=$label;Then=$Then;CopyTo='';Path=$path;Epoch=[long]$script:SessionEpoch;Automatic=$false}
+    $payload=[pscustomobject]@{Database=$path;BackupDirectory=(Join-Path ([IO.Path]::GetDirectoryName($path)) 'Backups');BudgetSeconds=120;Keep=$keep;CopyTo='';Series='Gesture'}
+    $state=[pscustomobject]@{Id=[guid]::NewGuid().ToString('N');Gesture=$Gesture;Label=$label;Then=$Then;CopyTo='';Path=$path;Epoch=[long]$script:SessionEpoch;Automatic=$false;JobId=''}
     $script:StorageGestureBackup=$state
     try{
         $id=Start-UiTask -Name ('Sauvegarde avant '+$label) -OperationId 'StorageBackup' -Code (Get-DomeniaStorageBackupWorkerCode) -Payload $payload -CallbackState $state -SuccessHandler 'Complete-DomeniaGestureBackup' -ErrorHandler 'Fail-DomeniaGestureBackup' -ReplaceKey 'storage:backup:gesture' -TimeoutSeconds 150 -StatusText ('Sauvegarde vérifiée de la base avant '+$label+'…') -TaskClass 'Explicit'
         if([string]::IsNullOrWhiteSpace([string]$id)){throw 'Sauvegarde non admise dans le moteur.'}
+        $state.JobId=[string]$id
     }catch{
         $script:StorageGestureBackup=$null
         Show-DomeniaGestureBackupFailure -State $state -Message $_.Exception.Message

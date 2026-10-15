@@ -546,6 +546,37 @@ try {
         & $script:HeldGesture
         Expect (($script:SaveCount -eq ($saves+1)) -and (@(Get-LinksForComputer 'PC-O1').Count -eq 0)) 'Retrait non fait apres la sauvegarde'
     }
+    Case 'FI-13 : un autre apercu ou d autres cases choisis pendant la sauvegarde ne sont jamais enregistres sans leur clic' {
+        Reset-Fixture;$script:HoldGestureBackup=$true
+        $first=Join-Path $script:TempRoot ('liens-'+[guid]::NewGuid().ToString('N')+'.csv');$second=Join-Path $script:TempRoot ('liens-'+[guid]::NewGuid().ToString('N')+'.csv')
+        [IO.File]::WriteAllLines($first,[string[]]@('UserLogin,Computer','carol,PC-NEW'),[Text.UTF8Encoding]::new($true))
+        [IO.File]::WriteAllLines($second,[string[]]@('UserLogin,Computer','dan,PC-DAN'),[Text.UTF8Encoding]::new($true))
+        $empty=[pscustomobject]@{Rows=@();Busy=$false;Missing=$false;IndexCount=0;Users=@();Computers=@()}
+        Show-DomeniaLinkImportPreview -Path $first;Complete-DomeniaLinkImportIndexCheck -Result $empty -State $script:Submission.State
+        Expect (-not ($script:Submission.Payload.PSObject.Properties.Name -contains 'BusyTimeoutMs')) 'Attente SQLite figee dans la verification de l import'
+        Confirm-DomeniaLinkImport;$held=$script:HeldGesture
+        # Another file previewed while the copy runs: the receipt saves neither file.
+        Show-DomeniaLinkImportPreview -Path $second;Complete-DomeniaLinkImportIndexCheck -Result $empty -State $script:Submission.State
+        & $held
+        Expect (($script:SaveCount -eq 0) -and (@(Get-LinksForComputer 'PC-NEW').Count -eq 0) -and (@(Get-LinksForComputer 'PC-DAN').Count -eq 0)) 'Apercu non confirme importe apres la sauvegarde'
+        Expect (($null -ne $script:Relations.ImportPlan) -and ([string]$script:Relations.ImportPlan.FileName -eq [IO.Path]::GetFileName($second)) -and ([string]$script:Messages['Status'] -match 'a changé pendant la sauvegarde')) ('Apercu ferme ou motif absent : '+[string]$script:Messages['Status'])
+        Confirm-DomeniaLinkImport;& $script:HeldGesture
+        Expect (($script:SaveCount -eq 1) -and (@(Get-LinksForComputer 'PC-DAN').Count -eq 1) -and (@(Get-LinksForComputer 'PC-NEW').Count -eq 0)) 'Apercu confirme non importe'
+        # Orphans: boxes changed during the copy change nothing; exactly the confirmed rows are removed.
+        $saves=$script:SaveCount
+        $script:UserMachineLinks=@(
+            [pscustomobject]@{UserLogin='old1';Computer='PC-O1';Source='Console CIM/DCOM';Confidence=0;VerifiedInAD=$true;When='2026-01-01T08:00:00.0000000Z';Details=''},
+            [pscustomobject]@{UserLogin='old2';Computer='PC-O2';Source='Console CIM/DCOM';Confidence=0;VerifiedInAD=$true;When='2026-01-02T08:00:00.0000000Z';Details=''}
+        );Rebuild-UserMachineLinkIndex
+        Show-DomeniaOrphanLinks -Result ([pscustomobject]@{Checked=2;Rows=@([pscustomobject]@{UserLogin='old1';Computer='PC-O1';When='2026-01-01T08:00:00.0000000Z';UserExists=$false;ComputerExists=$true},[pscustomobject]@{UserLogin='old2';Computer='PC-O2';When='2026-01-02T08:00:00.0000000Z';UserExists=$false;ComputerExists=$true})})
+        $rows=@($script:Relations.Orphans);Expect ($rows.Count -eq 2) 'Orphelines non listees'
+        foreach($row in $rows){$row.Selected=([string]$row.Computer -eq 'PC-O1')}
+        Request-DomeniaOrphanRemoval;Complete-DomeniaOrphanRemoval
+        foreach($row in $rows){$row.Selected=([string]$row.Computer -eq 'PC-O2')}
+        & $script:HeldGesture
+        Expect (($script:SaveCount -eq ($saves+1)) -and (@(Get-LinksForComputer 'PC-O1').Count -eq 0) -and (@(Get-LinksForComputer 'PC-O2').Count -eq 1)) 'Retrait different de la confirmation'
+        Expect ((@($script:Relations.Orphans).Count -eq 1) -and ([string]@($script:Relations.Orphans)[0].Computer -eq 'PC-O2')) 'Liste des orphelines restantes'
+    }
     Case 'CO-08 Index local vide ou illisible : presence non verifiee, motif exact' {
         Reset-Fixture
         $csv=Join-Path $script:TempRoot ('liens-'+[guid]::NewGuid().ToString('N')+'.csv')

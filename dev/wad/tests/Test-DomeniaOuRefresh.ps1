@@ -175,6 +175,45 @@ Case 'FI-13 : la relecture AD de l OU attend la sauvegarde verifiee de la base ;
         Expect ($script:Jobs.Count -eq 4 -and $script:Jobs[3].OperationId -eq 'IndexBuild' -and $script:DomeniaOuRefresh.Source -eq 'Fleet') 'Continuer sans sauvegarde ne lance pas la lecture AD'
     }finally{Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue}
 }
+Case 'FI-13 : une OU choisie pendant la sauvegarde n est jamais lue sans son propre clic' {
+    function Get-DomeniaStorageBackupWorkerCode {return 'fixture backup'}
+    function Set-DomeniaSetting {param($Name,$Value);$script:BackupSettings[[string]$Name]=$Value}
+    function Write-AppLog {param($Text,$Level)}
+    $script:BackupSettings=@{};$script:StorageGestureBackup=$null
+    $file=Join-Path ([IO.Path]::GetTempPath()) ('domenia-x06-'+[guid]::NewGuid().ToString('N')+'.db')
+    [IO.File]::WriteAllBytes($file,[byte[]]@(0))
+    try{
+        $script:DatabaseScopedPath=$file;$clicked=$script:SelectedBranchDn
+        $receipt=[pscustomobject]@{Backup=(Join-Path ([IO.Path]::GetTempPath()) 'Domenia-fixture.db');CopiedTo='';Verified=$true;VerifiedAtUtc=[datetime]::UtcNow.ToString('o')}
+        # Another OU picked in Rechercher while the copy runs: nothing is read, neither OU.
+        Invoke-DomeniaOuRefresh Search AD
+        $backup=$script:Jobs[0];Expect ($backup.OperationId -eq 'StorageBackup') 'Sauvegarde absente avant la lecture AD'
+        $script:SelectedBranchDn='OU=Autre,DC=example,DC=test'
+        [void]$script:AsyncJobs.Remove($backup.Id)
+        Complete-DomeniaGestureBackup -Result $receipt -State $backup.State
+        Expect (($script:Jobs.Count -eq 1) -and ($null -eq $script:DomeniaOuRefresh) -and $script:Status.Contains('a changé pendant la sauvegarde')) ('OU non confirmee lue apres la sauvegarde : '+$script:Status)
+        # « Continuer sans sauvegarde » after a failed copy keeps the same rule.
+        $script:SelectedBranchDn=$clicked;$script:BackupSettings=@{};$script:Confirmation=$null
+        Invoke-DomeniaOuRefresh Search AD
+        $backup=$script:Jobs[1];[void]$script:AsyncJobs.Remove($backup.Id)
+        Fail-DomeniaGestureBackup -Message 'fixture disque plein' -State $backup.State
+        $script:SelectedBranchDn='OU=Autre,DC=example,DC=test'
+        & $script:Confirmation.Confirm
+        Expect (($script:Jobs.Count -eq 2) -and ($null -eq $script:DomeniaOuRefresh)) 'OU non confirmee lue apres Continuer sans sauvegarde'
+        # Same OU: the read starts, with the probe plan captured at the click (legacy Both mode).
+        $script:SelectedBranchDn=$clicked;$script:BackupSettings=@{}
+        Invoke-DomeniaOuRefresh Search Both
+        $backup=$script:Jobs[2];$script:ProbeIds=@('fixture.changed')
+        [void]$script:AsyncJobs.Remove($backup.Id)
+        Complete-DomeniaGestureBackup -Result $receipt -State $backup.State
+        Expect (($script:Jobs.Count -eq 4) -and ($script:Jobs[3].OperationId -eq 'IndexBuild') -and ($script:Jobs[3].Payload.SearchBase -eq $clicked)) 'Lecture AD de l OU confirmee non lancee'
+        Expect ((@($script:DomeniaOuRefresh.Probes).Count -eq 1) -and ($script:DomeniaOuRefresh.Probes[0].Id -eq 'fixture.os')) 'Plan de releve recalcule apres la sauvegarde'
+        # A direct continuation without the confirmed OU reads nothing.
+        Stop-DomeniaOuRefresh -Source Search;$script:AsyncJobs.Clear();$count=$script:Jobs.Count
+        Invoke-DomeniaOuRefresh Search AD -BackupDone
+        Expect (($script:Jobs.Count -eq $count) -and $script:Status.Contains('a changé pendant la sauvegarde')) 'Continuation sans OU confirmee acceptee'
+    }finally{Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue}
+}
 $failed=@($script:Checks|Where-Object{-not $_.Pass})
 $report=[pscustomobject]@{Suite='Domenia.OuRefresh';Platform=[Environment]::OSVersion.Platform.ToString();PowerShell=$PSVersionTable.PSVersion.ToString();Pass=$script:Checks.Count-$failed.Count;Fail=$failed.Count;Tests=$script:Checks.ToArray();Limitations='Actual orchestration, Core AST hooks, storage receipt and collection UI with mocked workers/timers/controls; no AD, WMI, SQLite IO, WPF or Windows qualification.'}
 if($ReportPath){[IO.File]::WriteAllText($ReportPath,($report|ConvertTo-Json -Depth 8),[Text.UTF8Encoding]::new($false))}

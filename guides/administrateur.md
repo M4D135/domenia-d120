@@ -1541,7 +1541,7 @@ powershell -NoProfile -STA -File wad\maintenance\Sauvegarder-Cache.ps1 -Database
 
 ### Sauvegarde avant les gestes qui modifient la base
 
-Quatre gestes passent d'abord par une sauvegarde vérifiée de la base, faite par le worker StorageBackup avec la même rotation que la sauvegarde automatique (7 copies par défaut) :
+Quatre gestes passent d'abord par une sauvegarde vérifiée de la base, faite par le worker StorageBackup dans le dossier Backups sous le nom Geste-DATE.db. Ces copies tournent à part : les plus récentes sont gardées, autant que le nombre de copies réglé dans la conservation (7 par défaut), et elles ne retirent jamais les copies automatiques ou manuelles (Domenia-DATE.db) :
 
 - la relecture AD d'une OU (« Mettre à jour lʼOU choisie » dans Base autonome, « Objets AD » depuis Accueil ou Rechercher) ;
 - l'import CSV des associations ;
@@ -1549,6 +1549,8 @@ Quatre gestes passent d'abord par une sauvegarde vérifiée de la base, faite pa
 - « Oublier les relevés ».
 
 La confirmation de l'import, du retrait et de l'oubli des relevés l'annonce : « Une sauvegarde vérifiée de la base sera faite avant. ». Une sauvegarde vérifiée de moins de 30 minutes sert de point de retour : aucune nouvelle copie n'est faite et la confirmation le dit. Le geste ne démarre qu'après le reçu de la sauvegarde. Si elle échoue, rien n'est lancé : la page propose « Ne pas lancer » ou « Continuer sans sauvegarde », et ce second choix est écrit dans le journal. La base de démonstration et un domaine sans base encore créée ne sont pas sauvegardés.
+
+Le geste porte sur ce qui a été confirmé au clic. Si une autre OU ou un autre aperçu CSV est choisi pendant la sauvegarde, rien n'est lu ni importé : « Actualisation non lancée : lʼOU, la base ou la session a changé pendant la sauvegarde ; aucune lecture AD. Cliquez à nouveau pour lʼOU affichée. » ou « Lʼaperçu a changé pendant la sauvegarde : rien nʼest importé. Vérifiez lʼaperçu affiché puis cliquez « Importer ». ». Le retrait des orphelines porte sur les lignes cochées au moment de la confirmation, même si les cases changent pendant la sauvegarde. « Annuler » pendant la sauvegarde arrête la copie, et le geste n'est pas lancé.
 
 ## Restaurer une sauvegarde
 

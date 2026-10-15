@@ -1743,6 +1743,12 @@ function Get-DomeniaDatabasePath {throw 'Chemin de base explicite requis pour la
 # The original is opened read-only and never modified; a partial copy is removed on failure.
 $dbPath=[string]$Payload.Database;$backupDir=[string]$Payload.BackupDirectory;$copyTo=[string]$Payload.CopyTo
 $budget=[Math]::Max(5,[Math]::Min(120,[int]$Payload.BudgetSeconds));$keep=[Math]::Max(2,[Math]::Min(30,[int]$Payload.Keep))
+# FI-13: the copies taken before a gesture form their own series (Geste-*.db), rotated apart from the scheduled and
+# manual copies (Domenia-*.db), so that frequent gestures never remove a deliberate copy. Any other value is refused.
+$series='';if($null -ne $Payload.PSObject.Properties['Series']){$series=[string]$Payload.Series}
+if(($series -cne '') -and ($series -cne 'Gesture')){throw 'Série de sauvegarde inconnue.'}
+if(($series -ceq 'Gesture') -and ([bool]$copyTo)){throw 'Une sauvegarde avant geste ne se copie pas vers un fichier choisi.'}
+$filePrefix=if($series -ceq 'Gesture'){'Geste-'}else{'Domenia-'}
 function Get-WBackupSafePath {
     param([string]$Path)
     if([string]::IsNullOrWhiteSpace($Path)){throw 'Chemin de sauvegarde vide.'}
@@ -1766,7 +1772,7 @@ if($copyTo){
 if(-not [IO.File]::Exists($dbPath)){throw 'aucune base active a sauvegarder.'}
 [void][IO.Directory]::CreateDirectory($backupDir)
 $stamp=(Get-Date -Format 'yyyyMMdd-HHmmss-fff')+'-'+[guid]::NewGuid().ToString('N').Substring(0,8)
-$dest=Join-Path $backupDir ('Domenia-'+$stamp+'.db');$temporary=$dest+'.partial'
+$dest=Join-Path $backupDir ($filePrefix+$stamp+'.db');$temporary=$dest+'.partial'
 $sourceDb=[IntPtr]::Zero;$targetDb=[IntPtr]::Zero;$backup=[IntPtr]::Zero;$mainPtr=[IntPtr]::Zero;$complete=$false;$exportTemporary=''
 try{
     $sourceDb=Open-DomeniaDatabase -Path $dbPath -ReadOnly
@@ -1789,7 +1795,7 @@ try{
     Close-DomeniaDatabase $targetDb;$targetDb=[IntPtr]::Zero
     Close-DomeniaDatabase $sourceDb;$sourceDb=[IntPtr]::Zero
     [IO.File]::Move($temporary,$dest);$complete=$true
-    Get-ChildItem -LiteralPath $backupDir -Filter 'Domenia-*.db' -File | Sort-Object LastWriteTime -Descending | Select-Object -Skip $keep | ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue }
+    Get-ChildItem -LiteralPath $backupDir -Filter ($filePrefix+'*.db') -File | Sort-Object LastWriteTime -Descending | Select-Object -Skip $keep | ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue }
     if($copyTo){
         try{
             # Publish a fully flushed sibling copy atomically. A failed export leaves the
