@@ -1,5 +1,5 @@
 ﻿#requires -Version 5.1
-<# Points 101 a 110 (lot W12) : preuve de raccordement de l'audit AD.
+<# Points 101 a 110 (lot W12) : preuve de raccordement de l'audit AD et des recettes d'assistance.
    Vrais modules du plan ferme (regles, corps epingles, interface), vraie vue XAML chargee par WPF, vraies fonctions du
    coeur extraites par AST. Start-UiTask, le presse-papiers et les confirmations sont remplaces par des doublures :
    aucune lecture AD, CIM, DNS ni SQLite n'est envoyee. Les gardes des corps epingles sont executees pour de vrai
@@ -30,7 +30,7 @@ function Get-FunctionText {
     if($nodes.Count -ne 1){throw ('Fonction absente ou ambigue : '+$Name)}
     return $nodes[0].Extent.Text
 }
-$script:AuditFiles=@('Domenia-AdAudit.Model.ps1','Domenia-AdAudit.Worker.ps1','Domenia-AdAudit.UI.ps1')
+$script:AuditFiles=@('Domenia-AdAudit.Model.ps1','Domenia-AdAudit.Worker.ps1','Domenia-AdAudit.UI.ps1','Domenia-Assistance.Model.ps1','Domenia-Assistance.UI.ps1')
 $script:AuditOperations=@('PasswordPolicyRead','GroupPathRead','DelegationRead','GpoLinksRead','GpoAppliedRead','AdHealthRead','DcServicesRead','AdConsistencyScan','MachineIdentityRead','RelationHistoryRead')
 $script:WorkerFunctions=[ordered]@{
     PasswordPolicyRead='Get-DomeniaPasswordPolicyReadWorkerCode';GroupPathRead='Get-DomeniaGroupPathReadWorkerCode';DelegationRead='Get-DomeniaDelegationReadWorkerCode'
@@ -372,6 +372,73 @@ if($infrastructure){
         Expect ($script:Ctrl.LblLinkOverview.Visibility -eq 'Collapsed' -and $script:Ctrl.LblLinkOverview.Text -eq '')
         Expect (Test-DomeniaRelationMatchesFilter ([pscustomobject]@{Badge='Historique';UserLogin='ancien'}) '' @('Historique'))
         Expect (-not (Test-DomeniaRelationMatchesFilter ([pscustomobject]@{Badge='Historique';UserLogin='ancien'}) '' @('Observe'))) 'L historique passe encore pour une observation'
+    }
+    Case 'Assistance : onglet, vue WPF et recettes proposees sans lecture' {
+        [xml]$main=Get-MainXaml
+        $x='http://schemas.microsoft.com/winfx/2006/xaml'
+        $tab=@($main.SelectNodes('//*[local-name()="TabItem"]')|Where-Object{$_.GetAttribute('Name',$x) -eq 'WsAssistance'})
+        Expect ($tab.Count -eq 1 -and ([string]$tab[0].GetAttribute('ToolTip') -ceq [string]$tab[0].GetAttribute('AutomationProperties.HelpText'))) 'Onglet Assistance'
+        Expect (@($script:Help|Where-Object{($_.Name -eq 'WsAssistance') -and ([string]$_.Text -ceq [string]$tab[0].GetAttribute('ToolTip'))}).Count -eq 1) 'Aide de l onglet Assistance'
+        Expect ($script:CoreText.Contains('"WsAssistance" = "Default"') -and ((Get-FunctionText $script:CoreAst 'Wire-Events') -match 'Register-DomeniaAssistanceTool')) 'Assistance non raccordee'
+        $script:Ctrl=@{};$script:AssistanceView=$null;$script:AssistanceLaunched=@{};$script:SelectedObject=$null
+        $tabItem=New-Object Windows.Controls.TabItem;$tabItem.Name='WsAssistance';$script:Ctrl['WsAssistance']=$tabItem
+        Show-DomeniaAssistanceTool
+        Expect ([object]::ReferenceEquals($tabItem.Content,$script:AssistanceView)) 'Vue non posee'
+        Expect (@($script:Ctrl.CmbAssistanceRecipe.ItemsSource).Count -eq 4 -and $null -eq $script:Ctrl.CmbAssistanceRecipe.SelectedItem) 'Recettes absentes ou choisies a la place de l operateur'
+        Expect (-not $script:Ctrl.BtnAssistanceRun.IsEnabled -and $script:Ctrl.LblAssistanceSubject.Text -match 'Aucune sélection')
+        [xml]$document=[IO.File]::ReadAllText((Join-Path $modules 'Domenia-Assistance.xaml'),[Text.Encoding]::UTF8)
+        foreach($element in $document.SelectNodes('//*')){
+            $name=$element.GetAttribute('Name',$x);if(-not $name){continue}
+            Expect ($script:Ctrl.ContainsKey($name)) ('Controle non enregistre : '+$name)
+            $tip=$element.GetAttribute('ToolTip')
+            if($tip){$entry=@($script:Help|Where-Object{$_.Name -eq $name});Expect ($entry.Count -eq 1 -and ([string]$entry[0].Text -ceq $tip) -and ($tip -ceq $element.GetAttribute('AutomationProperties.HelpText'))) ('Aide : '+$name)}
+        }
+    }
+    Case 'Assistance : une etape, un clic, une seule lecture, pour le bon sujet' {
+        $script:Ctrl=@{
+            CmbAssistanceRecipe=[pscustomobject]@{SelectedItem=$null;ItemsSource=$null};DgAssistanceSteps=New-FakeGrid
+            LblAssistanceSubject=[pscustomobject]@{Text=''};LblAssistanceRecipe=[pscustomobject]@{Text=''};LblAssistanceStep=[pscustomobject]@{Text=''}
+            BtnAssistanceRun=[pscustomobject]@{IsEnabled=$false};BtnAssistanceOpen=[pscustomobject]@{IsEnabled=$false}
+            WsObject=[pscustomobject]@{Name='WsObject'};TabUser=[pscustomobject]@{Name='TabUser'};WsComputer=[pscustomobject]@{Name='WsComputer'};TabInventory=[pscustomobject]@{Name='TabInventory'}
+            TabApplicationTools=[pscustomobject]@{Name='TabApplicationTools'};WsAdAudit=[pscustomobject]@{Name='WsAdAudit'}
+        }
+        $script:AssistanceView=[pscustomobject]@{Name='DomeniaAssistanceView'};$script:AssistanceLaunched=@{};$script:SessionEpoch=9L
+        $script:Calls=[Collections.Generic.List[string]]::new()
+        function Select-DomeniaWorkspace {param($Workspace,$Inner,$Tab);$script:Calls.Add('route:'+$Workspace+'/'+$Inner+'/'+$Tab)}
+        function Start-DomeniaLockoutEventRead {$script:Calls.Add('lockouts')}
+        function Start-DomeniaComputerInventory {param([switch]$Deep);$script:Calls.Add('inventory:'+[string][bool]$Deep)}
+        function Start-DomeniaAdAuditPolicyRead {$script:Calls.Add('policy')}
+        function Show-DomeniaAdAuditTool {$script:Calls.Add('audit-view')}
+        $script:SelectedObject=[pscustomobject]@{DN='CN=Jean Dupont,OU=Support,DC=example,DC=invalid';Type='Utilisateur';Name='Jean Dupont'}
+        $script:Ctrl.CmbAssistanceRecipe.SelectedItem=Get-DomeniaAssistanceRecipe 'logon'
+        Update-DomeniaAssistanceView
+        $rows=@($script:Ctrl.DgAssistanceSteps.ItemsSource)
+        Expect ($rows.Count -eq 6 -and $script:Ctrl.LblAssistanceSubject.Text -eq 'Pour : Utilisateur · Jean Dupont' -and $script:Ctrl.LblAssistanceRecipe.Text -match 'Aucune étape ne part seule')
+        Expect ($script:Calls.Count -eq 0) 'Le choix d une recette a lance une lecture'
+        $script:Ctrl.DgAssistanceSteps.SelectedItem=$rows[1];Update-DomeniaAssistanceStepDetail
+        Expect ($script:Ctrl.BtnAssistanceRun.IsEnabled) 'Etape du compte non proposee'
+        Invoke-DomeniaAssistanceStep
+        Expect (($script:Calls -join ',') -eq 'route:WsObject/DetailTabs/TabUser,lockouts') ($script:Calls -join ',')
+        $after=@($script:Ctrl.DgAssistanceSteps.ItemsSource)
+        Expect ($after[1].State -match '^Lancée à' -and $after[2].State -eq 'À lancer' -and [object]::ReferenceEquals($script:Ctrl.DgAssistanceSteps.SelectedItem,$after[1])) 'Etat ou selection perdus'
+        Expect ($script:Ctrl.LblAssistanceStep.Text -match 'lecture demandée') $script:Ctrl.LblAssistanceStep.Text
+        $script:Calls.Clear();$script:Ctrl.DgAssistanceSteps.SelectedItem=$after[3];Invoke-DomeniaAssistanceStep
+        Expect ($script:Calls.Count -eq 0 -and $script:Ctrl.LblAssistanceStep.Text -eq 'Sélectionnez le poste concerné.') 'Etape du poste lancee pour un compte'
+        $script:Ctrl.DgAssistanceSteps.SelectedItem=$after[2];Invoke-DomeniaAssistanceStep
+        Expect (($script:Calls -join ',') -eq 'route:TabApplicationTools/ApplicationToolTabs/WsAdAudit,audit-view,policy') ($script:Calls -join ',')
+        $script:Calls.Clear();$script:Ctrl.DgAssistanceSteps.SelectedItem=$after[0];Open-DomeniaAssistanceStepView
+        Expect (($script:Calls -join ',') -eq 'route:WsObject/DetailTabs/TabUser') 'Vue sans lecture'
+        $script:Calls.Clear()
+        $script:SelectedObject=[pscustomobject]@{DN='CN=PC-01,OU=Postes,DC=example,DC=invalid';Type='Machine';Name='PC-01'}
+        $script:Ctrl.CmbAssistanceRecipe.SelectedItem=Get-DomeniaAssistanceRecipe 'slow';Update-DomeniaAssistanceView
+        $slow=@($script:Ctrl.DgAssistanceSteps.ItemsSource)
+        Expect (@($slow|Where-Object{$_.State -match '^Lancée'}).Count -eq 0) 'Etat d un autre sujet repris'
+        $script:Ctrl.DgAssistanceSteps.SelectedItem=@($slow|Where-Object{$_.Id -eq 'deep'})[0];Invoke-DomeniaAssistanceStep
+        Expect (($script:Calls -join ',') -eq 'route:WsComputer/ComputerTabs/TabInventory,inventory:True') ($script:Calls -join ',')
+        $forged=[pscustomobject]@{Id='x';Title='X';Step=[pscustomobject]@{Id='x';Subject='Machine';Action='Remove-Item';Arguments=@{};Workspace='WsComputer'};CanRun=$true;CanOpen=$true}
+        $script:Ctrl.DgAssistanceSteps.SelectedItem=$forged;$message=''
+        try{Invoke-DomeniaAssistanceStep}catch{$message=$_.Exception.Message}
+        Expect ($message -match 'non autorisée') 'Action hors liste executee'
     }
     Case 'Copie : la vue affichee part dans le presse-papiers, sans relecture' {
         Reset-AuditFixture;Select-AuditObject

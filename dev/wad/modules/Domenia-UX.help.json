@@ -4401,5 +4401,40 @@
     "Text": "Affectation déclarée, dernière session observée et historique, chacun avec son origine et sa date. Une observation ne vaut pas affectation.",
     "Kind": "TextBlock",
     "Source": "W12-ad-security"
+  },
+  {
+    "Name": "WsAssistance",
+    "Title": "Assistance",
+    "Text": "Recettes guidées pour une connexion impossible, un poste lent, un manque dʼespace ou un logiciel absent : chaque étape dit ce quʼelle lit et part sur votre clic.",
+    "Kind": "TabItem",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "CmbAssistanceRecipe",
+    "Title": "Recette dʼassistance",
+    "Text": "Choisissez le symptôme décrit par lʼutilisateur. Le choix seul ne lit rien.",
+    "Kind": "ComboBox",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "DgAssistanceSteps",
+    "Title": "Étapes de la recette",
+    "Text": "Étapes de la recette : ce qui est lu, pourquoi et à quel coût. Choisissez une étape, puis lancez-la.",
+    "Kind": "DataGrid",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAssistanceRun",
+    "Title": "Lancer lʼétape choisie",
+    "Text": "Ouvre la vue de lʼétape puis lance sa seule lecture, pour lʼobjet sélectionné. Rien dʼautre ne part.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "BtnAssistanceOpen",
+    "Title": "Ouvrir la vue de lʼétape",
+    "Text": "Ouvre la vue où lʼétape présente ses informations, sans rien lire.",
+    "Kind": "Button",
+    "Source": "W12-ad-security"
   }
 ]

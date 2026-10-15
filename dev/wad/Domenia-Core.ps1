@@ -947,6 +947,7 @@ $script:GuiElementPolicy = [ordered]@{
     "TabApplicationTools" = "Default"
     "ApplicationToolTabs" = "Default"
     "WsAdAudit" = "Default"
+    "WsAssistance" = "Default"
     "TabSelfCheck" = "Default"
     "BtnSelfCheckQuick" = "Default"
     "BtnSelfCheckFull" = "Default"
@@ -7266,6 +7267,8 @@ function Get-MainXaml {
                       </TabItem>
                       <!-- Points 102 to 109: content loaded from Domenia-AdAudit.xaml at the first opening (Domenia-AdAudit.UI.ps1). -->
                       <TabItem x:Name="WsAdAudit" Header="Audit AD" ToolTip="Stratégie de mot de passe, groupes imbriqués, délégations, GPO, contrôleurs et identités : lectures bornées et à la demande, sans écriture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Audit AD" AutomationProperties.HelpText="Stratégie de mot de passe, groupes imbriqués, délégations, GPO, contrôleurs et identités : lectures bornées et à la demande, sans écriture."/>
+                      <!-- Point 110: content loaded from Domenia-Assistance.xaml at the first opening (Domenia-Assistance.UI.ps1). -->
+                      <TabItem x:Name="WsAssistance" Header="Assistance" ToolTip="Recettes guidées pour une connexion impossible, un poste lent, un manque dʼespace ou un logiciel absent : chaque étape dit ce quʼelle lit et part sur votre clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Assistance" AutomationProperties.HelpText="Recettes guidées pour une connexion impossible, un poste lent, un manque dʼespace ou un logiciel absent : chaque étape dit ce quʼelle lit et part sur votre clic."/>
                       <TabItem x:Name="TabDomain" ToolTip="Roles FSMO, niveaux fonctionnels, controleurs et strategie du domaine." Header="Domaine" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Domaine" AutomationProperties.HelpText="Roles FSMO, niveaux fonctionnels, controleurs et strategie du domaine.">
                         <DockPanel Margin="4">
                           <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
@@ -22455,8 +22458,9 @@ function Wire-Events {
     [void](Register-DomeniaContextMenus)
     Register-DomeniaDeferredViewHandlers
     [void](Register-DomeniaShortcuts)
-    # Points 102 to 109: the Audit AD tool loads its own view at the first opening of its tab.
+    # Points 102 to 110: the Audit AD and Assistance tools load their own view at the first opening of their tab.
     try { Register-DomeniaAdAuditTool } catch { Write-AppLog ('Audit AD non raccordé : ' + $_.Exception.Message) 'ERROR' }
+    try { Register-DomeniaAssistanceTool } catch { Write-AppLog ('Assistance non raccordée : ' + $_.Exception.Message) 'ERROR' }
 }
 
 

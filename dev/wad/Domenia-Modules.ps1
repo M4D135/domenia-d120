@@ -1367,6 +1367,30 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaAdAuditGridSection',
             'Copy-DomeniaAdAuditView'
         ) }
+        # Point 110 (support recipes): pure recipes and the view of Outils > Assistance.
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Safety.Model.ps1'); File='Domenia-Assistance.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaAssistanceActions',
+            'New-DomeniaAssistanceStep',
+            'Get-DomeniaAssistanceRecipes',
+            'Get-DomeniaAssistanceRecipe',
+            'Test-DomeniaAssistanceRecipes',
+            'Get-DomeniaAssistanceSubjectLabel',
+            'Get-DomeniaAssistanceStepState',
+            'ConvertTo-DomeniaAssistanceStepRows',
+            'Get-DomeniaAssistancePlanText'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Assistance.Model.ps1','Domenia-AdAudit.UI.ps1','Domenia-Lockout.UI.ps1'); File='Domenia-Assistance.UI.ps1'; DotSource=$true; Functions=@(
+            'Register-DomeniaAssistanceTool',
+            'Show-DomeniaAssistanceTool',
+            'Initialize-DomeniaAssistanceView',
+            'Get-DomeniaAssistanceSelection',
+            'Get-DomeniaAssistanceLaunchedMap',
+            'Update-DomeniaAssistanceView',
+            'Update-DomeniaAssistanceStepDetail',
+            'Open-DomeniaAssistanceRoute',
+            'Open-DomeniaAssistanceStepView',
+            'Invoke-DomeniaAssistanceStep'
+        ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Demo.Model.ps1'); File='Domenia-Demo.UI.ps1'; DotSource=$true; Functions=@(
             'Initialize-DomeniaDemoMode',
             'Get-DomeniaDemoConfiguredIdentity',
