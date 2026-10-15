@@ -204,7 +204,9 @@ class ComparisonTests(unittest.TestCase):
             "    'Etat*' { 1 }": [('case', '', 'Etat*'), ('like', '', 'Etat*')],
             "$m['Etat'] = 1": [('key', '', 'Etat')],
             "$o = @{ 'Etat' = 1 }": [('key', '', 'Etat')],
-            "$s.StartsWith('Desactive')": [('StartsWith', '', 'Desactive')],
+            "$s.StartsWith('Desactive')": [('method:StartsWith', '', 'Desactive')],
+            "@($l | Where-Object { $_.Contains('(Verifie)') })": [('method:Contains', '', '(Verifie)')],
+            "if ($h.ContainsKey('Etat')) { }": [('method:ContainsKey', '', 'Etat')],
             "Set-Status 'Etat' 'INFO' # -eq 'x'": [],
             '$x -like "*$name*"': [],
         }
@@ -225,13 +227,55 @@ class ComparisonTests(unittest.TestCase):
         self.assertEqual(changed('like', 'Desactive*'), ['x.ps1:1'])
         self.assertEqual(changed('match', '^(Desactive|Aucun)'), ['x.ps1:1'])
         self.assertEqual(changed('eq', 'desactive le compte'), ['x.ps1:1'])
-        self.assertEqual(changed('StartsWith', 'Desactive'), ['x.ps1:1'])
+        self.assertEqual(changed('method:StartsWith', 'Desactive'), ['x.ps1:1'])
         self.assertEqual(changed('like', 'Désactivé*'), [], 'a pattern already accented')
         self.assertEqual(changed('match', 'registre', 'Non enregistre', 'Non enregistré'), [],
                          'a word inside another word is not followed')
         self.assertEqual(changed('match', 'compte'), [], 'the match is kept')
         self.assertEqual(changed('match', r'^[A-Za-z_][A-Za-z0-9_]{0,127}$', 'Etat', 'État'), [], 'a shape check')
         self.assertEqual(lp.content_words('match', r'(?i)\bdelai\b|chemin reseau'), {'delai', 'chemin', 'reseau'})
+
+    def test_string_methods_are_not_operators(self):
+        # String.Contains is a substring check; the -contains operator compares whole items.
+        def changed(op, literal, old='$message (Verifie)', new='$message (Vérifié)'):
+            found = lp.Comparisons()
+            found.add(op, '', literal, 'x.ps1:1')
+            return found.changed(old, new)
+        self.assertEqual(changed('method:Contains', '(Verifie)'), ['x.ps1:1'])
+        self.assertEqual(changed('method:IndexOf', 'Verifie'), ['x.ps1:1'])
+        self.assertEqual(changed('contains', '(Verifie)'), [], 'an item equal to (Verifie) is not this text')
+        self.assertEqual(changed('method:Contains', 'Aucun plan confirme', 'Aucun plan confirme : rien',
+                                 'Aucun plan confirmé : rien'), ['x.ps1:1'])
+        self.assertEqual(changed('method:Contains', 'registre', 'Non enregistre', 'Non enregistré'), [],
+                         'a word inside another word is not followed')
+        # The same call on a list or a hashtable tests membership: a reworded text equal to the item is followed too.
+        self.assertEqual(changed('method:Contains', 'Etat', 'Etat', 'Etat du poste'), ['x.ps1:1'])
+        self.assertEqual(changed('method:Contains', '[Etat]', 'Etat [Etat]', 'État [État]'), ['x.ps1:1'],
+                         'brackets are plain characters in a substring')
+        self.assertTrue(lp.comparison('method:Contains', '', 'Etat')('Etat du poste'))
+        self.assertFalse(lp.comparison('method:Contains', '', 'Etat')('etat du poste'), 'ordinal, with the case')
+        self.assertTrue(lp.comparison('method:ContainsKey', '', 'Etat')('etat'), 'hashtable keys ignore the case')
+        self.assertFalse(lp.comparison('method:Equals', '', 'Etat')('etat'))
+        self.assertTrue(lp.comparison('contains', '', 'Etat')('etat'))
+        self.assertFalse(lp.comparison('contains', '', 'Etat')('Etat du poste'))
+        self.assertIsNone(lp.content_words('method:ContainsKey', 'Etat'))
+        with self.assertRaises(ValueError):
+            lp.comparison('method:Trim', '', 'x')
+        with self.assertRaises(ValueError):
+            lp.comparison('ge', '', 'x')
+
+    def test_lost_reports_the_kind_and_marks_keys_as_possible(self):
+        found = lp.Comparisons()
+        for op, case, literal in lp.line_comparisons("if ($h.Header -ceq 'Etat' -and $m['Etat']) { }"):
+            found.add(op, case, literal, 'x.ps1:7', "if ($h.Header -ceq 'Etat' -and $m['Etat']) { }")
+        lost = found.lost('Etat', 'État')
+        self.assertEqual([(d['Comparison'], d['Possible']) for d in lost], [('-ceq', False), ('clé', True)])
+        self.assertEqual(found.changed('Etat', 'État'), ['x.ps1:7'], 'one place once')
+        self.assertEqual(lp.describe(lost), 'x.ps1:7 (-ceq), x.ps1:7 (clé, possible)')
+        found = lp.Comparisons()
+        found.add('method:ContainsKey', '', 'Etat', 'x.ps1:8')
+        self.assertEqual([(d['Comparison'], d['Possible']) for d in found.lost('Etat', 'État')], [('.ContainsKey', True)])
+        self.assertEqual(lp.describe(lost * 2), 'x.ps1:7 (-ceq), x.ps1:7 (clé, possible), x.ps1:7 (-ceq), et 1 autre')
 
 
 class PlanTests(unittest.TestCase):
@@ -336,7 +380,45 @@ class PlanTests(unittest.TestCase):
         self.assertEqual([e for e in edits if e['File'] == 'wad/Domenia-Core.ps1'], [])
         reasons = {(m['Line'], m['Reason']) for m in report['Manual'] if m['File'] == 'wad/Domenia-Core.ps1'}
         self.assertEqual(reasons, {(1, 'littéral opérande dʼune comparaison'), (2, 'littéral utilisé comme clé'),
-                                   (1, 'comparaison dans le code changée : wad/Domenia-Core.ps1:1, wad/Domenia-Core.ps1:2')})
+                                   (1, 'comparaison dans le code changée : wad/Domenia-Core.ps1:1 (-eq), '
+                                       'wad/Domenia-Core.ps1:2 (clé, possible)')})
+
+    def test_string_contains_in_code_and_tests_is_followed(self):
+        core = CORE + 'Set-Status "$message (Verifie)"\nif ($s.Contains(\'Recherche terminee\')) { }\n'
+        self.tree.core.write_bytes(b'\xef\xbb\xbf' + core.encode('utf-8'))
+        (self.tree.root / 'wad/tests/Test-Sample.ps1').write_bytes(
+            b'\xef\xbb\xbf' + "Assert-True (@($s | Where-Object { $_.Contains('(Verifie)') }).Count -ge 1)\n".encode('utf-8'))
+        lp.write_map(self.tree.root / lp.SURE_MAP, dict(SURE, **{'$message (Verifie)': '$message (Vérifié)'}))
+        edits, report = self.plan()
+        self.assertIn('$message (Verifie)', {e['Text'] for e in edits})
+        self.assertNotIn('Recherche terminee.', {e['Text'] for e in edits}, 'held by .Contains in the code')
+        self.assertEqual({m['Reason'] for m in report['Manual'] if m['Text'] == 'Recherche terminee.'},
+                         {'comparaison dans le code changée : wad/Domenia-Core.ps1:13 (.Contains)'})
+        self.assertEqual([t['Pattern'] for t in report['Tests'] if t['Text'] == '$message (Verifie)'],
+                         [['wad/tests/Test-Sample.ps1:1']])
+
+    def test_cleared_comparisons_release_a_text_until_their_line_changes(self):
+        cleared = self.tree.root / lp.CLEARED
+        code = "if ($h.Header -eq 'Etat') { }"
+        entry = {'Text': 'Etat', 'File': 'wad/Domenia-Core.ps1', 'Code': code, 'Reason': 'Autre donnée.'}
+        cleared.write_text(json.dumps([entry], ensure_ascii=False), encoding='utf-8')
+        edits, report = self.plan()
+        self.assertIn('Etat', {e['Text'] for e in edits})
+        self.assertEqual(report['Cleared'], [{'Text': 'Etat', 'Place': 'wad/Domenia-Core.ps1:10', 'Comparison': '-eq',
+                                              'Reason': 'Autre donnée.'}])
+        self.assertEqual((report['Dependencies'], report['UnusedCleared']), ([], []))
+        self.tree.core.write_bytes(b'\xef\xbb\xbf' + CORE.replace(code, "if ($h.Header -ceq 'Etat') { }").encode('utf-8'))
+        edits, report = self.plan()
+        self.assertNotIn('Etat', {e['Text'] for e in edits}, 'a changed line holds the text again')
+        self.assertEqual(report['UnusedCleared'], [{'Text': 'Etat', 'File': 'wad/Domenia-Core.ps1', 'Code': code}])
+        self.assertEqual([d['Text'] for d in report['Dependencies']], ['Etat'])
+        for bad in ({'Text': 'Etat', 'File': 'f'}, dict(entry, Reason=' '), dict(entry, Text='Etat  ')):
+            cleared.write_text(json.dumps([bad], ensure_ascii=False), encoding='utf-8')
+            with self.assertRaises(ValueError):
+                lp.read_cleared(cleared)
+        cleared.write_text(json.dumps([entry, entry], ensure_ascii=False), encoding='utf-8')
+        with self.assertRaises(ValueError):
+            lp.read_cleared(cleared)
 
     def test_overlapping_occurrences_are_left_manual(self):
         core = "Set-Status '<TextBlock Text=\"Etat du poste\"/>'\n"
@@ -377,6 +459,10 @@ class RepositoryTests(unittest.TestCase):
     def test_maps_cover_every_faulty_text(self):
         self.assertEqual([u['Text'] for u in self.report['Uncovered'] if not u['Accessibility']], [])
         self.assertEqual(self.report['Refused'], [])
+
+    def test_safe_map_is_typographic_and_cleared_list_is_current(self):
+        self.assertEqual(self.report['Warnings'], [])
+        self.assertEqual(self.report['UnusedCleared'], [])
 
 
 if __name__ == '__main__':

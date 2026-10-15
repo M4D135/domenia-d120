@@ -22,6 +22,12 @@ entities (and refuses $ and ` inside a .ps1), the help JSON keeps its format. Le
 escape or a line break, a literal that is itself a comparison operand or a key, a text whose comparison in code
 (-eq, -like, -match, switch, .Contains...) would give another result once corrected, overlapping spans. Test files are
 never written: they are listed. Encodings (BOM) and line endings are preserved.
+Comparisons are found by literal, not by data flow: any literal equal to the text counts, whatever is compared. A key,
+an index, a property name or a ContainsKey operand equal to the text is reported as a possible dependency (Possible).
+A comparison read and judged unrelated to the text is recorded in
+engineering/d120/programme-2026-10-08/langue-dependances-ecartees.json ({Text, File, Code, Reason}: Code is the exact
+trimmed source line, so a changed line holds the text again; an entry that clears nothing is reported).
+Places of the help JSON are entry numbers (the audit's convention), not file lines.
 """
 from collections import Counter
 from difflib import SequenceMatcher
@@ -35,6 +41,7 @@ ROOT = aw.ROOT
 MAP_DIR = Path('engineering/d120/programme-2026-10-08')
 SURE_MAP = MAP_DIR / 'langue-corrections-sures.json'
 REVIEW_MAP = MAP_DIR / 'langue-corrections-a-relire.json'
+CLEARED = MAP_DIR / 'langue-dependances-ecartees.json'
 TESTS_DIR = Path('wad/tests')
 SURE, REVIEW = 'sures', 'a-relire'
 
@@ -489,19 +496,53 @@ def wildcard_regex(pattern):
     return '(?s)' + ''.join(out) + r'\Z'
 
 
-EQUALITY_OPS = {'eq', 'ne', 'in', 'notin', 'contains', 'notcontains', 'key', 'case', 'containskey', 'equals'}
+# PowerShell operators judged as an equality (positive form: -ne is judged as -eq), plus the two kinds that
+# line_comparisons adds: 'key' (hashtable key, index or property name) and 'case' (switch clause).
+EQUALITY_OPS = {'eq', 'ne', 'in', 'notin', 'contains', 'notcontains', 'key', 'case'}
+# .NET methods are tagged 'method:<Name>' so that String.Contains (a substring check) is never confused with the
+# -contains operator (a membership test). Contains, IndexOf and LastIndexOf also exist on lists and hashtables, where
+# they test membership: Comparisons follows them both ways.
+METHOD = 'method:'
+EQUALITY_METHODS = {'containskey', 'equals'}
+SUBSTRING_METHODS = {'contains', 'indexof', 'lastindexof', 'replace', 'split'}
+MEMBERSHIP_METHODS = {'contains', 'indexof', 'lastindexof'}
 PATTERN_SYNTAX_RX = re.compile(r'\\.|\[[^\]]*\]|\{\d*,?\d*\}|\(\?[^)]*?[:)>]|`.')
 WORD_RX = re.compile(r'[^\W\d_]{3,}')
 
 
+def method_name(op):
+    """Lowered .NET method name of a 'method:<Name>' kind, or None for an operator."""
+    op = op.lower()
+    return op[len(METHOD):] if op.startswith(METHOD) else None
+
+
+def is_exact(op):
+    """True when the comparison is with the whole text (equality, membership, key), False for a pattern or a part."""
+    name = method_name(op)
+    return name in EQUALITY_METHODS if name is not None else op.lower() in EQUALITY_OPS
+
+
 def comparison(op, case, literal):
     """Predicate telling whether a text satisfies a comparison with a literal operand (the positive form of the
-    operator: -notlike is judged as -like)."""
+    operator: -notlike is judged as -like). String methods compare with the case."""
     sensitive = case.lower() == 'c'
     flags = 0 if sensitive else re.I
+    name = method_name(op)
+    if name is not None:
+        if name == 'equals':
+            return lambda t: t == literal
+        if name == 'containskey':  # a PowerShell hashtable ignores the case of its keys
+            return lambda t: t.lower() == literal.lower()
+        if name == 'startswith':
+            return lambda t: t.startswith(literal)
+        if name == 'endswith':
+            return lambda t: t.endswith(literal)
+        if name in SUBSTRING_METHODS:
+            return lambda t: literal in t
+        raise ValueError('méthode de comparaison inconnue : ' + op)
     op = op.lower()
     if op in EQUALITY_OPS:
-        if sensitive or op == 'equals':
+        if sensitive:
             return lambda t: t == literal
         return lambda t: t.lower() == literal.lower()
     if op in ('like', 'notlike'):
@@ -513,23 +554,34 @@ def comparison(op, case, literal):
         except re.error:
             return lambda t: literal in t
         return lambda t: bool(rx.search(t))
-    if op == 'startswith':
-        return lambda t: t.startswith(literal)
-    if op == 'endswith':
-        return lambda t: t.endswith(literal)
-    return lambda t: literal in t  # Contains, IndexOf, LastIndexOf, Replace, Split (methods)
+    raise ValueError('opérateur de comparaison inconnu : ' + op)
+
+
+def comparison_label(op, case=''):
+    """How a comparison kind is shown in the report: -ceq, .Contains, clé, switch."""
+    if method_name(op) is not None:
+        return '.' + op[len(METHOD):]
+    if op.lower() == 'key':
+        return 'clé'
+    if op.lower() == 'case':
+        return 'switch'
+    return '-' + case.lower() + op.lower()
 
 
 def content_words(op, literal):
-    """Folded words (3 letters or more) written in a pattern, outside its syntax; None for an exact comparison.
-    A pattern without any word (character classes only) checks a shape, not a wording: it is not followed."""
-    if op.lower() in EQUALITY_OPS:
+    """Folded words (3 letters or more) written in a pattern or a substring, outside the pattern syntax; None for an
+    exact comparison. A pattern without any word (character classes only) checks a shape, not a wording: it is not
+    followed."""
+    if is_exact(op):
         return None
+    if method_name(op) is not None:  # a substring has no pattern syntax: [x] or \. are plain characters there
+        return {fold(w).lower() for w in WORD_RX.findall(literal)}
     return {fold(w).lower() for w in WORD_RX.findall(PATTERN_SYNTAX_RX.sub(' ', literal))}
 
 
 def line_comparisons(line):
-    """(op, case, literal) of each comparison of a code line whose operand is a literal that can be evaluated."""
+    """(op, case, literal) of each comparison of a code line whose operand is a literal that can be evaluated.
+    op is the operator name (eq, like, contains...), 'method:<Name>' for a .NET method, 'key' or 'case'."""
     out = []
     for s, e, q, value in ps_strings(line):
         if q == '"' and '$' in value:
@@ -541,7 +593,7 @@ def line_comparisons(line):
             out.append((m.group('op'), m.group('case'), value)); continue
         m = METHOD_BEFORE_RX.search(before)
         if m:
-            out.append((m.group('op'), '', value)); continue
+            out.append((METHOD + m.group('op'), '', value)); continue
         if (INDEX_BEFORE_RX.search(before) and INDEX_AFTER_RX.match(after)) or \
                 (KEY_AFTER_RX.match(after) and KEY_BEFORE_RX.search(before)):
             out.append(('key', '', value)); continue
@@ -564,8 +616,8 @@ def code_files(root, tests=False):
 
 
 class Comparisons:
-    """The literal comparisons of a set of files, indexed: exact ones by their lowered literal, patterns by the first
-    three letters of each of their words (see content_words)."""
+    """The literal comparisons of a set of files, indexed: exact ones by their lowered literal, patterns and
+    substrings by the first three letters of each of their words (see content_words)."""
 
     def __init__(self, root=None, files=()):
         self.exact, self.by_prefix, self.count = {}, {}, 0
@@ -575,13 +627,22 @@ class Comparisons:
                 if line.lstrip().startswith('#'):
                     continue
                 for op, case, literal in line_comparisons(line):
-                    self.add(op, case, literal, '%s:%d' % (rel, number))
+                    self.add(op, case, literal, '%s:%d' % (rel, number), line.strip())
 
-    def add(self, op, case, literal, place):
+    def add(self, op, case, literal, place, code=''):
         words = content_words(op, literal)
         if not literal.strip() or words == set():
             return
-        entry = (self.count, comparison(op, case, literal), words, place)
+        label = comparison_label(op, case)
+        possible = op.lower() == 'key' or method_name(op) == 'containskey'  # a lookup by name, not a test of the text
+        self._index(comparison(op, case, literal), words, literal, place, label, possible, code)
+        if method_name(op) in MEMBERSHIP_METHODS:
+            # The same call on a list or a hashtable tests membership: followed as -contains too.
+            self._index(comparison('contains', '', literal), None, literal, place, label, False, code)
+
+    def _index(self, predicate, words, literal, place, label, possible, code):
+        info = {'Place': place, 'Comparison': label, 'Possible': possible, 'Code': code}
+        entry = (self.count, predicate, words, info)
         self.count += 1
         if words is None:
             self.exact.setdefault(literal.lower(), []).append(entry)
@@ -589,10 +650,11 @@ class Comparisons:
             for prefix in {w[:3] for w in words}:
                 self.by_prefix.setdefault(prefix, []).append(entry)
 
-    def changed(self, old, new):
-        """Places of the comparisons that recognize old and no longer recognize new: exact comparisons, and patterns
-        with a word that starts a word of old (« registre » is not followed inside « enregistre »). The reverse change,
-        a pattern already written with the accents, is not a dependency on the old text."""
+    def lost(self, old, new):
+        """The comparisons that recognize old and no longer recognize new, once per place and kind, in file order:
+        {Place, Comparison, Possible, Code}. Followed: exact comparisons, and patterns or substrings with a word that
+        starts a word of old (« registre » is not followed inside « enregistre »). The reverse change, a pattern
+        already written with the accents, is not a dependency on the old text."""
         variants = [(old, new), (clean(old), clean(new))]
         candidates = {}
         for text, _ in variants:
@@ -602,11 +664,55 @@ class Comparisons:
             for entry in self.by_prefix.get(word[:3], []):
                 if entry[0] not in candidates and any(word.startswith(w) for w in entry[2]):
                     candidates[entry[0]] = entry
+        out, seen = [], set()
+        for _, predicate, _, info in sorted(candidates.values(), key=lambda e: e[0]):
+            key = (info['Place'], info['Comparison'])
+            if key not in seen and any(predicate(a) and not predicate(b) for a, b in variants):
+                seen.add(key)
+                out.append(dict(info))
+        return out
+
+    def changed(self, old, new):
+        """Places of lost(old, new), each once."""
         places = []
-        for _, predicate, _, place in sorted(candidates.values(), key=lambda e: e[0]):
-            if any(predicate(a) and not predicate(b) for a, b in variants):
-                places.append(place)
+        for info in self.lost(old, new):
+            if info['Place'] not in places:
+                places.append(info['Place'])
         return places
+
+
+def describe(dependencies, limit=3):
+    """Short text of dependencies for a manual reason: place (comparison[, possible]), at most limit of them."""
+    parts = ['%s (%s%s)' % (d['Place'], d['Comparison'], ', possible' if d['Possible'] else '')
+             for d in dependencies[:limit]]
+    if len(dependencies) > limit:
+        more = len(dependencies) - limit
+        parts.append('et %d autre%s' % (more, 's' if more > 1 else ''))
+    return ', '.join(parts)
+
+
+def read_cleared(path):
+    """{(text, file, code): reason} of the comparisons read and judged unrelated to their text. A missing file is an
+    empty list; a malformed entry or a duplicate raises."""
+    path = Path(path)
+    if not path.is_file():
+        return {}
+    data = json.loads(path.read_text(encoding='utf-8-sig'))
+    fields = ('Text', 'File', 'Code', 'Reason')
+    if not isinstance(data, list):
+        raise ValueError('Liste des dépendances écartées illisible : ' + str(path))
+    out = {}
+    for item in data:
+        if not isinstance(item, dict) or set(item) != set(fields) or \
+                not all(isinstance(item[f], str) and item[f].strip() for f in fields):
+            raise ValueError('Dépendance écartée incomplète (Text, File, Code, Reason) : %s' % (item,))
+        if item['Text'] != clean(item['Text']) or item['Code'] != item['Code'].strip():
+            raise ValueError('Dépendance écartée non normalisée : %s' % (item,))
+        key = (item['Text'], item['File'], item['Code'])
+        if key in out:
+            raise ValueError('Dépendance écartée en double : %s' % (item,))
+        out[key] = item['Reason']
+    return out
 
 
 def _is_word_char(c):
@@ -653,9 +759,12 @@ def test_files(root):
 
 # ---------------------------------------------------------------- plan and apply
 
-def plan(root, maps, include_review=False):
-    """Edits per occurrence and the full report (no file is written). Review pairs are applied only on request."""
+def plan(root, maps, include_review=False, cleared=None):
+    """Edits per occurrence and the full report (no file is written). Review pairs are applied only on request.
+    cleared: read_cleared() of the comparisons judged unrelated to their text (default: the list of the tree)."""
     root = Path(root)
+    if cleared is None:
+        cleared = read_cleared(root / CLEARED)
     occ = inventory(root)
     rows = aw.findings(root)
     faulty = {}
@@ -692,7 +801,18 @@ def plan(root, maps, include_review=False):
         else:
             accepted[old] = (new, origin, warnings)
     found = Comparisons(root, code_files(root))
-    changed = {old: found.changed(old, accepted[old][0]) for old in accepted}
+    dependencies, cleared_rows, used = {}, [], set()
+    for old in sorted(accepted):
+        kept = []
+        for d in found.lost(old, accepted[old][0]):
+            key = (old, _place_key(d['Place'])[0], d['Code'])
+            if key in cleared:
+                used.add(key)
+                cleared_rows.append({'Text': old, 'Place': d['Place'], 'Comparison': d['Comparison'],
+                                     'Reason': cleared[key]})
+            else:
+                kept.append(d)
+        dependencies[old] = kept
     edits, manual = [], []
     for o in occ:
         if o['Text'] not in accepted:
@@ -701,8 +821,8 @@ def plan(root, maps, include_review=False):
         try:
             if o['Manual']:
                 raise Manual(o['Manual'])
-            if changed[o['Text']]:
-                raise Manual('comparaison dans le code changée : ' + ', '.join(changed[o['Text']][:3]))
+            if dependencies[o['Text']]:
+                raise Manual('comparaison dans le code changée : ' + describe(dependencies[o['Text']]))
             body = rewrite(o['Body'], o['Segments'], new, o['Encode'])
             if clean(decode(body, o['Quote'])) != new:
                 raise Manual('réécriture non vérifiable')
@@ -772,6 +892,13 @@ def plan(root, maps, include_review=False):
                    'Pattern': sorted(v['Pattern'], key=_place_key)}
                   for t, v in sorted(test_rows.items())],
         'References': [{'Text': clean(v), 'References': refs} for v, refs in sorted(others.items())],
+        # Comparisons that hold a text (Possible: a key, an index or a property name equal to the text), the ones
+        # cleared by the reviewed list, and the entries of that list that clear nothing any more.
+        'Dependencies': [{'Text': t, 'New': accepted[t][0], 'Places': deps}
+                         for t, deps in sorted(dependencies.items()) if deps],
+        'Cleared': cleared_rows,
+        'UnusedCleared': [{'Text': t, 'File': f, 'Code': c} for (t, f, c) in sorted(cleared)
+                          if (t, f, c) not in used and t not in pending],
     }
     return edits, report
 
@@ -822,6 +949,10 @@ def summary(report):
     out['Refused'] = len(report['Refused'])
     out['Warnings'] = len(report['Warnings'])
     out['References'] = len(report['References'])
+    out['Dependencies'] = ['%s : %s' % (d['Text'], describe(d['Places'], len(d['Places'])))
+                           for d in report['Dependencies']]
+    out['Cleared'] = len(report['Cleared'])
+    out['UnusedCleared'] = ['%s | %s | %s' % (u['Text'], u['File'], u['Code']) for u in report['UnusedCleared']]
     out['Manual'] = ['%s:%d %s | %s | %s' % (m['File'], m['Line'], m['Kind'], m['Reason'], m['Text']) for m in report['Manual']]
     out['TestsToUpdate'] = ['%s -> %s : %s' % (t['Text'], t['New'], ', '.join(t['Literal'] + ['motif ' + p for p in t['Pattern']]))
                             for t in report['Tests']]
@@ -836,6 +967,8 @@ def main(argv=None):
     ap.add_argument('--root', type=Path, default=ROOT, help='Racine dev (par défaut : ce dépôt).')
     ap.add_argument('--map', type=Path, help='Table sûre (par défaut : %s).' % SURE_MAP.as_posix())
     ap.add_argument('--review-map', type=Path, help='Table à relire (par défaut : %s).' % REVIEW_MAP.as_posix())
+    ap.add_argument('--cleared', type=Path,
+                    help='Comparaisons relues et écartées (par défaut : %s).' % CLEARED.as_posix())
     ap.add_argument('--include-review', action='store_true', help='Appliquer aussi la table à relire (après décision).')
     ap.add_argument('--apply', action='store_true', help='Écrire les corrections dans les sources (sinon : simulation).')
     ap.add_argument('--merge', type=Path, help='Ajouter aux tables les paires {ancien: nouveau} de ce fichier JSON.')
@@ -852,7 +985,7 @@ def main(argv=None):
                           'Unchanged': len(result['Unchanged']), 'Refused': result['Refused']}, ensure_ascii=False, indent=2))
         return 1 if result['Refused'] else 0
     maps = load_maps(root, a.map, a.review_map)
-    edits, report = plan(root, maps, a.include_review)
+    edits, report = plan(root, maps, a.include_review, read_cleared(a.cleared or root / CLEARED))
     report['Status'] = 'DRY-RUN'
     code = 0
     if a.apply:
