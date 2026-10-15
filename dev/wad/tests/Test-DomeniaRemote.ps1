@@ -402,7 +402,8 @@ Test-Case 'SE-07 : une lecture ne bascule jamais seule sur PsExec ou une tache p
     $sansAccord=[pscustomobject]@{AllowReadFallback=$false;ReadFallbackTarget='';ReadFallbackAliases=@();UsePsExecFallback=$true;UseTaskFallback=$true;TaskFallbackTimeoutSeconds=20}
     $refus=''
     try { [void](Invoke-WRemoteTaskScript -Context $sansAccord -Computer 'TESTPC' -ScriptText 'x' -InputObject ([pscustomobject]@{}) -TimeoutSeconds 20) } catch { $refus=[string]$_.Exception.Message }
-    Assert-Test ($refus -match 'refuse pour cette lecture') ('Aucun refus rendu pour une lecture non demandee : '+$refus)
+    Assert-Test ($refus -match 'refusé pour cette lecture') ('Aucun refus rendu pour une lecture non demandee : '+$refus)
+    Assert-Test ($refus.Contains('Assistance poste > Actions')) ('Le refus ne dit pas ou autoriser la lecture : '+$refus)
     Assert-Test ($script:Se07Tente -eq 0) 'Un transport a ete lance malgre le refus.'
     $avecAccord=[pscustomobject]@{AllowReadFallback=$true;ReadFallbackTarget='TESTPC';ReadFallbackAliases=@();UsePsExecFallback=$true;UseTaskFallback=$true;TaskFallbackTimeoutSeconds=20}
     $lu=Invoke-WRemoteTaskScript -Context $avecAccord -Computer 'TESTPC' -ScriptText 'x' -InputObject ([pscustomobject]@{}) -TimeoutSeconds 20

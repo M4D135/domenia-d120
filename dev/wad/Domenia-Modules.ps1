@@ -962,7 +962,10 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaRemoteAccessTrialVerdict',
             'Get-DomeniaAccessScopeLabel',
             'Get-DomeniaLeaseRemainingText',
-            'Get-DomeniaAccountsInUseRows'
+            'Get-DomeniaAccountsInUseRows',
+            'Test-DomeniaConsentCovers',
+            'Get-DomeniaInterventionPillState',
+            'Get-DomeniaMessageRoute'
         ) }
         # X03: sign-in and accounts views (secret reveal, sign-in mode, workstation account trial, « Compte poste » pill and
         # side panel, « En ce moment »); no network of its own.
@@ -1174,6 +1177,9 @@ function Get-DomeniaRuntimeModulePlan {
             'Keep-DomeniaDraftOnResult',
             'Show-DomeniaDraftComparison',
             'Set-DomeniaArtifactConsent',
+            'Clear-DomeniaArtifactConsent',
+            'Get-DomeniaOpenMachineConsentTarget',
+            'Update-DomeniaInterventionPill',
             'Set-DomeniaReadFallbackConsent',
             'Read-DomeniaOuFavouriteStore',
             'Write-DomeniaOuFavouriteStore',

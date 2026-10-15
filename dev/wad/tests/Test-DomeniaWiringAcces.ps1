@@ -727,6 +727,69 @@ Test-Case 'UI-27 Oublier : meme regle que la fenetre Acces, refus pendant une ec
     Assert-True ((Get-CoreFunctionText 'Update-DomeniaAccountUi').Contains('Update-DomeniaAccountsInUse -Force')) 'Page Comptes sans actualisation de la section'
 }
 
+# ================================================================ UX-16 (lot X03) autorisation d intervention dans Actions
+function Test-InsideNamed {param($Control,[string]$Name) $node=$Control;while($null -ne $node){$node=[Windows.LogicalTreeHelper]::GetParent($node);if(($node -is [Windows.FrameworkElement]) -and ([string]$node.Name -eq $Name)){return $true}};return $false}
+Test-Case 'UX-16 Pastille d intervention dans Actions : sans Fiabilite, compte a rebours, poste cible seulement' {
+    Assert-True ($script:Ctrl.TabGuard.Visibility -eq [Windows.Visibility]::Collapsed) 'Fiabilite rendue visible pour autoriser'
+    foreach($n in @('BtnCompInterventionGrant','UxCompInterventionPill','BtnCompInterventionRevoke','BtnCompReadFallback','LblCompInterventionState')){Assert-True (Test-InsideNamed $script:Ctrl[$n] 'TabComputerAdmin') ($n+' hors de l onglet Actions')}
+    $guard=${function:Initialize-DomeniaGuard}.ToString()
+    foreach($wire in @('BtnCompInterventionGrant={Set-DomeniaArtifactConsent}','BtnCompInterventionRevoke={Clear-DomeniaArtifactConsent}','BtnCompReadFallback={Set-DomeniaReadFallbackConsent}','BtnGuardRemoteOff={Clear-DomeniaArtifactConsent}','try{Update-DomeniaInterventionPill}')){Assert-True ($guard.Contains($wire)) ('Raccordement absent : '+$wire)}
+    Update-DomeniaInterventionPill -Force
+    Assert-True (($script:Ctrl.UxCompInterventionPill.Visibility -eq [Windows.Visibility]::Collapsed) -and $script:Ctrl.BtnCompInterventionGrant.IsEnabled) 'Etat initial : pastille visible ou accord impossible'
+    Assert-True ([string]$script:Ctrl.LblCompInterventionState.Text -match '^Aucune intervention autorisée sur ce poste') $script:Ctrl.LblCompInterventionState.Text
+    $script:Consent=$false;Set-DomeniaArtifactConsent
+    Assert-True ($null -eq $script:ArtifactConsent) 'Autorisation accordee sans confirmation'
+    $script:Consent=$true;Set-DomeniaArtifactConsent
+    Assert-True (($null -ne $script:ArtifactConsent) -and ($script:ArtifactConsent.Target -eq 'pc-01.example.invalid') -and (@($script:ArtifactConsent.Aliases) -contains 'PC-01')) 'Autorisation non limitee au poste ouvert'
+    Assert-True ($script:Ctrl.UxCompInterventionPill.Visibility -eq [Windows.Visibility]::Visible) 'Pastille absente pendant l autorisation'
+    Assert-True ([string]$script:Ctrl.LblCompIntervention.Text -match '^Intervention autorisée [45]:\d\d ·$') ('Pastille : '+$script:Ctrl.LblCompIntervention.Text)
+    Assert-True ($script:Ctrl.BtnCompInterventionGrant.Visibility -eq [Windows.Visibility]::Collapsed) 'Second accord propose pendant l autorisation'
+    $script:ArtifactConsent.Expires=[datetime]::UtcNow.AddSeconds(61)
+    Update-DomeniaInterventionPill
+    Assert-True ([string]$script:Ctrl.LblCompIntervention.Text -match '^Intervention autorisée 1:0[01] ·$') ('Compte a rebours : '+$script:Ctrl.LblCompIntervention.Text)
+    $script:SelectedObject=[pscustomobject]@{Type='Machine';DN='CN=PC-02,OU=Postes,DC=example,DC=invalid';Name='PC-02';Entry=[pscustomobject]@{Name='PC-02';Dns='pc-02.example.invalid'};Safety=[pscustomobject]@{Guid='22222222-2222-3333-4444-555555555555'}}
+    Update-DomeniaInterventionPill
+    Assert-True (($script:Ctrl.UxCompInterventionPill.Visibility -eq [Windows.Visibility]::Collapsed) -and $script:Ctrl.BtnCompInterventionGrant.IsEnabled) 'Autorisation affichee sur un autre poste'
+    Assert-True ([string]$script:Ctrl.LblCompInterventionState.Text -match '^Une intervention est autorisée sur pc-01\.example\.invalid, pas sur ce poste\.') $script:Ctrl.LblCompInterventionState.Text
+    Reset-Fixture
+    $script:Consent=$true;Set-DomeniaArtifactConsent
+    Clear-DomeniaArtifactConsent
+    Assert-True (($null -eq $script:ArtifactConsent) -and ($script:Ctrl.UxCompInterventionPill.Visibility -eq [Windows.Visibility]::Collapsed)) 'Retirer sans effet'
+    Assert-True (@($script:StatusLines|Where-Object{$_ -match 'Autorisation dʼintervention retirée'}).Count -eq 1) 'Retrait non annonce'
+    # SE-07: the one-read consent stays a separate request, announced for its workstation only.
+    Set-DomeniaReadFallbackConsent
+    Assert-True (($null -ne $script:ReadFallbackConsent) -and ($null -eq $script:ArtifactConsent)) 'La lecture par tache a accorde une intervention'
+    Assert-True ([string]$script:Ctrl.LblCompInterventionState.Text -match 'Prochaine lecture de ce poste autorisée par tâche planifiée \(une seule lecture\)\.$') $script:Ctrl.LblCompInterventionState.Text
+    $script:SelectedObject=$null
+    Update-DomeniaInterventionPill
+    Assert-True ((-not $script:Ctrl.BtnCompInterventionGrant.IsEnabled) -and (-not $script:Ctrl.BtnCompReadFallback.IsEnabled)) 'Autorisation possible sans poste ouvert'
+    $script:ReadFallbackConsent=$null
+}
+Test-Case 'UX-16 Refus du worker : renvoi vers Assistance poste > Actions, route du bandeau, plus de Fiabilite' {
+    $tokens=$null;$errors=$null
+    $commonAst=[Management.Automation.Language.Parser]::ParseInput($script:RealWorkerCommon,[ref]$tokens,[ref]$errors)
+    foreach($name in @('Assert-WRemoteArtifactPermission','Assert-DomeniaReadFallbackPermission')){
+        $node=@($commonAst.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true))
+        Assert-True ($node.Count -eq 1) ('Garde commune absente : '+$name)
+        . ([scriptblock]::Create($node[0].Extent.Text))
+    }
+    $context=[pscustomobject]@{AllowRemoteArtifacts=$false;ArtifactTarget='';ArtifactAliases=@();AllowReadFallback=$false;ReadFallbackTarget='';ReadFallbackAliases=@()}
+    foreach($call in @({Assert-WRemoteArtifactPermission -Context $context -Computer 'pc-01.example.invalid'},{Assert-DomeniaReadFallbackPermission -Context $context -Computer 'pc-01.example.invalid'})){
+        $message='';try{& $call}catch{$message=[string]$_.Exception.Message}
+        Assert-True ($message.Contains('Assistance poste > Actions') -and ($message -notmatch 'Fiabilit')) ('Refus sans renvoi utile : '+$message)
+        Assert-True ((Get-DomeniaMessageRoute ('Rimotte PC-01 : '+$message)) -ceq 'TabComputerAdmin') 'Message sans route'
+    }
+    $route=Resolve-DomeniaCapabilityRoute -Route 'TabComputerAdmin'
+    Assert-True (($route.Workspace -eq 'WsComputer') -and ($route.Inner -eq 'ComputerTabs') -and ($route.Tab -eq 'TabComputerAdmin') -and ($route.Label -ceq 'Assistance poste > Actions')) 'Route inexacte'
+    Assert-True (Invoke-DomeniaCapabilityRoute -Route 'TabComputerAdmin') 'Route non suivie'
+    Assert-True ($script:Routes -contains 'WsComputer|ComputerTabs|TabComputerAdmin') ('Navigation : '+($script:Routes -join ','))
+    $banner=${function:Show-DomeniaBanner}.ToString();$command=${function:Invoke-DomeniaBannerCommand}.ToString()
+    Assert-True ($banner.Contains('Get-DomeniaMessageRoute') -and $command.Contains("'Route'{[void](Invoke-DomeniaCapabilityRoute")) 'Bandeau sans action de route'
+    [void](Update-DomeniaTransportPolicyView -Force)
+    Assert-True ([string]$script:Ctrl.LblTransportPolicy.Text -match 'Assistance poste > Actions') ('Politique : '+$script:Ctrl.LblTransportPolicy.Text)
+    Assert-True ($script:CoreText -notmatch 'dans Outils > Fiabilite') 'Un refus renvoie encore vers Outils > Fiabilite'
+}
+
 if($null -ne $script:SecretRevealTimer){try{$script:SecretRevealTimer.Stop()}catch{}}
 if($null -ne $script:MainWindow){try{$script:MainWindow.Close()}catch{}}
 $passed=@($script:Checks|Where-Object{$_.Status -eq 'Passed'}).Count;$failed=@($script:Checks|Where-Object{$_.Status -eq 'Failed'}).Count

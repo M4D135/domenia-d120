@@ -224,3 +224,46 @@ function Get-DomeniaAccountsInUseRows {
     }
     return [pscustomobject]@{Now=$now.ToArray();Memory=$memory.ToArray()}
 }
+
+# ---------------------------------------------------------------- UX-16 authorisation of an intervention, visible in Actions
+function Test-DomeniaConsentCovers {
+    # UX-16: a consent (intervention or one read) covers the open workstation only: its target or one of its aliases,
+    # in the current session and before its expiry. Same comparison as the worker guards (name lists).
+    param($Consent,[AllowNull()][AllowEmptyString()][string]$Target='',[AllowNull()][AllowEmptyString()][string]$Short='',[long]$Epoch=0,[datetime]$NowUtc=[datetime]::UtcNow)
+    if($null -eq $Consent){return $false}
+    if(([long]$Consent.Epoch -ne $Epoch) -or ([datetime]$Consent.Expires -le $NowUtc)){return $false}
+    $names=@(@([string]$Consent.Target)+@($Consent.Aliases)|Where-Object{-not [string]::IsNullOrWhiteSpace([string]$_)}|ForEach-Object{([string]$_).Trim()})
+    foreach($candidate in @(([string]$Target).Trim(),([string]$Short).Trim())){if($candidate -and ($names -icontains $candidate)){return $true}}
+    return $false
+}
+
+function Get-DomeniaInterventionPillState {
+    # UX-16: what the Actions tab of Assistance poste shows about the authorisation of an intervention (5 min, one
+    # workstation, explicit click) and about the separate one-read consent (SE-07). Pure: the caller passes the two
+    # consents, the open workstation and the clock. Remaining time as m:ss, rounded up to the second.
+    param($ArtifactConsent=$null,$ReadConsent=$null,[AllowNull()][AllowEmptyString()][string]$Target='',[AllowNull()][AllowEmptyString()][string]$Short='',[long]$Epoch=0,[datetime]$NowUtc=[datetime]::UtcNow)
+    $target=([string]$Target).Trim()
+    $active=Test-DomeniaConsentCovers -Consent $ArtifactConsent -Target $target -Short $Short -Epoch $Epoch -NowUtc $NowUtc
+    $read=Test-DomeniaConsentCovers -Consent $ReadConsent -Target $target -Short $Short -Epoch $Epoch -NowUtc $NowUtc
+    $elsewhere=''
+    if((-not $active) -and ($null -ne $ArtifactConsent) -and ([long]$ArtifactConsent.Epoch -eq $Epoch) -and ([datetime]$ArtifactConsent.Expires -gt $NowUtc)){$elsewhere=([string]$ArtifactConsent.Target).Trim()}
+    $remaining='';$seconds=0
+    if($active){
+        $seconds=[int][Math]::Ceiling(([datetime]$ArtifactConsent.Expires-$NowUtc).TotalSeconds)
+        $remaining=([string][Math]::Floor($seconds/60))+':'+($seconds%60).ToString('00')
+    }
+    if(-not $target){$state='Ouvrez un poste pour autoriser une intervention sur lui seul.'}
+    elseif($active){$state='Intervention autorisée sur '+[string]$ArtifactConsent.Target+' pendant encore '+$remaining+', pour ce poste seulement et pour vos actions volontaires.'}
+    elseif($elsewhere){$state='Une intervention est autorisée sur '+$elsewhere+', pas sur ce poste. « Exécuter un programme » et les replis PsExec ou tâche planifiée la demandent ici.'}
+    else{$state='Aucune intervention autorisée sur ce poste. « Exécuter un programme » et les replis PsExec ou tâche planifiée la demandent.'}
+    if($target -and $read){$state+=' Prochaine lecture de ce poste autorisée par tâche planifiée (une seule lecture).'}
+    return [pscustomobject]@{Active=[bool]$active;Seconds=$seconds;Remaining=$remaining;PillText=$(if($active){'Intervention autorisée '+$remaining+' ·'}else{''});StateText=$state;ReadPending=[bool]($target -and $read);CanGrant=[bool]($target -and (-not $active))}
+}
+
+function Get-DomeniaMessageRoute {
+    # UX-16: a message that sends the operator to « Assistance poste > Actions » (intervention or one-read consent)
+    # gets a route button in its banner. Text only: the route opens the tab, it authorises or starts nothing.
+    param([AllowNull()][AllowEmptyString()][string]$Text='')
+    if(([string]$Text).Contains('Assistance poste > Actions')){return 'TabComputerAdmin'}
+    return ''
+}

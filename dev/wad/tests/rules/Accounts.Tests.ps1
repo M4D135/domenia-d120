@@ -200,3 +200,38 @@ Test-Case 'X03-UI27' 'En ce moment : compte par ressource, comptes en memoire av
     Assert-Equal 'même compte que lʼannuaire' @($none.Now)[2].Origin
     Assert-Equal 0 @($none.Memory).Count
 }
+
+# ---------------------------------------------------------------- UX-16 autorisation d intervention dans Actions
+Test-Case 'X03-UX16' 'Pastille : compte a rebours m:ss, poste cible seulement, session courante' {
+    $t0=[datetime]::SpecifyKind([datetime]'2026-10-02T08:00:00',[DateTimeKind]::Utc)
+    $consent=[pscustomobject]@{Target='pc-01.example.invalid';Aliases=@('pc-01.example.invalid','PC-01');Epoch=7L;Expires=$t0.AddMinutes(5)}
+    $s=Get-DomeniaInterventionPillState -ArtifactConsent $consent -Target 'pc-01.example.invalid' -Short 'PC-01' -Epoch 7 -NowUtc $t0.AddSeconds(1)
+    Assert-True $s.Active 'Autorisation non reconnue'
+    Assert-Equal '4:59' $s.Remaining
+    Assert-Equal 'Intervention autorisée 4:59 ·' $s.PillText
+    Assert-False $s.CanGrant 'Second accord propose pendant l autorisation'
+    Assert-Equal '0:01' (Get-DomeniaInterventionPillState -ArtifactConsent $consent -Target 'PC-01' -Epoch 7 -NowUtc $t0.AddSeconds(299.2)).Remaining
+    Assert-False (Get-DomeniaInterventionPillState -ArtifactConsent $consent -Target 'pc-01.example.invalid' -Epoch 7 -NowUtc $t0.AddMinutes(5)).Active 'Autorisation expiree encore active'
+    Assert-False (Get-DomeniaInterventionPillState -ArtifactConsent $consent -Target 'pc-01.example.invalid' -Epoch 8 -NowUtc $t0).Active 'Autorisation d une autre session encore active'
+    $other=Get-DomeniaInterventionPillState -ArtifactConsent $consent -Target 'pc-02.example.invalid' -Short 'PC-02' -Epoch 7 -NowUtc $t0
+    Assert-False $other.Active 'Autorisation etendue a un autre poste'
+    Assert-True $other.CanGrant 'Accord impossible sur un autre poste'
+    Assert-True ($other.StateText.StartsWith('Une intervention est autorisée sur pc-01.example.invalid, pas sur ce poste.')) $other.StateText
+}
+Test-Case 'X03-UX16' 'Lecture par tache : consentement separe, annonce seulement pour son poste' {
+    $t0=[datetime]::SpecifyKind([datetime]'2026-10-02T08:00:00',[DateTimeKind]::Utc)
+    $read=[pscustomobject]@{Target='pc-01.example.invalid';Aliases=@('PC-01');Epoch=7L;Expires=$t0.AddMinutes(5)}
+    $s=Get-DomeniaInterventionPillState -ReadConsent $read -Target 'pc-01.example.invalid' -Short 'PC-01' -Epoch 7 -NowUtc $t0
+    Assert-False $s.Active 'La lecture par tache vaut autorisation d intervention'
+    Assert-True $s.ReadPending 'Lecture accordee non annoncee'
+    Assert-True ($s.StateText.EndsWith('Prochaine lecture de ce poste autorisée par tâche planifiée (une seule lecture).')) $s.StateText
+    Assert-False (Get-DomeniaInterventionPillState -ReadConsent $read -Target 'PC-02' -Epoch 7 -NowUtc $t0).ReadPending 'Lecture accordee annoncee sur un autre poste'
+    $none=Get-DomeniaInterventionPillState -Epoch 7 -NowUtc $t0
+    Assert-False $none.CanGrant 'Accord propose sans poste ouvert'
+    Assert-Equal 'Ouvrez un poste pour autoriser une intervention sur lui seul.' $none.StateText
+}
+Test-Case 'X03-UX16' 'Messages de refus : route vers Assistance poste > Actions, rien d autre' {
+    Assert-Equal 'TabComputerAdmin' (Get-DomeniaMessageRoute 'Rimotte PC-01 : Transport non autorisé. Autorisez une intervention dans Assistance poste > Actions, puis relancez.')
+    Assert-Equal '' (Get-DomeniaMessageRoute 'Lecture refusée par le contrôleur.')
+    Assert-Equal '' (Get-DomeniaMessageRoute $null)
+}

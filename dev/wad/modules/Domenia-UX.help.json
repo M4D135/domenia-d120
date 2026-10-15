@@ -1826,6 +1826,48 @@
     "Source": "existing-help"
   },
   {
+    "Name": "BtnCompInterventionGrant",
+    "Title": "Autoriser une intervention sur ce poste pendant 5 minutes",
+    "Text": "Autorise pendant 5 minutes, pour ce poste seulement, les transports qui déposent un script, un service ou une tâche : « Exécuter un programme », replis PsExec ou tâche planifiée. Ne lance rien ; les droits restent obligatoires.",
+    "Kind": "Button",
+    "Source": "X03"
+  },
+  {
+    "Name": "UxCompInterventionPill",
+    "Title": "Intervention autorisée sur ce poste",
+    "Text": "Autorisation dʼintervention en cours sur ce poste, avec le temps restant. Elle ne vaut que pour ce poste et pour vos actions volontaires.",
+    "Kind": "Border",
+    "Source": "X03"
+  },
+  {
+    "Name": "LblCompIntervention",
+    "Title": "Temps restant de lʼintervention",
+    "Text": "Temps restant de lʼautorisation dʼintervention sur ce poste.",
+    "Kind": "TextBlock",
+    "Source": "X03"
+  },
+  {
+    "Name": "BtnCompInterventionRevoke",
+    "Title": "Retirer lʼautorisation dʼintervention",
+    "Text": "Retire lʼautorisation maintenant. Les sondes déjà envoyées peuvent finir ; aucune nouvelle intervention avec dépôt ne sera autorisée.",
+    "Kind": "Button",
+    "Source": "X03"
+  },
+  {
+    "Name": "BtnCompReadFallback",
+    "Title": "Lire ce poste par tâche planifiée",
+    "Text": "À demander quand CIM ne répond pas : autorise une seule lecture de ce poste par PsExec ou tâche planifiée. Autorisation distincte de lʼintervention, retirée après cette lecture.",
+    "Kind": "Button",
+    "Source": "X03"
+  },
+  {
+    "Name": "LblCompInterventionState",
+    "Title": "État des autorisations du poste",
+    "Text": "État des autorisations de ce poste : intervention de 5 minutes et lecture par tâche planifiée. Rien nʼest autorisé sans votre clic.",
+    "Kind": "TextBlock",
+    "Source": "X03"
+  },
+  {
     "Name": "TxtCompNewName",
     "Title": "Nouveau nom",
     "Text": "Nouveau nom du compte dʼordinateur dans lʼannuaire.",

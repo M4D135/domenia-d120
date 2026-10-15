@@ -221,7 +221,7 @@ L'onglet « Machine » lit le compte ordinateur dans AD. « Detecter l utilis
 | « Renommer dans AD » | Renomme le compte ordinateur dans l'annuaire, pas Windows sur le poste. | Grisé. |
 | « Ajouter », « Retirer » (Groupe) | Ajoute ou retire le poste d'un groupe. | Grisés. |
 
-> [!NOTE] « Exécuter un programme » exige aussi, pour ce poste, l'autorisation de 5 minutes « Autoriser une intervention sur cette machine » (onglet « Fiabilité », chapitre 18). Sans elle, Domenia refuse : « Transport avec depot/service/tache non autorise pour cette cible (desactive par defaut). Autorisez-le explicitement dans Outils > Fiabilite, puis relancez votre action. ».
+> [!NOTE] « Exécuter un programme » exige aussi, pour ce poste, l'autorisation de 5 minutes donnée en tête de l'onglet « Actions » : « Autoriser une intervention (5 min) ». Pendant l'autorisation, la pastille « Intervention autorisée 4:59 · Retirer » compte le temps restant ; elle ne vaut que pour le poste ouvert, et « Retirer » la reprend aussitôt. Sans elle, Domenia refuse : « Transport avec dépôt de script, service ou tâche non autorisé pour ce poste (désactivé par défaut). Autorisez une intervention dans Assistance poste > Actions, « Autoriser une intervention (5 min) », puis relancez votre action. » ; le bandeau d'erreur propose « Aller à Assistance poste > Actions ».
 
 ## Ouvrir le partage administratif et les consoles
 
@@ -271,7 +271,7 @@ La page « Comptes » affiche ce tableau sous « TRANSPORTS UTILISES ». Dom
 | Planificateur (COM) | Exécution ponctuelle d'une intervention | RPC | Autorisation explicite ; désactivable par Remote.UseTaskFallback. |
 | PsExec | Exécution ponctuelle d'une intervention | 445/TCP | Autorisation explicite ; désactivable par Remote.UsePsExecFallback. |
 
-> [!ATTENTION] Les transports intrusifs (ADMIN$, Planificateur, PsExec) restent inactifs sans autorisation explicite pour le poste. « Autoriser une intervention sur cette machine » (onglet « Fiabilité », chapitre 18) vaut 5 minutes pour la machine sélectionnée et ne couvre que les interventions : une lecture n'y bascule jamais seule. Quand CIM échoue, l'inventaire, la lecture des logiciels, l'explorateur WMI, le diagnostic et « Detecter l utilisateur » rendent un « non lu » et nomment la demande à faire, pour cette lecture seule : « Lire ce poste par tâche planifiée » (même onglet). Ce n'est qu'après cette demande que PsExec puis la tâche planifiée interviennent (Remote.UsePsExecFallback, Remote.UseTaskFallback). PsExec.exe est un composant tiers : faites revoir sa licence avant diffusion.
+> [!ATTENTION] Les transports intrusifs (ADMIN$, Planificateur, PsExec) restent inactifs sans autorisation explicite pour le poste. « Autoriser une intervention (5 min) » (onglet « Actions » d'Assistance poste) vaut 5 minutes pour le poste ouvert et ne couvre que les interventions : une lecture n'y bascule jamais seule. Quand CIM échoue, l'inventaire, la lecture des logiciels, l'explorateur WMI, le diagnostic et « Detecter l utilisateur » rendent un « non lu » et nomment la demande à faire, pour cette lecture seule : « Lire ce poste par tâche planifiée » (même onglet, autorisation distincte retirée après cette lecture). Ce n'est qu'après cette demande que PsExec puis la tâche planifiée interviennent (Remote.UsePsExecFallback, Remote.UseTaskFallback). PsExec.exe est un composant tiers : faites revoir sa licence avant diffusion.
 
 # 6 Inventaire du poste
 
@@ -297,7 +297,7 @@ L'onglet « Tableau de bord » propose les mêmes lectures avec « Inventaire
 | « Selectionne une machine avant de lancer l inventaire. » | Choisir un poste dans « Rechercher ». |
 | « Inventaire impossible : » suivi d'un détail | Vérifier la présence réseau et le compte des opérations poste, puis relancer une fois. |
 | Beaucoup de sources refusées | Vérifier que le compte des opérations poste est administrateur des postes (chapitre 13). |
-| Sur l'onglet « Tableau de bord » : « Mesures chiffrees indisponibles (inventaire par tache distante) : seules les tuiles sont remplies. » | L'inventaire a été lu par le repli PsExec ou tâche planifiée, possible seulement après « Autoriser une intervention sur cette machine » (chapitre 5) ; jauges et graphiques restent vides. Vérifier CIM/DCOM sur le poste. |
+| Sur l'onglet « Tableau de bord » : « Mesures chiffrees indisponibles (inventaire par tache distante) : seules les tuiles sont remplies. » | L'inventaire a été lu par le repli PsExec ou tâche planifiée, possible seulement après « Autoriser une intervention (5 min) » (chapitre 5) ; jauges et graphiques restent vides. Vérifier CIM/DCOM sur le poste. |
 
 # 7 Tableau de bord du poste
 
@@ -1577,7 +1577,7 @@ Dans Outils → Base autonome → Stockage, « Mesurer » compte les lignes et l
 
 La purge conserve toujours les associations et leurs traces protégées, les secrets, la configuration, les préférences, les journaux et les reçus. Elle ne compacte pas le fichier SQLite. Purger l’index impose une nouvelle mise à jour explicite des OU utiles pour retrouver leurs objets locaux.
 
-Les reçus d’écriture et les autorisations d’intervention restent dans « Fiabilité », lorsque Domenia y conduit. Les opérations de stockage se consultent dans la Base autonome.
+Les reçus d’écriture restent dans « Fiabilité », lorsque Domenia y conduit ; les autorisations d’intervention se donnent dans l’onglet « Actions » d’Assistance poste. Les opérations de stockage se consultent dans la Base autonome.
 
 ![Stockage : sauvegardes et préparation d’une purge locale ; données fictives](fig:base-stockage)
 

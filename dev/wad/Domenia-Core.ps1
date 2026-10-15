@@ -603,6 +603,12 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnLoginOtherAccount" = "Default"
     "BtnAccountRemoteTry" = "Default"
     "BtnCompAccountPill" = "Default"
+    "BtnCompInterventionGrant" = "Default"
+    "UxCompInterventionPill" = "Default"
+    "LblCompIntervention" = "Default"
+    "BtnCompInterventionRevoke" = "Default"
+    "BtnCompReadFallback" = "Default"
+    "LblCompInterventionState" = "Default"
     "DgAccountsInUse" = "Default"
     "LblAccountsInMemory" = "Default"
     "DgAccountsInMemory" = "Default"
@@ -6534,6 +6540,23 @@ function Get-MainXaml {
                       <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <StackPanel>
                           <TextBlock Text="Actions sur le poste" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                          <!-- UX-16: explicit authorisation of an intervention on this workstation only (5 min), with its countdown, and the
+                               separate one-read consent (SE-07). Both were only reachable from the hidden Fiabilité tab. -->
+                          <Border Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="10" Padding="12,10" Margin="0,0,0,12">
+                            <StackPanel>
+                              <WrapPanel>
+                                <Button x:Name="BtnCompInterventionGrant" Content="Autoriser une intervention (5 min)" Margin="0,0,8,4" ToolTip="Autorise pendant 5 minutes, pour ce poste seulement, les transports qui déposent un script, un service ou une tâche : « Exécuter un programme », replis PsExec ou tâche planifiée. Ne lance rien ; les droits restent obligatoires." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Autoriser une intervention sur ce poste pendant 5 minutes" AutomationProperties.HelpText="Autorise pendant 5 minutes, pour ce poste seulement, les transports qui déposent un script, un service ou une tâche : « Exécuter un programme », replis PsExec ou tâche planifiée. Ne lance rien ; les droits restent obligatoires."/>
+                                <Border x:Name="UxCompInterventionPill" Visibility="Collapsed" CornerRadius="14" Padding="12,2,4,2" Margin="0,0,8,4" Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentColor}" BorderThickness="1" ToolTip="Autorisation dʼintervention en cours sur ce poste, avec le temps restant. Elle ne vaut que pour ce poste et pour vos actions volontaires." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Intervention autorisée sur ce poste" AutomationProperties.HelpText="Autorisation dʼintervention en cours sur ce poste, avec le temps restant. Elle ne vaut que pour ce poste et pour vos actions volontaires.">
+                                  <StackPanel Orientation="Horizontal">
+                                    <TextBlock x:Name="LblCompIntervention" Text="" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}" Margin="0,0,8,0" ToolTip="Temps restant de lʼautorisation dʼintervention sur ce poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Temps restant de lʼintervention" AutomationProperties.HelpText="Temps restant de lʼautorisation dʼintervention sur ce poste."/>
+                                    <Button x:Name="BtnCompInterventionRevoke" Content="Retirer" Height="26" MinHeight="26" Padding="10,0" ToolTip="Retire lʼautorisation maintenant. Les sondes déjà envoyées peuvent finir ; aucune nouvelle intervention avec dépôt ne sera autorisée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Retirer lʼautorisation dʼintervention" AutomationProperties.HelpText="Retire lʼautorisation maintenant. Les sondes déjà envoyées peuvent finir ; aucune nouvelle intervention avec dépôt ne sera autorisée."/>
+                                  </StackPanel>
+                                </Border>
+                                <Button x:Name="BtnCompReadFallback" Content="Lire ce poste par tâche planifiée" Margin="0,0,8,4" ToolTip="À demander quand CIM ne répond pas : autorise une seule lecture de ce poste par PsExec ou tâche planifiée. Autorisation distincte de lʼintervention, retirée après cette lecture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lire ce poste par tâche planifiée" AutomationProperties.HelpText="À demander quand CIM ne répond pas : autorise une seule lecture de ce poste par PsExec ou tâche planifiée. Autorisation distincte de lʼintervention, retirée après cette lecture."/>
+                              </WrapPanel>
+                              <TextBlock x:Name="LblCompInterventionState" Text="Aucune intervention autorisée sur ce poste. « Exécuter un programme » et les replis PsExec ou tâche planifiée la demandent." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,4,0,0" ToolTip="État des autorisations de ce poste : intervention de 5 minutes et lecture par tâche planifiée. Rien nʼest autorisé sans votre clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="État des autorisations du poste" AutomationProperties.LiveSetting="Polite" AutomationProperties.HelpText="État des autorisations de ce poste : intervention de 5 minutes et lecture par tâche planifiée. Rien nʼest autorisé sans votre clic."/>
+                            </StackPanel>
+                          </Border>
                           <WrapPanel Margin="0,0,0,12">
                             <Button x:Name="BtnCompEnable" ToolTip="Reactive le compte du poste dans le domaine." Content="Activer" Style="{StaticResource RunButton}" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Activer" AutomationProperties.HelpText="Reactive le compte du poste dans le domaine."/>
                             <Button x:Name="BtnCompDisable" ToolTip="Désactive le compte du poste. Il ne pourra plus sʼauthentifier." Content="Desactiver" Style="{StaticResource DangerButton}" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Desactiver" AutomationProperties.HelpText="Desactive le compte du poste. Il ne pourra plus s authentifier."/>
@@ -10119,7 +10142,7 @@ function Assert-WRemoteArtifactPermission {
     param($Context,[string]$Computer)
     $allowed=@([string]$Context.ArtifactTarget)+@($Context.ArtifactAliases)
     if(-not [bool]$Context.AllowRemoteArtifacts -or -not $Computer -or $allowed -notcontains $Computer){
-        throw 'Transport avec depot/service/tache non autorise pour cette cible (desactive par defaut). Autorisez-le explicitement dans Outils > Fiabilite, puis relancez votre action.'
+        throw 'Transport avec dépôt de script, service ou tâche non autorisé pour ce poste (désactivé par défaut). Autorisez une intervention dans Assistance poste > Actions, « Autoriser une intervention (5 min) », puis relancez votre action.'
     }
 }
 function Assert-DomeniaReadFallbackPermission {
@@ -10128,11 +10151,11 @@ function Assert-DomeniaReadFallbackPermission {
     # sienne, demandee pour elle-meme et consommee par une seule lecture.
     param($Context,[string]$Computer)
     if(-not [bool]$Context.AllowReadFallback){
-        throw 'Repli vers PsExec ou une tache planifiee refuse pour cette lecture : une lecture ne bascule jamais sans demande. Autorisez « Lire ce poste par tache planifiee » dans Outils > Fiabilite, puis relancez la lecture.'
+        throw 'Repli vers PsExec ou une tâche planifiée refusé pour cette lecture : une lecture ne bascule jamais sans demande. Autorisez « Lire ce poste par tâche planifiée » dans Assistance poste > Actions, puis relancez la lecture.'
     }
     $allowed=@([string]$Context.ReadFallbackTarget)+@($Context.ReadFallbackAliases)
     if(-not $Computer -or $allowed -notcontains $Computer){
-        throw ('Autorisation de lecture par tache refusee : elle ne couvre pas '+$Computer+'.')
+        throw ('Autorisation de lecture par tâche refusée : elle ne couvre pas '+$Computer+'.')
     }
 }
 function Get-WRemoteWindowsDirectory {
