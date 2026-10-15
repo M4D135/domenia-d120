@@ -422,12 +422,10 @@ function Set-DomeniaUxShortLayout {
     $main=Get-DomeniaControl 'UxMainLayout';if($main){$main.Margin=if($compact){[Windows.Thickness]::new(18,6,16,6)}else{[Windows.Thickness]::new(18,12,16,12)}}
     $header=Get-DomeniaControl 'UxHeader';if($header){$header.Margin=if($compact){[Windows.Thickness]::new(0,0,0,4)}else{[Windows.Thickness]::new(0,0,0,10)}}
     $header=Get-DomeniaControl 'UxPageHeader';if($header){$header.Margin=if($compact){[Windows.Thickness]::new(2,0,0,6)}else{[Windows.Thickness]::new(2,0,0,12)}}
-    foreach($name in @('UxSearchScopeTitle','UxOuIntro','UxOuScopeCaption','UxOuScopeCard')){
+    foreach($name in @('UxOuIntro','UxOuScopeCaption','UxOuScopeCard')){
         $control=Get-DomeniaControl $name
         if($control){$control.Visibility=if($compact){[Windows.Visibility]::Collapsed}else{[Windows.Visibility]::Visible}}
     }
-    $scopeTitle=Get-DomeniaControl 'UxSearchScopeTitle'
-    if($scopeTitle){$scopeTitle.Margin=[Windows.Thickness]::new(0,0,0,4)}
     $scopeInfo=Get-DomeniaControl 'UxSearchScopeInfo';$hint=Get-DomeniaControl 'LblSearchHint'
     if($scopeInfo -and $hint){
         $scopeInfo.ColumnDefinitions[1].Width=if($compact){[Windows.GridLength]::new(1,[Windows.GridUnitType]::Star)}else{[Windows.GridLength]::new(0)}

@@ -67,6 +67,8 @@ function Reset-DomeniaSelectionBoundViews { }
 function Clear-DomeniaCurrentObjectRequest {param($RequestId)}
 function Show-DomeniaOperationError {param($Operation,$ErrorRecordOrException,[switch]$NoPopup) throw $ErrorRecordOrException}
 function Get-VisitCacheValue {param($Key) return $null}
+# The store context of the list (Domenia-Storage.UI.ps1) names the local database; this suite opens no data file.
+function New-DomeniaStoreContext {param([string]$RequestId,[long]$Generation=0,[string]$ScopeDn='',[bool]$Subtree=$true) return [pscustomobject]@{Version=1;RequestId=$RequestId;Generation=$Generation;ScopeDn=$ScopeDn;Subtree=$Subtree}}
 function Set-VisitCacheValue {param($Key,$Value) $script:CacheStores++}
 function Get-DomeniaDatabaseObjectCount {return 2}
 function Find-DomeniaIndexMatches {param($Term,$Limit) $script:LocalReads++;return @()}
@@ -98,7 +100,7 @@ function Reset-TestState {
     $script:FakeRows=@();$script:FailBoundServer=$false;$script:FailEveryCall=$false
     $script:WorkerCalls=New-Object System.Collections.ArrayList
     # FO-05: chip and type of the bar start on « Partout » and « Tout ».
-    $script:SearchBarScope='Everywhere';$script:SearchBarType='Tous'
+    $script:SearchBarScope='Everywhere';$script:SearchBarType='Tous';$script:ActiveSearchViewId=''
 }
 function Assert-Test {param([bool]$Condition,[string]$Message='Condition non verifiee') if(-not $Condition){throw $Message}}
 $script:Checks=New-Object System.Collections.ArrayList
@@ -188,10 +190,24 @@ Test-Case 'FO-05 Dans a la racine du domaine reste Partout' { $script:SearchBarS
 Test-Case 'FO-05 Le type de la barre restreint la requete globale' { $script:SearchBarType='Machines';$script:Ctrl.TxtGlobalSearch.Text='alex';Invoke-GlobalSearch -SearchMode Global;Assert-Test (($script:LastTask.State.TypeFilter -eq '(objectCategory=computer)') -and $script:LastTask.Payload.PrefixFilter.StartsWith('(&(objectCategory=computer)') -and ($script:LastTask.State.BarType -eq 'Machines')) }
 Test-Case 'FO-05 Le type de la liste d OU ne passe jamais dans la barre' { $script:Ctrl.CmbGlobalType.SelectedItem.Content='Groupes';$script:Ctrl.TxtGlobalSearch.Text='alex';Invoke-GlobalSearch -SearchMode Global;Assert-Test ($script:LastTask.State.TypeFilter -eq (Get-TypeLdapFilter 'Tous')) }
 Test-Case 'FO-05 Un retour tardif est rejete quand la puce change' { $script:SearchBarScope='Ou';$script:Ctrl.TxtGlobalSearch.Text='alex';Invoke-GlobalSearch -SearchMode Global;$a=$script:LastTask.State;Assert-Test (Test-DomeniaSearchStateCurrent $a);$script:SearchBarScope='Everywhere';Assert-Test (-not (Test-DomeniaSearchStateCurrent $a)) }
+# Unwired if the chip of the bar leaks into a work view: « Dans : tout le domaine » would read the OU of the bar.
+Test-Case 'FO-05 La puce de la barre ne restreint jamais une vue sur tout le domaine' {
+    $script:SearchBarScope='Ou'
+    Assert-Test ((Get-DomeniaSearchScope -Mode Global).BaseDn -eq $script:SelectedBranchDn) 'La puce ne restreint plus la barre.'
+    Assert-Test ((Get-DomeniaSearchScope -Mode Global -IgnoreBar).BaseDn -eq $script:Conn.BaseDn) 'IgnoreBar garde lʼOU de la barre.'
+    Invoke-GlobalSearch -ViewId 'disabled' -ViewScope Domain
+    $t=$script:LastTask
+    Assert-Test (($null -ne $t) -and ($t.Payload.BaseDn -eq $script:Conn.BaseDn) -and ($t.Payload.Scope -eq 'Subtree') -and ($t.State.SearchMode -eq 'Global') -and ($t.State.ViewId -eq 'disabled') -and ($t.State.BarScope -eq 'Everywhere')) ('Vue lue dans : '+[string]$t.Payload.BaseDn)
+    Assert-Test (Test-DomeniaSearchStateCurrent $t.State) 'La liste de la vue est jugee perimee a cause de la puce.'
+    # « Charger la suite » of that list keeps the domain root even though the chip still names the OU.
+    $script:LastTask=$null
+    Invoke-GlobalSearch -ViewId 'disabled' -ViewScope Domain -ExpectBaseDn $script:Conn.BaseDn -ExpectScope 'Subtree' -LimitOverride 200
+    Assert-Test (($null -ne $script:LastTask) -and ($script:LastTask.Payload.BaseDn -eq $script:Conn.BaseDn)) ('Suite refusee ou lue ailleurs : '+$script:LastStatus)
+}
 Test-Case 'FO-05 Le contrat refuse une OU qui n est pas nommee par la puce' {
     $real=${function:Get-DomeniaSearchScope}
     try{
-        ${function:Get-DomeniaSearchScope}={param($Mode) [pscustomobject]@{BaseDn=$script:SelectedBranchDn;Scope='Subtree';IsDomain=$false;Mode='Global'}}
+        ${function:Get-DomeniaSearchScope}={param($Mode,[switch]$IgnoreBar) [pscustomobject]@{BaseDn=$script:SelectedBranchDn;Scope='Subtree';IsDomain=$false;Mode='Global'}}
         $script:Ctrl.TxtGlobalSearch.Text='alex';$failed=$false
         try{Invoke-GlobalSearch -SearchMode Global}catch{$failed=($_.Exception.Message -match 'Contrat de recherche globale')}
         Assert-Test ($failed -and ($null -eq $script:LastTask))

@@ -176,7 +176,11 @@ Test-Case 'UI-06' 'Appartenances lisibles : nom, type, OU, DN conserve' {
     $members=ConvertTo-DomeniaMembershipRows @('cn=pc-01,ou=postes,dc=example,dc=invalid','CN=Inconnu,OU=Postes,DC=example,DC=invalid') Members $types
     Assert-Equal 'Machine' $members[0].Type 'Type lu dans la copie locale'
     Assert-Equal 'Non lu' $members[1].Type 'Type jamais devine depuis le nom'
-    Assert-Equal 2 @(ConvertTo-DomeniaMembershipRows @(1..5|ForEach-Object{'CN=M'+$_+',DC=x'}) Members $null 2).Count 'Borne du nombre de lignes'
+    Assert-Equal 2 (ConvertTo-DomeniaMembershipRows @(1..5|ForEach-Object{'CN=M'+$_+',DC=x'}) Members $null 2).Count 'Borne du nombre de lignes'
+    # The rows come back as one array: a caller iterates the assigned value (an @() around the call would nest it).
+    $none=ConvertTo-DomeniaMembershipRows @() MemberOf
+    Assert-Equal 0 $none.Count 'Aucun DN : aucune ligne'
+    $iterated=0;foreach($row in $members){$iterated++};Assert-Equal 2 $iterated 'Une ligne par DN a lʼitération'
     Assert-True (Test-DomeniaMembershipRow $groups[0] 'compta lyon');Assert-False (Test-DomeniaMembershipRow $groups[0] 'compta paris')
     Assert-True (Test-DomeniaMembershipRow $groups[0] '  ') 'Filtre vide'
 }
@@ -187,7 +191,7 @@ Test-Case 'UI-06' 'Groupes imbriques et « Pourquoi membre ? » depuis les appar
     $edges=ConvertTo-DomeniaMembershipEdges $json
     Assert-Equal 1 @($edges[$g3]).Count 'Un parent unique reste un DN';Assert-Equal $g4 @($edges[$g3])[0]
     Assert-Equal 2 @((ConvertTo-DomeniaMembershipEdges @{$u=@($g1,$g2)})[$u]).Count 'Dictionnaire accepte'
-    $nested=@(Get-DomeniaNestedMembershipRows $edges $u)
+    $nested=Get-DomeniaNestedMembershipRows $edges $u
     Assert-Equal 2 $nested.Count 'Seuls les groupes atteints par imbrication, cycle G4-G1 sans boucle'
     Assert-Equal 'GG-Compta' $nested[0].Name;Assert-Equal 2 $nested[0].Depth;Assert-Equal 'GG-Lyon' $nested[0].Via;Assert-Equal 'Imbriquée' $nested[0].Membership
     Assert-Equal 'GU-Tous' $nested[1].Name;Assert-Equal 3 $nested[1].Depth

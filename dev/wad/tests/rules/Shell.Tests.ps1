@@ -644,3 +644,13 @@ Test-Case 'DS-20' 'Une colonne choisie ne s affiche que si elle s applique a la 
     Assert-True (Test-DomeniaResultColumnShown 'OS' $null $true) 'Sans choix charge, seule la pertinence compte'
     Assert-True (Test-DomeniaResultColumnShown 'Hors catalogue' $v) 'Colonne non geree : affichee'
 }
+Test-Case 'DS-20' 'Export CSV : la cellule fusionnee garde Source lien et Qualification en colonnes' {
+    $col={param($p,$h)[pscustomobject]@{Property=$p;Header=$h}}
+    $out=@(Expand-DomeniaResultExportColumns @((& $col 'Name' 'Nom'),(& $col 'Association' 'Association mémorisée'),(& $col 'State' 'Etat')))
+    Assert-Equal 'Nom|Association mémorisée|Source lien|Qualification|Etat' (($out|ForEach-Object{$_.Header}) -join '|')
+    Assert-Equal 'LinkSource|LinkConfidence' (($out[2..3]|ForEach-Object{$_.Property}) -join '|')
+    Assert-Equal 'Nom|Etat' ((@(Expand-DomeniaResultExportColumns @((& $col 'Name' 'Nom'),(& $col 'State' 'Etat')))|ForEach-Object{$_.Header}) -join '|') 'Sans association, rien a ajouter'
+    $already=@(Expand-DomeniaResultExportColumns @((& $col 'Association' 'Association mémorisée'),(& $col 'LinkSource' 'Source lien')))
+    Assert-Equal 'Association mémorisée|Qualification|Source lien' (($already|ForEach-Object{$_.Header}) -join '|') 'Colonne deja exportee non repetee'
+    Assert-Equal 0 @(Expand-DomeniaResultExportColumns @()).Count
+}

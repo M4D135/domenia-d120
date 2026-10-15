@@ -392,7 +392,7 @@ try {
         # UI-06: type and name of the members of a group shown in a fiche, by exact DN (2000 at most, queried by 200).
         $objects = New-Object 'System.Collections.Generic.List[object]'
         $dnNames = @()
-        if ($null -ne $Payload.PSObject.Properties['Dns']) { $dnNames = @(@($Payload.Dns) | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -and $_.Length -le 4096 } | Select-Object -Unique -First 2000) }
+        if ($null -ne $Payload.PSObject.Properties['Dns']) { $dnNames = @(@($Payload.Dns) | ForEach-Object { ([string]$_).Trim() } | Where-Object { ($_) -and ($_.Length -le 4096) } | Select-Object -Unique -First 2000) }
         if (($count -gt 0) -and ($dnNames.Count -gt 0)) {
             for ($i = 0; $i -lt $dnNames.Count; $i += 200) {
                 $chunk = @($dnNames[$i..([Math]::Min($i + 199,$dnNames.Count - 1))] | ForEach-Object { Get-IdxWLiteral $_ })

@@ -224,9 +224,13 @@ function New-ResultRow {param([string]$Name,[string]$Login,[string]$Type='Utilis
 }
 function Feed-Live {param($Row) $script:Live.Search.Progress.Enqueue([pscustomobject]@{Kind='Row';Row=$Row;ObservedUtc='2026-10-02T08:00:00.0000000Z'})}
 function Pump-Live {param([int]$Ticks=60) for($i=0;$i -lt $Ticks;$i++){Invoke-DomeniaLiveTick;if($null -eq $script:Live.Search -or ($script:Live.Search.Progress.IsEmpty -and ($script:Live.Search.Finalized -or -not $script:Live.Search.Ended))){if($i -gt 2){break}}}}
-function Finish-Live {param($Task,[bool]$LimitReached=$false)
+function Finish-Live {param($Task,[bool]$LimitReached=$false,[string]$FilterUsed='')
+    # Without -FilterUsed the answer is that of an older worker (no filter reported): « Charger la suite » falls back to
+    # reading the list again. The current GlobalSearch worker always reports FilterUsed (MO-07 continuation).
     $s=$script:Live.Search
-    Complete-DomeniaLiveSearch -Result ([pscustomobject]@{Rows=@();BaseDn=$s.State.BaseDn;Scope=$s.State.Scope;Partial=$false;Failure='';LimitReached=$LimitReached}) -State $Task.CallbackState
+    $final=[pscustomobject]@{Rows=@();BaseDn=$s.State.BaseDn;Scope=$s.State.Scope;Partial=$false;Failure='';LimitReached=$LimitReached}
+    if($FilterUsed){Add-Member -InputObject $final -NotePropertyName FilterUsed -NotePropertyValue $FilterUsed}
+    Complete-DomeniaLiveSearch -Result $final -State $Task.CallbackState
     for($i=0;$i -lt 150 -and -not $script:Live.Search.Finalized;$i++){Invoke-DomeniaLiveTick}
 }
 function Get-GridNames {return @($script:Ctrl.DgObjects.Items|Where-Object{$_ -ne [Windows.Data.CollectionView]::NewItemPlaceholder}|ForEach-Object{[string]$_.Name})}
@@ -476,7 +480,9 @@ Case 'D036 A pasted DN is not cut at its commas' {
 
 # ---------------------------------------------------------------- D037 explicit continuation
 # Unwired if Invoke-DomeniaLiveTick keeps the former label or the button is not driven: the expectations fail.
-Case 'D037 Limited list says so and offers the next load; a new load discards the old context' {
+# Fallback only: the answer reports no filter (older worker), so the next load reads the list again with the next bound
+# (MO-07 covers the real continuation below).
+Case 'D037 Repli sans filtre connu : liste limitee annoncee, la suite relit avec la limite suivante et ecarte lʼancien contexte' {
     $script:Ctrl.TxtGlobalLimit.Text='1'
     $t=Search-Global 'alex'
     Feed-Live (New-ResultRow 'Alex' 'alex')
@@ -487,11 +493,13 @@ Case 'D037 Limited list says so and offers the next load; a new load discards th
     Invoke-DomeniaSearchMore
     $next=Get-LastTask 'GlobalSearch'
     Expect ((Get-TaskCount 'GlobalSearch') -eq ($before+1) -and [int]$next.Payload.Limit -eq 2 -and [string]$next.CallbackState.Search -eq 'alex') 'La suite ne relance pas la meme recherche.'
+    Expect ($null -eq $next.Payload.PSObject.Properties['Continuation']) 'Le repli envoie une suite sans filtre connu.'
     Expect ($script:Ctrl.TxtGlobalLimit.Text -eq '1') 'La limite saisie par lʼoperateur a ete modifiee.'
     Expect (-not (Test-DomeniaSearchStateCurrent $t.CallbackState)) 'Lʼancien contexte reste accepte.'
 }
 # Unwired if continuation drops the view, changes its OU/depth or accepts a now different search scope.
-Case 'D037 / UX-33 Charger la suite conserve la requete Annuaire et lʼOU directe' {
+# Fallback only (answer without FilterUsed); the real continuation of a view is the MO-07 / UX-33 case below.
+Case 'D037 / UX-33 Repli sans filtre connu : la relecture conserve la requete Annuaire et lʼOU directe' {
     Update-DomeniaSearchScopeUi
     $script:Ctrl.TxtGlobalLimit.Text='1'
     $script:Ctrl.ChkSubtree.IsChecked=$false
@@ -504,6 +512,31 @@ Case 'D037 / UX-33 Charger la suite conserve la requete Annuaire et lʼOU direct
     Expect (-not [object]::ReferenceEquals($next,$t) -and [int]$next.Payload.Limit -eq 2) 'Suite non lancee.'
     Expect ($next.CallbackState.SearchMode -eq 'OU' -and $next.Payload.BaseDn -eq $t.Payload.BaseDn -and $next.Payload.Scope -eq 'OneLevel' -and $next.CallbackState.ViewId -eq 'stalecomputers' -and [bool]$next.CallbackState.SurveyAllowed) ('La suite lit un autre perimetre : '+$next.Payload.BaseDn)
     Expect (-not (Test-DomeniaSearchStateCurrent $t.CallbackState)) 'Ancienne generation encore acceptee.'
+}
+# MO-07 / UX-33: unwired if the continuation of a work view loses the view filter, its OU, its depth or its view,
+# re-reads the rows already loaded or opens a new generation (the path every current worker answer takes).
+Case 'MO-07 / UX-33 Charger la suite dʼune requete Annuaire lit seulement la suite dans la meme OU directe' {
+    Update-DomeniaSearchScopeUi
+    $script:Ctrl.TxtGlobalLimit.Text='1'
+    $script:Ctrl.ChkSubtree.IsChecked=$false
+    Invoke-DomeniaWorkView -ViewId 'ad:stalecomputers'
+    $t=Get-LastTask 'GlobalSearch'
+    $generation=[int]$script:GlobalSearchGeneration
+    $viewFilter=[string]$t.Payload.BroadFilter
+    Expect ($viewFilter.Contains('lastLogonTimestamp')) ('Filtre de la vue : '+$viewFilter)
+    Feed-Live (New-ResultRow 'PC-OLD' 'pcold' 'Machine' '' 'OU=Postes');Finish-Live $t $true $viewFilter
+    $s=$script:Live.Search;$rows=$s.Rows;$before=Get-TaskCount 'GlobalSearch'
+    Invoke-DomeniaSearchMore
+    $next=Get-LastTask 'GlobalSearch'
+    Expect ((Get-TaskCount 'GlobalSearch') -eq ($before+1)) 'Suite non lancee.'
+    $c=$next.Payload.Continuation
+    Expect (($null -ne $c) -and ([string]$c.Filter -ceq $viewFilter) -and ([string]$c.SortAttribute -eq 'name')) ('Suite : '+[string]$c.Filter)
+    Expect (@($c.KnownKeys) -contains 'cn=pc-old,ou=postes,dc=example,dc=invalid') 'Le DN deja charge nʼest pas transmis.'
+    Expect (($next.CallbackState.SearchMode -eq 'OU') -and ($next.Payload.BaseDn -eq $t.Payload.BaseDn) -and ($next.Payload.Scope -eq 'OneLevel') -and ($next.CallbackState.ViewId -eq 'stalecomputers') -and ($next.CallbackState.ViewChoice -eq 'OU')) ('La suite lit un autre perimetre : '+$next.Payload.BaseDn)
+    Expect (([int]$next.CallbackState.Limit -eq 2) -and ([int]$next.Payload.Limit -eq 1) -and (-not $next.Payload.BroadFilter)) ('Budget : '+$next.Payload.Limit+' / '+$next.CallbackState.Limit)
+    Expect (([int]$script:GlobalSearchGeneration -eq $generation) -and [object]::ReferenceEquals($script:Live.Search,$s) -and ($rows.Count -eq 1)) 'La liste a ete relue ou remplacee.'
+    Expect (Test-DomeniaSearchStateCurrent $next.CallbackState) 'Contexte de la suite refuse.'
+    Expect ((Get-TaskCount 'OpenAdObject') -eq 0) 'Une fiche a ete ouverte.'
 }
 Case 'D037 / UX-33 Une profondeur modifiee interdit de continuer lʼancienne liste' {
     $script:Ctrl.TxtGlobalLimit.Text='1'
@@ -1041,6 +1074,23 @@ Case 'DS-20 Colonnes choisies : six par defaut, choix enregistre, colonnes poste
         $association=@($grid.Columns|Where-Object{[string]$_.Header -eq 'Association mémorisée'})[0]
         $content=$association.CellTemplate.LoadContent()
         Expect (($association.ClipboardContentBinding.Path.Path -eq 'Association') -and ($content.Inlines.Count -eq 2)) 'Cellule dʼassociation non fusionnee.'
+        # « Exporter CSV » (real Export-CurrentResults and column reading; only the file write is replaced by an
+        # in-memory CSV): the merged cell still exports Source lien and Qualification, right after the association.
+        . ([scriptblock]::Create((Import-AstFunctions (Join-Path $wad 'Domenia-Core.ps1') @('Export-CurrentResults','Get-DomeniaGridExportColumns','ConvertTo-DomeniaExportRows','ConvertTo-DomeniaSpreadsheetCell','ConvertTo-DomeniaSpreadsheetSafeRow'))))
+        . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Experience.UI.ps1') @('Get-DomeniaExperienceVisibleRows','Get-DomeniaExperienceExportRows'))))
+        function Export-DomeniaCsv {param([object[]]$Rows=@(),[object[]]$Columns=@(),$Grid=$null,[string]$Subject='')
+            $script:ExportCsvText=@(ConvertTo-DomeniaExportRows -Rows $Rows -Columns $Columns|ConvertTo-DomeniaSpreadsheetSafeRow|ConvertTo-Csv -Delimiter ';' -NoTypeInformation)
+            return [pscustomobject]@{Path='C:\DomeniaTest\export.csv';RowCount=@($Rows).Count}}
+        function Show-DomeniaExportResult {param($Result,[string]$Scope='') $script:ExportShown=$Result}
+        function Get-DomeniaSearchExportSubject {return 'Postes'}
+        function Show-ErrorBox {param($Message) throw ([string]$Message)}
+        $script:ExportCsvText=@();$script:ExportShown=$null
+        $grid.ItemsSource=[Collections.ObjectModel.ObservableCollection[object]]::new([object[]]@([pscustomobject]@{Type='Machine';Name='PC-COMPTA-014';SessionDisplay='';Association='Camille Martin';LinkSource='Console observée';LinkConfidence='Observé';Presence='En ligne';State='Actif';DN='CN=PC-COMPTA-014,OU=Postes,DC=example,DC=invalid'}))
+        Export-CurrentResults
+        Expect (($null -ne $script:ExportShown) -and (@($script:ExportCsvText).Count -eq 2)) ('Export non produit : '+(@($script:ExportCsvText) -join ' / '))
+        Expect (([string]$script:ExportCsvText[0]).Contains('"Association mémorisée";"Source lien";"Qualification"')) ('En-tete CSV : '+[string]$script:ExportCsvText[0])
+        Expect (([string]$script:ExportCsvText[1]).Contains('"Camille Martin";"Console observée";"Observé"')) ('Ligne CSV : '+[string]$script:ExportCsvText[1])
+        $grid.ItemsSource=$null
         Expect ((Get-TaskCount @('GlobalSearch','OpenAdObject')) -eq 0) 'Choisir des colonnes a lance une lecture.'
     }finally{$reader.Close();if($null -ne $window){$window.Close()}}
 }

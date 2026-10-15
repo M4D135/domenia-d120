@@ -5494,11 +5494,14 @@ function Get-MainXaml {
                         <StackPanel x:Name="UxResultBar" Margin="0,0,0,10"><DockPanel x:Name="UxResultActionsRow" Margin="0,0,0,8">
                           <!-- Result actions dock first on the right: a changing count only narrows the title, never moves them. -->
                           <StackPanel x:Name="UxResultActions" Orientation="Horizontal" DockPanel.Dock="Right" Margin="8,0,0,0">
-                            <!-- DS-06: Actualiser and Exporter CSV live in the « ⋯ » menu; the buttons stay (hidden) for their wiring and states. -->
-                            <Button MinHeight="30" Padding="10,2" Margin="0,0,8,0" Visibility="Collapsed" x:Name="BtnLoadBranch" Content="Actualiser" ToolTip="Actualise le mode affiché : recherche globale sans filtres, ou contenu de l’OU avec ses filtres." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser les résultats" AutomationProperties.HelpText="Actualise le mode affiché : recherche globale sans filtres, ou contenu de l’OU avec ses filtres."/>
+                            <!-- DS-06: Actualiser and Exporter CSV live in the « ⋯ » menu. Their buttons stay for the wiring, the busy states and
+                                 the GuiElementPolicy, inside a collapsed holder: a policy that shows or greys a button never brings it back here. -->
+                            <Grid Visibility="Collapsed">
+                              <Button MinHeight="30" Padding="10,2" Margin="0,0,8,0" Visibility="Collapsed" x:Name="BtnLoadBranch" Content="Actualiser" ToolTip="Actualise le mode affiché : recherche globale sans filtres, ou contenu de l’OU avec ses filtres." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser les résultats" AutomationProperties.HelpText="Actualise le mode affiché : recherche globale sans filtres, ou contenu de l’OU avec ses filtres."/>
+                              <Button MinHeight="30" Padding="10,2" Margin="0" Visibility="Collapsed" x:Name="BtnExportResults" Content="Exporter CSV" ToolTip="Exporte les résultats affichés, ou uniquement les lignes sélectionnées, au format CSV." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Exporter CSV" AutomationProperties.HelpText="Exporte les resultats affiches, ou uniquement les lignes selectionnees, au format CSV."/>
+                            </Grid>
                             <Button MinHeight="30" Padding="10,2" Margin="0,0,8,0" x:Name="BtnGlobalClear" Content="Effacer" ToolTip="Efface le texte et les résultats sans modifier l’OU sélectionnée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer la recherche" AutomationProperties.HelpText="Efface le texte et les résultats sans modifier l’OU sélectionnée."/>
                             <Button x:Name="BtnSearchResultMenu" Content="⋯" MinHeight="30" MinWidth="38" Padding="8,0" Margin="0" FontSize="16" FontWeight="SemiBold" ToolTip="Autres actions de la liste : actualiser, exporter en CSV et choisir les colonnes affichées. Aucune lecture ne part à lʼouverture du menu." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Autres actions de la liste" AutomationProperties.HelpText="Autres actions de la liste : actualiser, exporter en CSV et choisir les colonnes affichées. Aucune lecture ne part à lʼouverture du menu."/>
-                            <Button MinHeight="30" Padding="10,2" Margin="0" Visibility="Collapsed" x:Name="BtnExportResults" Content="Exporter CSV" ToolTip="Exporte les résultats affichés, ou uniquement les lignes sélectionnées, au format CSV." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Exporter CSV" AutomationProperties.HelpText="Exporte les resultats affiches, ou uniquement les lignes selectionnees, au format CSV."/>
                           </StackPanel>
                           <Button x:Name="BtnSearchMore" Content="Charger la suite" DockPanel.Dock="Right" IsEnabled="False" MinHeight="30" Padding="10,2" Margin="8,0,0,0" ToolTip="Disponible quand la liste est limitée : lit seulement les lignes suivantes de la même recherche, triées par nom, sans relire les lignes déjà chargées. Plafond de sécurité : 20 000 lignes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Charger la suite" AutomationProperties.HelpText="Disponible quand la liste est limitée : lit seulement les lignes suivantes de la même recherche, triées par nom, sans relire les lignes déjà chargées. Plafond de sécurité : 20 000 lignes."/>
                           <!-- MO-07: one gesture to bring a limited list to 1 000 rows (then 5 000, then 20 000), reading only the missing rows. -->
@@ -8262,12 +8265,13 @@ function Set-DomeniaSearchMode {
 }
 
 function Get-DomeniaSearchScope {
-    param([ValidateSet('Global','OU')][string]$Mode = (Get-DomeniaSearchMode))
+    # -IgnoreBar: a work view reads the perimeter of its own « Dans : » chip; the chip of the upper bar never narrows it.
+    param([ValidateSet('Global','OU')][string]$Mode = (Get-DomeniaSearchMode),[switch]$IgnoreBar)
     $domainDn = ([string]$script:Conn.BaseDn).Trim()
     if ([string]::IsNullOrWhiteSpace($domainDn)) { throw 'Recherche impossible : aucune base AD de session.' }
     if ($Mode -eq 'Global') {
         # FO-05: the chip of the upper bar may narrow the search, explicitly, to the OU chosen in the tree (sub-OU included).
-        if ([string]$script:SearchBarScope -eq 'Ou') {
+        if ((-not $IgnoreBar) -and ([string]$script:SearchBarScope -eq 'Ou')) {
             $bar = Get-DomeniaSearchBarScope -Choice Ou -OuDn ([string]$script:SelectedBranchDn) -DomainDn $domainDn
             if ([bool]$bar.Explicit) { return [pscustomobject]@{ BaseDn=[string]$bar.BaseDn; Scope='Subtree'; IsDomain=$false; Mode='Global'; Explicit=$true } }
         }
@@ -8353,7 +8357,9 @@ function Test-DomeniaSearchStateCurrent {
     if ($null -eq $State -or [int]$State.Generation -ne [int]$script:GlobalSearchGeneration) { return $false }
     $mode = Get-DomeniaSearchMode
     if ($null -ne $State.PSObject.Properties['SearchMode'] -and [string]$State.SearchMode -cne $mode) { return $false }
-    $scope = Get-DomeniaSearchScope -Mode $mode
+    # FO-05: a work view list was read without the chip of the upper bar; it is compared with the same perimeter.
+    $viewList = (($null -ne $State.PSObject.Properties['ViewId']) -and (-not [string]::IsNullOrEmpty([string]$State.ViewId)))
+    $scope = Get-DomeniaSearchScope -Mode $mode -IgnoreBar:$viewList
     if (-not [string]::Equals([string]$State.BaseDn,[string]$scope.BaseDn,[StringComparison]::OrdinalIgnoreCase)) { return $false }
     if ([string]$State.Scope -ne [string]$scope.Scope) { return $false }
     if ([string]$State.TypeFilter -ne [string](Get-GlobalSelectedTypeFilter -Mode $mode)) { return $false }
@@ -11618,7 +11624,9 @@ function Invoke-GlobalSearch {
         }
 
         $textValue = Get-DomeniaSearchText -Mode $SearchMode
-        $scope = Get-DomeniaSearchScope -Mode $SearchMode
+        # FO-05: the chip of the upper bar narrows the bar search only; a work view « Dans : tout le domaine » reads the
+        # domain root (its own chip), never the OU chosen for the bar.
+        $scope = Get-DomeniaSearchScope -Mode $SearchMode -IgnoreBar:($null -ne $view)
         # D037: a continuation reads the perimeter of its list or nothing.
         if (($ExpectBaseDn -and -not [string]::Equals([string]$scope.BaseDn,$ExpectBaseDn,[StringComparison]::OrdinalIgnoreCase)) -or ($ExpectScope -and [string]$scope.Scope -ne $ExpectScope)) {
             Set-Status 'Suite non chargée : le périmètre de la liste a changé. Relancez la recherche.' 'WARN'
@@ -11883,10 +11891,10 @@ $seenFilter = @{}
 # last name read; the DNs already listed are skipped and never published twice.
 $continuation = $null
 $known = $null
-if ($null -ne $Payload.PSObject.Properties['Continuation'] -and $null -ne $Payload.Continuation) { $continuation = $Payload.Continuation }
+if (($null -ne $Payload.PSObject.Properties['Continuation']) -and ($null -ne $Payload.Continuation)) { $continuation = $Payload.Continuation }
 if ($null -ne $continuation) {
     $f = ([string]$continuation.Filter).Trim()
-    if (-not $f.StartsWith('(') -or -not $f.EndsWith(')') -or $f.Length -gt 16500) { throw 'Filtre de suite invalide : aucune lecture.' }
+    if ((-not $f.StartsWith('(')) -or (-not $f.EndsWith(')')) -or ($f.Length -gt 16500)) { throw 'Filtre de suite invalide : aucune lecture.' }
     [void]$filters.Add($f)
     $known = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
     foreach ($knownKey in @($continuation.KnownKeys)) { if (-not [string]::IsNullOrWhiteSpace([string]$knownKey)) { [void]$known.Add(([string]$knownKey).Trim()) } }
@@ -11957,7 +11965,7 @@ foreach ($ctx in @($contexts)) {
             $searcher.PageSize = [Math]::Max(100,[Math]::Min(1000,[int]$Payload.StreamPageSize))
             $searcher.CacheResults = $false
             $searcher.Asynchronous = $true
-            if ($null -ne $continuation -and [string]$continuation.SortAttribute -eq 'name') { $searcher.Sort = New-Object System.DirectoryServices.SortOption('name',[System.DirectoryServices.SortDirection]::Ascending) }
+            if (($null -ne $continuation) -and ([string]$continuation.SortAttribute -eq 'name')) { $searcher.Sort = New-Object System.DirectoryServices.SortOption('name',[System.DirectoryServices.SortDirection]::Ascending) }
             $rootEntry = $searcher.SearchRoot
             $collection = $searcher.FindAll()
             $serverUsed = $serverLabel
@@ -11990,7 +11998,7 @@ foreach ($ctx in @($contexts)) {
                 }
                 else { $dn.ToLowerInvariant() }
 
-                if ($null -ne $known -and $known.Contains($key)) { continue }
+                if (($null -ne $known) -and $known.Contains($key)) { continue }
                 if ($seenDn.ContainsKey($key)) { continue }
                 $seenDn[$key] = $true
                 $beyondDisplayLimit=($rows.Count -ge $resultLimit)
@@ -12604,7 +12612,9 @@ function Export-CurrentResults {
         $rows = @(Get-DomeniaExperienceExportRows -VisibleRows $visible -SelectedRows @($grid.SelectedItems))
         if ($rows.Count -eq 0) { Set-Status "Aucun resultat a exporter." "WARN"; return }
         $scope = if ($rows.Count -lt $visible.Count) { 'sélection' } else { 'toute la liste' }
-        Show-DomeniaExportResult -Result (Export-DomeniaCsv -Rows $rows -Grid $grid -Subject (Get-DomeniaSearchExportSubject)) -Scope $scope
+        # DS-20: the merged association cell still exports its source and its qualification as their own columns.
+        $columns = @(Expand-DomeniaResultExportColumns -Columns @(Get-DomeniaGridExportColumns -Grid $grid))
+        Show-DomeniaExportResult -Result (Export-DomeniaCsv -Rows $rows -Columns $columns -Grid $grid -Subject (Get-DomeniaSearchExportSubject)) -Scope $scope
     } catch { Show-ErrorBox "Erreur export : $($_.Exception.Message)" }
 }
 

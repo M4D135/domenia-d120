@@ -369,6 +369,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Set-DomeniaResultColumnChoice',
             'ConvertTo-DomeniaResultColumnChoiceText',
             'Test-DomeniaResultColumnShown',
+            'Expand-DomeniaResultExportColumns',
             'Get-DomeniaSelectionPreview',
             'ConvertTo-DomeniaPreviewLoadState',
             'ConvertTo-DomeniaSelectionPreviewText',

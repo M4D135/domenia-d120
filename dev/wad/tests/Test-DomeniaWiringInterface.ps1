@@ -919,6 +919,10 @@ try{
             $memberHeaders=@($members.ContextMenu.Items|Where-Object{$_ -is [Windows.Controls.MenuItem]}|ForEach-Object{[string]$_.Header})
             Expect (-not ($memberHeaders -contains 'Pourquoi membre ?')) 'Les membres directs dʼun groupe nʼont pas besoin dʼexplication.'
             Expect (@($tasks|Where-Object{$_.OperationId -notin @('GroupPathRead','LocalIndexRead')}).Count -eq 0) 'Une autre lecture a ete lancee.'
+            # A group without members shows no row (never one empty pseudo-row) and reads no type.
+            $before=$tasks.Count
+            Set-DomeniaMembershipList -Kind Members -Dns @() -ObjectDn $g3;Pump $main
+            Expect (($members.Items.Count -eq 0) -and ($tasks.Count -eq $before)) ('Groupe vide : '+$members.Items.Count+' ligne(s), '+($tasks.Count-$before)+' lecture(s).')
             Clear-DomeniaMembershipLists;Pump $main
             Expect (($null -eq $grid.ItemsSource) -and ($null -eq $members.ItemsSource) -and ($script:Ctrl['LblMembershipWhy'].Visibility -eq 'Collapsed')) 'Appartenances de lʼobjet precedent encore affichees.'
             $script:SelectedObject=$null

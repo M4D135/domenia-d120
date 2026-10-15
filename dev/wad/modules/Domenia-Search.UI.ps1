@@ -193,7 +193,9 @@ function Get-DomeniaSearchResultMenuEntries {
 function New-DomeniaSearchResultMenu {
     # DS-06: builds the « ⋯ » menu of the result card. Building or opening it reads nothing; an entry acts only when clicked.
     $menu = [Windows.Controls.ContextMenu]::new()
-    foreach ($entry in @(Get-DomeniaSearchResultMenuEntries)) {
+    # The entries come back as one array (return ,): assign them, never wrap the call in @().
+    $entries = Get-DomeniaSearchResultMenuEntries
+    foreach ($entry in $entries) {
         $item = [Windows.Controls.MenuItem]::new()
         $item.Header = $entry.Header
         $item.ToolTip = $entry.ToolTip
@@ -296,7 +298,8 @@ function Add-DomeniaResultColumnMenuItems {
     $title.Header = 'Colonnes affichées'
     $title.IsEnabled = $false
     [void]$Target.Items.Add($title)
-    foreach ($entry in @(Get-DomeniaResultColumnMenuEntries)) {
+    $entries = Get-DomeniaResultColumnMenuEntries
+    foreach ($entry in $entries) {
         $item = [Windows.Controls.MenuItem]::new()
         $item.Header = $entry.Label
         $item.IsCheckable = $true

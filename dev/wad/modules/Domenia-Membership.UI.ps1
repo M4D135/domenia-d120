@@ -18,7 +18,9 @@ function Set-DomeniaMembershipList {
     $names = Get-DomeniaMembershipControlNames -Kind $Kind
     $all = @($Dns | Where-Object { $_ })
     $rows = [Collections.ObjectModel.ObservableCollection[object]]::new()
-    foreach ($row in @(ConvertTo-DomeniaMembershipRows -Dns $all -Kind $Kind -Max 2000)) { $rows.Add($row) }
+    # The row builder returns its array as one object (return ,): assign it, never wrap the call in @().
+    $built = ConvertTo-DomeniaMembershipRows -Dns $all -Kind $Kind -Max 2000
+    foreach ($row in $built) { $rows.Add($row) }
     $previous = $script:MembershipLists[$Kind]
     $sameObject = (($null -ne $previous) -and ([string]$previous.ObjectDn -ieq $ObjectDn))
     $script:MembershipLists[$Kind] = [pscustomobject]@{Rows=$rows;Total=$all.Count;Complete=$Complete;Note=$Note;Noun=$names.Noun;ObjectDn=$ObjectDn;Epoch=[long]$script:SessionEpoch}
@@ -209,7 +211,8 @@ function Add-DomeniaNestedMembershipRows {
     foreach ($row in @($list.Rows | Where-Object { [string]$_.Membership -ne 'Directe' })) { [void]$list.Rows.Remove($row) }
     $direct = @{}
     foreach ($row in @($list.Rows)) { $direct[[string]$row.Dn] = $true }
-    foreach ($row in @(Get-DomeniaNestedMembershipRows -Edges $nested.Edges -ObjectDn ([string]$list.ObjectDn) -Max 2000)) {
+    $built = Get-DomeniaNestedMembershipRows -Edges $nested.Edges -ObjectDn ([string]$list.ObjectDn) -Max 2000
+    foreach ($row in $built) {
         if (-not $direct.ContainsKey([string]$row.Dn)) { $list.Rows.Add($row) }
     }
     Update-DomeniaMembershipFilter -Kind MemberOf

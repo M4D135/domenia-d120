@@ -365,8 +365,8 @@ if($infrastructure){
             Assert-True ($count.Text -eq '· 20 objets') ('Nombre en tête : '+$count.Text)
             $window.FindName('DgObjects').ItemsSource=[Collections.ObjectModel.ObservableCollection[object]]::new();Invoke-GeometryPump $window
             Assert-True ($count.Text -eq '· aucun objet') ('Liste vide : '+$count.Text)
-            foreach($name in @('BtnLoadBranch','BtnExportResults')){Assert-True ($window.FindName($name).Visibility -eq [Windows.Visibility]::Collapsed) ($name+' encore dans la barre.')}
-            $entries=@(Get-DomeniaSearchResultMenuEntries)
+            foreach($name in @('BtnLoadBranch','BtnExportResults')){Assert-True (-not (Test-GeometryVisible $window.FindName($name))) ($name+' encore dans la barre.')}
+            $entries=Get-DomeniaSearchResultMenuEntries
             Assert-True (($entries.Count -eq 2) -and ($entries[0].Header -eq 'Actualiser') -and ($entries[1].Header -eq 'Exporter CSV') -and [object]::ReferenceEquals($entries[1].Button,$window.FindName('BtnExportResults'))) 'Menu « ⋯ » incomplet.'
             $menuButton=Get-ClientRect $window 'BtnSearchResultMenu'
             Assert-True ($menuButton.Visible -and $menuButton.W -ge 30) 'Bouton « ⋯ » invisible.'
@@ -383,6 +383,22 @@ if($infrastructure){
             Assert-True (([Windows.Controls.Grid]::GetRow($selection) -eq [Windows.Controls.Grid]::GetRow($live)) -and ([Windows.Controls.Grid]::GetColumn($live) -eq 1)) 'Les deux lignes dʼétat ne partagent pas une seule ligne.'
             $a=Get-ClientRect $window 'LblSelectionReadState';$b=Get-ClientRect $window 'LblLiveState'
             Assert-True ([Math]::Abs($a.Y-$b.Y) -le 0.5 -and $a.W -ge 100 -and $b.W -ge 100) ('États sur deux lignes : '+$a.Y+' / '+$b.Y)
+            # A GuiElementPolicy that greys or shows the two actions never brings their buttons back beside « ⋯ »: the menu
+            # carries the state (greyed entry), the hidden mode removes the entry.
+            $policyNodes=@($coreAst.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Apply-DomeniaGuiElementPolicy'},$true))
+            Assert-True ($policyNodes.Count -eq 1) 'Apply-DomeniaGuiElementPolicy absente.'
+            . ([scriptblock]::Create($policyNodes[0].Extent.Text))
+            $savedPolicy=$script:GuiElementPolicy
+            try{
+                $script:GuiElementPolicy=@{BtnExportResults='Disabled';BtnLoadBranch='Visible'}
+                Apply-DomeniaGuiElementPolicy -Window $null -ControlMap @{BtnExportResults=$window.FindName('BtnExportResults');BtnLoadBranch=$window.FindName('BtnLoadBranch')};Invoke-GeometryPump $window
+                foreach($name in @('BtnLoadBranch','BtnExportResults')){Assert-True (-not (Test-GeometryVisible $window.FindName($name))) ($name+' revenu dans la barre par la stratégie.')}
+                $entries=Get-DomeniaSearchResultMenuEntries
+                Assert-True (($entries.Count -eq 2) -and ($entries[1].Header -eq 'Exporter CSV') -and (-not [bool]$entries[1].Enabled)) 'Lʼentrée grisée par la stratégie reste active.'
+                $script:GuiElementPolicy=@{BtnExportResults='Hidden'}
+                $entries=Get-DomeniaSearchResultMenuEntries
+                Assert-True (($entries.Count -eq 1) -and ($entries[0].Header -eq 'Actualiser')) 'Lʼentrée masquée par la stratégie reste dans le menu.'
+            }finally{$script:GuiElementPolicy=$savedPolicy}
         }
     }catch{$script:Checks.Add([pscustomobject]@{Name='DS-06 : preparation';Status='Failed';Detail=$_.Exception.ToString()})}
     finally{if($window){$window.Close()};if($null -ne $script:GeometrySurface){$script:GeometrySurface.Children.Clear();$script:GeometrySurface=$null};$script:Window=$null;$script:Ctrl=@{}}

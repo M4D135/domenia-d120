@@ -565,6 +565,26 @@ function Test-DomeniaResultColumnShown {
     return $true
 }
 
+function Expand-DomeniaResultExportColumns {
+    # DS-20: the association cell shows the association, its qualification and its source (tooltip), but the CSV of
+    # the result list keeps the three columns it had before the merge: Source lien and Qualification follow
+    # Association mémorisée, which stays where the operator placed it. A list without the association column exports
+    # neither; a column already exported is never repeated. $Columns: {Property; Header} in export order.
+    param([object[]]$Columns=@())
+    $present = @{}
+    foreach ($column in @($Columns)) { if ($null -ne $column) { $present[[string]$column.Property] = $true } }
+    foreach ($column in @($Columns)) {
+        if ($null -eq $column) { continue }
+        $column
+        if ([string]$column.Property -cne 'Association') { continue }
+        foreach ($extra in @(@('LinkSource','Source lien'),@('LinkConfidence','Qualification'))) {
+            if ($present.ContainsKey($extra[0])) { continue }
+            $present[$extra[0]] = $true
+            [pscustomobject]@{ Property=$extra[0]; Header=$extra[1] }
+        }
+    }
+}
+
 # ---------------------------------------------------------------- D085 selection preview in Rechercher
 function Get-DomeniaSelectionPreview {
     # Summary shown in Rechercher for the selected row. Users and workstations share one contract: same members,

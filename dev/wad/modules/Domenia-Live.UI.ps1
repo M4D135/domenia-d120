@@ -242,7 +242,7 @@ function Resume-DomeniaLiveSearch {
     # publishes the new rows only, and the list is finalized again when they are committed.
     param($State,$Payload)
     $s=$null;if($null -ne $script:Live){$s=$script:Live.Search}
-    if($null -eq $s -or -not (Test-DomeniaLiveSearchActive)){throw 'Liste courante introuvable : relancez la recherche.'}
+    if(($null -eq $s) -or (-not (Test-DomeniaLiveSearchActive))){throw 'Liste courante introuvable : relancez la recherche.'}
     $stop=[Threading.CancellationTokenSource]::new()
     $s.Stop=$stop;$s.Ended=$false;$s.Finalized=$false;$s.Final=$null;$s.Error='';$s.Prune=$null;$s.RefreshNeeded=$true
     $s.State=$State
@@ -359,7 +359,7 @@ function Update-DomeniaLiveFilter {
     try{$view.Filter=[Predicate[object]]$predicate;$view.Refresh()}finally{$script:SuppressGridSelectionEvents=$old}
     # The fraction counts displayed/loaded rows, never the total AD population. Keep an incomplete
     # read visible beside that fraction even when the branch counter is outside the current viewport.
-    [void](Set-DomeniaControlText 'LblSuiteResultCount' ($(if($s.Error){'Liste partielle · '}elseif(-not $s.Finalized){'Chargement… · '}elseif($null -ne $s.Final -and [bool]$s.Final.LimitReached){'Limite atteinte · '}else{''})+"$($grid.Items.Count) / $($s.Rows.Count) lignes visibles · filtre de la liste"))
+    [void](Set-DomeniaControlText 'LblSuiteResultCount' ($(if($s.Error){'Liste partielle · '}elseif(-not $s.Finalized){'Chargement… · '}elseif(($null -ne $s.Final) -and ([bool]$s.Final.LimitReached)){'Limite atteinte · '}else{''})+"$($grid.Items.Count) / $($s.Rows.Count) lignes visibles · filtre de la liste"))
     # UX-03: every loaded row hidden by the filter of the list: the empty list says how many and offers to clear it.
     if([bool]$s.EmptyState){Update-DomeniaFilteredEmptyState -Loaded $s.Rows.Count -Visible $grid.Items.Count}
     $script:Live.LastFilter=[datetime]::UtcNow;$s.RefreshNeeded=$false;$s.FilterPending=$false
@@ -849,7 +849,7 @@ function Invoke-DomeniaLiveTick {
                         # The selection kept for this search is no longer in the list: clear it everywhere.
                         if($null -ne $grid -and @($grid.SelectedItems).Count -eq 0 -and ($null -ne $script:SelectionLoad -or $null -ne $script:SelectedObject)){Clear-DomeniaSelectionEverywhere}
                         $label=if($s.Error){'Liste partielle · '+$s.Fresh.Count+' résultat(s) AD · vérification incomplète'}else{"$($s.Fresh.Count) résultat(s) AD vérifiés"}
-                        $limited=($null -ne $s.Final -and [bool]$s.Final.LimitReached)
+                        $limited=(($null -ne $s.Final) -and ([bool]$s.Final.LimitReached))
                         if($limited){$label+=' · limite atteinte, affiner'}
                         # D037: the counter states complete or limited; the former wording stays only without the search rules.
                         if($s.SearchRules -and -not $s.Error){$label=Get-DomeniaResultCounterText -Loaded $s.Fresh.Count -Limit ([int]$s.State.Limit) -Complete (-not $limited) -Visible ([int]$grid.Items.Count)}
@@ -870,7 +870,7 @@ function Invoke-DomeniaLiveTick {
                 $hasText=(($null -ne $filterBox) -and (-not [string]::IsNullOrWhiteSpace([string]$filterBox.Text)))
                 $hasFilter=($hasText -or (((Get-DomeniaSearchMode) -ne 'Global') -and ($script:CurrentPresenceFilter -ne 'Tous')))
                 if(($s.FilterPending -or (($hasFilter -or -not $script:Live.Notifying) -and $s.RefreshNeeded)) -and ([datetime]::UtcNow-$script:Live.LastFilter).TotalMilliseconds -ge 400){Update-DomeniaLiveFilter}
-                [void](Set-DomeniaControlText 'LblSuiteResultCount' ($(if($s.Error){'Liste partielle · '}elseif(-not $s.Finalized){'Chargement… · '}elseif($null -ne $s.Final -and [bool]$s.Final.LimitReached){'Limite atteinte · '}else{''})+"$($grid.Items.Count) / $($s.Rows.Count) lignes visibles · filtre de la liste"))
+                [void](Set-DomeniaControlText 'LblSuiteResultCount' ($(if($s.Error){'Liste partielle · '}elseif(-not $s.Finalized){'Chargement… · '}elseif(($null -ne $s.Final) -and ([bool]$s.Final.LimitReached)){'Limite atteinte · '}else{''})+"$($grid.Items.Count) / $($s.Rows.Count) lignes visibles · filtre de la liste"))
             }
         }
         Update-DomeniaSearchMoreButton -Search $(if($activeSearch){$script:Live.Search}else{$null})
@@ -916,7 +916,7 @@ function Update-DomeniaSearchMoreButton {
     $decision=$null
     # SearchRules is resolved once per search by Begin-DomeniaLiveSearch: no command lookup on each tick.
     if($null -ne $Search -and [bool]$Search.SearchRules){
-        $decision=Get-DomeniaContinuationDecision -Finalized ([bool]$Search.Finalized) -HasError (-not [string]::IsNullOrEmpty([string]$Search.Error)) -LimitReached ($null -ne $Search.Final -and [bool]$Search.Final.LimitReached) -Limit ([int]$Search.State.Limit) -Loaded ([int]$Search.Fresh.Count)
+        $decision=Get-DomeniaContinuationDecision -Finalized ([bool]$Search.Finalized) -HasError (-not [string]::IsNullOrEmpty([string]$Search.Error)) -LimitReached (($null -ne $Search.Final) -and ([bool]$Search.Final.LimitReached)) -Limit ([int]$Search.State.Limit) -Loaded ([int]$Search.Fresh.Count)
     }
     $enabled=($null -ne $decision -and [bool]$decision.Allowed -and -not (Test-DomeniaAccessBusyWrite))
     $tip=if($null -ne $decision){[string]$decision.Reason}else{'Aucune liste courante à prolonger : lancez une recherche.'}
@@ -942,7 +942,7 @@ function Invoke-DomeniaSearchMore {
     param([ValidateSet('Next','Jump')][string]$Step='Next')
     if(-not (Test-DomeniaLiveSearchActive)){Set-Status 'La liste affichée nʼest plus la recherche courante : relancez la recherche.' 'WARN';Update-DomeniaSearchMoreButton -Search $null;return}
     $s=$script:Live.Search
-    $decision=Get-DomeniaContinuationDecision -Finalized ([bool]$s.Finalized) -HasError (-not [string]::IsNullOrEmpty([string]$s.Error)) -LimitReached ($null -ne $s.Final -and [bool]$s.Final.LimitReached) -Limit ([int]$s.State.Limit) -Loaded ([int]$s.Fresh.Count)
+    $decision=Get-DomeniaContinuationDecision -Finalized ([bool]$s.Finalized) -HasError (-not [string]::IsNullOrEmpty([string]$s.Error)) -LimitReached (($null -ne $s.Final) -and ([bool]$s.Final.LimitReached)) -Limit ([int]$s.State.Limit) -Loaded ([int]$s.Fresh.Count)
     if(-not [bool]$decision.Allowed){Set-Status ([string]$decision.Reason) 'WARN';Update-DomeniaSearchMoreButton -Search $s;return}
     $target=[int]$decision.NextLimit
     if($Step -eq 'Jump'){
@@ -957,7 +957,7 @@ function Invoke-DomeniaSearchMore {
     $baseFilter=[string](Get-DomeniaMember $s 'ContinuationBaseFilter' '')
     if(-not $baseFilter){$baseFilter=[string](Get-DomeniaMember $s.Final 'FilterUsed' '');if($baseFilter){Add-Member -InputObject $s -NotePropertyName ContinuationBaseFilter -NotePropertyValue $baseFilter -Force}}
     $loadedDns=[Collections.Generic.List[string]]::new()
-    foreach($row in @($s.Rows)){if($null -ne $row -and [string]$row.DN){$loadedDns.Add([string]$row.DN)}}
+    foreach($row in @($s.Rows)){if(($null -ne $row) -and [string]$row.DN){$loadedDns.Add([string]$row.DN)}}
     $request=New-DomeniaContinuationRequest -FilterUsed $baseFilter -Cursor ([string](Get-DomeniaMember $s 'ContinuationCursor' '')) -LoadedDns $loadedDns.ToArray() -Loaded ([int]$s.Fresh.Count) -Target $target -PageSize ([int](Get-CfgValue 'Browser' 'SearchPageSize' 250)) -Reader ([string]$script:Live.Identity) -Generation ([long]$script:GlobalSearchGeneration) -BaseDn ([string]$s.State.BaseDn)
     # FO-01: the next rows of a « contains » list are still the names that contain the text.
     $contains=([string](Get-DomeniaMember $s.State 'MatchMode' '') -eq 'Contains')
