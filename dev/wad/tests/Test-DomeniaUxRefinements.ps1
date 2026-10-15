@@ -330,13 +330,32 @@ try{
   Expect ([bool]$script:SettingsFixture['UxHelpIntroSeen']) 'Premier lancement non retenu'
   Initialize-DomeniaUxHelpBadge
   Expect ($badge.Visibility -eq [Windows.Visibility]::Collapsed) 'Pastille revenue au lancement suivant'
-  $script:SettingsFixture=@{};Initialize-DomeniaUxHelpBadge
-  $script:UxShortScreen=$false;$script:UxLayoutSignature=''
-  Switch-DomeniaUxHelp
-  Expect ($badge.Visibility -eq [Windows.Visibility]::Collapsed -and [string][Windows.Automation.AutomationProperties]::GetItemStatus($toggle) -eq '') 'Ouvrir l aide ne retire pas la pastille'
-  Expect ([bool]$script:UxHelpVisible -and [bool]$script:SettingsFixture['UxHelpVisible']) 'Ouverture de l aide non retenue'
-  Switch-DomeniaUxHelp
-  Expect (-not [bool]$script:UxHelpVisible) 'Fermeture de l aide non retenue'
+  # The fixture window is 720 units high, a short screen (D006): the viewport is pinned so that each branch of
+  # Switch-DomeniaUxHelp is the one tested.
+  $realSize=${function:Get-DomeniaUxAvailableSize}
+  try{
+   $script:FixtureUxSize=[pscustomobject]@{Width=1600.0;Height=1000.0}
+   Set-Item function:script:Get-DomeniaUxAvailableSize {return $script:FixtureUxSize}
+   $script:SettingsFixture=@{};Initialize-DomeniaUxHelpBadge
+   $script:UxShortScreen=$false;$script:UxLayoutSignature=''
+   Switch-DomeniaUxHelp
+   Expect (($badge.Visibility -eq [Windows.Visibility]::Collapsed) -and ([string][Windows.Automation.AutomationProperties]::GetItemStatus($toggle) -eq '')) 'Ouvrir l aide ne retire pas la pastille'
+   Expect (([bool]$script:UxHelpVisible) -and ([bool]$script:SettingsFixture['UxHelpVisible'])) 'Ouverture de l aide non retenue'
+   Switch-DomeniaUxHelp
+   Expect (-not [bool]$script:UxHelpVisible) 'Fermeture de l aide non retenue'
+   # Short screen: the help opens for the session only, and opening it removes the dot there too.
+   $script:FixtureUxSize=[pscustomobject]@{Width=1600.0;Height=720.0}
+   $script:SettingsFixture=@{};$script:UxHelpVisible=$false;$script:UxLayoutSignature='';Update-DomeniaUxLayout
+   Expect (([bool]$script:UxShortScreen) -and (-not [bool]$script:UxShortHelpOpen)) 'Ecran court non reconnu'
+   Initialize-DomeniaUxHelpBadge
+   Expect ($badge.Visibility -eq [Windows.Visibility]::Visible) 'Pastille absente sur un ecran court'
+   Switch-DomeniaUxHelp
+   Expect (([bool]$script:UxShortHelpOpen) -and ((Get-DomeniaControl 'UxHelpPanel').Visibility -eq [Windows.Visibility]::Visible)) 'Aide non ouverte sur un ecran court'
+   Expect (($badge.Visibility -eq [Windows.Visibility]::Collapsed) -and ([string][Windows.Automation.AutomationProperties]::GetItemStatus($toggle) -eq '')) 'Ouvrir l aide sur un ecran court ne retire pas la pastille'
+   Expect ((-not [bool]$script:UxHelpVisible) -and (-not $script:SettingsFixture.ContainsKey('UxHelpVisible'))) 'Ecran court : le choix enregistre de l aide a change'
+   Switch-DomeniaUxHelp
+   Expect ((-not [bool]$script:UxShortHelpOpen) -and ($badge.Visibility -eq [Windows.Visibility]::Collapsed)) 'Pastille revenue a la fermeture de l aide'
+  }finally{Set-Item function:script:Get-DomeniaUxAvailableSize $realSize;$script:UxShortScreen=$false;$script:UxShortHelpOpen=$false;$script:UxLayoutSignature=''}
  }
  Case 'UI-11 : chapitre du guide de la page et ouverture du PDF sur demande, sans fichier invente' {
   (Get-DomeniaControl 'WorkspaceTabs').SelectedItem=Get-DomeniaControl 'TabDashboard'
@@ -352,7 +371,18 @@ try{
    Open-DomeniaHelpGuide
    Expect ((Get-DomeniaControl 'LblContextTitle').Text -like '*introuvable') ('Guide absent non signale : '+(Get-DomeniaControl 'LblContextTitle').Text)
    Expect ((Get-DomeniaControl 'LblContextHint').Text.Contains('Domenia-1.0-Guide-technicien.pdf')) 'Emplacement du guide non indique'
+   # The query workshop is an inner tab of Outils with its own chapter, in the administrator guide.
+   Select-DomeniaWorkspace -Workspace 'TabApplicationTools' -Inner 'ApplicationToolTabs' -Tab 'WsQueryWorkshop'
+   Open-DomeniaHelpGuide
+   Expect ((Get-DomeniaControl 'LblContextHint').Text.Contains('Domenia-1.0-Guide-administrateur.pdf')) 'Guide de l Atelier de requetes non designe'
   }finally{$script:RootDir=$oldRoot;Remove-Item -LiteralPath $empty -Recurse -Force -ErrorAction SilentlyContinue}
+  Select-DomeniaWorkspace -Workspace 'TabApplicationTools' -Inner 'ApplicationToolTabs' -Tab 'WsQueryWorkshop'
+  Update-DomeniaUxHelpGuide
+  $workshop=[string](Get-DomeniaHelpGuideChapter -Page 'WsQueryWorkshop').Text
+  Expect (([string](Get-DomeniaControl 'LblUxHelpGuide').Text -ceq $workshop) -and $workshop.Contains('chapitre 8')) ('Chapitre de l Atelier de requetes : '+[string](Get-DomeniaControl 'LblUxHelpGuide').Text)
+  (Get-DomeniaControl 'ApplicationToolTabs').SelectedItem=Get-DomeniaControl 'TabIndex'
+  Update-DomeniaUxHelpGuide
+  Expect ([string](Get-DomeniaControl 'LblUxHelpGuide').Text -ceq [string](Get-DomeniaHelpGuideChapter -Page 'TabApplicationTools').Text) 'Un autre outil garde le chapitre de l Atelier'
  }
 
  # PF-24 / UI-10: the catalogue is the only source of the help of its controls, a container has no tool tip and an
@@ -376,6 +406,20 @@ try{
   Expect ([string]$help.ToolTip -ceq [string](Get-DomeniaHelpPresentation -Text ([string]$catalogue['BtnUxHelpToggle'].Text) -Role IconButton).ToolTip) ('Bouton-icone : '+[string]$help.ToolTip)
   Expect (-not ([string]$help.ToolTip).Contains('. ')) 'Infobulle du bouton-icone sur plusieurs phrases'
   Expect ([string][Windows.Automation.AutomationProperties]::GetHelpText($help) -ceq [string]$catalogue['BtnUxHelpToggle'].Text) 'Aide entiere du bouton-icone perdue'
+  # The layout then names the state the button switches to, on one line too, help open and closed (as the application
+  # shows it: Update-DomeniaUxLayout runs after the catalogue at start-up and on every resize).
+  $realSize=${function:Get-DomeniaUxAvailableSize}
+  try{
+   Set-Item function:script:Get-DomeniaUxAvailableSize {return [pscustomobject]@{Width=1600.0;Height=1000.0}}
+   foreach($open in @($true,$false)){
+    $script:UxShortScreen=$false;$script:UxHelpVisible=$open;$script:UxHelpCompactOpen=$open;$script:UxLayoutSignature=''
+    Update-DomeniaUxLayout
+    $tip=[string]$help.ToolTip
+    $wanted=$(if($open){'Réduire le panneau d'+[char]0x02BC+'aide.'}else{'Afficher le panneau d'+[char]0x02BC+'aide.'})
+    Expect (($tip -ceq $wanted) -and (-not $tip.Contains('. '))) ('Bouton-icone apres la mise en page ('+$open+') : '+$tip)
+    Expect ([string][Windows.Automation.AutomationProperties]::GetHelpText($help) -ceq [string]$catalogue['BtnUxHelpToggle'].Text) 'La mise en page remplace l aide entiere'
+   }
+  }finally{Set-Item function:script:Get-DomeniaUxAvailableSize $realSize;$script:UxHelpVisible=$false;$script:UxHelpCompactOpen=$false;$script:UxLayoutSignature=''}
   $subtree=Get-DomeniaControl 'ChkSubtree'
   Expect ([string]$subtree.ToolTip -ceq [string]$catalogue['ChkSubtree'].Text) 'Controle ordinaire : texte du catalogue'
   Expect ([Windows.Controls.ToolTipService]::GetShowOnDisabled($subtree)) 'ShowOnDisabled non pose par le catalogue'

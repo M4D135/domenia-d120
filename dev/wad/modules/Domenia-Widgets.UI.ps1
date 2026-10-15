@@ -211,6 +211,23 @@ function Show-DomeniaBoard {
         if ($null -ne $target) { Invoke-DomeniaDashboardEntrance -Panel $target }
     }
 }
+function Update-DomeniaBoardsTheme {
+    # CD-05 / DS-14: a widget resolves its chart colours (series, contours, states) from the painted palette when it is
+    # drawn. After a theme change (Clair, Sombre, Automatique, high contrast) every board already drawn is drawn again
+    # from the data it holds: no entrance motion, nothing read from the directory or the network. A hidden board is
+    # drawn when it is shown again; one already waiting for that keeps its own context, so a previous OU or object is
+    # never shown.
+    if ($null -eq $script:DomeniaBoardStates) { return }
+    foreach ($board in @('Computer','Fleet','Software')) {
+        if (-not $script:DomeniaBoardStates.ContainsKey($board)) { continue }
+        $state = $script:DomeniaBoardStates[$board]
+        if ([bool]$state.RenderPending) { continue }
+        $panel = Get-DomeniaControl (Get-DomeniaBoardPanelName $board)
+        if (($null -eq $panel) -or ($panel.Children.Count -eq 0)) { continue }
+        try { Show-DomeniaBoard -Board $board -Quiet -DeferIfHidden }
+        catch { Write-AppLog ('Tableau de bord non redessiné après le changement de thème : ' + $_.Exception.Message) 'WARN' }
+    }
+}
 function Get-DomeniaBoardHolderList {
     # Every widget holder of a board (Tag with Chrome), whatever the rows and stacks that group them.
     param($Node)

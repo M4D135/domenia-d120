@@ -340,7 +340,7 @@ if($Wpf){
         . (Join-Path $moduleRoot 'Domenia-Shell.Model.ps1')
         $uxTokens=$null;$uxErrors=$null
         $uxAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $moduleRoot 'Domenia-UX.UI.ps1'),[ref]$uxTokens,[ref]$uxErrors)
-        foreach($uxName in @('Set-DomeniaUxPalette','Set-DomeniaWindowFrameTheme','Update-DomeniaUxThemeToggle','Get-DomeniaSystemColorTable')){
+        foreach($uxName in @('Set-DomeniaUxPalette','Set-DomeniaWindowFrameTheme','Update-DomeniaUxThemeToggle','Get-DomeniaSystemColorTable','Get-DomeniaSystemColorSignature')){
             $uxPalette=@($uxAst.FindAll({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $uxName},$true))
             Assert-SupportTest ($uxPalette.Count -eq 1) ('Unique : '+$uxName)
             . ([scriptblock]::Create($uxPalette[0].Extent.Text))

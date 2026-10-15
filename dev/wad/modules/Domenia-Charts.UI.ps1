@@ -576,13 +576,13 @@ function Set-DomeniaDonutFocus {
     param($State,[int]$Index)
     if ($null -eq $State) { return }
     for ($i = 0; $i -lt $State.Segments.Count; $i++) {
-        $focused = ($Index -lt 0 -or $i -eq $Index)
+        $focused = (($Index -lt 0) -or ($i -eq $Index))
         Set-DomeniaHoverValue $State.Segments[$i] ([System.Windows.UIElement]::OpacityProperty) $(if ($focused) { 1.0 } else { 0.28 })
-        Set-DomeniaHoverValue $State.Segments[$i] ([System.Windows.Shapes.Shape]::StrokeThicknessProperty) $(if ($Index -ge 0 -and $i -eq $Index) { $State.Thickness + 5 } else { $State.Thickness })
+        Set-DomeniaHoverValue $State.Segments[$i] ([System.Windows.Shapes.Shape]::StrokeThicknessProperty) $(if (($Index -ge 0) -and ($i -eq $Index)) { $State.Thickness + 5 } else { $State.Thickness })
         # DS-14: the contour follows its part (faded with it, as thick as it plus one unit on each side).
         if (($null -ne $State.Outlines) -and ($i -lt $State.Outlines.Count) -and ($null -ne $State.Outlines[$i])) {
             Set-DomeniaHoverValue $State.Outlines[$i] ([System.Windows.UIElement]::OpacityProperty) $(if ($focused) { 1.0 } else { 0.28 })
-            Set-DomeniaHoverValue $State.Outlines[$i] ([System.Windows.Shapes.Shape]::StrokeThicknessProperty) $(if ($Index -ge 0 -and $i -eq $Index) { $State.Thickness + 7 } else { $State.Thickness + 2 })
+            Set-DomeniaHoverValue $State.Outlines[$i] ([System.Windows.Shapes.Shape]::StrokeThicknessProperty) $(if (($Index -ge 0) -and ($i -eq $Index)) { $State.Thickness + 7 } else { $State.Thickness + 2 })
         }
         if ($i -lt $State.Rows.Count) { Set-DomeniaHoverValue $State.Rows[$i] ([System.Windows.UIElement]::OpacityProperty) $(if ($focused) { 1.0 } else { 0.45 }) }
     }

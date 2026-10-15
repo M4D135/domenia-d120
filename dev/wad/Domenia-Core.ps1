@@ -3860,6 +3860,9 @@ function Register-DomeniaSettingsWatchers {
 function Get-DomeniaThemePreference {
     # FO-22: the stored choice, Light, Dark or Auto (follow Windows). Read once per session.
     # Un theme Light explicite est un choix valide, pas un signal de migration.
+    # Core primitive: the report of a refused start-up (module missing, unreadable or not compiled) reads it before any
+    # module is loaded, so the choice is recognised here, without ConvertTo-DomeniaThemePreference (same rule: case and
+    # spaces ignored).
     if ($script:ThemePreference -in @("Light","Dark","Auto")) { return [string]$script:ThemePreference }
     $theme = ""
     try {
@@ -3867,15 +3870,19 @@ function Get-DomeniaThemePreference {
         if (-not [string]::IsNullOrWhiteSpace($text)) {
             $stored = $text | ConvertFrom-Json -ErrorAction Stop
             $property = $stored.PSObject.Properties["Theme"]
-            if ($null -ne $property) { $theme = ConvertTo-DomeniaThemePreference ([string]$property.Value) }
+            if ($null -ne $property) {
+                $value = ([string]$property.Value).Trim()
+                foreach ($known in @("Light","Dark","Auto")) { if ($value -ieq $known) { $theme = $known } }
+            }
         }
     }
     catch { $theme = "" }
     # Domenia.theme.cfg (Light ou Dark) est consulte uniquement en l absence d un choix JSON valide.
     if (-not $theme) {
-        try { $theme = ConvertTo-DomeniaThemePreference ([string](Read-DomeniaPreference -FileName "Domenia.theme.cfg")) }
-        catch { $theme = "" }
-        if ($theme -eq "Auto") { $theme = "" }
+        $value = ""
+        try { $value = ([string](Read-DomeniaPreference -FileName "Domenia.theme.cfg")).Trim() }
+        catch { $value = "" }
+        foreach ($known in @("Light","Dark")) { if ($value -ieq $known) { $theme = $known } }
     }
     $script:ThemePreference = if ($theme) { $theme } else { "Light" }
     return [string]$script:ThemePreference
@@ -3903,12 +3910,16 @@ function Get-DomeniaStoredTheme {
     # FO-22: Auto prend le choix de Windows au moment de la lecture (Update-DomeniaAutoTheme le relit ensuite).
     # -Preference rend le choix enregistre lui-meme (Light, Dark ou Auto), pour les preferences.
     param([switch]$Preference)
+    # Core primitive: the bootstrap depends on no module (report of a refused start-up). The rule of
+    # Resolve-DomeniaEffectiveTheme is kept here: Light and Dark paint themselves, Auto paints the Windows choice, and
+    # Light when Windows says nothing (Test-DomeniaTheme compares both).
     if ($Preference) { return (Get-DomeniaThemePreference) }
     if ($script:BootTheme -in @("Light","Dark")) { return [string]$script:BootTheme }
     $preference = Get-DomeniaThemePreference
-    $windows = ''
-    if ($preference -eq 'Auto') { $windows = Get-DomeniaWindowsAppTheme }
-    $script:BootTheme = [string](Resolve-DomeniaEffectiveTheme -Preference $preference -WindowsTheme $windows).Theme
+    $theme = "Light"
+    if ($preference -eq "Dark") { $theme = "Dark" }
+    elseif (($preference -eq "Auto") -and ((Get-DomeniaWindowsAppTheme) -eq "Dark")) { $theme = "Dark" }
+    $script:BootTheme = $theme
     return [string]$script:BootTheme
 }
 
@@ -4202,6 +4213,11 @@ function Apply-DomeniaTheme {
 
         # DS-10 and FO-22: icon of the theme the button switches to, name and tool tip (choice or Automatique).
         Update-DomeniaUxThemeToggle
+
+        # CD-05 / DS-14: chart colours are resolved from the painted palette when a widget is drawn; the boards
+        # already drawn are drawn again from the data they hold (nothing read from the directory or the network), a
+        # hidden one when it is shown.
+        if ($null -ne (Get-Command -Name Update-DomeniaBoardsTheme -CommandType Function -ErrorAction SilentlyContinue)) { Update-DomeniaBoardsTheme }
 
         Add-DomeniaUiLog -Area "Theme" -Level "INFO" -Text (
             "Theme applique : {0}" -f $Theme

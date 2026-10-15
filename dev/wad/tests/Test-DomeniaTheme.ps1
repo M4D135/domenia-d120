@@ -47,7 +47,7 @@ $uxAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $packageRoo
 if(@($uxErrors).Count){throw $uxErrors[0].Message}
 # FO-22: the toggle texts come from Get-DomeniaThemeToggleIcon (Shell.Model).
 . (Join-Path $packageRoot 'wad\modules\Domenia-Shell.Model.ps1')
-foreach($uxName in @('Set-DomeniaUxPalette','Set-DomeniaWindowFrameTheme','Update-DomeniaUxThemeToggle','Get-DomeniaSystemColorTable','Update-DomeniaAutoTheme')) {
+foreach($uxName in @('Set-DomeniaUxPalette','Set-DomeniaWindowFrameTheme','Update-DomeniaUxThemeToggle','Get-DomeniaSystemColorTable','Get-DomeniaSystemColorSignature','Update-DomeniaAutoTheme')) {
     $uxPalette=@($uxAst.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $uxName},$true))
     if($uxPalette.Count -ne 1){throw ('Definition UI absente : '+$uxName)}
     . ([scriptblock]::Create($uxPalette[0].Extent.Text))
@@ -198,6 +198,48 @@ try {
             Assert-Theme (@($boot.Keys).Count -eq $roles.Count) ($theme+' : nombre de roles')
             foreach($role in @($roles.Keys)) { Assert-Theme ([string]$boot[$role] -ceq [string]$suite[[string]$roles[$role]]) ($theme+' : role '+$role) }
         }
+    }
+    Test-ThemeCase 'FO-22 / CD-05 : demarrage refuse, theme et palette d amorcage lus par le coeur seul' {
+        # The closed loader checks every module before it dot-sources one. When it refuses the start-up, the fatal report
+        # (Show-ErrorBox, Show-DomeniaDialog) paints with the core alone: the stored choice, its resolution and the boot
+        # palette run here in a runspace that holds no module, and must agree with the rule of Experience.Model.
+        $coreOnly=(@('Get-DomeniaThemePreference','Get-DomeniaStoredTheme','Get-DomeniaBootThemePalette')|ForEach-Object{$name=$_;@($nodes|Where-Object{$_.Name -eq $name})[0].Extent.Text}) -join "`r`n"
+        $probe=@'
+param([string]$Definitions,[string]$Stored,[string]$Windows)
+$ErrorActionPreference='Stop'
+. ([scriptblock]::Create($Definitions))
+function Read-DomeniaPreference {param([string]$FileName) if($FileName -eq 'Domenia.settings.json'){return ('{"Theme":"'+$Stored+'"}')};return ''}
+function Get-DomeniaWindowsAppTheme {return $Windows}
+$script:ThemePreference='';$script:BootTheme=''
+$theme=Get-DomeniaStoredTheme
+$modules=@(Get-Command -Name 'Resolve-DomeniaEffectiveTheme','ConvertTo-DomeniaThemePreference','Get-SuitePalette' -ErrorAction SilentlyContinue).Count
+[pscustomobject]@{Theme=$theme;Preference=(Get-DomeniaStoredTheme -Preference);Palette=(Get-DomeniaBootThemePalette -Theme $theme);Modules=$modules}
+'@
+        $runspace=[runspacefactory]::CreateRunspace()
+        $runspace.ApartmentState=[Threading.ApartmentState]::STA
+        $runspace.ThreadOptions=[Management.Automation.Runspaces.PSThreadOptions]::ReuseThread
+        $runspace.Open()
+        try {
+            foreach($case in @(
+                @{Stored='Dark';Windows='Light'},@{Stored=' auto ';Windows='Dark'},@{Stored='Auto';Windows=''},
+                @{Stored='Auto';Windows='Light'},@{Stored='Sepia';Windows='Dark'}
+            )) {
+                $ps=[powershell]::Create();$ps.Runspace=$runspace
+                try {
+                    $out=@($ps.AddScript($probe).AddParameter('Definitions',$coreOnly).AddParameter('Stored',$case.Stored).AddParameter('Windows',$case.Windows).Invoke())
+                    Assert-Theme (($ps.Streams.Error.Count -eq 0) -and ($out.Count -eq 1)) ('Coeur seul ('+$case.Stored+') : '+(@($ps.Streams.Error|ForEach-Object{[string]$_}) -join ' | '))
+                    $result=$out[0]
+                    Assert-Theme ([int]$result.Modules -eq 0) 'Le banc isole voit une fonction de module'
+                    $rule=Resolve-DomeniaEffectiveTheme -Preference $case.Stored -WindowsTheme $case.Windows
+                    Assert-Theme ([string]$result.Theme -ceq [string]$rule.Theme) ('Theme du coeur ('+$case.Stored+'/'+$case.Windows+') : '+[string]$result.Theme+' au lieu de '+[string]$rule.Theme)
+                    Assert-Theme ([string]$result.Preference -ceq [string]$rule.Preference) ('Choix du coeur ('+$case.Stored+') : '+[string]$result.Preference)
+                    $palette=$result.Palette
+                    Assert-Theme ((@($palette.Keys).Count -eq 15) -and (@(@($palette.Values)|Where-Object{[string]$_ -notmatch '^#[0-9A-Fa-f]{6}$'}).Count -eq 0)) 'Palette d amorcage incomplete sans contrat'
+                }
+                finally { $ps.Dispose() }
+            }
+        }
+        finally { $runspace.Close();$runspace.Dispose() }
     }
     Test-ThemeCase 'Sauvegarde isolee conserve les autres reglages' {
         Reset-TestPreferences '{"Theme":"Light","LogHeight":275,"WindowWidth":1500}' 'Light'

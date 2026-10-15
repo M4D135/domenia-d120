@@ -9,7 +9,7 @@ $ErrorActionPreference='Stop'
 $wad=Split-Path -Parent $PSScriptRoot
 $script:RenderTimings=[Collections.Generic.List[object]]::new()
 $script:Results=[Collections.Generic.List[object]]::new();$script:Finished=$false;$script:Window=$null
-$script:ExpectedCases=52
+$script:ExpectedCases=53
 function Expect {param([bool]$Value,[string]$Why='Assertion non verifiee');if(-not $Value){throw $Why}}
 function Case {param([string]$Name,[scriptblock]$Body)
     if(-not $Quiet){Write-Host ('START '+$Name)}
@@ -364,6 +364,41 @@ try{
         Expect (@($data.Entries['fleet.versions'].Items|Where-Object{[string]$_.Label -eq 'Windows Server 2025'}).Count -eq 1) 'Serveur reconnu a son build'
         Expect (@(Get-Holders (Get-DomeniaControl 'PnlFleetDashboard')).Count -ge 6) 'Widgets du parc'
     }
+    Case 'CD-05 / DS-14 : un changement de theme redessine le tableau affiche sans relecture, un tableau cache a son affichage' {
+        # Chart colours are resolved from the painted theme when a widget is drawn: the light theme adds the darker
+        # contour of each categorical part, the dark theme draws none (its pastels reach 3:1 alone).
+        $tabs=Get-DomeniaControl 'WorkspaceTabs';$oldTab=$tabs.SelectedItem;$oldTheme=$script:CurrentTheme
+        $hadLayout=$script:TestSettings.ContainsKey('Dashboard.Fleet.Layout');$savedLayout=$script:TestSettings['Dashboard.Fleet.Layout']
+        $pending=@{};foreach($b in @('Computer','Software')){$pending[$b]=[bool](Get-DomeniaBoardState $b).RenderPending}
+        $lightEdges=@(Get-DomeniaChartSeries -Theme Light|ForEach-Object{[string]$_.Edge})
+        $countEdges={param($Panel)@(Get-DomeniaLogicalControls $Panel|Where-Object{($_ -is [Windows.Shapes.Path]) -and (-not $_.IsHitTestVisible) -and ($null -eq $_.Tag) -and ($_.Stroke -is [Windows.Media.SolidColorBrush]) -and (('#{0:X2}{1:X2}{2:X2}' -f $_.Stroke.Color.R,$_.Stroke.Color.G,$_.Stroke.Color.B) -in $lightEdges)}).Count}
+        try{
+            $script:TestSettings.Remove('Dashboard.Fleet.Layout')
+            $tabs.SelectedItem=Get-DomeniaControl 'TabDashboard';$w.UpdateLayout()
+            $panel=Get-DomeniaControl 'PnlFleetDashboard'
+            $script:CurrentTheme='Dark'
+            Show-DomeniaBoard -Board Fleet -Quiet;$w.UpdateLayout()
+            Expect ((& $countEdges $panel) -eq 0) 'Sombre : un contour du theme clair est dessine'
+            $starts=$script:StartCalls.Count;$reads=$script:StoreReadCalls.Count;$parks=$script:ParkCalls.Count
+            $script:CurrentTheme='Light';Update-DomeniaBoardsTheme;$w.UpdateLayout()
+            $light=& $countEdges $panel
+            Expect ($light -gt 0) 'Tableau affiche non redessine aux couleurs du theme clair'
+            # A hidden board keeps its drawing and is drawn again when it is shown.
+            $tabs.SelectedItem=Get-DomeniaControl 'WsSearch';$w.UpdateLayout()
+            $script:CurrentTheme='Dark';Update-DomeniaBoardsTheme
+            Expect ([bool](Get-DomeniaBoardState 'Fleet').RenderPending) 'Tableau cache non retenu pour son affichage'
+            Expect ((& $countEdges $panel) -eq $light) 'Tableau cache redessine avant son affichage'
+            $tabs.SelectedItem=Get-DomeniaControl 'TabDashboard';$w.UpdateLayout()
+            Expect ((-not [bool](Get-DomeniaBoardState 'Fleet').RenderPending) -and ((& $countEdges $panel) -eq 0)) 'Tableau cache non redessine aux couleurs du theme sombre a son affichage'
+            Expect (($script:StartCalls.Count -eq $starts) -and ($script:StoreReadCalls.Count -eq $reads) -and ($script:ParkCalls.Count -eq $parks)) 'Le changement de theme a lance une lecture'
+        }finally{
+            $script:CurrentTheme=$oldTheme
+            if($hadLayout){$script:TestSettings['Dashboard.Fleet.Layout']=$savedLayout}else{$script:TestSettings.Remove('Dashboard.Fleet.Layout')}
+            $tabs.SelectedItem=Get-DomeniaControl 'TabDashboard';$w.UpdateLayout();Show-DomeniaBoard -Board Fleet -Quiet
+            foreach($b in @('Computer','Software')){(Get-DomeniaBoardState $b).RenderPending=$pending[$b]}
+            $tabs.SelectedItem=$oldTab;$w.UpdateLayout()
+        }
+    }
     Case 'Accueil : disposition livree sans widget d observation ni requete WMI' {
         $script:TestSettings.Remove('Dashboard.Fleet.Layout')
         $layout=@(Get-Layout Fleet)
@@ -707,11 +742,11 @@ try{
             $origin=$small.TransformToAncestor($ring).Transform([Windows.Point]::new(0,0))
             Expect (($origin.X -ge ($size/2-$inner-0.5)) -and (($origin.X+$small.ActualWidth) -le ($size/2+$inner+0.5))) ('Legende hors de l anneau : '+$origin.X)
             $arc=@($ring.Children[0].Children)[1]
-            Expect ($arc.Stroke.Color -eq [Windows.Media.ColorConverter]::ConvertFromString((Get-DomeniaBoardColor 'Info'))) '85 % sans point a surveiller : couleur neutre'
+            Expect ($arc.Stroke.Color -eq [Windows.Media.ColorConverter]::ConvertFromString((Get-DomeniaThemeColor -Key (Get-DomeniaBoardColor 'Info')))) '85 % sans point a surveiller : couleur neutre'
         }finally{$tw.Close()}
         $warn=New-DomeniaGauge -Title 'Memoire' -Value 95 -Maximum 100 -Unit '%' -Width 230 -Height 250 -State Warn
         $arcWarn=@(@(Get-DomeniaLogicalControls $warn|Where-Object{$_ -is [Windows.Controls.Canvas]})[0].Children)[1]
-        Expect ($arcWarn.Stroke.Color -eq [Windows.Media.ColorConverter]::ConvertFromString((Get-DomeniaBoardColor 'Warn'))) 'Etat a surveiller : couleur de l etat'
+        Expect ($arcWarn.Stroke.Color -eq [Windows.Media.ColorConverter]::ConvertFromString((Get-DomeniaThemeColor -Key (Get-DomeniaBoardColor 'Warn')))) 'Etat a surveiller : couleur de l etat'
     }
     Case 'Tuile : 27 px pour un chiffre, 18 px sur deux lignes au plus pour un texte (DS-13)' {
         $figure=New-DomeniaKpiTile -Title 'Memoire' -Value '16 Go' -Detail 'x'

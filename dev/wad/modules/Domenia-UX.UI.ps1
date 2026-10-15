@@ -21,8 +21,9 @@ $script:UxShortLogHeld = $false
 $script:UxShortLogReleased = $false
 $script:UxShortNavFold = $false
 $script:UxShortNavReleased = $false
-# FO-22: high contrast state of the painted palette, and the WPF handler that follows a change of it.
+# FO-22: high contrast state of the painted palette, its system colours, and the WPF handler that follows a change of it.
 $script:DomeniaPaintedHighContrast = $false
+$script:DomeniaPaintedSystemColors = ''
 $script:DomeniaHighContrastHandler = $null
 
 function Import-DomeniaUxHelpCatalogue {
@@ -88,7 +89,7 @@ function Get-DomeniaUxHelpRole {
         if ($Control -is $type) { return 'Container' }
     }
     if (($Control -is [Windows.Controls.Border]) -and ($Control.Child -is [Windows.Controls.Panel])) { return 'Container' }
-    if (($Control -is [Windows.Controls.TextBox]) -and $Control.IsReadOnly -and $Control.AcceptsReturn) { return 'Container' }
+    if (($Control -is [Windows.Controls.TextBox]) -and ([bool]$Control.IsReadOnly) -and ([bool]$Control.AcceptsReturn)) { return 'Container' }
     if (($Control -is [Windows.Controls.Button]) -and (-not ($Control.Content -is [string]))) { return 'IconButton' }
     return 'Control'
 }
@@ -685,7 +686,8 @@ function Update-DomeniaUxLayout {
     $workspaces=Get-DomeniaControl 'WorkspaceTabs'
     if($null -ne $workspaces){$workspaces.Margin=[Windows.Thickness]::new(0,0,[double]$plan.WorkspaceGap,0)}
     if ($null -ne $button) {
-        $button.ToolTip = if ($plan.HelpShown) { 'Réduire le panneau dʼaide. Les infobulles restent disponibles.' } else { 'Afficher le panneau dʼaide contextuelle.' }
+        # PF-24 / UI-10: an icon button keeps a one-line tool tip; the whole catalogue text stays its help text.
+        $button.ToolTip = if ($plan.HelpShown) { 'Réduire le panneau dʼaide.' } else { 'Afficher le panneau dʼaide.' }
         [Windows.Automation.AutomationProperties]::SetName($button,$(if ($plan.HelpShown) { 'Réduire lʼaide' } else { 'Afficher lʼaide' }))
     }
     Set-DomeniaUxShortLayout -Plan $heightPlan
@@ -696,7 +698,10 @@ function Switch-DomeniaUxHelp {
     if ([bool]$script:UxShortScreen) {
         # Short screen: the help opens for this session only; the saved choice is untouched.
         $script:UxShortHelpOpen = -not [bool]$script:UxShortHelpOpen
+        $opened = [bool]$script:UxShortHelpOpen
         Update-DomeniaUxLayout
+        # UI-11: opening the help removes the dot of the first launch here too.
+        if ($opened) { Hide-DomeniaUxHelpBadge }
         return
     }
     $width=[double](Get-DomeniaUxAvailableSize).Width
@@ -732,22 +737,31 @@ function Hide-DomeniaUxHelpBadge {
     Set-DomeniaSetting -Name 'UxHelpIntroSeen' -Value $true
 }
 
+function Get-DomeniaUxHelpGuidePage {
+    # UI-11: page whose guide chapter the help names. The query workshop is a tab of Outils (ApplicationToolTabs) with
+    # its own chapter; the other tools keep the chapter of Outils.
+    $page = ''
+    try { $page = [string](Get-DomeniaControl 'WorkspaceTabs').SelectedItem.Name } catch { $page = '' }
+    if ($page -eq 'TabApplicationTools') {
+        $tool = ''
+        try { $tool = [string](Get-DomeniaControl 'ApplicationToolTabs').SelectedItem.Name } catch { $tool = '' }
+        if ($tool -eq 'WsQueryWorkshop') { return $tool }
+    }
+    return $page
+}
+
 function Update-DomeniaUxHelpGuide {
     # UI-11: chapter of the guide for the page shown (no file access here; the PDF is looked up on the click).
     $label = Get-DomeniaControl 'LblUxHelpGuide'
     if ($null -eq $label) { return }
-    $page = ''
-    try { $page = [string](Get-DomeniaControl 'WorkspaceTabs').SelectedItem.Name } catch { $page = '' }
-    $label.Text = [string](Get-DomeniaHelpGuideChapter -Page $page).Text
+    $label.Text = [string](Get-DomeniaHelpGuideChapter -Page (Get-DomeniaUxHelpGuidePage)).Text
 }
 
 function Open-DomeniaHelpGuide {
     # UI-11, explicit gesture: opens the PDF of the guide of the page with the program associated with PDF files. The file
     # is looked up in the folder DOC beside Domenia (the package, its parent or the delivery folder); nothing is read on
     # the network and nothing is downloaded. Without the file, the help says where to place it.
-    $page = ''
-    try { $page = [string](Get-DomeniaControl 'WorkspaceTabs').SelectedItem.Name } catch { $page = '' }
-    $chapter = Get-DomeniaHelpGuideChapter -Page $page
+    $chapter = Get-DomeniaHelpGuideChapter -Page (Get-DomeniaUxHelpGuidePage)
     $root = [string]$script:RootDir
     $candidates = New-Object 'System.Collections.Generic.List[string]'
     if ($root) {
@@ -807,6 +821,14 @@ function Initialize-DomeniaUxShell {
         param($sender,$eventArgs)
         if ($sender -eq $eventArgs.OriginalSource) { Sync-DomeniaUxNavigation }
     })
+    # UI-11: a tool chosen inside Outils (the query workshop has its own chapter) updates the chapter of the guide.
+    $tools = Get-DomeniaControl 'ApplicationToolTabs'
+    if ($null -ne $tools) {
+        $tools.Add_SelectionChanged({
+            param($sender,$eventArgs)
+            if ($sender -eq $eventArgs.OriginalSource) { Update-DomeniaUxHelpGuide }
+        })
+    }
     $script:UxHelpVisible=ConvertTo-DomeniaUxFlag (Get-DomeniaSetting -Name 'UxHelpVisible' -Default $false) -Default $false
     $script:UxHelpCompactOpen=ConvertTo-DomeniaUxFlag (Get-DomeniaSetting -Name 'UxHelpCompactOpen' -Default $false)
     $script:UxNavCollapsed=ConvertTo-DomeniaUxFlag (Get-DomeniaSetting -Name 'UxNavCollapsed' -Default $false)
@@ -851,6 +873,13 @@ function Get-DomeniaSystemColorTable {
     return $table
 }
 
+function Get-DomeniaSystemColorSignature {
+    # FO-22: one text for the system colours of a high contrast theme, compared by Update-DomeniaAutoTheme.
+    param($Table)
+    if ($null -eq $Table) { $Table = Get-DomeniaSystemColorTable }
+    return (@(foreach ($name in @($Table.Keys)) { [string]$name + '=' + [string]$Table[$name] }) -join ';')
+}
+
 function Set-DomeniaUxPalette {
     param($Window,[ValidateSet('Light','Dark')][string]$Theme='Light')
     if ($null -eq $Window) { return }
@@ -858,8 +887,16 @@ function Set-DomeniaUxPalette {
     # FO-22: a Windows high contrast theme replaces every token by a system colour (Get-DomeniaHighContrastRoles).
     $highContrast=$false
     try { $highContrast=[bool][Windows.SystemParameters]::HighContrast } catch { $highContrast=$false }
-    if ($highContrast) { $palette=ConvertTo-DomeniaHighContrastPalette -Palette $palette -SystemColors (Get-DomeniaSystemColorTable) }
+    # The system colours painted are kept as a signature: moving from one high contrast theme to another (Noir to
+    # Blanc) leaves HighContrast true and must still repaint (Update-DomeniaAutoTheme).
+    $systemColors=''
+    if ($highContrast) {
+        $system=Get-DomeniaSystemColorTable
+        $palette=ConvertTo-DomeniaHighContrastPalette -Palette $palette -SystemColors $system
+        $systemColors=Get-DomeniaSystemColorSignature -Table $system
+    }
     $script:DomeniaPaintedHighContrast=$highContrast
+    $script:DomeniaPaintedSystemColors=$systemColors
     $converter=[Windows.Media.BrushConverter]::new()
     foreach ($key in $palette.Keys) { $Window.Resources[$key]=$converter.ConvertFromInvariantString([string]$palette[$key]) }
     # CD-05: colours drawn by code (charts, presence) read this painted palette through Get-DomeniaThemeColor.
@@ -1323,7 +1360,10 @@ function Update-DomeniaAutoTheme {
     if ([string]$script:ThemePreference -eq 'Auto') { $theme = [string](Resolve-DomeniaEffectiveTheme -Preference 'Auto' -WindowsTheme (Get-DomeniaWindowsAppTheme)).Theme }
     $highContrast = $false
     try { $highContrast = [bool][Windows.SystemParameters]::HighContrast } catch { $highContrast = $false }
-    if (($theme -eq [string]$script:CurrentTheme) -and ($highContrast -eq [bool]$script:DomeniaPaintedHighContrast)) { return }
+    # A change of high contrast theme (Noir to Blanc) keeps HighContrast true: its system colours tell it apart.
+    $systemColors = ''
+    if ($highContrast) { try { $systemColors = Get-DomeniaSystemColorSignature } catch { $systemColors = '' } }
+    if (($theme -eq [string]$script:CurrentTheme) -and ($highContrast -eq [bool]$script:DomeniaPaintedHighContrast) -and ($systemColors -ceq [string]$script:DomeniaPaintedSystemColors)) { return }
     $script:BootTheme = $theme
     Apply-DomeniaTheme -Theme $theme
 }
