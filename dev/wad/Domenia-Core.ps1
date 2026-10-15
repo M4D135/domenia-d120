@@ -3625,8 +3625,8 @@ function Load-DomeniaSettings {
     catch { try { Write-AppLog "Reglages illisibles, valeurs par defaut appliquees : $($_.Exception.Message)" "WARN" } catch { } }
 
     # Meme resolution que le login : le JSON valide prime sur Domenia.theme.cfg.
-    # Ne jamais remplacer le choix de l utilisateur par le Light livre dans le ZIP.
-    $settings["Theme"] = Get-DomeniaStoredTheme
+    # Ne jamais remplacer le choix de l utilisateur par le Light livre dans le ZIP. FO-22 : le choix (Auto compris).
+    $settings["Theme"] = Get-DomeniaStoredTheme -Preference
     # Compatibilite avec l ancien fichier de profil d interface.
     try {
         $legacyProfile = Read-DomeniaPreference -FileName "Domenia.ui-profile.cfg"
@@ -3636,7 +3636,9 @@ function Load-DomeniaSettings {
 
     $settings = ConvertTo-DomeniaExperienceSettings -Values $settings -Defaults (Get-DomeniaDefaultSettings)
     $script:Settings = $settings
-    $script:CurrentTheme = [string]$settings["Theme"]
+    $script:ThemePreference = [string]$settings["Theme"]
+    # FO-22: the session paints the resolution of the choice (Auto: the Windows choice), as the login did.
+    $script:CurrentTheme = Get-DomeniaStoredTheme
     $script:CurrentUiProfile = [string]$settings["UiProfile"]
     # UX-03: the presence filter always starts on « Toute présence », whatever an older settings file says.
     $script:CurrentPresenceFilter = "Tous"
@@ -3849,26 +3851,58 @@ function Register-DomeniaSettingsWatchers {
 # Les fenetres d amorcage ont des ressources explicites pour les fonds, les
 # textes, les champs, les boutons et les messages actualises apres creation.
 # =====================================================================
-function Get-DomeniaStoredTheme {
-    # Une source par session pour le login, le chargement et la principale.
+function Get-DomeniaThemePreference {
+    # FO-22: the stored choice, Light, Dark or Auto (follow Windows). Read once per session.
     # Un theme Light explicite est un choix valide, pas un signal de migration.
-    if ($script:BootTheme -in @("Light","Dark")) { return [string]$script:BootTheme }
+    if ($script:ThemePreference -in @("Light","Dark","Auto")) { return [string]$script:ThemePreference }
     $theme = ""
     try {
         $text = Read-DomeniaPreference -FileName "Domenia.settings.json"
         if (-not [string]::IsNullOrWhiteSpace($text)) {
             $stored = $text | ConvertFrom-Json -ErrorAction Stop
             $property = $stored.PSObject.Properties["Theme"]
-            if ($null -ne $property) { $theme = ([string]$property.Value).Trim() }
+            if ($null -ne $property) { $theme = ConvertTo-DomeniaThemePreference ([string]$property.Value) }
         }
     }
-    catch { }
-    # Domenia.theme.cfg est consulte uniquement en l absence d un choix JSON valide.
-    if ($theme -notin @("Light","Dark")) {
-        try { $theme = ([string](Read-DomeniaPreference -FileName "Domenia.theme.cfg")).Trim() }
+    catch { $theme = "" }
+    # Domenia.theme.cfg (Light ou Dark) est consulte uniquement en l absence d un choix JSON valide.
+    if (-not $theme) {
+        try { $theme = ConvertTo-DomeniaThemePreference ([string](Read-DomeniaPreference -FileName "Domenia.theme.cfg")) }
         catch { $theme = "" }
+        if ($theme -eq "Auto") { $theme = "" }
     }
-    $script:BootTheme = if ($theme -eq "Dark") { "Dark" } else { "Light" }
+    $script:ThemePreference = if ($theme) { $theme } else { "Light" }
+    return [string]$script:ThemePreference
+}
+
+function Get-DomeniaWindowsAppTheme {
+    # FO-22: the Windows choice for applications (Parametres > Personnalisation > Couleurs), read in the user hive
+    # only: HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize, AppsUseLightTheme (1 light, 0 dark).
+    # Local read, no write, no network. '' when the value is absent (Windows before 1809) or unreadable.
+    $key = $null
+    try {
+        $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Software\Microsoft\Windows\CurrentVersion\Themes\Personalize',$false)
+        if ($null -eq $key) { return '' }
+        $value = $key.GetValue('AppsUseLightTheme',$null)
+        if ($null -eq $value) { return '' }
+        if ([int]$value -eq 0) { return 'Dark' }
+        return 'Light'
+    }
+    catch { return '' }
+    finally { if ($null -ne $key) { $key.Close() } }
+}
+
+function Get-DomeniaStoredTheme {
+    # Une source par session pour le login, le chargement et la principale : le theme peint (Light ou Dark).
+    # FO-22: Auto prend le choix de Windows au moment de la lecture (Update-DomeniaAutoTheme le relit ensuite).
+    # -Preference rend le choix enregistre lui-meme (Light, Dark ou Auto), pour les preferences.
+    param([switch]$Preference)
+    if ($Preference) { return (Get-DomeniaThemePreference) }
+    if ($script:BootTheme -in @("Light","Dark")) { return [string]$script:BootTheme }
+    $preference = Get-DomeniaThemePreference
+    $windows = ''
+    if ($preference -eq 'Auto') { $windows = Get-DomeniaWindowsAppTheme }
+    $script:BootTheme = [string](Resolve-DomeniaEffectiveTheme -Preference $preference -WindowsTheme $windows).Theme
     return [string]$script:BootTheme
 }
 
@@ -4053,15 +4087,26 @@ function Get-DomeniaThemePath {
 }
 
 function Load-DomeniaTheme {
-    $value = [string](Get-DomeniaSetting "Theme" "Light")
-    if ($value -in @("Light","Dark")) { $script:CurrentTheme = $value }
+    # The setting holds the choice (Light, Dark or Auto); the session paints its resolution (FO-22).
+    $value = ConvertTo-DomeniaThemePreference ([string](Get-DomeniaSetting "Theme" "Light"))
+    if ($value) {
+        $script:ThemePreference = $value
+        $windows = ''
+        if ($value -eq 'Auto') { $windows = Get-DomeniaWindowsAppTheme }
+        $script:CurrentTheme = [string](Resolve-DomeniaEffectiveTheme -Preference $value -WindowsTheme $windows).Theme
+        $script:BootTheme = $script:CurrentTheme
+    }
     return $script:CurrentTheme
 }
 
 function Save-DomeniaTheme {
-    param([ValidateSet("Light","Dark")][string]$Theme)
-    $script:CurrentTheme = $Theme
-    $script:BootTheme = $Theme
+    # $Theme: the choice to keep, Light, Dark or Auto (FO-22). The session theme becomes its resolution.
+    param([ValidateSet("Light","Dark","Auto")][string]$Theme)
+    $windows = ''
+    if ($Theme -eq 'Auto') { $windows = Get-DomeniaWindowsAppTheme }
+    $script:ThemePreference = $Theme
+    $script:CurrentTheme = [string](Resolve-DomeniaEffectiveTheme -Preference $Theme -WindowsTheme $windows).Theme
+    $script:BootTheme = $script:CurrentTheme
     # Charger les autres preferences avant une premiere sauvegarde isolee.
     if ($null -eq $script:Settings) { [void](Load-DomeniaSettings) }
     Set-DomeniaSetting -Name "Theme" -Value $Theme
@@ -4118,19 +4163,7 @@ function Apply-DomeniaTheme {
         Set-DomeniaUxPalette -Window $window -Theme $Theme
         [void](Set-DomeniaWindowFrameTheme -Window $window -Theme $Theme)
 
-        # DS-10 (L08): Path icons, the icon of the theme the button switches to (sun while dark, moon while light).
         $button = Get-DomeniaControl -Name "BtnThemeToggle"
-        $sun = Get-DomeniaControl -Name "ThemeIconSun"
-        $moon = Get-DomeniaControl -Name "ThemeIconMoon"
-        $toDark = ($Theme -ne "Dark")
-        if ($null -ne $sun) { $sun.Visibility = if ($toDark) { [System.Windows.Visibility]::Collapsed } else { [System.Windows.Visibility]::Visible } }
-        if ($null -ne $moon) { $moon.Visibility = if ($toDark) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed } }
-        if ($null -ne $button) {
-            $toggleName = if ($toDark) { "Passer au thème sombre" } else { "Passer au thème clair" }
-            $button.ToolTip = $toggleName + ". Le choix est enregistré pour Domenia."
-            [System.Windows.Automation.AutomationProperties]::SetName($button,$toggleName)
-        }
-
         if ($null -ne $button) {
             $button.IsEnabled = $true
             $button.IsHitTestVisible = $true
@@ -4151,10 +4184,13 @@ function Apply-DomeniaTheme {
         if ($Persist) {
             try { Save-DomeniaTheme -Theme $Theme }
             catch {
-                Set-Status "Theme applique mais non enregistre : verifie les droits sur le dossier de preferences." 'WARN'
-                Set-DomeniaContextHint -Title 'Theme non enregistre' -Text 'Le changement reste visible pour cette session. Le dossier de preferences doit etre inscriptible pour le conserver.'
+                Set-Status "Thème appliqué mais non enregistré : vérifiez les droits du dossier de préférences." 'WARN'
+                Set-DomeniaContextHint -Title 'Thème non enregistré' -Text 'Le changement reste visible pour cette session. Le dossier de préférences doit être accessible en écriture pour le conserver.'
             }
         }
+
+        # DS-10 and FO-22: icon of the theme the button switches to, name and tool tip (choice or Automatique).
+        Update-DomeniaUxThemeToggle
 
         Add-DomeniaUiLog -Area "Theme" -Level "INFO" -Text (
             "Theme applique : {0}" -f $Theme
@@ -4168,6 +4204,24 @@ function Apply-DomeniaTheme {
     }
 }
 
+
+function Set-DomeniaThemePreference {
+    # FO-22: explicit choice of the operator (menu of the theme button): Light, Dark or Auto (follow Windows). The
+    # choice is saved, then its resolution painted. A failed save keeps the theme for this session and says so.
+    param([Parameter(Mandatory=$true)][ValidateSet("Light","Dark","Auto")][string]$Preference)
+    $saved = $true
+    try { Save-DomeniaTheme -Theme $Preference }
+    catch {
+        $saved = $false
+        $windows = ''
+        if ($Preference -eq 'Auto') { $windows = Get-DomeniaWindowsAppTheme }
+        $script:ThemePreference = $Preference
+        $script:CurrentTheme = [string](Resolve-DomeniaEffectiveTheme -Preference $Preference -WindowsTheme $windows).Theme
+        Set-Status "Thème appliqué mais non enregistré : vérifiez les droits du dossier de préférences." 'WARN'
+    }
+    Apply-DomeniaTheme -Theme $script:CurrentTheme
+    if ($saved -and ($Preference -eq 'Auto')) { Set-Status ("Thème automatique : Domenia suit Windows (" + $(if ($script:CurrentTheme -eq 'Dark') { 'sombre' } else { 'clair' }) + ").") 'INFO' }
+}
 
 function Toggle-DomeniaTheme {
     if ($script:CurrentTheme -eq "Dark") {
@@ -10406,6 +10460,8 @@ $script:Settings = $null
 $script:SettingsTimer = $null
 $script:RestoringSettings = $false
 $script:BootTheme = ""
+# FO-22: stored choice of theme (Light, Dark or Auto); BootTheme and CurrentTheme hold its resolution.
+$script:ThemePreference = ""
 $script:ThemePersisted = $false
 $script:UiProfilePersisted = $false
 $script:UxHintsInitialized = $false

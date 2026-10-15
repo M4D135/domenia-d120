@@ -20,6 +20,9 @@ $script:UxShortLogHeld = $false
 $script:UxShortLogReleased = $false
 $script:UxShortNavFold = $false
 $script:UxShortNavReleased = $false
+# FO-22: high contrast state of the painted palette, and the WPF handler that follows a change of it.
+$script:DomeniaPaintedHighContrast = $false
+$script:DomeniaHighContrastHandler = $null
 
 function Import-DomeniaUxHelpCatalogue {
     if ($script:UxHelpCatalogue.Count -gt 0) { return }
@@ -724,6 +727,14 @@ function Initialize-DomeniaUxShell {
     $account = Get-DomeniaControl 'BtnUxNavAccount';if ($null -ne $account) { $account.Add_Click({ param($sender,$eventArgs) Show-DomeniaUxAccountMenu -Button $sender }) }
     Initialize-DomeniaUxSearchBar
     Initialize-DomeniaUxEmptyStates
+    # FO-22: theme menu, and the Automatique choice or high contrast followed on the UI thread only.
+    Initialize-DomeniaUxThemeMenu
+    $script:Window.Add_Activated({Update-DomeniaAutoTheme})
+    if ($null -eq $script:DomeniaHighContrastHandler) {
+        $script:DomeniaHighContrastHandler=[ComponentModel.PropertyChangedEventHandler]{param($sender,$eventArgs) if([string]$eventArgs.PropertyName -eq 'HighContrast'){Update-DomeniaAutoTheme}}
+        [Windows.SystemParameters]::add_StaticPropertyChanged($script:DomeniaHighContrastHandler)
+        $script:Window.Add_Closed({if($null -ne $script:DomeniaHighContrastHandler){[Windows.SystemParameters]::remove_StaticPropertyChanged($script:DomeniaHighContrastHandler);$script:DomeniaHighContrastHandler=$null}})
+    }
     $script:UxShellInitialized=$true
     Initialize-DomeniaExperience
     Update-DomeniaUxProfileSwitch
@@ -734,10 +745,25 @@ function Initialize-DomeniaUxShell {
     Update-DomeniaUxLayout
 }
 
+function Get-DomeniaSystemColorTable {
+    # FO-22: colours of the current Windows theme (high contrast included), as '#RRGGBB', by system role.
+    $table=[ordered]@{}
+    foreach ($name in @('Window','WindowText','Control','ControlText','Highlight','HighlightText','HotTrack','GrayText')) {
+        $color=[Windows.SystemColors]::($name + 'Color')
+        $table[$name]=('#{0:X2}{1:X2}{2:X2}' -f $color.R,$color.G,$color.B)
+    }
+    return $table
+}
+
 function Set-DomeniaUxPalette {
     param($Window,[ValidateSet('Light','Dark')][string]$Theme='Light')
     if ($null -eq $Window) { return }
     $palette=Get-SuitePalette -Theme $Theme
+    # FO-22: a Windows high contrast theme replaces every token by a system colour (Get-DomeniaHighContrastRoles).
+    $highContrast=$false
+    try { $highContrast=[bool][Windows.SystemParameters]::HighContrast } catch { $highContrast=$false }
+    if ($highContrast) { $palette=ConvertTo-DomeniaHighContrastPalette -Palette $palette -SystemColors (Get-DomeniaSystemColorTable) }
+    $script:DomeniaPaintedHighContrast=$highContrast
     $converter=[Windows.Media.BrushConverter]::new()
     foreach ($key in $palette.Keys) { $Window.Resources[$key]=$converter.ConvertFromInvariantString([string]$palette[$key]) }
     # CD-05: colours drawn by code (charts, presence) read this painted palette through Get-DomeniaThemeColor.
@@ -1172,12 +1198,46 @@ function Invoke-DomeniaJournalShortcut {
     if (($null -ne $list) -and $list.IsVisible) { [void]$list.Focus() }
 }
 
+function Initialize-DomeniaUxThemeMenu {
+    # FO-22: right click (or the menu key) on the theme button offers Clair, Sombre and Automatique (follow Windows).
+    # A choice is saved like the click on the button; nothing else changes.
+    $button = Get-DomeniaControl 'BtnThemeToggle'
+    if (($null -eq $button) -or ($null -ne $button.ContextMenu)) { return }
+    $menu = New-Object Windows.Controls.ContextMenu
+    foreach ($choice in @(Get-DomeniaThemeChoices)) {
+        $item = New-Object Windows.Controls.MenuItem
+        $item.Header = [string]$choice.Label
+        $item.Tag = [string]$choice.Value
+        $item.IsCheckable = $true
+        $item.Add_Click({ param($sender,$eventArgs) Set-DomeniaThemePreference -Preference ([string]$sender.Tag) })
+        [void]$menu.Items.Add($item)
+    }
+    $menu.Add_Opened({ param($sender,$eventArgs) foreach ($entry in @($sender.Items)) { $entry.IsChecked = ([string]$entry.Tag -eq [string]$script:ThemePreference) } })
+    $menu.PlacementTarget = $button
+    $menu.Placement = [Windows.Controls.Primitives.PlacementMode]::Bottom
+    $button.ContextMenu = $menu
+}
+
+function Update-DomeniaAutoTheme {
+    # FO-22: on the return to Domenia (window activated) and when Windows switches high contrast, the Automatique
+    # choice follows the Windows choice again and the palette follows high contrast. One registry value is read, no
+    # preference is written. The UI thread only: Activated and SystemParameters.StaticPropertyChanged are raised there.
+    if ($null -eq $script:Window) { return }
+    $theme = [string]$script:CurrentTheme
+    if ([string]$script:ThemePreference -eq 'Auto') { $theme = [string](Resolve-DomeniaEffectiveTheme -Preference 'Auto' -WindowsTheme (Get-DomeniaWindowsAppTheme)).Theme }
+    $highContrast = $false
+    try { $highContrast = [bool][Windows.SystemParameters]::HighContrast } catch { $highContrast = $false }
+    if (($theme -eq [string]$script:CurrentTheme) -and ($highContrast -eq [bool]$script:DomeniaPaintedHighContrast)) { return }
+    $script:BootTheme = $theme
+    Apply-DomeniaTheme -Theme $theme
+}
+
 function Update-DomeniaUxThemeToggle {
     # DS-10: name and tool tip of the theme button give the theme it switches to (the help catalogue sets a neutral
     # title at start-up; this restores the precise name).
     $button = Get-DomeniaControl 'BtnThemeToggle'
     if ($null -eq $button) { return }
-    $icon = Get-DomeniaThemeToggleIcon -CurrentTheme ([string]$script:CurrentTheme)
+    $icon = Get-DomeniaThemeToggleIcon -CurrentTheme ([string]$script:CurrentTheme) -Preference ([string]$script:ThemePreference)
     $button.ToolTip = [string]$icon.ToolTip
     [Windows.Automation.AutomationProperties]::SetName($button,[string]$icon.Name)
     $sun = Get-DomeniaControl 'ThemeIconSun';$moon = Get-DomeniaControl 'ThemeIconMoon'

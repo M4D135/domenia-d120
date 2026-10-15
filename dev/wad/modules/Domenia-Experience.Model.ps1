@@ -32,7 +32,8 @@ function ConvertTo-DomeniaExperienceSettings {
     $out=[ordered]@{}
     $choices=@{
         # UX-03: PresenceFilter is no longer a preference (session filter only).
-        UxDensity=@('Confort','Compact');Theme=@('Light','Dark');UiProfile=@('Tech','Admin')
+        # FO-22: Auto follows the Windows choice (AppsUseLightTheme), read locally at each resolution.
+        UxDensity=@('Confort','Compact');Theme=@('Light','Dark','Auto');UiProfile=@('Tech','Admin')
         IndexAutoBuild=@('Ask','Always','Never');SearchType=@('Tous','Utilisateurs','Machines','Groupes','OU et conteneurs')
     }
     $numbers=@{
@@ -123,6 +124,151 @@ function Get-DomeniaThemeColor {
     }
     if($palette.Contains($name)){return [string]$palette[$name]}
     return ''
+}
+
+# ---------------------------------------------------------------- FO-22 automatic theme and high contrast
+function ConvertTo-DomeniaThemePreference {
+    # Stored choice of theme: Light, Dark or Auto (follow Windows). Case and spaces are ignored; '' when unknown.
+    param([AllowEmptyString()][AllowNull()][string]$Value)
+    $text=([string]$Value).Trim()
+    foreach($known in @('Light','Dark','Auto')){if($text -ieq $known){return $known}}
+    return ''
+}
+
+function Resolve-DomeniaEffectiveTheme {
+    # FO-22: theme painted for a stored choice. Auto takes the Windows choice of the applications (WindowsTheme Light or
+    # Dark, read by the caller from AppsUseLightTheme); without a readable Windows choice, or without a valid preference,
+    # the theme is Light, as before. High contrast is carried apart: it replaces the colours, not the choice.
+    param([AllowEmptyString()][AllowNull()][string]$Preference='',[AllowEmptyString()][AllowNull()][string]$WindowsTheme='',[bool]$HighContrast=$false)
+    $choice=ConvertTo-DomeniaThemePreference $Preference
+    $windows=ConvertTo-DomeniaThemePreference $WindowsTheme
+    if($windows -eq 'Auto'){$windows=''}
+    $theme='Light';$source='Défaut'
+    if($choice -in @('Light','Dark')){$theme=$choice;$source='Choix'}
+    elseif($choice -eq 'Auto'){
+        if($windows){$theme=$windows;$source='Windows'}else{$source='Windows illisible'}
+    }
+    if(-not $choice){$choice='Light'}
+    return [pscustomobject]@{Preference=$choice;Theme=$theme;HighContrast=[bool]$HighContrast;Source=$source}
+}
+
+function Get-DomeniaThemeChoices {
+    # FO-22: the choices of the menu of the theme button, in this order.
+    return @(
+        [pscustomobject]@{Value='Light';Label='Clair'}
+        [pscustomobject]@{Value='Dark';Label='Sombre'}
+        [pscustomobject]@{Value='Auto';Label='Automatique (suit Windows)'}
+    )
+}
+
+function Get-DomeniaHighContrastRoles {
+    # FO-22: in a Windows high contrast theme every token of SupportSuite.UI.json takes a system colour (Window,
+    # WindowText, Control, ControlText, Highlight, HighlightText, HotTrack, GrayText). Categories and states then read
+    # by their words and symbols only (P116), as Windows asks. Every token has a role: rules/Theme.Tests.ps1 checks it.
+    return [ordered]@{
+        BgCard='Window'
+        BgInput='Window'
+        BgReadonly='Window'
+        BorderColor='WindowText'
+        TextColor='WindowText'
+        MutedColor='WindowText'
+        AccentColor='Highlight'
+        AccentSoft='Window'
+        DangerColor='Highlight'
+        WindowBg='Window'
+        DataGridBg='Window'
+        DataGridAlt='Window'
+        HeaderBg='Control'
+        LogBg='Window'
+        LogFg='WindowText'
+        BtnBg='Control'
+        BtnFg='ControlText'
+        TileBg='Control'
+        SplitterBg='WindowText'
+        InfoBg='Window'
+        InfoBorder='WindowText'
+        InfoFg='WindowText'
+        AccentText='HotTrack'
+        RowSelBg='Highlight'
+        RowSelFg='HighlightText'
+        RowHoverBg='Window'
+        PrivilegeFg='WindowText'
+        UxSidebar='Window'
+        StatusError='WindowText'
+        StatusWarning='WindowText'
+        StatusSuccess='WindowText'
+        StateOk='Highlight'
+        StateWarn='Highlight'
+        StateAlert='Highlight'
+        StateOff='GrayText'
+        StateInfo='Highlight'
+        StateOkMark='WindowText'
+        StateWarnMark='WindowText'
+        StateAlertMark='WindowText'
+        StateOffMark='GrayText'
+        StateInfoMark='WindowText'
+        ChartOther='GrayText'
+        ChartDisabled='GrayText'
+        ChartBlue='Highlight'
+        ChartViolet='Highlight'
+        ChartTeal='Highlight'
+        ChartPink='Highlight'
+        ChartSky='Highlight'
+        ChartPeach='Highlight'
+        ChartLilac='Highlight'
+        ChartSage='Highlight'
+        OnAccent='HighlightText'
+        AccentHover='Highlight'
+        DangerHover='Highlight'
+        TooltipBg='Window'
+        TooltipFg='WindowText'
+        TooltipBorder='WindowText'
+        ScrollThumb='WindowText'
+        ScrollThumbHover='Highlight'
+        ChartBlueEdge='WindowText'
+        ChartVioletEdge='WindowText'
+        ChartTealEdge='WindowText'
+        ChartPinkEdge='WindowText'
+        ChartSkyEdge='WindowText'
+        ChartPeachEdge='WindowText'
+        ChartLilacEdge='WindowText'
+        ChartSageEdge='WindowText'
+        PillNeutralBg='Window'
+        PillNeutralFg='WindowText'
+        PillBlueBg='Window'
+        PillBlueFg='WindowText'
+        PillGreenBg='Window'
+        PillGreenFg='WindowText'
+        PillAmberBg='Window'
+        PillAmberFg='WindowText'
+        PillOrangeBg='Window'
+        PillOrangeFg='WindowText'
+        PillRedBg='Window'
+        PillRedFg='WindowText'
+        PillSkyBg='Window'
+        PillSkyFg='WindowText'
+    }
+}
+
+function ConvertTo-DomeniaHighContrastPalette {
+    # FO-22: the palette of a high contrast session. $SystemColors: role -> '#RRGGBB' (read by the caller from WPF
+    # SystemColors). A token whose role colour is missing or invalid keeps its own colour; nothing is guessed.
+    param($Palette,$SystemColors)
+    $roles=Get-DomeniaHighContrastRoles
+    $out=[ordered]@{}
+    if($null -eq $Palette){return $out}
+    foreach($key in @($Palette.Keys)){
+        $value=[string]$Palette[$key]
+        if($roles.Contains([string]$key) -and ($null -ne $SystemColors)){
+            $role=[string]$roles[[string]$key]
+            $system=''
+            if($SystemColors -is [Collections.IDictionary]){if($SystemColors.Contains($role)){$system=[string]$SystemColors[$role]}}
+            elseif($null -ne $SystemColors.PSObject.Properties[$role]){$system=[string]$SystemColors.$role}
+            if($system -match '^#[0-9A-Fa-f]{6}$'){$value=$system.ToUpperInvariant()}
+        }
+        $out[[string]$key]=$value
+    }
+    return $out
 }
 
 function Get-DomeniaChartSeriesNames {

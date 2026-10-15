@@ -25,6 +25,8 @@ $wanted=@(
     'Get-DomeniaDefaultSettings','Load-DomeniaSettings','Save-DomeniaSettings','Get-DomeniaSetting','Set-DomeniaSetting',
     'Get-DomeniaPreferencePath','Read-DomeniaPreference','Write-DomeniaPreference','Write-DomeniaAtomicText',
     'Get-DomeniaStoredTheme','Load-DomeniaTheme','Save-DomeniaTheme','Get-DomeniaBootThemePalette',
+    # FO-22: stored choice (Light, Dark, Auto), Windows choice read in HKCU, explicit choice of the menu.
+    'Get-DomeniaThemePreference','Get-DomeniaWindowsAppTheme','Set-DomeniaThemePreference',
     'Get-DomeniaBootThemeResources','Get-DomeniaBootStatusColor','Convert-DomeniaXamlToBootTheme',
     # TE-04 (lot X03): one sign-in template since CD-10; the legacy and Debug templates no longer exist.
     'Get-DomeniaStandardLoginXaml','Get-DomeniaStartupXaml',
@@ -43,7 +45,9 @@ $definitions=foreach($name in $wanted) {
 $uxTokens=$null;$uxErrors=$null
 $uxAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $packageRoot 'wad\modules\Domenia-UX.UI.ps1'),[ref]$uxTokens,[ref]$uxErrors)
 if(@($uxErrors).Count){throw $uxErrors[0].Message}
-foreach($uxName in @('Set-DomeniaUxPalette','Set-DomeniaWindowFrameTheme')) {
+# FO-22: the toggle texts come from Get-DomeniaThemeToggleIcon (Shell.Model).
+. (Join-Path $packageRoot 'wad\modules\Domenia-Shell.Model.ps1')
+foreach($uxName in @('Set-DomeniaUxPalette','Set-DomeniaWindowFrameTheme','Update-DomeniaUxThemeToggle','Get-DomeniaSystemColorTable','Update-DomeniaAutoTheme')) {
     $uxPalette=@($uxAst.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $uxName},$true))
     if($uxPalette.Count -ne 1){throw ('Definition UI absente : '+$uxName)}
     . ([scriptblock]::Create($uxPalette[0].Extent.Text))
@@ -74,7 +78,7 @@ function Test-ThemeCase {
 function Reset-TestPreferences {
     param([AllowNull()][string]$Json,[AllowNull()][string]$Legacy)
     if ($null -ne $script:SettingsTimer) { $script:SettingsTimer.Stop() }
-    $script:SettingsTimer=$null;$script:BootTheme='';$script:Settings=$null;$script:CurrentTheme='Light'
+    $script:SettingsTimer=$null;$script:BootTheme='';$script:ThemePreference='';$script:Settings=$null;$script:CurrentTheme='Light'
     $script:Window=$null;$script:CaseNumber++
     $script:RootDir=Join-Path $testRoot ('case-'+$script:CaseNumber)
     $script:DataDir=Join-Path $script:RootDir 'data'
@@ -126,6 +130,44 @@ try {
             Assert-Theme ((Load-DomeniaTheme) -ceq $case.Expected) 'Choix principal different du login.'
         }
     }
+    Test-ThemeCase 'FO-22 : choix de Windows lu dans HKCU, en lecture seule' {
+        $windows=Get-DomeniaWindowsAppTheme
+        Assert-Theme ($windows -in @('','Light','Dark')) ('Valeur inattendue : '+$windows)
+        $key=[Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Software\Microsoft\Windows\CurrentVersion\Themes\Personalize',$false)
+        $expected=''
+        if($null -ne $key){try{$raw=$key.GetValue('AppsUseLightTheme',$null);if($null -ne $raw){$expected=if([int]$raw -eq 0){'Dark'}else{'Light'}}}finally{$key.Close()}}
+        Assert-Theme ($windows -ceq $expected) ('Lecture differente du registre : '+$windows+' / '+$expected)
+    }
+    foreach($case in @(
+        @{Name='Auto suit Windows sombre';Json='{"Theme":"Auto"}';Windows='Dark';Expected='Dark'},
+        @{Name='Auto suit Windows clair';Json='{"Theme":"Auto"}';Windows='Light';Expected='Light'},
+        @{Name='Auto sans choix Windows lisible : Light';Json='{"Theme":" auto "}';Windows='';Expected='Light'},
+        @{Name='Choix fixe ignore Windows';Json='{"Theme":"Light"}';Windows='Dark';Expected='Light'}
+    )) {
+        Test-ThemeCase ('FO-22 : '+$case.Name) {
+            Reset-TestPreferences $case.Json 'Dark'
+            $script:FakeWindowsTheme=$case.Windows
+            function Get-DomeniaWindowsAppTheme { return [string]$script:FakeWindowsTheme }
+            Assert-Theme ((Get-DomeniaStoredTheme) -ceq $case.Expected) 'Theme du login incorrect.'
+            $settings=Load-DomeniaSettings
+            Assert-Theme ($script:CurrentTheme -ceq $case.Expected) 'Theme de la principale incorrect.'
+            $choice=ConvertTo-DomeniaThemePreference ([regex]::Match($case.Json,'"Theme":"([^"]*)"').Groups[1].Value)
+            Assert-Theme ([string]$settings['Theme'] -ceq $choice) ('Choix perdu au chargement : '+[string]$settings['Theme'])
+            Assert-Theme ((Load-DomeniaTheme) -ceq $case.Expected) 'Load-DomeniaTheme incoherent.'
+        }
+    }
+    Test-ThemeCase 'FO-22 : Automatique enregistre tel quel, theme peint = choix de Windows' {
+        Reset-TestPreferences '{"Theme":"Light","LogHeight":260}' 'Light'
+        $script:FakeWindowsTheme='Dark'
+        function Get-DomeniaWindowsAppTheme { return [string]$script:FakeWindowsTheme }
+        [void](Load-DomeniaSettings);Save-DomeniaTheme -Theme Auto
+        $stored=Get-Content -LiteralPath (Join-Path $script:DataDir 'Preferences\Domenia.settings.json') -Raw | ConvertFrom-Json
+        Assert-Theme (($stored.Theme -eq 'Auto') -and ($stored.LogHeight -eq 260)) 'Choix Automatique non enregistre.'
+        Assert-Theme (($script:CurrentTheme -eq 'Dark') -and ((Get-DomeniaStoredTheme) -eq 'Dark')) 'Theme peint different de Windows.'
+        $script:BootTheme='';$script:ThemePreference='';$script:Settings=$null;$script:CurrentTheme='Light';$script:FakeWindowsTheme='Light'
+        Assert-Theme ((Get-DomeniaStoredTheme) -eq 'Light') 'Relecture a froid : Windows clair non suivi.'
+        Assert-Theme ((Get-DomeniaStoredTheme -Preference) -eq 'Auto') 'Relecture a froid : choix perdu.'
+    }
     Test-ThemeCase 'JSON casse avec copie .bak valide' {
         Reset-TestPreferences '{invalide' 'Light'
         [IO.File]::WriteAllText((Join-Path $script:DataDir 'Domenia.settings.json.bak'),'{"Theme":"Dark"}')
@@ -138,14 +180,14 @@ try {
         $stored=Get-Content -LiteralPath (Join-Path $script:DataDir 'Preferences\Domenia.settings.json') -Raw | ConvertFrom-Json
         Assert-Theme ($stored.Theme -eq 'Dark' -and $stored.LogHeight -eq 260) 'Sauvegarde immediate incorrecte.'
         Assert-Theme ((Get-DomeniaStoredTheme) -eq 'Dark') 'Cache de theme obsolete.'
-        $script:BootTheme='';$script:Settings=$null;$script:CurrentTheme='Light'
+        $script:BootTheme='';$script:ThemePreference='';$script:Settings=$null;$script:CurrentTheme='Light'
         Assert-Theme ((Get-DomeniaStoredTheme) -eq 'Dark')
         [void](Load-DomeniaSettings);Assert-Theme ((Load-DomeniaTheme) -eq 'Dark')
     }
     Test-ThemeCase 'Retour Light avec ancien Dark : relecture a froid' {
         Reset-TestPreferences '{"Theme":"Dark"}' 'Dark'
         [void](Load-DomeniaSettings);Save-DomeniaTheme -Theme Light
-        $script:BootTheme='';$script:Settings=$null;$script:CurrentTheme='Dark'
+        $script:BootTheme='';$script:ThemePreference='';$script:Settings=$null;$script:CurrentTheme='Dark'
         Assert-Theme ((Get-DomeniaStoredTheme) -eq 'Light')
         [void](Load-DomeniaSettings);Assert-Theme ((Load-DomeniaTheme) -eq 'Light')
     }
@@ -293,6 +335,29 @@ try {
                 Assert-Theme ($bars[0].ActualWidth -le 8.5) ('Largeur reelle : '+$bars[0].ActualWidth)
                 Assert-Theme ($bars[1].ActualHeight -le 8.5) ('Hauteur reelle : '+$bars[1].ActualHeight)
                 [void]$panel.Children.Remove($scroll)
+            }
+            finally { if ($null -ne $script:Window) { $script:Window.Close();$script:Window=$null } }
+        }
+        Test-ThemeCase 'FO-22 : menu Automatique, retour sur la fenetre et bouton de theme' {
+            Reset-TestPreferences '{"Theme":"Light"}' 'Light'
+            $script:FakeWindowsTheme='Dark'
+            function Get-DomeniaWindowsAppTheme { return [string]$script:FakeWindowsTheme }
+            function Set-Status { param($Text,$Level) $script:LastStatus=[string]$Text }
+            try {
+                $script:Window=ConvertFrom-DomeniaXaml -XamlText (Get-MainXaml) -Context 'FO-22'
+                [void](Load-DomeniaSettings);Apply-DomeniaTheme -Theme (Get-DomeniaStoredTheme)
+                Set-DomeniaThemePreference -Preference Auto
+                Assert-Theme ((Get-TestBrushHex $script:Window.Background) -eq (Get-SuitePalette Dark).WindowBg) 'Automatique ne suit pas Windows sombre'
+                $toggle=$script:Window.FindName('BtnThemeToggle')
+                Assert-Theme ([string]$toggle.ToolTip -match 'automatique') ('Infobulle : '+[string]$toggle.ToolTip)
+                $script:FakeWindowsTheme='Light'
+                Update-DomeniaAutoTheme
+                Assert-Theme ((Get-TestBrushHex $script:Window.Background) -eq (Get-SuitePalette Light).WindowBg) 'Retour sur la fenetre : Windows clair non suivi'
+                Assert-Theme ($script:ThemePreference -eq 'Auto') 'Le retour sur la fenetre a change le choix'
+                Toggle-DomeniaTheme
+                Assert-Theme (($script:ThemePreference -eq 'Dark') -and ($script:CurrentTheme -eq 'Dark')) 'Le clic ne fixe pas le theme oppose'
+                $script:FakeWindowsTheme='Light';Update-DomeniaAutoTheme
+                Assert-Theme ($script:CurrentTheme -eq 'Dark') 'Un choix fixe suit Windows'
             }
             finally { if ($null -ne $script:Window) { $script:Window.Close();$script:Window=$null } }
         }

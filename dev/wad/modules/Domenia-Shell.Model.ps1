@@ -1277,13 +1277,18 @@ function Get-DomeniaReadOnlyReturnPlan {
 function Get-DomeniaThemeToggleIcon {
     # DS-10: one convention for the main window and the login, the icon of the theme the button switches TO
     # (sun while dark, moon while light), drawn as a Path with the stroke of the menu icons.
-    param([AllowEmptyString()][AllowNull()][string]$CurrentTheme='Light')
+    # FO-22: -Preference Auto says that the theme follows Windows; a click still fixes the other theme, the right click
+    # offers Clair, Sombre or Automatique. One line of tool tip for this icon button (UI-10).
+    param([AllowEmptyString()][AllowNull()][string]$CurrentTheme='Light',[AllowEmptyString()][AllowNull()][string]$Preference='')
     $sun = 'M16,12 A4,4 0 1 1 8,12 A4,4 0 1 1 16,12 M12,2 L12,4 M12,20 L12,22 M2,12 L4,12 M20,12 L22,12 M4.9,4.9 L6.3,6.3 M17.7,17.7 L19.1,19.1 M4.9,19.1 L6.3,17.7 M17.7,6.3 L19.1,4.9'
     $moon = 'M20,14.5 A8,8 0 1 1 9.5,4 A6.5,6.5 0 0 0 20,14.5 Z'
+    $auto = (([string]$Preference).Trim() -ieq 'Auto')
     if (([string]$CurrentTheme).Trim() -ieq 'Dark') {
-        return [pscustomobject]@{Current='Dark';Target='Light';Glyph='Sun';Data=$sun;SunData=$sun;MoonData=$moon;Name='Passer au thème clair';ToolTip='Passer au thème clair. Le choix est enregistré pour Domenia.'}
+        $tip = if ($auto) { 'Thème automatique, sombre comme Windows. Clic : thème clair ; clic droit : choisir.' } else { 'Passer au thème clair. Clic droit : Clair, Sombre ou Automatique.' }
+        return [pscustomobject]@{Current='Dark';Target='Light';Glyph='Sun';Data=$sun;SunData=$sun;MoonData=$moon;Name='Passer au thème clair';ToolTip=$tip;Auto=$auto}
     }
-    return [pscustomobject]@{Current='Light';Target='Dark';Glyph='Moon';Data=$moon;SunData=$sun;MoonData=$moon;Name='Passer au thème sombre';ToolTip='Passer au thème sombre. Le choix est enregistré pour Domenia.'}
+    $tip = if ($auto) { 'Thème automatique, clair comme Windows. Clic : thème sombre ; clic droit : choisir.' } else { 'Passer au thème sombre. Clic droit : Clair, Sombre ou Automatique.' }
+    return [pscustomobject]@{Current='Light';Target='Dark';Glyph='Moon';Data=$moon;SunData=$sun;MoonData=$moon;Name='Passer au thème sombre';ToolTip=$tip;Auto=$auto}
 }
 
 function Get-DomeniaSessionBadge {

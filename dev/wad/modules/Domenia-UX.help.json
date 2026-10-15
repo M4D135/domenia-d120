@@ -193,7 +193,7 @@
   {
     "Name": "BtnThemeToggle",
     "Title": "Thème clair ou sombre",
-    "Text": "Bascule entre le thème clair et le thème sombre ; lʼicône montre le thème obtenu. Le choix est enregistré pour Domenia.",
+    "Text": "Bascule entre le thème clair et le thème sombre ; lʼicône montre le thème obtenu. Clic droit : Clair, Sombre ou Automatique, qui suit le choix de Windows. Le choix est enregistré pour Domenia.",
     "Kind": "Button",
     "Source": "specific"
   },

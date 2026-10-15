@@ -101,3 +101,58 @@ Test-Case 'DS-11' 'Bouton desactive lisible et carte sombre visible sur son fond
     Assert-True ((Get-DomeniaContrastRatio $dark['BorderColor'] $dark['BgCard']) -ge 1.5) 'Bordure de carte visible'
     Assert-True ([string]$dark['BgInput'] -cne [string]$dark['BgCard']) 'Champ distinct de la carte'
 }
+Test-Case 'FO-22' 'Theme automatique : le choix de Windows pour Auto, le choix fixe sinon, Clair par defaut' {
+    $cases = @(
+        @('Light','Dark','Light','Choix'),@('Dark','Light','Dark','Choix'),@('Auto','Dark','Dark','Windows'),@('Auto','Light','Light','Windows'),
+        @(' auto ','Dark','Dark','Windows'),@('Auto','','Light','Windows illisible'),@('Auto','Auto','Light','Windows illisible'),@('Sepia','Dark','Light','Défaut'),@('','Dark','Light','Défaut')
+    )
+    foreach ($c in $cases) {
+        $r = Resolve-DomeniaEffectiveTheme -Preference $c[0] -WindowsTheme $c[1]
+        Assert-Equal $c[2] $r.Theme ('Theme pour ' + $c[0] + '/' + $c[1])
+        Assert-Equal $c[3] $r.Source ('Source pour ' + $c[0] + '/' + $c[1])
+        Assert-False $r.HighContrast
+    }
+    Assert-Equal 'Auto' (Resolve-DomeniaEffectiveTheme -Preference ' AUTO ' -WindowsTheme 'Dark').Preference 'Choix canonique'
+    Assert-Equal 'Light' (Resolve-DomeniaEffectiveTheme -Preference 'Sepia').Preference 'Choix inconnu ramene a Clair'
+    Assert-True (Resolve-DomeniaEffectiveTheme -Preference 'Dark' -HighContrast $true).HighContrast 'Contraste eleve porte a part'
+    Assert-Equal 'Dark' (Resolve-DomeniaEffectiveTheme -Preference 'Dark' -HighContrast $true).Theme 'Le contraste eleve ne change pas le choix'
+    Assert-Equal '' (ConvertTo-DomeniaThemePreference 'Sepia');Assert-Equal 'Dark' (ConvertTo-DomeniaThemePreference ' dark ')
+}
+Test-Case 'FO-22' 'Preferences : Automatique est un choix enregistrable, une valeur inconnue revient au defaut' {
+    $defaults = [ordered]@{Theme='Light';UxDensity='Confort'}
+    Assert-Equal 'Auto' ([string](ConvertTo-DomeniaExperienceSettings -Values ([ordered]@{Theme='Auto'}) -Defaults $defaults)['Theme'])
+    Assert-Equal 'Light' ([string](ConvertTo-DomeniaExperienceSettings -Values ([ordered]@{Theme='Sepia'}) -Defaults $defaults)['Theme'])
+    $choices = @(Get-DomeniaThemeChoices)
+    Assert-Equal 'Light,Dark,Auto' (($choices | ForEach-Object { $_.Value }) -join ',')
+    Assert-Equal 'Automatique (suit Windows)' ([string]$choices[2].Label)
+}
+Test-Case 'FO-22' 'Contraste eleve : chaque jeton prend une couleur systeme, aucune couleur devinee' {
+    $roles = Get-DomeniaHighContrastRoles
+    $tokens = @($script:ThmDesign.Palettes.Light.PSObject.Properties | ForEach-Object { $_.Name })
+    Assert-Equal ($tokens.Count) (@($roles.Keys).Count) 'Un role par jeton'
+    foreach ($token in $tokens) {
+        Assert-True ($roles.Contains($token)) ('Jeton sans role : ' + $token)
+        Assert-True ([string]$roles[$token] -in @('Window','WindowText','Control','ControlText','Highlight','HighlightText','HotTrack','GrayText')) ('Role inconnu : ' + $token)
+    }
+    $system = [ordered]@{Window='#000000';WindowText='#FFFFFF';Control='#000000';ControlText='#FFFFFF';Highlight='#1AEBFF';HighlightText='#000000';HotTrack='#FFFF00';GrayText='#3FF23F'}
+    $hc = ConvertTo-DomeniaHighContrastPalette -Palette (Get-SuitePalette -Theme Light) -SystemColors $system
+    Assert-Equal $tokens.Count @($hc.Keys).Count
+    Assert-Equal '#000000' ([string]$hc['WindowBg']);Assert-Equal '#FFFFFF' ([string]$hc['TextColor']);Assert-Equal '#FFFFFF' ([string]$hc['MutedColor'])
+    Assert-Equal '#1AEBFF' ([string]$hc['AccentColor']);Assert-Equal '#000000' ([string]$hc['OnAccent']);Assert-Equal '#FFFF00' ([string]$hc['AccentText'])
+    Assert-Equal '#FFFFFF' ([string]$hc['StatusError']) 'Un etat se lit par son mot et son symbole'
+    foreach ($pair in @(@('TextColor','BgCard'),@('OnAccent','AccentColor'),@('MutedColor','BgReadonly'),@('RowSelFg','RowSelBg'),@('BtnFg','BtnBg'))) {
+        Assert-True ((Get-DomeniaContrastRatio $hc[$pair[0]] $hc[$pair[1]]) -ge 4.5) ('Contraste eleve : ' + ($pair -join '/'))
+    }
+    $partial = ConvertTo-DomeniaHighContrastPalette -Palette ([ordered]@{TextColor='#17243A';BgCard='#FFFFFF'}) -SystemColors ([ordered]@{WindowText='bleu'})
+    Assert-Equal '#17243A' ([string]$partial['TextColor']) 'Couleur systeme invalide : jeton conserve'
+    Assert-Equal '#FFFFFF' ([string]$partial['BgCard']) 'Role absent : jeton conserve'
+}
+Test-Case 'FO-22' 'Bouton de theme : Automatique annonce, le clic fixe le theme oppose, une infobulle d une ligne' {
+    $auto = Get-DomeniaThemeToggleIcon -CurrentTheme 'Dark' -Preference 'Auto'
+    Assert-Equal 'Passer au thème clair' $auto.Name 'Nom = action du clic'
+    Assert-True $auto.Auto;Assert-True ($auto.ToolTip -match 'automatique') $auto.ToolTip
+    Assert-False ($auto.ToolTip -match "`n") 'Une ligne'
+    $fixed = Get-DomeniaThemeToggleIcon -CurrentTheme 'Light' -Preference 'Light'
+    Assert-False $fixed.Auto;Assert-True ($fixed.ToolTip -match 'Clic droit') $fixed.ToolTip
+    Assert-Equal 'Passer au thème sombre' (Get-DomeniaThemeToggleIcon 'Light').Name 'Appel historique sans choix'
+}

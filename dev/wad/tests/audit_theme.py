@@ -286,6 +286,23 @@ def main():
         return ''
     check('DS-18 : barre de titre du theme et barres de defilement fines sans fleches', frame_and_scrollbars)
 
+    # ------------------------------------------------------------------ FO-22
+    def automatic_and_high_contrast():
+        exp = functions(experience)
+        settings = fn('ConvertTo-DomeniaExperienceSettings', experience, exp)
+        require("Theme=@('Light','Dark','Auto')" in settings, 'Choix Automatique refuse par les preferences')
+        reader = fn('Get-DomeniaWindowsAppTheme')
+        require("OpenSubKey('Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize',$false)" in reader, 'Lecture du registre non bornee a HKCU en lecture seule')
+        require('SetValue' not in reader and 'CreateSubKey' not in reader, 'Ecriture dans le registre')
+        roles = dict(re.findall(r"^\s+(\w+)='(\w+)'$", fn('Get-DomeniaHighContrastRoles', experience, exp), re.M))
+        require(set(roles) == set(palettes['Light']), 'Jetons sans role de contraste eleve : ' + ', '.join(sorted(set(palettes['Light']) - set(roles))))
+        allowed = {'Window', 'WindowText', 'Control', 'ControlText', 'Highlight', 'HighlightText', 'HotTrack', 'GrayText'}
+        require(set(roles.values()) <= allowed, 'Role systeme inconnu')
+        palette = fn('Set-DomeniaUxPalette', (root / 'wad/modules/Domenia-UX.UI.ps1').read_text(encoding='utf-8-sig'), functions((root / 'wad/modules/Domenia-UX.UI.ps1').read_text(encoding='utf-8-sig')))
+        require('[Windows.SystemParameters]::HighContrast' in palette and 'ConvertTo-DomeniaHighContrastPalette' in palette, 'Contraste eleve non suivi')
+        return '%d jetons avec un role systeme' % len(roles)
+    check('FO-22 : theme automatique (HKCU, lecture seule) et contraste eleve sur chaque jeton', automatic_and_high_contrast)
+
     # ------------------------------------------------------------------ boot windows
     roles = dict(re.findall(r"(\w+)='(\w+)'", re.search(r'\$roles = \[ordered\]@\{(.*?)\}', fn('Get-DomeniaBootThemePalette'), re.S)[1]))
     styles = re.search(r"\$styles = @'\n(.*?)\n'@", fn('Get-DomeniaBootThemeResources'), re.S)[1]
