@@ -209,8 +209,9 @@ Case 'P53 Filtre de lʼarbre : parents conservés, groupe système seulement pou
 }
 
 # ---------------------------------------------------------------- Point 55: exact return to the previous view
-# Unwired if the history keeps only one selected row, loses the sort, or ignores the branches open at that step.
-Case 'P55 Précédent rend le tri, toutes les lignes sélectionnées et les branches ouvertes, sans lecture' {
+# Unwired if the history keeps only one selected row, loses the sort or the list size, or ignores the branches open
+# at that step.
+Case 'P55 Précédent rend le tri, la taille de la liste, toutes les lignes sélectionnées et les branches ouvertes, sans lecture' {
     $base='DC=example,DC=invalid'
     $root=New-FixtureNode $base 'example.invalid' $true 'domainDNS';$sites=New-FixtureNode ('OU=Sites,'+$base) 'Sites' $true
     $lyon=New-FixtureNode ('OU=Lyon,OU=Sites,'+$base) 'Lyon' $true;$paris=New-FixtureNode ('OU=Paris,'+$base) 'Paris' $true
@@ -222,15 +223,17 @@ Case 'P55 Précédent rend le tri, toutes les lignes sélectionnées et les bran
     $grid.ItemsSource=$rowsA;$script:BranchObjects=$rowsA
     $grid.Items.SortDescriptions.Add([ComponentModel.SortDescription]::new('Name',[ComponentModel.ListSortDirection]::Descending))
     [void]$grid.SelectedItems.Add($rowsA[0]);[void]$grid.SelectedItems.Add($rowsA[2])
+    $script:Ctrl.TxtGlobalLimit.Text='250'
     $script:NavHistory=New-DomeniaNavHistory -Capacity 10
     [void](Push-DomeniaNavState $script:NavHistory (Get-DomeniaNavSnapshot -Page 'WsSearch'))
     $first=$script:NavHistory.Current
     Expect (@($first.Sort).Count -eq 1 -and [string]$first.Sort[0].Field -eq 'Name' -and @($first.SelectionKeys).Count -eq 2) 'Tri ou sélection multiple non mémorisés.'
     Expect (@($first.TreeExpanded) -contains ('OU=Sites,'+$base) -and @($first.TreeExpanded) -notcontains ('OU=Paris,'+$base)) 'Branches ouvertes non mémorisées.'
+    Expect ([int]$first.Limit -eq 250) ('Taille de liste mémorisée : '+[string]$first.Limit)
     # Another OU, another list, another tree shape.
     $script:SelectedBranchDn=('OU=Paris,'+$base)
     $rowsB=@((New-FixtureRow 'SRV-01' 'Machine' '33333333-3333-4333-8333-333333333333' 'OU=Paris'))
-    $grid.ItemsSource=$rowsB;$script:BranchObjects=$rowsB;$sites.IsExpanded=$false;$paris.IsExpanded=$true
+    $grid.ItemsSource=$rowsB;$script:BranchObjects=$rowsB;$sites.IsExpanded=$false;$paris.IsExpanded=$true;$script:Ctrl.TxtGlobalLimit.Text='100'
     [void](Push-DomeniaNavState $script:NavHistory (Get-DomeniaNavSnapshot -Page 'WsSearch'))
     $step=Invoke-DomeniaNavStep -Direction Back
     Expect ($step.Moved -and [object]::ReferenceEquals($grid.ItemsSource,$rowsA)) 'La liste mémorisée nʼest pas rendue.'
@@ -238,6 +241,7 @@ Case 'P55 Précédent rend le tri, toutes les lignes sélectionnées et les bran
     $selected=@($grid.SelectedItems)
     Expect ($selected.Count -eq 2 -and @($selected|Where-Object{[object]::ReferenceEquals($_,$rowsA[0])}).Count -eq 1 -and @($selected|Where-Object{[object]::ReferenceEquals($_,$rowsA[2])}).Count -eq 1) ('Sélection rendue : '+$selected.Count)
     Expect ($sites.IsExpanded -and -not $paris.IsExpanded -and $lyon.IsSelected) 'Les branches ouvertes ou lʼOU de lʼétape ne sont pas rendues.'
+    Expect ([string]$script:Ctrl.TxtGlobalLimit.Text -ceq '250') ('La taille de la liste nʼest pas rendue : '+$script:Ctrl.TxtGlobalLimit.Text)
     Expect ($script:Searches.Count -eq 0 -and $script:SelectedBranchDn -eq ('OU=Lyon,OU=Sites,'+$base)) 'Le retour a relu lʼannuaire ou changé de périmètre.'
 }
 # Unwired if a remembered branch that is no longer read is opened (which would read it) instead of being reported.

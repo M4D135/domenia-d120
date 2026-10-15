@@ -845,6 +845,17 @@ function Get-DomeniaNavSortState {
     return $out.ToArray()
 }
 
+function Get-DomeniaNavLimit {
+    # Point 55: the size of a remembered list (its loaded page), as the history keeps it: an integer from 1 to
+    # 20 000, or 0 when the value is missing or unreadable, in which case the limit shown is left as it is.
+    param($Value)
+    $limit = 0
+    $text = ([string]$Value).Trim()
+    if (-not [int]::TryParse($text,[Globalization.NumberStyles]::None,[Globalization.CultureInfo]::InvariantCulture,[ref]$limit)) { return 0 }
+    if (($limit -lt 1) -or ($limit -gt 20000)) { return 0 }
+    return $limit
+}
+
 function Get-DomeniaNavTreePlan {
     # Point 55: the OU branches open at a history step are opened again only when they are already read; a branch
     # open since then is folded. A remembered branch that is no longer read is counted, never read again here.

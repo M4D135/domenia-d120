@@ -335,6 +335,10 @@ Test-Case 'P55' 'Tri memorise : champs valides, sans doublon, borne a huit' {
     Assert-Equal 8 @(Get-DomeniaNavSortState -Sort @(1..12|ForEach-Object{[pscustomobject]@{Field=('F'+$_);Direction='Ascending'}})).Count
     Assert-Equal 0 @(Get-DomeniaNavSortState -Sort @()).Count
 }
+Test-Case 'P55' 'Taille de liste memorisee : entier de 1 a 20 000, sinon 0 et la limite affichee reste' {
+    Assert-Equal 250 (Get-DomeniaNavLimit '250');Assert-Equal 250 (Get-DomeniaNavLimit 250);Assert-Equal 20000 (Get-DomeniaNavLimit ' 20000 ')
+    foreach($bad in @('',$null,'0','20001','-5','+5','1e3','12,5','abc')){Assert-Equal 0 (Get-DomeniaNavLimit $bad) ('Valeur refusee : '+[string]$bad)}
+}
 Test-Case 'P55' 'Branches ouvertes : seules les branches lues se rouvrent, les autres se replient, aucune lecture' {
     $a='OU=A,'+$script:DomainDn;$b='OU=B,'+$script:DomainDn;$c='OU=C,'+$script:DomainDn;$d='OU=D,'+$script:DomainDn
     $nodes=@([pscustomobject]@{DN=$a;Loaded=$true;Expanded=$false},[pscustomobject]@{DN=$b;Loaded=$true;Expanded=$true},[pscustomobject]@{DN=$c;Loaded=$false;Expanded=$false},[pscustomobject]@{DN='';Loaded=$true;Expanded=$true})

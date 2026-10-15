@@ -370,6 +370,15 @@ function Get-DomeniaNavSnapshot {
         $stateType = [string](Get-DomeniaMember $historyState 'TypeLabel' '')
         if ($stateType) { $typeLabel = $stateType }
     }
+    # Point 55: the size of the loaded list (its page). A live list keeps the limit of the search that produced it and
+    # a list shown from the history its remembered limit, whatever was typed in the box since; otherwise the box.
+    $limit = 0
+    $limitBox = Get-DomeniaControl 'TxtGlobalLimit'
+    if ($null -ne $limitBox) { $limit = Get-DomeniaNavLimit ([string]$limitBox.Text) }
+    $producedLimit = 0
+    if ($null -ne $listState) { $producedLimit = Get-DomeniaNavLimit (Get-DomeniaMember $listState 'Limit' '') }
+    elseif ($null -ne $historyState) { $producedLimit = Get-DomeniaNavLimit (Get-DomeniaMember $historyState 'Limit' '') }
+    if ($producedLimit -gt 0) { $limit = $producedLimit }
     if (-not $viewChoice) { $viewChoice = $(if ($viewId -and $mode -eq 'Global') { 'Domain' } else { 'OU' }) }
     $inner = '';$innerControl=''
     if ($Page -eq 'WsObject') {
@@ -405,7 +414,7 @@ function Get-DomeniaNavSnapshot {
     return [pscustomobject]@{
         Page=$Page;Tab=$inner;InnerControl=$innerControl;Mode=$mode;Text=$text;BranchText=$branchText;OuDn=$ouDn;Subtree=$subtree
         SelectionGuid=$selectionGuid;SelectionDn=$selectionDn;Rows=$rows;Scroll=$scroll
-        HScroll=$hScroll;Sort=$sort;SelectionKeys=$selectionKeys;TreeExpanded=$treeExpanded
+        HScroll=$hScroll;Sort=$sort;SelectionKeys=$selectionKeys;TreeExpanded=$treeExpanded;Limit=$limit
         CountLabel=$(if ($null -ne $count) { [string]$count.Text } else { '' })
         Generation=[int]$script:GlobalSearchGeneration;ViewId=$viewId
         TypeLabel=$typeLabel;Presence=$presence;LocalFilter=$localFilter
@@ -517,6 +526,10 @@ function Restore-DomeniaNavState {
                 $script:ExperienceRestoring = $true
                 try { $localBox.Text = $local } finally { $script:ExperienceRestoring = $oldExperience }
             }
+            # Point 55: the page size of the remembered list comes back with it, so that Actualiser reads the same size.
+            $limit = Get-DomeniaNavLimit (Get-DomeniaMember $State 'Limit' '')
+            $limitBox = Get-DomeniaControl 'TxtGlobalLimit'
+            if (($limit -gt 0) -and ($null -ne $limitBox)) { $limitBox.Text = [string]$limit }
             $chip = Get-DomeniaControl 'CmbWorkViewScope'
             if ($null -ne $chip -and $chip.Items.Count -gt 1) { $chip.SelectedIndex = $(if ([string](Get-DomeniaMember $State 'ViewChoice' 'OU') -eq 'Domain') { 1 } else { 0 }) }
             $script:ListSurveyBlocked = [bool](Get-DomeniaMember $State 'SurveyBlocked' $false)

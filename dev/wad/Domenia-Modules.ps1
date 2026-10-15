@@ -162,6 +162,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaNavRowKey',
             'Get-DomeniaNavSelectionKeys',
             'Get-DomeniaNavSortState',
+            'Get-DomeniaNavLimit',
             'Get-DomeniaNavTreePlan',
             'Get-DomeniaOuChoiceSummary',
             'Get-DomeniaOuFavouriteChoices'
