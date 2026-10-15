@@ -202,7 +202,7 @@ Check-Suite 'P118 : vue du panneau : controles nommes, info-bulle egale au texte
     $help=@(Get-Content -LiteralPath (Join-Path $modules 'Domenia-UX.help.json') -Raw -Encoding UTF8 | ConvertFrom-Json)
     $byName=@{};foreach($entry in $help){$byName[[string]$entry.Name]=$entry}
     $x='http://schemas.microsoft.com/winfx/2006/xaml'
-    foreach($name in @('DgOperationsRecent','LblOperationsTrace','BtnOperationsCopyTrace','BtnOperationsJournal','BtnOperationsDiagnostic','LblOperationsHealth')){
+    foreach($name in @('DgOperationsRecent','LblOperationsTrace','BtnOperationsCopyTrace','BtnOperationsJournal','BtnOperationsDiagnostic','LblOperationsHealth','BtnOperationsReceipts')){
         $node=@($view.SelectNodes('//*')|Where-Object{$_.GetAttribute('Name',$x) -eq $name})
         if($node.Count -ne 1){throw ($name+' : '+$node.Count+' occurrence(s)')}
         $tip=[string]$node[0].GetAttribute('ToolTip')
@@ -212,13 +212,22 @@ Check-Suite 'P118 : vue du panneau : controles nommes, info-bulle egale au texte
     }
     $true
 }
+Check-Suite 'P118 avec X04/X05 : les recus a verifier comptes et ouverts comme la pastille de l en-tete' {
+    $experience=Join-Path $modules 'Domenia-Experience.UI.ps1'
+    $activity=Get-SuiteFunctionText $experience 'Update-DomeniaExperienceActivity'
+    $init=Get-SuiteFunctionText $experience 'Initialize-DomeniaOperationsPanel'
+    $pill=Get-SuiteFunctionText (Join-Path $modules 'Domenia-Assist.UI.ps1') 'Update-DomeniaPendingOperationsPill'
+    $rule='Get-DomeniaPendingOperationsView -Pending ([int]$script:ReceiptPending)'
+    $activity.Contains($rule) -and $pill.Contains($rule) -and $activity.Contains("Get-DomeniaControl 'BtnOperationsReceipts'") -and $init.Contains("Invoke-DomeniaCapabilityRoute -Route 'TabGuard'") -and $init.Contains('Hide-DomeniaOperationsPanel;')
+}
 Check-Suite 'P118/P113 : la vue du panneau se charge et defile en entier (STA)' {
     if([Threading.Thread]::CurrentThread.GetApartmentState() -ne [Threading.ApartmentState]::STA){throw 'Fil STA requis : lancer la suite avec -STA.'}
     Add-Type -AssemblyName PresentationFramework
     [xml]$document=[IO.File]::ReadAllText((Join-Path $modules 'Domenia-Operations.xaml'),[Text.Encoding]::UTF8)
     $reader=New-Object Xml.XmlNodeReader $document
     try{$view=[Windows.Markup.XamlReader]::Load($reader)}finally{$reader.Close()}
-    ($view.Child -is [Windows.Controls.ScrollViewer]) -and ($null -ne $view.FindName('DgOperationsRecent')) -and ($null -ne $view.FindName('BtnOperationsDiagnostic'))
+    $receipts=$view.FindName('BtnOperationsReceipts')
+    ($view.Child -is [Windows.Controls.ScrollViewer]) -and ($null -ne $view.FindName('DgOperationsRecent')) -and ($null -ne $view.FindName('BtnOperationsDiagnostic')) -and ($null -ne $receipts) -and ($receipts.Visibility -eq [Windows.Visibility]::Collapsed) -and ($null -ne $view.FindName('LblSuiteActivityState'))
 }
 $failed=@($script:Checks|Where-Object{-not $_.Passed})
 $report=[ordered]@{Suite='Test-DomeniaOperationTrace';Runtime=$PSVersionTable.PSVersion.ToString();Executed=(Get-Date).ToString('o');Passed=$script:Checks.Count-$failed.Count;Failed=$failed.Count;WpfExecuted=$true;NoADAccess=$true;NoNetwork=$true;Tests=$script:Checks.ToArray()}

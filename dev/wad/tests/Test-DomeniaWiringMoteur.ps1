@@ -42,7 +42,9 @@ if ($null -eq ('Domenia.SelectionIdentity' -as [type])) { Add-Type -Path (Join-P
 foreach ($file in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Search.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Access.Model.ps1','Domenia-Safety.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Demo.Model.ps1','Domenia-Shell.Model.ps1',
     'Domenia-Selection.UI.ps1','Domenia-Experience.UI.ps1','Domenia-Engine.UI.ps1','Domenia-Engine.Worker.ps1','Domenia-Demo.Worker.ps1','Domenia-Demo.UI.ps1',
     'Domenia-Startup.UI.ps1','Domenia-Isolation.Worker.ps1','Domenia-Receipts.Worker.ps1',
-    'Domenia-Cache.Model.ps1','Domenia-Live.Model.ps1','Domenia-Release.Model.ps1','Domenia-Storage.Worker.ps1','Domenia-Storage.UI.ps1',
+    'Domenia-Cache.Model.ps1','Domenia-Store.Model.ps1','Domenia-Live.Model.ps1','Domenia-Release.Model.ps1','Domenia-Storage.Worker.ps1','Domenia-Storage.UI.ps1',
+    # UI-20 (lot X03): wording of a refused sign-in, read by Update-DomeniaFastLoginAttempt.
+    'Domenia-Accounts.Model.ps1',
     # W13 (point 123): the traces of the operations, so the real engine path writes them in these cases.
     'Domenia-Observability.Model.ps1','Domenia-Observability.UI.ps1')) {
     $path = Join-Path $modules $file
@@ -57,14 +59,14 @@ $script:CoreFunctions = @('Start-UiTask','Complete-UiTasks','Request-UiTaskStop'
     'New-DomeniaFastLoginSession','Start-DomeniaFastLoginWorker','Update-DomeniaFastLoginAttempt','Reset-DomeniaFastLoginAttempt','Stop-DomeniaFastLoginWorker',
     'Invoke-DomeniaInProcessAuthProbe','Start-DomeniaLoginAuthRunspace','Read-DomeniaAuthRunspaceResult','Complete-DomeniaLoginAuthRunspaceCleanup',
     'Stop-DomeniaLoginAuthRunspace','Queue-DomeniaLoginAuthRunspaceCleanup','Ensure-DomeniaAuthCleanupTimer','Add-DomeniaFastLoginDetail',
-    'Convert-DomeniaLoginFailureMessage','Get-DomeniaLoginFailureHint','Assert-WriteAllowed','Assert-DomeniaRemoteWriteAllowed','New-DomeniaAccountAuthRequest',
+    'Assert-WriteAllowed','Assert-DomeniaRemoteWriteAllowed','New-DomeniaAccountAuthRequest',
     'Load-TreeChildren','Complete-DomeniaTreeChildrenUi','Fail-DomeniaTreeChildrenUi','Queue-DomeniaTreeRowsToNode','Initialize-DomeniaTreeRenderTimer',
     'Stop-DomeniaTreeRenderForNode','New-TreeItem','New-DomeniaTreeRowItem','New-DomeniaTreeSystemGroup','Get-DomeniaTreeRenderRows','Get-DomeniaTreeHeaderTemplate','New-DomeniaTreeLoadingItem','Get-DomeniaParkSharedPath','Merge-DomeniaParkState','Complete-DomeniaParkSweepUi','Sync-DomeniaParkShared',
     'Get-DomeniaSafeObjectPropertyNames','Initialize-DomeniaWinSqliteNative','New-DomeniaUtf8Ptr','ConvertFrom-DomeniaUtf8Ptr','Open-DomeniaDatabase',
     'Close-DomeniaDatabase','Invoke-DomeniaDbExec','Get-DomeniaStartupXaml','Convert-DomeniaXamlToBootTheme','Get-DomeniaBootThemeResources',
     'Get-DomeniaBootThemePalette','Get-DomeniaStandardLoginXaml','Get-DomeniaBootStatusColor','Test-DomeniaMainHostAvailable',
     'Invoke-DomeniaDbQuery','ConvertTo-DomeniaSqlLiteral','Initialize-DomeniaDatabase','Backup-DomeniaDatabase','Get-DomeniaStoreBackupDirectory',
-    'Normalize-LinkComputer','Normalize-LinkUser','ConvertTo-DomeniaCanonicalLinks','Load-UserMachineLinks',
+    'Normalize-LinkComputer','Normalize-LinkUser','ConvertTo-DomeniaCanonicalLinks',
     # CD-12: the error of a task is analysed once by the real ConvertTo-DomeniaErrorInfo.
     'ConvertTo-DomeniaErrorInfo','Test-DomeniaInternalFault','Test-DomeniaOperatorMessage')
 $coreSource = New-Object 'System.Collections.Generic.List[string]'
@@ -720,7 +722,7 @@ function New-WiringLoginUi {
     $reader = [Xml.XmlNodeReader]::new([xml](Get-DomeniaStandardLoginXaml))
     try { $window = [Windows.Markup.XamlReader]::Load($reader) } finally { $reader.Close() }
     $ui = @{Window=$window}
-    foreach ($pair in @(@('Login','TxtLogin'),@('Password','PwdLogin'),@('PasswordVisible','TxtLoginPasswordVisible'),@('Reveal','BtnRevealLogin'),@('Remember','ChkRemember'),@('Error','LblLoginError'),@('Stage','LblLoginStage'),@('Progress','PbLogin'),@('Technical','TxtLoginTechnical'),@('Connect','BtnLogin'),@('Windows','BtnWindowsLogin'),@('Cancel','BtnCancel'),@('OpenLog','BtnLoginLog'),@('CopyDiag','BtnCopyLoginDiag'))) {
+    foreach ($pair in @(@('Login','TxtLogin'),@('Password','PwdLogin'),@('PasswordPeek','LoginPasswordPeek'),@('PasswordPeekText','LblLoginPasswordPeek'),@('Reveal','BtnRevealLogin'),@('Remember','ChkRemember'),@('Error','LblLoginError'),@('Stage','LblLoginStage'),@('Progress','PbLogin'),@('Technical','TxtLoginTechnical'),@('Connect','BtnLogin'),@('Windows','BtnWindowsLogin'),@('OtherAccount','BtnLoginOtherAccount'),@('Cancel','BtnCancel'),@('OpenLog','BtnLoginLog'),@('CopyDiag','BtnCopyLoginDiag'))) {
         $ui[$pair[0]] = $window.FindName($pair[1])
         if ($null -eq $ui[$pair[0]]) { throw ('Controle de login absent : ' + $pair[1]) }
     }
@@ -826,7 +828,8 @@ Test-Case 'D089 : une seule demande par moment, refus respecte, Alt-Tab respecte
 # Real queue (Queue-DomeniaLinkChanges), real admission and callbacks (Start/Complete/Fail-DomeniaStorageWork), real
 # Resume-DomeniaStorage, real pinned LocalStore body in a real worker runspace (real Start-UiTask/Complete-UiTasks),
 # real schema (Initialize-DomeniaDatabase) in a temporary local file, real Get-DomeniaLinkFingerprint and real loader
-# Load-UserMachineLinks. No directory, no share, no AD write. Removing the optimistic check of the worker, its single
+# (FI-19: Request-DomeniaUserMachineLinks, pinned LocalIndexRead body in a real worker runspace, real callback
+# Complete-DomeniaUserMachineLinksUi). No directory, no share, no AD write. Removing the optimistic check of the worker, its single
 # transaction (BEGIN IMMEDIATE), the conflict state, the writer's own suspension or the off-Dispatcher writer makes a
 # case fail.
 function Get-WiringModuleFunctionText {
@@ -898,6 +901,15 @@ function Stop-WiringStorage {
 function Wait-WiringStoreIdle {
     return (Wait-WiringCondition -Complete -TimeoutMs 15000 { @($script:AsyncJobs.Values | Where-Object { $null -ne $_ -and $_.OperationId -eq 'LocalStore' }).Count -eq 0 })
 }
+function Invoke-WiringLinkReload {
+    # FI-19: the reload gesture (Comptes > Changer de compte) empties the associations of the session, then the pinned
+    # LocalIndexRead worker reads them from the base; its callback sets the reference of the single writer.
+    $before = @($script:Logs | Where-Object { $_ -match 'non relues' }).Count
+    $script:UserMachineLinks = @()
+    Request-DomeniaUserMachineLinks
+    Assert-True (Wait-WiringCondition -Complete -TimeoutMs 30000 { $null -eq $script:LinkLoad }) 'Relecture des associations sans rappel'
+    Assert-True (@($script:Logs | Where-Object { $_ -match 'non relues' }).Count -eq $before) ('Relecture des associations en echec : ' + (@($script:Logs) -join ' | '))
+}
 function Invoke-WiringStorageBatch {
     param([string]$Why = 'Lot')
     Assert-True (Wait-WiringStoreIdle) ($Why + ' : ecrivain precedent encore actif')
@@ -924,7 +936,7 @@ Test-Case 'D028 : deux mises a jour independantes ne s ecrasent pas' {
         Assert-True ([string]$script:LinkBaseline['PC1'].UserLogin -eq 'alice' -and [string]$script:LinkBaseline['PC2'].UserLogin -eq 'bob') 'Reference de A non mise a jour'
         # Console B reads the same base with the real loader, then changes PC1 to carol in its own LocalStore run.
         $consoleA = [pscustomobject]@{Links=$script:UserMachineLinks;Baseline=$script:LinkBaseline}
-        Load-UserMachineLinks
+        Invoke-WiringLinkReload
         $readByB = $script:LinkBaseline['PC1']
         $script:UserMachineLinks = $consoleA.Links; $script:LinkBaseline = $consoleA.Baseline
         Assert-True ($null -ne $readByB -and [string]$readByB.UserLogin -eq 'alice') 'Console B : PC1 non relu sur le disque'
@@ -964,7 +976,7 @@ Test-Case 'D028 : deux mises a jour independantes ne s ecrasent pas' {
         Invoke-WiringStorageBatch 'Console A, nouvel essai explicite'
         Assert-True ((Get-WiringStoredLinks)['PC1'] -eq 'carol') 'Le nouvel essai explicite a ecrase la version de B'
         Assert-True (@($script:Statuses | Where-Object { $_ -match 'Association modifiee ailleurs : PC1' }).Count -eq 1) 'Le chemin explicite n avertit pas'
-        Load-UserMachineLinks
+        Invoke-WiringLinkReload
         Assert-True ($script:Persistence.Conflicts.Count -eq 0) 'Le rechargement ne termine pas l etat de conflit'
         Assert-True (@($script:UserMachineLinks | Where-Object { [string]$_.Computer -eq 'PC1' -and [string]$_.UserLogin -eq 'carol' }).Count -eq 1) 'Rechargement : version du disque absente'
         $after = (Get-DomeniaPersistenceState).Label
@@ -1124,6 +1136,54 @@ Test-Case 'D028 : consoles simultanees : verification et ecriture dans une seule
         if ($holder -ne [IntPtr]::Zero) { try { [void](Invoke-DomeniaDbExec 'ROLLBACK;' $holder) } catch { }; Close-DomeniaDatabase $holder }
         Stop-WiringStorage
     }
+}
+
+
+# ---------------------------------------------------------------- FI-19 (L20): local reads admitted by the real engine
+# Real Start-UiTask, Invoke-DomeniaUiTaskDispatch and provider budget (D018, scheduler on), real pinned LocalIndexRead
+# body on the real schema, real Request/Complete/Fail callbacks. The Storage budget refuses a second background job of
+# the provider: a view waiting for its local read must never be refused because its sibling or a local save runs.
+Test-Case 'FI-19 : lectures locales admises par le vrai moteur, ensemble et pendant un travail local' {
+    try {
+        Reset-WiringStore
+        [void](New-WiringStoreDatabase)
+        Assert-True (Test-DomeniaSchedulerEnabled) 'Ordonnanceur inactif : le budget des fournisseurs ne serait pas exerce.'
+        $script:IndexMetadataGeneration = 0L; $script:IndexMetadataStartupChecks = $false; $script:LinkLoadGeneration = 0L
+        Reset-DomeniaIndexMetadataState
+        $script:LinkLoad = $null
+        # Same turn, as Start-DomeniaAccountRelogin and Resume-DomeniaDatabaseViews: the figures, then the associations.
+        Request-DomeniaIndexMetadata
+        Request-DomeniaUserMachineLinks
+        $reads = @($script:AsyncJobs.Values | Where-Object { ($null -ne $_) -and ([string]$_.OperationId -eq 'LocalIndexRead') })
+        Assert-True ($reads.Count -eq 2) ('Lectures admises : ' + $reads.Count + ' ; journal : ' + (@($script:Logs) -join ' | '))
+        Assert-True (@($reads | Where-Object { [string]$_.State -notin @('Running','Queued') }).Count -eq 0) 'Lecture dans un etat inattendu.'
+        Assert-True (@($reads | Where-Object { [string]$_.Class -ne 'Explicit' }).Count -eq 0) 'Lecture envoyee comme travail de fond.'
+        Assert-True (Wait-WiringCondition -Complete -TimeoutMs 30000 { (-not [bool]$script:IndexMetadataPending) -and ($null -eq $script:LinkLoad) }) 'Lectures sans rappel.'
+        Assert-True (@($script:Logs | Where-Object { $_ -match 'non relu' }).Count -eq 0) ('Gestionnaire d echec appele : ' + (@($script:Logs) -join ' | '))
+        Assert-True (([int]$script:IndexDbCount -ge 0) -and (-not [string]$script:IndexMetadataError)) ('Chiffres non lus : ' + [string]$script:IndexMetadataError)
+        # A background local save holds the Storage budget: the statistics asked by the operator and the summary of the
+        # selected workstation are still admitted (Explicit, Selection), never refused as background work.
+        $gate = New-WiringGate
+        [void](Start-WiringTask -OperationId 'LocalStore' -Name 'Ecrivain' -Gate $gate.Name -Tag 'ecrivain')
+        Assert-True (Wait-WiringCondition { (@(Get-WiringCalls) -match '^LocalStore\|').Count -eq 1 }) 'Travail local non demarre.'
+        $script:SecretIndexSummaryGeneration = 0L; $script:OperationStatsGeneration = 0L; $script:OperationStatsExportPending = $false; $script:OperationStatsLabelPending = $false
+        $script:Fi19Traces = New-Object 'System.Collections.Generic.List[string]'
+        $traceReal = (Get-Command Write-DomeniaTrace -CommandType Function).ScriptBlock
+        Set-Item function:script:Write-DomeniaTrace -Value { param([string]$Text,[string]$Area = 'Tache') if ([string]$Text -match 'non relu pour') { $script:Fi19Traces.Add([string]$Text) } }
+        try {
+            Request-DomeniaOperationStats
+            Request-DomeniaSecretIndexSummary -Computer 'PC1'
+            $stats = @($script:AsyncJobs.Values | Where-Object { ($null -ne $_) -and ([string]$_.ReplaceKey -eq 'local:operation-stats') })
+            $secret = @($script:AsyncJobs.Values | Where-Object { ($null -ne $_) -and ([string]$_.ReplaceKey -eq 'local:secret-index') })
+            Assert-True (($stats.Count -eq 1) -and ([string]$stats[0].Class -eq 'Explicit')) ('Statistiques refusees pendant un travail local : ' + [string](Get-DomeniaControl -Name 'LblOperationStats').Text)
+            Assert-True (($secret.Count -eq 1) -and ([string]$secret[0].Class -eq 'Selection')) ('Resume des secrets refuse pendant un travail local : ' + ($script:Fi19Traces -join ' | '))
+            [void]$gate.Handle.Set()
+            Assert-True (Wait-WiringCondition -Complete -TimeoutMs 30000 { @($script:AsyncJobs.Values | Where-Object { ($null -ne $_) -and ([string]$_.OperationId -in @('LocalIndexRead','LocalStore')) }).Count -eq 0 }) 'Lectures ou travail local sans rappel.'
+            Assert-True ($script:Fi19Traces.Count -eq 0) ('Echec du resume des secrets : ' + ($script:Fi19Traces -join ' | '))
+            $label = [string](Get-DomeniaControl -Name 'LblOperationStats').Text
+            Assert-True (($label -notmatch 'non relues') -and ($label -match 'mesure\(s\)')) ('Statistiques non affichees : ' + $label)
+        } finally { Set-Item function:script:Write-DomeniaTrace -Value $traceReal }
+    } finally { $script:LinkLoad = $null; $script:IndexMetadataPending = $false }
 }
 
 
@@ -1343,6 +1403,19 @@ Test-Case 'UX-32 / PF-12 : panneau Operations sous le bouton, lignes mises a jou
         $script:OperationsPanel = $null; $script:ExperienceInitialized = $false
         $layer.Children.Clear(); $layer.Visibility = 'Collapsed'
     }
+}
+# MO-08: the batch ping of a list is a pinned network read without any account, never shared with another request.
+# The registry check holds once the integrator has declared the operation (update_worker_contracts.py --add ParkPing).
+Test-Case 'MO-08 : ParkPing lecture reseau sans compte, jamais partagee, epinglee au registre' {
+    . (Join-Path $modules 'Domenia-Park.Worker.ps1')
+    Assert-True ((Get-DomeniaOperationProvider 'ParkPing') -eq 'Network') ('Fournisseur : ' + (Get-DomeniaOperationProvider 'ParkPing'))
+    $needs = Get-DomeniaOperationCredentialNeeds 'ParkPing'
+    Assert-True ((-not $needs.Directory) -and (-not $needs.DirectoryCredential) -and (-not $needs.Machine) -and (-not $needs.RemoteAdmin) -and (-not $needs.Secrets) -and (-not $needs.DirectoryBreaker) -and $needs.NonDirectory -and ([string]$needs.Resource -eq 'Network')) 'Besoins de compte de ParkPing'
+    Assert-True ((Get-DomeniaOperationEffect 'ParkPing') -eq 'Read') 'ParkPing nʼest pas classee en lecture.'
+    Assert-True ((Get-DomeniaTaskClass 'ParkPing') -eq 'Explicit') 'Classe de tache'
+    Assert-True ((Get-DomeniaPayloadDigest ([pscustomobject]@{Targets=@();BatchSize=32;Progress=[Collections.Concurrent.ConcurrentQueue[object]]::new()})) -eq '') 'Une demande portant une file de progression serait partagee.'
+    Assert-True ($script:RealRegistry.Contains('ParkPing')) 'ParkPing absent du registre epingle : update_worker_contracts.py --add ParkPing Get-DomeniaParkPingWorkerCode'
+    Assert-True ([string]$script:RealRegistry['ParkPing'] -ceq (Get-DomeniaWorkerCodeHash -Code (Get-DomeniaParkPingWorkerCode))) 'Empreinte de ParkPing differente du corps relu.'
 }
 Test-Case 'W13 (point 118) : dernieres operations mises a jour sur place, selection et ligne gardees' {
     if ($null -eq ('Domenia.Live.OperationRow' -as [type])) { Add-Type -Path (Join-Path $modules 'Domenia-Live.Types.cs') -ErrorAction Stop }

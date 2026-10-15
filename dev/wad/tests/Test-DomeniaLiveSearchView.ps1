@@ -62,7 +62,9 @@ $script:Ctrl=@{};$script:Window=[Windows.Window]::new();$script:Window.Title='Do
 $panel=[Windows.Controls.StackPanel]::new();$script:Window.Content=$panel
 $grid=[Windows.Controls.DataGrid]::new();$grid.AutoGenerateColumns=$true;$grid.IsReadOnly=$true;$grid.CanUserAddRows=$false;$grid.Height=420;$script:Ctrl.DgObjects=$grid;[void]$panel.Children.Add($grid)
 foreach($name in @('TxtSuiteResultFilter','TxtBranchSearch','TxtGlobalSearch','TxtFleetQueryName','TxtFleetMachineFilter')){$script:Ctrl[$name]=[Windows.Controls.TextBox]::new()}
-foreach($name in @('LblSuiteResultCount','LblBranchCount','LblLiveState','LblSearchQuery','LblQueryStatus','LblQuerySegment')){$script:Ctrl[$name]=[Windows.Controls.TextBlock]::new()}
+foreach($name in @('LblSuiteResultCount','LblBranchCount','LblLiveState','LblSearchQuery','LblQueryStatus','LblQuerySegment','LblSearchEmptyTitle','LblSearchEmptyText')){$script:Ctrl[$name]=[Windows.Controls.TextBlock]::new()}
+# UX-03 / W13 (point 119): the one empty state of the result list, which also says what the filter of the list hides.
+$script:Ctrl.UxSearchEmpty=[Windows.Controls.Border]::new();$script:Ctrl.BtnSearchEmptyNext=[Windows.Controls.Button]::new()
 foreach($name in @('CmbQueryJunction','CmbQueryGroupField','CmbFleetMachineState','CmbQueryResult')){$script:Ctrl[$name]=[Windows.Controls.ComboBox]::new()}
 $script:Window.Show()
 $script:Ids=@('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','33333333-3333-4333-8333-333333333333','44444444-4444-4444-8444-444444444444')
@@ -185,6 +187,37 @@ try {
    $script:CurrentPresenceFilter='Tous';$script:Ctrl.TxtSuiteResultFilter.Text='';Apply-DomeniaPresenceFilter
    Expect ($grid.Items.Count -eq 5) 'Clearing local filters failed';Expect-HealthyTimer;Snapshot-Fixture 'all-filters-cleared'
   }
+  # UX-03: unwired if the filter of the list hides every row without saying so, or if clearing it reads anything.
+  Case 'UX-03 A filter hiding every loaded row says how many and clears without any request' {
+   $s=$script:Live.Search;$title=$script:Ctrl.LblSearchEmptyTitle;$detail=$script:Ctrl.LblSearchEmptyText;$next=$script:Ctrl.BtnSearchEmptyNext
+   Expect ([bool]$s.EmptyState) 'Empty state not resolved for this search'
+   $script:Ctrl.TxtSuiteResultFilter.Text='NO-SUCH-ROW';Apply-DomeniaPresenceFilter
+   Expect ($grid.Items.Count -eq 0) 'Filter did not hide every row'
+   Expect ($title.Text -eq ('Le filtre masque '+$s.Rows.Count+' lignes')) ('Counter: '+$title.Text)
+   Expect ($detail.Text.Contains('texte « NO-SUCH-ROW »')) ('Detail: '+$detail.Text)
+   Expect (([string]$next.Content -eq 'Effacer le filtre') -and ([string]$next.Tag -eq 'ClearLocalFilter')) ('Next action: '+[string]$next.Content)
+   $script:CurrentPresenceFilter='En ligne';$script:Ctrl.TxtSuiteResultFilter.Text='';Apply-DomeniaPresenceFilter
+   Expect (($grid.Items.Count -eq 0) -and $detail.Text.Contains('présence : En ligne')) 'Presence filter hiding every row not explained'
+   # The next action of the one empty state, as its button runs it: no request, the rows already loaded come back.
+   Invoke-DomeniaSearchEmptyAction
+   Expect (($grid.Items.Count -eq $s.Rows.Count) -and ($script:CurrentPresenceFilter -eq 'Tous') -and ($script:Ctrl.TxtSuiteResultFilter.Text -eq '')) 'Effacer le filtre did not show the loaded rows again'
+   Expect-HealthyTimer;Snapshot-Fixture 'filtered-empty-state-cleared'
+  }
+  Case 'DS-15 / FI-16 : la ligne porte la cle de presence et son age, le filtre lit la cle et non le libelle' {
+   $s=$script:Live.Search
+   $machine=@($s.Rows|Where-Object{$_.Type -eq 'Machine'})[0];$other=@($s.Rows|Where-Object{$_.Type -ne 'Machine'})[0]
+   Expect ([string]$machine.PresenceState -eq 'Unknown' -and [string]$other.PresenceState -eq 'None') ('Cles initiales : '+[string]$machine.PresenceState+' / '+[string]$other.PresenceState)
+   $observation=[pscustomobject]@{Key=([string]$machine.DN).ToLowerInvariant();Guid=[string]$machine.Guid;Computer=[string]$machine.Name;Outcome='NotRequested';Presence='En ligne';PresenceCheckedUtc=[datetime]::UtcNow.AddHours(-2).AddMinutes(-1).ToString('o');PresenceDetail='Reponse ICMP synthetique'}
+   Set-DomeniaLiveObservationOnRow $machine $observation -Cached
+   Expect ([string]$machine.Presence -eq 'En ligne' -and [string]$machine.PresenceState -eq 'Online' -and [string]$machine.PresenceAge -eq 'il y a 2 h' -and [string]$machine.PresenceCached -eq '1') ('Pastille : '+[string]$machine.Presence+' / '+[string]$machine.PresenceAge)
+   Expect (-not ([string]$machine.Presence).Contains('(cache)')) 'Le suffixe (cache) est revenu dans le libelle.'
+   # The label is reworded: the presence filter still finds the row by its key.
+   $machine.Presence='Joignable (libelle de test)'
+   $script:CurrentPresenceFilter='En ligne';Apply-DomeniaPresenceFilter
+   Expect ($grid.Items.Count -eq 1 -and [object]::ReferenceEquals($grid.Items[0],$machine)) ('Filtre par cle : '+$grid.Items.Count+' ligne(s)')
+   $script:CurrentPresenceFilter='Tous';Apply-DomeniaPresenceFilter
+   Expect ($grid.Items.Count -eq 5) 'Filtre de presence non retire.'
+  }
   Case 'Five thousand machines plus other object types remain complete and filterable' {
    $s=$script:Live.Search;$clock=[Diagnostics.Stopwatch]::StartNew()
    for($i=1;$i -le 4997;$i++){$id='55555555-5555-4555-8555-'+$i.ToString('D12');$s.Progress.Enqueue((New-FixtureEvent ('SCALE-'+$i.ToString('D5')) $id))}
@@ -204,15 +237,70 @@ try {
    Snapshot-Fixture '2500-of-5000-machine-query'
    Invoke-DomeniaQueryAction 'ClearSearch';Expect ($grid.Items.Count -eq 5002) 'Scale ClearSearch failed';Expect-HealthyTimer
   }
-  Case 'A fresh global search restarts and ignores residual local text and presence' {
-   $script:SearchMode='Global';$script:GlobalSearchGeneration++;$script:Ctrl.TxtSuiteResultFilter.Text='NO LOCAL MATCH';$script:CurrentPresenceFilter='En ligne'
+  # CO-05: in a global list the residual OU presence is ignored, the filter of the list applies (Invoke-GlobalSearch
+  # clears it when the search starts; here the text is typed on the global list itself).
+  Case 'A fresh global search ignores the OU presence and honours the filter of the list' {
+   $script:SearchMode='Global';$script:GlobalSearchGeneration++;$script:Ctrl.TxtSuiteResultFilter.Text='';$script:CurrentPresenceFilter='En ligne'
    $scope=Get-DomeniaSearchScope;$state=[pscustomobject]@{Generation=$script:GlobalSearchGeneration;SearchMode='Global';BaseDn=$scope.BaseDn;Scope=$scope.Scope;TypeFilter=(Get-GlobalSelectedTypeFilter);Search='';Limit=10000;PreserveSelectionDn='';ViewId=''}
    $script:Live.Timer.Stop();$s=Begin-DomeniaLiveSearch $state ([pscustomobject]@{})
    $s.Progress.Enqueue((New-FixtureEvent 'GLOBAL-ALPHA' $script:Ids[0]));$s.Progress.Enqueue((New-FixtureEvent 'GLOBAL-USER' $script:Ids[2] 'Utilisateur'))
    Invoke-DomeniaTimerSoon -Owner 'Timer:Live'
    Wait-FixtureState -Stage 'fresh-global-search' -Condition {$s.Progress.IsEmpty -and $s.Rows.Count -eq 2 -and $grid.Items.Count -eq 2}
-   Expect-HealthyTimer;Expect ($s.Rows.Count -eq 2 -and $grid.Items.Count -eq 2) 'New global search inherited local filters or failed to restart'
+   Expect-HealthyTimer;Expect ($s.Rows.Count -eq 2 -and $grid.Items.Count -eq 2) 'New global search inherited the OU presence or failed to restart'
+   $script:Ctrl.TxtSuiteResultFilter.Text='GLOBAL-USER';Apply-DomeniaPresenceFilter
+   Expect (($grid.Items.Count -eq 1) -and ([string]$grid.Items[0].Name -eq 'GLOBAL-USER')) 'The filter of the list does not narrow a global list'
+   Expect ($script:Ctrl.LblSuiteResultCount.Text.Contains('1 / 2 lignes visibles · filtre de la liste')) ('Counter: '+$script:Ctrl.LblSuiteResultCount.Text)
+   $script:Ctrl.TxtSuiteResultFilter.Text='';$script:CurrentPresenceFilter='Tous';Apply-DomeniaPresenceFilter
+   Expect ($grid.Items.Count -eq 2) 'Clearing the filter of the list did not show the global rows again'
    Snapshot-Fixture 'fresh-global-search'
+  }
+  Case 'Point 23: a renamed or moved object keeps one row under its GUID' {
+   $s=$script:Live.Search;$row=@($s.Rows|Where-Object{[string]$_.Guid -ieq $script:Ids[0]})[0]
+   Expect ($null -ne $row) 'Starting row missing'
+   # A revalidation of the displayed list (ScopeReconcile) returns the same GUID under its new DN.
+   $event=New-FixtureEvent 'GLOBAL-ALPHA-2' $script:Ids[0];Add-Member -InputObject $event -NotePropertyName Revalidated -NotePropertyValue $true
+   $s.Progress.Enqueue($event)
+   Invoke-DomeniaTimerSoon -Owner 'Timer:Live'
+   Wait-FixtureState -Stage 'renamed-row' -Condition {$s.Progress.IsEmpty -and @($s.Rows|Where-Object{[string]$_.Name -eq 'GLOBAL-ALPHA-2'}).Count -eq 1}
+   Expect-HealthyTimer
+   Expect ($s.Rows.Count -eq 2 -and $grid.Items.Count -eq 2) ('Renamed object doubled its row: '+$s.Rows.Count)
+   Expect (@($s.Rows|Where-Object{[string]$_.Guid -ieq $script:Ids[0]}).Count -eq 1) 'GUID listed twice'
+   Expect ($s.Map.ContainsKey('cn=global-alpha-2,ou=lab,dc=example,dc=invalid') -and -not $s.Map.ContainsKey('cn=global-alpha,ou=lab,dc=example,dc=invalid')) 'DN key not moved with the object'
+   Expect ([object]::ReferenceEquals($s.Map['cn=global-alpha-2,ou=lab,dc=example,dc=invalid'],$row)) 'The row was replaced instead of updated in place'
+   Expect ([string]$row.DirectoryState -match '^Renommé') ('Row state: '+$row.DirectoryState)
+   Snapshot-Fixture 'renamed-row'
+  }
+  # MO-07: unwired if « Charger la suite » rebuilds the list (new collection, rows read again) instead of resuming it.
+  Case 'MO-07 A continuation keeps the loaded rows and adds only the next ones' {
+   $script:SearchMode='OU';$script:GlobalSearchGeneration++;$script:Ctrl.TxtSuiteResultFilter.Text='';$script:CurrentPresenceFilter='Tous'
+   $scope=Get-DomeniaSearchScope
+   $state=[pscustomobject]@{Generation=$script:GlobalSearchGeneration;SearchMode='OU';BaseDn=$scope.BaseDn;Scope=$scope.Scope;TypeFilter=(Get-GlobalSelectedTypeFilter);Search='';Limit=3;PreserveSelectionDn='';ViewId=''}
+   $s=Begin-DomeniaLiveSearch $state ([pscustomobject]@{})
+   foreach($n in 1..3){$s.Progress.Enqueue((New-FixtureEvent ('PC-PAGE1-'+$n) ('66666666-6666-4666-8666-00000000000'+$n)))}
+   $s.Final=[pscustomobject]@{LimitReached=$true;FilterUsed='(objectCategory=computer)';Partial=$false};$s.Ended=$true
+   Invoke-DomeniaTimerSoon -Owner 'Timer:Live'
+   Wait-FixtureState -Stage 'continuation-first-page' -Condition {$s.Finalized -and $s.Rows.Count -eq 3}
+   $rows=$s.Rows;$first=$s.Rows[0];$grid.SelectedItem=$first
+   $next=[pscustomobject]@{Generation=$script:GlobalSearchGeneration;SearchMode='OU';BaseDn=$scope.BaseDn;Scope=$scope.Scope;TypeFilter=$state.TypeFilter;Search='';Limit=5;PreserveSelectionDn=[string]$first.DN;ViewId='';StoreContext=[pscustomobject]@{RequestId='continuation-fixture'}}
+   $payload=[pscustomobject]@{StreamPageSize=250}
+   $resumed=Resume-DomeniaLiveSearch -State $next -Payload $payload
+   Expect ([object]::ReferenceEquals($resumed,$s) -and [object]::ReferenceEquals($script:Live.Search,$s)) 'The continuation replaced the search object'
+   Expect ([object]::ReferenceEquals($grid.ItemsSource,$rows) -and $s.Rows.Count -eq 3 -and -not $s.Finalized -and [object]::ReferenceEquals($s.State,$next)) 'The rows on screen were dropped or the list was not reopened'
+   Expect ($null -ne $payload.Progress -and $null -ne $payload.StopToken -and [object]::ReferenceEquals($next.LiveState,$s)) 'The worker payload is not attached to the resumed list'
+   Expect ([object]::ReferenceEquals($grid.SelectedItem,$first)) 'The selection was lost by the continuation'
+   # Two new rows, one row already listed (same GUID) and one row beyond the new size.
+   $s.Progress.Enqueue((New-FixtureEvent 'PC-PAGE2-1' '66666666-6666-4666-8666-000000000004'))
+   $s.Progress.Enqueue((New-FixtureEvent 'PC-PAGE1-2' '66666666-6666-4666-8666-000000000002'))
+   $s.Progress.Enqueue((New-FixtureEvent 'PC-PAGE2-2' '66666666-6666-4666-8666-000000000005'))
+   $s.Progress.Enqueue((New-FixtureEvent 'PC-PAGE2-3' '66666666-6666-4666-8666-000000000006'))
+   $s.Final=[pscustomobject]@{LimitReached=$true;FilterUsed='(&(objectCategory=computer)(name>=PC-PAGE1-3))';Partial=$false;Continuation=$true;LastName='PC-PAGE2-2'};$s.Ended=$true
+   Invoke-DomeniaTimerSoon -Owner 'Timer:Live'
+   Wait-FixtureState -Stage 'continuation-second-page' -Condition {$s.Finalized -and $s.Progress.IsEmpty}
+   $names=@($s.Rows|ForEach-Object{[string]$_.Name})
+   Expect ($s.Rows.Count -eq 5 -and ($names -contains 'PC-PAGE1-1') -and ($names -contains 'PC-PAGE2-2') -and -not ($names -contains 'PC-PAGE2-3')) ('Rows after the continuation: '+($names -join ', '))
+   Expect (@($s.Rows|Group-Object DN|Where-Object{$_.Count -gt 1}).Count -eq 0) 'A row already listed was added twice'
+   Expect ($grid.Items.Count -eq 5 -and [object]::ReferenceEquals($grid.ItemsSource,$rows)) 'The grid does not show the five rows of the same list'
+   Expect-HealthyTimer;Snapshot-Fixture 'continuation-two-pages'
   }
  }else{$script:Results.Add([pscustomobject]@{Name='Filter apply/refresh/clear scenarios';Passed=$false;Error='Blocked by reproduced Timer:Live failure; no success inferred.'})}
  Case 'Explicit Fleet chrome button opens the script-local workshop; chart click stays inert' {

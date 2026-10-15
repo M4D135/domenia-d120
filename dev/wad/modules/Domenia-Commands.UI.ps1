@@ -449,7 +449,9 @@ function New-DomeniaPresentationUndoChip {
     $help = 'Revient à la présentation précédente de la liste (' + $text + '). Ctrl+Z dans la liste fait de même. Aucune opération sur lʼannuaire nʼest annulée.'
     $button = [Windows.Controls.Button]::new()
     $button.Content = [string][char]0x21B6 + ' Annuler : ' + $text
-    $button.Margin = '0,0,6,4'; $button.Padding = '8,2'
+    # Same look as the removable criteria chips of the row (Update-DomeniaSearchFilterChips).
+    $button.Margin = [Windows.Thickness]::new(0,0,6,4); $button.Padding = [Windows.Thickness]::new(8,1,8,1); $button.MinHeight = 26; $button.MinWidth = 0
+    try { $button.SetResourceReference([Windows.FrameworkElement]::StyleProperty,'SecondaryButton') } catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
     $button.ToolTip = $help
     [Windows.Controls.ToolTipService]::SetShowOnDisabled($button,$true)
     [Windows.Automation.AutomationProperties]::SetName($button,('Annuler la présentation : ' + $text))

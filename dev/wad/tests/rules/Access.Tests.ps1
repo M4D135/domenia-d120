@@ -205,3 +205,59 @@ Test-Case 'D060' 'Aucun affaiblissement de Windows dans le code livre' {
         Assert-True $check.Safe ($file.Name+' : '+($check.Findings -join ', '))
     }
 }
+Test-Case 'UI-31' 'Secrets : libelles des boutons poses par une seule regle, Copier tout absent en mode valeur unique' {
+    # One value at a time (default): "copy all" is never offered, whatever was read.
+    foreach($readable in @($true,$false)){
+        $v=Get-DomeniaSecretActionView -Single $true -HasRows $true -HasReadableValue $readable -CanUseSelected $true
+        Assert-False $v.CopyAllVisible 'Copier tout affiche en mode valeur unique';Assert-False $v.CopyAllEnabled 'Copier tout actif en mode valeur unique'
+    }
+    $empty=Get-DomeniaSecretActionView -Single $true
+    Assert-Equal 'Afficher la valeur choisie' $empty.ToggleText;Assert-False $empty.ToggleEnabled;Assert-True ($empty.ToggleToolTip -match 'Lister les clés BitLocker') $empty.ToggleToolTip
+    $noSelection=Get-DomeniaSecretActionView -Single $true -HasRows $true
+    Assert-False $noSelection.ToggleEnabled;Assert-True ($noSelection.ToggleToolTip -match 'une seule valeur') $noSelection.ToggleToolTip
+    $chosen=Get-DomeniaSecretActionView -Single $true -HasRows $true -CanUseSelected $true -RevealSeconds 30
+    Assert-Equal 'Afficher la valeur choisie' $chosen.ToggleText;Assert-True $chosen.ToggleEnabled;Assert-True ($chosen.ToggleToolTip -match '30 s') $chosen.ToggleToolTip
+    $metadata=Get-DomeniaSecretActionView -Single $true -HasRows $true -CanUseSelected $true -SelectedMetadata $true -SelectedKind 'BitLocker'
+    Assert-Equal 'Lire et afficher cette clé' $metadata.ToggleText;Assert-Equal 'Copier la clé BitLocker' $metadata.CopyText;Assert-True ($metadata.CopyToolTip -match '^Lit la seule clé') $metadata.CopyToolTip
+    $shown=Get-DomeniaSecretActionView -Single $true -Visible $true -HasRows $true
+    Assert-Equal 'Masquer la valeur' $shown.ToggleText;Assert-True $shown.ToggleEnabled 'Masquer doit rester possible sans selection'
+    # Previous behaviour, only when Features.SecretSingleCopy is off: "copy all" is shown, active once a value is read.
+    $all=Get-DomeniaSecretActionView -Single $false -HasRows $true -HasReadableValue $true
+    Assert-True ($all.CopyAllVisible -and $all.CopyAllEnabled) 'Copier tout absent hors mode valeur unique';Assert-Equal 'Afficher les secrets' $all.ToggleText
+    Assert-Equal 'Masquer les secrets' (Get-DomeniaSecretActionView -Single $false -Visible $true -HasRows $true).ToggleText
+    Assert-False (Get-DomeniaSecretActionView -Single $false -HasRows $true -HasReadableValue $false).CopyAllEnabled 'Copier tout actif sans valeur lue'
+    $laps=Get-DomeniaSecretActionView -Single $true -HasRows $true -CanUseSelected $true -SelectedKind 'Windows LAPS' -ClipboardLimit 'Limite.'
+    Assert-Equal 'Copier le mot de passe LAPS' $laps.CopyText;Assert-True ($laps.CopyEnabled -and ($laps.CopyToolTip -match 'Limite\.$')) $laps.CopyToolTip
+    Assert-False (Get-DomeniaSecretActionView -Single $true -HasRows $true).CopyEnabled 'Copie sans ligne choisie'
+    foreach($v in @($empty,$chosen,$metadata,$shown,$all,$laps)){
+        foreach($text in @($v.ToggleText,$v.ToggleToolTip,$v.CopyText,$v.CopyToolTip,$v.CopyAllToolTip)){Assert-False ([string]$text -match "(?<![\w])[dlnDLN] (?=[aeiouyAEIOUY])") ('Elision manquante : '+$text)}
+    }
+}
+Test-Case 'UX-18' 'Cle BitLocker en huit blocs numerotes a dicter ; une forme douteuse ne donne aucun bloc' {
+    $key='012345-111111-222222-333333-444444-555555-666666-777777'
+    $blocks=@(ConvertTo-DomeniaBitLockerKeyBlocks ('  '+$key+' '))
+    Assert-Equal 8 $blocks.Count
+    for($i=0;$i -lt 8;$i++){Assert-Equal ($i+1) $blocks[$i].Index;Assert-Equal ('Bloc '+($i+1)) $blocks[$i].Label;Assert-Equal ($key.Split('-')[$i]) $blocks[$i].Digits}
+    $arabic=([string][char]0x0660)*6
+    foreach($odd in @('',$null,'012345-111111-222222-333333-444444-555555-666666','01234-111111-222222-333333-444444-555555-666666-777777','012345-111111-222222-333333-444444-555555-666666-777777-888888','0123A5-111111-222222-333333-444444-555555-666666-777777','012345 111111 222222 333333 444444 555555 666666 777777',($arabic+'-111111-222222-333333-444444-555555-666666-777777'),('012345-111111-222222-333333'+[char]10+'-444444-555555-666666-777777'))){
+        Assert-Equal 0 (@(ConvertTo-DomeniaBitLockerKeyBlocks $odd).Count) ('Forme douteuse decoupee : '+[string]$odd)
+    }
+}
+Test-Case 'UX-18' 'Compte a rebours de la cle affichee : secondes arrondies, anneau, prolongation unique' {
+    $now=[datetime]::SpecifyKind([datetime]'2026-10-14T08:00:00',[DateTimeKind]::Utc)
+    $p=Get-DomeniaSecretExposurePolicy;Assert-Equal 30 $p.RevealSeconds;Assert-Equal 30 $p.RevealExtensionSeconds;Assert-Equal 1 $p.RevealExtensions
+    $full=Get-DomeniaSecretRevealCountdown -DeadlineUtc $now.AddSeconds(30) -NowUtc $now -TotalSeconds 30
+    Assert-Equal 30 $full.Remaining;Assert-Equal 1.0 $full.Fraction;Assert-Equal '30 s' $full.Text;Assert-True $full.CanExtend;Assert-False $full.Expired;Assert-Equal 30 $full.ExtensionSeconds
+    Assert-Equal 30 (Get-DomeniaSecretRevealCountdown -DeadlineUtc $now.AddSeconds(29.2) -NowUtc $now -TotalSeconds 30).Remaining 'Arrondi au-dessus'
+    $half=Get-DomeniaSecretRevealCountdown -DeadlineUtc $now.AddSeconds(45) -NowUtc $now -TotalSeconds 60 -Extended $true
+    Assert-Equal 0.75 $half.Fraction;Assert-False $half.CanExtend 'Seconde prolongation proposee'
+    $past=Get-DomeniaSecretRevealCountdown -DeadlineUtc $now.AddSeconds(-3) -NowUtc $now -TotalSeconds 30
+    Assert-True $past.Expired;Assert-Equal 0 $past.Remaining;Assert-Equal 0.0 $past.Fraction;Assert-False $past.CanExtend 'Prolongation apres l echeance'
+    Assert-True (Get-DomeniaSecretRevealCountdown -DeadlineUtc $null -NowUtc $now).Expired 'Echeance inconnue : valeur masquee'
+}
+Test-Case 'UX-18' 'Colonne d identite des secrets nommee selon les lignes lues' {
+    Assert-Equal 'Identifiant de récupération' (Get-DomeniaSecretColumnHeader @('BitLocker','BitLocker'))
+    Assert-Equal 'Compte' (Get-DomeniaSecretColumnHeader @('Windows LAPS','LAPS historique'))
+    Assert-Equal 'Compte ou identifiant' (Get-DomeniaSecretColumnHeader @('BitLocker','Windows LAPS'))
+    Assert-Equal 'Compte ou identifiant' (Get-DomeniaSecretColumnHeader @())
+}

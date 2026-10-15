@@ -194,6 +194,10 @@ Test-Case 'P118' 'Apres une fin : que faire, sans relance automatique ni rejeu d
     Assert-Equal '' (Get-DomeniaTraceAdvice -Outcome 'Succeeded')
     $unknown=Get-DomeniaTraceAdvice -Outcome 'Unknown' -IsWrite $true -Reference '0123abcd'
     Assert-True ($unknown.Contains('relisez')) $unknown;Assert-True ($unknown.Contains('0123abcd')) $unknown
+    # X04/X05: an uncertain write points to the receipts (« opérations à vérifier »), never to a second list.
+    Assert-True ($unknown.Contains('opérations à vérifier')) $unknown
+    Assert-True ((Get-DomeniaTraceAdvice -Outcome 'Failed' -IsWrite $true).Contains('opérations à vérifier')) 'Ecriture en echec sans renvoi vers les recus'
+    Assert-False ((Get-DomeniaTraceAdvice -Outcome 'Failed').Contains('opérations à vérifier')) 'Une lecture ne renvoie pas vers les recus'
     Assert-True ((Get-DomeniaTraceAdvice -Outcome 'Failed' -Category 'AccessDenied').Contains('compte autorisé'))
     Assert-True ((Get-DomeniaTraceAdvice -Outcome 'Failed' -Category 'CredentialsRejected').Contains('verrouillage'))
     Assert-True ((Get-DomeniaTraceAdvice -Outcome 'TimedOut' -IsWrite $true).Contains('jamais une écriture')) 'Une ecriture hors delai n est jamais presentee comme relancable'

@@ -4,20 +4,62 @@
 
 # ---------------------------------------------------------------- D035 LDAP literals
 function ConvertTo-DomeniaLdapLiteral {
-    # RFC 4515 escaping. With -KeepWildcard an asterisk typed by the operator stays a wildcard.
+    # RFC 4515 escaping. With -KeepWildcard an asterisk typed by the operator stays a wildcard and consecutive
+    # asterisks are merged into one (CO-34: 'jean**' would be an invalid substring filter).
+    # CD-13: Escape-LdapValue (core) calls this function; Escape-WLdap (worker common code) is generated from it by
+    # tools/sync_worker_ldap_rules.py. Change it here, then regenerate the worker copy.
     param([AllowEmptyString()][AllowNull()][string]$Value,[switch]$KeepWildcard)
     $builder = [Text.StringBuilder]::new()
+    $previousWildcard = $false
     foreach ($character in ([string]$Value).ToCharArray()) {
+        $wildcard = $false
+        # Numeric cases: under 5.1 a string case compares with the culture and U+00AD (soft hyphen) equals "`0".
         switch ([int]$character) {
             0  { [void]$builder.Append('\00') }
             40 { [void]$builder.Append('\28') }
             41 { [void]$builder.Append('\29') }
-            42 { if ($KeepWildcard) { [void]$builder.Append('*') } else { [void]$builder.Append('\2a') } }
+            42 {
+                if ($KeepWildcard) { $wildcard = $true; if (-not $previousWildcard) { [void]$builder.Append('*') } }
+                else { [void]$builder.Append('\2a') }
+            }
             92 { [void]$builder.Append('\5c') }
             default { [void]$builder.Append($character) }
         }
+        $previousWildcard = $wildcard
     }
     return $builder.ToString()
+}
+
+function Test-DomeniaWildcardOnly {
+    # CO-34: a text made only of asterisks (spaces allowed) names no object: it would list the whole perimeter.
+    param([AllowEmptyString()][AllowNull()][string]$Text)
+    $value = ([string]$Text).Trim()
+    if (-not $value) { return $false }
+    return (($value -replace '[\s*]','').Length -eq 0)
+}
+
+function Get-DomeniaSearchTextCheck {
+    # CO-34: decides, before any request, whether a typed text can be searched. Global (upper bar): a text made only
+    # of asterisks is refused, a text shorter than the minimum too. OU: an empty or asterisk-only text lists the OU
+    # (same as browsing it). Valid=$false means nothing is sent; Reason is the message shown to the operator.
+    param([AllowEmptyString()][AllowNull()][string]$Text,[ValidateSet('Global','OU')][string]$Mode='Global',[int]$MinimumLength=2)
+    $value = ([string]$Text).Trim()
+    $minimum = [Math]::Max(1,$MinimumLength)
+    $result = [pscustomobject]@{Valid=$true;Browse=$false;Reason='';Hint=''}
+    if ($Mode -eq 'OU') { $result.Hint = 'Saisissez au moins ' + $minimum + ' caractères, ou * pour lister toute lʼOU.' }
+    else { $result.Hint = 'Saisissez au moins ' + $minimum + ' caractères : un nom, un identifiant, une adresse ou un poste.' }
+    if (-not $value) { $result.Browse = $true; return $result }
+    if (Test-DomeniaWildcardOnly $value) {
+        if ($Mode -eq 'OU') { $result.Browse = $true; return $result }
+        $result.Valid = $false
+        $result.Reason = 'Saisissez au moins un caractère en plus de * : une étoile seule listerait tout le domaine.'
+        return $result
+    }
+    if (($value -replace '\*','').Trim().Length -lt $minimum) {
+        $result.Valid = $false
+        $result.Reason = $result.Hint
+    }
+    return $result
 }
 
 function Split-DomeniaSearchWords {
@@ -124,28 +166,84 @@ function ConvertTo-DomeniaSearchFilter {
 
 # ---------------------------------------------------------------- D031 / D032 global search and browsing
 function New-DomeniaGlobalSearchRequest {
-    # The top bar always targets the connected domain. It never inherits an OU, a presence filter or a local filter.
+    # The top bar targets the connected domain. It never inherits an OU, a presence filter or a local filter.
+    # FO-05: the chip of the bar may narrow it explicitly to one OU of the domain (-ScopeDn, whole subtree), and its type
+    # selector to one object type (-Type); both are stated in the request (ExplicitScopeDn, ScopeLabel).
     # Only an unambiguous identifier (GUID, SID, DN) replaces the filter; UPN, DOMAINE\compte and FQDN stay explained only.
-    param([AllowEmptyString()][string]$Text,[Parameter(Mandatory=$true)][string]$DomainDn,[int]$Limit=100,[string]$Reader='',[long]$Generation=0)
+    param([AllowEmptyString()][string]$Text,[Parameter(Mandatory=$true)][string]$DomainDn,[int]$Limit=100,[string]$Reader='',[long]$Generation=0,[AllowEmptyString()][string]$ScopeDn='',[AllowEmptyString()][string]$OuName='',[string]$Type='Tous')
     $syntax = ConvertFrom-DomeniaSearchSyntax $Text
     $identifier = Get-DomeniaPastedIdentifier $Text
     $filter = $null
     if ($identifier.Kind -in @('Guid','Sid','DN')) { $filter = [pscustomobject]@{Filter=$identifier.Filter;Valid=$true;Reason='';Costly=$false} }
-    else { $filter = ConvertTo-DomeniaSearchFilter -Text $syntax.FreeText -Type $syntax.Type -Tokens $syntax.Tokens }
+    else {
+        $type = $syntax.Type
+        if ((-not $type) -and $Type -and ($Type -ne 'Tous')) { $type = $Type }
+        $filter = ConvertTo-DomeniaSearchFilter -Text $syntax.FreeText -Type $type -Tokens $syntax.Tokens
+    }
+    $bar = Get-DomeniaSearchBarScope -Choice $(if ($ScopeDn) { 'Ou' } else { 'Everywhere' }) -OuDn $ScopeDn -DomainDn $DomainDn
+    $explicit = ''
+    if ([bool]$bar.Explicit) { $explicit = [string]$bar.BaseDn }
     return [pscustomobject]@{
-        Mode='Global';BaseDn=$DomainDn;Scope='Subtree';PresenceFilter='';LocalFilter='';OuDn=''
+        Mode='Global';BaseDn=[string]$bar.BaseDn;Scope='Subtree';PresenceFilter='';LocalFilter='';OuDn='';ExplicitScopeDn=$explicit
         Text=([string]$Text).Trim();Limit=[Math]::Max(1,[Math]::Min(20000,$Limit))
         Filter=$filter.Filter;Valid=$filter.Valid;Reason=$filter.Reason
         Tokens=$syntax.Tokens;Notes=$syntax.Notes;Identifier=$identifier;Reader=$Reader;Generation=$Generation
-        ScopeLabel='Domaine entier'
+        ScopeLabel=$(if ($explicit) { Get-DomeniaScopeLabel -Mode Browse -OuName $OuName -Subtree $true } else { 'Domaine entier' })
     }
 }
 
 function Test-DomeniaGlobalSearchRequest {
+    # D031 / FO-05: Global, whole subtree, no presence, no local filter, no inherited OU. The base is the domain, or an
+    # OU of that domain chosen explicitly by the chip of the bar (ExplicitScopeDn equal to the base).
     param($Request,[Parameter(Mandatory=$true)][string]$DomainDn)
     if ($null -eq $Request) { return $false }
-    return (([string]$Request.Mode) -eq 'Global' -and ([string]$Request.BaseDn) -ieq $DomainDn -and ([string]$Request.Scope) -eq 'Subtree' -and
-        -not [string]$Request.PresenceFilter -and -not [string]$Request.LocalFilter -and -not [string]$Request.OuDn)
+    $base = [string](Get-DomeniaMember $Request 'BaseDn' '')
+    $explicit = [string](Get-DomeniaMember $Request 'ExplicitScopeDn' '')
+    $baseOk = ($base -ieq $DomainDn)
+    if ((-not $baseOk) -and $explicit) {
+        $baseOk = (($base -ieq $explicit) -and $base.EndsWith(',' + $DomainDn,[StringComparison]::OrdinalIgnoreCase))
+    }
+    return ((([string](Get-DomeniaMember $Request 'Mode' '')) -eq 'Global') -and $baseOk -and (([string](Get-DomeniaMember $Request 'Scope' '')) -eq 'Subtree') -and
+        (-not [string](Get-DomeniaMember $Request 'PresenceFilter' '')) -and (-not [string](Get-DomeniaMember $Request 'LocalFilter' '')) -and (-not [string](Get-DomeniaMember $Request 'OuDn' '')))
+}
+
+# ---------------------------------------------------------------- FO-05 perimeter and type of the upper bar
+function Get-DomeniaSearchBarScope {
+    # FO-05: « Partout » is the connected domain; « Dans « Postes » » is the OU chosen in the tree, sub-OU included. An OU
+    # outside the domain, the domain root itself or no OU leave the bar on the domain (the chip then offers nothing else).
+    param([ValidateSet('Everywhere','Ou')][string]$Choice='Everywhere',[AllowEmptyString()][AllowNull()][string]$OuDn='',[Parameter(Mandatory=$true)][string]$DomainDn)
+    $ou = ([string]$OuDn).Trim()
+    $inside = ([bool]$ou) -and ($ou -ine $DomainDn) -and $ou.EndsWith(',' + $DomainDn,[StringComparison]::OrdinalIgnoreCase)
+    if (($Choice -eq 'Ou') -and $inside) { return [pscustomobject]@{Choice='Ou';BaseDn=$ou;Scope='Subtree';IsDomain=$false;Explicit=$true;OuAvailable=$true} }
+    return [pscustomobject]@{Choice='Everywhere';BaseDn=$DomainDn;Scope='Subtree';IsDomain=$true;Explicit=$false;OuAvailable=$inside}
+}
+
+function Get-DomeniaSearchBarTypes {
+    # FO-05: the type selector of the bar. Key = Get-TypeLdapFilter label (same filters as the OU list).
+    return @(
+        [pscustomobject]@{Key='Tous';Label='Tout';Noun='personne, poste ou groupe'}
+        [pscustomobject]@{Key='Utilisateurs';Label='Personnes';Noun='personne ou compte'}
+        [pscustomobject]@{Key='Machines';Label='Postes';Noun='poste'}
+        [pscustomobject]@{Key='Groupes';Label='Groupes';Noun='groupe'}
+    )
+}
+
+function Get-DomeniaSearchBarText {
+    # FO-05 / L08: what the bar will search, written where the operator looks: the waiting text of the empty field, the
+    # summary above the results and the accessible label of the chip. Pure text, no request.
+    param([ValidateSet('Everywhere','Ou')][string]$Choice='Everywhere',[AllowEmptyString()][string]$OuName='',[string]$Type='Tous')
+    $entry = @(Get-DomeniaSearchBarTypes | Where-Object { $_.Key -eq $Type } | Select-Object -First 1)
+    if (-not $entry.Count) { $entry = @(Get-DomeniaSearchBarTypes)[0..0] }
+    $name = ([string]$OuName).Trim()
+    if (-not $name) { $name = 'OU choisie' }
+    $where = 'dans tout le domaine'
+    $chip = 'Partout'
+    if ($Choice -eq 'Ou') { $where = 'dans « ' + $name + ' » et ses sous-OU'; $chip = 'Dans « ' + $name + ' »' }
+    $noun = [string]$entry[0].Noun
+    $placeholder = $noun.Substring(0,1).ToUpperInvariant() + $noun.Substring(1) + ', ' + $where + '…'
+    $typeText = if ($entry[0].Key -eq 'Tous') { 'Tous les types' } else { [string]$entry[0].Label }
+    $summary = 'Recherche · ' + $chip + ' · ' + $typeText + ' · Aucun filtre de liste'
+    return [pscustomobject]@{Placeholder=$placeholder;Summary=$summary;Chip=$chip;Where=$where;TypeLabel=$typeText}
 }
 
 function New-DomeniaSearchState {
@@ -207,8 +305,12 @@ function Get-DomeniaGlobalSearchPlan {
         }
         foreach ($note in @($syntax.Notes)) { $notes.Add($note) }
     }
+    # An explicit wildcard keeps its own explicit filter in the runtime. A leading one cannot use an index (point 29):
+    # the operator is told before the controller reads every object of the scope.
+    if (($value.Contains('*')) -and (@(Split-DomeniaSearchWords $value | Where-Object { $_.StartsWith('*') }).Count -gt 0)) {
+        $notes.Add('Joker en tête : recherche par sous-chaîne, sans index. Elle peut être longue sur un grand domaine ; préférez le début du nom.')
+    }
     $plan.Hint = ($notes.ToArray() -join ' ')
-    # An explicit wildcard keeps its own explicit filter in the runtime.
     if ($value.Contains('*')) { return $plan }
     $words = @(Split-DomeniaSearchWords $value)
     if ($words.Count -ge 2) {
@@ -341,15 +443,32 @@ function Get-DomeniaResultCounterText {
 
 function Get-DomeniaContinuationDecision {
     # 'Charger la suite' is offered only for a finished, complete-but-limited list below the safety maximum.
-    # The next load relaunches the same query with a larger bound: rows are deduplicated by identity and an
-    # older generation is discarded by the caller.
-    param([bool]$Finalized=$false,[bool]$HasError=$false,[bool]$LimitReached=$false,[int]$Limit=100,[int]$Maximum=20000)
-    if (-not $Finalized) { return [pscustomobject]@{Allowed=$false;NextLimit=$Limit;Reason='Lecture en cours : attendez la fin du chargement.'} }
-    if ($HasError) { return [pscustomobject]@{Allowed=$false;NextLimit=$Limit;Reason='Liste partielle après une erreur : relancez la recherche.'} }
-    if (-not $LimitReached) { return [pscustomobject]@{Allowed=$false;NextLimit=$Limit;Reason='Liste complète : aucune suite à charger.'} }
-    if ($Limit -ge $Maximum) { return [pscustomobject]@{Allowed=$false;NextLimit=$Limit;Reason=('Limite de sécurité de ' + $Maximum + ' lignes atteinte : affinez la recherche.')} }
+    # MO-07: the next load reads only the following rows. NextLimit is the size of the list after it (doubled, 20 000
+    # at most) and Page the rows it still has to read (NextLimit - Loaded); the rows already loaded are never read
+    # again. JumpLimit is the next step of « Charger jusquʼà 1 000 » (then 5 000, then the maximum), 0 when it would
+    # read no more than the next load. $Loaded < 0 means the list holds exactly $Limit rows.
+    param([bool]$Finalized=$false,[bool]$HasError=$false,[bool]$LimitReached=$false,[int]$Limit=100,[int]$Maximum=20000,[int]$Loaded=-1)
+    $culture = [Globalization.CultureInfo]::GetCultureInfo('fr-FR')
+    $result = [pscustomobject]@{Allowed=$false;NextLimit=$Limit;Page=0;JumpLimit=0;JumpPage=0;JumpText='';Reason=''}
+    if (-not $Finalized) { $result.Reason = 'Lecture en cours : attendez la fin du chargement.'; return $result }
+    if ($HasError) { $result.Reason = 'Liste partielle après une erreur : relancez la recherche.'; return $result }
+    if (-not $LimitReached) { $result.Reason = 'Liste complète : aucune suite à charger.'; return $result }
+    if ($Limit -ge $Maximum) { $result.Reason = 'Limite de sécurité de ' + $Maximum.ToString('N0',$culture) + ' lignes atteinte : affinez la recherche.'; return $result }
+    $loadedRows = $Limit
+    if ($Loaded -ge 0) { $loadedRows = [Math]::Min($Loaded,$Limit) }
     $next = [Math]::Max($Limit + 1,[Math]::Min($Maximum,$Limit * 2))
-    return [pscustomobject]@{Allowed=$true;NextLimit=$next;Reason=('Relit la même recherche jusquʼà ' + $next + ' lignes, sans doublon.')}
+    $result.Allowed = $true
+    $result.NextLimit = $next
+    $result.Page = [Math]::Max(1,$next - $loadedRows)
+    foreach ($step in @(1000,5000,$Maximum)) {
+        if (($step -gt $next) -and ($step -le $Maximum)) { $result.JumpLimit = $step; break }
+    }
+    if ($result.JumpLimit -gt 0) {
+        $result.JumpPage = $result.JumpLimit - $loadedRows
+        $result.JumpText = 'Charger jusquʼà ' + $result.JumpLimit.ToString('N0',$culture)
+    }
+    $result.Reason = 'Lit les ' + $result.Page.ToString('N0',$culture) + ' lignes suivantes (liste portée à ' + $next.ToString('N0',$culture) + ' lignes), sans relire les lignes déjà chargées.'
+    return $result
 }
 
 function New-DomeniaContinuation {
@@ -358,6 +477,74 @@ function New-DomeniaContinuation {
     $filter = $BaseFilter
     if ($LastName) { $filter = '(&' + $BaseFilter + '(name>=' + (ConvertTo-DomeniaLdapLiteral $LastName) + '))' }
     return [pscustomobject]@{Filter=$filter;SortAttribute='name';PageSize=[Math]::Max(10,[Math]::Min(1000,$PageSize));Reader=$Reader;Generation=$Generation;BaseDn=$BaseDn;AfterName=$LastName}
+}
+
+# ---------------------------------------------------------------- FO-01 « contains » search on an explicit gesture
+function New-DomeniaContainsFilter {
+    # FO-01: the names that CONTAIN the typed words, without any syntax to learn: each word must appear inside the name,
+    # the display name, the account name or the DNS name (AND between words, OR between attributes). Up to 4 words of
+    # 2 characters at least; the words are RFC 4515 literals (a typed '*' is a character here, never a wildcard).
+    # Valid=$false: nothing is sent and Reason says why.
+    param([AllowEmptyString()][AllowNull()][string]$Text,[Parameter(Mandatory=$true)][string]$TypeFilter)
+    $words = @(Split-DomeniaSearchWords $Text | Select-Object -Unique)
+    $result = [pscustomobject]@{Valid=$false;Filter='';Words=@();Reason=''}
+    if (($words.Count -eq 0) -or ($words.Count -gt 4)) { $result.Reason = 'Saisissez de un à quatre mots pour chercher les noms qui les contiennent.'; return $result }
+    $blocks = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($word in $words) {
+        if (([string]$word).Replace('*','').Length -lt 2) { $result.Reason = 'Chaque mot doit compter au moins 2 caractères pour chercher les noms qui le contiennent.'; return $result }
+        $literal = ConvertTo-DomeniaLdapLiteral ([string]$word)
+        $parts = @('name','displayName','sAMAccountName','dNSHostName' | ForEach-Object { '(' + $_ + '=*' + $literal + '*)' })
+        $blocks.Add('(|' + ($parts -join '') + ')')
+    }
+    $inner = $blocks[0]
+    if ($blocks.Count -gt 1) { $inner = '(&' + ($blocks.ToArray() -join '') + ')' }
+    $result.Valid = $true
+    $result.Filter = '(&' + $TypeFilter + $inner + ')'
+    $result.Words = $words
+    return $result
+}
+
+function Get-DomeniaContainsSearchOffer {
+    # FO-01: when the upper bar finds few names or none, the list offers « Chercher aussi les noms qui contiennent
+    # « compta » ». Only for a finished, complete global search of plain text (no explicit token, pasted identifier or
+    # wildcard), not already a « contains » search, and with at most $Threshold rows. The offer only shows a chip: the
+    # read starts on its click, with the same limit and the same perimeter.
+    param([AllowEmptyString()][AllowNull()][string]$Text,[string]$Mode='Global',[string]$PlanKind='Default',[string]$MatchMode='',
+        [int]$Loaded=0,[bool]$Finalized=$false,[bool]$HasError=$false,[bool]$LimitReached=$false,[string]$ViewId='',[int]$Threshold=5)
+    $value = ([string]$Text).Trim()
+    $hidden = [pscustomobject]@{Show=$false;Term='';Label='';Tip=''}
+    if (($Mode -ne 'Global') -or $ViewId -or (-not $Finalized) -or $HasError -or $LimitReached) { return $hidden }
+    if (($MatchMode -eq 'Contains') -or ($PlanKind -notin @('','Default')) -or (-not $value) -or $value.Contains('*')) { return $hidden }
+    if ($Loaded -gt [Math]::Max(0,$Threshold)) { return $hidden }
+    if (-not [bool](New-DomeniaContainsFilter -Text $value -TypeFilter '(objectClass=*)').Valid) { return $hidden }
+    $label = 'Chercher aussi les noms qui contiennent « ' + $value + ' »'
+    $tip = 'Relance la même recherche (même périmètre, même type, même limite) sur les noms, noms affichés, comptes et noms DNS qui contiennent ce texte, pas seulement ceux qui commencent par lui. Plus lent : lʼannuaire parcourt tous les noms du périmètre. Rien nʼest lu avant le clic.'
+    return [pscustomobject]@{Show=$true;Term=$value;Label=$label;Tip=$tip}
+}
+
+function New-DomeniaContinuationRequest {
+    # MO-07: what « Charger la suite » sends to the search worker. The filter that produced the list ($FilterUsed) is
+    # read again from the last name of the previous continuation ($Cursor, '' the first time: the rows of a first,
+    # unsorted list may have any name), sorted by name on the server. The DNs already listed ($LoadedDns) are skipped
+    # by the worker, so only $Target - $Loaded new rows are added; nothing already loaded is published twice.
+    # Valid=$false: nothing is sent and Reason says why (the caller falls back to reading the whole list again).
+    param([AllowEmptyString()][AllowNull()][string]$FilterUsed='',[AllowEmptyString()][AllowNull()][string]$Cursor='',[string[]]$LoadedDns=@(),
+        [int]$Loaded=0,[int]$Target=0,[int]$PageSize=250,[string]$Reader='',[long]$Generation=0,[string]$BaseDn='')
+    $filter = ([string]$FilterUsed).Trim()
+    $invalid = [pscustomobject]@{Valid=$false;Reason='';Filter='';SortAttribute='';AfterName='';Page=0;Target=$Target;KnownKeys=@();Reader=$Reader;Generation=$Generation;BaseDn=$BaseDn}
+    if ((-not $filter) -or (-not $filter.StartsWith('(')) -or (-not $filter.EndsWith(')')) -or ($filter.Length -gt 16000)) { $invalid.Reason = 'Filtre de la liste inconnu : la suite relit toute la recherche.'; return $invalid }
+    if ($Target -le $Loaded) { $invalid.Reason = 'Aucune ligne supplémentaire demandée.'; return $invalid }
+    $known = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    $keys = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($dn in @($LoadedDns)) {
+        $key = ([string]$dn).Trim().ToLowerInvariant()
+        if ($key -and $known.Add($key)) { $keys.Add($key) }
+    }
+    $continuation = New-DomeniaContinuation -BaseFilter $filter -LastName ([string]$Cursor) -PageSize $PageSize -Reader $Reader -Generation $Generation -BaseDn $BaseDn
+    return [pscustomobject]@{
+        Valid=$true;Reason='';Filter=[string]$continuation.Filter;SortAttribute=[string]$continuation.SortAttribute;AfterName=[string]$continuation.AfterName
+        PageSize=[int]$continuation.PageSize;Page=($Target - $Loaded);Target=$Target;KnownKeys=$keys.ToArray();Reader=$Reader;Generation=$Generation;BaseDn=$BaseDn
+    }
 }
 
 function Test-DomeniaContinuationCurrent {
@@ -411,7 +598,8 @@ function Get-DomeniaWorkViewPlan {
 
 function Get-DomeniaSearchQueryCatalog {
     # A shared selector, not a shared data source: LDAP views keep their original semantics.
-    param([object[]]$Saved=@(),[string[]]$Favorites=@(),[datetime]$NowUtc=[datetime]::UtcNow)
+    # Delivered models are passed in once prepared off the UI thread (point 61); this function never builds them.
+    param([object[]]$Saved=@(),[string[]]$Favorites=@(),[datetime]$NowUtc=[datetime]::UtcNow,[object[]]$Templates=@(),[hashtable]$Categories=$null)
     $favoriteSet=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
     foreach($id in $Favorites){if($id){[void]$favoriteSet.Add($id)}}
     foreach($view in @(Get-DomeniaWorkViews -NowUtc $NowUtc)){
@@ -419,9 +607,10 @@ function Get-DomeniaSearchQueryCatalog {
         $key='ad:'+$view.Id
         [pscustomobject]@{Id=$key;Tag=$key;Name=$view.Name;DisplayName=('Annuaire · '+$type+' · '+$view.Name);SourceId='Ad';Source='Annuaire en direct';TypeLabel=$type;Category='Annuaire';Description=[string]$view.Note;SearchText=($view.Name+' Annuaire '+$type+' '+$view.Note);Favorite=$favoriteSet.Contains($key);ViewId=$view.Id;Recipe=$null}
     }
-    foreach($recipe in @(@(Get-DomeniaQueryTemplates)+@($Saved))){
+    foreach($recipe in @(@($Templates)+@($Saved))){
         if($null -eq $recipe){continue}
         $key='local:'+$recipe.Id;$category=[string](Get-DomeniaMember $recipe 'Category' 'Mes requêtes')
+        if($null -ne $Categories -and [string]$recipe.Id -notlike 'template.*' -and [string]$Categories[[string]$recipe.Id]){$category=[string]$Categories[[string]$recipe.Id]}
         $description=[string](Get-DomeniaMember $recipe 'Description' 'Requête enregistrée, calculée sur les postes de la base locale.')
         [pscustomobject]@{Id=$key;Tag=$key;Name=$recipe.Name;DisplayName=('Données locales · '+$recipe.Name);SourceId='Local';Source='Base locale et relevés datés';TypeLabel='Postes';Category=$category;Description=$description;SearchText=($recipe.Name+' '+$category+' '+$description+' Données locales postes');Favorite=$favoriteSet.Contains($key);ViewId='';Recipe=$recipe}
     }
@@ -457,6 +646,27 @@ function ConvertTo-DomeniaSavedView {
         Limit=[Math]::Max(1,[Math]::Min(20000,$limit))
         ViewId=[string](Get-DomeniaMember $View 'ViewId' '')
     }
+}
+
+# ---------------------------------------------------------------- CO-33 ADsPath
+function ConvertTo-DomeniaAdsPathDn {
+    # CO-33: in an ADsPath (LDAP://server/DN) the '/' separates the server from the DN, so a '/' inside an RDN value
+    # ('OU=Compta/Paie') must be written '\/'. A backslash escapes exactly one character (RFC 4514 pair or the first
+    # character of a hex pair): an escaped pair is copied as it is, so '\/' is never escaped twice and '\\/' (escaped
+    # backslash, then a slash) gets its slash escaped. Escape-WLdap's twin ConvertTo-WAdsPathDn is generated from it.
+    param([AllowEmptyString()][AllowNull()][string]$Dn)
+    $text = [string]$Dn
+    if ($text.IndexOf([char]47) -lt 0) { return $text }
+    $builder = [Text.StringBuilder]::new($text.Length + 8)
+    $i = 0
+    while ($i -lt $text.Length) {
+        $c = $text[$i]
+        if (($c -eq [char]92) -and (($i + 1) -lt $text.Length)) { [void]$builder.Append($c).Append($text[$i + 1]); $i += 2; continue }
+        if ($c -eq [char]47) { [void]$builder.Append([char]92) }
+        [void]$builder.Append($c)
+        $i++
+    }
+    return $builder.ToString()
 }
 
 # ---------------------------------------------------------------- D039 readable OU paths
@@ -557,7 +767,9 @@ function New-DomeniaNavHistory {
 function Get-DomeniaNavStateKey {
     param($State)
     if ($null -eq $State) { return '' }
-    return (@('Page','Tab','Mode','Text','OuDn','SelectionGuid','ViewId','QuerySelection') | ForEach-Object { [string](Get-DomeniaMember $State $_ '') }) -join '|'
+    # FO-05: the same text searched « Partout » and « Dans « Postes » », or for another type, is another place.
+    # FO-01: so is the « contains » list of a text.
+    return (@('Page','Tab','Mode','Text','OuDn','SelectionGuid','ViewId','QuerySelection','BarScope','BarType','MatchMode') | ForEach-Object { [string](Get-DomeniaMember $State $_ '') }) -join '|'
 }
 
 function Push-DomeniaNavState {
@@ -730,4 +942,203 @@ function Set-DomeniaOuFavouriteState {
     if ($index -lt 0) { return [pscustomobject]@{Favourites=$list.ToArray();Changed=$false;Reason='Cette OU nʼest pas dans les favoris.'} }
     $list.RemoveAt($index)
     return [pscustomobject]@{Favourites=$list.ToArray();Changed=$true;Reason=''}
+}
+
+# ---------------------------------------------------------------- W08 navigation: OU labels, exact history, OU choice
+function Get-DomeniaOuPathNames {
+    # Point 52: OU and container names of a DN, from the leaf upward, decoded for display. DC components are left
+    # out. The names are written to the pipeline: wrap the call in @().
+    param([AllowEmptyString()][AllowNull()][string]$Dn)
+    foreach ($part in @(Split-DomeniaDn $Dn)) {
+        $text = [string]$part
+        $equals = $text.IndexOf('=')
+        if (($equals -lt 1) -or ($text.Substring(0,$equals).Trim() -ieq 'DC')) { continue }
+        ConvertFrom-DomeniaDnValue ($text.Substring($equals + 1))
+    }
+}
+
+function Get-DomeniaOuDistinctLabels {
+    # Point 52: two OU with the same name are told apart by their nearest differing parents, for example
+    # 'Postes (Lyon)' and 'Postes (Paris)'. Display only: the exact DN stays the identity and the search root.
+    # One record per distinct DN, in input order, is written to the pipeline.
+    param([AllowEmptyCollection()][string[]]$Dn,[ValidateRange(1,2000)][int]$Maximum=500)
+    $entries = [Collections.Generic.List[object]]::new()
+    $seen = @{}
+    foreach ($value in @($Dn)) {
+        $text = ([string]$value).Trim()
+        if ((-not $text) -or ($text.Length -gt 4096)) { continue }
+        $key = $text.ToLowerInvariant()
+        if ($seen.ContainsKey($key)) { continue }
+        if ($entries.Count -ge $Maximum) { break }
+        $seen[$key] = $true
+        $names = @(Get-DomeniaOuPathNames $text)
+        $full = Get-DomeniaOuDisplayPath $text
+        $leaf = if ($names.Count) { [string]$names[0] } else { $full }
+        $entries.Add([pscustomobject]@{DN=$text;Names=$names;Leaf=$leaf;Label=$leaf;FullPath=$full;Ambiguous=$false})
+    }
+    $groups = @{}
+    foreach ($entry in $entries) {
+        $fold = ([string]$entry.Leaf).ToLowerInvariant()
+        if (-not $groups.ContainsKey($fold)) { $groups[$fold] = [Collections.Generic.List[object]]::new() }
+        $groups[$fold].Add($entry)
+    }
+    foreach ($group in @($groups.Values)) {
+        if ($group.Count -lt 2) { continue }
+        $unique = $false
+        # Widen every label of the group one parent at a time until the labels differ or no parent is left.
+        for ($depth = 1; $depth -le 64; $depth++) {
+            $labels = @{}
+            $exhausted = $true
+            foreach ($entry in $group) {
+                $entry.Ambiguous = $true
+                $count = [Math]::Min($depth,$entry.Names.Count - 1)
+                $qualifier = 'racine du domaine'
+                if ($count -gt 0) { $qualifier = (@($entry.Names[$count..1]) -join ' / ') }
+                if (($entry.Names.Count - 1) -gt $depth) { $exhausted = $false }
+                $entry.Label = [string]$entry.Leaf + ' (' + $qualifier + ')'
+                $fold = $entry.Label.ToLowerInvariant()
+                if ($labels.ContainsKey($fold)) { $labels[$fold]++ } else { $labels[$fold] = 1 }
+            }
+            $unique = (@($labels.Values | Where-Object { $_ -gt 1 }).Count -eq 0)
+            if (($unique) -or ($exhausted)) { break }
+        }
+        # Same names up to the domain: the readable full path, domain included, is the remaining distinction.
+        if (-not $unique) { foreach ($entry in $group) { $entry.Label = [string]$entry.Leaf + ' (' + [string]$entry.FullPath + ')' } }
+    }
+    foreach ($entry in $entries) { [pscustomobject]@{DN=$entry.DN;Label=$entry.Label;FullPath=$entry.FullPath;Ambiguous=[bool]$entry.Ambiguous} }
+}
+
+function Get-DomeniaNavRowKey {
+    # Point 55: identity of a result row for the history: its AD GUID, else its exact DN, else ''.
+    param($Row)
+    if ($null -eq $Row) { return '' }
+    $guid = [guid]::Empty
+    if (([guid]::TryParse([string](Get-DomeniaMember $Row 'Guid' ''),[ref]$guid)) -and ($guid -ne [guid]::Empty)) { return ('g:' + $guid.ToString('D')) }
+    $dn = ([string](Get-DomeniaMember $Row 'DN' '')).Trim()
+    if ($dn) { return ('d:' + $dn.ToLowerInvariant()) }
+    return ''
+}
+
+function Get-DomeniaNavSelectionKeys {
+    # Point 55: the selected rows of a list, by identity and in their order, bounded. A row without identity cannot
+    # be found again and is counted as such instead of being guessed.
+    param([AllowEmptyCollection()][object[]]$Rows,[ValidateRange(1,20000)][int]$Maximum=500)
+    $keys = [Collections.Generic.List[string]]::new()
+    $seen = @{}
+    $unidentified = 0
+    $truncated = $false
+    foreach ($row in @($Rows)) {
+        if ($null -eq $row) { continue }
+        $key = Get-DomeniaNavRowKey $row
+        if (-not $key) { $unidentified++; continue }
+        if ($seen.ContainsKey($key)) { continue }
+        if ($keys.Count -ge $Maximum) { $truncated = $true; break }
+        $seen[$key] = $true
+        $keys.Add($key)
+    }
+    return [pscustomobject]@{Keys=$keys.ToArray();Unidentified=$unidentified;Truncated=$truncated}
+}
+
+function Get-DomeniaNavSortState {
+    # Point 55: the sort of a list (field and direction), validated and bounded, as remembered by the history.
+    param([AllowEmptyCollection()][object[]]$Sort)
+    $out = [Collections.Generic.List[object]]::new()
+    $seen = @{}
+    foreach ($item in @($Sort)) {
+        if ($null -eq $item) { continue }
+        $field = [string](Get-DomeniaMember $item 'Field' '')
+        $direction = [string](Get-DomeniaMember $item 'Direction' '')
+        if (($field -cnotmatch '^[A-Za-z][A-Za-z0-9_]{0,79}$') -or ($direction -notin @('Ascending','Descending')) -or ($seen.ContainsKey($field))) { continue }
+        if ($out.Count -ge 8) { break }
+        $seen[$field] = $true
+        $out.Add([pscustomobject]@{Field=$field;Direction=$direction})
+    }
+    # Written to the pipeline: wrap the call in @().
+    return $out.ToArray()
+}
+
+function Get-DomeniaNavLimit {
+    # Point 55: the size of a remembered list (its loaded page), as the history keeps it: an integer from 1 to
+    # 20 000, or 0 when the value is missing or unreadable, in which case the limit shown is left as it is.
+    param($Value)
+    $limit = 0
+    $text = ([string]$Value).Trim()
+    if (-not [int]::TryParse($text,[Globalization.NumberStyles]::None,[Globalization.CultureInfo]::InvariantCulture,[ref]$limit)) { return 0 }
+    if (($limit -lt 1) -or ($limit -gt 20000)) { return 0 }
+    return $limit
+}
+
+function Get-DomeniaNavTreePlan {
+    # Point 55: the OU branches open at a history step are opened again only when they are already read; a branch
+    # open since then is folded. A remembered branch that is no longer read is counted, never read again here.
+    # $Nodes: DN, Loaded, Expanded of the tree items realized now. $Missing: remembered DNs absent from their read
+    # parent branch (moved or deleted since): counted in Missing, not as unread branches.
+    param([AllowEmptyCollection()][string[]]$Remembered,[AllowEmptyCollection()][object[]]$Nodes,[AllowEmptyCollection()][string[]]$Missing=@())
+    $wanted = @{}
+    foreach ($dn in @($Remembered)) { $text = ([string]$dn).Trim(); if ($text) { $wanted[$text.ToLowerInvariant()] = $text } }
+    $expand = [Collections.Generic.List[string]]::new()
+    $collapse = [Collections.Generic.List[string]]::new()
+    $loaded = @{}
+    $seen = @{}
+    foreach ($node in @($Nodes)) {
+        $dn = ([string](Get-DomeniaMember $node 'DN' '')).Trim()
+        if (-not $dn) { continue }
+        $key = $dn.ToLowerInvariant()
+        if ($seen.ContainsKey($key)) { continue }
+        $seen[$key] = $true
+        $isLoaded = [bool](Get-DomeniaMember $node 'Loaded' $false)
+        $isExpanded = [bool](Get-DomeniaMember $node 'Expanded' $false)
+        if ($isLoaded) { $loaded[$key] = $true }
+        if ($wanted.ContainsKey($key)) { if (($isLoaded) -and (-not $isExpanded)) { $expand.Add($dn) } }
+        elseif ($isExpanded) { $collapse.Add($dn) }
+    }
+    $absent = @{}
+    foreach ($dn in @($Missing)) { $text = ([string]$dn).Trim(); if ($text) { $absent[$text.ToLowerInvariant()] = $true } }
+    $unread = @($wanted.Keys | Where-Object { (-not $loaded.ContainsKey($_)) -and (-not $absent.ContainsKey($_)) } | ForEach-Object { $wanted[$_] })
+    $gone = @($wanted.Keys | Where-Object { (-not $loaded.ContainsKey($_)) -and ($absent.ContainsKey($_)) } | ForEach-Object { $wanted[$_] })
+    return [pscustomobject]@{Expand=$expand.ToArray();Collapse=$collapse.ToArray();Unread=$unread;UnreadCount=$unread.Count;Missing=$gone;MissingCount=$gone.Count}
+}
+
+function Get-DomeniaOuChoiceSummary {
+    # Point 54: what the shared OU picker is about to apply, stated before the operator confirms: the readable path,
+    # the depth (imposed by the page or chosen) and the effect of the page that asked. Text only.
+    param([AllowEmptyString()][string]$Dn='',[AllowEmptyString()][string]$DomainDn='',[ValidateSet('None','Subtree','Choice')][string]$DepthMode='None',[bool]$Subtree=$true,[AllowEmptyString()][string]$Purpose='')
+    $target = ([string]$Dn).Trim()
+    $domain = ([string]$DomainDn).Trim()
+    if (-not $target) { return 'Aucune OU choisie : développez une branche ou recherchez une OU, puis sélectionnez-la.' }
+    if (([bool]$domain) -and ($target -ine $domain) -and (-not $target.EndsWith(',' + $domain,[StringComparison]::OrdinalIgnoreCase))) { return 'Cette OU nʼappartient pas au domaine de la session : elle ne peut pas être choisie.' }
+    $parts = [Collections.Generic.List[string]]::new()
+    $parts.Add('Choix : ' + (Get-DomeniaOuDisplayPath $target))
+    if ($DepthMode -eq 'Subtree') { $parts.Add('Portée : cette OU et toutes ses sous-OU (imposée par cette page)') }
+    elseif ($DepthMode -eq 'Choice') { $parts.Add($(if ($Subtree) { 'Portée : cette OU et ses sous-OU' } else { 'Portée : cette OU seulement, sans ses sous-OU' })) }
+    $effect = ([string]$Purpose).Trim()
+    if ($effect) { $parts.Add($effect) }
+    $parts.Add('Choisir revérifie cette OU dans lʼannuaire avant de lʼappliquer.')
+    return ($parts.ToArray() -join ' · ')
+}
+
+function Get-DomeniaOuFavouriteChoices {
+    # Point 54: the OU favourites offered by every OU picker: inside the session domain, never the domain itself,
+    # in their pinned order, labelled so that two OU of the same name stay distinct. One record per favourite.
+    param([AllowEmptyCollection()][object[]]$Favourites,[string]$DomainDn,[ValidateRange(1,200)][int]$Maximum=50)
+    $valid = [Collections.Generic.List[object]]::new()
+    $seen = @{}
+    foreach ($item in @($Favourites)) {
+        $favourite = ConvertTo-DomeniaOuFavourite $item $DomainDn
+        if ($null -eq $favourite) { continue }
+        $key = ([string]$favourite.DN).ToLowerInvariant()
+        if (([string]$favourite.DN -ieq $DomainDn) -or ($seen.ContainsKey($key))) { continue }
+        if ($valid.Count -ge $Maximum) { break }
+        $seen[$key] = $true
+        $valid.Add($favourite)
+    }
+    $labels = @{}
+    foreach ($entry in @(Get-DomeniaOuDistinctLabels -Dn @($valid | ForEach-Object { [string]$_.DN }))) { $labels[([string]$entry.DN).ToLowerInvariant()] = $entry }
+    foreach ($favourite in $valid) {
+        $entry = $labels[([string]$favourite.DN).ToLowerInvariant()]
+        $label = [string]$favourite.Name
+        if (($null -ne $entry) -and ([bool]$entry.Ambiguous)) { $label = [string]$entry.Label }
+        $path = if ($null -ne $entry) { [string]$entry.FullPath } else { Get-DomeniaOuDisplayPath ([string]$favourite.DN) }
+        [pscustomobject]@{DN=[string]$favourite.DN;Label=$label;FullPath=$path}
+    }
 }

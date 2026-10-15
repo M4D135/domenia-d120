@@ -17,7 +17,7 @@ namespace Domenia.Live {
             if (handler != null) handler(this, new PropertyChangedEventArgs(name));
         }
         // Dictionary (mscorlib), not HashSet (System.Core): Add-Type of Windows PowerShell 5.1 does not reference System.Core.
-        private static readonly Dictionary<string,bool> Allowed = new Dictionary<string,bool>(StringComparer.Ordinal) {{"Type",true},{"Name",true},{"Login",true},{"UPN",true},{"Mail",true},{"Description",true},{"Changed",true},{"DN",true},{"State",true},{"OS",true},{"LastLogon",true},{"Guid",true},{"Association",true},{"LinkSource",true},{"LinkConfidence",true},{"Presence",true},{"PresenceDetail",true},{"SessionDisplay",true},{"SessionState",true},{"SessionSource",true},{"SessionChecked",true},{"SessionObserved",true},{"SessionDetail",true},{"DirectoryState",true},{"DirectoryChecked",true},{"Rank",true},{"Admin",true}};
+        private static readonly Dictionary<string,bool> Allowed = new Dictionary<string,bool>(StringComparer.Ordinal) {{"Type",true},{"Name",true},{"Login",true},{"UPN",true},{"Mail",true},{"Description",true},{"Changed",true},{"DN",true},{"State",true},{"OS",true},{"LastLogon",true},{"Guid",true},{"Association",true},{"LinkSource",true},{"LinkConfidence",true},{"Presence",true},{"PresenceDetail",true},{"SessionDisplay",true},{"SessionState",true},{"SessionSource",true},{"SessionChecked",true},{"SessionObserved",true},{"SessionDetail",true},{"DirectoryState",true},{"DirectoryChecked",true},{"Rank",true},{"Admin",true},{"PresenceState",true},{"PresenceAge",true},{"PresenceCached",true},{"ProbePending",true},{"DirectoryFresh",true}};
         public string Type { get { return Read("Type"); } set { Set("Type", value); } }
         public string Name { get { return Read("Name"); } set { Set("Name", value); } }
         public string Login { get { return Read("Login"); } set { Set("Login", value); } }
@@ -46,6 +46,15 @@ namespace Domenia.Live {
         // D034: relevance rank (0 = exact identifier) and administration-account marker; display only.
         public string Rank { get { return Read("Rank"); } set { Set("Rank", value); } }
         public string Admin { get { return Read("Admin"); } set { Set("Admin", value); } }
+        // FI-16 / DS-15: presence state key (Online, NoReply, Error, Pending, Unknown, None), discreet age of the measure,
+        // '1' when the value comes from an earlier session, '1' while a list survey still has to read the row (UX-12),
+        // and the freshness key of the directory values (Verified, Cached, Warning). Read by the pill, the colour and the
+        // presence filter; never by a write or a remote action.
+        public string PresenceState { get { return Read("PresenceState"); } set { Set("PresenceState", value); } }
+        public string PresenceAge { get { return Read("PresenceAge"); } set { Set("PresenceAge", value); } }
+        public string PresenceCached { get { return Read("PresenceCached"); } set { Set("PresenceCached", value); } }
+        public string ProbePending { get { return Read("ProbePending"); } set { Set("ProbePending", value); } }
+        public string DirectoryFresh { get { return Read("DirectoryFresh"); } set { Set("DirectoryFresh", value); } }
     }
     // UX-32 / PF-12: one row of the operations panel, updated in place (state, duration) instead of rebuilding the grid,
     // so that the selection, the scroll position and the focus stay where the operator left them. W13 (point 118): the

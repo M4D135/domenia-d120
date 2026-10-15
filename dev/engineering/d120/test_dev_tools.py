@@ -127,6 +127,11 @@ class WordingAuditTests(unittest.TestCase):
         self.assertIn(('Show-WarningBox', 'accent'), kinds); self.assertIn(('MessageBox', 'accent'), kinds)
         self.assertNotIn('Etat', [r['Text'] for r in rows], 'a comparison is not a label')
 
+    def test_variables_are_code_not_wording(self):
+        self.write('Set-Status "Erreur : $detail ${elapsed}s $($row.Etat)" \'WARN\'\nSet-Status "$name : $detail (Verifie)"\n')
+        rows = audit_wording.findings(self.root)
+        self.assertEqual([(r['Rule'], r['Words']) for r in rows], [('accent', ['Verifie'])])
+
     def test_ratchet_fails_on_new_text_and_only_goes_down(self):
         self.write("<TextBlock Text=\"Etat\"/>\n<TextBlock Text=\"Etat\"/>\n")
         self.assertEqual(self.audit('--init', '--source', 'test'), 0)

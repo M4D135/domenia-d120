@@ -14,6 +14,8 @@ function Get-DomeniaExperienceVisibleRows {
 }
 
 function Get-DomeniaExperienceExportRows {
+    # Former implicit rule (UX-02), kept for the maintenance preview only. Since point 60 the Rechercher export and
+    # surveys use the scope chosen beside the results (Get-DomeniaSearchSelectionPlan, Domenia-SearchWorkspace).
     param($VisibleRows,$SelectedRows)
     $visible=@($VisibleRows|Where-Object{$null -ne $_})
     $selected=@($SelectedRows|Where-Object{$null -ne $_})
@@ -67,6 +69,9 @@ function Initialize-DomeniaOperationsPanel {
     $copy=$view.FindName('BtnOperationsCopyTrace');if($null -ne $copy){$copy.Add_Click({Copy-DomeniaOperationsTrace})}
     $journal=$view.FindName('BtnOperationsJournal');if($null -ne $journal){$journal.Add_Click({Open-DomeniaOperationsJournal})}
     $diagnostic=$view.FindName('BtnOperationsDiagnostic');if($null -ne $diagnostic){$diagnostic.Add_Click({Start-DomeniaOperationsDiagnostic})}
+    # W13 (point 118) with X04/X05: the receipts waiting for a check open the same list as the header pill (route
+    # TabGuard, « Opérations à vérifier »); the panel closes first, nothing is replayed.
+    $receipts=$view.FindName('BtnOperationsReceipts');if($null -ne $receipts){$receipts.Add_Click({Hide-DomeniaOperationsPanel;[void](Invoke-DomeniaCapabilityRoute -Route 'TabGuard')})}
     $view.Add_PreviewKeyDown({param($sender,$eventArgs) if($eventArgs.Key -eq [Windows.Input.Key]::Escape){$eventArgs.Handled=$true;Hide-DomeniaOperationsPanel}})
     # A click beside the panel (on the transparent layer itself) closes it, like a drop-down list.
     $layer.Add_MouseLeftButtonDown({param($sender,$eventArgs) if([object]::ReferenceEquals($eventArgs.OriginalSource,$sender) -and $null -ne $script:OperationsPanel -and $script:OperationsPanel.Open){$eventArgs.Handled=$true;Hide-DomeniaOperationsPanel}})
@@ -200,9 +205,15 @@ function Get-DomeniaOperationsHealthText {
     $delay=$null;try{$delay=Get-DomeniaRuntimeMetricSummary -Provenance 'Dispatcher' -Prefix 'Pulse'}catch{$delay=$null}
     if($null -ne $delay -and [int]$delay.Count -gt 0){$lines.Add('Réactivité de lʼinterface : retard habituel '+[Math]::Round([double]$delay.P50)+' ms ; 95 % des mesures sous '+[Math]::Round([double]$delay.P95)+' ms.')}
     else{$lines.Add('Réactivité de lʼinterface : pas encore mesurée.')}
-    $callbacks=$null;try{$callbacks=Get-DomeniaRuntimeMetricSummary -Provenance 'Dispatcher' -Prefix 'Callback:'}catch{$callbacks=$null}
-    if($null -ne $callbacks -and [int]$callbacks.Count -gt 0){$lines.Add('Traitement des résultats dans lʼinterface : médiane '+[Math]::Round([double]$callbacks.P50)+' ms ; 95 % sous '+[Math]::Round([double]$callbacks.P95)+' ms ; maximum '+[Math]::Round([double]$callbacks.Max)+' ms.')}
-    # W13 (point 121): the latest slowness, each explained by its operation, phase, volume and handler.
+    # Point 122: one line per category (local search, interface, local base, directory, workstations); an unmeasured
+    # category says so and a 95th percentile needs at least 20 measures.
+    $responses=@();try{$responses=@(Get-DomeniaResponseTimeSummaries)}catch{$responses=@()}
+    if($responses.Count){
+        $lines.Add('Temps de réponse mesurés sur ce poste pendant cette session (512 dernières mesures par opération ; pas un test du réseau) :')
+        foreach($response in $responses){$lines.Add([string]$response.Text)}
+    }
+    # W13 (point 121): the latest slowness, each explained by its operation, phase, volume and handler. Its durations come
+    # from the same measures as the categories above (job dates, callback time without modal waits, heartbeat lateness).
     $slow=@();try{$slow=@(Get-DomeniaSlowEventLines -Maximum 3)}catch{$slow=@()}
     if($slow.Count -gt 0){$lines.Add('Lenteurs expliquées, la plus récente en premier :');foreach($line in $slow){$lines.Add([string][char]0x2022+' '+[string]$line)}}
     else{$lines.Add('Aucune lenteur relevée au-delà des seuils suivis (interface, opération complète, retard de lʼinterface).')}
@@ -212,6 +223,8 @@ function Get-DomeniaOperationsHealthText {
     $save=if($null -ne $saved){'Dernière sauvegarde locale à '+([datetime]$saved).ToString('HH:mm:ss')+'.'}else{'Aucune sauvegarde locale dans cette session.'}
     try{$state=Get-DomeniaPersistenceState;if([string]$state.Label){$save+=' '+[string]$state.Label}}catch{}
     $lines.Add($save)
+    # FI-12: SQLite lock waits that ran out in this session, with the configured wait.
+    try{$lines.Add([string](Get-DomeniaSqliteBusyStatusText))}catch{}
     return ($lines.ToArray() -join "`r`n")
 }
 
@@ -224,6 +237,10 @@ function Update-DomeniaExperienceActivity {
     if($null -ne $script:DetachedReadJobs){$detached=@($script:DetachedReadJobs).Count}
     $button=Get-DomeniaControl 'BtnSuiteActivity'
     $total=[long]$active+[long]$detached+[long]$queued
+    # W13 (point 118) with X04/X05: the durable receipts waiting for a check, by the rule of the header pill.
+    $pendingView=$null
+    try{$pendingView=Get-DomeniaPendingOperationsView -Pending ([int]$script:ReceiptPending)}catch{ $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
+    $pendingShown=(($null -ne $pendingView) -and [bool]$pendingView.Visible)
     $counter=Get-DomeniaControl 'LblSuiteActivityCount';$badge=Get-DomeniaControl 'BadgeSuiteActivity'
     $label=Get-DomeniaCounterText -Count ([int]$total) -ZeroText '0'
     $visibility=if($total -gt 0){'Visible'}else{'Hidden'}
@@ -231,6 +248,7 @@ function Update-DomeniaExperienceActivity {
     if($null -ne $badge -and [string]$badge.Visibility -ne $visibility){$badge.Visibility=$visibility}
     if($null -ne $button){
         $help=if($total -eq 0){'Aucune opération active. Afficher le panneau des opérations et la santé du moteur.'}elseif($queued -gt 0){"$total opération(s) suivie(s) : $active active(s), $queued en attente, $detached en nettoyage. Afficher le panneau."}else{"$total opération(s) suivie(s) : $active active(s), $detached en nettoyage. Afficher le panneau."}
+        if($pendingShown){$help+=' '+[string]$pendingView.Text+' : reçus en attente de vérification, comme sur la pastille de lʼen-tête.'}
         if([string]$button.ToolTip -cne $help){$button.ToolTip=$help}
         [Windows.Automation.AutomationProperties]::SetHelpText($button,$help)
     }
@@ -261,6 +279,12 @@ function Update-DomeniaExperienceActivity {
     $state=[string]$script:WriteState
     $message=if($active+$detached+$queued -eq 0){'Aucune opération active. Les résultats précédents restent dans le journal.'}else{"$active opération(s) active(s) · $queued en attente · $detached lecture(s) en nettoyage."}
     if($state -in @('Unknown','UnknownPending')){$message+=' Écriture à vérifier : ne relancez pas lʼaction avant relecture de lʼobjet.'}
+    $receipts=Get-DomeniaControl 'BtnOperationsReceipts'
+    if($pendingShown){
+        $message+=' '+[string]$pendingView.Text+' : le bouton ouvre les reçus ; rien nʼest rejoué.'
+        if(($null -ne $receipts) -and ([string]$receipts.Content -cne [string]$pendingView.Text)){$receipts.Content=[string]$pendingView.Text}
+    }
+    if($null -ne $receipts){$wanted=if($pendingShown){[Windows.Visibility]::Visible}else{[Windows.Visibility]::Collapsed};if($receipts.Visibility -ne $wanted){$receipts.Visibility=$wanted}}
     # W13 (point 116): the state line is a polite live region, announced once per change (WPF raises nothing itself;
     # Send-DomeniaUxLiveChange comes from Domenia-UX.UI.ps1, which loads this module).
     $stateLabel=Get-DomeniaControl 'LblSuiteActivityState'
@@ -540,6 +564,36 @@ function Save-DomeniaExperiencePreferences {
     Set-DomeniaSetting 'UxLogCollapsed' ([bool]$script:UxLogCollapsed)
     Set-DomeniaSetting 'UxLogExpandedHeight' ([double]$script:UxLogHeight)
     Save-DomeniaSettings -Immediate
+}
+
+function Update-DomeniaFilteredEmptyState {
+    # UX-03 / W13 (point 119): called after each repaint of the result grid (progressive list and repainted copies). The
+    # counts are kept with the list they describe, and the one empty state of the result list (UxSearchEmpty, written by
+    # Update-DomeniaSearchEmptyState) says « Le filtre masque N lignes » with « Effacer le filtre » when the filter of the
+    # list hides every loaded row (Get-DomeniaFilteredEmptyState). Display only.
+    # -Source: the list about to be given to the grid (a repainted copy holds only its visible rows); the empty state
+    # reads the counts when the grid takes that list. Without it, the counts belong to the list already shown.
+    param([int]$Loaded=0,[int]$Visible=0,$Source=$null)
+    $pending = ($null -ne $Source)
+    if (-not $pending) {
+        $grid = Get-DomeniaControl 'DgObjects'
+        if ($null -ne $grid) { $Source = $grid.ItemsSource }
+    }
+    $script:DomeniaListFilterCounts = [pscustomobject]@{Loaded=[Math]::Max(0,$Loaded);Visible=[Math]::Max(0,$Visible);Source=$Source;Pending=$pending}
+    if ($pending) { return }
+    # Domenia-UX.UI.ps1 (loaded with this module) owns the empty state of the list.
+    try { Update-DomeniaSearchEmptyState } catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
+}
+
+function Clear-DomeniaResultFilters {
+    # UX-03: « Effacer le filtre » of the empty list. The text of the list and the presence go back to everything;
+    # the rows already loaded are shown again, no request is sent and the search itself is kept.
+    $box = Get-DomeniaControl 'TxtSuiteResultFilter'
+    if ($null -ne $box) { $box.Text = '' }
+    $combo = Get-DomeniaControl 'CmbPresenceFilter'
+    if (($null -ne $combo) -and ($combo.SelectedIndex -ne 0)) { $combo.SelectedIndex = 0 }
+    $script:CurrentPresenceFilter = 'Tous'
+    Apply-DomeniaPresenceFilter
 }
 
 function Initialize-DomeniaExperience {

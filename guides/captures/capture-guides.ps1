@@ -58,7 +58,7 @@ foreach ($name in $coreNames) {
     Invoke-Expression $nodes[0].Extent.Text
 }
 foreach ($module in @('Domenia-Common.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Embedded.UI.ps1','Domenia-UX.UI.ps1',
-    'Domenia-Workstation.Model.ps1','Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-BoardSoftware.Model.ps1','Domenia-BoardComputer.UI.ps1','Domenia-Widgets.UI.ps1','Domenia-Dashboard.UI.ps1','Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-Query.UI.ps1','Domenia-QueryTargets.UI.ps1','Domenia-Search.Model.ps1','Domenia-Search.UI.ps1','Domenia-Refresh.UI.ps1')) {
+    'Domenia-Workstation.Model.ps1','Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-BoardSoftware.Model.ps1','Domenia-BoardComputer.UI.ps1','Domenia-Widgets.UI.ps1','Domenia-Dashboard.UI.ps1','Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-Query.UI.ps1','Domenia-QueryTargets.UI.ps1','Domenia-Search.Model.ps1','Domenia-Search.UI.ps1','Domenia-Refresh.UI.ps1','Domenia-Assist.Model.ps1','Domenia-Assist.UI.ps1')) {
     . (Join-Path $wad ('modules\' + $module))
 }
 # Local replacements: no settings, log, directory or workstation is touched.
@@ -77,6 +77,11 @@ function Set-DomeniaSetting { param([string]$Name,$Value) $script:GuideSettings[
 function Get-DomeniaSetting { param([string]$Name,$Default = $null) if ($script:GuideSettings.ContainsKey($Name)) { return $script:GuideSettings[$Name] }; return $Default }
 function Save-DomeniaSettings { param([switch]$Immediate,[switch]$ThrowOnFailure) }
 function Test-DomeniaLiveSearchActive { return $false }
+# DS-08 / UI-17 (X04): the header and the association line of the workstation come from the real rules; the selected
+# workstation and its association are fixture values, nothing is read.
+function Get-CurrentSelectedComputerName { return 'PC-COMPTA-014' }
+function Get-ExistingLinkForComputer { param([string]$Computer) return [pscustomobject]@{Computer='PC-COMPTA-014';UserLogin='cmartin';UserDn='CN=Camille Martin,OU=Utilisateurs,OU=Lyon,DC=example,DC=local';Source='Console observee';Kind='Console';When=$script:GuideLinkWhen} }
+function Get-DomeniaRunningComputerUserProbe { param([string]$Computer) return $null }
 function Invalidate-DomeniaSearchResults { $script:GlobalSearchGeneration++; $script:ShownRows=@() }
 function Add-DomeniaUiLog { param([string]$Area,[string]$Text,[string]$Level = 'INFO') }
 function Set-Status { param([string]$Text,[string]$Level = 'INFO') }
@@ -225,7 +230,7 @@ function Save-GuideWindow {
     $logRow = Get-DomeniaControl 'UxLogRow'; $reduced = $false
     if ($null -ne $logRow -and $logRow.Height.Value -gt 60) { Switch-DomeniaUxLog; $reduced = $true }
     Update-GuideLayout
-    $rectangles=@(foreach($id in @('CmbQueryField','BtnQueryAddCondition','CmbFleetQuery','BtnQueryWidget','CmbCollectionConcurrency','ExpQueryObject','DgFleetMachines','DgQueryCatalog','PnlQueryCatalogDetail','DgQueryLibrary','LblQueryLibraryDescription','DgIndex','LblIndexOverview','ExpStorageMaintenance','UxSearchQueryBar','TxtSearchQueryFilter','CmbWorkView','CmbSearchQueryResult','DgObjects','LblSearchQueryDetails','LblSearchQuery','LblOperationsHealth','TvDirectory','UxSearchOuRefresh','LblSearchOuRefreshScope','LblSearchOuRefreshStatus','BtnSearchRefreshBase','BtnSearchRefreshPostes','BtnSearchRefreshBoth','BtnSearchRefreshStop','LblFleetScope','LblFleetDashboard','LblFleetOuRefreshStatus','BtnFleetIndexScope','BtnFleetRefreshPostes','BtnFleetRefreshBoth','BtnFleetRefreshStop','BtnFleetDashboardRefresh','LblIndexFreshness')){
+    $rectangles=@(foreach($id in @('CmbQueryField','BtnQueryAddCondition','CmbFleetQuery','BtnQueryWidget','CmbCollectionConcurrency','ExpQueryObject','DgFleetMachines','DgQueryCatalog','PnlQueryCatalogDetail','DgQueryLibrary','LblQueryLibraryDescription','DgIndex','LblIndexTileAccounts','LblIndexLocation','ExpStorageMaintenance','UxSearchQueryBar','TxtSearchQueryFilter','CmbWorkView','CmbSearchQueryResult','DgObjects','LblSearchQueryDetails','LblSearchQuery','LblOperationsHealth','TvDirectory','UxSearchOuRefresh','LblSearchOuRefreshScope','LblSearchOuRefreshStatus','BtnSearchRefreshBase','BtnSearchRefreshPostes','BtnSearchRefreshBoth','BtnSearchRefreshStop','LblFleetScope','LblFleetDashboard','LblFleetOuRefreshStatus','BtnFleetIndexScope','BtnFleetRefreshPostes','BtnFleetRefreshBoth','BtnFleetRefreshStop','BtnFleetDashboardRefresh','LblIndexFreshness')){
         $control=Get-DomeniaControl $id
         if($null -ne $control -and $control.ActualWidth -gt 0){try{$point=$control.TranslatePoint([Windows.Point]::new(0,0),$script:GuideHost);[pscustomobject]@{Name=$id;X=$point.X;Y=$point.Y;Width=$control.ActualWidth;Height=$control.ActualHeight;Visible=$control.IsVisible}}catch{}}
     })
@@ -326,7 +331,13 @@ function Save-GuideElement {
 }
 function Show-GuideTab {
     param([string]$Route,[string]$Tab = '')
-    Invoke-DomeniaUxRoute -Route $Route; if ($Tab) { (Get-DomeniaControl $Tab).IsSelected = $true }
+    Invoke-DomeniaUxRoute -Route $Route
+    if ($Tab) {
+        # UX-21 (X04): Assistance poste has five views; a workstation tab, a former name included (TabSoftware,
+        # TabComputerDashboard...), resolves to its view and inner tab exactly as a menu or a widget link does.
+        if ($Route -eq 'WsComputer') { Select-DomeniaWorkspace -Workspace 'WsComputer' -Inner 'ComputerTabs' -Tab $Tab }
+        else { $page = Get-DomeniaControl $Tab; if ($null -eq $page) { throw ('Onglet introuvable : ' + $Tab) }; $page.IsSelected = $true }
+    }
     # Header of a loaded card, as after a real reading of the object.
     if ($null -ne $script:SelectedObject) { foreach ($label in @('LblComputerReadStatus','LblObjectReadStatus')) { $c = Get-DomeniaControl $label; if ($null -ne $c) { $c.Text = [string]$script:SelectedObject.Type + ' : ' + [string]$script:SelectedObject.Name + ' | Fiche AD chargee.' } } }
     Update-DomeniaOuRefreshUi
@@ -629,7 +640,7 @@ Assert-Guide (Set-DomeniaItemsSource 'DgObjects' $rows) 'Recherche : les lignes 
 Assert-Guide ((Get-DomeniaControl 'DgObjects').Items.Count -eq 7) 'Recherche : 7 résultats réellement présents'
 (Get-DomeniaControl 'TxtGlobalSearch').Text = 'compta'
 (Get-DomeniaControl 'LblBranchCount').Text = '7 résultat(s) · liste complète'
-foreach ($b in @('BtnParkPing','BtnParkResults','BtnParkAnalyze','BtnLiveRecheck','BtnExportResults')) { $c = Get-DomeniaControl $b; if ($null -ne $c) { $c.IsEnabled = $true } }
+foreach ($b in @('BtnParkVerify','BtnParkVerifyMenu','BtnLiveRecheck','BtnExportResults')) { $c = Get-DomeniaControl $b; if ($null -ne $c) { $c.IsEnabled = $true } }
 $grid = Get-DomeniaControl 'DgObjects'
 $order = @('Type','Nom','Utilisateur connecté (console)','Association mémorisée','Présence réseau')
 for ($k = 0; $k -lt $order.Count; $k++) { $col = @($grid.Columns | Where-Object { [string]$_.Header -eq $order[$k] })[0]; if ($null -ne $col) { $col.DisplayIndex = $k } }
@@ -659,17 +670,25 @@ Update-DomeniaSearchScopeUi;Update-DomeniaOuRefreshUi;Update-GuideLayout
 # 3. Fiche of a workstation, its actions, dashboard and customise mode.
 $script:SelectedObject = $computer
 Set-VisibleTabsForType -Type 'Machine'
+$script:GuideLinkWhen = [datetime]::SpecifyKind([datetime]'2026-10-08 06:15:00',[DateTimeKind]::Utc).ToString('o')
+Initialize-DomeniaAssist
 foreach ($k in @('Object','Computer')) { $h = Get-DomeniaControl ($k + 'ReadContent'); $e = Get-DomeniaControl ($k + 'ReadPlaceholder'); if ($null -ne $h) { $h.Visibility = 'Visible'; $h.IsEnabled = $true }; if ($null -ne $e) { $e.Visibility = 'Collapsed' } }
 Set-GuideText @{ TxtObjName = 'PC-COMPTA-014'; TxtObjType = 'Machine'; TxtObjDn = $computer.DN; TxtCompName = 'PC-COMPTA-014'; TxtCompDns = 'pc-compta-014.example.local'; TxtCompOs = 'Windows 11 Entreprise'; TxtCompOsVersion = '10.0 (26100)'
     TxtCompDescription = 'Poste comptabilite, 2e etage'; TxtCompLocation = 'Lyon, batiment B'; TxtCompManagedBy = 'Service informatique'; TxtCompLastLogon = '07/10/2026 08:12'; TxtCompState = 'Actif'; TxtCompUac = 'Compte ordinateur standard'
     TxtCompPresence = 'En ligne (ping 3 ms)'; TxtCompLinkedUser = 'Camille Martin (cmartin)'; TxtCompLinkSource = 'Console observee'; TxtCompLinkConfidence = 'Observe'; TxtCompLinkWhen = '08/10/2026 08:15' }
 Set-GuideText @{ LblComputerReadStatus = 'Machine : PC-COMPTA-014 | Fiche AD chargee.'; LblObjectReadStatus = 'Machine : PC-COMPTA-014 | Fiche AD chargee.' }
+# Header and association line through the real coordination: the presence time is the one of a fixture observation.
+Update-DomeniaComputerAssistView -Uac 4096
+Set-DomeniaComputerHeaderPresenceTime -Observation ([pscustomobject]@{PresenceCheckedUtc=[datetime]::SpecifyKind([datetime]'2026-10-08 06:16:00',[DateTimeKind]::Utc).ToString('o')})
+Assert-Guide (([string](Get-DomeniaControl 'LblCompHeaderName').Text -eq 'PC-COMPTA-014') -and ([string](Get-DomeniaControl 'LblCompHeaderUser').Text -eq 'Camille Martin')) 'En-tête du poste rempli par les règles réelles'
 Show-GuideTab 'WsComputer' 'TabComputer'
 Save-GuideWindow 'fiche-poste'
 Show-GuideTab 'WsComputer' 'TabComputerAdmin'
 Save-GuideWindow 'actions-poste'
 Update-DomeniaComputerDashboard -Result $inventory
-Show-GuideTab 'WsComputer' 'TabComputerDashboard'
+# UX-21: the dashboard is the second part of the Vue d'ensemble view.
+Show-GuideTab 'WsComputer' 'TabComputer'
+Move-GuideScrollTo (Get-DomeniaControl 'UxComputerDashboardSection')
 Save-GuideWindow 'tableau-poste' 1840
 (Get-DomeniaBoardState 'Computer').Editing = $true; Show-DomeniaBoard -Board Computer -Quiet
 Save-GuideWindow 'personnaliser' 1100
@@ -682,7 +701,7 @@ Assert-Guide ([string](Get-DomeniaControl 'LblQueryComputerPreview').Text -like 
 Save-GuideWindow 'atelier-poste' 1240
 Invoke-DomeniaQueryAction 'Widget'
 Assert-Guide (@(Get-DomeniaBoardLayout Computer|Where-Object{$_.Source -eq 'Query'}).Count -eq 1) 'Widget de requête partagé sur le tableau du poste'
-Show-GuideTab 'WsComputer' 'TabComputerDashboard'
+Show-GuideTab 'WsComputer' 'TabComputer'
 Show-DomeniaBoard -Board Computer -Quiet
 $computerQueryItem=@(Get-DomeniaBoardLayout Computer|Where-Object{$_.Source -eq 'Query'})[0]
 $computerQueryHolder=Find-DomeniaBoardHolder (Get-DomeniaControl 'PnlComputerDashboard') ([string]$computerQueryItem.Id)
@@ -731,12 +750,20 @@ Save-GuideWindow 'logiciels' 1560
 $baseFreshness=Get-DomeniaFleetFreshness -ScopeDn $script:GuideScopeDn -DomainDn $script:Conn.BaseDn -SyncStates $script:IndexSyncStates -Subtree $true
 $baseSummary=Format-DomeniaOuFreshnessSummary -IndexFreshness $baseFreshness
 Set-GuideText @{
-    TxtIndexLocation='C:\Users\tech.support\AppData\Local\Domenia\Data\Domains\exemple\Domenia.db'
-    LblIndexBackupStatus=('Sauvegardes : dossier Backups · derniere le '+$now.AddMinutes(-15).ToString('dd/MM/yyyy HH:mm'))
+    # UI-19 and DS-09 (lot X06): a summary instead of the path, four tiles instead of the technical sentence.
+    LblIndexLocation='Base du domaine example.local · 4,2 Mo · sauvegardée il y a 15 min'
+    LblIndexBackupStatus=''
     LblIndexScopeChoice='OU=Postes,OU=Lyon,DC=example,DC=local et ses sous-OU'
-    LblIndexOverview='438 objets · 212 utilisateurs · 226 postes (223 actifs, 3 désactivés)'
+    LblIndexTileAccounts='212'
+    LblIndexTileAccountsDetail='comptes utilisateurs'
+    LblIndexTileComputers='226'
+    LblIndexTileComputersDetail='223 actifs · 3 désactivés'
+    LblIndexTileLinks='34'
+    LblIndexTileLinksDetail='liens utilisateur-poste'
+    LblIndexTileUpdated='il y a 15 min'
+    LblIndexTileUpdatedDetail=('le '+$now.AddMinutes(-15).ToString('dd/MM/yyyy HH:mm'))
     LblIndexFreshness=$baseSummary.BaseText
-    LblIndexStats='Fichier local Domenia.db. Contrôleur : dc01.example.local. Repère : 184522. Associations utilisateur-poste : 34.'
+    LblIndexStats='Contrôleur de la dernière lecture : dc01.example.local. Objets enregistrés : 438. Associations utilisateur-poste : 34.'
     LblIndexStatus='200 objets affichés sur 226 · page 1 · périmètre choisi ci-dessus'
     LblParkStatus=('{0} observations mémorisées, dont {1} avec inventaire · données fictives' -f $presence.Count,@($presence | Where-Object { $null -ne $_.observation.Inventory }).Count)
 }
@@ -773,7 +800,7 @@ $script:GuideWidth=$savedWidth;$script:GuideHost.Width=$script:GuideWidth;Set-Gu
 (Get-DomeniaControl 'TabIndexUpdate').IsSelected=$true;Update-GuideLayout
 Save-GuideWindow 'base-mise-a-jour' 1080
 Set-DomeniaIndexProgress -Mode Busy -Message 'OU choisie et ses sous-OU · 328 objets reçus, 256 enregistrés ; lecture et stockage en cours. Données fictives de démonstration.'
-Set-GuideHeight 1080;Update-GuideLayout;Move-GuideScrollTo (Get-DomeniaControl 'LblIndexOverview')
+Set-GuideHeight 1080;Update-GuideLayout;Move-GuideScrollTo (Get-DomeniaControl 'LblIndexTileAccounts')
 Save-GuideWindow 'base-progression' 1080
 Set-DomeniaIndexProgress -Mode Complete -Message 'Synchronisation terminée.'
 (Get-DomeniaControl 'TabIndexStorage').IsSelected=$true;Update-GuideLayout

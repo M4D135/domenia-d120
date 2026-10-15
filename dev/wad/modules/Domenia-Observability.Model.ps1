@@ -505,13 +505,16 @@ function Get-DomeniaTraceAdvice {
     param([AllowEmptyString()][string]$Outcome='',[bool]$IsWrite=$false,[AllowEmptyString()][string]$Category='',[AllowEmptyString()][string]$Reference='')
     $ref = ''
     if ($Reference -match '^[a-z0-9]{8}$') { $ref = ' Référence ' + $Reference + ' dans Domenia.log.' }
-    $write = 'Écriture non confirmée : relisez lʼobjet avant toute nouvelle tentative ; Domenia ne rejoue jamais une écriture.'
+    # X04/X05: a write whose receipt waits for a check is counted on « opérations à vérifier » (header pill and this
+    # panel), which opens the receipts: the advice points there instead of a second list.
+    $receipt = ' Son reçu, sʼil attend une vérification, sʼouvre depuis « opérations à vérifier » (en-tête ou panneau Opérations).'
+    $write = 'Écriture non confirmée : relisez lʼobjet avant toute nouvelle tentative ; Domenia ne rejoue jamais une écriture.' + $receipt
     switch ($Outcome) {
         'Succeeded' { return '' }
         'Superseded' { return 'Une demande plus récente a pris sa place : rien à faire.' }
         'Withdrawn' { return 'Retirée de la file avant tout envoi : aucun appel nʼa été fait.' }
         'Refused' { return ('Refusée avant envoi (limite du moteur, compte suspendu ou maintenance) : aucun appel nʼa été fait. Relancez lʼaction depuis son écran une fois la cause levée.' + $ref) }
-        'Unknown' { return ('Résultat inconnu : relisez lʼobjet avant toute nouvelle tentative ; Domenia ne rejoue jamais une écriture.' + $ref) }
+        'Unknown' { return ('Résultat inconnu : relisez lʼobjet avant toute nouvelle tentative ; Domenia ne rejoue jamais une écriture.' + $receipt + $ref) }
         'Stopped' {
             if ($IsWrite) { return ($write + $ref) }
             return 'Arrêtée sur demande : ce qui était déjà enregistré est conservé. Relancez lʼaction depuis son écran si besoin.'

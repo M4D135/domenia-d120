@@ -89,6 +89,33 @@ Case 'Empty population has no fabricated coverage or timestamps' {
  $f=Get-DomeniaOuObservationFreshness @() 0 $Now
  Expect ($f.Ping.Count -eq 0 -and $f.Inventory.Count -eq 0 -and $null -eq $f.Ping.NewestUtc -and $null -eq $f.Inventory.OldestUtc) 'Empty date synthesized'
 }
+# Points 4, 5 and 10: committed clocks of the explicit OU collections complete the three-clock text.
+function Run([string]$Family,[string]$Status,[string]$Success,[string]$Attempt,[string]$ErrorText='',[int]$Done=10){
+ $successData=if($Success){[pscustomobject]@{Format='Domenia.CollectionRun/1';Family=$Family;ScopeDn=$Ou;Subtree=$true;Provider='CIM/DCOM';Controller='';CollectorVersion='fixture';StartedAtUtc=$Success;FinishedAtUtc=$Success;RecordedAtUtc=$Success;Targets=10;Done=10;Succeeded=10;Failed=0}}else{$null}
+ $attemptData=if($Status -ne 'Success'){[pscustomobject]@{Format='Domenia.CollectionRun/1';Family=$Family;ScopeDn=$Ou;Subtree=$true;Provider='CIM/DCOM';Controller='';CollectorVersion='fixture';StartedAtUtc=$Attempt;FinishedAtUtc=$Attempt;RecordedAtUtc=$Attempt;Targets=10;Done=$Done;Succeeded=$Done;Failed=0}}else{$null}
+ [pscustomobject]@{Kind='CollectionRun';DomainDn=$Domain.ToLowerInvariant();Family=$Family;RequestKey=(Get-DomeniaCollectionRunKey $Ou $true);LastAttemptAtUtc=$(if($Attempt){$Attempt}else{$Success});Status=$Status;Error=$ErrorText;LastSuccessAtUtc=$Success;Data=$successData;AttemptData=$attemptData;Revision=3}
+}
+Case 'OU collection clocks keep the last success beside a newer stopped run, with provenance' {
+ $run=Run Inventory Cancelled '2026-10-13T09:00:00.0000000Z' '2026-10-13T11:00:00.0000000Z' 'Relevé arrêté : 3/10 poste(s) traité(s).' 3
+ $clocks=Get-DomeniaCollectionClocks -Runs @($run) -ScopeDn $Ou -DomainDn $Domain -NowUtc $Now
+ $text=Format-DomeniaOuFreshnessSummary (Coverage @{ou=(Sync ('ou:'+$Ou) $Ou '2026-10-13T10:00:00Z')}) $null $Now -NowUtc $Now -Runs $clocks
+ Expect ($text.RunsText -like '*WMI relevé réussi le*(10/10 postes)*dernière tentative le*arrêté*3/10*la dernière réussite reste la référence*') ('Runs text: '+$text.RunsText)
+ Expect ($text.RunsDetail -like '*Inventaire WMI*fournisseur CIM/DCOM*version de collecte fixture*') 'Provenance missing from the tool tip'
+ Expect ($text.BaseText -notlike '*dernière tentative*') 'AD line invents a failed attempt'
+ $none=Format-DomeniaOuFreshnessSummary (Coverage @{}) $null $Now -NowUtc $Now
+ Expect (($none.RunsText -eq '') -and ($none.RunsDetail -eq '')) 'Clock text without any committed read'
+}
+Case 'A partial AD pass named by its coverage checkpoint is not repeated by its run clock' {
+ $states=@{ou=(Sync ('ou:'+$Ou) $Ou '2026-10-13T10:00:00Z');attempt=(Sync ('attempt:ou:'+$Ou) $Ou '2026-10-13T11:00:00Z' 'partial;depth=Subtree')}
+ $partial=Run Directory Partial '2026-10-13T10:00:00.0000000Z' '2026-10-13T11:00:00.0000000Z' 'Lecture AD partielle.'
+ $text=Format-DomeniaOuFreshnessSummary (Coverage $states) $null $Now -NowUtc $Now -Runs (Get-DomeniaCollectionClocks -Runs @($partial) -ScopeDn $Ou -DomainDn $Domain -NowUtc $Now)
+ Expect ([regex]::Matches($text.BaseText,'tentative').Count -eq 1) ('Partial AD said twice: '+$text.BaseText)
+ $failed=Run Directory Error '2026-10-13T10:00:00.0000000Z' '2026-10-13T11:30:00.0000000Z' 'Serveur indisponible.'
+ $text=Format-DomeniaOuFreshnessSummary (Coverage @{ou=(Sync ('ou:'+$Ou) $Ou '2026-10-13T10:00:00Z')}) $null $Now -NowUtc $Now -Runs (Get-DomeniaCollectionClocks -Runs @($failed) -ScopeDn $Ou -DomainDn $Domain -NowUtc $Now)
+ Expect (($text.BaseText -like '*lecture complète le*dernière tentative le*en échec*Serveur indisponible*') -and ($text.BaseText -like '*la dernière réussite reste la référence*')) ('AD failure not shown beside the success: '+$text.BaseText)
+ $later=Format-DomeniaOuFreshnessSummary (Coverage @{ou=(Sync ('ou:'+$Ou) $Ou '2026-10-13T11:45:00Z')}) $null $Now -NowUtc $Now -Runs (Get-DomeniaCollectionClocks -Runs @($failed) -ScopeDn $Ou -DomainDn $Domain -NowUtc $Now)
+ Expect ($later.BaseText -notlike '*dernière tentative*') ('A complete read committed after the failed attempt is hidden by it: '+$later.BaseText)
+}
 # Render the actual callback through inert UI ports: no WPF objects, timers or network tasks are needed.
 function Get-DomeniaControl([string]$Name){if($Name -eq 'PnlFleetCrumbs'){return $null};return $script:Controls[$Name]}
 function Set-DomeniaControlText([string]$Name,[string]$Text){$script:Labels[$Name]=$Text;return $true}
@@ -128,6 +155,47 @@ Case 'Legacy LastSyncUtc argument is never used to synthesize scope coverage' {
  $script:IndexSyncStates=@{};$scope=[pscustomobject]@{Dn=$Ou;Subtree=$true;Path=$Ou}
  Update-DomeniaFleetScopeText $scope -Count 3 -LastSyncUtc '2026-10-13T11:59:00Z' -NowUtc $Now
  Expect ($script:Labels.LblFleetScope -like '*aucune lecture complète*') 'Global fallback accepted'
+}
+Case 'The dashboard tool tip keeps its catalogued help and never keeps the provenance of a previous calculation' {
+ $savedControls=$script:Controls;$savedLabels=$script:Labels;$savedCatalogue=$script:UxHelpCatalogue
+ try{
+  $label=[pscustomobject]@{ToolTip='';Text=''}
+  $script:Controls=@{LblFleetDashboard=$label};$script:Labels=@{}
+  $script:UxHelpCatalogue=@{LblFleetDashboard=[pscustomobject]@{Name='LblFleetDashboard';Title='Dates';Text='Aide du catalogue.'}}
+  Set-DomeniaFleetDashboardToolTip -Provenance 'Présence réseau (ping) : dernière réussite'
+  Expect ($label.ToolTip -like 'Aide du catalogue.*Provenance des relevés de lʼOU (base locale) :*Présence réseau (ping) : dernière réussite') ('Provenance replaced the catalogued help: '+$label.ToolTip)
+  $script:SessionEpoch=7L;$script:FleetPendingKey='chosen'
+  Fail-DomeniaFleetDashboard 'refus local' ([pscustomobject]@{Epoch=7L;Key='chosen'})
+  Expect ($label.ToolTip -ceq 'Aide du catalogue.') ('A failed calculation kept the previous provenance: '+$label.ToolTip)
+  Set-DomeniaFleetDashboardToolTip -Provenance 'ancienne OU'
+  Set-DomeniaFleetDashboardToolTip
+  Expect ($label.ToolTip -ceq 'Aide du catalogue.') ('Empty provenance did not restore the help: '+$label.ToolTip)
+  $script:UxHelpCatalogue=@{};Set-DomeniaFleetDashboardToolTip -Provenance 'ancienne OU';Set-DomeniaFleetDashboardToolTip
+  Expect ($null -eq $label.ToolTip) 'Provenance kept on a label without catalogued help'
+ }finally{$script:Controls=$savedControls;$script:Labels=$savedLabels;$script:UxHelpCatalogue=$savedCatalogue}
+}
+Case 'A scope without collection keys requests no scope clock, so they stay unknown instead of never recorded' {
+ $savedControls=$script:Controls;$savedLabels=$script:Labels
+ try{
+  $script:Controls=@{};$script:Labels=@{};$script:FleetPayload=$null
+  $script:DatabaseScopedPath='/fixture/db';$script:Conn=[pscustomobject]@{BaseDn=$Domain};$script:SessionEpoch=7L;$script:SelectedObject=$null;$script:IndexSyncStates=@{}
+  $script:FleetTestScope=[pscustomobject]@{Dn='OU=Ailleurs,DC=autre,DC=invalid';Key='other';Subtree=$true;Name='Ailleurs';Path=''}
+  function Get-DomeniaFleetScope {return $script:FleetTestScope}
+  function Get-DomeniaStoredHealthPolicyBook {return $null}
+  function Resolve-DomeniaHealthPolicy {param($Book,$ScopeDn) return $null}
+  function Get-DomeniaObservationMaxAgeDays {return 30}
+  function Get-DomeniaBoardProbeIds {return @()}
+  function Get-DomeniaWindowsLifecycleTable {return @()}
+  function Initialize-DomeniaWinSqliteNative {return $true}
+  function Get-DomeniaLocalIndexReadWorkerCode {return ''}
+  function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$SuccessHandler,$ErrorHandler,$TimeoutSeconds,$TaskClass) $script:FleetPayload=$Payload;return 'fleet-job'}
+  Start-DomeniaFleetDashboard -Quiet
+  Expect ($null -ne $script:FleetPayload) 'calculation not started for a scope outside the domain'
+  Expect ($null -eq $script:FleetPayload.RunKeys) ('a scope without keys was sent as requested with none recorded: '+@($script:FleetPayload.RunKeys).Count)
+  $script:FleetPayload=$null;$script:FleetTestScope=[pscustomobject]@{Dn=$Ou;Key='chosen';Subtree=$true;Name='Postes';Path=$Ou}
+  Start-DomeniaFleetDashboard -Quiet
+  Expect (@($script:FleetPayload.RunKeys).Count -ge 2) 'the viewed OU and its enclosing subtrees are not requested'
+ }finally{$script:Controls=$savedControls;$script:Labels=$savedLabels}
 }
 if(-not $SkipStorage){
  Case 'Real SQLite depth checkpoints, partial commits and repeat FleetStats preserve timestamps' {

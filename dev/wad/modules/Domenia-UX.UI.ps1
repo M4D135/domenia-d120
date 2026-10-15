@@ -51,12 +51,13 @@ function Get-DomeniaUxControlHelpText {
     param($Control)
     $entry = Get-DomeniaUxHelpEntry -Control $Control
     $description = [string]$entry.Text
-    # Preserve status reasons supplied by the existing security UI.
+    # Preserve status reasons supplied by the existing security UI, written with or without accents (the dot stands
+    # for an accented letter or an apostrophe, so this file stays ASCII-safe).
     # Do not reflect Text, Password, SelectedItem, DataContext, Content or Tag.
     try {
         $statusTip = $Control.ToolTip
-        if ($statusTip -is [string] -and $statusTip -ne $description -and
-            $statusTip -match '^(Desactive|Droit indetermine|Estimation ACL|Ecriture brute|Action distante|Fonction desactivee|Aucune valeur|Aucun secret|Selectionne une ligne|Charge d.abord)') {
+        if (($statusTip -is [string]) -and ($statusTip -ne $description) -and
+            ($statusTip -match '^(D.sactiv|Droit ind.termin|Estimation ACL|.criture brute|Action distante|Fonction d.sactiv|Aucune valeur|Aucun secret|S.lectionne une ligne|S.lectionnez une ligne|S.lectionnez d.abord une ligne|Lancez d.abord|Charge d.abord)')) {
             return $description + "`r`n`r`n" + [string]$statusTip
         }
     } catch { }
@@ -242,8 +243,16 @@ function Update-DomeniaUxProfileVisibility {
                 if (([string]$column.Header) -eq 'Methode' -or ([string]$column.Header) -eq 'Duree ms') { $column.Visibility = if ($expert) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed } }
             }
         }
+        # DS-09: Score and Correspondance explain the ranking of the local search; they stay in Expert so that the grid
+        # of Base autonome keeps its width for the columns the operator reads.
+        $gridIndex = Get-DomeniaControl 'DgIndex'
+        if ($null -ne $gridIndex) {
+            foreach ($column in @($gridIndex.Columns)) {
+                if ((([string]$column.Header) -eq 'Score') -or (([string]$column.Header) -eq 'Correspondance')) { $column.Visibility = if ($expert) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed } }
+            }
+        }
         # Never leave a hidden detail page selected. No AD read is performed.
-        foreach ($name in @('DetailTabs','ComputerTabs','ApplicationToolTabs')) {
+        foreach ($name in @('DetailTabs','ComputerTabs','ComputerDetailTabs','ComputerDiagTabs','ApplicationToolTabs')) {
             $tabs = Get-DomeniaControl $name
             if ($null -eq $tabs) { continue }
             if ($null -ne $tabs.SelectedItem -and $tabs.SelectedItem.Visibility -ne [Windows.Visibility]::Visible) {
@@ -372,10 +381,15 @@ function Set-DomeniaSearchQueryOptionsLayout {
     foreach($name in $widths.Keys){
         $control=Get-DomeniaControl $name
         if($null -eq $control){continue}
+        # DS-03: the limit sits with its unit in a DockPanel; the field width is set on the filter host.
+        $field=$control.Parent;if($field -is [Windows.Controls.DockPanel]){$field=$field.Parent}
         $control.MinHeight=if($Compact){28.0}else{36.0}
-        if($Compact){$control.Parent.Width=$widths[$name];$control.Parent.Margin=[Windows.Thickness]::new(0,0,6,0);$control.Padding=[Windows.Thickness]::new(4,1,4,1)}
+        if($Compact){$field.Width=$widths[$name];$field.Margin=[Windows.Thickness]::new(0,0,6,0);$control.Padding=[Windows.Thickness]::new(4,1,4,1)}
         elseif($control -is [Windows.Controls.ComboBox]){$control.ClearValue([Windows.Controls.Control]::PaddingProperty)}
     }
+    # On the tiniest screens the unit gives way to the number; the tooltip and the accessible name keep its meaning.
+    $unit=Get-DomeniaControl 'LblGlobalLimitUnit'
+    if($null -ne $unit){$unit.Visibility=if($Compact){[Windows.Visibility]::Collapsed}else{[Windows.Visibility]::Visible}}
     $selector=Get-DomeniaControl 'CmbWorkView'
     if($null -ne $selector){if($Compact){$selector.Padding=[Windows.Thickness]::new(4,1,4,1)}else{$selector.ClearValue([Windows.Controls.Control]::PaddingProperty)}}
     & $state.Refresh
@@ -417,12 +431,10 @@ function Set-DomeniaUxShortLayout {
     $main=Get-DomeniaControl 'UxMainLayout';if($main){$main.Margin=if($compact){[Windows.Thickness]::new(18,6,16,6)}else{[Windows.Thickness]::new(18,12,16,12)}}
     $header=Get-DomeniaControl 'UxHeader';if($header){$header.Margin=if($compact){[Windows.Thickness]::new(0,0,0,4)}else{[Windows.Thickness]::new(0,0,0,10)}}
     $header=Get-DomeniaControl 'UxPageHeader';if($header){$header.Margin=if($compact){[Windows.Thickness]::new(2,0,0,6)}else{[Windows.Thickness]::new(2,0,0,12)}}
-    foreach($name in @('UxSearchScopeTitle','UxOuIntro','UxOuScopeCaption','UxOuScopeCard')){
+    foreach($name in @('UxOuIntro','UxOuScopeCaption','UxOuScopeCard')){
         $control=Get-DomeniaControl $name
         if($control){$control.Visibility=if($compact){[Windows.Visibility]::Collapsed}else{[Windows.Visibility]::Visible}}
     }
-    $scopeTitle=Get-DomeniaControl 'UxSearchScopeTitle'
-    if($scopeTitle){$scopeTitle.Margin=[Windows.Thickness]::new(0,0,0,4)}
     $scopeInfo=Get-DomeniaControl 'UxSearchScopeInfo';$hint=Get-DomeniaControl 'LblSearchHint'
     if($scopeInfo -and $hint){
         $scopeInfo.ColumnDefinitions[1].Width=if($compact){[Windows.GridLength]::new(1,[Windows.GridUnitType]::Star)}else{[Windows.GridLength]::new(0)}
@@ -430,12 +442,15 @@ function Set-DomeniaUxShortLayout {
         [Windows.Controls.Grid]::SetColumn($hint,$(if($compact){1}else{0}))
         $hint.Margin=if($compact){[Windows.Thickness]::new(6,0,0,2)}else{[Windows.Thickness]::new(0,0,0,8)}
     }
-    $widths=@{CmbGlobalType=148.0;CmbPresenceFilter=138.0;TxtGlobalLimit=90.0}
+    # DS-03: « 100 lignes max » needs its unit beside the number; the field host is the StackPanel of the filter.
+    $widths=@{CmbGlobalType=148.0;CmbPresenceFilter=138.0;TxtGlobalLimit=128.0}
     foreach($name in $widths.Keys){
         $control=Get-DomeniaControl $name
-        if($control -and $control.Parent -is [Windows.Controls.StackPanel]){
-            $control.Parent.Width=if($compact -and $name -eq 'TxtGlobalLimit'){70.0}else{$widths[$name]}
-            $control.Parent.Margin=if($compact){[Windows.Thickness]::new(0,0,6,0)}else{[Windows.Thickness]::new(0,0,12,8)}
+        $field=$null
+        if($control){$field=$control.Parent;if($field -is [Windows.Controls.DockPanel]){$field=$field.Parent}}
+        if($field -is [Windows.Controls.StackPanel]){
+            $field.Width=if($compact -and $name -eq 'TxtGlobalLimit'){120.0}else{$widths[$name]}
+            $field.Margin=if($compact){[Windows.Thickness]::new(0,0,6,0)}else{[Windows.Thickness]::new(0,0,12,8)}
         }
     }
     # Queries have their own fluid Grid. Compact only its vertical rhythm, never the width of an ancestor.
@@ -481,21 +496,24 @@ function Set-DomeniaUxShortLayout {
     }
     $results=Get-DomeniaControl 'UxResultsCard';if($results){$results.Padding=if($compact){[Windows.Thickness]::new(6)}else{[Windows.Thickness]::new(12)}}
     $actions=Get-DomeniaControl 'UxResultActionsRow';if($actions){$actions.Margin=if($compact){[Windows.Thickness]::new(0,0,0,4)}else{[Windows.Thickness]::new(0,0,0,8)}}
-    $consoleCheck=Get-DomeniaControl 'ChkLiveUsers';if($consoleCheck){$consoleCheck.Content=if($compact){'Console au clic'}else{'Utilisateur au clic'}}
+    # SP-15: check on click and its user sub-option keep a short wording in compact mode.
+    $consoleCheck=Get-DomeniaControl 'ChkLiveVerifyOnClick';if($consoleCheck){$consoleCheck.Content=if($compact){'Au clic'}else{'Vérifier au clic'}}
+    $userCheck=Get-DomeniaControl 'ChkLiveUsersOnClick';if($userCheck){$userCheck.Content=if($compact){'+ utilisateur'}else{'+ utilisateur connecté'}}
     $recheck=Get-DomeniaControl 'BtnLiveRecheck';if($recheck){$recheck.Content=if($compact){'Revérifier'}else{'Revérifier ce poste'}}
-    # Ping and detection of the list (lot 2026-10-07) keep the action row on one line in compact mode: short labels
-    # and tighter buttons; every action stays in view (Arreter included).
-    $parkPing=Get-DomeniaControl 'BtnParkPing';if($parkPing){$parkPing.Content=if($compact){'Pinger'}else{'Pinger la liste'}}
-    $parkRun=Get-DomeniaControl 'BtnParkResults';if($parkRun){$parkRun.Content=if($compact){'Détecter'}else{'Détecter la liste'}}
-    $parkAnalyze=Get-DomeniaControl 'BtnParkAnalyze';if($parkAnalyze){$parkAnalyze.Content=if($compact){'Analyser'}else{'Analyser la liste'}}
-    foreach($name in @('BtnLiveRecheck','BtnParkPing','BtnParkResults','BtnParkAnalyze','BtnParkResultsStop')){
+    # UI-23: « Vérifier la liste ▾ » keeps its own label (the reading of the session, or Arrêter during a survey);
+    # compact mode only tightens the buttons so that the action row stays on one line. The two parts of the split
+    # button stay joined: the spacing of the row goes on the panel that holds them, never between them.
+    foreach($name in @('BtnLiveRecheck','BtnParkVerify')){
         $button=Get-DomeniaControl $name
         if($button){
             $button.Padding=if($compact){[Windows.Thickness]::new(6,4,6,4)}else{[Windows.Thickness]::new(10,4,10,4)}
-            $button.Margin=if($compact){[Windows.Thickness]::new(0,0,4,4)}else{[Windows.Thickness]::new(0,0,8,4)}
+            $spaced=$button
+            if($name -eq 'BtnParkVerify'){$spaced=$button.Parent}
+            if($spaced -is [Windows.FrameworkElement]){$spaced.Margin=if($compact){[Windows.Thickness]::new(0,0,4,4)}else{[Windows.Thickness]::new(0,0,8,4)}}
         }
     }
-    if($consoleCheck){$consoleCheck.Margin=if($compact){[Windows.Thickness]::new(0,0,8,4)}else{[Windows.Thickness]::new(0,0,14,4)}}
+    if($consoleCheck){$consoleCheck.Margin=if($compact){[Windows.Thickness]::new(0,0,4,4)}else{[Windows.Thickness]::new(0,0,8,4)}}
+    if($userCheck){$userCheck.Margin=if($compact){[Windows.Thickness]::new(0,0,8,4)}else{[Windows.Thickness]::new(0,0,14,4)}}
     $statuses=Get-DomeniaControl 'UxResultLiveStatuses'
     if($live -and $statuses){
         $live.ColumnDefinitions[0].Width=if($compact){[Windows.GridLength]::new(470)}else{[Windows.GridLength]::new(1,[Windows.GridUnitType]::Star)}
@@ -503,6 +521,19 @@ function Set-DomeniaUxShortLayout {
         [Windows.Controls.Grid]::SetRow($statuses,$(if($compact){0}else{1}))
         [Windows.Controls.Grid]::SetColumn($statuses,$(if($compact){1}else{0}))
         $statuses.Margin=if($compact){[Windows.Thickness]::new(8,0,0,0)}else{[Windows.Thickness]::new(0)}
+        # DS-06: the selection and list states share one line of two halves in the normal layout (no help rows under
+        # the actions); in compact mode they stack in the column beside the actions. The short count of the survey of
+        # the list (UX-12) takes the place of the list state, so it follows the same slot.
+        if($statuses.ColumnDefinitions.Count -ge 2){
+            $statuses.ColumnDefinitions[1].Width=if($compact){[Windows.GridLength]::new(0)}else{[Windows.GridLength]::new(1,[Windows.GridUnitType]::Star)}
+            foreach($name in @('LblLiveState','UxParkProgress')){
+                $liveState=Get-DomeniaControl $name
+                if($null -eq $liveState){continue}
+                [Windows.Controls.Grid]::SetRow($liveState,$(if($compact){1}else{0}))
+                [Windows.Controls.Grid]::SetColumn($liveState,$(if($compact){0}else{1}))
+                $liveState.Margin=if($compact){[Windows.Thickness]::new(0)}else{[Windows.Thickness]::new(12,0,0,0)}
+            }
+        }
     }
     $ouColumn=Get-DomeniaControl 'UxOuColumn'
     if($ouColumn){
@@ -865,9 +896,12 @@ function Update-DomeniaUxOuScope {
     if($null -ne $summary){
         $depth=if($Scope.Scope -eq 'Subtree'){'Sous-OU incluses'}else{'Enfants directs'}
         # D032: browsing always reads 'Dans cette OU', the upper bar always 'Domaine entier'.
-        $label='Dans : '+$display.Name+'  ·  '+$depth
+        # Point 52: an OU below another one is named with its parent, so that two OU of the same name stay distinct.
+        $ouName=[string]$display.Name
+        if(-not [bool]$Scope.IsDomain){try{$names=@(Get-DomeniaOuPathNames ([string]$Scope.BaseDn));if($names.Count -ge 2){$ouName+=' (dans '+[string]$names[1]+')'}}catch{}}
+        $label='Dans : '+$ouName+'  ·  '+$depth
         if($null -ne (Get-Command Get-DomeniaScopeLabel -CommandType Function -ErrorAction SilentlyContinue)){
-            $label=Get-DomeniaScopeLabel -Mode Browse -OuName ([string]$display.Name) -Subtree ($Scope.Scope -eq 'Subtree')
+            $label=Get-DomeniaScopeLabel -Mode Browse -OuName $ouName -Subtree ($Scope.Scope -eq 'Subtree')
         }
         $summary.Text=$label
         $summary.ToolTip='Racine LDAP : '+[string]$Scope.BaseDn+"`r`n"+$depth+"`r`nLe texte de la barre du haut ne filtre pas cette OU."
@@ -875,10 +909,13 @@ function Update-DomeniaUxOuScope {
 }
 
 function Copy-DomeniaUxOuPath {
-    $box=Get-DomeniaControl 'TxtBranchDn'
-    if($null -eq $box -or [string]::IsNullOrWhiteSpace([string]$box.Text)){return}
+    # -Dn: the exact DN of the breadcrumb that was clicked (point 52); without it, the DN of the menu box.
+    param([AllowEmptyString()][string]$Dn='')
+    $text=([string]$Dn).Trim()
+    if(-not $text){$box=Get-DomeniaControl 'TxtBranchDn';if($null -ne $box){$text=([string]$box.Text).Trim()}}
+    if([string]::IsNullOrWhiteSpace($text)){return}
     try{
-        [Windows.Clipboard]::SetText([string]$box.Text)
+        [Windows.Clipboard]::SetText($text)
         Set-DomeniaContextHint -Title 'Chemin LDAP copié' -Text 'Le DN de la branche sélectionnée est dans le presse-papiers. Le filtre et les résultats restent inchangés.'
     }catch{
         Set-DomeniaContextHint -Title 'Copie indisponible' -Text 'Le presse-papiers est occupé. Dépliez le chemin LDAP pour le sélectionner et le copier manuellement.'
@@ -1415,11 +1452,23 @@ function Get-DomeniaSearchEmptyInputs {
     # What the list really observed: rows displayed and loaded, the search in progress or finished, its error kind,
     # its text and its scope. Read from the page and the search state only; nothing is queried.
     $grid = Get-DomeniaControl 'DgObjects'
-    $displayed = 0; $loaded = 0
+    $displayed = 0; $loaded = 0; $pending = $false
     if ($null -ne $grid) {
         $displayed = [int]$grid.Items.Count
         $source = $grid.ItemsSource
         if ($source -is [Collections.ICollection]) { $loaded = [int]$source.Count }
+        # UX-03: a repainted copy holds only its visible rows; the filter pass recorded how many rows the whole list has
+        # (Update-DomeniaFilteredEmptyState). The counts speak only for the list they were recorded with.
+        $counts = $script:DomeniaListFilterCounts
+        if ($null -ne $counts) {
+            if (($null -ne $source) -and [object]::ReferenceEquals($counts.Source,$source)) {
+                $counts.Pending = $false
+                if ([int]$counts.Loaded -gt $loaded) { $loaded = [int]$counts.Loaded }
+            } elseif (($null -eq $source) -and [bool]$counts.Pending) {
+                # The grid is between two lists (the copy is assigned right after): no verdict on an empty instant.
+                $pending = $true
+            }
+        }
     }
     $search = $null
     try { if ($null -ne $script:Live) { $search = $script:Live.Search } } catch { $search = $null }
@@ -1447,12 +1496,15 @@ function Get-DomeniaSearchEmptyInputs {
     $filterText = ''
     $filter = Get-DomeniaControl 'TxtSuiteResultFilter'
     if ($null -ne $filter) { $filterText = [string]$filter.Text }
+    # UX-03: the presence filter belongs to the OU lists; the global search never applies it.
     $presence = [string]$script:CurrentPresenceFilter
+    try { if ((Get-DomeniaSearchMode) -eq 'Global') { $presence = 'Tous' } } catch { $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
+    $localFilter = $filterText
     if ($presence -and ($presence -ne 'Tous')) {
-        if ($filterText) { $filterText += ' · ' }
-        $filterText += 'présence ' + $presence
+        if ($localFilter) { $localFilter += ' · ' }
+        $localFilter += 'présence ' + $presence
     }
-    return [pscustomobject]@{Displayed=$displayed;Loaded=$loaded;InFlight=$inFlight;Completed=$completed;ErrorKind=$errorKind;Partial=$partial;Query=$query;Scope=$scope;LocalFilter=$filterText;Foreign=$foreign}
+    return [pscustomobject]@{Displayed=$displayed;Loaded=$loaded;InFlight=$inFlight;Completed=$completed;ErrorKind=$errorKind;Partial=$partial;Query=$query;Scope=$scope;LocalFilter=$localFilter;FilterText=$filterText;Presence=$presence;Foreign=$foreign;Pending=$pending}
 }
 
 function Update-DomeniaSearchEmptyState {
@@ -1461,7 +1513,7 @@ function Update-DomeniaSearchEmptyState {
     $panel = Get-DomeniaControl 'UxSearchEmpty'
     if ($null -eq $panel) { return }
     $inputs = Get-DomeniaSearchEmptyInputs
-    if ([int]$inputs.Displayed -gt 0) {
+    if (([int]$inputs.Displayed -gt 0) -or [bool]$inputs.Pending) {
         if ($null -ne $script:DomeniaSearchEmptyTimer) { $script:DomeniaSearchEmptyTimer.Stop() }
         return
     }
@@ -1484,6 +1536,12 @@ function Update-DomeniaSearchEmptyState {
         $state = Get-DomeniaEmptyState -Kind $kind -Query ([string]$inputs.Query) -Scope ([string]$inputs.Scope) -LocalFilter ([string]$inputs.LocalFilter) -Total ([int]$inputs.Loaded)
         $title = [string]$state.Title; $text = [string]$state.Text
         $label = [string]$state.NextAction.Label; $command = [string]$state.NextAction.Command
+        if ($kind -eq 'LocalFilterEmpty') {
+            # UX-03: the filter of the list (its text or the presence) hides every loaded row: how many, which filter,
+            # and « Effacer le filtre », which shows them again without any request.
+            $filtered = Get-DomeniaFilteredEmptyState -Loaded ([int]$inputs.Loaded) -Visible ([int]$inputs.Displayed) -LocalText ([string]$inputs.FilterText) -Presence ([string]$inputs.Presence)
+            if ([bool]$filtered.Show) { $title = [string]$filtered.Text; $text = [string]$filtered.Detail }
+        }
         if ($null -ne $script:DomeniaSearchEmptyTimer) { $script:DomeniaSearchEmptyTimer.Stop() }
     }
     # Both blocks are polite live regions: a new verdict (refusée, aucun résultat...) is announced once, then its
@@ -1509,11 +1567,9 @@ function Invoke-DomeniaSearchEmptyAction {
     $box = Get-DomeniaControl 'TxtGlobalSearch'
     switch ($command) {
         'ClearLocalFilter' {
-            $filter = Get-DomeniaControl 'TxtSuiteResultFilter'
-            if ($null -ne $filter) { $filter.Text = '' }
-            $presence = Get-DomeniaControl 'CmbPresenceFilter'
-            if (($null -ne $presence) -and ($presence.SelectedIndex -gt 0)) { $presence.SelectedIndex = 0 }
-            Set-Status 'Filtre local effacé : la liste montre de nouveau toutes les lignes déjà lues. Aucune nouvelle lecture.'
+            # UX-03 (Clear-DomeniaResultFilters): text of the list and presence back to everything, no request.
+            Clear-DomeniaResultFilters
+            Set-Status 'Filtre de la liste effacé : la liste montre de nouveau toutes les lignes déjà chargées. Aucune nouvelle lecture.'
         }
         { $_ -in @('WidenScope','StartRead') } {
             if ($null -ne $box) { [void]$box.Focus(); $box.SelectAll() }

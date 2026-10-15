@@ -51,7 +51,8 @@ function Complete-DomeniaReconcile {
         $keyText=[string]$update.Key
         $source=$rowByKey[$keyText]
         if($null -ne $source){
-            $script:Reconcile.Events.Enqueue([pscustomobject]@{Kind='Row';Row=$source;ObservedUtc=$r.ObservedUtc;Search=$s;Identity=$State.Identity;Mutation=$State.Mutation})
+            # Point 23: a revalidated row may carry a new DN for a listed GUID; it moves that row instead of adding one.
+            $script:Reconcile.Events.Enqueue([pscustomobject]@{Kind='Row';Row=$source;ObservedUtc=$r.ObservedUtc;Search=$s;Identity=$State.Identity;Mutation=$State.Mutation;Revalidated=$true})
         }
     }
     foreach($insert in @($plan.Inserts)){
@@ -130,7 +131,7 @@ function Invoke-DomeniaReconcileTick {
     while($r.Events.Count -and $n -lt 8 -and $watch.ElapsedMilliseconds -lt 5){
         $e=$r.Events.Dequeue();$n++
         if(-not [object]::ReferenceEquals($e.Search,$s) -or $e.Identity -cne $script:Live.Identity -or $e.Mutation -ne $script:Continuity.Mutation){continue}
-        if($e.Kind -eq 'Missing'){$e.Row.DirectoryState='Absent du dernier retour : a reverifier';continue}
+        if($e.Kind -eq 'Missing'){$e.Row.DirectoryState='Absent du dernier retour : a reverifier';Set-DomeniaLiveRowValue $e.Row 'DirectoryFresh' 'Warning';continue}
         Add-DomeniaLiveRow $e
         if($null -ne $script:Continuity){$script:Continuity.CacheDirty=$true}
     }

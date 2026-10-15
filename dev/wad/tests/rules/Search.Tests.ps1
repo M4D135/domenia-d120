@@ -285,3 +285,206 @@ Test-Case 'FO-04' 'Le plafond de 50 favoris compte le seul domaine de l OU' {
     $same=@(1..50|ForEach-Object{[pscustomobject]@{DN=('OU=O'+$_+','+$script:DomainDn);Name=('O'+$_)}})
     Assert-Equal 0 (Import-DomeniaOuFavourites $same $saved).Imported 'Domaine deja plein : rien n est repris'
 }
+# W08 navigation (points 52 to 55). Donnees fictives uniquement.
+Test-Case 'P52' 'Deux OU de meme nom se distinguent par leur parent le plus proche' {
+    $dns=@(('OU=Postes,OU=Lyon,OU=Sites,'+$script:DomainDn),('OU=Postes,OU=Paris,OU=Sites,'+$script:DomainDn),('OU=Serveurs,'+$script:DomainDn))
+    $labels=@(Get-DomeniaOuDistinctLabels -Dn $dns)
+    Assert-Equal 3 $labels.Count;Assert-Equal 'Postes (Lyon)' $labels[0].Label;Assert-Equal 'Postes (Paris)' $labels[1].Label
+    Assert-True $labels[0].Ambiguous;Assert-Equal 'Serveurs' $labels[2].Label;Assert-False $labels[2].Ambiguous
+    Assert-Equal $dns[0] $labels[0].DN 'Le DN exact reste l identite'
+}
+Test-Case 'P52' 'Meme parent direct : le libelle remonte jusqu au premier parent different' {
+    $dns=@(('OU=Postes,OU=Nord,OU=Lyon,'+$script:DomainDn),('OU=Postes,OU=Nord,OU=Paris,'+$script:DomainDn),('OU=Postes,'+$script:DomainDn))
+    $labels=@(Get-DomeniaOuDistinctLabels -Dn $dns)
+    Assert-Equal 'Postes (Lyon / Nord)' $labels[0].Label;Assert-Equal 'Postes (Paris / Nord)' $labels[1].Label
+    Assert-Equal 'Postes (racine du domaine)' $labels[2].Label
+}
+Test-Case 'P52' 'Libelles : doublons, casse, valeurs echappees et noms identiques jusqu au domaine' {
+    $labels=@(Get-DomeniaOuDistinctLabels -Dn @(('OU=A\,B,'+$script:DomainDn),('ou=a\,b,'+$script:DomainDn.ToLowerInvariant()),'',('OU=Postes,DC=autre,DC=invalid'),('OU=Postes,'+$script:DomainDn)))
+    Assert-Equal 3 $labels.Count 'Un meme DN en casse differente compte une fois et une valeur vide est ignoree'
+    Assert-Equal 'A,B' $labels[0].Label 'La virgule echappee fait partie du nom'
+    Assert-True ($labels[1].Label.StartsWith('Postes (') -and $labels[1].Label -ne $labels[2].Label) ('Libelles : '+$labels[1].Label+' / '+$labels[2].Label)
+    Assert-Equal 'P' (@(Get-DomeniaOuPathNames ('OU=P,OU=Q,'+$script:DomainDn)))[0];Assert-Equal 2 @(Get-DomeniaOuPathNames ('OU=P,OU=Q,'+$script:DomainDn)).Count
+}
+Test-Case 'P54' 'Le choix d OU dit le chemin, la portee imposee ou choisie et la verification' {
+    $dn='OU=Postes,OU=Lyon,'+$script:DomainDn
+    $fixed=Get-DomeniaOuChoiceSummary -Dn $dn -DomainDn $script:DomainDn -DepthMode Subtree -Purpose 'La base relira cette branche.'
+    Assert-True ($fixed.Contains('example.invalid / Lyon / Postes') -and $fixed.Contains('imposée') -and $fixed.Contains('La base relira') -and $fixed.Contains('revérifie')) $fixed
+    Assert-True ((Get-DomeniaOuChoiceSummary -Dn $dn -DomainDn $script:DomainDn -DepthMode Choice -Subtree $false).Contains('sans ses sous-OU'))
+    Assert-True ((Get-DomeniaOuChoiceSummary -Dn $dn -DomainDn $script:DomainDn -DepthMode Choice -Subtree $true).Contains('et ses sous-OU'))
+    Assert-False ((Get-DomeniaOuChoiceSummary -Dn $dn -DomainDn $script:DomainDn -DepthMode None).Contains('Portée')) 'Une page sans profondeur n en affiche pas'
+    Assert-True ((Get-DomeniaOuChoiceSummary -Dn '' -DomainDn $script:DomainDn).StartsWith('Aucune OU'))
+    Assert-True ((Get-DomeniaOuChoiceSummary -Dn 'OU=X,DC=autre,DC=invalid' -DomainDn $script:DomainDn).Contains('nʼappartient pas'))
+}
+Test-Case 'P55' 'Identite d une ligne : GUID, sinon DN exact, sinon aucune' {
+    Assert-Equal 'g:11111111-1111-1111-1111-111111111111' (Get-DomeniaNavRowKey ([pscustomobject]@{Guid='{11111111-1111-1111-1111-111111111111}';DN='CN=A'}))
+    Assert-Equal ('d:cn=a,'+$script:DomainDn.ToLowerInvariant()) (Get-DomeniaNavRowKey ([pscustomobject]@{Guid='';DN=('CN=A,'+$script:DomainDn)}))
+    Assert-Equal '' (Get-DomeniaNavRowKey ([pscustomobject]@{Guid='00000000-0000-0000-0000-000000000000';DN=''}))
+    Assert-Equal '' (Get-DomeniaNavRowKey $null)
+}
+Test-Case 'P55' 'Selection memorisee : ordre, doublons, lignes sans identite et borne' {
+    $rows=@([pscustomobject]@{Guid='22222222-2222-2222-2222-222222222222';DN='CN=B'},[pscustomobject]@{Guid='';DN='CN=A'},[pscustomobject]@{Guid='22222222-2222-2222-2222-222222222222';DN='CN=B'},[pscustomobject]@{Guid='';DN=''})
+    $r=Get-DomeniaNavSelectionKeys -Rows $rows
+    Assert-Equal 2 @($r.Keys).Count;Assert-Equal 'g:22222222-2222-2222-2222-222222222222' $r.Keys[0];Assert-Equal 1 $r.Unidentified;Assert-False $r.Truncated
+    $many=@(1..12|ForEach-Object{[pscustomobject]@{Guid='';DN=('CN=R'+$_)}})
+    $b=Get-DomeniaNavSelectionKeys -Rows $many -Maximum 10;Assert-Equal 10 @($b.Keys).Count;Assert-True $b.Truncated
+}
+Test-Case 'P55' 'Tri memorise : champs valides, sans doublon, borne a huit' {
+    $sort=@(Get-DomeniaNavSortState -Sort @([pscustomobject]@{Field='Name';Direction='Descending'},[pscustomobject]@{Field='Name';Direction='Ascending'},[pscustomobject]@{Field='a b';Direction='Ascending'},[pscustomobject]@{Field='OS';Direction='Sideways'},[pscustomobject]@{Field='LastLogonSort';Direction='Ascending'}))
+    Assert-Equal 2 $sort.Count;Assert-Equal 'Name' $sort[0].Field;Assert-Equal 'Descending' $sort[0].Direction;Assert-Equal 'LastLogonSort' $sort[1].Field
+    Assert-Equal 8 @(Get-DomeniaNavSortState -Sort @(1..12|ForEach-Object{[pscustomobject]@{Field=('F'+$_);Direction='Ascending'}})).Count
+    Assert-Equal 0 @(Get-DomeniaNavSortState -Sort @()).Count
+}
+Test-Case 'P55' 'Taille de liste memorisee : entier de 1 a 20 000, sinon 0 et la limite affichee reste' {
+    Assert-Equal 250 (Get-DomeniaNavLimit '250');Assert-Equal 250 (Get-DomeniaNavLimit 250);Assert-Equal 20000 (Get-DomeniaNavLimit ' 20000 ')
+    foreach($bad in @('',$null,'0','20001','-5','+5','1e3','12,5','abc')){Assert-Equal 0 (Get-DomeniaNavLimit $bad) ('Valeur refusee : '+[string]$bad)}
+}
+Test-Case 'P55' 'Branches ouvertes : seules les branches lues se rouvrent, les autres se replient, aucune lecture' {
+    $a='OU=A,'+$script:DomainDn;$b='OU=B,'+$script:DomainDn;$c='OU=C,'+$script:DomainDn;$d='OU=D,'+$script:DomainDn
+    $nodes=@([pscustomobject]@{DN=$a;Loaded=$true;Expanded=$false},[pscustomobject]@{DN=$b;Loaded=$true;Expanded=$true},[pscustomobject]@{DN=$c;Loaded=$false;Expanded=$false},[pscustomobject]@{DN='';Loaded=$true;Expanded=$true})
+    $plan=Get-DomeniaNavTreePlan -Remembered @($a.ToUpperInvariant(),$c,$d) -Nodes $nodes
+    Assert-Equal 1 @($plan.Expand).Count;Assert-Equal $a $plan.Expand[0] 'La branche lue et fermee se rouvre'
+    Assert-Equal 1 @($plan.Collapse).Count;Assert-Equal $b $plan.Collapse[0] 'La branche ouverte depuis se replie'
+    Assert-Equal 2 $plan.UnreadCount 'Une branche non lue ou absente est comptee, jamais lue'
+    $none=Get-DomeniaNavTreePlan -Remembered @() -Nodes @();Assert-Equal 0 @($none.Expand).Count;Assert-Equal 0 $none.UnreadCount;Assert-Equal 0 $none.MissingCount
+    # An OU absent from its read parent branch is counted apart, never as a branch left unread; a loaded item wins.
+    $split=Get-DomeniaNavTreePlan -Remembered @($a,$c,$d) -Nodes $nodes -Missing @($d.ToUpperInvariant(),$a)
+    Assert-Equal 1 $split.UnreadCount;Assert-Equal $c $split.Unread[0] 'Seule la branche non lue reste non lue'
+    Assert-Equal 1 $split.MissingCount;Assert-Equal $d $split.Missing[0] 'La branche absente de son parent lu est comptee a part'
+    Assert-Equal 1 @($split.Expand).Count 'Une branche presente et lue se rouvre meme si elle est dite absente'
+}
+Test-Case 'P54' 'Favoris proposes par le selecteur d OU : domaine de la session, sans la racine, libelles distincts' {
+    $favs=@([pscustomobject]@{DN=('OU=Postes,OU=Lyon,'+$script:DomainDn);Name='Postes'},[pscustomobject]@{DN=$script:DomainDn;Name='Domaine'},
+        [pscustomobject]@{DN='OU=Postes,DC=autre,DC=invalid';Name='Postes'},[pscustomobject]@{DN=('OU=Postes,OU=Paris,'+$script:DomainDn);Name='Postes'},
+        [pscustomobject]@{DN=('ou=postes,ou=lyon,'+$script:DomainDn.ToLowerInvariant());Name='Doublon'},[pscustomobject]@{DN=('OU=Serveurs,'+$script:DomainDn);Name='Serveurs'})
+    $choices=@(Get-DomeniaOuFavouriteChoices -Favourites $favs -DomainDn $script:DomainDn)
+    Assert-Equal 3 $choices.Count 'Racine, autre domaine et doublon ecartes'
+    Assert-Equal 'Postes (Lyon)' $choices[0].Label;Assert-Equal 'Postes (Paris)' $choices[1].Label;Assert-Equal 'Serveurs' $choices[2].Label
+    Assert-Equal 'example.invalid / Lyon / Postes' $choices[0].FullPath
+    Assert-Equal 0 @(Get-DomeniaOuFavouriteChoices -Favourites @() -DomainDn $script:DomainDn).Count
+}
+Test-Case 'CO-33' 'Une barre oblique dans un DN est echappee dans le chemin ADSI, sans double echappement' {
+    Assert-Equal 'OU=Compta\/Paie,DC=x' (ConvertTo-DomeniaAdsPathDn 'OU=Compta/Paie,DC=x')
+    Assert-Equal 'OU=Compta\/Paie,DC=x' (ConvertTo-DomeniaAdsPathDn 'OU=Compta\/Paie,DC=x') 'Un DN deja echappe reste inchange'
+    Assert-Equal ('OU=Lyon,'+$script:DomainDn) (ConvertTo-DomeniaAdsPathDn ('OU=Lyon,'+$script:DomainDn)) 'Un DN sans barre oblique reste inchange'
+    Assert-Equal 'CN=Dupont\, Jean\/RH,OU=A\/B\/C,DC=x' (ConvertTo-DomeniaAdsPathDn 'CN=Dupont\, Jean/RH,OU=A/B\/C,DC=x') 'Virgule echappee conservee, chaque barre echappee une fois'
+    Assert-Equal 'OU=Back\\\/x,DC=x' (ConvertTo-DomeniaAdsPathDn 'OU=Back\\/x,DC=x') 'Une contre-oblique echappee ne protege pas la barre qui suit'
+    Assert-Equal 'OU=\C3\89quipe\/Paie,DC=x' (ConvertTo-DomeniaAdsPathDn 'OU=\C3\89quipe/Paie,DC=x') 'Les paires hexadecimales restent intactes'
+    Assert-Equal '' (ConvertTo-DomeniaAdsPathDn $null);Assert-Equal '' (ConvertTo-DomeniaAdsPathDn '')
+}
+Test-Case 'CO-34' 'Etoiles consecutives fusionnees dans un litteral LDAP avec joker' {
+    Assert-Equal 'jean*' (ConvertTo-DomeniaLdapLiteral 'jean**' -KeepWildcard)
+    Assert-Equal 'a*b' (ConvertTo-DomeniaLdapLiteral 'a**b' -KeepWildcard)
+    Assert-Equal '*a*' (ConvertTo-DomeniaLdapLiteral '***a***' -KeepWildcard)
+    Assert-Equal '*\28*' (ConvertTo-DomeniaLdapLiteral '**(**' -KeepWildcard) 'Un caractere echappe separe deux jokers'
+    Assert-Equal 'a\2a\2ab' (ConvertTo-DomeniaLdapLiteral 'a**b') 'Sans joker, chaque etoile reste un caractere echappe'
+    $f=Get-DomeniaWordFilter 'jean**'
+    Assert-False ($f -match '\*\*') ('Double joker envoye : '+$f);Assert-True ($f.Contains('(cn=jean*)'))
+}
+Test-Case 'CO-34' 'Un texte fait seulement d etoiles est refuse en global et liste l OU en parcours' {
+    Assert-True (Test-DomeniaWildcardOnly '***');Assert-True (Test-DomeniaWildcardOnly ' * * ')
+    Assert-False (Test-DomeniaWildcardOnly '');Assert-False (Test-DomeniaWildcardOnly 'a*');Assert-False (Test-DomeniaWildcardOnly $null)
+    $g=Get-DomeniaSearchTextCheck '***' Global 2
+    Assert-False $g.Valid;Assert-Equal 'Saisissez au moins un caractère en plus de * : une étoile seule listerait tout le domaine.' $g.Reason
+    $o=Get-DomeniaSearchTextCheck '**' OU 2;Assert-True $o.Valid;Assert-True $o.Browse 'Dans une OU, des etoiles seules listent l OU'
+    Assert-False (Get-DomeniaSearchTextCheck 'a*' Global 2).Valid 'Les etoiles ne comptent pas dans le minimum'
+    Assert-True ((Get-DomeniaSearchTextCheck 'a' OU 2).Reason.Contains('ou * pour lister toute'))
+    Assert-False ((Get-DomeniaSearchTextCheck 'a' Global 2).Reason.Contains('*')) 'L aide globale ne propose pas l etoile'
+    $ok=Get-DomeniaSearchTextCheck 'jean**' Global 2;Assert-True $ok.Valid;Assert-False $ok.Browse
+    Assert-True (Get-DomeniaSearchTextCheck '' Global 2).Browse
+    Assert-False ((Get-DomeniaSearchTextCheck 'a' Global 2).Reason -match '\bSaisis\b') 'Message vouvoye'
+}
+Test-Case 'FO-05' 'La puce de la barre ne nomme qu une OU du domaine, sous-OU incluses' {
+    $ou='OU=Postes,OU=Lyon,'+$script:DomainDn
+    $b=Get-DomeniaSearchBarScope -Choice Ou -OuDn $ou -DomainDn $script:DomainDn
+    Assert-True $b.Explicit;Assert-Equal $ou $b.BaseDn;Assert-Equal 'Subtree' $b.Scope;Assert-False $b.IsDomain
+    $root=Get-DomeniaSearchBarScope -Choice Ou -OuDn $script:DomainDn -DomainDn $script:DomainDn
+    Assert-False $root.Explicit 'La racine du domaine reste Partout';Assert-Equal $script:DomainDn $root.BaseDn;Assert-False $root.OuAvailable
+    $other=Get-DomeniaSearchBarScope -Choice Ou -OuDn 'OU=X,DC=autre,DC=invalid' -DomainDn $script:DomainDn
+    Assert-False $other.Explicit 'Une OU d un autre domaine est refusee';Assert-False $other.OuAvailable
+    $none=Get-DomeniaSearchBarScope -Choice Ou -OuDn '' -DomainDn $script:DomainDn;Assert-False $none.Explicit
+    $everywhere=Get-DomeniaSearchBarScope -Choice Everywhere -OuDn $ou -DomainDn $script:DomainDn
+    Assert-False $everywhere.Explicit;Assert-True $everywhere.OuAvailable 'Partout garde la possibilite de choisir Dans'
+}
+Test-Case 'FO-05' 'Le texte d attente et le resume disent le perimetre et le type' {
+    $a=Get-DomeniaSearchBarText -Choice Everywhere -Type Tous
+    Assert-Equal 'Personne, poste ou groupe, dans tout le domaine…' $a.Placeholder;Assert-Equal 'Partout' $a.Chip
+    Assert-Equal 'Recherche · Partout · Tous les types · Aucun filtre de liste' $a.Summary
+    $b=Get-DomeniaSearchBarText -Choice Ou -OuName 'Postes' -Type Machines
+    Assert-Equal 'Poste, dans « Postes » et ses sous-OU…' $b.Placeholder;Assert-Equal 'Dans « Postes »' $b.Chip
+    Assert-Equal 'Recherche · Dans « Postes » · Postes · Aucun filtre de liste' $b.Summary
+    Assert-Equal 'Personnes' (Get-DomeniaSearchBarText -Type Utilisateurs).TypeLabel
+    Assert-Equal 'Tout' (@(Get-DomeniaSearchBarTypes)[0]).Label;Assert-Equal 4 @(Get-DomeniaSearchBarTypes).Count
+}
+Test-Case 'FO-05' 'Le contrat global accepte une OU nommee par la puce et refuse une OU heritee' {
+    $ou='OU=Postes,'+$script:DomainDn
+    $r=New-DomeniaGlobalSearchRequest 'dupont' $script:DomainDn 100 'reader' 4 -ScopeDn $ou -OuName 'Postes' -Type Machines
+    Assert-Equal $ou $r.BaseDn;Assert-Equal $ou $r.ExplicitScopeDn;Assert-True (Test-DomeniaGlobalSearchRequest $r $script:DomainDn)
+    Assert-True ($r.ScopeLabel.Contains('Postes'));Assert-True ($r.Filter.Contains('(objectCategory=computer)')) 'Le type de la barre restreint le filtre'
+    $inherited=$r.PSObject.Copy();$inherited.ExplicitScopeDn='';Assert-False (Test-DomeniaGlobalSearchRequest $inherited $script:DomainDn) 'Une OU sans puce est heritee'
+    $outside=$r.PSObject.Copy();$outside.BaseDn='OU=X,DC=autre,DC=invalid';$outside.ExplicitScopeDn='OU=X,DC=autre,DC=invalid'
+    Assert-False (Test-DomeniaGlobalSearchRequest $outside $script:DomainDn) 'Une OU d un autre domaine est refusee'
+    $oneLevel=$r.PSObject.Copy();$oneLevel.Scope='OneLevel';Assert-False (Test-DomeniaGlobalSearchRequest $oneLevel $script:DomainDn)
+    $plain=New-DomeniaGlobalSearchRequest 'dupont' $script:DomainDn;Assert-Equal $script:DomainDn $plain.BaseDn;Assert-Equal '' $plain.ExplicitScopeDn
+}
+Test-Case 'MO-07' 'Charger la suite ne lit que les lignes suivantes, avec un palier en un clic' {
+    $d=Get-DomeniaContinuationDecision $true $false $true 100 20000 100
+    Assert-True $d.Allowed;Assert-Equal 200 $d.NextLimit;Assert-Equal 100 $d.Page 'Seules les 100 lignes suivantes sont lues'
+    Assert-Equal 1000 $d.JumpLimit;Assert-Equal 900 $d.JumpPage
+    Assert-True ($d.JumpText -match '^Charger jusquʼà 1\D000$') ('Libelle du palier : '+$d.JumpText)
+    Assert-True ($d.Reason.Contains('sans relire les lignes déjà chargées')) $d.Reason
+    $mid=Get-DomeniaContinuationDecision $true $false $true 800 20000 800;Assert-Equal 1600 $mid.NextLimit;Assert-Equal 800 $mid.Page;Assert-Equal 5000 $mid.JumpLimit
+    $high=Get-DomeniaContinuationDecision $true $false $true 12800 20000 12800;Assert-Equal 20000 $high.NextLimit;Assert-Equal 7200 $high.Page;Assert-Equal 0 $high.JumpLimit 'Pas de palier au-dela du plafond'
+    Assert-Equal 100 (Get-DomeniaContinuationDecision $true $false $true 100).Page 'Sans nombre charge, la liste tient sa limite'
+    $short=Get-DomeniaContinuationDecision $true $false $true 100 20000 97;Assert-Equal 103 $short.Page 'Lignes en double ecartees : la page complete la liste'
+    $none=Get-DomeniaContinuationDecision $true $false $false 100 20000 40;Assert-False $none.Allowed;Assert-Equal 0 $none.JumpLimit
+}
+Test-Case 'MO-07' 'La demande de suite reprend le filtre de la liste apres le dernier nom, sans les DN deja charges' {
+    $dns=@('CN=PC-01,OU=Postes,DC=example,DC=invalid','cn=pc-01,ou=postes,dc=example,dc=invalid','CN=PC-02,OU=Postes,DC=example,DC=invalid','')
+    $first=New-DomeniaContinuationRequest '(objectCategory=computer)' '' $dns 2 4 250 'reader' 7 $script:DomainDn
+    Assert-True $first.Valid;Assert-Equal '(objectCategory=computer)' $first.Filter 'Premiere suite : lecture triee depuis le debut'
+    Assert-Equal 'name' $first.SortAttribute;Assert-Equal 2 $first.Page;Assert-Equal 4 $first.Target
+    Assert-Equal 2 @($first.KnownKeys).Count 'DN dedoublonnes sans tenir compte de la casse'
+    Assert-Equal 'cn=pc-01,ou=postes,dc=example,dc=invalid' @($first.KnownKeys)[0]
+    Assert-True (Test-DomeniaContinuationCurrent $first 'reader' 7 $script:DomainDn) 'La regle de contexte courant reconnait la demande'
+    $next=New-DomeniaContinuationRequest '(objectCategory=computer)' 'PC-02 (b)' $dns 4 8
+    Assert-Equal '(&(objectCategory=computer)(name>=PC-02 \28b\29))' $next.Filter 'Reprise au dernier nom lu, litteral echappe'
+    Assert-Equal 'PC-02 (b)' $next.AfterName;Assert-Equal 4 $next.Page
+    Assert-False (New-DomeniaContinuationRequest '' '' $dns 2 4).Valid 'Filtre inconnu : pas de suite partielle'
+    Assert-False (New-DomeniaContinuationRequest 'objectCategory=computer' '' $dns 2 4).Valid 'Filtre non parenthese refuse'
+    Assert-False (New-DomeniaContinuationRequest '(objectCategory=computer)' '' $dns 4 4).Valid 'Aucune ligne demandee'
+}
+Test-Case 'FO-01' 'Filtre « contient » : chaque mot dans le nom, sans syntaxe ni joker saisi' {
+    $type='(objectCategory=computer)'
+    $one=New-DomeniaContainsFilter 'compta' $type
+    Assert-True $one.Valid
+    Assert-Equal '(&(objectCategory=computer)(|(name=*compta*)(displayName=*compta*)(sAMAccountName=*compta*)(dNSHostName=*compta*)))' $one.Filter
+    $two=New-DomeniaContainsFilter 'jean  dupont' $type
+    Assert-Equal ('(&'+$type+'(&(|(name=*jean*)(displayName=*jean*)(sAMAccountName=*jean*)(dNSHostName=*jean*))(|(name=*dupont*)(displayName=*dupont*)(sAMAccountName=*dupont*)(dNSHostName=*dupont*))))') $two.Filter 'Tous les mots doivent figurer'
+    Assert-True ((New-DomeniaContainsFilter 'pc(1)' $type).Filter.Contains('(name=*pc\281\29*)')) 'Parentheses echappees'
+    Assert-True ((New-DomeniaContainsFilter 'a*b' $type).Filter.Contains('(name=*a\2ab*)')) 'Une etoile saisie reste un caractere'
+    Assert-False (New-DomeniaContainsFilter 'a' $type).Valid 'Un mot d un seul caractere est refuse'
+    Assert-False (New-DomeniaContainsFilter 'un deux trois quatre cinq' $type).Valid 'Au plus quatre mots'
+    Assert-False (New-DomeniaContainsFilter '  ' $type).Valid
+}
+Test-Case 'FO-01' 'La puce « contient » apparait seulement apres une recherche globale courte et complete' {
+    $offer=Get-DomeniaContainsSearchOffer -Text 'compta' -Mode Global -PlanKind Default -Loaded 0 -Finalized $true
+    Assert-True $offer.Show;Assert-Equal 'compta' $offer.Term
+    Assert-Equal 'Chercher aussi les noms qui contiennent « compta »' $offer.Label
+    Assert-True ($offer.Tip.Contains('Rien nʼest lu avant le clic'))
+    Assert-True (Get-DomeniaContainsSearchOffer -Text 'compta' -Loaded 5 -Finalized $true).Show 'Peu de resultats : proposee'
+    Assert-False (Get-DomeniaContainsSearchOffer -Text 'compta' -Loaded 6 -Finalized $true).Show 'Assez de resultats : rien'
+    Assert-False (Get-DomeniaContainsSearchOffer -Text 'compta' -Loaded 0 -Finalized $false).Show 'Lecture en cours'
+    Assert-False (Get-DomeniaContainsSearchOffer -Text 'compta' -Loaded 0 -Finalized $true -HasError $true).Show 'Liste partielle'
+    Assert-False (Get-DomeniaContainsSearchOffer -Text 'compta' -Loaded 0 -Finalized $true -LimitReached $true).Show 'Liste limitee'
+    Assert-False (Get-DomeniaContainsSearchOffer -Text 'compta' -Mode OU -Loaded 0 -Finalized $true).Show 'Liste d OU'
+    Assert-False (Get-DomeniaContainsSearchOffer -Text 'poste:pc' -PlanKind Syntax -Loaded 0 -Finalized $true).Show 'Jetons explicites'
+    Assert-False (Get-DomeniaContainsSearchOffer -Text 'S-1-5-21-1-2-3-4' -PlanKind Identifier -Loaded 0 -Finalized $true).Show 'Identifiant colle'
+    Assert-False (Get-DomeniaContainsSearchOffer -Text '*compta*' -Loaded 0 -Finalized $true).Show 'Joker deja saisi'
+    Assert-False (Get-DomeniaContainsSearchOffer -Text 'compta' -MatchMode Contains -Loaded 0 -Finalized $true).Show 'Deja une recherche contient'
+    Assert-False (Get-DomeniaContainsSearchOffer -Text 'compta' -ViewId 'disabled' -Loaded 0 -Finalized $true).Show 'Requete enregistree'
+    Assert-False (Get-DomeniaContainsSearchOffer -Text 'a' -Loaded 0 -Finalized $true).Show 'Texte trop court pour contient'
+    $k1=Get-DomeniaNavStateKey ([pscustomobject]@{Page='WsSearch';Mode='Global';Text='compta'})
+    $k2=Get-DomeniaNavStateKey ([pscustomobject]@{Page='WsSearch';Mode='Global';Text='compta';MatchMode='Contains'})
+    Assert-True ($k1 -cne $k2) 'La liste « contient » est un autre lieu de l historique'
+}

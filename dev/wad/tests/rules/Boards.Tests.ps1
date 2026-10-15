@@ -192,6 +192,7 @@ Test-Case 'BRD-013' 'Ancienne disposition livree du parc migree, disposition per
 # ---------------------------------------------------------------------------------------------------------------------
 . (Join-Path $modules 'Domenia-BoardComputer.UI.ps1')
 . (Join-Path $modules 'Domenia-Probes.Model.ps1')
+. (Join-Path $modules 'Domenia-Readings.Model.ps1')
 # The catalog cache of Probes.Model starts empty (StrictMode of this runner: the variable must exist).
 $script:DomeniaProbeCatalog = $null
 $script:BrdDashboardAst = [Management.Automation.Language.Parser]::ParseFile((Join-Path $modules 'Domenia-Dashboard.UI.ps1'), [ref]$null, [ref]$null)
@@ -390,4 +391,99 @@ Test-Case 'BRD-024' 'CO-24 : une section vide dit ce qui n a pas ete lu, sans pr
     # Ce que chaque section attend vraiment du complet, et rien d autre.
     Assert-True ([string]$data.Hints['Activite'] -like '*processus*') ('Activite : ' + [string]$data.Hints['Activite'])
     Assert-True ([string]$data.Hints['Securite et etat'] -like '*certificats*') ('Securite et etat : ' + [string]$data.Hints['Securite et etat'])
+}
+Test-Case 'BRD-081' 'Points 81, 92, 93, 95, 98, 99 et 100 : le tableau du poste lit les nouvelles lignes de l inventaire' {
+    $rows = @(Get-BrdSecureRows) + @(
+        (New-BrdRow 'Memoire' 'Barrette 1' '8 Go a 3200 MHz, emplacement DIMM A'),
+        (New-BrdRow 'Redemarrage en attente' 'Renommages de fichiers en attente' 'Present (indice partiel) : 2 operation(s)'),
+        (New-BrdRow 'Redemarrage en attente' 'Windows Update' 'Absent'),
+        (New-BrdRow 'Redemarrage en attente' 'Etat' 'Indices partiels seulement : Renommages de fichiers en attente'),
+        (New-BrdRow 'Pare-feu' 'Profil applique a Ethernet' 'Domaine (reseau contoso.test)'),
+        (New-BrdRow 'BitLocker' 'Volume C: chiffrement' 'Entierement chiffre'),
+        (New-BrdRow 'BIOS et firmware' 'Secure Boot' 'Active'),
+        (New-BrdRow 'BIOS et firmware' 'Type de firmware' 'UEFI'),
+        (New-BrdRow 'Systeme d exploitation' 'Build' '22631'),
+        (New-BrdRow 'Systeme d exploitation' 'Revision de build' '4317'))
+    $result = New-BrdInventory -Rows $rows
+    $result.Metrics | Add-Member -NotePropertyName MemorySlots -NotePropertyValue 4
+    $result.Metrics | Add-Member -NotePropertyName MemorySource -NotePropertyValue 'Barrettes'
+    $result.Metrics | Add-Member -NotePropertyName ProcessSample -NotePropertyValue ([pscustomobject]@{ IntervalMs = 2000; SampledUtc = '2026-10-14T10:00:00Z'; LogicalProcessors = 4; Items = @([pscustomobject]@{ Pid = 10; Name = 'calc.exe'; FirstTime = 10000000; SecondTime = 50000000; WorkingSet = 1048576 }) })
+    $result.Metrics | Add-Member -NotePropertyName Certificates -NotePropertyValue ([pscustomobject]@{ Source = 'Registre'; Items = @([pscustomobject]@{ Subject = 'CN=old'; Issuer = 'CN=CA'; NotAfterUtc = '2020-01-01T12:00:00Z'; Thumbprint = 'AA'; Usages = @(); KeyDeclared = $false }, [pscustomobject]@{ Subject = 'CN=new'; Issuer = 'CN=CA'; NotAfterUtc = '2099-01-01T12:00:00Z'; Thumbprint = 'BB'; Usages = @(); KeyDeclared = $false }) })
+    $data = Get-DomeniaComputerBoardData -Result $result
+    $texts = Get-BrdTexts $data
+    Assert-Equal '1 barrette(s) sur 4 emplacement(s)' ([string]$data.Entries['computer.memory'].Detail)
+    Assert-Equal 'Indices partiels' ([string]$data.Entries['computer.reboot'].Value)
+    Assert-Equal '' ([string]$data.Entries['computer.reboot'].State) 'indice partiel : aucun point'
+    Assert-Equal 0 @($texts | Where-Object { $_ -like '*marrage en attente*' }).Count ($texts -join ' | ')
+    Assert-True ([string]$data.Entries['computer.firewall'].Detail -like '*appliqué à Ethernet*') ([string]$data.Entries['computer.firewall'].Detail)
+    Assert-Equal ('Prot' + [char]0x00E9 + 'g' + [char]0x00E9) ([string]$data.Entries['computer.bitlocker'].Value)
+    Assert-Equal 'Ok' ([string]$data.Entries['computer.secureboot'].State)
+    Assert-Equal 'Build 22631.4317' ([string]$data.Entries['computer.updates'].Value)
+    Assert-Equal 'calc.exe' ([string]$data.Entries['computer.processes'].Value)
+    Assert-True ([string]$data.Entries['computer.processes'].Detail -like '50 % du processeur sur 2 s*') ([string]$data.Entries['computer.processes'].Detail)
+    Assert-Equal '2' ([string]$data.Entries['computer.certificates'].Value)
+    Assert-Equal 'Warn' ([string]$data.Entries['computer.certificates'].State)
+    Assert-True (@($texts | Where-Object { $_ -like 'Warn:1 certificat(s) machine expir*CN=old.' }).Count -eq 1) ($texts -join ' | ')
+    $suspended = @((New-BrdRow 'Pare-feu' 'Profil domaine' 'Active (strategie)'), (New-BrdRow 'Antivirus' 'Defender' 'Actif, A jour'), (New-BrdRow 'BitLocker' 'Volume C:' 'Protection Desactive'), (New-BrdRow 'BitLocker' 'Volume C: chiffrement' 'Entierement chiffre'), (New-BrdRow 'Redemarrage en attente' 'Windows Update' 'Present (obligation confirmee)'), (New-BrdRow 'BIOS et firmware' 'Secure Boot' 'Desactive'), (New-BrdRow 'BIOS et firmware' 'Type de firmware' 'UEFI'))
+    $other = Get-DomeniaComputerBoardData -Result (New-BrdInventory -Rows $suspended)
+    $otherTexts = Get-BrdTexts $other
+    Assert-True (@($otherTexts | Where-Object { $_ -like 'Warn:BitLocker : protection suspendue sur C:*' }).Count -eq 1) ($otherTexts -join ' | ')
+    Assert-True (@($otherTexts | Where-Object { $_ -like 'Warn:Red*marrage en attente, confirm* par : Windows Update.' }).Count -eq 1) ($otherTexts -join ' | ')
+    Assert-True (@($otherTexts | Where-Object { $_ -like 'Warn:Secure Boot d*sactiv* sur un micrologiciel UEFI.' }).Count -eq 1) ($otherTexts -join ' | ')
+    Assert-Equal 'Warn' ([string]$other.Entries['computer.secureboot'].State)
+}
+Test-Case 'BRD-081B' 'Points 98 a 100 (revue) : BitLocker suspendu, Secure Boot et certificats se desactivent dans les regles de sante' {
+    $ids = @('bitlocker.suspended', 'secureboot', 'certificates')
+    $catalog = @(Get-DomeniaHealthRuleCatalog | ForEach-Object { [string]$_.Id })
+    foreach ($id in $ids) { Assert-True ($catalog -contains $id) ('regle absente du catalogue : ' + $id) }
+    $rows = @((New-BrdRow 'Pare-feu' 'Profil domaine' 'Active (strategie)'), (New-BrdRow 'Antivirus' 'Defender' 'Actif, A jour'), (New-BrdRow 'BitLocker' 'Volume C:' 'Protection Desactive'), (New-BrdRow 'BitLocker' 'Volume C: chiffrement' 'Entierement chiffre'), (New-BrdRow 'BIOS et firmware' 'Secure Boot' 'Desactive'), (New-BrdRow 'BIOS et firmware' 'Type de firmware' 'UEFI'))
+    $store = [pscustomobject]@{ Source = 'Registre'; Items = @([pscustomobject]@{ Subject = 'CN=old'; Issuer = 'CN=CA'; NotAfterUtc = '2020-01-01T12:00:00Z'; Thumbprint = 'AA'; Usages = @(); KeyDeclared = $false }) }
+    $raised = New-BrdInventory -Rows $rows
+    $raised.Metrics | Add-Member -NotePropertyName Certificates -NotePropertyValue $store
+    $raisedData = Get-DomeniaComputerBoardData -Result $raised
+    $before = @(@($raisedData.Attention) | ForEach-Object { [string]$_.Point })
+    foreach ($id in $ids) { Assert-True ($before -contains $id) ('point attendu : ' + $id + ' / ' + ($before -join ', ')) }
+    # Point 75 (W02): the workstation explanation reads each new rule from its own tile, never as a fleet-only control.
+    foreach ($id in $ids) { Assert-Equal 'Mesuré' ([string]@($raisedData.HealthExplanation.Rows | Where-Object { $_.Id -eq $id })[0].Eligible) ('regle du poste : ' + $id) }
+    $policy = ConvertTo-DomeniaHealthPolicy @{ DisabledRules = $ids }
+    Assert-Equal 3 @($policy.DisabledRules).Count 'regles ignorees par la politique'
+    $quiet = New-BrdInventory -Rows $rows
+    $quiet.Metrics | Add-Member -NotePropertyName Certificates -NotePropertyValue $store
+    $after = @(@((Get-DomeniaComputerBoardData -Result $quiet -HealthPolicy $policy).Attention) | ForEach-Object { [string]$_.Point })
+    foreach ($id in $ids) { Assert-False ($after -contains $id) ('point desactive encore compte : ' + $id) }
+}
+Test-Case 'BRD-081C' 'Points 92 et 100 (revue) : adresse WSUS non appliquee et magasin de certificats lu en partie' {
+    $declared = @((New-BrdRow 'Windows Update' 'Serveur WSUS' 'http://wsus.contoso.test:8530'), (New-BrdRow 'Windows Update' 'Strategie WSUS appliquee' 'Non'))
+    $result = New-BrdInventory -Rows $declared
+    $result.Metrics | Add-Member -NotePropertyName Certificates -NotePropertyValue ([pscustomobject]@{ Source = 'Registre'; StoreCount = 73; Truncated = $true; Items = @([pscustomobject]@{ Subject = 'CN=new'; Issuer = 'CN=CA'; NotAfterUtc = '2099-01-01T12:00:00Z'; Thumbprint = 'BB'; Usages = @(); KeyDeclared = $false }) })
+    $data = Get-DomeniaComputerBoardData -Result $result
+    Assert-Equal 'Windows Update' ([string]$data.Entries['computer.wsus'].Value) 'adresse WSUS sans UseWUServer annoncee comme WSUS'
+    Assert-True ([string]$data.Entries['computer.wsus'].Detail -like '*UseWUServer*wsus.contoso.test*') ([string]$data.Entries['computer.wsus'].Detail)
+    $applied = Get-DomeniaComputerBoardData -Result (New-BrdInventory -Rows @((New-BrdRow 'Windows Update' 'Serveur WSUS' 'http://wsus.contoso.test:8530'), (New-BrdRow 'Windows Update' 'Strategie WSUS appliquee' 'Oui')))
+    Assert-Equal 'WSUS' ([string]$applied.Entries['computer.wsus'].Value)
+    Assert-Equal '1' ([string]$data.Entries['computer.certificates'].Value)
+    Assert-Equal '' ([string]$data.Entries['computer.certificates'].State) 'lecture partielle affichee en bon etat'
+    Assert-True ([string]$data.Entries['computer.certificates'].Detail -like '*lecture partielle : 1 lu(s) sur 73') ([string]$data.Entries['computer.certificates'].Detail)
+}
+Test-Case 'BRD-025' 'Point 74 : couverture a cote de la sante, aucune note rassurante pour un parc peu renseigne' {
+    $c = Get-DomeniaHealthCoverage -Total 26 -Assessed 12
+    Assert-Equal 46 ([int]$c.Percent); Assert-False $c.Sufficient
+    Assert-True (Get-DomeniaHealthCoverage -Total 26 -Assessed 13).Sufficient '50 % exactement'
+    Assert-Equal 49 ([int](Get-DomeniaHealthCoverage -Total 1000 -Assessed 499).Percent) 'arrondi vers le bas'
+    Assert-False (Get-DomeniaHealthCoverage -Total 0 -Assessed 0).Sufficient
+    $thin = Get-DomeniaFleetHealth -Total 100 -Healthy 5 -Unassessed 95
+    Assert-Equal $null $thin.Score 'aucun score sur 5 % du parc'
+    Assert-Equal 'Couverture insuffisante' ([string]$thin.Verdict); Assert-Equal 'Off' ([string]$thin.State)
+    Assert-True ([string]$thin.Detail -like '*couverture 5 % (5 évalué(s) sur 100)*') ([string]$thin.Detail)
+    $critical = Get-DomeniaFleetHealth -Total 100 -Healthy 4 -Unassessed 95 -Attention @([pscustomobject]@{ Level = 'Alert'; Text = 'x' })
+    Assert-Equal 'Critique' ([string]$critical.Verdict); Assert-Equal 'Alert' ([string]$critical.State); Assert-Equal $null $critical.Score
+    $partial = Get-DomeniaFleetHealth -Total 20 -Healthy 17 -Unassessed 2
+    Assert-Equal 94 ([int]$partial.Score); Assert-Equal 'Évaluation partielle' ([string]$partial.Verdict)
+    Assert-True ([string]$partial.Detail -like '*· couverture 90 % (18 évalué(s) sur 20)') ([string]$partial.Detail)
+    Assert-Equal '22 postes sur 26 évalués sans point détecté · 0 non évalué(s)' ([string](Get-DomeniaFleetHealth -Total 26 -Healthy 22).Detail) 'parc entierement evalue inchange'
+    $data = New-DomeniaBoardData -Board Fleet
+    Add-Member -InputObject $data -MemberType NoteProperty -Name 'Population' -Value ([pscustomobject]@{ Total = 40; Healthy = 3; Unassessed = 36 })
+    [void](Complete-DomeniaBoardData -Data $data)
+    Assert-Equal $null $data.Entries['fleet.health'].Number 'le widget ne montre aucun score'
+    Assert-Equal 'Couverture insuffisante' ([string]$data.Entries['fleet.health'].Value)
 }

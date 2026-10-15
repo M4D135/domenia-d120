@@ -60,7 +60,9 @@ Check-Suite 'P111 : une seule action principale par carte, onglet ou extenseur (
 }
 Check-Suite 'P111 : options avancees repliees par defaut' {
     $open=@($elements|Where-Object{($_.Element.LocalName -eq 'Expander') -and ([string]$_.Element.GetAttribute('IsExpanded') -eq 'True')}|ForEach-Object{[string]$_.Element.GetAttribute('Header')})
-    $allowed=@('Emplacement et sauvegarde','Stockage local')
+    # X04 (P-UX-19): « Reprises » holds the resume actions moved from Fiabilité; its routes (StorageResume, LegacyImport)
+    # give the focus to a button inside it, so it stays open.
+    $allowed=@('Emplacement et sauvegarde','Stockage local','Reprises')
     $unexpected=@($open|Where-Object{$allowed -notcontains $_})
     if($unexpected.Count){throw ('Extenseurs ouverts : '+($unexpected -join ', '))}
     @($elements|Where-Object{[string]$_.Element.GetAttribute('Name',$x) -eq 'ExpAccountSecurityOptions'}).Count -eq 1
@@ -117,7 +119,8 @@ Check-Suite 'P119 : un seul etat vide pour la liste, avec son titre, son texte e
     $empty=@($elements|Where-Object{[string]$_.Element.GetAttribute('Name',$x) -eq 'UxSearchEmpty'})
     $names=@('LblSearchEmptyTitle','LblSearchEmptyText','BtnSearchEmptyNext')
     $inside=@($names|Where-Object{$n=$_;@($empty[0].Element.SelectNodes('.//*')|Where-Object{[string]$_.GetAttribute('Name',$x) -eq $n}).Count -eq 1})
-    $legacy=$mainText.Contains('Aucune ligne à afficher')
+    # UX-03 is a state of this panel (« Le filtre masque N lignes »), never a second overlay.
+    $legacy=$mainText.Contains('Aucune ligne à afficher') -or $mainText.Contains('UxSearchFilteredEmpty')
     $init=(Get-SuiteFunctionText (Join-Path $modules 'Domenia-SearchWorkspace.UI.ps1') 'Initialize-DomeniaSearchWorkspace').Contains('Initialize-DomeniaSearchEmptyState')
     ($empty.Count -eq 1) -and ($inside.Count -eq 3) -and (-not $legacy) -and $init
 }
@@ -155,6 +158,11 @@ if([Threading.Thread]::CurrentThread.GetApartmentState() -ne [Threading.Apartmen
     function Send-DomeniaUxLiveChange {param($Control) if($null -ne $Control){$script:Announced.Add([string]$Control.Name)}}
     $ux=Join-Path $modules 'Domenia-UX.UI.ps1'
     foreach($name in @('Get-DomeniaSearchEmptyInputs','Update-DomeniaSearchEmptyState','Invoke-DomeniaSearchEmptyAction','Initialize-DomeniaSearchEmptyState','Get-DomeniaUxOuDisplay','Get-DomeniaUiZoomLayoutSize','Set-DomeniaUiZoom','Set-DomeniaLiveText','Update-DomeniaUiZoomForDpi')){Import-SuiteFunction $ux $name}
+    # UX-03 merged into the one empty state: the filter wording and « Effacer le filtre » are the real ones.
+    Import-SuiteFunction (Join-Path $modules 'Domenia-Experience.Model.ps1') 'Get-DomeniaFilteredEmptyState'
+    Import-SuiteFunction (Join-Path $modules 'Domenia-Experience.UI.ps1') 'Clear-DomeniaResultFilters'
+    Import-SuiteFunction (Join-Path $modules 'Domenia-Experience.UI.ps1') 'Update-DomeniaFilteredEmptyState'
+    function Apply-DomeniaPresenceFilter {$script:PresenceApplied=[string]$script:CurrentPresenceFilter}
     $script:DomeniaSearchEmptyTimer=$null;$script:DomeniaSearchEmptyBound=$false
     $xaml=@'
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Width="1024" Height="720" ShowActivated="False">
@@ -202,7 +210,7 @@ if([Threading.Thread]::CurrentThread.GetApartmentState() -ne [Threading.Apartmen
             $shown=$grid.Items.Count
             $script:Ctrl['TxtSuiteResultFilter'].Text='compta'
             [Windows.Data.CollectionViewSource]::GetDefaultView($rows).Filter=[Predicate[object]]{param($row) $false};Pump $window
-            $filtered=[string]$script:Ctrl['LblSearchEmptyTitle'].Text;$filteredText=[string]$script:Ctrl['LblSearchEmptyText'].Text
+            $filtered=[string]$script:Ctrl['LblSearchEmptyTitle'].Text;$filteredText=[string]$script:Ctrl['LblSearchEmptyText'].Text;$filteredButton=[string]$script:Ctrl['BtnSearchEmptyNext'].Content
             $script:Ctrl['BtnSearchEmptyNext'].RaiseEvent((New-Object Windows.RoutedEventArgs ([Windows.Controls.Primitives.ButtonBase]::ClickEvent)));Pump $window
             $cleared=([string]$script:Ctrl['TxtSuiteResultFilter'].Text -eq '')
             [Windows.Data.CollectionViewSource]::GetDefaultView($rows).Filter=$null
@@ -219,10 +227,29 @@ if([Threading.Thread]::CurrentThread.GetApartmentState() -ne [Threading.Apartmen
             if(($running -ne 'Lecture en cours') -or (-not $timerOn)){throw ('En cours : '+$running)}
             if(($none -ne 'Aucun résultat') -or (-not $noneText.Contains('« dupont »')) -or (-not $noneText.Contains('tout le domaine')) -or ($noneButton -ne 'Élargir le périmètre ou corriger la saisie')){throw ('Aucun resultat : '+$none+' / '+$noneText)}
             if($shown -ne 2){throw 'Lignes non affichees'}
-            if(($filtered -ne 'Filtre local sans correspondance') -or (-not $filteredText.Contains('2 résultat(s)')) -or (-not $cleared)){throw ('Filtre : '+$filtered+' / '+$filteredText)}
+            if(($filtered -ne 'Le filtre masque 2 lignes') -or (-not $filteredText.Contains('texte « compta »')) -or (-not $filteredText.Contains('sans requête AD')) -or ($filteredButton -ne 'Effacer le filtre') -or (-not $cleared) -or ($script:PresenceApplied -ne 'Tous')){throw ('Filtre : '+$filtered+' / '+$filteredText)}
             if(($refused -ne 'Lecture refusée') -or (-not $refusedText.Contains('(Paris)'))){throw ('Refus : '+$refused+' / '+$refusedText)}
             if(($announcedRefusal -ne 'LblSearchEmptyTitle,LblSearchEmptyText') -or ($announcedAgain -ne 2)){throw ('Annonces : '+$announcedRefusal+' puis '+$announcedAgain)}
             Test-DomeniaNoAbsenceClaim ($none+' '+$noneText+' '+$filteredText+' '+$refusedText)
+        }
+        Check-Suite 'P119 avec UX-03 : une copie filtree de la liste dit combien de lignes le filtre masque' {
+            $script:Live=$null;$script:CurrentPresenceFilter='Tous';$script:DomeniaListFilterCounts=$null
+            $script:Ctrl['TxtSuiteResultFilter'].Text='compta'
+            # As Set-DomeniaItemsSource: the counts of the whole list come with the copy, then the grid takes the copy.
+            $copy=New-Object System.Collections.ArrayList
+            Update-DomeniaFilteredEmptyState -Loaded 48 -Visible 0 -Source $copy
+            $script:Announced.Clear()
+            $grid.ItemsSource=$null;Pump $window
+            $between=$script:Announced.Count
+            $grid.ItemsSource=$copy;Pump $window
+            $title=[string]$script:Ctrl['LblSearchEmptyTitle'].Text;$text=[string]$script:Ctrl['LblSearchEmptyText'].Text;$next=[string]$script:Ctrl['BtnSearchEmptyNext'].Tag
+            # Another list never inherits these counts.
+            $other=New-Object System.Collections.ArrayList
+            $grid.ItemsSource=$other;Pump $window
+            $after=[string]$script:Ctrl['LblSearchEmptyTitle'].Text
+            $script:Ctrl['TxtSuiteResultFilter'].Text='';$grid.ItemsSource=$null;$script:DomeniaListFilterCounts=$null
+            if(($between -ne 0) -or ($title -ne 'Le filtre masque 48 lignes') -or (-not $text.Contains('texte « compta »')) -or ($next -ne 'ClearLocalFilter') -or ($after -eq $title)){throw ('Copie filtree : '+$between+' annonce(s) entre deux listes, '+$title+' / '+$text+' / '+$next+' puis '+$after)}
+            $true
         }
         Check-Suite 'P114 : zoom de 80 a 150 % sans perte de saisie, de curseur ni de focus' {
             $box=$script:Ctrl['TxtGlobalSearch'];$box.Text='saisie en cours';[void]$box.Focus();$box.CaretIndex=6;Pump $window

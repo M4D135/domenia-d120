@@ -23,7 +23,7 @@ function Test-Case {
     catch { $script:Checks.Add([pscustomobject]@{Id=$Id;Name=$Name;Status='Failed';Detail=$_.Exception.Message+' @ '+$_.ScriptStackTrace}) }
 }
 if($null -eq ('Domenia.SelectionIdentity' -as [type])){Add-Type -Path (Join-Path $modules 'Domenia-Identity.Types.cs') -ErrorAction Stop}
-$script:RuleModules=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Search.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Directory.Model.ps1','Domenia-Workstation.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Safety.Model.ps1','Domenia-Insight.Model.ps1','Domenia-Release.Model.ps1','Domenia-Observability.Model.ps1','Domenia-Commands.Model.ps1')
+$script:RuleModules=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Search.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Directory.Model.ps1','Domenia-Workstation.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Safety.Model.ps1','Domenia-Insight.Model.ps1','Domenia-Release.Model.ps1','Domenia-Assist.Model.ps1','Domenia-DirectorySync.Model.ps1','Domenia-LogonActivity.Model.ps1','Domenia-DirectorySchema.Model.ps1','Domenia-SearchWorkspace.Model.ps1','Domenia-Observability.Model.ps1','Domenia-Commands.Model.ps1')
 foreach($file in $script:RuleModules){
     $path=Join-Path $modules $file
     if(-not [IO.File]::Exists($path)){throw ('Module de regles absent : '+$file)}

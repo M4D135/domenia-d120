@@ -26,7 +26,16 @@
               ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Fermer le panneau des opérations"
               AutomationProperties.HelpText="Ferme ce panneau. Les opérations continuent et restent comptées sur le bouton Opérations."/>
     </Grid>
-    <TextBlock x:Name="LblSuiteActivityState" Grid.Row="1" Text="" TextWrapping="Wrap" Margin="0,8,0,8" Foreground="{DynamicResource MutedColor}" AutomationProperties.LiveSetting="Polite"/>
+    <!-- W13 (point 118) with X04/X05: the operations and what waits for the operator in one place. The receipts that wait
+         for a check are counted by the same rule as the header pill (Get-DomeniaPendingOperationsView) and open the same list. -->
+    <DockPanel Grid.Row="1" LastChildFill="True" Margin="0,8,0,8">
+      <Button x:Name="BtnOperationsReceipts" DockPanel.Dock="Right" Visibility="Collapsed" Content="1 opération à vérifier" MinHeight="28" Padding="10,2" Margin="8,0,0,0" VerticalAlignment="Center"
+              Background="{DynamicResource InfoBg}" BorderBrush="{DynamicResource StatusWarning}" Foreground="{DynamicResource InfoFg}"
+              ToolTip="Écritures envoyées qui attendent une vérification ou une revue, comptées comme sur la pastille de lʼen-tête : les nouvelles écritures restent bloquées. Ferme ce panneau et ouvre la liste des reçus ; rien nʼest rejoué."
+              ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Opérations à vérifier"
+              AutomationProperties.HelpText="Écritures envoyées qui attendent une vérification ou une revue, comptées comme sur la pastille de lʼen-tête : les nouvelles écritures restent bloquées. Ferme ce panneau et ouvre la liste des reçus ; rien nʼest rejoué."/>
+      <TextBlock x:Name="LblSuiteActivityState" Text="" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" AutomationProperties.LiveSetting="Polite"/>
+    </DockPanel>
     <DataGrid x:Name="DgSuiteActivity" Grid.Row="2" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" SelectionUnit="FullRow" HeadersVisibility="Column"
               MinRowHeight="32" MinHeight="96" MaxHeight="300" CanUserAddRows="False" CanUserDeleteRows="False"
               ToolTip="Opérations de cette session : en cours, en attente, arrêt demandé, à vérifier ou nettoyage. Une ligne qui disparaît ne prouve pas un résultat ; consultez le journal."
@@ -97,9 +106,9 @@
       <StackPanel>
         <TextBlock Text="Santé" FontWeight="SemiBold" Foreground="{DynamicResource TextColor}"/>
         <TextBlock x:Name="LblOperationsHealth" Text="" TextWrapping="Wrap" Margin="0,4,0,0" Foreground="{DynamicResource MutedColor}"
-                   ToolTip="Mesures locales de cette session : mémoire, réactivité de lʼinterface, lenteurs expliquées, dernière sauvegarde locale. Aucune sonde réseau."
+                   ToolTip="Mesures locales de cette session : mémoire, réactivité de lʼinterface, temps de réponse par catégorie (recherche locale, interface, base locale, annuaire, postes, écritures et actions : médiane, 95e centile à partir de 20 mesures, maximum), lenteurs expliquées par opération et par étape, dernière sauvegarde locale. Aucune sonde réseau."
                    AutomationProperties.Name="Santé du moteur"
-                   AutomationProperties.HelpText="Mesures locales de cette session : mémoire, réactivité de lʼinterface, lenteurs expliquées, dernière sauvegarde locale. Aucune sonde réseau."/>
+                   AutomationProperties.HelpText="Mesures locales de cette session : mémoire, réactivité de lʼinterface, temps de réponse par catégorie (recherche locale, interface, base locale, annuaire, postes, écritures et actions : médiane, 95e centile à partir de 20 mesures, maximum), lenteurs expliquées par opération et par étape, dernière sauvegarde locale. Aucune sonde réseau."/>
       </StackPanel>
     </Border>
   </Grid>
