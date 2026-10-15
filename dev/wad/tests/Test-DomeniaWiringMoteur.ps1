@@ -42,7 +42,9 @@ if ($null -eq ('Domenia.SelectionIdentity' -as [type])) { Add-Type -Path (Join-P
 foreach ($file in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Search.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Access.Model.ps1','Domenia-Safety.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Demo.Model.ps1','Domenia-Shell.Model.ps1',
     'Domenia-Selection.UI.ps1','Domenia-Experience.UI.ps1','Domenia-Engine.UI.ps1','Domenia-Engine.Worker.ps1','Domenia-Demo.Worker.ps1','Domenia-Demo.UI.ps1',
     'Domenia-Startup.UI.ps1','Domenia-Isolation.Worker.ps1','Domenia-Receipts.Worker.ps1',
-    'Domenia-Cache.Model.ps1','Domenia-Live.Model.ps1','Domenia-Release.Model.ps1','Domenia-Storage.Worker.ps1','Domenia-Storage.UI.ps1')) {
+    'Domenia-Cache.Model.ps1','Domenia-Live.Model.ps1','Domenia-Release.Model.ps1','Domenia-Storage.Worker.ps1','Domenia-Storage.UI.ps1',
+    # W13 (point 123): the traces of the operations, so the real engine path writes them in these cases.
+    'Domenia-Observability.Model.ps1','Domenia-Observability.UI.ps1')) {
     $path = Join-Path $modules $file
     if (-not [IO.File]::Exists($path)) { throw ('Module absent : ' + $file) }
     . $path
@@ -1332,6 +1334,43 @@ Test-Case 'UX-32 / PF-12 : panneau Operations sous le bouton, lignes mises a jou
         $script:OperationsPanel = $null; $script:ExperienceInitialized = $false
         $layer.Children.Clear(); $layer.Visibility = 'Collapsed'
     }
+}
+Test-Case 'W13 (point 123) : une lecture terminee laisse sa trace, de la demande a la publication' {
+    $script:DomeniaTraceRing = $null; $script:DomeniaSlowEvents = $null; $script:AccessCurrentJob = $null
+    [void](Start-WiringTask -Name 'Lecture tracee W13')
+    Assert-True (Wait-WiringCondition -Complete { $script:AsyncJobs.Count -eq 0 }) 'Lecture non terminee'
+    $trace = @(@((Get-DomeniaTraceRing).Values) | Where-Object { [string]$_.Name -eq 'Lecture tracee W13' })[0]
+    Assert-True ($null -ne $trace) 'Aucune trace pour la lecture'
+    $phases = @($trace.Events | ForEach-Object { [string]$_.Phase })
+    foreach ($phase in @('Request','Collect','Validate','Publish','End')) { Assert-True ($phases -contains $phase) ('Phase absente : ' + $phase + ' (' + ($phases -join ',') + ')') }
+    Assert-True ([string]$trace.Outcome -eq 'Succeeded') ('Fin : ' + [string]$trace.Outcome)
+    Assert-True ($trace.OpenJobs.Count -eq 0) 'Trace encore ouverte'
+    $publish = @($trace.Events | Where-Object { [string]$_.Phase -eq 'Publish' })[0]
+    Assert-True (([long]$publish.Volume -eq 0) -and ([string]$publish.Detail -eq 'Complete-WiringTestUi')) ('Publication : volume ' + [string]$publish.Volume + ', traitement ' + [string]$publish.Detail)
+    $script:CaseDetail = (Get-DomeniaOperationTraceSummary -Trace $trace).Text
+}
+Test-Case 'W13 (point 123) : un echec ferme la trace avec sa categorie, jamais avec son message' {
+    $script:DomeniaTraceRing = $null; $script:AccessCurrentJob = $null
+    [void](Start-WiringTask -Name 'Lecture en echec W13' -Fail 'Acces refuse SECRET_SENTINEL_W13')
+    Assert-True (Wait-WiringCondition -Complete { $script:AsyncJobs.Count -eq 0 }) 'Lecture non terminee'
+    $trace = @(@((Get-DomeniaTraceRing).Values) | Where-Object { [string]$_.Name -eq 'Lecture en echec W13' })[0]
+    Assert-True ($null -ne $trace) 'Aucune trace pour l echec'
+    Assert-True ([string]$trace.Outcome -eq 'Failed') ('Fin : ' + [string]$trace.Outcome)
+    $json = ($trace | ConvertTo-Json -Depth 6)
+    Assert-True (-not $json.Contains('SECRET_SENTINEL_W13')) 'Le message d erreur est entre dans la trace'
+    $diagnostic = New-DomeniaRedactedDiagnostic -Traces @(Get-DomeniaOperationTraceSummary -Trace $trace)
+    Assert-True (@($diagnostic.Traces).Count -eq 1) 'Trace absente du diagnostic'
+}
+Test-Case 'W13 (point 123) : une tache lancee pendant le rappel d une autre rejoint sa trace' {
+    $script:DomeniaTraceRing = $null
+    $first = Start-WiringTask -Name 'Etape 1 W13'
+    Assert-True (Wait-WiringCondition -Complete { $script:AsyncJobs.Count -eq 0 }) 'Etape 1 non terminee'
+    $parent = @(@((Get-DomeniaTraceRing).Values) | Where-Object { [string]$_.Name -eq 'Etape 1 W13' })[0]
+    $script:AccessCurrentJob = [pscustomobject]@{TraceId=[string]$parent.TraceId}
+    try { [void](Start-WiringTask -Name 'Etape 2 W13') } finally { $script:AccessCurrentJob = $null }
+    Assert-True (Wait-WiringCondition -Complete { $script:AsyncJobs.Count -eq 0 }) 'Etape 2 non terminee'
+    Assert-True ((Get-DomeniaTraceRing).Count -eq 1) ('Traces : ' + (Get-DomeniaTraceRing).Count)
+    Assert-True ($parent.JobRefs.Count -eq 2) ('Taches reliees : ' + $parent.JobRefs.Count)
 }
 # ---------------------------------------------------------------- report
 try { Stop-WiringJobs } catch { }
