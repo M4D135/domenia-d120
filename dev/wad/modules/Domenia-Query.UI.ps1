@@ -72,6 +72,7 @@ function Initialize-DomeniaQueryWorkshop {
     $script:DomeniaQueryState|Add-Member -NotePropertyName ProbeLibrary -NotePropertyValue ''
     $script:DomeniaQueryState|Add-Member -NotePropertyName GroupSummary -NotePropertyValue $null
     $script:DomeniaQueryState|Add-Member -NotePropertyName GroupOffset -NotePropertyValue 0
+    $script:DomeniaQueryState|Add-Member -NotePropertyName CoherenceProposal -NotePropertyValue $null
     $fields=Get-DomeniaControl 'CmbQueryField'
     if($null -eq $fields){return}
     $fields.ItemsSource=@(Get-DomeniaQueryFields);$fields.DisplayMemberPath='Name';$fields.SelectedIndex=0
@@ -125,6 +126,7 @@ function Initialize-DomeniaQueryWorkshop {
     $groupFilter=Get-DomeniaControl 'TxtQueryGroupFilter';if($null -ne $groupFilter){$groupFilter.Add_TextChanged({$script:DomeniaQueryState.GroupOffset=0;Update-DomeniaQueryGroups})}
     foreach($entry in @(@('BtnQueryGroupsPrevious',-1),@('BtnQueryGroupsNext',1))){$control=Get-DomeniaControl $entry[0];if($null -ne $control){$control.Tag=$entry[1];$control.Add_Click({param($s,$e)Move-DomeniaQueryGroupPage ([int]$s.Tag)})}}
     $groupShow=Get-DomeniaControl 'BtnQueryGroupsShow';if($null -ne $groupShow){$groupShow.Add_Click({Show-DomeniaQueryGroupMachines})}
+    $applyCoherence=Get-DomeniaControl 'BtnQueryApplyCoherence';if($null -ne $applyCoherence){$applyCoherence.Add_Click({Use-DomeniaQueryCoherenceProposal})}
     $groupGrid=Get-DomeniaControl 'DgQueryGroups';if($null -ne $groupGrid){$groupGrid.Add_SelectionChanged({$button=Get-DomeniaControl 'BtnQueryGroupsShow';if($null -ne $button){$button.IsEnabled=($null -ne (Get-DomeniaControl 'DgQueryGroups').SelectedItem)}});$groupGrid.Add_MouseDoubleClick({Show-DomeniaQueryGroupMachines})}
     (Get-DomeniaControl 'QueryWorkspaceTabs').Add_SelectionChanged({param($sender,$args)if([object]::ReferenceEquals($sender,$args.OriginalSource) -and [string]$sender.SelectedItem.Name -eq 'TabQueryLibrary'){Start-DomeniaQueryLibraryLoad}})
     (Get-DomeniaControl 'BtnQueryLibraryPrevious').Add_Click({$q=$script:DomeniaQueryState;$q.LibraryOffset=[Math]::Max(0,$q.LibraryOffset-100);Update-DomeniaQueryLibrary -KeepPage})
@@ -300,6 +302,37 @@ function Reset-DomeniaQueryResults {
     $q=$script:DomeniaQueryState;if($null -ne $q -and $null -ne $q.PSObject.Properties['GroupSummary']){$q.GroupSummary=$null;$q.GroupOffset=0}
     Update-DomeniaQueryGroups
 }
+function Reset-DomeniaQueryCoherence {
+    $q=$script:DomeniaQueryState;if($null -ne $q -and $null -ne $q.PSObject.Properties['CoherenceProposal']){$q.CoherenceProposal=$null}
+    $grid=Get-DomeniaControl 'DgQueryCoherenceSources';if($null -ne $grid){$grid.ItemsSource=@()}
+    [void](Set-DomeniaControlText 'LblQueryCoherenceProposal' '')
+    $button=Get-DomeniaControl 'BtnQueryApplyCoherence';if($null -ne $button){$button.IsEnabled=$false}
+}
+function Show-DomeniaQueryCoherence {
+    # Dates of each source and the proposed common window. Nothing is applied until the explicit button.
+    param($Coverage)
+    $q=$script:DomeniaQueryState;if($null -eq $q){return}
+    $proposal=Get-DomeniaMemberValue $Coverage 'Proposal'
+    $grid=Get-DomeniaControl 'DgQueryCoherenceSources';if($null -ne $grid){$grid.ItemsSource=@(Get-DomeniaMember $Coverage 'Sources' @())}
+    $current=Get-DomeniaMemberValue $q.Recipe 'CoherenceHours'
+    $text=[string](Get-DomeniaMember $proposal 'Text')
+    $applicable=($null -ne $proposal -and [bool]$proposal.Needed -and $null -ne $proposal.Hours)
+    if($applicable -and $null -ne $current -and [double]$current -eq [double]$proposal.Hours){$text+=' Cette fenêtre est déjà celle du brouillon.';$applicable=$false}
+    elseif($null -ne $current){$text+=' Fenêtre actuelle du brouillon : '+(Format-DomeniaQueryHours ([double]$current))+'.'}
+    $q.CoherenceProposal=if($applicable){$proposal}else{$null}
+    [void](Set-DomeniaControlText 'LblQueryCoherenceProposal' $text)
+    $button=Get-DomeniaControl 'BtnQueryApplyCoherence';if($null -ne $button){$button.IsEnabled=$applicable}
+}
+function Use-DomeniaQueryCoherenceProposal {
+    try{
+        $q=$script:DomeniaQueryState;$proposal=Get-DomeniaMemberValue $q 'CoherenceProposal'
+        if($null -eq $proposal -or $null -eq $proposal.Hours){throw 'Aucune fenêtre proposée : vérifiez dʼabord les informations disponibles.'}
+        $recipe=Get-DomeniaQueryDraft;$recipe.CoherenceHours=[double]$proposal.Hours;$recipe.Format='Domenia.Query/2'
+        [void](ConvertTo-DomeniaCompiledQuery $recipe)
+        Set-DomeniaQueryDraft $recipe
+        [void](Set-DomeniaControlText 'LblQueryStatus' ('Fenêtre commune de '+(Format-DomeniaQueryHours ([double]$proposal.Hours))+' appliquée au brouillon : une date absente ou un écart plus grand donne Inconnu. Relancez lʼaperçu ; rien nʼest enregistré ni collecté.'))
+    }catch{[void](Set-DomeniaControlText 'LblQueryStatus' ('Fenêtre non appliquée : '+$_.Exception.Message))}
+}
 function Update-DomeniaQueryGroups {
     $q=$script:DomeniaQueryState;$expander=Get-DomeniaControl 'ExpQueryGroups';$grid=Get-DomeniaControl 'DgQueryGroups'
     if($null -eq $q -or $null -eq $expander -or $null -eq $grid){return}
@@ -344,6 +377,7 @@ function Set-DomeniaQueryDraft {
     $q.Recipe=$Recipe;$q.Offset=0;$q.Generation++;$q.Result=$null;$q.Busy=$false
     $coverage=Get-DomeniaControl 'DgQueryCoverage';if($null -ne $coverage){$coverage.ItemsSource=@()}
     [void](Set-DomeniaControlText 'LblQueryCoverage' 'Vérifiez la couverture des informations avant lʼaperçu.')
+    Reset-DomeniaQueryCoherence
     Reset-DomeniaQueryResults
     $title=Get-DomeniaControl 'TxtFleetQueryName';if($null -ne $title){$title.Text=[string]$Recipe.Name}
     $junction=Get-DomeniaControl 'CmbQueryJunction';if($null -ne $junction){$junction.SelectedIndex=$(if($Recipe.Junction -eq 'Any'){1}else{0})}
@@ -545,9 +579,12 @@ function Complete-DomeniaQueryEvaluation {
         $coverage=$read.Coverage;(Get-DomeniaControl 'DgQueryCoverage').ItemsSource=@($coverage.Rows)
         (Get-DomeniaControl 'ExpQueryCoverage').IsExpanded=$true
         $text=$coverage.Complete.ToString()+' / '+$coverage.Total+' postes possèdent tous les champs demandés ; '+$coverage.Incomplete+' incomplets.'
-        if($coverage.MixedPeriod){$text+=' '+$coverage.MixedPeriod+' postes ont des valeurs espacées de plus de '+$coverage.CoherenceHours+' h.'}
+        $window=Format-DomeniaQueryHours ([double]$coverage.CoherenceHours)
+        $windowText=if([string](Get-DomeniaMember $coverage 'WindowSource') -eq 'Recette'){'fenêtre de la requête'}else{'référence : la requête nʼa pas de fenêtre commune'}
+        if($coverage.MixedPeriod){$text+=' '+$coverage.MixedPeriod+' postes ont des valeurs espacées de plus de '+$window+' ('+$windowText+').'}
         if($coverage.Undated){$text+=' '+$coverage.Undated+' postes ont une date de source manquante.'}
         [void](Set-DomeniaControlText 'LblQueryCoverage' ($text+' État du '+$q.At.ToLocalTime().ToString('dd/MM HH:mm:ss')+'.'))
+        Show-DomeniaQueryCoherence -Coverage $coverage
         [void](Set-DomeniaControlText 'LblQueryStatus' 'Couverture vérifiée localement. Aperçu local applique ensuite les conditions ; aucune collecte nʼa été lancée.')
         return
     }

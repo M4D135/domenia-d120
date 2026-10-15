@@ -82,6 +82,67 @@ Expect ($script:EvaluationStarted -and @($script:DraftSet.Refinements).Count -eq
 $script:DomeniaQueryState.Recipe=New-DomeniaQueryRecipe -GroupBy 'name';$script:EvaluationStarted=$false;Show-DomeniaQueryGroupMachines
 Expect (-not $script:EvaluationStarted -and $script:Labels.LblQueryStatus -like '*relancez*') 'a distribution of another recipe cannot be applied to the current draft'
 
+# ---------------------------------------------------------------------------------------------------------------
+# Point 151: temporal coherence of conditions, dates of each source and proposed common window.
+$base=[datetime]::Parse('2026-10-13T10:00:00Z').ToUniversalTime()
+$coherent=[Collections.Generic.List[M4D.Admin.Common.Query.QueryRecord]]::new()
+for($i=0;$i -lt 100;$i++){
+    $inventoryAt=if($i -lt 90){$base.AddHours(-2)}else{$base.AddDays(-5)}
+    $values=@{os='Windows 11';'_at:field:os'=$base.ToString('o');ramGB=8.0;'_at:inventory'=$inventoryAt.ToString('o');'probe:hw.cpuload'=90;'_at:probe:hw.cpuload'=$base.AddMinutes(-30).ToString('o')}
+    $coherent.Add((New-FixtureRecord ('10000000-0000-0000-0000-{0:000000000000}' -f $i) $values))
+}
+$mixedRecipe=New-DomeniaQueryRecipe -Name 'Charge et mémoire' -Clauses @([pscustomobject]@{Field='os';Operator='Contains';Value='Windows'},[pscustomobject]@{Field='ramGB';Operator='Less';Value=16},[pscustomobject]@{Field='probe:hw.cpuload';Operator='Greater';Value=80})
+$coverage=Measure-DomeniaQueryCoverage -Records $coherent -Recipe $mixedRecipe
+Expect ($coverage.WindowSource -ceq 'Référence' -and $coverage.CoherenceHours -eq 24 -and $coverage.MixedPeriod -eq 10 -and $coverage.SourceCount -eq 3) 'without a recipe window, the 24 h reference is announced as such'
+$sources=@{};foreach($row in $coverage.Sources){$sources[$row.Source]=$row}
+Expect ($sources.ContainsKey('Annuaire AD') -and $sources.ContainsKey('Inventaire du poste') -and @($coverage.Sources|Where-Object{$_.Source -like 'Sonde · *'}).Count -eq 1) 'AD, inventory and probe dates are reported as distinct sources'
+Expect ($sources['Inventaire du poste'].Dated -eq 100 -and $sources['Inventaire du poste'].Oldest -ceq $base.AddDays(-5).ToLocalTime().ToString('dd/MM/yyyy HH:mm') -and $sources['Inventaire du poste'].Newest -ceq $base.AddHours(-2).ToLocalTime().ToString('dd/MM/yyyy HH:mm')) 'each source exposes its oldest and newest date'
+Expect ($coverage.Proposal.Needed -and $coverage.Proposal.Hours -eq 6 -and $coverage.Proposal.Covered -eq 90 -and $coverage.Proposal.Text -like '*mesure instantanée*') 'a CPU load condition gets a short proposed window covering 90 % of dated workstations'
+$windowed=Copy-DomeniaQueryRecipe $mixedRecipe;$windowed.CoherenceHours=48;$windowed.Format='Domenia.Query/2'
+$coverage=Measure-DomeniaQueryCoverage -Records $coherent -Recipe $windowed
+Expect ($coverage.WindowSource -ceq 'Recette' -and $coverage.CoherenceHours -eq 48 -and $coverage.MixedPeriod -eq 10) 'the recipe window is the one used by the coverage check'
+$windowed.CoherenceHours=6
+$compiled=ConvertTo-DomeniaCompiledQuery $windowed
+Expect ($compiled.Evaluate($coherent[0].Values) -eq [M4D.Admin.Common.Query.MatchState]::Match -and $compiled.Evaluate($coherent[95].Values) -eq [M4D.Admin.Common.Query.MatchState]::Unknown) 'with the common window, values from different periods give Unknown instead of a mixed verdict'
+$undatedValues=@{os='Windows 11';'_at:field:os'=$base.ToString('o');ramGB=8.0;'probe:hw.cpuload'=90;'_at:probe:hw.cpuload'=$base.ToString('o')}
+$withUndated=[Collections.Generic.List[M4D.Admin.Common.Query.QueryRecord]]::new($coherent);$withUndated.Add((New-FixtureRecord '10000000-0000-0000-0000-999999999999' $undatedValues))
+$coverage=Measure-DomeniaQueryCoverage -Records $withUndated -Recipe $mixedRecipe
+Expect ($coverage.Undated -eq 1 -and $coverage.Proposal.Dated -eq 100 -and $coverage.Proposal.Undated -eq 1 -and $coverage.Proposal.Text -like '*sans toutes les dates resteront inconnus*') 'a workstation without every date is never counted as coherent'
+Expect (@($coverage.Sources|Where-Object{$_.Source -ceq 'Inventaire du poste'})[0].Missing -eq 1) 'the missing source date is attributed to its source'
+$single=Measure-DomeniaQueryCoverage -Records $coherent -Recipe (New-DomeniaQueryRecipe -Clauses @([pscustomobject]@{Field='ramGB';Operator='Less';Value=16}))
+Expect (-not $single.Proposal.Needed -and $null -eq $single.Proposal.Hours -and $single.SourceCount -eq 1) 'one dated source needs no common window'
+$proposal=Get-DomeniaQueryCoherenceProposal -Spreads (@(0.5)*50+@(30.0)*50) -SourceCount 2
+Expect ($proposal.Hours -eq 48 -and $proposal.Covered -eq 100 -and $proposal.Text -like '*48 h (2 jours)*') 'stable sources get the smallest usual window covering the threshold'
+$proposal=Get-DomeniaQueryCoherenceProposal -Spreads (@(9000.0)*20) -SourceCount 2
+Expect ($proposal.Needed -and $null -eq $proposal.Hours -and $proposal.Text -like '*plus dʼun an*') 'dates spread over more than a year are not hidden behind a huge window'
+$proposal=Get-DomeniaQueryCoherenceProposal -Spreads (@(100.0)*20) -SourceCount 2 -Volatile $true
+Expect ($proposal.Hours -eq 24 -and $proposal.Covered -eq 0 -and $proposal.Text -like 'Fenêtre proposée : 24 h. Seuls 0*') 'instantaneous measures are capped at 24 h and the shortfall is stated'
+$proposal=Get-DomeniaQueryCoherenceProposal -Spreads @() -SourceCount 3 -Undated 12
+Expect ($proposal.Needed -and $null -eq $proposal.Hours -and $proposal.Text -like '*aucun poste ne possède toutes les dates*') 'no fully dated workstation gives no invented window'
+Reject {Get-DomeniaQueryCoherenceProposal -Spreads @(1.0) -SourceCount 2 -Threshold 0} 'proposal threshold is validated'
+Expect ((Test-DomeniaQueryVolatileKey '_at:probe:hw.cpuload') -and (Test-DomeniaQueryVolatileKey '_at:presence') -and -not (Test-DomeniaQueryVolatileKey '_at:inventory') -and -not (Test-DomeniaQueryVolatileKey '_at:field:os')) 'instantaneous sources are identified'
+$Payload=[pscustomobject]@{ModuleRoot=$modules;Records=$coherent;Recipe=$windowed;CoverageOnly=$true;Saved=@();MaxAgeDays=30}
+$windowed.CoherenceHours=48;$actual=& ([scriptblock]::Create((Get-DomeniaQueryWorkerCode)))
+Expect ($actual.Coverage.CoherenceHours -eq 48 -and $actual.Coverage.WindowSource -ceq 'Recette' -and $actual.Coverage.Proposal.Hours -eq 6) 'actual coverage worker compares dates with the recipe window and proposes one'
+# Click handlers with inert controls.
+$script:Fake=@{}
+foreach($name in @('DgQueryCoherenceSources','BtnQueryApplyCoherence')){$script:Fake[$name]=[pscustomobject]@{ItemsSource=@();SelectedItem=$null;IsEnabled=$false}}
+function Get-DomeniaControl([string]$Name){return $script:Fake[$Name]}
+function Set-DomeniaControlText([string]$Name,[string]$Text){$script:Labels[$Name]=$Text;return $true}
+$script:Labels=@{}
+$script:DomeniaQueryState=[pscustomobject]@{Recipe=$mixedRecipe;CoherenceProposal=$null}
+$coverage=Measure-DomeniaQueryCoverage -Records $coherent -Recipe $mixedRecipe
+Show-DomeniaQueryCoherence -Coverage $coverage
+Expect ($script:Fake.BtnQueryApplyCoherence.IsEnabled -and @($script:Fake.DgQueryCoherenceSources.ItemsSource).Count -eq 3 -and $script:DomeniaQueryState.CoherenceProposal.Hours -eq 6 -and $script:Labels.LblQueryCoherenceProposal -like 'Fenêtre proposée : 6 h*') 'the proposal is shown and can be applied explicitly'
+function Get-DomeniaQueryDraft{return (Copy-DomeniaQueryRecipe $script:DomeniaQueryState.Recipe)}
+function Set-DomeniaQueryDraft($Recipe){$script:DraftSet=$Recipe}
+Use-DomeniaQueryCoherenceProposal
+Expect ($script:DraftSet.CoherenceHours -eq 6 -and $script:DraftSet.Format -ceq 'Domenia.Query/2' -and $script:Labels.LblQueryStatus -like '*rien nʼest enregistré*') 'applying the proposal only changes the draft window'
+$script:DomeniaQueryState.Recipe=$script:DraftSet;Show-DomeniaQueryCoherence -Coverage $coverage
+Expect (-not $script:Fake.BtnQueryApplyCoherence.IsEnabled -and $null -eq $script:DomeniaQueryState.CoherenceProposal -and $script:Labels.LblQueryCoherenceProposal -like '*déjà celle du brouillon*') 'the same window is not proposed twice'
+$script:DomeniaQueryState.CoherenceProposal=$null;Use-DomeniaQueryCoherenceProposal
+Expect ($script:Labels.LblQueryStatus -like 'Fenêtre non appliquée*') 'no proposal, no change'
+
 # @@NEXT-SECTION@@
 
 $report=[pscustomobject]@{Status='PASS';Assertions=$script:checks;SourceMode=[bool]$QuerySource;ElapsedSeconds=[Math]::Round($clock.Elapsed.TotalSeconds,3);PowerShell=$PSVersionTable.PSVersion.ToString();Scope='Actual models, worker factories and click handlers with inert controls; remote WMI cmdlets replaced by fixtures; no network, AD, WMI or WPF'}

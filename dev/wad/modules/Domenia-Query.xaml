@@ -223,6 +223,20 @@
                         <DataGridTextColumn Header="Non lue" Binding="{Binding Unread}" Width="75" />
                       </DataGrid.Columns>
                     </DataGrid>
+                    <TextBlock Text="Dates des sources" FontWeight="SemiBold" Margin="0,10,0,4" />
+                    <TextBlock Text="Chaque source garde sa propre date : lʼannuaire, le ping, lʼinventaire et chaque sonde ne décrivent pas forcément la même période." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,0,0,6" />
+                    <DataGrid x:Name="DgQueryCoherenceSources" IsReadOnly="True" AutoGenerateColumns="False" CanUserAddRows="False" MaxHeight="170" EnableRowVirtualization="True" AutomationProperties.Name="Dates de relevé de chaque source de la requête">
+                      <DataGrid.Columns>
+                        <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="170" />
+                        <DataGridTextColumn Header="Informations" Binding="{Binding Informations}" Width="2*" />
+                        <DataGridTextColumn Header="Postes datés" Binding="{Binding Dated}" Width="95" />
+                        <DataGridTextColumn Header="Sans date" Binding="{Binding Missing}" Width="80" />
+                        <DataGridTextColumn Header="Plus ancienne" Binding="{Binding Oldest}" Width="125" />
+                        <DataGridTextColumn Header="Plus récente" Binding="{Binding Newest}" Width="125" />
+                      </DataGrid.Columns>
+                    </DataGrid>
+                    <TextBlock x:Name="LblQueryCoherenceProposal" TextWrapping="Wrap" Margin="0,6,0,6" AutomationProperties.LiveSetting="Polite" />
+                    <Button x:Name="BtnQueryApplyCoherence" Content="Appliquer la fenêtre proposée au brouillon" IsEnabled="False" HorizontalAlignment="Left" MinHeight="32" ToolTip="Renseigne lʼécart maximal entre les dates sources du brouillon. Rien nʼest enregistré ni collecté." />
                   </StackPanel>
                 </Expander>
               </StackPanel>

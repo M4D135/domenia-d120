@@ -830,20 +830,85 @@ function Get-DomeniaQueryExplanation {
     }
 
 }
+function Test-DomeniaQueryVolatileKey {
+    # Instantaneous measures: a value read an hour ago no longer describes the same moment as a fresh one.
+    param([string]$Key)
+    return ($Key -in @('_at:presence','_at:console') -or $Key -match '^_at:probe:(evt\.|svc\.|net\.)|load|battery|free|users|stopped|process')
+}
+function Get-DomeniaQueryTimestampSource {
+    # Clock that dates one timestamp key. AD attributes come from the directory read; every probe keeps its own clock.
+    param([string]$Key)
+    if($Key -like '_at:field:*'){return [pscustomobject]@{Id='ad';Label='Annuaire AD';Volatile=$false}}
+    if($Key -eq '_at:presence'){return [pscustomobject]@{Id='presence';Label='Présence (ping)';Volatile=$true}}
+    if($Key -eq '_at:console'){return [pscustomobject]@{Id='console';Label='Utilisateur console';Volatile=$true}}
+    if($Key -eq '_at:inventory'){return [pscustomobject]@{Id='inventory';Label='Inventaire du poste';Volatile=$false}}
+    if($Key -like '_at:probe:*'){
+        $id=$Key.Substring(10);$probe=Get-DomeniaProbe $id
+        return [pscustomobject]@{Id=('probe:'+$id);Label=('Sonde · '+$(if($null -ne $probe){[string]$probe.Name}else{$id}));Volatile=(Test-DomeniaQueryVolatileKey $Key)}
+    }
+    if($Key -like '_at:detail:*'){return [pscustomobject]@{Id=('detail:'+$Key.Substring(11));Label='SELECT WMI mémorisé';Volatile=$false}}
+    return [pscustomobject]@{Id=$Key;Label=$Key;Volatile=$false}
+}
+function Format-DomeniaQueryHours {
+    param([double]$Hours)
+    $culture=[Globalization.CultureInfo]::GetCultureInfo('fr-FR')
+    $text=$Hours.ToString('0.##',$culture)+' h'
+    if($Hours -ge 48 -and ($Hours % 24) -eq 0){$text+=' ('+($Hours/24).ToString('0',$culture)+' jours)'}
+    return $text
+}
+function Get-DomeniaQueryCoherenceProposal {
+    # Smallest usual window that keeps at least $Threshold of the fully dated workstations coherent. Instantaneous
+    # measures never get more than 24 h: beyond that, they no longer describe the same period as the other sources.
+    param([double[]]$Spreads=@(),[int]$SourceCount=0,[bool]$Volatile=$false,[long]$Undated=0,[double]$Threshold=0.9)
+    if($Threshold -le 0 -or $Threshold -gt 1){throw 'Seuil de proposition invalide.'}
+    $culture=[Globalization.CultureInfo]::GetCultureInfo('fr-FR')
+    $dated=[long]$Spreads.Count
+    $undatedText=if($Undated -gt 0){' '+$Undated.ToString('N0',$culture)+' poste(s) sans toutes les dates resteront inconnus tant que ces informations ne sont pas relevées.'}else{''}
+    if($SourceCount -lt 2){return [pscustomobject]@{Needed=$false;Hours=$null;Covered=$dated;Dated=$dated;Undated=$Undated;Text='Une seule source datée : les conditions décrivent déjà la même période ; aucune fenêtre commune nʼest nécessaire.'}}
+    if($dated -eq 0){return [pscustomobject]@{Needed=$true;Hours=$null;Covered=0L;Dated=0L;Undated=$Undated;Text=('Les informations viennent de '+$SourceCount+' sources datées séparément, mais aucun poste ne possède toutes les dates demandées. Relevez les informations manquantes avant de choisir une fenêtre commune.')}}
+    $sorted=[double[]]$Spreads.Clone();[Array]::Sort($sorted)
+    $candidates=if($Volatile){@(1,6,12,24)}else{@(1,6,12,24,48,72,168,336,720,2160,8760)}
+    $covered=@{};$index=0
+    foreach($hours in $candidates){while($index -lt $sorted.Length -and $sorted[$index] -le $hours){$index++};$covered[$hours]=[long]$index}
+    $chosen=$null;foreach($hours in $candidates){if(($covered[$hours]/[double]$dated) -ge $Threshold){$chosen=$hours;break}}
+    $volatileText=if($Volatile){' La requête combine une mesure instantanée : la fenêtre proposée ne dépasse pas 24 h.'}else{''}
+    if($null -eq $chosen){
+        if(-not $Volatile){return [pscustomobject]@{Needed=$true;Hours=$null;Covered=$covered[8760];Dated=$dated;Undated=$Undated;Text=('Les dates sources sont dispersées sur plus dʼun an pour plus de '+[Math]::Round((1-$Threshold)*100)+' % des postes : relevez à nouveau ces informations plutôt que dʼélargir la fenêtre.'+$undatedText)}}
+        $chosen=24;$text='Fenêtre proposée : 24 h. Seuls '+$covered[24].ToString('N0',$culture)+' poste(s) sur '+$dated.ToString('N0',$culture)+' entièrement datés ont leurs dates à moins de 24 h dʼécart : relancez une collecte groupée des informations instantanées pour réduire les inconnus.'
+    }else{
+        $text='Fenêtre proposée : '+(Format-DomeniaQueryHours $chosen)+'. '+$covered[$chosen].ToString('N0',$culture)+' poste(s) sur '+$dated.ToString('N0',$culture)+' entièrement datés ont toutes leurs dates dans cet écart ; les '+($dated-$covered[$chosen]).ToString('N0',$culture)+' autres deviendront inconnus.'
+    }
+    return [pscustomobject]@{Needed=$true;Hours=[double]$chosen;Covered=$covered[$chosen];Dated=$dated;Undated=$Undated;Text=($text+$volatileText+$undatedText)}
+}
 function Measure-DomeniaQueryCoverage {
-    param($Records,$Recipe,[double]$CoherenceHours=24)
+    # Availability and dates of every requested information. The spread is compared with the recipe window, or with
+    # a 24 h reference when the recipe has none (WindowSource tells which); nothing is collected or rejuvenated.
+    param($Records,$Recipe,$CoherenceHours=$null)
+    $windowSource='Recette'
+    if($null -eq $CoherenceHours){$CoherenceHours=Get-DomeniaMemberValue $Recipe 'CoherenceHours'}
+    if($null -eq $CoherenceHours){$CoherenceHours=24.0;$windowSource='Référence'}
+    $CoherenceHours=[double]$CoherenceHours
     if($CoherenceHours -le 0 -or $CoherenceHours -gt 8760){throw 'Fenêtre de cohérence invalide (plus de 0 et au plus 8 760 heures).'}
     $byId=@{};foreach($entry in @(@(Get-DomeniaQueryCatalog)+@(Get-DomeniaQueryInstanceFields)+@(Get-DomeniaQueryReadDefinitionFields $Recipe))){$byId[$entry.Id]=$entry}
     $fields=@(foreach($id in @(Get-DomeniaQueryRequestedFields $Recipe)){
         if(-not $byId.ContainsKey($id)){throw ('Champ de couverture inconnu : '+$id)}
         [pscustomobject]@{Id=$id;Name=$byId[$id].Name;Available=0L;Expired=0L;Error=0L;Partial=0L;Unread=0L;Source=[string](Get-DomeniaMember $byId[$id] 'Source')}
     })
+    # Distinct clocks of the requested information, grouped by source.
+    $keys=[Collections.Generic.List[string]]::new();$sources=[ordered]@{};$keySource=@{}
+    foreach($field in $fields){
+        $key=Get-DomeniaQueryTimestampKey ([string]$field.Id);$clock=Get-DomeniaQueryTimestampSource $key
+        if(-not $sources.Contains($clock.Id)){$sources[$clock.Id]=[pscustomobject]@{Id=$clock.Id;Source=$clock.Label;Volatile=[bool]$clock.Volatile;Names=[Collections.Generic.List[string]]::new();Dated=0L;Missing=0L;Oldest=$null;Newest=$null}}
+        $entry=$sources[$clock.Id];if(-not $entry.Names.Contains([string]$field.Name)){$entry.Names.Add([string]$field.Name)}
+        if(-not $keys.Contains($key)){$keys.Add($key);$keySource[$key]=$entry}
+    }
+    $spreads=[Collections.Generic.List[double]]::new()
     $identities=Get-DomeniaQueryIdentitySelection $Recipe;$total=0L;$complete=0L;$mixed=0L;$undated=0L
     foreach($record in $Records){
         if($null -ne $identities -and -not $identities.Contains($record.Id.Trim().Trim('{','}'))){continue}
-        $total++;$all=$true;$earliest=$null;$latest=$null;$missingDate=$false
+        $total++;$all=$true;$earliest=$null;$latest=$null;$missingDate=$false;$v=$record.Values
         foreach($field in $fields){
-            $id=[string]$field.Id;$v=$record.Values;$known=$v.ContainsKey($id);$partial=$false;$qualityKey=$id
+            $id=[string]$field.Id;$known=$v.ContainsKey($id);$partial=$false;$qualityKey=$id
             if($id -like 'instance:*'){
                 $probeId=($id.Split(':'))[1];$qualityKey='probe:'+$probeId;$key='_instances:probe:'+$probeId
                 if($v.ContainsKey($key)){
@@ -855,14 +920,27 @@ function Measure-DomeniaQueryCoverage {
                 $all=$false;$quality=if($v.ContainsKey('_quality:'+$qualityKey)){[string]$v['_quality:'+$qualityKey]}else{''}
                 if($partial){$field.Partial++}else{switch($quality){'Expiré'{$field.Expired++};'Erreur de lecture'{$field.Error++};'Lecture incomplète'{$field.Partial++};default{$field.Unread++}}}
             }
-            $dateKey=Get-DomeniaQueryTimestampKey $id
-            $date=if($v.ContainsKey($dateKey)){ConvertFrom-DomeniaUtcText ([string]$v[$dateKey])}else{$null}
-            if($null -ne $date){if($null -eq $earliest -or $date -lt $earliest){$earliest=$date};if($null -eq $latest -or $date -gt $latest){$latest=$date}}else{$missingDate=$true}
         }
+        # Each clock is parsed once per workstation, even when several conditions share it.
+        $missingSources=@{}
+        foreach($key in $keys){
+            $entry=$keySource[$key]
+            $date=if($v.ContainsKey($key)){ConvertFrom-DomeniaUtcText ([string]$v[$key])}else{$null}
+            if($null -eq $date){$missingDate=$true;$missingSources[$entry.Id]=$true;continue}
+            if($null -eq $earliest -or $date -lt $earliest){$earliest=$date};if($null -eq $latest -or $date -gt $latest){$latest=$date}
+            if($null -eq $entry.Oldest -or $date -lt $entry.Oldest){$entry.Oldest=$date};if($null -eq $entry.Newest -or $date -gt $entry.Newest){$entry.Newest=$date}
+        }
+        foreach($entry in $sources.Values){if($missingSources.ContainsKey($entry.Id)){$entry.Missing++}else{$entry.Dated++}}
         if($all){$complete++};if($missingDate){$undated++}
         if($null -ne $earliest -and $null -ne $latest -and ($latest-$earliest).TotalHours -gt $CoherenceHours){$mixed++}
+        if(-not $missingDate -and $null -ne $earliest){$spreads.Add(($latest-$earliest).TotalHours)}
     }
-    [pscustomobject]@{Rows=$fields;Total=$total;Complete=$complete;Incomplete=($total-$complete);MixedPeriod=$mixed;Undated=$undated;CoherenceHours=$CoherenceHours;FieldCount=$fields.Count}
+    $volatile=$false;foreach($entry in $sources.Values){if($entry.Volatile){$volatile=$true}}
+    $sourceRows=@(foreach($entry in $sources.Values){
+        [pscustomobject]@{Source=$entry.Source;Informations=($entry.Names.ToArray() -join ', ');Dated=$entry.Dated;Missing=$entry.Missing;Oldest=$(if($null -ne $entry.Oldest){$entry.Oldest.ToLocalTime().ToString('dd/MM/yyyy HH:mm')}else{'Aucune date'});Newest=$(if($null -ne $entry.Newest){$entry.Newest.ToLocalTime().ToString('dd/MM/yyyy HH:mm')}else{'Aucune date'});Volatile=$entry.Volatile}
+    })
+    $proposal=Get-DomeniaQueryCoherenceProposal -Spreads $spreads.ToArray() -SourceCount $sources.Count -Volatile $volatile -Undated $undated
+    [pscustomobject]@{Rows=$fields;Total=$total;Complete=$complete;Incomplete=($total-$complete);MixedPeriod=$mixed;Undated=$undated;CoherenceHours=$CoherenceHours;WindowSource=$windowSource;FieldCount=$fields.Count;Sources=$sourceRows;SourceCount=$sources.Count;Proposal=$proposal}
 }
 
 function Copy-DomeniaQueryRecipe {
@@ -1067,7 +1145,7 @@ function New-DomeniaQueryMissingCollectionPlan {
             $key=Get-DomeniaQueryTimestampKey $field;if($key -like '_at:field:*'){continue}
             $seconds=[Math]::Max(0,[Math]::Min(1440,$CacheMinutes))*60
             if($key -eq '_at:inventory'){$seconds=[Math]::Min(300,$seconds)}
-            if($key -in @('_at:presence','_at:console') -or $key -match '^_at:probe:(evt\.|svc\.|net\.)|load|battery|free|users|stopped|process'){$seconds=[Math]::Min(60,$seconds)}
+            if(Test-DomeniaQueryVolatileKey $key){$seconds=[Math]::Min(60,$seconds)}
             $qualityId=if($field -like 'instance:*'){'probe:'+($field.Split(':'))[1]}else{$field}
             $known=$v.ContainsKey($field)
             if($field -like 'instance:*'){$collectionKey='_instances:probe:'+($field.Split(':'))[1];$known=$v.ContainsKey($collectionKey) -and [bool]$v[$collectionKey].Complete}
