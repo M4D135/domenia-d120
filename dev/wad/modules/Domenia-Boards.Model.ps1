@@ -1285,7 +1285,7 @@ function ConvertTo-DomeniaBoardSummaryText {
     param([Parameter(Mandatory=$true)][ValidateSet('Computer','Fleet','Software')][string]$Board,$Data,[string]$Subject = '',$AtUtc = $null,[string]$AtLabel = '')
     $lines = New-Object System.Collections.ArrayList
     $head = switch ($Board) { 'Computer' { 'Poste' } 'Fleet' { 'Vue dʼensemble' } default { 'Logiciels' } }
-    if ($Subject) { $head += $(if ($Board -eq 'Software') { ' de ' } else { ' ' }) + $Subject }
+    if ($Subject) { $head += $(switch ($Board) { 'Software' { ' de ' } 'Fleet' { ' · ' } default { ' ' } }) + $Subject }
     if ($AtUtc -is [datetime]) { $head += ' · ' + $(if ($AtLabel) { $AtLabel } else { 'données du' }) + ' ' + $AtUtc.ToLocalTime().ToString('dd/MM/yyyy HH:mm', [Globalization.CultureInfo]::InvariantCulture) }
     [void]$lines.Add($head)
     $entries = Get-DomeniaHealthValue $Data 'Entries'

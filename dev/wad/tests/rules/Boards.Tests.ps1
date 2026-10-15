@@ -560,7 +560,7 @@ Test-Case 'BRD-031' 'FO-13 : un widget et le résumé du tableau en texte brut p
     $lines = @($widget -split "`r`n")
     Assert-Equal 'Disque C: : 8 % libre' $lines[0]
     Assert-True ($widget -like '*- Libre 8 Go (8 %)*') ('part du tout, jamais des octets bruts : ' + $widget)
-    Assert-Equal ('Données du ' + $at.ToLocalTime().ToString('dd/MM/yyyy HH:mm')) $lines[$lines.Count - 1]
+    Assert-Equal ('Données du ' + $at.ToLocalTime().ToString('dd/MM/yyyy HH:mm', [Globalization.CultureInfo]::InvariantCulture)) $lines[$lines.Count - 1]
     $health = ConvertTo-DomeniaWidgetText -Title 'Santé du poste' -Entry $data.Entries['computer.health']
     Assert-True ($health -like ('Santé du poste : ' + [string][int]$data.Entries['computer.health'].Number + ' sur 100 · *')) $health
     Assert-True ($health -like '*- Critique : C: presque plein (8 % libre).*') $health
@@ -569,7 +569,7 @@ Test-Case 'BRD-031' 'FO-13 : un widget et le résumé du tableau en texte brut p
     Assert-True ($checks -like '*- `[Non lu`] Dernier correctif : Non lu*') $checks
     $summary = ConvertTo-DomeniaBoardSummaryText -Board Computer -Data $data -Subject 'PC-1' -AtUtc $at -AtLabel 'inventaire du'
     $summaryLines = @($summary -split "`r`n")
-    Assert-Equal ('Poste PC-1 · inventaire du ' + $at.ToLocalTime().ToString('dd/MM/yyyy HH:mm')) $summaryLines[0]
+    Assert-Equal ('Poste PC-1 · inventaire du ' + $at.ToLocalTime().ToString('dd/MM/yyyy HH:mm', [Globalization.CultureInfo]::InvariantCulture)) $summaryLines[0]
     Assert-True ($summaryLines[1] -like 'Santé : * sur 100 · Critique*') $summaryLines[1]
     foreach ($expected in @('Identité du poste','Compte machine','État de protection','- Compte ordinateur : Activé*','- Critique : C: presque plein (8 % libre).')) { Assert-True (@($summaryLines | Where-Object { $_ -like $expected }).Count -ge 1) ('ligne absente : ' + $expected) }
     Assert-True ($summary -match '1 point à vérifier') $summary
@@ -583,7 +583,8 @@ Test-Case 'BRD-031' 'FO-13 : un widget et le résumé du tableau en texte brut p
     Add-DomeniaBoardAttention -Data $fleet -Level Warn -Text 'Quatre postes inactifs.'
     [void](Complete-DomeniaBoardData -Data $fleet)
     $fleetText = ConvertTo-DomeniaBoardSummaryText -Board Fleet -Data $fleet -Subject 'Postes'
-    Assert-True ($fleetText -like 'Vue dʼensemble Postes*') $fleetText
+    Assert-True ($fleetText -like 'Vue dʼensemble · Postes*') $fleetText
+    Assert-True ((ConvertTo-DomeniaBoardSummaryText -Board Software -Data (New-DomeniaBoardData -Board Software) -Subject 'PC-1' -AtUtc $at -AtLabel 'liste lue le') -like ('Logiciels de PC-1 · liste lue le ' + $at.ToLocalTime().ToString('dd/MM/yyyy HH:mm', [Globalization.CultureInfo]::InvariantCulture))) 'entete du resume des logiciels'
     Assert-True ($fleetText -like '*- À surveiller : Quatre postes inactifs.*') $fleetText
     Assert-True ($fleetText -like '*- Comptes ordinateur : 26 (24 activés)*') $fleetText
 }
