@@ -70,7 +70,8 @@ $script:TypeWiring=Get-WireEventsHandler 'CmbGlobalType' 'Add_SelectionChanged'
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-UX.UI.ps1') @('Get-DomeniaUxOuDisplay','Update-DomeniaUxOuScope'))))
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Guard.UI.ps1') @('Read-DomeniaOuFavouriteStore','Write-DomeniaOuFavouriteStore','Import-DomeniaFavouriteSearchesOnce','Get-DomeniaFavouriteSearches','Test-DomeniaOuFavourite','Save-DomeniaFavouriteSearch','Load-DomeniaFavouriteSearch','Update-DomeniaOuFavouritesUi','Remove-DomeniaFavouriteSearch'))))
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Guard.Model.ps1') @('ConvertTo-DomeniaSavedSearch'))))
-. ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Park.UI.ps1') @('Start-DomeniaOnlinePark'))))
+# UI-23 / FO-18 / SE-05: the real survey commands of the list and their rules (Park.Model is dot-sourced below).
+. ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Park.UI.ps1') @('Start-DomeniaOnlinePark','Get-DomeniaParkRuns','Get-DomeniaParkRun','Test-DomeniaParkRunActive','Get-DomeniaParkMaxTargets','Get-DomeniaParkListContext','Update-DomeniaParkControls','Set-DomeniaParkControlVisible','Get-DomeniaParkVerifyButtonText','Update-DomeniaParkOutcomePills','Update-DomeniaParkSelectionBar'))))
 # Worker helpers live in the WorkerCommon text of the core: the row builder of the list is read from it, not copied.
 $coreText=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1'))
 $workerCommon=[regex]::Match($coreText,'(?ms)^\$script:WorkerCommon = @''\r?\n(.*?)\r?\n''@').Groups[1].Value
@@ -81,7 +82,7 @@ foreach($name in @('Convert-WLargeInteger','Convert-WFileTime')){
     if($node.Count -ne 1){throw ('Fonction worker absente : '+$name)}
     . ([scriptblock]::Create($node[0].Extent.Text))
 }
-foreach($file in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-Query.Model.ps1','Domenia-Search.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Live.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Live.UI.ps1','Domenia-Continuity.Model.ps1','Domenia-Continuity.UI.ps1','Domenia-Selection.UI.ps1','Domenia-Search.UI.ps1')){
+foreach($file in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-Query.Model.ps1','Domenia-Search.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Live.Model.ps1','Domenia-Park.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Live.UI.ps1','Domenia-Continuity.Model.ps1','Domenia-Continuity.UI.ps1','Domenia-Selection.UI.ps1','Domenia-Search.UI.ps1')){
     . (Join-Path $modules $file)
 }
 
@@ -108,7 +109,6 @@ function Update-Dashboard { }
 function Request-DomeniaDashboardRefresh { }
 # L03: the home overview reads the OU of Rechercher; the double records the OU it is asked to follow.
 function Request-DomeniaFleetRefresh {param([switch]$Force) if($null -ne $script:FleetScopes){$script:FleetScopes.Add([string]$script:SelectedBranchDn)}}
-function Update-DomeniaParkControls { }
 function Apply-DomeniaUiProfile {param($Profile)}
 function Request-UiTaskStop {param($Id,[switch]$Silent,[switch]$Force,[switch]$Superseded,$Reason) $script:Stops++}
 function Set-RowAssociationMetadata {param($Rows) return $Rows}
@@ -164,7 +164,8 @@ function New-TestControls {
     $c.TvDirectory=[Windows.Controls.TreeView]::new()
     # L03 controls (OU menu, filter and favourites, view chip, history banner, revalidation switch, survey buttons).
     $c.TxtOuFilter=[Windows.Controls.TextBox]::new()
-    foreach($n in @('BtnOuMenu','BtnOuFavouriteToggle','BtnHistoryRefresh','BtnParkResults','BtnParkPing','BtnParkAnalyze')){$c[$n]=[Windows.Controls.Button]::new()}
+    foreach($n in @('BtnOuMenu','BtnOuFavouriteToggle','BtnHistoryRefresh','BtnParkVerify','BtnParkVerifyMenu','BtnSelectionPing','BtnSelectionConsole')){$c[$n]=[Windows.Controls.Button]::new()}
+    $c.UxSelectionBar=[Windows.Controls.StackPanel]::new();$c.UxSelectionBar.Visibility='Collapsed';$c.LblSelectionBar=[Windows.Controls.TextBlock]::new()
     foreach($n in @('UxOuMenuPanel','UxOuFavourites','UxHistoryBanner')){$c[$n]=[Windows.Controls.Border]::new();$c[$n].Visibility='Collapsed'}
     $c.PnlOuFavourites=[Windows.Controls.StackPanel]::new()
     $c.UxListRevalidation=[Windows.Controls.StackPanel]::new();$c.UxListRevalidation.Visibility='Collapsed'
@@ -196,7 +197,7 @@ function Reset-Fixture {
     $script:NavHistoryRows=$null;$script:NavHistoryState=$null;$script:NavListShape=$null;$script:OuTreeFilterStatus='';$script:TreeSelectionSource='Mouse';$script:WorkViewScopeOu='';$script:ListSurveyBlocked=$false;$script:ListRevalidationPaused=$false
     if($null -ne $script:FilterChangeTimer){$script:FilterChangeTimer.Stop()};$script:FilterChangeTimer=$null;$script:PendingFilterChange=$null
     if($null -ne $script:TreeRenderTimer){$script:TreeRenderTimer.Stop()};$script:TreeRenderTimer=$null;$script:TreeRenderJobs=@{}
-    $script:OuFavouriteKeys=$null;$script:FleetScopes=[Collections.Generic.List[string]]::new();$script:SearchListHasMachine=$false;$script:ParkRun=$null
+    $script:OuFavouriteKeys=$null;$script:FleetScopes=[Collections.Generic.List[string]]::new();$script:SearchListHasMachine=$false;$script:ParkRuns=$null;$script:ParkDefaultMode=$null
     $script:Ctrl=New-TestControls
     $script:Window=[Windows.Window]::new()
     Initialize-DomeniaLive
@@ -691,15 +692,15 @@ Case 'UX-33 Requete dans lʼOU et profondeur choisies, releve refuse a la racine
     Expect (-not [bool]$domain.CallbackState.SurveyAllowed -and $script:ListSurveyBlocked -and $script:Ctrl.LblSearchHint.Text.Contains('aucun relev')) 'Le releve nʼest pas refuse sur la racine recursive.'
     $script:SearchListHasMachine=$true
     Update-DomeniaSearchActionStates
-    foreach($n in @('BtnParkResults','BtnParkPing','BtnParkAnalyze')){Expect (-not $script:Ctrl[$n].IsEnabled) ('Releve propose : '+$n)}
+    foreach($n in @('BtnParkVerify','BtnParkVerifyMenu')){Expect (-not $script:Ctrl[$n].IsEnabled) ('Releve propose : '+$n)}
     $before=$script:Tasks.Count
     Start-DomeniaOnlinePark -DisplayedResults
-    Expect ($script:Tasks.Count -eq $before -and $null -eq $script:ParkRun -and $script:LastStatus -match 'tout le domaine') ('Releve lance : '+$script:LastStatus)
+    Expect ($script:Tasks.Count -eq $before -and $null -eq (Get-DomeniaParkRun -Slot 'List') -and $script:LastStatus -match 'tout le domaine') ('Releve lance : '+$script:LastStatus)
     Set-SelectedBranch ([pscustomobject]@{Tag=[pscustomobject]@{DN='OU=Lyon,DC=example,DC=invalid'}})
     Expect ($script:Ctrl.CmbWorkViewScope.SelectedIndex -eq 0 -and [string]$script:Ctrl.CmbWorkViewScope.Items[0].Content -eq 'Requêtes · Lyon' -and -not $script:ListSurveyBlocked) 'La puce ne suit pas lʼOU choisie.'
     $script:SearchListHasMachine=$true
     Update-DomeniaSearchActionStates
-    Expect ($script:Ctrl.BtnParkResults.IsEnabled) 'Le releve reste refuse sur une liste dʼOU.'
+    Expect ($script:Ctrl.BtnParkVerify.IsEnabled -and $script:Ctrl.BtnParkVerifyMenu.IsEnabled) 'Le releve reste refuse sur une liste dʼOU.'
     Expect ($script:Ctrl.CmbWorkViewScope.Items.Count -eq 1) 'Une seconde portee a ete ajoutee implicitement.'
 }
 # Unwired if the menu of the list offers a write, a remote tool or a collection again, if Revérifier ce poste goes
@@ -955,7 +956,7 @@ Case 'UX-25 Liste de lʼhistorique : bandeau, Actualiser, type, presence et filt
     Invoke-DomeniaHistoryRefresh
     $again=Get-LastTask 'GlobalSearch'
     Expect ((Get-TaskCount 'GlobalSearch') -eq ($searches+1) -and $again.CallbackState.SearchMode -eq 'OU' -and $again.Payload.BaseDn -eq 'OU=Postes,DC=example,DC=invalid' -and [string]$again.CallbackState.TypeFilter -ceq (Get-TypeLdapFilter 'Machines')) 'Actualiser ne relit pas la meme liste.'
-    Expect ((Get-TaskCount @('ComputerPing','LiveSelectedPing','LiveConsole','PresenceScan','ParkSweep')) -eq 0) 'Actualiser a lance un ping ou un releve.'
+    Expect ((Get-TaskCount @('ComputerPing','LiveSelectedPing','LiveConsole','PresenceScan','ParkSweep','ParkPing')) -eq 0) 'Actualiser a lance un ping ou un releve.'
     Expect ($script:Ctrl.UxHistoryBanner.Visibility -eq 'Collapsed') 'Bandeau toujours affiche apres Actualiser.'
 }
 

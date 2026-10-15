@@ -243,6 +243,57 @@ if($env:OS -eq 'Windows_NT' -and -not $SkipWpf){
             foreach($c in $grid.Columns){Expect (-not [string]::IsNullOrWhiteSpace([string]$c.Header))}
         }finally{$reader.Close();if($null -ne $window){$window.Close()}}
     }
+    # FO-18: actions of a multiple selection of the list (real Park.UI functions, real WPF controls).
+    Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
+    $parkTokens=$null;$parkErrors=$null
+    $parkAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'modules\Domenia-Park.UI.ps1'),[ref]$parkTokens,[ref]$parkErrors)
+    foreach($name in @('Set-DomeniaParkControlVisible','Get-DomeniaParkSelectionTargets','Update-DomeniaParkSelectionBar','Start-DomeniaParkSelectionSurvey')){
+        $node=@($parkAst.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true))
+        if($node.Count -ne 1){throw ('Definition ambiguous: '+$name)}
+        Invoke-Expression $node[0].Extent.Text
+    }
+    function Add-SelectionBarControls {
+        $script:ListSurveyBlocked=$false;$script:DemoMode=$false
+        $bar=[Windows.Controls.StackPanel]::new();$bar.Visibility='Collapsed';$script:Ctrl.UxSelectionBar=$bar
+        foreach($name in @('LblSelectionBar','LblSelectionReadState')){$script:Ctrl[$name]=[Windows.Controls.TextBlock]::new()}
+        foreach($name in @('BtnSelectionPing','BtnSelectionConsole')){$script:Ctrl[$name]=[Windows.Controls.Button]::new()}
+    }
+    function Select-FixtureRows {param([object[]]$Rows) $script:Ctrl.DgObjects.SelectedItems=@($Rows);$script:Ctrl.DgObjects.SelectedItem=$(if(@($Rows).Count){@($Rows)[0]}else{$null})}
+    function New-SelectedRow {param([int]$Number,[string]$Kind='Machine',[switch]$NoGuid) [pscustomobject]@{Type=$Kind;Name=('PC'+$Number);DN=('CN=PC'+$Number+',OU=Test,DC=example,DC=invalid');Guid=$(if($NoGuid){''}else{'00000000-0000-0000-0000-'+$Number.ToString('000000000000')})}}
+    Case 'FO-18 The selection bar appears from two rows and names what is selected' {
+        Add-SelectionBarControls
+        Select-FixtureRows @(New-SelectedRow 1);Update-DomeniaParkSelectionBar
+        Expect ($script:Ctrl.UxSelectionBar.Visibility -eq 'Collapsed' -and $script:Ctrl.LblSelectionReadState.Visibility -eq 'Visible') 'Bar shown for a single row.'
+        Select-FixtureRows @((New-SelectedRow 1),(New-SelectedRow 2),(New-SelectedRow 3));Update-DomeniaParkSelectionBar
+        Expect ($script:Ctrl.UxSelectionBar.Visibility -eq 'Visible' -and $script:Ctrl.LblSelectionReadState.Visibility -eq 'Collapsed') 'Bar hidden for three rows.'
+        Expect ([string]$script:Ctrl.LblSelectionBar.Text -eq '3 postes sélectionnés :') ([string]$script:Ctrl.LblSelectionBar.Text)
+        Expect ($script:Ctrl.BtnSelectionPing.IsEnabled -and $script:Ctrl.BtnSelectionConsole.IsEnabled) 'Selection surveys disabled.'
+        Select-FixtureRows @((New-SelectedRow 1 'Utilisateur'),(New-SelectedRow 2 'Utilisateur'),(New-SelectedRow 3));Update-DomeniaParkSelectionBar
+        Expect ([string]$script:Ctrl.LblSelectionBar.Text -eq '3 lignes sélectionnées dont 1 poste :' -and $script:Ctrl.BtnSelectionPing.IsEnabled) ([string]$script:Ctrl.LblSelectionBar.Text)
+        Select-FixtureRows @((New-SelectedRow 1 'Utilisateur'),(New-SelectedRow 2 'Groupe'));Update-DomeniaParkSelectionBar
+        Expect ([string]$script:Ctrl.LblSelectionBar.Text -eq '2 lignes sélectionnées :' -and -not $script:Ctrl.BtnSelectionPing.IsEnabled -and -not $script:Ctrl.BtnSelectionConsole.IsEnabled) 'Workstation survey offered without workstation.'
+    }
+    Case 'FO-18 Selection surveys are refused while the list is surveyed, on a whole-domain view and in demonstration' {
+        Add-SelectionBarControls;Select-FixtureRows @((New-SelectedRow 1),(New-SelectedRow 2))
+        Update-DomeniaParkSelectionBar -ListRunning $true;Expect (-not $script:Ctrl.BtnSelectionPing.IsEnabled) 'Second survey offered during a survey.'
+        Update-DomeniaParkSelectionBar;Expect $script:Ctrl.BtnSelectionPing.IsEnabled 'Survey not offered again after the survey.'
+        $script:ListSurveyBlocked=$true;Update-DomeniaParkSelectionBar;Expect (-not $script:Ctrl.BtnSelectionConsole.IsEnabled) 'Survey of a whole-domain view offered.'
+        $script:ListSurveyBlocked=$false;$script:DemoMode=$true;Update-DomeniaParkSelectionBar;Expect (-not $script:Ctrl.BtnSelectionPing.IsEnabled) 'Survey offered in demonstration.'
+        $script:DemoMode=$false;$script:Ctrl.DgObjects.IsEnabled=$false;Update-DomeniaParkSelectionBar;Expect (-not $script:Ctrl.BtnSelectionPing.IsEnabled) 'Survey offered on a disabled list.'
+    }
+    Case 'FO-18 Selection surveys send only the selected workstations with their AD identity, through the list survey' {
+        Add-SelectionBarControls;$script:SurveyCalls=[Collections.Generic.List[object]]::new();$script:SurveyStatus=''
+        function Start-DomeniaOnlinePark {param([switch]$Selection,[switch]$PingOnly,[object[]]$ScopeTargets,[int]$SkippedTargets=0)$script:SurveyCalls.Add([pscustomobject]@{Selection=[bool]$Selection;PingOnly=[bool]$PingOnly;Targets=@($ScopeTargets);Skipped=$SkippedTargets})}
+        function Set-Status {param($Text,$Level)$script:SurveyStatus=[string]$Text}
+        Select-FixtureRows @((New-SelectedRow 1),(New-SelectedRow 2 -NoGuid),(New-SelectedRow 3 'Utilisateur'),(New-SelectedRow 4))
+        Start-DomeniaParkSelectionSurvey -Mode Ping;Start-DomeniaParkSelectionSurvey -Mode Console
+        Expect ($script:SurveyCalls.Count -eq 2 -and $script:SurveyCalls[0].Selection -and $script:SurveyCalls[0].PingOnly -and -not $script:SurveyCalls[1].PingOnly) 'Selection survey mode lost.'
+        $first=$script:SurveyCalls[0]
+        Expect ($first.Targets.Count -eq 2 -and $first.Skipped -eq 1) ('Targets '+$first.Targets.Count+' skipped '+$first.Skipped)
+        Expect ((@($first.Targets|ForEach-Object{[string]$_.name}) -join ',') -eq 'PC1,PC4' -and [string]$first.Targets[1].distinguished_name -eq 'CN=PC4,OU=Test,DC=example,DC=invalid' -and [string]$first.Targets[1].object_guid -eq '00000000-0000-0000-0000-000000000004') 'AD identity of the selected workstations.'
+        Select-FixtureRows @((New-SelectedRow 3 'Utilisateur'));Start-DomeniaParkSelectionSurvey -Mode Ping
+        Expect ($script:SurveyCalls.Count -eq 2 -and $script:SurveyStatus -eq 'Aucun poste dans la sélection.') $script:SurveyStatus
+    }
 }else{$script:Checks.Add([pscustomobject]@{Name='Native WPF headers';Status='Skipped';Error='Windows WPF required.'})}
 $passed=@($script:Checks|Where-Object{$_.Status -eq 'Passed'}).Count
 $failed=@($script:Checks|Where-Object{$_.Status -eq 'Failed'}).Count

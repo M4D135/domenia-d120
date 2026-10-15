@@ -1374,7 +1374,16 @@ function Get-DomeniaRuntimeModulePlan {
             'New-DomeniaCollectionPlan',
             'ConvertTo-DomeniaRemoteObservationChanges',
             'Test-DomeniaRemoteStoreContext',
-            'Add-DomeniaRemoteProbeDefinitionHash'
+            'Add-DomeniaRemoteProbeDefinitionHash',
+            'Get-DomeniaParkPlural',
+            'Test-DomeniaParkTargetAdmission',
+            'Get-DomeniaParkOutcomeKind',
+            'Get-DomeniaParkProgressText',
+            'Get-DomeniaParkDurationEstimate',
+            'Format-DomeniaParkDuration',
+            'New-DomeniaParkConfirmationText',
+            'Get-DomeniaParkRunSlot',
+            'Get-DomeniaParkVerifyModes'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-HealthRules.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaHealthRuleCatalog',
@@ -1612,10 +1621,29 @@ function Get-DomeniaRuntimeModulePlan {
             'Update-DomeniaComputerDashboard',
             'Update-DomeniaSoftwareDashboard'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Park.Model.ps1','Domenia-Relations.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Inline.UI.ps1','Domenia-Engine.Worker.ps1'); File='Domenia-Park.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Park.Worker.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaParkPingWorkerCode'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Park.Model.ps1','Domenia-Park.Worker.ps1','Domenia-Relations.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Inline.UI.ps1','Domenia-Engine.Worker.ps1'); File='Domenia-Park.UI.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaParkRuns',
+            'Get-DomeniaParkRun',
+            'Get-DomeniaParkRunById',
+            'Test-DomeniaParkRunActive',
+            'Get-DomeniaParkStateSlot',
             'Test-DomeniaParkRunCurrent',
+            'Get-DomeniaParkMaxTargets',
+            'Get-DomeniaParkListContext',
             'Update-DomeniaParkRunStatus',
+            'Get-DomeniaParkVerifyButtonText',
+            'Set-DomeniaParkControlVisible',
             'Update-DomeniaParkControls',
+            'Update-DomeniaParkOutcomePills',
+            'Set-DomeniaParkOutcomeFilter',
+            'Get-DomeniaParkSelectionTargets',
+            'Update-DomeniaParkSelectionBar',
+            'Start-DomeniaParkSelectionSurvey',
+            'Invoke-DomeniaParkVerify',
+            'Open-DomeniaParkVerifyMenu',
             'Start-DomeniaOnlinePark',
             'Start-DomeniaParkAnalysis',
             'Complete-DomeniaParkTargets',
@@ -1623,10 +1651,24 @@ function Get-DomeniaRuntimeModulePlan {
             'Start-DomeniaParkRunTimer',
             'Stop-DomeniaOnlinePark',
             'Invoke-DomeniaParkRunTick',
+            'Start-DomeniaParkPingJob',
+            'Receive-DomeniaParkPingQueue',
+            'Test-DomeniaParkPingBuffered',
+            'Submit-DomeniaParkPingResults',
+            'Complete-DomeniaParkPingJob',
+            'Fail-DomeniaParkPingJob',
+            'Complete-DomeniaParkPingWithdrawn',
+            'Complete-DomeniaParkPingStored',
+            'Fail-DomeniaParkPingStored',
             'Complete-DomeniaParkSession',
             'Complete-DomeniaParkStored',
+            'Publish-DomeniaParkObservation',
             'Fail-DomeniaParkStored',
             'Fail-DomeniaParkSession',
+            'Get-DomeniaParkResultRowIndex',
+            'Set-DomeniaParkPendingRows',
+            'Clear-DomeniaParkPendingRow',
+            'Clear-DomeniaParkPendingRows',
             'Update-DomeniaParkResultRows',
             'Initialize-DomeniaRemoteStoreState',
             'Submit-DomeniaRemoteObservations',

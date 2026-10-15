@@ -1333,6 +1333,19 @@ Test-Case 'UX-32 / PF-12 : panneau Operations sous le bouton, lignes mises a jou
         $layer.Children.Clear(); $layer.Visibility = 'Collapsed'
     }
 }
+# MO-08: the batch ping of a list is a pinned network read without any account, never shared with another request.
+# The registry check holds once the integrator has declared the operation (update_worker_contracts.py --add ParkPing).
+Test-Case 'MO-08 : ParkPing lecture reseau sans compte, jamais partagee, epinglee au registre' {
+    . (Join-Path $modules 'Domenia-Park.Worker.ps1')
+    Assert-True ((Get-DomeniaOperationProvider 'ParkPing') -eq 'Network') ('Fournisseur : ' + (Get-DomeniaOperationProvider 'ParkPing'))
+    $needs = Get-DomeniaOperationCredentialNeeds 'ParkPing'
+    Assert-True ((-not $needs.Directory) -and (-not $needs.DirectoryCredential) -and (-not $needs.Machine) -and (-not $needs.RemoteAdmin) -and (-not $needs.Secrets) -and (-not $needs.DirectoryBreaker) -and $needs.NonDirectory -and ([string]$needs.Resource -eq 'Network')) 'Besoins de compte de ParkPing'
+    Assert-True ((Get-DomeniaOperationEffect 'ParkPing') -eq 'Read') 'ParkPing nʼest pas classee en lecture.'
+    Assert-True ((Get-DomeniaTaskClass 'ParkPing') -eq 'Explicit') 'Classe de tache'
+    Assert-True ((Get-DomeniaPayloadDigest ([pscustomobject]@{Targets=@();BatchSize=32;Progress=[Collections.Concurrent.ConcurrentQueue[object]]::new()})) -eq '') 'Une demande portant une file de progression serait partagee.'
+    Assert-True ($script:RealRegistry.Contains('ParkPing')) 'ParkPing absent du registre epingle : update_worker_contracts.py --add ParkPing Get-DomeniaParkPingWorkerCode'
+    Assert-True ([string]$script:RealRegistry['ParkPing'] -ceq (Get-DomeniaWorkerCodeHash -Code (Get-DomeniaParkPingWorkerCode))) 'Empreinte de ParkPing differente du corps relu.'
+}
 # ---------------------------------------------------------------- report
 try { Stop-WiringJobs } catch { }
 try { Stop-WiringStorage } catch { }

@@ -22631,6 +22631,10 @@ function New-DefaultConfig {
             ReconcileSeconds = 180
             MaxUserProbes = 2
         }
+        # SE-05: ceiling of a survey of the displayed list or of its selection (ping, console, analysis).
+        Park = [ordered]@{
+            MaxTargets = 500
+        }
         Browser = [ordered]@{
             FastBoot = $false
             LoadFirstLevelOnStartup = $true
