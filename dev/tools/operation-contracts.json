@@ -466,7 +466,7 @@
     "File": "wad/modules/Domenia-Storage.Worker.ps1",
     "Function": "Get-DomeniaStoragePurgeWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "4C8095F621B4AB23BD5B8D0B1B052D1FA458776B17AB066E8EECC2DC2BDE335E"
+    "Sha256": "0C6C15C31D28A2536B66A317B70EC0EA132052B8C1DB54AA43D615BDCFDA4699"
   },
   {
     "Operation": "ComputerAdminShare",
@@ -642,5 +642,12 @@
     "Function": "Get-DomeniaRelationHistoryReadWorkerCode",
     "LiteralIndex": 0,
     "Sha256": "226CAE07386AB4C0618A255E849814FF1F2AC75419D57DF080A38D3A227318B3"
+  },
+  {
+    "Operation": "OfflineDossier",
+    "File": "wad/modules/Domenia-Automation.Worker.ps1",
+    "Function": "Get-DomeniaOfflineDossierWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "3D6BE65D554E7238805075A9A2A4EC85BEFAF915F4694D80B20F7126E1B8DA4D"
   }
 ]

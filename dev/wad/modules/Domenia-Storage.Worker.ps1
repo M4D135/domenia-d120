@@ -1829,7 +1829,8 @@ try {
             Snapshots {$targets.Add([pscustomobject]@{Category=$category;Table='adcc_live_queries';Action='Delete';Where='1=1'})}
             History {
                 $literal=ConvertTo-DomeniaSqlLiteral $cutoff
-                $sources="('manual','saisie manuelle','import csv')"
+                # Same list as Get-DomeniaProtectedAssociationSources (Cache.Model), lower case; a rules test keeps them equal.
+                $sources="('manual','saisie manuelle','import csv','import glpi','import osquery')"
                 $protect="lower(trim(COALESCE(source,''))) NOT IN $sources AND lower(trim(COALESCE(computer_key,''))) NOT IN (SELECT lower(trim(COALESCE(computer_key,''))) FROM user_machine_links WHERE lower(trim(COALESCE(source,''))) IN $sources)"
                 $targets.Add([pscustomobject]@{Category=$category;Table='user_machine_history';Action='Delete';Where=("julianday(observed_at) IS NOT NULL AND julianday(observed_at)<julianday($literal) AND $protect")})
                 $targets.Add([pscustomobject]@{Category=$category;Table='user_scan_history';Action='Delete';Where=("julianday(scanned_at) IS NOT NULL AND julianday(scanned_at)<julianday($literal)")})
@@ -2362,7 +2363,8 @@ foreach($family in @('Presence','Console','Inventory','Probe','Detail','LinkHist
         # The neighbours come from one ordered pass: every readable observation is numbered in a TEMP table (computer,
         # date, id), then joined to the rows numbered just before and after it. Correlated previous/next subqueries
         # re-read the whole history of the computer for every row (minutes on a large park, inside the writer lock).
-        $sources="('manual','saisie manuelle','import csv')"
+        # Same list as Get-DomeniaProtectedAssociationSources (Cache.Model), lower case; a rules test keeps them equal.
+        $sources="('manual','saisie manuelle','import csv','import glpi','import osquery')"
         $identity="lower(COALESCE({0}.user_login,''))||char(31)||lower(COALESCE({0}.user_guid,''))"
         $candidate="julianday(h.observed_at)<julianday($literal) AND COALESCE(h.user_login,'')<>'' AND lower(trim(COALESCE(h.source,''))) NOT IN $sources AND lower(trim(COALESCE(h.computer_key,''))) NOT IN (SELECT lower(trim(COALESCE(computer_key,''))) FROM user_machine_links WHERE lower(trim(COALESCE(source,''))) IN $sources)"
         $prepare="DROP TABLE IF EXISTS temp.domenia_retention_links;CREATE TEMP TABLE domenia_retention_links(seq INTEGER PRIMARY KEY,id INTEGER NOT NULL,computer_key TEXT,jd REAL NOT NULL,who TEXT NOT NULL,candidate INTEGER NOT NULL);INSERT INTO temp.domenia_retention_links(id,computer_key,jd,who,candidate) SELECT h.id,h.computer_key,julianday(h.observed_at),"+($identity -f 'h')+",CASE WHEN $candidate THEN 1 ELSE 0 END FROM user_machine_history h WHERE julianday(h.observed_at) IS NOT NULL ORDER BY h.computer_key,julianday(h.observed_at),h.id;"

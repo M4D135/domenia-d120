@@ -532,9 +532,18 @@ function Get-DomeniaCacheCatalogRows {
     }
 }
 
+function Get-DomeniaProtectedAssociationSources {
+    # Declared and imported association sources. The History purge of the pinned StoragePurge worker and the link history
+    # compaction of the pinned StorageRetention worker keep the same list in lower case (Get-DomeniaStoragePurgeWorkerCode,
+    # Get-DomeniaStorageRetentionWorkerCode); a rules test compares them.
+    return @('Manual','Saisie manuelle','Import CSV','Import GLPI','Import osquery')
+}
+
 function Test-DomeniaProtectedAssociationSource {
+    # Declared and imported associations are never removed by an automatic check (orphans) nor replaced by a detection.
+    # Point 137: the GLPI and osquery imports carry their own imposed source and are protected the same way.
     param([AllowNull()][string]$Source)
-    return (([string]$Source).Trim() -in @('Manual','Saisie manuelle','Import CSV'))
+    return (([string]$Source).Trim() -in @(Get-DomeniaProtectedAssociationSources))
 }
 
 # ---------------------------------------------------------------- FI-12, FI-13, UI-19 : base locale (lot X06)

@@ -291,6 +291,23 @@ Test-Case 'D029' 'Liste de tables fermee et historique des associations declaree
     $plan=Get-DomeniaPurgePlan -Selection @('Observations','Snapshots','History','Index')
     Assert-True $plan.KeepsManualLinks;Assert-True $plan.KeepsConfiguration;Assert-True $plan.KeepsUnresolvedReceipts
 }
+Test-Case 'D029' 'Point 137 : la purge et la conservation epinglees protegent exactement les sources declarees et importees' {
+    # The History purge of the pinned StoragePurge worker and the link history compaction of the pinned StorageRetention
+    # worker (point 37) each carry their own SQL list: both must stay the list of Test-DomeniaProtectedAssociationSource,
+    # or an imported association (GLPI, osquery) would lose its history.
+    $sources=@(Get-DomeniaProtectedAssociationSources)
+    foreach($source in @('Manual','Saisie manuelle','Import CSV','Import GLPI','Import osquery')){Assert-True ($sources -ccontains $source) ('source non protegee : '+$source)}
+    foreach($source in $sources){Assert-True (Test-DomeniaProtectedAssociationSource (' '+$source.ToUpperInvariant()+' ')) ('comparaison de source : '+$source)}
+    Assert-False (Test-DomeniaProtectedAssociationSource 'Journal du controleur') 'source automatique protegee'
+    $worker=[IO.File]::ReadAllText((Join-Path $modules 'Domenia-Storage.Worker.ps1'),[Text.Encoding]::UTF8)
+    $found=@([regex]::Matches($worker,'\$sources="\(([^)]*)\)"'))
+    Assert-Equal 2 $found.Count 'listes SQL des sources protegees (purge Historique et conservation de l historique des associations)'
+    $expected=@($sources|ForEach-Object{$_.ToLowerInvariant()}|Sort-Object)
+    foreach($match in $found){
+        $sql=@([regex]::Matches($match.Groups[1].Value,"'([^']*)'")|ForEach-Object{$_.Groups[1].Value})
+        Assert-Equal ($expected -join '|') (@($sql|Sort-Object) -join '|') 'purge ou conservation et regle de protection divergentes'
+    }
+}
 Test-Case 'D029' 'Index reinitialise seulement le suivi annuaire, marqueur import conserve' {
     $sync=@(Get-DomeniaPurgeTargets Index | Where-Object {$_.Table -eq 'sync_state'})[0]
     Assert-Equal 'Reset' $sync.Action;Assert-Equal 'DirectoryScope' $sync.Filter

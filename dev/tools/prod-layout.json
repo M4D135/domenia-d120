@@ -4,6 +4,7 @@
     "Domenia-Start.ps1",
     "Domenia-Modules.ps1",
     "Domenia-Core.ps1",
+    "Domenia-Automate.ps1",
     "Domenia.ico",
     "Domenia.config.json",
     "Domenia.release.json",

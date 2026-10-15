@@ -891,6 +891,7 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnLinkSelected" = "Default"
     "BtnRemoveLink" = "Default"
     "BtnImportLinks" = "Default"
+    "CmbLinkImportFormat" = "Default"
     "BtnOpenLinksCsv" = "Default"
     "BtnPruneLinks" = "Default"
     "LblLinkContext" = "Default"
@@ -6660,7 +6661,8 @@ function Get-MainXaml {
                         <Grid Margin="2,8,2,2">
                           <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                           <WrapPanel Grid.Row="0" Margin="0,0,0,8">
-                            <Button x:Name="BtnImportLinks" Content="Importer" Margin="0,0,8,6" ToolTipService.ShowOnDisabled="True" ToolTip="Lit un fichier CSV et montre un aperçu dans cette page avant tout ajout. Les lignes importées portent la source « Import CSV »."/>
+                            <ComboBox x:Name="CmbLinkImportFormat" Width="200" MinHeight="32" Margin="0,0,8,6" SelectedIndex="0" VerticalContentAlignment="Center" ToolTipService.ShowOnDisabled="True" ToolTip="Format du fichier à importer : il fixe les colonnes lues et la source imposée aux associations (Import CSV, Import GLPI ou Import osquery)." AutomationProperties.Name="Format de lʼimport" AutomationProperties.HelpText="Format du fichier à importer : il fixe les colonnes lues et la source imposée aux associations (Import CSV, Import GLPI ou Import osquery)."><ComboBoxItem Content="CSV générique" Tag="Csv"/><ComboBoxItem Content="Export GLPI (CSV)" Tag="Glpi"/><ComboBoxItem Content="Résultats osquery (JSON)" Tag="Osquery"/></ComboBox>
+                            <Button x:Name="BtnImportLinks" Content="Importer" Margin="0,0,8,6" ToolTipService.ShowOnDisabled="True" ToolTip="Lit le fichier au format choisi (CSV générique, export GLPI ou résultats osquery) et montre dans cette page les lignes valides, les conflits et les rejets avant tout ajout. La source imposée dépend du format ; lʼimport peut être annulé." AutomationProperties.Name="Importer des associations" AutomationProperties.HelpText="Lit le fichier au format choisi (CSV générique, export GLPI ou résultats osquery) et montre dans cette page les lignes valides, les conflits et les rejets avant tout ajout. La source imposée dépend du format ; lʼimport peut être annulé."/>
                             <Button x:Name="BtnUndoImport" Content="Annuler lʼimport" Visibility="Collapsed" Margin="0,0,8,6" ToolTipService.ShowOnDisabled="True" ToolTip="Retire les associations ajoutées par le dernier import, après confirmation dans la page. Chaque retrait est journalisé et restaurable."/>
                             <Button x:Name="BtnRestoreLinkAll" Content="Restaurer la suppression" IsEnabled="False" Margin="0,0,8,6" ToolTipService.ShowOnDisabled="True" ToolTip="Aucune suppression locale à restaurer." AutomationProperties.Name="Restaurer la dernière suppression"/>
                             <Button x:Name="BtnPruneLinks" Content="Nettoyer" Margin="0,0,8,6" ToolTipService.ShowOnDisabled="True" ToolTip="Vérifie en lecture seule que les comptes et postes des associations automatiques existent encore dans Active Directory, puis liste les orphelines dans cette page."/>
@@ -6686,7 +6688,7 @@ function Get-MainXaml {
                               <Grid Grid.Row="2">
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                 <DataGrid x:Name="DgLinkImportPreview" Grid.Column="0" MaxHeight="220" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" EnableRowVirtualization="True" MinRowHeight="28" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTip="Chaque enregistrement du fichier (N° : rang de lʼenregistrement, les lignes vides ne comptent pas) et ce que lʼimport en fera.">
-                                  <DataGrid.Columns><DataGridTextColumn Header="N°" Binding="{Binding Record}" Width="60"/><DataGridTextColumn Header="Utilisateur" Binding="{Binding User}" Width="140"/><DataGridTextColumn Header="Poste" Binding="{Binding Computer}" Width="130"/><DataGridTextColumn Header="Résultat" Binding="{Binding Status}" Width="100"/><DataGridTemplateColumn Header="Motif" Width="*" MinWidth="200"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Reason}" Style="{StaticResource WrappedCellText}" ToolTip="{Binding Reason}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn></DataGrid.Columns>
+                                  <DataGrid.Columns><DataGridTextColumn Header="N°" Binding="{Binding Record}" Width="60"/><DataGridTextColumn Header="Utilisateur" Binding="{Binding User}" Width="140"/><DataGridTextColumn Header="Poste" Binding="{Binding Computer}" Width="130"/><DataGridTextColumn Header="Résultat" Binding="{Binding Status}" Width="100"/><DataGridTextColumn Header="Catégorie" Binding="{Binding Category}" Width="100"/><DataGridTemplateColumn Header="Motif" Width="*" MinWidth="200"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Reason}" Style="{StaticResource WrappedCellText}" ToolTip="{Binding Reason}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn></DataGrid.Columns>
                                 </DataGrid>
                                 <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Top">
                                   <Button x:Name="BtnLinkImportApply" Content="Importer" Style="{StaticResource RunButton}" Margin="0,0,0,8" ToolTipService.ShowOnDisabled="True" ToolTip="Ajoute les lignes « À importer » au stockage local, chacune journalisée. Aucun objet Active Directory nʼest modifié."/>
@@ -9916,15 +9918,18 @@ function Add-SelectedLink {
 
 function Import-LinksCsv {
     # CO-08: the chosen file is shown in Relations > Toutes les associations before any change (Show-DomeniaLinkImportPreview).
-    # Its rows are imported only after « Importer », always with Source « Import CSV », and the import can be undone.
+    # Points 137-138: the format chosen in « Format de lʼimport » (CSV générique, export GLPI, résultats osquery) selects the
+    # adapter and imposes the source (Import CSV, Import GLPI, Import osquery). Rows are imported only after « Importer »,
+    # as one rollback batch that « Annuler lʼimport » removes, even after a restart.
     try {
         if (Test-DomeniaAccessBusyWrite) { return }
+        $adapter = Get-DomeniaInventoryAdapter (Get-DomeniaLinkImportAdapterChoice)
         $dlg = New-DomeniaFileRequest -Mode Open
-        $dlg.Filter = "CSV (*.csv)|*.csv|Tous les fichiers (*.*)|*.*"
+        $dlg.Filter = [string]$adapter.FileFilter + "|Tous les fichiers (*.*)|*.*"
         if (-not $dlg.ShowDialog()) { return }
-        Show-DomeniaLinkImportPreview -Path ([string]$dlg.FileName)
+        Show-DomeniaLinkImportPreview -Path ([string]$dlg.FileName) -Adapter ([string]$adapter.Id)
     }
-    catch { Show-ErrorBox "Erreur import CSV : $($_.Exception.Message)" }
+    catch { Show-ErrorBox ("Import impossible : " + $_.Exception.Message) }
 }
 
 
@@ -24711,7 +24716,7 @@ function Get-DomeniaWorkerOperationHashes {
     # Registre ferme : seules ces operations internes, avec leur corps exact, peuvent entrer dans un runspace.
     return [ordered]@{
         LocalQuery            = "C75DF0F0CDA3F0FD44B13029E7620B592560365D56EBAEBE3F842E0D18F09C0C"
-        StoragePurge          = "4C8095F621B4AB23BD5B8D0B1B052D1FA458776B17AB066E8EECC2DC2BDE335E"
+        StoragePurge          = "0C6C15C31D28A2536B66A317B70EC0EA132052B8C1DB54AA43D615BDCFDA4699"
         StorageBackup         = "69013AFFC05489EC9B5743488D2FD0532DF3BF2D50966006444A2C3EDA561888"
         ComputerAdminShare    = "051272FF57B277E19504F52BAC289ED8297A333393644B853FF4A80624347F70"
         StorageUsage          = "0441D6F5732E7EF2DB66203DE2CE814FA719341568A56394092D7A8DA8D8463E"
@@ -24802,6 +24807,7 @@ function Get-DomeniaWorkerOperationHashes {
         AdConsistencyScan     = "B47A6AF4870C1253B572F638C7CB517F91673A7AC591AB3A4B8EEE111305CFD8"
         MachineIdentityRead   = "4618EA8761420689A336CEFD55B7600526B1F95E89B5BC85893B4D593A844627"
         RelationHistoryRead   = "226CAE07386AB4C0618A255E849814FF1F2AC75419D57DF080A38D3A227318B3"
+        OfflineDossier        = "3D6BE65D554E7238805075A9A2A4EC85BEFAF915F4694D80B20F7126E1B8DA4D"
     }
 }
 
@@ -24810,7 +24816,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "10B98D08F4DA7E60E5D19772BF8ECD99369743A42745CA91C92146E02CD7AC75"
+    $expectedFingerprint = "5EB00C05DC68BD8D549B9B26E03A939157058084335B00557B381CE68F784291"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }

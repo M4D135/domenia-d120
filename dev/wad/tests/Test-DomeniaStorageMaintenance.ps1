@@ -224,6 +224,9 @@ try{
   $rows=@(@('PC1','alice','2026-01-01'),@('PC1','alice','2026-01-02'),@('PC1','alice','2026-01-03'),@('PC1','alice','2026-01-04'),@('PC1','bob','2026-01-05'),@('PC1','ALICE','2026-01-06'),@('PC1','alice','2026-01-07'),@('PC2','carol','2026-01-01'),@('PC2','carol','02/01/2026'),@('PC2','carol','2026-01-03'),@('PC2','carol','2026-01-04'),@('PC4','eve','2026-01-01'),@('PC4','eve','2026-01-02'),@('PC4','eve','2026-01-03'))
   foreach($row in $rows){$when=if($row[2] -match '^\d{4}'){$row[2]+'T00:00:00Z'}else{$row[2]};[void]$sql.AppendLine("INSERT INTO user_machine_history(user_login,computer_key,computer,source,observed_at) VALUES('"+$row[1]+"','"+$row[0]+"','"+$row[0]+"','Console','"+$when+"');")}
   [void]$sql.AppendLine("INSERT INTO user_machine_links(computer_key,user_login,computer,source) VALUES('PC4','eve','PC4','Manual');")
+  # Point 137 (W15): associations imported from GLPI or osquery are protected like a CSV import, their history too.
+  [void]$sql.AppendLine("INSERT INTO user_machine_links(computer_key,user_login,computer,source) VALUES('PC5','gil','PC5','Import GLPI'),('PC6','oscar','PC6','Import osquery');")
+  foreach($pc in @(@('PC5','gil'),@('PC6','oscar'))){foreach($day in @('01','02','03')){[void]$sql.AppendLine("INSERT INTO user_machine_history(user_login,computer_key,computer,source,observed_at) VALUES('"+$pc[1]+"','"+$pc[0]+"','"+$pc[0]+"','Console','2026-01-"+$day+"T00:00:00Z');")}}
   Query $p $sql.ToString() -Write
   $cutoffs=[pscustomobject]@{Presence='';Console='';Inventory='';Probe='';Detail='';LinkHistory=$cut}
   $preview=Run-Retention $p $true '' $cutoffs
@@ -234,6 +237,7 @@ try{
   Expect (($left -join ',') -ceq 'alice@2026-01-01T00:00:00Z,alice@2026-01-04T00:00:00Z,bob@2026-01-05T00:00:00Z,ALICE@2026-01-06T00:00:00Z,alice@2026-01-07T00:00:00Z') ('changes and bounds kept: '+($left -join ','))
   Expect ((Query $p "SELECT count(*) n FROM user_machine_history WHERE computer_key='PC2' AND observed_at='02/01/2026';")[0].n -eq 1) 'unreadable date kept'
   Expect ((Query $p "SELECT count(*) n FROM user_machine_history WHERE computer_key='PC4';")[0].n -eq 3) 'declared association history untouched'
+  Expect ((Query $p "SELECT count(*) n FROM user_machine_history WHERE computer_key IN ('PC5','PC6');")[0].n -eq 6) 'GLPI or osquery imported association history compacted'
   $lines=@(Get-DomeniaStorageRetentionLines -Counts @($preview.Counts) -Cutoffs $cutoffs -DryRun $true)
   Expect (@($lines|Where-Object{$_ -like 'Historique des associations : 3 observation(s) répétée(s)*'}).Count -eq 1) 'loss of detail announced before'
  }

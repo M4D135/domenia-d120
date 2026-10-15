@@ -340,7 +340,8 @@ function Get-DomeniaOperationProvider {
     $cim = @('ComputerDiagnostics','ComputerInventory','SoftwareInventory','WmiNamespaces','WmiClasses','WmiQuery','LiveConsole','ComputerLastUser','ComputerQuickDiag','JoinStateRead','UpdateStateRead','GpoAppliedRead','ComputerEventsRead','MachineIdentityRead','DcServicesRead','ParkSweep','BatchNetworkDiag','ComputerGpUpdate','ComputerRestart','RimotteRun','ComputerServiceControl','UserComputerProbe','RemoteCredentialCheck','QuerySchema')
     $wts = @('SessionsList')
     $storage = @('LegacyMigration','LocalStore','LiveCache','ReceiptStore','DocumentStore','StorageUsage','StoragePurge','StorageBackup','StorageMaintenance','StorageRetention','StorageIntegrity','LinkHistoryStore','LocalIndexRead','LocalQuery','QueryExport','QueryLibrary','QueryTransfer','RelationHistoryRead')
-    $local = @('CmdletHelp','CmdletInventory','EngineSelfTest','EmbeddedPathBrowse','LocalAssistant','DemoDirectory','IsolatedRead')
+    # OfflineDossier (point 139) only reads the base read-only and writes in Exports: it never holds the single storage lane.
+    $local = @('CmdletHelp','CmdletInventory','EngineSelfTest','EmbeddedPathBrowse','LocalAssistant','DemoDirectory','IsolatedRead','OfflineDossier')
     # ParkSharedSync reads and writes a shared file, possibly on a UNC path: network I/O, not the local base.
     # ParkPing (MO-08) sends the ICMP echoes of a list in parallel batches: network only, no credential.
     $network = @('LiveSelectedPing','ComputerPing','ComputerAdminShare','SelectedPresence','PresenceScan','WakeOnLanSend','ConnectorRead','ParkSharedSync','ParkPing')
@@ -361,7 +362,7 @@ function Get-DomeniaOperationCredentialNeeds {
     $remote = @('SessionsList','ComputerDiagnostics','ComputerLastUser','LiveConsole','ComputerPing','ComputerAdminShare','ComputerGpUpdate','ComputerRestart','ComputerInventory','SoftwareInventory','ParkSweep','BatchNetworkDiag','WmiNamespaces','WmiClasses','WmiQuery','RimotteRun','ComputerServiceControl','QuerySchema','GpoAppliedRead','DcServicesRead','MachineIdentityRead')
     $machine = @('SessionsList','ComputerAdminShare','ComputerDiagnostics','ComputerInventory','SoftwareInventory','ParkSweep','WmiNamespaces','WmiClasses','WmiQuery','ComputerLastUser','LiveConsole','ComputerGpUpdate','ComputerRestart','UserComputerProbe','RimotteRun','ComputerServiceControl','QuerySchema','GpoAppliedRead','DcServicesRead','MachineIdentityRead')
     # Local or storage operations that never bind to the directory. New D120 operations are classified here.
-    $local = @('StorageUsage','StoragePurge','StorageBackup','StorageMaintenance','StorageRetention','StorageIntegrity','LegacyMigration','CmdletHelp','CmdletInventory','EngineSelfTest','LiveCache','LiveSelectedPing','ParkPing','LocalStore','ReceiptStore','SessionsList','DocumentStore','EmbeddedPathBrowse','DemoDirectory','LocalIndexRead','LocalQuery','QueryExport','QueryLibrary','ParkSharedSync','IsolatedRead','QueryTransfer','RelationHistoryRead')
+    $local = @('StorageUsage','StoragePurge','StorageBackup','StorageMaintenance','StorageRetention','StorageIntegrity','LegacyMigration','CmdletHelp','CmdletInventory','EngineSelfTest','LiveCache','LiveSelectedPing','ParkPing','LocalStore','ReceiptStore','SessionsList','DocumentStore','EmbeddedPathBrowse','DemoDirectory','LocalIndexRead','LocalQuery','QueryExport','QueryLibrary','ParkSharedSync','IsolatedRead','QueryTransfer','RelationHistoryRead','OfflineDossier')
     $id = [string]$OperationId
     $isRemote = ($remote -contains $id)
     $nonDirectory = (($local -contains $id) -or $isRemote)
