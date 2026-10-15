@@ -1,14 +1,14 @@
 {
  "Schema": "DomeniaSwallowedBaseline/1",
  "Source": "reference initiale",
- "Total": 1260,
+ "Total": 1265,
  "Kinds": {
-  "empty": 1259,
+  "empty": 1264,
   "null": 1
  },
  "Places": {
-  "code": 1030,
-  "here-string": 230
+  "code": 1031,
+  "here-string": 234
  },
  "Findings": {
   "Add-AssociationsToRows": 1,
@@ -169,7 +169,7 @@
   "Get-DomeniaIsolatedReadWorkerCode [here-string]": 4,
   "Get-DomeniaLiveCacheCode [here-string]": 3,
   "Get-DomeniaLiveProbeCode [here-string]": 3,
-  "Get-DomeniaLocalIndexReadWorkerCode [here-string]": 5,
+  "Get-DomeniaLocalIndexReadWorkerCode [here-string]": 7,
   "Get-DomeniaLoginWindowMode": 4,
   "Get-DomeniaMigrationWorkerCode [here-string]": 2,
   "Get-DomeniaNavSnapshot": 7,
@@ -199,6 +199,7 @@
   "Get-DomeniaSelectedPresenceWorkerCode [here-string]": 1,
   "Get-DomeniaSoftwareWorkerCode [here-string]": 24,
   "Get-DomeniaStorageBackupWorkerCode [here-string]": 2,
+  "Get-DomeniaStorageIntegrityWorkerCode [here-string]": 2,
   "Get-DomeniaStoragePurgeWorkerCode [here-string]": 3,
   "Get-DomeniaStorageRetentionWorkerCode [here-string]": 1,
   "Get-DomeniaStorageUsageWorkerCode [here-string]": 3,
@@ -404,7 +405,7 @@
   "Start-DomeniaSecretReveal": 1,
   "Start-DomeniaSecretRevealExpiry": 1,
   "Start-DomeniaSoftwareInventory": 3,
-  "Start-DomeniaStorageWork": 1,
+  "Start-DomeniaStorageWork": 2,
   "Start-DomeniaTimer": 1,
   "Start-DomeniaWmiQuery": 1,
   "Start-DomeniaWriteTask": 1,

@@ -89,7 +89,8 @@ function Set-DomeniaLiveRowValue {
 
 # Real rule modules.
 # FI-05 / PF-06: Engine.UI holds the protected timer factory used by the persistence and the progressive search.
-foreach ($file in @('Domenia-Common.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Engine.UI.ps1')) {
+# Store.Model: storage rules read by the save callbacks and the schema check of Initialize-DomeniaDatabase (points 35, 36).
+foreach ($file in @('Domenia-Common.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Store.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Engine.UI.ps1')) {
     $path = Join-Path $modules $file
     if (-not [IO.File]::Exists($path)) { throw ('Module absent : ' + $file) }
     . $path
@@ -1543,7 +1544,7 @@ Test-Case 'D022 : Complete-DomeniaReconcile n met en file que les lignes modifie
 $guardUi = Join-Path $modules 'Domenia-Guard.UI.ps1'
 $guardModel = Join-Path $modules 'Domenia-Guard.Model.ps1'
 foreach ($path in @($guardUi,$guardModel)) { if (-not [IO.File]::Exists($path)) { throw ('Fichier absent : ' + $path) } }
-foreach ($name in @('Get-DomeniaPersistenceState','Start-DomeniaStorageWork','Complete-DomeniaStorageWork','Fail-DomeniaStorageWork','Reset-DomeniaLinkBaseline')) {
+foreach ($name in @('Get-DomeniaPersistenceState','Get-DomeniaCurrentStorageSpace','Update-DomeniaStorageSpace','Update-DomeniaStorageSpaceUi','Start-DomeniaStorageWork','Complete-DomeniaStorageWork','Fail-DomeniaStorageWork','Reset-DomeniaLinkBaseline')) {
     . ([scriptblock]::Create((Get-FunctionTextFromFile $storageUi $name)))
 }
 # The persistence timer of other cases must keep calling the empty double: the real writer is enabled per case only.
@@ -2923,7 +2924,7 @@ Test-Case 'D118 : source verrouillee, erreur tracee et aucune copie annoncee' {
 # D029 L2: the pinned read-only worker runs against native SQLite, and the UI uses real WPF controls.
 . ([scriptblock]::Create((Get-FunctionTextFromFile $storageWorker 'Get-DomeniaStorageUsageWorkerCode')))
 $script:UsageControlDefinitions=@(foreach($name in @('Get-DomeniaControl','Set-DomeniaControlText')){Get-FunctionTextFromFile $core $name}) -join "`n"
-$script:UsageUiDefinitions=@(foreach($name in @('Format-DomeniaStorageUsage','Start-DomeniaStorageUsage','Complete-DomeniaStorageUsage','Fail-DomeniaStorageUsage')){Get-FunctionTextFromFile $storageUi $name}) -join "`n"
+$script:UsageUiDefinitions=@(foreach($name in @('Format-DomeniaStorageUsage','Start-DomeniaStorageUsage','Complete-DomeniaStorageUsage','Fail-DomeniaStorageUsage','Get-DomeniaCurrentStoragePolicy','Update-DomeniaStorageLimitsUi')){Get-FunctionTextFromFile $storageUi $name}) -join "`n"
 function Invoke-UsageWorker {
     param([string]$Path=$script:TestDbPath)
     $Payload=[pscustomobject]@{Path=$Path}
@@ -3793,8 +3794,11 @@ Test-Case 'FI-19 : base mise en service par une bascule : chiffres et associatio
     Assert-Equal '' ([string]$script:IndexMetadataError) 'L echec d une etape posterieure est attribue a la lecture des chiffres.'
     Assert-True ([bool]$script:IndexMetadataPending) 'La lecture des chiffres n est plus attendue.'
     $script:Fi19LibraryFails=$false
+    # W06: the switch of a move, a restore or an undo goes through Invoke-DomeniaStorageMaintenanceSwitch.
     $apply=Get-FunctionTextFromFile $storageUi 'Complete-DomeniaStorageMaintenanceApply'
-    Assert-True ($apply.Contains('Resume-DomeniaDatabaseViews -ReloadLocalState')) 'La bascule ne relit pas l etat de la nouvelle base.'
+    $switch=Get-FunctionTextFromFile $storageUi 'Invoke-DomeniaStorageMaintenanceSwitch'
+    Assert-True ($apply.Contains('Invoke-DomeniaStorageMaintenanceSwitch -State $State -Receipt $r')) 'La confirmation de la copie ne bascule pas.'
+    Assert-True ($switch.Contains('Resume-DomeniaDatabaseViews -ReloadLocalState')) 'La bascule ne relit pas l etat de la nouvelle base.'
     $script:LinkLoad=$null;$script:IndexMetadataPending=$false
 }
 Test-Case 'FI-19 : retour sur Outils avec Base locale deja ouverte : etat manquant relu, page cachee ignoree' {
@@ -4525,11 +4529,12 @@ Test-Case 'PF-26 : operation_runs purgee seulement apres une insertion et au-del
 Test-Case 'FI-13 : sauvegarde par le worker StorageBackup avant le geste, jamais sur le Dispatcher' {
     $root = New-X06Sandbox
     try {
-        foreach ($name in @('Get-DomeniaCurrentStoragePolicy','Get-DomeniaGestureBackupState','Invoke-DomeniaGestureBackup','Complete-DomeniaGestureBackup','Fail-DomeniaGestureBackup','Show-DomeniaGestureBackupFailure','Resume-DomeniaGestureWithoutBackup')) { . ([scriptblock]::Create((Get-FunctionTextFromFile $storageUi $name))) }
+        foreach ($name in @('Get-DomeniaCurrentStoragePolicy','New-DomeniaBackupPayload','Register-DomeniaVerifiedBackup','Register-DomeniaBackupFailure','Get-DomeniaGestureBackupState','Invoke-DomeniaGestureBackup','Complete-DomeniaGestureBackup','Fail-DomeniaGestureBackup','Show-DomeniaGestureBackupFailure','Resume-DomeniaGestureWithoutBackup')) { . ([scriptblock]::Create((Get-FunctionTextFromFile $storageUi $name))) }
         $script:X06Settings = @{}; $script:X06Tasks = [Collections.Generic.List[object]]::new(); $script:X06Ran = 0; $script:X06SyncBackups = 0; $script:X06Inline = $null; $script:X06Locations = 0
         function Get-DomeniaSetting { param($Name,$Default) if ($script:X06Settings.ContainsKey([string]$Name)) { return $script:X06Settings[[string]$Name] }; return $Default }
         function Set-DomeniaSetting { param($Name,$Value) $script:X06Settings[[string]$Name] = $Value }
         function Update-DomeniaIndexLocation { $script:X06Locations++ }
+        function Update-DomeniaStorageBackupScheduleUi { }
         function Backup-DomeniaDatabase { $script:X06SyncBackups++ }
         function Request-DomeniaInlineConfirmation { param($Title,$Message,$Target,$ConfirmText,$CancelText,$OnConfirm,$OnCancel,$Risk) $script:X06Inline = [pscustomobject]@{Title=$Title;Message=$Message;ConfirmText=$ConfirmText;CancelText=$CancelText;Confirm=$OnConfirm;Cancel=$OnCancel;Risk=$Risk} }
         # The engine double registers the job as Start-UiTask does; each case removes it before calling a handler, as
@@ -4560,6 +4565,9 @@ Test-Case 'FI-13 : sauvegarde par le worker StorageBackup avant le geste, jamais
         Assert-Equal 0 @(Get-ChildItem -LiteralPath (Join-Path $root 'Backups') -Filter 'Domenia-*.db' -File).Count 'Copie de geste dans la serie planifiee'
         $key = Get-DomeniaStoreId $script:TestDbPath 'DC=example,DC=invalid'
         Assert-True ([string]$script:X06Settings[('Storage.Backup.Last.' + $key)]) 'Date de sauvegarde non memorisee'
+        # One backup policy (W06 point 33): the copy before a gesture is the last verified backup of the base, with its proof.
+        $detail = [string]$script:X06Settings[('Storage.Backup.LastDetail.' + $key)] | ConvertFrom-Json
+        Assert-True (($detail.Origin -ceq 'Gesture') -and ([string]$detail.Sha256 -cmatch '^[a-f0-9]{64}$') -and ([long]$detail.Bytes -gt 0) -and ([string]$detail.File -like 'Geste-*.db')) 'Preuve de la sauvegarde avant geste absente'
         # A verified copy younger than 30 min is already the point of return.
         Assert-Equal 'Recent' (Invoke-DomeniaGestureBackup -Gesture 'LinkPrune' -Then { $script:X06Ran++ })
         Assert-Equal 2 $script:X06Ran; Assert-Equal 1 $script:X06Tasks.Count
@@ -4581,11 +4589,19 @@ Test-Case 'FI-13 : sauvegarde par le worker StorageBackup avant le geste, jamais
         & $script:X06Inline.Confirm
         Assert-Equal 3 $script:X06Ran 'Geste non lance apres « Continuer sans sauvegarde »'
         Assert-Equal 1 @($script:Logs | Where-Object { $_ -match 'Poursuite sans sauvegarde confirmée' }).Count 'Choix sans sauvegarde absent du journal'
+        # A receipt without the SHA-256 of the copy is not a verified backup: nothing runs, the explicit choice is offered.
+        $script:X06Settings[('Storage.Backup.Last.' + $key)] = [datetime]::UtcNow.AddHours(-2).ToString('o'); $script:X06Inline = $null
+        Assert-Equal 'Started' (Invoke-DomeniaGestureBackup -Gesture 'LinkPrune' -Then { $script:X06Ran++ })
+        $unverified = [pscustomobject]@{Backup=[string]$result.Backup;CopiedTo='';Verified=$true;VerifiedAtUtc=[datetime]::UtcNow.ToString('o')}
+        $pending = $script:X06Tasks[$script:X06Tasks.Count - 1]; [void]$script:AsyncJobs.Remove([string]$pending.State.JobId)
+        Complete-DomeniaGestureBackup -Result $unverified -State $pending.State
+        Assert-Equal 3 $script:X06Ran 'Geste lance sur un recu sans empreinte'
+        Assert-True (($null -ne $script:X06Inline) -and ($script:X06Inline.ConfirmText -eq 'Continuer sans sauvegarde')) 'Choix explicite absent apres un recu non verifie'
         # A late receipt of another session or base never starts the gesture.
         Assert-Equal 'Started' (Invoke-DomeniaGestureBackup -Gesture 'IndexUpdate' -Then { $script:X06Ran++ })
         $script:SessionEpoch = [long]2
-        [void]$script:AsyncJobs.Remove('x06-3')
-        Complete-DomeniaGestureBackup -Result $result -State $script:X06Tasks[2].State
+        [void]$script:AsyncJobs.Remove('x06-4')
+        Complete-DomeniaGestureBackup -Result $result -State $script:X06Tasks[3].State
         Assert-Equal 3 $script:X06Ran 'Geste lance dans une session perimee'
         # No base file (first update) or demonstration: nothing to protect, the gesture runs at once.
         $script:DatabaseScopedPath = Join-Path $root 'absent.db'
@@ -4597,17 +4613,18 @@ Test-Case 'FI-13 : sauvegarde par le worker StorageBackup avant le geste, jamais
 Test-Case 'FI-13 : une sauvegarde annulee, retiree, detachee ou d une autre session ne bloque pas les gestes suivants' {
     $root = New-X06Sandbox
     try {
-        foreach ($name in @('Get-DomeniaCurrentStoragePolicy','Get-DomeniaGestureBackupState','Invoke-DomeniaGestureBackup','Complete-DomeniaGestureBackup','Fail-DomeniaGestureBackup','Show-DomeniaGestureBackupFailure','Resume-DomeniaGestureWithoutBackup')) { . ([scriptblock]::Create((Get-FunctionTextFromFile $storageUi $name))) }
+        foreach ($name in @('Get-DomeniaCurrentStoragePolicy','New-DomeniaBackupPayload','Register-DomeniaVerifiedBackup','Register-DomeniaBackupFailure','Get-DomeniaGestureBackupState','Invoke-DomeniaGestureBackup','Complete-DomeniaGestureBackup','Fail-DomeniaGestureBackup','Show-DomeniaGestureBackupFailure','Resume-DomeniaGestureWithoutBackup')) { . ([scriptblock]::Create((Get-FunctionTextFromFile $storageUi $name))) }
         $script:X06Settings = @{}; $script:X06Tasks = [Collections.Generic.List[object]]::new(); $script:X06Ran = 0
         function Get-DomeniaSetting { param($Name,$Default) if ($script:X06Settings.ContainsKey([string]$Name)) { return $script:X06Settings[[string]$Name] }; return $Default }
         function Set-DomeniaSetting { param($Name,$Value) $script:X06Settings[[string]$Name] = $Value }
         function Update-DomeniaIndexLocation { }
+        function Update-DomeniaStorageBackupScheduleUi { }
         function Request-DomeniaInlineConfirmation { param($Title,$Message,$Target,$ConfirmText,$CancelText,$OnConfirm,$OnCancel,$Risk) }
         function Start-UiTask { param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,$ReplaceKey,$TimeoutSeconds,$StatusText,$TaskClass) $script:X06Tasks.Add([pscustomobject]@{Operation=$OperationId;State=$CallbackState}); $id = 'x06-' + $script:X06Tasks.Count; $script:AsyncJobs[$id] = [pscustomobject]@{Id=$id;OperationId=[string]$OperationId}; return $id }
         $script:AsyncJobs = @{}; $script:DetachedReadJobs = @()
         $script:DatabaseScopedPath = $script:TestDbPath; $script:SessionEpoch = [long]1; $script:DemoMode = $false; $script:StorageGestureBackup = $null
         $script:Conn = [pscustomobject]@{BaseDn='DC=example,DC=invalid';Domain='example.invalid'}
-        $receipt = [pscustomobject]@{Backup=(Join-Path $root 'Backups\Geste-x06.db');CopiedTo='';Verified=$true;VerifiedAtUtc=[datetime]::UtcNow.ToString('o')}
+        $receipt = [pscustomobject]@{Backup=(Join-Path $root 'Backups\Geste-x06.db');CopiedTo='';Verified=$true;VerifiedAtUtc=[datetime]::UtcNow.ToString('o');SHA256=('ab'*32);Bytes=4096}
         # Annuler (or a withdrawal from the queue): the engine drops the job and calls no handler.
         Assert-Equal 'Started' (Invoke-DomeniaGestureBackup -Gesture 'IndexUpdate' -Then { $script:X06Ran++ })
         [void]$script:AsyncJobs.Remove('x06-1')
