@@ -219,6 +219,8 @@ Test-Case 'P46' 'Chaque operation epinglee annonce son compte, son droit et son 
     Assert-True ((Get-DomeniaOperationRequirement 'LockoutDiagnosis').Right -match 'Lecteurs des journaux')
     Assert-True ((Get-DomeniaOperationRequirement 'WriteResetPassword').Right -match 'Réinitialiser le mot de passe')
     Assert-Equal 'Aucun compte' (Get-DomeniaOperationRequirement 'ComputerPing').Account
+    # A network diagnostic sends no account: it is never described with the rights of a WMI read.
+    $batch=Get-DomeniaOperationRequirement 'BatchNetworkDiag';Assert-Equal 'Aucun compte' $batch.Account;Assert-True ($batch.Access -match '5985') $batch.Access
 }
 Test-Case 'P46' 'Une operation inconnue ne recoit jamais un droit devine' {
     foreach($op in @('OperationInventee','')){

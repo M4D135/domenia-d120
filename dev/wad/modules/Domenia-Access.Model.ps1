@@ -370,6 +370,7 @@ function Get-DomeniaOperationRequirement {
         'ComputerGpUpdate'      = @('Remote',$machine,'Exécution distante sur le poste : administrateur local, WinRM déjà en service sur le poste.','WinRM 5985/TCP ou 5986/TCP vers le poste.')
         'ComputerRestart'       = @('Remote',$machine,'Redémarrage à distance : administrateur local du poste (privilège Forcer lʼarrêt à partir dʼun système distant).',$cim)
         'RimotteRun'            = @('Remote',$machine,'Intervention scriptée : administrateur local du poste et autorisation explicite et temporaire dans Domenia (Outils > Fiabilité).','SMB 445/TCP (ADMIN$) et Planificateur de tâches par RPC.')
+        'BatchNetworkDiag'      = @('Network','Aucun compte','Aucun droit : écho ICMP puis tentative de connexion TCP sur les ports 445, 135, 5985 et 5986 ; le pare-feu du poste doit les laisser passer.','ICMP écho et TCP 445, 135, 5985, 5986 vers chaque poste.')
         'WakeOnLanSend'         = @('Network','Aucun compte','Aucun droit : paquet de réveil diffusé sur le réseau local ; la carte réseau du poste doit accepter le réveil.','Diffusion UDP sur le réseau local.')
         'ParkSharedSync'        = @('Network','Session Windows','Lecture et écriture du fichier partagé configuré (droits NTFS et de partage de votre session Windows).','SMB 445/TCP vers le partage, ou disque local.')
         'ConnectorRead'         = @('Network','Session Windows','Lecture du connecteur configuré avec votre session Windows.','Selon le connecteur configuré.')

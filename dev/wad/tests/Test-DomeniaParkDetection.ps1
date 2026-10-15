@@ -6,7 +6,7 @@ Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
 $wad=Split-Path -Parent $PSScriptRoot
 . (Join-Path $wad 'Domenia-Modules.ps1')
 $t=$null;$e=$null;$ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'),[ref]$t,[ref]$e)
-foreach($name in @('Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaEffectiveWorkerResult','Get-MainXaml','Start-DomeniaParkSweep','Request-DomeniaParkSweepAtStartup')){
+foreach($name in @('Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaEffectiveWorkerResult','Get-MainXaml','Start-DomeniaParkSweep','Request-DomeniaParkSweepAtStartup','Show-DomeniaBatchNetworkReport')){
  $f=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true))[0]
  . ([scriptblock]::Create($f.Extent.Text))
 }
@@ -20,7 +20,7 @@ function Get-DomeniaSetting {param($Name,$Default)return $Default}
 function New-DomeniaObservationReader {return [pscustomobject]@{Fixture=$true}}
 function Request-DomeniaInlineConfirmation {param($Title,$Target,$Message,$ConfirmText,$CancelText,$OnConfirm,$OnCancel,$Risk,[string[]]$Changes,$Details,$DetailsTitle,[switch]$DetailsExpertOnly,$TypedConfirmation,$TypedPrompt)$script:Confirm=$OnConfirm;$script:Cancel=$OnCancel;$script:Message=$Message;$script:Preview=[pscustomobject]@{Changes=@($Changes);Details=[string]$Details;Typed=[string]$TypedConfirmation;DetailsExpertOnly=[bool]$DetailsExpertOnly}}
 function Start-UiTask {
- param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,[switch]$NonCancellable,$TimeoutSeconds,$TaskClass)
+ param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,[switch]$NonCancellable,$TimeoutSeconds,$TaskClass,$ReplaceKey,$StatusText)
  $id='job-'+$script:Calls.Count
  $call=[pscustomobject]@{Id=$id;Payload=$Payload;State=$CallbackState;OperationId=$OperationId};$script:Calls.Add($call);$script:AsyncJobs[$id]=$call;return $id
 }
@@ -99,6 +99,40 @@ Case 'Point 48 : au-dela de 200 postes, la lecture demande de saisir le nombre d
  Assert ($script:Preview.Typed -eq '201') ('Saisie : '+$script:Preview.Typed)
  Assert ((@($script:Preview.Changes) -join ' ') -match 'Confirmation renforcée')
 }
+Case 'Point 48 : diagnostic reseau groupe, liste exacte de la selection, exclusions motivees, rien avant confirmation' {
+ Reset-Fixture;$script:Preview=$null
+ function Get-CfgValue {param($Section,$Name,$Default)return $Default}
+ $rows=@(
+  [pscustomobject]@{Type='Machine';Name='PC-1';DN='CN=PC-1,DC=example,DC=invalid';Guid=(New-Target 1).Guid},
+  [pscustomobject]@{Type='Machine';Name='PC-2';DN='CN=PC-2,DC=example,DC=invalid';Guid=(New-Target 2).Guid},
+  [pscustomobject]@{Type='Machine';Name='PC-1';DN='CN=PC-1,DC=example,DC=invalid';Guid=(New-Target 1).Guid},
+  [pscustomobject]@{Type='Machine';Name='';DN='CN=SANSNOM,DC=example,DC=invalid';Guid=(New-Target 3).Guid},
+  [pscustomobject]@{Type='Utilisateur';Name='alice';DN='CN=alice,DC=example,DC=invalid';Guid=(New-Target 4).Guid}
+ )
+ Show-DomeniaBatchNetworkReport -Rows $rows
+ Assert ($script:Calls.Count -eq 0) 'Diagnostic lance avant confirmation'
+ $p=$script:Preview;Assert ($null -ne $p) 'Aucun apercu transmis a la confirmation'
+ $lines=(@($p.Changes) -join ' ')
+ Assert ($lines -match '2 cibles exactes') $lines
+ Assert ($lines -match 'PC-1 : écho ICMP puis ports TCP 445, 135, 5985 et 5986') $lines
+ Assert ($lines -match '3 exclue') $lines
+ Assert ($lines -match 'Impact : un poste après lʼautre') $lines
+ Assert ($p.Details -match 'Doublon' -and $p.Details -match 'Nom de poste absent' -and $p.Details -match 'Type Utilisateur') $p.Details
+ Assert ($p.Typed -eq '') 'Saisie exigee pour une lecture de 2 postes'
+ & $script:Confirm
+ Assert ($script:Calls.Count -eq 1 -and $script:Calls[0].OperationId -eq 'BatchNetworkDiag') 'Diagnostic non lance apres confirmation'
+ $names=(@($script:Calls[0].Payload.Rows|ForEach-Object{$_.Name}) -join ',')
+ Assert ($names -eq 'PC-1,PC-2') ('Cibles envoyees : '+$names)
+}
+Case 'Point 48 : diagnostic reseau groupe borne a 50 postes, les suivants nommes' {
+ Reset-Fixture;$script:Preview=$null
+ function Get-CfgValue {param($Section,$Name,$Default)return $Default}
+ $rows=@(for($i=1;$i -le 52;$i++){[pscustomobject]@{Type='Machine';Name=('PC-'+$i);DN=('CN=PC-'+$i+',DC=example,DC=invalid');Guid=(New-Target $i).Guid}})
+ Show-DomeniaBatchNetworkReport -Rows $rows
+ Assert ($script:Preview.Details -match 'PC-51 — Au-delà de la limite de 50' -and $script:Preview.Details -match 'PC-52 — Au-delà') $script:Preview.Details
+ & $script:Confirm
+ Assert (@($script:Calls[0].Payload.Rows).Count -eq 50) 'Limite de 50 postes non appliquee'
+}
 Case 'Resultats : vide ne retombe jamais sur tout le parc' {Reset-Fixture;Start-DomeniaOnlinePark -DisplayedResults;Assert ($script:Calls.Count -eq 0)}
 Case 'Parc : lecture locale avant confirmation et aucun poste sans confirmation' {Reset-Fixture;Ready-Run;Assert ($script:Calls.Count -eq 1 -and $null -ne $script:Confirm -and $null -eq $script:ParkRun.Timer);& $script:Cancel;Assert $script:ParkRun.Completed;Assert ($script:Calls.Count -eq 1)}
 Case 'Parc : timer ne peut pas commencer avant approbation du perimetre' {Reset-Fixture;Ready-Run;$script:ParkRun.Approved=$false;Invoke-DomeniaParkRunTick;Assert ($script:Calls.Count -eq 1)}
@@ -167,7 +201,7 @@ Case 'Interface : detection et analyse de la liste et leur arret cables ; aucun 
 }
 if($null -ne $script:ParkRun -and $null -ne $script:ParkRun.Timer){$script:ParkRun.Timer.Stop()}
 $failed=@($checks|Where-Object Status -eq 'Failed').Count
-$report=[ordered]@{Kind='ParkDetection';Expected=24;Complete=($checks.Count -eq 24 -and $failed -eq 0);NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
+$report=[ordered]@{Kind='ParkDetection';Expected=28;Complete=($checks.Count -eq 28 -and $failed -eq 0);NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path $env:TEMP 'domenia-park-tests.json'}
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
 Write-Host ($report.Passed.ToString()+' reussis, '+$failed+' echecs. '+$ReportPath)

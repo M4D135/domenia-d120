@@ -115,7 +115,7 @@ function Complete-DomeniaParkTargets {
         $requested=@{};foreach($asked in @(Get-DomeniaMember $r 'Requested' @())){$requested[([string]$asked.distinguished_name).ToLowerInvariant()]=$asked}
         $returned=@{};foreach($target in @($r.Targets)){$returned[[string]$target.Key]=$true}
         $excluded=@(Get-DomeniaMember $r 'PreviewExcluded' @())
-        foreach($key in @($requested.Keys)){if(-not $returned.ContainsKey([string]$key)){$asked=$requested[$key];$excluded+=@([pscustomobject]@{Name=[string]$asked.name;DN=[string]$asked.distinguished_name;Reason='Écarté par la base locale : nom de poste non valide, doublon ou poste inconnu'})}}
+        foreach($key in @($requested.Keys)){if(-not $returned.ContainsKey([string]$key)){$asked=$requested[$key];$excluded+=@([pscustomobject]@{Name=[string]$asked.name;DN=[string]$asked.distinguished_name;Reason='Écarté par la base locale : nom de poste non valide ou DN en double'})}}
         $candidates=@(foreach($target in @($r.Targets)){$dn=[string]$target.Key;if($requested.ContainsKey($dn)){$dn=[string]$requested[$dn].distinguished_name};[pscustomobject]@{Name=[string]$target.Computer;DN=$dn;Guid=[string]$target.Guid;Type='Machine'}})
         $change=if($r.PingOnly){'ping ICMP'}elseif($r.WmiOnly){'lecture WMI'}elseif($r.Inventory){'ping, utilisateur console et relevé WMI léger'}elseif(@($r.Probes).Count){'requêtes WMI des widgets, ping et utilisateur console'}else{'ping puis utilisateur console'}
         $impactText=''

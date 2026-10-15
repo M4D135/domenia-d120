@@ -14572,8 +14572,10 @@ function Copy-DomeniaSelectedObjectDns {
 }
 
 function Show-DomeniaBatchNetworkReport {
-    param([Parameter(Mandatory=$true)]$Rows)
-    $items = @($Rows)
+    # Point 48: $Rows is the whole selection. The exact machines, the rows left out and why, and the impact are shown
+    # in the page; nothing leaves before the operator confirms there.
+    param([Parameter(Mandatory=$true)]$Rows,[ValidateRange(1,200)][int]$Limit=50)
+    $items = @($Rows | Where-Object { $null -ne $_ })
     if ($items.Count -eq 0) { Set-Status "Aucun poste selectionne." "WARN"; return }
 
     $code = @'
@@ -14604,9 +14606,30 @@ foreach($row in @($Payload.Rows)){
 [pscustomobject]@{Rows=@($results);Count=$results.Count}
 '@
 
-    $payload=[pscustomobject]@{Rows=@($items | ForEach-Object {[pscustomobject]@{Name=[string]$_.Name;DN=[string]$_.DN}})}
-    $callbackState=[pscustomobject]@{Rows=$items;Started=Get-Date}
-    Start-UiTask -Name "Diagnostic reseau groupe" -OperationId "BatchNetworkDiag" -Code $code -Payload $payload -CallbackState $callbackState -ReplaceKey "batch-network-diag" -TimeoutSeconds ([Math]::Max(20,[int](Get-CfgValue "Async" "ComputerTimeoutSeconds" 90))) -StatusText ("Diagnostic reseau de {0} poste(s)..." -f $items.Count) -SuccessHandler "Complete-DomeniaBatchNetworkReportUi" -ErrorHandler "Fail-DomeniaBatchNetworkReportUi" | Out-Null
+    # Every selected row is a candidate. A machine without a usable host name is left out first, with its reason; the
+    # preview then keeps the exact targets (machine, DN and GUID, no duplicate, explicit limit).
+    $candidates=New-Object 'System.Collections.Generic.List[object]';$excluded=New-Object 'System.Collections.Generic.List[object]'
+    foreach($row in $items){
+        $name=([string](Get-DomeniaMember $row 'Name' '')).Trim();$dn=[string](Get-DomeniaMember $row 'DN' '');$type=[string](Get-DomeniaMember $row 'Type' '')
+        if(($type -eq 'Machine') -and ($name -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,252}$')){
+            $label=$name;if(-not $label){$label=$dn}
+            $excluded.Add([pscustomobject]@{Name=$label;DN=$dn;Reason='Nom de poste absent ou non valide'});continue
+        }
+        $candidates.Add([pscustomobject]@{Name=$name;DN=$dn;Guid=[string](Get-DomeniaMember $row 'Guid' '');Type=$type})
+    }
+    $timeoutSeconds=[Math]::Max(20,[int](Get-CfgValue "Async" "ComputerTimeoutSeconds" 90))
+    $impact='un poste après lʼautre ; la tâche sʼarrête au bout de '+$timeoutSeconds+' s, sans résultat partiel.'
+    $preview=New-DomeniaCollectivePreview -OperationId 'BatchNetworkDiag' -Candidates $candidates.ToArray() -Excluded $excluded.ToArray() -ExpectedType 'Machine' -Change 'écho ICMP puis ports TCP 445, 135, 5985 et 5986' -Impact $impact -Limit $Limit
+    if([int]$preview.Count -eq 0){Set-Status ('Aucun poste exploitable dans la sélection : '+[string]$preview.ExcludedCount+' ligne(s) exclue(s).') 'WARN';return}
+    $targets=@($preview.Targets)
+    $request=[pscustomobject]@{Code=$code;Rows=$targets;Count=$targets.Count;TimeoutSeconds=$timeoutSeconds;Payload=[pscustomobject]@{Rows=@($targets | ForEach-Object {[pscustomobject]@{Name=[string]$_.Name;DN=[string]$_.DN}})}}
+    $start={
+        param($s)
+        $callbackState=[pscustomobject]@{Rows=$s.Rows;Started=Get-Date}
+        Start-UiTask -Name "Diagnostic reseau groupe" -OperationId "BatchNetworkDiag" -Code $s.Code -Payload $s.Payload -CallbackState $callbackState -ReplaceKey "batch-network-diag" -TimeoutSeconds $s.TimeoutSeconds -StatusText ("Diagnostic reseau de {0} poste(s)..." -f $s.Count) -SuccessHandler "Complete-DomeniaBatchNetworkReportUi" -ErrorHandler "Fail-DomeniaBatchNetworkReportUi" | Out-Null
+    }
+    $message='Lecture réseau seule : aucun compte nʼest envoyé et rien nʼest modifié sur les postes.'
+    [void](Request-DomeniaInlineConfirmation -Title 'Diagnostic réseau groupé' -Target ([string]$script:Conn.Domain) -Message $message -ConfirmText 'Diagnostiquer' -CancelText 'Annuler' -OnConfirm ({ & $start $request }.GetNewClosure()) -Changes @($preview.Lines) -Details ([string]$preview.Details) -DetailsTitle 'Liste exacte des cibles et des exclusions' -TypedConfirmation ([string]$preview.TypedText))
 }
 
 function Complete-DomeniaBatchNetworkReportUi {
@@ -21660,7 +21683,7 @@ function Show-DomeniaCommandPalette {
             "refresh" { Load-TreeRoot -ForceRefresh }
             "summary" { Copy-ObjectSummary }
             "parent" { Open-SelectedParentBranch }
-            "batch" { Show-DomeniaBatchNetworkReport -Rows (Get-DomeniaSelectedMachineRows) }
+            "batch" { Show-DomeniaBatchNetworkReport -Rows (Get-DomeniaSelectedGridRows) }
             "selfcheck" { Start-SelfCheck }
             "accounts" { Select-DomeniaWorkspace -Workspace "TabAccounts"; Update-DomeniaAccountUi }
             "relations" { Select-DomeniaWorkspace -Workspace "TabRelations"; Refresh-LinkGrid }
