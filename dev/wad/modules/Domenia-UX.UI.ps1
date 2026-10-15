@@ -486,12 +486,15 @@ function Set-DomeniaUxShortLayout {
     $userCheck=Get-DomeniaControl 'ChkLiveUsersOnClick';if($userCheck){$userCheck.Content=if($compact){'+ utilisateur'}else{'+ utilisateur connecté'}}
     $recheck=Get-DomeniaControl 'BtnLiveRecheck';if($recheck){$recheck.Content=if($compact){'Revérifier'}else{'Revérifier ce poste'}}
     # UI-23: « Vérifier la liste ▾ » keeps its own label (the reading of the session, or Arrêter during a survey);
-    # compact mode only tightens the buttons so that the action row stays on one line.
+    # compact mode only tightens the buttons so that the action row stays on one line. The two parts of the split
+    # button stay joined: the spacing of the row goes on the panel that holds them, never between them.
     foreach($name in @('BtnLiveRecheck','BtnParkVerify')){
         $button=Get-DomeniaControl $name
         if($button){
             $button.Padding=if($compact){[Windows.Thickness]::new(6,4,6,4)}else{[Windows.Thickness]::new(10,4,10,4)}
-            $button.Margin=if($compact){[Windows.Thickness]::new(0,0,4,4)}else{[Windows.Thickness]::new(0,0,8,4)}
+            $spaced=$button
+            if($name -eq 'BtnParkVerify'){$spaced=$button.Parent}
+            if($spaced -is [Windows.FrameworkElement]){$spaced.Margin=if($compact){[Windows.Thickness]::new(0,0,4,4)}else{[Windows.Thickness]::new(0,0,8,4)}}
         }
     }
     if($consoleCheck){$consoleCheck.Margin=if($compact){[Windows.Thickness]::new(0,0,4,4)}else{[Windows.Thickness]::new(0,0,8,4)}}

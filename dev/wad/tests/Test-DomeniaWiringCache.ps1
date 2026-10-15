@@ -534,11 +534,13 @@ Test-Case 'D024 : presence cache utilise Get-DomeniaFreshness et pas 120s en dur
 }
 
 Test-Case 'D024 : Set-DomeniaResultRowPresence affiche une mesure committée sans réécrire sa date' {
+    # FI-16 / DS-15: the row reads the state key and the age from the real presence rules of Live.Model.
+    foreach ($name in @('Get-DomeniaPresenceStateKeys','ConvertTo-DomeniaPresenceStateKey','Get-DomeniaPresenceStateLabel','Get-DomeniaLiveAgeText')) {
+        . ([scriptblock]::Create((Get-FunctionTextFromFile $liveModel $name)))
+    }
     function Queue-DomeniaMetadata { param($Kind,$Row,$Key='') $script:QueueSpyRow=$Row; return $true }
-    function ConvertTo-DomeniaGridPresenceState { param($State) return 'En ligne' }
     function Apply-DomeniaPresenceFilter { }
     function Get-DomeniaControl { return $null }
-    function Set-DomeniaLiveRowValue { param($Row,$Name,$Value) }
 
     $script:BranchObjects=@([pscustomobject]@{DN='CN=PC1,DC=example,DC=invalid';Guid='00000000-0000-0000-0000-000000000001';Presence='Inconnu'})
     $script:QueueSpyRow=$null
@@ -548,9 +550,16 @@ Test-Case 'D024 : Set-DomeniaResultRowPresence affiche une mesure committée san
     $script:PresenceCache=@{}
     Set-DomeniaResultRowPresence -Dn 'CN=PC1,DC=example,DC=invalid' -State 'En ligne' -Target 'PC1' -Observation $observation
     $entry=$script:PresenceCache['cn=pc1,dc=example,dc=invalid']
+    Assert-True ($null -ne $entry) 'Mesure committée absente du cache de présence.'
     Assert-True ($null -ne $entry.PSObject.Properties['UpdatedUtc'])
     Assert-True ($entry.UpdatedUtc.Kind -eq [DateTimeKind]::Utc)
     Assert-Equal $at $entry.UpdatedUtc
+    Assert-Equal 'En ligne' $entry.State
+    $row=$script:BranchObjects[0]
+    Assert-Equal 'En ligne' $row.Presence
+    Assert-Equal 'Online' $row.PresenceState
+    Assert-Equal 'il y a 10 min' $row.PresenceAge
+    Assert-Equal '' $row.PresenceCached
     Assert-True ($null -eq $script:QueueSpyRow)
 }
 
@@ -697,7 +706,10 @@ Test-Case 'D024 : details recalcules apres rechargement JSON sans dates inventee
     Assert-True ($row.SessionDetail -match 'Session console.+a relire')
     Assert-True ($row.PresenceDetail -match 'Presence reseau.+a relire')
     Assert-Equal 'alice (cache)' $row.SessionDisplay
-    Assert-Equal 'En ligne (cache)' $row.Presence
+    # FI-16 / DS-15: an earlier measure keeps its short label; the state key and the cached mark carry the rest.
+    Assert-Equal 'En ligne' $row.Presence
+    Assert-Equal 'Online' $row.PresenceState
+    Assert-Equal '1' $row.PresenceCached
     Complete-DomeniaLivePresence $result $state
     Set-DomeniaLiveObservationOnRow $row $script:Live.Observations['k'] -Cached
     Assert-True ($row.SessionDetail -match 'Session console.+a relire')

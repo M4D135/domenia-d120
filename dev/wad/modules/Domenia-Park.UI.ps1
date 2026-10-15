@@ -65,10 +65,26 @@ function Get-DomeniaParkListContext {
     # A global search ignores the local filters (D031): only its term narrows it.
     $hasFilter=([bool]$term -or $querySelection -or ((-not $global) -and ([bool]$localText -or ($presence -and $presence -ne 'Tous'))))
     $base=([string]$script:Conn.BaseDn).Trim()
+    # UX-24: the target names the search or the OU; a filtered list of the domain root stays « les résultats
+    # affichés » (empty label), never the domain.
     $label=''
     if($global){$label=$(if($term){'recherche « '+$term+' »'}else{'recherche globale'})}
-    elseif($scope){$label='OU '+[string](Get-DomeniaUxOuDisplay -DistinguishedName $scope -IsDomain ($scope -ieq $base)).Name}
+    elseif($scope -and -not ($base -and $scope -ieq $base)){$label='OU '+[string](Get-DomeniaUxOuDisplay -DistinguishedName $scope -IsDomain $false).Name}
     return [pscustomobject]@{ScopeDn=$scope;BaseDn=$base;Global=$global;HasSearchTerm=[bool]$term;HasFilter=$hasFilter;Subtree=$subtree;ListLimit=$limit;Label=$label}
+}
+function Get-DomeniaParkDisplayedTargets {
+    # The workstations of the displayed list (after its filters), with their AD identity; a row without DN or GUID is
+    # counted, never sent.
+    $grid=Get-DomeniaControl 'DgObjects'
+    $machines=@();if($null -ne $grid){$machines=@(foreach($row in @($grid.Items)){if($null -ne $row -and [string]$row.Type -eq 'Machine'){$row}})}
+    $targets=@(foreach($row in $machines){if($row.DN -and $row.Guid){[pscustomobject]@{name=[string]$row.Name;distinguished_name=[string]$row.DN;object_guid=[string]$row.Guid}}})
+    return [pscustomobject]@{Machines=$machines;Targets=$targets;Skipped=($machines.Count-$targets.Count)}
+}
+function Test-DomeniaParkListStoppable {
+    # FI-18 / UI-23: a survey of the scope of the lists stops from « Vérifier la liste » (the list, its selection, the
+    # perimeter surveys of a board or a query). An OU refresh keeps its own Arrêter beside its refresh buttons.
+    param($Run)
+    return ($null -ne $Run -and -not [bool]$Run.Completed -and -not [string]$Run.RefreshOperationId)
 }
 function Update-DomeniaParkRunStatus {
     # One survey, or every survey when called without one. The short count goes beside the button that started it;
@@ -91,6 +107,7 @@ function Update-DomeniaParkRunStatus {
     if($save.Suspended -or $save.Conflicts -gt 0){$text+=' Stockage à vérifier dans Fiabilité.'}
     if([string]$r.FailureMessage){$text+=' '+[string]$r.FailureMessage}
     $r.StatusText=$text;$r.ShortText=$short
+    if($r.Completed){Sync-DomeniaParkGrid -Run $r}
     # A finished run that read workstations changed the observations: the selected workstation board is redrawn at
     # once, the home overview now or when Accueil is shown again.
     if($r.Completed -and [bool]$r.FleetRefresh -and -not [bool]$r.FleetRefreshed){
@@ -125,12 +142,15 @@ function Update-DomeniaParkControls {
     try{
         $list=Get-DomeniaParkRun -Slot 'List'
         $listRunning=($null -ne $list -and -not [bool]$list.Completed)
-        # The scope of the lists also runs the perimeter surveys (OU refresh, board, query): they keep their own Arrêter;
-        # « Vérifier la liste » only waits for them.
-        $listOwn=($listRunning -and [string]$list.ScopeKind -in @('Results','Selection'))
+        $listResults=($null -ne $list -and [string]$list.ScopeKind -in @('Results','Selection'))
+        # The scope of the lists also runs the perimeter surveys of a board or a query: « Vérifier la liste » shows and
+        # stops them as its own. An OU refresh keeps its Arrêter beside its refresh buttons: the button waits for it and
+        # the short count says why.
+        $listOwn=(Test-DomeniaParkListStoppable $list)
         $listApproved=($listOwn -and [bool]$list.Approved)
-        # A finished survey stays shown (count and pills) for the list it measured, not after a new search.
-        $listShown=($null -ne $list -and [string]$list.ScopeKind -in @('Results','Selection') -and [long]$list.Epoch -eq [long]$script:SessionEpoch -and ((-not [bool]$list.Completed) -or ([bool]$list.Approved -and [long]$list.Generation -eq [long]$script:GlobalSearchGeneration)))
+        # A finished survey stays shown (count and pills) for the list it measured, not after a new search; a
+        # perimeter survey only while it runs.
+        $listShown=($null -ne $list -and [long]$list.Epoch -eq [long]$script:SessionEpoch -and ($listRunning -or ($listResults -and [bool]$list.Approved -and [long]$list.Generation -eq [long]$script:GlobalSearchGeneration)))
         $grid=Get-DomeniaControl 'DgObjects'
         $ready=($null -ne $grid -and [bool]$grid.IsEnabled)
         $available=($ready -and [bool]$script:SearchListHasMachine -and (-not [bool]$script:ListSurveyBlocked) -and (-not [bool]$script:DemoMode))
@@ -143,7 +163,7 @@ function Update-DomeniaParkControls {
                 $verify.IsEnabled=((-not [bool]$list.Stopping) -and (-not [bool]$script:DemoMode))
             }elseif($listOwn){
                 # Prepared or waiting for its confirmation: the button withdraws it, nothing has been sent yet.
-                $verify.Content='Annuler la vérification'
+                $verify.Content=$(if($listResults){'Annuler la vérification'}else{'Annuler le relevé'})
                 $verify.IsEnabled=((-not [bool]$list.Stopping) -and (-not [bool]$script:DemoMode))
             }else{
                 $verify.Content=Get-DomeniaParkVerifyButtonText
@@ -155,23 +175,45 @@ function Update-DomeniaParkControls {
         # UX-12: thin bar and short count of the survey of the list.
         $bar=Get-DomeniaControl 'PbParkProgress'
         if($null -ne $bar){$bar.Value=$(if($total -gt 0 -and $null -ne $list){[Math]::Min(100.0,100.0*[double]$list.Done/[double]$total)}else{0.0})}
-        Set-DomeniaParkControlVisible 'PbParkProgress' ($listShown -and $listApproved)
+        Set-DomeniaParkControlVisible 'PbParkProgress' ($listShown -and $listRunning -and [bool]$list.Approved)
         Set-DomeniaParkControlVisible 'UxParkProgress' $listShown
         Set-DomeniaParkControlVisible 'LblLiveState' (-not $listShown)
         if($listShown){
-            $short=if([bool]$list.Loading){'Préparation du relevé…'}elseif($listOwn -and -not $listApproved){'Confirmation en attente · '+[string]$total+' '+$(if($total -gt 1){'postes'}else{'poste'})}else{[string]$list.ShortText}
+            $short=if([bool]$list.Loading){'Préparation du relevé…'}elseif($listRunning -and -not [bool]$list.Approved){'Confirmation en attente · '+[string]$total+' '+$(if($total -gt 1){'postes'}else{'poste'})}else{[string]$list.ShortText}
+            # A perimeter survey names what it reads; an OU refresh says that it is stopped from its own buttons.
+            if(-not $listResults){
+                $what=$(if([string]$list.RefreshOperationId){'Actualisation'}else{'Relevé'})+$(if([string]$list.ScopeLabel){' de '+[string]$list.ScopeLabel}else{' du périmètre'})
+                if([string]$list.RefreshOperationId){$short=$what+' · '+$short+' · arrêt avec lʼactualisation'}else{$short=$what+' · '+$short}
+            }
             [void](Set-DomeniaControlText 'LblParkProgress' $short)
         }
-        Update-DomeniaParkOutcomePills -Run $list -Shown $listShown
+        Update-DomeniaParkOutcomePills -Run $list -Shown ($listShown -and $listResults)
         Update-DomeniaParkSelectionBar -ListRunning $listRunning
         # FI-18: the survey of the open workstation, beside the buttons of its board.
+        # A finished survey is shown only beside the board of the workstation it read; a running one stays shown (and
+        # stoppable) on any workstation, named when it reads another one.
         $computer=Get-DomeniaParkRun -Slot 'Computer'
-        $computerShown=($null -ne $computer -and [long]$computer.Epoch -eq [long]$script:SessionEpoch -and ((-not [bool]$computer.Completed) -or [bool]$computer.Approved))
+        $computerRunning=($null -ne $computer -and -not [bool]$computer.Completed)
+        $sameComputer=Test-DomeniaParkRunOnOpenComputer $computer
+        $computerShown=($null -ne $computer -and [long]$computer.Epoch -eq [long]$script:SessionEpoch -and ($computerRunning -or ([bool]$computer.Approved -and $sameComputer)))
         Set-DomeniaParkControlVisible 'UxComputerParkRun' $computerShown
-        if($computerShown){[void](Set-DomeniaControlText 'LblComputerParkStatus' $(if([bool]$computer.Loading){'Préparation du relevé…'}elseif(-not [bool]$computer.Approved){'Confirmation en attente'}else{[string]$computer.ShortText}))}
+        if($computerShown){
+            $text=if([bool]$computer.Loading){'Préparation du relevé…'}elseif(-not [bool]$computer.Approved){'Confirmation en attente'}else{[string]$computer.ShortText}
+            if(-not $sameComputer -and [string]$computer.ScopeLabel){$text=[string]$computer.ScopeLabel+' · '+$text}
+            [void](Set-DomeniaControlText 'LblComputerParkStatus' $text)
+        }
         $stop=Get-DomeniaControl 'BtnComputerParkStop'
         if($null -ne $stop){$stop.IsEnabled=($null -ne $computer -and -not [bool]$computer.Completed -and -not [bool]$computer.Stopping)}
     }catch{try{Write-AppLog ('Commandes du relevé non actualisées : '+$_.Exception.Message) 'WARN'}catch{}}
+}
+function Test-DomeniaParkRunOnOpenComputer {
+    # FI-18: the survey of the Computer scope reads the workstation open in Poste (same DN, same GUID when both are known).
+    param($Run)
+    if($null -eq $Run -or $null -eq $script:SelectedObject -or [string]$script:SelectedObject.Type -ne 'Machine'){return $false}
+    $dn=[string]$script:SelectedObject.DN
+    if(-not $dn -or [string]$Run.TargetDn -ine $dn){return $false}
+    $guid=[string](Get-DomeniaMemberValue (Get-DomeniaMemberValue $script:SelectedObject 'Safety') 'Guid')
+    return (-not $guid -or -not [string]$Run.TargetGuid -or [string]$Run.TargetGuid -ieq $guid)
 }
 function Update-DomeniaParkOutcomePills {
     # CO-19: at the end of a ping of the list, three pills (en ligne, sans réponse, erreurs) that filter the list by
@@ -237,7 +279,7 @@ function Invoke-DomeniaParkVerify {
     # session only (never saved).
     param([AllowEmptyString()][string]$Mode='',$Anchor=$null)
     $list=Get-DomeniaParkRun -Slot 'List'
-    if(-not $Mode -and $null -ne $list -and -not [bool]$list.Completed -and [string]$list.ScopeKind -in @('Results','Selection')){Stop-DomeniaOnlinePark -RunId ([string]$list.Id);return}
+    if(-not $Mode -and (Test-DomeniaParkListStoppable $list)){Stop-DomeniaOnlinePark -RunId ([string]$list.Id);return}
     if(-not $Mode){$Mode=[string]$script:ParkDefaultMode}
     if(-not $Mode){Open-DomeniaParkVerifyMenu -Anchor $Anchor;return}
     if($Mode -notin @('Ping','Console','Analyse')){Set-Status ('Vérification inconnue : '+$Mode) 'WARN';return}
@@ -287,7 +329,10 @@ function Start-DomeniaOnlinePark {
         $slotName=Get-DomeniaParkRunSlot -Slot $Slot -DisplayedResults ([bool]($DisplayedResults -or $Selection)) -Targets @($ScopeTargets) -OpenComputerDn $openDn
         $existing=Get-DomeniaParkRun -Slot $slotName
         if($null -ne $existing -and -not [bool]$existing.Completed){
-            if($slotName -eq 'Computer'){throw 'Un relevé de ce poste est déjà en cours : arrêtez-le ou attendez sa fin.'}
+            if($slotName -eq 'Computer'){
+                if((Test-DomeniaParkRunOnOpenComputer $existing) -or -not [string]$existing.ScopeLabel){throw 'Un relevé de ce poste est déjà en cours : arrêtez-le ou attendez sa fin.'}
+                throw ('Un relevé du poste '+[string]$existing.ScopeLabel+' est déjà en cours : arrêtez-le ou attendez sa fin.')
+            }
             if([string]$existing.ScopeKind -in @('Results','Selection')){throw 'Un relevé de la liste est déjà en cours : arrêtez-le ou attendez sa fin.'}
             throw ('Un relevé des postes'+$(if([string]$existing.ScopeLabel){' de '+[string]$existing.ScopeLabel}else{''})+' est déjà en cours : arrêtez-le ou attendez sa fin.')
         }
@@ -304,18 +349,22 @@ function Start-DomeniaOnlinePark {
             if($Selection){
                 $scopeKind='Selection';$label='la sélection'
                 if((-not $targets.Count) -and ($skipped -gt 0)){throw 'Postes sélectionnés sans identifiant AD connu : relancez la recherche puis sélectionnez-les à nouveau.'}
-                # SE-05: the ceiling of the list applies to its selection.
-                $admission=Test-DomeniaParkTargetAdmission -Count $targets.Count -Maximum (Get-DomeniaParkMaxTargets) -Selection $true
+                # SE-05: the ceiling of the list applies to its selection; a selection of every displayed workstation
+                # (Ctrl+A) is the list itself: an unfiltered domain root or a global search without a term is refused.
+                $context=Get-DomeniaParkListContext
+                $chosen=@{};foreach($target in $targets){$chosen[([string]$target.distinguished_name).ToLowerInvariant()]=$true}
+                $shown=@((Get-DomeniaParkDisplayedTargets).Targets)
+                $covers=($shown.Count -gt 0 -and @($shown|Where-Object{-not $chosen.ContainsKey(([string]$_.distinguished_name).ToLowerInvariant())}).Count -eq 0)
+                $admission=Test-DomeniaParkTargetAdmission -Count $targets.Count -Maximum (Get-DomeniaParkMaxTargets) -ScopeDn $context.ScopeDn -BaseDn $context.BaseDn -HasFilter ([bool]$context.HasFilter) -Global ([bool]$context.Global) -HasSearchTerm ([bool]$context.HasSearchTerm) -Selection $true -SelectionCoversList $covers
                 if(-not [bool]$admission.Allowed){throw ([string]$admission.Reason)}
             }elseif(-not $targets.Count){throw 'Poste sélectionné sans DN ni GUID connu : relisez sa fiche.'}
             $DisplayedResults=[switch]$true
         }
         elseif($DisplayedResults){
-            $grid=Get-DomeniaControl 'DgObjects'
-            $machines=@(foreach($row in @($grid.Items)){if($null -ne $row -and [string]$row.Type -eq 'Machine'){$row}})
-            $targets=@(foreach($row in $machines){if($row.DN -and $row.Guid){[pscustomobject]@{name=[string]$row.Name;distinguished_name=[string]$row.DN;object_guid=[string]$row.Guid}}})
+            $displayed=Get-DomeniaParkDisplayedTargets
+            $targets=@($displayed.Targets)
             # UX-24: workstations without an AD identity are left out and the confirmation says so.
-            $skipped+=($machines.Count-$targets.Count)
+            $skipped+=[int]$displayed.Skipped
             # SE-05: ceiling, domain root without any other filter, global search without a term.
             $context=Get-DomeniaParkListContext
             $admission=Test-DomeniaParkTargetAdmission -Count $targets.Count -Maximum (Get-DomeniaParkMaxTargets) -ScopeDn $context.ScopeDn -BaseDn $context.BaseDn -HasFilter ([bool]$context.HasFilter) -Global ([bool]$context.Global) -HasSearchTerm ([bool]$context.HasSearchTerm)
@@ -323,7 +372,7 @@ function Start-DomeniaOnlinePark {
             $scopeKind='Results';$label=[string]$context.Label;$subtree=[bool]$context.Subtree;$listLimit=[int]$context.ListLimit
         }
         $concurrency=([Math]::Max(1,[Math]::Min(8,[int](Get-DomeniaSetting 'Collection.Concurrency' '4'))))
-        $r=[pscustomobject]@{Id=[guid]::NewGuid().ToString('N');Slot=$slotName;Epoch=[long]$script:SessionEpoch;Path=[string]$script:DatabaseScopedPath;Targets=@();Requested=$targets.Count;Next=0;Pending=@{};Concurrency=$concurrency;CacheMinutes=([Math]::Max(0,[Math]::Min(1440,[int](Get-DomeniaSetting 'Collection.CacheMinutes' '15'))));CachedMeasurements=0;Done=0;Online=0;NoReply=0;Errors=0;Unchecked=0;Reused=0;Changed=0;Failed=0;Stopping=$false;Completed=$false;Loading=$true;Approved=$false;Logged=$false;ObservationReader=(New-DomeniaObservationReader);Timer=$null;StatusText='';ShortText='';Generation=[long]$script:GlobalSearchGeneration;PingOnly=[bool]$PingOnly;WmiOnly=[bool]$WmiOnly;AccountGeneration=[long]$script:DomeniaAccountGeneration;StorePending=@{};Inventory=[bool]$Inventory;Probes=@(Add-DomeniaRemoteProbeDefinitionHash $Probes);FleetRefresh=$true;ScopeLabel=$label;ScopeKind=$scopeKind;Scope='Results';Skipped=$skipped;Subtree=$subtree;ListLimit=$listLimit;RefreshOperationId=$RefreshOperationId;FailureMessage='';PingJob='';PingQueue=$null;PingBuffer=$null;PingReported=@{};TargetsByKey=@{};PendingRows=@{}}
+        $r=[pscustomobject]@{Id=[guid]::NewGuid().ToString('N');Slot=$slotName;Epoch=[long]$script:SessionEpoch;Path=[string]$script:DatabaseScopedPath;Targets=@();Requested=$targets.Count;Next=0;Pending=@{};Concurrency=$concurrency;CacheMinutes=([Math]::Max(0,[Math]::Min(1440,[int](Get-DomeniaSetting 'Collection.CacheMinutes' '15'))));CachedMeasurements=0;Done=0;Online=0;NoReply=0;Errors=0;Unchecked=0;Reused=0;Changed=0;Failed=0;Stopping=$false;Completed=$false;Loading=$true;Approved=$false;Logged=$false;ObservationReader=(New-DomeniaObservationReader);Timer=$null;StatusText='';ShortText='';Generation=[long]$script:GlobalSearchGeneration;PingOnly=[bool]$PingOnly;WmiOnly=[bool]$WmiOnly;AccountGeneration=[long]$script:DomeniaAccountGeneration;StorePending=@{};Inventory=[bool]$Inventory;Probes=@(Add-DomeniaRemoteProbeDefinitionHash $Probes);FleetRefresh=$true;ScopeLabel=$label;ScopeKind=$scopeKind;Scope='Results';Skipped=$skipped;Subtree=$subtree;ListLimit=$listLimit;RefreshOperationId=$RefreshOperationId;FailureMessage='';PingJob='';PingQueue=$null;PingBuffer=$null;PingReported=@{};TargetsByKey=@{};PendingRows=@{};TargetDn=$(if($targets.Count -eq 1){[string]$targets[0].distinguished_name}else{''});TargetGuid=$(if($targets.Count -eq 1){[string]$targets[0].object_guid}else{''});InlineRequestId='';GridStale=$false}
         $runs=Get-DomeniaParkRuns;$runs[$slotName]=$r
         $started=$true
         if($ForceRefresh){$r.CacheMinutes=0}
@@ -367,7 +416,10 @@ function Complete-DomeniaParkTargets {
         $ignored=[Math]::Max(0,[int]$r.Requested-$r.Targets.Count)
         $text=New-DomeniaParkConfirmationText -Count $r.Targets.Count -Skipped ([int]$r.Skipped) -Ignored $ignored -ScopeKind ([string]$r.ScopeKind) -ScopeLabel ([string]$r.ScopeLabel) -Subtree ([bool]$r.Subtree) -ListLimit ([int]$r.ListLimit) -PingOnly ([bool]$r.PingOnly) -WmiOnly ([bool]$r.WmiOnly) -Inventory ([bool]$r.Inventory) -ProbeCount (@($r.Probes).Count) -Concurrency ([int]$r.Concurrency) -CacheMinutes ([int]$r.CacheMinutes)
         Update-DomeniaParkRunStatus -Run $r
-        Request-DomeniaInlineConfirmation -Title ([string]$text.Title) -Target ([string]$text.Target) -Message ([string]$text.Message) -ConfirmText ([string]$text.ConfirmText) -CancelText 'Annuler' -OnConfirm ({& $start $runId}.GetNewClosure()) -OnCancel ({& $stop -RunId $runId}.GetNewClosure())
+        $answers=@(Request-DomeniaInlineConfirmation -Title ([string]$text.Title) -Target ([string]$text.Target) -Message ([string]$text.Message) -ConfirmText ([string]$text.ConfirmText) -CancelText 'Annuler' -OnConfirm ({& $start $runId}.GetNewClosure()) -OnCancel ({& $stop -RunId $runId}.GetNewClosure()))
+        # UX-12: a request still shown in the page belongs to this survey: stopping the survey withdraws it.
+        $request=$null;foreach($answer in $answers){if($null -ne $answer -and $null -ne $answer.PSObject.Properties['Presentation']){$request=$answer}}
+        if($null -ne $request -and -not [bool]$request.Answered -and [string]$request.Id){$r.InlineRequestId=[string]$request.Id}
     }catch{Fail-DomeniaParkTargets $_.Exception.Message $State}
 }
 function Fail-DomeniaParkTargets {
@@ -386,7 +438,7 @@ function Start-DomeniaParkRunTimer {
     if($null -eq $r -or $r.Stopping -or $r.Completed -or $r.Epoch -ne [long]$script:SessionEpoch -or $r.Path -cne [string]$script:DatabaseScopedPath){return}
     if([string]$r.RefreshOperationId -and -not (Test-DomeniaOuRefreshCurrent ([string]$r.RefreshOperationId))){Stop-DomeniaOnlinePark -RunId $RunId;return}
     if($null -ne $r.Timer){return}
-    $r.Approved=$true
+    $r.Approved=$true;$r.InlineRequestId=''
     # UX-12: every target of the run carries its « relevé en cours » marker until its measure is stored.
     Set-DomeniaParkPendingRows -Run $r
     # FI-05: protected heartbeat timer, owned and registered by the factory; it also runs minimized (an approved run).
@@ -401,14 +453,57 @@ function Stop-DomeniaOnlinePark {
     param([string]$RunId='',[ValidateSet('List','Computer')][string]$Slot='List')
     $r=if($RunId){Get-DomeniaParkRunById $RunId}else{Get-DomeniaParkRun -Slot $Slot}
     if($null -eq $r){return}
+    # UX-12: a survey still waiting for its confirmation withdraws the request shown in the page (its Annuler runs and
+    # stops the survey), so that no « Pinger N postes » stays on screen for a survey already stopped.
+    if((-not [bool]$r.Approved) -and [string]$r.InlineRequestId){
+        $requestId=[string]$r.InlineRequestId;$r.InlineRequestId=''
+        $pending=$null;try{$pending=Get-DomeniaInlinePendingRequest}catch{$pending=$null}
+        if($null -ne $pending -and [string](Get-DomeniaMemberValue $pending 'Id') -ceq $requestId){
+            try{Complete-DomeniaInlineRequest -Dismiss -Reason 'Relevé annulé avant sa confirmation.'}catch{try{Write-AppLog ('Demande du relevé non retirée : '+$_.Exception.Message) 'WARN'}catch{}}
+            if([bool]$r.Completed){return}
+        }
+    }
     $r.Stopping=$true
-    # MO-08: the batch ping is a single worker: it is asked to stop; echoes already reported are kept.
-    if([string]$r.PingJob -and $script:AsyncJobs.Contains([string]$r.PingJob)){try{Request-UiTaskStop -Id ([string]$r.PingJob) -Silent -Reason 'Relevé arrêté'}catch{}}
+    Stop-DomeniaParkPingWorker -Run $r
     if(-not $r.Pending.Count -and -not $r.Loading -and -not (Test-DomeniaParkPingBuffered -Run $r)){
         $save=Get-DomeniaPersistenceState
         if(-not $r.Approved -or ($save.Pending -eq 0 -and $r.StorePending.Count -eq 0) -or $save.Suspended){$r.Completed=$true;if($null -ne $r.Timer){$r.Timer.Stop()}}
     }
     Update-DomeniaParkRunStatus -Run $r
+}
+function Stop-DomeniaParkPingWorker {
+    # MO-08: the batch ping is a single worker: it is asked to stop; echoes already reported are kept.
+    param($Run)
+    if($null -ne $Run -and [string]$Run.PingJob -and $script:AsyncJobs.Contains([string]$Run.PingJob)){try{Request-UiTaskStop -Id ([string]$Run.PingJob) -Silent -Reason 'Relevé arrêté'}catch{}}
+}
+function Test-DomeniaRemoteStoreBlocked {
+    # A batch the storage refused stays at the head of the remote store queue (a measure is never dropped): nothing
+    # queued behind it is delivered in this session.
+    $queue=$script:DomeniaRemoteStoreQueue
+    if($null -eq $queue -or $queue.Count -eq 0){return $false}
+    return [bool]$queue.Peek().Failed
+}
+function Close-DomeniaParkStoreBacklog {
+    # The measures of a survey queued behind a refused batch will not be stored in this session: they are counted as
+    # not stored, their rows lose their « relevé en cours » mark, and the survey can end instead of waiting for them.
+    param($Run)
+    $r=$Run
+    if($null -eq $r -or $r.StorePending.Count -eq 0 -or -not (Test-DomeniaRemoteStoreBlocked)){return}
+    $released=0
+    foreach($item in @($script:DomeniaRemoteStoreQueue.ToArray())){
+        $state=$item.State
+        if([bool]$item.Failed -or [bool]$item.Delivered -or $null -eq $state -or [string](Get-DomeniaMemberValue $state 'RunId') -cne [string]$r.Id){continue}
+        $job=[string](Get-DomeniaMemberValue $state 'Job')
+        if(-not $job -or -not $r.StorePending.ContainsKey($job)){continue}
+        [void]$r.StorePending.Remove($job)
+        $keys=if($null -ne $state.PSObject.Properties['Targets']){@(@($state.Targets)|ForEach-Object{[string]$_.Key})}else{@([string]$state.Target.Key)}
+        $r.Failed+=$keys.Count;$released+=$keys.Count
+        foreach($key in $keys){Clear-DomeniaParkPendingRow -Run $r -Key $key}
+    }
+    if($released -gt 0){
+        $r.Stopping=$true;Stop-DomeniaParkPingWorker -Run $r
+        if(-not [string]$r.FailureMessage){$r.FailureMessage='Mesures non enregistrées : la file dʼenregistrement est bloquée par un lot refusé (voir Fiabilité).'}
+    }
 }
 function Invoke-DomeniaParkRunTick {
     param([ValidateSet('List','Computer')][string]$Slot='List')
@@ -424,6 +519,7 @@ function Invoke-DomeniaParkRunTick {
     }
     # MO-08: echoes reported by the batch ping are stored by batches, the storage keeping its own backpressure.
     if($r.PingOnly){Submit-DomeniaParkPingResults -Run $r}
+    Close-DomeniaParkStoreBacklog -Run $r
     if(($r.Stopping -or $r.Next -ge $r.Targets.Count) -and -not $r.Pending.Count -and -not (Test-DomeniaParkPingBuffered -Run $r)){
         $save=Get-DomeniaPersistenceState
         if($r.StorePending.Count -gt 0 -or ($save.Pending -gt 0 -and -not $save.Suspended)){Update-DomeniaParkRunStatus -Run $r;return}
@@ -462,9 +558,11 @@ function Start-DomeniaParkPingJob {
     if($null -eq $r.PingQueue){$r.PingQueue=[Collections.Concurrent.ConcurrentQueue[object]]::new()}
     if($null -eq $r.PingBuffer){$r.PingBuffer=[Collections.Generic.Queue[object]]::new()}
     $state=[pscustomobject]@{RunId=$r.Id;Slot=$r.Slot;Epoch=$r.Epoch;Path=$r.Path;Job='';Count=$batch.Count}
-    $timeout=[int][Math]::Min(1800,20+4*[Math]::Ceiling($batch.Count/32.0))
+    # The engine budget follows the worker's own waits (name resolution and echo delay per batch of 32).
+    $timeoutMs=1000;$batchSize=32
+    $timeout=Get-DomeniaParkPingTimeoutSeconds -Count $batch.Count -TimeoutMs $timeoutMs -BatchSize $batchSize
     try{
-        $id=Start-UiTask -Name ('Ping de la liste : '+[string]$batch.Count+' postes') -OperationId 'ParkPing' -Code (Get-DomeniaParkPingWorkerCode) -Payload ([pscustomobject]@{Targets=$batch;TimeoutMs=1000;BatchSize=32;Progress=$r.PingQueue}) -CallbackState $state -SuccessHandler 'Complete-DomeniaParkPingJob' -ErrorHandler 'Fail-DomeniaParkPingJob' -TimeoutSeconds $timeout -TaskClass 'Explicit'
+        $id=Start-UiTask -Name ('Ping de la liste : '+[string]$batch.Count+' postes') -OperationId 'ParkPing' -Code (Get-DomeniaParkPingWorkerCode) -Payload ([pscustomobject]@{Targets=$batch;TimeoutMs=$timeoutMs;BatchSize=$batchSize;Progress=$r.PingQueue}) -CallbackState $state -SuccessHandler 'Complete-DomeniaParkPingJob' -ErrorHandler 'Fail-DomeniaParkPingJob' -TimeoutSeconds $timeout -TaskClass 'Explicit'
         if(-not $id){throw 'Ping non admis.'}
         $state.Job=[string]$id;$r.PingJob=[string]$id;$r.Pending[[string]$id]=$state;$r.Next=$r.Targets.Count
     }catch{$r.Stopping=$true;$r.Unchecked+=$batch.Count;$r.FailureMessage='Ping non lancé : '+$_.Exception.Message;[void](Set-DomeniaControlText 'LblParkStatus' $r.FailureMessage)}
@@ -500,17 +598,22 @@ function Submit-DomeniaParkPingResults {
     $r=$Run
     Receive-DomeniaParkPingQueue -Run $r
     if($null -eq $r.PingBuffer -or -not $r.PingBuffer.Count){return}
-    if($null -ne $script:Persistence -and ($script:Persistence.Failures -ge 3 -or $script:Persistence.Conflicts.Count)){$r.Stopping=$true;return}
+    # Suspended or conflicting storage, or a store queue held by a refused batch: the buffered echoes cannot be stored
+    # in this survey. They are counted as not stored and the survey ends instead of waiting for them.
+    if($null -ne $script:Persistence -and ([int]$script:Persistence.Failures -ge 3 -or ($null -ne $script:Persistence.Conflicts -and $script:Persistence.Conflicts.Count -gt 0))){Close-DomeniaParkPingBuffer -Run $r -Reason 'stockage local suspendu ou en conflit (voir Fiabilité)';return}
     for($round=0;$round -lt 4 -and $r.PingBuffer.Count -gt 0 -and $r.StorePending.Count -lt 4;$round++){
+        # A batch refused at the head of the store queue (also by the batch just sent) holds everything behind it.
+        if(Test-DomeniaRemoteStoreBlocked){Close-DomeniaParkPingBuffer -Run $r -Reason 'file dʼenregistrement bloquée par un lot refusé (voir Fiabilité)';return}
+        # A full queue drains on its own timer: the echoes wait in the buffer.
         if($null -ne $script:DomeniaRemoteStoreQueue -and $script:DomeniaRemoteStoreQueue.Count -ge 48){return}
         $items=[Collections.Generic.List[object]]::new()
         while($items.Count -lt 32 -and $r.PingBuffer.Count -gt 0){$items.Add($r.PingBuffer.Dequeue())}
         $state=[pscustomobject]@{RunId=$r.Id;Slot=$r.Slot;Epoch=$r.Epoch;Path=$r.Path;Job=('ping-'+[guid]::NewGuid().ToString('N'));Targets=@()}
-        $targets=[Collections.Generic.List[object]]::new();$changes=[Collections.Generic.List[object]]::new()
+        $targets=[Collections.Generic.List[object]]::new();$changes=[Collections.Generic.List[object]]::new();$mismatched=0
         try{
             foreach($item in $items){
                 $target=$r.TargetsByKey[([string]$item.Key).ToLowerInvariant()]
-                if($null -eq $target -or [string]$item.Guid -ine [string]$target.Guid -or [string]$item.Computer -ine [string]$target.Computer){$r.Failed++;continue}
+                if($null -eq $target -or [string]$item.Guid -ine [string]$target.Guid -or [string]$item.Computer -ine [string]$target.Computer){$r.Failed++;$mismatched++;continue}
                 $packet=[pscustomobject]@{Key=[string]$target.Key;Guid=[string]$target.Guid;Computer=[string]$target.Computer;Outcome='PresenceOnly';Presence=[string]$item.Presence;PresenceDetail=[string]$item.PresenceDetail;PresenceCheckedUtc=[string]$item.PresenceCheckedUtc}
                 foreach($change in @(ConvertTo-DomeniaRemoteObservationChanges -Result $packet -Guid ([string]$target.Guid) -DN ([string]$target.Key))){$changes.Add($change)}
                 $targets.Add([pscustomobject]@{Key=[string]$target.Key;Guid=[string]$target.Guid;Computer=[string]$target.Computer})
@@ -524,12 +627,31 @@ function Submit-DomeniaParkPingResults {
             $r.StorePending[[string]$state.Job]=$true
             [void](Submit-DomeniaRemoteChanges -Changes $changes.ToArray() -State $state -SuccessHandler 'Complete-DomeniaParkPingStored' -ErrorHandler 'Fail-DomeniaParkPingStored')
         }catch{
+            # The storage refused this batch: neither it nor the rest of the buffer will be stored in this survey.
+            $message=$_.Exception.Message
             [void]$r.StorePending.Remove([string]$state.Job)
-            $r.Failed+=$items.Count;$r.Stopping=$true;$r.FailureMessage='Mesures de ping non enregistrées : '+$_.Exception.Message
-            Set-Status ('Mesures de ping non enregistrées : '+$_.Exception.Message) 'ERROR'
+            $r.Failed+=($items.Count-$mismatched)
+            foreach($item in $items){Clear-DomeniaParkPendingRow -Run $r -Key ([string]$item.Key)}
+            Close-DomeniaParkPingBuffer -Run $r -Reason $message
+            Set-Status ('Mesures de ping non enregistrées : '+$message) 'ERROR'
             return
         }
     }
+}
+function Close-DomeniaParkPingBuffer {
+    # MO-08: the storage refuses the echoes of this survey: those still buffered are counted as not stored, their rows
+    # lose their « relevé en cours » mark, and the batch ping is asked to stop (the echoes it still reports are closed
+    # the same way on the next tick).
+    param($Run,[string]$Reason)
+    $r=$Run
+    $r.Stopping=$true
+    Stop-DomeniaParkPingWorker -Run $r
+    $count=0
+    if($null -ne $r.PingBuffer){
+        while($r.PingBuffer.Count -gt 0){$item=$r.PingBuffer.Dequeue();$count++;Clear-DomeniaParkPendingRow -Run $r -Key ([string]$item.Key)}
+    }
+    $r.Failed+=$count
+    if(-not [string]$r.FailureMessage){$r.FailureMessage='Mesures de ping non enregistrées : '+[string]$Reason+'.'}
 }
 function Complete-DomeniaParkPingJob {
     param($Result,$State)
@@ -573,6 +695,7 @@ function Complete-DomeniaParkPingStored {
         if($rows.Count -ne 1){$r.Failed++;Clear-DomeniaParkPendingRow -Run $r -Key ([string]$target.Key);continue}
         Publish-DomeniaParkObservation -Run $r -Observation $rows[0]
     }
+    Sync-DomeniaParkGrid -Run $r
     Update-DomeniaParkRunStatus -Run $r
 }
 function Fail-DomeniaParkPingStored {
@@ -704,9 +827,19 @@ function Update-DomeniaParkResultRows {
         Set-DomeniaLiveObservationOnRow $row $liveObservation
         [void](Set-RowAssociationMetadata -Rows @($row))
         if([string]$row.Association){Set-DomeniaLoginColumnVisible $true}
+        # The view is refreshed once per stored batch or at the end of the survey (Sync-DomeniaParkGrid), never per row.
+        if($null -ne $Run){$Run.GridStale=$true}
     }
-    # ResultRow notifies WPF; classic PSCustomObject rows need a refresh after the scan.
-    if($null -ne $grid.ItemsSource -and $null -ne $Run -and $Run.Next -ge @($Run.Targets).Count -and -not $Run.Pending.Count){$grid.Items.Refresh()}
+}
+function Sync-DomeniaParkGrid {
+    # ResultRow notifies WPF; classic PSCustomObject rows and an active filter need one refresh of the view. One
+    # refresh per stored batch of echoes, or once when the survey ends.
+    param($Run)
+    if($null -eq $Run -or -not [bool]$Run.GridStale){return}
+    $Run.GridStale=$false
+    if($Run.Generation -ne [long]$script:GlobalSearchGeneration){return}
+    $grid=Get-DomeniaControl 'DgObjects'
+    if($null -ne $grid -and $null -ne $grid.ItemsSource){try{$grid.Items.Refresh()}catch{try{Write-AppLog ('Liste non actualisée après le relevé : '+$_.Exception.Message) 'WARN'}catch{}}}
 }
 
 function Initialize-DomeniaRemoteStoreState {

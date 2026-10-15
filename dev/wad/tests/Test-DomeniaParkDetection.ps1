@@ -183,6 +183,24 @@ Case 'SE-05 : racine du domaine sans filtre et recherche globale sans terme refu
  Assert ($script:Calls.Count -eq 1) 'Recherche globale avec terme refusee.'
 }
 
+Case 'SE-05 : Ctrl+A sur la racine du domaine sans filtre puis Pinger est refuse, aucune tache' {
+ Reset-Fixture;Add-SurveyControls;$script:SelectedBranchDn=$script:Conn.BaseDn;Add-DisplayedMachines 4
+ function Get-DomeniaSelectedGridRows {return @($script:Picked)}
+ $script:Picked=@($script:Ctrl.DgObjects.Items)
+ Start-DomeniaParkSelectionSurvey -Mode Ping
+ Assert ($script:Calls.Count -eq 0 -and $null -eq (Run)) 'Toute la racine du domaine relevee par la selection.'
+ Assert ([string]$script:Status -like '*Toute la liste est sélectionnée*racine du domaine*') ([string]$script:Status)
+ # A real choice among the rows stays its own filter.
+ $script:Picked=@(@($script:Ctrl.DgObjects.Items)[0..1])
+ Start-DomeniaParkSelectionSurvey -Mode Ping
+ Assert ($script:Calls.Count -eq 1 -and @($script:Calls[0].Payload.Targets).Count -eq 2) 'Choix de deux postes refuse.'
+ # A global search without a term: selecting every row is refused the same way.
+ Reset-Fixture;$script:SearchMode='Global';$script:Ctrl.TxtGlobalSearch=[Windows.Controls.TextBox]::new();Add-DisplayedMachines 3
+ $script:Picked=@($script:Ctrl.DgObjects.Items)
+ Start-DomeniaParkSelectionSurvey -Mode Console
+ Assert ($script:Calls.Count -eq 0 -and [string]$script:Status -like '*Toute la liste est sélectionnée*Recherche globale sans terme*') ([string]$script:Status)
+}
+
 # ---------------------------------------------------------------- UX-24: three-line confirmation
 Case 'UX-24 : confirmation en trois lignes, cible lisible, ecart explique, bouton chiffre' {
  Reset-Fixture;Add-DisplayedMachines 3 -WithoutGuid 1;Start-DomeniaOnlinePark -DisplayedResults -PingOnly
@@ -204,7 +222,8 @@ Case 'MO-08 : un seul job ParkPing pour 200 postes, echos par lots de 32, aucune
  Assert ($script:Calls.Count -eq 2) ('Taches : '+$script:Calls.Count)
  $ping=$script:Calls[1]
  Assert ($ping.OperationId -eq 'ParkPing' -and $ping.TaskClass -eq 'Explicit' -and @($ping.Payload.Targets).Count -eq 200 -and [int]$ping.Payload.BatchSize -eq 32 -and [int]$ping.Payload.TimeoutMs -eq 1000) 'Charge du ping de liste'
- Assert ([int]$ping.TimeoutSeconds -eq 48) ('Delai du job : '+$ping.TimeoutSeconds)
+ # 7 batches of 32, each up to 2.5 s of name resolution + 2 s of echoes + 1 s of work, plus 20 s.
+ Assert ([int]$ping.TimeoutSeconds -eq 62) ('Delai du job : '+$ping.TimeoutSeconds)
  Assert ($ping.Code -ceq (Get-DomeniaParkPingWorkerCode)) 'Corps epingle ParkPing non utilise.'
  Assert (@($script:Calls|Where-Object{$_.OperationId -eq 'LiveConsole'}).Count -eq 0) 'Lecture de console pendant un ping.'
  Assert ($null -ne $ping.Payload.Progress -and [object]::ReferenceEquals($ping.Payload.Progress,(Run).PingQueue)) 'File de progression absente.'
@@ -242,6 +261,51 @@ Case 'MO-08 : arret du ping garde les echos deja recus, les autres restent non v
  Assert ((Run).Completed -and (Run).Done -eq 1 -and $script:Calls.Count -eq 2) 'Releve non termine ou relance.'
  Assert ([string](Run).ShortText -like 'Arrêté à 1/3 ·*2 postes non vérifiés') ([string](Run).ShortText)
 }
+Case 'MO-08 : stockage suspendu, les echos en attente sont comptes non enregistres et le releve se termine' {
+ Reset-Fixture;Add-SurveyControls;Ready-Run 3 -PingOnly;Invoke-DomeniaParkRunTick
+ $ping=$script:Calls[1];$r=Run
+ $r.PingQueue.Enqueue([pscustomobject]@{Results=@((New-PingResult (New-Target 1) 'En ligne'),(New-PingResult (New-Target 2) 'Sans réponse au ping'))})
+ $script:Persistence=[pscustomobject]@{Pending=@{};InFlight=0;Failures=3;Conflicts=@{};LinkBusy=$false;LinkRequestTimer=$null;LinkPersistenceMore=$false}
+ Invoke-DomeniaParkRunTick
+ Assert ($script:Saves.Count -eq 0 -and $null -eq $script:DomeniaRemoteStoreQueue) 'Echos confies a un stockage suspendu.'
+ Assert ($script:StopRequests -contains $ping.Id -and $r.Stopping) 'Ping de la liste non arrete.'
+ Invoke-DomeniaParkRunTick
+ Assert ($r.Completed -and $r.Done -eq 0 -and $r.Failed -eq 2 -and $r.Unchecked -eq 1) ('Fin : '+$r.Completed+' non enregistres '+$r.Failed+' non verifies '+$r.Unchecked)
+ Assert ([string]$r.ShortText -like 'Arrêté à 0/3 ·*2 lectures non confirmées · 1 poste non vérifié') ([string]$r.ShortText)
+ Assert ([string]$r.StatusText -like '*Stockage à vérifier dans Fiabilité*') ([string]$r.StatusText)
+ Assert ([string]$script:Ctrl.BtnParkVerify.Content -ne 'Arrêt en cours…' -and $script:Ctrl.BtnParkVerify.IsEnabled -and -not (Test-DomeniaParkRunActive -Slot 'List')) 'La liste reste bloquee par le releve.'
+}
+Case 'MO-08 : file dʼenregistrement bloquee par un lot refuse, le releve se termine sans attendre les lots derriere' {
+ Reset-Fixture;Ready-Run 3 -PingOnly;Invoke-DomeniaParkRunTick
+ $r=Run;$t1=New-Target 1
+ # A batch refused by the storage heads the queue; one batch of this survey already waits behind it.
+ $script:DomeniaRemoteStoreQueue=[Collections.Generic.Queue[object]]::new()
+ $script:DomeniaRemoteStoreQueue.Enqueue([pscustomobject]@{BatchId='refused';State=[pscustomobject]@{RunId='other'};Failed=$true;Delivered=$false})
+ $script:DomeniaRemoteStoreQueue.Enqueue([pscustomobject]@{BatchId='behind';State=[pscustomobject]@{RunId=$r.Id;Job='ping-behind';Targets=@([pscustomobject]@{Key=$t1.Key;Guid=$t1.Guid;Computer=$t1.Computer})};Failed=$false;Delivered=$false})
+ $r.StorePending['ping-behind']=$true;$r.PingReported[$t1.Key]=$true
+ $r.PingQueue.Enqueue([pscustomobject]@{Results=@(New-PingResult (New-Target 2) 'En ligne')})
+ Invoke-DomeniaParkRunTick;Invoke-DomeniaParkRunTick
+ Assert ($r.Completed -and $r.StorePending.Count -eq 0 -and $r.Failed -eq 2 -and $r.Unchecked -eq 1 -and $script:Saves.Count -eq 0) ('Fin : '+$r.Completed+' en attente '+$r.StorePending.Count+' non enregistres '+$r.Failed+' non verifies '+$r.Unchecked)
+ Assert ($script:DomeniaRemoteStoreQueue.Count -eq 2) 'Un lot de la file a ete jete.'
+}
+Case 'MO-08 : la liste est actualisee une fois par lot enregistre, jamais une fois par poste' {
+ Reset-Fixture;$rows=[Collections.ObjectModel.ObservableCollection[object]]::new()
+ foreach($n in 1..3){$t=New-Target $n;$row=New-DomeniaLiveResultRow;$row.Type='Machine';$row.Name=$t.Computer;$row.DN=$t.Key;$row.Guid=$t.Guid;$rows.Add($row)}
+ $script:Ctrl.DgObjects.ItemsSource=$rows
+ # A refresh of the view evaluates its filter once per row.
+ $script:FilterCalls=0;$script:Ctrl.DgObjects.Items.Filter=[Predicate[object]]{param($x)$script:FilterCalls++;return $true}
+ Start-DomeniaOnlinePark -DisplayedResults -PingOnly;$call=$script:Calls[0]
+ Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@(New-Target 1;New-Target 2;New-Target 3);Busy=$false}) $call.State;$script:AsyncJobs.Remove($call.Id);& $script:Confirm
+ Invoke-DomeniaParkRunTick;$ping=$script:Calls[1]
+ Complete-DomeniaParkPingJob ([pscustomobject]@{Results=@((New-PingResult (New-Target 1) 'En ligne'),(New-PingResult (New-Target 2) 'En ligne'),(New-PingResult (New-Target 3) 'Sans réponse au ping'));Count=3;Completed=$true}) $ping.State
+ Invoke-DomeniaParkRunTick
+ Assert ($script:Saves.Count -eq 1) ('Lots : '+$script:Saves.Count)
+ $before=$script:FilterCalls
+ Commit-PingSaved 0 @{'PC-3'='Sans réponse au ping'}
+ Assert (($script:FilterCalls-$before) -eq 3 -and (Run).Done -eq 3) ('Evaluations du filtre pour un lot de 3 postes : '+($script:FilterCalls-$before))
+ Invoke-DomeniaParkRunTick
+ Assert ((Run).Completed -and ($script:FilterCalls-$before) -eq 3) 'Liste actualisee de nouveau a la fin du releve.'
+}
 Case 'MO-08 : corps ParkPing hors reseau : nom invalide en erreur sans echo, lots rapportes un par un' {
  $queue=[Collections.Concurrent.ConcurrentQueue[object]]::new()
  $Payload=[pscustomobject]@{Targets=@(for($i=1;$i -le 70;$i++){[pscustomobject]@{Key=('cn=x'+$i);Guid=('g'+$i);Computer=('nom invalide '+$i)}});TimeoutMs=250;BatchSize=32;Progress=$queue}
@@ -265,7 +329,7 @@ Case 'UX-12 : Arreter (n/N), barre fine, lignes marquees pendant le releve puis 
  Assert ((Run).Approved -and @($rows|Where-Object{$_.ProbePending -eq '1'}).Count -eq 3) 'Lignes non marquees.'
  Assert ([string]$script:Ctrl.BtnParkVerify.Content -eq 'Arrêter (0/3)' -and $script:Ctrl.BtnParkVerify.IsEnabled) ([string]$script:Ctrl.BtnParkVerify.Content)
  Assert ($script:Ctrl.PbParkProgress.Visibility -eq 'Visible' -and $script:Ctrl.UxParkProgress.Visibility -eq 'Visible' -and $script:Ctrl.LblLiveState.Visibility -eq 'Collapsed') 'Barre ou etat court absent.'
- Assert ([string]$script:Ctrl.LblParkProgress.Text -eq '0/3 · 0 joignables') ([string]$script:Ctrl.LblParkProgress.Text)
+ Assert ([string]$script:Ctrl.LblParkProgress.Text -eq '0/3 · 0 joignable') ([string]$script:Ctrl.LblParkProgress.Text)
  Assert ($script:TimerOwners -contains 'Timer:ParkRun:List') 'Minuteur de la liste absent.'
  Invoke-DomeniaParkRunTick;$state=$script:Calls[1].State;Complete-DomeniaParkSession (New-Result $state.Target) $state;Commit-Saved
  Assert ([string]$script:Ctrl.BtnParkVerify.Content -eq 'Arrêter (1/3)' -and [int][Math]::Round($script:Ctrl.PbParkProgress.Value) -eq 33) ([string]$script:Ctrl.BtnParkVerify.Content)
@@ -275,6 +339,22 @@ Case 'UX-12 : Arreter (n/N), barre fine, lignes marquees pendant le releve puis 
  Assert (@($rows|Where-Object{$_.ProbePending -eq '1'}).Count -eq 0) 'Marque restee apres lʼarret.'
  Assert ([string]$script:Ctrl.BtnParkVerify.Content -eq 'Vérifier la liste' -and $script:Ctrl.PbParkProgress.Visibility -eq 'Collapsed') ([string]$script:Ctrl.BtnParkVerify.Content)
  Assert ([string]$script:Ctrl.LblParkProgress.Text -eq 'Arrêté à 1/3 · 1 en ligne · 0 sans réponse · 0 erreur') ([string]$script:Ctrl.LblParkProgress.Text)
+}
+Case 'UX-12 : Annuler la verification retire aussi la demande affichee, aucun Pinger N postes orphelin' {
+ Reset-Fixture;Add-SurveyControls;Add-ResultRows 3
+ $script:InlinePending=$null;$script:InlineDismissed=0
+ function Request-DomeniaInlineConfirmation {param($Title,$Target,$Message,$ConfirmText,$CancelText,$OnConfirm,$OnCancel)$script:Confirm=$OnConfirm;$script:Cancel=$OnCancel;$script:ConfirmButton=$ConfirmText;$script:InlinePending=[pscustomobject]@{Id='req-1';Title=$Title};return [pscustomobject]@{Id='req-1';Title=$Title;Target=$Target;Answered=$false;Confirmed=$false;Presentation='Inline'}}
+ function Get-DomeniaInlinePendingRequest {return $script:InlinePending}
+ function Complete-DomeniaInlineRequest {param([switch]$Confirm,[switch]$Dismiss,[string]$Reason='')if($null -eq $script:InlinePending){return};$script:InlinePending=$null;$script:InlineDismissed++;if($Dismiss){& $script:Cancel}else{& $script:Confirm}}
+ Start-DomeniaOnlinePark -DisplayedResults -PingOnly;$call=$script:Calls[0]
+ Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@(New-Target 1;New-Target 2;New-Target 3);Busy=$false}) $call.State;$script:AsyncJobs.Remove($call.Id)
+ Assert ([string](Run).InlineRequestId -eq 'req-1' -and $script:ConfirmButton -eq 'Pinger 3 postes') 'Demande du releve non retenue.'
+ Invoke-DomeniaParkVerify -Anchor $script:Ctrl.BtnParkVerify
+ Assert ($null -eq $script:InlinePending -and $script:InlineDismissed -eq 1) 'La demande Pinger 3 postes reste affichee.'
+ Assert ((Run).Completed -and -not (Run).Approved -and $script:Calls.Count -eq 1) 'Releve non arrete, ou lance.'
+ Assert ([string]$script:Ctrl.BtnParkVerify.Content -eq 'Vérifier la liste' -and $script:Ctrl.BtnParkVerify.IsEnabled) ([string]$script:Ctrl.BtnParkVerify.Content)
+ & $script:Confirm
+ Assert ($null -eq (Run).Timer -and $script:Calls.Count -eq 1) 'Une ancienne confirmation a relance le releve.'
 }
 Case 'UI-23 : Verifier la liste ouvre les choix, retient le dernier pour la session, arrete un releve en cours' {
  Reset-Fixture;Add-SurveyControls
@@ -293,8 +373,8 @@ Case 'UI-23 : Verifier la liste ouvre les choix, retient le dernier pour la sess
  Invoke-DomeniaParkVerify -Mode 'Tout';Assert ($script:Started.Count -eq 4 -and $script:ParkDefaultMode -eq 'Console') 'Lecture inconnue acceptee.'
  $script:ParkRuns=@{List=[pscustomobject]@{Id='r';Slot='List';ScopeKind='Results';Completed=$false}}
  Invoke-DomeniaParkVerify;Assert ($script:Stopped -eq 1 -and $script:Started.Count -eq 4) 'Pendant un releve, le bouton doit lʼarreter.'
- # A perimeter survey (OU refresh, board) in the scope of the lists keeps its own Arrêter: the button only waits.
- $script:SearchListHasMachine=$true;$script:ParkRuns=@{List=[pscustomobject]@{Id='ou';Slot='List';ScopeKind='Scope';Completed=$false;Approved=$true;Epoch=1L}}
+ # An OU refresh in the scope of the lists keeps its own Arrêter beside its refresh buttons: the button only waits.
+ $script:SearchListHasMachine=$true;$script:ParkRuns=@{List=[pscustomobject]@{Id='ou';Slot='List';ScopeKind='Scope';RefreshOperationId='refresh-1';Completed=$false;Approved=$true;Epoch=1L}}
  Update-DomeniaParkControls
  Assert ([string]$script:Ctrl.BtnParkVerify.Content -eq 'Vérifier : Qui est connecté ?' -and -not $script:Ctrl.BtnParkVerify.IsEnabled -and -not $script:Ctrl.BtnParkVerifyMenu.IsEnabled) ([string]$script:Ctrl.BtnParkVerify.Content)
  Invoke-DomeniaParkVerify;Assert ($script:Stopped -eq 1) 'Le bouton de la liste a arrete un releve de perimetre.'
@@ -340,6 +420,39 @@ Case 'FI-18 : releve du poste ouvert pendant un releve de la liste, chacun son a
  Assert (@($script:Calls|Where-Object{$_.State.Slot -eq 'Computer' -and $_.OperationId -eq 'LiveConsole'}).Count -eq 1) 'Le releve du poste ne part pas a cote de la liste.'
  Stop-DomeniaOnlinePark -Slot 'Computer'
  Assert ($computer.Stopping -and -not $list.Stopping) 'Arreter le poste a arrete la liste.'
+ # Running, the survey of PC-77 stays shown and stoppable beside another board, named; finished, only beside its own.
+ $other=New-ScopeTarget 78
+ $script:SelectedObject=[pscustomobject]@{Type='Machine';Name='PC-78';DN=$other.distinguished_name;Safety=[pscustomobject]@{Guid=$other.object_guid}}
+ Update-DomeniaParkControls
+ Assert ($script:Ctrl.UxComputerParkRun.Visibility -eq 'Visible' -and [string]$script:Ctrl.LblComputerParkStatus.Text -like 'PC-77 · *') ([string]$script:Ctrl.LblComputerParkStatus.Text)
+ Start-DomeniaOnlinePark -ScopeTargets @($other) -ScopeLabel 'PC-78' -Inventory
+ Assert ([string]$script:Status -like '*relevé du poste PC-77 est déjà en cours*') ([string]$script:Status)
+ $computer.Completed=$true;Update-DomeniaParkControls
+ Assert ($script:Ctrl.UxComputerParkRun.Visibility -eq 'Collapsed') 'Le bilan de PC-77 sʼaffiche sur le tableau de PC-78.'
+ $script:SelectedObject=[pscustomobject]@{Type='Machine';Name='PC-77';DN=$open.distinguished_name;Safety=[pscustomobject]@{Guid=$open.object_guid}}
+ Update-DomeniaParkControls
+ Assert ($script:Ctrl.UxComputerParkRun.Visibility -eq 'Visible' -and [string]$script:Ctrl.LblComputerParkStatus.Text -notlike 'PC-77 · *') 'Bilan absent du tableau du poste releve.'
+}
+Case 'FI-18 : un releve du tableau de parc sʼarrete depuis Verifier la liste ; une actualisation dʼOU attend son propre arret' {
+ Reset-Fixture;Add-SurveyControls
+ # The fleet board (Widgets.UI CollectFleet) starts its survey with explicit targets of the perimeter.
+ Start-DomeniaOnlinePark -ScopeTargets @((New-ScopeTarget 1),(New-ScopeTarget 2),(New-ScopeTarget 3)) -ScopeLabel 'Postes' -Inventory
+ $call=$script:Calls[0];$r=Run
+ Assert ($null -ne $r -and $r.ScopeKind -eq 'Scope' -and $r.Slot -eq 'List') 'Releve du tableau hors de la portee des listes.'
+ Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@(New-Target 1;New-Target 2;New-Target 3);Busy=$false}) $call.State;$script:AsyncJobs.Remove($call.Id)
+ Assert ([string]$script:Ctrl.BtnParkVerify.Content -eq 'Annuler le relevé' -and $script:Ctrl.BtnParkVerify.IsEnabled) ([string]$script:Ctrl.BtnParkVerify.Content)
+ & $script:Confirm
+ Assert ([string]$script:Ctrl.BtnParkVerify.Content -eq 'Arrêter (0/3)' -and $script:Ctrl.BtnParkVerify.IsEnabled) ([string]$script:Ctrl.BtnParkVerify.Content)
+ Assert ($script:Ctrl.UxParkProgress.Visibility -eq 'Visible' -and $script:Ctrl.PbParkProgress.Visibility -eq 'Visible' -and [string]$script:Ctrl.LblParkProgress.Text -eq 'Relevé de Postes · 0/3 · 0 joignable') ([string]$script:Ctrl.LblParkProgress.Text)
+ Assert ($script:Ctrl.PnlParkOutcome.Visibility -ne 'Visible') 'Pastilles de la liste sur un releve de perimetre.'
+ Invoke-DomeniaParkRunTick;Assert ($script:Calls.Count -eq 2) 'Lecture du tableau non partie.'
+ Invoke-DomeniaParkVerify -Anchor $script:Ctrl.BtnParkVerify
+ Assert ($r.Stopping) 'Le releve du tableau nʼest pas arrete depuis Rechercher.'
+ 1..3|ForEach-Object{Invoke-DomeniaParkRunTick};Assert ($script:Calls.Count -eq 2) 'Lecture lancee apres lʼarret.'
+ Reset-Fixture;Add-SurveyControls
+ $script:ParkRuns=@{List=[pscustomobject]@{Id='ou';Slot='List';ScopeKind='Scope';ScopeLabel='OU Postes';RefreshOperationId='refresh-1';Completed=$false;Approved=$true;Loading=$false;Stopping=$false;Epoch=1L;Generation=1L;Targets=@(1,2);Requested=2;Done=1;ShortText='1/2 · 1 joignable'}}
+ Update-DomeniaParkControls
+ Assert (-not $script:Ctrl.BtnParkVerify.IsEnabled -and [string]$script:Ctrl.LblParkProgress.Text -eq 'Actualisation de OU Postes · 1/2 · 1 joignable · arrêt avec lʼactualisation') ([string]$script:Ctrl.LblParkProgress.Text)
 }
 
 # ---------------------------------------------------------------- FO-18: surveys of a multiple selection
@@ -347,7 +460,8 @@ Case 'FO-18 : selection, meme plafond et meme confirmation que la liste' {
  Reset-Fixture
  Start-DomeniaOnlinePark -Selection -ScopeTargets @(for($i=1;$i -le 501;$i++){New-ScopeTarget $i}) -PingOnly
  Assert ($script:Calls.Count -eq 0 -and [string]$script:Status -like '*501 postes sélectionnés : plafond 500. Réduisez la sélection.*') ([string]$script:Status)
- Reset-Fixture;$script:SelectedBranchDn=$script:Conn.BaseDn
+ # Three of the five displayed workstations of the domain root: a real choice, its own filter.
+ Reset-Fixture;$script:SelectedBranchDn=$script:Conn.BaseDn;Add-DisplayedMachines 5
  Start-DomeniaOnlinePark -Selection -ScopeTargets @((New-ScopeTarget 1),(New-ScopeTarget 2),(New-ScopeTarget 3)) -SkippedTargets 1 -PingOnly
  Assert ($script:Calls.Count -eq 1 -and @($script:Calls[0].Payload.Targets).Count -eq 3 -and $script:Calls[0].State.Slot -eq 'List') 'Selection a la racine refusee ou mal portee.'
  Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@(New-Target 1;New-Target 2;New-Target 3);Busy=$false}) $script:Calls[0].State
@@ -385,7 +499,7 @@ Case 'Interface : un seul bouton Verifier la liste, ses choix, pastilles, select
 }
 if($null -ne $script:ParkRuns){foreach($old in @($script:ParkRuns.Values)){if($null -ne $old -and $null -ne $old.PSObject.Properties['Timer'] -and $null -ne $old.Timer){$old.Timer.Stop()}}}
 $failed=@($checks|Where-Object Status -eq 'Failed').Count
-$expected=38
+$expected=44
 $report=[ordered]@{Kind='ParkDetection';Expected=$expected;Complete=($checks.Count -eq $expected -and $failed -eq 0);NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path $env:TEMP 'domenia-park-tests.json'}
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))

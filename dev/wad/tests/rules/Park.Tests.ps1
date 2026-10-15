@@ -27,12 +27,38 @@ Test-Case 'P-SE-05' 'Plafond : une selection est son propre filtre, sous le meme
     $selection = Test-DomeniaParkTargetAdmission -Count 501 -Maximum 500 -Selection $true
     Assert-False $selection.Allowed '501 postes selectionnes admis'
     Assert-Equal '501 postes sélectionnés : plafond 500. Réduisez la sélection.' ([string]$selection.Reason)
-    Assert-True (Test-DomeniaParkTargetAdmission -Count 3 -ScopeDn 'DC=example,DC=test' -BaseDn 'DC=example,DC=test' -Selection $true).Allowed 'selection de la racine refusee'
-    Assert-True (Test-DomeniaParkTargetAdmission -Count 3 -Global $true -Selection $true).Allowed 'selection d une recherche globale refusee'
+    Assert-True (Test-DomeniaParkTargetAdmission -Count 3 -ScopeDn 'DC=example,DC=test' -BaseDn 'DC=example,DC=test' -Selection $true).Allowed 'choix de lignes a la racine refuse'
+    Assert-True (Test-DomeniaParkTargetAdmission -Count 3 -Global $true -Selection $true).Allowed 'choix de lignes d une recherche globale refuse'
     Assert-Equal 'Aucun poste dans la sélection.' ([string](Test-DomeniaParkTargetAdmission -Count 0 -Selection $true).Reason)
     Assert-Equal 500 ([int](Test-DomeniaParkTargetAdmission -Count 1 -Maximum 0 -Selection $true).Maximum) 'reglage absent ou nul'
     Assert-Equal 5000 ([int](Test-DomeniaParkTargetAdmission -Count 1 -Maximum 99999 -Selection $true).Maximum) 'reglage plafonne'
     Assert-False (Test-DomeniaParkTargetAdmission -Count 120 -Maximum 100 -Selection $true).Allowed 'plafond regle ignore'
+}
+Test-Case 'P-SE-05' 'Plafond : toute la liste selectionnee (Ctrl+A) suit les regles de la liste, jamais un releve deguise du domaine' {
+    $root = Test-DomeniaParkTargetAdmission -Count 480 -ScopeDn 'dc=example,dc=test' -BaseDn 'DC=example,DC=test' -Selection $true -SelectionCoversList $true
+    Assert-False $root.Allowed 'racine sans filtre admise par Ctrl+A'
+    Assert-Equal 'DomainRoot' ([string]$root.Code)
+    Assert-True ([string]$root.Reason -like ('Toute la liste est s' + [char]0x00E9 + 'lectionn' + [char]0x00E9 + 'e. *aucun relev' + [char]0x00E9 + ' de tout le domaine*')) ([string]$root.Reason)
+    $global = Test-DomeniaParkTargetAdmission -Count 12 -BaseDn 'DC=example,DC=test' -Global $true -Selection $true -SelectionCoversList $true
+    Assert-False $global.Allowed 'recherche globale sans terme admise par Ctrl+A'
+    Assert-Equal 'GlobalWithoutTerm' ([string]$global.Code)
+    Assert-True (Test-DomeniaParkTargetAdmission -Count 48 -ScopeDn 'DC=example,DC=test' -BaseDn 'DC=example,DC=test' -HasFilter $true -Selection $true -SelectionCoversList $true).Allowed 'racine filtree entierement selectionnee refusee'
+    Assert-True (Test-DomeniaParkTargetAdmission -Count 48 -ScopeDn 'OU=Postes,DC=example,DC=test' -BaseDn 'DC=example,DC=test' -Selection $true -SelectionCoversList $true).Allowed 'OU entierement selectionnee refusee'
+    Assert-True (Test-DomeniaParkTargetAdmission -Count 12 -BaseDn 'DC=example,DC=test' -Global $true -HasSearchTerm $true -Selection $true -SelectionCoversList $true).Allowed 'recherche avec terme entierement selectionnee refusee'
+    $over = Test-DomeniaParkTargetAdmission -Count 501 -Maximum 500 -ScopeDn 'OU=Postes,DC=example,DC=test' -BaseDn 'DC=example,DC=test' -Selection $true -SelectionCoversList $true
+    Assert-Equal 'Ceiling' ([string]$over.Code)
+    Assert-Equal ('501 postes s' + [char]0x00E9 + 'lectionn' + [char]0x00E9 + 's : plafond 500. R' + [char]0x00E9 + 'duisez la s' + [char]0x00E9 + 'lection.') ([string]$over.Reason)
+}
+Test-Case 'P-MO-08' 'Delai du ping de liste : derive des attentes du worker par lot de 32, borne a 30 minutes' {
+    Assert-Equal 62 (Get-DomeniaParkPingTimeoutSeconds -Count 200) '200 postes : 7 lots de 6 s plus 20 s'
+    Assert-Equal 26 (Get-DomeniaParkPingTimeoutSeconds -Count 1) 'un poste'
+    Assert-Equal 20 (Get-DomeniaParkPingTimeoutSeconds -Count 0) 'aucun poste'
+    Assert-Equal 962 (Get-DomeniaParkPingTimeoutSeconds -Count 5000) '5000 postes : au-dela du pire cas de 157 lots'
+    Assert-True ((Get-DomeniaParkPingTimeoutSeconds -Count 5000) -gt (157 * 4.5)) 'budget inferieur aux attentes du worker'
+    Assert-Equal 76 (Get-DomeniaParkPingTimeoutSeconds -Count 200 -TimeoutMs 3000) 'delai dʼecho de 3 s'
+    Assert-Equal 76 (Get-DomeniaParkPingTimeoutSeconds -Count 200 -TimeoutMs 99999) 'delai dʼecho borne comme le worker'
+    Assert-Equal 1800 (Get-DomeniaParkPingTimeoutSeconds -Count 100000) 'borne de 30 minutes'
+    Assert-Equal 38 (Get-DomeniaParkPingTimeoutSeconds -Count 3 -BatchSize 0) 'lot borne a un echo, comme le worker'
 }
 Test-Case 'P-CO-19' 'Compteurs : en ligne, sans reponse et erreur distincts ; une erreur DNS nʼest jamais un poste muet' {
     Assert-Equal 'Online' (Get-DomeniaParkOutcomeKind 'En ligne')

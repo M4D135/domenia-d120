@@ -165,8 +165,10 @@ function Get-DomeniaParkPlural {
 function Test-DomeniaParkTargetAdmission {
     # SE-05: guard of a survey of the displayed list or of its selection, never a disguised whole-domain survey.
     # Refused above the ceiling (Park.MaxTargets, 500 by default), for a list of the domain root without any other
-    # filter, and for a global search without a term. An explicit selection of rows is its own filter (ceiling only).
-    param([int]$Count,[int]$Maximum=500,[AllowEmptyString()][string]$ScopeDn='',[AllowEmptyString()][string]$BaseDn='',[bool]$HasFilter=$false,[bool]$Global=$false,[bool]$HasSearchTerm=$false,[bool]$Selection=$false)
+    # filter, and for a global search without a term. A selection that leaves rows of the list out is its own filter
+    # (ceiling only); a selection of every displayed workstation (-SelectionCoversList, Ctrl+A) is the list itself and
+    # follows the rules of the list.
+    param([int]$Count,[int]$Maximum=500,[AllowEmptyString()][string]$ScopeDn='',[AllowEmptyString()][string]$BaseDn='',[bool]$HasFilter=$false,[bool]$Global=$false,[bool]$HasSearchTerm=$false,[bool]$Selection=$false,[bool]$SelectionCoversList=$false)
     $max = $Maximum
     if ($max -lt 1) { $max = 500 }
     $max = [Math]::Min(5000,$max)
@@ -179,10 +181,12 @@ function Test-DomeniaParkTargetAdmission {
         if ($Selection) { return (& $refuse 'Ceiling' ([string]$Count + ' postes sélectionnés : plafond ' + [string]$max + '. Réduisez la sélection.')) }
         return (& $refuse 'Ceiling' ([string]$Count + ' postes affichés : plafond ' + [string]$max + '. Filtrez la liste.'))
     }
-    if (-not $Selection) {
-        if ($Global -and (-not $HasSearchTerm)) { return (& $refuse 'GlobalWithoutTerm' 'Recherche globale sans terme : aucun relevé de tout le domaine. Saisissez un nom ou choisissez une OU.') }
+    if ((-not $Selection) -or $SelectionCoversList) {
+        $whole = ''
+        if ($Selection) { $whole = 'Toute la liste est sélectionnée. ' }
+        if ($Global -and (-not $HasSearchTerm)) { return (& $refuse 'GlobalWithoutTerm' ($whole + 'Recherche globale sans terme : aucun relevé de tout le domaine. Saisissez un nom ou choisissez une OU.')) }
         $scope = ([string]$ScopeDn).Trim(); $base = ([string]$BaseDn).Trim()
-        if ((-not $Global) -and $base -and ($scope -ieq $base) -and (-not $HasFilter)) { return (& $refuse 'DomainRoot' 'Liste de la racine du domaine sans autre filtre : aucun relevé de tout le domaine. Choisissez une OU ou filtrez la liste.') }
+        if ((-not $Global) -and $base -and ($scope -ieq $base) -and (-not $HasFilter)) { return (& $refuse 'DomainRoot' ($whole + 'Liste de la racine du domaine sans autre filtre : aucun relevé de tout le domaine. Choisissez une OU ou filtrez la liste.')) }
     }
     return [pscustomobject]@{Allowed=$true;Code='Allowed';Reason='';Maximum=$max}
 }
@@ -230,6 +234,17 @@ function Get-DomeniaParkDurationEstimate {
     $per += 2.0 * [Math]::Max(0,[Math]::Min(20,$ProbeCount))
     $parallel = [Math]::Max(1,[Math]::Min(8,$Concurrency))
     return [int][Math]::Ceiling([Math]::Ceiling($n / [double]$parallel) * $per)
+}
+function Get-DomeniaParkPingTimeoutSeconds {
+    # MO-08: engine budget of one ParkPing job, from the waits of its own worker: per batch of echoes, at most 2.5 s of
+    # name resolution plus the echo delay and 1 s of margin, plus 1 s of PowerShell work, and 20 s to start and end.
+    # Bounded to 30 minutes; the ceiling of a list (5000 workstations at most) stays well under it.
+    param([int]$Count,[int]$TimeoutMs=1000,[int]$BatchSize=32)
+    $delay = [Math]::Max(250,[Math]::Min(3000,$TimeoutMs))
+    $batch = [Math]::Max(1,[Math]::Min(64,$BatchSize))
+    $batches = [Math]::Ceiling([Math]::Max(0,$Count) / [double]$batch)
+    $perBatch = [Math]::Ceiling((2500 + $delay + 1000) / 1000.0) + 1
+    return [int][Math]::Min(1800,20 + $perBatch * $batches)
 }
 function Format-DomeniaParkDuration {
     param([int]$Seconds)

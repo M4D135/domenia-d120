@@ -229,9 +229,9 @@ Quand : vous cherchez sur quel poste travaille un utilisateur, ou quels postes d
 
 | Vous voyez | Que faire |
 |---|---|
-| « Vérifier la liste » est grisé | La liste ne contient aucun poste, ou c'est une vue sur tout le domaine. Affichez des postes d'une OU, par exemple avec « Type d’objet » sur « Machines ». |
+| « Vérifier la liste » est grisé | La liste ne contient aucun poste, ou c'est une vue sur tout le domaine. Affichez des postes d'une OU, par exemple avec « Type d’objet » sur « Machines ». Si le compteur indique « Actualisation de … », attendez sa fin ou arrêtez-la avec les boutons d'actualisation de l'OU. |
 | « Relevé impossible : 812 postes affichés : plafond 500. Filtrez la liste. » | Réduisez la liste (sous-OU, recherche, « Dans les résultats ») ou sélectionnez les postes voulus. L'administrateur règle ce plafond. |
-| « Relevé impossible : Recherche globale sans terme… » ou « …racine du domaine sans autre filtre… » | Saisissez un nom ou choisissez une OU, puis relancez. |
+| « Relevé impossible : Recherche globale sans terme… » ou « …racine du domaine sans autre filtre… » | Saisissez un nom ou choisissez une OU, puis relancez. Si le message commence par « Toute la liste est sélectionnée », sélectionnez seulement les postes voulus. |
 | « Relevé impossible : Un relevé de la liste est déjà en cours : arrêtez-le ou attendez sa fin. » | Attendez la fin du relevé en cours, ou cliquez sur « Arrêter (n/N) ». |
 | « Relevé impossible : Attendez la confirmation des enregistrements locaux avant un nouveau relevé. » | Attendez quelques secondes, puis relancez. |
 | « Relevé impossible : Aucune base autonome active. » | Prévenez l'administrateur. |
