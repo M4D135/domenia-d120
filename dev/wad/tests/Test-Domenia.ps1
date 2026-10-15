@@ -1411,7 +1411,42 @@ try {
     Test-Case 'Points 91 a 100 : les workers d inventaire lisent registre et CIM sans effet de bord' {
         $software = [string](Get-DomeniaSoftwareWorkerCode)
         # Point 91 : architecture et profil utilisateur font partie de la cle ; un doublon reste une ligne.
-        Assert-True ($software.Contains("`$key = (`$Scope + '|' + `$owner + '|' + [string]`$Architecture + '|' + `$clean + '|' + [string]`$Version)")) 'Les doublons par architecture ou profil sont encore fusionnes'
+        Assert-True ($software.Contains("`$key = (`$Scope + '|' + `$ownerKey + '|' + `$archKey + '|' + `$clean + '|' + [string]`$Version)")) 'Les doublons par architecture ou profil sont encore fusionnes'
+        # Revue du point 91 : les vraies fonctions du worker, sans reseau. Une ligne SCCM sans architecture et la meme
+        # entree relue ensuite par la tache locale (x64 ou x86) ne font qu une ligne ; un profil nomme par son compte
+        # ou par son SID reste le meme profil ; un vrai doublon 32/64 bits ou multi-profils reste visible.
+        $softwareTokens = $null; $softwareErrors = $null
+        $softwareAst = [Management.Automation.Language.Parser]::ParseInput($software,[ref]$softwareTokens,[ref]$softwareErrors)
+        Assert-True (@($softwareErrors).Count -eq 0) 'Worker logiciel illisible'
+        $definitions = @(foreach ($name in @('Format-Size','Convert-InstallDate','Add-Software')) {
+            $nodes = @($softwareAst.FindAll({ param($n) ($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq $name) }, $true))
+            Assert-True ($nodes.Count -eq 1) ('Fonction du worker logiciel absente : ' + $name)
+            $nodes[0].Extent.Text
+        })
+        $runSoftware = {
+            param([string[]]$Definitions,[scriptblock]$Body)
+            $rows = New-Object Collections.ArrayList; $seen = @{}; $seenProducts = @{}
+            foreach ($definition in $Definitions) { . ([scriptblock]::Create($definition)) }
+            . $Body
+            return ,@($rows)
+        }
+        $merged = & $runSoftware $definitions {
+            Add-Software -Name 'Contoso Agent' -Version '5.1' -Publisher 'Contoso' -InstallDate '' -SizeKb 0 -Location '' -Architecture '' -Scope 'Machine' -Kind 'Application' -UninstallString '' -Source 'Win32Reg_AddRemovePrograms'
+            Add-Software -Name 'Contoso Agent' -Version '5.1' -Publisher 'Contoso' -InstallDate '' -SizeKb 0 -Location '' -Architecture 'x86' -Scope 'Machine' -Kind 'Application' -UninstallString '' -Source 'TaskScheduler local SYSTEM / Registre local'
+            Add-Software -Name 'Fabrikam Viewer' -Version '2.0' -Publisher 'Fabrikam' -InstallDate '' -SizeKb 0 -Location '' -Architecture 'x64' -Scope 'Machine' -Kind 'Application' -UninstallString '' -Source 'Registre via WinRM'
+            Add-Software -Name 'Fabrikam Viewer' -Version '2.0' -Publisher 'Fabrikam' -InstallDate '' -SizeKb 0 -Location '' -Architecture '' -Scope 'Machine' -Kind 'Application' -UninstallString '' -Source 'Win32Reg_AddRemovePrograms'
+            Add-Software -Name 'Notes' -Version '1.0' -Publisher '' -InstallDate '' -SizeKb 0 -Location '' -Architecture '' -Scope 'Utilisateur' -Kind 'S-1-5-21-1-2-3-1104' -UninstallString '' -Source 'HKU via StdRegProv' -Owner 'S-1-5-21-1-2-3-1104'
+            Add-Software -Name 'Notes' -Version '1.0' -Publisher '' -InstallDate '' -SizeKb 0 -Location '' -Architecture '' -Scope 'Utilisateur' -Kind 'CONTOSO\alex' -UninstallString '' -Source 'TaskScheduler local SYSTEM / HKEY_USERS local' -Owner 'S-1-5-21-1-2-3-1104'
+        }
+        Assert-True (@($merged).Count -eq 3) ('Meme entree listee deux fois selon la source : ' + (@($merged | ForEach-Object { [string]$_.Name + '/' + [string]$_.Architecture + '/' + [string]$_.Source }) -join ' ; '))
+        $kept = & $runSoftware $definitions {
+            Add-Software -Name 'Contoso Agent' -Version '5.1' -Publisher 'Contoso' -InstallDate '' -SizeKb 0 -Location '' -Architecture 'x64' -Scope 'Machine' -Kind 'Application' -UninstallString '' -Source 'Registre via WinRM'
+            Add-Software -Name 'Contoso Agent' -Version '5.1' -Publisher 'Contoso' -InstallDate '' -SizeKb 0 -Location '' -Architecture 'x86' -Scope 'Machine' -Kind 'Application' -UninstallString '' -Source 'Registre via WinRM'
+            Add-Software -Name 'Notes' -Version '1.0' -Publisher '' -InstallDate '' -SizeKb 0 -Location '' -Architecture '' -Scope 'Utilisateur' -Kind 'CONTOSO\alex' -UninstallString '' -Source 'HKU via StdRegProv' -Owner 'S-1-5-21-1-2-3-1104'
+            Add-Software -Name 'Notes' -Version '1.0' -Publisher '' -InstallDate '' -SizeKb 0 -Location '' -Architecture '' -Scope 'Utilisateur' -Kind 'CONTOSO\sam' -UninstallString '' -Source 'HKU via StdRegProv' -Owner 'S-1-5-21-1-2-3-1105'
+        }
+        Assert-True (@($kept).Count -eq 4) 'Un vrai doublon 32/64 bits ou multi-profils a ete fusionne'
+        Assert-True ($software.Contains('-Source ''HKU via StdRegProv'' -Owner ([string]$sid)')) 'La portee utilisateur ne transmet pas le SID du profil'
         $code = [string](Get-DomeniaInventoryWorkerCode)
         [void]([scriptblock]::Create($code))
         # Point 93 : REG_MULTI_SZ lu comme tel ; chaque indice ecrit avec sa source.

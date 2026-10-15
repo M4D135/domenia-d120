@@ -112,7 +112,8 @@
         "Tag",
         "MemoryDevices",
         "MaxCapacityEx",
-        "MemoryErrorCorrection"
+        "MemoryErrorCorrection",
+        "Use"
       ],
       "Filter": "",
       "Mode": "All",
@@ -124,7 +125,7 @@
       "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
       "Compatibility": "MaxCapacityEx : Windows 10 / Windows Server 2016 ou ultérieur selon le fournisseur.",
       "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
-      "Limitations": "MaxCapacityEx est en kilo-octets. La capacité firmware n’est pas une garantie de compatibilité avec une barrette donnée.",
+      "Limitations": "MaxCapacityEx est en kilo-octets. La capacité firmware n’est pas une garantie de compatibilité avec une barrette donnée. Seuls les groupes d’usage 3 (mémoire système) comptent pour les emplacements de barrettes.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-physicalmemoryarray"
       ],
@@ -160,6 +161,14 @@
           "IsArray": false,
           "Unit": "code",
           "Description": "Type de correction d’erreurs"
+        },
+        {
+          "Name": "Use",
+          "CimType": "uint16",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "Usage du groupe : 3 = mémoire système ; 4 vidéo, 5 flash, 6 NVRAM, 7 cache"
         }
       ],
       "DocumentationReviewedUtc": "2026-10-13",

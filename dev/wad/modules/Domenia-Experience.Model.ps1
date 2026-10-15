@@ -19,6 +19,13 @@ function ConvertTo-SuiteNumber {
     return [Math]::Max($Minimum,[Math]::Min($Maximum,$number))
 }
 
+function Test-DomeniaScopedSettingName {
+    # Domain-scoped preferences are stored under a closed name pattern (prefix + SHA-256 of the domain DN), outside the
+    # declared defaults: database choice, health policies and approved BIOS references. Only these survive a reload.
+    param([AllowEmptyString()][string]$Name)
+    return ([string]$Name -cmatch '^(Storage\.Database|Dashboard\.HealthPolicies|Inventory\.BiosReferences)\.[0-9a-f]{64}$')
+}
+
 function ConvertTo-DomeniaExperienceSettings {
     param([System.Collections.IDictionary]$Values,[System.Collections.IDictionary]$Defaults)
     $out=[ordered]@{}
@@ -43,6 +50,16 @@ function ConvertTo-DomeniaExperienceSettings {
             $value=ConvertTo-SuiteNumber $value -Default ([double]$Defaults[$key]) -Minimum $range[0] -Maximum $range[1]
         }
         $out[$key]=$value
+    }
+    # Domain-scoped preferences pass through unchanged: string values only, at most 1 MiB each and 256 keys.
+    if($null -ne $Values){
+        $scoped=0
+        foreach($key in @($Values.Keys)){
+            if(($Defaults.Contains($key)) -or (-not (Test-DomeniaScopedSettingName ([string]$key)))){continue}
+            $value=$Values[$key]
+            if((-not ($value -is [string])) -or ($value.Length -gt 1048576) -or ($scoped -ge 256)){continue}
+            $out[[string]$key]=$value;$scoped++
+        }
     }
     return $out
 }

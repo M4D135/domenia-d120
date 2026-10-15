@@ -9,6 +9,9 @@ pwdold|Mot de passe du compte machine ancien
 laps.none|Expiration LAPS non visible
 laps.expired|Expiration LAPS dépassée
 bitlocker.none|Protection ou clé BitLocker non visible
+bitlocker.suspended|Protection BitLocker suspendue
+secureboot|Secure Boot désactivé (UEFI)
+certificates|Certificats machine expirés ou proches de lʼéchéance
 lowdisk|Disque presque plein
 disk.tight|Espace disque à surveiller
 uptime|Redémarrage ancien

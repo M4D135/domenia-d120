@@ -702,6 +702,7 @@ function Get-DomeniaRuntimeModulePlan {
         [pscustomobject]@{ File='Domenia-Experience.Model.ps1'; DotSource=$false; Functions=@(
             'ConvertTo-SuiteFlag',
             'ConvertTo-SuiteNumber',
+            'Test-DomeniaScopedSettingName',
             'ConvertTo-DomeniaExperienceSettings',
             'Get-SuiteDesign',
             'Get-SuitePalette',

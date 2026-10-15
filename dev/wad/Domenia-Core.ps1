@@ -3460,6 +3460,12 @@ function Load-DomeniaSettings {
                 if ($null -eq $property.Value) { continue }
                 $settings[$key] = $property.Value
             }
+            # Domain-scoped preferences (database choice, health policies, approved BIOS references) live under a
+            # closed name pattern outside the declared keys; ConvertTo-DomeniaExperienceSettings bounds them.
+            foreach ($property in @($stored.PSObject.Properties)) {
+                if (($settings.Contains($property.Name)) -or (-not (Test-DomeniaScopedSettingName ([string]$property.Name)))) { continue }
+                if ($property.Value -is [string]) { $settings[$property.Name] = $property.Value }
+            }
         }
     }
     catch { try { Write-AppLog "Reglages illisibles, valeurs par defaut appliquees : $($_.Exception.Message)" "WARN" } catch { } }
@@ -13089,6 +13095,15 @@ function Get-RegSubKeys {
     if ([int]$r.ReturnValue -ne 0) { return @() }
     return @($r.sNames)
 }
+function Get-RegSubKeyRead {
+    # EnumKey with its return code: 0 = read, 2 = key absent (nothing to list); any other code (5 = access denied)
+    # means the key was not read and must never be reported as empty.
+    param([uint32]$Hive,[string]$Key)
+    Assert-WCredentialAllowed -Context $Context -Channel Remote
+    $session = $script:PrimarySession
+    try{$r = Invoke-CimMethod -CimSession $session -Namespace 'root\cimv2' -ClassName 'StdRegProv' -MethodName 'EnumKey' -Arguments @{ hDefKey=$Hive; sSubKeyName=$Key } -ErrorAction Stop}catch{[void](Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote);throw}
+    return [pscustomobject]@{ Code=[int]$r.ReturnValue; Names=@(@($r.sNames) | Where-Object { $null -ne $_ }) }
+}
 function Get-RegMultiString {
     # REG_MULTI_SZ read by StdRegProv; $null when the value is absent or not readable.
     param([uint32]$Hive,[string]$Key,[string]$Name)
@@ -13275,9 +13290,11 @@ try {
         if ($index -gt 0) { Add-Item 'Memoire' 'Total installe' (Format-Size $total) 'Win32_PhysicalMemory'; $metrics.MemoryTotal = [double]$total; $metrics.MemorySource = 'Barrettes' }
         $metrics.MemoryModules = $index
         # Point 81: slots and firmware maximum from the SMBIOS memory arrays; a missing table leaves them unknown.
+        # Only system memory arrays (Use 3) count: a video, flash or NVRAM array declares no RAM slot.
         try {
             $slots = 0; $maximum = 0.0; $slotsKnown = $true; $maximumKnown = $true; $arrays = 0
             foreach ($array in (Get-Cim 'Win32_PhysicalMemoryArray')) {
+                if (($null -ne $array.Use) -and ([int]$array.Use -ne 3)) { continue }
                 $arrays++
                 if (($null -eq $array.MemoryDevices) -or ([int]$array.MemoryDevices -le 0)) { $slotsKnown = $false } else { $slots += [int]$array.MemoryDevices }
                 if (($null -eq $array.MaxCapacityEx) -or ([double]$array.MaxCapacityEx -le 0)) { $maximumKnown = $false } else { $maximum += [double]$array.MaxCapacityEx * 1024 }
@@ -13787,20 +13804,23 @@ try {
     if ($deep) {
         Invoke-Collector 'Processus' {
             # Point 95: two reads of the same class over a bounded interval give the processor time used meanwhile.
-            # Only times, sizes and names are kept: no command line or argument leaves the workstation.
+            # The query projects times, sizes and names only: no command line or argument is read on the workstation.
+            # The idle pseudo-process (PID 0) holds the unused processor time: it is never sampled as a consumer.
+            $processQuery = 'SELECT ProcessId,Name,CreationDate,KernelModeTime,UserModeTime,WorkingSetSize FROM Win32_Process WHERE ProcessId <> 0'
             $sampleWatch = [System.Diagnostics.Stopwatch]::StartNew()
-            $firstRead = @(Get-Cim 'Win32_Process')
+            $firstRead = @(Get-Cim '' 'root\cimv2' '' $processQuery)
             $firstMs = [long]$sampleWatch.ElapsedMilliseconds
             $intervalMs = 2000
             if ($null -ne $Payload.PSObject.Properties['ProcessSampleMs']) { $intervalMs = [Math]::Max(1000,[Math]::Min(5000,[int]$Payload.ProcessSampleMs)) }
             Start-Sleep -Milliseconds $intervalMs
-            $secondRead = @(Get-Cim 'Win32_Process')
+            $secondRead = @(Get-Cim '' 'root\cimv2' '' $processQuery)
             $secondMs = [long]$sampleWatch.ElapsedMilliseconds
             $sampledUtc = [datetime]::UtcNow.ToString('o')
             $before = @{}
             foreach ($p in $firstRead) { try { $before[[string]$p.ProcessId] = [pscustomobject]@{ Time=([double]$p.KernelModeTime + [double]$p.UserModeTime); Created=[string]$p.CreationDate } } catch { } }
             $items = New-Object Collections.ArrayList
             foreach ($p in @($secondRead | Select-Object -First 600)) {
+                if ([long]$p.ProcessId -eq 0) { continue }
                 $previous = $before[[string]$p.ProcessId]
                 $time = $null; try { $time = [double]$p.KernelModeTime + [double]$p.UserModeTime } catch { }
                 [void]$items.Add([pscustomobject]@{ Pid=[long]$p.ProcessId; Name=[string]$p.Name; FirstTime=$(if (($null -ne $previous) -and ([string]$previous.Created -eq [string]$p.CreationDate)) { $previous.Time } else { $null }); SecondTime=$time; WorkingSet=$(try { [double]$p.WorkingSetSize } catch { $null }) })
@@ -13858,12 +13878,17 @@ try {
             # certificate (property 32) and its properties; private keys are stored elsewhere and are never read.
             $storeKey = 'SOFTWARE\Microsoft\SystemCertificates\MY\Certificates'
             $registryRead = $false
+            $truncated = ''
+            $thumbprints = @()
             $found = New-Object Collections.ArrayList
             try {
-                $thumbprints = @(Get-RegSubKeys $HKLM $storeKey)
-                $registryRead = $true
+                # Return code 0: store listed; 2: no certificate key, a true empty store; any other code: not read,
+                # the WinRM path below is tried instead of reporting an empty store.
+                $enum = Get-RegSubKeyRead $HKLM $storeKey
+                if ($enum.Code -eq 0) { $thumbprints = @($enum.Names); $registryRead = $true }
+                elseif ($enum.Code -eq 2) { $registryRead = $true }
                 foreach ($thumbprint in @($thumbprints | Select-Object -First 50)) {
-                    if (-not (Test-CollectorBudget)) { Set-CollectorTruncated 'Lecture arretee : budget de la source atteint.'; break }
+                    if (-not (Test-CollectorBudget)) { $truncated = 'Lecture arretee : budget de la source atteint.'; Set-CollectorTruncated $truncated; break }
                     $blob = $null
                     try { $blob = Get-RegBinary $HKLM ($storeKey + '\' + [string]$thumbprint) 'Blob' } catch { if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw} }
                     if ($null -eq $blob) { continue }
@@ -13886,10 +13911,10 @@ try {
                         $certificate.Dispose()
                     } catch { }
                 }
-                if (@($thumbprints).Count -gt 50) { Set-CollectorTruncated ([string]@($thumbprints).Count + ' certificats, 50 lus.') }
+                if ((-not $truncated) -and (@($thumbprints).Count -gt 50)) { $truncated = [string]@($thumbprints).Count + ' certificats, 50 lus.'; Set-CollectorTruncated $truncated }
             } catch { if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw}; $registryRead = $false }
             if ($registryRead) {
-                $metrics.Certificates = [pscustomobject]@{ Source='Registre SystemCertificates\MY'; Items=@($found); ReadUtc=[datetime]::UtcNow.ToString('o') }
+                $metrics.Certificates = [pscustomobject]@{ Source='Registre SystemCertificates\MY'; Items=@($found); ReadUtc=[datetime]::UtcNow.ToString('o'); StoreCount=@($thumbprints).Count; Truncated=[bool]$truncated }
                 if ($found.Count -eq 0) { Add-Item 'Certificats machine' 'Etat' 'Aucun certificat machine' 'Registre SystemCertificates\MY' }
                 return
             }
@@ -15078,21 +15103,33 @@ function Convert-InstallDate {
     try { return ([datetime]$text).ToString('dd/MM/yyyy') } catch { return $text }
 }
 $seen = @{}
+$seenProducts = @{}
 function Add-Software {
     param(
         [string]$Name,[string]$Version,[string]$Publisher,$InstallDate,$SizeKb,
         [string]$Location,[string]$Architecture,[string]$Scope,[string]$Kind,
-        [string]$UninstallString,[string]$Source
+        [string]$UninstallString,[string]$Source,[string]$Owner = ''
     )
     $clean = ([string]$Name).Trim()
     if ([string]::IsNullOrWhiteSpace($clean)) { return }
     # Point 91: one row per uninstall entry of a scope, an architecture and, for the user scope, a profile. The same
     # product installed in both registry views or for two users stays two rows: duplicates are shown, not merged.
-    $owner = ''
-    if ($Scope -eq 'Utilisateur') { $owner = [string]$Kind }
-    $key = ($Scope + '|' + $owner + '|' + [string]$Architecture + '|' + $clean + '|' + [string]$Version).ToLowerInvariant()
+    # The profile is keyed by its SID when the source gives it, so two transports naming one account differently
+    # still meet. A source without architecture (SCCM) cannot tell the registry views apart: its row and any row
+    # of the same product merge, in either order, so a later transport never lists the same entry twice.
+    # PowerShell names are case-insensitive: the keys below never reuse a parameter name ($Owner, $Architecture).
+    $ownerKey = ''
+    if ($Scope -eq 'Utilisateur') { $ownerKey = if (-not [string]::IsNullOrWhiteSpace($Owner)) { $Owner.Trim() } else { [string]$Kind } }
+    $archKey = ([string]$Architecture).Trim()
+    $key = ($Scope + '|' + $ownerKey + '|' + $archKey + '|' + $clean + '|' + [string]$Version).ToLowerInvariant()
     if ($seen.ContainsKey($key)) { return }
+    $product = ($Scope + '|' + $ownerKey + '|' + $clean + '|' + [string]$Version).ToLowerInvariant()
+    if ($seenProducts.ContainsKey($product)) {
+        if ((-not $archKey) -or ($seenProducts[$product].ContainsKey(''))) { return }
+    }
+    else { $seenProducts[$product] = @{} }
     $seen[$key] = $true
+    $seenProducts[$product][$archKey.ToLowerInvariant()] = $true
     $size = ''
     try { if ([double]$SizeKb -gt 0) { $size = Format-Size ([double]$SizeKb * 1024) } } catch { }
     [void]$rows.Add([pscustomobject]@{
@@ -15364,7 +15401,7 @@ try {
                         try { $size = Get-RegDword $HKU $key 'EstimatedSize' } catch { }
                         Add-Software -Name $display -Version $version -Publisher $publisher -InstallDate $installDate `
                             -SizeKb $size -Location $location -Architecture '' -Scope 'Utilisateur' -Kind $account `
-                            -UninstallString $uninstall -Source 'HKU via StdRegProv'
+                            -UninstallString $uninstall -Source 'HKU via StdRegProv' -Owner ([string]$sid)
                     }
                     if ($userStopped -ne '') { break }
                 }
@@ -15427,7 +15464,8 @@ finally {
 }
 
 # Si les transports classiques n'ont pas rendu les portees demandees,
-# une seule tache locale complete la collecte. Add-Software deduplique.
+# une seule tache locale complete la collecte. Add-Software deduplique : profil par SID, ligne sans
+# architecture (SCCM) fusionnee avec la meme entree lue ensuite par x64 ou x86.
 $needTask = ($rows.Count -eq 0)
 # MO-09 : une portee utilisateur vide n'est pas un echec, c'est souvent qu'aucun utilisateur n'est
 # connecte. Elle ne declenche plus la collecte locale SYSTEM ; seul un inventaire machine entierement
@@ -15436,11 +15474,11 @@ if ($includeStore -and @($rows | Where-Object {[string]$_.Scope -eq 'Store'}).Co
 if ($needTask) {
     try {
         $classic='Inventaire logiciel classique vide ou incomplet.'
-        $local=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String("JG91dD1OZXctT2JqZWN0IENvbGxlY3Rpb25zLkFycmF5TGlzdApmdW5jdGlvbiBBZGQoJHAsW3N0cmluZ10kU2NvcGUsW3N0cmluZ10kQXJjaCxbc3RyaW5nXSRLaW5kLFtzdHJpbmddJFNvdXJjZSl7aWYoJHAuRGlzcGxheU5hbWUpe1t2b2lkXSRvdXQuQWRkKFtwc2N1c3RvbW9iamVjdF1Ae05hbWU9W3N0cmluZ10kcC5EaXNwbGF5TmFtZTtWZXJzaW9uPVtzdHJpbmddJHAuRGlzcGxheVZlcnNpb247UHVibGlzaGVyPVtzdHJpbmddJHAuUHVibGlzaGVyO0luc3RhbGxEYXRlPVtzdHJpbmddJHAuSW5zdGFsbERhdGU7U2l6ZUtiPSRwLkVzdGltYXRlZFNpemU7TG9jYXRpb249W3N0cmluZ10kcC5JbnN0YWxsTG9jYXRpb247QXJjaGl0ZWN0dXJlPSRBcmNoO1Njb3BlPSRTY29wZTtLaW5kPSRLaW5kO1VuaW5zdGFsbFN0cmluZz1bc3RyaW5nXSRwLlVuaW5zdGFsbFN0cmluZztTb3VyY2U9JFNvdXJjZX0pfX0KZm9yZWFjaCgkbSBpbiBAKEB7UGF0aD0nSEtMTTpcU09GVFdBUkVcTWljcm9zb2Z0XFdpbmRvd3NcQ3VycmVudFZlcnNpb25cVW5pbnN0YWxsXConO0FyY2g9J3g2NCd9LEB7UGF0aD0nSEtMTTpcU09GVFdBUkVcV09XNjQzMk5vZGVcTWljcm9zb2Z0XFdpbmRvd3NcQ3VycmVudFZlcnNpb25cVW5pbnN0YWxsXConO0FyY2g9J3g4Nid9KSl7Zm9yZWFjaCgkcCBpbiBAKEdldC1JdGVtUHJvcGVydHkgLVBhdGggJG0uUGF0aCAtRXJyb3JBY3Rpb24gU2lsZW50bHlDb250aW51ZSkpe2lmKC1ub3QkcC5EaXNwbGF5TmFtZSl7Y29udGludWV9OyR1cGQ9KFtzdHJpbmddJHAuUmVsZWFzZVR5cGUgLW1hdGNoICcoP2kpdXBkYXRlfGhvdGZpeHxzZWN1cml0eScpLW9yKC1ub3Rbc3RyaW5nXTo6SXNOdWxsT3JXaGl0ZVNwYWNlKFtzdHJpbmddJHAuUGFyZW50S2V5TmFtZSkpO2lmKCR1cGQtYW5kLW5vdFtib29sXSRQYXlsb2FkLkluY2x1ZGVVcGRhdGVzKXtjb250aW51ZX07JGtpbmQ9aWYoJHVwZCl7J01pc2UgYSBqb3VyJ31lbHNlaWYoW3N0cmluZ10kcC5XaW5kb3dzSW5zdGFsbGVyLWVxJzEnKXsnUGFxdWV0IE1TSSd9ZWxzZXsnQXBwbGljYXRpb24nfTtBZGQgJHAgJ01hY2hpbmUnICRtLkFyY2ggJGtpbmQgJ1JlZ2lzdHJlIGxvY2FsJ319CmlmKFtib29sXSRQYXlsb2FkLkluY2x1ZGVQZXJVc2VyKXtmb3JlYWNoKCRoIGluIEAoR2V0LUNoaWxkSXRlbSAnUmVnaXN0cnk6OkhLRVlfVVNFUlMnIC1FcnJvckFjdGlvbiBTaWxlbnRseUNvbnRpbnVlKSl7aWYoJGguUFNDaGlsZE5hbWUgLW5vdG1hdGNoICdeUy0xLTUtMjEtJyAtb3IgJGguUFNDaGlsZE5hbWUgLW1hdGNoICdfQ2xhc3NlcyQnKXtjb250aW51ZX07JHNpZD0kaC5QU0NoaWxkTmFtZTskYWNjb3VudD0kc2lkO3RyeXskYWNjb3VudD0oTmV3LU9iamVjdCBTZWN1cml0eS5QcmluY2lwYWwuU2VjdXJpdHlJZGVudGlmaWVyKCRzaWQpKS5UcmFuc2xhdGUoW1NlY3VyaXR5LlByaW5jaXBhbC5OVEFjY291bnRdKS5WYWx1ZX1jYXRjaHt9OyRwYXRoPSdSZWdpc3RyeTo6SEtFWV9VU0VSU1wnKyRzaWQrJ1xTT0ZUV0FSRVxNaWNyb3NvZnRcV2luZG93c1xDdXJyZW50VmVyc2lvblxVbmluc3RhbGxcKic7Zm9yZWFjaCgkcCBpbiBAKEdldC1JdGVtUHJvcGVydHkgLVBhdGggJHBhdGggLUVycm9yQWN0aW9uIFNpbGVudGx5Q29udGludWUpKXtBZGQgJHAgJ1V0aWxpc2F0ZXVyJyAnJyAkYWNjb3VudCAnSEtFWV9VU0VSUyBsb2NhbCd9fX0KaWYoW2Jvb2xdJFBheWxvYWQuSW5jbHVkZVN0b3JlKXt0cnl7Zm9yZWFjaCgkcCBpbiBAKEdldC1BcHB4UGFja2FnZSAtQWxsVXNlcnMgLUVycm9yQWN0aW9uIFNpbGVudGx5Q29udGludWUpKXtbdm9pZF0kb3V0LkFkZChbcHNjdXN0b21vYmplY3RdQHtOYW1lPVtzdHJpbmddJHAuTmFtZTtWZXJzaW9uPVtzdHJpbmddJHAuVmVyc2lvbjtQdWJsaXNoZXI9W3N0cmluZ10kcC5QdWJsaXNoZXI7SW5zdGFsbERhdGU9Jyc7U2l6ZUtiPTA7TG9jYXRpb249W3N0cmluZ10kcC5JbnN0YWxsTG9jYXRpb247QXJjaGl0ZWN0dXJlPVtzdHJpbmddJHAuQXJjaGl0ZWN0dXJlO1Njb3BlPSdTdG9yZSc7S2luZD0kKGlmKCRwLklzRnJhbWV3b3JrKXsnRnJhbWV3b3JrIFN0b3JlJ31lbHNleydBcHBsaWNhdGlvbiBTdG9yZSd9KTtVbmluc3RhbGxTdHJpbmc9Jyc7U291cmNlPSdHZXQtQXBweFBhY2thZ2UgbG9jYWwnfSl9fWNhdGNoe319Cltwc2N1c3RvbW9iamVjdF1Ae1Jvd3M9QCgkb3V0KX0="))
+        $local=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String("JG91dD1OZXctT2JqZWN0IENvbGxlY3Rpb25zLkFycmF5TGlzdApmdW5jdGlvbiBBZGQoJHAsW3N0cmluZ10kU2NvcGUsW3N0cmluZ10kQXJjaCxbc3RyaW5nXSRLaW5kLFtzdHJpbmddJFNvdXJjZSxbc3RyaW5nXSRPd25lcj0nJyl7aWYoJHAuRGlzcGxheU5hbWUpe1t2b2lkXSRvdXQuQWRkKFtwc2N1c3RvbW9iamVjdF1Ae05hbWU9W3N0cmluZ10kcC5EaXNwbGF5TmFtZTtWZXJzaW9uPVtzdHJpbmddJHAuRGlzcGxheVZlcnNpb247UHVibGlzaGVyPVtzdHJpbmddJHAuUHVibGlzaGVyO0luc3RhbGxEYXRlPVtzdHJpbmddJHAuSW5zdGFsbERhdGU7U2l6ZUtiPSRwLkVzdGltYXRlZFNpemU7TG9jYXRpb249W3N0cmluZ10kcC5JbnN0YWxsTG9jYXRpb247QXJjaGl0ZWN0dXJlPSRBcmNoO1Njb3BlPSRTY29wZTtLaW5kPSRLaW5kO1VuaW5zdGFsbFN0cmluZz1bc3RyaW5nXSRwLlVuaW5zdGFsbFN0cmluZztTb3VyY2U9JFNvdXJjZTtPd25lcj0kT3duZXJ9KX19CmZvcmVhY2goJG0gaW4gQChAe1BhdGg9J0hLTE06XFNPRlRXQVJFXE1pY3Jvc29mdFxXaW5kb3dzXEN1cnJlbnRWZXJzaW9uXFVuaW5zdGFsbFwqJztBcmNoPSd4NjQnfSxAe1BhdGg9J0hLTE06XFNPRlRXQVJFXFdPVzY0MzJOb2RlXE1pY3Jvc29mdFxXaW5kb3dzXEN1cnJlbnRWZXJzaW9uXFVuaW5zdGFsbFwqJztBcmNoPSd4ODYnfSkpe2ZvcmVhY2goJHAgaW4gQChHZXQtSXRlbVByb3BlcnR5IC1QYXRoICRtLlBhdGggLUVycm9yQWN0aW9uIFNpbGVudGx5Q29udGludWUpKXtpZigtbm90JHAuRGlzcGxheU5hbWUpe2NvbnRpbnVlfTskdXBkPShbc3RyaW5nXSRwLlJlbGVhc2VUeXBlIC1tYXRjaCAnKD9pKXVwZGF0ZXxob3RmaXh8c2VjdXJpdHknKS1vcigtbm90W3N0cmluZ106OklzTnVsbE9yV2hpdGVTcGFjZShbc3RyaW5nXSRwLlBhcmVudEtleU5hbWUpKTtpZigkdXBkLWFuZC1ub3RbYm9vbF0kUGF5bG9hZC5JbmNsdWRlVXBkYXRlcyl7Y29udGludWV9OyRraW5kPWlmKCR1cGQpeydNaXNlIGEgam91cid9ZWxzZWlmKFtzdHJpbmddJHAuV2luZG93c0luc3RhbGxlci1lcScxJyl7J1BhcXVldCBNU0knfWVsc2V7J0FwcGxpY2F0aW9uJ307QWRkICRwICdNYWNoaW5lJyAkbS5BcmNoICRraW5kICdSZWdpc3RyZSBsb2NhbCd9fQppZihbYm9vbF0kUGF5bG9hZC5JbmNsdWRlUGVyVXNlcil7Zm9yZWFjaCgkaCBpbiBAKEdldC1DaGlsZEl0ZW0gJ1JlZ2lzdHJ5OjpIS0VZX1VTRVJTJyAtRXJyb3JBY3Rpb24gU2lsZW50bHlDb250aW51ZSkpe2lmKCRoLlBTQ2hpbGROYW1lIC1ub3RtYXRjaCAnXlMtMS01LTIxLScgLW9yICRoLlBTQ2hpbGROYW1lIC1tYXRjaCAnX0NsYXNzZXMkJyl7Y29udGludWV9OyRzaWQ9JGguUFNDaGlsZE5hbWU7JGFjY291bnQ9JHNpZDt0cnl7JGFjY291bnQ9KE5ldy1PYmplY3QgU2VjdXJpdHkuUHJpbmNpcGFsLlNlY3VyaXR5SWRlbnRpZmllcigkc2lkKSkuVHJhbnNsYXRlKFtTZWN1cml0eS5QcmluY2lwYWwuTlRBY2NvdW50XSkuVmFsdWV9Y2F0Y2h7fTskcGF0aD0nUmVnaXN0cnk6OkhLRVlfVVNFUlNcJyskc2lkKydcU09GVFdBUkVcTWljcm9zb2Z0XFdpbmRvd3NcQ3VycmVudFZlcnNpb25cVW5pbnN0YWxsXConO2ZvcmVhY2goJHAgaW4gQChHZXQtSXRlbVByb3BlcnR5IC1QYXRoICRwYXRoIC1FcnJvckFjdGlvbiBTaWxlbnRseUNvbnRpbnVlKSl7QWRkICRwICdVdGlsaXNhdGV1cicgJycgJGFjY291bnQgJ0hLRVlfVVNFUlMgbG9jYWwnICRzaWR9fX0KaWYoW2Jvb2xdJFBheWxvYWQuSW5jbHVkZVN0b3JlKXt0cnl7Zm9yZWFjaCgkcCBpbiBAKEdldC1BcHB4UGFja2FnZSAtQWxsVXNlcnMgLUVycm9yQWN0aW9uIFNpbGVudGx5Q29udGludWUpKXtbdm9pZF0kb3V0LkFkZChbcHNjdXN0b21vYmplY3RdQHtOYW1lPVtzdHJpbmddJHAuTmFtZTtWZXJzaW9uPVtzdHJpbmddJHAuVmVyc2lvbjtQdWJsaXNoZXI9W3N0cmluZ10kcC5QdWJsaXNoZXI7SW5zdGFsbERhdGU9Jyc7U2l6ZUtiPTA7TG9jYXRpb249W3N0cmluZ10kcC5JbnN0YWxsTG9jYXRpb247QXJjaGl0ZWN0dXJlPVtzdHJpbmddJHAuQXJjaGl0ZWN0dXJlO1Njb3BlPSdTdG9yZSc7S2luZD0kKGlmKCRwLklzRnJhbWV3b3JrKXsnRnJhbWV3b3JrIFN0b3JlJ31lbHNleydBcHBsaWNhdGlvbiBTdG9yZSd9KTtVbmluc3RhbGxTdHJpbmc9Jyc7U291cmNlPSdHZXQtQXBweFBhY2thZ2UgbG9jYWwnfSl9fWNhdGNoe319Cltwc2N1c3RvbW9iamVjdF1Ae1Jvd3M9QCgkb3V0KX0="))
         $fb=Invoke-WRemoteTaskScript $Context $computer $local ([pscustomobject]@{IncludePerUser=$includePerUser;IncludeStore=$includeStore;IncludeUpdates=$includeUpdates}) ([Math]::Min(90,[int]$Context.TaskFallbackTimeoutSeconds)) $classic
         $fallbackLabel=if([string]$fb.DomeniaTransport -eq 'PsExec'){'PsExec'}else{'TaskScheduler'}
         $fallbackTransport = $fallbackLabel
-        foreach($p in @($fb.Rows)) { Add-Software -Name ([string]$p.Name) -Version ([string]$p.Version) -Publisher ([string]$p.Publisher) -InstallDate $p.InstallDate -SizeKb $p.SizeKb -Location ([string]$p.Location) -Architecture ([string]$p.Architecture) -Scope ([string]$p.Scope) -Kind ([string]$p.Kind) -UninstallString ([string]$p.UninstallString) -Source ($fallbackLabel+' local SYSTEM / '+[string]$p.Source) }
+        foreach($p in @($fb.Rows)) { Add-Software -Name ([string]$p.Name) -Version ([string]$p.Version) -Publisher ([string]$p.Publisher) -InstallDate $p.InstallDate -SizeKb $p.SizeKb -Location ([string]$p.Location) -Architecture ([string]$p.Architecture) -Scope ([string]$p.Scope) -Kind ([string]$p.Kind) -UninstallString ([string]$p.UninstallString) -Source ($fallbackLabel+' local SYSTEM / '+[string]$p.Source) -Owner ([string]$p.Owner) }
         $fallbackTasks=if($fallbackLabel -eq 'TaskScheduler'){1}else{0};try{$taskBytes=[long]$fb.DomeniaBytesSent+[long]$fb.DomeniaBytesReceived}catch{}
         $fbCount = @($fb.Rows).Count
         $fbStatus = if ($fbCount -gt 0) { 'OK' } else { 'VIDE' }

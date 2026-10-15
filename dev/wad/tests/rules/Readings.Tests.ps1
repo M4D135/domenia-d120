@@ -67,6 +67,13 @@ Test-Case -Id 'RDG-081' -Name 'Point 81 : capacite des barrettes, emplacements, 
     Assert-Equal 'Inconnu' ([string](Get-RdgFact $vm 'Emplacements et capacité maximale').Etat) 'tables non relevees'
     $partial = @(Get-DomeniaMemoryReading (New-RdgSource 'hw.memorymodules' @([pscustomobject]@{ DeviceLocator = 'A'; Capacity = 0 }, [pscustomobject]@{ DeviceLocator = 'B'; Capacity = 4294967296 })) $arrays $usage)
     Assert-Equal 'Estime' ([string](Get-RdgFact $partial 'Mémoire installée (barrettes)').Etat) 'capacite inconnue : total minimal'
+    # Review: a flash or video array (Use other than 3) declares no RAM slot and no RAM maximum.
+    $mixed = New-RdgSource 'hw.memoryarrays' @([pscustomobject]@{ MemoryDevices = 4; MaxCapacityEx = 67108864; Use = 3 }, [pscustomobject]@{ MemoryDevices = 2; MaxCapacityEx = 16384; Use = 5 })
+    $withFlash = @(Get-DomeniaMemoryReading $modules $mixed $usage)
+    Assert-Equal '4 emplacement(s) : 2 occupé(s), 2 libre(s)' ([string](Get-RdgFact $withFlash 'Emplacements mémoire').Valeur) 'groupe flash compte comme emplacement'
+    Assert-Equal '64 Go' ([string](Get-RdgFact $withFlash 'Capacité maximale déclarée').Valeur) 'groupe flash ajoute au maximum'
+    $flashOnly = @(Get-DomeniaMemoryReading $modules (New-RdgSource 'hw.memoryarrays' @([pscustomobject]@{ MemoryDevices = 2; MaxCapacityEx = 16384; Use = 5 })) $usage)
+    Assert-Equal 'Inconnu' ([string](Get-RdgFact $flashOnly 'Emplacements et capacité maximale').Etat) 'aucun groupe systeme : emplacements inconnus'
 }
 Test-Case -Id 'RDG-082' -Name 'Point 82 : prevision seulement avec un historique suffisant, regulier et de taille constante' -Body {
     $base = [datetime]::SpecifyKind([datetime]'2026-09-01T12:00:00',[DateTimeKind]::Utc)
@@ -134,6 +141,7 @@ Test-Case -Id 'RDG-083' -Name 'Point 83 : etat du pilote, disque virtuel, compte
     $virtual = Get-RdgFact $facts 'Disque VM'
     Assert-Equal 'Inconnu' ([string]$virtual.Etat) 'etat 5 : inconnu, jamais sain'
     Assert-True ([string]$virtual.Limite -like 'Disque virtuel*') 'support physique invisible annonce'
+    Assert-True ([string]$virtual.Limite -like '*état inconnu nʼest pas un disque sain*') ([string]$virtual.Limite)
     Assert-True ([string](Get-RdgFact $facts 'Compteurs de fiabilité de NVMe 1').Hypothese -like '*non corrigées*') 'erreurs non corrigees signalees'
     Assert-Equal 'Inconnu' ([string](Get-RdgFact $facts 'Compteurs de fiabilité de Disque VM').Etat) 'aucun compteur pour ce disque'
     $refused = @(Get-DomeniaStorageHealthReading $physical (ConvertTo-DomeniaReadingSource -ProbeId 'disk.reliability' -Entry ([pscustomobject]@{ Error = 'Access denied' })))
@@ -324,14 +332,17 @@ Test-Case -Id 'RDG-095' -Name 'Point 95 : part du processeur sur un intervalle b
     $sample = [pscustomobject]@{ IntervalMs = 2000; SampledUtc = '2026-10-14T10:00:00Z'; LogicalProcessors = 4; Items = @(
         [pscustomobject]@{ Pid = 10; Name = 'calc.exe'; FirstTime = 10000000; SecondTime = 50000000; WorkingSet = 104857600 },
         [pscustomobject]@{ Pid = 11; Name = 'new.exe'; FirstTime = $null; SecondTime = 900000; WorkingSet = 1048576 },
-        [pscustomobject]@{ Pid = 12; Name = 'idle.exe'; FirstTime = 20000000; SecondTime = 22000000; WorkingSet = $null }) }
+        [pscustomobject]@{ Pid = 12; Name = 'idle.exe'; FirstTime = 20000000; SecondTime = 22000000; WorkingSet = $null },
+        [pscustomobject]@{ Pid = 0; Name = 'System Idle Process'; FirstTime = 1000000000; SecondTime = 1070000000; WorkingSet = 8192 }) }
     $load = Measure-DomeniaProcessLoad -Sample $sample
     Assert-True $load.Measured
     Assert-Equal 'calc.exe' ([string]@($load.Items)[0].Name)
     Assert-Equal 50.0 ([double]@($load.Items)[0].Percent)
     Assert-Equal 2.5 ([double]@($load.Items)[1].Percent)
     Assert-Equal 1 ([int]$load.Unmatched) 'processus demarre pendant la mesure'
-    Assert-Equal 52.5 ([double]$load.TotalPercent)
+    Assert-Equal 52.5 ([double]$load.TotalPercent) 'temps inactif (PID 0) hors du total mesure'
+    Assert-Equal 0 @(@($load.Items) | Where-Object { ([string]$_.Name -eq 'System Idle Process') -or ([string]$_.Pid -eq '0') }).Count 'processus inactif liste comme consommateur'
+    Assert-Equal 2 @($load.Items).Count
     Assert-Equal 100.0 ([double]@($load.Items)[0].WorkingSetMb)
     Assert-False (Measure-DomeniaProcessLoad -Sample ([pscustomobject]@{ IntervalMs = 2000; LogicalProcessors = 0; Items = @() })).Measured 'processeurs logiques inconnus'
     Assert-False (Measure-DomeniaProcessLoad -Sample $null).Measured 'aucune mesure'
@@ -353,6 +364,15 @@ Test-Case -Id 'RDG-100' -Name 'Point 100 : echeances des certificats machine, sa
     $expired = Get-RdgFact @($reading.Facts) 'Certificat CN=PC-1.contoso.test'
     Assert-True ([string]$expired.Valeur -like 'Expiré le 01/10/2026*clé privée associée déclarée (non lue)*') ([string]$expired.Valeur)
     Assert-False (Get-DomeniaCertificateReading -Certificates $null -NowUtc $now).Read 'non lu'
+    Assert-False $reading.Truncated 'lecture complete'
+    $store | Add-Member -NotePropertyName StoreCount -NotePropertyValue 73
+    $store | Add-Member -NotePropertyName Truncated -NotePropertyValue $true
+    $cut = Get-DomeniaCertificateReading -Certificates $store -NowUtc $now
+    Assert-True $cut.Truncated 'lecture partielle non signalee'
+    Assert-Equal 73 ([int]$cut.StoreCount)
+    $partial = Get-RdgFact @($cut.Facts) 'Lecture du magasin Personnel'
+    Assert-Equal 'Inconnu' ([string]$partial.Etat)
+    Assert-Equal 'Partielle : 3 certificat(s) lu(s) sur 73' ([string]$partial.Valeur)
 }
 Test-Case -Id 'RDG-092' -Name 'Point 92 : version, correctifs CBS, source WSUS, conformite jamais deduite' -Body {
     $rows = @((New-RdgRow 'Systeme d exploitation' 'Build' '22631'), (New-RdgRow 'Systeme d exploitation' 'Revision de build' '4317'), (New-RdgRow 'Systeme d exploitation' 'Version commerciale' '23H2'), (New-RdgRow 'Windows Update' 'Serveur WSUS' 'http://wsus.contoso.test:8530'), (New-RdgRow 'Windows Update' 'Strategie WSUS appliquee' 'Oui'), (New-RdgRow 'Windows Update' 'Derniere recherche' '2026-10-14 06:00:00'))

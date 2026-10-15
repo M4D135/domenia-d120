@@ -402,7 +402,10 @@ function Get-DomeniaComputerBoardData {
     }
 
     $wsus = & $value 'Windows Update' 'Serveur WSUS'
-    if ($wsus) { Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.wsus' -Kind Value -Value 'WSUS' -Detail $wsus) }
+    # Point 92: a WSUS address without UseWUServer=1 is not used by the update client (same reading as computer.updates).
+    $wsusApplied = & $value 'Windows Update' 'Strategie WSUS appliquee'
+    if ($wsus -and ($wsusApplied -eq 'Non')) { Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.wsus' -Kind Value -Value 'Windows Update' -Detail ('Adresse WSUS déclarée, non appliquée (UseWUServer) : ' + $wsus)) }
+    elseif ($wsus) { Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.wsus' -Kind Value -Value 'WSUS' -Detail $wsus) }
     elseif (([bool](Get-DomeniaCategorySummary $rows 'Windows Update').Read) -or ($answered.ContainsKey('Windows Update'))) { Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.wsus' -Kind Value -Value 'Windows Update' -Detail 'Aucun serveur WSUS configuré') }
 
     # Point 93: only a confirmed obligation raises a point; partial hints are shown without one.
@@ -441,8 +444,10 @@ function Get-DomeniaComputerBoardData {
         $expiredCount = @($certificates.Expired).Count; $soonCount = @($certificates.Soon).Count
         if ($expiredCount) { & $note 'Warn' ([string]$expiredCount + ' certificat(s) machine expiré(s) : ' + (@($certificates.Expired | Select-Object -First 2) -join ', ') + '.') 'certificates' }
         elseif ($soonCount) { & $note 'Warn' ([string]$soonCount + ' certificat(s) machine expirant dans les 30 jours.') 'certificates' }
-        $certificateDetail = if ($certificates.Total) { [string]$expiredCount + ' expiré(s), ' + [string]$soonCount + ' sous 30 jours, ' + [string]$certificates.Valid + ' valide(s)' } else { 'Aucun certificat dans le magasin Personnel de lʼordinateur' }
-        Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.certificates' -Kind Value -Value ([string]$certificates.Total) -Detail $certificateDetail -State $(if ($expiredCount -or $soonCount) { 'Warn' } else { 'Ok' }))
+        $certificateDetail = if ($certificates.Total) { [string]$expiredCount + ' expiré(s), ' + [string]$soonCount + ' sous 30 jours, ' + [string]$certificates.Valid + ' valide(s)' } elseif ($certificates.Truncated) { 'Aucun certificat lu' } else { 'Aucun certificat dans le magasin Personnel de lʼordinateur' }
+        # A partial read never shows a good state: the certificates left unread are not known to be valid.
+        if ($certificates.Truncated) { $certificateDetail = $certificateDetail + ' · lecture partielle : ' + [string]$certificates.Total + ' lu(s)' + $(if ($null -ne $certificates.StoreCount) { ' sur ' + [string]$certificates.StoreCount } else { '' }) }
+        Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.certificates' -Kind Value -Value ([string]$certificates.Total) -Detail $certificateDetail -State $(if ($expiredCount -or $soonCount) { 'Warn' } elseif ($certificates.Truncated) { '' } else { 'Ok' }))
     }
     foreach ($check in $checks) {
         if ($certificates.Read -and ([string]$check.Key -eq 'computer.certificates')) { continue }

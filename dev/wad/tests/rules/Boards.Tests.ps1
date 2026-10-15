@@ -432,3 +432,33 @@ Test-Case 'BRD-081' 'Points 81, 92, 93, 95, 98, 99 et 100 : le tableau du poste 
     Assert-True (@($otherTexts | Where-Object { $_ -like 'Warn:Secure Boot d*sactiv* sur un micrologiciel UEFI.' }).Count -eq 1) ($otherTexts -join ' | ')
     Assert-Equal 'Warn' ([string]$other.Entries['computer.secureboot'].State)
 }
+Test-Case 'BRD-081B' 'Points 98 a 100 (revue) : BitLocker suspendu, Secure Boot et certificats se desactivent dans les regles de sante' {
+    $ids = @('bitlocker.suspended', 'secureboot', 'certificates')
+    $catalog = @(Get-DomeniaHealthRuleCatalog | ForEach-Object { [string]$_.Id })
+    foreach ($id in $ids) { Assert-True ($catalog -contains $id) ('regle absente du catalogue : ' + $id) }
+    $rows = @((New-BrdRow 'Pare-feu' 'Profil domaine' 'Active (strategie)'), (New-BrdRow 'Antivirus' 'Defender' 'Actif, A jour'), (New-BrdRow 'BitLocker' 'Volume C:' 'Protection Desactive'), (New-BrdRow 'BitLocker' 'Volume C: chiffrement' 'Entierement chiffre'), (New-BrdRow 'BIOS et firmware' 'Secure Boot' 'Desactive'), (New-BrdRow 'BIOS et firmware' 'Type de firmware' 'UEFI'))
+    $store = [pscustomobject]@{ Source = 'Registre'; Items = @([pscustomobject]@{ Subject = 'CN=old'; Issuer = 'CN=CA'; NotAfterUtc = '2020-01-01T12:00:00Z'; Thumbprint = 'AA'; Usages = @(); KeyDeclared = $false }) }
+    $raised = New-BrdInventory -Rows $rows
+    $raised.Metrics | Add-Member -NotePropertyName Certificates -NotePropertyValue $store
+    $before = @(@((Get-DomeniaComputerBoardData -Result $raised).Attention) | ForEach-Object { [string]$_.Point })
+    foreach ($id in $ids) { Assert-True ($before -contains $id) ('point attendu : ' + $id + ' / ' + ($before -join ', ')) }
+    $policy = ConvertTo-DomeniaHealthPolicy @{ DisabledRules = $ids }
+    Assert-Equal 3 @($policy.DisabledRules).Count 'regles ignorees par la politique'
+    $quiet = New-BrdInventory -Rows $rows
+    $quiet.Metrics | Add-Member -NotePropertyName Certificates -NotePropertyValue $store
+    $after = @(@((Get-DomeniaComputerBoardData -Result $quiet -HealthPolicy $policy).Attention) | ForEach-Object { [string]$_.Point })
+    foreach ($id in $ids) { Assert-False ($after -contains $id) ('point desactive encore compte : ' + $id) }
+}
+Test-Case 'BRD-081C' 'Points 92 et 100 (revue) : adresse WSUS non appliquee et magasin de certificats lu en partie' {
+    $declared = @((New-BrdRow 'Windows Update' 'Serveur WSUS' 'http://wsus.contoso.test:8530'), (New-BrdRow 'Windows Update' 'Strategie WSUS appliquee' 'Non'))
+    $result = New-BrdInventory -Rows $declared
+    $result.Metrics | Add-Member -NotePropertyName Certificates -NotePropertyValue ([pscustomobject]@{ Source = 'Registre'; StoreCount = 73; Truncated = $true; Items = @([pscustomobject]@{ Subject = 'CN=new'; Issuer = 'CN=CA'; NotAfterUtc = '2099-01-01T12:00:00Z'; Thumbprint = 'BB'; Usages = @(); KeyDeclared = $false }) })
+    $data = Get-DomeniaComputerBoardData -Result $result
+    Assert-Equal 'Windows Update' ([string]$data.Entries['computer.wsus'].Value) 'adresse WSUS sans UseWUServer annoncee comme WSUS'
+    Assert-True ([string]$data.Entries['computer.wsus'].Detail -like '*UseWUServer*wsus.contoso.test*') ([string]$data.Entries['computer.wsus'].Detail)
+    $applied = Get-DomeniaComputerBoardData -Result (New-BrdInventory -Rows @((New-BrdRow 'Windows Update' 'Serveur WSUS' 'http://wsus.contoso.test:8530'), (New-BrdRow 'Windows Update' 'Strategie WSUS appliquee' 'Oui')))
+    Assert-Equal 'WSUS' ([string]$applied.Entries['computer.wsus'].Value)
+    Assert-Equal '1' ([string]$data.Entries['computer.certificates'].Value)
+    Assert-Equal '' ([string]$data.Entries['computer.certificates'].State) 'lecture partielle affichee en bon etat'
+    Assert-True ([string]$data.Entries['computer.certificates'].Detail -like '*lecture partielle : 1 lu(s) sur 73') ([string]$data.Entries['computer.certificates'].Detail)
+}

@@ -223,11 +223,16 @@ function Get-DomeniaMemoryReading {
             Add-DomeniaReadingFact $facts 'Mémoire installée (barrettes)' ((Format-DomeniaReadingSize $total) + ' en ' + [string]$moduleCount + ' barrette(s) : ' + ($slots.ToArray() -join ' ; ')) 'Constate' 'Win32_PhysicalMemory' 'Capacité déclarée par le firmware (SMBIOS).' '' $Modules.CheckedUtc
         }
     }
+    # Only system memory arrays (Use 3) hold RAM slots; a video, flash or NVRAM array is left out. An older reading
+    # without the Use column keeps every array.
+    $systemArrays = @()
+    if ($Arrays.State -eq 'Read') { $systemArrays = @(@($Arrays.Rows) | Where-Object { $use = Get-DomeniaReadingNumber $_ 'Use'; ($null -eq $use) -or ($use -eq 3) }) }
     if ($Arrays.State -ne 'Read') { Add-DomeniaReadingSourceFact $facts $Arrays 'Emplacements et capacité maximale' 'Win32_PhysicalMemoryArray' }
     elseif (-not @($Arrays.Rows).Count) { Add-DomeniaReadingFact $facts 'Emplacements et capacité maximale' 'Aucune table mémoire exposée' 'Inconnu' 'Win32_PhysicalMemoryArray' 'Firmware incomplet ou machine virtuelle : aucun emplacement libre nʼest déduit.' '' $Arrays.CheckedUtc }
+    elseif (-not $systemArrays.Count) { Add-DomeniaReadingFact $facts 'Emplacements et capacité maximale' ('Aucun groupe de mémoire système déclaré (' + [string]@($Arrays.Rows).Count + ' groupe(s) dʼun autre usage)') 'Inconnu' 'Win32_PhysicalMemoryArray' 'Groupes vidéo, flash ou NVRAM seulement : aucun emplacement libre nʼest déduit.' '' $Arrays.CheckedUtc }
     else {
         $slotTotal = 0; $slotKnown = $true; $maximum = 0.0; $maximumKnown = $true
-        foreach ($array in @($Arrays.Rows)) {
+        foreach ($array in $systemArrays) {
             $devices = Get-DomeniaReadingNumber $array 'MemoryDevices'
             if (($null -eq $devices) -or ($devices -le 0)) { $slotKnown = $false } else { $slotTotal += [int]$devices }
             $kilobytes = Get-DomeniaReadingNumber $array 'MaxCapacityEx'
@@ -397,7 +402,7 @@ function Get-DomeniaStorageHealthReading {
         if ($health -eq 0) { Add-DomeniaReadingFact $facts $name ('Sain selon le pilote · ' + $describe) 'Constate' 'MSFT_PhysicalDisk' $limit '' $Physical.CheckedUtc }
         elseif ($health -eq 1) { Add-DomeniaReadingFact $facts $name ('Avertissement · ' + $describe) 'Constate' 'MSFT_PhysicalDisk' $limit 'Le pilote signale un problème : sauvegarder puis vérifier le disque.' $Physical.CheckedUtc }
         elseif ($health -eq 2) { Add-DomeniaReadingFact $facts $name ('Défaillant · ' + $describe) 'Constate' 'MSFT_PhysicalDisk' $limit 'Disque déclaré défaillant : sauvegarder les données et prévoir son remplacement.' $Physical.CheckedUtc }
-        else { Add-DomeniaReadingFact $facts $name ('État de santé inconnu (' + (Get-DomeniaReadingCode $health '') + ') · ' + $describe) 'Inconnu' 'MSFT_PhysicalDisk' 'Un état inconnu nʼest pas un disque sain.' '' $Physical.CheckedUtc }
+        else { Add-DomeniaReadingFact $facts $name ('État de santé inconnu (' + (Get-DomeniaReadingCode $health '') + ') · ' + $describe) 'Inconnu' 'MSFT_PhysicalDisk' (Join-DomeniaReadingText @($limit,'Un état inconnu nʼest pas un disque sain.') ' ') '' $Physical.CheckedUtc }
         $counterTitle = 'Compteurs de fiabilité de ' + $name
         if ($Reliability.State -ne 'Read') { Add-DomeniaReadingSourceFact $facts $Reliability $counterTitle 'MSFT_StorageReliabilityCounter'; continue }
         if (-not $counters.ContainsKey($id)) { Add-DomeniaReadingFact $facts $counterTitle 'Aucun compteur exposé pour ce disque' 'Inconnu' 'MSFT_StorageReliabilityCounter' 'Pilote ou contrôleur sans compteurs SMART exploitables : aucune conclusion.' '' $Reliability.CheckedUtc; continue }
@@ -1236,8 +1241,11 @@ function Get-DomeniaCertificateReading {
     # expiring within SoonDays, or valid; nothing is exported and the private key is never read.
     param($Certificates,[Parameter(Mandatory=$true)][datetime]$NowUtc,[int]$SoonDays=30)
     $now = ConvertTo-DomeniaUtcDate $NowUtc
-    if ($null -eq $Certificates) { return [pscustomobject]@{ Read = $false; Total = 0; Expired = @(); Soon = @(); Valid = 0; Facts = @() } }
+    if ($null -eq $Certificates) { return [pscustomobject]@{ Read = $false; Total = 0; Expired = @(); Soon = @(); Valid = 0; Facts = @(); Truncated = $false; StoreCount = $null } }
     $facts = New-Object System.Collections.Generic.List[object]
+    # A read cut short (more than 50 certificates, or the collector budget) lists part of the store only.
+    $truncated = [bool](Get-DomeniaMember $Certificates 'Truncated' $false)
+    $storeCount = ConvertTo-DomeniaProbeNumber (Get-DomeniaMember $Certificates 'StoreCount' $null)
     $expired = New-Object System.Collections.Generic.List[string]; $soon = New-Object System.Collections.Generic.List[string]; $valid = 0; $total = 0
     $source = [string](Get-DomeniaMember $Certificates 'Source' 'Registre')
     foreach ($item in @(Get-DomeniaMember $Certificates 'Items' @())) {
@@ -1253,13 +1261,15 @@ function Get-DomeniaCertificateReading {
         elseif ($days -le $SoonDays) { $soon.Add($subject); Add-DomeniaReadingFact $facts ('Certificat ' + $subject) ('Expire le ' + $when + ' (dans ' + [string]$days + ' jour(s)) · ' + $details) 'Constate' $source 'Magasin Personnel de lʼordinateur.' 'Échéance proche : vérifier le renouvellement automatique.' }
         else { $valid++; Add-DomeniaReadingFact $facts ('Certificat ' + $subject) ('Valide jusquʼau ' + $when + ' · ' + $details) 'Constate' $source 'Magasin Personnel de lʼordinateur.' '' }
     }
-    return [pscustomobject]@{ Read = $true; Total = $total; Expired = $expired.ToArray(); Soon = $soon.ToArray(); Valid = $valid; Facts = $facts.ToArray() }
+    if ($truncated) { Add-DomeniaReadingFact $facts 'Lecture du magasin Personnel' ('Partielle : ' + [string]$total + ' certificat(s) lu(s)' + $(if ($null -ne $storeCount) { ' sur ' + [string][int]$storeCount } else { '' })) 'Inconnu' $source 'Les certificats non lus ne sont ni comptés ni déclarés valides.' }
+    return [pscustomobject]@{ Read = $true; Total = $total; Expired = $expired.ToArray(); Soon = $soon.ToArray(); Valid = $valid; Facts = $facts.ToArray(); Truncated = $truncated; StoreCount = $(if ($null -ne $storeCount) { [int]$storeCount } else { $null }) }
 }
 
 function Measure-DomeniaProcessLoad {
     # Point 95: processor share of each process between two reads of Win32_Process taken IntervalMs apart.
     # Share = processor time used meanwhile / (interval x logical processors). A process started, ended or whose
-    # identifier was reused during the interval has no share; nothing is extrapolated.
+    # identifier was reused during the interval has no share; nothing is extrapolated. The idle pseudo-process (PID 0)
+    # counts the unused processor time: it is neither a consumer nor part of the measured total.
     param($Sample,[int]$Top=10)
     $interval = ConvertTo-DomeniaProbeNumber (Get-DomeniaMember $Sample 'IntervalMs' $null)
     $logical = ConvertTo-DomeniaProbeNumber (Get-DomeniaMember $Sample 'LogicalProcessors' $null)
@@ -1269,6 +1279,8 @@ function Measure-DomeniaProcessLoad {
     if (($null -eq $logical) -or ($logical -lt 1)) { $result.Reason = 'Nombre de processeurs logiques non lu : part de processeur non calculable.'; return [pscustomobject]$result }
     $items = New-Object System.Collections.Generic.List[object]; $total = 0.0; $unmatched = 0
     foreach ($item in @(Get-DomeniaMember $Sample 'Items' @())) {
+        $processId = ConvertTo-DomeniaProbeNumber (Get-DomeniaMember $item 'Pid' $null)
+        if ((($null -ne $processId) -and ($processId -eq 0)) -or ([string](Get-DomeniaMember $item 'Name' '') -in @('System Idle Process','Idle'))) { continue }
         $first = ConvertTo-DomeniaProbeNumber (Get-DomeniaMember $item 'FirstTime' $null)
         $second = ConvertTo-DomeniaProbeNumber (Get-DomeniaMember $item 'SecondTime' $null)
         if (($null -eq $first) -or ($null -eq $second) -or ($second -lt $first)) { $unmatched++; continue }
