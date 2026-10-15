@@ -532,9 +532,13 @@ function ConvertFrom-DomeniaTaskResultCode {
 
 function Get-DomeniaCommandExecutable {
     # Point 96: the program of a startup command, without its arguments, which may hold a password, a token or a
-    # private path. A quoted program is taken whole; otherwise the text up to the first known program extension,
-    # else the first word. The ComputerInventory worker carries an exact copy of this function (checked by the
-    # Workstation rules): the arguments never leave the worker.
+    # private path. A quoted program is taken whole. Only an unquoted absolute path (drive, UNC or %VARIABLE%\) may
+    # run across spaces, up to the first known program extension, and never across a switch (a space then - or /),
+    # another drive, a character Windows refuses in a path, an assignment (=) or a chained command (&): such an
+    # unquoted path is ambiguous for Windows itself, the scan stops at the first program it can name. Anything else
+    # keeps its first word only, so an argument written before a later program never survives. The ComputerInventory
+    # worker carries an exact copy of this function (checked by the Workstation rules): the arguments never leave
+    # the worker.
     param([AllowEmptyString()][AllowNull()][string]$Command)
     $text = ([string]$Command).Trim()
     if (-not $text) { return '' }
@@ -543,11 +547,9 @@ function Get-DomeniaCommandExecutable {
         if ($end -gt 1) { return $text.Substring(1, $end - 1).Trim() }
         return ''
     }
-    $program = [regex]::Match($text, '^.*?\.(?:exe|com|bat|cmd|ps1|vbs|vbe|js|jse|wsf|lnk|scr|msc|cpl|pif|hta|msi|dll)(?=\s|,|$)', [Text.RegularExpressions.RegexOptions]::IgnoreCase)
-    if ($program.Success) { return $program.Value.Trim() }
-    $space = $text.IndexOfAny([char[]]@(' ', [char]9))
-    if ($space -gt 0) { return $text.Substring(0, $space) }
-    return $text
+    $program = [regex]::Match($text, '^(?:[A-Za-z]:\\|\\\\|%[A-Za-z0-9_()]+%\\)(?:[^"<>|?*:=&,\s]|\s(?![-/]))*?\.(?:exe|com|bat|cmd|ps1|vbs|vbe|js|jse|wsf|lnk|scr|msc|cpl|pif|hta|msi|dll)(?=\s|,|$)', [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    if ($program.Success) { return $program.Value }
+    return @($text -split '[\s,]', 2)[0]
 }
 
 function ConvertFrom-DomeniaTaskCacheDynamicInfo {

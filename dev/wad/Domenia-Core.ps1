@@ -13746,9 +13746,13 @@ function Get-CimDate {
 # Point 96: exact copies of the Workstation.Model rules (the worker runspace does not load the modules).
 function Get-DomeniaCommandExecutable {
     # Point 96: the program of a startup command, without its arguments, which may hold a password, a token or a
-    # private path. A quoted program is taken whole; otherwise the text up to the first known program extension,
-    # else the first word. The ComputerInventory worker carries an exact copy of this function (checked by the
-    # Workstation rules): the arguments never leave the worker.
+    # private path. A quoted program is taken whole. Only an unquoted absolute path (drive, UNC or %VARIABLE%\) may
+    # run across spaces, up to the first known program extension, and never across a switch (a space then - or /),
+    # another drive, a character Windows refuses in a path, an assignment (=) or a chained command (&): such an
+    # unquoted path is ambiguous for Windows itself, the scan stops at the first program it can name. Anything else
+    # keeps its first word only, so an argument written before a later program never survives. The ComputerInventory
+    # worker carries an exact copy of this function (checked by the Workstation rules): the arguments never leave
+    # the worker.
     param([AllowEmptyString()][AllowNull()][string]$Command)
     $text = ([string]$Command).Trim()
     if (-not $text) { return '' }
@@ -13757,11 +13761,9 @@ function Get-DomeniaCommandExecutable {
         if ($end -gt 1) { return $text.Substring(1, $end - 1).Trim() }
         return ''
     }
-    $program = [regex]::Match($text, '^.*?\.(?:exe|com|bat|cmd|ps1|vbs|vbe|js|jse|wsf|lnk|scr|msc|cpl|pif|hta|msi|dll)(?=\s|,|$)', [Text.RegularExpressions.RegexOptions]::IgnoreCase)
-    if ($program.Success) { return $program.Value.Trim() }
-    $space = $text.IndexOfAny([char[]]@(' ', [char]9))
-    if ($space -gt 0) { return $text.Substring(0, $space) }
-    return $text
+    $program = [regex]::Match($text, '^(?:[A-Za-z]:\\|\\\\|%[A-Za-z0-9_()]+%\\)(?:[^"<>|?*:=&,\s]|\s(?![-/]))*?\.(?:exe|com|bat|cmd|ps1|vbs|vbe|js|jse|wsf|lnk|scr|msc|cpl|pif|hta|msi|dll)(?=\s|,|$)', [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    if ($program.Success) { return $program.Value }
+    return @($text -split '[\s,]', 2)[0]
 }
 function ConvertFrom-DomeniaTaskCacheDynamicInfo {
     # Point 96: dates the Task Scheduler keeps in the DynamicInfo value of its registry cache
@@ -14742,11 +14744,12 @@ try {
         Invoke-Collector 'Taches planifiees' {
             # Point 96: author, last run, last result and missed runs of the non-Microsoft tasks, by the read-only
             # Get-ScheduledTaskInfo in the same WinRM round trip. Actions, arguments and principals are never read.
-            if (-not $script:WinrmReady) {
-                # Without WinRM: the documented MSFT_ScheduledTask class, projected on its name, folder, state and author
-                # through the CIM session, gives the inventory; the last start date comes from the Task Scheduler
-                # registry cache (StdRegProv: Tree\<task> Id, then Tasks\{id} DynamicInfo, a binary value Microsoft
-                # does not document). The Actions value, the arguments and the last result are not read this way.
+            # Without WinRM, or when its session fails for a reason other than the credential (listener or HTTP policy,
+            # Kerberos or SPN, remoting error): the documented MSFT_ScheduledTask class, projected on its name, folder,
+            # state and author through the CIM session, gives the inventory; the last start date comes from the Task
+            # Scheduler registry cache (StdRegProv: Tree\<task> Id, then Tasks\{id} DynamicInfo, a binary value Microsoft
+            # does not document). The Actions value, the arguments and the last result are not read this way.
+            $readTasksByCim = {
                 $cacheRoot = 'SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache'
                 $stateText = @{ '0'='Unknown'; '1'='Disabled'; '2'='Queued'; '3'='Ready'; '4'='Running' }
                 $listed = @(Get-Cim '' 'root\Microsoft\Windows\TaskScheduler' '' 'SELECT TaskName,TaskPath,State,Author FROM MSFT_ScheduledTask' | Where-Object { ([string]$_.State -ne '1') -and ([string]$_.TaskPath -notlike '\Microsoft\*') } | Select-Object -First 40)
@@ -14770,17 +14773,39 @@ try {
                 }
                 if ($unread -gt 0) { Set-CollectorTruncated ('Dernier demarrage non lu pour ' + [string]$unread + ' tache(s) : cache du Planificateur reserve aux administrateurs du poste, absent ou budget atteint.') }
                 if ($listed.Count -eq 0) { Add-Item 'Taches planifiees' 'Etat' 'Aucune tache hors Microsoft active' 'MSFT_ScheduledTask (CIM)' }
-                return
             }
-            $tasks = Invoke-Remote -TimeoutSeconds 30 -ScriptBlock {
-                Get-ScheduledTask -ErrorAction SilentlyContinue |
-                    Where-Object { ($_.State -ne 'Disabled') -and ($_.TaskPath -notlike '\Microsoft\*') } |
-                    Select-Object -First 40 |
-                    ForEach-Object {
-                        $info = $null
-                        try { $info = $_ | Get-ScheduledTaskInfo -ErrorAction Stop } catch { $info = $null }
-                        [pscustomobject]@{ TaskName = [string]$_.TaskName; TaskPath = [string]$_.TaskPath; State = [string]$_.State; Author = [string]$_.Author; InfoRead = ($null -ne $info); LastRunTime = $(if ($null -ne $info) { $info.LastRunTime } else { $null }); LastTaskResult = $(if ($null -ne $info) { $info.LastTaskResult } else { $null }); MissedRuns = $(if ($null -ne $info) { $info.NumberOfMissedRuns } else { $null }) }
-                    }
+            if (-not $script:WinrmReady) { & $readTasksByCim; return }
+            $tasks = @()
+            $winrmError = ''
+            try {
+                $tasks = Invoke-Remote -TimeoutSeconds 30 -ScriptBlock {
+                    Get-ScheduledTask -ErrorAction SilentlyContinue |
+                        Where-Object { ($_.State -ne 'Disabled') -and ($_.TaskPath -notlike '\Microsoft\*') } |
+                        Select-Object -First 40 |
+                        ForEach-Object {
+                            $info = $null
+                            try { $info = $_ | Get-ScheduledTaskInfo -ErrorAction Stop } catch { $info = $null }
+                            [pscustomobject]@{ TaskName = [string]$_.TaskName; TaskPath = [string]$_.TaskPath; State = [string]$_.State; Author = [string]$_.Author; InfoRead = ($null -ne $info); LastRunTime = $(if ($null -ne $info) { $info.LastRunTime } else { $null }); LastTaskResult = $(if ($null -ne $info) { $info.LastTaskResult } else { $null }); MissedRuns = $(if ($null -ne $info) { $info.NumberOfMissedRuns } else { $null }) }
+                        }
+                }
+            }
+            catch {
+                # A refused or paused credential stops the collection; any other WinRM failure is said, then read by CIM.
+                if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw}
+                $winrmError = (([string]$_.Exception.Message) -replace '\s+', ' ').Trim()
+                if (-not $winrmError) { $winrmError = 'erreur sans message' }
+                if ($winrmError.Length -gt 160) { $winrmError = $winrmError.Substring(0, 160) + '...' }
+            }
+            if ($winrmError) {
+                try { & $readTasksByCim }
+                catch {
+                    if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw}
+                    throw ('WinRM : ' + $winrmError + ' ; lecture CIM : ' + [string]$_.Exception.Message)
+                }
+                $cimLabel = [string]$script:CollectorTransport
+                if ([string]::IsNullOrWhiteSpace($cimLabel)) { $cimLabel = 'CIM' }
+                $script:CollectorTransport = $cimLabel + ' apres echec WinRM (' + $winrmError + ')'
+                return
             }
             foreach ($t in (@($tasks) | Select-Object -First 40)) {
                 $author = [string]$t.Author; if ([string]::IsNullOrWhiteSpace($author)) { $author = 'non declare' }
