@@ -3402,6 +3402,8 @@ function Get-DomeniaDefaultSettings {
         OuFavouritesJson = '[]'
         OuFavouritesImported = $false
         GridLayoutsJson = '{}'
+        # DS-20: columns of the result grid chosen by the operator (JSON of column keys; empty: the six SP-02 columns).
+        'Search.ResultColumnsJson' = ''
         OuBookmarksJson = '{}'
         UxNavCollapsed   = $false
         UxHelpVisible    = $true
@@ -5578,15 +5580,12 @@ function Get-MainXaml {
                                 <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock TextTrimming="CharacterEllipsis" VerticalAlignment="Center"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="{Binding Login}"/><Style.Triggers><DataTrigger Binding="{Binding Type}" Value="Machine"><Setter Property="Text" Value="{Binding Association}"/></DataTrigger><DataTrigger Binding="{Binding Type}" Value="OU"><Setter Property="Text" Value=""/></DataTrigger><DataTrigger Binding="{Binding Type}" Value="Conteneur"><Setter Property="Text" Value=""/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></DataTemplate></DataGridTemplateColumn.CellTemplate>
                               </DataGridTemplateColumn>
                               <DataGridTextColumn Header="UPN / DNS" Binding="{Binding UPN}" Width="235"/>
-                              <DataGridTextColumn Header="Association mémorisée" SortMemberPath="Association" Binding="{Binding Association}" Width="230">
-                                <DataGridTextColumn.HeaderStyle><Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}"><Setter Property="ToolTip" Value="Utilisateur associé au poste ou postes associés au compte. Cette information mémorisée ne prouve pas une session actuelle."/></Style></DataGridTextColumn.HeaderStyle>
-                              </DataGridTextColumn>
-                              <DataGridTextColumn Header="Source lien" SortMemberPath="LinkSource" Binding="{Binding LinkSource}" Width="155">
-                                <DataGridTextColumn.HeaderStyle><Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}"><Setter Property="ToolTip" Value="Origine de l’association mémorisée : console observée, import ou saisie manuelle."/></Style></DataGridTextColumn.HeaderStyle>
-                              </DataGridTextColumn>
-                              <DataGridTextColumn Header="Qualification" SortMemberPath="LinkConfidence" Binding="{Binding LinkConfidence}" Width="90">
-                                <DataGridTextColumn.HeaderStyle><Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}"><Setter Property="ToolTip" Value="Badge de la source du lien (Declare, Observe, Importe, Indice, Contradictoire) ; ce nʼest jamais une probabilité de connexion actuelle."/></Style></DataGridTextColumn.HeaderStyle>
-                              </DataGridTextColumn>
+                              <!-- DS-20: the association, its qualification and its source in one cell (« Camille Martin · Observé », source in the
+                                   tooltip); the former columns Source lien and Qualification are merged here. -->
+                              <DataGridTemplateColumn Header="Association mémorisée" SortMemberPath="Association" ClipboardContentBinding="{Binding Association}" Width="260">
+                                <DataGridTemplateColumn.HeaderStyle><Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}"><Setter Property="ToolTip" Value="Utilisateur associé au poste ou postes associés au compte, suivi de la qualification du lien (Observé, Déclaré, Importé, Indice, Contradictoire) ; lʼinfobulle de la cellule donne sa source. Cette information mémorisée ne prouve pas une session actuelle ; la qualification nʼest jamais une probabilité."/></Style></DataGridTemplateColumn.HeaderStyle>
+                                <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock TextTrimming="CharacterEllipsis" VerticalAlignment="Center"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="ToolTip" Value="{Binding LinkSource}"/><Style.Triggers><DataTrigger Binding="{Binding LinkSource}" Value=""><Setter Property="ToolTip" Value="{x:Null}"/></DataTrigger></Style.Triggers></Style></TextBlock.Style><Run Text="{Binding Association, Mode=OneWay}"/><Run Foreground="{DynamicResource MutedColor}"><Run.Style><Style TargetType="Run"><Setter Property="Text" Value="{Binding LinkConfidence, Mode=OneWay, StringFormat=' · {0}'}"/><Style.Triggers><DataTrigger Binding="{Binding LinkConfidence}" Value=""><Setter Property="Text" Value=""/></DataTrigger><DataTrigger Binding="{Binding Association}" Value=""><Setter Property="Text" Value=""/></DataTrigger></Style.Triggers></Style></Run.Style></Run></TextBlock></DataTemplate></DataGridTemplateColumn.CellTemplate>
+                              </DataGridTemplateColumn>
                               <DataGridTemplateColumn Header="Présence réseau" SortMemberPath="Presence" Width="175">
                                 <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Presence}" ToolTip="{Binding PresenceDetail}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/></DataTemplate></DataGridTemplateColumn.CellTemplate>
                               </DataGridTemplateColumn>

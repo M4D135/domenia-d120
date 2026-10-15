@@ -103,7 +103,8 @@ def audit():
         ck('Reserved retry slot: '+kind,retry.get('Visibility')=='Hidden' and retry.get('ToolTip') and retry.get('AutomationProperties.Name'))
         ck('Non-modal placeholder: '+kind,byname[kind+'ReadPlaceholder'].tag==w+'Border')
     ck('No extra Window in main XAML',sum(n.tag==w+'Window' for n in xml.iter())==1)
-    grid=byname['DgObjects'];ck('Existing data columns retained',len(grid.find(w+'DataGrid.Columns'))==18)
+    # DS-20 (SP-02): Source lien and Qualification are merged into the association cell: 16 data columns.
+    grid=byname['DgObjects'];ck('Existing data columns retained',len(grid.find(w+'DataGrid.Columns'))==16)
     ck('Result row virtualisation preserved',grid.get('EnableRowVirtualization')=='True' and grid.get('EnableColumnVirtualization')=='True')
     ck('No busy state injected in the global layout',byname['LblSelectionReadState'].get('Height')=='20')
     for name in ['ObjectReadRoot','ComputerReadRoot']:

@@ -358,6 +358,11 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaResultProfileLabels',
             'Resolve-DomeniaColumnPreferences',
             'Test-DomeniaProfileChangeAllowed',
+            'Get-DomeniaResultColumnCatalog',
+            'Resolve-DomeniaResultColumnChoice',
+            'Set-DomeniaResultColumnChoice',
+            'ConvertTo-DomeniaResultColumnChoiceText',
+            'Test-DomeniaResultColumnShown',
             'Get-DomeniaSelectionPreview',
             'ConvertTo-DomeniaPreviewLoadState',
             'ConvertTo-DomeniaSelectionPreviewText',
@@ -810,7 +815,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaLiveProbeCode',
             'Get-DomeniaLiveCacheCode'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Live.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Storage.UI.ps1'); File='Domenia-Live.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Live.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Storage.UI.ps1'); File='Domenia-Live.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaLiveIdentityKey',
             'Get-DomeniaLiveIdentitySignal',
             'Initialize-DomeniaLive',
@@ -1287,6 +1292,15 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaSearchResultMenuEntries',
             'New-DomeniaSearchResultMenu',
             'Open-DomeniaSearchResultMenu',
+            'Initialize-DomeniaResultColumns',
+            'Get-DomeniaColumnHeaderFromSource',
+            'Update-DomeniaResultColumnVisibility',
+            'Get-DomeniaResultColumnMenuEntries',
+            'Add-DomeniaResultColumnMenuItems',
+            'Open-DomeniaResultColumnMenu',
+            'Save-DomeniaResultColumnChoice',
+            'Set-DomeniaResultColumnVisible',
+            'Reset-DomeniaResultColumns',
             'Update-DomeniaWorkViewList',
             'Get-DomeniaSearchQueryFavorites',
             'Initialize-DomeniaSearchQuerySelector',

@@ -62,6 +62,8 @@ La barre du haut cherche dans tout le domaine, tous types d'objets, sans filtre 
 - Pendant une écriture, la recherche attend : « Recherche différée : écriture active ou à vérifier. ».
 
 La liste tient dans une seule carte : en tête, le chemin cliquable de l’OU (ou « Recherche dans l’annuaire » après la barre du haut) et le nombre de lignes affichées ; puis les filtres, les requêtes, le filtre de la liste et les résultats. « Actualiser » et « Exporter CSV » sont dans le menu « ⋯ » ; l’état de la sélection et celui de la liste partagent une seule ligne sous les actions.
+
+Colonnes de la liste : six par défaut (Type, Nom, Utilisateur connecté, Association mémorisée, Présence réseau, État). L’association, sa qualification et sa source (en infobulle) tiennent dans une seule colonne ; l’export CSV garde la valeur de l’association. Le choix fait par « Colonnes… » (clic droit sur un en-tête ou menu « ⋯ ») est une préférence du poste, Search.ResultColumnsJson (clés de colonnes seulement) ; largeur et position restent celles de la disposition enregistrée (GridLayoutsJson). Une préférence absente ou illisible revient aux six colonnes. Les colonnes propres aux postes, aux associations et aux comptes restent masquées quand la liste ne contient pas d’objet concerné.
 - Classement : Features.SearchRanking (vrai) ordonne les résultats d'une recherche globale ; sans lui, ils restent dans l'ordre d'arrivée.
 
 Le badge orange « Dernière requête AD : délai dépassé » signale une requête trop longue, sans établir une panne réseau. Affinez la recherche et consultez le journal. « AD injoignable » en rouge correspond à une erreur réseau. La prochaine lecture AD réussie rétablit le badge normal.

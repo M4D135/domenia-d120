@@ -22,6 +22,8 @@ foreach($name in @('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText',
 # FI-05 / PF-06: the progressive search takes its timer from the protected factory of the engine.
 . (Join-Path $wad 'modules\Domenia-Engine.Model.ps1')
 . (Join-Path $wad 'modules\Domenia-Engine.UI.ps1')
+# DS-20: the result columns follow the column rules of Shell.Model (choice of the operator, relevance).
+. (Join-Path $wad 'modules\Domenia-Shell.Model.ps1')
 . (Join-Path $wad 'modules\Domenia-Live.UI.ps1')
 # Explicit dependencies; none can issue a network call, launch a process or read the real database.
 function Get-CfgValue {param($Section,$Name,$Default);return $Default}
@@ -219,7 +221,7 @@ if($env:OS -eq 'Windows_NT' -and -not $SkipWpf){
             $layout.Tag='OU';$window.UpdateLayout()
             foreach($name in @('CmbGlobalType','CmbPresenceFilter','TxtSuiteResultFilter')){Expect ($window.FindName($name).IsEnabled -and $window.FindName($name).IsVisible) ('OU filter still hidden or disabled: '+$name)}
             $presence=@($window.FindName('DgObjects').Columns|Where-Object{$_.SortMemberPath -eq 'Presence'})
-            Expect ($presence.Count -eq 1 -and $presence[0].Header -eq 'Présence réseau' -and $window.FindName('DgObjects').Columns.Count -eq 18)
+            Expect ($presence.Count -eq 1 -and $presence[0].Header -eq 'Présence réseau' -and $window.FindName('DgObjects').Columns.Count -eq 16)
         }finally{$reader.Close();if($null -ne $window){$window.Close()}}
     }
     # DS-03: unwired if a filter shows a bare « Tous » or « 100 » again, or if the display changes the value read by the rules.

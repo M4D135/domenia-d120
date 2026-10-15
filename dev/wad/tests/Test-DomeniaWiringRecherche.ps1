@@ -208,6 +208,7 @@ function Reset-Fixture {
     if($null -ne $script:FilterChangeTimer){$script:FilterChangeTimer.Stop()};$script:FilterChangeTimer=$null;$script:PendingFilterChange=$null
     if($null -ne $script:TreeRenderTimer){$script:TreeRenderTimer.Stop()};$script:TreeRenderTimer=$null;$script:TreeRenderJobs=@{}
     $script:OuFavouriteKeys=$null;$script:FleetScopes=[Collections.Generic.List[string]]::new();$script:SearchListHasMachine=$false;$script:ParkRun=$null
+    $script:ResultColumnChoice=$null;$script:ResultColumnMenuBound=$false;$script:SearchListHasUser=$false;$script:SearchListHasAccount=$false
     $script:Ctrl=New-TestControls
     $script:Window=[Windows.Window]::new()
     Initialize-DomeniaLive
@@ -999,13 +1000,60 @@ Case 'UX-25 Liste de lʼhistorique : bandeau, Actualiser, type, presence et filt
 }
 
 # ---------------------------------------------------------------- real main XAML
+# DS-20 / SP-02: unwired if the grid shows every column again, if « Colonnes… » does not change and store the choice,
+# or if a chosen workstation column appears in a list without workstations.
+Case 'DS-20 Colonnes choisies : six par defaut, choix enregistre, colonnes poste seulement avec un poste' {
+    $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml));$window=$null
+    try{
+        $window=[Windows.Markup.XamlReader]::Load($reader)
+        $script:Ctrl=@{}
+        foreach($match in [regex]::Matches((Get-MainXaml),'x:Name="([^"]+)"')){$control=$window.FindName($match.Groups[1].Value);if($null -ne $control){$script:Ctrl[$match.Groups[1].Value]=$control}}
+        $script:Window=$window;$script:ResultColumnChoice=$null;$script:ResultColumnMenuBound=$false
+        $script:SearchListHasMachine=$true;$script:SearchListHasUser=$true;$script:SearchListHasAccount=$true
+        Initialize-DomeniaResultColumns
+        $grid=$window.FindName('DgObjects')
+        $shown={@($grid.Columns|Where-Object{$_.Visibility -eq 'Visible'}|ForEach-Object{[string]$_.Header})}
+        Expect (((& $shown) -join '|') -ceq 'Type|Nom|Utilisateur connecté (console)|Association mémorisée|Présence réseau|Etat') ('Colonnes par defaut : '+((& $shown) -join '|'))
+        Set-DomeniaResultColumnVisible -Key 'OS' -Show $true
+        Set-DomeniaResultColumnVisible -Key 'Presence' -Show $false
+        Expect (((& $shown) -contains 'OS') -and -not ((& $shown) -contains 'Présence réseau')) ('Choix non applique : '+((& $shown) -join '|'))
+        Expect ([string]$script:Settings['Search.ResultColumnsJson'] -ceq '{"Version":1,"Visible":["Type","Name","SessionDisplay","Association","State","OS"]}') ('Choix enregistre : '+[string]$script:Settings['Search.ResultColumnsJson'])
+        $script:SearchListHasMachine=$false;$script:SearchListHasUser=$true;Update-DomeniaResultColumnVisibility
+        Expect (-not ((& $shown) -contains 'OS') -and -not ((& $shown) -contains 'Utilisateur connecté (console)') -and ((& $shown) -contains 'Association mémorisée')) ('Colonne poste affichee sans poste : '+((& $shown) -join '|'))
+        # A restart reads the stored choice back.
+        $script:ResultColumnChoice=$null;$script:SearchListHasMachine=$true;Initialize-DomeniaResultColumns
+        Expect ((& $shown) -contains 'OS') 'Le choix enregistre nʼest pas relu.'
+        # « Colonnes… »: one entry per column, Nom locked, an entry unticked hides its column.
+        $menu=[Windows.Controls.ContextMenu]::new();Add-DomeniaResultColumnMenuItems -Target $menu
+        $items=@($menu.Items|Where-Object{$_ -is [Windows.Controls.MenuItem] -and $_.IsCheckable})
+        Expect (($items.Count -eq 16) -and (-not @($items|Where-Object{[string]$_.Tag -eq 'Name'})[0].IsEnabled)) ('Entrees : '+$items.Count)
+        $os=@($items|Where-Object{[string]$_.Tag -eq 'OS'})[0];$os.IsChecked=$false
+        $os.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.MenuItem]::ClickEvent))
+        Expect (-not ((& $shown) -contains 'OS')) 'Decocher une colonne ne la masque pas.'
+        Reset-DomeniaResultColumns
+        Expect (((& $shown) -join '|') -ceq 'Type|Nom|Utilisateur connecté (console)|Association mémorisée|Présence réseau|Etat') 'Retour aux colonnes par defaut incomplet.'
+        # Right click: only a column header opens the choice; a cell keeps the row menu.
+        $header=[Windows.Controls.Primitives.DataGridColumnHeader]::new();$label=[Windows.Controls.TextBlock]::new();$header.Content=$label
+        Expect ([object]::ReferenceEquals((Get-DomeniaColumnHeaderFromSource $label),$header)) 'En-tete non reconnu.'
+        $cell=[Windows.Controls.DataGridCell]::new();$inner=[Windows.Controls.TextBlock]::new();$cell.Content=$inner
+        Expect ($null -eq (Get-DomeniaColumnHeaderFromSource $inner)) 'Une cellule ouvre le choix des colonnes.'
+        # The association cell carries its qualification; the CSV keeps the association value.
+        $association=@($grid.Columns|Where-Object{[string]$_.Header -eq 'Association mémorisée'})[0]
+        $content=$association.CellTemplate.LoadContent()
+        Expect (($association.ClipboardContentBinding.Path.Path -eq 'Association') -and ($content.Inlines.Count -eq 2)) 'Cellule dʼassociation non fusionnee.'
+        Expect ((Get-TaskCount @('GlobalSearch','OpenAdObject')) -eq 0) 'Choisir des colonnes a lance une lecture.'
+    }finally{$reader.Close();if($null -ne $window){$window.Close()}}
+}
 Case 'Main XAML carries the search controls wired by the code' {
     $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml));$window=$null
     try{
         $window=[Windows.Markup.XamlReader]::Load($reader)
         foreach($n in @('LblSearchHint','BtnSearchMore','CmbWorkView','BtnWorkView','BtnNavBack','BtnNavForward','OuRestoreBanner','LblOuRestoreMessage','BtnOuRestoreRetry','BtnOuRestoreDismiss')){Expect ($null -ne $window.FindName($n)) ('Controle absent : '+$n)}
         $grid=$window.FindName('DgObjects')
-        Expect ($grid.Columns.Count -eq 18) 'Colonnes de resultats modifiees.'
+        # DS-20: Source lien and Qualification are merged into the association cell (16 columns).
+        Expect ($grid.Columns.Count -eq 16) 'Colonnes de resultats modifiees.'
+        $headers=@($grid.Columns|ForEach-Object{[string]$_.Header})
+        Expect ((-not ($headers -contains 'Source lien')) -and (-not ($headers -contains 'Qualification')) -and ($headers -contains 'Association mémorisée')) ('Colonnes : '+($headers -join ', '))
         $trigger=@($grid.RowStyle.Triggers|Where-Object{$_ -is [Windows.DataTrigger] -and [string]$_.Value -eq 'Compte admin'})
         Expect ($trigger.Count -eq 1) 'Marque des comptes dʼadministration absente.'
         $script:Ctrl=@{}

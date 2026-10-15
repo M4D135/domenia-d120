@@ -116,10 +116,12 @@ function Test-DomeniaLiveSearchActive {
 }
 function Set-DomeniaLoginColumnVisible {
     # Decision David 2026-10-05: the 'Compte' column (user login, linked account of a workstation, group account name)
-    # is shown only when at least one listed row has such an account.
+    # is shown only when at least one listed row has such an account. DS-20: and only when the operator chose it.
     param([bool]$Visible)
+    $script:SearchListHasAccount=$Visible
     $grid=Get-DomeniaControl 'DgObjects';if($null -eq $grid){return}
-    $wanted=if($Visible){'Visible'}else{'Collapsed'}
+    $show=($Visible -and (($null -eq $script:ResultColumnChoice) -or (@($script:ResultColumnChoice) -contains 'Login')))
+    $wanted=if($show){'Visible'}else{'Collapsed'}
     foreach($column in @($grid.Columns)){if([string]$column.Header -ceq 'Compte' -and [string]$column.Visibility -ne $wanted){$column.Visibility=$wanted}}
 }
 function Update-DomeniaLoginColumnFromRows {
@@ -141,14 +143,18 @@ function Set-DomeniaResultColumns {
     param([switch]$RevealOnly)
     # Decision David 2026-10-07: one table for every object type. Workstation columns appear only when the list
     # holds a workstation; association and logon columns only when it holds users or workstations.
+    # DS-20 / SP-02: a column is shown only when the operator chose it too ($script:ResultColumnChoice; « Colonnes… »).
     $grid=Get-DomeniaControl 'DgObjects';if($null -eq $grid){return}
     $machine=[bool]$script:SearchListHasMachine;$linkable=($machine -or [bool]$script:SearchListHasUser)
     foreach($column in @($grid.Columns)){
-        $header=[string]$column.Header
-        $show=$null
-        if($header -in @('Utilisateur connecté (console)','Vérification utilisateur','Présence réseau','OS')){$show=$machine}
-        elseif($header -in @('Association mémorisée','Source lien','Qualification','Derniere connexion')){$show=$linkable}
-        if($null -eq $show -or ($RevealOnly -and -not $show)){continue}
+        if($null -eq $column){continue}
+        # Persisted key of the column (as Get-DomeniaGridColumnKey): its sort member, else its binding path.
+        $key=[string]$column.SortMemberPath
+        if(-not $key){try{if($null -ne $column.Binding){$key=[string]$column.Binding.Path.Path}}catch{}}
+        # Compte follows the accounts of the listed rows (Set-DomeniaLoginColumnVisible).
+        if($key -ceq 'Login'){continue}
+        $show=Test-DomeniaResultColumnShown -Key $key -Visible $script:ResultColumnChoice -HasMachine $machine -HasLinkable $linkable -HasAccount ([bool]$script:SearchListHasAccount)
+        if($RevealOnly -and -not $show){continue}
         $wanted=if($show){'Visible'}else{'Collapsed'}
         if([string]$column.Visibility -ne $wanted){$column.Visibility=$wanted}
     }
@@ -259,9 +265,9 @@ function Complete-DomeniaLiveSearch {
     $effective=Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @('Rows','BaseDn','Scope')
     if($null -eq $effective -or [string]$effective.BaseDn -ine [string]$State.BaseDn -or [string]$effective.Scope -ne [string]$State.Scope){throw 'Résultat de recherche sans périmètre valide.'}
     # MO-07: a complete continuation moves the cursor of the next one to the last name it added.
-    if([bool](Get-DomeniaMember $effective 'Continuation' $false) -and -not [bool](Get-DomeniaMember $effective 'Partial' $false)){
-        $last=[string](Get-DomeniaMember $effective 'LastName' '')
-        if($last){Add-Member -InputObject $s -NotePropertyName ContinuationCursor -NotePropertyValue $last -Force}
+    $continued=$effective.PSObject.Properties['Continuation'];$partialRead=$effective.PSObject.Properties['Partial'];$lastRead=$effective.PSObject.Properties['LastName']
+    if(($null -ne $continued) -and [bool]$continued.Value -and (($null -eq $partialRead) -or -not [bool]$partialRead.Value) -and ($null -ne $lastRead) -and [string]$lastRead.Value){
+        Add-Member -InputObject $s -NotePropertyName ContinuationCursor -NotePropertyValue ([string]$lastRead.Value) -Force
     }
     $errorText=''
     # Once AD completed, old cache rows can no longer contribute to the list. Detach the queue

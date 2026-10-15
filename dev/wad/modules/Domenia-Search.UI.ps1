@@ -24,6 +24,9 @@ $script:SearchQuerySelectorBound = $false
 $script:SearchBarScope = 'Everywhere'
 $script:SearchBarType = 'Tous'
 $script:SearchBarUpdating = $false
+# DS-20: columns of the result grid chosen by the operator (column keys); $null until Initialize-DomeniaResultColumns.
+$script:ResultColumnChoice = $null
+$script:ResultColumnMenuBound = $false
 
 function Update-DomeniaSearchHint {
     # D033/D036: explains what the upper bar will search (explicit tokens, pasted identifier, unknown prefix).
@@ -221,6 +224,133 @@ function Open-DomeniaSearchResultMenu {
     $menu.Placement = [Windows.Controls.Primitives.PlacementMode]::Bottom
     $menu.IsOpen = $true
     return $menu
+}
+
+# ---------------------------------------------------------------- DS-20 / SP-02 columns of the result grid
+function Initialize-DomeniaResultColumns {
+    # DS-20: loads the column choice (six SP-02 columns when nothing is stored), applies it and attaches « Colonnes… »
+    # to a right click on the column headers of the result grid. Width and order stay those of the grid layout.
+    $script:ResultColumnChoice = @((Resolve-DomeniaResultColumnChoice -Saved ([string](Get-DomeniaSetting 'Search.ResultColumnsJson' ''))).Visible)
+    Update-DomeniaResultColumnVisibility
+    $grid = Get-DomeniaControl 'DgObjects'
+    if (($grid -is [Windows.Controls.DataGrid]) -and (-not [bool]$script:ResultColumnMenuBound)) {
+        $script:ResultColumnMenuBound = $true
+        # The row menu of the grid stays for the rows; a right click on a header opens the column choice instead.
+        $grid.Add_ContextMenuOpening({
+            param($sender,$eventArgs)
+            try {
+                $header = Get-DomeniaColumnHeaderFromSource $eventArgs.OriginalSource
+                if ($null -eq $header) { return }
+                $eventArgs.Handled = $true
+                [void](Open-DomeniaResultColumnMenu -Anchor $header)
+            } catch { Write-AppLog ('Colonnes de la liste : '+$_.Exception.Message) 'WARN' }
+        })
+    }
+}
+
+function Get-DomeniaColumnHeaderFromSource {
+    # The column header that contains a clicked element, or $null for a cell, a row or anything else.
+    param($Source)
+    $node = $Source
+    for ($i = 0; ($i -lt 40) -and ($null -ne $node); $i++) {
+        if ($node -is [Windows.Controls.Primitives.DataGridColumnHeader]) { return $node }
+        if (($node -is [Windows.Controls.DataGridRow]) -or ($node -is [Windows.Controls.DataGrid])) { return $null }
+        $parent = $null
+        if (($node -is [Windows.Media.Visual]) -or ($node -is [Windows.Media.Media3D.Visual3D])) { $parent = [Windows.Media.VisualTreeHelper]::GetParent($node) }
+        if (($null -eq $parent) -and ($node -is [Windows.DependencyObject])) { $parent = [Windows.LogicalTreeHelper]::GetParent($node) }
+        $node = $parent
+    }
+    return $null
+}
+
+function Update-DomeniaResultColumnVisibility {
+    # Shows the chosen columns that apply to the list on screen (workstation, association and account columns follow
+    # the rows, as before); the others are hidden, their width and position kept.
+    Set-DomeniaResultColumns
+    Set-DomeniaLoginColumnVisible ([bool]$script:SearchListHasAccount)
+}
+
+function Get-DomeniaResultColumnMenuEntries {
+    # DS-20: the checkable entries of « Colonnes… »: label, choice, lock and when the column applies.
+    $choice = $script:ResultColumnChoice
+    if ($null -eq $choice) { $choice = @((Resolve-DomeniaResultColumnChoice).Visible) }
+    $rows = New-Object 'System.Collections.Generic.List[object]'
+    foreach ($entry in @(Get-DomeniaResultColumnCatalog)) {
+        $tip = switch ([string]$entry.Relevance) {
+            'Machine'  { 'Affichée quand la liste contient au moins un poste.' }
+            'Linkable' { 'Affichée quand la liste contient des utilisateurs ou des postes.' }
+            'Account'  { 'Affichée quand une ligne de la liste porte un compte.' }
+            default    { 'Affichée pour tous les types dʼobjet.' }
+        }
+        if ([bool]$entry.Locked) { $tip = 'Le nom reste toujours affiché.' }
+        $rows.Add([pscustomobject]@{Key=[string]$entry.Key;Label=[string]$entry.Label;Checked=(@($choice) -contains [string]$entry.Key);Locked=[bool]$entry.Locked;ToolTip=$tip})
+    }
+    return ,$rows.ToArray()
+}
+
+function Add-DomeniaResultColumnMenuItems {
+    # Fills a context menu or a submenu with « Colonnes… »: one checkable entry per column and « Colonnes par défaut ».
+    # The menu stays open while columns are ticked; each change is applied and saved at once.
+    param([Parameter(Mandatory=$true)]$Target)
+    $title = [Windows.Controls.MenuItem]::new()
+    $title.Header = 'Colonnes affichées'
+    $title.IsEnabled = $false
+    [void]$Target.Items.Add($title)
+    foreach ($entry in @(Get-DomeniaResultColumnMenuEntries)) {
+        $item = [Windows.Controls.MenuItem]::new()
+        $item.Header = $entry.Label
+        $item.IsCheckable = $true
+        $item.IsChecked = [bool]$entry.Checked
+        $item.IsEnabled = (-not [bool]$entry.Locked)
+        $item.StaysOpenOnClick = $true
+        $item.Tag = $entry.Key
+        $item.ToolTip = $entry.ToolTip
+        [Windows.Controls.ToolTipService]::SetShowOnDisabled($item,$true)
+        [Windows.Automation.AutomationProperties]::SetName($item,('Colonne ' + $entry.Label))
+        $item.Add_Click({ param($sender,$eventArgs) try { Set-DomeniaResultColumnVisible -Key ([string]$sender.Tag) -Show ([bool]$sender.IsChecked) } catch { Write-AppLog ('Colonnes de la liste : '+$_.Exception.Message) 'WARN' } })
+        [void]$Target.Items.Add($item)
+    }
+    [void]$Target.Items.Add([Windows.Controls.Separator]::new())
+    $reset = [Windows.Controls.MenuItem]::new()
+    $reset.Header = 'Colonnes par défaut'
+    $reset.ToolTip = 'Revient aux six colonnes : Type, Nom, Utilisateur connecté, Association mémorisée, Présence réseau et État.'
+    [Windows.Automation.AutomationProperties]::SetName($reset,'Revenir aux colonnes par défaut')
+    $reset.Add_Click({ try { Reset-DomeniaResultColumns } catch { Write-AppLog ('Colonnes de la liste : '+$_.Exception.Message) 'WARN' } })
+    [void]$Target.Items.Add($reset)
+}
+
+function Open-DomeniaResultColumnMenu {
+    # DS-20: « Colonnes… » under the right-clicked column header.
+    param($Anchor)
+    $menu = [Windows.Controls.ContextMenu]::new()
+    Add-DomeniaResultColumnMenuItems -Target $menu
+    if ($null -ne $Anchor) { $menu.PlacementTarget = $Anchor }
+    $menu.Placement = [Windows.Controls.Primitives.PlacementMode]::Bottom
+    $menu.IsOpen = $true
+    return $menu
+}
+
+function Save-DomeniaResultColumnChoice {
+    # The choice is a preference of this workstation (column keys only), saved with the other settings.
+    Set-DomeniaSetting -Name 'Search.ResultColumnsJson' -Value (ConvertTo-DomeniaResultColumnChoiceText -Visible @($script:ResultColumnChoice))
+    Save-DomeniaSettings
+}
+
+function Set-DomeniaResultColumnVisible {
+    # DS-20: explicit choice of the operator for one column; nothing is read, the list on screen is only re-laid out.
+    param([Parameter(Mandatory=$true)][string]$Key,[bool]$Show=$true)
+    $current = $script:ResultColumnChoice
+    if ($null -eq $current) { $current = @((Resolve-DomeniaResultColumnChoice).Visible) }
+    $script:ResultColumnChoice = @(Set-DomeniaResultColumnChoice -Visible @($current) -Key $Key -Show $Show)
+    Save-DomeniaResultColumnChoice
+    Update-DomeniaResultColumnVisibility
+}
+
+function Reset-DomeniaResultColumns {
+    # DS-20 / SP-02: back to the six default columns.
+    $script:ResultColumnChoice = @((Resolve-DomeniaResultColumnChoice).Visible)
+    Save-DomeniaResultColumnChoice
+    Update-DomeniaResultColumnVisibility
 }
 
 function Update-DomeniaWorkViewList {
@@ -939,6 +1069,8 @@ function Initialize-DomeniaSearchUi {
     $script:TreeSelectionSource = 'Mouse'
     $script:PendingFilterChange = $null
     Initialize-DomeniaSearchQuerySelector
+    # DS-20 / SP-02: columns chosen by the operator, « Colonnes… » on the column headers.
+    try { Initialize-DomeniaResultColumns } catch { Write-AppLog ('Colonnes de la liste : '+$_.Exception.Message) 'WARN' }
     $menuButton = Get-DomeniaControl 'BtnOuMenu'
     if ($menuButton -is [Windows.Controls.Primitives.ButtonBase]) { $menuButton.Add_Click({ Switch-DomeniaOuMenu }) }
     $ouFilter = Get-DomeniaControl 'TxtOuFilter'
