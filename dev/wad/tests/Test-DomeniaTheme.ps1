@@ -145,6 +145,14 @@ try {
         Assert-Theme ((Get-DomeniaStoredTheme) -eq 'Light')
         [void](Load-DomeniaSettings);Assert-Theme ((Load-DomeniaTheme) -eq 'Light')
     }
+    Test-ThemeCase 'CD-05 : palette d amorcage = roles du contrat SupportSuite.UI.json, aucune copie' {
+        $roles=@{Window='WindowBg';Surface='BgCard';Input='BgInput';Text='TextColor';Muted='MutedColor';Border='BorderColor';Button='BtnBg';ButtonText='BtnFg';Accent='AccentColor';AccentText='AccentText';OnAccent='OnAccent';Error='StatusError';Warning='StatusWarning';Success='StatusSuccess'}
+        foreach($theme in @('Light','Dark')) {
+            $boot=Get-DomeniaBootThemePalette -Theme $theme;$suite=Get-SuitePalette -Theme $theme
+            Assert-Theme (@($boot.Keys).Count -eq $roles.Count) ($theme+' : nombre de roles')
+            foreach($role in @($roles.Keys)) { Assert-Theme ([string]$boot[$role] -ceq [string]$suite[[string]$roles[$role]]) ($theme+' : role '+$role) }
+        }
+    }
     Test-ThemeCase 'Sauvegarde isolee conserve les autres reglages' {
         Reset-TestPreferences '{"Theme":"Light","LogHeight":275,"WindowWidth":1500}' 'Light'
         Save-DomeniaTheme -Theme Dark
@@ -189,6 +197,31 @@ try {
         }
     }
     if ($Wpf) {
+        Test-ThemeCase 'DS-14 : parts categorielles en pastel du JSON, contour plus fonce en clair, aucun en sombre' {
+            foreach($module in @('Domenia-HealthRules.Model.ps1','Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1')) { . (Join-Path $packageRoot ('wad\modules\'+$module)) }
+            $script:DomeniaReduceMotion=$true
+            $items=@([pscustomobject]@{Label='Adobe';Value=5},[pscustomobject]@{Label='Autre editeur';Value=3},[pscustomobject]@{Label='Libre';Value=2;Color=(Get-DomeniaBoardColor 'Ok')})
+            foreach($theme in @('Light','Dark')) {
+                $script:CurrentTheme=$theme;$script:DomeniaPaintedPalette=Get-SuitePalette -Theme $theme
+                $series=@(Get-DomeniaChartSeries -Theme $theme)
+                $donut=New-DomeniaDonutChart -Title 'Editeurs' -Items $items -Width 340 -Height 240
+                $paths=New-Object 'System.Collections.Generic.List[object]'
+                $queue=New-Object 'System.Collections.Generic.Queue[object]';$queue.Enqueue($donut)
+                while($queue.Count){$node=$queue.Dequeue();if($node -is [Windows.Shapes.Path]){$paths.Add($node)};foreach($child in @([Windows.LogicalTreeHelper]::GetChildren($node))){if($child -is [Windows.DependencyObject]){$queue.Enqueue($child)}}}
+                $segments=@($paths|Where-Object{$null -ne $_.Tag})
+                $outlines=@($paths|Where-Object{($null -eq $_.Tag) -and $_.IsHitTestVisible -eq $false})
+                Assert-Theme ($segments.Count -eq 3) ($theme+' : trois parts attendues')
+                Assert-Theme ((Get-TestBrushHex $segments[0].Stroke) -eq $series[0].Fill) ($theme+' : premiere part hors serie')
+                Assert-Theme ((Get-TestBrushHex $segments[2].Stroke) -eq (Get-DomeniaThemeColor -Key 'StateOk' -Theme $theme)) ($theme+' : couleur d etat perdue')
+                if($theme -eq 'Light'){
+                    Assert-Theme ($outlines.Count -eq 2) ('Clair : un contour par part categorielle, aucun pour l etat ('+$outlines.Count+')')
+                    Assert-Theme ((Get-TestBrushHex $outlines[0].Stroke) -eq $series[0].Edge) 'Clair : contour de la premiere serie'
+                } else {
+                    Assert-Theme ($outlines.Count -eq 0) 'Sombre : les pastels atteignent 3:1 sans contour'
+                }
+            }
+            $script:CurrentTheme='Light';$script:DomeniaPaintedPalette=$null
+        }
         Test-ThemeCase 'Principale : Dark restaure sans modifier le fichier de preferences' {
             Reset-TestPreferences '{"Theme":"Dark"}' 'Light'
             [void][IO.Directory]::CreateDirectory((Join-Path $script:DataDir 'Preferences'))
@@ -200,6 +233,10 @@ try {
                 Apply-DomeniaTheme -Theme (Get-DomeniaStoredTheme)
                 [void](Load-DomeniaSettings);[void](Load-DomeniaTheme)
                 Apply-DomeniaTheme -Theme $script:CurrentTheme
+                # CD-05: every token of the contract is painted, and only from it.
+                foreach($token in @((Get-SuitePalette Dark).GetEnumerator())) {
+                    Assert-Theme ((Get-TestBrushHex $script:Window.Resources[[string]$token.Key]) -eq [string]$token.Value) ('Jeton peint : '+$token.Key)
+                }
                 Assert-Theme ((Get-TestBrushHex $script:Window.Background) -eq (Get-SuitePalette Dark).WindowBg)
                 Assert-Theme ((Get-TestBrushHex $script:Window.Foreground) -eq (Get-SuitePalette Dark).TextColor)
                 Assert-Theme ([IO.File]::ReadAllText($path) -ceq $before) 'La restauration a reecrit les preferences.'

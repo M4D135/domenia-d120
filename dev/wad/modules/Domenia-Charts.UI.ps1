@@ -16,20 +16,29 @@ $script:DomeniaIntroTimer = $null
 $script:DomeniaCounting = New-Object System.Collections.ArrayList
 $script:DomeniaEntranceHooked = @{}
 $script:DomeniaEntrancePending = @{}
+# CD-05: every colour comes from the presentation contract SupportSuite.UI.json (Get-DomeniaThemeColor). The
+# application loads it through Domenia-UX.UI.ps1; a host that draws the charts alone (tests, previews) loads it here.
+if ($null -eq (Get-Command -Name Get-DomeniaThemeColor -CommandType Function -ErrorAction SilentlyContinue)) { . (Join-Path $PSScriptRoot 'Domenia-Experience.Model.ps1') }
 
 function Get-DomeniaChartPalette {
-    # Eight pastel categorical colours (decision David 2026-10-07), distinct on light and dark backgrounds.
-    return @('#93C5FD','#FCD34D','#86EFAC','#C4B5FD','#F9A8D4','#5EEAD4','#FDBA74','#CBD5E1')
+    # DS-14: the eight categorical pastels of SupportSuite.UI.json for the painted theme (blue, violet, teal, pink, sky,
+    # peach, lilac, sage). Yellow, green and red are reserved to the states: a category never looks like an alert.
+    return @(Get-DomeniaChartSeries | ForEach-Object { [string]$_.Fill })
+}
+function Get-DomeniaChartEdgePalette {
+    # DS-14: the darker 1-unit contour of each categorical pastel (3:1 against the card on the light theme); '' where
+    # the theme declares no distinct contour (the dark theme, whose pastels reach 3:1 by themselves).
+    return @(Get-DomeniaChartSeries | ForEach-Object { if ([string]$_.Edge -ceq [string]$_.Fill) { '' } else { [string]$_.Edge } })
 }
 function Get-DomeniaStateColor {
-    # Pastel meaning colours for shapes (rings, bars, tints).
+    # Pastel meaning colours for shapes (rings, bars, tints): a theme token of the board model.
     param([string]$State)
     return (Get-DomeniaBoardColor $State)
 }
 function Get-DomeniaStateDotColor {
-    # Small marks (dots, icons) need a little more contrast than the pastel shapes.
+    # Small marks (dots, icons) need a little more contrast than the pastel shapes: their own theme tokens.
     param([string]$State)
-    switch ($State) { 'Ok' { return '#4ADE80' } 'Warn' { return '#FBBF24' } 'Alert' { return '#F87171' } 'Off' { return '#94A3B8' } 'Info' { return '#60A5FA' } default { return '' } }
+    switch ($State) { 'Ok' { return 'StateOkMark' } 'Warn' { return 'StateWarnMark' } 'Alert' { return 'StateAlertMark' } 'Off' { return 'StateOffMark' } 'Info' { return 'StateInfoMark' } default { return '' } }
 }
 function Get-DomeniaStateTextKey {
     # Text in a state colour comes from the theme palettes (contrast checked for light and dark).
@@ -37,10 +46,13 @@ function Get-DomeniaStateTextKey {
     switch ($State) { 'Ok' { return 'StatusSuccess' } 'Warn' { return 'StatusWarning' } 'Alert' { return 'StatusError' } default { return 'TextColor' } }
 }
 function ConvertTo-DomeniaChartBrush {
+    # $Hex: a theme token (StateOk, ChartBlue...) or a '#RRGGBB' colour stored by an earlier version.
     param([string]$Hex,[double]$Opacity = 1)
     $b = [System.Windows.Media.Brushes]::Transparent
+    $color = Get-DomeniaThemeColor -Key $Hex
+    if (-not $color) { return $b }
     try {
-        $b = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color][System.Windows.Media.ColorConverter]::ConvertFromString($Hex))
+        $b = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color][System.Windows.Media.ColorConverter]::ConvertFromString($color))
         if ($Opacity -lt 1) { $b.Opacity = $Opacity }
         $b.Freeze()
     } catch { }
@@ -109,11 +121,24 @@ function Get-DomeniaChartValueText {
     if (($null -ne $Item) -and ($null -ne $Item.PSObject.Properties['Display']) -and [string]$Item.Display) { return [string]$Item.Display }
     return ((Format-DomeniaChartNumber $Item.Value) + $Unit)
 }
+function Test-DomeniaChartItemHasColor {
+    # An item may carry its own meaning colour: a theme token of the board model (StateOk...) or, from an earlier
+    # version, '#RRGGBB'. A value that names no colour of the palette is ignored.
+    param($Item)
+    if (($null -eq $Item) -or ($null -eq $Item.PSObject.Properties['Color'])) { return $false }
+    return [bool](Get-DomeniaThemeColor -Key ([string]$Item.Color))
+}
 function Get-DomeniaChartItemColor {
-    # An item may carry its own meaning colour (Color = '#RRGGBB'): free space, presence, service state...
+    # Meaning colour of the item (free space, presence, service state...), else the categorical series of its rank.
     param($Item,[string[]]$Palette,[int]$Index)
-    if ($null -ne $Item -and $null -ne $Item.PSObject.Properties['Color'] -and [string]$Item.Color -match '^#[0-9A-Fa-f]{6}$') { return [string]$Item.Color }
+    if (Test-DomeniaChartItemHasColor $Item) { return [string]$Item.Color }
     return $Palette[$Index % $Palette.Count]
+}
+function Get-DomeniaChartItemEdge {
+    # DS-14: contour of a categorical part; none for an item that carries its own meaning colour.
+    param($Item,[string[]]$Edges,[int]$Index)
+    if ((Test-DomeniaChartItemHasColor $Item) -or (@($Edges).Count -eq 0)) { return '' }
+    return [string]$Edges[$Index % $Edges.Count]
 }
 
 # ---------------------------------------------------------------------------
@@ -327,7 +352,7 @@ function New-DomeniaChartEmpty {
     $stack = New-Object System.Windows.Controls.StackPanel
     $stack.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
     $stack.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Center
-    $icon = New-DomeniaChartIcon ([string][char]0xE9D2) '#94A3B8' 34
+    $icon = New-DomeniaChartIcon ([string][char]0xE9D2) 'StateOffMark' 34
     $icon.Margin = [System.Windows.Thickness]::new(0, 0, 0, 8)
     [void]$stack.Children.Add($icon)
     if ($Title) { $head = New-DomeniaChartText -Text $Title -Size 13 -Weight SemiBold -Key 'TextColor'; $head.TextAlignment = [System.Windows.TextAlignment]::Center; $head.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Center; [void]$stack.Children.Add($head) }
@@ -554,6 +579,11 @@ function Set-DomeniaDonutFocus {
         $focused = ($Index -lt 0 -or $i -eq $Index)
         Set-DomeniaHoverValue $State.Segments[$i] ([System.Windows.UIElement]::OpacityProperty) $(if ($focused) { 1.0 } else { 0.28 })
         Set-DomeniaHoverValue $State.Segments[$i] ([System.Windows.Shapes.Shape]::StrokeThicknessProperty) $(if ($Index -ge 0 -and $i -eq $Index) { $State.Thickness + 5 } else { $State.Thickness })
+        # DS-14: the contour follows its part (faded with it, as thick as it plus one unit on each side).
+        if (($null -ne $State.Outlines) -and ($i -lt $State.Outlines.Count) -and ($null -ne $State.Outlines[$i])) {
+            Set-DomeniaHoverValue $State.Outlines[$i] ([System.Windows.UIElement]::OpacityProperty) $(if ($focused) { 1.0 } else { 0.28 })
+            Set-DomeniaHoverValue $State.Outlines[$i] ([System.Windows.Shapes.Shape]::StrokeThicknessProperty) $(if ($Index -ge 0 -and $i -eq $Index) { $State.Thickness + 7 } else { $State.Thickness + 2 })
+        }
         if ($i -lt $State.Rows.Count) { Set-DomeniaHoverValue $State.Rows[$i] ([System.Windows.UIElement]::OpacityProperty) $(if ($focused) { 1.0 } else { 0.45 }) }
     }
     if ($Index -lt 0) { $State.Big.Text = $State.DefaultBig; $State.Small.Text = $State.DefaultSmall; return }
@@ -580,6 +610,7 @@ function New-DomeniaDonutChart {
     if ($total -le 0) { return New-DomeniaChartEmpty -Width $Width -Height $Height -Title $Title }
 
     $palette = Get-DomeniaChartPalette
+    $edges = Get-DomeniaChartEdgePalette
     $size = [Math]::Floor([Math]::Min([Math]::Min($Width * 0.44, $Height - 76), 168))
     $thickness = [Math]::Round($size * 0.13)
     $radius = ($size - $thickness - 8) / 2.0
@@ -596,7 +627,7 @@ function New-DomeniaDonutChart {
     $track.Path.Opacity = 0.35
     [void]$canvas.Children.Add($track.Path)
 
-    $state = @{ Segments = New-Object System.Collections.ArrayList; Rows = New-Object System.Collections.ArrayList; Labels = @(); Percents = @(); Thickness = $thickness; Big = $null; Small = $null; DefaultBig = ''; DefaultSmall = '' }
+    $state = @{ Segments = New-Object System.Collections.ArrayList; Outlines = New-Object System.Collections.ArrayList; Rows = New-Object System.Collections.ArrayList; Labels = @(); Percents = @(); Thickness = $thickness; Big = $null; Small = $null; DefaultBig = ''; DefaultSmall = '' }
     $gap = if ($valid.Count -gt 1) { 1.6 } else { 0 }
     $angle = 0.0
     $index = 0
@@ -604,6 +635,19 @@ function New-DomeniaDonutChart {
     foreach ($it in $valid) {
         $sweep = 360.0 * [double]$it.Value / $total
         $hex = Get-DomeniaChartItemColor $it $palette $index
+        $edge = Get-DomeniaChartItemEdge $it $edges $index
+        # Parts draw one after the other, clockwise, over about 0.8 s.
+        $duration = [Math]::Max(90.0, 760.0 * $sweep / 360.0)
+        $outline = $null
+        if ($edge) {
+            # DS-14: a darker contour of 1 unit on each side of a pastel part reaches 3:1 against the card.
+            $outline = New-DomeniaArcPath -Center $center -Radius $radius -Start ($angle + $gap / 2) -Sweep ([Math]::Max(0.6, $sweep - $gap)) -Thickness ($thickness + 2)
+            $outline.Path.Stroke = ConvertTo-DomeniaChartBrush $edge
+            $outline.Path.IsHitTestVisible = $false
+            [void]$canvas.Children.Add($outline.Path)
+            Register-DomeniaArcDrawing -Card $ring -Arc $outline -DelayMs $timeline -Ms $duration
+        }
+        [void]$state.Outlines.Add($(if ($null -ne $outline) { $outline.Path } else { $null }))
         $arc = New-DomeniaArcPath -Center $center -Radius $radius -Start ($angle + $gap / 2) -Sweep ([Math]::Max(0.6, $sweep - $gap)) -Thickness $thickness
         $arc.Path.Stroke = ConvertTo-DomeniaChartBrush $hex
         $arc.Path.Cursor = [System.Windows.Input.Cursors]::Hand
@@ -618,8 +662,6 @@ function New-DomeniaDonutChart {
         if (($null -ne $OnSelect) -and ($null -ne $select)) { $arc.Path.Add_MouseLeftButtonDown({ param($s,$e) Invoke-DomeniaChartSelect -Tag $s.Tag }) }
         [void]$canvas.Children.Add($arc.Path)
         [void]$state.Segments.Add($arc.Path)
-        # Parts draw one after the other, clockwise, over about 0.8 s.
-        $duration = [Math]::Max(90.0, 760.0 * $sweep / 360.0)
         Register-DomeniaArcDrawing -Card $ring -Arc $arc -DelayMs $timeline -Ms $duration
         $timeline += $duration * 0.92
         $state.Labels += [string]$it.Label
@@ -664,6 +706,8 @@ function New-DomeniaDonutChart {
         $dot.Width = 8; $dot.Height = 8
         $dot.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left
         $dot.Fill = ConvertTo-DomeniaChartBrush (Get-DomeniaChartItemColor $it $palette $index)
+        $dotEdge = Get-DomeniaChartItemEdge $it $edges $index
+        if ($dotEdge) { $dot.Stroke = ConvertTo-DomeniaChartBrush $dotEdge; $dot.StrokeThickness = 1 }
         [void]$row.Children.Add($dot)
         $label = New-DomeniaChartText -Text ([string]$it.Label) -Size 12 -Key 'TextColor' -OneLine
         [System.Windows.Controls.Grid]::SetColumn($label, 1)
@@ -794,6 +838,7 @@ function New-DomeniaBarChart {
     if($overflow -and $GroupOverflow){$sorted=Get-DomeniaChartCategoryGroups -Items $sorted -Maximum $Top}
 
     $palette = Get-DomeniaChartPalette
+    $edges = Get-DomeniaChartEdgePalette
     $max = 0.0
     foreach ($it in $sorted) { if ([double]$it.Value -gt $max) { $max = [double]$it.Value } }
     if ($max -le 0) { $max = 1.0 }
@@ -802,7 +847,7 @@ function New-DomeniaBarChart {
     $labelWidth = [Math]::Floor([Math]::Min(260, $Width * 0.42))
     $valueWidth = 64
     $barWidth = [Math]::Max(40, $inner - $labelWidth - $valueWidth - 12)
-    $single = -not @($sorted | Where-Object { $null -ne $_.PSObject.Properties['Color'] }).Count
+    $single = -not @($sorted | Where-Object { Test-DomeniaChartItemHasColor $_ }).Count
 
     $list = New-Object System.Windows.Controls.StackPanel
     $i = 0
@@ -836,7 +881,11 @@ function New-DomeniaBarChart {
         $bar.Width = [Math]::Max(8.0, $barWidth * [double]$it.Value / $max)
         # One series = one colour (the accent); colours only when they carry a meaning.
         if ($single) { $bar.Background = ConvertTo-DomeniaChartBrush (Get-DomeniaBoardColor 'Info') }
-        else { $bar.Background = ConvertTo-DomeniaChartBrush (Get-DomeniaChartItemColor $it $palette $i) }
+        else {
+            $bar.Background = ConvertTo-DomeniaChartBrush (Get-DomeniaChartItemColor $it $palette $i)
+            $barEdge = Get-DomeniaChartItemEdge $it $edges $i
+            if ($barEdge) { $bar.BorderBrush = ConvertTo-DomeniaChartBrush $barEdge; $bar.BorderThickness = [System.Windows.Thickness]::new(1) }
+        }
         $scale = New-Object System.Windows.Media.ScaleTransform
         $bar.RenderTransform = $scale
         [System.Windows.Controls.Grid]::SetColumn($bar, 1)
@@ -1017,7 +1066,7 @@ function New-DomeniaLineChart {
     $line.StrokeThickness = 2.5
     $line.StrokeLineJoin = [System.Windows.Media.PenLineJoin]::Round
     $line.StrokeStartLineCap = [System.Windows.Media.PenLineCap]::Round; $line.StrokeEndLineCap = [System.Windows.Media.PenLineCap]::Round
-    $line.Stroke = ConvertTo-DomeniaChartBrush '#60A5FA'
+    $line.Stroke = ConvertTo-DomeniaChartBrush 'StateInfoMark'
     [void]$canvas.Children.Add($line)
     if ((Test-DomeniaMotion) -and $length -gt 0) {
         $units = $length / 2.5
@@ -1030,7 +1079,7 @@ function New-DomeniaLineChart {
     $dot = New-Object System.Windows.Shapes.Ellipse
     $dot.Width = 9; $dot.Height = 9; $dot.StrokeThickness = 2
     $dot.SetResourceReference([System.Windows.Shapes.Shape]::FillProperty, 'BgCard')
-    $dot.Stroke = ConvertTo-DomeniaChartBrush '#60A5FA'
+    $dot.Stroke = ConvertTo-DomeniaChartBrush 'StateInfoMark'
     $dot.ToolTip = [string]$valid[$n - 1].Label + ' : ' + (Format-DomeniaChartNumber $valid[$n - 1].Value)
     [System.Windows.Controls.Canvas]::SetLeft($dot, $last.X - 4.5); [System.Windows.Controls.Canvas]::SetTop($dot, $last.Y - 4.5)
     [void]$canvas.Children.Add($dot)
@@ -1143,7 +1192,7 @@ function New-DomeniaListCard {
             [System.Windows.Controls.DockPanel]::SetDock($figure, [System.Windows.Controls.Dock]::Right)
             [void]$dock.Children.Add($figure)
         }
-        if ($null -ne $item.PSObject.Properties['Color'] -and [string]$item.Color -match '^#[0-9A-Fa-f]{6}$') {
+        if (Test-DomeniaChartItemHasColor $item) {
             $dot = New-Object System.Windows.Shapes.Ellipse
             $dot.Width = 8; $dot.Height = 8; $dot.Margin = [System.Windows.Thickness]::new(0, 0, 8, 0)
             $dot.Fill = ConvertTo-DomeniaChartBrush ([string]$item.Color)

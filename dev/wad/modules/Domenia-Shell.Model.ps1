@@ -1111,7 +1111,14 @@ function Get-DomeniaSuiteContrastPairs {
         @('Statut erreur','StatusError','BgCard','Text'),@('Statut attention','StatusWarning','BgCard','Text'),@('Statut confirme','StatusSuccess','BgCard','Text')
         @('Ligne selectionnee','RowSelFg','RowSelBg','Text'),@('Bouton','BtnFg','BtnBg','Text'),@('Journal','LogFg','LogBg','Text'),@('Privilege','PrivilegeFg','BgCard','Text')
         @('Ligne alternee','TextColor','DataGridAlt','Text'),@('En-tete de grille','TextColor','HeaderBg','Text'),@('Menu lateral','TextColor','UxSidebar','Text'),@('Menu lateral secondaire','MutedColor','UxSidebar','Text')
-        @('Tuile','TextColor','TileBg','Text'),@('Bordure de saisie','MutedColor','BorderColor','Graphic'),@('Bouton principal','#FFFFFF','AccentColor','Text')
+        @('Tuile','TextColor','TileBg','Text'),@('Bordure de saisie','MutedColor','BorderColor','Graphic'),@('Bouton principal','OnAccent','AccentColor','Text')
+        # CD-05, DS-11: filled buttons and their hover, the disabled button, tool tips and the status pills of the grids.
+        @('Bouton principal survole','OnAccent','AccentHover','Text'),@('Bouton danger','OnAccent','DangerColor','Text'),@('Bouton danger survole','OnAccent','DangerHover','Text')
+        @('Bouton desactive','MutedColor','BgReadonly','Text'),@('Bouton survole','BtnFg','RowHoverBg','Text'),@('Infobulle','TooltipFg','TooltipBg','Text')
+        @('Barre de defilement','ScrollThumb','WindowBg','Graphic'),@('Barre de defilement survolee','ScrollThumbHover','BgCard','Graphic')
+        @('Pastille neutre','PillNeutralFg','PillNeutralBg','Text'),@('Pastille bleue','PillBlueFg','PillBlueBg','Text'),@('Pastille verte','PillGreenFg','PillGreenBg','Text')
+        @('Pastille ambre','PillAmberFg','PillAmberBg','Text'),@('Pastille orange','PillOrangeFg','PillOrangeBg','Text'),@('Pastille rouge','PillRedFg','PillRedBg','Text')
+        @('Pastille ciel','PillSkyFg','PillSkyBg','Text'),@('Puce cochee','TextColor','PillBlueBg','Text'),@('Texte neutre sur pastille verte','PillNeutralFg','PillGreenBg','Text')
     )
     foreach ($pair in $pairs) { [pscustomobject]@{Name=$pair[0];Foreground=$pair[1];Background=$pair[2];Kind=$pair[3]} }
 }

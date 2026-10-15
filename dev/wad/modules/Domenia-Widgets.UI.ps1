@@ -569,7 +569,8 @@ function New-DomeniaWidgetVisual {
 function New-DomeniaBoardChromeButton {
     # Small round button over a widget (modify, remove).
     param([string]$Glyph,[string]$Tip,$Tag,[switch]$Danger)
-    $hover = if ($Danger) { '#F87171' } else { '#60A5FA' }
+    # CD-05: theme tokens; the white mark keeps 4.5:1 on the accent and danger fills of both themes.
+    $hover = if ($Danger) { 'DangerColor' } else { 'AccentColor' }
     $Tip = [Security.SecurityElement]::Escape($Tip)
     $xaml = @"
 <Button xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Width="26" Height="26" Margin="4,0,0,0" Cursor="Hand" ToolTip="$Tip" AutomationProperties.Name="$Tip">
@@ -580,12 +581,12 @@ function New-DomeniaBoardChromeButton {
       </Border>
       <ControlTemplate.Triggers>
         <Trigger Property="IsMouseOver" Value="True">
-          <Setter TargetName="Disc" Property="Background" Value="$hover"/>
-          <Setter TargetName="Disc" Property="BorderBrush" Value="$hover"/>
-          <Setter TargetName="Mark" Property="Foreground" Value="White"/>
+          <Setter TargetName="Disc" Property="Background" Value="{DynamicResource $hover}"/>
+          <Setter TargetName="Disc" Property="BorderBrush" Value="{DynamicResource $hover}"/>
+          <Setter TargetName="Mark" Property="Foreground" Value="{DynamicResource OnAccent}"/>
         </Trigger>
         <Trigger Property="IsKeyboardFocused" Value="True">
-          <Setter TargetName="Disc" Property="BorderBrush" Value="$hover"/>
+          <Setter TargetName="Disc" Property="BorderBrush" Value="{DynamicResource $hover}"/>
           <Setter TargetName="Disc" Property="BorderThickness" Value="2"/>
         </Trigger>
       </ControlTemplate.Triggers>
@@ -671,7 +672,7 @@ function New-DomeniaWidgetStateCard {
     $stack.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
     $stack.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Center
     if (-not $compact) {
-        $icon = New-DomeniaChartIcon ([string]$Info.Glyph) '#94A3B8' 30
+        $icon = New-DomeniaChartIcon ([string]$Info.Glyph) 'StateOffMark' 30
         $icon.Margin = [System.Windows.Thickness]::new(0, 0, 0, 8)
         [void]$stack.Children.Add($icon)
     }
@@ -783,7 +784,7 @@ function New-DomeniaBoardWidget {
     $mark.Width = 4; $mark.CornerRadius = [System.Windows.CornerRadius]::new(2)
     $mark.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left
     $mark.Margin = [System.Windows.Thickness]::new(0, 18, 0, 18)
-    $mark.Background = ConvertTo-DomeniaChartBrush '#60A5FA'
+    $mark.Background = ConvertTo-DomeniaChartBrush 'StateInfoMark'
     $mark.Visibility = [System.Windows.Visibility]::Collapsed
     $mark.IsHitTestVisible = $false
     [void]$holder.Children.Add($mark)

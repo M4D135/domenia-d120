@@ -2326,7 +2326,6 @@ function Show-DomeniaDialog {
     $window.WindowStartupLocation = [System.Windows.WindowStartupLocation]::CenterOwner
     $window.ResizeMode = [System.Windows.ResizeMode]::CanResize
     $window.ShowInTaskbar = $false
-    $window.Background = [System.Windows.Media.Brushes]::White
     try { Set-AppWindowIcon $window } catch { }
     $palette=Get-DomeniaBootThemePalette -Theme (Get-DomeniaStoredTheme)
     $brush=[Windows.Media.BrushConverter]::new()
@@ -2352,10 +2351,10 @@ function Show-DomeniaDialog {
     $icon.VerticalAlignment = 'Top'
     $icon.HorizontalAlignment = 'Center'
     switch ($Kind) {
-        'Error'    { $icon.Text=''; $icon.Foreground='#DC2626' }
-        'Warning'  { $icon.Text=''; $icon.Foreground='#D97706' }
-        'Question' { $icon.Text='?'; $icon.Foreground='#2563EB'; $icon.FontWeight='Bold' }
-        default    { $icon.Text='i'; $icon.Foreground='#2563EB' }
+        'Error'    { $icon.Text=''; $icon.Foreground=$brush.ConvertFromInvariantString([string]$palette.Error) }
+        'Warning'  { $icon.Text=''; $icon.Foreground=$brush.ConvertFromInvariantString([string]$palette.Warning) }
+        'Question' { $icon.Text='?'; $icon.Foreground=$brush.ConvertFromInvariantString([string]$palette.AccentText); $icon.FontWeight='Bold' }
+        default    { $icon.Text='i'; $icon.Foreground=$brush.ConvertFromInvariantString([string]$palette.AccentText) }
     }
     [System.Windows.Controls.Grid]::SetColumn($icon,0)
     [void]$body.Children.Add($icon)
@@ -2404,7 +2403,7 @@ function Show-DomeniaDialog {
         [void]$buttonsPanel.Children.Add($no)
         $yes = New-Object System.Windows.Controls.Button
         $yes.Content='Oui'; $yes.Width=105; $yes.Height=38; $yes.IsDefault=$true
-        $yes.Background='#2563EB'; $yes.Foreground='White'; $yes.FontWeight='SemiBold'
+        $yes.Background=$brush.ConvertFromInvariantString([string]$palette.Accent); $yes.Foreground=$brush.ConvertFromInvariantString([string]$palette.OnAccent); $yes.FontWeight='SemiBold'
         $yes.Add_Click({ $script:__DomeniaDialogResult=[System.Windows.MessageBoxResult]::Yes; $window.Close() })
         [void]$buttonsPanel.Children.Add($yes)
         $script:__DomeniaDialogResult=[System.Windows.MessageBoxResult]::No
@@ -2412,7 +2411,7 @@ function Show-DomeniaDialog {
     else {
         $ok = New-Object System.Windows.Controls.Button
         $ok.Content='OK'; $ok.Width=105; $ok.Height=38; $ok.IsDefault=$true; $ok.IsCancel=$true
-        $ok.Background='#2563EB'; $ok.Foreground='White'; $ok.FontWeight='SemiBold'
+        $ok.Background=$brush.ConvertFromInvariantString([string]$palette.Accent); $ok.Foreground=$brush.ConvertFromInvariantString([string]$palette.OnAccent); $ok.FontWeight='SemiBold'
         $ok.Add_Click({ $script:__DomeniaDialogResult=[System.Windows.MessageBoxResult]::OK; $window.Close() })
         [void]$buttonsPanel.Children.Add($ok)
         $script:__DomeniaDialogResult=[System.Windows.MessageBoxResult]::OK
@@ -2450,7 +2449,7 @@ function Show-DomeniaFormDialog {
     $window.Title=$Title; $window.Width=560; $window.MinWidth=460
     $window.SizeToContent='Height'; $window.MaxHeight=760
     $window.WindowStartupLocation='CenterOwner'; $window.ResizeMode='CanResize'
-    $window.ShowInTaskbar=$false; $window.Background='White'
+    $window.ShowInTaskbar=$false
     try { Set-AppWindowIcon $window } catch { }
     $palette=Get-DomeniaBootThemePalette -Theme (Get-DomeniaStoredTheme)
     $brush=[Windows.Media.BrushConverter]::new()
@@ -2490,7 +2489,7 @@ function Show-DomeniaFormDialog {
         $cancel.Add_Click({$script:__DomeniaFormResult=$null;$window.Close()})
     [void]$bp.Children.Add($cancel)
     $accept=New-Object System.Windows.Controls.Button
-    $accept.Content=$AcceptText;$accept.Width=120;$accept.Height=38;$accept.IsDefault=$true;$accept.Background='#2563EB';$accept.Foreground='White';$accept.FontWeight='SemiBold'
+    $accept.Content=$AcceptText;$accept.Width=120;$accept.Height=38;$accept.IsDefault=$true;$accept.Background=$brush.ConvertFromInvariantString([string]$palette.Accent);$accept.Foreground=$brush.ConvertFromInvariantString([string]$palette.OnAccent);$accept.FontWeight='SemiBold'
     $accept.Add_Click({
         $result=[ordered]@{}
         foreach($key in $controls.Keys){
@@ -3026,19 +3025,19 @@ function Get-DomeniaPresenceColor {
     # FI-16: the colour follows the state key (Online, NoReply, Error, Pending, Unknown, None), never the wording of
     # the label. -State still accepts a label (fiche, older callers): its key is read once by the Live rule.
     # Green online, red without reply, amber while checking or after a ping error, grey otherwise or for a value of an
-    # earlier session (-Cached). The tints are lighter on the dark theme to stay readable.
+    # earlier session (-Cached). CD-05: the status tokens of the painted theme (4.5:1 on every surface of both themes).
     param([AllowEmptyString()][string]$State,[AllowEmptyString()][string]$PresenceState='',[switch]$Cached)
-    $dark = ($script:CurrentTheme -eq "Dark")
     $key = if ($PresenceState) { ConvertTo-DomeniaPresenceStateKey $PresenceState } else { ConvertTo-DomeniaPresenceStateKey $State }
-    if ($Cached) { if($dark){return "#CBD5E1"}else{return "#64748B"} }
-    switch ($key) {
-        'Online'  { if ($dark) { return "#34D399" } else { return "#047857" } }
-        'NoReply' { if ($dark) { return "#F87171" } else { return "#DC2626" } }
-        'Pending' { if ($dark) { return "#FBBF24" } else { return "#B45309" } }
-        'Error'   { if ($dark) { return "#FBBF24" } else { return "#B45309" } }
+    $token = 'MutedColor'
+    if (-not $Cached) {
+        switch ($key) {
+            'Online'  { $token = 'StatusSuccess' }
+            'NoReply' { $token = 'StatusError' }
+            'Pending' { $token = 'StatusWarning' }
+            'Error'   { $token = 'StatusWarning' }
+        }
     }
-    if ($dark) { return "#CBD5E1" }
-    return "#64748B"
+    return (Get-DomeniaThemeColor -Key $token)
 }
 
 function Set-DomeniaPresenceText {
@@ -3927,24 +3926,36 @@ function Get-DomeniaBootThemeMap {
 }
 function Get-DomeniaBootThemePalette {
     param([ValidateSet("Light","Dark")][string]$Theme = (Get-DomeniaStoredTheme))
-    # Le login et les erreurs de demarrage doivent pouvoir etre rendus AVANT le
-    # chargement des modules de presentation. Garder ici une copie minimale du
-    # contrat visuel evite une dependance circulaire au module de palette partagee.
-    if ($Theme -eq 'Dark') {
-        return [ordered]@{
-            Window='#101A29';Surface='#182538';Input='#1D2D43'
-            Text='#EDF4FF';Muted='#BFCEE2';Border='#3A4F6B'
-            Button='#21334B';ButtonText='#EDF4FF'
-            Accent='#0865C8';AccentText='#8BBEFF';OnAccent='#FFFFFF'
-            Error='#FCA5A5';Warning='#FCD34D';Success='#86EFAC'
-        }
+    # CD-05: one palette. The login, the startup monitor and the fallback dialogs paint roles of SupportSuite.UI.json,
+    # like the main window; every module, the presentation contract included, is loaded before the first of them. If
+    # that contract cannot be read (damaged package), the colours of the Windows theme are used: readable in every
+    # case, and never a second copy of the palette. Self-contained: tests extract it alone.
+    $roles = [ordered]@{
+        Window='WindowBg';Surface='BgCard';Input='BgInput';Text='TextColor';Muted='MutedColor';Border='BorderColor'
+        Button='BtnBg';ButtonText='BtnFg';Accent='AccentColor';AccentText='AccentText';OnAccent='OnAccent'
+        Error='StatusError';Warning='StatusWarning';Success='StatusSuccess'
+    }
+    $source = $null
+    try { $source = Get-SuitePalette -Theme $Theme } catch { $source = $null }
+    $palette = [ordered]@{}
+    foreach ($role in @($roles.Keys)) {
+        $token = [string]$roles[$role]
+        $value = ''
+        if (($null -ne $source) -and $source.Contains($token)) { $value = [string]$source[$token] }
+        $palette[$role] = $value
+    }
+    if (@(@($palette.Values) | Where-Object { [string]$_ -notmatch '^#[0-9A-Fa-f]{6}$' }).Count -eq 0) { return $palette }
+    $system = @{}
+    foreach ($name in @('Window','WindowText','Control','ControlText','Highlight','HighlightText','HotTrack')) {
+        $color = [System.Windows.SystemColors]::($name + 'Color')
+        $system[$name] = ('#{0:X2}{1:X2}{2:X2}' -f $color.R,$color.G,$color.B)
     }
     return [ordered]@{
-        Window='#F3F6FB';Surface='#FFFFFF';Input='#FFFFFF'
-        Text='#17243A';Muted='#52627B';Border='#D7DEE9'
-        Button='#F7F9FC';ButtonText='#24324A'
-        Accent='#066DDB';AccentText='#075EBD';OnAccent='#FFFFFF'
-        Error='#B91C1C';Warning='#92400E';Success='#166534'
+        Window=$system.Window;Surface=$system.Window;Input=$system.Window
+        Text=$system.WindowText;Muted=$system.WindowText;Border=$system.WindowText
+        Button=$system.Control;ButtonText=$system.ControlText
+        Accent=$system.Highlight;AccentText=$system.HotTrack;OnAccent=$system.HighlightText
+        Error=$system.WindowText;Warning=$system.WindowText;Success=$system.WindowText
     }
 }
 
@@ -4100,66 +4111,9 @@ function Apply-DomeniaTheme {
             throw "Fenetre principale indisponible."
         }
 
-        $palette = if ($Theme -eq "Dark") {
-            @{
-                BgCard="#111827"; BgInput="#1E293B"; BgReadonly="#172033";
-                BorderColor="#334155"; TextColor="#FAFAFB"; MutedColor="#CBD5E1";
-                AccentSoft="#172554"; WindowBg="#0F172A"; DataGridBg="#111827";
-                DataGridAlt="#172033"; HeaderBg="#1E293B"; LogBg="#020617"; LogFg="#E2E8F0";
-                BtnBg="#1E293B"; BtnFg="#E2E8F0"; TileBg="#172033"; SplitterBg="#334155";
-                InfoBg="#172554"; InfoBorder="#3B82F6"; InfoFg="#BFDBFE";
-                AccentText="#60A5FA"; PrivilegeFg="#C4B5FD";
-                RowSelBg="#1D4ED8"; RowSelFg="#FFFFFF"; RowHoverBg="#1E293B"
-            }
-        }
-        else {
-            @{
-                BgCard="#FFFFFF"; BgInput="#FFFFFF"; BgReadonly="#F3F4F6";
-                BorderColor="#E5E7EB"; TextColor="#111827"; MutedColor="#6B7280";
-                AccentSoft="#EAF4FF"; WindowBg="#F2F2F7"; DataGridBg="#FFFFFF";
-                DataGridAlt="#F8FAFC"; HeaderBg="#F8FAFC"; LogBg="#FFFFFF"; LogFg="#0F172A";
-                BtnBg="#FFFFFF"; BtnFg="#111827"; TileBg="#F8FAFC"; SplitterBg="#E5E7EB";
-                InfoBg="#EAF2FF"; InfoBorder="#3B82F6"; InfoFg="#1E3A8A";
-                AccentText="#0A84FF"; PrivilegeFg="#7C3AED";
-                RowSelBg="#DCEBFF"; RowSelFg="#0F172A"; RowHoverBg="#F1F5F9"
-            }
-        }
-
-        [System.Windows.Media.BrushConverter]$converter =
-            [System.Windows.Media.BrushConverter]::new()
-
-        foreach ($entry in $palette.GetEnumerator()) {
-            [System.Windows.Media.Brush]$brush =
-                $converter.ConvertFromInvariantString([string]$entry.Value)
-
-            if ($null -eq $brush) {
-                throw "Conversion Brush impossible pour $($entry.Key)=$($entry.Value)."
-            }
-
-            $window.Resources[[string]$entry.Key] =
-                [System.Windows.Media.Brush]$brush
-        }
-
-        $window.Background =
-            [System.Windows.Media.Brush]$window.Resources["WindowBg"]
-        $window.Foreground =
-            [System.Windows.Media.Brush]$window.Resources["TextColor"]
-
-        $logBox = Get-DomeniaControl -Name "TxtUiLog"
-        if ($null -ne $logBox) {
-            $logBox.Background =
-                [System.Windows.Media.Brush]$window.Resources["LogBg"]
-            $logBox.Foreground =
-                [System.Windows.Media.Brush]$window.Resources["LogFg"]
-        }
-
-        $logPanel = Get-DomeniaControl -Name "LogPanel"
-        if ($null -ne $logPanel) {
-            $logPanel.Background =
-                [System.Windows.Media.Brush]$window.Resources["BgCard"]
-            $logPanel.BorderBrush =
-                [System.Windows.Media.Brush]$window.Resources["BorderColor"]
-        }
+        # CD-05: one palette. SupportSuite.UI.json paints every token, the window, the journal and the native popup
+        # brushes (Set-DomeniaUxPalette); no colour table is kept here.
+        Set-DomeniaUxPalette -Window $window -Theme $Theme
 
         # DS-10 (L08): Path icons, the icon of the theme the button switches to (sun while dark, moon while light).
         $button = Get-DomeniaControl -Name "BtnThemeToggle"
@@ -4177,10 +4131,6 @@ function Apply-DomeniaTheme {
         if ($null -ne $button) {
             $button.IsEnabled = $true
             $button.IsHitTestVisible = $true
-        }
-
-        if ($null -ne (Get-Command Set-DomeniaUxPalette -ErrorAction SilentlyContinue)) {
-            Set-DomeniaUxPalette -Window $window -Theme $Theme
         }
 
         # Les etats de presence portent une couleur explicite : il faut la
@@ -4229,6 +4179,8 @@ function Get-MainXaml {
 @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Domenia" Height="960" Width="1600" MinHeight="500" MinWidth="960" WindowStartupLocation="CenterScreen" FontFamily="Segoe UI Variable, Segoe UI" FontSize="13" Background="{DynamicResource WindowBg}" Foreground="{DynamicResource TextColor}" UseLayoutRounding="True">
   <Window.Resources>
+    <!-- CD-05: these start-up brushes equal the Light palette of SupportSuite.UI.json (tests/audit_theme.py checks it);
+         Set-DomeniaUxPalette paints the chosen theme over every token before the window is shown. -->
     <SolidColorBrush x:Key="UxSidebar" Color="#EEF3FA"/>
     <SolidColorBrush x:Key="BgCard" Color="#FFFFFF"/>
     <SolidColorBrush x:Key="BgInput" Color="#FFFFFF"/>
@@ -4257,6 +4209,31 @@ function Get-MainXaml {
     <SolidColorBrush x:Key="RowSelFg" Color="#173A6A"/>
     <SolidColorBrush x:Key="RowHoverBg" Color="#F0F6FF"/>
     <SolidColorBrush x:Key="PrivilegeFg" Color="#6140A5"/>
+    <SolidColorBrush x:Key="OnAccent" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="AccentHover" Color="#0A5FBF"/>
+    <SolidColorBrush x:Key="DangerHover" Color="#9E1F33"/>
+    <SolidColorBrush x:Key="StatusError" Color="#B91C1C"/>
+    <SolidColorBrush x:Key="StatusWarning" Color="#92400E"/>
+    <SolidColorBrush x:Key="StatusSuccess" Color="#166534"/>
+    <SolidColorBrush x:Key="TooltipBg" Color="#243248"/>
+    <SolidColorBrush x:Key="TooltipFg" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="TooltipBorder" Color="#52627B"/>
+    <SolidColorBrush x:Key="ScrollThumb" Color="#7D8BA0"/>
+    <SolidColorBrush x:Key="ScrollThumbHover" Color="#5D6C83"/>
+    <SolidColorBrush x:Key="PillNeutralBg" Color="#E5E7EB"/>
+    <SolidColorBrush x:Key="PillNeutralFg" Color="#374151"/>
+    <SolidColorBrush x:Key="PillBlueBg" Color="#DBEAFE"/>
+    <SolidColorBrush x:Key="PillBlueFg" Color="#1E3A8A"/>
+    <SolidColorBrush x:Key="PillGreenBg" Color="#DCFCE7"/>
+    <SolidColorBrush x:Key="PillGreenFg" Color="#166534"/>
+    <SolidColorBrush x:Key="PillAmberBg" Color="#FEF3C7"/>
+    <SolidColorBrush x:Key="PillAmberFg" Color="#92400E"/>
+    <SolidColorBrush x:Key="PillOrangeBg" Color="#FFEDD5"/>
+    <SolidColorBrush x:Key="PillOrangeFg" Color="#7C2D12"/>
+    <SolidColorBrush x:Key="PillRedBg" Color="#FEE2E2"/>
+    <SolidColorBrush x:Key="PillRedFg" Color="#991B1B"/>
+    <SolidColorBrush x:Key="PillSkyBg" Color="#E0F2FE"/>
+    <SolidColorBrush x:Key="PillSkyFg" Color="#075985"/>
     <Style x:Key="BaseButton" TargetType="Button">
       <Setter Property="VerticalAlignment" Value="Center"/>
       <Setter Property="MinHeight" Value="36"/>
@@ -4308,13 +4285,13 @@ function Get-MainXaml {
     <Style x:Key="RunButton" TargetType="Button" BasedOn="{StaticResource BaseButton}">
       <Setter Property="Background" Value="{DynamicResource AccentColor}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource AccentColor}"/>
-      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="Foreground" Value="{DynamicResource OnAccent}"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
     <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource BaseButton}">
       <Setter Property="Background" Value="{DynamicResource DangerColor}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource DangerColor}"/>
-      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="Foreground" Value="{DynamicResource OnAccent}"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
     <Style x:Key="EyeButton" TargetType="Button" BasedOn="{StaticResource BaseButton}">
@@ -4708,9 +4685,9 @@ function Get-MainXaml {
     </Style>
     <Style TargetType="ToolTip">
       <Setter Property="MaxWidth" Value="410"/>
-      <Setter Property="Background" Value="#243248"/>
-      <Setter Property="Foreground" Value="#FFFFFF"/>
-      <Setter Property="BorderBrush" Value="#52627B"/>
+      <Setter Property="Background" Value="{DynamicResource TooltipBg}"/>
+      <Setter Property="Foreground" Value="{DynamicResource TooltipFg}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource TooltipBorder}"/>
       <Setter Property="Padding" Value="12,10"/>
       <Setter Property="FontSize" Value="12"/>
       <Setter Property="Template">
@@ -4722,7 +4699,7 @@ function Get-MainXaml {
                   <Style TargetType="TextBlock">
                     <Setter Property="TextWrapping" Value="Wrap"/>
                     <Setter Property="MaxWidth" Value="378"/>
-                    <Setter Property="Foreground" Value="#FFFFFF"/>
+                    <Setter Property="Foreground" Value="{DynamicResource TooltipFg}"/>
                   </Style>
                 </ContentPresenter.Resources>
               </ContentPresenter>
@@ -4847,7 +4824,7 @@ function Get-MainXaml {
                     </Trigger>
                     <Trigger Property="IsSelected" Value="True">
                       <Setter TargetName="UxSegmentItem" Property="Background" Value="{DynamicResource AccentColor}"/>
-                      <Setter Property="Foreground" Value="White"/>
+                      <Setter Property="Foreground" Value="{DynamicResource OnAccent}"/>
                       <Setter Property="FontWeight" Value="SemiBold"/>
                     </Trigger>
                     <Trigger Property="IsKeyboardFocused" Value="True">
@@ -5095,14 +5072,14 @@ function Get-MainXaml {
                 <Grid Width="38" Height="38" IsHitTestVisible="False">
                   <Path Data="M13,8 A5,5 0 1 1 3,8 A5,5 0 1 1 13,8 M11.5,11.5 L21,21 M17,17 L19.5,14.5 M19,19 L21.5,16.5" Width="18" Height="18" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                   <Border x:Name="BadgeAccessRecovery" Width="24" Height="16" CornerRadius="8" Background="{DynamicResource AccentColor}" HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Hidden">
-                    <TextBlock x:Name="LblAccessRecoveryCount" Text="0" FontSize="10" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="LblAccessRecoveryCount" Text="0" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource OnAccent}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                   </Border>
                 </Grid>
               </Button><Button x:Name="BtnSuiteActivity" Style="{StaticResource UxIconButton}" Width="40" MinWidth="40" MaxWidth="40" Height="40" MinHeight="40" MaxHeight="40" ToolTip="Opérations : affiche sous ce bouton les opérations en cours et en attente, leur durée, Arrêter par ligne et la santé du moteur. Aucun accès AD supplémentaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Opérations" AutomationProperties.HelpText="Ouvre le suivi des opérations. Le compteur inclut les lectures en nettoyage. Aucun accès AD supplémentaire.">
                 <Grid Width="38" Height="38" IsHitTestVisible="False">
                   <Path Data="M2,12 L7,12 10,5 14,19 17,12 22,12" Width="18" Height="18" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                   <Border x:Name="BadgeSuiteActivity" Width="24" Height="16" CornerRadius="8" Background="{DynamicResource AccentColor}" HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Hidden">
-                    <TextBlock x:Name="LblSuiteActivityCount" Text="0" FontSize="10" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="LblSuiteActivityCount" Text="0" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource OnAccent}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                   </Border>
                 </Grid>
               </Button>
@@ -5206,7 +5183,7 @@ function Get-MainXaml {
                           <Setter TargetName="UxReadOnlySwitch" Property="BorderBrush" Value="{DynamicResource DangerColor}"/>
                           <Setter TargetName="UxLockClosed" Property="Visibility" Value="Collapsed"/>
                           <Setter TargetName="UxLockOpen" Property="Visibility" Value="Visible"/>
-                          <Setter TargetName="UxReadOnlyText" Property="TextElement.Foreground" Value="White"/>
+                          <Setter TargetName="UxReadOnlyText" Property="TextElement.Foreground" Value="{DynamicResource OnAccent}"/>
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="UxReadOnlySwitch" Property="BorderThickness" Value="2"/></Trigger>
                         <Trigger Property="IsEnabled" Value="False"><Setter TargetName="UxReadOnlySwitch" Property="Opacity" Value="0.6"/></Trigger>
@@ -6520,24 +6497,24 @@ function Get-MainXaml {
                         <Border CornerRadius="9" Padding="8,1" Margin="0,2" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTip="{Binding BadgeRule}">
                           <Border.Style>
                             <Style TargetType="Border">
-                              <Setter Property="Background" Value="#E5E7EB"/>
+                              <Setter Property="Background" Value="{DynamicResource PillNeutralBg}"/>
                               <Style.Triggers>
-                                <DataTrigger Binding="{Binding Badge}" Value="Declare"><Setter Property="Background" Value="#DBEAFE"/></DataTrigger>
-                                <DataTrigger Binding="{Binding Badge}" Value="Observe"><Setter Property="Background" Value="#DCFCE7"/></DataTrigger>
-                                <DataTrigger Binding="{Binding Badge}" Value="Historique"><Setter Property="Background" Value="#FEF3C7"/></DataTrigger>
-                                <DataTrigger Binding="{Binding Badge}" Value="Contradictoire"><Setter Property="Background" Value="#FFEDD5"/></DataTrigger>
+                                <DataTrigger Binding="{Binding Badge}" Value="Declare"><Setter Property="Background" Value="{DynamicResource PillBlueBg}"/></DataTrigger>
+                                <DataTrigger Binding="{Binding Badge}" Value="Observe"><Setter Property="Background" Value="{DynamicResource PillGreenBg}"/></DataTrigger>
+                                <DataTrigger Binding="{Binding Badge}" Value="Historique"><Setter Property="Background" Value="{DynamicResource PillAmberBg}"/></DataTrigger>
+                                <DataTrigger Binding="{Binding Badge}" Value="Contradictoire"><Setter Property="Background" Value="{DynamicResource PillOrangeBg}"/></DataTrigger>
                               </Style.Triggers>
                             </Style>
                           </Border.Style>
                           <TextBlock Text="{Binding BadgeLabel}" FontSize="12" FontWeight="SemiBold">
                             <TextBlock.Style>
                               <Style TargetType="TextBlock">
-                                <Setter Property="Foreground" Value="#374151"/>
+                                <Setter Property="Foreground" Value="{DynamicResource PillNeutralFg}"/>
                                 <Style.Triggers>
-                                  <DataTrigger Binding="{Binding Badge}" Value="Declare"><Setter Property="Foreground" Value="#1E3A8A"/></DataTrigger>
-                                  <DataTrigger Binding="{Binding Badge}" Value="Observe"><Setter Property="Foreground" Value="#14532D"/></DataTrigger>
-                                  <DataTrigger Binding="{Binding Badge}" Value="Historique"><Setter Property="Foreground" Value="#78350F"/></DataTrigger>
-                                  <DataTrigger Binding="{Binding Badge}" Value="Contradictoire"><Setter Property="Foreground" Value="#7C2D12"/></DataTrigger>
+                                  <DataTrigger Binding="{Binding Badge}" Value="Declare"><Setter Property="Foreground" Value="{DynamicResource PillBlueFg}"/></DataTrigger>
+                                  <DataTrigger Binding="{Binding Badge}" Value="Observe"><Setter Property="Foreground" Value="{DynamicResource PillGreenFg}"/></DataTrigger>
+                                  <DataTrigger Binding="{Binding Badge}" Value="Historique"><Setter Property="Foreground" Value="{DynamicResource PillAmberFg}"/></DataTrigger>
+                                  <DataTrigger Binding="{Binding Badge}" Value="Contradictoire"><Setter Property="Foreground" Value="{DynamicResource PillOrangeFg}"/></DataTrigger>
                                 </Style.Triggers>
                               </Style>
                             </TextBlock.Style>
@@ -6566,7 +6543,7 @@ function Get-MainXaml {
                         <Style.Triggers>
                           <Trigger Property="IsChecked" Value="True">
                             <Setter Property="Background" Value="{Binding Tag, RelativeSource={RelativeSource Self}}"/>
-                            <Setter Property="Foreground" Value="#1F2937"/>
+                            <Setter Property="Foreground" Value="{DynamicResource TextColor}"/>
                           </Trigger>
                         </Style.Triggers>
                       </Style>
@@ -6642,7 +6619,7 @@ function Get-MainXaml {
                                       <Expander x:Name="ExpRelationOptions" Header="Options de détection" IsExpanded="False" Margin="0,0,0,8" ToolTip="Options facultatives. Aucun accès réseau n'est lancé à l'ouverture.">
                                         <StackPanel Margin="4,10,4,6">
                                           <CheckBox x:Name="ChkUserScanPark" Content="Vérifier les consoles" IsChecked="True" Visibility="Collapsed"/>
-                                          <TextBlock Text="Détecter vérifie réellement les consoles du périmètre choisi. Lecture CIM/DCOM bornée, sans script distant." Foreground="{DynamicResource TextMuted}" Margin="0,0,0,10" TextWrapping="Wrap"/>
+                                          <TextBlock Text="Détecter vérifie réellement les consoles du périmètre choisi. Lecture CIM/DCOM bornée, sans script distant." Foreground="{DynamicResource MutedColor}" Margin="0,0,0,10" TextWrapping="Wrap"/>
                                           <WrapPanel>
                                             <StackPanel Margin="0,0,12,8"><TextBlock Text="Périmètre" Margin="0,0,0,4"/><ComboBox x:Name="CmbRelationScanScope" Width="280" SelectedIndex="0"><ComboBoxItem Content="Postes connus et candidats AD" Tag="Candidates"/><ComboBoxItem Content="Machines de la liste chargée" Tag="Loaded"/><ComboBoxItem Content="OU sélectionnée dans Rechercher" Tag="OU"/></ComboBox></StackPanel>
                                             <StackPanel Margin="0,0,12,8"><TextBlock Text="Maximum de postes (1 à 50)" Margin="0,0,0,4"/><TextBox x:Name="TxtRelationScanLimit" Width="170" Text="20"/></StackPanel>
@@ -6716,10 +6693,10 @@ function Get-MainXaml {
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" MaxWidth="320"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                             <TextBox x:Name="TxtAllLinksFilter" Grid.Column="0" MinHeight="32" Margin="0,0,10,0" VerticalContentAlignment="Center" ToolTip="Filtre sur lʼutilisateur, le poste, la source ou les détails." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtrer les associations" AutomationProperties.HelpText="Filtre sur lʼutilisateur, le poste, la source ou les détails."/>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                              <ToggleButton x:Name="ChkAllLinksDeclared" Content="Déclaré" Style="{StaticResource RelationChipToggle}" Tag="#DBEAFE" ToolTip="Nʼafficher que les associations déclarées par un opérateur." AutomationProperties.Name="Filtre Déclaré"/>
-                              <ToggleButton x:Name="ChkAllLinksObserved" Content="Observé" Style="{StaticResource RelationChipToggle}" Tag="#DCFCE7" ToolTip="Nʼafficher que les sessions observées sur les postes." AutomationProperties.Name="Filtre Observé"/>
-                              <ToggleButton x:Name="ChkAllLinksHistory" Content="Historique" Style="{StaticResource RelationChipToggle}" Tag="#FEF3C7" ToolTip="Nʼafficher que les ouvertures de session anciennes relevées dans un journal ou un profil : un historique, pas une présence actuelle." AutomationProperties.Name="Filtre Historique" AutomationProperties.HelpText="Nʼafficher que les ouvertures de session anciennes relevées dans un journal ou un profil : un historique, pas une présence actuelle."/>
-                              <ToggleButton x:Name="ChkAllLinksConflict" Content="Contradictoire" Style="{StaticResource RelationChipToggle}" Tag="#FFEDD5" ToolTip="Nʼafficher que les postes où les sources désignent des comptes différents." AutomationProperties.Name="Filtre Contradictoire"/>
+                              <ToggleButton x:Name="ChkAllLinksDeclared" Content="Déclaré" Style="{StaticResource RelationChipToggle}" Tag="{DynamicResource PillBlueBg}" ToolTip="Nʼafficher que les associations déclarées par un opérateur." AutomationProperties.Name="Filtre Déclaré"/>
+                              <ToggleButton x:Name="ChkAllLinksObserved" Content="Observé" Style="{StaticResource RelationChipToggle}" Tag="{DynamicResource PillGreenBg}" ToolTip="Nʼafficher que les sessions observées sur les postes." AutomationProperties.Name="Filtre Observé"/>
+                              <ToggleButton x:Name="ChkAllLinksHistory" Content="Historique" Style="{StaticResource RelationChipToggle}" Tag="{DynamicResource PillAmberBg}" ToolTip="Nʼafficher que les ouvertures de session anciennes relevées dans un journal ou un profil : un historique, pas une présence actuelle." AutomationProperties.Name="Filtre Historique" AutomationProperties.HelpText="Nʼafficher que les ouvertures de session anciennes relevées dans un journal ou un profil : un historique, pas une présence actuelle."/>
+                              <ToggleButton x:Name="ChkAllLinksConflict" Content="Contradictoire" Style="{StaticResource RelationChipToggle}" Tag="{DynamicResource PillOrangeBg}" ToolTip="Nʼafficher que les postes où les sources désignent des comptes différents." AutomationProperties.Name="Filtre Contradictoire"/>
                             </StackPanel>
                             <TextBlock x:Name="LblAllLinksCount" Grid.Column="2" Text="" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="10,0,0,0" TextTrimming="CharacterEllipsis"/>
                           </Grid>
@@ -7298,20 +7275,20 @@ function Get-MainXaml {
                                   <Border CornerRadius="9" Padding="8,1" Margin="0,2" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTip="{Binding Status}">
                                     <Border.Style>
                                       <Style TargetType="Border">
-                                        <Setter Property="Background" Value="#E5E7EB"/>
+                                        <Setter Property="Background" Value="{DynamicResource PillNeutralBg}"/>
                                         <Style.Triggers>
-                                          <DataTrigger Binding="{Binding Severity}" Value="Reussi"><Setter Property="Background" Value="#DCFCE7"/></DataTrigger>
-                                          <DataTrigger Binding="{Binding Severity}" Value="Echec"><Setter Property="Background" Value="#FEE2E2"/></DataTrigger>
-                                          <DataTrigger Binding="{Binding Severity}" Value="Information"><Setter Property="Background" Value="#DBEAFE"/></DataTrigger>
+                                          <DataTrigger Binding="{Binding Severity}" Value="Reussi"><Setter Property="Background" Value="{DynamicResource PillGreenBg}"/></DataTrigger>
+                                          <DataTrigger Binding="{Binding Severity}" Value="Echec"><Setter Property="Background" Value="{DynamicResource PillRedBg}"/></DataTrigger>
+                                          <DataTrigger Binding="{Binding Severity}" Value="Information"><Setter Property="Background" Value="{DynamicResource PillBlueBg}"/></DataTrigger>
                                         </Style.Triggers>
                                       </Style>
                                     </Border.Style>
                                     <TextBlock Text="{Binding EtatLibelle}" FontSize="12" FontWeight="SemiBold">
                                       <TextBlock.Style>
                                         <Style TargetType="TextBlock">
-                                          <Setter Property="Foreground" Value="#374151"/>
+                                          <Setter Property="Foreground" Value="{DynamicResource PillNeutralFg}"/>
                                           <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Severity}" Value="Echec"><Setter Property="Foreground" Value="#991B1B"/></DataTrigger>
+                                            <DataTrigger Binding="{Binding Severity}" Value="Echec"><Setter Property="Foreground" Value="{DynamicResource PillRedFg}"/></DataTrigger>
                                           </Style.Triggers>
                                         </Style>
                                       </TextBlock.Style>
@@ -7523,8 +7500,8 @@ function Get-MainXaml {
 <!-- UI-18 : etat en mots francais dans une puce, operation et objet par leur nom, nom distinctif en infobulle. -->
 <DataGrid AutomationProperties.Name="Reçus des opérations" AutomationProperties.HelpText="Reçus des écritures envoyées par Domenia, ceux à vérifier en premier. Survolez lʼobjet pour lire son nom distinctif." ToolTipService.ShowOnDisabled="True" x:Name="DgGuardReceipts" IsReadOnly="True" AutoGenerateColumns="False" Height="200" SelectionMode="Single" ToolTip="Reçus des écritures envoyées par Domenia, ceux à vérifier en premier. Survolez lʼobjet pour lire son nom distinctif."><DataGrid.Columns>
 <DataGridTemplateColumn Header="État" Width="200" SortMemberPath="StageLabel"><DataGridTemplateColumn.CellTemplate><DataTemplate>
-<Border CornerRadius="9" Padding="8,1" Margin="0,2" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTip="{Binding Explanation}"><Border.Style><Style TargetType="Border"><Setter Property="Background" Value="#E5E7EB"/><Style.Triggers><DataTrigger Binding="{Binding Tone}" Value="Pending"><Setter Property="Background" Value="#FEF3C7"/></DataTrigger><DataTrigger Binding="{Binding Tone}" Value="Verified"><Setter Property="Background" Value="#DCFCE7"/></DataTrigger><DataTrigger Binding="{Binding Tone}" Value="Reviewed"><Setter Property="Background" Value="#DBEAFE"/></DataTrigger><DataTrigger Binding="{Binding Tone}" Value="Delivered"><Setter Property="Background" Value="#E0F2FE"/></DataTrigger></Style.Triggers></Style></Border.Style>
-<TextBlock Text="{Binding StageLabel}" FontSize="12" FontWeight="SemiBold"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Foreground" Value="#374151"/><Style.Triggers><DataTrigger Binding="{Binding Tone}" Value="Pending"><Setter Property="Foreground" Value="#92400E"/></DataTrigger><DataTrigger Binding="{Binding Tone}" Value="Verified"><Setter Property="Foreground" Value="#166534"/></DataTrigger><DataTrigger Binding="{Binding Tone}" Value="Reviewed"><Setter Property="Foreground" Value="#1E3A8A"/></DataTrigger><DataTrigger Binding="{Binding Tone}" Value="Delivered"><Setter Property="Foreground" Value="#075985"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+<Border CornerRadius="9" Padding="8,1" Margin="0,2" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTip="{Binding Explanation}"><Border.Style><Style TargetType="Border"><Setter Property="Background" Value="{DynamicResource PillNeutralBg}"/><Style.Triggers><DataTrigger Binding="{Binding Tone}" Value="Pending"><Setter Property="Background" Value="{DynamicResource PillAmberBg}"/></DataTrigger><DataTrigger Binding="{Binding Tone}" Value="Verified"><Setter Property="Background" Value="{DynamicResource PillGreenBg}"/></DataTrigger><DataTrigger Binding="{Binding Tone}" Value="Reviewed"><Setter Property="Background" Value="{DynamicResource PillBlueBg}"/></DataTrigger><DataTrigger Binding="{Binding Tone}" Value="Delivered"><Setter Property="Background" Value="{DynamicResource PillSkyBg}"/></DataTrigger></Style.Triggers></Style></Border.Style>
+<TextBlock Text="{Binding StageLabel}" FontSize="12" FontWeight="SemiBold"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Foreground" Value="{DynamicResource PillNeutralFg}"/><Style.Triggers><DataTrigger Binding="{Binding Tone}" Value="Pending"><Setter Property="Foreground" Value="{DynamicResource PillAmberFg}"/></DataTrigger><DataTrigger Binding="{Binding Tone}" Value="Verified"><Setter Property="Foreground" Value="{DynamicResource PillGreenFg}"/></DataTrigger><DataTrigger Binding="{Binding Tone}" Value="Reviewed"><Setter Property="Foreground" Value="{DynamicResource PillBlueFg}"/></DataTrigger><DataTrigger Binding="{Binding Tone}" Value="Delivered"><Setter Property="Foreground" Value="{DynamicResource PillSkyFg}"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
 </Border></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
 <DataGridTextColumn Header="Opération" Binding="{Binding OperationLabel}" Width="210"/>
 <DataGridTemplateColumn Header="Objet" Width="*" MinWidth="160" SortMemberPath="ObjectName"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding ObjectName}" ToolTip="{Binding DnToolTip}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
@@ -8047,7 +8024,7 @@ function Get-MainXaml {
                 <TextBlock Grid.Column="1" x:Name="LblUiLogLast" AutomationProperties.LiveSetting="Polite" Visibility="Collapsed" VerticalAlignment="Center" Margin="4,0,8,0" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource MutedColor}" ToolTip="Dernier message de la session. Un clic sur la barre déplie le journal." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Dernier message du journal" AutomationProperties.HelpText="Dernier message de la session. Un clic sur la barre déplie le journal."/>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="4,0,8,0">
                   <Border x:Name="UiLogErrorBadge" Visibility="Collapsed" Background="{DynamicResource DangerColor}" CornerRadius="10" Padding="8,2" Margin="2,0,6,0" VerticalAlignment="Center" ToolTip="Erreur non lue dans le journal. Dépliez le journal pour la lire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Erreur non lue" AutomationProperties.HelpText="Erreur non lue dans le journal. Dépliez le journal pour la lire.">
-                    <TextBlock x:Name="LblUiLogErrorBadge" Text="1 erreur" Foreground="White" FontSize="11" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="LblUiLogErrorBadge" Text="1 erreur" Foreground="{DynamicResource OnAccent}" FontSize="11" FontWeight="SemiBold"/>
                   </Border>
                   <Border x:Name="UiLogUnavailableBadge" Visibility="Collapsed" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource StatusWarning}" BorderThickness="1" CornerRadius="10" Padding="8,1" Margin="2,0,6,0" VerticalAlignment="Center" ToolTip="Domenia.log nʼest pas inscriptible. Un journal de secours est utilisé si possible." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Journal indisponible" AutomationProperties.HelpText="Domenia.log nʼest pas inscriptible. Un journal de secours est utilisé si possible.">
                     <TextBlock Text="Journal indisponible" Foreground="{DynamicResource StatusWarning}" FontSize="11" FontWeight="SemiBold"/>

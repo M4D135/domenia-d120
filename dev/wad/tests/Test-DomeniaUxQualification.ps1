@@ -68,8 +68,9 @@ Check-Suite 'P111 : options avancees repliees par defaut' {
     @($elements|Where-Object{[string]$_.Element.GetAttribute('Name',$x) -eq 'ExpAccountSecurityOptions'}).Count -eq 1
 }
 Check-Suite 'P112 : couleurs par ressources, aucune couleur fixe nouvelle dans la page et les vues' {
-    $fixed=@(foreach($item in $elements){$e=$item.Element;foreach($attribute in @('Foreground','Background','BorderBrush','Fill','Stroke')){$v=[string]$e.GetAttribute($attribute);if($v -match '^#|^(White|Black|Gray|Red|Green|Blue)$'){$e.LocalName+'.'+$attribute+'='+$v}}})
-    if(@($fixed|Where-Object{$_ -ne 'TextBlock.Foreground=White'}).Count -or ($fixed.Count -gt 3)){throw ('Couleurs fixes : '+($fixed -join ', '))}
+    $fixed=@(foreach($item in $elements){$e=$item.Element;foreach($attribute in @('Foreground','Background','BorderBrush','Fill','Stroke','Tag')){$v=[string]$e.GetAttribute($attribute);if($v -match '^#|^(White|Black|Gray|Red|Green|Blue)$'){$e.LocalName+'.'+$attribute+'='+$v}}})
+    # CD-05 (lot Z04): the last three white texts use the OnAccent token; the ratchet is now at zero.
+    if($fixed.Count){throw ('Couleurs fixes : '+($fixed -join ', '))}
     foreach($view in @('Domenia-Operations.xaml','Domenia-CommandPalette.xaml')){
         $text=[IO.File]::ReadAllText((Join-Path $modules $view),[Text.Encoding]::UTF8)
         if($text -match '(?i)(Foreground|Background|BorderBrush)="#'){throw ($view+' : couleur fixe')}

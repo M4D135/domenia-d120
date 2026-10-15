@@ -64,7 +64,7 @@ Test-Case -Id 'BS-003' -Name 'Editeurs : six premiers puis Autres en gris ardois
     Assert-Equal 3 ([double]$items[5].Value)
     Assert-Equal 'Autres' ([string]$items[6].Label)
     Assert-Equal 3 ([double]$items[6].Value) 'Editeurs 7 (2) et 8 (1)'
-    Assert-Equal '#94A3B8' ([string]$items[6].Color) 'Gris de la part Autres du rendu'
+    Assert-Equal (Get-DomeniaBoardColor 'Other') ([string]$items[6].Color) 'Gris de la part Autres du rendu'
     Assert-Equal 1 @(Get-DomeniaSoftwareBoardTestColored $e).Count 'Seule la part Autres porte une couleur'
     Assert-Equal 'Editeur 1' $e.Value
     Assert-Equal '8 logiciels sur 36' $e.Detail
@@ -77,7 +77,7 @@ Test-Case -Id 'BS-003' -Name 'Editeurs : six premiers puis Autres en gris ardois
     Assert-Equal (Get-DomeniaBoardColor 'Off') ([string]$items[4].Color)
     Assert-Equal 'Autres' ([string]$items[6].Label)
     Assert-Equal 6 ([double]$items[6].Value) 'Editeurs 6 (3), 7 (2) et 8 (1)'
-    Assert-Equal '#94A3B8' ([string]$items[6].Color)
+    Assert-Equal (Get-DomeniaBoardColor 'Other') ([string]$items[6].Color)
     Assert-True ([string]$items[4].Color -ne [string]$items[6].Color) 'Non renseigne et Autres : couleurs differentes'
 }
 Test-Case -Id 'BS-004' -Name 'Editeurs : pas de part Autres jusqu a six, egalites triees par nom, non renseigne en gris' -Body {

@@ -334,6 +334,13 @@ if($Wpf){
             $defs.Add($nodes[0].Extent.Text)
         }
         . ([scriptblock]::Create(($defs.ToArray() -join "`n")))
+        # CD-05: Apply-DomeniaTheme paints the shared palette only (Set-DomeniaUxPalette, SupportSuite.UI.json).
+        . (Join-Path $moduleRoot 'Domenia-Experience.Model.ps1')
+        $uxTokens=$null;$uxErrors=$null
+        $uxAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $moduleRoot 'Domenia-UX.UI.ps1'),[ref]$uxTokens,[ref]$uxErrors)
+        $uxPalette=@($uxAst.FindAll({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Set-DomeniaUxPalette'},$true))
+        Assert-SupportTest ($uxPalette.Count -eq 1) 'Unique : Set-DomeniaUxPalette'
+        . ([scriptblock]::Create($uxPalette[0].Extent.Text))
         function Add-DomeniaUiLog {param($Area,$Level,$Text)}
         function Write-AppLog {param($Message,$Level);if($Level -eq 'WARN' -or $Level -eq 'ERROR'){throw $Message}}
         $script:Ctrl=@{};$script:SupportView=$null;$script:SupportTimer=$null

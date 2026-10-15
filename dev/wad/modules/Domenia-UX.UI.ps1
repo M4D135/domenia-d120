@@ -740,6 +740,8 @@ function Set-DomeniaUxPalette {
     $palette=Get-SuitePalette -Theme $Theme
     $converter=[Windows.Media.BrushConverter]::new()
     foreach ($key in $palette.Keys) { $Window.Resources[$key]=$converter.ConvertFromInvariantString([string]$palette[$key]) }
+    # CD-05: colours drawn by code (charts, presence) read this painted palette through Get-DomeniaThemeColor.
+    $script:DomeniaPaintedPalette=$palette
     $Window.Background=$Window.Resources['WindowBg'];$Window.Foreground=$Window.Resources['TextColor']
     # Native popup/control brushes in the same window scope, not a system-wide change.
     $Window.Resources[[Windows.SystemColors]::WindowBrushKey]=$Window.Resources['BgInput']

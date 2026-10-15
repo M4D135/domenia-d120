@@ -84,7 +84,7 @@ function Get-DomeniaSoftwareBoardData {
     # Neutral greys, one per meaning (not a real category): the pastel 'Off' grey for an unknown value, the darker
     # slate of the renderer's own grouped part for "Autres", so the two slices and legend dots never look alike.
     $grey = Get-DomeniaBoardColor 'Off'
-    $restGrey = '#94A3B8'
+    $restGrey = Get-DomeniaBoardColor 'Other'
     $sortGroups = @(@{ Expression = 'Count'; Descending = $true }, @{ Expression = 'Name'; Descending = $false })
 
     # Rows are read defensively (StrictMode: never read a missing property) and normalised once.

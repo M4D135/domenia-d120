@@ -1,6 +1,7 @@
 ﻿# Shared presentation rules. No WPF, LDAP, credential or filesystem mutation.
 $script:SuiteThemeRoot = $PSScriptRoot
 $script:SuiteDesign = $null
+$script:SuitePaletteCache = $null
 
 function ConvertTo-SuiteFlag {
     param($Value,[bool]$Default=$false)
@@ -77,7 +78,7 @@ function Get-SuiteDesign {
         foreach($prop in $data.Palettes.$theme.PSObject.Properties){
             if([string]$prop.Value -notmatch '^#[0-9A-Fa-f]{6}$'){throw ('Couleur invalide : '+$prop.Name)}
         }
-        foreach($required in @('BgCard','BgInput','BgReadonly','BorderColor','TextColor','MutedColor','AccentColor','AccentSoft','DangerColor','WindowBg','DataGridBg','DataGridAlt','HeaderBg','LogBg','LogFg','BtnBg','BtnFg','TileBg','SplitterBg','InfoBg','InfoBorder','InfoFg','AccentText','RowSelBg','RowSelFg','RowHoverBg','PrivilegeFg','UxSidebar','StatusError','StatusWarning','StatusSuccess')){
+        foreach($required in @('BgCard','BgInput','BgReadonly','BorderColor','TextColor','MutedColor','AccentColor','AccentSoft','DangerColor','WindowBg','DataGridBg','DataGridAlt','HeaderBg','LogBg','LogFg','BtnBg','BtnFg','TileBg','SplitterBg','InfoBg','InfoBorder','InfoFg','AccentText','RowSelBg','RowSelFg','RowHoverBg','PrivilegeFg','UxSidebar','StatusError','StatusWarning','StatusSuccess','StateOk','StateWarn','StateAlert','StateOff','StateInfo','StateOkMark','StateWarnMark','StateAlertMark','StateOffMark','StateInfoMark','ChartOther','ChartDisabled','ChartBlue','ChartViolet','ChartTeal','ChartPink','ChartSky','ChartPeach','ChartLilac','ChartSage','OnAccent','AccentHover','DangerHover','TooltipBg','TooltipFg','TooltipBorder','ScrollThumb','ScrollThumbHover','ChartBlueEdge','ChartVioletEdge','ChartTealEdge','ChartPinkEdge','ChartSkyEdge','ChartPeachEdge','ChartLilacEdge','ChartSageEdge','PillNeutralBg','PillNeutralFg','PillBlueBg','PillBlueFg','PillGreenBg','PillGreenFg','PillAmberBg','PillAmberFg','PillOrangeBg','PillOrangeFg','PillRedBg','PillRedFg','PillSkyBg','PillSkyFg')){
             if($null -eq $data.Palettes.$theme.PSObject.Properties[$required]){throw ('Couleur requise absente : '+$required)}
         }
     }
@@ -91,6 +92,52 @@ function Get-SuitePalette {
     $palette=[ordered]@{}
     foreach($prop in $data.Palettes.$Theme.PSObject.Properties){$palette[$prop.Name]=[string]$prop.Value}
     return $palette
+}
+
+# ---------------------------------------------------------------- CD-05 one palette, DS-14 chart series
+function Get-DomeniaActiveThemeName {
+    # Theme painted in this session (Light or Dark). Read without failing where the core state is absent (rule tests).
+    $current=[string](Get-Variable -Name CurrentTheme -Scope Script -ValueOnly -ErrorAction SilentlyContinue)
+    if($current -eq 'Dark'){return 'Dark'}
+    return 'Light'
+}
+
+function Get-DomeniaThemeColor {
+    # CD-05: SupportSuite.UI.json is the only source of colours. Returns the '#RRGGBB' value of one token for the given
+    # theme, or for the palette painted in this session (high contrast included, FO-22). A '#RRGGBB' value passes
+    # through unchanged: it is a colour stored by an earlier version (board snapshots). An unknown token returns '',
+    # never a guessed colour; the caller keeps its resource-based default.
+    param([AllowEmptyString()][AllowNull()][string]$Key,[AllowEmptyString()][string]$Theme='')
+    $name=([string]$Key).Trim()
+    if(-not $name){return ''}
+    if($name -match '^#[0-9A-Fa-f]{6}$'){return $name.ToUpperInvariant()}
+    $palette=$null
+    if($Theme -notin @('Light','Dark')){
+        $palette=Get-Variable -Name DomeniaPaintedPalette -Scope Script -ValueOnly -ErrorAction SilentlyContinue
+        if($null -eq $palette){$Theme=Get-DomeniaActiveThemeName}
+    }
+    if($null -eq $palette){
+        if($null -eq $script:SuitePaletteCache){$script:SuitePaletteCache=@{}}
+        if(-not $script:SuitePaletteCache.ContainsKey($Theme)){$script:SuitePaletteCache[$Theme]=Get-SuitePalette -Theme $Theme}
+        $palette=$script:SuitePaletteCache[$Theme]
+    }
+    if($palette.Contains($name)){return [string]$palette[$name]}
+    return ''
+}
+
+function Get-DomeniaChartSeriesNames {
+    # DS-14: order of the categorical series of the charts. Pastels outside the state hues: yellow, green and red keep
+    # their meaning (Attention, Correct, Alerte) and never name a category such as a publisher or an architecture.
+    return @('ChartBlue','ChartViolet','ChartTeal','ChartPink','ChartSky','ChartPeach','ChartLilac','ChartSage')
+}
+
+function Get-DomeniaChartSeries {
+    # DS-14: fill and 1-unit edge of each categorical series for a theme. On the light theme the pastel fill stays
+    # under 3:1 against the card, its darker edge reaches it; on the dark theme the fill itself is above 3:1.
+    param([AllowEmptyString()][string]$Theme='')
+    foreach($name in @(Get-DomeniaChartSeriesNames)){
+        [pscustomobject]@{Token=$name;Fill=(Get-DomeniaThemeColor -Key $name -Theme $Theme);Edge=(Get-DomeniaThemeColor -Key ($name+'Edge') -Theme $Theme)}
+    }
 }
 
 function Test-DomeniaExperienceRow {

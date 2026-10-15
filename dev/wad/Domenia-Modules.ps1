@@ -997,6 +997,10 @@ function Get-DomeniaRuntimeModulePlan {
             'ConvertTo-DomeniaExperienceSettings',
             'Get-SuiteDesign',
             'Get-SuitePalette',
+            'Get-DomeniaActiveThemeName',
+            'Get-DomeniaThemeColor',
+            'Get-DomeniaChartSeriesNames',
+            'Get-DomeniaChartSeries',
             'Test-DomeniaExperienceRow',
             'Get-DomeniaFilteredEmptyState',
             'Test-DomeniaExperienceCanCancel',
@@ -2300,6 +2304,7 @@ function Get-DomeniaRuntimeModulePlan {
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Charts.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaChartPalette',
+            'Get-DomeniaChartEdgePalette',
             'Get-DomeniaStateColor',
             'Get-DomeniaStateDotColor',
             'Get-DomeniaStateTextKey',
@@ -2309,7 +2314,9 @@ function Get-DomeniaRuntimeModulePlan {
             'New-DomeniaChartIcon',
             'Get-DomeniaChartTruncated',
             'Get-DomeniaChartValueText',
+            'Test-DomeniaChartItemHasColor',
             'Get-DomeniaChartItemColor',
+            'Get-DomeniaChartItemEdge',
             'Test-DomeniaMotion',
             'New-DomeniaChartEase',
             'Start-DomeniaTween',
