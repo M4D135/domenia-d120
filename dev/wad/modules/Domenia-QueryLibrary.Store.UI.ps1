@@ -162,8 +162,9 @@ function Format-DomeniaQueryDependencyLabel {
     return ($board+' · '+$(if($title){'widget « '+$title+' »'}else{'widget '+[string]$Dependency.ConsumerId})+' · révision '+[string]$Dependency.BoundRevision)
 }
 function Save-DomeniaQueryRecipe {
-    # -Category '' keeps the stored category of an existing recipe (or Mes requêtes for a new one).
-    param($Recipe,[string]$SuccessHandler='Complete-DomeniaQueryRecipeSaveUi',$CallbackState=$null,[switch]$Archive,[object[]]$AdditionalDependencies=@(),[string]$ErrorHandler='',[string]$Category='')
+    # -Category '' keeps the stored category of an existing recipe (or Mes requêtes for a new one). -ImpactConfirmed: the
+    # workshop already showed its in-page impact review, so the dependency confirmation is not asked again.
+    param($Recipe,[string]$SuccessHandler='Complete-DomeniaQueryRecipeSaveUi',$CallbackState=$null,[switch]$Archive,[object[]]$AdditionalDependencies=@(),[string]$ErrorHandler='',[string]$Category='',[switch]$ImpactConfirmed)
     $store=Initialize-DomeniaQueryLibraryStore
     if($null -eq $store -or -not $store.Loaded){throw 'Attendez la lecture confirmée de la bibliothèque locale.'}
     if($store.Saving){throw 'Un enregistrement de requête est déjà en cours.'}
@@ -180,7 +181,8 @@ function Save-DomeniaQueryRecipe {
     $record=New-DomeniaQueryLibraryRecord -Context $store.Context -Recipe $Recipe -ExpectedRevision $expected -Category $Category
     $record.Archived=[bool]$Archive
     $dependencies=@($store.Dependencies|Where-Object{[string]$_.RecipeId -ceq [string]$Recipe.Id})
-    if($dependencies.Count){
+    # The workshop shows its in-page impact review first (ImpactConfirmed); other callers keep the confirmation.
+    if($dependencies.Count -and -not $ImpactConfirmed){
         $action=if($Archive){'Archiver cette requête et retirer ses widgets'}else{'Mettre à jour les widgets qui utilisent cette requête'}
         $details=($dependencies|ForEach-Object{Format-DomeniaQueryDependencyLabel $_}) -join "`r`n"
         $answer=Show-DomeniaDialog -Title 'Éléments qui utilisent cette requête' -Message ($action+' ? '+$dependencies.Count+' lien(s) concerné(s). Les anciennes révisions restent conservées dans la base.') -Details $details -Kind Question -Buttons YesNo

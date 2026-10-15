@@ -8,7 +8,7 @@ function Expect($ok,$why){if(-not $ok){throw $why}}
 function Case($name,[scriptblock]$body){try{&$body;$checks.Add([pscustomobject]@{Name=$name;Passed=$true;Error=''})}catch{$checks.Add([pscustomobject]@{Name=$name;Passed=$false;Error=($_.Exception.Message+' '+$_.ScriptStackTrace)})}}
 Case 'Every detailed probe has a unique safe class and complete source metadata' {
  $all=@(Get-DomeniaProbeCatalog);$extended=@(Get-DomeniaExtendedProbeCatalog)
- Expect ($extended.Count -eq 23) 'Expected 23 documented detailed probes'
+ Expect ($extended.Count -eq 24) 'Expected 24 documented detailed probes'
  Expect (@($all.Id|Sort-Object -Unique).Count -eq $all.Count) 'Duplicate ID'
  foreach($p in $extended){Expect ($p.Description -and $p.Rights -and $p.Compatibility -and $p.UnknownMeaning -and $p.Limitations -and $p.SourceUrls.Count) ('Metadata missing '+$p.Id);Expect ($p.ProviderQualification -eq 'À qualifier sous Windows') ('False Windows qualification '+$p.Id);foreach($url in $p.SourceUrls){Expect ($url -match '^https://(learn\.microsoft\.com/|github\.com/(microsoft|MicrosoftDocs)/)') ('Non-primary source '+$p.Id)}}
 }

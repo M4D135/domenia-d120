@@ -5,7 +5,7 @@ $ErrorActionPreference='Stop'
 $modules=Join-Path (Split-Path -Parent $PSScriptRoot) 'modules'
 if($QuerySource){Add-Type -Path (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'vendor/m4d-admin-common/src/Query/QueryEngine.cs')}else{Add-Type -Path (Join-Path $modules 'M4D.Admin.Common.Query.dll')}
 Add-Type -Path (Join-Path $modules 'Domenia.Native.dll')
-foreach($name in @('Common.Model','HealthRules.Model','Boards.Model','Probes.Model','QuerySchema.Model','Workstation.Model','Query.Model','Query.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+foreach($name in @('Common.Model','HealthRules.Model','Boards.Model','WidgetCollect.Model','Probes.Model','QuerySchema.Model','Workstation.Model','Query.Model','Query.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 $checks=[Collections.Generic.List[object]]::new()
 function Expect {param([bool]$Good,[string]$Name)$checks.Add([pscustomobject]@{Name=$Name;Passed=$Good});if(-not $Good){throw $Name}}
 [xml]$xaml=[IO.File]::ReadAllText((Join-Path $modules 'Domenia-Query.xaml'))
@@ -51,6 +51,7 @@ foreach($case in @(@('fleet.enabled','',1),@('fleet.accountstatus','État inconn
  $script:CapturedTargets=$null;$selection=if($case[1]){[pscustomobject]@{Label=$case[1]}}else{$null}
  Show-DomeniaFleetWidgetDetails -Item ([pscustomobject]@{Key=$case[0];Title='Fixture';Source='BuiltIn'}) -Selection $selection
  Expect ($null -ne $script:CapturedTargets -and @($script:CapturedTargets).Count -eq $case[2]) ('Click preserves exact SQL GUID population including empty '+$case[0]+'/'+$case[1])
+ Expect ([string]$script:CapturedLabel -like ('Fixture*'+[char]0x00B7+' '+$case[2]+' poste*')) ('Point 73 : la liste porte le compte du chiffre : '+[string]$script:CapturedLabel)
 }
 # Missing, stale, errors and measured zero remain different in the actual presentation adapter.
 $values=[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal)

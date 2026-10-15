@@ -19,7 +19,9 @@ $records=$Payload.Records
 if($null -eq $records){$records=ConvertTo-DomeniaQueryRecords -Fleet $Payload.Fleet -Observations $Payload.Observations -MaxAgeDays ([int]$Payload.MaxAgeDays) -Lifecycle $Payload.Lifecycle}
 $records=Add-DomeniaQueryCollectionProjectionRecords -Records $records -Projections @(Get-DomeniaMember $Payload 'CollectionProjections' @())
 $records=Add-DomeniaQueryDetailRecords -Records $records -Details @(Get-DomeniaMember $Payload 'DetailRows' @()) -MaxAgeDays ([int]$Payload.MaxAgeDays)
-if([bool](Get-DomeniaMember $Payload 'PlanCollection' $false)){[pscustomobject]@{Records=$records;CollectionPlan=(New-DomeniaQueryMissingCollectionPlan -Records $records -Recipe $Payload.Recipe -CacheMinutes ([int]$Payload.CacheMinutes))};return}
+# Collect only what is missing: same reuse age as the survey that checks each workstation before reading it; the
+# forced re-read of the collection settings (cache 0) keeps no stored measurement.
+if([bool](Get-DomeniaMember $Payload 'PlanCollection' $false)){[pscustomobject]@{Records=$records;CollectionPlan=(New-DomeniaQueryMissingCollectionPlan -Records $records -Recipe $Payload.Recipe -CacheMinutes ([int]$Payload.CacheMinutes) -ReuseMaxAgeDays $(if([int]$Payload.CacheMinutes -gt 0){[int]$Payload.MaxAgeDays}else{0}))};return}
 if([bool](Get-DomeniaMember $Payload 'CoverageOnly' $false)){[pscustomobject]@{Records=$records;Coverage=(Measure-DomeniaQueryCoverage -Records $records -Recipe $Payload.Recipe)};return}
 $eligible=Select-DomeniaQueryPopulation $records $Payload.Recipe
 $text=([string]$Payload.TextFilter).Trim();$state=[string]$Payload.StateFilter
@@ -47,6 +49,12 @@ if($searchOutput){
 }
 $fields=@(Get-DomeniaQueryRequestedFields $Payload.Recipe)
 $rows=@(ConvertTo-DomeniaQueryGridRows -Rows $result.Rows -Fields $fields)
+# Complete distribution of the draft, computed like its widget on the whole scope (display filters excluded).
+$groups=$null
+if([string](Get-DomeniaMember $Payload.Recipe 'GroupBy')){
+    try{$groups=Get-DomeniaQueryGroupSummary -Records $records -Recipe $Payload.Recipe}
+    catch{$groups=[pscustomobject]@{Field=[string]$Payload.Recipe.GroupBy;Error=$_.Exception.Message}}
+}
 $widgets=$null;if($null -ne $Payload.PSObject.Properties['CachedWidgets']){$widgets=$Payload.CachedWidgets}
 if($null -eq $widgets){
 $widgets=@{}
@@ -57,7 +65,7 @@ foreach($recipe in @($Payload.Saved)){
 }
 $probeWidgets=$null;if($null -ne $Payload.PSObject.Properties['CachedProbeWidgets']){$probeWidgets=$Payload.CachedProbeWidgets}
 if($null -eq $probeWidgets){$requests=@();if($null -ne $Payload.PSObject.Properties['ProbeRequests']){$requests=@($Payload.ProbeRequests)};$probeWidgets=Measure-DomeniaFleetProbeEntries -Fleet $Payload.Fleet -Observations $Payload.Observations -Requests $requests -MaxAgeDays ([int]$Payload.MaxAgeDays)}
-[pscustomobject]@{Rows=$rows;Records=$records;Widgets=$widgets;ProbeWidgets=$probeWidgets;Total=$result.Total;Matched=$result.Matched;Unknown=$result.Unknown;NotMatched=$result.NotMatched;ScopeTotal=$records.Count;Offset=$options.Offset;Selection=[string]$options.Selection}
+[pscustomobject]@{Rows=$rows;Records=$records;Widgets=$widgets;ProbeWidgets=$probeWidgets;Groups=$groups;Total=$result.Total;Matched=$result.Matched;Unknown=$result.Unknown;NotMatched=$result.NotMatched;ScopeTotal=$records.Count;Offset=$options.Offset;Selection=[string]$options.Selection}
 '@
 }
 function Get-DomeniaQueryExportWorkerCode {

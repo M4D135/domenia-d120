@@ -54,6 +54,8 @@ function Get-DomeniaComputerQueryRecords {
 function ConvertTo-DomeniaQueryCountEntry {
     param([string]$Id,[string]$Title,$Count,[string]$Visual='Kpi',[string]$Context='')
     $detail=$Context+' · '+('{0} correspondant(s), {1} inconnu(s), {2} non correspondant(s)' -f $Count.Matched,$Count.Unknown,$Count.NotMatched)
+    $categories=[long](Get-DomeniaMember $Count 'CategoryCount' 0)
+    if([string]$Count.GroupBy -and $categories -gt 10){$detail+=' · '+$categories+' valeurs distinctes : les dix principales sont affichées, les autres sont regroupées avec leur total exact. La liste complète est dans lʼatelier.'}
     $state=if($Count.Unknown){'Warn'}else{''}
     if([string]$Count.GroupBy -or $Visual -in @('Bar','Pie','Column')){
         $items=if([string]$Count.GroupBy){@($Count.Items)}else{@([pscustomobject]@{Label='Correspondants';Value=[double]$Count.Matched},[pscustomobject]@{Label='Inconnus';Value=[double]$Count.Unknown},[pscustomobject]@{Label='Non correspondants';Value=[double]$Count.NotMatched})}
@@ -101,8 +103,12 @@ function Add-DomeniaWorkshopWidget {
     $existing=@(Get-DomeniaBoardLayout $board|Where-Object{$_.Source -eq 'Query' -and $_.Key -eq $recipe.Id}|Select-Object -First 1)
     $item=if($existing.Count){$existing[0]}else{New-DomeniaBoardItem -Source Query -Key $recipe.Id -Visual $visual -Size M -Group 'Mes sondes' -Title $recipe.Name}
     $state=[pscustomobject]@{DraftGeneration=$script:DomeniaQueryState.Generation;Destination=$board;Visual=$visual;Item=$item}
+    # A modified saved definition is reviewed in the page first (widgets, links, Search views): nothing is written
+    # and no widget is added before the operator chooses to update the linked elements or to keep the old version.
     # Same category rule as Enregistrer: the category typed in the workshop applies to the recipe saved for the widget.
-    [void](Save-DomeniaQueryRecipe -Recipe $recipe -SuccessHandler 'Complete-DomeniaWorkshopWidgetSave' -CallbackState $state -AdditionalDependencies @([pscustomobject]@{ConsumerKind=$board;ConsumerId=[string]$item.Id}) -Category (Get-DomeniaQuerySaveCategory))
+    $impact=Get-DomeniaQueryDraftImpact -Recipe $recipe
+    if($null -ne $impact){Show-DomeniaQueryImpact -Impact $impact -Recipe $recipe -Mode Widget -Widget $state;return}
+    [void](Save-DomeniaQueryRecipe -Recipe $recipe -ImpactConfirmed -SuccessHandler 'Complete-DomeniaWorkshopWidgetSave' -CallbackState $state -AdditionalDependencies @([pscustomobject]@{ConsumerKind=$board;ConsumerId=[string]$item.Id}) -Category (Get-DomeniaQuerySaveCategory))
     [void](Set-DomeniaControlText 'LblQueryStatus' 'Enregistrement de la requête et de son lien avant création du widget…')
 }
 function Complete-DomeniaWorkshopWidgetSave {
@@ -115,9 +121,15 @@ function Complete-DomeniaWorkshopWidgetSave {
     $visual=[string]$State.Visual
     if($visual -notin @('Kpi','Text','Bar','Pie','Column')){$visual='Kpi'}
     $layout=@(Get-DomeniaBoardLayout $board);$existing=@($layout|Where-Object{$_.Source -eq 'Query' -and $_.Key -eq $recipe.Id}|Select-Object -First 1)
-    if($existing.Count){$layout=@(Update-DomeniaBoardItem -Layout $layout -Id $existing[0].Id -Changes @{Visual=$visual;Title=$recipe.Name});$id=$existing[0].Id}
+    $added=($existing.Count -eq 0)
+    if(-not $added){$layout=@(Update-DomeniaBoardItem -Layout $layout -Id $existing[0].Id -Changes @{Visual=$visual;Title=$recipe.Name});$id=$existing[0].Id}
     else{$item=$State.Item;$id=$item.Id;$layout=@(Add-DomeniaBoardItem $layout $item)}
     Set-DomeniaBoardLayout -Board $board -Layout $layout -Undo 'Ajout ou mise à jour de la requête' -Highlight $id
     if($sameDraft){if($board -eq 'Fleet'){Start-DomeniaQueryEvaluation}else{Show-DomeniaWorkshopComputerPreview}}
-    [void](Set-DomeniaControlText 'LblQueryStatus' ('Requête enregistrée et ajoutée au tableau de bord '+$(if($board -eq 'Computer'){'Poste'}else{'général'})+'. Sa disposition est conservée. Aucune collecte lancée.'))
+    # A widget just added collects at once what it is missing for its board (decision David 2026-10-14).
+    $collecting=$false;if($added){$collecting=[bool](Start-DomeniaWidgetRefresh -Board $board -Id ([string]$id) -Reason Add)}
+    $boardName=if($board -eq 'Computer'){'Poste'}else{'général'}
+    $kept=[string](Get-DomeniaMember $State 'KeptName')
+    if($kept){[void](Set-DomeniaControlText 'LblQueryStatus' ('Nouvelle requête « '+[string]$Recipe.Name+' » enregistrée (révision '+$Record.Revision+') et ajoutée au tableau de bord '+$boardName+'. « '+$kept+' » et ses '+[string]$State.Count+' élément(s) liés restent à la révision '+[string]$State.KeptRevision+'. '+$(if($collecting){'Collecte de ses données manquantes lancée pour ce widget.'}else{'Aucune collecte lancée.'})));return}
+    [void](Set-DomeniaControlText 'LblQueryStatus' ('Requête enregistrée et ajoutée au tableau de bord '+$boardName+'. Sa disposition est conservée. '+$(if($collecting){'Collecte de ses données manquantes lancée pour ce widget.'}else{'Aucune collecte lancée.'})))
 }

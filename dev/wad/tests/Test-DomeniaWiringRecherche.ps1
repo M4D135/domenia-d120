@@ -38,7 +38,7 @@ if($null -eq ('Domenia.Live.ResultRow' -as [type])){Add-Type -Path (Join-Path $m
 
 # Real application code.
 $coreNames=@('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaSearchMode','Set-DomeniaSearchMode','Get-DomeniaSearchText',
-    'Get-DomeniaSearchScope','Get-GlobalSelectedTypeFilter','Get-TypeLdapFilter','Test-DomeniaSearchStateCurrent','Invoke-GlobalSearch','Escape-LdapValue',
+    'Get-DomeniaSearchScope','Get-GlobalSelectedTypeFilter','Get-TypeLdapFilter','Test-DomeniaSearchStateCurrent','Invoke-GlobalSearch','Escape-LdapValue','Get-LdapPath',
     'Set-DomeniaItemsSource','Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys','Get-BranchQueryData','Get-SearchLdapFilter','Start-DomeniaSearchFor','Get-DomeniaEffectiveWorkerResult',
     'Invalidate-DomeniaSearchResults','Update-DomeniaSearchScopeUi',
     # Get-DomeniaSearchScope appelle Update-DomeniaNewOuParentUi (CO-27) : non declaree ici, chaque cas qui resout
@@ -52,7 +52,9 @@ $coreNames=@('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','Get-D
     'Get-DomeniaTreeHeaderTemplate','New-DomeniaTreeLoadingItem','Add-DomeniaTreeRowsToNode','Queue-DomeniaTreeRowsToNode','Stop-DomeniaTreeRenderForNode',
     'Initialize-DomeniaTreeRenderTimer','Load-TreeChildren',
     # UX-25: the local filter and the presence repaint the grid with a filtered copy of the list.
-    'Apply-DomeniaPresenceFilter','Set-DomeniaGridRows')
+    'Apply-DomeniaPresenceFilter','Set-DomeniaGridRows',
+    # UX-26 / CO-35 / SP-05: the context menu of the list and its read-only helpers.
+    'Build-DomeniaObjectsContextMenu','New-DomeniaMenuItem','Add-DomeniaMenuSeparator','Copy-DomeniaSelectedRowsForTicket','Open-DomeniaResultRowSupport','Open-DomeniaResultRowParentOu')
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $wad 'Domenia-Core.ps1') $coreNames)))
 # PF-14 / UX-25: the real handler of the object type, as Wire-Events attaches it (no copy of its text in this file).
 function Get-WireEventsHandler {param([string]$Control,[string]$Event)
@@ -68,18 +70,20 @@ $script:TypeWiring=Get-WireEventsHandler 'CmbGlobalType' 'Add_SelectionChanged'
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-UX.UI.ps1') @('Get-DomeniaUxOuDisplay','Update-DomeniaUxOuScope'))))
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Guard.UI.ps1') @('Read-DomeniaOuFavouriteStore','Write-DomeniaOuFavouriteStore','Import-DomeniaFavouriteSearchesOnce','Get-DomeniaFavouriteSearches','Test-DomeniaOuFavourite','Save-DomeniaFavouriteSearch','Load-DomeniaFavouriteSearch','Update-DomeniaOuFavouritesUi','Remove-DomeniaFavouriteSearch'))))
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Guard.Model.ps1') @('ConvertTo-DomeniaSavedSearch'))))
-. ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Park.UI.ps1') @('Start-DomeniaOnlinePark'))))
+# UI-23 / FO-18 / SE-05: the real survey commands of the list and their rules (Park.Model is dot-sourced below).
+. ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Park.UI.ps1') @('Start-DomeniaOnlinePark','Get-DomeniaParkRuns','Get-DomeniaParkRun','Test-DomeniaParkRunActive','Get-DomeniaParkMaxTargets','Get-DomeniaParkListContext','Get-DomeniaParkDisplayedTargets','Test-DomeniaParkListStoppable','Test-DomeniaParkRunOnOpenComputer','Update-DomeniaParkControls','Set-DomeniaParkControlVisible','Get-DomeniaParkVerifyButtonText','Update-DomeniaParkOutcomePills','Update-DomeniaParkSelectionBar'))))
 # Worker helpers live in the WorkerCommon text of the core: the row builder of the list is read from it, not copied.
 $coreText=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1'))
 $workerCommon=[regex]::Match($coreText,'(?ms)^\$script:WorkerCommon = @''\r?\n(.*?)\r?\n''@').Groups[1].Value
 $workerTokens=$null;$workerErrors=$null
 $workerAst=[Management.Automation.Language.Parser]::ParseInput($workerCommon,[ref]$workerTokens,[ref]$workerErrors)
-foreach($name in @('Convert-WLargeInteger','Convert-WFileTime')){
+# CD-13 / CO-33: the generated worker copies of the LDAP text rules are compared with the interface rules below.
+foreach($name in @('Convert-WLargeInteger','Convert-WFileTime','Escape-WLdap','ConvertTo-WAdsPathDn','Get-WLdapPath')){
     $node=@($workerAst.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true))
     if($node.Count -ne 1){throw ('Fonction worker absente : '+$name)}
     . ([scriptblock]::Create($node[0].Extent.Text))
 }
-foreach($file in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-Query.Model.ps1','Domenia-Search.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Live.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Live.UI.ps1','Domenia-Continuity.Model.ps1','Domenia-Continuity.UI.ps1','Domenia-Selection.UI.ps1','Domenia-Search.UI.ps1')){
+foreach($file in @('Domenia-Common.Model.ps1','Domenia-Store.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-Query.Model.ps1','Domenia-Search.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Live.Model.ps1','Domenia-Park.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Live.UI.ps1','Domenia-Continuity.Model.ps1','Domenia-Continuity.UI.ps1','Domenia-Selection.UI.ps1','Domenia-Search.UI.ps1')){
     . (Join-Path $modules $file)
 }
 
@@ -106,7 +110,6 @@ function Update-Dashboard { }
 function Request-DomeniaDashboardRefresh { }
 # L03: the home overview reads the OU of Rechercher; the double records the OU it is asked to follow.
 function Request-DomeniaFleetRefresh {param([switch]$Force) if($null -ne $script:FleetScopes){$script:FleetScopes.Add([string]$script:SelectedBranchDn)}}
-function Update-DomeniaParkControls { }
 function Apply-DomeniaUiProfile {param($Profile)}
 function Request-UiTaskStop {param($Id,[switch]$Silent,[switch]$Force,[switch]$Superseded,$Reason) $script:Stops++}
 function Set-RowAssociationMetadata {param($Rows) return $Rows}
@@ -127,6 +130,18 @@ function Complete-DomeniaOpenObjectUi {param($Result,$CacheKey,$Dn,$Type,[switch
     $script:SelectedObject=[pscustomobject]@{DN=$Dn;Type=$Type;Name=[string]@($Result.Properties.name)[0];Entry=$Result;Safety=[pscustomobject]@{Guid=[string]@($Result.Properties.objectGUID)[0]}}
 }
 function Fail-DomeniaOpenObjectUi {param($Message,$Dn) $script:OpenFailure=[string]$Message}
+# MO-07 harness: the committed-row pipe of the list is an inert boundary (Test-DomeniaDirectoryStore covers the real
+# COMMIT ordering). Rows are fed by Feed-Live; when the worker answer arrives the double closes the list as the SQLite
+# tick does (Final, Ended, Error), so that the real Invoke-DomeniaLiveTick finalizes it.
+function New-DomeniaDirectoryReadPipe {param($Context,$ReadyQueue=$null,$Search=$null,[string]$CommitHandler='',[string]$CompleteHandler='',[string]$ErrorHandler='',$CallbackState=$null)
+    $pipe=[pscustomobject]@{Context=$Context;Ready=$ReadyQueue;Search=$Search;Input=[Collections.Concurrent.ConcurrentQueue[object]]::new();Collector=[hashtable]::Synchronized(@{Started=$false;Done=$false;Final=$null;Error=''});Closed=$false;Completed=$false}
+    $script:Pipes.Add($pipe);return $pipe
+}
+function Complete-DomeniaDirectoryReadPipe {param($Pipe,$Final=$null,[string]$Error='')
+    if($null -eq $Pipe -or $Pipe.Closed){return}
+    $Pipe.Completed=$true;$Pipe.Closed=$true
+    if($null -ne $Pipe.Search){$Pipe.Search.Final=$Final;$Pipe.Search.Ended=$true;$Pipe.Search.Error=$Error}
+}
 function Start-UiTask {
     param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$DisableControls,$TimeoutSeconds,$StatusText,$SuccessHandler,$ErrorHandler,[switch]$NonCancellable)
     $id='task-'+[guid]::NewGuid().ToString('N')
@@ -142,6 +157,8 @@ function New-TestControls {
     foreach($n in @('BtnSearchMore','BtnNavBack','BtnNavForward','BtnWorkView','BtnOuRestoreRetry','BtnOuRestoreDismiss')){$c[$n]=[Windows.Controls.Button]::new()}
     $c.TxtGlobalLimit.Text='100'
     $c.ChkSubtree=[Windows.Controls.CheckBox]::new();$c.ChkSubtree.IsChecked=$false
+    # SP-15: « Vérifier au clic » and its user sub-option, read and saved by Initialize-DomeniaLive.
+    foreach($n in @('ChkLiveVerifyOnClick','ChkLiveUsersOnClick')){$c[$n]=[Windows.Controls.CheckBox]::new()}
     $c.CmbGlobalType=[Windows.Controls.ComboBox]::new()
     foreach($t in @('Tous','Utilisateurs','Machines','Groupes','OU et conteneurs')){$i=[Windows.Controls.ComboBoxItem]::new();$i.Content=$t;[void]$c.CmbGlobalType.Items.Add($i)}
     $c.CmbGlobalType.SelectedIndex=2
@@ -160,7 +177,8 @@ function New-TestControls {
     $c.TvDirectory=[Windows.Controls.TreeView]::new()
     # L03 controls (OU menu, filter and favourites, view chip, history banner, revalidation switch, survey buttons).
     $c.TxtOuFilter=[Windows.Controls.TextBox]::new()
-    foreach($n in @('BtnOuMenu','BtnOuFavouriteToggle','BtnHistoryRefresh','BtnParkResults','BtnParkPing','BtnParkAnalyze')){$c[$n]=[Windows.Controls.Button]::new()}
+    foreach($n in @('BtnOuMenu','BtnOuFavouriteToggle','BtnHistoryRefresh','BtnParkVerify','BtnParkVerifyMenu','BtnSelectionPing','BtnSelectionConsole')){$c[$n]=[Windows.Controls.Button]::new()}
+    $c.UxSelectionBar=[Windows.Controls.StackPanel]::new();$c.UxSelectionBar.Visibility='Collapsed';$c.LblSelectionBar=[Windows.Controls.TextBlock]::new()
     foreach($n in @('UxOuMenuPanel','UxOuFavourites','UxHistoryBanner')){$c[$n]=[Windows.Controls.Border]::new();$c[$n].Visibility='Collapsed'}
     $c.PnlOuFavourites=[Windows.Controls.StackPanel]::new()
     $c.UxListRevalidation=[Windows.Controls.StackPanel]::new();$c.UxListRevalidation.Visibility='Collapsed'
@@ -187,12 +205,15 @@ function Reset-Fixture {
     $script:CurrentObjectRequestId='';$script:CurrentObjectRequestDn='';$script:CurrentObjectRequestState=$null;$script:SelectionResetDn='';$script:DraftState=$null
     $script:BranchObjects=@();$script:BranchCountLabel='';$script:LastObjectOpenError='';$script:OpenFailure=''
     $script:Tasks=[Collections.Generic.List[object]]::new();$script:OperationErrors=[Collections.Generic.List[string]]::new();$script:Stops=0
+    # New-DomeniaStoreContext (real) needs the scoped base path; no file is opened by this suite.
+    $script:DatabaseScopedPath='C:\DomeniaTest\recherche.db';$script:Pipes=[Collections.Generic.List[object]]::new()
     $script:LastStatus='';$script:LastStatusLevel='';$script:DirtyFields=@();$script:CfgOverrides=@{};$script:Settings=@{}
     $script:SearchUiInitialized=$false;$script:SearchQuerySelectorBound=$false;$script:SearchQueryCatalogBusy=$false;$script:SearchQueryCatalog=@();$script:SearchQueryRun=$null;$script:DomeniaQueryState=$null;$script:IndexSyncStates=@{};$script:NavHistory=$null;$script:NavRestoring=$false;$script:NavSearchLaunching=$false
     $script:NavHistoryRows=$null;$script:NavHistoryState=$null;$script:NavListShape=$null;$script:OuTreeFilterStatus='';$script:TreeSelectionSource='Mouse';$script:WorkViewScopeOu='';$script:ListSurveyBlocked=$false;$script:ListRevalidationPaused=$false
     if($null -ne $script:FilterChangeTimer){$script:FilterChangeTimer.Stop()};$script:FilterChangeTimer=$null;$script:PendingFilterChange=$null
     if($null -ne $script:TreeRenderTimer){$script:TreeRenderTimer.Stop()};$script:TreeRenderTimer=$null;$script:TreeRenderJobs=@{}
-    $script:OuFavouriteKeys=$null;$script:FleetScopes=[Collections.Generic.List[string]]::new();$script:SearchListHasMachine=$false;$script:ParkRun=$null
+    $script:OuFavouriteKeys=$null;$script:FleetScopes=[Collections.Generic.List[string]]::new();$script:SearchListHasMachine=$false;$script:ParkRuns=$null;$script:ParkDefaultMode=$null
+    $script:ResultColumnChoice=$null;$script:ResultColumnMenuBound=$false;$script:SearchListHasUser=$false;$script:SearchListHasAccount=$false
     $script:Ctrl=New-TestControls
     $script:Window=[Windows.Window]::new()
     Initialize-DomeniaLive
@@ -208,9 +229,13 @@ function New-ResultRow {param([string]$Name,[string]$Login,[string]$Type='Utilis
 }
 function Feed-Live {param($Row) $script:Live.Search.Progress.Enqueue([pscustomobject]@{Kind='Row';Row=$Row;ObservedUtc='2026-10-02T08:00:00.0000000Z'})}
 function Pump-Live {param([int]$Ticks=60) for($i=0;$i -lt $Ticks;$i++){Invoke-DomeniaLiveTick;if($null -eq $script:Live.Search -or ($script:Live.Search.Progress.IsEmpty -and ($script:Live.Search.Finalized -or -not $script:Live.Search.Ended))){if($i -gt 2){break}}}}
-function Finish-Live {param($Task,[bool]$LimitReached=$false)
+function Finish-Live {param($Task,[bool]$LimitReached=$false,[string]$FilterUsed='')
+    # Without -FilterUsed the answer is that of an older worker (no filter reported): « Charger la suite » falls back to
+    # reading the list again. The current GlobalSearch worker always reports FilterUsed (MO-07 continuation).
     $s=$script:Live.Search
-    Complete-DomeniaLiveSearch -Result ([pscustomobject]@{Rows=@();BaseDn=$s.State.BaseDn;Scope=$s.State.Scope;Partial=$false;Failure='';LimitReached=$LimitReached}) -State $Task.CallbackState
+    $final=[pscustomobject]@{Rows=@();BaseDn=$s.State.BaseDn;Scope=$s.State.Scope;Partial=$false;Failure='';LimitReached=$LimitReached}
+    if($FilterUsed){Add-Member -InputObject $final -NotePropertyName FilterUsed -NotePropertyValue $FilterUsed}
+    Complete-DomeniaLiveSearch -Result $final -State $Task.CallbackState
     for($i=0;$i -lt 150 -and -not $script:Live.Search.Finalized;$i++){Invoke-DomeniaLiveTick}
 }
 function Get-GridNames {return @($script:Ctrl.DgObjects.Items|Where-Object{$_ -ne [Windows.Data.CollectionView]::NewItemPlaceholder}|ForEach-Object{[string]$_.Name})}
@@ -231,18 +256,22 @@ function Send-TreeMouse {param($Tree)
 }
 
 # ---------------------------------------------------------------- D031 strict global contract
-# Unwired if Set-DomeniaItemsSource stops reading the search mode: the global user is hidden again.
-Case 'D031 Global repaint ignores the local OU text filter' {
+# CO-05: unwired if Set-DomeniaItemsSource ignores the filter of the list in global mode again, or if a new global
+# search keeps the filter of the list being left (D031: a new search never inherits it).
+Case 'CO-05 / D031 The filter of the list narrows a global list and a new search starts without it' {
     $script:Ctrl.TxtSuiteResultFilter.Text='PC-ONLY'
     $a=New-ResultRow 'Alex' 'alex';$p=New-ResultRow 'PC-ONLY' 'pc' 'Machine'
     foreach($r in @($a,$p)){Add-Member -InputObject $r -NotePropertyName Association -NotePropertyValue '';Add-Member -InputObject $r -NotePropertyName Presence -NotePropertyValue '';Add-Member -InputObject $r -NotePropertyName SessionDisplay -NotePropertyValue '';Add-Member -InputObject $r -NotePropertyName SessionState -NotePropertyValue ''}
     Set-DomeniaSearchMode Global;[void](Set-DomeniaItemsSource -Name DgObjects -Rows @($a,$p))
     $names=@(Get-GridNames)
-    Expect ($names -contains 'Alex' -and $names.Count -eq 2) 'Un utilisateur global est masque par le filtre local.'
-    Expect ($script:Ctrl.LblSuiteResultCount.Text.Contains('recherche globale sans filtre local'))
+    Expect (($names.Count -eq 1) -and ($names[0] -eq 'PC-ONLY')) 'Le filtre de la liste nʼagit pas sur une liste globale.'
+    Expect ($script:Ctrl.LblSuiteResultCount.Text.Contains('filtre de la liste, sans requête AD'))
     Set-DomeniaSearchMode OU;[void](Set-DomeniaItemsSource -Name DgObjects -Rows @($a,$p))
     $names=@(Get-GridNames)
-    Expect ($names.Count -eq 1 -and $names[0] -eq 'PC-ONLY') 'Le filtre local doit rester actif en OU.'
+    Expect (($names.Count -eq 1) -and ($names[0] -eq 'PC-ONLY')) 'Le filtre de la liste doit rester actif en OU.'
+    $t=Search-Global 'alex'
+    Expect (($null -ne $t) -and ($script:Ctrl.TxtSuiteResultFilter.Text -eq '')) 'La nouvelle recherche garde le filtre de la liste precedente.'
+    Expect ((Get-TaskCount 'GlobalSearch') -eq 1) 'Effacer le filtre de la liste a lance une autre lecture.'
 }
 # Unwired if Invoke-DomeniaObjectChanges uses Get-BranchQueryData for a global list: BaseDn becomes the OU.
 Case 'D031 Revalidation of a global list keeps the whole domain and asks the rest policy' {
@@ -397,6 +426,38 @@ Case 'D035 Runtime escaping equals the rule escaping for every byte' {
     $t=Search-Global 'x)(objectClass=*'
     Expect (-not $t.Payload.BroadFilter.Contains('(objectClass=*)')) 'Injection de filtre.'
 }
+# CD-13: unwired if Escape-LdapValue or the worker common text keep their own copy of the rule.
+Case 'CD-13 / CO-34 Interface, worker and rule escape identically, consecutive asterisks merged' {
+    for($i=0;$i -le 255;$i++){
+        $ch=[string][char]$i
+        Expect ((Escape-WLdap $ch) -ceq (ConvertTo-DomeniaLdapLiteral $ch)) ('Ecart worker sans joker : '+$i)
+        Expect ((Escape-WLdap $ch -KeepWildcard) -ceq (ConvertTo-DomeniaLdapLiteral $ch -KeepWildcard)) ('Ecart worker avec joker : '+$i)
+    }
+    foreach($text in @('jean**','a**b','***','x)(**')){
+        $rule=ConvertTo-DomeniaLdapLiteral $text -KeepWildcard
+        Expect ((Escape-LdapValue -Value $text -KeepWildcard) -ceq $rule -and (Escape-WLdap $text -KeepWildcard) -ceq $rule) ('Copies divergentes : '+$text)
+        Expect (-not $rule.Contains('**')) ('Double joker : '+$rule)
+    }
+}
+# Unwired if Invoke-GlobalSearch keeps its former length test: '***' leaves for the whole domain.
+Case 'CO-34 Upper bar refuses asterisks only, nothing is sent; a doubled asterisk is merged' {
+    $before=Get-TaskCount 'GlobalSearch'
+    $script:Ctrl.TxtGlobalSearch.Text='***';Invoke-GlobalSearch -SearchMode Global
+    Expect ((Get-TaskCount 'GlobalSearch') -eq $before) 'Une recherche a ete envoyee pour des etoiles seules.'
+    Expect ($script:LastStatus -eq 'Saisissez au moins un caractère en plus de * : une étoile seule listerait tout le domaine.' -and $script:LastStatusLevel -eq 'WARN') ('Message : '+$script:LastStatus)
+    Expect ($script:Ctrl.LblSearchHint.Text -eq $script:LastStatus) 'Le motif doit rester visible sous la barre.'
+    $t=Search-Global 'jean**'
+    Expect ($null -ne $t -and $t.Payload.BroadFilter.Contains('(name=jean*)') -and -not $t.Payload.BroadFilter.Contains('**')) ('Filtre : '+$t.Payload.BroadFilter)
+}
+# CO-33: unwired if Get-LdapPath or Get-WLdapPath paste the DN as it is: an OU 'Compta/Paie' cannot be opened.
+Case 'CO-33 ADsPath of the interface and of the workers escape a slash once' {
+    $dn='OU=Compta/Paie,DC=example,DC=invalid'
+    Expect ((Get-LdapPath $dn) -ceq 'LDAP://dc.example.invalid/OU=Compta\/Paie,DC=example,DC=invalid') ('Chemin interface : '+(Get-LdapPath $dn))
+    $context=[pscustomobject]@{Server='dc.example.invalid';BaseDn='DC=example,DC=invalid'}
+    Expect ((Get-WLdapPath $context $dn) -ceq (Get-LdapPath $dn)) ('Chemin worker : '+(Get-WLdapPath $context $dn))
+    Expect ((Get-WLdapPath $context 'OU=Compta\/Paie,DC=example,DC=invalid') -ceq (Get-LdapPath $dn)) 'Double echappement d un DN deja echappe.'
+    Expect ((Get-LdapPath '') -ceq 'LDAP://dc.example.invalid/DC=example,DC=invalid') 'Racine de session modifiee.'
+}
 
 # ---------------------------------------------------------------- D036 pasted identifiers
 # Unwired if the identifier plan is ignored: the SID is searched as a name prefix.
@@ -424,7 +485,9 @@ Case 'D036 A pasted DN is not cut at its commas' {
 
 # ---------------------------------------------------------------- D037 explicit continuation
 # Unwired if Invoke-DomeniaLiveTick keeps the former label or the button is not driven: the expectations fail.
-Case 'D037 Limited list says so and offers the next load; a new load discards the old context' {
+# Fallback only: the answer reports no filter (older worker), so the next load reads the list again with the next bound
+# (MO-07 covers the real continuation below).
+Case 'D037 Repli sans filtre connu : liste limitee annoncee, la suite relit avec la limite suivante et ecarte lʼancien contexte' {
     $script:Ctrl.TxtGlobalLimit.Text='1'
     $t=Search-Global 'alex'
     Feed-Live (New-ResultRow 'Alex' 'alex')
@@ -435,11 +498,13 @@ Case 'D037 Limited list says so and offers the next load; a new load discards th
     Invoke-DomeniaSearchMore
     $next=Get-LastTask 'GlobalSearch'
     Expect ((Get-TaskCount 'GlobalSearch') -eq ($before+1) -and [int]$next.Payload.Limit -eq 2 -and [string]$next.CallbackState.Search -eq 'alex') 'La suite ne relance pas la meme recherche.'
+    Expect ($null -eq $next.Payload.PSObject.Properties['Continuation']) 'Le repli envoie une suite sans filtre connu.'
     Expect ($script:Ctrl.TxtGlobalLimit.Text -eq '1') 'La limite saisie par lʼoperateur a ete modifiee.'
     Expect (-not (Test-DomeniaSearchStateCurrent $t.CallbackState)) 'Lʼancien contexte reste accepte.'
 }
 # Unwired if continuation drops the view, changes its OU/depth or accepts a now different search scope.
-Case 'D037 / UX-33 Charger la suite conserve la requete Annuaire et lʼOU directe' {
+# Fallback only (answer without FilterUsed); the real continuation of a view is the MO-07 / UX-33 case below.
+Case 'D037 / UX-33 Repli sans filtre connu : la relecture conserve la requete Annuaire et lʼOU directe' {
     Update-DomeniaSearchScopeUi
     $script:Ctrl.TxtGlobalLimit.Text='1'
     $script:Ctrl.ChkSubtree.IsChecked=$false
@@ -452,6 +517,31 @@ Case 'D037 / UX-33 Charger la suite conserve la requete Annuaire et lʼOU direct
     Expect (-not [object]::ReferenceEquals($next,$t) -and [int]$next.Payload.Limit -eq 2) 'Suite non lancee.'
     Expect ($next.CallbackState.SearchMode -eq 'OU' -and $next.Payload.BaseDn -eq $t.Payload.BaseDn -and $next.Payload.Scope -eq 'OneLevel' -and $next.CallbackState.ViewId -eq 'stalecomputers' -and [bool]$next.CallbackState.SurveyAllowed) ('La suite lit un autre perimetre : '+$next.Payload.BaseDn)
     Expect (-not (Test-DomeniaSearchStateCurrent $t.CallbackState)) 'Ancienne generation encore acceptee.'
+}
+# MO-07 / UX-33: unwired if the continuation of a work view loses the view filter, its OU, its depth or its view,
+# re-reads the rows already loaded or opens a new generation (the path every current worker answer takes).
+Case 'MO-07 / UX-33 Charger la suite dʼune requete Annuaire lit seulement la suite dans la meme OU directe' {
+    Update-DomeniaSearchScopeUi
+    $script:Ctrl.TxtGlobalLimit.Text='1'
+    $script:Ctrl.ChkSubtree.IsChecked=$false
+    Invoke-DomeniaWorkView -ViewId 'ad:stalecomputers'
+    $t=Get-LastTask 'GlobalSearch'
+    $generation=[int]$script:GlobalSearchGeneration
+    $viewFilter=[string]$t.Payload.BroadFilter
+    Expect ($viewFilter.Contains('lastLogonTimestamp')) ('Filtre de la vue : '+$viewFilter)
+    Feed-Live (New-ResultRow 'PC-OLD' 'pcold' 'Machine' '' 'OU=Postes');Finish-Live $t $true $viewFilter
+    $s=$script:Live.Search;$rows=$s.Rows;$before=Get-TaskCount 'GlobalSearch'
+    Invoke-DomeniaSearchMore
+    $next=Get-LastTask 'GlobalSearch'
+    Expect ((Get-TaskCount 'GlobalSearch') -eq ($before+1)) 'Suite non lancee.'
+    $c=$next.Payload.Continuation
+    Expect (($null -ne $c) -and ([string]$c.Filter -ceq $viewFilter) -and ([string]$c.SortAttribute -eq 'name')) ('Suite : '+[string]$c.Filter)
+    Expect (@($c.KnownKeys) -contains 'cn=pc-old,ou=postes,dc=example,dc=invalid') 'Le DN deja charge nʼest pas transmis.'
+    Expect (($next.CallbackState.SearchMode -eq 'OU') -and ($next.Payload.BaseDn -eq $t.Payload.BaseDn) -and ($next.Payload.Scope -eq 'OneLevel') -and ($next.CallbackState.ViewId -eq 'stalecomputers') -and ($next.CallbackState.ViewChoice -eq 'OU')) ('La suite lit un autre perimetre : '+$next.Payload.BaseDn)
+    Expect (([int]$next.CallbackState.Limit -eq 2) -and ([int]$next.Payload.Limit -eq 1) -and (-not $next.Payload.BroadFilter)) ('Budget : '+$next.Payload.Limit+' / '+$next.CallbackState.Limit)
+    Expect (([int]$script:GlobalSearchGeneration -eq $generation) -and [object]::ReferenceEquals($script:Live.Search,$s) -and ($rows.Count -eq 1)) 'La liste a ete relue ou remplacee.'
+    Expect (Test-DomeniaSearchStateCurrent $next.CallbackState) 'Contexte de la suite refuse.'
+    Expect ((Get-TaskCount 'OpenAdObject') -eq 0) 'Une fiche a ete ouverte.'
 }
 Case 'D037 / UX-33 Une profondeur modifiee interdit de continuer lʼancienne liste' {
     $script:Ctrl.TxtGlobalLimit.Text='1'
@@ -469,6 +559,65 @@ Case 'D037 Complete list says so and offers nothing more' {
     Finish-Live $t $false
     Expect ($script:Ctrl.LblBranchCount.Text -match 'liste complète') ('Compteur : '+$script:Ctrl.LblBranchCount.Text)
     Expect (-not $script:Ctrl.BtnSearchMore.IsEnabled)
+}
+# FO-01: unwired if the finished short list does not show the chip, if the chip reads before its click, or if its
+# click does not search the names that contain the text with the same perimeter and limit.
+Case 'FO-01 Une liste globale vide propose « contient », lu seulement au clic' {
+    $script:Ctrl.BtnSearchContains=[Windows.Controls.Button]::new();$script:Ctrl.BtnSearchContains.Visibility='Collapsed'
+    $script:Ctrl.TxtGlobalLimit.Text='50'
+    $t=Search-Global 'compta'
+    Expect ($null -ne $t) ('Recherche non lancee : '+($script:OperationErrors -join ' | '))
+    Expect ($script:Ctrl.BtnSearchContains.Visibility -eq 'Collapsed') 'La puce est visible pendant la lecture.'
+    Finish-Live $t $false
+    $chip=$script:Ctrl.BtnSearchContains
+    Expect (($chip.Visibility -eq 'Visible') -and ([string]$chip.Content -ceq 'Chercher aussi les noms qui contiennent « compta »')) ('Puce : '+[string]$chip.Content)
+    Expect ((Get-TaskCount 'GlobalSearch') -eq 1) 'La puce a lance une lecture sans clic.'
+    # The click of the chip is wired by Initialize-DomeniaSearchUi to Invoke-DomeniaSearchContains (checked in its text).
+    $init=Import-AstFunctions (Join-Path $modules 'Domenia-Search.UI.ps1') @('Initialize-DomeniaSearchUi')
+    Expect ($init -match "Get-DomeniaControl 'BtnSearchContains'" -and $init -match 'Invoke-DomeniaSearchContains') 'Clic de la puce non raccorde.'
+    Invoke-DomeniaSearchContains
+    $c=Get-LastTask 'GlobalSearch'
+    $expected=[string](New-DomeniaContainsFilter -Text 'compta' -TypeFilter (Get-GlobalSelectedTypeFilter -Mode Global)).Filter
+    Expect (((Get-TaskCount 'GlobalSearch') -eq 2) -and ($c.Payload.BroadFilter -ceq $expected) -and (-not $c.Payload.PrefixFilter) -and (-not $c.Payload.ExactFilter) -and (-not $c.Payload.AnrFilter)) ('Filtre contient : '+[string]$c.Payload.BroadFilter)
+    Expect (([string]$c.CallbackState.MatchMode -eq 'Contains') -and ([int]$c.Payload.Limit -eq 50) -and ([string]$c.Payload.BaseDn -eq [string]$t.Payload.BaseDn) -and ([string]$c.CallbackState.Search -ceq 'compta')) 'Perimetre, limite ou texte modifies.'
+    Expect ($script:Ctrl.LblSearchHint.Text.Contains('Noms qui contiennent « compta »')) ('Aide : '+$script:Ctrl.LblSearchHint.Text)
+    Expect ($chip.Visibility -eq 'Collapsed') 'La puce reste affichee pendant la recherche « contient ».'
+    Finish-Live $c $false
+    Expect ($chip.Visibility -eq 'Collapsed') 'Une liste « contient » propose encore « contient ».'
+    Expect ((Get-TaskCount 'OpenAdObject') -eq 0) 'Une fiche a ete ouverte.'
+}
+# MO-07: unwired if Invoke-DomeniaSearchMore reads the whole list again (new generation, doubled limit, no continuation)
+# or if the second continuation does not start after the last name read with the filter of the first read.
+Case 'MO-07 Charger la suite lit seulement les lignes suivantes de la meme liste' {
+    $script:Ctrl.BtnSearchMoreJump=[Windows.Controls.Button]::new();$script:Ctrl.BtnSearchMoreJump.Visibility='Collapsed'
+    $script:Ctrl.TxtGlobalLimit.Text='2'
+    $t=Search-Global 'alex'
+    Expect ($null -ne $t) ('Recherche non lancee : '+($script:OperationErrors -join ' | '))
+    $generation=[int]$script:GlobalSearchGeneration
+    Feed-Live (New-ResultRow 'Alex A' 'alexa');Feed-Live (New-ResultRow 'Alex B' 'alexb')
+    $filter=[string]$t.Payload.PrefixFilter
+    Complete-DomeniaLiveSearch -Result ([pscustomobject]@{Rows=@();BaseDn=$t.CallbackState.BaseDn;Scope=$t.CallbackState.Scope;Partial=$false;Failure='';LimitReached=$true;FilterUsed=$filter}) -State $t.CallbackState
+    for($i=0;$i -lt 150 -and -not $script:Live.Search.Finalized;$i++){Invoke-DomeniaLiveTick}
+    Expect ($script:Ctrl.BtnSearchMore.IsEnabled -and $script:Ctrl.BtnSearchMoreJump.Visibility -eq 'Visible' -and ([string]$script:Ctrl.BtnSearchMoreJump.Content -match '^Charger jusquʼà 1\D000$')) ('Suite ou palier indisponible : '+[string]$script:Ctrl.BtnSearchMoreJump.Content)
+    $s=$script:Live.Search;$rows=$s.Rows;$before=Get-TaskCount 'GlobalSearch'
+    Invoke-DomeniaSearchMore
+    $next=Get-LastTask 'GlobalSearch'
+    Expect ((Get-TaskCount 'GlobalSearch') -eq ($before+1)) 'Suite non lancee.'
+    $c=$next.Payload.Continuation
+    Expect (($null -ne $c) -and ($c.Filter -ceq $filter) -and ($c.SortAttribute -eq 'name')) ('Suite : '+[string]$c.Filter)
+    Expect ((@($c.KnownKeys).Count -eq 2) -and (@($c.KnownKeys) -contains 'cn=alex a,ou=lyon,dc=example,dc=invalid')) 'Les DN deja charges ne sont pas transmis.'
+    Expect (([int]$next.Payload.Limit -eq 2) -and ([int]$next.CallbackState.Limit -eq 4) -and (-not $next.Payload.PrefixFilter) -and (-not $next.Payload.BroadFilter)) ('Budget : '+$next.Payload.Limit+' / '+$next.CallbackState.Limit)
+    Expect (([int]$script:GlobalSearchGeneration -eq $generation) -and [object]::ReferenceEquals($script:Live.Search,$s) -and [object]::ReferenceEquals($script:Ctrl.DgObjects.ItemsSource,$rows) -and ($rows.Count -eq 2)) 'La liste a ete relue ou remplacee.'
+    Expect ((Test-DomeniaSearchStateCurrent $next.CallbackState) -and ($script:Ctrl.TxtGlobalLimit.Text -eq '2')) 'Contexte de la suite refuse ou limite saisie modifiee.'
+    # The worker adds one row and names its cursor; the next step starts after it with the filter of the first read.
+    Feed-Live (New-ResultRow 'Alex C' 'alexc')
+    Complete-DomeniaLiveSearch -Result ([pscustomobject]@{Rows=@();BaseDn=$next.CallbackState.BaseDn;Scope=$next.CallbackState.Scope;Partial=$false;Failure='';LimitReached=$true;FilterUsed=[string]$c.Filter;Continuation=$true;LastName='Alex C'}) -State $next.CallbackState
+    for($i=0;$i -lt 150 -and -not $script:Live.Search.Finalized;$i++){Invoke-DomeniaLiveTick}
+    Expect (($rows.Count -eq 3) -and ([string]$s.ContinuationCursor -ceq 'Alex C')) ('Lignes : '+$rows.Count+' ; curseur : '+[string]$s.ContinuationCursor)
+    Invoke-DomeniaSearchMore -Step Jump
+    $jump=Get-LastTask 'GlobalSearch'
+    Expect (([string]$jump.Payload.Continuation.Filter -ceq ('(&'+$filter+'(name>=Alex C))')) -and ([int]$jump.CallbackState.Limit -eq 1000) -and ([int]$jump.Payload.Limit -eq 997)) ('Palier : '+[string]$jump.Payload.Continuation.Filter+' / '+$jump.CallbackState.Limit+' / '+$jump.Payload.Limit)
+    Expect ((Get-TaskCount 'OpenAdObject') -eq 0) 'Une fiche a ete ouverte.'
 }
 
 # ---------------------------------------------------------------- D038 favourites and work views
@@ -687,16 +836,83 @@ Case 'UX-33 Requete dans lʼOU et profondeur choisies, releve refuse a la racine
     Expect (-not [bool]$domain.CallbackState.SurveyAllowed -and $script:ListSurveyBlocked -and $script:Ctrl.LblSearchHint.Text.Contains('aucun relev')) 'Le releve nʼest pas refuse sur la racine recursive.'
     $script:SearchListHasMachine=$true
     Update-DomeniaSearchActionStates
-    foreach($n in @('BtnParkResults','BtnParkPing','BtnParkAnalyze')){Expect (-not $script:Ctrl[$n].IsEnabled) ('Releve propose : '+$n)}
+    foreach($n in @('BtnParkVerify','BtnParkVerifyMenu')){Expect (-not $script:Ctrl[$n].IsEnabled) ('Releve propose : '+$n)}
     $before=$script:Tasks.Count
     Start-DomeniaOnlinePark -DisplayedResults
-    Expect ($script:Tasks.Count -eq $before -and $null -eq $script:ParkRun -and $script:LastStatus -match 'tout le domaine') ('Releve lance : '+$script:LastStatus)
+    Expect ($script:Tasks.Count -eq $before -and $null -eq (Get-DomeniaParkRun -Slot 'List') -and $script:LastStatus -match 'tout le domaine') ('Releve lance : '+$script:LastStatus)
     Set-SelectedBranch ([pscustomobject]@{Tag=[pscustomobject]@{DN='OU=Lyon,DC=example,DC=invalid'}})
     Expect ($script:Ctrl.CmbWorkViewScope.SelectedIndex -eq 0 -and [string]$script:Ctrl.CmbWorkViewScope.Items[0].Content -eq 'Requêtes · Lyon' -and -not $script:ListSurveyBlocked) 'La puce ne suit pas lʼOU choisie.'
     $script:SearchListHasMachine=$true
     Update-DomeniaSearchActionStates
-    Expect ($script:Ctrl.BtnParkResults.IsEnabled) 'Le releve reste refuse sur une liste dʼOU.'
+    Expect ($script:Ctrl.BtnParkVerify.IsEnabled -and $script:Ctrl.BtnParkVerifyMenu.IsEnabled) 'Le releve reste refuse sur une liste dʼOU.'
     Expect ($script:Ctrl.CmbWorkViewScope.Items.Count -eq 1) 'Une seconde portee a ete ajoutee implicitement.'
+}
+# Unwired if the menu of the list offers a write, a remote tool or a collection again, if Revérifier ce poste goes
+# back to opening the fiche (CO-35), or if Pour un ticket copies GUID, DN or internal fields (SP-05).
+Case 'UX-26 / CO-35 / SP-05 Menu de la liste court et sans ecriture, Reverifier reste dans Rechercher, copie pour un ticket' {
+    $machine=New-ResultRow -Name 'PC-0042' -Login 'PC-0042' -Type 'Machine' -Ou 'OU=Postes,OU=Lyon'
+    foreach($pair in @(@('Association','jdupont'),@('Presence','En ligne'),@('PresenceState','Online'),@('PresenceAge','il y a 5 min'),@('SessionDisplay','EXAMPLE\jdupont'))){$machine|Add-Member -NotePropertyName $pair[0] -NotePropertyValue $pair[1] -Force}
+    $user=New-ResultRow -Name 'Jean Dupont' -Login 'jdupont'
+    $grid=$script:Ctrl.DgObjects;$grid.ItemsSource=@($machine,$user);$grid.SelectedItem=$machine
+    $menu=[Windows.Controls.ContextMenu]::new();Build-DomeniaObjectsContextMenu -Menu $menu
+    $top=@($menu.Items)
+    Expect ($top.Count -le 8) ('Menu trop long : '+$top.Count+' entrees.')
+    $headers=@($top|Where-Object{$_ -is [Windows.Controls.MenuItem]}|ForEach-Object{[string]$_.Header})
+    foreach($h in @('Ouvrir la fiche de PC-0042','Assistance poste','Revérifier ce poste','Rechercher lʼutilisateur associé','Ouvrir lʼOU parente','Copier','Exporter la liste en CSV')){Expect ($headers -contains $h) ('Entree absente : '+$h)}
+    # Every action of the menu, submenus included, and the helpers it calls stay read-only.
+    $all=[Collections.Generic.List[object]]::new();$queue=[Collections.Generic.Queue[object]]::new();foreach($i in $top){$queue.Enqueue($i)}
+    while($queue.Count){$i=$queue.Dequeue();if($i -isnot [Windows.Controls.MenuItem]){continue};$all.Add($i);foreach($child in @($i.Items)){$queue.Enqueue($child)}}
+    $texts=@($all|Where-Object{$_.Tag -is [scriptblock]}|ForEach-Object{[string]$_.Tag})+@([string]${function:Open-DomeniaResultRowSupport},[string]${function:Open-DomeniaResultRowParentOu},[string]${function:Copy-DomeniaSelectedRowsForTicket})
+    $forbidden='(?i)Delete-SelectedObject|Set-AccountDisabled|Unlock-UserAccount|Expire-UserPasswordNow|Move-Domenia|Invoke-ComputerTool|Add-SelectedLink|Start-DomeniaUserComputerProbe|Start-DomeniaComputerInventory|Start-DomeniaSoftwareInventory|Start-ComputerDiagnostics|Start-LoadComputerSecrets|Start-ProbeForSelectedComputer|Start-PermissionAnalysis|Invoke-\w*Write|Restart|Remove-|Set-ADAccount|Start-UiTask'
+    foreach($text in $texts){Expect ($text -notmatch $forbidden) ('Action interdite dans le menu : '+$text)}
+    foreach($i in $all){Expect ([string]$i.Header -notmatch '(?i)supprim|red.marr|d.sactiv|^activer|d.verrouill|d.plac|forcer|associer un|mot de passe|bitlocker|laps|wmi|inventaire|collecte|poste distant') ('Entree dʼecriture ou de collecte : '+[string]$i.Header)}
+    # CO-35: the recheck calls the live recheck of the selected workstation and stays in Rechercher.
+    $script:Ctrl.WorkspaceTabs.SelectedItem=$script:Ctrl.WsSearch
+    $recheck=@($all|Where-Object{[string]$_.Header -eq 'Revérifier ce poste'})[0]
+    Expect ([string]$recheck.Tag -match 'Request-DomeniaLiveRecheck' -and [string]$recheck.Tag -notmatch 'Queue-DomeniaSelectedObjectOpen') ('Action de Reverifier : '+[string]$recheck.Tag)
+    $script:Rechecks=0
+    function Request-DomeniaLiveRecheck {$script:Rechecks++}
+    & $recheck.Tag
+    Expect ($script:Rechecks -eq 1 -and [object]::ReferenceEquals($script:Ctrl.WorkspaceTabs.SelectedItem,$script:Ctrl.WsSearch)) 'Reverifier ce poste a quitte la liste.'
+    # SP-05: one readable line per selected row, without GUID nor DN.
+    $script:Clip=''
+    function Set-ClipboardSafe {param([string]$Text) $script:Clip=$Text}
+    [void]$grid.SelectedItems.Add($user)
+    $ticket=@($all|Where-Object{[string]$_.Header -eq 'Pour un ticket'})[0]
+    & $ticket.Tag
+    $lines=@($script:Clip -split "`r`n")
+    Expect ($lines.Count -eq 2) ('Lignes copiees : '+$lines.Count)
+    Expect ($lines[0] -eq 'Poste · PC-0042 · Compte : jdupont · Présence : En ligne (il y a 5 min) · Utilisateur console : EXAMPLE\jdupont · OU : Lyon / Postes') ('Ligne poste : '+$lines[0])
+    Expect ($script:Clip -notmatch [regex]::Escape([string]$machine.Guid) -and $script:Clip -notmatch 'DC=example') 'GUID ou DN copie pour un ticket.'
+    # Several selected rows: the single-row entries are greyed, copy and export stay available.
+    $menu=[Windows.Controls.ContextMenu]::new();Build-DomeniaObjectsContextMenu -Menu $menu
+    $open=@($menu.Items|Where-Object{$_ -is [Windows.Controls.MenuItem] -and [string]$_.Header -like 'Ouvrir la fiche de *'})[0]
+    $copy=@($menu.Items|Where-Object{$_ -is [Windows.Controls.MenuItem] -and [string]$_.Header -eq 'Copier'})[0]
+    Expect (-not $open.IsEnabled -and $copy.IsEnabled) 'Selection multiple : ouverture non grisee ou copie indisponible.'
+}
+# Unwired if a simple click on a workstation sends a ping again while « Vérifier au clic » is unchecked (SP-15), if
+# Revérifier ce poste stops being the manual gesture, or if the check box is not read and saved.
+Case 'SP-15 Clic sans ping quand Verifier au clic est decoche ; Reverifier reste le geste manuel ; choix enregistre' {
+    Expect (-not [bool]$script:Live.VerifyOnClick -and -not [bool]$script:Ctrl.ChkLiveVerifyOnClick.IsChecked) 'Verifier au clic coche par defaut.'
+    $task=Search-Global 'pc-0042'
+    $pc=New-ResultRow -Name 'PC-0042' -Login 'PC-0042' -Type 'Machine' -Guid '33333333-3333-4333-8333-333333333333'
+    Feed-Live $pc;Pump-Live 10
+    $row=$script:Live.Search.Map[([string]$pc.DN).ToLowerInvariant()]
+    Expect ($null -ne $row) 'Ligne du poste absente.'
+    $grid=$script:Ctrl.DgObjects;$grid.SelectedItem=$row
+    Select-DomeniaLiveResult
+    Pump-Live 5
+    Expect ($null -eq $script:Live.ProbeSelection -and $script:Live.PendingKeys.Count -eq 0) 'Un clic simple a prepare un ping.'
+    Expect ((Get-TaskCount @('LiveConsole','LiveSelectedPing')) -eq 0) 'Un ping est parti sans geste.'
+    Request-DomeniaLiveRecheck
+    Expect ($null -ne $script:Live.ProbeSelection -and [bool]$script:Live.ProbeSelection.Manual) 'Reverifier ce poste nʼa pas prepare la verification.'
+    Clear-DomeniaLiveProbeIntent
+    $script:Ctrl.ChkLiveVerifyOnClick.IsChecked=$true
+    Expect ([bool]$script:Live.VerifyOnClick -and $script:Settings['LiveVerifyOnClick'] -eq $true) 'Le choix nʼest ni lu ni enregistre.'
+    Select-DomeniaLiveResult
+    Expect ($null -ne $script:Live.ProbeSelection -and -not [bool]$script:Live.ProbeSelection.Manual) 'Le clic coche ne prepare pas le ping.'
+    $script:Ctrl.ChkLiveVerifyOnClick.IsChecked=$false
+    Expect ($null -eq $script:Live.ProbeSelection -and $script:Settings['LiveVerifyOnClick'] -eq $false) 'Decocher garde une intention non envoyee.'
 }
 # Unwired if Set-SelectedBranch reads the OU at each arrow key (one request per node walked), if the tree no longer
 # records whether the keyboard or the mouse drives it, or if Wire-Events sends a change of type without the pause.
@@ -884,18 +1100,82 @@ Case 'UX-25 Liste de lʼhistorique : bandeau, Actualiser, type, presence et filt
     Invoke-DomeniaHistoryRefresh
     $again=Get-LastTask 'GlobalSearch'
     Expect ((Get-TaskCount 'GlobalSearch') -eq ($searches+1) -and $again.CallbackState.SearchMode -eq 'OU' -and $again.Payload.BaseDn -eq 'OU=Postes,DC=example,DC=invalid' -and [string]$again.CallbackState.TypeFilter -ceq (Get-TypeLdapFilter 'Machines')) 'Actualiser ne relit pas la meme liste.'
-    Expect ((Get-TaskCount @('ComputerPing','LiveSelectedPing','LiveConsole','PresenceScan','ParkSweep')) -eq 0) 'Actualiser a lance un ping ou un releve.'
+    Expect ((Get-TaskCount @('ComputerPing','LiveSelectedPing','LiveConsole','PresenceScan','ParkSweep','ParkPing')) -eq 0) 'Actualiser a lance un ping ou un releve.'
     Expect ($script:Ctrl.UxHistoryBanner.Visibility -eq 'Collapsed') 'Bandeau toujours affiche apres Actualiser.'
 }
 
 # ---------------------------------------------------------------- real main XAML
+# DS-20 / SP-02: unwired if the grid shows every column again, if « Colonnes… » does not change and store the choice,
+# or if a chosen workstation column appears in a list without workstations.
+Case 'DS-20 Colonnes choisies : six par defaut, choix enregistre, colonnes poste seulement avec un poste' {
+    $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml));$window=$null
+    try{
+        $window=[Windows.Markup.XamlReader]::Load($reader)
+        $script:Ctrl=@{}
+        foreach($match in [regex]::Matches((Get-MainXaml),'x:Name="([^"]+)"')){$control=$window.FindName($match.Groups[1].Value);if($null -ne $control){$script:Ctrl[$match.Groups[1].Value]=$control}}
+        $script:Window=$window;$script:ResultColumnChoice=$null;$script:ResultColumnMenuBound=$false
+        $script:SearchListHasMachine=$true;$script:SearchListHasUser=$true;$script:SearchListHasAccount=$true
+        Initialize-DomeniaResultColumns
+        $grid=$window.FindName('DgObjects')
+        $shown={@($grid.Columns|Where-Object{$_.Visibility -eq 'Visible'}|ForEach-Object{[string]$_.Header})}
+        Expect (((& $shown) -join '|') -ceq 'Type|Nom|Utilisateur connecté (console)|Association mémorisée|Présence réseau|Etat') ('Colonnes par defaut : '+((& $shown) -join '|'))
+        Set-DomeniaResultColumnVisible -Key 'OS' -Show $true
+        Set-DomeniaResultColumnVisible -Key 'Presence' -Show $false
+        Expect (((& $shown) -contains 'OS') -and -not ((& $shown) -contains 'Présence réseau')) ('Choix non applique : '+((& $shown) -join '|'))
+        Expect ([string]$script:Settings['Search.ResultColumnsJson'] -ceq '{"Version":1,"Visible":["Type","Name","SessionDisplay","Association","State","OS"]}') ('Choix enregistre : '+[string]$script:Settings['Search.ResultColumnsJson'])
+        $script:SearchListHasMachine=$false;$script:SearchListHasUser=$true;Update-DomeniaResultColumnVisibility
+        Expect (-not ((& $shown) -contains 'OS') -and -not ((& $shown) -contains 'Utilisateur connecté (console)') -and ((& $shown) -contains 'Association mémorisée')) ('Colonne poste affichee sans poste : '+((& $shown) -join '|'))
+        # A restart reads the stored choice back.
+        $script:ResultColumnChoice=$null;$script:SearchListHasMachine=$true;Initialize-DomeniaResultColumns
+        Expect ((& $shown) -contains 'OS') 'Le choix enregistre nʼest pas relu.'
+        # « Colonnes… »: one entry per column, Nom locked, an entry unticked hides its column.
+        $menu=[Windows.Controls.ContextMenu]::new();Add-DomeniaResultColumnMenuItems -Target $menu
+        $items=@($menu.Items|Where-Object{$_ -is [Windows.Controls.MenuItem] -and $_.IsCheckable})
+        Expect (($items.Count -eq 16) -and (-not @($items|Where-Object{[string]$_.Tag -eq 'Name'})[0].IsEnabled)) ('Entrees : '+$items.Count)
+        $os=@($items|Where-Object{[string]$_.Tag -eq 'OS'})[0];$os.IsChecked=$false
+        $os.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.MenuItem]::ClickEvent))
+        Expect (-not ((& $shown) -contains 'OS')) 'Decocher une colonne ne la masque pas.'
+        Reset-DomeniaResultColumns
+        Expect (((& $shown) -join '|') -ceq 'Type|Nom|Utilisateur connecté (console)|Association mémorisée|Présence réseau|Etat') 'Retour aux colonnes par defaut incomplet.'
+        # Right click: only a column header opens the choice; a cell keeps the row menu.
+        $header=[Windows.Controls.Primitives.DataGridColumnHeader]::new();$label=[Windows.Controls.TextBlock]::new();$header.Content=$label
+        Expect ([object]::ReferenceEquals((Get-DomeniaColumnHeaderFromSource $label),$header)) 'En-tete non reconnu.'
+        $cell=[Windows.Controls.DataGridCell]::new();$inner=[Windows.Controls.TextBlock]::new();$cell.Content=$inner
+        Expect ($null -eq (Get-DomeniaColumnHeaderFromSource $inner)) 'Une cellule ouvre le choix des colonnes.'
+        # The association cell carries its qualification; the CSV keeps the association value.
+        $association=@($grid.Columns|Where-Object{[string]$_.Header -eq 'Association mémorisée'})[0]
+        $content=$association.CellTemplate.LoadContent()
+        Expect (($association.ClipboardContentBinding.Path.Path -eq 'Association') -and ($content.Inlines.Count -eq 2)) 'Cellule dʼassociation non fusionnee.'
+        # « Exporter CSV » (real Export-CurrentResults and column reading; only the file write is replaced by an
+        # in-memory CSV): the merged cell still exports Source lien and Qualification, right after the association.
+        . ([scriptblock]::Create((Import-AstFunctions (Join-Path $wad 'Domenia-Core.ps1') @('Export-CurrentResults','Get-DomeniaGridExportColumns','ConvertTo-DomeniaExportRows','ConvertTo-DomeniaSpreadsheetCell','ConvertTo-DomeniaSpreadsheetSafeRow'))))
+        . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Experience.UI.ps1') @('Get-DomeniaExperienceVisibleRows','Get-DomeniaExperienceExportRows'))))
+        function Export-DomeniaCsv {param([object[]]$Rows=@(),[object[]]$Columns=@(),$Grid=$null,[string]$Subject='')
+            $script:ExportCsvText=@(ConvertTo-DomeniaExportRows -Rows $Rows -Columns $Columns|ConvertTo-DomeniaSpreadsheetSafeRow|ConvertTo-Csv -Delimiter ';' -NoTypeInformation)
+            return [pscustomobject]@{Path='C:\DomeniaTest\export.csv';RowCount=@($Rows).Count}}
+        function Show-DomeniaExportResult {param($Result,[string]$Scope='') $script:ExportShown=$Result}
+        function Get-DomeniaSearchExportSubject {return 'Postes'}
+        function Show-ErrorBox {param($Message) throw ([string]$Message)}
+        $script:ExportCsvText=@();$script:ExportShown=$null
+        $grid.ItemsSource=[Collections.ObjectModel.ObservableCollection[object]]::new([object[]]@([pscustomobject]@{Type='Machine';Name='PC-COMPTA-014';SessionDisplay='';Association='Camille Martin';LinkSource='Console observée';LinkConfidence='Observé';Presence='En ligne';State='Actif';DN='CN=PC-COMPTA-014,OU=Postes,DC=example,DC=invalid'}))
+        Export-CurrentResults
+        Expect (($null -ne $script:ExportShown) -and (@($script:ExportCsvText).Count -eq 2)) ('Export non produit : '+(@($script:ExportCsvText) -join ' / '))
+        Expect (([string]$script:ExportCsvText[0]).Contains('"Association mémorisée";"Source lien";"Qualification"')) ('En-tete CSV : '+[string]$script:ExportCsvText[0])
+        Expect (([string]$script:ExportCsvText[1]).Contains('"Camille Martin";"Console observée";"Observé"')) ('Ligne CSV : '+[string]$script:ExportCsvText[1])
+        $grid.ItemsSource=$null
+        Expect ((Get-TaskCount @('GlobalSearch','OpenAdObject')) -eq 0) 'Choisir des colonnes a lance une lecture.'
+    }finally{$reader.Close();if($null -ne $window){$window.Close()}}
+}
 Case 'Main XAML carries the search controls wired by the code' {
     $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml));$window=$null
     try{
         $window=[Windows.Markup.XamlReader]::Load($reader)
         foreach($n in @('LblSearchHint','BtnSearchMore','CmbWorkView','BtnWorkView','BtnNavBack','BtnNavForward','OuRestoreBanner','LblOuRestoreMessage','BtnOuRestoreRetry','BtnOuRestoreDismiss')){Expect ($null -ne $window.FindName($n)) ('Controle absent : '+$n)}
         $grid=$window.FindName('DgObjects')
-        Expect ($grid.Columns.Count -eq 18) 'Colonnes de resultats modifiees.'
+        # DS-20: Source lien and Qualification are merged into the association cell (16 columns).
+        Expect ($grid.Columns.Count -eq 16) 'Colonnes de resultats modifiees.'
+        $headers=@($grid.Columns|ForEach-Object{[string]$_.Header})
+        Expect ((-not ($headers -contains 'Source lien')) -and (-not ($headers -contains 'Qualification')) -and ($headers -contains 'Association mémorisée')) ('Colonnes : '+($headers -join ', '))
         $trigger=@($grid.RowStyle.Triggers|Where-Object{$_ -is [Windows.DataTrigger] -and [string]$_.Value -eq 'Compte admin'})
         Expect ($trigger.Count -eq 1) 'Marque des comptes dʼadministration absente.'
         $script:Ctrl=@{}
@@ -942,7 +1222,7 @@ $passed=@($script:Checks|Where-Object{$_.Status -eq 'Passed'}).Count
 $failed=@($script:Checks|Where-Object{$_.Status -eq 'Failed'}).Count
 if(-not $ReportPath){$ReportPath=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-wiring-recherche-'+[guid]::NewGuid().ToString('N')+'.json')}
 $report=[ordered]@{
-    Kind='Wiring';Lot='recherche';Points=@('D012','D031','D032','D033','D034','D035','D036','D037','D038','D039','D040','CO-20','CO-21','DS-07','FI-21','FO-04','PF-14','SE-13','UI-16','UX-25','UX-33')
+    Kind='Wiring';Lot='recherche';Points=@('D012','D031','D032','D033','D034','D035','D036','D037','D038','D039','D040','CO-20','CO-21','DS-07','FI-21','FO-04','PF-14','SE-13','UI-16','UX-25','UX-33','UX-26','CO-35','SP-05','SP-15')
     Host=$PSVersionTable.PSVersion.ToString();NativeWindowsPowerShell51=$native;Wpf=$true;LiveAD=$false;LiveCIM=$false;LivePing=$false
     Passed=$passed;Failed=$failed;Complete=($failed -eq 0 -and $passed -gt 0)
     Limitation='Raccordement prouve par les vraies fonctions et de vrais controles WPF, reseau double. Ne prouve pas un acces a un domaine reel.'

@@ -217,7 +217,8 @@ function Show-DomeniaLegacyImportPlan {
         if (-not $plan.Allowed -or $plan.WriteCount -eq 0) {
             $script:LegacyImportPreview=$null
             [void](Set-DomeniaControlText 'LblGuardMigration' ($message+[Environment]::NewLine+'Aucune reprise proposee.'))
-            Set-Status $(if ($plan.Already) { 'Anciennes donnees deja reprises : rien a importer.' } elseif (-not $plan.Allowed) { 'Reprise bloquee : consultez la simulation dans Fiabilite.' } else { 'Rien a ajouter : consultez la simulation.' })
+            if ((-not $plan.Already) -and (-not $plan.Allowed)) { [void](Show-DomeniaRouteNotice -Kind Warning -Text 'Reprise des anciennes données bloquée : la simulation dit pourquoi.' -RouteText 'Voir la simulation' -Route 'LegacyImport' -Key 'legacy-import-blocked') }
+            else { Set-Status $(if ($plan.Already) { 'Anciennes données déjà reprises : rien à importer.' } else { 'Rien à ajouter : consultez la simulation.' }) }
             return
         }
         $script:LegacyImportPreview=[pscustomobject]@{Fingerprint=$plan.Fingerprint;Path=$plan.Path;Epoch=$plan.Epoch}

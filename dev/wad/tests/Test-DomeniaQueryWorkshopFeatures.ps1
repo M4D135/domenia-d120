@@ -21,7 +21,7 @@ Expect (-not $preview.Valid -and $preview.Text -like 'Unité incompatible*') 'an
 Expect ((Get-DomeniaQueryNumberPreview -Text '' -Field 'ramGB').Text -ceq '') 'an empty entry shows nothing'
 Expect ((Get-DomeniaQueryNumberPreview -Text '10' -Field 'diskFreePercent').Text -ceq 'Valeur retenue : 10 %') 'a plain number shows the retained unit'
 $values=[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::OrdinalIgnoreCase)
-$values['name']='FIXTURE';$values['ramGB']=8;$values['_at:ad']='2026-10-13T10:00:00Z';$values['_at:inventory']='2026-10-10T10:00:00Z';$values['_quality:diskFreePercent']='Expiré';$values['_quality:probe:sec.defender']='Erreur de lecture';$values['_quality:probe:hw.cpu']='Lecture incomplète'
+$values['name']='FIXTURE';$values['ramGB']=8;$values['_at:field:name']='2026-10-13T10:00:00Z';$values['_at:inventory']='2026-10-10T10:00:00Z';$values['_quality:diskFreePercent']='Expiré';$values['_quality:probe:sec.defender']='Erreur de lecture';$values['_quality:probe:hw.cpu']='Lecture incomplète'
 $record=[M4D.Admin.Common.Query.QueryRecord]::new('11111111-1111-1111-1111-111111111111',$values)
 $recipe=New-DomeniaQueryRecipe -Junction Any -Clauses @([pscustomobject]@{Field='ramGB';Operator='Less';Value=16},[pscustomobject]@{Field='name';Operator='Equal';Value='OTHER'},[pscustomobject]@{Field='diskFreePercent';Operator='Less';Value=10})
 $explanation=@(Get-DomeniaQueryExplanation -Record $record -Recipe $recipe)
@@ -69,10 +69,29 @@ $workload=Measure-DomeniaCollectionPlanWorkload $plan
 Expect ($workload.Mode -ceq 'Wmi' -and $workload.Targets -eq 2 -and $workload.ProbeReads -eq 1 -and $workload.PingReads -eq 0 -and $workload.InventoryReads -eq 2 -and $workload.Level -ceq 'Faible') 'workload counts contacts, inventory and probe reads for the WMI-only mode'
 $text=Format-DomeniaQueryCollectionPlanText -Plan $plan -Workload $workload -Concurrency 4
 Expect ($text -like '*2 poste(s) à relire sur 5 examiné(s)*' -and $text -like '*Coût : Faible*' -and $text -like '*Durée non estimée*' -and $text -notlike '*ping ICMP*' -and $text -like '*Mémoire relevée en Go (2)*') 'plan text states targets, cost and missing information and never invents a duration'
+# One planner for the workshop and the widgets: with the reuse age of the survey (New-DomeniaCollectionPlan
+# -ReuseMaxAgeDays), a stored answer of the family or probe younger than that age is reused, flagged values are not.
+$reusePlan=New-DomeniaQueryMissingCollectionPlan -Records $planRecords -Recipe $planRecipe -CacheMinutes 15 -NowUtc $now -ReuseMaxAgeDays 30
+$reuseOld=@($reusePlan.Targets|Where-Object{$_.name -ceq 'OLD'});$reuseError=@($reusePlan.Targets|Where-Object{$_.name -ceq 'ERR'})
+Expect ($reusePlan.ReuseMaxAgeDays -eq 30 -and $reusePlan.Reused -eq 1 -and @($reusePlan.Targets).Count -eq 2 -and $reuseOld.Count -eq 1 -and (@($reuseOld[0].MissingFields) -join ',') -ceq 'probe:hw.cpuload' -and $reuseError.Count -eq 1 -and (@($reuseError[0].MissingFields) -join ',') -ceq 'ramGB') 'with the survey reuse age a three-hour-old inventory is answered while an unread probe and a flagged value stay missing'
+$consoleRecords=@(New-PlanRecord 'aaaaaaaa-0000-0000-0000-000000000006' @{'name'='NOUSER';'dn'='CN=NOUSER,DC=example,DC=test';'active'=$true;'_at:console'=$now.AddDays(-2).ToString('o')})
+$consoleSurvey=New-DomeniaMissingCollectionPlan -Records $consoleRecords -Fields @('user') -NowUtc $now -ReuseMaxAgeDays 30
+$consoleCache=New-DomeniaMissingCollectionPlan -Records $consoleRecords -Fields @('user') -NowUtc $now -CacheMinutes 15
+Expect ($consoleSurvey.Reused -eq 1 -and @($consoleSurvey.Targets).Count -eq 0 -and @($consoleCache.Targets).Count -eq 1) 'a console read that found nobody answers the survey rule, not the cache rule'
+$expiredRecords=@(New-PlanRecord 'aaaaaaaa-0000-0000-0000-000000000007' @{'name'='EXPIRED';'dn'='CN=EXPIRED,DC=example,DC=test';'active'=$true;'_at:console'=$now.AddDays(-40).ToString('o');'_quality:user'='Expiré'})
+Expect (@((New-DomeniaMissingCollectionPlan -Records $expiredRecords -Fields @('user') -NowUtc $now -ReuseMaxAgeDays 30).Targets).Count -eq 1) 'an expired console read is missing under the survey rule'
+$reuseText=Format-DomeniaQueryCollectionPlanText -Plan $reusePlan -Concurrency 4
+Expect ($reuseText -like '*de plus de 30 jours sont à relire*' -and $reuseText -like '*met de côté ceux qui sont déjà à jour*' -and $reuseText -notlike '*utilisateur console*') 'the plan states the survey reuse age and reads no console user the recipe does not use'
+$Payload=[pscustomobject]@{ModuleRoot=$modules;Records=$planRecords;Recipe=$planRecipe;PlanCollection=$true;CacheMinutes=15;Saved=@();MaxAgeDays=30}
+$workerPlan=(& ([scriptblock]::Create((Get-DomeniaQueryWorkerCode)))).CollectionPlan
+$Payload.CacheMinutes=0
+$workerForced=(& ([scriptblock]::Create((Get-DomeniaQueryWorkerCode)))).CollectionPlan
+Expect ($workerPlan.ReuseMaxAgeDays -eq 30 -and @($workerPlan.Targets).Count -eq 2 -and $workerForced.ReuseMaxAgeDays -eq 0 -and @($workerForced.Targets).Count -eq 3) 'the plan worker uses the observation age of the survey, and keeps nothing for a forced re-read'
 $Payload=[pscustomobject]@{ModuleRoot=$modules;Saved=@(for($i=0;$i -lt 125;$i++){New-DomeniaQueryRecipe -Name ('Personal '+$i)})}
 $actual=& ([scriptblock]::Create((Get-DomeniaQueryLibraryWorkerCode)))
 $templateCount=@(Get-DomeniaQueryTemplates).Count
-Expect ($templateCount -ge 515 -and $actual.Rows.Count -eq ($templateCount+125) -and @($actual.Rows|Where-Object SourceId -eq 'Saved').Count -eq 125) 'actual lazy worker prepares every delivered model plus 125 personal definitions'
+# 518 delivered models before the parameterised ones (three of them for installed applications), plus point 65.
+Expect ($templateCount -ge 518 -and $actual.Rows.Count -eq ($templateCount+125) -and @($actual.Rows|Where-Object SourceId -eq 'Saved').Count -eq 125) 'actual lazy worker prepares every delivered model plus 125 personal definitions'
 $context=[pscustomobject]@{Version=1;StoreId='fixture';DomainDn='DC=example,DC=test';Path=(Join-Path ([IO.Path]::GetTempPath()) 'fixture-query.sqlite')}
 $personal=New-DomeniaQueryRecipe -Id 'personal.fixture' -Name 'Équipements  mémoire'
 $entry=New-DomeniaQueryLibraryRecord -Context $context -Recipe $personal -ExpectedRevision 7
@@ -293,6 +312,23 @@ $journalTask=@($script:TransferTasks)
 Expect (-not $staleRun.Running -and $journalTask.Count -eq 1 -and $journalTask[0].OperationId -ceq 'QueryTransfer' -and [string]$journalTask[0].Payload.Mode -ceq 'JournalAppend' -and [string]$journalTask[0].Payload.Path -ceq $staleRun.JournalPath -and @($journalTask[0].Payload.Entry.Items).Count -eq 1 -and @($script:DomeniaQueryState.ImportHistory).Count -eq 1) 'the confirmed writes of a stale run stay restorable and are journaled beside their database'
 Close-DomeniaQueryStaleImportRun
 Expect ($script:TransferTasks.Count -eq 1) 'a stale run is journaled once'
+# The workshop collection of the missing information goes through the survey planner of the widgets: the survey
+# receives the reuse age of the plan and reads the console user only when the recipe uses it (inert controls).
+$script:SurveyCalls=[Collections.Generic.List[object]]::new()
+function Start-DomeniaOnlinePark {param([switch]$PingOnly,[switch]$WmiOnly,[switch]$Inventory,[switch]$NoConsole,[object[]]$ScopeTargets=$null,[string]$ScopeLabel='',[object[]]$Probes=$null,[int]$ReuseMaxAgeDays=0,[switch]$PassThru);$script:SurveyCalls.Add([pscustomobject]@{Targets=@($ScopeTargets);PingOnly=[bool]$PingOnly;WmiOnly=[bool]$WmiOnly;Inventory=[bool]$Inventory;NoConsole=[bool]$NoConsole;Probes=@($Probes);Reuse=$ReuseMaxAgeDays});return 'park-fixture'}
+function Get-DomeniaEffectiveWorkerResult {param($Result,[string[]]$RequiredProperties=@());foreach($name in $RequiredProperties){if($null -eq $Result.PSObject.Properties[$name]){return $null}};return $Result}
+function Get-DomeniaFleetScope {return [pscustomobject]@{Key='scope-fixture';Name='Postes'}}
+function Get-DomeniaSetting {param([string]$Name,$Default=$null);return $Default}
+$script:FleetQuerySnapshotKey='snapshot-fixture'
+foreach($routed in @(@($reusePlan,30,$true),@($forced,0,$false))){
+    $script:DomeniaQueryState=[pscustomobject]@{Generation=7L;Busy=$true;Job='job';Records=$null;At=[datetime]::UtcNow;SnapshotKey=''}
+    $routeState=[pscustomobject]@{Epoch=[long]$script:SessionEpoch;Generation=7L;SnapshotKey='snapshot-fixture';ScopeKey='scope-fixture';RecordsAt=[datetime]::UtcNow;PlanCollection=$true}
+    $script:SurveyCalls.Clear()
+    Complete-DomeniaQueryEvaluation -Result ([pscustomobject]@{Records=@();CollectionPlan=$routed[0]}) -State $routeState
+    $survey=@($script:SurveyCalls)
+    Expect ($survey.Count -eq 1 -and $survey[0].Reuse -eq [int]$routed[1] -and $survey[0].NoConsole -and $survey[0].WmiOnly -and $survey[0].Inventory -and @($survey[0].Probes).Count -eq 1 -and @($survey[0].Targets).Count -eq @($routed[0].Targets).Count) ('the workshop survey is started with the reuse age '+[string]$routed[1]+' and without the console user')
+    Expect (($script:LastLabel -like '*met de côté ceux qui sont déjà à jour*') -eq [bool]$routed[2]) 'the workshop status names the check of the stored measurements only when the survey makes it'
+}
 $report=[pscustomobject]@{Status='PASS';Assertions=$checks;CoveragePopulation=20000;SourceMode=[bool]$QuerySource;ElapsedSeconds=[Math]::Round($clock.Elapsed.TotalSeconds,3);PowerShell=$PSVersionTable.PSVersion.ToString();Scope='Actual models, worker factories, XML-independent UI pagination with inert controls; no network, AD, WMI or WPF'}
 if($ReportPath){[IO.File]::WriteAllText($ReportPath,($report|ConvertTo-Json),[Text.UTF8Encoding]::new($false))}
 $report|ConvertTo-Json -Compress
