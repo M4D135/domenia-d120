@@ -189,19 +189,21 @@ Quand : vous voulez voir d'un coup d'œil l'état d'un poste et ses points à v�
 
 1. **Ouvrir la vue.** Dans « Poste », cliquez sur « Vue d'ensemble » : la carte « Tableau de bord du poste » suit la fiche du poste.
 2. **Remplir le tableau.** Cliquez sur « Inventaire rapide ». Pour les processus les plus gourmands et les erreurs du journal Système, cliquez sur « Inventaire complet », plus long. Un inventaire lancé dans « Détails », onglet « Inventaire », remplit aussi ce tableau.
-3. **Lire l'état général.** En haut, « Etat general » donne un score sur 100 et un verdict : « Bon etat », « A surveiller », « Degrade » ou « Critique ».
-4. **Lire les points d'attention.** « Points d attention » liste les problèmes trouvés, du plus grave au moins grave. « Rien a signaler » : aucun point à vérifier.
+3. **Lire la santé du poste.** En haut, la carte « Santé du poste » donne à gauche un score sur 100 et un verdict : « Bon état », « À surveiller », « Dégradé » ou « Critique ».
+4. **Lire les points à vérifier.** À droite de la même carte, le titre compte les points (« 2 points à vérifier · 1 information ») et la liste les donne du plus grave au moins grave ; un lien ouvre la vue de l'action utile. « Rien à signaler », en vert : aucun point à vérifier.
 5. **Parcourir les sections.** Descendez dans la page pour lire chaque section.
 
 ![Tableau de bord de PC-COMPTA-014 après un inventaire : état général, points d'attention, identité du poste et ressources](fig:tableau-poste)
 
 | Section | Ce que vous y lisez |
 |---|---|
-| « Identite du poste » | Système, modèle, mémoire, démarrage, utilisateur connecté, adresse IP. |
-| « Compte machine dans Active Directory » | Mot de passe machine, dernière connexion au domaine, état du compte, LAPS. |
+| « Identité du poste » | Une fiche : système, modèle, processeur, mémoire, durée de fonctionnement, utilisateur connecté, adresse IP et domaine. |
+| « Compte machine dans Active Directory » | Une fiche : état du compte, OU, mot de passe machine, dernière connexion au domaine, LAPS, horloge. |
 | « Ressources » | Mémoire, processeur, batterie, espace disque. |
-| « Activite » | Services Windows ; avec l'inventaire complet, processus les plus gourmands et erreurs du journal Système sur 3 jours. |
-| « Securite et etat » | Antivirus, pare-feu, BitLocker, mises à jour, redémarrage en attente, administrateurs locaux. |
+| « Activité » | Services Windows ; avec l'inventaire complet, processus les plus gourmands et erreurs du journal Système sur 3 jours. |
+| « Sécurité et état » | « État de protection » coche BitLocker, pare-feu, antivirus, redémarrage en attente et dernier correctif (« Non lu » quand le contrôle n'a pas été lu) ; services automatiques arrêtés et périphériques en erreur. Les autres informations s'ajoutent depuis « Ajouter un widget ». |
+
+Pour un ticket, « Copier le résumé », dans la barre du tableau, copie le poste, la date de l'inventaire, le score, les points à vérifier et les fiches en texte. « Copier », dans le menu clic droit d'un widget (ou Ctrl+C sur le widget), copie ce seul widget.
 
 > [!NOTE] Vert : rien à signaler ; orange : à surveiller ; rouge : critique. Une section vide indique ce qu'il faut lancer pour la remplir.
 

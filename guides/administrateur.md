@@ -612,9 +612,12 @@ Les trois tableaux de bord sont faits de widgets : chaque tuile ou graphique se 
 | « Actualiser les requetes » | Tableau du poste, si au moins un widget de requête est présent. | Prépare les lectures requises par les widgets pour le poste sélectionné, en lecture seule et après confirmation. Une recette fondée uniquement sur AD renvoie vers la mise à jour de la base. Sur le parc, ouvrez le détail de la sonde puis collectez depuis l’Atelier, ou utilisez « Matériel et widgets » de « Vérifier la liste ». |
 | « Recalculer la vue » | Tableau du parc. | Relit les données locales et recalcule les widgets ; aucune nouvelle lecture AD, ping ou WMI. |
 | « Base locale », « Postes (ping/WMI) », « Les deux » | Tableau du parc ou Données de l’OU dans Rechercher. | Actualisent la source choisie pour l’OU et ses sous-OU, selon le parcours du chapitre 8. |
+| « Copier le résumé » | Dès que le tableau a une lecture. | Copie en texte brut, pour un ticket : l'objet (poste, OU ou liste de logiciels) et la date de ses données, le score avec son verdict et sa couverture, les points à vérifier, puis les fiches Identité, Compte machine et État de protection du poste, ou les comptes et la sécurité de l'OU, ou la synthèse des logiciels. Un secret éventuel est masqué avant le presse-papiers ; rien n'est relu. |
 | « Ajouter un widget » | Toujours. | Ouvre l'éditeur. |
 | « Personnaliser » | Hors personnalisation. | Passe en mode personnalisation. |
-| « Par defaut » | En personnalisation. | Revient à la disposition livrée, sans confirmation mais annulable. |
+| « Par défaut » | En personnalisation. | Revient à la disposition de l'équipe si l'administrateur en a défini une (voir « Enregistrement de la disposition »), sinon à la disposition livrée ; sans confirmation mais annulable. |
+| « Exporter » | En personnalisation. | Enregistre la disposition en JSON (Domenia-disposition-poste, -accueil ou -logiciels, avec la date) dans le dossier des exports, par le worker DocumentStore ; la confirmation reste dans la page avec « Ouvrir le dossier ». Aucun fichier existant n'est remplacé. |
+| « Importer » | En personnalisation. | Choisit un fichier JSON dans le sélecteur intégré à la page, jamais une boîte de dialogue Windows, puis le lit en arrière-plan : une disposition d'un autre tableau est refusée, les widgets inconnus et les requêtes personnelles absentes de ce poste sont écartés. Le remplacement est annulable. |
 | « Terminer » | En personnalisation. | Quitte la personnalisation. |
 | « Annuler » | Après une modification. | Revient à la disposition précédente. |
 
@@ -626,7 +629,7 @@ L'annulation n'a qu'un niveau. Elle est perdue quand de nouvelles données arriv
 
 - En personnalisation, chaque section se termine par une tuile en pointillés « Ajouter ici », qui ouvre l'éditeur avec la section choisie. Les boutons ronds de modification et de retrait restent visibles ; hors personnalisation, ils apparaissent au survol ou au clavier.
 - Un widget sans chiffre dit pourquoi, avec le bouton qui agit : « Pas encore collecté pour ce tableau. » (« Collecter »), « Absent du dernier relevé du … » (« Relire »), « Lu par l’inventaire complet seulement » (« Inventaire complet »). Il garde une place compacte dès que le tableau du poste a une lecture ; avant toute lecture, seuls les widgets suspendus ou en collecte sont affichés. En personnalisation, tous les widgets restent visibles à leur taille.
-- Le menu clic droit d'un widget, toujours disponible, propose « Modifier... », « Représentation », « Taille » (« Compacte », « Moyenne », « Large »), « Déplacer » et « Retirer du tableau de bord ». Les déplacements du menu restent dans la section.
+- Le menu clic droit d'un widget, toujours disponible, propose « Copier » (le titre, la valeur, le détail, les lignes et la date des données, en texte brut, secret éventuel masqué), « Modifier... », « Représentation », « Taille » (« Compacte », « Moyenne », « Large »), « Déplacer » et « Retirer du tableau de bord ». Un widget suspendu ou sans chiffre n'a pas « Copier ». Les déplacements du menu restent dans la section.
 - Le glisser-déposer est actif en mode « Personnaliser ». Lâché sur un autre widget, le widget prend sa place et sa section ; lâché dans une section hors d'un widget, il va à la fin de cette section. La page défile près des bords.
 
 ## Un widget à la fois
@@ -636,16 +639,19 @@ L'annulation n'a qu'un niveau. Elle est perdue quand de nouvelles données arriv
 - **Suivre.** Pendant la collecte, le widget affiche « Collecte en cours · 3/40 poste(s) », avec les postes déjà à jour et les lectures non confirmées. Le chiffre reste le dernier enregistré jusqu’à la fin. Un widget de l’Accueil est relevé dans la portée de la liste : « Vérifier la liste » affiche son avancement (« Relevé de … ») et devient son « Arrêter ». Un widget du poste est relevé dans la portée du poste ouvert, à côté d’un relevé de la liste. Un relevé déjà en cours dans la même portée met le widget « En file » ; il démarre à la fin de ce relevé, une fois le recalcul de l’OU affiché sur l’Accueil (« En file : en attente du recalcul de l’OU. »), 20 widgets au plus en attente. Si le poste sélectionné ou l’OU affichée change entre-temps, la collecte en file est abandonnée et la barre d’état le dit : elle ne part jamais sur une autre population. La progression d’une collecte ne s’affiche que sur le tableau de son poste ou de son OU.
 - **Suspendre la mesure.** Le bouton rond pause ou l’entrée du menu suspend le widget : il garde sa place, sa taille et son titre et affiche « Mesure suspendue ». Il est exclu de toutes les collectes : son actualisation, celle du tableau, « Analyser la liste » et l’actualisation WMI de l’OU. Un relevé lancé pour lui seul est arrêté. Les lectures communes restent faites par leurs propres actions (inventaire du poste, ping et relevé WMI léger utilisés par la santé) ; le texte du widget le précise. « Reprendre la mesure » collecte ce qui lui manque, après confirmation du nombre de postes à lire. L’état est enregistré avec la disposition et s’annule comme elle.
 - **Comprendre ce chiffre.** Le bouton rond d’information ou l’entrée du menu ouvre, dans la page, la valeur affichée, la formule, le périmètre, les critères, les exclusions, la couverture, les dates et le nombre de postes du total. « Afficher les postes » ouvre la liste exacte des GUID du calcul affiché, nommée avec son compte et sa date ; pour une requête WMI ou une requête enregistrée, aucune liste figée n’est conservée et la liste est recalculée depuis le calcul affiché, sans nouvelle lecture. Sur le tableau du poste, le chiffre porte sur le poste sélectionné. Si la vue a été recalculée entre-temps, même pendant que le panneau est ouvert, le détail est refusé et le tableau redessiné. Rien n’est relu pour expliquer un chiffre.
-- **Clavier.** Tab place le focus sur un widget ; Maj+F10 ouvre son menu ; F5 l’actualise. En personnalisation, Alt+flèches et Alt+Début/Fin le déplacent, Alt+Maj+flèches changent sa taille d’un cran, Suppr le retire (annulable).
-- **Haute résolution.** Un widget plus large que la page (affichage à 150 ou 200 %, fenêtre étroite) est réduit proportionnellement, jamais sous 60 %, au lieu d’être coupé ; il reprend sa taille quand la page s’élargit.
+- **Clavier.** Tab place le focus sur un widget ; Maj+F10 ouvre son menu ; F5 l’actualise ; Ctrl+C le copie en texte. En personnalisation, Alt+flèches et Alt+Début/Fin le déplacent, Alt+Maj+flèches changent sa taille d’un cran, Suppr le retire (annulable).
+- **Grille.** Chaque section range ses widgets dans une grille de 4 colonnes quand la page mesure au moins 1 100 points, 3 à partir de 780, 2 à partir de 440 et une seule en dessous. Compacte, Moyenne et Large occupent 1, 2 ou 3 colonnes. Chaque rangée est pleine : les colonnes restantes vont d’abord aux cartes hautes. À côté d’une carte haute (graphique, jauge, fiche), deux tuiles compactes s’empilent dans une colonne ; les cartes d’une rangée prennent la même hauteur. Quand la largeur change, les widgets sont replacés et redimensionnés aussitôt, sans rien relire ; leurs dessins suivent dès que la fenêtre ne bouge plus (0,3 s). Une marge de 24 points autour de chaque seuil évite qu’une barre de défilement fasse basculer la grille.
+- **Haute résolution.** Une carte n’est jamais dessinée sous 200 points de large ; sur une page plus étroite encore (affichage à 200 % dans une fenêtre réduite), elle est réduite proportionnellement, jamais sous 60 %, au lieu d’être coupée.
 
 ## Éditeur de widget
 
 ![Panneau Ajouter un widget : recherche, liste des informations disponibles, puis titre, représentation, taille, section et aperçu en direct](fig:editeur-widget)
 
-- À gauche, en ajout seulement : la recherche (« Rechercher : disque, utilisateur, BitLocker... ») et la liste des informations disponibles, groupée en « Tableau de bord » puis en « Requetes WMI » par catégorie. Le badge « affiche » marque ce qui est déjà sur le tableau.
-- La recherche ignore accents et casse ; tous les mots tapés doivent se trouver dans le nom, la description ou la section (pour une requête : le nom, la catégorie ou la classe).
-- À droite : « Titre », « Représentation », « Taille », « Section » et l'aperçu. La liste « Section » propose les sections du tableau, puis « + Nouvelle section... », qui affiche un champ pour taper son nom ; laissé vide, ce nom devient « Mes widgets ».
+- À gauche, en ajout seulement : la recherche (« Rechercher : RAM, disque, BitLocker, redémarrage… »), deux rangées de filtres rapides et la liste des informations disponibles, groupée en « Informations du tableau · <catégorie> » puis en « Lu sur le poste, à la demande · <catégorie> » (« Lu sur les postes » sur l'Accueil) et « Mes requêtes ». La classe WMI d'une requête n'apparaît que dans son infobulle. Le badge « Déjà affiché » marque ce qui est sur le tableau ; le badge « Interroge le poste » (« Interroge les postes ») signale qu'à l'ajout, le widget lit aussitôt ce qui lui manque, en lecture seule.
+- Filtres rapides : l'origine (« Tout », « Informations du tableau », « Lu sur le poste », « Mes requêtes » s'il y en a), puis les catégories existantes de cette origine (« Toutes », Identité du poste, Ressources, Matériel, Disques, Réseau, Sécurité…).
+- La recherche ignore accents et casse ; tous les mots tapés doivent se trouver dans le nom, la description ou la section (pour une requête : le nom, la catégorie ou la classe). Une petite table locale de synonymes complète les mots usuels absents du catalogue : RAM et memory (mémoire), SSD, HDD et stockage (disque), Defender et AV (antivirus), firewall (pare-feu), reboot, restart et redémarrer (redémarrage), IP (adresse IP, réseau), uptime (en service, démarrage), MAJ, update, patch et KB (mise à jour, correctif), CPU (processeur), GPU (graphique, affichage).
+- À droite : « Titre », « Représentation » (des vignettes cliquables, une icône et un nom par représentation permise ; les flèches passent de l'une à l'autre), « Taille », « Section » et l'aperçu. La liste « Section » propose les sections du tableau, puis « + Nouvelle section... », qui affiche un champ pour taper son nom ; laissé vide, ce nom devient « Mes widgets ».
+- Le panneau n'a que « Annuler » et « Ajouter » (« Enregistrer » en modification) ; Échap ferme sans rien changer.
 - L'aperçu montre les vraies données si le tableau en a, sinon un exemple de même nature.
 - Un widget ajouté va à la fin de sa section et la collecte de ses données manquantes part aussitôt (voir « Un widget à la fois »). Sans poste ni OU utilisable, la barre affiche « Widget enregistre : il s affichera des que ses donnees seront lues. ».
 
@@ -661,24 +667,24 @@ Chaque widget porte une nature de donnée. Elle fixe les représentations permis
 | Répartition (Distribution) | Anneau, Barres, Histogramme, Liste, Chiffre cle |
 | Valeurs numériques (Measure) | Histogramme, Barres, Courbe, Chiffre cle, Liste |
 | Série ordonnée (Series) | Histogramme, Courbe, Barres, Liste, Chiffre cle |
+| Valeurs datées (Timeline) | Courbe, Histogramme, Liste |
 | Liste de points (List) | Liste de points |
-| Score (Health) | Score, Chiffre cle |
+| Santé (Health) | Score et points, Score, Chiffre clé |
+| Fiche (Sheet) | Fiche, Liste |
+| Liste d'état (Checklist) | Liste d'état, Fiche, Liste |
 
-| Représentation | Compacte | Moyenne | Large |
-|---|---|---|---|
-| Chiffre cle | 230 × 118 | 345 × 118 | 475 × 118 |
-| Liste | 300 × auto | 420 × auto | 560 × auto |
-| Anneau | 310 × 250 | 390 × 250 | 490 × 250 |
-| Barres, Histogramme, Courbe | 320 × 250 | 440 × 250 | 600 × 250 |
-| Jauge, Score | 230 × 250 | 300 × 250 | 380 × 250 |
-| Liste de points | 380 × auto | 500 × auto | 660 × auto |
+Sur un tableau, la largeur vient de la grille : Compacte, Moyenne et Large occupent 1, 2 ou 3 colonnes (voir « Grille »). La hauteur dépend de la représentation : 118 points pour un chiffre clé, 250 pour un anneau, des barres, un histogramme, une courbe, une jauge ou un score ; la liste, la liste de points, la carte « Score et points », la fiche et la liste d'état suivent leur contenu. Dans une rangée, chaque carte prend la hauteur de la plus haute. Les largeurs de l'aperçu de l'éditeur restent celles d'une page de 4 colonnes.
 
-Dimensions en pixels, largeur × hauteur ; auto suit le contenu. Limites d'affichage : un anneau montre 8 parts au plus, les plus petites regroupées en « Autres » ; une liste montre 10 lignes, la liste de points 9. Une jauge passe à l'orange au-delà de 80 % et au rouge au-delà de 90 %, sens inversé pour la batterie.
+« Score et points » réunit dans une carte le score (anneau, verdict, détail, couverture ou lecture partielle, bouton de la lecture complète) et les points à vérifier, du plus grave au moins grave, sous le titre « 4 points à vérifier · 1 information » : les informations sont comptées à part. Sur l'Accueil, un point déplie ses postes ; sur le poste, il ouvre la vue de l'action utile. Sans point à vérifier, une seule ligne verte « Rien à signaler », seulement si le score est établi ; un score retenu ou partiel affiche « Aucun problème établi ». La couleur de l'état reste sur les icônes. En dessous de 520 points, les points passent sous le score.
+
+Limites d'affichage : un anneau montre 8 parts au plus, les plus petites regroupées en « Autres » ; une liste montre 10 lignes, la liste de points et la carte « Score et points » 9, une fiche 12. Une jauge passe à l'orange au-delà de 80 % et au rouge au-delà de 90 %, sens inversé pour la batterie.
 
 ## Enregistrement de la disposition
 
 - Une clé par tableau dans les préférences de l'utilisateur : Dashboard.Computer.Layout, Dashboard.Fleet.Layout et Dashboard.Software.Layout. Chaque élément garde son identifiant, sa source (Builtin pour le catalogue, Probe pour une requête), sa clé, sa représentation, son titre, sa taille et sa section.
-- Rien d'enregistré donne la disposition livrée, c'est-à-dire tout le catalogue dans son ordre. Une liste vide enregistrée est un tableau vidé volontairement et reste vide.
+- Rien d'enregistré donne la disposition de l'équipe si l'administrateur en a défini une, sinon la disposition livrée : le catalogue dans son ordre sans les widgets marqués « catalogue seulement » (colonne « Affichage initial » à Non). Sur le poste, 14 widgets : la carte Santé, les fiches Identité du poste et Compte machine, la liste d'état « État de protection », les ressources, l'activité, les services automatiques arrêtés et les périphériques en erreur ; les autres tuiles restent au catalogue. Sur l'Accueil, la carte Santé remplace le score et la liste des points côte à côte. Une liste vide enregistrée est un tableau vidé volontairement et reste vide.
+- Une disposition enregistrée identique à une disposition livrée auparavant (tout le catalogue du poste, le score et les points séparés de l'Accueil, ou l'Accueil de la RC1.13.0), sans titre changé ni widget suspendu, est remplacée par la disposition livrée actuelle. Toute disposition modifiée par l'opérateur est conservée telle quelle ; « Par défaut » applique la nouvelle.
+- Disposition de l'équipe : l'administrateur exporte la disposition voulue (« Exporter » en personnalisation), puis recopie le fichier, ou sa seule liste « Layout », dans la clé Dashboard.DefaultLayoutComputer, Dashboard.DefaultLayoutFleet ou Dashboard.DefaultLayoutSoftware de wad\Domenia.config.json. Elle s'applique aux tableaux jamais personnalisés et à « Par défaut ». Elle ne garde que les widgets connus du tableau, sans les requêtes personnelles ; une valeur illisible, vide ou d'un autre tableau est ignorée et la disposition livrée s'applique.
 - À la lecture, un widget inconnu du catalogue est écarté, les identifiants sont rendus uniques, représentation et taille sont corrigées.
 - L'écriture est différée de 1,5 s pour regrouper les changements ; un changement sans effet n'est ni enregistré ni proposé à l'annulation.
 
@@ -690,23 +696,25 @@ Dimensions en pixels, largeur × hauteur ; auto suit le contenu. Limites d'affic
 
 | Widget | Groupe | Affichage initial | Information |
 |---|---|---|---|
-| Etat general | Vue d ensemble | Oui | Score calcule a partir des points d attention |
-| Points d attention | Vue d ensemble | Oui | Problemes detectes, du plus grave au moins grave |
-| Systeme | Identite du poste | Oui | Version commerciale de Windows et build |
-| Modele | Identite du poste | Oui | Fabricant, modele et numero de serie |
-| Processeur | Identite du poste | Oui | Modele, coeurs et threads |
-| Memoire installee | Identite du poste | Oui | Memoire physique et barrettes |
-| En service depuis | Identite du poste | Oui | Duree depuis le dernier demarrage |
-| Utilisateur connecte | Identite du poste | Oui | Session console au moment de l inventaire |
-| Adresse IP | Identite du poste | Oui | Adresse IPv4 et passerelle |
-| Domaine | Identite du poste | Oui | Domaine et role du poste |
-| Mot de passe machine | Compte machine dans Active Directory | Oui | Age du mot de passe du compte ordinateur |
-| Derniere connexion au domaine | Compte machine dans Active Directory | Oui | Attribut lastLogonTimestamp |
-| Compte ordinateur | Compte machine dans Active Directory | Oui | Actif ou desactive, date de creation |
-| Unite d organisation | Compte machine dans Active Directory | Oui | OU qui contient le poste |
-| Mot de passe LAPS | Compte machine dans Active Directory | Oui | Expiration du mot de passe administrateur local |
-| Gere par | Compte machine dans Active Directory | Oui | Attribut managedBy |
-| Horloge du poste | Compte machine dans Active Directory | Oui | Écart avec la référence disponible : contrôleur ou poste d’administration |
+| Santé du poste | Vue d ensemble | Oui | Score sur 100 et points à vérifier, du plus grave au moins grave (carte « Score et points ») |
+| Points d’attention | Vue d ensemble | Non | Problèmes détectés, du plus grave au moins grave |
+| Identité du poste | Identite du poste | Oui | Fiche : système, modèle, processeur, mémoire, durée de fonctionnement, session, adresse IP et domaine |
+| Systeme | Identite du poste | Non | Version commerciale de Windows et build |
+| Modele | Identite du poste | Non | Fabricant, modele et numero de serie |
+| Processeur | Identite du poste | Non | Modele, coeurs et threads |
+| Memoire installee | Identite du poste | Non | Memoire physique et barrettes |
+| En service depuis | Identite du poste | Non | Duree depuis le dernier demarrage |
+| Utilisateur connecte | Identite du poste | Non | Session console au moment de l inventaire |
+| Adresse IP | Identite du poste | Non | Adresse IPv4 et passerelle |
+| Domaine | Identite du poste | Non | Domaine et role du poste |
+| Compte machine | Compte machine dans Active Directory | Oui | Fiche : état du compte, OU, mot de passe machine, LAPS, dernière connexion, responsable et horloge |
+| Mot de passe machine | Compte machine dans Active Directory | Non | Age du mot de passe du compte ordinateur |
+| Derniere connexion au domaine | Compte machine dans Active Directory | Non | Attribut lastLogonTimestamp |
+| Compte ordinateur | Compte machine dans Active Directory | Non | Actif ou desactive, date de creation |
+| Unite d organisation | Compte machine dans Active Directory | Non | OU qui contient le poste |
+| Mot de passe LAPS | Compte machine dans Active Directory | Non | Expiration du mot de passe administrateur local |
+| Gere par | Compte machine dans Active Directory | Non | Attribut managedBy |
+| Horloge du poste | Compte machine dans Active Directory | Non | Écart avec la référence disponible : contrôleur ou poste d’administration |
 | Memoire utilisee | Ressources | Oui | Memoire occupee au moment de l inventaire |
 | Charge du processeur | Ressources | Oui | Charge du processeur au moment de l inventaire |
 | Batterie | Ressources | Oui | Charge restante des postes portables |
@@ -715,23 +723,24 @@ Dimensions en pixels, largeur × hauteur ; auto suit le contenu. Limites d'affic
 | Services Windows | Activite | Oui | Services en cours, arretes et desactives |
 | Processus les plus gourmands | Activite | Oui | Memoire utilisee par processus, en Mo |
 | Erreurs systeme par source | Activite | Oui | Journal Systeme des 3 derniers jours |
-| Antivirus | Securite et etat | Oui | Produit antivirus declare a Windows |
-| Pare-feu | Securite et etat | Oui | Profils du pare-feu actifs |
-| BitLocker | Securite et etat | Oui | Protection du volume systeme |
-| Windows Update | Securite et etat | Oui | Serveur WSUS configure |
-| Redemarrage en attente | Securite et etat | Oui | Redemarrage demande par une installation |
+| État de protection | Securite et etat | Oui | Liste d'état : BitLocker, pare-feu, antivirus, redémarrage en attente et dernier correctif, contrôle par contrôle ; un contrôle non lu est marqué « Non lu », jamais conforme |
+| Antivirus | Securite et etat | Non | Produit antivirus declare a Windows |
+| Pare-feu | Securite et etat | Non | Profils du pare-feu actifs |
+| BitLocker | Securite et etat | Non | Protection du volume systeme |
+| Windows Update | Securite et etat | Non | Serveur WSUS configure |
+| Redemarrage en attente | Securite et etat | Non | Redemarrage demande par une installation |
 | Services automatiques arretes | Securite et etat | Oui | Services automatiques a l arret |
 | Peripheriques en erreur | Securite et etat | Oui | Peripheriques signales en erreur |
-| Pilotes non signes | Securite et etat | Oui | Pilotes sans signature numerique |
-| Administrateurs locaux | Securite et etat | Oui | Membres du groupe Administrateurs |
-| Sessions et comptes locaux | Securite et etat | Oui | Comptes et sessions du poste |
-| Demarrage automatique | Securite et etat | Oui | Programmes lances au demarrage |
-| Partages | Securite et etat | Oui | Dossiers partages par le poste |
-| Imprimantes | Securite et etat | Oui | Imprimantes installees |
-| Affichage | Securite et etat | Oui | Carte graphique et resolution |
-| Disque physique | Securite et etat | Oui | Modele et interface du disque |
-| Certificats machine | Securite et etat | Oui | Certificats du magasin ordinateur |
-| Dernier correctif | Securite et etat | Oui | Date du dernier correctif installe |
+| Pilotes non signes | Securite et etat | Non | Pilotes sans signature numerique |
+| Administrateurs locaux | Securite et etat | Non | Membres du groupe Administrateurs |
+| Sessions et comptes locaux | Securite et etat | Non | Comptes et sessions du poste |
+| Demarrage automatique | Securite et etat | Non | Programmes lances au demarrage |
+| Partages | Securite et etat | Non | Dossiers partages par le poste |
+| Imprimantes | Securite et etat | Non | Imprimantes installees |
+| Affichage | Securite et etat | Non | Carte graphique et resolution |
+| Disque physique | Securite et etat | Non | Modele et interface du disque |
+| Certificats machine | Securite et etat | Non | Certificats du magasin ordinateur |
+| Dernier correctif | Securite et etat | Non | Date du dernier correctif installe |
 
 ## Catalogue du tableau du parc
 
@@ -739,8 +748,8 @@ Le catalogue contient 29 widgets de parc. Les requêtes personnelles et les 78 s
 
 | Groupe | Widget | Information |
 |---|---|---|
-| Santé | État du parc | Part des postes sans point critique ni à surveiller |
-| Santé | Points dʼattention | Problèmes détectés sur le périmètre ; l’action de détail ouvre les postes concernés |
+| Santé | Santé du parc | Part des postes sans point critique ni à surveiller et points à vérifier dans la même carte ; un point déplie ses postes |
+| Santé | Points dʼattention | Problèmes détectés sur le périmètre ; l’action de détail ouvre les postes concernés (catalogue seulement) |
 | Inventaire du périmètre | Postes | Tous les comptes ordinateur recensés du périmètre, actifs et désactivés. |
 | Inventaire du périmètre | Sans connexion depuis 90 j | Attribut lastLogonTimestamp, à 14 jours près |
 | Inventaire du périmètre | Comptes désactivés encore dans lʼOU | Comptes ordinateur désactivés à déplacer ou supprimer |
@@ -1409,6 +1418,7 @@ Une clé absente, nulle ou vide prend la valeur par défaut du code. Une section
 | Streaming.RevalidateIntervalSeconds | 60 | Intervalle de cette relecture (30 à 600 s). |
 | Streaming.ReconcileSeconds | 180 | Relecture de fond du périmètre d'une liste de 500 lignes au plus (120 à 900 s). |
 | Park.MaxTargets | 500 | Plafond d'un relevé de la liste ou de sa sélection : « Vérifier la liste » et la barre de la sélection refusent au-delà (5 000 au plus). La collecte d'un widget le respecte aussi, comptée sur les postes à lire. |
+| Dashboard.DefaultLayoutComputer, DefaultLayoutFleet, DefaultLayoutSoftware | vide | Disposition de l'équipe pour le tableau du poste, de l'Accueil ou des logiciels : le fichier produit par « Exporter », sa liste « Layout » ou le même JSON en texte. Appliquée aux tableaux jamais personnalisés et par « Par défaut » ; une valeur illisible, vide ou d'un autre tableau est ignorée. |
 | Browser.GlobalSearchLimit | 100 | Valeur initiale du champ « Limite », aussitôt remplacée par la préférence SearchLimit (100 par défaut) ; ne sert que si ce champ n'est pas un nombre. |
 | Browser.GlobalSearchMinChars | 2 | Caractères minimum. |
 | Browser.MaxPageSize | 300 | Taille de page LDAP. |
