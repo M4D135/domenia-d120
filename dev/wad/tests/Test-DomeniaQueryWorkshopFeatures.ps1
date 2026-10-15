@@ -422,6 +422,37 @@ try{
     Expect (@($script:Fake.CmbQueryImportHistory.ItemsSource).Count -eq 0) 'a rolled-back import is no longer offered after a restart'
     Expect ((@($script:TransferRuns) -join ',') -ceq 'ExportPack,ImportPreview,ImportPreview,JournalAppend,JournalRead,JournalAppend,JournalRead') ('transfer modes run by the pinned worker: '+(@($script:TransferRuns) -join ','))
 }finally{if([IO.Directory]::Exists($transferDir)){[IO.Directory]::Delete($transferDir,$true)}}
+# Point 70 across pages: the library is read 250 recipes at a time and the LocalStore worker returns the links of the
+# recipes of the page it read only. Every page keeps its links, a restarted read forgets the links of the abandoned
+# pass, and a widget whose recipe sits on the first of two pages still reports a link left behind its revision.
+$script:SessionEpoch=11L;$script:DatabaseScopedPath=$context.Path;$script:Conn=[pscustomobject]@{BaseDn=$context.DomainDn}
+$pagedContext=[pscustomobject]@{Version=1;StoreId=$context.StoreId;DomainDn=$context.DomainDn;Path=$context.Path;SessionEpoch=11L;Generation=0L}
+function New-DomeniaStoreContext {param([string]$RequestId) return $script:PagedContext}
+$script:PagedContext=$pagedContext
+$script:PagedReads=[Collections.Generic.List[object]]::new()
+function Request-DomeniaStoreRead {param($Context,$Query,$SuccessHandler,$ErrorHandler,$CallbackState)$script:PagedReads.Add([pscustomobject]@{Query=$Query;State=$CallbackState;Success=$SuccessHandler});return ('paged-read-'+[string]$script:PagedReads.Count)}
+$pagedRows=@(for($i=0;$i -lt 251;$i++){New-DomeniaQueryLibraryRecord -Context $pagedContext -Recipe (New-DomeniaQueryRecipe -Id ('personal.page'+$i.ToString('000')) -Name ('Page '+$i.ToString('000')) -Clauses @([pscustomobject]@{Field='ramGB';Operator='Less';Value=[decimal]8})) -ExpectedRevision 3})
+$firstLink=[pscustomobject]@{RecipeId='personal.page000';ConsumerKind='Fleet';ConsumerId='widget-page1';BoundRevision=[long]$pagedRows[0].Revision-1}
+$lastLink=[pscustomobject]@{RecipeId='personal.page250';ConsumerKind='Computer';ConsumerId='widget-page2';BoundRevision=[long]$pagedRows[250].Revision}
+function New-PagedRead {param([object[]]$Rows,[object[]]$Links,[long]$Snapshot) return [pscustomobject]@{DataSource='SQLite';StoreId=[string]$pagedContext.StoreId;Missing=$false;Busy=$false;QueryRecipes=@($Rows);QueryDependencies=@($Links);QueryMigrations=@();Total=251;SnapshotRevision=$Snapshot}}
+$script:DomeniaQueryState=$null;$script:DomeniaQueryLibraryStoreState=$null
+$pagedStore=Initialize-DomeniaQueryLibraryStore
+Expect ($script:PagedReads.Count -eq 1 -and [int]$script:PagedReads[0].Query.Offset -eq 0 -and [int]$script:PagedReads[0].Query.Limit -eq 250) 'the library read starts with a first page of 250 recipes'
+Complete-DomeniaQueryLibraryStoreRead (New-PagedRead -Rows $pagedRows[0..249] -Links @($firstLink) -Snapshot 5) $script:PagedReads[0].State
+Expect ($script:PagedReads.Count -eq 2 -and [int]$script:PagedReads[1].Query.Offset -eq 250 -and -not $pagedStore.Loaded) 'a library of 251 recipes asks for a second page'
+# The base changed between the pages: the read restarts and the links of the abandoned pass are not kept twice.
+Complete-DomeniaQueryLibraryStoreRead (New-PagedRead -Rows @($pagedRows[250]) -Links @($lastLink) -Snapshot 6) $script:PagedReads[1].State
+Expect ($script:PagedReads.Count -eq 3 -and [int]$script:PagedReads[2].Query.Offset -eq 0 -and $pagedStore.ReadDependencies.Count -eq 0) 'a restarted read forgets the links of the abandoned pass'
+Complete-DomeniaQueryLibraryStoreRead (New-PagedRead -Rows $pagedRows[0..249] -Links @($firstLink) -Snapshot 6) $script:PagedReads[2].State
+Complete-DomeniaQueryLibraryStoreRead (New-PagedRead -Rows @($pagedRows[250]) -Links @($lastLink) -Snapshot 6) $script:PagedReads[3].State
+Expect ($pagedStore.Loaded -and $pagedStore.Rows.Count -eq 251 -and @($pagedStore.Dependencies).Count -eq 2 -and $pagedStore.ReadDependencies.Count -eq 0) ('the links of both pages are published with the rows: '+[string]$pagedStore.Error)
+$pagedRecipe=@($pagedStore.Recipes|Where-Object{[string]$_.Id -ceq 'personal.page000'})[0]
+$pagedRevision=Get-DomeniaQueryWidgetRevision -Recipe $pagedRecipe -Board 'Fleet' -ConsumerId 'widget-page1'
+Expect ($pagedRevision.Warn -and $pagedRevision.BoundRevision -eq ([long]$pagedRows[0].Revision-1) -and [string]$pagedRevision.Text -like ('*widget lié à la révision '+[string]([long]$pagedRows[0].Revision-1)+' :*')) 'a widget whose recipe is on the first page still reports its lagging link'
+$lastRecipe=@($pagedStore.Recipes|Where-Object{[string]$_.Id -ceq 'personal.page250'})[0]
+$lastRevision=Get-DomeniaQueryWidgetRevision -Recipe $lastRecipe -Board 'Computer' -ConsumerId 'widget-page2'
+Expect (-not $lastRevision.Warn -and $lastRevision.BoundRevision -eq [long]$pagedRows[250].Revision) 'a widget whose recipe is on the last page keeps its current link'
+$script:DomeniaQueryLibraryStoreState=$null
 $report=[pscustomobject]@{Status='PASS';Assertions=$checks;CoveragePopulation=20000;SourceMode=[bool]$QuerySource;ElapsedSeconds=[Math]::Round($clock.Elapsed.TotalSeconds,3);PowerShell=$PSVersionTable.PSVersion.ToString();Scope='Actual models, worker factories, XML-independent UI pagination with inert controls; no network, AD, WMI or WPF'}
 if($ReportPath){[IO.File]::WriteAllText($ReportPath,($report|ConvertTo-Json),[Text.UTF8Encoding]::new($false))}
 $report|ConvertTo-Json -Compress
