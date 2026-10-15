@@ -705,6 +705,18 @@ function Invoke-StoreWBatch {
             $newSuccess=($change.Status -eq 'Success' -and ($null -eq $old -or [string]::CompareOrdinal([string]$change.ObservedAtUtc,[string]$old.success_at) -ge 0))
             if(-not $newAttempt -and -not $newSuccess){continue}
             $dataJson=if($null -ne $change.Data){$change.Data|ConvertTo-Json -Depth 20 -Compress}else{'null'}
+            # Points 82 and 87: a few probes keep a bounded history built from the previous committed payload of the
+            # same family (Add-DomeniaProbeHistory). Summaries keep using the incoming data, without history. The
+            # previous payload is parsed only for a probe that keeps a history (Get-DomeniaProbeHistoryPolicy).
+            if(($isObservation) -and ($newSuccess) -and ($null -ne $change.Data) -and (([string]$change.Family).StartsWith('Probe:',[StringComparison]::Ordinal))){
+                $historyProbeId=([string]$change.Family).Substring(6)
+                if($null -ne (Get-DomeniaProbeHistoryPolicy $historyProbeId)){
+                    $previousPayload=$null
+                    if(($null -ne $old) -and ([string]$old.payload) -and ([string]$old.payload -cne 'null')){try{$previousPayload=Get-StoreWJson ([string]$old.payload)}catch{$previousPayload=$null}}
+                    $withHistory=Add-DomeniaProbeHistory -Data $change.Data -PreviousData $previousPayload -ProbeId $historyProbeId
+                    if($null -ne $withHistory){$dataJson=$withHistory|ConvertTo-Json -Depth 20 -Compress}
+                }
+            }
             $success=if($newSuccess){[string]$change.ObservedAtUtc}elseif($null -ne $old){[string]$old.success_at}else{''}
             $successJson=if($newSuccess){$dataJson}elseif($null -ne $old){[string]$old.payload}else{'null'}
             $attemptAt=if($newAttempt){[string]$change.AttemptedAtUtc}else{[string]$old.attempt_at}

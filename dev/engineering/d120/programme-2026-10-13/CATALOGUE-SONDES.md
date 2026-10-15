@@ -4,7 +4,7 @@
 
 ## Circuit et autorité
 
-`Domenia-ProbeCatalog.json` décrit 24 nouvelles projections de propriétés documentées (dont `soft.installed`, ajoutée le 15 octobre 2026 pour le point 152). `Domenia-ProbeCatalog.Model.ps1` valide les identifiants, classes, champs et références ; `Domenia-Probes.Model.ps1` les joint au catalogue existant. L’atelier et le sélecteur de widgets consomment cette même définition. Les objets collectés suivent le circuit commun : lecture explicite, écriture SQLite confirmée, puis consultation des données enregistrées. Ajouter un widget ne lance pas automatiquement une collecte.
+`Domenia-ProbeCatalog.json` décrit 32 projections de propriétés documentées (23 le 13 octobre ; 9 ajoutées le 15 octobre : `soft.installed` pour le point 152 et 8 pour l’inventaire du poste). `Domenia-ProbeCatalog.Model.ps1` valide les identifiants, classes, champs et références ; `Domenia-Probes.Model.ps1` les joint au catalogue existant. L’atelier et le sélecteur de widgets consomment cette même définition. Les objets collectés suivent le circuit commun : lecture explicite, écriture SQLite confirmée, puis consultation des données enregistrées. Ajouter un widget ne lance pas automatiquement une collecte.
 
 Une sonde n’est pas une action : aucune méthode WMI, aucun appel de modification, aucun `Win32_Product`, aucun mot de passe, argument de commande ou clé de récupération n’est ajouté. Les tableaux de propriétés et instances détaillées restent typés. Le budget des détails est annoncé par le collecteur, avec nombre lu, nombre conservé et cause d’une éventuelle limite ; un détail tronqué n’est pas présenté comme complet.
 
@@ -32,6 +32,12 @@ Chaque entrée expose description, droits, compatibilité, signification d’un 
 | Pare-feu | `sec.firewallprofiles` | Paramètres retournés, sans prétendre au magasin effectif ni à l’origine GPO. [NetFirewallProfile](https://learn.microsoft.com/en-us/windows/win32/fwp/wmi/wfascimprov/msft-netfirewallprofile). |
 | VBS | `sec.deviceguard` | Capacité, configuration et exécution séparées. Disponibilité Secure Boot ne signifie pas activation. [DeviceGuard](https://learn.microsoft.com/en-us/windows/security/hardware-security/enable-virtualization-based-protection-of-code-integrity). |
 | Protection disque et TPM | `sec.bitlockervolumes`, `sec.tpmdetails` | Conversion différente de protection ; valeurs à l’instanciation ; aucun secret ni méthode TPM. [EncryptableVolume](https://learn.microsoft.com/en-us/windows/win32/secprov/win32-encryptablevolume), [TPM](https://learn.microsoft.com/en-us/windows/win32/secprov/win32-tpm). |
+| Mémoire au relevé | `hw.memoryusage` | Mémoire visible et libre mesurées au même instant ; mesure datée, jamais confondue avec la capacité installée. [OperatingSystem](https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-operatingsystem). |
+| Système déclaré | `hw.computersystem` | Modèle, fabricant, famille et hyperviseur actif ; `HypervisorPresent` seul ne prouve pas une machine virtuelle. [ComputerSystem](https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-computersystem). |
+| Pilote de batterie | `hw.batterystatic`, `hw.batteryfullcharge`, `hw.batterycycles` | Capacité nominale, capacité à pleine charge et cycles par instance (root\wmi) ; zéro cycle = non renseigné. [BATTERY_INFORMATION](https://learn.microsoft.com/en-us/windows/win32/power/battery-information-str). |
+| Raccordement des écrans | `hw.monitorconnections` | Technologie de sortie (interne, HDMI, DisplayPort…) ; aucune station d’accueil revendiquée. [WmiMonitorConnectionParams](https://learn.microsoft.com/en-us/windows/win32/wmicoreprov/wmimonitorconnectionparams). |
+| Profils réseau | `net.connectionprofiles` | Catégorie de chaque connexion active, donc profil de pare-feu appliqué. [Get-NetConnectionProfile](https://learn.microsoft.com/en-us/powershell/module/netconnection/get-netconnectionprofile). |
+| Antivirus déclarés | `sec.avproducts` | Produits du Centre de sécurité ; décodage de `productState` non documenté, donc estimé. [WSC_SECURITY_PRODUCT_STATE](https://learn.microsoft.com/en-us/windows/win32/api/iwscapi/ne-iwscapi-wsc_security_product_state). |
 
 ## Corrections sémantiques
 
@@ -42,13 +48,14 @@ Chaque entrée expose description, droits, compatibilité, signification d’un 
 
 ## Couverture réelle des points 81–110
 
-Les numéros de la feuille de route ne sont pas validés par la seule existence d’une sonde. Ce lot implémente les lectures CIM documentées et leur projection au catalogue. Restent à développer ou qualifier séparément :
+Mise à jour du 15 octobre 2026 (lot W11-inventory). Les numéros restent non qualifiés tant que les fournisseurs n’ont pas été exécutés sous Windows.
 
-- 81–89 : références BIOS approuvées, historique/tendance disque, usure calculée uniquement si capacités valides, cycles batterie/constructeur, comparaison de changements écran/station d’accueil et qualification matérielle.
-- 90 : diagnostic DNS → ICMP → protocole, déjà distinct des valeurs de configuration réseau ; raccord du parcours d’assistance à contrôler.
-- 91/93 : inventaire logiciel registre et indices de redémarrage existants ; ce catalogue ne les remplace pas par MSI ni une fausse classe universelle.
-- 94–96 : dépendances de services, profil attendu, mesure CPU sur intervalle et dernière exécution d’une tâche demandent des lectures dédiées supplémentaires.
-- 97–100 : couverture antivirus tiers, pare-feu effectif ActiveStore/origine, Secure Boot effectivement activé et certificats publics demandent d’autres fournisseurs de lecture ; aucun résultat simulé n’est exposé.
+- **Lectures interprétées** : `Domenia-Readings.Model.ps1` transforme les relevés enregistrés d’un poste en constats datés (constaté, estimé, inconnu, refusé, indisponible), avec source et limite. La fenêtre de détails d’une sonde lit uniquement les familles utiles du poste (`Families` de la lecture canonique, 16 au plus) et affiche cette lecture au-dessus des valeurs brutes.
+- **Historique borné** : `disk.volumes` et `hw.monitors` conservent un historique dans la dernière charge réussie (`Add-DomeniaProbeHistory`, appliqué à l’écriture SQLite) : au plus 60 relevés espacés de 6 h pour les volumes, 20 ensembles d’écrans distincts. La prévision de saturation exige 4 relevés sur 14 jours, une taille constante et une tendance régulière ; sinon elle le dit.
+- **Inventaire complet du poste** : emplacements et capacité maximale de la mémoire, état de santé inconnu distinct de « Sain », chiffrement et protection BitLocker séparés, Secure Boot lu comme DWORD, profils de pare-feu appliqués et réglage local masqué par la stratégie, stratégie WSUS appliquée, indices de redémarrage un par un (obligation confirmée ou indice partiel), dépendances des services automatiques arrêtés, charge processeur mesurée sur un intervalle borné (2 s), dernière exécution et résultat des tâches hors Microsoft (WinRM), certificats du magasin Personnel lus dans le registre sans clé privée.
+- **Parc** : tableau croisé « Modèle × version du BIOS » dans l’analyse du parc ; références BIOS approuvées par modèle, enregistrées localement depuis la lecture BIOS d’un poste.
+- **Diagnostic par couche** : nom, ICMP, transport TCP puis protocole ; un ping filtré sur un poste joignable n’est plus présenté comme un poste éteint.
+- **Restent** : identification des stations d’accueil (aucune classe Windows normalisée), dernière exécution des tâches sans WinRM, qualification matérielle de tous les fournisseurs ajoutés.
 - 101–109 : attributs et diagnostics AD, groupes/délégations/GPO/LAPS/réplication sont des sources AD distinctes. Ils ne sont pas maquillés en sondes CIM de poste.
 - 110 : les nouvelles informations sont utilisables dans l’atelier ; les parcours guidés d’assistance et leur collecte minimale restent à raccorder explicitement.
 
