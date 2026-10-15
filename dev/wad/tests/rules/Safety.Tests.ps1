@@ -553,6 +553,14 @@ Test-Case 'UI-18' 'Recus : etats en mots francais, puce par etat, attente identi
         Assert-False ($v.Label -cmatch '^(Prepared|Sent|Unknown|Verified|Delivered|NotSent|Reviewed)$') ('Etat brut affiche : '+$stage)
     }
     foreach($odd in @('','Bizarre',$null)){$v=Get-DomeniaReceiptStageView $odd;Assert-True $v.Pending 'Etape inconnue : jamais resolue';Assert-Equal 'Pending' $v.Tone;Assert-True ($v.Label -match 'inconnu') $v.Label}
+    # A padded stage (altered file) is pending for the receipt store, which compares the raw value: it stays pending
+    # here too, never shown as resolved while every write is held back.
+    foreach($padded in @(' Verified','Verified ',"Reviewed`t",' NotSent ')){
+        Assert-True ($padded -notin @('Verified','NotSent','Reviewed','Delivered')) ('Regle du magasin : '+$padded)
+        $v=Get-DomeniaReceiptStageView $padded
+        Assert-True $v.Pending ('Etape alteree presentee comme resolue : <'+$padded+'>');Assert-Equal 'Pending' $v.Tone $padded
+        Assert-True ($v.Label -match 'inconnu') $v.Label;Assert-Equal $padded $v.Stage 'Etape brute modifiee'
+    }
     Assert-True ((Get-DomeniaReceiptStageView 'Sent').Explanation -match 'bloquées') 'Blocage des ecritures non explique'
     Assert-True ((Get-DomeniaReceiptStageView 'Reviewed').Explanation -match 'ne bloque plus') 'Etape terminale presentee comme bloquante'
 }
@@ -565,8 +573,21 @@ Test-Case 'UI-18' 'Recus : operation et objet par leur nom, DN en infobulle, rel
     Assert-Equal ([datetime]::SpecifyKind([datetime]'2026-03-02T09:00:00',[DateTimeKind]::Utc).ToLocalTime().ToString('dd/MM/yyyy HH:mm')) $v.UpdatedLabel
     Assert-Equal '2026-03-02T09:00:00.0000000Z' $v.UpdatedUtc 'Cle de tri modifiee'
     Assert-False ($v.ObjectName -match '(?i)\b(CN|OU|DC)\s*=') 'DN affiche comme objet'
-    $attr=Get-DomeniaReceiptView ([pscustomobject]@{Id=('b'*32);Operation='WriteAttributes';DN='OU=Paie,DC=example,DC=test';Stage='Unknown';UpdatedUtc=''})
+    $attr=Get-DomeniaReceiptView ([pscustomobject]@{Id=('b'*32);Operation='WriteAttributes';DN='OU=Paie,DC=example,DC=test';Stage='Unknown';UpdatedUtc='';CanVerify=$true})
     Assert-True $attr.CanTryVerify 'Modification de fiche en attente : relecture possible';Assert-Equal 'Paie' $attr.ObjectName;Assert-Equal 'Date inconnue' $attr.UpdatedLabel
+    Assert-True (Get-DomeniaReceiptView ([pscustomobject]@{Id=('b'*32);Operation='WriteAttributes';DN=$script:SfDnA;Stage='Sent';CanVerify=$true})).CanTryVerify 'Envoi sans confirmation : relecture possible'
+    # The re-read is offered only where the receipt store does it (its CanVerify, every expected value kept) and
+    # only for a request that left: fail closed on a missing or non boolean flag.
+    foreach($case in @(
+        @{Why='CanVerify absent';Row=[pscustomobject]@{Id=('b'*32);Operation='WriteAttributes';DN=$script:SfDnA;Stage='Unknown'}},
+        @{Why='valeurs non toutes conservees';Row=[pscustomobject]@{Id=('b'*32);Operation='WriteAttributes';DN=$script:SfDnA;Stage='Unknown';CanVerify=$false}},
+        @{Why='CanVerify non booleen';Row=[pscustomobject]@{Id=('b'*32);Operation='WriteAttributes';DN=$script:SfDnA;Stage='Unknown';CanVerify='True'}},
+        @{Why='rien envoye';Row=[pscustomobject]@{Id=('b'*32);Operation='WriteAttributes';DN=$script:SfDnA;Stage='Prepared';CanVerify=$true}},
+        @{Why='etape alteree';Row=[pscustomobject]@{Id=('b'*32);Operation='WriteAttributes';DN=$script:SfDnA;Stage=' Sent';CanVerify=$true}},
+        @{Why='autre operation';Row=[pscustomobject]@{Id=('b'*32);Operation='WriteUnlock';DN=$script:SfDnA;Stage='Sent';CanVerify=$true}})){
+        $v=Get-DomeniaReceiptView $case.Row
+        Assert-True $v.Pending ('Recu en attente attendu : '+$case.Why);Assert-False $v.CanTryVerify ('Relecture proposee, '+$case.Why)
+    }
     $done=Get-DomeniaReceiptView ([pscustomobject]@{Id=('c'*32);Operation='WriteAttributes';DN=$script:SfDnA;Stage='Verified'})
     Assert-False $done.CanTryVerify 'Recu resolu : rien a relire';Assert-False $done.Pending
     $unknown=Get-DomeniaReceiptView ([pscustomobject]@{Id=('d'*32);Operation='WriteSomethingNew';DN='';Stage='Sent'})
@@ -605,14 +626,35 @@ Test-Case 'UI-18' 'Revue dans la page : motif de 12 a 240 caracteres sans secret
     Assert-True $a.CanReview 'Motif valide refuse';Assert-Equal 'Compte deverrouille constate dans ADUC' $a.Reason
     $busy=Get-DomeniaReceiptActionView -View $pending -Reason 'Compte deverrouille constate dans ADUC' -Busy $true
     Assert-False ($busy.CanVerify -or $busy.CanReview) 'Action pendant une lecture des recus';Assert-True ($busy.Selection -match 'en cours') $busy.Selection
-    $attr=Get-DomeniaReceiptView ([pscustomobject]@{Id=('b'*32);Operation='WriteAttributes';DN=$script:SfDnA;Stage='Unknown'})
-    Assert-True (Get-DomeniaReceiptActionView -View $attr).CanVerify 'Relecture refusee pour une modification de fiche'
-    $done=Get-DomeniaReceiptView ([pscustomobject]@{Id=('c'*32);Operation='WriteUnlock';DN=$script:SfDnA;Stage='Reviewed';Review='Constate dans ADUC le 02/03'})
+    $attr=Get-DomeniaReceiptView ([pscustomobject]@{Id=('b'*32);Operation='WriteAttributes';DN=$script:SfDnA;Stage='Unknown';CanVerify=$true})
+    $av=Get-DomeniaReceiptActionView -View $attr
+    Assert-True $av.CanVerify 'Relecture refusee pour une modification de fiche';Assert-True ($av.Selection -match 'Relecture possible') $av.Selection
+    # No re-read promised where the receipt store would refuse it; the reason says why and points to the review.
+    $why=@{
+        'toutes les valeurs attendues'=[pscustomobject]@{Id=('b'*32);Operation='WriteAttributes';DN=$script:SfDnA;Stage='Sent';CanVerify=$false}
+        'Rien nʼa été envoyé'=[pscustomobject]@{Id=('b'*32);Operation='WriteAttributes';DN=$script:SfDnA;Stage='Prepared';CanVerify=$true}
+        'illisible'=[pscustomobject]@{Id=('b'*32);Operation='WriteAttributes';DN=$script:SfDnA;Stage='Verified ';CanVerify=$true}
+    }
+    foreach($expected in $why.Keys){
+        $w=Get-DomeniaReceiptActionView -View (Get-DomeniaReceiptView $why[$expected]) -Reason 'Controle fait dans la console ADUC'
+        Assert-False $w.CanVerify ('Relecture proposee : '+$expected);Assert-True $w.CanReview ('Revue refusee : '+$expected)
+        Assert-True (($w.VerifyWhy -match $expected) -and ($w.VerifyWhy -match 'consignez votre revue')) $w.VerifyWhy
+        Assert-False ($w.Selection -match 'Relecture possible') $w.Selection
+    }
+    $done=Get-DomeniaReceiptView ([pscustomobject]@{Id=('c'*32);Operation='WriteUnlock';DN=$script:SfDnA;Stage='Reviewed';Review='Constate dans ADUC le 02/03.'})
     $d=Get-DomeniaReceiptActionView -View $done -Reason 'Compte deverrouille constate dans ADUC'
     Assert-False ($d.CanVerify -or $d.CanReview -or $d.ReasonEnabled) 'Action proposee sur un recu resolu'
-    Assert-True (($d.Selection -match 'ne bloque plus') -and ($d.Selection -match 'Motif consigné : « Constate dans ADUC le 02/03 »')) $d.Selection
-    # A note written by the receipt store (verification by re-reading) is not presented as the operator's motive.
+    # The final period of the motive stays outside the quotes: one period, never « . ».
+    Assert-True (($d.Selection -match 'ne bloque plus') -and ($d.Selection -cmatch 'Motif consigné : « Constate dans ADUC le 02/03 »\.$')) $d.Selection
+    Assert-False ($d.Selection -match '\. »') $d.Selection
+    $ellipsis=Get-DomeniaReceiptActionView -View (Get-DomeniaReceiptView ([pscustomobject]@{Id=('c'*32);Operation='WriteUnlock';DN=$script:SfDnA;Stage='Reviewed';Review='Constate dans ADUC, voir ticket...'}))
+    Assert-True ($ellipsis.Selection -cmatch '« Constate dans ADUC, voir ticket\.\.\. »\.$') $ellipsis.Selection
+    # A note written by the receipt store (verification by re-reading) is said in French, never echoed, and is not
+    # presented as the operator's motive.
     $verified=Get-DomeniaReceiptView ([pscustomobject]@{Id=('e'*32);Operation='WriteAttributes';DN=$script:SfDnA;Stage='Verified';Review='Postconditions relues sur le controleur initial.'})
     $n=Get-DomeniaReceiptActionView -View $verified
-    Assert-True (($n.Selection -match 'Note du reçu : « Postconditions relues') -and ($n.Selection -notmatch 'Motif consigné')) $n.Selection
+    Assert-True ($n.Selection -cmatch 'Ce reçu est résolu : il ne bloque plus aucune écriture\. Vérifiée par relecture des valeurs attendues sur le contrôleur initial\.$') $n.Selection
+    Assert-False (($n.Selection -match 'Postconditions|controleur|Motif consigné|Note du reçu') -or ($n.Selection -match '«')) $n.Selection
+    $atWrite=Get-DomeniaReceiptActionView -View (Get-DomeniaReceiptView ([pscustomobject]@{Id=('e'*32);Operation='WriteAttributes';DN=$script:SfDnA;Stage='Verified';Review=''}))
+    Assert-True ($atWrite.Selection -cmatch 'ne bloque plus aucune écriture\.$') $atWrite.Selection
 }

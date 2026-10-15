@@ -14,7 +14,7 @@ function Start-DomeniaReceiptRefresh {
     if($null -ne $script:Guard -and $script:Guard.ReceiptJob -and $null -ne $script:AsyncJobs -and -not $script:AsyncJobs.Contains([string]$script:Guard.ReceiptJob)){$script:Guard.ReceiptJob=''}
     if($null -eq $script:Guard -or $script:Guard.ReceiptJob -or $script:AsyncEngineClosing){return}
     if(@($script:AsyncJobs.Values|Where-Object{$_.IsWrite -or $_.OperationId -eq 'ReceiptStore'}).Count){return}
-    if($Action -ne 'List' -and [string]$Id -notmatch '^[a-f0-9]{32}$'){throw 'Sélectionnez un reçu valide.'}
+    if(($Action -ne 'List') -and ([string]$Id -notmatch '^[a-f0-9]{32}$')){throw 'Sélectionnez un reçu valide.'}
     $script:ReceiptReady=$false
     try{
         $script:Guard.ReceiptJob=Start-UiTask -Name 'Verifier les recus locaux' -OperationId 'ReceiptStore' -Code (Get-DomeniaReceiptWorkerCode) -Payload ([pscustomobject]@{Action=$Action;Id=$Id;Reason=$Reason}) -CallbackState ([pscustomobject]@{Epoch=[long]$script:SessionEpoch;Action=$Action;Id=$Id}) -SuccessHandler 'Complete-DomeniaReceiptRefresh' -ErrorHandler 'Fail-DomeniaReceiptRefresh' -NonCancellable -TimeoutSeconds 25 -TaskClass 'Explicit'
@@ -79,7 +79,7 @@ function Get-DomeniaSelectedReceiptView {
 function Test-DomeniaReceiptStoreBusy {
     # UI-18: the conditions under which Start-DomeniaReceiptRefresh starts nothing: a receipt job not answered yet
     # (fail closed: its handler clears it) or a write in flight.
-    if(($null -eq $script:Guard) -or $script:AsyncEngineClosing){return $true}
+    if(($null -eq $script:Guard) -or ($script:AsyncEngineClosing)){return $true}
     if($script:Guard.ReceiptJob){return $true}
     if(($null -ne $script:AsyncJobs) -and (@($script:AsyncJobs.Values|Where-Object{($_.IsWrite) -or ($_.OperationId -eq 'ReceiptStore')}).Count -gt 0)){return $true}
     return $false

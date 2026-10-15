@@ -12480,7 +12480,7 @@ function Update-SecretsGrid {
     foreach ($r in @($script:SecretRows)) {
         $hasValue = -not [string]::IsNullOrWhiteSpace([string]$r.Value)
         $shown = ($script:SecretsVisible -and ($revealedIndex -lt 0 -or $revealedIndex -eq $index))
-        $display = if (-not $hasValue) { '' } elseif ($shown -and ($index -eq $cardIndex)) { 'Affichée dans la carte ci-dessus' } elseif ($shown) { [string]$r.Value } else { '********' }
+        $display = if (-not $hasValue) { '' } elseif (($shown) -and ($index -eq $cardIndex)) { 'Affichée dans la carte ci-dessus' } elseif ($shown) { [string]$r.Value } else { '********' }
         # UX-18: the DN of a recovery object is not a detail for the operator; its identifier is.
         $detail = [string]$r.Detail
         if (([string]$r.Kind -match '(?i)BitLocker') -and ($detail -match '^(?i)(CN|OU|DC)=')) { $detail = '' }
@@ -25428,7 +25428,7 @@ function Update-DomeniaSecretActionUi {
             $explanation = Get-DomeniaSecretButtonExplanation -Name $name -Busy $busy
             $control.IsEnabled = [bool]$explanation.Enabled
             $tip = [string]$explanation.ToolTip
-            if ($actualDenied -and $tip -notmatch 'autre compte') { $tip += ' Lecture refusée avec ce compte : cliquez pour proposer un autre compte.' }
+            if (($actualDenied) -and ($tip -notmatch 'autre compte')) { $tip += ' Lecture refusée avec ce compte : cliquez pour proposer un autre compte.' }
             $control.ToolTip = $tip
             try { [Windows.Automation.AutomationProperties]::SetHelpText($control,$tip) } catch { }
             if (-not [bool]$explanation.Enabled -and [string]$explanation.Route -and -not $prerequisiteRoute) { $prerequisiteRoute = [string]$explanation.Route; $prerequisiteReason = $tip }

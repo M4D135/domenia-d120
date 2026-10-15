@@ -604,6 +604,24 @@ Test-Case 'UI-31 Copier tout absent en mode valeur unique, libelles poses par un
     Assert-True ([string]$script:Ctrl.BtnLoadLaps.ToolTip -match '^Lire le mot de passe LAPS : ') ([string]$script:Ctrl.BtnLoadLaps.ToolTip)
     Assert-True ([string]$script:Ctrl.BtnLoadBitLocker.ToolTip -match '^Lister les clés BitLocker : ') ([string]$script:Ctrl.BtnLoadBitLocker.ToolTip)
 }
+Test-Case 'UI-31 Aide contextuelle d un bouton grise : description du catalogue suivie de son motif (D056)' {
+    $script:SecretRows=@();Update-SecretsGrid
+    $copy=$script:Ctrl.BtnCopySecret;$toggle=$script:Ctrl.BtnToggleSecrets
+    foreach($button in @($copy,$toggle)){
+        $tip=[string]$button.ToolTip
+        Assert-True ((-not $button.IsEnabled) -and ($tip -match '^(Sélectionnez|Lancez dʼabord)')) ($button.Name+' : '+$tip)
+        $entry=Get-DomeniaUxHelpEntry -Control $button
+        $hint=Get-DomeniaUxControlHelpText -Control $button
+        Assert-True (($hint.StartsWith([string]$entry.Text)) -and ($hint.Contains($tip))) ($button.Name+' : motif absent de l aide contextuelle : '+$hint)
+    }
+    # Once the reason is gone, the hint is the catalogue description alone: no value is reflected.
+    $a=[guid]::NewGuid().ToString('N')
+    $script:SecretRows=@([pscustomobject]@{Kind='Windows LAPS';Account='Administrateur';Value=$a;Timestamp='';Source='s';Detail=''})
+    Update-SecretsGrid
+    $script:Ctrl.DgSecrets.SelectedItem=@($script:Ctrl.DgSecrets.Items)[0];Update-DomeniaSecretActionUi
+    $hint=Get-DomeniaUxControlHelpText -Control $copy
+    Assert-True ($copy.IsEnabled -and ($hint -ceq [string](Get-DomeniaUxHelpEntry -Control $copy).Text) -and (-not $hint.Contains($a))) ('Aide contextuelle d un bouton actif : '+$hint)
+}
 
 # ================================================================ UX-18 BitLocker key card
 function New-TestRecoveryPassword {return ((1..8|ForEach-Object{'{0:D6}' -f (Get-Random -Minimum 0 -Maximum 999999)}) -join '-')}
@@ -697,8 +715,10 @@ Test-Case 'UX-18 Une valeur LAPS ou une cle au format inattendu ne passe jamais 
 # These cases run last: they give the real main window to the in-page confirmation (Domenia-Inline.UI.ps1), which
 # then stays laid over its content grid for the rest of the run.
 function Invoke-TestClick {param($Button) $Button.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Primitives.ButtonBase]::ClickEvent))}
-function New-ReceiptRow {param([string]$Id,[string]$Operation,[string]$Stage,[string]$Updated,[string]$Review='')
-    return [pscustomobject]@{Id=$Id;PlanFingerprint='';Operation=$Operation;DN='CN=Jean Dupont,OU=Utilisateurs,DC=example,DC=invalid';Identity='EXAMPLE\adm';Server='dc1.example.invalid';Stage=$Stage;UpdatedUtc=$Updated;Review=$Review}
+function New-ReceiptRow {param([string]$Id,[string]$Operation,[string]$Stage,[string]$Updated,[string]$Review='',[bool]$KeptAll=$true)
+    # Same shape as a row of the receipt store worker (Get-DomeniaReceiptWorkerCode). CanVerify is its own test: an
+    # attribute change whose expected values were all kept ($KeptAll false: a secret or excluded attribute).
+    return [pscustomobject]@{Id=$Id;PlanFingerprint='';Operation=$Operation;DN='CN=Jean Dupont,OU=Utilisateurs,DC=example,DC=invalid';Identity='EXAMPLE\adm';Server='dc1.example.invalid';Stage=$Stage;UpdatedUtc=$Updated;Review=$Review;CanVerify=(($Operation -eq 'WriteAttributes') -and ($KeptAll))}
 }
 function Initialize-ReceiptFixture {
     # The real Guard initialisation wires the receipts view on the real controls; its heartbeat timer is stopped.
@@ -795,6 +815,23 @@ Test-Case 'UI-18 Relecture proposee pour une modification de fiche, annulable, r
     Fail-DomeniaReceiptRefresh 'Valeur attendue non confirmee. Aucun rejeu.' $task.State
     Assert-True ([string]$script:Ctrl.LblGuardReceipts.Text -match '^Vérification non aboutie' -and [string]$script:Ctrl.LblGuardReceipts.Text -match 'aucune commande') ([string]$script:Ctrl.LblGuardReceipts.Text)
     Assert-True ((-not $script:ReceiptReady) -and $script:Guard.ReceiptJob -eq '') 'Recus consideres confirmes apres un refus'
+}
+Test-Case 'UI-18 Relecture jamais promise quand le magasin la refuserait : valeurs non conservees, rien envoye' {
+    Initialize-ReceiptFixture
+    $rows=@((New-ReceiptRow ('f'*32) 'WriteAttributes' 'Sent' '2026-09-29T08:00:00.0000000Z' '' $false),(New-ReceiptRow ('g'*32) 'WriteAttributes' 'Prepared' '2026-09-28T08:00:00.0000000Z'))
+    Complete-DomeniaReceiptRefresh ([pscustomobject]@{Rows=$rows;Pending=2}) (Get-ListState)
+    $grid=$script:Ctrl.DgGuardReceipts
+    $before=$script:Tasks.Count
+    foreach($case in @(@{Id=('f'*32);Why='toutes les valeurs attendues'},@{Id=('g'*32);Why='Rien nʼa été envoyé'})){
+        $grid.SelectedItem=@($grid.Items|Where-Object{$_.Id -eq $case.Id})[0]
+        Assert-True (-not $script:Ctrl.BtnGuardReceiptVerify.IsEnabled) ('Relecture proposee : '+$case.Why)
+        $label=[string]$script:Ctrl.LblGuardReceiptSelection.Text
+        Assert-True (($label -match $case.Why) -and ($label -notmatch 'Relecture possible')) $label
+        # Even when the handler of the greyed button runs, it starts nothing and keeps no pending choice.
+        Invoke-DomeniaReceiptChoice -Action Verify
+        Assert-True (($script:Tasks.Count -eq $before) -and ($null -eq $script:Guard.PendingChoice)) ('Relecture lancee : '+$case.Why)
+    }
+    Assert-True (@($script:StatusLines|Where-Object{$_ -match 'consignez votre revue'}).Count -eq 2) 'Motif du refus non annonce'
 }
 Test-Case 'UI-18 Une demande remplacee par une autre ne lance ni n efface la nouvelle : un seul envoi, pour le dernier recu choisi' {
     Initialize-ReceiptFixture
