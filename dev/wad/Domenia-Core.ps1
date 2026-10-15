@@ -904,8 +904,6 @@ $script:GuiElementPolicy = [ordered]@{
     "DgOperationStats" = "Default"
     "ChkParkSweepEnabled" = "Default"
     "BtnParkHarvest" = "Default"
-    "BtnParkResults" = "Default"
-    "BtnParkResultsStop" = "Default"
     "BtnParkReset" = "Default"
     "LblParkStatus" = "Default"
     "LblIndexStats" = "Default"
@@ -1034,6 +1032,29 @@ $script:GuiElementPolicy = [ordered]@{
     "UxAboutPanel" = "Default"
     "ObjectEmptyState" = "Default"
     "ComputerEmptyState" = "Default"
+    # X01 (SP-15): check on click and its user sub-option in Rechercher.
+    "ChkLiveVerifyOnClick" = "Default"
+    "ChkLiveUsersOnClick" = "Default"
+    # X01 (UI-23, UX-12, CO-19, FO-18, FI-18): survey of the list, its progress and pills, multiple selection bar,
+    # survey of the open workstation.
+    "BtnParkVerify" = "Default"
+    "BtnParkVerifyMenu" = "Default"
+    "PbParkProgress" = "Default"
+    "UxParkProgress" = "Default"
+    "LblParkProgress" = "Default"
+    "PnlParkOutcome" = "Default"
+    "BtnParkOutcomeOnline" = "Default"
+    "BtnParkOutcomeNoReply" = "Default"
+    "BtnParkOutcomeError" = "Default"
+    "UxSelectionBar" = "Default"
+    "LblSelectionBar" = "Default"
+    "BtnSelectionPing" = "Default"
+    "BtnSelectionConsole" = "Default"
+    "BtnSelectionCopy" = "Default"
+    "BtnSelectionExport" = "Default"
+    "UxComputerParkRun" = "Default"
+    "LblComputerParkStatus" = "Default"
+    "BtnComputerParkStop" = "Default"
 
 }
 
@@ -2859,47 +2880,51 @@ function Get-DomeniaPingState {
 }
 
 function Get-DomeniaPresenceColor {
-    # Vert en ligne, rouge hors ligne, ambre pendant le test, gris sinon.
-    # Les teintes sont eclaircies en theme sombre pour rester lisibles.
-    param([AllowEmptyString()][string]$State)
+    # FI-16: the colour follows the state key (Online, NoReply, Error, Pending, Unknown, None), never the wording of
+    # the label. -State still accepts a label (fiche, older callers): its key is read once by the Live rule.
+    # Green online, red without reply, amber while checking or after a ping error, grey otherwise or for a value of an
+    # earlier session (-Cached). The tints are lighter on the dark theme to stay readable.
+    param([AllowEmptyString()][string]$State,[AllowEmptyString()][string]$PresenceState='',[switch]$Cached)
     $dark = ($script:CurrentTheme -eq "Dark")
-    $value = [string]$State
-    if ($value -like "*(cache)") { if($dark){return "#CBD5E1"}else{return "#64748B"} }
-    if ($value -like "En ligne*")   { if ($dark) { return "#34D399" } else { return "#047857" } }
-    if ($value -like "Hors ligne*" -or $value -like "Sans réponse au ping*") { if ($dark) { return "#F87171" } else { return "#DC2626" } }
-    if ($value -like "Test*" -or $value -like "Vérification*" -or $value -like "Erreur de ping*")       { if ($dark) { return "#FBBF24" } else { return "#B45309" } }
+    $key = if ($PresenceState) { ConvertTo-DomeniaPresenceStateKey $PresenceState } else { ConvertTo-DomeniaPresenceStateKey $State }
+    if ($Cached) { if($dark){return "#CBD5E1"}else{return "#64748B"} }
+    switch ($key) {
+        'Online'  { if ($dark) { return "#34D399" } else { return "#047857" } }
+        'NoReply' { if ($dark) { return "#F87171" } else { return "#DC2626" } }
+        'Pending' { if ($dark) { return "#FBBF24" } else { return "#B45309" } }
+        'Error'   { if ($dark) { return "#FBBF24" } else { return "#B45309" } }
+    }
     if ($dark) { return "#CBD5E1" }
     return "#64748B"
 }
 
 function Set-DomeniaPresenceText {
-    # Ecrit un etat de presence et lui applique la couleur correspondante.
-    param([Parameter(Mandatory=$true)][string]$Name,[AllowEmptyString()][string]$State)
+    # Ecrit un etat de presence et lui applique la couleur de sa cle d etat (FI-16). Le texte peut etre detaille
+    # (poste teste, confiance) : la couleur vient de -PresenceState quand l appelant la connait.
+    param([Parameter(Mandatory=$true)][string]$Name,[AllowEmptyString()][string]$State,[AllowEmptyString()][string]$PresenceState='')
     [void](Set-DomeniaControlText -Name $Name -Text ([string]$State))
-    Set-DomeniaControlForeground (Get-DomeniaControl -Name $Name) (Get-DomeniaPresenceColor -State $State)
+    $key = if ($PresenceState) { ConvertTo-DomeniaPresenceStateKey $PresenceState } else { ConvertTo-DomeniaPresenceStateKey $State }
+    if ($null -eq $script:PresenceTextStates) { $script:PresenceTextStates = @{} }
+    $script:PresenceTextStates[$Name] = $key
+    Set-DomeniaControlForeground (Get-DomeniaControl -Name $Name) (Get-DomeniaPresenceColor -State $State -PresenceState $key)
 }
 
 function Update-DomeniaObjectPresence {
     # Recopie l etat de presence dans l onglet Resume, quel que soit le type
     # d objet, et memorise l etat pour pouvoir le recolorer au changement
     # de theme.
-    param([AllowEmptyString()][string]$State,[AllowEmptyString()][string]$Target = "")
+    param([AllowEmptyString()][string]$State,[AllowEmptyString()][string]$Target = "",[AllowEmptyString()][string]$PresenceState='')
     $script:CurrentPresenceState = [string]$State
     $script:CurrentPresenceTarget = [string]$Target
-    Set-DomeniaPresenceText -Name "TxtObjPresence" -State $State
+    Set-DomeniaPresenceText -Name "TxtObjPresence" -State $State -PresenceState $PresenceState
     [void](Set-DomeniaControlText -Name "TxtObjPresenceTarget" -Text ([string]$Target))
 }
 
 function ConvertTo-DomeniaGridPresenceState {
     # La fiche peut afficher un libelle detaille (poste teste, confiance, etc.).
-    # La grille conserve un etat court et filtrable.
+    # La grille conserve un etat court et filtrable, issu de la cle d etat (FI-16).
     param([AllowEmptyString()][string]$State)
-    $value = ([string]$State).Trim()
-    if ($value -like "En ligne*") { return "En ligne" }
-    if ($value -like "Hors ligne*" -or $value -like "Sans réponse au ping*") { return "Sans réponse au ping" }
-    if ($value -like "Test*" -or $value -like "Vérification*") { return "Vérification en cours" }
-    if ($value -like "Erreur de ping*") { return "Erreur de ping" }
-    return "Non vérifié"
+    return (Get-DomeniaPresenceStateLabel (ConvertTo-DomeniaPresenceStateKey $State))
 }
 
 function Get-DomeniaCachedPresenceState {
@@ -2942,7 +2967,9 @@ function Set-DomeniaResultRowPresence {
         if ([string]::IsNullOrWhiteSpace($dnValue)) { return }
         # Rendering consumes a committed observation; it never creates a new observation or timestamp.
         if($null -eq $Observation -or [string]$Observation.Key -ine $dnValue -or -not [string]$Observation.Guid){return}
-        $shortState = ConvertTo-DomeniaGridPresenceState -State ([string]$Observation.Presence)
+        $stateKey = ConvertTo-DomeniaPresenceStateKey ([string]$Observation.Presence)
+        if ($stateKey -in @('Pending','None')) { $stateKey = 'Unknown' }
+        $shortState = Get-DomeniaPresenceStateLabel $stateKey
         $key = $dnValue.ToLowerInvariant()
         $observedUtc=ConvertTo-DomeniaUtcDate (Get-DomeniaMemberValue $Observation 'PresenceCheckedUtc')
         if($null -eq $observedUtc){return}
@@ -2953,6 +2980,10 @@ function Set-DomeniaResultRowPresence {
             try {
                 if ([string]$row.DN -ieq $dnValue -and [string]$row.Guid -ieq [string]$Observation.Guid) {
                     Set-DomeniaLiveRowValue $row "Presence" $shortState
+                    # FI-16 / DS-15: the pill reads the key; the age of this committed measure replaces '(cache)'.
+                    Set-DomeniaLiveRowValue $row "PresenceState" $stateKey
+                    Set-DomeniaLiveRowValue $row "PresenceAge" (Get-DomeniaLiveAgeText -CheckedUtc $observedUtc.ToString('o'))
+                    Set-DomeniaLiveRowValue $row "PresenceCached" ""
                     $changed = $true
                 }
             }
@@ -3047,7 +3078,7 @@ function Apply-DomeniaPresenceFilter {
     try {
         $rows = @($script:BranchObjects)
         if ((Get-DomeniaSearchMode) -ne "Global" -and $script:CurrentPresenceFilter -ne "Tous") {
-            $rows = @($rows | Where-Object { Test-DomeniaPresenceMatch ([string]$_.Presence) $script:CurrentPresenceFilter })
+            $rows = @($rows | Where-Object { Test-DomeniaPresenceMatch (Get-DomeniaRowPresenceState $_) $script:CurrentPresenceFilter })
         }
         $rows=@($rows|Where-Object{Test-DomeniaSearchQueryRow $_})
         [void](Set-DomeniaGridRows -Name "DgObjects" -Rows $rows)
@@ -3203,7 +3234,8 @@ function Start-DomeniaSelectedMachinePresence {
     param([string]$Name,[string]$DnsName)
     if(Test-DomeniaLiveSearchActive){
         $row=Get-DomeniaSelectedGridRow
-        if($null -ne $row -and $row.Type -eq 'Machine' -and $null -ne $script:SelectedObject -and [string]$row.DN -ieq [string]$script:SelectedObject.DN){Select-DomeniaLiveResult;return}
+        # SP-15: a fiche rendered with its probes is an explicit opening, not a simple click on the list.
+        if($null -ne $row -and $row.Type -eq 'Machine' -and $null -ne $script:SelectedObject -and [string]$row.DN -ieq [string]$script:SelectedObject.DN){Select-DomeniaLiveResult -Explicit;return}
     }
     $target=if($DnsName){$DnsName}else{$Name}
     $guid=[string](Get-DomeniaMemberValue (Get-DomeniaMemberValue $script:SelectedObject 'Safety') 'Guid')
@@ -3404,6 +3436,10 @@ function Get-DomeniaDefaultSettings {
         'Index.Partial'    = ''
         # Lot L01: the "Premiers pas" card of Accueil stays hidden once its four steps were done.
         'Home.FirstStepsDone' = $false
+        # SP-15: a click on a workstation of Rechercher pings it only when the operator checked « Vérifier au clic ».
+        # The user read on click follows Streaming.VerifyUserOnSelection until the operator changes it ('' = not chosen).
+        LiveVerifyOnClick = $false
+        LiveUserOnClick = ''
     }
 }
 
@@ -3989,7 +4025,10 @@ function Apply-DomeniaTheme {
         foreach ($presenceControl in @("TxtObjPresence","TxtCompPresence","TxtUserPresence")) {
             $current = Get-DomeniaControl -Name $presenceControl
             if ($null -eq $current) { continue }
-            try { Set-DomeniaControlForeground $current (Get-DomeniaPresenceColor -State ([string]$current.Text)) } catch { }
+            # FI-16: the key stored when the state was written, not a new reading of the label.
+            $storedKey = ''
+            if ($null -ne $script:PresenceTextStates -and $script:PresenceTextStates.ContainsKey($presenceControl)) { $storedKey = [string]$script:PresenceTextStates[$presenceControl] }
+            try { Set-DomeniaControlForeground $current (Get-DomeniaPresenceColor -State ([string]$current.Text) -PresenceState $storedKey) } catch { }
         }
 
         # Restaurer l apparence au demarrage ne reecrit pas les preferences.
@@ -5424,18 +5463,41 @@ function Get-MainXaml {
 <Button x:Name="BtnSuiteResultClear" Grid.Column="2" Content="Effacer le filtre" Margin="8,0,0,0" MinHeight="32" ToolTip="Réaffiche les lignes déjà chargées, en conservant le filtre OU, la présence et le texte de recherche AD." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer le filtre local" AutomationProperties.HelpText="Réaffiche les lignes déjà chargées, en conservant le filtre OU, la présence et le texte de recherche AD." IsEnabled="{Binding IsEnabled, ElementName=DgObjects}"/>
 </Grid><Grid x:Name="UxResultLive" Margin="0,10,0,0"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0"/></Grid.ColumnDefinitions>
                             <WrapPanel>
-                              <CheckBox x:Name="ChkLiveUsers" IsEnabled="{Binding IsEnabled, ElementName=DgObjects}" Content="Utilisateur au clic" IsChecked="True" VerticalAlignment="Center" Margin="0,0,14,4" ToolTip="Un clic lance un ping unique sur le poste. Cochée : lit aussi son utilisateur console. Décochée : ping seulement. Jamais de sondage collectif." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vérification sur sélection" AutomationProperties.HelpText="Vérifie uniquement la machine sélectionnée. Les autres lignes conservent leurs observations en cache, sans nouvel appel distant."/>
+                              <!-- SP-15: no ping on a simple click unless the operator asks for it; the user read is a sub-option. -->
+                              <CheckBox x:Name="ChkLiveVerifyOnClick" IsEnabled="{Binding IsEnabled, ElementName=DgObjects}" Content="Vérifier au clic" IsChecked="False" VerticalAlignment="Center" Margin="0,0,8,4" ToolTip="Décochée : un clic sur un poste précharge seulement sa fiche AD, sans aucun appel au poste. Cochée : le clic envoie aussi un seul ping au poste sélectionné. Revérifier ce poste reste le geste manuel. Jamais de sondage collectif." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vérifier au clic" AutomationProperties.HelpText="Décochée : un clic sur un poste précharge seulement sa fiche AD, sans aucun appel au poste. Cochée : le clic envoie aussi un seul ping au poste sélectionné. Revérifier ce poste reste le geste manuel. Jamais de sondage collectif."/>
+                              <CheckBox x:Name="ChkLiveUsersOnClick" IsEnabled="{Binding IsChecked, ElementName=ChkLiveVerifyOnClick}" Content="+ utilisateur connecté" IsChecked="True" VerticalAlignment="Center" Margin="0,0,14,4" ToolTip="Avec Vérifier au clic : lit aussi lʼutilisateur connecté à la console du poste cliqué (CIM). Revérifier ce poste le lit toujours. Les sessions RDP ne sont pas recensées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vérifier aussi lʼutilisateur connecté" AutomationProperties.HelpText="Avec Vérifier au clic : lit aussi lʼutilisateur connecté à la console du poste cliqué (CIM). Revérifier ce poste le lit toujours. Les sessions RDP ne sont pas recensées."/>
                               <Button x:Name="BtnLiveRecheck" IsEnabled="False" Content="Revérifier ce poste" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" ToolTip="Poste sélectionné seulement : relance un ping unique et la lecture utilisateur. Grisé pour un autre type d objet ou une sélection multiple. Si le compte est refusé ou CIM désactivé, seul le ping reste disponible. Aucun balayage." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Revérifier ce poste" AutomationProperties.HelpText="Relance la vérification du compte console d’une seule machine sélectionnée."/>
-                              <Button x:Name="BtnParkPing" Content="Pinger la liste" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" ToolTip="Grisé si la liste ne contient aucun poste. Ping seul des postes affichés après vos filtres : met à jour la présence réseau, sans lecture de session ni association. Confirmation avant envoi." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Pinger les postes affiches"/>
-                              <Button x:Name="BtnParkResults" Content="Détecter la liste" Style="{StaticResource RunButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" ToolTip="Grisé si la liste ne contient aucun poste. Ping puis lecture de la console des seuls postes affichés, après vos filtres (OU, recherche, présence, filtre local). Confirmation avec le nombre de postes avant toute lecture. Cache et associations conservés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Detecter les resultats affiches"/>
-                              <Button x:Name="BtnParkAnalyze" Content="Analyser la liste" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" ToolTip="Grisé si la liste ne contient aucun poste. Ping, utilisateur console et relevé WMI léger (modèle, mémoire, disque C:, build, démarrage) des seuls postes affichés, plus les requêtes WMI des widgets des tableaux de bord. Lecture seule sur les postes, confirmation avec le nombre de postes avant envoi. Associations actualisées si lʼutilisateur change ; résultats conservés pour les tableaux de bord." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Analyser les postes affiches"/>
-                              <Button x:Name="BtnParkResultsStop" Content="Arrêter" Style="{StaticResource DangerButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" ToolTip="Actif pendant une détection : arrête les nouvelles lectures et conserve les résultats déjà obtenus." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Arreter la detection des resultats"/>
+                              <!-- UI-23: one secondary « Vérifier la liste ▾ » (Rechercher stays the only main button); its main part runs the reading chosen last in this session or stops the running survey (UX-12). -->
+                              <StackPanel Orientation="Horizontal" Margin="0,0,8,4">
+                                <Button x:Name="BtnParkVerify" Content="Vérifier la liste" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0" IsEnabled="False" ToolTip="Vérifie les seuls postes affichés, après vos filtres. Sans choix dans cette session, ouvre les trois vérifications ; ensuite, relance la dernière choisie. Confirmation avec le nombre de postes avant tout envoi, plafond réglable (500 postes par défaut). Pendant un relevé, ce bouton lʼarrête." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Vérifie les seuls postes affichés, après vos filtres. Sans choix dans cette session, ouvre les trois vérifications ; ensuite, relance la dernière choisie. Confirmation avec le nombre de postes avant tout envoi, plafond réglable (500 postes par défaut). Pendant un relevé, ce bouton lʼarrête." AutomationProperties.Name="Vérifier la liste"/>
+                                <Button x:Name="BtnParkVerifyMenu" Content="&#xE70D;" FontFamily="Segoe MDL2 Assets" FontSize="10" Style="{StaticResource SecondaryButton}" MinHeight="30" MinWidth="0" Width="28" Padding="0" Margin="1,0,0,0" IsEnabled="False" ToolTip="Choisir la vérification de la liste : Qui répond ? (ping), Qui est connecté ? (ping et utilisateur console) ou Matériel et widgets (relevé WMI léger). Le dernier choix devient lʼaction du bouton pour cette session." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Choisir la vérification de la liste : Qui répond ? (ping), Qui est connecté ? (ping et utilisateur console) ou Matériel et widgets (relevé WMI léger). Le dernier choix devient lʼaction du bouton pour cette session." AutomationProperties.Name="Choisir la vérification de la liste"/>
+                              </StackPanel>
                               <StackPanel x:Name="UxListRevalidation" Orientation="Horizontal" Visibility="Collapsed" VerticalAlignment="Center" Margin="0,0,8,4">
                                 <CheckBox x:Name="ChkListRevalidation" Content="Revérifier la liste" IsChecked="True" VerticalAlignment="Center" ToolTip="Activé par lʼadministrateur : relit dans lʼannuaire les objets listés, par petits lots, tant que la page est affichée. Décochez pour lʼarrêter pendant cette session." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Revérifier la liste en arrière-plan" AutomationProperties.HelpText="Activé par lʼadministrateur : relit dans lʼannuaire les objets listés, par petits lots, tant que la page est affichée. Décochez pour lʼarrêter pendant cette session."/>
                                 <TextBlock x:Name="LblListRevalidation" Text="" Margin="8,0,0,0" FontSize="11" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}"/>
                               </StackPanel>
                             </WrapPanel>
-                            <Grid x:Name="UxResultLiveStatuses" Grid.Row="1"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><TextBlock Text="Sélectionnez une ligne pour précharger sa fiche. Double-clic : ouvrir." Foreground="{DynamicResource MutedColor}" FontSize="11" Height="20" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" x:Name="LblSelectionReadState" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/><TextBlock x:Name="LblLiveState" Grid.Row="1" Text="Un clic : vérifier ce poste · Double-clic : ouvrir la fiche · Aucune sonde de liste" FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Height="18" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/></Grid>
+                            <!-- UX-12: thin bar of the survey of the list, in the bottom margin of the actions (no layout shift). -->
+                            <ProgressBar x:Name="PbParkProgress" Height="3" VerticalAlignment="Bottom" Minimum="0" Maximum="100" Value="0" Visibility="Collapsed" IsHitTestVisible="False" ToolTip="Avancement du relevé de la liste en cours." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Avancement du relevé de la liste en cours." AutomationProperties.Name="Avancement du relevé de la liste"/>
+                            <Grid x:Name="UxResultLiveStatuses" Grid.Row="1"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><TextBlock Text="Sélectionnez une ligne pour précharger sa fiche. Double-clic : ouvrir." Foreground="{DynamicResource MutedColor}" FontSize="11" Height="20" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" x:Name="LblSelectionReadState" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                              <!-- FO-18: from two selected rows, the selection line becomes its actions (same height, no layout shift). -->
+                              <StackPanel x:Name="UxSelectionBar" Orientation="Horizontal" Height="20" Visibility="Collapsed" VerticalAlignment="Center" ToolTip="Actions sur les lignes sélectionnées : ping ou utilisateur connecté des seuls postes sélectionnés, avec la même confirmation et le même plafond que la liste ; copie et export de la sélection." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Actions sur les lignes sélectionnées : ping ou utilisateur connecté des seuls postes sélectionnés, avec la même confirmation et le même plafond que la liste ; copie et export de la sélection." AutomationProperties.Name="Actions sur la sélection">
+                                <TextBlock x:Name="LblSelectionBar" Text="" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,6,0" ToolTip="Nombre de lignes sélectionnées. Ctrl ou Maj et clic pour composer la sélection." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Nombre de lignes sélectionnées. Ctrl ou Maj et clic pour composer la sélection." AutomationProperties.Name="Lignes sélectionnées"/>
+                                <Button x:Name="BtnSelectionPing" Content="Pinger" MinHeight="0" Height="20" MinWidth="0" Padding="8,0" Margin="0,0,4,0" FontSize="11" ToolTip="Pinge les seuls postes sélectionnés, après confirmation avec leur nombre. Aucune lecture de session." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Pinge les seuls postes sélectionnés, après confirmation avec leur nombre. Aucune lecture de session." AutomationProperties.Name="Pinger les postes sélectionnés"/>
+                                <Button x:Name="BtnSelectionConsole" Content="Qui est connecté ?" MinHeight="0" Height="20" MinWidth="0" Padding="8,0" Margin="0,0,4,0" FontSize="11" ToolTip="Ping puis utilisateur connecté à la console des seuls postes sélectionnés, après confirmation avec leur nombre." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Ping puis utilisateur connecté à la console des seuls postes sélectionnés, après confirmation avec leur nombre." AutomationProperties.Name="Utilisateur connecté des postes sélectionnés"/>
+                                <Button x:Name="BtnSelectionCopy" Content="Copier" MinHeight="0" Height="20" MinWidth="0" Padding="8,0" Margin="0,0,4,0" FontSize="11" ToolTip="Copie une ligne lisible par objet sélectionné pour un ticket : type, nom, compte, présence, utilisateur console et OU. Sans GUID ni champ interne." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Copie une ligne lisible par objet sélectionné pour un ticket : type, nom, compte, présence, utilisateur console et OU. Sans GUID ni champ interne." AutomationProperties.Name="Copier la sélection pour un ticket"/>
+                                <Button x:Name="BtnSelectionExport" Content="Exporter" MinHeight="0" Height="20" MinWidth="0" Padding="8,0" Margin="0" FontSize="11" ToolTip="Exporte les lignes sélectionnées au format CSV, avec les colonnes visibles." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Exporte les lignes sélectionnées au format CSV, avec les colonnes visibles." AutomationProperties.Name="Exporter la sélection"/>
+                              </StackPanel>
+                              <TextBlock x:Name="LblLiveState" Grid.Row="1" Text="Un clic : fiche AD seulement, sans ping · Double-clic : ouvrir la fiche · Aucune sonde de liste" FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Height="18" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                              <!-- UX-12 / CO-19: short count of the survey of the list, then three pills that filter by presence. -->
+                              <StackPanel x:Name="UxParkProgress" Grid.Row="1" Orientation="Horizontal" Height="18" Visibility="Collapsed" ToolTip="Avancement du relevé de la liste : postes traités, joignables, puis en ligne, sans réponse et en erreur. Le détail complet est écrit dans le journal." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Avancement du relevé de la liste : postes traités, joignables, puis en ligne, sans réponse et en erreur. Le détail complet est écrit dans le journal." AutomationProperties.Name="Relevé de la liste">
+                                <TextBlock x:Name="LblParkProgress" Text="" FontSize="11" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" Margin="0,0,8,0" ToolTip="Avancement du relevé de la liste : postes traités, joignables, puis en ligne, sans réponse et en erreur. Le détail complet est écrit dans le journal." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Avancement du relevé de la liste : postes traités, joignables, puis en ligne, sans réponse et en erreur. Le détail complet est écrit dans le journal." AutomationProperties.Name="Avancement du relevé" AutomationProperties.LiveSetting="Polite"/>
+                                <StackPanel x:Name="PnlParkOutcome" Orientation="Horizontal" Visibility="Collapsed" VerticalAlignment="Center" ToolTip="Résultat du dernier ping de la liste. Chaque pastille filtre la liste par présence ; un second clic retire le filtre." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Résultat du dernier ping de la liste. Chaque pastille filtre la liste par présence ; un second clic retire le filtre." AutomationProperties.Name="Résultat du ping de la liste">
+                                  <Button x:Name="BtnParkOutcomeOnline" MinHeight="0" Height="18" MinWidth="0" Padding="6,0" Margin="0,0,4,0" FontSize="11" VerticalAlignment="Center" ToolTip="Affiche seulement les postes qui ont répondu au ping. Un second clic retire le filtre. Filtre local, sans appel réseau." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Affiche seulement les postes qui ont répondu au ping. Un second clic retire le filtre. Filtre local, sans appel réseau." AutomationProperties.Name="Afficher les postes en ligne"><StackPanel Orientation="Horizontal"><Ellipse Width="7" Height="7" Margin="0,0,5,0" VerticalAlignment="Center" Fill="{DynamicResource StatusSuccess}"/><TextBlock Text="0 en ligne" VerticalAlignment="Center"/></StackPanel></Button>
+                                  <Button x:Name="BtnParkOutcomeNoReply" MinHeight="0" Height="18" MinWidth="0" Padding="6,0" Margin="0,0,4,0" FontSize="11" VerticalAlignment="Center" ToolTip="Affiche seulement les postes sans réponse au ping : éteint, hors réseau ou ICMP filtré, sans preuve dʼarrêt. Un second clic retire le filtre." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Affiche seulement les postes sans réponse au ping : éteint, hors réseau ou ICMP filtré, sans preuve dʼarrêt. Un second clic retire le filtre." AutomationProperties.Name="Afficher les postes sans réponse"><StackPanel Orientation="Horizontal"><Ellipse Width="7" Height="7" Margin="0,0,5,0" VerticalAlignment="Center" Fill="{DynamicResource StatusWarning}"/><TextBlock Text="0 sans réponse" VerticalAlignment="Center"/></StackPanel></Button>
+                                  <Button x:Name="BtnParkOutcomeError" MinHeight="0" Height="18" MinWidth="0" Padding="6,0" Margin="0,0,4,0" FontSize="11" VerticalAlignment="Center" ToolTip="Affiche seulement les postes dont le ping nʼa pas abouti (résolution DNS, erreur réseau ou lecture interrompue). Un second clic retire le filtre." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Affiche seulement les postes dont le ping nʼa pas abouti (résolution DNS, erreur réseau ou lecture interrompue). Un second clic retire le filtre." AutomationProperties.Name="Afficher les postes en erreur de ping"><StackPanel Orientation="Horizontal"><Ellipse Width="7" Height="7" Margin="0,0,5,0" VerticalAlignment="Center" Fill="{DynamicResource StatusError}"/><TextBlock Text="0 erreur" VerticalAlignment="Center"/></StackPanel></Button>
+                                </StackPanel>
+                              </StackPanel></Grid>
                           </Grid></StackPanel>
                           <Grid Grid.Row="1" Height="30" Margin="0,0,0,4">
                             <Grid.ColumnDefinitions>
@@ -5458,7 +5520,7 @@ function Get-MainXaml {
                           </Grid>
                           <Grid Grid.Row="2">
                           
-                          <DataGrid x:Name="DgObjects" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended" SelectionUnit="FullRow" CanUserSortColumns="True" CanUserResizeColumns="True" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" HeadersVisibility="Column" ToolTip="Un clic precharge la fiche AD sans changer de page. Pour un poste : un ping et la lecture utilisateur si activee. Double-clic ou Entree ouvre la fiche en reutilisant sa lecture. Aucun scan collectif." RowHeight="34" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Résultats : sélection et ouverture explicite" AutomationProperties.HelpText="Un clic precharge la fiche AD sans changer de page. Pour un poste : un ping et la lecture utilisateur si activee. Double-clic ou Entree ouvre la fiche en reutilisant sa lecture. Aucun scan collectif.">
+                          <DataGrid x:Name="DgObjects" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended" SelectionUnit="FullRow" CanUserSortColumns="True" CanUserResizeColumns="True" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" HeadersVisibility="Column" ToolTip="Un clic précharge la fiche AD sans changer de page ; pour un poste, un ping seulement si Vérifier au clic est coché. Double-clic ou Entrée ouvre la fiche en réutilisant sa lecture. Clic droit : actions de la ligne, sans écriture. Aucun scan collectif." RowHeight="34" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Résultats : sélection et ouverture explicite" AutomationProperties.HelpText="Un clic précharge la fiche AD sans changer de page ; pour un poste, un ping seulement si Vérifier au clic est coché. Double-clic ou Entrée ouvre la fiche en réutilisant sa lecture. Clic droit : actions de la ligne, sans écriture. Aucun scan collectif.">
                             <DataGrid.RowStyle>
                               <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
                                 <Style.Triggers>
@@ -5478,7 +5540,18 @@ function Get-MainXaml {
                                 <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding SessionDisplay}" ToolTip="{Binding SessionDetail}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/></DataTemplate></DataGridTemplateColumn.CellTemplate>
                               </DataGridTemplateColumn>
                               <DataGridTextColumn Header="Vérification utilisateur" Binding="{Binding SessionState}" Width="175"/>
-                              <DataGridTextColumn Header="Fraîcheur AD" Binding="{Binding DirectoryState}" Width="135"/>
+                              <!-- DS-15: freshness of the directory values as an icon, its wording in the tooltip; the key DirectoryFresh drives the glyph (FI-16). -->
+                              <DataGridTemplateColumn Header="Fraîcheur AD" SortMemberPath="DirectoryState" ClipboardContentBinding="{Binding DirectoryState}" Width="72">
+                                <DataGridTemplateColumn.HeaderStyle><Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}"><Setter Property="ToolTip" Value="Coche : valeurs relues dans AD pour cette liste. Horloge : valeurs reprises du cache, à vérifier. Alerte : objet à revérifier. Survolez lʼicône pour le détail."/></Style></DataGridTemplateColumn.HeaderStyle>
+                                <DataGridTemplateColumn.CellTemplate><DataTemplate>
+                                  <TextBlock x:Name="DirectoryFreshGlyph" Text="" FontFamily="Segoe MDL2 Assets" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" ToolTip="{Binding DirectoryState}" AutomationProperties.Name="{Binding DirectoryState}"/>
+                                  <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding DirectoryFresh}" Value="Verified"><Setter TargetName="DirectoryFreshGlyph" Property="Text" Value="&#xE73E;"/><Setter TargetName="DirectoryFreshGlyph" Property="Foreground" Value="{DynamicResource StatusSuccess}"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding DirectoryFresh}" Value="Cached"><Setter TargetName="DirectoryFreshGlyph" Property="Text" Value="&#xE823;"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding DirectoryFresh}" Value="Warning"><Setter TargetName="DirectoryFreshGlyph" Property="Text" Value="&#xE7BA;"/><Setter TargetName="DirectoryFreshGlyph" Property="Foreground" Value="{DynamicResource StatusWarning}"/></DataTrigger>
+                                  </DataTemplate.Triggers>
+                                </DataTemplate></DataGridTemplateColumn.CellTemplate>
+                              </DataGridTemplateColumn>
                               <DataGridTemplateColumn Header="Compte" SortMemberPath="Login" Width="150">
                                 <DataGridTemplateColumn.HeaderStyle><Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}"><Setter Property="ToolTip" Value="Utilisateur : son login. Poste : compte de l utilisateur associé. Groupe : nom de compte du groupe. OU et conteneur : sans objet."/></Style></DataGridTemplateColumn.HeaderStyle>
                                 <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock TextTrimming="CharacterEllipsis" VerticalAlignment="Center"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="{Binding Login}"/><Style.Triggers><DataTrigger Binding="{Binding Type}" Value="Machine"><Setter Property="Text" Value="{Binding Association}"/></DataTrigger><DataTrigger Binding="{Binding Type}" Value="OU"><Setter Property="Text" Value=""/></DataTrigger><DataTrigger Binding="{Binding Type}" Value="Conteneur"><Setter Property="Text" Value=""/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></DataTemplate></DataGridTemplateColumn.CellTemplate>
@@ -5493,8 +5566,25 @@ function Get-MainXaml {
                               <DataGridTextColumn Header="Qualification" SortMemberPath="LinkConfidence" Binding="{Binding LinkConfidence}" Width="90">
                                 <DataGridTextColumn.HeaderStyle><Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}"><Setter Property="ToolTip" Value="Badge de la source du lien (Declare, Observe, Importe, Indice, Contradictoire) ; ce nʼest jamais une probabilité de connexion actuelle."/></Style></DataGridTextColumn.HeaderStyle>
                               </DataGridTextColumn>
-                              <DataGridTemplateColumn Header="Présence réseau" SortMemberPath="Presence" Width="175">
-                                <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Presence}" ToolTip="{Binding PresenceDetail}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/></DataTemplate></DataGridTemplateColumn.CellTemplate>
+                              <!-- DS-15: presence as a pastel pill (dot from the state key PresenceState, FI-16), short label and discreet age; UX-12: ProbePending marks a row still to be read by the running survey. -->
+                              <DataGridTemplateColumn Header="Présence réseau" SortMemberPath="Presence" ClipboardContentBinding="{Binding Presence}" Width="200">
+                                <DataGridTemplateColumn.CellTemplate><DataTemplate>
+                                  <Border x:Name="PresencePill" CornerRadius="9" Padding="7,1,8,1" Background="{DynamicResource BgReadonly}" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTip="{Binding PresenceDetail}" AutomationProperties.Name="{Binding Presence}">
+                                    <StackPanel Orientation="Horizontal">
+                                      <Ellipse x:Name="PresenceDot" Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center" Fill="{DynamicResource MutedColor}"/>
+                                      <TextBlock Text="{Binding Presence}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                      <TextBlock x:Name="PresenceAgeText" Text="{Binding PresenceAge}" Margin="6,0,0,0" FontSize="11" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                  </Border>
+                                  <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding PresenceState}" Value="Online"><Setter TargetName="PresenceDot" Property="Fill" Value="{DynamicResource StatusSuccess}"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding PresenceState}" Value="NoReply"><Setter TargetName="PresenceDot" Property="Fill" Value="{DynamicResource StatusWarning}"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding PresenceState}" Value="Error"><Setter TargetName="PresenceDot" Property="Fill" Value="{DynamicResource StatusError}"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding PresenceState}" Value="None"><Setter TargetName="PresenceDot" Property="Visibility" Value="Collapsed"/><Setter TargetName="PresencePill" Property="Background" Value="Transparent"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding PresenceCached}" Value="1"><Setter TargetName="PresenceDot" Property="Opacity" Value="0.5"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding ProbePending}" Value="1"><Setter TargetName="PresenceDot" Property="Fill" Value="{DynamicResource AccentColor}"/><Setter TargetName="PresenceDot" Property="Opacity" Value="1"/><Setter TargetName="PresenceAgeText" Property="Text" Value="relevé en cours…"/></DataTrigger>
+                                  </DataTemplate.Triggers>
+                                </DataTemplate></DataGridTemplateColumn.CellTemplate>
                               </DataGridTemplateColumn>
                               <DataGridTextColumn Header="Etat" Binding="{Binding State}" Width="120"/>
                               <DataGridTextColumn Header="OS" Binding="{Binding OS}" Width="180"/>
@@ -6528,6 +6618,11 @@ function Get-MainXaml {
                           <WrapPanel>
                             <Button x:Name="BtnDashboardInventory" Content="Inventaire rapide" Style="{StaticResource RunButton}" ToolTip="Lit lʼinventaire du poste (CIM) en environ 1 minute puis remplit ce tableau de bord." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Inventaire rapide pour le tableau de bord"/>
                             <Button x:Name="BtnDashboardInventoryDeep" Content="Inventaire complet" ToolTip="Inventaire complet, plus long (environ 3 minutes) : ajoute les processus, les erreurs système, les tâches planifiées, les certificats et les connexions réseau." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Inventaire complet pour le tableau de bord"/>
+                            <!-- FI-18: the survey of this workstation (queries of its board) shows its state and its Arrêter here. -->
+                            <StackPanel x:Name="UxComputerParkRun" Orientation="Horizontal" Visibility="Collapsed" VerticalAlignment="Center" Margin="8,0,0,0" ToolTip="Relevé en cours des requêtes des widgets de ce poste, indépendant du relevé de la liste de Rechercher." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Relevé en cours des requêtes des widgets de ce poste, indépendant du relevé de la liste de Rechercher." AutomationProperties.Name="Relevé de ce poste">
+                              <TextBlock x:Name="LblComputerParkStatus" Text="" FontSize="11.5" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" Margin="0,0,8,0" ToolTip="Avancement du relevé de ce poste. Le détail complet est écrit dans le journal." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Avancement du relevé de ce poste. Le détail complet est écrit dans le journal." AutomationProperties.Name="Avancement du relevé de ce poste" AutomationProperties.LiveSetting="Polite"/>
+                              <Button x:Name="BtnComputerParkStop" Content="Arrêter" Style="{StaticResource SecondaryButton}" IsEnabled="False" ToolTip="Arrête le relevé de ce poste. Les mesures déjà reçues sont conservées ; rien nʼest relancé." ToolTipService.ShowOnDisabled="True" AutomationProperties.HelpText="Arrête le relevé de ce poste. Les mesures déjà reçues sont conservées ; rien nʼest relancé." AutomationProperties.Name="Arrêter le relevé de ce poste"/>
+                            </StackPanel>
                           </WrapPanel>
                         </StackPanel>
                         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="-7,0,0,0">
@@ -8848,9 +8943,10 @@ function Fill-ComputerObject {
         if (-not $script:RenderingObjectWithoutProbes) { Start-DomeniaSelectedMachinePresence -Name $presenceName -DnsName $presenceDns }
         else {
             $row=Get-DomeniaSelectedGridRow
-            $state=if($null -ne $row -and [string]$row.DN -ieq [string]$script:SelectedObject.DN -and $row.Presence){[string]$row.Presence}else{'Non verifie'}
-            Set-DomeniaPresenceText -Name 'TxtCompPresence' -State $state
-            Update-DomeniaObjectPresence -State $state -Target $presenceDns
+            $state=if($null -ne $row -and [string]$row.DN -ieq [string]$script:SelectedObject.DN -and $row.Presence){[string]$row.Presence}else{'Non vérifié'}
+            $stateKey=if($null -ne $row -and [string]$row.DN -ieq [string]$script:SelectedObject.DN -and $row.Presence){Get-DomeniaRowPresenceState $row}else{'Unknown'}
+            Set-DomeniaPresenceText -Name 'TxtCompPresence' -State $state -PresenceState $stateKey
+            Update-DomeniaObjectPresence -State $state -Target $presenceDns -PresenceState $stateKey
         }
     }
     catch {
@@ -14637,133 +14733,112 @@ function Fail-DomeniaBatchNetworkReportUi {
     Set-Status ("Diagnostic reseau groupe en echec : " + [string]$Message) "ERROR"
 }
 
+function Copy-DomeniaSelectedRowsForTicket {
+    # SP-05: one readable line per selected row (Type · Nom · Compte · Présence · Utilisateur console · OU), without
+    # GUID nor internal field, masked by the secret rule before the clipboard.
+    $rows = @(Get-DomeniaSelectedGridRows)
+    if ($rows.Count -eq 0) { Set-Status 'Aucune ligne sélectionnée.' 'WARN'; return }
+    $text = ConvertTo-DomeniaTicketText -Rows $rows
+    if ([string]::IsNullOrWhiteSpace($text)) { Set-Status 'Rien à copier pour un ticket dans la sélection.' 'WARN'; return }
+    Set-ClipboardSafe $text
+    Set-Status ('{0} ligne(s) copiée(s) pour un ticket, sans identifiant interne.' -f $rows.Count)
+}
+
+function Open-DomeniaResultRowParentOu {
+    # UX-26: lists the OU (or container) of the clicked row in Rechercher. Read-only: the selected fiche, the tree
+    # and the other filters are left as they are.
+    param($Row)
+    if ($null -eq $Row) { Set-Status 'Aucune ligne sélectionnée.' 'WARN'; return }
+    $parent = Get-DomeniaRawDnParent ([string]$Row.DN)
+    if ([string]::IsNullOrWhiteSpace($parent)) { Set-Status 'Cette ligne nʼa pas de conteneur parent lisible.' 'WARN'; return }
+    $script:SelectedBranchDn = $parent
+    [void](Set-DomeniaControlText -Name 'TxtBranchDn' -Text $parent)
+    [void](Set-DomeniaControlText -Name 'TxtBranchSearch' -Text '')
+    Select-DomeniaWorkspace -Workspace 'WsSearch'
+    Load-BranchObjects -Browse
+    Set-Status ('OU parente affichée : ' + (Get-DomeniaOuDisplayPath $parent))
+}
+
+function Open-DomeniaResultRowSupport {
+    # UX-26: « Assistance poste » opens the workstation on its Actions tab, where the remote tools and the writes
+    # stay behind their own confirmation. The menu itself starts nothing on the workstation.
+    $row = Get-DomeniaSelectedGridRow
+    if ($null -eq $row -or [string]$row.Type -ne 'Machine') { Set-Status 'Sélectionnez un seul poste.' 'WARN'; return }
+    Queue-DomeniaSelectedObjectOpen -Immediate -Force
+    Select-DomeniaWorkspace -Workspace 'WsComputer' -Inner 'ComputerTabs' -Tab 'TabComputerAdmin'
+}
+
 function Build-DomeniaObjectsContextMenu {
+    # UX-26 / CO-35: a short menu without any write: open, support of the workstation, one-workstation recheck that
+    # stays in Rechercher, associated account, parent OU, copies and export. Writes, remote tools and collections
+    # live in the fiche and in Assistance poste, each with its own confirmation.
     param([Parameter(Mandatory=$true)]$Menu)
     $Menu.Items.Clear()
     $row = Get-DomeniaSelectedGridRow
-    if ($null -eq $row) {
-        [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Aucune ligne selectionnee" -Enabled $false))
+    $rows = @(Get-DomeniaSelectedGridRows)
+    if ($null -eq $row -or $rows.Count -eq 0) {
+        [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Aucune ligne sélectionnée" -Enabled $false))
         return
     }
     $type = ""
     $name = ""
-    $login = ""
-    $dn = ""
-    $upn = ""
     $association = ""
     try { $type = [string]$row.Type } catch { }
     try { $name = [string]$row.Name } catch { }
-    try { $login = [string]$row.Login } catch { }
-    try { $dn = [string]$row.DN } catch { }
-    try { $upn = [string]$row.UPN } catch { }
     try { $association = [string]$row.Association } catch { }
+    $single = ($rows.Count -eq 1)
     $isMachine = ($type -eq "Machine")
     $isUser = ($type -eq "Utilisateur")
-    $hasAssociation = (-not [string]::IsNullOrWhiteSpace($association)) -and ($association -notmatch "(?i)^(aucun|non detect|inconnu)")
-    $readOnly = [bool]$script:ReadOnlyMode
+    $hasAssociation = (-not [string]::IsNullOrWhiteSpace($association)) -and ($association -notmatch "(?i)^(aucun|non detect|non détect|inconnu)")
+    $grid = Get-DomeniaControl -Name "DgObjects"
+    $gridReady = ($null -ne $grid -and [bool]$grid.IsEnabled)
+    $singleTip = "Une seule ligne sélectionnée."
 
-    [void]$Menu.Items.Add((New-DomeniaMenuItem -Header ("Ouvrir la fiche de " + $name) -Action { Open-SelectedObject -Force }))
-
+    [void]$Menu.Items.Add((New-DomeniaMenuItem -Header ("Ouvrir la fiche de " + $name) -Enabled $single -ToolTip $(if ($single) { "" } else { $singleTip }) -Action { Open-SelectedObject -Force }))
     if ($isMachine) {
-        [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Rechercher l'utilisateur associe" -Enabled $hasAssociation `
-            -ToolTip "Lance une recherche globale sur le compte associe a ce poste." `
+        [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Assistance poste" -Enabled $single `
+            -ToolTip "Ouvre lʼonglet Actions du poste : Bureau à distance, partage C$, consoles et stratégies. Chaque action garde sa confirmation ; ce menu ne lance rien." `
+            -Action { Open-DomeniaResultRowSupport }))
+        # CO-35: one ping (and the console when allowed) of this workstation, without leaving the list.
+        [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Revérifier ce poste" -Enabled ($single -and $gridReady) `
+            -ToolTip "Un seul ping de ce poste, et son utilisateur connecté si lʼoption est cochée. La liste reste affichée." `
+            -Action { Request-DomeniaLiveRecheck }))
+        [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Rechercher lʼutilisateur associé" -Enabled ($single -and $hasAssociation) `
+            -ToolTip "Lance une recherche globale sur le compte associé à ce poste." `
             -Action { Start-DomeniaSearchAssociated -Row (Get-DomeniaSelectedGridRow) }))
     }
     elseif ($isUser) {
-        [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Associer un poste a ce compte" `
-            -ToolTip "Ouvre le selecteur de postes de l annuaire." `
-            -Action { Select-DomeniaWorkspace -Workspace "TabRelations"; Add-SelectedLink }))
-        [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Rechercher les postes de ce compte" `
-            -ToolTip "Interroge le responsable declare, la description des postes et le journal de securite." `
-            -Action { Select-DomeniaWorkspace -Workspace "TabRelations"; Start-DomeniaUserComputerProbe }))
-        [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Rechercher le poste associe" -Enabled $hasAssociation `
-            -ToolTip "Lance une recherche globale sur le poste associe a ce compte." `
+        [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Rechercher le poste associé" -Enabled ($single -and $hasAssociation) `
+            -ToolTip "Lance une recherche globale sur le poste associé à ce compte." `
             -Action { Start-DomeniaSearchAssociated -Row (Get-DomeniaSelectedGridRow) }))
     }
-    [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Ouvrir le conteneur parent" -Action { Open-SelectedParentBranch }))
-    Add-DomeniaMenuSeparator -Menu $Menu
-
-    if ($isMachine) {
-        $remote = New-Object System.Windows.Controls.MenuItem
-        $remote.Header = "Poste distant"
-        foreach ($entry in @(
-            @{ H="Ping"; A={ Invoke-ComputerTool "Ping" } },
-            @{ H="Bureau a distance"; A={ Invoke-ComputerTool "RDP" } },
-            @{ H="Partage C$"; A={ Invoke-ComputerTool "C" } },
-            @{ H="Gestion de l ordinateur"; A={ Invoke-ComputerTool "Manage" } },
-            @{ H="Observateur d evenements"; A={ Invoke-ComputerTool "Events" } },
-            @{ H="Copier une commande PSRemote"; A={ Invoke-ComputerTool "PSRemote" } }
-        )) { [void]$remote.Items.Add((New-DomeniaMenuItem -Header ([string]$entry.H) -Action ([scriptblock]$entry.A))) }
-        [void]$remote.Items.Add((New-Object System.Windows.Controls.Separator))
-        [void]$remote.Items.Add((New-DomeniaMenuItem -Header "Forcer la mise a jour des strategies" -Enabled (-not $readOnly) -Action { Invoke-ComputerTool "GpUpdate" }))
-        [void]$remote.Items.Add((New-DomeniaMenuItem -Header "Redemarrer le poste" -Enabled (-not $readOnly) -Action { Invoke-ComputerTool "Restart" }))
-        [void]$Menu.Items.Add($remote)
-
-        $collect = New-Object System.Windows.Controls.MenuItem
-        $collect.Header = "Collecte"
-        [void]$collect.Items.Add((New-DomeniaMenuItem -Header "Inventaire rapide" -Action { Select-DomeniaWorkspace -Workspace "WsComputer" -Inner "ComputerTabs" -Tab "TabInventory"; Start-DomeniaComputerInventory }))
-        [void]$collect.Items.Add((New-DomeniaMenuItem -Header "Inventaire complet" -Action { Select-DomeniaWorkspace -Workspace "WsComputer" -Inner "ComputerTabs" -Tab "TabInventory"; Start-DomeniaComputerInventory -Deep }))
-        [void]$collect.Items.Add((New-DomeniaMenuItem -Header "Logiciels installes" -Action { Select-DomeniaWorkspace -Workspace "WsComputer" -Inner "ComputerTabs" -Tab "TabSoftware"; Start-DomeniaSoftwareInventory }))
-        [void]$collect.Items.Add((New-DomeniaMenuItem -Header "Explorateur WMI" -Action { Select-DomeniaWorkspace -Workspace "WsComputer" -Inner "ComputerTabs" -Tab "TabWmi" }))
-        [void]$collect.Items.Add((New-DomeniaMenuItem -Header "Diagnostic distant" -Action { Select-DomeniaWorkspace -Workspace "WsComputer" -Inner "ComputerTabs" -Tab "TabComputerHealth"; Start-ComputerDiagnostics }))
-        [void]$collect.Items.Add((New-DomeniaMenuItem -Header "Detecter le dernier utilisateur" -Action { Start-ProbeForSelectedComputer -Force }))
-        [void]$collect.Items.Add((New-Object System.Windows.Controls.Separator))
-        [void]$collect.Items.Add((New-DomeniaMenuItem -Header "Lister les clés BitLocker" -Action { Select-DomeniaWorkspace -Workspace "WsComputer" -Inner "ComputerTabs" -Tab "TabSecurity"; Start-LoadComputerSecrets -Mode "BitLocker" }))
-        [void]$collect.Items.Add((New-DomeniaMenuItem -Header "Lire le mot de passe LAPS" -Action { Select-DomeniaWorkspace -Workspace "WsComputer" -Inner "ComputerTabs" -Tab "TabSecurity"; Start-LoadComputerSecrets -Mode "LAPS" }))
-        [void]$Menu.Items.Add($collect)
-    }
-
-    $analyse = New-Object System.Windows.Controls.MenuItem
-    $analyse.Header = "Analyser"
-    [void]$analyse.Items.Add((New-DomeniaMenuItem -Header "Droits effectifs" -Action { Select-DomeniaWorkspace -Workspace "WsObject" -Inner "DetailTabs" -Tab "TabPermissions"; Start-PermissionAnalysis -UserInitiated }))
-    [void]$analyse.Items.Add((New-DomeniaMenuItem -Header "Relire l objet depuis AD" -Action { Refresh-SelectedObject }))
-    [void]$analyse.Items.Add((New-DomeniaMenuItem -Header "Tester la presence reseau" -Action { Queue-DomeniaSelectedObjectOpen -Immediate -Force }))
-    [void]$Menu.Items.Add($analyse)
+    [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Ouvrir lʼOU parente" -Enabled $single `
+        -ToolTip "Liste dans Rechercher le contenu de lʼOU ou du conteneur parent. Rien nʼest modifié." `
+        -Action { Open-DomeniaResultRowParentOu -Row (Get-DomeniaSelectedGridRow) }))
     Add-DomeniaMenuSeparator -Menu $Menu
 
     $copy = New-Object System.Windows.Controls.MenuItem
     $copy.Header = "Copier"
+    [void]$copy.Items.Add((New-DomeniaMenuItem -Header "Pour un ticket" `
+        -ToolTip "Une ligne lisible par objet sélectionné : type, nom, compte, présence, utilisateur console et OU. Sans GUID ni champ interne." `
+        -Action { Copy-DomeniaSelectedRowsForTicket }))
+    [void]$copy.Items.Add((New-Object System.Windows.Controls.Separator))
     foreach ($entry in @(
         @{ H="Le nom"; P="Name" },
-        @{ H="Le login"; P="Login" },
-        @{ H="L UPN ou le DNS"; P="UPN" },
-        @{ H="L association"; P="Association" },
-        @{ H="Le DN"; P="DN" }
+        @{ H="Le compte"; P="Login" },
+        @{ H="LʼUPN ou le DNS"; P="UPN" },
+        @{ H="Le chemin (DN)"; P="DN" }
     )) {
         $prop = [string]$entry.P
         $value = ""
         try { $value = [string]$row.$prop } catch { }
-        [void]$copy.Items.Add((New-DomeniaMenuItem -Header ([string]$entry.H) -Enabled (-not [string]::IsNullOrWhiteSpace($value)) `
+        [void]$copy.Items.Add((New-DomeniaMenuItem -Header ([string]$entry.H) -Enabled ($single -and (-not [string]::IsNullOrWhiteSpace($value))) `
             -Action ([scriptblock]::Create('Copy-DomeniaRowProperty -Row (Get-DomeniaSelectedGridRow) -Property "' + $prop + '"'))))
     }
-    [void]$copy.Items.Add((New-Object System.Windows.Controls.Separator))
-    [void]$copy.Items.Add((New-DomeniaMenuItem -Header "La ou les lignes selectionnees" -Action { Copy-DomeniaGridSelection -Name "DgObjects" }))
-    [void]$copy.Items.Add((New-DomeniaMenuItem -Header "Le resume complet" -Action { Copy-ObjectSummary }))
+    [void]$copy.Items.Add((New-DomeniaMenuItem -Header "Les lignes, toutes les valeurs" -ToolTip "Toutes les valeurs des lignes sélectionnées, séparées par des tabulations, pour un tableur." -Action { Copy-DomeniaGridSelection -Name "DgObjects" }))
+    [void]$copy.Items.Add((New-DomeniaMenuItem -Header "Le résumé de la fiche ouverte" -Enabled ($null -ne $script:SelectedObject) -Action { Copy-ObjectSummary }))
     [void]$Menu.Items.Add($copy)
-    [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Exporter la liste en CSV" -Action { Export-CurrentResults }))
-
-    Add-DomeniaMenuSeparator -Menu $Menu
-    $write = New-Object System.Windows.Controls.MenuItem
-    $write.Header = "Modifier"
-    $write.IsEnabled = (-not $readOnly)
-    if ($readOnly) { $write.ToolTip = "Le mode lecture seule est actif. Decoche la case du bandeau pour activer les ecritures." }
-    if ($isUser) {
-        [void]$write.Items.Add((New-DomeniaMenuItem -Header "Deverrouiller le compte" -Action { Unlock-UserAccount }))
-        [void]$write.Items.Add((New-DomeniaMenuItem -Header "Activer le compte" -Action { Set-AccountDisabled $false }))
-        [void]$write.Items.Add((New-DomeniaMenuItem -Header "Desactiver le compte" -Action { Set-AccountDisabled $true }))
-        [void]$write.Items.Add((New-DomeniaMenuItem -Header "Forcer le changement de mot de passe" -Action { Expire-UserPasswordNow }))
-    }
-    elseif ($isMachine) {
-        [void]$write.Items.Add((New-DomeniaMenuItem -Header "Déplacer / changer dʼOU…" `
-            -ToolTip "Choisit explicitement l'unite d'organisation de destination avant toute ecriture." `
-            -Action { Move-DomeniaSelectedComputerWithOuPicker }))
-        [void]$write.Items.Add((New-Object System.Windows.Controls.Separator))
-        [void]$write.Items.Add((New-DomeniaMenuItem -Header "Activer le compte machine" -Action { Set-AccountDisabled $false }))
-        [void]$write.Items.Add((New-DomeniaMenuItem -Header "Desactiver le compte machine" -Action { Set-AccountDisabled $true }))
-    }
-    [void]$write.Items.Add((New-Object System.Windows.Controls.Separator))
-    [void]$write.Items.Add((New-DomeniaMenuItem -Header "Supprimer l objet" -Action { Delete-SelectedObject }))
-    [void]$Menu.Items.Add($write)
+    [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Exporter la liste en CSV" -ToolTip "Exporte les résultats affichés, ou seulement les lignes sélectionnées." -Action { Export-CurrentResults }))
 }
 
 function New-DomeniaTreeContextMenu {
@@ -21234,6 +21309,9 @@ function Show-ObjectRows {
                     $initialPresence = if ([string]$row.Type -eq "Machine" -and -not $SkipPresenceScan) { "Test en cours..." } else { "Inconnu" }
                 }
                 Add-Member -InputObject $row -NotePropertyName Presence -NotePropertyValue $initialPresence -Force
+                # FI-16: the pill and the presence filter read this key, not the label above.
+                $initialState = if ([string]$row.Type -eq "Machine") { ConvertTo-DomeniaPresenceStateKey $initialPresence } else { 'None' }
+                Add-Member -InputObject $row -NotePropertyName PresenceState -NotePropertyValue $initialState -Force
                 $row
             }
         )
@@ -22030,7 +22108,9 @@ function Wire-Events {
                 try { $node = [System.Windows.Media.VisualTreeHelper]::GetParent($node) }
                 catch { try { $node = $node.Parent } catch { $node = $null } }
             }
-            if ($null -ne $node -and $null -ne $node.Item) {
+            # SP-05 / FO-18: a right click inside the selection keeps it (copy or export of several rows); elsewhere
+            # it selects the clicked row only.
+            if ($null -ne $node -and $null -ne $node.Item -and -not [bool]$node.IsSelected) {
                 $sender.SelectedItem = $node.Item
                 $sender.CurrentItem = $node.Item
                 $node.IsSelected = $true
@@ -22218,10 +22298,20 @@ function Wire-Events {
     }
     $age=Get-DomeniaControl 'TxtStorageHistoryDays';if($age){$age.Add_TextChanged({Reset-DomeniaStoragePurgePreview})}
     if ($script:Ctrl.ContainsKey("BtnParkHarvest")) { $script:Ctrl["BtnParkHarvest"].Add_Click({ Start-DomeniaLogonHarvest }) }
-    if ($script:Ctrl.ContainsKey("BtnParkResults")) { $script:Ctrl["BtnParkResults"].Add_Click({ Start-DomeniaOnlinePark -DisplayedResults }) }
-    if ($script:Ctrl.ContainsKey("BtnParkPing")) { $script:Ctrl["BtnParkPing"].Add_Click({ Start-DomeniaOnlinePark -DisplayedResults -PingOnly }) }
-    if ($script:Ctrl.ContainsKey("BtnParkAnalyze")) { $script:Ctrl["BtnParkAnalyze"].Add_Click({ Start-DomeniaParkAnalysis }) }
-    if ($script:Ctrl.ContainsKey("BtnParkResultsStop")) { $script:Ctrl["BtnParkResultsStop"].Add_Click({ Stop-DomeniaOnlinePark }) }
+    # UI-23: « Vérifier la liste ▾ » (main part: last reading of the session, or Arrêter while it runs; arrow: choices).
+    if ($script:Ctrl.ContainsKey("BtnParkVerify")) { $script:Ctrl["BtnParkVerify"].Add_Click({ param($sender,$eventArgs) Invoke-DomeniaParkVerify -Anchor $sender }) }
+    if ($script:Ctrl.ContainsKey("BtnParkVerifyMenu")) { $script:Ctrl["BtnParkVerifyMenu"].Add_Click({ param($sender,$eventArgs) Open-DomeniaParkVerifyMenu -Anchor $sender }) }
+    # CO-19: the outcome pills of the last ping of the list filter it by presence (local filter only).
+    if ($script:Ctrl.ContainsKey("BtnParkOutcomeOnline")) { $script:Ctrl["BtnParkOutcomeOnline"].Add_Click({ Set-DomeniaParkOutcomeFilter -Outcome Online }) }
+    if ($script:Ctrl.ContainsKey("BtnParkOutcomeNoReply")) { $script:Ctrl["BtnParkOutcomeNoReply"].Add_Click({ Set-DomeniaParkOutcomeFilter -Outcome NoReply }) }
+    if ($script:Ctrl.ContainsKey("BtnParkOutcomeError")) { $script:Ctrl["BtnParkOutcomeError"].Add_Click({ Set-DomeniaParkOutcomeFilter -Outcome Error }) }
+    # FO-18: actions of a multiple selection of the list (same confirmation and ceiling as the list).
+    if ($script:Ctrl.ContainsKey("BtnSelectionPing")) { $script:Ctrl["BtnSelectionPing"].Add_Click({ Start-DomeniaParkSelectionSurvey -Mode Ping }) }
+    if ($script:Ctrl.ContainsKey("BtnSelectionConsole")) { $script:Ctrl["BtnSelectionConsole"].Add_Click({ Start-DomeniaParkSelectionSurvey -Mode Console }) }
+    if ($script:Ctrl.ContainsKey("BtnSelectionCopy")) { $script:Ctrl["BtnSelectionCopy"].Add_Click({ Copy-DomeniaSelectedRowsForTicket }) }
+    if ($script:Ctrl.ContainsKey("BtnSelectionExport")) { $script:Ctrl["BtnSelectionExport"].Add_Click({ Export-CurrentResults }) }
+    # FI-18: the survey of the open workstation is stopped beside its board.
+    if ($script:Ctrl.ContainsKey("BtnComputerParkStop")) { $script:Ctrl["BtnComputerParkStop"].Add_Click({ Stop-DomeniaOnlinePark -Slot Computer }) }
     if ($script:Ctrl.ContainsKey("BtnParkReset")) {
         # FI-13: confirmed in the page, preceded by a verified backup; park_state is really deleted from the base.
         $script:Ctrl["BtnParkReset"].Add_Click({ Request-DomeniaParkReset })
@@ -22534,6 +22624,10 @@ function New-DefaultConfig {
             RevalidateIntervalSeconds = 60
             ReconcileSeconds = 180
             MaxUserProbes = 2
+        }
+        # SE-05: ceiling of a survey of the displayed list or of its selection (ping, console, analysis).
+        Park = [ordered]@{
+            MaxTargets = 500
         }
         Browser = [ordered]@{
             FastBoot = $false
@@ -23809,6 +23903,7 @@ function Get-DomeniaWorkerOperationHashes {
         QueryExport           = "33478747B91888D4ED0571AD805FBF09E289B992F28B6954D5C25DAB9A7F88AF"
         QueryLibrary          = "73B589ECA5FD4FE34B49113ECCB9AA43C0B0DF8635110F5DB124035A6AC4A08C"
         LockoutDiagnosis      = "16A28EB41BE4F6A88BC7FD09E979D15731ABE1508171682B86C21B516C456D3C"
+        ParkPing              = "AEC50398D907F22BBAB7FEAAD775ED44AAF30CC0DF64EAFA7BEE3283397C6058"
     }
 }
 
@@ -23817,7 +23912,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "58036B75E515DADE1F74256AE9BE22AB81F8CEFDC5FD34FBB9EBB2F6AFDC7379"
+    $expectedFingerprint = "B4B29D316E01BF26E02FF7983A7EB863FEB3C418AB5070645B86044EF494DCBF"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -26117,7 +26212,7 @@ function Start-DomeniaWriteTask {
     }
     $correlation = [guid]::NewGuid().ToString("N")
     if ($null -eq $Payload.PSObject.Properties["CorrelationId"]) { $Payload | Add-Member -NotePropertyName CorrelationId -NotePropertyValue $correlation }
-    $allControls = @((Get-AllWriteControlNames) + @($DisableControls) + @("ChkLiveUsers","BtnLiveRecheck","TvDirectory","DgObjects","TxtGlobalSearch","BtnGlobalSearch","BtnGlobalClear","BtnTreeRefresh","BtnDashRoot","BtnSearchAllDomain","BtnSearchInOu","ChkSubtree","CmbGlobalType","BtnLoadBranch") | Select-Object -Unique)
+    $allControls = @((Get-AllWriteControlNames) + @($DisableControls) + @("ChkLiveVerifyOnClick","BtnLiveRecheck","TvDirectory","DgObjects","TxtGlobalSearch","BtnGlobalSearch","BtnGlobalClear","BtnTreeRefresh","BtnDashRoot","BtnSearchAllDomain","BtnSearchInOu","ChkSubtree","CmbGlobalType","BtnLoadBranch") | Select-Object -Unique)
     if ($TimeoutSeconds -le 0) { $TimeoutSeconds = [int](Get-CfgValue "Async" "WriteSoftTimeoutSeconds" 90) }
     $hard = [int](Get-CfgValue "Async" "WriteHardTimeoutSeconds" 300)
     Write-AppLog "[$correlation] DEBUT $Name sur $([string]$Payload.DN)" "INFO"

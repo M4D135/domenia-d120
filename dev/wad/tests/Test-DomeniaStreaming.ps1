@@ -170,6 +170,9 @@ Case 'Vérification dédupliquée dans la file' {
     # Since RC1.10.7 a probe needs the selection intent of the single selected machine (no collective ping):
     # select the row through the real Select-DomeniaLiveResult, then ask twice more for the same row.
     Reset-LiveFixture;Feed-Live (New-FixtureRow);Invoke-DomeniaLiveTick;$row=$script:Live.Search.Rows[0]
+    # SP-15: the click verifies the workstation only when « Vérifier au clic » is checked (unchecked by default).
+    Assert-Live (-not [bool]$script:Live.VerifyOnClick) 'Vérifier au clic coché par défaut.'
+    $script:Live.VerifyOnClick=$true
     $script:Ctrl.DgObjects.SelectedItem=$row
     Assert-Live (@($script:Ctrl.DgObjects.SelectedItems).Count -eq 1) 'Selection de la ligne de fixture non prise en compte par la grille.'
     Select-DomeniaLiveResult

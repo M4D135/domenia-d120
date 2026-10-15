@@ -14,7 +14,7 @@ function Get-DomeniaAccessFailureKind {
 function Get-DomeniaAccessScope {
     param([string]$OperationId)
     if($OperationId -eq 'UserComputerProbe'){return 'AD:UserComputerProbe'}
-    if($OperationId -eq 'LiveSelectedPing'){return 'Presence'}
+    if($OperationId -in @('LiveSelectedPing','ParkPing')){return 'Presence'}
     if($OperationId -eq 'EmbeddedPathBrowse'){return 'LocalFile'}
     if($OperationId -in @('LiveDirectoryCheck','ScopeReconcile')){return 'AD:GlobalSearch'}
     if($OperationId){
@@ -69,7 +69,7 @@ function Remove-DomeniaAccessCredential {
 }
 function Get-DomeniaRetryCredential {
     param([string]$OperationId)
-    if($OperationId -in @('LiveSelectedPing','EmbeddedPathBrowse')){return $null}
+    if($OperationId -in @('LiveSelectedPing','ParkPing','EmbeddedPathBrowse')){return $null}
     if($null -eq $script:AccessState){return $null}
     if($script:AccessState.Epoch -ne [long]$script:SessionEpoch -or $script:AccessState.BaseDn -ine [string]$script:Conn.BaseDn){return $null}
     $scope=Get-DomeniaRetryScopeKey $OperationId
@@ -182,7 +182,7 @@ function Request-DomeniaAccessRecovery {
         try{$DN=[string]$job.CallbackState.DN;if(-not $DN){$DN=[string]$job.CallbackState.TargetDn}}catch{}
     }
     if(-not $DN -and $OperationId -ne 'LiveConsole' -and $null -ne $script:SelectedObject){$DN=[string]$script:SelectedObject.DN}
-    if($OperationId -in @('LiveConsole','LiveCache','LiveDirectoryCheck','ScopeReconcile','TreeChildren','PresenceScan','SelectedPresence','ParkSweep','IndexBuild')){$Interactive=$false}
+    if($OperationId -in @('LiveConsole','LiveCache','LiveDirectoryCheck','ScopeReconcile','TreeChildren','PresenceScan','SelectedPresence','ParkSweep','ParkPing','IndexBuild')){$Interactive=$false}
     $scope=if([string]$ErrorValue -match '(?i)Canal Active Directory suspendu'){'Directory'}else{Get-DomeniaAccessScope $OperationId}
     $key=$scope+'|'+$DN
     $record=[pscustomobject]@{Key=$key;Scope=$scope;OperationId=$OperationId;Operation=$Operation;DN=$DN;Target=$resourceTarget;Kind=$kind;Epoch=[long]$script:SessionEpoch;Generation=[long]$script:SelectedObjectGeneration;IsWrite=([bool]$IsWrite -or ($null -ne $job -and [bool]$job.IsWrite));Interactive=[bool]$Interactive;At=[datetime]::UtcNow}

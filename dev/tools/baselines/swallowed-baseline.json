@@ -1,13 +1,13 @@
 {
  "Schema": "DomeniaSwallowedBaseline/1",
  "Source": "reference initiale",
- "Total": 1216,
+ "Total": 1223,
  "Kinds": {
-  "empty": 1216
+  "empty": 1223
  },
  "Places": {
-  "code": 1007,
-  "here-string": 209
+  "code": 1009,
+  "here-string": 214
  },
  "Findings": {
   "Add-AssociationsToRows": 1,
@@ -29,7 +29,7 @@
   "Assert-DomeniaXamlPreflight": 4,
   "Assert-WriteAllowed": 1,
   "Begin-DomeniaLiveSearch": 1,
-  "Build-DomeniaObjectsContextMenu": 7,
+  "Build-DomeniaObjectsContextMenu": 4,
   "Cancel-DomeniaRelationAssociation": 1,
   "Clear-AdCmdletFilter": 1,
   "Clear-DomeniaComputerUserProbeState": 1,
@@ -173,6 +173,7 @@
   "Get-DomeniaOuTreeNodeName": 1,
   "Get-DomeniaParkCoverageText": 1,
   "Get-DomeniaParkCoverageWaitingText": 1,
+  "Get-DomeniaParkPingWorkerCode [here-string]": 5,
   "Get-DomeniaParkPriority": 2,
   "Get-DomeniaParkSharedPath": 1,
   "Get-DomeniaParkSharedSyncWorkerCode [here-string]": 2,
@@ -407,7 +408,9 @@
   "Stop-DomeniaLiveSearch": 1,
   "Stop-DomeniaLoginAuth": 1,
   "Stop-DomeniaLoginAuthRunspace": 1,
+  "Stop-DomeniaOnlinePark": 1,
   "Stop-DomeniaOuRefresh": 1,
+  "Stop-DomeniaParkPingWorker": 1,
   "Stop-DomeniaPendingFilterChange": 1,
   "Stop-DomeniaReadOnlyReturnTimer": 1,
   "Stop-DomeniaSecretReadTasks": 1,
@@ -415,6 +418,7 @@
   "Stop-DomeniaTimer": 1,
   "Stop-DomeniaTreeRenderForNode": 2,
   "Sync-DomeniaLinksAgainstIndex": 3,
+  "Sync-DomeniaParkGrid": 1,
   "Sync-DomeniaResultRowFromEntry": 2,
   "Sync-DomeniaUxNavigation": 1,
   "Test-DomeniaExperienceRow": 1,
@@ -435,7 +439,8 @@
   "Update-DomeniaIndexStats": 1,
   "Update-DomeniaOuFavouritesUi": 1,
   "Update-DomeniaOuScopeChoices": 1,
-  "Update-DomeniaParkRunStatus": 2,
+  "Update-DomeniaParkControls": 1,
+  "Update-DomeniaParkRunStatus": 3,
   "Update-DomeniaPulseSchedule": 1,
   "Update-DomeniaSearchScopeUi": 3,
   "Update-DomeniaSecretActionUi": 6,

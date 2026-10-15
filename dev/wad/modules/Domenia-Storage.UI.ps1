@@ -668,7 +668,7 @@ function Assert-DomeniaStoragePurgeReady {
     if($script:AsyncEngineClosing){throw 'Fermeture en cours.'}
     if($null -ne $script:DomeniaDirectoryReads){foreach($read in $script:DomeniaDirectoryReads.Values){if($null -ne $read -and (($null -ne $read.Input -and $read.Input.Count -gt 0) -or ($null -ne $read.BuildChanges -and $read.BuildChanges.Count -gt 0) -or $null -ne $read.Batch -or $read.InFlight -or ($null -ne $read.Collector -and -not $read.Collector.Done))){throw 'Des lectures annuaire attendent leur enregistrement. Attendez leur fin.'}}}
     if($null -ne $script:Live -and $null -ne $script:Live.SavePending -and $script:Live.SavePending.Count -gt 0){throw 'Des mesures attendent encore leur enregistrement.'}
-    if($null -ne $script:ParkRun -and -not $script:ParkRun.Completed){throw 'Arretez le releve du parc avant la maintenance locale.'}
+    if(Test-DomeniaParkRunActive){throw 'Arrêtez les relevés de postes en cours avant la maintenance locale.'}
     # Every outstanding producer must finish; a late AD or workstation result can also refill the cache.
     if(@($script:AsyncJobs.Values|Where-Object{$null -ne $_}).Count -or @($script:DetachedReadJobs|Where-Object{$null -ne $_}).Count -or $script:ActiveWriteTaskId -or $script:WriteState -in @('Unknown','UnknownPending')){throw 'Une operation est encore active ou a verifier. Attendez sa fin puis refaites la simulation.'}
     if($null -ne $script:Live -and ($script:Live.SaveJob -or [int]$script:Live.SaveInFlight -gt 0)){throw 'Un enregistrement des observations est encore en cours.'}

@@ -523,5 +523,12 @@
     "Function": "Get-DomeniaLockoutEventWorkerCode",
     "LiteralIndex": 0,
     "Sha256": "16A28EB41BE4F6A88BC7FD09E979D15731ABE1508171682B86C21B516C456D3C"
+  },
+  {
+    "Operation": "ParkPing",
+    "File": "wad/modules/Domenia-Park.Worker.ps1",
+    "Function": "Get-DomeniaParkPingWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "AEC50398D907F22BBAB7FEAAD775ED44AAF30CC0DF64EAFA7BEE3283397C6058"
   }
 ]

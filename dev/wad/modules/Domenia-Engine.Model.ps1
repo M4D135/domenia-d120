@@ -340,7 +340,8 @@ function Get-DomeniaOperationProvider {
     $storage = @('LegacyMigration','LocalStore','LiveCache','ReceiptStore','DocumentStore','StorageUsage','StoragePurge','StorageBackup','StorageMaintenance','StorageRetention','LinkHistoryStore','LocalIndexRead','LocalQuery','QueryExport','QueryLibrary')
     $local = @('CmdletHelp','CmdletInventory','EngineSelfTest','EmbeddedPathBrowse','LocalAssistant','DemoDirectory','IsolatedRead')
     # ParkSharedSync reads and writes a shared file, possibly on a UNC path: network I/O, not the local base.
-    $network = @('LiveSelectedPing','ComputerPing','ComputerAdminShare','SelectedPresence','PresenceScan','WakeOnLanSend','ConnectorRead','ParkSharedSync')
+    # ParkPing (MO-08) sends the ICMP echoes of a list in parallel batches: network only, no credential.
+    $network = @('LiveSelectedPing','ComputerPing','ComputerAdminShare','SelectedPresence','PresenceScan','WakeOnLanSend','ConnectorRead','ParkSharedSync','ParkPing')
     if ($cim -contains $OperationId) { return 'Cim' }
     if ($wts -contains $OperationId) { return 'Wts' }
     if ($storage -contains $OperationId) { return 'Storage' }
@@ -357,7 +358,7 @@ function Get-DomeniaOperationCredentialNeeds {
     $remote = @('SessionsList','ComputerDiagnostics','ComputerLastUser','LiveConsole','ComputerPing','ComputerAdminShare','ComputerGpUpdate','ComputerRestart','ComputerInventory','SoftwareInventory','ParkSweep','BatchNetworkDiag','WmiNamespaces','WmiClasses','WmiQuery','RimotteRun')
     $machine = @('SessionsList','ComputerAdminShare','ComputerDiagnostics','ComputerInventory','SoftwareInventory','ParkSweep','WmiNamespaces','WmiClasses','WmiQuery','ComputerLastUser','LiveConsole','ComputerGpUpdate','ComputerRestart','UserComputerProbe','RimotteRun')
     # Local or storage operations that never bind to the directory. New D120 operations are classified here.
-    $local = @('StorageUsage','StoragePurge','StorageBackup','StorageMaintenance','StorageRetention','LegacyMigration','CmdletHelp','CmdletInventory','EngineSelfTest','LiveCache','LiveSelectedPing','LocalStore','ReceiptStore','SessionsList','DocumentStore','EmbeddedPathBrowse','DemoDirectory','LocalIndexRead','LocalQuery','QueryExport','QueryLibrary','ParkSharedSync','IsolatedRead')
+    $local = @('StorageUsage','StoragePurge','StorageBackup','StorageMaintenance','StorageRetention','LegacyMigration','CmdletHelp','CmdletInventory','EngineSelfTest','LiveCache','LiveSelectedPing','ParkPing','LocalStore','ReceiptStore','SessionsList','DocumentStore','EmbeddedPathBrowse','DemoDirectory','LocalIndexRead','LocalQuery','QueryExport','QueryLibrary','ParkSharedSync','IsolatedRead')
     $id = [string]$OperationId
     $isRemote = ($remote -contains $id)
     $nonDirectory = (($local -contains $id) -or $isRemote)
@@ -369,7 +370,7 @@ function Get-DomeniaOperationCredentialNeeds {
     if ($id -eq 'ReadLaps') { $resource = 'Laps' }
     elseif ($id -in @('ReadBitLocker','ReadBitLockerList','ReadBitLockerKey','BitLockerPresence')) { $resource = 'BitLocker' }
     elseif ($isRemote -or ($machine -contains $id) -or $id -eq 'RemoteCredentialCheck') { $resource = 'Remote' }
-    elseif ($id -in @('LiveSelectedPing','ComputerPing','SelectedPresence','PresenceScan','WakeOnLanSend','ConnectorRead','ParkSharedSync')) { $resource = 'Network' }
+    elseif ($id -in @('LiveSelectedPing','ParkPing','ComputerPing','SelectedPresence','PresenceScan','WakeOnLanSend','ConnectorRead','ParkSharedSync')) { $resource = 'Network' }
     elseif ($nonDirectory) { $resource = 'Local' }
     return [pscustomobject]@{
         OperationId=$id

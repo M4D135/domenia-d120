@@ -89,7 +89,7 @@ L'arbre « Parcourir les OU » affiche le contenu d'une OU. Le menu « ⋯ » 
 
 ## Vérification au clic
 
-Un clic sur un poste lance un ping unique et, si « Utilisateur au clic » est cochée, la lecture de l'utilisateur console. L'état initial de la case vient de Streaming.VerifyUserOnSelection (vrai dans la configuration livrée). Deux lectures au plus tournent en même temps (Streaming.MaxUserProbes, borné de 1 à 3). « Revérifier ce poste » relance la même vérification sur le seul poste sélectionné.
+Un clic sur une ligne précharge sa fiche AD sans contacter le poste tant que « Vérifier au clic » est décochée, ce qui est l'état livré. Cochée, un clic sur un poste envoie aussi un ping unique et, si « + utilisateur connecté » est cochée, lit l'utilisateur console. Les deux choix restent dans les préférences ; tant que « + utilisateur connecté » n'a jamais été changée, elle suit Streaming.VerifyUserOnSelection (vrai dans la configuration livrée). Deux lectures au plus tournent en même temps (Streaming.MaxUserProbes, borné de 1 à 3). « Revérifier ce poste » reste le geste manuel : ping et utilisateur console du seul poste sélectionné, case cochée ou non.
 
 La lecture de la console passe par CIM en DCOM, avec le compte des opérations poste (chapitre 5). Si Remote.UseCim est faux, Domenia se limite au ping : « Contrôle réseau uniquement. Aucune lecture du compte console. ». Les sessions RDP ne sont pas recensées.
 
@@ -97,22 +97,29 @@ La lecture de la console passe par CIM en DCOM, avec le compte des opérations p
 |---|---|
 | Utilisateur connecté (console) | Le compte, Aucun compte console, Non déterminé, ou le compte suivi de (cache) pour une observation ancienne. |
 | Vérification utilisateur | Console observée, Lecture réussie, Accès refusé, Compte distant refusé, Délai dépassé, Non confirmé, Utilisateur non vérifié, Vérification en cours, À vérifier. |
-| Présence réseau | En ligne, Sans réponse au ping, Non vérifié, Erreur de ping, Vérification en cours, avec (cache) pour une observation ancienne. |
+| Présence réseau | Pastille et libellé court : En ligne, Sans réponse au ping, Non vérifié, Erreur de ping, Vérification en cours ; l'âge de la mesure s'affiche à côté (« il y a 2 h »). « relevé en cours… » marque un poste qu'un relevé de la liste doit encore lire. |
 
-## Pinger Détecter et Analyser la liste
+## Vérifier la liste
 
-Ces trois boutons agissent sur les seuls postes affichés, après tous les filtres : OU, recherche, présence et filtre local. Ils sont grisés si la liste ne contient aucun poste. L’Atelier de requêtes, ouvert par son icône depuis l’Accueil, propose également une collecte sur un périmètre explicite (chapitre 8).
+« Vérifier la liste » agit sur les seuls postes affichés, après tous les filtres : OU, recherche, présence et filtre local. Le bouton est grisé si la liste ne contient aucun poste, et pour une vue de travail sur tout le domaine. Sa flèche ouvre trois vérifications graduées ; la dernière choisie devient l'action du bouton pour la session, sans être enregistrée. « Rechercher » reste le seul bouton principal de la page. L’Atelier de requêtes, ouvert par son icône depuis l’Accueil, propose également une collecte sur un périmètre explicite (chapitre 8).
 
-![Barre d'actions des résultats : case Utilisateur au clic, Revérifier ce poste, Pinger la liste, Détecter la liste, Analyser la liste et Arrêter](fig:recherche-actions)
+![Barre d'actions des résultats : Vérifier au clic, + utilisateur connecté, Revérifier ce poste et Vérifier la liste avec sa flèche](fig:recherche-actions)
 
-| Bouton | Ce qui part | Confirmation |
+| Vérification | Ce qui part | Confirmation |
 |---|---|---|
-| « Pinger la liste » | Ping ICMP seul, de 1 à 8 postes en parallèle selon le réglage. Met à jour la présence réseau, sans lecture de session ni association. | Nombre de postes, puis « Pinger » ou « Annuler ». |
-| « Détecter la liste » | Ping puis lecture légère de la console Windows (CIM/DCOM), de 1 à 8 postes en parallèle selon le réglage. L’identité AD du compte peut être réutilisée pendant cinq minutes au plus ; un compte changé, absent de la base ou une relecture forcée exige une vérification. Associations protégées conservées. | Nombre de postes, puis « Verifier les sessions » ou « Annuler ». |
-| « Analyser la liste » | Comme « Détecter la liste », plus le relevé WMI léger (modèle, mémoire, disque C:, build, démarrage) et les requêtes WMI des widgets placés sur les tableaux du poste et du parc. Les résultats remplissent les tableaux de bord. | « Analyser les postes affiches », nombre de postes et de requêtes, puis « Analyser » ou « Annuler ». |
-| « Arrêter » | Arrête les nouvelles lectures ; les résultats déjà obtenus restent. | Aucune. |
+| « Qui répond ? » | Ping seul, échos envoyés en parallèle par lots de 32, une seconde d'attente par écho. Met à jour la présence réseau, sans lecture de session ni association. | Trois lignes : postes visés, ce qui sera lu, durée estimée ; bouton « Pinger N postes ». |
+| « Qui est connecté ? » | Ping puis lecture légère de la console Windows (CIM/DCOM), de 1 à 8 postes en parallèle selon le réglage. L’identité AD du compte peut être réutilisée pendant cinq minutes au plus ; un compte changé, absent de la base ou une relecture forcée exige une vérification. Associations protégées conservées. | Mêmes trois lignes ; bouton « Vérifier N postes ». |
+| « Matériel et widgets » | Comme « Qui est connecté ? », plus le relevé WMI léger (modèle, mémoire, disque C:, build, démarrage) et les requêtes WMI des widgets placés sur les tableaux du poste et du parc. Les résultats remplissent les tableaux de bord. | Mêmes trois lignes, avec le nombre de requêtes ; bouton « Analyser N postes ». |
 
-Les confirmations s'affichent dans la page, sans nouvelle fenêtre ; Échap choisit la réponse sûre. Un relevé s'arrête de lui-même sur des identifiants rejetés, après trois échecs d'enregistrement local, sur un conflit d'enregistrement, ou si une lecture est annulée ou ne correspond pas au poste attendu. Une lecture de poste en échec ne l'arrête pas : elle compte dans les « lectures non confirmees ». Il se met en pause tant que 64 enregistrements locaux attendent.
+La confirmation nomme la liste visée (« OU Postes, sous-OU », « recherche « PC » » ou « la sélection »), jamais le domaine : une liste filtrée de la racine du domaine reste « les résultats affichés ». Elle signale les lignes sans identifiant AD ignorées et, quand la liste a atteint sa limite de lignes, que les autres postes ne sont pas concernés. Un relevé est refusé au-delà de Park.MaxTargets postes (500 par défaut, 5 000 au plus), pour une liste de la racine du domaine sans autre filtre et pour une recherche globale sans terme : filtrez la liste ou choisissez une OU.
+
+Pendant le relevé, le bouton devient « Arrêter (12/48) » ; une barre fine et un compteur court (« 12/48 · 9 joignables ») suivent l'avancement, et chaque poste encore à lire affiche « relevé en cours… » dans « Présence réseau ». Le détail complet part dans le journal à la fin du relevé. Après un ping, trois pastilles comptent à part « en ligne », « sans réponse » et « erreurs » (nom introuvable dans le DNS, échec réseau ou lecture interrompue) ; dans une liste d'OU, chaque pastille filtre la liste par présence et un second clic retire le filtre.
+
+À partir de deux lignes sélectionnées, la ligne d'état devient une barre d'actions : « Pinger » et « Qui est connecté ? » visent les seuls postes sélectionnés, avec la même confirmation et le même plafond ; une sélection de toute la liste (Ctrl+A) suit les règles de la liste, donc la racine du domaine sans filtre et la recherche globale sans terme restent refusées ; « Copier » copie une ligne lisible par objet pour un ticket ; « Exporter » enregistre la sélection en CSV.
+
+Le relevé de la liste et celui du poste ouvert dans « Poste » (« Actualiser les requetes » de son tableau) sont indépendants : chacun garde son état et son « Arrêter » à côté du bouton qui l'a lancé. Le bilan d'un relevé du poste ne s'affiche qu'à côté du tableau de ce poste. Un relevé lancé depuis le tableau du parc ou l'atelier de requêtes partage la portée de la liste : « Vérifier la liste » affiche son avancement (« Relevé de … ») et devient son « Arrêter » ; une actualisation d'OU s'arrête depuis ses propres boutons d'actualisation, et le compteur le rappelle.
+
+Les confirmations s'affichent dans la page, sans nouvelle fenêtre ; Échap choisit la réponse sûre. Un relevé s'arrête de lui-même sur des identifiants rejetés, après trois échecs d'enregistrement local, sur un conflit d'enregistrement, ou si une lecture est annulée ou ne correspond pas au poste attendu. Les échos déjà reçus que le stockage n'accepte plus comptent alors dans les « lectures non confirmées » et le relevé se termine ; les lots déjà confiés au stockage suspendu attendent la reprise dans « Fiabilité ». Une lecture de poste en échec ne l'arrête pas : elle compte dans les « lectures non confirmées ». Il se met en pause tant que 64 enregistrements locaux attendent.
 
 > [!ATTENTION] Préparez un périmètre explicite et relisez le nombre de cibles avant chaque collecte.
 
@@ -122,7 +129,7 @@ Sous l’arbre de Rechercher, « Données de l’OU » reprend l’unité choisi
 
 Dans une petite fenêtre, le panneau sous l’arbre se compacte : le titre « Données de l’OU » se masque et « Postes (ping/WMI) » devient « Ping/WMI ». Les commandes gardent le même périmètre et le même effet.
 
-Pinger, Détecter et Analyser la liste gardent leur cible propre : les postes affichés après filtrage. « Actualiser » dans les résultats relance leur lecture ; cette commande ne remplace pas une mise à jour de la base ou un relevé WMI de toute l’OU.
+« Vérifier la liste » garde sa cible propre : les postes affichés après filtrage. « Actualiser » dans les résultats relance leur lecture ; cette commande ne remplace pas une mise à jour de la base ou un relevé WMI de toute l’OU.
 
 ## Requêtes Annuaire et données locales
 
@@ -568,7 +575,7 @@ Les trois tableaux de bord sont faits de widgets : chaque tuile ou graphique se 
 
 | Bouton | Quand | Effet |
 |---|---|---|
-| « Actualiser les requetes » | Tableau du poste, si au moins un widget de requête est présent. | Prépare les lectures requises par les widgets pour le poste sélectionné, en lecture seule et après confirmation. Une recette fondée uniquement sur AD renvoie vers la mise à jour de la base. Sur le parc, ouvrez le détail de la sonde puis collectez depuis l’Atelier, ou utilisez Analyser la liste. |
+| « Actualiser les requetes » | Tableau du poste, si au moins un widget de requête est présent. | Prépare les lectures requises par les widgets pour le poste sélectionné, en lecture seule et après confirmation. Une recette fondée uniquement sur AD renvoie vers la mise à jour de la base. Sur le parc, ouvrez le détail de la sonde puis collectez depuis l’Atelier, ou utilisez « Matériel et widgets » de « Vérifier la liste ». |
 | « Recalculer la vue » | Tableau du parc. | Relit les données locales et recalcule les widgets ; aucune nouvelle lecture AD, ping ou WMI. |
 | « Base locale », « Postes (ping/WMI) », « Les deux » | Tableau du parc ou Données de l’OU dans Rechercher. | Actualisent la source choisie pour l’OU et ses sous-OU, selon le parcours du chapitre 8. |
 | « Ajouter un widget » | Toujours. | Ouvre l'éditeur. |
@@ -736,7 +743,7 @@ Le catalogue contient 29 widgets de parc. Les requêtes personnelles et les 78 s
 
 # 10 Requêtes WMI du catalogue
 
-Le catalogue propose 78 sondes WMI en lecture seule, en 8 catégories. On les ajoute comme widgets aux tableaux du poste et du parc depuis l'éditeur. Elles partent après confirmation sur le périmètre annoncé : « Actualiser les requetes » sur le tableau du poste interroge le poste sélectionné ; « Analyser la liste » dans « Rechercher » interroge les postes affichés avec les requêtes des tableaux du poste et du parc.
+Le catalogue propose 78 sondes WMI en lecture seule, en 8 catégories. On les ajoute comme widgets aux tableaux du poste et du parc depuis l'éditeur. Elles partent après confirmation sur le périmètre annoncé : « Actualiser les requetes » sur le tableau du poste interroge le poste sélectionné ; « Matériel et widgets » de « Vérifier la liste », dans « Rechercher », interroge les postes affichés avec les requêtes des tableaux du poste et du parc.
 
 ## Protection des requêtes
 
@@ -748,7 +755,7 @@ Le catalogue propose 78 sondes WMI en lecture seule, en 8 catégories. On les aj
 
 ## Exécution
 
-1. **Lancer.** Poste : cliquez « Actualiser les requetes » sur son tableau ; il faut un poste sélectionné. Parc : préparez les postes dans l’Atelier et lancez la collecte, ou utilisez Analyser la liste dans Rechercher. Les requêtes des widgets présents sont regroupées, sans doublon.
+1. **Lancer.** Poste : cliquez « Actualiser les requetes » sur son tableau ; il faut un poste sélectionné. Parc : préparez les postes dans l’Atelier et lancez la collecte, ou utilisez « Matériel et widgets » de « Vérifier la liste » dans Rechercher. Les requêtes des widgets présents sont regroupées, sans doublon.
 2. **Confirmer.** Poste : confirmation « Sonder pour les widgets », bouton « Verifier les sessions ». Parc : confirmation « Analyser les postes affiches », bouton « Analyser ». Les deux donnent le nombre de postes et de requêtes ; « Annuler » ne lance rien.
 3. **Suivre.** De 1 à 8 postes en parallèle selon le réglage. Délai par poste : 20 s plus 8 s par requête, plafonné à 150 s.
 4. **Lire.** En fin de relevé, les widgets se remplissent et la vue du parc se recalcule.
@@ -919,7 +926,7 @@ La page « Utilisateurs et postes » a deux zones dans l'onglet « Associations 
 | Source | Comment elle arrive |
 |---|---|
 | Lien manuel | Panneau « Ajouter une association », « Rechercher », « Associer ce poste », puis « Associer » dans « Confirmer l'association ». |
-| Console observée | « Détecter la liste » et « Analyser la liste » lisent l'utilisateur console ; l'association est actualisée si elle change. |
+| Console observée | « Qui est connecté ? » et « Matériel et widgets » de « Vérifier la liste » lisent l'utilisateur console ; l'association est actualisée si elle change. |
 | Détection ciblée | Panneau « Ajouter une association », « Détecter » : « Détecter les postes » propose des postes ; « Associer ce poste » prépare le lien, puis « Associer » dans « Confirmer l'association » l'enregistre. |
 | Import CSV | « Toutes les associations », « Importer » : aperçu dans la page, puis « Importer ». La source est toujours « Import CSV » (Importé). |
 
@@ -1352,11 +1359,12 @@ Une clé absente, nulle ou vide prend la valeur par défaut du code. Une section
 
 | Clé | Défaut | Rôle |
 |---|---|---|
-| Streaming.VerifyUserOnSelection | true | État initial de « Utilisateur au clic ». |
+| Streaming.VerifyUserOnSelection | true | État de « + utilisateur connecté » tant que l'opérateur ne l'a pas changée. |
 | Streaming.MaxUserProbes | 2 | Vérifications au clic simultanées (1 à 3). |
 | Streaming.RevalidateListedObjects | true | Relecture périodique des objets affichés. |
 | Streaming.RevalidateIntervalSeconds | 60 | Intervalle de cette relecture (30 à 600 s). |
 | Streaming.ReconcileSeconds | 180 | Relecture de fond du périmètre d'une liste de 500 lignes au plus (120 à 900 s). |
+| Park.MaxTargets | 500 | Plafond d'un relevé de la liste ou de sa sélection : « Vérifier la liste » et la barre de la sélection refusent au-delà (5 000 au plus). |
 | Browser.GlobalSearchLimit | 100 | Valeur initiale du champ « Limite », aussitôt remplacée par la préférence SearchLimit (100 par défaut) ; ne sert que si ce champ n'est pas un nombre. |
 | Browser.GlobalSearchMinChars | 2 | Caractères minimum. |
 | Browser.MaxPageSize | 300 | Taille de page LDAP. |

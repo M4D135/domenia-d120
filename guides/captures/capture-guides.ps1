@@ -629,7 +629,7 @@ Assert-Guide (Set-DomeniaItemsSource 'DgObjects' $rows) 'Recherche : les lignes 
 Assert-Guide ((Get-DomeniaControl 'DgObjects').Items.Count -eq 7) 'Recherche : 7 résultats réellement présents'
 (Get-DomeniaControl 'TxtGlobalSearch').Text = 'compta'
 (Get-DomeniaControl 'LblBranchCount').Text = '7 résultat(s) · liste complète'
-foreach ($b in @('BtnParkPing','BtnParkResults','BtnParkAnalyze','BtnLiveRecheck','BtnExportResults')) { $c = Get-DomeniaControl $b; if ($null -ne $c) { $c.IsEnabled = $true } }
+foreach ($b in @('BtnParkVerify','BtnParkVerifyMenu','BtnLiveRecheck','BtnExportResults')) { $c = Get-DomeniaControl $b; if ($null -ne $c) { $c.IsEnabled = $true } }
 $grid = Get-DomeniaControl 'DgObjects'
 $order = @('Type','Nom','Utilisateur connecté (console)','Association mémorisée','Présence réseau')
 for ($k = 0; $k -lt $order.Count; $k++) { $col = @($grid.Columns | Where-Object { [string]$_.Header -eq $order[$k] })[0]; if ($null -ne $col) { $col.DisplayIndex = $k } }

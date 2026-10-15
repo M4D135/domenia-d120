@@ -101,7 +101,8 @@ function Invoke-DomeniaOuRefresh {
         if($BackupDone -and ((-not $ExpectedDn) -or ($context.Dn -ine $ExpectedDn) -or ($context.Path -cne $ExpectedPath) -or ([long]$context.Epoch -ne $ExpectedEpoch))){throw 'lʼOU, la base ou la session a changé pendant la sauvegarde ; aucune lecture AD. Cliquez à nouveau pour lʼOU affichée.'}
         if($script:DemoMode){throw 'Actualisation distante indisponible en démonstration.'}
         if($null -ne $script:DomeniaOuRefresh -and -not $script:DomeniaOuRefresh.Completed){throw 'Une actualisation est déjà en cours.'}
-        if($null -ne $script:ParkRun -and -not $script:ParkRun.Completed){throw 'Un relevé de postes est déjà en cours.'}
+        # FI-18: an OU refresh runs its survey in the scope of the lists; the survey of the open workstation is apart.
+        if(Test-DomeniaParkRunActive -Slot 'List'){throw 'Un relevé de postes est déjà en cours.'}
         if(@($script:AsyncJobs.Values|Where-Object{$_.OperationId -in @('IndexBuild','StoragePurge','LegacyMigration')}).Count){throw 'Attendez la fin de la lecture AD ou de la maintenance locale.'}
         $save=Get-DomeniaPersistenceState
         if($save.Pending -gt 0 -or $save.Suspended -or $save.Conflicts -gt 0){throw 'Attendez ou rétablissez la confirmation des écritures locales.'}
@@ -158,7 +159,7 @@ function Invoke-DomeniaOuRefreshTick {
             if(-not $r.TargetJob){throw 'Lecture locale non admise.'}
         }catch{Fail-DomeniaOuRefresh -OperationId $r.Id -Message $_.Exception.Message}
     }
-    if($r.ParkRunId){Update-DomeniaOuRefreshFromPark -Run $script:ParkRun}
+    if($r.ParkRunId){Update-DomeniaOuRefreshFromPark -Run (Get-DomeniaParkRunById ([string]$r.ParkRunId))}
     Update-DomeniaOuRefreshUi
 }
 function Complete-DomeniaOuRefreshTargets {

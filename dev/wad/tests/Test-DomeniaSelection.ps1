@@ -33,6 +33,8 @@ function Get-DomeniaLiveIdentitySignal {return [pscustomobject]@{Signal=$script:
 function Test-DomeniaSearchStateCurrent {param($State);return $State.Generation -eq $script:GlobalSearchGeneration}
 function Test-DomeniaAccessBusyWrite {return ($script:WriteState -in @('Unknown','UnknownPending') -or [bool]$script:ActiveWriteTaskId)}
 function Get-CfgValue {param($Section,$Name,$Default);return $Default}
+# UI-23 / FO-18: the survey buttons of the list belong to Park.UI, not loaded here (inert boundary).
+function Update-DomeniaParkControls {}
 function Set-RowAssociationMetadata {param($Rows)}
 function Get-CurrentSelectedComputerName {return ''}
 function Get-ExistingLinkForComputer {param($Computer);return $null}
@@ -45,6 +47,7 @@ function Get-DomeniaRealizedTreeNodes {return ,$script:FixtureNodes}
 function Get-DomeniaTreeContextKey {return $script:FixtureContext}
 function Get-GlobalSelectedTypeFilter {param($Mode);return $script:FixtureType}
 function Get-DomeniaSelectedGridRows {return @($script:Ctrl.DgObjects.SelectedItems)}
+function Set-DomeniaSetting {param($Name,$Value) $script:SavedSettings[[string]$Name]=$Value}
 function Request-UiTaskStop {param($Id,[switch]$Silent,[switch]$Force,[switch]$Superseded,$Reason);$script:Stopped.Add([string]$Id)}
 function Invoke-GlobalSearch {param([switch]$AllowEmpty,[switch]$SilentError,[switch]$PreserveSelection,[string]$SearchMode)
     $script:SearchCalls.Add([pscustomobject]@{DN=$script:SelectedBranchDn;Scope=(Get-DomeniaSearchScope).Scope;Preserve=[bool]$PreserveSelection})
@@ -63,7 +66,7 @@ function Reset-Fixture {
     $script:SuppressGridSelectionEvents=$false;$script:SuppressBranchAutoLoad=$false;$script:RestoringSettings=$false
     $script:AsyncEngineClosing=$false;$script:DirectoryCredentialFaulted=$false
     $script:AsyncJobs=@{};$script:DetachedReadJobs=@();$script:DetailedProbe=$null
-    $script:Calls=[Collections.Generic.List[object]]::new();$script:Stopped=[Collections.Generic.List[string]]::new();$script:SearchCalls=[Collections.Generic.List[object]]::new()
+    $script:Calls=[Collections.Generic.List[object]]::new();$script:Stopped=[Collections.Generic.List[string]]::new();$script:SearchCalls=[Collections.Generic.List[object]]::new();$script:SavedSettings=@{}
     $script:FixtureContext='test-domain-reader';$script:FixtureType='(objectClass=*)';$script:FixtureNodes=@()
     $script:Conn=[pscustomobject]@{BaseDn='DC=example,DC=invalid';Connected=$true}
     $script:SelectedBranchDn='OU=Test,DC=example,DC=invalid'
@@ -74,7 +77,7 @@ function Reset-Fixture {
     }
     $state=[pscustomobject]@{Limit=500;PreserveSelectionDn='';Generation=11}
     $script:Live=[pscustomobject]@{
-        PresenceEvents=[Collections.Concurrent.ConcurrentQueue[object]]::new();PresenceSeen=@{};Identity='reader-7';Epoch=7L;AutoDetect=$true;ProbeSelection=$null;RemoteFaulted=$false
+        PresenceEvents=[Collections.Concurrent.ConcurrentQueue[object]]::new();PresenceSeen=@{};Identity='reader-7';Epoch=7L;AutoDetect=$true;VerifyOnClick=$true;ProbeSelection=$null;RemoteFaulted=$false
         Pending=[Collections.Generic.Queue[object]]::new();PendingKeys=@{};Busy=@{};Done=@{}
         Observations=[Collections.Concurrent.ConcurrentDictionary[string,object]]::new();SaveQueue=@{};QueryToSave=$null;SaveJob='';SaveFault=''
         CacheReady=$false;NextStart=[datetime]::MinValue;SaveAfter=[datetime]::MinValue
@@ -117,6 +120,17 @@ Case 'Write in progress blocks verification' {$a=Add-FixtureRow 1;$script:Active
 Case 'Unknown write blocks verification' {$a=Add-FixtureRow 1;$script:WriteState='Unknown';Pick $a;Start-DomeniaLiveBackgroundWork;Expect ($script:Calls.Count -eq 0)}
 Case 'Unchecked user verification sends only one selected ping' {$a=Add-FixtureRow 1;$script:Live.AutoDetect=$false;Pick $a;Ready;Start-DomeniaLiveBackgroundWork;Expect ($script:Calls.Count -eq 1 -and $script:Calls[0].OperationId -eq 'LiveSelectedPing' -and -not $script:Calls[0].Payload.ProbeUser)}
 Case 'Manual recheck works for one selected row when unchecked' {$a=Add-FixtureRow 1;$null=Add-FixtureRow 2;$script:Live.AutoDetect=$false;Pick $a;Request-DomeniaLiveRecheck;Ready;Start-DomeniaLiveBackgroundWork;Expect ($script:Calls.Count -eq 1 -and $script:Calls[0].Payload.Computer -eq $a.UPN)}
+# SP-15: unchecked « Vérifier au clic » (the default) - a click preloads the AD fiche only; the ping needs a gesture.
+Case 'SP-15 Unchecked check on click: a click sends no ping' {$a=Add-FixtureRow 1;$script:Live.VerifyOnClick=$false;Pick $a;Ready;Start-DomeniaLiveBackgroundWork;Expect ($script:Calls.Count -eq 0 -and $null -eq $script:Live.ProbeSelection -and $script:Live.Pending.Count -eq 0 -and $a.SessionState -ne 'En attente de vérification')}
+Case 'SP-15 Unchecked check on click: Reverifier ce poste stays the manual gesture' {$a=Add-FixtureRow 1;$script:Live.VerifyOnClick=$false;Pick $a;Request-DomeniaLiveRecheck;Ready;Start-DomeniaLiveBackgroundWork;Expect ($script:Calls.Count -eq 1 -and $script:Calls[0].OperationId -eq 'LiveConsole' -and $script:Calls[0].Payload.Computer -eq $a.UPN)}
+Case 'SP-15 Unchecked check on click: an explicit fiche opening pings, user per its option' {$a=Add-FixtureRow 1;$script:Live.VerifyOnClick=$false;$script:Live.AutoDetect=$false;Pick $a;Select-DomeniaLiveResult -Explicit;Ready;Start-DomeniaLiveBackgroundWork;Expect ($script:Calls.Count -eq 1 -and $script:Calls[0].OperationId -eq 'LiveSelectedPing' -and -not $script:Calls[0].Payload.ProbeUser)}
+Case 'SP-15 Turning the option off keeps the preference and drops an unsent click intent' {
+    $a=Add-FixtureRow 1;Pick $a;Expect ($null -ne $script:Live.ProbeSelection) 'Le clic coche ne prepare pas le ping.'
+    $script:Ctrl.ChkLiveVerifyOnClick=[pscustomobject]@{IsChecked=$false};$script:Ctrl.ChkLiveUsersOnClick=[pscustomobject]@{IsChecked=$true}
+    Set-DomeniaLiveClickOptions;Ready;Start-DomeniaLiveBackgroundWork
+    Expect ($script:Calls.Count -eq 0 -and $null -eq $script:Live.ProbeSelection -and -not [bool]$script:Live.VerifyOnClick) 'Une intention non envoyee a survecu.'
+    Expect ($script:SavedSettings['LiveVerifyOnClick'] -eq $false -and $script:SavedSettings['LiveUserOnClick'] -eq $true) 'Preferences non enregistrees.'
+}
 Case 'Unselected manual recheck is harmless' {$null=Add-FixtureRow 1;Request-DomeniaLiveRecheck;Expect ($script:Calls.Count -eq 0 -and $script:Live.Pending.Count -eq 0)}
 Case 'Cached selection waits for AD' {$a=Add-FixtureRow 1 -Cached;Pick $a;Ready;Start-DomeniaLiveBackgroundWork;Expect ($null -ne $script:Live.ProbeSelection -and $script:Calls.Count -eq 0)}
 Case 'AD confirmation serves a waiting selection only' {$a=Add-FixtureRow 1 -Cached;Pick $a;$null=Add-FixtureRow 2;$null=Add-FixtureRow 1;Ready;Start-DomeniaLiveBackgroundWork;Expect ($script:Calls.Count -eq 1 -and $script:Calls[0].Payload.Computer -eq $a.UPN)}
@@ -228,6 +242,57 @@ if($env:OS -eq 'Windows_NT' -and -not $SkipWpf){
             Expect ($budget -lt 20000) "Budget de parcours de l'arbre visuel epuise : la recherche d'en-tete n'a rien pu conclure."
             foreach($c in $grid.Columns){Expect (-not [string]::IsNullOrWhiteSpace([string]$c.Header))}
         }finally{$reader.Close();if($null -ne $window){$window.Close()}}
+    }
+    # FO-18: actions of a multiple selection of the list (real Park.UI functions, real WPF controls).
+    Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
+    $parkTokens=$null;$parkErrors=$null
+    $parkAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'modules\Domenia-Park.UI.ps1'),[ref]$parkTokens,[ref]$parkErrors)
+    foreach($name in @('Set-DomeniaParkControlVisible','Get-DomeniaParkSelectionTargets','Update-DomeniaParkSelectionBar','Start-DomeniaParkSelectionSurvey')){
+        $node=@($parkAst.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true))
+        if($node.Count -ne 1){throw ('Definition ambiguous: '+$name)}
+        Invoke-Expression $node[0].Extent.Text
+    }
+    function Add-SelectionBarControls {
+        $script:ListSurveyBlocked=$false;$script:DemoMode=$false
+        $bar=[Windows.Controls.StackPanel]::new();$bar.Visibility='Collapsed';$script:Ctrl.UxSelectionBar=$bar
+        foreach($name in @('LblSelectionBar','LblSelectionReadState')){$script:Ctrl[$name]=[Windows.Controls.TextBlock]::new()}
+        foreach($name in @('BtnSelectionPing','BtnSelectionConsole')){$script:Ctrl[$name]=[Windows.Controls.Button]::new()}
+    }
+    function Select-FixtureRows {param([object[]]$Rows) $script:Ctrl.DgObjects.SelectedItems=@($Rows);$script:Ctrl.DgObjects.SelectedItem=$(if(@($Rows).Count){@($Rows)[0]}else{$null})}
+    function New-SelectedRow {param([int]$Number,[string]$Kind='Machine',[switch]$NoGuid) [pscustomobject]@{Type=$Kind;Name=('PC'+$Number);DN=('CN=PC'+$Number+',OU=Test,DC=example,DC=invalid');Guid=$(if($NoGuid){''}else{'00000000-0000-0000-0000-'+$Number.ToString('000000000000')})}}
+    Case 'FO-18 The selection bar appears from two rows and names what is selected' {
+        Add-SelectionBarControls
+        Select-FixtureRows @(New-SelectedRow 1);Update-DomeniaParkSelectionBar
+        Expect ($script:Ctrl.UxSelectionBar.Visibility -eq 'Collapsed' -and $script:Ctrl.LblSelectionReadState.Visibility -eq 'Visible') 'Bar shown for a single row.'
+        Select-FixtureRows @((New-SelectedRow 1),(New-SelectedRow 2),(New-SelectedRow 3));Update-DomeniaParkSelectionBar
+        Expect ($script:Ctrl.UxSelectionBar.Visibility -eq 'Visible' -and $script:Ctrl.LblSelectionReadState.Visibility -eq 'Collapsed') 'Bar hidden for three rows.'
+        Expect ([string]$script:Ctrl.LblSelectionBar.Text -eq '3 postes sélectionnés :') ([string]$script:Ctrl.LblSelectionBar.Text)
+        Expect ($script:Ctrl.BtnSelectionPing.IsEnabled -and $script:Ctrl.BtnSelectionConsole.IsEnabled) 'Selection surveys disabled.'
+        Select-FixtureRows @((New-SelectedRow 1 'Utilisateur'),(New-SelectedRow 2 'Utilisateur'),(New-SelectedRow 3));Update-DomeniaParkSelectionBar
+        Expect ([string]$script:Ctrl.LblSelectionBar.Text -eq '3 lignes sélectionnées dont 1 poste :' -and $script:Ctrl.BtnSelectionPing.IsEnabled) ([string]$script:Ctrl.LblSelectionBar.Text)
+        Select-FixtureRows @((New-SelectedRow 1 'Utilisateur'),(New-SelectedRow 2 'Groupe'));Update-DomeniaParkSelectionBar
+        Expect ([string]$script:Ctrl.LblSelectionBar.Text -eq '2 lignes sélectionnées :' -and -not $script:Ctrl.BtnSelectionPing.IsEnabled -and -not $script:Ctrl.BtnSelectionConsole.IsEnabled) 'Workstation survey offered without workstation.'
+    }
+    Case 'FO-18 Selection surveys are refused while the list is surveyed, on a whole-domain view and in demonstration' {
+        Add-SelectionBarControls;Select-FixtureRows @((New-SelectedRow 1),(New-SelectedRow 2))
+        Update-DomeniaParkSelectionBar -ListRunning $true;Expect (-not $script:Ctrl.BtnSelectionPing.IsEnabled) 'Second survey offered during a survey.'
+        Update-DomeniaParkSelectionBar;Expect $script:Ctrl.BtnSelectionPing.IsEnabled 'Survey not offered again after the survey.'
+        $script:ListSurveyBlocked=$true;Update-DomeniaParkSelectionBar;Expect (-not $script:Ctrl.BtnSelectionConsole.IsEnabled) 'Survey of a whole-domain view offered.'
+        $script:ListSurveyBlocked=$false;$script:DemoMode=$true;Update-DomeniaParkSelectionBar;Expect (-not $script:Ctrl.BtnSelectionPing.IsEnabled) 'Survey offered in demonstration.'
+        $script:DemoMode=$false;$script:Ctrl.DgObjects.IsEnabled=$false;Update-DomeniaParkSelectionBar;Expect (-not $script:Ctrl.BtnSelectionPing.IsEnabled) 'Survey offered on a disabled list.'
+    }
+    Case 'FO-18 Selection surveys send only the selected workstations with their AD identity, through the list survey' {
+        Add-SelectionBarControls;$script:SurveyCalls=[Collections.Generic.List[object]]::new();$script:SurveyStatus=''
+        function Start-DomeniaOnlinePark {param([switch]$Selection,[switch]$PingOnly,[object[]]$ScopeTargets,[int]$SkippedTargets=0)$script:SurveyCalls.Add([pscustomobject]@{Selection=[bool]$Selection;PingOnly=[bool]$PingOnly;Targets=@($ScopeTargets);Skipped=$SkippedTargets})}
+        function Set-Status {param($Text,$Level)$script:SurveyStatus=[string]$Text}
+        Select-FixtureRows @((New-SelectedRow 1),(New-SelectedRow 2 -NoGuid),(New-SelectedRow 3 'Utilisateur'),(New-SelectedRow 4))
+        Start-DomeniaParkSelectionSurvey -Mode Ping;Start-DomeniaParkSelectionSurvey -Mode Console
+        Expect ($script:SurveyCalls.Count -eq 2 -and $script:SurveyCalls[0].Selection -and $script:SurveyCalls[0].PingOnly -and -not $script:SurveyCalls[1].PingOnly) 'Selection survey mode lost.'
+        $first=$script:SurveyCalls[0]
+        Expect ($first.Targets.Count -eq 2 -and $first.Skipped -eq 1) ('Targets '+$first.Targets.Count+' skipped '+$first.Skipped)
+        Expect ((@($first.Targets|ForEach-Object{[string]$_.name}) -join ',') -eq 'PC1,PC4' -and [string]$first.Targets[1].distinguished_name -eq 'CN=PC4,OU=Test,DC=example,DC=invalid' -and [string]$first.Targets[1].object_guid -eq '00000000-0000-0000-0000-000000000004') 'AD identity of the selected workstations.'
+        Select-FixtureRows @((New-SelectedRow 3 'Utilisateur'));Start-DomeniaParkSelectionSurvey -Mode Ping
+        Expect ($script:SurveyCalls.Count -eq 2 -and $script:SurveyStatus -eq 'Aucun poste dans la sélection.') $script:SurveyStatus
     }
 }else{$script:Checks.Add([pscustomobject]@{Name='Native WPF headers';Status='Skipped';Error='Windows WPF required.'})}
 $passed=@($script:Checks|Where-Object{$_.Status -eq 'Passed'}).Count
