@@ -7,6 +7,22 @@ param([string]$ReportPath='', [switch]$Quiet)
 # clipboard and dialogs are explicit doubles: no LDAP, CIM, ping, file or clipboard write.
 # Each case fails when the wiring it names is removed (see the comment above each case).
 $ErrorActionPreference='Stop'
+# PF-24 (lot Z04): a catalogued control carries its help in Domenia-UX.help.json only (the XAML keeps it for the
+# other controls); this reads the effective tool tip or help text of a node of the main XAML.
+$script:TestHelpCatalogue=$null
+function Get-TestCatalogueHelp {
+    param($Node,[string]$Attribute)
+    $value=[string]$Node.GetAttribute($Attribute)
+    if($value){return $value}
+    if($null -eq $script:TestHelpCatalogue){
+        $script:TestHelpCatalogue=@{}
+        $catalogue=Join-Path (Join-Path (Split-Path -Parent $PSScriptRoot) 'modules') 'Domenia-UX.help.json'
+        foreach($entry in @([IO.File]::ReadAllText($catalogue,[Text.Encoding]::UTF8)|ConvertFrom-Json)){$script:TestHelpCatalogue[[string]$entry.Name]=$entry}
+    }
+    $name=[string]$Node.GetAttribute('Name','http://schemas.microsoft.com/winfx/2006/xaml')
+    if($script:TestHelpCatalogue.ContainsKey($name)){return [string]$script:TestHelpCatalogue[$name].Text}
+    return ''
+}
 $edition=if($PSVersionTable.ContainsKey('PSEdition')){[string]$PSVersionTable.PSEdition}else{'Desktop'}
 $native=($env:OS -eq 'Windows_NT' -and $edition -eq 'Desktop' -and $PSVersionTable.PSVersion.Major -eq 5 -and $PSVersionTable.PSVersion.Minor -eq 1)
 if(-not $native){throw 'Windows PowerShell 5.1 requis : une autre execution ne vaut pas preuve.'}
@@ -509,9 +525,9 @@ Case 'P60 Export et relevés nomment la portée choisie : infobulle, aide dʼaut
     foreach($name in @('BtnParkVerify','BtnExportResults','CmbResultScope','PnlOuBreadcrumb')){
         $node=@($xaml.SelectNodes('//*')|Where-Object{$_.GetAttribute('Name','http://schemas.microsoft.com/winfx/2006/xaml') -eq $name})
         Expect ($node.Count -eq 1) ($name+' : '+$node.Count+' occurrence(s)')
-        $tip=[string]$node[0].GetAttribute('ToolTip');$label=[string]$node[0].GetAttribute('AutomationProperties.Name')
+        $tip=[string](Get-TestCatalogueHelp $node[0] 'ToolTip');$label=[string]$node[0].GetAttribute('AutomationProperties.Name')
         if($name -ne 'PnlOuBreadcrumb'){Expect ($tip.Contains('portée choisie') -or $tip.Contains('Portée de lʼexport')) ($name+' ne nomme pas la portée choisie.')}
-        Expect ($tip -ceq [string]$node[0].GetAttribute('AutomationProperties.HelpText')) ($name+' : infobulle et aide dʼautomation divergent.')
+        Expect ($tip -ceq [string](Get-TestCatalogueHelp $node[0] 'AutomationProperties.HelpText')) ($name+' : infobulle et aide dʼautomation divergent.')
         $entry=@($aide|Where-Object{[string]$_.Name -ceq $name})
         Expect ($entry.Count -eq 1 -and [string]$entry[0].Text -ceq $tip -and [string]$entry[0].Title -ceq $label) ($name+' : aide de la page absente ou différente.')
     }
@@ -664,7 +680,7 @@ Case 'P54 Chaque page passe par le sélecteur commun avec son effet et sa profon
     Expect (@($calls|Where-Object{$_.Contains('-DepthMode Choice')}).Count -eq 1 -and @($calls|Where-Object{$_.Contains('-DepthMode Subtree')}).Count -eq 2) 'Profondeur imposée ou choisie absente dʼune page.'
     [xml]$query=[IO.File]::ReadAllText((Join-Path $modules 'Domenia-Query.xaml'),[Text.Encoding]::UTF8)
     $button=@($query.SelectNodes('//*')|Where-Object{$_.GetAttribute('Name','http://schemas.microsoft.com/winfx/2006/xaml') -eq 'BtnQueryScope'})
-    Expect ($button.Count -eq 1 -and $button[0].GetAttribute('ToolTip') -ceq $button[0].GetAttribute('AutomationProperties.HelpText')) 'LʼAtelier nʼa pas de bouton vers le sélecteur commun.'
+    Expect ($button.Count -eq 1 -and (Get-TestCatalogueHelp $button[0] 'ToolTip') -ceq (Get-TestCatalogueHelp $button[0] 'AutomationProperties.HelpText')) 'LʼAtelier nʼa pas de bouton vers le sélecteur commun.'
     . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Dashboard.UI.ps1') @('Get-DomeniaFleetScope','Show-DomeniaFleetScopeSource','Select-DomeniaFleetScopeOu'))))
     function Request-DomeniaFleetRefresh {param([switch]$Force) $script:FleetRefreshes++}
     function Show-DomeniaInlinePicker {param($Kind,$Title,$Prompt,$InitialTerm,$DepthMode,$Subtree,$Purpose,$InitialDn) $script:PickerCall=[pscustomobject]@{DepthMode=$DepthMode;Subtree=$Subtree;InitialDn=$InitialDn};return [pscustomobject]@{DN='OU=B,DC=example,DC=invalid';Guid='00000000-0000-4000-8000-00000000000b';Subtree=$false}}

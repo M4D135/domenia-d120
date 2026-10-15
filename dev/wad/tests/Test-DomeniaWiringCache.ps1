@@ -5,6 +5,22 @@
 [CmdletBinding()]
 param([string]$ReportPath = '', [switch]$Quiet)
 $ErrorActionPreference = 'Stop'
+# PF-24 (lot Z04): a catalogued control carries its help in Domenia-UX.help.json only (the XAML keeps it for the
+# other controls); this reads the effective tool tip or help text of a node of the main XAML.
+$script:TestHelpCatalogue=$null
+function Get-TestCatalogueHelp {
+    param($Node,[string]$Attribute)
+    $value=[string]$Node.GetAttribute($Attribute)
+    if($value){return $value}
+    if($null -eq $script:TestHelpCatalogue){
+        $script:TestHelpCatalogue=@{}
+        $catalogue=Join-Path (Join-Path (Split-Path -Parent $PSScriptRoot) 'modules') 'Domenia-UX.help.json'
+        foreach($entry in @([IO.File]::ReadAllText($catalogue,[Text.Encoding]::UTF8)|ConvertFrom-Json)){$script:TestHelpCatalogue[[string]$entry.Name]=$entry}
+    }
+    $name=[string]$Node.GetAttribute('Name','http://schemas.microsoft.com/winfx/2006/xaml')
+    if($script:TestHelpCatalogue.ContainsKey($name)){return [string]$script:TestHelpCatalogue[$name].Text}
+    return ''
+}
 $wad = Split-Path -Parent $PSScriptRoot
 $dev = Split-Path -Parent $wad
 $modules = Join-Path $wad 'modules'
@@ -4783,10 +4799,10 @@ Test-Case 'UI-19 : un resume lisible de la base, le chemin en infobulle et une a
         foreach ($name in @('LblIndexLocation','BtnIndexCopyPath','LblIndexTileAccounts','LblIndexTileAccountsDetail','LblIndexTileComputers','LblIndexTileComputersDetail','LblIndexTileLinks','LblIndexTileLinksDetail','LblIndexTileUpdated','LblIndexTileUpdatedDetail')) {
             $node = @($xaml.SelectNodes('//*') | Where-Object { $_.GetAttribute('Name',$xns) -eq $name })
             Assert-Equal 1 $node.Count ('Controle absent : ' + $name)
-            Assert-True ([string]$node[0].GetAttribute('ToolTip') -ceq [string]$node[0].GetAttribute('AutomationProperties.HelpText')) ('Infobulle et aide divergent : ' + $name)
+            Assert-True ([string](Get-TestCatalogueHelp $node[0] 'ToolTip') -ceq [string](Get-TestCatalogueHelp $node[0] 'AutomationProperties.HelpText')) ('Infobulle et aide divergent : ' + $name)
             $entry = @($help | Where-Object { $_.Name -eq $name })
             Assert-Equal 1 $entry.Count ('Aide absente : ' + $name)
-            Assert-True (([string]$entry[0].Text -ceq [string]$node[0].GetAttribute('ToolTip')) -and ([string]$entry[0].Title -ceq [string]$node[0].GetAttribute('AutomationProperties.Name')) -and ([string]$entry[0].Kind -ceq [string]$node[0].LocalName)) ('Aide differente du XAML : ' + $name)
+            Assert-True (([string]$entry[0].Text -ceq [string](Get-TestCatalogueHelp $node[0] 'ToolTip')) -and ([string]$entry[0].Title -ceq [string]$node[0].GetAttribute('AutomationProperties.Name')) -and ([string]$entry[0].Kind -ceq [string]$node[0].LocalName)) ('Aide differente du XAML : ' + $name)
             Assert-True ($coreText.Contains('"' + $name + '" = "Default"')) ('Politique absente : ' + $name)
         }
         Assert-Equal 0 @($xaml.SelectNodes('//*') | Where-Object { $_.GetAttribute('Name',$xns) -eq 'LblIndexOverview' }).Count 'Phrase de synthese encore presente'

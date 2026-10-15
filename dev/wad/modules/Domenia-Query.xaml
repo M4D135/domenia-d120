@@ -101,7 +101,17 @@
                     <DataGridTemplateColumn.CellTemplate>
                       <DataTemplate>
                         <StackPanel Orientation="Horizontal" ToolTip="{Binding PresenceLabel}">
-                          <TextBlock Text="{Binding PresenceState}" Foreground="{Binding PresenceBrush}" Margin="4,0,6,0" />
+                          <TextBlock Text="{Binding PresenceState}" Margin="4,0,6,0">
+                            <TextBlock.Style>
+                              <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="{DynamicResource MutedColor}"/>
+                                <Style.Triggers>
+                                  <DataTrigger Binding="{Binding PresenceState}" Value="●"><Setter Property="Foreground" Value="{DynamicResource StatusSuccess}"/></DataTrigger>
+                                  <DataTrigger Binding="{Binding PresenceState}" Value="○"><Setter Property="Foreground" Value="{DynamicResource StatusWarning}"/></DataTrigger>
+                                </Style.Triggers>
+                              </Style>
+                            </TextBlock.Style>
+                          </TextBlock>
                           <TextBlock Text="{Binding PresenceLabel}" />
                         </StackPanel>
                       </DataTemplate>

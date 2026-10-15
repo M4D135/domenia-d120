@@ -7,7 +7,8 @@ $script:UxHelpCatalogue = @{}
 $script:UxShellInitialized = $false
 $script:UxNavCollapsed = $false
 $script:UxNavLayoutSignature = ''
-$script:UxHelpVisible = $true
+# UI-11: closed at start; the saved choice is read by Initialize-DomeniaUxShell.
+$script:UxHelpVisible = $false
 $script:UxHelpCompactOpen = $false
 $script:UxLayoutSignature = ''
 $script:UxLogCollapsed = $false
@@ -20,6 +21,10 @@ $script:UxShortLogHeld = $false
 $script:UxShortLogReleased = $false
 $script:UxShortNavFold = $false
 $script:UxShortNavReleased = $false
+# FO-22: high contrast state of the painted palette, its system colours, and the WPF handler that follows a change of it.
+$script:DomeniaPaintedHighContrast = $false
+$script:DomeniaPaintedSystemColors = ''
+$script:DomeniaHighContrastHandler = $null
 
 function Import-DomeniaUxHelpCatalogue {
     if ($script:UxHelpCatalogue.Count -gt 0) { return }
@@ -75,6 +80,28 @@ function Show-DomeniaUxControlHelp {
     } catch { }
 }
 
+function Get-DomeniaUxHelpRole {
+    # UI-10: role of a control for its help (Get-DomeniaHelpPresentation). A container is a page host, a grid, a tree,
+    # a list view, a layout panel, a border around such a panel or a read-only multi-line text (journal, report).
+    param($Control)
+    if ($null -eq $Control) { return 'Control' }
+    foreach ($type in @([Windows.Controls.TabControl],[Windows.Controls.DataGrid],[Windows.Controls.TreeView],[Windows.Controls.ListView],[Windows.Controls.ScrollViewer],[Windows.Controls.Panel])) {
+        if ($Control -is $type) { return 'Container' }
+    }
+    if (($Control -is [Windows.Controls.Border]) -and ($Control.Child -is [Windows.Controls.Panel])) { return 'Container' }
+    if (($Control -is [Windows.Controls.TextBox]) -and ([bool]$Control.IsReadOnly) -and ([bool]$Control.AcceptsReturn)) { return 'Container' }
+    if (($Control -is [Windows.Controls.Button]) -and (-not ($Control.Content -is [string]))) { return 'IconButton' }
+    return 'Control'
+}
+
+function Set-DomeniaUxCatalogueToolTip {
+    # PF-24: tool tip of a catalogued control from Domenia-UX.help.json only, shown as its role allows (UI-10).
+    param($Control,$Entry)
+    $presentation = Get-DomeniaHelpPresentation -Text ([string]$Entry.Text) -Role (Get-DomeniaUxHelpRole -Control $Control)
+    if ($presentation.ToolTip) { $Control.ToolTip = [string]$presentation.ToolTip } else { $Control.ClearValue([Windows.FrameworkElement]::ToolTipProperty) }
+    return $presentation
+}
+
 function Initialize-DomeniaUxControlHelp {
     param($Control)
     if ($null -eq $Control -or $Control -isnot [Windows.FrameworkElement]) { return }
@@ -83,21 +110,25 @@ function Initialize-DomeniaUxControlHelp {
     if (-not $script:UxHelpCatalogue.ContainsKey($name)) { return }
     if ($Control.Resources.Contains('Domenia.UxHelpAttached')) { return }
     $entry = $script:UxHelpCatalogue[$name]
-    $Control.ToolTip = [string]$entry.Text
+    # PF-24: the main XAML carries no ToolTip, HelpText nor ShowOnDisabled for a catalogued control; they are set here.
+    $presentation = Set-DomeniaUxCatalogueToolTip -Control $Control -Entry $entry
     [Windows.Controls.ToolTipService]::SetShowOnDisabled($Control,$true)
     [Windows.Controls.ToolTipService]::SetInitialShowDelay($Control,350)
     [Windows.Controls.ToolTipService]::SetBetweenShowDelay($Control,100)
     [Windows.Controls.ToolTipService]::SetShowDuration($Control,20000)
     [Windows.Automation.AutomationProperties]::SetName($Control,[string]$entry.Title)
-    [Windows.Automation.AutomationProperties]::SetHelpText($Control,[string]$entry.Text)
+    [Windows.Automation.AutomationProperties]::SetHelpText($Control,[string]$presentation.HelpText)
     $Control.Resources['Domenia.UxHelpAttached'] = $true
-    $Control.Add_MouseEnter({param($sender,$eventArgs) Show-DomeniaUxControlHelp -Control $sender})
+    # UI-10: hovering a container (a page, a grid, a journal) does not rewrite the help panel; its keyboard focus does.
+    if ([bool]$presentation.HoverHelp) {
+        $Control.Add_MouseEnter({param($sender,$eventArgs) Show-DomeniaUxControlHelp -Control $sender})
+        $Control.Add_ToolTipOpening({param($sender,$eventArgs) Show-DomeniaUxControlHelp -Control $sender})
+    }
     $Control.Add_GotKeyboardFocus({
         param($sender,$eventArgs)
         # A routed child focus must not let a parent overwrite the specific help.
         if ($sender -eq $eventArgs.OriginalSource) { Show-DomeniaUxControlHelp -Control $sender }
     })
-    $Control.Add_ToolTipOpening({param($sender,$eventArgs) Show-DomeniaUxControlHelp -Control $sender})
 }
 
 function Initialize-DomeniaUxWindowHelp {
@@ -116,7 +147,7 @@ function Restore-DomeniaUxBaseToolTip {
     param([string]$Name)
     if ($null -eq $script:UxHelpCatalogue -or -not $script:UxHelpCatalogue.ContainsKey($Name)) { return }
     $control = Get-DomeniaControl -Name $Name
-    if ($null -ne $control) { $control.ToolTip = [string]$script:UxHelpCatalogue[$Name].Text }
+    if ($null -ne $control) { [void](Set-DomeniaUxCatalogueToolTip -Control $control -Entry $script:UxHelpCatalogue[$Name]) }
 }
 
 function Get-DomeniaUxRouteNames {
@@ -190,6 +221,7 @@ function Sync-DomeniaUxNavigation {
     Update-DomeniaUxSessionBadge
     Update-DomeniaUxEmptyStates
     Update-DomeniaUxAccountFooter
+    Update-DomeniaUxHelpGuide
     $selectionLabel = Get-DomeniaControl 'LblUxSelected'
     if ($null -ne $selectionLabel) {
         $selectionLabel.Text = 'Aucune sélection'
@@ -654,8 +686,9 @@ function Update-DomeniaUxLayout {
     $workspaces=Get-DomeniaControl 'WorkspaceTabs'
     if($null -ne $workspaces){$workspaces.Margin=[Windows.Thickness]::new(0,0,[double]$plan.WorkspaceGap,0)}
     if ($null -ne $button) {
-        $button.ToolTip = if ($plan.HelpShown) { 'Réduire le panneau d''aide. Les infobulles restent disponibles.' } else { 'Afficher le panneau d''aide contextuelle.' }
-        [Windows.Automation.AutomationProperties]::SetName($button,$button.ToolTip)
+        # PF-24 / UI-10: an icon button keeps a one-line tool tip; the whole catalogue text stays its help text.
+        $button.ToolTip = if ($plan.HelpShown) { 'Réduire le panneau dʼaide.' } else { 'Afficher le panneau dʼaide.' }
+        [Windows.Automation.AutomationProperties]::SetName($button,$(if ($plan.HelpShown) { 'Réduire lʼaide' } else { 'Afficher lʼaide' }))
     }
     Set-DomeniaUxShortLayout -Plan $heightPlan
 }
@@ -665,7 +698,10 @@ function Switch-DomeniaUxHelp {
     if ([bool]$script:UxShortScreen) {
         # Short screen: the help opens for this session only; the saved choice is untouched.
         $script:UxShortHelpOpen = -not [bool]$script:UxShortHelpOpen
+        $opened = [bool]$script:UxShortHelpOpen
         Update-DomeniaUxLayout
+        # UI-11: opening the help removes the dot of the first launch here too.
+        if ($opened) { Hide-DomeniaUxHelpBadge }
         return
     }
     $width=[double](Get-DomeniaUxAvailableSize).Width
@@ -674,7 +710,81 @@ function Switch-DomeniaUxHelp {
     $script:UxHelpVisible=-not $plan.HelpShown
     $script:UxHelpCompactOpen=$script:UxHelpVisible
     Update-DomeniaUxLayout
+    Hide-DomeniaUxHelpBadge
     Save-DomeniaUxLayoutSettings
+}
+
+function Initialize-DomeniaUxHelpBadge {
+    # UI-11: at the first launch, while the help is closed, a dot on « ? » shows where the explanations are. The launch
+    # marks it as seen in memory; the preferences saved during the session or at closing keep it.
+    $seen = ConvertTo-DomeniaUxFlag (Get-DomeniaSetting -Name 'UxHelpIntroSeen' -Default $false)
+    $state = Get-DomeniaHelpBadgeState -IntroSeen $seen -HelpShown ([bool]$script:UxHelpVisible)
+    Set-DomeniaUxHelpBadge -Show ([bool]$state.Show) -ItemStatus ([string]$state.ItemStatus)
+    if ([bool]$state.MarkSeen) { Set-DomeniaSetting -Name 'UxHelpIntroSeen' -Value $true }
+}
+
+function Set-DomeniaUxHelpBadge {
+    param([bool]$Show=$false,[AllowEmptyString()][string]$ItemStatus='')
+    $badge = Get-DomeniaControl 'UxHelpBadge'
+    if ($null -ne $badge) { $badge.Visibility = if ($Show) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed } }
+    $button = Get-DomeniaControl 'BtnUxHelpToggle'
+    if ($null -ne $button) { [Windows.Automation.AutomationProperties]::SetItemStatus($button,$ItemStatus) }
+}
+
+function Hide-DomeniaUxHelpBadge {
+    # UI-11: opening the help once is enough; the dot does not come back.
+    Set-DomeniaUxHelpBadge -Show $false
+    Set-DomeniaSetting -Name 'UxHelpIntroSeen' -Value $true
+}
+
+function Get-DomeniaUxHelpGuidePage {
+    # UI-11: page whose guide chapter the help names. The query workshop is a tab of Outils (ApplicationToolTabs) with
+    # its own chapter; the other tools keep the chapter of Outils.
+    $page = ''
+    try { $page = [string](Get-DomeniaControl 'WorkspaceTabs').SelectedItem.Name } catch { $page = '' }
+    if ($page -eq 'TabApplicationTools') {
+        $tool = ''
+        try { $tool = [string](Get-DomeniaControl 'ApplicationToolTabs').SelectedItem.Name } catch { $tool = '' }
+        if ($tool -eq 'WsQueryWorkshop') { return $tool }
+    }
+    return $page
+}
+
+function Update-DomeniaUxHelpGuide {
+    # UI-11: chapter of the guide for the page shown (no file access here; the PDF is looked up on the click).
+    $label = Get-DomeniaControl 'LblUxHelpGuide'
+    if ($null -eq $label) { return }
+    $label.Text = [string](Get-DomeniaHelpGuideChapter -Page (Get-DomeniaUxHelpGuidePage)).Text
+}
+
+function Open-DomeniaHelpGuide {
+    # UI-11, explicit gesture: opens the PDF of the guide of the page with the program associated with PDF files. The file
+    # is looked up in the folder DOC beside Domenia (the package, its parent or the delivery folder); nothing is read on
+    # the network and nothing is downloaded. Without the file, the help says where to place it.
+    $chapter = Get-DomeniaHelpGuideChapter -Page (Get-DomeniaUxHelpGuidePage)
+    $root = [string]$script:RootDir
+    $candidates = New-Object 'System.Collections.Generic.List[string]'
+    if ($root) {
+        $candidates.Add((Join-Path $root ('DOC\' + $chapter.File)))
+        $parent = Split-Path -Parent $root
+        if ($parent) {
+            $candidates.Add((Join-Path $parent ('DOC\' + $chapter.File)))
+            $grand = Split-Path -Parent $parent
+            if ($grand) { $candidates.Add((Join-Path $grand ('DOC\' + $chapter.File))) }
+        }
+    }
+    $path = ''
+    foreach ($candidate in $candidates) { if ([IO.File]::Exists($candidate)) { $path = $candidate; break } }
+    if (-not $path) {
+        Set-DomeniaContextHint -Title ([string]$chapter.GuideTitle + ' introuvable') -Text ('Placez ' + [string]$chapter.File + ' dans un dossier DOC à côté de Domenia, puis réessayez. En attendant : ' + [string]$chapter.Text + '.')
+        return
+    }
+    try {
+        Start-Process -FilePath $path
+        Set-DomeniaContextHint -Title ([string]$chapter.GuideTitle) -Text ('Le guide sʼouvre. Chapitre de cette page : ' + [string]$chapter.Chapter + ', ' + [string]$chapter.Title + '.')
+    } catch {
+        Set-DomeniaContextHint -Title 'Guide non ouvert' -Text ('Aucun lecteur de PDF nʼa ouvert ' + $path + '. Le chapitre de cette page : ' + [string]$chapter.Text + '.')
+    }
 }
 
 function Switch-DomeniaUxLog {
@@ -711,7 +821,15 @@ function Initialize-DomeniaUxShell {
         param($sender,$eventArgs)
         if ($sender -eq $eventArgs.OriginalSource) { Sync-DomeniaUxNavigation }
     })
-    $script:UxHelpVisible=ConvertTo-DomeniaUxFlag (Get-DomeniaSetting -Name 'UxHelpVisible' -Default $true) -Default $true
+    # UI-11: a tool chosen inside Outils (the query workshop has its own chapter) updates the chapter of the guide.
+    $tools = Get-DomeniaControl 'ApplicationToolTabs'
+    if ($null -ne $tools) {
+        $tools.Add_SelectionChanged({
+            param($sender,$eventArgs)
+            if ($sender -eq $eventArgs.OriginalSource) { Update-DomeniaUxHelpGuide }
+        })
+    }
+    $script:UxHelpVisible=ConvertTo-DomeniaUxFlag (Get-DomeniaSetting -Name 'UxHelpVisible' -Default $false) -Default $false
     $script:UxHelpCompactOpen=ConvertTo-DomeniaUxFlag (Get-DomeniaSetting -Name 'UxHelpCompactOpen' -Default $false)
     $script:UxNavCollapsed=ConvertTo-DomeniaUxFlag (Get-DomeniaSetting -Name 'UxNavCollapsed' -Default $false)
     $script:UxNavLayoutSignature=''
@@ -719,11 +837,22 @@ function Initialize-DomeniaUxShell {
     $script:Window.Add_SizeChanged({Update-DomeniaUxLayout})
     $script:Window.Add_ContentRendered({Sync-DomeniaUxNavigation;Update-DomeniaUxLayout})
     $script:Window.Add_Closed({$script:UxShellInitialized=$false;$script:UxLayoutSignature='';$script:UxHelpCompactOpen=$false;$script:UxNavLayoutSignature='';$script:UxShortScreen=$false;$script:UxShortHelpOpen=$false;$script:UxShortLogHeld=$false;$script:UxShortLogReleased=$false;$script:UxShortNavFold=$false;$script:UxShortNavReleased=$false;$script:UxNavButtonCache=$null;Stop-DomeniaReadOnlyReturnTimer})
+    # UI-11: dot of the first launch on « ? » and the chapter of the guide of the page.
+    $guide = Get-DomeniaControl 'BtnUxHelpGuide';if ($null -ne $guide) { $guide.Add_Click({ Open-DomeniaHelpGuide }) }
+    Initialize-DomeniaUxHelpBadge
     # L08: subject chip, account of the menu foot, search bar (recent entries, local suggestions) and empty pages.
     $clear = Get-DomeniaControl 'BtnUxSubjectClear';if ($null -ne $clear) { $clear.Add_Click({ Clear-DomeniaUxSubject }) }
     $account = Get-DomeniaControl 'BtnUxNavAccount';if ($null -ne $account) { $account.Add_Click({ param($sender,$eventArgs) Show-DomeniaUxAccountMenu -Button $sender }) }
     Initialize-DomeniaUxSearchBar
     Initialize-DomeniaUxEmptyStates
+    # FO-22: theme menu, and the Automatique choice or high contrast followed on the UI thread only.
+    Initialize-DomeniaUxThemeMenu
+    $script:Window.Add_Activated({Update-DomeniaAutoTheme})
+    if ($null -eq $script:DomeniaHighContrastHandler) {
+        $script:DomeniaHighContrastHandler=[ComponentModel.PropertyChangedEventHandler]{param($sender,$eventArgs) if([string]$eventArgs.PropertyName -eq 'HighContrast'){Update-DomeniaAutoTheme}}
+        [Windows.SystemParameters]::add_StaticPropertyChanged($script:DomeniaHighContrastHandler)
+        $script:Window.Add_Closed({if($null -ne $script:DomeniaHighContrastHandler){[Windows.SystemParameters]::remove_StaticPropertyChanged($script:DomeniaHighContrastHandler);$script:DomeniaHighContrastHandler=$null}})
+    }
     $script:UxShellInitialized=$true
     Initialize-DomeniaExperience
     Update-DomeniaUxProfileSwitch
@@ -734,12 +863,44 @@ function Initialize-DomeniaUxShell {
     Update-DomeniaUxLayout
 }
 
+function Get-DomeniaSystemColorTable {
+    # FO-22: colours of the current Windows theme (high contrast included), as '#RRGGBB', by system role.
+    $table=[ordered]@{}
+    foreach ($name in @('Window','WindowText','Control','ControlText','Highlight','HighlightText','HotTrack','GrayText')) {
+        $color=[Windows.SystemColors]::($name + 'Color')
+        $table[$name]=('#{0:X2}{1:X2}{2:X2}' -f $color.R,$color.G,$color.B)
+    }
+    return $table
+}
+
+function Get-DomeniaSystemColorSignature {
+    # FO-22: one text for the system colours of a high contrast theme, compared by Update-DomeniaAutoTheme.
+    param($Table)
+    if ($null -eq $Table) { $Table = Get-DomeniaSystemColorTable }
+    return (@(foreach ($name in @($Table.Keys)) { [string]$name + '=' + [string]$Table[$name] }) -join ';')
+}
+
 function Set-DomeniaUxPalette {
     param($Window,[ValidateSet('Light','Dark')][string]$Theme='Light')
     if ($null -eq $Window) { return }
     $palette=Get-SuitePalette -Theme $Theme
+    # FO-22: a Windows high contrast theme replaces every token by a system colour (Get-DomeniaHighContrastRoles).
+    $highContrast=$false
+    try { $highContrast=[bool][Windows.SystemParameters]::HighContrast } catch { $highContrast=$false }
+    # The system colours painted are kept as a signature: moving from one high contrast theme to another (Noir to
+    # Blanc) leaves HighContrast true and must still repaint (Update-DomeniaAutoTheme).
+    $systemColors=''
+    if ($highContrast) {
+        $system=Get-DomeniaSystemColorTable
+        $palette=ConvertTo-DomeniaHighContrastPalette -Palette $palette -SystemColors $system
+        $systemColors=Get-DomeniaSystemColorSignature -Table $system
+    }
+    $script:DomeniaPaintedHighContrast=$highContrast
+    $script:DomeniaPaintedSystemColors=$systemColors
     $converter=[Windows.Media.BrushConverter]::new()
     foreach ($key in $palette.Keys) { $Window.Resources[$key]=$converter.ConvertFromInvariantString([string]$palette[$key]) }
+    # CD-05: colours drawn by code (charts, presence) read this painted palette through Get-DomeniaThemeColor.
+    $script:DomeniaPaintedPalette=$palette
     $Window.Background=$Window.Resources['WindowBg'];$Window.Foreground=$Window.Resources['TextColor']
     # Native popup/control brushes in the same window scope, not a system-wide change.
     $Window.Resources[[Windows.SystemColors]::WindowBrushKey]=$Window.Resources['BgInput']
@@ -753,6 +914,29 @@ function Set-DomeniaUxPalette {
         elseif ($tuple[1] -eq 'BorderBrush') { $element.BorderBrush=$Window.Resources[[string]$tuple[2]] }
         else { $element.Background=$Window.Resources[[string]$tuple[2]] }
     }
+}
+
+function Set-DomeniaWindowFrameTheme {
+    # DS-18: the Windows title bar of a Domenia window follows its theme (DWM, Domenia-Identity.Types.cs). Before the
+    # window owns a handle, the theme is kept and applied once the handle exists (SourceInitialized, once per window).
+    # Returns $true when Windows accepted the colour now; never throws (an older Windows keeps its title bar).
+    param($Window,[AllowEmptyString()][string]$Theme='')
+    if (($null -eq $Window) -or ($Window -isnot [Windows.Window])) { return $false }
+    if ($Theme -notin @('Light','Dark')) { $Theme = [string](Get-Variable -Name BootTheme -Scope Script -ValueOnly -ErrorAction SilentlyContinue) }
+    if ($Theme -ne 'Dark') { $Theme = 'Light' }
+    if ($null -eq ('Domenia.WindowFrame' -as [type])) { return $false }
+    try {
+        $Window.Resources['Domenia.FrameTheme'] = $Theme
+        $handle = [Windows.Interop.WindowInteropHelper]::new($Window).Handle
+        if ($handle -eq [IntPtr]::Zero) {
+            if (-not $Window.Resources.Contains('Domenia.FrameHooked')) {
+                $Window.Resources['Domenia.FrameHooked'] = $true
+                $Window.Add_SourceInitialized({ param($sender,$eventArgs) [void](Set-DomeniaWindowFrameTheme -Window $sender -Theme ([string]$sender.Resources['Domenia.FrameTheme'])) })
+            }
+            return $false
+        }
+        return [bool][Domenia.WindowFrame]::SetDarkTitleBar($handle,($Theme -eq 'Dark'))
+    } catch { return $false }
 }
 
 function ConvertTo-DomeniaUxFlag {
@@ -1151,12 +1335,49 @@ function Invoke-DomeniaJournalShortcut {
     if (($null -ne $list) -and $list.IsVisible) { [void]$list.Focus() }
 }
 
+function Initialize-DomeniaUxThemeMenu {
+    # FO-22: right click (or the menu key) on the theme button offers Clair, Sombre and Automatique (follow Windows).
+    # A choice is saved like the click on the button; nothing else changes.
+    $button = Get-DomeniaControl 'BtnThemeToggle'
+    if (($null -eq $button) -or ($null -ne $button.ContextMenu)) { return }
+    $menu = New-Object Windows.Controls.ContextMenu
+    foreach ($choice in @(Get-DomeniaThemeChoices)) {
+        $item = New-Object Windows.Controls.MenuItem
+        $item.Header = [string]$choice.Label
+        $item.Tag = [string]$choice.Value
+        $item.IsCheckable = $true
+        $item.Add_Click({ param($sender,$eventArgs) Set-DomeniaThemePreference -Preference ([string]$sender.Tag) })
+        [void]$menu.Items.Add($item)
+    }
+    $menu.Add_Opened({ param($sender,$eventArgs) foreach ($entry in @($sender.Items)) { $entry.IsChecked = ([string]$entry.Tag -eq [string]$script:ThemePreference) } })
+    $menu.PlacementTarget = $button
+    $menu.Placement = [Windows.Controls.Primitives.PlacementMode]::Bottom
+    $button.ContextMenu = $menu
+}
+
+function Update-DomeniaAutoTheme {
+    # FO-22: on the return to Domenia (window activated) and when Windows switches high contrast, the Automatique
+    # choice follows the Windows choice again and the palette follows high contrast. One registry value is read, no
+    # preference is written. The UI thread only: Activated and SystemParameters.StaticPropertyChanged are raised there.
+    if ($null -eq $script:Window) { return }
+    $theme = [string]$script:CurrentTheme
+    if ([string]$script:ThemePreference -eq 'Auto') { $theme = [string](Resolve-DomeniaEffectiveTheme -Preference 'Auto' -WindowsTheme (Get-DomeniaWindowsAppTheme)).Theme }
+    $highContrast = $false
+    try { $highContrast = [bool][Windows.SystemParameters]::HighContrast } catch { $highContrast = $false }
+    # A change of high contrast theme (Noir to Blanc) keeps HighContrast true: its system colours tell it apart.
+    $systemColors = ''
+    if ($highContrast) { try { $systemColors = Get-DomeniaSystemColorSignature } catch { $systemColors = '' } }
+    if (($theme -eq [string]$script:CurrentTheme) -and ($highContrast -eq [bool]$script:DomeniaPaintedHighContrast) -and ($systemColors -ceq [string]$script:DomeniaPaintedSystemColors)) { return }
+    $script:BootTheme = $theme
+    Apply-DomeniaTheme -Theme $theme
+}
+
 function Update-DomeniaUxThemeToggle {
     # DS-10: name and tool tip of the theme button give the theme it switches to (the help catalogue sets a neutral
     # title at start-up; this restores the precise name).
     $button = Get-DomeniaControl 'BtnThemeToggle'
     if ($null -eq $button) { return }
-    $icon = Get-DomeniaThemeToggleIcon -CurrentTheme ([string]$script:CurrentTheme)
+    $icon = Get-DomeniaThemeToggleIcon -CurrentTheme ([string]$script:CurrentTheme) -Preference ([string]$script:ThemePreference)
     $button.ToolTip = [string]$icon.ToolTip
     [Windows.Automation.AutomationProperties]::SetName($button,[string]$icon.Name)
     $sun = Get-DomeniaControl 'ThemeIconSun';$moon = Get-DomeniaControl 'ThemeIconMoon'

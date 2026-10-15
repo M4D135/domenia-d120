@@ -1111,7 +1111,14 @@ function Get-DomeniaSuiteContrastPairs {
         @('Statut erreur','StatusError','BgCard','Text'),@('Statut attention','StatusWarning','BgCard','Text'),@('Statut confirme','StatusSuccess','BgCard','Text')
         @('Ligne selectionnee','RowSelFg','RowSelBg','Text'),@('Bouton','BtnFg','BtnBg','Text'),@('Journal','LogFg','LogBg','Text'),@('Privilege','PrivilegeFg','BgCard','Text')
         @('Ligne alternee','TextColor','DataGridAlt','Text'),@('En-tete de grille','TextColor','HeaderBg','Text'),@('Menu lateral','TextColor','UxSidebar','Text'),@('Menu lateral secondaire','MutedColor','UxSidebar','Text')
-        @('Tuile','TextColor','TileBg','Text'),@('Bordure de saisie','MutedColor','BorderColor','Graphic'),@('Bouton principal','#FFFFFF','AccentColor','Text')
+        @('Tuile','TextColor','TileBg','Text'),@('Bordure de saisie','MutedColor','BorderColor','Graphic'),@('Bouton principal','OnAccent','AccentColor','Text')
+        # CD-05, DS-11: filled buttons and their hover, the disabled button, tool tips and the status pills of the grids.
+        @('Bouton principal survole','OnAccent','AccentHover','Text'),@('Bouton danger','OnAccent','DangerColor','Text'),@('Bouton danger survole','OnAccent','DangerHover','Text')
+        @('Bouton desactive','MutedColor','BgReadonly','Text'),@('Bouton survole','BtnFg','RowHoverBg','Text'),@('Infobulle','TooltipFg','TooltipBg','Text')
+        @('Barre de defilement','ScrollThumb','WindowBg','Graphic'),@('Barre de defilement survolee','ScrollThumbHover','BgCard','Graphic')
+        @('Pastille neutre','PillNeutralFg','PillNeutralBg','Text'),@('Pastille bleue','PillBlueFg','PillBlueBg','Text'),@('Pastille verte','PillGreenFg','PillGreenBg','Text')
+        @('Pastille ambre','PillAmberFg','PillAmberBg','Text'),@('Pastille orange','PillOrangeFg','PillOrangeBg','Text'),@('Pastille rouge','PillRedFg','PillRedBg','Text')
+        @('Pastille ciel','PillSkyFg','PillSkyBg','Text'),@('Puce cochee','TextColor','PillBlueBg','Text'),@('Texte neutre sur pastille verte','PillNeutralFg','PillGreenBg','Text')
     )
     foreach ($pair in $pairs) { [pscustomobject]@{Name=$pair[0];Foreground=$pair[1];Background=$pair[2];Kind=$pair[3]} }
 }
@@ -1270,13 +1277,78 @@ function Get-DomeniaReadOnlyReturnPlan {
 function Get-DomeniaThemeToggleIcon {
     # DS-10: one convention for the main window and the login, the icon of the theme the button switches TO
     # (sun while dark, moon while light), drawn as a Path with the stroke of the menu icons.
-    param([AllowEmptyString()][AllowNull()][string]$CurrentTheme='Light')
+    # FO-22: -Preference Auto says that the theme follows Windows; a click still fixes the other theme, the right click
+    # offers Clair, Sombre or Automatique. One line of tool tip for this icon button (UI-10).
+    param([AllowEmptyString()][AllowNull()][string]$CurrentTheme='Light',[AllowEmptyString()][AllowNull()][string]$Preference='')
     $sun = 'M16,12 A4,4 0 1 1 8,12 A4,4 0 1 1 16,12 M12,2 L12,4 M12,20 L12,22 M2,12 L4,12 M20,12 L22,12 M4.9,4.9 L6.3,6.3 M17.7,17.7 L19.1,19.1 M4.9,19.1 L6.3,17.7 M17.7,6.3 L19.1,4.9'
     $moon = 'M20,14.5 A8,8 0 1 1 9.5,4 A6.5,6.5 0 0 0 20,14.5 Z'
+    $auto = (([string]$Preference).Trim() -ieq 'Auto')
     if (([string]$CurrentTheme).Trim() -ieq 'Dark') {
-        return [pscustomobject]@{Current='Dark';Target='Light';Glyph='Sun';Data=$sun;SunData=$sun;MoonData=$moon;Name='Passer au thème clair';ToolTip='Passer au thème clair. Le choix est enregistré pour Domenia.'}
+        $tip = if ($auto) { 'Thème automatique, sombre comme Windows. Clic : thème clair ; clic droit : choisir.' } else { 'Passer au thème clair. Clic droit : Clair, Sombre ou Automatique.' }
+        return [pscustomobject]@{Current='Dark';Target='Light';Glyph='Sun';Data=$sun;SunData=$sun;MoonData=$moon;Name='Passer au thème clair';ToolTip=$tip;Auto=$auto}
     }
-    return [pscustomobject]@{Current='Light';Target='Dark';Glyph='Moon';Data=$moon;SunData=$sun;MoonData=$moon;Name='Passer au thème sombre';ToolTip='Passer au thème sombre. Le choix est enregistré pour Domenia.'}
+    $tip = if ($auto) { 'Thème automatique, clair comme Windows. Clic : thème sombre ; clic droit : choisir.' } else { 'Passer au thème sombre. Clic droit : Clair, Sombre ou Automatique.' }
+    return [pscustomobject]@{Current='Light';Target='Dark';Glyph='Moon';Data=$moon;SunData=$sun;MoonData=$moon;Name='Passer au thème sombre';ToolTip=$tip;Auto=$auto}
+}
+
+function Get-DomeniaHelpPresentation {
+    # PF-24 / UI-10: how the catalogued help of a control (Domenia-UX.help.json, the only source) is shown.
+    #   Container   a page host, a grid, a tree, a panel, a read-only journal: no tool tip, WPF would raise it over the
+    #               whole surface; the text stays the help text of screen readers and the keyboard help of the panel.
+    #   IconButton  a button without a text label: its first sentence only, on one line.
+    #   Control     the whole text.
+    # The help text (AutomationProperties.HelpText and the help panel) is always the whole catalogue text.
+    param([AllowEmptyString()][AllowNull()][string]$Text='',[ValidateSet('Control','Container','IconButton')][string]$Role='Control')
+    $full = ([string]$Text).Trim()
+    $tip = $full
+    if ($Role -eq 'Container') { $tip = '' }
+    elseif ($Role -eq 'IconButton') {
+        $cut = -1
+        foreach ($mark in @('. ',' ; ','? ','! ')) {
+            $at = $full.IndexOf($mark,[StringComparison]::Ordinal)
+            if (($at -gt 0) -and (($cut -lt 0) -or ($at -lt $cut))) { $cut = $at }
+        }
+        if ($cut -gt 0) {
+            $tip = $full.Substring(0,$cut).TrimEnd()
+            if ($tip -notmatch '[.?!]$') { $tip += '.' }
+        }
+    }
+    return [pscustomobject]@{ToolTip=$tip;HelpText=$full;HoverHelp=($Role -ne 'Container');Role=$Role}
+}
+
+function Get-DomeniaHelpGuideChapter {
+    # UI-11: the chapter of the user guides (guides/technicien.md, guides/administrateur.md, delivered as PDF in DOC)
+    # that describes a page of the menu. An unknown page points to « Repères », the map of the window.
+    param([AllowEmptyString()][AllowNull()][string]$Page='')
+    $chapters = @{
+        TabDashboard=@('technicien',5,'Voir et explorer le parc depuis Accueil')
+        WsQueryWorkshop=@('administrateur',8,'Tableau de bord et Atelier de requêtes')
+        WsSearch=@('technicien',1,'Trouver une personne ou un poste')
+        TabDirectory=@('technicien',1,'Trouver une personne ou un poste')
+        WsObject=@('administrateur',4,'Fiches des objets')
+        WsComputer=@('technicien',2,'Ouvrir la fiche du poste et agir dessus')
+        TabRelations=@('administrateur',12,'Relations utilisateur et poste')
+        TabAccounts=@('administrateur',13,'Comptes et droits')
+        TabApplicationTools=@('administrateur',17,'Réglages et configuration')
+        TabSupport=@('technicien',8,'En cas de problème')
+    }
+    $key = ([string]$Page).Trim()
+    $entry = @('technicien',9,'Repères')
+    if ($chapters.ContainsKey($key)) { $entry = $chapters[$key] }
+    $guide = [string]$entry[0]
+    $title = if ($guide -eq 'administrateur') { 'Guide de lʼadministrateur' } else { 'Guide du technicien' }
+    return [pscustomobject]@{
+        Page=$key;Guide=$guide;GuideTitle=$title;Chapter=[int]$entry[1];Title=[string]$entry[2]
+        File=('Domenia-1.0-Guide-' + $guide + '.pdf')
+        Text=($title + ', chapitre ' + [string]$entry[1] + ' : ' + [string]$entry[2])
+    }
+}
+
+function Get-DomeniaHelpBadgeState {
+    # UI-11: the dot on « ? » shows at the first launch only, while the help panel is closed; that launch marks it as
+    # seen (saved with the other preferences), and opening the help removes it at once.
+    param([bool]$IntroSeen=$false,[bool]$HelpShown=$false)
+    return [pscustomobject]@{Show=((-not $IntroSeen) -and (-not $HelpShown));MarkSeen=(-not $IntroSeen);ItemStatus=$(if ((-not $IntroSeen) -and (-not $HelpShown)) { 'Nouveau : aide disponible' } else { '' })}
 }
 
 function Get-DomeniaSessionBadge {

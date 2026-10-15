@@ -1,13 +1,13 @@
 {
  "Schema": "DomeniaSwallowedBaseline/1",
  "Source": "reference initiale",
- "Total": 1322,
+ "Total": 1321,
  "Kinds": {
-  "empty": 1321,
+  "empty": 1320,
   "null": 1
  },
  "Places": {
-  "code": 1079,
+  "code": 1078,
   "here-string": 243
  },
  "Findings": {
@@ -224,7 +224,6 @@
   "Get-DomeniaStorageRetentionWorkerCode [here-string]": 1,
   "Get-DomeniaStorageUsageWorkerCode [here-string]": 3,
   "Get-DomeniaStorageWorkerCode [here-string]": 4,
-  "Get-DomeniaStoredTheme": 1,
   "Get-DomeniaTreeRenderRows": 1,
   "Get-DomeniaUxControlHelpText": 1,
   "Get-DomeniaUxHelpEntry": 1,

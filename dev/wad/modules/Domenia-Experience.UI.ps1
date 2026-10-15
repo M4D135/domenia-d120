@@ -689,6 +689,8 @@ function Switch-DomeniaExperienceLoginTheme {
         }
     }
     Update-DomeniaExperienceLoginThemeIcon -Window $Window -Theme $theme
+    # DS-18: the title bar of the login follows the theme it switches to.
+    if($null -ne (Get-Command Set-DomeniaWindowFrameTheme -ErrorAction SilentlyContinue)){[void](Set-DomeniaWindowFrameTheme -Window $Window -Theme $theme)}
 }
 
 function Update-DomeniaExperienceLoginThemeIcon {

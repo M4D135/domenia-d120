@@ -580,6 +580,9 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaStatusGlyph',
             'Get-DomeniaReadOnlyReturnPlan',
             'Get-DomeniaThemeToggleIcon',
+            'Get-DomeniaHelpPresentation',
+            'Get-DomeniaHelpGuideChapter',
+            'Get-DomeniaHelpBadgeState',
             'Get-DomeniaSessionBadge',
             'ConvertFrom-DomeniaRecentJson',
             'Add-DomeniaRecentEntry',
@@ -940,6 +943,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaUxHelpEntry',
             'Get-DomeniaUxControlHelpText',
             'Show-DomeniaUxControlHelp',
+            'Get-DomeniaUxHelpRole',
+            'Set-DomeniaUxCatalogueToolTip',
             'Initialize-DomeniaUxControlHelp',
             'Initialize-DomeniaUxWindowHelp',
             'Restore-DomeniaUxBaseToolTip',
@@ -954,9 +959,18 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaUxAvailableSize',
             'Update-DomeniaUxLayout',
             'Switch-DomeniaUxHelp',
+            'Initialize-DomeniaUxHelpBadge',
+            'Set-DomeniaUxHelpBadge',
+            'Hide-DomeniaUxHelpBadge',
+            'Get-DomeniaUxHelpGuidePage',
+            'Update-DomeniaUxHelpGuide',
+            'Open-DomeniaHelpGuide',
             'Switch-DomeniaUxLog',
             'Initialize-DomeniaUxShell',
+            'Get-DomeniaSystemColorTable',
+            'Get-DomeniaSystemColorSignature',
             'Set-DomeniaUxPalette',
+            'Set-DomeniaWindowFrameTheme',
             'ConvertTo-DomeniaUxFlag',
             'Get-DomeniaUxLayoutPlan',
             'Save-DomeniaUxLayoutSettings',
@@ -979,6 +993,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Clear-DomeniaUxSubject',
             'Update-DomeniaUxProfileSwitch',
             'Invoke-DomeniaJournalShortcut',
+            'Initialize-DomeniaUxThemeMenu',
+            'Update-DomeniaAutoTheme',
             'Update-DomeniaUxThemeToggle',
             'Set-DomeniaUxHeaderLayout',
             'Get-DomeniaUxRecentEntries',
@@ -1025,6 +1041,15 @@ function Get-DomeniaRuntimeModulePlan {
             'ConvertTo-DomeniaExperienceSettings',
             'Get-SuiteDesign',
             'Get-SuitePalette',
+            'Get-DomeniaActiveThemeName',
+            'Get-DomeniaThemeColor',
+            'ConvertTo-DomeniaThemePreference',
+            'Resolve-DomeniaEffectiveTheme',
+            'Get-DomeniaThemeChoices',
+            'Get-DomeniaHighContrastRoles',
+            'ConvertTo-DomeniaHighContrastPalette',
+            'Get-DomeniaChartSeriesNames',
+            'Get-DomeniaChartSeries',
             'Test-DomeniaExperienceRow',
             'Get-DomeniaFilteredEmptyState',
             'Test-DomeniaExperienceCanCancel',
@@ -2363,6 +2388,7 @@ function Get-DomeniaRuntimeModulePlan {
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Charts.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaChartPalette',
+            'Get-DomeniaChartEdgePalette',
             'Get-DomeniaStateColor',
             'Get-DomeniaStateDotColor',
             'Get-DomeniaStateTextKey',
@@ -2372,7 +2398,9 @@ function Get-DomeniaRuntimeModulePlan {
             'New-DomeniaChartIcon',
             'Get-DomeniaChartTruncated',
             'Get-DomeniaChartValueText',
+            'Test-DomeniaChartItemHasColor',
             'Get-DomeniaChartItemColor',
+            'Get-DomeniaChartItemEdge',
             'Test-DomeniaMotion',
             'New-DomeniaChartEase',
             'Start-DomeniaTween',
@@ -2545,6 +2573,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaBoardRenderContext',
             'Resume-DomeniaBoardRender',
             'Show-DomeniaBoard',
+            'Update-DomeniaBoardsTheme',
             'Get-DomeniaBoardHolderList',
             'Update-DomeniaBoardFit',
             'Find-DomeniaBoardHolder',
@@ -3255,7 +3284,7 @@ function Get-DomeniaRuntimeTypePlan {
         [pscustomobject]@{ File='Domenia-Live.Types.cs'; Types=@('Domenia.Live.ResultRow','Domenia.Live.OperationRow') }
         [pscustomobject]@{ File='M4D.Admin.Common.Query.dll'; Types=@('M4D.Admin.Common.Query.QueryEngine'); SHA256='da97976108351a9e24552f18de2e02b4e5b454b438c461cb2317c427c610b391' }
         [pscustomobject]@{ File='Domenia.Native.dll'; Types=@('Domenia.Native.ObservationReader','Domenia.Native.ObservationIdentityReader','Domenia.Native.ProbeBatch'); SHA256='6e3b293fc08cae9b1660a48ebd7e2533ea2304711a169f61d329b92510530a2a' }
-        [pscustomobject]@{ File='Domenia-Identity.Types.cs'; Types=@('Domenia.SelectionIdentity','Domenia.PlanChange','Domenia.InterventionPlan') }
+        [pscustomobject]@{ File='Domenia-Identity.Types.cs'; Types=@('Domenia.SelectionIdentity','Domenia.PlanChange','Domenia.InterventionPlan','Domenia.WindowFrame') }
     )
 }
 

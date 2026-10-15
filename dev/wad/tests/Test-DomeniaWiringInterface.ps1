@@ -782,6 +782,23 @@ try{
             Expect ([string]$script:Ctrl['LblUxDomain'].Text -ceq 'Connecté à example.local') 'Badge de session'
         }
 
+        Case 'UI-11 : chapitre du guide de l Atelier de requetes, dans Outils, suivi au changement d outil' {
+            # The real Initialize-DomeniaUxShell wires WorkspaceTabs and ApplicationToolTabs; the workshop is an inner tab of
+            # Outils with its own chapter (administrator guide, chapter 8).
+            Select-DomeniaWorkspace -Workspace 'WsSearch';Pump $main
+            Expect ([string]$script:Ctrl['LblUxHelpGuide'].Text -ceq [string](Get-DomeniaHelpGuideChapter -Page 'WsSearch').Text) ('Chapitre de Rechercher : '+[string]$script:Ctrl['LblUxHelpGuide'].Text)
+            Select-DomeniaWorkspace -Workspace 'TabApplicationTools' -Inner 'ApplicationToolTabs' -Tab 'WsQueryWorkshop';Pump $main
+            Expect ([string]$script:Ctrl['ApplicationToolTabs'].SelectedItem.Name -eq 'WsQueryWorkshop') 'Atelier de requetes non affiche'
+            $workshop=[string](Get-DomeniaHelpGuideChapter -Page 'WsQueryWorkshop').Text
+            Expect (([string]$script:Ctrl['LblUxHelpGuide'].Text -ceq $workshop) -and $workshop.Contains('chapitre 8')) ('Chapitre de l Atelier : '+[string]$script:Ctrl['LblUxHelpGuide'].Text)
+            # A tool chosen inside Outils changes the inner tabs only: their own SelectionChanged updates the chapter.
+            $script:Ctrl['ApplicationToolTabs'].SelectedItem=$script:Ctrl['TabIndex'];Pump $main
+            Expect ([string]$script:Ctrl['LblUxHelpGuide'].Text -ceq [string](Get-DomeniaHelpGuideChapter -Page 'TabApplicationTools').Text) ('Chapitre apres le changement d outil : '+[string]$script:Ctrl['LblUxHelpGuide'].Text)
+            $script:Ctrl['ApplicationToolTabs'].SelectedItem=$script:Ctrl['WsQueryWorkshop'];Pump $main
+            Expect ([string]$script:Ctrl['LblUxHelpGuide'].Text -ceq $workshop) 'Retour a l Atelier non suivi par le chapitre'
+            Select-DomeniaWorkspace -Workspace 'WsSearch';Pump $main
+        }
+
         Case 'L08 : suggestions de la barre sans requete AD, Entree seule interroge l annuaire' {
             $script:L08.Tasks.Clear();$script:L08.Searches=0
             $script:UxRecentEntries=@(Add-DomeniaRecentEntry -Entries @() -Kind Recherche -Text 'dupont')
@@ -902,7 +919,10 @@ try{
             foreach($n in @('LstMemberOf','LstGroupMembers')){Expect ($null -eq $main.FindName($n)) ('Liste de DN revenue : '+$n)}
             foreach($n in @('DgMemberOf','DgGroupMembers','TxtMemberOfFilter','TxtGroupMembersFilter','BtnMemberOfNested','LblMembershipWhy')){
                 $c=$script:Ctrl[$n];Expect ($null -ne $c) ('Controle absent : '+$n)
-                Expect ([string]$c.ToolTip -ceq [string][Windows.Automation.AutomationProperties]::GetHelpText($c)) ('Infobulle et aide divergent : '+$n)
+                # PF-24 / UI-10: the help text is the catalogue text; a grid shows no tool tip, an icon button one line.
+                $helpText=[string][Windows.Automation.AutomationProperties]::GetHelpText($c)
+                $expectedTip=[string](Get-DomeniaHelpPresentation -Text $helpText -Role (Get-DomeniaUxHelpRole -Control $c)).ToolTip
+                Expect (([bool]$helpText) -and ([string]$c.ToolTip -ceq $expectedTip)) ('Infobulle et aide divergent : '+$n)
             }
             foreach($file in @('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Directory.Model.ps1','Domenia-Membership.Worker.ps1','Domenia-Membership.UI.ps1')){. (Join-Path $wad ('modules\'+$file))}
             foreach($name in @('Get-DomeniaMembershipLabel','New-DomeniaMenuItem')){. ([scriptblock]::Create(@($coreAst.FindAll({param($n)$n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true))[0].Extent.Text))}
@@ -1115,7 +1135,7 @@ try{
     $script:Tests.Add([pscustomobject]@{Name='Initialisation ou suite interrompue';Status='Failed';Detail=$_.Exception.ToString()})
 }
 
-$expected=28
+$expected=29
 $passed=@($script:Tests|Where-Object{$_.Status -eq 'Passed'}).Count
 $failed=@($script:Tests|Where-Object{$_.Status -eq 'Failed'}).Count
 $report=[ordered]@{

@@ -287,7 +287,7 @@ function Get-DomeniaComputerBoardData {
         [pscustomobject]@{ Label = 'Arrêtés (automatiques)'; Count = ($autoStopped - $autoExpected); Color = (Get-DomeniaBoardColor 'Warn') }
         [pscustomobject]@{ Label = 'Arrêtés (déclencheur ou différé)'; Count = $autoExpected; Color = (Get-DomeniaBoardColor 'Off') }
         [pscustomobject]@{ Label = 'Arrêtés (manuels)'; Count = (& $serviceCount 'Arretes (manuels)'); Color = (Get-DomeniaBoardColor 'Off') }
-        [pscustomobject]@{ Label = 'Désactivés'; Count = (& $serviceCount 'Desactives'); Color = '#E2E8F0' }
+        [pscustomobject]@{ Label = 'Désactivés'; Count = (& $serviceCount 'Desactives'); Color = (Get-DomeniaBoardColor 'Disabled') }
     )
     $serviceRing = @(foreach ($part in $serviceParts) { if ([int]$part.Count -gt 0) { [pscustomobject]@{ Label = [string]$part.Label; Value = [double]$part.Count; Color = [string]$part.Color } } })
     if ($serviceRing.Count) {

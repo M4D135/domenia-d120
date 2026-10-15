@@ -241,6 +241,28 @@ function Show-DomeniaBoard {
         if ($null -ne $target) { Invoke-DomeniaDashboardEntrance -Panel $target }
     }
 }
+function Update-DomeniaBoardsTheme {
+    # CD-05 / DS-14: a widget resolves its chart colours (series, contours, states) from the painted palette when it is
+    # drawn. After a theme change (Clair, Sombre, Automatique, high contrast) every board already drawn is drawn again
+    # from the data it holds: no entrance motion, nothing read from the directory or the network. A hidden board is
+    # drawn when it is shown again; one already waiting for that keeps its own context, so a previous OU or object is
+    # never shown. The drawing uses the grid of the current width (DS-04) and, like a new width, gives the keyboard focus
+    # back to the widget that held it (a switch to high contrast is often made from the keyboard).
+    if ($null -eq $script:DomeniaBoardStates) { return }
+    foreach ($board in @('Computer','Fleet','Software')) {
+        if (-not $script:DomeniaBoardStates.ContainsKey($board)) { continue }
+        $state = $script:DomeniaBoardStates[$board]
+        if ([bool]$state.RenderPending) { continue }
+        $panel = Get-DomeniaControl (Get-DomeniaBoardPanelName $board)
+        if (($null -eq $panel) -or ($panel.Children.Count -eq 0)) { continue }
+        $focusId = ''
+        $focused = [System.Windows.Input.Keyboard]::FocusedElement
+        if (($focused -is [System.Windows.FrameworkElement]) -and $panel.IsAncestorOf($focused) -and ($focused.Tag -is [hashtable]) -and ($focused.Tag.ContainsKey('Chrome'))) { $focusId = [string]$focused.Tag['Id'] }
+        try { Show-DomeniaBoard -Board $board -Quiet -DeferIfHidden }
+        catch { Write-AppLog ('Tableau de bord non redessiné après le changement de thème : ' + $_.Exception.Message) 'WARN'; continue }
+        if ($focusId -and (-not [bool]$state.RenderPending)) { Restore-DomeniaBoardFocus $board 'Holder' $focusId }
+    }
+}
 function Get-DomeniaBoardHolderList {
     # Every widget holder of a board (Tag with Chrome), whatever the rows and stacks that group them.
     param($Node)
@@ -709,7 +731,8 @@ function New-DomeniaWidgetVisual {
 function New-DomeniaBoardChromeButton {
     # Small round button over a widget (modify, remove).
     param([string]$Glyph,[string]$Tip,$Tag,[switch]$Danger)
-    $hover = if ($Danger) { '#F87171' } else { '#60A5FA' }
+    # CD-05: theme tokens; the white mark keeps 4.5:1 on the accent and danger fills of both themes.
+    $hover = if ($Danger) { 'DangerColor' } else { 'AccentColor' }
     $Tip = [Security.SecurityElement]::Escape($Tip)
     $xaml = @"
 <Button xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Width="26" Height="26" Margin="4,0,0,0" Cursor="Hand" ToolTip="$Tip" AutomationProperties.Name="$Tip">
@@ -720,12 +743,12 @@ function New-DomeniaBoardChromeButton {
       </Border>
       <ControlTemplate.Triggers>
         <Trigger Property="IsMouseOver" Value="True">
-          <Setter TargetName="Disc" Property="Background" Value="$hover"/>
-          <Setter TargetName="Disc" Property="BorderBrush" Value="$hover"/>
-          <Setter TargetName="Mark" Property="Foreground" Value="White"/>
+          <Setter TargetName="Disc" Property="Background" Value="{DynamicResource $hover}"/>
+          <Setter TargetName="Disc" Property="BorderBrush" Value="{DynamicResource $hover}"/>
+          <Setter TargetName="Mark" Property="Foreground" Value="{DynamicResource OnAccent}"/>
         </Trigger>
         <Trigger Property="IsKeyboardFocused" Value="True">
-          <Setter TargetName="Disc" Property="BorderBrush" Value="$hover"/>
+          <Setter TargetName="Disc" Property="BorderBrush" Value="{DynamicResource $hover}"/>
           <Setter TargetName="Disc" Property="BorderThickness" Value="2"/>
         </Trigger>
       </ControlTemplate.Triggers>
@@ -812,7 +835,7 @@ function New-DomeniaWidgetStateCard {
     $stack.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
     $stack.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Center
     if (-not $compact) {
-        $icon = New-DomeniaChartIcon ([string]$Info.Glyph) '#94A3B8' 30
+        $icon = New-DomeniaChartIcon ([string]$Info.Glyph) 'StateOffMark' 30
         $icon.Margin = [System.Windows.Thickness]::new(0, 0, 0, 8)
         [void]$stack.Children.Add($icon)
     }
@@ -949,7 +972,7 @@ function New-DomeniaBoardWidget {
     $mark.Width = 4; $mark.CornerRadius = [System.Windows.CornerRadius]::new(2)
     $mark.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left
     $mark.Margin = [System.Windows.Thickness]::new(0, 18, 0, 18)
-    $mark.Background = ConvertTo-DomeniaChartBrush '#60A5FA'
+    $mark.Background = ConvertTo-DomeniaChartBrush 'StateInfoMark'
     $mark.Visibility = [System.Windows.Visibility]::Collapsed
     $mark.IsHitTestVisible = $false
     [void]$holder.Children.Add($mark)

@@ -148,6 +148,12 @@ function Assert-OuNavigationLayout {param($Window)
     $footer=Get-ClientRect $Window 'UxSearchOuRefresh'
     foreach($name in @('BtnSearchRefreshBase','BtnSearchRefreshPostes','BtnSearchRefreshBoth','BtnSearchRefreshStop','LblSearchOuRefreshScope','LblSearchOuRefreshStatus')){
         $r=Get-ClientRect $Window $name
+        # DS-11: « Arrêter » keeps its place but stays hidden while no refresh runs (UxStopButton).
+        $control=$Window.FindName($name)
+        if(($name -eq 'BtnSearchRefreshStop') -and (-not $control.IsEnabled)){
+            Assert-True ($control.Visibility -eq [Windows.Visibility]::Hidden) 'Arreter visible alors que rien ne tourne'
+            $r=[pscustomobject]@{Name=$r.Name;X=$r.X;Y=$r.Y;W=$r.W;H=$r.H;Visible=$true}
+        }
         Assert-True ($r.Visible -and $r.W -ge 20 -and $r.H -ge 10 -and $r.X -ge 0 -and $r.Y -ge 0 -and $r.X+$r.W -le $script:GeometrySurface.ActualWidth+0.5 -and $r.Y+$r.H -le $script:GeometrySurface.ActualHeight+0.5) ($name+' hors de la surface de recherche')
         Assert-True ($r.X -ge $footer.X-0.5 -and $r.Y -ge $footer.Y-0.5 -and $r.X+$r.W -le $footer.X+$footer.W+0.5 -and $r.Y+$r.H -le $footer.Y+$footer.H+0.5) ($name+' deborde du panneau de mise a jour OU')
     }

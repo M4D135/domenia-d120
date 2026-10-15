@@ -83,4 +83,8 @@ $success=[pscustomobject]@{Key='dn';Guid='g';Outcome='Unavailable';Computer='PC'
 $restored=ConvertTo-DomeniaParkSession $success $kept $at
 $plan=New-DomeniaCollectionPlan -Previous $restored -Guid 'g' -Key 'dn' -Inventory $true -NowUtc $now
 Expect (-not $restored.InventoryError -and $restored.Inventory.Model -eq 'fresh' -and -not $plan.Inventory -and $plan.Reused -eq 1) 'successful inventory clears failure and becomes reusable'
+# DS-18: the title bar interop compiled with the identity types refuses a missing window and never throws.
+if($null -eq ('Domenia.SelectionIdentity' -as [type])){Add-Type -Path (Join-Path $modules 'Domenia-Identity.Types.cs')}
+Expect (-not [Domenia.WindowFrame]::SetDarkTitleBar([IntPtr]::Zero,$true)) 'title bar refused without a window'
+Expect (-not [Domenia.WindowFrame]::SetDarkTitleBar([IntPtr]::Zero,$false)) 'light title bar refused without a window'
 Write-Output ($script:checks.ToString()+' native assertions passed')

@@ -100,7 +100,9 @@ def audit():
     for kind in ['Object','Computer']:
         host=byname[kind+'ReadContent'];retry=byname['Btn'+kind+'ReadRetry']
         ck('Named content host: '+kind,host.get('IsEnabled')=='False' and host.get('Visibility')=='Collapsed')
-        ck('Reserved retry slot: '+kind,retry.get('Visibility')=='Hidden' and retry.get('ToolTip') and retry.get('AutomationProperties.Name'))
+        # PF-24: the tool tip of a catalogued control lives in Domenia-UX.help.json only.
+        retry_help=retry.get('ToolTip') or ('Btn'+kind+'ReadRetry' in {h['Name'] for h in json.loads((ROOT/'wad/modules/Domenia-UX.help.json').read_text('utf-8-sig'))})
+        ck('Reserved retry slot: '+kind,retry.get('Visibility')=='Hidden' and retry_help and retry.get('AutomationProperties.Name'))
         ck('Non-modal placeholder: '+kind,byname[kind+'ReadPlaceholder'].tag==w+'Border')
     ck('No extra Window in main XAML',sum(n.tag==w+'Window' for n in xml.iter())==1)
     # DS-20 (SP-02): Source lien and Qualification are merged into the association cell: 16 data columns.

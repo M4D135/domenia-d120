@@ -296,9 +296,11 @@ function Get-DomeniaBoardCatalogItem {
 # Shared helpers (pure): pastel meaning colours, sizes, Windows releases
 # ---------------------------------------------------------------------------
 function Get-DomeniaBoardColor {
-    # Pastel meaning colours for shapes (rings, bars) on the light and dark themes (decision David 2026-10-07).
+    # Pastel meaning colours for shapes (rings, bars), decision David 2026-10-07. CD-05: the colours live in
+    # SupportSuite.UI.json only; this pure model (also run by the workers) names the theme token, the renderer paints it
+    # (Get-DomeniaThemeColor). 'Other' is the grouped part « Autres », 'Disabled' a disabled service.
     param([string]$Name)
-    switch ($Name) { 'Ok' { return '#86EFAC' } 'Warn' { return '#FCD34D' } 'Alert' { return '#FCA5A5' } 'Off' { return '#CBD5E1' } 'Info' { return '#93C5FD' } 'Used' { return '#93C5FD' } default { return '' } }
+    switch ($Name) { 'Ok' { return 'StateOk' } 'Warn' { return 'StateWarn' } 'Alert' { return 'StateAlert' } 'Off' { return 'StateOff' } 'Info' { return 'StateInfo' } 'Used' { return 'StateInfo' } 'Other' { return 'ChartOther' } 'Disabled' { return 'ChartDisabled' } default { return '' } }
 }
 function Format-DomeniaDashboardSize {
     param([double]$Bytes)
@@ -1500,7 +1502,7 @@ function Get-DomeniaChartCategoryGroups {
     $keep=[Math]::Max(0,$Maximum-1);$head=@();if($keep){$head=@($valid[0..($keep-1)])}
     $tail=@($valid[$keep..($valid.Count-1)]);$sum=0.0;$labels=[Collections.Generic.List[string]]::new();$selections=[Collections.Generic.List[object]]::new()
     foreach($part in $tail){$sum+=[double]$part.Value;$labels.Add([string]$part.Label);$select=Get-DomeniaHealthValue $part 'Select';if($null -ne $select){$selections.Add($select)}}
-    $remainder=[pscustomobject]@{Label=('Autres ('+$tail.Count+' catégories)');Value=$sum;Color='#94A3B8';Items=$tail;Select=[pscustomobject]@{Label='Autres';Labels=$labels.ToArray();Selections=$selections.ToArray()}}
+    $remainder=[pscustomobject]@{Label=('Autres ('+$tail.Count+' catégories)');Value=$sum;Color=(Get-DomeniaBoardColor 'Other');Items=$tail;Select=[pscustomobject]@{Label='Autres';Labels=$labels.ToArray();Selections=$selections.ToArray()}}
     return ,@($head+$remainder)
 }
 

@@ -74,8 +74,9 @@ class CompatibilityMatrixTests(unittest.TestCase):
 
 
 class MainXamlControlTests(unittest.TestCase):
-    """Named controls added by the release-engineering lot: policy entry, accessible name, tooltip equal to the help
-    text and to the help catalogue entry (rules of the team, checked on the real main XAML)."""
+    """Named controls added by the release-engineering lot: policy entry, accessible name and help catalogue entry,
+    checked on the real main XAML. P-PF-24: Domenia-UX.help.json is the only source of their help; the XAML carries no
+    ToolTip, HelpText nor ShowOnDisabled for them (Initialize-DomeniaUxControlHelp sets the three at load)."""
     CONTROLS = ('LblUxAboutCompatibility', 'ExpStorageDataPolicy', 'LblStorageDataPolicy', 'DgStorageDataPolicy',
                 'BtnFirstStepConnection', 'BtnFirstStepOu', 'BtnFirstStepBase', 'BtnFirstStepDashboard', 'LblFirstStepsDeferred')
 
@@ -117,15 +118,13 @@ class MainXamlControlTests(unittest.TestCase):
                 element = self.find(name)
                 self.assertIn('"%s" = "Default"' % name, self.policy)
                 self.assertTrue(element.get('AutomationProperties.Name'))
-                tip = element.get('ToolTip')
-                self.assertTrue(tip, name + ' sans infobulle')
-                self.assertEqual(tip, element.get('AutomationProperties.HelpText'))
+                for attribute in ('ToolTip', 'AutomationProperties.HelpText', 'ToolTipService.ShowOnDisabled'):
+                    self.assertIsNone(element.get(attribute), name + ' : ' + attribute + ' hors du catalogue')
                 self.assertIn(name, self.help)
-                self.assertEqual(self.help[name]['Text'], tip)
+                self.assertTrue(self.help[name]['Text'].strip(), name + ' sans aide')
                 # The help system names the control after the catalogue title at run time.
                 self.assertEqual(self.help[name]['Title'], element.get('AutomationProperties.Name'))
-                self.assertEqual(element.get('ToolTipService.ShowOnDisabled'), 'True')
-                for value in element.attrib.values():
+                for value in list(element.attrib.values()) + [self.help[name]['Text'], self.help[name]['Title']]:
                     self.assertFalse(re.search('[\u2018\u2019\u201c\u201d]', value), value)
 
 
