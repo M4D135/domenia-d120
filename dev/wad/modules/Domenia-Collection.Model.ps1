@@ -381,6 +381,13 @@ function Format-DomeniaObservationProvenance {
 }
 
 # ---------------------------------------------------------------- point 3: states of a measure
+function Get-DomeniaMeasureStateKeys {
+    # The one vocabulary of a measure state, for every family and every channel (ping, console, WMI inventory, probes
+    # and the WMI answer of the fleet board, point 72): Known is a valid dated measure; every other key is a reason why
+    # none is usable. Counters, filters and texts read these keys, never a label.
+    return @('Known','Absent','NotRead','Refused','Expired','Incomplete','Error')
+}
+
 function Get-DomeniaMeasureStateLabel {
     param([AllowEmptyString()][string]$State)
     switch($State){
@@ -486,7 +493,7 @@ function Measure-DomeniaMeasureStates {
         $previous=$byKey[$key]
         if(($null -eq $previous) -or (($state.State -eq 'Known') -and ($previous.State -ne 'Known')) -or (($state.State -eq $previous.State) -and ($null -ne $state.LastSuccessUtc) -and (($null -eq $previous.LastSuccessUtc) -or ($state.LastSuccessUtc -gt $previous.LastSuccessUtc)))){$byKey[$key]=$state}
     }
-    $counts=[ordered]@{Known=0;Absent=0;NotRead=0;Refused=0;Expired=0;Incomplete=0;Error=0}
+    $counts=[ordered]@{};foreach($stateKey in @(Get-DomeniaMeasureStateKeys)){$counts[$stateKey]=0}
     $failedAttempts=0;$keptAfterFailure=0;$oldest=$null;$newest=$null
     foreach($state in $byKey.Values){
         $counts[[string]$state.State]=[int]$counts[[string]$state.State]+1

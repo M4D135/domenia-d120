@@ -313,4 +313,39 @@ Test-Case 'PT-09' 'Point 9 : le GUID garde l identite apres renommage et un nom 
     Assert-True (Test-DomeniaRecordPredatesObject -RecordedUtc '2026-01-01T00:00:00Z' -CreatedUtc '2026-02-01T00:00:00Z') 'metadonnee de l ancien titulaire reprise'
     Assert-False (Test-DomeniaRecordPredatesObject -RecordedUtc '2026-03-01T00:00:00Z' -CreatedUtc '2026-02-01T00:00:00Z')
     Assert-False (Test-DomeniaRecordPredatesObject -RecordedUtc '' -CreatedUtc '2026-02-01T00:00:00Z') 'date inconnue prise pour une preuve'
+    # UI-17 association line (Assistance poste): a kept legacy link without GUID says that its identity is not checkable.
+    $line=Get-DomeniaLinkSummaryText -Link $legacy -IdentityUnproven
+    Assert-True ([string]$line.Text -like '* · identité non vérifiable') ([string]$line.Text)
+    Assert-True ([string]$line.Detail -like '*Association sans GUID enregistré : identité non vérifiable.') ([string]$line.Detail)
+    Assert-False ([string](Get-DomeniaLinkSummaryText -Link $legacy).Text -like '*non vérifiable*') 'identite mise en doute sans raison'
+}
+Test-Case 'UI-17' 'Association du poste en une ligne : nom lu dans le DN, origine, date locale et badge' {
+    $inv=[Globalization.CultureInfo]::InvariantCulture
+    $utc=[datetime]::SpecifyKind([datetime]::ParseExact('2026-10-08 06:15','yyyy-MM-dd HH:mm',$inv),[DateTimeKind]::Utc)
+    $local=$utc.ToLocalTime()
+    $link=[pscustomobject]@{UserLogin='EXAMPLE\cmartin';UserDn='CN=Martin\, Camille,OU=Utilisateurs,DC=example,DC=invalid';Source='Console CIM/DCOM';When=$utc.ToString('o')}
+    $s=Get-DomeniaLinkSummaryText -Link $link -NowUtc '2026-10-15T10:00:00Z'
+    Assert-True $s.HasLink;Assert-Equal 'Observe' $s.Badge;Assert-Equal 'Observé' $s.BadgeLabel
+    Assert-Equal 'Martin, Camille' $s.User;Assert-Equal 'EXAMPLE\cmartin' $s.Login
+    Assert-Equal ('Martin, Camille · console observée le '+$local.ToString('dd/MM',$inv)+' à '+$local.ToString('HH:mm',$inv)) $s.Text
+    Assert-True ($s.Detail -match 'cmartin') 'Le login n est pas rappele dans le detail'
+    Assert-True ($s.Detail -match 'ne vaut pas affectation') 'La regle du badge manque dans le detail'
+    Assert-False ($s.Text -match '%') 'Un pourcentage apparait'
+}
+Test-Case 'UI-17' 'Association en une ligne : annee d une autre annee, login sans DN, origines nommees' {
+    $inv=[Globalization.CultureInfo]::InvariantCulture
+    $utc=[datetime]::SpecifyKind([datetime]::ParseExact('2025-06-02 12:00','yyyy-MM-dd HH:mm',$inv),[DateTimeKind]::Utc)
+    $old=Get-DomeniaLinkSummaryText -Link ([pscustomobject]@{UserLogin='pdurand';Source='Saisie manuelle';When=$utc.ToString('o')}) -NowUtc '2026-10-15T10:00:00Z'
+    Assert-Equal 'Declare' $old.Badge;Assert-Equal 'pdurand' $old.User
+    Assert-Equal ('pdurand · affectation déclarée le '+$utc.ToLocalTime().ToString('dd/MM/yyyy',$inv)+' à '+$utc.ToLocalTime().ToString('HH:mm',$inv)) $old.Text
+    Assert-Equal 'jdoe · association importée' (Get-DomeniaLinkSummaryText -Link ([pscustomobject]@{UserLogin='jdoe';Source='Import CSV'})).Text
+    Assert-Equal 'jdoe · session à distance observée' (Get-DomeniaLinkSummaryText -Link ([pscustomobject]@{UserLogin='jdoe';Source='Session RDP (WTS)'})).Text
+    Assert-Equal 'jdoe · origine à vérifier' (Get-DomeniaLinkSummaryText -Link ([pscustomobject]@{UserLogin='jdoe';Source='???'})).Text
+    Assert-Equal 'Compte non nommé · origine à vérifier' (Get-DomeniaLinkSummaryText -Link ([pscustomobject]@{Source=''})).Text
+}
+Test-Case 'UI-17' 'Sans association, la ligne le dit, ou dit la detection en cours' {
+    $none=Get-DomeniaLinkSummaryText -Link $null
+    Assert-False $none.HasLink;Assert-Equal 'Aucun utilisateur associé' $none.Text;Assert-Equal '' $none.Badge
+    $probing=Get-DomeniaLinkSummaryText -Link $null -Probing
+    Assert-False $probing.HasLink;Assert-True ($probing.Text -match 'en cours') $probing.Text
 }

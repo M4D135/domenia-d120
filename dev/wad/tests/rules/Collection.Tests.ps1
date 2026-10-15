@@ -191,6 +191,9 @@ Test-Case 'COL-013' 'Le decompte par etat couvre toute la population sans compte
     $all=Measure-DomeniaMeasureStates -Items @($items[0]) -Total 1 -Family Presence -NowUtc $script:ColNow
     Assert-Equal '' (Format-DomeniaMeasureStates $all.Counts) 'etat inconnu invente'
     Assert-Equal 'Refusé' (Get-DomeniaMeasureStateLabel 'Refused');Assert-Equal 'En erreur' (Get-DomeniaMeasureStateLabel 'Inattendu')
+    # One vocabulary: the counters carry exactly the state keys, in their order (the WMI answer of the board uses them).
+    Assert-Equal 'Known,Absent,NotRead,Refused,Expired,Incomplete,Error' ((@(Get-DomeniaMeasureStateKeys)) -join ',')
+    Assert-Equal ((@(Get-DomeniaMeasureStateKeys)) -join ',') ((@($measure.Counts.PSObject.Properties|ForEach-Object{$_.Name})) -join ',') 'compteurs hors vocabulaire'
 }
 # Point 2 : populations comparees.
 Test-Case 'COL-014' 'Deux chiffres ne se comparent que sur le meme domaine, perimetre, profondeur, types, criteres et instantane' {

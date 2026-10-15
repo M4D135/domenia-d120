@@ -56,7 +56,7 @@ fleet.machines|Inventaire du périmètre|Comptes ordinateur|Value|Kpi|S|Tous les
 fleet.enabled|Inventaire du périmètre|Comptes AD activés|Value|Kpi|S|État AD ; aucune déduction de présence réseau
 fleet.accountunknown|Inventaire du périmètre|État AD inconnu|Value|Kpi|S|userAccountControl non lu|N
 fleet.accountstatus|Inventaire du périmètre|État des comptes AD|Distribution|Pie|M|Activés, désactivés et inconnus
-fleet.stale|Inventaire du périmètre|Sans connexion depuis 90 j|Value|Kpi|S|Attribut lastLogonTimestamp, à 14 jours près
+fleet.stale|Inventaire du périmètre|Sans connexion AD au-delà du seuil|Value|Kpi|S|Seuil réglé dans les règles de santé (90 j par défaut) ; lastLogonTimestamp à 14 jours près
 fleet.disabled|Inventaire du périmètre|Comptes désactivés encore dans lʼOU|Value|Kpi|S|Comptes ordinateur désactivés à déplacer ou supprimer
 fleet.created|Inventaire du périmètre|Créés ces 30 jours|Value|Kpi|S|Attribut whenCreated
 fleet.pwdold|Inventaire du périmètre|Mot de passe machine de plus de 60 j|Value|Kpi|S|Attribut pwdLastSet
@@ -69,7 +69,9 @@ fleet.win10|Versions de Windows|Postes sous Windows 10|Value|Kpi|S|Hors LTSC, LT
 fleet.os|Répartition|Systèmes dʼexploitation|Distribution|Pie|M|Systèmes déclarés dans lʼannuaire
 fleet.lastlogon|Répartition|Dernière connexion au domaine|Series|Column|M|Ancienneté de la dernière connexion
 fleet.ou|Répartition|Postes par unité dʼorganisation|Distribution|Bar|M|Postes par OU ou sous-OU
-fleet.presence|Relevés des postes|Présence réseau|Distribution|Pie|M|Derniers relevés de moins de 30 jours|N
+fleet.presence|Relevés des postes|Présence réseau|Distribution|Pie|M|Dernier ping de moins de 30 jours ; sans réponse ne prouve pas un arrêt|N
+fleet.wmi|Relevés des postes|Réponse WMI|Distribution|Pie|M|Dernière lecture WMI datée, indépendante du ping ; un échec ne prouve pas un arrêt|N
+fleet.reach|Relevés des postes|Ping et WMI|Distribution|Bar|M|Réponse au ping et réponse WMI comparées pour chaque poste actif|N
 fleet.users|Relevés des postes|Utilisateurs détectés|Value|Kpi|S|Utilisateurs distincts vus en session sur les postes|N
 fleet.lastcheck|Relevés des postes|Dernier ping|Value|Kpi|S|Date du dernier relevé des postes|N
 fleet.models|Relevés des postes|Modèles|Distribution|Bar|M|Modèles des postes analysés|N
@@ -80,7 +82,7 @@ fleet.lowdisk|Relevés des postes|Disque C: presque plein|Value|Kpi|S|Postes ave
 fleet.uptime|Relevés des postes|Non redémarrés depuis 30 j|Value|Kpi|S|Postes à redémarrer|N
 fleet.trend|Évolution|Postes à traiter sur 90 jours|Timeline|Line|L|Instantanés quotidiens locaux de lʼOU affichée|N
 fleet.trend.win10|Évolution|Windows 10 sur 90 jours|Timeline|Line|L|Postes sous Windows 10 hors LTSC, LTSB et IoT, instantanés quotidiens|N
-fleet.trend.stale|Évolution|Inactifs sur 90 jours|Timeline|Line|L|Postes sans connexion depuis 90 j, instantanés quotidiens|N
+fleet.trend.stale|Évolution|Inactifs sur 90 jours|Timeline|Line|L|Postes sans connexion AD au-delà du seuil réglé, instantanés quotidiens|N
 fleet.trend.lowdisk|Évolution|Disques C: presque pleins sur 90 jours|Timeline|Line|L|Postes analysés avec moins de 10 % libre, instantanés quotidiens|N
 '@
     Software = @'
@@ -367,7 +369,8 @@ function New-DomeniaBoardData {
     # HintActions: section -> {Id; Text; Tip; Link} offered under its hint, run only on a click (SP-17).
     # Partial: {Text; Action} when the score misses key checks (UX-23), shown as a badge under the score.
     param([Parameter(Mandatory=$true)][ValidateSet('Computer','Fleet','Software')][string]$Board)
-    return [pscustomobject]@{ Board = $Board; Entries = @{}; Attention = New-Object System.Collections.ArrayList; Hints = @{}; HintActions = @{}; Partial = $null; Summary = ''; HealthPolicy=(ConvertTo-DomeniaHealthPolicy) }
+    # SuppressedAttention: points of disabled or suspended rules, never scored, kept for the explanation (point 75).
+    return [pscustomobject]@{ Board = $Board; Entries = @{}; Attention = New-Object System.Collections.ArrayList; SuppressedAttention = New-Object System.Collections.ArrayList; Hints = @{}; HintActions = @{}; Partial = $null; Summary = ''; HealthPolicy=(ConvertTo-DomeniaHealthPolicy) }
 }
 function Add-DomeniaBoardEntry {
     param([Parameter(Mandatory=$true)]$Data,$Entry)
@@ -379,8 +382,19 @@ function Add-DomeniaBoardAttention {
     # worker, or observed workstations), unfolded by a click from the data already in memory. -Route: workspace that
     # holds the useful action (workstation board), opened by Invoke-DomeniaUxRoute without running anything.
     param([Parameter(Mandatory=$true)]$Data,[ValidateSet('Alert','Warn','Info')][string]$Level,[string]$Text,[string]$Point = '',[object[]]$Groups = @(),[object[]]$Machines = @(),[string]$Route = '',[string]$RouteText = '')
-    if (-not $Text -or -not (Test-DomeniaHealthRuleEnabled $Data.HealthPolicy $Point)) { return }
-    [void]$Data.Attention.Add([pscustomobject]@{ Level = $Level; Text = $Text; Point = $Point; Groups = @($Groups | Where-Object { $null -ne $_ }); Machines = @($Machines | Where-Object { $null -ne $_ }); Route = $Route; RouteText = $RouteText })
+    if (-not $Text) { return }
+    $item = [pscustomobject]@{ Level = $Level; Text = $Text; Point = $Point; Groups = @($Groups | Where-Object { $null -ne $_ }); Machines = @($Machines | Where-Object { $null -ne $_ }); Route = $Route; RouteText = $RouteText }
+    if (-not (Test-DomeniaHealthRuleEnabled $Data.HealthPolicy $Point)) {
+        # A disabled or suspended rule never scores nor lists; what it would flag stays explainable (point 75).
+        if ($Level -in @('Alert','Warn')) {
+            $reason = Get-DomeniaHealthRuleState $Data.HealthPolicy $Point
+            $item | Add-Member -NotePropertyName Reason -NotePropertyValue $reason
+            if ($null -eq $Data.PSObject.Properties['SuppressedAttention']) { $Data | Add-Member -NotePropertyName SuppressedAttention -NotePropertyValue (New-Object System.Collections.ArrayList) }
+            [void]$Data.SuppressedAttention.Add($item)
+        }
+        return
+    }
+    [void]$Data.Attention.Add($item)
 }
 function Get-DomeniaBoardHealth {
     # 100 minus 25 per critical point and 10 per point to watch; information lines do not count.
@@ -394,20 +408,40 @@ function Get-DomeniaBoardHealth {
     $verdict = if ($alerts) { 'Critique' } elseif ($state -eq 'Alert') { 'Dégradé' } elseif ($state -eq 'Warn') { 'À surveiller' } else { 'Bon état' }
     return [pscustomobject]@{ Score = $score; Verdict = $verdict; State = $state; Alerts = $alerts; Warnings = $warnings }
 }
+function Get-DomeniaHealthCoverage {
+    # Share of the enabled accounts actually evaluated by the health rules (point 74), as a whole percentage rounded
+    # down so that 49.9 % never reads as 50 %. Sufficient: at least MinimumPercent evaluated (bounded 1 to 100).
+    param([int]$Total,[int]$Assessed,[int]$MinimumPercent = 50)
+    $minimum = [Math]::Max(1, [Math]::Min(100, $MinimumPercent))
+    $total = [Math]::Max(0, $Total); $assessed = [Math]::Max(0, [Math]::Min($total, $Assessed))
+    $percent = if ($total -gt 0) { [int][Math]::Floor(100.0 * $assessed / $total) } else { 0 }
+    $text = if ($total -gt 0) { 'couverture ' + [string]$percent + ' % (' + [string]$assessed + ' évalué(s) sur ' + [string]$total + ')' } else { 'aucun poste à évaluer' }
+    return [pscustomobject]@{ Total = $total; Assessed = $assessed; Unassessed = ($total - $assessed); Percent = $percent; MinimumPercent = $minimum; Sufficient = (($total -gt 0) -and ((100 * $assessed) -ge ($minimum * $total))); Text = $text }
+}
 function Get-DomeniaFleetHealth {
     # Fleet score (decision David 2026-10-08, MO-01): share of the workstations without any critical point nor point
     # to watch. Critique as soon as one point is critical, otherwise Bon état from 90 %, À surveiller from 75 %,
     # Dégradé below. An empty or unassessed perimeter has no numeric score.
-    param([int]$Total,[int]$Healthy,[object[]]$Attention = @(),[int]$Unassessed=0)
+    # Point 74: a poorly covered perimeter gets no reassuring score. Below $MinimumCoveragePercent of the enabled
+    # accounts evaluated, the score is withheld (verdict Couverture insuffisante, or Critique when a point is
+    # critical); the unevaluated workstations stay counted apart and never as healthy.
+    param([int]$Total,[int]$Healthy,[object[]]$Attention = @(),[int]$Unassessed=0,[int]$MinimumCoveragePercent=50)
     $alerts = @($Attention | Where-Object { ($null -ne $_) -and ([string]$_.Level -eq 'Alert') }).Count
     $warnings = @($Attention | Where-Object { ($null -ne $_) -and ([string]$_.Level -eq 'Warn') }).Count
     $unassessed=[Math]::Max(0,[Math]::Min($Total,$Unassessed));$assessed=[Math]::Max(0,$Total-$unassessed)
     if($assessed -eq 0){return [pscustomobject]@{Score=$null;Verdict=$(if($Total){'Données insuffisantes'}else{'Aucun poste évalué'});State='Off';Alerts=$alerts;Warnings=$warnings;Detail=([string]$assessed+' évalué(s) sur '+$Total+' · '+$unassessed+' non évalué(s)');Healthy=0;Total=$Total;Unassessed=$unassessed}}
+    $coverage=Get-DomeniaHealthCoverage -Total $Total -Assessed $assessed -MinimumPercent $MinimumCoveragePercent
+    if(($unassessed -gt 0) -and (-not $coverage.Sufficient)){
+        $partialHealthy=[Math]::Max(0,[Math]::Min($assessed,$Healthy))
+        return [pscustomobject]@{Score=$null;Verdict=$(if($alerts){'Critique'}else{'Couverture insuffisante'});State=$(if($alerts){'Alert'}else{'Off'});Alerts=$alerts;Warnings=$warnings;Detail=([string]$partialHealthy+' sans point détecté sur '+$assessed+' évalué(s) · '+$coverage.Text+' : score affiché à partir de '+$coverage.MinimumPercent+' %');Healthy=$partialHealthy;Total=$Total;Unassessed=$unassessed}
+    }
     $healthy = [Math]::Max(0,[Math]::Min($assessed,$Healthy))
     $score = if ($assessed -gt 0) { [int][Math]::Floor(100.0 * $healthy / $assessed) } else { 100 }
     $verdict = if ($alerts) { 'Critique' } elseif ($score -ge 90 -and $unassessed) { 'Évaluation partielle' } elseif ($score -ge 90) { 'Bon état' } elseif ($score -ge 75) { 'À surveiller' } else { 'Dégradé' }
     $state = if ($alerts -or ($verdict -eq 'Dégradé')) { 'Alert' } elseif ($verdict -eq 'À surveiller') { 'Warn' } elseif($unassessed){'Off'} else { 'Ok' }
     $detail = if ($Total -gt 0) { [string]$healthy + ' poste' + $(if ($healthy -gt 1) { 's' } else { '' }) + ' sur ' + [string]$assessed + ' évalués sans point détecté · '+[string]$unassessed+' non évalué(s)' } else { 'Aucun poste dans le périmètre' }
+    # The share evaluated is shown beside the score as soon as one workstation is missing (point 74).
+    if (($Total -gt 0) -and ($unassessed -gt 0)) { $detail += ' · ' + $coverage.Text }
     return [pscustomobject]@{ Score = $score; Verdict = $verdict; State = $state; Alerts = $alerts; Warnings = $warnings; Detail = $detail; Healthy = $healthy; Total = $Total }
 }
 function Complete-DomeniaBoardData {
@@ -515,9 +549,60 @@ function New-DomeniaBoardItemId {
     return ([guid]::NewGuid().ToString('N')).Substring(0, 10)
 }
 function New-DomeniaBoardItem {
-    param([ValidateSet('Builtin','Probe','Query')][string]$Source,[string]$Key,[string]$Visual,[string]$Size = '',[string]$Group = '',[string]$Title = '',[string]$Id = '')
+    # -Paused (decision David 2026-10-14): the widget keeps its place, size and title, is drawn as paused and is left
+    # out of every collection (its own refresh, the board refresh, Analyser la liste, the WMI refresh of the OU).
+    param([ValidateSet('Builtin','Probe','Query')][string]$Source,[string]$Key,[string]$Visual,[string]$Size = '',[string]$Group = '',[string]$Title = '',[string]$Id = '',[switch]$Paused)
     if (-not $Id) { $Id = New-DomeniaBoardItemId }
-    return [pscustomobject]@{ Id = $Id; Source = $Source; Key = $Key; Visual = $Visual; Title = $Title; Size = $Size; Group = $Group }
+    return [pscustomobject]@{ Id = $Id; Source = $Source; Key = $Key; Visual = $Visual; Title = $Title; Size = $Size; Group = $Group; Paused = [bool]$Paused }
+}
+function Test-DomeniaBoardItemPaused {
+    # A layout item written before the pause existed has no Paused member: it is active.
+    param($Item)
+    if ($null -eq $Item) { return $false }
+    $property = $Item.PSObject.Properties['Paused']
+    if ($null -eq $property) { return $false }
+    return (($property.Value -is [bool]) -and ([bool]$property.Value))
+}
+function Select-DomeniaActiveBoardItems {
+    # Widgets that take part in collections and local calculations: every widget except the paused ones.
+    param([object[]]$Layout = @())
+    return @($Layout | Where-Object { ($null -ne $_) -and (-not (Test-DomeniaBoardItemPaused -Item $_)) })
+}
+function Get-DomeniaBoardNextSize {
+    # Keyboard resizing (point 80): one step smaller (-1) or larger (+1), bounded to Compacte and Large.
+    param([string]$Size = 'M',[int]$Step = 1)
+    $order = @('S','M','L')
+    $index = [Array]::IndexOf($order, [string]$Size)
+    if ($index -lt 0) { $index = 1 }
+    return $order[[Math]::Max(0, [Math]::Min(2, $index + [Math]::Sign($Step)))]
+}
+function Get-DomeniaBoardFitScale {
+    # Point 80: at a high DPI or in a narrow window the board offers fewer device-independent pixels than a widget
+    # needs. Scale of that widget: 1 when it fits, else the ratio rounded down (so it always fits), never below
+    # Minimum (a widget that would become unreadable stays readable and is cut by the page edge, as before).
+    param([double]$Needed,[double]$Available,[double]$Minimum = 0.6)
+    if (($Needed -le 0) -or ($Available -le 0) -or ($Needed -le $Available)) { return 1.0 }
+    return [Math]::Max($Minimum, [Math]::Floor(1000.0 * $Available / $Needed) / 1000.0)
+}
+function Get-DomeniaBoardKeyGesture {
+    # Keyboard of a focused widget (point 80): {Action; Value}, or $null when the key means nothing to the board.
+    # F5 refreshes the widget at any time; moving (Alt+arrows, Alt+Home/End), resizing (Alt+Shift+arrows) and removing
+    # (Delete) change the layout and are offered while customising only, like the mouse gestures.
+    param([string]$Key,[bool]$Alt = $false,[bool]$Shift = $false,[bool]$Control = $false,[bool]$Editing = $false)
+    if ($Control) { return $null }
+    if ((-not $Alt) -and (-not $Shift) -and ($Key -eq 'F5')) { return [pscustomobject]@{ Action = 'Refresh'; Value = '' } }
+    if (-not $Editing) { return $null }
+    if ((-not $Alt) -and (-not $Shift) -and ($Key -eq 'Delete')) { return [pscustomobject]@{ Action = 'Remove'; Value = '' } }
+    if (-not $Alt) { return $null }
+    $value = ''
+    if ($Shift) {
+        switch ($Key) { 'Right' { $value = 'Grow' } 'Up' { $value = 'Grow' } 'Left' { $value = 'Shrink' } 'Down' { $value = 'Shrink' } }
+        if ($value) { return [pscustomobject]@{ Action = 'Size'; Value = $value } }
+        return $null
+    }
+    switch ($Key) { 'Left' { $value = 'Back' } 'Right' { $value = 'Forward' } 'Home' { $value = 'First' } 'End' { $value = 'Last' } }
+    if ($value) { return [pscustomobject]@{ Action = 'Move'; Value = $value } }
+    return $null
 }
 function Get-DomeniaBoardDefaultLayout {
     # Delivered layout: the catalog in its order, without the widgets marked catalog only (eighth cell N).
@@ -591,13 +676,18 @@ function ConvertTo-DomeniaBoardLayout {
         $seen[$id] = $true
         $visual = Resolve-DomeniaBoardVisual -Visual (& $get 'Visual') -Kind $kind -HasMaximum:($kind -in @('Number','Health'))
         $size = & $get 'Size'; if ($size -notin @('S','M','L')) { $size = if ($defaultSize) { $defaultSize } elseif ($visual -eq 'Kpi') { 'S' } else { 'M' } }
-        [void]$clean.Add((New-DomeniaBoardItem -Source $source -Key $key -Visual $visual -Size $size -Group $group -Title (& $get 'Title') -Id $id))
+        [void]$clean.Add((New-DomeniaBoardItem -Source $source -Key $key -Visual $visual -Size $size -Group $group -Title (& $get 'Title') -Id $id -Paused:(Test-DomeniaBoardItemPaused -Item $raw)))
     }
     return @($clean)
 }
 function ConvertTo-DomeniaBoardLayoutJson {
     param([object[]]$Layout = @())
-    $plain = @($Layout | Where-Object { $null -ne $_ } | ForEach-Object { [pscustomobject]@{ Id = [string]$_.Id; Source = [string]$_.Source; Key = [string]$_.Key; Visual = [string]$_.Visual; Title = [string]$_.Title; Size = [string]$_.Size; Group = [string]$_.Group } })
+    # Paused is written only for a paused widget: an active layout keeps the text it had before the pause existed.
+    $plain = @($Layout | Where-Object { $null -ne $_ } | ForEach-Object {
+        $row = [ordered]@{ Id = [string]$_.Id; Source = [string]$_.Source; Key = [string]$_.Key; Visual = [string]$_.Visual; Title = [string]$_.Title; Size = [string]$_.Size; Group = [string]$_.Group }
+        if (Test-DomeniaBoardItemPaused -Item $_) { $row['Paused'] = $true }
+        [pscustomobject]$row
+    })
     if (-not $plain.Count) { return '[]' }
     return (ConvertTo-Json -InputObject $plain -Depth 3 -Compress)
 }
@@ -629,13 +719,14 @@ function Remove-DomeniaBoardItem {
     return @($Layout | Where-Object { $null -ne $_ -and [string]$_.Id -ne $Id })
 }
 function Update-DomeniaBoardItem {
-    # Changes some fields (Visual, Title, Size, Group) of one widget; a widget moved to another section goes to its end.
+    # Changes some fields (Visual, Title, Size, Group, Paused) of one widget; a widget moved to another section goes to its end.
     param([object[]]$Layout = @(),[string]$Id,[hashtable]$Changes = @{})
     $target = $null
     foreach ($item in @($Layout)) { if ($null -ne $item -and [string]$item.Id -eq $Id) { $target = $item } }
     if ($null -eq $target) { return @($Layout) }
-    $updated = New-DomeniaBoardItem -Source ([string]$target.Source) -Key ([string]$target.Key) -Visual ([string]$target.Visual) -Size ([string]$target.Size) -Group ([string]$target.Group) -Title ([string]$target.Title) -Id ([string]$target.Id)
+    $updated = New-DomeniaBoardItem -Source ([string]$target.Source) -Key ([string]$target.Key) -Visual ([string]$target.Visual) -Size ([string]$target.Size) -Group ([string]$target.Group) -Title ([string]$target.Title) -Id ([string]$target.Id) -Paused:(Test-DomeniaBoardItemPaused -Item $target)
     foreach ($name in @('Visual','Title','Size','Group')) { if ($Changes.ContainsKey($name)) { $updated.$name = [string]$Changes[$name] } }
+    if ($Changes.ContainsKey('Paused')) { $updated.Paused = [bool]$Changes['Paused'] }
     if ([string]$updated.Group -ne [string]$target.Group) { return @(Add-DomeniaBoardItem -Layout @(Remove-DomeniaBoardItem -Layout $Layout -Id $Id) -Item $updated) }
     return @($Layout | ForEach-Object { if ($null -ne $_ -and [string]$_.Id -eq $Id) { $updated } else { $_ } })
 }
@@ -654,7 +745,7 @@ function Move-DomeniaBoardItem {
         if ($targetIndex -lt 0) { return @($items) }
         $target = $items[$targetIndex]
         $items.RemoveAt($index)
-        $moving = New-DomeniaBoardItem -Source ([string]$moving.Source) -Key ([string]$moving.Key) -Visual ([string]$moving.Visual) -Size ([string]$moving.Size) -Group ([string]$target.Group) -Title ([string]$moving.Title) -Id ([string]$moving.Id)
+        $moving = New-DomeniaBoardItem -Source ([string]$moving.Source) -Key ([string]$moving.Key) -Visual ([string]$moving.Visual) -Size ([string]$moving.Size) -Group ([string]$target.Group) -Title ([string]$moving.Title) -Id ([string]$moving.Id) -Paused:(Test-DomeniaBoardItemPaused -Item $moving)
         $place = $items.IndexOf($target)
         if ($index -lt $targetIndex) { $place++ }
         $items.Insert($place, $moving)
@@ -665,7 +756,7 @@ function Move-DomeniaBoardItem {
         $target = $null; foreach ($item in $items) { if ([string]$item.Id -eq $Before) { $target = $item } }
         if ($null -eq $target) { return @($items) }
         $items.RemoveAt($index)
-        $moving = New-DomeniaBoardItem -Source ([string]$moving.Source) -Key ([string]$moving.Key) -Visual ([string]$moving.Visual) -Size ([string]$moving.Size) -Group ([string]$target.Group) -Title ([string]$moving.Title) -Id ([string]$moving.Id)
+        $moving = New-DomeniaBoardItem -Source ([string]$moving.Source) -Key ([string]$moving.Key) -Visual ([string]$moving.Visual) -Size ([string]$moving.Size) -Group ([string]$target.Group) -Title ([string]$moving.Title) -Id ([string]$moving.Id) -Paused:(Test-DomeniaBoardItemPaused -Item $moving)
         $items.Insert($items.IndexOf($target), $moving)
         return @($items)
     }
@@ -811,23 +902,97 @@ function Set-DomeniaHealthSnapshotMetadata {
     $Data|Add-Member -NotePropertyName HealthHistory -NotePropertyValue $records.ToArray() -Force
 }
 function Compare-DomeniaHealthSnapshots {
+    # Point 78: separate the three causes of a change between two health readings. Perimeter (which GUIDs), coverage
+    # (which GUIDs could be assessed, with which data) and rules (thresholds, enabled rules, active suspensions) are
+    # compared through their fingerprints; only when all three are unchanged is a variation a real change of the
+    # observed state. Counters are always shown; a cause is never inferred from a counter alone.
     param($Before,$After)
     if($null -eq $Before -or $null -eq $After){throw 'Choisissez deux relevés.'}
-    $a=$Before.Figures;$b=$After.Figures;$limits=[Collections.Generic.List[string]]::new();$population=$false;$coverage=$false;$policy=$false
-    foreach($field in @('PopulationHash','AssessedHash','CoverageHash','PolicyHash')){
-        $old=[string](Get-DomeniaHealthValue $a $field '');$new=[string](Get-DomeniaHealthValue $b $field '')
-        if(-not $old -or -not $new){$limits.Add('Ce relevé ne décrit pas encore '+$field+' ; comparaison limitée aux compteurs.');continue}
-        $same=($old -ceq $new)
-        switch($field){PopulationHash{$population=$same;if(-not $same){$limits.Add('La population de GUID a changé : entrées, sorties ou déplacement dans le périmètre.')}}AssessedHash{if(-not $same){$limits.Add('Les postes évalués ne sont pas les mêmes.')}}CoverageHash{$coverage=$same;if(-not $same){$limits.Add('La couverture des contrôles a changé : une variation peut venir des données disponibles.')}}PolicyHash{$policy=$same;if(-not $same){$limits.Add('Les règles, seuils ou suspensions ont changé.')}}}
+    $invariant=[Globalization.CultureInfo]::InvariantCulture
+    $moment={param($Item)
+        $at=ConvertFrom-DomeniaUtcText ([string](Get-DomeniaHealthValue (Get-DomeniaHealthValue $Item 'Figures') 'ComputedUtc' ''))
+        if($null -eq $at){$parsed=[datetime]::MinValue;if([datetime]::TryParseExact([string](Get-DomeniaHealthValue $Item 'Day' ''),'yyyy-MM-dd',$invariant,([Globalization.DateTimeStyles]::AssumeUniversal -bor [Globalization.DateTimeStyles]::AdjustToUniversal),[ref]$parsed)){$at=$parsed}}
+        return $at
     }
-    $sameAssessed=([string](Get-DomeniaHealthValue $a 'AssessedHash' '') -ceq [string](Get-DomeniaHealthValue $b 'AssessedHash' ''))
-    $comparable=$population -and $coverage -and $policy -and $sameAssessed
+    $first=& $moment $Before;$second=& $moment $After;$swapped=$false
+    if(($null -ne $first) -and ($null -ne $second) -and ($first -gt $second)){$swap=$Before;$Before=$After;$After=$swap;$swapped=$true}
+    $a=Get-DomeniaHealthValue $Before 'Figures';$b=Get-DomeniaHealthValue $After 'Figures'
+    $number={param($Figures,[string]$Name)
+        $raw=Get-DomeniaHealthValue $Figures $Name;if($null -eq $raw){return $null}
+        $value=0.0;if([double]::TryParse([string]$raw,[Globalization.NumberStyles]::Float,$invariant,[ref]$value)){return $value};return $null
+    }
+    $hash={param([string]$Name)
+        $old=[string](Get-DomeniaHealthValue $a $Name '');$new=[string](Get-DomeniaHealthValue $b $Name '')
+        if((-not $old) -or (-not $new)){return 'Unknown'};if($old -ceq $new){return 'Same'};return 'Changed'
+    }
+    $french=[Globalization.CultureInfo]::GetCultureInfo('fr-FR')
+    $text={param($Value) if($null -eq $Value){return 'Non renseigné'};return ([double]$Value).ToString('0.#',$french)}
+    $signed={param($Old,$New) if(($null -eq $Old) -or ($null -eq $New)){return 'Non comparable'};$delta=[Math]::Round([double]$New-[double]$Old,1);if($delta -eq 0){$delta=0.0};return $(if($delta -gt 0){'+'}else{''})+$delta.ToString('0.#',$french)}
+    $arrow={param($Old,$New,[string]$Unit='')
+        if(($null -eq $Old) -or ($null -eq $New)){return 'non renseigné'}
+        return ((& $text $Old)+$Unit+' → '+(& $text $New)+$Unit+' ('+(& $signed $Old $New)+$Unit+')')
+    }
+    $limits=[Collections.Generic.List[string]]::new();if($swapped){$limits.Add('Relevés remis dans lʼordre chronologique.')}
+    $missing={param([string]$Name,[string]$What)
+        $old=[string](Get-DomeniaHealthValue $a $Name '');$new=[string](Get-DomeniaHealthValue $b $Name '')
+        if(-not $old){$limits.Add('Le premier relevé ne conserve pas lʼempreinte '+$What+' : comparaison limitée aux compteurs.')}
+        if(-not $new){$limits.Add('Le second relevé ne conserve pas lʼempreinte '+$What+' : comparaison limitée aux compteurs.')}
+    }
+    & $missing 'PopulationHash' 'de la population';& $missing 'CoverageHash' 'de la couverture';& $missing 'PolicyHash' 'des règles'
+    # Perimeter: the exact set of active GUIDs.
+    $ma=& $number $a 'Machines';$mb=& $number $b 'Machines';$population=& $hash 'PopulationHash'
+    $perimeterStatus=if($population -eq 'Same'){'Inchangé'}elseif($population -eq 'Changed'){'Modifié'}elseif(($null -ne $ma) -and ($null -ne $mb) -and ($ma -ne $mb)){'Modifié'}else{'Inconnu'}
+    $perimeterText='Comptes activés : '+(& $arrow $ma $mb)
+    if($population -eq 'Same'){$perimeterText+=' ; mêmes GUID'}elseif(($population -eq 'Changed') -and ($ma -eq $mb)){$perimeterText+=' ; même nombre, composition différente (entrées et sorties)'}elseif($population -eq 'Unknown'){$perimeterText+=' ; composition non vérifiable'}
+    # Coverage: which workstations were assessed and with which data families.
+    $aa=& $number $a 'Assessed';$ab=& $number $b 'Assessed';$coverageHash=& $hash 'CoverageHash';$assessedHash=& $hash 'AssessedHash'
+    $coverageStatus=if(($coverageHash -eq 'Same') -and ($assessedHash -eq 'Same')){'Inchangé'}elseif(($coverageHash -eq 'Changed') -or ($assessedHash -eq 'Changed')){'Modifié'}elseif(($null -ne $aa) -and ($null -ne $ab) -and ($aa -ne $ab)){'Modifié'}else{'Inconnu'}
+    $share={param($Assessed,$Machines) if(($null -eq $Assessed) -or ($null -eq $Machines) -or ($Machines -le 0)){return $null};return [Math]::Round(100.0*$Assessed/$Machines,1)}
+    $pa=& $share $aa $ma;$pb=& $share $ab $mb
+    $coverageText='Postes évalués : '+(& $arrow $aa $ab)+' · part évaluée : '+(& $arrow $pa $pb ' %')
+    $direction=''
+    if($coverageStatus -eq 'Modifié'){
+        if(($null -ne $pa) -and ($null -ne $pb) -and ($pb -gt $pa)){$direction='Up';$coverageText+=' ; des postes jusque-là non mesurés entrent dans le score'}
+        elseif(($null -ne $pa) -and ($null -ne $pb) -and ($pb -lt $pa)){$direction='Down';$coverageText+=' ; des postes sortent du score faute de données'}
+        else{$coverageText+=' ; données disponibles différentes'}
+    }
+    # Rules: thresholds, enabled rules, custom alerts and suspensions active at computation time.
+    $policyHash=& $hash 'PolicyHash'
+    $policyStatus=switch($policyHash){'Same'{'Inchangé'}'Changed'{'Modifié'}default{'Inconnu'}}
+    $policyText=switch($policyHash){'Same'{'Règles, seuils et suspensions actives identiques'}'Changed'{'Règles, seuils ou suspensions actives modifiés'}default{'Règles non décrites par ce relevé'}}
+    # Observed state of the assessed workstations.
+    $ha=& $number $a 'Healthy';$hb=& $number $b 'Healthy';$xa=& $number $a 'Problems';$xb=& $number $b 'Problems';$sa=& $number $a 'Score';$sb=& $number $b 'Score'
+    $stateStatus=if(($null -eq $xa) -or ($null -eq $xb) -or ($null -eq $ha) -or ($null -eq $hb)){'Inconnu'}elseif(($xa -eq $xb) -and ($ha -eq $hb)){'Inchangé'}else{'Modifié'}
+    $stateText='Avec un problème : '+(& $arrow $xa $xb)+' · sans problème détecté : '+(& $arrow $ha $hb)+' · score : '+$(if(($null -eq $sa) -or ($null -eq $sb)){'non calculé sur au moins un relevé'}else{& $arrow $sa $sb})
+    $factors=@(
+        [pscustomobject]@{Factor='Périmètre';Status=$perimeterStatus;Text=$perimeterText}
+        [pscustomobject]@{Factor='Couverture';Status=$coverageStatus;Text=$coverageText}
+        [pscustomobject]@{Factor='Règles';Status=$policyStatus;Text=$policyText}
+        [pscustomobject]@{Factor='État observé';Status=$stateStatus;Text=$stateText}
+    )
+    $causes=@($factors|Select-Object -First 3|Where-Object{$_.Status -eq 'Modifié'}|ForEach-Object{$_.Factor})
+    $unknown=@($factors|Select-Object -First 3|Where-Object{$_.Status -eq 'Inconnu'}).Count
+    if($unknown){
+        $category='Limitée';$summary='Comparaison limitée aux compteurs : un des relevés ne décrit pas sa population, sa couverture ou ses règles. Ne pas lire la variation du score comme un gain ou une dégradation du parc.'
+    }elseif(-not $causes.Count){
+        if($stateStatus -eq 'Inchangé'){$category='Stable';$summary='Aucun changement : même population, même couverture, mêmes règles et même état observé.'}
+        else{$category='Réel';$summary='Changement réel de lʼétat observé : même population, mêmes données et mêmes règles. Ce constat ne dit pas pourquoi lʼétat a changé.'}
+    }elseif($causes.Count -gt 1){
+        $category='Mixte';$summary='Effets mêlés ('+(($causes|ForEach-Object{$_.ToLowerInvariant()}) -join ', ')+' modifiés) : ne pas lire la variation du score comme un gain ou une dégradation du parc.'
+    }else{
+        switch($causes[0]){
+            'Périmètre'{$category='Périmètre';$summary='Évolution du périmètre : des postes sont entrés ou sortis ; la variation ne décrit pas un changement dʼétat des mêmes postes.'}
+            'Couverture'{$category='Couverture';$summary=if($direction -eq 'Up'){'Amélioration de la couverture : davantage de postes ou de données évalués ; une baisse du score peut révéler des problèmes jusque-là non mesurés.'}elseif($direction -eq 'Down'){'Couverture réduite : moins de postes ou de données évalués ; une hausse du score peut venir de postes qui ne sont plus mesurés.'}else{'Couverture modifiée : les données disponibles ne sont plus les mêmes ; la variation ne décrit pas seulement lʼétat du parc.'}}
+            default{$category='Règles';$summary='Règles modifiées : la variation peut venir des seuils, des contrôles activés ou des suspensions, pas du parc.'}
+        }
+    }
     $rows=[Collections.Generic.List[object]]::new()
-    foreach($pair in @(@('Comptes activés','Machines'),@('Postes évalués','Assessed'),@('Postes incomplets','Unassessed'),@('Sans problème détecté','Healthy'),@('Avec un problème','Problems'),@('Ping renseigné','PingRead'),@('WMI renseigné','WmiRead'),@('Score','Score'))){
-        $old=Get-DomeniaHealthValue $a $pair[1];$new=Get-DomeniaHealthValue $b $pair[1];$delta=$null;if($null -ne $old -and $null -ne $new){$delta=[double]$new-[double]$old}
-        $rows.Add([pscustomobject]@{Measure=$pair[0];Before=$(if($null -eq $old){'Non renseigné'}else{[string]$old});After=$(if($null -eq $new){'Non renseigné'}else{[string]$new});Delta=$(if($null -eq $delta){'Non comparable'}elseif($delta -gt 0){'+'+$delta}else{[string]$delta})})
+    foreach($pair in @(@('Comptes activés','Machines'),@('Postes évalués','Assessed'),@('Postes incomplets','Unassessed'),@('Sans problème détecté','Healthy'),@('Avec un problème','Problems'),@('Ping renseigné','PingRead'),@('Inventaire WMI renseigné','WmiRead'),@('Score','Score'))){
+        $old=& $number $a $pair[1];$new=& $number $b $pair[1]
+        $rows.Add([pscustomobject]@{Measure=$pair[0];Before=(& $text $old);After=(& $text $new);Delta=(& $signed $old $new)})
     }
-    [pscustomobject]@{Comparable=$comparable;Summary=$(if($comparable){'Même population, mêmes contrôles et même couverture : variation de lʼétat observé. Ce constat ne prouve pas la cause du changement.'}else{'Périmètre, couverture ou règles différents : ne pas interpréter directement le changement du score comme un gain ou une dégradation du parc.'});Limits=$limits.ToArray();Rows=$rows.ToArray()}
+    $rows.Add([pscustomobject]@{Measure='Part des comptes évalués (%)';Before=(& $text $pa);After=(& $text $pb);Delta=(& $signed $pa $pb)})
+    [pscustomobject]@{Comparable=($category -in @('Stable','Réel'));Category=$category;Summary=$summary;Factors=$factors;Limits=$limits.ToArray();Rows=$rows.ToArray();Swapped=$swapped;BeforeLabel=[string](Get-DomeniaHealthValue $Before 'Label' '');AfterLabel=[string](Get-DomeniaHealthValue $After 'Label' '')}
 }
 function Get-DomeniaFleetPivots {
     # Every non-empty cell owns the complete set of GUIDs; unread dimensions remain explicit categories.
@@ -841,14 +1006,47 @@ function Get-DomeniaFleetPivots {
         $windows=[string]$dimensions['fleet.versions'][$guid];if(-not $windows){$windows='Version non lue'}
         $model=[string]$dimensions['fleet.models'][$guid];if(-not $model){$model='Modèle non lu'}
         $ram=[string]$dimensions['fleet.ram'][$guid];if(-not $ram){$ram='RAM non lue'}
-        $ping=[string]$dimensions['fleet.presence'][$guid] -in @('En ligne','Sans réponse');$wmi=$Data.HealthInventoryKnown.ContainsKey($guid)
-        $coverage=if($ping -and $wmi){'Ping et WMI'}elseif($ping){'Ping seul'}elseif($wmi){'WMI seul'}else{'Aucun relevé exploitable'}
+        # Coverage of the data the health rules use: ping read (answer or not) and light WMI inventory read. A console-only
+        # CIM answer counts in fleet.wmi but not here, so the labels name the inventory (point 72 keeps both apart).
+        $ping=([string]$dimensions['fleet.presence'][$guid] -in @('En ligne','Sans réponse'));$wmi=$Data.HealthInventoryKnown.ContainsKey($guid)
+        $coverage=if($ping -and $wmi){'Ping et inventaire WMI'}elseif($ping){'Ping sans inventaire WMI'}elseif($wmi){'Inventaire WMI sans ping'}else{'Ni ping ni inventaire WMI'}
         foreach($pair in @(@('OuWindows',$site,$windows),@('ModelRam',$model,$ram),@('SiteCoverage',$site,$coverage))){
             $row=[string]$pair[1];$col=[string]$pair[2];$key=$row.Length.ToString()+':'+$row+$col.Length.ToString()+':'+$col;$table=$tables[$pair[0]]
             if(-not $table.ContainsKey($key)){$table[$key]=[pscustomobject]@{Row=$row;Column=$col;Count=0;Targets=[Collections.Generic.List[object]]::new()}}
             $cell=$table[$key];$cell.Count++;$cell.Targets.Add($target)
         }
     }
-    $result=@{};foreach($name in $tables.Keys){$rows=@($tables[$name].Values|Sort-Object Row,Column);foreach($cell in $rows){$cell.Targets=$cell.Targets.ToArray()};$result[$name]=[pscustomobject]@{Rows=$rows;Total=$seen.Count;Cells=$rows.Count;Scope=[string]$Data.Last.Scope}}
+    # Natural column order where one exists (memory buckets, coverage levels); otherwise by size (point 79).
+    $ramOrder=@(@(Get-DomeniaHealthValue (Get-DomeniaHealthValue $Data.Entries 'fleet.ram') 'Items' @())|ForEach-Object{[string]$_.Label})+@('RAM non lue')
+    $orders=@{OuWindows=@();ModelRam=$ramOrder;SiteCoverage=@('Ping et inventaire WMI','Ping sans inventaire WMI','Inventaire WMI sans ping','Ni ping ni inventaire WMI')}
+    $titles=@{OuWindows=@('OU','Version de Windows');ModelRam=@('Modèle','RAM');SiteCoverage=@('OU / site','Couverture')}
+    $result=@{};foreach($name in $tables.Keys){$rows=@($tables[$name].Values|Sort-Object Row,Column);foreach($cell in $rows){$cell.Targets=$cell.Targets.ToArray()};$result[$name]=[pscustomobject]@{Rows=$rows;Total=$seen.Count;Cells=$rows.Count;Scope=[string]$Data.Last.Scope;ColumnOrder=@($orders[$name]);RowTitle=[string]$titles[$name][0];ColumnTitle=[string]$titles[$name][1]}}
     return $result
+}
+function ConvertTo-DomeniaPivotMatrix {
+    # Point 79: rectangular view of one cross table with row, column and grand totals. Every workstation sits in exactly
+    # one cell, so the totals always agree with the cells; a filter keeps whole cells whose row or column label
+    # matches. Columns beyond -MaxColumns are folded into one visible remainder column, never dropped.
+    param($Table,[string]$Filter='',[ValidateRange(2,64)][int]$MaxColumns=24)
+    $filterText=([string]$Filter).Trim()
+    $cells=@(@(Get-DomeniaHealthValue $Table 'Rows' @())|Where-Object{($null -ne $_) -and ((-not $filterText) -or (([string]$_.Row).IndexOf($filterText,[StringComparison]::OrdinalIgnoreCase) -ge 0) -or (([string]$_.Column).IndexOf($filterText,[StringComparison]::OrdinalIgnoreCase) -ge 0))})
+    $columnCounts=@{};foreach($cell in $cells){$columnCounts[[string]$cell.Column]=[int]$columnCounts[[string]$cell.Column]+[int]$cell.Count}
+    $ordered=[Collections.Generic.List[string]]::new()
+    foreach($label in @(Get-DomeniaHealthValue $Table 'ColumnOrder' @())){if($columnCounts.ContainsKey([string]$label) -and (-not $ordered.Contains([string]$label))){$ordered.Add([string]$label)}}
+    foreach($pair in @($columnCounts.GetEnumerator()|Sort-Object @{Expression={[int]$_.Value};Descending=$true},@{Expression={[string]$_.Key};Descending=$false})){if(-not $ordered.Contains([string]$pair.Key)){$ordered.Add([string]$pair.Key)}}
+    $folded=0;$columns=$ordered.ToArray()
+    if($columns.Count -gt $MaxColumns){$folded=$columns.Count-($MaxColumns-1);$columns=@($columns[0..($MaxColumns-2)])+@('Autres colonnes ('+$folded+')')}
+    $index=@{};for($i=0;$i -lt $columns.Count;$i++){$index[$columns[$i]]=$i};$other=$columns.Count-1
+    $width=$columns.Count;$rowsByLabel=@{};$rowOrder=[Collections.Generic.List[string]]::new()
+    $columnTotals=New-Object 'int[]' $width;$columnTargets=@(for($i=0;$i -lt $width;$i++){,([Collections.Generic.List[object]]::new())})
+    $grand=0
+    foreach($cell in $cells){
+        $rowLabel=[string]$cell.Row;$position=if($index.ContainsKey([string]$cell.Column)){[int]$index[[string]$cell.Column]}else{$other}
+        if(-not $rowsByLabel.ContainsKey($rowLabel)){$rowsByLabel[$rowLabel]=[pscustomobject]@{Label=$rowLabel;Counts=(New-Object 'int[]' $width);Targets=@(for($i=0;$i -lt $width;$i++){,([Collections.Generic.List[object]]::new())});Total=0;AllTargets=[Collections.Generic.List[object]]::new()};$rowOrder.Add($rowLabel)}
+        $row=$rowsByLabel[$rowLabel];$count=[int]$cell.Count;$members=@($cell.Targets)
+        $row.Counts[$position]+=$count;$row.Total+=$count;$row.Targets[$position].AddRange($members);$row.AllTargets.AddRange($members)
+        $columnTotals[$position]+=$count;$columnTargets[$position].AddRange($members);$grand+=$count
+    }
+    $rows=@($rowOrder|Sort-Object|ForEach-Object{$rowsByLabel[$_]})
+    [pscustomobject]@{Columns=@($columns);Rows=$rows;ColumnTotals=$columnTotals;ColumnTargets=$columnTargets;GrandTotal=$grand;Folded=$folded;Cells=$cells.Count;Total=[int](Get-DomeniaHealthValue $Table 'Total' 0);RowTitle=[string](Get-DomeniaHealthValue $Table 'RowTitle' 'Ligne');ColumnTitle=[string](Get-DomeniaHealthValue $Table 'ColumnTitle' 'Colonne');Filtered=[bool]$filterText}
 }

@@ -156,8 +156,8 @@ Test-Case 'D084' 'Une liste utilisateur ne porte aucune colonne de console machi
     $machine=@(Get-DomeniaResultColumns 'Machine');foreach($c in $console){Assert-True ($c -in $machine) $c}
     Assert-True ('Mail' -notin $machine) 'Pas de messagerie pour une liste de postes'
     $all=@(Get-DomeniaResultColumns -ColumnProfile 'Mixte')
-    Assert-Equal 18 $all.Count 'La vue mixte garde les 18 colonnes de la grille'
-    Assert-Equal 'Type,Name,SessionDisplay,SessionState,DirectoryState,Login,UPN,Association,LinkSource,LinkConfidence,Presence,State,OS,LastLogon,Mail,Description,Changed,DN' ($all -join ',') 'Cles reelles de DgObjects'
+    Assert-Equal 16 $all.Count 'La vue mixte garde les 16 colonnes de la grille (association fusionnee, DS-20)'
+    Assert-Equal 'Type,Name,SessionDisplay,SessionState,DirectoryState,Login,UPN,Association,Presence,State,OS,LastLogon,Mail,Description,Changed,DN' ($all -join ',') 'Cles reelles de DgObjects'
     foreach($c in @($user+$machine)){Assert-True ($c -cin $all) ('Cle connue de la grille : '+$c)}
     Assert-Equal 'Type,Name' ((@(Get-DomeniaResultColumns -Profile 'Utilisateur')|Select-Object -First 2) -join ',') 'Alias -Profile'
     Assert-Throws { Get-DomeniaResultColumns 'Groupe' } 'Vue inconnue refusee'
@@ -600,3 +600,75 @@ Test-Case 'L08-DS01' 'Boutons-icones de 40 et pastilles fixes dans les emplaceme
     Assert-Equal '*,252,144,96' ($slots.StripColumns -join ',') 'Bandeau d activite inchange'
     Assert-Equal 'Hidden' $slots.EmptySlotVisibility
 }
+Test-Case 'DS-20' 'Catalogue des colonnes : six colonnes par defaut, nom verrouille' {
+    $catalog=@(Get-DomeniaResultColumnCatalog)
+    Assert-Equal 16 $catalog.Count 'Toutes les colonnes de la grille'
+    Assert-Equal 'Type,Name,SessionDisplay,SessionState,DirectoryState,Login,UPN,Association,Presence,State,OS,LastLogonSort,Mail,Description,ChangedSort,DN' (@($catalog|ForEach-Object{$_.Key}) -join ',') 'Cles persistees de DgObjects'
+    Assert-Equal 'Type,Name,SessionDisplay,Association,Presence,State' (@($catalog|Where-Object{$_.Default}|ForEach-Object{$_.Key}) -join ',') 'SP-02 : six colonnes par defaut'
+    Assert-Equal 'Name' (@($catalog|Where-Object{$_.Locked}|ForEach-Object{$_.Key}) -join ',')
+    Assert-Equal 'Utilisateur connecté (console)' @($catalog|Where-Object{$_.Key -eq 'SessionDisplay'})[0].Label
+    Assert-Equal 'État' @($catalog|Where-Object{$_.Key -eq 'State'})[0].Label 'Libelle accentue'
+}
+Test-Case 'DS-20' 'Choix enregistre relu, ancienne preference et valeur illisible ramenees aux colonnes par defaut' {
+    $default=Resolve-DomeniaResultColumnChoice
+    Assert-Equal 'Default' $default.Source;Assert-Equal 'Type,Name,SessionDisplay,Association,Presence,State' ($default.Visible -join ',')
+    Assert-Equal 'Default' (Resolve-DomeniaResultColumnChoice '').Source
+    Assert-Equal 'Default' (Resolve-DomeniaResultColumnChoice '{pas du json').Source 'JSON illisible'
+    Assert-Equal 'Default' (Resolve-DomeniaResultColumnChoice '{"Version":2,"Visible":["OS"]}').Source 'Version inconnue'
+    $saved=Resolve-DomeniaResultColumnChoice '{"Version":1,"Visible":["DN","OS","Inconnue","LinkSource","LastLogon"]}'
+    Assert-Equal 'Saved' $saved.Source
+    Assert-Equal 'Name,Association,OS,LastLogonSort,DN' ($saved.Visible -join ',') 'Ordre de la grille, alias SP-02 et nom toujours present'
+    $object=Resolve-DomeniaResultColumnChoice ([pscustomobject]@{Version=1;Visible=@('Mail')})
+    Assert-Equal 'Name,Mail' ($object.Visible -join ',')
+}
+Test-Case 'DS-20' 'Cocher, decocher et enregistrer une colonne' {
+    $v=@('Type','Name','State')
+    Assert-Equal 'Type,Name,State,OS' ((Set-DomeniaResultColumnChoice $v 'OS' $true) -join ',') 'Ordre de la grille conserve'
+    Assert-Equal 'Name,State' ((Set-DomeniaResultColumnChoice $v 'Type' $false) -join ',')
+    Assert-Equal 'Type,Name,State' ((Set-DomeniaResultColumnChoice $v 'Name' $false) -join ',') 'Le nom ne se masque pas'
+    Assert-Equal 'Type,Name,State' ((Set-DomeniaResultColumnChoice $v 'Inconnue' $true) -join ',') 'Cle inconnue sans effet'
+    $text=ConvertTo-DomeniaResultColumnChoiceText @('OS','Type')
+    Assert-Equal '{"Version":1,"Visible":["Type","Name","OS"]}' $text
+    Assert-Equal 'Type,Name,OS' ((Resolve-DomeniaResultColumnChoice $text).Visible -join ',') 'Aller-retour'
+}
+Test-Case 'DS-20' 'Une colonne choisie ne s affiche que si elle s applique a la liste' {
+    $v=@('Type','Name','SessionDisplay','Association','Presence','State')
+    Assert-True (Test-DomeniaResultColumnShown 'Type' $v)
+    Assert-False (Test-DomeniaResultColumnShown 'OS' $v $true $true) 'Non choisie'
+    Assert-False (Test-DomeniaResultColumnShown 'Presence' $v $false $true) 'Colonne poste sans poste dans la liste'
+    Assert-True (Test-DomeniaResultColumnShown 'Presence' $v $true $true)
+    Assert-False (Test-DomeniaResultColumnShown 'Association' $v $false $false) 'Association sans utilisateur ni poste'
+    Assert-True (Test-DomeniaResultColumnShown 'Association' $v $false $true)
+    Assert-False (Test-DomeniaResultColumnShown 'Login' @('Name','Login') $true $true $false) 'Compte sans ligne a compte'
+    Assert-True (Test-DomeniaResultColumnShown 'Login' @('Name','Login') $false $false $true)
+    Assert-True (Test-DomeniaResultColumnShown 'OS' $null $true) 'Sans choix charge, seule la pertinence compte'
+    Assert-True (Test-DomeniaResultColumnShown 'Hors catalogue' $v) 'Colonne non geree : affichee'
+}
+Test-Case 'DS-20' 'Export CSV : la cellule fusionnee garde Source lien et Qualification en colonnes' {
+    $col={param($p,$h)[pscustomobject]@{Property=$p;Header=$h}}
+    $out=@(Expand-DomeniaResultExportColumns @((& $col 'Name' 'Nom'),(& $col 'Association' 'Association mémorisée'),(& $col 'State' 'Etat')))
+    Assert-Equal 'Nom|Association mémorisée|Source lien|Qualification|Etat' (($out|ForEach-Object{$_.Header}) -join '|')
+    Assert-Equal 'LinkSource|LinkConfidence' (($out[2..3]|ForEach-Object{$_.Property}) -join '|')
+    Assert-Equal 'Nom|Etat' ((@(Expand-DomeniaResultExportColumns @((& $col 'Name' 'Nom'),(& $col 'State' 'Etat')))|ForEach-Object{$_.Header}) -join '|') 'Sans association, rien a ajouter'
+    $already=@(Expand-DomeniaResultExportColumns @((& $col 'Association' 'Association mémorisée'),(& $col 'LinkSource' 'Source lien')))
+    Assert-Equal 'Association mémorisée|Qualification|Source lien' (($already|ForEach-Object{$_.Header}) -join '|') 'Colonne deja exportee non repetee'
+    Assert-Equal 0 @(Expand-DomeniaResultExportColumns @()).Count
+}
+Test-Case 'SP-05' 'Pour un ticket : une ligne lisible par objet, sans GUID ni DN, OU lisible et secret masque' {
+    $pc=[pscustomobject]@{Type='Machine';Name='PC-0042';Login='PC-0042';Association='jdupont';Presence='En ligne';PresenceAge='il y a 5 min';SessionDisplay='EXAMPLE\jdupont';DN='CN=PC-0042,OU=Postes,OU=Lyon,DC=example,DC=test';Guid='0f8fad5b-d9cb-469f-a165-70867728950e';PresenceDetail='Réponse ICMP · 3 ms · 10.0.0.5';PresenceState='Online';Rank='0';Admin=''}
+    $line=ConvertTo-DomeniaTicketLine $pc
+    Assert-Equal 'Poste · PC-0042 · Compte : jdupont · Présence : En ligne (il y a 5 min) · Utilisateur console : EXAMPLE\jdupont · OU : Lyon / Postes' $line
+    Assert-False ($line -match '0f8fad5b') 'Le GUID ne part pas dans un ticket'
+    Assert-False ($line -match 'CN=|DC=|OU=') 'Le DN brut ne part pas dans un ticket'
+    Assert-False ($line -match '10\.0\.0\.5|Online|Rank') 'Aucun champ interne de la grille'
+    $user=[pscustomobject]@{Type='Utilisateur';Name='Dupont, Jean';Login='jdupont';DN='CN=Dupont\, Jean,OU=Utilisateurs,DC=example,DC=test';Presence='Sans objet';SessionDisplay='Non déterminé'}
+    Assert-Equal 'Utilisateur · Dupont, Jean · Compte : jdupont · OU : Utilisateurs' (ConvertTo-DomeniaTicketLine $user)
+    $unknown=[pscustomobject]@{Type='Machine';Name='PC-0043';Presence='Non vérifié';SessionDisplay='Non déterminé';DN='CN=PC-0043,OU=Postes\2C Etage 2,DC=example,DC=test'}
+    Assert-Equal 'Poste · PC-0043 · Présence : Non vérifié · OU : Postes, Etage 2' (ConvertTo-DomeniaTicketLine $unknown)
+    $text=ConvertTo-DomeniaTicketText -Rows @($pc,$null,[pscustomobject]@{Type='Groupe';Name="GG`r`npassword=Secret123";Login='gg';DN='CN=GG,DC=example,DC=test'})
+    $lines=@($text -split "`r`n")
+    Assert-Equal 2 $lines.Count 'Une ligne par objet, jamais une valeur sur plusieurs lignes'
+    Assert-False ($text -match 'Secret123') 'Le texte passe par le masquage des secrets'
+    Assert-True ($lines[1].StartsWith('Groupe · GG password=***')) $lines[1]
+}
+

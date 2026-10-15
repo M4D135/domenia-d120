@@ -186,7 +186,7 @@ Test-Case -Id 'BF-006' -Name 'Parc : presence des postes analyses (moins de 30 j
     $expected = '4 postes analysés sur 7, le ' + $script:BfNow.AddHours(-2).ToString('dd/MM',$script:BfInvariant) + ' · sans mesure ping utilisable : 2 jamais relevés, 1 périmé'
     Assert-Equal $expected ([string]$entry.Detail)
     Assert-Equal 'Off' ([string]$entry.State) 'Le relevé récent ne masque pas celui datant de dix jours'
-    Assert-True ((Get-BfTexts $board) -contains 'Info:1 poste(s) sans réponse au dernier relevé.') 'Sans reponse signale'
+    Assert-True ((Get-BfTexts $board) -contains 'Info:1 poste(s) sans réponse au ping au dernier relevé : absence de réponse, pas une preuve dʼarrêt.') 'Sans reponse au ping signale sans conclure a un arret'
     $old = @(foreach ($row in @(Get-BfPresenceRows)) { $copy = $row.PSObject.Copy(); $copy.checked_utc = $script:BfNow.ToUniversalTime().AddDays(-10).ToString('o'); $copy })
     Assert-Equal 'Off' ([string](Get-BfBoard -Presence $old).Entries['fleet.presence'].State) 'Releves de plus de 7 jours grises'
 }
@@ -242,7 +242,8 @@ Test-Case -Id 'BF-011' -Name 'Parc : score proportionnel aux postes, points du p
     $health = $board.Entries['fleet.health']
     Assert-Equal 'Critique' ([string]$health.Value)
     Assert-Equal 0 $health.Number '6 postes avec probleme etablis, 1 poste encore incomplet'
-    Assert-Equal '0 poste sur 6 évalués sans point détecté · 1 non évalué(s)' ([string]$health.Detail)
+    # Point 74: one workstation not evaluated, the share evaluated is shown beside the score (6 of 7, 85 %).
+    Assert-Equal '0 poste sur 6 évalués sans point détecté · 1 non évalué(s) · couverture 85 % (6 évalué(s) sur 7)' ([string]$health.Detail)
     $list = $board.Entries['fleet.attention']
     $levels = @(@($list.Items) | ForEach-Object { [string]$_.Level })
     Assert-Equal 'Alert' $levels[0]
@@ -391,6 +392,7 @@ Test-Case -Id 'BF-019' -Name 'Instantane quotidien : chiffres de l annuaire, cou
     # delivery, disks not read) is left out of that curve, never drawn as 0.
     Assert-Equal 1 ([int]$board.Snapshot.Figures.Windows10) 'Windows 10 hors LTSC dans l instantane'
     Assert-Equal 2 ([int]$board.Snapshot.Figures.Stale)
+    Assert-Equal 90 ([int]$board.Snapshot.Figures.StaleDays) 'Seuil d inactivite conserve avec le chiffre'
     Assert-Equal 1 ([int]$board.Snapshot.Figures.LowDisk) 'Disque plein des postes analyses'
     $noDisk = Get-BfBoard -Presence @()
     Assert-True ($null -eq $noDisk.Snapshot.Figures.LowDisk) 'Disques non lus : chiffre inconnu, jamais 0'
@@ -399,6 +401,9 @@ Test-Case -Id 'BF-019' -Name 'Instantane quotidien : chiffres de l annuaire, cou
     $curves = Get-BfBoard -History $rich
     Assert-Equal 90 @($curves.Entries['fleet.trend.win10'].Items).Count
     Assert-Equal 90 @($curves.Entries['fleet.trend.stale'].Items).Count
+    Assert-True ([string]$curves.Entries['fleet.trend.stale'].Detail -like '*au-delà du seuil (actuellement 90 j) ; 90 jour(s) sans seuil conservé : *') 'Periode d inactivite reglee, jamais 90 j fixes'
+    $tighter = Get-BfBoard -History $rich -HealthPolicy (ConvertTo-DomeniaHealthPolicy @{ Thresholds = @{ StaleDays = 45 } })
+    Assert-True ([string]$tighter.Entries['fleet.trend.stale'].Detail -like '*(actuellement 45 j) ; 90 jour(s) sans seuil conservé*') 'Seuil personnalise annonce'
     Assert-Equal 45 @($curves.Entries['fleet.trend.lowdisk'].Items).Count 'Jours sans disque lu ecartes de la courbe'
     Assert-Equal '1' ([string]$curves.Entries['fleet.trend.lowdisk'].Value)
     foreach ($key in @('fleet.trend.win10','fleet.trend.stale','fleet.trend.lowdisk')) { Assert-Equal 'Timeline' ([string]$curves.Entries[$key].Kind) $key; Assert-True (@(Get-DomeniaBoardCatalog -Board Fleet | Where-Object { $_.Key -eq $key -and $_.Kind -eq 'Timeline' }).Count -eq 1) ('Courbe absente du catalogue : ' + $key) }
@@ -463,7 +468,7 @@ Test-Case -Id 'BF-023' -Name 'Parc : detail sante exact sans doublon, tous les a
     $ids=@(@($board.Last.HealthyTargets)+@($board.Last.ProblemTargets)+@($board.Last.UnknownTargets)|ForEach-Object{$_.object_guid})
     Assert-Equal @($board.Last.Targets).Count @($ids|Select-Object -Unique).Count 'Chaque actif une fois'
 }
-Test-Case -Id 'BF-024' -Name 'Point 2 : le tableau decrit sa population (domaine, OU, profondeur, types, instantane) pour les widgets et exports' -Body {
+Test-Case -Id 'BF-027' -Name 'Point 2 : le tableau decrit sa population (domaine, OU, profondeur, types, instantane) pour les widgets et exports' -Body {
     $board = Get-BfBoard
     $population = $board.Last.Population
     Assert-True ($null -ne $population) 'population absente du tableau'
@@ -480,4 +485,106 @@ Test-Case -Id 'BF-024' -Name 'Point 2 : le tableau decrit sa population (domaine
     $revised = (Get-DomeniaFleetBoardData -Result $snapshot -Scope $script:BfScope -Now $script:BfNow -Lifecycle $script:BfLifecycle).Last.Population
     Assert-Equal 77L ([long]$revised.SnapshotRevision)
     Assert-True ($revised.Text -like '*révision 77') ([string]$revised.Text)
+}
+function Get-BfReachPresence {
+    # Point 72 fixture: every ping/WMI combination on the seven active workstations of Get-BfMachines.
+    $m = @{}; foreach ($machine in @(Get-BfMachines)) { $m[$machine.name] = $machine }
+    $recent = $script:BfNow.ToUniversalTime().AddHours(-3).ToString('o')
+    $failedConsole = [pscustomobject]@{ Console = [pscustomobject]@{ ObservedUtc = ''; LastAttemptUtc = $recent; Succeeded = $false } }
+    $inventoryOnly = [ordered]@{ Presence = [pscustomobject]@{ ObservedUtc = ''; LastAttemptUtc = $recent; Succeeded = $false }; Inventory = [pscustomobject]@{ ObservedUtc = $recent; LastAttemptUtc = $recent; Succeeded = $true } }
+    return @(
+        (New-BfPresence $m['PC-L01'] 2 ([pscustomobject]@{ Presence = 'En ligne'; Guid = 'guid-PC-L01'; Inventory = (New-BfInventory 'Latitude 5440' '19045' 8 256 120 2) }))
+        (New-BfPresence $m['PC-L02'] 2 ([pscustomobject]@{ Presence = 'Sans reponse au ping'; Guid = 'guid-PC-L02'; Inventory = (New-BfInventory 'Latitude 5440' '26100' 8 256 120 2) }))
+        (New-BfPresence $m['PC-L03'] 2 ([pscustomobject]@{ Presence = 'En ligne'; Guid = 'guid-PC-L03'; InventoryError = 'Accès refusé'; InventoryAttemptUtc = $recent }))
+        (New-BfPresence $m['PC-L04'] 2 ([pscustomobject]@{ Presence = 'Sans réponse au ping'; Guid = 'guid-PC-L04'; Times = $failedConsole; ConsoleError = 'Délai dépassé' }))
+        (New-BfPresence $m['PC-L06'] 2 ([pscustomobject]@{ Presence = 'Erreur de ping'; Guid = 'guid-PC-L06'; Times = $inventoryOnly }))
+    )
+}
+Test-Case -Id 'BF-024' -Name 'Point 72 : ping et WMI separes, une absence de ping ne classe ni eteint ni impossible a interroger' -Body {
+    $board = Get-BfBoard -Presence @(Get-BfReachPresence)
+    $wmi = $board.Entries['fleet.wmi']
+    Assert-Equal 'WMI a répondu|WMI non confirmé|WMI non relevé' (Get-BfJoined $wmi 'Label')
+    Assert-Equal '3|2|2' (Get-BfJoined $wmi 'Value') 'Reponse WMI lue par ses propres dates'
+    $reach = $board.Entries['fleet.reach']
+    Assert-Equal 'Ping et WMI répondent|WMI répond, pas le ping|Ping répond, WMI non confirmé|Ni ping ni WMI|Un seul canal relevé|Aucun relevé' (Get-BfJoined $reach 'Label')
+    Assert-Equal '1|1|1|1|1|2' (Get-BfJoined $reach 'Value')
+    $expected = @{ 'Ping et WMI répondent' = 'PC-L01'; 'WMI répond, pas le ping' = 'PC-L02'; 'Ping répond, WMI non confirmé' = 'PC-L03'; 'Ni ping ni WMI' = 'PC-L04'; 'Un seul canal relevé' = 'PC-L06'; 'Aucun relevé' = 'PC-L05,PC-L07' }
+    foreach ($label in @($expected.Keys)) { Assert-Equal $expected[$label] ((@($board.Last.WidgetTargets['fleet.reach|' + $label]) | ForEach-Object { [string]$_.name } | Sort-Object) -join ',') ('Detail exact : ' + $label) }
+    $sum = 0; foreach ($part in @($reach.Items)) { $sum += [int]$part.Value }
+    Assert-Equal @($board.Last.Targets).Count $sum 'Chaque poste actif une fois'
+    Assert-Equal 'PC-L02,PC-L04' ((@($board.Last.WidgetTargets['fleet.presence|Sans réponse']) | ForEach-Object { [string]$_.name } | Sort-Object) -join ',') 'Presence gardee pour le seul ping'
+    $texts = Get-BfTexts $board
+    Assert-True ($texts -contains 'Info:2 poste(s) sans réponse au ping au dernier relevé, dont 1 ayant répondu à WMI (ICMP probablement filtré) : absence de réponse, pas une preuve dʼarrêt.') 'Ping sans reponse explique'
+    # Point 3 vocabulary: the refused inventory and the console read in error keep their own reason.
+    Assert-True ($texts -contains 'Info:2 poste(s) sans lecture WMI confirmée au dernier essai (1 refusé, 1 en erreur) : à relever de nouveau, pas une preuve dʼarrêt.') ('Echec WMI signale sans verdict : ' + ($texts -join ' | '))
+    Assert-Equal '5 poste(s) avec une lecture WMI datée sur 7 ; indépendant du ping · sans réponse WMI utilisable : 2 jamais relevés, 1 refusé, 1 en erreur' ([string]$wmi.Detail) 'Raisons de l absence de reponse WMI'
+    Assert-Equal 0 @($board.Attention | Where-Object { ([string]$_.Level -in @('Alert','Warn')) -and ([string]$_.Point -in @('unreachable','wmi.failed')) }).Count 'Aucune penalite de score pour une absence de reponse'
+    Assert-False (@($texts | Where-Object { $_ -match '(?i)éteint|hors ligne|injoignable' }).Count) 'Aucun verdict d arret'
+    Assert-Equal '' ([string]$wmi.State) 'Lectures WMI recentes en couleur'
+    Assert-Equal '' ([string]$reach.State) 'Ping et WMI recents en couleur'
+    # FI-04: a WMI answer read ten days ago is greyed like an old ping, even next to a recent ping.
+    $m = @{}; foreach ($machine in @(Get-BfMachines)) { $m[$machine.name] = $machine }
+    $oldInventory = New-BfInventory 'Latitude 5440' '19045' 8 256 120 2; $oldInventory.CheckedUtc = $script:BfNow.ToUniversalTime().AddDays(-10).ToString('o')
+    $aged = Get-BfBoard -Presence @((New-BfPresence $m['PC-L01'] 2 ([pscustomobject]@{ Presence = 'En ligne'; Guid = 'guid-PC-L01'; Inventory = $oldInventory })))
+    Assert-Equal '' ([string]$aged.Entries['fleet.presence'].State) 'Ping recent en couleur'
+    Assert-Equal 1 ([int](Get-BfPart $aged.Entries['fleet.wmi'] 'WMI a répondu')) 'Reponse WMI de dix jours encore comptee'
+    Assert-Equal 'Off' ([string]$aged.Entries['fleet.wmi'].State) 'Reponse WMI de plus de 7 jours grisee'
+    Assert-Equal 'Off' ([string]$aged.Entries['fleet.reach'].State) 'Comparaison grisee quand un des canaux est ancien'
+    # A console-only CIM answer is a WMI answer, not a light inventory: both views say so without contradicting each other.
+    $recent = $script:BfNow.ToUniversalTime().AddHours(-3).ToString('o')
+    $consoleOnly = Get-BfBoard -Presence @((New-BfPresence $m['PC-L01'] 2 ([pscustomobject]@{ Presence = 'En ligne'; Guid = 'guid-PC-L01'; Times = [pscustomobject]@{ Console = [pscustomobject]@{ ObservedUtc = $recent; LastAttemptUtc = $recent; Succeeded = $true } } })))
+    Assert-Equal 'PC-L01' ((@($consoleOnly.Last.WidgetTargets['fleet.wmi|WMI a répondu']) | ForEach-Object { [string]$_.name }) -join ',') 'Console seule : WMI a repondu'
+    Assert-Equal 'PC-L01' ((@($consoleOnly.Last.WidgetTargets['fleet.reach|Ping et WMI répondent']) | ForEach-Object { [string]$_.name }) -join ',') 'Console seule : ping et WMI repondent'
+    $cells = @(@($consoleOnly.Pivots['SiteCoverage'].Rows) | Where-Object { @(@($_.Targets) | Where-Object { [string]$_.name -ceq 'PC-L01' }).Count -gt 0 })
+    Assert-Equal 'Ping sans inventaire WMI' ((@($cells) | ForEach-Object { [string]$_.Column }) -join ',') 'Couverture : inventaire non lu, sans pretendre que WMI n a pas repondu'
+    Assert-Equal 'Ping et inventaire WMI|Ping sans inventaire WMI|Inventaire WMI sans ping|Ni ping ni inventaire WMI' ((@($consoleOnly.Pivots['SiteCoverage'].ColumnOrder)) -join '|') 'Colonnes nommees d apres l inventaire WMI'
+}
+Test-Case -Id 'BF-025' -Name 'Point 72 : reponse WMI datee famille par famille, tolerance d une meme collecte, jamais deduite du ping' -Body {
+    $now = [datetime]'2026-10-07T10:00:00Z'; $now = $now.ToUniversalTime()
+    $time = { param([string]$Ok,[string]$Attempt,[bool]$Succeeded) [pscustomobject]@{ ObservedUtc = $Ok; LastAttemptUtc = $Attempt; Succeeded = $Succeeded } }
+    $at = { param([double]$Hours) $now.AddHours(0 - $Hours).ToString('o') }
+    $same = [pscustomobject]@{ Times = [ordered]@{ Console = (& $time (& $at 2) (& $at 2) $true); Inventory = (& $time '' (& $at 1.9) $false) } }
+    # States of the point 3 vocabulary (Get-DomeniaMeasureStateKeys), shared with the freshness summary of the page.
+    Assert-Equal 'Known' ([string](Get-DomeniaFleetWmiResponse -Observation $same -NowUtc $now).State) 'Echec de la meme collecte ne masque pas la reponse'
+    $later = [pscustomobject]@{ Times = [ordered]@{ Console = (& $time (& $at 48) (& $at 1) $false) } }
+    $result = Get-DomeniaFleetWmiResponse -Observation $later -NowUtc $now
+    Assert-Equal 'Error' ([string]$result.State) 'Echec posterieur'
+    Assert-Equal (& $at 48) $result.LastSuccessUtc.ToString('o') 'Derniere reussite conservee'
+    $old = [pscustomobject]@{ Times = [ordered]@{ Inventory = (& $time (& $at (31 * 24)) (& $at (31 * 24)) $true) } }
+    Assert-Equal 'Expired' ([string](Get-DomeniaFleetWmiResponse -Observation $old -NowUtc $now -MaxDays 30).State) 'Lecture expiree'
+    $future = [pscustomobject]@{ Times = [ordered]@{ Inventory = (& $time $now.AddHours(2).ToString('o') $now.AddHours(2).ToString('o') $true) } }
+    $futureState = Get-DomeniaFleetWmiResponse -Observation $future -NowUtc $now
+    Assert-Equal 'Error' ([string]$futureState.State) 'Date future : horloge a verifier, jamais une reponse'
+    Assert-True ($null -eq $futureState.At) 'Date future comptee comme datee'
+    $skew = [pscustomobject]@{ Times = [ordered]@{ Inventory = (& $time $now.AddMinutes(1).ToString('o') $now.AddMinutes(1).ToString('o') $true) } }
+    Assert-Equal 'Known' ([string](Get-DomeniaFleetWmiResponse -Observation $skew -NowUtc $now).State) 'Ecart d horloge tolere refuse'
+    $pingOnly = [pscustomobject]@{ Presence = 'En ligne'; PresenceCheckedUtc = (& $at 1); Times = [ordered]@{ Presence = (& $time (& $at 1) (& $at 1) $true) } }
+    Assert-Equal 'Absent' ([string](Get-DomeniaFleetWmiResponse -Observation $pingOnly -NowUtc $now).State) 'Un ping ne vaut pas une reponse WMI'
+    $denied = [pscustomobject]@{ Outcome = 'Denied'; UserCheckedUtc = (& $at 3) }
+    Assert-Equal 'Refused' ([string](Get-DomeniaFleetWmiResponse -Observation $denied -NowUtc $now).State) 'Refus d acces = lecture non confirmee, refusee'
+    # The cause is read from the family whose attempt failed last: here a probe refused after an older console success.
+    $probeRefused = [pscustomobject]@{ Times = [ordered]@{ Console = (& $time (& $at 30) (& $at 30) $true); 'Probe:disk.cfree' = (& $time '' (& $at 2) $false) }; Probes = [pscustomobject]@{ 'disk.cfree' = [pscustomobject]@{ Error = 'Access is denied. (0x80070005)' } } }
+    Assert-Equal 'Refused' ([string](Get-DomeniaFleetWmiResponse -Observation $probeRefused -NowUtc $now).State) 'Refus d une sonde'
+    $notRequested = [pscustomobject]@{ Outcome = 'NotRequested'; UserCheckedUtc = (& $at 3) }
+    Assert-Equal 'NotRead' ([string](Get-DomeniaFleetWmiResponse -Observation $notRequested -NowUtc $now).State) 'Console non demandee'
+    Assert-Equal 'Absent' ([string](Get-DomeniaFleetWmiResponse -Observation $null -NowUtc $now).State)
+    foreach ($key in @('Known','Refused','Error','Expired','NotRead','Absent')) { Assert-True (@(Get-DomeniaMeasureStateKeys) -ccontains $key) ('Etat hors vocabulaire : ' + $key) }
+    Assert-Equal 'Ni ping ni WMI' (Get-DomeniaFleetReachLabel -Presence 'Sans réponse' -Wmi 'Error')
+    Assert-Equal 'Ni ping ni WMI' (Get-DomeniaFleetReachLabel -Presence 'Sans réponse' -Wmi 'Refused')
+    Assert-Equal 'Un seul canal relevé' (Get-DomeniaFleetReachLabel -Presence 'Non vérifié' -Wmi 'Known')
+    Assert-Equal 'Un seul canal relevé' (Get-DomeniaFleetReachLabel -Presence 'Sans réponse' -Wmi 'Expired')
+    Assert-Equal 'Aucun relevé' (Get-DomeniaFleetReachLabel -Presence 'Non vérifié' -Wmi 'Absent')
+}
+Test-Case -Id 'BF-026' -Name 'Point 71 : la courbe des inactifs signale les jours comptes avec un autre seuil ou sans seuil conserve' -Body {
+    $days = @(foreach ($d in 0..95) { [pscustomobject]@{ day = $script:BfNow.Date.AddDays(0 - $d).ToString('yyyy-MM-dd',$script:BfInvariant); figures = $(if ($d -lt 30) { '{"Machines":7,"Problems":1,"Stale":2,"StaleDays":90}' } elseif ($d -lt 60) { '{"Machines":7,"Problems":1,"Stale":3,"StaleDays":45}' } else { '{"Machines":7,"Problems":1,"Stale":2}' }) } })
+    $entry = (Get-BfBoard -History $days).Entries['fleet.trend.stale']
+    Assert-Equal 90 @($entry.Items).Count 'Tous les jours restent sur la courbe'
+    Assert-True ([string]$entry.Detail -like '*(actuellement 90 j) ; 30 jour(s) compté(s) avec un autre seuil, 30 jour(s) sans seuil conservé : ces jours ne se comparent pas directement') ('Melange de seuils : ' + $entry.Detail)
+    $same = @(foreach ($d in 0..95) { [pscustomobject]@{ day = $script:BfNow.Date.AddDays(0 - $d).ToString('yyyy-MM-dd',$script:BfInvariant); figures = '{"Machines":7,"Problems":1,"Stale":2,"StaleDays":45}' } })
+    $tighter = Get-BfBoard -History $same -HealthPolicy (ConvertTo-DomeniaHealthPolicy @{ Thresholds = @{ StaleDays = 45 } })
+    Assert-True ([string]$tighter.Entries['fleet.trend.stale'].Detail -like '*(actuellement 45 j)') 'Meme seuil partout : aucune reserve'
+    Assert-Equal 45 ([int]$tighter.Snapshot.Figures.StaleDays) 'Instantane du jour avec son seuil'
+    Assert-Equal '' (Get-DomeniaStaleTrendNote -Figures @([pscustomobject]@{ StaleDays = 90 }, @{ StaleDays = '90' }, $null) -StaleDays 90)
+    Assert-Equal ' ; 1 jour(s) compté(s) avec un autre seuil : ces jours ne se comparent pas directement' (Get-DomeniaStaleTrendNote -Figures @([pscustomobject]@{ StaleDays = 45 }) -StaleDays 90)
+    Assert-Equal ' ; 2 jour(s) sans seuil conservé : ces jours ne se comparent pas directement' (Get-DomeniaStaleTrendNote -Figures @([pscustomobject]@{ Stale = 1 }, [pscustomobject]@{ StaleDays = 'illisible' }) -StaleDays 90)
 }

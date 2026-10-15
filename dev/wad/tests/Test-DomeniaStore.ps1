@@ -411,17 +411,22 @@ try{
   $byName=@{};foreach($machine in @($r.Machines)){$byName[[string]$machine.name]=$bitlocker[[string]$machine.gid]}
   Expect (($byName['Recycled-1'] -ceq 'U') -and ($byName['Kept-1'] -ceq 'K')) ('BitLocker state by name: '+((@($byName.Keys)|Sort-Object|ForEach-Object{$_+'='+$byName[$_]}) -join ','))
   Expect ($r.Coverage.BitLockerRead -eq 1) ('metadata of a former holder counted as read: '+$r.Coverage.BitLockerRead)
-  # Same rule on the fiche (Domenia-Core.ps1): the creation date is read by the GUID of the displayed computer.
-  $entry=@($core.FindAll({param($n)($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq 'Get-DomeniaSecretIndexEntry')},$true))
-  if($entry.Count -ne 1){throw 'Get-DomeniaSecretIndexEntry introuvable'}
-  . ([scriptblock]::Create($entry[0].Extent.Text))
-  function Initialize-DomeniaDatabase {return $true}
-  function Get-DomeniaDatabasePath {return $path}
-  Expect ($null -eq (Get-DomeniaSecretIndexEntry -Computer 'Recycled-1' -Guid $recycled)) 'metadata of a former holder shown on the fiche'
-  $shown=Get-DomeniaSecretIndexEntry -Computer 'Kept-1' -Guid $kept
-  Expect (($null -ne $shown) -and ($shown.BitLockerKeys -eq 1)) 'metadata of the current holder hidden'
-  $unproven=Get-DomeniaSecretIndexEntry -Computer 'Recycled-1' -Guid ''
-  Expect (($null -ne $unproven) -and ($unproven.BitLockerKeys -eq 2)) 'without the GUID nothing is proven, so nothing is hidden'
+  # Same rule on the fiche, read off the Dispatcher (FI-19): LocalIndexRead SecretIndexEntry reads the creation date by
+  # the GUID of the displayed computer and Complete-DomeniaSecretIndexSummaryUi applies Test-DomeniaRecordPredatesObject.
+  $secret={param([string]$Computer,[string]$Guid)
+   $Payload=[pscustomobject]@{Action='SecretIndexEntry';Path=$path;BusyTimeoutMs=1000;Computer=$Computer}
+   if($Guid){$Payload|Add-Member -NotePropertyName Guid -NotePropertyValue $Guid}
+   & ([scriptblock]::Create($reader))
+  }
+  $hidden={param($Answer) return ((@($Answer.Rows).Count -eq 1) -and (Test-DomeniaRecordPredatesObject -RecordedUtc ([string]@($Answer.Rows)[0].checked_at) -CreatedUtc ([string]$Answer.CreatedUtc)))}
+  $former=& $secret 'Recycled-1' $recycled
+  Expect (([string]$former.CreatedUtc) -and (& $hidden $former)) ('metadata of a former holder shown on the fiche: '+[string]$former.CreatedUtc)
+  $shown=& $secret 'Kept-1' $kept.ToUpperInvariant()
+  Expect (([string]$shown.CreatedUtc) -and (-not (& $hidden $shown)) -and ([int]@($shown.Rows)[0].bitlocker_keys -eq 1)) 'metadata of the current holder hidden'
+  $unproven=& $secret 'Recycled-1' ''
+  Expect ((-not [string]$unproven.CreatedUtc) -and (-not (& $hidden $unproven)) -and ([int]@($unproven.Rows)[0].bitlocker_keys -eq 2)) 'without the GUID nothing is proven, so nothing is hidden'
+  $refused=$false;try{[void](& $secret 'Kept-1' "x' OR 1=1 --")}catch{$refused=$true}
+  Expect $refused 'malformed GUID read'
  }
  Case 'Explicit purge removes the scope clocks of the purged families only' {
   . (Join-Path $wad 'modules/Domenia-Common.Model.ps1');. (Join-Path $wad 'modules/Domenia-Collection.Model.ps1')

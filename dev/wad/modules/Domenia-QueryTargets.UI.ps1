@@ -114,9 +114,12 @@ function Complete-DomeniaWorkshopWidgetSave {
     $visual=[string]$State.Visual
     if($visual -notin @('Kpi','Text','Bar','Pie','Column')){$visual='Kpi'}
     $layout=@(Get-DomeniaBoardLayout $board);$existing=@($layout|Where-Object{$_.Source -eq 'Query' -and $_.Key -eq $recipe.Id}|Select-Object -First 1)
-    if($existing.Count){$layout=@(Update-DomeniaBoardItem -Layout $layout -Id $existing[0].Id -Changes @{Visual=$visual;Title=$recipe.Name});$id=$existing[0].Id}
+    $added=($existing.Count -eq 0)
+    if(-not $added){$layout=@(Update-DomeniaBoardItem -Layout $layout -Id $existing[0].Id -Changes @{Visual=$visual;Title=$recipe.Name});$id=$existing[0].Id}
     else{$item=$State.Item;$id=$item.Id;$layout=@(Add-DomeniaBoardItem $layout $item)}
     Set-DomeniaBoardLayout -Board $board -Layout $layout -Undo 'Ajout ou mise à jour de la requête' -Highlight $id
     if($sameDraft){if($board -eq 'Fleet'){Start-DomeniaQueryEvaluation}else{Show-DomeniaWorkshopComputerPreview}}
-    [void](Set-DomeniaControlText 'LblQueryStatus' ('Requête enregistrée et ajoutée au tableau de bord '+$(if($board -eq 'Computer'){'Poste'}else{'général'})+'. Sa disposition est conservée. Aucune collecte lancée.'))
+    # A widget just added collects at once what it is missing for its board (decision David 2026-10-14).
+    $collecting=$false;if($added){$collecting=[bool](Start-DomeniaWidgetRefresh -Board $board -Id ([string]$id) -Reason Add)}
+    [void](Set-DomeniaControlText 'LblQueryStatus' ('Requête enregistrée et ajoutée au tableau de bord '+$(if($board -eq 'Computer'){'Poste'}else{'général'})+'. Sa disposition est conservée. '+$(if($collecting){'Collecte de ses données manquantes lancée pour ce widget.'}else{'Aucune collecte lancée.'})))
 }
