@@ -90,7 +90,9 @@ function Set-DomeniaEmbeddedTheme {
     }
 }
 function Show-DomeniaEmbeddedWindow {
-    param([Parameter(Mandatory=$true)]$Window,[switch]$ManagedCancel,[switch]$PreserveTheme)
+    # -HideHeaderClose (UI-14): a panel whose own buttons already hold Annuler drops the Fermer of its header, so that it
+    # offers one way out; Échap still cancels. Ignored when the panel has no cancel button.
+    param([Parameter(Mandatory=$true)]$Window,[switch]$ManagedCancel,[switch]$PreserveTheme,[switch]$HideHeaderClose)
     if(-not (Test-DomeniaEmbeddedHost)){
         if($null -ne $script:Window -and $script:Window.IsLoaded){$Window.Close();return $false}
         # Only the initial login or a fatal startup report can exist without the main host.
@@ -158,6 +160,7 @@ function Show-DomeniaEmbeddedWindow {
         else{$Window.Close()}
     }.GetNewClosure()
     $close.Add_Click($cancelAction)
+    if ($HideHeaderClose -and ($null -ne $cancel)) { $close.Visibility = 'Collapsed' }
     $r.Cleanup={
         if($r.Done){return};$r.Done=$true;$r.Frame.Continue=$false
         [void]$layout.Children.Remove($body);$layer.Children.Clear();$layer.Visibility='Collapsed'
@@ -200,7 +203,8 @@ function Show-DomeniaEmbeddedWindow {
     try{
         $tick.Start()
         if($null -ne $r.Ready){& $r.Ready $Window $null|Out-Null}
-        else{[void]$close.Focus()}
+        elseif($close.Visibility -eq [Windows.Visibility]::Visible){[void]$close.Focus()}
+        elseif($null -ne $cancel){[void]$cancel.Focus()}
         if(-not $r.Done){[Windows.Threading.Dispatcher]::PushFrame($r.Frame)}
         return [bool]$r.Accepted
     }finally{

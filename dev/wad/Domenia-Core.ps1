@@ -23126,6 +23126,12 @@ function New-DefaultConfig {
             RefreshAfterEachAction = $true
             # Lot L01: observations older than this are left out of the overview (greyed past 7 days).
             ObservationMaxAgeDays = 30
+            # FO-17: team layout of each board, set by the administrator: the JSON list exported by « Exporter » (or the
+            # whole exported document, or its text). Empty: the delivered layout. Applied by « Par défaut » and to a board
+            # never customised; an unreadable value is ignored and the delivered layout stays.
+            DefaultLayoutComputer = ''
+            DefaultLayoutFleet = ''
+            DefaultLayoutSoftware = ''
         }
         UI = [ordered]@{
             WindowWidth = 1720
