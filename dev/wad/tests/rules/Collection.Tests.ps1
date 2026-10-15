@@ -14,7 +14,9 @@ Test-Case 'P11' 'Profils : chaque famille a une durée, Standard reprend les dur
     }
     $standard = Resolve-DomeniaFreshnessTable 'Standard' $null
     Assert-Equal 120 $standard.Seconds['Presence']; Assert-Equal 300 $standard.Seconds['Console']; Assert-Equal 900 $standard.Seconds['Attributes']
-    Assert-Equal 86400 $standard.Seconds['Identity']; Assert-Equal 300 $standard.Seconds['Inventory']; Assert-Equal 60 $standard.Seconds['VolatileProbe']
+    Assert-Equal 300 $standard.Seconds['Inventory']; Assert-Equal 60 $standard.Seconds['VolatileProbe']; Assert-Equal 900 $standard.Seconds['StaticProbe']
+    Assert-Equal 'Presence,Console,Attributes,Inventory,StaticProbe,VolatileProbe' (@(Get-DomeniaFreshnessFamilies | ForEach-Object { [string]$_.Id }) -join ',') 'Seules les familles appliquées par un lecteur sont proposées'
+    Assert-False $standard.Seconds.ContainsKey('Identity') 'Aucune durée sans lecteur'
     Assert-Equal 'Standard' (Resolve-DomeniaFreshnessTable 'Inexistant' $null).Profile 'Profil inconnu : Standard'
 }
 Test-Case 'P11' 'Durées personnalisées : famille inconnue, valeur non entière ou hors bornes ignorées et signalées' {

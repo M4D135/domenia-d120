@@ -327,13 +327,15 @@ function Set-DomeniaLiveObservationOnRow {
     # GUID mismatch means a recreated AD object, not the same cached machine.
     if($null -ne $Observation -and $Row.Guid -and $Observation.Guid -and [string]$Row.Guid -ine [string]$Observation.Guid){$Observation=$null}
     $view=Get-DomeniaLiveObservationView $Observation -Cached:$Cached -Pending:$Pending
-    $Row.SessionDisplay=$view.Display;$Row.SessionState=$view.State;$Row.SessionDetail=$view.Detail+"`r`n"+(Get-DomeniaRecordFreshness $Observation 'Console').Label
+    # Point 11: the durations of the usage profile decide « récent » or « à relire » (cached table, two setting reads).
+    $freshnessTable=$null;try{$freshnessTable=Get-DomeniaActiveFreshnessTable}catch{$freshnessTable=$null}
+    $Row.SessionDisplay=$view.Display;$Row.SessionState=$view.State;$Row.SessionDetail=$view.Detail+"`r`n"+(Get-DomeniaRecordFreshness $Observation 'Console' -Table $freshnessTable).Label
     $Row.SessionChecked=$view.Checked;$Row.SessionObserved=$view.Observed;$Row.SessionSource=$view.Source
     $key=Get-DomeniaLiveObjectKey $Row
     $historical=[bool]$Cached
     if($null -ne $script:Live -and $null -ne $script:Live.PresenceSeen -and $script:Live.PresenceSeen.ContainsKey($key)){$historical=$false}
     $network=Get-DomeniaLivePresenceView $Observation -Cached:$historical
-    $Row.Presence=$network.Display;Set-DomeniaLiveRowValue $Row 'PresenceDetail' ($network.Detail+"`r`n"+(Get-DomeniaRecordFreshness $Observation 'Presence').Label)
+    $Row.Presence=$network.Display;Set-DomeniaLiveRowValue $Row 'PresenceDetail' ($network.Detail+"`r`n"+(Get-DomeniaRecordFreshness $Observation 'Presence' -Table $freshnessTable).Label)
 }
 function Add-DomeniaLiveRow {
     param($Event)

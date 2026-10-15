@@ -4,12 +4,13 @@
 
 # ---------------------------------------------------------------- point 11: freshness per data family and usage profile
 function Get-DomeniaFreshnessFamilies {
-    # Families whose reuse delay the operator may set. Minimum and Maximum bound one setting, in seconds.
+    # Families whose reuse delay the operator may set. Minimum and Maximum bound one setting, in seconds. Only the
+    # families that a reader really applies are listed: no reader applies a reuse delay to the AD identity, so it is
+    # not offered as a setting that would change nothing.
     return @(
         [pscustomobject]@{Id='Presence';Label='Présence réseau (ping)';Minimum=0;Maximum=604800;Effect='Le dernier ping reste affiché comme récent pendant cette durée ; au-delà il est marqué à relire.'}
         [pscustomobject]@{Id='Console';Label='Utilisateur console';Minimum=0;Maximum=604800;Effect='Lʼutilisateur console relevé reste récent pendant cette durée. Un relevé relit toujours la console.'}
         [pscustomobject]@{Id='Attributes';Label='Attributs AD';Minimum=0;Maximum=604800;Effect='Les attributs AD affichés restent récents pendant cette durée ; au-delà la fiche indique « à relire ».'}
-        [pscustomobject]@{Id='Identity';Label='Identité AD';Minimum=60;Maximum=604800;Effect='Lʼidentité AD (GUID, SID, nom) reste récente pendant cette durée.'}
         [pscustomobject]@{Id='Inventory';Label='Inventaire léger WMI';Minimum=0;Maximum=604800;Effect='Un relevé réutilise lʼinventaire léger plus récent que cette durée au lieu de le relire.'}
         [pscustomobject]@{Id='StaticProbe';Label='Sondes WMI stables';Minimum=0;Maximum=604800;Effect='Un relevé réutilise le résultat des sondes stables (matériel, BIOS, système) plus récent que cette durée.'}
         [pscustomobject]@{Id='VolatileProbe';Label='Sondes WMI variables';Minimum=0;Maximum=604800;Effect='Un relevé réutilise le résultat des sondes variables (services, réseau, charge, journaux) plus récent que cette durée.'}
@@ -19,9 +20,9 @@ function Get-DomeniaFreshnessFamilies {
 function Get-DomeniaCollectionProfiles {
     # Usage profiles. Seconds per freshness family; Windows is the default collection window of the profile (point 159).
     return @(
-        [pscustomobject]@{Id='Standard';Label='Standard';Description='Réseau local ou rapide : durées habituelles de Domenia, travaux de fond permis à tout moment.';Windows='';Seconds=@{Presence=120;Console=300;Attributes=900;Identity=86400;Inventory=300;StaticProbe=900;VolatileProbe=60}}
-        [pscustomobject]@{Id='SlowNetwork';Label='Réseau lent ou site distant';Description='Mesures réutilisées plus longtemps ; travaux de fond limités aux heures creuses.';Windows='lun-ven 00:00-08:00 12:00-14:00 18:00-24:00; sam-dim';Seconds=@{Presence=600;Console=900;Attributes=3600;Identity=86400;Inventory=3600;StaticProbe=14400;VolatileProbe=300}}
-        [pscustomobject]@{Id='Troubleshooting';Label='Dépannage en direct';Description='Mesures relues rapidement pendant une intervention ; travaux de fond permis à tout moment.';Windows='';Seconds=@{Presence=30;Console=60;Attributes=300;Identity=3600;Inventory=120;StaticProbe=300;VolatileProbe=30}}
+        [pscustomobject]@{Id='Standard';Label='Standard';Description='Réseau local ou rapide : durées habituelles de Domenia, travaux de fond permis à tout moment.';Windows='';Seconds=@{Presence=120;Console=300;Attributes=900;Inventory=300;StaticProbe=900;VolatileProbe=60}}
+        [pscustomobject]@{Id='SlowNetwork';Label='Réseau lent ou site distant';Description='Mesures réutilisées plus longtemps ; travaux de fond limités aux heures creuses.';Windows='lun-ven 00:00-08:00 12:00-14:00 18:00-24:00; sam-dim';Seconds=@{Presence=600;Console=900;Attributes=3600;Inventory=3600;StaticProbe=14400;VolatileProbe=300}}
+        [pscustomobject]@{Id='Troubleshooting';Label='Dépannage en direct';Description='Mesures relues rapidement pendant une intervention ; travaux de fond permis à tout moment.';Windows='';Seconds=@{Presence=30;Console=60;Attributes=300;Inventory=120;StaticProbe=300;VolatileProbe=30}}
     )
 }
 

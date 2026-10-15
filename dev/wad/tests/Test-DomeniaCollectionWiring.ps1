@@ -56,7 +56,8 @@ Case 'Point 11 et 159 : durées et fenêtre enregistrées par profil, valeurs in
  Assert ([string]$script:SettingValues['Collection.FreshnessJson'] -match '"SlowNetwork"')
  $script:SettingValues['Collection.Profile']='Standard'
  Assert ((Get-DomeniaActiveFreshnessTable).Seconds['Inventory'] -eq 300) 'Durée dʼun autre profil appliquée'
- $failed=$false;try{Set-DomeniaFreshnessOverride -Family 'Identity' -Seconds 5}catch{$failed=$true};Assert $failed 'Durée hors bornes acceptée'
+ $failed=$false;try{Set-DomeniaFreshnessOverride -Family 'Presence' -Seconds 700000}catch{$failed=$true};Assert $failed 'Durée hors bornes acceptée'
+ $failed=$false;try{Set-DomeniaFreshnessOverride -Family 'Identity' -Seconds 600}catch{$failed=$true};Assert $failed 'Famille sans lecteur acceptée'
  Assert ((Get-DomeniaCollectionWindowText) -eq '')
  $failed=$false;try{Set-DomeniaCollectionWindowText 'lun 25:00-26:00'}catch{$failed=$true};Assert $failed 'Fenêtre invalide acceptée'
  $script:SettingValues['Collection.Profile']='SlowNetwork'
@@ -66,6 +67,25 @@ Case 'Point 11 et 159 : durées et fenêtre enregistrées par profil, valeurs in
  Assert ([string]$script:SettingValues['Collection.WindowsJson'] -match 'toujours')
  Assert ((Get-DomeniaActiveFreshnessTable).Seconds['Inventory'] -eq 600) 'Durée personnalisée du profil perdue'
 }
+Case 'Point 11 : chaque famille proposée a un lecteur qui applique la durée du profil' {
+ # Presence: presence cache of the core and live grid; Console: live grid and selected workstation; Attributes: object
+ # card and selection panel; Inventory and probes: collection plan of the campaigns.
+ $core=Get-CoreFunctionText 'Get-DomeniaCachedPresenceState'
+ Assert ($core.Contains("Get-DomeniaFreshness -Nature 'Presence'") -and $core.Contains('-Table $table')) 'Cache de présence sans durée du profil'
+ Assert ((Get-CoreFunctionText 'Show-AdObjectResult').Contains("'Attributes' -Table `$freshnessTable")) 'Fiche objet sans durée du profil'
+ $live=[IO.File]::ReadAllText((Join-Path $wad 'modules\Domenia-Live.UI.ps1'))
+ foreach($nature in @('Console','Presence')){Assert ($live.Contains("Get-DomeniaRecordFreshness `$Observation '"+$nature+"' -Table `$freshnessTable")) ('Liste sans durée du profil : '+$nature)}
+ Assert ($live.Contains("Get-DomeniaRecordFreshness `$observation 'Console' -Table `$freshnessTable")) 'Poste sélectionné sans durée du profil'
+ $selection=[IO.File]::ReadAllText((Join-Path $wad 'modules\Domenia-Selection.UI.ps1'))
+ Assert ($selection.Contains("Get-DomeniaRecordFreshness `$record 'Attributes' -Table `$freshnessTable")) 'Panneau de sélection sans durée du profil'
+ $park=[IO.File]::ReadAllText((Join-Path $wad 'modules\Domenia-Park.UI.ps1'))
+ Assert ($park.Contains('-Freshness $r.Freshness')) 'Plan de collecte sans durée du profil'
+ $script:SettingValues['Collection.Profile']='Troubleshooting'
+ $observation=[pscustomobject]@{Times=@{Presence=[pscustomobject]@{ObservedUtc=[datetime]::UtcNow.AddSeconds(-60).ToString('o');LastAttemptUtc=$null}}}
+ Assert ([string](Get-DomeniaRecordFreshness $observation 'Presence' -Table (Get-DomeniaActiveFreshnessTable)).State -eq 'Stale') 'Profil Dépannage : ping de 60 s encore récent'
+ $script:SettingValues['Collection.Profile']='Standard'
+ Assert ([string](Get-DomeniaRecordFreshness $observation 'Presence' -Table (Get-DomeniaActiveFreshnessTable)).State -eq 'Fresh') 'Profil Standard : ping de 60 s déjà à relire'
+}
 Case 'Point 11 : la vue des réglages de collecte affiche, modifie et rétablit les durées du profil' {
  foreach($name in @('CmbCollectionProfile','CmbCollectionFreshnessValue')){$script:Ctrl[$name]=[Windows.Controls.ComboBox]::new()}
  $script:Ctrl['DgCollectionFreshness']=[Windows.Controls.DataGrid]::new()
@@ -73,7 +93,7 @@ Case 'Point 11 : la vue des réglages de collecte affiche, modifie et rétablit 
  $script:Ctrl['TxtCollectionWindow']=[Windows.Controls.TextBox]::new()
  foreach($name in @('LblCollectionWindow','LblCollectionProfile','LblCollectionResume')){$script:Ctrl[$name]=[Windows.Controls.TextBlock]::new()}
  Initialize-DomeniaCollectionSettingsUi
- Assert (@($script:Ctrl.DgCollectionFreshness.ItemsSource).Count -eq 7) 'Familles absentes'
+ Assert (@($script:Ctrl.DgCollectionFreshness.ItemsSource).Count -eq 6) 'Familles absentes'
  $script:Ctrl.CmbCollectionProfile.SelectedIndex=1
  Assert ($script:SettingValues['Collection.Profile'] -eq 'SlowNetwork' -and $script:Ctrl.TxtCollectionWindow.Text -match 'sam-dim') 'Profil non appliqué'
  $script:Ctrl.DgCollectionFreshness.SelectedItem=@($script:Ctrl.DgCollectionFreshness.ItemsSource|Where-Object{$_.Family -eq 'Inventory'})[0]
@@ -165,7 +185,7 @@ Case 'Opérations : la santé du moteur inclut les mesures de la collecte' {
  Assert ($health.Contains('Get-DomeniaCollectionHealthLines')) 'Panneau non raccordé'
 }
 $failed=@($checks|Where-Object Status -eq 'Failed').Count
-$report=[ordered]@{Kind='CollectionWiring';Expected=12;Complete=($checks.Count -eq 12 -and $failed -eq 0);NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
+$report=[ordered]@{Kind='CollectionWiring';Expected=13;Complete=($checks.Count -eq 13 -and $failed -eq 0);NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path $env:TEMP 'domenia-collection-wiring-tests.json'}
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
 Write-Host ($report.Passed.ToString()+' reussis, '+$failed+' echecs. '+$ReportPath)
