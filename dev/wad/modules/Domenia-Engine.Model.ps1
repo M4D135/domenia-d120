@@ -257,10 +257,22 @@ function Get-DomeniaQueuedSeconds {
 }
 
 function Select-DomeniaNextQueuedTask {
-    # Returns the queued task that may start now, or $null. Priority first, then arrival order.
+    # Returns the queued task that may start now, or $null (see Select-DomeniaNextQueuedEntry).
+    param([object[]]$Queued,[int]$Running=0,[int]$Outstanding=0,[int]$MaxConcurrent=6,[int]$MaxOutstanding=12,[int]$ReservedForeground=2,
+        $ProviderLoad=$null,$ProviderState=$null,[datetime]$NowUtc=[datetime]::UtcNow,
+        [int]$BackgroundRunning=-1,[int]$AgingSeconds=30,[datetime]$Now=(Get-Date),$SourceLoad=$null)
+    $entry = Select-DomeniaNextQueuedEntry -Queued $Queued -Running $Running -Outstanding $Outstanding -MaxConcurrent $MaxConcurrent -MaxOutstanding $MaxOutstanding -ReservedForeground $ReservedForeground -ProviderLoad $ProviderLoad -ProviderState $ProviderState -NowUtc $NowUtc -BackgroundRunning $BackgroundRunning -AgingSeconds $AgingSeconds -Now $Now -SourceLoad $SourceLoad
+    if ($null -eq $entry) { return $null }
+    return $entry.Task
+}
+
+function Select-DomeniaNextQueuedEntry {
+    # Returns {Task; Aged} for the queued task that may start now, or $null. Priority first, then arrival order.
     # MO-05: with -ProviderLoad (running workers per provider), a candidate whose provider is saturated or paused
     # is skipped and stays queued; a durable refusal (rejected account) is returned so that its start reports it.
-    # Point 16: with -BackgroundRunning 0, the oldest background entry that waited AgingSeconds goes first.
+    # Point 16: with -BackgroundRunning 0, the oldest background entry that waited AgingSeconds goes first; it may take
+    # one reserved place and start above its provider or site budget (never on a paused source). Aged says that it
+    # started only thanks to its wait, so that the dispatch applies the same exception and the start is counted.
     # Points 15 and 160: -SourceLoad counts running workers per 'Provider|target' and 'Provider|group:<g>'.
     param([object[]]$Queued,[int]$Running=0,[int]$Outstanding=0,[int]$MaxConcurrent=6,[int]$MaxOutstanding=12,[int]$ReservedForeground=2,
         $ProviderLoad=$null,$ProviderState=$null,[datetime]$NowUtc=[datetime]::UtcNow,
@@ -274,8 +286,11 @@ function Select-DomeniaNextQueuedTask {
     }
     foreach ($task in $ordered) {
         $class = [string](Get-DomeniaMember $task 'Class' 'Background')
-        $decision = Test-DomeniaTaskAdmission -Class $class -Running $Running -Outstanding $Outstanding -MaxConcurrent $MaxConcurrent -MaxOutstanding $MaxOutstanding -Queued 0 -MaxQueued 1 -ReservedForeground $ReservedForeground -WaitedSeconds (Get-DomeniaQueuedSeconds $task $Now) -BackgroundRunning $BackgroundRunning -AgingSeconds $AgingSeconds
+        $waited = Get-DomeniaQueuedSeconds $task $Now
+        $agingDue = (($class -eq 'Background') -and (Test-DomeniaBackgroundAgingDue -WaitedSeconds $waited -BackgroundRunning $BackgroundRunning -AgingSeconds $AgingSeconds))
+        $decision = Test-DomeniaTaskAdmission -Class $class -Running $Running -Outstanding $Outstanding -MaxConcurrent $MaxConcurrent -MaxOutstanding $MaxOutstanding -Queued 0 -MaxQueued 1 -ReservedForeground $ReservedForeground -WaitedSeconds $waited -BackgroundRunning $BackgroundRunning -AgingSeconds $AgingSeconds
         if ($decision.Decision -ne 'Start') { continue }
+        $startedByAge = [bool](Get-DomeniaMember $decision 'Aged' $false)
         if ($null -ne $ProviderLoad) {
             $provider = [string](Get-DomeniaMember $task 'Provider' '')
             if ($provider) {
@@ -289,11 +304,12 @@ function Select-DomeniaNextQueuedTask {
                     $forTarget = 0; if ($SourceLoad.Contains($targetKey)) { $forTarget = [int]$SourceLoad[$targetKey] }
                     if ($group) { $groupKey = Get-DomeniaProviderStateKey $provider ('group:' + $group); $forGroup = 0; if ($SourceLoad.Contains($groupKey)) { $forGroup = [int]$SourceLoad[$groupKey] } }
                 }
-                $budget = Test-DomeniaProviderAdmission -State $ProviderState -Provider $provider -Target $target -Class $class -RunningForProvider $busy -NowUtc $NowUtc -Group $group -RunningForTarget $forTarget -RunningForGroup $forGroup
+                $budget = Test-DomeniaProviderAdmission -State $ProviderState -Provider $provider -Target $target -Class $class -RunningForProvider $busy -NowUtc $NowUtc -Group $group -RunningForTarget $forTarget -RunningForGroup $forGroup -Aged $agingDue
                 if ((-not [bool]$budget.Allowed) -and (-not [bool](Get-DomeniaMember $budget 'Durable' $false))) { continue }
+                if ([bool](Get-DomeniaMember $budget 'Aged' $false)) { $startedByAge = $true }
             }
         }
-        return $task
+        return [pscustomobject]@{Task=$task;Aged=$startedByAge}
     }
     return $null
 }
@@ -481,9 +497,11 @@ function Get-DomeniaIsolationDecision {
 function Get-DomeniaProviderBudget {
     # Point 15: MaxPerGroup bounds the background reads of one controller or presumed subnet, so that one slow site
     # never takes every place of its provider. GroupFailureThreshold consecutive time-outs suspend that site only.
+    # Every directory read of a session goes to the controller of the connection: its controller budget equals the
+    # provider budget (no hidden reduction), and the group only adds the pause of that controller.
     param([Parameter(Mandatory=$true)][string]$Provider)
     switch ($Provider) {
-        'Directory' { return [pscustomobject]@{Provider=$Provider;MaxConcurrent=4;TimeoutSeconds=30;FailureThreshold=3;BackoffSeconds=20;MaxBackoffSeconds=300;MaxPerGroup=3;GroupFailureThreshold=3} }
+        'Directory' { return [pscustomobject]@{Provider=$Provider;MaxConcurrent=4;TimeoutSeconds=30;FailureThreshold=3;BackoffSeconds=20;MaxBackoffSeconds=300;MaxPerGroup=4;GroupFailureThreshold=3} }
         'Cim'       { return [pscustomobject]@{Provider=$Provider;MaxConcurrent=3;TimeoutSeconds=25;FailureThreshold=2;BackoffSeconds=60;MaxBackoffSeconds=600;MaxPerGroup=2;GroupFailureThreshold=3} }
         'Wts'       { return [pscustomobject]@{Provider=$Provider;MaxConcurrent=2;TimeoutSeconds=20;FailureThreshold=2;BackoffSeconds=60;MaxBackoffSeconds=600;MaxPerGroup=1;GroupFailureThreshold=3} }
         'Storage'   { return [pscustomobject]@{Provider=$Provider;MaxConcurrent=1;TimeoutSeconds=30;FailureThreshold=3;BackoffSeconds=15;MaxBackoffSeconds=120;MaxPerGroup=1;GroupFailureThreshold=0} }
@@ -592,9 +610,14 @@ function Reset-DomeniaProviderState {
 function Test-DomeniaProviderAdmission {
     # Points 15 and 160: -Group, -RunningForTarget and -RunningForGroup add the site budget and the progressive
     # recovery for background reads. -1 means unknown and keeps the historical decision.
+    # Point 16: -Aged (background work that waited its aging delay while no other background work runs) may start
+    # above the provider and site budgets, which explicit reads may fill on their own: it is then the only background
+    # read in flight, so the excess is one read at most. A pause, a recovery or a rejected account is never bypassed.
     param($State,[Parameter(Mandatory=$true)][string]$Provider,[string]$Target='',[string]$Class='Explicit',[int]$RunningForProvider=0,[datetime]$NowUtc=[datetime]::UtcNow,[string]$Identity='',
-        [string]$Group='',[int]$RunningForTarget=-1,[int]$RunningForGroup=-1)
+        [string]$Group='',[int]$RunningForTarget=-1,[int]$RunningForGroup=-1,[bool]$Aged=$false)
     $budget = Get-DomeniaProviderBudget $Provider
+    $agedException = ($Aged -and ($Class -eq 'Background'))
+    $usedExtra = $false
     $entries = New-Object 'System.Collections.Generic.List[object]'
     if ($null -ne $State) {
         foreach ($key in @((Get-DomeniaProviderStateKey $Provider $Target),(Get-DomeniaProviderStateKey $Provider ''))) { if ($State.ContainsKey($key)) { $entries.Add($State[$key]) } }
@@ -632,13 +655,19 @@ function Test-DomeniaProviderAdmission {
             return [pscustomobject]@{Allowed=$false;Reason=('Reprise progressive du site ' + $Group + ' : une lecture de fond de plus à chaque réponse.');RetryAfterUtc=$null;Budget=$budget;Durable=$false}
         }
         if ($Group -and ($RunningForGroup -ge [int]$budget.MaxPerGroup)) {
-            return [pscustomobject]@{Allowed=$false;Reason=('Budget du site ' + $Group + ' atteint : les autres sites gardent leurs places.');RetryAfterUtc=$null;Budget=$budget;Durable=$false}
+            if (-not $agedException) {
+                return [pscustomobject]@{Allowed=$false;Reason=('Budget du site ' + $Group + ' atteint : les autres sites gardent leurs places.');RetryAfterUtc=$null;Budget=$budget;Durable=$false}
+            }
+            $usedExtra = $true
+        }
+        if ($RunningForProvider -ge [int]$budget.MaxConcurrent) {
+            if (-not $agedException) {
+                return [pscustomobject]@{Allowed=$false;Reason='Concurrence maximale atteinte pour ce fournisseur.';RetryAfterUtc=$null;Budget=$budget;Durable=$false}
+            }
+            $usedExtra = $true
         }
     }
-    if ($Class -eq 'Background' -and $RunningForProvider -ge $budget.MaxConcurrent) {
-        return [pscustomobject]@{Allowed=$false;Reason='Concurrence maximale atteinte pour ce fournisseur.';RetryAfterUtc=$null;Budget=$budget;Durable=$false}
-    }
-    return [pscustomobject]@{Allowed=$true;Reason='';RetryAfterUtc=$null;Budget=$budget;Durable=$false}
+    return [pscustomobject]@{Allowed=$true;Reason='';RetryAfterUtc=$null;Budget=$budget;Durable=$false;Aged=$usedExtra}
 }
 
 function Get-DomeniaProviderStateSummary {

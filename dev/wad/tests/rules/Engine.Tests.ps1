@@ -392,6 +392,26 @@ Test-Case 'P16' 'File : le travail de fond le plus ancien passe devant après so
     Assert-Equal 'e1' (Select-DomeniaNextQueuedTask $q -Running 5 -Outstanding 5 -MaxConcurrent 6 -Now $now).Id 'Sans mesure : priorité historique'
     Assert-Equal 'e1' (Select-DomeniaNextQueuedTask $q -Running 2 -Outstanding 2 -MaxConcurrent 6 -BackgroundRunning 0 -Now $now.AddSeconds(-20)).Id 'Attente encore courte'
 }
+Test-Case 'P16' 'Fond en longue attente : départ malgré le budget du fournisseur ou du site occupé, jamais par-dessus une pause' {
+    $now=[datetime]'2026-10-14T10:00:00'
+    $bg=[pscustomobject]@{Id='fond';Class='Background';Sequence=1;Provider='Directory';ProviderTarget='';ProviderGroup='dc01.example.test';QueuedAt=$now.AddSeconds(-45)}
+    $load=@{Directory=4};$sources=@{'Directory|'=4;'Directory|group:dc01.example.test'=4}
+    $entry=Select-DomeniaNextQueuedEntry @($bg) -Running 5 -Outstanding 5 -MaxConcurrent 6 -ProviderLoad $load -ProviderState (New-DomeniaProviderState) -BackgroundRunning 0 -Now $now -SourceLoad $sources
+    Assert-True ($null -ne $entry) 'Fournisseur occupé par des actions explicites : le fond attend sans fin'
+    Assert-Equal 'fond' $entry.Task.Id;Assert-True ([bool]$entry.Aged) 'Démarrage non attribué à lʼattente'
+    Assert-True ($null -eq (Select-DomeniaNextQueuedEntry @($bg) -Running 5 -Outstanding 5 -MaxConcurrent 6 -ProviderLoad $load -ProviderState (New-DomeniaProviderState) -BackgroundRunning 1 -Now $now -SourceLoad $sources)) 'Un autre travail de fond tourne : pas dʼexception'
+    $full=Select-DomeniaNextQueuedEntry @($bg) -Running 5 -Outstanding 5 -MaxConcurrent 6 -ProviderLoad @{Directory=5} -ProviderState (New-DomeniaProviderState) -BackgroundRunning 0 -Now $now -SourceLoad @{'Directory|'=5;'Directory|group:dc01.example.test'=5}
+    Assert-True (($null -ne $full) -and [bool]$full.Aged) 'Actions explicites au-delà du budget du fournisseur : le fond attend sans fin'
+    $paused=New-DomeniaProviderState
+    foreach($i in 1..3){[void](Register-DomeniaProviderOutcome -State $paused -Provider 'Directory' -Target '' -Outcome 'Failure' -NowUtc $now.ToUniversalTime())}
+    Assert-True ($null -eq (Select-DomeniaNextQueuedEntry @($bg) -Running 1 -Outstanding 1 -MaxConcurrent 6 -ProviderLoad @{} -ProviderState $paused -NowUtc $now.ToUniversalTime().AddSeconds(5) -BackgroundRunning 0 -Now $now -SourceLoad @{})) 'Pause du fournisseur contournée'
+    $fresh=Select-DomeniaNextQueuedEntry @($bg) -Running 1 -Outstanding 1 -MaxConcurrent 6 -ProviderLoad @{} -ProviderState (New-DomeniaProviderState) -BackgroundRunning 0 -Now $now -SourceLoad @{}
+    Assert-False ([bool]$fresh.Aged) 'Place libre : départ ordinaire, non compté comme exception'
+    $within=Test-DomeniaProviderAdmission -State (New-DomeniaProviderState) -Provider 'Cim' -Target 'pc1' -Class 'Background' -RunningForProvider 3 -Group '10.1.2.0/24' -RunningForTarget 0 -RunningForGroup 2 -Aged $true
+    Assert-True $within.Allowed;Assert-True ([bool]$within.Aged)
+    Assert-False (Test-DomeniaProviderAdmission -State (New-DomeniaProviderState) -Provider 'Cim' -Target 'pc1' -Class 'Background' -RunningForProvider 3 -Group '10.1.2.0/24' -RunningForTarget 0 -RunningForGroup 2).Allowed 'Sans attente : budget du fournisseur appliqué'
+    Assert-False ([bool](Test-DomeniaProviderAdmission -State (New-DomeniaProviderState) -Provider 'Cim' -Target 'pc1' -Class 'Background' -RunningForProvider 0 -Aged $true).Aged) 'Exception signalée sans être utilisée'
+}
 Test-Case 'P16' 'Charge simulée : sous une rafale dʼactions explicites, le travail de fond démarre après son attente et pas avant' {
     # Six places, cinq lectures explicites longues, puis une nouvelle lecture explicite par seconde de trois secondes.
     $simulate={param([int]$BackgroundRunningMode)

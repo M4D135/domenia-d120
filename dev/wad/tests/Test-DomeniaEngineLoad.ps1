@@ -225,7 +225,8 @@ Test-Case 'Point 16 : sous une rafale continue d actions explicites, la lecture 
     # explicit read every 100 ms during 8 s, and one background read submitted after the first ones. Measured: the wait
     # of the background read, the p95 wait of the explicit reads and the number of aged promotions.
     $savedDirectory = $script:DemoDirectory
-    $script:Config.Async['BackgroundAgingSeconds'] = 4
+    # 5 s is the lower bound applied by Get-DomeniaEngineLimits.
+    $script:Config.Async['BackgroundAgingSeconds'] = 5
     $script:DomeniaAgedPromotions = 0
     $script:DomeniaRuntimeMetrics = @{}
     $script:DemoDirectory = New-DomeniaDemoDirectory -LatencyMs 1500

@@ -252,7 +252,8 @@ function Invoke-DomeniaUiTaskDispatch {
         $group = [string](Get-DomeniaMember $Job 'ProviderGroup' '')
         $runningForGroup = -1
         if ($group) { $runningForGroup = @($sameProvider | Where-Object { [string](Get-DomeniaMember $_ 'ProviderGroup' '') -ieq $group }).Count }
-        $budget = Test-DomeniaProviderAdmission -State $script:DomeniaProviderState -Provider $provider -Target $jobTarget -Class ([string]$Job.Class) -RunningForProvider $runningForProvider -Identity ([string]$Job.CredentialIdentity) -Group $group -RunningForTarget $runningForTarget -RunningForGroup $runningForGroup
+        # Point 16: the exception granted by the queue to a long-waiting background read is applied here too, once.
+        $budget = Test-DomeniaProviderAdmission -State $script:DomeniaProviderState -Provider $provider -Target $jobTarget -Class ([string]$Job.Class) -RunningForProvider $runningForProvider -Identity ([string]$Job.CredentialIdentity) -Group $group -RunningForTarget $runningForTarget -RunningForGroup $runningForGroup -Aged ([bool](Get-DomeniaMember $Job 'AgedAdmission' $false))
         if (-not [bool]$budget.Allowed) { throw ([string]$budget.Reason) }
     }
     $executed = $requested
@@ -781,12 +782,17 @@ function Invoke-DomeniaQueuedTaskPromotion {
     while ($watch.ElapsedMilliseconds -lt $BudgetMs) {
         $load = Get-DomeniaEngineLoad
         if ($load.QueuedCount -eq 0) { break }
-        $next = Select-DomeniaNextQueuedTask -Queued $load.Queued -Running $load.Running -Outstanding $load.Outstanding -MaxConcurrent $limits.MaxConcurrent -MaxOutstanding $limits.MaxOutstanding -ReservedForeground $limits.ReservedForeground -ProviderLoad $load.ProviderLoad -ProviderState $script:DomeniaProviderState -BackgroundRunning ([int]$load.BackgroundRunning) -AgingSeconds ([int]$limits.BackgroundAgingSeconds) -SourceLoad $load.SourceLoad
-        if ($null -eq $next) { break }
+        $entry = Select-DomeniaNextQueuedEntry -Queued $load.Queued -Running $load.Running -Outstanding $load.Outstanding -MaxConcurrent $limits.MaxConcurrent -MaxOutstanding $limits.MaxOutstanding -ReservedForeground $limits.ReservedForeground -ProviderLoad $load.ProviderLoad -ProviderState $script:DomeniaProviderState -BackgroundRunning ([int]$load.BackgroundRunning) -AgingSeconds ([int]$limits.BackgroundAgingSeconds) -SourceLoad $load.SourceLoad
+        if ($null -eq $entry) { break }
+        $next = $entry.Task
         $changed = $true
-        # Point 16: a background entry that started on a reserved place after its long wait is counted and traced.
-        $aged = (([string]$next.Class -eq 'Background') -and ([int]$load.Running -ge ([int]$limits.MaxConcurrent - [Math]::Max(0,[Math]::Min([int]$limits.ReservedForeground,[int]$limits.MaxConcurrent - 1)))) -and (Test-DomeniaBackgroundAgingDue -WaitedSeconds (Get-DomeniaQueuedSeconds $next) -BackgroundRunning ([int]$load.BackgroundRunning) -AgingSeconds ([int]$limits.BackgroundAgingSeconds)))
-        if ($aged) { $script:DomeniaAgedPromotions = [int]$script:DomeniaAgedPromotions + 1; Write-DomeniaTrace ('Travail de fond en attente depuis ' + [string][int](Get-DomeniaQueuedSeconds $next) + ' s : place réservée accordée (' + [string]$next.Name + ').') }
+        # Point 16: a background entry that started only thanks to its long wait (reserved place, or one place above
+        # its provider or site budget) is marked for the dispatch, counted and traced.
+        if ([bool]$entry.Aged) {
+            Add-Member -InputObject $next -NotePropertyName AgedAdmission -NotePropertyValue $true -Force
+            $script:DomeniaAgedPromotions = [int]$script:DomeniaAgedPromotions + 1
+            Write-DomeniaTrace ('Travail de fond en attente depuis ' + [string][int](Get-DomeniaQueuedSeconds $next) + ' s : place accordée malgré la charge (' + [string]$next.Name + ').')
+        }
         try {
             [void](Invoke-DomeniaUiTaskDispatch -Job $next)
             # CO-02: Annuler and the progress label follow the foreground task, never a local save or a background read.

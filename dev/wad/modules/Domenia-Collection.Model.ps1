@@ -128,15 +128,6 @@ function Resolve-DomeniaFreshnessTable {
     return [pscustomobject]@{Profile=[string]$definition.Id;Label=[string]$definition.Label;Seconds=$seconds;Rows=$rows.ToArray()}
 }
 
-function Get-DomeniaFreshnessSeconds {
-    # Duration of one family in a resolved table; $Default when the table is absent or does not know the family.
-    param($Table,[Parameter(Mandatory=$true)][string]$Family,[int]$Default=0)
-    $seconds = Get-DomeniaMember $Table 'Seconds' $null
-    if (($seconds -is [Collections.IDictionary]) -and $seconds.Contains($Family)) { return [int]$seconds[$Family] }
-    if (($Table -is [Collections.IDictionary]) -and $Table.Contains($Family)) { return [int]$Table[$Family] }
-    return $Default
-}
-
 # ---------------------------------------------------------------- point 159: collection windows
 function Get-DomeniaCollectionWindowSources {
     # Background sources that read the network on their own. Live (a selection), Dashboard (local rebuild), Storage and
@@ -602,18 +593,6 @@ function Clear-DomeniaCapabilityFact {
     foreach ($key in @($Memory.Entries.Keys)) {
         if ($Capability) { if ([string]$key -ne (Get-DomeniaCapabilityKey $Target $Capability)) { continue } }
         elseif (-not ([string]$key).StartsWith($prefix,[StringComparison]::Ordinal)) { continue }
-        [void]$Memory.Entries.Remove($key); $removed++
-    }
-    return $removed
-}
-
-function Reset-DomeniaCapabilityMemory {
-    # Explicit change (account, reconnection): facts that depend on it are forgotten. Kind='' forgets everything.
-    param($Memory,[AllowEmptyString()][string]$Kind='')
-    if ($null -eq $Memory) { return 0 }
-    $removed = 0
-    foreach ($key in @($Memory.Entries.Keys)) {
-        if ($Kind -and ([string]$Memory.Entries[$key].Kind -ne $Kind)) { continue }
         [void]$Memory.Entries.Remove($key); $removed++
     }
     return $removed
