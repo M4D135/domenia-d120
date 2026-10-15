@@ -24304,7 +24304,7 @@ function Get-DomeniaWorkerCodeHash {
 function Get-DomeniaWorkerOperationHashes {
     # Registre ferme : seules ces operations internes, avec leur corps exact, peuvent entrer dans un runspace.
     return [ordered]@{
-        LocalQuery            = "12ECA4B69C87311CF973C1027D0D5F3376993D9CBAA69CAEF103595C94EAFCFE"
+        LocalQuery            = "DF2E6CDA9551F55A36567BB3B40E1304967319DE1133C68049869DE8AC5B0C9B"
         StoragePurge          = "6D12F86DE43445A0B631A868F818A3AAF0FB7D319F901F33C9A5C350D414F8A4"
         StorageBackup         = "69013AFFC05489EC9B5743488D2FD0532DF3BF2D50966006444A2C3EDA561888"
         ComputerAdminShare    = "051272FF57B277E19504F52BAC289ED8297A333393644B853FF4A80624347F70"
@@ -24370,7 +24370,7 @@ function Get-DomeniaWorkerOperationHashes {
         ReceiptStore         = "AF37C7660D4E06A857209CD4E171F215A24A8E7BC3126F11DD532D4AFF49449F"
         ScopeReconcile       = "5917B0E2AB92BA626EF3621CCCE7B9A4988B318E62834EFD02FD6AFEF5C0B650"
         DocumentStore        = "BFD83587CB1BA62BC141E5F0742C6C6453A561617ED157045F3B4E7AB11A14E7"
-        LocalStore           = "C0C868678C0BC97C4528F71B613C7B6C3265D71A1E64DF1FE88F58BF8E022C20"
+        LocalStore           = "37860F9F7919FA3A9F43CB91868E95A7DDFFCA89CA1C85EBBBFD1D5023C3533A"
         EngineSelfTest        = "40E2C89F858E22E1D221AC48DC04DD5BF627F1ACBC836AB48036C43DB9F7E1D1"
             EmbeddedDirectoryLookup = "F43B3C78876A45E016E4B0ACBB7B30BA7DF114738BD8DCAB5249BC5B6E066689"
         EmbeddedPathBrowse = "B643D707E242EC4416AD63622847DD7C39E5B53ED47CF64FECD56E22B5A82271"
@@ -24390,7 +24390,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "858187E04B86791642A8892B30B87F1342C17214918F32D5D00D26CF1FF69A47"
+    $expectedFingerprint = "869D797CE91BE9F045B00EA31197B0A4BEC583791015E4BE0A0A50BE5E02E752"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
