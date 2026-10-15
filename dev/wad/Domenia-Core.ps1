@@ -865,6 +865,16 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnIndexRefresh" = "Default"
     "BtnIndexWalk" = "Default"
     "BtnIndexOpen" = "Default"
+    "BtnIndexCopyPath" = "Default"
+    "LblIndexLocation" = "Default"
+    "LblIndexTileAccounts" = "Default"
+    "LblIndexTileAccountsDetail" = "Default"
+    "LblIndexTileComputers" = "Default"
+    "LblIndexTileComputersDetail" = "Default"
+    "LblIndexTileLinks" = "Default"
+    "LblIndexTileLinksDetail" = "Default"
+    "LblIndexTileUpdated" = "Default"
+    "LblIndexTileUpdatedDetail" = "Default"
     "BtnIndexExport" = "Default"
     "BtnStorageUsage" = "Default"
     "BtnStoragePurgePreview" = "Default"
@@ -5153,7 +5163,7 @@ function Get-MainXaml {
                         </WrapPanel>
                         <TextBlock Text="Mettre à jour les données de cette OU et de ses sous-OU" FontSize="11.5" Foreground="{DynamicResource MutedColor}" Margin="0,10,0,4"/>
                         <WrapPanel>
-                          <Button x:Name="BtnFleetIndexScope" Content="Objets AD" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,4" ToolTip="Relire les objets AD de cette OU et ses sous-OU. Chaque résultat est enregistré automatiquement. Aucun ping ni WMI." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser Objets AD de lʼOU"/>
+                          <Button x:Name="BtnFleetIndexScope" Content="Objets AD" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,4" ToolTip="Relire les objets AD de cette OU et ses sous-OU. Chaque résultat est enregistré automatiquement, après une sauvegarde vérifiée de la base. Aucun ping ni WMI." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser Objets AD de lʼOU"/>
                           <Button x:Name="BtnFleetRefreshPostes" Content="Ping" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,4" ToolTip="Mesurer seulement la présence réseau des postes activés dans AD de cette OU. Enregistrement automatique ; les dates AD et WMI restent inchangées." AutomationProperties.Name="Actualiser Ping de lʼOU"/>
                           <Button x:Name="BtnFleetRefreshBoth" Content="WMI" Style="{StaticResource RunButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,4" ToolTip="Relire les informations WMI et les sondes choisies pour les postes de cette OU. Aucun ping imposé ; enregistrement automatique." AutomationProperties.Name="Actualiser WMI de lʼOU"/>
                           <Button x:Name="BtnFleetRefreshStop" Content="Arrêter" IsEnabled="False" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,4" ToolTip="Arrêter cette actualisation ; conserver les données déjà enregistrées. La phase suivante ne sera pas lancée." AutomationProperties.Name="Arrêter lʼactualisation de cette OU"/>
@@ -5345,7 +5355,7 @@ function Get-MainXaml {
                           <TextBlock x:Name="UxSearchOuRefreshTitle" Text="Données de lʼOU" FontWeight="SemiBold" Margin="0,0,0,4"/>
                           <TextBlock x:Name="LblSearchOuRefreshScope" Text="Choisissez une OU dans lʼarbre." FontSize="11.5" TextWrapping="Wrap" MaxHeight="48" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" Foreground="{DynamicResource MutedColor}"/>
                           <WrapPanel x:Name="UxSearchOuRefreshActions" Margin="0,6,0,0">
-                            <Button x:Name="BtnSearchRefreshBase" Content="Objets AD" IsEnabled="False" MinHeight="30" Padding="8,3" Margin="0,0,4,4" ToolTip="Relire les objets AD de lʼOU choisie et de ses sous-OU, puis afficher les données enregistrées. Aucun ping ni WMI." AutomationProperties.Name="Actualiser Objets AD de lʼOU"/>
+                            <Button x:Name="BtnSearchRefreshBase" Content="Objets AD" IsEnabled="False" MinHeight="30" Padding="8,3" Margin="0,0,4,4" ToolTip="Relire les objets AD de lʼOU choisie et de ses sous-OU, puis afficher les données enregistrées. Une sauvegarde vérifiée de la base précède la lecture. Aucun ping ni WMI." AutomationProperties.Name="Actualiser Objets AD de lʼOU"/>
                             <Button x:Name="BtnSearchRefreshPostes" Content="Ping" IsEnabled="False" MinHeight="30" Padding="8,3" Margin="0,0,4,4" ToolTip="Mesurer seulement le ping des postes activés dans AD de cette OU et de ses sous-OU. Les filtres de recherche restent inchangés." AutomationProperties.Name="Actualiser Ping de lʼOU"/>
                             <Button x:Name="BtnSearchRefreshBoth" Content="WMI" IsEnabled="False" Style="{StaticResource RunButton}" MinHeight="30" Padding="8,3" Margin="0,0,4,4" ToolTip="Relire les informations WMI et les sondes choisies pour cette OU et ses sous-OU. Aucun ping imposé ; enregistrement automatique." AutomationProperties.Name="Actualiser WMI de lʼOU"/>
                             <Button x:Name="BtnSearchRefreshStop" Content="Arrêter" IsEnabled="False" MinHeight="30" Padding="8,3" Margin="0,0,0,4" ToolTip="Arrêter cette actualisation et empêcher le lancement de la phase suivante. Les données enregistrées sont conservées." AutomationProperties.Name="Arrêter lʼactualisation de lʼOU choisie"/>
@@ -7132,15 +7142,45 @@ function Get-MainXaml {
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
           <StackPanel Margin="10">
             <WrapPanel>
-              <Button x:Name="BtnIndexScopeUpdate" Content="Mettre à jour lʼOU choisie" Style="{StaticResource RunButton}" ToolTip="Action recommandée : relit tous les utilisateurs et postes de lʼOU choisie et de ses sous-OU. Demande une sélection si aucune OU nʼest choisie. Les autres branches sont conservées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tout relire dans lʼOU choisie" />
+              <Button x:Name="BtnIndexScopeUpdate" Content="Mettre à jour lʼOU choisie" Style="{StaticResource RunButton}" ToolTip="Action recommandée : relit tous les utilisateurs et postes de lʼOU choisie et de ses sous-OU. Demande une sélection si aucune OU nʼest choisie. Les autres branches sont conservées. Une sauvegarde vérifiée de la base précède la lecture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tout relire dans lʼOU choisie" AutomationProperties.HelpText="Action recommandée : relit tous les utilisateurs et postes de lʼOU choisie et de ses sous-OU. Demande une sélection si aucune OU nʼest choisie. Les autres branches sont conservées. Une sauvegarde vérifiée de la base précède la lecture." />
             </WrapPanel>
             <TextBlock Text="Choisissez une OU, puis mettez-la à jour. Ses sous-OU sont incluses ; les autres branches sont conservées." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,6,0,8" />
             <StackPanel Margin="0,12,0,0">
               <Border Padding="12" CornerRadius="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" Margin="0,0,0,0">
                 <StackPanel>
                   <TextBlock Text="État de la copie locale" FontWeight="SemiBold" />
-                  <TextBlock x:Name="LblIndexOverview" Text="Aucune base autonome." FontSize="14" Margin="0,6,0,0" TextWrapping="Wrap" />
-                  <TextBlock x:Name="LblIndexFreshness" Foreground="{DynamicResource MutedColor}" Margin="0,6,0,0" TextWrapping="Wrap" />
+                  <!-- DS-09 : quatre tuiles ; USN, mémoire et durées restent dans le journal. -->
+                  <UniformGrid Columns="4" Margin="0,8,0,0">
+                    <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="10" Padding="12,8" Margin="0,0,8,0">
+                      <StackPanel>
+                        <TextBlock Text="Comptes" Foreground="{DynamicResource MutedColor}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock x:Name="LblIndexTileAccounts" Text="—" FontSize="22" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="Comptes utilisateurs enregistrés dans la base locale de ce domaine." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Comptes de la base locale" AutomationProperties.HelpText="Comptes utilisateurs enregistrés dans la base locale de ce domaine." />
+                        <TextBlock x:Name="LblIndexTileAccountsDetail" Text="" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" ToolTip="Nature des objets comptés dans la tuile Comptes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Précision sur les comptes" AutomationProperties.HelpText="Nature des objets comptés dans la tuile Comptes." />
+                      </StackPanel>
+                    </Border>
+                    <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="10" Padding="12,8" Margin="0,0,8,0">
+                      <StackPanel>
+                        <TextBlock Text="Postes" Foreground="{DynamicResource MutedColor}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock x:Name="LblIndexTileComputers" Text="—" FontSize="22" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="Postes (objets ordinateur) enregistrés dans la base locale de ce domaine." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Postes de la base locale" AutomationProperties.HelpText="Postes (objets ordinateur) enregistrés dans la base locale de ce domaine." />
+                        <TextBlock x:Name="LblIndexTileComputersDetail" Text="" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" ToolTip="Postes actifs et désactivés dans Active Directory, selon la dernière lecture enregistrée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Postes actifs et désactivés" AutomationProperties.HelpText="Postes actifs et désactivés dans Active Directory, selon la dernière lecture enregistrée." />
+                      </StackPanel>
+                    </Border>
+                    <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="10" Padding="12,8" Margin="0,0,8,0">
+                      <StackPanel>
+                        <TextBlock Text="Associations" Foreground="{DynamicResource MutedColor}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock x:Name="LblIndexTileLinks" Text="—" FontSize="22" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="Associations utilisateur-poste conservées dans la base locale." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Associations de la base locale" AutomationProperties.HelpText="Associations utilisateur-poste conservées dans la base locale." />
+                        <TextBlock x:Name="LblIndexTileLinksDetail" Text="" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" ToolTip="Nature des liens comptés dans la tuile Associations." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Précision sur les associations" AutomationProperties.HelpText="Nature des liens comptés dans la tuile Associations." />
+                      </StackPanel>
+                    </Border>
+                    <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="10" Padding="12,8" Margin="0">
+                      <StackPanel>
+                        <TextBlock Text="Dernière mise à jour" Foreground="{DynamicResource MutedColor}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock x:Name="LblIndexTileUpdated" Text="—" FontSize="22" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="Âge de la dernière lecture complète couvrant le périmètre choisi." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Âge de la dernière mise à jour" AutomationProperties.HelpText="Âge de la dernière lecture complète couvrant le périmètre choisi." />
+                        <TextBlock x:Name="LblIndexTileUpdatedDetail" Text="" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" ToolTip="Date et heure de la dernière lecture complète couvrant le périmètre choisi." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Date de la dernière mise à jour" AutomationProperties.HelpText="Date et heure de la dernière lecture complète couvrant le périmètre choisi." />
+                      </StackPanel>
+                    </Border>
+                  </UniformGrid>
+                  <TextBlock x:Name="LblIndexFreshness" Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0" TextWrapping="Wrap" />
                   <Expander Header="Détails du stockage et de la synchronisation" Margin="0,8,0,0">
                     <TextBlock x:Name="LblIndexStats" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,6,0,0" />
                   </Expander>
@@ -7155,7 +7195,7 @@ function Get-MainXaml {
                 <WrapPanel>
                   <CheckBox x:Name="ChkParkSweepEnabled" Content="Releve manuel uniquement" IsEnabled="False" Visibility="Collapsed" VerticalAlignment="Center" Margin="0,0,14,8" ToolTip="Lance un lot de releves en arriere-plan a chaque ouverture. Ce sont les seules requetes qui touchent les postes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Relever au lancement" AutomationProperties.HelpText="Lance un lot de releves en arriere-plan a chaque ouverture. Ce sont les seules requetes qui touchent les postes." />
                   <Button x:Name="BtnParkHarvest" Content="Lire le journal du controleur" Style="{StaticResource RunButton}" MinWidth="220" Margin="0,0,8,8" ToolTip="Une seule requete sur le controleur rend des milliers de couples utilisateur et poste, sans contacter aucune machine." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lire le journal du controleur" AutomationProperties.HelpText="Une seule requete sur le controleur rend des milliers de couples utilisateur et poste, sans contacter aucune machine." />
-                  <Button x:Name="BtnParkReset" Content="Oublier les releves" MinWidth="170" Margin="0,0,0,8" ToolTip="Efface lʼétat du parc. Le prochain relevé repartira de zéro." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Oublier les releves" AutomationProperties.HelpText="Efface l etat du parc. Le prochain releve repartira de zero." />
+                  <Button x:Name="BtnParkReset" Content="Oublier les relevés" MinWidth="170" Margin="0,0,0,8" ToolTip="Efface lʼétat du parc dans la base locale, après confirmation et une sauvegarde vérifiée. Le prochain relevé repartira de zéro ; les associations sont conservées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Oublier les relevés" AutomationProperties.HelpText="Efface lʼétat du parc dans la base locale, après confirmation et une sauvegarde vérifiée. Le prochain relevé repartira de zéro ; les associations sont conservées." />
                 </WrapPanel>
                 <TextBlock x:Name="LblParkStatus" Text="Aucun relevé." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" />
               </StackPanel>
@@ -7213,8 +7253,11 @@ function Get-MainXaml {
           <StackPanel Margin="10">
             <Expander Header="Emplacement et sauvegarde" IsExpanded="True" Margin="0,10,0,0" Padding="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
               <StackPanel>
-                <TextBox x:Name="TxtIndexLocation" IsReadOnly="True" Margin="0,6,0,6" MinHeight="32" ToolTip="Fichier de la base autonome de ce domaine. Le chemin peut être copié." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Emplacement de la base" />
+                <!-- UI-19 : un résumé lisible ; le chemin complet reste en infobulle et derrière « Copier le chemin ». -->
+                <TextBlock x:Name="LblIndexLocation" Text="Aucune base active." FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,6,0,4" ToolTip="Base autonome de ce domaine : taille et dernière sauvegarde. Le chemin complet du fichier sʼaffiche dans cette infobulle dès que la base est ouverte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Emplacement de la base" AutomationProperties.HelpText="Base autonome de ce domaine : taille et dernière sauvegarde. Le chemin complet du fichier sʼaffiche dans cette infobulle dès que la base est ouverte." />
+                <TextBlock x:Name="LblIndexBackupStatus" Text="" Visibility="Collapsed" Background="{DynamicResource InfoBg}" Foreground="{DynamicResource InfoFg}" Padding="10,6" TextWrapping="Wrap" Margin="0,4,0,6" />
                 <WrapPanel>
+                  <Button x:Name="BtnIndexCopyPath" Content="Copier le chemin" Margin="0,0,8,0" ToolTip="Copie le chemin complet du fichier de la base dans le presse-papiers." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier le chemin de la base" AutomationProperties.HelpText="Copie le chemin complet du fichier de la base dans le presse-papiers." />
                   <Button x:Name="BtnIndexOpenFolder" Content="Ouvrir l emplacement" Margin="0,0,8,0" ToolTip="Ouvre le dossier de la base dans lʼexplorateur, fichier sélectionné." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir l emplacement de la base" />
                   <Button x:Name="BtnIndexBackup" Content="Sauvegarder maintenant" Margin="0,0,8,0" ToolTip="Copie cohérente de la base (sauvegarde SQLite à chaud) dans son dossier Backups. Lʼoriginal nʼest pas modifié." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Sauvegarder la base maintenant" />
                   <Button x:Name="BtnIndexBackupTo" Content="Copier une sauvegarde vers..." Margin="0,0,8,0" ToolTip="Sauvegarde la base puis copie cette sauvegarde vers le fichier de votre choix (cle USB, partage...)." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier une sauvegarde de la base" />
@@ -7226,7 +7269,6 @@ function Get-MainXaml {
                   <Button x:Name="BtnStorageRollback" Content="Revenir à la base précédente" Margin="0,0,8,6"/>
                 </WrapPanel>
                 <TextBlock x:Name="LblStorageMaintenance" Text="La base active reste sur un disque local. Chaque déplacement ou restauration conserve le fichier original." TextWrapping="Wrap" Margin="0,0,0,8" Foreground="{DynamicResource MutedColor}"/>
-                <TextBlock x:Name="LblIndexBackupStatus" Text="" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,6,0,0" />
               </StackPanel>
             </Expander>
             <Expander Header="Sauvegardes automatiques et conservation" IsExpanded="False" Margin="0,8,0,12" Padding="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
@@ -16467,8 +16509,7 @@ function Complete-DomeniaIndexRefreshUi {
         [void](Save-DomeniaIndex -Rows $changed -Transfer $transfer -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn ([long]$effective.HighestUsn) -InvocationId ([string]$effective.InvocationId) -Reconcile $effective.Reconcile)
         $script:IndexRows = @()
         [void](Load-DomeniaIndexMetadata)
-        $summary = "Lecture complète terminée, enregistrement local en attente : {0} objet(s), en {1} ms. Le repere de la passe precedente n etait pas utilisable." -f `
-            $rowCount,([long]$effective.DurationMs)
+        $summary = "Lecture complète terminée, enregistrement local en attente : {0} objet(s). Le repère de la passe précédente nʼétait pas utilisable." -f $rowCount
     }
     else {
         if ($null -eq $transfer -and @($script:IndexRows).Count -gt 0) {
@@ -16491,11 +16532,10 @@ function Complete-DomeniaIndexRefreshUi {
             $summary = ("Synchronisation partielle : {0} fiche(s) reçue(s), {1} objet(s) présents. Le repère nʼavance pas.{2}" -f $rowCount,$totalAfter,$reasonText)
         }
         elseif ($rowCount -eq 0) {
-            $summary = "Base autonome deja a jour : aucun objet modifie depuis la derniere passe, verifie en {0} ms." -f ([long]$effective.DurationMs)
+            $summary = "Base autonome déjà à jour : aucun objet modifié depuis la dernière passe."
         }
         else {
-            $summary = "Lecture terminée : {0} fiche(s) à enregistrer, {1} objet(s) avant validation, en {2} ms." -f `
-                $rowCount,$totalAfter,([long]$effective.DurationMs)
+            $summary = "Lecture terminée : {0} fiche(s) à enregistrer, {1} objet(s) avant validation." -f $rowCount,$totalAfter
         }
     }
 
@@ -16507,7 +16547,8 @@ function Complete-DomeniaIndexRefreshUi {
     [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text $summary)
     Set-DomeniaIndexProgress -Mode Busy -Message ($summary + ' Validation de lʼécriture en cours…')
     Set-Status $summary
-    $logText = $summary + " Filtre : " + [string]$effective.DeltaClause
+    # DS-09: the duration of the AD read goes to the journal only.
+    $logText = $summary + " Durée de la lecture AD : " + [string]([long]$effective.DurationMs) + " ms. Filtre : " + [string]$effective.DeltaClause
     if (@($sync.Notes).Count -gt 0) { $logText += ' ' + [string]::Join(' ',$sync.Notes) }
     Add-DomeniaUiLog -Area "Index" -Text $logText
     $mode = "AD full fallback"
@@ -17264,12 +17305,13 @@ function Complete-DomeniaIndexBuildUi {
     # Lot L01: the LAPS expiration is read with the computers; the schema tells whether it exists in this domain.
     $lapsSchemaProperty = $effective.PSObject.Properties['LapsSchema']
     if (($null -ne $lapsSchemaProperty) -and ([string]$lapsSchemaProperty.Value -eq 'Absent')) { $suffix += " Expiration LAPS non disponible dans ce domaine." }
-    $summary = "Lecture terminée, enregistrement local en attente : {0} objet(s), dont {1} compte(s) et {2} poste(s), en {3} ms.{4}" -f `
-        $rowCount,$users,$computers,([long]$effective.DurationMs),$suffix
+    $summary = "Lecture terminée, enregistrement local en attente : {0} objet(s), dont {1} compte(s) et {2} poste(s).{3}" -f `
+        $rowCount,$users,$computers,$suffix
     [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text $summary)
     Set-DomeniaIndexProgress -Mode Busy -Message ($summary + ' Validation de lʼécriture en cours…')
     Set-Status $summary
-    Add-DomeniaUiLog -Area "Index" -Text ($summary + " Associations resynchronisees : " + $linkChanges + ". " + ((@($effective.Diagnostics)) -join " | "))
+    # DS-09: the duration of the AD read goes to the journal only.
+    Add-DomeniaUiLog -Area "Index" -Text ($summary + " Durée de la lecture AD : " + [string]([long]$effective.DurationMs) + " ms. Associations resynchronisées : " + $linkChanges + ". " + ((@($effective.Diagnostics)) -join " | "))
     Update-DomeniaIndexStats
     # The home overview reads this base: out of date now, computed again once the queued index is saved (storage).
     $script:FleetStale = $true
@@ -17670,20 +17712,20 @@ function Update-DomeniaIndexStats {
         $targetText = if ([bool]$target.IsDomain) { 'Aucune OU choisie · sélectionnez une OU pour limiter la lecture' } else { [string]$target.BaseDn + ' et ses sous-OU' }
         [void](Set-DomeniaControlText -Name 'LblIndexScopeChoice' -Text $targetText)
         if ($script:IndexMetadataError) {
-            [void](Set-DomeniaControlText -Name 'LblIndexOverview' -Text 'La base locale ne peut pas être lue. Son contenu nʼest pas considéré comme vide.')
-            [void](Set-DomeniaControlText -Name 'LblIndexFreshness' -Text 'Vérifiez lʼonglet Stockage avant de relire lʼOU choisie.')
+            # DS-09: an unreadable base shows no figure, never zero.
+            Set-DomeniaIndexTiles -Tiles (Get-DomeniaIndexTiles -Unreadable)
+            [void](Set-DomeniaControlText -Name 'LblIndexFreshness' -Text 'La base locale ne peut pas être lue ; son contenu nʼest pas considéré comme vide. Vérifiez lʼonglet Stockage avant de relire lʼOU choisie.')
             [void](Set-DomeniaControlText -Name 'LblIndexStats' -Text ([string]$script:IndexMetadataError))
             return
         }
         $count = [Math]::Max(0,[int]$script:IndexDbCount)
-        $overview = if ($count -eq 0) { 'Aucun objet enregistré. Choisissez un périmètre, puis lancez sa mise à jour.' } else {
-            'Base locale entière : {0:N0} objets · {1:N0} utilisateurs · {2:N0} postes ({3:N0} actifs, {4:N0} désactivés)' -f $count,[Math]::Max(0,[int]$script:IndexDbUsers),[Math]::Max(0,[int]$script:IndexDbComputers),[Math]::Max(0,[int]$script:IndexDbMachinesActive),[Math]::Max(0,[int]$script:IndexDbMachinesDisabled)
-        }
-        [void](Set-DomeniaControlText -Name 'LblIndexOverview' -Text $overview)
         $freshness = New-Object 'System.Collections.Generic.List[string]'
-        $when = ''; $server = ''; $usn = 0L
-        if ($null -ne $script:IndexInfo) { $when = [string]$script:IndexInfo.Date; $server = [string]$script:IndexInfo.Server; $usn = [long]$script:IndexInfo.Usn }
+        $server = ''; $usn = 0L
+        if ($null -ne $script:IndexInfo) { $server = [string]$script:IndexInfo.Server; $usn = [long]$script:IndexInfo.Usn }
         $coverage=Get-DomeniaFleetFreshness -ScopeDn $(if($target.IsDomain){''}else{[string]$target.BaseDn}) -DomainDn ([string]$script:Conn.BaseDn) -SyncStates $script:IndexSyncStates
+        # DS-09: four tiles (accounts, workstations, associations, last complete read of the chosen perimeter).
+        Set-DomeniaIndexTiles -Tiles (Get-DomeniaIndexTiles -Users ([long]$script:IndexDbUsers) -Computers ([long]$script:IndexDbComputers) -Active ([long]$script:IndexDbMachinesActive) -Disabled ([long]$script:IndexDbMachinesDisabled) -Links ([long]@($script:UserMachineLinks).Count) -LastUtc $coverage.At)
+        if ($count -eq 0) { $freshness.Add('Aucun objet enregistré. Choisissez un périmètre, puis lancez sa mise à jour.') }
         if($null -ne $coverage.At){
             $date=$coverage.At.ToLocalTime()
             $age=if($coverage.At -gt [datetime]::UtcNow.AddMinutes(5)){'date future : vérifier lʼhorloge'}else{Format-DomeniaAge -FromUtc $coverage.At -NowUtc ([datetime]::UtcNow)}
@@ -17694,7 +17736,13 @@ function Update-DomeniaIndexStats {
         $partial = if($target.IsDomain){[string](Get-DomeniaIndexPartialText)}else{''}
         if ($partial) { $freshness.Add('À vérifier : ' + $partial) }
         [void](Set-DomeniaControlText -Name 'LblIndexFreshness' -Text ($freshness -join "`n"))
-        $details = ('Fichier : {0}. Contrôleur : {1}. Repère : {2}. Associations utilisateur-poste : {3:N0}.' -f (Get-DomeniaDatabasePath),$server,$usn,@($script:UserMachineLinks).Count)
+        # DS-09: the synchronisation mark (USN) goes to the journal, once per change; the page keeps readable facts.
+        $mark = $server + '|' + [string]$usn
+        if (($usn -gt 0) -and ([string]$script:IndexStatsLoggedMark -cne $mark)) {
+            $script:IndexStatsLoggedMark = $mark
+            Add-DomeniaUiLog -Area 'Index' -Text ('Repère de synchronisation de la base locale : ' + [string]$usn + ' (contrôleur ' + $server + ').')
+        }
+        $details = ('Contrôleur de la dernière lecture : {0}. Objets enregistrés : {1:N0}. Associations utilisateur-poste : {2:N0}.' -f $(if($server){$server}else{'inconnu'}),$count,@($script:UserMachineLinks).Count)
         [void](Set-DomeniaControlText -Name 'LblIndexStats' -Text $details)
     } catch { Write-AppLog ('État de la base non affiché : ' + $_.Exception.Message) 'WARN' }
     try { Update-DomeniaIndexLocation } catch { }
@@ -22336,13 +22384,8 @@ function Wire-Events {
     if ($script:Ctrl.ContainsKey("BtnParkAnalyze")) { $script:Ctrl["BtnParkAnalyze"].Add_Click({ Start-DomeniaParkAnalysis }) }
     if ($script:Ctrl.ContainsKey("BtnParkResultsStop")) { $script:Ctrl["BtnParkResultsStop"].Add_Click({ Stop-DomeniaOnlinePark }) }
     if ($script:Ctrl.ContainsKey("BtnParkReset")) {
-        $script:Ctrl["BtnParkReset"].Add_Click({
-            if (-not (Confirm-Action -Message "Effacer l etat du parc ? Les associations deja creees sont conservees, seul l historique des releves est perdu." -Title "Oublier les releves")) { return }
-            $script:ParkState = @{}
-            [void](Save-DomeniaParkState)
-            [void](Set-DomeniaControlText -Name "LblParkStatus" -Text (Get-DomeniaParkCoverageText))
-            Set-Status "Etat du parc efface."
-        })
+        # FI-13: confirmed in the page, preceded by a verified backup; park_state is really deleted from the base.
+        $script:Ctrl["BtnParkReset"].Add_Click({ Request-DomeniaParkReset })
     }
     if ($script:Ctrl.ContainsKey("ChkParkSweepEnabled")) {
         $handler = {
@@ -22359,6 +22402,7 @@ function Wire-Events {
     if ($script:Ctrl.ContainsKey("BtnIndexRefresh")) { $script:Ctrl["BtnIndexRefresh"].Add_Click({ Start-DomeniaIndexRefresh }) }
     if ($script:Ctrl.ContainsKey("BtnIndexOpen")) { $script:Ctrl["BtnIndexOpen"].Add_Click({ Open-DomeniaIndexSelection }) }
     if ($script:Ctrl.ContainsKey("BtnIndexOpenFolder")) { $script:Ctrl["BtnIndexOpenFolder"].Add_Click({ Open-DomeniaIndexLocation }) }
+    if ($script:Ctrl.ContainsKey("BtnIndexCopyPath")) { $script:Ctrl["BtnIndexCopyPath"].Add_Click({ Copy-DomeniaIndexLocationPath }) }
     if ($script:Ctrl.ContainsKey("BtnIndexBackup")) { $script:Ctrl["BtnIndexBackup"].Add_Click({ Invoke-DomeniaIndexBackup }) }
     if ($script:Ctrl.ContainsKey("BtnIndexBackupTo")) { $script:Ctrl["BtnIndexBackupTo"].Add_Click({ Invoke-DomeniaIndexBackup -ChooseDestination }) }
     if ($script:Ctrl.ContainsKey("BtnIndexExport")) {
@@ -23174,10 +23218,21 @@ function Initialize-DomeniaWinSqliteNative {
         @{N="sqlite3_column_text"; R=[IntPtr]; P=[Type[]]@([IntPtr],[int])},
         @{N="sqlite3_column_bytes"; R=[int]; P=[Type[]]@([IntPtr],[int])},
         @{N="sqlite3_column_int64"; R=[long]; P=[Type[]]@([IntPtr],[int])},
-        @{N="sqlite3_column_double"; R=[double]; P=[Type[]]@([IntPtr],[int])}
+        @{N="sqlite3_column_double"; R=[double]; P=[Type[]]@([IntPtr],[int])},
+        # PF-07: prepared statements reused for bulk writes. Text is bound as UTF-16 (CharSet Unicode, explicit byte
+        # length, SQLITE_TRANSIENT so that SQLite copies it during the call); nothing is concatenated into SQL.
+        @{N="sqlite3_bind_parameter_count"; R=[int]; P=[Type[]]@([IntPtr])},
+        @{N="sqlite3_bind_null"; R=[int]; P=[Type[]]@([IntPtr],[int])},
+        @{N="sqlite3_bind_int64"; R=[int]; P=[Type[]]@([IntPtr],[int],[long])},
+        @{N="sqlite3_bind_double"; R=[int]; P=[Type[]]@([IntPtr],[int],[double])},
+        @{N="sqlite3_bind_text16"; R=[int]; P=[Type[]]@([IntPtr],[int],[string],[int],[IntPtr]); C=[System.Runtime.InteropServices.CharSet]::Unicode},
+        @{N="sqlite3_reset"; R=[int]; P=[Type[]]@([IntPtr])},
+        @{N="sqlite3_clear_bindings"; R=[int]; P=[Type[]]@([IntPtr])}
     )
     foreach ($d in $defs) {
-        $m = $typeBuilder.DefinePInvokeMethod([string]$d.N,"winsqlite3.dll",$attrs,[System.Reflection.CallingConventions]::Standard,[Type]$d.R,[Type[]]$d.P,$cdecl,$ansi)
+        $charset = $ansi
+        if ($d.ContainsKey('C')) { $charset = $d.C }
+        $m = $typeBuilder.DefinePInvokeMethod([string]$d.N,"winsqlite3.dll",$attrs,[System.Reflection.CallingConventions]::Standard,[Type]$d.R,[Type[]]$d.P,$cdecl,$charset)
         $m.SetImplementationFlags($m.GetMethodImplementationFlags() -bor $preserve)
     }
     $script:WinSqliteNative = $typeBuilder.CreateType()
@@ -23218,7 +23273,8 @@ function Open-DomeniaDatabase {
         $flags = if ($ReadOnly) { 1 -bor 65536 } else { 2 -bor 4 -bor 65536 }
         $rc = [Domenia.WinSqliteNative]::sqlite3_open_v2($pathPtr,[ref]$db,$flags,[IntPtr]::Zero)
         if ($rc -ne 0 -or $db -eq [IntPtr]::Zero) { throw "Ouverture SQLite impossible (code $rc)." }
-        [void][Domenia.WinSqliteNative]::sqlite3_busy_timeout($db,[Math]::Max(100,[Math]::Min(5000,[int](Get-CfgValue 'LocalStore' 'DatabaseBusyTimeoutMs' 1000))))
+        # FI-12: same documented default as the workers (2 500 ms) when the setting is absent.
+        [void][Domenia.WinSqliteNative]::sqlite3_busy_timeout($db,[Math]::Max(100,[Math]::Min(5000,[int](Get-CfgValue 'LocalStore' 'DatabaseBusyTimeoutMs' 2500))))
         if(-not $ReadOnly){
             Assert-StoreWDatabaseWritable -Db $db
             if($null -eq $script:DomeniaDatabaseLeases){$script:DomeniaDatabaseLeases=@{}}
@@ -23438,6 +23494,7 @@ CREATE VIEW IF NOT EXISTS operation_stats AS
 CREATE TABLE IF NOT EXISTS domenia_provenance(object_guid TEXT PRIMARY KEY,domain_dn TEXT,reader TEXT,source_dc TEXT,invocation_id TEXT,usn_changed INTEGER,observed_at TEXT);
 CREATE TABLE IF NOT EXISTS ad_computer_facts(object_guid TEXT PRIMARY KEY,object_key TEXT,os_version TEXT,when_created TEXT,pwd_last_set TEXT,laps_kind TEXT,laps_expiry TEXT,read_at TEXT);
 CREATE TABLE IF NOT EXISTS fleet_snapshots(scope_key TEXT NOT NULL,snapshot_day TEXT NOT NULL,taken_at TEXT,scope_dn TEXT,machines INTEGER DEFAULT 0,figures TEXT,PRIMARY KEY(scope_key,snapshot_day));
+CREATE TABLE IF NOT EXISTS park_session_cache(object_key TEXT PRIMARY KEY,checked_utc TEXT NOT NULL,payload TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS domenia_store_state(id INTEGER PRIMARY KEY CHECK(id=1),store_id TEXT NOT NULL,domain_dn TEXT NOT NULL,revision INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS domenia_store_batches(batch_id TEXT PRIMARY KEY,payload_hash TEXT NOT NULL,request_id TEXT NOT NULL,sequence INTEGER NOT NULL,revision INTEGER NOT NULL,committed_at TEXT NOT NULL,changes_json TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_store_batches_revision ON domenia_store_batches(revision);
@@ -23481,6 +23538,8 @@ function Initialize-DomeniaDatabase {
             Write-AppLog ('Sauvegarde avant migration du schema : '+[string]$migrationBackup) 'INFO'
         }
         $schema = Get-DomeniaSqliteSchemaText
+        # PF-26 (lot X06): park_session_cache joins the script (additive, schema_info unchanged), so that the LocalStore
+        # worker no longer creates it for each observation of the park.
         # Lot L01 (decision David 2026-10-08): two additive tables (computer facts, daily fleet snapshots) created like the
         # others, schema_info unchanged (11/1, never updated): an RC1.13 ignores them. The UPDATE repairs the search keys
         # written without the extra field by the single-row updates of RC1.13.0 and before (CO-26), once per base: the
@@ -23888,16 +23947,16 @@ function Get-DomeniaWorkerOperationHashes {
     # Registre ferme : seules ces operations internes, avec leur corps exact, peuvent entrer dans un runspace.
     return [ordered]@{
         LocalQuery            = "12ECA4B69C87311CF973C1027D0D5F3376993D9CBAA69CAEF103595C94EAFCFE"
-        StoragePurge          = "9F544A218BC906C75BE8F4A85370742826CF93D2C79BCF5038318B1A866BEA10"
-        StorageBackup         = "6349EF813D93E76274C771A3C0261312395E31F326F5065A39A30F0DD7EFFA79"
+        StoragePurge          = "6D12F86DE43445A0B631A868F818A3AAF0FB7D319F901F33C9A5C350D414F8A4"
+        StorageBackup         = "69013AFFC05489EC9B5743488D2FD0532DF3BF2D50966006444A2C3EDA561888"
         ComputerAdminShare    = "051272FF57B277E19504F52BAC289ED8297A333393644B853FF4A80624347F70"
-        StorageUsage          = "74BE558608CEBA51A3E65B9F4F1ACAEDDF1F3930B1556C3FEE811556C4A62342"
-        LegacyMigration       = "43025EC35E308D06D76AF0AB61FD9686BDA53D227E6CDC59D9EB6437E49C8C43"
+        StorageUsage          = "E7D18C2D439C6CB69C218EF711CEE1E3986EBE5553BFF42B64273A464073E8DE"
+        LegacyMigration       = "A834585E0B1DBF3472DDF97455C59211F3DBB967D9177951778EF8BBDB27FB29"
         ReadBitLockerList     = "B1456CEA5805D83C6BF48E9A4040206F18F3C3773ED250610D6890E8D1F4EEC9"
         ReadBitLockerKey      = "8A98EBCDC48AD572404E1566826035C84F34ACB87564330A7AA511FAAC01EE6F"
         BitLockerPresence     = "F1A7C8FD83BA659E7826DE2DDBDD01EE13BC185819FD9330656B77A99ACD6764"
         DemoDirectory         = "FBE11A3ADE0630788C56DF30F9E883FEA8FF6033FE71D2E9B1E2BE92007268BF"
-        LocalIndexRead        = "F63427FC457C42E1319C0786EB96B1A6919B9011C3F01EE972F3BCC298A8062C"
+        LocalIndexRead        = "652B3F4CCD29EC4E8D3D5F8FF904E65F92825544061BDC70E5297CA536DE5F38"
         ParkSharedSync        = "B3A64051813F12A24BD5E791D59CF7E2330FA84E965C9F44BD62366D4A81415E"
         IsolatedRead          = "4074D6ECAA620A9C80A5B6B535BB657E02DCE06A9DF97E35CA1EA47572D1060C"
         CmdletHelp            = "12505D0654AB0E97BD803A70B953BB0BBE2152836AAA1889744C1312EB215D62"
@@ -23946,19 +24005,19 @@ function Get-DomeniaWorkerOperationHashes {
         StartupWarmCache      = "51117269B5EC0F16BC59E0682182264A56E048D0E5958D46DD1A2BA1D6B609DD"
         LiveSelectedPing     = "F9783614C4F5DAD2F7AD4F2C0B16867FBB54C55A68A1072FE5C91691F2DA52CF"
         LiveConsole          = "F9783614C4F5DAD2F7AD4F2C0B16867FBB54C55A68A1072FE5C91691F2DA52CF"
-        LiveCache            = "0995D3F3B12E31CECE7DE09E847C164F94EAF1D600574D54048D3509EE8B97C3"
+        LiveCache            = "6BB7CF28CC539ED3EDFEDC0818966D739870604BCCE83CB18C63A698E57CCE7A"
         LiveDirectoryCheck    = "3F2FC63D6095DB5F81F03C392279FCABC849676BF71040794FE2FF6CA98ED5BD"
         SessionsList         = "DD09187778C09CF31B0BDA41EAC88FF898D9484756AFDF2F3EE643E6B5318BF6"
         RemoteCredentialCheck = "9070C7A5D9460D0FD129FD67CD5070595DE4DED7CA7EE7573C65AF102B0E515B"
         ReceiptStore         = "AF37C7660D4E06A857209CD4E171F215A24A8E7BC3126F11DD532D4AFF49449F"
         ScopeReconcile       = "5917B0E2AB92BA626EF3621CCCE7B9A4988B318E62834EFD02FD6AFEF5C0B650"
         DocumentStore        = "BFD83587CB1BA62BC141E5F0742C6C6453A561617ED157045F3B4E7AB11A14E7"
-        LocalStore           = "278527908DF7E07811AE947D98417FB548E1E5D27E2544B5F09CD805A8FFDB18"
+        LocalStore           = "37BE825321A7DB1EC5D79BA7E8C33165F5763C9045663D8BB212B1C1CA429021"
         EngineSelfTest        = "40E2C89F858E22E1D221AC48DC04DD5BF627F1ACBC836AB48036C43DB9F7E1D1"
             EmbeddedDirectoryLookup = "F43B3C78876A45E016E4B0ACBB7B30BA7DF114738BD8DCAB5249BC5B6E066689"
         EmbeddedPathBrowse = "B643D707E242EC4416AD63622847DD7C39E5B53ED47CF64FECD56E22B5A82271"
         IndexOuList           = "242B26E610F11F6B45580B6D669F1B32C9442229DD89B334DB023FD5C5CB2DD2"
-        StorageMaintenance    = "1305276DFF4DD0D7D3B45754226D37B21BFC3C0F6CF20172D3EEF4BC86D97156"
+        StorageMaintenance    = "0D0868D47DFAAA5FC3EE79607E500EE1FA314017053693D1764D26A0920DB844"
         QueryExport           = "33478747B91888D4ED0571AD805FBF09E289B992F28B6954D5C25DAB9A7F88AF"
         QueryLibrary          = "73B589ECA5FD4FE34B49113ECCB9AA43C0B0DF8635110F5DB124035A6AC4A08C"
         LockoutDiagnosis      = "16A28EB41BE4F6A88BC7FD09E979D15731ABE1508171682B86C21B516C456D3C"
@@ -23970,7 +24029,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "1210789E72DDBC4587E106FA86B39FA611F1BDFC0D93441430E4E611ADE7FC88"
+    $expectedFingerprint = "0BF65333D32756A0A752A4FE5807CF41FD58AAFF7F142A760A737006F72C2A90"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -24701,6 +24760,8 @@ function Complete-UiTasks {
         $errorInfo = $null
         if (-not [string]::IsNullOrWhiteSpace($errorMessage)) { $errorInfo = ConvertTo-DomeniaTaskErrorInfo -Job $job -Message $errorMessage }
         try { [void](Register-DomeniaTaskOutcome -Job $job -ErrorMessage $errorMessage -ErrorInfo $errorInfo) } catch { }
+        # FI-12: a SQLite lock wait that ran out is counted for the Operations panel (session counter, no retry).
+        try { [void](Register-DomeniaSqliteBusyOutcome -Job $job -Output $output -ErrorMessage $errorMessage) } catch { }
         if ([string]::IsNullOrWhiteSpace($errorMessage)) {
             $callbackWatch = [System.Diagnostics.Stopwatch]::StartNew()
             $modalBefore = [long]$script:ModalBlockedMs
@@ -24859,6 +24920,11 @@ function Get-WorkerContext {
     # new one); only the identities are computed per operation. Without a loaded configuration it is read each time.
     $cfg = $script:WorkerContextConfig
     if (($null -eq $script:Config) -or ($null -eq $cfg) -or (-not [object]::ReferenceEquals($cfg.Config,$script:Config))) {
+        # FI-12: the SQLite lock wait of every worker comes from LocalStore.DatabaseBusyTimeoutMs (2 500 ms documented),
+        # clamped like the interface connection (100 to 5 000 ms); an unreadable value keeps the documented default.
+        $busyTimeoutMs = 2500
+        $busyTimeoutValue = 0
+        if ([int]::TryParse([string](Get-CfgValue 'LocalStore' 'DatabaseBusyTimeoutMs' 2500),[ref]$busyTimeoutValue)) { $busyTimeoutMs = [Math]::Max(100,[Math]::Min(5000,$busyTimeoutValue)) }
         $cfg = [pscustomobject]@{
             Config = $script:Config
             PageSize = [int](Get-CfgValue "Browser" "MaxPageSize" 300)
@@ -24881,6 +24947,7 @@ function Get-WorkerContext {
             BlockSensitiveRawAttributes = [bool](Get-CfgValue "Security" "BlockSensitiveRawAttributes" $true)
             RequireFreshObject = [bool](Get-CfgValue "Security" "RequireFreshObject" $true)
             SingleWriteChannel = [bool](Get-CfgValue "Security" "SingleWriteChannel" $true)
+            DatabaseBusyTimeoutMs = [int]$busyTimeoutMs
         }
         if ($null -ne $script:Config) { $script:WorkerContextConfig = $cfg }
     }
@@ -24968,6 +25035,7 @@ function Get-WorkerContext {
         RawAttributeBlockList = @($script:RawAttributeBlockList)
         RequireFreshObject = [bool]$cfg.RequireFreshObject
         SingleWriteChannel = [bool]$cfg.SingleWriteChannel
+        BusyTimeoutMs = [int]$cfg.DatabaseBusyTimeoutMs
         ReadOnlyMode = [bool]$script:ReadOnlyMode
         WriteState = [string]$script:WriteState
     }

@@ -3834,6 +3834,392 @@ COMMIT;
     } finally { Remove-Item $root -Recurse -Force }
 }
 
+# ---------------------------------------------------------------- Lot X06 : FI-12, PF-26, FI-13, UI-19, DS-09 (base locale)
+# Self-contained: the real lease model, query-library and store models, the storage workers (whole module, so that the
+# lease code is read from its file), the SQLite layer of the core and its schema script. Real SQLite files, no network.
+Stop-TestTimers
+. (Join-Path $modules 'Domenia-StorageLease.Model.ps1')
+. (Join-Path $modules 'Domenia-QueryLibrary.Model.ps1')
+. (Join-Path $modules 'Domenia-Store.Model.ps1')
+. (Join-Path $modules 'Domenia-Release.Model.ps1')
+. (Join-Path $modules 'Domenia-Storage.Worker.ps1')
+foreach ($name in @('Initialize-DomeniaWinSqliteNative','New-DomeniaUtf8Ptr','ConvertFrom-DomeniaUtf8Ptr','Open-DomeniaDatabase','Close-DomeniaDatabase','Invoke-DomeniaDbExec','Invoke-DomeniaDbQuery','ConvertTo-DomeniaSqlLiteral','Get-DomeniaSqliteSchemaText','Initialize-DomeniaDatabase','Backup-DomeniaDatabase','Get-DomeniaStoreBackupDirectory')) {
+    . ([scriptblock]::Create((Get-FunctionTextFromFile $core $name)))
+}
+[void](Initialize-DomeniaWinSqliteNative)
+$parkUi = Join-Path $modules 'Domenia-Park.UI.ps1'
+$experienceUi = Join-Path $modules 'Domenia-Experience.UI.ps1'
+function New-X06Sandbox {
+    $root = Join-Path ([IO.Path]::GetTempPath()) ('domenia-x06-' + [guid]::NewGuid().ToString('N'))
+    [void][IO.Directory]::CreateDirectory($root)
+    $script:TestDbPath = Join-Path $root 'Domenia.db'
+    $script:DomeniaDatabaseReady = $false; $script:DomeniaDatabaseRecoveryAttempted = $false; $script:RecoverCalls = 0
+    [void](Initialize-DomeniaDatabase)
+    return $root
+}
+function Invoke-X06StorageWorker {
+    # The pinned LocalStore body, run as the engine runs it: $Payload and $Context in the calling scope.
+    param($Payload,$Context = $null)
+    return & ([scriptblock]::Create((Get-DomeniaStorageWorkerCode)))
+}
+function Invoke-X06Sql {
+    param([string]$Sql,[switch]$Query)
+    $db = Open-DomeniaDatabase -Path $script:TestDbPath
+    try { if ($Query) { return @(Invoke-DomeniaDbQuery $Sql $db) }; [void](Invoke-DomeniaDbExec $Sql $db) } finally { Close-DomeniaDatabase $db }
+}
+function Get-X06Count { param([string]$Table) return [long](@(Invoke-X06Sql -Query ('SELECT count(*) AS n FROM ' + $Table + ';'))[0].n) }
+function New-X06Item {
+    param([string]$Kind,$Row,[string]$Key = 'x06')
+    return [pscustomobject]@{QueueKey=($Kind + '|' + $Key);Kind=$Kind;Path=$script:TestDbPath;Row=$Row;Epoch=[long]1}
+}
+function New-X06Sample { return (New-X06Item -Kind 'Sample' -Row ([pscustomobject]@{Operation='IndexStore';Mode='SQLite prepare';ItemCount=1;DurationMs=1L;BytesEstimated=0L;AdQueries=0;RemoteAttempts=0;FallbackTasks=0;SuccessCount=1;FailureCount=0;StartedAt='';Finished='2026-10-14T10:00:00Z'})) }
+function New-X06Presence { return (New-X06Item -Kind 'Presence' -Row ([pscustomobject]@{Key='pc1';State='En ligne';Target='PC1';At='2026-10-14T10:00:00Z'})) }
+
+Test-Case 'FI-12 : le contexte des workers porte LocalStore.DatabaseBusyTimeoutMs, borne, avec le defaut documente' {
+    . ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Get-WorkerContext')))
+    function Initialize-DomeniaWorkerContextCache { }
+    function Get-DomeniaOperationCredentialNeeds { param($OperationId) return [pscustomobject]@{DirectoryCredential=$false;Machine=$false;RemoteAdmin=$false;Secrets=$false;Directory=$false} }
+    function Test-DomeniaTransportFallbackAllowed { param($Transport,$Intrusive,$IsRead,$ReadConsentGiven) return [pscustomobject]@{Allowed=$false;Reason='test'} }
+    function Get-CfgValue { param($Section,$Key,$Default) if (($Section -eq 'LocalStore') -and ($Key -eq 'DatabaseBusyTimeoutMs') -and ($null -ne $script:X06Busy)) { return $script:X06Busy }; return $Default }
+    $script:WorkerContextStatic = [pscustomobject]@{AdModuleSources=@();AdRequiredCommands=@();AdTypeNames=@();AdManagementHash='';AdResourceHash='';MissingCriticalFunctions=@();MissingCriticalControls=@();CriticalFunctionCount=0;CriticalControlCount=0;PowerShellVersion='5.1';IsSta=$true}
+    $script:Config = $null; $script:WorkerContextConfig = $null; $script:ReadFallbackConsent = $null; $script:ArtifactConsent = $null
+    $script:Conn = [pscustomobject]@{Server='dc.example.invalid';BaseDn='DC=example,DC=invalid';Domain='example.invalid';Netbios='EXAMPLE';BindUser='EXAMPLE\lecteur';Credential=$null;UseCredential=$false;AuthMode='Kerberos'}
+    foreach ($case in @(@($null,2500),@('1200',1200),@(99999,5000),@(10,100),@('abc',2500))) {
+        $script:X06Busy = $case[0]
+        $context = Get-WorkerContext -OperationId 'LocalStore'
+        Assert-Equal $case[1] $context.BusyTimeoutMs ('Delai transmis pour la valeur ' + [string]$case[0])
+    }
+    $script:X06Busy = $null
+}
+
+Test-Case 'FI-12 : le worker LocalStore attend le delai de son contexte avant SQLITE_BUSY' {
+    $root = New-X06Sandbox; $blocker = [IntPtr]::Zero
+    try {
+        # A second writer holds the write lock (same thread: the cross-process lease is re-entered, SQLite still waits).
+        $blocker = Open-DomeniaDatabase -Path $script:TestDbPath
+        [void](Invoke-DomeniaDbExec 'BEGIN IMMEDIATE;' $blocker)
+        $payload = [pscustomobject]@{Path=$script:TestDbPath;Items=@(New-X06Presence)}
+        $timings = @{}
+        foreach ($wait in @(300,1500)) {
+            $watch = [Diagnostics.Stopwatch]::StartNew(); $message = ''
+            try { [void](Invoke-X06StorageWorker -Payload $payload -Context ([pscustomobject]@{BusyTimeoutMs=$wait})) } catch { $message = $_.Exception.Message }
+            $watch.Stop(); $timings[$wait] = [long]$watch.ElapsedMilliseconds
+            Assert-True (Test-DomeniaSqliteBusyText $message) ('SQLITE_BUSY attendu : ' + $message)
+        }
+        Assert-True (($timings[300] -ge 250) -and ($timings[300] -lt 1400)) ('Attente pour 300 ms : ' + $timings[300] + ' ms')
+        Assert-True ($timings[1500] -ge 1400) ('Attente pour 1500 ms : ' + $timings[1500] + ' ms')
+        $script:CaseDetail = 'Attentes mesurees : 300 ms -> ' + $timings[300] + ' ms ; 1500 ms -> ' + $timings[1500] + ' ms.'
+    } finally {
+        if ($blocker -ne [IntPtr]::Zero) { try { [void](Invoke-DomeniaDbExec 'ROLLBACK;' $blocker) } catch { }; Close-DomeniaDatabase $blocker }
+        Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
+Test-Case 'FI-12 : aucun delai SQLite fige dans les workers ; la lecture locale suit le contexte' {
+    foreach ($pair in @(@('LocalStore',(Get-DomeniaStorageWorkerCode)),@('StorageUsage',(Get-DomeniaStorageUsageWorkerCode)),@('StoragePurge',(Get-DomeniaStoragePurgeWorkerCode)),@('StorageBackup',(Get-DomeniaStorageBackupWorkerCode)),@('StorageMaintenance',(Get-DomeniaStorageMaintenanceWorkerCode)),@('StorageRetention',(Get-DomeniaStorageRetentionWorkerCode)),@('LiveCache',(Get-DomeniaLiveCacheCode)),@('LegacyMigration',(Get-DomeniaMigrationWorkerCode)))) {
+        Assert-False ([string]$pair[1] -match 'sqlite3_busy_timeout\(\$db,\d+\)') ('Delai fige dans ' + $pair[0])
+        Assert-True (([string]$pair[1]).Contains('sqlite3_busy_timeout($db,$busyMs)')) ('Delai du contexte absent de ' + $pair[0])
+    }
+    $read = Get-DomeniaLocalIndexReadWorkerCode
+    Assert-True ($read.Contains('[Math]::Min(5000,$busyMs)') -and $read.Contains("Get-Variable -Name Context")) 'LocalIndexRead ne lit pas le contexte'
+    foreach ($file in @('Domenia-Park.UI.ps1','Domenia-Search.UI.ps1','Domenia-Refresh.UI.ps1','Domenia-Dashboard.UI.ps1','Domenia-Engine.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Relations.UI.ps1')) {
+        Assert-False ([IO.File]::ReadAllText((Join-Path $modules $file),[Text.Encoding]::UTF8) -match 'BusyTimeoutMs\s*=\s*(?:250|1000)\b') ('Delai fige encore impose par ' + $file)
+    }
+    # The name check of the CSV import is not retried by itself: it waits as long as the context allows.
+    Assert-False ([IO.File]::ReadAllText((Join-Path $modules 'Domenia-Relations.UI.ps1'),[Text.Encoding]::UTF8) -match 'BusyTimeoutMs') 'Attente explicite dans la verification de l import CSV'
+    # Only the type-ahead of the local grid keeps an explicit short wait (it retries by itself).
+    $explicit = @([regex]::Matches([IO.File]::ReadAllText((Join-Path $modules 'Domenia-Engine.UI.ps1'),[Text.Encoding]::UTF8),'BusyTimeoutMs\s*=\s*(\d+)') | ForEach-Object { $_.Groups[1].Value })
+    Assert-Equal '50' ($explicit -join ',') 'Attente explicite inattendue dans Engine.UI'
+}
+
+Test-Case 'FI-12 : les attentes SQLite depassees sont comptees pour le panneau Operations, pas les autres erreurs' {
+    foreach ($name in @('Register-DomeniaSqliteBusyOutcome','Get-DomeniaSqliteBusyStatusText')) { . ([scriptblock]::Create((Get-FunctionTextFromFile $storageUi $name))) }
+    $script:DomeniaSqliteBusy = $null
+    Assert-True (Register-DomeniaSqliteBusyOutcome -Job ([pscustomobject]@{OperationId='LocalStore'}) -ErrorMessage 'SQLite code 5 : database is locked') 'Erreur SQLITE_BUSY non comptee'
+    Assert-False (Register-DomeniaSqliteBusyOutcome -Job ([pscustomobject]@{OperationId='LocalStore'}) -ErrorMessage 'StorageBusy : autre ecriture ou maintenance locale en cours.') 'Bail inter-processus compte comme SQLITE_BUSY'
+    Assert-True (Register-DomeniaSqliteBusyOutcome -Job ([pscustomobject]@{OperationId='LocalIndexRead'}) -Output @([pscustomobject]@{Rows=@();Busy=$true})) 'Lecture locale occupee non comptee'
+    Assert-False (Register-DomeniaSqliteBusyOutcome -Job ([pscustomobject]@{OperationId='LocalIndexRead'}) -Output @([pscustomobject]@{Rows=@();Busy=$false})) 'Lecture reussie comptee'
+    Assert-False (Register-DomeniaSqliteBusyOutcome -Job ([pscustomobject]@{OperationId='GlobalSearch'}) -Output @([pscustomobject]@{Busy=$true})) 'Indicateur Busy dune autre operation compte'
+    $text = Get-DomeniaSqliteBusyStatusText
+    Assert-True ($text -match '2 attente\(s\) de verrou SQLite') $text
+    Assert-True (($text -match 'LocalIndexRead : 1') -and ($text -match 'LocalStore : 1')) $text
+    Assert-True ($text -match 'délai 2500 ms') $text
+    # Real wiring: one count per finished task in the engine, one line in the Operations panel.
+    Assert-True ((Get-FunctionTextFromFile $core 'Complete-UiTasks').Contains('Register-DomeniaSqliteBusyOutcome -Job $job -Output $output -ErrorMessage $errorMessage')) 'Complete-UiTasks ne compte pas les attentes SQLite'
+    Assert-True ((Get-FunctionTextFromFile $experienceUi 'Get-DomeniaOperationsHealthText').Contains('Get-DomeniaSqliteBusyStatusText')) 'Le panneau Operations ne montre pas les attentes SQLite'
+}
+
+Test-Case 'PF-26 : park_session_cache vient du schema ; le worker ne la cree plus par observation' {
+    $root = New-X06Sandbox
+    try {
+        Assert-Equal 1 (@(Invoke-X06Sql -Query "SELECT count(*) AS n FROM sqlite_master WHERE type='table' AND name='park_session_cache';")[0].n) 'Table absente du script de schema'
+        Assert-False ((Get-DomeniaStorageWorkerCode) -match "(?s)Kind -eq 'ParkSession'\)\{.{0,700}CREATE TABLE") 'CREATE encore execute pour chaque observation'
+        $row = [pscustomobject]@{Version=1;Key='cn=pc-1,dc=example,dc=invalid';Guid='guid1';Computer='PC-1';CheckedUtc='2026-10-14T10:00:00Z';Outcome='Observed';LinkUser='alice'}
+        $result = Invoke-X06StorageWorker -Payload ([pscustomobject]@{Path=$script:TestDbPath;Items=@(New-X06Item -Kind 'ParkSession' -Row $row)})
+        Assert-True $result.Saved 'Observation du parc non enregistree'
+        Assert-Equal 1 (Get-X06Count 'park_session_cache')
+        # A base never opened by the schema script receives the additive table once, in the session of the worker.
+        Invoke-X06Sql 'DROP TABLE park_session_cache;'
+        $result = Invoke-X06StorageWorker -Payload ([pscustomobject]@{Path=$script:TestDbPath;Items=@(New-X06Item -Kind 'ParkSession' -Row $row)})
+        Assert-True $result.Saved 'Base sans table : observation refusee'
+        Assert-Equal 1 (Get-X06Count 'park_session_cache')
+    } finally { Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue }
+}
+
+Test-Case 'PF-26 : schema_info lu une fois dans la transaction ; base future refusee sans ecriture' {
+    $roots = [Collections.Generic.List[string]]::new()
+    try {
+        $code = Get-DomeniaStorageWorkerCode
+        Assert-True ($code.Contains('$sqliteVersion=Assert-StoreWSession $db')) 'Controle de schema hors session'
+        Assert-False ($code.Contains("SELECT value FROM schema_info WHERE key='schema_version';")) 'Deuxieme lecture de schema_info par lot'
+        Assert-True ($code -match 'Invoke-DomeniaDbExec ''BEGIN IMMEDIATE;'' \$db\);\$transaction=\$true\r?\n \$sqliteVersion=Assert-StoreWSession \$db') 'Controle de schema avant la transaction'
+        foreach ($scenario in @(@("UPDATE schema_info SET value='12' WHERE key='schema_version';",'Schema stockage incompatible'),@("UPDATE schema_info SET value='2' WHERE key='domenia_schema';",'Version Domenia incompatible'))) {
+            $roots.Add((New-X06Sandbox))
+            Invoke-X06Sql $scenario[0]
+            $message = ''; try { [void](Invoke-X06StorageWorker -Payload ([pscustomobject]@{Path=$script:TestDbPath;Items=@(New-X06Presence)})) } catch { $message = $_.Exception.Message }
+            Assert-True ($message -match $scenario[1]) ('Refus attendu : ' + $message)
+            Assert-Equal 0 (Get-X06Count 'presence_cache') 'Ecriture dans une base refusee'
+        }
+    } finally { foreach ($root in $roots) { Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue } }
+}
+
+Test-Case 'PF-26 : operation_runs purgee seulement apres une insertion et au-dela de 11 000 lignes' {
+    $root = New-X06Sandbox
+    try {
+        Invoke-X06Sql "WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x<10999) INSERT INTO operation_runs(operation) SELECT 'Synthetic' FROM n;"
+        [void](Invoke-X06StorageWorker -Payload ([pscustomobject]@{Path=$script:TestDbPath;Items=@(New-X06Sample)}))
+        Assert-Equal 11000 (Get-X06Count 'operation_runs') 'Purge avant le seuil de 11 000 lignes'
+        [void](Invoke-X06StorageWorker -Payload ([pscustomobject]@{Path=$script:TestDbPath;Items=@(New-X06Sample)}))
+        Assert-Equal 10000 (Get-X06Count 'operation_runs') 'Historique non ramene aux 10 000 plus recentes'
+        $range = @(Invoke-X06Sql -Query 'SELECT min(id) AS low,max(id) AS high FROM operation_runs;')[0]
+        Assert-Equal 11001 ([long]$range.high) 'La derniere mesure a ete supprimee'
+        Assert-Equal 1002 ([long]$range.low) 'Les plus anciennes mesures restent'
+        Invoke-X06Sql "WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x<2000) INSERT INTO operation_runs(operation) SELECT 'Synthetic' FROM n;"
+        [void](Invoke-X06StorageWorker -Payload ([pscustomobject]@{Path=$script:TestDbPath;Items=@(New-X06Presence)}))
+        Assert-Equal 12000 (Get-X06Count 'operation_runs') 'Purge sans insertion de mesure'
+    } finally { Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue }
+}
+
+Test-Case 'FI-13 : sauvegarde par le worker StorageBackup avant le geste, jamais sur le Dispatcher' {
+    $root = New-X06Sandbox
+    try {
+        foreach ($name in @('Get-DomeniaCurrentStoragePolicy','Get-DomeniaGestureBackupState','Invoke-DomeniaGestureBackup','Complete-DomeniaGestureBackup','Fail-DomeniaGestureBackup','Show-DomeniaGestureBackupFailure','Resume-DomeniaGestureWithoutBackup')) { . ([scriptblock]::Create((Get-FunctionTextFromFile $storageUi $name))) }
+        $script:X06Settings = @{}; $script:X06Tasks = [Collections.Generic.List[object]]::new(); $script:X06Ran = 0; $script:X06SyncBackups = 0; $script:X06Inline = $null; $script:X06Locations = 0
+        function Get-DomeniaSetting { param($Name,$Default) if ($script:X06Settings.ContainsKey([string]$Name)) { return $script:X06Settings[[string]$Name] }; return $Default }
+        function Set-DomeniaSetting { param($Name,$Value) $script:X06Settings[[string]$Name] = $Value }
+        function Update-DomeniaIndexLocation { $script:X06Locations++ }
+        function Backup-DomeniaDatabase { $script:X06SyncBackups++ }
+        function Request-DomeniaInlineConfirmation { param($Title,$Message,$Target,$ConfirmText,$CancelText,$OnConfirm,$OnCancel,$Risk) $script:X06Inline = [pscustomobject]@{Title=$Title;Message=$Message;ConfirmText=$ConfirmText;CancelText=$CancelText;Confirm=$OnConfirm;Cancel=$OnCancel;Risk=$Risk} }
+        # The engine double registers the job as Start-UiTask does; each case removes it before calling a handler, as
+        # Complete-UiTasks does.
+        function Start-UiTask { param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,$ReplaceKey,$TimeoutSeconds,$StatusText,$TaskClass) $script:X06Tasks.Add([pscustomobject]@{Operation=$OperationId;Code=$Code;Payload=$Payload;State=$CallbackState;Success=$SuccessHandler;Error=$ErrorHandler;Status=$StatusText}); $id = 'x06-' + $script:X06Tasks.Count; $script:AsyncJobs[$id] = [pscustomobject]@{Id=$id;OperationId=[string]$OperationId}; return $id }
+        $script:AsyncJobs = @{}; $script:DetachedReadJobs = @()
+        $script:DatabaseScopedPath = $script:TestDbPath; $script:SessionEpoch = [long]1; $script:DemoMode = $false; $script:StorageGestureBackup = $null
+        $script:Conn = [pscustomobject]@{BaseDn='DC=example,DC=invalid';Domain='example.invalid'}
+        $outcome = Invoke-DomeniaGestureBackup -Gesture 'LinkImport' -Then { $script:X06Ran++ }
+        Assert-Equal 'Started' $outcome
+        Assert-Equal 0 $script:X06Ran 'Geste lance avant la fin de la sauvegarde'
+        Assert-Equal 0 $script:X06SyncBackups 'Sauvegarde synchrone sur le Dispatcher'
+        Assert-Equal 1 $script:X06Tasks.Count
+        $task = $script:X06Tasks[0]
+        Assert-Equal 'StorageBackup' $task.Operation
+        Assert-True ([string]$task.Code -ceq (Get-DomeniaStorageBackupWorkerCode)) 'Corps du worker StorageBackup different'
+        Assert-True (([string]$task.Payload.Database -ceq $script:TestDbPath) -and ([int]$task.Payload.Keep -eq 7) -and ([string]$task.Payload.CopyTo -eq '') -and ([string]$task.Payload.Series -ceq 'Gesture')) 'Charge differente de la sauvegarde planifiee'
+        Assert-Equal 'x06-1' ([string]$task.State.JobId) 'Tache de sauvegarde non retenue'
+        Assert-Equal 'Busy' (Invoke-DomeniaGestureBackup -Gesture 'ParkReset' -Then { $script:X06Ran += 10 }) 'Deuxieme sauvegarde simultanee'
+        Assert-Equal 1 $script:X06Tasks.Count
+        # The real worker makes the copy; its receipt releases the gesture.
+        $Payload = $task.Payload; $result = & ([scriptblock]::Create([string]$task.Code))
+        [void]$script:AsyncJobs.Remove('x06-1')
+        Complete-DomeniaGestureBackup -Result $result -State $task.State
+        Assert-Equal 1 $script:X06Ran 'Geste non lance apres la sauvegarde verifiee'
+        # Gesture copies form their own series: they never rotate out the scheduled and manual copies.
+        Assert-Equal 1 @(Get-ChildItem -LiteralPath (Join-Path $root 'Backups') -Filter 'Geste-*.db' -File).Count 'Copie absente'
+        Assert-Equal 0 @(Get-ChildItem -LiteralPath (Join-Path $root 'Backups') -Filter 'Domenia-*.db' -File).Count 'Copie de geste dans la serie planifiee'
+        $key = Get-DomeniaStoreId $script:TestDbPath 'DC=example,DC=invalid'
+        Assert-True ([string]$script:X06Settings[('Storage.Backup.Last.' + $key)]) 'Date de sauvegarde non memorisee'
+        # A verified copy younger than 30 min is already the point of return.
+        Assert-Equal 'Recent' (Invoke-DomeniaGestureBackup -Gesture 'LinkPrune' -Then { $script:X06Ran++ })
+        Assert-Equal 2 $script:X06Ran; Assert-Equal 1 $script:X06Tasks.Count
+        Assert-True ((Get-DomeniaGestureBackupNotice (Get-DomeniaGestureBackupState)) -match 'Point de retour') 'Notice de sauvegarde recente absente'
+        # Failure: nothing runs; the page offers an explicit choice to continue without a backup.
+        $script:X06Settings[('Storage.Backup.Last.' + $key)] = [datetime]::UtcNow.AddHours(-2).ToString('o')
+        Assert-Equal 'Started' (Invoke-DomeniaGestureBackup -Gesture 'IndexUpdate' -Then { $script:X06Ran++ })
+        [void]$script:AsyncJobs.Remove('x06-2')
+        Fail-DomeniaGestureBackup -Message 'SQLite code 13 : database or disk is full' -State $script:X06Tasks[1].State
+        Assert-Equal 2 $script:X06Ran 'Geste lance malgre lechec de la sauvegarde'
+        Assert-True (($null -ne $script:X06Inline) -and ($script:X06Inline.ConfirmText -eq 'Continuer sans sauvegarde') -and ($script:X06Inline.Risk -eq 'Danger') -and ($script:X06Inline.Message -match 'Rien nʼa été lancé')) 'Choix explicite absent'
+        & $script:X06Inline.Cancel
+        Assert-Equal 2 $script:X06Ran 'Geste lance apres « Ne pas lancer »'
+        # The explicit choice applies only to the session and the base it was asked for.
+        $script:SessionEpoch = [long]2
+        & $script:X06Inline.Confirm
+        Assert-Equal 2 $script:X06Ran 'Geste lance dans une autre session'
+        $script:SessionEpoch = [long]1
+        & $script:X06Inline.Confirm
+        Assert-Equal 3 $script:X06Ran 'Geste non lance apres « Continuer sans sauvegarde »'
+        Assert-Equal 1 @($script:Logs | Where-Object { $_ -match 'Poursuite sans sauvegarde confirmée' }).Count 'Choix sans sauvegarde absent du journal'
+        # A late receipt of another session or base never starts the gesture.
+        Assert-Equal 'Started' (Invoke-DomeniaGestureBackup -Gesture 'IndexUpdate' -Then { $script:X06Ran++ })
+        $script:SessionEpoch = [long]2
+        [void]$script:AsyncJobs.Remove('x06-3')
+        Complete-DomeniaGestureBackup -Result $result -State $script:X06Tasks[2].State
+        Assert-Equal 3 $script:X06Ran 'Geste lance dans une session perimee'
+        # No base file (first update) or demonstration: nothing to protect, the gesture runs at once.
+        $script:DatabaseScopedPath = Join-Path $root 'absent.db'
+        Assert-Equal 'NotNeeded' (Invoke-DomeniaGestureBackup -Gesture 'IndexUpdate' -Then { $script:X06Ran++ })
+        Assert-Equal 4 $script:X06Ran
+    } finally { Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue }
+}
+
+Test-Case 'FI-13 : une sauvegarde annulee, retiree, detachee ou d une autre session ne bloque pas les gestes suivants' {
+    $root = New-X06Sandbox
+    try {
+        foreach ($name in @('Get-DomeniaCurrentStoragePolicy','Get-DomeniaGestureBackupState','Invoke-DomeniaGestureBackup','Complete-DomeniaGestureBackup','Fail-DomeniaGestureBackup','Show-DomeniaGestureBackupFailure','Resume-DomeniaGestureWithoutBackup')) { . ([scriptblock]::Create((Get-FunctionTextFromFile $storageUi $name))) }
+        $script:X06Settings = @{}; $script:X06Tasks = [Collections.Generic.List[object]]::new(); $script:X06Ran = 0
+        function Get-DomeniaSetting { param($Name,$Default) if ($script:X06Settings.ContainsKey([string]$Name)) { return $script:X06Settings[[string]$Name] }; return $Default }
+        function Set-DomeniaSetting { param($Name,$Value) $script:X06Settings[[string]$Name] = $Value }
+        function Update-DomeniaIndexLocation { }
+        function Request-DomeniaInlineConfirmation { param($Title,$Message,$Target,$ConfirmText,$CancelText,$OnConfirm,$OnCancel,$Risk) }
+        function Start-UiTask { param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,$ReplaceKey,$TimeoutSeconds,$StatusText,$TaskClass) $script:X06Tasks.Add([pscustomobject]@{Operation=$OperationId;State=$CallbackState}); $id = 'x06-' + $script:X06Tasks.Count; $script:AsyncJobs[$id] = [pscustomobject]@{Id=$id;OperationId=[string]$OperationId}; return $id }
+        $script:AsyncJobs = @{}; $script:DetachedReadJobs = @()
+        $script:DatabaseScopedPath = $script:TestDbPath; $script:SessionEpoch = [long]1; $script:DemoMode = $false; $script:StorageGestureBackup = $null
+        $script:Conn = [pscustomobject]@{BaseDn='DC=example,DC=invalid';Domain='example.invalid'}
+        $receipt = [pscustomobject]@{Backup=(Join-Path $root 'Backups\Geste-x06.db');CopiedTo='';Verified=$true;VerifiedAtUtc=[datetime]::UtcNow.ToString('o')}
+        # Annuler (or a withdrawal from the queue): the engine drops the job and calls no handler.
+        Assert-Equal 'Started' (Invoke-DomeniaGestureBackup -Gesture 'IndexUpdate' -Then { $script:X06Ran++ })
+        [void]$script:AsyncJobs.Remove('x06-1')
+        Assert-Equal 'Started' (Invoke-DomeniaGestureBackup -Gesture 'LinkImport' -Then { $script:X06Ran += 10 }) 'Creneau bloque apres une sauvegarde annulee'
+        Assert-Equal 2 $script:X06Tasks.Count 'Nouvelle sauvegarde non lancee'
+        Assert-Equal 1 @($script:Logs | Where-Object { $_ -match 'arrêtée sans reçu' }).Count 'Liberation du creneau non journalisee'
+        # A copy detached after the cancel grace still runs: it keeps the slot until it ends.
+        $script:DetachedReadJobs = @($script:AsyncJobs['x06-2']); [void]$script:AsyncJobs.Remove('x06-2')
+        Assert-Equal 'Busy' (Invoke-DomeniaGestureBackup -Gesture 'LinkPrune' -Then { $script:X06Ran += 100 }) 'Deuxieme copie pendant une copie detachee'
+        Assert-Equal 2 $script:X06Tasks.Count
+        $script:DetachedReadJobs = @()
+        Assert-Equal 'Started' (Invoke-DomeniaGestureBackup -Gesture 'LinkPrune' -Then { $script:X06Ran += 100 }) 'Creneau bloque apres la fin de la copie detachee'
+        Assert-Equal 3 $script:X06Tasks.Count
+        # Session change: the copy of the previous session, still running, no longer holds the slot.
+        $script:SessionEpoch = [long]2
+        Assert-Equal 'Started' (Invoke-DomeniaGestureBackup -Gesture 'ParkReset' -Then { $script:X06Ran += 1000 }) 'Creneau bloque apres un changement de session'
+        Assert-Equal 4 $script:X06Tasks.Count
+        # A late receipt of a released backup never starts its gesture; the current one starts from its own receipt.
+        [void]$script:AsyncJobs.Remove('x06-3')
+        Complete-DomeniaGestureBackup -Result $receipt -State $script:X06Tasks[2].State
+        Assert-Equal 0 $script:X06Ran 'Geste lance par le recu d une sauvegarde liberee'
+        [void]$script:AsyncJobs.Remove('x06-4')
+        Complete-DomeniaGestureBackup -Result $receipt -State $script:X06Tasks[3].State
+        Assert-Equal 1000 $script:X06Ran 'Geste courant non lance apres sa sauvegarde'
+        Assert-True ($null -eq $script:StorageGestureBackup) 'Creneau non libere apres le recu'
+    } finally { Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue }
+}
+
+Test-Case 'FI-13 : les copies avant geste tournent a part et ne retirent jamais les copies planifiees ou manuelles' {
+    $root = New-X06Sandbox
+    try {
+        $folder = Join-Path $root 'Backups'; [void][IO.Directory]::CreateDirectory($folder)
+        foreach ($i in 1..3) { $file = Join-Path $folder ('Domenia-2026010' + $i + '-120000-000-0000000' + $i + '.db'); [IO.File]::WriteAllBytes($file,[byte[]]@(1)); [IO.File]::SetLastWriteTimeUtc($file,[datetime]::UtcNow.AddDays(-$i)) }
+        foreach ($i in 1..4) {
+            $Payload = [pscustomobject]@{Database=$script:TestDbPath;BackupDirectory=$folder;BudgetSeconds=30;Keep=2;CopyTo='';Series='Gesture'}
+            $result = & ([scriptblock]::Create((Get-DomeniaStorageBackupWorkerCode)))
+            Assert-True (([bool]$result.Verified) -and ([IO.Path]::GetFileName([string]$result.Backup) -like 'Geste-*.db')) ('Copie avant geste mal nommee : ' + [string]$result.Backup)
+        }
+        Assert-Equal 2 @(Get-ChildItem -LiteralPath $folder -Filter 'Geste-*.db' -File).Count 'Rotation des copies avant geste'
+        Assert-Equal 3 @(Get-ChildItem -LiteralPath $folder -Filter 'Domenia-*.db' -File).Count 'Copie planifiee ou manuelle retiree par une copie avant geste'
+        # The scheduled series still rotates only its own copies.
+        $Payload = [pscustomobject]@{Database=$script:TestDbPath;BackupDirectory=$folder;BudgetSeconds=30;Keep=2;CopyTo=''}
+        $result = & ([scriptblock]::Create((Get-DomeniaStorageBackupWorkerCode)))
+        Assert-True ([IO.Path]::GetFileName([string]$result.Backup) -like 'Domenia-*.db') 'Copie planifiee mal nommee'
+        Assert-Equal 2 @(Get-ChildItem -LiteralPath $folder -Filter 'Domenia-*.db' -File).Count 'Rotation des copies planifiees'
+        Assert-Equal 2 @(Get-ChildItem -LiteralPath $folder -Filter 'Geste-*.db' -File).Count 'Copie avant geste retiree par la serie planifiee'
+        # An unknown series, or an export from a gesture copy, is refused before any copy.
+        foreach ($bad in @([pscustomobject]@{Database=$script:TestDbPath;BackupDirectory=$folder;BudgetSeconds=30;Keep=2;CopyTo='';Series='Autre'},[pscustomobject]@{Database=$script:TestDbPath;BackupDirectory=$folder;BudgetSeconds=30;Keep=2;CopyTo=(Join-Path $root 'export.db');Series='Gesture'})) {
+            $Payload = $bad; $refused = $false
+            try { [void](& ([scriptblock]::Create((Get-DomeniaStorageBackupWorkerCode)))) } catch { $refused = $true }
+            Assert-True $refused ('Charge refusee acceptee : ' + [string]$bad.Series)
+        }
+        Assert-Equal 4 @(Get-ChildItem -LiteralPath $folder -Filter '*.db' -File).Count 'Copie faite malgre le refus'
+    } finally { Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue }
+}
+
+Test-Case 'FI-13 : Oublier les releves vide park_state apres la sauvegarde, sans toucher aux associations' {
+    $root = New-X06Sandbox
+    try {
+        Invoke-X06Sql "INSERT INTO park_state(computer_key,computer,last_probe,status,user_login,attempts) VALUES('PC1','PC1','2026-10-01','Session','alice',3),('PC2','PC2','2026-10-02','Aucune session','',1);INSERT INTO user_machine_links(computer_key,user_login,computer,source) VALUES('PC1','alice','PC1','Saisie manuelle');"
+        $result = Invoke-X06StorageWorker -Payload ([pscustomobject]@{Path=$script:TestDbPath;Items=@(New-X06Item -Kind 'ParkReset' -Row ([pscustomobject]@{At='2026-10-14T10:00:00Z'}))})
+        Assert-True $result.Saved 'Effacement non enregistre'
+        Assert-Equal 0 (Get-X06Count 'park_state') 'Releves conserves dans la base'
+        Assert-Equal 1 (Get-X06Count 'user_machine_links') 'Association supprimee'
+        # Interface: in-page confirmation with the backup notice, then the gesture through the backup.
+        foreach ($name in @('Request-DomeniaParkReset','Invoke-DomeniaParkReset','Clear-DomeniaParkRecords')) { . ([scriptblock]::Create((Get-FunctionTextFromFile $parkUi $name))) }
+        foreach ($name in @('Initialize-DomeniaPersistence','Queue-DomeniaMetadata')) { . ([scriptblock]::Create((Get-FunctionTextFromFile $storageUi $name))) }
+        $script:X06Inline = $null; $script:X06Gestures = [Collections.Generic.List[string]]::new(); $script:X06Held = $null
+        function Request-DomeniaInlineConfirmation { param($Title,$Message,$Target,$ConfirmText,$CancelText,$OnConfirm,$OnCancel,$Risk) $script:X06Inline = [pscustomobject]@{Title=$Title;Message=$Message;Confirm=$OnConfirm;Cancel=$OnCancel} }
+        function Get-DomeniaGestureBackupState { return [pscustomobject]@{Due=$true;Reason='NoBackup';LastUtc=$null;ReuseMinutes=30} }
+        function Invoke-DomeniaGestureBackup { param($Gesture,[scriptblock]$Then) $script:X06Gestures.Add([string]$Gesture); $script:X06Held = $Then; return 'Started' }
+        function Get-DomeniaParkCoverageText { return 'Aucun releve.' }
+        function Request-DomeniaStorageWork { }
+        $script:DatabaseScopedPath = $script:TestDbPath; $script:Persistence = $null; $script:Ctrl = @{}
+        $script:ParkState = @{PC1=[pscustomobject]@{Computer='PC1'}}
+        [void](Queue-DomeniaMetadata -Kind Park -Key 'PC1' -Row ([pscustomobject]@{Key='PC1';Computer='PC1';LastProbe='x';Status='Session';User='alice';Attempts=1}))
+        Request-DomeniaParkReset
+        Assert-True (($null -ne $script:X06Inline) -and ($script:X06Inline.Message -match 'sauvegarde vérifiée de la base sera faite avant')) 'Sauvegarde non annoncee dans la confirmation'
+        Assert-Equal 1 $script:ParkState.Count 'Etat efface avant la confirmation'
+        & $script:X06Inline.Confirm
+        Assert-Equal 'ParkReset' (@($script:X06Gestures) -join ',')
+        Assert-Equal 1 $script:ParkState.Count 'Etat efface avant la fin de la sauvegarde'
+        & $script:X06Held
+        Assert-Equal 0 $script:ParkState.Count 'Etat du parc conserve en memoire'
+        $kinds = @($script:Persistence.Pending.Values | ForEach-Object { [string]$_.Kind })
+        Assert-Equal 'ParkReset' ($kinds -join ',') 'Effacement absent de la file, ou releve obsolete encore en attente'
+    } finally { Stop-TestTimers; Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue }
+}
+
+Test-Case 'UI-19 : un resume lisible de la base, le chemin en infobulle et une alerte douce' {
+    $root = New-X06Sandbox
+    try {
+        foreach ($name in @('Update-DomeniaIndexLocation','Copy-DomeniaIndexLocationPath')) { . ([scriptblock]::Create((Get-FunctionTextFromFile $storageUi $name))) }
+        $script:X06Settings = @{}; $script:X06Clipboard = ''
+        function Get-DomeniaSetting { param($Name,$Default) if ($script:X06Settings.ContainsKey([string]$Name)) { return $script:X06Settings[[string]$Name] }; return $Default }
+        function Set-ClipboardSafe { param([string]$Text) $script:X06Clipboard = $Text }
+        $script:Ctrl = @{LblIndexLocation=[Windows.Controls.TextBlock]::new();LblIndexBackupStatus=[Windows.Controls.TextBlock]::new();BtnIndexCopyPath=[Windows.Controls.Button]::new()}
+        $script:Conn = [pscustomobject]@{BaseDn='DC=example,DC=invalid';Domain='example.invalid'}; $script:DemoMode = $false; $script:DatabaseScopedPath = $script:TestDbPath
+        $key = Get-DomeniaStoreId $script:TestDbPath 'DC=example,DC=invalid'
+        $script:X06Settings[('Storage.Backup.Last.' + $key)] = [datetime]::UtcNow.AddHours(-2).AddMinutes(-5).ToString('o')
+        Update-DomeniaIndexLocation
+        $label = $script:Ctrl.LblIndexLocation
+        Assert-True ($label.Text -match '^Base du domaine example\.invalid · .+ · sauvegardée il y a 2 h$') $label.Text
+        Assert-False ($label.Text.Contains($root)) 'Le chemin reste affiche'
+        Assert-True (([string]$label.ToolTip).Contains($script:TestDbPath) -and ([Windows.Automation.AutomationProperties]::GetHelpText($label)).Contains($script:TestDbPath)) 'Chemin absent de linfobulle'
+        Assert-Equal 'Collapsed' ([string]$script:Ctrl.LblIndexBackupStatus.Visibility) 'Alerte affichee pour une sauvegarde recente'
+        $script:X06Settings[('Storage.Backup.Last.' + $key)] = [datetime]::UtcNow.AddDays(-8).ToString('o')
+        Update-DomeniaIndexLocation
+        Assert-Equal 'Visible' ([string]$script:Ctrl.LblIndexBackupStatus.Visibility) 'Alerte absente au-dela de 7 jours'
+        Assert-True ($script:Ctrl.LblIndexBackupStatus.Text -match 'plus de 7 jours') $script:Ctrl.LblIndexBackupStatus.Text
+        Assert-True (Copy-DomeniaIndexLocationPath) 'Copie du chemin refusee'
+        Assert-Equal $script:TestDbPath $script:X06Clipboard 'Chemin copie different'
+        # Real XAML, help and policy: the summary replaces the path box, the copy button is declared like its peers.
+        . ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Get-MainXaml')))
+        $xaml = [xml](Get-MainXaml); $xns = 'http://schemas.microsoft.com/winfx/2006/xaml'
+        # Windows PowerShell 5.1 emits a JSON array as one pipeline object: assign first, then enumerate.
+        $helpRaw = Get-Content -LiteralPath (Join-Path $modules 'Domenia-UX.help.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+        $help = @($helpRaw)
+        $coreText = [IO.File]::ReadAllText($core,[Text.Encoding]::UTF8)
+        Assert-Equal 0 @($xaml.SelectNodes('//*') | Where-Object { $_.GetAttribute('Name',$xns) -eq 'TxtIndexLocation' }).Count 'Champ du chemin encore present'
+        foreach ($name in @('LblIndexLocation','BtnIndexCopyPath','LblIndexTileAccounts','LblIndexTileAccountsDetail','LblIndexTileComputers','LblIndexTileComputersDetail','LblIndexTileLinks','LblIndexTileLinksDetail','LblIndexTileUpdated','LblIndexTileUpdatedDetail')) {
+            $node = @($xaml.SelectNodes('//*') | Where-Object { $_.GetAttribute('Name',$xns) -eq $name })
+            Assert-Equal 1 $node.Count ('Controle absent : ' + $name)
+            Assert-True ([string]$node[0].GetAttribute('ToolTip') -ceq [string]$node[0].GetAttribute('AutomationProperties.HelpText')) ('Infobulle et aide divergent : ' + $name)
+            $entry = @($help | Where-Object { $_.Name -eq $name })
+            Assert-Equal 1 $entry.Count ('Aide absente : ' + $name)
+            Assert-True (([string]$entry[0].Text -ceq [string]$node[0].GetAttribute('ToolTip')) -and ([string]$entry[0].Title -ceq [string]$node[0].GetAttribute('AutomationProperties.Name')) -and ([string]$entry[0].Kind -ceq [string]$node[0].LocalName)) ('Aide differente du XAML : ' + $name)
+            Assert-True ($coreText.Contains('"' + $name + '" = "Default"')) ('Politique absente : ' + $name)
+        }
+        Assert-Equal 0 @($xaml.SelectNodes('//*') | Where-Object { $_.GetAttribute('Name',$xns) -eq 'LblIndexOverview' }).Count 'Phrase de synthese encore presente'
+        Assert-True ((Get-FunctionTextFromFile $core 'Wire-Events').Contains('$script:Ctrl["BtnIndexCopyPath"].Add_Click({ Copy-DomeniaIndexLocationPath })')) 'Bouton Copier le chemin non raccorde'
+    } finally { Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue }
+}
+
 $passed = @($checks | Where-Object { $_.Status -eq 'Passed' }).Count
 $failed = @($checks | Where-Object { $_.Status -eq 'Failed' }).Count
 if (-not $ReportPath) { $ReportPath = Join-Path ([IO.Path]::GetTempPath()) ('Domenia-wiring-cache-' + [guid]::NewGuid().ToString('N') + '.json') }
@@ -3845,7 +4231,7 @@ $report = [ordered]@{
     Wpf=$true
     MockedNetwork=$true
     LiveAD=$false
-    Points=@('D029','D118','D030','D023','D025','D028','D115','D113','D024','D026','D027','D021','D022','L01')
+    Points=@('D029','D118','D030','D023','D025','D028','D115','D113','D024','D026','D027','D021','D022','L01','FI-12','FI-13','PF-26','UI-19','DS-09')
     Passed=$passed
     Failed=$failed
     Complete=($failed -eq 0 -and $passed -gt 0)

@@ -939,7 +939,7 @@ Rien ne part avant la confirmation « Périmètre à confirmer avant toute lectu
 - Période : ParkSweep.HarvestDays (7 jours, borné de 1 à 30).
 - Volume : ParkSweep.HarvestMaxEvents (5 000 événements, borné de 200 à 20 000).
 - Le compte AD doit pouvoir lire le journal Sécurité du contrôleur ; sinon : « Lecture du journal de securite du controleur refusee. ».
-- « Oublier les releves » efface l'état du parc : le prochain relevé repart de zéro.
+- « Oublier les relevés » efface l'état du parc (dernier passage, statut, tentatives), en mémoire et dans la base locale, après une confirmation dans la page et une sauvegarde vérifiée de la base. Les associations sont conservées ; le prochain relevé repart de zéro.
 
 > [!NOTE] La case « Releve manuel uniquement » existe dans le code mais reste masquée. Aucun relevé n'est lancé au démarrage : si l'ancienne préférence ParkSweepEnabled est vraie, Domenia l'écrit seulement dans le journal.
 
@@ -1414,7 +1414,7 @@ Pour la recherche globale, seuls les nouveaux objets reçus d’AD relancent le 
 | LocalStore.DatabaseFile | Domenia.db | Nom du fichier, sans chemin. |
 | LocalStore.DatabaseBackupCount | 7 | Sauvegardes gardées (2 à 30). |
 | LocalStore.BackupTimeoutSeconds | 30 | Budget d'une sauvegarde (5 à 120 s). |
-| LocalStore.DatabaseBusyTimeoutMs, MutexTimeoutMilliseconds | 2500, 350 | Attente d'une base occupée. |
+| LocalStore.DatabaseBusyTimeoutMs, MutexTimeoutMilliseconds | 2500, 350 | Attente d'une base occupée. DatabaseBusyTimeoutMs (borné de 100 à 5000 ms) vaut pour l'interface et pour tous les workers ; les attentes dépassées sont comptées dans le panneau Opérations. |
 | Index.StartupDeltaMaxAgeMinutes | 5 | Âge au-delà duquel le journal recommande une mise à jour. |
 | Index.MaxObjects, BudgetMs, ComputerFirst | 0, 1200000, true | 0 désactive le quota d’objets de l’index ; le budget par passe reste de 20 minutes. Une limite positive ou un budget atteint rend la passe partielle : elle ne remplace pas une base complète et ne déplace pas le repère de suivi. La lecture est acheminée vers SQLite par lots de 256 objets. |
 
@@ -1457,7 +1457,7 @@ La base autonome est une copie locale des utilisateurs et des postes, suivie par
 - La base doit être locale, sans repli silencieux. Chemin réseau : « Une base active SQLite doit etre locale. Choisissez UserLocal ; les sources existantes seront conservees. ». Dossier redirigé : « Stockage redirige par un lien : choisissez un dossier local non redirige. ». Dossier non inscriptible : « Stockage non inscriptible : » suivi du chemin et de « Aucun repli silencieux. Configurez UserLocal. ».
 - Une ancienne base à la racine du dossier n'est adoptée que si sa base DN correspond ; elle n'est jamais déplacée ni fusionnée.
 
-Dans l’onglet « Stockage », dépliez « Emplacement et sauvegarde » pour afficher le chemin exact et les commandes de sauvegarde. « Ouvrir l emplacement » ouvre l’Explorateur sur le fichier.
+Dans l’onglet « Stockage », dépliez « Emplacement et sauvegarde » : une ligne résume la base (« Base du domaine example.local · 4,2 Mo · sauvegardée il y a 2 h »). Le chemin exact s’affiche dans son infobulle et « Copier le chemin » le place dans le presse-papiers. Une alerte s’affiche quand la base n’a jamais été sauvegardée ou que sa dernière sauvegarde a plus de 7 jours. « Ouvrir l emplacement » ouvre l’Explorateur sur le fichier.
 
 ## Mettre à jour la base
 
@@ -1475,18 +1475,18 @@ La mise à jour n’est jamais automatique. Si la base est plus ancienne que Ind
 
 ![Base autonome : onglet Données et navigateur local ; données fictives](fig:base-autonome)
 
-Dans « Mise à jour », dépliez « Détails du stockage et de la synchronisation » pour relire le fichier local, le contrôleur et le repère de suivi.
+Dans « Mise à jour », quatre tuiles résument la copie locale : « Comptes », « Postes » (actifs et désactivés), « Associations » et « Dernière mise à jour » du périmètre choisi. Dépliez « Détails du stockage et de la synchronisation » pour relire le contrôleur de la dernière lecture et les totaux. Le repère de suivi (USN) et la durée des lectures AD sont écrits dans le journal.
 
 | Information de la base locale | Ce qu’il faut vérifier |
 |---|---|
 | Nombre d’objets | Utilisateurs et postes recensés dans le périmètre annoncé, y compris les comptes désactivés. |
 | Lecture complète AD | Date d’une lecture réussie couvrant l’OU et ses sous-OU. Une date d’OU parente peut couvrir ce périmètre. |
 | Tentative incomplète | L’avertissement reste distinct de la dernière date complète. Relisez le bilan avant de relancer. |
-| Détails du stockage | Fichier local et contrôleur utilisés ; ces repères ne décrivent pas l’âge des mesures des postes. |
+| Détails du stockage | Contrôleur utilisé et totaux ; ces repères ne décrivent pas l’âge des mesures des postes. Le chemin du fichier se lit dans « Stockage ». |
 
 ## Suivre la progression et la fraîcheur
 
-L’onglet « Mise à jour » regroupe la commande, « État de la copie locale », les dates et la progression. L’onglet « Données » réserve la place aux résultats, avec ses filtres et boutons de pagination. Les sauvegardes et la maintenance sont accessibles dans « Stockage ».
+L’onglet « Mise à jour » regroupe la commande, « État de la copie locale » et ses tuiles, les dates et la progression. L’onglet « Données » réserve la place aux résultats, avec ses filtres et boutons de pagination. Les sauvegardes et la maintenance sont accessibles dans « Stockage ».
 
 La lecture de l’annuaire et l’enregistrement dans SQLite sont deux phases distinctes. Les compteurs affichent les objets lus, les lots écrits et les éventuels refus ou délais dépassés. La fraîcheur AD du périmètre repose sur sa dernière lecture complète ou celle d’une OU parente qui le couvre ; le chemin couvert reste indiqué. Une tentative partielle ne remplace pas cette date et demeure signalée. Attendez la confirmation finale du stockage avant de considérer la base à jour. Cette date ne décrit ni le ping ni WMI ; « Les deux » attend précisément ce stockage avant de préparer le relevé des postes.
 
@@ -1527,17 +1527,30 @@ Pour un parc de 5 000 postes ou plus, gardez les listes paginées, commencez ave
 3. **Contrôle.** La copie est vérifiée (PRAGMA quick_check) dans le budget LocalStore.BackupTimeoutSeconds (30 s). Une copie partielle est supprimée.
 4. **Rotation.** Le fichier va dans le dossier Backups de la base, nommé Domenia-DATE-HEURE-ID.db. Seules les LocalStore.DatabaseBackupCount (7) plus récentes sont gardées.
 
-> [!RESULTAT] « Sauvegarde de la base enregistree : » suivi du chemin. Sous l'encadré : « Sauvegardes : » avec le dossier et la date de la dernière.
+> [!RESULTAT] « Sauvegarde de la base enregistree : » suivi du chemin. Le résumé de l'encadré passe à « sauvegardée à lʼinstant ».
 
 « Copier une sauvegarde vers... » fait la même sauvegarde puis la copie vers le fichier choisi (clé USB, partage), nom proposé Domenia-DATE-HEURE.db : « Sauvegarde de la base copiee : » suivi du chemin. La base active et ses journaux ne peuvent pas servir de destination. Un fichier temporaire précède le remplacement de l’export choisi pour préserver l’export existant si la copie échoue. Échec : « Sauvegarde de la base impossible : » suivi du motif.
 
-> [!ATTENTION] Il n'existe pas de sauvegarde périodique automatique. Seule une migration de schéma déclenche une sauvegarde d'elle-même, dans Backups\migrations, hors rotation. Planifiez une sauvegarde manuelle régulière et gardez-en une copie hors du poste.
+> [!ATTENTION] La sauvegarde périodique se règle dans « Sauvegardes automatiques et conservation » ; elle est désactivée par défaut. En dehors d'elle, Domenia sauvegarde la base de lui-même avant une migration de schéma (dans Backups\migrations, hors rotation) et avant les gestes qui la modifient (ci-dessous). Gardez une copie hors du poste.
 
 Hors de l'application, le paquet DEV fournit wad\maintenance\Sauvegarder-Cache.ps1 : sauvegarde cohérente d'un fichier .db, de préférence Domenia fermé, 7 copies au plus dans Backups, avec le chemin et l'empreinte SHA-256. Il refuse PowerShell 7 et les processus 32 bits.
 
 ~~~
 powershell -NoProfile -STA -File wad\maintenance\Sauvegarder-Cache.ps1 -DatabasePath "C:\CHEMIN\Domenia.db"
 ~~~
+
+### Sauvegarde avant les gestes qui modifient la base
+
+Quatre gestes passent d'abord par une sauvegarde vérifiée de la base, faite par le worker StorageBackup dans le dossier Backups sous le nom Geste-DATE.db. Ces copies tournent à part : les plus récentes sont gardées, autant que le nombre de copies réglé dans la conservation (7 par défaut), et elles ne retirent jamais les copies automatiques ou manuelles (Domenia-DATE.db) :
+
+- la relecture AD d'une OU (« Mettre à jour lʼOU choisie » dans Base autonome, « Objets AD » depuis Accueil ou Rechercher) ;
+- l'import CSV des associations ;
+- le retrait des associations orphelines ;
+- « Oublier les relevés ».
+
+La confirmation de l'import, du retrait et de l'oubli des relevés l'annonce : « Une sauvegarde vérifiée de la base sera faite avant. ». Une sauvegarde vérifiée de moins de 30 minutes sert de point de retour : aucune nouvelle copie n'est faite et la confirmation le dit. Le geste ne démarre qu'après le reçu de la sauvegarde. Si elle échoue, rien n'est lancé : la page propose « Ne pas lancer » ou « Continuer sans sauvegarde », et ce second choix est écrit dans le journal. La base de démonstration et un domaine sans base encore créée ne sont pas sauvegardés.
+
+Le geste porte sur ce qui a été confirmé au clic. Si une autre OU ou un autre aperçu CSV est choisi pendant la sauvegarde, rien n'est lu ni importé : « Actualisation non lancée : lʼOU, la base ou la session a changé pendant la sauvegarde ; aucune lecture AD. Cliquez à nouveau pour lʼOU affichée. » ou « Lʼaperçu a changé pendant la sauvegarde : rien nʼest importé. Vérifiez lʼaperçu affiché puis cliquez « Importer ». ». Le retrait des orphelines porte sur les lignes cochées au moment de la confirmation, même si les cases changent pendant la sauvegarde. « Annuler » pendant la sauvegarde arrête la copie, et le geste n'est pas lancé.
 
 ## Restaurer une sauvegarde
 

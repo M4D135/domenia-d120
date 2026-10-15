@@ -70,7 +70,7 @@ function Start-DomeniaOnlinePark {
         # Read only the observation families used by this collection mode. No WMI payload is parsed for a ping refresh.
         $families=$null
         if($r.PingOnly){$families=@('Presence')}elseif($r.WmiOnly){$families=@('Console','Inventory')+@($r.Probes|ForEach-Object{'Probe:'+([string]$_.Id)})}
-        $job=Start-UiTask -Name 'Preparer le releve du parc' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload ([pscustomobject]@{Action='ParkTargets';Path=$r.Path;BusyTimeoutMs=250;Scope=$r.Scope;Targets=$targets;ObservationFamilies=$families}) -CallbackState $state -SuccessHandler 'Complete-DomeniaParkTargets' -ErrorHandler 'Fail-DomeniaParkTargets' -NonCancellable -TimeoutSeconds 60 -TaskClass 'Explicit'
+        $job=Start-UiTask -Name 'Preparer le releve du parc' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload ([pscustomobject]@{Action='ParkTargets';Path=$r.Path;Scope=$r.Scope;Targets=$targets;ObservationFamilies=$families}) -CallbackState $state -SuccessHandler 'Complete-DomeniaParkTargets' -ErrorHandler 'Fail-DomeniaParkTargets' -NonCancellable -TimeoutSeconds 60 -TaskClass 'Explicit'
         if(-not $job){throw 'Lecture du parc non admise.'}
         [void](Set-DomeniaControlText 'LblParkStatus' 'Lecture des postes et des sessions conservees en cache...')
     }catch{if($started -and $null -ne $script:ParkRun -and $script:ParkRun.Loading){$script:ParkRun.Completed=$true;$script:ParkRun.FailureMessage=$_.Exception.Message};Set-Status ('Releve impossible : '+$_.Exception.Message) 'WARN'}
@@ -489,4 +489,32 @@ function Complete-DomeniaCachedInventoryRead {
 function Fail-DomeniaCachedInventoryRead {
     param([string]$Message,$State)
     if(Test-DomeniaRemoteStoreContext $State $null){Write-AppLog ('Inventaire local non relu : '+$Message) 'WARN'}
+}
+
+# ---------------------------------------------------------------- FI-13 : « Oublier les relevés »
+function Request-DomeniaParkReset {
+    # FI-13: confirmed in the page (no dialog box), with the backup notice of the gesture. The associations are kept.
+    $message='Effacer lʼétat du parc ? Les associations déjà créées sont conservées ; seul lʼhistorique des relevés (dernier passage, statut, tentatives) est effacé, en mémoire et dans la base locale. Le prochain relevé repartira de zéro. '+(Get-DomeniaGestureBackupNotice (Get-DomeniaGestureBackupState))
+    $run=${function:Invoke-DomeniaParkReset}
+    [void](Request-DomeniaInlineConfirmation -Title 'Oublier les relevés' -Message $message -Target 'park:reset' -ConfirmText 'Oublier les relevés' -CancelText 'Conserver' -OnConfirm ({& $run}.GetNewClosure()) -OnCancel {Set-Status 'Relevés du parc conservés.'})
+}
+function Invoke-DomeniaParkReset {
+    # FI-13: the verified backup comes first (StorageBackup worker); the reset runs from its success callback.
+    [void](Invoke-DomeniaGestureBackup -Gesture 'ParkReset' -Then {Clear-DomeniaParkRecords})
+}
+function Clear-DomeniaParkRecords {
+    # Clears the memory state and asks the single writer to delete park_state (ParkReset item). Park rows still waiting
+    # for this base are obsolete and leave the queue first; a lot already being written commits before the reset.
+    $script:ParkState=@{}
+    $path=[string]$script:DatabaseScopedPath
+    if($null -ne $script:Persistence){
+        foreach($key in @($script:Persistence.Pending.Keys)){
+            $item=$script:Persistence.Pending[$key]
+            if(($null -ne $item) -and ([string]$item.Kind -eq 'Park') -and ([string]$item.Path -ceq $path)){$script:Persistence.Pending.Remove($key)}
+        }
+    }
+    $queued=Queue-DomeniaMetadata -Kind ParkReset -Key 'park-reset' -Row ([pscustomobject]@{At=[datetime]::UtcNow.ToString('o')})
+    [void](Set-DomeniaControlText -Name 'LblParkStatus' -Text (Get-DomeniaParkCoverageText))
+    if($queued){Set-Status 'État du parc effacé ; la suppression des relevés enregistrés part dans la base locale.'}
+    else{Set-Status 'État du parc effacé en mémoire seulement : la base locale nʼa pas accepté la suppression (file pleine ou base indisponible). Réessayez.' 'WARN'}
 }

@@ -1,12 +1,12 @@
 {
  "Schema": "DomeniaSwallowedBaseline/1",
  "Source": "reference initiale",
- "Total": 1185,
+ "Total": 1189,
  "Kinds": {
-  "empty": 1185
+  "empty": 1189
  },
  "Places": {
-  "code": 976,
+  "code": 980,
   "here-string": 209
  },
  "Findings": {
@@ -56,6 +56,7 @@
   "Complete-DomeniaFastLoginSuccess": 4,
   "Complete-DomeniaFleetBitLockerPresence": 1,
   "Complete-DomeniaFleetDashboard": 4,
+  "Complete-DomeniaGestureBackup": 1,
   "Complete-DomeniaGlobalSearchUi": 10,
   "Complete-DomeniaIndexBuildUi": 1,
   "Complete-DomeniaIndexRefreshUi": 1,
@@ -72,14 +73,14 @@
   "Complete-DomeniaSelectedObservation": 2,
   "Complete-DomeniaSoftwareUi": 2,
   "Complete-DomeniaStoragePurge": 1,
-  "Complete-DomeniaStorageWork": 2,
+  "Complete-DomeniaStorageWork": 3,
   "Complete-DomeniaTreeChildrenUi": 2,
   "Complete-DomeniaWmiClassesUi": 4,
   "Complete-DomeniaWmiNamespacesUi": 4,
   "Complete-DomeniaWmiQueryUi": 2,
   "Complete-DomeniaWriteTaskUi": 11,
   "Complete-LinkProbeJobs": 3,
-  "Complete-UiTasks": 21,
+  "Complete-UiTasks": 22,
   "ConvertFrom-DomeniaXaml": 1,
   "ConvertTo-DomeniaCanonicalLinks": 8,
   "ConvertTo-DomeniaChartBrush": 1,
@@ -160,7 +161,7 @@
   "Get-DomeniaNavSnapshot": 7,
   "Get-DomeniaOperationHistoryModel": 1,
   "Get-DomeniaOperationImpactEstimate": 4,
-  "Get-DomeniaOperationsHealthText": 2,
+  "Get-DomeniaOperationsHealthText": 3,
   "Get-DomeniaOuTreeNodeName": 1,
   "Get-DomeniaParkCoverage": 1,
   "Get-DomeniaParkCoverageText": 1,

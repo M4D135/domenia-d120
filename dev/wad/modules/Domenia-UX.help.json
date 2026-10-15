@@ -2360,9 +2360,86 @@
   {
     "Name": "BtnParkReset",
     "Title": "Oublier les relevés",
-    "Text": "Efface lʼétat du parc. Le prochain relevé repartira de zéro.",
+    "Text": "Efface lʼétat du parc dans la base locale, après confirmation et une sauvegarde vérifiée. Le prochain relevé repartira de zéro ; les associations sont conservées.",
     "Kind": "Button",
     "Source": "existing-help"
+  },
+  {
+    "Name": "BtnIndexScopeUpdate",
+    "Title": "Tout relire dans lʼOU choisie",
+    "Text": "Action recommandée : relit tous les utilisateurs et postes de lʼOU choisie et de ses sous-OU. Demande une sélection si aucune OU nʼest choisie. Les autres branches sont conservées. Une sauvegarde vérifiée de la base précède la lecture.",
+    "Kind": "Button",
+    "Source": "X06-storage"
+  },
+  {
+    "Name": "LblIndexTileAccounts",
+    "Title": "Comptes de la base locale",
+    "Text": "Comptes utilisateurs enregistrés dans la base locale de ce domaine.",
+    "Kind": "TextBlock",
+    "Source": "X06-storage"
+  },
+  {
+    "Name": "LblIndexTileAccountsDetail",
+    "Title": "Précision sur les comptes",
+    "Text": "Nature des objets comptés dans la tuile Comptes.",
+    "Kind": "TextBlock",
+    "Source": "X06-storage"
+  },
+  {
+    "Name": "LblIndexTileComputers",
+    "Title": "Postes de la base locale",
+    "Text": "Postes (objets ordinateur) enregistrés dans la base locale de ce domaine.",
+    "Kind": "TextBlock",
+    "Source": "X06-storage"
+  },
+  {
+    "Name": "LblIndexTileComputersDetail",
+    "Title": "Postes actifs et désactivés",
+    "Text": "Postes actifs et désactivés dans Active Directory, selon la dernière lecture enregistrée.",
+    "Kind": "TextBlock",
+    "Source": "X06-storage"
+  },
+  {
+    "Name": "LblIndexTileLinks",
+    "Title": "Associations de la base locale",
+    "Text": "Associations utilisateur-poste conservées dans la base locale.",
+    "Kind": "TextBlock",
+    "Source": "X06-storage"
+  },
+  {
+    "Name": "LblIndexTileLinksDetail",
+    "Title": "Précision sur les associations",
+    "Text": "Nature des liens comptés dans la tuile Associations.",
+    "Kind": "TextBlock",
+    "Source": "X06-storage"
+  },
+  {
+    "Name": "LblIndexTileUpdated",
+    "Title": "Âge de la dernière mise à jour",
+    "Text": "Âge de la dernière lecture complète couvrant le périmètre choisi.",
+    "Kind": "TextBlock",
+    "Source": "X06-storage"
+  },
+  {
+    "Name": "LblIndexTileUpdatedDetail",
+    "Title": "Date de la dernière mise à jour",
+    "Text": "Date et heure de la dernière lecture complète couvrant le périmètre choisi.",
+    "Kind": "TextBlock",
+    "Source": "X06-storage"
+  },
+  {
+    "Name": "LblIndexLocation",
+    "Title": "Emplacement de la base",
+    "Text": "Base autonome de ce domaine : taille et dernière sauvegarde. Le chemin complet du fichier sʼaffiche dans cette infobulle dès que la base est ouverte.",
+    "Kind": "TextBlock",
+    "Source": "X06-storage"
+  },
+  {
+    "Name": "BtnIndexCopyPath",
+    "Title": "Copier le chemin de la base",
+    "Text": "Copie le chemin complet du fichier de la base dans le presse-papiers.",
+    "Kind": "Button",
+    "Source": "X06-storage"
   },
   {
     "Name": "TxtIndexSearch",
@@ -3980,7 +4057,7 @@
     "Kind": "Button",
     "Source": "specific",
     "Title": "Mettre à jour la base locale de l’OU",
-    "Text": "Relit Active Directory pour l’OU choisie du tableau de bord et ses sous-OU, puis enregistre la copie locale. Aucun ping ni WMI ; aucun objet AD modifié. Les filtres et la limite des résultats ne réduisent pas cette cible."
+    "Text": "Relit Active Directory pour l’OU choisie du tableau de bord et ses sous-OU, puis enregistre la copie locale, après une sauvegarde vérifiée de la base. Aucun ping ni WMI ; aucun objet AD modifié. Les filtres et la limite des résultats ne réduisent pas cette cible."
   },
   {
     "Name": "BtnFleetRefreshPostes",
@@ -4008,7 +4085,7 @@
     "Kind": "Button",
     "Source": "specific",
     "Title": "Mettre à jour la base locale de l’OU",
-    "Text": "Relit Active Directory pour l’OU choisie dans l’arbre de Rechercher et toutes ses sous-OU, y compris pendant une recherche globale, puis enregistre la copie locale. Aucun ping ni WMI ; aucun objet AD modifié. Les filtres et la limite des résultats ne réduisent pas cette cible."
+    "Text": "Relit Active Directory pour l’OU choisie dans l’arbre de Rechercher et toutes ses sous-OU, y compris pendant une recherche globale, puis enregistre la copie locale, après une sauvegarde vérifiée de la base. Aucun ping ni WMI ; aucun objet AD modifié. Les filtres et la limite des résultats ne réduisent pas cette cible."
   },
   {
     "Name": "BtnSearchRefreshPostes",

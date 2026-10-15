@@ -1,10 +1,10 @@
 {
  "Schema": "DomeniaWordingBaseline/1",
  "Source": "RC1.13.0 (2a98dd6) puis L05 : TE-01 etendu aux affectations de libelles et aux boites de message",
- "Total": 414,
+ "Total": 411,
  "Rules": {
-  "accent": 311,
-  "elision": 90,
+  "accent": 309,
+  "elision": 89,
   "tutoiement": 13
  },
  "Findings": {
@@ -114,7 +114,6 @@
   "accent|Ecriture autorisee sous controles": 1,
   "accent|Ecriture brute desactivee dans la configuration de securite.": 1,
   "accent|Efface uniquement les captures, reperes et incidents en memoire de l'atelier. Aucun effet sur Domenia.db ou AD.": 2,
-  "accent|Effacer l etat du parc ? Les associations deja creees sont conservees, seul l historique des releves est perdu.": 1,
   "accent|Element": 2,
   "accent|Element observe": 1,
   "accent|Elements": 2,
@@ -133,7 +132,6 @@
   "accent|Estime ce que ton compte peut modifier sur cet objet. Les actions manifestement interdites sont grisees ; les autres restent verifiees au moment de l execution.": 1,
   "accent|Etat": 10,
   "accent|Etat dashboard copie.": 1,
-  "accent|Etat du parc efface.": 1,
   "accent|Etat moteur": 1,
   "accent|Explore les donnees WMI du poste : espaces de noms, classes, proprietes et valeurs. Consultation uniquement, aucune modification possible.": 1,
   "accent|Explore les donnees WMI du poste.": 2,
@@ -273,7 +271,6 @@
   "elision|Delai depasse. La validation a ete arretee sans bloquer l interface.": 1,
   "elision|Detecter l utilisateur": 1,
   "elision|Droit indetermine localement : le DC verifiera a l execution et le preflight reste obligatoire.": 1,
-  "elision|Effacer l etat du parc ? Les associations deja creees sont conservees, seul l historique des releves est perdu.": 1,
   "elision|En attente : $Name. Aucune lecture envoyee pour l instant.": 1,
   "elision|Enregistre l inventaire et le detail par source au format CSV.": 2,
   "elision|Enregistre volontairement une capture historique avec une liste fermee d attributs, sans champs secrets.": 1,
