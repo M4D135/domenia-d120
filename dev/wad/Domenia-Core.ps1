@@ -3971,14 +3971,19 @@ function Get-DomeniaBootThemePalette {
     # CD-05: one palette. The login, the startup monitor and the fallback dialogs paint roles of SupportSuite.UI.json,
     # like the main window; every module, the presentation contract included, is loaded before the first of them. If
     # that contract cannot be read (damaged package), the colours of the Windows theme are used: readable in every
-    # case, and never a second copy of the palette. Self-contained: tests extract it alone.
+    # case, and never a second copy of the palette. FO-22: a Windows high contrast theme takes its system colours too.
+    # Self-contained: tests extract it alone.
     $roles = [ordered]@{
         Window='WindowBg';Surface='BgCard';Input='BgInput';Text='TextColor';Muted='MutedColor';Border='BorderColor'
         Button='BtnBg';ButtonText='BtnFg';Accent='AccentColor';AccentHover='AccentHover';AccentText='AccentText';OnAccent='OnAccent'
         Error='StatusError';Warning='StatusWarning';Success='StatusSuccess'
     }
+    $highContrast = $false
+    try { $highContrast = [bool][System.Windows.SystemParameters]::HighContrast } catch { $highContrast = $false }
     $source = $null
-    try { $source = Get-SuitePalette -Theme $Theme } catch { $source = $null }
+    if (-not $highContrast) {
+        try { $source = Get-SuitePalette -Theme $Theme } catch { $source = $null }
+    }
     $palette = [ordered]@{}
     foreach ($role in @($roles.Keys)) {
         $token = [string]$roles[$role]
