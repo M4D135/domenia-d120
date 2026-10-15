@@ -255,6 +255,30 @@ function Get-NativeCode($ErrorValue){
     }
     return 0L
 }
+# Point 127 (stale DNS record, reassigned address): Win32_ComputerSystem names the workstation that answered. A
+# positive mismatch with the requested name leaves every value of this CIM read unattributed. An address target or a
+# reply without names cannot be compared and keeps the former behaviour (identity not verified, not refused).
+# The target is the DNS host name or, without one, the AD cn, which is the NetBIOS name cut at 15 characters; the reply
+# carries both its DNS host name and its NetBIOS Name. The reply is the requested workstation when any of its identities
+# matches the target in either form; a mismatch is stated only when none does.
+function Get-LiveHostMismatch($Target,$System){
+    $wanted=([string]$Target).Trim().TrimEnd('.')
+    if((-not $wanted) -or ($wanted -match '^[0-9.]+$') -or ($null -eq $System)){return ''}
+    $short=$wanted.Split('.')[0];$dns='';$name=''
+    if($null -ne $System.PSObject.Properties['DNSHostName']){$dns=([string]$System.DNSHostName).Trim().TrimEnd('.')}
+    if($null -ne $System.PSObject.Properties['Name']){$name=([string]$System.Name).Trim()}
+    if((-not $dns) -and (-not $name)){return ''}
+    $netbios=$short;if($netbios.Length -gt 15){$netbios=$netbios.Substring(0,15)}
+    if($dns){
+        $label=$dns.Split('.')[0]
+        if(($label -ieq $short) -or ($label -ieq $netbios)){return ''}
+        # A cn target holds the cut NetBIOS form of a longer host name.
+        if(($label.Length -gt 15) -and ($label.Substring(0,15) -ieq $short)){return ''}
+    }
+    if($name -and (($name -ieq $short) -or ($name -ieq $netbios))){return ''}
+    $reported=$name;if($dns){$reported=$dns}
+    return ('Le poste qui répond à '+$Target+' se nomme '+$reported+' : enregistrement DNS périmé, adresse réattribuée ou poste renommé. Aucune donnée de cette lecture nʼest attribuée.')
+}
 # Ping is an independent collection. A WMI-only request never sends ICMP.
 if($collectPing){
 try {
@@ -302,17 +326,21 @@ try{
     $cim=New-CimSession @parameters
     # Console, inventory and catalog probes share one session but fail independently.
     # CIM reachability is not an ICMP measurement and must not refresh the Ping family.
-    $system=$null
+    $system=$null;$hostMismatch=''
     if($probeUser){
         $answer.ConsoleAttempted=$true
         try{
-            $csProperties=@('UserName');if($collectInventory){$csProperties+=@('Manufacturer','Model','TotalPhysicalMemory')}
+            $csProperties=@('UserName','Name','DNSHostName');if($collectInventory){$csProperties+=@('Manufacturer','Model','TotalPhysicalMemory')}
             $system=Get-CimInstance -CimSession $cim -ClassName Win32_ComputerSystem -Property $csProperties -OperationTimeoutSec $timeout -ErrorAction Stop
             if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null}
             if($null -eq $system){throw 'Le fournisseur CIM ne retourne pas Win32_ComputerSystem.'}
+            $hostMismatch=Get-LiveHostMismatch $target $system
+            if($hostMismatch){$system=$null;throw $hostMismatch}
             $answer.User=([string]$system.UserName).Trim()
             $answer.Outcome=if($answer.User){'Observed'}else{'NoConsole'}
         }catch{
+            # Another workstation answered: nothing of this session is attributed (outer catch).
+            if($hostMismatch){throw}
             if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw}
             $code=Get-NativeCode $_
             $answer.Outcome=if($code -in @(2147943726,2147944309,2147943730,2147943731,2147943732,2147943734)){'AuthRejected'}elseif($code -in @(2147942405,2147749891)){'Denied'}elseif($_.Exception.Message -match '(?i)timeout|timed out|délai|delai'){'Timeout'}else{'Unavailable'}
@@ -324,11 +352,15 @@ try{
         try{
             $os=Get-CimInstance -CimSession $cim -ClassName Win32_OperatingSystem -Property Caption,BuildNumber,LastBootUpTime -OperationTimeoutSec $timeout -ErrorAction Stop
             if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null}
-            if($null -eq $system){$system=Get-CimInstance -CimSession $cim -ClassName Win32_ComputerSystem -Property Manufacturer,Model,TotalPhysicalMemory -OperationTimeoutSec $timeout -ErrorAction Stop}
+            if($null -eq $system){
+                $system=Get-CimInstance -CimSession $cim -ClassName Win32_ComputerSystem -Property Manufacturer,Model,TotalPhysicalMemory,Name,DNSHostName -OperationTimeoutSec $timeout -ErrorAction Stop
+                $hostMismatch=Get-LiveHostMismatch $target $system
+                if($hostMismatch){$system=$null;throw $hostMismatch}
+            }
             $disk=Get-CimInstance -CimSession $cim -ClassName Win32_LogicalDisk -Filter "DeviceID='C:'" -Property Size,FreeSpace -OperationTimeoutSec $timeout -ErrorAction Stop
             if($null -eq $os -or $null -eq $system){throw 'Le fournisseur CIM nʼa pas retourné les informations système demandées.'}
             $answer.Inventory=[pscustomobject]@{OsCaption=[string]$os.Caption;Build=[string]$os.BuildNumber;LastBootUtc=$(try{([datetime]$os.LastBootUpTime).ToUniversalTime().ToString('o')}catch{''});Manufacturer=([string]$system.Manufacturer).Trim();Model=([string]$system.Model).Trim();RamBytes=$(if($null -ne $system -and $null -ne $system.TotalPhysicalMemory){[double]$system.TotalPhysicalMemory}else{$null});DiskSize=$(if($null -ne $disk -and $null -ne $disk.Size){[double]$disk.Size}else{$null});DiskFree=$(if($null -ne $disk -and $null -ne $disk.FreeSpace){[double]$disk.FreeSpace}else{$null});CheckedUtc=[datetime]::UtcNow.ToString('o')}
-        }catch{if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw};$answer.InventoryError=[string]$_.Exception.Message}finally{if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null};$answer.InventoryCheckedUtc=[datetime]::UtcNow.ToString('o')}
+        }catch{if($hostMismatch){throw};if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw};$answer.InventoryError=[string]$_.Exception.Message}finally{if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null};$answer.InventoryCheckedUtc=[datetime]::UtcNow.ToString('o')}
     }
     # Widget probes (decision David 2026-10-07): catalog queries run read-only in the same CIM session. Only class,
     # namespace, property names and a filter come from the catalog; names are checked before the call.
