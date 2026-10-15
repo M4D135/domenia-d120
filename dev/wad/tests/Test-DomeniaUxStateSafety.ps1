@@ -252,6 +252,9 @@ if(-not $PureOnly){
             Set-DomeniaUxShortLayout (Get-DomeniaUxHeightPlan -Width 1000 -Height 1000)
             $parents=@{};foreach($name in @('UxSearchQueryHeader','LblSearchQueryDetails','UxSearchQueryResultBar','CmbWorkViewScope','BtnSearchQueryFavorite','BtnQueryClearSearch')){$parents[$name]=$script:Controls[$name].Parent}
             Set-DomeniaUxShortLayout (Get-DomeniaUxHeightPlan -Width 1000 -Height 500)
+            # UI-23: the two parts of « Vérifier la liste ▾ » stay joined; the spacing of the row goes on their panel.
+            $verify=$script:Controls.BtnParkVerify
+            Expect ($verify.Margin -eq [Windows.Thickness]::new(0) -and $verify.Parent.Margin -eq [Windows.Thickness]::new(0,0,4,4) -and $script:Controls.BtnParkVerifyMenu.Margin -eq [Windows.Thickness]::new(1,0,0,0) -and $verify.Padding -eq [Windows.Thickness]::new(6,4,6,4)) 'Vérifier la liste est séparé de sa flèche en mode compact.'
             $state=$button.Resources['Domenia.QueryOptions']
             Expect ($state.Compact -and -not $state.Open -and $button.Visibility -eq 'Visible' -and $panel.Visibility -eq 'Collapsed') 'Le premier mode compact doit laisser les options fermées.'
             Expect ($button.IsTabStop -and $button.Focusable -and $button.Content -match 'Inconnus') 'Le bouton doit être accessible au clavier et annoncer le filtre choisi.'
@@ -299,6 +302,7 @@ if(-not $PureOnly){
             Expect $focused.IsKeyboardFocused 'Le champ doit réellement recevoir le focus dans le HWND présenté.'
             Set-DomeniaUxShortLayout (Get-DomeniaUxHeightPlan -Width 1900 -Height 1000)
             Expect (-not $state.Compact -and $button.Visibility -eq 'Collapsed' -and $panel.Visibility -eq 'Collapsed') 'Le retour normal conserve un volet compact visible.'
+            Expect ($verify.Margin -eq [Windows.Thickness]::new(0) -and $verify.Parent.Margin -eq [Windows.Thickness]::new(0,0,8,4)) 'Vérifier la liste est séparé de sa flèche au retour normal.'
             Expect ($focused.IsKeyboardFocused -and [object]::ReferenceEquals([Windows.Input.Keyboard]::FocusedElement,$focused)) 'Le retour normal doit rendre le focus au champ précédemment utilisé.'
             foreach($name in $parents.Keys){Expect ([object]::ReferenceEquals($script:Controls[$name].Parent,$parents[$name])) ($name+' nʼa pas retrouvé son parent dʼorigine.')}
             Expect ($script:Controls.BtnQueryClearSearch.Content -eq 'Effacer la requête' -and [Windows.Controls.Grid]::GetColumn($script:Controls.UxSearchQueryBar) -eq 0 -and [Windows.Controls.Grid]::GetRow($script:Controls.UxSearchQueryBar) -eq 1) 'La barre normale ne retrouve pas son organisation.'

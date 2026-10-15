@@ -14,7 +14,7 @@ function Get-DomeniaOperationResource {
     if ($provider -in @('Cim','Wts')) { return 'Remote' }
     if ($provider -eq 'Storage' -or $provider -eq 'Local') { return 'Local' }
     if ($provider -eq 'Network') { return 'Network' }
-    if ($OperationId -in @('ComputerGpUpdate','ComputerRestart','RimotteRun','UserComputerProbe','WakeOnLanSend')) { return 'Remote' }
+    if ($OperationId -in @('ComputerGpUpdate','ComputerRestart','RimotteRun','ComputerServiceControl','UserComputerProbe','WakeOnLanSend')) { return 'Remote' }
     return 'Directory'
 }
 
@@ -112,7 +112,9 @@ function Get-DomeniaErrorDecision {
     elseif ($kind -in @('AccountLocked','AccountUnavailable') -or $native -in @(1909,1330,1331,1327,1328) -or $code -in @(0x80070775L,0x80070532L,0x80070533L)) { $category = 'AccountState' }
     elseif ($native -in @(1460,258,121) -or $code -in @(0x800705B4L,0x80070079L)) { $category = 'Timeout' }
     elseif ($kind -eq 'Unavailable' -and $Text -match $timeoutText) { $category = 'Timeout' }
-    elseif ($kind -eq 'Unavailable' -or $native -in @(53,64,67,1722,1721,1723,11001,11004,10060,10061,81,91) -or $code -in @(0x800706BAL,0x8007203AL,0x80070035L,0x80072EE7L)) { $category = 'Network' }
+    # Point 127: name resolution (11001-11004), refused, reset, aborted or unreachable connections (10051-10065) and an
+    # RPC call cut during the exchange (1726, 0x800706BE/BF) are network faults: never a credential question.
+    elseif (($kind -eq 'Unavailable') -or ($native -in @(53,64,67,1722,1721,1723,1726,1727,11001,11002,11003,11004,10051,10053,10054,10060,10061,10064,10065,81,91)) -or ($code -in @(0x800706BAL,0x800706BEL,0x800706BFL,0x8007203AL,0x80070035L,0x80072EE7L))) { $category = 'Network' }
     elseif ($kind -eq 'ModuleUnavailable') { $category = 'Prerequisite' }
     elseif ($kind -eq 'Unconfirmed') { $category = 'Unconfirmed' }
     elseif ($kind -eq 'AccessDenied' -or $native -in @(5,50,8344) -or $code -in @(0x80070005L,0x80072098L,0x80041003L)) {
@@ -261,10 +263,10 @@ function Get-DomeniaAccountReleaseDecision {
     foreach($key in @($Keys)){if(-not [string]::IsNullOrWhiteSpace([string]$key)){$wanted[([string]$key).Trim().ToLowerInvariant()]=$true}}
     $labels=[ordered]@{
         Directory='le compte de connexion (Comptes, Corriger le mot de passe)'
-        Session='la session Windows (Se connecter)'
+        Session='la session Windows (Changer de compte)'
         Remote='le compte poste (Comptes, section Postes)'
         Secrets='le compte secrets (Comptes, section Secrets)'
-        Machine='le compte poste saisi pour les interventions (à effacer ou à ressaisir)'
+        Machine='le compte poste saisi dans Assistance poste (« Oublier » dans Comptes, En ce moment)'
         Temporary='un compte temporaire dʼune ressource (redemandé après un refus)'
     }
     $stale=New-Object 'System.Collections.Generic.List[string]'
@@ -286,61 +288,6 @@ function Get-DomeniaAccountReleaseDecision {
         $text='Pause maintenue pour ce compte : '+($names -join ' ; ')+$verb+' encore avec un mot de passe non revalidé. Revalidez-le aussi, ou reconnectez-vous ; aucun essai nʼest fait entre-temps.'
     }
     return [pscustomobject]@{Release=($stale.Count -eq 0);Stale=$stale.ToArray();Text=$text}
-}
-
-# ---------------------------------------------------------------- Point 42 visible use of each account
-function Get-DomeniaAccountUsageRows {
-    # Point 42: which account each use takes now, where it comes from, and what the protection recorded. The
-    # connection account serves every use by default; a specific account is optional. Nothing here is tested: an
-    # account without a recorded refusal is not declared valid, only "no refusal recorded".
-    # $Temporary: {Scope, UserName} accepted after a refusal; $Faults: {Key} of the shared protection.
-    param(
-        [AllowEmptyString()][string]$ConnectionUser='',[ValidateSet('Explicit','Windows','None')][string]$ConnectionMode='None',
-        [AllowEmptyString()][string]$RemoteUser='',[AllowEmptyString()][string]$SecretsUser='',
-        [object[]]$Temporary=@(),[object[]]$Faults=@(),[AllowEmptyString()][string]$Domain='',[AllowEmptyString()][string]$Netbios=''
-    )
-    $paused=@{}
-    foreach($fault in @($Faults)){$key=[string](Get-DomeniaMember $fault 'Key' '');if($key){$paused[$key.ToLowerInvariant()]=$true}}
-    $state={
-        param([string]$User)
-        if(-not $User){return 'Aucun compte'}
-        $key=Get-DomeniaCredentialAccountKey $User $Domain $Netbios
-        if(($key) -and ($paused.ContainsKey($key))){return 'En pause après un refus : corrigez-le ici ou reconnectez-vous.'}
-        return 'Aucun refus enregistré.'
-    }
-    $connectionSource=switch($ConnectionMode){'Explicit'{'compte de connexion'}'Windows'{'session Windows'}default{'aucune connexion'}}
-    $rows=New-Object 'System.Collections.Generic.List[object]'
-    $rows.Add([pscustomobject]@{Usage='Annuaire';Account=$ConnectionUser;Source=$connectionSource;State=(& $state $ConnectionUser)})
-    foreach($use in @(@('Postes',$RemoteUser,'compte poste'),@('LAPS',$SecretsUser,'compte secrets'),@('BitLocker',$SecretsUser,'compte secrets'))){
-        $user=[string]$use[1];$source=[string]$use[2]
-        if(-not $user){$user=$ConnectionUser;$source=$connectionSource+' (aucun compte spécifique)'}
-        $rows.Add([pscustomobject]@{Usage=[string]$use[0];Account=$user;Source=$source;State=(& $state $user)})
-    }
-    $labels=@{Remote='Postes';ReadLaps='LAPS';ReadBitLocker='BitLocker';Directory='Annuaire'}
-    foreach($item in @($Temporary|Select-Object -First 16)){
-        if($null -eq $item){continue}
-        $scope=[string](Get-DomeniaMember $item 'Scope' '');$user=[string](Get-DomeniaMember $item 'UserName' '')
-        if((-not $scope) -or (-not $user)){continue}
-        $usage=$scope
-        if($labels.ContainsKey($scope)){$usage=[string]$labels[$scope]}
-        elseif($scope.StartsWith('RemoteLocal|')){$usage='Poste '+$scope.Substring(12)}
-        elseif($scope.StartsWith('AD:')){$usage='Annuaire ('+$scope.Substring(3)+')'}
-        $rows.Add([pscustomobject]@{Usage=$usage;Account=$user;Source='compte temporaire, oublié après inactivité';State=(& $state $user)})
-    }
-    return $rows.ToArray()
-}
-
-function Format-DomeniaAccountUsageText {
-    # Point 42: one line per use, for the rule panel of the Comptes tab.
-    param([object[]]$Rows=@())
-    $lines=New-Object 'System.Collections.Generic.List[string]'
-    foreach($row in @($Rows)){
-        if($null -eq $row){continue}
-        $account=[string]$row.Account;if(-not $account){$account='aucun compte'}
-        $lines.Add([string]$row.Usage+' : '+$account+' ('+[string]$row.Source+'). '+[string]$row.State)
-    }
-    $lines.Add('Chaque usage est indépendant : changer le compte dʼun usage ne change pas les autres.')
-    return ($lines.ToArray() -join [Environment]::NewLine)
 }
 
 # ---------------------------------------------------------------- D055 Windows sign-in without elevation
@@ -408,7 +355,8 @@ function Get-DomeniaOperationRequirement {
         'ComputerAdminShare'    = @('Remote',$machine,'Accès au partage administratif du poste : administrateur local.','SMB 445/TCP vers le poste.')
         'ComputerGpUpdate'      = @('Remote',$machine,'Exécution distante sur le poste : administrateur local, WinRM déjà en service sur le poste.','WinRM 5985/TCP ou 5986/TCP vers le poste.')
         'ComputerRestart'       = @('Remote',$machine,'Redémarrage à distance : administrateur local du poste (privilège Forcer lʼarrêt à partir dʼun système distant).',$cim)
-        'RimotteRun'            = @('Remote',$machine,'Intervention scriptée : administrateur local du poste et autorisation explicite et temporaire dans Domenia (Outils > Fiabilité).','SMB 445/TCP (ADMIN$) et Planificateur de tâches par RPC.')
+        'ComputerServiceControl'= @('Remote',$machine,'Démarrage ou redémarrage dʼun service du poste par CIM (Win32_Service) : administrateur local du poste, droit de contrôle du service.',$cim)
+        'RimotteRun'            = @('Remote',$machine,'Intervention scriptée : administrateur local du poste et autorisation explicite et temporaire dans Domenia (Assistance poste > Intervenir).','SMB 445/TCP (ADMIN$) et Planificateur de tâches par RPC.')
         'BatchNetworkDiag'      = @('Network','Aucun compte','Aucun droit : écho ICMP puis tentative de connexion TCP sur les ports 445, 135, 5985 et 5986 ; le pare-feu du poste doit les laisser passer.','ICMP écho et TCP 445, 135, 5985, 5986 vers chaque poste.')
         'WakeOnLanSend'         = @('Network','Aucun compte','Aucun droit : paquet de réveil diffusé sur le réseau local ; la carte réseau du poste doit accepter le réveil.','Diffusion UDP sur le réseau local.')
         'ParkSharedSync'        = @('Network','Session Windows','Lecture et écriture du fichier partagé configuré (droits NTFS et de partage de votre session Windows).','SMB 445/TCP vers le partage, ou disque local.')
@@ -597,6 +545,30 @@ function Find-DomeniaBitLockerKey {
     return [pscustomobject]@{Matches=$found;Unique=($found.Count -eq 1);Message=$message}
 }
 
+function ConvertTo-DomeniaBitLockerKeyBlocks {
+    # UX-18: a recovery password split into its eight numbered blocks of six digits, read aloud block by block. Any
+    # other shape (truncated, other characters) gives no block: a doubtful key is never presented as ready to
+    # dictate. The value is only split here: it is neither kept nor written anywhere.
+    param([AllowEmptyString()][AllowNull()][string]$Value)
+    $text = ([string]$Value).Trim()
+    if ($text -cnotmatch '^[0-9]{6}(-[0-9]{6}){7}$') { return @() }
+    $parts = $text.Split('-')
+    $blocks = New-Object 'System.Collections.Generic.List[object]'
+    for ($i = 0; $i -lt $parts.Count; $i++) { $blocks.Add([pscustomobject]@{Index=($i + 1);Label=('Bloc ' + ($i + 1));Digits=$parts[$i]}) }
+    return $blocks.ToArray()
+}
+
+function Get-DomeniaSecretColumnHeader {
+    # UX-18: the header of the identity column of the secrets grid. A BitLocker row carries the recovery identifier,
+    # a LAPS row the managed account; a mixed or empty grid keeps both words.
+    param([AllowEmptyCollection()][string[]]$Kinds=@())
+    $kinds = @(@($Kinds) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+    if ($kinds.Count -eq 0) { return 'Compte ou identifiant' }
+    if (@($kinds | Where-Object { [string]$_ -notmatch '(?i)BitLocker' }).Count -eq 0) { return 'Identifiant de récupération' }
+    if (@($kinds | Where-Object { [string]$_ -notmatch '(?i)LAPS' }).Count -eq 0) { return 'Compte' }
+    return 'Compte ou identifiant'
+}
+
 function Test-DomeniaDirectChildDn {
     # True when $ChildDn is exactly one RDN below $ParentDn (escaped commas allowed in that RDN).
     # A recovery key is only requested for an object directly under the selected computer.
@@ -621,8 +593,54 @@ function Get-DomeniaSecretExposurePolicy {
     return [pscustomobject]@{
         InProcessArguments=$false;InLogs=$false;InCache=$false;InSnapshots=$false;InAutomaticExports=$false;InReceipts=$false
         RevealSeconds=30;CopyOneAtATime=$true
+        # UX-18: one explicit extension of a BitLocker key shown in its card, never more.
+        RevealExtensionSeconds=30;RevealExtensions=1
         ClipboardLimit='Les gestionnaires de presse-papiers tiers et l historique Windows peuvent conserver une copie hors de Domenia.'
     }
+}
+
+function Get-DomeniaSecretRevealCountdown {
+    # UX-18: what the countdown of a revealed value shows: whole seconds left (rounded up, never negative), the share
+    # of the ring still drawn and whether the single extension is still offered. "Now" is a parameter: pure.
+    param($DeadlineUtc,$NowUtc,[int]$TotalSeconds=30,[bool]$Extended=$false)
+    $policy = Get-DomeniaSecretExposurePolicy
+    $deadline = ConvertTo-DomeniaUtcDate $DeadlineUtc
+    $now = ConvertTo-DomeniaUtcDate $NowUtc
+    $remaining = 0
+    if (($null -ne $deadline) -and ($null -ne $now)) { $remaining = [int][Math]::Ceiling(($deadline - $now).TotalSeconds) }
+    if ($remaining -lt 0) { $remaining = 0 }
+    $fraction = [Math]::Min(1.0,[double]$remaining / [double]([Math]::Max(1,$TotalSeconds)))
+    $canExtend = ((-not $Extended) -and ($remaining -gt 0) -and ([int]$policy.RevealExtensions -gt 0))
+    return [pscustomobject]@{Remaining=$remaining;Fraction=$fraction;Expired=($remaining -le 0);Text=([string]$remaining + ' s');CanExtend=$canExtend;ExtensionSeconds=[int]$policy.RevealExtensionSeconds}
+}
+
+function Get-DomeniaSecretActionView {
+    # UI-31: labels, availability and tooltips of the reveal and copy buttons, and whether "copy all" is offered,
+    # decided in this one place. With one value at a time (Features.SecretSingleCopy, the default) "copy all" is not
+    # shown at all: a button greyed for good only says no. Only the kind of the selected row is read, never a value.
+    param([bool]$Single=$true,[bool]$Visible=$false,[bool]$HasRows=$false,[bool]$HasReadableValue=$false,[bool]$CanUseSelected=$false,[bool]$SelectedMetadata=$false,[int]$RevealSeconds=30,[AllowEmptyString()][string]$SelectedKind='',[AllowEmptyString()][string]$ClipboardLimit='')
+    $loadFirst = 'Lancez dʼabord « Lister les clés BitLocker » ou « Lire le mot de passe LAPS ».'
+    $copyText = 'Copier la valeur'
+    if ($SelectedKind -match '(?i)BitLocker|Recovery') { $copyText = 'Copier la clé BitLocker' } elseif ($SelectedKind -match '(?i)LAPS') { $copyText = 'Copier le mot de passe LAPS' }
+    $copyTip = 'Sélectionnez une ligne contenant une clé BitLocker ou un mot de passe LAPS lisible.'
+    if (($CanUseSelected) -and ($SelectedMetadata)) { $copyTip = ('Lit la seule clé sélectionnée, la copie puis programme lʼeffacement automatique du presse-papiers. ' + $ClipboardLimit).Trim() }
+    elseif ($CanUseSelected) { $copyTip = ('Copie uniquement la valeur sélectionnée puis programme lʼeffacement automatique du presse-papiers. ' + $ClipboardLimit).Trim() }
+    if ($Single) {
+        $enabled = (($Visible) -or ($CanUseSelected))
+        if ($Visible) { $text = 'Masquer la valeur'; $tip = 'Masque tout de suite la valeur affichée.' }
+        elseif ($SelectedMetadata) { $text = 'Lire et afficher cette clé'; $tip = 'Lit la seule clé sélectionnée puis lʼaffiche pendant ' + [string]$RevealSeconds + ' s. Les autres clés ne sont pas lues.' }
+        else { $text = 'Afficher la valeur choisie'; $tip = 'Affiche uniquement la valeur sélectionnée pendant ' + [string]$RevealSeconds + ' s. Les autres restent masquées.' }
+        if (-not $enabled) {
+            if ($HasRows) { $tip = 'Sélectionnez dʼabord une ligne : une seule valeur est révélée à la fois.' } else { $tip = $loadFirst }
+        }
+        return [pscustomobject]@{ToggleText=$text;ToggleEnabled=$enabled;ToggleToolTip=$tip;CopyText=$copyText;CopyEnabled=$CanUseSelected;CopyToolTip=$copyTip;CopyAllVisible=$false;CopyAllEnabled=$false;CopyAllToolTip='Copie groupée désactivée : une valeur à la fois.'}
+    }
+    if ($Visible) { $text = 'Masquer les secrets' } else { $text = 'Afficher les secrets' }
+    $tip = $loadFirst
+    if ($HasRows) { $tip = 'Affiche ou masque temporairement les valeurs gardées uniquement en mémoire.' }
+    $copyAllTip = 'Aucune valeur lue à copier.'
+    if ($HasReadableValue) { $copyAllTip = 'Copie les valeurs lues puis programme lʼeffacement automatique du presse-papiers.' }
+    return [pscustomobject]@{ToggleText=$text;ToggleEnabled=$HasRows;ToggleToolTip=$tip;CopyText=$copyText;CopyEnabled=$CanUseSelected;CopyToolTip=$copyTip;CopyAllVisible=$true;CopyAllEnabled=$HasReadableValue;CopyAllToolTip=$copyAllTip}
 }
 
 function Protect-DomeniaSecretText {

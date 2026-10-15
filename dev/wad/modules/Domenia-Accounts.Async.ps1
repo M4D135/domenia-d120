@@ -9,7 +9,7 @@ function Start-DomeniaAccountValidation {
     try {
         $request=New-DomeniaAccountAuthRequest -UserName $UserName -Password $copy -TimeoutSeconds $TimeoutSeconds
         $session=Start-DomeniaLoginAuthRunspace -Request $request
-        $script:AccountValidation=[pscustomobject]@{Session=$session;Started=[datetime]::UtcNow;Epoch=[long]$script:SessionEpoch;Base=[string]$script:Conn.BaseDn;Scope=$ActivateScope;Operation=$Operation;Password=$copy;Timeout=$TimeoutSeconds;Abandoned=$false;Timer=$null;Busy=@('BtnAccountAdTest','BtnAccountAdCorrect','PwdAccountAdCorrection','BtnAccountRemoteTest','BtnAccountRemoteSave','BtnAccountRemoteClear','BtnAccountSecretsTest','BtnAccountSecretsSave','BtnAccountSecretsClear','TxtAccountRemoteUser','PwdAccountRemote','TxtAccountSecretsUser','PwdAccountSecrets')}
+        $script:AccountValidation=[pscustomobject]@{Session=$session;Started=[datetime]::UtcNow;Epoch=[long]$script:SessionEpoch;Base=[string]$script:Conn.BaseDn;Scope=$ActivateScope;Operation=$Operation;Password=$copy;Timeout=$TimeoutSeconds;Abandoned=$false;Timer=$null;Busy=@('BtnAccountAdCorrect','PwdAccountAdCorrection','BtnAccountRemoteSave','BtnAccountRemoteClear','BtnAccountSecretsTest','BtnAccountSecretsSave','BtnAccountSecretsClear','TxtAccountRemoteUser','PwdAccountRemote','TxtAccountSecretsUser','PwdAccountSecrets')}
         $script:AccountValidation|Add-Member -NotePropertyName RememberSecret -NotePropertyValue ([bool]$RememberSecret)
         $script:AccountValidation.Busy+=@('ChkAccountRemoteRemember','ChkAccountSecretsRemember','BtnAccountRemoteVault','BtnAccountSecretsVault','BtnAccountRemoteForgetVault','BtnAccountSecretsForgetVault')
         Set-ControlsBusy -Names $script:AccountValidation.Busy -Busy $true
@@ -65,7 +65,7 @@ function Complete-DomeniaAccountValidation {
             # Point 44: the password of the connection account, corrected in place for the SAME identity only.
             $domain=[string]$script:Conn.Domain;$netbios=[string]$script:Conn.Netbios
             $same=((Get-DomeniaCredentialAccountKey ([string]$r.BindUser) $domain $netbios) -ceq (Get-DomeniaCredentialAccountKey ([string]$script:Conn.BindUser) $domain $netbios))
-            if((-not $same) -or (-not [bool]$script:Conn.UseCredential)){throw 'Identité différente de celle de la session : rien nʼest remplacé. Pour un autre compte, utilisez Se connecter.'}
+            if((-not $same) -or (-not [bool]$script:Conn.UseCredential)){throw 'Identité différente de celle de la session : rien nʼest remplacé. Pour un autre compte, utilisez « Changer de compte ».'}
             $owned=$v.Password.Copy();$owned.MakeReadOnly()
             $script:Conn.Credential=[Management.Automation.PSCredential]::new([string]$script:Conn.BindUser,$owned)
             $field=Get-DomeniaControl 'PwdAccountAdCorrection';if($null -ne $field){$field.Clear()}
@@ -97,14 +97,12 @@ function Stop-DomeniaAccountValidation {
 }
 function Start-DomeniaDirectoryCorrection {
     # Point 44: after a password change in the directory, the connection account is corrected in place with ONE
-    # validation of the same identity, at the operator's request. Another account goes through Se connecter.
+    # validation of the same identity, at the operator's request. Another account goes through « Changer de compte »
+    # (CO-31: the identity of the Annuaire card is read-only, so the correction always targets the session identity).
     if([bool]$script:DemoMode){throw 'Démonstration : aucun compte de connexion à corriger.'}
-    if((-not [bool]$script:Conn.UseCredential) -or ($null -eq $script:Conn.Credential)){throw 'Session Windows : son mot de passe se corrige dans Windows. Pour un autre compte, utilisez Se connecter.'}
+    if((-not [bool]$script:Conn.UseCredential) -or ($null -eq $script:Conn.Credential)){throw 'Session Windows : son mot de passe se corrige dans Windows. Pour un autre compte, utilisez « Changer de compte ».'}
     $bind=([string]$script:Conn.BindUser).Trim()
-    if(-not $bind){throw 'Identité de la session inconnue : utilisez Se connecter.'}
-    $domain=[string]$script:Conn.Domain;$netbios=[string]$script:Conn.Netbios
-    $typed='';$field=Get-DomeniaControl 'TxtAccountAdUser';if($null -ne $field){$typed=([string]$field.Text).Trim()}
-    if(($typed) -and ((Get-DomeniaCredentialAccountKey $typed $domain $netbios) -cne (Get-DomeniaCredentialAccountKey $bind $domain $netbios))){throw 'Lʼidentifiant affiché nʼest pas celui de la session. Pour changer de compte, utilisez Se connecter.'}
+    if(-not $bind){throw 'Identité de la session inconnue : utilisez « Changer de compte ».'}
     $box=Get-DomeniaControl 'PwdAccountAdCorrection'
     if(($null -eq $box) -or ($box.SecurePassword.Length -eq 0)){throw 'Saisissez le mot de passe actuel du compte de connexion.'}
     [void](Start-DomeniaAccountValidation -UserName $bind -Password $box.SecurePassword -Operation 'Correction du compte de connexion' -ActivateScope 'Directory')
@@ -114,7 +112,7 @@ function Show-DomeniaDirectoryCorrection {
     try{Select-DomeniaWorkspace -Workspace 'TabAccounts'}catch{}
     $box=Get-DomeniaControl 'PwdAccountAdCorrection'
     if($null -ne $box){try{[void]$box.Focus()}catch{}}
-    Set-Status 'Compte de connexion refusé : saisissez son mot de passe actuel dans Comptes, puis Corriger le mot de passe. Pour un autre compte, utilisez Se connecter.' 'WARN'
+    Set-Status 'Compte de connexion refusé : saisissez son mot de passe actuel dans Comptes, carte Annuaire, puis « Corriger le mot de passe ». Pour un autre compte, utilisez « Changer de compte ».' 'WARN'
 }
 function Get-DomeniaAccountCorrectionJobs {
     # Point 44: the running and queued tasks as the correction plan reads them: keys and generation of the account
@@ -304,13 +302,19 @@ function Fail-DomeniaAccountAliasRead {
     }finally{Invoke-DomeniaAccountAliasQueue}
 }
 function Get-DomeniaAccountAliasSummary {
-    # Point 45: the names confirmed for one account, for the Comptes tab. Read under the guard lock.
+    # Point 45: the names confirmed for one account (same SID), one entry per account, for « En ce moment » of the
+    # Comptes page: Names (guard keys) and Text ('a = b (même SID)'). Read under the guard lock; never a SID shown.
     $guard=$script:DomeniaCredentialGuard
-    $lines=[Collections.Generic.List[string]]::new()
-    if($null -eq $guard){return $lines.ToArray()}
+    $groups=[Collections.Generic.List[object]]::new()
+    if($null -eq $guard){return $groups.ToArray()}
     [Threading.Monitor]::Enter($guard.SyncRoot)
     try{
-        if($guard.ContainsKey('Groups')){foreach($group in @($guard.Groups.Keys|Sort-Object)){$names=@($guard.Groups[$group]);if($names.Count -gt 1){$lines.Add((($names|Sort-Object) -join ' = ')+' (même SID)')}}}
+        if($guard.ContainsKey('Groups')){
+            foreach($group in @($guard.Groups.Keys|Sort-Object)){
+                $names=@($guard.Groups[$group]|Sort-Object)
+                if($names.Count -gt 1){$groups.Add([pscustomobject]@{Names=[string[]]$names;Text=(($names -join ' = ')+' (même SID)')})}
+            }
+        }
     }finally{[Threading.Monitor]::Exit($guard.SyncRoot)}
-    return $lines.ToArray()
+    return $groups.ToArray()
 }

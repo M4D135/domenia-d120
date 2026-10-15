@@ -230,7 +230,8 @@ foreach($path in $files){
             Write-WReceipt $r $root
         }finally{$lock.Dispose()}
     }
-    $rows.Add([pscustomobject]@{Id=[string]$r.Id;PlanFingerprint=[string]$r.PlanFingerprint;Operation=[string]$r.Operation;DN=[string]$r.DN;Identity=[string]$r.Identity;Server=[string]$r.Server;Stage=[string]$r.Stage;UpdatedUtc=[string]$r.UpdatedUtc;Review=[string]$r.Review})
+    # CanVerify: the exact test of the Verify branch above, so the page offers a re-read only where it can succeed.
+    $rows.Add([pscustomobject]@{Id=[string]$r.Id;PlanFingerprint=[string]$r.PlanFingerprint;Operation=[string]$r.Operation;DN=[string]$r.DN;Identity=[string]$r.Identity;Server=[string]$r.Server;Stage=[string]$r.Stage;UpdatedUtc=[string]$r.UpdatedUtc;Review=[string]$r.Review;CanVerify=((($r.Operation -eq 'WriteAttributes')) -and ((($r.CanVerify -eq $true))) -and ((@($r.Expected).Count -gt 0)))})
 }
 [pscustomobject]@{Rows=$rows.ToArray();Pending=@($rows|Where-Object{$_.Stage -notin @('Verified','NotSent','Reviewed','Delivered')}).Count}
 '@

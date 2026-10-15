@@ -12,7 +12,7 @@ function Reject([scriptblock]$Action,[string]$Name){$failed=$false;try{& $Action
 foreach($case in @(@('ramGB','8192 Mo',8),@('ramGB','1,5 To',1536),@('ramGB','8',8),@('uptimeDays','48 h',2),@('checkedDays','1440 min',1),@('diskFreePercent','10,5 %',10.5),@('probe:net.speed','1 Gbit/s',1000),@('probe:hw.cpumhz','2,5 GHz',2500))){Expect ((ConvertTo-DomeniaQueryNumber -Field $case[0] -Text $case[1]) -eq [decimal]$case[2]) ('Unit conversion '+$case[0]+'/'+$case[1])}
 foreach($case in @(@('ramGB','8 h'),@('uptimeDays','8 Go'),@('diskFreePercent','NaN'),@('ramGB','1e999'),@('name','8 Go'))){Reject {ConvertTo-DomeniaQueryNumber -Field $case[0] -Text $case[1]} ('Unit rejection '+$case[0]+'/'+$case[1])}
 $values=[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::OrdinalIgnoreCase)
-$values['name']='FIXTURE';$values['ramGB']=8;$values['_at:ad']='2026-10-13T10:00:00Z';$values['_at:inventory']='2026-10-10T10:00:00Z';$values['_quality:diskFreePercent']='Expiré';$values['_quality:probe:sec.defender']='Erreur de lecture';$values['_quality:probe:hw.cpu']='Lecture incomplète'
+$values['name']='FIXTURE';$values['ramGB']=8;$values['_at:field:name']='2026-10-13T10:00:00Z';$values['_at:inventory']='2026-10-10T10:00:00Z';$values['_quality:diskFreePercent']='Expiré';$values['_quality:probe:sec.defender']='Erreur de lecture';$values['_quality:probe:hw.cpu']='Lecture incomplète'
 $record=[M4D.Admin.Common.Query.QueryRecord]::new('11111111-1111-1111-1111-111111111111',$values)
 $recipe=New-DomeniaQueryRecipe -Junction Any -Clauses @([pscustomobject]@{Field='ramGB';Operator='Less';Value=16},[pscustomobject]@{Field='name';Operator='Equal';Value='OTHER'},[pscustomobject]@{Field='diskFreePercent';Operator='Less';Value=10})
 $explanation=@(Get-DomeniaQueryExplanation -Record $record -Recipe $recipe)
@@ -31,7 +31,7 @@ $actual=& ([scriptblock]::Create((Get-DomeniaQueryWorkerCode)))
 Expect ($actual.Coverage.Total -eq 1 -and $null -eq $actual.PSObject.Properties['Matched']) 'coverage worker stops before applying query conditions'
 $Payload=[pscustomobject]@{ModuleRoot=$modules;Saved=@(for($i=0;$i -lt 125;$i++){New-DomeniaQueryRecipe -Name ('Personal '+$i)})}
 $actual=& ([scriptblock]::Create((Get-DomeniaQueryLibraryWorkerCode)))
-Expect ($actual.Rows.Count -eq 640 -and @($actual.Rows|Where-Object SourceId -eq 'Saved').Count -eq 125) 'actual lazy worker prepares full515models plus125personal definitions'
+Expect ($actual.Rows.Count -eq 643 -and @($actual.Rows|Where-Object SourceId -eq 'Saved').Count -eq 125) 'actual lazy worker prepares full518models (three for installed applications) plus125personal definitions'
 $context=[pscustomobject]@{Version=1;StoreId='fixture';DomainDn='DC=example,DC=test';Path=(Join-Path ([IO.Path]::GetTempPath()) 'fixture-query.sqlite')}
 $personal=New-DomeniaQueryRecipe -Id 'personal.fixture' -Name 'Équipements  mémoire'
 $entry=New-DomeniaQueryLibraryRecord -Context $context -Recipe $personal -ExpectedRevision 7

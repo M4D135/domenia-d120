@@ -16,7 +16,7 @@ function Parse-Text {param([string]$Text)
     Expect (@($errors).Count -eq 0) ($errors|Out-String);return $ast
 }
 function Import-Function {param($Ast,[string]$Name)
-    $found=@($Ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $Name},$true))
+    $found=@($Ast.FindAll({param($n)(($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq $Name))},$true))
     Expect ($found.Count -eq 1) ('Fonction absente/ambigue : '+$Name)
     . ([scriptblock]::Create(($found[0].Extent.Text -replace ('^function\s+'+[regex]::Escape($Name)+'\b'),('function script:'+$Name))))
 }
@@ -100,6 +100,9 @@ function Exercise-Sheet {param([bool]$Accept=$false,[bool]$ChangeEpoch=$false)
 function Set-TestEpoch {param([long]$Value);$script:SessionEpoch=$Value}
 # L02 (UX-06): the real Show-InfoBox/Show-ErrorBox of the core; a modal box would be counted here.
 function Show-DomeniaDialog {param($Message,$Title,$Kind,$Buttons,$Details);$script:DialogCalls++;return 'OK'}
+# UX-19 (X04): the route of a banner button is recorded; the navigation itself is proved in Test-DomeniaWiringInterface.
+$script:RouteCalls=[Collections.Generic.List[string]]::new();$script:RouteAnswer=$true
+function Invoke-DomeniaCapabilityRoute {param([string]$Route);$script:RouteCalls.Add([string]$Route);return [bool]$script:RouteAnswer}
 function Exercise-BannerSheet {
     # An error raised while a sheet is open: its banner is shown above the sheet and stays usable.
     $w=[Windows.Window]::new();$w.Title='Panneau de recette';$w.Width=520;$w.Height=300;$w.Content=[Windows.Controls.Grid]::new()
@@ -186,6 +189,42 @@ namespace Domenia.EmbeddedTests {
     Expect $m.Success 'WorkerCommon introuvable.';$commonAst=Parse-Text $m.Groups[1].Value
     foreach($n in @('Get-WPropFirst','Convert-WGuid','Escape-WLdap')){Import-Function $commonAst $n}
     Case 'Parseur natif de tous les scripts runtime' {foreach($f in Get-ChildItem -LiteralPath $wad -Filter '*.ps1' -File -Recurse|Where-Object{$_.FullName -notlike '*\tests\*' -and $_.FullName -notlike '*\docs\*'}){Parse-Text ([IO.File]::ReadAllText($f.FullName))|Out-Null}}
+    Case 'UI-26 (X04) : Executer un programme dans la page, aux couleurs du theme, sans fenetre ni nom Rimotte affiche' {
+        Expect (@($ast.FindAll({param($n)(($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq 'Show-DomeniaRimotteDialog'))},$true)).Count -eq 0) 'La fenetre Rimotte existe encore.'
+        Expect ($coreText.Contains('$script:Ctrl["BtnCompRimotte"].Add_Click({ Show-DomeniaRunProgramPanel })')) 'Le bouton n ouvre pas le panneau dans la page.'
+        $assistAst=Parse-Text ([IO.File]::ReadAllText((Join-Path $wad 'modules\Domenia-Assist.UI.ps1')))
+        foreach($fn in @('Show-DomeniaRunProgramPanel','Submit-DomeniaRunProgram','Confirm-DomeniaRunProgram','Close-DomeniaRunProgramPanel','Request-DomeniaComputerRestart','Submit-DomeniaComputerRestart','Request-DomeniaComputerToolConfirmation','Request-DomeniaComputerServiceControl')){
+            $found=@($assistAst.FindAll({param($n)(($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq $fn))},$true))
+            Expect ($found.Count -eq 1) ('Fonction absente : '+$fn)
+            Expect (-not ($found[0].Extent.Text -match 'Windows\.Window|<Window|ShowDialog|Invoke-DomeniaHostWindow|ConvertFrom-DomeniaXaml|Confirm-Action|Show-InfoBox')) ($fn+' ouvre une fenetre.')
+        }
+        foreach($fn in @('Start-DomeniaRimotteRun','Complete-DomeniaRimotteUi','Fail-DomeniaRimotteUi','Get-DomeniaRimotteWorkerCode')){
+            $found=@($ast.FindAll({param($n)(($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq $fn))},$true))
+            Expect ($found.Count -eq 1) ('Fonction absente : '+$fn)
+            $shown=(($found[0].Extent.Text -replace 'RimotteRun','') -replace 'DomeniaRimotte','')
+            Expect (-not $shown.Contains('Rimotte')) ($fn+' affiche encore le nom Rimotte.')
+        }
+        Expect (([regex]::Matches((@($ast.FindAll({param($n)(($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq 'Start-DomeniaRimotteRun'))},$true))[0].Extent.Text),'-OperationId "RimotteRun"')).Count -eq 1) 'L operation epinglee RimotteRun a change de nom.'
+        [xml]$main=Get-MainXaml
+        $x='http://schemas.microsoft.com/winfx/2006/xaml'
+        $panel=@($main.SelectNodes('//*') | Where-Object { $_.GetAttribute('Name',$x) -eq 'UxCompRunPanel' })
+        Expect ($panel.Count -eq 1) 'Panneau d execution absent du XAML principal.'
+        Expect (($panel[0].GetAttribute('Background') -like '{DynamicResource *}') -and ($panel[0].GetAttribute('BorderBrush') -like '{DynamicResource *}')) 'Couleurs du panneau ecrites en dur.'
+        Expect (@($panel[0].SelectNodes('.//*[local-name()="ComboBox"]')).Count -eq 0) 'Le choix abandonne du compte avec mot de passe reste propose.'
+        $modes=@($panel[0].SelectNodes('.//*[local-name()="RadioButton"]') | ForEach-Object { $_.GetAttribute('Content') })
+        Expect (($modes -join '|') -ceq 'En arrière-plan (compte système)|Dans la session de lʼutilisateur') ('Modes : '+($modes -join '|'))
+        $owner=$panel[0].ParentNode
+        while(($null -ne $owner) -and ($owner.GetAttribute('Name',$x) -ne 'TabComputerAdmin')){$owner=$owner.ParentNode;if($owner -is [Xml.XmlDocument]){$owner=$null}}
+        Expect ($null -ne $owner) 'Le panneau n est pas dans la vue Intervenir.'
+    }
+    Case 'UX-19 (X04) : sans fenetre principale, le message de route reste sur la ligne d etat avec le nom de l action' {
+        $script:Trace.Clear();$script:RouteCalls.Clear()
+        $shown=Show-DomeniaRouteNotice -Kind Warning -Text 'Stockage suspendu : les lots restent en mémoire.' -RouteText 'Reprendre les sauvegardes' -Route 'StorageResume' -Key 'x04-route-fallback'
+        Expect (-not $shown) 'Bandeau annonce sans fenetre principale.'
+        Expect (@($script:Trace|Where-Object{$_ -ceq 'Stockage suspendu : les lots restent en mémoire. Action : « Reprendre les sauvegardes ».'}).Count -eq 1) ('Ligne d etat : '+($script:Trace -join ' | '))
+        Expect ($script:RouteCalls.Count -eq 0) 'Une navigation est partie sans clic.'
+        Expect (-not (($script:Trace -join ' ') -match 'Fiabilit')) 'Chemin ecrit vers Fiabilite.'
+    }
     $g=[guid]'11223344-5566-7788-99aa-bbccddeeff00';$bytes=$g.ToByteArray()
     Case 'GUID binaire retourne comme byte array unique' {$p=@{objectguid=@(,$bytes)};$value=Get-WPropFirst $p 'objectguid' $null;Expect ($value -is [byte[]] -and $value.Length -eq 16)}
     Case 'GUID binaire converti au format D' {Expect ((Convert-WGuid $bytes) -ceq $g.ToString('D'))}
@@ -284,6 +323,27 @@ namespace Domenia.EmbeddedTests {
             Case ($theme+' : bandeau lisible pendant un panneau modal') {Expect ($bannerSheet.Shown -and $bannerSheet.HostEnabled -and (-not $bannerSheet.SearchEnabled))}
             foreach($b in @($script:DomeniaBanners)){Close-DomeniaBanner -Record $b}
             Case ($theme+' : fermeture des bandeaux vide l hote') {Expect (($bannerHost.Children.Count -eq 0) -and ($bannerHost.Visibility -eq 'Collapsed') -and (@($script:DomeniaBanners).Count -eq 0))}
+            # UX-19 (X04): a message whose place is a button: the first action opens it (route), then the banner closes.
+            Case ($theme+' : bouton de route du bandeau, destination ouverte au seul clic puis bandeau ferme') {
+                $script:RouteCalls.Clear();$script:RouteAnswer=$true;$script:Trace.Clear()
+                Expect ([bool](Show-DomeniaRouteNotice -Kind Warning -Text 'Stockage suspendu : les lots restent en mémoire.' -RouteText 'Reprendre les sauvegardes' -Route 'StorageResume' -Key 'x04-route')) 'Bandeau de route absent.'
+                $r=@($script:DomeniaBanners|Where-Object{$_.Key -eq 'x04-route'})
+                Expect (($r.Count -eq 1) -and ([string]$r[0].Route -eq 'StorageResume')) 'Bandeau de route non enregistre.'
+                $first=$r[0].Actions.Children[0]
+                Expect (($first -is [Windows.Controls.Button]) -and ([string]$first.Content -eq 'Reprendre les sauvegardes') -and ([string]$first.Tag.Command -eq 'Route')) ('Premier bouton : '+[string]$first.Content)
+                Expect ($script:RouteCalls.Count -eq 0) 'Une navigation est partie sans clic.'
+                Expect (@($script:Trace|Where-Object{$_ -ceq 'Stockage suspendu : les lots restent en mémoire.'}).Count -eq 1) ('Ligne d etat : '+($script:Trace -join ' | '))
+                $first.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+                Expect (($script:RouteCalls -join ',') -eq 'StorageResume') ('Routes : '+($script:RouteCalls -join ','))
+                Expect (([bool]$r[0].Closed) -and (@($script:DomeniaBanners|Where-Object{$_.Key -eq 'x04-route'}).Count -eq 0)) 'Bandeau reste ouvert apres la navigation.'
+                # A destination that cannot open keeps the banner and says so.
+                $script:RouteAnswer=$false
+                [void](Show-DomeniaRouteNotice -Kind Warning -Text 'Reprise des anciennes données bloquée.' -RouteText 'Voir la simulation' -Route 'LegacyImport' -Key 'x04-route-ko')
+                $ko=@($script:DomeniaBanners|Where-Object{$_.Key -eq 'x04-route-ko'})[0]
+                $ko.Actions.Children[0].RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+                Expect ((-not [bool]$ko.Closed) -and (@($script:Trace|Where-Object{$_ -ceq 'Destination indisponible : LegacyImport'}).Count -eq 1)) ('Echec de route : '+($script:Trace -join ' | '))
+                Close-DomeniaBanner -Record $ko;$script:RouteAnswer=$true
+            }
             # L02 review (FI-07, FI-02): an error box without code gets one and its journal line; a repeated
             # message updates its banner (latest detail, counter label of its kind, timer kept while pinned).
             $script:DomeniaErrorOccurrences=$null;$script:Trace.Clear()
@@ -334,7 +394,7 @@ finally{
     if($null -ne $script:Window){$script:Window.Close()}
     if([IO.Directory]::Exists($temp)){Remove-Item -LiteralPath $temp -Recurse -Force}
     $fail=@($script:Results|Where-Object{-not $_.Passed}).Count
-    $report=[ordered]@{Build='Domenia 1.0 RC1.9';Host=$PSVersionTable.PSVersion.ToString();Platform=$env:OS;Passed=($script:Results.Count-$fail);Failed=$fail;Skipped=0;Complete=($script:Finished -and $script:Results.Count -eq 97);LiveADExecuted=$false;MockedLDAP=$true;WpfExecuted=($script:TestPhase -eq 'WPF');Tests=$script:Results.ToArray()}
+    $report=[ordered]@{Build='Domenia 1.0 RC1.9';Host=$PSVersionTable.PSVersion.ToString();Platform=$env:OS;Passed=($script:Results.Count-$fail);Failed=$fail;Skipped=0;Complete=(($script:Finished) -and ($script:Results.Count -eq 101));LiveADExecuted=$false;MockedLDAP=$true;WpfExecuted=($script:TestPhase -eq 'WPF');Tests=$script:Results.ToArray()}
     if($ReportPath){[IO.File]::WriteAllText($ReportPath,($report|ConvertTo-Json -Depth 8),[Text.UTF8Encoding]::new($true))}
     if(-not $Quiet){$report|ConvertTo-Json -Depth 8}
 }

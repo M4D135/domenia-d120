@@ -499,6 +499,117 @@ function Get-ReceiptRecords {param([string]$Root)
     if (-not [IO.Directory]::Exists($Root)) { return @() }
     return @([IO.Directory]::EnumerateFiles($Root,'*.json')|ForEach-Object{[IO.File]::ReadAllText($_)|ConvertFrom-Json})
 }
+function Install-X04RemoteDoubles {
+    # X04: the boundaries of the workstation workers (credential lease, CIM, WinRM, service methods) doubled for one
+    # case. -Refuse 'Cim' or 'WinRM' makes the connection fail before any request. Reset-WiringFixture puts the
+    # previous definitions back (End-D093FunctionOverrides). The doubles only record; nothing leaves the process.
+    param([ValidateSet('','Cim','WinRM')][string]$Refuse='')
+    $script:X04Calls=[Collections.Generic.List[string]]::new()
+    $script:X04Refuse=$Refuse
+    $script:RestartCalls=0
+    Set-D093Function 'Enter-WCredentialAttempt' { param($Context,$Channel) return $null }
+    Set-D093Function 'Exit-WCredentialAttempt' { param($Lease) }
+    Set-D093Function 'Register-WCredentialFailure' { param($Context,$ErrorValue,$Channel) return $false }
+    Set-D093Function 'Set-WCredentialAttemptIdentity' { param($Context,$Credential,$Channel,$Target) }
+    Set-D093Function 'Assert-WCredentialAllowed' { param($Context,$Channel) }
+    Set-D093Function 'New-CimSessionOption' { param($Protocol,$ErrorAction) return [pscustomobject]@{Protocol=[string]$Protocol} }
+    Set-D093Function 'New-CimSession' { param($ComputerName,$SessionOption,$Credential,$ErrorAction)
+        $script:X04Calls.Add('New-CimSession')
+        if ($script:X04Refuse -eq 'Cim') { throw 'Serveur RPC indisponible (double de test).' }
+        return [pscustomobject]@{ComputerName=[string]$ComputerName}
+    }
+    Set-D093Function 'Remove-CimSession' { param($CimSession,$ErrorAction) $script:X04Calls.Add('Remove-CimSession') }
+    Set-D093Function 'Get-CimInstance' { param($CimSession,$ClassName,$Property,$Filter,$OperationTimeoutSec,$ErrorAction)
+        $script:X04Calls.Add('Get-CimInstance:'+[string]$ClassName)
+        if ([string]$ClassName -eq 'Win32_Service') {
+            if ($null -eq $script:X04Service) { return @() }
+            return [pscustomobject]@{Name=[string]$script:X04Service.Name;DisplayName=[string]$script:X04Service.DisplayName;State=[string]$script:X04Service.State;StartMode=[string]$script:X04Service.StartMode}
+        }
+        return [pscustomobject]@{CSName='PC-DEMO-01'}
+    }
+    Set-D093Function 'Invoke-CimMethod' { param($InputObject,$MethodName,$ErrorAction)
+        $script:X04Calls.Add('Invoke-CimMethod:'+[string]$MethodName)
+        $code=0
+        if (($null -ne $script:X04MethodReturn) -and ($script:X04MethodReturn.ContainsKey([string]$MethodName))) { $code=[int]$script:X04MethodReturn[[string]$MethodName] }
+        if ($code -eq 0) {
+            if ([string]$MethodName -eq 'StopService') { $script:X04Service.State='Stopped' }
+            if ([string]$MethodName -eq 'StartService') { $script:X04Service.State='Running' }
+        }
+        return [pscustomobject]@{ReturnValue=$code}
+    }
+    Set-D093Function 'New-PSSession' { param($ComputerName,$Credential,$ErrorAction)
+        $script:X04Calls.Add('New-PSSession')
+        if ($script:X04Refuse -eq 'WinRM') { throw 'Le client WinRM ne peut pas traiter la demande (double de test).' }
+        return [pscustomobject]@{ComputerName=[string]$ComputerName}
+    }
+    Set-D093Function 'Invoke-Command' { param($Session,$ScriptBlock,$ArgumentList,$ErrorAction)
+        $script:X04Calls.Add('Invoke-Command:'+(@($ArgumentList) -join '|'))
+        if ($null -ne $script:X04InvokeResult) { return $script:X04InvokeResult }
+        return 'Mise a jour de la strategie terminee (double de test).'
+    }
+    Set-D093Function 'Remove-PSSession' { param($Session,$ErrorAction) $script:X04Calls.Add('Remove-PSSession') }
+}
+function Invoke-X04PinnedWrite {
+    # One pinned workstation body in the real write envelope, with its own receipt folder. Returns the result, the
+    # failure message and the receipts written. -UseWinRM is Remote.UseWinRM as Get-WorkerContext gives it.
+    param([string]$Operation,$Fields,[bool]$UseWinRM=$true)
+    $receiptRoot=Join-Path $temp ('x04-'+$Operation+'-'+[guid]::NewGuid().ToString('N'))
+    [void][IO.Directory]::CreateDirectory($receiptRoot)
+    $script:ReceiptRoot=$receiptRoot
+    $worker=New-WriteEnvelopeScript -Business (Get-PinnedBody $Operation)
+    $context=New-WriteContext -ReceiptRoot $receiptRoot -OperationId $Operation
+    $context | Add-Member -NotePropertyName UseWinRM -NotePropertyValue $UseWinRM -Force
+    $payload=[pscustomobject]@{Computer='pc-demo-01';Target='pc-demo-01';DN='pc-demo-01';CorrelationId=[guid]::NewGuid().ToString('N');PlanFingerprint='';SingleRequest=$true}
+    if ($null -ne $Fields) { foreach($field in @($Fields.PSObject.Properties)) { $payload | Add-Member -NotePropertyName ([string]$field.Name) -NotePropertyValue $field.Value -Force } }
+    $result=$null;$failure=''
+    try { $result=@(& $worker $context $payload) } catch { $failure=$_.Exception.Message }
+    $effective=$null;if (@($result).Count -gt 0) { $effective=@($result)[-1] }
+    return [pscustomobject]@{Result=$effective;Failure=$failure;Receipts=@(Get-ReceiptRecords $receiptRoot)}
+}
+function Initialize-X04Fixture {
+    # Selection of PC-DEMO-01, write mode, the controls of the panels as WPF objects (STA) and the doubles of what
+    # reads or writes outside the page: the sessions read, the selection policy and the clipboard.
+    Reset-WiringFixture
+    $script:DomeniaAssist=$null
+    $script:ControlBusyRef=@{}
+    $script:X04Sessions=0
+    $script:X04Clipboard=$null
+    $script:X04Banners=0
+    $script:X04Tasks=[Collections.Generic.List[object]]::new()
+    $script:X04Service=$null
+    $script:X04MethodReturn=@{}
+    $script:X04InvokeResult=$null
+    $script:X04Navigation=[Collections.Generic.List[string]]::new()
+    $script:X04Cfg=@{}
+    foreach($pair in @(@('UxCompRestartPanel','Border'),@('LblCompRestartTitle','TextBlock'),@('LblCompRestartSessions','TextBlock'),@('LblCompRestartSessionLines','TextBlock'),@('RbCompRestartDelayed','RadioButton'),@('RbCompRestartNow','RadioButton'),@('TxtCompRestartMessage','TextBox'),@('BtnCompRestartSend','Button'),@('BtnCompRestart','Button'),@('BtnCompGpUpdate','Button'),@('UxCompRunPanel','Border'),@('LblCompRunTitle','TextBlock'),@('LblCompRunConsent','TextBlock'),@('RbCompRunSystem','RadioButton'),@('RbCompRunUser','RadioButton'),@('TxtCompRunUser','TextBox'),@('TxtCompRunCommand','TextBox'),@('TxtCompRunArguments','TextBox'),@('ChkCompRunElevated','CheckBox'),@('BtnCompRunStart','Button'),@('LblCompRunState','TextBlock'),@('LblCompServicesState','TextBlock'),@('ChkCompServicesAutoStopped','CheckBox'),@('TxtCompServicesFilter','TextBox'),@('BtnCompServiceStart','Button'),@('BtnCompServiceRestart','Button'))) {
+        $control=New-Object ('System.Windows.Controls.'+[string]$pair[1])
+        $control.Name=[string]$pair[0]
+        $script:Ctrl[[string]$pair[0]]=$control
+    }
+    foreach($name in @('UxCompRestartPanel','UxCompRunPanel','LblCompRunState')) { $script:Ctrl[$name].Visibility=[Windows.Visibility]::Collapsed }
+    $script:Ctrl['RbCompRunSystem'].IsChecked=$true;$script:Ctrl['ChkCompRunElevated'].IsChecked=$true
+    $script:Ctrl['DgCompServices']=New-Object System.Windows.Controls.DataGrid
+    $script:SelectedObject=[pscustomobject]@{Type='Machine';Name='PC-DEMO-01';DN='CN=PC-DEMO-01,OU=Postes,DC=example,DC=invalid';Safety=[pscustomobject]@{Guid=''};Entry=$null}
+    Set-D093Function 'Get-CurrentSelectedComputerName' { return 'PC-DEMO-01' }
+    Set-D093Function 'Get-DomeniaSelectionCachePolicy' { return [pscustomobject]@{Offline=$false;CanEdit=$true} }
+    Set-D093Function 'Get-DomeniaSelectedMachineName' { return 'pc-demo-01.example.invalid' }
+    Set-D093Function 'Start-DomeniaSessionsRead' { $script:X04Sessions++ }
+    # The page navigation is recorded: the panels must open in Assistance poste > Intervenir wherever they are asked.
+    Set-D093Function 'Select-DomeniaWorkspace' { param($Workspace,$Inner,$Tab) $script:X04Navigation.Add(([string]$Workspace+'/'+[string]$Inner+'/'+[string]$Tab)) }
+    # Remote.UseWinRM and the other settings read by the page, per case ($script:X04Cfg['Remote.UseWinRM']=$false).
+    Set-D093Function 'Get-CfgValue' { param($Section,$Name,$Default) $key=[string]$Section+'.'+[string]$Name; if ($script:X04Cfg.ContainsKey($key)) { return $script:X04Cfg[$key] }; return $Default }
+    Set-D093Function 'Set-ClipboardSafe' { param($Text) $script:X04Clipboard=[string]$Text }
+    Set-D093Function 'Show-DomeniaBanner' { param($Kind,$Message,$Details,$Key,$ActionText,$ActionPath,$RouteText,$Route) $script:X04Banners++; return $true }
+    Set-D093Function 'Get-ExistingLinkForComputer' { param($Computer) return [pscustomobject]@{UserLogin='cmartin';Computer=[string]$Computer;Source='Saisie manuelle'} }
+    Set-D093Function 'Normalize-LinkUser' { param($User) return ([string]$User).Trim() }
+    Set-D093Function 'Normalize-LinkComputer' { param($Computer) return ([string]$Computer).Trim().ToUpperInvariant() }
+    Set-D093Function 'Set-DomeniaControlText' { param($Name,$Text,[switch]$Silent)
+        $c=Get-DomeniaControl ([string]$Name)
+        if (($c -is [Windows.Controls.TextBox]) -or ($c -is [Windows.Controls.TextBlock])) { $c.Text=[string]$Text }
+        return $true
+    }
+    Set-D093Function 'Set-DomeniaItemsSource' { param($Name,$Rows) $c=Get-DomeniaControl ([string]$Name); if ($null -ne $c) { $c.ItemsSource=@($Rows) }; return $true }
+}
 function Start-UiTask {
     [CmdletBinding()]
     param(
@@ -580,11 +691,13 @@ if ($infrastructure) {
         [void][IO.Directory]::CreateDirectory($receiptRoot)
         $script:ReceiptRoot=$receiptRoot
         $script:D094ReceiptRoot=$receiptRoot
+        # SE-08 (X04): the immediate restart, chosen in the page, opens a CIM session before Restart-Computer.
+        Install-X04RemoteDoubles
         $body=Get-PinnedBody 'ComputerRestart'
         $worker=New-WriteEnvelopeScript -Business $body
         $context=New-WriteContext -ReceiptRoot $receiptRoot -OperationId 'ComputerRestart'
         $correlation=[guid]::NewGuid().ToString('N')
-        $payload=[pscustomobject]@{Computer='pc-demo-01';Target='pc-demo-01';DN='CN=PC-DEMO-01,OU=Postes,DC=example,DC=invalid';CorrelationId=$correlation;PlanFingerprint=''}
+        $payload=[pscustomobject]@{Computer='pc-demo-01';Target='pc-demo-01';DN='CN=PC-DEMO-01,OU=Postes,DC=example,DC=invalid';Mode='Now';DelaySeconds=0;Message='';CorrelationId=$correlation;PlanFingerprint=''}
         $failure=''
         try { [void](& $worker $context $payload) } catch { $failure=$_.Exception.Message }
         Assert-True ($failure -eq '') ('Enveloppe en echec : '+$failure)
@@ -752,6 +865,102 @@ if ($infrastructure) {
         Assert-True ($script:LastStartWritePlan -is [Domenia.InterventionPlan]) '-Plan absent.'
         Assert-True ($script:LastStartWritePlan.Target.DN -ceq $identity.DN) ('DN plan : '+[string]$script:LastStartWritePlan.Target.DN)
         Assert-True ([string]$script:StartUiTaskPayloads[0].DN -ceq $identity.DN) ('DN payload : '+[string]$script:StartUiTaskPayloads[0].DN)
+    }
+    # FI-20 (L20): a workstation of the result list is moved from its row (DN and GUID captured before the OU picker),
+    # without loading its fiche, without nested message pump nor sleep; the worker checks the GUID on the controller.
+    function Use-Fi20MoveFixture {
+        foreach($name in @('Move-DomeniaSelectedComputerWithOuPicker','Move-SelectedObject','Get-DomeniaRowMoveSafety','Get-DomeniaParentDn')) { [void](Import-AstFunction $script:CoreAst $name) }
+        $script:FakeIdentity = New-TestIdentity -Type 'Machine' -Name 'PC-LIGNE-01' -Dn 'CN=PC-LIGNE-01,OU=Postes,DC=example,DC=invalid'
+        $script:Fi20RowIdentity = $script:FakeIdentity
+        $script:Fi20PickerCalls = 0
+        $script:Fi20PickerChangesSelection = $false
+        $script:SelectedObject = $null
+        Set-D093Function 'Get-DomeniaSelectionContext' { return [pscustomobject]@{DN=[string]$script:Fi20RowIdentity.DN;Type='Machine';Name=[string]$script:Fi20RowIdentity.Name;Guid=[string]$script:Fi20RowIdentity.Guid;SelectionIdentity=$script:Fi20RowIdentity} }
+        Set-D093Function 'Show-DomeniaOuPicker' { param($ObjectName,$CurrentParentDn,$ObjectLabel='Poste')
+            $script:Fi20PickerCalls++
+            if ($script:Fi20PickerChangesSelection) { $script:FakeIdentity = $script:OtherFakeIdentity }
+            return [pscustomobject]@{Name='Cible';DN='OU=Cible,DC=example,DC=invalid'}
+        }
+        Set-D093Function 'Open-AdObject' { param($Dn,$Type,[switch]$Force,[switch]$SelectionBound) throw 'FI-20 : la fiche ne doit pas etre chargee pour deplacer une ligne.' }
+        Set-D093Function 'Get-DomeniaSafetyDescriptor' { throw 'FI-20 : le descripteur de la fiche ne doit pas servir au deplacement d une ligne.' }
+    }
+    Test-Case 'FI-20 deplacement d un poste depuis la ligne : plan sur DN et GUID, sans fiche ni attente' {
+        Reset-WiringFixture
+        try {
+            Use-Fi20MoveFixture
+            $script:UseDoubleStartUiTask=$true
+            Move-DomeniaSelectedComputerWithOuPicker
+            Assert-True ($script:Fi20PickerCalls -eq 1) ('Selecteur appele : '+$script:Fi20PickerCalls)
+            Assert-True (@($script:Dialogs | Where-Object { $_ }).Count -eq 0) ('Message inattendu : '+(@($script:Dialogs) -join ' | '))
+            Assert-True ($script:StartUiTaskCalls -eq 1) ('Appels Start-UiTask : '+$script:StartUiTaskCalls)
+            Assert-True ($script:LastStartWritePlan -is [Domenia.InterventionPlan]) '-Plan absent.'
+            Assert-True ($script:LastStartWritePlan.Target.Guid -ceq $script:Fi20RowIdentity.Guid) 'Le plan ne vise pas le GUID de la ligne.'
+            Assert-True ($script:LastStartWritePlan.Target.DN -ceq $script:Fi20RowIdentity.DN) 'Le plan ne vise pas le DN de la ligne.'
+            $payload=$script:StartUiTaskPayloads[0]
+            Assert-True ([string]$payload.DN -ceq $script:Fi20RowIdentity.DN) ('DN payload : '+[string]$payload.DN)
+            Assert-True ([string]$payload.TargetDn -ceq 'OU=Cible,DC=example,DC=invalid') ('OU cible : '+[string]$payload.TargetDn)
+            Assert-True ([string]$payload.Safety.ExpectedGuid -ceq $script:Fi20RowIdentity.Guid) 'GUID attendu absent du controle du worker.'
+            Assert-True ([string]$payload.Safety.ExpectedDn -ceq $script:Fi20RowIdentity.DN) 'DN attendu absent du controle du worker.'
+            Assert-True ((-not [string]$payload.Safety.ExpectedUsn) -and (-not [string]$payload.Safety.ExpectedWhenChanged)) 'Une valeur de fiche absente a ete inventee.'
+            $change=@($script:LastStartWritePlanChanges)[0]
+            Assert-True ([string]$change.After -ceq 'CN=PC-LIGNE-01,OU=Cible,DC=example,DC=invalid') ('Nouveau DN : '+[string]$change.After)
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'FI-20 selection changee pendant le choix de l OU : rien n est envoye' {
+        Reset-WiringFixture
+        try {
+            Use-Fi20MoveFixture
+            $script:UseDoubleStartUiTask=$true
+            $script:Fi20PickerChangesSelection = $true
+            Move-DomeniaSelectedComputerWithOuPicker
+            Assert-True ($script:StartUiTaskCalls -eq 0) ('Appels Start-UiTask : '+$script:StartUiTaskCalls)
+            Assert-True (@($script:Dialogs | Where-Object { $_.Contains('La sélection a changé pendant le choix') }).Count -eq 1) ('Refus absent : '+(@($script:Dialogs) -join ' | '))
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'FI-20 ligne sans GUID ou meme OU : aucun plan, aucun envoi' {
+        Reset-WiringFixture
+        try {
+            Use-Fi20MoveFixture
+            $script:UseDoubleStartUiTask=$true
+            $script:Fi20RowIdentity = $null
+            Set-D093Function 'Get-DomeniaSelectionContext' { return [pscustomobject]@{DN='CN=PC-SANS-GUID,OU=Postes,DC=example,DC=invalid';Type='Machine';Name='PC-SANS-GUID';Guid='';SelectionIdentity=$null} }
+            Move-DomeniaSelectedComputerWithOuPicker
+            Assert-True ($script:Fi20PickerCalls -eq 0) 'Le selecteur s ouvre sans identite exacte.'
+            Assert-True (@($script:Dialogs | Where-Object { $_.Contains('Ligne sans identité exacte') }).Count -eq 1) ('Refus absent : '+(@($script:Dialogs) -join ' | '))
+            Reset-WiringFixture
+            Use-Fi20MoveFixture
+            $script:UseDoubleStartUiTask=$true
+            Set-D093Function 'Show-DomeniaOuPicker' { param($ObjectName,$CurrentParentDn,$ObjectLabel='Poste') return [pscustomobject]@{Name='Postes';DN=$CurrentParentDn} }
+            Move-DomeniaSelectedComputerWithOuPicker
+            Assert-True ($script:StartUiTaskCalls -eq 0) ('Appels Start-UiTask : '+$script:StartUiTaskCalls)
+            Assert-True (@($script:StatusLog | Where-Object { $_.Contains('déjà dans cette OU') }).Count -ge 1) 'Meme OU non signalee.'
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'FI-20 worker : objectGUID different sur le controleur refuse avant tout envoi' {
+        Reset-WiringFixture
+        try {
+            if (-not (Get-Command Assert-WObjectFresh -CommandType Function -ErrorAction SilentlyContinue)) { throw 'Assert-WObjectFresh absent du code commun des workers.' }
+            [void](Import-AstFunction $script:CoreAst 'Get-DomeniaRowMoveSafety')
+            $identity = New-TestIdentity -Type 'Machine' -Name 'PC-LIGNE-01' -Dn 'CN=PC-LIGNE-01,OU=Postes,DC=example,DC=invalid'
+            $safety = Get-DomeniaRowMoveSafety -Identity $identity
+            $script:Fi20SnapshotGuid = [guid]::NewGuid().ToString('D')
+            Set-D093Function 'Get-WObjectSnapshot' { param($Context,[string]$Dn) return [pscustomobject]@{Exists=$true;DN=$Dn;Guid=$script:Fi20SnapshotGuid;Usn='42';WhenChanged='20261014000000.0Z';Classes=@('computer')} }
+            Set-D093Function 'Test-WProtectedSnapshot' { param($Snapshot) return $false }
+            $context = New-WriteContext -ReceiptRoot $temp -OperationId 'WriteMoveObject'
+            $refused = ''
+            try { [void](Assert-WObjectFresh $context $safety) } catch { $refused = $_.Exception.Message }
+            Assert-True ($refused.Contains('objectGUID different')) ('Autre GUID accepte : '+$refused)
+            $script:Fi20SnapshotGuid = [string]$identity.Guid
+            $snapshot = Assert-WObjectFresh $context $safety
+            Assert-True ([string]$snapshot.Guid -ceq [string]$identity.Guid) 'Meme GUID refuse.'
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'FI-20 aucune attente active : pompe imbriquee, boucle et option retirees' {
+        Assert-True (@($script:CoreAst.FindAll({param($n)((($n -is [Management.Automation.Language.FunctionDefinitionAst])) -and (($n.Name -eq 'Invoke-DomeniaUiPump')))},$true)).Count -eq 0) 'Invoke-DomeniaUiPump existe encore.'
+        $move=(Get-FunctionAst $script:CoreAst 'Move-DomeniaSelectedComputerWithOuPicker').Extent.Text
+        foreach($forbidden in @('Start-Sleep','DoEvents','PushFrame','Open-AdObject','Invoke-DomeniaUiPump','$script:SelectedObject')) { Assert-True (-not $move.Contains($forbidden)) ('Deplacement : '+$forbidden+' encore present.') }
+        Assert-True (-not (Get-FunctionAst $script:CoreAst 'Add-DomeniaTreeRowsToNode').Extent.Text.Contains('PumpUi')) 'Rendu de l arbre : pompe encore presente.'
+        Assert-True (-not (Get-FunctionAst $script:CoreAst 'New-DefaultConfig').Extent.Text.Contains('RequireReadyBeforeMainWindow')) 'Option RequireReadyBeforeMainWindow encore presente.'
     }
     Test-Case 'D091 creation d OU : branche changee refusee, branche stable acceptee' {
         Reset-WiringFixture
@@ -1466,6 +1675,302 @@ $dn=Test-DomeniaWriteTargetDn -Dn 'CN=Services,CN=Configuration,DC=example,DC=in
             Assert-True ($out[0].Pre -and (-not $out[0].Conf)) 'Preconditions mal lues dans le worker.'
             Assert-True ((-not $out[0].Dn) -and ($out[0].Name -eq 'Services')) 'Controle du DN absent du worker.'
         } finally { $ps.Dispose() }
+    }
+}
+# ------------------------------------------------------------ X04 (programme du 08/10) : assistance poste
+# The real Invoke-ComputerTool, the real rules and coordination of Domenia-Assist (Model, Worker, UI) and the pinned
+# bodies of ComputerGpUpdate, ComputerRestart and ComputerServiceControl in the real write envelope. The workstation,
+# WinRM, CIM and the sessions read are doubled: nothing leaves the test process.
+$x04Loaded=$false
+if ($infrastructure) {
+    try {
+        foreach($file in @('Domenia-Assist.Model.ps1','Domenia-Assist.Worker.ps1','Domenia-Assist.UI.ps1')) { . (Join-Path $modulesDir $file) }
+        foreach($name in @('Invoke-ComputerTool','Assert-DomeniaComputerTarget','Get-DomeniaMachineOperationCredential','Test-DomeniaControlIsBusy','Start-DomeniaRimotteRun','Get-DomeniaRimotteWorkerCode')) { [void](Import-AstFunction $script:CoreAst $name) }
+        $x04Loaded=$true
+    } catch {
+        $script:Checks.Add([pscustomobject]@{Name='X04 : regles et coordination de l assistance poste';Status='Failed';Detail=$_.Exception.ToString()})
+    }
+}
+function Install-X04TaskRecorder {
+    # Records what would leave for a worker, with its operation and its class; no worker runs.
+    Set-D093Function 'Start-UiTask' { param($Name,$OperationId,$Code,$Payload,[scriptblock]$OnSuccess,[scriptblock]$OnError,$SuccessHandler,$ErrorHandler,$DisableControls,$ReplaceKey,$TimeoutSeconds,$HardTimeoutSeconds,$StatusText,[switch]$IsWrite,[switch]$NonCancellable,$CorrelationId,$CallbackState,$TaskClass,$ReaderIdentity,$Generation)
+        $script:X04Tasks.Add([pscustomobject]@{OperationId=[string]$OperationId;Payload=$Payload;TaskClass=[string]$TaskClass;IsWrite=[bool]$IsWrite;ReplaceKey=[string]$ReplaceKey;State=$CallbackState})
+        return ('x04-'+[string]$script:X04Tasks.Count)
+    }
+}
+function New-X04SessionsView {
+    return [pscustomobject]@{ReadState='Constate';Partial=$false;UserSessions=1;UnreadSessions=0;EmptyText='';Rows=@([pscustomobject]@{Utilisateur='EXAMPLE\cmartin';Protocole='Console';Etat='Actif';Ouverte='08:15';Inactive=''})}
+}
+if (($infrastructure) -and ($x04Loaded)) {
+    Test-Case 'X04 SE-08 Redemarrer : sessions lues d abord, differe avec message par defaut, rien ne part au clic' {
+        Initialize-X04Fixture
+        Invoke-ComputerTool -Tool 'Restart'
+        Assert-True ($script:StartUiTaskCalls -eq 0) ('Une tache est partie au clic : '+$script:StartUiTaskCalls)
+        Assert-True ($script:X04Sessions -eq 1) ('Lectures des sessions : '+$script:X04Sessions)
+        Assert-True (($script:ConfirmCalls -eq 0) -and ($script:InlineRequests.Count -eq 0)) 'Une confirmation est demandee avant la lecture des sessions.'
+        Assert-True ($script:Ctrl['UxCompRestartPanel'].Visibility -eq [Windows.Visibility]::Visible) 'Panneau de redemarrage absent.'
+        Assert-True ((@($script:X04Navigation) -join ',') -eq 'WsComputer/ComputerTabs/TabComputerAdmin') ('Navigation : '+(@($script:X04Navigation) -join ','))
+        Assert-True ([bool]$script:Ctrl['RbCompRestartDelayed'].IsChecked) 'Le choix par defaut n est pas le redemarrage differe.'
+        Assert-True (([string]$script:Ctrl['TxtCompRestartMessage'].Text) -match 'dans 5 minutes') ('Message : '+[string]$script:Ctrl['TxtCompRestartMessage'].Text)
+        Assert-True (-not $script:Ctrl['BtnCompRestartSend'].IsEnabled) 'Envoi possible avant la lecture des sessions.'
+        # A read of another selection is ignored; the read of this workstation fills the panel.
+        Update-DomeniaRestartSessions -View (New-X04SessionsView) -State ([pscustomobject]@{Epoch=1L;Generation=2L;DN=[string]$script:SelectedObject.DN})
+        Assert-True (-not $script:Ctrl['BtnCompRestartSend'].IsEnabled) 'Les sessions d une autre selection debloquent l envoi.'
+        Update-DomeniaRestartSessions -View (New-X04SessionsView) -State ([pscustomobject]@{Epoch=1L;Generation=1L;DN=[string]$script:SelectedObject.DN})
+        Assert-True (([string]$script:Ctrl['LblCompRestartSessions'].Text) -match '^1 session ouverte') ('Sessions : '+[string]$script:Ctrl['LblCompRestartSessions'].Text)
+        Assert-True (([string]$script:Ctrl['LblCompRestartSessionLines'].Text).Contains('EXAMPLE\cmartin')) 'Le compte de la session ouverte n est pas affiche.'
+        Assert-True ($script:Ctrl['BtnCompRestartSend'].IsEnabled) 'Envoi impossible apres la lecture des sessions.'
+        Submit-DomeniaComputerRestart
+        Assert-True ($script:InlineRequests.Count -eq 1) ('Confirmations dans la page : '+$script:InlineRequests.Count)
+        $request=$script:InlineRequests[0]
+        Assert-True (($request.Risk -eq 'Danger') -and ($request.Message.Contains('EXAMPLE\cmartin')) -and ($request.ConfirmText -eq 'Redémarrer dans 5 min')) ('Confirmation : '+$request.ConfirmText+' / '+$request.Message)
+        Assert-True ($script:WriteStartUiTaskCalls -eq 1) ('Envois apres confirmation : '+$script:WriteStartUiTaskCalls)
+        $payload=$script:StartUiTaskPayloads[$script:StartUiTaskPayloads.Count-1]
+        Assert-True (($payload.Mode -eq 'Delayed') -and ([int]$payload.DelaySeconds -eq 300) -and (([string]$payload.Message) -match 'redémarrer dans 5 minutes')) ('Charge : '+$payload.Mode+' '+$payload.DelaySeconds+' '+$payload.Message)
+        Assert-True ($script:ConfirmCalls -eq $script:InlineRequests.Count) 'Une confirmation hors de la page a ete demandee.'
+        # The confirmed plan is consumed: a second answer sends nothing.
+        Confirm-DomeniaComputerRestart
+        Assert-True ($script:WriteStartUiTaskCalls -eq 1) 'Un redemarrage confirme est rejoue.'
+    }
+    Test-Case 'X04 SE-08 Redemarrer maintenant : choix explicite, sans message' {
+        Initialize-X04Fixture
+        Invoke-ComputerTool -Tool 'Restart'
+        Update-DomeniaRestartSessions -Failure 'Accès refusé.' -State ([pscustomobject]@{Epoch=1L;Generation=1L;DN=[string]$script:SelectedObject.DN})
+        Assert-True (([string]$script:Ctrl['LblCompRestartSessions'].Text) -match 'préférez le redémarrage différé') ('Sessions non lues : '+[string]$script:Ctrl['LblCompRestartSessions'].Text)
+        $script:Ctrl['RbCompRestartDelayed'].IsChecked=$false;$script:Ctrl['RbCompRestartNow'].IsChecked=$true
+        Update-DomeniaComputerRestartChoice
+        Assert-True (([string]$script:Ctrl['BtnCompRestartSend'].Content) -eq 'Redémarrer maintenant…') ('Bouton : '+[string]$script:Ctrl['BtnCompRestartSend'].Content)
+        Submit-DomeniaComputerRestart
+        $payload=$script:StartUiTaskPayloads[$script:StartUiTaskPayloads.Count-1]
+        Assert-True (($payload.Mode -eq 'Now') -and ([int]$payload.DelaySeconds -eq 0) -and ([string]$payload.Message -eq '')) ('Charge : '+$payload.Mode+' '+$payload.DelaySeconds)
+        Assert-True ($script:InlineRequests[0].ConfirmText -eq 'Redémarrer maintenant') ('Confirmation : '+$script:InlineRequests[0].ConfirmText)
+    }
+    Test-Case 'X04 SE-08 Redemarrer en lecture seule : refuse avant toute lecture, rien n est prepare ni envoye' {
+        Initialize-X04Fixture
+        $script:ReadOnlyMode=$true
+        Invoke-ComputerTool -Tool 'Restart'
+        Assert-True ($script:X04Sessions -eq 0) 'Les sessions sont lues alors que le redemarrage est refuse.'
+        Assert-True ($script:Ctrl['UxCompRestartPanel'].Visibility -ne [Windows.Visibility]::Visible) 'Panneau ouvert en lecture seule.'
+        Assert-True (($script:StartUiTaskCalls -eq 0) -and ($script:InlineRequests.Count -eq 0)) 'Une demande est partie en lecture seule.'
+        Assert-True (@($script:Dialogs | Where-Object { $_ -match 'lecture seule' }).Count -eq 1) ('Refus non dit : '+(@($script:Dialogs) -join ' | '))
+        # A restart prepared before the switch is refused at its confirmation: nothing is sent, nothing is replayed.
+        $script:ReadOnlyMode=$false
+        Invoke-ComputerTool -Tool 'Restart'
+        Update-DomeniaRestartSessions -View (New-X04SessionsView) -State ([pscustomobject]@{Epoch=1L;Generation=1L;DN=[string]$script:SelectedObject.DN})
+        $script:ReadOnlyMode=$true
+        Submit-DomeniaComputerRestart
+        Assert-True (($script:WriteStartUiTaskCalls -eq 0) -and ($script:InlineRequests.Count -eq 0)) 'Un redemarrage prepare part apres le passage en lecture seule.'
+    }
+    Test-Case 'X04 Actualiser les strategies : confirmation dans la page ; les outils du poste n ouvrent aucune fenetre' {
+        Initialize-X04Fixture
+        Invoke-ComputerTool -Tool 'GpUpdate'
+        Assert-True ($script:InlineRequests.Count -eq 1) ('Confirmations dans la page : '+$script:InlineRequests.Count)
+        Assert-True ($script:WriteStartUiTaskCalls -eq 1) ('Envois : '+$script:WriteStartUiTaskCalls)
+        Assert-True ($script:ConfirmCalls -eq $script:InlineRequests.Count) 'Une confirmation hors de la page a ete demandee.'
+        $tool=(Get-FunctionAst $script:CoreAst 'Invoke-ComputerTool').Extent.Text
+        foreach($forbidden in @('Confirm-Action','Confirm-WarningAction','Show-InfoBox','ShowDialog')) { Assert-True (-not $tool.Contains($forbidden)) ('Invoke-ComputerTool appelle encore '+$forbidden) }
+        Assert-True (@($script:CoreAst.FindAll({param($n)((($n -is [Management.Automation.Language.FunctionDefinitionAst])) -and (($n.Name -eq 'Show-DomeniaRimotteDialog')))},$true)).Count -eq 0) 'La fenetre Rimotte existe encore.'
+        $script:ReadOnlyMode=$true
+        Invoke-ComputerTool -Tool 'GpUpdate'
+        Assert-True (($script:InlineRequests.Count -eq 1) -and ($script:WriteStartUiTaskCalls -eq 1)) 'Actualisation preparee en lecture seule.'
+    }
+    Test-Case 'X04 CD-11 GPUpdate et redemarrage : sans repli par tache planifiee, une connexion refusee n envoie rien' {
+        Initialize-X04Fixture
+        foreach($operation in @('ComputerGpUpdate','ComputerRestart')) {
+            $body=Get-PinnedBody $operation
+            Assert-True (-not ($body -match 'Invoke-WRemoteTaskScript|TaskFallback|schtasks')) ($operation+' garde un repli par tache planifiee.')
+        }
+        foreach($case in @(@('ComputerGpUpdate','WinRM',$null),@('ComputerRestart','WinRM',[pscustomobject]@{Mode='Delayed';DelaySeconds=300;Message='Message de test'}),@('ComputerRestart','Cim',[pscustomobject]@{Mode='Now';DelaySeconds=0;Message=''}))) {
+            Install-X04RemoteDoubles -Refuse ([string]$case[1])
+            $run=Invoke-X04PinnedWrite -Operation ([string]$case[0]) -Fields $case[2]
+            $label=[string]$case[0]+'/'+[string]$case[1]
+            Assert-True ($run.Failure.Contains('Non envoyé : le poste nʼaccepte pas la commande à distance')) ($label+' : '+$run.Failure)
+            Assert-True (-not $run.Failure.Contains('ETAT INCONNU')) ($label+' : un refus de connexion est presente comme un envoi incertain.')
+            Assert-True ((@($script:X04Calls | Where-Object { $_ -like 'Invoke-Command*' }).Count -eq 0) -and ($script:RestartCalls -eq 0)) ($label+' : commande envoyee malgre le refus.')
+            Assert-True ((@($run.Receipts).Count -eq 1) -and ([string]$run.Receipts[0].Stage -eq 'NotSent')) ($label+' : recu '+(@($run.Receipts | ForEach-Object { [string]$_.Stage }) -join ','))
+        }
+    }
+    Test-Case 'X04 SE-08 Redemarrage differe : shutdown avec delai et message par WinRM ; un refus du poste ne programme rien' {
+        Initialize-X04Fixture
+        Install-X04RemoteDoubles
+        $script:X04InvokeResult=[pscustomobject]@{ExitCode=0;Output=''}
+        $message='Votre poste va redémarrer dans 5 minutes à la demande du support informatique.'
+        $run=Invoke-X04PinnedWrite -Operation 'ComputerRestart' -Fields ([pscustomobject]@{Mode='Delayed';DelaySeconds=300;Message=$message})
+        Assert-True ($run.Failure -eq '') ('Echec : '+$run.Failure)
+        Assert-True (@($script:X04Calls | Where-Object { $_ -eq ('Invoke-Command:300|'+$message) }).Count -eq 1) ('Appels : '+(@($script:X04Calls) -join ' ; '))
+        Assert-True (($script:RestartCalls -eq 0) -and (@($script:X04Calls | Where-Object { $_ -eq 'Remove-PSSession' }).Count -eq 1)) 'Session WinRM non fermee ou redemarrage immediat lance.'
+        Assert-True (([string]$run.Result.Mode -eq 'Delayed') -and (([string]$run.Result.Message) -match 'dans 5 min')) ('Resultat : '+[string]$run.Result.Message)
+        Assert-True ([string]$run.Receipts[0].Stage -eq 'Delivered') ('Recu : '+[string]$run.Receipts[0].Stage)
+        Install-X04RemoteDoubles
+        $script:X04InvokeResult=[pscustomobject]@{ExitCode=1190;Output='Un arret du systeme a deja ete planifie.'}
+        $run=Invoke-X04PinnedWrite -Operation 'ComputerRestart' -Fields ([pscustomobject]@{Mode='Delayed';DelaySeconds=300;Message=$message})
+        Assert-True ($run.Failure.Contains('déjà programmé')) ('Refus du poste : '+$run.Failure)
+        Assert-True ([string]$run.Receipts[0].Stage -eq 'NotSent') ('Recu apres refus du poste : '+[string]$run.Receipts[0].Stage)
+        foreach($bad in @([pscustomobject]@{Mode='Plus tard';DelaySeconds=300;Message=''},[pscustomobject]@{Mode='Delayed';DelaySeconds=5;Message='x'},[pscustomobject]@{Mode='Delayed';DelaySeconds=300;Message=('a'+[char]34+'b')})) {
+            Install-X04RemoteDoubles
+            $run=Invoke-X04PinnedWrite -Operation 'ComputerRestart' -Fields $bad
+            Assert-True (($run.Failure -match 'aucune demande envoyée') -and (@($script:X04Calls).Count -eq 0)) ('Demande invalide acceptee : '+$bad.Mode+' '+$bad.DelaySeconds)
+        }
+        Install-X04RemoteDoubles
+        $run=Invoke-X04PinnedWrite -Operation 'ComputerRestart' -Fields ([pscustomobject]@{Mode='Now';DelaySeconds=0;Message=''})
+        Assert-True (($run.Failure -eq '') -and ($script:RestartCalls -eq 1) -and (@($script:X04Calls | Where-Object { $_ -like 'Invoke-Command*' }).Count -eq 0)) ('Redemarrage immediat : '+$run.Failure)
+    }
+    Test-Case 'X04 CD-11 WinRM desactive par la configuration : ni GPUpdate ni redemarrage differe, aucune session WinRM' {
+        Initialize-X04Fixture
+        # Pinned bodies: Remote.UseWinRM = false refuses before any connection, receipt NotSent.
+        foreach($case in @(@('ComputerGpUpdate',$null),@('ComputerRestart',[pscustomobject]@{Mode='Delayed';DelaySeconds=300;Message='Message de test'}))) {
+            Install-X04RemoteDoubles
+            $run=Invoke-X04PinnedWrite -Operation ([string]$case[0]) -Fields $case[1] -UseWinRM $false
+            $label=[string]$case[0]
+            Assert-True ($run.Failure -match 'Non envoy.*WinRM.*Remote\.UseWinRM') ($label+' : '+$run.Failure)
+            Assert-True (@($script:X04Calls | Where-Object { ($_ -eq 'New-PSSession') -or ($_ -like 'Invoke-Command*') }).Count -eq 0) ($label+' : WinRM contacte malgre la configuration : '+(@($script:X04Calls) -join ' ; '))
+            Assert-True ((@($run.Receipts).Count -eq 1) -and ([string]$run.Receipts[0].Stage -eq 'NotSent')) ($label+' : recu '+(@($run.Receipts | ForEach-Object { [string]$_.Stage }) -join ','))
+        }
+        # The immediate restart does not use WinRM and stays possible.
+        Install-X04RemoteDoubles
+        $run=Invoke-X04PinnedWrite -Operation 'ComputerRestart' -Fields ([pscustomobject]@{Mode='Now';DelaySeconds=0;Message=''}) -UseWinRM $false
+        Assert-True (($run.Failure -eq '') -and (@($script:X04Calls | Where-Object { $_ -eq 'New-PSSession' }).Count -eq 0)) ('Redemarrage immediat sans WinRM : '+$run.Failure)
+        # The page: the delayed choice is unavailable with its reason, « Maintenant » is never chosen for the operator.
+        $script:X04Cfg['Remote.UseWinRM']=$false
+        $script:Ctrl['RbCompRestartNow'].IsChecked=$true
+        Invoke-ComputerTool -Tool 'Restart'
+        $delayed=$script:Ctrl['RbCompRestartDelayed']
+        Assert-True ((-not $delayed.IsEnabled) -and (-not [bool]$delayed.IsChecked) -and ([string]$delayed.ToolTip -match 'WinRM')) ('Choix differe : '+[string]$delayed.Content)
+        Assert-True (-not [bool]$script:Ctrl['RbCompRestartNow'].IsChecked) 'Le redemarrage immediat est choisi a la place de l operateur.'
+        Update-DomeniaRestartSessions -View (New-X04SessionsView) -State ([pscustomobject]@{Epoch=1L;Generation=1L;DN=[string]$script:SelectedObject.DN})
+        Assert-True (-not $script:Ctrl['BtnCompRestartSend'].IsEnabled) 'Envoi possible sans choix explicite.'
+        Submit-DomeniaComputerRestart
+        Assert-True (($script:InlineRequests.Count -eq 0) -and ($script:WriteStartUiTaskCalls -eq 0)) 'Un redemarrage part sans choix.'
+        $delayed.IsChecked=$true
+        Submit-DomeniaComputerRestart
+        Assert-True (($script:InlineRequests.Count -eq 0) -and ($script:WriteStartUiTaskCalls -eq 0)) 'Un redemarrage differe est prepare malgre WinRM desactive.'
+        $delayed.IsChecked=$false;$script:Ctrl['RbCompRestartNow'].IsChecked=$true
+        Update-DomeniaComputerRestartChoice
+        Assert-True ($script:Ctrl['BtnCompRestartSend'].IsEnabled) 'Redemarrage immediat impossible apres un choix explicite.'
+        Submit-DomeniaComputerRestart
+        Assert-True (($script:InlineRequests.Count -eq 1) -and ([string]$script:StartUiTaskPayloads[$script:StartUiTaskPayloads.Count-1].Mode -eq 'Now')) 'Le redemarrage immediat choisi n est pas propose.'
+        # GPUpdate is refused before any confirmation, and its button says why.
+        $before=$script:InlineRequests.Count
+        Invoke-ComputerTool -Tool 'GpUpdate'
+        Assert-True ($script:InlineRequests.Count -eq $before) 'Actualisation des strategies preparee malgre WinRM desactive.'
+        Assert-True (@($script:Dialogs | Where-Object { $_ -match 'WinRM' }).Count -ge 1) ('Refus non dit : '+(@($script:Dialogs) -join ' | '))
+        $script:ReadOnlyMode=$false
+        Update-DomeniaComputerAssistPermissions
+        Assert-True ((-not $script:Ctrl['BtnCompGpUpdate'].IsEnabled) -and ([string]$script:Ctrl['BtnCompGpUpdate'].ToolTip -match 'WinRM')) 'Bouton Actualiser les strategies actif malgre WinRM desactive.'
+    }
+    Test-Case 'X04 UX-38 Commande de service : session CIM avant tout envoi, service desactive refuse sans envoi, etat relu' {
+        Initialize-X04Fixture
+        $body=Get-PinnedBody 'ComputerServiceControl'
+        Assert-True (-not ($body -match 'Set-Service|ChangeStartMode|Invoke-WRemoteTaskScript|schtasks|psexec')) 'La commande de service change le demarrage ou bascule vers un repli.'
+        Install-X04RemoteDoubles -Refuse 'Cim'
+        $script:X04Service=[pscustomobject]@{Name='wuauserv';DisplayName='Windows Update';State='Stopped';StartMode='Auto'}
+        $run=Invoke-X04PinnedWrite -Operation 'ComputerServiceControl' -Fields ([pscustomobject]@{Service='wuauserv';Action='Start'})
+        Assert-True (($run.Failure.Contains('Non envoyé')) -and ([string]$run.Receipts[0].Stage -eq 'NotSent') -and (@($script:X04Calls | Where-Object { $_ -like 'Invoke-CimMethod*' }).Count -eq 0)) ('Connexion refusee : '+$run.Failure)
+        Install-X04RemoteDoubles
+        $script:X04Service=[pscustomobject]@{Name='Fax';DisplayName='Fax';State='Stopped';StartMode='Disabled'}
+        $run=Invoke-X04PinnedWrite -Operation 'ComputerServiceControl' -Fields ([pscustomobject]@{Service='Fax';Action='Start'})
+        Assert-True (($run.Failure.Contains('désactivé')) -and ([string]$run.Receipts[0].Stage -eq 'NotSent') -and (@($script:X04Calls | Where-Object { $_ -like 'Invoke-CimMethod*' }).Count -eq 0)) ('Service desactive : '+$run.Failure)
+        Install-X04RemoteDoubles
+        $script:X04Service=[pscustomobject]@{Name='wuauserv';DisplayName='Windows Update';State='Stopped';StartMode='Auto'}
+        $run=Invoke-X04PinnedWrite -Operation 'ComputerServiceControl' -Fields ([pscustomobject]@{Service='wuauserv';Action='Start'})
+        Assert-True ($run.Failure -eq '') ('Demarrage : '+$run.Failure)
+        Assert-True (([string]$run.Result.StateAfter -eq 'Running') -and ([bool]$run.Result.Verified)) ('Etat relu : '+[string]$run.Result.StateAfter)
+        Assert-True ([string]$run.Receipts[0].Stage -eq 'Verified') ('Recu : '+[string]$run.Receipts[0].Stage)
+        Install-X04RemoteDoubles
+        $script:X04Service=[pscustomobject]@{Name='Spooler';DisplayName='Spouleur';State='Running';StartMode='Auto'}
+        $script:X04MethodReturn=@{StopService=3}
+        $run=Invoke-X04PinnedWrite -Operation 'ComputerServiceControl' -Fields ([pscustomobject]@{Service='Spooler';Action='Restart'})
+        Assert-True (($run.Failure.Contains('services dépendants')) -and ([string]$run.Receipts[0].Stage -eq 'NotSent')) ('Arret refuse : '+$run.Failure)
+        Assert-True (@($script:X04Calls | Where-Object { $_ -eq 'Invoke-CimMethod:StartService' }).Count -eq 0) 'Un service dont l arret est refuse est relance.'
+        Install-X04RemoteDoubles
+        $run=Invoke-X04PinnedWrite -Operation 'ComputerServiceControl' -Fields ([pscustomobject]@{Service="x' OR Name='y";Action='Start'})
+        Assert-True (($run.Failure -match 'Nom de service refusé') -and (@($script:X04Calls).Count -eq 0)) ('Nom injecte accepte : '+$run.Failure)
+    }
+    Test-Case 'X04 UX-38 Services du poste : lus au seul clic, en lecture seule (WmiQuery, Win32_Service)' {
+        Initialize-X04Fixture
+        Install-X04TaskRecorder
+        Set-D093Function 'Get-DomeniaWmiComputer' { return 'PC-DEMO-01' }
+        Set-D093Function 'Assert-DomeniaWmiReadQuery' { param($ClassName,$Namespace,$Where,$Limit) if ([string]$ClassName -ne 'Win32_Service') { throw 'Classe inattendue.' } }
+        Set-D093Function 'New-DomeniaClassicCollectionState' { param($Computer,$ResultKind,$RequestKey,$PublishHandler,$PublishErrorHandler) return [pscustomobject]@{Computer=[string]$Computer;ResultKind=[string]$ResultKind;PublishHandler=[string]$PublishHandler} }
+        Set-D093Function 'Get-DomeniaWmiQueryWorkerCode' { return 'fixture' }
+        Set-D093Function 'Get-DomeniaMsiProviderClassNames' { return @() }
+        Initialize-DomeniaAssist
+        Reset-DomeniaComputerAssistViews
+        Assert-True ($script:X04Tasks.Count -eq 0) 'Une lecture part sans clic.'
+        Start-DomeniaComputerServicesRead
+        Assert-True ($script:X04Tasks.Count -eq 1) ('Lectures : '+$script:X04Tasks.Count)
+        $task=$script:X04Tasks[0]
+        Assert-True (($task.OperationId -eq 'WmiQuery') -and (-not $task.IsWrite) -and ($task.TaskClass -eq 'Explicit')) ('Lecture : '+$task.OperationId+' '+$task.TaskClass)
+        Assert-True (([string]$task.Payload.ClassName -eq 'Win32_Service') -and ([string]$task.Payload.Computer -eq 'PC-DEMO-01') -and ([string]$task.Payload.Namespace -eq 'root\cimv2')) 'Requete de services inattendue.'
+        Assert-True ([string]$task.State.PublishHandler -eq 'Complete-DomeniaComputerServicesUi') 'Resultat non publie dans la liste des services.'
+        Assert-True ((Get-DomeniaOperationEffect 'WmiQuery') -eq 'Read') 'WmiQuery n est plus une lecture.'
+    }
+    Test-Case 'X04 UX-38 Demarrer ou redemarrer un service : refuse en lecture seule, confirme dans la page, envoye une fois' {
+        Initialize-X04Fixture
+        Install-X04TaskRecorder
+        Initialize-DomeniaAssist
+        $rows=@(ConvertTo-DomeniaServiceRows -Instances @([pscustomobject]@{Instance=1;Property='Name';Value='wuauserv'},[pscustomobject]@{Instance=1;Property='DisplayName';Value='Windows Update'},[pscustomobject]@{Instance=1;Property='State';Value='Stopped'},[pscustomobject]@{Instance=1;Property='StartMode';Value='Auto'}))
+        $script:DomeniaAssist.Services=[pscustomobject]@{Computer='PC-DEMO-01';DN=[string]$script:SelectedObject.DN;Epoch=1L;Generation=1L;Rows=$rows;ReadAt='10:00';Capped=$false;Redacted=0}
+        $script:Ctrl['DgCompServices']=[pscustomobject]@{Name='DgCompServices';SelectedItem=$rows[0];ItemsSource=$rows}
+        $script:ReadOnlyMode=$true
+        Request-DomeniaComputerServiceControl -Action 'Start'
+        Assert-True (($script:X04Tasks.Count -eq 0) -and ($script:InlineRequests.Count -eq 0)) 'Commande de service preparee en lecture seule.'
+        Assert-True (@($script:Dialogs | Where-Object { $_ -match 'lecture seule' }).Count -eq 1) 'Refus en lecture seule non dit.'
+        $script:ReadOnlyMode=$false
+        Request-DomeniaComputerServiceControl -Action 'Restart'
+        Assert-True (($script:X04Tasks.Count -eq 0) -and ($script:InlineRequests.Count -eq 0)) 'Un service arrete est redemarre.'
+        Request-DomeniaComputerServiceControl -Action 'Start'
+        Assert-True (($script:InlineRequests.Count -eq 1) -and ($script:X04Tasks.Count -eq 1)) ('Confirmations '+$script:InlineRequests.Count+', envois '+$script:X04Tasks.Count)
+        $task=$script:X04Tasks[0]
+        Assert-True (($task.OperationId -eq 'ComputerServiceControl') -and ($task.IsWrite)) ('Operation : '+$task.OperationId)
+        Assert-True (([string]$task.Payload.Service -eq 'wuauserv') -and ([string]$task.Payload.Action -eq 'Start') -and ([string]$task.Payload.Computer -eq 'PC-DEMO-01')) 'Charge de la commande inattendue.'
+        Assert-True ((Get-DomeniaOperationEffect 'ComputerServiceControl') -eq 'RemoteMutation') 'La commande de service n est pas une modification distante.'
+        Assert-True ([bool](Get-DomeniaReceiptRequirement 'ComputerServiceControl').Required) 'La commande de service part sans recu durable.'
+        # Another selection empties the list: no command can leave for the former workstation.
+        $script:SelectedObjectGeneration=2L
+        Request-DomeniaComputerServiceControl -Action 'Start'
+        Assert-True ($script:X04Tasks.Count -eq 1) 'Une commande part sur la liste d une autre selection.'
+    }
+    Test-Case 'X04 UX-42 Commande PowerShell : copiee avec le compte poste, jamais son mot de passe, sans fenetre' {
+        Initialize-X04Fixture
+        $secret=[guid]::NewGuid().ToString('N')
+        $script:MachineCredential=New-Object System.Management.Automation.PSCredential -ArgumentList @('EXAMPLE\adm-poste',(ConvertTo-SecureString -String $secret -AsPlainText -Force))
+        Invoke-ComputerTool -Tool 'PSRemote'
+        Assert-True ($script:X04Clipboard -ceq "Enter-PSSession -ComputerName 'PC-DEMO-01' -Credential 'EXAMPLE\adm-poste'") ('Presse-papiers : '+$script:X04Clipboard)
+        Assert-True (-not $script:X04Clipboard.Contains($secret)) 'Le mot de passe du compte poste est copie.'
+        Assert-True (($script:Dialogs.Count -eq 0) -and ($script:X04Banners -eq 1)) ('Fenetres : '+(@($script:Dialogs) -join ' | ')+' ; bandeaux : '+$script:X04Banners)
+        $script:MachineCredential=$null
+        Invoke-ComputerTool -Tool 'PSRemote'
+        Assert-True ($script:X04Clipboard -ceq "Enter-PSSession -ComputerName 'PC-DEMO-01'") ('Sans compte poste : '+$script:X04Clipboard)
+    }
+    Test-Case 'X04 UI-26 Executer un programme : panneau dans la page, deux modes, autorisation de 5 min exigee, envoi unique' {
+        Initialize-X04Fixture
+        Install-X04TaskRecorder
+        $script:ArtifactConsent=$null
+        Show-DomeniaRunProgramPanel
+        Assert-True ($script:Ctrl['UxCompRunPanel'].Visibility -eq [Windows.Visibility]::Visible) 'Panneau d execution absent.'
+        Assert-True ((@($script:X04Navigation) -join ',') -eq 'WsComputer/ComputerTabs/TabComputerAdmin') ('Navigation : '+(@($script:X04Navigation) -join ','))
+        Assert-True ([string]$script:Ctrl['TxtCompRunUser'].Text -eq 'EXAMPLE\cmartin') ('Compte prerempli : '+[string]$script:Ctrl['TxtCompRunUser'].Text)
+        # X03 x X04: the panel states the one authorisation control (top of Intervenir); it has no grant button of its own.
+        Assert-True (([string]$script:Ctrl['LblCompRunConsent'].Text).Contains('« Autoriser une intervention (5 min) »')) ('Autorisation d intervention non indiquee : '+[string]$script:Ctrl['LblCompRunConsent'].Text)
+        Assert-True (-not $script:Ctrl.ContainsKey('BtnCompRunConsent')) 'Second bouton d autorisation dans le panneau.'
+        $script:Ctrl['TxtCompRunCommand'].Text='%SystemRoot%\System32\notepad.exe'
+        Submit-DomeniaRunProgram
+        Assert-True (($script:X04Tasks.Count -eq 0) -and ($script:InlineRequests.Count -eq 0)) 'Lancement prepare sans autorisation d intervention.'
+        Assert-True (([string]$script:Ctrl['LblCompRunState'].Text) -match 'autorisation') ('Etat : '+[string]$script:Ctrl['LblCompRunState'].Text)
+        $script:ArtifactConsent=[pscustomobject]@{Target='pc-demo-01.example.invalid';Aliases=@('pc-demo-01.example.invalid','PC-DEMO-01');Epoch=1L;Expires=[datetime]::UtcNow.AddMinutes(5)}
+        $script:Ctrl['RbCompRunSystem'].IsChecked=$false;$script:Ctrl['RbCompRunUser'].IsChecked=$true
+        $script:Ctrl['TxtCompRunUser'].Text='compte avec espace'
+        Submit-DomeniaRunProgram
+        Assert-True ($script:InlineRequests.Count -eq 0) 'Compte de session invalide accepte.'
+        $script:Ctrl['RbCompRunUser'].IsChecked=$false;$script:Ctrl['RbCompRunSystem'].IsChecked=$true
+        Submit-DomeniaRunProgram
+        Assert-True (($script:InlineRequests.Count -eq 1) -and ($script:X04Tasks.Count -eq 1)) ('Confirmations '+$script:InlineRequests.Count+', envois '+$script:X04Tasks.Count)
+        $task=$script:X04Tasks[0]
+        Assert-True (($task.OperationId -eq 'RimotteRun') -and ($task.IsWrite) -and ([string]$task.Payload.Mode -eq 'System') -and ([string]$task.Payload.RunUser -eq '')) ('Lancement : '+$task.OperationId+' '+[string]$task.Payload.Mode)
+        Assert-True (($script:Dialogs.Count -eq 0) -and ($script:ConfirmCalls -eq $script:InlineRequests.Count)) 'Une fenetre a ete ouverte.'
+        Confirm-DomeniaRunProgram
+        Assert-True ($script:X04Tasks.Count -eq 1) 'Un lancement confirme est rejoue.'
     }
 }
 $passed=@($script:Checks | Where-Object { $_.Status -eq 'Passed' }).Count

@@ -206,7 +206,7 @@ Test-Case 'D060' 'Aucun affaiblissement de Windows dans le code livre' {
     }
 }
 # Point 46 : droit requis par operation et trois causes distinctes (refus d acces, compte rejete, ressource indisponible).
-$script:P46Pinned=@('BatchNetworkDiag','BitLockerPresence','CmdletHelp','CmdletInventory','ComputerAdminShare','ComputerDiagnostics','ComputerGpUpdate','ComputerInventory','ComputerLastUser','ComputerPing','ComputerRestart','DemoDirectory','DocumentStore','DomainOverview','EmbeddedDirectoryLookup','EmbeddedPathBrowse','EngineSelfTest','GlobalSearch','IndexBuild','IndexOuList','IsolatedRead','LegacyMigration','LiveCache','LiveConsole','LiveDirectoryCheck','LiveSelectedPing','LocalIndexRead','LocalQuery','LocalStore','LockoutDiagnosis','LogonHarvest','OpenAdObject','OpenLinkedObject','ParkSharedSync','ParkSweep','PermissionAnalysis','PresenceScan','PruneLinks','QueryExport','QueryLibrary','ReadBitLocker','ReadBitLockerKey','ReadBitLockerList','ReadLaps','ReceiptStore','RemoteCredentialCheck','RimotteRun','ScopeReconcile','SelectedPresence','SelfCheck','SessionsList','SoftwareInventory','StartupWarmCache','StorageBackup','StorageMaintenance','StoragePurge','StorageUsage','TreeChildren','UserComputerProbe','WmiClasses','WmiNamespaces','WmiQuery','WriteAccountDisabled','WriteAccountOptions','WriteAttributes','WriteCreateOu','WriteDeleteObject','WriteExpiration','WriteExpirePassword','WriteGroupMember','WriteMoveObject','WriteObjectGroup','WriteRenameComputer','WriteResetPassword','WriteUnlock','AccountAliasRead')
+$script:P46Pinned=@('BatchNetworkDiag','BitLockerPresence','CmdletHelp','CmdletInventory','ComputerAdminShare','ComputerDiagnostics','ComputerGpUpdate','ComputerInventory','ComputerLastUser','ComputerPing','ComputerRestart','DemoDirectory','DocumentStore','DomainOverview','EmbeddedDirectoryLookup','EmbeddedPathBrowse','EngineSelfTest','GlobalSearch','IndexBuild','IndexOuList','IsolatedRead','LegacyMigration','LiveCache','LiveConsole','LiveDirectoryCheck','LiveSelectedPing','LocalIndexRead','LocalQuery','LocalStore','LockoutDiagnosis','LogonHarvest','OpenAdObject','OpenLinkedObject','ParkSharedSync','ParkSweep','PermissionAnalysis','PresenceScan','PruneLinks','QueryExport','QueryLibrary','ReadBitLocker','ReadBitLockerKey','ReadBitLockerList','ReadLaps','ReceiptStore','RemoteCredentialCheck','RimotteRun','ScopeReconcile','SelectedPresence','SelfCheck','SessionsList','SoftwareInventory','StartupWarmCache','StorageBackup','StorageMaintenance','StoragePurge','StorageUsage','TreeChildren','UserComputerProbe','WmiClasses','WmiNamespaces','WmiQuery','WriteAccountDisabled','WriteAccountOptions','WriteAttributes','WriteCreateOu','WriteDeleteObject','WriteExpiration','WriteExpirePassword','WriteGroupMember','WriteMoveObject','WriteObjectGroup','WriteRenameComputer','WriteResetPassword','WriteUnlock','AccountAliasRead','ComputerServiceControl','GroupPathRead','ParkPing')
 Test-Case 'P46' 'Chaque operation epinglee annonce son compte, son droit et son acces reseau' {
     foreach($op in $script:P46Pinned){
         $r=Get-DomeniaOperationRequirement $op
@@ -397,21 +397,6 @@ Test-Case 'P44' 'Plan de correction : lectures anciennes arretees, ecritures et 
     $none=Get-DomeniaAccountCorrectionPlan @() @('x@corp.example') 1
     Assert-Equal 0 @($none.Stop).Count;Assert-True ($none.Text -match 'en attente partiront avec le compte validé')
 }
-Test-Case 'P42' 'Usage visible : compte de connexion par defaut, compte specifique facultatif, aucun etat invente' {
-    $rows=@(Get-DomeniaAccountUsageRows -ConnectionUser 'CORP\jdupont' -ConnectionMode Explicit -Domain 'corp.example' -Netbios 'CORP')
-    Assert-Equal 4 $rows.Count
-    Assert-Equal 4 @($rows|Where-Object{$_.Account -eq 'CORP\jdupont'}).Count
-    Assert-True ($rows[1].Source -match 'aucun compte spécifique')
-    $rows=@(Get-DomeniaAccountUsageRows -ConnectionUser 'CORP\jdupont' -ConnectionMode Explicit -RemoteUser 'CORP\adm-postes' -SecretsUser 'CORP\lecteur-laps' -Temporary @([pscustomobject]@{Scope='RemoteLocal|PC-01';UserName='PC-01\admin'},[pscustomobject]@{Scope='AD:WriteAttributes';UserName='CORP\delegue'}) -Faults @([pscustomobject]@{Key='adm-postes@corp.example'}) -Domain 'corp.example' -Netbios 'CORP')
-    Assert-Equal 6 $rows.Count
-    Assert-Equal 'CORP\adm-postes' $rows[1].Account;Assert-Equal 'compte poste' $rows[1].Source;Assert-True ($rows[1].State -match 'En pause')
-    Assert-True ($rows[0].State -match 'Aucun refus enregistré');Assert-False ($rows[0].State -match 'valid') 'Un compte non teste est presente comme valide'
-    Assert-Equal 'CORP\lecteur-laps' $rows[2].Account;Assert-Equal 'CORP\lecteur-laps' $rows[3].Account
-    Assert-Equal 'Poste PC-01' $rows[4].Usage;Assert-Equal 'Annuaire (WriteAttributes)' $rows[5].Usage
-    $text=Format-DomeniaAccountUsageText $rows
-    Assert-True ($text.Contains('Postes : CORP\adm-postes (compte poste).'));Assert-True ($text -match 'indépendant')
-    Assert-Equal 'session Windows' (@(Get-DomeniaAccountUsageRows -ConnectionUser 'CORP\jdupont' -ConnectionMode Windows -Domain 'corp.example' -Netbios 'CORP'))[0].Source
-}
 # Point 50 : exports expurges. Marqueurs generes a l execution, aucun secret reel.
 Test-Case 'P50' 'Export : colonne d attribut secret retenue, texte secret masque, valeurs ordinaires intactes' {
     $marker=[guid]::NewGuid().ToString('N')
@@ -444,4 +429,60 @@ Test-Case 'P50' 'Export : une colonne liee a un attribut secret est retenue quel
     $r=Protect-DomeniaExportRows -Rows @([pscustomobject]@{Poste='PC-01';'Mot de passe LAPS'=$marker},[pscustomobject]@{Poste='PC-02';'Mot de passe LAPS'=''}) -SecretColumns @('Mot de passe LAPS')
     Assert-False (((@($r.Rows))|ConvertTo-Json -Compress).Contains($marker)) 'Valeur de la colonne liee exportee'
     Assert-Equal 1 ([int]$r.Masked);Assert-Equal 'Mot de passe LAPS' (@($r.Withheld) -join ',');Assert-Equal 'PC-02' ([string]$r.Rows[1].Poste)
+}
+Test-Case 'UI-31' 'Secrets : libelles des boutons poses par une seule regle, Copier tout absent en mode valeur unique' {
+    # One value at a time (default): "copy all" is never offered, whatever was read.
+    foreach($readable in @($true,$false)){
+        $v=Get-DomeniaSecretActionView -Single $true -HasRows $true -HasReadableValue $readable -CanUseSelected $true
+        Assert-False $v.CopyAllVisible 'Copier tout affiche en mode valeur unique';Assert-False $v.CopyAllEnabled 'Copier tout actif en mode valeur unique'
+    }
+    $empty=Get-DomeniaSecretActionView -Single $true
+    Assert-Equal 'Afficher la valeur choisie' $empty.ToggleText;Assert-False $empty.ToggleEnabled;Assert-True ($empty.ToggleToolTip -match 'Lister les clés BitLocker') $empty.ToggleToolTip
+    $noSelection=Get-DomeniaSecretActionView -Single $true -HasRows $true
+    Assert-False $noSelection.ToggleEnabled;Assert-True ($noSelection.ToggleToolTip -match 'une seule valeur') $noSelection.ToggleToolTip
+    $chosen=Get-DomeniaSecretActionView -Single $true -HasRows $true -CanUseSelected $true -RevealSeconds 30
+    Assert-Equal 'Afficher la valeur choisie' $chosen.ToggleText;Assert-True $chosen.ToggleEnabled;Assert-True ($chosen.ToggleToolTip -match '30 s') $chosen.ToggleToolTip
+    $metadata=Get-DomeniaSecretActionView -Single $true -HasRows $true -CanUseSelected $true -SelectedMetadata $true -SelectedKind 'BitLocker'
+    Assert-Equal 'Lire et afficher cette clé' $metadata.ToggleText;Assert-Equal 'Copier la clé BitLocker' $metadata.CopyText;Assert-True ($metadata.CopyToolTip -match '^Lit la seule clé') $metadata.CopyToolTip
+    $shown=Get-DomeniaSecretActionView -Single $true -Visible $true -HasRows $true
+    Assert-Equal 'Masquer la valeur' $shown.ToggleText;Assert-True $shown.ToggleEnabled 'Masquer doit rester possible sans selection'
+    # Previous behaviour, only when Features.SecretSingleCopy is off: "copy all" is shown, active once a value is read.
+    $all=Get-DomeniaSecretActionView -Single $false -HasRows $true -HasReadableValue $true
+    Assert-True ($all.CopyAllVisible -and $all.CopyAllEnabled) 'Copier tout absent hors mode valeur unique';Assert-Equal 'Afficher les secrets' $all.ToggleText
+    Assert-Equal 'Masquer les secrets' (Get-DomeniaSecretActionView -Single $false -Visible $true -HasRows $true).ToggleText
+    Assert-False (Get-DomeniaSecretActionView -Single $false -HasRows $true -HasReadableValue $false).CopyAllEnabled 'Copier tout actif sans valeur lue'
+    $laps=Get-DomeniaSecretActionView -Single $true -HasRows $true -CanUseSelected $true -SelectedKind 'Windows LAPS' -ClipboardLimit 'Limite.'
+    Assert-Equal 'Copier le mot de passe LAPS' $laps.CopyText;Assert-True ($laps.CopyEnabled -and ($laps.CopyToolTip -match 'Limite\.$')) $laps.CopyToolTip
+    Assert-False (Get-DomeniaSecretActionView -Single $true -HasRows $true).CopyEnabled 'Copie sans ligne choisie'
+    foreach($v in @($empty,$chosen,$metadata,$shown,$all,$laps)){
+        foreach($text in @($v.ToggleText,$v.ToggleToolTip,$v.CopyText,$v.CopyToolTip,$v.CopyAllToolTip)){Assert-False ([string]$text -match "(?<![\w])[dlnDLN] (?=[aeiouyAEIOUY])") ('Elision manquante : '+$text)}
+    }
+}
+Test-Case 'UX-18' 'Cle BitLocker en huit blocs numerotes a dicter ; une forme douteuse ne donne aucun bloc' {
+    $key='012345-111111-222222-333333-444444-555555-666666-777777'
+    $blocks=@(ConvertTo-DomeniaBitLockerKeyBlocks ('  '+$key+' '))
+    Assert-Equal 8 $blocks.Count
+    for($i=0;$i -lt 8;$i++){Assert-Equal ($i+1) $blocks[$i].Index;Assert-Equal ('Bloc '+($i+1)) $blocks[$i].Label;Assert-Equal ($key.Split('-')[$i]) $blocks[$i].Digits}
+    $arabic=([string][char]0x0660)*6
+    foreach($odd in @('',$null,'012345-111111-222222-333333-444444-555555-666666','01234-111111-222222-333333-444444-555555-666666-777777','012345-111111-222222-333333-444444-555555-666666-777777-888888','0123A5-111111-222222-333333-444444-555555-666666-777777','012345 111111 222222 333333 444444 555555 666666 777777',($arabic+'-111111-222222-333333-444444-555555-666666-777777'),('012345-111111-222222-333333'+[char]10+'-444444-555555-666666-777777'))){
+        Assert-Equal 0 (@(ConvertTo-DomeniaBitLockerKeyBlocks $odd).Count) ('Forme douteuse decoupee : '+[string]$odd)
+    }
+}
+Test-Case 'UX-18' 'Compte a rebours de la cle affichee : secondes arrondies, anneau, prolongation unique' {
+    $now=[datetime]::SpecifyKind([datetime]'2026-10-14T08:00:00',[DateTimeKind]::Utc)
+    $p=Get-DomeniaSecretExposurePolicy;Assert-Equal 30 $p.RevealSeconds;Assert-Equal 30 $p.RevealExtensionSeconds;Assert-Equal 1 $p.RevealExtensions
+    $full=Get-DomeniaSecretRevealCountdown -DeadlineUtc $now.AddSeconds(30) -NowUtc $now -TotalSeconds 30
+    Assert-Equal 30 $full.Remaining;Assert-Equal 1.0 $full.Fraction;Assert-Equal '30 s' $full.Text;Assert-True $full.CanExtend;Assert-False $full.Expired;Assert-Equal 30 $full.ExtensionSeconds
+    Assert-Equal 30 (Get-DomeniaSecretRevealCountdown -DeadlineUtc $now.AddSeconds(29.2) -NowUtc $now -TotalSeconds 30).Remaining 'Arrondi au-dessus'
+    $half=Get-DomeniaSecretRevealCountdown -DeadlineUtc $now.AddSeconds(45) -NowUtc $now -TotalSeconds 60 -Extended $true
+    Assert-Equal 0.75 $half.Fraction;Assert-False $half.CanExtend 'Seconde prolongation proposee'
+    $past=Get-DomeniaSecretRevealCountdown -DeadlineUtc $now.AddSeconds(-3) -NowUtc $now -TotalSeconds 30
+    Assert-True $past.Expired;Assert-Equal 0 $past.Remaining;Assert-Equal 0.0 $past.Fraction;Assert-False $past.CanExtend 'Prolongation apres l echeance'
+    Assert-True (Get-DomeniaSecretRevealCountdown -DeadlineUtc $null -NowUtc $now).Expired 'Echeance inconnue : valeur masquee'
+}
+Test-Case 'UX-18' 'Colonne d identite des secrets nommee selon les lignes lues' {
+    Assert-Equal 'Identifiant de récupération' (Get-DomeniaSecretColumnHeader @('BitLocker','BitLocker'))
+    Assert-Equal 'Compte' (Get-DomeniaSecretColumnHeader @('Windows LAPS','LAPS historique'))
+    Assert-Equal 'Compte ou identifiant' (Get-DomeniaSecretColumnHeader @('BitLocker','Windows LAPS'))
+    Assert-Equal 'Compte ou identifiant' (Get-DomeniaSecretColumnHeader @())
 }

@@ -25,7 +25,7 @@ function New-DomeniaLiveResultRow {
     if($null -ne $rowType){return [Activator]::CreateInstance($rowType)}
     # In a restricted desktop, lack of runtime compilation must not prevent searching.
     $values=[ordered]@{}
-    foreach($name in @('Type','Name','Login','UPN','Mail','Description','Changed','DN','State','OS','LastLogon','Guid','Association','LinkSource','LinkConfidence','Presence','PresenceDetail','SessionDisplay','SessionState','SessionSource','SessionChecked','SessionObserved','SessionDetail','DirectoryState','DirectoryChecked','Rank','Admin')){$values[$name]=''}
+    foreach($name in @('Type','Name','Login','UPN','Mail','Description','Changed','DN','State','OS','LastLogon','Guid','Association','LinkSource','LinkConfidence','Presence','PresenceDetail','SessionDisplay','SessionState','SessionSource','SessionChecked','SessionObserved','SessionDetail','DirectoryState','DirectoryChecked','Rank','Admin','PresenceState','PresenceAge','PresenceCached','ProbePending','DirectoryFresh')){$values[$name]=''}
     return [pscustomobject]$values
 }
 function ConvertTo-DomeniaLiveSnapshot {
@@ -127,28 +127,82 @@ function Test-DomeniaLiveIdentity {
     param($State,[long]$SessionEpoch,[string]$Identity)
     return ($null -ne $State -and [long]$State.Epoch -eq $SessionEpoch -and [string]$State.Identity -ceq $Identity)
 }
+function Get-DomeniaPresenceStateKeys {
+    # FI-16: the state of a presence is one of these keys. Colour, pill, filter and counters read the key, never
+    # the label shown to the operator, so a label can be reworded without changing what it means.
+    return @('Online','NoReply','Error','Pending','Unknown','None')
+}
+function ConvertTo-DomeniaPresenceStateKey {
+    # The only place that reads a presence value as text: values written by the workers and the store ('En ligne',
+    # 'Sans réponse au ping', 'Erreur de ping'), older stored values ('Hors ligne', 'Inconnu', 'Test en cours...'),
+    # the filter choices and the fiche labels that start with a state. A key is returned unchanged.
+    param([AllowNull()][AllowEmptyString()][string]$Presence)
+    $value=([string]$Presence).Trim()
+    if($value -in @(Get-DomeniaPresenceStateKeys)){return $value}
+    $value=($value -replace '\s*\(cache\)$','').Trim()
+    if(-not $value -or $value -in @('Inconnu','Unknown')){return 'Unknown'}
+    if($value -like 'En ligne*'){return 'Online'}
+    if($value -like 'Sans r*ponse*' -or $value -like 'Hors ligne*'){return 'NoReply'}
+    if($value -like 'Erreur de ping*'){return 'Error'}
+    if($value -like 'V*rification*' -or $value -like 'Test*'){return 'Pending'}
+    if($value -like 'Sans objet*' -or $value -like 'Aucun poste*'){return 'None'}
+    return 'Unknown'
+}
+function Get-DomeniaPresenceStateLabel {
+    # Short label of a state key, as the grid, the pills and the filter show it.
+    param([AllowEmptyString()][string]$State)
+    switch(ConvertTo-DomeniaPresenceStateKey $State){
+        'Online' {return 'En ligne'}
+        'NoReply' {return 'Sans réponse au ping'}
+        'Error' {return 'Erreur de ping'}
+        'Pending' {return 'Vérification en cours'}
+        'None' {return 'Sans objet'}
+        default {return 'Non vérifié'}
+    }
+}
+function Get-DomeniaLiveAgeText {
+    # DS-15: discreet age of a measure, 'il y a 2 h', in place of the former '(cache)' suffix. Same wording as
+    # Format-DomeniaAge (Boards), kept here so that this model stays loadable on its own. Empty when unreadable.
+    param([AllowEmptyString()][string]$CheckedUtc,[datetime]$NowUtc=[datetime]::UtcNow)
+    $stamp=[datetimeoffset]::MinValue
+    if(-not [datetimeoffset]::TryParse([string]$CheckedUtc,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::AssumeUniversal,[ref]$stamp)){return ''}
+    $span=$NowUtc.ToUniversalTime()-$stamp.UtcDateTime
+    if($span.TotalMinutes -lt 1){return 'à lʼinstant'}
+    if($span.TotalHours -lt 1){return 'il y a '+[int][Math]::Floor($span.TotalMinutes)+' min'}
+    if($span.TotalDays -lt 1){return 'il y a '+[int][Math]::Floor($span.TotalHours)+' h'}
+    return 'il y a '+[int][Math]::Floor($span.TotalDays)+' j'
+}
 function Get-DomeniaLivePresenceView {
-    param($Observation,[switch]$Cached)
-    $state=Get-DomeniaLiveField $Observation 'Presence' 'Non vérifié'
-    if($state -in @('','Inconnu')){$state='Non vérifié'}
-    if($state -eq 'Hors ligne'){$state='Sans réponse au ping'}
+    # FI-16 / DS-15: the view carries the state key (PresenceState), whether the value comes from an earlier session
+    # (IsCached), the time of the measure (ObservedUtc) and its age. Display is the short label without '(cache)'.
+    param($Observation,[switch]$Cached,[datetime]$NowUtc=[datetime]::UtcNow)
+    $key=ConvertTo-DomeniaPresenceStateKey (Get-DomeniaLiveField $Observation 'Presence' 'Non vérifié')
+    if($key -in @('Pending','None')){$key='Unknown'}
+    $state=Get-DomeniaPresenceStateLabel $key
     $at=Get-DomeniaLiveField $Observation 'PresenceCheckedUtc' (Get-DomeniaLiveField $Observation 'CheckedUtc')
     $message=Get-DomeniaLiveField $Observation 'PresenceDetail'
-    if($state -eq 'Non vérifié'){$at='';$message='Sélectionnez ce poste pour envoyer un seul ping. Aucun contrôle collectif.'}
-    if($state -eq 'Sans réponse au ping'){$message+=' Pas de réponse ICMP : poste indisponible ou ICMP filtré, sans preuve qu''il est éteint.'}
-    $display=$state
-    if($Cached -and $at -and $state -ne 'Non vérifié'){$display+=' (cache)'}
-    [pscustomobject]@{Display=$display;State=$state;Checked=$at;Detail=($message+"`r`nVérification réseau UTC : "+$at+$(if($Cached){"`r`nObservation historique, pas un état actuel confirmé."}else{''}))}
+    if($key -eq 'Unknown'){$at='';$message='Sélectionnez ce poste puis Revérifier ce poste pour envoyer un seul ping. Aucun contrôle collectif.'}
+    if($key -eq 'NoReply'){$message+=' Pas de réponse ICMP : poste indisponible ou ICMP filtré, sans preuve quʼil est éteint.'}
+    $historical=([bool]$Cached -and [bool]$at -and $key -ne 'Unknown')
+    $age=if($at){Get-DomeniaLiveAgeText -CheckedUtc $at -NowUtc $NowUtc}else{''}
+    $detail=$message+"`r`nVérification réseau UTC : "+$at
+    if($age){$detail+=' ('+$age+')'}
+    if($historical){$detail+="`r`nObservation historique, pas un état actuel confirmé."}
+    [pscustomobject]@{Display=$state;State=$state;PresenceState=$key;IsCached=$historical;ObservedUtc=$at;Age=$age;Checked=$at;Detail=$detail}
+}
+function Get-DomeniaRowPresenceState {
+    # State key of a result row: its PresenceState property, or for a row built before FI-16, the key of its text.
+    param($Row)
+    if($null -eq $Row){return 'Unknown'}
+    $key=Get-DomeniaLiveField $Row 'PresenceState'
+    if($key -in @(Get-DomeniaPresenceStateKeys)){return $key}
+    return (ConvertTo-DomeniaPresenceStateKey (Get-DomeniaLiveField $Row 'Presence'))
 }
 function Test-DomeniaPresenceMatch {
+    # FI-16: compares state keys. -State takes a key (PresenceState of a row) or, for an older row, its text.
     param([string]$State,[string]$Filter)
-    if(-not $Filter -or $Filter -eq 'Tous'){return $true}
-    $state=($State -replace ' \(cache\)$','').Trim()
-    if($state -in @('','Inconnu')){$state='Non vérifié'}
-    if($Filter -eq 'Inconnu'){$Filter='Non vérifié'}
-    if($Filter -eq 'Hors ligne'){$Filter='Sans réponse au ping'}
-    if($state -eq 'Hors ligne'){$state='Sans réponse au ping'}
-    return ($state -eq $Filter)
+    if(-not $Filter -or $Filter -in @('Tous','All')){return $true}
+    return ((ConvertTo-DomeniaPresenceStateKey $State) -ceq (ConvertTo-DomeniaPresenceStateKey $Filter))
 }
 function Test-DomeniaLiveRowInScope {
     # A displayed row must belong to the scope of the running search: a row from another OU (cache or late
@@ -201,6 +255,30 @@ function Get-NativeCode($ErrorValue){
     }
     return 0L
 }
+# Point 127 (stale DNS record, reassigned address): Win32_ComputerSystem names the workstation that answered. A
+# positive mismatch with the requested name leaves every value of this CIM read unattributed. An address target or a
+# reply without names cannot be compared and keeps the former behaviour (identity not verified, not refused).
+# The target is the DNS host name or, without one, the AD cn, which is the NetBIOS name cut at 15 characters; the reply
+# carries both its DNS host name and its NetBIOS Name. The reply is the requested workstation when any of its identities
+# matches the target in either form; a mismatch is stated only when none does.
+function Get-LiveHostMismatch($Target,$System){
+    $wanted=([string]$Target).Trim().TrimEnd('.')
+    if((-not $wanted) -or ($wanted -match '^[0-9.]+$') -or ($null -eq $System)){return ''}
+    $short=$wanted.Split('.')[0];$dns='';$name=''
+    if($null -ne $System.PSObject.Properties['DNSHostName']){$dns=([string]$System.DNSHostName).Trim().TrimEnd('.')}
+    if($null -ne $System.PSObject.Properties['Name']){$name=([string]$System.Name).Trim()}
+    if((-not $dns) -and (-not $name)){return ''}
+    $netbios=$short;if($netbios.Length -gt 15){$netbios=$netbios.Substring(0,15)}
+    if($dns){
+        $label=$dns.Split('.')[0]
+        if(($label -ieq $short) -or ($label -ieq $netbios)){return ''}
+        # A cn target holds the cut NetBIOS form of a longer host name.
+        if(($label.Length -gt 15) -and ($label.Substring(0,15) -ieq $short)){return ''}
+    }
+    if($name -and (($name -ieq $short) -or ($name -ieq $netbios))){return ''}
+    $reported=$name;if($dns){$reported=$dns}
+    return ('Le poste qui répond à '+$Target+' se nomme '+$reported+' : enregistrement DNS périmé, adresse réattribuée ou poste renommé. Aucune donnée de cette lecture nʼest attribuée.')
+}
 # Ping is an independent collection. A WMI-only request never sends ICMP.
 if($collectPing){
 try {
@@ -248,17 +326,21 @@ try{
     $cim=New-CimSession @parameters
     # Console, inventory and catalog probes share one session but fail independently.
     # CIM reachability is not an ICMP measurement and must not refresh the Ping family.
-    $system=$null
+    $system=$null;$hostMismatch=''
     if($probeUser){
         $answer.ConsoleAttempted=$true
         try{
-            $csProperties=@('UserName');if($collectInventory){$csProperties+=@('Manufacturer','Model','TotalPhysicalMemory')}
+            $csProperties=@('UserName','Name','DNSHostName');if($collectInventory){$csProperties+=@('Manufacturer','Model','TotalPhysicalMemory')}
             $system=Get-CimInstance -CimSession $cim -ClassName Win32_ComputerSystem -Property $csProperties -OperationTimeoutSec $timeout -ErrorAction Stop
             if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null}
             if($null -eq $system){throw 'Le fournisseur CIM ne retourne pas Win32_ComputerSystem.'}
+            $hostMismatch=Get-LiveHostMismatch $target $system
+            if($hostMismatch){$system=$null;throw $hostMismatch}
             $answer.User=([string]$system.UserName).Trim()
             $answer.Outcome=if($answer.User){'Observed'}else{'NoConsole'}
         }catch{
+            # Another workstation answered: nothing of this session is attributed (outer catch).
+            if($hostMismatch){throw}
             if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw}
             $code=Get-NativeCode $_
             $answer.Outcome=if($code -in @(2147943726,2147944309,2147943730,2147943731,2147943732,2147943734)){'AuthRejected'}elseif($code -in @(2147942405,2147749891)){'Denied'}elseif($_.Exception.Message -match '(?i)timeout|timed out|délai|delai'){'Timeout'}else{'Unavailable'}
@@ -270,11 +352,15 @@ try{
         try{
             $os=Get-CimInstance -CimSession $cim -ClassName Win32_OperatingSystem -Property Caption,BuildNumber,LastBootUpTime -OperationTimeoutSec $timeout -ErrorAction Stop
             if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null}
-            if($null -eq $system){$system=Get-CimInstance -CimSession $cim -ClassName Win32_ComputerSystem -Property Manufacturer,Model,TotalPhysicalMemory -OperationTimeoutSec $timeout -ErrorAction Stop}
+            if($null -eq $system){
+                $system=Get-CimInstance -CimSession $cim -ClassName Win32_ComputerSystem -Property Manufacturer,Model,TotalPhysicalMemory,Name,DNSHostName -OperationTimeoutSec $timeout -ErrorAction Stop
+                $hostMismatch=Get-LiveHostMismatch $target $system
+                if($hostMismatch){$system=$null;throw $hostMismatch}
+            }
             $disk=Get-CimInstance -CimSession $cim -ClassName Win32_LogicalDisk -Filter "DeviceID='C:'" -Property Size,FreeSpace -OperationTimeoutSec $timeout -ErrorAction Stop
             if($null -eq $os -or $null -eq $system){throw 'Le fournisseur CIM nʼa pas retourné les informations système demandées.'}
             $answer.Inventory=[pscustomobject]@{OsCaption=[string]$os.Caption;Build=[string]$os.BuildNumber;LastBootUtc=$(try{([datetime]$os.LastBootUpTime).ToUniversalTime().ToString('o')}catch{''});Manufacturer=([string]$system.Manufacturer).Trim();Model=([string]$system.Model).Trim();RamBytes=$(if($null -ne $system -and $null -ne $system.TotalPhysicalMemory){[double]$system.TotalPhysicalMemory}else{$null});DiskSize=$(if($null -ne $disk -and $null -ne $disk.Size){[double]$disk.Size}else{$null});DiskFree=$(if($null -ne $disk -and $null -ne $disk.FreeSpace){[double]$disk.FreeSpace}else{$null});CheckedUtc=[datetime]::UtcNow.ToString('o')}
-        }catch{if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw};$answer.InventoryError=[string]$_.Exception.Message}finally{if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null};$answer.InventoryCheckedUtc=[datetime]::UtcNow.ToString('o')}
+        }catch{if($hostMismatch){throw};if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw};$answer.InventoryError=[string]$_.Exception.Message}finally{if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null};$answer.InventoryCheckedUtc=[datetime]::UtcNow.ToString('o')}
     }
     # Widget probes (decision David 2026-10-07): catalog queries run read-only in the same CIM session. Only class,
     # namespace, property names and a filter come from the catalog; names are checked before the call.
@@ -462,7 +548,10 @@ function Open-DomeniaDatabase {
         $flags = if ($ReadOnly) { 1 -bor 65536 } else { 2 -bor 4 -bor 65536 }
         $rc = [Domenia.WinSqliteNative]::sqlite3_open_v2($pathPtr,[ref]$db,$flags,[IntPtr]::Zero)
         if ($rc -ne 0 -or $db -eq [IntPtr]::Zero) { throw "Ouverture SQLite impossible (code $rc)." }
-        [void][Domenia.WinSqliteNative]::sqlite3_busy_timeout($db,300)
+        # FI-12: lock wait from the worker context (LocalStore.DatabaseBusyTimeoutMs), 2 500 ms without one.
+        $busyMs=2500;$workerContext=Get-Variable -Name Context -ValueOnly -ErrorAction SilentlyContinue
+        if(($null -ne $workerContext) -and ($null -ne $workerContext.PSObject.Properties['BusyTimeoutMs'])){$busyMs=[Math]::Max(100,[Math]::Min(5000,[int]$workerContext.BusyTimeoutMs))}
+        [void][Domenia.WinSqliteNative]::sqlite3_busy_timeout($db,$busyMs)
         if(-not $ReadOnly){
             Assert-StoreWDatabaseWritable -Db $db
             if($null -eq $script:DomeniaDatabaseLeases){$script:DomeniaDatabaseLeases=@{}}

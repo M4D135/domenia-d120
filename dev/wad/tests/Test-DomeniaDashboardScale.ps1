@@ -25,7 +25,7 @@ foreach($count in $Counts){
   Expect ([int]$board.Entries['fleet.machines'].Value -eq $count -and [int]$board.Entries['fleet.enabled'].Value -eq $enabled -and [int]$board.Entries['fleet.accountunknown'].Value -eq $disabled) 'Account population mismatch'
   Expect ($board.Last.ProblemTargets.Count -eq $enabled/20 -and $board.Last.UnknownTargets.Count -eq 0 -and $board.Last.HealthyTargets.Count -eq ($enabled-$enabled/20)) 'Health partition mismatch'
   Expect ($board.Entries['fleet.models'].Items.Count -eq 60 -and $board.Entries['fleet.ou'].Items.Count -eq 40) 'Category data was truncated before rendering'
-  foreach($key in @('fleet.accountstatus','fleet.presence','fleet.models','fleet.releases','fleet.ram','fleet.diskfree','fleet.versions','fleet.os','fleet.servers','fleet.lastlogon','fleet.ou')){
+  foreach($key in @('fleet.accountstatus','fleet.presence','fleet.wmi','fleet.reach','fleet.models','fleet.releases','fleet.ram','fleet.diskfree','fleet.versions','fleet.os','fleet.servers','fleet.lastlogon','fleet.ou')){
    $sum=0
    foreach($part in $board.Entries[$key].Items){$targetKey=$key+'|'+$part.Label;Expect ($board.Last.WidgetTargets.ContainsKey($targetKey)) ('Missing exact category '+$targetKey);$targets=@($board.Last.WidgetTargets[$targetKey]);Expect ($targets.Count -eq [int]$part.Value) ('Counter/detail mismatch '+$targetKey);$unique=[Collections.Generic.HashSet[string]]::new();foreach($target in $targets){[void]$unique.Add([string]$target.object_guid)};Expect ($unique.Count -eq $targets.Count) ('Duplicate GUID '+$targetKey);$sum+=[int]$part.Value}
    $expected=if($key -eq 'fleet.accountstatus'){$count}else{$enabled};Expect ($sum -eq $expected) ('Incomplete total '+$key)
@@ -33,6 +33,9 @@ foreach($count in $Counts){
   $folded=Get-DomeniaChartCategoryGroups -Items $board.Entries['fleet.models'].Items -Maximum 8
   Expect ($folded.Count -eq 8 -and (($folded|Measure-Object Value -Sum).Sum) -eq $enabled -and $folded[-1].Items.Count -eq 53 -and $folded[-1].Select.Labels.Count -eq 53) 'Other categories lost values or original labels'
   $disk=@($board.HealthExplanation.Rows|Where-Object Id -eq lowdisk)[0];Expect ($disk.Machines -eq $enabled/20 -and $disk.Guids.Count -eq $enabled/20) 'Rule contribution count differs from exact targets'
+  Expect ([string]$disk.Eligible -eq ([string]$enabled+' / '+$enabled)) ('Eligible population '+$disk.Eligible)
+  Expect (@($board.Last.WidgetTargets['fleet.reach|WMI répond, pas le ping']).Count -eq $enabled/40) 'Filtered ICMP with a WMI answer not kept apart at scale'
+  foreach($pivot in @('OuWindows','ModelRam','SiteCoverage')){$matrix=ConvertTo-DomeniaPivotMatrix -Table $board.Pivots[$pivot];$columnSum=0;foreach($n in @($matrix.ColumnTotals)){$columnSum+=$n};Expect (($matrix.GrandTotal -eq $enabled) -and ($columnSum -eq $enabled)) ('Cross table totals '+$pivot)}
  }
 }
 Case 'Grouping preserves original typed selections and supports an all-other single row' {

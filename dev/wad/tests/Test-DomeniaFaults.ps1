@@ -554,6 +554,49 @@ try {
         $lines=@([IO.File]::ReadAllLines($script:AuditPath)|Where-Object{$_.Contains($code)})
         Assert-True (($lines.Count -eq 1) -and $lines[0].Contains('['+$code+'] Lecture de test')) ('Domenia.log : '+($lines -join ' | '))
     }
+    Test-Case 'P-CD-09 : erreur ignoree au journal technique (Domenia.log, jamais le journal lisible), echantillonnee, jamais remontee' {
+        Reset-FaultFixture
+        $script:DomeniaErrorOccurrences=$null;$script:CurrentUiProfile='Tech'
+        # Real chain as in FI-07: Write-DomeniaSwallowed of the core around Add-DomeniaSwallowedEntry of the closed plan,
+        # then Write-AppLog, Add-DomeniaUiLog, readable journal and Domenia.log writer.
+        foreach($name in @('Write-DomeniaSwallowed','Add-DomeniaUiLog','Write-AppLog','ConvertTo-DomeniaLogFileLines','Get-DomeniaAppLogFallbackPaths','Write-DomeniaAppLogFile',
+            'Start-DomeniaAppLogFlushTimer','Stop-DomeniaAppLogQueue','Invoke-DomeniaAppLogRotation','Flush-DomeniaAppLog','Invoke-DomeniaAppLogFlush','Set-DomeniaAppLogAvailability')){
+            . ([scriptblock]::Create((Get-FunctionAst $script:CoreAst $name).Extent.Text))
+        }
+        function Initialize-DomeniaDataStore {}
+        function Add-DomeniaSupportIncidentFromLog {param($Text,$Level,$Area)}
+        $script:Window=$null;$script:UiLogLines=$null;$script:UiLogReadableItems=$null;$script:UiLogVisuallyCollapsed=$true;$script:UiLogUnreadErrors=0
+        $script:AuditPath=Join-Path $temp 'swallowed-Domenia.log';$script:AppLogQueue=$null;$script:AppLogUnavailable=$false;$script:AppLogRetryAt=$null;$script:AppLogLastLine=$null
+        $script:DomeniaSwallowedState=$null;$script:DomeniaSwallowedWriting=$false
+        # A value shown in this session is known to Protect-DomeniaLogText only, not to the Model rule.
+        $script:SecretRows=@([pscustomobject]@{Value='Valeur-Affichee-0101'})
+        try {
+            $t0=[datetime]::SpecifyKind([datetime]'2026-01-01T10:00:00',[DateTimeKind]::Utc)
+            $err=[InvalidOperationException]::new('copie de Valeur-Affichee-0101 refusee, password=MARQUEUR-SECRET-0102')
+            $out=@(Write-DomeniaSwallowed 'Secrets' 'Copy' $err -Now $t0)
+            Write-DomeniaSwallowed 'Secrets' 'Copy' $err -Now ($t0.AddSeconds(30))
+            Write-DomeniaSwallowed 'Secrets' 'Copy' $err -Now ($t0.AddSeconds(61))
+            Assert-True ($out.Count -eq 0) ('Sortie sur le pipeline : '+$out.Count)
+            $entries=@(Get-DomeniaSwallowedEntries)
+            $outcomes=(@($entries|ForEach-Object{[string]$_.Journal}) -join ',')
+            Assert-True ($outcomes -eq 'Logged,Sampled,Logged') ('Issues : '+$outcomes)
+            Assert-True ($entries[0].Message.Contains('[SECRET MASQUE]') -and (-not $entries[0].Message.Contains('Valeur-Affichee-0101'))) ('Masquage du coeur absent : '+$entries[0].Message)
+            $lines=@([IO.File]::ReadAllLines($script:AuditPath)|Where-Object{$_.Contains('[Secrets] Copy')})
+            Assert-True ($lines.Count -eq 2) ('Lignes Domenia.log : '+$lines.Count)
+            Assert-True (@($lines|Where-Object{($_ -split "`t")[1] -eq 'DEBUG'}).Count -eq 2) ('Niveau : '+($lines -join ' | '))
+            Assert-True ($lines[1].EndsWith('(+1 occurrence(s) depuis la ligne précédente)',[StringComparison]::Ordinal)) ('Regroupement : '+$lines[1])
+            Assert-True (@($lines|Where-Object{$_.Contains('Valeur-Affichee-0101') -or $_.Contains('MARQUEUR-SECRET-0102')}).Count -eq 0) 'Secret dans Domenia.log.'
+            Assert-True (@($script:UiLogReadableItems).Count -eq 0) 'Ligne technique dans le journal lisible.'
+            # Journal in failure that traces its own failure: nothing is thrown, the inner trace is a reentry.
+            function Write-AppLog {param([string]$Text,[string]$Level,[string]$Area) Write-DomeniaSwallowed 'Journal' 'Write-AppLog' ([InvalidOperationException]::new('token=MARQUEUR-SECRET-0103'));throw 'journal indisponible'}
+            $out=@(Write-DomeniaSwallowed 'Stockage' 'Save' ([InvalidOperationException]::new('disque plein')) -Now $t0)
+            Assert-True ($out.Count -eq 0) 'Exception ou sortie remontee par la trace.'
+            $tail=@(Get-DomeniaSwallowedEntries|Select-Object -Last 2)
+            Assert-True (($tail[0].Category -eq 'Stockage') -and ($tail[0].Journal -eq 'Unavailable')) ('Trace principale : '+$tail[0].Category+' '+$tail[0].Journal)
+            Assert-True (($tail[1].Category -eq 'Journal') -and ($tail[1].Journal -eq 'Reentry') -and ($tail[1].Message -eq '')) ('Reentree : '+$tail[1].Category+' '+$tail[1].Journal+' '+$tail[1].Message)
+            Assert-True (-not [bool]$script:DomeniaSwallowedWriting) 'Verrou d ecriture du journal non relache.'
+        } finally { $script:DomeniaSwallowedState=$null;$script:DomeniaSwallowedWriting=$false;$script:SecretRows=@() }
+    }
     Test-Case 'UI-02 : faute interne sans texte .NET a l ecran, message Domenia et refus systeme conserves' {
         $nullFault=try{$o=$null;$o.Methode()}catch{$_}
         $internal=ConvertTo-DomeniaErrorInfo -ErrorRecordOrException $nullFault -Operation 'Lecture de test'

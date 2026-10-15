@@ -131,6 +131,9 @@ $summary=[ordered]@{
     Note='Campagne d integration dans la VM. Ne remplace pas le rapport de qualification lie au ZIP (release_guard.py --require-windows).'
     Host=[ordered]@{Platform='Windows';Computer=[string]$env:COMPUTERNAME;PSEdition=[string]$PSVersionTable.PSEdition;PSVersion=$PSVersionTable.PSVersion.ToString();OS=[Environment]::OSVersion.VersionString;Is64BitProcess=[Environment]::Is64BitProcess;Interactive=[Environment]::UserInteractive;SessionId=[Diagnostics.Process]::GetCurrentProcess().SessionId}
     Source=$source
+    # Point 130: facts only, read locally (no network). tools/validation_matrix.py --classify-report decides whether
+    # this run is a laboratory one or a run on the real domain; the campaign never classifies itself.
+    Environment=[ordered]@{Computer=[string]$env:COMPUTERNAME;Domain=$(try{[string][Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().DomainName}catch{''});UserDomain=[string]$env:USERDOMAIN;UserDnsDomain=[string]$env:USERDNSDOMAIN}
     Steps=$merged.ToArray()
 }
 [IO.File]::WriteAllText($summaryPath,($summary|ConvertTo-Json -Depth 6),$utf8)

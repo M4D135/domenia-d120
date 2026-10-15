@@ -332,8 +332,9 @@ function Invoke-DomeniaObjectChanges {
         $r=$event.Row;$key=([string]$r.OldDN).ToLowerInvariant()
         if(-not $s.Map.ContainsKey($key)){continue};$row=$s.Map[$key]
         if([string]$row.Guid -ine [string]$r.Guid){continue}
-        if($r.Status -eq 'Unconfirmed'){$row.DirectoryState='A reverifier : deplace, filtre ou acces';continue}
-        if($r.DN -ine $row.DN){$row.DirectoryState='Objet deplace : relancer la recherche';$c.CacheDirty=$true;continue}
+        # DS-15 / FI-16: DirectoryFresh carries the key of the freshness icon; the wording stays in DirectoryState.
+        if($r.Status -eq 'Unconfirmed'){$row.DirectoryState='A reverifier : deplace, filtre ou acces';Set-DomeniaLiveRowValue $row 'DirectoryFresh' 'Warning';continue}
+        if($r.DN -ine $row.DN){$row.DirectoryState='Objet deplace : relancer la recherche';Set-DomeniaLiveRowValue $row 'DirectoryFresh' 'Warning';$c.CacheDirty=$true;continue}
         if($r.Status -eq 'Changed' -and $null -ne $r.Row){
             $snapshot=ConvertTo-DomeniaLiveSnapshot $r.Row
             foreach($p in $snapshot.PSObject.Properties){Set-DomeniaLiveRowValue $row $p.Name $p.Value}
@@ -342,6 +343,7 @@ function Invoke-DomeniaObjectChanges {
             [void](Clear-DomeniaVisitCacheForObject -Guid ([string]$row.Guid) -Dn ([string]$row.DN))
             $row.DirectoryState='AD mis a jour'
         }else{$row.DirectoryState='AD revalide'}
+        Set-DomeniaLiveRowValue $row 'DirectoryFresh' 'Verified'
         $row.DirectoryChecked=$event.At;$c.Stamps[[string]$r.Guid]=[string]$r.Stamp
     }
     if($c.CacheDirty -and $c.ChangeEvents.Count -eq 0){

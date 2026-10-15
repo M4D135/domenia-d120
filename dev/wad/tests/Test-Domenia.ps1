@@ -792,7 +792,7 @@ try {
         # Le Resume etait le seul point de chute, quel que soit l objet : un utilisateur y ouvrait Type, Classe,
         # GUID et DN avant de montrer son compte. Il reste la vue des objets que l application ne sait pas nommer.
         foreach ($attendu in @(@('Utilisateur','WsObject','DetailTabs','TabUser'),
-                               @('Machine','WsComputer','ComputerTabs','TabComputerDashboard'),
+                               @('Machine','WsComputer','ComputerTabs','TabComputer'),
                                @('Groupe','WsObject','DetailTabs','TabGroup'),
                                @('OU','WsObject','DetailTabs','TabContainer'),
                                @('Conteneur','WsObject','DetailTabs','TabContainer'),
@@ -807,7 +807,7 @@ try {
         # demande ne se selectionne pas, et Select-DomeniaWorkspace passe alors sans rien signaler.
         $xaml = [xml](Get-MainXaml)
         $XNS = 'http://schemas.microsoft.com/winfx/2006/xaml'
-        foreach ($destination in @(@('WsObject','DetailTabs','TabUser'),@('WsComputer','ComputerTabs','TabComputerDashboard'),
+        foreach ($destination in @(@('WsObject','DetailTabs','TabUser'),@('WsComputer','ComputerTabs','TabComputer'),
                                    @('WsObject','DetailTabs','TabGroup'),@('WsObject','DetailTabs','TabContainer'),
                                    @('WsObject','DetailTabs','TabGeneric'))) {
             $espace = @($xaml.SelectNodes('//*[local-name()="TabItem"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq $destination[0] })

@@ -8,7 +8,7 @@
 [CmdletBinding()]param([string]$ReportPath='',[switch]$NativeWindows)
 $ErrorActionPreference='Stop'
 $wad=Split-Path -Parent $PSScriptRoot
-foreach($name in @('Common.Model','Relations.Model','Guard.Model','Safety.Model','Access.Model','Store.Model','CredentialVault.Model','Accounts.Store.UI','Accounts.Vault.UI')){. (Join-Path $wad ('modules/Domenia-'+$name+'.ps1'))}
+foreach($name in @('Common.Model','Relations.Model','Guard.Model','Safety.Model','Access.Model','Accounts.Model','Store.Model','CredentialVault.Model','Accounts.Store.UI','Accounts.Vault.UI')){. (Join-Path $wad ('modules/Domenia-'+$name+'.ps1'))}
 $checks=[Collections.Generic.List[object]]::new()
 $script:RealVaultRead=${function:Get-DomeniaCredentialVaultCredential}
 $script:RealVaultSave=${function:Save-DomeniaCredentialVaultCredential}
@@ -174,8 +174,9 @@ Case 'Aucune valeur secrete dans le lot SQLite ni dans le journal, meme quand le
     Assert-NoMarker 'SQLite et journal'
 }
 Case 'Aucune valeur secrete dans un export, meme ecrite par erreur dans un champ' {
-    $rows=@(Get-DomeniaAccountUsageRows -ConnectionUser 'EXAMPLE\operateur' -ConnectionMode Explicit -RemoteUser 'EXAMPLE\postes' -Domain 'vault-qualification.invalid' -Netbios 'EXAMPLE')
-    $rows+=@([pscustomobject]@{Usage='Note';Account=('password='+$script:Marker);Source='saisie';State='';'ms-Mcs-AdmPwd'=$script:Marker})
+    # The rows of « En ce moment » (accounts in use, origin and state), plus a field filled by mistake.
+    $rows=@((Get-DomeniaAccountsInUseRows -DirectoryAccount 'EXAMPLE\operateur' -DirectoryMode 'Explicit' -Machine (Get-DomeniaMachineAccountLabel -Source 'Remote' -Account 'EXAMPLE\postes') -Domain 'vault-qualification.invalid' -Netbios 'EXAMPLE').Now)
+    $rows+=@([pscustomobject]@{Resource='Note';Account=('password='+$script:Marker);Origin='saisie';State='';'ms-Mcs-AdmPwd'=$script:Marker})
     $export=Protect-DomeniaExportRows -Rows $rows
     Assert (-not ((@($export.Rows)|ConvertTo-Json -Depth 4).Contains($script:Marker))) 'Valeur secrete exportee'
     Assert ([int]$export.Masked -eq 2) ('Valeurs masquees : '+[string]$export.Masked)
