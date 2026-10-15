@@ -567,8 +567,8 @@
     "Save-UserMachineLinks": "BE795AF61C61794DFBB29B10146A8B867A5DCB4C22143448126BD067DC9256DE",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "45E01296A0A9807534E3706970739660D5F6DD784A6B046095D4B58D06DF338B",
-    "Assert-DomeniaWorkerRegistry": "84EF6B7CAEEA5A7E20ECD20DBC178EB77B5037619EC71F88F4953BD90BD1477D",
+    "Get-DomeniaWorkerOperationHashes": "3F99DE8EA1F1B9114D492F9CF61D2970A0AEA2830069580E311C4373D49B8629",
+    "Assert-DomeniaWorkerRegistry": "2E6778E8F37C036A7629F35CBC96AE52BA809CB7AA2F27AB2CC0A271CF91B1FA",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "C39E92B423D3B448B91B25EE502B6AD3D8C382E6AB63F231965C20B2AC3D5775",
@@ -4021,6 +4021,18 @@
       "Previous": ".",
       "Source": ".",
       "Decision": "Complement W12 : epinglage des huit operations d audit AD restantes (DelegationRead, GpoLinksRead, GpoAppliedRead, AdHealthRead, DcServicesRead, AdConsistencyScan, MachineIdentityRead, RelationHistoryRead) apres relecture.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": ".",
+      "Source": ".",
+      "Decision": "Complement W12 : epinglage des sept operations d audit AD restantes (GpoLinksRead, GpoAppliedRead, AdHealthRead, DcServicesRead, AdConsistencyScan, MachineIdentityRead, RelationHistoryRead) apres relecture.",
       "ChangedCoreFunctions": [
         "Assert-DomeniaWorkerRegistry",
         "Get-DomeniaWorkerOperationHashes"

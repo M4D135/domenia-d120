@@ -24795,6 +24795,13 @@ function Get-DomeniaWorkerOperationHashes {
         QueryTransfer         = "8067CFBC47BC1FEF79E2C491AA0AB3AB7F669B8EDE32304BB5569A8266D302F4"
         PasswordPolicyRead    = "70395D530CFF369568D0FC1909241AE2A96D351C59F8289129434369D240C45B"
         DelegationRead        = "B17802D6BD798BAE7BB831079C76B6050DDA7CA548D4B70FA29C98418E547FE6"
+        GpoLinksRead          = "A1C31016FD7051DA8E44EED26FEE9041C356CDBF52DED36E711518EDC2DFE644"
+        GpoAppliedRead        = "FFAA18128348543C43DD2A560C977340968C891C24CB39BC4D6054743DA59E4C"
+        AdHealthRead          = "3E1A0B2AF6B39A2966011A55EE2A6FF11BEE12FBCD22A726D435CD0E077DC659"
+        DcServicesRead        = "DD59107B38474514E369A637CA3BDBB24C52E105224A84AF2A706BF3CD5850D4"
+        AdConsistencyScan     = "B47A6AF4870C1253B572F638C7CB517F91673A7AC591AB3A4B8EEE111305CFD8"
+        MachineIdentityRead   = "4618EA8761420689A336CEFD55B7600526B1F95E89B5BC85893B4D593A844627"
+        RelationHistoryRead   = "226CAE07386AB4C0618A255E849814FF1F2AC75419D57DF080A38D3A227318B3"
     }
 }
 
@@ -24803,7 +24810,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "1EF55E5EFE7A043B8F4F0E0597E7221A9A5FCD8B2D92ABAD7ED9C7EAAB08D402"
+    $expectedFingerprint = "10B98D08F4DA7E60E5D19772BF8ECD99369743A42745CA91C92146E02CD7AC75"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }

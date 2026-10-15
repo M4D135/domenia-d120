@@ -593,5 +593,54 @@
     "Function": "Get-DomeniaDelegationReadWorkerCode",
     "LiteralIndex": 0,
     "Sha256": "B17802D6BD798BAE7BB831079C76B6050DDA7CA548D4B70FA29C98418E547FE6"
+  },
+  {
+    "Operation": "GpoLinksRead",
+    "File": "wad/modules/Domenia-AdAudit.Worker.ps1",
+    "Function": "Get-DomeniaGpoLinksReadWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "A1C31016FD7051DA8E44EED26FEE9041C356CDBF52DED36E711518EDC2DFE644"
+  },
+  {
+    "Operation": "GpoAppliedRead",
+    "File": "wad/modules/Domenia-AdAudit.Worker.ps1",
+    "Function": "Get-DomeniaGpoAppliedReadWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "FFAA18128348543C43DD2A560C977340968C891C24CB39BC4D6054743DA59E4C"
+  },
+  {
+    "Operation": "AdHealthRead",
+    "File": "wad/modules/Domenia-AdAudit.Worker.ps1",
+    "Function": "Get-DomeniaAdHealthReadWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "3E1A0B2AF6B39A2966011A55EE2A6FF11BEE12FBCD22A726D435CD0E077DC659"
+  },
+  {
+    "Operation": "DcServicesRead",
+    "File": "wad/modules/Domenia-AdAudit.Worker.ps1",
+    "Function": "Get-DomeniaDcServicesReadWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "DD59107B38474514E369A637CA3BDBB24C52E105224A84AF2A706BF3CD5850D4"
+  },
+  {
+    "Operation": "AdConsistencyScan",
+    "File": "wad/modules/Domenia-AdAudit.Worker.ps1",
+    "Function": "Get-DomeniaAdConsistencyScanWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "B47A6AF4870C1253B572F638C7CB517F91673A7AC591AB3A4B8EEE111305CFD8"
+  },
+  {
+    "Operation": "MachineIdentityRead",
+    "File": "wad/modules/Domenia-AdAudit.Worker.ps1",
+    "Function": "Get-DomeniaMachineIdentityReadWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "4618EA8761420689A336CEFD55B7600526B1F95E89B5BC85893B4D593A844627"
+  },
+  {
+    "Operation": "RelationHistoryRead",
+    "File": "wad/modules/Domenia-AdAudit.Worker.ps1",
+    "Function": "Get-DomeniaRelationHistoryReadWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "226CAE07386AB4C0618A255E849814FF1F2AC75419D57DF080A38D3A227318B3"
   }
 ]
