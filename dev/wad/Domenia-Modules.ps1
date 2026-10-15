@@ -548,6 +548,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Clear-DomeniaAllLinksFilter',
             'Update-DomeniaAllLinksView',
             'Refresh-DomeniaRelationViews',
+            'Update-DomeniaLinkOverview',
             'Update-DomeniaRelationDetectionCounters',
             'Invoke-DomeniaRelationsTick',
             'Update-DomeniaRelationLinkIndex',

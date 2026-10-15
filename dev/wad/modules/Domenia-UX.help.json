@@ -4387,5 +4387,19 @@
     "Text": "Constats à revoir, avec les objets concernés et la limite du constat.",
     "Kind": "DataGrid",
     "Source": "W12-ad-security"
+  },
+  {
+    "Name": "ChkAllLinksHistory",
+    "Title": "Filtre Historique",
+    "Text": "Nʼafficher que les ouvertures de session anciennes relevées dans un journal ou un profil : un historique, pas une présence actuelle.",
+    "Kind": "ToggleButton",
+    "Source": "W12-ad-security"
+  },
+  {
+    "Name": "LblLinkOverview",
+    "Title": "Synthèse des associations",
+    "Text": "Affectation déclarée, dernière session observée et historique, chacun avec son origine et sa date. Une observation ne vaut pas affectation.",
+    "Kind": "TextBlock",
+    "Source": "W12-ad-security"
   }
 ]

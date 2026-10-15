@@ -804,6 +804,8 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnOpenLinksCsv" = "Default"
     "BtnPruneLinks" = "Default"
     "LblLinkContext" = "Default"
+    "LblLinkOverview" = "Default"
+    "ChkAllLinksHistory" = "Default"
     "LblLinkProbeStatus" = "Default"
     "BtnDetectUserComputers" = "Default"
     "ChkUserScanPark" = "Default"
@@ -5530,7 +5532,7 @@ function Get-MainXaml {
                                 <DataGridTextColumn.HeaderStyle><Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}"><Setter Property="ToolTip" Value="Origine de l’association mémorisée : console observée, import ou saisie manuelle."/></Style></DataGridTextColumn.HeaderStyle>
                               </DataGridTextColumn>
                               <DataGridTextColumn Header="Qualification" SortMemberPath="LinkConfidence" Binding="{Binding LinkConfidence}" Width="90">
-                                <DataGridTextColumn.HeaderStyle><Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}"><Setter Property="ToolTip" Value="Badge de la source du lien (Declare, Observe, Importe, Indice, Contradictoire) ; ce nʼest jamais une probabilité de connexion actuelle."/></Style></DataGridTextColumn.HeaderStyle>
+                                <DataGridTextColumn.HeaderStyle><Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}"><Setter Property="ToolTip" Value="Badge de la source du lien (Declare, Observe, Historique, Importe, Indice, Contradictoire) ; ce nʼest jamais une probabilité de connexion actuelle."/></Style></DataGridTextColumn.HeaderStyle>
                               </DataGridTextColumn>
                               <DataGridTemplateColumn Header="Présence réseau" SortMemberPath="Presence" Width="175">
                                 <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Presence}" ToolTip="{Binding PresenceDetail}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/></DataTemplate></DataGridTemplateColumn.CellTemplate>
@@ -6159,6 +6161,7 @@ function Get-MainXaml {
                               <Style.Triggers>
                                 <DataTrigger Binding="{Binding Badge}" Value="Declare"><Setter Property="Background" Value="#DBEAFE"/></DataTrigger>
                                 <DataTrigger Binding="{Binding Badge}" Value="Observe"><Setter Property="Background" Value="#DCFCE7"/></DataTrigger>
+                                <DataTrigger Binding="{Binding Badge}" Value="Historique"><Setter Property="Background" Value="#FEF3C7"/></DataTrigger>
                                 <DataTrigger Binding="{Binding Badge}" Value="Contradictoire"><Setter Property="Background" Value="#FFEDD5"/></DataTrigger>
                               </Style.Triggers>
                             </Style>
@@ -6170,6 +6173,7 @@ function Get-MainXaml {
                                 <Style.Triggers>
                                   <DataTrigger Binding="{Binding Badge}" Value="Declare"><Setter Property="Foreground" Value="#1E3A8A"/></DataTrigger>
                                   <DataTrigger Binding="{Binding Badge}" Value="Observe"><Setter Property="Foreground" Value="#14532D"/></DataTrigger>
+                                  <DataTrigger Binding="{Binding Badge}" Value="Historique"><Setter Property="Foreground" Value="#78350F"/></DataTrigger>
                                   <DataTrigger Binding="{Binding Badge}" Value="Contradictoire"><Setter Property="Foreground" Value="#7C2D12"/></DataTrigger>
                                 </Style.Triggers>
                               </Style>
@@ -6233,6 +6237,7 @@ function Get-MainXaml {
                             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                             <StackPanel Grid.Row="0" Margin="0,0,0,10">
                               <TextBlock x:Name="LblLinkContext" Text="Aucune sélection." Foreground="{DynamicResource AccentText}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                              <TextBlock x:Name="LblLinkOverview" Visibility="Collapsed" Margin="0,6,0,0" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" ToolTip="Affectation déclarée, dernière session observée et historique, chacun avec son origine et sa date. Une observation ne vaut pas affectation." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Synthèse des associations" AutomationProperties.HelpText="Affectation déclarée, dernière session observée et historique, chacun avec son origine et sa date. Une observation ne vaut pas affectation."/>
                               <WrapPanel Margin="0,8,0,0">
                                 <Button x:Name="BtnRemoveLink" Content="Supprimer lʼassociation" Style="{StaticResource DangerButton}" Margin="0,0,8,6" ToolTip="Retire uniquement le lien sélectionné, jamais lʼobjet Active Directory. La suppression est journalisée et restaurable."/>
                                 <Button x:Name="BtnRestoreLink" Content="Restaurer la suppression" IsEnabled="False" Margin="0,0,8,6" ToolTipService.ShowOnDisabled="True" ToolTip="Aucune suppression locale à restaurer."/>
@@ -6349,6 +6354,7 @@ function Get-MainXaml {
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                               <ToggleButton x:Name="ChkAllLinksDeclared" Content="Déclaré" Style="{StaticResource RelationChipToggle}" Tag="#DBEAFE" ToolTip="Nʼafficher que les associations déclarées par un opérateur." AutomationProperties.Name="Filtre Déclaré"/>
                               <ToggleButton x:Name="ChkAllLinksObserved" Content="Observé" Style="{StaticResource RelationChipToggle}" Tag="#DCFCE7" ToolTip="Nʼafficher que les sessions observées sur les postes." AutomationProperties.Name="Filtre Observé"/>
+                              <ToggleButton x:Name="ChkAllLinksHistory" Content="Historique" Style="{StaticResource RelationChipToggle}" Tag="#FEF3C7" ToolTip="Nʼafficher que les ouvertures de session anciennes relevées dans un journal ou un profil : un historique, pas une présence actuelle." AutomationProperties.Name="Filtre Historique" AutomationProperties.HelpText="Nʼafficher que les ouvertures de session anciennes relevées dans un journal ou un profil : un historique, pas une présence actuelle."/>
                               <ToggleButton x:Name="ChkAllLinksConflict" Content="Contradictoire" Style="{StaticResource RelationChipToggle}" Tag="#FFEDD5" ToolTip="Nʼafficher que les postes où les sources désignent des comptes différents." AutomationProperties.Name="Filtre Contradictoire"/>
                             </StackPanel>
                             <TextBlock x:Name="LblAllLinksCount" Grid.Column="2" Text="" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="10,0,0,0" TextTrimming="CharacterEllipsis"/>

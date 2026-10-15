@@ -380,7 +380,7 @@ function Update-DomeniaRelationCandidateEvidence {
 function Get-DomeniaAllLinksBadgeFilter {
     # FO-14: qualification chips checked above Toutes les associations (internal keys).
     $badges=[Collections.Generic.List[string]]::new()
-    foreach($pair in @(@('ChkAllLinksDeclared','Declare'),@('ChkAllLinksObserved','Observe'),@('ChkAllLinksConflict','Contradictoire'))){
+    foreach($pair in @(@('ChkAllLinksDeclared','Declare'),@('ChkAllLinksObserved','Observe'),@('ChkAllLinksHistory','Historique'),@('ChkAllLinksConflict','Contradictoire'))){
         $chip=Get-DomeniaControl $pair[0];if($null -ne $chip -and [bool]$chip.IsChecked){$badges.Add([string]$pair[1])}
     }
     return $badges.ToArray()
@@ -388,7 +388,7 @@ function Get-DomeniaAllLinksBadgeFilter {
 function Clear-DomeniaAllLinksFilter {
     # FO-14: « Exporter tout » exports every association, so the text filter and the chips are cleared first (visibly).
     $box=Get-DomeniaControl 'TxtAllLinksFilter';if($null -ne $box){$box.Text=''}
-    foreach($name in @('ChkAllLinksDeclared','ChkAllLinksObserved','ChkAllLinksConflict')){$chip=Get-DomeniaControl $name;if($null -ne $chip){$chip.IsChecked=$false}}
+    foreach($name in @('ChkAllLinksDeclared','ChkAllLinksObserved','ChkAllLinksHistory','ChkAllLinksConflict')){$chip=Get-DomeniaControl $name;if($null -ne $chip){$chip.IsChecked=$false}}
     Update-DomeniaAllLinksView
 }
 function Update-DomeniaAllLinksView {
@@ -427,6 +427,8 @@ function Refresh-DomeniaRelationViews {
             if($sessionOnly){$context+=' '+$sessionOnly+' visible(s) pour cette session seulement : le stockage local garde une relation par poste.'}
             if($contradicted){$context+=' '+$contradicted+' qualification(s) contradictoire(s) : sources différentes conservées, sans fusion.'}
             [void](Set-DomeniaControlText 'LblLinkContext' $context)
+            # Point 107: declared assignment, last observed session and history, kept apart with origin and date.
+            Update-DomeniaLinkOverview -Subject $s -Rows $rows
             $lbl=Get-DomeniaControl 'LblRelationsSelection';if($null -ne $lbl -and $null -ne $s){$lbl.ToolTip=$s.DN}
             $emptyText=if($null -eq $s){'Recherchez un utilisateur ou un poste en haut, sélectionnez sa ligne, puis ouvrez Relations.'}else{(Get-DomeniaRelationDirection $s.Type).EmptyHint+' Utilisez le panneau Ajouter pour détecter ou rechercher.'}
             [void](Set-DomeniaControlText 'LblLinkEmpty' $emptyText)
@@ -448,6 +450,16 @@ function Refresh-DomeniaRelationViews {
         }
         Update-DomeniaRelationsActions
     }finally{$script:Relations.Rendering=$false}
+}
+function Update-DomeniaLinkOverview {
+    # Point 107: three separate statements for the subject of the page, from the associations already in memory.
+    param($Subject,[object[]]$Rows=@())
+    $label=Get-DomeniaControl 'LblLinkOverview'
+    if($null -eq $label){return}
+    if(($null -eq $Subject) -or ([string]$Subject.Type -notin @('Utilisateur','Machine'))){$label.Text='';$label.Visibility='Collapsed';return}
+    $overview=Get-DomeniaRelationOverview -Relations @($Rows) -SubjectType ([string]$Subject.Type)
+    $label.Text=[string]$overview.Text
+    $label.Visibility='Visible'
 }
 function Update-DomeniaRelationDetectionCounters {
     # D048: queried / refused / unreachable / confirmed / remaining, shown while the detection progresses.
@@ -1163,7 +1175,7 @@ function Initialize-DomeniaRelationsUi {
     $workspace=Get-DomeniaControl 'WorkspaceTabs';if($null -ne $workspace){$workspace.Add_SelectionChanged({param($sender,$e) if($e.OriginalSource -eq $sender -and [string]$sender.SelectedItem.Name -eq 'TabRelations'){Open-DomeniaRelationsPage}})}
     $help=Get-DomeniaControl 'BtnRelationsHelp';if($null -ne $help){$help.Add_Click({Switch-DomeniaRelationsHelp})}
     $filter=Get-DomeniaControl 'TxtAllLinksFilter';if($null -ne $filter){$filter.Add_TextChanged({Update-DomeniaAllLinksView})}
-    foreach($name in @('ChkAllLinksDeclared','ChkAllLinksObserved','ChkAllLinksConflict')){$chip=Get-DomeniaControl $name;if($null -ne $chip){$chip.Add_Click({Update-DomeniaAllLinksView})}}
+    foreach($name in @('ChkAllLinksDeclared','ChkAllLinksObserved','ChkAllLinksHistory','ChkAllLinksConflict')){$chip=Get-DomeniaControl $name;if($null -ne $chip){$chip.Add_Click({Update-DomeniaAllLinksView})}}
     foreach($pair in @(@('BtnLinkImportApply',{Confirm-DomeniaLinkImport}),@('BtnLinkImportCancel',{Cancel-DomeniaLinkImportPreview}),@('BtnUndoImport',{Request-DomeniaLinkImportUndo}),@('BtnLinkOrphanRemove',{Request-DomeniaOrphanRemoval}),@('BtnLinkOrphanClose',{Close-DomeniaOrphanLinks}),@('BtnLinkOrphanConfirmApply',{Complete-DomeniaOrphanRemoval}),@('BtnLinkOrphanConfirmCancel',{Cancel-DomeniaOrphanRemoval}))){$button=Get-DomeniaControl $pair[0];if($null -ne $button){$button.Add_Click($pair[1])}}
     $allLinks=Get-DomeniaControl 'DgAllLinks'
     if($null -ne $allLinks){

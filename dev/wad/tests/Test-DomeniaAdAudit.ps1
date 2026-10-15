@@ -347,6 +347,32 @@ if($infrastructure){
         Complete-DomeniaAdAuditScanIndex ([pscustomobject]@{Busy=$false;Missing=$false;Users=@();Computers=@([pscustomobject]@{name='PC-01';login='PC-01$';object_guid='99999999-9999-4999-8999-999999999999'})}) $index.State
         Expect (@($script:Ctrl.DgAdAuditScan.ItemsSource|Where-Object{$_.Categorie -eq 'Nom recyclé ou objet recréé'}).Count -eq 1) 'Nom recycle non signale'
     }
+    Case 'Relations : historique distinct dans la page, puce de filtre et synthese en trois lignes' {
+        [xml]$main=Get-MainXaml
+        $x='http://schemas.microsoft.com/winfx/2006/xaml'
+        foreach($name in @('ChkAllLinksHistory','LblLinkOverview')){
+            $node=@($main.SelectNodes('//*')|Where-Object{$_.GetAttribute('Name',$x) -eq $name})
+            Expect ($node.Count -eq 1) ('Controle absent : '+$name)
+            $tip=[string]$node[0].GetAttribute('ToolTip')
+            Expect ($tip -and ($tip -ceq [string]$node[0].GetAttribute('AutomationProperties.HelpText'))) ('Infobulle : '+$name)
+            $entry=@($script:Help|Where-Object{$_.Name -eq $name});Expect ($entry.Count -eq 1 -and ([string]$entry[0].Text -ceq $tip)) ('Aide : '+$name)
+            Expect ($script:CoreText.Contains('"'+$name+'" = "Default"')) ('Politique GUI : '+$name)
+        }
+        Expect (@($main.SelectNodes('//*[local-name()="DataTrigger"]')|Where-Object{$_.GetAttribute('Value') -eq 'Historique'}).Count -ge 2) 'Couleur du badge Historique absente'
+        $relationsAst=Read-SourceAst (Join-Path $modules 'Domenia-Relations.UI.ps1')
+        foreach($name in @('Get-DomeniaAllLinksBadgeFilter','Update-DomeniaLinkOverview')){. ([scriptblock]::Create((Get-FunctionText $relationsAst $name)))}
+        Expect ((Get-FunctionText $relationsAst 'Refresh-DomeniaRelationViews') -match 'Update-DomeniaLinkOverview') 'Synthese non rafraichie avec la page'
+        Expect ((Get-FunctionText $relationsAst 'Initialize-DomeniaRelationsUi') -match 'ChkAllLinksHistory') 'Puce Historique non raccordee'
+        $script:Ctrl=@{ChkAllLinksDeclared=[pscustomobject]@{IsChecked=$false};ChkAllLinksObserved=[pscustomobject]@{IsChecked=$false};ChkAllLinksHistory=[pscustomobject]@{IsChecked=$true};ChkAllLinksConflict=[pscustomobject]@{IsChecked=$false};LblLinkOverview=[pscustomobject]@{Text='';Visibility='Collapsed'}}
+        Expect ((@(Get-DomeniaAllLinksBadgeFilter) -join ',') -eq 'Historique')
+        $rows=@([pscustomobject]@{UserLogin='jdupont';Computer='PC-01';Source='Saisie manuelle';When='2026-09-01T08:00:00Z'},[pscustomobject]@{UserLogin='ancien';Computer='PC-01';Source='Registre LogonUI';When='2026-08-01T08:00:00Z'})
+        Update-DomeniaLinkOverview -Subject ([pscustomobject]@{Type='Machine';Name='PC-01'}) -Rows $rows
+        Expect ($script:Ctrl.LblLinkOverview.Visibility -eq 'Visible' -and $script:Ctrl.LblLinkOverview.Text -match 'Affectation déclarée : jdupont' -and $script:Ctrl.LblLinkOverview.Text -match 'Historique : 1 relevé') $script:Ctrl.LblLinkOverview.Text
+        Update-DomeniaLinkOverview -Subject $null -Rows @()
+        Expect ($script:Ctrl.LblLinkOverview.Visibility -eq 'Collapsed' -and $script:Ctrl.LblLinkOverview.Text -eq '')
+        Expect (Test-DomeniaRelationMatchesFilter ([pscustomobject]@{Badge='Historique';UserLogin='ancien'}) '' @('Historique'))
+        Expect (-not (Test-DomeniaRelationMatchesFilter ([pscustomobject]@{Badge='Historique';UserLogin='ancien'}) '' @('Observe'))) 'L historique passe encore pour une observation'
+    }
     Case 'Copie : la vue affichee part dans le presse-papiers, sans relecture' {
         Reset-AuditFixture;Select-AuditObject
         $script:Ctrl['AdAuditTabs']=[pscustomobject]@{SelectedItem=[pscustomobject]@{Name='TabAdAuditObject'}}
