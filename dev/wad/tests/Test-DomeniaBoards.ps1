@@ -39,13 +39,14 @@ function Add-DomeniaUiLog {param($Area,$Level,$Text);$script:Trace.Add([string]$
 function Get-DomeniaStoredTheme {return 'Light'}
 function Get-CfgValue {param($Section,$Key,$Default);return $Default}
 function Set-AppWindowIcon {param($Window)}
-function Start-DomeniaOnlinePark {param([switch]$DisplayedResults,[switch]$PingOnly,[switch]$WmiOnly,[switch]$Inventory,$ScopeTargets,$ScopeLabel,$Probes,[switch]$ForceRefresh,[switch]$NoConsole,[int]$ReuseMaxAgeDays=0,[switch]$Preapproved,[string]$WidgetBoard='',[string[]]$WidgetIds=@(),[switch]$PassThru)
-    $script:ParkCalls.Add([pscustomobject]@{Targets=@($ScopeTargets);Label=$ScopeLabel;Probes=@($Probes);ProbesBound=$PSBoundParameters.ContainsKey('Probes');Displayed=[bool]$DisplayedResults;Inventory=[bool]$Inventory;PingOnly=[bool]$PingOnly;WmiOnly=[bool]$WmiOnly;NoConsole=[bool]$NoConsole;Force=[bool]$ForceRefresh;Reuse=$ReuseMaxAgeDays;Preapproved=[bool]$Preapproved;WidgetBoard=$WidgetBoard;WidgetIds=@($WidgetIds)})
-    # A widget collection follows its run: the fixture stands for an approved run that has not read anything yet.
-    if($PassThru){$id='park-'+$script:ParkCalls.Count;$script:ParkRun=[pscustomobject]@{Id=$id;Completed=$false;Loading=$false;Approved=$true;Done=0;Targets=@($ScopeTargets);Failed=0;AlreadyFresh=0;WidgetBoard=$WidgetBoard;WidgetIds=@($WidgetIds)};return $id}
+function Start-DomeniaOnlinePark {param([switch]$DisplayedResults,[switch]$PingOnly,[switch]$WmiOnly,[switch]$Inventory,$ScopeTargets,$ScopeLabel,$Probes,[switch]$ForceRefresh,[switch]$NoConsole,[int]$ReuseMaxAgeDays=0,[switch]$Preapproved,[string]$WidgetBoard='',[string[]]$WidgetIds=@(),[string]$Slot='',[switch]$PassThru)
+    $script:ParkCalls.Add([pscustomobject]@{Targets=@($ScopeTargets);Label=$ScopeLabel;Probes=@($Probes);ProbesBound=$PSBoundParameters.ContainsKey('Probes');Displayed=[bool]$DisplayedResults;Inventory=[bool]$Inventory;PingOnly=[bool]$PingOnly;WmiOnly=[bool]$WmiOnly;NoConsole=[bool]$NoConsole;Force=[bool]$ForceRefresh;Reuse=$ReuseMaxAgeDays;Preapproved=[bool]$Preapproved;WidgetBoard=$WidgetBoard;WidgetIds=@($WidgetIds);Slot=$Slot})
+    # A widget collection follows its run: the fixture stands for an approved run that has not read anything yet, in
+    # the survey scope it was started in (FI-18).
+    if($PassThru){$id='park-'+$script:ParkCalls.Count;$slotName=$(if($Slot){$Slot}else{'List'});$runs=Get-DomeniaParkRuns;$runs[$slotName]=[pscustomobject]@{Id=$id;Slot=$slotName;Completed=$false;Loading=$false;Approved=$true;Done=0;Targets=@($ScopeTargets);Failed=0;AlreadyFresh=0;WidgetBoard=$WidgetBoard;WidgetIds=@($WidgetIds)};return $id}
 }
 $script:ParkStops=[Collections.Generic.List[string]]::new()
-function Stop-DomeniaOnlinePark {param([string]$RunId='');$script:ParkStops.Add($RunId);if($null -ne $script:ParkRun){$script:ParkRun.Completed=$true}}
+function Stop-DomeniaOnlinePark {param([string]$RunId='',[string]$Slot='List');$script:ParkStops.Add($RunId);$run=$(if($RunId){Get-DomeniaParkRunById $RunId}else{Get-DomeniaParkRun -Slot $Slot});if($null -ne $run){$run.Completed=$true}}
 # The end of a run goes through the real Update-DomeniaParkRunStatus (Park.UI): nothing pending in the local store.
 function Get-DomeniaPersistenceState {return [pscustomobject]@{Pending=0;Suspended=$false;Conflicts=0}}
 function Clear-DomeniaParkTargetBuffers {param([object[]]$Targets)}
@@ -163,7 +164,9 @@ try{
     $script:SessionEpoch=1L;$script:SelectedObject=$null
     $coreText=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1'));$ast=Parse-Text $coreText
     foreach($n in @('Get-MainXaml','Get-DomeniaEffectiveWorkerResult','Get-DomeniaDefaultSettings')){Import-Function $ast $n}
-    $parkAst=Parse-Text ([IO.File]::ReadAllText((Join-Path $wad 'modules\Domenia-Park.UI.ps1')));foreach($n in @('Start-DomeniaParkAnalysis','Update-DomeniaParkRunStatus','Update-DomeniaParkControls')){Import-Function $parkAst $n}
+    $parkAst=Parse-Text ([IO.File]::ReadAllText((Join-Path $wad 'modules\Domenia-Park.UI.ps1')));foreach($n in @('Get-DomeniaParkRuns','Get-DomeniaParkRun','Get-DomeniaParkRunById','Test-DomeniaParkRunActive','Clear-DomeniaParkPendingRow','Clear-DomeniaParkPendingRows','Sync-DomeniaParkGrid','Start-DomeniaParkAnalysis','Update-DomeniaParkRunStatus','Update-DomeniaParkControls')){Import-Function $parkAst $n}
+    # FI-18: the survey scopes of Park.UI and the texts of a survey (Park.Model); the buffers of the targets stay a fixture.
+    $parkModelAst=Parse-Text ([IO.File]::ReadAllText((Join-Path $wad 'modules\Domenia-Park.Model.ps1')));foreach($n in @('Get-DomeniaParkPlural','Get-DomeniaParkProgressText')){Import-Function $parkModelAst $n}
     $script:FleetScopeDn=''
     # FI-05 / PF-06: Engine.UI holds the protected timer factory (banners, counters, park run).
     foreach($m in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Embedded.UI.ps1','Domenia-Workstation.Model.ps1','Domenia-HealthRules.Model.ps1','Domenia-HealthRules.UI.ps1','Domenia-Boards.Model.ps1','Domenia-WidgetCollect.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-BoardSoftware.Model.ps1','Domenia-BoardComputer.UI.ps1','Domenia-Widgets.UI.ps1','Domenia-Dashboard.UI.ps1','Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-Query.UI.ps1','Domenia-QueryTargets.UI.ps1')){. (Join-Path $wad ('modules\'+$m))}
@@ -419,19 +422,19 @@ try{
         Expect ($details.Visibility -eq [Windows.Visibility]::Collapsed) 'Second clic ne replie pas'
         $script:FleetScopeDn=''
     }
-    Case 'Points du poste : le lien ouvre l onglet de l action utile (Actions, Secrets) sans rien lancer' {
+    Case 'Points du poste : le lien ouvre la vue de l action utile (Intervenir, Secrets) sans rien lancer' {
         $data=New-DomeniaBoardData -Board Computer
-        Add-DomeniaBoardAttention -Data $data -Level Warn -Text 'Pas de redemarrage depuis 40 jours.' -Point 'restart' -Route 'ComputerActions' -RouteText 'Redémarrer : onglet Actions'
-        Add-DomeniaBoardAttention -Data $data -Level Alert -Text 'Disque C: presque plein : 4 % libre.' -Point 'disk.c' -Route 'ComputerActions' -RouteText 'Ouvrir C$ : onglet Actions'
-        Add-DomeniaBoardAttention -Data $data -Level Warn -Text 'BitLocker : Protection Desactive.' -Point 'secrets' -Route 'ComputerSecrets' -RouteText 'Onglet Secrets du poste'
+        Add-DomeniaBoardAttention -Data $data -Level Warn -Text 'Pas de redemarrage depuis 40 jours.' -Point 'restart' -Route 'ComputerActions' -RouteText 'Redémarrer : vue Intervenir'
+        Add-DomeniaBoardAttention -Data $data -Level Alert -Text 'Disque C: presque plein : 4 % libre.' -Point 'disk.c' -Route 'ComputerActions' -RouteText 'Ouvrir le disque C : vue Intervenir'
+        Add-DomeniaBoardAttention -Data $data -Level Warn -Text 'BitLocker : Protection Desactive.' -Point 'secrets' -Route 'ComputerSecrets' -RouteText 'Vue Secrets du poste'
         $card=New-DomeniaAttentionCard -Items @($data.Attention) -Board 'Computer'
         $links=@(Get-DomeniaLogicalControls $card|Where-Object{$_ -is [Windows.Documents.Hyperlink]})
         Expect ($links.Count -eq 3) ('Liens des points : '+$links.Count)
         $inner=Get-DomeniaControl 'ComputerTabs'
-        $inner.SelectedItem=Get-DomeniaControl 'TabComputerDashboard'
+        $inner.SelectedItem=Get-DomeniaControl 'TabComputer'
         $before=$script:StartCalls.Count;$parks=$script:ParkCalls.Count;$script:Workspaces.Clear()
-        $disk=@($links|Where-Object{(New-Object Windows.Documents.TextRange($_.ContentStart,$_.ContentEnd)).Text -eq 'Ouvrir C$ : onglet Actions'})[0]
-        Expect ($null -ne $disk) 'Lien Ouvrir C$ absent'
+        $disk=@($links|Where-Object{(New-Object Windows.Documents.TextRange($_.ContentStart,$_.ContentEnd)).Text -eq 'Ouvrir le disque C : vue Intervenir'})[0]
+        Expect ($null -ne $disk) 'Lien Ouvrir le disque C absent'
         $disk.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Documents.Hyperlink]::ClickEvent))
         Expect ([string]$inner.SelectedItem.Name -eq 'TabComputerAdmin') ('Onglet ouvert : '+[string]$inner.SelectedItem.Name)
         Expect ([string](Get-DomeniaControl 'WorkspaceTabs').SelectedItem.Name -eq 'WsComputer') 'Assistance poste non ouverte'
@@ -440,7 +443,7 @@ try{
         Expect ([string]$inner.SelectedItem.Name -eq 'TabSecurity') ('Onglet Secrets non ouvert : '+[string]$inner.SelectedItem.Name)
         Expect (($script:Workspaces -join ',') -eq 'WsComputer/TabComputerAdmin,WsComputer/TabSecurity') ('Ecrans ouverts : '+($script:Workspaces -join ','))
         Expect ($script:StartCalls.Count -eq $before -and $script:ParkCalls.Count -eq $parks) 'Un lien a lance une tache'
-        $inner.SelectedItem=Get-DomeniaControl 'TabComputerDashboard';(Get-DomeniaControl 'WorkspaceTabs').SelectedItem=Get-DomeniaControl 'WsSearch'
+        $inner.SelectedItem=Get-DomeniaControl 'TabComputer';(Get-DomeniaControl 'WorkspaceTabs').SelectedItem=Get-DomeniaControl 'WsSearch'
     }
     Case 'Poste hors de l OU : lecture canonique coalescée, invalidée après nouvelle vue' {
         $script:DatabaseScopedPath='C:\fictif\domenia.db';$script:FleetObservations=@{};$script:FleetSelectedReads=@{};$script:FleetScopeDn='';$script:StoreSnapshotRevision=10L
@@ -1041,7 +1044,7 @@ try{
             $script:FleetScopeDn='OU=Postes,DC=example,DC=invalid';$script:FleetStale=$false;$script:FleetJobId=''
             Complete-DomeniaFleetDashboard -Result (New-FleetResult -Scope $script:FleetScopeDn) -State $null
             if($null -ne $script:DomeniaQueryState.Timer){$script:DomeniaQueryState.Timer.Stop()}
-            $script:ParkRun=$null;$script:ParkCalls.Clear()
+            $script:ParkRuns=$null;$script:ParkCalls.Clear()
             $item=New-DomeniaBoardItem -Source Probe -Key 'disk.cfree' -Visual Column -Group 'Mesures' -Id 'w-add'
             Set-DomeniaBoardLayout -Board Fleet -Layout @(Add-DomeniaBoardItem -Layout @(Get-Layout Fleet) -Item $item) -Undo 'Widget ajoute' -Highlight 'w-add'
             Expect (Start-DomeniaWidgetRefresh -Board Fleet -Id 'w-add' -Reason Add) 'Ajout sans collecte'
@@ -1053,29 +1056,32 @@ try{
             Expect ((@($call.Probes|ForEach-Object{$_.Id}) -join ',') -eq 'disk.cfree') 'Requete du widget seule'
             Expect ($call.WmiOnly -and $call.NoConsole -and (-not $call.Inventory) -and (-not $call.PingOnly)) 'Mode de lecture du widget'
             Expect ($call.Preapproved -and ($call.Reuse -eq 30) -and (-not $call.Force)) 'Ajout : manquant seulement, sans confirmation sous la limite'
-            Expect (($call.WidgetBoard -eq 'Fleet') -and ((@($call.WidgetIds) -join ',') -eq 'w-add')) 'Widget de la collecte'
-            $script:ParkRun.Done=1;Show-DomeniaBoard -Board Fleet -Quiet
+            # FI-18: the OU shown on Accueil is read in the scope of the lists, with the perimeter surveys of the boards.
+            Expect (($call.WidgetBoard -eq 'Fleet') -and ((@($call.WidgetIds) -join ',') -eq 'w-add') -and ($call.Slot -eq 'List')) 'Widget ou portee de la collecte'
+            (Get-DomeniaParkRun -Slot 'List').Done=1;Show-DomeniaBoard -Board Fleet -Quiet
             $holder=Find-DomeniaBoardHolder (Get-DomeniaControl 'PnlFleetDashboard') 'w-add'
             Expect ($null -ne $holder) 'Widget ajoute absent du tableau'
             Expect ([string]$holder.Tag['Progress'].Text -eq ('Collecte en cours '+[char]0x00B7+' 1/2 poste(s)')) ('Progression : '+[string]$holder.Tag['Progress'].Text)
             Expect (@(Get-Texts $holder|Where-Object{[string]$_.Text -eq 'Non lu par cet inventaire'}).Count -eq 0) 'Ancien emplacement'
-            $script:ParkRun.Completed=$true;Update-DomeniaWidgetCollectProgress
+            (Get-DomeniaParkRun -Slot 'List').Completed=$true;Update-DomeniaWidgetCollectProgress
             $holder=Find-DomeniaBoardHolder (Get-DomeniaControl 'PnlFleetDashboard') 'w-add'
             Expect ($null -eq $holder.Tag['Progress']) 'Progression encore affichee apres la fin'
-            # While another run holds the engine, the refresh of this widget waits and starts at its end.
-            $script:ParkRun=[pscustomobject]@{Id='autre';Completed=$false;Loading=$false;Approved=$true;Done=0;Targets=@();Failed=0};$script:ParkCalls.Clear()
+            # While another survey of the scope of the lists runs, the refresh of this widget waits and starts at its end.
+            $script:ParkRuns=@{List=[pscustomobject]@{Id='autre';Slot='List';Completed=$false;Loading=$false;Approved=$true;Done=0;Targets=@();Failed=0}};$script:ParkCalls.Clear()
             Expect (Start-DomeniaWidgetRefresh -Board Fleet -Id 'w-add' -Reason Refresh) 'Actualisation non mise en file'
             Expect (($script:ParkCalls.Count -eq 0) -and ($script:DomeniaWidgetCollectQueue.Count -eq 1)) 'File d attente du widget'
             Expect ((Get-DomeniaWidgetCollectProgress -Board Fleet -Id 'w-add') -like 'En file*') 'Etat en file non affiche'
-            $script:ParkRun.Completed=$true;Update-DomeniaWidgetCollectProgress
+            (Get-DomeniaParkRun -Slot 'List').Completed=$true;Update-DomeniaWidgetCollectProgress
             Expect (($script:ParkCalls.Count -eq 1) -and ($script:ParkCalls[0].Force) -and (@($script:ParkCalls[0].Targets).Count -eq 2)) 'Actualisation : relecture forcee des postes actifs de l OU'
+            # Only adding a widget is the gesture that skips the confirmation (decision David 2026-10-14).
+            Expect ((-not $script:ParkCalls[0].Preapproved) -and ($script:ParkCalls[0].Slot -eq 'List')) 'Actualisation lancee sans confirmation du nombre'
             Expect ($script:DomeniaWidgetCollectQueue.Count -eq 0) 'File non videe'
-            $script:ParkRun.Completed=$true
+            (Get-DomeniaParkRun -Slot 'List').Completed=$true
             # Never the whole domain.
             $script:FleetScopeDn='';$script:ParkCalls.Clear()
             Expect (-not (Start-DomeniaWidgetRefresh -Board Fleet -Id 'w-add' -Reason Refresh)) 'Collecte acceptee a la racine du domaine'
             Expect ($script:ParkCalls.Count -eq 0) 'Collecte de tout le domaine'
-        }finally{$script:ParkRun=$null;$script:DomeniaWidgetCollectQueue.Clear();$script:DomeniaWidgetCollects.Clear();if($null -ne $script:DomeniaWidgetCollectTimer){$script:DomeniaWidgetCollectTimer.Stop()};$script:FleetObservations=@{};$script:FleetScopeDn='';Set-DomeniaSetting 'Dashboard.Fleet.Layout' $saved;$tabs.SelectedItem=$oldTab}
+        }finally{$script:ParkRuns=$null;$script:DomeniaWidgetCollectQueue.Clear();$script:DomeniaWidgetCollects.Clear();if($null -ne $script:DomeniaWidgetCollectTimer){$script:DomeniaWidgetCollectTimer.Stop()};$script:FleetObservations=@{};$script:FleetScopeDn='';Set-DomeniaSetting 'Dashboard.Fleet.Layout' $saved;$tabs.SelectedItem=$oldTab}
     }
     Case 'Suspendre la mesure : place gardee, aucune collecte nulle part, reprise qui collecte le manquant (demande David)' {
         $tabs=Get-DomeniaControl 'WorkspaceTabs';$oldTab=$tabs.SelectedItem;$saved=[string](Get-DomeniaSetting 'Dashboard.Fleet.Layout' '')
@@ -1084,7 +1090,7 @@ try{
             $script:FleetScopeDn='OU=Postes,DC=example,DC=invalid';$script:FleetStale=$false;$script:FleetJobId=''
             Complete-DomeniaFleetDashboard -Result (New-FleetResult -Scope $script:FleetScopeDn) -State $null
             if($null -ne $script:DomeniaQueryState.Timer){$script:DomeniaQueryState.Timer.Stop()}
-            $script:ParkRun=$null;$script:FleetObservations=@{}
+            $script:ParkRuns=$null;$script:FleetObservations=@{}
             Set-DomeniaBoardLayout -Board Fleet -Layout @(Add-DomeniaBoardItem -Layout @(Get-Layout Fleet) -Item (New-DomeniaBoardItem -Source Probe -Key 'disk.cfree' -Visual Column -Group 'Mesures' -Id 'w-pause'))
             Expect (@(Get-DomeniaBoardProbeIds) -contains 'disk.cfree') 'Requete du widget actif absente'
             $before=@(Get-Layout Fleet|ForEach-Object{[string]$_.Id}) -join ','
@@ -1111,11 +1117,12 @@ try{
             $resume[0].RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
             Expect (-not (Test-DomeniaBoardItemPaused -Item @(Get-Layout Fleet|Where-Object{$_.Id -eq 'w-pause'})[0])) 'Mesure non reprise'
             Expect (($script:ParkCalls.Count -eq 1) -and ($script:ParkCalls[0].Reuse -eq 30) -and (-not $script:ParkCalls[0].Force) -and (@($script:ParkCalls[0].Targets).Count -eq 2)) 'La reprise ne collecte pas ce qui manque'
+            Expect (-not $script:ParkCalls[0].Preapproved) 'Reprise lancee sans confirmation du nombre'
             # Pausing again stops the run started only for this widget.
             $script:ParkStops.Clear()
             Invoke-DomeniaBoardAction -Tag @{Board='Fleet';Id='w-pause';Action='Pause'}
-            Expect (($script:ParkStops.Count -eq 1) -and $script:ParkRun.Completed) 'Releve du seul widget suspendu non arrete'
-        }finally{$script:ParkRun=$null;$script:DomeniaWidgetCollectQueue.Clear();$script:DomeniaWidgetCollects.Clear();if($null -ne $script:DomeniaWidgetCollectTimer){$script:DomeniaWidgetCollectTimer.Stop()};$script:FleetScopeDn='';Set-DomeniaSetting 'Dashboard.Fleet.Layout' $saved;$tabs.SelectedItem=$oldTab}
+            Expect (($script:ParkStops.Count -eq 1) -and (Get-DomeniaParkRun -Slot 'List').Completed) 'Releve du seul widget suspendu non arrete'
+        }finally{$script:ParkRuns=$null;$script:DomeniaWidgetCollectQueue.Clear();$script:DomeniaWidgetCollects.Clear();if($null -ne $script:DomeniaWidgetCollectTimer){$script:DomeniaWidgetCollectTimer.Stop()};$script:FleetScopeDn='';Set-DomeniaSetting 'Dashboard.Fleet.Layout' $saved;$tabs.SelectedItem=$oldTab}
     }
     Case 'Clavier : un widget prend le focus, F5 l actualise, Suppr le retire en personnalisation, taille pas a pas (point 80)' {
         Update-DomeniaSoftwareDashboard -Rows (New-SoftwareRows)
@@ -1229,7 +1236,7 @@ try{
     }
     Case 'Widget en file : apres un releve, attend le recalcul de l OU puis collecte ; une autre OU l abandonne et le dit (demande David)' {
         $tabs=Get-DomeniaControl 'WorkspaceTabs';$oldTab=$tabs.SelectedItem;$saved=[string](Get-DomeniaSetting 'Dashboard.Fleet.Layout' '');$oldPath=$script:DatabaseScopedPath;$oldSelected=$script:SelectedObject
-        $running={param([string]$Id) [pscustomobject]@{Id=$Id;Completed=$false;Loading=$false;Approved=$true;Done=0;Targets=@('PC-1','PC-2');Failed=0;Online=0;Reused=0;Changed=0;CachedMeasurements=0;Pending=@{};Concurrency=4;Stopping=$false;PingOnly=$false;Scope='Results';StatusText='';FleetRefresh=$true}}
+        $running={param([string]$Id) [pscustomobject]@{Id=$Id;Slot='List';ScopeKind='Results';Epoch=1L;Completed=$false;Loading=$false;Approved=$true;Done=0;Targets=@('PC-1','PC-2');Failed=0;Online=0;NoReply=0;Errors=0;Unchecked=0;Reused=0;Changed=0;CachedMeasurements=0;Pending=@{};Concurrency=4;Stopping=$false;PingOnly=$false;WmiOnly=$false;Scope='Results';StatusText='';ShortText='';FailureMessage='';Logged=$false;FleetRefresh=$true}}
         try{
             $tabs.SelectedItem=Get-DomeniaControl 'TabDashboard';$w.UpdateLayout()
             $script:SelectedObject=$null;$script:DatabaseScopedPath='C:\fictif\domenia.db'
@@ -1238,12 +1245,12 @@ try{
             if($null -ne $script:DomeniaQueryState.Timer){$script:DomeniaQueryState.Timer.Stop()}
             Set-DomeniaBoardLayout -Board Fleet -Layout @(Add-DomeniaBoardItem -Layout @(Get-Layout Fleet) -Item (New-DomeniaBoardItem -Source Probe -Key 'disk.cfree' -Visual Column -Group 'Mesures' -Id 'w-queue'))
             # Analyser la liste holds the engine: the refresh of the widget waits.
-            $script:ParkRun=& $running 'liste';$script:ParkCalls.Clear()
+            $script:ParkRuns=@{List=(& $running 'liste')};$script:ParkCalls.Clear()
             Expect (Start-DomeniaWidgetRefresh -Board Fleet -Id 'w-queue' -Reason Refresh) 'Actualisation non mise en file'
             Expect ($script:DomeniaWidgetCollectQueue.Count -eq 1) 'File d attente du widget'
             # The run ends through the real path: its stored observations ask the recalculation of the OU shown.
             $jobs=$script:StartCalls.Count
-            $script:ParkRun.Done=2;$script:ParkRun.Completed=$true
+            (Get-DomeniaParkRun -Slot 'List').Done=2;(Get-DomeniaParkRun -Slot 'List').Completed=$true
             Update-DomeniaParkRunStatus
             Expect (($script:StartCalls.Count -eq ($jobs+1)) -and ([bool][string]$script:FleetJobId)) 'Recalcul de l OU non demande a la fin du releve'
             Update-DomeniaWidgetCollectProgress
@@ -1262,23 +1269,25 @@ try{
             Update-DomeniaWidgetCollectProgress
             Expect (($script:ParkCalls.Count -eq 1) -and ($script:ParkCalls[0].Force) -and (@($script:ParkCalls[0].Targets).Count -eq 2) -and ($script:DomeniaWidgetCollectQueue.Count -eq 0)) 'Widget en file jamais collecte apres le recalcul'
             # Another OU shown before the end of the run: the queued collection never moves to it.
-            $script:ParkRun=& $running 'liste-2';$script:ParkCalls.Clear();$script:Trace.Clear()
+            $script:ParkRuns=@{List=(& $running 'liste-2')};$script:ParkCalls.Clear();$script:Trace.Clear()
             Expect (Start-DomeniaWidgetRefresh -Board Fleet -Id 'w-queue' -Reason Refresh) 'Deuxieme mise en file'
             $script:FleetScopeDn='OU=Serveurs,DC=example,DC=invalid'
-            $script:ParkRun.Completed=$true;Update-DomeniaWidgetCollectProgress
+            (Get-DomeniaParkRun -Slot 'List').Completed=$true;Update-DomeniaWidgetCollectProgress
             Expect (($script:ParkCalls.Count -eq 0) -and ($script:DomeniaWidgetCollectQueue.Count -eq 0)) 'Collecte partie sur une OU non demandee'
             Expect (@($script:Trace|Where-Object{$_ -like ('Collecte en file abandonn*l'+[char]0x02BC+'OU affich*a chang*')}).Count -eq 1) 'Abandon de la collecte non dit'
-        }finally{$script:ParkRun=$null;$script:DomeniaWidgetCollectQueue.Clear();$script:DomeniaWidgetCollects.Clear();if($null -ne $script:DomeniaWidgetCollectTimer){$script:DomeniaWidgetCollectTimer.Stop()};if($null -ne $script:DomeniaQueryState.Timer){$script:DomeniaQueryState.Timer.Stop()};$script:FleetScopeDn='';$script:FleetJobId='';$script:FleetPendingKey='';$script:FleetStale=$false;$script:DatabaseScopedPath=$oldPath;$script:SelectedObject=$oldSelected;Set-DomeniaSetting 'Dashboard.Fleet.Layout' $saved;$tabs.SelectedItem=$oldTab}
+        }finally{$script:ParkRuns=$null;$script:DomeniaWidgetCollectQueue.Clear();$script:DomeniaWidgetCollects.Clear();if($null -ne $script:DomeniaWidgetCollectTimer){$script:DomeniaWidgetCollectTimer.Stop()};if($null -ne $script:DomeniaQueryState.Timer){$script:DomeniaQueryState.Timer.Stop()};$script:FleetScopeDn='';$script:FleetJobId='';$script:FleetPendingKey='';$script:FleetStale=$false;$script:DatabaseScopedPath=$oldPath;$script:SelectedObject=$oldSelected;Set-DomeniaSetting 'Dashboard.Fleet.Layout' $saved;$tabs.SelectedItem=$oldTab}
     }
     Case 'Widget du poste : la collecte demandee pour un poste ne s affiche ni ne part sur un autre poste (demande David)' {
         $saved=[string](Get-DomeniaSetting 'Dashboard.Computer.Layout' '');$oldSelected=$script:SelectedObject
         $pcA=[pscustomobject]@{DN='CN=PC-A,OU=Postes,DC=example,DC=invalid';Type='Machine';Name='PC-A';Safety=[pscustomobject]@{Guid='00000000-0000-4000-8000-00000000000a'}}
         $pcB=[pscustomobject]@{DN='CN=PC-B,OU=Postes,DC=example,DC=invalid';Type='Machine';Name='PC-B';Safety=[pscustomobject]@{Guid='00000000-0000-4000-8000-00000000000b'}}
         try{
-            $script:SelectedObject=$pcA;$script:ParkRun=$null;$script:ParkCalls.Clear()
+            # FI-18: a survey of the list runs; the widget of the open workstation reads in its own scope beside it.
+            $script:SelectedObject=$pcA;$script:ParkRuns=@{List=[pscustomobject]@{Id='liste';Slot='List';Completed=$false;Loading=$false;Approved=$true;Done=0;Targets=@();Failed=0}};$script:ParkCalls.Clear()
             $group=[string]@(Get-Layout Computer)[0].Group
             Set-DomeniaBoardLayout -Board Computer -Layout @(Add-DomeniaBoardItem -Layout @(Get-Layout Computer) -Item (New-DomeniaBoardItem -Source Probe -Key 'disk.cfree' -Visual Kpi -Group $group -Id 'c-probe'))
             Expect (Start-DomeniaWidgetRefresh -Board Computer -Id 'c-probe' -Reason Refresh) 'Collecte du poste non lancee'
+            Expect (($script:ParkCalls.Count -eq 1) -and ($script:ParkCalls[0].Slot -eq 'Computer') -and ($script:DomeniaWidgetCollectQueue.Count -eq 0)) 'Widget du poste bloque par le releve de la liste'
             Expect ((@($script:ParkCalls[0].Targets|ForEach-Object{$_.name}) -join ',') -eq 'PC-A') 'Poste de la collecte'
             Expect ((Get-DomeniaWidgetCollectProgress -Board Computer -Id 'c-probe') -like 'Collecte en cours*') 'Progression absente sur le poste de la collecte'
             $script:SelectedObject=$pcB
@@ -1290,10 +1299,10 @@ try{
             Expect (Start-DomeniaWidgetRefresh -Board Computer -Id 'c-probe' -Reason Add) 'Mise en file pour PC-A'
             Expect ($script:DomeniaWidgetCollectQueue.Count -eq 1) 'File d attente du widget du poste'
             $script:SelectedObject=$pcB
-            $script:ParkRun.Completed=$true;Update-DomeniaWidgetCollectProgress
+            (Get-DomeniaParkRun -Slot 'Computer').Completed=$true;Update-DomeniaWidgetCollectProgress
             Expect (($script:ParkCalls.Count -eq 0) -and ($script:DomeniaWidgetCollectQueue.Count -eq 0)) 'Collecte partie sur un poste non demande'
             Expect (@($script:Trace|Where-Object{$_ -like 'Collecte en file abandonn*le poste s*lectionn*a chang*'}).Count -eq 1) 'Abandon de la collecte non dit'
-        }finally{$script:ParkRun=$null;$script:DomeniaWidgetCollectQueue.Clear();$script:DomeniaWidgetCollects.Clear();if($null -ne $script:DomeniaWidgetCollectTimer){$script:DomeniaWidgetCollectTimer.Stop()};$script:SelectedObject=$oldSelected;Set-DomeniaSetting 'Dashboard.Computer.Layout' $saved;Clear-DomeniaDashboards}
+        }finally{$script:ParkRuns=$null;$script:DomeniaWidgetCollectQueue.Clear();$script:DomeniaWidgetCollects.Clear();if($null -ne $script:DomeniaWidgetCollectTimer){$script:DomeniaWidgetCollectTimer.Stop()};$script:SelectedObject=$oldSelected;Set-DomeniaSetting 'Dashboard.Computer.Layout' $saved;Clear-DomeniaDashboards}
     }
     Case 'Widget AD de l OU : seule une lecture lancee par le clic est suivie, jamais une actualisation deja en cours (demande David)' {
         $oldRefresh=$script:DomeniaOuRefresh

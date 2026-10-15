@@ -1563,15 +1563,17 @@ function Get-DomeniaWidgetActivityText {
         'Queued' {
             foreach ($queued in @($script:DomeniaWidgetCollectQueue)) {
                 if (([string]$queued.Board -ne [string]$Entry.Board) -or ([string]$queued.Id -ne [string]$Entry.Id)) { continue }
-                $running = (($null -ne $script:ParkRun) -and (-not [bool]$script:ParkRun.Completed))
-                if ((-not $running) -and ((Get-DomeniaQueuedWidgetState -Entry $queued) -eq 'Wait')) { return (Format-DomeniaWidgetCollectProgress -Phase Waiting) }
+                # Behind a survey of its scope it waits for that survey; once it ended, for the recalculation of the OU.
+                if ((Get-DomeniaQueuedWidgetState -Entry $queued) -eq 'Wait') { return (Format-DomeniaWidgetCollectProgress -Phase Waiting) }
                 return (Format-DomeniaWidgetCollectProgress -Phase Queued)
             }
             return ''
         }
         'Park' {
-            $run = $script:ParkRun
-            if (($null -eq $run) -or ([string]$run.Id -cne [string]$Entry.RunId) -or ([bool]$run.Completed)) { return '' }
+            # FI-18: the survey of this widget, whatever its scope (List for the OU of Accueil, Computer for the open
+            # workstation).
+            $run = Get-DomeniaParkRunById ([string]$Entry.RunId)
+            if (($null -eq $run) -or ([bool]$run.Completed)) { return '' }
             if ([bool]$run.Loading) { return (Format-DomeniaWidgetCollectProgress -Phase Preparing) }
             if ([bool](Get-DomeniaMember $run 'Planning' $false)) { return (Format-DomeniaWidgetCollectProgress -Phase Planning -Done ([int](Get-DomeniaMember $run 'PlanNext' 0)) -Total @($run.Targets).Count -Fresh ([int](Get-DomeniaMember $run 'AlreadyFresh' 0))) }
             if (-not [bool]$run.Approved) { return (Format-DomeniaWidgetCollectProgress -Phase Confirming -Total @($run.Targets).Count) }
@@ -1623,31 +1625,34 @@ function Update-DomeniaWidgetCollectProgress {
     if ((-not $script:DomeniaWidgetCollects.Count) -and ($null -ne $script:DomeniaWidgetCollectTimer)) { $script:DomeniaWidgetCollectTimer.Stop() }
 }
 function Get-DomeniaQueuedWidgetState {
-    # State of a queued widget collection. Ready: it may start now. Wait: the OU it was queued for is being
+    # State of a queued widget collection. Ready: it may start now. Busy: a survey of its scope (FI-18,
+    # Get-DomeniaWidgetCollectSlot) still runs; it starts at its end. Wait: the OU it was queued for is being
     # recalculated (a run just stored observations), and the collection context is refused until the new snapshot
     # is drawn; it starts then. Moved: the selected workstation or the OU shown changed since the gesture. Expired:
     # another session.
     param($Entry)
     if ([long]$Entry.Epoch -ne [long]$script:SessionEpoch) { return 'Expired' }
+    if (Test-DomeniaParkRunActive -Slot (Get-DomeniaWidgetCollectSlot -Board ([string]$Entry.Board))) { return 'Busy' }
     if (-not (Test-DomeniaWidgetPopulationCurrent -Entry $Entry)) { return 'Moved' }
     if (([string]$Entry.Board -eq 'Fleet') -and (([bool]$script:FleetStale) -or ([bool][string]$script:FleetJobId))) { return 'Wait' }
     return 'Ready'
 }
 function Start-DomeniaQueuedWidgetCollect {
-    # One park run at a time: a widget added or refreshed while a run holds the engine waits here, then starts once
-    # the run ended, its local writes are confirmed and, on Accueil, the recalculation of its OU is drawn. Its own
-    # checks (item, pause, population) run again then. A collection queued for another workstation or OU than the
-    # one shown now is dropped and said so: it never starts on a population the operator did not ask for.
+    # One survey per scope (FI-18): a widget added or refreshed while a survey of its scope runs waits here, then
+    # starts once that survey ended, the local writes are confirmed and, on Accueil, the recalculation of its OU is
+    # drawn. Its own checks (item, pause, population) run again then. A collection queued for another workstation or
+    # OU than the one shown now is dropped and said so: it never starts on a population the operator did not ask for.
     if (-not $script:DomeniaWidgetCollectQueue.Count) { return }
-    if (($null -ne $script:ParkRun) -and (-not [bool]$script:ParkRun.Completed)) { return }
+    # Pending local writes of a finished survey are confirmed first; beside a survey of the other scope they are
+    # expected (the admission of Start-DomeniaOnlinePark).
     $save = $null
     try { $save = Get-DomeniaPersistenceState } catch { $save = $null }
-    if (($null -ne $save) -and ([int]$save.Pending -gt 0)) { return }
+    if ((-not (Test-DomeniaParkRunActive)) -and ($null -ne $save) -and ([int]$save.Pending -gt 0)) { return }
     $index = 0
     while ($index -lt $script:DomeniaWidgetCollectQueue.Count) {
         $next = $script:DomeniaWidgetCollectQueue[$index]
         $state = Get-DomeniaQueuedWidgetState -Entry $next
-        if ($state -eq 'Wait') { $index++; continue }
+        if ($state -in @('Busy','Wait')) { $index++; continue }
         $script:DomeniaWidgetCollectQueue.RemoveAt($index)
         [void]$script:DomeniaWidgetCollects.Remove([string]$next.Board + '|' + [string]$next.Id)
         if ($state -eq 'Ready') {
@@ -1696,15 +1701,18 @@ function Get-DomeniaWidgetPopulation {
     return [pscustomobject]@{ Label = [string]$context.Scope.Name; Targets = @($context.Targets) }
 }
 function Start-DomeniaWidgetRemoteCollect {
-    # Endpoint reads of one widget through the existing park run: only its probes, light inventory, ping or console,
-    # for its population. Add and Resume read only what is missing: the run itself checks, before any network read
-    # and outside of this click, the measurements stored for each workstation with the families of this widget
-    # (Invoke-DomeniaParkPlanStep), then counts the workstations left to read. Refresh reads them again. The click is
-    # the gesture: no confirmation up to the limit of Get-DomeniaWidgetCollectAdmission (200 workstations to read).
+    # Endpoint reads of one widget through the existing park run, in the survey scope of its population (FI-18:
+    # Get-DomeniaWidgetCollectSlot): only its probes, light inventory, ping or console, for its population. Add and
+    # Resume read only what is missing: the run itself checks, before any network read and outside of this click, the
+    # measurements stored for each workstation with the families of this widget (Invoke-DomeniaParkPlanStep), then
+    # counts the workstations left to read. Refresh reads them again. The ceiling of a survey (SE-05) applies to every
+    # widget collection. Adding a widget is the explicit gesture (decision David 2026-10-14): no confirmation up to
+    # the limit of Get-DomeniaWidgetCollectAdmission (200 workstations to read); Refresh and Resume confirm the count.
     param([string]$Board,$Item,$Need,[string]$Reason)
     $id = [string]$Item.Id
     $populationKey = Get-DomeniaWidgetPopulationKey -Board $Board
-    $running = (($null -ne $script:ParkRun) -and (-not [bool]$script:ParkRun.Completed))
+    $slot = Get-DomeniaWidgetCollectSlot -Board $Board
+    $running = Test-DomeniaParkRunActive -Slot $slot
     # The OU shown is being recalculated (a run just stored observations, or the OU changed): its collection context
     # is refused until the new snapshot is drawn, so the widget waits in the queue as it does behind a run.
     $recalculating = (($Board -eq 'Fleet') -and (([bool]$script:FleetStale) -or ([bool][string]$script:FleetJobId)))
@@ -1712,7 +1720,7 @@ function Start-DomeniaWidgetRemoteCollect {
         # Queued for the population shown now; the whole domain is never a population.
         if ((-not $populationKey) -or ($populationKey -eq '*')) { Set-Status $(if ($Board -eq 'Fleet') { 'Choisissez une OU dans le tableau de bord avant de préparer une collecte.' } else { 'Aucun poste sélectionné : ouvrez la fiche dʼun poste pour collecter ce widget.' }) 'WARN'; return $false }
         if (-not (Add-DomeniaWidgetCollectQueue -Board $Board -Id $id -Reason $Reason -PopulationKey $populationKey)) { return $false }
-        if ($running) { Set-Status 'Un relevé est en cours : la collecte de ce widget démarrera à sa fin.' 'INFO' }
+        if ($running) { Set-Status $(if ($slot -eq 'Computer') { 'Un relevé du poste est en cours : la collecte de ce widget démarrera à sa fin.' } else { 'Un relevé de la liste ou dʼune OU est en cours : la collecte de ce widget démarrera à sa fin.' }) 'INFO' }
         else {
             Set-Status 'Recalcul de lʼOU en cours : la collecte de ce widget démarrera à sa fin.' 'INFO'
             # The recalculation starts now if the OU is stale and Accueil is shown; it is never started twice.
@@ -1731,7 +1739,8 @@ function Start-DomeniaWidgetRemoteCollect {
     $wmi = (([bool]$Need.Console) -or ([bool]$Need.Inventory) -or ($probes.Count -gt 0))
     # A query absent from the catalog leaves nothing to read: never announce a collection that reads nothing.
     if ((-not $wmi) -and (-not [bool]$Need.Ping)) { Set-Status 'Requête du widget absente du catalogue des sondes : rien à collecter.' 'WARN'; return $false }
-    $arguments = @{ ScopeTargets = $targets; ScopeLabel = [string]$population.Label; Preapproved = $true; WidgetBoard = $Board; WidgetIds = @($id); PassThru = $true }
+    $arguments = @{ ScopeTargets = $targets; ScopeLabel = [string]$population.Label; Slot = $slot; WidgetBoard = $Board; WidgetIds = @($id); PassThru = $true }
+    if ($Reason -eq 'Add') { $arguments.Preapproved = $true }
     if (([bool]$Need.Ping) -and (-not $wmi)) { $arguments.PingOnly = $true }
     else {
         if (-not [bool]$Need.Ping) { $arguments.WmiOnly = $true }
@@ -1832,9 +1841,10 @@ function Set-DomeniaBoardItemPaused {
     if ($Paused) {
         for ($i = $script:DomeniaWidgetCollectQueue.Count - 1; $i -ge 0; $i--) { if (([string]$script:DomeniaWidgetCollectQueue[$i].Board -eq $Board) -and ([string]$script:DomeniaWidgetCollectQueue[$i].Id -eq $Id)) { $script:DomeniaWidgetCollectQueue.RemoveAt($i) } }
         [void]$script:DomeniaWidgetCollects.Remove($Board + '|' + $Id)
-        $run = $script:ParkRun
-        if (($null -ne $run) -and (-not [bool]$run.Completed) -and ([string](Get-DomeniaMember $run 'WidgetBoard' '') -eq $Board)) {
-            $active = @{}; foreach ($item in @(Select-DomeniaActiveBoardItems -Layout $next)) { $active[[string]$item.Id] = $true }
+        # A survey of either scope started only for widgets now paused is stopped (FI-18: one survey per scope).
+        $active = @{}; foreach ($item in @(Select-DomeniaActiveBoardItems -Layout $next)) { $active[[string]$item.Id] = $true }
+        foreach ($run in @((Get-DomeniaParkRuns).Values)) {
+            if (($null -eq $run) -or ([bool]$run.Completed) -or ([string](Get-DomeniaMember $run 'WidgetBoard' '') -ne $Board)) { continue }
             if (-not @(@(Get-DomeniaMember $run 'WidgetIds' @()) | Where-Object { $active.ContainsKey([string]$_) }).Count) { Stop-DomeniaOnlinePark -RunId ([string]$run.Id) }
         }
     }

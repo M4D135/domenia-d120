@@ -6,7 +6,9 @@
     "TxtIndexSearch.Add_TextChanged > Search-DomeniaIndexUi > Search-DomeniaDatabaseRows (SQLite) : anti-rebond 250 ms puis operation LocalIndexRead",
     "Complete-DomeniaParkSweepUi / Complete-DomeniaLogonHarvestUi > Sync-DomeniaParkShared (12 x Start-Sleep 250, E/S UNC) : operation ParkSharedSync",
     "Complete-DomeniaParkSweepUi / Complete-DomeniaLogonHarvestUi > Load-DomeniaParkState (SQLite) : relecture LocalIndexRead puis integration differee",
-    "Update-Dashboard > Get-Command inutilise et Test-DomeniaAdCommandsAvailable a chaque rafraichissement : supprime ou mis en cache"
+    "Update-Dashboard > Get-Command inutilise et Test-DomeniaAdCommandsAvailable a chaque rafraichissement : supprime ou mis en cache",
+    "Load-DomeniaIndexMetadata, Load-UserMachineLinks, Load-DomeniaParkState, Get-DomeniaSecretIndexEntry, Get-DomeniaParkCoverage (comptage), Get-DomeniaOperationHistoryModel, Refresh-DomeniaOperationStatsUi (SQLite) : actions IndexMetadata, UserMachineLinks, ParkState, SecretIndexEntry et OperationStats de LocalIndexRead avec rappels (FI-19, L20)",
+    "Move-DomeniaSelectedComputerWithOuPicker > Invoke-DomeniaUiPump (DoEvents, PushFrame) + Start-Sleep 60 : plan construit depuis le DN et le GUID de la ligne, GUID verifie par le worker ; Invoke-DomeniaUiPump supprime (FI-20, L20)"
   ],
   "Entries": [
     {
@@ -106,44 +108,28 @@
       "Chain": "wad\\Domenia-Core.ps1:304 $health.Add_Click > Get-DomeniaRuntimeHealthText > Get-DomeniaDatabasePath"
     },
     {
-      "Function": "Get-DomeniaOperationHistoryModel",
+      "Function": "Start-DomeniaAccountRelogin",
       "Pattern": "Initialize-DomeniaDatabase",
       "Status": "AFaire",
       "Owner": "cache (D028)",
-      "Reason": "Lecture SQLite synchrone sur le Dispatcher (carte D014 A2, A3, A5 ou A6) dans une fonction hors du lot moteur : a passer par l operation LocalIndexRead ou l ecrivain unique.",
-      "Chain": "wad\\Domenia-Core.ps1:18718 $script:Ctrl[\"BtnIndexBuild\"].Add_Click > Start-DomeniaIndexBuild > Get-DomeniaOperationImpactEstimate > Get-DomeniaOperationHistoryModel"
+      "Reason": "Ouverture du schema de la base de la nouvelle session apres la fenetre de connexion (creation ou migration : ecriture, pas lecture), faite auparavant dans Load-DomeniaIndexMetadata. Les lectures de la base passent par LocalIndexRead (FI-19). A confier a un worker avec l ouverture du demarrage.",
+      "Chain": "wad\\Domenia-Core.ps1 $script:Ctrl[\"BtnAccountAdRelogin\"].Add_Click > Start-DomeniaAccountRelogin"
     },
     {
-      "Function": "Get-DomeniaOperationHistoryModel",
-      "Pattern": "Invoke-DomeniaDbQuery",
-      "Status": "AFaire",
-      "Owner": "cache (D028)",
-      "Reason": "Lecture SQLite synchrone sur le Dispatcher (carte D014 A2, A3, A5 ou A6) dans une fonction hors du lot moteur : a passer par l operation LocalIndexRead ou l ecrivain unique.",
-      "Chain": "wad\\Domenia-Core.ps1:18718 $script:Ctrl[\"BtnIndexBuild\"].Add_Click > Start-DomeniaIndexBuild > Get-DomeniaOperationImpactEstimate > Get-DomeniaOperationHistoryModel"
-    },
-    {
-      "Function": "Get-DomeniaParkCoverage",
-      "Pattern": "Invoke-DomeniaDbQuery",
-      "Status": "AFaire",
-      "Owner": "cache (D028)",
-      "Reason": "Lecture SQLite synchrone sur le Dispatcher (carte D014 A2, A3, A5 ou A6) dans une fonction hors du lot moteur : a passer par l operation LocalIndexRead ou l ecrivain unique.",
-      "Chain": "wad\\Domenia-Core.ps1:18720 $script:Ctrl[\"BtnParkSweep\"].Add_Click > Start-DomeniaParkSweep > Get-DomeniaParkCoverageText > Get-DomeniaParkCoverage"
-    },
-    {
-      "Function": "Get-DomeniaSecretIndexEntry",
+      "Function": "Resume-DomeniaDatabaseViews",
       "Pattern": "Initialize-DomeniaDatabase",
       "Status": "AFaire",
       "Owner": "cache (D028)",
-      "Reason": "Lecture SQLite synchrone sur le Dispatcher (carte D014 A2, A3, A5 ou A6) dans une fonction hors du lot moteur : a passer par l operation LocalIndexRead ou l ecrivain unique.",
-      "Chain": "wad\\Domenia-Core.ps1:6389 $item.Add_Selected > Set-SelectedBranch > Invoke-DomeniaSearchFilterChanged > Invoke-GlobalSearch > Reset-DomeniaSelectionBoundViews > Get-DomeniaSecretIndexSummary > Get-DomeniaSecretIndexEntry"
+      "Reason": "Ouverture du schema de la base mise en service par une bascule confirmee (creation ou migration : ecriture, pas lecture), comme au changement de compte. Son contenu (chiffres, associations) est lu par LocalIndexRead (FI-19). A confier a un worker avec l ouverture du demarrage.",
+      "Chain": "callback Complete-DomeniaStorageMaintenanceApply > Complete-DomeniaStorageMaintenanceApply > Resume-DomeniaDatabaseViews"
     },
     {
-      "Function": "Get-DomeniaSecretIndexEntry",
+      "Function": "Switch-DomeniaDatabaseContext",
       "Pattern": "Invoke-DomeniaDbQuery",
-      "Status": "AFaire",
+      "Status": "Justifie",
       "Owner": "cache (D028)",
-      "Reason": "Lecture SQLite synchrone sur le Dispatcher (carte D014 A2, A3, A5 ou A6) dans une fonction hors du lot moteur : a passer par l operation LocalIndexRead ou l ecrivain unique.",
-      "Chain": "wad\\Domenia-Core.ps1:6389 $item.Add_Selected > Set-SelectedBranch > Invoke-DomeniaSearchFilterChanged > Invoke-GlobalSearch > Reset-DomeniaSelectionBoundViews > Get-DomeniaSecretIndexSummary > Get-DomeniaSecretIndexEntry"
+      "Reason": "Decision de David (lot X07, lectures SQLite hors interface) : lecture d une seule ligne (domenia_store_state, id=1) de la base cible, sous le verrou exclusif de maintenance, pour confirmer le recu de la bascule avant d enregistrer la preference. Exception conservee sur le Dispatcher.",
+      "Chain": "callback Complete-DomeniaStorageMaintenanceApply > Complete-DomeniaStorageMaintenanceApply > Switch-DomeniaDatabaseContext"
     },
     {
       "Function": "Get-SuiteDesign",
@@ -170,78 +156,6 @@
       "Chain": "callback Complete-DomeniaInventoryUi (wad\\Domenia-Core.ps1:12139) > Complete-DomeniaInventoryUi > Update-DomeniaComputerDashboard > Get-DomeniaWindowsLifecycleTable"
     },
     {
-      "Function": "Invoke-DomeniaUiPump",
-      "Pattern": ".DoEvents",
-      "Status": "AFaire",
-      "Owner": "annuaire",
-      "Reason": "Attente active avec pompe imbriquee dans le deplacement de poste (carte D014 B2) : remplacer par une continuation sur le rappel de lecture.",
-      "Chain": "wad\\Domenia-Core.ps1:12190 $menu.Add_Opened > Build-DomeniaObjectsContextMenu > Move-DomeniaSelectedComputerWithOuPicker > Invoke-DomeniaUiPump"
-    },
-    {
-      "Function": "Invoke-DomeniaUiPump",
-      "Pattern": ".PushFrame",
-      "Status": "AFaire",
-      "Owner": "annuaire",
-      "Reason": "Attente active avec pompe imbriquee dans le deplacement de poste (carte D014 B2) : remplacer par une continuation sur le rappel de lecture.",
-      "Chain": "wad\\Domenia-Core.ps1:12190 $menu.Add_Opened > Build-DomeniaObjectsContextMenu > Move-DomeniaSelectedComputerWithOuPicker > Invoke-DomeniaUiPump"
-    },
-    {
-      "Function": "Load-DomeniaIndexMetadata",
-      "Pattern": "Initialize-DomeniaDatabase",
-      "Status": "AFaire",
-      "Owner": "cache (D028)",
-      "Reason": "Lecture SQLite synchrone sur le Dispatcher (carte D014 A2, A3, A5 ou A6) dans une fonction hors du lot moteur : a passer par l operation LocalIndexRead ou l ecrivain unique.",
-      "Chain": "wad\\Domenia-Core.ps1:18462 $script:Ctrl[\"BtnAccountAdRelogin\"].Add_Click > Start-DomeniaAccountRelogin > Load-DomeniaIndexMetadata"
-    },
-    {
-      "Function": "Load-DomeniaIndexMetadata",
-      "Pattern": "Invoke-DomeniaDbQuery",
-      "Status": "AFaire",
-      "Owner": "cache (D028)",
-      "Reason": "Lecture SQLite synchrone sur le Dispatcher (carte D014 A2, A3, A5 ou A6) dans une fonction hors du lot moteur : a passer par l operation LocalIndexRead ou l ecrivain unique.",
-      "Chain": "wad\\Domenia-Core.ps1:18462 $script:Ctrl[\"BtnAccountAdRelogin\"].Add_Click > Start-DomeniaAccountRelogin > Load-DomeniaIndexMetadata"
-    },
-    {
-      "Function": "Load-DomeniaParkState",
-      "Pattern": "Initialize-DomeniaDatabase",
-      "Status": "AFaire",
-      "Owner": "cache (D028)",
-      "Reason": "Lecture SQLite synchrone sur le Dispatcher (carte D014 A2, A3, A5 ou A6) dans une fonction hors du lot moteur : a passer par l operation LocalIndexRead ou l ecrivain unique.",
-      "Chain": "wad\\Domenia-Core.ps1:18720 $script:Ctrl[\"BtnParkSweep\"].Add_Click > Start-DomeniaParkSweep > Get-DomeniaParkPriority > Load-DomeniaParkState"
-    },
-    {
-      "Function": "Load-DomeniaParkState",
-      "Pattern": "Invoke-DomeniaDbQuery",
-      "Status": "AFaire",
-      "Owner": "cache (D028)",
-      "Reason": "Lecture SQLite synchrone sur le Dispatcher (carte D014 A2, A3, A5 ou A6) dans une fonction hors du lot moteur : a passer par l operation LocalIndexRead ou l ecrivain unique.",
-      "Chain": "wad\\Domenia-Core.ps1:18720 $script:Ctrl[\"BtnParkSweep\"].Add_Click > Start-DomeniaParkSweep > Get-DomeniaParkPriority > Load-DomeniaParkState"
-    },
-    {
-      "Function": "Load-UserMachineLinks",
-      "Pattern": "Initialize-DomeniaDatabase",
-      "Status": "AFaire",
-      "Owner": "cache (D028)",
-      "Reason": "Lecture SQLite synchrone sur le Dispatcher (carte D014 A2, A3, A5 ou A6) dans une fonction hors du lot moteur : a passer par l operation LocalIndexRead ou l ecrivain unique.",
-      "Chain": "wad\\Domenia-Core.ps1:18462 $script:Ctrl[\"BtnAccountAdRelogin\"].Add_Click > Start-DomeniaAccountRelogin > Load-UserMachineLinks"
-    },
-    {
-      "Function": "Load-UserMachineLinks",
-      "Pattern": "Invoke-DomeniaDbQuery",
-      "Status": "AFaire",
-      "Owner": "cache (D028)",
-      "Reason": "Lecture SQLite synchrone sur le Dispatcher (carte D014 A2, A3, A5 ou A6) dans une fonction hors du lot moteur : a passer par l operation LocalIndexRead ou l ecrivain unique.",
-      "Chain": "wad\\Domenia-Core.ps1:18462 $script:Ctrl[\"BtnAccountAdRelogin\"].Add_Click > Start-DomeniaAccountRelogin > Load-UserMachineLinks"
-    },
-    {
-      "Function": "Move-DomeniaSelectedComputerWithOuPicker",
-      "Pattern": "Start-Sleep",
-      "Status": "AFaire",
-      "Owner": "annuaire",
-      "Reason": "Attente active avec pompe imbriquee dans le deplacement de poste (carte D014 B2) : remplacer par une continuation sur le rappel de lecture.",
-      "Chain": "wad\\Domenia-Core.ps1:12190 $menu.Add_Opened > Build-DomeniaObjectsContextMenu > Move-DomeniaSelectedComputerWithOuPicker"
-    },
-    {
       "Function": "Open-DomeniaAuditLog",
       "Pattern": ".WriteAllText",
       "Status": "AFaire",
@@ -264,22 +178,6 @@
       "Owner": "interface",
       "Reason": "Lecture courte d un petit fichier local (preferences ou fichier du paquet), jamais un chemin reseau.",
       "Chain": "wad\\Domenia-Core.ps1:294 $copy.Add_Click > Show-ErrorBox > Show-DomeniaDialog > Get-DomeniaStoredTheme > Read-DomeniaPreference"
-    },
-    {
-      "Function": "Refresh-DomeniaOperationStatsUi",
-      "Pattern": "Initialize-DomeniaDatabase",
-      "Status": "AFaire",
-      "Owner": "cache (D028)",
-      "Reason": "Lecture SQLite synchrone sur le Dispatcher (carte D014 A2, A3, A5 ou A6) dans une fonction hors du lot moteur : a passer par l operation LocalIndexRead ou l ecrivain unique.",
-      "Chain": "wad\\Domenia-Core.ps1:18758 $script:Ctrl[\"BtnOperationStatsRefresh\"].Add_Click > Refresh-DomeniaOperationStatsUi"
-    },
-    {
-      "Function": "Refresh-DomeniaOperationStatsUi",
-      "Pattern": "Invoke-DomeniaDbQuery",
-      "Status": "AFaire",
-      "Owner": "cache (D028)",
-      "Reason": "Lecture SQLite synchrone sur le Dispatcher (carte D014 A2, A3, A5 ou A6) dans une fonction hors du lot moteur : a passer par l operation LocalIndexRead ou l ecrivain unique.",
-      "Chain": "wad\\Domenia-Core.ps1:18758 $script:Ctrl[\"BtnOperationStatsRefresh\"].Add_Click > Refresh-DomeniaOperationStatsUi"
     },
     {
       "Function": "Save-DomeniaXamlDiagnostic",
@@ -352,6 +250,14 @@
       "Owner": "interface",
       "Reason": "Chargement paresseux, une seule fois par session, du fichier XAML local du paquet (Domenia-Inline.xaml), meme modele que Initialize-DomeniaSupportUi ; jamais un chemin reseau.",
       "Chain": "wad\\Domenia-Core.ps1:19043 $script:Ctrl[\"BtnRemoveLink\"].Add_Click > Remove-SelectedLink > Request-DomeniaRelationRemoval > Request-DomeniaInlineConfirmation > Initialize-DomeniaInlineUi"
+    },
+    {
+      "Function": "Initialize-DomeniaMachineAccountPanel",
+      "Pattern": ".ReadAllText",
+      "Status": "Justifie",
+      "Owner": "comptes",
+      "Reason": "UX-15 (lot X03) : chargement paresseux, une seule fois par session, du fichier XAML local du paquet (Domenia-MachineAccount.xaml) au premier clic sur la pastille Compte poste, meme modele que Initialize-DomeniaOperationsPanel et Initialize-DomeniaInlineUi ; jamais un chemin reseau ni un chemin choisi par l utilisateur.",
+      "Chain": "wad\\modules\\Domenia-Accounts.UI.ps1:244 $pill.Add_Click > Switch-DomeniaMachineAccountPanel > Show-DomeniaMachineAccountPanel > Initialize-DomeniaMachineAccountPanel"
     },
     {
       "Function": "Initialize-DomeniaOperationsPanel",

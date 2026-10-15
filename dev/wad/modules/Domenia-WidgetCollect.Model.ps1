@@ -239,13 +239,30 @@ function Get-DomeniaWidgetPauseText {
     return 'Widget suspendu : il nʼest plus calculé.'
 }
 function Get-DomeniaWidgetCollectAdmission {
-    # Adding, resuming or refreshing one widget is the explicit gesture (decision David 2026-10-14): its collection
-    # starts at once for a population of at most Limit workstations; a larger population asks the inline
-    # confirmation with its count first. Limit: 200 workstations by default, bounded 1 to 2000 when given.
-    param([int]$TargetCount,[int]$Limit = 200)
-    $bounded = [Math]::Max(1, [Math]::Min(2000, $Limit))
+    # Admission of the endpoint reads of one widget, counted on the workstations left to read. The ceiling of a
+    # survey (SE-05, Park.MaxTargets through Test-DomeniaParkTargetAdmission) applies to every widget collection:
+    # above it nothing is read and Reason says why. Adding a widget is the explicit gesture (decision David
+    # 2026-10-14): Direct, its collection starts without the confirmation for at most Limit workstations; more asks
+    # the inline confirmation with its count first. Refresh and resume always ask it (Direct is only read for an
+    # added widget). Limit: 200 workstations by default, bounded 1 to 2000 and never above the ceiling.
+    param([int]$TargetCount,[int]$Limit = 200,[int]$Maximum = 500)
     $count = [Math]::Max(0, $TargetCount)
-    return [pscustomobject]@{ Direct = (($count -ge 1) -and ($count -le $bounded)); Limit = $bounded; Count = $count }
+    $ceiling = Test-DomeniaParkTargetAdmission -Count $count -Maximum $Maximum
+    $bounded = [Math]::Max(1, [Math]::Min([Math]::Min(2000, $Limit), [int]$ceiling.Maximum))
+    $reason = ''
+    if (-not [bool]$ceiling.Allowed) {
+        if ([string]$ceiling.Code -eq 'Ceiling') { $reason = [string]$count + ' postes à lire pour ce widget : plafond ' + [string]$ceiling.Maximum + ' (réglage Park.MaxTargets). Choisissez une OU plus petite dans Rechercher.' }
+        else { $reason = 'Aucun poste à lire pour ce widget.' }
+    }
+    return [pscustomobject]@{ Allowed = [bool]$ceiling.Allowed; Direct = (([bool]$ceiling.Allowed) -and ($count -le $bounded)); Limit = $bounded; Maximum = [int]$ceiling.Maximum; Count = $count; Reason = $reason }
+}
+function Get-DomeniaWidgetCollectSlot {
+    # FI-18: the endpoint reads of a widget run in the survey scope of its population: the workstation open in Poste
+    # (workstation and software boards) in 'Computer', the OU shown on Accueil in 'List' with the perimeter surveys
+    # of the boards. A survey of one scope never waits for the other.
+    param([string]$Board)
+    if ($Board -eq 'Fleet') { return 'List' }
+    return 'Computer'
 }
 function Format-DomeniaWidgetCollectProgress {
     # Progress line of a widget whose data is being collected; the figure stays the last one actually read.

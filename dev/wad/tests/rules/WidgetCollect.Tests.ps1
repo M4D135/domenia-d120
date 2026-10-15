@@ -90,14 +90,24 @@ Test-Case 'WGC-003' 'Requete ou sonde : seuls ses champs distants sont collectes
     Assert-True ([string]$custom.Label -like '*depuis lʼatelier*') ([string]$custom.Label)
     Assert-Equal 'Unknown' ([string](Get-DomeniaWidgetCollectionNeed -Board Software -Item (New-DomeniaBoardItem -Source Probe -Key 'disk.free' -Visual Kpi -Id 'p2')).Kind) 'aucune sonde sur le tableau des logiciels'
 }
-Test-Case 'WGC-004' 'Ajouter ou actualiser un widget part sans confirmation jusquʼa la limite, au-dela le nombre est confirme' {
+Test-Case 'WGC-004' 'Ajouter un widget part sans confirmation jusquʼa la limite, au-dela le nombre est confirme ; plafond du releve (SE-05) toujours applique' {
     Assert-True (Get-DomeniaWidgetCollectAdmission -TargetCount 1).Direct
     Assert-True (Get-DomeniaWidgetCollectAdmission -TargetCount 200).Direct
-    Assert-False (Get-DomeniaWidgetCollectAdmission -TargetCount 201).Direct
-    Assert-False (Get-DomeniaWidgetCollectAdmission -TargetCount 0).Direct 'aucune cible, rien ne part'
-    Assert-Equal 2000 (Get-DomeniaWidgetCollectAdmission -TargetCount 10 -Limit 50000).Limit 'limite bornee'
+    $over = Get-DomeniaWidgetCollectAdmission -TargetCount 201
+    Assert-True ($over.Allowed -and (-not $over.Direct)) 'au-dela de la limite : admis apres confirmation'
+    $empty = Get-DomeniaWidgetCollectAdmission -TargetCount 0
+    Assert-False ($empty.Direct -or $empty.Allowed) 'aucune cible, rien ne part'
+    # The preapproval never goes beyond the ceiling of a survey (Park.MaxTargets, 500 by default, 5000 at most).
+    Assert-Equal 500 (Get-DomeniaWidgetCollectAdmission -TargetCount 10 -Limit 50000).Limit 'limite bornee par le plafond'
+    Assert-Equal 2000 (Get-DomeniaWidgetCollectAdmission -TargetCount 10 -Limit 50000 -Maximum 5000).Limit 'limite bornee'
     Assert-Equal 1 (Get-DomeniaWidgetCollectAdmission -TargetCount 10 -Limit 0).Limit
     Assert-False (Get-DomeniaWidgetCollectAdmission -TargetCount 2 -Limit 1).Direct
+    Assert-Equal 5 (Get-DomeniaWidgetCollectAdmission -TargetCount 3 -Maximum 5).Limit 'limite sous un plafond regle bas'
+    $ceiling = Get-DomeniaWidgetCollectAdmission -TargetCount 501
+    Assert-False ($ceiling.Allowed -or $ceiling.Direct) 'au-dela du plafond : rien nʼest lu'
+    Assert-Equal '501 postes à lire pour ce widget : plafond 500 (réglage Park.MaxTargets). Choisissez une OU plus petite dans Rechercher.' ([string]$ceiling.Reason)
+    Assert-True (Get-DomeniaWidgetCollectAdmission -TargetCount 500).Allowed 'plafond inclus'
+    Assert-False (Get-DomeniaWidgetCollectAdmission -TargetCount 6 -Maximum 5).Allowed 'plafond regle par Park.MaxTargets'
 }
 Test-Case 'WGC-005' 'Collecter seulement le manquant : le releve juge chaque poste sur ses mesures enregistrees, sonde non applicable comprise' {
     $now = [datetime]::new(2026, 10, 14, 10, 0, 0, [DateTimeKind]::Utc)
@@ -266,4 +276,28 @@ Test-Case 'WGC-013' 'Inventaire complet reconnu a ses categories, un rapide nʼe
     Assert-False (Test-DomeniaComputerInventoryDeep -Result $null)
     Assert-False (Test-DomeniaComputerInventoryDeep -Result ([pscustomobject]@{ Rows = @([pscustomobject]@{ Category = 'Systeme'; Item = 'Modele'; Value = 'X' }) }))
     Assert-True (Test-DomeniaComputerInventoryDeep -Result ([pscustomobject]@{ Rows = @([pscustomobject]@{ Category = 'Systeme'; Item = 'Modele'; Value = 'X' }, [pscustomobject]@{ Category = 'Evenements systeme'; Item = 'Etat'; Value = 'Aucune' }) }))
+}
+Test-Case 'WGC-014' 'Collecte dʼun widget dans le modele des releves : portee du poste ou de la liste, texte de confirmation en trois lignes' {
+    # FI-18: the OU shown on Accueil is read in the scope of the lists, the open workstation in its own scope.
+    Assert-Equal 'List' (Get-DomeniaWidgetCollectSlot -Board Fleet)
+    Assert-Equal 'Computer' (Get-DomeniaWidgetCollectSlot -Board Computer)
+    Assert-Equal 'Computer' (Get-DomeniaWidgetCollectSlot -Board Software)
+    # UX-24: three lines; the widget names its own reads (no console user), what is reused and why it is confirmed.
+    $text = New-DomeniaParkConfirmationText -Count 201 -ScopeKind Scope -ScopeLabel 'Comptabilité' -WmiOnly $true -NoConsole $true -ProbeCount 1 -ReuseMaxAgeDays 30 -AlreadyFresh 10 -Widget $true -DirectLimit 200
+    Assert-Equal 3 @($text.Lines).Count
+    Assert-Equal '201 postes de Comptabilité · 10 postes déjà à jour, non contactés · plus de 200 postes à lire : nombre confirmé avant toute lecture' ([string]$text.Lines[0])
+    Assert-Equal 'Ce qui sera lu : 1 requête du widget, en lecture seule.' ([string]$text.Lines[1])
+    Assert-True ([string]$text.Lines[2] -like 'Durée estimée : *Seules les mesures absentes, en erreur ou de plus de 30 jours sont relues.') ([string]$text.Lines[2])
+    Assert-Equal 'Collecter pour le widget' ([string]$text.Title)
+    Assert-Equal 'Collecter 201 postes' ([string]$text.ConfirmText)
+    Assert-Equal 'Comptabilité' ([string]$text.Target)
+    # A widget with ping and console, one workstation already up to date, under its direct limit: nothing more said.
+    $one = New-DomeniaParkConfirmationText -Count 1 -ScopeKind Scope -ScopeLabel 'PC-01' -AlreadyFresh 1 -Widget $true -DirectLimit 200
+    Assert-Equal '1 poste de PC-01 · 1 poste déjà à jour, non contacté' ([string]$one.Lines[0])
+    Assert-Equal 'Ce qui sera lu : présence · utilisateur connecté, en lecture seule.' ([string]$one.Lines[1])
+    Assert-Equal 'Collecter 1 poste' ([string]$one.ConfirmText)
+    # The surveys of the list are unchanged.
+    $list = New-DomeniaParkConfirmationText -Count 48 -ScopeLabel 'OU Postes' -PingOnly $true
+    Assert-Equal 'Vérifier la liste : qui répond ?' ([string]$list.Title)
+    Assert-Equal 'Pinger 48 postes' ([string]$list.ConfirmText)
 }

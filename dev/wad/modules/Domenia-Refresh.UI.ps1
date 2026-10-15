@@ -90,20 +90,37 @@ function Get-DomeniaOuRefreshProbePlan {
 }
 function Invoke-DomeniaOuRefresh {
     # Legacy modes are retained for compatibility; the UI exposes only AD, Ping and Wmi.
-    param([ValidateSet('Fleet','Search','Index')][string]$Source,[ValidateSet('AD','Ping','Wmi','Base','Postes','Both')][string]$Mode)
+    # -BackupDone: continuation of the verified backup taken before an AD read (FI-13). Every check runs again, and the
+    # OU, base and session confirmed by the click (-ExpectedDn, -ExpectedPath, -ExpectedEpoch) must still be the current
+    # ones: an OU chosen during the backup is never read without its own click. -ExpectedProbes is the probe plan
+    # snapshot taken at the click.
+    param([ValidateSet('Fleet','Search','Index')][string]$Source,[ValidateSet('AD','Ping','Wmi','Base','Postes','Both')][string]$Mode,[switch]$BackupDone,[string]$ExpectedDn='',[string]$ExpectedPath='',[long]$ExpectedEpoch=-1,[object[]]$ExpectedProbes=@())
     $created=$false
     try{
         $context=Get-DomeniaOuRefreshContext $Source
         if($null -eq $context){throw 'Choisissez une OU explicite dans cette page.'}
+        if($BackupDone -and ((-not $ExpectedDn) -or ($context.Dn -ine $ExpectedDn) -or ($context.Path -cne $ExpectedPath) -or ([long]$context.Epoch -ne $ExpectedEpoch))){throw 'lʼOU, la base ou la session a changé pendant la sauvegarde ; aucune lecture AD. Cliquez à nouveau pour lʼOU affichée.'}
         if($script:DemoMode){throw 'Actualisation distante indisponible en démonstration.'}
         if($null -ne $script:DomeniaOuRefresh -and -not $script:DomeniaOuRefresh.Completed){throw 'Une actualisation est déjà en cours.'}
-        if($null -ne $script:ParkRun -and -not $script:ParkRun.Completed){throw 'Un relevé de postes est déjà en cours.'}
+        # FI-18: an OU refresh runs its survey in the scope of the lists; the survey of the open workstation is apart.
+        if(Test-DomeniaParkRunActive -Slot 'List'){throw 'Un relevé de postes est déjà en cours.'}
         if(@($script:AsyncJobs.Values|Where-Object{$_.OperationId -in @('IndexBuild','StoragePurge','LegacyMigration')}).Count){throw 'Attendez la fin de la lecture AD ou de la maintenance locale.'}
         $save=Get-DomeniaPersistenceState
         if($save.Pending -gt 0 -or $save.Suspended -or $save.Conflicts -gt 0){throw 'Attendez ou rétablissez la confirmation des écritures locales.'}
-        # Snapshot the selected dashboard probe plan now, before AD work or a later confirmation can change it.
+        # Snapshot the selected dashboard probe plan now, before AD work or a later confirmation can change it. After the
+        # backup, the snapshot taken at the click is kept.
         $probes=@()
-        if($Mode -in @('Wmi','Postes','Both')){$probes=@(Get-DomeniaOuRefreshProbePlan)}
+        if($BackupDone){$probes=@($ExpectedProbes|Where-Object{$null -ne $_})}
+        elseif($Mode -in @('Wmi','Postes','Both')){$probes=@(Get-DomeniaOuRefreshProbePlan)}
+        # FI-13: an AD read rewrites this OU in the local base (reconciliation included). Once every check above has
+        # passed, a verified backup (StorageBackup worker) comes first, from the Index, Fleet and Search pages alike; the
+        # refresh starts again from its receipt and checks everything again. Ping and WMI collections only add
+        # observations and need no copy.
+        if(($Mode -in @('AD','Base','Both')) -and (-not $BackupDone)){
+            $refresh=${function:Invoke-DomeniaOuRefresh};$dn=[string]$context.Dn;$base=[string]$context.Path;$epoch=[long]$context.Epoch
+            [void](Invoke-DomeniaGestureBackup -Gesture 'IndexUpdate' -Then ({& $refresh -Source $Source -Mode $Mode -BackupDone -ExpectedDn $dn -ExpectedPath $base -ExpectedEpoch $epoch -ExpectedProbes $probes}.GetNewClosure()))
+            return
+        }
         $r=[pscustomobject]@{Id=[guid]::NewGuid().ToString('N');Source=$Source;Mode=$Mode;Dn=$context.Dn;Subtree=$true;DomainDn=$context.DomainDn;Label=$context.Label;Epoch=$context.Epoch;Path=$context.Path;Phase='Directory';Status='Lecture AD : '+$context.Label;DirectoryJob='';TargetJob='';ParkRunId='';BaseCommitted=$false;Cancelled=$false;Completed=$false;Timer=$null;Started=[datetime]::UtcNow}
         $r|Add-Member -NotePropertyName Probes -NotePropertyValue $probes
         $script:DomeniaOuRefresh=$r;$created=$true
@@ -136,14 +153,14 @@ function Invoke-DomeniaOuRefreshTick {
         if($r.Mode -eq 'Both' -and -not $r.BaseCommitted){Fail-DomeniaOuRefresh -OperationId $r.Id -Message 'Le reçu de mise à jour de la base est absent.';return}
         try{
             $plan=Get-DomeniaFleetQueryPlan -Now ([datetime]::Now) -ObservationMaxAgeDays (Get-DomeniaObservationMaxAgeDays)
-            $payload=[pscustomobject]@{Action='FleetStats';Path=$r.Path;BusyTimeoutMs=250;Scope=$r.Dn;Subtree=$true;Plan=$plan;Keys=@();ScopeKey='';ComputeBoard=$false;ModuleRoot=$script:DashboardModuleRoot}
+            $payload=[pscustomobject]@{Action='FleetStats';Path=$r.Path;Scope=$r.Dn;Subtree=$true;Plan=$plan;Keys=@();ScopeKey='';ComputeBoard=$false;ModuleRoot=$script:DashboardModuleRoot}
             $state=[pscustomobject]@{OperationId=$r.Id;Epoch=$r.Epoch;Path=$r.Path;Dn=$r.Dn}
             $r.Phase='Resolving';$r.Status='Lecture des postes actifs depuis la base locale : '+$r.Label+'.'
             $r.TargetJob=[string](Start-UiTask -Name 'Préparer lʼactualisation des postes de lʼOU' -OperationId LocalIndexRead -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload $payload -CallbackState $state -SuccessHandler 'Complete-DomeniaOuRefreshTargets' -ErrorHandler 'Fail-DomeniaOuRefreshTargets' -TimeoutSeconds 120 -TaskClass Explicit)
             if(-not $r.TargetJob){throw 'Lecture locale non admise.'}
         }catch{Fail-DomeniaOuRefresh -OperationId $r.Id -Message $_.Exception.Message}
     }
-    if($r.ParkRunId){Update-DomeniaOuRefreshFromPark -Run $script:ParkRun}
+    if($r.ParkRunId){Update-DomeniaOuRefreshFromPark -Run (Get-DomeniaParkRunById ([string]$r.ParkRunId))}
     Update-DomeniaOuRefreshUi
 }
 function Complete-DomeniaOuRefreshTargets {
