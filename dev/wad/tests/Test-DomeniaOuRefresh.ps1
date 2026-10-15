@@ -3,7 +3,8 @@
 param([string]$ReportPath='')
 $ErrorActionPreference='Stop'
 $wad=Split-Path -Parent $PSScriptRoot;$modules=Join-Path $wad 'modules'
-foreach($name in @('Common.Model','Storage.UI','Park.UI','Refresh.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+# Cache.Model: the pure rules of the verified backup taken before an AD read (FI-13).
+foreach($name in @('Common.Model','Cache.Model','Storage.UI','Park.UI','Refresh.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 $tokens=$null;$parseErrors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'),[ref]$tokens,[ref]$parseErrors)
 if($parseErrors.Count){throw 'Core parse failure'}
 foreach($name in @('Test-DomeniaIndexWriteReady','Start-DomeniaIndexScopeBuild','Update-DomeniaIndexDatabaseRows','Complete-DomeniaIndexScopeUi','Fail-DomeniaIndexBuildUi')){
@@ -141,6 +142,39 @@ foreach($failure in @('Unreadable','Missing','Duplicate')){Case ('Configured que
 }}
 Case 'Base-only refresh is independent of a damaged query library' {$script:BoardWidgets.Fleet=@([pscustomobject]@{Source='Query';Key='saved.one'});$script:BadLibrary=$true;Invoke-DomeniaOuRefresh Search Base;Expect ($script:Jobs.Count -eq 1 -and $script:LibraryReads -eq 0)}
 Case 'Failed workstation measurements never announce full ping and WMI success' {Invoke-DomeniaOuRefresh Search Postes;Invoke-DomeniaOuRefreshTick;Complete-Targets 1;$script:ParkRun.Completed=$true;$script:ParkRun.Approved=$true;$script:ParkRun.Done=1;$script:ParkRun.Failed=1;Invoke-DomeniaOuRefreshTick;Expect ($script:DomeniaOuRefresh.Phase -eq 'Partial' -and -not $script:DomeniaOuRefresh.Status.Contains('Ping et WMI relus'))}
+Case 'FI-13 : la relecture AD de l OU attend la sauvegarde verifiee de la base ; ping, refus et echec ne lisent rien' {
+    # A real base file makes the backup due; the StorageBackup worker is the fixture transport, its receipt the release.
+    function Get-DomeniaStorageBackupWorkerCode {return 'fixture backup'}
+    function Set-DomeniaSetting {param($Name,$Value);$script:BackupSettings[[string]$Name]=$Value}
+    function Write-AppLog {param($Text,$Level)}
+    $script:BackupSettings=@{};$script:StorageGestureBackup=$null
+    $file=Join-Path ([IO.Path]::GetTempPath()) ('domenia-x06-'+[guid]::NewGuid().ToString('N')+'.db')
+    [IO.File]::WriteAllBytes($file,[byte[]]@(0))
+    try{
+        $script:DatabaseScopedPath=$file
+        Invoke-DomeniaOuRefresh Search Ping
+        Expect (@($script:Jobs|Where-Object{$_.OperationId -eq 'StorageBackup'}).Count -eq 0 -and $null -ne $script:DomeniaOuRefresh) 'Sauvegarde lancee pour un simple ping'
+        Stop-DomeniaOuRefresh -Source Search
+        $script:ParkRun=[pscustomobject]@{Completed=$false}
+        Invoke-DomeniaOuRefresh Index AD
+        Expect ($script:Jobs.Count -eq 0) 'Sauvegarde lancee pour une actualisation refusee'
+        $script:ParkRun=$null
+        Invoke-DomeniaOuRefresh Index AD
+        Expect ($script:Jobs.Count -eq 1 -and $script:Jobs[0].OperationId -eq 'StorageBackup' -and $script:Jobs[0].Payload.Database -ceq $file -and $script:DomeniaOuRefresh.Completed) 'La sauvegarde ne precede pas la lecture AD'
+        $backup=$script:Jobs[0];[void]$script:AsyncJobs.Remove($backup.Id)
+        Complete-DomeniaGestureBackup -Result ([pscustomobject]@{Backup=(Join-Path ([IO.Path]::GetTempPath()) 'Domenia-fixture.db');CopiedTo='';Verified=$true;VerifiedAtUtc=[datetime]::UtcNow.ToString('o')}) -State $backup.State
+        Expect ($script:Jobs.Count -eq 2 -and $script:Jobs[1].OperationId -eq 'IndexBuild' -and $script:Jobs[1].Payload.SearchBase -eq $script:IndexScopeDn -and $script:DomeniaOuRefresh.Source -eq 'Index' -and $script:DomeniaOuRefresh.Phase -eq 'Directory') 'Lecture AD non lancee apres la sauvegarde verifiee'
+        # A failed backup starts nothing; the explicit choice to continue without a backup is offered in the page.
+        Stop-DomeniaOuRefresh -Source Index;$script:AsyncJobs.Clear();$script:BackupSettings=@{}
+        Invoke-DomeniaOuRefresh Fleet AD
+        $backup=$script:Jobs[2];Expect ($backup.OperationId -eq 'StorageBackup') 'Sauvegarde absente avant la mise a jour du tableau de bord'
+        [void]$script:AsyncJobs.Remove($backup.Id)
+        Fail-DomeniaGestureBackup -Message 'fixture disque plein' -State $backup.State
+        Expect ($script:Jobs.Count -eq 3 -and $null -ne $script:Confirmation -and $script:Confirmation.Message.Contains('Rien nʼa été lancé')) 'Lecture AD lancee malgre l echec de la sauvegarde'
+        & $script:Confirmation.Confirm
+        Expect ($script:Jobs.Count -eq 4 -and $script:Jobs[3].OperationId -eq 'IndexBuild' -and $script:DomeniaOuRefresh.Source -eq 'Fleet') 'Continuer sans sauvegarde ne lance pas la lecture AD'
+    }finally{Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue}
+}
 $failed=@($script:Checks|Where-Object{-not $_.Pass})
 $report=[pscustomobject]@{Suite='Domenia.OuRefresh';Platform=[Environment]::OSVersion.Platform.ToString();PowerShell=$PSVersionTable.PSVersion.ToString();Pass=$script:Checks.Count-$failed.Count;Fail=$failed.Count;Tests=$script:Checks.ToArray();Limitations='Actual orchestration, Core AST hooks, storage receipt and collection UI with mocked workers/timers/controls; no AD, WMI, SQLite IO, WPF or Windows qualification.'}
 if($ReportPath){[IO.File]::WriteAllText($ReportPath,($report|ConvertTo-Json -Depth 8),[Text.UTF8Encoding]::new($false))}

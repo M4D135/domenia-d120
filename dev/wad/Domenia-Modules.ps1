@@ -1080,6 +1080,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Complete-DomeniaGestureBackup',
             'Fail-DomeniaGestureBackup',
             'Show-DomeniaGestureBackupFailure',
+            'Resume-DomeniaGestureWithoutBackup',
             'New-DomeniaStoreContext',
             'Submit-DomeniaStoreBatch',
             'Request-DomeniaStoreRead',

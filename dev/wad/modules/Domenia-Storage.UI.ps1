@@ -895,16 +895,16 @@ function Get-DomeniaGestureBackupState {
     return (Get-DomeniaGestureBackupDecision -LastSuccessUtc $last)
 }
 function Invoke-DomeniaGestureBackup {
-    # FI-13: a verified backup of the local base precedes a gesture that changes it (OU update, CSV import, removal of
-    # orphan associations, park reset). The copy is made by the StorageBackup worker (SQLite online backup, rotation of
-    # the backup policy), never on the Dispatcher, and the gesture runs only from its success callback. A verified copy
-    # younger than 30 min is already the point of return. When the copy fails, the gesture is not started and the page
-    # offers an explicit choice to continue without a backup.
+    # FI-13: a verified backup of the local base precedes a gesture that changes it (AD read of an OU, CSV import,
+    # removal of orphan associations, park reset). The copy is made by the StorageBackup worker (SQLite online backup,
+    # rotation of the backup policy), never on the Dispatcher, and the gesture runs only from its success callback. A
+    # verified copy younger than 30 min is already the point of return. When the copy fails, the gesture is not started
+    # and the page offers an explicit choice to continue without a backup.
     param([Parameter(Mandatory=$true)][ValidateSet('IndexUpdate','LinkImport','LinkPrune','ParkReset')][string]$Gesture,[Parameter(Mandatory=$true)][scriptblock]$Then)
     $label=Get-DomeniaGestureBackupLabel -Gesture $Gesture
     $path=[string]$script:DatabaseScopedPath
     # Nothing to protect: demonstration base, or no base file yet (first update of this domain).
-    if([bool]$script:DemoMode -or [string]::IsNullOrWhiteSpace($path) -or -not [IO.File]::Exists($path)){[void](& $Then);return 'NotNeeded'}
+    if(([bool]$script:DemoMode) -or ([string]::IsNullOrWhiteSpace($path)) -or (-not [IO.File]::Exists($path))){[void](& $Then);return 'NotNeeded'}
     $decision=Get-DomeniaGestureBackupState
     if(-not [bool]$decision.Due){
         Add-DomeniaUiLog -Area 'Stockage' -Text ('Avant '+$label+' : '+(Get-DomeniaGestureBackupNotice $decision))
@@ -950,14 +950,24 @@ function Show-DomeniaGestureBackupFailure {
     # FI-13: the gesture is not started. The operator may retry later or continue without a backup, in the page.
     param($State,[string]$Message)
     $detail=([string]$Message).Trim().TrimEnd('.');if(-not $detail){$detail='erreur inconnue'}
-    $label=[string]$State.Label;$then=$State.Then
+    $label=[string]$State.Label
     $text='Sauvegarde de la base impossible avant '+$label+' : '+$detail+'. Rien nʼa été lancé.'
     Set-Status $text 'WARN';Write-AppLog $text 'WARN'
     # Closures capture the functions they call: a closure does not see the functions of the module scope.
-    $log=${function:Add-DomeniaUiLog};$status=${function:Set-Status}
-    $onConfirm={& $log -Area 'Stockage' -Level 'WARN' -Text ('Poursuite sans sauvegarde confirmée par lʼopérateur : '+$label+'.');[void](& $then)}.GetNewClosure()
+    $resume=${function:Resume-DomeniaGestureWithoutBackup};$status=${function:Set-Status}
+    $onConfirm={& $resume -State $State}.GetNewClosure()
     $onCancel={& $status ('Rien nʼa été lancé : la base nʼa pas été modifiée. Réessayez quand la sauvegarde est possible.')}.GetNewClosure()
     [void](Request-DomeniaInlineConfirmation -Title ('Sauvegarde impossible avant '+$label) -Message ($text+' Vous pouvez réessayer plus tard, ou continuer sans sauvegarde : la base sera alors modifiée sans point de retour récent.') -Target ('storage:gesture-backup:'+[string]$State.Gesture) -ConfirmText 'Continuer sans sauvegarde' -CancelText 'Ne pas lancer' -Risk 'Danger' -OnConfirm $onConfirm -OnCancel $onCancel)
+}
+
+function Resume-DomeniaGestureWithoutBackup {
+    # FI-13: « Continuer sans sauvegarde », explicit choice of the operator after a failed backup. The gesture runs only
+    # in the session and on the base it was asked for; the choice is written to the journal.
+    param($State)
+    if($null -eq $State){return}
+    if(([long]$State.Epoch -ne [long]$script:SessionEpoch) -or ([string]$State.Path -cne [string]$script:DatabaseScopedPath)){Set-Status ('La base ou la session a changé : '+[string]$State.Label+' nʼest pas lancée.') 'WARN';return}
+    Add-DomeniaUiLog -Area 'Stockage' -Level 'WARN' -Text ('Poursuite sans sauvegarde confirmée par lʼopérateur : '+[string]$State.Label+'.')
+    [void](& $State.Then)
 }
 
 function New-DomeniaStoreContext {

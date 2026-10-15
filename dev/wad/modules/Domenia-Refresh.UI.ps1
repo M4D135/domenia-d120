@@ -89,7 +89,8 @@ function Get-DomeniaOuRefreshProbePlan {
 }
 function Invoke-DomeniaOuRefresh {
     # Legacy modes are retained for compatibility; the UI exposes only AD, Ping and Wmi.
-    param([ValidateSet('Fleet','Search','Index')][string]$Source,[ValidateSet('AD','Ping','Wmi','Base','Postes','Both')][string]$Mode)
+    # -BackupDone: continuation of the verified backup taken before an AD read (FI-13); every check runs again.
+    param([ValidateSet('Fleet','Search','Index')][string]$Source,[ValidateSet('AD','Ping','Wmi','Base','Postes','Both')][string]$Mode,[switch]$BackupDone)
     $created=$false
     try{
         $context=Get-DomeniaOuRefreshContext $Source
@@ -103,6 +104,15 @@ function Invoke-DomeniaOuRefresh {
         # Snapshot the selected dashboard probe plan now, before AD work or a later confirmation can change it.
         $probes=@()
         if($Mode -in @('Wmi','Postes','Both')){$probes=@(Get-DomeniaOuRefreshProbePlan)}
+        # FI-13: an AD read rewrites this OU in the local base (reconciliation included). Once every check above has
+        # passed, a verified backup (StorageBackup worker) comes first, from the Index, Fleet and Search pages alike; the
+        # refresh starts again from its receipt and checks everything again. Ping and WMI collections only add
+        # observations and need no copy.
+        if(($Mode -in @('AD','Base','Both')) -and (-not $BackupDone)){
+            $refresh=${function:Invoke-DomeniaOuRefresh}
+            [void](Invoke-DomeniaGestureBackup -Gesture 'IndexUpdate' -Then ({& $refresh -Source $Source -Mode $Mode -BackupDone}.GetNewClosure()))
+            return
+        }
         $r=[pscustomobject]@{Id=[guid]::NewGuid().ToString('N');Source=$Source;Mode=$Mode;Dn=$context.Dn;Subtree=$true;DomainDn=$context.DomainDn;Label=$context.Label;Epoch=$context.Epoch;Path=$context.Path;Phase='Directory';Status='Lecture AD : '+$context.Label;DirectoryJob='';TargetJob='';ParkRunId='';BaseCommitted=$false;Cancelled=$false;Completed=$false;Timer=$null;Started=[datetime]::UtcNow}
         $r|Add-Member -NotePropertyName Probes -NotePropertyValue $probes
         $script:DomeniaOuRefresh=$r;$created=$true

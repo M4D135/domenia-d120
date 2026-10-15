@@ -15,7 +15,6 @@ function Expect {param([bool]$Value,[string]$Name);$script:Checks++;if(-not $Val
 function Reset-ActionFixture {
  $script:Conn=[pscustomobject]@{BaseDn='DC=example,DC=test'};$script:IndexScopeDn='';$script:IndexRows=@()
  $script:Picked=$null;$script:PickerCalls=0;$script:ScopeCalls=@();$script:Confirmations=@();$script:WorkerCalls=0;$script:LastStatus='';$script:Ready=$true
- $script:GestureBackups=@();$script:HoldGestureBackup=$false;$script:HeldGesture=$null
 }
 function Show-DomeniaInlinePicker {param($Kind,$Title,$Prompt);$script:PickerCalls++;return $script:Picked}
 function Set-Status {param($Text,$Level);$script:LastStatus=$Text}
@@ -29,9 +28,6 @@ function Request-DomeniaInlineConfirmation {param($Title,$Message,$Target,$Confi
 function Start-UiTask {param($Name);$script:WorkerCalls++;throw 'No transport allowed in action fixtures'}
 function Set-DomeniaIndexProgress {param($Mode,$Message)}
 function Show-DomeniaOperationError {param($Operation,$ErrorRecordOrException);throw $ErrorRecordOrException}
-# FI-13 (lot X06): the verified backup before the update is a StorageBackup worker (proved in Test-DomeniaWiringCache.ps1).
-# The double records the gesture and runs the continuation at once, or keeps it as the worker would until its receipt.
-function Invoke-DomeniaGestureBackup {param($Gesture,[scriptblock]$Then);$script:GestureBackups+=@([string]$Gesture);if($script:HoldGestureBackup){$script:HeldGesture=$Then;return 'Started'};[void](& $Then);return 'Recent'}
 Reset-ActionFixture
 $script:IndexScopeDn='OU=Paris,DC=example,DC=test'
 Start-DomeniaSelectedIndexScopeBuild
@@ -39,16 +35,9 @@ Expect ($script:PickerCalls -eq 0) 'selected OU is favored without reprompt'
 Expect ($script:ScopeCalls.Count -eq 1 -and $script:ScopeCalls[0].Dn -ceq $script:IndexScopeDn) 'primary action reads precisely the selected OU'
 Expect ($script:ScopeCalls[0].Source -ceq 'Index' -and $script:ScopeCalls[0].Mode -ceq 'AD') 'primary action routes through the shared AD orchestrator with its own Index scope'
 Expect ($script:Confirmations.Count -eq 0 -and $script:WorkerCalls -eq 0) 'primary OU route cannot trigger a full-domain operation'
-Expect ((@($script:GestureBackups) -join ',') -ceq 'IndexUpdate') 'FI-13: the update goes through the verified backup of the base'
-Reset-ActionFixture;$script:HoldGestureBackup=$true
-$script:IndexScopeDn='OU=Paris,DC=example,DC=test'
-Start-DomeniaSelectedIndexScopeBuild
-Expect ($script:ScopeCalls.Count -eq 0 -and (@($script:GestureBackups) -join ',') -ceq 'IndexUpdate') 'FI-13: no AD read before the backup receipt'
-& $script:HeldGesture
-Expect ($script:ScopeCalls.Count -eq 1 -and $script:ScopeCalls[0].Dn -ceq $script:IndexScopeDn) 'FI-13: the AD read starts from the backup receipt'
 Reset-ActionFixture
 Start-DomeniaSelectedIndexScopeBuild
-Expect ($script:PickerCalls -eq 1 -and $script:ScopeCalls.Count -eq 0 -and @($script:GestureBackups).Count -eq 0) 'missing OU opens picker; cancel starts nothing, not even a backup'
+Expect ($script:PickerCalls -eq 1 -and $script:ScopeCalls.Count -eq 0) 'missing OU opens picker; cancel starts nothing'
 Reset-ActionFixture
 $script:Picked=[pscustomobject]@{DN='OU=Paris,DC=example,DC=test'}
 Start-DomeniaSelectedIndexScopeBuild

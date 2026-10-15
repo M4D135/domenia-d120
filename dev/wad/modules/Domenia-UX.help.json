@@ -2367,7 +2367,7 @@
   {
     "Name": "BtnIndexScopeUpdate",
     "Title": "Tout relire dans lʼOU choisie",
-    "Text": "Action recommandée : relit tous les utilisateurs et postes de lʼOU choisie et de ses sous-OU. Demande une sélection si aucune OU nʼest choisie. Les autres branches sont conservées. Une sauvegarde vérifiée de la base est faite avant.",
+    "Text": "Action recommandée : relit tous les utilisateurs et postes de lʼOU choisie et de ses sous-OU. Demande une sélection si aucune OU nʼest choisie. Les autres branches sont conservées. Une sauvegarde vérifiée de la base précède la lecture.",
     "Kind": "Button",
     "Source": "X06-storage"
   },
@@ -4057,7 +4057,7 @@
     "Kind": "Button",
     "Source": "specific",
     "Title": "Mettre à jour la base locale de l’OU",
-    "Text": "Relit Active Directory pour l’OU choisie du tableau de bord et ses sous-OU, puis enregistre la copie locale. Aucun ping ni WMI ; aucun objet AD modifié. Les filtres et la limite des résultats ne réduisent pas cette cible."
+    "Text": "Relit Active Directory pour l’OU choisie du tableau de bord et ses sous-OU, puis enregistre la copie locale, après une sauvegarde vérifiée de la base. Aucun ping ni WMI ; aucun objet AD modifié. Les filtres et la limite des résultats ne réduisent pas cette cible."
   },
   {
     "Name": "BtnFleetRefreshPostes",
@@ -4085,7 +4085,7 @@
     "Kind": "Button",
     "Source": "specific",
     "Title": "Mettre à jour la base locale de l’OU",
-    "Text": "Relit Active Directory pour l’OU choisie dans l’arbre de Rechercher et toutes ses sous-OU, y compris pendant une recherche globale, puis enregistre la copie locale. Aucun ping ni WMI ; aucun objet AD modifié. Les filtres et la limite des résultats ne réduisent pas cette cible."
+    "Text": "Relit Active Directory pour l’OU choisie dans l’arbre de Rechercher et toutes ses sous-OU, y compris pendant une recherche globale, puis enregistre la copie locale, après une sauvegarde vérifiée de la base. Aucun ping ni WMI ; aucun objet AD modifié. Les filtres et la limite des résultats ne réduisent pas cette cible."
   },
   {
     "Name": "BtnSearchRefreshPostes",

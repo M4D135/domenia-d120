@@ -3998,7 +3998,7 @@ Test-Case 'PF-26 : operation_runs purgee seulement apres une insertion et au-del
 Test-Case 'FI-13 : sauvegarde par le worker StorageBackup avant le geste, jamais sur le Dispatcher' {
     $root = New-X06Sandbox
     try {
-        foreach ($name in @('Get-DomeniaCurrentStoragePolicy','Get-DomeniaGestureBackupState','Invoke-DomeniaGestureBackup','Complete-DomeniaGestureBackup','Fail-DomeniaGestureBackup','Show-DomeniaGestureBackupFailure')) { . ([scriptblock]::Create((Get-FunctionTextFromFile $storageUi $name))) }
+        foreach ($name in @('Get-DomeniaCurrentStoragePolicy','Get-DomeniaGestureBackupState','Invoke-DomeniaGestureBackup','Complete-DomeniaGestureBackup','Fail-DomeniaGestureBackup','Show-DomeniaGestureBackupFailure','Resume-DomeniaGestureWithoutBackup')) { . ([scriptblock]::Create((Get-FunctionTextFromFile $storageUi $name))) }
         $script:X06Settings = @{}; $script:X06Tasks = [Collections.Generic.List[object]]::new(); $script:X06Ran = 0; $script:X06SyncBackups = 0; $script:X06Inline = $null; $script:X06Locations = 0
         function Get-DomeniaSetting { param($Name,$Default) if ($script:X06Settings.ContainsKey([string]$Name)) { return $script:X06Settings[[string]$Name] }; return $Default }
         function Set-DomeniaSetting { param($Name,$Value) $script:X06Settings[[string]$Name] = $Value }
@@ -4038,8 +4038,14 @@ Test-Case 'FI-13 : sauvegarde par le worker StorageBackup avant le geste, jamais
         Assert-True (($null -ne $script:X06Inline) -and ($script:X06Inline.ConfirmText -eq 'Continuer sans sauvegarde') -and ($script:X06Inline.Risk -eq 'Danger') -and ($script:X06Inline.Message -match 'Rien nʼa été lancé')) 'Choix explicite absent'
         & $script:X06Inline.Cancel
         Assert-Equal 2 $script:X06Ran 'Geste lance apres « Ne pas lancer »'
+        # The explicit choice applies only to the session and the base it was asked for.
+        $script:SessionEpoch = [long]2
+        & $script:X06Inline.Confirm
+        Assert-Equal 2 $script:X06Ran 'Geste lance dans une autre session'
+        $script:SessionEpoch = [long]1
         & $script:X06Inline.Confirm
         Assert-Equal 3 $script:X06Ran 'Geste non lance apres « Continuer sans sauvegarde »'
+        Assert-Equal 1 @($script:Logs | Where-Object { $_ -match 'Poursuite sans sauvegarde confirmée' }).Count 'Choix sans sauvegarde absent du journal'
         # A late receipt of another session or base never starts the gesture.
         Assert-Equal 'Started' (Invoke-DomeniaGestureBackup -Gesture 'IndexUpdate' -Then { $script:X06Ran++ })
         $script:SessionEpoch = [long]2

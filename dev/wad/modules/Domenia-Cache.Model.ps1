@@ -557,7 +557,8 @@ function Format-DomeniaSqliteBusySummary {
 }
 
 function Get-DomeniaGestureBackupLabel {
-    # FI-13: the gestures that change the local base and are preceded by a verified backup.
+    # FI-13: the gestures that change the local base and are preceded by a verified backup: the AD read that rewrites
+    # an OU (Index, Fleet and Search pages), the CSV import, the removal of orphan associations and the park reset.
     param([Parameter(Mandatory=$true)][ValidateSet('IndexUpdate','LinkImport','LinkPrune','ParkReset')][string]$Gesture)
     switch ($Gesture) {
         'IndexUpdate' { return 'la mise à jour de lʼOU choisie' }

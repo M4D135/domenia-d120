@@ -5153,7 +5153,7 @@ function Get-MainXaml {
                         </WrapPanel>
                         <TextBlock Text="Mettre à jour les données de cette OU et de ses sous-OU" FontSize="11.5" Foreground="{DynamicResource MutedColor}" Margin="0,10,0,4"/>
                         <WrapPanel>
-                          <Button x:Name="BtnFleetIndexScope" Content="Objets AD" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,4" ToolTip="Relire les objets AD de cette OU et ses sous-OU. Chaque résultat est enregistré automatiquement. Aucun ping ni WMI." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser Objets AD de lʼOU"/>
+                          <Button x:Name="BtnFleetIndexScope" Content="Objets AD" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,4" ToolTip="Relire les objets AD de cette OU et ses sous-OU. Chaque résultat est enregistré automatiquement, après une sauvegarde vérifiée de la base. Aucun ping ni WMI." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser Objets AD de lʼOU"/>
                           <Button x:Name="BtnFleetRefreshPostes" Content="Ping" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,4" ToolTip="Mesurer seulement la présence réseau des postes activés dans AD de cette OU. Enregistrement automatique ; les dates AD et WMI restent inchangées." AutomationProperties.Name="Actualiser Ping de lʼOU"/>
                           <Button x:Name="BtnFleetRefreshBoth" Content="WMI" Style="{StaticResource RunButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,4" ToolTip="Relire les informations WMI et les sondes choisies pour les postes de cette OU. Aucun ping imposé ; enregistrement automatique." AutomationProperties.Name="Actualiser WMI de lʼOU"/>
                           <Button x:Name="BtnFleetRefreshStop" Content="Arrêter" IsEnabled="False" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,4" ToolTip="Arrêter cette actualisation ; conserver les données déjà enregistrées. La phase suivante ne sera pas lancée." AutomationProperties.Name="Arrêter lʼactualisation de cette OU"/>
@@ -5345,7 +5345,7 @@ function Get-MainXaml {
                           <TextBlock x:Name="UxSearchOuRefreshTitle" Text="Données de lʼOU" FontWeight="SemiBold" Margin="0,0,0,4"/>
                           <TextBlock x:Name="LblSearchOuRefreshScope" Text="Choisissez une OU dans lʼarbre." FontSize="11.5" TextWrapping="Wrap" MaxHeight="48" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" Foreground="{DynamicResource MutedColor}"/>
                           <WrapPanel x:Name="UxSearchOuRefreshActions" Margin="0,6,0,0">
-                            <Button x:Name="BtnSearchRefreshBase" Content="Objets AD" IsEnabled="False" MinHeight="30" Padding="8,3" Margin="0,0,4,4" ToolTip="Relire les objets AD de lʼOU choisie et de ses sous-OU, puis afficher les données enregistrées. Aucun ping ni WMI." AutomationProperties.Name="Actualiser Objets AD de lʼOU"/>
+                            <Button x:Name="BtnSearchRefreshBase" Content="Objets AD" IsEnabled="False" MinHeight="30" Padding="8,3" Margin="0,0,4,4" ToolTip="Relire les objets AD de lʼOU choisie et de ses sous-OU, puis afficher les données enregistrées. Une sauvegarde vérifiée de la base précède la lecture. Aucun ping ni WMI." AutomationProperties.Name="Actualiser Objets AD de lʼOU"/>
                             <Button x:Name="BtnSearchRefreshPostes" Content="Ping" IsEnabled="False" MinHeight="30" Padding="8,3" Margin="0,0,4,4" ToolTip="Mesurer seulement le ping des postes activés dans AD de cette OU et de ses sous-OU. Les filtres de recherche restent inchangés." AutomationProperties.Name="Actualiser Ping de lʼOU"/>
                             <Button x:Name="BtnSearchRefreshBoth" Content="WMI" IsEnabled="False" Style="{StaticResource RunButton}" MinHeight="30" Padding="8,3" Margin="0,0,4,4" ToolTip="Relire les informations WMI et les sondes choisies pour cette OU et ses sous-OU. Aucun ping imposé ; enregistrement automatique." AutomationProperties.Name="Actualiser WMI de lʼOU"/>
                             <Button x:Name="BtnSearchRefreshStop" Content="Arrêter" IsEnabled="False" MinHeight="30" Padding="8,3" Margin="0,0,0,4" ToolTip="Arrêter cette actualisation et empêcher le lancement de la phase suivante. Les données enregistrées sont conservées." AutomationProperties.Name="Arrêter lʼactualisation de lʼOU choisie"/>
@@ -7087,7 +7087,7 @@ function Get-MainXaml {
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
           <StackPanel Margin="10">
             <WrapPanel>
-              <Button x:Name="BtnIndexScopeUpdate" Content="Mettre à jour lʼOU choisie" Style="{StaticResource RunButton}" ToolTip="Action recommandée : relit tous les utilisateurs et postes de lʼOU choisie et de ses sous-OU. Demande une sélection si aucune OU nʼest choisie. Les autres branches sont conservées. Une sauvegarde vérifiée de la base est faite avant." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tout relire dans lʼOU choisie" AutomationProperties.HelpText="Action recommandée : relit tous les utilisateurs et postes de lʼOU choisie et de ses sous-OU. Demande une sélection si aucune OU nʼest choisie. Les autres branches sont conservées. Une sauvegarde vérifiée de la base est faite avant." />
+              <Button x:Name="BtnIndexScopeUpdate" Content="Mettre à jour lʼOU choisie" Style="{StaticResource RunButton}" ToolTip="Action recommandée : relit tous les utilisateurs et postes de lʼOU choisie et de ses sous-OU. Demande une sélection si aucune OU nʼest choisie. Les autres branches sont conservées. Une sauvegarde vérifiée de la base précède la lecture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tout relire dans lʼOU choisie" AutomationProperties.HelpText="Action recommandée : relit tous les utilisateurs et postes de lʼOU choisie et de ses sous-OU. Demande une sélection si aucune OU nʼest choisie. Les autres branches sont conservées. Une sauvegarde vérifiée de la base précède la lecture." />
             </WrapPanel>
             <TextBlock Text="Choisissez une OU, puis mettez-la à jour. Ses sous-OU sont incluses ; les autres branches sont conservées." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,6,0,8" />
             <StackPanel Margin="0,12,0,0">
@@ -17566,9 +17566,7 @@ function Start-DomeniaSelectedIndexScopeBuild {
         Update-DomeniaIndexStats
         Request-DomeniaIndexSearch
     }
-    # FI-13: a verified backup of the base (StorageBackup worker, announced in the status bar) precedes the update; the
-    # AD read starts from its success callback, or after an explicit choice to continue without a backup.
-    [void](Invoke-DomeniaGestureBackup -Gesture 'IndexUpdate' -Then { Invoke-DomeniaOuRefresh -Source Index -Mode AD })
+    Invoke-DomeniaOuRefresh -Source Index -Mode AD
 }
 
 function Start-DomeniaIndexBuild {
