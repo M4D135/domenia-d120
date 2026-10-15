@@ -112,7 +112,7 @@ Avant de commencer :
 5. **Lire la fiche.** « Vue d'ensemble » affiche la carte « Fiche du poste » : « Nom », « DNS », « Presence », « OS », « Etat » et « Derniere connexion ».
 6. **Trouver l'utilisateur.** La ligne « Utilisateur associé » donne le badge de l'association et une phrase comme « Camille Martin · console observée le 08/10 à 08:15 ». « Ouvrir la fiche » ouvre sa fiche ; « Détecter à nouveau » interroge le poste. Le nom de l'utilisateur, dans l'en-tête, ouvre aussi sa fiche.
 
-![Onglet « Machine » de PC-COMPTA-014 : système, présence en ligne et utilisateur associé Camille Martin](fig:fiche-poste)
+![Vue « Vue d'ensemble » de PC-COMPTA-014 : en-tête avec le système, la pastille de présence et l'utilisateur associé Camille Martin, puis la fiche du poste](fig:fiche-poste)
 
 > [!RESULTAT] La fiche du poste est affichée dans « Poste ». Le titre de la page et la puce « Poste · nom » à côté du badge rappellent le poste ; ✕ le désélectionne.
 
@@ -128,9 +128,9 @@ Quand : vous voulez tester le poste, ouvrir son disque, une console d'administra
 6. **Préparer PowerShell.** « Copier la commande PowerShell » copie la commande de connexion à distance et l'annonce dans la page. Si un compte est saisi pour les postes, la commande le nomme : Windows demandera son mot de passe, qui n'est jamais copié.
 7. **Lire les sessions et les services.** Plus bas dans « Intervenir », « Lire les sessions » liste les sessions ouvertes et « Lire les services » liste les services du poste. « Automatiques arrêtés seulement » ne garde que les services qui devraient tourner.
 
-![Actions du poste : état du compte, Ping, Bureau à distance, Ouvrir C$, consoles, journaux et services ; données fictives](fig:actions-poste)
+![Vue « Intervenir » : cartes « Se connecter » (Bureau à distance, Ouvrir le disque C, consoles), « Vérifier » (Tester la réponse, diagnostic), « Intervenir » et « Compte AD » ; données fictives](fig:actions-poste)
 
-![Autres actions : commande PowerShell, programme, stratégies et redémarrage ; données fictives](fig:actions-poste-avancees)
+![Vue « Intervenir » : « Copier la commande PowerShell », « Actualiser les stratégies », « Exécuter un programme… » et « Redémarrer… » ; données fictives](fig:actions-poste-avancees)
 
 > [!RESULTAT] L'outil choisi est ouvert sur le poste, sans rien modifier sur le poste ni dans l'annuaire.
 
@@ -509,7 +509,7 @@ Quand : vous devez savoir si un logiciel est installé sur un poste, dans quelle
 | Vous voyez | Que faire |
 |---|---|
 | « Selectionne un poste, puis charge la liste. » | Sélectionnez un poste dans « Rechercher », puis cliquez sur « Charger les logiciels ». |
-| « Lecture impossible : » suivi d'un motif | Vérifiez le poste avec « Ping ». S'il répond, prévenez l'administrateur. |
+| « Lecture impossible : » suivi d'un motif | Vérifiez le poste avec « Tester la réponse ». S'il répond, prévenez l'administrateur. |
 | Un logiciel attendu n'apparaît pas | Videz « Filtre », remettez « Portee » sur « Toutes ». Cochez « Par utilisateur » ou « Applications Store », puis rechargez. |
 | « Chargez les logiciels pour afficher la synthese. » | Cliquez sur « Charger les logiciels ». |
 
@@ -526,8 +526,8 @@ Quand une opération échoue, Domenia écrit un message dans le « Journal de s
 | « Le mot de passe de ce compte a expire. » | Changez-le (Ctrl+Alt+Suppr, Modifier un mot de passe), puis reconnectez-vous. |
 | Un message qui se termine par « le compte utilise ne possede pas les droits necessaires. » | Prévenez l'administrateur. |
 | « les identifiants ont ete refuses. » | Vérifiez le compte utilisé pour les postes (chapitre 2). Sinon, prévenez l'administrateur. |
-| « le controleur de domaine ou le poste distant est indisponible. » | Vérifiez avec « Ping » que le poste est allumé et sur le réseau. |
-| « En memoire uniquement : » sur la ligne d'état, sous « Pinger la liste » et « Détecter la liste » | Les observations ne sont plus enregistrées. Prévenez l'administrateur. |
+| « le controleur de domaine ou le poste distant est indisponible. » | Vérifiez avec « Tester la réponse » que le poste est allumé et sur le réseau. |
+| « En memoire uniquement : » ou « En mémoire uniquement : » sur la ligne d'état, sous « Pinger la liste » et « Détecter la liste » | Les observations ne sont plus enregistrées. Après des échecs d'enregistrement, « Reprendre les sauvegardes » (Base autonome, onglet Stockage) relance l'enregistrement ; sinon prévenez l'administrateur. |
 | Un bouton grisé | Survolez-le : l'infobulle dit ce qui manque, par exemple « Desactive : mode lecture seule actif. ». |
 
 ## Lire l’état du moteur

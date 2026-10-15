@@ -578,6 +578,8 @@ function Complete-DomeniaLiveStored {
                 if($null -ne $script:SelectedObject -and [string]$script:SelectedObject.DN -ieq [string]$row.DN){
                     Set-DomeniaPresenceText 'TxtCompPresence' ([string]$row.Presence)
                     Update-DomeniaObjectPresence -State ([string]$row.Presence) -Target ([string]$State.Computer)
+                    # DS-08 (X04): the header pill takes the time of this observation (a remembered state shows none).
+                    try{Set-DomeniaComputerHeaderPresenceTime -Observation $observation}catch{}
                 }
                 [void](Set-RowAssociationMetadata -Rows @($row));$s.RefreshNeeded=$true
                 if([string]$row.Association){Set-DomeniaLoginColumnVisible $true}

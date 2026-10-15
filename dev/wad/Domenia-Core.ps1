@@ -19827,9 +19827,14 @@ function Invoke-ComputerTool {
             "GpUpdate" {
                 Assert-DomeniaRemoteWriteAllowed -Operation "Actualisation des stratégies"
                 Assert-WriteAllowed
+                # The request travels by WinRM only: a configuration that forbids WinRM refuses it before any confirmation.
+                if(-not [bool](Get-CfgValue 'Remote' 'UseWinRM' $true)){throw 'Actualisation des stratégies indisponible : WinRM est désactivé par la configuration (Remote.UseWinRM). Rien nʼest envoyé au poste.'}
                 if(-not $Confirmed){Request-DomeniaComputerToolConfirmation -Tool 'GpUpdate' -Computer $name;return}
                 $code=@'
-$computer=[string]$Payload.Computer;$cred=Get-WMachineCredential $Context;$session=$null
+$computer=[string]$Payload.Computer
+# The configuration may forbid WinRM (Remote.UseWinRM): no connection is attempted and the receipt says NotSent.
+if(-not [bool]$Context.UseWinRM){throw 'Non envoyé : WinRM est désactivé par la configuration (Remote.UseWinRM).'}
+$cred=Get-WMachineCredential $Context;$session=$null
 # CD-11: one transport and no fallback. A refused connection sends nothing (receipt NotSent); once the session is open
 # the request is dispatched and never replayed.
 $lease=Enter-WCredentialAttempt -Context $Context -Channel Remote
@@ -19859,6 +19864,8 @@ try{
 $computer=[string]$Payload.Computer;$mode=[string]$Payload.Mode;$delay=[int]$Payload.DelaySeconds;$message=[string]$Payload.Message
 if($mode -notin @('Delayed','Now')){throw 'Mode de redémarrage inconnu : aucune demande envoyée.'}
 if(($mode -eq 'Delayed') -and (($delay -lt 60) -or ($delay -gt 3600) -or ($message.Length -gt 400) -or ($message.IndexOf([char]34) -ge 0))){throw 'Délai ou message de redémarrage refusé : aucune demande envoyée.'}
+# The delayed restart travels by WinRM only: a configuration that forbids WinRM (Remote.UseWinRM) sends nothing.
+if(($mode -eq 'Delayed') -and (-not [bool]$Context.UseWinRM)){throw 'Non envoyé : le redémarrage différé passe par WinRM, désactivé par la configuration (Remote.UseWinRM).'}
 $cred=Get-WMachineCredential $Context;$session=$null;$cim=$null
 $notSent="Non envoyé : le poste nʼaccepte pas la commande à distance. "
 # CD-11: one transport per choice and no fallback. Delayed: shutdown.exe through WinRM, so that the user sees the

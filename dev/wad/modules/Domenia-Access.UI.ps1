@@ -465,8 +465,13 @@ function Invoke-DomeniaCapabilityRoute {
     if([string](Get-DomeniaMember $target 'Panel' '') -eq 'DraftCompare'){Show-DomeniaDraftComparison;return $true}
     if($target.Workspace){Select-DomeniaWorkspace -Workspace $target.Workspace -Inner $target.Inner -Tab $target.Tab}
     $inner2=[string](Get-DomeniaMember $target 'Inner2' '');$tab2=[string](Get-DomeniaMember $target 'Tab2' '')
-    if($inner2 -and $tab2){$tabs=Get-DomeniaControl $inner2;$page=Get-DomeniaControl $tab2;if(($null -ne $tabs) -and ($null -ne $page)){$tabs.SelectedItem=$page}}
-    if($target.Focus){$control=Get-DomeniaControl $target.Focus;if($null -ne $control){try{[void]$control.Focus()}catch{}}}
+    if(($inner2) -and ($tab2)){$tabs=Get-DomeniaControl $inner2;$page=Get-DomeniaControl $tab2;if(($null -ne $tabs) -and ($null -ne $page)){$tabs.SelectedItem=$page}}
+    if($target.Focus){
+        $control=Get-DomeniaControl $target.Focus
+        # A control of a tab just selected is laid out later (StorageResume, LegacyImport): when it cannot take the
+        # focus yet, it is given once the page is loaded.
+        if($null -ne $control){try{if(-not [bool]$control.Focus()){[void]$control.Dispatcher.BeginInvoke([Action]({[void]$control.Focus()}.GetNewClosure()),[Windows.Threading.DispatcherPriority]::Loaded)}}catch{}}
+    }
     return $true
 }
 function Get-DomeniaControlCapabilityExplanation {

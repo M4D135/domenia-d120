@@ -575,6 +575,15 @@ try{
     foreach($fn in @($accessAst.FindAll({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst]},$true))){
         if(@('Resolve-DomeniaCapabilityRoute','Invoke-DomeniaCapabilityRoute') -contains $fn.Name){. ([scriptblock]::Create($fn.Extent.Text))}
     }
+    # X04 SE-08 / DS-08: the real Invoke-ComputerTool (core) and Publish-DomeniaCommittedPresence (Park.UI) on the real
+    # window. Their guards, the sessions read and the stored observation are doubles: nothing is read or sent.
+    foreach($fn in @($coreAst.FindAll({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst]},$true))){
+        if(@('Invoke-ComputerTool') -contains $fn.Name){. ([scriptblock]::Create($fn.Extent.Text))}
+    }
+    $parkAst=[System.Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'modules\Domenia-Park.UI.ps1'),[ref]$parseTokens,[ref]$parseErrors)
+    foreach($fn in @($parkAst.FindAll({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst]},$true))){
+        if(@('Publish-DomeniaCommittedPresence') -contains $fn.Name){. ([scriptblock]::Create($fn.Extent.Text))}
+    }
     $mainXaml=Get-MainXaml
     [xml]$mainDoc=$mainXaml
     $mainReader=New-Object Xml.XmlNodeReader $mainDoc
@@ -832,6 +841,24 @@ try{
                 $area.Child=$null;$main.Content=$null;$main.Content=$content;$script:Window=$realWindow;$script:UxLayoutSignature='';$script:UxNavLayoutSignature=''
             }
         }
+        # X04 doubles, defined after the L08 cases: the guards of Invoke-ComputerTool, the sessions read, the stored
+        # observation and the draft comparison. They only record.
+        $script:X04=[pscustomobject]@{Sessions=0;Errors=New-Object 'System.Collections.ArrayList';DraftCompare=0}
+        function Get-CurrentSelectedComputerName {return 'PC-COMPTA-014'}
+        function Assert-DomeniaComputerTarget {param([string]$Computer);return $Computer}
+        function Assert-DomeniaRemoteWriteAllowed {param([string]$Operation)}
+        function Assert-WriteAllowed {}
+        function Show-DomeniaOperationError {param($Operation,$ErrorRecordOrException,$CorrelationId,[switch]$NoPopup);[void]$script:X04.Errors.Add([string]$ErrorRecordOrException)}
+        function Get-DomeniaSelectedMachineName {return 'pc-compta-014.example.local'}
+        function Start-DomeniaSessionsRead {$script:X04.Sessions++}
+        function Test-DomeniaControlIsBusy {param([string]$Name);return $false}
+        function Get-DomeniaSelectionCachePolicy {return [pscustomobject]@{Offline=$false;CanEdit=$true}}
+        function Show-DomeniaDraftComparison {$script:X04.DraftCompare++}
+        function Get-DomeniaCommittedObservation {param($Result,$State);return $Result}
+        function Set-DomeniaResultRowPresence {param($Dn,$Target,$Observation)}
+        function Get-DomeniaLivePresenceView {param($Observation,[switch]$Cached);return [pscustomobject]@{Display=[string]$Observation.Presence;State=[string]$Observation.Presence;Detail=''}}
+        function Set-DomeniaPresenceText {param([string]$Name,[AllowEmptyString()][string]$State);[void](Set-DomeniaControlText -Name $Name -Text $State)}
+        function Update-DomeniaObjectPresence {param([string]$State,[string]$Target)}
         Case 'X04 UX-21 / DS-08 : cinq vues, anciens noms d onglet resolus, en-tete du poste fixe hors des vues' {
             $script:SelectedObject=[pscustomobject]@{Type='Machine';Name='PC-COMPTA-014';DN='CN=PC-COMPTA-014,DC=example,DC=local'}
             Set-VisibleTabsForType -Type 'Machine' -PreserveWorkspace
@@ -890,6 +917,69 @@ try{
                     Expect (-not ($value -match '(?i)Outils\s*>\s*Fiabilit|dans Fiabilit')) ((Split-Path -Leaf $file)+' : '+$value.Substring(0,[Math]::Min(120,$value.Length)))
                 }
             }
+            # The routes that replace the written paths: Base autonome, onglet Stockage, the button of the action focused.
+            foreach($case in @(@('StorageResume','BtnGuardStoreResume'),@('LegacyImport','BtnGuardLegacyImport'))){
+                Select-DomeniaWorkspace -Workspace 'WsSearch';Pump $main
+                $button=$script:Ctrl[[string]$case[1]];$scope=[Windows.Input.FocusManager]::GetFocusScope($button)
+                [Windows.Input.Keyboard]::ClearFocus();[Windows.Input.FocusManager]::SetFocusedElement($scope,$null)
+                Expect ([bool](Invoke-DomeniaCapabilityRoute -Route ([string]$case[0]))) ([string]$case[0]+' : route refusee')
+                Pump $main
+                Expect ([string]$script:Ctrl['WorkspaceTabs'].SelectedItem.Name -eq 'TabApplicationTools') ([string]$case[0]+' ouvre '+[string]$script:Ctrl['WorkspaceTabs'].SelectedItem.Name)
+                Expect ([string]$script:Ctrl['ApplicationToolTabs'].SelectedItem.Name -eq 'TabIndex') ([string]$case[0]+' : outil '+[string]$script:Ctrl['ApplicationToolTabs'].SelectedItem.Name)
+                Expect ([string]$script:Ctrl['IndexWorkspaceTabs'].SelectedItem.Name -eq 'TabIndexStorage') ([string]$case[0]+' : onglet '+[string]$script:Ctrl['IndexWorkspaceTabs'].SelectedItem.Name)
+                Expect (([object]::ReferenceEquals([Windows.Input.FocusManager]::GetFocusedElement($scope),$button)) -or ($button.IsKeyboardFocused)) ([string]$case[0]+' : '+[string]$case[1]+' sans le focus')
+                Expect ([string](Resolve-DomeniaCapabilityRoute -Route ([string]$case[0])).Label -eq 'Base autonome > Stockage') ([string]$case[0]+' : libelle')
+            }
+            # Comparer les saisies opens the comparison of the fiche in place: no page change.
+            Select-DomeniaWorkspace -Workspace 'WsSearch';Pump $main
+            $script:X04.DraftCompare=0
+            Expect ([bool](Invoke-DomeniaCapabilityRoute -Route 'DraftCompare')) 'DraftCompare refusee'
+            Expect (($script:X04.DraftCompare -eq 1) -and ([string]$script:Ctrl['WorkspaceTabs'].SelectedItem.Name -eq 'WsSearch')) ('Comparaison : '+$script:X04.DraftCompare+' ; page '+[string]$script:Ctrl['WorkspaceTabs'].SelectedItem.Name)
+        }
+
+        Case 'X04 SE-08 : Redemarrer depuis Rechercher ouvre le panneau dans Assistance poste > Intervenir, sans rien envoyer' {
+            $script:SelectedObject=[pscustomobject]@{Type='Machine';Name='PC-COMPTA-014';DN='CN=PC-COMPTA-014,DC=example,DC=local'}
+            Set-VisibleTabsForType -Type 'Machine' -PreserveWorkspace
+            $content=$script:Ctrl['ComputerReadContent'];$content.Visibility='Visible';$content.IsEnabled=$true
+            if($null -ne $script:Ctrl['ComputerEmptyState']){$script:Ctrl['ComputerEmptyState'].Visibility='Collapsed'}
+            Select-DomeniaWorkspace -Workspace 'WsSearch';Pump $main
+            Expect ([string]$script:Ctrl['WorkspaceTabs'].SelectedItem.Name -eq 'WsSearch') 'Rechercher non affiche avant le clic'
+            $script:X04.Sessions=0;$script:X04.Errors.Clear();$tasks=$script:L08.Tasks.Count
+            # The entry « Redémarrer le poste… » of the results menu calls exactly this.
+            Invoke-ComputerTool 'Restart';Pump $main
+            Expect ($script:X04.Errors.Count -eq 0) ('Erreur : '+($script:X04.Errors -join ' | '))
+            Expect ([string]$script:Ctrl['WorkspaceTabs'].SelectedItem.Name -eq 'WsComputer') ('Page affichee : '+[string]$script:Ctrl['WorkspaceTabs'].SelectedItem.Name)
+            Expect ([string]$script:Ctrl['ComputerTabs'].SelectedItem.Name -eq 'TabComputerAdmin') ('Vue : '+[string]$script:Ctrl['ComputerTabs'].SelectedItem.Name)
+            Expect ($script:Ctrl['UxCompRestartPanel'].IsVisible) 'Panneau de redemarrage invisible'
+            Expect (($script:X04.Sessions -eq 1) -and ($script:L08.Tasks.Count -eq $tasks)) ('Lectures des sessions : '+$script:X04.Sessions+' ; taches : '+($script:L08.Tasks.Count-$tasks))
+            Close-DomeniaComputerRestartPanel;Pump $main
+            Expect (-not $script:Ctrl['UxCompRestartPanel'].IsVisible) 'Panneau reste ouvert'
+            $script:SelectedObject=$null
+        }
+
+        Case 'X04 DS-08 : heure de la pastille = heure du test publie, meme si la reponse ne change pas' {
+            $script:SelectedObject=[pscustomobject]@{Type='Machine';Name='PC-COMPTA-014';DN='CN=PC-COMPTA-014,DC=example,DC=local'}
+            $script:InventoryCompletedAt=$null;$script:Live=$null;$script:RenderingObjectWithoutProbes=$false
+            Initialize-DomeniaAssist
+            $script:Ctrl['TxtCompPresence'].Text='';$script:Ctrl['TxtCompPresence'].Text='Non verifie';Pump $main
+            $label=$script:Ctrl['LblCompHeaderPresence']
+            Expect ([string]$label.Text -eq 'Présence non vérifiée') ('Avant le test : '+[string]$label.Text)
+            $state=[pscustomobject]@{Computer='pc-compta-014.example.local';DisplayDN=[string]$script:SelectedObject.DN;DisplayKind='Machine';Suffix='';Explicit=$true}
+            $first=[datetime]::SpecifyKind([datetime]'2026-10-15 08:00:00',[DateTimeKind]::Utc)
+            $second=[datetime]::SpecifyKind([datetime]'2026-10-15 08:30:00',[DateTimeKind]::Utc)
+            foreach($at in @($first,$second)){
+                $observation=[pscustomobject]@{Key=[string]$script:SelectedObject.DN;Presence='En ligne';PresenceCheckedUtc=$at.ToString('o');PresenceAttemptUtc=$at.ToString('o')}
+                Publish-DomeniaCommittedPresence -Result $observation -State $state;Pump $main
+                $expected='Répond au ping · '+$at.ToLocalTime().ToString('HH:mm',[Globalization.CultureInfo]::InvariantCulture)
+                Expect ([string]$label.Text -eq $expected) ('Pastille : '+[string]$label.Text+' au lieu de '+$expected)
+            }
+            Expect ([string]$script:Ctrl['TxtCompPresence'].Text -eq 'En ligne') ('Fiche : '+[string]$script:Ctrl['TxtCompPresence'].Text)
+            # A state written again without its observation (result list, memory) shows no time.
+            $script:Ctrl['TxtCompPresence'].Text='En ligne (cache)';Pump $main
+            Expect ([string]$label.Text -eq 'Répond au ping (mémoire)') ('Etat repris : '+[string]$label.Text)
+            $script:Ctrl['TxtCompPresence'].Text='Sans réponse au ping';Pump $main
+            Expect ([string]$label.Text -eq 'Ne répond pas au ping') ('Etat sans observation : '+[string]$label.Text)
+            $script:SelectedObject=$null
         }
     }finally{
         Stop-DomeniaReadOnlyReturnTimer
@@ -900,7 +990,7 @@ try{
     $script:Tests.Add([pscustomobject]@{Name='Initialisation ou suite interrompue';Status='Failed';Detail=$_.Exception.ToString()})
 }
 
-$expected=23
+$expected=25
 $passed=@($script:Tests|Where-Object{$_.Status -eq 'Passed'}).Count
 $failed=@($script:Tests|Where-Object{$_.Status -eq 'Failed'}).Count
 $report=[ordered]@{

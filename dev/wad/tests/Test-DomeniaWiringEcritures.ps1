@@ -530,7 +530,7 @@ function Install-X04RemoteDoubles {
     Set-D093Function 'Invoke-CimMethod' { param($InputObject,$MethodName,$ErrorAction)
         $script:X04Calls.Add('Invoke-CimMethod:'+[string]$MethodName)
         $code=0
-        if (($null -ne $script:X04MethodReturn) -and $script:X04MethodReturn.ContainsKey([string]$MethodName)) { $code=[int]$script:X04MethodReturn[[string]$MethodName] }
+        if (($null -ne $script:X04MethodReturn) -and ($script:X04MethodReturn.ContainsKey([string]$MethodName))) { $code=[int]$script:X04MethodReturn[[string]$MethodName] }
         if ($code -eq 0) {
             if ([string]$MethodName -eq 'StopService') { $script:X04Service.State='Stopped' }
             if ([string]$MethodName -eq 'StartService') { $script:X04Service.State='Running' }
@@ -551,13 +551,14 @@ function Install-X04RemoteDoubles {
 }
 function Invoke-X04PinnedWrite {
     # One pinned workstation body in the real write envelope, with its own receipt folder. Returns the result, the
-    # failure message and the receipts written.
-    param([string]$Operation,$Fields)
+    # failure message and the receipts written. -UseWinRM is Remote.UseWinRM as Get-WorkerContext gives it.
+    param([string]$Operation,$Fields,[bool]$UseWinRM=$true)
     $receiptRoot=Join-Path $temp ('x04-'+$Operation+'-'+[guid]::NewGuid().ToString('N'))
     [void][IO.Directory]::CreateDirectory($receiptRoot)
     $script:ReceiptRoot=$receiptRoot
     $worker=New-WriteEnvelopeScript -Business (Get-PinnedBody $Operation)
     $context=New-WriteContext -ReceiptRoot $receiptRoot -OperationId $Operation
+    $context | Add-Member -NotePropertyName UseWinRM -NotePropertyValue $UseWinRM -Force
     $payload=[pscustomobject]@{Computer='pc-demo-01';Target='pc-demo-01';DN='pc-demo-01';CorrelationId=[guid]::NewGuid().ToString('N');PlanFingerprint='';SingleRequest=$true}
     if ($null -ne $Fields) { foreach($field in @($Fields.PSObject.Properties)) { $payload | Add-Member -NotePropertyName ([string]$field.Name) -NotePropertyValue $field.Value -Force } }
     $result=$null;$failure=''
@@ -578,6 +579,8 @@ function Initialize-X04Fixture {
     $script:X04Service=$null
     $script:X04MethodReturn=@{}
     $script:X04InvokeResult=$null
+    $script:X04Navigation=[Collections.Generic.List[string]]::new()
+    $script:X04Cfg=@{}
     foreach($pair in @(@('UxCompRestartPanel','Border'),@('LblCompRestartTitle','TextBlock'),@('LblCompRestartSessions','TextBlock'),@('LblCompRestartSessionLines','TextBlock'),@('RbCompRestartDelayed','RadioButton'),@('RbCompRestartNow','RadioButton'),@('TxtCompRestartMessage','TextBox'),@('BtnCompRestartSend','Button'),@('BtnCompRestart','Button'),@('BtnCompGpUpdate','Button'),@('UxCompRunPanel','Border'),@('LblCompRunTitle','TextBlock'),@('LblCompRunConsent','TextBlock'),@('BtnCompRunConsent','Button'),@('RbCompRunSystem','RadioButton'),@('RbCompRunUser','RadioButton'),@('TxtCompRunUser','TextBox'),@('TxtCompRunCommand','TextBox'),@('TxtCompRunArguments','TextBox'),@('ChkCompRunElevated','CheckBox'),@('BtnCompRunStart','Button'),@('LblCompRunState','TextBlock'),@('LblCompServicesState','TextBlock'),@('ChkCompServicesAutoStopped','CheckBox'),@('TxtCompServicesFilter','TextBox'),@('BtnCompServiceStart','Button'),@('BtnCompServiceRestart','Button'))) {
         $control=New-Object ('System.Windows.Controls.'+[string]$pair[1])
         $control.Name=[string]$pair[0]
@@ -591,6 +594,10 @@ function Initialize-X04Fixture {
     Set-D093Function 'Get-DomeniaSelectionCachePolicy' { return [pscustomobject]@{Offline=$false;CanEdit=$true} }
     Set-D093Function 'Get-DomeniaSelectedMachineName' { return 'pc-demo-01.example.invalid' }
     Set-D093Function 'Start-DomeniaSessionsRead' { $script:X04Sessions++ }
+    # The page navigation is recorded: the panels must open in Assistance poste > Intervenir wherever they are asked.
+    Set-D093Function 'Select-DomeniaWorkspace' { param($Workspace,$Inner,$Tab) $script:X04Navigation.Add(([string]$Workspace+'/'+[string]$Inner+'/'+[string]$Tab)) }
+    # Remote.UseWinRM and the other settings read by the page, per case ($script:X04Cfg['Remote.UseWinRM']=$false).
+    Set-D093Function 'Get-CfgValue' { param($Section,$Name,$Default) $key=[string]$Section+'.'+[string]$Name; if ($script:X04Cfg.ContainsKey($key)) { return $script:X04Cfg[$key] }; return $Default }
     Set-D093Function 'Set-ClipboardSafe' { param($Text) $script:X04Clipboard=[string]$Text }
     Set-D093Function 'Show-DomeniaBanner' { param($Kind,$Message,$Details,$Key,$ActionText,$ActionPath,$RouteText,$Route) $script:X04Banners++; return $true }
     Set-D093Function 'Get-ExistingLinkForComputer' { param($Computer) return [pscustomobject]@{UserLogin='cmartin';Computer=[string]$Computer;Source='Saisie manuelle'} }
@@ -1589,6 +1596,7 @@ if (($infrastructure) -and ($x04Loaded)) {
         Assert-True ($script:X04Sessions -eq 1) ('Lectures des sessions : '+$script:X04Sessions)
         Assert-True (($script:ConfirmCalls -eq 0) -and ($script:InlineRequests.Count -eq 0)) 'Une confirmation est demandee avant la lecture des sessions.'
         Assert-True ($script:Ctrl['UxCompRestartPanel'].Visibility -eq [Windows.Visibility]::Visible) 'Panneau de redemarrage absent.'
+        Assert-True ((@($script:X04Navigation) -join ',') -eq 'WsComputer/ComputerTabs/TabComputerAdmin') ('Navigation : '+(@($script:X04Navigation) -join ','))
         Assert-True ([bool]$script:Ctrl['RbCompRestartDelayed'].IsChecked) 'Le choix par defaut n est pas le redemarrage differe.'
         Assert-True (([string]$script:Ctrl['TxtCompRestartMessage'].Text) -match 'dans 5 minutes') ('Message : '+[string]$script:Ctrl['TxtCompRestartMessage'].Text)
         Assert-True (-not $script:Ctrl['BtnCompRestartSend'].IsEnabled) 'Envoi possible avant la lecture des sessions.'
@@ -1694,6 +1702,49 @@ if (($infrastructure) -and ($x04Loaded)) {
         $run=Invoke-X04PinnedWrite -Operation 'ComputerRestart' -Fields ([pscustomobject]@{Mode='Now';DelaySeconds=0;Message=''})
         Assert-True (($run.Failure -eq '') -and ($script:RestartCalls -eq 1) -and (@($script:X04Calls | Where-Object { $_ -like 'Invoke-Command*' }).Count -eq 0)) ('Redemarrage immediat : '+$run.Failure)
     }
+    Test-Case 'X04 CD-11 WinRM desactive par la configuration : ni GPUpdate ni redemarrage differe, aucune session WinRM' {
+        Initialize-X04Fixture
+        # Pinned bodies: Remote.UseWinRM = false refuses before any connection, receipt NotSent.
+        foreach($case in @(@('ComputerGpUpdate',$null),@('ComputerRestart',[pscustomobject]@{Mode='Delayed';DelaySeconds=300;Message='Message de test'}))) {
+            Install-X04RemoteDoubles
+            $run=Invoke-X04PinnedWrite -Operation ([string]$case[0]) -Fields $case[1] -UseWinRM $false
+            $label=[string]$case[0]
+            Assert-True ($run.Failure -match 'Non envoy.*WinRM.*Remote\.UseWinRM') ($label+' : '+$run.Failure)
+            Assert-True (@($script:X04Calls | Where-Object { ($_ -eq 'New-PSSession') -or ($_ -like 'Invoke-Command*') }).Count -eq 0) ($label+' : WinRM contacte malgre la configuration : '+(@($script:X04Calls) -join ' ; '))
+            Assert-True ((@($run.Receipts).Count -eq 1) -and ([string]$run.Receipts[0].Stage -eq 'NotSent')) ($label+' : recu '+(@($run.Receipts | ForEach-Object { [string]$_.Stage }) -join ','))
+        }
+        # The immediate restart does not use WinRM and stays possible.
+        Install-X04RemoteDoubles
+        $run=Invoke-X04PinnedWrite -Operation 'ComputerRestart' -Fields ([pscustomobject]@{Mode='Now';DelaySeconds=0;Message=''}) -UseWinRM $false
+        Assert-True (($run.Failure -eq '') -and (@($script:X04Calls | Where-Object { $_ -eq 'New-PSSession' }).Count -eq 0)) ('Redemarrage immediat sans WinRM : '+$run.Failure)
+        # The page: the delayed choice is unavailable with its reason, « Maintenant » is never chosen for the operator.
+        $script:X04Cfg['Remote.UseWinRM']=$false
+        $script:Ctrl['RbCompRestartNow'].IsChecked=$true
+        Invoke-ComputerTool -Tool 'Restart'
+        $delayed=$script:Ctrl['RbCompRestartDelayed']
+        Assert-True ((-not $delayed.IsEnabled) -and (-not [bool]$delayed.IsChecked) -and ([string]$delayed.ToolTip -match 'WinRM')) ('Choix differe : '+[string]$delayed.Content)
+        Assert-True (-not [bool]$script:Ctrl['RbCompRestartNow'].IsChecked) 'Le redemarrage immediat est choisi a la place de l operateur.'
+        Update-DomeniaRestartSessions -View (New-X04SessionsView) -State ([pscustomobject]@{Epoch=1L;Generation=1L;DN=[string]$script:SelectedObject.DN})
+        Assert-True (-not $script:Ctrl['BtnCompRestartSend'].IsEnabled) 'Envoi possible sans choix explicite.'
+        Submit-DomeniaComputerRestart
+        Assert-True (($script:InlineRequests.Count -eq 0) -and ($script:WriteStartUiTaskCalls -eq 0)) 'Un redemarrage part sans choix.'
+        $delayed.IsChecked=$true
+        Submit-DomeniaComputerRestart
+        Assert-True (($script:InlineRequests.Count -eq 0) -and ($script:WriteStartUiTaskCalls -eq 0)) 'Un redemarrage differe est prepare malgre WinRM desactive.'
+        $delayed.IsChecked=$false;$script:Ctrl['RbCompRestartNow'].IsChecked=$true
+        Update-DomeniaComputerRestartChoice
+        Assert-True ($script:Ctrl['BtnCompRestartSend'].IsEnabled) 'Redemarrage immediat impossible apres un choix explicite.'
+        Submit-DomeniaComputerRestart
+        Assert-True (($script:InlineRequests.Count -eq 1) -and ([string]$script:StartUiTaskPayloads[$script:StartUiTaskPayloads.Count-1].Mode -eq 'Now')) 'Le redemarrage immediat choisi n est pas propose.'
+        # GPUpdate is refused before any confirmation, and its button says why.
+        $before=$script:InlineRequests.Count
+        Invoke-ComputerTool -Tool 'GpUpdate'
+        Assert-True ($script:InlineRequests.Count -eq $before) 'Actualisation des strategies preparee malgre WinRM desactive.'
+        Assert-True (@($script:Dialogs | Where-Object { $_ -match 'WinRM' }).Count -ge 1) ('Refus non dit : '+(@($script:Dialogs) -join ' | '))
+        $script:ReadOnlyMode=$false
+        Update-DomeniaComputerAssistPermissions
+        Assert-True ((-not $script:Ctrl['BtnCompGpUpdate'].IsEnabled) -and ([string]$script:Ctrl['BtnCompGpUpdate'].ToolTip -match 'WinRM')) 'Bouton Actualiser les strategies actif malgre WinRM desactive.'
+    }
     Test-Case 'X04 UX-38 Commande de service : session CIM avant tout envoi, service desactive refuse sans envoi, etat relu' {
         Initialize-X04Fixture
         $body=Get-PinnedBody 'ComputerServiceControl'
@@ -1785,6 +1836,7 @@ if (($infrastructure) -and ($x04Loaded)) {
         $script:ArtifactConsent=$null
         Show-DomeniaRunProgramPanel
         Assert-True ($script:Ctrl['UxCompRunPanel'].Visibility -eq [Windows.Visibility]::Visible) 'Panneau d execution absent.'
+        Assert-True ((@($script:X04Navigation) -join ',') -eq 'WsComputer/ComputerTabs/TabComputerAdmin') ('Navigation : '+(@($script:X04Navigation) -join ','))
         Assert-True ([string]$script:Ctrl['TxtCompRunUser'].Text -eq 'EXAMPLE\cmartin') ('Compte prerempli : '+[string]$script:Ctrl['TxtCompRunUser'].Text)
         Assert-True ($script:Ctrl['BtnCompRunConsent'].Visibility -eq [Windows.Visibility]::Visible) 'Autorisation d intervention non proposee.'
         $script:Ctrl['TxtCompRunCommand'].Text='%SystemRoot%\System32\notepad.exe'

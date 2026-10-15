@@ -58,7 +58,7 @@ foreach ($name in $coreNames) {
     Invoke-Expression $nodes[0].Extent.Text
 }
 foreach ($module in @('Domenia-Common.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Embedded.UI.ps1','Domenia-UX.UI.ps1',
-    'Domenia-Workstation.Model.ps1','Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-BoardSoftware.Model.ps1','Domenia-BoardComputer.UI.ps1','Domenia-Widgets.UI.ps1','Domenia-Dashboard.UI.ps1','Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-Query.UI.ps1','Domenia-QueryTargets.UI.ps1','Domenia-Search.Model.ps1','Domenia-Search.UI.ps1','Domenia-Refresh.UI.ps1')) {
+    'Domenia-Workstation.Model.ps1','Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-BoardSoftware.Model.ps1','Domenia-BoardComputer.UI.ps1','Domenia-Widgets.UI.ps1','Domenia-Dashboard.UI.ps1','Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-Query.UI.ps1','Domenia-QueryTargets.UI.ps1','Domenia-Search.Model.ps1','Domenia-Search.UI.ps1','Domenia-Refresh.UI.ps1','Domenia-Assist.Model.ps1','Domenia-Assist.UI.ps1')) {
     . (Join-Path $wad ('modules\' + $module))
 }
 # Local replacements: no settings, log, directory or workstation is touched.
@@ -77,6 +77,11 @@ function Set-DomeniaSetting { param([string]$Name,$Value) $script:GuideSettings[
 function Get-DomeniaSetting { param([string]$Name,$Default = $null) if ($script:GuideSettings.ContainsKey($Name)) { return $script:GuideSettings[$Name] }; return $Default }
 function Save-DomeniaSettings { param([switch]$Immediate,[switch]$ThrowOnFailure) }
 function Test-DomeniaLiveSearchActive { return $false }
+# DS-08 / UI-17 (X04): the header and the association line of the workstation come from the real rules; the selected
+# workstation and its association are fixture values, nothing is read.
+function Get-CurrentSelectedComputerName { return 'PC-COMPTA-014' }
+function Get-ExistingLinkForComputer { param([string]$Computer) return [pscustomobject]@{Computer='PC-COMPTA-014';UserLogin='cmartin';UserDn='CN=Camille Martin,OU=Utilisateurs,OU=Lyon,DC=example,DC=local';Source='Console observee';Kind='Console';When=$script:GuideLinkWhen} }
+function Get-DomeniaRunningComputerUserProbe { param([string]$Computer) return $null }
 function Invalidate-DomeniaSearchResults { $script:GlobalSearchGeneration++; $script:ShownRows=@() }
 function Add-DomeniaUiLog { param([string]$Area,[string]$Text,[string]$Level = 'INFO') }
 function Set-Status { param([string]$Text,[string]$Level = 'INFO') }
@@ -326,7 +331,13 @@ function Save-GuideElement {
 }
 function Show-GuideTab {
     param([string]$Route,[string]$Tab = '')
-    Invoke-DomeniaUxRoute -Route $Route; if ($Tab) { (Get-DomeniaControl $Tab).IsSelected = $true }
+    Invoke-DomeniaUxRoute -Route $Route
+    if ($Tab) {
+        # UX-21 (X04): Assistance poste has five views; a workstation tab, a former name included (TabSoftware,
+        # TabComputerDashboard...), resolves to its view and inner tab exactly as a menu or a widget link does.
+        if ($Route -eq 'WsComputer') { Select-DomeniaWorkspace -Workspace 'WsComputer' -Inner 'ComputerTabs' -Tab $Tab }
+        else { $page = Get-DomeniaControl $Tab; if ($null -eq $page) { throw ('Onglet introuvable : ' + $Tab) }; $page.IsSelected = $true }
+    }
     # Header of a loaded card, as after a real reading of the object.
     if ($null -ne $script:SelectedObject) { foreach ($label in @('LblComputerReadStatus','LblObjectReadStatus')) { $c = Get-DomeniaControl $label; if ($null -ne $c) { $c.Text = [string]$script:SelectedObject.Type + ' : ' + [string]$script:SelectedObject.Name + ' | Fiche AD chargee.' } } }
     Update-DomeniaOuRefreshUi
@@ -659,17 +670,25 @@ Update-DomeniaSearchScopeUi;Update-DomeniaOuRefreshUi;Update-GuideLayout
 # 3. Fiche of a workstation, its actions, dashboard and customise mode.
 $script:SelectedObject = $computer
 Set-VisibleTabsForType -Type 'Machine'
+$script:GuideLinkWhen = [datetime]::SpecifyKind([datetime]'2026-10-08 06:15:00',[DateTimeKind]::Utc).ToString('o')
+Initialize-DomeniaAssist
 foreach ($k in @('Object','Computer')) { $h = Get-DomeniaControl ($k + 'ReadContent'); $e = Get-DomeniaControl ($k + 'ReadPlaceholder'); if ($null -ne $h) { $h.Visibility = 'Visible'; $h.IsEnabled = $true }; if ($null -ne $e) { $e.Visibility = 'Collapsed' } }
 Set-GuideText @{ TxtObjName = 'PC-COMPTA-014'; TxtObjType = 'Machine'; TxtObjDn = $computer.DN; TxtCompName = 'PC-COMPTA-014'; TxtCompDns = 'pc-compta-014.example.local'; TxtCompOs = 'Windows 11 Entreprise'; TxtCompOsVersion = '10.0 (26100)'
     TxtCompDescription = 'Poste comptabilite, 2e etage'; TxtCompLocation = 'Lyon, batiment B'; TxtCompManagedBy = 'Service informatique'; TxtCompLastLogon = '07/10/2026 08:12'; TxtCompState = 'Actif'; TxtCompUac = 'Compte ordinateur standard'
     TxtCompPresence = 'En ligne (ping 3 ms)'; TxtCompLinkedUser = 'Camille Martin (cmartin)'; TxtCompLinkSource = 'Console observee'; TxtCompLinkConfidence = 'Observe'; TxtCompLinkWhen = '08/10/2026 08:15' }
 Set-GuideText @{ LblComputerReadStatus = 'Machine : PC-COMPTA-014 | Fiche AD chargee.'; LblObjectReadStatus = 'Machine : PC-COMPTA-014 | Fiche AD chargee.' }
+# Header and association line through the real coordination: the presence time is the one of a fixture observation.
+Update-DomeniaComputerAssistView -Uac 4096
+Set-DomeniaComputerHeaderPresenceTime -Observation ([pscustomobject]@{PresenceCheckedUtc=[datetime]::SpecifyKind([datetime]'2026-10-08 06:16:00',[DateTimeKind]::Utc).ToString('o')})
+Assert-Guide (([string](Get-DomeniaControl 'LblCompHeaderName').Text -eq 'PC-COMPTA-014') -and ([string](Get-DomeniaControl 'LblCompHeaderUser').Text -eq 'Camille Martin')) 'En-tête du poste rempli par les règles réelles'
 Show-GuideTab 'WsComputer' 'TabComputer'
 Save-GuideWindow 'fiche-poste'
 Show-GuideTab 'WsComputer' 'TabComputerAdmin'
 Save-GuideWindow 'actions-poste'
 Update-DomeniaComputerDashboard -Result $inventory
-Show-GuideTab 'WsComputer' 'TabComputerDashboard'
+# UX-21: the dashboard is the second part of the Vue d'ensemble view.
+Show-GuideTab 'WsComputer' 'TabComputer'
+Move-GuideScrollTo (Get-DomeniaControl 'UxComputerDashboardSection')
 Save-GuideWindow 'tableau-poste' 1840
 (Get-DomeniaBoardState 'Computer').Editing = $true; Show-DomeniaBoard -Board Computer -Quiet
 Save-GuideWindow 'personnaliser' 1100
@@ -682,7 +701,7 @@ Assert-Guide ([string](Get-DomeniaControl 'LblQueryComputerPreview').Text -like 
 Save-GuideWindow 'atelier-poste' 1240
 Invoke-DomeniaQueryAction 'Widget'
 Assert-Guide (@(Get-DomeniaBoardLayout Computer|Where-Object{$_.Source -eq 'Query'}).Count -eq 1) 'Widget de requête partagé sur le tableau du poste'
-Show-GuideTab 'WsComputer' 'TabComputerDashboard'
+Show-GuideTab 'WsComputer' 'TabComputer'
 Show-DomeniaBoard -Board Computer -Quiet
 $computerQueryItem=@(Get-DomeniaBoardLayout Computer|Where-Object{$_.Source -eq 'Query'})[0]
 $computerQueryHolder=Find-DomeniaBoardHolder (Get-DomeniaControl 'PnlComputerDashboard') ([string]$computerQueryItem.Id)

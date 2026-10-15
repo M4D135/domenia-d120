@@ -296,7 +296,7 @@ function Show-DomeniaBanner {
         [void]$actions.Children.Add($record.DetailButton)
     }
     if($ActionText -and $ActionPath){[void]$actions.Children.Add((New-DomeniaBannerButton -Text $ActionText -Command 'Folder' -Record $record -Help ('Ouvre lʼExplorateur sur '+$ActionPath)))}
-    if($RouteText -and $Route){[void]$actions.Children.Insert(0,(New-DomeniaBannerButton -Text $RouteText -Command 'Route' -Record $record -Help ('Ouvre lʼendroit de lʼaction : '+$RouteText+'. Rien nʼest lancé par ce clic.')))}
+    if(($RouteText) -and ($Route)){[void]$actions.Children.Insert(0,(New-DomeniaBannerButton -Text $RouteText -Command 'Route' -Record $record -Help ('Ouvre lʼendroit de lʼaction : '+$RouteText+'. Rien nʼest lancé par ce clic.')))}
     $record.Actions=$actions;$record.Stack=$stack
     if($actions.Children.Count){[void]$stack.Children.Add($actions)}
     [void]$grid.Children.Add($stack)

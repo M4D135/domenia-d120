@@ -427,9 +427,9 @@ try {
             $header=Get-DomeniaControl 'UxComputerHeader';$shown=$true
             foreach($view in @(Get-DomeniaComputerViewNames)){
                 Select-DomeniaWorkspace -Workspace 'WsComputer' -Inner 'ComputerTabs' -Tab $view;Update-PreviewLayout
-                $shown=($shown -and $header.IsVisible -and ([string](Get-DomeniaControl 'ComputerTabs').SelectedItem.Name -eq $view))
+                $shown=(($shown) -and ($header.IsVisible) -and ([string](Get-DomeniaControl 'ComputerTabs').SelectedItem.Name -eq $view))
             }
-            (($names -join ',') -ceq ((Get-DomeniaComputerViewNames) -join ',')) -and $shown
+            (($names -join ',') -ceq ((Get-DomeniaComputerViewNames) -join ',')) -and ($shown)
         }
         Test-PreviewAssertion 'Intervenir : quatre cartes, Redémarrer à part, un seul bouton de compte selon son état' {
             Open-PreviewObject -Kind 'Machine'
@@ -446,7 +446,7 @@ try {
             ($cards.Count -eq 4) -and (@($cards|Where-Object{$_ -is [Windows.Controls.Border]}).Count -eq 4) -and
             ([object]::ReferenceEquals($siblings[$siblings.Count-1],$restart)) -and ($siblings[$siblings.Count-2] -is [Windows.Controls.Border]) -and
             ((Get-DomeniaControl 'UxCompRestartPanel').Visibility -eq 'Collapsed') -and ((Get-DomeniaControl 'UxCompRunPanel').Visibility -eq 'Collapsed') -and
-            $off -and $on -and $unknown
+            ($off) -and ($on) -and ($unknown)
         }
         Test-PreviewAssertion 'Un onglet technique masqué ne reste pas sélectionné' {
             Apply-DomeniaUiProfile -Profile 'Admin';Select-DomeniaWorkspace -Workspace 'WsObject' -Inner 'DetailTabs' -Tab 'TabRaw'

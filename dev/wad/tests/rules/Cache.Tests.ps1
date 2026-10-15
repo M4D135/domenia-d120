@@ -160,7 +160,10 @@ Test-Case 'D028' 'Libelle d enregistrement : indisponible > suspendu > conflits 
     $unavailable=Get-DomeniaPersistenceLabel -Pending 4 -Failed 2 -Suspended $true -Unavailable $true -Conflicts 1
     Assert-Equal 'En memoire uniquement : stockage local indisponible, rien n est enregistre.' $unavailable
     Assert-False ($unavailable -match 'Fiabilite') 'Un stockage indisponible ne renvoie pas vers la reprise des sauvegardes'
-    Assert-Equal 'En memoire uniquement : enregistrement suspendu apres des echecs. Reprise dans Fiabilite.' (Get-DomeniaPersistenceLabel -Pending 4 -Failed 2 -Suspended $true -Conflicts 1)
+    # UX-19 (X04): the suspended state names the button that resumes the saves and its place, not the hidden tab.
+    $suspended=Get-DomeniaPersistenceLabel -Pending 4 -Failed 2 -Suspended $true -Conflicts 1
+    Assert-Equal 'En mémoire uniquement : enregistrement suspendu après des échecs. Reprise : « Reprendre les sauvegardes », Base autonome, onglet Stockage.' $suspended
+    Assert-True (($suspended -match 'suspendu') -and ($suspended -match 'Reprendre les sauvegardes') -and ($suspended -notmatch 'Fiabilit')) ('Libelle suspendu : '+$suspended)
     Assert-Equal 'En memoire : 3 association(s) modifiee(s) ailleurs, non enregistree(s). Rechargez les associations : Comptes > Changer de compte, ou redemarrage.' (Get-DomeniaPersistenceLabel -Pending 4 -Failed 2 -Conflicts 3)
     Assert-Equal 'En memoire : 2 enregistrement(s) en echec, nouvel essai prevu.' (Get-DomeniaPersistenceLabel -Pending 4 -Failed 2)
     Assert-Equal 'En memoire : 4 modification(s) a enregistrer.' (Get-DomeniaPersistenceLabel -Pending 4)
@@ -169,9 +172,10 @@ Test-Case 'D028' 'Libelle d enregistrement : indisponible > suspendu > conflits 
     Assert-Equal 'En memoire : 5 modification(s) a enregistrer.' (Get-DomeniaPersistenceLabel 5)
     Assert-Equal 'En memoire : 1 enregistrement(s) en echec, nouvel essai prevu.' (Get-DomeniaPersistenceLabel 5 1)
     Assert-Equal 'Enregistre.' (Get-DomeniaPersistenceLabel 0 0 $false $false 0)
+    # One printable line each. The suspended label (UX-19) is written with its accents; the others keep their text.
     foreach($label in @($unavailable,(Get-DomeniaPersistenceLabel 0 0 $true),(Get-DomeniaPersistenceLabel 0 0 $false $false 7),(Get-DomeniaPersistenceLabel 0 3),(Get-DomeniaPersistenceLabel 9))){
-        Assert-True ($label -cmatch '^[\x20-\x7E]+$') ('Libelle non ASCII : '+$label)
-        Assert-True ($label.StartsWith('En memoire')) ('Un etat non enregistre doit le dire : '+$label)
+        Assert-False ($label -match '[\x00-\x1F\x7F]') ('Libelle sur plusieurs lignes ou avec un caractere de controle : '+$label)
+        Assert-True ($label -cmatch '^En m(e|\u00e9)moire') ('Un etat non enregistre doit le dire : '+$label)
     }
 }
 Test-Case 'D029' 'La purge ne touche jamais configuration, associations declarees ni recus' {

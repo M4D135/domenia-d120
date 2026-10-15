@@ -32,7 +32,7 @@ function Resolve-DomeniaComputerViewRoute {
         'TabWmi'               { $view = 'TabComputerHealth'; $inner = 'ComputerDiagTabs'; $sub = 'TabWmi' }
         'TabSecurity'          { $view = 'TabSecurity' }
     }
-    return [pscustomobject]@{Tab=$name;Known=[bool]$view;View=$view;Inner=$inner;Sub=$sub;Section=$section;Alias=([bool]$view -and ($view -cne $name))}
+    return [pscustomobject]@{Tab=$name;Known=[bool]$view;View=$view;Inner=$inner;Sub=$sub;Section=$section;Alias=(([bool]$view) -and ($view -cne $name))}
 }
 
 # ---------------------------------------------------------------- DS-08 fixed header
@@ -62,15 +62,34 @@ function Get-DomeniaComputerPresenceBadge {
         $help = 'Le ping nʼa pas pu être envoyé. Le détail est dans le journal de session.'
     }
     $time = ([string]$CheckedAt).Trim()
-    if ($remembered -and ($tone -in @('Online','Offline'))) {
+    if (($remembered) -and ($tone -in @('Online','Offline'))) {
         $tone = 'Remembered'; $label += ' (mémoire)'
         $help += ' Valeur reprise de la mémoire locale : ce nʼest pas un état actuel confirmé.'
     }
-    elseif ($time -and ($tone -in @('Online','Offline','Error'))) {
+    elseif (($time) -and ($tone -in @('Online','Offline','Error'))) {
         $label += ' · ' + $time
         $help += ' Dernier test à ' + $time + '.'
     }
     return [pscustomobject]@{Tone=$tone;Label=$label;Help=$help;State=$value;Remembered=$remembered}
+}
+
+function Get-DomeniaPresenceObservationTime {
+    # DS-08: the local time (« 14:32 ») of the presence test an observation records: the latest of the last attempt
+    # (PresenceAttemptUtc, also set by a failed test) and the last answer (PresenceCheckedUtc; CheckedUtc only for an
+    # observation without it, as Get-DomeniaLivePresenceView reads it). '' when no date is readable: the pill then
+    # shows no time rather than a guessed one.
+    param($Observation)
+    if ($null -eq $Observation) { return '' }
+    $answered = Get-DomeniaMember $Observation 'PresenceCheckedUtc' $null
+    if (($null -eq $answered) -or ([string]::IsNullOrWhiteSpace([string]$answered))) { $answered = Get-DomeniaMember $Observation 'CheckedUtc' $null }
+    $latest = $null
+    foreach ($value in @((Get-DomeniaMember $Observation 'PresenceAttemptUtc' $null),$answered)) {
+        if (($null -eq $value) -or ([string]::IsNullOrWhiteSpace([string]$value))) { continue }
+        $at = ConvertTo-DomeniaUtcDate $value
+        if (($null -ne $at) -and (($null -eq $latest) -or ($at -gt $latest))) { $latest = $at }
+    }
+    if ($null -eq $latest) { return '' }
+    return $latest.ToLocalTime().ToString('HH:mm',[Globalization.CultureInfo]::InvariantCulture)
 }
 
 function Get-DomeniaComputerHeaderView {
@@ -90,14 +109,14 @@ function Get-DomeniaComputerHeaderView {
     if (-not $computer) { $computer = 'Poste sans nom' }
     $os = ([string]$OperatingSystem).Trim(); $osVersion = ([string]$Version).Trim()
     $system = 'Système non renseigné dans lʼannuaire'
-    if ($os -and $osVersion) { $system = $os + ' · ' + $osVersion }
+    if (($os) -and ($osVersion)) { $system = $os + ' · ' + $osVersion }
     elseif ($os) { $system = $os }
     elseif ($osVersion) { $system = 'Version ' + $osVersion }
     $login = ([string]$UserLogin).Trim()
     $user = ([string]$UserDisplay).Trim()
     if (-not $user) { $user = $login }
     $userHelp = 'Aucun utilisateur associé à ce poste dans la mémoire locale. « Détecter à nouveau » interroge le poste.'
-    if ($user) { $userHelp = 'Ouvre la fiche de ' + $user + $(if ($login -and ($login -cne $user)) { ' (' + $login + ')' } else { '' }) + '. Aucune écriture, aucune sonde du poste.' }
+    if ($user) { $userHelp = 'Ouvre la fiche de ' + $user + $(if (($login) -and ($login -cne $user)) { ' (' + $login + ')' } else { '' }) + '. Aucune écriture, aucune sonde du poste.' }
     $inventory = ([string]$InventoryLabel).Trim()
     if (-not $inventory) { $inventory = 'Aucun inventaire dans cette session' }
     return [pscustomobject]@{
@@ -144,17 +163,20 @@ function Get-DomeniaRestartDefaultMessage {
 function Get-DomeniaRestartPlan {
     # The restart chosen in the page. Delayed (default): shutdown /r with a delay and a message shown to the user of
     # the workstation. Now: immediate forced restart, without message. The message is one line of at most 400
-    # characters, without double quote (it travels as a native argument of shutdown.exe).
+    # characters, without double quote (it travels as a native argument of shutdown.exe). The delayed restart travels
+    # by WinRM: it is refused when the configuration forbids WinRM (WinRmAllowed = Remote.UseWinRM).
     param(
         [AllowEmptyString()][AllowNull()][string]$Computer='',
         [AllowEmptyString()][AllowNull()][string]$Mode='Delayed',
         [int]$DelaySeconds=300,
-        [AllowEmptyString()][AllowNull()][string]$Message=''
+        [AllowEmptyString()][AllowNull()][string]$Message='',
+        [bool]$WinRmAllowed=$true
     )
     $target = ([string]$Computer).Trim()
     $choice = ([string]$Mode).Trim()
     if ($choice -notin @('Delayed','Now')) { return [pscustomobject]@{Valid=$false;Reason='Choisissez « Dans 5 min avec message » ou « Maintenant ».';Computer=$target;Mode=$choice} }
     if (-not $target) { return [pscustomobject]@{Valid=$false;Reason='Aucun poste sélectionné.';Computer='';Mode=$choice} }
+    if (($choice -eq 'Delayed') -and (-not $WinRmAllowed)) { return [pscustomobject]@{Valid=$false;Reason='Redémarrage différé indisponible : il passe par WinRM, désactivé par la configuration (Remote.UseWinRM). Rien nʼest envoyé.';Computer=$target;Mode=$choice} }
     $delay = Get-DomeniaRestartDelaySeconds $DelaySeconds
     $minutes = [int][Math]::Ceiling($delay / 60.0)
     if ($choice -eq 'Now') {

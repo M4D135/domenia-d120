@@ -2610,62 +2610,6 @@
     "Source": "specific"
   },
   {
-    "Name": "TxtRTarget",
-    "Title": "Poste cible",
-    "Text": "Machine visée par cette exécution distante. Vérifiez soigneusement cette cible avant de lancer.",
-    "Kind": "TextBox",
-    "Source": "specific"
-  },
-  {
-    "Name": "CmbRMode",
-    "Title": "Mode d’exécution",
-    "Text": "Choisissez le contexte d’exécution proposé. Le mode interactif demande le compte de la session visée.",
-    "Kind": "ComboBox",
-    "Source": "specific"
-  },
-  {
-    "Name": "TxtRUser",
-    "Title": "Utilisateur interactif",
-    "Text": "Utilise uniquement en mode interactif. Le compte doit avoir une session ouverte sur la cible.",
-    "Kind": "TextBox",
-    "Source": "existing-help"
-  },
-  {
-    "Name": "TxtRExe",
-    "Title": "Programme cote cible",
-    "Text": "Chemin executable tel qu il existe sur le poste cible, par exemple %SystemRoot%\\System32\\notepad.exe.",
-    "Kind": "TextBox",
-    "Source": "existing-help"
-  },
-  {
-    "Name": "TxtRArgs",
-    "Title": "Arguments du programme",
-    "Text": "Paramètres transmis au programme distant. Ne placez pas de mot de passe ou de secret dans une ligne de commande.",
-    "Kind": "TextBox",
-    "Source": "specific"
-  },
-  {
-    "Name": "ChkRElevated",
-    "Title": "Exécution avec élévation",
-    "Text": "Demande le niveau d’exécution le plus élevé autorisé pour la tâche. Cela n’accorde pas de nouveaux droits au compte.",
-    "Kind": "CheckBox",
-    "Source": "specific"
-  },
-  {
-    "Name": "BtnRCancel",
-    "Title": "Annuler l’exécution",
-    "Text": "Ferme cette préparation sans lancer le programme distant.",
-    "Kind": "Button",
-    "Source": "specific"
-  },
-  {
-    "Name": "BtnRRun",
-    "Title": "Lancer le programme",
-    "Text": "Valide la cible et les paramètres de la tâche distante. Vérifiez la commande avant de confirmer.",
-    "Kind": "Button",
-    "Source": "specific"
-  },
-  {
     "Name": "TxtStartupDetail",
     "Title": "Étape de chargement",
     "Text": "Détail de l’étape actuelle de démarrage. Ce champ est uniquement informatif.",

@@ -77,7 +77,7 @@ function New-DomeniaAssistRequest {
 
 function Test-DomeniaAssistRequestCurrent {
     param($Request)
-    if(($null -eq $Request) -or -not (Test-DomeniaAssistSelectedMachine)){return $false}
+    if(($null -eq $Request) -or (-not (Test-DomeniaAssistSelectedMachine))){return $false}
     if([long]$Request.Epoch -ne [long]$script:SessionEpoch){return $false}
     if([long]$Request.Generation -ne [long]$script:SelectedObjectGeneration){return $false}
     return ([string]$Request.DN -ieq [string]$script:SelectedObject.DN)
@@ -101,7 +101,7 @@ function Select-DomeniaComputerView {
     $tabs=Get-DomeniaControl 'ComputerTabs';$view=Get-DomeniaControl ([string]$route.View)
     if(($null -eq $tabs) -or ($null -eq $view)){return $false}
     $tabs.SelectedItem=$view
-    if([string]$route.Inner -and [string]$route.Sub){
+    if(([string]$route.Inner) -and ([string]$route.Sub)){
         $inner=Get-DomeniaControl ([string]$route.Inner);$sub=Get-DomeniaControl ([string]$route.Sub)
         if(($null -ne $inner) -and ($null -ne $sub) -and ($sub.Visibility -eq [Windows.Visibility]::Visible)){$inner.SelectedItem=$sub}
     }
@@ -112,12 +112,21 @@ function Select-DomeniaComputerView {
 
 # ---------------------------------------------------------------- DS-08 fixed header
 function Update-DomeniaComputerHeaderPresence {
-    # The time of the pill is the time this page received the answer; a state shown again from the result list or
-    # from the memory gets no time (Get-DomeniaComputerPresenceBadge says « mémoire » for a cached one).
+    # TextChanged of TxtCompPresence: the pill follows the state and its colour. A new state written without its
+    # observation (result list, memory, fiche without probe) has no known time, so the former time is dropped; the
+    # writers that publish an observation give its time right after (Set-DomeniaComputerHeaderPresenceTime).
     if($null -eq $script:DomeniaAssist){return}
-    $badge=Get-DomeniaComputerPresenceBadge -State (Get-DomeniaAssistText 'TxtCompPresence')
-    if([bool]$script:RenderingObjectWithoutProbes -or ([string]$badge.Tone -in @('Unknown','Remembered','Pending'))){$script:DomeniaAssist.PresenceAt=''}
-    else{$script:DomeniaAssist.PresenceAt=(Get-Date).ToString('HH:mm',[Globalization.CultureInfo]::InvariantCulture)}
+    $script:DomeniaAssist.PresenceAt=''
+    Update-DomeniaComputerHeader
+}
+
+function Set-DomeniaComputerHeaderPresenceTime {
+    # The time of the pill is the time of the presence observation just published for the selected workstation
+    # (Publish-DomeniaCommittedPresence, Live), not the time a text changed: a second « Tester la réponse » with the
+    # same answer writes the same text, raises no TextChanged, and must still show the time of this last test.
+    param($Observation)
+    if($null -eq $script:DomeniaAssist){return}
+    $script:DomeniaAssist.PresenceAt=[string](Get-DomeniaPresenceObservationTime -Observation $Observation)
     Update-DomeniaComputerHeader
 }
 
@@ -228,12 +237,22 @@ function Update-DomeniaComputerAssistPermissions {
     Update-DomeniaComputerRestartChoice
     Update-DomeniaComputerServiceButtons
     $start=Get-DomeniaControl 'BtnCompRunStart'
-    if($null -ne $start){$start.IsEnabled=((-not (Test-DomeniaAssistWriteBlocked)) -and -not (Test-DomeniaControlIsBusy -Name 'BtnCompRunStart'))}
+    if($null -ne $start){$start.IsEnabled=((-not (Test-DomeniaAssistWriteBlocked)) -and (-not (Test-DomeniaControlIsBusy -Name 'BtnCompRunStart')))}
+    # GPUpdate travels by WinRM only: with WinRM forbidden by the configuration the button says why it is unavailable.
+    if(-not (Test-DomeniaAssistWinRmAllowed)){
+        $gpupdate=Get-DomeniaControl 'BtnCompGpUpdate'
+        if($null -ne $gpupdate){$gpupdate.IsEnabled=$false;$gpupdate.ToolTip='Indisponible : lʼactualisation des stratégies passe par WinRM, désactivé par la configuration (Remote.UseWinRM).'}
+    }
+}
+
+function Test-DomeniaAssistWinRmAllowed {
+    # Remote.UseWinRM, the switch every WinRM use honours (CIM fallback, diagnostics, GPUpdate, delayed restart).
+    try{return [bool](Get-CfgValue 'Remote' 'UseWinRM' $true)}catch{return $true}
 }
 
 function Test-DomeniaAssistWriteBlocked {
     # Read-only mode, an AD write being verified, or the selection only known from the local base.
-    if([bool]$script:ReadOnlyMode -or [bool]$script:DemoMode){return $true}
+    if(([bool]$script:ReadOnlyMode) -or ([bool]$script:DemoMode)){return $true}
     if((-not [string]::IsNullOrWhiteSpace([string]$script:ActiveWriteTaskId)) -or ([string]$script:WriteState -in @('Unknown','UnknownPending'))){return $true}
     try{if((Get-DomeniaSelectionCachePolicy).Offline){return $true}}catch{}
     return $false
@@ -252,14 +271,24 @@ function Request-DomeniaComputerRestart {
     $request|Add-Member -NotePropertyName Sessions -NotePropertyValue $null
     $request|Add-Member -NotePropertyName Plan -NotePropertyValue $null
     $script:DomeniaAssist.Restart=$request
-    [void](Select-DomeniaComputerView -Tab 'TabComputerAdmin')
+    # Asked from another page (context menu of Rechercher), the panel opens where the operator can see it.
+    Select-DomeniaWorkspace -Workspace 'WsComputer' -Inner 'ComputerTabs' -Tab 'TabComputerAdmin'
     $minutes=[int][Math]::Ceiling($delay/60.0)
     [void](Set-DomeniaControlText 'LblCompRestartTitle' ('Redémarrer ' + $Computer))
     [void](Set-DomeniaControlText 'LblCompRestartSessions' 'Lecture des sessions ouvertes…')
     [void](Set-DomeniaControlText 'LblCompRestartSessionLines' '')
     Set-DomeniaAssistVisible 'LblCompRestartSessionLines' $false
+    # The delayed restart (default) travels by WinRM. With WinRM forbidden by the configuration it is shown unavailable
+    # with its reason, and « Maintenant » is never chosen for the operator: the send button waits for an explicit choice.
+    $winRm=Test-DomeniaAssistWinRmAllowed
+    $immediate=Get-DomeniaControl 'RbCompRestartNow';if($null -ne $immediate){$immediate.IsChecked=$false}
     $delayed=Get-DomeniaControl 'RbCompRestartDelayed'
-    if($null -ne $delayed){$delayed.Content=('Dans ' + $minutes + ' min avec message à lʼutilisateur');$delayed.IsChecked=$true}
+    if($null -ne $delayed){
+        $label='Dans ' + $minutes + ' min avec message à lʼutilisateur'
+        if($winRm){$delayed.ToolTip=[Windows.Automation.AutomationProperties]::GetHelpText($delayed)}
+        else{$label+=' (indisponible : WinRM désactivé)';$delayed.ToolTip='Indisponible : le redémarrage différé passe par WinRM, désactivé par la configuration (Remote.UseWinRM). Seul « Maintenant » reste possible.'}
+        $delayed.Content=$label;$delayed.IsEnabled=$winRm;$delayed.IsChecked=$winRm
+    }
     [void](Set-DomeniaControlText 'TxtCompRestartMessage' (Get-DomeniaRestartDefaultMessage -DelaySeconds $delay))
     Set-DomeniaAssistVisible 'UxCompRestartPanel' $true
     Update-DomeniaComputerRestartChoice
@@ -282,7 +311,7 @@ function Update-DomeniaRestartSessions {
         if([long](Get-DomeniaMember $State 'Generation' -1) -ne [long]$request.Generation){return}
         if([string](Get-DomeniaMember $State 'DN' '') -ine [string]$request.DN){return}
     }
-    if(-not $Failure -and ($null -eq $View)){$Failure='aucun résultat de lecture.'}
+    if((-not $Failure) -and ($null -eq $View)){$Failure='aucun résultat de lecture.'}
     $summary=Get-DomeniaRestartSessionSummary -View $View -Failure $Failure
     $request.Sessions=$summary
     [void](Set-DomeniaControlText 'LblCompRestartSessions' ([string]$summary.Text))
@@ -298,9 +327,12 @@ function Update-DomeniaComputerRestartChoice {
     $send=Get-DomeniaControl 'BtnCompRestartSend'
     if(($null -eq $send) -or ($null -eq $request)){return}
     $now=$false;$choice=Get-DomeniaControl 'RbCompRestartNow';if($null -ne $choice){$now=[bool]$choice.IsChecked}
-    $message=Get-DomeniaControl 'TxtCompRestartMessage';if($null -ne $message){$message.IsEnabled=(-not $now)}
-    if($now){$send.Content='Redémarrer maintenant…'}else{$send.Content=('Redémarrer dans ' + [int][Math]::Ceiling([int]$request.Delay/60.0) + ' min…')}
-    $send.IsEnabled=(($null -ne $request.Sessions) -and (-not (Test-DomeniaAssistWriteBlocked)) -and (-not (Test-DomeniaControlIsBusy -Name 'BtnCompRestartSend')))
+    $later=$false;$option=Get-DomeniaControl 'RbCompRestartDelayed';if($null -ne $option){$later=(([bool]$option.IsChecked) -and ([bool]$option.IsEnabled))}
+    $message=Get-DomeniaControl 'TxtCompRestartMessage';if($null -ne $message){$message.IsEnabled=$later}
+    if($now){$send.Content='Redémarrer maintenant…'}
+    elseif($later){$send.Content=('Redémarrer dans ' + [int][Math]::Ceiling([int]$request.Delay/60.0) + ' min…')}
+    else{$send.Content='Choisissez quand redémarrer'}
+    $send.IsEnabled=((($now) -or ($later)) -and ($null -ne $request.Sessions) -and (-not (Test-DomeniaAssistWriteBlocked)) -and (-not (Test-DomeniaControlIsBusy -Name 'BtnCompRestartSend')))
 }
 
 function Submit-DomeniaComputerRestart {
@@ -311,8 +343,10 @@ function Submit-DomeniaComputerRestart {
         Assert-DomeniaRemoteWriteAllowed -Operation 'Redémarrage du poste'
         Assert-WriteAllowed
         if(-not (Test-DomeniaAssistRequestCurrent $request)){Close-DomeniaComputerRestartPanel;throw 'Le poste sélectionné a changé : redémarrage non préparé.'}
-        $mode='Delayed';$choice=Get-DomeniaControl 'RbCompRestartNow';if(($null -ne $choice) -and [bool]$choice.IsChecked){$mode='Now'}
-        $plan=Get-DomeniaRestartPlan -Computer ([string]$request.Computer) -Mode $mode -DelaySeconds ([int]$request.Delay) -Message (Get-DomeniaAssistText 'TxtCompRestartMessage')
+        $mode='';$choice=Get-DomeniaControl 'RbCompRestartNow';$option=Get-DomeniaControl 'RbCompRestartDelayed'
+        if(($null -ne $choice) -and ([bool]$choice.IsChecked)){$mode='Now'}
+        elseif(($null -ne $option) -and ([bool]$option.IsChecked)){$mode='Delayed'}
+        $plan=Get-DomeniaRestartPlan -Computer ([string]$request.Computer) -Mode $mode -DelaySeconds ([int]$request.Delay) -Message (Get-DomeniaAssistText 'TxtCompRestartMessage') -WinRmAllowed (Test-DomeniaAssistWinRmAllowed)
         if(-not [bool]$plan.Valid){Set-Status ([string]$plan.Reason) 'WARN';return}
         $request.Plan=$plan
         $sessions=$request.Sessions
@@ -337,7 +371,7 @@ function Close-DomeniaComputerRestartPanel {
     param([AllowEmptyString()][string]$Computer='')
     if($null -eq $script:DomeniaAssist){return}
     $request=$script:DomeniaAssist.Restart
-    if($Computer -and ($null -ne $request) -and ([string]$request.Computer -ine $Computer)){return}
+    if(($Computer) -and ($null -ne $request) -and ([string]$request.Computer -ine $Computer)){return}
     $script:DomeniaAssist.Restart=$null
     Set-DomeniaAssistVisible 'UxCompRestartPanel' $false
 }
@@ -372,13 +406,13 @@ function Show-DomeniaRunProgramPanel {
         $request=New-DomeniaAssistRequest -Computer $computer
         $request|Add-Member -NotePropertyName Plan -NotePropertyValue $null
         $script:DomeniaAssist.Run=$request
-        [void](Select-DomeniaComputerView -Tab 'TabComputerAdmin')
+        Select-DomeniaWorkspace -Workspace 'WsComputer' -Inner 'ComputerTabs' -Tab 'TabComputerAdmin'
         [void](Set-DomeniaControlText 'LblCompRunTitle' ('Exécuter un programme sur ' + $computer))
-        if(($null -eq $previous) -or ([string]$previous.Computer -ine $computer) -or -not (Get-DomeniaAssistText 'TxtCompRunUser')){
+        if(($null -eq $previous) -or ([string]$previous.Computer -ine $computer) -or (-not (Get-DomeniaAssistText 'TxtCompRunUser'))){
             # The session account is prefilled with the associated user, in the DOMAINE\identifiant form.
             $user=''
             try{$link=Get-ExistingLinkForComputer -Computer $computer;if($null -ne $link){$user=Normalize-LinkUser ([string]$link.UserLogin)}}catch{$user=''}
-            if($user -and ($user -notmatch '[\\@]') -and [string]$script:Conn.Netbios){$user=[string]$script:Conn.Netbios + '\' + $user}
+            if(($user) -and ($user -notmatch '[\\@]') -and ([string]$script:Conn.Netbios)){$user=[string]$script:Conn.Netbios + '\' + $user}
             [void](Set-DomeniaControlText 'TxtCompRunUser' $user)
         }
         [void](Set-DomeniaControlText 'LblCompRunState' '')
@@ -424,7 +458,7 @@ function Submit-DomeniaRunProgram {
         Assert-DomeniaRemoteWriteAllowed -Operation 'Exécution dʼun programme sur le poste'
         Assert-WriteAllowed
         if(-not (Test-DomeniaAssistRequestCurrent $request)){Close-DomeniaRunProgramPanel;throw 'Le poste sélectionné a changé : rien nʼa été lancé.'}
-        $mode='System';$choice=Get-DomeniaControl 'RbCompRunUser';if(($null -ne $choice) -and [bool]$choice.IsChecked){$mode='Interactive'}
+        $mode='System';$choice=Get-DomeniaControl 'RbCompRunUser';if(($null -ne $choice) -and ([bool]$choice.IsChecked)){$mode='Interactive'}
         $elevated=$true;$box=Get-DomeniaControl 'ChkCompRunElevated';if($null -ne $box){$elevated=[bool]$box.IsChecked}
         $plan=Get-DomeniaRunProgramPlan -Computer ([string]$request.Computer) -Mode $mode -Command (Get-DomeniaAssistText 'TxtCompRunCommand') -Arguments (Get-DomeniaAssistText 'TxtCompRunArguments') -RunUser (Get-DomeniaAssistText 'TxtCompRunUser') -Elevated $elevated
         if(-not [bool]$plan.Valid){[void](Set-DomeniaControlText 'LblCompRunState' ([string]$plan.Reason));Set-DomeniaAssistVisible 'LblCompRunState' $true;return}
@@ -453,7 +487,7 @@ function Close-DomeniaRunProgramPanel {
     param([AllowEmptyString()][string]$Computer='')
     if($null -eq $script:DomeniaAssist){return}
     $request=$script:DomeniaAssist.Run
-    if($Computer -and ($null -ne $request) -and ([string]$request.Computer -ine $Computer)){return}
+    if(($Computer) -and ($null -ne $request) -and ([string]$request.Computer -ine $Computer)){return}
     $script:DomeniaAssist.Run=$null
     foreach($name in @('TxtCompRunCommand','TxtCompRunArguments')){[void](Set-DomeniaControlText $name '')}
     Set-DomeniaAssistVisible 'UxCompRunPanel' $false
@@ -495,7 +529,7 @@ function Fail-DomeniaComputerServicesUi {
 
 function Test-DomeniaComputerServicesCurrent {
     $list=$null;if($null -ne $script:DomeniaAssist){$list=$script:DomeniaAssist.Services}
-    if(($null -eq $list) -or -not (Test-DomeniaAssistSelectedMachine)){return $false}
+    if(($null -eq $list) -or (-not (Test-DomeniaAssistSelectedMachine))){return $false}
     return (([long]$list.Epoch -eq [long]$script:SessionEpoch) -and ([long]$list.Generation -eq [long]$script:SelectedObjectGeneration) -and ([string]$list.DN -ieq [string]$script:SelectedObject.DN))
 }
 
@@ -517,11 +551,11 @@ function Update-DomeniaComputerServicesView {
 
 function Update-DomeniaComputerServiceButtons {
     $row=$null;$grid=Get-DomeniaControl 'DgCompServices';if($null -ne $grid){$row=$grid.SelectedItem}
-    $usable=((Test-DomeniaComputerServicesCurrent) -and ($null -ne $row) -and -not (Test-DomeniaAssistWriteBlocked))
+    $usable=((Test-DomeniaComputerServicesCurrent) -and ($null -ne $row) -and (-not (Test-DomeniaAssistWriteBlocked)))
     $start=Get-DomeniaControl 'BtnCompServiceStart'
-    if($null -ne $start){$start.IsEnabled=($usable -and [bool](Get-DomeniaMember $row 'CanStart' $false) -and -not (Test-DomeniaControlIsBusy -Name 'BtnCompServiceStart'))}
+    if($null -ne $start){$start.IsEnabled=(($usable) -and ([bool](Get-DomeniaMember $row 'CanStart' $false)) -and (-not (Test-DomeniaControlIsBusy -Name 'BtnCompServiceStart')))}
     $restart=Get-DomeniaControl 'BtnCompServiceRestart'
-    if($null -ne $restart){$restart.IsEnabled=($usable -and [bool](Get-DomeniaMember $row 'CanRestart' $false) -and -not (Test-DomeniaControlIsBusy -Name 'BtnCompServiceRestart'))}
+    if($null -ne $restart){$restart.IsEnabled=(($usable) -and ([bool](Get-DomeniaMember $row 'CanRestart' $false)) -and (-not (Test-DomeniaControlIsBusy -Name 'BtnCompServiceRestart')))}
 }
 
 function Request-DomeniaComputerServiceControl {

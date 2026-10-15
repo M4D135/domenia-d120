@@ -200,15 +200,15 @@ Un en-tête fixe reste au-dessus des vues : nom, système, pastille de présence
 
 Vues, dans l'ordre : « Vue d'ensemble » (fiche du poste et tableau de bord), « Intervenir » (actions en quatre cartes, sessions Windows, services), « Détails » (onglets « Inventaire » et « Logiciels »), « Diagnostic » (onglet « Contrôles », et « WMI » en profil Expert) et « Secrets ». Les anciens noms d'onglet utilisés par les menus, les liens des points d'attention et les raccourcis mènent à la vue qui les remplace.
 
-![Onglet Machine de la page Poste : carte Fiche du poste avec le DNS, la présence, le système, l'utilisateur associé et sa source](fig:fiche-poste)
+![Vue « Vue d'ensemble » de la page Poste : en-tête du poste, puis carte Fiche du poste avec le DNS, la présence, le système, l'utilisateur associé et sa source](fig:fiche-poste)
 
 « Vue d'ensemble » lit le compte ordinateur dans AD. La ligne « Utilisateur associé » résume l'association en mémoire locale avec son badge (Déclaré, Observé, Importé, Indice ou À vérifier) : nom lu dans le DN, origine et date locale, par exemple « Camille Martin · console observée le 08/10 à 08:15 ». « Détecter à nouveau » interroge le poste ; une association déjà enregistrée n'est pas remplacée.
 
 ## Vue Intervenir
 
-![Actions du poste : état du compte, Ping, Bureau à distance, Ouvrir C$, consoles, journaux et services ; données fictives](fig:actions-poste)
+![Vue « Intervenir » : cartes « Se connecter » (Bureau à distance, Ouvrir le disque C, consoles), « Vérifier » (Tester la réponse, diagnostic), « Intervenir » et « Compte AD » ; données fictives](fig:actions-poste)
 
-![Autres actions : commande PowerShell, programme, stratégies et redémarrage ; données fictives](fig:actions-poste-avancees)
+![Vue « Intervenir » : « Copier la commande PowerShell », « Actualiser les stratégies », « Exécuter un programme… » et « Redémarrer… » ; données fictives](fig:actions-poste-avancees)
 
 | Carte et bouton | Ce que fait Domenia | En lecture seule |
 |---|---|---|

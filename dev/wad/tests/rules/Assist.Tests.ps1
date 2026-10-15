@@ -47,6 +47,19 @@ Test-Case 'DS-08' 'Une presence reprise de la memoire dit memoire et ne porte ja
     Assert-True $cached.Remembered
     Assert-True ($cached.Help -match 'pas un état actuel') 'La memoire est presentee comme un etat actuel'
 }
+Test-Case 'DS-08' 'Heure de la pastille : celle du test enregistre, jamais l heure d affichage' {
+    $at=[datetime]::SpecifyKind([datetime]'2026-10-15 08:30:00',[DateTimeKind]::Utc)
+    $local=$at.ToLocalTime().ToString('HH:mm',[Globalization.CultureInfo]::InvariantCulture)
+    Assert-Equal $local (Get-DomeniaPresenceObservationTime ([pscustomobject]@{PresenceCheckedUtc=$at.ToString('o')}))
+    # A failed test after an older answer: the time of the attempt, the latest of the two.
+    $older=$at.AddMinutes(-30).ToString('o')
+    Assert-Equal $local (Get-DomeniaPresenceObservationTime ([pscustomobject]@{PresenceCheckedUtc=$older;PresenceAttemptUtc=$at.ToString('o')}))
+    Assert-Equal $local (Get-DomeniaPresenceObservationTime ([pscustomobject]@{PresenceCheckedUtc=$at.ToString('o');PresenceAttemptUtc=$older}))
+    # CheckedUtc only stands for an observation without PresenceCheckedUtc (console time is not a presence test).
+    Assert-Equal $local (Get-DomeniaPresenceObservationTime ([pscustomobject]@{CheckedUtc=$at.ToString('o')}))
+    Assert-Equal $local (Get-DomeniaPresenceObservationTime ([pscustomobject]@{PresenceCheckedUtc=$at.ToString('o');CheckedUtc=$at.AddHours(2).ToString('o')}))
+    foreach($none in @($null,[pscustomobject]@{},[pscustomobject]@{PresenceCheckedUtc='';PresenceAttemptUtc='pas une date'})){Assert-Equal '' (Get-DomeniaPresenceObservationTime $none) 'Heure inventee sans date lisible'}
+}
 Test-Case 'DS-08' 'En-tete : nom, systeme, utilisateur associe et age de l inventaire, chacun dit quand il ne sait pas' {
     $v=Get-DomeniaComputerHeaderView -Name 'PC-COMPTA-014' -OperatingSystem 'Windows 11 Entreprise' -Version '10.0 (22631)' -Presence 'En ligne' -PresenceCheckedAt '08:15' -UserDisplay 'Camille Martin' -UserLogin 'cmartin' -InventoryLabel 'Inventaire dʼil y a 3 j'
     Assert-Equal 'PC-COMPTA-014' $v.Name;Assert-Equal 'Windows 11 Entreprise · 10.0 (22631)' $v.SystemText
@@ -81,6 +94,14 @@ Test-Case 'SE-08' 'Redemarrage differe par defaut, avec message ; maintenant san
     Assert-True ($n.Summary -match 'perdu') 'Le redemarrage immediat ne dit pas la perte du travail'
     Assert-False (Get-DomeniaRestartPlan -Computer '').Valid
     Assert-False (Get-DomeniaRestartPlan -Computer 'PC-01' -Mode 'Plus tard').Valid
+}
+Test-Case 'SE-08' 'WinRM desactive par la configuration : pas de redemarrage differe, le redemarrage immediat reste possible' {
+    $d=Get-DomeniaRestartPlan -Computer 'PC-01' -Mode 'Delayed' -WinRmAllowed $false
+    Assert-False $d.Valid 'Redemarrage differe accepte sans WinRM'
+    Assert-True (($d.Reason -match 'WinRM') -and ($d.Reason -match 'Remote\.UseWinRM')) ('Raison : '+$d.Reason)
+    Assert-True (Get-DomeniaRestartPlan -Computer 'PC-01' -Mode 'Now' -WinRmAllowed $false).Valid 'Redemarrage immediat refuse sans WinRM'
+    Assert-False (Get-DomeniaRestartPlan -Computer 'PC-01' -Mode '' -WinRmAllowed $false).Valid 'Aucun choix accepte'
+    Assert-True (Get-DomeniaRestartPlan -Computer 'PC-01' -Mode 'Delayed').Valid 'WinRM autorise par defaut'
 }
 Test-Case 'SE-08' 'Message du redemarrage : une ligne, sans guillemet double ni barre finale, 400 caracteres au plus' {
     $p=Get-DomeniaRestartPlan -Computer 'PC-01' -Message ("Ligne 1`r`nLigne 2 `"citée`" \")

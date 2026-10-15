@@ -12,7 +12,7 @@ function Update-DomeniaParkRunStatus {
     $text+=' '+$r.CachedMeasurements+' mesures encore fraîches réutilisées ; '+$r.Pending.Count+'/'+$r.Concurrency+' lectures en parallèle.'
     $save=Get-DomeniaPersistenceState
     if($save.Pending -gt 0){$text+=' Enregistrement local en attente.'}
-    if($save.Suspended -or $save.Conflicts -gt 0){$text+=' Stockage local à vérifier : Base autonome, onglet Stockage.'}
+    if(([bool]$save.Suspended) -or ($save.Conflicts -gt 0)){$text+=' Stockage local à vérifier : Base autonome, onglet Stockage.'}
     $r.StatusText=$text
     # A finished run that read workstations changed the observations: the selected workstation board is redrawn at
     # once, the home overview now or when Accueil is shown again.
@@ -357,6 +357,9 @@ function Publish-DomeniaCommittedPresence {
     if($State.DisplayKind -eq 'Utilisateur'){$label+='  '+[string]$State.Computer+[string]$State.Suffix}
     Set-DomeniaPresenceText -Name $(if($State.DisplayKind -eq 'Utilisateur'){'TxtUserPresence'}else{'TxtCompPresence'}) -State $label
     Update-DomeniaObjectPresence -State $label -Target $State.Computer
+    # DS-08 (X04): the header pill of the workstation takes the time of this observation, even when the answer is the
+    # same as the previous test (same text, no TextChanged).
+    if($State.DisplayKind -ne 'Utilisateur'){try{Set-DomeniaComputerHeaderPresenceTime -Observation $observation}catch{}}
     if($State.Explicit){Set-Status ($State.Computer+' : '+$view.Display+' · '+$view.Detail)}
 }
 function Fail-DomeniaCommittedPresenceStore {
