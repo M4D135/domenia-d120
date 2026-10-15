@@ -78,10 +78,21 @@ Check-Suite 'P112 : couleurs par ressources, aucune couleur fixe nouvelle dans l
     $true
 }
 Check-Suite 'P112 : echelle typographique fermee et boutons derives du style de base' {
-    $scale=@('10','10.5','11','11.5','12','13','14','15','16','17','18','19','20','22','26','27')
+    # W17 (point 112): eight named sizes defined once in the window resources; the page and its views refer to them.
+    $expected=[ordered]@{FontSizeCaption='11';FontSizeSmall='12';FontSizeBody='13';FontSizeSubtitle='14';FontSizeSection='16';FontSizeTitle='18';FontSizePageTitle='22';FontSizeDisplay='27'}
+    $resources=@($main.DocumentElement.SelectNodes('*[local-name()="Window.Resources"]/*[local-name()="Double"]'))
+    $defined=@{};foreach($node in $resources){$defined[[string]$node.GetAttribute('Key',$x)]=[string]$node.InnerText}
+    foreach($key in @($expected.Keys)){if([string]$defined[$key] -cne [string]$expected[$key]){throw ('Taille nommee absente ou differente : '+$key+' = '+[string]$defined[$key])}}
+    if($defined.Count -ne $expected.Count){throw ('Tailles nommees en trop : '+(@($defined.Keys) -join ', '))}
+    $allowed=@($expected.Keys|ForEach-Object{'{DynamicResource '+$_+'}'})
+    if([string]$main.DocumentElement.GetAttribute('FontSize') -cne '{DynamicResource FontSizeBody}'){throw 'Taille de la fenetre hors echelle'}
     $sizes=@($elements|ForEach-Object{[string]$_.Element.GetAttribute('FontSize')}|Where-Object{$_}|Select-Object -Unique)
-    $outside=@($sizes|Where-Object{$scale -notcontains $_})
+    $outside=@($sizes|Where-Object{$allowed -notcontains $_})
     if($outside.Count){throw ('Tailles hors echelle : '+($outside -join ', '))}
+    foreach($view in @(Get-ChildItem -LiteralPath $modules -Filter '*.xaml' -File)){
+        $text=[IO.File]::ReadAllText($view.FullName,[Text.Encoding]::UTF8)
+        if($text -match 'FontSize="[0-9]'){throw ($view.Name+' : taille de police litterale')}
+    }
     $styles=@($main.SelectNodes('//*[local-name()="Style"]')|Where-Object{[string]$_.GetAttribute('TargetType') -eq 'Button'})
     foreach($style in $styles){$key=[string]$style.GetAttribute('Key',$x);if(($key -ne 'BaseButton') -and (-not ([string]$style.GetAttribute('BasedOn')).Contains('BaseButton'))){throw ('Style de bouton isole : '+$key)}}
     $true

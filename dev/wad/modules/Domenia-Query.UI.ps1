@@ -749,6 +749,17 @@ function Get-DomeniaQueryRecipeBinding {
         return (Get-DomeniaQueryDefinitionBinding -Recipe $Recipe -Row $store.Rows[$id])
     }catch{return [pscustomobject]@{RecipeId=$id;Revision=0L;DefinitionSHA256='';State='Unknown';Label='révision non déterminée'}}
 }
+function Get-DomeniaQueryWidgetRevision {
+    # Point 70: the stored revision a dashboard widget evaluates and the revision its link was bound to (the
+    # QueryDependency of this board and widget). Never fails a widget: an unread library gives an undetermined revision.
+    param($Recipe,[string]$Board,[string]$ConsumerId='')
+    $dependency=$null
+    try{
+        $store=$script:DomeniaQueryLibraryStoreState
+        if(($null -ne $store) -and $ConsumerId){foreach($link in @(Get-DomeniaMember $store 'Dependencies' @())){if(($null -ne $link) -and ([string]$link.RecipeId -ceq [string]$Recipe.Id) -and ([string]$link.ConsumerKind -ceq $Board) -and ([string]$link.ConsumerId -ceq $ConsumerId)){$dependency=$link;break}}}
+    }catch{$dependency=$null}
+    return (Format-DomeniaQueryWidgetRevision -Binding (Get-DomeniaQueryRecipeBinding $Recipe) -Dependency $dependency)
+}
 function Get-DomeniaQueryWidgetRecipes {
     # Saved library size must not multiply a 20k fleet scan. Evaluate only visible board dependencies; a paused
     # widget is not evaluated (decision David 2026-10-14).
@@ -961,14 +972,15 @@ function Fail-DomeniaQueryExport {
     [void](Set-DomeniaControlText 'LblQueryStatus' ('Export non terminé : '+[string]$Message))
 }
 function Get-DomeniaQueryBoardEntry {
-    param([string]$Id,[string]$Visual='Kpi')
+    param([string]$Id,[string]$Visual='Kpi',[string]$ConsumerId='')
     $q=$script:DomeniaQueryState
     $recipe=@(if($null -ne $q){$q.Saved|Where-Object{$_.Id -eq $Id}|Select-Object -First 1})
     if(-not $recipe.Count){return (New-DomeniaBoardEntry -Key $Id -Kind Number -Value 'Requête absente' -Detail 'Ouvrez lʼatelier pour enregistrer une requête.' -State Off)}
     $count=if($q.Widgets.ContainsKey($Id)){$q.Widgets[$Id]}else{$null}
     if($null -ne $count -and $count.Error){return (New-DomeniaBoardEntry -Key $Id -Title $recipe[0].Name -Kind Number -Value 'Calcul à préciser' -Detail ('Réduisez le périmètre ou les catégories : '+$count.Error) -State Warn)}
     if($null -eq $count -or $q.SnapshotKey -ne [string]$script:FleetQuerySnapshotKey){return (New-DomeniaBoardEntry -Key $Id -Title $recipe[0].Name -Kind Number -Value 'À calculer' -Detail 'Exécuter la requête dans lʼatelier.' -State Off)}
-    return (ConvertTo-DomeniaQueryCountEntry -Id $Id -Title $recipe[0].Name -Count $count -Visual $Visual -Context ([string]$count.Total+' postes recensés dans lʼOU'))
+    # Point 70: the widget names the stored revision it evaluated and says when its link lags behind.
+    return (ConvertTo-DomeniaQueryCountEntry -Id $Id -Title $recipe[0].Name -Count $count -Visual $Visual -Context ([string]$count.Total+' postes recensés dans lʼOU') -Revision (Get-DomeniaQueryWidgetRevision -Recipe $recipe[0] -Board Fleet -ConsumerId $ConsumerId))
 }
 function Test-DomeniaSearchQueryRow {
     param($Row)

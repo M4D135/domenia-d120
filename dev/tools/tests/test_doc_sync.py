@@ -44,6 +44,15 @@ class QuoteRulesTests(unittest.TestCase):
     def test_proposals_give_the_current_text_of_an_unaccented_quote(self):
         self.assertEqual(ds.propose('Bon etat', self.values), ['Bon état'])
 
+    def test_catalogue_table_cells_are_interface_texts_but_code_lines_are_not(self):
+        text = "$t = @'\nfleet.disabled|Inventaire du périmètre|Comptes désactivés encore dans lʼOU|Value|Kpi|S|Détail\n" \
+               "Get-Item | Where-Object { $_.Name } | Select-Object -First 1 | Sort-Object\nshort|line\n'@\n"
+        cells = set(ds.table_cells(text))
+        self.assertIn('Comptes désactivés encore dans lʼOU', cells)
+        self.assertIn('Inventaire du périmètre', cells)
+        self.assertNotIn('Where-Object { $_.Name }', cells, 'une ligne de code nʼest pas une table')
+        self.assertNotIn('short', cells, 'trop peu de cellules pour une table')
+
     def test_ratchet_reports_new_and_fixed_gaps(self):
         gaps = {'Quotes': [{'Guide': 'a.md', 'Line': 3, 'Quote': 'X'}], 'Retired': [], 'HelpOrphans': [],
                 'Guides': [], 'Figures': []}
@@ -73,8 +82,13 @@ class RepositorySyncTests(unittest.TestCase):
 
     def test_new_controls_of_this_lot_have_help_entries_naming_real_controls(self):
         orphans = {row['Name'] for row in self.gaps['HelpOrphans']}
-        for name in ('DgStorageDataPolicy', 'BtnFirstStepConnection', 'BtnFirstStepDashboard'):
+        for name in ('DgStorageDataPolicy', 'BtnFirstStepConnection', 'BtnFirstStepDashboard', 'BtnObjectReread', 'BtnCompMove'):
             self.assertNotIn(name, orphans)
+
+    def test_every_help_entry_names_a_control_of_the_pack(self):
+        # W17: the eight entries of removed controls are gone; no help entry without its control is tolerated.
+        self.assertEqual(self.gaps['HelpOrphans'], [])
+        self.assertFalse([k for k in self.baseline['Allowed'] if k.startswith('HelpOrphans|')])
 
 
 if __name__ == '__main__':

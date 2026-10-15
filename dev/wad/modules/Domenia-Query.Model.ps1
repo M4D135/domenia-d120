@@ -1390,6 +1390,35 @@ function Compare-DomeniaQueryRecipeDefinitions {
     }
     return $rows.ToArray()
 }
+function Format-DomeniaQueryWidgetRevision {
+    # Point 70: the definition a dashboard widget evaluates, said on the widget. The widget evaluates the recipe as
+    # read from the local library (Binding, from Get-DomeniaQueryDefinitionBinding); its link (QueryDependency)
+    # records the revision it was bound to when it was created or last confirmed. A link behind the stored revision,
+    # an archived recipe, a definition that differs from its stored revision or an unread library is said, never
+    # presented as the bound revision. Warn turns the widget to its warning state; nothing is evaluated here.
+    param($Binding,$Dependency=$null)
+    $state=[string](Get-DomeniaMember $Binding 'State' 'Unknown')
+    $revision=[long](Get-DomeniaMember $Binding 'Revision' 0)
+    $label=[string](Get-DomeniaMember $Binding 'Label' '')
+    $bound=0L;if($null -ne $Dependency){$bound=[long](Get-DomeniaMember $Dependency 'BoundRevision' 0)}
+    $text='';$warn=$false
+    switch($state){
+        'Saved'{
+            $text='Révision '+[string]$revision+' évaluée'
+            if($null -eq $Dependency){$text+=' · widget sans lien enregistré : il suit la révision courante'}
+            elseif($bound -lt $revision){$text+=' · widget lié à la révision '+[string]$bound+' : confirmez la mise à jour de ce lien dans lʼatelier';$warn=$true}
+            elseif($bound -gt $revision){$text+=' · lien enregistré à la révision '+[string]$bound+', plus récente que la bibliothèque lue : relisez la bibliothèque';$warn=$true}
+        }
+        'Archived'{$text='Révision '+[string]$revision+' archivée évaluée : enregistrez de nouveau la requête ou retirez ce widget';$warn=$true}
+        'Modified'{$text='Définition différente de la révision '+[string]$revision+' enregistrée : relisez la bibliothèque avant de vous fier à ce compte';$warn=$true}
+        'Template'{$text='Modèle livré avec Domenia évalué'}
+        'Unsaved'{$text='Requête absente de la bibliothèque locale : révision non déterminée';$warn=$true}
+        default{
+            $text=if($label){$label.Substring(0,1).ToUpperInvariant()+$label.Substring(1)}else{'Révision non déterminée'}
+        }
+    }
+    return [pscustomobject]@{Text=$text;Warn=$warn;State=$state;Revision=$revision;BoundRevision=$bound}
+}
 function Get-DomeniaQueryExpressionOutline {
     param($Node,[string]$Path='',[int]$Depth=0,[string]$CollectionProbe='',[hashtable]$Fields=$null)
     if($null -eq $Node){return};if($Depth -gt 8){throw 'Arbre de conditions limité à 8 niveaux.'}

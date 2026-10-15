@@ -8,7 +8,7 @@ function Expect($ok,$why){if(-not $ok){throw $why}}
 function Case($name,[scriptblock]$body){try{&$body;$checks.Add([pscustomobject]@{Name=$name;Passed=$true;Error=''})}catch{$checks.Add([pscustomobject]@{Name=$name;Passed=$false;Error=($_.Exception.Message+' '+$_.ScriptStackTrace)})}}
 Case 'Every detailed probe has a unique safe class and complete source metadata' {
  $all=@(Get-DomeniaProbeCatalog);$extended=@(Get-DomeniaExtendedProbeCatalog)
- Expect ($extended.Count -eq 32) 'Expected 32 documented detailed probes'
+ Expect ($extended.Count -eq 33) 'Expected 33 documented detailed probes'
  Expect (@($all.Id|Sort-Object -Unique).Count -eq $all.Count) 'Duplicate ID'
  foreach($p in $extended){Expect ($p.Description -and $p.Rights -and $p.Compatibility -and $p.UnknownMeaning -and $p.Limitations -and $p.SourceUrls.Count) ('Metadata missing '+$p.Id);Expect ($p.ProviderQualification -eq 'À qualifier sous Windows') ('False Windows qualification '+$p.Id);foreach($url in $p.SourceUrls){Expect ($url -match '^https://(learn\.microsoft\.com/|github\.com/(microsoft|MicrosoftDocs)/)') ('Non-primary source '+$p.Id)}}
 }
@@ -47,6 +47,10 @@ Case 'Points 81 to 98: added probes state what they cannot prove' {
  Expect ((Get-DomeniaProbe 'hw.batterycycles').Limitations -like '*z*ro*non renseign*') 'Zero cycle count treated as a new battery'
  foreach($id in @('hw.batterystatic','hw.batteryfullcharge','hw.batterycycles')){$b=Get-DomeniaProbe $id;Expect ($b.Namespace -eq 'root\wmi' -and $b.Properties -contains 'InstanceName') ('Battery driver class without a join key '+$id)}
  Expect ((Get-DomeniaProbe 'hw.monitorconnections').Limitations -like '*station d*accueil*') 'Docking station identification claimed'
+ # Point 87: docking stations are hinted at by bounded Plug and Play names, never identified; absence proves nothing.
+ $dock=Get-DomeniaProbe 'hw.dockhints'
+ Expect (($null -ne $dock) -and ($dock.Class -eq 'Win32_PnPEntity') -and ($dock.Filter -like "PNPClass = 'Dock' OR Name LIKE '%Dock%'*") -and ($dock.Mode -eq 'All')) 'Dock hints not bounded to evocative devices'
+ Expect (($dock.Name -like '*indices*') -and ($dock.Limitations -like '*ne prouve pas l*absence*') -and ($dock.Limitations -like '*aucune classe Windows normalis*')) 'Dock hints presented as an identification'
  $profiles=Get-DomeniaProbe 'net.connectionprofiles';Expect ($profiles.Transform -like 'Map:*2=Domaine*' -and $profiles.Properties[0] -eq 'NetworkCategory') 'Network category not mapped'
  Expect ((Get-DomeniaProbe 'sec.avproducts').Limitations -like '*pas document*') 'Undocumented productState decoding presented as fact'
  Expect ((Get-DomeniaProbe 'os.freeram').Limitations -like '*instantan*') 'Covered historical probe lost the documented limitation'

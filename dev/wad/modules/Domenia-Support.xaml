@@ -24,7 +24,7 @@
     <Grid>
       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
       <StackPanel>
-        <TextBlock Text="Atelier support" FontSize="22" FontWeight="SemiBold"/>
+        <TextBlock Text="Atelier support" FontSize="{DynamicResource FontSizePageTitle}" FontWeight="SemiBold"/>
         <TextBlock x:Name="LblSupportContext" Text="Ouvre une fiche pour analyser ses donnees deja chargees." Style="{StaticResource SupportCaption}"/>
       </StackPanel>
       <Button x:Name="BtnSupportClearSession" Grid.Column="1" Content="Vider l'atelier" VerticalAlignment="Top" ToolTip="Efface uniquement les captures, reperes et incidents en memoire de l'atelier. Aucun effet sur Domenia.db ou AD."/>
@@ -116,7 +116,7 @@
           <WrapPanel><TextBox x:Name="TxtSupportTicket" Width="180" MaxLength="80" Margin="0,0,8,0" ToolTip="Reference ticket facultative (80 caracteres). Ne saisissez aucun secret."/><Button x:Name="BtnSupportPreview" Content="Generer l'apercu"/><Button x:Name="BtnSupportCopyReport" Content="Copier le dossier"/><Button x:Name="BtnSupportExportHtml" Content="Exporter HTML"/><CheckBox x:Name="ChkSupportIncludeIncident" Content="Inclure l'incident selectionne" IsChecked="False" VerticalAlignment="Center" Margin="8,0,0,0"/></WrapPanel>
           <TextBlock Grid.Row="1" Style="{StaticResource SupportCaption}" Text="Fiche actuelle + comparaison A/B si presente. Partage manuel uniquement. Les identifiants et metadonnees du parc restent des donnees internes ; le message brut de l'incident n'est jamais inclus."/>
           <TextBox x:Name="TxtSupportReport" Grid.Row="2" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
-                   Background="{DynamicResource BgReadonly}" Foreground="{DynamicResource TextColor}" FontFamily="Consolas" FontSize="12" Text="Aucun dossier genere. Clique sur Generer l'apercu."/>
+                   Background="{DynamicResource BgReadonly}" Foreground="{DynamicResource TextColor}" FontFamily="Consolas" FontSize="{DynamicResource FontSizeSmall}" Text="Aucun dossier genere. Clique sur Generer l'apercu."/>
         </Grid>
       </TabItem>
       <TabItem x:Name="SupportOfflineTab" Header="Dossier hors ligne" ToolTip="Dossier daté pour une intervention sans accès à Domenia : état local, postes, observations, associations et requêtes du périmètre choisi, secrets exclus.">

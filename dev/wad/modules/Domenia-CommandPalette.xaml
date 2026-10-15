@@ -18,7 +18,7 @@
         <ColumnDefinition Width="*"/>
         <ColumnDefinition Width="Auto"/>
       </Grid.ColumnDefinitions>
-      <TextBlock Text="Palette de commandes" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource TextColor}"/>
+      <TextBlock Text="Palette de commandes" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource TextColor}"/>
       <Button x:Name="BtnPaletteClose" Grid.Column="1" Content="Fermer" MinHeight="30" Padding="10,2"
               ToolTip="Ferme la palette sans rien lancer. Échap fait de même."
               ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Fermer la palette"
@@ -57,9 +57,9 @@
             <TextBlock Text="{Binding Glyph}" FontFamily="Segoe UI Symbol" VerticalAlignment="Top" Foreground="{DynamicResource MutedColor}"/>
             <StackPanel Grid.Column="1">
               <TextBlock Text="{Binding Label}" TextWrapping="Wrap" Foreground="{DynamicResource TextColor}"/>
-              <TextBlock Text="{Binding Line}" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource MutedColor}"/>
+              <TextBlock Text="{Binding Line}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource MutedColor}"/>
             </StackPanel>
-            <TextBlock Grid.Column="2" Text="{Binding Shortcut}" Margin="12,0,0,0" VerticalAlignment="Top" FontSize="11" Foreground="{DynamicResource MutedColor}"/>
+            <TextBlock Grid.Column="2" Text="{Binding Shortcut}" Margin="12,0,0,0" VerticalAlignment="Top" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource MutedColor}"/>
           </Grid>
         </DataTemplate>
       </ListBox.ItemTemplate>
@@ -68,7 +68,7 @@
                ToolTip="Ce que fait lʼaction choisie, ou pourquoi elle est indisponible."
                AutomationProperties.Name="Détail de lʼaction choisie" AutomationProperties.LiveSetting="Polite"
                AutomationProperties.HelpText="Ce que fait lʼaction choisie, ou pourquoi elle est indisponible."/>
-    <TextBlock x:Name="LblPaletteStatus" Grid.Row="4" Text="" TextWrapping="Wrap" Margin="0,8,0,0" FontSize="11" Foreground="{DynamicResource MutedColor}"
+    <TextBlock x:Name="LblPaletteStatus" Grid.Row="4" Text="" TextWrapping="Wrap" Margin="0,8,0,0" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource MutedColor}"
                ToolTip="Nombre dʼactions affichées et touches utiles : Entrée exécute, Échap ferme, Ctrl+K rouvre la palette."
                AutomationProperties.Name="État de la palette" AutomationProperties.LiveSetting="Polite"
                AutomationProperties.HelpText="Nombre dʼactions affichées et touches utiles : Entrée exécute, Échap ferme, Ctrl+K rouvre la palette."/>

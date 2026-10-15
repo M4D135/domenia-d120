@@ -24,7 +24,7 @@ Quand : avant toute intervention, vous devez retrouver un poste, un utilisateur 
 5. **Affiner sans relancer.** Tapez quelques lettres dans « Filtrer la liste » : seules les lignes chargées qui les contiennent restent, aussi après une recherche globale, sans requête AD. « Effacer le filtre » réaffiche tout. Une nouvelle recherche repart avec un filtre vide.
 6. **Choisir les colonnes.** La liste montre six colonnes : Type, Nom, Utilisateur connecté, Association mémorisée, Présence réseau et État. L’association affiche l’utilisateur ou les postes liés suivis de la qualification du lien (par exemple « Camille Martin · Observé ») ; son infobulle donne la source. Clic droit sur un en-tête de colonne, ou menu « ⋯ » puis « Colonnes… » : cochez ou décochez une colonne ; « Colonnes par défaut » revient aux six colonnes. Le choix est gardé d’une session à l’autre ; les colonnes propres aux postes n’apparaissent que si la liste contient un poste.
 7. **Vérifier un poste.** Cliquez une fois sur la ligne d'un poste. Domenia le pingue et lit l'utilisateur ouvert sur son écran : « Présence réseau » et « Utilisateur connecté (console) » se mettent à jour.
-8. **Ouvrir la fiche.** Double-cliquez sur la ligne, ou appuyez sur Entrée. La page « Fiche » s'ouvre sur l'onglet « Resume ».
+8. **Ouvrir la fiche.** Double-cliquez sur la ligne, ou appuyez sur Entrée. La page « Fiche » s'ouvre sur l'onglet « Resume ». Si l'objet a changé dans l'annuaire depuis son ouverture, « Relire depuis lʼannuaire » le relit sur le contrôleur, lui seul : la liste et les autres fiches restent telles quelles.
 
 | Zone de Rechercher | Utilisation |
 |---|---|
@@ -169,7 +169,7 @@ Quand : vous avez besoin du matériel, du système, des disques ou de la configu
 2. **Choisir l'inventaire.** Cliquez sur « Inventaire rapide (≈1 min) » (matériel, système, disques, réseau, sécurité, logiciels, services) ou sur « Inventaire complet (≈3 min) », plus long, qui ajoute les processus, les tâches planifiées, les certificats et les erreurs récentes.
 3. **Attendre la fin.** Sur la ligne de « Categorie », un résumé donne ensuite le nombre d'éléments lus et le nombre de sources accessibles ou refusées.
 4. **Lire le résultat.** Chaque ligne donne la « Categorie », l'« Element », la « Valeur » et la « Source ». Choisissez une catégorie dans « Categorie » pour n'afficher qu'elle.
-5. **Transmettre.** Cliquez sur « Copier » ou sur « Exporter CSV » pour joindre l'inventaire au ticket. « Exporter CSV » enregistre le fichier sans rien demander : son chemin s'affiche dans une fenêtre et dans le « Journal de session » (« Inventaire exporte : … »). Le volet « Detail par source » indique ce qui a été lu ou refusé.
+5. **Transmettre.** Cliquez sur « Copier » ou sur « Exporter CSV » pour joindre l'inventaire au ticket. « Exporter CSV » enregistre le fichier sans rien demander : un bandeau de la page annonce « … lignes exportées » avec le nom du fichier et propose « Ouvrir le dossier » ; la barre d'état donne le chemin complet. Le volet « Detail par source » indique ce qui a été lu ou refusé.
 
 > [!RESULTAT] L'inventaire est affiché, le tableau de bord de « Vue d'ensemble » se remplit avec les mêmes données (chapitre 3) et l'en-tête du poste en donne l'âge.
 
@@ -223,7 +223,7 @@ Pour un ticket, « Copier le résumé », dans la barre du tableau, copie le p
 | Vous voyez | Que faire |
 |---|---|
 | « Pas encore de donnees » | Cliquez sur « Inventaire rapide ». |
-| Une section indique « Inventaire complet requis : » | Cliquez sur « Inventaire complet ». |
+| Une section indique « Non lu pendant cet inventaire : voir le détail par source. » | Ouvrez le détail par source ; si la section attend les processus, les erreurs système ou les certificats, cliquez sur « Inventaire complet ». |
 | Un widget affiche « Non lu » | L'information n'a pas pu être lue. Relancez l'inventaire. Si elle reste absente, prévenez l'administrateur. |
 | Le tableau se vide quand vous choisissez un autre objet | Le tableau suit le poste sélectionné. Un ancien inventaire peut réapparaître dans « Détails », onglet « Inventaire », avec sa date ; relancez l’inventaire pour remplir le tableau du poste. |
 
@@ -505,7 +505,7 @@ Quand : vous devez savoir si un logiciel est installé sur un poste, dans quelle
 3. **Charger.** Cliquez sur « Charger les logiciels ». Chaque ligne donne le « Nom », la « Version », l'« Editeur », « Installe le », la « Taille » et la « Portee ».
 4. **Chercher un logiciel.** Tapez une partie du nom, de l'éditeur ou de la version dans « Filtre ». « Portee » limite la liste à « Machine », « Utilisateur » ou « Store ».
 5. **Lire la synthèse.** Dans « Affichage », choisissez « Synthèse ». Les graphiques résument la liste chargée : nombre, éditeurs, versions multiples, architecture, portée et plus gros logiciels, plus « Installés ces 30 derniers jours », « Composants dʼexécution » (Visual C++, .NET, WebView2) et « Navigateurs et versions ». Une tuile à zéro prend la coche verte plutôt qu'un chiffre, et « Sans date » signale qu'aucun logiciel lu ne déclare sa date.
-6. **Transmettre.** « Copier » copie la liste complète ; « Exporter CSV » l'enregistre dans un fichier dont le chemin s'affiche dans le « Journal de session » (« Logiciels exportes : … »).
+6. **Transmettre.** « Copier » copie la liste complète ; « Exporter CSV » l'enregistre dans un fichier : un bandeau de la page annonce « … lignes exportées » et propose « Ouvrir le dossier ».
 
 ![Onglet Logiciels, affichage Synthèse : indicateurs et graphiques calculés sur les logiciels chargés ; données fictives](fig:logiciels)
 

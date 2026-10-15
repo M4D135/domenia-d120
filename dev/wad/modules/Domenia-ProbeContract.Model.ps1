@@ -190,7 +190,8 @@ function Test-DomeniaProbeContract {
     foreach ($name in $properties) { if ([string]$name -notmatch '^[A-Za-z_][A-Za-z0-9_]*$') { $errors.Add('Propriété invalide : ' + [string]$name + '.') } }
     $filter = [string]$in.Filter
     if ($filter.Length -gt $limits.MaxFilterLength) { $errors.Add('Filtre trop long.') }
-    if ($filter -notmatch '^[A-Za-z0-9_ =''<>().:{}\-]*$') { $errors.Add('Filtre : caractère non admis.') }
+    # % is the wildcard of a WQL LIKE pattern (point 87: names that hint at a docking station); it has no other meaning.
+    if ($filter -notmatch '^[A-Za-z0-9_ =''<>().:{}%\-]*$') { $errors.Add('Filtre : caractère non admis.') }
     foreach ($token in @($in.Tokens)) { if ([string]$token -cnotin @('{SINCE_24H}','{SINCE_7D}')) { $errors.Add('Jeton de filtre inconnu : ' + [string]$token + '.') } }
     $kinds = @{}
     foreach ($field in @($Contract.Types)) {

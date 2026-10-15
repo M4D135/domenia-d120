@@ -58,7 +58,7 @@ def main():
     check('DirectoryEntry Secure and Windows Negotiate retained',all(x in probe for x in (
         '[System.DirectoryServices.AuthenticationTypes]::Secure','[System.DirectoryServices.Protocols.AuthType]::Negotiate')))
     check('Windows signing and sealing retained','SessionOptions.Signing = $true' in probe and 'SessionOptions.Sealing = $true' in probe)
-    check('Cleanup preserved','finally {\n                        $plainPassword = ""' in probe and '$baseAdsi.psbase.Dispose()' in probe and '$discoveryRoot.psbase.Dispose()' in probe)
+    check('Cleanup preserved','$plainPassword = $null\n                        try { if ($null -ne $baseAdsi)' in probe and '$baseAdsi.psbase.Dispose()' in probe and '$discoveryRoot.psbase.Dispose()' in probe)
     check('Unknown explicit-bind error has no fabricated network verdict',"if ($Stage -eq 'Explicit.NativeBind') { return 'Authentication' }" in probe)
     check('Native HRESULT categories independent of message wording',all(x in probe for x in (
         "'0x8007052E' { $category='Credentials'", "'0x80070531' { $category='AccountRestriction'",

@@ -2524,6 +2524,78 @@
       "ProviderQualification": "À qualifier sous Windows"
     },
     {
+      "Id": "hw.dockhints",
+      "Name": "Stations dʼaccueil : indices parmi les périphériques",
+      "Category": "Matériel",
+      "Namespace": "root\\cimv2",
+      "Class": "Win32_PnPEntity",
+      "Properties": [
+        "Name",
+        "PNPClass",
+        "Manufacturer",
+        "DeviceID",
+        "Status"
+      ],
+      "Filter": "PNPClass = 'Dock' OR Name LIKE '%Dock%' OR Name LIKE '%Thunderbolt%' OR Name LIKE '%USB4%' OR Name LIKE '%DisplayLink%'",
+      "Mode": "All",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": false,
+      "SkipOnDc": false,
+      "Description": "Périphériques Plug and Play de la classe Dock, ou dont le nom évoque une station dʼaccueil, Thunderbolt, USB4 ou DisplayLink, présents au relevé : des indices de station dʼaccueil, pas une identification.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; noms fournis par les pilotes, selon le fabricant et la langue du système.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Indices seulement : aucune classe Windows normalisée nʼidentifie une station dʼaccueil. Une station USB-C ou Thunderbolt peut nʼapparaître que comme concentrateur USB, carte réseau ou carte audio sans nom évocateur : lʼabsence dʼindice ne prouve pas lʼabsence de station. Un contrôleur Thunderbolt ou USB4 intégré au portable, ou un adaptateur DisplayLink seul, nʼest pas une station. Seuls les périphériques présents au relevé sont listés.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-pnpentity"
+      ],
+      "Fields": [
+        {
+          "Name": "Name",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Nom du périphérique"
+        },
+        {
+          "Name": "PNPClass",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Classe Plug and Play"
+        },
+        {
+          "Name": "Manufacturer",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Fabricant déclaré par le pilote"
+        },
+        {
+          "Name": "DeviceID",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Identifiant Plug and Play (fabricant et produit USB quand ils sont fournis)"
+        },
+        {
+          "Name": "Status",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "État principal"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-15",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
       "Id": "net.connectionprofiles",
       "Name": "Profils réseau appliqués par Windows",
       "Category": "Réseau",

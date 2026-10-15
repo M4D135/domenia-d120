@@ -227,3 +227,23 @@ Test-Case 'PCT-007' 'Point 135 : contrat des neuf sondes ajoutees le 15 octobre 
         Assert-True (($field.Count -eq 1) -and ([string]$field[0].Kind -ceq 'Text')) ('cle de jointure non typee : ' + $id)
     }
 }
+Test-Case 'PCT-008' 'Point 87 : indices de station d accueil, filtre LIKE borne admis, caracteres hors WQL toujours refuses' {
+    $entry = Get-DomeniaProbeContract 'hw.dockhints'
+    Assert-True ($null -ne $entry) 'sonde hw.dockhints absente'
+    Assert-True $entry.Check.Valid ('contrat refuse : ' + (@($entry.Check.Errors) -join ' '))
+    Assert-Equal 0 @($entry.Check.Warnings).Count ('avertissements : ' + (@($entry.Check.Warnings) -join ' '))
+    Assert-Equal 'Catalogue détaillé' ([string]$entry.Contract.Origin)
+    Assert-Equal 'LectureDistanteWmi' ([string]$entry.Contract.Privilege.Level)
+    Assert-Equal 'Modéré' ([string]$entry.Contract.Cost.Level) 'classe filtree : cout modere'
+    Assert-False ([bool]$entry.Contract.Cost.Slow)
+    foreach ($test in @($entry.Contract.ExpectedTests | ForEach-Object { [string]$_.Id })) {
+        Assert-Equal '' (Invoke-PctExpectedTest -Probe (Get-DomeniaProbe 'hw.dockhints') -TestId $test) ('hw.dockhints/' + $test)
+    }
+    $custom = New-PctCustomProbe
+    $like = Copy-PctProbe $custom; $like.Filter = "Name LIKE '%Dock%'"
+    Assert-False (@((Test-DomeniaProbeContract (ConvertTo-DomeniaProbeContract $like)).Errors | Where-Object { $_ -match 'caractère non admis' }).Count) 'motif LIKE refuse'
+    foreach ($bad in @("Name LIKE '%Dock%'; DROP","Name = `"x`"","Name LIKE '[A]%'")) {
+        $probe = Copy-PctProbe $custom; $probe.Filter = $bad
+        Assert-True (@((Test-DomeniaProbeContract (ConvertTo-DomeniaProbeContract $probe)).Errors | Where-Object { $_ -match 'caractère non admis' }).Count -ge 1) ('filtre admis : ' + $bad)
+    }
+}

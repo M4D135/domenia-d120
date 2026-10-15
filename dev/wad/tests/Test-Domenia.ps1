@@ -906,8 +906,8 @@ try {
         Assert-True ($corpsSelecteur.Contains("`$ObjectLabel='Poste'")) 'Le poste a perdu son etiquette par defaut'
         Assert-True ($corpsSelecteur.Contains('-Kind OU')) 'Le selecteur n est plus celui des OU'
         # L ecriture garde ses garde-fous : grisonnement du bouton et capacite.
-        Assert-True ($texteCore.Contains('-DisableControls @("BtnUserMove")')) 'Le bouton ne se grise plus pendant le deplacement'
-        Assert-True ($texteCore.Contains('Move = @("BtnUserMove","BtnCompRename")')) 'La capacite Move ne pilote plus le bouton'
+        Assert-True ($texteCore.Contains('-DisableControls @("BtnUserMove","BtnCompMove")')) 'Les boutons de deplacement ne se grisent plus pendant le deplacement'
+        Assert-True ($texteCore.Contains('Move = @("BtnUserMove","BtnCompRename","BtnCompMove")')) 'La capacite Move ne pilote plus le bouton'
         # Le fichier d aide suit : plus d entree pour le champ, et le bouton reste fidele a son infobulle.
         $aideBrutee = Get-Content -LiteralPath (Join-Path (Split-Path $core -Parent) 'modules/Domenia-UX.help.json') -Raw -Encoding UTF8 | ConvertFrom-Json
         $aide = @($aideBrutee)

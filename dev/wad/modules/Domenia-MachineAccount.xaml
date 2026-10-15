@@ -12,7 +12,7 @@
           <ColumnDefinition Width="*"/>
           <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
-        <TextBlock Text="Compte poste" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource TextColor}"/>
+        <TextBlock Text="Compte poste" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource TextColor}"/>
         <Button x:Name="BtnMachineAccountClose" Grid.Column="1" Content="Fermer" MinHeight="30" Padding="10,2"
                 ToolTip="Ferme ce panneau sans changer le compte utilisé pour les postes."
                 ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Fermer le panneau du compte poste"
@@ -26,12 +26,12 @@
                    ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Compte utilisé pour les postes" AutomationProperties.LiveSetting="Polite"
                    AutomationProperties.HelpText="Compte réellement utilisé pour la prochaine opération sur ce poste, et son origine. Aucun mot de passe nʼest affiché."/>
       </Border>
-      <TextBlock Text="Identifiant" Foreground="{DynamicResource MutedColor}" FontSize="11" Margin="1,0,0,5"/>
+      <TextBlock Text="Identifiant" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}" Margin="1,0,0,5"/>
       <TextBox x:Name="TxtMachineAdminUser" Height="34" VerticalContentAlignment="Center" Margin="0,0,0,10"
                ToolTip="Compte administrateur des postes, sous la forme DOMAINE\nom ou POSTE\nom. Vide, Domenia garde le compte en service affiché au-dessus."
                ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Compte poste"
                AutomationProperties.HelpText="Compte administrateur des postes, sous la forme DOMAINE\nom ou POSTE\nom. Vide, Domenia garde le compte en service affiché au-dessus."/>
-      <TextBlock Text="Mot de passe" Foreground="{DynamicResource MutedColor}" FontSize="11" Margin="1,0,0,5"/>
+      <TextBlock Text="Mot de passe" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}" Margin="1,0,0,5"/>
       <Grid Margin="0,0,0,12">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="*"/>

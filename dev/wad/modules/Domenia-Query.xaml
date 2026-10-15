@@ -133,7 +133,7 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
               <StackPanel Margin="14">
                 <TextBlock Text="Choisissez une information, indiquez votre critère, puis consultez un aperçu. Les valeurs non lues restent inconnues." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,0,0,8" />
-                <TextBlock Text="Quelle information cherchez-vous ?" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8" />
+                <TextBlock Text="Quelle information cherchez-vous ?" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold" Margin="0,0,0,8" />
                 <TextBox x:Name="TxtQueryFieldSearch" MaxWidth="430" HorizontalAlignment="Left" MinWidth="240" MinHeight="32" MaxLength="160" Margin="0,0,0,8" ToolTip="Chercher une information par son nom, sa source ou sa classe WMI." AutomationProperties.Name="Rechercher le champ de la requête" />
                 <ComboBox x:Name="CmbQueryJunction" Width="270" HorizontalAlignment="Left" SelectedIndex="0" MinHeight="32" Margin="0,0,0,6" AutomationProperties.Name="Combinaison des conditions">
                   <ComboBoxItem Content="Toutes les conditions (ET)" />
@@ -366,7 +366,7 @@
                   <WrapPanel><ComboBox x:Name="CmbQueryImportHistory" Width="430" MinHeight="32" Margin="0,0,6,0" DisplayMemberPath="DisplayName" AutomationProperties.Name="Imports précédents de cette base" ToolTip="Imports confirmés de cette base, conservés dans un journal local à côté de la base. Un import déjà annulé nʼapparaît plus." /><Button x:Name="BtnQueryImportRollback" Content="Restaurer avant cet import…" IsEnabled="False" MinHeight="32" /></WrapPanel>
                 </StackPanel></Expander>
                 <TextBlock x:Name="LblQueryPublishSummary" Text="Consultez l’aperçu pour vérifier les postes correspondants et les informations inconnues." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,0,0,12" />
-                <TextBlock Text="Gardez cette requête à portée de main" FontWeight="SemiBold" FontSize="15" Margin="0,2,0,10" />
+                <TextBlock Text="Gardez cette requête à portée de main" FontWeight="SemiBold" FontSize="{DynamicResource FontSizeSubtitle}" Margin="0,2,0,10" />
                 <WrapPanel Margin="0,0,0,6">
                   <TextBox x:Name="TxtFleetQueryName" Width="330" MaxLength="120" MinHeight="32" Margin="0,0,6,0" AutomationProperties.Name="Nom de la requête" />
                   <ComboBox x:Name="CmbQuerySaveCategory" IsEditable="True" Width="210" MinHeight="32" Margin="0,0,6,0" AutomationProperties.Name="Catégorie de rangement de la requête" ToolTip="Catégorie de rangement dans la bibliothèque : choisissez-en une ou saisissez un nouveau nom (80 caractères)." />
@@ -424,7 +424,7 @@
           <TabItem x:Name="TabQueryLibrary" Header="Bibliothèque">
             <DockPanel Margin="10">
               <StackPanel DockPanel.Dock="Top">
-                <TextBlock Text="Requêtes prêtes à utiliser" FontSize="17" FontWeight="SemiBold" />
+                <TextBlock Text="Requêtes prêtes à utiliser" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold" />
                 <TextBlock Text="Choisissez un modèle, adaptez ses conditions, puis utilisez-le dans Recherche ou dans un tableau de bord général ou Poste." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,4,0,10" />
                 <WrapPanel Margin="0,0,0,8">
                   <TextBlock Text="Rechercher" VerticalAlignment="Center" Margin="0,0,8,6" />
@@ -480,7 +480,7 @@
                 </DataGrid>
                 <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                   <StackPanel Margin="2,0,10,0">
-                    <TextBlock x:Name="LblQueryCatalogTitle" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8" />
+                    <TextBlock x:Name="LblQueryCatalogTitle" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8" />
                     <StackPanel x:Name="PnlQueryCatalogDetail">
                       <TextBlock x:Name="LblQueryCatalogDescription" TextWrapping="Wrap" Margin="0,0,0,8" />
                       <TextBlock x:Name="LblQueryCatalogValue" TextWrapping="Wrap" Margin="0,0,0,12" />

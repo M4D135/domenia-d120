@@ -12,7 +12,7 @@ function Initialize-DomeniaQueryLibraryStore {
     if(-not $Force -and $null -ne $current -and $current.Context.StoreId -ceq $context.StoreId -and $current.Context.SessionEpoch -eq $context.SessionEpoch -and ($current.Loaded -or $current.Loading)){return $current}
     if($null -ne $current -and $current.Saving -and $current.Context.StoreId -ceq $context.StoreId -and $current.Context.SessionEpoch -eq $context.SessionEpoch){throw 'Attendez la confirmation de lʼenregistrement de la requête.'}
     $generation=if($null -ne $current){[long]$current.Generation+1}else{1L};$context.Generation=$generation
-    $state=[pscustomobject]@{Context=$context;Generation=$generation;Loading=$true;Loaded=$false;Saving=$false;Error='';Rows=@{};Recipes=@();ReadRows=@{};Offset=0;SnapshotRevision=-1L;Restarts=0;MigrationPending=$false;Dependencies=@();Categories=@{};ArchivedRows=@()}
+    $state=[pscustomobject]@{Context=$context;Generation=$generation;Loading=$true;Loaded=$false;Saving=$false;Error='';Rows=@{};Recipes=@();ReadRows=@{};ReadDependencies=[Collections.Generic.List[object]]::new();Offset=0;SnapshotRevision=-1L;Restarts=0;MigrationPending=$false;Dependencies=@();Categories=@{};ArchivedRows=@()}
     $script:DomeniaQueryLibraryStoreState=$state
     if($null -ne $script:DomeniaQueryState){$script:DomeniaQueryState.Saved=@();$script:DomeniaQueryState.Widgets=@{};$script:DomeniaQueryState.WidgetLibrary='';$script:DomeniaQueryState.LibraryError='Bibliothèque locale en cours de lecture.'}
     Request-DomeniaQueryLibraryStorePage
@@ -47,10 +47,11 @@ function Complete-DomeniaQueryLibraryStoreRead {
         $revision=[long]$Result.SnapshotRevision
         if($store.SnapshotRevision -ge 0 -and $revision -ne $store.SnapshotRevision){
             if($store.Restarts -ge 3){throw 'La base change pendant la lecture. Réessayez après les collectes.'}
-            $store.Restarts++;$store.Offset=0;$store.ReadRows=@{};$store.SnapshotRevision=-1L;Request-DomeniaQueryLibraryStorePage;return
+            $store.Restarts++;$store.Offset=0;$store.ReadRows=@{};$store.ReadDependencies.Clear();$store.SnapshotRevision=-1L;Request-DomeniaQueryLibraryStorePage;return
         }
         $store.SnapshotRevision=$revision;$rows=@($Result.QueryRecipes)
-        $store.Dependencies=@(Get-DomeniaMember $Result 'QueryDependencies' @())
+        # The worker returns the links of the recipes of this page only: every page adds its own, published with the rows.
+        foreach($dependency in @(Get-DomeniaMember $Result 'QueryDependencies' @())){if($null -ne $dependency){$store.ReadDependencies.Add($dependency)}}
         if([long]$Result.Total -gt 20000){throw 'Bibliothèque supérieure au budget de 20 000 définitions (archives incluses).'}
         foreach($row in $rows){
             if($store.ReadRows.ContainsKey([string]$row.Id)){throw 'Identité de recette répétée entre les pages.'}
@@ -58,7 +59,7 @@ function Complete-DomeniaQueryLibraryStoreRead {
         }
         $store.Offset+=$rows.Count
         if($store.Offset -lt [long]$Result.Total){if(-not $rows.Count){throw 'Pagination de bibliothèque sans progression.'};Request-DomeniaQueryLibraryStorePage;return}
-        $store.Rows=$store.ReadRows;$store.ReadRows=@{}
+        $store.Rows=$store.ReadRows;$store.ReadRows=@{};$store.Dependencies=$store.ReadDependencies.ToArray();$store.ReadDependencies.Clear()
         Complete-DomeniaQueryLibraryMigrationRead -Result $Result
     }catch{Fail-DomeniaQueryLibraryStoreRead $_.Exception.Message $State}
 }
@@ -123,7 +124,11 @@ function Complete-DomeniaQueryLibraryMigrationBatch {
             $marker=@(Get-DomeniaMember $Result 'QueryMigrations' @()|Where-Object{[string]$_.SourceHash -ceq $State.SourceHash})
             if(-not $marker.Count){throw 'Marqueur durable de migration absent du reçu SQLite.'}
             $store.MigrationPending=$false
-            if($null -ne $Result.PSObject.Properties['QueryDependencies']){$store.Dependencies=@($Result.QueryDependencies)}
+            # The receipt holds the links of the recipes of this batch only: the links of the other recipes are kept.
+            if($null -ne $Result.PSObject.Properties['QueryDependencies']){
+                $batchIds=@{};foreach($change in $State.Changes){if($change.Kind -eq 'QueryRecipe'){$batchIds[[string]$change.Record.Id]=$true}elseif($change.Kind -eq 'QueryDependency'){$batchIds[[string]$change.RecipeId]=$true}}
+                $store.Dependencies=@(@($store.Dependencies|Where-Object{-not $batchIds.ContainsKey([string]$_.RecipeId)})+@($Result.QueryDependencies|Where-Object{$null -ne $_}))
+            }
             Publish-DomeniaQueryLibraryStoreCache
         }else{Submit-DomeniaQueryLibraryMigrationBatch}
     }catch{Fail-DomeniaQueryLibraryStoreRead $_.Exception.Message $State}

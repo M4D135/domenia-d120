@@ -67,7 +67,7 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Get-DomeniaInventoryWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "B6FDD7B52FCFE426A8BA69138470A0ACB6955D448D6993FF58F98975E6ECD035"
+    "Sha256": "59207FCB99F5A3C06C24ADE089339F355EDC01ECB6B51176F74E0C6A0530BE5B"
   },
   {
     "Operation": "DomainOverview",
@@ -242,7 +242,7 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Reset-UserPassword",
     "LiteralIndex": 0,
-    "Sha256": "D74B0E6923B37ACFF9E576EE4DF580410436DD7A77821A16CA188E7175ACDCCE"
+    "Sha256": "A7BC8C4B90C94842E8A6C8F9189130E84956E1A715A33EBB363F6177B7778F10"
   },
   {
     "Operation": "WriteAccountOptions",
@@ -361,7 +361,7 @@
     "File": "wad/modules/Domenia-Storage.Worker.ps1",
     "Function": "Get-DomeniaStorageWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "7DACD39632C88392B0FABBBEA0C29A087791C3DBB50CB967E7A32171C9DDB4D1"
+    "Sha256": "057930F769E95F3878B8BA51B4F8725F0CE831CD063ACB7EB0F509A219FE61BA"
   },
   {
     "Operation": "ScopeReconcile",

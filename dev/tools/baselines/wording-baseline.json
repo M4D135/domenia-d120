@@ -1,9 +1,9 @@
 {
  "Schema": "DomeniaWordingBaseline/1",
  "Source": "RC1.13.0 (2a98dd6) puis L05 : TE-01 etendu aux affectations de libelles et aux boites de message",
- "Total": 300,
+ "Total": 298,
  "Rules": {
-  "accent": 236,
+  "accent": 234,
   "elision": 59,
   "tutoiement": 5
  },
@@ -25,8 +25,6 @@
   "accent|Ajoute les processus, les taches planifiees, les certificats, les connexions reseau et les erreurs recentes. Plus long.": 1,
   "accent|Analyse ACL indisponible : $reason. Les actions restent soumises au controle du DC et au preflight Domenia.": 1,
   "accent|Analyse impossible : $message. Les actions restent disponibles et seront verifiees par AD a l execution.": 1,
-  "accent|Arrete les nouvelles lectures. Les lectures deja lancees se terminent et leurs resultats sont conserves.": 1,
-  "accent|Arreter le releve": 1,
   "accent|Association modifiee ailleurs :": 1,
   "accent|Attribut deja vide. Aucune ecriture AD.": 1,
   "accent|Aucun DN exploitable dans la selection.": 1,

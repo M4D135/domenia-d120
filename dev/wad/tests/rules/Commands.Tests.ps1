@@ -10,11 +10,11 @@ function New-PaletteControls {
     return $map
 }
 function Get-PaletteEntry { param([object[]]$Entries,[string]$Id) return @($Entries|Where-Object{$_.Id -ceq $Id})[0] }
-Test-Case 'P117' 'Catalogue : 42 actions entieres, une ligne par action, jamais des lettres isolees' {
+Test-Case 'P117' 'Catalogue : 44 actions entieres, une ligne par action, jamais des lettres isolees' {
     $catalogue=@(Get-DomeniaCommandCatalogue)
-    Assert-Equal 42 $catalogue.Count 'Catalogue aplati ou incomplet'
+    Assert-Equal 44 $catalogue.Count 'Catalogue aplati ou incomplet'
     Assert-Equal 'search' $catalogue[0].Id;Assert-Equal 1 $catalogue[0].Order;Assert-Equal 'Navigate' $catalogue[0].Effect;Assert-Equal 'Search' $catalogue[0].Shortcut
-    Assert-Equal 'restart' $catalogue[41].Id;Assert-Equal 42 $catalogue[41].Order;Assert-Equal 'BtnCompRestart' $catalogue[41].Target;Assert-True $catalogue[41].NeedsConnection
+    Assert-Equal 'restart' $catalogue[43].Id;Assert-Equal 44 $catalogue[43].Order;Assert-Equal 'BtnCompRestart' $catalogue[43].Target;Assert-True $catalogue[43].NeedsConnection
     $groups=@('Navigation','Aide','Présentation','Objet ouvert','Application','Lecture','Lecture protégée','Écriture préparée')
     foreach($c in $catalogue){
         Assert-True ($c.Id -match '^[a-z]{3,20}$') ('Identifiant : '+$c.Id)

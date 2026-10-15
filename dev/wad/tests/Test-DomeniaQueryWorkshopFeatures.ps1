@@ -220,6 +220,21 @@ $script:DomeniaQueryLibraryStoreState=[pscustomobject]@{Loaded=$false;Rows=@{}}
 Expect ((Get-DomeniaQueryRecipeBinding $bindingRecipe).State -ceq 'Unknown') 'while the library is read a saved recipe is never called an unsaved draft'
 $script:DomeniaQueryLibraryStoreState=[pscustomobject]@{Loaded=$true;Rows=@{'personal.binding'=$bindingRow}}
 Expect ((Get-DomeniaQueryRecipeBinding (ConvertFrom-Json -InputObject $bindingRow.DefinitionJson)).State -ceq 'Saved' -and (Get-DomeniaQueryRecipeBinding (New-DomeniaQueryRecipe -Id 'personal.unsaved' -Name 'Nouvelle')).State -ceq 'Unsaved') 'a confirmed library read distinguishes saved and unsaved recipes'
+# Point 70: a dashboard widget names the stored revision it evaluated (its QueryDependency on this board and widget);
+# a link left behind the stored revision turns the widget to its warning state instead of passing for the bound one.
+. (Join-Path $modules 'Domenia-QueryTargets.UI.ps1')
+$widgetRecipe=ConvertFrom-Json -InputObject $bindingRow.DefinitionJson
+$script:FleetQuerySnapshotKey='snapshot-70'
+$script:DomeniaQueryState=[pscustomobject]@{Saved=@($widgetRecipe);Widgets=@{'personal.binding'=[pscustomobject]@{Matched=2;Unknown=0;NotMatched=5;Total=7;Error=''}};SnapshotKey='snapshot-70'}
+$script:DomeniaQueryLibraryStoreState=[pscustomobject]@{Loaded=$true;Rows=@{'personal.binding'=$bindingRow};Dependencies=@([pscustomobject]@{RecipeId='personal.binding';ConsumerKind='Fleet';ConsumerId='widget-70';BoundRevision=[long]$bindingRow.Revision})}
+$widgetEntry=Get-DomeniaQueryBoardEntry -Id 'personal.binding' -ConsumerId 'widget-70'
+Expect ([string]$widgetEntry.Value -ceq '2' -and [string]$widgetEntry.Detail -like ('*Révision '+[string]$bindingRow.Revision+' évaluée') -and [string]$widgetEntry.State -cne 'Warn') 'a fleet widget names the stored revision it evaluated'
+$script:DomeniaQueryLibraryStoreState.Dependencies[0].BoundRevision=[long]$bindingRow.Revision-1
+$laggingEntry=Get-DomeniaQueryBoardEntry -Id 'personal.binding' -ConsumerId 'widget-70'
+Expect ([string]$laggingEntry.State -ceq 'Warn' -and [string]$laggingEntry.Detail -like ('*widget lié à la révision '+[string]([long]$bindingRow.Revision-1)+' :*')) 'a widget whose link lags behind the stored revision says so'
+$script:DomeniaQueryLibraryStoreState.Loaded=$false
+Expect ([string](Get-DomeniaQueryBoardEntry -Id 'personal.binding' -ConsumerId 'widget-70').Detail -like '*Révision non déterminée : bibliothèque locale non lue') 'an unread library never names a revision'
+$script:DomeniaQueryState=$null
 $script:DomeniaQueryLibraryStoreState=$null
 $paramStored=Copy-DomeniaQueryRecipe (@(Get-DomeniaQueryTemplates|Where-Object{$_.Id -ceq 'template.param.diskfree'})[0]) -Id 'personal.param';$paramStored.ParameterValues=[pscustomobject]@{Seuil=15}
 $paramRow=New-DomeniaQueryLibraryRecord -Context $context -Recipe $paramStored -ExpectedRevision 0
@@ -329,6 +344,115 @@ foreach($routed in @(@($reusePlan,30,$true),@($forced,0,$false))){
     Expect ($survey.Count -eq 1 -and $survey[0].Reuse -eq [int]$routed[1] -and $survey[0].NoConsole -and $survey[0].WmiOnly -and $survey[0].Inventory -and @($survey[0].Probes).Count -eq 1 -and @($survey[0].Targets).Count -eq @($routed[0].Targets).Count) ('the workshop survey is started with the reuse age '+[string]$routed[1]+' and without the console user')
     Expect (($script:LastLabel -like '*met de côté ceux qui sont déjà à jour*') -eq [bool]$routed[2]) 'the workshop status names the check of the stored measurements only when the survey makes it'
 }
+# Point 69 end to end: the four transfer modes leave the interface for the pinned QueryTransfer worker (run here in
+# process on temporary files; the engine double refuses another operation, body or task class) and their callbacks
+# accept its result: pack exported then examined again, a new recipe created through the library store, the import
+# journaled beside the base, read back after a restart as restorable, then rolled back and no longer offered.
+$transferDir=Join-Path ([IO.Path]::GetTempPath()) ('domenia-transfer-'+[guid]::NewGuid().ToString('N'))
+[void][IO.Directory]::CreateDirectory($transferDir)
+try{
+    $script:SessionEpoch=9L;$script:DatabaseScopedPath=Join-Path $transferDir 'base.sqlite';$script:Conn=[pscustomobject]@{BaseDn=$context.DomainDn}
+    $script:DomeniaQueryModuleRoot=$modules
+    $transferContext=[pscustomobject]@{Version=1;StoreId=$context.StoreId;DomainDn=$context.DomainDn;Path=$script:DatabaseScopedPath;SessionEpoch=9L}
+    $storedRow=New-DomeniaQueryLibraryRecord -Context $transferContext -Recipe $packRecipes[0] -ExpectedRevision 2
+    $script:DomeniaQueryLibraryStoreState=[pscustomobject]@{Context=$transferContext;Generation=3L;Loaded=$true;Loading=$false;Saving=$false;Error='';Rows=@{'personal.pack1'=$storedRow};Recipes=@(ConvertFrom-Json -InputObject $storedRow.DefinitionJson);Categories=@{};ArchivedRows=@();Dependencies=@()}
+    $script:DomeniaQueryState=[pscustomobject]@{ImportHistory=@();Saved=@();LibraryError='';Widgets=@{};WidgetLibrary=''}
+    function New-DomeniaStoreContext {param([string]$RequestId) return $script:DomeniaQueryLibraryStoreState.Context}
+    function Update-DomeniaQueryLibraryControls {}
+    function Show-DomeniaDialog {param($Title,$Message,$Details,$Kind,$Buttons) $script:TransferDialogs.Add([string]$Title);return 'Yes'}
+    $script:TransferDialogs=[Collections.Generic.List[string]]::new()
+    $script:TransferLabels=@{}
+    function Set-DomeniaControlText([string]$Name,[string]$Text){$script:TransferLabels[$Name]=$Text;$script:LastLabel=$Text}
+    foreach($name in @('TxtQueryPackName','TxtQueryPackVersion','DgQueryImport','DgQueryImportChanges','CmbQueryImportHistory','BtnQueryImportRollback')){$script:Fake[$name]=[pscustomobject]@{ItemsSource=@();SelectedItem=$null;SelectedIndex=-1;Text='';IsEnabled=$false}}
+    $script:Fake.DgQueryImport|Add-Member -MemberType ScriptMethod -Name CommitEdit -Value {return $true}
+    $script:Fake.DgQueryImport|Add-Member -MemberType NoteProperty -Name Items -Value ([pscustomobject]@{})
+    $script:Fake.DgQueryImport.Items|Add-Member -MemberType ScriptMethod -Name Refresh -Value {}
+    # The library store double confirms each recipe write as the LocalStore worker does (SQLite readback).
+    $script:StoreWrites=[Collections.Generic.List[object]]::new()
+    function Submit-DomeniaStoreBatch {
+        param($Context,[string]$BatchId,[long]$Sequence=0,[object[]]$Changes,[string]$SuccessHandler,[string]$ErrorHandler,$CallbackState)
+        $record=@($Changes|Where-Object{[string]$_.Kind -ceq 'QueryRecipe'})[0].Record
+        $script:StoreWrites.Add($record)
+        & $SuccessHandler ([pscustomobject]@{Saved=$true;DataSource='SQLite';StoreId=[string]$Context.StoreId;QueryRecipes=@($record);QueryDependencies=@()}) $CallbackState
+        return [pscustomobject]@{Accepted=$true;Reason=''}
+    }
+    $script:PinnedTransfer=Get-DomeniaQueryTransferWorkerCode
+    $script:TransferRuns=[Collections.Generic.List[string]]::new()
+    function Start-UiTask {
+        param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,$TimeoutSeconds,$TaskClass)
+        if(([string]$OperationId -cne 'QueryTransfer') -or ([string]$Code -cne $script:PinnedTransfer) -or ([string]$TaskClass -cne 'Explicit')){throw 'Transfert hors opération épinglée.'}
+        $script:TransferRuns.Add([string]$Payload.Mode)
+        $workerResult=$null;$workerError=''
+        try{$workerResult=& ([scriptblock]::Create($Code))}catch{$workerError=$_.Exception.Message}
+        if($workerError){& $ErrorHandler $workerError $CallbackState}else{& $SuccessHandler $workerResult $CallbackState}
+        return ('transfer-run-'+[string]$script:TransferRuns.Count)
+    }
+    # Export of the library as version 3 of a named pack, then the same file examined again: verified and identical.
+    $exportedPack=Join-Path $transferDir 'Domenia-requetes-v3.json'
+    $script:Fake.TxtQueryPackVersion.Text='3'
+    [void](Start-DomeniaQueryTransferTask -Action ExportPack -Path $exportedPack -PackName 'Revue partagée' -PackVersion 3)
+    Expect ([IO.File]::Exists($exportedPack) -and $script:Fake.TxtQueryPackVersion.Text -ceq '4' -and [string]$script:TransferLabels['LblQueryImportStatus'] -like 'Pack version 3 créé : *Aucun script exécuté.') 'the export writes the pack through the worker and offers the next version'
+    [void](Start-DomeniaQueryTransferTask -Action ImportPreview -Path $exportedPack)
+    $previewItems=@($script:Fake.DgQueryImport.ItemsSource)
+    Expect ($previewItems.Count -eq 1 -and [string]$previewItems[0].Status -ceq 'Identique' -and [string]$script:TransferLabels['LblQueryImportPack'] -like 'Pack « Revue partagée » version 3 · empreinte du contenu vérifiée*') 'the exported pack is verified and identical when examined again'
+    Expect (-not [IO.File]::Exists($script:DatabaseScopedPath+'.query-imports.jsonl') -and $script:StoreWrites.Count -eq 0) 'examining a pack writes nothing'
+    # A pack of another administrator brings a new recipe: chosen explicitly, created in its import category, journaled.
+    $sharedPack=Join-Path $transferDir 'partage.json'
+    [IO.File]::WriteAllText($sharedPack,(ConvertTo-Json -InputObject (New-DomeniaQueryPack -Context $transferContext -Recipes @($packRecipes[1]) -PackName 'Revue partagée' -PackVersion 4 -Origin 'Poste dʼun collègue') -Depth 32),[Text.UTF8Encoding]::new($true))
+    [void](Start-DomeniaQueryTransferTask -Action ImportPreview -Path $sharedPack)
+    Expect ([string]@($script:Fake.DgQueryImport.ItemsSource)[0].Status -ceq 'Nouvelle' -and [string]@($script:Fake.DgQueryImport.ItemsSource)[0].Action -ceq 'Ignorer') 'a new recipe is ignored until the operator chooses it'
+    Invoke-DomeniaQueryTransfer 'SelectNew'
+    Invoke-DomeniaQueryTransfer 'Apply'
+    $created=$script:DomeniaQueryLibraryStoreState.Rows['personal.pack2']
+    Expect ($script:StoreWrites.Count -eq 1 -and $null -ne $created -and [string]$created.Category -ceq 'Import · Revue partagée' -and $script:TransferDialogs.Count -eq 1) 'the chosen recipe is created once, after the confirmation, in its import category'
+    $journalPath=$script:DatabaseScopedPath+'.query-imports.jsonl'
+    Expect ([IO.File]::Exists($journalPath) -and @($script:DomeniaQueryState.ImportHistory|Where-Object{[bool](Get-DomeniaMember $_ 'Journaled' $false)}).Count -eq 1) 'the import is journaled beside the base and marked as durable'
+    # Restart: the journal is read again when the transfer panel opens; the import is restorable, then rolled back.
+    $script:DomeniaQueryState=[pscustomobject]@{ImportHistory=@();Saved=@();LibraryError='';Widgets=@{};WidgetLibrary=''}
+    Request-DomeniaQueryImportHistory
+    $offered=@($script:Fake.CmbQueryImportHistory.ItemsSource)
+    Expect ($offered.Count -eq 1 -and [bool]$offered[0].Restorable -and [string]$offered[0].DisplayName -like '*Revue partagée v4 · 1 recette(s)') 'after a restart the journal offers the import as restorable'
+    $script:Fake.CmbQueryImportHistory.SelectedItem=$offered[0];Update-DomeniaQueryImportHistoryControls
+    Expect ($script:Fake.BtnQueryImportRollback.IsEnabled) 'the rollback of a restorable import is offered'
+    Invoke-DomeniaQueryTransfer 'Rollback'
+    $undone=$script:DomeniaQueryLibraryStoreState.Rows['personal.pack2']
+    Expect ($script:StoreWrites.Count -eq 2 -and [bool]$undone.Archived -and [long]$undone.Revision -eq ([long]$created.Revision+1)) 'the rollback archives the created recipe with its expected revision'
+    $script:DomeniaQueryState=[pscustomobject]@{ImportHistory=@();Saved=@();LibraryError='';Widgets=@{};WidgetLibrary=''}
+    Request-DomeniaQueryImportHistory
+    Expect (@($script:Fake.CmbQueryImportHistory.ItemsSource).Count -eq 0) 'a rolled-back import is no longer offered after a restart'
+    Expect ((@($script:TransferRuns) -join ',') -ceq 'ExportPack,ImportPreview,ImportPreview,JournalAppend,JournalRead,JournalAppend,JournalRead') ('transfer modes run by the pinned worker: '+(@($script:TransferRuns) -join ','))
+}finally{if([IO.Directory]::Exists($transferDir)){[IO.Directory]::Delete($transferDir,$true)}}
+# Point 70 across pages: the library is read 250 recipes at a time and the LocalStore worker returns the links of the
+# recipes of the page it read only. Every page keeps its links, a restarted read forgets the links of the abandoned
+# pass, and a widget whose recipe sits on the first of two pages still reports a link left behind its revision.
+$script:SessionEpoch=11L;$script:DatabaseScopedPath=$context.Path;$script:Conn=[pscustomobject]@{BaseDn=$context.DomainDn}
+$pagedContext=[pscustomobject]@{Version=1;StoreId=$context.StoreId;DomainDn=$context.DomainDn;Path=$context.Path;SessionEpoch=11L;Generation=0L}
+function New-DomeniaStoreContext {param([string]$RequestId) return $script:PagedContext}
+$script:PagedContext=$pagedContext
+$script:PagedReads=[Collections.Generic.List[object]]::new()
+function Request-DomeniaStoreRead {param($Context,$Query,$SuccessHandler,$ErrorHandler,$CallbackState)$script:PagedReads.Add([pscustomobject]@{Query=$Query;State=$CallbackState;Success=$SuccessHandler});return ('paged-read-'+[string]$script:PagedReads.Count)}
+$pagedRows=@(for($i=0;$i -lt 251;$i++){New-DomeniaQueryLibraryRecord -Context $pagedContext -Recipe (New-DomeniaQueryRecipe -Id ('personal.page'+$i.ToString('000')) -Name ('Page '+$i.ToString('000')) -Clauses @([pscustomobject]@{Field='ramGB';Operator='Less';Value=[decimal]8})) -ExpectedRevision 3})
+$firstLink=[pscustomobject]@{RecipeId='personal.page000';ConsumerKind='Fleet';ConsumerId='widget-page1';BoundRevision=[long]$pagedRows[0].Revision-1}
+$lastLink=[pscustomobject]@{RecipeId='personal.page250';ConsumerKind='Computer';ConsumerId='widget-page2';BoundRevision=[long]$pagedRows[250].Revision}
+function New-PagedRead {param([object[]]$Rows,[object[]]$Links,[long]$Snapshot) return [pscustomobject]@{DataSource='SQLite';StoreId=[string]$pagedContext.StoreId;Missing=$false;Busy=$false;QueryRecipes=@($Rows);QueryDependencies=@($Links);QueryMigrations=@();Total=251;SnapshotRevision=$Snapshot}}
+$script:DomeniaQueryState=$null;$script:DomeniaQueryLibraryStoreState=$null
+$pagedStore=Initialize-DomeniaQueryLibraryStore
+Expect ($script:PagedReads.Count -eq 1 -and [int]$script:PagedReads[0].Query.Offset -eq 0 -and [int]$script:PagedReads[0].Query.Limit -eq 250) 'the library read starts with a first page of 250 recipes'
+Complete-DomeniaQueryLibraryStoreRead (New-PagedRead -Rows $pagedRows[0..249] -Links @($firstLink) -Snapshot 5) $script:PagedReads[0].State
+Expect ($script:PagedReads.Count -eq 2 -and [int]$script:PagedReads[1].Query.Offset -eq 250 -and -not $pagedStore.Loaded) 'a library of 251 recipes asks for a second page'
+# The base changed between the pages: the read restarts and the links of the abandoned pass are not kept twice.
+Complete-DomeniaQueryLibraryStoreRead (New-PagedRead -Rows @($pagedRows[250]) -Links @($lastLink) -Snapshot 6) $script:PagedReads[1].State
+Expect ($script:PagedReads.Count -eq 3 -and [int]$script:PagedReads[2].Query.Offset -eq 0 -and $pagedStore.ReadDependencies.Count -eq 0) 'a restarted read forgets the links of the abandoned pass'
+Complete-DomeniaQueryLibraryStoreRead (New-PagedRead -Rows $pagedRows[0..249] -Links @($firstLink) -Snapshot 6) $script:PagedReads[2].State
+Complete-DomeniaQueryLibraryStoreRead (New-PagedRead -Rows @($pagedRows[250]) -Links @($lastLink) -Snapshot 6) $script:PagedReads[3].State
+Expect ($pagedStore.Loaded -and $pagedStore.Rows.Count -eq 251 -and @($pagedStore.Dependencies).Count -eq 2 -and $pagedStore.ReadDependencies.Count -eq 0) ('the links of both pages are published with the rows: '+[string]$pagedStore.Error)
+$pagedRecipe=@($pagedStore.Recipes|Where-Object{[string]$_.Id -ceq 'personal.page000'})[0]
+$pagedRevision=Get-DomeniaQueryWidgetRevision -Recipe $pagedRecipe -Board 'Fleet' -ConsumerId 'widget-page1'
+Expect ($pagedRevision.Warn -and $pagedRevision.BoundRevision -eq ([long]$pagedRows[0].Revision-1) -and [string]$pagedRevision.Text -like ('*widget lié à la révision '+[string]([long]$pagedRows[0].Revision-1)+' :*')) 'a widget whose recipe is on the first page still reports its lagging link'
+$lastRecipe=@($pagedStore.Recipes|Where-Object{[string]$_.Id -ceq 'personal.page250'})[0]
+$lastRevision=Get-DomeniaQueryWidgetRevision -Recipe $lastRecipe -Board 'Computer' -ConsumerId 'widget-page2'
+Expect (-not $lastRevision.Warn -and $lastRevision.BoundRevision -eq [long]$pagedRows[250].Revision) 'a widget whose recipe is on the last page keeps its current link'
+$script:DomeniaQueryLibraryStoreState=$null
 $report=[pscustomobject]@{Status='PASS';Assertions=$checks;CoveragePopulation=20000;SourceMode=[bool]$QuerySource;ElapsedSeconds=[Math]::Round($clock.Elapsed.TotalSeconds,3);PowerShell=$PSVersionTable.PSVersion.ToString();Scope='Actual models, worker factories, XML-independent UI pagination with inert controls; no network, AD, WMI or WPF'}
 if($ReportPath){[IO.File]::WriteAllText($ReportPath,($report|ConvertTo-Json),[Text.UTF8Encoding]::new($false))}
 $report|ConvertTo-Json -Compress

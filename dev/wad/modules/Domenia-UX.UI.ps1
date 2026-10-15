@@ -456,7 +456,8 @@ function Set-DomeniaUxShortLayout {
     # This is transient and never updates saved layout preferences.
     $compact=[bool]$Plan.LowHeight
     if($script:UxCompactLayoutWindow -ne $script:Window){$script:UxCompactLayoutActive=$false;$script:UxCompactLayoutWindow=$script:Window}
-    $pageTitle=Get-DomeniaControl 'LblUxPageTitle';if($pageTitle){$pageTitle.FontSize=if($compact){18.0}else{22.0}}
+    # Point 112: compact pages title at the Title level of the scale, otherwise at the PageTitle level.
+    $pageTitle=Get-DomeniaControl 'LblUxPageTitle';if($pageTitle){$pageTitle.SetResourceReference([Windows.Controls.TextBlock]::FontSizeProperty,$(if($compact){'FontSizeTitle'}else{'FontSizePageTitle'}))}
     if($badge){$badge.Padding=if($compact){[Windows.Thickness]::new(6,1,6,1)}else{[Windows.Thickness]::new(8,3,8,3)}}
     $subRow=Get-DomeniaControl 'UxPageSubRow'
     if($compact){if($title){$title.Orientation=[Windows.Controls.Orientation]::Vertical};if($subRow){$subRow.Margin=[Windows.Thickness]::new(0)}}
@@ -598,7 +599,7 @@ function Set-DomeniaUxShortLayout {
             $button.MinHeight=if($compact){28.0}else{30.0}
             $button.Padding=if($compact){[Windows.Thickness]::new(6,2,6,2)}else{[Windows.Thickness]::new(8,3,8,3)}
             $button.Margin=[Windows.Thickness]::new(0,0,$(if($name -eq 'BtnSearchRefreshStop'){0.0}else{4.0}),$(if($compact){2.0}else{4.0}))
-            if($compact){$button.FontSize=11.5}else{$button.ClearValue([Windows.Controls.Control]::FontSizeProperty)}
+            if($compact){$button.SetResourceReference([Windows.Controls.Control]::FontSizeProperty,'FontSizeSmall')}else{$button.ClearValue([Windows.Controls.Control]::FontSizeProperty)}
         }
     }
     $ouRefreshPostes=Get-DomeniaControl 'BtnSearchRefreshPostes'
