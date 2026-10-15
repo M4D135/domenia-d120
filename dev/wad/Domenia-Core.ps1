@@ -328,7 +328,8 @@ function Export-DomeniaCsv {
     if (($exportColumns.Count -eq 0) -and ($null -ne $Grid)) { $exportColumns = @(Get-DomeniaGridExportColumns -Grid $Grid) }
     $projected = @(ConvertTo-DomeniaExportRows -Rows $Rows -Columns $exportColumns)
     # Point 50: no secret leaves in an export: secret columns withheld, secret-looking text masked.
-    $redacted = Protect-DomeniaExportRows -Rows $projected
+    $secretColumns = @($exportColumns | Where-Object { Test-DomeniaSecretAttribute ([string]$_.Property) } | ForEach-Object { [string]$_.Header })
+    $redacted = Protect-DomeniaExportRows -Rows $projected -SecretColumns $secretColumns
     $projected = @($redacted.Rows)
     if (-not $Path) {
         if (-not $Directory) { $Directory = Get-DomeniaExportDirectory }

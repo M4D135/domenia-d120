@@ -612,25 +612,39 @@ function Test-DomeniaTextHasSecret {
     return $false
 }
 
+function Get-DomeniaSecretTextHint {
+    # Point 50: one cheap test that every form masked by Protect-DomeniaSecretText satisfies (recovery password,
+    # Bearer/Basic, JSON member, key=value or key: value, password switch), so that a bulk export runs the full rule
+    # only on the few texts that may carry a secret. Keep it in step with Protect-DomeniaSecretText (rule P50 tests).
+    return '(?i)\d{6}-\d{6}|bearer|basic|pass|pwd|secret|token|authori|api[_-]?key|"\s*:|(?:^|\s)[-/]r?p'
+}
+
 function Protect-DomeniaExportRows {
-    # Point 50: an export never carries a secret. A column named after a secret attribute is withheld whatever it
-    # holds; every text cell goes through the masking rule of the journal (recovery passwords, key=value secrets,
+    # Point 50: an export never carries a secret. A column named after a secret attribute, or bound to one
+    # ($SecretColumns: titles of grid columns whose property is a secret attribute), is withheld whatever it holds;
+    # every text cell goes through the masking rule of the journal (recovery passwords, key=value secrets,
     # authorization headers). Numbers, dates and booleans are kept as they are. Returns the rows and what was masked.
-    param([object[]]$Rows=@())
+    # Up to hundreds of thousands of cells on the interface thread: the column decision is taken once per name and
+    # the full rule runs only on texts that pass the cheap hint.
+    param([object[]]$Rows=@(),[string[]]$SecretColumns=@())
     $masked=0;$withheld=New-Object 'System.Collections.Generic.List[string]';$out=New-Object 'System.Collections.Generic.List[object]'
+    $hint=New-Object System.Text.RegularExpressions.Regex -ArgumentList @((Get-DomeniaSecretTextHint))
+    $secretColumn=@{}
+    foreach($column in @($SecretColumns)){if(-not [string]::IsNullOrWhiteSpace([string]$column)){$secretColumn[[string]$column]=$true}}
     foreach($row in @($Rows)){
         if($null -eq $row){continue}
         $safe=[ordered]@{}
         foreach($property in $row.PSObject.Properties){
             if($property.MemberType -notin @('NoteProperty','Property','AliasProperty','ScriptProperty')){continue}
             $name=[string]$property.Name;$value=$property.Value
-            if(Test-DomeniaSecretAttribute $name){
+            if(-not $secretColumn.ContainsKey($name)){$secretColumn[$name]=[bool](Test-DomeniaSecretAttribute $name)}
+            if([bool]$secretColumn[$name]){
                 if(($null -ne $value) -and ([string]$value)){$masked++}
                 if(-not $withheld.Contains($name)){$withheld.Add($name)}
                 $safe[$name]='[valeur secrète non exportée]'
                 continue
             }
-            if($value -is [string]){
+            if(($value -is [string]) -and $hint.IsMatch($value)){
                 $clean=Protect-DomeniaSecretText $value
                 if($clean -cne $value){$masked++}
                 $safe[$name]=$clean

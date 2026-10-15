@@ -386,3 +386,21 @@ Test-Case 'P50' 'Export : colonne d attribut secret retenue, texte secret masque
     Assert-Equal 0 ([int]$clean.Masked);Assert-Equal 'Poste du hall' $clean.Rows[0].Description
     Assert-Equal 0 @((Protect-DomeniaExportRows @()).Rows).Count
 }
+Test-Case 'P50' 'Indice rapide : toute forme masquee par la regle du journal le declenche, une valeur ordinaire jamais' {
+    $hint=Get-DomeniaSecretTextHint
+    $key=((1..8|ForEach-Object{'{0:D6}' -f (100000+$_*111)}) -join '-')
+    $secrets=@($key,'Authorization: Bearer abc.def','Basic dXNlcjpwYXNz','{"p":"x1"}','{"p" : "x1"}','{"token":"abc"}','password=abc','Mot de passe : abc','motdepasse=abc','pwd: abc','secret=abc','token=abc','api-key=abc','apikey: abc','client_secret=abc','cmd -p abc','cmd /pwd:abc','-rp abc','/password=abc','-pass abc')
+    foreach($text in $secrets){
+        Assert-True ((Protect-DomeniaSecretText $text) -cne $text) ('Forme non masquee par la regle : '+$text)
+        Assert-True ($text -match $hint) ('Forme masquee que l indice laisse passer : '+$text)
+    }
+    foreach($text in @('PC-01','CN=PC-01,OU=Postes,DC=example,DC=test','00000000-0000-0000-0000-000000000001','Windows 11 Entreprise','Non recueillie / expirée','12.5 j')){
+        Assert-False ($text -match $hint) ('Valeur ordinaire envoyee a la regle complete : '+$text)
+    }
+}
+Test-Case 'P50' 'Export : une colonne liee a un attribut secret est retenue quel que soit son titre' {
+    $marker=[guid]::NewGuid().ToString('N')
+    $r=Protect-DomeniaExportRows -Rows @([pscustomobject]@{Poste='PC-01';'Mot de passe LAPS'=$marker},[pscustomobject]@{Poste='PC-02';'Mot de passe LAPS'=''}) -SecretColumns @('Mot de passe LAPS')
+    Assert-False (((@($r.Rows))|ConvertTo-Json -Compress).Contains($marker)) 'Valeur de la colonne liee exportee'
+    Assert-Equal 1 ([int]$r.Masked);Assert-Equal 'Mot de passe LAPS' (@($r.Withheld) -join ',');Assert-Equal 'PC-02' ([string]$r.Rows[1].Poste)
+}

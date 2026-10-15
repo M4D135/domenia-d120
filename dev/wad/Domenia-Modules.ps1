@@ -236,6 +236,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaSecretExposurePolicy',
             'Protect-DomeniaSecretText',
             'Test-DomeniaTextHasSecret',
+            'Get-DomeniaSecretTextHint',
             'Protect-DomeniaExportRows',
             'Select-DomeniaAllowedFields',
             'Get-DomeniaTransportPolicy',

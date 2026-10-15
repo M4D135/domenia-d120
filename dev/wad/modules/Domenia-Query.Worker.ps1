@@ -100,8 +100,9 @@ $metadataTemporary=$temporary+'.metadata.json';$writer=$null;$stream=$null;$publ
 $count=0L;$pages=0
 # Point 50: no secret leaves in an export. A cell that may carry one (probe values included) goes through the masking
 # rule of the journal: recovery passwords, key=value secrets, authorization headers, password switches. The cheap
-# hint below covers every form of that rule, so most cells are never rewritten; the masked cells are counted.
-$secretHint='(?i)\d{6}-\d{6}|bearer|basic|pass|pwd|secret|token|authori|api[_-]?key|"\s*:|(?:^|\s)[-/]r?p'
+# hint (Get-DomeniaSecretTextHint) covers every form of that rule, so most cells are never rewritten; the masked
+# cells are counted.
+$secretHint=[regex]::new((Get-DomeniaSecretTextHint))
 $masked=0L
 try{
     $stream=[IO.FileStream]::new($temporary,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
@@ -113,7 +114,7 @@ try{
         foreach($row in (ConvertTo-DomeniaQueryGridRows -Rows $page -Fields $fields)){
             $cells=@(foreach($property in $columns.Values){
                 $value=[string]$row.$property
-                if($value -match $secretHint){$clean=Protect-DomeniaSecretText $value;if($clean -cne $value){$masked++;$value=$clean}}
+                if($secretHint.IsMatch($value)){$clean=Protect-DomeniaSecretText $value;if($clean -cne $value){$masked++;$value=$clean}}
                 # CSV data is literal even when Excel opens it. Neutralise formulas after leading whitespace.
                 if($value -match '^[\s\p{Cf}]*[=+@\-\uFF1D\uFF0B\uFF0D\uFF20]' -or $value -match '^[\t\r\n]'){$value="'"+$value}
                 '"'+$value.Replace('"','""')+'"'
