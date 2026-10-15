@@ -285,7 +285,12 @@ function Complete-DomeniaCampaignPlan {
             $why = [string](Get-DomeniaMember $Run 'StopReason' '')
             if ($why) { $state = 'Incident'; $reason = $why }
         }
-        else { $state = 'Incident'; $reason = 'postes non validés à la fin du relevé' }
+        else {
+            # A WMI-only workstation skipped for a remembered refusal was not measured: it stays to be read later.
+            $state = 'Incident'; $reason = 'postes non validés à la fin du relevé'
+            $skipped = [int](Get-DomeniaMember $Run 'SkippedTargets' 0)
+            if ($skipped -gt 0) { $reason = [string]$skipped + ' poste(s) non lu(s) : WMI refusé ou inaccessible mémorisé pour un temps limité' }
+        }
     }
     [void](Save-DomeniaCampaignProgress -Run $Run -State $state -Reason $reason -Force)
 }

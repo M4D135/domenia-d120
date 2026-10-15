@@ -221,6 +221,18 @@ Case 'Campagne : la fermeture laisse le plan avec ses postes restants' {
  Assert ($script:ParkRun.Completed -and $progress.State -eq 'Closed' -and $progress.DoneCount -eq 0)
  $script:AsyncEngineClosing=$false
 }
+Case 'Campagne : un poste WMI seul non lu pour un refus mémorisé reste dans le plan, avec son motif' {
+ Reset-Fixture
+ [void](Register-DomeniaCapabilityFact -Memory (Get-DomeniaCapabilityMemory) -Target 'PC-1' -Capability 'cim' -Kind 'RightDenied' -AccountGeneration ([long]$script:DomeniaAccountGeneration))
+ Add-DisplayedMachine;Start-DomeniaOnlinePark -DisplayedResults -WmiOnly;$call=$script:Calls[0]
+ Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@(New-Target 1);Busy=$false}) $call.State
+ $script:AsyncJobs.Remove($call.Id);& $script:Confirm
+ Invoke-DomeniaParkRunTick
+ Assert ($script:Calls.Count -eq 1 -and $script:ParkRun.SkippedTargets -eq 1) 'Lecture WMI envoyée malgré le refus mémorisé'
+ Invoke-DomeniaParkRunTick
+ $progress=ConvertFrom-DomeniaCampaignProgressText $script:Prefs['Domenia.campaign-progress.json']
+ Assert ($script:ParkRun.Completed -and $progress.DoneCount -eq 0 -and $progress.State -eq 'Incident' -and $progress.Reason -match 'non lu') ('Motif : '+$progress.Reason)
+}
 Case 'Campagne : hors fenêtre de collecte, la confirmation le dit et le lancement explicite reste possible' {
  Reset-Fixture;$script:SettingValues['Collection.WindowsJson']='{"Standard":"jamais"}'
  Add-DisplayedMachine;Start-DomeniaOnlinePark -DisplayedResults;$call=$script:Calls[0]
@@ -231,7 +243,7 @@ Case 'Campagne : hors fenêtre de collecte, la confirmation le dit et le lanceme
 }
 if($null -ne $script:ParkRun -and $null -ne $script:ParkRun.Timer){$script:ParkRun.Timer.Stop()}
 $failed=@($checks|Where-Object Status -eq 'Failed').Count
-$report=[ordered]@{Kind='ParkDetection';Expected=33;Complete=($checks.Count -eq 33 -and $failed -eq 0);NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
+$report=[ordered]@{Kind='ParkDetection';Expected=34;Complete=($checks.Count -eq 34 -and $failed -eq 0);NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path $env:TEMP 'domenia-park-tests.json'}
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
 Write-Host ($report.Passed.ToString()+' reussis, '+$failed+' echecs. '+$ReportPath)
