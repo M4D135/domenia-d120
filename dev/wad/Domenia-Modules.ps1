@@ -978,6 +978,47 @@ function Get-DomeniaRuntimeModulePlan {
             'Complete-DomeniaAccountValidation',
             'Stop-DomeniaAccountValidation'
         ) }
+        # X03: pure sign-in and accounts presentation rules (no WPF, no network, no credential object).
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Access.Model.ps1'); File='Domenia-Accounts.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaLoginFailureText',
+            'Get-DomeniaLoginChoice',
+            'Get-DomeniaDirectoryAccountText',
+            'Get-DomeniaMachineAccountLabel',
+            'Get-DomeniaRemoteAccessTrialVerdict',
+            'Get-DomeniaAccessScopeLabel',
+            'Get-DomeniaLeaseRemainingText',
+            'Get-DomeniaAccountsInUseRows',
+            'Test-DomeniaConsentCovers',
+            'Get-DomeniaInterventionPillState',
+            'Get-DomeniaMessageRoute'
+        ) }
+        # X03: sign-in and accounts views (secret reveal, sign-in mode, workstation account trial, « Compte poste » pill and
+        # side panel, « En ce moment »); no network of its own.
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Accounts.Model.ps1','Domenia-Access.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Access.UI.ps1','Domenia-Probes.Model.ps1','Domenia-Live.Model.ps1'); File='Domenia-Accounts.UI.ps1'; DotSource=$true; Functions=@(
+            'Show-DomeniaSecretPeek',
+            'Hide-DomeniaSecretPeek',
+            'Show-DomeniaLoginDiagnosticPanel',
+            'Set-DomeniaLoginChoicePresentation',
+            'Set-DomeniaLoginWindowsFirst',
+            'Get-DomeniaMachineAccountInUse',
+            'Get-DomeniaOpenWorkstationTarget',
+            'Set-DomeniaRemoteTrialText',
+            'Update-DomeniaRemoteTrialUi',
+            'Start-DomeniaRemoteAccountTrial',
+            'Test-DomeniaRemoteTrialStateCurrent',
+            'Complete-DomeniaRemoteAccountTrial',
+            'Fail-DomeniaRemoteAccountTrial',
+            'Initialize-DomeniaAccountsUi',
+            'Get-DomeniaUsableTemporaryAccounts',
+            'Update-DomeniaAccountsInUse',
+            'Invoke-DomeniaAccountInMemoryForget',
+            'Update-DomeniaMachineAccountUi',
+            'Initialize-DomeniaMachineAccountPanel',
+            'Test-DomeniaMachineAccountPanelOpen',
+            'Show-DomeniaMachineAccountPanel',
+            'Hide-DomeniaMachineAccountPanel',
+            'Switch-DomeniaMachineAccountPanel'
+        ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Store.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaStoreValue',
             'Get-DomeniaStoreHash',
@@ -1176,6 +1217,9 @@ function Get-DomeniaRuntimeModulePlan {
             'Keep-DomeniaDraftOnResult',
             'Show-DomeniaDraftComparison',
             'Set-DomeniaArtifactConsent',
+            'Clear-DomeniaArtifactConsent',
+            'Get-DomeniaOpenMachineConsentTarget',
+            'Update-DomeniaInterventionPill',
             'Set-DomeniaReadFallbackConsent',
             'Read-DomeniaOuFavouriteStore',
             'Write-DomeniaOuFavouriteStore',

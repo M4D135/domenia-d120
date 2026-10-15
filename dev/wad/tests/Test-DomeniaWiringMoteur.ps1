@@ -42,7 +42,9 @@ if ($null -eq ('Domenia.SelectionIdentity' -as [type])) { Add-Type -Path (Join-P
 foreach ($file in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Search.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Access.Model.ps1','Domenia-Safety.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Demo.Model.ps1','Domenia-Shell.Model.ps1',
     'Domenia-Selection.UI.ps1','Domenia-Experience.UI.ps1','Domenia-Engine.UI.ps1','Domenia-Engine.Worker.ps1','Domenia-Demo.Worker.ps1','Domenia-Demo.UI.ps1',
     'Domenia-Startup.UI.ps1','Domenia-Isolation.Worker.ps1','Domenia-Receipts.Worker.ps1',
-    'Domenia-Cache.Model.ps1','Domenia-Live.Model.ps1','Domenia-Release.Model.ps1','Domenia-Storage.Worker.ps1','Domenia-Storage.UI.ps1')) {
+    'Domenia-Cache.Model.ps1','Domenia-Live.Model.ps1','Domenia-Release.Model.ps1','Domenia-Storage.Worker.ps1','Domenia-Storage.UI.ps1',
+    # UI-20 (lot X03): wording of a refused sign-in, read by Update-DomeniaFastLoginAttempt.
+    'Domenia-Accounts.Model.ps1')) {
     $path = Join-Path $modules $file
     if (-not [IO.File]::Exists($path)) { throw ('Module absent : ' + $file) }
     . $path
@@ -55,7 +57,7 @@ $script:CoreFunctions = @('Start-UiTask','Complete-UiTasks','Request-UiTaskStop'
     'New-DomeniaFastLoginSession','Start-DomeniaFastLoginWorker','Update-DomeniaFastLoginAttempt','Reset-DomeniaFastLoginAttempt','Stop-DomeniaFastLoginWorker',
     'Invoke-DomeniaInProcessAuthProbe','Start-DomeniaLoginAuthRunspace','Read-DomeniaAuthRunspaceResult','Complete-DomeniaLoginAuthRunspaceCleanup',
     'Stop-DomeniaLoginAuthRunspace','Queue-DomeniaLoginAuthRunspaceCleanup','Ensure-DomeniaAuthCleanupTimer','Add-DomeniaFastLoginDetail',
-    'Convert-DomeniaLoginFailureMessage','Get-DomeniaLoginFailureHint','Assert-WriteAllowed','Assert-DomeniaRemoteWriteAllowed','New-DomeniaAccountAuthRequest',
+    'Assert-WriteAllowed','Assert-DomeniaRemoteWriteAllowed','New-DomeniaAccountAuthRequest',
     'Load-TreeChildren','Complete-DomeniaTreeChildrenUi','Fail-DomeniaTreeChildrenUi','Queue-DomeniaTreeRowsToNode','Initialize-DomeniaTreeRenderTimer',
     'Stop-DomeniaTreeRenderForNode','New-TreeItem','New-DomeniaTreeRowItem','New-DomeniaTreeSystemGroup','Get-DomeniaTreeRenderRows','Get-DomeniaTreeHeaderTemplate','New-DomeniaTreeLoadingItem','Get-DomeniaParkSharedPath','Merge-DomeniaParkState','Complete-DomeniaParkSweepUi','Sync-DomeniaParkShared',
     'Get-DomeniaSafeObjectPropertyNames','Initialize-DomeniaWinSqliteNative','New-DomeniaUtf8Ptr','ConvertFrom-DomeniaUtf8Ptr','Open-DomeniaDatabase',
@@ -709,7 +711,7 @@ function New-WiringLoginUi {
     $reader = [Xml.XmlNodeReader]::new([xml](Get-DomeniaStandardLoginXaml))
     try { $window = [Windows.Markup.XamlReader]::Load($reader) } finally { $reader.Close() }
     $ui = @{Window=$window}
-    foreach ($pair in @(@('Login','TxtLogin'),@('Password','PwdLogin'),@('PasswordVisible','TxtLoginPasswordVisible'),@('Reveal','BtnRevealLogin'),@('Remember','ChkRemember'),@('Error','LblLoginError'),@('Stage','LblLoginStage'),@('Progress','PbLogin'),@('Technical','TxtLoginTechnical'),@('Connect','BtnLogin'),@('Windows','BtnWindowsLogin'),@('Cancel','BtnCancel'),@('OpenLog','BtnLoginLog'),@('CopyDiag','BtnCopyLoginDiag'))) {
+    foreach ($pair in @(@('Login','TxtLogin'),@('Password','PwdLogin'),@('PasswordPeek','LoginPasswordPeek'),@('PasswordPeekText','LblLoginPasswordPeek'),@('Reveal','BtnRevealLogin'),@('Remember','ChkRemember'),@('Error','LblLoginError'),@('Stage','LblLoginStage'),@('Progress','PbLogin'),@('Technical','TxtLoginTechnical'),@('Connect','BtnLogin'),@('Windows','BtnWindowsLogin'),@('OtherAccount','BtnLoginOtherAccount'),@('Cancel','BtnCancel'),@('OpenLog','BtnLoginLog'),@('CopyDiag','BtnCopyLoginDiag'))) {
         $ui[$pair[0]] = $window.FindName($pair[1])
         if ($null -eq $ui[$pair[0]]) { throw ('Controle de login absent : ' + $pair[1]) }
     }

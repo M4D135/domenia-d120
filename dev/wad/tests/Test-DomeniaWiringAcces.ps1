@@ -61,7 +61,9 @@ $coreNames=@('Protect-DomeniaLogText','ConvertTo-DomeniaErrorInfo','Show-Domenia
     # L02: incident code of Show-DomeniaOperationError and queued Domenia.log writer of Write-AppLog.
     'New-DomeniaIncidentCode','Get-DomeniaErrorSignature','Register-DomeniaErrorOccurrence',
     'ConvertTo-DomeniaLogFileLines','Get-DomeniaAppLogFallbackPaths','Write-DomeniaAppLogFile','Start-DomeniaAppLogFlushTimer','Stop-DomeniaAppLogQueue',
-    'Invoke-DomeniaAppLogRotation','Flush-DomeniaAppLog','Invoke-DomeniaAppLogFlush','Set-DomeniaAppLogAvailability','Test-DomeniaInternalFault','Test-DomeniaOperatorMessage')
+    'Invoke-DomeniaAppLogRotation','Flush-DomeniaAppLog','Invoke-DomeniaAppLogFlush','Set-DomeniaAppLogAvailability','Test-DomeniaInternalFault','Test-DomeniaOperatorMessage',
+    # X03 (UX-15): workstation account typed in the side panel of Assistance poste.
+    'Set-MachineCredentialFromUi','Clear-MachineCredential','Get-DomeniaMachineOperationAccountText','Apply-DomeniaGuiElementPolicy')
 foreach($name in $coreNames){. ([scriptblock]::Create((Get-CoreFunctionText $name)))}
 $script:RealAssertWorker=${function:Assert-DomeniaWorkerOperationCode}
 $script:RealShowAlternate=${function:Show-DomeniaAlternateCredential}
@@ -869,6 +871,256 @@ Test-Case 'UI-18 Aucune fenetre ni boite dans le parcours des recus (code livre)
         Assert-True ($found.Count -eq 0) ($name+' ouvre une boite : '+($found -join ','))
         Assert-True ($fn[0].Extent.Text -notmatch '(?i)\.ShowDialog\(|New-Object\s+(System\.)?Windows\.Window') ($name+' ouvre une fenetre')
     }
+}
+# ================================================================ FO-19 (lot X03) essayer le compte des postes sur un poste
+function New-TrialResult {param([string]$Outcome='NotRequested',[string]$ProbeError='',[string]$Caption='Windows 11 Pro',[string]$Computer='pc-01.example.invalid')
+    $instances=if($ProbeError){@()}else{@([pscustomobject]@{Id='1';Index=1;Values=[pscustomobject]@{Caption=$Caption};IncompleteProperties=@()})}
+    return [pscustomobject]@{Outcome=$Outcome;Computer=$Computer;Detail=$(if($Outcome -eq 'NotRequested'){''}else{'Lecture CIM/DCOM non confirmée. '+$ProbeError});Probes=[pscustomobject]@{'os.caption'=[pscustomobject]@{Error=$ProbeError;Instances=$instances;Count=$instances.Count}}}
+}
+Test-Case 'FO-19 Essayer sur le poste selectionne : une seule lecture CIM, un seul poste, compte des postes' {
+    $script:RemoteAdminCredential=New-TestCredential 'EXAMPLE\postes';$script:RemoteAccountTrial=$null;$script:Ctrl.LblAccountRemoteTry.Text=''
+    Update-DomeniaRemoteTrialUi
+    Assert-True ($script:Ctrl.BtnAccountRemoteTry.IsEnabled) 'Bouton grise alors qu un poste est ouvert'
+    Start-DomeniaRemoteAccountTrial
+    Assert-True ($script:Tasks.Count -eq 1 -and $script:Tasks[0].OperationId -eq 'LiveConsole') ('Operations : '+(@($script:Tasks|ForEach-Object{$_.OperationId}) -join ','))
+    $p=$script:Tasks[0].Payload
+    Assert-True ($p.Computer -eq 'pc-01.example.invalid' -and -not $p.CollectPing -and -not $p.ProbeUser -and -not $p.Inventory -and -not $p.ValidateConsoleIdentity) 'Charge utile plus large qu une lecture'
+    Assert-True (@($p.Probes).Count -eq 1 -and [string]@($p.Probes)[0].Class -eq 'Win32_OperatingSystem' -and (@($p.AllowedClasses) -join ',') -eq 'Win32_OperatingSystem') 'Requete WMI inattendue'
+    Assert-True ($script:Tasks[0].Code -ceq (Get-DomeniaLiveProbeCode)) 'Corps epingle LiveConsole non utilise'
+    Assert-True ([string]$script:Ctrl.LblAccountRemoteTry.Text -match 'EXAMPLE\\postes') ('Compte non annonce : '+$script:Ctrl.LblAccountRemoteTry.Text)
+    Start-DomeniaRemoteAccountTrial
+    Assert-True ($script:Tasks.Count -eq 1 -and -not $script:Ctrl.BtnAccountRemoteTry.IsEnabled) 'Second essai lance pendant le premier'
+    Complete-DomeniaRemoteAccountTrial (New-TrialResult) $script:Tasks[0].State
+    Assert-True ([string]$script:Ctrl.LblAccountRemoteTry.Text -ceq 'Accès administrateur OK sur pc-01.example.invalid avec EXAMPLE\postes (compte Postes de la page Comptes). Système : Windows 11 Pro.') ('Texte : '+$script:Ctrl.LblAccountRemoteTry.Text)
+    Assert-True ($script:Ctrl.BtnAccountRemoteTry.IsEnabled) 'Bouton non rendu apres l essai'
+}
+Test-Case 'FO-19 Refus classe par la regle Access : droit administrateur, identifiants, poste injoignable' {
+    $cases=@(
+        @('Denied','Accès refusé. (0x80070005)','Accès refusé sur pc-01.example.invalid'),
+        @('AuthRejected','Le nom d utilisateur ou le mot de passe est incorrect.','Identifiants refusés par pc-01.example.invalid'),
+        @('NotRequested','Access is denied.','Accès refusé sur pc-01.example.invalid'),
+        @('Timeout','Délai dépassé','Poste pc-01.example.invalid injoignable'))
+    foreach($c in $cases){
+        $script:RemoteAccountTrial=$null;$script:Tasks.Clear()
+        Start-DomeniaRemoteAccountTrial
+        Complete-DomeniaRemoteAccountTrial (New-TrialResult -Outcome $c[0] -ProbeError $c[1]) $script:Tasks[0].State
+        Assert-True (([string]$script:Ctrl.LblAccountRemoteTry.Text).StartsWith($c[2])) ($c[0]+' : '+$script:Ctrl.LblAccountRemoteTry.Text)
+        Assert-True ([string]$script:Ctrl.LblAccountRemoteTry.Text -notmatch 'Accès administrateur OK') 'Refus annonce comme un succes'
+    }
+    $script:RemoteAccountTrial=$null;$script:Tasks.Clear()
+    Start-DomeniaRemoteAccountTrial
+    Fail-DomeniaRemoteAccountTrial 'Le serveur RPC n est pas disponible. RPC indisponible' $script:Tasks[0].State
+    Assert-True (([string]$script:Ctrl.LblAccountRemoteTry.Text).StartsWith('Poste pc-01.example.invalid injoignable')) $script:Ctrl.LblAccountRemoteTry.Text
+}
+Test-Case 'FO-19 Sans poste ouvert ou apres un changement de session : aucune lecture, aucun resultat recopie' {
+    $script:RemoteAccountTrial=$null;$script:SelectedObject=$null
+    Update-DomeniaRemoteTrialUi
+    Assert-True (-not $script:Ctrl.BtnAccountRemoteTry.IsEnabled) 'Bouton actif sans poste'
+    Start-DomeniaRemoteAccountTrial
+    Assert-True ($script:Tasks.Count -eq 0 -and [string]$script:Ctrl.LblAccountRemoteTry.Text -match 'Ouvrez') 'Lecture lancee sans poste'
+    Reset-Fixture;$script:RemoteAccountTrial=$null
+    Start-DomeniaRemoteAccountTrial;$state=$script:Tasks[0].State;$script:Ctrl.LblAccountRemoteTry.Text='avant'
+    $script:SessionEpoch=8L
+    Complete-DomeniaRemoteAccountTrial (New-TrialResult) $state
+    Assert-True ([string]$script:Ctrl.LblAccountRemoteTry.Text -eq 'avant') 'Resultat d une session precedente affiche'
+    Assert-True ((@($script:CoreAst.FindAll({param($a)$a -is [Management.Automation.Language.FunctionDefinitionAst] -and $a.Name -eq 'Wire-Events'},$true))[0].Extent.Text).Contains('Start-DomeniaRemoteAccountTrial')) 'Bouton non raccorde'
+    Assert-True (-not $script:CoreText.Contains('x:Name="BtnAccountRemoteTest"')) 'Ancien bouton Tester encore present'
+}
+
+# ================================================================ UX-15 (lot X03) compte des postes visible en permanence
+function New-AccessLease {param([string]$Key,[string]$Account) return (New-DomeniaCredentialLease -Scope $Key -Account $Account -Mode Inactivity -InactivityMinutes 30 -Epoch ([long]$script:SessionEpoch) -NowUtc $script:Clock)}
+function Invoke-TestClick {param($Control) $Control.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Primitives.ButtonBase]::ClickEvent))}
+Test-Case 'UX-15 Pastille Compte poste : en-tete d Assistance poste, meme compte que le contexte worker' {
+    $pill=$script:Ctrl.BtnCompAccountPill
+    Assert-True ($null -ne $pill) 'Pastille absente du XAML principal'
+    $names=@();$node=$pill
+    while($null -ne $node){$node=[Windows.LogicalTreeHelper]::GetParent($node);if(($node -is [Windows.FrameworkElement]) -and $node.Name){$names+=[string]$node.Name}}
+    Assert-True (($names -contains 'ComputerReadRoot') -and ($names -notcontains 'ComputerTabs')) ('Pastille hors de l en-tete commun aux onglets : '+($names -join ' > '))
+    $arrow=[string][char]0x25BE
+    Update-DomeniaMachineAccountUi -Force
+    Assert-True ([string]$pill.Content -ceq ('Compte poste : session Windows '+$arrow)) ('Session Windows : '+$pill.Content)
+    Assert-True ([string]$pill.ToolTip -match 'session Windows \(EXAMPLE\\lecteur\)') ('Infobulle : '+$pill.ToolTip)
+    $script:RemoteAdminCredential=New-TestCredential 'EXAMPLE\postes'
+    Update-DomeniaMachineAccountUi
+    Assert-True ([string]$pill.Content -ceq ('Compte poste : EXAMPLE\postes '+$arrow)) ('Compte Postes : '+$pill.Content)
+    $script:AccessState.Credentials['Remote']=New-TestCredential 'EXAMPLE\temporaire';$script:AccessState.Leases['Remote']=New-AccessLease 'Remote' 'EXAMPLE\temporaire'
+    Update-DomeniaMachineAccountUi
+    Assert-True ([string]$pill.Content -ceq ('Compte poste : EXAMPLE\temporaire '+$arrow)) ('Compte temporaire : '+$pill.Content)
+    $script:AccessState.Credentials['RemoteLocal|PC-01']=New-TestCredential 'PC-01\admin';$script:AccessState.Leases['RemoteLocal|PC-01']=New-AccessLease 'RemoteLocal|PC-01' 'PC-01\admin'
+    Update-DomeniaMachineAccountUi
+    Assert-True ([string]$pill.Content -ceq ('Compte poste : PC-01\admin '+$arrow)) ('Compte local du poste : '+$pill.Content)
+    # The pill announces the account the worker context really hands to an operation on this workstation.
+    $ctx=[pscustomobject]@{OperationId='ComputerInventory';Credential=$null;BindUser='';UseCredential=$false;AuthMode='Windows';MachineCredential=$script:RemoteAdminCredential;RemoteAdminCredential=$null;RemoteAdminUser=''}
+    $ctx=Set-DomeniaTargetCredentialContext -Context (Set-DomeniaRetryWorkerContext -Context $ctx -OperationId 'ComputerInventory') -Payload ([pscustomobject]@{Computer='pc-01.example.invalid'})
+    Assert-True ([string]$ctx.MachineCredential.UserName -ceq 'PC-01\admin') ('Contexte worker : '+$ctx.MachineCredential.UserName)
+    # Another workstation open: the local account of PC-01 is not announced for it.
+    $script:SelectedObject=[pscustomobject]@{Type='Machine';DN='CN=PC-02,OU=Postes,DC=example,DC=invalid';Name='PC-02';Entry=[pscustomobject]@{Name='PC-02';Dns='pc-02.example.invalid'};Safety=[pscustomobject]@{Guid='22222222-2222-3333-4444-555555555555'}}
+    Update-DomeniaMachineAccountUi
+    Assert-True ([string]$pill.Content -ceq ('Compte poste : EXAMPLE\temporaire '+$arrow)) ('Autre poste : '+$pill.Content)
+    Assert-True ((Get-DomeniaMachineOperationAccountText) -ceq 'Opérations poste : EXAMPLE\temporaire (compte temporaire accepté après un refus).') (Get-DomeniaMachineOperationAccountText)
+}
+Test-Case 'UX-15 Panneau lateral dans la page : compte saisi en memoire, retour au compte de connexion, fermeture sans changement' {
+    $script:Window=$script:MainWindow
+    $wire=Get-CoreFunctionText 'Wire-Events'
+    Assert-True (-not $script:CoreText.Contains('x:Name="TxtMachineAdminUser"') -and -not $wire.Contains('BtnSetMachineCredential')) 'Champs du compte poste encore dans l onglet Diagnostic'
+    Assert-True ($script:CoreText -notmatch 'compte poste dans (l onglet )?Diagnostic') 'Message renvoyant encore vers l onglet Diagnostic'
+    Assert-True (-not $script:CoreText.Contains('compte poste saisi dans Diagnostic')) 'Phrase technique encore dans l onglet Actions'
+    Initialize-DomeniaAccountsUi
+    Invoke-TestClick $script:Ctrl.BtnCompAccountPill
+    Assert-True (Test-DomeniaMachineAccountPanelOpen) 'La pastille n ouvre pas le panneau'
+    $layer=$script:MainWindow.FindName('DomeniaDialogLayer')
+    Assert-True (($layer.Visibility -eq [Windows.Visibility]::Visible) -and $layer.Children.Contains($script:MachineAccountPanel.View)) 'Panneau hors de la couche de la page'
+    foreach($n in @('TxtMachineAdminUser','PwdMachineAdmin','BtnRevealMachineAdmin','BtnSetMachineCredential','BtnClearMachineCredential','LblMachineCredential','BtnMachineAccountClose')){Assert-True ($script:Ctrl.ContainsKey($n)) ('Controle du panneau non enregistre : '+$n)}
+    Assert-True ($script:Ctrl.PwdMachineAdmin -is [Windows.Controls.PasswordBox]) 'Le mot de passe n est plus saisi dans un PasswordBox'
+    $script:Ctrl.TxtMachineAdminUser.Text='EXAMPLE\adm-poste'
+    $script:Ctrl.PwdMachineAdmin.Password=[guid]::NewGuid().ToString('N')
+    Invoke-TestClick $script:Ctrl.BtnSetMachineCredential
+    Assert-True (($null -ne $script:MachineCredential) -and ($script:MachineCredential.UserName -ceq 'EXAMPLE\adm-poste')) 'Compte saisi non utilise'
+    Assert-True ($script:MachineCredential.Password.IsReadOnly()) 'SecureString du compte poste encore modifiable'
+    Assert-True ([string]$script:Ctrl.PwdMachineAdmin.Password -eq '') 'Mot de passe laisse dans le champ'
+    Assert-True ([string]$script:Ctrl.BtnCompAccountPill.Content -ceq ('Compte poste : EXAMPLE\adm-poste '+[string][char]0x25BE)) ('Pastille : '+$script:Ctrl.BtnCompAccountPill.Content)
+    Assert-True ([string]$script:Ctrl.LblMachineCredential.Text -ceq 'Opérations poste : EXAMPLE\adm-poste (compte poste saisi, en mémoire seulement).') ('Libelle : '+$script:Ctrl.LblMachineCredential.Text)
+    Invoke-TestClick $script:Ctrl.BtnClearMachineCredential
+    Assert-True ($null -eq $script:MachineCredential) 'Compte saisi non oublie'
+    Assert-True ([string]$script:Ctrl.BtnCompAccountPill.Content -ceq ('Compte poste : session Windows '+[string][char]0x25BE)) ('Retour : '+$script:Ctrl.BtnCompAccountPill.Content)
+    # Closing without « Utiliser ce compte » changes nothing and drops the typed password.
+    $script:Ctrl.PwdMachineAdmin.Password=[guid]::NewGuid().ToString('N')
+    Invoke-TestClick $script:Ctrl.BtnMachineAccountClose
+    Assert-True (-not (Test-DomeniaMachineAccountPanelOpen)) 'Panneau encore ouvert'
+    Assert-True (($null -eq $script:MachineCredential) -and ([string]$script:Ctrl.PwdMachineAdmin.Password -eq '')) 'Fermer a change le compte ou garde le mot de passe'
+    Assert-True ($layer.Visibility -eq [Windows.Visibility]::Collapsed) 'Couche de la page laissee visible'
+    Invoke-TestClick $script:Ctrl.BtnCompAccountPill
+    Assert-True (Test-DomeniaMachineAccountPanelOpen) 'Le panneau ne se rouvre pas'
+    Invoke-TestClick $script:Ctrl.BtnCompAccountPill
+    Assert-True (-not (Test-DomeniaMachineAccountPanelOpen)) 'Un second clic sur la pastille ne ferme pas le panneau'
+    $script:Window=$null
+}
+
+# ================================================================ UI-27 (lot X03) Comptes, section « En ce moment »
+Test-Case 'UI-27 En ce moment : compte reellement utilise par ressource, comptes en memoire avec duree, aucun secret' {
+    $script:Conn.BindUser='EXAMPLE\lecteur';$script:Conn.AuthMode='Windows'
+    $script:RemoteAdminCredential=New-TestCredential 'EXAMPLE\postes';$script:SecretsCredential=New-TestCredential 'EXAMPLE\secrets'
+    $typed=New-TestCredential 'EXAMPLE\adm-poste';$script:MachineCredential=$typed
+    $laps=New-TestCredential 'EXAMPLE\laps-temp';$script:AccessState.Credentials['ReadLaps']=$laps;$script:AccessState.Leases['ReadLaps']=New-AccessLease 'ReadLaps' 'EXAMPLE\laps-temp'
+    $script:Clock=$script:Clock.AddMinutes(4)
+    Update-DomeniaAccountsInUse -Force
+    $now=@($script:Ctrl.DgAccountsInUse.ItemsSource);$memory=@($script:Ctrl.DgAccountsInMemory.ItemsSource)
+    $lines=@($now|ForEach-Object{$_.Resource+'|'+$_.Account+'|'+$_.Origin})
+    Assert-True ($lines -contains 'Annuaire|EXAMPLE\lecteur|session Windows') ($lines -join ' ; ')
+    Assert-True ($lines -contains 'Postes (WMI, C$, consoles)|EXAMPLE\adm-poste|compte poste saisi, en mémoire seulement') ($lines -join ' ; ')
+    Assert-True ($lines -contains 'Secrets : LAPS|EXAMPLE\laps-temp|compte temporaire accepté après un refus') ($lines -join ' ; ')
+    Assert-True ($lines -contains 'Secrets : BitLocker|EXAMPLE\secrets|compte Secrets de la page Comptes') ($lines -join ' ; ')
+    $kept=@($memory|ForEach-Object{$_.Key+'|'+$_.Account+'|'+$_.Remaining})
+    Assert-True ($kept -contains 'ReadLaps|EXAMPLE\laps-temp|encore 26 min sans utilisation') ($kept -join ' ; ')
+    Assert-True (@($memory|Where-Object{$_.Key -ceq 'Typed:Machine' -and $_.Account -ceq 'EXAMPLE\adm-poste'}).Count -eq 1) 'Compte poste saisi absent de la memoire'
+    Assert-True ($script:Ctrl.DgAccountsInMemory.Visibility -eq [Windows.Visibility]::Visible) 'Liste des comptes en memoire masquee'
+    $secretsText=@($typed,$laps,$script:SecretsCredential,$script:RemoteAdminCredential|ForEach-Object{$_.GetNetworkCredential().Password})
+    foreach($row in @($now)+@($memory)){foreach($p in $row.PSObject.Properties){
+        Assert-True ($p.Value -is [string]) ('Valeur non textuelle dans la section : '+$p.Name)
+        Assert-True ($secretsText -notcontains [string]$p.Value) 'Un mot de passe atteint la section En ce moment'
+    }}
+    # A display never extends a lease: only a worker departure does.
+    Assert-True ([datetime]$script:AccessState.Leases['ReadLaps'].LastUsedUtc -lt $script:Clock) 'L affichage a prolonge le bail'
+}
+Test-Case 'UI-27 Oublier : meme regle que la fenetre Acces, refus pendant une ecriture, section actualisee' {
+    $script:Conn.BindUser='EXAMPLE\lecteur';$script:SecretsCredential=New-TestCredential 'EXAMPLE\secrets'
+    $script:AccessState.Credentials['ReadLaps']=New-TestCredential 'EXAMPLE\laps-temp';$script:AccessState.Leases['ReadLaps']=New-AccessLease 'ReadLaps' 'EXAMPLE\laps-temp'
+    $script:MachineCredential=New-TestCredential 'EXAMPLE\adm-poste'
+    # The temporary LAPS account was rejected: the resource carries a fault and a LAPS refusal for this computer.
+    $lapsScope=Get-DomeniaAccessScope 'ReadLaps'
+    $script:AccessState.Faults[$lapsScope]=$true;$script:AccessState.Faults['Remote']=$true
+    Set-DomeniaSecretDenied -Mode 'LAPS' -DN $script:Dn;Set-DomeniaSecretDenied -Mode 'BitLocker' -DN $script:Dn
+    Initialize-DomeniaAccountsUi
+    $generation=[long]$script:DomeniaAccountGeneration
+    $click={param([string]$Key) $b=[Windows.Controls.Button]::new();$b.Tag=$Key;$script:Ctrl.DgAccountsInMemory.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Primitives.ButtonBase]::ClickEvent,$b))}
+    $script:WriteState='Running'
+    & $click 'ReadLaps'
+    Assert-True ($script:AccessState.Credentials.ContainsKey('ReadLaps')) 'Compte oublie pendant une ecriture'
+    Assert-True (@($script:Popups|Where-Object{$_ -match 'écriture'}).Count -eq 1) 'Refus non explique'
+    Assert-True ($script:AccessState.Faults.ContainsKey($lapsScope)) 'Refus de la ressource efface alors que le compte est garde'
+    $script:WriteState='Idle'
+    & $click 'ReadLaps'
+    Assert-True (-not $script:AccessState.Credentials.ContainsKey('ReadLaps')) 'Compte temporaire non oublie'
+    # Same rule as Clear-DomeniaSecondaryCredential: the refusal of the forgotten account goes with it, so the guard of
+    # Get-WorkerContext (Faults.ContainsKey(Get-DomeniaAccessScope $OperationId)) lets the configured account through.
+    Assert-True (-not $script:AccessState.Faults.ContainsKey($lapsScope)) 'Le compte configure reste bloque par le refus du compte oublie'
+    Assert-True (-not (Test-DomeniaSecretDenied 'LAPS' $script:Dn)) 'Refus LAPS du compte oublie conserve'
+    Assert-True ((Test-DomeniaSecretDenied 'BitLocker' $script:Dn) -and ($script:AccessState.Faults.ContainsKey('Remote'))) 'Refus d une autre ressource efface'
+    Assert-True ($null -eq (Get-DomeniaRetryCredential 'ReadLaps')) 'Compte oublie encore remis aux operations LAPS'
+    $context=Get-CoreFunctionText 'Get-WorkerContext'
+    Assert-True ($context.Contains('$retryScope=Get-DomeniaAccessScope $OperationId') -and $context.Contains('Faults.ContainsKey($retryScope)')) 'Garde des refus de Get-WorkerContext modifiee : revoir la regle de l oubli'
+    Assert-True (@($script:StatusLines|Where-Object{$_ -match 'reprend sa place'}).Count -eq 1) 'Statut de l oubli absent'
+    Assert-True ([long]$script:DomeniaAccountGeneration -gt $generation) 'Generation des comptes inchangee'
+    $lines=@(@($script:Ctrl.DgAccountsInUse.ItemsSource)|ForEach-Object{$_.Resource+'|'+$_.Account})
+    Assert-True ($lines -contains 'Secrets : LAPS|EXAMPLE\secrets') ('Section non actualisee : '+($lines -join ' ; '))
+    & $click 'Typed:Machine'
+    Assert-True ($null -eq $script:MachineCredential) 'Compte poste saisi non oublie'
+    Assert-True ($script:Ctrl.DgAccountsInMemory.Visibility -eq [Windows.Visibility]::Collapsed -and [string]$script:Ctrl.LblAccountsInMemory.Text -match '^Aucun compte') 'Etat vide non affiche'
+    $page=Get-CoreFunctionText 'Update-DomeniaAccountUi'
+    Assert-True ($page.Contains('Update-DomeniaAccountsInUse') -and -not $page.Contains('Update-DomeniaAccountsInUse -Force')) 'Page Comptes sans actualisation de la section, ou reconstruction forcee a chaque focus'
+}
+
+# ================================================================ UX-16 (lot X03) autorisation d intervention dans Actions
+function Test-InsideNamed {param($Control,[string]$Name) $node=$Control;while($null -ne $node){$node=[Windows.LogicalTreeHelper]::GetParent($node);if(($node -is [Windows.FrameworkElement]) -and ([string]$node.Name -eq $Name)){return $true}};return $false}
+Test-Case 'UX-16 Pastille d intervention dans Actions : sans Fiabilite, compte a rebours, poste cible seulement' {
+    Assert-True ($script:Ctrl.TabGuard.Visibility -eq [Windows.Visibility]::Collapsed) 'Fiabilite rendue visible pour autoriser'
+    foreach($n in @('BtnCompInterventionGrant','UxCompInterventionPill','BtnCompInterventionRevoke','BtnCompReadFallback','LblCompInterventionState')){Assert-True (Test-InsideNamed $script:Ctrl[$n] 'TabComputerAdmin') ($n+' hors de l onglet Actions')}
+    $guard=${function:Initialize-DomeniaGuard}.ToString()
+    foreach($wire in @('BtnCompInterventionGrant={Set-DomeniaArtifactConsent}','BtnCompInterventionRevoke={Clear-DomeniaArtifactConsent}','BtnCompReadFallback={Set-DomeniaReadFallbackConsent}','BtnGuardRemoteOff={Clear-DomeniaArtifactConsent}','try{Update-DomeniaInterventionPill}')){Assert-True ($guard.Contains($wire)) ('Raccordement absent : '+$wire)}
+    Update-DomeniaInterventionPill -Force
+    Assert-True (($script:Ctrl.UxCompInterventionPill.Visibility -eq [Windows.Visibility]::Collapsed) -and $script:Ctrl.BtnCompInterventionGrant.IsEnabled) 'Etat initial : pastille visible ou accord impossible'
+    Assert-True ([string]$script:Ctrl.LblCompInterventionState.Text -match '^Aucune intervention autorisée sur ce poste') $script:Ctrl.LblCompInterventionState.Text
+    $script:Consent=$false;Set-DomeniaArtifactConsent
+    Assert-True ($null -eq $script:ArtifactConsent) 'Autorisation accordee sans confirmation'
+    $script:Consent=$true;Set-DomeniaArtifactConsent
+    Assert-True (($null -ne $script:ArtifactConsent) -and ($script:ArtifactConsent.Target -eq 'pc-01.example.invalid') -and (@($script:ArtifactConsent.Aliases) -contains 'PC-01')) 'Autorisation non limitee au poste ouvert'
+    Assert-True ($script:Ctrl.UxCompInterventionPill.Visibility -eq [Windows.Visibility]::Visible) 'Pastille absente pendant l autorisation'
+    Assert-True ([string]$script:Ctrl.LblCompIntervention.Text -match '^Intervention autorisée [45]:\d\d ·$') ('Pastille : '+$script:Ctrl.LblCompIntervention.Text)
+    Assert-True ($script:Ctrl.BtnCompInterventionGrant.Visibility -eq [Windows.Visibility]::Collapsed) 'Second accord propose pendant l autorisation'
+    $script:ArtifactConsent.Expires=[datetime]::UtcNow.AddSeconds(61)
+    Update-DomeniaInterventionPill
+    Assert-True ([string]$script:Ctrl.LblCompIntervention.Text -match '^Intervention autorisée 1:0[01] ·$') ('Compte a rebours : '+$script:Ctrl.LblCompIntervention.Text)
+    $script:SelectedObject=[pscustomobject]@{Type='Machine';DN='CN=PC-02,OU=Postes,DC=example,DC=invalid';Name='PC-02';Entry=[pscustomobject]@{Name='PC-02';Dns='pc-02.example.invalid'};Safety=[pscustomobject]@{Guid='22222222-2222-3333-4444-555555555555'}}
+    Update-DomeniaInterventionPill
+    Assert-True (($script:Ctrl.UxCompInterventionPill.Visibility -eq [Windows.Visibility]::Collapsed) -and $script:Ctrl.BtnCompInterventionGrant.IsEnabled) 'Autorisation affichee sur un autre poste'
+    Assert-True ([string]$script:Ctrl.LblCompInterventionState.Text -match '^Une intervention est autorisée sur pc-01\.example\.invalid, pas sur ce poste\.') $script:Ctrl.LblCompInterventionState.Text
+    Reset-Fixture
+    $script:Consent=$true;Set-DomeniaArtifactConsent
+    Clear-DomeniaArtifactConsent
+    Assert-True (($null -eq $script:ArtifactConsent) -and ($script:Ctrl.UxCompInterventionPill.Visibility -eq [Windows.Visibility]::Collapsed)) 'Retirer sans effet'
+    Assert-True (@($script:StatusLines|Where-Object{$_ -match 'Autorisation dʼintervention retirée'}).Count -eq 1) 'Retrait non annonce'
+    # SE-07: the one-read consent stays a separate request, announced for its workstation only.
+    Set-DomeniaReadFallbackConsent
+    Assert-True (($null -ne $script:ReadFallbackConsent) -and ($null -eq $script:ArtifactConsent)) 'La lecture par tache a accorde une intervention'
+    Assert-True ([string]$script:Ctrl.LblCompInterventionState.Text -match 'Prochaine lecture de ce poste autorisée par tâche planifiée \(une seule lecture\)\.$') $script:Ctrl.LblCompInterventionState.Text
+    $script:SelectedObject=$null
+    Update-DomeniaInterventionPill
+    Assert-True ((-not $script:Ctrl.BtnCompInterventionGrant.IsEnabled) -and (-not $script:Ctrl.BtnCompReadFallback.IsEnabled)) 'Autorisation possible sans poste ouvert'
+    $script:ReadFallbackConsent=$null
+}
+Test-Case 'UX-16 Refus du worker : renvoi vers Assistance poste > Actions, route du bandeau, plus de Fiabilite' {
+    $tokens=$null;$errors=$null
+    $commonAst=[Management.Automation.Language.Parser]::ParseInput($script:RealWorkerCommon,[ref]$tokens,[ref]$errors)
+    foreach($name in @('Assert-WRemoteArtifactPermission','Assert-DomeniaReadFallbackPermission')){
+        $node=@($commonAst.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true))
+        Assert-True ($node.Count -eq 1) ('Garde commune absente : '+$name)
+        . ([scriptblock]::Create($node[0].Extent.Text))
+    }
+    $context=[pscustomobject]@{AllowRemoteArtifacts=$false;ArtifactTarget='';ArtifactAliases=@();AllowReadFallback=$false;ReadFallbackTarget='';ReadFallbackAliases=@()}
+    foreach($call in @({Assert-WRemoteArtifactPermission -Context $context -Computer 'pc-01.example.invalid'},{Assert-DomeniaReadFallbackPermission -Context $context -Computer 'pc-01.example.invalid'})){
+        $message='';try{& $call}catch{$message=[string]$_.Exception.Message}
+        Assert-True ($message.Contains('Assistance poste > Actions') -and ($message -notmatch 'Fiabilit')) ('Refus sans renvoi utile : '+$message)
+        Assert-True ((Get-DomeniaMessageRoute ('Rimotte PC-01 : '+$message)) -ceq 'TabComputerAdmin') 'Message sans route'
+    }
+    $route=Resolve-DomeniaCapabilityRoute -Route 'TabComputerAdmin'
+    Assert-True (($route.Workspace -eq 'WsComputer') -and ($route.Inner -eq 'ComputerTabs') -and ($route.Tab -eq 'TabComputerAdmin') -and ($route.Label -ceq 'Assistance poste > Actions')) 'Route inexacte'
+    Assert-True (Invoke-DomeniaCapabilityRoute -Route 'TabComputerAdmin') 'Route non suivie'
+    Assert-True ($script:Routes -contains 'WsComputer|ComputerTabs|TabComputerAdmin') ('Navigation : '+($script:Routes -join ','))
+    $banner=${function:Show-DomeniaBanner}.ToString();$command=${function:Invoke-DomeniaBannerCommand}.ToString()
+    Assert-True ($banner.Contains('Get-DomeniaMessageRoute') -and $command.Contains("'Route'{[void](Invoke-DomeniaCapabilityRoute")) 'Bandeau sans action de route'
+    [void](Update-DomeniaTransportPolicyView -Force)
+    Assert-True ([string]$script:Ctrl.LblTransportPolicy.Text -match 'Assistance poste > Actions') ('Politique : '+$script:Ctrl.LblTransportPolicy.Text)
+    Assert-True ($script:CoreText -notmatch 'dans Outils > Fiabilite') 'Un refus renvoie encore vers Outils > Fiabilite'
 }
 
 if($null -ne $script:SecretRevealTimer){try{$script:SecretRevealTimer.Stop()}catch{}}

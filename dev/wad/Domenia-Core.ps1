@@ -591,7 +591,7 @@ $script:GuiElementPolicy = [ordered]@{
     "LblGuardMigration" = "Default"
     "TxtLogin" = "Default"
     "PwdLogin" = "Default"
-    "TxtLoginPasswordVisible" = "Default"
+    "LblLoginPasswordPeek" = "Default"
     "BtnRevealLogin" = "Default"
     "LblLoginError" = "Default"
     "LblLoginStage" = "Default"
@@ -600,6 +600,19 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnLoginLog" = "Default"
     "BtnCancel" = "Default"
     "BtnLogin" = "Default"
+    "BtnLoginOtherAccount" = "Default"
+    "BtnAccountRemoteTry" = "Default"
+    "BtnCompAccountPill" = "Default"
+    "BtnCompInterventionGrant" = "Default"
+    "UxCompInterventionPill" = "Default"
+    "LblCompIntervention" = "Default"
+    "BtnCompInterventionRevoke" = "Default"
+    "BtnCompReadFallback" = "Default"
+    "LblCompInterventionState" = "Default"
+    "DgAccountsInUse" = "Default"
+    "LblAccountsInMemory" = "Default"
+    "DgAccountsInMemory" = "Default"
+    "LblAccountRemoteTry" = "Default"
     "LblStatus" = "Default"
     "LblPrivilegeTop" = "Default"
     "ChkReadOnlyMode" = "Default"
@@ -833,7 +846,7 @@ $script:GuiElementPolicy = [ordered]@{
     "TabComputerHealth" = "Default"
     "TxtMachineAdminUser" = "Default"
     "PwdMachineAdmin" = "Default"
-    "TxtMachineAdminVisible" = "Default"
+    "LblMachineAdminPeek" = "Default"
     "BtnRevealMachineAdmin" = "Default"
     "LblMachineCredential" = "Default"
     "BtnSetMachineCredential" = "Default"
@@ -1362,19 +1375,17 @@ function Get-LdapEntry {
         return New-Object -TypeName System.DirectoryServices.DirectoryEntry -ArgumentList @($path)
     }
     if ($null -eq $script:Conn.Credential) { throw "Credential AD explicite absent du contexte." }
-    $plainPassword = ""
-    try {
-        $plainPassword = [string]$script:Conn.Credential.GetNetworkCredential().Password
-        $bindUser = Get-DomeniaDirectoryBindUser
-        if ([string]::IsNullOrWhiteSpace($bindUser)) { $bindUser = [string]$script:Conn.Credential.UserName }
-        return New-Object -TypeName System.DirectoryServices.DirectoryEntry -ArgumentList @(
-            $path,
-            $bindUser,
-            $plainPassword,
-            [System.DirectoryServices.AuthenticationTypes]::Secure
-        )
-    }
-    finally { $plainPassword = "" }
+    $bindUser = Get-DomeniaDirectoryBindUser
+    if ([string]::IsNullOrWhiteSpace($bindUser)) { $bindUser = [string]$script:Conn.Credential.UserName }
+    # SE-16: the real boundary. DirectoryEntry only accepts the password as a String: the copy made here is immutable
+    # and stays in memory until the garbage collector reclaims it; no assignment can erase it. It is therefore made
+    # at the last moment, handed to the Windows API at once, and never stored in a variable, logged or displayed.
+    return New-Object -TypeName System.DirectoryServices.DirectoryEntry -ArgumentList @(
+        $path,
+        $bindUser,
+        $script:Conn.Credential.GetNetworkCredential().Password,
+        [System.DirectoryServices.AuthenticationTypes]::Secure
+    )
 }
 
 function New-LdapSearcher {
@@ -1398,6 +1409,8 @@ function New-LdapSearcher {
 }
 
 function ConvertTo-DomeniaSecureString {
+    # Seals a value the caller already holds as a String (password reset fields, generated password). The sign-in
+    # window and the account fields read PasswordBox.SecurePassword directly instead (SE-16).
     param([AllowNull()][string]$Text)
     $secure = New-Object System.Security.SecureString
     if ($null -ne $Text) {
@@ -2650,58 +2663,6 @@ function Register-DomeniaDispatcherExceptionHandler {
     })
     $script:DispatcherExceptionHandlerRegistered = $true
 }
-
-function Get-LoginXamlLegacy {
-    return (Convert-DomeniaXamlToBootTheme -Xaml @"
-<Window Foreground="{DynamicResource DomeniaBootText}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Domenia 1.0  Connexion" Width="520" Height="590" ResizeMode="NoResize"
-        WindowStartupLocation="CenterScreen" FontFamily="Segoe UI" FontSize="12" Background="{DynamicResource DomeniaBootWindow}">
-  <Window.Resources>
-
-
-    <Style TargetType="TextBox" BasedOn="{StaticResource DomeniaBootTextBoxBase}"><Setter Property="MinHeight" Value="38"/><Setter Property="Padding" Value="8,6"/><Setter Property="BorderBrush" Value="{DynamicResource DomeniaBootBorder}"/></Style>
-    <Style TargetType="PasswordBox" BasedOn="{StaticResource DomeniaBootPasswordBoxBase}"><Setter Property="MinHeight" Value="38"/><Setter Property="Padding" Value="8,6"/><Setter Property="BorderBrush" Value="{DynamicResource DomeniaBootBorder}"/></Style>
-    <Style TargetType="Button" BasedOn="{StaticResource DomeniaBootButtonBase}"><Setter Property="MinHeight" Value="36"/><Setter Property="Cursor" Value="Hand"/></Style>
-  </Window.Resources>
-  <Grid Margin="24">
-    <Border Background="{DynamicResource DomeniaBootSurface}" BorderBrush="{DynamicResource DomeniaBootBorder}" BorderThickness="1" CornerRadius="22" Padding="25">
-      <Border.Effect><DropShadowEffect BlurRadius="34" ShadowDepth="0" Opacity="0.15" Color="#94A3B8"/></Border.Effect>
-      <Grid>
-        <Grid.RowDefinitions>
-          <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-          <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
-        <TextBlock Foreground="{DynamicResource DomeniaBootText}" Grid.Row="0" HorizontalAlignment="Center" FontFamily="Impact" FontSize="24" FontWeight="Bold" Margin="0,0,0,4"><Run Text="Domenia" Foreground="{DynamicResource DomeniaBootText}"/></TextBlock>
-        <TextBlock Grid.Row="1" Text="Compte AD utilisé pour piloter lʼannuaire" HorizontalAlignment="Center" Foreground="{DynamicResource DomeniaBootMuted}" Margin="0,0,0,20"/>
-        <TextBlock Grid.Row="2" Text="IDENTIFIANT" Foreground="{DynamicResource DomeniaBootMuted}" FontSize="11" Margin="0,0,0,5"/>
-        <TextBox Grid.Row="3" x:Name="TxtLogin" Margin="0,0,0,14" ToolTip="Compte AD utilisé pour lire et modifier lʼannuaire. Formats acceptés : utilisateur@domaine.tld, DOMAINE\utilisateur ou utilisateur sur un poste joint au domaine."/>
-        <TextBlock Grid.Row="4" Text="MOT DE PASSE" Foreground="{DynamicResource DomeniaBootMuted}" FontSize="11" Margin="0,0,0,5"/>
-        <Grid Grid.Row="5" Margin="0,0,0,8">
-          <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="94"/></Grid.ColumnDefinitions>
-          <PasswordBox Grid.Column="0" x:Name="PwdLogin" ToolTip="Mot de passe du compte AD. Mémorisation facultative dans le coffre Windows, sur votre demande."/>
-          <TextBox Grid.Column="0" x:Name="TxtLoginPasswordVisible" Visibility="Collapsed" ToolTip="Mot de passe visible temporairement."/>
-          <Button Grid.Column="1" x:Name="BtnRevealLogin" Content="👁" ToolTip="Afficher le mot de passe." Margin="8,0,0,0" Width="52" Height="39" MinWidth="52" MinHeight="39" Padding="0" FontFamily="Segoe UI Emoji" FontSize="17" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
-        </Grid>
-        <TextBlock Grid.Row="6" x:Name="LblLoginError" Foreground="{DynamicResource DomeniaBootError}" TextWrapping="Wrap" MinHeight="48"/>
-        <StackPanel Grid.Row="7">
-          <TextBlock x:Name="LblLoginStage" Text="Prêt à vérifier le compte." Foreground="{DynamicResource DomeniaBootMuted}" TextWrapping="Wrap" MinHeight="38" Margin="0,0,0,8"/>
-          <ProgressBar x:Name="PbLogin" Height="5" IsIndeterminate="True" Visibility="Collapsed" Margin="0,0,0,12"/>
-          <CheckBox x:Name="ChkRemember" Content="Se souvenir de l identifiant" Margin="0,0,0,10"/>
-          <Button x:Name="BtnLoginLog" Content="Ouvrir le journal de connexion" MinHeight="30" Margin="0,0,0,10" ToolTip="Ouvre le journal détaillé mis à jour pendant la connexion."/>
-          <Grid>
-            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-            <Button Grid.Column="0" x:Name="BtnCancel" Content="Annuler"/>
-            <Button Grid.Column="2" x:Name="BtnLogin" Content="Se connecter" Background="{DynamicResource DomeniaBootAccent}" BorderBrush="{DynamicResource DomeniaBootAccent}" Foreground="{DynamicResource DomeniaBootOnAccent}" FontWeight="SemiBold"/>
-          </Grid>
-        </StackPanel>
-      </Grid>
-    </Border>
-  </Grid>
-</Window>
-"@)
-}
-
 
 function Add-DomeniaUiLog {
     [CmdletBinding()]
@@ -4992,7 +4953,7 @@ function Get-MainXaml {
                 <TextBlock x:Name="LblTaskElapsed" Grid.Column="0" Text="" Visibility="Hidden" Height="24" MaxHeight="24" MinWidth="0" Foreground="{DynamicResource MutedColor}" FontSize="12" VerticalAlignment="Center" HorizontalAlignment="Stretch" TextAlignment="Left" Margin="0,0,12,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                 <ProgressBar x:Name="PbTop" Grid.Column="2" Width="130" MinWidth="130" MaxWidth="130" Height="8" MinHeight="8" MaxHeight="8" Visibility="Hidden" IsIndeterminate="False" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="0,0,14,0" ToolTip="Indicateur d’activité. Une animation sans pourcentage ne mesure pas la progression exacte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Indicateur d’activité" AutomationProperties.HelpText="Indicateur d’activité. Une animation sans pourcentage ne mesure pas la progression exacte."/>
                 <Button x:Name="BtnCancelTask" Grid.Column="3" Width="96" MinWidth="96" MaxWidth="96" Height="32" MinHeight="32" MaxHeight="32" Padding="10,4" ToolTip="Demande l’arrêt d’une lecture annulable. Une écriture ou un appel natif ne sont pas interrompus de force." Content="Annuler" Visibility="Hidden" Margin="0" VerticalAlignment="Center" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Annuler la lecture" AutomationProperties.HelpText="Demande l’arrêt d’une lecture annulable. Une écriture ou un appel natif ne sont pas interrompus de force."/>
-                <Button x:Name="BtnAccountsHeader" Content="Identites" Width="92" Height="42" MinWidth="82" Margin="0,0,6,0" ToolTip="Choisit les identites utilisees par l application pour l annuaire, les postes et les secrets." VerticalAlignment="Center" Visibility="Collapsed" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Identites" AutomationProperties.HelpText="Choisit les identites utilisees par l application pour l annuaire, les postes et les secrets."/>
+                <Button x:Name="BtnAccountsHeader" Content="Identités" Width="92" Height="42" MinWidth="82" Margin="0,0,6,0" ToolTip="Ouvre les identités de connexion utilisées par Domenia pour lʼannuaire, les postes et les secrets." VerticalAlignment="Center" Visibility="Collapsed" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Identités de connexion" AutomationProperties.HelpText="Ouvre les identités de connexion utilisées par Domenia pour lʼannuaire, les postes et les secrets."/>
               </Grid>
               <!-- DS-02: a lock switch, « Lecture seule » (neutral) or « Écriture active · N min » (solid red); fixed width so that
                    the activity strip never moves when it changes. The profile choice moved to the foot of the menu (UI-30). -->
@@ -5085,7 +5046,7 @@ function Get-MainXaml {
                           </StackPanel>
                         </Grid>
                       </Button>
-                      <Button Margin="0,0,10,10" Padding="18" MinHeight="92" Uid="TabAccounts" ToolTip="Annuaire, accès aux postes et secrets" x:Name="BtnUxHomeAccounts" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Gérer les comptes" AutomationProperties.HelpText="Annuaire, accès aux postes et secrets">
+                      <Button Margin="0,0,10,10" Padding="18" MinHeight="92" Uid="TabAccounts" ToolTip="Comptes utilisés par Domenia : annuaire, postes, secrets" x:Name="BtnUxHomeAccounts" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Identités de connexion" AutomationProperties.HelpText="Comptes utilisés par Domenia : annuaire, postes, secrets">
                         <Grid>
                           <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="38"/>
@@ -5093,8 +5054,8 @@ function Get-MainXaml {
                           </Grid.ColumnDefinitions>
                           <Path Data="M12,2 L22,6 21,16 Q18,22 12,25 Q6,22 3,16 L2,6 Z M7,13 L11,17 18,9" Width="26" Height="26" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False" Grid.Column="0"/>
                           <StackPanel Grid.Column="1">
-                            <TextBlock Text="Gérer les comptes" FontSize="16" FontWeight="SemiBold"/>
-                            <TextBlock Text="Annuaire, accès aux postes et secrets" FontSize="12" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/>
+                            <TextBlock Text="Identités de connexion" FontSize="16" FontWeight="SemiBold"/>
+                            <TextBlock Text="Comptes utilisés par Domenia : annuaire, postes, secrets" FontSize="12" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/>
                           </StackPanel>
                         </Grid>
                       </Button>
@@ -5830,14 +5791,14 @@ function Get-MainXaml {
                             <Label Grid.Row="0" Grid.Column="0" Content="Nouveau mot de passe"/>
                             <Grid Grid.Row="0" Grid.Column="1" Margin="0,0,8,8">
                               <PasswordBox x:Name="PwdUserNew" ToolTip="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mot de passe" AutomationProperties.HelpText="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ."/>
-                              <TextBox x:Name="TxtUserNewVisible" ToolTip="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ." Visibility="Collapsed" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mot de passe" AutomationProperties.HelpText="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ."/>
+                              <TextBox x:Name="TxtUserNewVisible" IsUndoEnabled="False" ToolTip="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ." Visibility="Collapsed" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mot de passe" AutomationProperties.HelpText="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ."/>
                             </Grid>
                             <Button Grid.Row="0" Grid.Column="2" x:Name="BtnRevealUserNew" Content="👁" Style="{StaticResource EyeButton}" Margin="4,0,4,8" ToolTip="Afficher le mot de passe." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Afficher le mot de passe" AutomationProperties.HelpText="Afficher le mot de passe."/>
                             <CheckBox Grid.Row="0" Grid.Column="3" x:Name="ChkUnlockAfterReset" ToolTip="Deverrouille aussi le compte apres la reinitialisation." Content="Deverrouiller ensuite" IsChecked="True" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Deverrouiller ensuite" AutomationProperties.HelpText="Deverrouille aussi le compte apres la reinitialisation."/>
                             <Label Grid.Row="1" Grid.Column="0" Content="Confirmation"/>
                             <Grid Grid.Row="1" Grid.Column="1" Margin="0,0,8,8">
                               <PasswordBox x:Name="PwdUserConfirm" ToolTip="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mot de passe" AutomationProperties.HelpText="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ."/>
-                              <TextBox x:Name="TxtUserConfirmVisible" ToolTip="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ." Visibility="Collapsed" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mot de passe" AutomationProperties.HelpText="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ."/>
+                              <TextBox x:Name="TxtUserConfirmVisible" IsUndoEnabled="False" ToolTip="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ." Visibility="Collapsed" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mot de passe" AutomationProperties.HelpText="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ."/>
                             </Grid>
                             <Button Grid.Row="1" Grid.Column="2" x:Name="BtnRevealUserConfirm" Content="👁" Style="{StaticResource EyeButton}" Margin="4,0,4,8" ToolTip="Afficher la confirmation." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Afficher la confirmation" AutomationProperties.HelpText="Afficher la confirmation."/>
                             <CheckBox Grid.Row="1" Grid.Column="3" x:Name="ChkMustChangeAtLogon" ToolTip="Lʼutilisateur devra choisir son propre mot de passe à la prochaine ouverture de session." Content="Changement obligatoire" IsChecked="True" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Changement obligatoire" AutomationProperties.HelpText="Lʼutilisateur devra choisir son propre mot de passe à la prochaine ouverture de session."/>
@@ -6020,33 +5981,69 @@ function Get-MainXaml {
                   </TabItem>
                 </TabControl>
               </Grid><Border Style="{StaticResource Card}" Margin="4" Padding="24" VerticalAlignment="Top" Grid.Row="1" x:Name="ObjectReadPlaceholder"><StackPanel><TextBlock Text="La fiche se prepare en arriere-plan." FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{DynamicResource TextColor}"/><TextBlock Text="Vous pouvez continuer à utiliser la recherche. Les données du précédent objet ne sont pas affichées ici." Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}"/></StackPanel></Border></Grid></TabItem>
-              <TabItem x:Name="TabAccounts" Header="Comptes" ToolTip="Gestion des identités utilisées par Domenia. Les mots de passe ne sont jamais écrits dans Domenia.db ni dans les préférences." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Comptes" AutomationProperties.HelpText="Gestion des identites utilisees par Domenia. Les mots de passe ne sont jamais ecrits dans Domenia.db ni dans les preferences.">
+              <TabItem x:Name="TabAccounts" Header="Comptes" ToolTip="Identités de connexion utilisées par Domenia : annuaire, postes et secrets. Les mots de passe ne sont jamais écrits dans Domenia.db ni dans les préférences." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Comptes" AutomationProperties.HelpText="Identités de connexion utilisées par Domenia : annuaire, postes et secrets. Les mots de passe ne sont jamais écrits dans Domenia.db ni dans les préférences.">
                 <Border Style="{StaticResource Card}" Margin="4" Padding="10">
                   <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel>
-                      <TextBlock Text="Gestion des comptes" FontSize="20" FontWeight="SemiBold"/>
-                      <TextBlock Text="Votre compte de connexion sert à tout. Ajoutez un compte secondaire uniquement si une ressource exige d’autres droits." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,12" TextWrapping="Wrap"/>
+                      <!-- SP-12: same name as the home card, Identités de connexion; the menu keeps Comptes. -->
+                      <TextBlock Text="Comptes : identités de connexion" FontSize="20" FontWeight="SemiBold"/>
+                      <TextBlock Text="Comptes utilisés par Domenia : annuaire, postes, secrets. Votre compte de connexion sert à tout ; ajoutez un compte secondaire seulement si une ressource exige dʼautres droits." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,12" TextWrapping="Wrap"/>
                       <Border Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="14" Padding="18" Margin="0,0,0,14">
                         <StackPanel>
                           <DockPanel LastChildFill="True">
                             <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" Margin="12,0,0,0">
-                              <Button x:Name="BtnAccountAdRelogin" Content="Changer de compte" Style="{StaticResource RunButton}" ToolTip="Ouvre la fenetre de connexion DOMENIA sans fermer le logiciel." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Changer de compte" AutomationProperties.HelpText="Ouvre la fenetre de connexion DOMENIA sans fermer le logiciel."/>
+                              <Button x:Name="BtnAccountAdRelogin" Content="Changer de compte" Style="{StaticResource RunButton}" ToolTip="Ouvre la connexion sans fermer Domenia, préremplie avec le compte actuel : formulaire dʼabord, session Windows proposée dessous. Annuler conserve la session en cours." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Changer de compte" AutomationProperties.HelpText="Ouvre la connexion sans fermer Domenia, préremplie avec le compte actuel : formulaire dʼabord, session Windows proposée dessous. Annuler conserve la session en cours."/>
                             </StackPanel>
                             <StackPanel Margin="0">
                               <TextBlock Text="ANNUAIRE AD" FontWeight="SemiBold"/>
                               <TextBlock Text="Utilisateurs, groupes, OU, attributs, recherche et écritures AD." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,2,0,0"/>
                             </StackPanel>
                           </DockPanel>
-                          <TextBlock x:Name="LblAccountAdIdentity" Text="Aucune identite active." VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,12,0,10" FontWeight="SemiBold"/>
-                          <WrapPanel>
-                            <StackPanel Width="250" Margin="0,0,10,10">
-                              <TextBlock Text="Identifiant" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold"/>
-                              <TextBox x:Name="TxtAccountAdUser" ToolTip="Identifiant utilisé pour l’annuaire. Se connecter demande le mot de passe dans la fenêtre de connexion ; modifier ce champ seul ne change pas la session." Margin="0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Compte annuaire" AutomationProperties.HelpText="Identifiant utilisé pour l’annuaire. Se connecter demande le mot de passe dans la fenêtre de connexion ; modifier ce champ seul ne change pas la session."/>
-                            </StackPanel>
-                            <Button x:Name="BtnAccountAdTest" Content="Tester la connexion" Margin="0,24,8,10" ToolTip="Vérifie l’identité selon le même moteur ADSI que la connexion. Pour changer d’identifiant, utilisez Se connecter." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tester le compte annuaire" AutomationProperties.HelpText="Vérifie l’identité selon le même moteur ADSI que la connexion. Pour changer d’identifiant, utilisez Se connecter."/>
-                            <Button x:Name="BtnAccountAdUse" Content="Se connecter" Style="{StaticResource RunButton}" Margin="0,24,8,10" ToolTip="Relance la connexion avec cet identifiant. Le mot de passe est demande dans la fenetre de connexion." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Se connecter" AutomationProperties.HelpText="Relance la connexion avec cet identifiant. Le mot de passe est demande dans la fenetre de connexion."/>
-                          </WrapPanel>
-                          <TextBlock x:Name="LblAccountAdStatus" Text="Le compte courant est gere par la connexion Domenia." Foreground="{DynamicResource MutedColor}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                          <!-- CO-31: read-only identity card. The account changes only through Changer de compte. -->
+                          <TextBlock x:Name="LblAccountAdIdentity" Text="Aucune identité active." VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,12,0,4" FontWeight="SemiBold" AutomationProperties.Name="Compte de lʼannuaire"/>
+                          <TextBlock x:Name="LblAccountAdStatus" Text="Aucune connexion à lʼannuaire." Foreground="{DynamicResource MutedColor}" Margin="0,0,0,0" TextWrapping="Wrap" AutomationProperties.Name="Connexion à lʼannuaire"/>
+                        </StackPanel>
+                      </Border>
+                      <!-- UI-27: accounts really used now, per resource, and the accounts kept in memory with their remaining time. -->
+                      <Border Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="14" Padding="18" Margin="0,0,0,14">
+                        <StackPanel>
+                          <TextBlock Text="EN CE MOMENT" FontWeight="SemiBold"/>
+                          <TextBlock Text="Compte réellement utilisé par chaque ressource pour sa prochaine opération. Aucun mot de passe nʼest affiché." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,2,0,8"/>
+                          <DataGrid x:Name="DgAccountsInUse" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column" SelectionMode="Single" MinRowHeight="28" CanUserAddRows="False" CanUserDeleteRows="False" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTip="Compte que chaque ressource prendra pour sa prochaine opération : annuaire, postes, LAPS et BitLocker, avec son origine. Lecture seule ; aucun mot de passe nʼest affiché." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Comptes utilisés en ce moment" AutomationProperties.HelpText="Compte que chaque ressource prendra pour sa prochaine opération : annuaire, postes, LAPS et BitLocker, avec son origine. Lecture seule ; aucun mot de passe nʼest affiché.">
+                            <DataGrid.Columns>
+                              <DataGridTextColumn Header="Ressource" Binding="{Binding Resource}" Width="200"/>
+                              <DataGridTextColumn Header="Compte" Binding="{Binding Account}" Width="240"/>
+                              <DataGridTemplateColumn Header="Origine" Width="*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                  <DataTemplate>
+                                    <TextBlock Text="{Binding Origin}" Style="{StaticResource WrappedCellText}"/>
+                                  </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                              </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                          </DataGrid>
+                          <TextBlock Text="Gardés en mémoire" FontWeight="SemiBold" Margin="0,14,0,4"/>
+                          <TextBlock x:Name="LblAccountsInMemory" Text="Aucun compte temporaire ni compte poste saisi en mémoire." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,0,0,6" ToolTip="Comptes gardés en mémoire pour cette session : compte poste saisi et comptes temporaires acceptés après un refus. Rien nʼest enregistré sur le disque." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Comptes gardés en mémoire" AutomationProperties.LiveSetting="Polite" AutomationProperties.HelpText="Comptes gardés en mémoire pour cette session : compte poste saisi et comptes temporaires acceptés après un refus. Rien nʼest enregistré sur le disque."/>
+                          <DataGrid x:Name="DgAccountsInMemory" Visibility="Collapsed" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column" SelectionMode="Single" MinRowHeight="30" CanUserAddRows="False" CanUserDeleteRows="False" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTip="Comptes gardés en mémoire, avec leur durée restante. « Oublier » retire le compte de la ligne ; une opération déjà envoyée garde sa copie et se termine." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Liste des comptes gardés en mémoire" AutomationProperties.HelpText="Comptes gardés en mémoire, avec leur durée restante. « Oublier » retire le compte de la ligne ; une opération déjà envoyée garde sa copie et se termine.">
+                            <DataGrid.Columns>
+                              <DataGridTextColumn Header="Ressource" Binding="{Binding Resource}" Width="200"/>
+                              <DataGridTextColumn Header="Compte" Binding="{Binding Account}" Width="240"/>
+                              <DataGridTemplateColumn Header="Durée restante" Width="*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                  <DataTemplate>
+                                    <TextBlock Text="{Binding Remaining}" Style="{StaticResource WrappedCellText}"/>
+                                  </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                              </DataGridTemplateColumn>
+                              <DataGridTemplateColumn Header="" Width="96">
+                                <DataGridTemplateColumn.CellTemplate>
+                                  <DataTemplate>
+                                    <Button Content="Oublier" Tag="{Binding Key}" MinHeight="26" Padding="8,0" Margin="2" ToolTip="Oublie ce compte maintenant. Le compte configuré reprend sa place ; une opération déjà envoyée garde sa copie." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Oublier ce compte"/>
+                                  </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                              </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                          </DataGrid>
                         </StackPanel>
                       </Border>
                       <Expander Header="Comptes secondaires (facultatif)" IsExpanded="False" Margin="0,0,0,14"><StackPanel Margin="0,12,0,0">
@@ -6071,8 +6068,12 @@ function Get-MainXaml {
                               <TextBlock Text="Mot de passe" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold"/>
                               <PasswordBox x:Name="PwdAccountRemote" Margin="0" ToolTip="Mot de passe destiné au compte d’accès aux postes. Sa valeur n’est jamais lue ni affichée par l’aide contextuelle." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mot de passe du compte poste" AutomationProperties.HelpText="Mot de passe destiné au compte d’accès aux postes. Sa valeur n’est jamais lue ni affichée par l’aide contextuelle."/>
                             </StackPanel>
-                            <Button x:Name="BtnAccountRemoteTest" Content="Tester" Margin="0,24,8,10" ToolTip="Teste lʼauthentification du compte contre le domaine." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tester" AutomationProperties.HelpText="Teste l authentification du compte contre le domaine."/>
                             <Button x:Name="BtnAccountRemoteSave" Content="Activer" Style="{StaticResource RunButton}" Margin="0,24,8,10" ToolTip="Charge ce compte en mémoire pour les opérations distantes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Activer" AutomationProperties.HelpText="Charge ce compte en memoire pour les operations distantes."/>
+                          </WrapPanel>
+                          <!-- FO-19: a real trial on the workstation open in Assistance poste (one CIM read, explicit click). -->
+                          <WrapPanel Margin="0,0,0,8">
+                            <Button x:Name="BtnAccountRemoteTry" Content="Essayer sur le poste sélectionné" IsEnabled="False" Margin="0,0,12,0" ToolTip="Lit une seule fois le système du poste ouvert dans Assistance poste (WMI, Win32_OperatingSystem), avec le compte utilisé pour les postes, pour vérifier le droit administrateur. Un seul poste, aucun relevé, aucun repli intrusif." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Essayer sur le poste sélectionné" AutomationProperties.HelpText="Lit une seule fois le système du poste ouvert dans Assistance poste (WMI, Win32_OperatingSystem), avec le compte utilisé pour les postes, pour vérifier le droit administrateur. Un seul poste, aucun relevé, aucun repli intrusif."/>
+                            <TextBlock x:Name="LblAccountRemoteTry" Text="" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="640" Foreground="{DynamicResource MutedColor}" ToolTip="Résultat du dernier essai du compte poste : accès administrateur, accès refusé ou poste injoignable. Rien nʼest enregistré." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Résultat de lʼessai du compte poste" AutomationProperties.HelpText="Résultat du dernier essai du compte poste : accès administrateur, accès refusé ou poste injoignable. Rien nʼest enregistré." AutomationProperties.LiveSetting="Polite"/>
                           </WrapPanel>
                           <WrapPanel Margin="0,2,0,8">
                             <CheckBox x:Name="ChkAccountRemoteRemember" Content="Mémoriser sur ce PC" IsChecked="False" Margin="0,0,16,0" VerticalAlignment="Center" ToolTip="Après validation, conserve ce mot de passe dans le coffre de votre profil Windows sur ce PC. Aucune copie dans la base Domenia."/>
@@ -6116,8 +6117,8 @@ function Get-MainXaml {
                       <Border Background="{DynamicResource InfoBg}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1" CornerRadius="10" Padding="10">
                         <StackPanel>
                           <TextBlock Text="Règle dʼexécution" FontWeight="SemiBold"/>
-                          <TextBlock x:Name="LblAccountRule" Text="Annuaire : compte AD courant. Postes : compte distant sʼil existe, sinon compte AD. Secrets : compte secrets sʼil existe, sinon compte AD. Les trois scopes sont indépendants." Foreground="{DynamicResource InfoFg}" Margin="0,4,0,0" TextWrapping="Wrap"/>
-                          <TextBlock Text="Un compte temporaire accepté après un refus ne sert quʼà sa ressource et à son poste ; il est oublié après une période sans utilisation, à la fin de la session ou sur demande." Foreground="{DynamicResource InfoFg}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                          <TextBlock x:Name="LblAccountRule" Text="Annuaire : compte de connexion. Postes : compte poste saisi dans Assistance poste sʼil existe, sinon compte Postes, sinon compte de connexion. Secrets : compte Secrets sʼil existe, sinon compte de connexion. Les trois ressources sont indépendantes." Foreground="{DynamicResource InfoFg}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                          <TextBlock Text="Un compte temporaire accepté après un refus passe avant, pour sa seule ressource et son poste ; il est oublié après une période sans utilisation, à la fin de la session ou par « Oublier » dans « En ce moment »." Foreground="{DynamicResource InfoFg}" Margin="0,6,0,0" TextWrapping="Wrap"/>
                         </StackPanel>
                       </Border>
                       <Border Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="14" Padding="18" Margin="0,14,0,0">
@@ -6430,7 +6431,7 @@ function Get-MainXaml {
                       </StackPanel>
                     </Border>
                   </ScrollViewer>
-                </Border><Grid Margin="4,0,4,6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions><TextBlock Text="Sélectionnez un objet dans Rechercher." VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Foreground="{DynamicResource MutedColor}" FontSize="12" x:Name="LblComputerReadStatus"/><Button Content="Reessayer la lecture" Visibility="Hidden" Height="30" MinHeight="30" Padding="10,3" Margin="8,0,0,0" ToolTip="Relit uniquement cette fiche AD. Aucun ping, aucune sonde de poste et aucune écriture." Grid.Column="1" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Reessayer la lecture AD" x:Name="BtnComputerReadRetry"/></Grid><Grid Visibility="Collapsed" IsEnabled="False" Grid.Row="1" x:Name="ComputerReadContent"><TabControl x:Name="ComputerTabs" Margin="0,4,0,0" ToolTip="Choisissez les informations AD, les actions, le diagnostic, l’inventaire, les logiciels ou les secrets du poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vues d’assistance poste" AutomationProperties.HelpText="Choisissez les informations AD, les actions, le diagnostic, l’inventaire, les logiciels ou les secrets du poste.">
+                </Border><Grid Margin="4,0,4,6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions><TextBlock Text="Sélectionnez un objet dans Rechercher." VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Foreground="{DynamicResource MutedColor}" FontSize="12" x:Name="LblComputerReadStatus"/><!-- UX-15: account used for the workstations, always visible in the header of Assistance poste. --><Button Grid.Column="1" x:Name="BtnCompAccountPill" Content="Compte poste : session Windows ▾" Style="{StaticResource SecondaryButton}" Height="30" MinHeight="30" Padding="12,2" Margin="8,0,0,0" MaxWidth="360" ToolTip="Compte utilisé pour les opérations sur ce poste : C$, consoles, inventaire, diagnostic et sessions. Ouvre un panneau pour saisir un autre compte ou revenir au compte de connexion." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Compte poste" AutomationProperties.HelpText="Compte utilisé pour les opérations sur ce poste : C$, consoles, inventaire, diagnostic et sessions. Ouvre un panneau pour saisir un autre compte ou revenir au compte de connexion."/><Button Content="Reessayer la lecture" Visibility="Hidden" Height="30" MinHeight="30" Padding="10,3" Margin="8,0,0,0" ToolTip="Relit uniquement cette fiche AD. Aucun ping, aucune sonde de poste et aucune écriture." Grid.Column="2" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Reessayer la lecture AD" x:Name="BtnComputerReadRetry"/></Grid><Grid Visibility="Collapsed" IsEnabled="False" Grid.Row="1" x:Name="ComputerReadContent"><TabControl x:Name="ComputerTabs" Margin="0,4,0,0" ToolTip="Choisissez les informations AD, les actions, le diagnostic, l’inventaire, les logiciels ou les secrets du poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vues d’assistance poste" AutomationProperties.HelpText="Choisissez les informations AD, les actions, le diagnostic, l’inventaire, les logiciels ou les secrets du poste.">
                   <TabItem x:Name="TabComputer" ToolTip="Nom, système, état du compte et utilisateur associé." Header="Machine" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Machine" AutomationProperties.HelpText="Nom, systeme, etat du compte et utilisateur associe.">
                     <Border Style="{StaticResource Card}" Margin="4">
                       <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -6540,6 +6541,23 @@ function Get-MainXaml {
                       <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <StackPanel>
                           <TextBlock Text="Actions sur le poste" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                          <!-- UX-16: explicit authorisation of an intervention on this workstation only (5 min), with its countdown, and the
+                               separate one-read consent (SE-07). Both were only reachable from the hidden Fiabilité tab. -->
+                          <Border Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="10" Padding="12,10" Margin="0,0,0,12">
+                            <StackPanel>
+                              <WrapPanel>
+                                <Button x:Name="BtnCompInterventionGrant" Content="Autoriser une intervention (5 min)" Margin="0,0,8,4" ToolTip="Autorise pendant 5 minutes, pour ce poste seulement, les transports qui déposent un script, un service ou une tâche : « Exécuter un programme », replis PsExec ou tâche planifiée. Ne lance rien ; les droits restent obligatoires." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Autoriser une intervention sur ce poste pendant 5 minutes" AutomationProperties.HelpText="Autorise pendant 5 minutes, pour ce poste seulement, les transports qui déposent un script, un service ou une tâche : « Exécuter un programme », replis PsExec ou tâche planifiée. Ne lance rien ; les droits restent obligatoires."/>
+                                <Border x:Name="UxCompInterventionPill" Visibility="Collapsed" CornerRadius="14" Padding="12,2,4,2" Margin="0,0,8,4" Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentColor}" BorderThickness="1" ToolTip="Autorisation dʼintervention en cours sur ce poste, avec le temps restant. Elle ne vaut que pour ce poste et pour vos actions volontaires." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Intervention autorisée sur ce poste" AutomationProperties.HelpText="Autorisation dʼintervention en cours sur ce poste, avec le temps restant. Elle ne vaut que pour ce poste et pour vos actions volontaires.">
+                                  <StackPanel Orientation="Horizontal">
+                                    <TextBlock x:Name="LblCompIntervention" Text="" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}" Margin="0,0,8,0" ToolTip="Temps restant de lʼautorisation dʼintervention sur ce poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Temps restant de lʼintervention" AutomationProperties.HelpText="Temps restant de lʼautorisation dʼintervention sur ce poste."/>
+                                    <Button x:Name="BtnCompInterventionRevoke" Content="Retirer" Height="26" MinHeight="26" Padding="10,0" ToolTip="Retire lʼautorisation maintenant. Les sondes déjà envoyées peuvent finir ; aucune nouvelle intervention avec dépôt ne sera autorisée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Retirer lʼautorisation dʼintervention" AutomationProperties.HelpText="Retire lʼautorisation maintenant. Les sondes déjà envoyées peuvent finir ; aucune nouvelle intervention avec dépôt ne sera autorisée."/>
+                                  </StackPanel>
+                                </Border>
+                                <Button x:Name="BtnCompReadFallback" Content="Lire ce poste par tâche planifiée" Margin="0,0,8,4" ToolTip="À demander quand CIM ne répond pas : autorise une seule lecture de ce poste par PsExec ou tâche planifiée. Autorisation distincte de lʼintervention, retirée après cette lecture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lire ce poste par tâche planifiée" AutomationProperties.HelpText="À demander quand CIM ne répond pas : autorise une seule lecture de ce poste par PsExec ou tâche planifiée. Autorisation distincte de lʼintervention, retirée après cette lecture."/>
+                              </WrapPanel>
+                              <TextBlock x:Name="LblCompInterventionState" Text="Aucune intervention autorisée sur ce poste. « Exécuter un programme » et les replis PsExec ou tâche planifiée la demandent." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,4,0,0" ToolTip="État des autorisations de ce poste : intervention de 5 minutes et lecture par tâche planifiée. Rien nʼest autorisé sans votre clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="État des autorisations du poste" AutomationProperties.LiveSetting="Polite" AutomationProperties.HelpText="État des autorisations de ce poste : intervention de 5 minutes et lecture par tâche planifiée. Rien nʼest autorisé sans votre clic."/>
+                            </StackPanel>
+                          </Border>
                           <WrapPanel Margin="0,0,0,12">
                             <Button x:Name="BtnCompEnable" ToolTip="Reactive le compte du poste dans le domaine." Content="Activer" Style="{StaticResource RunButton}" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Activer" AutomationProperties.HelpText="Reactive le compte du poste dans le domaine."/>
                             <Button x:Name="BtnCompDisable" ToolTip="Désactive le compte du poste. Il ne pourra plus sʼauthentifier." Content="Desactiver" Style="{StaticResource DangerButton}" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Desactiver" AutomationProperties.HelpText="Desactive le compte du poste. Il ne pourra plus s authentifier."/>
@@ -6576,7 +6594,6 @@ function Get-MainXaml {
                             <Button Grid.Column="2" x:Name="BtnCompAddGroup" ToolTip="Ajoute ce poste au groupe indique." Content="Ajouter" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ajouter" AutomationProperties.HelpText="Ajoute ce poste au groupe indique."/>
                             <Button Grid.Column="3" x:Name="BtnCompRemoveGroup" ToolTip="Retire ce poste du groupe indique." Content="Retirer" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Retirer" AutomationProperties.HelpText="Retire ce poste du groupe indique."/>
                           </Grid>
-                          <TextBlock Text="Ouvrir C$ et les consoles utilisent le compte des opérations poste : compte poste saisi dans Diagnostic, sinon compte admin distant, sinon compte de connexion. Le bureau à distance passe par Windows." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,14,0,0"/>
                         </StackPanel>
                       </ScrollViewer>
                     </Border>
@@ -6589,50 +6606,7 @@ function Get-MainXaml {
                       <DockPanel>
                         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
                           <TextBlock Text="Diagnostic du poste" FontSize="18" FontWeight="SemiBold"/>
-                          <TextBlock Text="Compte utilisé pour interroger les postes. Il peut être différent de celui de la connexion et nʼest jamais enregistré." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
-                          <Border Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="12" Padding="12" Margin="0,0,0,10">
-                            <Grid>
-                              <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                              </Grid.RowDefinitions>
-                              <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="16"/>
-                                <ColumnDefinition Width="1.18*"/>
-                              </Grid.ColumnDefinitions>
-                              <StackPanel Grid.Row="0" Grid.Column="0">
-                                <TextBlock Text="Compte poste" Foreground="{DynamicResource MutedColor}" FontSize="11" Margin="1,0,0,5"/>
-                                <TextBox x:Name="TxtMachineAdminUser" Height="34" VerticalContentAlignment="Center" ToolTip="Compte disposant de droits d administration sur les postes. Vide : ta session Windows est utilisee." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Compte poste" AutomationProperties.HelpText="Compte disposant de droits d administration sur les postes. Vide : ta session Windows est utilisee."/>
-                              </StackPanel>
-                              <StackPanel Grid.Row="0" Grid.Column="2">
-                                <TextBlock Text="Mot de passe" Foreground="{DynamicResource MutedColor}" FontSize="11" Margin="1,0,0,5"/>
-                                <Grid>
-                                  <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="8"/>
-                                    <ColumnDefinition Width="Auto" MinWidth="96"/>
-                                  </Grid.ColumnDefinitions>
-                                  <Grid Grid.Column="0">
-                                    <PasswordBox x:Name="PwdMachineAdmin" ToolTip="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ." Height="34" VerticalContentAlignment="Center" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mot de passe" AutomationProperties.HelpText="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ."/>
-                                    <TextBox x:Name="TxtMachineAdminVisible" ToolTip="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ." Height="34" VerticalContentAlignment="Center" Visibility="Collapsed" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mot de passe" AutomationProperties.HelpText="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ."/>
-                                  </Grid>
-                                  <Button Grid.Column="2" x:Name="BtnRevealMachineAdmin" Content="👁" Style="{StaticResource EyeButton}" Height="34" MinHeight="34" Margin="0" ToolTip="Afficher ou masquer le mot de passe du compte poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Afficher ou masquer le mot de passe du compte poste" AutomationProperties.HelpText="Afficher ou masquer le mot de passe du compte poste."/>
-                                </Grid>
-                              </StackPanel>
-                              <Grid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,11,0,0">
-                                <Grid.ColumnDefinitions>
-                                  <ColumnDefinition Width="*"/>
-                                  <ColumnDefinition Width="Auto"/>
-                                  <ColumnDefinition Width="8"/>
-                                  <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" x:Name="LblMachineCredential" Text="Opérations poste : session Windows courante." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0"/>
-                                <Button Grid.Column="1" x:Name="BtnSetMachineCredential" Content="Utiliser ce compte" Style="{StaticResource RunButton}" Height="34" MinHeight="34" Margin="0" ToolTip="Utilise ce compte pour interroger les postes. Il n est jamais enregistre sur le disque." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Utiliser ce compte" AutomationProperties.HelpText="Utilise ce compte pour interroger les postes. Il n est jamais enregistre sur le disque."/>
-                                <Button Grid.Column="3" x:Name="BtnClearMachineCredential" Content="Compte de connexion" Height="34" MinHeight="34" Margin="0" ToolTip="Oublie le compte saisi : les postes sont interroges avec le compte de connexion Domenia (ou ta session Windows si tu t es connecte sans mot de passe)." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ma session Windows" AutomationProperties.HelpText="Revient a ta session Windows pour interroger les postes."/>
-                              </Grid>
-                            </Grid>
-                          </Border>
+                          <TextBlock Text="Le diagnostic utilise le compte poste affiché dans la pastille « Compte poste », en haut de la page." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
                           <WrapPanel>
                             <Button x:Name="BtnRunComputerDiag" Content="Lancer le diagnostic" Style="{StaticResource RunButton}" ToolTip="Verifie la resolution DNS, la joignabilite, les ports, SMB, WinRM, WMI, le systeme, l espace disque et la session ouverte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lancer le diagnostic" AutomationProperties.HelpText="Verifie la resolution DNS, la joignabilite, les ports, SMB, WinRM, WMI, le systeme, l espace disque et la session ouverte."/>
                             <Button x:Name="BtnCopyComputerDiag" ToolTip="Copie le rapport de diagnostic." Content="Copier le rapport" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier le rapport" AutomationProperties.HelpText="Copie le rapport de diagnostic."/>
@@ -9621,7 +9595,6 @@ $script:MachineCredential = $null
 $script:RemoteAdminCredential = $null
 $script:SecretsCredential = $null
 $script:AccountCredentialTestSession = $null
-$script:__MachineCredentialReveal = $false
 $script:VisitCache = @{}
 $script:CacheStats = [ordered]@{ Hits = 0; Misses = 0; Writes = 0; Evictions = 0; Errors = 0 }
 $script:LastSelfCheckSummary = "Non execute"
@@ -10246,7 +10219,7 @@ function Assert-WRemoteArtifactPermission {
     param($Context,[string]$Computer)
     $allowed=@([string]$Context.ArtifactTarget)+@($Context.ArtifactAliases)
     if(-not [bool]$Context.AllowRemoteArtifacts -or -not $Computer -or $allowed -notcontains $Computer){
-        throw 'Transport avec depot/service/tache non autorise pour cette cible (desactive par defaut). Autorisez-le explicitement dans Outils > Fiabilite, puis relancez votre action.'
+        throw 'Transport avec dépôt de script, service ou tâche non autorisé pour ce poste (désactivé par défaut). Autorisez une intervention dans Assistance poste > Actions, « Autoriser une intervention (5 min) », puis relancez votre action.'
     }
 }
 function Assert-DomeniaReadFallbackPermission {
@@ -10255,11 +10228,11 @@ function Assert-DomeniaReadFallbackPermission {
     # sienne, demandee pour elle-meme et consommee par une seule lecture.
     param($Context,[string]$Computer)
     if(-not [bool]$Context.AllowReadFallback){
-        throw 'Repli vers PsExec ou une tache planifiee refuse pour cette lecture : une lecture ne bascule jamais sans demande. Autorisez « Lire ce poste par tache planifiee » dans Outils > Fiabilite, puis relancez la lecture.'
+        throw 'Repli vers PsExec ou une tâche planifiée refusé pour cette lecture : une lecture ne bascule jamais sans demande. Autorisez « Lire ce poste par tâche planifiée » dans Assistance poste > Actions, puis relancez la lecture.'
     }
     $allowed=@([string]$Context.ReadFallbackTarget)+@($Context.ReadFallbackAliases)
     if(-not $Computer -or $allowed -notcontains $Computer){
-        throw ('Autorisation de lecture par tache refusee : elle ne couvre pas '+$Computer+'.')
+        throw ('Autorisation de lecture par tâche refusée : elle ne couvre pas '+$Computer+'.')
     }
 }
 function Get-WRemoteWindowsDirectory {
@@ -12874,41 +12847,28 @@ function Copy-AllSecrets {
     } catch { Show-ErrorBox "Erreur copie secrets : $($_.Exception.Message)" }
 }
 
-function Toggle-MachineCredentialPassword {
-    try {
-        if ($script:__MachineCredentialReveal) {
-            $script:Ctrl["PwdMachineAdmin"].Password = $script:Ctrl["TxtMachineAdminVisible"].Text
-            $script:Ctrl["TxtMachineAdminVisible"].Visibility = [System.Windows.Visibility]::Collapsed
-            $script:Ctrl["PwdMachineAdmin"].Visibility = [System.Windows.Visibility]::Visible
-            $script:Ctrl["BtnRevealMachineAdmin"].Content = "👁"
-            $script:__MachineCredentialReveal = $false
-        } else {
-            $script:Ctrl["TxtMachineAdminVisible"].Text = $script:Ctrl["PwdMachineAdmin"].Password
-            $script:Ctrl["PwdMachineAdmin"].Visibility = [System.Windows.Visibility]::Collapsed
-            $script:Ctrl["TxtMachineAdminVisible"].Visibility = [System.Windows.Visibility]::Visible
-            $script:Ctrl["BtnRevealMachineAdmin"].Content = "🙈"
-            $script:__MachineCredentialReveal = $true
-        }
-    } catch { }
-}
-
 function Set-MachineCredentialFromUi {
     try {
         $user = ($script:Ctrl["TxtMachineAdminUser"].Text + "").Trim()
-        $pwd = if ($script:__MachineCredentialReveal) { $script:Ctrl["TxtMachineAdminVisible"].Text } else { $script:Ctrl["PwdMachineAdmin"].Password }
         if ([string]::IsNullOrWhiteSpace($user)) { throw "Compte poste vide." }
-        if ([string]::IsNullOrWhiteSpace($pwd)) { throw "Mot de passe poste vide." }
-        $script:MachineCredential = New-Object System.Management.Automation.PSCredential -ArgumentList @($user,(ConvertTo-DomeniaSecureString -Text ([string]$pwd)))
-        $script:Ctrl["LblMachineCredential"].Text = (Get-DomeniaMachineOperationAccountText) + " Rien ne sera enregistre."
-        $script:Ctrl["PwdMachineAdmin"].Password = ""; $script:Ctrl["TxtMachineAdminVisible"].Text = ""
-        Set-Status "Credential poste charge uniquement en memoire."
-    } catch { Show-ErrorBox "Erreur credential poste : $($_.Exception.Message)" }
+        # SE-16: the account is built from the SecureString of the PasswordBox, never from its plain text.
+        $secure = $script:Ctrl["PwdMachineAdmin"].SecurePassword
+        if (($null -eq $secure) -or ($secure.Length -eq 0)) { if ($null -ne $secure) { $secure.Dispose() }; throw "Mot de passe du compte poste vide." }
+        $secure.MakeReadOnly()
+        Hide-DomeniaSecretPeek -Owner 'Timer:MachineAdminPeek'
+        $script:MachineCredential = New-Object System.Management.Automation.PSCredential -ArgumentList @($user,$secure)
+        $script:Ctrl["PwdMachineAdmin"].Password = ""
+        Update-DomeniaMachineAccountUi -Force
+        Set-Status "Compte poste chargé en mémoire uniquement, jamais enregistré."
+    } catch { Show-ErrorBox "Compte poste non utilisé : $($_.Exception.Message)" }
 }
 
 function Clear-MachineCredential {
     $script:MachineCredential = $null
-    try { $script:Ctrl["PwdMachineAdmin"].Password = ""; $script:Ctrl["TxtMachineAdminVisible"].Text = ""; $script:Ctrl["LblMachineCredential"].Text = (Get-DomeniaMachineOperationAccountText) } catch { }
-    Set-Status "Credential poste efface de la memoire."
+    Hide-DomeniaSecretPeek -Owner 'Timer:MachineAdminPeek'
+    try { if ($script:Ctrl.ContainsKey("PwdMachineAdmin")) { $script:Ctrl["PwdMachineAdmin"].Password = "" } } catch { }
+    try { Update-DomeniaMachineAccountUi -Force } catch { }
+    Set-Status ("Compte poste oublié. " + (Get-DomeniaMachineOperationAccountText))
 }
 
 
@@ -19438,7 +19398,7 @@ $runLevel=$(if($elevated){'HighestAvailable'}else{'LeastPrivilege'})
 $logonType='ServiceAccount';$taskUser='S-1-5-18';$createExtra=@();$interactive=$false
 if($mode -eq 'MachineCredential'){
     $cred=Get-WMachineCredential $Context
-    if($null-eq$cred){throw "Mode Compte poste : renseigne d abord le compte poste dans Diagnostic."}
+    if($null-eq$cred){throw "Mode Compte poste : choisissez dʼabord un compte poste dans la pastille « Compte poste » dʼAssistance poste."}
     $taskUser=[string]$cred.UserName;$logonType='Password'
     throw 'Mode tache avec mot de passe en argument retire. Choisissez SYSTEM ou une session interactive deja ouverte, apres autorisation.'
 }elseif($mode -eq 'Interactive'){
@@ -19553,7 +19513,7 @@ function Show-DomeniaRimotteDialog {
                 $modeIndex=[int]$dlg.FindName("CmbRMode").SelectedIndex
                 $mode=$(if($modeIndex-eq1){"MachineCredential"}elseif($modeIndex-eq2){"Interactive"}else{"System"})
                 $user=([string]$dlg.FindName("TxtRUser").Text).Trim();if($mode-eq"Interactive"-and[string]::IsNullOrWhiteSpace($user)){throw "Renseigne le compte de la session interactive."}
-                if($mode-eq"MachineCredential"-and$null-eq$script:MachineCredential){throw "Renseigne d abord le compte poste dans l onglet Diagnostic."}
+                if(($mode -eq "MachineCredential") -and ($null -eq $script:MachineCredential)){throw "Choisissez dʼabord un compte poste : pastille « Compte poste » en haut dʼAssistance poste."}
                 $dlg.Tag=[pscustomobject]@{Computer=$computer;Command=$exe;Arguments=[string]$dlg.FindName("TxtRArgs").Text;Mode=$mode;RunUser=$user;Elevated=[bool]$dlg.FindName("ChkRElevated").IsChecked}
                 Set-DomeniaSurfaceResult $dlg $true
             }catch{Show-DomeniaDialog -Message $_.Exception.Message -Title 'Exécution distante' -Kind Warning|Out-Null}
@@ -19574,10 +19534,11 @@ function Get-DomeniaMachineOperationCredential {
 }
 
 function Get-DomeniaMachineOperationAccountText {
-    $credential = Get-DomeniaMachineOperationCredential
-    if ($null -eq $credential) { return "Operations poste : session Windows $script:ProcessIdentityDisplay." }
-    if ($null -ne $script:MachineCredential) { return "Operations poste : compte saisi $($credential.UserName), en memoire seulement." }
-    return "Operations poste : compte de connexion Domenia $($credential.UserName) (CIM, C$, consoles)."
+    # UX-15: same order and words as the « Compte poste » pill (Get-DomeniaMachineAccountInUse), temporary accounts
+    # accepted after a refusal included. Names only, never a secret.
+    param([string]$Target = '')
+    $label = Get-DomeniaMachineAccountInUse -Target $Target
+    return ('Opérations poste : ' + [string]$label.Long + '.')
 }
 
 function Get-DomeniaNetUseSource {
@@ -21732,25 +21693,6 @@ function Test-DomeniaCredentialBind {
     return Start-DomeniaAccountValidation -UserName $UserName -Password $Password -Operation $Operation -TimeoutSeconds $TimeoutSeconds
 }
 
-function Test-DomeniaActiveDirectoryCredential {
-    [CmdletBinding()]
-    param([string]$UserName)
-    $credential = $script:Conn.Credential
-    if ($null -eq $credential) { throw 'Aucun compte AD explicite actif. Utilise Relogger...' }
-    $activeUser = ([string]$credential.UserName).Trim()
-    $requestedUser = ([string]$UserName).Trim()
-    if ([string]::IsNullOrWhiteSpace($requestedUser)) { throw 'Identifiant AD vide.' }
-    $sameIdentity = ($requestedUser -ieq $activeUser)
-    if (-not $sameIdentity -and -not $requestedUser.Contains('\') -and -not $requestedUser.Contains('@')) {
-        $netbios = ([string]$script:Conn.Netbios).Trim()
-        $sameIdentity = (-not [string]::IsNullOrWhiteSpace($netbios) -and ("$netbios\$requestedUser" -ieq $activeUser))
-    }
-    if (-not $sameIdentity) {
-        throw 'Le champ identifiant AD a ete modifie. Utilise Utiliser / relogger pour ce nouveau compte. Le mot de passe de la session active ne sera jamais teste sous un autre nom.'
-    }
-    return Test-DomeniaCredentialBind -UserName $activeUser -Password $credential.Password -Operation 'Test compte AD'
-}
-
 function Update-DomeniaAccountUi {
     # IMPORTANT : cette fonction ne touche JAMAIS aux champs editables.
     # Les evenements GotFocus/Click remontent depuis les enfants du TabItem ;
@@ -21765,21 +21707,27 @@ function Update-DomeniaAccountUi {
         $secretsStatus = Get-DomeniaControl -Name "LblAccountSecretsStatus"
 
         Update-DomeniaExperienceIdentity
+        # CO-31: read-only card, the account that really bound the directory and how; no field to edit.
         $currentAd = [string]$script:Conn.BindUser
         if ([string]::IsNullOrWhiteSpace($currentAd)) { $currentAd = [string]$script:Conn.User }
-        if ($null -ne $ad) { $ad.Text = if ($currentAd) { "$currentAd  |  $([string]$script:Conn.Server)" } else { "Aucune identite active." } }
-        if ($null -ne $adStatus) { $adStatus.Text = if ($currentAd) { "Compte actuellement utilise pour les operations AD." } else { "Aucune connexion AD active." } }
+        $card = Get-DomeniaDirectoryAccountText -Account $currentAd -AuthMode ([string]$script:Conn.AuthMode) -Server ([string]$script:Conn.Server) -Domain ([string]$script:Conn.Domain)
+        if ($null -ne $ad) { $ad.Text = [string]$card.Identity }
+        if ($null -ne $adStatus) { $adStatus.Text = [string]$card.Detail }
 
         $remoteCred = $script:RemoteAdminCredential
         $remoteName = Get-DomeniaCredentialUserName $remoteCred
-        if ($null -ne $remote) { $remote.Text = if ($remoteName) { "$remoteName  |  compte distant actif" } else { "Repli sur le compte AD courant." } }
-        if ($null -ne $remoteStatus) { $remoteStatus.Text = if ($remoteName) { "Les opérations poste utilisent ce compte pour cette session. Le coffre Windows reste facultatif." } else { "Aucun compte poste dedie. DOMENIA reutilise le compte AD courant." } }
+        if ($null -ne $remote) { $remote.Text = if ($remoteName) { "$remoteName  ·  compte Postes actif" } else { 'Aucun compte Postes : le compte de connexion sert aux postes.' } }
+        if ($null -ne $remoteStatus) { $remoteStatus.Text = if ($remoteName) { 'Les opérations sur les postes utilisent ce compte pendant cette session. Le coffre Windows reste facultatif.' } else { 'Saisissez un compte et son mot de passe puis « Activer » si les postes exigent dʼautres droits.' } }
 
         $secretCred = $script:SecretsCredential
         $secretName = Get-DomeniaCredentialUserName $secretCred
-        if ($null -ne $secrets) { $secrets.Text = if ($secretName) { "$secretName  |  compte secrets actif" } else { "Repli sur le compte AD courant." } }
-        if ($null -ne $secretsStatus) { $secretsStatus.Text = if ($secretName) { "LAPS et BitLocker utilisent ce compte pour cette session. Le coffre Windows reste facultatif." } else { "Aucun compte secrets dedie. DOMENIA reutilise le compte AD courant." } }
+        if ($null -ne $secrets) { $secrets.Text = if ($secretName) { "$secretName  ·  compte Secrets actif" } else { 'Aucun compte Secrets : le compte de connexion lit LAPS et BitLocker.' } }
+        if ($null -ne $secretsStatus) { $secretsStatus.Text = if ($secretName) { 'LAPS et BitLocker utilisent ce compte pendant cette session. Le coffre Windows reste facultatif.' } else { 'Saisissez un compte et son mot de passe puis « Activer » si les secrets exigent dʼautres droits.' } }
 
+        Update-DomeniaRemoteTrialUi
+        # UI-27: no forced rebuild here. GotFocus bubbles from the « Oublier » buttons themselves: rebuilding the grid
+        # on mouse down would remove the button before its Click. The rows change only when a text changes.
+        Update-DomeniaAccountsInUse
         try {
             $remoteClear = Get-DomeniaControl -Name "BtnAccountRemoteClear"
             $secretClear = Get-DomeniaControl -Name "BtnAccountSecretsClear"
@@ -21787,7 +21735,7 @@ function Update-DomeniaAccountUi {
             if ($null -ne $secretClear) { $secretClear.IsEnabled = ($null -ne $secretCred) }
         } catch { }
     }
-    catch { Write-AppLog "Mise a jour du panneau Comptes impossible : $($_.Exception.Message)" "WARN" }
+    catch { Write-AppLog "Mise à jour de la page Comptes impossible : $($_.Exception.Message)" "WARN" }
 }
 
 function Save-DomeniaSecondaryCredential {
@@ -21805,14 +21753,14 @@ function Clear-DomeniaSecondaryCredential {
         [void](Save-DomeniaAccountPreference -Scope Remote -UserName '')
         $userField=Get-DomeniaControl -Name 'TxtAccountRemoteUser';if($null -ne $userField){$userField.Text=''}
         $pwd = Get-DomeniaControl -Name "PwdAccountRemote"; if ($null -ne $pwd) { $pwd.Password = "" }
-        Add-DomeniaUiLog -Area "Comptes" -Text "Compte Remote efface de la memoire."
+        Add-DomeniaUiLog -Area "Comptes" -Text "Compte Postes effacé de la mémoire."
     } else {
         $script:SecretsCredential = $null
         Set-DomeniaSetting -Name "SecretsCredentialUser" -Value ""
         [void](Save-DomeniaAccountPreference -Scope Secrets -UserName '')
         $userField=Get-DomeniaControl -Name 'TxtAccountSecretsUser';if($null -ne $userField){$userField.Text=''}
         $pwd = Get-DomeniaControl -Name "PwdAccountSecrets"; if ($null -ne $pwd) { $pwd.Password = "" }
-        Add-DomeniaUiLog -Area "Comptes" -Text "Compte Secrets efface de la memoire."
+        Add-DomeniaUiLog -Area "Comptes" -Text "Compte Secrets effacé de la mémoire."
     }
     if($null -ne $script:AccessState){
         $scopes=if($Scope -eq 'Secrets'){@('ReadLaps','ReadBitLocker')}else{@('Remote')}
@@ -21821,30 +21769,36 @@ function Clear-DomeniaSecondaryCredential {
         if($Scope -eq 'Secrets'){$script:AccessState.Denied=@{}}
     }
     Update-DomeniaAccountUi
-    Set-Status "Compte $Scope efface. Repli sur le compte AD courant."
+    Set-Status ('Compte ' + $(if ($Scope -eq 'Remote') { 'Postes' } else { 'Secrets' }) + ' effacé : le compte de connexion reprend ce rôle.')
 }
 
 function Start-DomeniaAccountRelogin {
     try {
         Complete-DomeniaDetachedReadJobs
         if (@($script:AsyncJobs.Keys).Count -gt 0 -or @($script:DetachedReadJobs).Count -gt 0) {
-            Show-InfoBox 'Changement de compte refuse pendant une operation. Termine ou annule les lectures, puis attends leur nettoyage. Une ecriture envoyee au DC ne doit pas etre interrompue.'
+            Show-InfoBox 'Changement de compte refusé pendant une opération. Terminez ou annulez les lectures, puis attendez leur nettoyage. Une écriture envoyée au contrôleur nʼest jamais interrompue.'
             return
         }
         if ([string]$script:WriteState -in @('Running','Unknown','UnknownPending')) {
-            Show-InfoBox 'Une ecriture reste a verifier. Recontrole son resultat avant de changer de session.'
+            Show-InfoBox 'Une écriture reste à vérifier. Contrôlez son résultat avant de changer de compte.'
             return
         }
         # Persist dirty data using the previous connection scope, before opening the login.
         if ([bool]$script:IndexDirty -and -not (Flush-DomeniaIndex)) {
-            throw 'Le cache modifie ne peut pas etre enregistre. Changement de session interrompu pour conserver les donnees en memoire.'
+            throw 'Le cache modifié ne peut pas être enregistré. Changement de compte interrompu pour garder les données en mémoire.'
         }
         $previousBase = [string]$script:Conn.BaseDn
-        $user = ([string](Get-DomeniaControl -Name 'TxtAccountAdUser').Text).Trim()
-        if (-not [string]::IsNullOrWhiteSpace($user)) { Set-DomeniaSetting -Name 'LastLogin' -Value $user }
+        # CO-31: the sign-in is pre-filled with the account typed for this session; nothing is written in the settings
+        # (the sign-in reads only Auth.LastLogin, saved by its own Se souvenir de mon identifiant box).
+        $prefill = ''
+        if ([string]$script:Conn.AuthMode -eq 'Explicit') {
+            $prefill = ([string]$script:Conn.User).Trim()
+            if ([string]::IsNullOrWhiteSpace($prefill)) { $prefill = ([string]$script:Conn.BindUser).Trim() }
+        }
         try { if ($null -ne $script:LiveSearchTimer) { $script:LiveSearchTimer.Stop() } } catch { }
         Stop-DomeniaSelectionOpenTimer
-        if (-not (Show-LoginWindow)) { Set-Status 'Relogin annule. La session courante est conservee.' 'WARN'; return }
+        # UX-28: a change of account opens the form first; the Windows session stays proposed under it.
+        if (-not (Show-LoginWindow -PreferForm -PrefillLogin $prefill)) { Set-Status 'Changement de compte annulé : la session courante est conservée.' 'WARN'; return }
 
         $script:SessionEpoch = [long]$script:SessionEpoch + 1
         # Fleet observations and analysis targets belong to the previous session.
@@ -21916,9 +21870,9 @@ function Start-DomeniaAccountRelogin {
         Apply-CurrentPermissionUi
         Request-DomeniaDashboardRefresh
         try { Request-DomeniaFleetRefresh -Force } catch { }
-        Set-Status ('Nouvelle session AD : ' + [string]$script:Conn.BindUser + '. Vues rechargees, lecture seule active.')
+        Set-Status ('Nouvelle session : ' + [string]$script:Conn.BindUser + '. Vues rechargées, lecture seule active.')
     }
-    catch { [void](Show-DomeniaOperationError -Operation 'Relogin AD' -ErrorRecordOrException $_) }
+    catch { [void](Show-DomeniaOperationError -Operation 'Changement de compte' -ErrorRecordOrException $_) }
 }
 
 function Initialize-DomeniaAccountPanel {
@@ -21928,15 +21882,13 @@ function Initialize-DomeniaAccountPanel {
         $savedSecrets = Get-DomeniaRememberedAccount -Scope Laps
         $currentAd = [string]$script:Conn.BindUser
         if ([string]::IsNullOrWhiteSpace($currentAd)) { $currentAd = [string]$script:Conn.User }
-        $adUser = Get-DomeniaControl -Name "TxtAccountAdUser"
         $remoteUser = Get-DomeniaControl -Name "TxtAccountRemoteUser"
         $secretUser = Get-DomeniaControl -Name "TxtAccountSecretsUser"
-        if ($null -ne $adUser) { $adUser.Text = $currentAd }
         if ($null -ne $remoteUser) { $remoteUser.Text = $savedRemote;$script:AccountPreferences.FieldSeeds['TxtAccountRemoteUser']=$savedRemote }
         if ($null -ne $secretUser) { $secretUser.Text = $savedSecrets;$script:AccountPreferences.FieldSeeds['TxtAccountSecretsUser']=$savedSecrets }
         Sync-DomeniaAccountPreferences
         Update-DomeniaAccountUi
-        Add-DomeniaUiLog -Area "Comptes" -Text "Panneau comptes initialise. Les champs editables ne sont plus recharges lors des changements de focus ; coffre Windows facultatif, uniquement sur choix explicite."
+        Add-DomeniaUiLog -Area "Comptes" -Text "Page Comptes prête : champs modifiables conservés aux changements de focus, coffre Windows seulement sur choix explicite."
     }
     catch { Add-DomeniaUiLog -Area "Comptes" -Level "WARN" -Text "Initialisation panneau comptes : $($_.Exception.Message)" }
 }
@@ -21962,28 +21914,10 @@ function Wire-Events {
     if ($script:Ctrl.ContainsKey("BtnAccountAdRelogin")) {
         $script:Ctrl["BtnAccountAdRelogin"].Add_Click({ Start-DomeniaAccountRelogin })
     }
-    if ($script:Ctrl.ContainsKey("BtnAccountAdTest")) {
-        $script:Ctrl["BtnAccountAdTest"].Add_Click({
-            try {
-                $u = ([string]$script:Ctrl["TxtAccountAdUser"].Text).Trim()
-                [void](Test-DomeniaActiveDirectoryCredential -UserName $u)
-            } catch { [void](Show-DomeniaOperationError -Operation "Test compte AD" -ErrorRecordOrException $_) }
-        })
-    }
-    if ($script:Ctrl.ContainsKey("BtnAccountAdUse")) {
-        $script:Ctrl["BtnAccountAdUse"].Add_Click({
-            $u = ([string]$script:Ctrl["TxtAccountAdUser"].Text).Trim()
-            if (-not [string]::IsNullOrWhiteSpace($u)) { Set-DomeniaSetting -Name "LastLogin" -Value $u }
-            Start-DomeniaAccountRelogin
-        })
-    }
-    if ($script:Ctrl.ContainsKey("BtnAccountRemoteTest")) {
-        $script:Ctrl["BtnAccountRemoteTest"].Add_Click({
-            try {
-                $u = ([string]$script:Ctrl["TxtAccountRemoteUser"].Text).Trim()
-                $p = $script:Ctrl["PwdAccountRemote"].SecurePassword
-                [void](Test-DomeniaCredentialBind -UserName $u -Password $p -Operation "Test compte Remote")
-            } catch { [void](Show-DomeniaOperationError -Operation "Test compte Remote" -ErrorRecordOrException $_) }
+    if ($script:Ctrl.ContainsKey("BtnAccountRemoteTry")) {
+        # FO-19: Tester only repeated the AD authentication of Activer; the real question is the right on a workstation.
+        $script:Ctrl["BtnAccountRemoteTry"].Add_Click({
+            try { Start-DomeniaRemoteAccountTrial } catch { [void](Show-DomeniaOperationError -Operation "Essai du compte poste" -ErrorRecordOrException $_) }
         })
     }
     if ($script:Ctrl.ContainsKey("BtnAccountRemoteSave")) {
@@ -22242,9 +22176,8 @@ function Wire-Events {
     $script:Ctrl["DgSecrets"].Add_MouseDoubleClick({
         if ($null -ne $script:Ctrl["DgSecrets"].SelectedItem) { Copy-SelectedSecret }
     })
-    $script:Ctrl["BtnRevealMachineAdmin"].Add_Click({ Toggle-MachineCredentialPassword })
-    $script:Ctrl["BtnSetMachineCredential"].Add_Click({ Set-MachineCredentialFromUi })
-    $script:Ctrl["BtnClearMachineCredential"].Add_Click({ Clear-MachineCredential })
+    # UX-15: the workstation account fields live in the side panel of Assistance poste (Domenia-MachineAccount.xaml);
+    # Initialize-DomeniaMachineAccountPanel wires them when the « Compte poste » pill opens it for the first time.
     $script:Ctrl["BtnRunComputerDiag"].Add_Click({ Start-ComputerDiagnostics })
     if ($script:Ctrl.ContainsKey("BtnUserSaveContact")) { $script:Ctrl["BtnUserSaveContact"].Add_Click({ Save-DomeniaUserContact }) }
     if ($script:Ctrl.ContainsKey("BtnIndexScopePick")) { $script:Ctrl["BtnIndexScopePick"].Add_Click({
@@ -22561,7 +22494,8 @@ function New-DefaultConfig {
         Auth = [ordered]@{
             VaultDomainDn = ""
             VaultUserName = ""
-            RememberLogin = $true
+            # UX-28: « Se souvenir de mon identifiant » is unchecked until the operator ticks it once (kept in HKCU).
+            RememberLogin = $false
             LastLogin = ""
             LoginWindowMode = "Standard"
             AllowWindowsSession = $true
@@ -23837,7 +23771,7 @@ function Get-DomeniaWorkerOperationHashes {
         ComputerPing          = "4ECADF4F231390182A3BF091EF8636B3536D7B3F8A28EF3984DE1E2D524D5BFA"
         ComputerGpUpdate      = "AC0E30C53A5257A12378801A8B6831FFAAB183CBB0548CE9A768637B255AB1C0"
         ComputerRestart       = "7895BE660A73963FF297989D640D7F47BCFB6D81D6B8E1F2D7E357A7C1E24B3F"
-        RimotteRun            = "2834E90E1C51D9D4A16C98CBCA905DE6A9886E87875115DC0A44ADF3E75F665B"
+        RimotteRun            = "337B18F3AB70EC32D626BB79E0E894138235B7F1676498ADC741FECFC4A57167"
         PruneLinks            = "0CDDB662FA027ED979FC9A44A7A66662DB540D5B562F9D33CCDD3BA86FF0819F"
         OpenLinkedObject      = "24863184FC8441FCE8F270A75B30736954AC066DBBC5A2DE99CDF1C5D7CAA6C2"
         OpenAdObject          = "8169588B8E775546A06A351515BC0F5C8BC7B0432F4B9B732068A27BE862324E"
@@ -23883,7 +23817,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "DB61ABDAE34A08F555B46FD0E584F88B0CC9EB4E87FC12AC9B7203913905992E"
+    $expectedFingerprint = "58036B75E515DADE1F74256AE9BE22AB81F8CEFDC5FD34FBB9EBB2F6AFDC7379"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -25651,6 +25585,8 @@ function Initialize-DomeniaPresentation {
     # UX-39 : la grille des sessions se parcourt au double-clic et au clic droit, comme celle des associations.
     $sessionGrid=Get-DomeniaControl 'DgSessions';if($null -ne $sessionGrid){$sessionGrid.ContextMenu=New-DomeniaSessionsContextMenu;$sessionGrid.Add_MouseDoubleClick({param($sender,$e) Open-DomeniaSessionFiche -Source $e.OriginalSource});$sessionGrid.Add_PreviewMouseRightButtonDown({param($sender,$e) $hit=Get-DomeniaGridHit $e.OriginalSource;if($null -ne $hit -and $null -ne $hit.Row){$sender.SelectedItem=$hit.Row.Item}})}
     Initialize-DomeniaGuard
+    # X03 (UX-15, UI-27): « Compte poste » pill, its side panel and the « En ce moment » section of Comptes.
+    try { Initialize-DomeniaAccountsUi } catch { Write-AppLog ('Initialisation des comptes : '+$_.Exception.Message) 'WARN' }
     Initialize-DomeniaLive
     Initialize-DomeniaReconcile
     Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 pret."
@@ -27906,7 +27842,7 @@ function Initialize-Window {
             # Toujours demarrer en lecture seule. L administrateur peut lever le verrou explicitement dans le GUI.
             $script:ReadOnlyMode=$true
             if($script:Ctrl.ContainsKey("ChkReadOnlyMode")){$script:Ctrl["ChkReadOnlyMode"].IsChecked=$true}
-            try{$script:Ctrl["LblMachineCredential"].Text=(Get-DomeniaMachineOperationAccountText)}catch{}
+            try{Update-DomeniaMachineAccountUi -Force}catch{}
             Assert-DomeniaReadWriteControlClassification
             Set-DomeniaStartupStage -Stage "Etat initial de securite" -Detail "Application des droits et du mode lecture seule..."
             Apply-CurrentPermissionUi
@@ -27962,7 +27898,7 @@ function Initialize-Window {
             try{
                 if ([bool]$script:DemoMode) { Set-Status ("Prêt. " + (Get-DomeniaDemoBannerText) + ".") "WARN" }
                 else { Set-Status "Pret. Connexion validee, mode lecture seule actif." }
-                try { $script:Ctrl["LblMachineCredential"].Text = (Get-DomeniaMachineOperationAccountText) } catch { }
+                try { Update-DomeniaMachineAccountUi -Force } catch { }
                 # After every ContentRendered handler: the remembered OU of Rechercher is then known to be restoring.
                 try { [void]$script:Window.Dispatcher.BeginInvoke([System.Windows.Threading.DispatcherPriority]::ApplicationIdle,[Action]{ try { Request-DomeniaFleetRefresh } catch { } }) } catch { }
                 Write-AppLog "Pret. Base=$($script:Conn.BaseDn) Server=$($script:Conn.Server) AD=$($script:Conn.BindUser) WIN=$script:ProcessIdentity Demo=$([bool]$script:DemoMode)" "INFO"
@@ -28076,7 +28012,6 @@ function Write-DomeniaFastLoginLog {
 function New-DomeniaFastLoginSession {
     param(
         [string]$Login,
-        [string]$Password,
         [Security.SecureString]$SecurePassword,
         [string]$Domain,
         [string]$Netbios,
@@ -28108,8 +28043,10 @@ function New-DomeniaFastLoginSession {
         }
     }
     if (-not $UseCurrentCredentials) {
-        if($null -ne $SecurePassword){$secure=$SecurePassword.Copy()}
-        else{$secure = New-Object System.Security.SecureString;foreach ($character in ([string]$Password).ToCharArray()) { $secure.AppendChar($character) }}
+        # SE-16: the secret arrives as the SecureString of the PasswordBox or of the Windows vault. It is copied and
+        # sealed for the worker; it is never rebuilt from a plain string.
+        if (($null -eq $SecurePassword) -or ($SecurePassword.Length -eq 0)) { throw 'Mot de passe requis.' }
+        $secure = $SecurePassword.Copy()
         $secure.MakeReadOnly()
         $credential = New-Object System.Management.Automation.PSCredential -ArgumentList @([string]$Login,$secure)
     }
@@ -28198,7 +28135,7 @@ function Update-DomeniaFastLoginVaultUi {
     if($null -ne $ui.VaultUse){$ui.VaultUse.IsEnabled=(-not $Busy -and $null -ne $identity -and -not $blocked)}
     if($null -ne $ui.VaultForget){$ui.VaultForget.IsEnabled=(-not $Busy -and $null -ne $identity)}
     if($null -ne $ui.VaultRemember){$ui.VaultRemember.IsEnabled=(-not $Busy -and -not [bool]$script:DemoMode)}
-    if($null -ne $ui.VaultUse){$ui.VaultUse.ToolTip=if($blocked){'Cet identifiant du coffre a déjà été essayé. Corrige manuellement le mot de passe avant un nouvel usage.'}else{'Utilise une fois le compte exact affiché, sur ce PC. Aucune lecture automatique du coffre.'}}
+    if($null -ne $ui.VaultUse){$ui.VaultUse.ToolTip=if($blocked){'Cet identifiant du coffre a déjà été essayé. Corrigez manuellement le mot de passe avant un nouvel usage.'}else{'Utilise une fois le compte exact affiché, sur ce PC. Aucune lecture automatique du coffre.'}}
 }
 
 function Remove-DomeniaFastLoginVault {
@@ -28242,7 +28179,9 @@ function Set-DomeniaFastLoginBusy {
     param([bool]$Busy)
     $ui = $script:FastLoginUi
     if ($null -eq $ui) { return }
-    foreach ($name in @("Login","Password","PasswordVisible","Reveal","Remember","Connect")) {
+    # SE-16: a validation never starts or runs with the password shown.
+    if ($Busy) { try { Hide-DomeniaSecretPeek -Owner 'Timer:LoginPasswordPeek' } catch { } }
+    foreach ($name in @("Login","Password","Reveal","Remember","Connect","OtherAccount")) {
         try { $ui[$name].IsEnabled = -not $Busy } catch { }
     }
     try {
@@ -28253,7 +28192,7 @@ function Set-DomeniaFastLoginBusy {
     catch { }
     if ([bool]$script:DemoMode) {
         # D002: in demonstration no password can be typed and no Windows session is offered, busy or not.
-        foreach ($name in @("Password","PasswordVisible","Reveal","Remember","Windows")) {
+        foreach ($name in @("Password","Reveal","Remember","Windows")) {
             try { $ui[$name].IsEnabled = $false } catch { }
         }
     }
@@ -28271,7 +28210,7 @@ function Set-DomeniaFastLoginBusy {
         }
     }
     Update-DomeniaFastLoginVaultUi -Busy $Busy
-    try { $ui.Cancel.Content = if ($Busy) { "Arreter" } else { "Annuler" } } catch { }
+    try { $ui.Cancel.Content = if ($Busy) { 'Arrêter' } else { 'Annuler' } } catch { }
     try { $ui.Progress.Visibility = if ($Busy) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed } } catch { }
 }
 
@@ -28294,7 +28233,6 @@ function Reset-DomeniaFastLoginAttempt {
     }
     if ($null -ne $script:FastLoginState) {
         $script:FastLoginState.Session = $null
-        $script:FastLoginState.Password = ""
     }
     Set-DomeniaFastLoginBusy $false
 }
@@ -28332,7 +28270,6 @@ function Complete-DomeniaFastLoginSuccess {
         $ui.Stage.Text = "Démonstration prête en $([Math]::Round(([long]$Result.DurationMs / 1000),2)) s."
         Write-DomeniaFastLoginLog -Stage "LOGIN_OK" -Status "OK" -Detail "Compte=$($Result.BindUser) Mode=Demo Base=$($Result.BaseDn)" -DurationMs ([long]$Result.DurationMs)
         $state.LoginOk = $true
-        $state.Password = ""
         Set-DomeniaSurfaceResult $ui.Window $true
         return
     }
@@ -28386,8 +28323,8 @@ function Complete-DomeniaFastLoginSuccess {
 
     if(-not $windowsSession){Save-DomeniaFastLoginVaultPreference -Result $Result -Credential $script:Conn.Credential}
     $ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Success")
-    $ui.Error.Text = if ($windowsSession) { "Session Windows validee." } else { "Compte valide." }
-    $ui.Stage.Text = "Connexion terminee en $([Math]::Round(([long]$Result.DurationMs / 1000),2)) s."
+    $ui.Error.Text = if ($windowsSession) { 'Session Windows validée.' } else { 'Compte validé.' }
+    $ui.Stage.Text = "Connexion terminée en $([Math]::Round(([long]$Result.DurationMs / 1000),2)) s."
     $authMethod = if ($null -ne $Result.PSObject.Properties["AuthMethod"]) { [string]$Result.AuthMethod } else { "LDAP" }
     Add-DomeniaFastLoginDetail "Compte valide : $($Result.BindUser) ; mode=$($script:Conn.AuthMode) ; methode=$authMethod ; serveur=$($Result.Server) ; base=$($Result.BaseDn)."
     Write-DomeniaFastLoginLog -Stage "LOGIN_OK" -Status "OK" -Detail "Compte=$($Result.BindUser) Mode=$($script:Conn.AuthMode) Serveur=$($Result.Server) Base=$($Result.BaseDn)" -DurationMs ([long]$Result.DurationMs)
@@ -28397,55 +28334,7 @@ function Complete-DomeniaFastLoginSuccess {
     }
     $state.LoginOk = $true
     try { $ui.Password.Password = "" } catch { }
-    try { $ui.PasswordVisible.Text = "" } catch { }
-    $state.Password = ""
     Set-DomeniaSurfaceResult $ui.Window $true
-}
-
-function Convert-DomeniaLoginFailureMessage {
-    param([AllowNull()][string]$Message,[AllowNull()][string]$Category="")
-    $m=([string]$Message).Trim()
-    $c=([string]$Category).Trim()
-    if ($c -eq 'Internal' -or $m -match '(?i)NullArray|Indexation impossible dans un tableau Null|Cannot index into a null array|DOMENIA_AUTH_(ENTRY|PROPERTIES|NATIVE)_NULL') {
-        return 'Erreur interne pendant la connexion. Consulte le diagnostic.'
-    }
-    if ($c -eq 'Metadata') { return 'Lecture des informations AD incomplete. Consulte le diagnostic.' }
-    if ($c -eq 'AccessDenied') { return 'Acces refuse par AD. Consulte le diagnostic.' }
-    if ($c -in @('AccountRestriction','Authentication')) { return $m }
-    if($m -match "(?i)((?:\bdata\s+52e\b)|\b(?:0x)?8007052e\b|logon failure|unknown user name or bad password|user name or password is incorrect|username or password is incorrect|nom d.?utilisateur.*mot de passe.*incorrect|identifiant.*mot de passe.*incorrect|mot de passe.*incorrect|invalid credentials|credentials.*invalid)") {
-        return "Identifiant ou mot de passe incorrect."
-    }
-    if($m -match "(?i)((?:\bdata\s+775\b)|\b(?:0x)?80070775\b|account.*locked|compte.*verrouill)") {
-        return "Ce compte est verrouille."
-    }
-    if($m -match "(?i)((?:\bdata\s+533\b)|\b(?:0x)?80070533\b|account.*disabled|compte.*desactiv|compte.*desactiv)") {
-        return "Ce compte est desactive."
-    }
-    if($m -match "(?i)((?:\bdata\s+532\b)|\b(?:0x)?80070532\b|password.*expired|mot de passe.*expir)") {
-        return "Le mot de passe de ce compte a expire."
-    }
-    if($c -eq "Credentials" -and -not [string]::IsNullOrWhiteSpace($m)) {
-        return $m
-    }
-    if([string]::IsNullOrWhiteSpace($m)){ return "Echec de validation du compte." }
-    return $m
-}
-
-function Get-DomeniaLoginFailureHint {
-    param([AllowNull()][string]$Category='', [AllowNull()][string]$Message='')
-    if ($Category -eq 'Internal' -or $Message -match '(?i)Erreur interne|NullArray|tableau Null|null array') {
-        return 'Ce defaut ne prouve pas un mauvais mot de passe. Ouvre le journal.'
-    }
-    if ($Category -eq 'Metadata') { return 'La lecture du domaine ou de la base a echoue. Ouvre le journal.' }
-    if ($Category -eq 'AccessDenied') { return 'Verifie le contexte, les droits du compte et les restrictions. Details dans le journal.' }
-    if ($Message -eq 'Identifiant ou mot de passe incorrect.') { return 'Verifie les identifiants avant tout nouvel essai.' }
-    if ($Category -eq 'Credentials') { return 'Compte refuse : lis le motif avant de refaire un essai.' }
-    if (($Category -eq 'AccountRestriction') -and ($Message -match 'code AD 52f')) { return 'Verifie d abord l expiration du mot de passe : change-le (Ctrl+Alt+Suppr, Modifier un mot de passe) puis reessaie.' }
-    if ($Category -eq 'AccountRestriction') { return 'Lis la restriction indiquee avant tout nouvel essai. Ne multiplie pas les tentatives.' }
-    if ($Category -eq 'Authentication') { return 'Le bind a echoue sans cause identifiee. Copie le diagnostic natif avant tout nouvel essai.' }
-    if ($Category -eq 'Input') { return 'Complete les informations demandees.' }
-    if ($Category -eq 'Timeout' -or $Category -eq 'DomainUnavailable') { return 'Verifie le reseau, le DNS ou le VPN. Details dans le journal.' }
-    return 'Ouvre le journal de connexion pour identifier l etape en echec.'
 }
 
 function Update-DomeniaFastLoginAttempt {
@@ -28472,7 +28361,7 @@ function Update-DomeniaFastLoginAttempt {
             }
         }
         else {
-            $ui.Stage.Text = "Validation Active Directory en memoire  ${elapsed}s"
+            $ui.Stage.Text = "Validation Active Directory en mémoire, ${elapsed} s"
         }
 
         if ($elapsed -ne [int]$session.LastHeartbeat) {
@@ -28485,8 +28374,8 @@ function Update-DomeniaFastLoginAttempt {
         if (-not $completed -and (Get-Date) -lt $session.Deadline) { return }
         if (-not $completed) {
             $ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Error")
-            $ui.Error.Text = "Delai depasse. La validation a ete arretee sans bloquer l interface."
-            $ui.Stage.Text = "Verifie le reseau, le VPN, le DNS ou le journal de connexion."
+            $ui.Error.Text = [string](Get-DomeniaLoginFailureText -Category 'Timeout').Text
+            $ui.Stage.Text = 'Validation arrêtée après le délai prévu, sans bloquer la fenêtre.'
             Write-DomeniaFastLoginLog -Stage "TIMEOUT" -Status "ERROR" -Detail "Runspace MTA interne ; delai depasse."
             Reset-DomeniaFastLoginAttempt -Kill
             return
@@ -28500,12 +28389,12 @@ function Update-DomeniaFastLoginAttempt {
         try { $result = Read-DomeniaAuthRunspaceResult -Session $session }
         catch {
             $detail = [string]$_.Exception.Message
-            $friendly = Convert-DomeniaLoginFailureMessage -Message $detail
+            $failure = Get-DomeniaLoginFailureText -Message $detail
             Write-DomeniaFastLoginLog -Stage "NO_RESULT" -Status "ERROR" -Detail $detail
             Add-DomeniaFastLoginDetail $detail
             $ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Error")
-            $ui.Error.Text = $friendly
-            $ui.Stage.Text = Get-DomeniaLoginFailureHint -Message $friendly
+            $ui.Error.Text = $failure.Text
+            $ui.Stage.Text = 'Résultat de validation illisible : ' + $failure.Message
             $state.Session = $null
             Complete-DomeniaLoginAuthRunspaceCleanup -Session $session
             Set-DomeniaFastLoginBusy $false
@@ -28520,15 +28409,19 @@ function Update-DomeniaFastLoginAttempt {
         Complete-DomeniaLoginAuthRunspaceCleanup -Session $session
 
         if ($null -eq $result -or -not [bool]$result.Success) {
-            $rawMessage = if ($null -ne $result -and -not [string]::IsNullOrWhiteSpace([string]$result.Error)) { [string]$result.Error } else { "Echec de validation du compte." }
+            $errorText = if (($null -ne $result) -and (-not [string]::IsNullOrWhiteSpace([string]$result.Error))) { [string]$result.Error } else { "" }
+            $rawMessage = if ($errorText) { $errorText } else { "Aucun motif renvoyé par la validation." }
             $errorCategory = ""
             try { $errorCategory = [string]$result.ErrorCategory } catch { }
-            $message = Convert-DomeniaLoginFailureMessage -Message $rawMessage -Category $errorCategory
+            # UI-20: a polite sentence with the next step on screen. The Active Directory code and the technical text
+            # only go to the diagnostic (Copier le diagnostic) and to the connection log.
+            $failure = Get-DomeniaLoginFailureText -Category $errorCategory -Message $errorText
             $ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Error")
-            $ui.Error.Text = $message
-            $ui.Stage.Text = Get-DomeniaLoginFailureHint -Category $errorCategory -Message $message
+            $ui.Error.Text = $failure.Text
+            $ui.Stage.Text = 'Motif : ' + $failure.Message + $(if ($failure.Code) { ' Code Active Directory : ' + $failure.Code + '.' } else { '' })
             # Keep the technical cause in the log, not only the shortened UI message.
             Add-DomeniaFastLoginDetail $rawMessage
+            if ($failure.Code) { Add-DomeniaFastLoginDetail ('Code Active Directory : ' + $failure.Code) }
             if ($null -ne $result) {
                 $diagnosticProperty = $result.PSObject.Properties['Diagnostic']
                 if ($null -ne $diagnosticProperty -and $null -ne $diagnosticProperty.Value) {
@@ -28548,19 +28441,16 @@ function Update-DomeniaFastLoginAttempt {
     }
     catch {
         $detail = $_.Exception.ToString()
-        $friendly = Convert-DomeniaLoginFailureMessage -Message $detail
         Write-DomeniaFastLoginLog -Stage "MONITOR_ERROR" -Status "ERROR" -Detail $detail
         Add-DomeniaFastLoginDetail $detail
         try {
+            # A refusal reported by the exception keeps its own wording; anything else is an internal error, never a
+            # verdict on the password. The exception text stays in the diagnostic.
+            $failure = Get-DomeniaLoginFailureText -Message $detail
+            if ($failure.Kind -ne 'BadCredentials') { $failure = Get-DomeniaLoginFailureText -Category 'Internal' -Message $detail }
             $ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Error")
-            if($friendly -eq "Identifiant ou mot de passe incorrect.") {
-                $ui.Error.Text = $friendly
-                $ui.Stage.Text = "Corrige l identifiant ou le mot de passe."
-            }
-            else {
-                $ui.Error.Text = "Erreur du moniteur de connexion : $($_.Exception.Message)"
-                $ui.Stage.Text = "Le GUI reste actif. Consulte Domenia-login.log."
-            }
+            $ui.Error.Text = $failure.Text
+            $ui.Stage.Text = 'La fenêtre reste utilisable ; détail dans Domenia-login.log.'
         }
         catch { }
         Reset-DomeniaFastLoginAttempt -Kill
@@ -28621,7 +28511,6 @@ function Start-DomeniaFastLoginAttempt {
             return
         }
         $state.Login = $demoLogin
-        $state.Password = ""
         $state.LoginOk = $false
         $state.UseCurrentCredentials = $false
         $ui.Technical.Clear()
@@ -28630,7 +28519,7 @@ function Start-DomeniaFastLoginAttempt {
         $ui.Stage.Text = "Démonstration : annuaire fictif en mémoire."
         Set-DomeniaFastLoginBusy $true
         try {
-            $session = New-DomeniaFastLoginSession -Login $demoLogin -Password "" -TimeoutSeconds 8 -Demo
+            $session = New-DomeniaFastLoginSession -Login $demoLogin -TimeoutSeconds 8 -Demo
             $state.Session = Start-DomeniaFastLoginWorker -Session $session
             # FI-05: protected standalone timer (connection, before the engine).
             $script:FastLoginTimer = New-DomeniaTimer -Owner 'Timer:FastLogin' -IntervalMs 200 -Standalone -RunWhenHidden -Start -Tick { Update-DomeniaFastLoginAttempt }
@@ -28639,7 +28528,8 @@ function Start-DomeniaFastLoginAttempt {
         catch {
             Write-DomeniaFastLoginLog -Stage "START_ERROR" -Status "ERROR" -Detail $_.Exception.ToString()
             $ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Error")
-            $ui.Error.Text = "Impossible de demarrer la demonstration : $($_.Exception.Message)"
+            $ui.Error.Text = 'Impossible de démarrer la démonstration. Copiez le diagnostic ou ouvrez le journal.'
+            Add-DomeniaFastLoginDetail $_.Exception.ToString()
             Reset-DomeniaFastLoginAttempt -Kill -KeepDiagnostics
         }
         return
@@ -28651,17 +28541,17 @@ function Start-DomeniaFastLoginAttempt {
     else {
         ([string]$ui.Login.Text).Trim()
     }
-    $password='';$secret=$null;$vaultCredential=$null;$vaultIdentity=$null
+    $secret=$null;$vaultCredential=$null;$vaultIdentity=$null
     if($UseVault){
         $vaultIdentity=Get-DomeniaFastLoginVaultIdentity
-        if($null -eq $vaultIdentity -or ($null -ne $script:FastLoginVaultRejected -and $script:FastLoginVaultRejected.ContainsKey($vaultIdentity.Target))){$ui.Error.Text='Corrige manuellement les identifiants avant de réutiliser le coffre.';return}
+        if(($null -eq $vaultIdentity) -or (($null -ne $script:FastLoginVaultRejected) -and ($script:FastLoginVaultRejected.ContainsKey($vaultIdentity.Target)))){$ui.Error.Text='Corrigez manuellement les identifiants avant de réutiliser le coffre.';return}
         try{$vaultCredential=Get-DomeniaCredentialVaultCredential -DomainDn $vaultIdentity.DomainDn -Scope Directory -UserName $vaultIdentity.UserName -Enabled}
         catch{$ui.Error.Text='Le coffre Windows est indisponible pour cet identifiant.';return}
         if($null -eq $vaultCredential){$ui.Error.Text='Aucun identifiant enregistré dans le coffre pour ce compte.';return}
         $secret=$vaultCredential.Password
     }elseif(-not $UseCurrentCredentials){
-        if($state.Reveal){$password=[string]$ui.PasswordVisible.Text}
-        else{$secret=$ui.Password.SecurePassword}
+        # SE-16: always the SecureString of the PasswordBox; its plain Password property is never read here.
+        $secret=$ui.Password.SecurePassword
     }
     try {
     $modeLabel = if ($UseCurrentCredentials) { "Windows" } else { "Explicit" }
@@ -28673,21 +28563,21 @@ function Start-DomeniaFastLoginAttempt {
         $ui.Error.Text = "Identifiant manquant."
         return
     }
-    if (-not $UseCurrentCredentials -and (($null -eq $secret -and [string]::IsNullOrWhiteSpace($password)) -or ($null -ne $secret -and $secret.Length -eq 0))) {
+    if ((-not $UseCurrentCredentials) -and (($null -eq $secret) -or ($secret.Length -eq 0))) {
         $ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Error")
         $ui.Error.Text = "Mot de passe manquant."
         return
     }
     if (-not $UseCurrentCredentials -and (Test-DomeniaComputerAccountIdentity -Identity $login)) {
         $ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Error")
-        $ui.Error.Text = "Ce compte correspond a un objet ordinateur Active Directory et ne peut pas servir de login interactif."
-        $ui.Stage.Text = "Saisis un compte utilisateur administrateur."
+        $ui.Error.Text = 'Ce compte est un compte dʼordinateur : il ne peut pas ouvrir de session dans Domenia. Saisissez un compte utilisateur.'
+        $ui.Stage.Text = 'Compte dʼordinateur refusé avant toute validation.'
         return
     }
     if ($UseCurrentCredentials -and [string]::IsNullOrWhiteSpace($login)) {
         $ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Error")
-        $ui.Error.Text = "La session Windows courante nest pas un compte utilisateur de domaine."
-        $ui.Stage.Text = "Lapplication semble etre lancee sous SYSTEM, un compte local ou un compte ordinateur."
+        $ui.Error.Text = 'La session Windows ouverte nʼest pas un compte utilisateur du domaine. Utilisez un autre compte.'
+        $ui.Stage.Text = 'Domenia semble lancé sous SYSTEM, un compte local ou un compte dʼordinateur.'
         return
     }
 
@@ -28705,27 +28595,25 @@ function Start-DomeniaFastLoginAttempt {
     $state.VaultRemember=(-not $UseCurrentCredentials -and [bool]$ui.VaultRemember.IsChecked)
     $state.VaultUsed=[bool]$UseVault
     $state.Login = $login
-    $state.Password = ""
     $state.LoginOk = $false
     $state.UseCurrentCredentials = [bool]$UseCurrentCredentials
     $ui.Technical.Clear()
     $ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Muted")
-    $ui.Error.Text = if ($UseCurrentCredentials) { "Verification de la session Windows courante." } else { "Verification du compte administrateur." }
-    $ui.Stage.Text = "Demarrage du controle Active Directory..."
+    $ui.Error.Text = if ($UseCurrentCredentials) { 'Vérification de la session Windows…' } else { 'Vérification du compte…' }
+    $ui.Stage.Text = 'Démarrage du contrôle Active Directory…'
     Set-DomeniaFastLoginBusy $true
 
     try {
         Write-DomeniaFastLoginLog -Stage "SESSION_CREATE" -Detail "Mode=$modeLabel Domaine=$domain Base=$baseDn Serveur=$serverValue Timeout=${timeout}s"
-        $session = New-DomeniaFastLoginSession -Login $login -Password $password -SecurePassword $secret -Domain $domain -Netbios $netbios -ConfiguredBase $baseDn -ConfiguredServer $serverValue -TimeoutSeconds $timeout -UseCurrentCredentials:$UseCurrentCredentials
+        $session = New-DomeniaFastLoginSession -Login $login -SecurePassword $secret -Domain $domain -Netbios $netbios -ConfiguredBase $baseDn -ConfiguredServer $serverValue -TimeoutSeconds $timeout -UseCurrentCredentials:$UseCurrentCredentials
         $state.Session=$session
         if($UseVault){
             if($null -eq $script:FastLoginVaultRejected){$script:FastLoginVaultRejected=@{}}
             $script:FastLoginVaultRejected[$vaultIdentity.Target]=$true
         }
         $state.Session = Start-DomeniaFastLoginWorker -Session $session
-        $state.Password = ""
-        $password = ""
-        try { $ui.Password.Password = ""; $ui.PasswordVisible.Text = "" } catch { }
+        # The PasswordBox is emptied once its sealed copy has left with the worker request.
+        try { $ui.Password.Password = "" } catch { }
         Add-DomeniaFastLoginDetail "Validation lancee dans un runspace MTA interne. Aucun processus enfant et aucun fichier de mot de passe ne sont utilises."
 
         # FI-05: protected standalone timer (connection, before the engine).
@@ -28737,36 +28625,11 @@ function Start-DomeniaFastLoginAttempt {
         Write-DomeniaFastLoginLog -Stage "START_ERROR" -Status "ERROR" -Detail $detail
         Add-DomeniaFastLoginDetail $detail
         $ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Error")
-        $ui.Error.Text = "Impossible de demarrer la validation : $($_.Exception.Message)"
-        $ui.Stage.Text = "Consulte Domenia-login.log."
+        $ui.Error.Text = 'Impossible de lancer la validation. Copiez le diagnostic ou ouvrez le journal.'
+        $ui.Stage.Text = 'Détail dans Domenia-login.log.'
         Reset-DomeniaFastLoginAttempt -Kill -KeepDiagnostics
     }
-    }finally{if($null -ne $secret){$secret.Dispose()};$vaultCredential=$null;$password=''}
-}
-
-function Toggle-DomeniaFastLoginPassword {
-    $ui = $script:FastLoginUi
-    $state = $script:FastLoginState
-    if ($null -eq $ui -or $null -eq $state) { return }
-    if ($state.Reveal) {
-        $ui.Password.Password = [string]$ui.PasswordVisible.Text
-        $ui.PasswordVisible.Text = ""
-        $ui.PasswordVisible.Visibility = [System.Windows.Visibility]::Collapsed
-        $ui.Password.Visibility = [System.Windows.Visibility]::Visible
-        $ui.Reveal.Content = "👁"
-        try { $ui.Reveal.ToolTip = "Afficher le mot de passe." } catch { }
-        $state.Reveal = $false
-        $ui.Password.Focus() | Out-Null
-    }
-    else {
-        $ui.PasswordVisible.Text = [string]$ui.Password.Password
-        $ui.Password.Visibility = [System.Windows.Visibility]::Collapsed
-        $ui.PasswordVisible.Visibility = [System.Windows.Visibility]::Visible
-        $ui.Reveal.Content = "🙈"
-        try { $ui.Reveal.ToolTip = "Masquer le mot de passe." } catch { }
-        $state.Reveal = $true
-        $ui.PasswordVisible.Focus() | Out-Null
-    }
+    }finally{if($null -ne $secret){$secret.Dispose()};$vaultCredential=$null}
 }
 
 function Get-DomeniaLoginWindowMode {
@@ -28826,6 +28689,7 @@ function Get-DomeniaStandardLoginXaml {
   <Window.Resources>
     <!-- Theme resources injected by Domenia before XAML loading. --></Window.Resources>
   <Grid x:Name="LoginRoot">
+    <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
     <Grid.Resources><Style TargetType="ToolTip">
     <Setter Property="Background" Value="{DynamicResource DomeniaBootSurface}"/><Setter Property="Foreground" Value="{DynamicResource DomeniaBootText}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource DomeniaBootBorder}"/><Setter Property="BorderThickness" Value="1"/>
@@ -28876,7 +28740,7 @@ function Get-DomeniaStandardLoginXaml {
   </Style>
   <Style TargetType="ProgressBar"><Setter Property="Foreground" Value="{DynamicResource DomeniaBootAccentText}"/><Setter Property="Background" Value="{DynamicResource DomeniaBootBorder}"/><Setter Property="BorderThickness" Value="0"/></Style>
   </Grid.Resources><!-- Only the input area can scroll on a very small desktop. Actions remain outside it. -->
-    <Border x:Name="PanelLogin" Margin="16" Padding="20">
+    <Border x:Name="PanelLogin" Grid.Row="0" Margin="16" Padding="20">
       <Border.Style><Style TargetType="Border" BasedOn="{StaticResource Card}"><Style.Triggers><DataTrigger Binding="{Binding Visibility, ElementName=PbLogin}" Value="Visible"><Setter Property="Visibility" Value="Hidden"/></DataTrigger></Style.Triggers></Style></Border.Style><Grid>
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto"/>
@@ -28911,14 +28775,21 @@ function Get-DomeniaStandardLoginXaml {
             <TextBlock Text="" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource DomeniaBootWarning}" Margin="0,0,0,8" Visibility="Collapsed" x:Name="LblSuiteThemeSave"/><Label Content="Compte Windows" Target="{Binding ElementName=TxtLogin}" Padding="0" Margin="0,0,0,5" ToolTip="{Binding Content, RelativeSource={RelativeSource Self}}" ToolTipService.ShowOnDisabled="True"/>
             <TextBox x:Name="TxtLogin" MaxLength="256" MinHeight="40" Padding="11,7" VerticalContentAlignment="Center" Margin="0,0,0,14" KeyboardNavigation.TabIndex="0" ToolTip="Saisissez votre compte AD habituel : DOMAINE\identifiant, identifiant@domaine ou le format déjà utilisé. Le coffre Windows est facultatif et doit être choisi explicitement." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Saisissez votre compte AD habituel : DOMAINE\identifiant, identifiant@domaine ou le format déjà utilisé. Le coffre Windows est facultatif et doit être choisi explicitement." AutomationProperties.Name="Compte Windows"/>
             <Label Content="Mot de passe" Target="{Binding ElementName=PwdLogin}" Padding="0" Margin="0,0,0,5" ToolTip="{Binding Content, RelativeSource={RelativeSource Self}}" ToolTipService.ShowOnDisabled="True"/>
-            <PasswordBox x:Name="PwdLogin" MinHeight="40" Padding="11,7" VerticalContentAlignment="Center" Margin="0,0,0,8" KeyboardNavigation.TabIndex="1" ToolTip="Mot de passe du compte saisi. Seule l’option explicite de coffre Windows permet sa conservation." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Mot de passe du compte saisi. Seule l’option explicite de coffre Windows permet sa conservation." AutomationProperties.Name="Mot de passe"/>
+            <Grid x:Name="LoginPasswordRow" Margin="0,0,0,8">
+              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+              <PasswordBox x:Name="PwdLogin" Grid.Column="0" MinHeight="40" Padding="11,7" VerticalContentAlignment="Center" Margin="0" KeyboardNavigation.TabIndex="1" ToolTip="Mot de passe du compte saisi. Seule l’option explicite de coffre Windows permet sa conservation." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Mot de passe du compte saisi. Seule l’option explicite de coffre Windows permet sa conservation." AutomationProperties.Name="Mot de passe"/>
+              <!-- SE-16: read-only overlay shown 5 s on request; the PasswordBox stays the only source of the secret. -->
+              <Border x:Name="LoginPasswordPeek" Grid.Column="0" Margin="1" CornerRadius="8" Background="{DynamicResource DomeniaBootInput}" Visibility="Collapsed" IsHitTestVisible="False" Focusable="False">
+                <TextBlock x:Name="LblLoginPasswordPeek" Text="" Margin="11,0" VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" FontFamily="Consolas" FontSize="14" Focusable="False" ToolTip="Mot de passe affiché pendant 5 secondes, en lecture seule, sans copie possible." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mot de passe affiché" AutomationProperties.HelpText="Mot de passe affiché pendant 5 secondes, en lecture seule, sans copie possible."/>
+              </Border>
+              <Button x:Name="BtnRevealLogin" Grid.Column="1" Content="Afficher" MinWidth="88" MinHeight="40" Padding="10,7" Margin="8,0,0,0" ToolTip="Affiche le mot de passe saisi pendant 5 secondes, en lecture seule. Rien nʼest copié ni enregistré." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.Name="Afficher le mot de passe pendant 5 secondes" AutomationProperties.HelpText="Affiche le mot de passe saisi pendant 5 secondes, en lecture seule. Rien nʼest copié ni enregistré."/>
+            </Grid>
             <TextBlock x:Name="LblSuiteCapsLock" Text="Verr. Maj activé : le mot de passe distingue les majuscules." Visibility="Collapsed" Foreground="{DynamicResource DomeniaBootWarning}" FontSize="12" Margin="0,0,0,8" ToolTip="Désactivez Verr. Maj si les majuscules ne sont pas souhaitées." ToolTipService.ShowOnDisabled="True" AutomationProperties.LiveSetting="Polite"/>
-            <CheckBox x:Name="ChkRemember" FontSize="12" MinHeight="28" Margin="0" KeyboardNavigation.TabIndex="2" ToolTip="Conserve uniquement l’identifiant pour la prochaine connexion. Cette option ne mémorise aucun mot de passe." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Conserve uniquement l’identifiant pour la prochaine connexion. Cette option ne mémorise aucun mot de passe." AutomationProperties.Name="Mémoriser uniquement l’identifiant">
-              <TextBlock Text="Mémoriser uniquement l’identifiant" TextWrapping="Wrap" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" ToolTipService.ShowOnDisabled="True"/>
+            <CheckBox x:Name="ChkRemember" FontSize="12" MinHeight="28" Margin="0" KeyboardNavigation.TabIndex="2" ToolTip="Après une connexion réussie, propose cet identifiant à la prochaine connexion. Le mot de passe nʼest jamais mémorisé par cette case." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Après une connexion réussie, propose cet identifiant à la prochaine connexion. Le mot de passe nʼest jamais mémorisé par cette case." AutomationProperties.Name="Se souvenir de mon identifiant">
+              <TextBlock Text="Se souvenir de mon identifiant" TextWrapping="Wrap" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" ToolTipService.ShowOnDisabled="True"/>
             </CheckBox>
             <CheckBox x:Name="ChkLoginVaultRemember" Content="Mémoriser sur ce PC" IsChecked="False" FontSize="12" ToolTip="Après une connexion réussie, conserve ce compte dans le Gestionnaire d’identifiants Windows de cet utilisateur. Facultatif."/>
             <WrapPanel Margin="0,5,0,0"><Button x:Name="BtnLoginVaultUse" Content="Utiliser le coffre" MinHeight="32" FontSize="12" ToolTip="Lit et valide une fois le compte exact affiché. Aucun usage automatique."/><Button x:Name="BtnLoginVaultForget" Content="Oublier" MinHeight="32" FontSize="12" ToolTip="Supprime du coffre uniquement cet identifiant pour ce domaine et la connexion Domenia."/></WrapPanel>
-          <Grid Visibility="Collapsed"><TextBox x:Name="TxtLoginPasswordVisible" ToolTip="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ." AutomationProperties.Name="Mot de passe" AutomationProperties.HelpText="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ." ToolTipService.ShowOnDisabled="True"/><Button x:Name="BtnRevealLogin" Content="Afficher" ToolTip="Afficher ou masquer temporairement le mot de passe." AutomationProperties.Name="Afficher ou masquer temporairement le mot de passe" AutomationProperties.HelpText="Afficher ou masquer temporairement le mot de passe." ToolTipService.ShowOnDisabled="True"/></Grid>
       </StackPanel>
         </ScrollViewer>
 
@@ -28927,98 +28798,49 @@ function Get-DomeniaStandardLoginXaml {
           <StackPanel x:Name="UxLoginFeedback" Margin="0,0,0,10"><StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=LblLoginError}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger><DataTrigger Binding="{Binding Visibility, ElementName=PbLogin}" Value="Visible"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></StackPanel.Style><Border Background="{DynamicResource DomeniaBootSurface}" BorderBrush="{DynamicResource DomeniaBootError}" BorderThickness="1" CornerRadius="9" Padding="10,8"><ScrollViewer MaxHeight="60" Focusable="False" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><TextBlock x:Name="LblLoginError" Text="" Foreground="{DynamicResource DomeniaBootError}" FontSize="12" TextWrapping="Wrap" Margin="0" LineHeight="17"/>
               </ScrollViewer></Border><Grid x:Name="UxLoginDiagnostics" Margin="0,8,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Button x:Name="BtnLoginLog" Content="Ouvrir le journal" MinHeight="32" FontSize="11.5" ToolTip="Ouvre le journal technique de connexion pour comprendre une erreur. Aucun nouvel essai d’authentification n’est lancé." AutomationProperties.Name="Journal de connexion" AutomationProperties.HelpText="Ouvre le journal technique de connexion pour comprendre une erreur. Aucun nouvel essai d’authentification n’est lancé." ToolTipService.ShowOnDisabled="True" Margin="0"/>
             <Button x:Name="BtnCopyLoginDiag" Grid.Column="2" Content="Copier le diagnostic" MinHeight="32" FontSize="11.5" ToolTip="Copie les informations de diagnostic de connexion. Relisez-les avant de les transmettre hors de votre organisation." AutomationProperties.Name="Copier le diagnostic" AutomationProperties.HelpText="Copie les informations de diagnostic de connexion. Relisez-les avant de les transmettre hors de votre organisation." ToolTipService.ShowOnDisabled="True" Margin="0"/>
-          </Grid></StackPanel><Grid>
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="Auto"/>
-              <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <Button x:Name="BtnCancel" Grid.Column="0" Content="Annuler" IsCancel="True" MinWidth="96" MinHeight="40" Padding="14,8" Margin="0,0,8,0" KeyboardNavigation.TabIndex="5" ToolTip="Ferme la connexion, ou demande l’arrêt de la validation en cours." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Ferme la connexion, ou demande l’arrêt de la validation en cours." AutomationProperties.Name="Annuler"/>
-            <Button x:Name="BtnLogin" Grid.Column="1" Content="Se connecter" Style="{StaticResource Run}" MinHeight="40" Padding="14,8" Margin="0" KeyboardNavigation.TabIndex="3" ToolTip="Valide une fois le compte et le mot de passe saisis avec le moteur de connexion Domenia." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Valide une fois le compte et le mot de passe saisis avec le moteur de connexion Domenia." AutomationProperties.Name="Se connecter" IsDefault="True"/>
+          </Grid></StackPanel><Grid x:Name="LoginActionButtons">
+            <!-- UX-28: in a domain session BtnWindowsLogin moves to row 0 as the main action and the form folds under
+                 BtnLoginOtherAccount (Set-DomeniaLoginWindowsFirst); otherwise it stays in row 2 under Se connecter. -->
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+            <Grid Grid.Row="1">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <Button x:Name="BtnCancel" Grid.Column="0" Content="Annuler" IsCancel="True" MinWidth="96" MinHeight="40" Padding="14,8" Margin="0,0,8,0" KeyboardNavigation.TabIndex="5" ToolTip="Ferme la connexion, ou demande l’arrêt de la validation en cours." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Ferme la connexion, ou demande l’arrêt de la validation en cours." AutomationProperties.Name="Annuler"/>
+              <Button x:Name="BtnLogin" Grid.Column="1" Content="Se connecter" Style="{StaticResource Run}" MinHeight="40" Padding="14,8" Margin="0" KeyboardNavigation.TabIndex="3" ToolTip="Valide une fois le compte et le mot de passe saisis avec le moteur de connexion Domenia." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Valide une fois le compte et le mot de passe saisis avec le moteur de connexion Domenia." AutomationProperties.Name="Se connecter" IsDefault="True"/>
+              <Button x:Name="BtnLoginOtherAccount" Grid.Column="1" Content="Utiliser un autre compte" Visibility="Collapsed" MinHeight="40" Padding="14,8" Margin="0" KeyboardNavigation.TabIndex="3" ToolTip="Affiche le formulaire pour se connecter avec un autre compte et son mot de passe. Rien nʼest validé avant « Se connecter »." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Affiche le formulaire pour se connecter avec un autre compte et son mot de passe. Rien nʼest validé avant « Se connecter »." AutomationProperties.Name="Utiliser un autre compte"/>
+            </Grid>
+            <Button x:Name="BtnWindowsLogin" Grid.Row="2" Content="Utiliser mon compte Windows" MinHeight="36" Padding="10,7" Margin="0,8,0,0" KeyboardNavigation.TabIndex="4" ToolTip="Utilise la session Windows courante si cette option est autorisée. Cela ne demande pas le mot de passe du champ et n’ajoute aucun droit." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Utilise la session Windows courante si cette option est autorisée. Cela ne demande pas le mot de passe du champ et n’ajoute aucun droit." AutomationProperties.Name="Utiliser mon compte Windows"/>
           </Grid>
-          <Button x:Name="BtnWindowsLogin" Content="Utiliser mon compte Windows" MinHeight="36" Padding="10,7" Margin="0,8,0,0" KeyboardNavigation.TabIndex="4" ToolTip="Utilise la session Windows courante si cette option est autorisée. Cela ne demande pas le mot de passe du champ et n’ajoute aucun droit." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Utilise la session Windows courante si cette option est autorisée. Cela ne demande pas le mot de passe du champ et n’ajoute aucun droit." AutomationProperties.Name="Utiliser mon compte Windows"/>
           <TextBlock x:Name="LoginPrivacy" Text="Coffre Windows facultatif, lecture uniquement sur votre demande." Style="{StaticResource Muted}" FontSize="12" LineHeight="16" HorizontalAlignment="Center" TextAlignment="Center" Margin="0,10,0,0" ToolTip="Le coffre Windows est facultatif et doit être choisi explicitement. Aucun mot de passe dans les préférences ou la base de Domenia." ToolTipService.ShowOnDisabled="True"/>
         </StackPanel>
       </Grid>
     </Border>
 
-    <Grid x:Name="LoginDiagnosticBuffer" Visibility="Collapsed" IsHitTestVisible="False" Focusable="False"><TextBox x:Name="TxtLoginTechnical" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MaxHeight="128" MinHeight="60" Margin="0,10,0,0" FontFamily="Consolas" FontSize="10.5" Padding="8" ToolTip="Détails techniques de la connexion. Aucun contenu de mot de passe n’est ajouté par cette interface. Relisez les noms et chemins internes avant partage." AutomationProperties.Name="Diagnostic de connexion" AutomationProperties.HelpText="Détails techniques de la connexion. Aucun contenu de mot de passe n’est ajouté par cette interface. Relisez les noms et chemins internes avant partage." ToolTipService.ShowOnDisabled="True" Visibility="Collapsed" Focusable="False"/>
-          <TextBlock x:Name="LblLoginStage" Text="" Foreground="{DynamicResource DomeniaBootAccentText}" FontSize="11.5" TextWrapping="Wrap" Visibility="Collapsed" Focusable="False"/></Grid><Border x:Name="PanelSplash" Margin="16" Padding="24" VerticalAlignment="Center"><Border.Style><Style TargetType="Border" BasedOn="{StaticResource Card}"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Visibility, ElementName=PbLogin}" Value="Visible"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></Border.Style><StackPanel><TextBlock Text="Connexion à Domenia" FontSize="22" FontWeight="SemiBold"/><TextBlock x:Name="LblLoginWait" Text="Vérification du compte…" Style="{StaticResource Muted}" Margin="0,10,0,18" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/><ProgressBar x:Name="PbLogin" IsIndeterminate="True" Height="6" Visibility="Collapsed" Margin="0" ToolTip="Connexion en cours. Cette animation ne représente pas un pourcentage ni un délai garanti." AutomationProperties.Name="Vérification du compte" AutomationProperties.HelpText="Connexion en cours. Cette animation ne représente pas un pourcentage ni un délai garanti." ToolTipService.ShowOnDisabled="True" Background="{DynamicResource DomeniaBootBorder}" Foreground="{DynamicResource DomeniaBootAccentText}"/>
+    <!-- CD-10: one sign-in template. The Debug mode only shows this live diagnostic panel (Show-DomeniaLoginDiagnosticPanel);
+         in the standard mode it stays collapsed and only feeds Copier le diagnostic. -->
+    <Border x:Name="LoginDiagnosticBuffer" Grid.Row="1" Visibility="Collapsed" IsHitTestVisible="False" Focusable="False" Margin="16,0,16,16" Padding="14" CornerRadius="12" Background="{DynamicResource DomeniaBootSurface}" BorderBrush="{DynamicResource DomeniaBootBorder}" BorderThickness="1">
+      <StackPanel>
+        <TextBlock Text="Diagnostic de connexion" FontWeight="SemiBold" Margin="0,0,0,6"/>
+        <TextBlock x:Name="LblLoginStage" Text="" Foreground="{DynamicResource DomeniaBootAccentText}" FontSize="11.5" TextWrapping="Wrap" Focusable="False"/>
+        <TextBox x:Name="TxtLoginTechnical" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MaxHeight="128" MinHeight="60" Margin="0,8,0,0" FontFamily="Consolas" FontSize="10.5" Padding="8" ToolTip="Détails techniques de la connexion. Aucun contenu de mot de passe n’est ajouté par cette interface. Relisez les noms et chemins internes avant partage." AutomationProperties.Name="Diagnostic de connexion" AutomationProperties.HelpText="Détails techniques de la connexion. Aucun contenu de mot de passe n’est ajouté par cette interface. Relisez les noms et chemins internes avant partage." ToolTipService.ShowOnDisabled="True" Focusable="False"/>
+      </StackPanel>
+    </Border>
+    <Border x:Name="PanelSplash" Grid.Row="0" Margin="16" Padding="24" VerticalAlignment="Center"><Border.Style><Style TargetType="Border" BasedOn="{StaticResource Card}"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Visibility, ElementName=PbLogin}" Value="Visible"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></Border.Style><StackPanel><TextBlock Text="Connexion à Domenia" FontSize="22" FontWeight="SemiBold"/><TextBlock x:Name="LblLoginWait" Text="Vérification du compte…" Style="{StaticResource Muted}" Margin="0,10,0,18" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/><ProgressBar x:Name="PbLogin" IsIndeterminate="True" Height="6" Visibility="Collapsed" Margin="0" ToolTip="Connexion en cours. Cette animation ne représente pas un pourcentage ni un délai garanti." AutomationProperties.Name="Vérification du compte" AutomationProperties.HelpText="Connexion en cours. Cette animation ne représente pas un pourcentage ni un délai garanti." ToolTipService.ShowOnDisabled="True" Background="{DynamicResource DomeniaBootBorder}" Foreground="{DynamicResource DomeniaBootAccentText}"/>
         <Button x:Name="BtnLoginWaitCancel" Content="Annuler la connexion" Margin="0,16,0,0" MinHeight="36" Padding="14,8" KeyboardNavigation.TabIndex="0" ToolTip="Demande l’arrêt de la validation et revient au formulaire. Aucun appel Windows n’est arrêté de force." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Annuler la connexion" AutomationProperties.HelpText="Demande l’arrêt de la validation et revient au formulaire. Aucun appel Windows n’est arrêté de force."/></StackPanel></Border></Grid>
 </Window>
 "@)
 }
 
-function Get-DomeniaDebugLoginXaml {
-    return (Convert-DomeniaXamlToBootTheme -Xaml @"
-<Window Foreground="{DynamicResource DomeniaBootText}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Domenia 1.0  Connexion" Width="590" Height="760" ResizeMode="NoResize"
-        WindowStartupLocation="CenterScreen" Background="{DynamicResource DomeniaBootWindow}" FontFamily="Segoe UI" FontSize="12" ShowInTaskbar="True">
-  <Window.Resources>
-
-
-    <Style TargetType="TextBox" BasedOn="{StaticResource DomeniaBootTextBoxBase}"><Setter Property="MinHeight" Value="39"/><Setter Property="Padding" Value="10,6"/><Setter Property="BorderBrush" Value="{DynamicResource DomeniaBootBorder}"/><Setter Property="BorderThickness" Value="1"/></Style>
-    <Style TargetType="PasswordBox" BasedOn="{StaticResource DomeniaBootPasswordBoxBase}"><Setter Property="MinHeight" Value="39"/><Setter Property="Padding" Value="10,6"/><Setter Property="BorderBrush" Value="{DynamicResource DomeniaBootBorder}"/><Setter Property="BorderThickness" Value="1"/></Style>
-    <Style TargetType="Button" BasedOn="{StaticResource DomeniaBootButtonBase}"><Setter Property="MinHeight" Value="38"/><Setter Property="Padding" Value="12,7"/><Setter Property="BorderBrush" Value="{DynamicResource DomeniaBootBorder}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Background" Value="{DynamicResource DomeniaBootSurface}"/><Setter Property="Cursor" Value="Hand"/></Style>
-  </Window.Resources>
-  <Border Margin="24" Padding="25" CornerRadius="22" Background="{DynamicResource DomeniaBootSurface}" BorderBrush="{DynamicResource DomeniaBootBorder}" BorderThickness="1">
-    <Grid>
-      <Grid.RowDefinitions>
-        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="92"/>
-        <RowDefinition Height="Auto"/><RowDefinition Height="90"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-      </Grid.RowDefinitions>
-      <TextBlock Foreground="{DynamicResource DomeniaBootText}" Grid.Row="0" HorizontalAlignment="Center" FontSize="29" FontWeight="Bold"><Run Text="Domenia" Foreground="{DynamicResource DomeniaBootText}"/></TextBlock>
-      <TextBlock Grid.Row="1" Text="MODE DEBUG  diagnostic de connexion en direct" HorizontalAlignment="Center" Foreground="{DynamicResource DomeniaBootMuted}" Margin="0,2,0,20"/>
-      <TextBlock Grid.Row="2" Text="IDENTIFIANT" FontSize="11" Foreground="{DynamicResource DomeniaBootMuted}" Margin="0,0,0,5"/>
-      <TextBox Grid.Row="3" x:Name="TxtLogin" ToolTip="Compte Active Directory utilise par Domenia."/>
-      <TextBlock Grid.Row="4" Text="MOT DE PASSE" FontSize="11" Foreground="{DynamicResource DomeniaBootMuted}" Margin="0,14,0,5"/>
-      <Grid Grid.Row="5">
-        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto" MinWidth="96"/></Grid.ColumnDefinitions>
-        <PasswordBox Grid.Column="0" x:Name="PwdLogin"/>
-        <TextBox Grid.Column="0" x:Name="TxtLoginPasswordVisible" Visibility="Collapsed"/>
-        <Button Grid.Column="1" x:Name="BtnRevealLogin" Content="👁" FontFamily="Segoe UI Emoji" FontSize="17" Margin="8,0,0,0" Width="52" Height="39"
-                Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                ToolTip="Afficher ou masquer temporairement le mot de passe."/>
-      </Grid>
-      <StackPanel Grid.Row="6"><CheckBox x:Name="ChkRemember" Content="Se souvenir uniquement de lidentifiant" Margin="0,11,0,0"/><CheckBox x:Name="ChkLoginVaultRemember" Content="Mémoriser sur ce PC" IsChecked="False" FontSize="12" ToolTip="Après une connexion réussie, conserve ce compte dans le Gestionnaire d’identifiants Windows de cet utilisateur. Facultatif."/>
-            <WrapPanel Margin="0,5,0,0"><Button x:Name="BtnLoginVaultUse" Content="Utiliser le coffre" MinHeight="32" FontSize="12" ToolTip="Lit et valide une fois le compte exact affiché. Aucun usage automatique."/><Button x:Name="BtnLoginVaultForget" Content="Oublier" MinHeight="32" FontSize="12" ToolTip="Supprime du coffre uniquement cet identifiant pour ce domaine et la connexion Domenia."/></WrapPanel></StackPanel>
-      <Border Grid.Row="7" Height="82" Margin="0,10,0,0" ClipToBounds="True">
-        <Grid>
-          <Grid.RowDefinitions><RowDefinition Height="34"/><RowDefinition Height="40"/><RowDefinition Height="8"/></Grid.RowDefinitions>
-          <TextBlock Grid.Row="0" x:Name="LblLoginError" Foreground="{DynamicResource DomeniaBootMuted}" TextWrapping="Wrap"
-                     TextTrimming="CharacterEllipsis" MaxHeight="34" Text="Pret."
-                     ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Text}"/>
-          <TextBlock Grid.Row="1" x:Name="LblLoginStage" Foreground="{DynamicResource DomeniaBootAccentText}" FontWeight="SemiBold"
-                     TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="40" Text="Aucune opération en cours."
-                     ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Text}"/>
-          <ProgressBar Grid.Row="2" x:Name="PbLogin" Height="6" IsIndeterminate="True" Visibility="Collapsed"/>
-        </Grid>
-      </Border>
-      <TextBlock Grid.Row="8" Text="TRACE TECHNIQUE" FontSize="11" Foreground="{DynamicResource DomeniaBootMuted}" Margin="0,13,0,5"/>
-      <TextBox Grid.Row="9" x:Name="TxtLoginTechnical" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
-               VerticalScrollBarVisibility="Auto" Background="{DynamicResource DomeniaBootInput}" FontFamily="Consolas" FontSize="11"/>
-      <Grid Grid.Row="10" Margin="0,10,0,0">
-        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-        <Button Grid.Column="0" x:Name="BtnLoginLog" Content="Ouvrir le journal" Margin="0,0,5,0"/>
-        <Button Grid.Column="1" x:Name="BtnCopyLoginDiag" Content="Copier le diagnostic" Margin="5,0,0,0"/>
-      </Grid>
-      <Grid Grid.Row="11" Margin="0,12,0,0">
-        <Grid.ColumnDefinitions><ColumnDefinition Width="0.85*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="1.15*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="1.05*"/></Grid.ColumnDefinitions>
-        <Button Grid.Column="0" x:Name="BtnCancel" Content="Annuler"/>
-        <Button Grid.Column="2" x:Name="BtnWindowsLogin" Content="Compte Windows" BorderBrush="{DynamicResource DomeniaBootAccent}" Foreground="{DynamicResource DomeniaBootAccentText}"/>
-        <Button Grid.Column="4" x:Name="BtnLogin" Content="Se connecter" Background="{DynamicResource DomeniaBootAccent}" BorderBrush="{DynamicResource DomeniaBootAccent}" Foreground="{DynamicResource DomeniaBootOnAccent}" FontWeight="SemiBold"/>
-      </Grid>
-    </Grid>
-  </Border>
-</Window>
-"@)
-}
-
 function Show-LoginWindow {
+    # -PreferForm: change of account asked by the operator; the form opens first, the Windows session stays below it.
+    # -PrefillLogin: the account of the session being changed (CO-31), proposed instead of the remembered identifier.
+    param([switch]$PreferForm,[string]$PrefillLogin='')
     $mode = Get-DomeniaLoginWindowMode
     $script:FastLoginMode = $mode
-    $loginXaml = if ($mode -eq "Debug") { Get-DomeniaDebugLoginXaml } else { Get-DomeniaStandardLoginXaml }
+    # CD-10: one sign-in template for both modes; the Debug mode only adds the live diagnostic panel below.
+    $loginXaml = Get-DomeniaStandardLoginXaml
     Write-DomeniaFastLoginLog -Stage "WINDOW_CREATE" -Detail "Construction du login $($script:DomeniaBuild) Mode=$mode Source=$($script:LoginWindowModeSource)"
     $window = ConvertFrom-DomeniaXaml -XamlText $loginXaml -Context "Fenetre de connexion ($mode)"
     # Keep the standalone credential prompt visible for its entire lifetime. An embedded relogin
@@ -29028,15 +28850,17 @@ function Show-LoginWindow {
         $window.ShowActivated = $true
     }
     Set-AppWindowIcon $window
-    if ($mode -eq "Standard" -and $null -ne (Get-Command Initialize-DomeniaUxLoginPresentation -ErrorAction SilentlyContinue)) {
+    if ($null -ne (Get-Command Initialize-DomeniaUxLoginPresentation -ErrorAction SilentlyContinue)) {
         Initialize-DomeniaUxLoginPresentation -Window $window
     }
+    if ($mode -eq "Debug") { [void](Show-DomeniaLoginDiagnosticPanel -Window $window) }
 
     $ui = @{
         Window = $window
         Login = $window.FindName("TxtLogin")
         Password = $window.FindName("PwdLogin")
-        PasswordVisible = $window.FindName("TxtLoginPasswordVisible")
+        PasswordPeek = $window.FindName("LoginPasswordPeek")
+        PasswordPeekText = $window.FindName("LblLoginPasswordPeek")
         Reveal = $window.FindName("BtnRevealLogin")
         Remember = $window.FindName("ChkRemember")
         VaultRemember = $window.FindName("ChkLoginVaultRemember")
@@ -29048,6 +28872,7 @@ function Show-LoginWindow {
         Technical = $window.FindName("TxtLoginTechnical")
         Connect = $window.FindName("BtnLogin")
         Windows = $window.FindName("BtnWindowsLogin")
+        OtherAccount = $window.FindName("BtnLoginOtherAccount")
         Cancel = $window.FindName("BtnCancel")
         OpenLog = $window.FindName("BtnLoginLog")
         CopyDiag = $window.FindName("BtnCopyLoginDiag")
@@ -29065,10 +28890,8 @@ function Show-LoginWindow {
         VaultRemember = $false
         VaultUsed = $false
         LoginOk = $false
-        Reveal = $false
         Session = $null
         Login = ""
-        Password = ""
         Mode = $mode
         UseCurrentCredentials = $false
     }
@@ -29079,7 +28902,8 @@ function Show-LoginWindow {
         Write-DomeniaFastLoginLog -Stage "DEMO_MODE" -Status "WARN" -Detail "Fournisseur de demonstration : aucune connexion AD, ecritures desactivees."
     }
     else {
-    $lastLogin = [string](Get-CfgValue "Auth" "LastLogin" "")
+    $lastLogin = [string]$PrefillLogin
+    if ([string]::IsNullOrWhiteSpace($lastLogin)) { $lastLogin = [string](Get-CfgValue "Auth" "LastLogin" "") }
     if ([string]::IsNullOrWhiteSpace($lastLogin)) { $lastLogin = [string](Get-CfgValue "Auth" "VaultUserName" "") }
     if ([string]::IsNullOrWhiteSpace($lastLogin)) { $lastLogin = [string](Get-CfgValue "Conf" "ADM" "") }
     $lastLogin = $lastLogin.Trim()
@@ -29089,18 +28913,11 @@ function Show-LoginWindow {
     }
 
     $ui.Login.Text = $lastLogin
-    $ui.Remember.IsChecked = [bool](Get-CfgValue "Auth" "RememberLogin" $true)
+    $ui.Remember.IsChecked = [bool](Get-CfgValue "Auth" "RememberLogin" $false)
 
-    $allowWindowsSession = [bool](Get-CfgValue "Auth" "AllowWindowsSession" $true)
-    $windowsIdentity = Get-DomeniaProcessWindowsIdentity
-    $ui.Windows.Visibility = if ($allowWindowsSession) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
-    $ui.Windows.IsEnabled = ($allowWindowsSession -and -not [string]::IsNullOrWhiteSpace($windowsIdentity))
-    if ($ui.Windows.IsEnabled) {
-        $ui.Windows.ToolTip = "Utiliser la session Windows courante : $windowsIdentity"
-    }
-    else {
-        $ui.Windows.ToolTip = "Indisponible : DOMENIA nest pas execute sous un compte utilisateur de domaine."
-    }
+    # UX-28: in a domain session the main action is « Continuer en tant que DOMAINE\nom »; the form comes second.
+    $choice = Get-DomeniaLoginChoice -WindowsIdentity (Get-DomeniaProcessWindowsIdentity) -AllowWindowsSession ([bool](Get-CfgValue "Auth" "AllowWindowsSession" $true)) -PreferForm ([bool]$PreferForm)
+    Set-DomeniaLoginChoicePresentation -Ui $ui -Choice $choice
     }
 
     $ui.VaultRemember.IsChecked=$false
@@ -29108,17 +28925,24 @@ function Show-LoginWindow {
     $ui.VaultForget.Add_Click({Remove-DomeniaFastLoginVault})
     $ui.Login.Add_TextChanged({Update-DomeniaFastLoginVaultUi -Busy ($null -ne $script:FastLoginState.Session)})
     Update-DomeniaFastLoginVaultUi
-    $ui.Reveal.Add_Click({ Toggle-DomeniaFastLoginPassword })
+    # SE-16: the reveal is a read-only overlay closed after 5 s, on a second click or as soon as the password changes.
+    $ui.Reveal.Add_Click({ [void](Show-DomeniaSecretPeek -PasswordBox $script:FastLoginUi.Password -Overlay $script:FastLoginUi.PasswordPeek -Display $script:FastLoginUi.PasswordPeekText -Button $script:FastLoginUi.Reveal -Owner 'Timer:LoginPasswordPeek' -Standalone) })
+    $ui.Password.Add_PasswordChanged({ Hide-DomeniaSecretPeek -Owner 'Timer:LoginPasswordPeek' })
     $ui.Connect.Add_Click({ Start-DomeniaFastLoginAttempt })
     $ui.Windows.Add_Click({ Start-DomeniaFastLoginAttempt -UseCurrentCredentials })
+    $ui.OtherAccount.Add_Click({
+        # UX-28: unfolds the form only; nothing is validated before « Se connecter ».
+        Set-DomeniaLoginWindowsFirst -Ui $script:FastLoginUi -WindowsFirst $false
+        if ([string]::IsNullOrWhiteSpace([string]$script:FastLoginUi.Login.Text)) { [void]$script:FastLoginUi.Login.Focus() } else { [void]$script:FastLoginUi.Password.Focus() }
+    })
     $ui.Cancel.Add_Click({
         if ($null -ne $script:FastLoginState.Session) {
             Add-DomeniaFastLoginDetail "Annulation demandee."
             Write-DomeniaFastLoginLog -Stage "CANCEL" -Status "WARN" -Detail "Annulation de la validation en memoire par l utilisateur"
             Reset-DomeniaFastLoginAttempt -Kill -KeepDiagnostics
             $script:FastLoginUi.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Warning")
-            $script:FastLoginUi.Error.Text = "Verification annulee."
-            $script:FastLoginUi.Stage.Text = "Vous pouvez corriger les informations puis reessayer."
+            $script:FastLoginUi.Error.Text = 'Vérification annulée.'
+            $script:FastLoginUi.Stage.Text = 'Vous pouvez corriger les informations puis réessayer.'
             return
         }
         $script:FastLoginState.LoginOk = $false
@@ -29136,13 +28960,17 @@ function Show-LoginWindow {
         try {
             $text = "Domenia $($script:DomeniaBuild)`r`nScript=$($script:LaunchPath)`r`nLog=$(Get-DomeniaFastLoginLogPath)`r`nEtat=$($script:FastLoginUi.Stage.Text)`r`n`r`n$($script:FastLoginUi.Technical.Text)"
             [System.Windows.Clipboard]::SetText($text)
-            $script:FastLoginUi.Error.Text = "Diagnostic copie."
+            $script:FastLoginUi.Error.Text = 'Diagnostic copié. Relisez-le avant de le transmettre.'
         }
         catch { $script:FastLoginUi.Error.Text = "Copie impossible : $($_.Exception.Message)" }
     })
     Register-DomeniaSurfaceKeys $window ({
         param($sender,$eventArgs)
-        if ($eventArgs.Key -eq "Enter" -and $script:FastLoginUi.Connect.IsEnabled) { $eventArgs.Handled=$true; Start-DomeniaFastLoginAttempt }
+        if ($eventArgs.Key -ne "Enter") { return }
+        # Entrée runs the main action shown: Se connecter with the form, the Windows session when it comes first.
+        $loginUi = $script:FastLoginUi
+        if (($loginUi.Connect.Visibility -eq [System.Windows.Visibility]::Visible) -and ([bool]$loginUi.Connect.IsEnabled)) { $eventArgs.Handled=$true; Start-DomeniaFastLoginAttempt }
+        elseif (([bool]$loginUi.Windows.IsDefault) -and ($loginUi.Windows.Visibility -eq [System.Windows.Visibility]::Visible) -and ([bool]$loginUi.Windows.IsEnabled)) { $eventArgs.Handled=$true; Start-DomeniaFastLoginAttempt -UseCurrentCredentials }
     })
     Register-DomeniaSurfaceReady $window ({
         Write-DomeniaFastLoginLog -Stage "WINDOW_READY" -Detail "Fenetre affichee. Mode=$($script:FastLoginMode) Source=$($script:LoginWindowModeSource) Script=$($script:LaunchPath)"
@@ -29159,10 +28987,12 @@ function Show-LoginWindow {
             $script:FastLoginUi.Window.Topmost = $true
         }
         if ([bool]$script:DemoMode) { $script:FastLoginUi.Connect.Focus() | Out-Null }
+        elseif (([bool]$script:FastLoginUi.Windows.IsDefault) -and ([bool]$script:FastLoginUi.Windows.IsEnabled)) { $script:FastLoginUi.Windows.Focus() | Out-Null }
         elseif (-not [string]::IsNullOrWhiteSpace([string]$script:FastLoginUi.Login.Text)) { $script:FastLoginUi.Password.Focus() | Out-Null }
         else { $script:FastLoginUi.Login.Focus() | Out-Null }
     })
     $window.Add_Closing({
+        Hide-DomeniaSecretPeek -Owner 'Timer:LoginPasswordPeek'
         if ($null -ne $script:FastLoginState.Session) { Reset-DomeniaFastLoginAttempt -Kill -KeepDiagnostics }
     })
     if (-not (Test-DomeniaMainHostAvailable)) { try { Register-DomeniaUserSwitchWatch -Window $window } catch { } }
@@ -29177,7 +29007,6 @@ function Show-LoginWindow {
     }
     $ok = [bool]$script:FastLoginState.LoginOk
     if ($null -ne $script:FastLoginState.Session) { Reset-DomeniaFastLoginAttempt -Kill -KeepDiagnostics }
-    $script:FastLoginState.Password = ""
     $script:LoginOk = $ok
     Write-DomeniaFastLoginLog -Stage "WINDOW_CLOSE" -Detail "LoginOk=$ok"
     return $ok
@@ -29194,8 +29023,7 @@ function Invoke-DomeniaSelfTest {
 
     foreach ($item in @(
         @{ Name='XAML principal'; Factory='Get-MainXaml' },
-        @{ Name='Login standard'; Factory='Get-DomeniaStandardLoginXaml' },
-        @{ Name='Login debug'; Factory='Get-DomeniaDebugLoginXaml' },
+        @{ Name='Connexion'; Factory='Get-DomeniaStandardLoginXaml' },
         @{ Name='Chargement'; Factory='Get-DomeniaStartupXaml' }
     )) {
         try {
@@ -29515,8 +29343,7 @@ try {
     try {
         $xamlPreflightItems = @(
             [pscustomobject]@{ Context="Interface principale"; Xaml=(Get-MainXaml) },
-            [pscustomobject]@{ Context="Login standard"; Xaml=(Get-DomeniaStandardLoginXaml) },
-            [pscustomobject]@{ Context="Login debug"; Xaml=(Get-DomeniaDebugLoginXaml) }
+            [pscustomobject]@{ Context="Connexion"; Xaml=(Get-DomeniaStandardLoginXaml) }
         )
         foreach ($xamlPreflightItem in $xamlPreflightItems) {
             Assert-DomeniaXamlPreflight -XamlText ([string]$xamlPreflightItem.Xaml) -Context ([string]$xamlPreflightItem.Context)
@@ -29595,7 +29422,7 @@ finally {
     } catch { }
     try { if ($script:AsyncEngineReady -or @($script:AsyncJobs.Keys).Count -gt 0) { Dispose-AsyncEngine } } catch { }
     try { if ($null -ne $script:Conn) { $script:Conn.Credential = $null } } catch { }
-    try { if ($null -ne $script:FastLoginState) { $script:FastLoginState.Password = "" } } catch { }
+    try { Hide-DomeniaSecretPeek -Owner 'Timer:LoginPasswordPeek' } catch { }
     try { $script:MachineCredential = $null } catch { }
     try { $script:RemoteAdminCredential = $null } catch { }
     try { $script:SecretsCredential = $null } catch { }

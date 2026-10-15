@@ -994,15 +994,15 @@
     },
     {
       "Path": "tools/baselines/swallowed-baseline.json",
-      "Sha256": "07758E1FA1F2AEFD037AC71F2EBF5ED3642DE262F1B73E8E370AAC3E1A647C7D",
-      "Bytes": 16702,
+      "Sha256": "D98CC69E8A5BBD525F91BEA74ACE29E5C4762948F8FC373AED519B011F9B728F",
+      "Bytes": 16815,
       "Runtime": false,
       "PreserveExisting": false
     },
     {
       "Path": "tools/baselines/wording-baseline.json",
-      "Sha256": "59BD97C2344DF21F4D0BA4743CC4DEA843A3F9959C7211023DCFD9C3A5BFAA79",
-      "Bytes": 25913,
+      "Sha256": "08E5B8A8A1E8020355F118DE174F508BB42EA9E3B7A0FE53AD2AA5B288539FB8",
+      "Bytes": 23632,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1071,15 +1071,15 @@
     },
     {
       "Path": "tools/operation-contracts.json",
-      "Sha256": "A47F15EB27F46590169B86ED8E2192A50AE2696DE296529B0C7547C6631BD41E",
+      "Sha256": "6C481BC924DD9A6085AD671101DC515CFF1AD7D39B255C1EDDF0CBC5967DCAEF",
       "Bytes": 17848,
       "Runtime": false,
       "PreserveExisting": false
     },
     {
       "Path": "tools/preload-baseline.json",
-      "Sha256": "F8F0242E92ECCCF36326F34B654EAA0943CD24E0B67B24CC2BD94D3DEAFDD14D",
-      "Bytes": 231321,
+      "Sha256": "63265EAABA9473F432A420633C806B9ABF52BA95CE6067ACF808006AA497909A",
+      "Bytes": 232637,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1092,8 +1092,8 @@
     },
     {
       "Path": "tools/prod-manifest.json",
-      "Sha256": "1EA3A6DDA37AE986439F2523C9A77F8455EB11805B4CF167A9B095B523AB91CD",
-      "Bytes": 27652,
+      "Sha256": "444C0ECF0F7CB28F4C3D5239F80D20D754099C1D56B73690840043B569534D9D",
+      "Bytes": 28339,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1155,8 +1155,8 @@
     },
     {
       "Path": "tools/ui-blocking-baseline.json",
-      "Sha256": "8C9D9AD3493A31BC04CBA95F8830B58077141AEBC3222C09E5FB5CEF195CF31B",
-      "Bytes": 17025,
+      "Sha256": "28CB8805703C7835A8010F283A53BBE6DEE1DDACABE1C6C1A09B7D61C817C7BC",
+      "Bytes": 17709,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1246,15 +1246,15 @@
     },
     {
       "Path": "wad/Domenia-Core.ps1",
-      "Sha256": "C4653E9AEC322A8465CA4D5956EC47F26A087E3E00BA2E2875662940633DC59D",
-      "Bytes": 2100728,
+      "Sha256": "F4B854CB15811D4E806CFE0B997BBCD6E0912449B8DCA61F6D01F1074D02C409",
+      "Bytes": 2094477,
       "Runtime": true,
       "PreserveExisting": false
     },
     {
       "Path": "wad/Domenia-Modules.ps1",
-      "Sha256": "9A2873AE46069E8862EDD925D575C2B743485D235C70B5920D3BF4AFBF3F468C",
-      "Bytes": 100426,
+      "Sha256": "F1E33F99CC62E86724355D09C123083A78375A00E22F47FEA14E0BE08BB2DF4D",
+      "Bytes": 102896,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -1743,8 +1743,8 @@
     },
     {
       "Path": "wad/maintenance/Preview-DomeniaLogin.ps1",
-      "Sha256": "74B1D18345AC9A36AF76E03426906D67052DFB0FB236771A60743A1AC2410066",
-      "Bytes": 9485,
+      "Sha256": "98D1E4A6BAD76CFFA8F54B79E5E8D44E1458579C8355CDFE3A159E675829EC9C",
+      "Bytes": 9521,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1785,15 +1785,22 @@
     },
     {
       "Path": "wad/modules/Domenia-Access.UI.ps1",
-      "Sha256": "19A05B6F0DBCB0E019F4D274AEC1AD847B5263F9FA57DEAB6A21AF1381C9CDB7",
-      "Bytes": 48909,
+      "Sha256": "077D823B656B765F744211790E3E33D9C4A2D6E3EF2F46539D2797ADBF08CE64",
+      "Bytes": 49227,
       "Runtime": true,
       "PreserveExisting": false
     },
     {
       "Path": "wad/modules/Domenia-Accounts.Async.ps1",
-      "Sha256": "4CF5D6577C6EE136BE34B19F0C06B58ED1DEF84449AD185535C5547B9C7C9E08",
-      "Bytes": 6596,
+      "Sha256": "2FF567BFCE5C0688804A84D478831EE1ED18E87843C6613B0980197314CEB3E9",
+      "Bytes": 6554,
+      "Runtime": true,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "wad/modules/Domenia-Accounts.Model.ps1",
+      "Sha256": "3870C6926C7BC28EE1FDE35D0BF2AA3902E525C9AEC08B9C70D2A8A72F4268B7",
+      "Bytes": 23052,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -1801,6 +1808,13 @@
       "Path": "wad/modules/Domenia-Accounts.Store.UI.ps1",
       "Sha256": "83F9586009FA5286B3B6632A5C9DB6046CE10D7086BB3B26001A3D6C6D84023D",
       "Bytes": 9402,
+      "Runtime": true,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "wad/modules/Domenia-Accounts.UI.ps1",
+      "Sha256": "91BB6D68BB319DEC183BE694B4487BE410EDB86478EA2EEA61A49E95CA373F16",
+      "Bytes": 29679,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -1918,8 +1932,8 @@
     },
     {
       "Path": "wad/modules/Domenia-Demo.UI.ps1",
-      "Sha256": "EC645339A8C91B9EAE5B09D286F6922137928954F0993260489877C474E20A93",
-      "Bytes": 3983,
+      "Sha256": "2476E69E41814BE01EC295720F221A8C9EF887FDA5A85D0F1820501F1A3E4561",
+      "Bytes": 4069,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -1967,8 +1981,8 @@
     },
     {
       "Path": "wad/modules/Domenia-Embedded.UI.ps1",
-      "Sha256": "754C33C2EA4CC3958C566B3A0B37E1F782047F432A95A1040BFBA3314FF69C48",
-      "Bytes": 73989,
+      "Sha256": "F2A4E08CE4EBA901B1237773D43722F2E5851D99F9CB3A67AE65F4C5163BEA36",
+      "Bytes": 74667,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -2016,8 +2030,8 @@
     },
     {
       "Path": "wad/modules/Domenia-Guard.UI.ps1",
-      "Sha256": "970EC606ACF99ADDA16B6F43C1889AB99440649ACF3C1E1BBE22C68E33FDBA2B",
-      "Bytes": 37751,
+      "Sha256": "7EDF584A2156220B8C403EF155104DBE061430068D39CC33C911DC8E6B2182BD",
+      "Bytes": 41812,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -2102,6 +2116,13 @@
       "Path": "wad/modules/Domenia-Lockout.Worker.ps1",
       "Sha256": "6DFB544F69ACCC712C80511072FD22914F8D790F6DF557BE2968CD66CB69E854",
       "Bytes": 3236,
+      "Runtime": true,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "wad/modules/Domenia-MachineAccount.xaml",
+      "Sha256": "14DB351C0361407C43CF0ED50FBC559CA449DC50B254395FFDE7DB826C3FAC68",
+      "Bytes": 7291,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -2457,8 +2478,8 @@
     },
     {
       "Path": "wad/modules/Domenia-UX.help.json",
-      "Sha256": "5E3690145B900BEB558A9B1FE3D5113ADE0CF0D7C43005837012A41C8597C708",
-      "Bytes": 145925,
+      "Sha256": "A5EB87AF3ED60B613FA56BC4F5D9BF4E2FFF9B19967BC7092892BD65A2AFADFB",
+      "Bytes": 150064,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -2520,8 +2541,8 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaAccounts.ps1",
-      "Sha256": "C32C5A320105BEEF30817E9B3EBE7E9B1FE64001EB2C2235919B793E04E7483B",
-      "Bytes": 25320,
+      "Sha256": "9A4DAC22ACC98CA2A6827D1A106F0A9FF65E9C538E12F0C9759B32B77F8BF4B4",
+      "Bytes": 28052,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -2751,22 +2772,22 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaLogin.ps1",
-      "Sha256": "F306F888A1DE498DE6D17A7C58D869BE1E06AACF8CDDD74D5EC5019360299266",
-      "Bytes": 30692,
+      "Sha256": "F7EB50F78D7042E552B3FD041E6D70527EE416D676A73EB824BD708626AEEA24",
+      "Bytes": 37480,
       "Runtime": false,
       "PreserveExisting": false
     },
     {
       "Path": "wad/tests/Test-DomeniaLoginForeground.ps1",
-      "Sha256": "557531F8FD5B9BCCB8867800AE05071F9DAD26CAF9EB87B62376A3C004D1EF95",
-      "Bytes": 9371,
+      "Sha256": "0F6154917C1BFB9DBEBD36C50EA0316FDA13DBABC52BB4FBF7B1E4929FE401B8",
+      "Bytes": 10059,
       "Runtime": false,
       "PreserveExisting": false
     },
     {
       "Path": "wad/tests/Test-DomeniaLoginVault.ps1",
-      "Sha256": "CF993C43CF639F2AA3D26F7DB81D9C00FB2A63C87E4102190B6A329996AABCF6",
-      "Bytes": 16941,
+      "Sha256": "F210FF4193D20F96B4AF9D14DC8456F20D30579F9018A26F6327209E7AE3F89F",
+      "Bytes": 18310,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -2912,8 +2933,8 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaRemote.ps1",
-      "Sha256": "F8431B400754078EC451E4D13B455554A6BC4AF536A794167091210D8B9194FD",
-      "Bytes": 30721,
+      "Sha256": "F541E578205EADCDA3DE02672F735806BEDBABB243F5D8E5C4365C9B9892CAAD",
+      "Bytes": 30930,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -3003,15 +3024,15 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaStableUi.ps1",
-      "Sha256": "3C7A1A898D4628FDA7FC86958FC4D075EE2544669228C12A4542FE6ACDF507B7",
-      "Bytes": 16782,
+      "Sha256": "2044A4D291A2554837DAB71054C42372CA694039F0FF405E96B2D8A8BA5C649A",
+      "Bytes": 16818,
       "Runtime": false,
       "PreserveExisting": false
     },
     {
       "Path": "wad/tests/Test-DomeniaStartupLogin.ps1",
-      "Sha256": "10CEB229E92426EBA6894939C688EF78077062F77B950E31E767A9BF90BF5FA1",
-      "Bytes": 16430,
+      "Sha256": "C4F7D8477E81496F210BF62F09F25C427A8B46FD84B194468D11D37997E96F7B",
+      "Bytes": 19032,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -3059,8 +3080,8 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaTheme.ps1",
-      "Sha256": "65DCAFE0BCCB0A29488E68912C26B5F13E99C7DC694AFC4D43A5104C5F6EE86A",
-      "Bytes": 14875,
+      "Sha256": "72CFED9C77DB6E78F4BC1655A0E0602FDDBE80E19A8DD08B27DB6BB11DD5AF27",
+      "Bytes": 14880,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -3080,8 +3101,8 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaWiringAcces.ps1",
-      "Sha256": "191534205FD7EB1DBC689036FE04ECD569A21059EBA94A4242F7E3A972AD7096",
-      "Bytes": 83326,
+      "Sha256": "EE4A78FBAEC384A3F098026BA4A8B39273D6C88A2319DD1F4D66AB7DEAD06BB0",
+      "Bytes": 109785,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -3115,8 +3136,8 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaWiringMoteur.ps1",
-      "Sha256": "F7775627A32C9D1D71AC86EA757FC80B9F43ED88EA1403746B1625C6598B1CA3",
-      "Bytes": 118013,
+      "Sha256": "DBF727E4ABF88A4BF70FD4C9DC667B8C0942BE24B9034328B1552538451CA5FC",
+      "Bytes": 118150,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -3150,8 +3171,8 @@
     },
     {
       "Path": "wad/tests/audit_login.py",
-      "Sha256": "9293579C3B571AE5C73BD06169FC1EE18BD155FD5DAF66F78ED674051B7DDC09",
-      "Bytes": 8749,
+      "Sha256": "577406624860E16BD11FA8A5C1B94B41C6526CB8028CFE4FE3F27056A9F164E7",
+      "Bytes": 8795,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -3164,8 +3185,8 @@
     },
     {
       "Path": "wad/tests/audit_project.py",
-      "Sha256": "C7FCA56C3D3535F49610A72861D547D353801FF4D0447C537E2A697F86F0E461",
-      "Bytes": 16329,
+      "Sha256": "584A9AD3FA0D8D9F821449034E198F997B32A4E21B07216F9B328B95D70CBEFD",
+      "Bytes": 16277,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -3185,15 +3206,15 @@
     },
     {
       "Path": "wad/tests/audit_theme.py",
-      "Sha256": "A81F926BB61F1C9CAE0C7075F40AF926BC1F63DF844934DE6619A157A49EAFAB",
-      "Bytes": 10348,
+      "Sha256": "4227CE339DC63A7E74D3450F98E54691DCF468D8AB6DECC47B3BAF0D48A28157",
+      "Bytes": 10298,
       "Runtime": false,
       "PreserveExisting": false
     },
     {
       "Path": "wad/tests/audit_ui.py",
-      "Sha256": "987249055003C1251B6DD1BF49CDE56D82FE8DD22840A75B037AB761229AA3A0",
-      "Bytes": 19674,
+      "Sha256": "A4C9D7FA453E271ED49F1CC5226B36C375410978D153D7BEA835880B74D718A5",
+      "Bytes": 19646,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -3250,6 +3271,13 @@
       "Path": "wad/tests/rules/Access.Tests.ps1",
       "Sha256": "4A105834C3210D5E5F3A7A40653C37BF978D5C2271F9DF556B12B711DC88E431",
       "Bytes": 25721,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "wad/tests/rules/Accounts.Tests.ps1",
+      "Sha256": "C214583F372BABFCDFEDDABBF80D4BD3582A73BDDD7CC9874080A46D55487DF1",
+      "Bytes": 22129,
       "Runtime": false,
       "PreserveExisting": false
     },

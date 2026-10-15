@@ -196,13 +196,55 @@ function Show-DomeniaDraftComparison {
     Show-DomeniaDialog -Title 'Comparer les saisies' -Message 'Aucune saisie ne sera remplacee automatiquement. Rechargez volontairement pour repartir de la lecture AD, puis reappliquez seulement les changements voulus.' -Details ($lines -join "`r`n") -Kind Info | Out-Null
 }
 function Set-DomeniaArtifactConsent {
-    if(Test-DomeniaAccessBusyWrite){Show-InfoBox 'Terminez la verification de l ecriture avant de modifier une autorisation.';return}
+    if(Test-DomeniaAccessBusyWrite){Show-InfoBox 'Terminez la vérification de lʼécriture avant de modifier une autorisation.';return}
     $target='';try{if($script:SelectedObject.Type -eq 'Machine'){$target=[string](Get-DomeniaEntryFirstString $script:SelectedObject.Entry 'dNSHostName');if(-not $target){$target=[string](Get-DomeniaEntryFirstString $script:SelectedObject.Entry 'name')}}}catch{}
-    if(-not $target){Show-InfoBox 'Selectionnez une machine dans la recherche.';return}
-    if(-not (Confirm-Action -Message ('Autoriser pendant 5 minutes les transports avec creation de script, service ou tache sur '+$target+' ? Ils ne seront utilises que lors de votre prochaine action volontaire. Le Planificateur utilise une API ; PsExec exige une session Windows integree autorisee. Aucun secret ne sera transmis dans les arguments.') -Title 'Intervention distante avec traces')){return}
+    if(-not $target){Show-InfoBox 'Ouvrez dʼabord un poste dans Assistance poste.';return}
+    if(-not (Confirm-Action -Message ('Autoriser pendant 5 minutes, sur '+$target+' seulement, les transports qui déposent un script, un service ou une tâche ? Ils ne serviront que lors de vos prochaines actions volontaires sur ce poste. Le Planificateur utilise une API ; PsExec exige une session Windows intégrée autorisée. Aucun secret nʼest transmis dans les arguments.') -Title 'Intervention distante avec traces')){return}
     $aliases=@($target);$short=[string](Get-DomeniaEntryFirstString $script:SelectedObject.Entry 'name');if($short -and $short -notmatch '[\\/]'){$aliases+=@($short)}
     $script:ArtifactConsent=[pscustomobject]@{Target=$target;Aliases=$aliases;Epoch=[long]$script:SessionEpoch;Expires=[datetime]::UtcNow.AddMinutes(5)}
     [void](Set-DomeniaControlText 'LblGuardRemote' ('Autorisation temporaire : '+$target+'. Relancez volontairement votre diagnostic.'))
+    Update-DomeniaInterventionPill -Force
+}
+function Clear-DomeniaArtifactConsent {
+    # UX-16: « Retirer » of the Actions tab and of Fiabilité. Sondes already sent may finish; no new intervention
+    # with a deposit is authorised. The one-read consent (SE-07) is a separate request and is left as it is.
+    $had=($null -ne $script:ArtifactConsent)
+    $script:ArtifactConsent=$null
+    [void](Set-DomeniaControlText 'LblGuardRemote' 'Depots et services non autorises par defaut.')
+    Update-DomeniaInterventionPill -Force
+    if($had){Set-Status 'Autorisation dʼintervention retirée. Aucune nouvelle intervention avec dépôt ne sera lancée.'}
+}
+function Get-DomeniaOpenMachineConsentTarget {
+    # UX-16: names of the open workstation, built as Set-DomeniaArtifactConsent builds the consent (dNSHostName, else
+    # name, plus the short name as an alias). Empty when no workstation is open.
+    $target='';$short=''
+    try{if(($null -ne $script:SelectedObject) -and ([string]$script:SelectedObject.Type -eq 'Machine')){$target=[string](Get-DomeniaEntryFirstString $script:SelectedObject.Entry 'dNSHostName');$short=[string](Get-DomeniaEntryFirstString $script:SelectedObject.Entry 'name');if(-not $target){$target=$short}}}catch{$target='';$short=''}
+    return [pscustomobject]@{Target=$target;Short=$short}
+}
+function Update-DomeniaInterventionPill {
+    # UX-16: the authorisation of an intervention shown where it is needed, in Actions of Assistance poste: pill
+    # « Intervention autorisée m:ss · Retirer » for the open workstation only, grant button otherwise, and the state
+    # of the separate one-read consent. Called each second by Timer:Guard; a control changes only with its value.
+    param([switch]$Force)
+    $pill=Get-DomeniaControl 'UxCompInterventionPill'
+    if($null -eq $pill){return}
+    $open=Get-DomeniaOpenMachineConsentTarget
+    $state=Get-DomeniaInterventionPillState -ArtifactConsent $script:ArtifactConsent -ReadConsent $script:ReadFallbackConsent -Target ([string]$open.Target) -Short ([string]$open.Short) -Epoch ([long]$script:SessionEpoch) -NowUtc ([datetime]::UtcNow)
+    $visibility=if([bool]$state.Active){[Windows.Visibility]::Visible}else{[Windows.Visibility]::Collapsed}
+    if(([bool]$Force) -or ($pill.Visibility -ne $visibility)){$pill.Visibility=$visibility}
+    $label=Get-DomeniaControl 'LblCompIntervention'
+    if(($null -ne $label) -and (([bool]$Force) -or ([string]$label.Text -cne [string]$state.PillText))){$label.Text=[string]$state.PillText}
+    $grant=Get-DomeniaControl 'BtnCompInterventionGrant'
+    if($null -ne $grant){
+        $grantVisibility=if([bool]$state.Active){[Windows.Visibility]::Collapsed}else{[Windows.Visibility]::Visible}
+        if(([bool]$Force) -or ($grant.Visibility -ne $grantVisibility)){$grant.Visibility=$grantVisibility}
+        if(([bool]$Force) -or ([bool]$grant.IsEnabled -ne [bool]$state.CanGrant)){$grant.IsEnabled=[bool]$state.CanGrant}
+    }
+    $read=Get-DomeniaControl 'BtnCompReadFallback'
+    $canRead=[bool]$open.Target
+    if(($null -ne $read) -and (([bool]$Force) -or ([bool]$read.IsEnabled -ne $canRead))){$read.IsEnabled=$canRead}
+    $line=Get-DomeniaControl 'LblCompInterventionState'
+    if(($null -ne $line) -and (([bool]$Force) -or ([string]$line.Text -cne [string]$state.StateText))){$line.Text=[string]$state.StateText}
 }
 function Set-DomeniaReadFallbackConsent {
     # SE-07 : demande propre a une lecture. L'autorisation d'intervention ne dit rien d'une
@@ -214,6 +256,7 @@ function Set-DomeniaReadFallbackConsent {
     $aliases=@($target);$short=[string](Get-DomeniaEntryFirstString $script:SelectedObject.Entry 'name');if($short -and $short -notmatch '[\/]'){$aliases+=@($short)}
     $script:ReadFallbackConsent=[pscustomobject]@{Target=$target;Aliases=$aliases;Epoch=[long]$script:SessionEpoch;Expires=[datetime]::UtcNow.AddMinutes(5)}
     [void](Set-DomeniaControlText 'LblGuardReadFallback' ('Autorisation de lecture accordée pour '+$target+'. Lancez la lecture : cette autorisation ne servira quʼà cette lecture.'))
+    Update-DomeniaInterventionPill -Force
 }
 function Read-DomeniaOuFavouriteStore {
     # FO-04: every OU favourite kept locally (all domains), as validated perimeters. Never a result or an account.
@@ -363,10 +406,12 @@ function Open-DomeniaSuiteTool {
 }
 function Initialize-DomeniaGuard {
     if($null -ne $script:Guard){return}
-    $script:Guard=[pscustomobject]@{ReceiptJob='';NextReceipt=[datetime]::MinValue;Samples=[Collections.Generic.List[double]]::new();Last=[datetime]::UtcNow;Epoch=[long]$script:SessionEpoch;Timer=$null;PendingChoice=$null}
+    $script:Guard=[pscustomobject]@{ReceiptJob='';NextReceipt=[datetime]::MinValue;Samples=[Collections.Generic.List[double]]::new();Last=[datetime]::UtcNow;Epoch=[long]$script:SessionEpoch;Timer=$null;PendingChoice=$null;PillFault=$false}
     $actions=@{
         BtnGuardOpen={Show-DomeniaGuard};BtnGuardReceiptRefresh={Start-DomeniaReceiptRefresh};BtnGuardReceiptVerify={Invoke-DomeniaReceiptChoice Verify};BtnGuardReceiptReview={Invoke-DomeniaReceiptChoice Review}
-        BtnGuardDraft={Show-DomeniaDraftComparison};BtnGuardRemote={Set-DomeniaArtifactConsent};BtnGuardRemoteOff={$script:ArtifactConsent=$null;[void](Set-DomeniaControlText 'LblGuardRemote' 'Depots et services non autorises par defaut.')};BtnGuardReadFallback={Set-DomeniaReadFallbackConsent}
+        BtnGuardDraft={Show-DomeniaDraftComparison};BtnGuardRemote={Set-DomeniaArtifactConsent};BtnGuardRemoteOff={Clear-DomeniaArtifactConsent};BtnGuardReadFallback={Set-DomeniaReadFallbackConsent}
+        # UX-16: the same consents from the Actions tab of Assistance poste, always on an explicit click.
+        BtnCompInterventionGrant={Set-DomeniaArtifactConsent};BtnCompInterventionRevoke={Clear-DomeniaArtifactConsent};BtnCompReadFallback={Set-DomeniaReadFallbackConsent}
         BtnGuardStoreResume={Resume-DomeniaStorage};BtnGuardLegacyImport={Request-DomeniaLegacyImport};BtnGuardWhy={Show-DomeniaUnavailableReasons};BtnGuardExport={Export-DomeniaTechnicalDossier}
         BtnGuardPesto={Open-DomeniaSuiteTool Pesto};BtnGuardFilPro={Open-DomeniaSuiteTool FilPro}
         # FO-04: the former saved searches block is gone; OU favourites are pinned above the tree (Rechercher).
@@ -378,6 +423,7 @@ function Initialize-DomeniaGuard {
     $reasonBox=Get-DomeniaControl 'TxtGuardReceiptReason';if($null -ne $reasonBox){$reasonBox.Add_TextChanged({try{[void](Update-DomeniaReceiptActionUi)}catch{Write-AppLog ('Recus : '+$_.Exception.Message) 'WARN'}})}
     try{[void](Update-DomeniaReceiptActionUi)}catch{Write-AppLog ('Recus : '+$_.Exception.Message) 'WARN'}
     try{Update-DomeniaOuFavouritesUi}catch{Write-AppLog ('Favoris dʼOU : '+$_.Exception.Message) 'WARN'}
+    try{Update-DomeniaInterventionPill -Force}catch{Write-AppLog ('Pastille dʼintervention : '+$_.Exception.Message) 'WARN'}
     # FI-05 / PF-06: protected heartbeat timer, owned and registered by the factory, once per second and aligned on the
     # other subscribers at rest. The Dispatcher delay is the lateness measured by the heartbeat itself.
     $script:Guard.Timer=New-DomeniaTimer -Owner 'Timer:Guard' -IntervalMs 1000 -IdleIntervalMs 1000 -Tick {
@@ -388,6 +434,8 @@ function Initialize-DomeniaGuard {
         try{Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId 'Pulse' -DurationMs $delay}catch{}
         if($script:Guard.Epoch -ne [long]$script:SessionEpoch){$script:Guard.Epoch=[long]$script:SessionEpoch;$script:ReceiptReady=$false;$script:ReceiptRefreshNeeded=$true;$script:ArtifactConsent=$null;$script:DraftState=$null}
         if(($script:ReceiptRefreshNeeded -or -not $script:ReceiptReady) -and $now -ge $script:Guard.NextReceipt){Start-DomeniaReceiptRefresh}
+        # UX-16: countdown of the intervention pill; a display fault is journalled once and never stops the receipts.
+        try{Update-DomeniaInterventionPill}catch{if(-not [bool]$script:Guard.PillFault){$script:Guard.PillFault=$true;Write-AppLog ('Pastille dʼintervention : '+$_.Exception.Message) 'WARN'}}
         $tab=Get-DomeniaControl 'TabGuard'
         if($null -ne $tab -and $tab.IsSelected){
             $p95=Get-DomeniaPercentile $script:Guard.Samples.ToArray() 95;$p50=Get-DomeniaPercentile $script:Guard.Samples.ToArray() 50

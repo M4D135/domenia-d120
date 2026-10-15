@@ -221,7 +221,7 @@ L'onglet « Machine » lit le compte ordinateur dans AD. « Detecter l utilis
 | « Renommer dans AD » | Renomme le compte ordinateur dans l'annuaire, pas Windows sur le poste. | Grisé. |
 | « Ajouter », « Retirer » (Groupe) | Ajoute ou retire le poste d'un groupe. | Grisés. |
 
-> [!NOTE] « Exécuter un programme » exige aussi, pour ce poste, l'autorisation de 5 minutes « Autoriser une intervention sur cette machine » (onglet « Fiabilité », chapitre 18). Sans elle, Domenia refuse : « Transport avec depot/service/tache non autorise pour cette cible (desactive par defaut). Autorisez-le explicitement dans Outils > Fiabilite, puis relancez votre action. ».
+> [!NOTE] « Exécuter un programme » exige aussi, pour ce poste, l'autorisation de 5 minutes donnée en tête de l'onglet « Actions » : « Autoriser une intervention (5 min) ». Pendant l'autorisation, la pastille « Intervention autorisée 4:59 · Retirer » compte le temps restant ; elle ne vaut que pour le poste ouvert, et « Retirer » la reprend aussitôt. Sans elle, Domenia refuse : « Transport avec dépôt de script, service ou tâche non autorisé pour ce poste (désactivé par défaut). Autorisez une intervention dans Assistance poste > Actions, « Autoriser une intervention (5 min) », puis relancez votre action. » ; le bandeau d'erreur propose « Aller à Assistance poste > Actions ».
 
 ## Ouvrir le partage administratif et les consoles
 
@@ -234,20 +234,22 @@ Le contrôle du port 445 et l'ouverture SMB se font dans le worker ComputerAdmin
 
 Pour les consoles, si l'ouverture préalable échoue, la console s'ouvre quand même avec la session Windows : « Console ouverte avec la session Windows : » suivi du motif. Si le technicien s'est connecté avec « Utiliser mon compte Windows », sans mot de passe, il n'y a pas d'ouverture préalable.
 
-> [!NOTE] Sous les boutons, l'onglet rappelle : « Ouvrir C$ et les consoles utilisent le compte des operations poste : compte poste saisi dans Diagnostic, sinon compte admin distant, sinon compte de connexion. Le bureau a distance passe par Windows. »
+> [!NOTE] Le compte en service est toujours affiché dans la pastille « Compte poste » en haut d'Assistance poste (section suivante). Le bureau à distance passe par Windows.
 
 ## Compte des opérations poste
 
-C'est le compte qui interroge les postes : WMI et CIM, C$, consoles, inventaire, détection et requêtes des widgets. Il peut différer du compte de connexion et n'est jamais enregistré sur le disque. Il se règle dans l'onglet « Diagnostic » : « Compte poste », « Mot de passe », « Utiliser ce compte » et « Compte de connexion » (oublie le compte saisi).
+C'est le compte qui interroge les postes : WMI et CIM, C$, consoles, inventaire, détection et requêtes des widgets. Il peut différer du compte de connexion et n'est jamais enregistré sur le disque. La pastille « Compte poste : … ▾ », en haut d'Assistance poste et visible dans tous ses onglets, nomme le compte en service. Un clic ouvre un panneau latéral dans la page : « Identifiant », « Mot de passe », « Utiliser ce compte » et « Revenir au compte de connexion » (oublie le compte saisi). Fermer le panneau, par « Fermer », Échap ou un clic à côté, ne change pas le compte et efface un mot de passe tapé sans « Utiliser ce compte ».
 
 Ordre de choix pour une opération sur un poste :
 
-1. **Compte poste saisi.** Celui de l'onglet « Diagnostic », en mémoire seulement.
-2. **Compte distant.** Celui de la zone « POSTES / WMI / DISTANT » de la page « Comptes » (chapitre 13).
-3. **Compte de connexion.** Le compte saisi dans la fenêtre de connexion de Domenia.
-4. **Session Windows.** La session qui exécute Domenia.
+1. **Compte local temporaire.** Un compte local de ce poste accepté après un refus, pour ce poste seulement.
+2. **Compte temporaire.** Un compte accepté après un refus pour les postes, oublié après une période sans utilisation.
+3. **Compte poste saisi.** Celui du panneau « Compte poste », en mémoire seulement.
+4. **Compte Postes.** Celui de la zone « POSTES / WMI / DISTANT » de la page « Comptes » (chapitre 13).
+5. **Compte de connexion.** Le compte saisi dans la fenêtre de connexion de Domenia.
+6. **Session Windows.** La session qui exécute Domenia.
 
-Le libellé sous les champs dit le compte en service : « Operations poste : compte saisi », « Operations poste : compte de connexion Domenia » ou « Operations poste : session Windows ».
+Le panneau dit le compte en service et son origine, par exemple « Opérations poste : DOMAINE\adm-poste (compte poste saisi, en mémoire seulement). » ou « Opérations poste : session Windows (DOMAINE\technicien). ».
 
 ## Diagnostic sessions et secrets
 
@@ -269,7 +271,7 @@ La page « Comptes » affiche ce tableau sous « TRANSPORTS UTILISES ». Dom
 | Planificateur (COM) | Exécution ponctuelle d'une intervention | RPC | Autorisation explicite ; désactivable par Remote.UseTaskFallback. |
 | PsExec | Exécution ponctuelle d'une intervention | 445/TCP | Autorisation explicite ; désactivable par Remote.UsePsExecFallback. |
 
-> [!ATTENTION] Les transports intrusifs (ADMIN$, Planificateur, PsExec) restent inactifs sans autorisation explicite pour le poste. « Autoriser une intervention sur cette machine » (onglet « Fiabilité », chapitre 18) vaut 5 minutes pour la machine sélectionnée et ne couvre que les interventions : une lecture n'y bascule jamais seule. Quand CIM échoue, l'inventaire, la lecture des logiciels, l'explorateur WMI, le diagnostic et « Detecter l utilisateur » rendent un « non lu » et nomment la demande à faire, pour cette lecture seule : « Lire ce poste par tâche planifiée » (même onglet). Ce n'est qu'après cette demande que PsExec puis la tâche planifiée interviennent (Remote.UsePsExecFallback, Remote.UseTaskFallback). PsExec.exe est un composant tiers : faites revoir sa licence avant diffusion.
+> [!ATTENTION] Les transports intrusifs (ADMIN$, Planificateur, PsExec) restent inactifs sans autorisation explicite pour le poste. « Autoriser une intervention (5 min) » (onglet « Actions » d'Assistance poste) vaut 5 minutes pour le poste ouvert et ne couvre que les interventions : une lecture n'y bascule jamais seule. Quand CIM échoue, l'inventaire, la lecture des logiciels, l'explorateur WMI, le diagnostic et « Detecter l utilisateur » rendent un « non lu » et nomment la demande à faire, pour cette lecture seule : « Lire ce poste par tâche planifiée » (même onglet, autorisation distincte retirée après cette lecture). Ce n'est qu'après cette demande que PsExec puis la tâche planifiée interviennent (Remote.UsePsExecFallback, Remote.UseTaskFallback). PsExec.exe est un composant tiers : faites revoir sa licence avant diffusion.
 
 # 6 Inventaire du poste
 
@@ -295,7 +297,7 @@ L'onglet « Tableau de bord » propose les mêmes lectures avec « Inventaire
 | « Selectionne une machine avant de lancer l inventaire. » | Choisir un poste dans « Rechercher ». |
 | « Inventaire impossible : » suivi d'un détail | Vérifier la présence réseau et le compte des opérations poste, puis relancer une fois. |
 | Beaucoup de sources refusées | Vérifier que le compte des opérations poste est administrateur des postes (chapitre 13). |
-| Sur l'onglet « Tableau de bord » : « Mesures chiffrees indisponibles (inventaire par tache distante) : seules les tuiles sont remplies. » | L'inventaire a été lu par le repli PsExec ou tâche planifiée, possible seulement après « Autoriser une intervention sur cette machine » (chapitre 5) ; jauges et graphiques restent vides. Vérifier CIM/DCOM sur le poste. |
+| Sur l'onglet « Tableau de bord » : « Mesures chiffrees indisponibles (inventaire par tache distante) : seules les tuiles sont remplies. » | L'inventaire a été lu par le repli PsExec ou tâche planifiée, possible seulement après « Autoriser une intervention (5 min) » (chapitre 5) ; jauges et graphiques restent vides. Vérifier CIM/DCOM sur le poste. |
 
 # 7 Tableau de bord du poste
 
@@ -985,38 +987,51 @@ Domenia peut utiliser trois identités indépendantes : l'annuaire, les postes e
 
 ## Connexion
 
-![Fenêtre de connexion : Compte Windows, Mot de passe, Mémoriser uniquement l'identifiant, Se connecter et Utiliser mon compte Windows](fig:connexion)
+![Fenêtre de connexion : Compte Windows, Mot de passe, Se souvenir de mon identifiant, Se connecter et Continuer en tant que …](fig:connexion)
+
+- En session Windows de domaine, l'action principale est « Continuer en tant que DOMAINE\nom » (bouton par défaut, Entrée) et le formulaire est replié sous « Utiliser un autre compte ». Ailleurs, ou après « Changer de compte » dans la page « Comptes », le formulaire s'affiche d'abord et la session Windows reste proposée dessous.
 
 - Le champ « Compte Windows » accepte DOMAINE\identifiant, identifiant@domaine ou le format habituel. Un identifiant nu est complété par Conf.NETBIOS ou Conf.DOMAINE s'ils sont renseignés.
 - Un compte ordinateur est refusé comme identité interactive.
-- « Mémoriser uniquement l’identifiant » garde l'identifiant dans HKCU:\Software\DOMENIA (valeurs RememberLogin et LastLogin). Le mot de passe n'est jamais mémorisé.
-- « Utiliser mon compte Windows » s'appuie sur la session Windows courante, sans mot de passe. Il n'apparaît que si Auth.AllowWindowsSession est vrai (défaut), et reste grisé hors d'une session de domaine.
+- « Afficher », à droite du mot de passe, le montre pendant 5 secondes dans une zone en lecture seule, sans copie possible ; il se masque aussi au second clic ou dès que la saisie change.
+- « Se souvenir de mon identifiant », décochée par défaut, garde l'identifiant dans HKCU:\Software\DOMENIA (valeurs RememberLogin et LastLogin) après une connexion réussie. Le mot de passe n'est jamais mémorisé par cette case.
+- « Continuer en tant que DOMAINE\nom » s'appuie sur la session Windows courante, sans mot de passe. Il n'apparaît que si Auth.AllowWindowsSession est vrai (défaut) ; hors session de domaine (SYSTEM, compte local ou compte d'ordinateur), il devient « Utiliser mon compte Windows », grisé.
 - Découverte : avec Conf.AutoDiscover vrai (défaut), domaine et contrôleur sont découverts ; avec faux, Conf.DOMAINE, Conf.NETBIOS, Conf.SearchBase et Conf.Server s'appliquent.
 - Délais : Auth.LoginTimeoutSeconds (30 s, borné de 8 à 45), Auth.PerServerTimeoutSeconds (6 s par contrôleur), Auth.MaxServerCandidates (4 contrôleurs essayés).
 
-| Vous voyez | Ce que cela veut dire | Que faire |
+Chaque refus s'affiche en une phrase suivie de l'action à mener. Le code Active Directory (52e, 775, 0x80070775…) ne s'affiche pas : il figure dans le texte de « Copier le diagnostic » et dans le journal de connexion.
+
+| Vous voyez | Ce que cela veut dire | Code AD dans le diagnostic |
 |---|---|---|
-| « Identifiant ou mot de passe incorrect. » | Refus d'authentification. | Vérifier les identifiants avant tout nouvel essai. |
-| « Ce compte est verrouille. » ou « Ce compte est desactive. » | Restriction AD. | Lever la restriction ; ne pas multiplier les tentatives. |
-| « Le mot de passe de ce compte a expire. » | Mot de passe expiré. | Le changer par Ctrl+Alt+Suppr, puis réessayer. |
-| « Acces refuse par AD. Consulte le diagnostic. » | Droits ou restrictions du compte. | Lire le journal de connexion. |
-| « Delai depasse. La validation a ete arretee sans bloquer l interface. » | Contrôleur injoignable ou lent. | Vérifier réseau, DNS ou VPN. |
-| « Erreur interne pendant la connexion. Consulte le diagnostic. » | Défaut de Domenia, pas un mauvais mot de passe. | « Copier le diagnostic » et le journal de connexion. |
+| « Identifiant ou mot de passe refusé. Vérifiez la saisie avant un nouvel essai. » | Refus d'authentification. | 52e, 0x8007052E |
+| « Compte inconnu de lʼannuaire. … » | Identifiant ou domaine erroné. | 525 |
+| « Compte verrouillé. Demandez son déverrouillage puis réessayez. » | Compte verrouillé dans AD. | 775, 0x80070775 |
+| « Compte désactivé. Demandez sa réactivation puis réessayez. » | Compte désactivé. | 533 |
+| « Mot de passe expiré. Changez-le (Ctrl+Alt+Suppr, Modifier un mot de passe) puis réessayez. » | Mot de passe expiré. | 532 |
+| « Mot de passe à changer avant la connexion. … » | Changement imposé à la prochaine ouverture de session. | 773 |
+| « Connexion refusée par une restriction du compte. … » | Le plus souvent un mot de passe expiré ; sinon postes ou horaires autorisés. | 52f |
+| « Connexion interdite à cette heure pour ce compte. … » ou « Connexion interdite depuis ce poste pour ce compte. … » | Horaires ou postes autorisés du compte. | 530, 531 |
+| « Compte expiré. … » | Date d'expiration du compte dépassée. | 701 |
+| « Accès refusé par lʼannuaire pendant la connexion. … » | Droits ou restrictions du compte pendant la lecture du domaine. | 0x80070005 |
+| « Contrôleur de domaine injoignable. … » ou « Délai dépassé pendant la connexion. … » | Réseau, DNS ou VPN. | — |
+| « Erreur interne pendant la connexion. Elle ne prouve pas un mauvais mot de passe. … » | Défaut de Domenia. | — |
 
 Les boutons « Ouvrir le journal » et « Copier le diagnostic » de la fenêtre donnent la trace de connexion (chapitre 20).
 
 ## Les trois identités
 
-La page « Comptes » applique la règle affichée sous « Regle d execution » : « Annuaire : compte AD courant. Postes : compte distant s il existe, sinon compte AD. Secrets : compte secrets s il existe, sinon compte AD. Les trois scopes sont independants. ».
+La page « Comptes : identités de connexion » s'ouvre par le menu « Comptes » ou par la carte « Identités de connexion » de l'accueil. Elle applique la règle affichée sous « Règle dʼexécution » : « Annuaire : compte de connexion. Postes : compte poste saisi dans Assistance poste sʼil existe, sinon compte Postes, sinon compte de connexion. Secrets : compte Secrets sʼil existe, sinon compte de connexion. Les trois ressources sont indépendantes. ».
 
 | Zone | Usage | Boutons |
 |---|---|---|
-| « ANNUAIRE AD » | Utilisateurs, groupes, OU, attributs, recherche et écritures AD. | « Changer de compte », « Tester la connexion », « Se connecter ». |
-| « POSTES / WMI / DISTANT » | WMI, WinRM, SMB, inventaire, diagnostics et actions distantes. | « Tester », « Activer », « Effacer ». |
+| « ANNUAIRE AD » | Utilisateurs, groupes, OU, attributs, recherche et écritures AD. Carte en lecture seule : compte réellement lié, mode de connexion (session Windows ou compte saisi), contrôleur et domaine. | « Changer de compte » : connexion préremplie avec le compte saisi pour la session, formulaire d'abord ; « Annuler » garde la session en cours. Rien n'est écrit dans les préférences. |
+| « EN CE MOMENT » | Compte réellement utilisé par chaque ressource (annuaire, opération d'annuaire qui a reçu son propre compte temporaire, postes, LAPS, BitLocker) et son origine, puis les comptes gardés en mémoire avec leur durée restante. Aucun mot de passe n'est affiché. | « Oublier » sur chaque compte gardé en mémoire. |
+| « POSTES / WMI / DISTANT » | WMI, WinRM, SMB, inventaire, diagnostics et actions distantes. | « Activer », « Essayer sur le poste sélectionné », « Effacer ». |
 | « SECRETS AD » | Lecture LAPS et BitLocker. | « Tester », « Activer », « Effacer ». |
 
-- Le compte des opérations poste saisi dans l'onglet « Diagnostic » d'un poste passe avant le compte « POSTES / WMI / DISTANT » (chapitre 5).
-- Un compte temporaire accepté après un refus ne sert qu'à sa ressource et à son poste. Il est oublié après Security.AlternateCredentialIdleMinutes (30 min) sans usage, à la fin de la session ou sur demande.
+- Le compte poste saisi dans le panneau « Compte poste » d'Assistance poste passe avant le compte « POSTES / WMI / DISTANT » (chapitre 5).
+- « Essayer sur le poste sélectionné », grisé sans poste ouvert dans Assistance poste, fait au clic une seule lecture WMI légère (Win32_OperatingSystem) du poste ouvert avec le compte utilisé pour les postes. Réponses : « Accès administrateur OK sur … », « Accès refusé sur … : droit administrateur requis sur ce poste. », « Identifiants refusés par … », « Poste … injoignable (réseau, nom ou service WMI) ». Aucun relevé, aucun autre poste, aucun repli intrusif.
+- Un compte temporaire accepté après un refus passe avant, pour sa seule ressource et son poste. Il est oublié après Security.AlternateCredentialIdleMinutes (30 min) sans usage, à la fin de la session, par la fenêtre du bouton d'accès ou par « Oublier » dans « En ce moment ». « Oublier » efface aussi le refus enregistré pour cette ressource : le compte configuré reprend la main dès l'opération suivante. Il est refusé tant qu'une écriture reste active ou à vérifier ; une opération déjà envoyée garde sa copie du compte.
 - Si le périmètre AD change, les comptes secondaires sont retirés de la mémoire, pour ne pas les envoyer dans un autre domaine.
 
 ## Droits à prévoir
@@ -1086,7 +1101,7 @@ La démonstration montre l'interface sans aucune connexion AD, avec des données
 
 ## Fenêtre de connexion Debug
 
-Le mode Debug affiche une trace technique de la connexion en direct (titre « Domenia 1.0  Connexion », bandeau « MODE DEBUG  diagnostic de connexion en direct »). Domenia choisit le mode dans cet ordre :
+Le mode Debug est la fenêtre de connexion standard à laquelle s'ajoute, sous le formulaire, le volet « Diagnostic de connexion » : l'étape en cours et la trace technique, en direct (titre « Domenia · Connexion · diagnostic »). Le reste de la fenêtre est identique ; la trace est celle que copie « Copier le diagnostic ». Domenia choisit le mode dans cet ordre :
 
 1. **Marqueur.** Un fichier wad\Domenia.login.debug présent impose Debug.
 2. **Fichier de mode.** wad\Domenia.login-mode.cfg contient Standard ou Debug.
@@ -1309,10 +1324,10 @@ Une clé absente, nulle ou vide prend la valeur par défaut du code. Une section
 | Conf.DOMAINE, Conf.NETBIOS | vide | Nom DNS et NetBIOS du domaine ; complètent aussi un identifiant nu. |
 | Conf.SearchBase, Conf.Server | vide | Base DN et contrôleur imposés. |
 | Conf.ADM | vide | Identifiant proposé si aucun n'est mémorisé. |
-| Auth.RememberLogin | true | État initial de « Mémoriser uniquement l’identifiant ». Valeur du fichier remplacée par RememberLogin de HKCU:\Software\DOMENIA dès que celle-ci existe. |
+| Auth.RememberLogin | false | État initial de « Se souvenir de mon identifiant ». Valeur du fichier remplacée par RememberLogin de HKCU:\Software\DOMENIA dès que celle-ci existe. |
 | Auth.LastLogin | vide | Identifiant proposé à l'ouverture. Valeur du fichier remplacée par LastLogin de HKCU:\Software\DOMENIA dès que celle-ci existe. |
 | Auth.LoginWindowMode | Standard | Mode de la fenêtre de connexion. |
-| Auth.AllowWindowsSession | true | Affiche « Utiliser mon compte Windows ». |
+| Auth.AllowWindowsSession | true | Propose la session Windows : « Continuer en tant que DOMAINE\nom » en action principale dans une session de domaine. |
 | Auth.LoginTimeoutSeconds | 30 | Délai total de connexion (8 à 45 s). |
 | Auth.PerServerTimeoutSeconds | 6 | Délai par contrôleur. |
 | Auth.MaxServerCandidates | 4 | Contrôleurs essayés. |
@@ -1575,7 +1590,7 @@ Dans Outils → Base autonome → Stockage, « Mesurer » compte les lignes et l
 
 La purge conserve toujours les associations et leurs traces protégées, les secrets, la configuration, les préférences, les journaux et les reçus. Elle ne compacte pas le fichier SQLite. Purger l’index impose une nouvelle mise à jour explicite des OU utiles pour retrouver leurs objets locaux.
 
-Les reçus d’écriture et les autorisations d’intervention restent dans « Fiabilité », lorsque Domenia y conduit. Les opérations de stockage se consultent dans la Base autonome.
+Les reçus d’écriture restent dans « Fiabilité », lorsque Domenia y conduit ; les autorisations d’intervention se donnent dans l’onglet « Actions » d’Assistance poste. Les opérations de stockage se consultent dans la Base autonome.
 
 ![Stockage : sauvegardes et préparation d’une purge locale ; données fictives](fig:base-stockage)
 
@@ -1588,7 +1603,7 @@ Domenia lit par défaut, n'envoie rien sur le réseau sans geste explicite et ne
 | Lecture par défaut | Démarrage toujours en lecture seule ; passage en écriture confirmé et signalé en rouge (chapitre 14). |
 | Aucune sonde sans geste | Pas de mise à jour de la base ni de relevé au démarrage. Un relevé exige un périmètre explicite et une confirmation du nombre de cibles ; il lit de 1 à 8 postes en parallèle selon le réglage. Dans l’Atelier, le périmètre est l’OU affichée avec ses sous-OU. |
 | Pas de rejeu | Une écriture n'est jamais rejouée automatiquement ; les reçus servent à vérifier. |
-| Secrets en mémoire | Mots de passe jamais enregistrés, effacés à la fermeture ; seul l'identifiant peut être mémorisé. LAPS et BitLocker : une valeur à la fois, jamais journalisée ni mise en cache, presse-papiers vidé après 30 s. |
+| Secrets en mémoire | Mots de passe jamais enregistrés, effacés à la fermeture ; seul l'identifiant peut être mémorisé. Un mot de passe saisi est lu en SecureString et n'est jamais recopié dans un champ modifiable ; « Afficher » le montre 5 s en lecture seule. LAPS et BitLocker : une valeur à la fois, jamais journalisée ni mise en cache, presse-papiers vidé après 30 s. |
 | Windows intact | Aucun certificat accepté à l'aveugle ; WinRM, pare-feu, antivirus et stratégies jamais modifiés. Le déblocage du paquet ne change aucune stratégie. |
 | Transports intrusifs | ADMIN$, Planificateur et PsExec inactifs sans l'autorisation de 5 minutes pour le poste ; avec elle, ils servent aussi de repli à certaines lectures quand CIM échoue (chapitre 5). |
 | Intégrité | Manifeste vérifié à chaque démarrage, chargeur fermé, registre des workers épinglé. |
@@ -1598,6 +1613,8 @@ Domenia lit par défaut, n'envoie rien sur le réseau sans geste explicite et ne
 > [!ATTENTION] Le manifeste n'est pas une signature. Domenia.exe et le runtime livrés ne sont pas signés. Pour une diffusion qui exige une signature : tools\Signer-Distribution.ps1 signe les scripts de la copie préparée (build_packages.py --stage-dir) avec un certificat de signature de code approuvé, puis, après la construction, le catalogue du manifeste livré (-ManifestCatalog). Domenia.exe et les composants tiers ne sont pas re-signés : tools\Test-DomeniaSignature.ps1 les accepte pour leur empreinte épinglée dans tools\release-contract.json. Ce contrôle est hors ligne et rend séparément l'intégrité et l'éditeur ; -RequireSignature exige les scripts signés et les binaires épinglés, -RequireSignedManifest exige aussi le catalogue signé, seul à couvrir les fichiers non signables (.json, .xaml, .cs, .cmd, .ico, verrou).
 
 > [!NOTE] Données réelles. Les journaux, exports et diagnostics contiennent des noms de comptes, de postes, de domaines et des chemins internes : ils ne sont pas anonymisés. Relisez-les avant tout partage.
+
+> [!NOTE] Limite de Windows PowerShell 5.1. L'API DirectoryEntry n'accepte le mot de passe que sous forme de chaîne. Au moment de chaque liaison à l'annuaire, Domenia en tire une copie depuis la SecureString et la remet aussitôt à Windows, sans la conserver, la journaliser ni l'afficher. Cette copie est immuable : aucune instruction ne peut l'effacer, elle disparaît quand le ramasse-miettes .NET libère la mémoire. Les variables vidées dans le code ne constituent donc pas un effacement.
 
 # 20 Journaux et diagnostic
 

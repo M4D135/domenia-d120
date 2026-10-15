@@ -445,6 +445,8 @@ function Resolve-DomeniaCapabilityRoute {
         'TabAccounts'        { return [pscustomobject]@{Route=$Route;Workspace='TabAccounts';Inner='';Tab='';Focus='';Label='Comptes'} }
         'TabPermissions'     { return [pscustomobject]@{Route=$Route;Workspace='WsObject';Inner='DetailTabs';Tab='TabPermissions';Focus='';Label='Fiche > Permissions'} }
         'TabGuard'           { return [pscustomobject]@{Route=$Route;Workspace='TabApplicationTools';Inner='ApplicationToolTabs';Tab='TabGuard';Focus='';Label='Outils > Fiabilite'} }
+        # UX-16: authorisation of an intervention and one-read consent of the open workstation.
+        'TabComputerAdmin'   { return [pscustomobject]@{Route=$Route;Workspace='WsComputer';Inner='ComputerTabs';Tab='TabComputerAdmin';Focus='BtnCompInterventionGrant';Label='Assistance poste > Actions'} }
         'ChkReadOnlyMode'    { return [pscustomobject]@{Route=$Route;Workspace='';Inner='';Tab='';Focus='ChkReadOnlyMode';Label='Protection lecture seule'} }
         'BtnObjectReadRetry' { return [pscustomobject]@{Route=$Route;Workspace='WsObject';Inner='';Tab='';Focus='BtnObjectReadRetry';Label='Fiche > Relire'} }
         # UX-32: the operations panel under the Opérations button (TabExperience no longer exists).
@@ -565,7 +567,7 @@ function Update-DomeniaTransportPolicyView {
     if(-not $Force -and $signature -ceq $previous -and $null -ne $grid.ItemsSource){return $false}
     [void](Set-DomeniaItemsSource -Name 'DgTransportPolicy' -Rows $rows)
     $target='';if($null -ne $script:ArtifactConsent -and $script:ArtifactConsent.Expires -gt [datetime]::UtcNow){$target=[string]$script:ArtifactConsent.Target}
-    $note=if($target){'Autorisation explicite en cours pour '+$target+' (5 min au plus). Aucun autre poste n en beneficie.'}else{'Aucun transport intrusif sans autorisation explicite et ciblee (Outils > Fiabilite). Aucun reglage Windows n est modifie par Domenia.'}
+    $note=if($target){'Autorisation explicite en cours pour '+$target+' (5 min au plus). Aucun autre poste nʼen bénéficie.'}else{'Aucun transport intrusif sans autorisation explicite et ciblée (Assistance poste > Actions). Aucun réglage Windows nʼest modifié par Domenia.'}
     [void](Set-DomeniaControlText 'LblTransportPolicy' $note)
     if($null -ne $script:AccessState){$script:AccessState|Add-Member -NotePropertyName PolicySignature -NotePropertyValue $signature -Force}
     return $true

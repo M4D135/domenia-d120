@@ -165,7 +165,7 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Get-DomeniaRimotteWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "2834E90E1C51D9D4A16C98CBCA905DE6A9886E87875115DC0A44ADF3E75F665B"
+    "Sha256": "337B18F3AB70EC32D626BB79E0E894138235B7F1676498ADC741FECFC4A57167"
   },
   {
     "Operation": "ComputerPing",

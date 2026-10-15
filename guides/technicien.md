@@ -5,13 +5,13 @@ Quand : avant toute intervention, vous devez retrouver un poste, un utilisateur 
 ## Ouvrir Domenia
 
 1. **Lancer Domenia.** Double-cliquez sur Domenia.exe. La fenêtre « Connexion à Domenia » s'ouvre.
-2. **Saisir le compte.** Dans « Compte Windows », tapez votre compte du domaine (DOMAINE\identifiant ou identifiant@domaine), puis le « Mot de passe ».
-3. **Se connecter.** Cliquez sur « Se connecter » ou appuyez sur Entrée. Si votre session Windows est ouverte avec votre compte du domaine, cliquez plutôt sur « Utiliser mon compte Windows ».
+2. **Session Windows du domaine.** Si votre session Windows est ouverte avec votre compte du domaine, la fenêtre propose d'abord « Continuer en tant que DOMAINE\votre-compte » : cliquez dessus ou appuyez sur Entrée, sans mot de passe.
+3. **Autre compte.** Sinon, ou pour vous connecter avec un autre compte, cliquez sur « Utiliser un autre compte ». Dans « Compte Windows », tapez le compte du domaine (DOMAINE\identifiant ou identifiant@domaine), puis le « Mot de passe », et cliquez sur « Se connecter » ou appuyez sur Entrée. « Afficher » montre le mot de passe saisi pendant 5 secondes.
 4. **Attendre l'ouverture.** « Vérification du compte… » s'affiche, puis la fenêtre principale s'ouvre. Sous le titre de la page, le badge « Connecté à … » donne le nom du domaine ; le pied du menu rappelle le compte et le domaine utilisés.
 
-![Fenêtre « Connexion à Domenia » : compte, mot de passe, « Se connecter » et « Utiliser mon compte Windows »](fig:connexion)
+![Fenêtre « Connexion à Domenia » : compte, mot de passe, « Se connecter » et « Continuer en tant que … »](fig:connexion)
 
-> [!NOTE] Cochez « Mémoriser uniquement l’identifiant » pour retrouver votre identifiant la fois suivante. Le mot de passe n'est jamais enregistré.
+> [!NOTE] Cochez « Se souvenir de mon identifiant » pour retrouver votre identifiant la fois suivante. La case est décochée au départ ; le mot de passe n'est jamais enregistré par elle.
 
 > [!RESULTAT] Domenia est ouvert avec l'interrupteur sur « Lecture seule » : vous consultez sans rien modifier.
 
@@ -137,11 +137,12 @@ Quand : vous voulez tester le poste, ouvrir son disque, une console d'administra
 
 Quand : l'administrateur vous a donné un compte réservé aux postes, ou « Ouvrir C$ » est refusé avec votre compte habituel.
 
-1. **Saisir le compte.** Dans l'onglet « Diagnostic », carte « Diagnostic du poste », remplissez « Compte poste » et « Mot de passe ».
-2. **Valider.** Cliquez sur « Utiliser ce compte ». La ligne sous les champs commence par « Operations poste : compte saisi ».
-3. **Relancer l'outil.** Revenez à l'onglet « Actions » et cliquez de nouveau sur l'outil voulu.
+1. **Ouvrir le panneau.** En haut d'Assistance poste, cliquez sur la pastille « Compte poste : … ▾ ». Un panneau s'ouvre sur le côté de la page.
+2. **Saisir le compte.** Remplissez « Identifiant » et « Mot de passe ».
+3. **Valider.** Cliquez sur « Utiliser ce compte » ou appuyez sur Entrée. La pastille affiche le compte et le panneau indique « compte poste saisi, en mémoire seulement ».
+4. **Relancer l'outil.** Fermez le panneau et cliquez de nouveau sur l'outil voulu.
 
-> [!RESULTAT] « Ouvrir C$ » et les consoles utilisent ce compte, jamais enregistré sur le disque. « Compte de connexion » revient au compte de départ.
+> [!RESULTAT] « Ouvrir C$ », les consoles, l'inventaire, le diagnostic et les sessions utilisent ce compte, jamais enregistré sur le disque. « Revenir au compte de connexion » revient au compte de départ.
 
 ## Lancer un inventaire
 
