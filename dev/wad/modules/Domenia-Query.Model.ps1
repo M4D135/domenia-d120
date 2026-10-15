@@ -894,7 +894,7 @@ function Get-DomeniaQueryParameterRows {
         $choices=@(if($null -ne $field){Get-DomeniaMember $field 'Choices' @()})
         $min=Get-DomeniaMemberValue $definition 'Minimum';$max=Get-DomeniaMemberValue $definition 'Maximum'
         $hint=switch($kind){
-            'Number'{'Nombre'+$(if($unit -and $unit -notin @('Nombre','Nombre / tranche','Valeur brute du fournisseur')){' en '+$unit+' (unités usuelles acceptées)'}else{''})+$(if($null -ne $min -and $null -ne $max){', de '+(Format-DomeniaQueryValueLabel -Value $min -Field $field)+' à '+(Format-DomeniaQueryValueLabel -Value $max -Field $field)}elseif($null -ne $min){', au moins '+(Format-DomeniaQueryValueLabel -Value $min -Field $field)}elseif($null -ne $max){', au plus '+(Format-DomeniaQueryValueLabel -Value $max -Field $field)}else{''})}
+            'Number'{'Nombre'+$(if($unit -and $unit -notin @('Nombre','Nombre / tranche','Valeur brute du fournisseur')){' en '+$(if($unit -ceq 'Jours'){'jours'}else{$unit})+' (unités usuelles acceptées)'}else{''})+$(if($null -ne $min -and $null -ne $max){', de '+(Format-DomeniaQueryValueLabel -Value $min -Field $field)+' à '+(Format-DomeniaQueryValueLabel -Value $max -Field $field)}elseif($null -ne $min){', au moins '+(Format-DomeniaQueryValueLabel -Value $min -Field $field)}elseif($null -ne $max){', au plus '+(Format-DomeniaQueryValueLabel -Value $max -Field $field)}else{''})}
             'Boolean'{'Oui ou Non'}
             default{if($choices.Count){'Choix parmi '+$choices.Count+' valeurs connues'}else{'Texte littéral, 4 096 caractères au plus'}}
         }
