@@ -45,6 +45,9 @@ foreach ($name in $presentationNames) {
 . (Join-Path $wad 'modules\Domenia-Shell.Model.ps1')
 . (Join-Path $wad 'modules\Domenia-Embedded.UI.ps1')
     . (Join-Path $wad 'modules\Domenia-UX.UI.ps1')
+# X04: the five views of Assistance poste, its header and its account card (rules and presentation, no worker).
+. (Join-Path $wad 'modules\Domenia-Assist.Model.ps1')
+. (Join-Path $wad 'modules\Domenia-Assist.UI.ps1')
 
 # Isolated UI state and local-only replacements. No user cache/config/log is read.
 $script:PreviewSettings = @{}
@@ -417,6 +420,33 @@ try {
         Test-PreviewAssertion 'Mode Expert ne montre pas WMI sur un utilisateur' {
             Open-PreviewObject -Kind 'Utilisateur'
             (Get-DomeniaControl 'TabWmi').Visibility -eq [Windows.Visibility]::Collapsed
+        }
+        Test-PreviewAssertion 'Assistance poste : cinq vues, en-tête du poste visible au-dessus de chacune' {
+            Apply-DomeniaUiProfile -Profile 'Tech';Open-PreviewObject -Kind 'Machine'
+            $names=@((Get-DomeniaControl 'ComputerTabs').Items|ForEach-Object{[string]$_.Name})
+            $header=Get-DomeniaControl 'UxComputerHeader';$shown=$true
+            foreach($view in @(Get-DomeniaComputerViewNames)){
+                Select-DomeniaWorkspace -Workspace 'WsComputer' -Inner 'ComputerTabs' -Tab $view;Update-PreviewLayout
+                $shown=(($shown) -and ($header.IsVisible) -and ([string](Get-DomeniaControl 'ComputerTabs').SelectedItem.Name -eq $view))
+            }
+            (($names -join ',') -ceq ((Get-DomeniaComputerViewNames) -join ',')) -and ($shown)
+        }
+        Test-PreviewAssertion 'Intervenir : quatre cartes, Redémarrer à part, un seul bouton de compte selon son état' {
+            Open-PreviewObject -Kind 'Machine'
+            Select-DomeniaWorkspace -Workspace 'WsComputer' -Inner 'ComputerTabs' -Tab 'TabComputerAdmin';Update-PreviewLayout
+            $cards=@((Get-DomeniaControl 'TabComputerAdmin').Content.Content.Children[0].Children)
+            $restart=Get-DomeniaControl 'BtnCompRestart';$siblings=@($restart.Parent.Children)
+            $enable=Get-DomeniaControl 'BtnCompEnable';$disable=Get-DomeniaControl 'BtnCompDisable'
+            Update-DomeniaComputerAccountCard -Uac 4098
+            $off=(($enable.Visibility -eq 'Visible') -and ($disable.Visibility -eq 'Collapsed'))
+            Update-DomeniaComputerAccountCard -Uac 4096
+            $on=(($enable.Visibility -eq 'Collapsed') -and ($disable.Visibility -eq 'Visible'))
+            Update-DomeniaComputerAccountCard -Uac $null
+            $unknown=(($enable.Visibility -eq 'Collapsed') -and ($disable.Visibility -eq 'Collapsed') -and ([string](Get-DomeniaControl 'LblCompAccountState').Text).StartsWith('État du compte non lu'))
+            ($cards.Count -eq 4) -and (@($cards|Where-Object{$_ -is [Windows.Controls.Border]}).Count -eq 4) -and
+            ([object]::ReferenceEquals($siblings[$siblings.Count-1],$restart)) -and ($siblings[$siblings.Count-2] -is [Windows.Controls.Border]) -and
+            ((Get-DomeniaControl 'UxCompRestartPanel').Visibility -eq 'Collapsed') -and ((Get-DomeniaControl 'UxCompRunPanel').Visibility -eq 'Collapsed') -and
+            ($off) -and ($on) -and ($unknown)
         }
         Test-PreviewAssertion 'Un onglet technique masqué ne reste pas sélectionné' {
             Apply-DomeniaUiProfile -Profile 'Admin';Select-DomeniaWorkspace -Workspace 'WsObject' -Inner 'DetailTabs' -Tab 'TabRaw'

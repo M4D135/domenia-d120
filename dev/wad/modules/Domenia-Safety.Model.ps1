@@ -15,15 +15,15 @@ function Get-DomeniaOperationEffect {
     if (-not $id) { return 'Unknown' }
     # Same pattern as Start-DomeniaWriteTask: every directory write is named Write<Name>.
     if ($id -cmatch '^Write[A-Za-z0-9]{2,59}$') { return 'DirectoryWrite' }
-    if ($id -in @('ComputerGpUpdate','ComputerRestart','RimotteRun','WakeOnLanSend')) { return 'RemoteMutation' }
+    if ($id -in @('ComputerGpUpdate','ComputerRestart','RimotteRun','ComputerServiceControl','WakeOnLanSend')) { return 'RemoteMutation' }
     if ($id -in @('LocalStore','ReceiptStore','DocumentStore','StoragePurge','StorageBackup','LinkHistoryStore','LiveCache','IndexBuild','IndexRefresh')) { return 'LocalWrite' }
     # Points 101-109 (Audit AD) add DelegationRead, AdHealthRead, DcServicesRead and RelationHistoryRead: reads only.
     $reads = @(
         'SelectedPresence','PresenceScan','CmdletHelp','CmdletInventory','TreeChildren','GlobalSearch','PermissionAnalysis','SelfCheck',
         'ReadBitLocker','ReadBitLockerKey','ReadLaps','ComputerInventory','DomainOverview','BatchNetworkDiag','SoftwareInventory',
-        'WmiNamespaces','WmiClasses','WmiQuery','UserComputerProbe','LogonHarvest','ParkSweep','ComputerDiagnostics','ComputerLastUser',
+        'WmiNamespaces','WmiClasses','WmiQuery','QuerySchema','UserComputerProbe','LogonHarvest','ParkSweep','ComputerDiagnostics','ComputerLastUser',
         'ComputerPing','ComputerAdminShare','PruneLinks','OpenLinkedObject','EngineSelfTest','OpenAdObject','StartupWarmCache','StartupWarmup','LiveConsole',
-        'LiveDirectoryCheck','SessionsList','RemoteCredentialCheck','ScopeReconcile','ReconcileScope','LiveSelectedPing',
+        'LiveDirectoryCheck','SessionsList','RemoteCredentialCheck','ScopeReconcile','ReconcileScope','LiveSelectedPing','ParkPing',
         'EmbeddedDirectoryLookup','EmbeddedPathBrowse','ObjectChanges','StorageUsage','ComputerQuickDiag','PasswordPolicyRead',
         'LockoutDiagnosis','GroupPathRead','JoinStateRead','UpdateStateRead','GpoLinksRead','GpoAppliedRead','DcCompareRead',
         'ComputerEventsRead','MachineIdentityRead','AdConsistencyScan','ConnectorRead','DemoDirectory',
@@ -295,6 +295,7 @@ function Get-DomeniaPostconditionRule {
         'ComputerRestart'=@('Restart','Relire le dernier démarrage du poste : postérieur à lʼenvoi.')
         'ComputerGpUpdate'=@('PolicyRefresh','Relire la dernière application des stratégies : postérieure à lʼenvoi.')
         'RimotteRun'=@('RemoteRun','Aucune relecture générique : le résultat dʼun script distant se vérifie sur le poste.')
+        'ComputerServiceControl'=@('State','Relire lʼétat du service sur le poste : « Running » attendu après la commande.')
         'WakeOnLanSend'=@('Presence','Relire la présence du poste : réponse postérieure à la demande. Une réponse ne prouve pas que le réveil vient de cette demande.')
     }
     $kind = 'Aucune'; $check = 'Aucune règle de vérification connue pour cette opération : à vérifier manuellement.'
@@ -507,7 +508,7 @@ function Get-DomeniaReceiptRequirement {
     switch ($effect) {
         'DirectoryWrite' { $reason = 'Écriture AD : reçu durable écrit avant lʼenvoi au contrôleur.' }
         'RemoteMutation' {
-            $what = @{ComputerGpUpdate='Actualisation des stratégies à distance';ComputerRestart='Redémarrage à distance';RimotteRun='Exécution distante';WakeOnLanSend='Réveil réseau'}[$OperationId]
+            $what = @{ComputerGpUpdate='Actualisation des stratégies à distance';ComputerRestart='Redémarrage à distance';RimotteRun='Exécution distante';ComputerServiceControl='Commande de service à distance';WakeOnLanSend='Réveil réseau'}[$OperationId]
             if (-not $what) { $what = 'Action à distance' }
             $reason = $what + ' : reçu durable écrit avant lʼenvoi au poste.'
         }
@@ -556,6 +557,159 @@ function Get-DomeniaReceiptResumeState {
         $text = "Demande envoyée sans preuve d'effet : étape terminale non bloquante. Aucun rejeu automatique."
     }
     return [pscustomobject]@{Stage=$stage;State=$state;Uncertain=($state -eq 'Uncertain');Replay=$false;BlocksTarget=($state -eq 'Uncertain');Text=$text}
+}
+
+# ---------------------------------------------------------------- UI-18 receipts in plain words
+function Get-DomeniaOperationDisplayName {
+    # UI-18: the readable name of an operation that leaves a receipt. An identifier without a name keeps its code:
+    # a guessed name would hide what was really sent.
+    param([AllowEmptyString()][AllowNull()][string]$OperationId)
+    $id = ([string]$OperationId).Trim()
+    if (-not $id) { return 'Opération non indiquée' }
+    $names = @{
+        WriteAttributes='Modification de la fiche';WriteAccountDisabled='Activation ou désactivation du compte'
+        WriteUnlock='Déverrouillage du compte';WriteResetPassword='Réinitialisation du mot de passe'
+        WriteAccountOptions='Options du compte';WriteExpiration='Expiration du compte'
+        WriteExpirePassword='Changement de mot de passe imposé';WriteMoveObject='Déplacement de lʼobjet'
+        WriteObjectGroup='Appartenance aux groupes';WriteGroupMember='Membres du groupe'
+        WriteRenameComputer='Renommage du poste';WriteCreateOu='Création dʼune OU';WriteDeleteObject='Suppression de lʼobjet'
+        ComputerGpUpdate='Actualisation des stratégies à distance';ComputerRestart='Redémarrage à distance'
+        RimotteRun='Exécution distante';WakeOnLanSend='Réveil réseau'
+    }
+    if ($names.ContainsKey($id)) { return [string]$names[$id] }
+    return $id
+}
+
+function Get-DomeniaReceiptStageView {
+    # UI-18: a receipt stage in plain words, the tone of its chip and whether it still holds new writes back. The
+    # pending test is the one of the receipt store (Domenia-Receipts.Worker.ps1): every stage but the four terminal
+    # ones, an unknown or empty one included (fail closed). The raw value is compared, untrimmed, as the store does:
+    # a padded or altered stage stays pending here as it does there. The explanation is the resume reading of it.
+    param([AllowEmptyString()][AllowNull()][string]$Stage)
+    $value = [string]$Stage
+    $label = 'État inconnu, à vérifier'; $tone = 'Pending'
+    switch ($value) {
+        'Prepared'  { $label = 'Interrompue avant lʼenvoi, à vérifier' }
+        'Sent'      { $label = 'Envoyée, à vérifier' }
+        'Unknown'   { $label = 'Envoyée, à vérifier' }
+        'Verified'  { $label = 'Vérifiée'; $tone = 'Verified' }
+        'Delivered' { $label = 'Livrée'; $tone = 'Delivered' }
+        'NotSent'   { $label = 'Non envoyée'; $tone = 'NotSent' }
+        'Reviewed'  { $label = 'Revue manuelle'; $tone = 'Reviewed' }
+    }
+    $pending = ($value -notin @('Verified','NotSent','Reviewed','Delivered'))
+    $explanation = [string](Get-DomeniaReceiptResumeState ([pscustomobject]@{Stage=$value})).Text
+    if ($pending) { $explanation += ' Les nouvelles écritures restent bloquées jusquʼà sa vérification ou sa revue.' }
+    else { $explanation += ' Ce reçu ne bloque plus aucune écriture.' }
+    return [pscustomobject]@{Stage=$value;Label=$label;Tone=$tone;Pending=$pending;Explanation=$explanation}
+}
+
+function Get-DomeniaReceiptView {
+    # UI-18: the row of a durable receipt as the operator reads it: the stage in plain words with the tone of its
+    # chip, the operation and the object by their names. The DN, the operation code, the account and the controller
+    # stay on the row for the tooltip and the folded details. A re-read is offered only where the receipt store can
+    # do it: an attribute change sent (Sent or Unknown) whose row carries CanVerify = $true, the store's own test
+    # (every expected value kept, see Get-DomeniaReceiptWorkerCode). A receipt prepared but not sent has nothing to
+    # re-read; any other pending receipt asks for a manual review. A missing or non boolean CanVerify fails closed.
+    param($Receipt)
+    $stage = [string](Get-DomeniaMember $Receipt 'Stage' '')
+    $operation = ([string](Get-DomeniaMember $Receipt 'Operation' '')).Trim()
+    $dn = ([string](Get-DomeniaMember $Receipt 'DN' '')).Trim()
+    $stageView = Get-DomeniaReceiptStageView $stage
+    $object = 'Objet non indiqué'
+    $dnTip = 'Nom distinctif absent du reçu.'
+    if ($dn) { $object = ConvertTo-DomeniaDnDisplayName $dn; $dnTip = 'Nom distinctif : ' + $dn }
+    $updatedText = [string](Get-DomeniaMember $Receipt 'UpdatedUtc' '')
+    $updated = ConvertTo-DomeniaUtcDate $updatedText
+    $updatedLabel = 'Date inconnue'
+    if ($null -ne $updated) { $updatedLabel = $updated.ToLocalTime().ToString('dd/MM/yyyy HH:mm') }
+    $storeCanVerify = Get-DomeniaMember $Receipt 'CanVerify' $false
+    $canTryVerify = (([bool]$stageView.Pending) -and ($operation -ceq 'WriteAttributes') -and ($stageView.Stage -in @('Sent','Unknown')) -and ($storeCanVerify -is [bool]) -and ($storeCanVerify))
+    return [pscustomobject]@{
+        Id=[string](Get-DomeniaMember $Receipt 'Id' '');Operation=$operation;OperationLabel=(Get-DomeniaOperationDisplayName $operation)
+        Stage=$stageView.Stage;StageLabel=$stageView.Label;Tone=$stageView.Tone;Pending=[bool]$stageView.Pending;Explanation=$stageView.Explanation
+        ObjectName=$object;DN=$dn;DnToolTip=$dnTip
+        Identity=[string](Get-DomeniaMember $Receipt 'Identity' '');Server=[string](Get-DomeniaMember $Receipt 'Server' '')
+        UpdatedUtc=$updatedText;UpdatedLabel=$updatedLabel;Review=[string](Get-DomeniaMember $Receipt 'Review' '')
+        CanTryVerify=$canTryVerify
+    }
+}
+
+function Get-DomeniaReceiptSummary {
+    # UI-18: the sentence above the receipts. A pending receipt holds every new write of the domain back.
+    param([int]$Total=0,[int]$Pending=0)
+    if ($Pending -eq 1) { return 'Une opération reste à vérifier : les nouvelles écritures sont bloquées jusquʼà sa vérification ou sa revue. Rien nʼest renvoyé automatiquement.' }
+    if ($Pending -gt 1) { return ([string]$Pending + ' opérations restent à vérifier : les nouvelles écritures sont bloquées jusquʼà leur vérification ou leur revue. Rien nʼest renvoyé automatiquement.') }
+    if ($Total -le 0) { return 'Aucun reçu dʼopération pour ce domaine. Rien nʼest renvoyé automatiquement.' }
+    if ($Total -eq 1) { return 'Aucune opération à vérifier. Un reçu conservé ; rien nʼest renvoyé automatiquement.' }
+    return ('Aucune opération à vérifier. ' + [string]$Total + ' reçus conservés ; rien nʼest renvoyé automatiquement.')
+}
+
+function Test-DomeniaReceiptReviewReason {
+    # UI-18: the motive of a manual review is written into the durable receipt. 12 to 240 characters once trimmed,
+    # the bounds of the receipt store, and nothing that looks like a secret (what Protect-DomeniaSecretText masks).
+    param([AllowEmptyString()][AllowNull()][string]$Reason)
+    $text = ([string]$Reason).Trim()
+    $length = $text.Length
+    $valid = $false
+    if ($length -eq 0) { $message = 'Saisissez le contrôle réalisé : 12 à 240 caractères.' }
+    elseif ($length -lt 12) { $message = [string]$length + ' caractère(s) : 12 au minimum.' }
+    elseif ($length -gt 240) { $message = [string]$length + ' caractères : 240 au maximum.' }
+    elseif ((Protect-DomeniaSecretText $text) -cne $text) { $message = 'Le motif ressemble à un secret : décrivez le contrôle sans recopier de mot de passe, de clé ni de jeton.' }
+    else { $valid = $true; $message = [string]$length + ' / 240 caractères.' }
+    return [pscustomobject]@{Valid=$valid;Text=$text;Length=$length;Message=$message}
+}
+
+function Get-DomeniaReceiptActionView {
+    # UI-18: what the review area of the page offers for the selected receipt (a Get-DomeniaReceiptView row).
+    # Verify re-reads the expected values on the initial controller, never sends the operation again; a manual
+    # review needs its motive. Nothing is offered while the receipt store is busy (a read or a write in flight).
+    param($View,[AllowEmptyString()][AllowNull()][string]$Reason='',[bool]$Busy=$false)
+    $check = Test-DomeniaReceiptReviewReason $Reason
+    $answer = { param([string]$selection,[bool]$verify,[string]$verifyWhy,[bool]$review,[string]$reviewWhy,[bool]$field)
+        [pscustomobject]@{Selection=$selection;CanVerify=$verify;VerifyWhy=$verifyWhy;CanReview=$review;ReviewWhy=$reviewWhy;ReasonEnabled=$field;ReasonMessage=$check.Message;Reason=$check.Text} }
+    if ($null -eq $View) {
+        $none = 'Sélectionnez un reçu dans la liste pour le vérifier ou consigner une revue.'
+        return (& $answer $none $false $none $false $none $false)
+    }
+    $head = [string](Get-DomeniaMember $View 'OperationLabel' '') + ' · ' + [string](Get-DomeniaMember $View 'ObjectName' '') + ' · ' + [string](Get-DomeniaMember $View 'StageLabel' '') + '.'
+    if (-not [bool](Get-DomeniaMember $View 'Pending' $false)) {
+        $text = $head + ' Ce reçu est résolu : il ne bloque plus aucune écriture.'
+        $review = ([string](Get-DomeniaMember $View 'Review' '')).Trim()
+        $stage = [string](Get-DomeniaMember $View 'Stage' '')
+        if ($review) {
+            # The motive of a manual review is the operator's own words, quoted. The note of a re-read is written by
+            # the receipt store in its own terms: it is said in French, never echoed. A final period stays outside
+            # the quotes (one period, not an ellipsis).
+            if ($stage -eq 'Verified') { $text += ' Vérifiée par relecture des valeurs attendues sur le contrôleur initial.' }
+            else {
+                $noteLabel = 'Note du reçu'
+                if ($stage -eq 'Reviewed') { $noteLabel = 'Motif consigné' }
+                $quoted = (ConvertTo-DomeniaFlatText $review 240) -replace '(?<!\.)\.$',''
+                $text += ' ' + $noteLabel + ' : « ' + $quoted + ' ».'
+            }
+        }
+        return (& $answer $text $false 'Ce reçu est déjà résolu.' $false 'Ce reçu est déjà résolu.' $false)
+    }
+    if ($Busy) {
+        $wait = 'Lecture des reçus ou écriture en cours : vérification et revue reprennent à la fin.'
+        return (& $answer ($head + ' ' + $wait) $false $wait $false $wait $true)
+    }
+    $canVerify = [bool](Get-DomeniaMember $View 'CanTryVerify' $false)
+    if ($canVerify) { $text = $head + ' Relecture possible sur le contrôleur initial ; à défaut, contrôlez avec un autre outil puis consignez votre revue.'; $verifyWhy = '' }
+    else {
+        # Why no re-read is offered: nothing was sent, the stage is unreadable, or the receipt store did not keep every
+        # expected value (its CanVerify, see Get-DomeniaReceiptView), or the operation is not an attribute change.
+        $stage = [string](Get-DomeniaMember $View 'Stage' '')
+        if ($stage -eq 'Prepared') { $verifyWhy = 'Rien nʼa été envoyé dʼaprès le reçu : aucune valeur à relire. Contrôlez lʼobjet avec un autre outil, puis consignez votre revue.' }
+        elseif ($stage -notin @('Sent','Unknown')) { $verifyWhy = 'État du reçu illisible : aucune relecture automatique. Contrôlez le résultat avec un autre outil, puis consignez votre revue.' }
+        elseif ([string](Get-DomeniaMember $View 'Operation' '') -ceq 'WriteAttributes') { $verifyWhy = 'Relecture automatique indisponible pour ce reçu : toutes les valeurs attendues nʼy sont pas conservées. Contrôlez le résultat avec un autre outil, puis consignez votre revue.' }
+        else { $verifyWhy = 'Vérification automatique indisponible pour cette opération : contrôlez le résultat avec un autre outil, puis consignez votre revue.' }
+        $text = $head + ' ' + $verifyWhy
+    }
+    $reviewWhy = ''
+    if (-not $check.Valid) { $reviewWhy = 'Motif de la revue : ' + $check.Message }
+    return (& $answer $text $canVerify $verifyWhy ([bool]$check.Valid) $reviewWhy $true)
 }
 
 function ConvertTo-DomeniaReceiptRecord {

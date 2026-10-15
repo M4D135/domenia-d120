@@ -130,7 +130,7 @@ function Invoke-DomeniaReconcileTick {
     while($r.Events.Count -and $n -lt 8 -and $watch.ElapsedMilliseconds -lt 5){
         $e=$r.Events.Dequeue();$n++
         if(-not [object]::ReferenceEquals($e.Search,$s) -or $e.Identity -cne $script:Live.Identity -or $e.Mutation -ne $script:Continuity.Mutation){continue}
-        if($e.Kind -eq 'Missing'){$e.Row.DirectoryState='Absent du dernier retour : a reverifier';continue}
+        if($e.Kind -eq 'Missing'){$e.Row.DirectoryState='Absent du dernier retour : a reverifier';Set-DomeniaLiveRowValue $e.Row 'DirectoryFresh' 'Warning';continue}
         Add-DomeniaLiveRow $e
         if($null -ne $script:Continuity){$script:Continuity.CacheDirty=$true}
     }

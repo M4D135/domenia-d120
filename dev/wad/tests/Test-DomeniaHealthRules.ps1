@@ -37,6 +37,16 @@ Check 'Ping error is unknown, a real timeout is without response, timestamps man
  Assert (@($b.Last.WidgetTargets['fleet.presence|Non vérifié']).Count -eq 2 -and @($b.Last.WidgetTargets['fleet.presence|Sans réponse']).Count -eq 1) 'Technical error became offline or missing timestamp became fresh'
  Assert ((($b.Entries['fleet.presence'].Items|Measure-Object Value -Sum).Sum) -eq 3) 'Presence counts differ from enabled population'
 }
+Check 'Ping and WMI widgets are catalog entries with exact GUID drilldown (point 72)' {
+ $m=@((Machine 1),(Machine 2),(Machine 3));$o=@((Observation $m[0] 'Sans reponse au ping'),(Observation $m[1]));$b=Board (Source $m $o)
+ foreach($key in @('fleet.wmi','fleet.reach')){
+  Assert ($null -ne (Get-DomeniaBoardCatalogItem Fleet $key)) ('Catalog misses '+$key);$sum=0
+  foreach($part in @($b.Entries[$key].Items)){$sum+=[int]$part.Value;Assert (@($b.Last.WidgetTargets[$key+'|'+[string]$part.Label]).Count -eq [int]$part.Value) ('Drilldown differs '+$key+' '+$part.Label)}
+  Assert ($sum -eq 3) ('Population differs '+$key)
+ }
+ Assert ((@($b.Last.WidgetTargets['fleet.reach|WMI répond, pas le ping']).Count -eq 1) -and ($b.Last.WidgetTargets['fleet.reach|WMI répond, pas le ping'][0].object_guid -eq $m[0].object_guid)) 'Filtered ICMP classified as unreachable'
+ Assert (@($b.Last.WidgetTargets['fleet.presence|Sans réponse']).Count -eq 1) 'Ping bucket changed by WMI answer'
+}
 Check 'Duplicate and outside-scope observations do not inflate a widget' {
  $m=@((Machine 1),(Machine 2));$a=Observation $m[0];$outside=Observation (Machine 99);$outside.in_scope=$false;$b=Board (Source $m @($a,$a,$outside))
  Assert (@($b.Last.WidgetTargets['fleet.presence|En ligne']).Count -eq 1 -and @($b.Last.WidgetTargets['fleet.presence|Non vérifié']).Count -eq 1) 'Duplicate observation inflated count'

@@ -61,8 +61,8 @@ function Update-DomeniaProbeDetailsPage {
     $entry=$null
     if($null -ne $data -and $null -ne $data.Probes){$entry=Get-DomeniaMemberValue $data.Probes $State.ProbeId}
     $State.Grid.ItemsSource=$null;$State.Previous.IsEnabled=$false;$State.Next.IsEnabled=$false
-    $note='Révision locale '+$State.SnapshotRevision+' · Réussite UTC : '+[string]$observation.LastSuccessAtUtc+' · Tentative UTC : '+[string]$observation.LastAttemptAtUtc
-    if([string]$observation.Error){$note+=' · Dernière tentative non confirmée : '+[string]$observation.Error}
+    # Point 10: last success, last attempt and its error, local write time, collector definition and incoherent dates.
+    $note='Révision locale '+$State.SnapshotRevision+' · '+(Format-DomeniaObservationProvenance -Observation $observation -NowUtc ([datetime]::UtcNow)).Text
     if($null -eq $entry){$State.Status.Text=$note+' · Aucune valeur conservée pour ce relevé.';$State.Position.Text='';return}
     $properties=@(Get-DomeniaMember $entry 'Properties' @())
     if(-not $properties.Count){

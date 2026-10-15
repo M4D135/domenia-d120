@@ -26,7 +26,8 @@ $wanted=@(
     'Get-DomeniaPreferencePath','Read-DomeniaPreference','Write-DomeniaPreference','Write-DomeniaAtomicText',
     'Get-DomeniaStoredTheme','Load-DomeniaTheme','Save-DomeniaTheme','Get-DomeniaBootThemePalette',
     'Get-DomeniaBootThemeResources','Get-DomeniaBootStatusColor','Convert-DomeniaXamlToBootTheme',
-    'Get-LoginXamlLegacy','Get-DomeniaStandardLoginXaml','Get-DomeniaDebugLoginXaml','Get-DomeniaStartupXaml',
+    # TE-04 (lot X03): one sign-in template since CD-10; the legacy and Debug templates no longer exist.
+    'Get-DomeniaStandardLoginXaml','Get-DomeniaStartupXaml',
     'Apply-DomeniaTheme','Toggle-DomeniaTheme','Get-MainXaml','Assert-DomeniaXamlPreflight','ConvertFrom-DomeniaXaml'
 )
 $nodes=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst]},$true))
@@ -151,7 +152,7 @@ try {
         Assert-Theme ($stored.Theme -eq 'Dark' -and $stored.LogHeight -eq 275 -and $stored.WindowWidth -eq 1500)
     }
     foreach($theme in @('Light','Dark')) {
-        foreach($factory in @('Get-LoginXamlLegacy','Get-DomeniaStandardLoginXaml','Get-DomeniaDebugLoginXaml','Get-DomeniaStartupXaml')) {
+        foreach($factory in @('Get-DomeniaStandardLoginXaml','Get-DomeniaStartupXaml')) {
             Test-ThemeCase ("XML reel PowerShell : $theme / $factory") {
                 $script:BootTheme=$theme
                 $text=& $factory

@@ -297,7 +297,7 @@ function Enter-DomeniaSelectionContext {
         }
     }
     Clear-Secrets
-    Reset-DomeniaSelectionBoundViews -Dn ([string]$Context.DN) -Type ([string]$Context.Type) -Name ([string]$Context.Name)
+    Reset-DomeniaSelectionBoundViews -Dn ([string]$Context.DN) -Type ([string]$Context.Type) -Name ([string]$Context.Name) -Guid ([string]$Context.Guid)
     # FO-07 : la vue vient d'etre videe pour le nouvel objet (D085). Si ce poste a deja ete inventorie dans
     # cette session, sa derniere lecture est reprise ici, avec son age : les lignes rendues appartiennent
     # au nouvel objet, jamais au precedent.

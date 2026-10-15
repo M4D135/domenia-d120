@@ -16,7 +16,8 @@ if($PSVersionTable.PSEdition -eq 'Core'){
 . ([scriptblock]::Create($native));[void](Initialize-DomeniaWinSqliteNative)
 Add-Type -Path (Join-Path $modules 'M4D.Admin.Common.Query.dll')
 Add-Type -Path (Join-Path $modules 'Domenia.Native.dll')
-foreach($name in @('Common.Model','Boards.Model','BoardFleet.Model','Probes.Model','Park.Model','Query.Model','Query.Worker','Storage.Worker','Engine.Worker')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+# HealthRules.Model: Get-DomeniaFleetQueryPlan and the board rules read the health policy (ConvertTo-DomeniaHealthPolicy).
+foreach($name in @('Common.Model','HealthRules.Model','Boards.Model','BoardFleet.Model','Probes.Model','Park.Model','QueryLibrary.Model','Query.Model','Query.Worker','Storage.Worker','Engine.Worker')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 $storage=Get-DomeniaStorageWorkerCode;$reader=[scriptblock]::Create((Get-DomeniaLocalIndexReadWorkerCode))
 $ast=[Management.Automation.Language.Parser]::ParseInput($storage,[ref]$tokens,[ref]$errors)
 foreach($fn in @($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst]},$true))){. ([scriptblock]::Create($fn.Extent.Text))}
@@ -30,10 +31,14 @@ function Mark {param([string]$Name);$times[$Name]=$watch.ElapsedMilliseconds;Wri
 function Guid-For {param([int]$N);return ('00000000-0000-0000-0000-{0:D12}' -f $N)}
 $now=[datetime]::UtcNow;$at=$now.ToString('o');$inventoryAt=$now.AddDays(-40).ToString('o')
 try{
-    $schema=@($core.FindAll({param($n)$n -is [Management.Automation.Language.StringConstantExpressionAst]},$true)|Where-Object{$_.Value -match '^PRAGMA journal_mode=WAL;' -and $_.Value -match 'CREATE TABLE IF NOT EXISTS schema_info'})
-    Expect ($schema.Count -eq 1) 'production schema found'
+    # The schema is the text Get-DomeniaSqliteSchemaText returns: its here-string expands the query library schema.
+    $schemaAst=@($core.FindAll({param($n)($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq 'Get-DomeniaSqliteSchemaText')},$true))
+    Expect ($schemaAst.Count -eq 1) 'production schema found'
+    . ([scriptblock]::Create($schemaAst[0].Extent.Text))
+    $schemaText=Get-DomeniaSqliteSchemaText
+    Expect (($schemaText -match 'CREATE TABLE IF NOT EXISTS schema_info') -and ($schemaText -notmatch '\$\(')) 'production schema expanded'
     $db=Open-DomeniaDatabase $path
-    try{[void](Invoke-DomeniaDbExec $schema[0].Value $db)}finally{Close-DomeniaDatabase $db}
+    try{[void](Invoke-DomeniaDbExec $schemaText $db)}finally{Close-DomeniaDatabase $db}
     $writer=[IO.StreamWriter]::new($file,$false,[Text.UTF8Encoding]::new($false))
     try{
         for($n=1;$n -le $Count;$n++){

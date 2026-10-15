@@ -90,7 +90,7 @@ try {
             Initialize-DomeniaUxLoginPresentation $w
             $script:TestCancels=0;$script:TestDiagnosticClicks=0
             $script:FastLoginUi=@{Window=$w}
-            foreach($pair in @(@('Login','TxtLogin'),@('Password','PwdLogin'),@('PasswordVisible','TxtLoginPasswordVisible'),@('Reveal','BtnRevealLogin'),@('Remember','ChkRemember'),@('Connect','BtnLogin'),@('Windows','BtnWindowsLogin'),@('Cancel','BtnCancel'),@('Progress','PbLogin'),@('Technical','TxtLoginTechnical'))){$script:FastLoginUi[$pair[0]]=$w.FindName($pair[1])}
+            foreach($pair in @(@('Login','TxtLogin'),@('Password','PwdLogin'),@('PasswordPeek','LoginPasswordPeek'),@('PasswordPeekText','LblLoginPasswordPeek'),@('Reveal','BtnRevealLogin'),@('Remember','ChkRemember'),@('Connect','BtnLogin'),@('Windows','BtnWindowsLogin'),@('Cancel','BtnCancel'),@('Progress','PbLogin'),@('Technical','TxtLoginTechnical'))){$script:FastLoginUi[$pair[0]]=$w.FindName($pair[1])}
             $w.FindName('BtnCancel').Add_Click({$script:TestCancels++;Set-DomeniaFastLoginBusy $false})
             $w.FindName('BtnCopyLoginDiag').Add_Click({$script:TestDiagnosticClicks++})
             $w.Show();Pump-Layout $w

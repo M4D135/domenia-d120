@@ -1,6 +1,7 @@
 ﻿# Audit AD view (points 102 to 109): Outils > Audit AD. Loaded from Domenia-AdAudit.xaml the first time its tab
 # is chosen (model: Initialize-DomeniaQueryView). Every read starts on a click, runs in a pinned worker of
-# Domenia-AdAudit.Worker.ps1 and is applied only when the session, the selection generation and the target are the
+# Domenia-AdAudit.Worker.ps1 (the nested groups: GroupPathRead of Domenia-Membership.Worker.ps1, shared with
+# « Pourquoi membre ? ») and is applied only when the session, the selection generation and the target are the
 # ones it was started for. What a reading proves is decided in Domenia-AdAudit.Model.ps1.
 $script:DomeniaAdAuditModuleRoot=$PSScriptRoot
 $script:AdAuditView=$null
@@ -226,7 +227,7 @@ function Start-DomeniaAdAuditGroupRead {
     if($null -eq $target){return}
     [void](Set-DomeniaControlText 'LblAdAuditGroups' 'Lecture des appartenances imbriquées (2 000 groupes, 16 niveaux, 10 secondes au plus)…')
     $payload=[pscustomobject]@{Dn=[string]$target.Dn;Mode='Expand';MaxNodes=2000;MaxDepth=16;Seconds=10;TargetDn=''}
-    Invoke-DomeniaAdAuditStart 'LblAdAuditGroups' {Start-UiTask -Name ('Audit AD : groupes de '+[string]$target.Name) -OperationId 'GroupPathRead' -Code (Get-DomeniaGroupPathReadWorkerCode) -Payload $payload -CallbackState (New-DomeniaAdAuditState $target 'Groups') -ReplaceKey 'adaudit-groups' -DisableControls @('BtnAdAuditGroups') -TimeoutSeconds 60 -SuccessHandler 'Complete-DomeniaAdAuditGroupRead' -ErrorHandler 'Fail-DomeniaAdAuditGroupRead' -TaskClass 'Explicit'}
+    Invoke-DomeniaAdAuditStart 'LblAdAuditGroups' {Start-UiTask -Name ('Audit AD : groupes de '+[string]$target.Name) -OperationId 'GroupPathRead' -Code (Get-DomeniaGroupPathWorkerCode) -Payload $payload -CallbackState (New-DomeniaAdAuditState $target 'Groups') -ReplaceKey 'adaudit-groups' -DisableControls @('BtnAdAuditGroups') -TimeoutSeconds 60 -SuccessHandler 'Complete-DomeniaAdAuditGroupRead' -ErrorHandler 'Fail-DomeniaAdAuditGroupRead' -TaskClass 'Explicit'}
 }
 
 function Complete-DomeniaAdAuditGroupRead {
@@ -268,7 +269,7 @@ function Start-DomeniaAdAuditGroupConfirm {
     if($null -eq $choice){[void](Set-DomeniaControlText 'LblAdAuditGroupPath' 'Choisissez dʼabord un groupe dans la liste.');return}
     [void](Set-DomeniaControlText 'LblAdAuditGroupPath' ('Question posée au contrôleur pour '+[string]$choice.Groupe+'…'))
     $payload=[pscustomobject]@{Dn=[string]$target.Dn;Mode='Confirm';MaxNodes=2000;MaxDepth=16;Seconds=10;TargetDn=[string]$choice.Dn}
-    Invoke-DomeniaAdAuditStart 'LblAdAuditGroupPath' {Start-UiTask -Name ('Audit AD : appartenance de '+[string]$target.Name) -OperationId 'GroupPathRead' -Code (Get-DomeniaGroupPathReadWorkerCode) -Payload $payload -CallbackState (New-DomeniaAdAuditState $target 'GroupConfirm' ([string]$choice.Dn)) -ReplaceKey 'adaudit-group-confirm' -DisableControls @('BtnAdAuditGroupConfirm') -TimeoutSeconds 45 -SuccessHandler 'Complete-DomeniaAdAuditGroupConfirm' -ErrorHandler 'Fail-DomeniaAdAuditGroupConfirm' -TaskClass 'Explicit'}
+    Invoke-DomeniaAdAuditStart 'LblAdAuditGroupPath' {Start-UiTask -Name ('Audit AD : appartenance de '+[string]$target.Name) -OperationId 'GroupPathRead' -Code (Get-DomeniaGroupPathWorkerCode) -Payload $payload -CallbackState (New-DomeniaAdAuditState $target 'GroupConfirm' ([string]$choice.Dn)) -ReplaceKey 'adaudit-group-confirm' -DisableControls @('BtnAdAuditGroupConfirm') -TimeoutSeconds 45 -SuccessHandler 'Complete-DomeniaAdAuditGroupConfirm' -ErrorHandler 'Fail-DomeniaAdAuditGroupConfirm' -TaskClass 'Explicit'}
 }
 
 function Complete-DomeniaAdAuditGroupConfirm {

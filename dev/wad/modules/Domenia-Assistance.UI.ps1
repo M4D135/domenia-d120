@@ -116,7 +116,9 @@ function Open-DomeniaAssistanceRoute {
     if(-not $workspace){return $false}
     if($null -eq (Get-DomeniaControl $workspace)){return $false}
     $inner=[string]$Step.Inner;$tab=[string]$Step.Tab
-    if($tab -and ($null -eq (Get-DomeniaControl $tab))){$inner='';$tab=''}
+    # UX-21 (X04): a former tab of Assistance poste (TabSessions) is a known route to its view and section.
+    $routed=(($inner -eq 'ComputerTabs') -and [bool](Resolve-DomeniaComputerViewRoute -Tab $tab).Known)
+    if($tab -and (-not $routed) -and ($null -eq (Get-DomeniaControl $tab))){$inner='';$tab=''}
     Select-DomeniaWorkspace -Workspace $workspace -Inner $inner -Tab $tab
     if([string]$Step.AuditTab){
         # The Audit AD view is built at its first opening; its inner tab is chosen once it exists.

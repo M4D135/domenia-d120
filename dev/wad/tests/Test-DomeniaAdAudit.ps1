@@ -33,7 +33,7 @@ function Get-FunctionText {
 $script:AuditFiles=@('Domenia-AdAudit.Model.ps1','Domenia-AdAudit.Worker.ps1','Domenia-AdAudit.UI.ps1','Domenia-Assistance.Model.ps1','Domenia-Assistance.UI.ps1')
 $script:AuditOperations=@('PasswordPolicyRead','GroupPathRead','DelegationRead','GpoLinksRead','GpoAppliedRead','AdHealthRead','DcServicesRead','AdConsistencyScan','MachineIdentityRead','RelationHistoryRead')
 $script:WorkerFunctions=[ordered]@{
-    PasswordPolicyRead='Get-DomeniaPasswordPolicyReadWorkerCode';GroupPathRead='Get-DomeniaGroupPathReadWorkerCode';DelegationRead='Get-DomeniaDelegationReadWorkerCode'
+    PasswordPolicyRead='Get-DomeniaPasswordPolicyReadWorkerCode';GroupPathRead='Get-DomeniaGroupPathWorkerCode';DelegationRead='Get-DomeniaDelegationReadWorkerCode'
     GpoLinksRead='Get-DomeniaGpoLinksReadWorkerCode';GpoAppliedRead='Get-DomeniaGpoAppliedReadWorkerCode';AdHealthRead='Get-DomeniaAdHealthReadWorkerCode'
     DcServicesRead='Get-DomeniaDcServicesReadWorkerCode';AdConsistencyScan='Get-DomeniaAdConsistencyScanWorkerCode';MachineIdentityRead='Get-DomeniaMachineIdentityReadWorkerCode'
     RelationHistoryRead='Get-DomeniaRelationHistoryReadWorkerCode'
@@ -44,7 +44,7 @@ try{
         throw 'Windows PowerShell 5.1 x64 -STA requis ; une execution sous un autre moteur ne vaut pas preuve.'
     }
     Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
-    foreach($file in @($script:AuditFiles+@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Search.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Directory.Model.ps1','Domenia-Workstation.Model.ps1','Domenia-Safety.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Engine.Worker.ps1','Domenia-Access.Model.ps1'))){
+    foreach($file in @($script:AuditFiles+@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Search.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Directory.Model.ps1','Domenia-Workstation.Model.ps1','Domenia-Safety.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Engine.Worker.ps1','Domenia-Access.Model.ps1','Domenia-Membership.Worker.ps1','Domenia-Assist.Model.ps1'))){
         [void](Read-SourceAst (Join-Path $modules $file))
         . (Join-Path $modules $file)
     }
@@ -503,6 +503,10 @@ if($infrastructure){
         Expect (@($slow|Where-Object{$_.State -match '^Lancée'}).Count -eq 0) 'Etat d un autre sujet repris'
         $script:Ctrl.DgAssistanceSteps.SelectedItem=@($slow|Where-Object{$_.Id -eq 'deep'})[0];Invoke-DomeniaAssistanceStep
         Expect (($script:Calls -join ',') -eq 'route:WsComputer/ComputerTabs/TabInventory,inventory:True') ($script:Calls -join ',')
+        # X04: the sessions moved into Assistance poste > Intervenir; the former tab name stays a known route (UX-21).
+        $script:Calls.Clear()
+        Expect (Open-DomeniaAssistanceRoute (@($slow|Where-Object{$_.Id -eq 'sessions'})[0].Step)) 'Vue des sessions refusee'
+        Expect (($script:Calls -join ',') -eq 'route:WsComputer/ComputerTabs/TabSessions') ('Route des sessions perdue : '+($script:Calls -join ','))
         $forged=[pscustomobject]@{Id='x';Title='X';Step=[pscustomobject]@{Id='x';Subject='Machine';Action='Remove-Item';Arguments=@{};Workspace='WsComputer'};CanRun=$true;CanOpen=$true}
         $script:Ctrl.DgAssistanceSteps.SelectedItem=$forged;$message=''
         try{Invoke-DomeniaAssistanceStep}catch{$message=$_.Exception.Message}

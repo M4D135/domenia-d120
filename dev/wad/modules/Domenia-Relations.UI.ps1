@@ -844,7 +844,7 @@ function Save-DomeniaRelationConfirmations {
     if($stored){
         if(-not (Save-UserMachineLinks)){
             $script:UserMachineLinks=$before;$r.Observations.Clear();foreach($o in $beforeObservations){$r.Observations.Add($o)};Rebuild-UserMachineLinkIndex
-            Set-Status 'Consoles observées, mais associations non enregistrées. Voir le stockage dans Fiabilité.' 'WARN';return
+            [void](Show-DomeniaRouteNotice -Kind Warning -Text 'Consoles observées, mais associations non enregistrées dans la base locale.' -RouteText 'Voir le stockage' -Route 'StorageResume' -Key 'links-not-saved');return
         }
         Write-AppLog ($stored.ToString()+' association(s) de console confirmée(s) en mémoire ; sauvegarde demandée en arrière-plan.') 'INFO'
     }
@@ -1430,6 +1430,8 @@ function Update-DomeniaLinkImportUi {
         }
         if([int]$p.Ready -ge 64){$text+=' 64 associations au plus par import : importez à nouveau le même fichier pour les suivantes.'}
         $text+=' Les lignes importées portent la source « Import CSV » (Importé), quelle que soit la colonne Source du fichier ; aucun poste déjà associé nʼest remplacé.'
+        # FI-13: the saved import is preceded by a verified backup of the local base.
+        $text+=' '+(Get-DomeniaGestureBackupNotice (Get-DomeniaGestureBackupState))
         [void](Set-DomeniaControlText 'LblLinkImportSummary' $text)
         [void](Set-DomeniaItemsSource 'DgLinkImportPreview' @($p.Rows))
         $apply=Get-DomeniaControl 'BtnLinkImportApply'
@@ -1468,7 +1470,8 @@ function Show-DomeniaLinkImportPreview {
     Set-Status ('Aperçu de lʼimport : '+$plan.Total+' enregistrement(s) lus. Vérification dans lʼindex local, puis « Importer » ou « Annuler ».')
 }
 function Start-DomeniaLinkImportIndexCheck {
-    # CO-08: exact names of the file, looked up in the local index (read only, short busy timeout, never the network).
+    # CO-08: exact names of the file, looked up in the local index (read only, never the network). FI-12: the SQLite lock
+    # wait is the one of the worker context (LocalStore.DatabaseBusyTimeoutMs): this preview is not retried by itself.
     param($Plan)
     if($null -eq $Plan){return}
     $users=[Collections.Generic.List[string]]::new();$computers=[Collections.Generic.List[string]]::new()
@@ -1483,7 +1486,7 @@ function Start-DomeniaLinkImportIndexCheck {
     # No row names both an account and a workstation: nothing to look up, nothing can be imported.
     if(-not $users.Count){Set-DomeniaLinkImportPlan (New-DomeniaLinkImportPlan -Items @($Plan.Items) -FileName ([string]$Plan.FileName) -Index ([pscustomobject]@{State='Verified';Detail='';Users=@{};Computers=@{}}) -Id ([string]$Plan.Id) -Total ([int]$Plan.Total));return}
     try{
-        $payload=[pscustomobject]@{Action='ResolveNames';Path=(Get-DomeniaLocalDatabasePathForRead);BusyTimeoutMs=250;Users=$users.ToArray();Computers=$computers.ToArray()}
+        $payload=[pscustomobject]@{Action='ResolveNames';Path=(Get-DomeniaLocalDatabasePathForRead);Users=$users.ToArray();Computers=$computers.ToArray()}
         [void](Start-UiTask -Name 'Import CSV : vérification dans lʼindex local' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload $payload -CallbackState $state -ReplaceKey 'link-import-index' -TimeoutSeconds 30 -SuccessHandler 'Complete-DomeniaLinkImportIndexCheck' -ErrorHandler 'Fail-DomeniaLinkImportIndexCheck' -TaskClass 'Explicit')
     }catch{Fail-DomeniaLinkImportIndexCheck -Message $_.Exception.Message -State $state}
 }
@@ -1539,9 +1542,14 @@ function Cancel-DomeniaLinkImportPreview {
 }
 function Confirm-DomeniaLinkImport {
     # CO-08: the rows to import join the store through Add-DomeniaRelation (one journal line each), in one save.
+    # FI-13: once the checks pass, a verified backup of the base (StorageBackup worker) comes first; the save runs from
+    # its success callback (-BackupDone), which checks the preview again. Only the preview confirmed by the click
+    # (-PlanId) is saved: another file previewed during the backup waits for its own « Importer ».
+    param([switch]$BackupDone,[string]$PlanId='')
     Initialize-DomeniaRelationsState
     $r=$script:Relations;$p=$r.ImportPlan
     if($null -eq $p){Update-DomeniaLinkImportUi;return}
+    if($BackupDone -and ((-not $PlanId) -or ([string]$p.Id -cne $PlanId))){Set-Status 'Lʼaperçu a changé pendant la sauvegarde : rien nʼest importé. Vérifiez lʼaperçu affiché puis cliquez « Importer ».' 'WARN';return}
     if(Test-DomeniaAccessBusyWrite){return}
     if($p.Epoch -ne [long]$script:SessionEpoch -or [string]$p.BaseDn -ine [string]$script:Conn.BaseDn){$r.ImportPlan=$null;Update-DomeniaLinkImportUi;Set-Status 'Session ou domaine modifié depuis lʼaperçu : import abandonné, rien nʼest enregistré.' 'WARN';return}
     if([string]$p.IndexState -eq 'Pending'){Set-Status 'Vérification dans lʼindex local encore en cours : attendez la fin de lʼaperçu.' 'INFO';return}
@@ -1549,6 +1557,12 @@ function Confirm-DomeniaLinkImport {
     $rows=@(@($p.Rows)|Where-Object{$_.Import -and $null -ne $_.Relation -and -not @(Get-LinksForComputer ([string]$_.Relation.Computer)|Where-Object{$null -ne $_}).Count})
     $why=Get-DomeniaRelationSaveRefusal -Changes $rows.Count
     if($why){Set-Status ('Import non enregistré : '+$why+'. Aucune association ajoutée ; lʼaperçu reste ouvert.') 'WARN';return}
+    if(-not $BackupDone){
+        # Closures capture the functions they call: a closure does not see the functions of the module scope.
+        $confirm=${function:Confirm-DomeniaLinkImport};$confirmedPlan=[string]$p.Id
+        [void](Invoke-DomeniaGestureBackup -Gesture 'LinkImport' -Then ({& $confirm -BackupDone -PlanId $confirmedPlan}.GetNewClosure()))
+        return
+    }
     $previous=@($script:UserMachineLinks);$previousObservations=$r.Observations.ToArray()
     $added=[Collections.Generic.List[object]]::new();$stored=$false
     foreach($row in $rows){
@@ -1655,7 +1669,7 @@ function Request-DomeniaOrphanRemoval {
     $why=Get-DomeniaRelationSaveRefusal -Changes $selected.Count
     if($why){Set-Status ('Retrait impossible pour lʼinstant : '+$why+'. Décochez des lignes ou réessayez ; rien nʼest retiré.') 'INFO';return}
     $r.OrphanConfirm=$true
-    [void](Set-DomeniaControlText 'LblLinkOrphanConfirm' ('Retirer '+$selected.Count+' association(s) du stockage local ? Chaque retrait est journalisé et restaurable avec « Restaurer » ; aucun objet Active Directory nʼest modifié.'))
+    [void](Set-DomeniaControlText 'LblLinkOrphanConfirm' ('Retirer '+$selected.Count+' association(s) du stockage local ? Chaque retrait est journalisé et restaurable avec « Restaurer » ; aucun objet Active Directory nʼest modifié. '+(Get-DomeniaGestureBackupNotice (Get-DomeniaGestureBackupState))))
     Update-DomeniaOrphanUi
 }
 function Cancel-DomeniaOrphanRemoval {
@@ -1666,13 +1680,27 @@ function Cancel-DomeniaOrphanRemoval {
 }
 function Complete-DomeniaOrphanRemoval {
     # UX-40: removal through Remove-DomeniaRelations: journaled with its reason, restorable one by one.
+    # FI-13: a verified backup of the base comes first; the removal runs from its success callback (-BackupDone), and
+    # only while the confirmation is still open (« Annuler » during the backup removes nothing). Exactly the rows checked
+    # at the click (-Keys) are removed: a box changed during the backup changes nothing.
+    param([switch]$BackupDone,[string[]]$Keys=@())
     Initialize-DomeniaRelationsState
     $r=$script:Relations
     if(-not $r.OrphanConfirm){Update-DomeniaOrphanUi;return}
     if(Test-DomeniaAccessBusyWrite){return}
+    if(-not $BackupDone){
+        $chosen=@(@($r.Orphans)|Where-Object{[bool]$_.Selected}|ForEach-Object{[string]$_.Relation.UserLogin+'|'+[string]$_.Relation.Computer+'|'+[string]$_.Relation.When})
+        if(-not $chosen.Count){Set-Status 'Cochez au moins une association orpheline à retirer.' 'INFO';return}
+        # Closures capture the functions they call: a closure does not see the functions of the module scope.
+        $complete=${function:Complete-DomeniaOrphanRemoval}
+        [void](Invoke-DomeniaGestureBackup -Gesture 'LinkPrune' -Then ({& $complete -BackupDone -Keys $chosen}.GetNewClosure()))
+        return
+    }
     $r.OrphanConfirm=$false
+    $confirmed=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach($key in @($Keys)){if([string]$key){[void]$confirmed.Add([string]$key)}}
     $targets=[Collections.Generic.List[object]]::new();$notes=[Collections.Generic.List[string]]::new();$kept=0
-    foreach($row in @(@($r.Orphans)|Where-Object{[bool]$_.Selected})){
+    foreach($row in @(@($r.Orphans)|Where-Object{$confirmed.Contains(([string]$_.Relation.UserLogin+'|'+[string]$_.Relation.Computer+'|'+[string]$_.Relation.When))})){
         $found=Find-DomeniaRelationInstance $row.Relation
         # A source declared or imported after the check is never removed.
         if($null -eq $found -or (Test-DomeniaProtectedAssociationSource ([string]$found.Item.Source))){$kept++;continue}
@@ -1680,7 +1708,7 @@ function Complete-DomeniaOrphanRemoval {
     }
     $n=0;if($targets.Count){$n=Remove-DomeniaRelations -Relations $targets.ToArray() -Declarant ([string]$script:Conn.BindUser) -Notes $notes.ToArray()}
     if($n -lt 0){Update-DomeniaOrphanUi;Set-Status (Get-DomeniaRelationRefusalText 'Retrait non enregistré' 'Associations conservées ; la liste reste ouverte.') 'WARN';return}
-    $r.Orphans=@(@($r.Orphans)|Where-Object{-not [bool]$_.Selected});Select-DomeniaOrphanBatch
+    $r.Orphans=@(@($r.Orphans)|Where-Object{-not $confirmed.Contains(([string]$_.Relation.UserLogin+'|'+[string]$_.Relation.Computer+'|'+[string]$_.Relation.When))});Select-DomeniaOrphanBatch
     $message=[string]$n+' association(s) orpheline(s) retirée(s) du stockage local. Chaque retrait est journalisé et restaurable ; Active Directory nʼest pas modifié.'
     if($kept){$message+=' '+$kept+' conservée(s) : déjà retirée(s), ou devenue(s) déclarée(s) ou importée(s).'}
     if(@($r.Orphans).Count){$message+=' '+@($r.Orphans).Count+' restante(s) dans la liste, les suivantes sont cochées.'}
