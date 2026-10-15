@@ -169,7 +169,7 @@ while($frontier.Count -gt 0){
         $chunk=$frontier.GetRange($i,[Math]::Min(40,$frontier.Count-$i))
         $local=[Collections.Generic.List[string]]::new()
         foreach($group in $chunk){
-            if(($group -ieq $base) -or $group.EndsWith(','+$base,[StringComparison]::OrdinalIgnoreCase)){$local.Add($group)}
+            if(($group -ieq $base) -or ($group.EndsWith(','+$base,[StringComparison]::OrdinalIgnoreCase))){$local.Add($group)}
             else{$unread.Add([pscustomobject]@{Dn=$group;Reason='Autre domaine ou partition : non lu depuis ce contrôleur'})}
         }
         if($local.Count -eq 0){continue}
@@ -284,7 +284,7 @@ if($action -eq 'Token'){
         $entry.psbase.RefreshCache([string[]]@('tokenGroups','sAMAccountName','name'))
         $props=$entry.psbase.get_Properties()
         if($props.Contains('sAMAccountName')){$name=[string]$props.get_Item('sAMAccountName').Value}
-        if(-not $name -and $props.Contains('name')){$name=[string]$props.get_Item('name').Value}
+        if((-not $name) -and ($props.Contains('name'))){$name=[string]$props.get_Item('name').Value}
         if($props.Contains('tokenGroups')){foreach($value in $props.get_Item('tokenGroups')){$text=Convert-WSid $value;if($text){$groups.Add($text)}}}
         if($groups.Count -eq 0){$state='Unread';$message='tokenGroups non renvoyé : droit de lecture absent pour ce compte.'}
     }catch{

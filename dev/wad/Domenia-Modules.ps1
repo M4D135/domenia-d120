@@ -1311,6 +1311,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaAdAuditCheckedTarget',
             'New-DomeniaAdAuditState',
             'Test-DomeniaAdAuditCallback',
+            'Invoke-DomeniaAdAuditStart',
             'Get-DomeniaAdAuditReader',
             'Start-DomeniaAdAuditPolicyRead',
             'Complete-DomeniaAdAuditPolicyRead',

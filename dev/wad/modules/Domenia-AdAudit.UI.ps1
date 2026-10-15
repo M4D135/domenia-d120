@@ -179,6 +179,16 @@ function Test-DomeniaAdAuditCallback {
     return (Test-DomeniaAdAuditStateCurrent -State $State -Target $script:AdAuditTarget -Epoch ([long]$script:SessionEpoch))
 }
 
+function Invoke-DomeniaAdAuditStart {
+    # A read that cannot even start (engine closing, operation not registered) leaves no "Lecture…" text behind.
+    param([string]$Label,[scriptblock]$Start)
+    try{[void](& $Start)}
+    catch{
+        if($Label){[void](Set-DomeniaControlText $Label ('Lecture non lancée : '+[string]$_.Exception.Message))}
+        throw
+    }
+}
+
 function Get-DomeniaAdAuditReader {
     return [string](Get-DomeniaMember $script:Conn 'User' '')
 }
@@ -188,7 +198,7 @@ function Start-DomeniaAdAuditPolicyRead {
     $target=Get-DomeniaAdAuditCheckedTarget 'Policy' 'LblAdAuditPolicy'
     if($null -eq $target){return}
     [void](Set-DomeniaControlText 'LblAdAuditPolicy' 'Lecture de la stratégie applicable à ce compte…')
-    [void](Start-UiTask -Name ('Audit AD : stratégie de mot de passe de '+[string]$target.Name) -OperationId 'PasswordPolicyRead' -Code (Get-DomeniaPasswordPolicyReadWorkerCode) -Payload ([pscustomobject]@{Dn=[string]$target.Dn}) -CallbackState (New-DomeniaAdAuditState $target 'Policy') -ReplaceKey 'adaudit-policy' -DisableControls @('BtnAdAuditPolicy') -TimeoutSeconds 45 -SuccessHandler 'Complete-DomeniaAdAuditPolicyRead' -ErrorHandler 'Fail-DomeniaAdAuditPolicyRead' -TaskClass 'Explicit')
+    Invoke-DomeniaAdAuditStart 'LblAdAuditPolicy' {Start-UiTask -Name ('Audit AD : stratégie de mot de passe de '+[string]$target.Name) -OperationId 'PasswordPolicyRead' -Code (Get-DomeniaPasswordPolicyReadWorkerCode) -Payload ([pscustomobject]@{Dn=[string]$target.Dn}) -CallbackState (New-DomeniaAdAuditState $target 'Policy') -ReplaceKey 'adaudit-policy' -DisableControls @('BtnAdAuditPolicy') -TimeoutSeconds 45 -SuccessHandler 'Complete-DomeniaAdAuditPolicyRead' -ErrorHandler 'Fail-DomeniaAdAuditPolicyRead' -TaskClass 'Explicit'}
 }
 
 function Complete-DomeniaAdAuditPolicyRead {
@@ -215,7 +225,7 @@ function Start-DomeniaAdAuditGroupRead {
     if($null -eq $target){return}
     [void](Set-DomeniaControlText 'LblAdAuditGroups' 'Lecture des appartenances imbriquées (2 000 groupes, 16 niveaux, 10 secondes au plus)…')
     $payload=[pscustomobject]@{Dn=[string]$target.Dn;Mode='Expand';MaxNodes=2000;MaxDepth=16;Seconds=10;TargetDn=''}
-    [void](Start-UiTask -Name ('Audit AD : groupes de '+[string]$target.Name) -OperationId 'GroupPathRead' -Code (Get-DomeniaGroupPathReadWorkerCode) -Payload $payload -CallbackState (New-DomeniaAdAuditState $target 'Groups') -ReplaceKey 'adaudit-groups' -DisableControls @('BtnAdAuditGroups') -TimeoutSeconds 60 -SuccessHandler 'Complete-DomeniaAdAuditGroupRead' -ErrorHandler 'Fail-DomeniaAdAuditGroupRead' -TaskClass 'Explicit')
+    Invoke-DomeniaAdAuditStart 'LblAdAuditGroups' {Start-UiTask -Name ('Audit AD : groupes de '+[string]$target.Name) -OperationId 'GroupPathRead' -Code (Get-DomeniaGroupPathReadWorkerCode) -Payload $payload -CallbackState (New-DomeniaAdAuditState $target 'Groups') -ReplaceKey 'adaudit-groups' -DisableControls @('BtnAdAuditGroups') -TimeoutSeconds 60 -SuccessHandler 'Complete-DomeniaAdAuditGroupRead' -ErrorHandler 'Fail-DomeniaAdAuditGroupRead' -TaskClass 'Explicit'}
 }
 
 function Complete-DomeniaAdAuditGroupRead {
@@ -257,7 +267,7 @@ function Start-DomeniaAdAuditGroupConfirm {
     if($null -eq $choice){[void](Set-DomeniaControlText 'LblAdAuditGroupPath' 'Choisissez dʼabord un groupe dans la liste.');return}
     [void](Set-DomeniaControlText 'LblAdAuditGroupPath' ('Question posée au contrôleur pour '+[string]$choice.Groupe+'…'))
     $payload=[pscustomobject]@{Dn=[string]$target.Dn;Mode='Confirm';MaxNodes=2000;MaxDepth=16;Seconds=10;TargetDn=[string]$choice.Dn}
-    [void](Start-UiTask -Name ('Audit AD : appartenance de '+[string]$target.Name) -OperationId 'GroupPathRead' -Code (Get-DomeniaGroupPathReadWorkerCode) -Payload $payload -CallbackState (New-DomeniaAdAuditState $target 'GroupConfirm' ([string]$choice.Dn)) -ReplaceKey 'adaudit-group-confirm' -DisableControls @('BtnAdAuditGroupConfirm') -TimeoutSeconds 45 -SuccessHandler 'Complete-DomeniaAdAuditGroupConfirm' -ErrorHandler 'Fail-DomeniaAdAuditGroupConfirm' -TaskClass 'Explicit')
+    Invoke-DomeniaAdAuditStart 'LblAdAuditGroupPath' {Start-UiTask -Name ('Audit AD : appartenance de '+[string]$target.Name) -OperationId 'GroupPathRead' -Code (Get-DomeniaGroupPathReadWorkerCode) -Payload $payload -CallbackState (New-DomeniaAdAuditState $target 'GroupConfirm' ([string]$choice.Dn)) -ReplaceKey 'adaudit-group-confirm' -DisableControls @('BtnAdAuditGroupConfirm') -TimeoutSeconds 45 -SuccessHandler 'Complete-DomeniaAdAuditGroupConfirm' -ErrorHandler 'Fail-DomeniaAdAuditGroupConfirm' -TaskClass 'Explicit'}
 }
 
 function Complete-DomeniaAdAuditGroupConfirm {
@@ -282,7 +292,7 @@ function Start-DomeniaAdAuditAclRead {
     $target=Get-DomeniaAdAuditCheckedTarget 'Acl' 'LblAdAuditAcl'
     if($null -eq $target){return}
     [void](Set-DomeniaControlText 'LblAdAuditAcl' 'Lecture de la liste de contrôle dʼaccès de lʼobjet…')
-    [void](Start-UiTask -Name ('Audit AD : délégations de '+[string]$target.Name) -OperationId 'DelegationRead' -Code (Get-DomeniaDelegationReadWorkerCode) -Payload ([pscustomobject]@{Action='Acl';Dn=[string]$target.Dn;MaxAces=1000}) -CallbackState (New-DomeniaAdAuditState $target 'Acl') -ReplaceKey 'adaudit-acl' -DisableControls @('BtnAdAuditAcl') -TimeoutSeconds 60 -SuccessHandler 'Complete-DomeniaAdAuditAclRead' -ErrorHandler 'Fail-DomeniaAdAuditAclRead' -TaskClass 'Explicit')
+    Invoke-DomeniaAdAuditStart 'LblAdAuditAcl' {Start-UiTask -Name ('Audit AD : délégations de '+[string]$target.Name) -OperationId 'DelegationRead' -Code (Get-DomeniaDelegationReadWorkerCode) -Payload ([pscustomobject]@{Action='Acl';Dn=[string]$target.Dn;MaxAces=1000}) -CallbackState (New-DomeniaAdAuditState $target 'Acl') -ReplaceKey 'adaudit-acl' -DisableControls @('BtnAdAuditAcl') -TimeoutSeconds 60 -SuccessHandler 'Complete-DomeniaAdAuditAclRead' -ErrorHandler 'Fail-DomeniaAdAuditAclRead' -TaskClass 'Explicit'}
 }
 
 function Complete-DomeniaAdAuditAclRead {
@@ -342,7 +352,7 @@ function Start-DomeniaAdAuditTokenRead {
         return
     }
     [void](Set-DomeniaControlText 'LblAdAuditAclEstimate' ('Lecture des groupes de '+[string]$row.Beneficiaire+'…'))
-    [void](Start-UiTask -Name ('Audit AD : groupes de '+[string]$row.Beneficiaire) -OperationId 'DelegationRead' -Code (Get-DomeniaDelegationReadWorkerCode) -Payload ([pscustomobject]@{Action='Token';Sid=[string]$row.Sid}) -CallbackState (New-DomeniaAdAuditState $target 'Token' ([string]$row.Sid)) -ReplaceKey 'adaudit-token' -DisableControls @('BtnAdAuditAclToken') -TimeoutSeconds 30 -SuccessHandler 'Complete-DomeniaAdAuditTokenRead' -ErrorHandler 'Fail-DomeniaAdAuditTokenRead' -TaskClass 'Explicit')
+    Invoke-DomeniaAdAuditStart 'LblAdAuditAclEstimate' {Start-UiTask -Name ('Audit AD : groupes de '+[string]$row.Beneficiaire) -OperationId 'DelegationRead' -Code (Get-DomeniaDelegationReadWorkerCode) -Payload ([pscustomobject]@{Action='Token';Sid=[string]$row.Sid}) -CallbackState (New-DomeniaAdAuditState $target 'Token' ([string]$row.Sid)) -ReplaceKey 'adaudit-token' -DisableControls @('BtnAdAuditAclToken') -TimeoutSeconds 30 -SuccessHandler 'Complete-DomeniaAdAuditTokenRead' -ErrorHandler 'Fail-DomeniaAdAuditTokenRead' -TaskClass 'Explicit'}
 }
 
 function Complete-DomeniaAdAuditTokenRead {
@@ -368,7 +378,7 @@ function Start-DomeniaAdAuditGpoLinks {
     $chain=Get-DomeniaGpoContainerChain -Dn ([string]$target.Dn) -DomainDn ([string]$script:Conn.BaseDn) -Type ([string]$target.Type)
     if(@($chain).Count -eq 0){[void](Set-DomeniaControlText 'LblAdAuditGpo' 'Objet hors du domaine connecté : aucun lien à lire.');return}
     [void](Set-DomeniaControlText 'LblAdAuditGpo' ('Lecture des liens sur '+[string]@($chain).Count+' conteneur(s)…'))
-    [void](Start-UiTask -Name ('Audit AD : liens GPO de '+[string]$target.Name) -OperationId 'GpoLinksRead' -Code (Get-DomeniaGpoLinksReadWorkerCode) -Payload ([pscustomobject]@{Containers=@($chain)}) -CallbackState (New-DomeniaAdAuditState $target 'GpoLinks') -ReplaceKey 'adaudit-gpo-links' -DisableControls @('BtnAdAuditGpoLinks') -TimeoutSeconds 45 -SuccessHandler 'Complete-DomeniaAdAuditGpoLinks' -ErrorHandler 'Fail-DomeniaAdAuditGpoLinks' -TaskClass 'Explicit')
+    Invoke-DomeniaAdAuditStart 'LblAdAuditGpo' {Start-UiTask -Name ('Audit AD : liens GPO de '+[string]$target.Name) -OperationId 'GpoLinksRead' -Code (Get-DomeniaGpoLinksReadWorkerCode) -Payload ([pscustomobject]@{Containers=@($chain)}) -CallbackState (New-DomeniaAdAuditState $target 'GpoLinks') -ReplaceKey 'adaudit-gpo-links' -DisableControls @('BtnAdAuditGpoLinks') -TimeoutSeconds 45 -SuccessHandler 'Complete-DomeniaAdAuditGpoLinks' -ErrorHandler 'Fail-DomeniaAdAuditGpoLinks' -TaskClass 'Explicit'}
 }
 
 function Complete-DomeniaAdAuditGpoLinks {
@@ -393,7 +403,7 @@ function Start-DomeniaAdAuditGpoApplied {
     $computer=[string]$target.DnsHostName
     if(-not $computer){$computer=[string]$target.Name}
     [void](Set-DomeniaControlText 'LblAdAuditGpo' ('Lecture du résultat appliqué sur '+$computer+' (RSoP par CIM)…'))
-    [void](Start-UiTask -Name ('Audit AD : résultat GPO de '+$computer) -OperationId 'GpoAppliedRead' -Code (Get-DomeniaGpoAppliedReadWorkerCode) -Payload ([pscustomobject]@{Computer=$computer}) -CallbackState (New-DomeniaAdAuditState $target 'GpoApplied' $computer) -ReplaceKey 'adaudit-gpo-applied' -DisableControls @('BtnAdAuditGpoApplied') -TimeoutSeconds 90 -SuccessHandler 'Complete-DomeniaAdAuditGpoApplied' -ErrorHandler 'Fail-DomeniaAdAuditGpoApplied' -TaskClass 'Explicit')
+    Invoke-DomeniaAdAuditStart 'LblAdAuditGpo' {Start-UiTask -Name ('Audit AD : résultat GPO de '+$computer) -OperationId 'GpoAppliedRead' -Code (Get-DomeniaGpoAppliedReadWorkerCode) -Payload ([pscustomobject]@{Computer=$computer}) -CallbackState (New-DomeniaAdAuditState $target 'GpoApplied' $computer) -ReplaceKey 'adaudit-gpo-applied' -DisableControls @('BtnAdAuditGpoApplied') -TimeoutSeconds 90 -SuccessHandler 'Complete-DomeniaAdAuditGpoApplied' -ErrorHandler 'Fail-DomeniaAdAuditGpoApplied' -TaskClass 'Explicit'}
 }
 
 function Complete-DomeniaAdAuditGpoApplied {
@@ -434,7 +444,7 @@ function Start-DomeniaAdAuditMachineIdentity {
     $target=Get-DomeniaAdAuditCheckedTarget 'MachineIdentity' 'LblAdAuditMachineIdentity'
     if($null -eq $target){return}
     [void](Set-DomeniaControlText 'LblAdAuditMachineIdentity' 'Résolution DNS et lecture de lʼidentité renvoyée par le poste…')
-    [void](Start-UiTask -Name ('Audit AD : identité de '+[string]$target.Name) -OperationId 'MachineIdentityRead' -Code (Get-DomeniaMachineIdentityReadWorkerCode) -Payload ([pscustomobject]@{Name=[string]$target.Name;DnsHostName=[string]$target.DnsHostName}) -CallbackState (New-DomeniaAdAuditState $target 'MachineIdentity') -ReplaceKey 'adaudit-machine' -DisableControls @('BtnAdAuditMachineIdentity') -TimeoutSeconds 60 -SuccessHandler 'Complete-DomeniaAdAuditMachineIdentity' -ErrorHandler 'Fail-DomeniaAdAuditMachineIdentity' -TaskClass 'Explicit')
+    Invoke-DomeniaAdAuditStart 'LblAdAuditMachineIdentity' {Start-UiTask -Name ('Audit AD : identité de '+[string]$target.Name) -OperationId 'MachineIdentityRead' -Code (Get-DomeniaMachineIdentityReadWorkerCode) -Payload ([pscustomobject]@{Name=[string]$target.Name;DnsHostName=[string]$target.DnsHostName}) -CallbackState (New-DomeniaAdAuditState $target 'MachineIdentity') -ReplaceKey 'adaudit-machine' -DisableControls @('BtnAdAuditMachineIdentity') -TimeoutSeconds 60 -SuccessHandler 'Complete-DomeniaAdAuditMachineIdentity' -ErrorHandler 'Fail-DomeniaAdAuditMachineIdentity' -TaskClass 'Explicit'}
 }
 
 function Complete-DomeniaAdAuditMachineIdentity {
@@ -508,7 +518,7 @@ function Start-DomeniaAdAuditHistoryRead {
     if([string]$target.Type -eq 'Utilisateur'){$kind='User';$key=[string]$target.Sam}
     if(-not $key){[void](Set-DomeniaControlText 'LblAdAuditHistory' 'Identifiant du sujet non lu : historique non recherché.');return}
     [void](Set-DomeniaControlText 'LblAdAuditHistory' 'Lecture de lʼhistorique dans la base locale…')
-    [void](Start-UiTask -Name ('Audit AD : historique de '+[string]$target.Name) -OperationId 'RelationHistoryRead' -Code (Get-DomeniaRelationHistoryReadWorkerCode) -Payload ([pscustomobject]@{Kind=$kind;Key=$key;Limit=200;Path=$path;BusyTimeoutMs=250}) -CallbackState (New-DomeniaAdAuditState $target 'History' $key) -ReplaceKey 'adaudit-history' -DisableControls @('BtnAdAuditHistory') -TimeoutSeconds 30 -SuccessHandler 'Complete-DomeniaAdAuditHistoryRead' -ErrorHandler 'Fail-DomeniaAdAuditHistoryRead' -TaskClass 'Explicit')
+    Invoke-DomeniaAdAuditStart 'LblAdAuditHistory' {Start-UiTask -Name ('Audit AD : historique de '+[string]$target.Name) -OperationId 'RelationHistoryRead' -Code (Get-DomeniaRelationHistoryReadWorkerCode) -Payload ([pscustomobject]@{Kind=$kind;Key=$key;Limit=200;Path=$path;BusyTimeoutMs=250}) -CallbackState (New-DomeniaAdAuditState $target 'History' $key) -ReplaceKey 'adaudit-history' -DisableControls @('BtnAdAuditHistory') -TimeoutSeconds 30 -SuccessHandler 'Complete-DomeniaAdAuditHistoryRead' -ErrorHandler 'Fail-DomeniaAdAuditHistoryRead' -TaskClass 'Explicit'}
 }
 
 function Complete-DomeniaAdAuditHistoryRead {
@@ -552,7 +562,7 @@ function Start-DomeniaAdAuditDcList {
     Sync-DomeniaAdAuditTarget
     if(-not [string]$script:Conn.BaseDn){[void](Set-DomeniaControlText 'LblAdAuditDc' 'Connectez-vous dʼabord à un domaine.');return}
     [void](Set-DomeniaControlText 'LblAdAuditDc' 'Lecture des comptes des contrôleurs…')
-    [void](Start-UiTask -Name 'Audit AD : contrôleurs du domaine' -OperationId 'AdHealthRead' -Code (Get-DomeniaAdHealthReadWorkerCode) -Payload ([pscustomobject]@{Action='List'}) -CallbackState (New-DomeniaAdAuditRequestState 'DcList') -ReplaceKey 'adaudit-dc-list' -DisableControls @('BtnAdAuditDcList') -TimeoutSeconds 45 -SuccessHandler 'Complete-DomeniaAdAuditDcList' -ErrorHandler 'Fail-DomeniaAdAuditDcList' -TaskClass 'Explicit')
+    Invoke-DomeniaAdAuditStart 'LblAdAuditDc' {Start-UiTask -Name 'Audit AD : contrôleurs du domaine' -OperationId 'AdHealthRead' -Code (Get-DomeniaAdHealthReadWorkerCode) -Payload ([pscustomobject]@{Action='List'}) -CallbackState (New-DomeniaAdAuditRequestState 'DcList') -ReplaceKey 'adaudit-dc-list' -DisableControls @('BtnAdAuditDcList') -TimeoutSeconds 45 -SuccessHandler 'Complete-DomeniaAdAuditDcList' -ErrorHandler 'Fail-DomeniaAdAuditDcList' -TaskClass 'Explicit'}
 }
 
 function Complete-DomeniaAdAuditDcList {
@@ -596,7 +606,7 @@ function Start-DomeniaAdAuditDcProbe {
     if($dcs.Count -gt 10){[void](Set-DomeniaControlText 'LblAdAuditDc' ('Diagnostic borné à 10 contrôleurs : '+[string]$dcs.Count+' sont choisis.'));return}
     [void](Set-DomeniaControlText 'LblAdAuditDc' ('Diagnostic de '+[string]$dcs.Count+' contrôleur(s) : DNS, ports, heure et réplication…'))
     $payload=[pscustomobject]@{Action='Probe';Dcs=$dcs;DomainDns=[string](Get-DomeniaMember $script:Conn 'Domain' '');Pdc=[string]$script:AdAuditData.DcPdc}
-    [void](Start-UiTask -Name 'Audit AD : diagnostic des contrôleurs' -OperationId 'AdHealthRead' -Code (Get-DomeniaAdHealthReadWorkerCode) -Payload $payload -CallbackState (New-DomeniaAdAuditRequestState 'DcProbe') -ReplaceKey 'adaudit-dc-probe' -DisableControls @('BtnAdAuditDcProbe') -TimeoutSeconds 120 -SuccessHandler 'Complete-DomeniaAdAuditDcProbe' -ErrorHandler 'Fail-DomeniaAdAuditDcProbe' -TaskClass 'Explicit')
+    Invoke-DomeniaAdAuditStart 'LblAdAuditDc' {Start-UiTask -Name 'Audit AD : diagnostic des contrôleurs' -OperationId 'AdHealthRead' -Code (Get-DomeniaAdHealthReadWorkerCode) -Payload $payload -CallbackState (New-DomeniaAdAuditRequestState 'DcProbe') -ReplaceKey 'adaudit-dc-probe' -DisableControls @('BtnAdAuditDcProbe') -TimeoutSeconds 120 -SuccessHandler 'Complete-DomeniaAdAuditDcProbe' -ErrorHandler 'Fail-DomeniaAdAuditDcProbe' -TaskClass 'Explicit'}
 }
 
 function Complete-DomeniaAdAuditDcProbe {
@@ -624,7 +634,7 @@ function Start-DomeniaAdAuditDcServices {
     if($dcs.Count -gt 10){[void](Set-DomeniaControlText 'LblAdAuditDc' ('Lecture bornée à 10 contrôleurs : '+[string]$dcs.Count+' sont choisis.'));return}
     if(-not (Confirm-Action ('Lire par CIM lʼétat des services de lʼannuaire sur '+[string]$dcs.Count+' contrôleur(s) ? Cette sonde demande des droits dʼadministration sur chaque contrôleur ; aucun service nʼest modifié.'))){return}
     [void](Set-DomeniaControlText 'LblAdAuditDc' ('Lecture des services de '+[string]$dcs.Count+' contrôleur(s)…'))
-    [void](Start-UiTask -Name 'Audit AD : services des contrôleurs' -OperationId 'DcServicesRead' -Code (Get-DomeniaDcServicesReadWorkerCode) -Payload ([pscustomobject]@{Dcs=$dcs}) -CallbackState (New-DomeniaAdAuditRequestState 'DcServices') -ReplaceKey 'adaudit-dc-services' -DisableControls @('BtnAdAuditDcServices') -TimeoutSeconds 120 -SuccessHandler 'Complete-DomeniaAdAuditDcServices' -ErrorHandler 'Fail-DomeniaAdAuditDcServices' -TaskClass 'Explicit')
+    Invoke-DomeniaAdAuditStart 'LblAdAuditDc' {Start-UiTask -Name 'Audit AD : services des contrôleurs' -OperationId 'DcServicesRead' -Code (Get-DomeniaDcServicesReadWorkerCode) -Payload ([pscustomobject]@{Dcs=$dcs}) -CallbackState (New-DomeniaAdAuditRequestState 'DcServices') -ReplaceKey 'adaudit-dc-services' -DisableControls @('BtnAdAuditDcServices') -TimeoutSeconds 120 -SuccessHandler 'Complete-DomeniaAdAuditDcServices' -ErrorHandler 'Fail-DomeniaAdAuditDcServices' -TaskClass 'Explicit'}
 }
 
 function Complete-DomeniaAdAuditDcServices {
@@ -667,7 +677,7 @@ function Start-DomeniaAdAuditScan {
     $payload=[pscustomobject]@{BaseDn=$ou;Subtree=$subtree;Limit=5000}
     $state=New-DomeniaAdAuditRequestState 'Scan'
     $state|Add-Member -NotePropertyName BaseDn -NotePropertyValue $ou
-    [void](Start-UiTask -Name 'Audit AD : identités de lʼOU' -OperationId 'AdConsistencyScan' -Code (Get-DomeniaAdConsistencyScanWorkerCode) -Payload $payload -CallbackState $state -ReplaceKey 'adaudit-scan' -DisableControls @('BtnAdAuditScan') -TimeoutSeconds 120 -SuccessHandler 'Complete-DomeniaAdAuditScan' -ErrorHandler 'Fail-DomeniaAdAuditScan' -TaskClass 'Explicit')
+    Invoke-DomeniaAdAuditStart 'LblAdAuditScan' {Start-UiTask -Name 'Audit AD : identités de lʼOU' -OperationId 'AdConsistencyScan' -Code (Get-DomeniaAdConsistencyScanWorkerCode) -Payload $payload -CallbackState $state -ReplaceKey 'adaudit-scan' -DisableControls @('BtnAdAuditScan') -TimeoutSeconds 120 -SuccessHandler 'Complete-DomeniaAdAuditScan' -ErrorHandler 'Fail-DomeniaAdAuditScan' -TaskClass 'Explicit'}
 }
 
 function Complete-DomeniaAdAuditScan {
@@ -683,7 +693,9 @@ function Complete-DomeniaAdAuditScan {
     $computers=@(@($read.Rows)|Where-Object{[string]$_.Type -eq 'Machine'}|ForEach-Object{[string]$_.Name}|Where-Object{$_}|Select-Object -First 1000)
     if(($users.Count -eq 0) -and ($computers.Count -eq 0)){return}
     $payload=[pscustomobject]@{Action='ResolveNames';Path=$path;BusyTimeoutMs=250;Users=$users;Computers=$computers}
-    [void](Start-UiTask -Name 'Audit AD : noms dans la base locale' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload $payload -CallbackState $State -ReplaceKey 'adaudit-scan-index' -TimeoutSeconds 30 -SuccessHandler 'Complete-DomeniaAdAuditScanIndex' -ErrorHandler 'Fail-DomeniaAdAuditScanIndex' -TaskClass 'Explicit')
+    # The AD findings are already shown: a local read that cannot start only leaves the recycled names unsearched.
+    try{[void](Start-UiTask -Name 'Audit AD : noms dans la base locale' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload $payload -CallbackState $State -ReplaceKey 'adaudit-scan-index' -TimeoutSeconds 30 -SuccessHandler 'Complete-DomeniaAdAuditScanIndex' -ErrorHandler 'Fail-DomeniaAdAuditScanIndex' -TaskClass 'Explicit')}
+    catch{Write-AppLog ('Audit AD : base locale non consultée : '+$_.Exception.Message) 'WARN'}
 }
 
 function Fail-DomeniaAdAuditScan {
