@@ -3838,7 +3838,7 @@
   {
     "Name": "BtnLinkImportApply",
     "Title": "Importer les lignes retenues",
-    "Text": "Ajoute les lignes « À importer » au stockage local, chacune journalisée, avec la source « Import CSV ».",
+    "Text": "Ajoute les lignes « À importer » au stockage local, chacune journalisée, avec la source imposée par le format choisi (Import CSV, Import GLPI ou Import osquery).",
     "Kind": "Button",
     "Source": "L04-relations"
   },

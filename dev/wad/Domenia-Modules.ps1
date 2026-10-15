@@ -107,6 +107,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Resolve-DomeniaDirectoryReachability',
             'Get-DomeniaCacheReadPolicy',
             'Get-DomeniaCacheCatalogRows',
+            'Get-DomeniaProtectedAssociationSources',
             'Test-DomeniaProtectedAssociationSource'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1'); File='Domenia-Search.Model.ps1'; DotSource=$true; Functions=@(
@@ -806,7 +807,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaAutomationContract',
             'Get-DomeniaAutomationLimits',
             'ConvertTo-DomeniaAutomationSqlText',
-            'ConvertTo-DomeniaAutomationLikeText',
+            'ConvertTo-DomeniaAutomationGlobText',
             'ConvertTo-DomeniaAutomationDn',
             'Test-DomeniaAutomationRequest',
             'Get-DomeniaAutomationPerimeterSql',
@@ -826,6 +827,7 @@ function Get-DomeniaRuntimeModulePlan {
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Automation.Model.ps1','Domenia-Automation.Worker.ps1','Domenia-Support.UI.ps1'); File='Domenia-Automation.UI.ps1'; DotSource=$true; Functions=@(
             'Set-DomeniaOfflineDossierStatus',
             'Get-DomeniaOfflineDossierSections',
+            'Test-DomeniaOfflineDossierRunning',
             'Start-DomeniaOfflineDossier',
             'Test-DomeniaOfflineDossierState',
             'Complete-DomeniaOfflineDossier',

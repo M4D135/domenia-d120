@@ -1547,7 +1547,7 @@ function Start-DomeniaLinkImportIndexCheck {
     if(-not $users.Count){Set-DomeniaLinkImportPlan (New-DomeniaLinkImportPlan -Items @($Plan.Items) -FileName ([string]$Plan.FileName) -Adapter ([string]$Plan.Adapter) -BatchId ([string]$Plan.BatchId) -ParseNote ([string]$Plan.ParseNote) -Index ([pscustomobject]@{State='Verified';Detail='';Users=@{};Computers=@{}}) -Id ([string]$Plan.Id) -Total ([int]$Plan.Total));return}
     try{
         $payload=[pscustomobject]@{Action='ResolveNames';Path=(Get-DomeniaLocalDatabasePathForRead);BusyTimeoutMs=250;Users=$users.ToArray();Computers=$computers.ToArray()}
-        [void](Start-UiTask -Name 'Import CSV : vérification dans lʼindex local' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload $payload -CallbackState $state -ReplaceKey 'link-import-index' -TimeoutSeconds 30 -SuccessHandler 'Complete-DomeniaLinkImportIndexCheck' -ErrorHandler 'Fail-DomeniaLinkImportIndexCheck' -TaskClass 'Explicit')
+        [void](Start-UiTask -Name ([string](Get-DomeniaMember $Plan 'Source' 'Import CSV')+' : vérification dans lʼindex local') -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload $payload -CallbackState $state -ReplaceKey 'link-import-index' -TimeoutSeconds 30 -SuccessHandler 'Complete-DomeniaLinkImportIndexCheck' -ErrorHandler 'Fail-DomeniaLinkImportIndexCheck' -TaskClass 'Explicit')
     }catch{Fail-DomeniaLinkImportIndexCheck -Message $_.Exception.Message -State $state}
 }
 function Test-DomeniaLinkImportIndexState {
@@ -1582,14 +1582,14 @@ function Complete-DomeniaLinkImportIndexCheck {
     }
     $plan=New-DomeniaLinkImportPlan -Items @($p.Items) -FileName ([string]$p.FileName) -Adapter ([string]$p.Adapter) -BatchId ([string]$p.BatchId) -ParseNote ([string]$p.ParseNote) -Index $index -Id ([string]$p.Id) -Total ([int]$p.Total)
     Set-DomeniaLinkImportPlan $plan
-    Write-AppLog ('Import CSV : '+[string]$plan.FileName+', '+$plan.Ready+' ligne(s) à importer, '+$plan.Ignored+' ignorée(s), '+$plan.Unknown+' inconnue(s) dans lʼindex local ('+[string]$plan.IndexState+'). Rien nʼest encore enregistré.') 'INFO'
+    Write-AppLog ([string](Get-DomeniaMember $plan 'Source' 'Import CSV')+' : '+[string]$plan.FileName+', '+$plan.Ready+' ligne(s) à importer, '+$plan.Ignored+' ignorée(s), '+$plan.Unknown+' inconnue(s) dans lʼindex local ('+[string]$plan.IndexState+'). Rien nʼest encore enregistré.') 'INFO'
 }
 function Fail-DomeniaLinkImportIndexCheck {
     param($Message,$State)
     if(-not (Test-DomeniaLinkImportIndexState $State)){return}
     $p=$script:Relations.ImportPlan
     $detail=([string]$Message).Trim();if(-not $detail){$detail='erreur inconnue'}
-    Write-AppLog ('Import CSV : index local non lu ('+$detail+') ; présence dans Active Directory non vérifiée.') 'WARN'
+    Write-AppLog ([string](Get-DomeniaMember $p 'Source' 'Import CSV')+' : index local non lu ('+$detail+') ; présence dans Active Directory non vérifiée.') 'WARN'
     $index=[pscustomobject]@{State='Unavailable';Detail=('index local non lu ('+$detail.TrimEnd('.')+')');Users=@{};Computers=@{}}
     Set-DomeniaLinkImportPlan (New-DomeniaLinkImportPlan -Items @($p.Items) -FileName ([string]$p.FileName) -Adapter ([string]$p.Adapter) -BatchId ([string]$p.BatchId) -ParseNote ([string]$p.ParseNote) -Index $index -Id ([string]$p.Id) -Total ([int]$p.Total))
 }

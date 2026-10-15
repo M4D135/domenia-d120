@@ -29,6 +29,10 @@ param(
     [string]$Build='',
     [switch]$PassThru
 )
+# The SQLite reader below is the core's own code, written for the core's mode (Domenia-Core.ps1 turns strict mode off):
+# a strict caller (a test suite, an automation script) must not make it read its lazily created variables as errors.
+# Scoped to this script: the caller keeps its own mode.
+Set-StrictMode -Off
 $ErrorActionPreference='Stop'
 $automationWad=[IO.Path]::GetFullPath($PSScriptRoot)
 $automationRoot=Split-Path -Parent $automationWad
@@ -45,7 +49,7 @@ function Stop-DomeniaAutomation {
 function Assert-DomeniaAutomationIntegrity {
     # The code read by this script must be the delivered one: same check as Domenia-Start.ps1 for these files.
     $manifestPath=Join-Path $automationWad 'package-manifest.json'
-    if(-not [IO.File]::Exists($manifestPath) -or ([IO.FileInfo]::new($manifestPath)).Length -gt 4MB){Stop-DomeniaAutomation 4 'Manifeste du paquet absent ou trop volumineux : interface refusée.' $Command}
+    if((-not [IO.File]::Exists($manifestPath)) -or (([IO.FileInfo]::new($manifestPath)).Length -gt 4MB)){Stop-DomeniaAutomation 4 'Manifeste du paquet absent ou trop volumineux : interface refusée.' $Command}
     $manifest=[IO.File]::ReadAllText($manifestPath,[Text.Encoding]::UTF8)|ConvertFrom-Json
     foreach($relative in @('wad/Domenia-Core.ps1','wad/modules/Domenia-Common.Model.ps1','wad/modules/Domenia-Automation.Model.ps1')){
         $entry=@($manifest.Files|Where-Object{([string]$_.Path -ceq $relative) -and ($_.Runtime -eq $true)})
@@ -125,10 +129,14 @@ function Write-DomeniaAutomationText {
 }
 
 function Test-DomeniaAutomationLocalPath {
-    # Local, existing, not redirected: a network share or a link is refused for the base and for the destination.
+    # Local, existing, not redirected: a network share (UNC path or mapped drive letter) or a link is refused for the
+    # base and for the destination. SQLite over SMB can read torn pages; a dossier never leaves the workstation.
     param([string]$Path,[switch]$Directory)
     $full=[IO.Path]::GetFullPath($Path)
     if($full.StartsWith('\\')){return ''}
+    $root=[IO.Path]::GetPathRoot($full)
+    if(-not $root){return ''}
+    try{if(([IO.DriveInfo]::new($root)).DriveType -eq [IO.DriveType]::Network){return ''}}catch{return ''}
     $exists=if($Directory){[IO.Directory]::Exists($full)}else{[IO.File]::Exists($full)}
     if(-not $exists){return ''}
     $cursor=Get-Item -LiteralPath $full -Force
@@ -186,13 +194,17 @@ if($request.Command -eq 'version'){
         $target=Join-Path $parent $baseName;$suffix=2
         while(([IO.Directory]::Exists($target)) -or ([IO.File]::Exists($target))){$target=Join-Path $parent ($baseName+'-'+$suffix);$suffix++}
         $temporary=Join-Path $parent ('.domenia-dossier-'+[guid]::NewGuid().ToString('N')+'.tmp')
+        $moved=$false
         try{
             [void][IO.Directory]::CreateDirectory($temporary)
             foreach($file in @($dossier.Files)){[IO.File]::WriteAllText((Join-Path $temporary ([string]$file.Name)),[string]$file.Text,[Text.UTF8Encoding]::new($false))}
-            [IO.Directory]::Move($temporary,$target)
+            [IO.Directory]::Move($temporary,$target);$moved=$true
         }catch{
-            if([IO.Directory]::Exists($temporary)){try{[IO.Directory]::Delete($temporary,$true)}catch{}}
             Stop-DomeniaAutomation 5 ('Écriture du dossier impossible : '+$_.Exception.Message) 'dossier'
+        }finally{
+            # Also on a stopped pipeline (task cancelled or timed out), where catch blocks do not run: no partial copy
+            # of the data is left in the destination.
+            if((-not $moved) -and ([IO.Directory]::Exists($temporary))){try{[IO.Directory]::Delete($temporary,$true)}catch{}}
         }
         $envelope=New-DomeniaAutomationEnvelope -Command 'dossier' -Items @([pscustomobject]@{Dossier=$target;Fichiers=@($dossier.Files|ForEach-Object{[string]$_.Name});Sections=@($dossier.Manifest.Sections)}) -Source $dossier.Manifest.Source -Request $request
     }

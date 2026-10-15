@@ -95,7 +95,7 @@ function Get-DomeniaOsqueryMember {
     if ($null -eq $InputObject) { return '' }
     foreach ($name in $Names) {
         $property = $InputObject.PSObject.Properties[$name]
-        if (($null -ne $property) -and ($null -ne $property.Value) -and ([string]$property.Value).Trim()) { return ([string]$property.Value).Trim() }
+        if (($null -ne $property) -and ($null -ne $property.Value) -and ([bool](([string]$property.Value).Trim()))) { return ([string]$property.Value).Trim() }
     }
     return ''
 }
@@ -103,7 +103,10 @@ function Get-DomeniaOsqueryMember {
 function ConvertFrom-DomeniaOsqueryText {
     # osquery logged_in_users results: osqueryd results log (one JSON object per line, "columns" for an event or
     # "snapshot" for a snapshot) or the JSON array of osqueryi --json. A "removed" event is the end of a session and
-    # is skipped; session types without a user (boot, runlevel, listen...) are skipped too. Bounded by -MaxRecords.
+    # is skipped; session types without a user (boot, runlevel, listen...) and sessions without a person (the Windows
+    # services session has an empty user, system identities, window manager and font driver sessions, utmp pseudo-users)
+    # are skipped too and counted: an empty row stamped with the snapshot time would otherwise hide the real user of the
+    # workstation in Select-DomeniaLatestInventoryRecords. Bounded by -MaxRecords.
     param([AllowEmptyString()][string]$Text,[int]$MaxRecords=20000)
     $records = New-Object 'System.Collections.Generic.List[object]'
     $rejected = New-Object 'System.Collections.Generic.List[object]'
@@ -139,6 +142,7 @@ function ConvertFrom-DomeniaOsqueryText {
         }
     }
     $sessionTypes = @('user','active','connected','disconnected','idle')
+    $nonPersons = '^(?i)(system|local ?service|network ?service|localsystem|nt authority\\.*|(dwm|umfd)-\d+|login|reboot|runlevel|shutdown|\(unknown\))$'
     $truncated = $false
     $record = 0
     foreach ($wrapper in $entries) {
@@ -158,11 +162,12 @@ function ConvertFrom-DomeniaOsqueryText {
             if ($null -eq $row) { continue }
             $type = Get-DomeniaOsqueryMember $row @('type')
             if (($type) -and ($sessionTypes -notcontains $type.ToLowerInvariant())) { $skipped++; continue }
+            $user = Get-DomeniaOsqueryMember $row @('user','username')
+            if ((-not $user) -or ($user -match $nonPersons)) { $skipped++; continue }
             if ($records.Count -ge $MaxRecords) { $truncated = $true; break }
             $record++
             $computer = Get-DomeniaOsqueryMember $row @('hostname','computer_name','host_identifier','hostIdentifier')
             if (-not $computer) { $computer = $hostName }
-            $user = Get-DomeniaOsqueryMember $row @('user','username')
             $loginTime = Get-DomeniaOsqueryMember $row @('time')
             $when = $eventTime
             $details = 'Relevé osquery'
@@ -203,21 +208,25 @@ function ConvertTo-DomeniaInventoryWhen {
 function Select-DomeniaLatestInventoryRecords {
     # An osquery log repeats a workstation at every event: only the most recent records of each workstation reach the
     # preview (equal dates are all kept, to be shown as a conflict). Older records are counted, never silently lost.
+    # Only a record that can become an association competes: one without a user or already rejected never hides the
+    # account of the workstation; it is kept for the preview, where it is shown as a rejection.
     param([object[]]$Records=@(),$NowUtc=$null)
     $list = @($Records)
     $keys = New-Object 'string[]' $list.Count
     $ticks = New-Object 'long[]' $list.Count
+    $competes = New-Object 'bool[]' $list.Count
     $best = @{}
     for ($i = 0; $i -lt $list.Count; $i++) {
         $keys[$i] = ConvertTo-DomeniaRelationComputerKey ([string]$list[$i].Computer)
         $ticks[$i] = [long](ConvertTo-DomeniaInventoryWhen -Value ([string]$list[$i].When) -UnixTime ([bool]$list[$i].UnixTime) -NowUtc $NowUtc).Ticks
-        if (-not $keys[$i]) { continue }
+        $competes[$i] = (([bool]$keys[$i]) -and ([bool](([string]$list[$i].User).Trim())) -and (-not [string]$list[$i].Reject))
+        if (-not $competes[$i]) { continue }
         if ((-not $best.ContainsKey($keys[$i])) -or ($ticks[$i] -gt [long]$best[$keys[$i]])) { $best[$keys[$i]] = $ticks[$i] }
     }
     $kept = New-Object 'System.Collections.Generic.List[object]'
     $dropped = 0
     for ($i = 0; $i -lt $list.Count; $i++) {
-        if ((-not $keys[$i]) -or ($ticks[$i] -eq [long]$best[$keys[$i]])) { $kept.Add($list[$i]) } else { $dropped++ }
+        if ((-not $competes[$i]) -or ($ticks[$i] -eq [long]$best[$keys[$i]])) { $kept.Add($list[$i]) } else { $dropped++ }
     }
     return [pscustomobject]@{Records=$kept.ToArray();Dropped=$dropped}
 }
@@ -244,7 +253,7 @@ function Test-DomeniaInventoryIdentity {
         if (-not $dns) { return [pscustomobject]@{Reject=('Compte au format UPN (' + $u + ') : domaine courant inconnu, correspondance non vérifiable.')} }
         if ($suffix -cne $dns) { return [pscustomobject]@{Reject=('Suffixe UPN différent du domaine (' + $u + ') : correspondance non vérifiable, ligne non importée.')} }
     }
-    if ($c.Contains('.') -and ($c -notmatch '^\d{1,3}(\.\d{1,3}){3}$')) {
+    if (($c.Contains('.')) -and ($c -notmatch '^\d{1,3}(\.\d{1,3}){3}$')) {
         $suffix = $c.Substring($c.IndexOf('.') + 1).ToLowerInvariant()
         if (-not $dns) { return [pscustomobject]@{Reject=('Nom DNS complet (' + $c + ') : domaine courant inconnu, correspondance non vérifiable.')} }
         if ($suffix -cne $dns) { return [pscustomobject]@{Reject=('Poste dʼun autre domaine DNS (' + $c + ') : ligne non importée.')} }
@@ -300,20 +309,22 @@ function Resolve-DomeniaInventoryPriority {
 }
 
 function New-DomeniaImportBatchId {
-    # Rollback batch of one import: UTC minute of the preview and the first 8 hex digits of its identifier.
+    # Rollback batch of one import: UTC time of the preview to the millisecond, then the first 8 hex digits of its
+    # identifier. The time comes first so that the order of the tokens is the order of the imports, also for two
+    # imports made in the same minute (Get-DomeniaImportBatches takes the most recent one after a restart).
     param([string]$Id,$NowUtc=$null)
     $now = $null
     if ($null -ne $NowUtc) { $now = ConvertTo-DomeniaUtcDate $NowUtc }
     if ($null -eq $now) { $now = [datetime]::UtcNow }
     $hex = ([string]$Id).ToLowerInvariant() -replace '[^0-9a-f]',''
     if ($hex.Length -lt 8) { $hex = ($hex + [guid]::NewGuid().ToString('N')) }
-    return ($now.ToString('yyyyMMdd''T''HHmm',[Globalization.CultureInfo]::InvariantCulture) + 'Z-' + $hex.Substring(0,8))
+    return ($now.ToString('yyyyMMdd''T''HHmmssfff',[Globalization.CultureInfo]::InvariantCulture) + 'Z-' + $hex.Substring(0,8))
 }
 
 function Get-DomeniaImportBatchToken {
     # Batch identifier written at the start of the details of an imported association, '' when absent.
     param([AllowEmptyString()][AllowNull()][string]$Details)
-    $match = [regex]::Match([string]$Details,'^Lot dʼimport (\d{8}T\d{4}Z-[0-9a-f]{8})\.')
+    $match = [regex]::Match([string]$Details,'^Lot dʼimport (\d{8}T\d{9}Z-[0-9a-f]{8})\.')
     if ($match.Success) { return $match.Groups[1].Value }
     return ''
 }
@@ -337,7 +348,7 @@ function Get-DomeniaImportBatches {
             $file = ''
             $fileMatch = [regex]::Match($details,'Importé depuis (.+?)(, enregistrement \d+)?\.( |$)')
             if ($fileMatch.Success) { $file = $fileMatch.Groups[1].Value }
-            $stamp = [datetime]::ParseExact($token.Substring(0,13),'yyyyMMdd''T''HHmm',[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::AssumeUniversal -bor [Globalization.DateTimeStyles]::AdjustToUniversal)
+            $stamp = [datetime]::ParseExact($token.Substring(0,18),'yyyyMMdd''T''HHmmssfff',[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::AssumeUniversal -bor [Globalization.DateTimeStyles]::AdjustToUniversal)
             $byId[$token] = [pscustomobject]@{Id=$token;ImportedUtc=$stamp.ToString('o',[Globalization.CultureInfo]::InvariantCulture);FileName=$file;Source=$source;Relations=(New-Object 'System.Collections.Generic.List[object]')}
         }
         $byId[$token].Relations.Add($link)

@@ -61,6 +61,15 @@ Test-Case 'IMP-004' 'Point 137 : resultats osquery, journal et tableau, fins de 
     $bounded = ConvertFrom-DomeniaOsqueryText -Text '[{"hostname":"A","user":"a"},{"hostname":"B","user":"b"},{"hostname":"C","user":"c"}]' -MaxRecords 2
     Assert-True ((@($bounded.Records).Count -eq 2) -and $bounded.Truncated) 'borne d enregistrements'
     Assert-Equal '' (ConvertFrom-DomeniaOsqueryText -Text '   ').Format
+    # Windows snapshot: the services session has an empty user and time 0; it takes the snapshot time, later than the
+    # logon of alice. It is skipped and counted, never a record that would hide alice.
+    $windows = ConvertFrom-DomeniaOsqueryText -Text '{"name":"pack_sessions","hostIdentifier":"PC-20","unixTime":1760500000,"action":"snapshot","snapshot":[{"user":"alice","type":"active","time":"1760490000"},{"user":"","type":"disconnected","time":"0"},{"user":"  ","type":"active","time":"0"},{"user":"SYSTEM","type":"active","time":"0"},{"user":"DWM-1","type":"active","time":"0"}]}'
+    Assert-Equal 1 @($windows.Records).Count ('sessions sans personne retenues : ' + @($windows.Records).Count)
+    Assert-Equal 4 ([int]$windows.Skipped) 'sessions sans personne non comptees'
+    Assert-True ((@($windows.Records)[0].User -eq 'alice') -and (@($windows.Records)[0].When -eq '1760490000')) 'session de alice perdue'
+    $restart = ConvertFrom-DomeniaOsqueryText -Text ('{"hostIdentifier":"PC-21","unixTime":1760500000,"action":"added","columns":{"user":"bob","type":"active","time":"1760480000"}}' + "`n" + '{"hostIdentifier":"PC-21","unixTime":1760500000,"action":"added","columns":{"user":"","type":"disconnected","time":"0"}}')
+    $kept = Select-DomeniaLatestInventoryRecords -Records @($restart.Records) -NowUtc '2026-10-15T10:00:00Z'
+    Assert-True ((@($kept.Records).Count -eq 1) -and (@($kept.Records)[0].User -eq 'bob') -and ([int]$kept.Dropped -eq 0)) 'relance d osqueryd : compte du poste masque'
 }
 Test-Case 'IMP-005' 'Point 137 : dates ISO, secondes Unix, formats ambigus et dates futures' {
     $now = '2026-10-15T10:00:00Z'
@@ -119,6 +128,16 @@ Test-Case 'IMP-007' 'Point 137 : priorite des sources dans le fichier' {
     )
     Assert-Equal 1 ([int]$latest.Dropped)
     Assert-Equal '2,3,4' ((@($latest.Records) | ForEach-Object { [string]$_.Record }) -join ',')
+    # A record without a user or already rejected never competes for the most recent slot: it is kept for the preview
+    # (shown as a rejection) and never hides the account of the workstation.
+    $mixed = Select-DomeniaLatestInventoryRecords -NowUtc '2026-10-15T10:00:00Z' -Records @(
+        (New-DomeniaInventoryRecord -Adapter 'Osquery' -Record 1 -User 'alice' -Computer 'PC-30' -When '1760490000' -UnixTime $true),
+        (New-DomeniaInventoryRecord -Adapter 'Osquery' -Record 2 -User '' -Computer 'PC-30' -When '1760500000' -UnixTime $true),
+        (New-DomeniaInventoryRecord -Adapter 'Osquery' -Record 3 -User 'eve' -Computer 'PC-30' -When '1760510000' -UnixTime $true -Reject 'Poste dʼun autre domaine.'),
+        (New-DomeniaInventoryRecord -Adapter 'Osquery' -Record 4 -User 'old' -Computer 'PC-30' -When '1760400000' -UnixTime $true)
+    )
+    Assert-Equal 1 ([int]$mixed.Dropped) 'releve plus ancien compte'
+    Assert-Equal '1,2,3' ((@($mixed.Records) | ForEach-Object { [string]$_.Record }) -join ',')
 }
 Test-Case 'IMP-008' 'Point 138 : valides, conflits et rejets classes avant application' {
     Assert-Equal 'Rejet' (Get-DomeniaLinkImportStatus -User 'a' -Computer 'PC-1' -Rejected 'Compte dʼun autre domaine.').Category
@@ -136,9 +155,9 @@ Test-Case 'IMP-008' 'Point 138 : valides, conflits et rejets classes avant appli
     Assert-True (($valid.Category -eq 'Valide') -and $valid.Import -and $valid.Verified) 'ligne valide'
 }
 Test-Case 'IMP-009' 'Point 138 : provenance imposee et lot de retour arriere dans chaque association' {
-    $batch = New-DomeniaImportBatchId -Id 'ABCDEF0123456789abcdef0123456789' -NowUtc '2026-10-15T09:41:30Z'
-    Assert-Equal '20261015T0941Z-abcdef01' $batch
-    Assert-True ((New-DomeniaImportBatchId -Id '') -match '^\d{8}T\d{4}Z-[0-9a-f]{8}$') 'lot sans identifiant'
+    $batch = New-DomeniaImportBatchId -Id 'ABCDEF0123456789abcdef0123456789' -NowUtc '2026-10-15T09:41:30.250Z'
+    Assert-Equal '20261015T094130250Z-abcdef01' $batch
+    Assert-True ((New-DomeniaImportBatchId -Id '') -match '^\d{8}T\d{9}Z-[0-9a-f]{8}$') 'lot sans identifiant'
     $rel = New-DomeniaImportedRelation -User 'alice' -Computer 'PC-01' -FileName 'glpi.csv' -Line 4 -When '2026-10-14T08:00:00Z' -Source 'Import GLPI' -BatchId $batch -FileDetails 'Numéro de série GLPI : SN-1.'
     Assert-Equal 'Import GLPI' $rel.Source
     Assert-Equal 'Importe' $rel.Kind
@@ -153,20 +172,32 @@ Test-Case 'IMP-009' 'Point 138 : provenance imposee et lot de retour arriere dan
 }
 Test-Case 'IMP-010' 'Point 138 : lots de retour arriere retrouves dans les associations stockees' {
     $links = @(
-        [pscustomobject]@{UserLogin='a';Computer='PC-A';Source='Import GLPI';Details='Lot dʼimport 20261014T0800Z-aaaaaaaa. Importé depuis glpi.csv, enregistrement 1.'},
-        [pscustomobject]@{UserLogin='b';Computer='PC-B';Source='Import osquery';Details='Lot dʼimport 20261015T0900Z-bbbbbbbb. Importé depuis sessions.log, enregistrement 2. Ouverture de session osquery.'},
-        [pscustomobject]@{UserLogin='c';Computer='PC-C';Source='Import osquery';Details='Lot dʼimport 20261015T0900Z-bbbbbbbb. Importé depuis sessions.log, enregistrement 3.'},
+        [pscustomobject]@{UserLogin='a';Computer='PC-A';Source='Import GLPI';Details='Lot dʼimport 20261014T080000000Z-aaaaaaaa. Importé depuis glpi.csv, enregistrement 1.'},
+        [pscustomobject]@{UserLogin='b';Computer='PC-B';Source='Import osquery';Details='Lot dʼimport 20261015T090012500Z-bbbbbbbb. Importé depuis sessions.log, enregistrement 2. Ouverture de session osquery.'},
+        [pscustomobject]@{UserLogin='c';Computer='PC-C';Source='Import osquery';Details='Lot dʼimport 20261015T090012500Z-bbbbbbbb. Importé depuis sessions.log, enregistrement 3.'},
         [pscustomobject]@{UserLogin='d';Computer='PC-D';Source='Import CSV';Details='Importé depuis ancien.csv, enregistrement 1.'},
-        [pscustomobject]@{UserLogin='e';Computer='PC-E';Source='Saisie manuelle';Details='Lot dʼimport 20261016T0900Z-cccccccc. Copie.'},
+        [pscustomobject]@{UserLogin='e';Computer='PC-E';Source='Saisie manuelle';Details='Lot dʼimport 20261016T090000000Z-cccccccc. Copie.'},
         $null
     )
     $batches = @(Get-DomeniaImportBatches -Links $links)
     Assert-Equal 2 $batches.Count
-    Assert-Equal '20261015T0900Z-bbbbbbbb' $batches[0].Id
+    Assert-Equal '20261015T090012500Z-bbbbbbbb' $batches[0].Id
     Assert-Equal 'sessions.log' $batches[0].FileName
     Assert-Equal 2 @($batches[0].Relations).Count
     Assert-True ([object]::ReferenceEquals(@($batches[0].Relations)[0],$links[1])) 'les associations stockees elles-memes sont retirees'
-    Assert-Equal '2026-10-15T09:00:00.0000000Z' $batches[0].ImportedUtc
+    Assert-Equal '2026-10-15T09:00:12.5000000Z' $batches[0].ImportedUtc
     Assert-Equal 'glpi.csv' $batches[1].FileName
     Assert-Equal 0 @(Get-DomeniaImportBatches -Links @()).Count
+    # Two imports confirmed in the same minute: the later one is the most recent batch after a restart, whatever the
+    # random part of the identifiers.
+    $first = New-DomeniaImportBatchId -Id 'ffffffff000000000000000000000000' -NowUtc '2026-10-15T09:41:05.100Z'
+    $second = New-DomeniaImportBatchId -Id '00000000ffffffffffffffffffffffff' -NowUtc '2026-10-15T09:41:40.900Z'
+    $sameMinute = @(
+        (New-DomeniaImportedRelation -User 'f' -Computer 'PC-F' -FileName 'premier.csv' -Line 1 -BatchId $first -NowUtc '2026-10-15T09:41:05Z'),
+        (New-DomeniaImportedRelation -User 'g' -Computer 'PC-G' -FileName 'second.csv' -Line 1 -BatchId $second -NowUtc '2026-10-15T09:41:40Z')
+    )
+    $ordered = @(Get-DomeniaImportBatches -Links $sameMinute)
+    Assert-Equal 2 $ordered.Count
+    Assert-Equal $second $ordered[0].Id 'lot plus ancien de la meme minute choisi'
+    Assert-Equal 'second.csv' $ordered[0].FileName
 }

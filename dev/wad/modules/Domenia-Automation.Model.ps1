@@ -34,23 +34,35 @@ function ConvertTo-DomeniaAutomationSqlText {
     return ("'" + ([string]$Value).Replace("'","''") + "'")
 }
 
-function ConvertTo-DomeniaAutomationLikeText {
-    # LIKE pattern: the value escaped with '!' (ESCAPE '!'), after an unescaped -Prefix (the wildcards of the caller).
-    param([AllowEmptyString()][AllowNull()][string]$Value,[AllowEmptyString()][string]$Prefix='')
-    $escaped = ([string]$Value).Replace('!','!!').Replace('%','!%').Replace('_','!_')
-    return (ConvertTo-DomeniaAutomationSqlText ($Prefix + $escaped))
+function ConvertTo-DomeniaAutomationGlobText {
+    # GLOB pattern (SQLite literal) of the distinguished names that end with ',<Dn>': the OU and its sub-branches.
+    # SQLite lower() and LIKE fold ASCII letters only (winsqlite3 has no ICU), so « OU=Écoles » never matched
+    # « ou=écoles ». GLOB compares exactly: each letter that has a case becomes the class of its forms, upper case
+    # first ([Éé]), and the GLOB wildcards *, ? and [ become classes of themselves. Any other character must match.
+    param([AllowEmptyString()][AllowNull()][string]$Dn)
+    $builder = New-Object Text.StringBuilder
+    [void]$builder.Append('*,')
+    foreach ($character in ([string]$Dn).ToCharArray()) {
+        $text = [string]$character
+        if ('*?['.Contains($text)) { [void]$builder.Append('[' + $text + ']'); continue }
+        $forms = New-Object 'System.Collections.Generic.List[string]'
+        foreach ($form in @($text.ToUpperInvariant(),$text.ToLowerInvariant(),$text)) { if (-not $forms.Contains($form)) { $forms.Add($form) } }
+        if ($forms.Count -eq 1) { [void]$builder.Append($text) } else { [void]$builder.Append('[' + ($forms.ToArray() -join '') + ']') }
+    }
+    return (ConvertTo-DomeniaAutomationSqlText $builder.ToString())
 }
 
 function ConvertTo-DomeniaAutomationDn {
-    # Comparable OU distinguished name: spaces around separators removed, lower case. '' when it is not an OU, a
-    # container or a domain naming context (a perimeter is a branch of the directory, never a single object).
+    # OU distinguished name with the spaces around its separators removed, case kept (the perimeter is matched without
+    # case by ConvertTo-DomeniaAutomationGlobText). '' when it is not an OU, a container or a domain naming context
+    # (a perimeter is a branch of the directory, never a single object).
     param([AllowEmptyString()][AllowNull()][string]$Dn)
     $text = ([regex]::Replace([regex]::Replace(([string]$Dn).Trim(),'\s*,\s*',','),'\s*=\s*','='))
     if (-not $text) { return '' }
     if ($text.Length -gt (Get-DomeniaAutomationLimits).MaxOuLength) { return '' }
     if ($text -notmatch '^(?i)((OU|CN)=[^,=]+,)*(DC=[^,=]+)(,DC=[^,=]+)*$') { return '' }
     if ($text -notmatch '^(?i)(OU|DC)=') { return '' }
-    return $text.ToLowerInvariant()
+    return $text
 }
 
 function Test-DomeniaAutomationRequest {
@@ -68,7 +80,7 @@ function Test-DomeniaAutomationRequest {
     $formatMatch = @($definition.Formats | Where-Object { $_ -ieq $formatName })
     if ($formatMatch.Count -ne 1) { return (& $refuse ('Format « ' + $Format + ' » non pris en charge par ' + $name + ' (' + (@($definition.Formats) -join ', ') + ').') 2) }
     if (($name -ne 'version') -and (-not ([string]$DatabasePath).Trim())) { return (& $refuse 'Base locale requise : -DatabasePath <fichier .db>.' 2) }
-    if (($name -ne 'version') -and ([string]$DatabasePath).Trim() -notmatch '(?i)\.db$') { return (& $refuse 'La base locale doit être un fichier .db.' 2) }
+    if (($name -ne 'version') -and (([string]$DatabasePath).Trim() -notmatch '(?i)\.db$')) { return (& $refuse 'La base locale doit être un fichier .db.' 2) }
     $ou = ''
     if (([string]$OrganizationalUnit).Trim()) {
         $ou = ConvertTo-DomeniaAutomationDn $OrganizationalUnit
@@ -83,10 +95,10 @@ function Test-DomeniaAutomationRequest {
     if ($ou) { $kinds++ }
     if ($names.Count) { $kinds++ }
     if ($guidList.Count) { $kinds++ }
-    if ([bool]$definition.Perimeter -and ($kinds -eq 0)) { return (& $refuse ('Périmètre requis pour ' + $name + ' : -OrganizationalUnit, -Computers ou -Guids. Aucune commande ne parcourt tout le domaine implicitement.') 4) }
+    if (([bool]$definition.Perimeter) -and ($kinds -eq 0)) { return (& $refuse ('Périmètre requis pour ' + $name + ' : -OrganizationalUnit, -Computers ou -Guids. Aucune commande ne parcourt tout le domaine implicitement.') 4) }
     if ($kinds -gt 1) { return (& $refuse 'Un seul périmètre à la fois : OU, noms ou GUID.' 2) }
     $familyName = ([string]$Family).Trim()
-    if ($familyName -and ($familyName -notmatch '^(Presence|Console|Inventory|Probe:[A-Za-z0-9_.-]{1,128})$')) { return (& $refuse ('Famille dʼobservation inconnue : « ' + $Family + ' » (Presence, Console, Inventory ou Probe:<sonde>).') 2) }
+    if (($familyName) -and ($familyName -notmatch '^(Presence|Console|Inventory|Probe:[A-Za-z0-9_.-]{1,128})$')) { return (& $refuse ('Famille dʼobservation inconnue : « ' + $Family + ' » (Presence, Console, Inventory ou Probe:<sonde>).') 2) }
     $rows = $Limit
     if ($rows -le 0) { $rows = $limits.DefaultRows }
     if ($rows -gt $limits.MaxRows) { return (& $refuse ('Limite de ' + $limits.MaxRows + ' lignes au plus.') 2) }
@@ -107,7 +119,7 @@ function Get-DomeniaAutomationPerimeterSql {
     switch ([string]$Perimeter.Kind) {
         'OU' {
             $ou = [string]$Perimeter.OrganizationalUnit
-            return ($machine + " AND lower(o.distinguished_name) LIKE " + (ConvertTo-DomeniaAutomationLikeText -Value $ou -Prefix '%,') + " ESCAPE '!'")
+            return ($machine + ' AND o.distinguished_name GLOB ' + (ConvertTo-DomeniaAutomationGlobText $ou))
         }
         'Noms' { return ($machine + ' AND lower(o.name) IN (' + ((@($Perimeter.Computers) | ForEach-Object { ConvertTo-DomeniaAutomationSqlText $_ }) -join ',') + ')') }
         'Guids' { return ($machine + ' AND lower(o.object_guid) IN (' + ((@($Perimeter.Guids) | ForEach-Object { ConvertTo-DomeniaAutomationSqlText $_ }) -join ',') + ')') }
@@ -387,7 +399,7 @@ function Get-DomeniaOfflineDossierPerimeter {
         'Branch' {
             $ou = ConvertTo-DomeniaAutomationDn $BranchDn
             if ((-not $ou) -or ($ou -notmatch '^ou=')) { return (& $fail 'Sélectionnez une OU dans lʼarborescence : la branche courante nʼest pas une OU.') }
-            $label = 'OU ' + ($ou.Split(',')[0] -replace '^ou=','')
+            $label = 'OU ' + ($ou.Split(',')[0] -replace '^(?i)ou=','')
             return [pscustomobject]@{Valid=$true;Error='';Kind='OU';Guids=@();OrganizationalUnit=$ou;Label=$label;Count=0;Truncated=$false}
         }
     }

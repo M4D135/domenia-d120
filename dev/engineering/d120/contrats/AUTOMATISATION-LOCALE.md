@@ -29,6 +29,9 @@ Code : `wad/modules/Domenia-Automation.Model.ps1` (règles pures), `wad/Domenia-
 | `dossier` | export | requis | dossier | dossier de diagnostic hors ligne (ci-dessous) |
 
 Périmètre : `-OrganizationalUnit "OU=…,DC=…"`, `-Computers PC-01,PC-02` ou `-Guids …` (500 postes au plus), un seul à la fois.
+L’OU couvre ses sous-OU ; elle est comparée sans tenir compte de la casse, lettres accentuées comprises (`OU=Écoles` et
+`ou=écoles` désignent la même OU, jamais `OU=Ecoles`). La base et la destination doivent être locales : chemin UNC et
+lecteur réseau sont refusés.
 Aucune commande ne parcourt tout le domaine implicitement ; la racine du domaine doit être demandée explicitement.
 Autres paramètres : `-Family`, `-Limit` (1 000 par défaut, 5 000 au plus, limite atteinte signalée par `Truncated`),
 `-Format Json|Csv`, `-OutputPath` (fichier `.json`/`.csv` écrit atomiquement, ou dossier parent pour `dossier`).

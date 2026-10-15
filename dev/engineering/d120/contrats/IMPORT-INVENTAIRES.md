@@ -36,8 +36,12 @@ Les comptes et postes retenus sont ensuite cherchés dans l’index local (`Loca
 - Dans un fichier, par poste : la date la plus récente l’emporte, une date l’emporte sur une absence de date ;
   le même compte répété est un doublon ; deux comptes sans date pour les départager sont **en conflit** et aucun n’est importé.
 - Avec le stockage : une association importée ne remplace jamais une association existante (déclarée, observée ou importée) ;
-  les sources `Import CSV`, `Import GLPI` et `Import osquery` sont protégées des retraits automatiques (orphelines).
+  les sources `Import CSV`, `Import GLPI` et `Import osquery` sont protégées des retraits automatiques (orphelines) et
+  leur historique est conservé par la purge « Historique », comme celui des associations déclarées.
 - osquery : seules les observations les plus récentes de chaque poste atteignent l’aperçu ; les plus anciennes sont comptées.
+  Les sessions sans personne (utilisateur vide de la session des services Windows, SYSTEM, `DWM-*`, `UMFD-*`, pseudo-comptes
+  `LOGIN` ou `reboot`) sont ignorées et comptées : datées de l’instantané, elles masqueraient le compte réel du poste.
+  Un enregistrement rejeté ne départage jamais un poste.
 
 ## Aperçu et retour arrière
 
@@ -45,7 +49,8 @@ Avant « Importer », chaque enregistrement porte une catégorie : **Valide**, *
 **Déjà connue**, **Inconnue** (absente de l’index local) ou **Reportée** (au-delà de 64 par import). Le résumé compte chaque
 catégorie, nomme la source imposée et le lot de retour arrière.
 
-Chaque association importée commence ses détails par `Lot dʼimport AAAAMMJJTHHMMZ-xxxxxxxx.` « Annuler l’import »
+Chaque association importée commence ses détails par `Lot dʼimport AAAAMMJJTHHMMSSmmmZ-xxxxxxxx.` (heure UTC de l’aperçu
+à la milliseconde : l’ordre des lots est celui des imports, même dans la même minute). « Annuler l’import »
 retire le lot de la session, ou après un redémarrage le lot le plus récent encore présent dans le stockage local
 (`Get-DomeniaImportBatches`), après une confirmation qui donne le nombre, le fichier et la date. Chaque retrait est
 journalisé et restaurable. Les associations importées avant cette version n’ont pas de lot : elles ne sont annulables

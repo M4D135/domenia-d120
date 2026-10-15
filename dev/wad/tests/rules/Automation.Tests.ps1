@@ -36,7 +36,7 @@ Test-Case 'AUT-002' 'Point 140 : demande validee, perimetre obligatoire, refus n
     Assert-Equal 'postes' $ok.Request.Command
     Assert-Equal 'Csv' $ok.Request.Format
     Assert-Equal 'OU' $ok.Request.Perimeter.Kind
-    Assert-Equal 'ou=postes paris,dc=corp,dc=example' $ok.Request.Perimeter.OrganizationalUnit
+    Assert-Equal 'OU=Postes Paris,DC=corp,DC=example' $ok.Request.Perimeter.OrganizationalUnit
     Assert-Equal 1000 ([int]$ok.Request.Limit)
     $names = Test-DomeniaAutomationRequest -Command 'associations' -DatabasePath $db -Computers @('PC-01.corp.example$','pc-01,PC-02')
     Assert-Equal 'pc-01,pc-02' (@($names.Request.Perimeter.Computers) -join ',')
@@ -47,11 +47,11 @@ Test-Case 'AUT-002' 'Point 140 : demande validee, perimetre obligatoire, refus n
 }
 Test-Case 'AUT-003' 'Point 140 : requetes en lecture seule, valeurs echappees, jamais la table des secrets' {
     Assert-Equal "'O''Brien'" (ConvertTo-DomeniaAutomationSqlText "O'Brien")
-    Assert-Equal "'50!%!_x!!'" (ConvertTo-DomeniaAutomationLikeText '50%_x!')
-    Assert-Equal "'%,a!_b'" (ConvertTo-DomeniaAutomationLikeText -Value 'a_b' -Prefix '%,')
+    Assert-Equal "'*,[Aa]_1%[*][?][[]]9'" (ConvertTo-DomeniaAutomationGlobText 'a_1%*?[]9')
     $request = (Test-DomeniaAutomationRequest -Command 'observations' -DatabasePath 'C:\x.db' -OrganizationalUnit "OU=O'Brien_1,DC=corp,DC=example" -Family 'Probe:hw.ram' -Limit 10).Request
     $sql = Get-DomeniaAutomationQuery -Kind Observations -Request $request
-    Assert-True ($sql.Contains("LIKE '%,ou=o''brien!_1,dc=corp,dc=example' ESCAPE '!'")) $sql
+    Assert-True ($sql.Contains("o.distinguished_name GLOB '*,[Oo][Uu]=[Oo]''[Bb][Rr][Ii][Ee][Nn]_1,[Dd][Cc]=[Cc][Oo][Rr][Pp],[Dd][Cc]=[Ee][Xx][Aa][Mm][Pp][Ll][Ee]'")) $sql
+    Assert-False ($sql -match '(?i)\blower\(o\.distinguished_name\)|\bLIKE\b') ('comparaison ASCII seulement : ' + $sql)
     Assert-True ($sql.Contains("b.family='Probe:hw.ram'") -and $sql.EndsWith('LIMIT 11;')) $sql
     $names = (Test-DomeniaAutomationRequest -Command 'postes' -DatabasePath 'C:\x.db' -Computers @('PC-01','PC-02')).Request
     Assert-True ((Get-DomeniaAutomationQuery -Kind Computers -Request $names).Contains("lower(o.name) IN ('pc-01','pc-02')")) 'liste de noms'
@@ -139,7 +139,55 @@ Test-Case 'AUT-008' 'Point 139 : perimetre choisi a l ecran, jamais le domaine e
     Assert-True ($displayed.Valid -and ($displayed.Count -eq 500) -and $displayed.Truncated -and ($displayed.Label -match '500 premiers')) ('postes affiches : ' + $displayed.Count)
     Assert-False (Get-DomeniaOfflineDossierPerimeter -Scope Displayed -DisplayedRows @()).Valid 'liste vide acceptee'
     $branch = Get-DomeniaOfflineDossierPerimeter -Scope Branch -BranchDn 'OU=Postes,OU=Paris,DC=corp,DC=example' -DomainDn 'DC=corp,DC=example'
-    Assert-True (($branch.Kind -eq 'OU') -and ($branch.OrganizationalUnit -eq 'ou=postes,ou=paris,dc=corp,dc=example') -and ($branch.Label -eq 'OU postes')) 'OU selectionnee'
+    Assert-True (($branch.Kind -eq 'OU') -and ($branch.OrganizationalUnit -ceq 'OU=Postes,OU=Paris,DC=corp,DC=example') -and ($branch.Label -ceq 'OU Postes')) 'OU selectionnee'
+    $school = Get-DomeniaOfflineDossierPerimeter -Scope Branch -BranchDn 'OU=Écoles,DC=corp,DC=fr' -DomainDn 'DC=corp,DC=fr'
+    Assert-True (($school.Valid) -and ($school.OrganizationalUnit -ceq 'OU=Écoles,DC=corp,DC=fr') -and ($school.Label -ceq 'OU Écoles')) 'OU accentuee de l arborescence'
     Assert-False (Get-DomeniaOfflineDossierPerimeter -Scope Branch -BranchDn 'DC=corp,DC=example' -DomainDn 'DC=corp,DC=example').Valid 'domaine entier accepte'
     Assert-False (Get-DomeniaOfflineDossierPerimeter -Scope Branch -BranchDn 'CN=Computers,DC=corp,DC=example').Valid 'conteneur accepte comme OU'
+}
+Test-Case 'AUT-009' 'Points 139 et 140 : OU au nom accentue comparee sans casse, y compris hors ASCII' {
+    # SQLite GLOB, reproduced here for the patterns of ConvertTo-DomeniaAutomationGlobText: '*', classes of literal
+    # characters, every other character compared exactly (case-sensitive).
+    $toRegex = {
+        param([string]$Literal)
+        $body = $Literal.Substring(1,$Literal.Length - 2).Replace("''","'")
+        $builder = New-Object Text.StringBuilder
+        [void]$builder.Append('^')
+        $i = 0
+        while ($i -lt $body.Length) {
+            $c = [string]$body[$i]
+            if ($c -ceq '*') { [void]$builder.Append('.*'); $i++; continue }
+            if ($c -ceq '[') { $end = $body.IndexOf(']',$i + 2); [void]$builder.Append('[' + [regex]::Escape($body.Substring($i + 1,$end - $i - 1)) + ']'); $i = $end + 1; continue }
+            [void]$builder.Append([regex]::Escape($c)); $i++
+        }
+        [void]$builder.Append('$')
+        $builder.ToString()
+    }
+    $db = 'C:\Domenia\Domains\corp\Domenia.db'
+    foreach ($typed in @('OU=Écoles,DC=corp,DC=fr','ou=écoles,dc=corp,dc=fr','OU=ÉCOLES,DC=CORP,DC=FR')) {
+        $check = Test-DomeniaAutomationRequest -Command 'postes' -DatabasePath $db -OrganizationalUnit $typed
+        Assert-True $check.Valid $check.Error
+        Assert-Equal $typed $check.Request.Perimeter.OrganizationalUnit 'casse de l OU saisie perdue'
+        $sql = Get-DomeniaAutomationPerimeterSql $check.Request.Perimeter
+        Assert-True ($sql.Contains('[Éé][Cc][Oo][Ll][Ee][Ss]')) $sql
+        $regex = & $toRegex ($sql.Substring($sql.IndexOf('GLOB ') + 5))
+        foreach ($dn in @('CN=PC1,OU=Écoles,DC=corp,DC=fr','cn=pc1,ou=écoles,dc=corp,dc=fr','CN=PC2,OU=Salle 3,OU=Écoles,DC=corp,DC=fr')) { Assert-True ([regex]::IsMatch($dn,$regex)) ($typed + ' ne trouve pas ' + $dn) }
+        foreach ($dn in @('CN=PC1,OU=Ecoles,DC=corp,DC=fr','CN=PC1,OU=Grandes Écoles,DC=corp,DC=fr','CN=PC1,OU=Écoles,DC=autre,DC=fr')) { Assert-False ([regex]::IsMatch($dn,$regex)) ($typed + ' trouve ' + $dn) }
+    }
+    $wildcards = Get-DomeniaAutomationPerimeterSql ([pscustomobject]@{Kind='OU';OrganizationalUnit='OU=A*B?[x],DC=corp,DC=fr'})
+    $regex = & $toRegex ($wildcards.Substring($wildcards.IndexOf('GLOB ') + 5))
+    Assert-True ([regex]::IsMatch('CN=PC1,OU=a*b?[X],DC=corp,DC=fr',$regex)) 'caracteres GLOB du nom non litteraux'
+    Assert-False ([regex]::IsMatch('CN=PC1,OU=AzzBy[x],DC=corp,DC=fr',$regex)) 'joker GLOB actif dans le nom de l OU'
+}
+Test-Case 'AUT-010' 'Point 139 : OfflineDossier reste une operation locale, sans compte d annuaire ni recu' {
+    Assert-Equal 'Local' (Get-DomeniaOperationProvider 'OfflineDossier') 'voie du stockage ou de l annuaire'
+    $needs = Get-DomeniaOperationCredentialNeeds 'OfflineDossier'
+    Assert-False $needs.Directory 'annuaire requis'
+    Assert-False $needs.DirectoryCredential 'compte d annuaire requis'
+    Assert-False $needs.RemoteAdmin 'compte d administration distante requis'
+    Assert-False $needs.Secrets 'compte des secrets requis'
+    Assert-Equal 'Local' ([string]$needs.Resource)
+    Assert-Equal 'LocalWrite' (Get-DomeniaOperationEffect 'OfflineDossier')
+    $receipt = Get-DomeniaReceiptRequirement 'OfflineDossier'
+    Assert-False $receipt.Required 'recu d intervention exige'
 }

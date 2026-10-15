@@ -1422,7 +1422,8 @@ try {
             Snapshots {$targets.Add([pscustomobject]@{Category=$category;Table='adcc_live_queries';Action='Delete';Where='1=1'})}
             History {
                 $literal=ConvertTo-DomeniaSqlLiteral $cutoff
-                $sources="('manual','saisie manuelle','import csv')"
+                # Same list as Get-DomeniaProtectedAssociationSources (Cache.Model), lower case; a rules test keeps them equal.
+                $sources="('manual','saisie manuelle','import csv','import glpi','import osquery')"
                 $protect="lower(trim(COALESCE(source,''))) NOT IN $sources AND lower(trim(COALESCE(computer_key,''))) NOT IN (SELECT lower(trim(COALESCE(computer_key,''))) FROM user_machine_links WHERE lower(trim(COALESCE(source,''))) IN $sources)"
                 $targets.Add([pscustomobject]@{Category=$category;Table='user_machine_history';Action='Delete';Where=("julianday(observed_at) IS NOT NULL AND julianday(observed_at)<julianday($literal) AND $protect")})
                 $targets.Add([pscustomobject]@{Category=$category;Table='user_scan_history';Action='Delete';Where=("julianday(scanned_at) IS NOT NULL AND julianday(scanned_at)<julianday($literal)")})

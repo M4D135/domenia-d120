@@ -280,6 +280,20 @@ Test-Case 'D029' 'Liste de tables fermee et historique des associations declaree
     $plan=Get-DomeniaPurgePlan -Selection @('Observations','Snapshots','History','Index')
     Assert-True $plan.KeepsManualLinks;Assert-True $plan.KeepsConfiguration;Assert-True $plan.KeepsUnresolvedReceipts
 }
+Test-Case 'D029' 'Point 137 : la purge epinglee protege exactement les sources declarees et importees' {
+    # The History purge of the pinned StoragePurge worker carries its own SQL list: it must stay the list of
+    # Test-DomeniaProtectedAssociationSource, or an imported association (GLPI, osquery) would lose its history.
+    $sources=@(Get-DomeniaProtectedAssociationSources)
+    foreach($source in @('Manual','Saisie manuelle','Import CSV','Import GLPI','Import osquery')){Assert-True ($sources -ccontains $source) ('source non protegee : '+$source)}
+    foreach($source in $sources){Assert-True (Test-DomeniaProtectedAssociationSource (' '+$source.ToUpperInvariant()+' ')) ('comparaison de source : '+$source)}
+    Assert-False (Test-DomeniaProtectedAssociationSource 'Journal du controleur') 'source automatique protegee'
+    $worker=[IO.File]::ReadAllText((Join-Path $modules 'Domenia-Storage.Worker.ps1'),[Text.Encoding]::UTF8)
+    $found=@([regex]::Matches($worker,'\$sources="\(([^)]*)\)"'))
+    Assert-Equal 1 $found.Count 'liste SQL des sources protegees de la purge'
+    $sql=@([regex]::Matches($found[0].Groups[1].Value,"'([^']*)'")|ForEach-Object{$_.Groups[1].Value})
+    $expected=@($sources|ForEach-Object{$_.ToLowerInvariant()}|Sort-Object)
+    Assert-Equal ($expected -join '|') (@($sql|Sort-Object) -join '|') 'purge et regle de protection divergentes'
+}
 Test-Case 'D029' 'Index reinitialise seulement le suivi annuaire, marqueur import conserve' {
     $sync=@(Get-DomeniaPurgeTargets Index | Where-Object {$_.Table -eq 'sync_state'})[0]
     Assert-Equal 'Reset' $sync.Action;Assert-Equal 'DirectoryScope' $sync.Filter

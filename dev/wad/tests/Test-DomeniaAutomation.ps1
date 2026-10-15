@@ -46,6 +46,8 @@ INSERT INTO ad_objects(object_key,object_guid,object_type,name,description,state
  ('pc-01','aaaaaaaa-0000-0000-0000-000000000001','Machine','PC-01','Accueil','Actif','CN=PC-01,OU=Postes,DC=corp,DC=example','2026-10-13T07:00:00Z','2026-10-14T08:00:00Z'),
  ('pc-02','aaaaaaaa-0000-0000-0000-000000000002','Machine','PC-02','=cmd|calc','Actif','CN=PC-02,OU=Postes,DC=corp,DC=example','2026-10-12T07:00:00Z','2026-10-14T08:00:00Z'),
  ('pc-03','aaaaaaaa-0000-0000-0000-000000000003','Machine','PC-03','Serveur','Actif','CN=PC-03,OU=Serveurs,DC=corp,DC=example','2026-10-12T07:00:00Z','2026-10-14T08:00:00Z'),
+ ('pc-04','aaaaaaaa-0000-0000-0000-000000000004','Machine','PC-04','Salle 3','Actif','CN=PC-04,OU=Salle 3,OU=Écoles,DC=corp,DC=example','2026-10-12T07:00:00Z','2026-10-14T08:00:00Z'),
+ ('pc-05','aaaaaaaa-0000-0000-0000-000000000005','Machine','PC-05','Sans accent','Actif','CN=PC-05,OU=Ecoles,DC=corp,DC=example','2026-10-12T07:00:00Z','2026-10-14T08:00:00Z'),
  ('alice','bbbbbbbb-0000-0000-0000-000000000001','Utilisateur','Alice','','Actif','CN=Alice,OU=Postes,DC=corp,DC=example','','2026-10-14T08:00:00Z');
 CREATE TABLE ad_computer_facts(object_guid TEXT PRIMARY KEY,object_key TEXT,os_version TEXT,when_created TEXT,pwd_last_set TEXT,laps_kind TEXT,laps_expiry TEXT,read_at TEXT);
 INSERT INTO ad_computer_facts VALUES('aaaaaaaa-0000-0000-0000-000000000001','pc-01','10.0 (22631)','2024-01-01T00:00:00Z','2026-10-01T00:00:00Z','Windows LAPS','LapsExpiry-NeverExported','2026-10-14T08:00:00Z');
@@ -53,9 +55,10 @@ CREATE TABLE domenia_observations(object_guid TEXT NOT NULL,family TEXT NOT NULL
 INSERT INTO domenia_observations(object_guid,family,dn,attempt_at,status,success_at,payload,revision) VALUES
  ('aaaaaaaa-0000-0000-0000-000000000001','Inventory','CN=PC-01,OU=Postes,DC=corp,DC=example','2026-10-14T08:00:00Z','Success','2026-10-14T08:00:00Z','{"Computer":"PC-01","Inventory":{"Model":"X1","AdminPassword":"S3cr3t-NeverExported"}}',40),
  ('aaaaaaaa-0000-0000-0000-000000000001','Presence','CN=PC-01,OU=Postes,DC=corp,DC=example','2026-10-14T08:05:00Z','Success','2026-10-14T08:05:00Z','{"Computer":"PC-01","Presence":"Online"}',41),
- ('aaaaaaaa-0000-0000-0000-000000000003','Console','CN=PC-03,OU=Serveurs,DC=corp,DC=example','2026-10-14T08:00:00Z','Error','','',42);
+ ('aaaaaaaa-0000-0000-0000-000000000003','Console','CN=PC-03,OU=Serveurs,DC=corp,DC=example','2026-10-14T08:00:00Z','Error','','',42),
+ ('aaaaaaaa-0000-0000-0000-000000000004','Presence','CN=PC-04,OU=Salle 3,OU=Écoles,DC=corp,DC=example','2026-10-14T08:05:00Z','Success','2026-10-14T08:05:00Z','{"Computer":"PC-04","Presence":"Online"}',43);
 CREATE TABLE user_machine_links(computer_key TEXT PRIMARY KEY,user_login TEXT,computer TEXT,source TEXT,confidence INTEGER,verified_in_ad INTEGER,observed_at TEXT,details TEXT,user_guid TEXT,computer_guid TEXT,user_dn TEXT,computer_dn TEXT);
-INSERT INTO user_machine_links VALUES('pc-01','alice','PC-01','Import GLPI',0,1,'2026-10-14T08:00:00Z','Lot dʼimport 20261014T0800Z-aaaaaaaa. Importé depuis glpi.csv, enregistrement 1.','bbbbbbbb-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000001','CN=Alice,OU=Postes,DC=corp,DC=example','CN=PC-01,OU=Postes,DC=corp,DC=example');
+INSERT INTO user_machine_links VALUES('pc-01','alice','PC-01','Import GLPI',0,1,'2026-10-14T08:00:00Z','Lot dʼimport 20261014T080000000Z-aaaaaaaa. Importé depuis glpi.csv, enregistrement 1.','bbbbbbbb-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000001','CN=Alice,OU=Postes,DC=corp,DC=example','CN=PC-01,OU=Postes,DC=corp,DC=example');
 CREATE TABLE secret_state(computer_key TEXT PRIMARY KEY,computer TEXT,checked_at TEXT,bitlocker_keys INTEGER DEFAULT 0,bitlocker_last TEXT,laps_scheme TEXT,laps_expiry TEXT,verdict TEXT,detail TEXT);
 INSERT INTO secret_state VALUES('pc-01','PC-01','2026-10-14',1,'2026-10-01','Windows LAPS','2026-11-01','OK','BitLockerSecret-NeverExported');
 CREATE TABLE domenia_query_recipes(id TEXT PRIMARY KEY NOT NULL, domain_dn TEXT NOT NULL, name TEXT NOT NULL, name_fold TEXT NOT NULL, category TEXT NOT NULL, revision INTEGER NOT NULL, definition_version INTEGER NOT NULL, definition_json TEXT NOT NULL, definition_sha256 TEXT NOT NULL, created_utc TEXT NOT NULL, updated_utc TEXT NOT NULL, archived INTEGER NOT NULL DEFAULT 0);
@@ -84,12 +87,12 @@ INSERT INTO domenia_query_recipes VALUES('r1','dc=corp,dc=example','Disques plei
         $r=Invoke-AutCli @('etat','-DatabasePath',$database,'-OutputPath',$stateFile);Expect ($r.Code -eq 0) ('etat : '+$r.Text)
         $state=[IO.File]::ReadAllText($stateFile,[Text.Encoding]::UTF8)|ConvertFrom-Json
         $facts=@($state.Items)[0]
-        Expect ($state.Source.Revision -eq 42 -and $state.Source.LectureSeule -and @($facts.Objets|Where-Object{$_.object_type -eq 'Machine'})[0].n -eq 3 -and @($facts.Observations).Count -eq 3) 'etat local incomplet'
+        Expect ($state.Source.Revision -eq 42 -and $state.Source.LectureSeule -and @($facts.Objets|Where-Object{$_.object_type -eq 'Machine'})[0].n -eq 5 -and @($facts.Observations).Count -eq 3) 'etat local incomplet'
         Expect ($state.Meaning -match 'non revérifiées') 'portee de la lecture non dite'
         $csv=Join-Path $root 'postes.csv'
         $r=Invoke-AutCli @('postes','-DatabasePath',$database,'-OrganizationalUnit','OU=Postes,DC=corp,DC=example','-Format','Csv','-OutputPath',$csv);Expect ($r.Code -eq 0) ('postes : '+$r.Text)
         $bytes=[IO.File]::ReadAllBytes($csv);$text=[Text.Encoding]::UTF8.GetString($bytes)
-        Expect ($bytes[0] -eq 0xEF -and $text -match '"PC-01"' -and $text -match '"PC-02"' -and $text -notmatch 'PC-03' -and $text -match ([regex]::Escape('"''=cmd|calc"'))) 'CSV des postes de l OU'
+        Expect ($bytes[0] -eq 0xEF -and $text -match '"PC-01"' -and $text -match '"PC-02"' -and $text -notmatch 'PC-03' -and $text -notmatch 'PC-04' -and $text -match ([regex]::Escape('"''=cmd|calc"'))) 'CSV des postes de l OU'
         Expect ($text -notmatch 'NeverExported') 'metadonnees LAPS exportees'
         $obs=Join-Path $root 'observations.json'
         $r=Invoke-AutCli @('observations','-DatabasePath',$database,'-Computers','PC-01,PC-03','-OutputPath',$obs);Expect ($r.Code -eq 0) ('observations : '+$r.Text)
@@ -99,6 +102,24 @@ INSERT INTO domenia_query_recipes VALUES('r1','dc=corp,dc=example','Disques plei
         $one=Invoke-AutCli @('postes','-DatabasePath',$database,'-OrganizationalUnit','DC=corp,DC=example','-Limit','1');$limited=$one.Text|ConvertFrom-Json
         Expect ($one.Code -eq 0 -and $limited.Truncated -and @($limited.Items).Count -eq 1) 'limite non signalee'
         Expect ((Get-FileHash -LiteralPath $database -Algorithm SHA256).Hash -eq $baseHash) 'base modifiee par une lecture'
+    }
+    Case 'Points 139 et 140 : OU au nom accentue trouvee quelle que soit la casse saisie' {
+        # SQLite lower() and LIKE fold ASCII only: an OU named with an upper case accented letter must still be found,
+        # with its sub-OUs, and never the OU that differs by the accent.
+        foreach($typed in @('OU=Écoles,DC=corp,DC=example','ou=écoles,dc=corp,dc=example','OU=ÉCOLES,DC=CORP,DC=EXAMPLE')){
+            $file=Join-Path $root 'ecoles.json';if([IO.File]::Exists($file)){[IO.File]::Delete($file)}
+            $r=Invoke-AutCli @('postes','-DatabasePath',$database,'-OrganizationalUnit',$typed,'-OutputPath',$file);Expect ($r.Code -eq 0) ('postes '+$typed+' : '+$r.Text)
+            $answer=[IO.File]::ReadAllText($file,[Text.Encoding]::UTF8)|ConvertFrom-Json
+            Expect ((@($answer.Items).Count -eq 1) -and (@($answer.Items)[0].Nom -eq 'PC-04') -and (-not $answer.Truncated) -and ([string]$answer.Perimeter.OrganizationalUnit -ceq $typed)) ('OU accentuee ('+$typed+') : '+@($answer.Items).Count+' poste(s)')
+        }
+        $obs=Join-Path $root 'ecoles-observations.json'
+        $r=Invoke-AutCli @('observations','-DatabasePath',$database,'-OrganizationalUnit','ou=écoles,dc=corp,dc=example','-OutputPath',$obs);Expect ($r.Code -eq 0) ('observations : '+$r.Text)
+        $answer=[IO.File]::ReadAllText($obs,[Text.Encoding]::UTF8)|ConvertFrom-Json
+        Expect ((@($answer.Items).Count -eq 1) -and (@($answer.Items)[0].Guid -eq 'aaaaaaaa-0000-0000-0000-000000000004')) 'observations de l OU accentuee'
+        $plain=Join-Path $root 'ecoles-sans-accent.json'
+        $r=Invoke-AutCli @('postes','-DatabasePath',$database,'-OrganizationalUnit','OU=Ecoles,DC=corp,DC=example','-OutputPath',$plain);Expect ($r.Code -eq 0) ('postes sans accent : '+$r.Text)
+        $answer=[IO.File]::ReadAllText($plain,[Text.Encoding]::UTF8)|ConvertFrom-Json
+        Expect ((@($answer.Items).Count -eq 1) -and (@($answer.Items)[0].Nom -eq 'PC-05')) 'OU sans accent confondue avec l OU accentuee'
     }
     Case 'Point 139 : dossier date, manifeste, empreintes, secrets exclus, jamais reecrit' {
         $r=Invoke-AutCli @('dossier','-DatabasePath',$database,'-Computers','PC-01','-OutputPath',$exports,'-Build','TEST-AUTOMATION');Expect ($r.Code -eq 0) ('dossier : '+$r.Text)
@@ -135,10 +156,11 @@ INSERT INTO domenia_query_recipes VALUES('r1','dc=corp,dc=example','Disques plei
         foreach($m in @('Domenia-Common.Model.ps1','Domenia-Automation.Model.ps1','Domenia-Automation.Worker.ps1','Domenia-Automation.UI.ps1')){. (Join-Path $modules $m)}
         $script:DomeniaAutomationModuleRoot=Join-Path $packageWad 'modules'
         $script:Ctrl=@{CmbSupportOfflineScope=[pscustomobject]@{SelectedItem=[pscustomobject]@{Tag='Selected'}};ChkSupportOfflineObservations=[pscustomobject]@{IsChecked=$true};ChkSupportOfflineLinks=[pscustomobject]@{IsChecked=$false};ChkSupportOfflineQueries=[pscustomobject]@{IsChecked=$true}}
-        $script:Texts=@{};$script:Submission=$null;$script:Banner=$null
+        $script:Texts=@{};$script:Submission=$null;$script:Banner=$null;$script:AsyncJobs=[ordered]@{};$script:TaskCount=0
         function Get-DomeniaControl {param([string]$Name);if($script:Ctrl.ContainsKey($Name)){return $script:Ctrl[$Name]};return $null}
         function Set-DomeniaControlText {param([string]$Name,[string]$Text);$script:Texts[$Name]=$Text;return $true}
-        function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,$TimeoutSeconds,$TaskClass,$DisableControls);$script:Submission=[pscustomobject]@{Name=$Name;OperationId=$OperationId;Code=$Code;Payload=$Payload;State=$CallbackState;Success=$SuccessHandler;Error=$ErrorHandler;TaskClass=$TaskClass};return 'job-1'}
+        # Engine double: the task stays in AsyncJobs until the test ends, cancels or withdraws it, as the engine does.
+        function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,$TimeoutSeconds,$TaskClass,$DisableControls);$script:TaskCount++;$id='job-'+$script:TaskCount;$script:AsyncJobs[$id]=[pscustomobject]@{Id=$id;CancelRequested=$false};$script:Submission=[pscustomobject]@{Id=$id;Name=$Name;OperationId=$OperationId;Code=$Code;Payload=$Payload;State=$CallbackState;Success=$SuccessHandler;Error=$ErrorHandler;TaskClass=$TaskClass};return $id}
         function Get-DomeniaLocalDatabasePathForRead {return $database}
         function Get-DomeniaExportDirectory {return $exports}
         function Get-DomeniaEffectiveWorkerResult {param($Result,[string[]]$RequiredProperties);foreach($p in $RequiredProperties){if($null -eq $Result.PSObject.Properties[$p]){return $null}};return $Result}
@@ -159,16 +181,43 @@ INSERT INTO domenia_query_recipes VALUES('r1','dc=corp,dc=example','Disques plei
         Expect ($null -ne $sub -and $sub.OperationId -eq 'OfflineDossier' -and $sub.TaskClass -eq 'Explicit' -and $sub.Code -ceq (Get-DomeniaOfflineDossierWorkerCode)) 'travail non confie au worker epingle'
         Expect ((@($sub.Payload.Guids) -join ',') -eq 'aaaaaaaa-0000-0000-0000-000000000001' -and (@($sub.Payload.Sections) -join ',') -eq 'etat,postes,observations,requetes' -and $sub.Payload.OutputPath -eq $exports) 'perimetre ou sections du dossier'
         Start-DomeniaOfflineDossier
-        Expect ($script:Texts['LblSupportOfflineStatus'] -match 'déjà en préparation') 'deux dossiers en parallele'
+        Expect (($script:Texts['LblSupportOfflineStatus'] -match 'déjà en préparation') -and ($script:Submission.Id -eq $sub.Id)) 'deux dossiers en parallele'
+        # The worker runs in this strict-mode suite: the automation interface must not depend on the caller's mode.
         $Payload=$sub.Payload;$Context=$null
         $result=& ([scriptblock]::Create($sub.Code))
         Expect ([IO.Directory]::Exists([string]$result.Path) -and @($result.Files) -contains 'manifeste.json' -and @($result.Files) -notcontains 'associations.json') ('resultat du worker : '+[string]$result.Path)
         # A late answer of another dossier is ignored; the answer of this one ends it and opens the folder from the banner.
         Complete-DomeniaOfflineDossier -Result $result -State ([pscustomobject]@{Id='autre';Epoch=3L;BaseDn='DC=corp,DC=example'})
         Expect ($null -eq $script:Banner) 'reponse d un autre dossier affichee'
+        $script:AsyncJobs.Remove($sub.Id)
         Complete-DomeniaOfflineDossier -Result $result -State $sub.State
         Expect ($null -ne $script:Banner -and $script:Banner.ActionPath -eq [string]$result.Path -and $script:Texts['LblSupportOfflineStatus'] -match 'secrets exclus' -and $null -eq $script:DomeniaOfflineDossierJob) 'dossier non annonce'
         Expect ((Get-FileHash -LiteralPath $database -Algorithm SHA256).Hash -eq $baseHash) 'base modifiee par l Atelier'
+        # « Annuler » on a dossier: the engine calls no handler, the next request must still be admitted.
+        Start-DomeniaOfflineDossier
+        $cancelled=$script:Submission
+        Expect (($cancelled.Id -ne $sub.Id) -and ($null -ne $script:DomeniaOfflineDossierJob)) 'nouveau dossier refuse apres la fin du precedent'
+        $script:AsyncJobs[$cancelled.Id].CancelRequested=$true
+        Start-DomeniaOfflineDossier
+        $afterCancel=$script:Submission
+        Expect (($afterCancel.Id -ne $cancelled.Id) -and ($script:Texts['LblSupportOfflineStatus'] -notmatch 'déjà en préparation')) 'Preparer le dossier bloque apres une annulation'
+        # A queued entry withdrawn by the engine disappears from AsyncJobs without any handler either.
+        $script:AsyncJobs.Remove($afterCancel.Id)
+        Start-DomeniaOfflineDossier
+        $afterWithdraw=$script:Submission
+        Expect ($afterWithdraw.Id -ne $afterCancel.Id) 'Preparer le dossier bloque apres un retrait de la file'
+        Complete-DomeniaOfflineDossier -Result $result -State $cancelled.State
+        Expect ($null -ne $script:DomeniaOfflineDossierJob) 'reponse tardive d un dossier annule acceptee'
+        $script:AsyncJobs.Remove($afterWithdraw.Id);$script:DomeniaOfflineDossierJob=$null
+        # « OU sélectionnée » on an OU named with an upper case accented letter: the dossier holds its workstation.
+        $script:Ctrl.CmbSupportOfflineScope.SelectedItem.Tag='Branch';$script:SelectedBranchDn='OU=Écoles,DC=corp,DC=example'
+        Start-DomeniaOfflineDossier
+        $branch=$script:Submission
+        Expect (($branch.Id -ne $afterWithdraw.Id) -and ($branch.Payload.OrganizationalUnit -ceq 'OU=Écoles,DC=corp,DC=example') -and (@($branch.Payload.Guids).Count -eq 0)) 'perimetre de l OU accentuee'
+        $Payload=$branch.Payload
+        $schoolResult=& ([scriptblock]::Create($branch.Code))
+        $postes=[IO.File]::ReadAllText((Join-Path ([string]$schoolResult.Path) 'postes.json'),[Text.Encoding]::UTF8)|ConvertFrom-Json
+        Expect ((@($postes.Items).Count -eq 1) -and (@($postes.Items)[0].Nom -eq 'PC-04')) ('dossier de l OU accentuee : '+@($postes.Items).Count+' poste(s)')
     }
 }
 Case 'Modules et interface automatisable passent le parseur' {

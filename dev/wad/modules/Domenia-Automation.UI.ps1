@@ -20,10 +20,24 @@ function Get-DomeniaOfflineDossierSections {
     return ,$sections.ToArray()
 }
 
+function Test-DomeniaOfflineDossierRunning {
+    # True while the engine still runs the dossier of this session. The engine calls no handler for a task cancelled
+    # (« Annuler »), withdrawn from its queue or detached after a refused stop: such a dossier is forgotten here, so it
+    # never blocks the next one. A dossier of a former session never blocks either; its late answer is dropped by
+    # Test-DomeniaOfflineDossierState.
+    $current=$script:DomeniaOfflineDossierJob
+    if($null -eq $current){return $false}
+    $taskId=[string](Get-DomeniaMember $current 'TaskId' '')
+    $job=$null
+    if(($taskId) -and ([long]$current.Epoch -eq [long]$script:SessionEpoch) -and ($null -ne $script:AsyncJobs) -and ($script:AsyncJobs.Contains($taskId))){$job=$script:AsyncJobs[$taskId]}
+    if(($null -ne $job) -and (-not [bool](Get-DomeniaMember $job 'CancelRequested' $false))){return $true}
+    $script:DomeniaOfflineDossierJob=$null
+    return $false
+}
+
 function Start-DomeniaOfflineDossier {
     # Point 139: one dossier at a time, for the perimeter chosen in « Périmètre du dossier ».
-    # A dossier of a former session never blocks this one: its late answer is dropped by Test-DomeniaOfflineDossierState.
-    if(($null -ne $script:DomeniaOfflineDossierJob) -and ([long]$script:DomeniaOfflineDossierJob.Epoch -eq [long]$script:SessionEpoch)){Set-DomeniaOfflineDossierStatus 'Un dossier est déjà en préparation : attendez sa fin.';return}
+    if(Test-DomeniaOfflineDossierRunning){Set-DomeniaOfflineDossierStatus 'Un dossier est déjà en préparation : attendez sa fin.';return}
     $combo=Get-DomeniaControl 'CmbSupportOfflineScope'
     $scope='Selected'
     if(($null -ne $combo) -and ($null -ne $combo.SelectedItem)){$tag=[string](Get-DomeniaMember $combo.SelectedItem 'Tag' '');if($tag -in @('Selected','Displayed','Branch')){$scope=$tag}}
@@ -39,6 +53,8 @@ function Start-DomeniaOfflineDossier {
     try{
         $job=Start-UiTask -Name ('Dossier hors ligne : '+[string]$perimeter.Label) -OperationId 'OfflineDossier' -Code (Get-DomeniaOfflineDossierWorkerCode) -Payload $payload -CallbackState $state -SuccessHandler 'Complete-DomeniaOfflineDossier' -ErrorHandler 'Fail-DomeniaOfflineDossier' -TimeoutSeconds 300 -TaskClass 'Explicit' -DisableControls @('BtnSupportOfflineDossier')
         if(-not $job){throw 'Préparation non admise par le moteur.'}
+        # The task id lets the next request see a cancelled or withdrawn dossier (no handler is called for it).
+        $state|Add-Member -NotePropertyName TaskId -NotePropertyValue ([string]$job)
         $script:DomeniaOfflineDossierJob=$state
         Set-DomeniaOfflineDossierStatus ('Préparation du dossier ('+[string]$perimeter.Label+') : lecture seule de la base locale, sans accès réseau…')
     }catch{

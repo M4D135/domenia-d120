@@ -3075,6 +3075,28 @@ Test-Case 'D029 : simulation puis purge atomique, associations et fichiers prote
         Assert-Equal $script:TestDbPath (Get-DomeniaDatabasePath)
     } finally {Remove-Item $root -Recurse -Force}
 }
+Test-Case 'D029 / point 137 : la purge Historique conserve aussi les associations Import GLPI et Import osquery' {
+    $root=New-LegacySandbox
+    try {
+        Add-PurgeFixtureRows
+        $db=Open-DomeniaDatabase -Path $script:TestDbPath
+        try {
+            [void](Invoke-DomeniaDbExec @'
+BEGIN IMMEDIATE;
+INSERT INTO user_machine_links(computer_key,user_login,source) VALUES('GLPI-PC','gil','Import GLPI'),('OSQ-PC','oscar','Import osquery');
+INSERT INTO user_machine_history(computer_key,source,observed_at) VALUES('GLPI-PC','Journal du controleur','2020-01-01'),('OSQ-PC','Journal du controleur','2020-01-01'),('g',' Import GLPI ','2020-01-01'),('o','import OSQUERY','2020-01-01');
+COMMIT;
+'@ $db)
+        } finally {Close-DomeniaDatabase $db}
+        $links=Get-PurgeTableDigest 'user_machine_links'
+        $preview=Invoke-PurgeWorker @('History')
+        $result=Invoke-PurgeWorker @('History') $false $preview.Fingerprint
+        Assert-True $result.Committed
+        Assert-Equal 4 (Get-LegacyCount "user_machine_history WHERE computer_key IN ('GLPI-PC','OSQ-PC','g','o')") 'historique d une association importee GLPI ou osquery purge'
+        Assert-Equal 0 (Get-LegacyCount "user_machine_history WHERE computer_key='AUTO-PC'") 'historique automatique ancien conserve'
+        Assert-Equal $links (Get-PurgeTableDigest 'user_machine_links')
+    } finally {Remove-Item $root -Recurse -Force}
+}
 Test-Case 'D029 : categories protegees ou inconnues refusees avant toute suppression' {
     $root=New-LegacySandbox
     try {
