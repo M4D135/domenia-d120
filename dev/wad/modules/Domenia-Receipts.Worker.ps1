@@ -97,8 +97,16 @@ function Read-WReceiptObservation {
     $path=[string]$Record.DN;if($guid){$path='<GUID='+$guid+'>'}
     try{
         switch($kind){
-            'UacFlags' {$snap=Get-WObjectSnapshot $Context $path;if([bool]$snap.Exists){$observed.Uac=[string]$snap.Uac}else{$observed.ReadStatus='Unavailable'}}
-            'Unlocked' {$snap=Get-WObjectSnapshot $Context $path;if([bool]$snap.Exists){$observed.Lockout=[string]$snap.Lockout}else{$observed.ReadStatus='Unavailable'}}
+            'UacFlags' {
+                # userAccountControl left out of the answer is not read: never taken as 0 (every option cleared).
+                $value=Get-WAttributeFirst $Context $path 'userAccountControl'
+                if($null -ne $value){$observed.Uac=[string]$value}
+            }
+            'Unlocked' {
+                # The unlock wrote lockoutTime=0: an attribute left out of the answer is not read, never taken as 0.
+                $value=Get-WAttributeFirst $Context $path 'lockoutTime'
+                if($null -ne $value){$observed.Lockout=[string](Convert-WLargeInteger $value)}
+            }
             {$_ -in @('PwdLastSetZero','PasswordChangedAfterSend')} {
                 # An attribute left out of the answer is not read: never taken as 0.
                 $value=Get-WAttributeFirst $Context $path 'pwdLastSet'

@@ -696,8 +696,10 @@ function Resolve-DomeniaReceiptCheck {
         'Unlocked' {
             $raw = [string](Get-DomeniaMember $Observed 'Lockout' '')
             $value = 0L
-            if ((-not $raw) -or ([long]::TryParse($raw,[ref]$value) -and ($value -eq 0))) { return [pscustomobject]@{Verified=$true;Reason='lockoutTime relu à 0 : compte déverrouillé.'} }
-            return [pscustomobject]@{Verified=$false;Reason='lockoutTime relu non nul : compte encore verrouillé.'}
+            # The unlock wrote 0: an attribute absent from the answer is unread, never an unlocked account.
+            if (-not $raw) { return [pscustomobject]@{Verified=$false;Reason='lockoutTime non relu.'} }
+            if ([long]::TryParse($raw,[ref]$value) -and ($value -eq 0)) { return [pscustomobject]@{Verified=$true;Reason='lockoutTime relu à 0 : compte déverrouillé.'} }
+            return [pscustomobject]@{Verified=$false;Reason='lockoutTime relu non nul : déverrouillage non constaté (compte encore ou de nouveau verrouillé).'}
         }
         'PwdLastSetZero' {
             $value = -1L

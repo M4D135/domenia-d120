@@ -372,7 +372,8 @@ try {
         $id=[guid]::NewGuid().ToString('N')
         $record=[pscustomobject]@{Format=1;CanVerify=$true;Expectation=[pscustomobject]@{Kind='UacFlags';Flags=@([pscustomobject]@{Name='ACCOUNTDISABLE';Mask=2;Set=$true})};SentUtc=[datetime]::UtcNow.ToString('o');Id=$id;Operation='WriteAccountDisabled';Domain='dc=example,dc=invalid';Server='dc1.example.invalid';Identity='EXAMPLE\technicien';DN='CN=U,DC=example,DC=invalid';Guid='0a1b2c3d-4e5f-4a6b-8c7d-8e9fa0b1c2d3';PlanFingerprint='';Stage='Unknown';CreatedUtc=[datetime]::UtcNow.ToString('o');UpdatedUtc='';Expected=@();Review=''}
         [IO.File]::WriteAllText((Join-Path $root ($id+'.json')),($record|ConvertTo-Json -Depth 5 -Compress))
-        $override='function Get-WObjectSnapshot {param($Context,[string]$Dn) $script:P49Reads.Add(([string]$Context.Server)+''|''+$Dn); if($script:P49Mode -eq ''Denied''){throw [UnauthorizedAccessException]::new(''Acces refuse (simulation).'')}; return [pscustomobject]@{Exists=$true;DN=''CN=U,DC=example,DC=invalid'';Uac=$script:P49Uac;Lockout=''0'';Name=''U'';Classes=@(''user'')}}'
+        # Directory boundary only: the attribute reader of the worker answers from the fixture.
+        $override='function Get-WAttributeFirst {param($Context,[string]$Dn,[string]$Name) $script:P49Reads.Add(([string]$Context.Server)+''|''+$Dn+''|''+$Name); if($script:P49Mode -eq ''Denied''){throw [UnauthorizedAccessException]::new(''Acces refuse (simulation).'')}; if($Name -eq ''userAccountControl''){return $script:P49Uac}; return $null}'
         $verify={
             $text="param(`$Context,`$Payload)`r`n`$ErrorActionPreference='Stop'`r`n"+(Get-DomeniaReceiptsCommon)+"`r`n"+$override+"`r`n"+(Get-DomeniaReceiptWorkerCode)
             $ctx=[pscustomobject]@{ReceiptRoot=$root;BaseDn='DC=example,DC=invalid';Server='dc2.example.invalid';OperationId='ReceiptStore'}
@@ -394,8 +395,14 @@ try {
         $out=@(& $verify)
         $after=(@(Get-ReceiptRecords $root))[0]
         Assert-True (($after.Stage -eq 'Verified') -and ([string]$after.Review -match 'conforme')) ('Recu : '+[string]$after.Stage+' '+[string]$after.Review)
-        Assert-True (@($script:P49Reads|Where-Object{$_ -ne 'dc1.example.invalid|<GUID=0a1b2c3d-4e5f-4a6b-8c7d-8e9fa0b1c2d3>'}).Count -eq 0) ('Relectures : '+($script:P49Reads -join ' ; '))
+        Assert-True (@($script:P49Reads|Where-Object{$_ -ne 'dc1.example.invalid|<GUID=0a1b2c3d-4e5f-4a6b-8c7d-8e9fa0b1c2d3>|userAccountControl'}).Count -eq 0) ('Relectures : '+($script:P49Reads -join ' ; '))
         Assert-True ([int]$out[-1].Pending -eq 0) 'Recu encore compte a verifier'
+        # An attribute left out of the answer is unread: the receipt stays to verify.
+        $script:P49Reads.Clear();$record.Stage='Unknown';$record.Review='';[IO.File]::WriteAllText((Join-Path $root ($id+'.json')),($record|ConvertTo-Json -Depth 5 -Compress))
+        $script:P49Uac=$null
+        $failure='';try{[void](& $verify)}catch{$failure=$_.Exception.Message}
+        Assert-True ($failure -match 'non relu') ('Attribut absent pris pour une valeur : '+$failure)
+        Assert-True ((@(Get-ReceiptRecords $root))[0].Stage -eq 'Unknown') 'Recu resolu sans relecture'
     }
     Test-Case 'Recus : compaction des recus termines, recus non resolus conserves' {
         Reset-FaultFixture

@@ -571,6 +571,7 @@ Test-Case 'P49' 'Decision par la relecture seule : conforme, contraire, refusee 
     Assert-False (Resolve-DomeniaReceiptCheck $flag ([pscustomobject]@{ReadStatus='OK';Uac=''})).Verified 'Valeur non relue acceptee'
     Assert-True (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='Unlocked'}) ([pscustomobject]@{ReadStatus='OK';Lockout='0'})).Verified
     Assert-False (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='Unlocked'}) ([pscustomobject]@{ReadStatus='OK';Lockout='133000000000000000'})).Verified
+    Assert-False (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='Unlocked'}) ([pscustomobject]@{ReadStatus='OK';Lockout=''})).Verified 'lockoutTime non relu pris pour un deverrouillage'
     Assert-True (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='PwdLastSetZero'}) ([pscustomobject]@{ReadStatus='OK';PwdLastSet='0'})).Verified
     Assert-False (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='PwdLastSetZero'}) ([pscustomobject]@{ReadStatus='OK';PwdLastSet=''})).Verified 'pwdLastSet non relu pris pour 0'
     $sent=$script:SfNow.ToString('o')
