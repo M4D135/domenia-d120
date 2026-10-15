@@ -591,7 +591,7 @@ function Test-DomeniaLinkIdentity {
     $field = if ($Kind -eq 'Computer') { 'ComputerGuid' } else { 'UserGuid' }
     $expected = ConvertTo-DomeniaGuidText $Guid
     $stored = ConvertTo-DomeniaGuidText (Get-DomeniaMember $Link $field '')
-    if ($expected -and $stored) {
+    if (($expected) -and ($stored)) {
         if ($expected -eq $stored) { return [pscustomobject]@{Match='Same';Reason='GUID identique : même objet, même après renommage ou déplacement.'} }
         return [pscustomobject]@{Match='Different';Reason='Même nom, autre GUID : objet recréé ou nom réattribué, historique non repris.'}
     }

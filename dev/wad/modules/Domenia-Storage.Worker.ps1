@@ -179,7 +179,7 @@ function Convert-StoreWCollectionRun {
     # One committed scope clock (domenia_domain_metadata). 'null' payloads stay $null: no empty run is invented.
     param($Row)
     $success=[string]$Row.payload;$attempt=[string]$Row.attempt_payload
-    return [pscustomobject]@{Kind='CollectionRun';DomainDn=[string]$Row.domain_dn;Family=[string]$Row.family;RequestKey=[string]$Row.request_key;LastAttemptAtUtc=[string]$Row.attempt_at;Status=[string]$Row.status;Error=[string]$Row.error;LastSuccessAtUtc=[string]$Row.success_at;Data=$(if($success -and $success -cne 'null'){Get-StoreWJson $success}else{$null});AttemptData=$(if($attempt -and $attempt -cne 'null'){Get-StoreWJson $attempt}else{$null});Revision=[long]$Row.revision}
+    return [pscustomobject]@{Kind='CollectionRun';DomainDn=[string]$Row.domain_dn;Family=[string]$Row.family;RequestKey=[string]$Row.request_key;LastAttemptAtUtc=[string]$Row.attempt_at;Status=[string]$Row.status;Error=[string]$Row.error;LastSuccessAtUtc=[string]$Row.success_at;Data=$(if(($success) -and ($success -cne 'null')){Get-StoreWJson $success}else{$null});AttemptData=$(if(($attempt) -and ($attempt -cne 'null')){Get-StoreWJson $attempt}else{$null});Revision=[long]$Row.revision}
 }
 function Get-StoreWCollectionRunWhere {
     param([object[]]$Changes)
@@ -1464,6 +1464,8 @@ try {
         switch($category){
             Observations {
                 foreach($table in @('adcc_live_observations','presence_cache','park_state','park_session_cache','domenia_observations','domenia_details')){$targets.Add([pscustomobject]@{Category=$category;Table=$table;Action='Delete';Where='1=1'})}
+                # Scope clocks of the ping and WMI campaigns go with the measures they dated.
+                $targets.Add([pscustomobject]@{Category=$category;Table='domenia_domain_metadata';Action='Delete';Where="family IN ('Presence','Inventory')"})
             }
             Snapshots {$targets.Add([pscustomobject]@{Category=$category;Table='adcc_live_queries';Action='Delete';Where='1=1'})}
             History {
@@ -1477,6 +1479,8 @@ try {
             }
             Index {
                 foreach($table in @('ad_objects','domenia_provenance','ad_computer_facts','domenia_directory_data')){$targets.Add([pscustomobject]@{Category=$category;Table=$table;Action='Delete';Where='1=1'})}
+                # The scope clock of the AD reads goes with the index it dated.
+                $targets.Add([pscustomobject]@{Category=$category;Table='domenia_domain_metadata';Action='Delete';Where="family='Directory'"})
                 $targets.Add([pscustomobject]@{Category=$category;Table='sync_state';Action='Reset';Where="scope='directory' OR scope LIKE 'ou:%' OR scope LIKE 'attempt:%'"})
             }
         }
@@ -1485,7 +1489,7 @@ try {
     foreach($target in $targets){
         $n=0L;$exists=$tables.ContainsKey($target.Table)
         if($exists){$n=[long](@(Invoke-DomeniaDbQuery ('SELECT count(*) AS n FROM '+$target.Table+' WHERE '+$target.Where+';') $db)[0].n)}
-        elseif($target.Table -notin @('adcc_live_observations','adcc_live_queries','park_session_cache','ad_computer_facts','fleet_snapshots','domenia_observations','domenia_details','domenia_directory_data')){throw ('Table locale requise absente : '+$target.Table)}
+        elseif($target.Table -notin @('adcc_live_observations','adcc_live_queries','park_session_cache','ad_computer_facts','fleet_snapshots','domenia_observations','domenia_details','domenia_directory_data','domenia_domain_metadata')){throw ('Table locale requise absente : '+$target.Table)}
         $counts.Add([pscustomobject]@{Category=$target.Category;Table=$target.Table;Action=$target.Action;Rows=$n;Exists=$exists})
     }
     # Bind confirmation to the categories, fixed cutoff, path and freshly recounted rows.

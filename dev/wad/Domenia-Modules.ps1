@@ -1612,6 +1612,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Request-DomeniaFleetRefresh',
             'Start-DomeniaFleetDashboard',
             'Fail-DomeniaFleetDashboard',
+            'Set-DomeniaFleetDashboardToolTip',
             'Update-DomeniaFleetScopeText',
             'Show-DomeniaFleetScopeSource',
             'Select-DomeniaFleetScopeOu',

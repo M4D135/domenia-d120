@@ -156,6 +156,47 @@ Case 'Legacy LastSyncUtc argument is never used to synthesize scope coverage' {
  Update-DomeniaFleetScopeText $scope -Count 3 -LastSyncUtc '2026-10-13T11:59:00Z' -NowUtc $Now
  Expect ($script:Labels.LblFleetScope -like '*aucune lecture complète*') 'Global fallback accepted'
 }
+Case 'The dashboard tool tip keeps its catalogued help and never keeps the provenance of a previous calculation' {
+ $savedControls=$script:Controls;$savedLabels=$script:Labels;$savedCatalogue=$script:UxHelpCatalogue
+ try{
+  $label=[pscustomobject]@{ToolTip='';Text=''}
+  $script:Controls=@{LblFleetDashboard=$label};$script:Labels=@{}
+  $script:UxHelpCatalogue=@{LblFleetDashboard=[pscustomobject]@{Name='LblFleetDashboard';Title='Dates';Text='Aide du catalogue.'}}
+  Set-DomeniaFleetDashboardToolTip -Provenance 'Présence réseau (ping) : dernière réussite'
+  Expect ($label.ToolTip -like 'Aide du catalogue.*Provenance des relevés de lʼOU (base locale) :*Présence réseau (ping) : dernière réussite') ('Provenance replaced the catalogued help: '+$label.ToolTip)
+  $script:SessionEpoch=7L;$script:FleetPendingKey='chosen'
+  Fail-DomeniaFleetDashboard 'refus local' ([pscustomobject]@{Epoch=7L;Key='chosen'})
+  Expect ($label.ToolTip -ceq 'Aide du catalogue.') ('A failed calculation kept the previous provenance: '+$label.ToolTip)
+  Set-DomeniaFleetDashboardToolTip -Provenance 'ancienne OU'
+  Set-DomeniaFleetDashboardToolTip
+  Expect ($label.ToolTip -ceq 'Aide du catalogue.') ('Empty provenance did not restore the help: '+$label.ToolTip)
+  $script:UxHelpCatalogue=@{};Set-DomeniaFleetDashboardToolTip -Provenance 'ancienne OU';Set-DomeniaFleetDashboardToolTip
+  Expect ($null -eq $label.ToolTip) 'Provenance kept on a label without catalogued help'
+ }finally{$script:Controls=$savedControls;$script:Labels=$savedLabels;$script:UxHelpCatalogue=$savedCatalogue}
+}
+Case 'A scope without collection keys requests no scope clock, so they stay unknown instead of never recorded' {
+ $savedControls=$script:Controls;$savedLabels=$script:Labels
+ try{
+  $script:Controls=@{};$script:Labels=@{};$script:FleetPayload=$null
+  $script:DatabaseScopedPath='/fixture/db';$script:Conn=[pscustomobject]@{BaseDn=$Domain};$script:SessionEpoch=7L;$script:SelectedObject=$null;$script:IndexSyncStates=@{}
+  $script:FleetTestScope=[pscustomobject]@{Dn='OU=Ailleurs,DC=autre,DC=invalid';Key='other';Subtree=$true;Name='Ailleurs';Path=''}
+  function Get-DomeniaFleetScope {return $script:FleetTestScope}
+  function Get-DomeniaStoredHealthPolicyBook {return $null}
+  function Resolve-DomeniaHealthPolicy {param($Book,$ScopeDn) return $null}
+  function Get-DomeniaObservationMaxAgeDays {return 30}
+  function Get-DomeniaBoardProbeIds {return @()}
+  function Get-DomeniaWindowsLifecycleTable {return @()}
+  function Initialize-DomeniaWinSqliteNative {return $true}
+  function Get-DomeniaLocalIndexReadWorkerCode {return ''}
+  function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$SuccessHandler,$ErrorHandler,$TimeoutSeconds,$TaskClass) $script:FleetPayload=$Payload;return 'fleet-job'}
+  Start-DomeniaFleetDashboard -Quiet
+  Expect ($null -ne $script:FleetPayload) 'calculation not started for a scope outside the domain'
+  Expect ($null -eq $script:FleetPayload.RunKeys) ('a scope without keys was sent as requested with none recorded: '+@($script:FleetPayload.RunKeys).Count)
+  $script:FleetPayload=$null;$script:FleetTestScope=[pscustomobject]@{Dn=$Ou;Key='chosen';Subtree=$true;Name='Postes';Path=$Ou}
+  Start-DomeniaFleetDashboard -Quiet
+  Expect (@($script:FleetPayload.RunKeys).Count -ge 2) 'the viewed OU and its enclosing subtrees are not requested'
+ }finally{$script:Controls=$savedControls;$script:Labels=$savedLabels}
+}
 if(-not $SkipStorage){
  Case 'Real SQLite depth checkpoints, partial commits and repeat FleetStats preserve timestamps' {
   if($PSVersionTable.PSVersion.Major -ne 5 -or -not [Environment]::Is64BitProcess){throw 'Storage proof requires Windows PowerShell 5.1 x64'}

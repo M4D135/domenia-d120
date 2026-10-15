@@ -234,7 +234,11 @@ function Get-DomeniaCollectionClock {
     param([object[]]$Runs=@(),[Parameter(Mandatory=$true)][ValidateSet('Directory','Presence','Inventory')][string]$Family,[AllowEmptyString()][string]$ScopeDn='',[AllowEmptyString()][string]$DomainDn='',[bool]$Subtree=$true,[datetime]$NowUtc=[datetime]::UtcNow)
     $info=Get-DomeniaCollectionFamily $Family
     $keys=@(Get-DomeniaCollectionRunKeys -ScopeDn $ScopeDn -DomainDn $DomainDn -Subtree $Subtree)
-    $exact=if($keys.Count){[string]$keys[0]}else{''}
+    # A run is inherited when it was collected on another OU (an enclosing subtree), not when only its depth differs:
+    # the subtree run of the viewed OU dates its direct-children view without coming from an enclosing OU.
+    $viewDn=([string]$ScopeDn).Trim();if(-not $viewDn){$viewDn=([string]$DomainDn).Trim()}
+    $viewDn=$viewDn.ToLowerInvariant()
+    $inherited={param([string]$RequestKey) return ($RequestKey.Substring($RequestKey.IndexOf(':')+1) -cne $viewDn)}
     $best=$null;$latest=$null
     foreach($raw in @($Runs)){
         if(($null -eq $raw) -or ([string](Get-DomeniaMember $raw 'Family' '') -cne $Family)){continue}
@@ -250,7 +254,7 @@ function Get-DomeniaCollectionClock {
         $data=$best.Success
         $successView=[pscustomobject]@{
             AtUtc=$best.SuccessAtUtc;FinishedAtUtc=(ConvertTo-DomeniaUtcDate ([string](Get-DomeniaMember $data 'FinishedAtUtc' '')));RecordedAtUtc=(ConvertTo-DomeniaUtcDate ([string](Get-DomeniaMember $data 'RecordedAtUtc' '')))
-            ScopeDn=[string](Get-DomeniaMember $data 'ScopeDn' '');Inherited=($best.RequestKey -cne $exact)
+            ScopeDn=[string](Get-DomeniaMember $data 'ScopeDn' '');Inherited=(& $inherited $best.RequestKey)
             Controller=[string](Get-DomeniaMember $data 'Controller' '');Provider=[string](Get-DomeniaMember $data 'Provider' $info.Provider);CollectorVersion=[string](Get-DomeniaMember $data 'CollectorVersion' '')
             Targets=(Get-DomeniaMember $data 'Targets' $null);Done=(Get-DomeniaMember $data 'Done' $null);Succeeded=(Get-DomeniaMember $data 'Succeeded' $null);Failed=(Get-DomeniaMember $data 'Failed' $null)
         }
@@ -261,7 +265,7 @@ function Get-DomeniaCollectionClock {
         $attemptView=[pscustomobject]@{
             AtUtc=$latest.AttemptAtUtc;Status=$latest.Status;Error=$latest.Error
             FinishedAtUtc=(ConvertTo-DomeniaUtcDate ([string](Get-DomeniaMember $data 'FinishedAtUtc' '')));RecordedAtUtc=(ConvertTo-DomeniaUtcDate ([string](Get-DomeniaMember $data 'RecordedAtUtc' '')))
-            ScopeDn=[string](Get-DomeniaMember $data 'ScopeDn' '');Inherited=($latest.RequestKey -cne $exact)
+            ScopeDn=[string](Get-DomeniaMember $data 'ScopeDn' '');Inherited=(& $inherited $latest.RequestKey)
             Controller=[string](Get-DomeniaMember $data 'Controller' '');Provider=[string](Get-DomeniaMember $data 'Provider' $info.Provider);CollectorVersion=[string](Get-DomeniaMember $data 'CollectorVersion' '')
             Targets=(Get-DomeniaMember $data 'Targets' $null);Done=(Get-DomeniaMember $data 'Done' $null);Succeeded=(Get-DomeniaMember $data 'Succeeded' $null);Failed=(Get-DomeniaMember $data 'Failed' $null)
         }
@@ -288,13 +292,15 @@ function Get-DomeniaCollectionStatusText {
 }
 
 function Format-DomeniaCollectionCounts {
-    # "198/200 postes" or "198 postes" or "": only measured counters are written.
-    param($View)
+    # "198/200 postes" or "198 postes" or "": only measured counters are written. An AD read (Directory) counts every
+    # object read in its OU (users, groups, OUs and computers): its unit is the AD object, never the workstation.
+    param($View,[AllowEmptyString()][string]$Family='')
     $done=Get-DomeniaMember $View 'Done' $null;$targets=Get-DomeniaMember $View 'Targets' $null;$failed=Get-DomeniaMember $View 'Failed' $null
     if($null -eq $done){return ''}
     $text=[string]$done
     if($null -ne $targets){$text+='/'+[string]$targets}
-    $text+=' poste'+$(if([long]$done -gt 1){'s'}else{''})
+    $plural=([long]$done -gt 1)
+    $text+=$(if($Family -ceq 'Directory'){' objet'+$(if($plural){'s'}else{''})+' AD'}else{' poste'+$(if($plural){'s'}else{''})})
     if(($null -ne $failed) -and ([long]$failed -gt 0)){$text+=', '+[string]$failed+' non confirmé'+$(if([long]$failed -gt 1){'s'}else{''})}
     return $text
 }
@@ -317,13 +323,13 @@ function Format-DomeniaCollectionClock {
         if($View.ScopeDn){$line+=' ; périmètre '+$View.ScopeDn+$(if($View.Inherited){' (OU englobante)'}else{''})}
         $source=@(@($(if($View.Provider){'fournisseur '+$View.Provider}),$(if($View.Controller){'contrôleur '+$View.Controller}),$(if($View.CollectorVersion){'version de collecte '+$View.CollectorVersion}))|Where-Object{$_})
         if($source.Count){$line+=' ; '+($source -join ', ')}
-        $counts=Format-DomeniaCollectionCounts $View;if($counts){$line+=' ; '+$counts}
+        $counts=Format-DomeniaCollectionCounts $View -Family $family;if($counts){$line+=' ; '+$counts}
         return $line
     }
     if($null -ne $success){
         if($family -ne 'Directory'){
             $text='relevé réussi le '+(& $date $success.AtUtc)
-            $counts=Format-DomeniaCollectionCounts $success;if($counts){$text+=' ('+$counts+')'}
+            $counts=Format-DomeniaCollectionCounts $success -Family $family;if($counts){$text+=' ('+$counts+')'}
             if($success.Inherited){$text+=' via une OU englobante'}
             $parts.Add($text)
         }

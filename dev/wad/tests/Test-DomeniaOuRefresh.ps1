@@ -163,7 +163,7 @@ Case 'Scope clocks: a declined confirmation records the AD run only' {
     Invoke-DomeniaOuRefresh Search Both;$item=Complete-Ad;Commit-Item $item;Invoke-DomeniaOuRefreshTick;Complete-Targets 1
     Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@([pscustomobject]@{Computer='PC-0'});Busy=$false}) $script:Jobs[2].State
     & $script:Confirmation.Cancel;Invoke-DomeniaOuRefreshTick
-    Expect ($script:DomeniaOuRefresh.Completed -and ((@(Get-RunChanges)|ForEach-Object{[string]$_.Family}) -join ',') -eq 'Directory') 'declined collection recorded as an attempt'
+    Expect (($script:DomeniaOuRefresh.Completed) -and (((@(Get-RunChanges)|ForEach-Object{[string]$_.Family}) -join ',') -eq 'Directory')) 'declined collection recorded as an attempt'
 }
 Case 'Scope clocks: an approved ping with one failed workstation records a partial presence clock' {
     Invoke-DomeniaOuRefresh Search Ping;Invoke-DomeniaOuRefreshTick;Complete-Targets 2
@@ -181,7 +181,7 @@ Case 'Scope clocks: a WMI run whose saves are not confirmed is never recorded as
     Expect (@(Get-RunChanges).Count -eq 0) 'run admitted while the writer is suspended'
     Expect ($script:Status -like '*non enregistrées*') 'suspended writer not reported'
 }
-Case 'Scope clocks: another session never receives the run' {Invoke-DomeniaOuRefresh Index Base;[void](Complete-Ad);$script:SessionEpoch++;Invoke-DomeniaOuRefreshTick;Expect ($script:DomeniaOuRefresh.Cancelled -and @(Get-RunChanges).Count -eq 0)}
+Case 'Scope clocks: another session never receives the run' {Invoke-DomeniaOuRefresh Index Base;[void](Complete-Ad);$script:SessionEpoch++;Invoke-DomeniaOuRefreshTick;Expect (($script:DomeniaOuRefresh.Cancelled) -and (@(Get-RunChanges).Count -eq 0))}
 Case 'Scope clocks: the dashboard re-reads them only after a complete SQLite receipt of this session' {
     $state=[pscustomobject]@{OperationId='fixture';Epoch=$script:SessionEpoch;Path=$script:DatabaseScopedPath;BatchId='b';Families=@('Presence','Inventory')}
     Complete-DomeniaOuRefreshRunsStored -Result ([pscustomobject]@{Saved=$true;DataSource='SQLite';CollectionRuns=@([pscustomobject]@{Family='Presence'})}) -State $state

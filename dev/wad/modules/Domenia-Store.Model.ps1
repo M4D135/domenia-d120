@@ -157,7 +157,7 @@ function ConvertTo-DomeniaStoreCollectionRun {
     if([string]::CompareOrdinal($finished,$attempt) -lt 0){throw 'Fin de collecte antérieure à son début.'}
     $message=[string](Get-DomeniaStoreValue $Change 'Error')
     if($message.Length -gt 1024){$message=$message.Substring(0,1024)}
-    if(($status -eq 'Success') -and $message){throw 'Une collecte réussie ne porte pas dʼerreur.'}
+    if(($status -eq 'Success') -and ($message)){throw 'Une collecte réussie ne porte pas dʼerreur.'}
     if(($status -ne 'Success') -and (-not $message)){throw 'Une collecte non réussie doit porter son erreur.'}
     $data=Get-DomeniaStoreValue $Change 'Data';Assert-DomeniaStoreSafeData $data
     if([string](Get-DomeniaStoreValue $data 'Format') -cne 'Domenia.CollectionRun/1'){throw 'Format de collecte inconnu.'}

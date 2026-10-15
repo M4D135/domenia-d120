@@ -599,17 +599,17 @@ try {
         # names the exact scope and its enclosing subtrees; nothing else is read and nothing is written.
         # $null: not requested, so unknown; an empty list: requested and none recorded.
         $collectionRuns=$null;$runKeysProperty=$Payload.PSObject.Properties['RunKeys']
-        if($null -ne $runKeysProperty -and $null -ne $runKeysProperty.Value){
+        if(($null -ne $runKeysProperty) -and ($null -ne $runKeysProperty.Value)){
             $collectionRuns=@()
             $runKeys=@(@($runKeysProperty.Value)|ForEach-Object{[string]$_}|Where-Object{$_}|Select-Object -Unique)
             if($runKeys.Count -gt 128){throw 'Trop de perimetres de collecte demandes.'}
             foreach($runKey in $runKeys){if(($runKey.Length -gt 4200) -or ($runKey -cnotmatch '^(subtree|onelevel):') -or ($runKey -match '[\x00-\x1f]')){throw 'Perimetre de collecte invalide.'}}
-            if($runKeys.Count -and $tables.ContainsKey('domenia_domain_metadata')){
+            if(($runKeys.Count) -and ($tables.ContainsKey('domenia_domain_metadata'))){
                 $runDomain=Get-IdxWLiteral (([string]$Payload.DomainDn).Trim().ToLowerInvariant())
                 $runSql='SELECT domain_dn,family,request_key,attempt_at,status,error,success_at,payload,attempt_payload,revision FROM domenia_domain_metadata WHERE domain_dn='+$runDomain+" AND family IN ('Directory','Presence','Inventory') AND request_key IN ("+(@($runKeys|ForEach-Object{Get-IdxWLiteral $_}) -join ',')+') ORDER BY family,request_key;'
                 $collectionRuns=@(foreach($runRow in @(Invoke-IdxWQuery $db $runSql)){
                     $runSuccess=[string]$runRow.payload;$runAttempt=[string]$runRow.attempt_payload
-                    [pscustomobject]@{Kind='CollectionRun';DomainDn=[string]$runRow.domain_dn;Family=[string]$runRow.family;RequestKey=[string]$runRow.request_key;LastAttemptAtUtc=[string]$runRow.attempt_at;Status=[string]$runRow.status;Error=[string]$runRow.error;LastSuccessAtUtc=[string]$runRow.success_at;Data=$(if($runSuccess -and $runSuccess -cne 'null'){Get-StoreWJson $runSuccess}else{$null});AttemptData=$(if($runAttempt -and $runAttempt -cne 'null'){Get-StoreWJson $runAttempt}else{$null});Revision=[long]$runRow.revision}
+                    [pscustomobject]@{Kind='CollectionRun';DomainDn=[string]$runRow.domain_dn;Family=[string]$runRow.family;RequestKey=[string]$runRow.request_key;LastAttemptAtUtc=[string]$runRow.attempt_at;Status=[string]$runRow.status;Error=[string]$runRow.error;LastSuccessAtUtc=[string]$runRow.success_at;Data=$(if(($runSuccess) -and ($runSuccess -cne 'null')){Get-StoreWJson $runSuccess}else{$null});AttemptData=$(if(($runAttempt) -and ($runAttempt -cne 'null')){Get-StoreWJson $runAttempt}else{$null});Revision=[long]$runRow.revision}
                 })
             }
         }

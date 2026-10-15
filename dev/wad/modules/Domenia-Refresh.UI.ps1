@@ -67,7 +67,7 @@ function Complete-DomeniaOuRefreshCommit {
     if($r.Phase -notin @('Directory','Saving') -or [long]$Item.Epoch -ne $r.Epoch -or [string]$Item.Path -cne $r.Path -or [string]$Item.Row.BaseDn -ine $r.Dn -or [string]$Item.Row.SyncScope -ine ('ou:'+$r.Dn.ToLowerInvariant())){return}
     $r.Directory.FinishedUtc=[datetime]::UtcNow.ToString('o');$r.Directory.Controller=[string](Get-DomeniaMemberValue $Item.Row 'Server')
     $r.Directory.Count=[long]$(if($null -ne $Item.Row.PSObject.Properties['RowCount']){$Item.Row.RowCount}elseif($null -ne $Item.Row.PSObject.Properties['Rows']){@($Item.Row.Rows).Count}else{-1})
-    if($null -eq $Item.Row.PSObject.Properties['Complete'] -or -not [bool]$Item.Row.Complete){$r.Directory.Status='Partial';$r.Directory.Error='Lecture AD partielle : le dernier repère complet est conservé.';Fail-DomeniaOuRefresh -OperationId $id -Message 'Lecture AD partielle : le dernier repère complet est conservé.';return}
+    if(($null -eq $Item.Row.PSObject.Properties['Complete']) -or (-not [bool]$Item.Row.Complete)){$r.Directory.Status='Partial';$r.Directory.Error='Lecture AD partielle : le dernier repère complet est conservé.';Fail-DomeniaOuRefresh -OperationId $id -Message 'Lecture AD partielle : le dernier repère complet est conservé.';return}
     $r.BaseCommitted=$true;$r.Directory.Status='Success'
     if($r.Mode -in @('AD','Base')){$r.Completed=$true;$r.Phase='Complete';$r.Status='Objets AD relus et enregistrés : '+$r.Label+'. Aucun ping ni relevé WMI.';if($null -ne $r.Timer){$r.Timer.Stop()};Submit-DomeniaOuRefreshRuns -Refresh $r}
     else{$r.Phase='WaitingCollection';$r.Status='Base locale enregistrée. Préparation du relevé des postes de '+$r.Label+'.'}

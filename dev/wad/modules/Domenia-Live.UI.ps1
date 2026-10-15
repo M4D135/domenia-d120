@@ -254,7 +254,9 @@ function Stop-DomeniaLiveJob {
         Complete-DomeniaDirectoryReadPipe -Pipe $pipe -Error 'Lecture arretee : les informations deja recoltees sont conservees.'
     }
     if($null -eq $script:Live){return}
-    if($Job.OperationId -in @('LiveConsole','LiveSelectedPing') -and $null -ne $Job.CallbackState){
+    # The explicit ping of the selected workstation (Park.UI, ReplaceKey presence-selected) runs the live probe body
+    # under LiveSelectedPing but belongs to the fiche: the bookkeeping of the search rows is not applied to it.
+    if(($Job.OperationId -in @('LiveConsole','LiveSelectedPing')) -and ([string]$Job.ReplaceKey -cne 'presence-selected') -and ($null -ne $Job.CallbackState)){
         $key=[string]$Job.CallbackState.Key
         if($Job.CallbackState.Generation -eq $script:GlobalSearchGeneration -and -not $Job.Superseded){
             $script:Live.Done[$key]=$true
@@ -642,10 +644,14 @@ function Fail-DomeniaLiveCache {
     Write-AppLog ('Cache progressif indisponible : '+$Message+'. La lecture AD et les données en mémoire restent indépendantes.') 'WARN'
 }
 function Get-DomeniaLiveWorkerCount {
-    param([string]$Operation='')
+    # ExcludeReplaceKey leaves out the jobs of one replace key (the selected-workstation ping shares LiveSelectedPing).
+    param([string]$Operation='',[string]$ExcludeReplaceKey='')
     $count=0
     foreach($job in @($script:AsyncJobs.Values)+@($script:DetachedReadJobs)){
-        if($null -ne $job -and (-not $Operation -or [string]$job.OperationId -eq $Operation)){$count++}
+        if($null -eq $job){continue}
+        if(($Operation) -and ([string]$job.OperationId -ne $Operation)){continue}
+        if(($ExcludeReplaceKey) -and ([string]$job.ReplaceKey -ceq $ExcludeReplaceKey)){continue}
+        $count++
     }
     return $count
 }
@@ -691,7 +697,8 @@ function Start-DomeniaLiveBackgroundWork {
     if(-not $s.Fresh.ContainsKey([string]$intent.Key)){return}
     Request-DomeniaLiveProbe -Row $selected
     $parallel=[Math]::Max(1,[Math]::Min(3,[int](Get-CfgValue 'Streaming' 'MaxUserProbes' 2)))
-    if(((Get-DomeniaLiveWorkerCount 'LiveConsole')+(Get-DomeniaLiveWorkerCount 'LiveSelectedPing')) -ge $parallel){return}
+    # The explicit ping of the selected workstation (presence-selected) belongs to the fiche, not to the live budget.
+    if(((Get-DomeniaLiveWorkerCount 'LiveConsole')+(Get-DomeniaLiveWorkerCount 'LiveSelectedPing' -ExcludeReplaceKey 'presence-selected')) -ge $parallel){return}
     $item=$script:Live.PendingKeys[[string]$intent.Key]
     if($null -eq $item -or $item.RequestId -cne $intent.RequestId -or $item.ReadyAfter -gt [datetime]::UtcNow){return}
     if(-not (Test-DomeniaLiveIdentity $item ([long]$script:SessionEpoch) $script:Live.Identity) -or $item.Generation -ne $script:GlobalSearchGeneration){Clear-DomeniaLiveProbeIntent;return}

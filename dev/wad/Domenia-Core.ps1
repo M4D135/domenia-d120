@@ -8425,7 +8425,8 @@ function Reset-DomeniaSelectionBoundViews {
     param(
         [AllowEmptyString()][string]$Dn = "",
         [AllowEmptyString()][string]$Type = "",
-        [AllowEmptyString()][string]$Name = ""
+        [AllowEmptyString()][string]$Name = "",
+        [AllowEmptyString()][string]$Guid = ""
     )
 
     try {
@@ -8530,7 +8531,7 @@ function Reset-DomeniaSelectionBoundViews {
         $secretHint = "Aucun secret charge pour cette selection."
         try {
             if ($Type -eq "Machine") {
-                $known = Get-DomeniaSecretIndexSummary -Computer ([string]$Name)
+                $known = Get-DomeniaSecretIndexSummary -Computer ([string]$Name) -Guid ([string]$Guid)
                 if (-not [string]::IsNullOrWhiteSpace($known)) { $secretHint = $known }
             }
         }
@@ -8819,7 +8820,9 @@ function Fill-ComputerObject {
         $computerForLink = Normalize-LinkComputer ([string](Get-DeProp $Entry "name" ""))
         # Point 9: the association of a former holder of this name (other GUID, or recorded before this computer was
         # created) is not shown on the fiche of the current object.
-        $link = Get-ExistingLinkForComputer -Computer $computerForLink -Guid (ConvertTo-DomeniaGuidText (Get-DomeniaEntryFirstString $Entry "objectGUID")) -CreatedUtc (Get-DeProp $Entry "whenCreated" $null)
+        $computerGuid = ConvertTo-DomeniaGuidText (Get-DomeniaEntryFirstString $Entry "objectGUID")
+        $computerCreated = Get-DeProp $Entry "whenCreated" $null
+        $link = Get-ExistingLinkForComputer -Computer $computerForLink -Guid $computerGuid -CreatedUtc $computerCreated
         if ($null -ne $link) {
             $script:Ctrl["TxtCompLinkedUser"].Text = [string]$link.UserLogin
             # D043: badge of the link (relation model), never a percentage.
@@ -8828,7 +8831,11 @@ function Fill-ComputerObject {
             $whenText = ''
             if ($null -ne (Get-Command Format-DomeniaRelationWhen -CommandType Function -ErrorAction SilentlyContinue)) { $whenText = Format-DomeniaRelationWhen ([string]$link.When) }
             if (-not $whenText) { $whenText = [string]$link.When }
-            $script:Ctrl["TxtCompLinkSource"].Text = "$($link.Source)$confidenceText  $whenText"
+            # Point 9: a legacy link without GUID that does not predate this computer is kept, but its identity is not
+            # proven: the fiche says so instead of presenting it as an ordinary association.
+            $identityText = ''
+            if (($computerGuid) -and ((Test-DomeniaLinkIdentity -Link $link -Kind Computer -Guid $computerGuid -CreatedUtc $computerCreated).Match -eq 'Unknown')) { $identityText = ' · identité non vérifiable' }
+            $script:Ctrl["TxtCompLinkSource"].Text = "$($link.Source)$confidenceText  $whenText$identityText"
         } else {
             $script:Ctrl["TxtCompLinkedUser"].Text = "Non detecte"
             $script:Ctrl["TxtCompLinkSource"].Text = "Detection manuelle disponible"
@@ -8981,7 +8988,7 @@ function Get-ExistingLinkForComputer {
                 $Guid = ConvertTo-DomeniaGuidText (Get-DomeniaMember $script:SelectedObject 'Guid' '')
             }
         }
-        if ($Guid -and ((Test-DomeniaLinkIdentity -Link $l -Kind Computer -Guid $Guid -CreatedUtc $CreatedUtc).Match -eq 'Different')) { continue }
+        if (($Guid) -and ((Test-DomeniaLinkIdentity -Link $l -Kind Computer -Guid $Guid -CreatedUtc $CreatedUtc).Match -eq 'Different')) { continue }
         return $l
     }
     return $null
@@ -17314,6 +17321,7 @@ function Start-DomeniaIndexScopeBuild {
         $limits = Get-DomeniaIndexLimits
         Set-DomeniaIndexProgress -Mode Busy -Message ('Lecture de ' + $target + ' dans Active Directory… progression exacte indisponible pendant la requête.')
         [void](Set-DomeniaControlText -Name "LblFleetDashboard" -Text "Lecture de lʼOU dans lʼannuaire en arrière-plan...")
+        try { Set-DomeniaFleetDashboardToolTip } catch { }
         $job = Start-UiTask `
             -Name "Mise à jour de lʼOU dans la base autonome" `
             -OperationId "IndexBuild" `
@@ -18142,7 +18150,7 @@ function Get-DomeniaSecretIndexPath {
 }
 
 function Get-DomeniaSecretIndexEntry {
-    param([Parameter(Mandatory=$true)][AllowEmptyString()][string]$Computer)
+    param([Parameter(Mandatory=$true)][AllowEmptyString()][string]$Computer,[AllowEmptyString()][string]$Guid='')
     $key = ([string]$Computer).Trim().ToUpperInvariant()
     if ([string]::IsNullOrWhiteSpace($key)) { return $null }
     try {
@@ -18150,10 +18158,15 @@ function Get-DomeniaSecretIndexEntry {
         $rows = @(Invoke-DomeniaDbQuery ("SELECT computer,checked_at,bitlocker_keys,bitlocker_last,laps_scheme,laps_expiry,verdict,detail FROM secret_state WHERE computer_key=" + (ConvertTo-DomeniaSqlLiteral $key) + " LIMIT 1;"))
         if ($rows.Count -eq 0) { return $null }
         $r = $rows[0]
-        # Point 9: metadata kept by name and written before the current computer of that name was created belongs to
-        # a previous holder of the name; it is not shown for the new object.
-        $created = @(Invoke-DomeniaDbQuery ("SELECT f.when_created FROM ad_objects a JOIN ad_computer_facts f ON f.object_guid=lower(a.object_guid) WHERE a.object_type='Machine' AND upper(a.name)=" + (ConvertTo-DomeniaSqlLiteral $key) + " LIMIT 1;"))
-        if (($created.Count -gt 0) -and (Test-DomeniaRecordPredatesObject -RecordedUtc ([string]$r.checked_at) -CreatedUtc ([string]$created[0].when_created))) { return $null }
+        # Point 9: metadata kept by name and written before the displayed computer was created belongs to a previous
+        # holder of the name; it is not shown for the new object. The creation date is read by the GUID of the
+        # displayed object (primary key, one row): never by name, which a stale and a new computer may share in the
+        # index. Without GUID or creation date nothing is proven and nothing is hidden.
+        $guidText = ConvertTo-DomeniaGuidText $Guid
+        if ($guidText) {
+            $created = @(Invoke-DomeniaDbQuery ("SELECT when_created FROM ad_computer_facts WHERE object_guid=" + (ConvertTo-DomeniaSqlLiteral $guidText.ToLowerInvariant()) + " LIMIT 1;"))
+            if (($created.Count -gt 0) -and (Test-DomeniaRecordPredatesObject -RecordedUtc ([string]$r.checked_at) -CreatedUtc ([string]$created[0].when_created))) { return $null }
+        }
         return [pscustomobject]@{
             Computer = [string]$r.computer; CheckedAt = [string]$r.checked_at; BitLockerKeys = [int]$r.bitlocker_keys; BitLockerLast = [string]$r.bitlocker_last
             LapsScheme = [string]$r.laps_scheme; LapsExpiry = [string]$r.laps_expiry; Verdict = [string]$r.verdict; Detail = [string]$r.detail
@@ -18171,8 +18184,8 @@ function Save-DomeniaSecretIndexEntry {
 }
 
 function Get-DomeniaSecretIndexSummary {
-    param([Parameter(Mandatory=$true)][AllowEmptyString()][string]$Computer)
-    $entry = Get-DomeniaSecretIndexEntry -Computer $Computer
+    param([Parameter(Mandatory=$true)][AllowEmptyString()][string]$Computer,[AllowEmptyString()][string]$Guid='')
+    $entry = Get-DomeniaSecretIndexEntry -Computer $Computer -Guid $Guid
     if ($null -eq $entry) { return "" }
     $parts = New-Object System.Collections.Generic.List[string]
     if ([int]$entry.BitLockerKeys -gt 0) {

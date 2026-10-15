@@ -338,7 +338,7 @@ try{
   . (Join-Path $wad 'modules/Domenia-Common.Model.ps1');. (Join-Path $wad 'modules/Domenia-Collection.Model.ps1')
   $scope='OU=Parc,DC=test'
   $ok=New-DomeniaCollectionRunChange -Family Presence -DomainDn 'dc=test' -ScopeDn $scope -Status Success -AttemptedAtUtc '2026-01-03T08:00:00Z' -FinishedAtUtc '2026-01-03T08:05:00Z' -Targets 4 -Done 4 -Succeeded 4 -Failed 0 -CollectorVersion 'fixture-build'
-  $r=Commit @($ok);Expect ($r.Saved -and @($r.CollectionRuns).Count -eq 1) 'run receipt read back'
+  $r=Commit @($ok);Expect (($r.Saved) -and (@($r.CollectionRuns).Count -eq 1)) 'run receipt read back'
   $run=@($r.CollectionRuns)[0]
   Expect (($run.Status -eq 'Success') -and ($run.LastSuccessAtUtc -eq $run.LastAttemptAtUtc) -and ([string]$run.Data.RecordedAtUtc -eq [string]$r.CommittedAtUtc) -and ($null -eq $run.AttemptData)) 'success clock and recorded time'
   Expect (([string]$run.Data.CollectorVersion -eq 'fixture-build') -and ([string]$run.Data.Provider -eq 'ICMP') -and ([long]$run.Data.Done -eq 4)) 'provenance kept'
@@ -388,6 +388,56 @@ try{
   $Payload.PSObject.Properties.Remove('RunKeys');$plain=& ([scriptblock]::Create($reader))
   Expect (($null -eq $plain.CollectionRuns) -and ($null -eq $plain.Board.Freshness.Runs)) 'clocks read or invented without an explicit scope request'
   Expect ((Read-TestDb 'SELECT count(*) n FROM domenia_domain_metadata;')[0].n -eq 2) 'read-only worker changed scope clocks'
+ }
+ Case 'Secret metadata recorded before the computer now holding the name stays unknown (point 9)' {
+  Add-Type -Path (Join-Path $wad 'modules/Domenia.Native.dll')
+  foreach($name in @('Common.Model','Relations.Model','Boards.Model','BoardFleet.Model','Probes.Model','HealthRules.Model')){. (Join-Path $wad ('modules/Domenia-'+$name+'.ps1'))}
+  $now=[datetime]::UtcNow;$scope='OU=SecretFixture,DC=test';$stamp=$now.AddMinutes(-1).ToString('o')
+  $recycled='30000000-0000-0000-0000-000000000001';$kept='30000000-0000-0000-0000-000000000002'
+  $changes=@(foreach($fixture in @(@($recycled,'Recycled-1','2026-02-01T00:00:00Z'),@($kept,'Kept-1','2025-06-01T00:00:00Z'))){
+   $c=Directory $fixture[0] $fixture[1] $stamp;$c.DN='CN='+$fixture[1]+','+$scope;$c.Facts.WhenCreated=$fixture[2];$c
+  })
+  [void](Commit $changes)
+  # Same read date for both names: before the creation of RECYCLED-1 (former holder), after the creation of KEPT-1.
+  $db=Open-DomeniaDatabase $path
+  try{
+   foreach($row in @(@('RECYCLED-1','Recycled-1',2),@('KEPT-1','Kept-1',1))){
+    [void](Invoke-DomeniaDbExec ("INSERT OR REPLACE INTO secret_state(computer_key,computer,checked_at,bitlocker_keys,bitlocker_last,laps_scheme,laps_expiry,verdict,detail) VALUES('"+$row[0]+"','"+$row[1]+"','2026-01-15T00:00:00.0000000Z',"+$row[2]+",'','','','','');") $db)
+   }
+  }finally{Close-DomeniaDatabase $db}
+  $Payload=[pscustomobject]@{Action='FleetStats';Path=$path;ModuleRoot=(Join-Path $wad 'modules');BusyTimeoutMs=1000;Scope=$scope;Subtree=$true;Plan=(Get-DomeniaFleetQueryPlan -Now $now);Keys=@();ScopeKey=$scope;DomainDn='dc=test'}
+  $r=& ([scriptblock]::Create($reader))
+  $bitlocker=@{};foreach($group in @($r.Groups)){$bitlocker[[string]$group.gid]=[string]$group.bk}
+  $byName=@{};foreach($machine in @($r.Machines)){$byName[[string]$machine.name]=$bitlocker[[string]$machine.gid]}
+  Expect (($byName['Recycled-1'] -ceq 'U') -and ($byName['Kept-1'] -ceq 'K')) ('BitLocker state by name: '+((@($byName.Keys)|Sort-Object|ForEach-Object{$_+'='+$byName[$_]}) -join ','))
+  Expect ($r.Coverage.BitLockerRead -eq 1) ('metadata of a former holder counted as read: '+$r.Coverage.BitLockerRead)
+  # Same rule on the fiche (Domenia-Core.ps1): the creation date is read by the GUID of the displayed computer.
+  $entry=@($core.FindAll({param($n)($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq 'Get-DomeniaSecretIndexEntry')},$true))
+  if($entry.Count -ne 1){throw 'Get-DomeniaSecretIndexEntry introuvable'}
+  . ([scriptblock]::Create($entry[0].Extent.Text))
+  function Initialize-DomeniaDatabase {return $true}
+  function Get-DomeniaDatabasePath {return $path}
+  Expect ($null -eq (Get-DomeniaSecretIndexEntry -Computer 'Recycled-1' -Guid $recycled)) 'metadata of a former holder shown on the fiche'
+  $shown=Get-DomeniaSecretIndexEntry -Computer 'Kept-1' -Guid $kept
+  Expect (($null -ne $shown) -and ($shown.BitLockerKeys -eq 1)) 'metadata of the current holder hidden'
+  $unproven=Get-DomeniaSecretIndexEntry -Computer 'Recycled-1' -Guid ''
+  Expect (($null -ne $unproven) -and ($unproven.BitLockerKeys -eq 2)) 'without the GUID nothing is proven, so nothing is hidden'
+ }
+ Case 'Explicit purge removes the scope clocks of the purged families only' {
+  . (Join-Path $wad 'modules/Domenia-Common.Model.ps1');. (Join-Path $wad 'modules/Domenia-Collection.Model.ps1')
+  $now=[datetime]::UtcNow
+  [void](Commit @(foreach($family in @('Directory','Inventory')){New-DomeniaCollectionRunChange -Family $family -DomainDn 'dc=test' -ScopeDn 'OU=Parc,DC=test' -Status Success -AttemptedAtUtc $now.AddMinutes(-3) -FinishedAtUtc $now.AddMinutes(-2) -Done 3}))
+  $count={param([string]$Where) [long](Read-TestDb ('SELECT count(*) n FROM domenia_domain_metadata WHERE '+$Where+';'))[0].n}
+  Expect (((& $count "family IN ('Presence','Inventory')") -ge 2) -and ((& $count "family='Directory'") -eq 1)) 'scope clock fixture'
+  foreach($category in @('Observations','Index')){
+   $Payload=[pscustomobject]@{Path=$path;Selection=@($category);DryRun=$true};$preview=& ([scriptblock]::Create((Get-DomeniaStoragePurgeWorkerCode)))
+   $planned=@($preview.Counts|Where-Object{$_.Table -eq 'domenia_domain_metadata'})
+   Expect (($planned.Count -eq 1) -and ([long]$planned[0].Rows -ge 1)) ('scope clocks absent from the dry run: '+$category)
+   $Payload=[pscustomobject]@{Path=$path;Selection=@($category);DryRun=$false;ExpectedFingerprint=$preview.Fingerprint};$result=& ([scriptblock]::Create((Get-DomeniaStoragePurgeWorkerCode)))
+   Expect ($result.Committed) ('purge not committed: '+$category)
+   if($category -eq 'Observations'){Expect (((& $count "family IN ('Presence','Inventory')") -eq 0) -and ((& $count "family='Directory'") -eq 1)) 'measure purge must remove the ping and WMI clocks and keep the AD clock'}
+   else{Expect ((& $count '1=1') -eq 0) 'index purge must remove the AD clock'}
+  }
  }
  if($Scale){Case ($ScaleObjects.ToString()+' objects committed in bounded batches and paginated exactly') {
   $watch=[Diagnostics.Stopwatch]::StartNew();$writeWatch=[Diagnostics.Stopwatch]::StartNew();$batchTimes=[Collections.Generic.List[long]]::new()

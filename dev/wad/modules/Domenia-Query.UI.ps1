@@ -578,7 +578,7 @@ function Get-DomeniaQueryExportPopulation {
     $verdict=switch($Selection){'Match'{'correspondants'};'Unknown'{'indéterminés'};default{'non correspondants'}}
     $criteria='requête « '+[string](Get-DomeniaMember $Recipe 'Name' 'sans nom')+' » (définition '+(Get-DomeniaTextHash $RecipeJson).Substring(0,12).ToLowerInvariant()+') · postes '+$verdict
     if($TextFilter.Trim()){$criteria+=' · filtre texte « '+$TextFilter.Trim()+' »'}
-    if($StateFilter -and $StateFilter -ne 'Tous'){$criteria+=' · comptes '+$StateFilter.ToLowerInvariant()}
+    if(($StateFilter) -and ($StateFilter -ne 'Tous')){$criteria+=' · comptes '+$StateFilter.ToLowerInvariant()}
     return New-DomeniaPopulationDescriptor -DomainDn ([string]$Base.DomainDn) -ScopeDn ([string]$Base.ScopeDn) -Subtree ([bool]$Base.Subtree) -Types @($Base.Types) -Criteria ([string]$Base.Criteria+' · '+$criteria) -StoreId ([string]$Base.StoreId) -SnapshotRevision ([long]$Base.SnapshotRevision)
 }
 function Get-DomeniaQueryExportClocks {

@@ -146,6 +146,7 @@ function Request-DomeniaFleetRefresh {
     if (Test-DomeniaFleetAwaitingScope) {
         $script:FleetAwaitingRestore = $true
         [void](Set-DomeniaControlText 'LblFleetDashboard' 'En attente de l OU memorisee dans Rechercher...')
+        Set-DomeniaFleetDashboardToolTip
         return
     }
     $scope = Get-DomeniaFleetScope
@@ -182,6 +183,8 @@ function Start-DomeniaFleetDashboard {
     # A scope whose keys cannot be built sends none ($null): its clocks stay unknown, never "aucun relevé".
     $runKeys=$null
     try { $runKeys=@(Get-DomeniaCollectionRunKeys -ScopeDn ([string]$scope.Dn) -DomainDn ([string]$script:Conn.BaseDn) -Subtree ([bool]$scope.Subtree)) } catch { $runKeys=$null }
+    # No key (scope outside the connection domain, no base DN) is not "requested and none recorded".
+    if (($null -ne $runKeys) -and ($runKeys.Count -eq 0)) { $runKeys=$null }
     $job = $null
     try {
         [void](Initialize-DomeniaWinSqliteNative)
@@ -189,17 +192,20 @@ function Start-DomeniaFleetDashboard {
     } catch {
         $script:FleetPendingKey = ''; $script:FleetJobId = ''
         [void](Set-DomeniaControlText 'LblFleetDashboard' ('Vue dʼensemble non calculée : ' + $_.Exception.Message))
+        Set-DomeniaFleetDashboardToolTip
         if (-not $Quiet) { throw }
         return
     }
     if (-not $job) {
         $script:FleetPendingKey = ''; $script:FleetJobId = ''
         [void](Set-DomeniaControlText 'LblFleetDashboard' 'Vue dʼensemble non calculée : calcul non admis pour lʼinstant, réessayez avec lʼicône dʼactualisation.')
+        Set-DomeniaFleetDashboardToolTip
         return
     }
     # Computed only once drawn (Complete): a cancelled or refused calculation is tried again at the next display.
     $script:FleetPendingKey = [string]$scope.Key; $script:FleetJobId = [string]$job; $script:FleetStale = $false
     [void](Set-DomeniaControlText 'LblFleetDashboard' ('Calcul de la vue dʼensemble depuis la base locale : ' + [string]$scope.Name + '...'))
+    Set-DomeniaFleetDashboardToolTip
 }
 function Fail-DomeniaFleetDashboard {
     param($Message,$State)
@@ -209,6 +215,21 @@ function Fail-DomeniaFleetDashboard {
     # The next display of Accueil tries again.
     $script:FleetPendingKey = ''; $script:FleetJobId = ''; $script:FleetComputedKey = ''
     [void](Set-DomeniaControlText 'LblFleetDashboard' ('Vue dʼensemble non calculée : ' + [string]$Message))
+    Set-DomeniaFleetDashboardToolTip
+}
+function Set-DomeniaFleetDashboardToolTip {
+    # The catalogued help of LblFleetDashboard (Domenia-UX.help.json) stays the base of its tool tip; the provenance
+    # of the OU collections of the drawn view is appended, never substituted. Without provenance (calculation started,
+    # refused or failed) the base help comes back, so no clock of a previous OU stays attached to the label.
+    param([AllowEmptyString()][string]$Provenance='')
+    $label=Get-DomeniaControl 'LblFleetDashboard'
+    if($null -eq $label){return}
+    $base=''
+    if(($null -ne $script:UxHelpCatalogue) -and ($script:UxHelpCatalogue.ContainsKey('LblFleetDashboard'))){$base=[string]$script:UxHelpCatalogue['LblFleetDashboard'].Text}
+    $detail=if($Provenance){'Provenance des relevés de lʼOU (base locale) :'+"`r`n"+$Provenance}else{''}
+    $parts=@(@($base,$detail)|Where-Object{$_})
+    # No catalogue entry and no provenance: no help was ever attached, so the stale provenance is cleared.
+    $label.ToolTip=$(if($parts.Count){$parts -join "`r`n`r`n"}else{$null})
 }
 function Update-DomeniaFleetScopeText {
     # The committed AD coverage has its own clock. LastSyncUtc is retained for callers but never used as a global fallback.
@@ -463,8 +484,7 @@ function Complete-DomeniaFleetDashboard {
     # the failed attempt with its error), then the local calculation, which never dates the data.
     $lines=@($summary.ObservationsText,$summary.RunsText,$summary.ComputedText|Where-Object{$_})
     [void](Set-DomeniaControlText 'LblFleetDashboard' ($lines -join "`n"))
-    $dashboardLabel=Get-DomeniaControl 'LblFleetDashboard'
-    if($null -ne $dashboardLabel){$dashboardLabel.ToolTip=$(if($summary.RunsDetail){'Provenance des relevés de lʼOU (base locale) :'+"`r`n"+$summary.RunsDetail}else{$null})}
+    Set-DomeniaFleetDashboardToolTip -Provenance ([string]$summary.RunsDetail)
     [void](Save-DomeniaFleetSnapshot -Scope $scope -Board $board)
     try { Update-DomeniaFirstSteps } catch { }
     # Data changed while computing (analysis or base saved meanwhile): computed again while Accueil is shown.

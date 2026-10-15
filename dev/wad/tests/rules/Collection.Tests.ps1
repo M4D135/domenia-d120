@@ -219,3 +219,26 @@ Test-Case 'COL-014' 'Deux chiffres ne se comparent que sur le meme domaine, peri
     $domain=New-DomeniaPopulationDescriptor -DomainDn $script:ColDomain
     Assert-True ($domain.Text -like 'tous types dʼobjets · tout le domaine indexé · révision de la base non connue') $domain.Text
 }
+Test-Case 'COL-015' 'La vue directe d une OU datee par le releve de son propre sous-arbre n est pas dite heritee' {
+    $own=New-ColRun -Family Presence -Success '2026-10-14T10:00:00.0000000Z' -Scope $script:ColOu -Subtree $true
+    $clock=Get-DomeniaCollectionClock -Runs @($own) -Family Presence -ScopeDn $script:ColOu -DomainDn $script:ColDomain -Subtree $false -NowUtc $script:ColNow
+    Assert-Equal 10 $clock.Success.AtUtc.Hour 'releve du sous-arbre de l OU non retenu pour sa vue directe'
+    Assert-False $clock.Success.Inherited 'releve de la meme OU dit herite'
+    $text=Format-DomeniaCollectionClock $clock -NowUtc $script:ColNow
+    Assert-False ($text.Text -like '*OU englobante*') ('texte : '+$text.Text)
+    Assert-False ($text.Detail -like '*OU englobante*') ('infobulle : '+$text.Detail)
+    $domain=New-ColRun -Family Presence -Success '2026-10-14T10:00:00.0000000Z' -Scope $script:ColDomain
+    $root=Get-DomeniaCollectionClock -Runs @($domain) -Family Presence -ScopeDn '' -DomainDn $script:ColDomain -NowUtc $script:ColNow
+    Assert-False $root.Success.Inherited 'releve du domaine dit herite pour la vue du domaine'
+    $child=Get-DomeniaCollectionClock -Runs @($own) -Family Presence -ScopeDn $script:ColChild -DomainDn $script:ColDomain -NowUtc $script:ColNow
+    Assert-True $child.Success.Inherited 'releve de l OU parente non signale pour la sous-OU'
+}
+Test-Case 'COL-016' 'Une lecture AD compte des objets AD, un releve de postes compte des postes' {
+    $ad=New-ColRun -Family Directory -Success '2026-10-14T10:00:00.0000000Z' -Done 1234 -Targets $null
+    $clock=Get-DomeniaCollectionClock -Runs @($ad) -Family Directory -ScopeDn $script:ColOu -DomainDn $script:ColDomain -NowUtc $script:ColNow
+    $text=Format-DomeniaCollectionClock $clock -NowUtc $script:ColNow
+    Assert-True ($text.Detail -like '*1234 objets AD*') ('infobulle AD : '+$text.Detail)
+    Assert-False ($text.Detail -like '*1234 poste*') ('objets AD comptes comme postes : '+$text.Detail)
+    Assert-Equal '1 objet AD' (Format-DomeniaCollectionCounts ([pscustomobject]@{Done=1;Targets=$null;Failed=$null}) -Family Directory)
+    Assert-Equal '8/10 postes, 2 non confirmés' (Format-DomeniaCollectionCounts ([pscustomobject]@{Done=8;Targets=10;Failed=2}) -Family Presence)
+}
