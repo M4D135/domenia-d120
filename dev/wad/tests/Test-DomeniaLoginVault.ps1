@@ -8,8 +8,10 @@ function Import-Core {param([string]$Name)
  $nodes=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $Name},$true));if($nodes.Count -ne 1){throw ('Function '+$Name)}
  . ([scriptblock]::Create(($nodes[0].Extent.Text -replace ('^function '+[regex]::Escape($Name)),('function script:'+$Name))))
 }
-foreach($name in @('New-DomeniaFastLoginSession','Complete-DomeniaLoginAuthRunspaceCleanup','Get-CfgValue','Convert-DomainToDn','Get-DomeniaFastLoginVaultIdentity','Update-DomeniaFastLoginVaultUi','Remove-DomeniaFastLoginVault','Save-DomeniaFastLoginVaultPreference','Start-DomeniaFastLoginAttempt','Complete-DomeniaFastLoginSuccess','Update-DomeniaFastLoginAttempt','Test-DomeniaComputerAccountIdentity','Save-AppConfig','Convert-DomeniaLoginFailureMessage','Get-DomeniaLoginFailureHint')){Import-Core $name}
+foreach($name in @('New-DomeniaFastLoginSession','Complete-DomeniaLoginAuthRunspaceCleanup','Get-CfgValue','Convert-DomainToDn','Get-DomeniaFastLoginVaultIdentity','Update-DomeniaFastLoginVaultUi','Remove-DomeniaFastLoginVault','Save-DomeniaFastLoginVaultPreference','Start-DomeniaFastLoginAttempt','Complete-DomeniaFastLoginSuccess','Update-DomeniaFastLoginAttempt','Test-DomeniaComputerAccountIdentity','Save-AppConfig')){Import-Core $name}
 . (Join-Path $wad 'modules/Domenia-CredentialVault.Model.ps1')
+# UI-20 (lot X03): wording of a refusal, read by Update-DomeniaFastLoginAttempt.
+. (Join-Path $wad 'modules/Domenia-Accounts.Model.ps1')
 $cases=[Collections.Generic.List[object]]::new();$script:Assertions=0
 function Assert {param([bool]$Value,[string]$Message);$script:Assertions++;if(-not $Value){throw $Message}}
 function Case {param([string]$Name,[scriptblock]$Body);try{& $Body|Out-Null;$cases.Add([pscustomobject]@{Name=$Name;Passed=$true;Error=''})}catch{$cases.Add([pscustomobject]@{Name=$Name;Passed=$false;Error=$_.Exception.Message+' '+$_.ScriptStackTrace+' Logs='+($script:Logs -join ' | ')})}}
@@ -17,7 +19,7 @@ function Secret {$s=[Security.SecureString]::new();1..24|ForEach-Object{$s.Appen
 function Control {return [pscustomobject]@{Text='';IsEnabled=$true;IsChecked=$false;ToolTip='';Foreground='';Password='';SecurePassword=$null}}
 function Fixture {
  $script:Config=[ordered]@{Auth=[ordered]@{RememberLogin=$false;LastLogin='';VaultDomainDn='DC=example,DC=invalid';VaultUserName='EXAMPLE\operator'};Conf=[ordered]@{AutoDiscover=$true;SearchBase=''}}
- $script:FastLoginUi=@{};foreach($key in @('Login','Password','PasswordVisible','Remember','VaultRemember','VaultUse','VaultForget','Error','Stage','Technical','Window')){$script:FastLoginUi[$key]=Control}
+ $script:FastLoginUi=@{};foreach($key in @('Login','Password','PasswordPeek','PasswordPeekText','Remember','VaultRemember','VaultUse','VaultForget','Error','Stage','Technical','Window')){$script:FastLoginUi[$key]=Control}
  $script:FastLoginUi.Technical|Add-Member -MemberType ScriptMethod -Name Clear -Value {$this.Text=''}
  $script:FastLoginUi.Login.Text='EXAMPLE\operator'
  $script:FastLoginUi.Password.SecurePassword=Secret
@@ -113,12 +115,26 @@ Case 'Preference storage failure reports partial persistence without denying a s
  Assert ($script:Conn.Connected -and $script:Writes -eq 1 -and $script:Reg.Count -eq 0) 'login or registry receipt incorrect'
  Assert (@($script:Logs|Where-Object {$_ -like 'VAULT_SAVE:*HKCU*'}).Count -eq 1) 'partial persistence not reported';$script:Conn.Credential.Password.Dispose()
 }
+Case 'SE-16 : the account comes from SecurePassword; the plain Password text is never read' {
+ Fixture;$script:PasswordCleared=$false
+ $script:FastLoginUi.Password|Add-Member -MemberType ScriptProperty -Name Password -Value {throw 'SE-16: plain Password read'} -SecondValue {param($value) $script:PasswordCleared=([string]$value -eq '')} -Force
+ Start-DomeniaFastLoginAttempt;$session=$script:FastLoginState.Session
+ Assert ($script:Starts -eq 1 -and $null -ne $session) ('validation not started : '+[string]$script:FastLoginUi.Error.Text)
+ Assert ($session.Request.Credential.Password.Length -eq 24 -and $session.Request.Credential.Password.IsReadOnly()) 'credential not sealed from SecurePassword'
+ Assert $script:PasswordCleared 'password box not emptied once the request left'
+ Update-DomeniaFastLoginAttempt;if($null -ne $script:Conn.Credential){$script:Conn.Credential.Password.Dispose()}
+}
+Case 'SE-16 : an empty SecurePassword is refused before any session' {
+ Fixture;$script:FastLoginUi.Password.SecurePassword=[Security.SecureString]::new()
+ Start-DomeniaFastLoginAttempt
+ Assert ($script:Starts -eq 0 -and $null -eq $script:FastLoginState.Session -and [string]$script:FastLoginUi.Error.Text -eq 'Mot de passe manquant.') ('empty secret accepted : '+[string]$script:FastLoginUi.Error.Text)
+}
 Case 'Conflicting login modes refuse before native vault access' {
  Fixture;$refused=$false;try{Start-DomeniaFastLoginAttempt -UseVault -UseCurrentCredentials}catch{$refused=$true}
  Assert ($refused -and $script:Reads -eq 0 -and $script:Starts -eq 0) 'mixed login mode accepted'
 }
-Case 'Real XAML contains explicit unchecked consent and manual buttons in both modes' {
- foreach($name in @('Get-DomeniaStandardLoginXaml','Get-DomeniaDebugLoginXaml')){
+Case 'Real XAML contains explicit unchecked consent and manual buttons (single template since CD-10)' {
+ foreach($name in @('Get-DomeniaStandardLoginXaml')){
   Import-Core $name;function Convert-DomeniaXamlToBootTheme {param($Xaml);return $Xaml};$xml=[xml](& $name)
   $ns=[Xml.XmlNamespaceManager]::new($xml.NameTable);$ns.AddNamespace('w','http://schemas.microsoft.com/winfx/2006/xaml/presentation');$ns.AddNamespace('x','http://schemas.microsoft.com/winfx/2006/xaml')
   $box=$xml.SelectSingleNode('//w:CheckBox[@x:Name="ChkLoginVaultRemember"]',$ns);Assert ($null -ne $box -and $box.IsChecked -eq 'False') 'default vault consent'
@@ -126,11 +142,11 @@ Case 'Real XAML contains explicit unchecked consent and manual buttons in both m
  }
 }
 $wpfExecuted=$false
-if($Wpf){Case 'Windows renders both login forms with native vault controls' {
+if($Wpf){Case 'Windows renders the sign-in form with native vault controls' {
  Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
  foreach($name in @('Get-DomeniaBootThemePalette','Get-DomeniaBootThemeResources','Convert-DomeniaXamlToBootTheme')){Import-Core $name}
  function Get-DomeniaStoredTheme {return 'Light'}
- foreach($mode in @('Standard','Debug')){$xaml=& ('Get-Domenia'+$mode+'LoginXaml');$window=[Windows.Markup.XamlReader]::Parse($xaml);try{Assert ($null -ne $window.FindName('BtnLoginVaultUse') -and -not $window.FindName('ChkLoginVaultRemember').IsChecked) 'WPF vault control';$window.Measure([Windows.Size]::new(590,800));$window.Arrange([Windows.Rect]::new(0,0,590,800));$window.UpdateLayout()}finally{$window.Close()}}
+ foreach($mode in @('Standard')){$xaml=& ('Get-Domenia'+$mode+'LoginXaml');$window=[Windows.Markup.XamlReader]::Parse($xaml);try{Assert ($null -ne $window.FindName('BtnLoginVaultUse') -and -not $window.FindName('ChkLoginVaultRemember').IsChecked) 'WPF vault control';$window.Measure([Windows.Size]::new(590,800));$window.Arrange([Windows.Rect]::new(0,0,590,800));$window.UpdateLayout()}finally{$window.Close()}}
  $script:wpfExecuted=$true
 }}
 $failed=@($cases|Where-Object{-not $_.Passed}).Count

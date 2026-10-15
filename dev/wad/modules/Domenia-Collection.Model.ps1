@@ -728,6 +728,18 @@ function Get-DomeniaCampaignProgressState {
 # ---------------------------------------------------------------- point 20: durable campaign plan
 function Get-DomeniaCampaignPlanKinds { return @('Ping','Console','Wmi','Analysis') }
 
+function Test-DomeniaCampaignRunDurable {
+    # One survey per scope (FI-18) and one plan at a time: only a survey of the scope of the lists (the list, its
+    # selection, an OU, a board or a query perimeter) is a campaign kept for a resume. The survey of the workstation
+    # open in Poste and the collection of a widget (which the widget resumes itself, reading only what is missing)
+    # never write a plan, so they never replace the plan of an interrupted campaign.
+    param($Run)
+    if ($null -eq $Run) { return $false }
+    if ([string](Get-DomeniaMember $Run 'Slot' 'List') -eq 'Computer') { return $false }
+    if ([string](Get-DomeniaMember $Run 'WidgetBoard' '')) { return $false }
+    return $true
+}
+
 function Get-DomeniaCampaignTargetNamePattern {
     # A workstation kept in a durable plan: a host name that the resume reads back exactly. The same rule decides at
     # approval (a plan that could not be read back is reported as not saved) and when the plan is read.

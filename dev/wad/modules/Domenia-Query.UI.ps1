@@ -423,9 +423,10 @@ function Request-DomeniaQueryEvaluation {
     $q.Timer.Stop();$q.Timer.Start()
 }
 function Get-DomeniaQueryWidgetRecipes {
-    # Saved library size must not multiply a 20k fleet scan. Evaluate only visible board dependencies.
+    # Saved library size must not multiply a 20k fleet scan. Evaluate only visible board dependencies; a paused
+    # widget is not evaluated (decision David 2026-10-14).
     $q=$script:DomeniaQueryState;if($null -eq $q){return @()}
-    $ids=@{};foreach($item in @(Get-DomeniaBoardLayout Fleet)){if([string]$item.Source -eq 'Query'){$ids[[string]$item.Key]=$true}}
+    $ids=@{};foreach($item in @(Select-DomeniaActiveBoardItems -Layout @(Get-DomeniaBoardLayout Fleet))){if([string]$item.Source -eq 'Query'){$ids[[string]$item.Key]=$true}}
     return @($q.Saved|Where-Object{$ids.ContainsKey([string]$_.Id)})
 }
 function Start-DomeniaQueryEvaluation {
@@ -458,7 +459,7 @@ function Start-DomeniaQueryEvaluation {
         $widgetRecipes=@(Get-DomeniaQueryWidgetRecipes)
         $library=ConvertTo-DomeniaQueryLibraryJson $widgetRecipes
         $widgetCache=if($null -ne $records -and $library -ceq $q.WidgetLibrary){$q.Widgets}else{$null}
-        $probeRequests=@(Get-DomeniaBoardLayout Fleet|Where-Object{$_.Source -eq 'Probe'}|Select-Object Key,Visual -Unique)
+        $probeRequests=@(Select-DomeniaActiveBoardItems -Layout @(Get-DomeniaBoardLayout Fleet)|Where-Object{$_.Source -eq 'Probe'}|Select-Object Key,Visual -Unique)
         $probeLibrary=ConvertTo-Json -InputObject $probeRequests -Compress
         $probeCache=if($null -ne $records -and $probeLibrary -ceq $q.ProbeLibrary){$q.ProbeWidgets}else{$null}
         $payload=[pscustomobject]@{ModuleRoot=$script:DomeniaQueryModuleRoot;Lifecycle=(Get-DomeniaWindowsLifecycleTable);Fleet=$script:FleetLast;Observations=$script:FleetObservations;Records=$records;Recipe=$recipe;Saved=$widgetRecipes;CachedWidgets=$widgetCache;SortField=$q.SortField;Descending=$q.SortDescending;Offset=$q.Offset;Selection=$selection;MaxAgeDays=(Get-DomeniaObservationMaxAgeDays);TextFilter=[string](Get-DomeniaControl 'TxtFleetMachineFilter').Text;StateFilter=[string](Get-DomeniaControl 'CmbFleetMachineState').SelectedItem.Content}
@@ -600,25 +601,29 @@ function Show-DomeniaFleetWidgetDetails {
         $targets=Get-DomeniaMemberValue $script:FleetLast 'WidgetTargets'
         $targetKey=if($null -ne $Selection -and $label){$key+'|'+$label}else{$key}
         $labels=@(Get-DomeniaMember $Selection 'Labels' @())
+        # Point 73: the exact GUID list kept with the calculation, named with the count it showed and its date.
+        $computedAt=Get-DomeniaMemberValue (Get-DomeniaMemberValue $script:FleetLast 'Freshness') 'ComputedAtUtc'
+        $widgetTitle=[string](Get-DomeniaMember $Item 'Title' '');if(-not $widgetTitle){$catalogItem=Get-DomeniaBoardCatalogItem -Board Fleet -Key $key;$widgetTitle=$(if($null -ne $catalogItem){[string]$catalogItem.Title}else{$key})}
         if($Item.Source -ne 'Query' -and $labels.Count -and $targets -is [Collections.IDictionary]){
             $complete=$true;$union=@{}
             foreach($part in $labels){$partKey=$key+'|'+[string]$part;if(-not $targets.Contains($partKey)){$complete=$false;break};foreach($target in @($targets[$partKey])){$id=[string]$target.object_guid;if($id){$union[$id]=$target}}}
-            if($complete){Show-DomeniaAttentionInWorkshop -Targets @($union.Values) -Label ([string](Get-DomeniaMember $Item 'Title' $key)+' · '+$label);return}
+            if($complete){Show-DomeniaAttentionInWorkshop -Targets @($union.Values) -Label (Format-DomeniaWidgetDetailLabel -Title ($widgetTitle+' · '+$label) -Count $union.Count -ComputedAtUtc $computedAt);return}
             throw 'Ce regroupement ne possède pas tous ses détails ; recalculez le tableau de bord.'
         }
         if($Item.Source -ne 'Query' -and $null -ne $targets -and $targets -is [Collections.IDictionary] -and $targets.Contains($targetKey)){
-            $title=[string](Get-DomeniaMember $Item 'Title' $key);if($label){$title+=' · '+$label}
-            Show-DomeniaAttentionInWorkshop -Targets @($targets[$targetKey]) -Label $title
+            $title=$widgetTitle;if($label){$title+=' · '+$label}
+            Show-DomeniaAttentionInWorkshop -Targets @($targets[$targetKey]) -Label (Format-DomeniaWidgetDetailLabel -Title $title -Count @($targets[$targetKey]).Count -ComputedAtUtc $computedAt)
             return
         }
         if($key -eq 'fleet.health'){
-            Show-DomeniaAttentionInWorkshop -Targets @(Get-DomeniaMember $script:FleetLast 'HealthyTargets' @()) -Label 'Sans point détecté dans les données disponibles'
+            $healthy=@(Get-DomeniaMember $script:FleetLast 'HealthyTargets' @())
+            Show-DomeniaAttentionInWorkshop -Targets $healthy -Label (Format-DomeniaWidgetDetailLabel -Title 'Sans point détecté dans les données disponibles' -Count $healthy.Count -ComputedAtUtc $computedAt)
             return
         }
         if($key -eq 'fleet.attention'){
             $targets=@{}
             foreach($point in (Get-DomeniaBoardState Fleet).Data.Attention){foreach($target in @(Get-DomeniaAttentionTargets $point)){$targets[[string]$target.object_guid]=$target}}
-            Show-DomeniaAttentionInWorkshop -Targets @($targets.Values) -Label 'Postes concernés par les points dʼattention'
+            Show-DomeniaAttentionInWorkshop -Targets @($targets.Values) -Label (Format-DomeniaWidgetDetailLabel -Title 'Postes concernés par les points dʼattention' -Count $targets.Count -ComputedAtUtc $computedAt)
             return
         }
         if($key -like 'fleet.trend*'){

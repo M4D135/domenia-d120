@@ -211,8 +211,9 @@ function Get-DomeniaCampaignPlanKind {
 function Save-DomeniaCampaignPlan {
     # Called once, when the operator approves the campaign. The plan and its progress are written in the preference
     # folder (local, per operator, atomic with a backup). A list too long for that file is reported, never truncated.
+    # A survey that is not a durable campaign (Test-DomeniaCampaignRunDurable) writes nothing.
     param($Run)
-    if ($null -eq $Run) { return $false }
+    if (-not (Test-DomeniaCampaignRunDurable $Run)) { return $false }
     try {
         $plan = New-DomeniaCampaignPlan -Kind (Get-DomeniaCampaignPlanKind $Run) -Targets @($Run.Targets) -ProbeIds @(@(Get-DomeniaMember $Run 'Probes' @()) | ForEach-Object { [string](Get-DomeniaMember $_ 'Id' '') }) -Inventory ([bool](Get-DomeniaMember $Run 'Inventory' $false)) -ScopeLabel ([string](Get-DomeniaMember $Run 'ScopeLabel' '')) -DomainDn ([string]$script:Conn.BaseDn) -DatabasePath ([string]$Run.Path) -Id ([string]$Run.Id)
         if (@($plan.Targets).Count -ne @($Run.Targets).Count) { throw 'des postes sans nom dʼhôte, DN ou GUID conservables, ou en double' }
@@ -292,10 +293,11 @@ function Complete-DomeniaCampaignPlan {
                 if ($why) { $state = 'Incident'; $reason = $why }
             }
             else {
-                # A WMI-only workstation skipped for a remembered refusal was not measured: it stays to be read later.
+                # A WMI-only workstation skipped for a remembered refusal or absent classes was not measured: it stays
+                # to be read later.
                 $state = 'Incident'; $reason = 'postes non validés à la fin du relevé'
                 $skipped = [int](Get-DomeniaMember $Run 'SkippedTargets' 0)
-                if ($skipped -gt 0) { $reason = [string]$skipped + ' poste(s) non lu(s) : WMI refusé ou inaccessible mémorisé pour un temps limité' }
+                if ($skipped -gt 0) { $reason = [string]$skipped + ' poste(s) non lu(s) : WMI refusé, inaccessible ou sans les classes demandées, mémorisé pour un temps limité' }
             }
         }
         [void](Save-DomeniaCampaignProgress -Run $Run -State $state -Reason $reason -Force)
@@ -305,9 +307,15 @@ function Complete-DomeniaCampaignPlan {
 }
 
 function Register-DomeniaCampaignCloseHook {
-    # Closing the window keeps the remaining workstations of the running campaign.
+    # Closing the window keeps the remaining workstations of the running campaign (the survey of the lists, the only
+    # scope that keeps a plan).
     if ([bool]$script:DomeniaCampaignCloseHooked -or ($null -eq $script:Window)) { return }
-    $script:Window.Add_Closed({ try { if (($null -ne $script:ParkRun) -and ($null -ne (Get-DomeniaMemberValue $script:ParkRun 'CampaignProgress' $null))) { [void](Save-DomeniaCampaignProgress -Run $script:ParkRun -State 'Closed' -Force) } } catch { } })
+    $script:Window.Add_Closed({
+        try {
+            $run = Get-DomeniaParkRun -Slot 'List'
+            if (($null -ne $run) -and ($null -ne (Get-DomeniaMemberValue $run 'CampaignProgress' $null))) { [void](Save-DomeniaCampaignProgress -Run $run -State 'Closed' -Force) }
+        } catch { try { Write-AppLog ('Avancement du relevé non enregistré à la fermeture : ' + $_.Exception.Message) 'WARN' } catch { } }
+    })
     $script:DomeniaCampaignCloseHooked = $true
 }
 
@@ -338,7 +346,7 @@ function Start-DomeniaCampaignResume {
     # confirmation of the collection, which shows their number and scope before any read.
     try {
         if ($script:DemoMode) { throw 'reprise indisponible en démonstration.' }
-        if (($null -ne $script:ParkRun) -and (-not $script:ParkRun.Completed)) { throw 'un relevé est déjà en cours.' }
+        if (Test-DomeniaParkRunActive -Slot 'List') { throw 'un relevé de la liste ou dʼun périmètre est déjà en cours.' }
         $planText = [string](Read-DomeniaPreference -FileName 'Domenia.campaign-plan.json')
         $plan = ConvertFrom-DomeniaCampaignPlanText $planText
         $progress = ConvertFrom-DomeniaCampaignProgressText -Text ([string](Read-DomeniaPreference -FileName 'Domenia.campaign-progress.json')) -Plan $plan
@@ -348,7 +356,8 @@ function Start-DomeniaCampaignResume {
         $label = 'reprise du relevé'
         $scope = [string]$plan.ScopeLabel
         if ($scope -like 'reprise*') { $label = $scope } elseif ($scope) { $label = 'reprise : ' + $scope }
-        $arguments = @{ScopeTargets=$remaining;ScopeLabel=$label}
+        # The resume is a campaign of the scope of the lists, whatever the number of workstations left.
+        $arguments = @{ScopeTargets=$remaining;ScopeLabel=$label;Slot='List'}
         switch ([string]$plan.Kind) {
             'Ping' { $arguments.PingOnly = $true }
             'Wmi' { $arguments.WmiOnly = $true; $arguments.Inventory = [bool]$plan.Inventory }
@@ -378,7 +387,7 @@ function Request-DomeniaCampaignResumeOffer {
     if ($script:DemoMode -or (-not [string]$script:DatabaseScopedPath) -or (-not [string]$script:Conn.BaseDn)) { return }
     $key = [string]$script:SessionEpoch + '|' + [string]$script:DatabaseScopedPath
     if ([string]$script:DomeniaCampaignResumeOfferKey -ceq $key) { return }
-    if (($null -ne $script:ParkRun) -and (-not $script:ParkRun.Completed)) { return }
+    if (Test-DomeniaParkRunActive -Slot 'List') { return }
     try { if ($null -ne (Get-DomeniaInlinePendingRequest)) { return } } catch { return }
     $script:DomeniaCampaignResumeOfferKey = $key
     $status = Get-DomeniaCampaignResumeStatus
@@ -491,15 +500,19 @@ function Update-DomeniaCollectionSettingsUi {
 }
 
 function Update-DomeniaCampaignResumeUi {
-    # Called when the view opens, after a resume or an abandonment, and when a campaign starts, saves its plan or
-    # ends. While a campaign runs, its own plan is being written: nothing is offered and the file is not read.
+    # Called when the view opens, after a resume or an abandonment, and when a survey of the lists starts, saves its
+    # plan or ends. While a campaign runs, its own plan is being written: nothing is offered and the file is not read.
+    # A widget collection of the lists keeps no plan, but the resume waits for its end (one survey per scope).
     $label = Get-DomeniaControl 'LblCollectionResume'
     if ($null -eq $label) { return }
-    $running = (($null -ne $script:ParkRun) -and (-not $script:ParkRun.Completed))
+    $list = Get-DomeniaParkRun -Slot 'List'
+    $running = (($null -ne $list) -and (-not [bool]$list.Completed))
     $resume = Get-DomeniaControl 'BtnCollectionResume'
     $discard = Get-DomeniaControl 'BtnCollectionResumeDiscard'
     if ($running) {
-        [void](Set-DomeniaControlText 'LblCollectionResume' 'Relevé en cours : sʼil est arrêté ou interrompu, ses postes restants seront proposés ici.')
+        $text = 'Relevé en cours : sʼil est arrêté ou interrompu, ses postes restants seront proposés ici.'
+        if (-not (Test-DomeniaCampaignRunDurable $list)) { $text = 'Collecte dʼun widget en cours : la reprise dʼun relevé interrompu sera possible à sa fin.' }
+        [void](Set-DomeniaControlText 'LblCollectionResume' $text)
         if ($null -ne $resume) { $resume.IsEnabled = $false }
         if ($null -ne $discard) { $discard.IsEnabled = $false }
         return

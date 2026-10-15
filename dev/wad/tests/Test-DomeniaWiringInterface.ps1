@@ -61,7 +61,8 @@ function Reset-DomeniaDeferredViews {}
 function Update-DomeniaSecretActionUi {}
 function Apply-CurrentPermissionUi {}
 function Request-DomeniaDashboardRefresh {}
-function Get-DomeniaSecretIndexSummary {param([string]$Computer);return ''}
+# FI-19: the secret summary of a workstation is read off the Dispatcher (LocalIndexRead); only the request is recorded.
+function Request-DomeniaSecretIndexSummary {param([AllowEmptyString()][string]$Computer='');if($null -eq $script:SecretSummaryRequests){$script:SecretSummaryRequests=[Collections.Generic.List[string]]::new()};$script:SecretSummaryRequests.Add([string]$Computer)}
 function Get-DomeniaEffectiveWorkerResult {param($Result,$RequiredProperties);return $Result}
 function Update-DomeniaInventoryCategories {}
 function Apply-DomeniaInventoryFilter { [void](Set-DomeniaItemsSource -Name 'DgInventory' -Rows $script:InventoryRows) }
@@ -413,6 +414,21 @@ try{
             Expect (($stopped -contains 'inv') -and ($stopped -contains 'sw') -and ($stopped -contains 'wmi')) 'Taches inventory/software/wmi non arretes'
         }
 
+        Case 'FI-19 : la fiche poste demande le releve des secrets en arriere-plan' {
+            Reset-Fixture;Pump $w
+            $script:SecretSummaryRequests=[Collections.Generic.List[string]]::new()
+            Reset-DomeniaSelectionBoundViews -Dn 'CN=PC-B,OU=Postes,DC=example,DC=invalid' -Type 'Machine' -Name 'PC-B'
+            Expect (($script:SecretSummaryRequests.Count -eq 1) -and ($script:SecretSummaryRequests[0] -ceq 'PC-B')) ('Demandes : '+($script:SecretSummaryRequests -join ','))
+            # Another type of object cancels the pending request (empty name) instead of keeping the workstation one.
+            Reset-DomeniaSelectionBoundViews -Dn 'CN=Alice,OU=Comptes,DC=example,DC=invalid' -Type 'Utilisateur' -Name 'Alice'
+            Expect (($script:SecretSummaryRequests.Count -eq 2) -and ($script:SecretSummaryRequests[1] -ceq '')) ('Demandes : '+($script:SecretSummaryRequests -join ','))
+            $tokens=$null;$errors=$null
+            $ast=[System.Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'),[ref]$tokens,[ref]$errors)
+            $reset=@($ast.FindAll({param($n) ($n -is [System.Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq 'Reset-DomeniaSelectionBoundViews')},$true))
+            Expect ($reset.Count -eq 1) 'Reset-DomeniaSelectionBoundViews absente ou ambigue.'
+            foreach($forbidden in @('Invoke-DomeniaDbQuery','Get-DomeniaSecretIndexSummary','Initialize-DomeniaDatabase')){Expect (-not $reset[0].Extent.Text.Contains($forbidden)) ('Lecture synchrone encore presente : '+$forbidden)}
+        }
+
         Case 'D085 : Enter-DomeniaSelectionContext arrete inventory/software/wmi et vide les vues' {
             Reset-Fixture;Pump $w
             [void](Set-DomeniaItemsSource -Name 'DgSoftware' -Rows @([pscustomobject]@{Name='old'}))
@@ -567,6 +583,23 @@ try{
     }
     . (Join-Path $wad 'modules\Domenia-UX.UI.ps1')
     . (Join-Path $wad 'modules\Domenia-Inline.UI.ps1')
+    # X04: the five views of Assistance poste, its fixed header and the pill of the operations to check run with their
+    # real rules and coordination; the capability routes come from Domenia-Access.UI.ps1.
+    . (Join-Path $wad 'modules\Domenia-Assist.Model.ps1')
+    . (Join-Path $wad 'modules\Domenia-Assist.UI.ps1')
+    $accessAst=[System.Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'modules\Domenia-Access.UI.ps1'),[ref]$parseTokens,[ref]$parseErrors)
+    foreach($fn in @($accessAst.FindAll({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst]},$true))){
+        if(@('Resolve-DomeniaCapabilityRoute','Invoke-DomeniaCapabilityRoute') -contains $fn.Name){. ([scriptblock]::Create($fn.Extent.Text))}
+    }
+    # X04 SE-08 / DS-08: the real Invoke-ComputerTool (core) and Publish-DomeniaCommittedPresence (Park.UI) on the real
+    # window. Their guards, the sessions read and the stored observation are doubles: nothing is read or sent.
+    foreach($fn in @($coreAst.FindAll({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst]},$true))){
+        if(@('Invoke-ComputerTool') -contains $fn.Name){. ([scriptblock]::Create($fn.Extent.Text))}
+    }
+    $parkAst=[System.Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'modules\Domenia-Park.UI.ps1'),[ref]$parseTokens,[ref]$parseErrors)
+    foreach($fn in @($parkAst.FindAll({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst]},$true))){
+        if(@('Publish-DomeniaCommittedPresence') -contains $fn.Name){. ([scriptblock]::Create($fn.Extent.Text))}
+    }
     $mainXaml=Get-MainXaml
     [xml]$mainDoc=$mainXaml
     $mainReader=New-Object Xml.XmlNodeReader $mainDoc
@@ -601,7 +634,8 @@ try{
             $script:SelectedObject=[pscustomobject]@{Type='Machine';Name='PC-COMPTA-014';DN='CN=PC-COMPTA-014,DC=example,DC=local'}
             Set-VisibleTabsForType -Type 'Machine' -PreserveWorkspace
             Select-DomeniaWorkspace -Workspace 'WsComputer' -Inner 'ComputerTabs' -Tab 'TabWmi';Pump $main
-            Expect ([string]$script:Ctrl['ComputerTabs'].SelectedItem.Name -eq 'TabWmi') 'Explorateur WMI non affiche'
+            # UX-21 (X04): the WMI explorer is the Expert tab of the Diagnostic view.
+            Expect (([string]$script:Ctrl['ComputerTabs'].SelectedItem.Name -eq 'TabComputerHealth') -and ([string]$script:Ctrl['ComputerDiagTabs'].SelectedItem.Name -eq 'TabWmi')) ('Explorateur WMI non affiche : '+[string]$script:Ctrl['ComputerTabs'].SelectedItem.Name)
             Select-DomeniaWorkspace -Workspace 'TabApplicationTools' -Inner 'ApplicationToolTabs' -Tab 'TabLog';Pump $main
             Expect ([string]$script:Ctrl['ApplicationToolTabs'].SelectedItem.Name -eq 'TabLog') 'Journal detaille de la palette non affiche'
             Expect ($script:CurrentUiProfile -eq 'Tech') ('Profil modifie : '+$script:CurrentUiProfile)
@@ -823,6 +857,254 @@ try{
                 $area.Child=$null;$main.Content=$null;$main.Content=$content;$script:Window=$realWindow;$script:UxLayoutSignature='';$script:UxNavLayoutSignature=''
             }
         }
+        # MO-04: unwired if the count button comes back, if the overview counts the directory again, or if the totals
+        # are not read from the local copy (LocalIndexRead, explicit gesture) with their date.
+        Case 'MO-04 : Analyser le domaine ne denombre plus l annuaire, les totaux viennent de la copie locale' {
+            Expect ($null -eq $main.FindName('BtnCountDomain')) 'Le bouton Analyser et denombrer est revenu.'
+            $label=$script:Ctrl['LblDomainLocalTotals']
+            Expect ($null -ne $label) 'Libelle des totaux absent de la fenetre principale.'
+            Expect ([string]$label.ToolTip -ceq [string][Windows.Automation.AutomationProperties]::GetHelpText($label)) 'Totaux : infobulle et aide divergent.'
+            $worker=@($coreAst.FindAll({param($n)$n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Get-DomeniaDomainWorkerCode'},$true))[0].Extent.Text
+            Expect ((-not $worker.Contains('Denombrement')) -and (-not $worker.Contains('$Payload.Count'))) 'Le worker DomainOverview denombre encore lʼannuaire.'
+            $overviewAst=@($coreAst.FindAll({param($n)$n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Start-DomeniaDomainOverview'},$true))
+            Expect ($overviewAst.Count -eq 1) 'Start-DomeniaDomainOverview absent.'
+            . ([scriptblock]::Create($overviewAst[0].Extent.Text))
+            $dashboardTokens=$null;$dashboardErrors=$null
+            $dashboardAst=[System.Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'modules\Domenia-Dashboard.UI.ps1'),[ref]$dashboardTokens,[ref]$dashboardErrors)
+            foreach($fn in @($dashboardAst.FindAll({param($n)$n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -like '*-DomeniaDomainLocalTotals*'},$true))){. ([scriptblock]::Create($fn.Extent.Text))}
+            . (Join-Path $wad 'modules\Domenia-Search.Model.ps1')
+            . (Join-Path $wad 'modules\Domenia-Directory.Model.ps1')
+            $tasks=New-Object 'System.Collections.ArrayList'
+            function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$DisableControls,$TimeoutSeconds,$StatusText,$SuccessHandler,$ErrorHandler,$TaskClass);[void]$tasks.Add([pscustomobject]@{OperationId=[string]$OperationId;Payload=$Payload;State=$CallbackState;Disable=@($DisableControls)});return ('task-mo04-'+$tasks.Count)}
+            function Initialize-DomeniaWinSqliteNative {return $true}
+            function Get-DomeniaFleetQueryPlan {param($ObservationMaxAgeDays,$Now,$HealthPolicy);return [pscustomobject]@{Fixture=$true}}
+            function Get-DomeniaObservationMaxAgeDays {return 30}
+            function Get-DomeniaDomainWorkerCode {return 'fixture'}
+            function Show-DomeniaOperationError {param($Operation,$ErrorRecordOrException,[switch]$NoPopup);throw ([string]$ErrorRecordOrException)}
+            $script:DatabaseScopedPath='C:\DomeniaTest\Domenia.db';$script:DashboardModuleRoot=Join-Path $wad 'modules';$script:DomainTotalsState=$null
+            Start-DomeniaDomainOverview
+            $overview=@($tasks|Where-Object{$_.OperationId -eq 'DomainOverview'});$local=@($tasks|Where-Object{$_.OperationId -eq 'LocalIndexRead'})
+            Expect ($tasks.Count -eq 2) ('Lectures lancees : '+(@($tasks|ForEach-Object{$_.OperationId}) -join ', '))
+            Expect (($overview.Count -eq 1) -and ($null -eq $overview[0].Payload.PSObject.Properties['Count']) -and (-not ($overview[0].Disable -contains 'BtnCountDomain'))) 'Analyse : un comptage est encore demande.'
+            Expect (($local.Count -eq 1) -and ([string]$local[0].Payload.Action -eq 'FleetStats') -and ([string]$local[0].Payload.Scope -eq [string]$script:Conn.BaseDn) -and (-not [bool]$local[0].Payload.Subtree) -and (-not [bool]$local[0].Payload.ComputeBoard)) 'Totaux : lecture locale attendue.'
+            Expect ($label.Text -eq 'Totaux du domaine : lecture de la copie locale…') ('Etat de lecture : '+$label.Text)
+            $sync=@{directory=[pscustomobject]@{scope='directory';last_sync='2026-10-14T06:15:00.0000000Z'}}
+            $answer=[pscustomobject]@{Busy=$false;Missing=$false;Types=@([pscustomobject]@{t='Utilisateur';s='Actif';n=12},[pscustomobject]@{t='Machine';s='Actif';n=5});SyncStates=$sync}
+            Complete-DomeniaDomainLocalTotals -Result $answer -State $local[0].State
+            Expect (($label.Text.StartsWith('Totaux de la copie locale au ')) -and ($label.Text.EndsWith(' : 12 utilisateurs · 5 postes.'))) ('Libelle : '+$label.Text)
+            $old=$local[0].State;Start-DomeniaDomainOverview
+            Complete-DomeniaDomainLocalTotals -Result ([pscustomobject]@{Busy=$false;Missing=$false;Types=@();SyncStates=@{}}) -State $old
+            Expect ($label.Text -eq 'Totaux du domaine : lecture de la copie locale…') 'Un ancien resultat a remplace la lecture en cours.'
+        }
+        # UI-06: unwired if the fiche shows DN lists again, if the grids lose their filter or counter, if « Pourquoi membre ? »
+        # reads anything for a group already explained, or if the nested groups are read without the explicit gesture.
+        Case 'UI-06 : appartenances en grilles lisibles, filtre local, groupes imbriques et Pourquoi membre au clic' {
+            foreach($n in @('LstMemberOf','LstGroupMembers')){Expect ($null -eq $main.FindName($n)) ('Liste de DN revenue : '+$n)}
+            foreach($n in @('DgMemberOf','DgGroupMembers','TxtMemberOfFilter','TxtGroupMembersFilter','BtnMemberOfNested','LblMembershipWhy')){
+                $c=$script:Ctrl[$n];Expect ($null -ne $c) ('Controle absent : '+$n)
+                Expect ([string]$c.ToolTip -ceq [string][Windows.Automation.AutomationProperties]::GetHelpText($c)) ('Infobulle et aide divergent : '+$n)
+            }
+            foreach($file in @('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Directory.Model.ps1','Domenia-Membership.Worker.ps1','Domenia-Membership.UI.ps1')){. (Join-Path $wad ('modules\'+$file))}
+            foreach($name in @('Get-DomeniaMembershipLabel','New-DomeniaMenuItem')){. ([scriptblock]::Create(@($coreAst.FindAll({param($n)$n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true))[0].Extent.Text))}
+            $tasks=New-Object 'System.Collections.ArrayList'
+            function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$DisableControls,$TimeoutSeconds,$StatusText,$SuccessHandler,$ErrorHandler,$TaskClass);[void]$tasks.Add([pscustomobject]@{OperationId=[string]$OperationId;Payload=$Payload;State=$CallbackState;Success=[string]$SuccessHandler});return ('task-ui06-'+$tasks.Count)}
+            function Get-DomeniaLocalDatabasePathForRead {return 'C:\DomeniaTest\Domenia.db'}
+            function Get-DomeniaLocalIndexReadWorkerCode {return 'fixture'}
+            function Start-DomeniaSearchFor {param($Term);$script:SearchedFor=[string]$Term}
+            function Set-ClipboardSafe {param($Text);$script:Copied=[string]$Text}
+            $user='CN=Jean Dupont,OU=RH,DC=example,DC=local';$g1='CN=GG-Lyon,OU=Groupes,DC=example,DC=local';$g2='CN=GG-RH,OU=Groupes,DC=example,DC=local';$g3='CN=GG-Compta,OU=Groupes,DC=example,DC=local'
+            $script:SelectedObjectGeneration=3L;$script:SelectedObject=[pscustomobject]@{DN=$user;Type='Utilisateur';Name='Jean Dupont'};$script:MembershipUiBound=$false
+            [void](Register-DomeniaMembershipUi)
+            Set-DomeniaMembershipList -Kind MemberOf -Dns @($g1,$g2) -ObjectDn $user;Pump $main
+            $grid=$script:Ctrl['DgMemberOf']
+            Expect (($grid.Items.Count -eq 2) -and ([string]$grid.Items[0].Name -eq 'GG-Lyon') -and ([string]$grid.Items[0].Ou -eq 'example.local / Groupes')) 'Groupes non lisibles.'
+            Expect ([string]$script:Ctrl['LblMemberOf'].Text -eq '2 groupe(s) direct(s)') ('Compteur : '+$script:Ctrl['LblMemberOf'].Text)
+            $script:Ctrl['TxtMemberOfFilter'].Text='lyon';Pump $main
+            Expect (($grid.Items.Count -eq 1) -and ([string]$script:Ctrl['LblMemberOf'].Text).Contains('1 affiché(s) après le filtre')) ('Filtre : '+$script:Ctrl['LblMemberOf'].Text)
+            $script:Ctrl['TxtMemberOfFilter'].Text='';Pump $main
+            Expect ($grid.Items.Count -eq 2) 'Le filtre vide ne reaffiche pas tout.'
+            $grid.SelectedItem=$grid.Items[0];Invoke-DomeniaMembershipWhy
+            Expect (([string]$script:Ctrl['LblMembershipWhy'].Text).Contains('membre direct de « GG-Lyon »') -and ($tasks.Count -eq 0)) ('Pourquoi direct : '+$script:Ctrl['LblMembershipWhy'].Text)
+            Click $script:Ctrl['BtnMemberOfNested']
+            $read=@($tasks|Where-Object{$_.OperationId -eq 'GroupPathRead'})
+            Expect (($read.Count -eq 1) -and ([string]$read[0].Payload.ObjectDn -eq $user) -and (@($read[0].Payload.StartGroups).Count -eq 2) -and (-not [string]$read[0].Payload.TargetDn)) 'Lecture des groupes imbriques non conforme.'
+            $answer=[pscustomobject]@{ObjectDn=$user;TargetDn='';Edges=@{$user=@($g1,$g2);$g1=@($g3)};Unread=@([pscustomobject]@{Dn='CN=GU,DC=autre,DC=local';Reason='Autre domaine'});Truncated=$false;ServerAnswer=$null}
+            Complete-DomeniaMembershipPathRead -Result $answer -State $read[0].State;Pump $main
+            $nested=@($grid.Items|Where-Object{[string]$_.Membership -eq 'Imbriquée'})
+            Expect (($grid.Items.Count -eq 3) -and ($nested.Count -eq 1) -and ([string]$nested[0].Name -eq 'GG-Compta') -and ([string]$nested[0].Via -eq 'GG-Lyon')) 'Groupe imbrique absent de la grille.'
+            Expect (([string]$script:Ctrl['LblMembershipWhy'].Text).Contains('1 groupe(s) imbriqué(s)') -and ([string]$script:Ctrl['LblMembershipWhy'].Text).Contains('1 autre domaine')) ('Resume : '+$script:Ctrl['LblMembershipWhy'].Text)
+            Expect (([string]$script:Ctrl['LblMemberOf'].Text).Contains('1 groupe(s) imbriqué(s) lu(s)')) ('Compteur : '+$script:Ctrl['LblMemberOf'].Text)
+            $grid.SelectedItem=$nested[0];Invoke-DomeniaMembershipWhy
+            Expect (([string]$script:Ctrl['LblMembershipWhy'].Text).Contains('Jean Dupont → GG-Lyon → GG-Compta (2 niveaux)') -and (@($tasks|Where-Object{$_.OperationId -eq 'GroupPathRead'}).Count -eq 1)) ('Pourquoi imbrique : '+$script:Ctrl['LblMembershipWhy'].Text)
+            $headers=@($grid.ContextMenu.Items|Where-Object{$_ -is [Windows.Controls.MenuItem]}|ForEach-Object{[string]$_.Header})
+            Expect (($headers -contains 'Pourquoi membre ?') -and ($headers -contains 'Afficher les groupes imbriqués') -and ($headers -contains 'Copier le DN')) ('Menu : '+($headers -join ', '))
+            # A late answer for a fiche replaced since is ignored.
+            $script:SelectedObjectGeneration=4L
+            Complete-DomeniaMembershipPathRead -Result ([pscustomobject]@{ObjectDn=$user;TargetDn='';Edges=@{};Unread=@();Truncated=$false}) -State $read[0].State
+            Expect ($grid.Items.Count -eq 3) 'Une ancienne reponse a modifie la grille.'
+            # Members of a group: readable rows, types read in the local copy (no directory request).
+            $group='CN=GG-Postes,OU=Groupes,DC=example,DC=local';$pc='CN=PC-COMPTA-014,OU=Postes,DC=example,DC=local';$other='CN=Inconnu,OU=Postes,DC=example,DC=local'
+            Set-DomeniaMembershipList -Kind Members -Dns @($pc,$other) -ObjectDn $group;Pump $main
+            $types=@($tasks|Where-Object{$_.OperationId -eq 'LocalIndexRead'})
+            Expect (($types.Count -eq 1) -and ([string]$types[0].Payload.Action -eq 'ResolveNames') -and (@($types[0].Payload.Dns).Count -eq 2)) 'Lecture locale des types non demandee.'
+            Complete-DomeniaMembershipTypes -Result ([pscustomobject]@{Busy=$false;Missing=$false;Objects=@([pscustomobject]@{distinguished_name=$pc;object_type='Machine';name='PC-COMPTA-014'})}) -State $types[0].State;Pump $main
+            $members=$script:Ctrl['DgGroupMembers']
+            Expect (([string]$members.Items[0].Type -eq 'Machine') -and ([string]$members.Items[1].Type -eq 'Non lu')) 'Types des membres non appliques.'
+            $memberHeaders=@($members.ContextMenu.Items|Where-Object{$_ -is [Windows.Controls.MenuItem]}|ForEach-Object{[string]$_.Header})
+            Expect (-not ($memberHeaders -contains 'Pourquoi membre ?')) 'Les membres directs dʼun groupe nʼont pas besoin dʼexplication.'
+            Expect (@($tasks|Where-Object{$_.OperationId -notin @('GroupPathRead','LocalIndexRead')}).Count -eq 0) 'Une autre lecture a ete lancee.'
+            # A group without members shows no row (never one empty pseudo-row) and reads no type.
+            $before=$tasks.Count
+            Set-DomeniaMembershipList -Kind Members -Dns @() -ObjectDn $g3;Pump $main
+            Expect (($members.Items.Count -eq 0) -and ($tasks.Count -eq $before)) ('Groupe vide : '+$members.Items.Count+' ligne(s), '+($tasks.Count-$before)+' lecture(s).')
+            Clear-DomeniaMembershipLists;Pump $main
+            Expect (($null -eq $grid.ItemsSource) -and ($null -eq $members.ItemsSource) -and ($script:Ctrl['LblMembershipWhy'].Visibility -eq 'Collapsed')) 'Appartenances de lʼobjet precedent encore affichees.'
+            $script:SelectedObject=$null
+        }
+
+        # X04 doubles, defined after the L08 cases: the guards of Invoke-ComputerTool, the sessions read, the stored
+        # observation and the draft comparison. They only record.
+        $script:X04=[pscustomobject]@{Sessions=0;Errors=New-Object 'System.Collections.ArrayList';DraftCompare=0}
+        function Get-CurrentSelectedComputerName {return 'PC-COMPTA-014'}
+        function Assert-DomeniaComputerTarget {param([string]$Computer);return $Computer}
+        function Assert-DomeniaRemoteWriteAllowed {param([string]$Operation)}
+        function Assert-WriteAllowed {}
+        function Show-DomeniaOperationError {param($Operation,$ErrorRecordOrException,$CorrelationId,[switch]$NoPopup);[void]$script:X04.Errors.Add([string]$ErrorRecordOrException)}
+        function Get-DomeniaSelectedMachineName {return 'pc-compta-014.example.local'}
+        function Start-DomeniaSessionsRead {$script:X04.Sessions++}
+        function Test-DomeniaControlIsBusy {param([string]$Name);return $false}
+        function Get-DomeniaSelectionCachePolicy {return [pscustomobject]@{Offline=$false;CanEdit=$true}}
+        function Show-DomeniaDraftComparison {$script:X04.DraftCompare++}
+        function Get-DomeniaCommittedObservation {param($Result,$State);return $Result}
+        function Set-DomeniaResultRowPresence {param($Dn,$Target,$Observation)}
+        function Get-DomeniaLivePresenceView {param($Observation,[switch]$Cached);return [pscustomobject]@{Display=[string]$Observation.Presence;State=[string]$Observation.Presence;Detail=''}}
+        function Set-DomeniaPresenceText {param([string]$Name,[AllowEmptyString()][string]$State);[void](Set-DomeniaControlText -Name $Name -Text $State)}
+        function Update-DomeniaObjectPresence {param([string]$State,[string]$Target)}
+        Case 'X04 UX-21 / DS-08 : cinq vues, anciens noms d onglet resolus, en-tete du poste fixe hors des vues' {
+            $script:SelectedObject=[pscustomobject]@{Type='Machine';Name='PC-COMPTA-014';DN='CN=PC-COMPTA-014,DC=example,DC=local'}
+            Set-VisibleTabsForType -Type 'Machine' -PreserveWorkspace
+            $content=$script:Ctrl['ComputerReadContent'];$content.Visibility='Visible';$content.IsEnabled=$true
+            if($null -ne $script:Ctrl['ComputerEmptyState']){$script:Ctrl['ComputerEmptyState'].Visibility='Collapsed'}
+            $views=@($script:Ctrl['ComputerTabs'].Items|ForEach-Object{[string]$_.Name})
+            Expect (($views -join ',') -ceq ((Get-DomeniaComputerViewNames) -join ',')) ('Vues : '+($views -join ','))
+            Expect ([string][Windows.LogicalTreeHelper]::GetParent($script:Ctrl['TabInventory']).Name -eq 'ComputerDetailTabs') 'Inventaire hors de la vue Details'
+            Expect ([string][Windows.LogicalTreeHelper]::GetParent($script:Ctrl['TabWmi']).Name -eq 'ComputerDiagTabs') 'WMI hors de la vue Diagnostic'
+            $header=$script:Ctrl['UxComputerHeader'];$top=$null
+            foreach($old in @('TabComputer','TabComputerDashboard','TabComputerAdmin','TabSessions','TabInventory','TabSoftware','TabComputerHealth','TabSecurity')){
+                Select-DomeniaWorkspace -Workspace 'WsComputer' -Inner 'ComputerTabs' -Tab $old;Pump $main
+                $route=Resolve-DomeniaComputerViewRoute -Tab $old
+                Expect ([string]$script:Ctrl['ComputerTabs'].SelectedItem.Name -eq [string]$route.View) ($old+' ouvre '+[string]$script:Ctrl['ComputerTabs'].SelectedItem.Name)
+                if([string]$route.Sub){Expect ([string]$script:Ctrl[[string]$route.Inner].SelectedItem.Name -eq [string]$route.Sub) ($old+' : onglet interieur '+[string]$script:Ctrl[[string]$route.Inner].SelectedItem.Name)}
+                Expect ($header.IsVisible) ('En-tete du poste masque dans '+$old)
+                $y=$header.TranslatePoint([Windows.Point]::new(0,0),$content).Y
+                if($null -eq $top){$top=$y}
+                Expect ([Math]::Abs($y-$top) -lt 0.5) ('En-tete deplace dans '+$old+' : '+$y+' au lieu de '+$top)
+            }
+            $parent=[Windows.Media.VisualTreeHelper]::GetParent($header);$inside=$false
+            while($null -ne $parent){if([object]::ReferenceEquals($parent,$script:Ctrl['ComputerTabs'])){$inside=$true;break};$parent=[Windows.Media.VisualTreeHelper]::GetParent($parent)}
+            Expect (-not $inside) 'L en-tete du poste appartient a une vue'
+            foreach($name in @('BtnCompAccountPill','BtnCompHeaderRdp','BtnCompHeaderC','BtnCompHeaderPing')){Expect ($script:Ctrl[$name].IsVisible) ($name+' masque')}
+            # X03 x X04: the « Compte poste » pill lives in this header, the one header of the five views.
+            $owner=[Windows.LogicalTreeHelper]::GetParent($script:Ctrl['BtnCompAccountPill']);while(($null -ne $owner) -and (-not [object]::ReferenceEquals($owner,$header))){$owner=[Windows.LogicalTreeHelper]::GetParent($owner)}
+            Expect ($null -ne $owner) 'Pastille Compte poste hors de l en-tete du poste'
+            foreach($name in @('BtnCompHeaderC','BtnCompC')){
+                $button=$script:Ctrl[$name]
+                Expect (([string]$button.Content -eq 'Ouvrir le disque C') -and ([string]$button.ToolTip).Contains('C$') -and ([string][Windows.Automation.AutomationProperties]::GetName($button)).Contains('C$')) ($name+' : '+[string]$button.Content)
+            }
+            $script:SelectedObject=$null
+        }
+
+        Case 'X04 UX-19 : pastille des operations a verifier seulement s il en reste, aucun chemin ecrit vers Fiabilite' {
+            $script:SelectedObject=$null;$script:ReceiptPending=0;$script:DomeniaAssist=$null
+            Initialize-DomeniaAssist;Pump $main
+            $pill=$script:Ctrl['BtnPendingOperations']
+            Expect ($pill.Visibility -eq 'Collapsed') 'Pastille affichee sans operation a verifier'
+            $script:ReceiptPending=2;Update-DomeniaPendingOperationsPill;Pump $main
+            Expect (($pill.Visibility -eq 'Visible') -and ([string]$pill.Content -eq '2 opérations à vérifier')) ('Pastille : '+[string]$pill.Content)
+            Click $pill;Pump $main
+            Expect (([string]$script:Ctrl['WorkspaceTabs'].SelectedItem.Name -eq 'TabApplicationTools') -and ([string]$script:Ctrl['ApplicationToolTabs'].SelectedItem.Name -eq 'TabGuard')) 'La pastille n ouvre pas la liste des recus'
+            $script:ReceiptPending=0;Update-DomeniaPendingOperationsPill
+            Expect ($pill.Visibility -eq 'Collapsed') 'Pastille restee apres la verification'
+            Expect ([string](Resolve-DomeniaCapabilityRoute -Route 'TabGuard').Label -eq 'Opérations à vérifier') 'La route des recus parle encore de Fiabilite'
+            foreach($name in @('BtnGuardStoreResume','BtnGuardLegacyImport')){
+                $node=$script:Ctrl[$name];$owner=''
+                while($null -ne $node){if(([string]$node.Name) -in @('TabGuard','TabIndexStorage')){$owner=[string]$node.Name;break};$node=[Windows.LogicalTreeHelper]::GetParent($node)}
+                Expect ($owner -eq 'TabIndexStorage') ($name+' dans '+$owner+' au lieu de Base autonome, onglet Stockage')
+            }
+            # No string shown by the application names a path to the hidden tab.
+            $files=@(Join-Path $wad 'Domenia-Core.ps1')+@(Get-ChildItem -LiteralPath (Join-Path $wad 'modules') -Filter '*.ps1' -File|ForEach-Object{$_.FullName})
+            foreach($file in $files){
+                $fileTokens=$null;$fileErrors=$null
+                $fileAst=[System.Management.Automation.Language.Parser]::ParseFile($file,[ref]$fileTokens,[ref]$fileErrors)
+                foreach($node in @($fileAst.FindAll({param($n) ($n -is [System.Management.Automation.Language.StringConstantExpressionAst]) -or ($n -is [System.Management.Automation.Language.ExpandableStringExpressionAst])},$true))){
+                    $value=[string]$node.Extent.Text
+                    Expect (-not ($value -match '(?i)Outils\s*>\s*Fiabilit|dans Fiabilit')) ((Split-Path -Leaf $file)+' : '+$value.Substring(0,[Math]::Min(120,$value.Length)))
+                }
+            }
+            # The routes that replace the written paths: Base autonome, onglet Stockage, the button of the action focused.
+            foreach($case in @(@('StorageResume','BtnGuardStoreResume'),@('LegacyImport','BtnGuardLegacyImport'))){
+                Select-DomeniaWorkspace -Workspace 'WsSearch';Pump $main
+                $button=$script:Ctrl[[string]$case[1]];$scope=[Windows.Input.FocusManager]::GetFocusScope($button)
+                [Windows.Input.Keyboard]::ClearFocus();[Windows.Input.FocusManager]::SetFocusedElement($scope,$null)
+                Expect ([bool](Invoke-DomeniaCapabilityRoute -Route ([string]$case[0]))) ([string]$case[0]+' : route refusee')
+                Pump $main
+                Expect ([string]$script:Ctrl['WorkspaceTabs'].SelectedItem.Name -eq 'TabApplicationTools') ([string]$case[0]+' ouvre '+[string]$script:Ctrl['WorkspaceTabs'].SelectedItem.Name)
+                Expect ([string]$script:Ctrl['ApplicationToolTabs'].SelectedItem.Name -eq 'TabIndex') ([string]$case[0]+' : outil '+[string]$script:Ctrl['ApplicationToolTabs'].SelectedItem.Name)
+                Expect ([string]$script:Ctrl['IndexWorkspaceTabs'].SelectedItem.Name -eq 'TabIndexStorage') ([string]$case[0]+' : onglet '+[string]$script:Ctrl['IndexWorkspaceTabs'].SelectedItem.Name)
+                Expect (([object]::ReferenceEquals([Windows.Input.FocusManager]::GetFocusedElement($scope),$button)) -or ($button.IsKeyboardFocused)) ([string]$case[0]+' : '+[string]$case[1]+' sans le focus')
+                Expect ([string](Resolve-DomeniaCapabilityRoute -Route ([string]$case[0])).Label -eq 'Base autonome > Stockage') ([string]$case[0]+' : libelle')
+            }
+            # Comparer les saisies opens the comparison of the fiche in place: no page change.
+            Select-DomeniaWorkspace -Workspace 'WsSearch';Pump $main
+            $script:X04.DraftCompare=0
+            Expect ([bool](Invoke-DomeniaCapabilityRoute -Route 'DraftCompare')) 'DraftCompare refusee'
+            Expect (($script:X04.DraftCompare -eq 1) -and ([string]$script:Ctrl['WorkspaceTabs'].SelectedItem.Name -eq 'WsSearch')) ('Comparaison : '+$script:X04.DraftCompare+' ; page '+[string]$script:Ctrl['WorkspaceTabs'].SelectedItem.Name)
+        }
+
+        Case 'X04 SE-08 : Redemarrer depuis Rechercher ouvre le panneau dans Assistance poste > Intervenir, sans rien envoyer' {
+            $script:SelectedObject=[pscustomobject]@{Type='Machine';Name='PC-COMPTA-014';DN='CN=PC-COMPTA-014,DC=example,DC=local'}
+            Set-VisibleTabsForType -Type 'Machine' -PreserveWorkspace
+            $content=$script:Ctrl['ComputerReadContent'];$content.Visibility='Visible';$content.IsEnabled=$true
+            if($null -ne $script:Ctrl['ComputerEmptyState']){$script:Ctrl['ComputerEmptyState'].Visibility='Collapsed'}
+            Select-DomeniaWorkspace -Workspace 'WsSearch';Pump $main
+            Expect ([string]$script:Ctrl['WorkspaceTabs'].SelectedItem.Name -eq 'WsSearch') 'Rechercher non affiche avant le clic'
+            $script:X04.Sessions=0;$script:X04.Errors.Clear();$tasks=$script:L08.Tasks.Count
+            # The entry « Redémarrer le poste… » of the results menu calls exactly this.
+            Invoke-ComputerTool 'Restart';Pump $main
+            Expect ($script:X04.Errors.Count -eq 0) ('Erreur : '+($script:X04.Errors -join ' | '))
+            Expect ([string]$script:Ctrl['WorkspaceTabs'].SelectedItem.Name -eq 'WsComputer') ('Page affichee : '+[string]$script:Ctrl['WorkspaceTabs'].SelectedItem.Name)
+            Expect ([string]$script:Ctrl['ComputerTabs'].SelectedItem.Name -eq 'TabComputerAdmin') ('Vue : '+[string]$script:Ctrl['ComputerTabs'].SelectedItem.Name)
+            Expect ($script:Ctrl['UxCompRestartPanel'].IsVisible) 'Panneau de redemarrage invisible'
+            Expect (($script:X04.Sessions -eq 1) -and ($script:L08.Tasks.Count -eq $tasks)) ('Lectures des sessions : '+$script:X04.Sessions+' ; taches : '+($script:L08.Tasks.Count-$tasks))
+            Close-DomeniaComputerRestartPanel;Pump $main
+            Expect (-not $script:Ctrl['UxCompRestartPanel'].IsVisible) 'Panneau reste ouvert'
+            $script:SelectedObject=$null
+        }
+
+        Case 'X04 DS-08 : heure de la pastille = heure du test publie, meme si la reponse ne change pas' {
+            $script:SelectedObject=[pscustomobject]@{Type='Machine';Name='PC-COMPTA-014';DN='CN=PC-COMPTA-014,DC=example,DC=local'}
+            $script:InventoryCompletedAt=$null;$script:Live=$null;$script:RenderingObjectWithoutProbes=$false
+            Initialize-DomeniaAssist
+            $script:Ctrl['TxtCompPresence'].Text='';$script:Ctrl['TxtCompPresence'].Text='Non verifie';Pump $main
+            $label=$script:Ctrl['LblCompHeaderPresence']
+            Expect ([string]$label.Text -eq 'Présence non vérifiée') ('Avant le test : '+[string]$label.Text)
+            $state=[pscustomobject]@{Computer='pc-compta-014.example.local';DisplayDN=[string]$script:SelectedObject.DN;DisplayKind='Machine';Suffix='';Explicit=$true}
+            $first=[datetime]::SpecifyKind([datetime]'2026-10-15 08:00:00',[DateTimeKind]::Utc)
+            $second=[datetime]::SpecifyKind([datetime]'2026-10-15 08:30:00',[DateTimeKind]::Utc)
+            foreach($at in @($first,$second)){
+                $observation=[pscustomobject]@{Key=[string]$script:SelectedObject.DN;Presence='En ligne';PresenceCheckedUtc=$at.ToString('o');PresenceAttemptUtc=$at.ToString('o')}
+                Publish-DomeniaCommittedPresence -Result $observation -State $state;Pump $main
+                $expected='Répond au ping · '+$at.ToLocalTime().ToString('HH:mm',[Globalization.CultureInfo]::InvariantCulture)
+                Expect ([string]$label.Text -eq $expected) ('Pastille : '+[string]$label.Text+' au lieu de '+$expected)
+            }
+            Expect ([string]$script:Ctrl['TxtCompPresence'].Text -eq 'En ligne') ('Fiche : '+[string]$script:Ctrl['TxtCompPresence'].Text)
+            # A state written again without its observation (result list, memory) shows no time.
+            $script:Ctrl['TxtCompPresence'].Text='En ligne (cache)';Pump $main
+            Expect ([string]$label.Text -eq 'Répond au ping (mémoire)') ('Etat repris : '+[string]$label.Text)
+            $script:Ctrl['TxtCompPresence'].Text='Sans réponse au ping';Pump $main
+            Expect ([string]$label.Text -eq 'Ne répond pas au ping') ('Etat sans observation : '+[string]$label.Text)
+            $script:SelectedObject=$null
+        }
     }finally{
         Stop-DomeniaReadOnlyReturnTimer
         if($null -ne $script:UxSuggestTimer){$script:UxSuggestTimer.Stop()}
@@ -832,7 +1114,7 @@ try{
     $script:Tests.Add([pscustomobject]@{Name='Initialisation ou suite interrompue';Status='Failed';Detail=$_.Exception.ToString()})
 }
 
-$expected=20
+$expected=28
 $passed=@($script:Tests|Where-Object{$_.Status -eq 'Passed'}).Count
 $failed=@($script:Tests|Where-Object{$_.Status -eq 'Failed'}).Count
 $report=[ordered]@{

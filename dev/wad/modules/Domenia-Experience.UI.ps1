@@ -203,6 +203,8 @@ function Get-DomeniaOperationsHealthText {
     $lines.Add($save)
     # Points 12, 13, 16 and 160: queue waits, shared reads, CIM queries avoided and paused sources of this session.
     try{foreach($line in @(Get-DomeniaCollectionHealthLines)){if([string]$line){$lines.Add([string]$line)}}}catch{}
+    # FI-12: SQLite lock waits that ran out in this session, with the configured wait.
+    try{$lines.Add([string](Get-DomeniaSqliteBusyStatusText))}catch{}
     return ($lines.ToArray() -join "`r`n")
 }
 
@@ -529,6 +531,38 @@ function Save-DomeniaExperiencePreferences {
     Save-DomeniaSettings -Immediate
 }
 
+function Update-DomeniaFilteredEmptyState {
+    # UX-03: when the filter of the list hides every loaded row, the empty list says so and offers « Effacer le filtre ».
+    # Called after each repaint of the result grid (progressive list and repainted copies). Display only.
+    param([int]$Loaded=0,[int]$Visible=0)
+    $panel = Get-DomeniaControl 'UxSearchFilteredEmpty'
+    if ($null -eq $panel) { return }
+    $box = Get-DomeniaControl 'TxtSuiteResultFilter'
+    $text = ''
+    if ($null -ne $box) { $text = [string]$box.Text }
+    # The presence filter belongs to the OU lists; the global search never applies it.
+    $presence = [string]$script:CurrentPresenceFilter
+    if ((Get-DomeniaSearchMode) -eq 'Global') { $presence = 'Tous' }
+    $state = Get-DomeniaFilteredEmptyState -Loaded $Loaded -Visible $Visible -LocalText $text -Presence $presence
+    if ([bool]$state.Show) {
+        [void](Set-DomeniaControlText 'LblSearchFilteredEmpty' ([string]$state.Text))
+        [void](Set-DomeniaControlText 'LblSearchFilteredDetail' ([string]$state.Detail))
+    }
+    $wanted = if ([bool]$state.Show) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed }
+    if ($panel.Visibility -ne $wanted) { $panel.Visibility = $wanted }
+}
+
+function Clear-DomeniaResultFilters {
+    # UX-03: « Effacer le filtre » of the empty list. The text of the list and the presence go back to everything;
+    # the rows already loaded are shown again, no request is sent and the search itself is kept.
+    $box = Get-DomeniaControl 'TxtSuiteResultFilter'
+    if ($null -ne $box) { $box.Text = '' }
+    $combo = Get-DomeniaControl 'CmbPresenceFilter'
+    if (($null -ne $combo) -and ($combo.SelectedIndex -ne 0)) { $combo.SelectedIndex = 0 }
+    $script:CurrentPresenceFilter = 'Tous'
+    Apply-DomeniaPresenceFilter
+}
+
 function Initialize-DomeniaExperience {
     if($script:ExperienceInitialized -or $null -eq $script:Window){return}
     $script:ExperienceInitialized=$true;$script:ExperienceRestoring=$true
@@ -550,6 +584,7 @@ function Initialize-DomeniaExperience {
     $bindings=@{
         BtnSuiteActivity={Open-DomeniaExperienceActivity};BtnSuiteLogNext={Find-DomeniaExperienceLog}
         BtnSuiteResultClear={(Get-DomeniaControl 'TxtSuiteResultFilter').Clear()}
+        BtnSearchFilteredClear={Clear-DomeniaResultFilters}
     }
     foreach($name in $bindings.Keys){$control=Get-DomeniaControl $name;if($null -ne $control){$control.Add_Click($bindings[$name])}}
     $control=Get-DomeniaControl 'CmbSuiteDensity';if($null -ne $control){$control.Add_SelectionChanged({Apply-DomeniaExperienceDensity})}

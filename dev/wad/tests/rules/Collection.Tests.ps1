@@ -413,3 +413,12 @@ Test-Case 'P20' 'Reprise : proposée seulement sur le même domaine et la même 
     Assert-False (Get-DomeniaCampaignResumeState -Progress $progress -DomainDn 'DC=example,DC=test' -DatabasePath 'C:\fixture\base.db').Resumable 'Tout est validé'
     Assert-False (Get-DomeniaCampaignResumeState -Progress $null).Resumable
 }
+Test-Case 'P20' 'Plan durable : seul un relevé de la portée des listes est une campagne, jamais le poste ouvert ni un widget' {
+    Assert-True (Test-DomeniaCampaignRunDurable ([pscustomobject]@{Slot='List';ScopeKind='Results'})) 'liste affichée'
+    Assert-True (Test-DomeniaCampaignRunDurable ([pscustomobject]@{Slot='List';ScopeKind='Scope';RefreshOperationId='ou-1'})) 'actualisation dʼune OU'
+    Assert-True (Test-DomeniaCampaignRunDurable ([pscustomobject]@{Targets=@()})) 'relevé sans portée nommée : celle des listes'
+    Assert-False (Test-DomeniaCampaignRunDurable ([pscustomobject]@{Slot='Computer'})) 'poste ouvert'
+    Assert-False (Test-DomeniaCampaignRunDurable ([pscustomobject]@{Slot='List';WidgetBoard='Fleet'})) 'collecte dʼun widget de lʼOU'
+    Assert-False (Test-DomeniaCampaignRunDurable ([pscustomobject]@{Slot='Computer';WidgetBoard='Computer'})) 'collecte dʼun widget du poste'
+    Assert-False (Test-DomeniaCampaignRunDurable $null)
+}

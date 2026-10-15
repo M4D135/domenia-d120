@@ -35,7 +35,7 @@ function Reset-Fixture {
  $script:DomeniaIdlePolicy=$null;$script:DomeniaSchedulerEnabled=$true;$script:AsyncEngineClosing=$false;$script:SessionEpoch=5L;$script:DemoMode=$false
  $script:DomeniaProviderState=@{};$script:DomeniaAgedPromotions=0;$script:AsyncJobs=[ordered]@{};$script:DetachedReadJobs=@();$script:LatestTaskId=''
  $script:DatabaseScopedPath='C:\fixture\domain.db';$script:Conn=[pscustomobject]@{Domain='example.test';BaseDn='DC=example,DC=test';Server='dc01.example.test'}
- $script:ParkRun=$null;$script:DomeniaCampaignResumeOfferKey='';$script:DomeniaTargetAddresses=$null;$script:DomeniaParkRunningShown=$false
+ $script:ParkRuns=$null;$script:DomeniaCampaignResumeOfferKey='';$script:DomeniaTargetAddresses=$null;$script:DomeniaParkRunningShown=$false
 }
 
 Case 'Point 159 : le fond réseau attend la fenêtre du profil ; la sélection et le tableau de bord non' {
@@ -227,7 +227,7 @@ Case 'Point 20 : la zone de reprise suit les relevés : fermée pendant, propos�
  $script:Ctrl['LblCollectionResume']=[Windows.Controls.TextBlock]::new()
  $targets=@(for($i=1;$i -le 2;$i++){[pscustomobject]@{Computer=('PC-'+$i);Key=('CN=PC-'+$i+',DC=example,DC=test');Guid=('00000000-0000-0000-0000-'+$i.ToString('d12'))}})
  $run=[pscustomobject]@{Id=[guid]::NewGuid().ToString('N');Targets=$targets;Path=$script:DatabaseScopedPath;PingOnly=$true;WmiOnly=$false;Inventory=$false;Probes=@();ScopeLabel='OU=Postes';Completed=$false;Stopping=$false;FailureMessage='';StopReason=''}
- $script:ParkRun=$run;Update-DomeniaParkControls
+ $script:ParkRuns=@{List=$run};Update-DomeniaParkControls
  Assert ($script:Ctrl.LblCollectionResume.Text -match 'Relevé en cours' -and -not $script:Ctrl.BtnCollectionResume.IsEnabled) 'Reprise proposée pendant le relevé'
  Assert (Save-DomeniaCampaignPlan -Run $run) 'Plan non enregistré'
  Assert (-not $script:Ctrl.BtnCollectionResume.IsEnabled) 'Plan du relevé en cours proposé à la reprise'
@@ -253,9 +253,26 @@ Case 'Point 20 : la reprise est proposée une fois par session et base, jamais p
  Request-DomeniaCampaignResumeOffer;Assert ($script:Offers.Count -eq 1) 'Proposée deux fois'
  $script:Resumed=$null
  # The answer runs through the closure of the inline request: the double replaces the module function itself.
- function script:Start-DomeniaOnlinePark {param([object[]]$ScopeTargets,[string]$ScopeLabel,[switch]$PingOnly,[switch]$WmiOnly,[switch]$Inventory,$Probes)$script:Resumed=[pscustomobject]@{Count=@($ScopeTargets).Count;PingOnly=[bool]$PingOnly}}
+ function script:Start-DomeniaOnlinePark {param([object[]]$ScopeTargets,[string]$ScopeLabel,[switch]$PingOnly,[switch]$WmiOnly,[switch]$Inventory,$Probes,[string]$Slot='')$script:Resumed=[pscustomobject]@{Count=@($ScopeTargets).Count;PingOnly=[bool]$PingOnly;Slot=$Slot}}
  & $script:OfferConfirm
- Assert ($null -ne $script:Resumed -and $script:Resumed.Count -eq 2 -and $script:Resumed.PingOnly) 'Reprise sans les seuls postes restants ou sans son mode'
+ Assert ($null -ne $script:Resumed -and $script:Resumed.Count -eq 2 -and $script:Resumed.PingOnly -and $script:Resumed.Slot -eq 'List') 'Reprise sans les seuls postes restants, sans son mode ou hors de la portée des listes'
+}
+Case 'Point 20 : le relevé du poste ouvert et la collecte dʼun widget nʼécrivent aucun plan, la reprise attend leur fin' {
+ foreach($name in @('BtnCollectionResume','BtnCollectionResumeDiscard')){$script:Ctrl[$name]=[Windows.Controls.Button]::new()}
+ $script:Ctrl['LblCollectionResume']=[Windows.Controls.TextBlock]::new()
+ $targets=@([pscustomobject]@{Computer='PC-1';Key='CN=PC-1,DC=example,DC=test';Guid='00000000-0000-0000-0000-000000000001'})
+ $computer=[pscustomobject]@{Id='c';Slot='Computer';Targets=$targets;Path=$script:DatabaseScopedPath;PingOnly=$false;WmiOnly=$false;Inventory=$true;Probes=@();ScopeLabel='PC-1';Completed=$false;Stopping=$false;FailureMessage='';StopReason=''}
+ $widget=[pscustomobject]@{Id='w';Slot='List';WidgetBoard='Fleet';Targets=$targets;Path=$script:DatabaseScopedPath;PingOnly=$false;WmiOnly=$true;Inventory=$false;Probes=@();ScopeLabel='Postes';Completed=$false;Stopping=$false;FailureMessage='';StopReason=''}
+ Assert (-not (Save-DomeniaCampaignPlan -Run $computer) -and -not (Save-DomeniaCampaignPlan -Run $widget) -and $script:Prefs.Count -eq 0) 'Plan écrit hors dʼune campagne de la liste'
+ # An interrupted campaign waits for its resume while the widget collects; it is offered again at the end.
+ $plan=New-DomeniaCampaignPlan -Kind 'Console' -Targets $targets -DomainDn $script:Conn.BaseDn -DatabasePath $script:DatabaseScopedPath
+ $progress=New-DomeniaCampaignProgress $plan;$progress.State='Paused'
+ $script:Prefs['Domenia.campaign-plan.json']=ConvertTo-DomeniaCampaignPlanText $plan
+ $script:Prefs['Domenia.campaign-progress.json']=ConvertTo-DomeniaCampaignProgressText $progress
+ $script:ParkRuns=@{List=$widget;Computer=$computer};Update-DomeniaParkControls
+ Assert ($script:Ctrl.LblCollectionResume.Text -match 'widget' -and -not $script:Ctrl.BtnCollectionResume.IsEnabled) ('Pendant la collecte : '+$script:Ctrl.LblCollectionResume.Text)
+ $widget.Completed=$true;Update-DomeniaParkControls
+ Assert ($script:Ctrl.BtnCollectionResume.IsEnabled -and $script:Prefs['Domenia.campaign-plan.json'] -ne '{}') 'Campagne interrompue remplacée ou non proposée après la collecte du widget'
 }
 Case 'Opérations : la santé du moteur inclut les mesures de la collecte' {
  $script:DomeniaSharedReadCount=3;$script:DomeniaCimQueriesAvoided=5;$script:DomeniaCimQueriesExecuted=4
@@ -267,7 +284,7 @@ Case 'Opérations : la santé du moteur inclut les mesures de la collecte' {
  Assert ($health.Contains('Get-DomeniaCollectionHealthLines')) 'Panneau non raccordé'
 }
 $failed=@($checks|Where-Object Status -eq 'Failed').Count
-$report=[ordered]@{Kind='CollectionWiring';Expected=15;Complete=($checks.Count -eq 15 -and $failed -eq 0);NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
+$report=[ordered]@{Kind='CollectionWiring';Expected=16;Complete=($checks.Count -eq 16 -and $failed -eq 0);NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path $env:TEMP 'domenia-collection-wiring-tests.json'}
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
 Write-Host ($report.Passed.ToString()+' reussis, '+$failed+' echecs. '+$ReportPath)
