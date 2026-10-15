@@ -594,12 +594,16 @@ function Get-DomeniaFleetBoardData {
         }
         foreach ($curve in $curves) {
             $points = New-Object System.Collections.ArrayList
+            $drawn = New-Object System.Collections.ArrayList
             foreach ($day in $parsedDays) {
                 $figure = & $member $day.Figures ([string]$curve[1]) $null
                 if ($null -eq $figure) { continue }
                 [void]$points.Add([pscustomobject]@{ Label = [string]$day.Label; Value = [double]$figure })
+                [void]$drawn.Add($day.Figures)
             }
-            if ($points.Count) { Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key ([string]$curve[0]) -Kind Timeline -Value ([string][int]$points[$points.Count - 1].Value) -Detail ([string]$points.Count + ' jour(s) relevé(s) sur 90 : ' + [string]$curve[2]) -Items @($points)) }
+            # Point 71: each day counted its inactive accounts with the threshold of that day; a mix is stated.
+            $note = if ([string]$curve[1] -eq 'Stale') { Get-DomeniaStaleTrendNote -Figures $drawn.ToArray() -StaleDays ([int]$data.HealthPolicy.Thresholds.StaleDays) } else { '' }
+            if ($points.Count) { Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key ([string]$curve[0]) -Kind Timeline -Value ([string][int]$points[$points.Count - 1].Value) -Detail ([string]$points.Count + ' jour(s) relevé(s) sur 90 : ' + [string]$curve[2] + $note) -Items @($points)) }
         }
     } else {
         $days = 0
@@ -654,7 +658,8 @@ function Get-DomeniaFleetBoardData {
     $widgetTargets['fleet.reach']=@($targets);foreach($label in $reachTargets.Keys){$widgetTargets['fleet.reach|'+$label]=$reachTargets[$label].ToArray()}
     foreach($entry in $data.Entries.Values){if($entry.Kind -in @('Distribution','Series')){foreach($part in @($entry.Items)){$key=[string]$entry.Key+'|'+[string]$part.Label;if(-not $widgetTargets.ContainsKey($key)){$widgetTargets[$key]=@()}}}}
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'Last' -Value ([pscustomobject]@{ Scope = $scope; Subtree = [bool]$Subtree; Targets = $targets; Machines = $machines; Groups = $groups; WidgetTargets=$widgetTargets; HealthyTargets=$healthyTargets.ToArray(); ProblemTargets=$problemTargets.ToArray(); Freshness=$data.Freshness })
-    $figures = [pscustomobject]@{ Machines = $total; Healthy = $healthy; Problems = ($total - $healthy); Stale = $stale; EndOfService = $endedCount; Disabled = $disabled; Windows10 = $windows10; LowDisk = $lowDiskFigure }
+    # StaleDays: the inactivity threshold that produced Stale, kept so a later curve can tell days apart (point 71).
+    $figures = [pscustomobject]@{ Machines = $total; Healthy = $healthy; Problems = ($total - $healthy); Stale = $stale; StaleDays = [int]$data.HealthPolicy.Thresholds.StaleDays; EndOfService = $endedCount; Disabled = $disabled; Windows10 = $windows10; LowDisk = $lowDiskFigure }
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'Snapshot' -Value ([pscustomobject]@{ Day = $today; Taken = $taken; Figures = $figures })
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'EosKnownGroups' -Value $eosKnownGroups
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'HealthEligibility' -Value (Get-DomeniaFleetRuleEligibility -Data $data -NowUtc $nowUtc)
@@ -833,4 +838,26 @@ function Get-DomeniaFleetReachLabel {
     if(($ping -eq 'No') -and ($cim -eq 'No')){return 'Ni ping ni WMI'}
     if($ping -or $cim){return 'Un seul canal relevé'}
     return 'Aucun relevé'
+}
+
+function Get-DomeniaStaleTrendNote {
+    # Point 71: every daily snapshot counted its inactive accounts with the threshold of its own day (StaleDays).
+    # Returns '' when every drawn day used the current threshold, otherwise a short note giving how many days used
+    # another threshold or did not keep it (snapshots older than this figure), so the curve never hides a rule change.
+    param([object[]]$Figures=@(),[int]$StaleDays)
+    $other=0;$unknown=0;$invariant=[Globalization.CultureInfo]::InvariantCulture
+    foreach($item in @($Figures)){
+        if($null -eq $item){continue}
+        $raw=$null
+        if($item -is [Collections.IDictionary]){if($item.Contains('StaleDays')){$raw=$item['StaleDays']}}
+        else{$property=$item.PSObject.Properties['StaleDays'];if($null -ne $property){$raw=$property.Value}}
+        $value=0
+        if(($null -eq $raw) -or (-not [int]::TryParse([string]$raw,[Globalization.NumberStyles]::Integer,$invariant,[ref]$value))){$unknown++}
+        elseif($value -ne $StaleDays){$other++}
+    }
+    $parts=@()
+    if($other){$parts+=([string]$other+' jour(s) compté(s) avec un autre seuil')}
+    if($unknown){$parts+=([string]$unknown+' jour(s) sans seuil conservé')}
+    if(-not $parts.Count){return ''}
+    return (' ; '+($parts -join ', ')+' : ces jours ne se comparent pas directement')
 }

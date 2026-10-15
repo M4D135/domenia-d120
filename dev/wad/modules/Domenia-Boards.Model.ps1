@@ -56,7 +56,7 @@ fleet.machines|Inventaire du périmètre|Comptes ordinateur|Value|Kpi|S|Tous les
 fleet.enabled|Inventaire du périmètre|Comptes AD activés|Value|Kpi|S|État AD ; aucune déduction de présence réseau
 fleet.accountunknown|Inventaire du périmètre|État AD inconnu|Value|Kpi|S|userAccountControl non lu|N
 fleet.accountstatus|Inventaire du périmètre|État des comptes AD|Distribution|Pie|M|Activés, désactivés et inconnus
-fleet.stale|Inventaire du périmètre|Sans connexion depuis 90 j|Value|Kpi|S|Attribut lastLogonTimestamp, à 14 jours près
+fleet.stale|Inventaire du périmètre|Sans connexion AD au-delà du seuil|Value|Kpi|S|Seuil réglé dans les règles de santé (90 j par défaut) ; lastLogonTimestamp à 14 jours près
 fleet.disabled|Inventaire du périmètre|Comptes désactivés encore dans lʼOU|Value|Kpi|S|Comptes ordinateur désactivés à déplacer ou supprimer
 fleet.created|Inventaire du périmètre|Créés ces 30 jours|Value|Kpi|S|Attribut whenCreated
 fleet.pwdold|Inventaire du périmètre|Mot de passe machine de plus de 60 j|Value|Kpi|S|Attribut pwdLastSet

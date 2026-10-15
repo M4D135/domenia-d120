@@ -1508,7 +1508,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaOuObservationFreshness',
             'Format-DomeniaOuFreshnessSummary',
             'Get-DomeniaFleetWmiResponse',
-            'Get-DomeniaFleetReachLabel'
+            'Get-DomeniaFleetReachLabel',
+            'Get-DomeniaStaleTrendNote'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1'); File='Domenia-BoardSoftware.Model.ps1'; DotSource=$true; Functions=@(
             'Test-DomeniaSoftwareRowMatchesSelect',

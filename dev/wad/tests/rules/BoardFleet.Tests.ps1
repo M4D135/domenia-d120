@@ -390,6 +390,7 @@ Test-Case -Id 'BF-019' -Name 'Instantane quotidien : chiffres de l annuaire, cou
     # delivery, disks not read) is left out of that curve, never drawn as 0.
     Assert-Equal 1 ([int]$board.Snapshot.Figures.Windows10) 'Windows 10 hors LTSC dans l instantane'
     Assert-Equal 2 ([int]$board.Snapshot.Figures.Stale)
+    Assert-Equal 90 ([int]$board.Snapshot.Figures.StaleDays) 'Seuil d inactivite conserve avec le chiffre'
     Assert-Equal 1 ([int]$board.Snapshot.Figures.LowDisk) 'Disque plein des postes analyses'
     $noDisk = Get-BfBoard -Presence @()
     Assert-True ($null -eq $noDisk.Snapshot.Figures.LowDisk) 'Disques non lus : chiffre inconnu, jamais 0'
@@ -398,9 +399,9 @@ Test-Case -Id 'BF-019' -Name 'Instantane quotidien : chiffres de l annuaire, cou
     $curves = Get-BfBoard -History $rich
     Assert-Equal 90 @($curves.Entries['fleet.trend.win10'].Items).Count
     Assert-Equal 90 @($curves.Entries['fleet.trend.stale'].Items).Count
-    Assert-True ([string]$curves.Entries['fleet.trend.stale'].Detail -like '*au-delà du seuil (actuellement 90 j)') 'Periode d inactivite reglee, jamais 90 j fixes'
+    Assert-True ([string]$curves.Entries['fleet.trend.stale'].Detail -like '*au-delà du seuil (actuellement 90 j) ; 90 jour(s) sans seuil conservé : *') 'Periode d inactivite reglee, jamais 90 j fixes'
     $tighter = Get-BfBoard -History $rich -HealthPolicy (ConvertTo-DomeniaHealthPolicy @{ Thresholds = @{ StaleDays = 45 } })
-    Assert-True ([string]$tighter.Entries['fleet.trend.stale'].Detail -like '*(actuellement 45 j)') 'Seuil personnalise annonce'
+    Assert-True ([string]$tighter.Entries['fleet.trend.stale'].Detail -like '*(actuellement 45 j) ; 90 jour(s) sans seuil conservé*') 'Seuil personnalise annonce'
     Assert-Equal 45 @($curves.Entries['fleet.trend.lowdisk'].Items).Count 'Jours sans disque lu ecartes de la courbe'
     Assert-Equal '1' ([string]$curves.Entries['fleet.trend.lowdisk'].Value)
     foreach ($key in @('fleet.trend.win10','fleet.trend.stale','fleet.trend.lowdisk')) { Assert-Equal 'Timeline' ([string]$curves.Entries[$key].Kind) $key; Assert-True (@(Get-DomeniaBoardCatalog -Board Fleet | Where-Object { $_.Key -eq $key -and $_.Kind -eq 'Timeline' }).Count -eq 1) ('Courbe absente du catalogue : ' + $key) }
@@ -524,4 +525,17 @@ Test-Case -Id 'BF-025' -Name 'Point 72 : reponse WMI datee famille par famille, 
     Assert-Equal 'Un seul canal relevé' (Get-DomeniaFleetReachLabel -Presence 'Non vérifié' -Wmi 'Responded')
     Assert-Equal 'Un seul canal relevé' (Get-DomeniaFleetReachLabel -Presence 'Sans réponse' -Wmi 'NotRead')
     Assert-Equal 'Aucun relevé' (Get-DomeniaFleetReachLabel -Presence 'Non vérifié' -Wmi 'NotRead')
+}
+Test-Case -Id 'BF-026' -Name 'Point 71 : la courbe des inactifs signale les jours comptes avec un autre seuil ou sans seuil conserve' -Body {
+    $days = @(foreach ($d in 0..95) { [pscustomobject]@{ day = $script:BfNow.Date.AddDays(0 - $d).ToString('yyyy-MM-dd',$script:BfInvariant); figures = $(if ($d -lt 30) { '{"Machines":7,"Problems":1,"Stale":2,"StaleDays":90}' } elseif ($d -lt 60) { '{"Machines":7,"Problems":1,"Stale":3,"StaleDays":45}' } else { '{"Machines":7,"Problems":1,"Stale":2}' }) } })
+    $entry = (Get-BfBoard -History $days).Entries['fleet.trend.stale']
+    Assert-Equal 90 @($entry.Items).Count 'Tous les jours restent sur la courbe'
+    Assert-True ([string]$entry.Detail -like '*(actuellement 90 j) ; 30 jour(s) compté(s) avec un autre seuil, 30 jour(s) sans seuil conservé : ces jours ne se comparent pas directement') ('Melange de seuils : ' + $entry.Detail)
+    $same = @(foreach ($d in 0..95) { [pscustomobject]@{ day = $script:BfNow.Date.AddDays(0 - $d).ToString('yyyy-MM-dd',$script:BfInvariant); figures = '{"Machines":7,"Problems":1,"Stale":2,"StaleDays":45}' } })
+    $tighter = Get-BfBoard -History $same -HealthPolicy (ConvertTo-DomeniaHealthPolicy @{ Thresholds = @{ StaleDays = 45 } })
+    Assert-True ([string]$tighter.Entries['fleet.trend.stale'].Detail -like '*(actuellement 45 j)') 'Meme seuil partout : aucune reserve'
+    Assert-Equal 45 ([int]$tighter.Snapshot.Figures.StaleDays) 'Instantane du jour avec son seuil'
+    Assert-Equal '' (Get-DomeniaStaleTrendNote -Figures @([pscustomobject]@{ StaleDays = 90 }, @{ StaleDays = '90' }, $null) -StaleDays 90)
+    Assert-Equal ' ; 1 jour(s) compté(s) avec un autre seuil : ces jours ne se comparent pas directement' (Get-DomeniaStaleTrendNote -Figures @([pscustomobject]@{ StaleDays = 45 }) -StaleDays 90)
+    Assert-Equal ' ; 2 jour(s) sans seuil conservé : ces jours ne se comparent pas directement' (Get-DomeniaStaleTrendNote -Figures @([pscustomobject]@{ Stale = 1 }, [pscustomobject]@{ StaleDays = 'illisible' }) -StaleDays 90)
 }
