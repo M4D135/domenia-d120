@@ -22,7 +22,8 @@ if($PSVersionTable.PSEdition -eq 'Core'){
 }
 . ([scriptblock]::Create($native));[void](Initialize-DomeniaWinSqliteNative)
 if($null -eq ('Domenia.SelectionIdentity' -as [type])){Add-Type -Path (Join-Path $modules 'Domenia-Identity.Types.cs')}
-foreach($name in @('Common.Model','Engine.Model','Guard.Model','Access.Model','Live.Model','Probes.Model','QueryLibrary.Model','Store.Model','Cache.Model','Storage.Worker')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+# ProbeDetails.Model: Get-DomeniaLiveProbeCode prepends its detail functions to the worker body.
+foreach($name in @('Common.Model','Engine.Model','Guard.Model','Access.Model','Live.Model','Probes.Model','ProbeDetails.Model','QueryLibrary.Model','Store.Model','Cache.Model','Storage.Worker')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 foreach($name in @('Get-DomeniaWorkerOperationHashes','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerCodeHash','Assert-DomeniaWorkerOperationCode')){
     $nodes=@($core.FindAll({param($n)($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq $name)},$true))
     if($nodes.Count -ne 1){throw ('Fonction du coeur absente : '+$name)}
@@ -61,10 +62,11 @@ function New-NetworkFault {
 }
 function Invoke-NetworkProbe {
     # PingFault / SessionFault / ReadFault: where the fault is raised. ReadFaultClass limits ReadFault to one class.
+    # -Ping: the worker also checks presence; it then resolves the '.invalid' target name first (local failure).
     param([string]$Target='pc-01.example.invalid',[string]$PingFault='',[string]$SessionFault='',[string]$ReadFault='',[string]$ReadFaultClass='',
-        [int]$DelayMs=0,[string]$ReportedName='PC-01',[string]$ReportedDns='pc-01',[string]$User='EXAMPLE\alex.demo',[switch]$Inventory,[switch]$NoConsole)
+        [int]$DelayMs=0,[string]$ReportedName='PC-01',[string]$ReportedDns='pc-01',[string]$User='EXAMPLE\alex.demo',[switch]$Inventory,[switch]$NoConsole,[switch]$Ping)
     $Context=[pscustomobject]@{MachineCredential=$null;Credential=$null;Domain='example.invalid';Netbios='EXAMPLE';BaseDn='DC=example,DC=invalid';UseCim=$true;OperationId='LiveConsole'}
-    $Payload=[pscustomobject]@{Computer=$Target;Key='cn=pc-01,ou=postes,dc=example,dc=invalid';Guid='0a1b2c3d-4e5f-4a6b-8c7d-8e9fa0b1c2d3';MethodSeconds=4;ValidateConsoleIdentity=$false;Inventory=[bool]$Inventory;ProbeUser=(-not [bool]$NoConsole)}
+    $Payload=[pscustomobject]@{Computer=$Target;Key='cn=pc-01,ou=postes,dc=example,dc=invalid';Guid='0a1b2c3d-4e5f-4a6b-8c7d-8e9fa0b1c2d3';MethodSeconds=4;ValidateConsoleIdentity=$false;Inventory=[bool]$Inventory;ProbeUser=(-not [bool]$NoConsole);CollectPing=[bool]$Ping}
     $script:NetCalls=@{Ping=0;Sessions=0;Reads=0;Closes=0;Classes=[Collections.Generic.List[string]]::new()}
     $script:NetPlan=[pscustomobject]@{PingFault=$PingFault;SessionFault=$SessionFault;ReadFault=$ReadFault;ReadFaultClass=$ReadFaultClass;DelayMs=$DelayMs;Name=$ReportedName;Dns=$ReportedDns;User=$User}
     function Get-WMachineCredential {param($Context) return $null}
@@ -149,7 +151,7 @@ try{
         [void](Assert-DomeniaWorkerOperationCode 'LiveConsole' (Get-DomeniaLiveProbeCode))
     }
     Case 'Latence dans le budget : vraie observation, aucune panne inventee' {
-        $r=Invoke-NetworkProbe -DelayMs 300
+        $r=Invoke-NetworkProbe -DelayMs 300 -Ping
         Expect (($r.Outcome -eq 'Observed') -and ($r.User -eq 'EXAMPLE\alex.demo') -and ($r.Presence -eq 'En ligne')) ('slow answer classified as a fault: '+$r.Outcome)
         Expect (($script:NetCalls.Sessions -eq 1) -and ($script:NetCalls.Closes -eq 1)) 'one CIM session opened and closed'
     }
@@ -162,7 +164,7 @@ try{
         Expect ($script:NetCalls.Closes -eq 1) 'session closed after the timeout'
     }
     Case 'DNS errone : nom non resolu, poste injoignable, jamais un probleme de compte' {
-        $r=Invoke-NetworkProbe -PingFault 'DnsNotFound' -SessionFault 'RpcUnavailable'
+        $r=Invoke-NetworkProbe -PingFault 'DnsNotFound' -SessionFault 'RpcUnavailable' -Ping
         Expect (($r.Outcome -eq 'Unavailable') -and (-not $r.User)) ('unresolved name: '+$r.Outcome)
         Expect (($r.Presence -eq 'Erreur de ping') -and ([string]$r.PresenceDetail -match 'DNS')) ('presence: '+$r.Presence+' / '+$r.PresenceDetail)
         Assert-KnownKept $r 'DNS'

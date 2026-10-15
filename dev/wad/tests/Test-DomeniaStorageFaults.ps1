@@ -116,8 +116,9 @@ function New-FaultBase {
     $path=Join-Path $directory 'faults.sqlite'
     $db=Open-DomeniaDatabase $path
     try{[void](Invoke-DomeniaDbExec $script:SchemaText $db)}finally{Close-DomeniaDatabase $db}
-    $context=[pscustomobject]@{Version=1;Path=$path;DomainDn=$script:Domain;StoreId=(Get-DomeniaStoreId $path $script:Domain);RequestId='faults';Generation=1;SessionEpoch=1;ScopeDn=$script:Domain;Subtree=$true}
-    $base=[pscustomobject]@{Path=$path;Directory=$directory;Context=$context}
+    # Not named $context: the worker reads an optional $Context (lock wait) from the calling scopes.
+    $storeContext=[pscustomobject]@{Version=1;Path=$path;DomainDn=$script:Domain;StoreId=(Get-DomeniaStoreId $path $script:Domain);RequestId='faults';Generation=1;SessionEpoch=1;ScopeDn=$script:Domain;Subtree=$true}
+    $base=[pscustomobject]@{Path=$path;Directory=$directory;Context=$storeContext}
     $changes=@(foreach($n in 1..3){New-FaultDirectoryChange (Get-DomeniaLoadComputer -Index $n)})
     $r=Invoke-FaultWorker $base (New-FaultBatch $base $changes)
     if(-not [bool]$r.Saved){throw 'Base de test non initialisee.'}
