@@ -1395,6 +1395,140 @@ function Invoke-DomeniaUxEmptySearch {
     }
 }
 
+# ---------------------------------------------------------------- W13 (point 119): empty result list
+$script:DomeniaSearchEmptyTimer=$null
+$script:DomeniaSearchEmptyBound=$false
+
+function Get-DomeniaSearchEmptyInputs {
+    # What the list really observed: rows displayed and loaded, the search in progress or finished, its error kind,
+    # its text and its scope. Read from the page and the search state only; nothing is queried.
+    $grid = Get-DomeniaControl 'DgObjects'
+    $displayed = 0; $loaded = 0
+    if ($null -ne $grid) {
+        $displayed = [int]$grid.Items.Count
+        $source = $grid.ItemsSource
+        if ($source -is [Collections.ICollection]) { $loaded = [int]$source.Count }
+    }
+    $search = $null
+    try { if ($null -ne $script:Live) { $search = $script:Live.Search } } catch { $search = $null }
+    $inFlight = $false; $completed = $false; $partial = $false; $errorKind = ''; $query = ''; $scope = ''
+    if ($null -ne $search) {
+        $inFlight = ((-not [bool]$search.Stopped) -and (-not [bool]$search.Finalized))
+        $completed = [bool]$search.Finalized
+        $partial = [bool](Get-DomeniaMember (Get-DomeniaMemberValue $search 'Final' $null) 'Partial' $false)
+        $failure = [string](Get-DomeniaMember $search 'Error' '')
+        if ($failure -and (-not $partial)) {
+            try { $errorKind = [string](ConvertTo-DomeniaErrorInfo -ErrorRecordOrException $failure -Operation 'Recherche').Kind } catch { $errorKind = 'Unexpected' }
+            if (-not $errorKind) { $errorKind = 'Unexpected' }
+        }
+        $state = Get-DomeniaMemberValue $search 'State' $null
+        $query = [string](Get-DomeniaMember $state 'Search' '')
+        if ([string](Get-DomeniaMember $state 'SearchMode' '') -eq 'Global') { $scope = 'tout le domaine' }
+        else {
+            $dn = [string](Get-DomeniaMember $state 'BaseDn' '')
+            if ($dn) { try { $scope = [string](Get-DomeniaUxOuDisplay -DistinguishedName $dn).Name } catch { $scope = '' } }
+        }
+    }
+    $filterText = ''
+    $filter = Get-DomeniaControl 'TxtSuiteResultFilter'
+    if ($null -ne $filter) { $filterText = [string]$filter.Text }
+    $presence = [string]$script:CurrentPresenceFilter
+    if ($presence -and ($presence -ne 'Tous')) {
+        if ($filterText) { $filterText += ' · ' }
+        $filterText += 'présence ' + $presence
+    }
+    return [pscustomobject]@{Displayed=$displayed;Loaded=$loaded;InFlight=$inFlight;Completed=$completed;ErrorKind=$errorKind;Partial=$partial;Query=$query;Scope=$scope;LocalFilter=$filterText}
+}
+
+function Update-DomeniaSearchEmptyState {
+    # One empty state for the result list (UI-15): while a read runs it says so, then why the list is empty and the
+    # next action. Texts are only rewritten when they change, so the screen reader announces a change once.
+    $panel = Get-DomeniaControl 'UxSearchEmpty'
+    if ($null -eq $panel) { return }
+    $inputs = Get-DomeniaSearchEmptyInputs
+    if ([int]$inputs.Displayed -gt 0) {
+        if ($null -ne $script:DomeniaSearchEmptyTimer) { $script:DomeniaSearchEmptyTimer.Stop() }
+        return
+    }
+    $kind = Resolve-DomeniaSearchEmptyKind -Displayed ([int]$inputs.Displayed) -Loaded ([int]$inputs.Loaded) -InFlight ([bool]$inputs.InFlight) -Completed ([bool]$inputs.Completed) -ErrorKind ([string]$inputs.ErrorKind) -Partial ([bool]$inputs.Partial)
+    $title = ''; $text = ''; $label = ''; $command = ''
+    if (-not $kind) {
+        $title = 'Lecture en cours'
+        $text = 'Les résultats sʼaffichent dès leur enregistrement local ; la lecture se poursuit sans autre geste.'
+        $query = ConvertTo-DomeniaFlatText ([string]$inputs.Query) 60
+        if ($query) { $text = 'Recherche de « ' + $query + ' » en cours. Les résultats sʼaffichent dès leur enregistrement local.' }
+        if ($null -eq $script:DomeniaSearchEmptyTimer) { $script:DomeniaSearchEmptyTimer = New-DomeniaTimer -Owner 'Timer:SearchEmpty' -IntervalMs 400 -Tick { Update-DomeniaSearchEmptyState } }
+        $script:DomeniaSearchEmptyTimer.Start()
+    } else {
+        $state = Get-DomeniaEmptyState -Kind $kind -Query ([string]$inputs.Query) -Scope ([string]$inputs.Scope) -LocalFilter ([string]$inputs.LocalFilter) -Total ([int]$inputs.Loaded)
+        $title = [string]$state.Title; $text = [string]$state.Text
+        $label = [string]$state.NextAction.Label; $command = [string]$state.NextAction.Command
+        if ($null -ne $script:DomeniaSearchEmptyTimer) { $script:DomeniaSearchEmptyTimer.Stop() }
+    }
+    $titleBlock = Get-DomeniaControl 'LblSearchEmptyTitle'
+    if (($null -ne $titleBlock) -and ([string]$titleBlock.Text -cne $title)) { $titleBlock.Text = $title }
+    $textBlock = Get-DomeniaControl 'LblSearchEmptyText'
+    if (($null -ne $textBlock) -and ([string]$textBlock.Text -cne $text)) { $textBlock.Text = $text }
+    $button = Get-DomeniaControl 'BtnSearchEmptyNext'
+    if ($null -ne $button) {
+        $button.Tag = $command
+        if ($command) {
+            if ([string]$button.Content -cne $label) { $button.Content = $label }
+            $button.Visibility = [Windows.Visibility]::Visible
+        } else { $button.Visibility = [Windows.Visibility]::Collapsed }
+    }
+}
+
+function Invoke-DomeniaSearchEmptyAction {
+    # The next action of the empty list, on the click of the operator only. A read starts only when the action is a
+    # read (relire) and its own button is shown and enabled; otherwise the field or the view is brought forward.
+    $button = Get-DomeniaControl 'BtnSearchEmptyNext'
+    $command = ''
+    if ($null -ne $button) { $command = [string]$button.Tag }
+    $box = Get-DomeniaControl 'TxtGlobalSearch'
+    switch ($command) {
+        'ClearLocalFilter' {
+            $filter = Get-DomeniaControl 'TxtSuiteResultFilter'
+            if ($null -ne $filter) { $filter.Text = '' }
+            $presence = Get-DomeniaControl 'CmbPresenceFilter'
+            if (($null -ne $presence) -and ($presence.SelectedIndex -gt 0)) { $presence.SelectedIndex = 0 }
+            Set-Status 'Filtre local effacé : la liste montre de nouveau toutes les lignes déjà lues. Aucune nouvelle lecture.'
+        }
+        { $_ -in @('WidenScope','StartRead') } {
+            if ($null -ne $box) { [void]$box.Focus(); $box.SelectAll() }
+            Set-DomeniaContextHint -Title 'Lancer ou élargir la recherche' -Text 'Saisissez ou corrigez un nom dans la barre du haut puis Entrée pour chercher dans tout le domaine, ou choisissez une OU dans lʼarbre (sous-OU comprises). Rien nʼest lu avant ce geste.'
+        }
+        { $_ -in @('ChooseSource','ChangeAccount') } {
+            Select-DomeniaWorkspace -Workspace 'TabAccounts'
+            Set-Status 'Comptes et accès : vérifiez la connexion à lʼannuaire ou choisissez un compte autorisé, puis relancez la recherche. Aucune nouvelle tentative nʼest faite automatiquement.'
+        }
+        'RetryMissing' {
+            $retry = Get-DomeniaControl 'BtnSearchRefreshBase'
+            if ((Get-DomeniaSearchMode) -eq 'Global') { $retry = Get-DomeniaControl 'BtnGlobalSearch' }
+            if (($null -ne $retry) -and $retry.IsEnabled -and $retry.IsVisible) { $retry.RaiseEvent((New-Object Windows.RoutedEventArgs ([Windows.Controls.Primitives.ButtonBase]::ClickEvent))) }
+            else {
+                if ($null -ne $box) { [void]$box.Focus() }
+                Set-Status 'Relecture indisponible pour lʼinstant : relancez la recherche quand une lecture se termine.' 'WARN'
+            }
+        }
+    }
+}
+
+function Initialize-DomeniaSearchEmptyState {
+    # The empty state follows the list (rows added, filter, new list) and the button of its next action.
+    if ([bool]$script:DomeniaSearchEmptyBound) { return }
+    $grid = Get-DomeniaControl 'DgObjects'
+    if ($null -eq $grid) { return }
+    $script:DomeniaSearchEmptyBound = $true
+    # Cheap while rows arrive: the handler returns at once when the list is not empty.
+    ([Collections.Specialized.INotifyCollectionChanged]$grid.Items).add_CollectionChanged({ param($sender,$eventArgs) if ($sender.Count -eq 0) { Update-DomeniaSearchEmptyState } })
+    $descriptor = [ComponentModel.DependencyPropertyDescriptor]::FromProperty([Windows.Controls.ItemsControl]::ItemsSourceProperty,[Windows.Controls.DataGrid])
+    if ($null -ne $descriptor) { $descriptor.AddValueChanged($grid,[EventHandler]{ param($sender,$eventArgs) Update-DomeniaSearchEmptyState }) }
+    $button = Get-DomeniaControl 'BtnSearchEmptyNext'
+    if ($null -ne $button) { $button.Add_Click({ Invoke-DomeniaSearchEmptyAction }) }
+    Update-DomeniaSearchEmptyState
+}
+
 # ---------------------------------------------------------------- L08 read-only switch and automatic return (DS-02, SE-06)
 function Get-DomeniaUxReadOnlyDelay {
     $value = 15
@@ -1559,6 +1693,9 @@ function Initialize-DomeniaUiZoom {
     (Get-DomeniaControl 'BtnUiZoomIn').Add_Click({Set-DomeniaUiZoom -Percent ($script:DomeniaUiZoomPercent+10) -Persist})
     $reset.Add_Click({Set-DomeniaUiZoom -Percent 100 -Persist})
     (Get-DomeniaControl 'RootScroll').Add_ScrollChanged({param($s,$e)if([object]::ReferenceEquals($s,$e.OriginalSource) -and ($e.ViewportWidthChange -ne 0 -or $e.ViewportHeightChange -ne 0)){Set-DomeniaUiZoom -Percent $script:DomeniaUiZoomPercent}})
+    # W13 (point 114): a DPI change while open (window moved to another screen, display scale changed) fits the zoomed
+    # page again on the new pixel grid. Layout only: the typed text, the selection and the focus are not touched.
+    try{if(($null -ne $script:Window) -and ($null -ne $script:Window.GetType().GetEvent('DpiChanged'))){$script:Window.Add_DpiChanged({try{Set-DomeniaUiZoom -Percent $script:DomeniaUiZoomPercent}catch{}})}}catch{}
     $percent=100
     try{$percent=[int](Get-DomeniaSetting 'Ui.ZoomPercent' '100')}catch{$percent=100}
     Set-DomeniaUiZoom -Percent $percent

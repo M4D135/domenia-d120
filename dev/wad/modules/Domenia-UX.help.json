@@ -4135,5 +4135,33 @@
     "Text": "Nombre dʼactions affichées et touches utiles : Entrée exécute, Échap ferme, Ctrl+K rouvre la palette.",
     "Kind": "TextBlock",
     "Source": "W13"
+  },
+  {
+    "Name": "LblSearchEmptyTitle",
+    "Title": "État de la liste de résultats",
+    "Text": "Pourquoi la liste est vide : rien interrogé, lecture en cours, aucun résultat, filtre local, lecture refusée, partielle ou sans source. Jamais une preuve dʼabsence dans lʼannuaire.",
+    "Kind": "TextBlock",
+    "Source": "W13"
+  },
+  {
+    "Name": "LblSearchEmptyText",
+    "Title": "Explication de la liste vide",
+    "Text": "Ce qui a été lu, dans quel périmètre, et ce que la liste vide ne permet pas de conclure.",
+    "Kind": "TextBlock",
+    "Source": "W13"
+  },
+  {
+    "Name": "BtnSearchEmptyNext",
+    "Title": "Prochaine action proposée",
+    "Text": "Prochaine action proposée pour cette liste vide. Rien ne part tout seul : une lecture ne commence quʼavec ce clic.",
+    "Kind": "Button",
+    "Source": "W13"
+  },
+  {
+    "Name": "DgSearchPreview",
+    "Title": "Aperçu local de la ligne choisie",
+    "Text": "Données enregistrées localement pour la ligne choisie : propriété, valeur et date de la mesure. Aucune collecte.",
+    "Kind": "DataGrid",
+    "Source": "W13"
   }
 ]

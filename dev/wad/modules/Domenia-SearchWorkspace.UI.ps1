@@ -196,5 +196,6 @@ function Initialize-DomeniaSearchWorkspace {
         }
     })
     try{Initialize-DomeniaPresentationUndo}catch{Write-AppLog ('Annulation de présentation indisponible : '+$_.Exception.Message) 'WARN'}
+    try{Initialize-DomeniaSearchEmptyState}catch{Write-AppLog ('État de la liste vide indisponible : '+$_.Exception.Message) 'WARN'}
     Update-DomeniaSearchWorkspaces;Update-DomeniaSearchFilterChips
 }
