@@ -181,6 +181,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaEvidenceKind',
             'Get-DomeniaEvidenceLabel',
             'Get-DomeniaEvidenceBadge',
+            'Get-DomeniaLinkSummaryText',
             'Step-DomeniaAssociationState',
             'Get-DomeniaAssociationRefusal',
             'Merge-DomeniaRelationCandidates',
@@ -1247,6 +1248,29 @@ function Get-DomeniaRuntimeModulePlan {
             'Format-DomeniaLockoutReport',
             'Complete-DomeniaLockoutEventRead',
             'Fail-DomeniaLockoutEventRead'
+        ) }
+        # X04 (programme 08/10): Assistance poste - five views, fixed header, restart, run, services, pending operations.
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-Assist.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaComputerViewNames',
+            'Resolve-DomeniaComputerViewRoute',
+            'Get-DomeniaComputerPresenceBadge',
+            'Get-DomeniaComputerHeaderView',
+            'Get-DomeniaComputerAccountAction',
+            'Get-DomeniaRestartDelaySeconds',
+            'Get-DomeniaRestartDefaultMessage',
+            'Get-DomeniaRestartPlan',
+            'Get-DomeniaRestartSessionSummary',
+            'Get-DomeniaRunProgramPlan',
+            'Get-DomeniaPsRemoteCommand',
+            'Get-DomeniaServiceStateLabel',
+            'Get-DomeniaServiceStartLabel',
+            'ConvertTo-DomeniaServiceRows',
+            'Test-DomeniaServiceRowMatch',
+            'Get-DomeniaServiceListSummary',
+            'Get-DomeniaServiceRowWithState',
+            'Test-DomeniaServiceName',
+            'Get-DomeniaServiceControlPlan',
+            'Get-DomeniaPendingOperationsView'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Demo.Model.ps1'); File='Domenia-Demo.UI.ps1'; DotSource=$true; Functions=@(
             'Initialize-DomeniaDemoMode',
