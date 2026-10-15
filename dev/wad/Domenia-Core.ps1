@@ -19289,7 +19289,11 @@ function Queue-LiveGlobalSearch {
                 $script:LiveSearchTimer.Stop()
                 $text=($script:Ctrl["TxtGlobalSearch"].Text+"").Trim()
                 $min=[int](Get-CfgValue "Browser" "GlobalSearchMinChars" 2)
-                if ($text.Length -ge $min -or $text -eq "*") { Invoke-GlobalSearch -SilentError }
+                # Point 29: typing never starts a broad LDAP read ('*', a leading wildcard or a short text);
+                # the explicit Rechercher still can, with its own limits.
+                $typed=Test-DomeniaTypedSearchAllowed -Text $text -MinimumLength $min
+                if ([bool]$typed.Allowed) { Invoke-GlobalSearch -SilentError }
+                elseif ($text) { [void](Set-DomeniaControlText -Name 'LblSearchHint' -Text ([string]$typed.Reason)) }
             })
             $script:LiveSearchTimer=$timer
         }

@@ -1270,6 +1270,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Initialize-DomeniaSearchQuerySelector',
             'Update-DomeniaSearchQueryList',
             'Update-DomeniaSearchQueryDetails',
+            'Get-DomeniaSearchQueryLdapCostText',
             'Get-DomeniaSearchQueryCoverageText',
             'Switch-DomeniaSearchQueryFavorite',
             'Reset-DomeniaSearchQueryFilters',
@@ -1888,6 +1889,30 @@ function Get-DomeniaRuntimeModulePlan {
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-LogonActivity.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaLogonByDcWorkerCode'
         ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-DirectorySchema.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaAdSyntaxLabel',
+            'Get-DomeniaAdSyntaxKind',
+            'ConvertFrom-DomeniaAdSearchFlags',
+            'ConvertFrom-DomeniaAdSystemFlags',
+            'Get-DomeniaAdClassCategoryLabel',
+            'ConvertTo-DomeniaAdSchemaCatalog',
+            'Get-DomeniaAdSchemaAttribute',
+            'Get-DomeniaAdAttributeIndexText',
+            'ConvertTo-DomeniaAdAttributeRow',
+            'Get-DomeniaAdClassAttributes',
+            'Find-DomeniaAdSchemaEntries',
+            'Get-DomeniaAdAttributeQueryHint',
+            'ConvertFrom-DomeniaLdapFilterItem',
+            'Read-DomeniaLdapFilterNode',
+            'ConvertFrom-DomeniaLdapFilter',
+            'Get-DomeniaLdapNodeIndexUse',
+            'Get-DomeniaLdapFilterLeaves',
+            'Get-DomeniaLdapFilterAnalysis',
+            'Test-DomeniaTypedSearchAllowed'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-DirectorySchema.Worker.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaAdSchemaWorkerCode'
+        ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-LogonActivity.Model.ps1','Domenia-LogonActivity.Worker.ps1','Domenia-Engine.UI.ps1'); File='Domenia-LogonActivity.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaLogonPanelNames',
             'Update-DomeniaLogonActivityPanel',
@@ -1895,6 +1920,23 @@ function Get-DomeniaRuntimeModulePlan {
             'Start-DomeniaLogonByDcRead',
             'Complete-DomeniaLogonByDcRead',
             'Fail-DomeniaLogonByDcRead'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-DirectorySchema.Model.ps1','Domenia-DirectorySchema.Worker.ps1','Domenia-Query.UI.ps1'); File='Domenia-DirectorySchema.UI.ps1'; DotSource=$true; Functions=@(
+            'Initialize-DomeniaDirectorySchemaUi',
+            'Get-DomeniaAdSchemaCatalogForAnalysis',
+            'Update-DomeniaAdSchemaStatus',
+            'Start-DomeniaAdSchemaRead',
+            'Test-DomeniaAdSchemaStateCurrent',
+            'Complete-DomeniaAdSchemaRead',
+            'Fail-DomeniaAdSchemaRead',
+            'Get-DomeniaAdSchemaListKind',
+            'Update-DomeniaAdSchemaList',
+            'Format-DomeniaAdSchemaAttributeDetail',
+            'Show-DomeniaAdSchemaSelection',
+            'Get-DomeniaAdSchemaSelectedAttribute',
+            'Show-DomeniaAdSchemaClassAttribute',
+            'Add-DomeniaAdSchemaAttributeToFilter',
+            'Invoke-DomeniaAdSchemaFilterAnalysis'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-DirectorySync.Model.ps1','Domenia-DirectorySync.Worker.ps1','Domenia-BoardFleet.Model.ps1','Domenia-Engine.Worker.ps1','Domenia-Storage.UI.ps1','Domenia-Inline.UI.ps1'); File='Domenia-DirectorySync.UI.ps1'; DotSource=$true; Functions=@(
             'Initialize-DomeniaDirectorySyncUi',
