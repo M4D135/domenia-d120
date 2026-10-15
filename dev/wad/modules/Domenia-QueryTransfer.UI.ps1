@@ -15,7 +15,6 @@ function Invoke-DomeniaQueryTransfer {
     param([string]$Action)
     try{
         $store=Initialize-DomeniaQueryLibraryStore;if($null -eq $store -or -not $store.Loaded -or $store.Saving){throw 'Attendez la disponibilité de la bibliothèque locale.'}
-        $q=$script:DomeniaQueryState
         if($Action -eq 'SelectNew'){foreach($item in @((Get-DomeniaControl 'DgQueryImport').ItemsSource)){if($item.Status -eq 'Nouvelle'){$item.Action='Créer'}};(Get-DomeniaControl 'DgQueryImport').Items.Refresh();return}
         if($Action -in @('Apply','Rollback')){Start-DomeniaQueryImport -Rollback:($Action -eq 'Rollback');return}
         $packName='';$packVersion=0L
@@ -25,17 +24,35 @@ function Invoke-DomeniaQueryTransfer {
             if(-not [long]::TryParse(([string](Get-DomeniaControl 'TxtQueryPackVersion').Text).Trim(),[ref]$packVersion)){throw 'Version de pack invalide (nombre entier de 1 à 1 000 000).'}
             Assert-DomeniaQueryPackIdentity -PackName $packName -PackVersion $packVersion
         }
-        $dialog=if($Action -eq 'ImportPreview'){New-Object Microsoft.Win32.OpenFileDialog}else{New-Object Microsoft.Win32.SaveFileDialog}
-        $dialog.Filter=if($Action -eq 'ExportPowerShell'){'Script PowerShell (*.ps1)|*.ps1'}else{'Pack de requêtes (*.json)|*.json'}
-        if($Action -ne 'ImportPreview'){$dialog.FileName=if($Action -eq 'ExportPowerShell'){'Domenia-requete.ps1'}else{'Domenia-requetes-v'+[string]$packVersion+'.json'}}
-        if(-not $dialog.ShowDialog()){return}
-        $history=@(@(Get-DomeniaMember $q 'ImportHistory' @())|ForEach-Object{[pscustomobject]@{PackId=[string]$_.PackId;PackVersion=[long]$_.PackVersion}})
-        $payload=[pscustomobject]@{ModuleRoot=$script:DomeniaQueryModuleRoot;Mode=$Action;Path=$dialog.FileName;Context=$store.Context;ExistingRows=@($store.Rows.Values);Recipes=@($store.Recipes);Recipe=$(if($Action -eq 'ExportPowerShell'){Get-DomeniaQueryDraft}else{$null});PackName=$packName;PackVersion=$packVersion;History=$history}
-        $state=[pscustomobject]@{StoreId=$store.Context.StoreId;Epoch=$store.Context.SessionEpoch;Generation=$store.Generation}
-        $job=Start-UiTask -Name 'Transfert de requêtes' -OperationId 'QueryTransfer' -Code (Get-DomeniaQueryTransferWorkerCode) -Payload $payload -CallbackState $state -SuccessHandler 'Complete-DomeniaQueryTransfer' -ErrorHandler 'Fail-DomeniaQueryTransfer' -TimeoutSeconds 120 -TaskClass Explicit
-        if(-not $job){throw 'Transfert non admis.'}
-        [void](Set-DomeniaControlText 'LblQueryImportStatus' 'Préparation locale du transfert…')
+        $path=Select-DomeniaQueryTransferPath -Action $Action -PackVersion $packVersion
+        if(-not $path){return}
+        [void](Start-DomeniaQueryTransferTask -Action $Action -Path $path -PackName $packName -PackVersion $packVersion)
     }catch{[void](Set-DomeniaControlText 'LblQueryImportStatus' $_.Exception.Message)}
+}
+function Select-DomeniaQueryTransferPath {
+    # The operator names the file: an existing pack to examine, or a new pack or script to create. '' when cancelled.
+    param([string]$Action,[long]$PackVersion=0)
+    $dialog=if($Action -eq 'ImportPreview'){New-Object Microsoft.Win32.OpenFileDialog}else{New-Object Microsoft.Win32.SaveFileDialog}
+    $dialog.Filter=if($Action -eq 'ExportPowerShell'){'Script PowerShell (*.ps1)|*.ps1'}else{'Pack de requêtes (*.json)|*.json'}
+    if($Action -ne 'ImportPreview'){$dialog.FileName=if($Action -eq 'ExportPowerShell'){'Domenia-requete.ps1'}else{'Domenia-requetes-v'+[string]$PackVersion+'.json'}}
+    if(-not $dialog.ShowDialog()){return ''}
+    return [string]$dialog.FileName
+}
+function Start-DomeniaQueryTransferTask {
+    # Point 69: export of a versioned pack or of a script, or preview of a pack, by the pinned QueryTransfer worker
+    # (local files only, no network, nothing executed). The callback is bound to this library store and generation.
+    param([Parameter(Mandatory=$true)][ValidateSet('ExportPack','ExportPowerShell','ImportPreview')][string]$Action,[Parameter(Mandatory=$true)][string]$Path,[string]$PackName='',[long]$PackVersion=0)
+    $store=$script:DomeniaQueryLibraryStoreState
+    if(($null -eq $store) -or -not [bool]$store.Loaded -or [bool]$store.Saving){throw 'Attendez la disponibilité de la bibliothèque locale.'}
+    $q=$script:DomeniaQueryState
+    $history=@(@(Get-DomeniaMember $q 'ImportHistory' @())|ForEach-Object{[pscustomobject]@{PackId=[string]$_.PackId;PackVersion=[long]$_.PackVersion}})
+    $payload=[pscustomobject]@{ModuleRoot=$script:DomeniaQueryModuleRoot;Mode=$Action;Path=$Path;Context=$store.Context;ExistingRows=@($store.Rows.Values);Recipes=@($store.Recipes);Recipe=$(if($Action -eq 'ExportPowerShell'){Get-DomeniaQueryDraft}else{$null});PackName=$PackName;PackVersion=$PackVersion;History=$history}
+    $state=[pscustomobject]@{StoreId=$store.Context.StoreId;Epoch=$store.Context.SessionEpoch;Generation=$store.Generation}
+    # Said before the start: a callback that answers at once (refusal, short file) keeps the last word.
+    [void](Set-DomeniaControlText 'LblQueryImportStatus' 'Préparation locale du transfert…')
+    $job=Start-UiTask -Name 'Transfert de requêtes' -OperationId 'QueryTransfer' -Code (Get-DomeniaQueryTransferWorkerCode) -Payload $payload -CallbackState $state -SuccessHandler 'Complete-DomeniaQueryTransfer' -ErrorHandler 'Fail-DomeniaQueryTransfer' -TimeoutSeconds 120 -TaskClass Explicit
+    if(-not $job){throw 'Transfert non admis.'}
+    return $job
 }
 function Format-DomeniaQueryImportPackText {
     param($Plan)

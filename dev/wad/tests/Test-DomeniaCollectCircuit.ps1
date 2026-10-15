@@ -40,7 +40,8 @@ Case 'Chaque collecte lancée exécute le corps épinglé pour son opération' {
     # Launches already on master that the registry does not pin yet (debt outside the collection circuit): named in
     # the report (PendingPins) until the integrator pins them, then checked like any other pair. Any other unpinned
     # launch fails this case.
-    $knownUnpinned=@('QuerySchema','QueryTransfer','StorageRetention')
+    # QueryTransfer (point 69) is now pinned in the registry: its four launches are checked like any other pair.
+    $knownUnpinned=@('QuerySchema','StorageRetention')
     $pairs=0;$mismatches=[Collections.Generic.List[string]]::new()
     foreach($path in $script:Sources.Keys){
         foreach($command in @($script:Sources[$path].FindAll({param($n)($n -is [Management.Automation.Language.CommandAst]) -and ($n.GetCommandName() -eq 'Start-UiTask')},$true))){

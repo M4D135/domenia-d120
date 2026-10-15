@@ -3050,6 +3050,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Initialize-DomeniaQueryTransferUi',
             'Get-DomeniaQueryImportJournalPath',
             'Invoke-DomeniaQueryTransfer',
+            'Select-DomeniaQueryTransferPath',
+            'Start-DomeniaQueryTransferTask',
             'Format-DomeniaQueryImportPackText',
             'Complete-DomeniaQueryTransfer',
             'Fail-DomeniaQueryTransfer',
