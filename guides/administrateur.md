@@ -332,12 +332,12 @@ L'onglet « Tableau de bord » propose les mêmes lectures avec « Inventaire
 ## Lire le résultat
 
 - Le message de fin donne le nombre d'éléments et le nombre de sources accessibles, refusées, indisponibles ou autres, avec la durée.
-- Le volet « Detail par source » donne pour chaque catégorie l'accès, le nombre d'éléments, la durée et le détail. Une source refusée signale un manque de droits du compte des opérations poste sur cette partie, pas une panne du poste.
+- Le volet « Détail par source » donne pour chaque catégorie l'accès, le nombre d'éléments, la durée et le détail. Une source refusée signale un manque de droits du compte des opérations poste sur cette partie, pas une panne du poste.
 - « Copier » et « Exporter CSV » servent au ticket.
 
 | Vous voyez | Que faire |
 |---|---|
-| « Selectionne une machine avant de lancer l inventaire. » | Choisir un poste dans « Rechercher ». |
+| « Sélectionnez une machine avant de lancer lʼinventaire. » | Choisir un poste dans « Rechercher ». |
 | « Inventaire impossible : » suivi d'un détail | Vérifier la présence réseau et le compte des opérations poste, puis relancer une fois. |
 | Beaucoup de sources refusées | Vérifier que le compte des opérations poste est administrateur des postes (chapitre 13). |
 | Sur l'onglet « Tableau de bord » : « Mesures chiffrees indisponibles (inventaire par tache distante) : seules les tuiles sont remplies. » | L'inventaire a été lu par le repli PsExec ou tâche planifiée, possible seulement après « Autoriser une intervention (5 min) » (chapitre 5) ; jauges et graphiques restent vides. Vérifier CIM/DCOM sur le poste. |
@@ -822,7 +822,7 @@ Le catalogue propose 111 sondes WMI en lecture seule : les 78 sondes historiques
 | Vous voyez | Que faire |
 |---|---|
 | Pas de bouton « Actualiser les requetes » sur le tableau du poste | Le tableau ne contient aucun widget de requête : ajoutez-en un avec « Ajouter un widget ». |
-| « Aucun poste selectionne. » | Choisir un poste dans « Rechercher ». |
+| « Aucun poste sélectionné. » | Choisir un poste dans « Rechercher ». |
 
 ## Lecture des résultats
 
@@ -1009,7 +1009,7 @@ Rien ne part avant la confirmation « Périmètre à confirmer avant toute lectu
 - Le compte AD doit pouvoir lire le journal Sécurité du contrôleur ; sinon : « Lecture du journal de securite du controleur refusee. ».
 - « Oublier les relevés » efface l'état du parc (dernier passage, statut, tentatives), en mémoire et dans la base locale, après une confirmation dans la page et une sauvegarde vérifiée de la base. Les associations sont conservées ; le prochain relevé repart de zéro.
 
-> [!NOTE] La case « Releve manuel uniquement » existe dans le code mais reste masquée. Aucun relevé n'est lancé au démarrage : si l'ancienne préférence ParkSweepEnabled est vraie, Domenia l'écrit seulement dans le journal.
+> [!NOTE] La case « Relevé manuel uniquement » existe dans le code mais reste masquée. Aucun relevé n'est lancé au démarrage : si l'ancienne préférence ParkSweepEnabled est vraie, Domenia l'écrit seulement dans le journal.
 
 ## Gestion des associations
 
@@ -1541,7 +1541,7 @@ La base autonome est une copie locale des utilisateurs et des postes, suivie par
 - La base doit être locale, sans repli silencieux. Chemin réseau : « Une base active SQLite doit etre locale. Choisissez UserLocal ; les sources existantes seront conservees. ». Dossier redirigé : « Stockage redirige par un lien : choisissez un dossier local non redirige. ». Dossier non inscriptible : « Stockage non inscriptible : » suivi du chemin et de « Aucun repli silencieux. Configurez UserLocal. ».
 - Une ancienne base à la racine du dossier n'est adoptée que si sa base DN correspond ; elle n'est jamais déplacée ni fusionnée.
 
-Dans l’onglet « Stockage », dépliez « Emplacement et sauvegarde » : une ligne résume la base (« Base du domaine example.local · 4,2 Mo · sauvegardée il y a 2 h »). Le chemin exact s’affiche dans son infobulle et « Copier le chemin » le place dans le presse-papiers. Une alerte s’affiche quand la base n’a jamais été sauvegardée ou que sa dernière sauvegarde a plus de 7 jours. « Ouvrir l emplacement » ouvre l’Explorateur sur le fichier. Sous les commandes de l’assistant, une ligne donne l’espace libre mesuré du volume de la base et ce qui attend encore son enregistrement (voir « Espace disque » plus bas).
+Dans l’onglet « Stockage », dépliez « Emplacement et sauvegarde » : une ligne résume la base (« Base du domaine example.local · 4,2 Mo · sauvegardée il y a 2 h »). Le chemin exact s’affiche dans son infobulle et « Copier le chemin » le place dans le presse-papiers. Une alerte s’affiche quand la base n’a jamais été sauvegardée ou que sa dernière sauvegarde a plus de 7 jours. « Ouvrir lʼemplacement » ouvre l’Explorateur sur le fichier. Sous les commandes de l’assistant, une ligne donne l’espace libre mesuré du volume de la base et ce qui attend encore son enregistrement (voir « Espace disque » plus bas).
 
 ## Déplacer la base
 
@@ -1625,7 +1625,7 @@ Pour un parc de 5 000 postes ou plus, gardez les listes paginées, commencez ave
 3. **Contrôle.** La copie est vérifiée (PRAGMA quick_check) dans le budget LocalStore.BackupTimeoutSeconds (30 s). Une copie partielle est supprimée.
 4. **Rotation.** Le fichier va dans le dossier Backups de la base, nommé Domenia-DATE-HEURE-ID.db. Seules les plus récentes sont gardées, autant que « Copies à conserver » (7 par défaut, réglé dans « Sauvegardes automatiques et conservation »).
 
-> [!RESULTAT] « Sauvegarde de la base enregistree : » suivi du chemin. Le résumé de l'encadré passe à « sauvegardée à lʼinstant ».
+> [!RESULTAT] « Sauvegarde de la base enregistrée : » suivi du chemin. Le résumé de l'encadré passe à « sauvegardée à lʼinstant ».
 
 « Copier une sauvegarde vers... » fait la même sauvegarde puis la copie vers le fichier choisi (clé USB, partage), nom proposé Domenia-DATE-HEURE.db : « Sauvegarde de la base copiee : » suivi du chemin. La base active et ses journaux ne peuvent pas servir de destination. Un fichier temporaire précède le remplacement de l’export choisi pour préserver l’export existant si la copie échoue. Échec : « Sauvegarde de la base impossible : » suivi du motif.
 
@@ -1757,7 +1757,7 @@ Ces valeurs décrivent l’activité locale de la session et ne sont pas une mes
 
 ## Vérification de Domenia
 
-Outils, onglet « Verification » (profil Expert) : « Verification rapide » contrôle la connexion et les composants ; « Verification complete » ajoute des mesures de performance. Aucune modification d'Active Directory.
+Outils, onglet « Verification » (profil Expert) : « Vérification rapide » contrôle la connexion et les composants ; « Vérification complète » ajoute des mesures de performance. Aucune modification d'Active Directory.
 
 « Exporter le diagnostic » produit Domenia-Diagnostic-DATE.zip : runtime.json, configuration-sanitized.json (valeurs sensibles masquées), self-check.csv et README.txt. Ce dernier rappelle : « Journaux bruts exclus. Les identites, noms de machines, domaines et chemins ne sont pas anonymises. Relire avant partage. ».
 

@@ -174,7 +174,7 @@ function Test-DomeniaDraftNavigation {
     param([string]$DN,[switch]$Refresh)
     if($null -eq $script:DraftState -or -not @(Get-DomeniaDirtyFields).Count){return $true}
     if(-not $Refresh -and $DN -ieq $script:DraftState.DN){return $true}
-    if(-not (Confirm-Action -Message 'Des champs de la fiche ont ete modifies sans enregistrement. Abandonner ces saisies pour changer de fiche ou la recharger ?' -Title 'Saisies non enregistrees')){return $false}
+    if(-not (Confirm-Action -Message 'Des champs de la fiche ont été modifiés sans enregistrement. Abandonner ces saisies pour changer de fiche ou la recharger ?' -Title 'Saisies non enregistrees')){return $false}
     $script:DraftState=$null;return $true
 }
 function Keep-DomeniaDraftOnResult {
@@ -407,12 +407,12 @@ function Open-DomeniaSuiteTool {
     param([ValidateSet('Pesto','FilPro')][string]$Name)
     $path=[string](Get-CfgValue 'Suite' ($Name+'Path') '')
     $expected=[string](Get-CfgValue 'Suite' ($Name+'Sha256') '')
-    if(-not $path -or -not $expected){Show-InfoBox ('Configurez Suite.'+$Name+'Path et '+$Name+'Sha256 dans la configuration apres validation du logiciel.');return}
+    if(-not $path -or -not $expected){Show-InfoBox ('Configurez Suite.'+$Name+'Path et '+$Name+'Sha256 dans la configuration après validation du logiciel.');return}
     if([IO.Path]::GetExtension($path) -ine '.exe' -or -not [IO.Path]::IsPathRooted($path) -or -not [IO.File]::Exists($path)){throw 'Chemin absolu d executable requis.'}
     $i=Get-Item -LiteralPath $path -Force
     $chain=$i;while($null -ne $chain){if($chain.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Executable ou chemin redirige refuse.'};$chain=if($chain -is [IO.FileInfo]){$chain.Directory}else{$chain.Parent}}
     if((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ine $expected){throw 'Empreinte de l executable differente. Aucune execution.'}
-    if(Confirm-Action -Title ('Ouvrir '+$Name) -Message ('Ouvrir '+$path+' ? Aucun compte, mot de passe ou commande d intervention ne sera transmis.')){
+    if(Confirm-Action -Title ('Ouvrir '+$Name) -Message ('Ouvrir '+$path+' ? Aucun compte, mot de passe ou commande dʼintervention ne sera transmis.')){
         $p=[Diagnostics.ProcessStartInfo]::new();$p.FileName=$path;$p.Arguments='';$p.WorkingDirectory=$i.DirectoryName;$p.UseShellExecute=$false;[void][Diagnostics.Process]::Start($p)
     }
 }
@@ -482,7 +482,7 @@ function Resume-DomeniaStorage {
     $script:Persistence.Failures=0;$script:Persistence.Fault='';$script:Persistence.Next=[datetime]::UtcNow
     # MO-03: the save timer stopped while the writer was suspended; it is armed again here.
     try{Request-DomeniaStorageWork}catch{}
-    Set-Status 'Reprise demandee pour les lots de cache en memoire. Aucune ecriture AD.'
+    Set-Status 'Reprise demandée pour les lots de cache en mémoire. Aucune écriture AD.'
 }
 function Show-DomeniaUnavailableReasons {
     $reasons=Get-DomeniaUnavailableReasonLines
@@ -490,9 +490,9 @@ function Show-DomeniaUnavailableReasons {
     $details=(@($reasons.Lines) -join "`r`n")
     if($first.Count){
         $target=Resolve-DomeniaCapabilityRoute -Route ([string]$first[0])
-        $answer=Show-DomeniaDialog -Title 'Pourquoi une action est indisponible ?' -Message ('Ce bilan lit uniquement les etats de la session. Il ne teste ni ne modifie les droits. Ouvrir le premier prerequis : '+[string]$target.Label+' ?') -Details $details -Kind Question -Buttons YesNo
+        $answer=Show-DomeniaDialog -Title 'Pourquoi une action est indisponible ?' -Message ('Ce bilan lit uniquement les états de la session. Il ne teste ni ne modifie les droits. Ouvrir le premier prérequis : '+[string]$target.Label+' ?') -Details $details -Kind Question -Buttons YesNo
         if($answer -eq [Windows.MessageBoxResult]::Yes){[void](Invoke-DomeniaCapabilityRoute -Route ([string]$first[0]))}
         return
     }
-    Show-DomeniaDialog -Title 'Pourquoi une action est indisponible ?' -Message 'Ce bilan lit uniquement les etats de la session. Il ne teste ni ne modifie les droits.' -Details $details -Kind Info | Out-Null
+    Show-DomeniaDialog -Title 'Pourquoi une action est indisponible ?' -Message 'Ce bilan lit uniquement les états de la session. Il ne teste ni ne modifie les droits.' -Details $details -Kind Info | Out-Null
 }

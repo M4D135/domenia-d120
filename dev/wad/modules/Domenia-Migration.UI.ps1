@@ -199,7 +199,7 @@ function Invoke-DomeniaLegacyImport {
     if (-not (Queue-DomeniaMetadata -Kind LegacyImport -Row $plan.Payload -Key 'legacy')) { throw 'Reprise non admise dans la file locale.' }
     $plan.Queued=$true
     foreach ($entry in $plan.Trace) { Write-AppLog ('Reprise de donnees : '+$entry.Ancien+' vers '+$entry.Nouveau+' ; '+$entry.Decision) 'INFO' }
-    Set-Status 'Reprise des anciennes donnees en attente d enregistrement.'
+    Set-Status 'Reprise des anciennes données en attente dʼenregistrement.'
     return $plan
 }
 function Show-DomeniaLegacyImportPlan {
@@ -228,7 +228,7 @@ function Show-DomeniaLegacyImportPlan {
             $preview=$script:LegacyImportPreview;$script:LegacyImportPreview=$null
             if ($null -eq $preview -or $preview.Epoch -ne [long]$script:SessionEpoch -or $preview.Path -cne [string]$script:DatabaseScopedPath) { throw 'Contexte modifie : refaites la simulation.' }
             Start-DomeniaLegacyImportWork -Mode Prepare -ExpectedFingerprint $preview.Fingerprint
-        } -OnCancel { $script:LegacyImportPreview=$null;Set-Status 'Reprise annulee : aucune donnee importee.' })
+        } -OnCancel { $script:LegacyImportPreview=$null;Set-Status 'Reprise annulée : aucune donnée importée.' })
     } catch { Set-Status ('Reprise impossible : '+$_.Exception.Message) 'ERROR';Write-AppLog ('Reprise impossible : '+$_.Exception.Message) 'ERROR' }
 }
 function Request-DomeniaLegacyImport {
@@ -247,7 +247,7 @@ function Start-DomeniaLegacyImportWork {
     try {
         $id=Start-UiTask -Name 'Preparer la reprise des anciennes donnees' -OperationId 'LegacyMigration' -Code (Get-DomeniaMigrationWorkerCode) -Payload $payload -CallbackState $state -SuccessHandler 'Complete-DomeniaLegacyImportWork' -ErrorHandler 'Fail-DomeniaLegacyImportWork' -NonCancellable:($Mode -eq 'Prepare') -TimeoutSeconds 600 -TaskClass 'Explicit'
         if (-not $id) { throw 'Preparation non admise dans le moteur.' }
-        Set-Status $(if ($Mode -eq 'Preview') { 'Simulation des anciennes donnees en cours.' } else { 'Verification de la simulation et sauvegarde en cours.' })
+        Set-Status $(if ($Mode -eq 'Preview') { 'Simulation des anciennes données en cours.' } else { 'Vérification de la simulation et sauvegarde en cours.' })
     } catch { $script:LegacyImportWork=$null;throw }
 }
 function Complete-DomeniaLegacyImportWork {
@@ -259,12 +259,12 @@ function Complete-DomeniaLegacyImportWork {
     if ($null -eq $plan) { throw 'Preparation de reprise non confirmee.' }
     if ($State.Mode -eq 'Preview') { Show-DomeniaLegacyImportPlan $plan;return }
     if (-not $plan.Allowed) { throw ($plan.Blockers -join [Environment]::NewLine) }
-    if ($plan.WriteCount -eq 0) { Set-Status 'Aucune donnee supplementaire a reprendre.';return }
+    if ($plan.WriteCount -eq 0) { Set-Status 'Aucune donnée supplémentaire à reprendre.';return }
     if (-not $plan.BackupPath -or -not [IO.File]::Exists([string]$plan.BackupPath)) { throw 'Sauvegarde de reprise non confirmee.' }
     if ($null -ne $script:Persistence -and @($script:Persistence.Pending.Values | Where-Object { $_.Kind -in @('Link','IndexBulk','LegacyImport') }).Count) { throw 'Des donnees ont change pendant la preparation. Refaites la simulation.' }
     if (-not (Queue-DomeniaMetadata -Kind LegacyImport -Row $plan.Payload -Key 'legacy')) { throw 'Reprise non admise dans la file locale. Refaites la simulation.' }
     foreach ($entry in $plan.Trace) { Write-AppLog ('Reprise de donnees : '+$entry.Ancien+' vers '+$entry.Nouveau+' ; '+$entry.Decision) 'INFO' }
-    Set-Status 'Reprise des anciennes donnees en attente d enregistrement.'
+    Set-Status 'Reprise des anciennes données en attente dʼenregistrement.'
     } catch { Fail-DomeniaLegacyImportWork $_.Exception.Message $State }
     finally { if ($null -ne $script:LegacyImportWork -and $script:LegacyImportWork.Token -ceq $State.Token) { $script:LegacyImportWork=$null } }
 }

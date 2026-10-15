@@ -1570,7 +1570,7 @@ function Show-DomeniaBoardEditor {
     foreach ($bedC in @(Get-DomeniaBoardCatalog -Board $Board | ForEach-Object { $_.Group } | Select-Object -Unique)) { if (-not $bedGroup.Items.Contains($bedC)) { [void]$bedGroup.Items.Add($bedC) } }
     [void]$bedGroup.Items.Add($bedNewGroupItem)
     $bedNewGroup = [Windows.Controls.TextBox]::new(); $bedNewGroup.MinHeight = 32; $bedNewGroup.Padding = [Windows.Thickness]::new(6, 4, 6, 4); $bedNewGroup.Visibility = [Windows.Visibility]::Collapsed; & $bedPlace $bedNewGroup 4 1
-    $bedNewGroup.ToolTip = 'Nom de la nouvelle section, cree a la fin du tableau de bord.'
+    $bedNewGroup.ToolTip = 'Nom de la nouvelle section, créée à la fin du tableau de bord.'
     [Windows.Automation.AutomationProperties]::SetName($bedNewGroup, 'Nom de la nouvelle section')
     [Windows.Automation.AutomationProperties]::SetName($bedTitle, 'Titre du widget')
     [Windows.Automation.AutomationProperties]::SetName($bedSize, 'Taille')

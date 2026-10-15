@@ -227,7 +227,7 @@ function Show-DomeniaAlternateCredential {
     param([string]$Scope,[string]$Operation,[string]$Target='',[string]$OperationId='')
     if($null -ne $script:AccessState.AuthSession){
         $previous=$script:AccessState.AuthSession
-        if(-not $previous.AsyncResult.IsCompleted){Show-InfoBox 'Une validation precedente termine encore son appel Windows. Aucun nouvel essai envoye.';return $null}
+        if(-not $previous.AsyncResult.IsCompleted){Show-InfoBox 'Une validation précédente termine encore son appel Windows. Aucun nouvel essai envoyé.';return $null}
         Stop-DomeniaLoginAuthRunspace -Session $previous -Terminate;$script:AccessState.AuthSession=$null
     }
     $x=@'
@@ -245,14 +245,14 @@ function Show-DomeniaAlternateCredential {
  <TextBlock Text="Compte de la ressource" Margin="0,0,0,5"/>
  <TextBox x:Name="User" MaxLength="256" ToolTip="DOMAINE\compte ou compte@domaine. Compte AD, ou MACHINE\compte local pour le poste choisi."/>
  <TextBlock Text="Mot de passe" Margin="0,12,0,5"/>
- <PasswordBox x:Name="Password" ToolTip="Ni journalise ni enregistre sur disque. Le compte actuel reste conserve en cas d annulation."/>
+ <PasswordBox x:Name="Password" ToolTip="Ni journalisé ni enregistré sur disque. Le compte actuel reste conservé en cas dʼannulation."/>
  <CheckBox x:Name="Remember" Content="Memoriser sur ce PC" IsChecked="False" Margin="0,12,0,6" ToolTip="Enregistrer dans le coffre Windows après validation. Aucun mot de passe dans la base Domenia."/>
  <WrapPanel><Button x:Name="Vault" Content="Utiliser le coffre" Margin="0,0,8,0"/><Button x:Name="ForgetVault" Content="Oublier le mot de passe"/></WrapPanel>
  <TextBlock x:Name="Status" Margin="0,12,0,12" TextWrapping="Wrap"/>
  <ProgressBar x:Name="Progress" Height="4" IsIndeterminate="True" Visibility="Hidden" Margin="0,0,0,12"/>
  <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
  <Button x:Name="Cancel" Content="Annuler" IsCancel="True" ToolTip="Fermer sans remplacer le compte actif."/>
- <Button x:Name="Connect" Grid.Column="2" Content="Valider ce compte" IsDefault="True" ToolTip="Un seul essai de validation : AD pour l annuaire, CIM/DCOM sur la machine pour un compte poste. Cela ne certifie pas tous les autres droits."/>
+ <Button x:Name="Connect" Grid.Column="2" Content="Valider ce compte" IsDefault="True" ToolTip="Un seul essai de validation : AD pour lʼannuaire, CIM/DCOM sur la machine pour un compte poste. Cela ne certifie pas tous les autres droits."/>
  </Grid></StackPanel></ScrollViewer>
 </Window>
 '@
@@ -262,7 +262,7 @@ function Show-DomeniaAlternateCredential {
     $ui=@{};foreach($n in @('User','Password','Remember','Vault','ForgetVault','Purpose','Status','Progress','Cancel','Connect')){$ui[$n]=$w.FindName($n)}
     $ui.Purpose.Text="$Operation`r`nUsage : $Scope. L'identifiant sera memorise pour cet usage. L'enregistrement du mot de passe dans le coffre Windows est facultatif."
     $ui.User.Text=Get-DomeniaRememberedAccount -Scope $Scope -Target $Target
-    $ui.Status.Text='La validation de l identite ne garantit pas ses droits sur la ressource.'
+    $ui.Status.Text='La validation de lʼidentité ne garantit pas ses droits sur la ressource.'
     $state=[pscustomobject]@{Session=$null;Started=[datetime]::MinValue;Credential=$null;Epoch=[long]$script:SessionEpoch;BaseDn=[string]$script:Conn.BaseDn;Done=$false;Secret=$null;VaultCredential=$null;VaultAttempt='';VaultBlocked=@{};Remember=$false}
     # FI-05: protected heartbeat timer of this panel; its tick is attached below, once its closure exists.
     $timer=New-DomeniaTimer -Owner 'Timer:AccessValidation' -IntervalMs 120 -RunWhenHidden
@@ -318,7 +318,7 @@ function Show-DomeniaAlternateCredential {
             if(-not $state.Session.AsyncResult.IsCompleted){
                 if(([datetime]::UtcNow-$state.Started).TotalSeconds -lt 14){return}
                 $timer.Stop();& $fnStopAuth -Session $state.Session -Terminate
-                $ui.Progress.Visibility='Hidden';$ui.Status.Text='Delai depasse. Aucun compte remplace. Fermez ce panneau et attendez le nettoyage avant un nouvel essai.';return
+                $ui.Progress.Visibility='Hidden';$ui.Status.Text='Délai dépassé. Aucun compte remplacé. Fermez ce panneau et attendez le nettoyage avant un nouvel essai.';return
             }
             $timer.Stop();$r=& $fnReadAuth -Session $state.Session
             if(-not (& $fnSessionCurrent -Epoch $state.Epoch -BaseDn $state.BaseDn)){throw 'La session a change. Aucun compte remplace.'}
@@ -377,7 +377,7 @@ function Invoke-DomeniaAccessRecovery {
     if($null -eq $Record -or $null -eq $script:AccessState -or $script:AccessState.Showing){return}
     if($null -ne $script:DomeniaSurfaceState -and -not $script:DomeniaSurfaceState.Done){return}
     if($Record.Epoch -ne [long]$script:SessionEpoch){return}
-    if(Test-DomeniaAccessBusyWrite){Show-InfoBox 'Une ecriture reste active ou a verifier. Le compte ne peut pas etre change avant sa verification.';return}
+    if(Test-DomeniaAccessBusyWrite){Show-InfoBox 'Une écriture reste active ou à vérifier. Le compte ne peut pas être changé avant sa vérification.';return}
     $script:AccessState.Showing=$true
     try{
         [void]$script:AccessState.Pending.Remove($Record.Key);$script:AccessState.Prompted[$Record.Key]=$true
@@ -410,7 +410,7 @@ function Invoke-DomeniaAccessRecovery {
             $context=Test-DomeniaCredentialContext -Scope (Get-DomeniaCredentialScope -OperationId ([string]$Record.OperationId) -Target $target) -UserName ([string]$credential.UserName) -Target $target -KnownDomains $knownDomains
             if(-not [bool]$context.Valid){
                 [void](Complete-DomeniaAccessPromptUi -Scope ([string]$Record.Scope) -Outcome Cancelled)
-                Set-Status ([string]$context.Reason+' Compte non memorise ; le compte precedent reste utilise.') 'WARN'
+                Set-Status ([string]$context.Reason+' Compte non mémorisé ; le compte précédent reste utilisé.') 'WARN'
                 return
             }
         }
@@ -442,7 +442,7 @@ function Invoke-DomeniaAccessRecovery {
             Start-LoadComputerSecrets -Mode $mode -RetryAttempt 1
         }else{
             $level='INFO';if(-not [bool]$correction.Released){$level='WARN'}
-            Set-Status ('Compte valide et memorise pour cette ressource. Relancez volontairement l action ; ses controles et confirmations restent obligatoires. '+[string]$correction.Text) $level
+            Set-Status ('Compte valide et mémorisé pour cette ressource. Relancez volontairement lʼaction ; ses contrôles et confirmations restent obligatoires. '+[string]$correction.Text) $level
         }
     }finally{$script:AccessState.Showing=$false;Update-DomeniaAccessButton}
 }
@@ -607,7 +607,7 @@ function Initialize-DomeniaAccess {
             $names=@($script:AccessState.Credentials.Keys|Sort-Object|ForEach-Object{$_+' : '+$script:AccessState.Credentials[$_].UserName})
             $message=if($names.Count){($names -join "`r`n")+"`r`n`r`nChaque compte est oublie apres $idle min sans utilisation, a la fin de la session ou a votre demande.`r`nOublier ces comptes temporaires ?"}else{'Aucun compte temporaire actif. Un refus proposera un autre compte.'}
             if($names.Count -and (Confirm-Action -Message $message -Title 'Comptes temporaires')){
-                if(Test-DomeniaAccessBusyWrite){Show-InfoBox 'Verification d ecriture requise avant de changer les comptes.';return}
+                if(Test-DomeniaAccessBusyWrite){Show-InfoBox 'Vérification dʼécriture requise avant de changer les comptes.';return}
                 Clear-DomeniaAccessAccounts -KeepPending
                 Set-Status 'Comptes temporaires oublies. Les comptes configurés dans Comptes sont de nouveau utilisés.'
             }elseif(-not $names.Count){Show-InfoBox $message}

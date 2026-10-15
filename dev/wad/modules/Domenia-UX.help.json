@@ -540,7 +540,7 @@
   {
     "Name": "WsObject",
     "Title": "Fiche",
-    "Text": "Ouvre la fiche de la ligne selectionnee. Sa lecture AD est preparee en arriere-plan au simple clic.",
+    "Text": "Ouvre la fiche de la ligne sélectionnée. Sa lecture AD est préparée en arrière-plan au simple clic.",
     "Kind": "TabItem",
     "Source": "existing-help"
   },
@@ -596,7 +596,7 @@
   {
     "Name": "TxtObjChanged",
     "Title": "Dernière modification",
-    "Text": "Date de modification retournée par l’annuaire. Elle ne décrit pas à elle seule ce qui a changé.",
+    "Text": "Date de modification retournée par lʼannuaire. Elle ne décrit pas à elle seule ce qui a changé.",
     "Kind": "TextBox",
     "Source": "specific"
   },
@@ -841,7 +841,7 @@
   {
     "Name": "TxtUserStreet",
     "Title": "Rue",
-    "Text": "Numero et nom de rue.",
+    "Text": "Numéro et nom de rue.",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
@@ -890,14 +890,14 @@
   {
     "Name": "TxtUserFax",
     "Title": "Telecopie",
-    "Text": "Numero de telecopie.",
+    "Text": "Numéro de télécopie.",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
   {
     "Name": "TxtUserIpPhone",
     "Title": "Telephone IP",
-    "Text": "Numero de telephone sur IP.",
+    "Text": "Numéro de téléphone sur IP.",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
@@ -1009,7 +1009,7 @@
   {
     "Name": "ChkUnlockAfterReset",
     "Title": "Deverrouiller ensuite",
-    "Text": "Deverrouille aussi le compte apres la reinitialisation.",
+    "Text": "Déverrouille aussi le compte après la réinitialisation.",
     "Kind": "CheckBox",
     "Source": "existing-help"
   },
@@ -1408,7 +1408,7 @@
   {
     "Name": "TxtRawAttrValue",
     "Title": "Nouvelle valeur",
-    "Text": "Nouvelle valeur. Pour vider l attribut, utilise Effacer attribut.",
+    "Text": "Nouvelle valeur. Pour vider lʼattribut, utilisez Effacer attribut.",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
@@ -1443,14 +1443,14 @@
   {
     "Name": "TabPermissions",
     "Title": "Droits effectifs",
-    "Text": "Ce que ton compte peut reellement modifier sur l objet selectionne.",
+    "Text": "Ce que votre compte peut réellement modifier sur lʼobjet sélectionné.",
     "Kind": "TabItem",
     "Source": "existing-help"
   },
   {
     "Name": "BtnPermissionRefresh",
     "Title": "Analyser",
-    "Text": "Analyse les droits de ton compte sur cet objet.",
+    "Text": "Analyse les droits de votre compte sur cet objet.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -1638,8 +1638,8 @@
   },
   {
     "Name": "DgLinkAttempts",
-    "Title": "Methodes essayees lors de la derniere recherche d utilisateur, et leur resul",
-    "Text": "Methodes essayees lors de la derniere recherche d utilisateur, et leur resultat.",
+    "Title": "Méthodes essayées lors de la dernière recherche dʼutilisateur",
+    "Text": "Méthodes essayées lors de la dernière recherche dʼutilisateur, et leur résultat.",
     "Kind": "DataGrid",
     "Source": "existing-help"
   },
@@ -2052,7 +2052,7 @@
   {
     "Name": "BtnRunComputerDiag",
     "Title": "Lancer le diagnostic",
-    "Text": "Verifie la resolution DNS, la joignabilite, les ports, SMB, WinRM, WMI, le systeme, l espace disque et la session ouverte.",
+    "Text": "Vérifie la résolution DNS, la joignabilité, les ports, SMB, WinRM, WMI, le système, lʼespace disque et la session ouverte.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -2087,35 +2087,35 @@
   {
     "Name": "BtnRunInventoryDeep",
     "Title": "Inventaire complet (≈3 min)",
-    "Text": "Ajoute les processus, les taches planifiees, les certificats, les connexions reseau et les erreurs recentes. Plus long.",
+    "Text": "Ajoute les processus, les tâches planifiées, les certificats, les connexions réseau et les erreurs récentes. Plus long.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnCopyInventory",
     "Title": "Copier",
-    "Text": "Copie l inventaire et le detail par source.",
+    "Text": "Copie lʼinventaire et le détail par source.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnExportInventory",
     "Title": "Exporter CSV",
-    "Text": "Enregistre l inventaire et le detail par source au format CSV.",
+    "Text": "Enregistre lʼinventaire et le détail par source au format CSV.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "CmbInventoryCategory",
-    "Title": "Categorie",
+    "Title": "Catégorie",
     "Text": "Nʼaffiche quʼune seule catégorie.",
     "Kind": "ComboBox",
     "Source": "existing-help"
   },
   {
     "Name": "DgInventory",
-    "Title": "Elements collectes",
-    "Text": "Elements collectes. Clic droit pour copier une valeur.",
+    "Title": "Éléments collectés",
+    "Text": "Éléments collectés. Clic droit pour copier une valeur.",
     "Kind": "DataGrid",
     "Source": "existing-help"
   },
@@ -2128,7 +2128,7 @@
   },
   {
     "Name": "DgInventoryAccess",
-    "Title": "Detail par source",
+    "Title": "Détail par source",
     "Text": "Ce qui a pu être lu, refusé ou reste indisponible sur ce poste.",
     "Kind": "DataGrid",
     "Source": "existing-help"
@@ -2164,7 +2164,7 @@
   {
     "Name": "ChkSoftwareUpdates",
     "Title": "Mises à jour",
-    "Text": "Affiche aussi les correctifs et composants systeme, masques par defaut.",
+    "Text": "Affiche aussi les correctifs et composants système, masqués par défaut.",
     "Kind": "CheckBox",
     "Source": "existing-help"
   },
@@ -2185,14 +2185,14 @@
   {
     "Name": "TxtSoftwareFilter",
     "Title": "Filtre",
-    "Text": "Cherche dans le nom, l editeur, la version ou l emplacement.",
+    "Text": "Cherche dans le nom, lʼéditeur, la version ou lʼemplacement.",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
   {
     "Name": "CmbSoftwareScope",
     "Title": "Portee",
-    "Text": "N affiche que les logiciels installes pour tous, par utilisateur, ou du Store.",
+    "Text": "Nʼaffiche que les logiciels installés pour tous, par utilisateur, ou du Store.",
     "Kind": "ComboBox",
     "Source": "existing-help"
   },
@@ -2205,7 +2205,7 @@
   },
   {
     "Name": "DgSoftwareAccess",
-    "Title": "Detail par portee",
+    "Title": "Détail par portée",
     "Text": "Ce qui a pu être lu pour chaque portée.",
     "Kind": "DataGrid",
     "Source": "existing-help"
@@ -2213,7 +2213,7 @@
   {
     "Name": "TabWmi",
     "Title": "WMI",
-    "Text": "Explore les donnees WMI du poste.",
+    "Text": "Explore les données WMI du poste.",
     "Kind": "TabItem",
     "Source": "existing-help"
   },
@@ -2227,14 +2227,14 @@
   {
     "Name": "BtnWmiClasses",
     "Title": "Classes",
-    "Text": "Liste les classes de l espace de noms selectionne.",
+    "Text": "Liste les classes de lʼespace de noms sélectionné.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnWmiQuery",
     "Title": "Interroger",
-    "Text": "Affiche les valeurs de la classe selectionnee sur ce poste.",
+    "Text": "Affiche les valeurs de la classe sélectionnée sur ce poste.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -2303,8 +2303,8 @@
   },
   {
     "Name": "DgWmiSchema",
-    "Title": "Proprietes de la classe",
-    "Text": "Proprietes definies par la classe et leur type.",
+    "Title": "Propriétés de la classe",
+    "Text": "Propriétés définies par la classe et leur type.",
     "Kind": "DataGrid",
     "Source": "existing-help"
   },
@@ -2353,7 +2353,7 @@
   {
     "Name": "BtnCopySecret",
     "Title": "Copier",
-    "Text": "Copie la valeur selectionnee. Le presse-papiers est efface automatiquement apres quelques instants.",
+    "Text": "Copie la valeur sélectionnée. Le presse-papiers est effacé automatiquement après quelques instants.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -2395,35 +2395,35 @@
   {
     "Name": "TabSelfCheck",
     "Title": "Vérification",
-    "Text": "Verifie que la connexion et les composants de l application fonctionnent.",
+    "Text": "Vérifie que la connexion et les composants de lʼapplication fonctionnent.",
     "Kind": "TabItem",
     "Source": "existing-help"
   },
   {
     "Name": "BtnSelfCheckQuick",
     "Title": "Vérification rapide",
-    "Text": "Controles essentiels de la connexion et des composants.",
+    "Text": "Contrôles essentiels de la connexion et des composants.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnSelfCheckFull",
     "Title": "Vérification complète",
-    "Text": "Controles complets avec mesures de performance. Plus long.",
+    "Text": "Contrôles complets avec mesures de performance. Plus long.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnSelfCheckCopy",
     "Title": "Copier le rapport",
-    "Text": "Copie le rapport de verification.",
+    "Text": "Copie le rapport de vérification.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnSelfCheckExport",
     "Title": "Exporter le diagnostic",
-    "Text": "Enregistre un dossier de diagnostic a joindre a une demande de support.",
+    "Text": "Enregistre un dossier de diagnostic à joindre à une demande de support.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -2444,20 +2444,20 @@
   {
     "Name": "BtnIndexOpen",
     "Title": "Ouvrir lʼobjet",
-    "Text": "Recherche dans l annuaire l objet selectionne ci-dessous.",
+    "Text": "Recherche dans lʼannuaire lʼobjet sélectionné ci-dessous.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnIndexExport",
     "Title": "Exporter CSV",
-    "Text": "Enregistre les resultats affiches au format CSV.",
+    "Text": "Enregistre les résultats affichés au format CSV.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "ChkParkSweepEnabled",
-    "Title": "Detection manuelle",
+    "Title": "Détection manuelle",
     "Text": "Ancien reglage desactive : aucun releve collectif au lancement. Utiliser les actions de Rechercher ou Associations.",
     "Kind": "CheckBox",
     "Source": "existing-help"
@@ -2465,7 +2465,7 @@
   {
     "Name": "BtnParkHarvest",
     "Title": "Lire le journal du controleur",
-    "Text": "Une seule requete sur le controleur rend des milliers de couples utilisateur et poste, sans contacter aucune machine.",
+    "Text": "Une seule requête sur le contrôleur rend des milliers de couples utilisateur et poste, sans contacter aucune machine.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -2646,8 +2646,8 @@
   },
   {
     "Name": "TxtCmdletFilter",
-    "Title": "Cherche par nom de commande, module ou parametre",
-    "Text": "Cherche par nom de commande, module ou parametre.",
+    "Title": "Cherche par nom de commande, module ou paramètre",
+    "Text": "Cherche par nom de commande, module ou paramètre.",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
@@ -2696,7 +2696,7 @@
   {
     "Name": "BtnCopyCmdletHelp",
     "Title": "Copier lʼaide",
-    "Text": "Copie l aide complete de la commande.",
+    "Text": "Copie lʼaide complète de la commande.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -2843,7 +2843,7 @@
   {
     "Name": "BtnSupportClearSession",
     "Title": "Vider l'atelier",
-    "Text": "Efface uniquement les captures, reperes et incidents en memoire de l'atelier. Aucun effet sur Domenia.db ou AD.",
+    "Text": "Efface uniquement les captures, repères et incidents en mémoire de lʼatelier. Aucun effet sur Domenia.db ou AD.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -2863,8 +2863,8 @@
   },
   {
     "Name": "BtnSupportAnalyse",
-    "Title": "Recalculer la synthese",
-    "Text": "Relit seulement les donnees deja presentes en memoire. Ne contacte pas AD.",
+    "Title": "Recalculer la synthèse",
+    "Text": "Relit seulement les données déjà présentes en mémoire. Ne contacte pas AD.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -2913,7 +2913,7 @@
   {
     "Name": "BtnSupportCaptureA",
     "Title": "Fiche actuelle → A",
-    "Text": "Fige les valeurs deja chargees en memoire, sans lecture AD supplementaire.",
+    "Text": "Fige les valeurs déjà chargées en mémoire, sans lecture AD supplémentaire.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -2969,7 +2969,7 @@
   {
     "Name": "TxtSupportIncidentFilter",
     "Title": "Filtre litteral sur titre, code et zone",
-    "Text": "Filtre litteral sur titre, code et zone. Aucun motif regex ni requete reseau.",
+    "Text": "Filtre littéral sur titre, code et zone. Aucun motif regex ni requête réseau.",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
@@ -3668,14 +3668,14 @@
   },
   {
     "Name": "BtnObjectReadRetry",
-    "Title": "Reessayer la lecture AD",
-    "Text": "Relit uniquement cette fiche AD, sans ping, sonde ni ecriture.",
+    "Title": "Réessayer la lecture AD",
+    "Text": "Relit uniquement cette fiche AD, sans ping, sonde ni écriture.",
     "Kind": "Button"
   },
   {
     "Name": "BtnComputerReadRetry",
-    "Title": "Reessayer la lecture AD",
-    "Text": "Relit uniquement cette fiche AD, sans ping, sonde ni ecriture.",
+    "Title": "Réessayer la lecture AD",
+    "Text": "Relit uniquement cette fiche AD, sans ping, sonde ni écriture.",
     "Kind": "Button"
   },
   {
@@ -3828,21 +3828,21 @@
   {
     "Name": "BtnSecretsPrerequisite",
     "Title": "Ouvrir le prerequis",
-    "Text": "Ouvre la page du prerequis manquant d une lecture de secrets indisponible (Rechercher, Comptes, Fiabilite). Navigation seule : aucun droit ni reglage n est modifie.",
+    "Text": "Ouvre la page du prérequis manquant dʼune lecture de secrets indisponible (Rechercher, Comptes, Fiabilité). Navigation seule : aucun droit ni réglage nʼest modifié.",
     "Kind": "Button",
     "Source": "d120-acces"
   },
   {
     "Name": "TxtBitLockerRecoveryId",
     "Title": "Identifiant de récupération BitLocker",
-    "Text": "Saisissez les premiers caracteres de l identifiant affiche par le poste. Filtre local sur les metadonnees deja lues : aucune cle n est lue ni revelee.",
+    "Text": "Saisissez les premiers caractères de lʼidentifiant affiché par le poste. Filtre local sur les métadonnées déjà lues : aucune clé nʼest lue ni révélée.",
     "Kind": "TextBox",
     "Source": "d120-acces"
   },
   {
     "Name": "DgTransportPolicy",
     "Title": "Transports utilises",
-    "Text": "Transports utilises par Domenia, leur etat et leur regle. Aucun certificat accepte a l aveugle, aucun reglage WinRM, pare-feu, antivirus ou strategie modifie, aucun transport intrusif sans autorisation explicite et ciblee.",
+    "Text": "Transports utilisés par Domenia, leur état et leur règle. Aucun certificat accepté à lʼaveugle, aucun réglage WinRM, pare-feu, antivirus ou stratégie modifié, aucun transport intrusif sans autorisation explicite et ciblée.",
     "Kind": "DataGrid",
     "Source": "d120-acces"
   },

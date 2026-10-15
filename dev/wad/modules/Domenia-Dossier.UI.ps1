@@ -14,13 +14,13 @@ function Complete-DomeniaDocumentTask {
         $capture=ConvertTo-DomeniaStoredCapture $value.Capture $State.Domain
         if($State.Slot -notin @('A','B')){throw 'Emplacement de capture invalide.'}
         Sync-DomeniaSupportSession;$script:SupportState.($State.Slot)=$capture;Update-DomeniaSupportComparison
-        Set-Status 'Capture historique chargee ; aucune information ne devient une verification AD actuelle.'
+        Set-Status 'Capture historique chargée ; aucune information ne devient une vérification AD actuelle.'
     }elseif($r.Saved){Set-Status ('Document enregistre : '+$r.Path)}else{throw 'Enregistrement non confirme.'}
 }
 function Fail-DomeniaDocumentTask {
     param($Message,$State)
     Write-AppLog ('Document non confirme : '+$Message) 'WARN'
-    Set-Status 'Document non confirme. Verifiez le fichier choisi ; les sources et la base ne sont pas supprimees.' 'WARN'
+    Set-Status 'Document non confirmé. Vérifiez le fichier choisi ; les sources et la base ne sont pas supprimées.' 'WARN'
 }
 function Use-DomeniaCaptureFile {
     param([ValidateSet('Read','Write')][string]$Action)
@@ -31,7 +31,7 @@ function Use-DomeniaCaptureFile {
         $capture=$script:SupportState.$slot;if($null -eq $capture){throw 'Capturez une fiche dans cet emplacement avant de l enregistrer.'}
         $clean=ConvertTo-DomeniaStoredCapture $capture ([string]$script:Conn.BaseDn)
         $text=[pscustomobject]@{Format='Domenia.Capture.1';Capture=$clean}|ConvertTo-Json -Depth 8
-        if(-not (Confirm-Action 'Enregistrer cette capture historique ? Elle contient des noms et appartenances internes, pas les champs secrets dedies. Choisissez un dossier protege.')){return}
+        if(-not (Confirm-Action 'Enregistrer cette capture historique ? Elle contient des noms et appartenances internes, pas les champs secrets dédiés. Choisissez un dossier protégé.')){return}
         $dialog=(New-DomeniaFileRequest -Mode Save);$dialog.FileName='Domenia-Capture-'+$slot+'.json';$dialog.OverwritePrompt=$true
     }else{$dialog=(New-DomeniaFileRequest -Mode Open);$dialog.CheckFileExists=$true}
     $dialog.Filter='Capture Domenia (*.json)|*.json';$dialog.Title='Capture historique '+$slot
